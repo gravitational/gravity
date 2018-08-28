@@ -1,0 +1,53 @@
+package autofix
+
+import (
+	"context"
+	"fmt"
+
+	"github.com/gravitational/gravity/lib/defaults"
+	"github.com/gravitational/gravity/lib/utils"
+
+	"github.com/gravitational/trace"
+)
+
+// enableKernelModule loads the specified kernel module and adds it to the
+// list of modules loaded at boot
+func enableKernelModule(ctx context.Context, name string, altNames []string, progress utils.Progress) error {
+	name, err := modprobe(ctx, name, altNames, progress)
+	if err != nil {
+		return trace.Wrap(err)
+	}
+	progress.PrintInfo("Auto-loaded kernel module: %v", name)
+	if err := utils.EnsureLineInFile(defaults.ModulesPath, name); err != nil && !trace.IsAlreadyExists(err) {
+		progress.PrintWarn(err, "Could not set up kernel module %v to load on boot", name)
+	}
+	return nil
+}
+
+// modprobe loads a kernel module by the provided name or, if that fails, by
+// trying provided alternative names
+func modprobe(ctx context.Context, name string, altNames []string, progress utils.Progress) (string, error) {
+	var errors []string
+	for _, n := range append([]string{name}, altNames...) {
+		out, err := utils.RunCommand(ctx, nil, "modprobe", n)
+		if err == nil {
+			return n, nil
+		}
+		errors = append(errors, string(out))
+	}
+	return "", trace.BadParameter("failed to enable kernel module %v(%v): %s", name, altNames, errors)
+}
+
+// setSysctlParameter sets the specified kernel parameter and makes sure it
+// persists across reboots
+func setSysctlParameter(ctx context.Context, name, value string, progress utils.Progress) error {
+	out, err := utils.RunCommand(ctx, nil, "sysctl", "-w", fmt.Sprintf("%v=%v", name, value))
+	if err != nil {
+		return trace.Wrap(err, "failed to set kernel parameter %v=%v: %s", name, value, out)
+	}
+	progress.PrintInfo("Auto-set kernel parameter: %v=%v", name, value)
+	if err := utils.EnsureLineInFile(defaults.SysctlPath, fmt.Sprintf("%v=%v", name, value)); err != nil && !trace.IsAlreadyExists(err) {
+		progress.PrintWarn(err, "Could not set up kernel parameter %v=%v to persist across reboots", name, value)
+	}
+	return nil
+}

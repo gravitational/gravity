@@ -1,0 +1,35 @@
+[Unit]
+Description=Kubernetes Kubelet
+Documentation=https://github.com/kubernetes/kubernetes
+Wants=docker.service
+
+[Service]
+EnvironmentFile=/etc/container-environment
+ExecStartPre=/bin/systemctl is-active docker.service
+ExecStart=/usr/bin/kubelet \
+        --address=0.0.0.0 \
+        --port=10250 \
+        --hostname_override=${KUBE_NODE_NAME} \
+        --allow-privileged=false \
+        --logtostderr=true \
+        --cadvisor-port=4194 \
+        --healthz-bind-address=0.0.0.0 \
+        --healthz-port=10248 \
+        --cluster-dns=${KUBE_CLUSTER_DNS_IP} \
+        --cluster-domain=cluster.local \
+        --pod-infra-container-image=${KUBE_APISERVER}:5000/gcr.io/google_containers/pause:3.0 \
+        --client-ca-file=/var/state/root.cert \
+        --anonymous-auth=false \
+        --read-only-port=0 \
+        --tls-cert-file=/var/state/apiserver.cert \
+        --tls-private-key-file=/var/state/apiserver.key \
+        --kubeconfig=/etc/kubernetes/kubelet.kubeconfig \
+        --streaming-connection-idle-timeout=5m \
+        --network-plugin=cni \
+        --cni-bin-dir=/opt/cni/bin \
+        --fail-swap-on=false \
+        --event-qps=0 $KUBE_CLOUD_FLAGS \$KUBELET_OPTS
+Restart=always
+RestartSec=5
+StartLimitInterval=3600
+StartLimitBurst=720

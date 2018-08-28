@@ -1,0 +1,77 @@
+---
+
+- hosts: nodes
+  vars:
+    root_dir: "{{playbook_dir}}/../.."
+  tasks:
+  - name: Capture gravity tag
+    delegate_to: localhost
+    shell: "make --silent get-tag"
+    args:
+      chdir: "{{root_dir}}"
+    register: command_output
+  - set_fact:
+      gravity_tag: "{{ command_output.stdout }}"
+      gravity_image: "gravity-site:{{ command_output.stdout }}"
+  - debug: msg="gravity tag - {{gravity_tag}}, image - {{gravity_image}}"
+
+  - set_fact: gopath="{{ lookup('env','GOPATH') }}"
+  - debug: msg="gopath {{gopath}}"
+
+  - name: Capture installed planet tag
+    shell: "gravity package list | grep planet-master | grep installed | egrep -o '[0-9]+.[0-9]+.[0-9]+-[0-9]+'"
+    register: command_output
+  - set_fact:
+      planet_tag: "{{ command_output.stdout }}"
+  - debug: msg="planet tag {{planet_tag}}"
+
+  - name: Capture installed gravity tag
+    shell: "kubectl --namespace=kube-system get pods --selector=app=gravity-site -o jsonpath='{.items[0].spec.containers[0].image}' | egrep -o '[0-9]+.[0-9]+.[0-9]+(-[0-9]+)?'"
+    register: command_output
+  - set_fact:
+      installed_gravity_tag: "{{ command_output.stdout }}"
+  - debug: msg="installed gravity tag {{installed_gravity_tag}}"
+
+  - name: Build gravity and image
+    when: inventory_hostname == groups['nodes'][0]
+    delegate_to: localhost
+    shell: |
+      make goinstall
+      make site-app
+      docker save {{gravity_image}} -o /tmp/image.tar
+    args:
+      chdir: "{{root_dir}}"
+
+  - name: upload image
+    when: inventory_hostname == groups['nodes'][0]
+    become: yes
+    copy:
+      force: yes
+      src: /tmp/image.tar
+      dest: /var/lib/gravity/planet/share/image.tar
+
+  - name: redeploy gravity site
+    when: inventory_hostname == groups['nodes'][0]
+    become: yes
+    shell: |
+      gravity enter -- --notty  /usr/bin/docker -- load -i /ext/share/image.tar
+      gravity enter -- --notty  /usr/bin/docker -- tag {{gravity_image}} apiserver:5000/gravity-site:{{installed_gravity_tag}}
+      gravity enter -- --notty  /usr/bin/docker -- push apiserver:5000/gravity-site:{{installed_gravity_tag}}
+      gravity enter -- --notty  /usr/bin/docker -- rmi apiserver:5000/gravity-site:{{installed_gravity_tag}}
+      kubectl delete pods --namespace=kube-system --selector=app=gravity-site
+
+  - name: upload gravity binary to host
+    become: yes
+    copy:
+      force: yes
+      src: "{{gopath}}/bin/gravity"
+      dest: "/usr/bin/gravity"
+
+  - name: upload binary to planet
+    become: yes
+    copy:
+      force: yes
+      src: "{{gopath}}/bin/gravity"
+      dest: "/var/lib/gravity/local/packages/unpacked/gravitational.io/planet-master/{{planet_tag}}/rootfs/usr/bin/gravity"
+
+

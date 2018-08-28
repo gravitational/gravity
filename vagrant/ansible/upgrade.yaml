@@ -1,0 +1,56 @@
+- hosts: 'nodes[0]'
+  vars:
+    root_dir: "{{playbook_dir}}/../.."
+  tasks:
+  - name: Capture gravity version
+    delegate_to: localhost
+    shell: "make --silent get-version"
+    args:
+      chdir: "{{root_dir}}"
+    register: command_output
+  - set_fact:
+      gravity_version: "{{ command_output.stdout }}"
+  - debug: msg="gravity version - {{gravity_version}}"
+
+  - set_fact: gopath="{{ lookup('env','GOPATH') }}"
+  - debug: msg="gopath {{gopath}}"
+
+  - name: Cleaning up /vagrant/installer
+    become: yes
+    file:
+      path: /vagrant/installer
+      state: absent
+
+  - name: Creating /vagrant/installer
+    become: yes
+    file:
+      path: /vagrant/installer
+      state: directory
+
+  - name: upload telekube tarball
+    become: yes
+    unarchive:
+      force: yes
+      src: "{{root_dir}}/build/{{gravity_version}}/telekube.tar"
+      dest: "/vagrant/installer"
+
+  - name: Start application update
+    become: yes
+    shell: |
+      cd /vagrant/installer
+      ./upload
+
+  - command: ./gravity --insecure -q upgrade
+    become: yes
+    register: operation_id
+    args:
+      chdir: /vagrant/installer
+
+  - name: Watch upgrade operation status
+    become: yes
+    action: shell gravity status --operation-id={{operation_id.stdout}} --quiet
+    register: result
+    until: result.stdout.find("completed") != -1
+    retries: 50
+    delay: 10
+

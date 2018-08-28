@@ -1,0 +1,7 @@
+apiVersion: v1
+kind: SystemApplication
+metadata:
+  repository: gravitational.io
+  namespace: kube-system
+  name: ntp-app
+  resourceVersion: "1.0.0"

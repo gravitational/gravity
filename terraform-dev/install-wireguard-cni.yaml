@@ -1,0 +1,99 @@
+- hosts: all
+  become: yes
+  become_user: root
+  become_method: sudo
+  vars:
+    root_dir: "{{playbook_dir}}/.."
+    node_index: "{{ groups['all'].index(inventory_hostname) }}"
+    node_cidr: "10.16.{{ node_index }}.0/24"
+    cluster_cidr: "10.16.{{ node_index }}.0/16"
+  tasks:
+  - name: Capture installed planet tag
+    shell: "gravity package list | grep planet | grep installed | egrep -o '[0-9]+.[0-9]+.[0-9]+-[0-9]+'"
+    register: command_output
+
+  - set_fact:
+      planet_tag: "{{ command_output.stdout }}"
+      planet_rootfs: "/var/lib/gravity/local/packages/unpacked/gravitational.io/planet/{{ command_output.stdout }}/rootfs"
+      planet_service: "gravity__gravitational.io__planet__{{ command_output.stdout }}.service"
+
+  - debug:
+      msg: "planet tag {{planet_tag}}, dir {{planet_rootfs}}, planet service: {{planet_service}}"
+
+  - name: Creating /etc/cni/net.d
+    file:
+      path: "{{planet_rootfs}}/etc/cni/net.d"
+      state: directory
+      owner: root
+      group: root
+      mode: 0755
+
+  - name: Creating /opt/cni/bin
+    file:
+      path: "{{planet_rootfs}}/opt/cni/bin"
+      state: directory
+      owner: root
+      group: root
+      mode: 0755
+
+  - stat:
+      path: "{{planet_rootfs}}/opt/cni/bin/bridge"
+    register: bridge
+
+  - name: "Install CNI plugins"
+    when: bridge.stat.exists == False
+    unarchive:
+      src: https://github.com/containernetworking/plugins/releases/download/v0.6.0/cni-plugins-amd64-v0.6.0.tgz
+      dest: "{{planet_rootfs}}/opt/cni/bin/"
+      remote_src: yes
+      mode: 0755
+      owner: root
+
+  - name: "Install CNI config for bridge"
+    template:
+      src: wireguard/10-bridge.conf.template
+      dest: "{{planet_rootfs}}/etc/cni/net.d/10-bridge.conf"
+      owner: root
+      group: root
+      mode: 0644
+
+  - name: "Install CNI config for loopback"
+    template:
+      src: wireguard/99-loopback.conf.template
+      dest: "{{planet_rootfs}}/etc/cni/net.d/99-loopback.conf"
+      owner: root
+      group: root
+      mode: 0644
+
+  - name: "Patch kubelet systemd unit"
+    template:
+      src: wireguard/kube-kubelet.service.template
+      dest: "{{planet_rootfs}}/lib/systemd/system/kube-kubelet.service"
+      owner: root
+      group: root
+      mode: 0644
+
+  - name: "Patch kube-proxy systemd unit"
+    template:
+      src: wireguard/kube-proxy.service.template
+      dest: "{{planet_rootfs}}/lib/systemd/system/kube-proxy.service"
+      owner: root
+      group: root
+      mode: 0644
+
+  - name: Configure wireguard routes
+    become: yes
+    shell: |
+      # flush iptables just in case
+      iptables -F
+      iptables -F -t nat
+      iptables -t mangle -F
+      iptables -X
+      # wireguard can't be added as a device to a bridge because of the way it's implemented
+      # so the solution is to use route traffic via wireguard device (this uses ProxyARP technique)
+      ip route replace 10.16.0.0/16 via 192.168.{{node_index}}.1 dev wg0
+
+  - name: "Restart planet"
+    service:
+      name: "{{planet_service}}"
+      state: restarted

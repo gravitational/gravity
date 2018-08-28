@@ -1,0 +1,77 @@
+syntax = "proto3";
+
+package proto;
+
+import "google/protobuf/empty.proto";
+import "google/protobuf/timestamp.proto";
+
+// Discovery provides access to agent's environment and runtime configuration.
+service Discovery {
+    // GetRuntimeConfig returns the agent's runtime configuration 
+    rpc GetRuntimeConfig(google.protobuf.Empty) returns (RuntimeConfig);
+
+    // GetSystemInfo queries system information on the host the agent is running on
+    rpc GetSystemInfo(google.protobuf.Empty) returns (SystemInfo);
+    
+    // GetCurrentTime returns the node's current time as UTC timestamp
+    rpc GetCurrentTime(google.protobuf.Empty) returns (google.protobuf.Timestamp);
+}
+
+// SystemInfo groups attributes that describe a system
+message SystemInfo {
+    // Payload is the opaque system information payload.
+    bytes payload = 1;
+}
+
+// RuntimeConfig decribes agent's runtime configuration
+message RuntimeConfig {
+    // Role specifies the agent's role
+    string role = 1;
+    // AdvertiseAddr specifies the address the agent is listening on
+    string advertise_addr = 2;
+    // DockerDevice defines the device to use to setup devicemapper docker storage backend
+    // in direct-lvm mode
+    string docker_device = 3;
+    // SystemDevice defines the device to use to setup telekube state directory
+    string system_device = 4;
+    // Mounts lists mount overrides
+    repeated Mount mounts = 5;
+    // StateDir specifies the location of the telekube system state directory
+    string state_dir = 6;
+    // TODO: TempDir specifies the location of the temporary directory. It is part of the runtime
+    // configuration as it can potentially become local to system directory - independent of OS
+    string temp_dir = 7;
+    // Token authorizes the peer to join an operation.
+    string token = 8;
+    // CloudMetadata describes the instance from the cloud environment.
+    // Optional, only set when running on a supported cloud
+    CloudMetadata cloud_metadata = 9;
+    // KeyValues specifies additional runtime configuration parameters
+    // as key=value pairs
+    map<string, string> key_values = 10;
+}
+
+// Device is a system I/O device
+message Device {
+    // Name identifies the device
+    string name = 1;
+}
+
+// Mount is mount point
+message Mount {
+    // Name identifies the mount point
+    string name = 1;
+    // Source specifies the source directory
+    string source = 2;
+}
+
+// CloudMetadata describes the instance in the cloud
+message CloudMetadata {
+    // NodeName specifies the optional node name override.
+    // Can be specified either on command line or derived from cloud environment.
+    string node_name = 1;
+    // InstanceType specifies the type of the instance running
+    string instance_type = 2;
+    // InstanceID provides the cloud-specific instance ID
+    string instance_id = 3;
+}

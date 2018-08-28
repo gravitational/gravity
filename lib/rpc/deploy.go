@@ -1,0 +1,149 @@
+package rpc
+
+import (
+	"context"
+	"fmt"
+	"path/filepath"
+	"strings"
+
+	"github.com/gravitational/gravity/lib/constants"
+	"github.com/gravitational/gravity/lib/defaults"
+	"github.com/gravitational/gravity/lib/loc"
+	"github.com/gravitational/gravity/lib/schema"
+	"github.com/gravitational/gravity/lib/state"
+	"github.com/gravitational/gravity/lib/storage"
+	"github.com/gravitational/gravity/lib/utils"
+
+	teleclient "github.com/gravitational/teleport/lib/client"
+	"github.com/gravitational/trace"
+	"github.com/sirupsen/logrus"
+)
+
+// DeployAgentsRequest defines the extent of configuration
+// necessary to deploy agents on the local cluster.
+type DeployAgentsRequest struct {
+	// GravityPackage specifies the gravity binary package to use
+	// as the main process
+	GravityPackage loc.Locator
+
+	// ClusterState is the cluster state
+	ClusterState storage.ClusterState
+
+	// Servers lists the servers to deploy
+	Servers []DeployServer
+
+	// SecretsPackage specifies the package with RPC credentials
+	SecretsPackage loc.Locator
+
+	// Proxy telekube proxy for remote execution
+	Proxy *teleclient.ProxyClient
+
+	// FieldLogger defines the logger to use
+	logrus.FieldLogger
+
+	// LeaderParams defines which parameters to pass to the leader agent process.
+	// The leader agent is responsible for driving the automatic update
+	LeaderParams []string
+}
+
+// DeployAgents uses teleport to discover cluster nodes, distribute and run RPC agents
+// across the local cluster.
+// One of the master nodes is selected to control the automatic update operation specified
+// with req.LeaderParams.
+func DeployAgents(ctx context.Context, req DeployAgentsRequest) error {
+	errors := make(chan error, len(req.Servers))
+	leaderProcessScheduled := false
+	for _, server := range req.Servers {
+		leaderProcess := false
+		if !leaderProcessScheduled && len(req.LeaderParams) > 0 && server.Role == schema.ServiceRoleMaster {
+			leaderProcess = true
+			leaderProcessScheduled = true
+			req.WithField("args", req.LeaderParams).
+				Infof("Master process will run on node %v/%v.",
+					server.Hostname, server.NodeAddr)
+		}
+
+		// determine the server's state directory
+		stateServer, err := req.ClusterState.FindServerByIP(server.AdvertiseIP)
+		if err != nil {
+			return trace.Wrap(err)
+		}
+		serverStateDir := stateServer.StateDir()
+
+		go func(node, nodeStateDir string, leader bool) {
+			err := deployAgentOnNode(ctx, req, node, nodeStateDir, leader, req.SecretsPackage.String())
+			errors <- trace.Wrap(err)
+		}(server.NodeAddr, serverStateDir, leaderProcess)
+	}
+
+	err := utils.CollectErrors(ctx, errors)
+	if err != nil {
+		return trace.Wrap(err, "failed to deploy agents")
+	}
+
+	if !leaderProcessScheduled && len(req.LeaderParams) > 0 {
+		return trace.NotFound("No nodes with %s=%s were found while scheduling agents, requested operation %q is not running.",
+			schema.ServiceLabelRole, schema.ServiceRoleMaster, req.LeaderParams)
+	}
+
+	req.Println("Agents deployed.")
+	return nil
+}
+
+// DeployServer describes an agent to deploy on every node during update.
+//
+// Agents come in two flavors: passive or controller.
+// Once an agent cluster has been built, an agent will be selected to
+// control the update (i.e. give commands to other agents) if the process is automatic.
+type DeployServer struct {
+	// Role specifies the server's service role
+	Role schema.ServiceRole
+	// AdvertiseIP specifies the address the server is available on
+	AdvertiseIP string
+	// Hostname specifies the server's hostname
+	Hostname string
+	// NodeAddr is the server's address in teleport context
+	NodeAddr string
+}
+
+func deployAgentOnNode(ctx context.Context, req DeployAgentsRequest, node, nodeStateDir string, leader bool, secretsPackage string) error {
+	nodeClient, err := req.Proxy.ConnectToNode(ctx, node, defaults.SSHUser, false)
+	if err != nil {
+		return trace.Wrap(err, node)
+	}
+	defer nodeClient.Close()
+
+	gravityHostPath := filepath.Join(
+		state.GravityRPCAgentDir(nodeStateDir), constants.GravityPackage)
+	gravityPlanetPath := filepath.Join(
+		defaults.GravityRpcAgentDir, constants.GravityPackage)
+	secretsHostDir := filepath.Join(
+		state.GravityRPCAgentDir(nodeStateDir), defaults.SecretsDir)
+	secretsPlanetDir := filepath.Join(
+		defaults.GravityRpcAgentDir, defaults.SecretsDir)
+
+	var runCmd string
+	if leader {
+		runCmd = fmt.Sprintf("%s agent --debug install %s", gravityHostPath, strings.Join(req.LeaderParams, " "))
+	} else {
+		runCmd = fmt.Sprintf("%s agent --debug install", gravityHostPath)
+	}
+
+	err = utils.NewSSHCommands(nodeClient.Client).
+		C("rm -rf %s", secretsHostDir).
+		C("mkdir -p %s", secretsHostDir).
+		C("%s enter -- --notty %s -- package unpack %s %s --debug --ops-url=%s --insecure",
+			constants.GravityBin, defaults.GravityBin, secretsPackage, secretsPlanetDir, defaults.GravityServiceURL).
+		IgnoreError("/usr/bin/systemctl stop %s", defaults.GravityRPCAgentServiceName).
+		C("%s enter -- --notty %s -- package export --file-mask=%o %s %s --ops-url=%s --insecure",
+			constants.GravityBin, defaults.GravityBin, defaults.SharedExecutableMask,
+			req.GravityPackage, gravityPlanetPath, defaults.GravityServiceURL).
+		C(runCmd).
+		WithLogger(req.WithField("node", node)).
+		Run(ctx)
+	if err != nil {
+		return trace.Wrap(err)
+	}
+
+	return nil
+}

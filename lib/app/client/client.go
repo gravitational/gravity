@@ -1,0 +1,415 @@
+package client
+
+import (
+	"context"
+	"encoding/json"
+	"fmt"
+	"io"
+	"io/ioutil"
+	"net/http"
+	"net/url"
+	"strconv"
+	"strings"
+	"time"
+
+	"github.com/gravitational/gravity/lib/app"
+	serviceapi "github.com/gravitational/gravity/lib/app/api"
+	"github.com/gravitational/gravity/lib/httplib"
+	"github.com/gravitational/gravity/lib/loc"
+	"github.com/gravitational/gravity/lib/storage"
+
+	"github.com/gravitational/roundtrip"
+	telehttplib "github.com/gravitational/teleport/lib/httplib"
+	"github.com/gravitational/trace"
+	log "github.com/sirupsen/logrus"
+)
+
+// CurrentVersion is the current version of the API to use with the client
+const CurrentVersion = "app/v1"
+
+// Client implements the application management interface
+type Client struct {
+	roundtrip.Client
+}
+
+// progressPollInterval defines the time to wait between two progress polling
+// attempts
+const progressPollInterval = 2 * time.Second
+
+// NewAuthenticatedClient returns a new client with the specified user security context
+func NewAuthenticatedClient(addr, username, password string, params ...roundtrip.ClientParam) (*Client, error) {
+	params = append(params, roundtrip.BasicAuth(username, password))
+	return NewClient(addr, params...)
+}
+
+// NewBearerClient returns a new client that user bearer token for authentication
+func NewBearerClient(addr, token string, params ...roundtrip.ClientParam) (*Client, error) {
+	params = append(params, roundtrip.BearerAuth(token))
+	return NewClient(addr, params...)
+}
+
+// NewClient returns a new client
+func NewClient(addr string, params ...roundtrip.ClientParam) (*Client, error) {
+	c, err := roundtrip.NewClient(addr, CurrentVersion, params...)
+	if err != nil {
+		return nil, err
+	}
+	return &Client{*c}, nil
+}
+
+// POST app/v1/operations/import/
+func (c *Client) CreateImportOperation(req *app.ImportRequest) (*storage.AppOperation, error) {
+	translateProgress := func(progressc chan *app.ProgressEntry, errorc chan error,
+		op storage.AppOperation, c *Client) {
+		var err error
+		defer func() {
+			if err != nil {
+				errorc <- err
+			}
+			close(errorc)
+			close(progressc)
+		}()
+		for {
+			select {
+			case <-time.After(progressPollInterval):
+				var progress *app.ProgressEntry
+				progress, err = c.GetOperationProgress(op)
+				if err != nil {
+					return
+				}
+				progressc <- progress
+				if progress.IsCompleted() {
+					if progress.State == app.ProgressStateFailed.State() {
+						err = trace.Errorf(progress.Message)
+					}
+					return
+				}
+			}
+		}
+	}
+	file := roundtrip.File{
+		Name:     "source",
+		Filename: "package",
+		Reader:   req.Source,
+	}
+	defer req.Source.Close()
+
+	requestBytes, err := json.Marshal(req)
+	if err != nil {
+		return nil, trace.Wrap(err)
+	}
+	values := url.Values{
+		"request": []string{string(requestBytes)},
+	}
+
+	out, err := c.PostForm(c.Endpoint("operations", "import"), values, file)
+	if err != nil {
+		return nil, trace.Wrap(err)
+	}
+	var op storage.AppOperation
+	if err := json.Unmarshal(out.Bytes(), &op); err != nil {
+		return nil, trace.Wrap(err)
+	}
+
+	// passing operation by value on purpose - to avoid data race with the
+	// value returned as a result
+	go translateProgress(req.ProgressC, req.ErrorC, op, c)
+	return &op, nil
+}
+
+// GET app/v1/operations/import/:operation_id/progress
+func (c *Client) GetOperationProgress(op storage.AppOperation) (*app.ProgressEntry, error) {
+	out, err := c.Get(c.Endpoint(
+		"operations", "import", op.ID, "progress"), url.Values{})
+	if err != nil {
+		return nil, trace.Wrap(err)
+	}
+	var progress app.ProgressEntry
+	if err := json.Unmarshal(out.Bytes(), &progress); err != nil {
+		return nil, trace.Wrap(err)
+	}
+	return &progress, nil
+}
+
+// GET app/v1/operations/import/:operation_id/logs
+func (c *Client) GetOperationLogs(op storage.AppOperation) (io.ReadCloser, error) {
+	endpoint := c.Endpoint("operations", "import", op.ID, "logs")
+	headers := make(http.Header)
+	c.SetAuthHeader(headers)
+	clt, err := httplib.WebsocketClientForURL(endpoint, headers)
+	if err != nil {
+		return nil, trace.Wrap(err)
+	}
+	return clt, nil
+}
+
+// GET app/v1/operations/import/:operation_id/crash-report
+func (c *Client) GetOperationCrashReport(op storage.AppOperation) (io.ReadCloser, error) {
+	return c.getFile(c.Endpoint("operations", "import", op.ID, "crash-report"),
+		url.Values{})
+}
+
+// GET app/v1/operations/import/:operation_id
+func (c *Client) GetImportedApplication(op storage.AppOperation) (*app.Application, error) {
+	out, err := c.Get(c.Endpoint("operations", "import", op.ID), url.Values{})
+	if err != nil {
+		log.Infof("failed to query imported application using operation=%v", op)
+		return nil, trace.Wrap(err)
+	}
+	var app app.Application
+	if err := json.Unmarshal(out.Bytes(), &app); err != nil {
+		return nil, trace.Wrap(err)
+	}
+	return &app, nil
+}
+
+// GET app/v1/applications/:repository_name/:package_name/:version/manifest
+func (c *Client) GetAppManifest(locator loc.Locator) (io.ReadCloser, error) {
+	return c.getFile(c.Endpoint("applications",
+		locator.Repository, locator.Name, locator.Version,
+		"manifest"), url.Values{})
+}
+
+// GET app/v1/applications/:repository_name/:package_name/:version/resources
+func (c *Client) GetAppResources(locator loc.Locator) (io.ReadCloser, error) {
+	return c.getFile(c.Endpoint("applications",
+		locator.Repository, locator.Name, locator.Version,
+		"resources"), url.Values{})
+}
+
+// GET app/v1/applications/:repository_id/:package_id/:version/standalone-installer
+func (c *Client) GetAppInstaller(req app.InstallerRequest) (io.ReadCloser, error) {
+	rawReq, err := req.ToRaw()
+	if err != nil {
+		return nil, trace.Wrap(err)
+	}
+	requestBytes, err := json.Marshal(rawReq)
+	if err != nil {
+		return nil, trace.Wrap(err, "failed to marshal request %#v", req)
+	}
+	values := url.Values{"request": []string{string(requestBytes)}}
+	return c.getFile(c.Endpoint("applications",
+		req.Application.Repository, req.Application.Name, req.Application.Version,
+		"standalone-installer"), values)
+}
+
+// GET app/v1/applications/:repository_id/
+func (c *Client) ListApps(req app.ListAppsRequest) (apps []app.Application, err error) {
+	// repository may be empty, and if it is, there will be extra slashes in the endpoint
+	endpoint := strings.TrimRight(c.Endpoint("applications", req.Repository), "/")
+	out, err := c.Get(endpoint, url.Values{
+		"type":           []string{string(req.Type)},
+		"exclude_hidden": []string{strconv.FormatBool(req.ExcludeHidden)},
+	})
+	if err != nil {
+		return nil, trace.Wrap(err)
+	}
+	if err = json.Unmarshal(out.Bytes(), &apps); err != nil {
+		return nil, trace.Wrap(err)
+	}
+	return apps, nil
+}
+
+// GET app/v1/applications/:repository_id/:package_id/:version
+func (c *Client) GetApp(locator loc.Locator) (*app.Application, error) {
+	out, err := c.Get(c.Endpoint("applications", locator.Repository, locator.Name,
+		locator.Version), url.Values{})
+	if err != nil {
+		return nil, trace.Wrap(err)
+	}
+	var app app.Application
+	if err = json.Unmarshal(out.Bytes(), &app); err != nil {
+		return nil, trace.Wrap(err)
+	}
+	return &app, nil
+}
+
+// POST app/v1/operations/uninstall/:repository_id/:package_id/:version
+func (c *Client) UninstallApp(locator loc.Locator) (*app.Application, error) {
+	out, err := c.PostJSON(c.Endpoint(
+		"operations", "uninstall",
+		locator.Repository, locator.Name, locator.Version), url.Values{})
+	if err != nil {
+		return nil, trace.Wrap(err)
+	}
+	var app app.Application
+	if err = json.Unmarshal(out.Bytes(), &app); err != nil {
+		return nil, trace.Wrap(err)
+	}
+	return &app, nil
+}
+
+// DELETE app/v1/:repository_id/:package_id/:version?force=true
+func (c *Client) DeleteApp(req app.DeleteRequest) error {
+	_, err := c.Delete(
+		c.Endpoint("applications", req.Package.Repository, req.Package.Name, req.Package.Version),
+		url.Values{"force": []string{strconv.FormatBool(req.Force)}})
+	if err != nil {
+		return trace.Wrap(err)
+	}
+	return nil
+}
+
+// POST app/v1/operations/export/:repository_id/:package_id/:version
+func (c *Client) ExportApp(req app.ExportAppRequest) error {
+	config := serviceapi.ExportConfig{
+		RegistryHostPort: req.RegistryAddress,
+	}
+	if _, err := c.PostJSON(c.Endpoint(
+		"operations", "export",
+		req.Package.Repository, req.Package.Name, req.Package.Version), &config); err != nil {
+		return trace.Wrap(err)
+	}
+	return nil
+}
+
+// GET app/v1/applications/:repository_id/:package_id/:version/status
+func (c *Client) StatusApp(locator loc.Locator) (*app.Status, error) {
+	out, err := c.Get(c.Endpoint(
+		"applications", locator.Repository, locator.Name, locator.Version, "status"), url.Values{})
+	if err != nil {
+		return nil, trace.Wrap(err)
+	}
+	var status app.Status
+	if err = json.Unmarshal(out.Bytes(), &status); err != nil {
+		return nil, trace.Wrap(err)
+	}
+	return &status, nil
+}
+
+// POST app/v1/applications/:repository_id/:package_id/:version/hook/start
+func (c *Client) StartAppHook(ctx context.Context, req app.HookRunRequest) (*app.HookRef, error) {
+	out, err := c.PostJSON(c.Endpoint(
+		"applications", req.Application.Repository, req.Application.Name, req.Application.Version, "hook", "start"),
+		&req)
+	if err != nil {
+		return nil, trace.Wrap(err)
+	}
+	var ref app.HookRef
+	if err = json.Unmarshal(out.Bytes(), &ref); err != nil {
+		return nil, trace.Wrap(err)
+	}
+	return &ref, nil
+}
+
+// GET app/v1/applications/:repository_id/:package_id/:version/hook/:namespace/:name/wait
+func (c *Client) WaitAppHook(ctx context.Context, ref app.HookRef) error {
+	_, err := c.Get(c.Endpoint(
+		"applications", ref.Application.Repository, ref.Application.Name, ref.Application.Version, "hook", ref.Namespace, ref.Name, "wait"),
+		url.Values{})
+	if err != nil {
+		return trace.Wrap(err)
+	}
+	return nil
+}
+
+func (c *Client) StreamAppHookLogs(ctx context.Context, ref app.HookRef, out io.Writer) error {
+	endpoint := c.Endpoint(
+		"applications", ref.Application.Repository, ref.Application.Name, ref.Application.Version, "hook", ref.Namespace, ref.Name, "stream")
+	client, err := httplib.SetupWebsocketClient(ctx, &c.Client, endpoint)
+	if err != nil {
+		return trace.Wrap(err)
+	}
+	_, err = io.Copy(out, client)
+	return err
+}
+
+// DELETE app/v1/applications/:repository_id/:package_id/:version/hook/:namespace/:name
+func (c *Client) DeleteAppHookJob(ctx context.Context, ref app.HookRef) error {
+	_, err := c.Delete(c.Endpoint(
+		"applications", ref.Application.Repository, ref.Application.Name, ref.Application.Version, "hook", ref.Namespace, ref.Name),
+		url.Values{})
+	if err != nil {
+		return trace.Wrap(err)
+	}
+	return nil
+}
+
+// POST app/v1/applications/:repository_id
+func (c *Client) CreateApp(locator loc.Locator, reader io.Reader, labels map[string]string) (*app.Application, error) {
+	return c.createApp(locator, nil, reader, labels, false)
+}
+
+func (c *Client) CreateAppWithManifest(locator loc.Locator, manifest []byte, reader io.Reader, labels map[string]string) (*app.Application, error) {
+	return c.createApp(locator, manifest, reader, labels, false)
+}
+
+// POST app/v1/applications/:repository_id
+func (c *Client) UpsertApp(locator loc.Locator, reader io.Reader, labels map[string]string) (*app.Application, error) {
+	return c.createApp(locator, nil, reader, labels, true)
+}
+
+func (c *Client) createApp(locator loc.Locator, manifest []byte, reader io.Reader, labels map[string]string, upsert bool) (*app.Application, error) {
+	file := roundtrip.File{
+		Name:     "package",
+		Filename: locator.String(),
+		Reader:   reader,
+	}
+	labelsJSON, err := json.Marshal(labels)
+	if err != nil {
+		return nil, trace.Wrap(err)
+	}
+	params := url.Values{
+		"labels": []string{string(labelsJSON)},
+		"upsert": []string{fmt.Sprintf("%t", upsert)},
+	}
+	if len(manifest) != 0 {
+		params.Set("manifest", string(manifest))
+	}
+
+	out, err := c.PostForm(c.Endpoint("applications", locator.Repository), params, file)
+	if err != nil {
+		return nil, trace.Wrap(err)
+	}
+	var app app.Application
+	if err = json.Unmarshal(out.Bytes(), &app); err != nil {
+		return nil, trace.Wrap(err)
+	}
+	return &app, nil
+}
+
+// PostJSON posts data as JSON to the server
+func (c *Client) PostJSON(endpoint string, data interface{}) (*roundtrip.Response, error) {
+	return telehttplib.ConvertResponse(c.Client.PostJSON(endpoint, data))
+}
+
+// Get issues HTTP GET request to the server
+func (c *Client) Get(endpoint string, params url.Values) (*roundtrip.Response, error) {
+	return telehttplib.ConvertResponse(c.Client.Get(endpoint, params))
+}
+
+// Delete issues HTTP DELETE request to the server
+func (c *Client) Delete(endpoint string, params url.Values) (*roundtrip.Response, error) {
+	return telehttplib.ConvertResponse(c.Client.DeleteWithParams(endpoint, params))
+}
+
+// PostForm is a generic method that issues http POST request to the server
+func (c *Client) PostForm(
+	endpoint string,
+	values url.Values,
+	files ...roundtrip.File) (*roundtrip.Response, error) {
+
+	return telehttplib.ConvertResponse(
+		c.Client.PostForm(endpoint, values, files...))
+}
+
+// getFile streams binary data from the specified endpoint
+func (c *Client) getFile(endpoint string, params url.Values) (io.ReadCloser, error) {
+	file, err := c.GetFile(endpoint, params)
+	if err != nil {
+		return nil, trace.Wrap(err)
+	}
+	if file.Code() > 299 {
+		defer file.Close()
+		bytes, err := ioutil.ReadAll(file.Body())
+		if err != nil {
+			return nil, trace.Wrap(err)
+		}
+		if err := trace.ReadError(file.Code(), bytes); err != nil {
+			return nil, trace.Wrap(err)
+		}
+		return nil, trace.BadParameter("failed to process response: %v", string(bytes))
+	}
+
+	return file.Body(), nil
+}

@@ -1,0 +1,15 @@
+{
+    "cniVersion": "0.3.1",
+    "name": "bridge",
+    "type": "bridge",
+    "bridge": "wg1",
+    "isGateway": true,
+    "isDefaultGateway": true,
+    "ipMasq": false,
+    "ipam": {
+        "type": "host-local",
+        "ranges": [
+          [{"subnet": "{{node_cidr}}"}]
+        ]
+    }
+}

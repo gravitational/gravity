@@ -1,0 +1,25 @@
+- include: upload.yaml
+
+- hosts: nodes
+  vars:
+    root_dir: "{{playbook_dir}}/../.."
+  tasks:
+  - name: Install gravity application
+    become: yes
+    shell: |
+      umask 0066
+      cd /vagrant/installer
+      tar -xf installer.tar
+      {% if inventory_hostname == groups['nodes'][0] %}
+      ./gravity install \
+        --flavor={{flavor}} \
+        --cluster=dev.test \
+        --advertise-addr={{hostvars[inventory_hostname]['ansible_default_ipv4']['address']}} \
+        --token=token
+      {% else %}
+      /tmp/gravity join \
+        {{hostvars[groups['nodes'][0]]['ansible_default_ipv4']['address']}} \
+        --advertise-addr={{hostvars[inventory_hostname]['ansible_default_ipv4']['address']}} \
+        --token=token
+      {% endif %}
+

@@ -1,0 +1,124 @@
+syntax = "proto3";
+
+package proto;
+
+import "google/protobuf/empty.proto";
+import "discovery.proto";
+
+// Agent is RPC agent interface
+service Agent {
+    // Shutdown requests the agent to shut down
+    rpc Shutdown(google.protobuf.Empty) returns (google.protobuf.Empty);
+
+    // Command executes a command specified with CommandArgs.
+    // The output of the command is streamed as a result.
+    rpc Command(CommandArgs) returns (stream Message);
+
+    // PeerJoin receives a connection from a peer.
+    // The peer configuration allows this agent to establish a reverse
+    // connection to the remote peer to execute remote commands
+    rpc PeerJoin(PeerJoinRequest) returns (google.protobuf.Empty);
+
+    // PeerLeave receives a "leave" request from a peer and initiates its shutdown
+    rpc PeerLeave(PeerLeaveRequest) returns (google.protobuf.Empty);
+}
+
+message CommandArgs {
+    // Args specify the command to run
+    repeated string args = 1;
+    // SelfCommand specifies whether the agent's binary
+    // should execute the command given with args
+    bool self_command = 2;
+    // Env sets the environment for the command
+    map<string,string> env = 3;
+}
+
+// Message is a union of various subtypes of event stream
+message Message {
+    oneof element {
+        // ExecStarted describes the point when the command has started execution
+        ExecStarted exec_started = 1;
+        // ExecCompleted specifies that the command has completed execution
+        ExecCompleted exec_completed = 2;
+        // ExecOutput specifies a part of command's output
+        ExecOutput exec_output = 3;
+        // LogEntry defines the message as a log entry
+        LogEntry log_entry = 4;
+        // Error describes an error message
+        Error error = 5; // if entire call resulted in error
+    }
+}
+
+// ExecStarted is sent when local command starts to execute
+message ExecStarted {
+    // Seq specifies the command ID. Unique only in the current call scope
+    int32 seq  = 1;
+    // Args describes the running command
+    repeated string args = 2;
+    // Env defines the environment of the running command
+    repeated string env  = 3;
+}
+
+// ExecComplete is sent when command completes
+message ExecCompleted {
+    // Seq specifies the command ID. Unique only in the current call scope
+    int32 seq = 1;
+    // ExitCode is the exit code command exited with
+    int32 exit_code = 2;
+    // Error specifies the command execution error
+    Error error = 3;
+}
+
+// Error encapsulates error stack
+message Error {
+    // Messages specifies the error message
+    string message = 1;
+    // Traces lists stack traces
+    repeated string traces  = 2;
+}
+
+// ExecOutput represents output of a running command
+message ExecOutput {
+    enum FD {
+        STDOUT = 0;
+        STDERR = 1;
+    }
+
+    int32   seq     = 1;
+    FD      fd      = 2;
+    bytes   data    = 3;
+}
+
+message LogEntry {
+    enum Level {
+        Debug   = 0;
+        Info    = 1;
+        Warn    = 2;
+        Error   = 3;
+    }
+
+    string              message = 1;
+    map<string,string>  fields  = 2;
+    Level               level   = 3;
+    repeated string     traces  = 4;
+}
+
+// PeerJoinRequest is request to join from a remote peer.
+message PeerJoinRequest {
+    // Addr is the peer address as host:port
+    string addr = 1;
+    // Config specifies the peer's runtime configuration
+    RuntimeConfig config = 2;
+    // SystemInfo describes the peer's environment
+    bytes system_info = 3;
+}
+
+// PeerLeaveRequest is a request a peer sends when it wants to leave the cluster
+message PeerLeaveRequest {
+    // Addr is the peer address as host:port
+    string addr = 1;
+    // Config specifies the peer's runtime configuration
+    RuntimeConfig config = 2;
+    // SystemInfo describes the peer's environment
+    bytes system_info = 3;
+}

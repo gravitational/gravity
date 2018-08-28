@@ -1,0 +1,90 @@
+package docker
+
+import (
+	"io"
+
+	"github.com/docker/distribution/context"
+
+	. "gopkg.in/check.v1"
+)
+
+type ImageServiceSuite struct{}
+
+var _ = Suite(&ImageServiceSuite{})
+
+func (r *ImageServiceSuite) TestRewritesImage(c *C) {
+	var testCases = []struct {
+		image   string
+		rewrite string
+	}{
+		{
+			image:   "foobar.com/dummy:0.0.1",
+			rewrite: "apiserver:5000/dummy:0.0.1",
+		},
+		{
+			image:   "apiserver:5000/dummy:0.0.1",
+			rewrite: "apiserver:5000/dummy:0.0.1",
+		},
+		{
+			image:   "private.repo:1234/dummy:0.0.1",
+			rewrite: "apiserver:5000/dummy:0.0.1",
+		},
+		{
+			image:   "log-collector:latest",
+			rewrite: "apiserver:5000/log-collector:latest",
+		},
+		{
+			image:   "planet/base:latest",
+			rewrite: "apiserver:5000/planet/base:latest",
+		},
+		{
+			image:   "docker.io/gravitational/debian-tall",
+			rewrite: "apiserver:5000/gravitational/debian-tall",
+		},
+	}
+	service, err := NewImageService(RegistryConnectionRequest{
+		RegistryAddress: "apiserver:5000",
+	})
+	c.Assert(err, IsNil)
+
+	for _, testCase := range testCases {
+		localImage := service.Wrap(testCase.image)
+		c.Assert(localImage, DeepEquals, testCase.rewrite)
+	}
+}
+
+func (r *ImageServiceSuite) TestReportsEOFForEmptyRepository(c *C) {
+	registry := &registry{repos: []string{}}
+	_, err := ListRepos(context.Background(), registry)
+	c.Assert(err, ErrorMatches, "EOF")
+}
+
+func (r *ImageServiceSuite) TestListsRepos(c *C) {
+	registry := &registry{repos: []string{"a", "b", "c", "d", "e"}}
+	repos, err := ListRepos(context.Background(), registry)
+	c.Assert(err, IsNil)
+	c.Assert(repos, DeepEquals, []string{"a", "b", "c", "d", "e"})
+}
+
+type registry struct {
+	repos []string
+	n     int
+}
+
+func (r *registry) Repositories(ctx context.Context, repos []string, last string) (n int, err error) {
+	n = min(5, len(r.repos))
+	copy(repos, r.repos[:n])
+	r.repos = r.repos[n:]
+	r.n += n
+	if n == 0 {
+		err = io.EOF
+	}
+	return n, err
+}
+
+func min(a, b int) int {
+	if a < b {
+		return a
+	}
+	return b
+}

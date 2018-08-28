@@ -1,0 +1,16 @@
+---
+
+- hosts: nodes
+  become: yes
+  tasks:
+  - name: Cleanup instance
+    shell: |
+      rm -rf /vagrant/installer
+      systemctl stop gravity__gravitational.io__*.service
+      rm -rf /var/lib/gravity/* || true
+
+  - name: Reboot machine
+    shell: shutdown --reboot +1 >/dev/null 2>&1
+    async: 0
+    poll: 0
+    ignore_errors: yes

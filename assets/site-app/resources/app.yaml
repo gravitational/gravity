@@ -1,0 +1,77 @@
+apiVersion: bundle.gravitational.io/v2
+kind: SystemApplication
+metadata:
+  name: site
+  resourceVersion: "0.0.0"
+  namespace: kube-system
+hooks:
+  install:
+    job: file://install.yaml
+  update:
+    job: |
+      apiVersion: batch/v1
+      kind: Job
+      metadata:
+        name: site-app-update
+      spec:
+        parallelism: 1
+        completions: 1
+        template:
+          metadata:
+            name: site-app-update
+          spec:
+            restartPolicy: Never
+            containers:
+              - name: hook
+                image: site-app-hook:0.0.1
+                args: ["update"]
+  rollback:
+    job: |
+      apiVersion: batch/v1
+      kind: Job
+      metadata:
+        name: site-app-rollback
+      spec:
+        parallelism: 1
+        completions: 1
+        template:
+          metadata:
+            name: site-app-rollback
+          spec:
+            restartPolicy: Never
+            containers:
+              - name: hook
+                image: site-app-hook:0.0.1
+                args: ["rollback"]
+  postInstall:
+    job: |
+      apiVersion: batch/v1
+      kind: Job
+      metadata:
+        name: site-app-post-install
+      spec:
+        template:
+          metadata:
+            name: site-app-post-install
+          spec:
+            restartPolicy: OnFailure
+            containers:
+              - name: post-install-hook
+                image: quay.io/gravitational/debian-tall:0.0.1
+                command: ["/opt/bin/gravity", "site", "status"]
+  uninstall:
+    job: |
+      apiVersion: batch/v1
+      kind: Job
+      metadata:
+        name: site-app-uninstall
+      spec:
+        template:
+          metadata:
+            name: site-app-uninstall
+          spec:
+            restartPolicy: OnFailure
+            containers:
+              - name: uninstall-hook
+                image: quay.io/gravitational/debian-tall:0.0.1
+                command: ["/bin/sh", "/var/lib/gravity/resources/uninstall.sh"]

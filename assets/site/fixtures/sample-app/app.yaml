@@ -1,0 +1,6 @@
+apiVersion: v1
+kind: Application
+metadata:
+    name: complex-app
+    namespace: vendor-name
+    resourceVersion: 1.2.3

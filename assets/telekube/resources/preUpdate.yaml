@@ -1,0 +1,14 @@
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: tele-app-preupdate
+spec:
+  template:
+    metadata:
+      name: tele-app-preupdate
+    spec:
+      restartPolicy: OnFailure
+      containers:
+      - name: hook
+        image: quay.io/gravitational/debian-tall:0.0.1
+        command: ["/bin/echo", "test"]

@@ -1,0 +1,97 @@
+syntax = "proto3";
+
+package proto;
+
+import "google/protobuf/duration.proto";
+import "agentpb/agent.proto";
+
+service Validation {
+    // CheckPorts executes a ports network test
+    rpc CheckPorts(CheckPortsRequest) returns (CheckPortsResponse);
+
+    // CheckBandwidth executes a bandwidth network test
+    rpc CheckBandwidth(CheckBandwidthRequest) returns (CheckBandwidthResponse);
+
+    // Validate validatest this node against the requirements
+    // from a manifest.
+    rpc Validate(ValidateRequest) returns (ValidateResponse);
+}
+
+// CheckPortsRequest describes a ports network test request
+message CheckPortsRequest {
+    // Listen specifies the listen endpoints
+    repeated Addr listen = 1;
+    // Ping specifies the ping endpoints
+    repeated Addr ping = 2;
+    // Duration specifies the maximum duration for the request
+    google.protobuf.Duration duration = 3;
+}
+
+// CheckPortsResponse describes the results of a ports network test
+message CheckPortsResponse {
+	// Listen describes the listen test results
+	repeated ServerResult listen = 1;
+	// Ping describes the ping test results
+	repeated ServerResult ping = 2;
+}
+
+// CheckBandwidthRequest describes a bandwidth check network test
+message CheckBandwidthRequest {
+    // Listen specifies the listen endpoint
+    Addr listen = 1;
+    // Ping specifies the ping endpoints
+    repeated Addr ping = 2;
+    // Duration specifies the maximum duration for the request
+    google.protobuf.Duration duration = 3;
+}
+
+// CheckBandwidthResponse describes the results of a bandwidth check
+message CheckBandwidthResponse {
+	// Bandwidth is the result of a bandwidth test
+	uint64 bandwidth = 1;
+}
+
+// ServerResult defines the operation result for a server
+message ServerResult {
+    // Code specifies the result, with 0 for success
+    int32 code = 1;
+    // Error specifies an error message
+    string error = 2;
+    // Server specifies which server the result is from
+    Addr server = 3;
+}
+
+// Addr defines an endpoint address
+message Addr {
+    // Network specifies the type of network (tcp, udp)
+    string network = 1;
+    // Addr specifies the address as IP or IP:port
+    string addr = 2;
+}
+
+// ValidateRequest defines a request to run validation
+message ValidateRequest {
+    // Manifest specifies the application manifest with
+    // requirements
+    bytes manifest = 1;
+    // Profile specifies the node profile to validate against
+    string profile = 2;
+    // FullRequirements forces validation of all requirements
+    // from the manifest.
+    // This is used to validate requirements during installation.
+    bool full_requirements = 3;
+    // ValidateOptions is additional validation options
+    ValidateOptions options = 4;
+}
+
+// ValidateResponse describes a validation response
+message ValidateResponse {
+    // Failed lists the failed probes
+    repeated agentpb.Probe failed = 1;
+}
+
+// ValidateOptions is additional validation options
+message ValidateOptions {
+    // VxlanPort is the custom overlay network port
+    int32 vxlan_port = 1;
+}

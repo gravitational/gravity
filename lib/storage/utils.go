@@ -1,0 +1,219 @@
+package storage
+
+import (
+	"time"
+
+	"github.com/gravitational/gravity/lib/constants"
+	"github.com/gravitational/gravity/lib/defaults"
+	"github.com/gravitational/gravity/lib/loc"
+	"github.com/gravitational/gravity/lib/utils"
+
+	teleservices "github.com/gravitational/teleport/lib/services"
+	"github.com/gravitational/trace"
+	log "github.com/sirupsen/logrus"
+)
+
+// GetClusterAgentCreds returns credentials for cluster agent
+//
+//  - for regular nodes, this is unprivileged cluster agent that can pull updates
+//  - for master nodes, this is privileged agent, that can also do some cluster administration
+func GetClusterAgentCreds(backend Backend, clusterName string, needAdmin bool) (*LoginEntry, error) {
+	users, err := backend.GetSiteUsers(clusterName)
+	if err != nil {
+		return nil, trace.Wrap(err)
+	}
+
+	var user User
+	for i := range users {
+		if users[i].GetType() == AgentUser {
+			hasAdminRole := utils.StringInSlice(users[i].GetRoles(), constants.RoleAdmin)
+			if (needAdmin && hasAdminRole) || (!needAdmin && !hasAdminRole) {
+				user = users[i]
+				break
+			}
+		}
+	}
+
+	if user == nil {
+		return nil, trace.NotFound("cluster agent user not found")
+	}
+
+	keys, err := backend.GetAPIKeys(user.GetName())
+	if err != nil {
+		return nil, trace.Wrap(err)
+	}
+
+	if len(keys) == 0 {
+		return nil, trace.NotFound("no API keys found for user %v", user.GetName())
+	}
+
+	return &LoginEntry{
+		OpsCenterURL: defaults.GravityServiceURL,
+		Email:        user.GetName(),
+		Password:     keys[0].Token,
+	}, nil
+}
+
+// GetClusterLoginEntry returns login entry for the local cluster
+func GetClusterLoginEntry(backend Backend) (*LoginEntry, error) {
+	// first try to find out if we're logged in
+	entry, err := backend.GetLoginEntry(defaults.GravityServiceURL)
+	if err != nil && !trace.IsNotFound(err) {
+		return nil, trace.Wrap(err)
+	}
+
+	if entry != nil {
+		return entry, nil
+	}
+
+	// otherwise search for agent user and return its creds
+	cluster, err := backend.GetLocalSite(defaults.SystemAccountID)
+	if err != nil {
+		return nil, trace.Wrap(err)
+	}
+
+	entry, err = GetClusterAgentCreds(backend, cluster.Domain, true)
+	if err != nil {
+		return nil, trace.Wrap(err)
+	}
+
+	return entry, nil
+}
+
+// GetLastOperation returns the last operation for the local cluster
+func GetLastOperation(backend Backend) (*SiteOperation, error) {
+	cluster, err := backend.GetLocalSite(defaults.SystemAccountID)
+	if err != nil {
+		return nil, trace.Wrap(err)
+	}
+
+	operations, err := backend.GetSiteOperations(cluster.Domain)
+	if err != nil {
+		return nil, trace.Wrap(err)
+	}
+	if len(operations) == 0 {
+		return nil, trace.NotFound("no operations found")
+	}
+
+	return &(operations[0]), nil
+}
+
+// GetLocalServers returns local cluster state servers
+func GetLocalServers(backend Backend) ([]Server, error) {
+	cluster, err := backend.GetLocalSite(defaults.SystemAccountID)
+	if err != nil {
+		return nil, trace.Wrap(err)
+	}
+
+	return cluster.ClusterState.Servers, nil
+}
+
+// GetLocalPackage returns the local cluster application package
+func GetLocalPackage(backend Backend) (*loc.Locator, error) {
+	cluster, err := backend.GetLocalSite(defaults.SystemAccountID)
+	if err != nil {
+		return nil, trace.Wrap(err)
+	}
+
+	locator, err := loc.NewLocator(cluster.App.Repository, cluster.App.Name, cluster.App.Version)
+	if err != nil {
+		return nil, trace.Wrap(err)
+	}
+
+	return locator, nil
+}
+
+// GetTrustedCluster returns a trusted cluster representing the Ops Center
+// the cluster is connected to, currently only 1 is supported
+func GetTrustedCluster(backend Backend) (TrustedCluster, error) {
+	clusters, err := backend.GetTrustedClusters()
+	if err != nil {
+		return nil, trace.Wrap(err)
+	}
+	for _, cluster := range clusters {
+		clusterS, ok := cluster.(TrustedCluster)
+		if !ok {
+			log.Warnf("Unexpected trusted cluster type: %T.", cluster)
+			continue
+		}
+		if !clusterS.GetWizard() {
+			return clusterS, nil
+		}
+	}
+	return nil, trace.NotFound("trusted cluster not found")
+}
+
+// GetWizardTrustedCluster returns a trusted cluster representing the wizard
+// Ops Center the specified site is connected to
+func GetWizardTrustedCluster(backend Backend) (TrustedCluster, error) {
+	clusters, err := backend.GetTrustedClusters()
+	if err != nil {
+		return nil, trace.Wrap(err)
+	}
+	for _, cluster := range clusters {
+		clusterS, ok := cluster.(TrustedCluster)
+		if !ok {
+			log.Warnf("Unexpected trusted cluster type: %T.", cluster)
+			continue
+		}
+		if clusterS.GetWizard() {
+			return clusterS, nil
+		}
+	}
+	return nil, trace.NotFound("wizard trusted cluster not found")
+}
+
+// DisableAccess disables access for the remote Teleport cluster (Ops Center
+// or installer wizard) with the specified name.
+//
+// All objects that comprise remote access such as reverse tunnels, trusted
+// clusters and certificate authorities are deleted from backend.
+//
+// If non-0 delay is specified, the access is scheduled to be removed after
+// the specified interval.
+func DisableAccess(backend Backend, name string, delay time.Duration) error {
+	log.Infof("Disabling access for %v with delay %v.", name, delay)
+	tunnels, err := backend.GetReverseTunnels()
+	if err != nil && !trace.IsNotFound(err) {
+		return trace.Wrap(err)
+	}
+	for _, tunnel := range tunnels {
+		if tunnel.GetClusterName() == name {
+			tunnel.SetTTL(backend, delay)
+			if err := backend.UpsertReverseTunnel(tunnel); err != nil {
+				return trace.Wrap(err)
+			}
+		}
+	}
+	ca, err := backend.GetCertAuthority(teleservices.CertAuthID{
+		Type:       teleservices.UserCA,
+		DomainName: name,
+	}, true)
+	if err != nil {
+		return trace.Wrap(err)
+	}
+	ca.SetTTL(backend, delay)
+	if err := backend.UpsertCertAuthority(ca); err != nil {
+		return trace.Wrap(err)
+	}
+	ca, err = backend.GetCertAuthority(teleservices.CertAuthID{
+		Type:       teleservices.HostCA,
+		DomainName: name,
+	}, true)
+	if err != nil {
+		return trace.Wrap(err)
+	}
+	ca.SetTTL(backend, delay)
+	if err := backend.UpsertCertAuthority(ca); err != nil {
+		return trace.Wrap(err)
+	}
+	cluster, err := backend.GetTrustedCluster(name)
+	if err != nil {
+		return trace.Wrap(err)
+	}
+	cluster.SetTTL(backend, delay)
+	if err := backend.UpsertTrustedCluster(cluster); err != nil {
+		return trace.Wrap(err)
+	}
+	return nil
+}

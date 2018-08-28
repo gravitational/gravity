@@ -1,0 +1,164 @@
+apiVersion: extensions/v1beta1
+kind: DaemonSet
+metadata:
+  labels:
+    app: gravity-site
+  name: gravity-site
+  namespace: kube-system
+spec:
+  selector:
+    matchLabels:
+      app: gravity-site
+  template:
+    metadata:
+      labels:
+        app: gravity-site
+      annotations:
+        scheduler.alpha.kubernetes.io/critical-pod: ''
+        seccomp.security.alpha.kubernetes.io/pod: docker/default
+    spec:
+      tolerations:
+      - key: "gravitational.io/runlevel"
+        value: system
+        operator: Equal
+        # allows to run on master nodes
+      - key: "node-role.kubernetes.io/master"
+        operator: "Exists"
+        effect: "NoSchedule"
+      hostNetwork: true
+      securityContext:
+        runAsUser: -1
+      # gravity site should be only scheduled on master nodes
+      nodeSelector:
+        gravitational.io/k8s-role: master
+      containers:
+      - image: gravity-site:0.0.1
+        name: gravity-site
+        command: ["/usr/bin/dumb-init", "/bin/sh", "/opt/start.sh"]
+        env:
+          - name: PATH
+            value: "/opt/gravity:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin"
+          - name: POD_IP
+            valueFrom:
+              fieldRef:
+                fieldPath: status.podIP
+          - name: GRAVITY_CONFIG
+            valueFrom:
+              configMapKeyRef:
+                name: gravity-opscenter
+                key: gravity.yaml
+          - name: GRAVITY_TELEPORT_CONFIG
+            valueFrom:
+              configMapKeyRef:
+                name: gravity-opscenter
+                key: teleport.yaml
+        livenessProbe:
+          httpGet:
+            path: /healthz
+            port: 3010
+          initialDelaySeconds: 600
+          timeoutSeconds: 5
+        readinessProbe:
+          httpGet:
+            path: /readyz
+            port: 3010
+          initialDelaySeconds: 10
+          timeoutSeconds: 5
+        ports:
+          - name: web
+            containerPort: 3009
+          - name: agents
+            containerPort: 3007
+          - name: sshproxy
+            containerPort: 3023
+          - name: sshtunnel
+            containerPort: 3024
+          - name: teleport
+            containerPort: 3080
+          - name: profile
+            containerPort: 6060
+        volumeMounts:
+          - name: certs
+            mountPath: /etc/ssl/certs
+          - name: docker-certs
+            mountPath: /etc/docker/certs.d
+          - name: var-state
+            mountPath: /var/state
+          - name: import
+            mountPath: /opt/gravity-import
+          - name: config
+            mountPath: /opt/gravity/config
+          - name: opscenter-config
+            mountPath: /opt/gravity/opscenter
+          - name: secrets
+            mountPath: /var/lib/gravity/secrets
+          - name: secrets
+            mountPath: /var/lib/gravity/site/secrets
+          - name: site
+            mountPath: /var/lib/gravity/site
+          - name: tmp
+            mountPath: /tmp
+          - name: kubectl
+            mountPath: /usr/bin/kubectl
+          - name: kubeconfigs
+            mountPath: /etc/kubernetes
+          - name: assets
+            mountPath: /usr/local/share/gravity
+      volumes:
+        - name: tmp
+          hostPath:
+            path: /tmp
+        - name: certs
+          hostPath:
+            path: /etc/ssl/certs
+        - name: docker-certs
+          hostPath:
+            path: /etc/docker/certs.d
+        - name: var-state
+          hostPath:
+            path: /var/state
+        - name: import
+          hostPath:
+            path: /var/lib/gravity/local
+        - name: config
+          configMap:
+            name: gravity-site
+        - name: opscenter-config
+          configMap:
+            name: gravity-opscenter
+        - name: secrets
+          hostPath:
+            path: /var/lib/gravity/secrets
+        - name: site
+          hostPath:
+            path: /var/lib/gravity/site
+        - name: kubectl
+          hostPath:
+            path: /usr/bin/kubectl
+        - name: kubeconfigs
+          hostPath:
+            path: /etc/kubernetes
+        - name: assets
+          emptyDir: {}
+---
+# The point of this service is to always serve gravity that is elected as a leader.
+# Our design assumes that there's just one opscenter running at a given time.
+# This service always points to opscenter thanks to the readiness checks integration.
+apiVersion: v1
+kind: Service
+metadata:
+  name: gravity-site
+  namespace: kube-system
+  labels:
+    app: gravity-site
+  annotations:
+    service.beta.kubernetes.io/aws-load-balancer-connection-idle-timeout: "3600"
+    service.beta.kubernetes.io/aws-load-balancer-internal: "0.0.0.0/0"
+spec:
+  type: LoadBalancer
+  ports:
+  - name: web
+    port: 3009
+    nodePort: 32009
+  selector:
+    app: gravity-site

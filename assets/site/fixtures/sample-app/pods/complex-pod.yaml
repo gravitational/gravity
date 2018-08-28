@@ -1,0 +1,15 @@
+apiVersion: v1
+kind: Pod
+metadata:
+    name: "complex-pod"
+    labels:
+        name: "complex-pod"
+spec:
+    containers:
+       - name: "bash"
+         image: "busy-bash:1.0.2"
+    containers:
+       - name: "sample-app"
+         image: "sample-app:1.0.2"
+         ports:
+            - containerPort: 5000

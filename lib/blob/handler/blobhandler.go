@@ -1,0 +1,195 @@
+package handler
+
+import (
+	"fmt"
+	"io"
+	"net/http"
+	"time"
+
+	"github.com/gravitational/gravity/lib/blob"
+	"github.com/gravitational/gravity/lib/httplib"
+	"github.com/gravitational/gravity/lib/users"
+
+	log "github.com/sirupsen/logrus"
+	"github.com/gravitational/form"
+	"github.com/gravitational/roundtrip"
+	"github.com/gravitational/trace"
+	"github.com/julienschmidt/httprouter"
+)
+
+// Config is a config for HTTP handler
+type Config struct {
+	// Users is identity and access management service
+	Users users.Identity
+	// Cluster implements cluster-level BLOB storage
+	Cluster blob.Objects
+	// Local implements local BLOB storage (used by peers to
+	// exchange BLOBs)
+	Local blob.Objects
+}
+
+// Server is HTTP server implementing BLOB storage over HTTP
+type Server struct {
+	httprouter.Router
+	cfg        Config
+	fileServer http.Handler
+}
+
+// New returns new instance of HTTP  BLOB server
+func New(cfg Config) (*Server, error) {
+	if cfg.Users == nil {
+		return nil, trace.BadParameter("missing parameter Users")
+	}
+	if cfg.Cluster == nil {
+		return nil, trace.BadParameter("missing parameter Cluster")
+	}
+	if cfg.Local == nil {
+		return nil, trace.BadParameter("missing parameter Local")
+	}
+	h := &Server{
+		cfg: cfg,
+	}
+
+	handlers := []struct {
+		objects blob.Objects
+		prefix  string
+	}{
+		{objects: cfg.Cluster, prefix: "/objects/v1/cluster"},
+		{objects: cfg.Local, prefix: "/objects/v1/local"},
+	}
+	for _, handler := range handlers {
+		h.GET(handler.prefix+"/blobs", h.needsAuth(h.getBLOBs, handler.objects))
+		h.DELETE(handler.prefix+"/blobs/:hash", h.needsAuth(h.deleteBLOB, handler.objects))
+		h.GET(handler.prefix+"/blobs/:hash", h.needsAuth(h.getBLOB, handler.objects))
+		h.GET(handler.prefix+"/blobs/:hash/envelope", h.needsAuth(h.getBLOBEnvelope, handler.objects))
+		h.HEAD(handler.prefix+"/blobs/:hash", h.needsAuth(h.getBLOB, handler.objects))
+		h.POST(handler.prefix+"/blobs", h.needsAuth(h.createBLOB, handler.objects))
+	}
+
+	h.NotFound = h.notFound
+
+	return h, nil
+}
+
+func (s *Server) notFound(w http.ResponseWriter, r *http.Request) {
+	err := trace.NotFound("%v %v is not recognized", r.Method, r.URL.String())
+	log.Infof(err.Error())
+	trace.WriteError(w, err)
+}
+
+func (s *Server) getBLOBs(w http.ResponseWriter, r *http.Request, p httprouter.Params, objects blob.Objects) error {
+	hashes, err := objects.GetBLOBs()
+	if err != nil {
+		return trace.Wrap(err)
+	}
+	roundtrip.ReplyJSON(w, http.StatusOK, hashes)
+	return nil
+}
+
+func (s *Server) getBLOBEnvelope(w http.ResponseWriter, r *http.Request, p httprouter.Params, objects blob.Objects) error {
+	envelope, err := objects.GetBLOBEnvelope(p.ByName("hash"))
+	if err != nil {
+		return trace.Wrap(err)
+	}
+	roundtrip.ReplyJSON(w, http.StatusOK, envelope)
+	return nil
+}
+
+func (s *Server) deleteBLOB(w http.ResponseWriter, r *http.Request, p httprouter.Params, objects blob.Objects) error {
+	if err := objects.DeleteBLOB(p.ByName("hash")); err != nil {
+		return trace.Wrap(err)
+	}
+	return nil
+}
+
+func (s *Server) getBLOB(w http.ResponseWriter, r *http.Request, p httprouter.Params, objects blob.Objects) error {
+	hash := p.ByName("hash")
+	fileObject, err := objects.OpenBLOB(hash)
+	if err != nil {
+		return trace.Wrap(err)
+	}
+	defer fileObject.Close()
+
+	readSeeker, ok := fileObject.(io.ReadSeeker)
+	if !ok {
+		return trace.BadParameter("expected read seeker object")
+	}
+
+	w.Header().Set("Content-Disposition", fmt.Sprintf(`attachment; filename=%v`, hash))
+	http.ServeContent(w, r, hash, time.Now(), readSeeker)
+	return nil
+}
+
+func (s *Server) createBLOB(w http.ResponseWriter, r *http.Request, p httprouter.Params, objects blob.Objects) error {
+	var files form.Files
+
+	err := form.Parse(r,
+		form.FileSlice("file", &files),
+	)
+	if err != nil {
+		return trace.Wrap(err)
+	}
+
+	if len(files) != 1 {
+		return trace.BadParameter("expected a single file parameter but got %d", len(files))
+	}
+
+	defer func() {
+		// don't let the error get lost
+		if err := files.Close(); err != nil {
+			log.Errorf("failed to close files: %v", trace.DebugReport(err))
+		}
+	}()
+
+	envelope, err := objects.WriteBLOB(files[0])
+	if err != nil {
+		return trace.Wrap(err)
+	}
+	roundtrip.ReplyJSON(w, http.StatusOK, envelope)
+	return nil
+}
+
+func (s *Server) needsAuth(fn authHandle, objects blob.Objects) httprouter.Handle {
+	return func(w http.ResponseWriter, r *http.Request, p httprouter.Params) {
+		log.WithFields(log.Fields{
+			"method": r.Method,
+		}).Debugf(r.URL.Path)
+
+		authCreds, err := httplib.ParseAuthHeaders(r)
+		if err != nil {
+			trace.WriteError(w, err)
+			return
+		}
+
+		user, checker, err := s.cfg.Users.AuthenticateUser(*authCreds)
+		if err != nil {
+			log.Infof("authenticate error: %v", err)
+			// we hide the error from the remote user to avoid giving any hints
+			trace.WriteError(
+				w, trace.AccessDenied("bad username or password"))
+			return
+		}
+
+		acl := blob.WithPermissions(objects, s.cfg.Users, user.GetName(), checker)
+		if err := fn(w, r, p, acl); err != nil {
+			if !trace.IsNotFound(err) && !trace.IsAlreadyExists(err) {
+				log.Errorf("handler error: %v", trace.DebugReport(err))
+			}
+			trace.WriteError(w, err)
+		}
+	}
+}
+
+type authHandle func(
+	http.ResponseWriter, *http.Request, httprouter.Params, blob.Objects) error
+
+type authContext struct {
+	UserName  string
+	AccountID string
+	SiteID    string
+}
+
+type labels struct {
+	AddLabels    map[string]string `json:"add_labels"`
+	RemoveLabels []string          `json:"remove_labels"`
+}

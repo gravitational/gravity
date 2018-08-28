@@ -1,0 +1,56 @@
+---
+
+- hosts: nodes
+  become: yes
+  tasks:
+  - name: Create install directory
+    file:
+      path: /vagrant/installer
+      state: directory
+
+  - name: Download and install tele
+    get_url:
+      url: https://opscenter.localhost.localdomain:33009/telekube/bin/latest/linux/x86_64/tele
+      dest: /usr/local/bin/tele
+      mode: 0755
+      force: yes
+      validate_certs: no
+
+  - name: Download and install temporary gravity
+    get_url:
+      url: https://opscenter.localhost.localdomain:33009/telekube/bin/latest/linux/x86_64/gravity
+      dest: /tmp/gravity
+      mode: 0755
+      force: yes
+      validate_certs: no
+
+  - name: Log into local opscenter
+    shell: /usr/local/bin/tele login -o https://opscenter.localhost.localdomain:33009 --insecure --key={{apikey}}
+
+  - name: Fetch telekube application
+    shell: /usr/local/bin/tele pull -o /vagrant/installer/installer.tar {{app}} --insecure
+    args:
+      creates:
+        /var/vagrant/installer.tar
+
+  - name: Install gravity application
+    shell: |
+      umask 0066
+      cd /vagrant/installer
+      tar -xf installer.tar
+      {% if inventory_hostname == groups['nodes'][0] %}
+      ./gravity install \
+        --flavor={{flavor}} \
+        --cluster=dev.test \
+        --advertise-addr={{hostvars[inventory_hostname]['ansible_default_ipv4']['address']}} \
+        --token=token
+      {% else %}
+      /tmp/gravity join \
+        {{hostvars[groups['nodes'][0]]['ansible_default_ipv4']['address']}} \
+        --advertise-addr={{hostvars[inventory_hostname]['ansible_default_ipv4']['address']}} \
+        --token=token
+      {% endif %}
+
+
+  - name: install certificates from ops center
+    include: certs.yaml

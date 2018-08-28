@@ -1,0 +1,55 @@
+apiVersion: bundle.gravitational.io/v2
+kind: SystemApplication
+metadata:
+  name: tiller-app
+  resourceVersion: "0.0.0"
+  namespace: kube-system
+hooks:
+  install:
+    job: |
+      apiVersion: batch/v1
+      kind: Job
+      metadata:
+        name: tiller-app-bootstrap
+      spec:
+        template:
+          metadata:
+            name: tiller-app-bootstrap
+          spec:
+            restartPolicy: OnFailure
+            containers:
+              - name: hook
+                image: quay.io/gravitational/debian-tall:0.0.1
+                command: ["/usr/local/bin/kubectl", "apply", "-f", "/var/lib/gravity/resources/resources.yaml"]
+  update:
+    job: |
+      apiVersion: batch/v1
+      kind: Job
+      metadata:
+        name: tiller-app-update
+      spec:
+        template:
+          metadata:
+            name: tiller-app-update
+          spec:
+            restartPolicy: OnFailure
+            containers:
+              - name: hook
+                image: quay.io/gravitational/debian-tall:0.0.1
+                command: ["/usr/local/bin/kubectl", "replace", "--force", "-f", "/var/lib/gravity/resources/resources.yaml"]
+  uninstall:
+    job: |
+      apiVersion: batch/v1
+      kind: Job
+      metadata:
+        name: tiller-app-uninstall
+      spec:
+        template:
+          metadata:
+            name: tiller-app-uninstall
+          spec:
+            restartPolicy: OnFailure
+            containers:
+              - name: hook
+                image: quay.io/gravitational/debian-tall:0.0.1
+                command: ["/usr/local/bin/kubectl", "delete", "-f", "/var/lib/gravity/resources/resources.yaml"]

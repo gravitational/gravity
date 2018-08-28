@@ -1,0 +1,123 @@
+package utils
+
+import (
+	"bufio"
+	"fmt"
+	"regexp"
+	"strings"
+
+	"github.com/gravitational/trace"
+)
+
+// FindETCDMemberID finds Member ID by node name in the output from etcd member list:
+//
+//    6e3bd23ae5f1eae0: name=node2 peerURLs=http://localhost:23802 clientURLs=http://127.0.0.1:23792
+//    924e2e83e93f2560: name=node3 peerURLs=http://localhost:23803 clientURLs=http://127.0.0.1:23793
+//    a8266ecf031671f3: name=node1 peerURLs=http://localhost:23801 clientURLs=http://127.0.0.1:23791
+//
+func FindETCDMemberID(output, name string) (string, error) {
+	nameChunk := fmt.Sprintf("name=%v", name)
+	scanner := bufio.NewScanner(strings.NewReader(output))
+	var line string
+	for scanner.Scan() {
+		text := strings.TrimSpace(scanner.Text())
+		if strings.Contains(text, nameChunk) {
+			line = text
+			break
+		}
+	}
+	if line == "" {
+		return "", trace.NotFound("%v not found", name)
+	}
+
+	parts := strings.SplitN(line, ": ", 2)
+	if len(parts) != 2 {
+		return "", trace.BadParameter("%v bad format of '%v'", name, line)
+	}
+
+	return parts[0], nil
+}
+
+// EtcdInitialCluster interprets the output of etcdctl member list
+// as a comma-separated list of name:ip pairs.
+func EtcdInitialCluster(memberListOutput string) (string, error) {
+	var initialCluster []string
+
+	scanner := bufio.NewScanner(strings.NewReader(memberListOutput))
+	for scanner.Scan() {
+		match := reMemberList.FindStringSubmatch(scanner.Text())
+		if len(match) != 3 {
+			continue
+		}
+
+		initialCluster = append(initialCluster,
+			fmt.Sprintf("%s:%s", match[1], match[2]))
+	}
+
+	if err := scanner.Err(); err != nil {
+		return "", trace.Wrap(err)
+	}
+
+	return strings.Join(initialCluster, ","), nil
+}
+
+// EtcdParseAddMember parses the output of 'etcdctl member add' command and returns
+// new member name, initial cluster and initial cluster state.
+func EtcdParseAddMember(memberAddOutput string) (string, string, string, error) {
+	match := reMemberAdd.FindStringSubmatch(memberAddOutput)
+	if len(match) != 4 {
+		return "", "", "", trace.BadParameter(
+			"unexpected 'member add' output, failed to extract member info: %v", memberAddOutput)
+	}
+
+	return match[1], match[2], match[3], nil
+}
+
+// EtcdParseMemberList parses "etcdctl member list" output
+func EtcdParseMemberList(memberListOutput string) (EtcdMemberList, error) {
+	var result EtcdMemberList
+	scanner := bufio.NewScanner(strings.NewReader(memberListOutput))
+	for scanner.Scan() {
+		match := reMemberList.FindStringSubmatch(scanner.Text())
+		if len(match) != 3 {
+			continue
+		}
+		result = append(result, EtcdMember{
+			Name:     match[1],
+			PeerURLs: match[2],
+		})
+	}
+	if err := scanner.Err(); err != nil {
+		return nil, trace.Wrap(err)
+	}
+	return result, nil
+}
+
+// EtcdMemberList represents parsed "etcdctl member list" output
+type EtcdMemberList []EtcdMember
+
+// EtcdMember describes an etcd member from "etcdctl member list" output
+type EtcdMember struct {
+	// Name is etcd member name
+	Name string `json:"name"`
+	// PeerURLs is etcd peer URLs
+	PeerURLs string `json:"peer_urls"`
+}
+
+// HasMember returns true if member list contains specified member
+func (l EtcdMemberList) HasMember(name string) bool {
+	for _, m := range l {
+		if m.Name == name {
+			return true
+		}
+	}
+	return false
+}
+
+var (
+	// reMemberList parses name and peer URL from the output of 'etcdctl member list' command
+	reMemberList = regexp.MustCompile("name=([^ ]+) peerURLs=https?://([^:]+)")
+	// reMemberAdd parses name, initial cluster and state from the output of 'etcdctl member add' command
+	reMemberAdd = regexp.MustCompile(
+		`ETCD_NAME="(.+)"(?s:.+)ETCD_INITIAL_CLUSTER="(.+)"(?s:.+)ETCD_INITIAL_CLUSTER_STATE="(.+)"`)
+)

@@ -1,0 +1,192 @@
+apiVersion: bundle.gravitational.io/v2
+kind: Bundle
+metadata:
+  name: telekube
+  resourceVersion: "0.0.0"
+logo: file://logo.svg
+endpoints:
+  - name: "Telekube Control Panel"
+    description: |
+      Local administrative user interface of this Telekube cluster
+    selector:
+      app: gravity-site
+    protocol: https
+  - name: "Bandwagon"
+    hidden: true
+    serviceName: bandwagon
+providers:
+  aws:
+    regions:
+      # the current version of gravitational/provisioner supports
+      # only us-east-2 region for some reason
+      - us-east-2
+installer:
+  setupEndpoints:
+    - "Bandwagon"
+  flavors:
+    prompt: "Select a flavor"
+    default: "one"
+    items:
+      # as of the time of this writing, gravitational/provisioner
+      # supports only nodes with role 'node' so all other flavors
+      # have been removed
+      #
+      # we can bring flavors with 'knode' and 'master' roles back
+      # if/when provisioner becomes more flexible
+      - name: "one"
+        description: "1 node"
+        nodes:
+          - profile: node
+            count: 1
+      - name: "two"
+        description: "2 nodes"
+        nodes:
+          - profile: node
+            count: 2
+      - name: "three"
+        description: "3 nodes"
+        nodes:
+          - profile: node
+            count: 3
+      - name: "four"
+        description: "4 nodes"
+        nodes:
+          - profile: node
+            count: 4
+      - name: "five"
+        description: "5 nodes"
+        nodes:
+          - profile: node
+            count: 5
+      - name: "six"
+        description: "6 nodes"
+        nodes:
+          - profile: node
+            count: 6
+nodeProfiles:
+  - name: node
+    description: "Telekube Auto Node"
+    requirements:
+      cpu:
+        min: 1
+      ram:
+        min: "2GB"
+      os:
+        - name: centos
+          versions: ["7"]
+        - name: rhel
+          versions: ["7"]
+        - name: ubuntu
+          versions: ["16.04"]
+        - name: ubuntu-core
+          versions: ["16"]
+        - name: debian
+          versions: ["8", "9"]
+        - name: suse
+          versions: ["12"]
+        - name: sles  # Suse Linux Enterprise Server
+          versions: ["12"]
+      volumes:
+        - path: /var/lib/gravity
+          capacity: "10GB"
+          filesystems: ["xfs", "ext4"]
+    providers:
+      aws:
+        instanceTypes:
+          - m4.xlarge
+          - c3.xlarge
+          - c3.2xlarge
+          - c3.4xlarge
+          - i2.2xlarge
+  - name: knode
+    description: "Telekube Node"
+    labels:
+      node-role.kubernetes.io/node: "true"
+    requirements:
+      cpu:
+        min: 1
+      ram:
+        min: "2GB"
+      os:
+        - name: centos
+          versions: ["7"]
+        - name: rhel
+          versions: ["7"]
+        - name: ubuntu
+          versions: ["16.04"]
+        - name: ubuntu-core
+          versions: ["16"]
+        - name: debian
+          versions: ["8", "9"]
+        - name: suse
+          versions: ["12"]
+        - name: sles  # Suse Linux Enterprise Server
+          versions: ["12"]
+      volumes:
+        - path: /var/lib/gravity
+          capacity: "10GB"
+          filesystems: ["xfs", "ext4"]
+    providers:
+      aws:
+        instanceTypes:
+          - m3.xlarge
+          - m4.large
+          - m4.xlarge
+          - c3.xlarge
+          - c3.2xlarge
+          - c3.4xlarge
+          - i2.2xlarge
+  - name: master
+    description: "Telekube Master"
+    labels:
+      node-role.kubernetes.io/master: "true"
+    requirements:
+      cpu:
+        min: 1
+      ram:
+        min: "2GB"
+      os:
+        - name: centos
+          versions: ["7"]
+        - name: rhel
+          versions: ["7"]
+        - name: ubuntu
+          versions: ["16.04"]
+        - name: ubuntu-core
+          versions: ["16"]
+        - name: debian
+          versions: ["8", "9"]
+        - name: suse
+          versions: ["12"]
+        - name: sles  # Suse Linux Enterprise Server
+          versions: ["12"]
+      volumes:
+        - path: /var/lib/gravity
+          capacity: "10GB"
+          filesystems: ["xfs", "ext4"]
+    providers:
+      aws:
+        instanceTypes:
+          - m3.xlarge
+          - m4.large
+          - m4.xlarge
+          - c3.xlarge
+          - c3.2xlarge
+          - c3.4xlarge
+          - i2.2xlarge
+hooks:
+  clusterProvision:
+    job: file://clusterProvision.yaml
+  nodesProvision:
+    job: file://nodesProvision.yaml
+  nodesDeprovision:
+    job: file://nodesDeprovision.yaml
+  clusterDeprovision:
+    job: file://clusterDeprovision.yaml
+  preUpdate:
+    job: file://preUpdate.yaml
+systemOptions:
+  runtime:
+    version: "0.0.0+latest"
+  docker:
+    storageDriver: overlay

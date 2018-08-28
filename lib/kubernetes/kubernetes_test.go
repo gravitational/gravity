@@ -1,0 +1,303 @@
+package kubernetes
+
+import (
+	"context"
+	"os"
+	"strconv"
+	"testing"
+	"time"
+
+	"github.com/gravitational/gravity/lib/defaults"
+	"github.com/gravitational/gravity/lib/utils"
+
+	"github.com/cenkalti/backoff"
+	"github.com/gravitational/rigging"
+	"github.com/gravitational/trace"
+	log "github.com/sirupsen/logrus"
+	"k8s.io/api/core/v1"
+	extensionsv1 "k8s.io/api/extensions/v1beta1"
+	"k8s.io/apimachinery/pkg/api/errors"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/fields"
+	"k8s.io/apimachinery/pkg/labels"
+	"k8s.io/client-go/kubernetes"
+	corev1 "k8s.io/client-go/kubernetes/typed/core/v1"
+
+	. "gopkg.in/check.v1"
+)
+
+func TestOperations(t *testing.T) { TestingT(t) }
+
+type S struct {
+	*kubernetes.Clientset
+	v1.Node
+}
+
+var _ = Suite(&S{})
+
+func (s *S) SetUpSuite(c *C) {
+	log.StandardLogger().Hooks = make(log.LevelHooks)
+	formatter := &trace.TextFormatter{}
+	formatter.DisableTimestamp = true
+	log.SetFormatter(formatter)
+	if testing.Verbose() {
+		log.SetLevel(log.DebugLevel)
+	} else {
+		log.SetLevel(log.ErrorLevel)
+	}
+	log.SetOutput(os.Stdout)
+}
+
+func (s *S) SetUpTest(c *C) {
+	testEnabled := os.Getenv(defaults.TestK8s)
+	if ok, _ := strconv.ParseBool(testEnabled); !ok {
+		c.Skip("skipping Kubernetes test")
+	}
+	var err error
+	s.Clientset, _, err = utils.GetKubeClient("")
+	c.Assert(err, IsNil)
+
+	ns := newNamespace(testNamespace)
+	b := backoff.NewExponentialBackOff()
+	b.MaxElapsedTime = 5 * time.Minute
+	err = utils.RetryWithInterval(context.TODO(), b, func() error {
+		_, err = s.Core().Namespaces().Create(ns)
+		err = retryOnAlreadyExists(err)
+		return err
+	})
+	c.Assert(err, IsNil)
+
+	client := s.CoreV1().Nodes()
+	s.Node = getNode(c, client)
+
+	if s.Labels == nil {
+		s.Labels = make(map[string]string)
+	}
+	s.Labels["test"] = "yes"
+	_, err = client.Update(&s.Node)
+	c.Assert(err, IsNil)
+}
+
+func (s *S) TearDownTest(c *C) {
+	err := s.Core().Namespaces().Delete(testNamespace, nil)
+	c.Assert(err, IsNil)
+
+	client := s.CoreV1().Nodes()
+	node, err := client.Get(s.Node.Name, metav1.GetOptions{})
+	c.Assert(err, IsNil)
+
+	delete(node.Labels, "test")
+	_, err = client.Update(node)
+	c.Assert(err, IsNil)
+}
+
+func (s *S) TestDrainsNode(c *C) {
+	client := s.CoreV1().Nodes()
+	ctx, cancel := context.WithTimeout(context.TODO(), testTimeout)
+	defer cancel()
+
+	// setup
+	pod := newPod("foo")
+	_, err := s.Core().Pods(testNamespace).Create(pod)
+	c.Assert(err, IsNil)
+
+	d := newDeployment("bar", pod.Spec)
+	_, err = s.Extensions().Deployments(testNamespace).Create(d)
+	c.Assert(err, IsNil)
+
+	ds := newDaemonSet("qux", pod.Spec)
+	_, err = s.Extensions().DaemonSets(testNamespace).Create(ds)
+	c.Assert(err, IsNil)
+
+	podList, err := s.Core().Pods(testNamespace).List(
+		metav1.ListOptions{
+			FieldSelector: fields.SelectorFromSet(fields.Set{"spec.nodeName": s.Name}).String(),
+			LabelSelector: labels.SelectorFromSet(labels.Set{"test-app": "foo"}).String(),
+		})
+	err = waitForPods(ctx, s.CoreV1(), podList.Items, v1.PodRunning)
+	c.Assert(err, IsNil)
+
+	// exercise
+	err = Drain(ctx, s.Clientset, s.Name)
+	c.Assert(err, IsNil)
+
+	podList, err = s.Core().Pods(testNamespace).List(
+		metav1.ListOptions{
+			FieldSelector: fields.SelectorFromSet(fields.Set{"spec.nodeName": s.Name}).String(),
+			LabelSelector: labels.SelectorFromSet(labels.Set{"test-app": "foo"}).String(),
+		})
+	pendingPods, err := waitForDelete(ctx, s.CoreV1(), podList.Items, usingEviction(false))
+	c.Assert(err, IsNil)
+	c.Assert(pendingPods, HasLen, 0)
+
+	// Clean up
+	err = SetUnschedulable(ctx, client, s.Name, false)
+	c.Assert(err, IsNil)
+}
+
+func (s *S) TestUpdatesNodeTaints(c *C) {
+	client := s.CoreV1().Nodes()
+	ctx, cancel := context.WithTimeout(context.TODO(), testTimeout)
+	defer cancel()
+	taintsToAdd := []v1.Taint{
+		{Key: "foo", Value: "bar", Effect: v1.TaintEffectNoSchedule},
+	}
+	err := UpdateTaints(ctx, client, s.Name, taintsToAdd, nil)
+	c.Assert(err, IsNil)
+
+	updatedNode, err := client.Get(s.Name, metav1.GetOptions{})
+	c.Assert(err, IsNil)
+	c.Assert(hasTaint(updatedNode.Spec.Taints, taintsToAdd), Equals, true)
+
+	// Remove taint
+	err = UpdateTaints(ctx, client, s.Name, nil, taintsToAdd)
+	c.Assert(err, IsNil)
+
+	updatedNode, err = client.Get(s.Name, metav1.GetOptions{})
+	c.Assert(err, IsNil)
+	c.Assert(hasTaint(updatedNode.Spec.Taints, taintsToAdd), Equals, false)
+}
+
+func (s *S) TestCordonsUncordonsNode(c *C) {
+	client := s.CoreV1().Nodes()
+	ctx, cancel := context.WithTimeout(context.TODO(), testTimeout)
+	defer cancel()
+
+	// exercise
+	err := SetUnschedulable(ctx, client, s.Name, true)
+	c.Assert(err, IsNil)
+
+	// verify
+	updatedNode, err := client.Get(s.Name, metav1.GetOptions{})
+	c.Assert(err, IsNil)
+	c.Assert(updatedNode.Spec.Unschedulable, Equals, true)
+
+	// exercise
+	err = SetUnschedulable(ctx, client, s.Name, false)
+	c.Assert(err, IsNil)
+
+	// verify
+	updatedNode, err = client.Get(s.Name, metav1.GetOptions{})
+	c.Assert(err, IsNil)
+	c.Assert(updatedNode.Spec.Unschedulable, Equals, false)
+}
+
+func newDeployment(name string, podSpec v1.PodSpec) *extensionsv1.Deployment {
+	return &extensionsv1.Deployment{
+		ObjectMeta: metav1.ObjectMeta{
+			Namespace: testNamespace,
+			Name:      name,
+			Labels:    map[string]string{"test-app": name},
+		},
+		Spec: extensionsv1.DeploymentSpec{
+			Template: v1.PodTemplateSpec{
+				ObjectMeta: metav1.ObjectMeta{
+					Labels: map[string]string{"test-app": name},
+				},
+				Spec: podSpec,
+			},
+		},
+	}
+}
+
+func newDaemonSet(name string, podSpec v1.PodSpec) *extensionsv1.DaemonSet {
+	return &extensionsv1.DaemonSet{
+		ObjectMeta: metav1.ObjectMeta{
+			Namespace: testNamespace,
+			Name:      name,
+			Labels:    map[string]string{"test-app": name},
+		},
+		Spec: extensionsv1.DaemonSetSpec{
+			Template: v1.PodTemplateSpec{
+				ObjectMeta: metav1.ObjectMeta{
+					Labels: map[string]string{"test-app": name},
+				},
+				Spec: podSpec,
+			},
+		},
+	}
+}
+
+func newPod(name string) *v1.Pod {
+	return &v1.Pod{
+		ObjectMeta: metav1.ObjectMeta{
+			Namespace: testNamespace,
+			Name:      name,
+			Labels:    map[string]string{"test-app": name},
+		},
+		Spec: v1.PodSpec{
+			NodeSelector: map[string]string{
+				"test": "yes",
+			},
+			Containers: []v1.Container{
+				{
+					Name:    name,
+					Image:   "apiserver:5000/gravitational/debian-tall:0.0.1",
+					Command: []string{"/bin/sh", "-c", "sleep 3600"},
+				},
+			},
+		},
+	}
+}
+
+// hasTaint checks if taints has any taints from taintsToCheck
+func hasTaint(taints []v1.Taint, taintsToCheck []v1.Taint) bool {
+	for _, taint := range taints {
+		for _, taintToCheck := range taintsToCheck {
+			if taint.MatchTaint(&taintToCheck) {
+				return true
+			}
+		}
+	}
+	return false
+}
+
+// getNode returns the first available node in the cluster
+func getNode(c *C, client corev1.NodeInterface) v1.Node {
+	nodes, err := client.List(metav1.ListOptions{})
+	c.Assert(err, IsNil)
+	c.Assert(nodes.Items, Not(HasLen), 0, Commentf("need at least one node"))
+	return nodes.Items[0]
+}
+
+func newNamespace(name string) *v1.Namespace {
+	return &v1.Namespace{
+		ObjectMeta: metav1.ObjectMeta{
+			Name: name,
+		},
+	}
+}
+
+func waitForPods(ctx context.Context, client corev1.CoreV1Interface, pods []v1.Pod, expected v1.PodPhase) error {
+	b := backoff.NewConstantBackOff(defaults.WaitStatusInterval)
+	err := utils.RetryWithInterval(ctx, b, func() error {
+		for _, pod := range pods {
+			p, err := client.Pods(pod.Namespace).Get(pod.Name, metav1.GetOptions{})
+			if errors.IsNotFound(err) || (p != nil && p.Status.Phase != expected) {
+				log.WithFields(podFields(pod)).Debug("waiting")
+				return trace.NotFound("no pod found")
+			}
+			return nil
+		}
+		return nil
+	})
+	return trace.Wrap(err)
+}
+
+func retryOnAlreadyExists(err error) error {
+	if err == nil {
+		return nil
+	}
+	switch {
+	case errors.IsAlreadyExists(err):
+		return rigging.ConvertError(err)
+	default:
+		return &backoff.PermanentError{Err: err}
+	}
+}
+
+const (
+	testTimeout = 1 * time.Minute
+
+	testNamespace = "test"
+)

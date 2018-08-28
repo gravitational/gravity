@@ -1,0 +1,185 @@
+package opsservice
+
+import (
+	"fmt"
+	"io"
+	"time"
+
+	appservice "github.com/gravitational/gravity/lib/app"
+	"github.com/gravitational/gravity/lib/constants"
+	"github.com/gravitational/gravity/lib/loc"
+	"github.com/gravitational/gravity/lib/ops"
+	"github.com/gravitational/gravity/lib/storage"
+	"github.com/gravitational/trace"
+
+	log "github.com/sirupsen/logrus"
+)
+
+type Recorder interface {
+	Record(format string, args ...interface{})
+	WithFields(log.Fields) *log.Entry
+}
+
+// operationContext holds necessary operation context,
+// operation key, recorder and plan
+// currently there's only one operation context
+// that is shared between all operation,
+// so fields of the context are really a union of
+// fields used in different operations
+type operationContext struct {
+	*log.Entry
+	// operation is current operation
+	operation ops.SiteOperation
+	// recorder is operation log recorder
+	recorder io.WriteCloser
+	// provisionedServers is used in all operations
+	provisionedServers provisionedServers
+	// variables is a map of opaque data for operations
+	variables map[string]interface{}
+	// serversToRemove is a list of servers to remove
+	// in shrink operation
+	serversToRemove []storage.Server
+	// update groups update-related transient attributes
+	update updateContext
+}
+
+// update groups update-related transient attributes
+type updateContext struct {
+	// masterIP is the IP of the active master node
+	masterIP string
+	// installOp references the installation operation used to create
+	// the cluster
+	installOp ops.SiteOperation
+	// app describes the update application
+	app appservice.Application
+	// gravityPath specifies location of the temporary gravity binary used for update.
+	gravityPath string
+	// gravityPackage specifies the package with the new gravity binary
+	gravityPackage loc.Locator
+}
+
+func (s *site) newOperationContext(operation ops.SiteOperation) (*operationContext, error) {
+	recorder, err := s.newOperationRecorder(operation.Key(), s.service.cfg.InstallLogFiles...)
+	if err != nil {
+		return nil, trace.Wrap(err)
+	}
+	entry := s.WithFields(log.Fields{constants.FieldOperationID: operation.ID})
+	entry.Logger = &log.Logger{
+		Out:       entry.Logger.Out,
+		Formatter: entry.Logger.Formatter,
+		Hooks:     entry.Logger.Hooks,
+		Level:     entry.Logger.Level,
+	}
+	ctx := &operationContext{
+		recorder:  recorder,
+		operation: operation,
+		Entry:     entry,
+	}
+	return ctx, nil
+}
+
+func (c *operationContext) removeAll() bool {
+	// this is a special case and means - remove all servers
+	return len(c.serversToRemove) == 0
+}
+
+func (c *operationContext) shouldRemoveServer(name string) bool {
+	if c.removeAll() {
+		return true
+	}
+	for _, s := range c.serversToRemove {
+		if s.Hostname == name {
+			return true
+		}
+	}
+	return false
+}
+
+func (c *operationContext) profiles() (result map[string]storage.ServerProfile) {
+	switch c.operation.Type {
+	case ops.OperationInstall, ops.OperationExpand:
+		return c.operation.InstallExpand.Profiles
+	}
+	return result
+}
+
+// getNumServers returns the number of servers configured for the operation
+func (c *operationContext) getNumServers() (servers int) {
+	switch c.operation.Type {
+	case ops.OperationShrink:
+		return len(c.serversToRemove)
+	default:
+		for _, profile := range c.profiles() {
+			servers += profile.Request.Count
+		}
+		return servers
+	}
+}
+
+// serverWithRole augments server profile with its role name
+type serverWithRole struct {
+	storage.ServerProfile
+	role string
+}
+
+// key returns SiteOperationKey generated from the operation
+func (c *operationContext) key() ops.SiteOperationKey {
+	return ops.SiteOperationKey{
+		SiteDomain:  c.operation.SiteDomain,
+		OperationID: c.operation.ID,
+		AccountID:   c.operation.AccountID,
+	}
+}
+
+// Record writes the provided formatted string to the operation log
+func (c *operationContext) Record(format string, a ...interface{}) {
+	now := time.Now().UTC().Format(constants.HumanDateFormatSeconds)
+	fmt.Fprintf(c.recorder, "%s %s\n", now, fmt.Sprintf(format, a...))
+}
+
+// RecordError writes an error message to the customer-facing operation log
+func (c *operationContext) RecordError(format string, a ...interface{}) {
+	now := time.Now().UTC().Format(constants.HumanDateFormatSeconds)
+	fmt.Fprintf(c.recorder, "%s [ERROR] %s\n", now, fmt.Sprintf(format, a...))
+}
+
+// RecordWarn writer a warning message to the customer-facing operation log
+func (c *operationContext) RecordWarn(format string, a ...interface{}) {
+	now := time.Now().UTC().Format(constants.HumanDateFormatSeconds)
+	fmt.Fprintf(c.recorder, "%s [WARN] %s\n", now, fmt.Sprintf(format, a...))
+}
+
+// RecordInfo writes an info message to the customer-facing operation log
+func (c *operationContext) RecordInfo(format string, a ...interface{}) {
+	now := time.Now().UTC().Format(constants.HumanDateFormatSeconds)
+	fmt.Fprintf(c.recorder, "%s [INFO] %s\n", now, fmt.Sprintf(format, a...))
+}
+
+func (c *operationContext) WithFields(fields log.Fields) *log.Entry {
+	return c.Entry.WithFields(fields)
+}
+
+// Close closes operation context resources, e.g. file handles
+func (c *operationContext) Close() error {
+	return c.recorder.Close()
+}
+
+// Write writes to operation log
+func (c *operationContext) Write(b []byte) (int, error) {
+	c.Entry.Print(string(b))
+	return len(b), nil
+}
+
+// logRecorder implements Recorder interface and uses standard logging, so it
+// can be used where operationContext is not available
+type logRecorder struct {
+	*log.Entry
+}
+
+func (r logRecorder) WithFields(fields log.Fields) *log.Entry {
+	return r.Entry.WithFields(fields)
+}
+
+func (r logRecorder) Record(format string, a ...interface{}) {
+	r.Infof(format, a...)
+}

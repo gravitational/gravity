@@ -1,0 +1,75 @@
+apiVersion: v1
+kind: Application
+metadata:
+  name: test
+  resourceVersion: "1.0"
+base: gravitational.io/k8s-aws:1.2.3-2
+installer:
+  logo_style:
+    width: "100px"
+    height: "100px"
+    backgroundImage: url("https://empower2016.com/wp-content/uploads/2015/11/YourLogoHere.jpg")
+  provisioners:
+    aws_terraform:
+      variables:
+        instance_types:
+        - c3.xlarge
+  servers:
+    master:
+      description: control plane node
+      labels:
+        app: test
+      cpu:
+        min_count: 1
+      ram:
+        min_total_mb: 700
+      directories:
+      - name: /var/lib/gravity
+        min_total_mb: 500
+        fs_types: ["xfs", "btrfs"]
+    database:
+      min_count: 2
+      description: database node
+      labels:
+        app: test
+      cpu:
+        min_count: 1
+      ram:
+        min_total_mb: 700
+      directories:
+      - name: /var/lib/gravity
+        min_total_mb: 500
+        fs_types: ["xfs", "btrfs"]
+      mounts:
+      - name: logs
+        source: /var/postgres/logs
+        destination: /var/postgres/logs
+        create_if_missing: true
+      - name: db
+        source: /var/postgres/db
+        destination: /var/postgres/db
+        create_if_missing: true
+  flavors:
+    title: "Sample cluster"
+    items:
+    - name: demo
+      description: lightweight cluster for demos
+      threshold:
+        value: 100
+        label: "100 RPS"
+      profiles:
+        database:
+          count: 2
+    - name: moderate
+      description: medium cluster
+      threshold:
+        value: 2000
+        label: "100 RPS"
+      profiles:
+        database:
+          count: 3
+hooks:
+  post_install:
+    script: |
+      kubectl get nodes
+      kubectl get pods -o wide
