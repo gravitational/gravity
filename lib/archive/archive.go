@@ -180,8 +180,8 @@ func DirItem(path string) *Item {
 			Name:     path + "/",
 			Typeflag: tar.TypeDir,
 			Mode:     defaults.SharedDirMask,
-			Uid:      defaults.ArchiveUid,
-			Gid:      defaults.ArchiveGid,
+			Uid:      defaults.ArchiveUID,
+			Gid:      defaults.ArchiveGID,
 		},
 	}
 }
@@ -198,8 +198,8 @@ func ItemFromStream(path string, rc io.ReadCloser, size, mode int64) *Item {
 			Name: path,
 			Size: size,
 			Mode: mode,
-			Uid:  defaults.ArchiveUid,
-			Gid:  defaults.ArchiveGid,
+			Uid:  defaults.ArchiveUID,
+			Gid:  defaults.ArchiveGID,
 		},
 		Data: rc,
 	}

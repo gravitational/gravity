@@ -35,6 +35,7 @@ import (
 	"github.com/gravitational/teleport/lib/reversetunnel"
 	"github.com/gravitational/trace"
 	"github.com/gravitational/ttlmap"
+	"k8s.io/client-go/kubernetes"
 )
 
 // ClusterClientsConfig contains configuration needed for remote clients
@@ -48,11 +49,13 @@ type ClusterClientsConfig struct {
 // ClusterClients provides access to remote clusters' services such as operator or application
 type ClusterClients struct {
 	ClusterClientsConfig
-	sync.Mutex
+	sync.RWMutex
 	// opsClients is remote operators cache
 	opsClients *ttlmap.TTLMap
 	// appsClients is remote app services cache
 	appsClients *ttlmap.TTLMap
+	// kubeClients is remote Kubernetes clients cache
+	kubeClients *ttlmap.TTLMap
 }
 
 // NewClusterClients returns a new cluster clients interface
@@ -65,16 +68,21 @@ func NewClusterClients(conf ClusterClientsConfig) (*ClusterClients, error) {
 	}
 	opsClients, err := ttlmap.New(defaults.ClientCacheSize)
 	if err != nil {
-		return nil, err
+		return nil, trace.Wrap(err)
 	}
 	appsClients, err := ttlmap.New(defaults.ClientCacheSize)
 	if err != nil {
-		return nil, err
+		return nil, trace.Wrap(err)
+	}
+	kubeClients, err := ttlmap.New(defaults.ClientCacheSize)
+	if err != nil {
+		return nil, trace.Wrap(err)
 	}
 	return &ClusterClients{
 		ClusterClientsConfig: conf,
 		opsClients:           opsClients,
 		appsClients:          appsClients,
+		kubeClients:          kubeClients,
 	}, nil
 }
 
@@ -96,9 +104,18 @@ func (r *ClusterClients) AppsClient(clusterName string) (app.Applications, error
 	return r.newAppsClient(clusterName)
 }
 
+// KubeClient returns Kubernetes API client for the specified cluster
+func (r *ClusterClients) KubeClient(clusterName string) (*kubernetes.Clientset, error) {
+	client := r.getKubeClient(clusterName)
+	if client != nil {
+		return client, nil
+	}
+	return r.newKubeClient(clusterName)
+}
+
 func (r *ClusterClients) getOpsClient(clusterName string) ops.Operator {
-	r.Lock()
-	defer r.Unlock()
+	r.RLock()
+	defer r.RUnlock()
 	clientI, ok := r.opsClients.Get(clusterName)
 	if ok {
 		return clientI.(ops.Operator)
@@ -107,11 +124,21 @@ func (r *ClusterClients) getOpsClient(clusterName string) ops.Operator {
 }
 
 func (r *ClusterClients) getAppsClient(clusterName string) app.Applications {
-	r.Lock()
-	defer r.Unlock()
+	r.RLock()
+	defer r.RUnlock()
 	clientI, ok := r.appsClients.Get(clusterName)
 	if ok {
 		return clientI.(app.Applications)
+	}
+	return nil
+}
+
+func (r *ClusterClients) getKubeClient(clusterName) *kubernetes.Clientset {
+	r.RLock()
+	defer r.RUnlock()
+	clientI, ok := r.kubeClients.Get(clusterName)
+	if ok {
+		return clientI.(*kubernetes.Clientset)
 	}
 	return nil
 }
@@ -162,6 +189,9 @@ func (r *ClusterClients) newAppsClient(clusterName string) (app.Applications, er
 
 	r.appsClients.Set(clusterName, client, defaults.ClientCacheTTL)
 	return client, nil
+}
+
+func (r *ClusterClients) newKubeClient(clusterName string) (*kubernetes.Clientset, error) {
 }
 
 func (r *ClusterClients) clientInfo(siteName string) (*clientInfo, error) {

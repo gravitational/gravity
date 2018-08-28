@@ -70,10 +70,11 @@ func (h *WebHandler) grafanaServeHandler(w http.ResponseWriter, r *http.Request,
 	}
 
 	err = h.cfg.Forwarder.ForwardToService(w, r, ForwardRequest{
-		ClusterName: site.Domain,
-		ServiceName: defaults.GrafanaServiceName,
-		ServicePort: defaults.GrafanaServicePort,
-		URL:         p.ByName("rest"),
+		ClusterName:      site.Domain,
+		ServiceName:      defaults.GrafanaServiceName,
+		ServicePort:      defaults.GrafanaServicePort,
+		ServiceNamespace: defaults.MonitoringNamespace,
+		URL:              p.ByName("rest"),
 	})
 
 	if err != nil {

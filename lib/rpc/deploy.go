@@ -200,11 +200,11 @@ func deployAgentOnNode(ctx context.Context, req DeployAgentsRequest, node, nodeS
 	gravityHostPath := filepath.Join(
 		state.GravityRPCAgentDir(nodeStateDir), constants.GravityPackage)
 	gravityPlanetPath := filepath.Join(
-		defaults.GravityRpcAgentDir, constants.GravityPackage)
+		defaults.GravityRPCAgentDir, constants.GravityPackage)
 	secretsHostDir := filepath.Join(
 		state.GravityRPCAgentDir(nodeStateDir), defaults.SecretsDir)
 	secretsPlanetDir := filepath.Join(
-		defaults.GravityRpcAgentDir, defaults.SecretsDir)
+		defaults.GravityRPCAgentDir, defaults.SecretsDir)
 
 	var runCmd string
 	if leader {

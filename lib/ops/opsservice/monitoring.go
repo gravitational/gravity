@@ -18,6 +18,7 @@ package opsservice
 
 import (
 	"github.com/gravitational/gravity/lib/constants"
+	"github.com/gravitational/gravity/lib/defaults"
 	"github.com/gravitational/gravity/lib/ops"
 	"github.com/gravitational/gravity/lib/ops/monitoring"
 	"github.com/gravitational/gravity/lib/storage"
@@ -60,7 +61,7 @@ func (o *Operator) GetAlerts(key ops.SiteKey) (alerts []storage.Alert, err error
 	options := metav1.ListOptions{
 		LabelSelector: labels.String(),
 	}
-	configmaps, err := client.Core().ConfigMaps(metav1.NamespaceSystem).List(options)
+	configmaps, err := client.Core().ConfigMaps(defaults.MonitoringNamespace).List(options)
 	if err != nil {
 		return nil, trace.Wrap(rigging.ConvertError(err))
 	}
@@ -102,7 +103,7 @@ func (o *Operator) UpdateAlert(key ops.SiteKey, alert storage.Alert) error {
 	labels := map[string]string{
 		constants.MonitoringType: constants.MonitoringTypeAlert,
 	}
-	return updateConfigMap(client.Core().ConfigMaps(metav1.NamespaceSystem),
+	return updateConfigMap(client.Core().ConfigMaps(defaults.MonitoringNamespace),
 		alert.GetName(), string(data), labels)
 }
 
@@ -119,7 +120,7 @@ func (o *Operator) DeleteAlert(key ops.SiteKey, name string) error {
 	options := metav1.ListOptions{
 		LabelSelector: labels.String(),
 	}
-	configmaps, err := client.Core().ConfigMaps(metav1.NamespaceSystem).List(options)
+	configmaps, err := client.Core().ConfigMaps(defaults.MonitoringNamespace).List(options)
 	if err != nil {
 		return trace.Wrap(rigging.ConvertError(err))
 	}
@@ -135,7 +136,7 @@ func (o *Operator) DeleteAlert(key ops.SiteKey, name string) error {
 		return trace.NotFound("alert %q not found", name)
 	}
 
-	err = client.Core().ConfigMaps(metav1.NamespaceSystem).Delete(name, nil)
+	err = client.Core().ConfigMaps(defaults.MonitoringNamespace).Delete(name, nil)
 	return trace.Wrap(rigging.ConvertError(err))
 }
 
@@ -146,7 +147,7 @@ func (o *Operator) GetAlertTargets(key ops.SiteKey) (targets []storage.AlertTarg
 		return nil, trace.Wrap(err)
 	}
 
-	data, err := getConfigMap(client.Core().ConfigMaps(metav1.NamespaceSystem),
+	data, err := getConfigMap(client.Core().ConfigMaps(defaults.MonitoringNamespace),
 		constants.AlertTargetConfigMap)
 	if err != nil {
 		if trace.IsNotFound(err) {
@@ -178,7 +179,7 @@ func (o *Operator) UpdateAlertTarget(key ops.SiteKey, target storage.AlertTarget
 	labels := map[string]string{
 		constants.MonitoringType: constants.MonitoringTypeAlertTarget,
 	}
-	return updateConfigMap(client.Core().ConfigMaps(metav1.NamespaceSystem),
+	return updateConfigMap(client.Core().ConfigMaps(defaults.MonitoringNamespace),
 		constants.AlertTargetConfigMap, string(data), labels)
 }
 
@@ -189,7 +190,7 @@ func (o *Operator) DeleteAlertTarget(key ops.SiteKey) error {
 		return trace.Wrap(err)
 	}
 
-	err = rigging.ConvertError(client.Core().ConfigMaps(metav1.NamespaceSystem).Delete(constants.AlertTargetConfigMap, nil))
+	err = rigging.ConvertError(client.Core().ConfigMaps(defaults.MonitoringNamespace).Delete(constants.AlertTargetConfigMap, nil))
 	if trace.IsNotFound(err) {
 		return trace.NotFound("no alert targets found")
 	}
@@ -214,7 +215,7 @@ func updateConfigMap(client corev1.ConfigMapInterface, name, data string, labels
 	config := &v1.ConfigMap{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      name,
-			Namespace: metav1.NamespaceSystem,
+			Namespace: defaults.MonitoringNamespace,
 			Labels:    labels,
 		},
 		Data: map[string]string{
