@@ -1,0 +1,156 @@
+package systemservice
+
+import (
+	"bytes"
+	"testing"
+
+	"github.com/gravitational/gravity/lib/compare"
+	"github.com/gravitational/gravity/lib/loc"
+
+	. "gopkg.in/check.v1"
+)
+
+func TestSystemd(t *testing.T) { TestingT(t) }
+
+type SystemdSuite struct {
+}
+
+var _ = Suite(&SystemdSuite{})
+
+func (s *SystemdSuite) TestUnitParsing(c *C) {
+	pkg, err := loc.NewLocator("example.com", "package", "0.0.1")
+	c.Assert(err, IsNil)
+	u := newSystemdUnit(*pkg)
+	c.Assert(u.serviceName(), Equals, "gravity__example.com__package__0.0.1.service")
+	out := parseUnit(u.serviceName())
+	c.Assert(out, NotNil)
+	c.Assert(out.IsEqualTo(*pkg), Equals, true)
+
+	c.Assert(parseUnit("other.service"), IsNil)
+}
+
+func (s *SystemdSuite) TestServiceTemplate(c *C) {
+	buf := &bytes.Buffer{}
+	err := serviceUnitTemplate.Execute(buf, serviceTemplate{
+		Name:        "test.service",
+		Description: "test",
+		ServiceSpec: ServiceSpec{
+			Type:             "oneshot",
+			StartCommand:     "start",
+			StopCommand:      "stop",
+			StopPostCommand:  "stop post",
+			StartPreCommand:  "start pre",
+			StartPostCommand: "start post",
+			WantedBy:         "test.target",
+			KillMode:         "cgroup",
+			KillSignal:       "SIGQUIT",
+			RestartSec:       3,
+			Timeout:          4,
+			Restart:          "always",
+			User:             "root",
+			LimitNoFile:      1000,
+			RemainAfterExit:  true,
+			Dependencies: Dependencies{
+				Requires: "foo.service",
+				After:    "foo.service",
+				Before:   "bar.service",
+			},
+			Environment: map[string]string{
+				"PATH": "/usr/bin",
+			},
+			TasksMax:            "infinity",
+			TimeoutStopSec:      "5min",
+			ConditionPathExists: "/path/to/foo",
+		},
+	})
+	c.Assert(err, IsNil)
+	c.Assert(buf.String(), compare.DeepEquals, `[Unit]
+Description=test
+
+Requires=foo.service
+After=foo.service
+Before=bar.service
+
+ConditionPathExists=/path/to/foo
+
+[Service]
+TimeoutStartSec=4
+Type=oneshot
+User=root
+ExecStart=start
+ExecStartPre=start pre
+ExecStartPost=start post
+ExecStop=stop
+ExecStopPost=stop post
+LimitNOFILE=1000
+KillMode=cgroup
+KillSignal=SIGQUIT
+Restart=always
+TimeoutStopSec=5min
+RestartSec=3
+RemainAfterExit=yes
+Environment=PATH=/usr/bin
+
+TasksMax=infinity
+
+
+[Install]
+WantedBy=test.target
+
+`)
+}
+
+func (s *SystemdSuite) TestMountServiceTemplate(c *C) {
+	var testCases = []struct {
+		spec     MountServiceSpec
+		expected string
+		comment  string
+	}{
+		{
+			spec: MountServiceSpec{
+				What:       "/dev/foo",
+				Where:      "/foo/bar",
+				Type:       "filesystem",
+				Options:    []string{"opt1", "opt2"},
+				TimeoutSec: "5min 20s",
+			},
+			expected: `
+[Mount]
+What=/dev/foo
+Where=/foo/bar
+Type=filesystem
+Options=opt1,opt2
+TimeoutSec=5min 20s
+
+[Install]
+WantedBy=local-fs.target
+`,
+			comment: "formats all details",
+		},
+		{
+			spec: MountServiceSpec{
+				What:  "/dev/foo",
+				Where: "/foo/bar",
+			},
+			expected: `
+[Mount]
+What=/dev/foo
+Where=/foo/bar
+
+
+
+
+[Install]
+WantedBy=local-fs.target
+`,
+			comment: "leaves out optional parts",
+		},
+	}
+
+	for _, testCase := range testCases {
+		var out bytes.Buffer
+		err := mountUnitTemplate.Execute(&out, testCase.spec)
+		c.Assert(err, IsNil, Commentf(testCase.comment))
+		c.Assert(out.String(), compare.DeepEquals, testCase.expected, Commentf(testCase.comment))
+	}
+}

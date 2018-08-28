@@ -1,0 +1,3 @@
+'resize={"to":3,"flavor":"one","nodes":1}'
+'resize={"to":6,"flavor":"three","nodes":3}'
+'upgrade3lts={"flavor":"three","nodes":3,"from":"'${UPGRADE_FROM}'"}'

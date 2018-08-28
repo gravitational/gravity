@@ -1,0 +1,282 @@
+/*
+Copyright 2015 Gravitational, Inc.
+
+Licensed under the Apache License, Version 2.0 (the "License");
+you may not use this file except in compliance with the License.
+You may obtain a copy of the License at
+
+    http://www.apache.org/licenses/LICENSE-2.0
+
+Unless required by applicable law or agreed to in writing, software
+distributed under the License is distributed on an "AS IS" BASIS,
+WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+See the License for the specific language governing permissions and
+limitations under the License.
+*/
+
+package native
+
+import (
+	"context"
+	"crypto/rand"
+	"crypto/rsa"
+	"crypto/x509"
+	"encoding/pem"
+	"fmt"
+	"time"
+
+	"golang.org/x/crypto/ssh"
+
+	"github.com/gravitational/teleport"
+	"github.com/gravitational/teleport/lib/defaults"
+	"github.com/gravitational/teleport/lib/services"
+	"github.com/gravitational/teleport/lib/utils"
+
+	"github.com/gravitational/trace"
+
+	"github.com/sirupsen/logrus"
+)
+
+var log = logrus.WithFields(logrus.Fields{
+	trace.Component: teleport.ComponentKeyGen,
+})
+
+// PrecomputedNum is the number of keys to precompute and keep cached.
+var PrecomputedNum = 25
+
+type keyPair struct {
+	privPem  []byte
+	pubBytes []byte
+}
+
+// keygen is a key generator that precomputes keys to provide quick access to
+// public/private key pairs.
+type keygen struct {
+	keysCh chan keyPair
+
+	ctx    context.Context
+	cancel context.CancelFunc
+}
+
+// New returns a new key generator.
+func New() *keygen {
+	ctx, cancel := context.WithCancel(context.Background())
+
+	k := &keygen{
+		keysCh: make(chan keyPair, PrecomputedNum),
+		ctx:    ctx,
+		cancel: cancel,
+	}
+	go k.precomputeKeys()
+
+	return k
+}
+
+// Close stops the precomputation of keys (if enabled) and releases all resources.
+func (k *keygen) Close() {
+	k.cancel()
+}
+
+// GetNewKeyPairFromPool returns precomputed key pair from the pool.
+func (k *keygen) GetNewKeyPairFromPool() ([]byte, []byte, error) {
+	select {
+	case key := <-k.keysCh:
+		return key.privPem, key.pubBytes, nil
+	default:
+		return GenerateKeyPair("")
+	}
+}
+
+// precomputeKeys continues loops forever trying to compute cache key pairs.
+func (k *keygen) precomputeKeys() {
+	for {
+		privPem, pubBytes, err := GenerateKeyPair("")
+		if err != nil {
+			log.Errorf("Unable to generate key pair: %v.", err)
+			continue
+		}
+		key := keyPair{
+			privPem:  privPem,
+			pubBytes: pubBytes,
+		}
+
+		select {
+		case <-k.ctx.Done():
+			log.Infof("Stopping key precomputation routine.")
+			return
+		case k.keysCh <- key:
+			continue
+		}
+	}
+}
+
+// GenerateKeyPair returns fresh priv/pub keypair, takes about 300ms to
+// execute.
+func GenerateKeyPair(passphrase string) ([]byte, []byte, error) {
+	priv, err := rsa.GenerateKey(rand.Reader, 2048)
+	if err != nil {
+		return nil, nil, err
+	}
+	privDer := x509.MarshalPKCS1PrivateKey(priv)
+	privBlock := pem.Block{
+		Type:    "RSA PRIVATE KEY",
+		Headers: nil,
+		Bytes:   privDer,
+	}
+	privPem := pem.EncodeToMemory(&privBlock)
+
+	pub, err := ssh.NewPublicKey(&priv.PublicKey)
+	if err != nil {
+		return nil, nil, err
+	}
+	pubBytes := ssh.MarshalAuthorizedKey(pub)
+	return privPem, pubBytes, nil
+}
+
+// GenerateKeyPair returns fresh priv/pub keypair, takes about 300ms to
+// execute.
+func (k *keygen) GenerateKeyPair(passphrase string) ([]byte, []byte, error) {
+	return GenerateKeyPair(passphrase)
+}
+
+// GenerateHostCert generates a host certificate with the passed in parameters.
+// The private key of the CA to sign the certificate must be provided.
+func (k *keygen) GenerateHostCert(c services.HostCertParams) ([]byte, error) {
+	if err := c.Check(); err != nil {
+		return nil, trace.Wrap(err)
+	}
+
+	pubKey, _, _, _, err := ssh.ParseAuthorizedKey(c.PublicHostKey)
+	if err != nil {
+		return nil, trace.Wrap(err)
+	}
+
+	signer, err := ssh.ParsePrivateKey(c.PrivateCASigningKey)
+	if err != nil {
+		return nil, trace.Wrap(err)
+	}
+
+	// build a valid list of principals from the HostID and NodeName and then
+	// add in any additional principals passed in.
+	principals := BuildPrincipals(c.HostID, c.NodeName, c.ClusterName, c.Roles)
+	principals = append(principals, c.Principals...)
+	if len(principals) == 0 {
+		return nil, trace.BadParameter("no principals provided: %v, %v, %v",
+			c.HostID, c.NodeName, c.Principals)
+	}
+
+	// create certificate
+	validBefore := uint64(ssh.CertTimeInfinity)
+	if c.TTL != 0 {
+		b := time.Now().Add(c.TTL)
+		validBefore = uint64(b.Unix())
+	}
+	cert := &ssh.Certificate{
+		ValidPrincipals: principals,
+		Key:             pubKey,
+		ValidBefore:     validBefore,
+		CertType:        ssh.HostCert,
+	}
+	cert.Permissions.Extensions = make(map[string]string)
+	cert.Permissions.Extensions[utils.CertExtensionRole] = c.Roles.String()
+	cert.Permissions.Extensions[utils.CertExtensionAuthority] = string(c.ClusterName)
+
+	// sign host certificate with private signing key of certificate authority
+	if err := cert.SignCert(rand.Reader, signer); err != nil {
+		return nil, trace.Wrap(err)
+	}
+
+	return ssh.MarshalAuthorizedKey(cert), nil
+}
+
+// GenerateUserCert generates a host certificate with the passed in parameters.
+// The private key of the CA to sign the certificate must be provided.
+func (k *keygen) GenerateUserCert(c services.UserCertParams) ([]byte, error) {
+	if c.TTL < defaults.MinCertDuration {
+		return nil, trace.BadParameter("wrong certificate TTL")
+	}
+	if len(c.AllowedLogins) == 0 {
+		return nil, trace.BadParameter("allowedLogins: need allowed OS logins")
+	}
+	pubKey, _, _, _, err := ssh.ParseAuthorizedKey(c.PublicUserKey)
+	if err != nil {
+		return nil, trace.Wrap(err)
+	}
+	validBefore := uint64(ssh.CertTimeInfinity)
+	if c.TTL != 0 {
+		b := time.Now().Add(c.TTL)
+		validBefore = uint64(b.Unix())
+		log.Debugf("generated user key for %v with expiry on (%v) %v", c.AllowedLogins, validBefore, b)
+	}
+	cert := &ssh.Certificate{
+		// we have to use key id to identify teleport user
+		KeyId:           c.Username,
+		ValidPrincipals: c.AllowedLogins,
+		Key:             pubKey,
+		ValidBefore:     validBefore,
+		CertType:        ssh.UserCert,
+	}
+	cert.Permissions.Extensions = map[string]string{
+		teleport.CertExtensionPermitPTY:            "",
+		teleport.CertExtensionPermitPortForwarding: "",
+	}
+	if c.PermitAgentForwarding {
+		cert.Permissions.Extensions[teleport.CertExtensionPermitAgentForwarding] = ""
+	}
+	if !c.PermitPortForwarding {
+		delete(cert.Permissions.Extensions, teleport.CertExtensionPermitPortForwarding)
+	}
+	if len(c.Roles) != 0 {
+		// only add roles to the certificate extensions if the standard format was
+		// requested. we allow the option to omit this to support older versions of
+		// OpenSSH due to a bug in <= OpenSSH 7.1
+		// https://bugzilla.mindrot.org/show_bug.cgi?id=2387
+		if c.CertificateFormat == teleport.CertificateFormatStandard {
+			roles, err := services.MarshalCertRoles(c.Roles)
+			if err != nil {
+				return nil, trace.Wrap(err)
+			}
+			cert.Permissions.Extensions[teleport.CertExtensionTeleportRoles] = roles
+		}
+	}
+	signer, err := ssh.ParsePrivateKey(c.PrivateCASigningKey)
+	if err != nil {
+		return nil, trace.Wrap(err)
+	}
+	if err := cert.SignCert(rand.Reader, signer); err != nil {
+		return nil, trace.Wrap(err)
+	}
+	return ssh.MarshalAuthorizedKey(cert), nil
+}
+
+// BuildPrincipals takes a hostID, nodeName, clusterName, and role and builds a list of
+// principals to insert into a certificate. This function is backward compatible with
+// older clients which means:
+//    * If RoleAdmin is in the list of roles, only a single principal is returned: hostID
+//    * If nodename is empty, it is not included in the list of principals.
+func BuildPrincipals(hostID string, nodeName string, clusterName string, roles teleport.Roles) []string {
+	// TODO(russjones): This should probably be clusterName, but we need to
+	// verify changing this won't break older clients.
+	if roles.Include(teleport.RoleAdmin) {
+		return []string{hostID}
+	}
+
+	// if no hostID was passed it, the user might be specifying an exact list of principals
+	if hostID == "" {
+		return []string{}
+	}
+
+	// always include the hostID, this is what teleport uses internally to find nodes
+	principals := []string{
+		fmt.Sprintf("%v.%v", hostID, clusterName),
+	}
+
+	// nodeName is the DNS name, this is for OpenSSH interoperability
+	if nodeName != "" {
+		principals = append(principals, fmt.Sprintf("%s.%s", nodeName, clusterName))
+		principals = append(principals, nodeName)
+	}
+
+	// deduplicate (in-case hostID and nodeName are the same) and return
+	return utils.Deduplicate(principals)
+}

@@ -1,0 +1,40 @@
+#
+# application object
+#
+apiVersion: v1
+kind: Application
+metadata:
+  name: gravity-app
+  resourceVersion: "1.0.0"
+installer:
+  provisioners:
+    vagrant:
+      variables: 
+         image: debian/jessie64
+    onprem:
+      variables: {}
+  servers:
+     master:
+       min_count: 1
+       description: "k8s master server"
+       labels: 
+         role: worker
+       cpu:
+         min_count: 1
+       ram:
+         min_total_mb: 800
+       directories:
+         - name: /var/lib/gravity
+           min_total_mb: 500
+     worker:
+       min_count: 1
+       description: "k8s worker server"
+       labels: 
+         role: worker
+       cpu:
+         min_count: 1
+       ram:
+         min_total_mb: 800
+       directories:
+         - name: /var/lib/gravity
+           min_total_mb: 500

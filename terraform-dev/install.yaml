@@ -1,0 +1,76 @@
+- hosts: all
+  become: yes
+  become_user: root
+  become_method: sudo
+  vars:
+    root_dir: "{{playbook_dir}}/.."
+  tasks:
+  - name: Capture gravity version
+    delegate_to: localhost
+    shell: "make --silent get-version"
+    args:
+      chdir: "{{root_dir}}"
+    register: command_output
+  - set_fact:
+      gravity_version: "{{ command_output.stdout }}"
+  - debug: msg="gravity version - {{gravity_version}}"
+
+  - set_fact: gopath="{{ lookup('env','GOPATH') }}"
+  - debug: msg="gopath {{gopath}}"
+
+  - name: Creating /tmp/installer
+    file:
+      path: /tmp/installer
+      state: directory
+
+  - name: upload telekube tarball to the first node
+    when: inventory_hostname == groups['all'][0]
+    become: yes
+    unarchive:
+      force: yes
+      src: "{{root_dir}}/build/{{gravity_version}}/telekube.tar"
+      dest: "/tmp/installer"
+
+  - name: upload gravity binary
+    when: inventory_hostname != groups['all'][0]
+    become: yes
+    copy:
+      force: yes
+      src: "{{root_dir}}/build/{{gravity_version}}/gravity"
+      dest: "/tmp/gravity"
+      mode: 0755
+
+- hosts: all
+  become: yes
+  become_user: root
+  become_method: sudo  
+  vars:
+    root_dir: "{{playbook_dir}}/.."
+  tasks:
+  - name: Install gravity
+    become: yes
+    shell: |
+      umask 0066
+      {% if inventory_hostname == groups['all'][0] %}
+      cd /tmp/installer
+      tar -xf installer.tar
+      ./gravity install \
+        --cluster=dev.test \
+        --advertise-addr=172.28.128.3 \
+        --flavor=three \
+        --token=token
+      {% else %}
+      /tmp/gravity join \
+        {{hostvars[groups['all'][0]]['ansible_default_ipv4']['address']}} \
+        --advertise-addr={{hostvars[inventory_hostname]['ansible_default_ipv4']['address']}} \
+        --token=token
+      {% endif %}
+  - name: Clean tmp
+    file:
+      state: absent
+      path: /tmp/installer
+  - name: Clean tmp gravity
+    file:
+      state: absent
+      path: /tmp/gravity
+

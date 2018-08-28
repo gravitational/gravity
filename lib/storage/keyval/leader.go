@@ -1,0 +1,38 @@
+package keyval
+
+import (
+	"context"
+	"time"
+
+	etcd "github.com/coreos/etcd/client"
+	"github.com/gravitational/gravity/lib/storage"
+)
+
+type electingBackend struct {
+	storage.Backend
+	storage.Leader
+	client etcd.Client
+}
+
+// AddWatch starts watching the key for changes and sending them
+// to the valuesC
+func (b *electingBackend) AddWatch(key string, retry time.Duration, valuesC chan string) {
+	b.Leader.AddWatch(key, retry, valuesC)
+}
+
+// AddVoter adds a voter that tries to elect given value
+// by attempting to set the key to the value for a given term duration
+// it also attempts to hold the lease indefinitely
+func (b *electingBackend) AddVoter(ctx context.Context, key, value string, term time.Duration) error {
+	return b.Leader.AddVoter(ctx, key, value, term)
+}
+
+// StepDown tells the voter to pause election so it can give up its leadership
+func (b *electingBackend) StepDown() {
+	b.Leader.StepDown()
+}
+
+// api returns etcd API client used by tests
+func (b *electingBackend) api() etcd.KeysAPI {
+	return etcd.NewKeysAPI(b.client)
+}

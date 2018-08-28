@@ -1,0 +1,64 @@
+apiVersion: bundle.gravitational.io/v2
+kind: Bundle
+metadata:
+  name: opscenter
+  resourceVersion: "GRAVITY_VERSION"
+  hidden: true
+logo: file://logo.svg
+endpoints:
+  - name: "Ops Center Control Panel"
+    description: "Telekube Ops Center"
+    selector:
+      role: gravity-opscenter
+    protocol: http
+  - name: "Setup"
+    hidden: true
+    serviceName: bandwagon
+installer:
+  setupEndpoints:
+    - "Setup"
+  flavors:
+    prompt: "Choose Deployment Type"
+    items:
+      - name: "standalone"
+        description: "Great for evaluation"
+        nodes:
+          - profile: node
+            count: 1
+      - name: "ha"
+        description: "Recommended for production"
+        nodes:
+          - profile: node
+            count: 3
+nodeProfiles:
+  - name: node
+    description: "Ops Center Node"
+    requirements:
+      cpu:
+        min: 2
+      ram:
+        min: "2GB"
+    providers:
+      aws:
+        instanceTypes:
+          - c3.4xlarge
+hooks:
+  uninstall:
+    job: |
+      apiVersion: batch/v1
+      kind: Job
+      metadata:
+        name: ops-uninstall
+      spec:
+        template:
+          metadata:
+            name: ops-uninstall
+          spec:
+            restartPolicy: OnFailure
+            containers:
+              - name: hook
+                image: quay.io/gravitational/debian-tall:0.0.1
+                command: ["/usr/local/bin/kubectl", "delete", "services", "-l", "app=gravity-opscenter", "--ignore-not-found"]
+systemOptions:
+  docker:
+    storageDriver: overlay

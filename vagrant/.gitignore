@@ -1,0 +1,4 @@
+*.vdi
+*.retry
+ansible/inventory
+ansible/ssh-config

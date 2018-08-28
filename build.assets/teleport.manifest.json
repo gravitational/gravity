@@ -1,0 +1,27 @@
+{
+  "version": "0.0.1",
+  "labels": [
+    {"name": "os", "value": "linux"}
+  ],
+  "commands": [
+    {"name": "start", "args": ["rootfs/usr/bin/teleport", "start"]},
+    {"name": "tctl", "args": ["rootfs/usr/bin/tctl"]}
+  ],
+  "config": {
+    "params": [
+      {
+        "type": "String",
+        "name": "configString",
+        "env": "TELEPORT_CONFIG",
+        "cli": {"name": "config-string"}
+      }
+    ]
+  },
+  "service": {
+	"StartCommand": "start",
+	"User":         "0",
+	"Type":         "simple",
+	"Restart":      "always",
+	"KillMode":     "control-group"
+  }
+}

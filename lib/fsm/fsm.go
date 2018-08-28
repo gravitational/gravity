@@ -1,0 +1,529 @@
+package fsm
+
+import (
+	"context"
+	"fmt"
+	"path"
+
+	"github.com/gravitational/gravity/lib/ops"
+	"github.com/gravitational/gravity/lib/storage"
+	"github.com/gravitational/gravity/lib/utils"
+
+	"github.com/gravitational/trace"
+	"github.com/sirupsen/logrus"
+)
+
+// Engine defines interface for specific FSM implementations
+type Engine interface {
+	// GetExecutor returns a new executor based on the provided parameters
+	GetExecutor(ExecutorParams, Remote) (PhaseExecutor, error)
+	// ChangePhaseState updates the phase state based on the provided parameters
+	ChangePhaseState(context.Context, StateChange) error
+	// GetPlan returns the up-to-date operation plan
+	GetPlan() (*storage.OperationPlan, error)
+	// RunCommand executes the phase specified by params on the specified
+	// server using the provided runner
+	RunCommand(context.Context, RemoteRunner, storage.Server, Params) error
+	// Complete is called to mark operation complete
+	Complete(error) error
+}
+
+// ExecutorParams combines parameters needed for creating a new executor
+type ExecutorParams struct {
+	// Plan is the operation plan
+	Plan storage.OperationPlan
+	// Phase is the plan phase
+	Phase storage.OperationPhase
+	// Progress is the progress reporter
+	Progress utils.Progress
+}
+
+// Key returns an operation key from these params
+func (p ExecutorParams) Key() ops.SiteOperationKey {
+	return ops.SiteOperationKey{
+		AccountID:   p.Plan.AccountID,
+		SiteDomain:  p.Plan.ClusterName,
+		OperationID: p.Plan.OperationID,
+	}
+}
+
+// Params combines parameters for phase execution/rollback
+type Params struct {
+	// PhaseID is the id of the phase to execute/rollback
+	PhaseID string
+	// Force is whether to force execution/rollback
+	Force bool
+	// Progress is optional progress reporter
+	Progress utils.Progress
+}
+
+// CheckAndSetDefaults makes sure all required parameters are set
+func (p *Params) CheckAndSetDefaults() error {
+	if p.PhaseID == "" {
+		return trace.BadParameter("missing PhaseID")
+	}
+	if p.Progress == nil {
+		p.Progress = utils.NewNopProgress()
+	}
+	return nil
+}
+
+// FSM is the generic FSM implementation that provides methods for phases
+// execution and rollback, state transitioning and command execution
+type FSM struct {
+	// Config is the FSM config
+	Config
+	// FieldLogger is used for logging
+	logrus.FieldLogger
+	// preExecFn is called before phase execution if set
+	preExecFn PhaseHookFn
+	// postExecFn is called after phase execution if set
+	postExecFn PhaseHookFn
+}
+
+// PhaseHookFn defines the phase hook function
+type PhaseHookFn func(context.Context, Params) error
+
+// Config represents config
+type Config struct {
+	// Engine is the specific FSM engine
+	Engine
+	// Runner is used to run remote commands
+	Runner RemoteRunner
+	// Insecure allows to turn off cert validation in dev mode
+	Insecure bool
+	// Logger allows to override default logger
+	Logger logrus.FieldLogger
+}
+
+// CheckAndSetDefaults makes sure the config is valid and sets some defaults
+func (c *Config) CheckAndSetDefaults() error {
+	if c.Engine == nil {
+		return trace.BadParameter("missing Engine")
+	}
+	if c.Logger == nil {
+		c.Logger = logrus.WithField(trace.Component, "fsm")
+	}
+	return nil
+}
+
+// New returns a new FSM instance
+func New(config Config) (*FSM, error) {
+	err := config.CheckAndSetDefaults()
+	if err != nil {
+		return nil, trace.Wrap(err)
+	}
+	return &FSM{
+		Config:      config,
+		FieldLogger: config.Logger,
+	}, nil
+}
+
+// ExecutePlan iterates over all phases of the plan and executes them in order
+func (f *FSM) ExecutePlan(ctx context.Context, progress utils.Progress, force bool) error {
+	plan, err := f.GetPlan()
+	if err != nil {
+		return trace.Wrap(err)
+	}
+	for _, phase := range plan.Phases {
+		f.Debugf("Executing phase %q.", phase.ID)
+		err := f.ExecutePhase(ctx, Params{
+			PhaseID:  phase.ID,
+			Progress: progress,
+			Force:    force,
+		})
+		if err != nil {
+			return trace.Wrap(err, "failed to execute phase %q", phase.ID)
+		}
+	}
+	return nil
+}
+
+// ExecutePhase executes the specified phase of the plan
+func (f *FSM) ExecutePhase(ctx context.Context, p Params) error {
+	err := p.CheckAndSetDefaults()
+	if err != nil {
+		return trace.Wrap(err)
+	}
+	plan, err := f.GetPlan()
+	if err != nil {
+		return trace.Wrap(err)
+	}
+	phase, err := FindPhase(plan, p.PhaseID)
+	if err != nil {
+		return trace.Wrap(err)
+	}
+	if phase.IsCompleted() && !p.Force {
+		return nil
+	}
+	if phase.IsInProgress() && !(p.Force || phase.HasSubphases()) {
+		return trace.BadParameter(
+			"phase %q is in progress, use --force flag to force execution", phase.ID)
+	}
+	err = f.prerequisitesComplete(phase.ID)
+	if err != nil && !p.Force {
+		return trace.Wrap(err)
+	}
+	if f.preExecFn != nil {
+		if err := f.preExecFn(ctx, p); err != nil {
+			return trace.Wrap(err)
+		}
+	}
+	err = f.executePhase(ctx, p, *phase)
+	if err != nil {
+		return trace.Wrap(err)
+	}
+	if f.postExecFn != nil {
+		if err := f.postExecFn(ctx, p); err != nil {
+			return trace.Wrap(err)
+		}
+	}
+	return nil
+}
+
+// RollbackPhase rolls back the specified phase of the plan
+func (f *FSM) RollbackPhase(ctx context.Context, p Params) error {
+	err := p.CheckAndSetDefaults()
+	if err != nil {
+		return trace.Wrap(err)
+	}
+	plan, err := f.GetPlan()
+	if err != nil {
+		return trace.Wrap(err)
+	}
+	err = CanRollback(plan, p.PhaseID)
+	if err != nil {
+		if !p.Force {
+			return trace.Wrap(err)
+		}
+		f.Warnf("Forcing rollback: %v.", trace.DebugReport(err))
+	}
+	phase, err := FindPhase(plan, p.PhaseID)
+	if err != nil {
+		return trace.Wrap(err)
+	}
+	if !phase.HasSubphases() {
+		//
+		// Check whether this phase should be run on a local or remote server
+		// If it should be run on a remote server, throw an error
+		//
+		var execServer *storage.Server
+		if phase.Data != nil {
+			if phase.Data.ExecServer != nil {
+				execServer = phase.Data.ExecServer
+			} else {
+				execServer = phase.Data.Server
+			}
+		}
+
+		if execServer != nil {
+			execWhere, err := canExecuteOnServer(ctx, *execServer, f.Runner, f.FieldLogger)
+			if err != nil {
+				return trace.Wrap(err)
+			}
+			if execWhere != CanRunLocally {
+				return trace.BadParameter("rollback phase %v must be run from server %v", p.PhaseID, execServer.Hostname)
+			}
+		}
+
+		p.Progress.NextStep("Rolling back %q", phase.ID)
+		err = f.rollbackPhase(ctx, p, *phase)
+		if err != nil {
+			return trace.Wrap(err)
+		}
+		return nil
+	}
+	for i := len(phase.Phases) - 1; i >= 0; i-- {
+		p.PhaseID = phase.Phases[i].ID
+		err = f.RollbackPhase(ctx, p)
+		if err != nil {
+			return trace.Wrap(err)
+		}
+	}
+	return nil
+}
+
+// SetPreExec sets the hook that's called before phase execution
+func (f *FSM) SetPreExec(fn PhaseHookFn) {
+	f.preExecFn = fn
+}
+
+// SetPostExec sets the hook that's called after phase execution
+func (f *FSM) SetPostExec(fn PhaseHookFn) {
+	f.postExecFn = fn
+}
+
+// Close releases all FSM resources
+func (f *FSM) Close() error {
+	return trace.Wrap(f.Runner.Close())
+}
+
+func (f *FSM) executePhase(ctx context.Context, p Params, phase storage.OperationPhase) error {
+	if phase.Executor == "" && len(phase.Phases) != 0 {
+		if p.Force {
+			return trace.BadParameter("cannot use force with composite phase %q, please only use --force on a single phase", phase.ID)
+		}
+		// Always execute a composite phase locally
+		return trace.Wrap(f.executePhaseLocally(ctx, p, phase))
+	}
+
+	// Choose server to execute phase on
+	var execServer *storage.Server
+	if phase.Data != nil {
+		if phase.Data.ExecServer != nil {
+			execServer = phase.Data.ExecServer
+		} else {
+			execServer = phase.Data.Server
+		}
+	}
+
+	var err error
+	execWhere := CanRunLocally
+	if execServer != nil {
+		execWhere, err = canExecuteOnServer(ctx, *execServer, f.Runner, f.FieldLogger)
+		if err != nil {
+			return trace.Wrap(err)
+		}
+	}
+
+	switch execWhere {
+	case ShouldRunRemotely:
+		err = trace.NotFound("no agent is running on node %v, please execute phase %q locally on that node",
+			serverName(*execServer), phase.ID)
+
+	case CanRunLocally:
+		err = trace.Wrap(f.executePhaseLocally(ctx, p, phase))
+
+	case CanRunRemotely:
+		err = trace.Wrap(f.executePhaseRemotely(ctx, p, phase, *execServer))
+		if err == nil {
+			// if the remote upgrade phase is successfull, we need to mark it in our local database
+			// because etcd might not be available to synchronize the changes back to us
+			err = f.ChangePhaseState(ctx, StateChange{
+				Phase: phase.ID,
+				State: storage.OperationPhaseStateCompleted,
+			})
+		}
+
+	default:
+		err = trace.BadParameter("unsupported execution location: %v", execWhere)
+	}
+
+	if err != nil {
+		return trace.Wrap(err)
+	}
+	return nil
+}
+
+// executePhaseRemotely executes the specified operation phase on the specified server
+func (f *FSM) executePhaseRemotely(ctx context.Context, p Params, phase storage.OperationPhase, server storage.Server) error {
+	if phase.HasSubphases() {
+		return trace.BadParameter(
+			"phase %v has subphases and should not be executed remotely", phase.ID)
+	}
+
+	p.Progress.NextStep("Executing %q on remote node %v", phase.ID,
+		server.Hostname)
+
+	return f.RunCommand(ctx, f.Runner, server, p)
+}
+
+// executePhaseLocally executes the specified operation phase on this server
+func (f *FSM) executePhaseLocally(ctx context.Context, p Params, phase storage.OperationPhase) error {
+	if !phase.HasSubphases() {
+		p.Progress.NextStep("Executing %q locally", phase.ID)
+		return trace.Wrap(f.executeOnePhase(ctx, p, phase))
+	}
+	if phase.Parallel {
+		return trace.Wrap(f.executeSubphasesConcurrently(ctx, p, phase))
+	}
+	return trace.Wrap(f.executeSubphasesSequentially(ctx, p, phase))
+}
+
+func (f *FSM) executeSubphasesSequentially(ctx context.Context, p Params, phase storage.OperationPhase) error {
+	for _, subphase := range phase.Phases {
+		p.PhaseID = subphase.ID
+		err := f.ExecutePhase(ctx, p)
+		if err != nil {
+			return trace.Wrap(err)
+		}
+	}
+	return nil
+}
+
+func (f *FSM) executeSubphasesConcurrently(ctx context.Context, p Params, phase storage.OperationPhase) error {
+	errorsCh := make(chan error, len(phase.Phases))
+	for _, subphase := range phase.Phases {
+		go func(p Params, subphase storage.OperationPhase) {
+			p.PhaseID = subphase.ID
+			err := f.ExecutePhase(ctx, p)
+			if err != nil {
+				logrus.Warnf("Failed to execute phase %q: %v.",
+					p.PhaseID, trace.DebugReport(err))
+			}
+			errorsCh <- trace.Wrap(err, "failed to execute phase %q", p.PhaseID)
+		}(p, subphase)
+	}
+	return utils.CollectErrors(ctx, errorsCh)
+}
+
+func (f *FSM) executeOnePhase(ctx context.Context, p Params, phase storage.OperationPhase) error {
+	plan, err := f.GetPlan()
+	if err != nil {
+		return trace.Wrap(err)
+	}
+	executor, err := f.GetExecutor(ExecutorParams{
+		Plan:     *plan,
+		Phase:    phase,
+		Progress: p.Progress,
+	}, f)
+	if err != nil {
+		return trace.Wrap(err)
+	}
+
+	err = executor.PreCheck(ctx)
+	if err != nil {
+		executor.Errorf("Phase %v precheck failed: %v.", phase.ID, err)
+		return trace.Wrap(err)
+	}
+
+	err = f.ChangePhaseState(ctx,
+		StateChange{
+			Phase: phase.ID,
+			State: storage.OperationPhaseStateInProgress,
+		})
+	if err != nil {
+		return trace.Wrap(err)
+	}
+
+	executor.Infof("Executing phase: %v.", phase.ID)
+
+	err = executor.Execute(ctx)
+	if err != nil {
+		executor.Errorf("Phase %v execution failed: %v.", phase.ID, err)
+		if err := f.ChangePhaseState(ctx,
+			StateChange{
+				Phase: phase.ID,
+				State: storage.OperationPhaseStateFailed,
+				Error: trace.Wrap(err),
+			}); err != nil {
+			return trace.Wrap(err)
+		}
+		return trace.Wrap(err)
+	}
+
+	err = executor.PostCheck(ctx)
+	if err != nil {
+		executor.Errorf("Phase %v postcheck failed: %v.", phase.ID, err)
+		return trace.Wrap(err)
+	}
+
+	err = f.ChangePhaseState(ctx,
+		StateChange{
+			Phase: phase.ID,
+			State: storage.OperationPhaseStateCompleted,
+		})
+	if err != nil {
+		return trace.Wrap(err)
+	}
+
+	return nil
+}
+
+func (f *FSM) rollbackPhase(ctx context.Context, p Params, phase storage.OperationPhase) error {
+	plan, err := f.GetPlan()
+	if err != nil {
+		return trace.Wrap(err)
+	}
+	executor, err := f.GetExecutor(ExecutorParams{
+		Plan:     *plan,
+		Phase:    phase,
+		Progress: p.Progress,
+	}, f)
+	if err != nil {
+		return trace.Wrap(err)
+	}
+
+	err = f.ChangePhaseState(ctx,
+		StateChange{
+			Phase: phase.ID,
+			State: storage.OperationPhaseStateInProgress,
+		})
+	if err != nil {
+		return trace.Wrap(err)
+	}
+
+	err = executor.Rollback(ctx)
+	if err != nil {
+		executor.Errorf("Phase %v rollback failed: %v.", phase.ID, err)
+		if err := f.ChangePhaseState(ctx,
+			StateChange{
+				Phase: phase.ID,
+				State: storage.OperationPhaseStateFailed,
+				Error: trace.Wrap(err),
+			}); err != nil {
+			return trace.Wrap(err)
+		}
+		return trace.Wrap(err)
+	}
+
+	err = f.ChangePhaseState(ctx,
+		StateChange{
+			Phase: phase.ID,
+			State: storage.OperationPhaseStateRolledBack,
+		})
+	if err != nil {
+		return trace.Wrap(err)
+	}
+
+	return nil
+}
+
+// prerequisitesComplete checks if specified phase can be executed in the
+// provided plan
+func (f *FSM) prerequisitesComplete(phaseID string) error {
+	plan, err := f.GetPlan()
+	if err != nil {
+		return trace.Wrap(err)
+	}
+	allPhases := FlattenPlan(plan)
+	for phaseID != path.Dir(phaseID) {
+		phase, err := FindPhase(plan, phaseID)
+		if err != nil {
+			return trace.Wrap(err)
+		}
+		for _, required := range phase.Requires {
+			for _, p := range allPhases {
+				if p.ID == required && !p.IsCompleted() {
+					return trace.BadParameter(
+						"required phase %q is not completed", p.ID)
+				}
+			}
+		}
+		phaseID = path.Dir(phaseID)
+	}
+	return nil
+}
+
+// StateChange represents phase state transition
+type StateChange struct {
+	// Phase is the id of the phase that changes state
+	Phase string
+	// State is the new phase state
+	State string
+	// Error is the error that happened during phase execution
+	Error trace.Error
+}
+
+// String returns a textual representation of this state change
+func (c StateChange) String() string {
+	if c.Error != nil {
+		return fmt.Sprintf("StateChange(Phase=%v, State=%v, Error=%v)",
+			c.Phase, c.State, c.Error)
+	}
+	return fmt.Sprintf("StateChange(Phase=%v, State=%v)",
+		c.Phase, c.State)
+}
+
+// RootPhase is the name of the top-level phase
+const RootPhase = "/"

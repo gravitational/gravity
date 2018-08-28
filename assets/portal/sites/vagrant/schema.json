@@ -1,0 +1,54 @@
+{
+    "title": "Vagrant provisioner schema",
+    "type": "object",
+    "required": ["servers", "system"],
+    "properties": {
+        "system": {
+            "type": "object",
+            "properties": {
+                "site_domain": {"type": "string"},
+                "gravity_url": {"type": "string"},
+                "agent_username": {"type": "string"},
+                "agent_password": {"type": "string"},
+                "agent_server_addr": {"type": "string"},
+                "teleport_proxy_address": {"type": "string", "default": "opscenter.localhost.localdomain"}
+            }
+        },
+        "user": {
+            "type": "string",
+            "description": "Vagrant user",
+            "default": "vagrant"
+        },
+        "group": {
+            "type": "string",
+            "description": "Vagrant group",
+            "default": "vagrant"
+        },
+        "image": {
+            "type": "string",
+            "description": "Vagrant image name to provision",
+            "default": "debian/jessie64"
+        },
+        "servers": {
+            "type": "array",
+            "minItems": 2,
+            "items": {
+                "type": "object",
+                "description": "server specification",
+                "properties": {
+                    "cpus": {"description": "cpus to provision", "type": "number", "minimum": 1, "default": 1},
+                    "ram_mb": {"type": "number", "minimum": 800, "default": 800},
+                    "data_volume": {
+                        "type": "object",
+                        "properties": {
+                            "mount_point": {"type": "string", "default": "/var/lib/gravity"},
+                            "size_gb": {"type": "number", "default": 300, "minimum": 300},
+                            "device_name": {"type": "string", "default": "/dev/sdb"}
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
+

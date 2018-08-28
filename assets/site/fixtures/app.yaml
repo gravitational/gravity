@@ -1,0 +1,73 @@
+# this file is used for unit tests (tests YAML parsing for Gravity applications)
+
+# This "app" object is Gravity-specific
+apiVersion: v1
+kind: Application
+metadata:
+    name: Test-yaml-app
+    namespace: vendor-name
+    resourceVersion: 1.2.3
+---  
+
+apiVersion: v1
+kind: Service
+metadata:
+    name: sample
+spec:
+    type: LoadBalancer
+    clusterIP: 10.0.10.100
+    ports: 
+        - name: sample
+          port: 6000
+          protocol: TCP
+          targetPort: 5000
+        - name: gravity
+          port: 6001
+          protocol: TCP
+          targetPort: 8100
+    selector:
+        name: gpod
+--- 
+
+apiVersion: v1
+kind: Endpoints
+metadata:
+    name: etcd-service
+subsets:
+  - addresses:
+    - ip: 10.0.10.100
+    - ip: 10.0.10.101
+    - ip: 10.0.10.102
+    ports:
+    - port: 2379
+      protocol: TCP
+---
+
+apiVersion: v1
+kind: Service
+metadata:
+    name: etcd-service
+spec:
+    ports: 
+        - port: 2379
+          protocol: TCP
+          targetPort: 2379
+---
+
+apiVersion: v1
+kind: Pod
+metadata:
+    name: gpod
+    labels:
+        name: gpod
+spec:
+    replicas: 3
+    containers:
+    - name: sample
+      image: 10.0.10.100:5000/sample:latest
+      ports:
+      - containerPort: 5000
+    - name: gravity
+      image: 10.0.10.100:5000/gravity:latest
+      ports:
+      - containerPort: 8100

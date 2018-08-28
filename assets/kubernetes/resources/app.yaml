@@ -1,0 +1,86 @@
+apiVersion: bundle.gravitational.io/v2
+kind: Runtime
+metadata:
+  name: kubernetes
+  resourceVersion: "0.0.0"
+providers:
+  aws:
+    network:
+      type: aws-vpc
+    iamPolicy:
+      version: "2012-10-17"
+      actions:
+        - "ec2:DescribeRegions"
+        - "ec2:CreateVpc"
+        - "ec2:DeleteVpc"
+        - "ec2:DescribeNetworkAcls"
+        - "ec2:DescribeVpcAttribute"
+        - "ec2:DescribeVpcs"
+        - "ec2:ModifyVpcAttribute"
+        - "ec2:CreateTags"
+        - "ec2:DescribeInstances"
+        - "ec2:DescribeImages"
+        - "ec2:DescribeAvailabilityZones"
+        - "ec2:RunInstances"
+        - "ec2:TerminateInstances"
+        - "ec2:StopInstances"
+        - "ec2:StartInstances"
+        - "ec2:ModifyInstanceAttribute"
+        - "ec2:DescribeVolumes"
+        - "ec2:CreateSecurityGroup"
+        - "ec2:DeleteSecurityGroup"
+        - "ec2:DescribeSecurityGroups"
+        - "ec2:RevokeSecurityGroupEgress"
+        - "ec2:RevokeSecurityGroupIngress"
+        - "ec2:AuthorizeSecurityGroupEgress"
+        - "ec2:AuthorizeSecurityGroupIngress"
+        - "ec2:AttachInternetGateway"
+        - "ec2:CreateInternetGateway"
+        - "ec2:DeleteInternetGateway"
+        - "ec2:DescribeInternetGateways"
+        - "ec2:CreateSubnet"
+        - "ec2:DeleteSubnet"
+        - "ec2:DescribeSubnets"
+        - "ec2:ModifySubnetAttribute"
+        - "ec2:DescribeRouteTables"
+        - "ec2:CreateRoute"
+        - "ec2:CreateRouteTable"
+        - "ec2:DeleteRoute"
+        - "ec2:DeleteRouteTable"
+        - "ec2:AssociateRouteTable"
+        - "ec2:DisassociateRouteTable"
+        - "ec2:ReplaceRouteTableAssociation"
+        - "ec2:DescribeKeyPairs"
+        - "ec2:DetachInternetGateway"
+        - "iam:AddRoleToInstanceProfile"
+        - "iam:CreateInstanceProfile"
+        - "iam:GetInstanceProfile"
+        - "iam:CreateRole"
+        - "iam:GetRole"
+        - "iam:DeleteRole"
+        - "iam:PassRole"
+        - "iam:PutRolePolicy"
+        - "iam:GetRolePolicy"
+        - "iam:DeleteRolePolicy"
+        - "iam:ListRoles"
+        - "iam:ListInstanceProfiles"
+        - "iam:ListInstanceProfilesForRole"
+        - "iam:RemoveRoleFromInstanceProfile"
+        - "iam:DeleteInstanceProfile"
+dependencies:
+  packages:
+    - gravitational.io/gravity:0.0.0
+    - gravitational.io/web-assets:0.0.0
+    - gravitational.io/teleport:0.0.0
+  apps:
+    - gravitational.io/rbac-app:0.0.0
+    - gravitational.io/dns-app:0.0.0
+    - gravitational.io/bandwagon:0.0.0
+    - gravitational.io/logging-app:0.0.0
+    - gravitational.io/monitoring-app:0.0.0
+    - gravitational.io/tiller-app:0.0.0
+    - gravitational.io/site:0.0.0
+systemOptions:
+  dependencies:
+    runtimePackage: gravitational.io/planet:0.0.0
+

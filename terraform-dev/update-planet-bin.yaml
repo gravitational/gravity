@@ -1,0 +1,44 @@
+---
+
+- hosts: all
+  vars:
+    root_dir: "{{playbook_dir}}/.."
+  tasks:
+  - name: Capture gravity tag
+    delegate_to: localhost
+    shell: "make --silent get-tag"
+    args:
+      chdir: "{{root_dir}}"
+    register: command_output
+  - set_fact:
+      gravity_tag: "{{ command_output.stdout }}"
+  - debug: msg="gravity tag - {{gravity_tag}}"
+
+  - set_fact: gopath="{{ lookup('env','GOPATH') }}"
+  - debug: msg="gopath {{gopath}}"
+
+  - name: Capture installed planet tag
+    shell: "gravity package list | grep planet | grep installed | egrep -o '[0-9]+.[0-9]+.[0-9]+-[0-9]+'"
+    register: command_output
+  - set_fact:
+      planet_tag: "{{ command_output.stdout }}"
+  - debug: msg="planet tag {{planet_tag}}"
+
+  - name: Build planet-bin
+    when: inventory_hostname == groups['nodes'][0]
+    delegate_to: localhost
+    shell: |
+      BUILDDIR=/tmp make planet-bin
+    args:
+      chdir: "{{root_dir}}/../planet"
+
+  - name: upload planet binary to planet
+    become: yes
+    copy:
+      force: yes
+      mode: '755'
+      src: "/tmp/planet"
+      dest: "/var/lib/gravity/local/packages/unpacked/gravitational.io/planet/{{planet_tag}}/rootfs/usr/bin/planet"
+
+      
+

@@ -1,0 +1,18 @@
+devmode: false
+data_dir: /var/lib/gravity/site
+backend_type: etcd
+health_addr: 0.0.0.0:3010
+etcd:
+  nodes: ["https://127.0.0.1:2379"]
+  key: /gravity/local
+  tls_key_file: /var/lib/gravity/secrets/etcd.key
+  tls_cert_file: /var/lib/gravity/secrets/etcd.cert
+  tls_ca_file: /var/lib/gravity/secrets/root.cert
+hostname: leader.telekube.local
+ops:
+  enabled: true
+pack:
+  enabled: true
+  listen_addr: 0.0.0.0:3009
+  public_listen_addr: 0.0.0.0:3007
+  advertise_addr: leader.telekube.local:3009

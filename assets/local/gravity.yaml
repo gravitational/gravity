@@ -1,0 +1,71 @@
+# devmode adds some nice features for development mode
+# e.g. it publishes new releases of teleport, gravity and service manager
+# automatically on start, so developers won't need to rebuild it themselves
+devmode: true
+
+data_dir: /var/lib/gravity/opscenter
+# supported backend types: bolt, etcd
+backend_type: etcd
+
+etcd:
+  nodes: ["https://localhost:2379"]
+  key: /gravity/local
+  tls_key_file: assets/certs/proxy1-key.pem
+  tls_cert_file: assets/certs/proxy1.pem
+  tls_ca_file: assets/certs/ca.pem
+
+hostname: opscenter.localhost.localdomain
+
+ops:
+  # OpsCenter section contains information specific to the OpsCenter
+  # portal is always enabled
+  enabled: true
+  agent_server_listen_addr: 0.0.0.0:33008
+  agent_server_advertise_addr: opscenter.localhost.localdomain:33008
+
+pack:
+  # pack is a package service, responsible for hosting various artefacts that we need
+  enabled: true
+  listen_addr: 0.0.0.0:33009
+  advertise_addr: opscenter.localhost.localdomain:33009
+  read_dir: /var/lib/gravity/opscenter/read
+
+users:
+  # list of static users pre-configured for this portal
+  - email: admin@gravitational.com
+    password: gravity+1
+    type: admin
+    owner: true
+    org: gravitational.io
+    roles: ['@teleadmin']
+    identities:
+      - connector_id: google
+        email: sasha@gravitational.io
+      - connector_id: google
+        email: alexey@gravitational.com
+      - connector_id: google
+        email: roman@gravitational.com
+      - connector_id: google
+        email: dmitri@gravitational.com
+      - connector_id: google
+        email: ev@gravitational.com
+      - connector_id: google
+        email: taylor@gravitational.com
+      - connector_id: google
+        email: sergei@gravitational.com
+      - connector_id: google
+        email: robotest@gravitational.io
+      - connector_id: google
+        email: lele@gravitational.com
+  - email: reader@gravitational.com
+    tokens:
+      - knowL3dge?
+    type: agent
+    org: gravitational.io
+    roles: ['@reader']
+
+smtp:
+  enabled: true
+  password: f0f7c1a18e1ef59760429500fdc99735
+  username: postmaster@gravitational.com
+  server: smtp.mailgun.org:587

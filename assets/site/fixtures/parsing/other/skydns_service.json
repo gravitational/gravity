@@ -1,0 +1,36 @@
+{ "kind": "Service",
+    "apiVersion": "v1",
+    "metadata": {
+        "name": "kube-dns-json",
+        "selfLink": "/api/v1/namespaces/default/services/kube-dns",
+        "resourceVersion": "29628",
+        "labels": {
+            "k8s-app": "kube-dns",
+            "kubernetes.io/cluster-service": "true",
+            "kubernetes.io/name": "KubeDNS"
+        }
+    },
+    "spec": {
+        "ports": [ {
+                "name": "dns",
+                "protocol": "UDP",
+                "port": 53,
+                "targetPort": 53,
+                "nodePort": 0
+            },
+            {
+                "name": "dns-tcp",
+                "protocol": "TCP",
+                "port": 53,
+                "targetPort": 53,
+                "nodePort": 0
+            }
+        ],
+        "selector": {
+            "k8s-app": "kube-dns"
+        },
+        "clusterIP": "10.0.200.1",
+        "type": "ClusterIP",
+        "sessionAffinity": "None"
+    }
+}

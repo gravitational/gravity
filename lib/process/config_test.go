@@ -1,0 +1,78 @@
+package process
+
+import (
+	"net"
+	"testing"
+
+	"github.com/gravitational/gravity/lib/processconfig"
+	telecfg "github.com/gravitational/teleport/lib/config"
+	teleutils "github.com/gravitational/teleport/lib/utils"
+
+	"gopkg.in/check.v1"
+)
+
+func TestProcess(t *testing.T) { check.TestingT(t) }
+
+type ConfigSuite struct {
+}
+
+var _ = check.Suite(&ConfigSuite{})
+
+func (s *ConfigSuite) TestMergeConfig(c *check.C) {
+	config, err := WizardProcessConfig("test.example.com", "readdir", "statedir")
+	c.Assert(err, check.IsNil)
+	c.Assert(config, check.NotNil)
+
+	from := &processconfig.Config{
+		Hostname: "from.hostname",
+		Pack: processconfig.PackageServiceConfig{
+			AdvertiseAddr: *teleutils.MustParseAddr("ops.example.com:443"),
+		},
+		Users: []processconfig.User{
+			{
+				Owner:    true,
+				Password: "test",
+				Type:     "admin",
+				Org:      "example.com",
+				Email:    "alice@example.com",
+			},
+		},
+	}
+	err = processconfig.MergeConfig(config, from)
+	c.Assert(err, check.IsNil)
+	c.Assert(config.Hostname, check.Equals, from.Hostname)
+	c.Assert(config.Pack.AdvertiseAddr, check.DeepEquals, from.Pack.AdvertiseAddr)
+	c.Assert(config.Users[len(config.Users)-1], check.DeepEquals, from.Users[0])
+}
+
+func (s *ConfigSuite) TestMergeTeleConfig(c *check.C) {
+	config := WizardTeleportConfig("example.com", "statedir")
+	c.Assert(config, check.NotNil)
+
+	from := &telecfg.FileConfig{
+		Global: telecfg.Global{
+			AdvertiseIP: net.ParseIP("127.0.0.2"),
+		},
+		Auth: telecfg.Auth{
+			ClusterName: "test.example.com",
+			OIDCConnectors: []telecfg.OIDCConnector{
+				{
+					ID:           "test",
+					RedirectURL:  "https://test.example.com",
+					ClientID:     "testclientid",
+					ClientSecret: "secret",
+					IssuerURL:    "https://auth.example.com",
+				},
+			},
+		},
+		Proxy: telecfg.Proxy{
+			KeyFile:  "/tmp/key.pem",
+			CertFile: "/tmp/cert.pem",
+		},
+	}
+	err := processconfig.MergeTeleConfig(config, from)
+	c.Assert(err, check.IsNil)
+	c.Assert(config.AdvertiseIP.String(), check.Equals, from.AdvertiseIP.String())
+	c.Assert(config.Auth.ClusterName, check.Equals, from.Auth.ClusterName)
+	c.Assert(config.Auth.OIDCConnectors, check.DeepEquals, from.Auth.OIDCConnectors)
+}

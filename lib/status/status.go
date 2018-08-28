@@ -1,0 +1,336 @@
+package status
+
+import (
+	"context"
+	"encoding/json"
+	"fmt"
+	"net/url"
+	"time"
+
+	"github.com/gravitational/gravity/lib/constants"
+	"github.com/gravitational/gravity/lib/defaults"
+	"github.com/gravitational/gravity/lib/httplib"
+	"github.com/gravitational/gravity/lib/loc"
+	"github.com/gravitational/gravity/lib/ops"
+	"github.com/gravitational/gravity/lib/storage"
+
+	"github.com/gravitational/roundtrip"
+	pb "github.com/gravitational/satellite/agent/proto/agentpb"
+	"github.com/gravitational/trace"
+)
+
+// FromCluster collects cluster status information.
+// The function returns the partial status if not all details can be collected
+func FromCluster(ctx context.Context, operator ops.Operator, cluster ops.Site, operationID string) (status *Status, err error) {
+	status = &Status{
+		Cluster: &Cluster{
+			Domain: cluster.Domain,
+			// Default to degraded - reset on successful query
+			State:     ops.SiteStateDegraded,
+			Reason:    cluster.Reason,
+			App:       cluster.App.Package,
+			Extension: newExtension(),
+		},
+	}
+
+	token, err := operator.GetExpandToken(cluster.Key())
+	if err != nil && !trace.IsNotFound(err) {
+		return status, trace.Wrap(err)
+	}
+	if token != nil {
+		status.Token = *token
+	}
+
+	err = status.Cluster.Extension.Collect()
+	if err != nil {
+		return status, trace.Wrap(err)
+	}
+
+	var operation *ops.SiteOperation
+	var progress *ops.ProgressEntry
+	// if operation ID is provided, get info for that operation, otherwise
+	// get info for the most recent operation
+	if operationID != "" {
+		operation, progress, err = ops.GetOperationWithProgress(
+			cluster.OperationKey(operationID), operator)
+	} else {
+		operation, progress, err = ops.GetLastOperation(
+			cluster.Key(), operator)
+	}
+	if err != nil {
+		return status, trace.Wrap(err)
+	}
+	status.Operation = fromOperationAndProgress(*operation, *progress)
+
+	status.Agent, err = FromPlanetAgent(ctx, cluster.ClusterState.Servers)
+	if err != nil {
+		return status, trace.Wrap(err, "failed to collect system status from agents")
+	}
+
+	status.State = cluster.State
+	return status, nil
+}
+
+// Check classifies this cluster status as error
+func (s Status) Check() error {
+	// if the site is in degraded status, make sure to exit with non-0 code
+	if s.State == ops.SiteStateDegraded {
+		return trace.BadParameter("Cluster status: degraded")
+	}
+	if s.Agent != nil && s.Agent.SystemStatus != pb.SystemStatus_Running {
+		return trace.BadParameter("Cluster status: degraded")
+	}
+	// if the operation is in bad state, return error
+	if s.Operation != nil && s.Operation.isFailed() {
+		return trace.BadParameter("Operation failed")
+	}
+	return nil
+}
+
+// FromPlanetAgent collects cluster status from the planet agent
+func FromPlanetAgent(ctx context.Context, servers []storage.Server) (*Agent, error) {
+	status, err := planetAgentStatus(ctx)
+	if err != nil {
+		return nil, trace.Wrap(err, "failed to query cluster status from agent")
+	}
+
+	var nodes []ClusterServer
+	if len(servers) != 0 {
+		nodes = fromClusterState(*status, servers)
+	} else {
+		nodes = fromSystemStatus(*status)
+	}
+
+	return &Agent{
+		SystemStatus: status.Status,
+		Nodes:        nodes,
+	}, nil
+}
+
+// Status describes the status of the cluster as a whole
+type Status struct {
+	// Cluster describes the operational status of the cluster
+	*Cluster `json:",inline,omitempty"`
+	// Agent describes the status of the system and individual nodes
+	*Agent `json:",inline,omitempty"`
+}
+
+// Cluster encapsulates collected cluster status information
+type Cluster struct {
+	// App references the installed application
+	App loc.Locator `json:"application"`
+	// State describes the cluster state
+	State string `json:"state"`
+	// Reason specifies the reason for the state
+	Reason storage.Reason `json:"reason,omitempty"`
+	// Domain provides the name of the cluster domain
+	Domain string `json:"domain"`
+	// Token specifies the provisioning token used for joining nodes to cluster if any
+	Token storage.ProvisioningToken `json:"token"`
+	// Operation describes a cluster operation.
+	// This can either refer to the last or a specific operation
+	Operation *ClusterOperation `json:"operation,omitempty"`
+	// Extension is a cluster status extension
+	Extension `json:",inline,omitempty"`
+}
+
+// Key returns key structure that identifies this operation
+func (r ClusterOperation) Key() ops.SiteOperationKey {
+	return ops.SiteOperationKey{
+		AccountID:   r.accountID,
+		OperationID: r.ID,
+		SiteDomain:  r.siteDomain,
+	}
+}
+
+// ClusterOperation describes a cluster operation.
+// This can either refer to the last or a specific operation
+type ClusterOperation struct {
+	// Type of the operation
+	Type string `json:"type"`
+	// ID of the operation
+	ID string `json:"id"`
+	// State of the operation (completed, in progress, failed etc)
+	State string `json:"state"`
+	// Created specifies the time the operation was created
+	Created time.Time `json:"created"`
+	// Progress describes the progress of an operation
+	Progress   ClusterOperationProgress `json:"progress"`
+	accountID  string
+	siteDomain string
+}
+
+// IsCompleted returns whether this progress entry identifies a completed
+// (successful or failed) operation
+func (r ClusterOperationProgress) IsCompleted() bool {
+	return r.Completion == constants.Completed
+}
+
+// Progress describes the progress of an operation
+type ClusterOperationProgress struct {
+	// Message provides the free text associated with this entry
+	Message string `json:"message"`
+	// Completion specifies the progress value in percent (0..100)
+	Completion int `json:"completion"`
+	// Created specifies the time the progress entry was created
+	Created time.Time `json:"created"`
+}
+
+// Agent specifies the status of the system and individual nodes
+type Agent struct {
+	// SystemStatus defines the health status of the whole cluster
+	SystemStatus pb.SystemStatus_Type `json:"system_status"`
+	// Nodes lists status of each individual cluster node
+	Nodes []ClusterServer `json:"nodes"`
+}
+
+// ClusterServer describes the status of the cluster node
+type ClusterServer struct {
+	// Hostname provides the node's hostname
+	Hostname string `json:"hostname"`
+	// AdvertiseIP specifies the advertise IP address
+	AdvertiseIP string `json:"advertise_ip"`
+	// Role describes the node's cluster service role (control plane node or not)
+	Role string `json:"role"`
+	// Status describes the node's status
+	Status string `json:"status"`
+	// FailedProbes lists all failed probes if the node is not healthy
+	FailedProbes []string `json:"failed_probes,omitempty"`
+}
+
+func (r ClusterOperation) isFailed() bool {
+	return r.State == ops.OperationStateFailed
+}
+
+func fromOperationAndProgress(operation ops.SiteOperation, progress ops.ProgressEntry) *ClusterOperation {
+	return &ClusterOperation{
+		Type:       operation.Type,
+		ID:         operation.ID,
+		State:      operation.State,
+		Created:    operation.Created,
+		Progress:   fromProgressEntry(progress),
+		siteDomain: operation.SiteDomain,
+		accountID:  operation.AccountID,
+	}
+}
+
+func fromProgressEntry(src ops.ProgressEntry) ClusterOperationProgress {
+	return ClusterOperationProgress{
+		Message:    src.Message,
+		Completion: src.Completion,
+		Created:    src.Created,
+	}
+}
+
+// fromSystemStatus returns the list of node statuses in the absence
+// of the actual cluster server list so it might be missing information
+// about nodes agent status did not get response back from
+func fromSystemStatus(systemStatus pb.SystemStatus) (out []ClusterServer) {
+	out = make([]ClusterServer, 0, len(systemStatus.Nodes))
+	for _, node := range systemStatus.Nodes {
+		out = append(out, fromNodeStatus(*node))
+	}
+	return out
+}
+
+// fromClusterState generates accurate node status report including nodes missing
+// in the agent report
+func fromClusterState(systemStatus pb.SystemStatus, cluster []storage.Server) (out []ClusterServer) {
+	out = make([]ClusterServer, 0, len(systemStatus.Nodes))
+	nodes := nodes(systemStatus)
+	for _, server := range cluster {
+		node, found := nodes[server.AdvertiseIP]
+		if !found {
+			out = append(out, emptyNodeStatus(server))
+			continue
+		}
+
+		status := fromNodeStatus(*node)
+		status.Hostname = server.Hostname
+		out = append(out, status)
+	}
+	return out
+}
+
+func planetAgentStatus(ctx context.Context) (*pb.SystemStatus, error) {
+	httpClient := roundtrip.HTTPClient(httplib.GetClient(true))
+	addr := fmt.Sprintf("https://%v:%v", constants.Localhost, defaults.SatelliteRPCAgentPort)
+	client, err := roundtrip.NewClient(addr, "", httpClient)
+	if err != nil {
+		return nil, trace.Wrap(err)
+	}
+
+	resp, err := client.Get(addr, url.Values{})
+	if err != nil {
+		return nil, trace.Wrap(err)
+	}
+
+	var status pb.SystemStatus
+	err = json.Unmarshal(resp.Bytes(), &status)
+	if err != nil {
+		return nil, trace.Wrap(err)
+	}
+
+	return &status, nil
+}
+
+// nodes returns the set of node status objects keyed by IP
+func nodes(systemStatus pb.SystemStatus) (out map[string]*pb.NodeStatus) {
+	out = make(map[string]*pb.NodeStatus)
+	for _, node := range systemStatus.Nodes {
+		publicIP := node.MemberStatus.Tags[publicIPAddrTag]
+		out[publicIP] = node
+	}
+	return out
+}
+
+func fromNodeStatus(node pb.NodeStatus) (status ClusterServer) {
+	status.AdvertiseIP = node.MemberStatus.Tags[publicIPAddrTag]
+	status.Role = node.MemberStatus.Tags[roleTag]
+	switch node.Status {
+	case pb.NodeStatus_Unknown:
+		status.Status = NodeOffline
+	case pb.NodeStatus_Running:
+		status.Status = NodeHealthy
+	case pb.NodeStatus_Degraded:
+		status.Status = NodeDegraded
+		for _, probe := range node.Probes {
+			if probe.Status != pb.Probe_Running {
+				status.FailedProbes = append(status.FailedProbes,
+					probeErrorDetail(*probe))
+			}
+		}
+	}
+	return status
+}
+
+func emptyNodeStatus(server storage.Server) ClusterServer {
+	return ClusterServer{
+		Status:      NodeOffline,
+		Hostname:    server.Hostname,
+		AdvertiseIP: server.AdvertiseIP,
+	}
+}
+
+// probeErrorDetail describes the failed probe
+func probeErrorDetail(p pb.Probe) string {
+	detail := p.Detail
+	if p.Detail == "" {
+		detail = p.Checker
+	}
+	return fmt.Sprintf("%v failed", detail)
+}
+
+const (
+	// NodeHealthy is the status of a healthy node
+	NodeHealthy = "healthy"
+	// NodeOffline is the status of an unreachable/unavailable node
+	NodeOffline = "offline"
+	// NodeDegraged is the status of a node with failed probes
+	NodeDegraded = "degraded"
+
+	// publicIPAddrTag is the name of the tag containing node IP
+	publicIPAddrTag = "publicip"
+	// roleTag is the name of the tag containing node role
+	roleTag = "role"
+)

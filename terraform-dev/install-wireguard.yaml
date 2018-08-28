@@ -1,0 +1,46 @@
+- hosts: all
+  become: yes
+  become_user: root
+  become_method: sudo
+  vars:
+    root_dir: "{{playbook_dir}}/.."
+  tasks:
+  - apt_repository:
+      repo: 'ppa:wireguard/wireguard'
+      state: present
+  - apt:
+      name: wireguard
+      state: present
+
+  - name: Creating /etc/wireguard
+    file:
+      path: /etc/wireguard
+      state: directory
+
+  - name: Copy a new "wireguard file into place, backing up the original if it differs from the copied version"
+    copy:
+      src: "wireguard/telekube{{ groups['all'].index(inventory_hostname) }}.conf"
+      dest: /etc/wireguard/wireguard.conf
+      owner: root
+      group: root
+      mode: 0600
+      backup: yes
+
+  - name: Capture wg0 device status
+    shell: "ip link show dev wg0"
+    register: wg0
+    ignore_errors: yes
+
+  - name: Install routes and assign address
+    when: wg0.rc != 0
+    become: yes
+    shell: |
+      ip link add dev wg0 type wireguard
+
+  - name: Configure wireguard
+    become: yes
+    shell: |
+      wg setconf wg0 /etc/wireguard/wireguard.conf
+      ip link set up dev wg0
+      ip address change dev wg0 192.168.{{ groups['all'].index(inventory_hostname) }}.1/24
+      ip route replace 192.168.0.0/16 via 192.168.{{ groups['all'].index(inventory_hostname) }}.1 dev wg0

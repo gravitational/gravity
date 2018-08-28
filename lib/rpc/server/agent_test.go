@@ -1,0 +1,412 @@
+package server
+
+import (
+	"bytes"
+	"strings"
+	"sync"
+	"time"
+
+	"github.com/gravitational/gravity/lib/compare"
+	"github.com/gravitational/gravity/lib/rpc/client"
+	pb "github.com/gravitational/gravity/lib/rpc/proto"
+	"github.com/gravitational/gravity/lib/storage"
+
+	"github.com/gravitational/trace"
+	log "github.com/sirupsen/logrus"
+	"golang.org/x/net/context"
+	healthpb "google.golang.org/grpc/health/grpc_health_v1"
+	. "gopkg.in/check.v1"
+)
+
+func (r *S) TestRequiresCert(c *C) {
+	ctx, cancel := context.WithTimeout(context.TODO(), 1*time.Second)
+	defer cancel()
+	_, err := client.New(ctx,
+		client.Config{
+			ServerAddr: "127.0.0.1:25123",
+		})
+	c.Assert(err, Not(IsNil), Commentf("client certificate should be required"))
+}
+
+func (r *S) TestClientExecutesCommandsRemotely(c *C) {
+	creds := TestCredentials(c)
+	cmd := testCommand{"server output"}
+	log := r.WithField("test", "ClientExecutesCommandsRemotely")
+	listener := listen(c)
+	srv, err := New(Config{
+		Listener:        listener,
+		Credentials:     creds,
+		commandExecutor: cmd,
+	}, log.WithField("server", listener.Addr()))
+	c.Assert(err, IsNil)
+	go srv.Serve()
+
+	ctx, cancel := context.WithTimeout(context.TODO(), 1*time.Second)
+	defer cancel()
+	clt, err := client.New(ctx,
+		client.Config{
+			ServerAddr:  srv.Addr().String(),
+			Credentials: creds.Client,
+		})
+	c.Assert(err, IsNil)
+	r.clientExecutesCommandsWithClient(c, clt, srv, cmd.output)
+}
+
+func (r *S) TestAgentsConnectToController(c *C) {
+	creds := TestCredentials(c)
+	store := newPeerStore()
+	log := r.WithField("test", "AgentsConnectToController")
+	listener := listen(c)
+	srv, err := New(Config{
+		Listener:    listener,
+		Credentials: creds,
+		PeerStore:   store,
+	}, log.WithField("server", listener.Addr()))
+	c.Assert(err, IsNil)
+
+	go srv.Serve()
+	defer withTestCtx(srv.Stop)
+
+	ctx, cancel := context.WithTimeout(context.TODO(), 5*time.Second)
+	peer := r.newPeer(c, PeerConfig{Config: Config{Listener: listen(c)}}, srv.Addr().String(), log)
+	go peer.Serve()
+	defer withTestCtx(peer.Stop)
+
+	err = store.expect(ctx, 1)
+	cancel()
+	c.Assert(err, IsNil)
+
+	peers := store.getPeers()
+	obtained := make([]string, 0, len(peers))
+	for _, peer := range peers {
+		obtained = append(obtained, peer.Addr())
+	}
+
+	c.Assert(obtained, DeepEquals, []string{peer.Addr().String()})
+}
+
+func (r *S) TestPeerDisconnect(c *C) {
+	creds := TestCredentials(c)
+	store := newPeerStore()
+	log := r.WithField("test", "PeerDisconnect")
+	listener := listen(c)
+	srv, err := New(Config{
+		Listener:    listener,
+		Credentials: creds,
+		PeerStore:   store,
+	}, log.WithField("server", listener.Addr()))
+	c.Assert(err, IsNil)
+	go srv.Serve()
+	defer withTestCtx(srv.Stop)
+
+	// launch two peers
+	peer1, err := NewPeer(PeerConfig{
+		Config: Config{
+			Listener:    listen(c),
+			Credentials: creds,
+			systemInfo:  TestSystemInfo{},
+		},
+	}, srv.Addr().String(), log)
+	c.Assert(err, IsNil)
+	go peer1.Serve()
+	defer withTestCtx(peer1.Stop)
+
+	peer2, err := NewPeer(PeerConfig{
+		Config: Config{
+			Listener:    listen(c),
+			Credentials: creds,
+			systemInfo:  TestSystemInfo{},
+		},
+	}, srv.Addr().String(), log)
+	c.Assert(err, IsNil)
+	go peer2.Serve()
+	defer withTestCtx(peer2.Stop)
+
+	ctx, cancel := context.WithTimeout(context.TODO(), 5*time.Second)
+	defer cancel()
+	c.Assert(store.expect(ctx, 2), IsNil)
+
+	// shut one of the peers down
+	ctx, cancel = context.WithTimeout(context.TODO(), 5*time.Second)
+	defer cancel()
+	c.Assert(peer1.Stop(ctx), IsNil)
+
+	// make sure only the second peer is left
+	c.Assert(store.getPeers(), compare.DeepEquals, []Peer{
+		&remotePeer{
+			addr:             peer2.Addr().String(),
+			creds:            creds.Client,
+			reconnectTimeout: peer2.PeerConfig.ReconnectTimeout,
+		},
+	})
+}
+
+func (r *S) TestServerReportsHealth(c *C) {
+	ctx, cancel := context.WithTimeout(context.TODO(), 1*time.Second)
+	defer cancel()
+
+	creds := TestCredentials(c)
+	log := r.WithField("test", "ServerReportsHealth")
+	listener := listen(c)
+	srv, err := New(Config{
+		Listener:    listener,
+		Credentials: creds,
+	}, log.WithField("server", listener.Addr()))
+	c.Assert(err, IsNil)
+
+	go srv.Serve()
+	defer withTestCtx(srv.Stop)
+
+	clt, err := newClient(ctx, creds.Client, srv.Addr().String())
+	c.Assert(err, IsNil)
+
+	resp, err := clt.Check(ctx, &healthpb.HealthCheckRequest{})
+	c.Assert(err, IsNil)
+	c.Assert(resp, DeepEquals, &healthpb.HealthCheckResponse{
+		Status: healthpb.HealthCheckResponse_SERVING,
+	})
+}
+
+func (r *S) TestWaitsUntilAgentShutsDown(c *C) {
+	ctx, cancel := context.WithTimeout(context.TODO(), 1*time.Second)
+	defer cancel()
+
+	creds := TestCredentials(c)
+	log := r.WithField("test", "WaitsUntilAgentShutsDown")
+	listener := listen(c)
+	srv, err := New(Config{
+		Listener:    listener,
+		Credentials: creds,
+	}, log.WithField("server", listener.Addr()))
+	c.Assert(err, IsNil)
+
+	go srv.Serve()
+
+	withTestCtx(srv.Stop)
+	select {
+	case <-srv.Done():
+	case <-ctx.Done():
+		c.Error("timeout waiting for server to shut down")
+	}
+}
+
+func (r *S) TestRejectsPeer(c *C) {
+	creds := TestCredentials(c)
+	store := rejectingStore{}
+	log := r.WithField("test", "RejectsPeer")
+	listener := listen(c)
+	srv, err := New(Config{
+		Listener:    listener,
+		Credentials: creds,
+		PeerStore:   store,
+	}, log.WithField("server", listener.Addr().String()))
+	c.Assert(err, IsNil)
+
+	go srv.Serve()
+	defer withTestCtx(srv.Stop)
+
+	watchCh := make(chan WatchEvent, 1)
+	config := PeerConfig{
+		Config: Config{
+			Listener:    listen(c),
+			Credentials: TestCredentials(c),
+			systemInfo:  TestSystemInfo{},
+		},
+		WatchCh: watchCh,
+	}
+	p, err := NewPeer(config, srv.Addr().String(), log)
+	c.Assert(err, IsNil)
+	go p.Serve()
+	defer withTestCtx(p.Stop)
+
+	select {
+	case update := <-watchCh:
+		c.Assert(trace.Unwrap(update.Error), ErrorMatches, "(?ms).*peer not authorized.*")
+	case <-time.After(5 * time.Second):
+		c.Error("timeout waiting for connect failure")
+	}
+}
+
+func (r *S) TestQueriesSystemInfo(c *C) {
+	sysinfo := storage.NewSystemInfo(storage.SystemSpecV2{
+		Hostname: "foo",
+		Filesystems: []storage.Filesystem{
+			storage.Filesystem{
+				DirName: "/foo/bar",
+				Type:    "tmpfs",
+			},
+		},
+		FilesystemStats: map[string]storage.FilesystemUsage{
+			"/foo/bar": storage.FilesystemUsage{
+				TotalKB: 512,
+				FreeKB:  0,
+			},
+		},
+		NetworkInterfaces: map[string]storage.NetworkInterface{
+			"device0": storage.NetworkInterface{
+				Name: "device0",
+				IPv4: "172.168.0.1",
+			},
+		},
+		Memory: storage.Memory{Total: 1000, Free: 512, ActualFree: 640},
+		Swap:   storage.Swap{Total: 1000, Free: 512},
+		User: storage.OSUser{
+			Name: "admin",
+			UID:  "1001",
+			GID:  "1001",
+		},
+		OS: storage.OSInfo{
+			ID:      "centos",
+			Like:    []string{"rhel"},
+			Version: "7.2",
+		},
+	})
+	creds := TestCredentials(c)
+	log := r.WithField("test", "QueriesSystemInfo")
+	listener := listen(c)
+	srv, err := New(Config{
+		Listener:    listener,
+		Credentials: creds,
+		systemInfo:  TestSystemInfo(*sysinfo),
+	}, log.WithField("server", listener.Addr()))
+	c.Assert(err, IsNil)
+
+	go srv.Serve()
+	defer withTestCtx(srv.Stop)
+
+	ctx, cancel := context.WithTimeout(context.TODO(), 1*time.Second)
+	defer cancel()
+	clt, err := client.New(ctx,
+		client.Config{
+			ServerAddr:  srv.Addr().String(),
+			Credentials: creds.Client,
+		})
+	c.Assert(err, IsNil)
+
+	obtained, err := clt.GetSystemInfo(ctx)
+	c.Assert(err, IsNil)
+	// Namespace is not serialized
+	sysinfo.Namespace = ""
+	compare.DeepCompare(c, obtained, sysinfo)
+}
+
+func (r *S) clientExecutesCommandsWithClient(c *C, clt client.Client, srv *agentServer, expectedOutput string) {
+	defer withTestCtx(srv.Stop)
+
+	clientLog := r.WithField(trace.Component, "client")
+	var buf bytes.Buffer
+	ctx, cancel := context.WithTimeout(context.TODO(), 1*time.Second)
+	defer cancel()
+	err := clt.Command(ctx, clientLog, &buf, "test")
+	c.Assert(err, IsNil)
+
+	err = clt.Shutdown(ctx)
+	clt.Close()
+
+	c.Assert(err, IsNil)
+	c.Assert(buf.String(), Equals, expectedOutput)
+}
+
+func (r *S) newPeer(c *C, config PeerConfig, serverAddr string, log log.FieldLogger) *peerServer {
+	return NewTestPeer(c, config, serverAddr,
+		log.WithField("peer", config.Listener.Addr()),
+		testCommand{"test output"}, TestSystemInfo{},
+	)
+}
+
+func (r rejectingStore) NewPeer(ctx context.Context, req pb.PeerJoinRequest, peer Peer) error {
+	return trace.AccessDenied("peer not authorized")
+}
+
+func (r rejectingStore) RemovePeer(ctx context.Context, req pb.PeerLeaveRequest, peer Peer) error {
+	return trace.AccessDenied("peer not authorized")
+}
+
+type rejectingStore struct{}
+
+// newPeerStore creates a new peer store
+func newPeerStore() *peerStore {
+	return &peerStore{
+		peers:  make(map[string]Peer),
+		peerCh: make(chan struct{}, 1),
+	}
+}
+
+// peerStore receives notifications about peers joining the cluster.
+// It implements PeerStore.
+type peerStore struct {
+	// peerCh gets notified when a new peer joins
+	peerCh chan struct{}
+	// Mutex protecting the following fields
+	sync.Mutex
+	peers map[string]Peer
+}
+
+// NewPeer receives a new peer
+func (r *peerStore) NewPeer(ctx context.Context, req pb.PeerJoinRequest, peer Peer) error {
+	r.add(peer)
+
+	// Attempt to notify about the new peer
+	select {
+	case r.peerCh <- struct{}{}:
+	default:
+	}
+
+	return nil
+}
+
+// RemovePeer removes the specified peer
+func (r *peerStore) RemovePeer(ctx context.Context, req pb.PeerLeaveRequest, peer Peer) error {
+	r.remove(peer)
+	return nil
+}
+
+// getPeers returns active peers as a list
+func (r *peerStore) getPeers() (peers []Peer) {
+	r.Lock()
+	defer r.Unlock()
+	peers = make([]Peer, 0, len(r.peers))
+	for _, peer := range r.peers {
+		peers = append(peers, peer)
+	}
+	return peers
+}
+
+// expect is a blocking method that will return once the specified number of peers
+// have joined.
+// Returns an error if the context expires sooner than the required number of peers
+// are available.
+func (r *peerStore) expect(ctx context.Context, peers int) error {
+	r.Lock()
+	peers = peers - len(r.peers)
+	r.Unlock()
+	for peers > 0 {
+		select {
+		case <-ctx.Done():
+			return trace.Wrap(ctx.Err())
+		case <-r.peerCh:
+			peers = peers - 1
+		}
+	}
+	return nil
+}
+
+func (r *peerStore) add(peer Peer) {
+	r.Lock()
+	defer r.Unlock()
+	if _, existing := r.peers[peer.Addr()]; existing {
+		return
+	}
+
+	r.peers[peer.Addr()] = peer
+}
+
+func (r *peerStore) remove(peer Peer) {
+	r.Lock()
+	defer r.Unlock()
+	delete(r.peers, peer.Addr())
+}
+
+func isPeerDeniedError(err error) bool {
+	return strings.Contains(err.Error(), "peer not authorized")
+}

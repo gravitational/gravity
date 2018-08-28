@@ -1,0 +1,10 @@
+     { 
+    
+    "kind": "Unknown",
+    "apiVersion": "v1",
+    "metadata": {
+        "labels": { "COMMENT": "THIS IS A VALID KUBERNETES OBJECT BUT OF UNKNOWN KIND. SHOULD BE PARSED, BUT REJECTED" },
+        "name": "kube-dns-json",
+        "resourceVersion": "29628"
+    }
+}

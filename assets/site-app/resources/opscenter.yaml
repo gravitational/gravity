@@ -1,0 +1,12 @@
+# this configmap is empty, and will be setup
+# in case if opscenter starts in prod mode
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: gravity-opscenter
+  namespace: kube-system
+data:
+  gravity.yaml: ""
+  teleport.yaml: ""
+  proxy.cert: ""
+  proxy.key: ""

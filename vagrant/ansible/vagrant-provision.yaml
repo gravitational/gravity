@@ -1,0 +1,105 @@
+---
+
+- hosts: all
+  become: yes
+  tasks:
+    - name: Enable epel-release
+      yum:
+        name: epel-release
+
+    - name: Install required packages
+      yum:
+        name: "{{item}}"
+      with_items:
+        - curl
+        - htop
+        - iotop
+        - lsof
+        - ltrace
+        - mc
+        - net-tools
+        - strace
+        - tcpdump
+        - telnet
+        - vim
+        - wget
+        - ntp
+        - traceroute
+
+    - name: Install route unit
+      copy:
+        dest: /etc/systemd/system/kube-routes.service
+        content: |-
+          {%
+            set eth0_netmask = ansible_eth0.ipv4.network + "/" + ansible_eth0.ipv4.netmask
+          %}
+          [Unit]
+              Description=Set Up Default Routes
+              After=network.target
+          [Service]
+              Type=oneshot
+              ExecStart=/sbin/ip route add {{eth0_netmask | ipaddr('net')}} dev eth0 table 10
+              ExecStart=/sbin/ip route add default via {{ansible_default_ipv4.gateway}} dev eth0 table 10
+              ExecStart=/sbin/ip rule add from {{ansible_eth0.ipv4.address}}/32 table 10
+              ExecStart=/sbin/ip rule add to {{ansible_eth0.ipv4.address}}/32 table 10
+              ExecStart=/sbin/ip route delete default via {{ansible_default_ipv4.gateway}}
+              ExecStart=/sbin/ip route add default via 172.28.128.1
+          [Install]
+              WantedBy=multi-user.target
+
+    - name: Enable and start
+      shell: |-
+        systemctl daemon-reload
+        systemctl enable kube-routes.service
+        systemctl start kube-routes.service
+
+    - name: Update routing information
+      setup:
+
+    - name: Set up default opscenter hostname
+      lineinfile:
+        dest: /etc/hosts
+        line: "{{ansible_default_ipv4.gateway}} opscenter.localhost.localdomain"
+
+    - name: Add gravity to /etc/fstab
+      lineinfile:
+        dest: /etc/fstab
+        line: LABEL=GRAVITY   /var/lib/gravity  ext4  discard,noatime,nodiratime  0 0
+
+    - name: Load bridge netfilter module
+      modprobe:
+        name: br_netfilter
+
+    - name: Load bridge netfilter module on start
+      copy:
+        dest: /etc/modules-load.d/br_netfilter.conf
+        content: "br_netfilter"
+
+    - name: Set bridge netfilter kernel parameters on start
+      sysctl:
+        sysctl_file: /etc/sysctl.d/10-br-netfilter.conf
+        value: 1
+        reload: yes
+        name: "{{ item }}"
+      with_items:
+        - net.bridge.bridge-nf-call-arptables
+        - net.bridge.bridge-nf-call-ip6tables
+        - net.bridge.bridge-nf-call-iptables
+
+    - name: Partition and format gravity disk
+      shell: |-
+        # KVM disk
+        if [ -b /dev/vdb ]; then
+          drive=/dev/vdb
+        # VirtualBox disk
+        elif [ -b /dev/sdb ]; then
+          drive=/dev/sdb
+        else
+          echo "No /dev/vdb nor /dev/sda found" 2>&1
+          exit 1
+        fi
+        parted -a opt "$drive" mktable msdos
+        parted -a opt "$drive" mkpart primary ext4 0% 100%
+        mkfs.ext4 -L GRAVITY "${drive}1"
+        mkdir /var/lib/gravity
+        mount LABEL=GRAVITY

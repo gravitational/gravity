@@ -1,0 +1,10 @@
+apiVersion: v1
+kind: Pod
+metadata:
+    name: bashpod
+    labels:
+        name: bashpod
+spec:
+    containers:
+    - name: "bash"
+      image: "busy-bash:1.0.2"

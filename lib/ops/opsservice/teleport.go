@@ -1,0 +1,195 @@
+package opsservice
+
+import (
+	"context"
+	"net"
+	"time"
+
+	"github.com/gravitational/gravity/lib/defaults"
+	"github.com/gravitational/gravity/lib/ops"
+	"github.com/gravitational/gravity/lib/schema"
+	"github.com/gravitational/gravity/lib/utils"
+	teleservices "github.com/gravitational/teleport/lib/services"
+	"github.com/gravitational/trace"
+
+	log "github.com/sirupsen/logrus"
+)
+
+func (s *site) validateRemoteAccess(req ops.ValidateRemoteAccessRequest) (resp *ops.ValidateRemoteAccessResponse, err error) {
+	servers, err := s.getTeleportServersWithTimeout(
+		req.NodeLabels,
+		defaults.TeleportServerQueryTimeout,
+		defaults.RetryInterval,
+		defaults.RetryLessAttempts,
+		queryReturnsAtLeastOneServer)
+	if err != nil {
+		return nil, trace.Wrap(err)
+	}
+
+	runner := &teleportRunner{recorder{}, s.domainName, s.teleport()}
+	var results []ops.NodeResponse
+	for _, node := range servers {
+		server, err := newTeleportServer(node)
+		if err != nil {
+			return nil, trace.Wrap(err)
+		}
+
+		out, err := runner.Run(server, defaults.ValidateCommand)
+		if err != nil {
+			return nil, trace.Wrap(err)
+		}
+		results = append(results, ops.NodeResponse{Output: out, Name: node.GetName()})
+	}
+
+	return &ops.ValidateRemoteAccessResponse{
+		Results: results,
+	}, nil
+}
+
+// teleportServer captures a subset of attributes of the remote server
+// managed by an instance of teleport
+type teleportServer struct {
+	// Addr specifies the remote address as host:port
+	Addr string
+	// IP specifies just the IP of the server
+	IP string
+	// Hostname specifies the remote server's hostname
+	Hostname string
+	// Labels lists the set of both static and dynamic node labels
+	Labels map[string]string
+}
+
+func newTeleportServer(server teleservices.Server) (*teleportServer, error) {
+	serverIP, _, err := net.SplitHostPort(server.GetAddr())
+	if err != nil {
+		return nil, trace.Wrap(err)
+	}
+	return &teleportServer{
+		Addr:     server.GetAddr(),
+		IP:       serverIP,
+		Hostname: server.GetHostname(),
+		Labels:   server.GetAllLabels(),
+	}, nil
+}
+
+// Address returns the address this server is accessible on
+// Address implements remoteServer.Address
+func (t *teleportServer) Address() string { return t.Addr }
+
+// HostName returns the hostname of this server.
+// HostName implements remoteServer.HostName
+func (t *teleportServer) HostName() string { return t.Labels[ops.Hostname] }
+
+// Debug provides a reference to the specified server useful for logging
+// Debug implements remoteServer.Debug
+func (t *teleportServer) Debug() string { return t.Addr }
+
+func (t *teleportServer) getLabel(name string) string {
+	return t.Labels[name]
+}
+
+func (t *teleportServer) isMaster() bool {
+	role := schema.ServiceRole(t.Labels[schema.ServiceLabelRole])
+	return (role == schema.ServiceRoleMaster)
+}
+
+func (s *site) getTeleportServerNoRetry(labelName, labelValue string) (server *teleportServer, err error) {
+	const noRetry = 1
+	labels := map[string]string{labelName: labelValue}
+	servers, err := s.getTeleportServersWithTimeout(
+		labels,
+		defaults.TeleportServerQueryTimeout,
+		defaults.RetryInterval,
+		noRetry,
+		queryReturnsAtLeastOneServer)
+	if err != nil {
+		return nil, trace.Wrap(err)
+	}
+	return newTeleportServer(servers[0])
+}
+
+// getTeleportServer queries all teleport servers in a retry loop
+func (s *site) getTeleportServers() (teleservers, error) {
+	anyServers := func(string, []teleservices.Server) error {
+		return nil
+	}
+	return s.getTeleportServersWithTimeout(nil, defaults.TeleportServerQueryTimeout,
+		defaults.RetryInterval, defaults.RetryLessAttempts, anyServers)
+}
+
+// getTeleportServer queries the teleport server with the specified label in a retry loop
+func (s *site) getTeleportServer(labelName, labelValue string) (server *teleportServer, err error) {
+	labels := map[string]string{labelName: labelValue}
+	servers, err := s.getTeleportServersWithTimeout(
+		labels,
+		defaults.TeleportServerQueryTimeout,
+		defaults.RetryInterval,
+		defaults.RetryLessAttempts,
+		queryReturnsAtLeastOneServer)
+	if err != nil {
+		return nil, trace.Wrap(err)
+	}
+	return newTeleportServer(servers[0])
+}
+
+// getTeleportServerWithTimeout queries the teleport server with the specified label in a retry loop.
+// timeout specifies the timeout used in a single query attempt, retryInterval is the frequency of retries
+// and retryAttempts specifies the total number of attempts to make
+func (s *site) getTeleportServersWithTimeout(labels map[string]string, timeout, retryInterval time.Duration,
+	retryAttempts int, check func(string, []teleservices.Server) error) (teleservers, error) {
+
+	var servers []teleservices.Server
+	err := utils.Retry(retryInterval, retryAttempts, func() (err error) {
+		ctx, cancel := context.WithTimeout(context.TODO(), timeout)
+		defer cancel()
+		servers, err = s.teleport().GetServers(ctx, s.domainName, labels)
+		if err != nil {
+			return trace.Wrap(err, "failed to query servers")
+		}
+		err = check(s.domainName, servers)
+		return trace.Wrap(err)
+	})
+	if err != nil {
+		return nil, trace.Wrap(err)
+	}
+
+	return teleservers(servers), nil
+}
+
+// atLeastOneServer is a server query condition that enforces that the result
+// contain at least a single server item
+func queryReturnsAtLeastOneServer(domainName string, servers []teleservices.Server) error {
+	if len(servers) == 0 {
+		return trace.NotFound("no servers found for %q", domainName)
+	}
+	return nil
+}
+
+type recorder struct{}
+
+func (r recorder) Record(format string, args ...interface{}) {
+	log.Infof(format, args...)
+}
+
+func (r recorder) WithFields(fields log.Fields) *log.Entry {
+	return log.WithFields(fields)
+}
+
+func (r teleservers) getWithLabels(labels labels) (result teleservers) {
+	result = make(teleservers, 0, len(r))
+L:
+	for _, server := range r {
+		serverLabels := server.GetLabels()
+		for name, value := range labels {
+			if serverValue := serverLabels[name]; serverValue != value {
+				continue L
+			}
+		}
+		result = append(result, server)
+	}
+	return result
+}
+
+type teleservers []teleservices.Server
+
+type labels map[string]string

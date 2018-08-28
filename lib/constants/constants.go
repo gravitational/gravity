@@ -1,0 +1,660 @@
+// package constants contains global constants
+// shared between packages
+package constants
+
+import (
+	"time"
+
+	"github.com/coreos/go-semver/semver"
+	"k8s.io/apimachinery/pkg/version"
+)
+
+const (
+	// ComponentWeb is web frontend
+	ComponentWeb = "web"
+
+	// ComponentBLOB is for BLOB storage
+	ComponentBLOB = "blob"
+
+	// ComponentOps is for operations service
+	ComponentOps = "ops"
+
+	// ComponentApp is for app service
+	ComponentApp = "app"
+
+	// ComponentSite represents the name of the mode gravity process is
+	// running in in a Telekube cluster
+	ComponentSite = "site"
+	// ComponentInstaller represents the name of the mode gravity process
+	// is running in when started as a standalone installer
+	ComponentInstaller = "installer"
+
+	// PeriodicUpdatesOff is an argument that disables periodic updates
+	PeriodicUpdatesOff = "off"
+
+	// FieldSiteDomain is a domain field used in logs
+	FieldSiteDomain = "domain"
+	// FieldOperationID is a logging field for operation id
+	FieldOperationID = "opid"
+	// FieldOperationState is a logging field for operation state
+	FieldOperationState = "opstate"
+	// FieldServer specifies server in case if command runs on the server
+	FieldServer = "server"
+	// FieldServerIP specifies server in case if command runs on the server with private ip
+	FieldServerIP = "serverip"
+	// FieldCommand is a command executed on server
+	FieldCommand = "cmd"
+	// FieldCommandError is boolean indicator of whether command resulted in error
+	FieldCommandError = "cmderr"
+	// FieldCommandErrorReport is error message if command resulted in error
+	FieldCommandErrorReport = "errmsg"
+
+	// FieldCommandStderr records executed command's stderr in log
+	FieldCommandStderr = "stderr"
+
+	// FieldCommandStdout records executed command's stdout in log.
+	//
+	// For some commands outputting error details to stdout, log
+	// entry for a failed command will contain both stderr and stdout
+	FieldCommandStdout = "stdout"
+
+	// FieldOperationProgress defines the attribute that holds the value of the current
+	// operation's progres, in percent
+	FieldOperationProgress = "progress"
+
+	// FieldOperationType defines the type of the active operation
+	FieldOperationType = "optype"
+	// FieldAdvertiseIP is the log field with node IP
+	FieldAdvertiseIP = "advertise-ip"
+	// FieldHostname is the log field with node hostname
+	FieldHostname = "hostname"
+	// FieldInstallPhase is the log field with install phase name
+	FieldInstallPhase = "install-phase"
+	// FieldMode is the log field with the process mode (cluster/opscenter)
+	FieldMode = "mode"
+	// FieldDir is the log field that contains a directory path which meaning
+	// is specific to the component doing the logging
+	FieldDir = "dir"
+
+	// ComponentSystem is for system integration
+	ComponentSystem = "system"
+
+	// BoltBackend defines storage backend as BoltDB
+	BoltBackend = "bolt"
+
+	// ETCDBackend defines storage backend as Etcd
+	ETCDBackend = "etcd"
+
+	// WebAssetsPackage names the web assets package
+	WebAssetsPackage = "web-assets"
+
+	// CertAuthorityPackage is a package with certificate authority
+	CertAuthorityPackage = "cert-authority"
+
+	// OpsCenterCAPackage is the package containing certificate authority for OpsCenter
+	OpsCenterCAPackage = "ops-cert-authority"
+
+	// SiteExportPackage is the package with site export data
+	SiteExportPackage = "site-export"
+
+	// SiteInstallLogsPackage defines a package with site installation logs
+	SiteInstallLogsPackage = "site-install-logs:0.0.1"
+
+	// SiteShrinkAgentPackage defines a package with shrink agent start commands
+	SiteShrinkAgentPackage = "site-shrink-agent:0.0.1"
+
+	// LicensePackage is the package with license used during initial site installation
+	LicensePackage = "license"
+
+	// GravitySitePackage specifies the name of the garvity site application package
+	GravitySitePackage = "site"
+
+	// PlanetSecretPackage is the package with planet secrets -
+	// keys, CA and other stuff
+	PlanetSecretsPackage = "planet-secrets"
+
+	// PlanetPackage is the package with planet
+	PlanetPackage = "planet"
+
+	// PlanetConfigPackage is the package with planet configuration
+	PlanetConfigPackage = "planet-config"
+
+	// PlanetRootfs is the planet's rootfs
+	PlanetRootfs = "rootfs"
+
+	// TeleportPackage is the package name for teleport - SSH access tool
+	TeleportPackage = "teleport"
+
+	// TeleportMasterConfigPackage is the name of the config package of teleport
+	TeleportMasterConfigPackage = "teleport-master-config"
+
+	// TeleportNodeConfigPackage is the name of the config package of teleport
+	TeleportNodeConfigPackage = "teleport-node-config"
+
+	// OpsCenterUser is the name of the user that is used to execute teleport commands
+	OpsCenterUser = "opscenter@gravitational.io"
+
+	// BlobUserSuffix is the suffix of a blob service user
+	BlobUserSuffix = "blob.service"
+
+	// GravityPackage defines a role for the gravity binary package
+	GravityPackage = "gravity"
+
+	// GravityBin is the name of the gravity binary
+	GravityBin = "gravity"
+
+	// KubectlBin is the name of the kubectl binary
+	KubectlBin = "kubectl"
+
+	// TelePackage is the name of the package with 'tele' binary
+	TelePackage = "tele"
+
+	// TshPackage is the name of the package with 'tsh' binary
+	TshPackage = "tsh"
+
+	// BootstrapConfigPackage specifies the name of the package with default roles/security policies
+	BootstrapConfigPackage = "rbac-app"
+
+	// DNSAppPackage is the name of the dns-app package
+	DNSAppPackage = "dns-app"
+
+	// TrustedClusterPackage is the name of the package that contains trusted
+	// cluster spec for external Ops Center when installing in wizard mode
+	TrustedClusterPackage = "trusted-cluster"
+
+	// DevmodeEnvVar is the name of environment variable that is passed inside hook
+	// container indicating whether the OpsCenter/Site is started in dev mode
+	DevmodeEnvVar = "DEVMODE"
+
+	// ManualUpdateEnvVar names the environment variable that specifies if the update
+	// is in manual mode
+	ManualUpdateEnvVar = "MANUAL_UPDATE"
+
+	// ServiceUserEnvVar names the environment variable that specifies the service user ID
+	ServiceUserEnvVar = "GRAVITY_SERVICE_USER"
+
+	// ServiceGroupEnvVar names the environment variable that specifies the service group ID
+	ServiceGroupEnvVar = "GRAVITY_SERVICE_GROUP"
+
+	// PreflightChecksOffEnvVar is the name of environment variable that can be used to turn off preflight
+	// checks during install or update.
+	// If not empty, turns the preflight checks off
+	PreflightChecksOffEnvVar = "GRAVITY_CHECKS_OFF"
+
+	// ExistingOperationEnvVar names the environment variable that specifies whether there is
+	// an active operation.
+	ExistingOperationEnvVar = "GRAVITY_EXISTING_OPERATION"
+
+	// DockerRegistry is a default name for private docker registry
+	DockerRegistry = "leader.telekube.local:5000"
+
+	// LocalRegistryAddr is the address of the local docker registry
+	LocalRegistryAddr = "127.0.0.1:5000"
+
+	// Localhost is local host
+	Localhost = "127.0.0.1"
+
+	// DockerEngineURL is the address of the local docker engine API
+	DockerEngineURL = "unix://var/run/docker.sock"
+
+	// DockerRegistryPort is the default port for connecting to private docker registries
+	DockerRegistryPort = "5000"
+
+	// SiteInitLock is a name of a distributed site lock that is used for one time
+	// import procedure
+	SiteInitLock = "gravity-site-import"
+
+	// GravityServiceName is a name of the gravity service
+	GravityServiceName = "gravity-site"
+
+	// GravityServicePortName is the port name of the service
+	GravityServicePortName = "web"
+
+	// OneshotService is a service that executes one time
+	OneshotService = "oneshot"
+
+	// RootUID is the root user ID
+	RootUID = 0
+
+	// RootGID is the root group ID
+	RootGID = 0
+
+	// RootUIDString is the root user ID
+	RootUIDString = "0"
+
+	// KubeNodeExternalIP is the name of the k8s node property containing its external IP
+	KubeNodeExternalIP = "ExternalIP"
+	// KubeNodeInternalIP is the name of the k8s node property containing its internal IP
+	KubeNodeInternalIP = "InternalIP"
+
+	// KubeLabelSelector is the name of the query string parameter with label selector
+	KubeLabelSelector = "labelSelector"
+
+	// RootKeyPair is a name of the K8s root certificate authority keypair
+	RootKeyPair = "root"
+	// APIServerKeyPair is a name of the K8s apiserver key pair
+	APIServerKeyPair = "apiserver"
+	// KubeletKeyPair is a name of the Kubelet client Key pair
+	KubeletKeyPair = "kubelet"
+	// ProxyKeyPair is a name of the K8s Proxy client Key Pair
+	ProxyKeyPair = "proxy"
+	// SchedulerKeyPair is a name of the K8s scheduler client key pair
+	SchedulerKeyPair = "scheduler"
+	// KubectlKeyPair is a name of the kubectl client key pair
+	KubectlKeyPair = "kubectl"
+	// ETCDKeyPair is a name of the etcd key pair
+	ETCDKeyPair = "etcd"
+	// OpsCenterKeyPair is a name of key pair for OpsCenter
+	OpsCenterKeyPair = "ops"
+
+	// ClusterAdminGroup is a group name for Kubernetes cluster amdin
+	ClusterAdminGroup = "system:masters"
+	// ClusterNodeGroup is a group for Kubernetes nodes (kubelet)
+	ClusterNodeGroup = "system:nodes"
+	// ClusterNodeNamePrefix is the prefix to assign to each cluster node hostname
+	ClusterNodeNamePrefix = "system:node"
+	// ClusterKubeProxyUser specifies the name of the user used by kube-proxy
+	ClusterKubeProxyUser = "system:kube-proxy"
+
+	// LocalClusterCommonName is a default Common Name of the local K8s cluster
+	LocalClusterCommonName = "cluster.local"
+
+	// APIServerDomainName is a domain name set by planet active master
+	APIServerDomainName = "leader.telekube.local"
+
+	// LegacyAPIServerDomainName is legacy domain name used by the leader master node.
+	// This is used to keep backwards compatibility
+	LegacyAPIServerDomainName = "apiserver"
+
+	// LoopbackIP is IP of the loopback interface
+	LoopbackIP = "127.0.0.1"
+
+	// AlternativeLoopbackIP is a loopback IP that is used for temporary services that need to be separated from the
+	// standard loopback address
+	AlternativeLoopbackIP = "127.0.0.2"
+
+	// ServiceStartedEvent defines an event to identify when the main gravity service
+	// has completed initialization
+	ServiceStartedEvent = "ServiceStarted"
+
+	// ServiceSelfLeaderEvent defines an event sent when the gravity service becomes the leader
+	ServiceSelfLeaderEvent = "ServiceElected"
+
+	// ClusterCertificateUpdatedEvent is an event broadcast when cluster
+	// certificate is updated
+	ClusterCertificateUpdatedEvent = "ClusterCertificateUpdated"
+
+	// MaxInteractiveSessionTTL is a max time for an interactive session
+	MaxInteractiveSessionTTL = 20 * time.Hour
+
+	// CloudProviderAWS identifies AWS cloud provider
+	CloudProviderAWS = "aws"
+
+	// EnvHome is home environment variable
+	EnvHome = "HOME"
+
+	// EnvSudoUser is environment variable containing name of the user who invoked "sudo"
+	EnvSudoUser = "SUDO_USER"
+
+	// EnvSudoUID is environment variable containing id of the user who invoked "sudo"
+	EnvSudoUID = "SUDO_UID"
+
+	// EnvSudoGID is environment variable containing id of the group of the user who invoked "sudo"
+	EnvSudoGID = "SUDO_GID"
+
+	// EnvKubeConfig is environment variable for kubeconfig
+	EnvKubeConfig = "KUBECONFIG"
+
+	// EnvPodIP is environment variable that contains pod IP address
+	EnvPodIP = "POD_IP"
+
+	// EnvCloudProvider sets cloud provider name
+	EnvCloudProvider = "CLOUD_PROVIDER"
+
+	// EnvAWSRegion sets AWS region anme
+	EnvAWSRegion = "AWS_REGION"
+
+	// EnvAWSAMI sets cloud image name
+	EnvAWSAMI = "AWS_AMI"
+
+	// EnvAWSVPCID sets AWS VPC ID
+	EnvAWSVPCID = "AWS_VPC_ID"
+
+	// EnvAWSKeyName sets AWS Key Name
+	EnvAWSKeyName = "AWS_KEY_NAME"
+
+	// EnvAWSprofile specifies AWS profile to load
+	EnvAWSProfile = "AWS_PROFILE"
+
+	// EnvAWSInstancePrivateIP is a private IP of the instance to delete
+	EnvAWSInstancePrivateIP = "AWS_INSTANCE_PRIVATE_IP"
+
+	// EnvAWSInstancePrivateDNS is a private DNS name of the instance
+	EnvAWSInstancePrivateDNS = "AWS_INSTANCE_PRIVATE_DNS"
+
+	// EnvTelekubeClusterName is environment variable name for telekube cluster
+	EnvTelekubeClusterName = "TELEKUBE_CLUSTER_NAME"
+
+	// EnvTelekubeDevMode specifies whether ops center and clsuter are
+	// installed in development mode with some security turned off
+	EnvTelekubeDevMode = "TELEKUBE_DEV_MODE"
+
+	// EnvTelekubeOpsURL is environment variable name with Ops Center URL
+	EnvTelekubeOpsURL = "TELEKUBE_OPS_URL"
+
+	// EnvTelekubeOpsVersion is the version of this ops center
+	EnvTelekubeOpsVersion = "TELEKUBE_OPS_VERSION"
+
+	// EnvTelekubeFlavor is a flavor set by user in the installation
+	EnvTelekubeFlavor = "TELEKUBE_FLAVOR"
+
+	// EnvTelekubeNodeProfiles enumerates all node profiles
+	EnvTelekubeNodeProfiles = "TELEKUBE_NODE_PROFILES"
+
+	// EnvTelekubeNodeProfileCountTemplate is a template with count of instances with
+	// a particular manifest profile set by user
+	EnvTelekubeNodeProfileCountTemplate = "TELEKUBE_NODE_PROFILE_COUNT_%v"
+
+	// EnvTelekubeNodeProfileCountTemplate is a template with count of instances to be
+	// added by particular manifest profile set by user
+	EnvTelekubeNodeProfileAddCountTemplate = "TELEKUBE_NODE_PROFILE_ADD_COUNT_%v"
+
+	// EnvTelekubeNodeProfileInstanceTypeTemplate is a template with instance
+	// type per node profile that was picked by user
+	EnvTelekubeNodeProfileInstanceTypeTemplate = "TELEKUBE_NODE_PROFILE_INSTANCE_TYPE_%v"
+
+	// AWSClusterNameTag is a name of AWS tag which assigns resource to Kubernetes cluster
+	AWSClusterNameTag = "KubernetesCluster"
+
+	// Completed defines the value of the progress when the operation is
+	// considered done (successful or failed)
+	Completed = 100
+
+	// GatekeeperUser defines a user that remote sites use to connect back to
+	// the original OpsCenter
+	GatekeeperUser = "gatekeeper@gravitational.io"
+
+	// EnvGravityConfig is environment variable setting debugging mode
+	EnvGravityConfig = "GRAVITY_CONFIG"
+
+	// EnvGravityTeleportConfig is environment variable setting debugging mode
+	EnvGravityTeleportConfig = "GRAVITY_TELEPORT_CONFIG"
+
+	// EnvNetworkingType specifies the name of environment variable for defining networking type for kubernetes
+	EnvNetworkingType = "KUBERNETES_NETWORKING"
+
+	// Required means that this value is required
+	Required = "required"
+
+	// HumanDateFormat is a human readable date formatting
+	HumanDateFormat = "Mon Jan _2 15:04 UTC"
+
+	// HumanDateFormat is a human readable date formatting with seconds
+	HumanDateFormatSeconds = "Mon Jan _2 15:04:05 UTC"
+
+	// HumanDateFormatMilli is a human readable date formatting with milliseconds
+	HumanDateFormatMilli = "Mon Jan _2 15:04:05.000 UTC"
+
+	// LatestVersion is the shortcut for the latest Telekube version
+	LatestVersion = "latest"
+	// StableVersion is the shortcut for the latest stable Telekube version
+	StableVersion = "stable"
+
+	// KindConfigMap is the Kubernetes ConfigMap resource kind
+	KindConfigMap = "ConfigMap"
+	// KindService is the Kubernetes Service resource kind
+	KindService = "Service"
+
+	// KubernetesKindUser defines the kubernetes user resource type
+	KubernetesKindUser = "User"
+
+	// KubeletUser specifies the kubelet username
+	KubeletUser = "kubelet"
+
+	// RbacAPIGroup specifies the API group for RBAC
+	RbacAPIGroup = "rbac.authorization.k8s.io"
+
+	// ConfigMapAPIVersion is a K8s version of this resource
+	ConfigMapAPIVersion = "v1"
+	// ServiceAPIVersion is a K8s version of this resource
+	ServiceAPIVersion = "v1"
+
+	// KubeSystemNamespace is a k8s namespace
+	KubeSystemNamespace = "kube-system"
+
+	// GrafanaContextCookie hold the name of the cluster used in
+	// certain web handlers to determine the currently selected domain without including it
+	// in the URL
+	GrafanaContextCookie = "grv_grafana"
+
+	// RoleAdmin is admin role
+	RoleAdmin = "@teleadmin"
+	// RoleGatekeeper is gatekeeper role
+	RoleGatekeeper = "@gatekeeper"
+	// RoleAgent is cluster agent role
+	RoleAgent = "@agent"
+	// RoleReader gives access to some system packages and roles
+	// used in tele build to download artifacts from ops centers
+	RoleReader = "@reader"
+	// RoleOneTimeLink is a role for one-time link installation
+	RoleOneTimeLink = "@onetimelink"
+
+	// WebSessionContext is for web sessions stored in the current context
+	WebSessionContext = "telekube.web_session.context"
+
+	// OperatorContext is for operator associated with User ACL context
+	OperatorContext = "telekube.operator.context"
+
+	// PrivilegedKubeconfig is a path to privileged kube config
+	// that is stored on K8s master node
+	PrivilegedKubeconfig = "/etc/kubernetes/scheduler.kubeconfig"
+
+	// Kubeconfig is the path the regular kubeconfig file
+	Kubeconfig = "/etc/kubernetes/kubectl.kubeconfig"
+
+	// DockerStorageDriverDevicemapper identifes the devicemapper docker storage driver
+	DockerStorageDriverDevicemapper = "devicemapper"
+
+	// DockerStorageDriverOverlay identifes the overlay docker storage driver
+	DockerStorageDriverOverlay = "overlay"
+
+	// DockerStorageDriverOverlay2 identifes the overlay2 docker storage driver
+	DockerStorageDriverOverlay2 = "overlay2"
+
+	// ClusterControllerChangeset names the changeset with cluster controller resources
+	// of the currently installed version
+	ClusterControllerChangeset = "old-cluster-controller"
+	// UpdateClusterControllerChangeset names the changeset with cluster controller resources
+	// of the update version
+	UpdateClusterControllerChangeset = "new-cluster-controller"
+	// UpdateAgentChangeset names the changeset with update agent resources
+	UpdateAgentChangeset = "update-agent"
+
+	// ClusterCertificateMap is the name of the ConfigMap that contains cluster cert and key
+	ClusterCertificateMap = "cluster-tls"
+	// ClusterCertificateMapKey is the cert field name in the above ConfigMap
+	ClusterCertificateMapKey = "certificate"
+	// ClusterPrivateKeyMapKey is the key field name in the above ConfigMap
+	// Note: ConfigMap key names are subject to certain restrictions in earlier versions of
+	// kubernetes, use a lowercase notation instead to make it backwards-compatible
+	ClusterPrivateKeyMapKey = "privatekey"
+
+	// SMTPSecret specifies the name of the Secret with cluster SMTP configuration
+	SMTPSecret = "smtp-configuration-update"
+
+	// AlertTargetConfigMap specifies the name of the ConfigMap with alert target configuration
+	AlertTargetConfigMap = "alert-target-update"
+
+	// MonitoringType specifies the name of the type label for monitoring
+	MonitoringType = "monitoring"
+
+	// MonitoringTypeAlertTarget specifies the value of the component label for monitoring alert targets
+	MonitoringTypeAlertTarget = "alert-target"
+
+	// MonitoringTypeAlert specifies the value of the component label for monitoring alerts
+	MonitoringTypeAlert = "alert"
+
+	// MonitoringTypeSMTP specifies the value of the component label for monitoring SMTP updates
+	MonitoringTypeSMTP = "smtp"
+
+	// ResourceSpecKey specifies the name of the key with raw resource specification
+	ResourceSpecKey = "spec"
+
+	// LVMSystemDir specifies the default location where lvm2 keeps state and configuration data
+	LVMSystemDir = "/etc/lvm"
+	// LVMSystemDirEnvvar defines the name of the environment variable that overrides the
+	// default system location
+	LVMSystemDirEnvvar = "LVM_SYSTEM_DIR"
+
+	// ReportFilterSystem defines a report filter to fetch system diagnostics
+	ReportFilterSystem = "system"
+
+	// ReportFilterKubernetes defines a report filter to fetch kubernetes diagnostics
+	ReportFilterKubernetes = "kubernetes"
+
+	// RpcAgentUpgradeFunction requests deployed agents to run automatic upgrade operation on leader node
+	RpcAgentUpgradeFunction = "upgrade"
+
+	// TelekubeMountDir is a directory where telekube mounts specific secrets
+	// and other configuration parameters
+	TelekubeMountDir = "/var/lib/telekube"
+
+	// AssignKubernetesGroupsFnName is a function name that assigns kubernetes groups
+	// used in rules definition
+	AssignKubernetesGroupsFnName = "assignKubernetesGroups"
+
+	// LogFnName is a name for log function available in rules definitions
+	LogFnName = "log"
+
+	// FakeSSHLogin is used as a placeholder for roles that can't use logins
+	FakeSSHLogin = "fake-ssh-login-placeholder"
+
+	// SystemLabel is used to identify object as a system
+	SystemLabel = "gravitational.io/system"
+
+	// True is a boolean 'true' value
+	True = "true"
+
+	// KubectlConfig  is a name of kube config used for kubectl
+	KubectlConfig = "kubectl.kubeconfig"
+
+	// KeyPair is the TLS key pair name
+	KeyPair = "keypair"
+
+	// WithSecretsParam is a URL parameter name used in API to
+	// identify that resource has to be pulled with secrets
+	WithSecretsParam = "with_secrets"
+
+	// LicenseSecretName is the name of the k8s secret with cluster license
+	LicenseSecretName = "license"
+
+	// LicenseConfigMapName is the name of the k8s config map where license
+	// used to be stored, it's still needed for migration purposes
+	LicenseConfigMapName = LicenseSecretName
+
+	// MasterLabel is a standard kubernetes label to designate or mark as a master node
+	// (node running kubernetes masters)
+	MasterLabel = "node-role.kubernetes.io/master"
+
+	// NodeLabel is a standard kubernetes label to designate or mark as a regular node
+	NodeLabel = "node-role.kubernetes.io/node"
+
+	// AWSLBIdleTimeoutAnnotation is the kubernetes annotation that specifies
+	// idle timeout for an AWS load balancer
+	AWSLBIdleTimeoutAnnotation = "service.beta.kubernetes.io/aws-load-balancer-connection-idle-timeout"
+
+	// HairpinModeVeth specifies the network mode when hairpin flag is configured on container's veth pair
+	HairpinModeVeth = "hairpin-veth"
+
+	// HairpinModePromiscuousBridge specifies the network mode when the docker bridge is put in promiscuous mode
+	// that forces it to accept hairpin packets.
+	// This is currently different from kubelet's hairpin-mode setting of "promiscuous-bridge" which assumes
+	// existence of the cbr0 bridge (as managed by kubenet network plugin, for instance)
+	HairpinModePromiscuousBridge = "promiscuous-bridge"
+
+	// FinalStep is the number of the final install operation step in UI
+	FinalStep = 9
+
+	// InstallerTunnelPrefix is used for a name of a trusted cluster that
+	// installer process creates during Ops Center initiated installation
+	InstallerTunnelPrefix = "install-wizard-"
+
+	// InstallModeInteractive means installation is running in UI wizard mode
+	InstallModeInteractive = "interactive"
+	// InstallModeCLI means installation is running in unattended CLI mode
+	InstallModeCLI = "cli"
+	// InstallModeOpsCenter means installation was started from an Ops Center
+	InstallModeOpsCenter = "opscenter"
+
+	// HelmChartFile is a helm chart name
+	HelmChartFile = "Chart.yaml"
+
+	// GravityPublicService is the name of the Kubernetes service for
+	// user traffic
+	GravityPublicService = "gravity-public"
+	// GravityAgentsService is the name of the Kubernetes service for
+	// cluster traffic
+	GravityAgentsService = "gravity-agents"
+
+	// TarExtension is the tar file extension
+	TarExtension = ".tar"
+)
+
+var (
+	// EncodingJSON is for the JSON encoding format
+	EncodingJSON Format = "json"
+	// EncodingPEM is for the PEM encoding format
+	EncodingPEM Format = "pem"
+	// EncodingText is for the plaint-text encoding format
+	EncodingText Format = "text"
+	// EncodingYAML is for the YAML encoding format
+	EncodingYAML Format = "yaml"
+	// OutputFormats is a list of recognized output formats for gravity CLI commands
+	OutputFormats = []Format{
+		EncodingText,
+		EncodingJSON,
+		EncodingYAML,
+	}
+)
+
+var (
+	// KubeLegacyVersion defines the version of kubernetes used for compatibility
+	KubeLegacyVersion = version.Info{
+		Major: "1",
+		Minor: "3",
+	}
+
+	// DockerSupportedDrivers is a list of recognized docker storage drivers
+	DockerSupportedDrivers = []string{
+		DockerStorageDriverDevicemapper,
+		DockerStorageDriverOverlay,
+		DockerStorageDriverOverlay2,
+	}
+
+	// PlanetMultiRegistryVersion is the planet release starting from which registries
+	// are running on all master nodes
+	PlanetMultiRegistryVersion = semver.New("0.1.55")
+
+	// KubernetesServiceDomainName specifies the domain names of the kubernetes API service
+	KubernetesServiceDomainNames = []string{
+		"kubernetes",
+		"kubernetes.default",
+		"kubernetes.default.svc",
+		"kubernetes.default.svc.cluster",
+		"kubernetes.default.svc.cluster.local",
+	}
+)
+
+// Format is the type for supported output formats
+type Format string
+
+// Set sets the format value
+func (f *Format) Set(v string) error {
+	*f = Format(v)
+	return nil
+}
+
+// String returns the format string representation
+func (f *Format) String() string {
+	return string(*f)
+}

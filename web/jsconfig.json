@@ -1,0 +1,20 @@
+{
+    "compilerOptions": {
+      "jsx": "react",
+      "allowSyntheticDefaultImports": true,
+      "baseUrl": ".",
+      "paths": {
+        "*": [
+          "*",
+        ],
+        "app/*": ["src/app/*"]
+      }
+    },
+    "include": [
+      "src/**/*"
+    ],
+    "exclude": [
+      "node_modules",
+      "dist"
+    ]
+  }

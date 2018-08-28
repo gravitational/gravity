@@ -1,0 +1,60 @@
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: install-telekube
+  namespace: kube-system
+  labels:
+    app: gravity-site
+spec:
+  parallelism: 1
+  completions: 1
+  template:
+    metadata:
+      name: install-telekube
+    spec:
+      hostNetwork: true
+      restartPolicy: OnFailure
+      securityContext:
+        runAsUser: -1
+      # state import job should be only scheduled on master nodes
+      nodeSelector:
+        gravitational.io/k8s-role: master
+      containers:
+        - name: install-telekube
+          image: gravity-site:0.0.1
+          command: ["/bin/sh", "/opt/init.sh"]
+          env:
+          - name: HOME
+            value: "/home"
+          - name: PATH
+            value: "/opt/gravity:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin"
+          - name: POD_IP
+            valueFrom:
+              fieldRef:
+                fieldPath: status.podIP
+          volumeMounts:
+          - name: import
+            mountPath: /opt/gravity-import
+          - name: tmp
+            mountPath: /tmp
+          - name: site
+            mountPath: /var/lib/gravity/site
+          - name: secrets
+            mountPath: /var/lib/gravity/secrets
+          - name: home
+            mountPath: /home
+      volumes:
+        - name: tmp
+          hostPath:
+            path: /tmp
+        - name: import
+          hostPath:
+            path: /var/lib/gravity/local
+        - name: site
+          hostPath:
+            path: /var/lib/gravity/site
+        - name: secrets
+          hostPath:
+            path: /var/lib/gravity/secrets
+        - name: home
+          emptyDir: {}

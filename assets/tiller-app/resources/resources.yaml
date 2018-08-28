@@ -1,0 +1,72 @@
+apiVersion: extensions/v1beta1
+kind: Deployment
+metadata:
+  name: tiller-deploy
+  namespace: kube-system
+  labels:
+    app: helm
+    name: tiller
+spec:
+  replicas: 1
+  template:
+    metadata:
+      labels:
+        app: helm
+        name: tiller
+      annotations:
+        seccomp.security.alpha.kubernetes.io/pod: docker/default
+    spec:
+      tolerations:
+      - key: "gravitational.io/runlevel"
+        value: system
+        operator: Equal
+        # allows to run on master nodes
+      - key: "node-role.kubernetes.io/master"
+        operator: "Exists"
+        effect: "NoSchedule"
+      securityContext:
+        runAsUser: -1
+      containers:
+        - name: tiller
+          image: gcr.io/kubernetes-helm/tiller:canary
+          imagePullPolicy: IfNotPresent
+          securityContext:
+            runAsUser: -1
+          ports:
+            - name: tiller
+              protocol: TCP
+              containerPort: 44134
+          env:
+            - name: TILLER_NAMESPACE
+              value: kube-system
+          livenessProbe:
+            httpGet:
+              path: /liveness
+              port: 44135
+            initialDelaySeconds: 1
+            timeoutSeconds: 1
+          readinessProbe:
+            httpGet:
+              path: /readiness
+              port: 44135
+            initialDelaySeconds: 1
+            timeoutSeconds: 1
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: tiller-deploy
+  namespace: kube-system
+  labels:
+    app: helm
+    name: tiller
+spec:
+  ports:
+  - name: tiller
+    port: 44134
+    protocol: TCP
+    targetPort: tiller
+  selector:
+    app: helm
+    name: tiller
+  type: ClusterIP

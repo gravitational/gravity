@@ -1,0 +1,46 @@
+package fs
+
+import (
+	"os"
+	"testing"
+
+	"github.com/gravitational/gravity/lib/blob/suite"
+
+	log "github.com/sirupsen/logrus"
+	. "gopkg.in/check.v1"
+)
+
+func TestFS(t *testing.T) { TestingT(t) }
+
+type FSSuite struct {
+	suite suite.BLOBSuite
+	dir   string
+}
+
+var _ = Suite(&FSSuite{})
+
+func (s *FSSuite) SetUpTest(c *C) {
+	log.SetOutput(os.Stderr)
+	s.dir = c.MkDir()
+
+	obj, err := New(s.dir)
+	c.Assert(err, IsNil)
+
+	s.suite.Objects = obj
+}
+
+func (s *FSSuite) TestBLOB(c *C) {
+	s.suite.BLOB(c)
+}
+
+func (s *FSSuite) TestBLOBSeek(c *C) {
+	s.suite.BLOBSeek(c)
+}
+
+func (s *FSSuite) TestBLOBWriteTwice(c *C) {
+	s.suite.BLOBWriteTwice(c)
+}
+
+func (s *FSSuite) TestBLOBList(c *C) {
+	s.suite.BLOBList(c)
+}

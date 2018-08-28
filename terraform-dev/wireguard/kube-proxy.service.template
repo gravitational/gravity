@@ -1,0 +1,18 @@
+[Unit]
+Description=Kubernetes Proxy
+Documentation=https://github.com/GoogleCloudPlatform/kubernetes
+
+[Service]
+EnvironmentFile=/etc/container-environment
+ExecStart=/usr/bin/kube-proxy \
+        --master=https://${KUBE_APISERVER}:6443 \
+        --cluster-cidr={{cluster_cidr}} \
+        --logtostderr=true \
+        --hostname-override=${KUBE_NODE_NAME} \
+        --conntrack-max=0 \
+        --conntrack-tcp-timeout-established=0 \
+        --kubeconfig=/etc/kubernetes/proxy.kubeconfig
+Restart=always
+RestartSec=5
+StartLimitInterval=3600
+StartLimitBurst=720

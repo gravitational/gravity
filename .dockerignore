@@ -1,0 +1,8 @@
+build/.vagrant
+assets/site/build
+assets/site/fixtures/*tar
+assets/site/fixtures/*tar.gz
+.git
+.vagrant
+Godeps
+lib

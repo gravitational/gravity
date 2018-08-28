@@ -1,0 +1,12 @@
+---
+- name: copy certs
+  become: yes
+  copy:
+    force: yes
+    src: /var/lib/teleport/webproxy_cert.pem
+    dest: /var/lib/gravity/planet/share/opscenter.crt
+
+- name: install cert
+  become: yes
+  shell: |
+    gravity enter -- --notty  /bin/cp -- /ext/share/opscenter.crt /usr/share/ca-certificates/

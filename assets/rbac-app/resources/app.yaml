@@ -1,0 +1,70 @@
+apiVersion: bundle.gravitational.io/v2
+kind: SystemApplication
+metadata:
+  repository: gravitational.io
+  namespace: kube-system
+  name: rbac-app
+  resourceVersion: "0.0.0"
+hooks:
+  install:
+    job: |
+      apiVersion: batch/v1
+      kind: Job
+      metadata:
+        name: rbac-app-install
+      spec:
+        template:
+          metadata:
+            name: rbac-app-install
+          spec:
+            hostNetwork: true
+            restartPolicy: OnFailure
+            volumes:
+            - name: etc-kubernetes
+              hostPath:
+                path: /etc/kubernetes
+            - name: var-state
+              hostPath:
+                path: /var/state
+            containers:
+            - name: hook
+              image: quay.io/gravitational/debian-tall:0.0.1
+              command: ["/usr/local/bin/kubectl", "--kubeconfig=/etc/kubernetes/scheduler.kubeconfig", "apply", "-f", "/var/lib/gravity/resources/resources.yaml"]
+              volumeMounts:
+              - name: etc-kubernetes
+                mountPath: /etc/kubernetes
+                readOnly: true
+              - name: var-state
+                mountPath: /var/state
+                readOnly: true
+  update:
+    job: |
+      apiVersion: batch/v1
+      kind: Job
+      metadata:
+        name: rbac-app-update
+      spec:
+        template:
+          metadata:
+            name: rbac-app-update
+          spec:
+            hostNetwork: true
+            restartPolicy: OnFailure
+            volumes:
+            - name: etc-kubernetes
+              hostPath:
+                path: /etc/kubernetes
+            - name: var-state
+              hostPath:
+                path: /var/state
+            containers:
+            - name: hook
+              image: quay.io/gravitational/debian-tall:0.0.1
+              command: ["/usr/local/bin/kubectl", "--kubeconfig=/etc/kubernetes/scheduler.kubeconfig", "apply", "-f", "/var/lib/gravity/resources/resources.yaml"]
+              volumeMounts:
+              - name: etc-kubernetes
+                mountPath: /etc/kubernetes
+                readOnly: true
+              - name: var-state
+                mountPath: /var/state
+                readOnly: true

@@ -1,0 +1,13 @@
+teleport:
+  # teleport is a subsection configuring teleport integration with gravity
+  data_dir: /var/lib/gravity/site/teleport
+auth_servers:
+  - 127.0.0.1:3025
+auth_service:
+  # auth is authentication and authorization server for users and hosts
+  # it acts like SSH user CA authority and host CA authority
+  enabled: true
+  cluster_name: apiserver
+proxy_service:
+  # proxy starts web and ssh proxy that allow inbound connections from remote nodes
+  enabled: true
