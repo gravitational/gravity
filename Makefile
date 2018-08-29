@@ -1,7 +1,13 @@
-# Usage:
+# Prerequisites:
+# - Linux-based OS
+# - golang 1.10+
+# - git
+# - Docker 1.9+
 #
-# '$(MAKE) production' : default containerized build for CI/CD
-# '$(MAKE) start' 	    : developer mode - local opscenter
+# Userful targets:
+# - makex         : default containerized build. The output goes into build/<version>/
+# - make install  : build via `go install`. The output goes into GOPATH/bin/
+# - make clean    : remove the build output and artifacts
 #
 TOP := $(dir $(CURDIR)/$(word $(words $(MAKEFILE_LIST)),$(MAKEFILE_LIST)))
 
@@ -49,6 +55,11 @@ TILLER_VERSION = 2.8.1
 TILLER_APP_TAG = 5.2.1
 # set this to true if you want to use locally built planet packages
 DEV_PLANET ?=
+OS := $(shell uname | tr '[:upper:]' '[:lower:]')
+ARCH := $(shell uname -m)
+
+TELEKUBE_GRAVITY_PKG := gravitational.io/gravity_$(OS)_$(ARCH):$(GRAVITY_TAG)
+TELEKUBE_TELE_PKG := gravitational.io/tele_$(OS)_$(ARCH):$(GRAVITY_TAG)
 
 TELEPORT_PKG := gravitational.io/teleport:$(TELEPORT_TAG)
 PLANET_PKG := gravitational.io/planet:$(PLANET_TAG)
@@ -159,23 +170,34 @@ PROTOC_PLATFORM := linux-x86_64
 GOGO_PROTO_TAG ?= v0.4
 GRPC_GATEWAY_TAG ?= v1.1.0
 
-include build.assets/etcd.mk
-
 export
 
 INSTALL_BINARIES = tele gravity
 
-.PHONY: all
-all: production
+# the default target is a containerized CI/CD build
+.PHONY:build
+build:
+	$(MAKE) -C build.assets buildbox build
 
-#
-# containerized CI/CD build
-#
-.PHONY: production
+# 'install' uses the host's Golang to place output into $GOPATH/bin
+.PHONY:install
+install:
+	go install ./tool/tele ./tool/gravity
+
+# 'clean' removes the build artifacts
+.PHONY: clean
+clean:
+	$(MAKE) -C build.assets clean
+	@rm -rf $(BUILDDIR)
+	@rm -f $(GOPATH)/bin/tele $(GOPATH)/bin/gravity
+
+
+.PHONY:
 production: TMP := $(shell mktemp -d)
 production:
 	GRAVITY="$(GRAVITY_OUT) --state-dir=$(TMP)" $(MAKE) -C build.assets production
 	rm -rf $(TMP)
+
 
 #
 # generate GRPC files
@@ -185,13 +207,6 @@ grpc:
 	PROTOC_VER=$(PROTOC_VER) PROTOC_PLATFORM=$(PROTOC_PLATFORM) \
 	GOGO_PROTO_TAG=$(GOGO_PROTO_TAG) GRPC_GATEWAY_TAG=$(GRPC_GATEWAY_TAG) VERSION_TAG=$(VERSION_TAG) \
 	$(MAKE) -C build.assets grpc
-
-#
-# build only binaries
-#
-.PHONY: build
-build:
-	$(MAKE) -C build.assets build
 
 #
 # build tsh binary
@@ -344,11 +359,6 @@ packages:
 	-$(MAKE) telekube-packages
 
 
-OS := $(shell uname | tr '[:upper:]' '[:lower:]')
-ARCH := $(shell uname -m)
-
-TELEKUBE_GRAVITY_PKG := gravitational.io/gravity_$(OS)_$(ARCH):$(GRAVITY_TAG)
-TELEKUBE_TELE_PKG := gravitational.io/tele_$(OS)_$(ARCH):$(GRAVITY_TAG)
 
 .PHONY: binary-packages
 binary-packages:
@@ -497,21 +507,6 @@ opscenter-apps:
 current-build:
 	@echo $(GRAVITY_BUILDDIR)
 
-.PHONY: install
-install: TMP := $(shell mktemp -d)
-install: goinstall
-	if grep --quiet $(LOCAL_OPSCENTER_HOST) /etc/hosts; then \
-	  echo "Hostname for OpsCenter already exists"; \
-	else \
-	  echo "Adding OpsCenter hostname"; \
-	  echo "0.0.0.0	$(LOCAL_OPSCENTER_HOST)" | sudo tee -a /etc/hosts; \
-	fi;
-	sudo mkdir -p $(LOCAL_OPSCENTER_DIR) $(LOCAL_ETCD_DIR) $(TELEPORT_DIR) $(GRAVITY_ASSETS_DIR)
-	sudo cp $(GRAVITY_OUT) $(BINDIR)/gravity
-	sudo chmod 755 $(BINDIR)/gravity
-	sudo chown -R $(USER):$(USER) $(GRAVITY_DIR) $(TELEPORT_DIR) $(GRAVITY_ASSETS_DIR)
-
-
 .PHONY: compile
 compile:
 	$(MAKE) -j $(INSTALL_BINARIES)
@@ -609,11 +604,6 @@ robotest-installer-ready:
 .PHONY: dev
 dev: goinstall
 
-.PHONY: clean
-clean:
-	$(MAKE) -C build.assets clean
-	@rm -rf $(BUILDDIR)
-
 # Clean up development environment:
 #  + remove development directories
 #  + stop etcd container
@@ -706,3 +696,6 @@ fix-logrus:
 	find lib -type f -print0 | xargs -0 sed -i 's/Sirupsen/sirupsen/g'
 	find tool -type f -print0 | xargs -0 sed -i 's/Sirupsen/sirupsen/g'
 	rm -rf vendor/github.com/Sirupsen/logrus
+
+
+include build.assets/etcd.mk
