@@ -28,6 +28,7 @@ import (
 	"time"
 
 	"github.com/gravitational/gravity/lib/constants"
+	"github.com/gravitational/gravity/lib/defaults"
 	"github.com/gravitational/gravity/lib/httplib"
 	"github.com/gravitational/gravity/lib/loc"
 	"github.com/gravitational/gravity/lib/ops"
@@ -1439,4 +1440,17 @@ func (c *Client) PostStream(endpoint string, reader io.Reader) (*roundtrip.Respo
 		c.SetAuthHeader(req.Header)
 		return c.HTTPClient().Do(req)
 	})
+}
+
+// LocalClusterKey retrieves the SiteKey for the local cluster
+func (c *Client) LocalClusterKey() (ops.SiteKey, error) {
+	site, err := c.GetLocalSite()
+	if err != nil {
+		return ops.SiteKey{}, trace.Wrap(err)
+	}
+	siteKey := ops.SiteKey{
+		AccountID:  defaults.SystemAccountID,
+		SiteDomain: site.Domain,
+	}
+	return siteKey, nil
 }

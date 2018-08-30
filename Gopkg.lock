@@ -23,6 +23,12 @@
   version = "v0.4.5"
 
 [[projects]]
+  name = "github.com/agext/levenshtein"
+  packages = ["."]
+  revision = "5f10fee965225ac1eecdc234c09daf5cd9e7f7b6"
+  version = "v1.2.1"
+
+[[projects]]
   name = "github.com/alecthomas/template"
   packages = [
     ".",
@@ -34,6 +40,24 @@
   name = "github.com/alecthomas/units"
   packages = ["."]
   revision = "6b4e7dc5e3143b85ea77909c72caf89416fc2915"
+
+[[projects]]
+  name = "github.com/apparentlymart/go-cidr"
+  packages = ["cidr"]
+  revision = "b1115bf8e14a60131a196f908223e4506b0ddc35"
+  version = "v1.0.0"
+
+[[projects]]
+  name = "github.com/apparentlymart/go-textseg"
+  packages = ["textseg"]
+  revision = "fb01f485ebef760e5ee06d55e1b07534dda2d295"
+  version = "v1.0.0"
+
+[[projects]]
+  name = "github.com/armon/go-radix"
+  packages = ["."]
+  revision = "1a2de0c21c94309923825da3df33a4381872c795"
+  version = "v1.0.0"
 
 [[projects]]
   name = "github.com/aws/aws-sdk-go"
@@ -92,6 +116,18 @@
   name = "github.com/beorn7/perks"
   packages = ["quantile"]
   revision = "b965b613227fddccbfffe13eae360ed3fa822f8d"
+
+[[projects]]
+  branch = "master"
+  name = "github.com/bgentry/go-netrc"
+  packages = ["netrc"]
+  revision = "9fd32a8b3d3d3f9d43c341bfe098430e07609480"
+
+[[projects]]
+  name = "github.com/bgentry/speakeasy"
+  packages = ["."]
+  revision = "4aabc24848ce5fd31929f7d1e4ea74d3709c14cd"
+  version = "v0.1.0"
 
 [[projects]]
   name = "github.com/blang/semver"
@@ -292,8 +328,8 @@
 [[projects]]
   name = "github.com/fatih/color"
   packages = ["."]
-  revision = "1b35f289c47d5c73c398cea8e006b7bcb6234a96"
-  version = "v0.1"
+  revision = "5b77d2a35fb0ede96d138fc9a99f5c9b6aef11b4"
+  version = "v1.7.0"
 
 [[projects]]
   name = "github.com/fsnotify/fsnotify"
@@ -595,6 +631,138 @@
   version = "v1.1.0"
 
 [[projects]]
+  name = "github.com/hashicorp/errwrap"
+  packages = ["."]
+  revision = "8a6fb523712970c966eefc6b39ed2c5e74880354"
+  version = "v1.0.0"
+
+[[projects]]
+  name = "github.com/hashicorp/go-cleanhttp"
+  packages = ["."]
+  revision = "e8ab9daed8d1ddd2d3c4efba338fe2eeae2e4f18"
+  version = "v0.5.0"
+
+[[projects]]
+  branch = "master"
+  name = "github.com/hashicorp/go-getter"
+  packages = [
+    ".",
+    "helper/url"
+  ]
+  revision = "4bda8fa99001c61db3cad96b421d4c12a81f256d"
+
+[[projects]]
+  branch = "master"
+  name = "github.com/hashicorp/go-hclog"
+  packages = ["."]
+  revision = "75ecd6e6d64509d675da33386b15e1174566177b"
+
+[[projects]]
+  name = "github.com/hashicorp/go-multierror"
+  packages = ["."]
+  revision = "886a7fbe3eb1c874d46f623bfa70af45f425b3d1"
+  version = "v1.0.0"
+
+[[projects]]
+  branch = "master"
+  name = "github.com/hashicorp/go-plugin"
+  packages = ["."]
+  revision = "a4620f9913d19f03a6bf19b2f304daaaf83ea130"
+
+[[projects]]
+  name = "github.com/hashicorp/go-safetemp"
+  packages = ["."]
+  revision = "c9a55de4fe06c920a71964b53cfe3dd293a3c743"
+  version = "v1.0.0"
+
+[[projects]]
+  name = "github.com/hashicorp/go-uuid"
+  packages = ["."]
+  revision = "de160f5c59f693fed329e73e291bb751fe4ea4dc"
+  version = "v1.0.0"
+
+[[projects]]
+  name = "github.com/hashicorp/go-version"
+  packages = ["."]
+  revision = "b5a281d3160aa11950a6182bd9a9dc2cb1e02d50"
+  version = "v1.0.0"
+
+[[projects]]
+  name = "github.com/hashicorp/hcl"
+  packages = [
+    ".",
+    "hcl/ast",
+    "hcl/parser",
+    "hcl/scanner",
+    "hcl/strconv",
+    "hcl/token",
+    "json/parser",
+    "json/scanner",
+    "json/token"
+  ]
+  revision = "8cb6e5b959231cc1119e43259c4a608f9c51a241"
+  version = "v1.0.0"
+
+[[projects]]
+  branch = "master"
+  name = "github.com/hashicorp/hcl2"
+  packages = [
+    "gohcl",
+    "hcl",
+    "hcl/hclsyntax",
+    "hcl/json",
+    "hcldec",
+    "hclparse"
+  ]
+  revision = "ed8144cda141c1f06f8ab122baff783b645cfe52"
+
+[[projects]]
+  branch = "master"
+  name = "github.com/hashicorp/hil"
+  packages = [
+    ".",
+    "ast",
+    "parser",
+    "scanner"
+  ]
+  revision = "fa9f258a92500514cc8e9c67020487709df92432"
+
+[[projects]]
+  name = "github.com/hashicorp/terraform"
+  packages = [
+    "config",
+    "config/configschema",
+    "config/hcl2shim",
+    "config/module",
+    "dag",
+    "flatmap",
+    "helper/hashcode",
+    "helper/hilmapstructure",
+    "helper/schema",
+    "httpclient",
+    "moduledeps",
+    "plugin",
+    "plugin/discovery",
+    "registry",
+    "registry/regsrc",
+    "registry/response",
+    "svchost",
+    "svchost/auth",
+    "svchost/disco",
+    "terraform",
+    "tfdiags",
+    "version"
+  ]
+  revision = "41e50bd32a8825a84535e353c3674af8ce799161"
+  version = "v0.11.7"
+
+[[projects]]
+  branch = "master"
+  name = "github.com/hashicorp/yamux"
+  packages = ["."]
+  revision = "cc6d2ea263b2471faabce371255777a365bf8306"
+
+[[projects]]
   name = "github.com/imdario/mergo"
   packages = ["."]
   revision = "50d4dbd4eb0e84778abe37cefef140271d96fade"
@@ -678,6 +846,18 @@
   revision = "16b258d86efc53ac5cf3e550604f566c32624fab"
 
 [[projects]]
+  name = "github.com/mattn/go-colorable"
+  packages = ["."]
+  revision = "167de6bfdfba052fa6b2d3664c8f5272e23c9072"
+  version = "v0.0.9"
+
+[[projects]]
+  name = "github.com/mattn/go-isatty"
+  packages = ["."]
+  revision = "0360b2af4f38e8d38c7fce2a9f4e702702d73a39"
+  version = "v0.0.3"
+
+[[projects]]
   name = "github.com/mattn/go-runewidth"
   packages = ["."]
   revision = "737072b4e32b7a5018b4a7125da8d12de90e8045"
@@ -703,10 +883,58 @@
   revision = "5d001d020961ae1c184f9f8152fdc73810481677"
 
 [[projects]]
+  name = "github.com/mitchellh/cli"
+  packages = ["."]
+  revision = "3d22a244be8aa6fb16ac24af0e195c08b7d973aa"
+  version = "v1.0.0"
+
+[[projects]]
+  name = "github.com/mitchellh/copystructure"
+  packages = ["."]
+  revision = "9a1b6f44e8da0e0e374624fb0a825a231b00c537"
+  version = "v1.0.0"
+
+[[projects]]
+  name = "github.com/mitchellh/go-homedir"
+  packages = ["."]
+  revision = "ae18d6b8b3205b561c79e8e5f69bff09736185f4"
+  version = "v1.0.0"
+
+[[projects]]
   branch = "master"
   name = "github.com/mitchellh/go-ps"
   packages = ["."]
   revision = "4fdf99ab29366514c69ccccddab5dc58b8d84062"
+
+[[projects]]
+  name = "github.com/mitchellh/go-testing-interface"
+  packages = ["."]
+  revision = "6d0b8010fcc857872e42fc6c931227569016843c"
+  version = "v1.0.0"
+
+[[projects]]
+  name = "github.com/mitchellh/go-wordwrap"
+  packages = ["."]
+  revision = "9e67c67572bc5dd02aef930e2b0ae3c02a4b5a5c"
+  version = "v1.0.0"
+
+[[projects]]
+  name = "github.com/mitchellh/hashstructure"
+  packages = ["."]
+  revision = "a38c50148365edc8df43c1580c48fb2b3a1e9cd7"
+  version = "v1.0.0"
+
+[[projects]]
+  name = "github.com/mitchellh/mapstructure"
+  packages = ["."]
+  revision = "fa473d140ef3c6adf42d6b391fe76707f1f243c8"
+  version = "v1.0.0"
+
+[[projects]]
+  name = "github.com/mitchellh/reflectwalk"
+  packages = ["."]
+  revision = "eecee6c969c02c8cc2ae48e1e269843ae8590796"
+  version = "v1.0.0"
 
 [[projects]]
   name = "github.com/moby/moby"
@@ -731,6 +959,12 @@
   name = "github.com/mreiferson/go-httpclient"
   packages = ["."]
   revision = "31f0106b4474f14bc441575c19d3a5fa21aa1f6c"
+
+[[projects]]
+  name = "github.com/oklog/run"
+  packages = ["."]
+  revision = "4dadeb3030eda0273a12382bb2348ffc7c9d1a39"
+  version = "v1.0.0"
 
 [[projects]]
   name = "github.com/olekukonko/tablewriter"
@@ -769,6 +1003,17 @@
   packages = ["."]
   revision = "5f041e8faa004a95c88a202771f4cc3e991971e6"
   version = "v2.0.1"
+
+[[projects]]
+  name = "github.com/posener/complete"
+  packages = [
+    ".",
+    "cmd",
+    "cmd/install",
+    "match"
+  ]
+  revision = "dcda3199365ca2a5f24aea4c42aa56f6a197d117"
+  version = "v1.1.2"
 
 [[projects]]
   name = "github.com/pquerna/otp"
@@ -847,12 +1092,6 @@
   revision = "5bf94b69c6b68ee1b541973bb8e1144db23a194b"
 
 [[projects]]
-  branch = "master"
-  name = "github.com/shiena/ansicolor"
-  packages = ["."]
-  revision = "a422bbe96644373c5753384a59d678f7d261ff10"
-
-[[projects]]
   name = "github.com/sirupsen/logrus"
   packages = [
     ".",
@@ -885,6 +1124,17 @@
   name = "github.com/ugorji/go"
   packages = ["codec"]
   revision = "646ae4a518c1c3be0739df898118d9bccf993858"
+
+[[projects]]
+  name = "github.com/ulikunitz/xz"
+  packages = [
+    ".",
+    "internal/hash",
+    "internal/xlog",
+    "lzma"
+  ]
+  revision = "0c6b41e72360850ca4f98dc341fd999726ea007f"
+  version = "v0.5.4"
 
 [[projects]]
   name = "github.com/vulcand/oxy"
@@ -925,6 +1175,20 @@
   version = "v1.0.0"
 
 [[projects]]
+  branch = "master"
+  name = "github.com/zclconf/go-cty"
+  packages = [
+    "cty",
+    "cty/convert",
+    "cty/function",
+    "cty/function/stdlib",
+    "cty/gocty",
+    "cty/json",
+    "cty/set"
+  ]
+  revision = "c2393a5d54f2fe015be2ddb1fc55431f749387de"
+
+[[projects]]
   name = "golang.org/x/crypto"
   packages = [
     "bcrypt",
@@ -956,6 +1220,8 @@
   packages = [
     "context",
     "context/ctxhttp",
+    "html",
+    "html/atom",
     "http2",
     "http2/hpack",
     "idna",
