@@ -255,6 +255,9 @@ func joinLoop(env *localenv.LocalEnvironment, j JoinConfig, peers []string, runt
 					// Ignore
 					return nil
 				}
+				if err := peer.Cleanup(); err != nil {
+					log.Errorf(trace.DebugReport(err))
+				}
 				return trace.Wrap(event.Error)
 			}
 			progress := event.Progress

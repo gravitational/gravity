@@ -307,7 +307,7 @@ func (r *S) clientExecutesCommandsWithClient(c *C, clt client.Client, srv *agent
 	c.Assert(buf.String(), Equals, expectedOutput)
 }
 
-func (r *S) newPeer(c *C, config PeerConfig, serverAddr string, log log.FieldLogger) *peerServer {
+func (r *S) newPeer(c *C, config PeerConfig, serverAddr string, log log.FieldLogger) *PeerServer {
 	return NewTestPeer(c, config, serverAddr,
 		log.WithField("peer", config.Listener.Addr()),
 		testCommand{"test output"}, TestSystemInfo{},

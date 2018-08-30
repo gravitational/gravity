@@ -78,6 +78,8 @@ type Peer struct {
 	agentDoneCh <-chan struct{}
 	// agent is this peer's RPC agent
 	agent rpcserver.Server
+	// ctx is the operation context
+	ctx *operationContext
 }
 
 // NewPeer returns new cluster peer client
@@ -301,25 +303,25 @@ func (p *Peer) tryConnect() (op *operationContext, err error) {
 	return op, trace.Wrap(err)
 }
 
-func (p *Peer) run() error {
-	ctx, err := p.connect()
+func (p *Peer) run() (err error) {
+	p.ctx, err = p.connect()
 	if err != nil {
 		return trace.Wrap(err)
 	}
 
-	serviceUser, err := EnsureServiceUserAndBinary(ctx.Site.ServiceUser.UID, ctx.Site.ServiceUser.GID)
+	serviceUser, err := EnsureServiceUserAndBinary(p.ctx.Site.ServiceUser.UID, p.ctx.Site.ServiceUser.GID)
 	if err != nil {
 		return trace.Wrap(err)
 	}
 	log.Infof("Service user: %v.", serviceUser)
 
-	installState := ctx.Operation.InstallExpand
+	installState := p.ctx.Operation.InstallExpand
 	if installState == nil {
-		return trace.BadParameter("internal error, no install state for %v", ctx.Operation)
+		return trace.BadParameter("internal error, no install state for %v", p.ctx.Operation)
 	}
 	p.Debugf("Got operation state: %#v.", installState)
 
-	if err := p.checkAndSetServerProfile(ctx.Site.App); err != nil {
+	if err := p.checkAndSetServerProfile(p.ctx.Site.App); err != nil {
 		return trace.Wrap(err)
 	}
 
@@ -336,7 +338,7 @@ func (p *Peer) run() error {
 	config := rpcserver.PeerConfig{
 		Config: rpcserver.Config{
 			Listener:      listener,
-			Credentials:   ctx.Creds,
+			Credentials:   p.ctx.Creds,
 			RuntimeConfig: p.RuntimeConfig,
 		},
 		WatchCh: p.WatchCh,
@@ -351,22 +353,37 @@ func (p *Peer) run() error {
 		return trace.Wrap(err)
 	}
 
+	// make sure that connection to the RPC server can be established
+	ctx, cancel := context.WithTimeout(p.Context, defaults.PeerConnectTimeout)
+	defer cancel()
+	if err := agent.Check(ctx); err != nil {
+		listener.Close()
+		return trace.Wrap(err)
+	}
+
 	p.agent = agent
 	p.agentDoneCh = agent.Done()
 	go agent.Serve()
 
-	if ctx.Operation.Type == ops.OperationExpand {
-		err = p.startExpandOperation(*ctx)
-		if err != nil {
+	if p.ctx.Operation.Type == ops.OperationExpand {
+		if err = p.startExpandOperation(*p.ctx); err != nil {
 			agent.Stop(p.Context)
-			if err := ctx.Operator.DeleteSiteOperation(ctx.Operation.Key()); err != nil {
-				p.Errorf("failed to delete operation: %v", trace.DebugReport(err))
-			}
 			return trace.Wrap(err)
 		}
 	}
 
-	pollProgress(p.Context, p.send, ctx.Operator, ctx.Operation.Key(), agent.Done())
+	pollProgress(p.Context, p.send, p.ctx.Operator, p.ctx.Operation.Key(), agent.Done())
+	return nil
+}
+
+// Cleanup performs cleanup actions in case operation failed to start
+func (p *Peer) Cleanup() error {
+	if p.ctx != nil {
+		p.Infof("Cleaning up operation %v.", p.ctx.Operation)
+		if err := p.ctx.Operator.DeleteSiteOperation(p.ctx.Operation.Key()); err != nil {
+			return trace.Wrap(err)
+		}
+	}
 	return nil
 }
 

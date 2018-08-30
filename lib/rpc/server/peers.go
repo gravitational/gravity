@@ -51,7 +51,7 @@ func (r *peers) String() string {
 	return strings.Join(peers, ",")
 }
 
-func (r *peers) start() {
+func (r *peers) start() error {
 	r.RLock()
 	defer r.RUnlock()
 	for _, p := range r.peers {
@@ -60,6 +60,28 @@ func (r *peers) start() {
 		go r.reconnectPeer(p.Peer, reconnectCh, p.doneCh)
 	}
 	go r.monitorPeers()
+	return nil
+}
+
+// check makes sure connection to all peers can be established
+func (r *peers) check(ctx context.Context) error {
+	var errors []error
+	for _, p := range r.peers {
+		errors = append(errors, r.tryPeer(ctx, p))
+	}
+	return trace.NewAggregate(errors...)
+}
+
+// tryPeer tests connection to the provided peer
+func (r *peers) tryPeer(ctx context.Context, peer *peer) error {
+	client, err := peer.Reconnect(ctx)
+	if err != nil {
+		return trace.Wrap(err, "RPC agent could not connect to peer %v", peer.Addr())
+	}
+	if err := client.Close(); err != nil {
+		r.WithField("peer", peer).Warn("Failed to close client.")
+	}
+	return nil
 }
 
 func (r *peers) monitorPeers() {
