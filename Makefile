@@ -5,7 +5,7 @@
 # - Docker 1.9+
 #
 # Userful targets:
-# - makex         : default containerized build. The output goes into build/<version>/
+# - make          : default containerized build. The output goes into build/<version>/
 # - make install  : build via `go install`. The output goes into GOPATH/bin/
 # - make clean    : remove the build output and artifacts
 #
