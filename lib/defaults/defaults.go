@@ -800,6 +800,9 @@ const (
 	// EtcdUpgradeBackupFile is the filename to store a temporary backup of the etcd database when recreating the etcd datastore
 	EtcdUpgradeBackupFile = "etcd.bak"
 
+	// EtcdPeerPort is etcd inter-cluster communication port
+	EtcdPeerPort = 2380
+
 	// SchedulerKeyFilename is the kube-scheduler private key filename
 	SchedulerKeyFilename = "scheduler.key"
 	// SchedulerCertFilename is the kube-scheduler certificate filename
@@ -1005,6 +1008,11 @@ func HookSecurityContext() *v1.PodSecurityContext {
 // InGravity builds a directory path within gravity working directory
 func InGravity(parts ...string) string {
 	return filepath.Join(append([]string{GravityDir}, parts...)...)
+}
+
+// Secret returns full path to the specified secret file
+func Secret(filename string) string {
+	return InGravity(SecretsDir, filename)
 }
 
 // AWSPublicIPv4Command is a command to query AWS metadata for an instance's public IP address

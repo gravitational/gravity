@@ -34,8 +34,13 @@ import (
 	"github.com/sirupsen/logrus"
 )
 
-// NewApp returns a new "app" phase executor
-func NewApp(p fsm.ExecutorParams, operator ops.Operator, apps app.Applications) (*appExecutor, error) {
+// NewApp returns executor that runs install and post-install hooks
+func NewApp(p fsm.ExecutorParams, operator ops.Operator, apps app.Applications) (*hookExecutor, error) {
+	return NewHooks(p, operator, apps, schema.HookInstall, schema.HookInstalled)
+}
+
+// NewHook returns executor that runs specified application hooks
+func NewHook(p fsm.ExecutorParams, operator ops.Operator, apps app.Applications, hooks ...schema.HookType) (*hookExecutor, error) {
 	if p.Phase.Data == nil || p.Phase.Data.ServiceUser == nil {
 		return nil, trace.BadParameter("service user is required")
 	}
@@ -53,7 +58,7 @@ func NewApp(p fsm.ExecutorParams, operator ops.Operator, apps app.Applications) 
 		Operator: operator,
 		Server:   p.Phase.Data.Server,
 	}
-	return &appExecutor{
+	return &hookExecutor{
 		FieldLogger:    logger,
 		Operator:       operator,
 		LocalApps:      apps,
@@ -62,7 +67,7 @@ func NewApp(p fsm.ExecutorParams, operator ops.Operator, apps app.Applications) 
 	}, nil
 }
 
-type appExecutor struct {
+type hookExecutor struct {
 	// FieldLogger is used for logging
 	logrus.FieldLogger
 	// Operator is installer ops service
@@ -71,12 +76,14 @@ type appExecutor struct {
 	LocalApps app.Applications
 	// ServiceUser is the user used for services and system storage
 	ServiceUser systeminfo.User
+	// Hooks is hook names to be executed
+	Hooks []schema.HookType
 	// ExecutorParams is common executor params
 	fsm.ExecutorParams
 }
 
 // Execute runs install and post install hooks for an app
-func (p *appExecutor) Execute(ctx context.Context) error {
+func (p *hookExecutor) Execute(ctx context.Context) error {
 	err := p.runHooks(ctx, schema.HookInstall, schema.HookInstalled)
 	if err != nil {
 		return trace.Wrap(err)
@@ -85,7 +92,7 @@ func (p *appExecutor) Execute(ctx context.Context) error {
 }
 
 // runHooks runs specified app hooks
-func (p *appExecutor) runHooks(ctx context.Context, hooks ...schema.HookType) error {
+func (p *hookExecutor) runHooks(ctx context.Context, hooks ...schema.HookType) error {
 	for _, hook := range hooks {
 		locator := *p.Phase.Data.Package
 		req := app.HookRunRequest{
@@ -133,12 +140,12 @@ func (p *appExecutor) runHooks(ctx context.Context, hooks ...schema.HookType) er
 }
 
 // Rollback is no-op for this phase
-func (*appExecutor) Rollback(ctx context.Context) error {
+func (*hookExecutor) Rollback(ctx context.Context) error {
 	return nil
 }
 
 // PreCheck makes sure this phase is executed on a master node
-func (p *appExecutor) PreCheck(ctx context.Context) error {
+func (p *hookExecutor) PreCheck(ctx context.Context) error {
 	err := fsm.CheckMasterServer(p.Plan.Servers)
 	if err != nil {
 		return trace.Wrap(err)
@@ -147,6 +154,6 @@ func (p *appExecutor) PreCheck(ctx context.Context) error {
 }
 
 // PostCheck is no-op for this phase
-func (*appExecutor) PostCheck(ctx context.Context) error {
+func (*hookExecutor) PostCheck(ctx context.Context) error {
 	return nil
 }

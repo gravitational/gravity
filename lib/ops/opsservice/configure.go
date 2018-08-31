@@ -18,6 +18,7 @@ package opsservice
 
 import (
 	"bytes"
+	"context"
 	"encoding/base64"
 	"encoding/json"
 	"fmt"
@@ -28,6 +29,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/gravitational/gravity/lib/clients"
 	"github.com/gravitational/gravity/lib/constants"
 	"github.com/gravitational/gravity/lib/defaults"
 	"github.com/gravitational/gravity/lib/devicemapper"
@@ -75,8 +77,10 @@ func (o *Operator) ConfigurePackages(key ops.SiteOperationKey) error {
 	if err != nil {
 		return trace.Wrap(err)
 	}
-	if operation.Type != ops.OperationInstall {
-		return trace.BadParameter("expected install operation, got: %v",
+	switch operation.Type {
+	case ops.OperationInstall, ops.OperationExpand:
+	default:
+		return trace.BadParameter("expected install or expand operation, got: %v",
 			operation)
 	}
 	site, err := o.openSite(key.SiteKey())
@@ -98,7 +102,11 @@ func (o *Operator) ConfigurePackages(key ops.SiteOperationKey) error {
 	if err != nil {
 		return trace.Wrap(err)
 	}
-	err = site.configurePackages(ctx)
+	if operation.Type == ops.OperationInstall {
+		err = site.configurePackages(ctx)
+	} else {
+		err = site.configureExpandPackages(ctx)
+	}
 	if err != nil {
 		// remove cluster state servers on error so the operation can be retried
 		errRemove := site.removeClusterStateServers(storage.Hostnames(operation.Servers))
@@ -106,6 +114,131 @@ func (o *Operator) ConfigurePackages(key ops.SiteOperationKey) error {
 			o.Errorf("Failed to remove cluster state servers: %v.",
 				trace.DebugReport(errRemove))
 		}
+		return trace.Wrap(err)
+	}
+	return nil
+}
+
+func (s *site) getEtcdConfig(ctx *operationContext) (*etcdConfig, error) {
+	etcdClient, err := clients.DefaultEtcdMembers()
+	if err != nil {
+		return nil, trace.Wrap(err)
+	}
+	members, err := etcdClient.List(context.TODO()) // TODO pass context
+	if err != nil {
+		return nil, trace.Wrap(err)
+	}
+	initialCluster := make([]string, len(members))
+	for _, member := range members {
+		address, err := utils.URLHostname(member.PeerURLs[0])
+		if err != nil {
+			return nil, trace.Wrap(err)
+		}
+		initialCluster = append(initialCluster, fmt.Sprintf("%s:%s",
+			member.Name, address))
+	}
+	// TODO turn on proxy mode for regular nodes
+	return &etcdConfig{
+		initialCluster:      initialCluster,
+		initialClusterState: etcdExistingCluster,
+	}
+}
+
+func (s *site) getTeleportMaster() (*teleportServer, error) {
+	masters, err := s.teleport().GetServers(context.TODO(), s.domainName, map[string]string{ // TODO pass context
+		schema.ServiceLabelRole: string(schema.ServiceRoleMaster),
+	})
+	if err != nil {
+		return trace.Wrap(err)
+	}
+	if len(masters) == 0 {
+		return trace.NotFound("no master server found")
+	}
+	return newTeleportServer(masters[0])
+}
+
+func (s *site) configureExpandPackages(ctx *operationContext) error {
+	teleportCA, err := s.getTeleportSecrets()
+	if err != nil {
+		return trace.Wrap(err)
+	}
+	teleportMaster, err := s.getTeleportMaster()
+	if err != nil {
+		return trace.Wrap(err)
+	}
+	etcdConfig, err := s.getEtcdConfig(ctx)
+	if err != nil {
+		return trace.Wrap(err)
+	}
+	provisionedServer := ctx.provisionedServers[0]
+	secretsPackage, err := s.planetSecretsPackage(provisionedServer)
+	if err != nil {
+		return trace.Wrap(err)
+	}
+	planetPackage, err := s.app.Manifest.RuntimePackage(provisionedServer.Profile)
+	if err != nil {
+		return trace.Wrap(err)
+	}
+	configPackage, err := s.planetConfigPackage(provisionedServer, planetPackage.Version)
+	if err != nil {
+		return trace.Wrap(err)
+	}
+	dockerConfig, err := s.selectDockerConfig(ctx.operation, provisionedServer.Role, s.app.Manifest)
+	if err != nil {
+		return trace.Wrap(err)
+	}
+	planetConfig := planetConfig{
+		etcd:          *etcdConfig,
+		docker:        *dockerConfig,
+		planetPackage: *planetPackage,
+		configPackage: *configPackage,
+	}
+	if provisionedServer.IsMaster() {
+		err := s.configureTeleportMaster(ctx, teleportCA, provisionedServer)
+		if err != nil {
+			return trace.Wrap(err)
+		}
+		masterParams := planetMasterParams{
+			master:            provisionedServer,
+			secretsPackage:    secretsPackage,
+			serviceSubnetCIDR: ctx.operation.InstallExpand.Subnets.Service,
+		}
+		// if we have a connection to ops center set up, configure
+		// SNI host so opscenter can dial in
+		trustedCluster, err := storage.GetTrustedCluster(s.backend())
+		if err == nil {
+			masterParams.sniHost = trustedCluster.GetSNIHost()
+		}
+		err = s.configurePlanetMasterSecrets(masterParams)
+		if err != nil {
+			return trace.Wrap(err)
+		}
+		planetConfig.master = masterConfig{
+			electionEnabled: false,
+			addr:            s.teleport().GetPlanetLeaderIP(),
+		}
+		err = s.configurePlanetMaster(provisionedServer, ctx.operation, config,
+			*secretsPackage, *configPackage)
+		if err != nil {
+			return trace.Wrap(err)
+		}
+	} else {
+		err := s.configurePlanetNodeSecrets(provisionedServer, secretsPackage)
+		if err != nil {
+			return trace.Wrap(err)
+		}
+		err = s.configurePlanetNode(provisionedServer, ctx.operation, config,
+			*secretsPackage, *configPackage)
+		if err != nil {
+			return trace.Wrap(err)
+		}
+	}
+	err = s.configureTeleportKeyPair(teleportCA, provisionedServer, teleport.RoleNode)
+	if err != nil {
+		return trace.Wrap(err)
+	}
+	err = s.configureTeleportNode(ctx, teleportMaster.IP, provisionedServer)
+	if err != nil {
 		return trace.Wrap(err)
 	}
 	return nil
