@@ -45,6 +45,8 @@ PHASES:
 
 /post -> run postExpand hook
 
+/elect -> resume leader election (if master)
+
 */
 
 func NewOperationPlan(operation ops.SiteOperation) (*storage.OperationPlan, error) {

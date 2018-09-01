@@ -67,11 +67,28 @@ func FSMSpec(config FSMConfig) fsm.FSMSpecFunc {
 				config.Operator,
 				remote)
 
+		case strings.HasPrefix(p.Phase.ID, SystemPhase):
+			return installphases.NewSystem(p,
+				config.Operator,
+				remote)
+
+		case strings.HasPrefix(p.Phase.ID, WaitPlanetPhase):
+			return phases.NewWaitPlanet(p,
+				config.Operator)
+
+		case strings.HasPrefix(p.Phase.ID, WaitK8sPhase):
+			return phases.NewWaitK8s(p,
+				config.Operator)
+
 		case strings.HasPrefix(p.Phase.ID, PostHookPhase):
 			return installphases.NewHook(p,
 				config.Operator,
 				config.LocalApps,
 				schema.HookNodeAdded)
+
+		case strings.HasPrefix(p.Phase.ID, ElectPhase):
+			return phases.NewElect(p,
+				config.Operator)
 
 		default:
 			return nil, trace.BadParameter("unknown phase %q", p.Phase.ID)
@@ -86,6 +103,12 @@ const (
 	EtcdPhase = "/etcd"
 	// SystemPhase installs system software on the joining node
 	SystemPhase = "/system"
+	// WaitPlanetPhase waits for planet to start
+	WaitPlanetPhase = "/wait/planet"
+	// WaitK8sPhase waits for joining node to register with Kubernetes
+	WaitK8sPhase = "/wait/k8s"
 	// PostHookPhase runs post-expand application hook
 	PostHookPhase = "/post"
+	// ElectPhase enables leader election on master node
+	ElectPhase = "/elect"
 )
