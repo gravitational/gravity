@@ -469,7 +469,9 @@ func (s *site) getPlanetMasterSecretsPackage(p planetMasterParams) (*ops.RotateP
 		constants.ProxyKeyPair:     {userName: constants.ClusterKubeProxyUser, group: constants.ClusterNodeGroup},
 		constants.KubeletKeyPair: {
 			userName: constants.ClusterNodeNamePrefix + ":" + p.master.KubeNodeID(),
-			group:    constants.ClusterNodeGroup},
+			group:    constants.ClusterNodeGroup,
+		},
+		constants.APIServerKubeletClientKeyPair: {group: constants.ClusterAdminGroup},
 	}
 
 	for name, config := range keyPairTypes {

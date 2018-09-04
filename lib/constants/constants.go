@@ -234,6 +234,8 @@ const (
 	RootKeyPair = "root"
 	// APIServerKeyPair is a name of the K8s apiserver key pair
 	APIServerKeyPair = "apiserver"
+	// APIServerKubeletClientKeyPair is the name of the cert for the API server to connect to kubelet
+	APIServerKubeletClientKeyPair = "apiserver-kubelet-client"
 	// KubeletKeyPair is a name of the Kubelet client Key pair
 	KubeletKeyPair = "kubelet"
 	// ProxyKeyPair is a name of the K8s Proxy client Key Pair
