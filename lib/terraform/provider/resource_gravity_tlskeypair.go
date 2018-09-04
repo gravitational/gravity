@@ -58,7 +58,8 @@ func resourceGravityTLSKeyPairCreate(d *schema.ResourceData, m interface{}) erro
 		return trace.Wrap(err)
 	}
 
-	// Gravity apparently only supports a single key
+	// Gravity apparently only supports a single key, so we
+	// set the ID to a static key here
 	d.SetId("tlskeypair")
 	return nil
 }
