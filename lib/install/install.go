@@ -735,7 +735,7 @@ func tryInstallBinary(targetPath string, uid, gid int) error {
 	return nil
 }
 
-func startAgent(agentURL string, config rpcserver.PeerConfig, log log.FieldLogger) (rpcserver.Server, error) {
+func StartAgent(agentURL string, config rpcserver.PeerConfig, log log.FieldLogger) (rpcserver.Server, error) {
 	log.Debugf("Starting agent: %v.", agentURL)
 	u, err := url.ParseRequestURI(agentURL)
 	if err != nil {

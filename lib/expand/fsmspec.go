@@ -31,6 +31,8 @@ import (
 func FSMSpec(config FSMConfig) fsm.FSMSpecFunc {
 	return func(p fsm.ExecutorParams, remote fsm.Remote) (fsm.PhaseExecutor, error) {
 		switch {
+		// TODO add prechecks phase
+
 		case strings.HasPrefix(p.Phase.ID, installphases.ConfigurePhase):
 			return installphases.NewConfigure(p,
 				config.Operator)
@@ -67,11 +69,6 @@ func FSMSpec(config FSMConfig) fsm.FSMSpecFunc {
 				config.Operator,
 				remote)
 
-		case strings.HasPrefix(p.Phase.ID, SystemPhase):
-			return installphases.NewSystem(p,
-				config.Operator,
-				remote)
-
 		case strings.HasPrefix(p.Phase.ID, WaitPlanetPhase):
 			return phases.NewWaitPlanet(p,
 				config.Operator)
@@ -98,7 +95,7 @@ func FSMSpec(config FSMConfig) fsm.FSMSpecFunc {
 
 const (
 	// PreHookPhase runs pre-expand application hook
-	PreHookPhase = "/pre"
+	PreHookPhase = "/prehook"
 	// EtcdPhase adds joining node to cluster's etcd cluster
 	EtcdPhase = "/etcd"
 	// SystemPhase installs system software on the joining node
@@ -108,7 +105,7 @@ const (
 	// WaitK8sPhase waits for joining node to register with Kubernetes
 	WaitK8sPhase = "/wait/k8s"
 	// PostHookPhase runs post-expand application hook
-	PostHookPhase = "/post"
+	PostHookPhase = "/posthook"
 	// ElectPhase enables leader election on master node
 	ElectPhase = "/elect"
 )

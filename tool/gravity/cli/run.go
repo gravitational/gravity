@@ -264,6 +264,8 @@ func Execute(g *Application, cmd string, extraArgs []string) error {
 			CloudProvider:     *g.JoinCmd.CloudProvider,
 			ServiceUID:        *g.JoinCmd.ServiceUID,
 			ServiceGID:        *g.JoinCmd.ServiceGID,
+			Manual:            *g.JoinCmd.Manual,
+			Phase:             *g.JoinCmd.Phase,
 		})
 	case g.AutoJoinCmd.FullCommand():
 		return autojoin(localEnv, autojoinConfig{

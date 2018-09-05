@@ -383,6 +383,10 @@ type JoinCmd struct {
 	ServiceGID *string
 	// CloudProvider turns on cloud provider integration
 	CloudProvider *string
+	// Manual turns on manual phases execution mode
+	Manual *bool
+	// Phase specifies the operation phase to execute
+	Phase *string
 }
 
 // AutoJoinCmd uses cloud provider info to join existing cluster

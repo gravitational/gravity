@@ -14,7 +14,7 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package install
+package expand
 
 import (
 	"context"
@@ -23,20 +23,29 @@ import (
 	"strings"
 	"time"
 
+	etcd "github.com/coreos/etcd/client"
+	"github.com/gravitational/gravity/lib/app"
+	"github.com/gravitational/gravity/lib/app/client"
 	"github.com/gravitational/gravity/lib/checks"
+	"github.com/gravitational/gravity/lib/constants"
 	"github.com/gravitational/gravity/lib/defaults"
+	"github.com/gravitational/gravity/lib/fsm"
 	"github.com/gravitational/gravity/lib/httplib"
+	"github.com/gravitational/gravity/lib/install"
 	"github.com/gravitational/gravity/lib/localenv"
 	validationpb "github.com/gravitational/gravity/lib/network/validation/proto"
 	"github.com/gravitational/gravity/lib/ops"
 	"github.com/gravitational/gravity/lib/ops/opsclient"
+	"github.com/gravitational/gravity/lib/pack"
 	"github.com/gravitational/gravity/lib/pack/webpack"
 	pb "github.com/gravitational/gravity/lib/rpc/proto"
 	rpcserver "github.com/gravitational/gravity/lib/rpc/server"
 	"github.com/gravitational/gravity/lib/schema"
+	"github.com/gravitational/gravity/lib/storage"
 	"github.com/gravitational/gravity/lib/utils"
 
 	"github.com/cenkalti/backoff"
+	"github.com/fatih/color"
 	"github.com/gravitational/coordinate/leader"
 	"github.com/gravitational/roundtrip"
 	"github.com/gravitational/trace"
@@ -49,6 +58,8 @@ type PeerConfig struct {
 	Peers []string
 	// Context controls state of the peer, e.g. it can be cancelled
 	Context context.Context
+	// Cancel can be used to cancel the context above
+	Cancel context.CancelFunc
 	// AdvertiseAddr is advertise addr of this node
 	AdvertiseAddr string
 	// ServerAddr is optional address of the agent server.
@@ -60,12 +71,33 @@ type PeerConfig struct {
 	WatchCh chan rpcserver.WatchEvent
 	// RuntimeConfig is peer's runtime configuration
 	pb.RuntimeConfig
+	// Silent allows peer to output its progress
+	localenv.Silent
+	// FieldLogger is used for logging
+	log.FieldLogger
+	// Debug turns on FSM debug mode
+	Debug bool
+	// Insecure turns on FSM insecure mode
+	Insecure bool
+	// LocalBackend is local backend of the joining node
+	LocalBackend storage.Backend
+	// LocalApps is local apps service of the joining node
+	LocalApps app.Applications
+	// LocalPackages is local package service of the joining node
+	LocalPackages pack.PackageService
+	// Etcd is client to the cluster's etcd members API
+	Etcd etcd.MembersAPI
+	// Manual turns on manual plan execution
+	Manual bool
 }
 
 // CheckAndSetDefaults checks the parameters and autodetects some defaults
 func (c *PeerConfig) CheckAndSetDefaults() error {
 	if c.Context == nil {
 		return trace.BadParameter("missing Context")
+	}
+	if c.Cancel == nil {
+		return trace.BadParameter("missing Cancel")
 	}
 	if len(c.Peers) == 0 {
 		return trace.BadParameter("missing Peers")
@@ -82,13 +114,27 @@ func (c *PeerConfig) CheckAndSetDefaults() error {
 	if c.EventsC == nil {
 		return trace.BadParameter("missing EventsC")
 	}
+	if c.FieldLogger == nil {
+		c.FieldLogger = log.WithField(trace.Component, "peer")
+	}
+	if c.LocalBackend == nil {
+		return trace.BadParameter("missing LocalBackned")
+	}
+	if c.LocalApps == nil {
+		return trace.BadParameter("missing LocalApps")
+	}
+	if c.LocalPackages == nil {
+		return trace.BadParameter("missing LocalPackages")
+	}
+	if c.Etcd == nil {
+		return trace.BadParameter("missing Etcd")
+	}
 	return nil
 }
 
 // Peer is a client that manages joining the cluster
 type Peer struct {
 	PeerConfig
-	log.FieldLogger
 	// agentDoneCh is the agent's done channel.
 	// Only set after the agent has been started
 	agentDoneCh <-chan struct{}
@@ -97,11 +143,17 @@ type Peer struct {
 }
 
 // NewPeer returns new cluster peer client
-func NewPeer(cfg PeerConfig, log log.FieldLogger) (*Peer, error) {
+func NewPeer(cfg PeerConfig) (*Peer, error) {
 	if err := cfg.CheckAndSetDefaults(); err != nil {
 		return nil, trace.Wrap(err)
 	}
-	return &Peer{PeerConfig: cfg, FieldLogger: log}, nil
+	return &Peer{PeerConfig: cfg}, nil
+}
+
+// Init initializes the peer
+func (p *Peer) Init() error {
+	utils.WatchTerminationSignals(p.Context, p.Cancel, p, p.FieldLogger)
+	watchReconnects(p.Context, p.Cancel, p.WatchCh)
 }
 
 func (p *Peer) dialSite(addr string) (*operationContext, error) {
@@ -119,6 +171,11 @@ func (p *Peer) dialSite(addr string) (*operationContext, error) {
 	}
 
 	packages, err := webpack.NewBearerClient(targetURL, p.Token, httpClient)
+	if err != nil {
+		return nil, trace.Wrap(err)
+	}
+
+	apps, err := client.NewBearerClient(targetURL, p.Token, httpClient)
 	if err != nil {
 		return nil, trace.Wrap(err)
 	}
@@ -171,8 +228,10 @@ func (p *Peer) dialSite(addr string) (*operationContext, error) {
 	}
 
 	return &operationContext{
-		Operation: *op,
 		Operator:  operator,
+		Packages:  packages,
+		Apps:      apps,
+		Operation: *op,
 		Site:      *cluster,
 		Creds:     *creds,
 	}, nil
@@ -241,6 +300,8 @@ func (p *Peer) checkAndSetServerProfile(app ops.Application) error {
 // of the operation.
 type operationContext struct {
 	Operator  ops.Operator
+	Packages  pack.PackageService
+	Apps      app.Applications
 	Operation ops.SiteOperation
 	Site      ops.Site
 	Creds     rpcserver.Credentials
@@ -360,7 +421,7 @@ func (p *Peer) run() error {
 			ShouldReconnect: shouldReconnectPeer,
 		},
 	}
-	agent, err := startAgent(agentInstructions.AgentURL, config,
+	agent, err := install.StartAgent(agentInstructions.AgentURL, config,
 		p.WithField("peer", listener.Addr().String()))
 	if err != nil {
 		listener.Close()
@@ -382,7 +443,7 @@ func (p *Peer) run() error {
 		}
 	}
 
-	pollProgress(p.Context, p.send, ctx.Operator, ctx.Operation.Key(), agent.Done())
+	install.PollProgress(p.Context, p.send, ctx.Operator, ctx.Operation.Key(), agent.Done())
 	return nil
 }
 
@@ -394,7 +455,7 @@ func (p *Peer) Stop(ctx context.Context) error {
 	return trace.Wrap(p.agent.Stop(ctx))
 }
 
-func (p *Peer) waitForAgents(site ops.Site, operator ops.Operator, opKey ops.SiteOperationKey) error {
+func (p *Peer) waitForAgents(ctx operationContext) error {
 	ticker := backoff.NewTicker(&backoff.ExponentialBackOff{
 		InitialInterval: time.Second,
 		Multiplier:      1.5,
@@ -411,7 +472,7 @@ func (p *Peer) waitForAgents(site ops.Site, operator ops.Operator, opKey ops.Sit
 			if tm.IsZero() {
 				return trace.ConnectionProblem(nil, "timed out waiting for agents to join")
 			}
-			report, err := operator.GetSiteExpandOperationAgentReport(opKey)
+			report, err := ctx.Operator.GetSiteExpandOperationAgentReport(ctx.Operation.Key())
 			if err != nil {
 				p.Warningf("%v", err)
 				continue
@@ -419,17 +480,17 @@ func (p *Peer) waitForAgents(site ops.Site, operator ops.Operator, opKey ops.Sit
 			if len(report.Servers) == 0 {
 				continue
 			}
-			op, err := operator.GetSiteOperation(opKey)
+			op, err := ctx.Operator.GetSiteOperation(opKey)
 			if err != nil {
 				p.Warningf("%v", err)
 				continue
 			}
-			req, err := getServers(*op, report.Servers)
+			req, err := install.GetServers(*op, report.Servers)
 			if err != nil {
 				p.Warningf("%v", err)
 				continue
 			}
-			err = operator.UpdateExpandOperationState(opKey, *req)
+			err = operator.UpdateExpandOperationState(ctx.Operation.Key(), *req)
 			if err != nil {
 				return trace.Wrap(err)
 			}
@@ -460,6 +521,16 @@ func (p *Peer) sendMessage(format string, args ...interface{}) {
 	})
 }
 
+// PrintStep outputs a message to the console
+func (p *Peer) PrintStep(format string, args ...interface{}) {
+	p.printf("%v\t%v\n", time.Now().UTC().Format(constants.HumanDateFormatSeconds),
+		fmt.Sprintf(format, args...))
+}
+
+func (p *Peer) printf(format string, args ...interface{}) {
+	p.Silent.Printf(format, args...)
+}
+
 // Start starts non-interactive join process
 func (p *Peer) Start() (err error) {
 	go func() {
@@ -477,17 +548,90 @@ func (p *Peer) Done() <-chan struct{} {
 	return p.agentDoneCh
 }
 
-func (p *Peer) startExpandOperation(ctx operationContext) error {
-	err := p.waitForAgents(ctx.Site, ctx.Operator, ctx.Operation.Key())
-	if err != nil {
-		return trace.Wrap(err)
+// Wait waits for the expand operation to complete
+func (p *Peer) Wait() error {
+	start := time.Now()
+	for {
+		select {
+		case <-p.Done():
+			p.Info("Agent shut down.")
+			return nil
+		case event := <-p.EventsC:
+			if event.Error != nil {
+				if utils.IsContextCancelledError(event.Error) {
+					return nil
+				}
+				return trace.Wrap(event.Error)
+			}
+			progress := event.Progress
+			if progress.Message != "" {
+				p.PrintStep(progress.Message)
+			}
+			if progress.State == ops.ProgressStateCompleted {
+				p.PrintStep(color.GreenString("Joined cluster in %v", time.Now().Sub(start)))
+				return nil
+			}
+			if progress.State == ops.ProgressStateFailed {
+				p.Println(color.RedString("Failed to join the cluster"))
+				p.Printf("---\nAgent process will keep running so you can re-run certain steps.\n" +
+					"Once no longer needed, this process can be shutdown using Ctrl-C.\n")
+			}
+		}
 	}
+}
 
-	err = ctx.Operator.SiteExpandOperationStart(ctx.Operation.Key())
+func (p *Peer) startExpandOperation(ctx operationContext) error {
+	err := p.waitForAgents(ctx)
 	if err != nil {
 		return trace.Wrap(err)
 	}
+	err = p.initOperationPlan(ctx)
+	if err != nil {
+		return trace.Wrap(err)
+	}
+	if p.Manual {
+		p.Println(`Operation was started in manual mode
+Inspect the operation plan using "gravity plan" and execute plan phases manually using "gravity join --phase=<phase-id>"
+After all phases have completed successfully, shutdown this process using Ctrl-C`)
+		return nil
+	}
+	fsm, err := p.getFSM(ctx)
+	if err != nil {
+		return trace.Wrap(err)
+	}
+	go func() {
+		fsmErr := fsm.ExecutePlan(p.Context, utils.NewNopProgress(), false)
+		if err != nil {
+			p.Errorf("Failed to execute plan: %v.",
+				trace.DebugReport(err))
+		}
+		err := fsm.Complete(fsmErr)
+		if err != nil {
+			p.Errorf("Failed to complete operation: %v.",
+				trace.DebugReport(err))
+		}
+	}()
+	// err = ctx.Operator.SiteExpandOperationStart(ctx.Operation.Key())
+	// if err != nil {
+	// 	return trace.Wrap(err)
+	// }
 	return nil
+}
+
+func (p *Peer) getFSM(ctx operationContext) (*fsm.FSM, error) {
+	return NewFSM(FSMConfig{
+		Operator:      ctx.Operator,
+		OperationKey:  ctx.Operation.Key(),
+		Apps:          ctx.Apps,
+		Packages:      ctx.Packages,
+		LocalBackend:  p.LocalBackend,
+		LocalApps:     p.LocalApps,
+		LocalPackages: p.LocalPackages,
+		Etcd:          p.Etcd,
+		Credentials:   ctx.Creds.Client,
+		Debug:         p.Debug,
+		Insecure:      p.Insecure,
+	})
 }
 
 func validateWizardState(operator ops.Operator) (*ops.Site, *ops.SiteOperation, error) {
@@ -561,4 +705,17 @@ func shouldReconnectPeer(err error) error {
 
 func isPeerDeniedError(message string) bool {
 	return strings.Contains(message, "AccessDenied")
+}
+
+func watchReconnects(ctx context.Context, cancel context.CancelFunc, watchCh <-chan rpcserver.WatchEvent) {
+	go func() {
+		for event := range watchCh {
+			if event.Error == nil {
+				continue
+			}
+			log.Warnf("Failed to reconnect to %v: %v.", event.Peer, event.Error)
+			cancel()
+			return
+		}
+	}()
 }

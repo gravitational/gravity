@@ -236,7 +236,7 @@ func (i *Installer) StartAgent(agentURL string) (rpcserver.Server, error) {
 			RuntimeConfig: runtimeConfig,
 		},
 	}
-	agent, err := startAgent(agentURL, config, i)
+	agent, err := StartAgent(agentURL, config, i)
 	if err != nil {
 		listener.Close()
 		return nil, trace.Wrap(err)
@@ -357,7 +357,7 @@ func (i *Installer) sendMessage(format string, args ...interface{}) {
 }
 
 func (i *Installer) PollProgress(agentDoneCh <-chan struct{}) {
-	pollProgress(i.Context, i.send, i.Operator, i.OperationKey, agentDoneCh)
+	PollProgress(i.Context, i.send, i.Operator, i.OperationKey, agentDoneCh)
 }
 
 func (i *Installer) canContinue(servers []checks.ServerInfo) bool {
@@ -436,7 +436,7 @@ func (i *Installer) UpdateOperationState() error {
 	if err != nil {
 		return trace.Wrap(err, "failed to get operation")
 	}
-	request, err := getServers(*operation, report.Servers)
+	request, err := GetServers(*operation, report.Servers)
 	if err != nil {
 		return trace.Wrap(err, "failed to parse report: %#v", report)
 	}
@@ -483,7 +483,7 @@ func (i *Installer) checkAndSetServerProfile() error {
 	return trace.NotFound("server role %q is not found", i.Role)
 }
 
-func pollProgress(ctx context.Context, send func(Event), operator ops.Operator,
+func PollProgress(ctx context.Context, send func(Event), operator ops.Operator,
 	opKey ops.SiteOperationKey, agentDoneCh <-chan struct{}) {
 	ticker := backoff.NewTicker(backoff.NewConstantBackOff(1 * time.Second))
 	defer ticker.Stop()
@@ -524,7 +524,7 @@ func pollProgress(ctx context.Context, send func(Event), operator ops.Operator,
 	}
 }
 
-func getServers(op ops.SiteOperation, servers []checks.ServerInfo) (*ops.OperationUpdateRequest, error) {
+func GetServers(op ops.SiteOperation, servers []checks.ServerInfo) (*ops.OperationUpdateRequest, error) {
 	req := ops.OperationUpdateRequest{
 		Profiles: make(map[string]storage.ServerProfileRequest),
 	}

@@ -108,6 +108,8 @@ func RegisterCommands(app *kingpin.Application) *Application {
 	g.JoinCmd.ServiceUID = g.JoinCmd.Flag("service-uid", fmt.Sprintf("Service user ID for planet. %q user will created and used if none specified", defaults.ServiceUser)).Default(defaults.ServiceUserID).OverrideDefaultFromEnvar(constants.ServiceUserEnvVar).String()
 	g.JoinCmd.ServiceGID = g.JoinCmd.Flag("service-gid", fmt.Sprintf("Service group ID for planet. %q group will created and used if none specified", defaults.ServiceUserGroup)).Default(defaults.ServiceGroupID).OverrideDefaultFromEnvar(constants.ServiceGroupEnvVar).String()
 	g.JoinCmd.CloudProvider = g.JoinCmd.Flag("cloud-provider", "Cloud provider integration e.g. 'generic', 'aws'. If not set, autodetect environment").String()
+	g.JoinCmd.Manual = g.JoinCmd.Flag("manual", "Manually execute join operation phases").Bool()
+	g.JoinCmd.Phase = g.JoinCmd.Flag("phase", "Execute specific operation phase").String()
 
 	g.AutoJoinCmd.CmdClause = g.Command("autojoin", "Use cloud provider data to join a node to existing cluster")
 	g.AutoJoinCmd.ClusterName = g.AutoJoinCmd.Arg("cluster-name", "Cluster name used for discovery").Required().String()

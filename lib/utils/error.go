@@ -17,6 +17,7 @@ limitations under the License.
 package utils
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -250,4 +251,17 @@ func (e *UnsupportedFilesystemError) Error() string {
 // NewUnsupportedFilesystemError creates a new error for an unsupported filesystem at the specified path
 func NewUnsupportedFilesystemError(err error, path string) *UnsupportedFilesystemError {
 	return &UnsupportedFilesystemError{Err: err, Path: path}
+}
+
+// IsContextCancelledError returns true if the provided error is a result
+// of a context cancellation
+func IsContextCancelledError(err error) bool {
+	origErr := trace.Unwrap(err)
+	if origErr == context.Canceled {
+		return true
+	}
+	if connErr, ok := origErr.(*trace.ConnectionProblemError); ok {
+		return connErr.Err == context.Canceled
+	}
+	return false
 }

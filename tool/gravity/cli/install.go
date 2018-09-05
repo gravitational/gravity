@@ -27,6 +27,7 @@ import (
 	"github.com/gravitational/gravity/lib/checks"
 	cloudaws "github.com/gravitational/gravity/lib/cloudprovider/aws"
 	"github.com/gravitational/gravity/lib/defaults"
+	"github.com/gravitational/gravity/lib/expand"
 	"github.com/gravitational/gravity/lib/fsm"
 	"github.com/gravitational/gravity/lib/install"
 	"github.com/gravitational/gravity/lib/localenv"
@@ -43,7 +44,6 @@ import (
 	"github.com/gravitational/gravity/lib/utils"
 	"github.com/sirupsen/logrus"
 
-	"github.com/fatih/color"
 	"github.com/gravitational/configure"
 	"github.com/gravitational/trace"
 )
@@ -107,6 +107,8 @@ type JoinConfig struct {
 	ServiceUID        string
 	ServiceGID        string
 	CloudProvider     string
+	Manual            bool
+	Phase             string
 }
 
 func Join(env *localenv.LocalEnvironment, j JoinConfig) error {
@@ -233,61 +235,32 @@ func joinLoop(env *localenv.LocalEnvironment, j JoinConfig, peers []string, runt
 	}
 
 	ctx, cancel := context.WithCancel(context.Background())
-	watchCh := make(chan rpcserver.WatchEvent, 1)
-	eventsC := make(chan install.Event, 100)
-	peer, err := install.NewPeer(install.PeerConfig{
+	peer, err := expand.NewPeer(expand.PeerConfig{
 		Peers:         peers,
 		Context:       ctx,
+		Cancel:        cancel,
 		AdvertiseAddr: j.AdvertiseAddr,
 		ServerAddr:    j.ServerAddr,
-		EventsC:       eventsC,
-		WatchCh:       watchCh,
+		EventsC:       make(chan install.Event, 100),
+		WatchCh:       make(chan rpcserver.WatchEvent, 1),
 		RuntimeConfig: runtimeConfig,
-	}, logrus.WithFields(logrus.Fields{
-		"role": j.Role,
-		"addr": j.AdvertiseAddr,
-	}))
+		Manual:        j.Manual,
+	})
 	if err != nil {
 		return trace.Wrap(err)
 	}
 
-	watchReconnects(ctx, cancel, watchCh)
-
-	start := time.Now()
-	if err := peer.Start(); err != nil {
+	err = peer.Init()
+	if err != nil {
 		return trace.Wrap(err)
 	}
 
-	utils.WatchTerminationSignals(ctx, cancel, peer, peer.FieldLogger)
-
-	for {
-		select {
-		case <-peer.Done():
-			log.Info("Agent shut down.")
-			return nil
-		case event := <-eventsC:
-			if event.Error != nil {
-				if isContextCancelledError(event.Error) {
-					// Ignore
-					return nil
-				}
-				return trace.Wrap(event.Error)
-			}
-			progress := event.Progress
-			if progress.Message != "" {
-				env.PrintStep(progress.Message)
-			}
-			if progress.State == ops.ProgressStateCompleted {
-				env.PrintStep(color.GreenString("Joined cluster in %v", time.Now().Sub(start)))
-				return nil
-			}
-			if progress.State == ops.ProgressStateFailed {
-				env.Println(color.RedString("Installation failed."))
-				env.Printf("---\nAgent process will keep running so you can re-run certain installation steps.\n" +
-					"Once no longer needed, this process can be shutdown using Ctrl-C.\n")
-			}
-		}
+	err = peer.Start()
+	if err != nil {
+		return trace.Wrap(err)
 	}
+
+	return peer.Wait()
 }
 
 type leaveConfig struct {
@@ -783,29 +756,4 @@ func CheckLocalState(env *localenv.LocalEnvironment) error {
 			env.StateDir)
 	}
 	return nil
-}
-
-func watchReconnects(ctx context.Context, cancel context.CancelFunc, watchCh <-chan rpcserver.WatchEvent) {
-	go func() {
-		for event := range watchCh {
-			if event.Error == nil {
-				continue
-			}
-			log.Warnf("Failed to reconnect to %v: %v.", event.Peer, event.Error)
-			cancel()
-			return
-		}
-	}()
-}
-
-func isContextCancelledError(err error) bool {
-	origErr := trace.Unwrap(err)
-	if origErr == context.Canceled {
-		return true
-	}
-	// FIXME: ConnectionProblemError should properly implement Error.OrigError
-	if connErr, ok := origErr.(*trace.ConnectionProblemError); ok {
-		return connErr.Err == context.Canceled
-	}
-	return false
 }

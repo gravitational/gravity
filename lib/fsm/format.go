@@ -91,7 +91,7 @@ func printPhase(w io.Writer, phase storage.OperationPhase, indent int) {
 
 func formatNode(phase storage.OperationPhase) string {
 	if phase.Data == nil || phase.Data.ExecServer == nil {
-		return "-"
+		return "any"
 	}
 	return phase.Data.ExecServer.AdvertiseIP
 }

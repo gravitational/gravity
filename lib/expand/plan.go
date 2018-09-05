@@ -17,8 +17,10 @@ limitations under the License.
 package expand
 
 import (
-	"github.com/gravitational/gravity/lib/ops"
+	"github.com/gravitational/gravity/lib/schema"
 	"github.com/gravitational/gravity/lib/storage"
+
+	"github.com/gravitational/trace"
 )
 
 /*
@@ -49,5 +51,62 @@ PHASES:
 
 */
 
-func NewOperationPlan(operation ops.SiteOperation) (*storage.OperationPlan, error) {
+func (p *Peer) initOperationPlan(ctx operationContext) error {
+	plan, err := ctx.Operator.GetOperationPlan(ctx.Operation.Key())
+	if err != nil && !trace.IsNotFound(err) {
+		return trace.Wrap(err)
+	}
+	if plan != nil {
+		return trace.AlreadyExists("plan is already initialized")
+	}
+	plan, err = p.getOperationPlan(ctx)
+	if err != nil {
+		return trace.Wrap(err)
+	}
+	err = ctx.Operator.CreateOperationPlan(ctx.Operation.Key(), *plan)
+	if err != nil {
+		return trace.Wrap(err)
+	}
+	p.Info("Initialized operation plan.")
+	return nil
+}
+
+func (p *Peer) getOperationPlan(ctx operationContext) (*storage.OperationPlan, error) {
+	builder, err := p.getPlanBuilder(ctx)
+	if err != nil {
+		return nil, trace.Wrap(err)
+	}
+
+	plan := &storage.OperationPlan{
+		OperationID:   ctx.Operation.ID,
+		OperationType: ctx.Operation.Type,
+		AccountID:     ctx.Operation.AccountID,
+		ClusterName:   ctx.Operation.SiteDomain,
+	}
+
+	builder.AddConfigurePhase(plan)
+
+	builder.AddBootstrapPhase(plan)
+
+	builder.AddPullPhase(plan)
+
+	if builder.Application.Manifest.HasHook(schema.HookNodeAdding) {
+		builder.AddPreHookPhase(plan)
+	}
+
+	builder.AddEtcdPhase(plan)
+
+	builder.AddSystemPhase(plan)
+
+	builder.AddWaitPhase(plan)
+
+	if builder.Application.Manifest.HasHook(schema.HookNodeAdded) {
+		builder.AddPostHookPhase(plan)
+	}
+
+	if builder.Node.ClusterRole == string(schema.ServiceRoleMaster) {
+		builder.AddElectPhase(plan)
+	}
+
+	return plan, nil
 }
