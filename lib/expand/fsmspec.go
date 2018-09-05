@@ -61,8 +61,7 @@ func FSMSpec(config FSMConfig) fsm.FSMSpecFunc {
 
 		case strings.HasPrefix(p.Phase.ID, EtcdPhase):
 			return phases.NewEtcd(p,
-				config.Operator,
-				config.Etcd)
+				config.Operator)
 
 		case strings.HasPrefix(p.Phase.ID, SystemPhase):
 			return installphases.NewSystem(p,

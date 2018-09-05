@@ -23,7 +23,6 @@ import (
 	"strings"
 	"time"
 
-	etcd "github.com/coreos/etcd/client"
 	"github.com/gravitational/gravity/lib/app"
 	"github.com/gravitational/gravity/lib/app/client"
 	"github.com/gravitational/gravity/lib/checks"
@@ -66,7 +65,7 @@ type PeerConfig struct {
 	// It will be derived from agent instructions if unspecified
 	ServerAddr string
 	// EventsC is channel with events indicating install progress
-	EventsC chan Event
+	EventsC chan install.Event
 	// WatchCh is channel that relays peer reconnect events
 	WatchCh chan rpcserver.WatchEvent
 	// RuntimeConfig is peer's runtime configuration
@@ -76,7 +75,7 @@ type PeerConfig struct {
 	// FieldLogger is used for logging
 	log.FieldLogger
 	// Debug turns on FSM debug mode
-	Debug bool
+	DebugMode bool
 	// Insecure turns on FSM insecure mode
 	Insecure bool
 	// LocalBackend is local backend of the joining node
@@ -85,8 +84,8 @@ type PeerConfig struct {
 	LocalApps app.Applications
 	// LocalPackages is local package service of the joining node
 	LocalPackages pack.PackageService
-	// Etcd is client to the cluster's etcd members API
-	Etcd etcd.MembersAPI
+	// JoinBackend is the local backend where join-specific operation data is stored
+	JoinBackend storage.Backend
 	// Manual turns on manual plan execution
 	Manual bool
 }
@@ -105,7 +104,7 @@ func (c *PeerConfig) CheckAndSetDefaults() error {
 	if c.AdvertiseAddr == "" {
 		return trace.BadParameter("missing AdvertiseAddr")
 	}
-	if err := checkAddr(c.AdvertiseAddr); err != nil {
+	if err := install.CheckAddr(c.AdvertiseAddr); err != nil {
 		return trace.Wrap(err)
 	}
 	if c.Token == "" {
@@ -126,8 +125,8 @@ func (c *PeerConfig) CheckAndSetDefaults() error {
 	if c.LocalPackages == nil {
 		return trace.BadParameter("missing LocalPackages")
 	}
-	if c.Etcd == nil {
-		return trace.BadParameter("missing Etcd")
+	if c.JoinBackend == nil {
+		return trace.BadParameter("missing JoinBackend")
 	}
 	return nil
 }
@@ -152,8 +151,12 @@ func NewPeer(cfg PeerConfig) (*Peer, error) {
 
 // Init initializes the peer
 func (p *Peer) Init() error {
+	if err := p.bootstrap(); err != nil {
+		return trace.Wrap(err)
+	}
 	utils.WatchTerminationSignals(p.Context, p.Cancel, p, p.FieldLogger)
 	watchReconnects(p.Context, p.Cancel, p.WatchCh)
+	return nil
 }
 
 func (p *Peer) dialSite(addr string) (*operationContext, error) {
@@ -222,7 +225,7 @@ func (p *Peer) dialSite(addr string) (*operationContext, error) {
 		return nil, trace.Wrap(err)
 	}
 
-	creds, err := loadRPCCredentials(p.Context, packages, p.FieldLogger)
+	creds, err := install.LoadRPCCredentials(p.Context, packages, p.FieldLogger)
 	if err != nil {
 		return nil, trace.Wrap(err)
 	}
@@ -267,7 +270,7 @@ func (p *Peer) dialWizard(addr string) (*operationContext, error) {
 	if err != nil {
 		return nil, utils.Abort(err)
 	}
-	creds, err := loadRPCCredentials(p.Context, env.Packages, p.FieldLogger)
+	creds, err := install.LoadRPCCredentials(p.Context, env.Packages, p.FieldLogger)
 	if err != nil {
 		return nil, trace.Wrap(err)
 	}
@@ -384,7 +387,7 @@ func (p *Peer) run() error {
 		return trace.Wrap(err)
 	}
 
-	serviceUser, err := EnsureServiceUserAndBinary(ctx.Site.ServiceUser.UID, ctx.Site.ServiceUser.GID)
+	serviceUser, err := install.EnsureServiceUserAndBinary(ctx.Site.ServiceUser.UID, ctx.Site.ServiceUser.GID)
 	if err != nil {
 		return trace.Wrap(err)
 	}
@@ -418,7 +421,7 @@ func (p *Peer) run() error {
 		},
 		WatchCh: p.WatchCh,
 		ReconnectStrategy: rpcserver.ReconnectStrategy{
-			ShouldReconnect: shouldReconnectPeer,
+			ShouldReconnect: utils.ShouldReconnectPeer,
 		},
 	}
 	agent, err := install.StartAgent(agentInstructions.AgentURL, config,
@@ -480,7 +483,7 @@ func (p *Peer) waitForAgents(ctx operationContext) error {
 			if len(report.Servers) == 0 {
 				continue
 			}
-			op, err := ctx.Operator.GetSiteOperation(opKey)
+			op, err := ctx.Operator.GetSiteOperation(ctx.Operation.Key())
 			if err != nil {
 				p.Warningf("%v", err)
 				continue
@@ -490,7 +493,7 @@ func (p *Peer) waitForAgents(ctx operationContext) error {
 				p.Warningf("%v", err)
 				continue
 			}
-			err = operator.UpdateExpandOperationState(ctx.Operation.Key(), *req)
+			err = ctx.Operator.UpdateExpandOperationState(ctx.Operation.Key(), *req)
 			if err != nil {
 				return trace.Wrap(err)
 			}
@@ -500,12 +503,12 @@ func (p *Peer) waitForAgents(ctx operationContext) error {
 	}
 }
 
-func (p *Peer) send(e Event) {
+func (p *Peer) send(e install.Event) {
 	select {
 	case p.EventsC <- e:
 	case <-p.Context.Done():
 		select {
-		case p.EventsC <- Event{Error: trace.ConnectionProblem(p.Context.Err(), "context is closing")}:
+		case p.EventsC <- install.Event{Error: trace.ConnectionProblem(p.Context.Err(), "context is closing")}:
 		default:
 		}
 	default:
@@ -515,7 +518,7 @@ func (p *Peer) send(e Event) {
 
 // sendMessage sends an event with just a progress message
 func (p *Peer) sendMessage(format string, args ...interface{}) {
-	p.send(Event{
+	p.send(install.Event{
 		Progress: &ops.ProgressEntry{
 			Message: fmt.Sprintf(format, args...)},
 	})
@@ -536,7 +539,7 @@ func (p *Peer) Start() (err error) {
 	go func() {
 		err := p.run()
 		if err != nil {
-			p.send(Event{Error: err})
+			p.send(install.Event{Error: err})
 		}
 	}()
 	return nil
@@ -572,8 +575,8 @@ func (p *Peer) Wait() error {
 				return nil
 			}
 			if progress.State == ops.ProgressStateFailed {
-				p.Println(color.RedString("Failed to join the cluster"))
-				p.Printf("---\nAgent process will keep running so you can re-run certain steps.\n" +
+				p.Silent.Println(color.RedString("Failed to join the cluster"))
+				p.Silent.Printf("---\nAgent process will keep running so you can re-run certain steps.\n" +
 					"Once no longer needed, this process can be shutdown using Ctrl-C.\n")
 			}
 		}
@@ -589,8 +592,12 @@ func (p *Peer) startExpandOperation(ctx operationContext) error {
 	if err != nil {
 		return trace.Wrap(err)
 	}
+	err = p.syncOperation(ctx)
+	if err != nil {
+		return trace.Wrap(err)
+	}
 	if p.Manual {
-		p.Println(`Operation was started in manual mode
+		p.Silent.Println(`Operation was started in manual mode
 Inspect the operation plan using "gravity plan" and execute plan phases manually using "gravity join --phase=<phase-id>"
 After all phases have completed successfully, shutdown this process using Ctrl-C`)
 		return nil
@@ -627,9 +634,8 @@ func (p *Peer) getFSM(ctx operationContext) (*fsm.FSM, error) {
 		LocalBackend:  p.LocalBackend,
 		LocalApps:     p.LocalApps,
 		LocalPackages: p.LocalPackages,
-		Etcd:          p.Etcd,
 		Credentials:   ctx.Creds.Client,
-		Debug:         p.Debug,
+		DebugMode:     p.DebugMode,
 		Insecure:      p.Insecure,
 	})
 }
@@ -691,20 +697,6 @@ func validateWizardState(operator ops.Operator) (*ops.Site, *ops.SiteOperation, 
 	}
 
 	return &cluster, operation, nil
-}
-
-// shouldReconnectPeer implements the error classification for
-// peer connection errors.
-// It detects unrecoverable errors and aborts the reconnect attempts.
-func shouldReconnectPeer(err error) error {
-	if isPeerDeniedError(err.Error()) {
-		return &backoff.PermanentError{err}
-	}
-	return err
-}
-
-func isPeerDeniedError(message string) bool {
-	return strings.Contains(message, "AccessDenied")
 }
 
 func watchReconnects(ctx context.Context, cancel context.CancelFunc, watchCh <-chan rpcserver.WatchEvent) {

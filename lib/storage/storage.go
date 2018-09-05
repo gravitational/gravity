@@ -1007,6 +1007,8 @@ type LoginEntry struct {
 	AccountID string `yaml:"account_id"`
 	// Created is when the entry was created
 	Created time.Time `yaml:"created"`
+	// Tags adds extra information about the login entry
+	Tags []string `yaml:"tags"`
 }
 
 func (l *LoginEntry) Check() error {
@@ -1021,8 +1023,12 @@ func (l *LoginEntry) Check() error {
 
 // String returns the login entry string representation
 func (l LoginEntry) String() string {
-	return fmt.Sprintf("LoginEntry(Email=%v, OpsCenter=%v, Created=%v)",
-		l.Email, l.OpsCenterURL, l.Created.Format(constants.HumanDateFormat))
+	var extra string
+	if len(l.Tags) != 0 {
+		extra = fmt.Sprintf(", Tags=%v", l.Tags)
+	}
+	return fmt.Sprintf("LoginEntry(Email=%v, OpsCenter=%v, Created=%v%v)",
+		l.Email, l.OpsCenterURL, l.Created.Format(constants.HumanDateFormat), extra)
 }
 
 // LoginEntries store local agent logins with remote portals

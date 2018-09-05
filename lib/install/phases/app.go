@@ -36,7 +36,7 @@ import (
 
 // NewApp returns executor that runs install and post-install hooks
 func NewApp(p fsm.ExecutorParams, operator ops.Operator, apps app.Applications) (*hookExecutor, error) {
-	return NewHooks(p, operator, apps, schema.HookInstall, schema.HookInstalled)
+	return NewHook(p, operator, apps, schema.HookInstall, schema.HookInstalled)
 }
 
 // NewHook returns executor that runs specified application hooks

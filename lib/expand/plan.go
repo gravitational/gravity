@@ -82,6 +82,7 @@ func (p *Peer) getOperationPlan(ctx operationContext) (*storage.OperationPlan, e
 		OperationType: ctx.Operation.Type,
 		AccountID:     ctx.Operation.AccountID,
 		ClusterName:   ctx.Operation.SiteDomain,
+		Servers:       builder.Nodes,
 	}
 
 	builder.AddConfigurePhase(plan)

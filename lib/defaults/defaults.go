@@ -802,6 +802,8 @@ const (
 
 	// EtcdPeerPort is etcd inter-cluster communication port
 	EtcdPeerPort = 2380
+	// EtcdAPIPort is etcd client API port
+	EtcdAPIPort = 2379
 
 	// SchedulerKeyFilename is the kube-scheduler private key filename
 	SchedulerKeyFilename = "scheduler.key"

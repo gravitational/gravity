@@ -25,6 +25,7 @@ import (
 	"github.com/gravitational/gravity/lib/defaults"
 	"github.com/gravitational/gravity/lib/pack"
 	"github.com/gravitational/gravity/lib/pack/encryptedpack"
+	"github.com/gravitational/gravity/lib/storage"
 
 	licenseapi "github.com/gravitational/license"
 	"github.com/gravitational/trace"
@@ -247,4 +248,22 @@ func VerifyLicense(packages pack.PackageService, license string) error {
 		return trace.Wrap(err)
 	}
 	return parsed.Verify(ca.CertPEM)
+}
+
+// GetExpandOperation returns the expand operation from the provided backend
+func GetExpandOperation(backend storage.Backend) (*storage.SiteOperation, error) {
+	cluster, err := backend.GetLocalSite(defaults.SystemAccountID)
+	if err != nil {
+		return nil, trace.Wrap(err)
+	}
+	operations, err := backend.GetSiteOperations(cluster.Domain)
+	if err != nil {
+		return nil, trace.Wrap(err)
+	}
+	for _, operation := range operations {
+		if operation.Type == OperationExpand {
+			return &operation, nil
+		}
+	}
+	return nil, trace.NotFound("expand operation not found")
 }

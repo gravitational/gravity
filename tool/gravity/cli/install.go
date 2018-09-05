@@ -92,13 +92,13 @@ func startInstall(env *localenv.LocalEnvironment, i InstallConfig) error {
 	return installer.Wait()
 }
 
-func Join(env *localenv.LocalEnvironment, j JoinConfig) error {
+func Join(env, joinEnv *localenv.LocalEnvironment, j JoinConfig) error {
 	err := CheckLocalState(env)
 	if err != nil {
 		return trace.Wrap(err)
 	}
 
-	if err := j.checkAndSetDefaults(); err != nil {
+	if err := j.CheckAndSetDefaults(); err != nil {
 		return trace.Wrap(err)
 	}
 
@@ -108,14 +108,6 @@ func Join(env *localenv.LocalEnvironment, j JoinConfig) error {
 
 	if err := install.InitLogging(j.SystemLogFile); err != nil {
 		return trace.Wrap(err)
-	}
-
-	peers, err := utils.ParseAddrList(j.PeerAddrs)
-	if err != nil {
-		return trace.Wrap(err)
-	}
-	if len(peers) == 0 {
-		return trace.BadParameter("required argument peer-addr not provided")
 	}
 
 	stateDir, err := state.GetStateDir()
@@ -128,6 +120,18 @@ func Join(env *localenv.LocalEnvironment, j JoinConfig) error {
 		return trace.Wrap(err)
 	}
 
+	if !j.ExistingOperation {
+		return trace.Wrap(joinLoop(env, joinEnv, j))
+	}
+
+	peers, err := utils.ParseAddrList(j.PeerAddrs)
+	if err != nil {
+		return trace.Wrap(err)
+	}
+	if len(peers) == 0 {
+		return trace.BadParameter("required argument peer-addr not provided")
+	}
+
 	runtimeConfig := pb.RuntimeConfig{
 		Token:        j.Token,
 		Role:         j.Role,
@@ -137,10 +141,6 @@ func Join(env *localenv.LocalEnvironment, j JoinConfig) error {
 	}
 	if err = install.FetchCloudMetadata(j.CloudProvider, &runtimeConfig); err != nil {
 		return trace.Wrap(err)
-	}
-
-	if !j.ExistingOperation {
-		return trace.Wrap(joinLoop(env, j, peers, runtimeConfig))
 	}
 
 	serviceUser, err := install.EnsureServiceUserAndBinary(j.ServiceUID, j.ServiceGID)
@@ -199,7 +199,7 @@ func Join(env *localenv.LocalEnvironment, j JoinConfig) error {
 	return trace.Wrap(agent.Serve())
 }
 
-func joinLoop(env *localenv.LocalEnvironment, j JoinConfig, peers []string, runtimeConfig pb.RuntimeConfig) error {
+func joinLoop(env, joinEnv *localenv.LocalEnvironment, j JoinConfig) error {
 	env.PrintStep("Joining cluster")
 
 	if j.CloudProvider != schema.ProviderOnPrem {
@@ -207,24 +207,12 @@ func joinLoop(env *localenv.LocalEnvironment, j JoinConfig, peers []string, runt
 			j.CloudProvider)
 	}
 
-	ctx, cancel := context.WithCancel(context.Background())
-	peer, err := expand.NewPeer(expand.PeerConfig{
-		Peers:         peers,
-		Context:       ctx,
-		Cancel:        cancel,
-		AdvertiseAddr: j.AdvertiseAddr,
-		ServerAddr:    j.ServerAddr,
-		EventsC:       make(chan install.Event, 100),
-		WatchCh:       make(chan rpcserver.WatchEvent, 1),
-		RuntimeConfig: runtimeConfig,
-		Silent:        env.Silent,
-		Debug:         env.Debug,
-		Insecure:      env.Insecure,
-		LocalBackend:  env.Backend,
-		LocalApps:     env.Apps,
-		LocalPackages: env.Packages,
-		Manual:        j.Manual,
-	})
+	peerConfig, err := j.ToPeerConfig(env, joinEnv)
+	if err != nil {
+		return trace.Wrap(err)
+	}
+
+	peer, err := expand.NewPeer(*peerConfig)
 	if err != nil {
 		return trace.Wrap(err)
 	}
@@ -397,7 +385,7 @@ type autojoinConfig struct {
 	serviceGID    string
 }
 
-func autojoin(env *localenv.LocalEnvironment, d autojoinConfig) error {
+func autojoin(env, joinEnv *localenv.LocalEnvironment, d autojoinConfig) error {
 	if err := checkRunningAsRoot(); err != nil {
 		return trace.Wrap(err)
 	}
@@ -426,7 +414,7 @@ func autojoin(env *localenv.LocalEnvironment, d autojoinConfig) error {
 
 	fmt.Printf("auto joining to cluster %q via %v\n", d.clusterName, serviceURL)
 
-	return Join(env, JoinConfig{
+	return Join(env, joinEnv, JoinConfig{
 		SystemLogFile: d.systemLogFile,
 		UserLogFile:   d.userLogFile,
 		AdvertiseAddr: instance.PrivateIP,
@@ -546,6 +534,19 @@ func agent(env *localenv.LocalEnvironment, config agentConfig, serviceName strin
 	return trace.Wrap(agent.Serve())
 }
 
+func watchReconnects(ctx context.Context, cancel context.CancelFunc, watchCh <-chan rpcserver.WatchEvent) {
+	go func() {
+		for event := range watchCh {
+			if event.Error == nil {
+				continue
+			}
+			log.Warnf("Failed to reconnect to %v: %v.", event.Peer, event.Error)
+			cancel()
+			return
+		}
+	}()
+}
+
 // findServer searches the provided cluster's state for a server that matches one of the provided
 // tokens, where a token can be the server's advertise IP, hostname or AWS internal DNS name
 func findServer(site ops.Site, tokens []string) (*storage.Server, error) {
@@ -587,15 +588,6 @@ func findLocalServer(site ops.Site) (*storage.Server, error) {
 	}
 
 	return server, nil
-}
-
-// TODO remove this
-func convertMounts(mounts map[string]string) (result []*pb.Mount) {
-	result = make([]*pb.Mount, 0, len(mounts))
-	for name, source := range mounts {
-		result = append(result, &pb.Mount{Name: name, Source: source})
-	}
-	return result
 }
 
 // InstallPhaseParams is a set of parameters for a single phase execution
@@ -656,6 +648,57 @@ func executeInstallPhase(localEnv *localenv.LocalEnvironment, p InstallPhasePara
 		return trace.Wrap(err)
 	}
 	return nil
+}
+
+func executeJoinPhase(localEnv, joinEnv *localenv.LocalEnvironment, p InstallPhaseParams) error {
+	// determine the ongoing expand operation, it should be the only
+	// operation present in the local join-specific backend
+	operation, err := ops.GetExpandOperation(joinEnv.Backend)
+	if err != nil {
+		return trace.Wrap(err)
+	}
+	operator, err := joinEnv.CurrentOperator()
+	if err != nil {
+		return trace.Wrap(err)
+	}
+	apps, err := joinEnv.CurrentApps()
+	if err != nil {
+		return trace.Wrap(err)
+	}
+	packages, err := joinEnv.CurrentPackages()
+	if err != nil {
+		return trace.Wrap(err)
+	}
+	joinFSM, err := expand.NewFSM(expand.FSMConfig{
+		OperationKey: ops.SiteOperationKey{
+			AccountID:   operation.AccountID,
+			SiteDomain:  operation.SiteDomain,
+			OperationID: operation.ID,
+		},
+		Operator:      operator,
+		Apps:          apps,
+		Packages:      packages,
+		LocalBackend:  localEnv.Backend,
+		LocalPackages: localEnv.Packages,
+		LocalApps:     localEnv.Apps,
+		DebugMode:     localEnv.Debug,
+		Insecure:      localEnv.Insecure,
+	})
+	if err != nil {
+		return trace.Wrap(err)
+	}
+	ctx, cancel := context.WithTimeout(context.Background(), p.Timeout)
+	defer cancel()
+	progress := utils.NewProgress(ctx, fmt.Sprintf("Executing join phase %q", p.PhaseID), -1, false)
+	defer progress.Stop()
+	if p.PhaseID == fsm.RootPhase {
+		return trace.Wrap(ResumeInstall(ctx, joinFSM, progress, p.Force))
+	}
+	return joinFSM.ExecutePhase(ctx, fsm.Params{
+		PhaseID:  p.PhaseID,
+		Force:    p.Force,
+		Progress: progress,
+	})
 }
 
 func ResumeInstall(ctx context.Context, machine *fsm.FSM, progress utils.Progress, force bool) error {

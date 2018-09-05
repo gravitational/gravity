@@ -139,9 +139,9 @@ func (s *site) getEtcdConfig(ctx *operationContext) (*etcdConfig, error) {
 	}
 	// TODO turn on proxy mode for regular nodes
 	return &etcdConfig{
-		initialCluster:      initialCluster,
+		initialCluster:      strings.Join(initialCluster, ","),
 		initialClusterState: etcdExistingCluster,
-	}
+	}, nil
 }
 
 func (s *site) getTeleportMaster() (*teleportServer, error) {
@@ -149,10 +149,10 @@ func (s *site) getTeleportMaster() (*teleportServer, error) {
 		schema.ServiceLabelRole: string(schema.ServiceRoleMaster),
 	})
 	if err != nil {
-		return trace.Wrap(err)
+		return nil, trace.Wrap(err)
 	}
 	if len(masters) == 0 {
-		return trace.NotFound("no master server found")
+		return nil, trace.NotFound("no master server found")
 	}
 	return newTeleportServer(masters[0])
 }
@@ -217,8 +217,8 @@ func (s *site) configureExpandPackages(ctx *operationContext) error {
 			electionEnabled: false,
 			addr:            s.teleport().GetPlanetLeaderIP(),
 		}
-		err = s.configurePlanetMaster(provisionedServer, ctx.operation, config,
-			*secretsPackage, *configPackage)
+		err = s.configurePlanetMaster(provisionedServer, ctx.operation,
+			planetConfig, *secretsPackage, *configPackage)
 		if err != nil {
 			return trace.Wrap(err)
 		}
@@ -227,8 +227,8 @@ func (s *site) configureExpandPackages(ctx *operationContext) error {
 		if err != nil {
 			return trace.Wrap(err)
 		}
-		err = s.configurePlanetNode(provisionedServer, ctx.operation, config,
-			*secretsPackage, *configPackage)
+		err = s.configurePlanetNode(provisionedServer, ctx.operation,
+			planetConfig, *secretsPackage, *configPackage)
 		if err != nil {
 			return trace.Wrap(err)
 		}

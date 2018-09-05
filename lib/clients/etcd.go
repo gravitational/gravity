@@ -1,9 +1,9 @@
 package clients
 
 import (
+	"path/filepath"
 	"time"
 
-	"github.com/gravitational/gravity/lib/app/client"
 	"github.com/gravitational/gravity/lib/defaults"
 
 	etcd "github.com/coreos/etcd/client"
@@ -21,6 +21,8 @@ type EtcdConfig struct {
 	CertFile string
 	// KeyFile is path to etcd private key
 	KeyFile string
+	// SecretsDir is the directory with etcd secrets
+	SecretsDir string
 	// DialTimeout is etcd dial timeout
 	DialTimeout time.Duration
 }
@@ -30,14 +32,17 @@ func (c *EtcdConfig) CheckAndSetDefaults() error {
 	if len(c.Endpoints) == 0 {
 		c.Endpoints = []string{defaults.EtcdLocalAddr}
 	}
+	if c.SecretsDir == "" {
+		c.SecretsDir = defaults.InGravity(defaults.SecretsDir)
+	}
 	if c.CAFile == "" {
-		c.CAFile = defaults.Secret(defaults.RootCertFilename)
+		c.CAFile = filepath.Join(c.SecretsDir, defaults.RootCertFilename)
 	}
 	if c.CertFile == "" {
-		c.CertFile = defautls.Secret(defaults.EtcdCertFilename)
+		c.CertFile = filepath.Join(c.SecretsDir, defaults.EtcdCertFilename)
 	}
 	if c.KeyFile == "" {
-		c.KeyFile = defaults.Secret(defaults.EtcdKeyFilename)
+		c.KeyFile = filepath.Join(c.SecretsDir, defaults.EtcdKeyFilename)
 	}
 	if c.DialTimeout == 0 {
 		c.DialTimeout = defaults.DialTimeout
@@ -46,10 +51,10 @@ func (c *EtcdConfig) CheckAndSetDefaults() error {
 }
 
 // Etcd returns a new instance of bare bones etcd client
-func Etcd(config *EtcdConfig) (client.Client, error) {
+func Etcd(config *EtcdConfig) (etcd.Client, error) {
 	err := config.CheckAndSetDefaults()
 	if err != nil {
-		return trace.Wrap(err)
+		return nil, trace.Wrap(err)
 	}
 	transport, err := transport.NewTransport(transport.TLSInfo{
 		CAFile:   config.CAFile,
@@ -57,7 +62,7 @@ func Etcd(config *EtcdConfig) (client.Client, error) {
 		KeyFile:  config.KeyFile,
 	}, config.DialTimeout)
 	if err != nil {
-		return trace.Wrap(err)
+		return nil, trace.Wrap(err)
 	}
 	return etcd.New(etcd.Config{
 		Endpoints:               config.Endpoints,

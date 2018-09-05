@@ -28,9 +28,8 @@ import (
 	"github.com/gravitational/gravity/lib/status"
 	"github.com/gravitational/gravity/lib/utils"
 
-	"github.com/gravitational/logrus"
-	"github.com/gravitational/satellite/agent/proto/agentpb"
 	"github.com/gravitational/trace"
+	"github.com/sirupsen/logrus"
 	"k8s.io/client-go/kubernetes"
 )
 
@@ -69,7 +68,7 @@ func (p *waitPlanetExecutor) Execute(ctx context.Context) error {
 			}
 			for _, nodeStatus := range status.Nodes {
 				if p.Phase.Data.Server.AdvertiseIP == nodeStatus.AdvertiseIP {
-					if nodeStatus == agentpb.SystemStatus_Running {
+					if nodeStatus.Status == "running" {
 						return nil
 					}
 				}
@@ -135,7 +134,7 @@ func (p *waitK8sExecutor) Execute(ctx context.Context) error {
 	p.Info("Waiting for the Kubernetes node to register.")
 	err := utils.Retry(defaults.RetryInterval, defaults.RetryAttempts,
 		func() error {
-			_, err := kubeutils.GetNode(p.Client, p.Phase.Data.Server)
+			_, err := kubeutils.GetNode(p.Client, *p.Phase.Data.Server)
 			return trace.Wrap(err)
 		})
 	if err != nil {

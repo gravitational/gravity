@@ -401,6 +401,18 @@ func (j *JoinConfig) GetAdvertiseAddr() (string, error) {
 	return addr, nil
 }
 
+// GetPeers returns a list of peers parsed from the peers CLI argument
+func (j *JoinConfig) GetPeers() ([]string, error) {
+	peers, err := utils.ParseAddrList(j.PeerAddrs)
+	if err != nil {
+		return nil, trace.Wrap(err)
+	}
+	if len(peers) == 0 {
+		return nil, trace.BadParameter("peers list can't be empty")
+	}
+	return peers, nil
+}
+
 // GetRuntimeConfig returns the RPC agent runtime configuration
 func (j *JoinConfig) GetRuntimeConfig() (*proto.RuntimeConfig, error) {
 	config := &proto.RuntimeConfig{
@@ -410,12 +422,24 @@ func (j *JoinConfig) GetRuntimeConfig() (*proto.RuntimeConfig, error) {
 		DockerDevice: j.DockerDevice,
 		Mounts:       convertMounts(j.Mounts),
 	}
-
+	err := install.FetchCloudMetadata(j.CloudProvider, config)
+	if err != nil {
+		return nil, trace.Wrap(err)
+	}
+	return config, nil
 }
 
 // ToPeerConfig converts the CLI join configuration to a peer configuration
-func (j *JoinConfig) ToPeerConfig(env *localenv.LocalEnvironment) (*expand.PeerConfig, error) {
+func (j *JoinConfig) ToPeerConfig(env, joinEnv *localenv.LocalEnvironment) (*expand.PeerConfig, error) {
 	advertiseAddr, err := j.GetAdvertiseAddr()
+	if err != nil {
+		return nil, trace.Wrap(err)
+	}
+	peers, err := j.GetPeers()
+	if err != nil {
+		return nil, trace.Wrap(err)
+	}
+	runtimeConfig, err := j.GetRuntimeConfig()
 	if err != nil {
 		return nil, trace.Wrap(err)
 	}
@@ -428,13 +452,14 @@ func (j *JoinConfig) ToPeerConfig(env *localenv.LocalEnvironment) (*expand.PeerC
 		ServerAddr:    j.ServerAddr,
 		EventsC:       make(chan install.Event, 100),
 		WatchCh:       make(chan rpcserver.WatchEvent, 1),
-		RuntimeConfig: runtimeConfig,
+		RuntimeConfig: *runtimeConfig,
 		Silent:        env.Silent,
-		Debug:         env.Debug,
+		DebugMode:     env.Debug,
 		Insecure:      env.Insecure,
 		LocalBackend:  env.Backend,
 		LocalApps:     env.Apps,
 		LocalPackages: env.Packages,
+		JoinBackend:   joinEnv.Backend,
 		Manual:        j.Manual,
 	}, nil
 }

@@ -123,6 +123,18 @@ func (w *RemoteEnvironment) Login(url, token string) error {
 	_, err := w.login(storage.LoginEntry{
 		Password:     token,
 		OpsCenterURL: url,
+		Tags:         []string{"opscenter"},
+	})
+	return trace.Wrap(err)
+}
+
+// LoginCluster logs this environment into the specified cluster
+func (w *RemoteEnvironment) LoginCluster(url, token string) error {
+	w.Debugf("Logging into cluster: %v.", url)
+	_, err := w.login(storage.LoginEntry{
+		Password:     token,
+		OpsCenterURL: url,
+		Tags:         []string{"cluster"},
 	})
 	return trace.Wrap(err)
 }
@@ -145,11 +157,11 @@ func (w *RemoteEnvironment) LoginWizard(addr string) (entry *storage.LoginEntry,
 	if err != nil {
 		return nil, trace.Wrap(err)
 	}
-
 	return w.login(storage.LoginEntry{
 		Email:        defaults.WizardUser,
 		Password:     defaults.WizardPassword,
 		OpsCenterURL: url,
+		Tags:         []string{"wizard"},
 	})
 }
 

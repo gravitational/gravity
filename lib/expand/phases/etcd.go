@@ -20,18 +20,45 @@ import (
 	"context"
 	"fmt"
 
+	"github.com/gravitational/gravity/lib/clients"
 	"github.com/gravitational/gravity/lib/constants"
 	"github.com/gravitational/gravity/lib/defaults"
 	"github.com/gravitational/gravity/lib/fsm"
 	"github.com/gravitational/gravity/lib/ops"
-	"github.com/gravitational/trace"
+	"github.com/gravitational/gravity/lib/schema"
+	"github.com/gravitational/gravity/lib/state"
+	"github.com/gravitational/gravity/lib/storage"
 
 	etcd "github.com/coreos/etcd/client"
-	"github.com/gravitational/logrus"
+	"github.com/gravitational/trace"
+	"github.com/sirupsen/logrus"
 )
 
 // NewEtcd returns executor that adds a new etcd member to the cluster
-func NewEtcd(p fsm.ExecutorParams, operator ops.Operator, etcd etcd.MembersAPI) (*etcdExecutor, error) {
+func NewEtcd(p fsm.ExecutorParams, operator ops.Operator) (*etcdExecutor, error) {
+	// create etcd client that's talking to members running on master nodes
+	var masters []storage.Server
+	for _, node := range p.Plan.Servers {
+		if node.ClusterRole == string(schema.ServiceRoleMaster) {
+			masters = append(masters, node)
+		}
+	}
+	var endpoints []string
+	for _, master := range masters {
+		endpoints = append(endpoints, fmt.Sprintf("https://%v:%v",
+			master.AdvertiseIP, defaults.EtcdAPIPort))
+	}
+	stateDir, err := state.GetStateDir()
+	if err != nil {
+		return nil, trace.Wrap(err)
+	}
+	etcdClient, err := clients.EtcdMembers(&clients.EtcdConfig{
+		Endpoints:  endpoints,
+		SecretsDir: state.SecretDir(stateDir),
+	})
+	if err != nil {
+		return nil, trace.Wrap(err)
+	}
 	logger := &fsm.Logger{
 		FieldLogger: logrus.WithFields(logrus.Fields{
 			constants.FieldInstallPhase: p.Phase.ID,
@@ -39,10 +66,9 @@ func NewEtcd(p fsm.ExecutorParams, operator ops.Operator, etcd etcd.MembersAPI) 
 		Key:      opKey(p.Plan),
 		Operator: operator,
 	}
-	return &etcdExecutior{
+	return &etcdExecutor{
 		FieldLogger:    logger,
-		Operator:       operator,
-		Etcd:           etcd,
+		Etcd:           etcdClient,
 		ExecutorParams: p,
 	}, nil
 }
@@ -82,4 +108,12 @@ func (*etcdExecutor) PreCheck(ctx context.Context) error {
 // PostCheck is no-op for this phase
 func (*etcdExecutor) PostCheck(ctx context.Context) error {
 	return nil
+}
+
+func opKey(plan storage.OperationPlan) ops.SiteOperationKey {
+	return ops.SiteOperationKey{
+		AccountID:   plan.AccountID,
+		SiteDomain:  plan.ClusterName,
+		OperationID: plan.OperationID,
+	}
 }

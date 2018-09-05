@@ -26,6 +26,7 @@ import (
 	"os"
 	"strings"
 
+	"github.com/cenkalti/backoff"
 	"github.com/gravitational/gravity/lib/loc"
 
 	"github.com/aws/aws-sdk-go/aws/awserr"
@@ -264,4 +265,18 @@ func IsContextCancelledError(err error) bool {
 		return connErr.Err == context.Canceled
 	}
 	return false
+}
+
+// ShouldReconnectPeer implements the error classification for peer connection errors
+//
+// It detects unrecoverable errors and aborts the reconnect attempts
+func ShouldReconnectPeer(err error) error {
+	if isPeerDeniedError(err.Error()) {
+		return &backoff.PermanentError{err}
+	}
+	return err
+}
+
+func isPeerDeniedError(message string) bool {
+	return strings.Contains(message, "AccessDenied")
 }

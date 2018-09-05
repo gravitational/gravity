@@ -41,8 +41,10 @@ type planBuilder struct {
 	TeleportPackage loc.Locator
 	// PlanetPackage is the planet package to install
 	PlanetPackage loc.Locator
-	// Node is the joining node
+	// Node is the node that's joining to the cluster
 	Node storage.Server
+	// Nodes is the list of existing cluster nodes
+	Nodes []storage.Server
 	// AdminAgent is the cluster agent with admin privileges
 	AdminAgent storage.LoginEntry
 	// RegularAgent is the cluster agent with non-admin privileges
@@ -201,16 +203,16 @@ func (p *Peer) getPlanBuilder(ctx operationContext) (*planBuilder, error) {
 		return nil, trace.Wrap(err)
 	}
 	adminAgent, err := ctx.Operator.GetClusterAgent(ops.ClusterAgentRequest{
-		AccountID:   op.AccountID,
-		ClusterName: op.SiteDomain,
+		AccountID:   ctx.Operation.AccountID,
+		ClusterName: ctx.Operation.SiteDomain,
 		Admin:       true,
 	})
 	if err != nil {
 		return nil, trace.Wrap(err)
 	}
 	regularAgent, err := ctx.Operator.GetClusterAgent(ops.ClusterAgentRequest{
-		AccountID:   op.AccountID,
-		ClusterName: op.SiteDomain,
+		AccountID:   ctx.Operation.AccountID,
+		ClusterName: ctx.Operation.SiteDomain,
 	})
 	if err != nil {
 		return nil, trace.Wrap(err)
@@ -229,6 +231,7 @@ func (p *Peer) getPlanBuilder(ctx operationContext) (*planBuilder, error) {
 		TeleportPackage: *teleportPackage,
 		PlanetPackage:   *planetPackage,
 		Node:            operation.Servers[0],
+		Nodes:           ctx.Site.ClusterState.Servers,
 		AdminAgent:      *adminAgent,
 		RegularAgent:    *regularAgent,
 		ServiceUser:     ctx.Site.ServiceUser,

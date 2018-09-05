@@ -17,6 +17,7 @@ limitations under the License.
 package cli
 
 import (
+	"os"
 	"path/filepath"
 
 	"github.com/gravitational/gravity/lib/defaults"
@@ -38,16 +39,23 @@ func (g *Application) LocalEnv(cmd string) (*localenv.LocalEnvironment, error) {
 	return g.getEnv(stateDir)
 }
 
-// UpgradeEnv resturns an instance of the local environment that is used
+// UpgradeEnv returns an instance of the local environment that is used
 // only for upgrades
 func (g *Application) UpgradeEnv() (*localenv.LocalEnvironment, error) {
 	dir, err := state.GetStateDir()
 	if err != nil {
 		return nil, trace.Wrap(err)
 	}
-	stateDir := state.GravityUpdateDir(dir)
+	return g.getEnv(state.GravityUpdateDir(dir))
+}
 
-	return g.getEnv(stateDir)
+// JoinEnv returns an instance of local environment where join-specific data is stored
+func (g *Application) JoinEnv() (*localenv.LocalEnvironment, error) {
+	dir, err := os.Getwd()
+	if err != nil {
+		return nil, trace.Wrap(err)
+	}
+	return g.getEnv(dir)
 }
 
 func (g *Application) getEnv(stateDir string) (*localenv.LocalEnvironment, error) {

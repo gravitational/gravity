@@ -212,6 +212,16 @@ func Execute(g *Application, cmd string, extraArgs []string) error {
 		}
 	}
 
+	// create an environment where join-specific data is stored
+	var joinEnv *localenv.LocalEnvironment
+	switch cmd {
+	case g.JoinCmd.FullCommand(), g.AutoJoinCmd.FullCommand():
+		joinEnv, err = g.JoinEnv()
+		if err != nil {
+			return trace.Wrap(err)
+		}
+	}
+
 	switch cmd {
 	case g.OpsAgentCmd.FullCommand():
 		return agent(localEnv, agentConfig{
@@ -249,9 +259,19 @@ func Execute(g *Application, cmd string, extraArgs []string) error {
 		}
 		return startInstall(localEnv, NewInstallConfig(g))
 	case g.JoinCmd.FullCommand():
-		return Join(localEnv, NewJoinConfig(g))
+		if *g.JoinCmd.Resume {
+			*g.JoinCmd.Phase = fsm.RootPhase
+		}
+		if *g.JoinCmd.Phase != "" {
+			return executeJoinPhase(localEnv, joinEnv, InstallPhaseParams{
+				PhaseID: *g.JoinCmd.Phase,
+				Force:   *g.JoinCmd.Force,
+				Timeout: *g.JoinCmd.PhaseTimeout,
+			})
+		}
+		return Join(localEnv, joinEnv, NewJoinConfig(g))
 	case g.AutoJoinCmd.FullCommand():
-		return autojoin(localEnv, autojoinConfig{
+		return autojoin(localEnv, joinEnv, autojoinConfig{
 			systemLogFile: *g.SystemLogFile,
 			userLogFile:   *g.UserLogFile,
 			clusterName:   *g.AutoJoinCmd.ClusterName,

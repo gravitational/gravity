@@ -342,12 +342,46 @@ func (env *LocalEnvironment) PackageService(opsCenterURL string, options ...http
 	return client, nil
 }
 
+// CurrentLogin returns the login entry for the cluster this environment
+// is currently logged into
+//
+// If there are no entries or more than a single entry, it returns an error
 func (env *LocalEnvironment) CurrentLogin() (*users.LoginEntry, error) {
 	opsCenterURL, err := env.SelectOpsCenter("")
 	if err != nil {
 		return nil, trace.Wrap(err)
 	}
 	return env.GetLoginEntry(opsCenterURL)
+}
+
+// CurrentOperator returns operator for the current login entry
+func (env *LocalEnvironment) CurrentOperator(options ...httplib.ClientOption) (*opsclient.Client, error) {
+	entry, err := env.CurrentLogin()
+	if err != nil {
+		return nil, trace.Wrap(err)
+	}
+	return NewOpsClient(*entry, entry.OpsCenterURL,
+		roundtrip.HTTPClient(env.HTTPClient(options...)))
+}
+
+// CurrentPackages returns package service for the current login entry
+func (env *LocalEnvironment) CurrentPackages(options ...httplib.ClientOption) (pack.PackageService, error) {
+	entry, err := env.CurrentLogin()
+	if err != nil {
+		return nil, trace.Wrap(err)
+	}
+	return newPackClient(*entry, entry.OpsCenterURL,
+		roundtrip.HTTPClient(env.HTTPClient(options...)))
+}
+
+// CurrentApps returns app service for the current login entry
+func (env *LocalEnvironment) CurrentApps(options ...httplib.ClientOption) (appbase.Applications, error) {
+	entry, err := env.CurrentLogin()
+	if err != nil {
+		return nil, trace.Wrap(err)
+	}
+	return newAppsClient(*entry, entry.OpsCenterURL,
+		roundtrip.HTTPClient(env.HTTPClient(options...)))
 }
 
 // CurrentUser returns name of the currently logged in user
@@ -410,14 +444,7 @@ func (env *LocalEnvironment) AppService(opsCenterURL string, config AppConfig, o
 	if err != nil {
 		return nil, trace.Wrap(err)
 	}
-	var client appbase.Applications
-	if entry.Email != "" {
-		client, err = appclient.NewAuthenticatedClient(
-			opsCenterURL, entry.Email, entry.Password, roundtrip.HTTPClient(env.HTTPClient(options...)))
-	} else {
-		client, err = appclient.NewBearerClient(
-			opsCenterURL, entry.Password, roundtrip.HTTPClient(env.HTTPClient(options...)))
-	}
+	client, err := newAppsClient(*entry, opsCenterURL, roundtrip.HTTPClient(env.HTTPClient(options...)))
 	if err != nil {
 		return nil, trace.Wrap(err)
 	}
@@ -520,6 +547,17 @@ func newPackClient(entry users.LoginEntry, opsCenterURL string, params ...roundt
 			opsCenterURL, entry.Email, entry.Password, params...)
 	} else {
 		client, err = webpack.NewBearerClient(opsCenterURL, entry.Password, params...)
+	}
+	return client, trace.Wrap(err)
+}
+
+func newAppsClient(entry users.LoginEntry, opsCenterURL string, params ...roundtrip.ClientParam) (client appbase.Applications, err error) {
+	if entry.Email != "" {
+		client, err = appclient.NewAuthenticatedClient(
+			opsCenterURL, entry.Email, entry.Password, params...)
+	} else {
+		client, err = appclient.NewBearerClient(
+			opsCenterURL, entry.Password, params...)
 	}
 	return client, trace.Wrap(err)
 }

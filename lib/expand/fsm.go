@@ -30,19 +30,18 @@ import (
 	"github.com/gravitational/gravity/lib/storage"
 	"github.com/gravitational/gravity/lib/utils"
 
-	etcd "github.com/coreos/etcd/client"
-	"github.com/gravitational/logrus"
 	"github.com/gravitational/trace"
 	"github.com/pborman/uuid"
+	"github.com/sirupsen/logrus"
 	"google.golang.org/grpc/credentials"
 )
 
 // FSMConfig is the expand FSM configuration
 type FSMConfig struct {
-	// Operator is operator of the cluster the node is joining to
-	Operator ops.Operator
 	// OperationKey is the key of the join operation
 	OperationKey ops.SiteOperationKey
+	// Operator is operator of the cluster the node is joining to
+	Operator ops.Operator
 	// Apps is apps service of the cluster the node is joining to
 	Apps app.Applications
 	// Packages is package service of the cluster the node is joining to
@@ -50,28 +49,27 @@ type FSMConfig struct {
 	// LocalBackend is local backend of the joining node
 	LocalBackend storage.Backend
 	// LocalApps is local apps service of the joining node
-	LocalApps app.Appliations
+	LocalApps app.Applications
 	// LocalPackages is local package service of the joining node
 	LocalPackages pack.PackageService
-	// Etcd is client to the cluster's etcd members API
-	Etcd etcd.MembersAPI
 	// Spec is the FSM spec
 	Spec fsm.FSMSpecFunc
 	// Credentials is the credentials for gRPC agents
 	Credentials credentials.TransportCredentials
 	// Debug turns on FSM debug mode
-	Debug bool
+	DebugMode bool
 	// Insecure turns on FSM insecure mode
 	Insecure bool
 }
 
 // CheckAndSetDefaults validates expand FSM configuration and sets defaults
 func (c *FSMConfig) CheckAndSetDefaults() error {
+	err := c.OperationKey.Check()
+	if err != nil {
+		return trace.Wrap(err)
+	}
 	if c.Operator == nil {
 		return trace.BadParameter("missing Operator")
-	}
-	if err := c.OperationKey.Check(); err != nil {
-		return trace.Wrap(err)
 	}
 	if c.Apps == nil {
 		return trace.BadParameter("missing Apps")
@@ -87,9 +85,6 @@ func (c *FSMConfig) CheckAndSetDefaults() error {
 	}
 	if c.LocalPackages == nil {
 		return trace.BadParameter("missing LocalPackages")
-	}
-	if c.Etcd == nil {
-		return trace.BadParameter("missing Etcd")
 	}
 	if c.Spec == nil {
 		c.Spec = FSMSpec(*c)
@@ -130,7 +125,7 @@ func NewFSM(config FSMConfig) (*fsm.FSM, error) {
 		return nil, trace.Wrap(err)
 	}
 	fsm.SetPreExec(engine.UpdateProgress)
-	return fs, nil
+	return fsm, nil
 }
 
 // fsmEngine is the expand FSM engine
@@ -144,7 +139,7 @@ type fsmEngine struct {
 }
 
 // GetExecutor returns a new executor based on the provided parameters
-func (e *fsmEngine) GetExecutor(p ExecutorParams, remote Remote) (PhaseExecutor, error) {
+func (e *fsmEngine) GetExecutor(p fsm.ExecutorParams, remote fsm.Remote) (fsm.PhaseExecutor, error) {
 	return e.Spec(p, remote)
 }
 
@@ -175,7 +170,7 @@ func (e *fsmEngine) GetPlan() (*storage.OperationPlan, error) {
 // server using the provided runner
 func (e *fsmEngine) RunCommand(ctx context.Context, runner fsm.RemoteRunner, node storage.Server, p fsm.Params) error {
 	args := []string{"join", "--phase", p.PhaseID, fmt.Sprintf("--force=%v", p.Force)}
-	if e.Debug {
+	if e.DebugMode {
 		args = append([]string{"--debug"}, args...)
 	}
 	if e.Insecure {

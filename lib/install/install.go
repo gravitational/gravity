@@ -215,7 +215,7 @@ func (c *Config) CheckAndSetDefaults() (err error) {
 	if !utils.StringInSlice(modules.Get().InstallModes(), c.Mode) {
 		return trace.BadParameter("invalid Mode %q", c.Mode)
 	}
-	if err := checkAddr(c.AdvertiseAddr); err != nil {
+	if err := CheckAddr(c.AdvertiseAddr); err != nil {
 		return trace.Wrap(err)
 	}
 	if err := c.Docker.Check(); err != nil {
@@ -474,7 +474,7 @@ func getSystemAccount(operator ops.Operator) (account *ops.Account, err error) {
 	return account, nil
 }
 
-func checkAddr(addr string) error {
+func CheckAddr(addr string) error {
 	ifaces, err := systeminfo.NetworkInterfaces()
 	if err != nil {
 		return trace.Wrap(err)
@@ -753,7 +753,7 @@ func StartAgent(agentURL string, config rpcserver.PeerConfig, log log.FieldLogge
 	return agent, nil
 }
 
-func loadRPCCredentials(ctx context.Context, packages pack.PackageService, log log.FieldLogger) (*rpcserver.Credentials, error) {
+func LoadRPCCredentials(ctx context.Context, packages pack.PackageService, log log.FieldLogger) (*rpcserver.Credentials, error) {
 	err := exportRPCCredentials(ctx, packages, log)
 	if err != nil {
 		return nil, trace.Wrap(err)

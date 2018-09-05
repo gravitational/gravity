@@ -54,7 +54,7 @@ func NewAgent(ctx context.Context, config AgentConfig, log log.FieldLogger, watc
 		return nil, trace.Wrap(err)
 	}
 
-	creds, err := loadRPCCredentials(ctx, packages, log)
+	creds, err := LoadRPCCredentials(ctx, packages, log)
 	if err != nil {
 		return nil, trace.Wrap(err)
 	}
@@ -72,7 +72,7 @@ func NewAgent(ctx context.Context, config AgentConfig, log log.FieldLogger, watc
 		},
 		WatchCh: watchCh,
 		ReconnectStrategy: rpcserver.ReconnectStrategy{
-			ShouldReconnect: shouldReconnectPeer,
+			ShouldReconnect: utils.ShouldReconnectPeer,
 		},
 	}
 

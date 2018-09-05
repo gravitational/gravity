@@ -387,6 +387,12 @@ type JoinCmd struct {
 	Manual *bool
 	// Phase specifies the operation phase to execute
 	Phase *string
+	// PhaseTimeout is phase execution timeout
+	PhaseTimeout *time.Duration
+	// Resume resumes failed join operation
+	Resume *bool
+	// Force forces phase execution
+	Force *bool
 }
 
 // AutoJoinCmd uses cloud provider info to join existing cluster

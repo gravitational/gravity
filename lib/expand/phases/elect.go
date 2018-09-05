@@ -27,8 +27,8 @@ import (
 	"github.com/gravitational/gravity/lib/schema"
 	"github.com/gravitational/gravity/lib/utils"
 
-	"github.com/gravitational/logrus"
 	"github.com/gravitational/trace"
+	"github.com/sirupsen/logrus"
 )
 
 // NewElect returns executor that turns on leader election on the joined node
@@ -62,16 +62,16 @@ func (p *electExecutor) Execute(ctx context.Context) error {
 		return nil
 	}
 	p.Progress.NextStep("Enabling leader elections")
-	p.Info("Enabling leader elections")
 	out, err := utils.RunPlanetCommand(ctx, p.FieldLogger, "leader", "resume",
-		fmt.Sprintf("--public-ip=%v", server.AdvertiseIP),
+		fmt.Sprintf("--public-ip=%v", p.Phase.Data.Server.AdvertiseIP),
 		fmt.Sprintf("--election-key=/planet/cluster/%v/election", p.Plan.ClusterName),
 		fmt.Sprintf("--etcd-cafile=%v", defaults.Secret(defaults.RootCertFilename)),
 		fmt.Sprintf("--etcd-cafile=%v", defaults.Secret(defaults.EtcdCertFilename)),
 		fmt.Sprintf("--etcd-keyfile=%v", defaults.Secret(defaults.EtcdKeyFilename)))
 	if err != nil {
-		return trace.Wrap(err)
+		return trace.Wrap(err, "failed to enable leader election: %s", out)
 	}
+	p.Infof("Enabled leader election: %s.", out)
 	return nil
 }
 

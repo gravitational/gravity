@@ -37,8 +37,8 @@ import (
 	"github.com/gravitational/gravity/lib/storage"
 	"github.com/gravitational/gravity/lib/utils"
 
-	"github.com/gravitational/license"
 	"github.com/gravitational/gravity/lib/users"
+	"github.com/gravitational/license"
 	"github.com/gravitational/trace"
 	"github.com/mailgun/timetools"
 	log "github.com/sirupsen/logrus"
