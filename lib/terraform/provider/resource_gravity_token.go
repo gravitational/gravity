@@ -56,8 +56,8 @@ func resourceGravityTokenRead(d *schema.ResourceData, m interface{}) error {
 	for _, key := range keys {
 		if key.Token == token {
 			found = true
-			d.Set("token", key.Token)
 			d.Set("user", key.UserEmail)
+			break
 		}
 	}
 	if !found {

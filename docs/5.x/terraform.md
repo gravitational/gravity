@@ -18,9 +18,7 @@ provider "gravity" {
 
 # Create a log forwarder
 resource "gravity_log_forwarder" "logs" {
-    name     = "logs"
-    address  = "192.168.1.1"
-    protocol = "udp"
+    # ...
 }
 ```
 
@@ -97,7 +95,7 @@ Configure log forwarding to an external syslog server.
 ```
 resource "gravity_log_forwarder" "test" {
   name     = "logzer"
-  address  = "192.168.1.1"
+  address  = "192.168.1.1:514"
   protocol = "udp"
 }
 ```
@@ -106,7 +104,7 @@ resource "gravity_log_forwarder" "test" {
 The following arguments are supported:
 
 * `name` - A name to use for the forwarder.
-* `address` - The IP address or hostname of the logging destination.
+* `address` - The IP address or hostname and port to send logs to in the format `<host>:<port>`.
 * `protocol` - Which transpor protocol to use for log forwarding.
     - tcp - Use TCP transport.
     - udp - Use UDP transport.
@@ -239,8 +237,8 @@ resource "gravity_token" "test" {
 ### Argument Reference
 The following arguments are supported:
 
-* token - A secret token that can be used to access the cluster.
-* user - The user the token is for.
+* `token` - A secret token that can be used to access the cluster.
+* `user` - The user the token is for.
 
 ## gravity_user
 A local cluster user
@@ -256,7 +254,7 @@ resource "gravity_user" "test" {
   full_name = "Test User"
   type      = "admin"
   roles     = ["@teleadmin"]
-  password  = "agent-password"
+  password  = "${random_id.admin_password.hex}"
 }
 ```
 
@@ -275,7 +273,7 @@ The following arguments are supported:
 
 
 # Terraform Provider (Enterprise)
-The gravity terraform provider is used to support terraform management of enterprise telekube resources. This provider should be used in conjunction with the gravity provider to manage a telekube cluster.
+The telekube terraform provider is used to support terraform management of resources only available in the enterprise version of telekube. This provider should be used in conjunction with the opensource gravity provider to manage a telekube cluster.
 
 ## Getting Started
 
@@ -285,7 +283,7 @@ TODO(knisbet)
 ### Example Usage
 
 ```
-# Configure the Telekube provider
+# Configure the Gravity provider
 provider "gravity" {
     host  = "https://example.com"
     token = "abcdefghi"
@@ -293,9 +291,18 @@ provider "gravity" {
 
 # Create a log forwarder
 resource "gravity_log_forwarder" "logs" {
-    name     = "logs"
-    address  = "192.168.1.1"
-    protocol = "udp"
+    # ...
+}
+
+# Configure the Telekube provider
+provider "telekube" {
+    host  = "https://example.com"
+    token = "abcdefghi"
+}
+
+# Create an oidc connector
+resource "telekube_oidc" "test" {
+    # ...
 }
 ```
 
@@ -305,7 +312,7 @@ The terraform provider uses token based authentication which must be provisioned
 See TODO(knisbet)
 
 ## telekube_endpoints
-By default an Ops Center is configured with a single endpoint set via `--ops-advertise-addr` flag passed during installation. This configuration allows creating seperate endpoints for cluster management and inter-cluster communications that can be firewalled seperatly.
+By default an Ops Center is configured with a single endpoint set via `--ops-advertise-addr` flag passed during installation. This configuration allows creating separate endpoints for cluster management and inter-cluster communications that can be firewalled separatly.
 
 ### Example Usage
 ```
@@ -368,7 +375,7 @@ The following arguments are supported:
         - `forward_agent` - 
 
 ## telekube_role
-Roles provide fine grained access to the cluster.
+Roles can be used to tune access permissions to the cluster.
 
 ### Example Usage
 Admin access to all resources:
@@ -417,25 +424,58 @@ The following arguments are supported:
 * `max_ttl` - The maximum TTL of a login session through this role. See https://golang.org/pkg/time/#ParseDuration for the format. Default: "24h0m0s".
 * `port_forwarding` - Enable port forwarding for tsh sessions. Default: false
 * `forward_agent` - Enable ssh agent forwarding for tsh sessions. Default: false
-* `allow` - Map of allow conditions for this role.
-    - `logins` - List of users that the user can login as.
+* `allow` - Map of allowed conditions for this role.
+    - `logins` - List of logins that the user can login as.
     - `namespaces` - TODO(knisbet) how do we use namespaces in the role context?
-    - `node_labels` - Map of key=value pairs the user is able to access via tsh.
+    - `node_labels` - Map of key=value pairs that identify nodes user is able to access via tsh.
     - `rule` - A map of rules to apply to the condition. Multiple rules can be created.
-        - `resources` - TODO(knisbet) what are valid resources??
+        - `resources` - A list of resources that this rule applies to:
+            - cluster_auth_preference - type of authentication for this cluster.
+            - github - Github OAuth2 connector resource.
+            - user - user resource.
+            - token - provisioning token resource.
+            - logforwarder - log forwarder resource.
+            - smtp - the monitoring SMTP configuration resource.
+            - alert - the monitoring alert resource.
+            - alterttarget - the monitoring alert target resource.
+            - tlskeypair - TLS key pair resource.
+            - role - role resource.
+            - oidc - OIDC connector resource.
+            - saml - SAML connector resource
+            - trusted_cluster - esource that contains trusted cluster configuration.
         - `verbs` - List of operation verbs can be used. Valid options are:
             - register - allow registering of new clusters within an Ops Center
             - connect - allow users to connect to clusters
             - readsecrets - allow reading of secrets
+            - list - Ability to list all objects. Does not imply the ability to read a single object.
+            - create - Can create an object.
+            - read - Can read a single object.
+            - readnosecrets - Can read a single object without secrets.
+            - update - Can update a single object.
+            - delete - Can remove an object.
         - `where` - TODO(knisbet) how to specify a where condition??
         - `actions` - A list of optional actions taken when a rule matches. Valid options are:
-            - `log` - TODO(knisbet) ???
+            - log - emits an entry when specified rule matches.
+            - assignKubernetesGroups - assigns specified kubernetes groups to the role.
 * `deny` - Map of deny conditions for this role.
-    - `logins` - List of users that the user can login as.
+    - `logins` - List of logins that the user can login as.
     - `namespaces` - TODO(knisbet) how do we use namespaces in the role context?
-    - `node_labels` - Map of key=value pairs the user is able to access via tsh.
+    - `node_labels` - Map of key=value pairs that identify nodes user is able to access via tsh.
     - `rule` - A map of rules to apply to the condition. Multiple rules can be created.
-        - `resources` - TODO(knisbet) what are valid resources??
+        - `resources` - A list of resources that this rule applies to:
+            - cluster_auth_preference - type of authentication for this cluster.
+            - github - Github OAuth2 connector resource.
+            - user - user resource.
+            - token - provisioning token resource.
+            - logforwarder - log forwarder resource.
+            - smtp - the monitoring SMTP configuration resource.
+            - alert - the monitoring alert resource.
+            - alterttarget - the monitoring alert target resource.
+            - tlskeypair - TLS key pair resource.
+            - role - role resource.
+            - oidc - OIDC connector resource.
+            - saml - SAML connector resource
+            - trusted_cluster - esource that contains trusted cluster configuration.
         - `verbs` - List of operation verbs can be used. Valid options are:
             - register - allow registering of new clusters within an Ops Center
             - connect - allow users to connect to clusters
@@ -473,14 +513,14 @@ The following arguments are supported:
 
 * `name` - The name of the connector.
 * `display` - (Optional) The name of the connector as shown in the Web UI.
-* `issuer` - TODO(knisbet) ???
+* `issuer` - A unique name (usually a URL) that the identity provider uses for SAML 2.0
 * `sso` - URL of the identity provider SSO service.
 * `cert` - The identity provider certificate.
 * `acs` - The callback url on the telekube cluster. Format https://<host>/portalapi/v1/saml/callback.
 * `audience` - (Optional) Uniquely identifies our service provider.
 * `service_provider_issuer` - (Optional) is the issuer of the service provider
-* `entity_descriptor` - (Optional) - Can be used to supply configuration parameters in one XML file vs supply them in the individual elements. TODO(knisbet) can this be clearer?
-* `entity_descriptor_url` - (Optional) URL that supplies a configuration XML
+* `entity_descriptor` - (Optional) - Inline entity descriptor xml configuration.
+* `entity_descriptor_url` - (Optional) Fetch entity descriptor XML from the provided url.
 * `atributes_to_roles` -  Is a dictionary of claim to role mappings. Can be passed multiple times.
     - `name` - claim name.
     - `value` - claim value to match.
@@ -498,7 +538,7 @@ The following arguments are supported:
 * `identity_provider` - (Optional) is the external identity provider.
 
 ## telekube_trusted_cluster
-Trusted clusters allows connecting a standalone telekube cluster to an ops center.
+Trusted clusters allows connecting a standalone telekube cluster to an Ops Center.
 
 ### Example Usage
 ```
@@ -514,8 +554,8 @@ resource "telekube_trusted_cluster" "test" {
 The following arguments are supported:
 
 * `name` - The name of the trusted cluster connection.
-* `enabled` - Boolean, allows the connection to be disabled without deleted the connection.
+* `enabled` - Boolean, allows the connection to be disabled without deleting the connection.
 * `pull_updates` - Whether the cluster should automatically download application updates from the Ops Center.
 * `token` - A secret token used to securely connect the cluster to the Ops Center. Can be retrieved by running  `gravity status` command on the Ops Center cluster.
-* `tunnel_addr` - The address of the Ops Center reverse tunnel service as host:port. Typically it is exposed on port 3024.
+* `tunnel_addr` - The address of the Ops Center reverse tunnel service as host:port. Typically exposed on port 3024.
 * `web_proxy_addr` - The address which the Ops Center cluster serves its web API on.

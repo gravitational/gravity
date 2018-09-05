@@ -42,7 +42,7 @@ func resourceGravityLogForwarder() *schema.Resource {
 
 func resourceGravityLogForwarderCreate(d *schema.ResourceData, m interface{}) error {
 	client := m.(*opsclient.Client)
-	siteKey, err := client.LocalClusterKey()
+	clusterKey, err := client.LocalClusterKey()
 	if err != nil {
 		return trace.Wrap(err)
 	}
@@ -53,7 +53,7 @@ func resourceGravityLogForwarderCreate(d *schema.ResourceData, m interface{}) er
 
 	forwarder := storage.NewLogForwarder(name, address, protocol)
 
-	err = client.CreateLogForwarder(siteKey, forwarder)
+	err = client.CreateLogForwarder(clusterKey, forwarder)
 	if err != nil {
 		return trace.Wrap(err)
 	}
@@ -64,14 +64,14 @@ func resourceGravityLogForwarderCreate(d *schema.ResourceData, m interface{}) er
 
 func resourceGravityLogForwarderRead(d *schema.ResourceData, m interface{}) error {
 	client := m.(*opsclient.Client)
-	siteKey, err := client.LocalClusterKey()
+	clusterKey, err := client.LocalClusterKey()
 	if err != nil {
 		return trace.Wrap(err)
 	}
 
 	name := d.Get("name").(string)
 
-	forwarders, err := client.GetLogForwarders(siteKey)
+	forwarders, err := client.GetLogForwarders(clusterKey)
 	if err != nil {
 		return trace.Wrap(err)
 	}
@@ -89,7 +89,7 @@ func resourceGravityLogForwarderRead(d *schema.ResourceData, m interface{}) erro
 
 func resourceGravityLogForwarderUpdate(d *schema.ResourceData, m interface{}) error {
 	client := m.(*opsclient.Client)
-	siteKey, err := client.LocalClusterKey()
+	clusterKey, err := client.LocalClusterKey()
 	if err != nil {
 		return trace.Wrap(err)
 	}
@@ -100,20 +100,20 @@ func resourceGravityLogForwarderUpdate(d *schema.ResourceData, m interface{}) er
 
 	forwarder := storage.NewLogForwarder(name, address, protocol)
 
-	err = client.UpdateLogForwarder(siteKey, forwarder)
+	err = client.UpdateLogForwarder(clusterKey, forwarder)
 	return trace.Wrap(err)
 }
 
 func resourceGravityLogForwarderDelete(d *schema.ResourceData, m interface{}) error {
 	client := m.(*opsclient.Client)
-	siteKey, err := client.LocalClusterKey()
+	clusterKey, err := client.LocalClusterKey()
 	if err != nil {
 		return trace.Wrap(err)
 	}
 
 	name := d.Get("name").(string)
 
-	err = client.DeleteLogForwarder(siteKey, name)
+	err = client.DeleteLogForwarder(clusterKey, name)
 	return trace.Wrap(err)
 }
 

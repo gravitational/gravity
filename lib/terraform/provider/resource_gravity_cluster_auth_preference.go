@@ -54,7 +54,7 @@ func resourceGravityClusterAuthPreference() *schema.Resource {
 
 func resourceGravityClusterAuthPreferenceCreate(d *schema.ResourceData, m interface{}) error {
 	client := m.(*opsclient.Client)
-	siteKey, err := client.LocalClusterKey()
+	clusterKey, err := client.LocalClusterKey()
 	if err != nil {
 		return trace.Wrap(err)
 	}
@@ -75,25 +75,26 @@ func resourceGravityClusterAuthPreferenceCreate(d *schema.ResourceData, m interf
 		},
 	})
 
-	err = client.UpsertClusterAuthPreference(siteKey, authPreference)
+	err = client.UpsertClusterAuthPreference(clusterKey, authPreference)
 	if err != nil {
 		return trace.Wrap(err)
 	}
 
-	// Gravity apparently only supports a single key, so we
-	// just set the Id to a static string here
+	// Gravity apparently only supports a single auth preference resource,
+	// so we don't really have a unique identifier for the object, so just
+	// hardcode the id in terraform due to this restriction on the resource.
 	d.SetId("cluster_auth_preference")
 	return nil
 }
 
 func resourceGravityClusterAuthPreferenceRead(d *schema.ResourceData, m interface{}) error {
 	client := m.(*opsclient.Client)
-	siteKey, err := client.LocalClusterKey()
+	clusterKey, err := client.LocalClusterKey()
 	if err != nil {
 		return trace.Wrap(err)
 	}
 
-	authPreference, err := client.GetClusterAuthPreference(siteKey)
+	authPreference, err := client.GetClusterAuthPreference(clusterKey)
 	if err != nil {
 		return trace.Wrap(err)
 	}
@@ -106,16 +107,19 @@ func resourceGravityClusterAuthPreferenceRead(d *schema.ResourceData, m interfac
 	if err != nil && !trace.IsNotFound(err) {
 		return trace.Wrap(err)
 	}
-	if err != nil {
+	if err == nil {
 		d.Set("u2f_appid", u2f.AppID)
-		d.Set("u2f.facets", u2f.Facets)
+		d.Set("u2f_facets", u2f.Facets)
 	}
 
 	return nil
 }
 
 func resourceGravityClusterAuthPreferenceDelete(d *schema.ResourceData, m interface{}) error {
-	return trace.NotImplemented("deleting auth preference isn't implemented")
+	// we don't seem to support deleting the cluster auth preference resource, so for now
+	// we just return nil (no error) if someone deletes the tf configuration, so that it
+	// looks like it's successfull.
+	return nil
 }
 
 func resourceGravityClusterAuthPreferenceExists(d *schema.ResourceData, m interface{}) (bool, error) {

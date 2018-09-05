@@ -15,9 +15,9 @@ import (
 
 func resourceGravityGithub() *schema.Resource {
 	return &schema.Resource{
-		Create: resourceGravityGithubCreate,
+		Create: resourceGravityGithubCreateOrUpdate,
 		Read:   resourceGravityGithubRead,
-		Update: resourceGravityGithubUpdate,
+		Update: resourceGravityGithubCreateOrUpdate,
 		Delete: resourceGravityGithubDelete,
 		Exists: resourceGravityGithubExists,
 
@@ -82,14 +82,6 @@ func resourceGravityGithub() *schema.Resource {
 	}
 }
 
-func resourceGravityGithubCreate(d *schema.ResourceData, m interface{}) error {
-	return createGithub(d, m, false)
-}
-
-func resourceGravityGithubUpdate(d *schema.ResourceData, m interface{}) error {
-	return createGithub(d, m, true)
-}
-
 func parseTeamMapping(m map[string]interface{}) services.TeamMapping {
 	return services.TeamMapping{
 		Organization: m["organization"].(string),
@@ -98,10 +90,10 @@ func parseTeamMapping(m map[string]interface{}) services.TeamMapping {
 	}
 }
 
-func createGithub(d *schema.ResourceData, m interface{}, upsert bool) error {
+func resourceGravityGithubCreateOrUpdate(d *schema.ResourceData, m interface{}) error {
 	client := m.(*opsclient.Client)
 
-	site, err := client.GetLocalSite()
+	cluster, err := client.GetLocalSite()
 	if err != nil {
 		return trace.Wrap(err)
 	}
@@ -127,11 +119,11 @@ func createGithub(d *schema.ResourceData, m interface{}, upsert bool) error {
 		},
 	)
 
-	siteKey := ops.SiteKey{
+	clusterKey := ops.SiteKey{
 		AccountID:  defaults.SystemAccountID,
-		SiteDomain: site.Domain,
+		SiteDomain: cluster.Domain,
 	}
-	err = client.UpsertGithubConnector(siteKey, connector)
+	err = client.UpsertGithubConnector(clusterKey, connector)
 	if err != nil {
 		return trace.Wrap(err)
 	}
@@ -146,16 +138,16 @@ func resourceGravityGithubRead(d *schema.ResourceData, m interface{}) error {
 	client := m.(*opsclient.Client)
 	name := d.Get("name").(string)
 
-	site, err := client.GetLocalSite()
+	cluster, err := client.GetLocalSite()
 	if err != nil {
 		return trace.Wrap(err)
 	}
-	siteKey := ops.SiteKey{
+	clusterKey := ops.SiteKey{
 		AccountID:  defaults.SystemAccountID,
-		SiteDomain: site.Domain,
+		SiteDomain: cluster.Domain,
 	}
 
-	connector, err := client.GetGithubConnector(siteKey, name, true)
+	connector, err := client.GetGithubConnector(clusterKey, name, true)
 	if err != nil {
 		return trace.Wrap(err)
 	}
@@ -167,15 +159,15 @@ func resourceGravityGithubRead(d *schema.ResourceData, m interface{}) error {
 	d.Set("display", connector.GetDisplay())
 
 	mappings := connector.GetTeamsToLogins()
-	var teams_to_logins []interface{}
+	var teamsToLogins []interface{}
 	for _, mapping := range mappings {
-		teams_to_logins = append(teams_to_logins, map[string]interface{}{
+		teamsToLogins = append(teams_to_logins, map[string]interface{}{
 			"organization": mapping.Organization,
 			"team":         mapping.Team,
 			"logins":       mapping.Logins,
 		})
 	}
-	d.Set("teams_to_logins", teams_to_logins)
+	d.Set("teams_to_logins", teamsToLogins)
 
 	return nil
 }
@@ -183,10 +175,18 @@ func resourceGravityGithubRead(d *schema.ResourceData, m interface{}) error {
 func resourceGravityGithubDelete(d *schema.ResourceData, m interface{}) error {
 	client := m.(*opsclient.Client)
 
-	token := d.Get("token").(string)
-	user := d.Get("user").(string)
+	cluster, err := client.GetLocalSite()
+	if err != nil {
+		return trace.Wrap(err)
+	}
+	clusterKey := ops.SiteKey{
+		AccountID:  defaults.SystemAccountID,
+		SiteDomain: cluster.Domain,
+	}
 
-	err := client.DeleteAPIKey(user, token)
+	name := d.Get("token").(string)
+
+	err := client.DeleteGithubConnector(clusterKey, name)
 	if err != nil {
 		return trace.Wrap(err)
 	}

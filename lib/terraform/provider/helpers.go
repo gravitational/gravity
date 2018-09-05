@@ -5,11 +5,13 @@ import (
 )
 
 // ExpandStringSet takes a TF schema.Set and converts to a string slice
+// Warning: panics if underlying type is not []string
 func ExpandStringSet(configured *schema.Set) []string {
 	return ExpandStringList(configured.List())
 }
 
 // ExpandStringList takes a TF string list and converts to a string slice
+// Warning: panics if underlying type is not []string
 func ExpandStringList(configured []interface{}) []string {
 	vs := make([]string, 0, len(configured))
 	for _, v := range configured {
@@ -19,6 +21,7 @@ func ExpandStringList(configured []interface{}) []string {
 }
 
 // ExpandStringMap takes a TF map and converts to a map of string[string]
+// Warning: panics if underlying type is not map[string]string
 func ExpandStringMap(v map[string]interface{}) map[string]string {
 	m := make(map[string]string)
 	for k, val := range v {

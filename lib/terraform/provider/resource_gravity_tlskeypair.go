@@ -40,7 +40,7 @@ func resourceGravityTLSKeyPair() *schema.Resource {
 
 func resourceGravityTLSKeyPairCreate(d *schema.ResourceData, m interface{}) error {
 	client := m.(*opsclient.Client)
-	siteKey, err := client.LocalClusterKey()
+	clusterKey, err := client.LocalClusterKey()
 	if err != nil {
 		return trace.Wrap(err)
 	}
@@ -49,8 +49,8 @@ func resourceGravityTLSKeyPairCreate(d *schema.ResourceData, m interface{}) erro
 	cert := d.Get("certificate").(string)
 
 	_, err = client.UpdateClusterCertificate(ops.UpdateCertificateRequest{
-		AccountID:   siteKey.AccountID,
-		SiteDomain:  siteKey.SiteDomain,
+		AccountID:   clusterKey.AccountID,
+		SiteDomain:  clusterKey.SiteDomain,
 		Certificate: []byte(cert),
 		PrivateKey:  []byte(privateKey),
 	})
@@ -58,20 +58,19 @@ func resourceGravityTLSKeyPairCreate(d *schema.ResourceData, m interface{}) erro
 		return trace.Wrap(err)
 	}
 
-	// Gravity apparently only supports a single key, so we
-	// set the ID to a static key here
+	// Gravity currently only a single resource instance is supported so a static name is used.
 	d.SetId("tlskeypair")
 	return nil
 }
 
 func resourceGravityTLSKeyPairRead(d *schema.ResourceData, m interface{}) error {
 	client := m.(*opsclient.Client)
-	siteKey, err := client.LocalClusterKey()
+	clusterKey, err := client.LocalClusterKey()
 	if err != nil {
 		return trace.Wrap(err)
 	}
 
-	cert, err := client.GetClusterCertificate(siteKey, true)
+	cert, err := client.GetClusterCertificate(clusterKey, true)
 	if err != nil {
 		return trace.Wrap(err)
 	}
@@ -83,14 +82,12 @@ func resourceGravityTLSKeyPairRead(d *schema.ResourceData, m interface{}) error 
 
 func resourceGravityTLSKeyPairDelete(d *schema.ResourceData, m interface{}) error {
 	client := m.(*opsclient.Client)
-	siteKey, err := client.LocalClusterKey()
+	clusterKey, err := client.LocalClusterKey()
 	if err != nil {
 		return trace.Wrap(err)
 	}
 
-	name := d.Get("name").(string)
-
-	err = client.DeleteLogForwarder(siteKey, name)
+	err = client.DeleteClusterCertificate(clusterKet)
 	return trace.Wrap(err)
 }
 

@@ -56,7 +56,7 @@ func resourceGravityUser() *schema.Resource {
 
 func resourceGravityUserUpsert(d *schema.ResourceData, m interface{}) error {
 	client := m.(*opsclient.Client)
-	siteKey, err := client.LocalClusterKey()
+	clusterKey, err := client.LocalClusterKey()
 	if err != nil {
 		return trace.Wrap(err)
 	}
@@ -75,7 +75,7 @@ func resourceGravityUserUpsert(d *schema.ResourceData, m interface{}) error {
 	}
 	user := storage.NewUser(name, spec)
 
-	err = client.UpsertUser(siteKey, user)
+	err = client.UpsertUser(clusterKey, user)
 	if err != nil {
 		trace.Wrap(err)
 	}
@@ -86,14 +86,14 @@ func resourceGravityUserUpsert(d *schema.ResourceData, m interface{}) error {
 
 func resourceGravityUserRead(d *schema.ResourceData, m interface{}) error {
 	client := m.(*opsclient.Client)
-	siteKey, err := client.LocalClusterKey()
+	clusterKey, err := client.LocalClusterKey()
 	if err != nil {
 		return trace.Wrap(err)
 	}
 
 	name := d.Get("name").(string)
 
-	u, err := client.GetUser(siteKey, name)
+	u, err := client.GetUser(clusterKey, name)
 	if err != nil {
 		return trace.Wrap(err)
 	}
@@ -109,14 +109,14 @@ func resourceGravityUserRead(d *schema.ResourceData, m interface{}) error {
 
 func resourceGravityUserDelete(d *schema.ResourceData, m interface{}) error {
 	client := m.(*opsclient.Client)
-	siteKey, err := client.LocalClusterKey()
+	clusterKey, err := client.LocalClusterKey()
 	if err != nil {
 		return trace.Wrap(err)
 	}
 
 	name := d.Get("name").(string)
 
-	err = client.DeleteUser(siteKey, name)
+	err = client.DeleteUser(clusterKey, name)
 	return trace.Wrap(err)
 }
 
