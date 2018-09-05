@@ -35,9 +35,10 @@ on autonomous operations and compliance:
   cluster provisioning. This allows cluster designers to prevent users from
   installing clusters on infrastructure that does not meet system requirements.
 * Gravity clusters only allow Kubernetes components that have been thoroughly
-  tested by Gravitational Inc for compatibility and stability. These components
-  are called "Kubernetes Runtime". Users can only pick a runtime, but Gravity 
-  does not allow any customization of individual components of k8s.
+  tested by [Gravitational Inc](https://gravitational.com) for compatibility
+  and stability. These components are called "Kubernetes Runtime". Users can
+  only pick a runtime, but Gravity does not allow any customization of
+  individual components of k8s.
 
 ## Who is Gravity for?
 
@@ -95,10 +96,10 @@ listed on [Gravitational web site](https://gravitational.com)
 
 ## Why did We Build Gravity?
 
-Gravity was built by Gravitational Inc, an company based in Oakland,
-California. Gravitational's mission is to allow software creators to freely
-share their products with customers without having to convert themselves into
-software operators. 
+Gravity was built by [Gravitational Inc](https://gravitational.com), an company
+based in Oakland, California. Gravitational's mission is to allow software
+creators to freely share their products with customers without having to
+convert themselves into software operators. 
 
 The original use case for Gravity was to allow Kubernetes applications to be
 deployed into 3rd party environments. That's why Gravity includes features like
