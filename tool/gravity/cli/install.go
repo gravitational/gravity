@@ -92,25 +92,6 @@ func startInstall(env *localenv.LocalEnvironment, i InstallConfig) error {
 	return installer.Wait()
 }
 
-type JoinConfig struct {
-	SystemLogFile     string
-	UserLogFile       string
-	AdvertiseAddr     string
-	ServerAddr        string
-	PeerAddrs         string
-	Token             string
-	Role              string
-	SystemDevice      string
-	DockerDevice      string
-	Mounts            map[string]string
-	ExistingOperation bool
-	ServiceUID        string
-	ServiceGID        string
-	CloudProvider     string
-	Manual            bool
-	Phase             string
-}
-
 func Join(env *localenv.LocalEnvironment, j JoinConfig) error {
 	err := CheckLocalState(env)
 	if err != nil {
@@ -218,14 +199,6 @@ func Join(env *localenv.LocalEnvironment, j JoinConfig) error {
 	return trace.Wrap(agent.Serve())
 }
 
-func (j *JoinConfig) checkAndSetDefaults() (err error) {
-	j.CloudProvider, err = install.ValidateCloudProvider(j.CloudProvider)
-	if err != nil {
-		return trace.Wrap(err)
-	}
-	return nil
-}
-
 func joinLoop(env *localenv.LocalEnvironment, j JoinConfig, peers []string, runtimeConfig pb.RuntimeConfig) error {
 	env.PrintStep("Joining cluster")
 
@@ -244,6 +217,12 @@ func joinLoop(env *localenv.LocalEnvironment, j JoinConfig, peers []string, runt
 		EventsC:       make(chan install.Event, 100),
 		WatchCh:       make(chan rpcserver.WatchEvent, 1),
 		RuntimeConfig: runtimeConfig,
+		Silent:        env.Silent,
+		Debug:         env.Debug,
+		Insecure:      env.Insecure,
+		LocalBackend:  env.Backend,
+		LocalApps:     env.Apps,
+		LocalPackages: env.Packages,
 		Manual:        j.Manual,
 	})
 	if err != nil {
@@ -610,6 +589,7 @@ func findLocalServer(site ops.Site) (*storage.Server, error) {
 	return server, nil
 }
 
+// TODO remove this
 func convertMounts(mounts map[string]string) (result []*pb.Mount) {
 	result = make([]*pb.Mount, 0, len(mounts))
 	for name, source := range mounts {

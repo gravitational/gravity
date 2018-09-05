@@ -249,24 +249,7 @@ func Execute(g *Application, cmd string, extraArgs []string) error {
 		}
 		return startInstall(localEnv, NewInstallConfig(g))
 	case g.JoinCmd.FullCommand():
-		return Join(localEnv, JoinConfig{
-			SystemLogFile:     *g.SystemLogFile,
-			UserLogFile:       *g.UserLogFile,
-			PeerAddrs:         *g.JoinCmd.PeerAddr,
-			AdvertiseAddr:     *g.JoinCmd.AdvertiseAddr,
-			ServerAddr:        *g.JoinCmd.ServerAddr,
-			Token:             *g.JoinCmd.Token,
-			Role:              *g.JoinCmd.Role,
-			SystemDevice:      *g.JoinCmd.SystemDevice,
-			DockerDevice:      *g.JoinCmd.DockerDevice,
-			Mounts:            *g.JoinCmd.Mounts,
-			ExistingOperation: *g.JoinCmd.ExistingOperation,
-			CloudProvider:     *g.JoinCmd.CloudProvider,
-			ServiceUID:        *g.JoinCmd.ServiceUID,
-			ServiceGID:        *g.JoinCmd.ServiceGID,
-			Manual:            *g.JoinCmd.Manual,
-			Phase:             *g.JoinCmd.Phase,
-		})
+		return Join(localEnv, NewJoinConfig(g))
 	case g.AutoJoinCmd.FullCommand():
 		return autojoin(localEnv, autojoinConfig{
 			systemLogFile: *g.SystemLogFile,
