@@ -1,18 +1,18 @@
 # Gravity
 
 Gravity is a highly opinionated distribution of [Kubernetes](https://kubernetes.io/) with 
-focus on compliance, security, simplicity and low operational overhead.
+a focus on compliance, security, simplicity and low operational overhead.
 
 |Project Links| Description
 |---|----
 | [Gravity Website](http://gravitational.com/telekube)  | The official website of the enterprise version of Gravity called Telekube |
-| [Gravity Documentation](http://gravitational.com/telekube/documentation)  | Documentation of Gravity  |
-| [Blog](http://blog.gravitational.com) | Our blog where we publish Gravity news |
+| [Gravity Documentation](http://gravitational.com/telekube/documentation)  | Gravity Documentation (aka, Telekube)  |
+| [Blog](http://blog.gravitational.com) | Our blog, where we publish Gravity news |
 
 ## Introduction
 
 Gravity is an open source tooklit for creating "snapshots" of Kubernetes
-clusters and applications running inside. The resulting snapshots are called
+clusters and the applications running inside the clusters. The resulting snapshots are called
 *application bundles*. 
 
 An application bundle can be used to re-create full replicas of the original
@@ -22,31 +22,33 @@ rooms.
 ## Gravity vs ...
 
 There are plenty of Kubernetes distributions out there. Most of them aim to be
-flexible, general purpose platforms and it's great. Gravity has a narrow focus
-on autonomous operations and compliance:
+flexible, general purpose platforms. Gravity has a more narrow focus
+on compliance and autonomous operations:
 
 * Gravity clusters are idempotent, i.e. clusters created from the same bundle
-  are _always identical_. There is no configuration drift over time, no
+  are _always identical_. There is no configuration drift over time; no
   "special snowflakes".
 * Gravity clusters are always "wrapped" with a privileged access gateway called
-  Teleport which unifies k8s and SSH authentication and keeps a detailed audit
-  log for compliance purposes.
+  [Teleport](https://gravitational.com/teleport), which unifies k8s and SSH authentication 
+  and keeps a detailed audit log for compliance purposes.
 * Gravity includes tools to perform _infrastructure validation_ prior to
   cluster provisioning. This allows cluster designers to prevent users from
-  installing clusters on infrastructure that does not meet system requirements.
+  installing clusters on infrastructure that does not meet the system requirements.
 * Gravity clusters only allow Kubernetes components that have been thoroughly
   tested by [Gravitational Inc](https://gravitational.com) for compatibility
-  and stability. These components are called "Kubernetes Runtime". Users can
-  only pick a runtime, but Gravity does not allow any customization of
-  individual components of k8s.
+  and stability. These components are called a "Kubernetes Runtime". Users can
+  pick a Runtime but Gravity does not allow any customization of
+  individual components of Kubernetes.
 
 ## Who is Gravity for?
 
-There are three primary use cases for using snapshot-based Kubernetes:
+We have experienced three primary use cases for using a snapshot-based Kubernetes approach
+(there may be others):
 
 * Deploying complex SaaS applications into on-premise enterprise environments.
-* Managing multiple idempotent Kubernetes clusters in environments where
-  compliance and security matters.
+* Managing many idempotent Kubernetes clusters in environments where
+  compliance and security matters. An example would be if you need additional
+  compliance or security beyond what your cloud provider offers.
 * Environments where autonomous Kubernetes is required such as large multi-node
   hardware appliances, production floors, edge deployments, etc.
 
