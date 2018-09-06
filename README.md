@@ -1,7 +1,6 @@
 # Gravity
 
-Gravity is a highly opinionated distribution of [Kubernetes](https://kubernetes.io/) with 
-a focus on compliance, security, simplicity and low operational overhead.
+Gravity is a highly opinionated configuration of [Kubernetes](https://kubernetes.io/) along with tooling to improve compliance, security, simplicity and low operational overhead.
 
 |Project Links| Description
 |---|----
