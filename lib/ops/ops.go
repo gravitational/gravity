@@ -1334,6 +1334,9 @@ type Site struct {
 	CloudConfig storage.CloudConfig `json:"cloud_config"`
 	// DNSOverrides contains DNS overrides for this cluster
 	DNSOverrides storage.DNSOverrides `json:"dns_overrides"`
+	// DNSListenAddr specifies the address of the local dnsmasq
+	// FIXME(dmitri): initialize me
+	DNSListenAddr string `json:"dns_listen_addr"`
 }
 
 // IsOnline returns whether this site is online

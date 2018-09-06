@@ -46,6 +46,8 @@ const CurrentVersion = "app/v1"
 // Client implements the application management interface
 type Client struct {
 	roundtrip.Client
+	// FIXME: initialize me
+	dnsAddr string
 }
 
 // progressPollInterval defines the time to wait between two progress polling
@@ -70,7 +72,7 @@ func NewClient(addr string, params ...roundtrip.ClientParam) (*Client, error) {
 	if err != nil {
 		return nil, err
 	}
-	return &Client{*c}, nil
+	return &Client{Client: *c}, nil
 }
 
 // POST app/v1/operations/import/
@@ -322,7 +324,7 @@ func (c *Client) WaitAppHook(ctx context.Context, ref app.HookRef) error {
 func (c *Client) StreamAppHookLogs(ctx context.Context, ref app.HookRef, out io.Writer) error {
 	endpoint := c.Endpoint(
 		"applications", ref.Application.Repository, ref.Application.Name, ref.Application.Version, "hook", ref.Namespace, ref.Name, "stream")
-	client, err := httplib.SetupWebsocketClient(ctx, &c.Client, endpoint)
+	client, err := httplib.SetupWebsocketClient(ctx, &c.Client, c.dnsAddr, endpoint)
 	if err != nil {
 		return trace.Wrap(err)
 	}

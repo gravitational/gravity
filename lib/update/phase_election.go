@@ -42,7 +42,8 @@ type phaseElectionChange struct {
 	ElectionChange storage.ElectionChange
 	// FieldLogger is used for logging
 	logrus.FieldLogger
-	remote fsm.Remote
+	dnsAddr string
+	remote  fsm.Remote
 }
 
 // NewPhaseElectionChange is a phase for modifying cluster elections during upgrades
@@ -51,19 +52,31 @@ func NewPhaseElectionChange(plan storage.OperationPlan, phase storage.OperationP
 		return nil, trace.BadParameter("no election status specified for phase %q", phase.ID)
 	}
 
+	cluster, err := c.Operator.GetLocalSite()
+	if err != nil {
+		return nil, trace.Wrap(err)
+	}
+
+	// TODO: move the attribute to cluster?
+	operation, err := ops.GetInstallOperation(cluster.Key(), c.Operator)
+	if err != nil {
+		return nil, trace.Wrap(err)
+	}
+
 	return &phaseElectionChange{
 		OperationID:    plan.OperationID,
 		Server:         *phase.Data.Server,
 		ClusterName:    plan.ClusterName,
 		ElectionChange: *phase.Data.ElectionChange,
 		FieldLogger:    logrus.NewEntry(logrus.New()),
+		dnsAddr:        operation.GetVars().OnPrem.DNSListenAddr,
 		remote:         remote,
 	}, nil
 }
 
 func (p *phaseElectionChange) waitForMasterMigration(rollback bool) error {
 	err := utils.Retry(defaults.RetryInterval, defaults.RetryAttempts, func() error {
-		leaderAddr, err := utils.ResolveAddr(constants.APIServerDomainName)
+		leaderAddr, err := utils.ResolveAddr(constants.APIServerDomainName, p.dnsAddr)
 		if err != nil {
 			return trace.Wrap(err, "resolving current leader IP")
 		}

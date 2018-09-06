@@ -278,11 +278,11 @@ func (r *applications) StartAppHook(ctx context.Context, req appservice.HookRunR
 		req.Env = make(map[string]string)
 	}
 	req.Env[constants.DevmodeEnvVar] = strconv.FormatBool(r.Devmode)
-	client, err := r.getKubeClient()
-	if err != nil {
-		return nil, trace.Wrap(err)
-	}
-	runner, err := hooks.NewRunner(client)
+	// client, err := r.getKubeClient()
+	// if err != nil {
+	// 	return nil, trace.Wrap(err)
+	// }
+	runner, err := hooks.NewRunner(r.Client)
 	if err != nil {
 		return nil, trace.Wrap(err)
 	}
@@ -319,11 +319,11 @@ func (r *applications) StartAppHook(ctx context.Context, req appservice.HookRunR
 
 // WaitAppHook waits for app hook to complete or fail
 func (r *applications) WaitAppHook(ctx context.Context, ref appservice.HookRef) error {
-	client, err := r.getKubeClient()
-	if err != nil {
-		return trace.Wrap(err)
-	}
-	runner, err := hooks.NewRunner(client)
+	// client, err := r.getKubeClient()
+	// if err != nil {
+	// 	return trace.Wrap(err)
+	// }
+	runner, err := hooks.NewRunner(r.Client)
 	if err != nil {
 		return trace.Wrap(err)
 	}
@@ -332,11 +332,11 @@ func (r *applications) WaitAppHook(ctx context.Context, ref appservice.HookRef) 
 
 // StreamAppHookLogs streams app hook logs to output writer, this is a blocking call
 func (r *applications) StreamAppHookLogs(ctx context.Context, ref appservice.HookRef, out io.Writer) error {
-	client, err := r.getKubeClient()
-	if err != nil {
-		return trace.Wrap(err)
-	}
-	runner, err := hooks.NewRunner(client)
+	// client, err := r.getKubeClient()
+	// if err != nil {
+	// 	return trace.Wrap(err)
+	// }
+	runner, err := hooks.NewRunner(r.Client)
 	if err != nil {
 		return trace.Wrap(err)
 	}
@@ -345,11 +345,11 @@ func (r *applications) StreamAppHookLogs(ctx context.Context, ref appservice.Hoo
 
 // DeleteAppHookJob deletes app hook job
 func (r *applications) DeleteAppHookJob(ctx context.Context, ref appservice.HookRef) error {
-	client, err := r.getKubeClient()
-	if err != nil {
-		return trace.Wrap(err)
-	}
-	runner, err := hooks.NewRunner(client)
+	// client, err := r.getKubeClient()
+	// if err != nil {
+	// 	return trace.Wrap(err)
+	// }
+	runner, err := hooks.NewRunner(r.Client)
 	if err != nil {
 		return trace.Wrap(err)
 	}
@@ -905,19 +905,19 @@ func (r *applications) processMetadata(locator loc.Locator) (loc.Locator, error)
 	return *locatorPtr, nil
 }
 
-func (r *applications) getKubeClient() (_ *kubernetes.Clientset, err error) {
-	r.Lock()
-	defer r.Unlock()
-	if r.Client == nil {
-		r.Client, err = httplib.GetClusterKubeClient()
-		if err != nil {
-			return nil, trace.Wrap(err, "failed to create Kubernetes client")
-		}
-	}
-	return r.Client, nil
-}
+// func (r *applications) getKubeClient() (_ *kubernetes.Clientset, err error) {
+// 	r.Lock()
+// 	defer r.Unlock()
+// 	if r.Client == nil {
+// 		r.Client, err = httplib.GetClusterKubeClient()
+// 		if err != nil {
+// 			return nil, trace.Wrap(err, "failed to create Kubernetes client")
+// 		}
+// 	}
+// 	return r.Client, nil
+// }
 
 type applications struct {
-	sync.Mutex
+	// sync.Mutex
 	Config
 }

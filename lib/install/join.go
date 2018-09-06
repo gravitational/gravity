@@ -140,7 +140,8 @@ func (p *Peer) dialSite(addr string) (*operationContext, error) {
 		Manifest: cluster.App.Manifest,
 		Role:     p.Role,
 		Options: &validationpb.ValidateOptions{
-			VxlanPort: int32(installOp.GetVars().OnPrem.VxlanPort),
+			VxlanPort:     int32(installOp.GetVars().OnPrem.VxlanPort),
+			DnsListenAddr: installOp.GetVars().OnPrem.DNSListenAddr,
 		},
 		AutoFix: true,
 	})
@@ -201,7 +202,8 @@ func (p *Peer) dialWizard(addr string) (*operationContext, error) {
 		Manifest: cluster.App.Manifest,
 		Role:     p.Role,
 		Options: &validationpb.ValidateOptions{
-			VxlanPort: int32(operation.GetVars().OnPrem.VxlanPort),
+			VxlanPort:     int32(operation.GetVars().OnPrem.VxlanPort),
+			DnsListenAddr: operation.GetVars().OnPrem.DNSListenAddr,
 		},
 		AutoFix: true,
 	})

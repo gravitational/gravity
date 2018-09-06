@@ -94,9 +94,9 @@ func GetRemoteClient(remoteSite rt.RemoteSite, remoteURL *url.URL) *http.Client 
 type ClientOption func(*http.Client)
 
 // WithLocalResolver sets up client to use local DNS resolver
-func WithLocalResolver() ClientOption {
+func WithLocalResolver(dnsAddr string) ClientOption {
 	return func(c *http.Client) {
-		c.Transport.(*http.Transport).DialContext = DialFromEnviron
+		c.Transport.(*http.Transport).DialContext = DialFromEnviron(dnsAddr)
 	}
 }
 
@@ -201,22 +201,24 @@ type Dialer func(ctx context.Context, network, addr string) (net.Conn, error)
 
 // DialFromEnviron determines if the specified address should be resolved
 // using local resolver prior to dialing
-func DialFromEnviron(ctx context.Context, network, addr string) (conn net.Conn, err error) {
-	log.Debugf("dialing %v", addr)
+func DialFromEnviron(dnsAddr string) func(ctx context.Context, network, addr string) (net.Conn, error) {
+	return func(ctx context.Context, network, addr string) (conn net.Conn, err error) {
+		log.Debugf("dialing %v", addr)
 
-	if isInsidePod() {
-		return Dial(ctx, network, addr)
+		if isInsidePod() {
+			return Dial(ctx, network, addr)
+		}
+
+		conn, err = DialWithLocalResolver(ctx, dnsAddr, network, addr)
+		if err == nil {
+			return conn, nil
+		}
+
+		// Dial with a kubernetes service resolver
+		log.Warnf("Failed to dial with local resolver: %v.", trace.DebugReport(err))
+		return DialWithServiceResolver(ctx, network, addr)
+
 	}
-
-	conn, err = DialWithLocalResolver(ctx, network, addr)
-	if err == nil {
-		return conn, nil
-	}
-
-	// Dial with a kubernetes service resolver
-	log.Warnf("Failed to dial with local resolver: %v.", trace.DebugReport(err))
-	return DialWithServiceResolver(ctx, network, addr)
-
 }
 
 // dial dials the specified address and returns a new connection
@@ -227,8 +229,8 @@ func Dial(ctx context.Context, network, addr string) (net.Conn, error) {
 
 // DialWithLocalResolver resolves the specified address using the local resolver before dialing.
 // Returns a new connection on success.
-func DialWithLocalResolver(ctx context.Context, network, addr string) (net.Conn, error) {
-	hostPort, err := utils.ResolveAddr(addr)
+func DialWithLocalResolver(ctx context.Context, dnsAddr, network, addr string) (net.Conn, error) {
+	hostPort, err := utils.ResolveAddr(dnsAddr, addr)
 	if err != nil {
 		return nil, trace.Wrap(err, "failed to resolve %v", addr)
 	}
@@ -298,7 +300,7 @@ func isInsidePod() bool {
 }
 
 // GetClusterKubeClient returns a client that talks to the local cluster apiserver
-func GetClusterKubeClient() (*kubernetes.Clientset, error) {
+func GetClusterKubeClient(dnsAddr string) (*kubernetes.Clientset, error) {
 	stateDir, err := state.GetStateDir()
 	if err != nil {
 		return nil, trace.Wrap(err)
@@ -312,7 +314,7 @@ func GetClusterKubeClient() (*kubernetes.Clientset, error) {
 			CAFile:   state.Secret(stateDir, defaults.RootCertFilename),
 		},
 		WrapTransport: func(t http.RoundTripper) http.RoundTripper {
-			t.(*http.Transport).DialContext = DialFromEnviron
+			t.(*http.Transport).DialContext = DialFromEnviron(dnsAddr)
 			return t
 		},
 	})

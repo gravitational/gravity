@@ -24,7 +24,6 @@ import (
 	"sync"
 	"time"
 
-	licenseapi "github.com/gravitational/license"
 	"github.com/gravitational/gravity/lib/checks"
 	"github.com/gravitational/gravity/lib/httplib"
 	validationpb "github.com/gravitational/gravity/lib/network/validation/proto"
@@ -36,6 +35,7 @@ import (
 	"github.com/gravitational/gravity/lib/storage"
 	"github.com/gravitational/gravity/lib/users"
 	"github.com/gravitational/gravity/lib/utils"
+	licenseapi "github.com/gravitational/license"
 
 	"github.com/gravitational/satellite/agent/proto/agentpb"
 	"github.com/gravitational/trace"
@@ -164,7 +164,7 @@ func (r *AgentService) Validate(ctx context.Context, key ops.SiteOperationKey, a
 		return nil, trace.Wrap(err)
 	}
 
-	op, err := r.peerStore.backend.GetSiteOperation(key.SiteDomain, key.OperationID)
+	operation, err := r.peerStore.backend.GetSiteOperation(key.SiteDomain, key.OperationID)
 	if err != nil {
 		return nil, trace.Wrap(err)
 	}
@@ -175,7 +175,8 @@ func (r *AgentService) Validate(ctx context.Context, key ops.SiteOperationKey, a
 		// Verify full requirements from the manifest
 		FullRequirements: true,
 		Options: &validationpb.ValidateOptions{
-			VxlanPort: int32(op.Vars().OnPrem.VxlanPort),
+			VxlanPort:     int32(operation.Vars().OnPrem.VxlanPort),
+			DnsListenAddr: operation.Vars().OnPrem.DNSListenAddr,
 		},
 	}
 	addr = rpc.AgentAddr(addr)

@@ -181,7 +181,7 @@ func Join(env *localenv.LocalEnvironment, j JoinConfig) error {
 		return trace.Wrap(err)
 	}
 
-	op, _, err := ops.GetInstallOperation(cluster.Key(), wizardEnv.Operator)
+	operation, _, err := ops.GetInstallOperation(cluster.Key(), wizardEnv.Operator)
 	if err != nil {
 		return trace.Wrap(err)
 	}
@@ -190,7 +190,8 @@ func Join(env *localenv.LocalEnvironment, j JoinConfig) error {
 		Manifest: cluster.App.Manifest,
 		Role:     j.Role,
 		Options: &validationpb.ValidateOptions{
-			VxlanPort: int32(op.GetVars().OnPrem.VxlanPort),
+			VxlanPort:     int32(operation.GetVars().OnPrem.VxlanPort),
+			DnsListenAddr: operation.GetVars().OnPrem.DNSListenAddr,
 		},
 		AutoFix: true,
 	})

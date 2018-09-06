@@ -330,6 +330,8 @@ type InstallCmd struct {
 	ServiceCIDR *string
 	// VxlanPort overrides default overlay network port
 	VxlanPort *int
+	// DNSListenAddr overrides default listen address for dnsmasq
+	DNSListenAddr *net.IP
 	// DockerStorageDriver specifies Docker storage engine to use
 	DockerStorageDriver *string
 	// DockerArgs specifies additional Docker arguments

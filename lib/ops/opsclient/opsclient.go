@@ -45,26 +45,29 @@ const CurrentVersion = "portal/v1"
 
 type Client struct {
 	roundtrip.Client
+	// FIXME: initialize me
+	dnsAddr string
 }
 
-// NewAuthenticatedClient returns client authenticated as a user with given password
+// NewAuthenticatedClient returns client authenticated as username with the given password
 func NewAuthenticatedClient(addr, username, password string, params ...roundtrip.ClientParam) (*Client, error) {
 	params = append(params, roundtrip.BasicAuth(username, password))
 	return NewClient(addr, params...)
 }
 
-// NewBearerClient returns client authenticated as a user with given password
+// NewBearerClient returns client authenticated with the given password
 func NewBearerClient(addr, password string, params ...roundtrip.ClientParam) (*Client, error) {
 	params = append(params, roundtrip.BearerAuth(password))
 	return NewClient(addr, params...)
 }
 
+// NewClient returns a new Client for the specified target address addr
 func NewClient(addr string, params ...roundtrip.ClientParam) (*Client, error) {
 	c, err := roundtrip.NewClient(addr, CurrentVersion, params...)
 	if err != nil {
 		return nil, err
 	}
-	return &Client{*c}, nil
+	return &Client{Client: *c}, nil
 }
 
 func (c *Client) GetAccount(accountID string) (*ops.Account, error) {
@@ -556,7 +559,7 @@ func (c *Client) CreateSiteAppUpdateOperation(req ops.CreateSiteAppUpdateOperati
 
 func (c *Client) GetSiteOperationLogs(key ops.SiteOperationKey) (io.ReadCloser, error) {
 	endpoint := c.Endpoint("accounts", key.AccountID, "sites", key.SiteDomain, "operations", "common", key.OperationID, "logs")
-	return httplib.SetupWebsocketClient(context.TODO(), &c.Client, endpoint)
+	return httplib.SetupWebsocketClient(context.TODO(), &c.Client, c.dnsAddr, endpoint)
 }
 
 func (c *Client) CreateLogEntry(key ops.SiteOperationKey, entry ops.LogEntry) error {

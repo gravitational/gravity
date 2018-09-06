@@ -44,6 +44,9 @@ type PortRange struct {
 	From, To uint64
 	// Description specifies the user-friendly range description
 	Description string
+	// ListenAddr optionally restricts the listener address.
+	// Any address will match if unspecified
+	ListenAddr string
 }
 
 // portChecker will validate that all required ports are in fact unoccupied
@@ -104,14 +107,20 @@ func (c *portChecker) checkProcess(proc process, reporter health.Reporter) bool 
 		if r.Protocol != proc.socket.proto() {
 			continue
 		}
-		// ignore sockets in time-wait and closed states since they're going
-		// away soon
 		switch proc.socket.state() {
 		case TimeWait:
+			// ignore sockets in time-wait and closed states since they're going
+			// away soon
 			log.Debugf("Ignoring %v for program %q(pid=%v).", formatSocket(proc.socket), proc.name, proc.pid)
 			continue
 		}
-		if uint64(proc.localAddr().port) >= r.From && uint64(proc.localAddr().port) <= r.To {
+		localAddr := proc.localAddr().ip.String()
+		addr := r.ListenAddr
+		if addr == "" {
+			addr = localAddr
+		}
+		if uint64(proc.localAddr().port) >= r.From && uint64(proc.localAddr().port) <= r.To &&
+			localAddr == addr {
 			conflicts = true
 			reporter.Add(&pb.Probe{
 				Checker: portCheckerID,

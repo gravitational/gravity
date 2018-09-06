@@ -76,6 +76,8 @@ type InstallConfig struct {
 	DNSHosts []string
 	// DNSZones is a list of DNS zone overrides
 	DNSZones []string
+	// DNSListenAddr is the address for dnsmasq to listen on
+	DNSListenAddr string
 	// PodCIDR is the pod network subnet
 	PodCIDR string
 	// ServiceCIDR is the service network subnet
@@ -134,6 +136,7 @@ func NewInstallConfig(g *Application) InstallConfig {
 		PodCIDR:       *g.InstallCmd.PodCIDR,
 		ServiceCIDR:   *g.InstallCmd.ServiceCIDR,
 		VxlanPort:     *g.InstallCmd.VxlanPort,
+		DNSListenAddr: g.InstallCmd.DNSListenAddr.String(),
 		Docker: storage.DockerConfig{
 			StorageDriver: *g.InstallCmd.DockerStorageDriver,
 			Args:          *g.InstallCmd.DockerArgs,
@@ -187,6 +190,9 @@ func (i *InstallConfig) CheckAndSetDefaults() (err error) {
 	}
 	if i.VxlanPort == 0 {
 		i.VxlanPort = defaults.VxlanPort
+	}
+	if i.DNSListenAddr == "" {
+		i.DNSListenAddr = defaults.DNSListenAddr
 	}
 	i.ServiceUser = *serviceUser
 	if i.NewProcess == nil {
@@ -317,6 +323,7 @@ func (i *InstallConfig) ToInstallerConfig(env *localenv.LocalEnvironment) (*inst
 		DockerDevice:  i.DockerDevice,
 		Mounts:        i.Mounts,
 		DNSOverrides:  *dnsOverrides,
+		DNSListenAddr: i.DNSListenAddr,
 		Mode:          i.Mode,
 		PodCIDR:       i.PodCIDR,
 		ServiceCIDR:   i.ServiceCIDR,

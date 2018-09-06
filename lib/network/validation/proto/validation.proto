@@ -94,4 +94,6 @@ message ValidateResponse {
 message ValidateOptions {
     // VxlanPort is the custom overlay network port
     int32 vxlan_port = 1;
+    // DnsListenAddr specifies the listen address for dnsmasq
+    string dns_listen_addr = 2;
 }

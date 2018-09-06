@@ -846,24 +846,34 @@ func defaultPortChecker(options *validationpb.ValidateOptions) health.Checker {
 	if options != nil && options.VxlanPort != 0 {
 		vxlanPort = uint64(options.VxlanPort)
 	}
+
+	dnsListenAddr := defaults.DNSListenAddr
+	if options != nil && options.DnsListenAddr != "" {
+		dnsListenAddr = options.DnsListenAddr
+	}
+
 	return monitoring.NewPortChecker(
-		monitoring.PortRange{"tcp", 53, 53, "internal cluster DNS"},
-		monitoring.PortRange{"tcp", 7496, 7496, "serf (health check agents) peer to peer"},
-		monitoring.PortRange{"tcp", 7373, 7373, "serf (health check agents) peer to peer"},
-		monitoring.PortRange{"tcp", 2379, 2380, "etcd"},
-		monitoring.PortRange{"tcp", 4001, 4001, "etcd"},
-		monitoring.PortRange{"tcp", 7001, 7001, "etcd"},
-		monitoring.PortRange{"tcp", 6443, 6443, "kubernetes API server"},
-		monitoring.PortRange{"tcp", 30000, 32767, "kubernetes internal services range"},
-		monitoring.PortRange{"tcp", 10248, 10255, "kubernetes internal services range"},
-		monitoring.PortRange{"tcp", 5000, 5000, "docker registry"},
-		monitoring.PortRange{"tcp", 3022, 3025, "teleport internal SSH control panel"},
-		monitoring.PortRange{"tcp", 3080, 3080, "teleport Web UI"},
-		monitoring.PortRange{"tcp", 3008, 3011, "internal Telekube services"},
-		monitoring.PortRange{"tcp", 32009, 32009, "telekube OpsCenter control panel"},
-		monitoring.PortRange{"tcp", 7575, 7575, "telekube RPC agent"},
-		monitoring.PortRange{"udp", 53, 53, "internal cluster DNS"},
-		monitoring.PortRange{"udp", vxlanPort, vxlanPort, "overlay network"},
+		// FIXME(dmitri): these two checks need to consider the address part as well
+		// as dnsmasq is not usually configured to listen on a wildcard address - instead
+		// it is limited to lo and a custom loopback address (i.e. 127.0.0.2)
+		monitoring.PortRange{Protocol: "tcp", From: 53, To: 53, Description: "internal cluster DNS", ListenAddr: dnsListenAddr},
+		// FIXME: we don't configure dnsmasq to listen on UDP port 53
+		// monitoring.PortRange{Protocol: "udp", From: 53, To: 53, Description: "internal cluster DNS", ListenAddr: dnsListenAddr},
+		monitoring.PortRange{Protocol: "tcp", From: 7496, To: 7496, Description: "serf (health check agents) peer to peer"},
+		monitoring.PortRange{Protocol: "tcp", From: 7373, To: 7373, Description: "serf (health check agents) peer to peer"},
+		monitoring.PortRange{Protocol: "tcp", From: 2379, To: 2380, Description: "etcd"},
+		monitoring.PortRange{Protocol: "tcp", From: 4001, To: 4001, Description: "etcd"},
+		monitoring.PortRange{Protocol: "tcp", From: 7001, To: 7001, Description: "etcd"},
+		monitoring.PortRange{Protocol: "tcp", From: 6443, To: 6443, Description: "kubernetes API server"},
+		monitoring.PortRange{Protocol: "tcp", From: 30000, To: 32767, Description: "kubernetes internal services range"},
+		monitoring.PortRange{Protocol: "tcp", From: 10248, To: 10255, Description: "kubernetes internal services range"},
+		monitoring.PortRange{Protocol: "tcp", From: 5000, To: 5000, Description: "docker registry"},
+		monitoring.PortRange{Protocol: "tcp", From: 3022, To: 3025, Description: "teleport internal SSH control panel"},
+		monitoring.PortRange{Protocol: "tcp", From: 3080, To: 3080, Description: "teleport Web UI"},
+		monitoring.PortRange{Protocol: "tcp", From: 3008, To: 3011, Description: "internal Telekube services"},
+		monitoring.PortRange{Protocol: "tcp", From: 32009, To: 32009, Description: "telekube OpsCenter control panel"},
+		monitoring.PortRange{Protocol: "tcp", From: 7575, To: 7575, Description: "telekube RPC agent"},
+		monitoring.PortRange{Protocol: "udp", From: vxlanPort, To: vxlanPort, Description: "overlay network"},
 	)
 }
 

@@ -89,7 +89,23 @@ func NewClusterEnvironment() (*ClusterEnvironment, error) {
 		return nil, trace.Wrap(err)
 	}
 
-	client, err := httplib.GetClusterKubeClient()
+	operator, err := opsservice.NewLocalOperator(opsservice.Config{
+		Backend:  backend,
+		Packages: packages,
+		Apps:     apps,
+		Users:    users,
+		StateDir: siteDir,
+	})
+	if err != nil {
+		return nil, trace.Wrap(err)
+	}
+
+	cluster, err := operator.GetLocalSite()
+	if err != nil {
+		return nil, trace.Wrap(err)
+	}
+
+	client, err := httplib.GetClusterKubeClient(cluster.DNSListenAddr)
 	if err != nil {
 		log.Errorf("Failed to create Kubernetes client: %v.",
 			trace.DebugReport(err))
@@ -113,17 +129,6 @@ func NewClusterEnvironment() (*ClusterEnvironment, error) {
 	}
 
 	siteDir, err := SiteDir()
-	if err != nil {
-		return nil, trace.Wrap(err)
-	}
-
-	operator, err := opsservice.NewLocalOperator(opsservice.Config{
-		Backend:  backend,
-		Packages: packages,
-		Apps:     apps,
-		Users:    users,
-		StateDir: siteDir,
-	})
 	if err != nil {
 		return nil, trace.Wrap(err)
 	}

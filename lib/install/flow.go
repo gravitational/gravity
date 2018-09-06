@@ -142,7 +142,8 @@ func (i *Installer) StartCLIInstall() (err error) {
 		Manifest: i.Cluster.App.Manifest,
 		Role:     i.Role,
 		Options: &validationpb.ValidateOptions{
-			VxlanPort: int32(i.VxlanPort),
+			VxlanPort:     int32(i.VxlanPort),
+			DnsListenAddr: i.DNSListenAddr,
 		},
 		AutoFix: true,
 	})
@@ -159,9 +160,10 @@ func (i *Installer) StartCLIInstall() (err error) {
 				Docker: i.Docker,
 			},
 			OnPrem: storage.OnPremVariables{
-				PodCIDR:     i.PodCIDR,
-				ServiceCIDR: i.ServiceCIDR,
-				VxlanPort:   i.VxlanPort,
+				PodCIDR:       i.PodCIDR,
+				ServiceCIDR:   i.ServiceCIDR,
+				VxlanPort:     i.VxlanPort,
+				DNSListenAddr: i.DNSListenAddr,
 			},
 		},
 		Profiles: ServerRequirements(*i.flavor),

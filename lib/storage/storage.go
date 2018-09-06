@@ -1728,6 +1728,8 @@ type OnPremVariables struct {
 	ServiceCIDR string `json:"service_cidr"`
 	// VxlanPort is the overlay network port
 	VxlanPort int `json:"vxlan_port"`
+	// DNSListenAddr is the address dnsmasq listens on
+	DNSListenAddr string `json:"dns_listen_addr"`
 }
 
 // AWSVariables is a set of operation variables specific to AWS provider

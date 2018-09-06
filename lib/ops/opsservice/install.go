@@ -267,6 +267,9 @@ func (s *site) updateRequestVars(ctx *operationContext, vars *storage.OperationV
 		if installVars.OnPrem.VxlanPort != 0 {
 			vars.OnPrem.VxlanPort = installVars.OnPrem.VxlanPort
 		}
+		if installVars.OnPrem.DNSListenAddr != "" {
+			vars.OnPrem.DNSListenAddr = installVars.OnPrem.DNSListenAddr
+		}
 	}
 
 	if !isAWSProvisioner(op.Provisioner) {
