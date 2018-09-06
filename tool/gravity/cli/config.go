@@ -346,11 +346,10 @@ type JoinConfig struct {
 	DockerDevice      string
 	Mounts            map[string]string
 	ExistingOperation bool
-	ServiceUID        string
-	ServiceGID        string
 	CloudProvider     string
 	Manual            bool
 	Phase             string
+	OperationID       string
 }
 
 // NewJoinConfig populates join configuration from the provided CLI application
@@ -368,10 +367,9 @@ func NewJoinConfig(g *Application) JoinConfig {
 		Mounts:            *g.JoinCmd.Mounts,
 		ExistingOperation: *g.JoinCmd.ExistingOperation,
 		CloudProvider:     *g.JoinCmd.CloudProvider,
-		ServiceUID:        *g.JoinCmd.ServiceUID,
-		ServiceGID:        *g.JoinCmd.ServiceGID,
 		Manual:            *g.JoinCmd.Manual,
 		Phase:             *g.JoinCmd.Phase,
+		OperationID:       *g.JoinCmd.OperationID,
 	}
 }
 
@@ -447,6 +445,7 @@ func (j *JoinConfig) ToPeerConfig(env, joinEnv *localenv.LocalEnvironment) (*exp
 	return &expand.PeerConfig{
 		Context:       ctx,
 		Cancel:        cancel,
+		SystemLogFile: j.SystemLogFile,
 		Peers:         peers,
 		AdvertiseAddr: advertiseAddr,
 		ServerAddr:    j.ServerAddr,
@@ -461,6 +460,7 @@ func (j *JoinConfig) ToPeerConfig(env, joinEnv *localenv.LocalEnvironment) (*exp
 		LocalPackages: env.Packages,
 		JoinBackend:   joinEnv.Backend,
 		Manual:        j.Manual,
+		OperationID:   j.OperationID,
 	}, nil
 }
 

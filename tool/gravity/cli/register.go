@@ -105,8 +105,6 @@ func RegisterCommands(app *kingpin.Application) *Application {
 		OverrideDefaultFromEnvar(constants.ExistingOperationEnvVar).
 		Bool()
 	g.JoinCmd.Mounts = configure.KeyValParam(g.JoinCmd.Flag("mount", "One or several mounts in form <mount-name>:<path>, e.g. data:/var/lib/data"))
-	g.JoinCmd.ServiceUID = g.JoinCmd.Flag("service-uid", fmt.Sprintf("Service user ID for planet. %q user will created and used if none specified", defaults.ServiceUser)).Default(defaults.ServiceUserID).OverrideDefaultFromEnvar(constants.ServiceUserEnvVar).String()
-	g.JoinCmd.ServiceGID = g.JoinCmd.Flag("service-gid", fmt.Sprintf("Service group ID for planet. %q group will created and used if none specified", defaults.ServiceUserGroup)).Default(defaults.ServiceGroupID).OverrideDefaultFromEnvar(constants.ServiceGroupEnvVar).String()
 	g.JoinCmd.CloudProvider = g.JoinCmd.Flag("cloud-provider", "Cloud provider integration e.g. 'generic', 'aws'. If not set, autodetect environment").String()
 	g.JoinCmd.Manual = g.JoinCmd.Flag("manual", "Manually execute join operation phases").Bool()
 	g.JoinCmd.Phase = g.JoinCmd.Flag("phase", "Execute specific operation phase").String()
@@ -114,6 +112,7 @@ func RegisterCommands(app *kingpin.Application) *Application {
 	g.JoinCmd.Resume = g.JoinCmd.Flag("resume", "Resume joining from last failed step").Bool()
 	g.JoinCmd.Force = g.JoinCmd.Flag("force", "Force phase execution").Bool()
 	g.JoinCmd.Complete = g.JoinCmd.Flag("complete", "Complete join operation").Bool()
+	g.JoinCmd.OperationID = g.JoinCmd.Flag("operation-id", "ID of the operation that was created via UI").Hidden().String()
 
 	g.AutoJoinCmd.CmdClause = g.Command("autojoin", "Use cloud provider data to join a node to existing cluster")
 	g.AutoJoinCmd.ClusterName = g.AutoJoinCmd.Arg("cluster-name", "Cluster name used for discovery").Required().String()
@@ -121,8 +120,6 @@ func RegisterCommands(app *kingpin.Application) *Application {
 	g.AutoJoinCmd.DockerDevice = g.AutoJoinCmd.Flag("docker-device", "Docker device to use").Hidden().String()
 	g.AutoJoinCmd.SystemDevice = g.AutoJoinCmd.Flag("system-device", "Device to use for system data directory").Hidden().String()
 	g.AutoJoinCmd.Mounts = configure.KeyValParam(g.AutoJoinCmd.Flag("mount", "One or several mounts in form <mount-name>:<path>, e.g. data:/var/lib/data"))
-	g.AutoJoinCmd.ServiceUID = g.AutoJoinCmd.Flag("service-uid", fmt.Sprintf("Service user ID for planet. %q user will created and used if none specified", defaults.ServiceUser)).Default(defaults.ServiceUserID).OverrideDefaultFromEnvar(constants.ServiceUserEnvVar).String()
-	g.AutoJoinCmd.ServiceGID = g.AutoJoinCmd.Flag("service-gid", fmt.Sprintf("Service group ID for planet. %q group will created and used if none specified", defaults.ServiceUserGroup)).Default(defaults.ServiceGroupID).OverrideDefaultFromEnvar(constants.ServiceGroupEnvVar).String()
 
 	g.LeaveCmd.CmdClause = g.Command("leave", "Decommission this node from the cluster")
 	g.LeaveCmd.Force = g.LeaveCmd.Flag("force", "Force local state cleanup").Bool()

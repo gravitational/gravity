@@ -377,10 +377,6 @@ type JoinCmd struct {
 	ExistingOperation *bool
 	// Mounts is additional app mounts
 	Mounts *configure.KeyVal
-	// ServiceUID is system user ID
-	ServiceUID *string
-	// ServiceGID is system user group ID
-	ServiceGID *string
 	// CloudProvider turns on cloud provider integration
 	CloudProvider *string
 	// Manual turns on manual phases execution mode
@@ -395,6 +391,8 @@ type JoinCmd struct {
 	Force *bool
 	// Complete marks join operation complete
 	Complete *bool
+	// OperationID is the ID of the operation created via UI
+	OperationID *string
 }
 
 // AutoJoinCmd uses cloud provider info to join existing cluster
@@ -410,10 +408,6 @@ type AutoJoinCmd struct {
 	SystemDevice *string
 	// Mounts is additional app mounts
 	Mounts *configure.KeyVal
-	// ServiceUID is system user ID
-	ServiceUID *string
-	// ServiceGID is system user group ID
-	ServiceGID *string
 }
 
 // LeaveCmd removes the current node from the cluster

@@ -202,17 +202,12 @@ func displayExpandOperationPlan(joinEnv *localenv.LocalEnvironment, format const
 	if err != nil {
 		return trace.Wrap(err)
 	}
-	plan, err := joinEnv.Backend.GetOperationPlan(operation.SiteDomain, operation.ID)
+	plan, err := fsm.GetOperationPlan(joinEnv.Backend, operation.SiteDomain, operation.ID)
 	if err != nil {
 		return trace.Wrap(err)
 	}
-	changelog, err := joinEnv.Backend.GetOperationPlanChangelog(operation.SiteDomain, operation.ID)
-	if err != nil {
-		return trace.Wrap(err)
-	}
-	resolvedPlan := fsm.ResolvePlan(*plan, changelog)
 	log.Debug("Showing join operation plan retrieved from local join backend.")
-	return outputPlan(*resolvedPlan, format)
+	return outputPlan(*plan, format)
 }
 
 func outputPlan(plan storage.OperationPlan, format constants.Format) (err error) {

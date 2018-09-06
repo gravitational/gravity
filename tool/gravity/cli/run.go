@@ -146,6 +146,8 @@ func InitAndCheck(g *Application, cmd string) error {
 		g.PlanCmd.FullCommand(),
 		g.InstallCmd.FullCommand(),
 		g.InstallPlanDisplayCmd.FullCommand(),
+		g.JoinCmd.FullCommand(),
+		g.AutoJoinCmd.FullCommand(),
 		g.UpgradePlanDisplayCmd.FullCommand(),
 		g.SystemDevicemapperMountCmd.FullCommand(),
 		g.SystemDevicemapperUnmountCmd.FullCommand(),
@@ -280,8 +282,6 @@ func Execute(g *Application, cmd string, extraArgs []string) error {
 			systemDevice:  *g.AutoJoinCmd.SystemDevice,
 			dockerDevice:  *g.AutoJoinCmd.DockerDevice,
 			mounts:        *g.AutoJoinCmd.Mounts,
-			serviceUID:    *g.AutoJoinCmd.ServiceUID,
-			serviceGID:    *g.AutoJoinCmd.ServiceGID,
 		})
 	case g.UpdateCheckCmd.FullCommand():
 		return updateCheck(localEnv, *g.UpdateCheckCmd.App)

@@ -19,16 +19,32 @@ package expand
 import (
 	"fmt"
 
+	"github.com/gravitational/gravity.e/lib/state"
 	"github.com/gravitational/gravity/lib/defaults"
+	"github.com/gravitational/gravity/lib/install"
 	"github.com/gravitational/gravity/lib/ops"
 	"github.com/gravitational/gravity/lib/storage"
+	systemstate "github.com/gravitational/gravity/lib/system/state"
 
 	"github.com/gravitational/trace"
 )
 
 // bootstrap initializes the local peer data
 func (p *Peer) bootstrap() error {
-	// clear existing login entries
+	if err := p.clearLogins(); err != nil {
+		return trace.Wrap(err)
+	}
+	if err := p.logIntoPeer(); err != nil {
+		return trace.Wrap(err)
+	}
+	if err := p.configureStateDirectory(); err != nil {
+		return trace.Wrap(err)
+	}
+	return nil
+}
+
+// clearLogins removes all login entries from the local join backend
+func (p *Peer) clearLogins() error {
 	entries, err := p.JoinBackend.GetLoginEntries()
 	if err != nil {
 		return trace.Wrap(err)
@@ -39,12 +55,37 @@ func (p *Peer) bootstrap() error {
 			return trace.Wrap(err)
 		}
 	}
-	// save login entry for the cluster
-	_, err = p.JoinBackend.UpsertLoginEntry(storage.LoginEntry{
-		OpsCenterURL: fmt.Sprintf("https://%v:%v", p.Peers[0],
-			defaults.GravityServicePort),
-		Password: p.Token,
+	return nil
+}
+
+// logIntoPeer creates a login entry for the peer's peer in the local join backend
+func (p *Peer) logIntoPeer() error {
+	_, err := p.JoinBackend.UpsertLoginEntry(storage.LoginEntry{
+		OpsCenterURL: fmt.Sprintf("https://%v:%v", p.Peers[0], defaults.GravityServicePort),
+		Password:     p.Token,
 	})
+	if err != nil {
+		return trace.Wrap(err)
+	}
+	return nil
+}
+
+// configureStateDirectory configures local gravity state directory
+func (p *Peer) configureStateDirectory() error {
+	stateDir, err := state.GetStateDir()
+	if err != nil {
+		return trace.Wrap(err)
+	}
+	err = systemstate.ConfigureStateDirectory(stateDir, p.SystemDevice)
+	if err != nil {
+		return trace.Wrap(err)
+	}
+	return nil
+}
+
+// ensureServiceUserAndBinary makes sure specified service user exists and installs gravity binary
+func (p *Peer) ensureServiceUserAndBinary(ctx operationContext) error {
+	_, err := install.EnsureServiceUserAndBinbary(ctx.Site.ServiceUser.UID, ctx.Site.ServiceUser.GID)
 	if err != nil {
 		return trace.Wrap(err)
 	}

@@ -59,6 +59,8 @@ type PeerConfig struct {
 	Context context.Context
 	// Cancel can be used to cancel the context above
 	Cancel context.CancelFunc
+	// SystemLogFile is the telekube-system.log file path
+	SystemLogFile string
 	// AdvertiseAddr is advertise addr of this node
 	AdvertiseAddr string
 	// ServerAddr is optional address of the agent server.
@@ -88,6 +90,8 @@ type PeerConfig struct {
 	JoinBackend storage.Backend
 	// Manual turns on manual plan execution
 	Manual bool
+	// OperationID is the ID of existing join operation created via UI
+	OperationID string
 }
 
 // CheckAndSetDefaults checks the parameters and autodetects some defaults
@@ -151,6 +155,9 @@ func NewPeer(cfg PeerConfig) (*Peer, error) {
 
 // Init initializes the peer
 func (p *Peer) Init() error {
+	if err := install.InitLogging(p.SystemLogFile); err != nil {
+		return trace.Wrap(err)
+	}
 	if err := p.bootstrap(); err != nil {
 		return trace.Wrap(err)
 	}
@@ -172,64 +179,43 @@ func (p *Peer) dialSite(addr string) (*operationContext, error) {
 	if err != nil {
 		return nil, trace.Wrap(err)
 	}
-
 	packages, err := webpack.NewBearerClient(targetURL, p.Token, httpClient)
 	if err != nil {
 		return nil, trace.Wrap(err)
 	}
-
 	apps, err := client.NewBearerClient(targetURL, p.Token, httpClient)
 	if err != nil {
 		return nil, trace.Wrap(err)
 	}
-
 	cluster, err := operator.GetLocalSite()
 	if err != nil {
 		return nil, trace.Wrap(err)
 	}
-	if err := p.checkAndSetServerProfile(cluster.App); err != nil {
+	err = p.checkAndSetServerProfile(cluster.App)
+	if err != nil {
 		return nil, trace.Wrap(err)
 	}
 	installOp, _, err := ops.GetInstallOperation(cluster.Key(), operator)
 	if err != nil {
 		return nil, trace.Wrap(err)
 	}
-
-	err = checks.RunLocalChecks(checks.LocalChecksRequest{
-		Context:  p.Context,
-		Manifest: cluster.App.Manifest,
-		Role:     p.Role,
-		Options: &validationpb.ValidateOptions{
-			VxlanPort: int32(installOp.GetVars().OnPrem.VxlanPort),
-		},
-		AutoFix: true,
-	})
+	err = p.runLocalChecks(*cluster, *installOp)
 	if err != nil {
-		return nil, utils.Abort(err)
+		return nil, utils.Abort(err) // stop retrying on failed checks
 	}
-
-	opReq := ops.CreateSiteExpandOperationRequest{
-		SiteDomain: cluster.Domain,
-		AccountID:  cluster.AccountID,
-		// With CLI install flow we always rely on external provisioner
-		Provisioner: schema.ProvisionerOnPrem,
-		Servers:     map[string]int{p.Role: 1},
+	var operation *ops.SiteOperation
+	if p.OperationID == "" {
+		operation, err = p.createExpandOperation(operator, *cluster)
+	} else {
+		operation, err = p.joinExpandOperation(operator, *cluster)
 	}
-	key, err := operator.CreateSiteExpandOperation(opReq)
 	if err != nil {
 		return nil, trace.Wrap(err)
 	}
-
-	op, err := operator.GetSiteOperation(*key)
-	if err != nil {
-		return nil, trace.Wrap(err)
-	}
-
 	creds, err := install.LoadRPCCredentials(p.Context, packages, p.FieldLogger)
 	if err != nil {
 		return nil, trace.Wrap(err)
 	}
-
 	return &operationContext{
 		Operator:  operator,
 		Packages:  packages,
@@ -238,6 +224,43 @@ func (p *Peer) dialSite(addr string) (*operationContext, error) {
 		Site:      *cluster,
 		Creds:     *creds,
 	}, nil
+}
+
+// createExpandOperation creates a new expand operation
+func (p *Peer) createExpandOperation(operator ops.Operator, cluster ops.Site) (*ops.SiteOperation, error) {
+	key, err := operator.CreateSiteExpandOperation(ops.CreateSiteExpandOperationRequest{
+		AccountID:   cluster.AccountID,
+		SiteDomain:  cluster.Domain,
+		Provisioner: schema.ProvisionerOnPrem,
+		Servers:     map[string]int{p.Role: 1},
+	})
+	if err != nil {
+		return nil, trace.Wrap(err)
+	}
+	operation, err := operator.GetSiteOperation(*key)
+	if err != nil {
+		return nil, trace.Wrap(err)
+	}
+	return operation, nil
+}
+
+// joinExpandOperation joins existing expand operation that was created via UI
+//
+// It will be returning an error until the operation moves to "ready" state
+func (p *Peer) joinExpandOperation(operator ops.Operator, cluster ops.Site) (*ops.SiteOperation, error) {
+	operation, err := operator.GetSiteOperation(ops.SiteOperationKey{
+		AccountID:   cluster.AccountID,
+		SiteDomain:  cluster.SiteDomain,
+		OperationID: p.OperationID,
+	})
+	if err != nil {
+		return nil, trace.Wrap(err)
+	}
+	if operation.State != ops.OperationStateReady {
+		return nil, utils.Continue("operation %v is not ready yet",
+			p.OperationID)
+	}
+	return operation, nil
 }
 
 // dialWizard connects to a wizard
@@ -258,25 +281,19 @@ func (p *Peer) dialWizard(addr string) (*operationContext, error) {
 	if err != nil {
 		return nil, trace.Wrap(err)
 	}
-	err = checks.RunLocalChecks(checks.LocalChecksRequest{
-		Context:  p.Context,
-		Manifest: cluster.App.Manifest,
-		Role:     p.Role,
-		Options: &validationpb.ValidateOptions{
-			VxlanPort: int32(operation.GetVars().OnPrem.VxlanPort),
-		},
-		AutoFix: true,
-	})
+	err = p.runLocalChecks(*cluster, *operation)
 	if err != nil {
-		return nil, utils.Abort(err)
+		return nil, utils.Abort(err) // stop retrying on failed checks
 	}
 	creds, err := install.LoadRPCCredentials(p.Context, env.Packages, p.FieldLogger)
 	if err != nil {
 		return nil, trace.Wrap(err)
 	}
 	return &operationContext{
-		Operation: *operation,
 		Operator:  env.Operator,
+		Packages:  env.Packages,
+		Apps:      env.Apps,
+		Operation: *operation,
 		Site:      *cluster,
 		Creds:     *creds,
 	}, nil
@@ -296,6 +313,19 @@ func (p *Peer) checkAndSetServerProfile(app ops.Application) error {
 		}
 	}
 	return trace.NotFound("server role %q is not found", p.Role)
+}
+
+// runLocalChecks makes sure node satisfies system requirements
+func (p *Peer) runLocalChecks(cluster ops.Site, installOperation ops.SiteOperation) error {
+	return checks.RunLocalChecks(checks.LocalChecksRequest{
+		Context:  p.Context,
+		Manifest: cluster.App.Manifest,
+		Role:     p.Role,
+		Options: &validationpb.ValidateOptions{
+			VxlanPort: int32(installOperation.GetVars().OnPrem.VxlanPort),
+		},
+		AutoFix: true,
+	})
 }
 
 // operationContext describes the active install/expand operation.
@@ -387,11 +417,10 @@ func (p *Peer) run() error {
 		return trace.Wrap(err)
 	}
 
-	serviceUser, err := install.EnsureServiceUserAndBinary(ctx.Site.ServiceUser.UID, ctx.Site.ServiceUser.GID)
+	err = p.ensureServiceUserAndBinary(ctx)
 	if err != nil {
 		return trace.Wrap(err)
 	}
-	log.Infof("Service user: %v.", serviceUser)
 
 	installState := ctx.Operation.InstallExpand
 	if installState == nil {

@@ -37,9 +37,7 @@ import (
 	pb "github.com/gravitational/gravity/lib/rpc/proto"
 	rpcserver "github.com/gravitational/gravity/lib/rpc/server"
 	"github.com/gravitational/gravity/lib/schema"
-	"github.com/gravitational/gravity/lib/state"
 	"github.com/gravitational/gravity/lib/storage"
-	systemstate "github.com/gravitational/gravity/lib/system/state"
 	"github.com/gravitational/gravity/lib/systeminfo"
 	"github.com/gravitational/gravity/lib/systemservice"
 	"github.com/gravitational/gravity/lib/utils"
@@ -99,24 +97,7 @@ func Join(env, joinEnv *localenv.LocalEnvironment, j JoinConfig) error {
 		return trace.Wrap(err)
 	}
 
-	if err := j.CheckAndSetDefaults(); err != nil {
-		return trace.Wrap(err)
-	}
-
-	if err := checkRunningAsRoot(); err != nil {
-		return trace.Wrap(err)
-	}
-
-	if err := install.InitLogging(j.SystemLogFile); err != nil {
-		return trace.Wrap(err)
-	}
-
-	stateDir, err := state.GetStateDir()
-	if err != nil {
-		return trace.Wrap(err)
-	}
-
-	err = systemstate.ConfigureStateDirectory(stateDir, j.SystemDevice)
+	err = j.CheckAndSetDefaults()
 	if err != nil {
 		return trace.Wrap(err)
 	}
@@ -143,12 +124,6 @@ func Join(env, joinEnv *localenv.LocalEnvironment, j JoinConfig) error {
 	if err = install.FetchCloudMetadata(j.CloudProvider, &runtimeConfig); err != nil {
 		return trace.Wrap(err)
 	}
-
-	serviceUser, err := install.EnsureServiceUserAndBinary(j.ServiceUID, j.ServiceGID)
-	if err != nil {
-		return trace.Wrap(err)
-	}
-	log.Infof("Service user: %+v.", serviceUser)
 
 	wizardEnv, err := localenv.NewRemoteEnvironment()
 	if err != nil {
@@ -382,8 +357,6 @@ type autojoinConfig struct {
 	systemDevice  string
 	dockerDevice  string
 	mounts        map[string]string
-	serviceUID    string
-	serviceGID    string
 }
 
 func autojoin(env, joinEnv *localenv.LocalEnvironment, d autojoinConfig) error {
@@ -425,8 +398,6 @@ func autojoin(env, joinEnv *localenv.LocalEnvironment, d autojoinConfig) error {
 		SystemDevice:  d.systemDevice,
 		DockerDevice:  d.dockerDevice,
 		Mounts:        d.mounts,
-		ServiceUID:    d.serviceUID,
-		ServiceGID:    d.serviceGID,
 	})
 }
 

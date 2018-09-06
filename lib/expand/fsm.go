@@ -22,6 +22,7 @@ import (
 	"time"
 
 	"github.com/gravitational/gravity/lib/app"
+	"github.com/gravitational/gravity/lib/constants"
 	"github.com/gravitational/gravity/lib/defaults"
 	"github.com/gravitational/gravity/lib/fsm"
 	"github.com/gravitational/gravity/lib/ops"
@@ -111,7 +112,7 @@ func NewFSM(config FSMConfig) (*fsm.FSM, error) {
 		return nil, trace.Wrap(err)
 	}
 	if operation.Type != ops.OperationExpand {
-		return nil, trace.BadParameter("not an expand operation: %v", operation)
+		return nil, trace.BadParameter("not a join operation: %v", operation)
 	}
 	logger := logrus.WithField(trace.Component, "fsm:join")
 	engine := &fsmEngine{
@@ -168,9 +169,8 @@ func (e *fsmEngine) ChangePhaseState(ctx context.Context, change fsm.StateChange
 
 // GetPlan returns the up-to-date operation plan
 func (e *fsmEngine) GetPlan() (*storage.OperationPlan, error) {
-	return e.JoinBackend.GetOperationPlan(e.OperationKey.SiteDomain,
+	return fsm.GetOperationPlan(e.JoinBackend, e.OperationKey.SiteDomain,
 		e.OperationKey.OperationID)
-	//	return e.Operator.GetOperationPlan(e.OperationKey)
 }
 
 // RunCommand executes the phase specified by params on the specified
@@ -195,12 +195,19 @@ func (e *fsmEngine) Complete(fsmErr error) error {
 	if fsm.IsCompleted(plan) {
 		err = ops.CompleteOperation(e.OperationKey, e.Operator)
 	} else {
-		err = ops.FailOperation(e.OperationKey, e.Operator, trace.Unwrap(fsmErr).Error())
+		var message string
+		if fsmErr != nil {
+			message = trace.Unwrap(fsmErr).Error()
+		}
+		err = ops.FailOperation(e.OperationKey, e.Operator, message)
 	}
 	if err != nil {
 		return trace.Wrap(err)
 	}
-	e.Debug("Marked operation complete.")
+	e.WithFields(logrus.Fields{
+		constants.FieldSuccess: fsm.IsCompleted(plan),
+		constants.FieldError:   fsmErr,
+	}).Debug("Marked operation complete.")
 	return nil
 }
 

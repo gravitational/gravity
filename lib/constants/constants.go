@@ -91,6 +91,10 @@ const (
 	// FieldDir is the log field that contains a directory path which meaning
 	// is specific to the component doing the logging
 	FieldDir = "dir"
+	// FieldSuccess contains boolean value whether something succeeded or not
+	FieldSuccess = "success"
+	// FieldError contains error message
+	FieldError = "error"
 
 	// ComponentSystem is for system integration
 	ComponentSystem = "system"
