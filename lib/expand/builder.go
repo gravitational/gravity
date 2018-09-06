@@ -60,6 +60,7 @@ func (b *planBuilder) AddConfigurePhase(plan *storage.OperationPlan) {
 		Data: &storage.OperationPhaseData{
 			ExecServer: &b.Node,
 		},
+		Step: 1,
 	})
 }
 
@@ -78,6 +79,7 @@ func (b *planBuilder) AddBootstrapPhase(plan *storage.OperationPlan) {
 			Agent:       agent,
 			ServiceUser: &b.ServiceUser,
 		},
+		Step: 2,
 	})
 }
 
@@ -91,6 +93,7 @@ func (b *planBuilder) AddPullPhase(plan *storage.OperationPlan) {
 			Package:     &b.Application.Package,
 			ServiceUser: &b.ServiceUser,
 		},
+		Step: 3,
 	})
 }
 
@@ -103,6 +106,7 @@ func (b *planBuilder) AddPreHookPhase(plan *storage.OperationPlan) {
 			Package:     &b.Application.Package,
 			ServiceUser: &b.ServiceUser,
 		},
+		Step: 4,
 	})
 }
 
@@ -114,6 +118,7 @@ func (b *planBuilder) AddEtcdPhase(plan *storage.OperationPlan) {
 			Server:     &b.Node,
 			ExecServer: &b.Node,
 		},
+		Step: 5,
 	})
 }
 
@@ -131,6 +136,7 @@ func (b *planBuilder) AddSystemPhase(plan *storage.OperationPlan) {
 					ExecServer: &b.Node,
 					Package:    &b.TeleportPackage,
 				},
+				Step: 6,
 			},
 			{
 				ID: fmt.Sprintf("%v/planet", SystemPhase),
@@ -142,6 +148,7 @@ func (b *planBuilder) AddSystemPhase(plan *storage.OperationPlan) {
 					Package:    &b.PlanetPackage,
 					Labels:     pack.RuntimePackageLabels,
 				},
+				Step: 7,
 			},
 		},
 	})
@@ -159,6 +166,7 @@ func (b *planBuilder) AddWaitPhase(plan *storage.OperationPlan) {
 					Server:     &b.Node,
 					ExecServer: &b.Node,
 				},
+				Step: 8,
 			},
 			{
 				ID:          WaitK8sPhase,
@@ -167,6 +175,7 @@ func (b *planBuilder) AddWaitPhase(plan *storage.OperationPlan) {
 					Server:     &b.Node,
 					ExecServer: &b.Node,
 				},
+				Step: 9,
 			},
 		},
 	})
@@ -182,6 +191,7 @@ func (b *planBuilder) AddLabelPhase(plan *storage.OperationPlan) {
 			ExecServer: &b.Node,
 			Package:    &b.Application.Package,
 		},
+		Step: 10,
 	})
 }
 
@@ -194,6 +204,7 @@ func (b *planBuilder) AddPostHookPhase(plan *storage.OperationPlan) {
 			Package:     &b.Application.Package,
 			ServiceUser: &b.ServiceUser,
 		},
+		Step: 11,
 	})
 }
 
@@ -205,6 +216,7 @@ func (b *planBuilder) AddElectPhase(plan *storage.OperationPlan) {
 			Server:     &b.Node,
 			ExecServer: &b.Node,
 		},
+		Step: 12,
 	})
 }
 

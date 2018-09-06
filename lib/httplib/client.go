@@ -125,7 +125,6 @@ func WithDialTimeout(t time.Duration) ClientOption {
 func GetClient(insecure bool, options ...ClientOption) *http.Client {
 	var client *http.Client
 	if insecure {
-		log.Warningf("creating insecure client")
 		client = &http.Client{
 			Transport: &http.Transport{
 				TLSClientConfig: &tls.Config{

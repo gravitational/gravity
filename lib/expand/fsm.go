@@ -224,7 +224,7 @@ func (e *fsmEngine) UpdateProgress(ctx context.Context, p fsm.Params) error {
 	entry := ops.ProgressEntry{
 		SiteDomain:  e.OperationKey.SiteDomain,
 		OperationID: e.OperationKey.OperationID,
-		Completion:  100 / utils.Max(len(plan.Phases), 1) * phase.Step,
+		Completion:  100 / 12 * phase.Step, // 12 is the max number of phases
 		Step:        phase.Step,
 		State:       ops.ProgressStateInProgress,
 		Message:     phase.Description,

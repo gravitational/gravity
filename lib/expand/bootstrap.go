@@ -19,10 +19,10 @@ package expand
 import (
 	"fmt"
 
-	"github.com/gravitational/gravity.e/lib/state"
 	"github.com/gravitational/gravity/lib/defaults"
 	"github.com/gravitational/gravity/lib/install"
 	"github.com/gravitational/gravity/lib/ops"
+	"github.com/gravitational/gravity/lib/state"
 	"github.com/gravitational/gravity/lib/storage"
 	systemstate "github.com/gravitational/gravity/lib/system/state"
 
@@ -85,7 +85,7 @@ func (p *Peer) configureStateDirectory() error {
 
 // ensureServiceUserAndBinary makes sure specified service user exists and installs gravity binary
 func (p *Peer) ensureServiceUserAndBinary(ctx operationContext) error {
-	_, err := install.EnsureServiceUserAndBinbary(ctx.Site.ServiceUser.UID, ctx.Site.ServiceUser.GID)
+	_, err := install.EnsureServiceUserAndBinary(ctx.Site.ServiceUser.UID, ctx.Site.ServiceUser.GID)
 	if err != nil {
 		return trace.Wrap(err)
 	}

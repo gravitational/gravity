@@ -220,7 +220,7 @@ func (p *Peer) dialSite(addr string) (*operationContext, error) {
 		Operator:  operator,
 		Packages:  packages,
 		Apps:      apps,
-		Operation: *op,
+		Operation: *operation,
 		Site:      *cluster,
 		Creds:     *creds,
 	}, nil
@@ -233,6 +233,12 @@ func (p *Peer) createExpandOperation(operator ops.Operator, cluster ops.Site) (*
 		SiteDomain:  cluster.Domain,
 		Provisioner: schema.ProvisionerOnPrem,
 		Servers:     map[string]int{p.Role: 1},
+	})
+	if err != nil {
+		return nil, trace.Wrap(err)
+	}
+	err = operator.SetOperationState(*key, ops.SetOperationStateRequest{
+		State: ops.OperationStateReady,
 	})
 	if err != nil {
 		return nil, trace.Wrap(err)
@@ -250,15 +256,11 @@ func (p *Peer) createExpandOperation(operator ops.Operator, cluster ops.Site) (*
 func (p *Peer) joinExpandOperation(operator ops.Operator, cluster ops.Site) (*ops.SiteOperation, error) {
 	operation, err := operator.GetSiteOperation(ops.SiteOperationKey{
 		AccountID:   cluster.AccountID,
-		SiteDomain:  cluster.SiteDomain,
+		SiteDomain:  cluster.Domain,
 		OperationID: p.OperationID,
 	})
 	if err != nil {
 		return nil, trace.Wrap(err)
-	}
-	if operation.State != ops.OperationStateReady {
-		return nil, utils.Continue("operation %v is not ready yet",
-			p.OperationID)
 	}
 	return operation, nil
 }
@@ -392,7 +394,7 @@ func (p *Peer) tryConnect() (op *operationContext, err error) {
 			p.sendMessage("Waiting for the install operation to finish")
 			return nil, trace.Wrap(err)
 		}
-		p.Infof("failed connecting to wizard: %v", err)
+		p.Infof("Failed connecting to wizard: %v.", err)
 
 		op, err = p.dialSite(addr)
 		if err == nil {
@@ -403,7 +405,7 @@ func (p *Peer) tryConnect() (op *operationContext, err error) {
 			return nil, trace.Wrap(err)
 		}
 
-		p.Infof("failed connecting to cluster: %v", err)
+		p.Infof("Failed connecting to cluster: %v.", err)
 		if trace.IsCompareFailed(err) {
 			p.sendMessage("Waiting for another operation to finish at %v", addr)
 		}
@@ -417,7 +419,7 @@ func (p *Peer) run() error {
 		return trace.Wrap(err)
 	}
 
-	err = p.ensureServiceUserAndBinary(ctx)
+	err = p.ensureServiceUserAndBinary(*ctx)
 	if err != nil {
 		return trace.Wrap(err)
 	}
@@ -428,7 +430,8 @@ func (p *Peer) run() error {
 	}
 	p.Debugf("Got operation state: %#v.", installState)
 
-	if err := p.checkAndSetServerProfile(ctx.Site.App); err != nil {
+	err = p.checkAndSetServerProfile(ctx.Site.App)
+	if err != nil {
 		return trace.Wrap(err)
 	}
 
@@ -487,6 +490,29 @@ func (p *Peer) Stop(ctx context.Context) error {
 	return trace.Wrap(p.agent.Stop(ctx))
 }
 
+// waitForOperation blocks until the join operation is not ready
+func (p *Peer) waitForOperation(ctx operationContext) error {
+	ticker := backoff.NewTicker(backoff.NewConstantBackOff(1 * time.Second))
+	defer ticker.Stop()
+	for {
+		select {
+		case <-p.Context.Done():
+			return trace.ConnectionProblem(p.Context.Err(), "context closed")
+		case <-ticker.C:
+			operation, err := ctx.Operator.GetSiteOperation(ctx.Operation.Key())
+			if err != nil {
+				return trace.Wrap(err)
+			}
+			if operation.State != ops.OperationStateReady {
+				p.Info("Operation is not ready yet.")
+				continue
+			}
+			p.Info("Operation is ready!")
+			return nil
+		}
+	}
+}
+
 func (p *Peer) waitForAgents(ctx operationContext) error {
 	ticker := backoff.NewTicker(&backoff.ExponentialBackOff{
 		InitialInterval: time.Second,
@@ -495,7 +521,7 @@ func (p *Peer) waitForAgents(ctx operationContext) error {
 		MaxElapsedTime:  5 * time.Minute,
 		Clock:           backoff.SystemClock,
 	})
-
+	defer ticker.Stop()
 	for {
 		select {
 		case <-p.Context.Done():
@@ -613,7 +639,11 @@ func (p *Peer) Wait() error {
 }
 
 func (p *Peer) startExpandOperation(ctx operationContext) error {
-	err := p.waitForAgents(ctx)
+	err := p.waitForOperation(ctx)
+	if err != nil {
+		return trace.Wrap(err)
+	}
+	err = p.waitForAgents(ctx)
 	if err != nil {
 		return trace.Wrap(err)
 	}

@@ -77,7 +77,6 @@ func (s *site) expandOperationStart(ctx *operationContext) error {
 		expectedStates: []string{
 			ops.OperationStateExpandInitiated,
 			ops.OperationStateExpandPrechecks,
-			ops.OperationStateReady,
 		},
 		newOpState: ops.OperationStateExpandProvisioning,
 	})
@@ -90,26 +89,51 @@ func (s *site) expandOperationStart(ctx *operationContext) error {
 			return trace.NotFound("%v hook is not defined",
 				schema.HookNodesProvision)
 		}
-		ctx.Infof("using nodes provisioning hook")
+		ctx.Infof("Using nodes provisioning hook.")
 		err := s.runNodesProvisionHook(ctx)
 		if err != nil {
 			return trace.Wrap(err)
 		}
-		ctx.RecordInfo("infrastructure has been successfully provisioned")
+		ctx.RecordInfo("Infrastructure has been successfully provisioned.")
+		// TODO remove this below
 		if err := s.connectAndConfigureServers(ctx); err != nil {
 			ctx.RecordError("failed to connect and configure servers")
 			return trace.Wrap(err)
 		}
 	}
 
+	s.reportProgress(ctx, ops.ProgressEntry{
+		State:   ops.ProgressStateInProgress,
+		Message: "Waiting for the provisioned node to come up",
+	})
+
+	_, err = s.waitForAgents(context.TODO(), ctx)
+	if err != nil {
+		return trace.Wrap(err)
+	}
+
+	s.reportProgress(ctx, ops.ProgressEntry{
+		State:   ops.ProgressStateInProgress,
+		Message: "The node is up",
+	})
+
 	op, err = s.compareAndSwapOperationState(swap{
 		key:            ctx.key(),
 		expectedStates: []string{ops.OperationStateExpandProvisioning},
-		newOpState:     ops.OperationStateExpandDeploying,
+		newOpState:     ops.OperationStateReady,
 	})
 	if err != nil {
 		return trace.Wrap(err)
 	}
+
+	err = s.waitForOperation(ctx)
+	if err != nil {
+		return trace.Wrap(err)
+	}
+
+	return nil
+
+	// TODO REMOVE THIS ⮟⮟⮟⮟⮟⮟⮟⮟
 
 	labels := map[string]string{schema.ServiceLabelRole: string(schema.ServiceRoleMaster)}
 	masters, err := s.teleport().GetServers(context.TODO(), s.domainName, labels)

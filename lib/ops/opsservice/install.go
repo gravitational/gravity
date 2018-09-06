@@ -127,11 +127,16 @@ func (s *site) createInstallExpandOperation(operationType, operationInitialState
 		}
 	}
 
+	tokenType := storage.ProvisioningTokenTypeInstall
+	if op.Type == ops.OperationExpand {
+		tokenType = storage.ProvisioningTokenTypeExpand
+	}
+
 	_, err = s.users().CreateProvisioningToken(storage.ProvisioningToken{
 		Token:       token,
 		AccountID:   s.key.AccountID,
 		SiteDomain:  s.key.SiteDomain,
-		Type:        storage.ProvisioningTokenTypeInstall,
+		Type:        storage.ProvisioningTokenType(tokenType),
 		Expires:     s.clock().UtcNow().Add(defaults.InstallTokenTTL),
 		OperationID: op.ID,
 		UserEmail:   agentUser.GetName(),
@@ -827,7 +832,7 @@ func (s *site) installOperationStart(ctx *operationContext) error {
 
 	s.reportProgress(ctx, ops.ProgressEntry{
 		State:   ops.ProgressStateInProgress,
-		Message: "Infrastructure provisioned, waiting for servers to come up",
+		Message: "Waiting for the provisioned nodes to come up",
 	})
 
 	installer, err := s.waitForInstaller(ctx)

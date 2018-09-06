@@ -106,6 +106,8 @@ func Join(env, joinEnv *localenv.LocalEnvironment, j JoinConfig) error {
 		return trace.Wrap(joinLoop(env, joinEnv, j))
 	}
 
+	// TODO REMOVE THIS ⮟⮟⮟⮟⮟⮟⮟
+
 	peers, err := utils.ParseAddrList(j.PeerAddrs)
 	if err != nil {
 		return trace.Wrap(err)
