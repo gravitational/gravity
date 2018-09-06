@@ -21,6 +21,7 @@ import (
 	"fmt"
 	"os"
 
+	"github.com/fatih/color"
 	"github.com/gravitational/gravity/lib/constants"
 	"github.com/gravitational/gravity/lib/defaults"
 	"github.com/gravitational/gravity/lib/fsm"
@@ -78,7 +79,7 @@ func syncOperationPlan(localEnv *localenv.LocalEnvironment, updateEnv *localenv.
 	return trace.Wrap(update.SyncOperationPlan(clusterEnv.Backend, updateEnv.Backend))
 }
 
-func displayOperationPlan(localEnv, updateEnv *localenv.LocalEnvironment, format constants.Format) error {
+func displayOperationPlan(localEnv, updateEnv, joinEnv *localenv.LocalEnvironment, format constants.Format) error {
 	err := displayClusterOperationPlan(localEnv, format)
 	if err != nil && !trace.IsNotFound(err) {
 		log.Warnf("Failed to display the cluster operation plan: %v.", trace.DebugReport(err))
@@ -89,10 +90,14 @@ func displayOperationPlan(localEnv, updateEnv *localenv.LocalEnvironment, format
 	}
 
 	if hasUpdateOperation(updateEnv) {
-		return trace.Wrap(displayUpdateOperationPlan(updateEnv, format))
+		return displayUpdateOperationPlan(updateEnv, format)
 	}
 
-	return trace.Wrap(displayInstallOperationPlan(format))
+	if hasExpandOperation(joinEnv) {
+		return displayExpandOperationPlan(joinEnv, format)
+	}
+
+	return displayInstallOperationPlan(format)
 }
 
 func displayClusterOperationPlan(env *localenv.LocalEnvironment, format constants.Format) error {
@@ -116,6 +121,7 @@ func displayClusterOperationPlan(env *localenv.LocalEnvironment, format constant
 		return trace.Wrap(err)
 	}
 
+	log.Debug("Showing operation plan retrieved from cluster controller.")
 	err = outputPlan(*plan, format)
 	return trace.Wrap(err)
 }
@@ -133,7 +139,6 @@ func displayUpdateOperationPlan(updateEnv *localenv.LocalEnvironment, format con
 	if err != nil {
 		return trace.Wrap(err)
 	}
-
 	plan, err := fsm.GetPlan()
 	if err != nil {
 		return trace.Wrap(err)
@@ -183,11 +188,31 @@ func displayInstallPlan(wizardEnv *localenv.RemoteEnvironment, format constants.
 		}
 		return trace.Wrap(err)
 	}
+	log.Debug("Showing install operation plan retrieved from wizard process.")
 	err = outputPlan(*plan, format)
 	if err != nil {
 		return trace.Wrap(err)
 	}
 	return nil
+}
+
+// displayExpandOperationPlan shows plan of the join operation from the local join backend
+func displayExpandOperationPlan(joinEnv *localenv.LocalEnvironment, format constants.Format) error {
+	operation, err := ops.GetExpandOperation(joinEnv.Backend)
+	if err != nil {
+		return trace.Wrap(err)
+	}
+	plan, err := joinEnv.Backend.GetOperationPlan(operation.SiteDomain, operation.ID)
+	if err != nil {
+		return trace.Wrap(err)
+	}
+	changelog, err := joinEnv.Backend.GetOperationPlanChangelog(operation.SiteDomain, operation.ID)
+	if err != nil {
+		return trace.Wrap(err)
+	}
+	resolvedPlan := fsm.ResolvePlan(*plan, changelog)
+	log.Debug("Showing join operation plan retrieved from local join backend.")
+	return outputPlan(*resolvedPlan, format)
 }
 
 func outputPlan(plan storage.OperationPlan, format constants.Format) (err error) {
@@ -225,13 +250,13 @@ func explainPlan(phases []storage.OperationPhase) (err error) {
 }
 
 func outputPhaseError(phase storage.OperationPhase) error {
-	fmt.Printf("Phase %v (%v) failed.", phase.Description, phase.ID)
+	fmt.Printf(color.RedString("The %v phase (%q) has failed", phase.ID, phase.Description))
 	if phase.Error != nil {
 		var phaseErr trace.TraceErr
 		if err := utils.UnmarshalError(phase.Error.Err, &phaseErr); err != nil {
 			return trace.Wrap(err, "failed to unmarshal phase error from JSON")
 		}
-		fmt.Printf("\nError: %v\n", phaseErr.Err)
+		fmt.Printf(color.RedString("\n\t%v\n", phaseErr.Err))
 	}
 	return nil
 }
@@ -243,5 +268,11 @@ const recoveryModeWarning = "Failed to retrieve plan from etcd, showing cached p
 // updateEnv is the boltdb used for upgrades
 func hasUpdateOperation(updateEnv *localenv.LocalEnvironment) bool {
 	_, err := storage.GetLastOperation(updateEnv.Backend)
+	return err == nil
+}
+
+// hasExpandOperation returns true if the provided backend contains an expand operation
+func hasExpandOperation(joinEnv *localenv.LocalEnvironment) bool {
+	_, err := ops.GetExpandOperation(joinEnv.Backend)
 	return err == nil
 }

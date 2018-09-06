@@ -634,6 +634,7 @@ func (p *Peer) getFSM(ctx operationContext) (*fsm.FSM, error) {
 		LocalBackend:  p.LocalBackend,
 		LocalApps:     p.LocalApps,
 		LocalPackages: p.LocalPackages,
+		JoinBackend:   p.JoinBackend,
 		Credentials:   ctx.Creds.Client,
 		DebugMode:     p.DebugMode,
 		Insecure:      p.Insecure,

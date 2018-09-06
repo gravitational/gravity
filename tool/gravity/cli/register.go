@@ -93,9 +93,9 @@ func RegisterCommands(app *kingpin.Application) *Application {
 	g.InstallCmd.DNSZones = g.InstallCmd.Flag("dns-zone", "Specify an upstream server for the given zone within the cluster. Accepts <zone>/<nameserver> format where <nameserver> can be either <ip> or <ip>:<port>. Can be specified multiple times.").Strings()
 
 	g.JoinCmd.CmdClause = g.Command("join", "Join existing cluster or on-going install operation")
-	g.JoinCmd.PeerAddr = g.JoinCmd.Arg("peer-addrs", "One or several IP addresses of cluster node to join, as comma-separated values").Required().String()
+	g.JoinCmd.PeerAddr = g.JoinCmd.Arg("peer-addrs", "One or several IP addresses of cluster node to join, as comma-separated values").String()
 	g.JoinCmd.AdvertiseAddr = g.JoinCmd.Flag("advertise-addr", "IP address to advertise").String()
-	g.JoinCmd.Token = g.JoinCmd.Flag("token", "Unique install token to authorize this node to join the cluster").Required().String()
+	g.JoinCmd.Token = g.JoinCmd.Flag("token", "Unique install token to authorize this node to join the cluster").String()
 	g.JoinCmd.Role = g.JoinCmd.Flag("role", "Role of this node, optional").String()
 	g.JoinCmd.DockerDevice = g.JoinCmd.Flag("docker-device", "Docker device to use").Hidden().String()
 	g.JoinCmd.SystemDevice = g.JoinCmd.Flag("system-device", "Device to use for system data directory").Hidden().String()
@@ -113,6 +113,7 @@ func RegisterCommands(app *kingpin.Application) *Application {
 	g.JoinCmd.PhaseTimeout = g.JoinCmd.Flag("timeout", "Phase execution timeout").Default(defaults.PhaseTimeout).Hidden().Duration()
 	g.JoinCmd.Resume = g.JoinCmd.Flag("resume", "Resume joining from last failed step").Bool()
 	g.JoinCmd.Force = g.JoinCmd.Flag("force", "Force phase execution").Bool()
+	g.JoinCmd.Complete = g.JoinCmd.Flag("complete", "Complete join operation").Bool()
 
 	g.AutoJoinCmd.CmdClause = g.Command("autojoin", "Use cloud provider data to join a node to existing cluster")
 	g.AutoJoinCmd.ClusterName = g.AutoJoinCmd.Arg("cluster-name", "Cluster name used for discovery").Required().String()

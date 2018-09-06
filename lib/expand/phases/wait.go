@@ -62,19 +62,19 @@ func (p *waitPlanetExecutor) Execute(ctx context.Context) error {
 	p.Info("Waiting for the planet to start.")
 	err := utils.Retry(defaults.RetryInterval, defaults.RetryAttempts,
 		func() error {
-			status, err := status.FromPlanetAgent(ctx, nil)
+			planetStatus, err := status.FromPlanetAgent(ctx, nil)
 			if err != nil {
 				return trace.Wrap(err)
 			}
-			for _, nodeStatus := range status.Nodes {
+			for _, nodeStatus := range planetStatus.Nodes {
 				if p.Phase.Data.Server.AdvertiseIP == nodeStatus.AdvertiseIP {
-					if nodeStatus.Status == "running" {
+					if nodeStatus.Status == status.NodeHealthy {
 						return nil
 					}
 				}
 			}
-			return trace.BadParameter("planet is not running yet: %v",
-				status)
+			return trace.BadParameter("planet is not running yet: %#v",
+				planetStatus)
 		})
 	if err != nil {
 		return trace.Wrap(err)

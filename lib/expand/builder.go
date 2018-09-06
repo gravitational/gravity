@@ -57,6 +57,9 @@ func (b *planBuilder) AddConfigurePhase(plan *storage.OperationPlan) {
 	plan.Phases = append(plan.Phases, storage.OperationPhase{
 		ID:          installphases.ConfigurePhase,
 		Description: "Configure packages for the joining node",
+		Data: &storage.OperationPhaseData{
+			ExecServer: &b.Node,
+		},
 	})
 }
 
@@ -70,6 +73,7 @@ func (b *planBuilder) AddBootstrapPhase(plan *storage.OperationPlan) {
 		Description: "Bootstrap the joining node",
 		Data: &storage.OperationPhaseData{
 			Server:      &b.Node,
+			ExecServer:  &b.Node,
 			Package:     &b.Application.Package,
 			Agent:       agent,
 			ServiceUser: &b.ServiceUser,
@@ -83,6 +87,7 @@ func (b *planBuilder) AddPullPhase(plan *storage.OperationPlan) {
 		Description: "Pull packages on the joining node",
 		Data: &storage.OperationPhaseData{
 			Server:      &b.Node,
+			ExecServer:  &b.Node,
 			Package:     &b.Application.Package,
 			ServiceUser: &b.ServiceUser,
 		},
@@ -94,6 +99,7 @@ func (b *planBuilder) AddPreHookPhase(plan *storage.OperationPlan) {
 		ID:          PreHookPhase,
 		Description: fmt.Sprintf("Execute the application's %v hook", schema.HookNodeAdding),
 		Data: &storage.OperationPhaseData{
+			ExecServer:  &b.Node,
 			Package:     &b.Application.Package,
 			ServiceUser: &b.ServiceUser,
 		},
@@ -104,6 +110,10 @@ func (b *planBuilder) AddEtcdPhase(plan *storage.OperationPlan) {
 	plan.Phases = append(plan.Phases, storage.OperationPhase{
 		ID:          EtcdPhase,
 		Description: "Add the joining node to the etcd cluster",
+		Data: &storage.OperationPhaseData{
+			Server:     &b.Node,
+			ExecServer: &b.Node,
+		},
 	})
 }
 
@@ -117,8 +127,9 @@ func (b *planBuilder) AddSystemPhase(plan *storage.OperationPlan) {
 				Description: fmt.Sprintf("Install system package %v:%v",
 					b.TeleportPackage.Name, b.TeleportPackage.Version),
 				Data: &storage.OperationPhaseData{
-					Server:  &b.Node,
-					Package: &b.TeleportPackage,
+					Server:     &b.Node,
+					ExecServer: &b.Node,
+					Package:    &b.TeleportPackage,
 				},
 			},
 			{
@@ -126,9 +137,10 @@ func (b *planBuilder) AddSystemPhase(plan *storage.OperationPlan) {
 				Description: fmt.Sprintf("Install system package %v:%v",
 					b.PlanetPackage.Name, b.PlanetPackage.Version),
 				Data: &storage.OperationPhaseData{
-					Server:  &b.Node,
-					Package: &b.PlanetPackage,
-					Labels:  pack.RuntimePackageLabels,
+					Server:     &b.Node,
+					ExecServer: &b.Node,
+					Package:    &b.PlanetPackage,
+					Labels:     pack.RuntimePackageLabels,
 				},
 			},
 		},
@@ -144,16 +156,31 @@ func (b *planBuilder) AddWaitPhase(plan *storage.OperationPlan) {
 				ID:          WaitPlanetPhase,
 				Description: "Wait for the planet to start",
 				Data: &storage.OperationPhaseData{
-					Server: &b.Node,
+					Server:     &b.Node,
+					ExecServer: &b.Node,
 				},
 			},
 			{
 				ID:          WaitK8sPhase,
 				Description: "Wait for the node to join Kubernetes cluster",
 				Data: &storage.OperationPhaseData{
-					Server: &b.Node,
+					Server:     &b.Node,
+					ExecServer: &b.Node,
 				},
 			},
+		},
+	})
+}
+
+func (b *planBuilder) AddLabelPhase(plan *storage.OperationPlan) {
+	plan.Phases = append(plan.Phases, storage.OperationPhase{
+		ID:          installphases.LabelPhase,
+		Description: "Label and taint the joined Kubernetes node",
+		Data: &storage.OperationPhaseData{
+			Server:     &b.Node,
+			Servers:    storage.Servers{b.Node},
+			ExecServer: &b.Node,
+			Package:    &b.Application.Package,
 		},
 	})
 }
@@ -163,6 +190,7 @@ func (b *planBuilder) AddPostHookPhase(plan *storage.OperationPlan) {
 		ID:          PostHookPhase,
 		Description: fmt.Sprintf("Execute the application's %v hook", schema.HookNodeAdded),
 		Data: &storage.OperationPhaseData{
+			ExecServer:  &b.Node,
 			Package:     &b.Application.Package,
 			ServiceUser: &b.ServiceUser,
 		},
@@ -174,7 +202,8 @@ func (b *planBuilder) AddElectPhase(plan *storage.OperationPlan) {
 		ID:          ElectPhase,
 		Description: "Enable leader election on the joined node",
 		Data: &storage.OperationPhaseData{
-			Server: &b.Node,
+			Server:     &b.Node,
+			ExecServer: &b.Node,
 		},
 	})
 }

@@ -215,7 +215,7 @@ func Execute(g *Application, cmd string, extraArgs []string) error {
 	// create an environment where join-specific data is stored
 	var joinEnv *localenv.LocalEnvironment
 	switch cmd {
-	case g.JoinCmd.FullCommand(), g.AutoJoinCmd.FullCommand():
+	case g.JoinCmd.FullCommand(), g.AutoJoinCmd.FullCommand(), g.PlanCmd.FullCommand():
 		joinEnv, err = g.JoinEnv()
 		if err != nil {
 			return trace.Wrap(err)
@@ -262,11 +262,12 @@ func Execute(g *Application, cmd string, extraArgs []string) error {
 		if *g.JoinCmd.Resume {
 			*g.JoinCmd.Phase = fsm.RootPhase
 		}
-		if *g.JoinCmd.Phase != "" {
+		if *g.JoinCmd.Phase != "" || *g.JoinCmd.Complete {
 			return executeJoinPhase(localEnv, joinEnv, InstallPhaseParams{
-				PhaseID: *g.JoinCmd.Phase,
-				Force:   *g.JoinCmd.Force,
-				Timeout: *g.JoinCmd.PhaseTimeout,
+				PhaseID:  *g.JoinCmd.Phase,
+				Force:    *g.JoinCmd.Force,
+				Timeout:  *g.JoinCmd.PhaseTimeout,
+				Complete: *g.JoinCmd.Complete,
 			})
 		}
 		return Join(localEnv, joinEnv, NewJoinConfig(g))
@@ -331,7 +332,7 @@ func Execute(g *Application, cmd string, extraArgs []string) error {
 		if *g.PlanCmd.Sync {
 			return syncOperationPlan(localEnv, upgradeEnv)
 		}
-		return displayOperationPlan(localEnv, upgradeEnv, *g.PlanCmd.Output)
+		return displayOperationPlan(localEnv, upgradeEnv, joinEnv, *g.PlanCmd.Output)
 	case g.LeaveCmd.FullCommand():
 		return leave(localEnv, leaveConfig{
 			force:         *g.LeaveCmd.Force,

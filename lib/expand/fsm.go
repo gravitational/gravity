@@ -52,6 +52,8 @@ type FSMConfig struct {
 	LocalApps app.Applications
 	// LocalPackages is local package service of the joining node
 	LocalPackages pack.PackageService
+	// JoinBackend is the local backend that stores join-specific data
+	JoinBackend storage.Backend
 	// Spec is the FSM spec
 	Spec fsm.FSMSpecFunc
 	// Credentials is the credentials for gRPC agents
@@ -145,7 +147,7 @@ func (e *fsmEngine) GetExecutor(p fsm.ExecutorParams, remote fsm.Remote) (fsm.Ph
 
 // ChangePhaseState updates the phase state based on the provided parameters
 func (e *fsmEngine) ChangePhaseState(ctx context.Context, change fsm.StateChange) error {
-	err := e.Operator.CreateOperationPlanChange(e.OperationKey, storage.PlanChange{
+	planChange := storage.PlanChange{
 		ID:          uuid.New(),
 		ClusterName: e.OperationKey.SiteDomain,
 		OperationID: e.OperationKey.OperationID,
@@ -153,8 +155,11 @@ func (e *fsmEngine) ChangePhaseState(ctx context.Context, change fsm.StateChange
 		NewState:    change.State,
 		Error:       utils.ToRawTrace(change.Error),
 		Created:     time.Now().UTC(),
-	})
-	if err != nil {
+	}
+	if _, err := e.JoinBackend.CreateOperationPlanChange(planChange); err != nil {
+		return trace.Wrap(err)
+	}
+	if err := e.Operator.CreateOperationPlanChange(e.OperationKey, planChange); err != nil {
 		return trace.Wrap(err)
 	}
 	e.Debugf("Applied %s.", change)
@@ -163,7 +168,9 @@ func (e *fsmEngine) ChangePhaseState(ctx context.Context, change fsm.StateChange
 
 // GetPlan returns the up-to-date operation plan
 func (e *fsmEngine) GetPlan() (*storage.OperationPlan, error) {
-	return e.Operator.GetOperationPlan(e.OperationKey)
+	return e.JoinBackend.GetOperationPlan(e.OperationKey.SiteDomain,
+		e.OperationKey.OperationID)
+	//	return e.Operator.GetOperationPlan(e.OperationKey)
 }
 
 // RunCommand executes the phase specified by params on the specified

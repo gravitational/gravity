@@ -76,6 +76,11 @@ func FSMSpec(config FSMConfig) fsm.FSMSpecFunc {
 			return phases.NewWaitK8s(p,
 				config.Operator)
 
+		case strings.HasPrefix(p.Phase.ID, installphases.LabelPhase):
+			return installphases.NewNodes(p,
+				config.Operator,
+				config.LocalApps)
+
 		case strings.HasPrefix(p.Phase.ID, PostHookPhase):
 			return installphases.NewHook(p,
 				config.Operator,

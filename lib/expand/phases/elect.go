@@ -62,11 +62,12 @@ func (p *electExecutor) Execute(ctx context.Context) error {
 		return nil
 	}
 	p.Progress.NextStep("Enabling leader elections")
+	// TODO use etcd client?
 	out, err := utils.RunPlanetCommand(ctx, p.FieldLogger, "leader", "resume",
 		fmt.Sprintf("--public-ip=%v", p.Phase.Data.Server.AdvertiseIP),
 		fmt.Sprintf("--election-key=/planet/cluster/%v/election", p.Plan.ClusterName),
 		fmt.Sprintf("--etcd-cafile=%v", defaults.Secret(defaults.RootCertFilename)),
-		fmt.Sprintf("--etcd-cafile=%v", defaults.Secret(defaults.EtcdCertFilename)),
+		fmt.Sprintf("--etcd-certfile=%v", defaults.Secret(defaults.EtcdCertFilename)),
 		fmt.Sprintf("--etcd-keyfile=%v", defaults.Secret(defaults.EtcdKeyFilename)))
 	if err != nil {
 		return trace.Wrap(err, "failed to enable leader election: %s", out)

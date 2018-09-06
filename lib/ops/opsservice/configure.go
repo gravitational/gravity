@@ -128,7 +128,8 @@ func (s *site) getEtcdConfig(ctx *operationContext) (*etcdConfig, error) {
 	if err != nil {
 		return nil, trace.Wrap(err)
 	}
-	initialCluster := make([]string, len(members))
+	initialCluster := []string{ctx.provisionedServers.InitialCluster(s.domainName)}
+	// add existing members
 	for _, member := range members {
 		address, err := utils.URLHostname(member.PeerURLs[0])
 		if err != nil {

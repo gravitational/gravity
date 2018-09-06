@@ -234,7 +234,7 @@ func FormatFailedChecks(failed []*agentpb.Probe) string {
 	}
 	var buf bytes.Buffer
 	for _, p := range failed {
-		fmt.Fprintf(&buf, "\t[×] %s\n", formatProbe(*p))
+		fmt.Fprintf(&buf, "\t[%v] %s\n", constants.FailureMark, formatProbe(*p))
 	}
 	return buf.String()
 }

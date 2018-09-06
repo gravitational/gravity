@@ -69,11 +69,11 @@ func FormatOperationPlanText(w io.Writer, plan storage.OperationPlan) {
 func printPhase(w io.Writer, phase storage.OperationPhase, indent int) {
 	marker := "*"
 	if phase.GetState() == storage.OperationPhaseStateInProgress {
-		marker = "→"
+		marker = constants.InProgressMark
 	} else if phase.GetState() == storage.OperationPhaseStateCompleted {
-		marker = "✓"
+		marker = constants.SuccessMark
 	} else if phase.GetState() == storage.OperationPhaseStateFailed || phase.GetState() == storage.OperationPhaseStateRolledBack {
-		marker = "⚠"
+		marker = constants.FailureMark
 	}
 	fmt.Fprintf(w, "%v%v %v\t%v\t%v\t%v\t%v\t%v\n",
 		strings.Repeat("  ", indent),
@@ -91,7 +91,7 @@ func printPhase(w io.Writer, phase storage.OperationPhase, indent int) {
 
 func formatNode(phase storage.OperationPhase) string {
 	if phase.Data == nil || phase.Data.ExecServer == nil {
-		return "any"
+		return "-"
 	}
 	return phase.Data.ExecServer.AdvertiseIP
 }

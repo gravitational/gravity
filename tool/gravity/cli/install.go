@@ -29,6 +29,7 @@ import (
 	"github.com/gravitational/gravity/lib/defaults"
 	"github.com/gravitational/gravity/lib/expand"
 	"github.com/gravitational/gravity/lib/fsm"
+	"github.com/gravitational/gravity/lib/httplib"
 	"github.com/gravitational/gravity/lib/install"
 	"github.com/gravitational/gravity/lib/localenv"
 	validationpb "github.com/gravitational/gravity/lib/network/validation/proto"
@@ -591,6 +592,7 @@ func findLocalServer(site ops.Site) (*storage.Server, error) {
 }
 
 // InstallPhaseParams is a set of parameters for a single phase execution
+// TODO rename since join's using this too now
 type InstallPhaseParams struct {
 	// PhaseID is the ID of the phase to execute
 	PhaseID string
@@ -598,6 +600,8 @@ type InstallPhaseParams struct {
 	Force bool
 	// Timeout is phase execution timeout
 	Timeout time.Duration
+	// Complete marks operation complete
+	Complete bool
 }
 
 func executeInstallPhase(localEnv *localenv.LocalEnvironment, p InstallPhaseParams) error {
@@ -657,15 +661,15 @@ func executeJoinPhase(localEnv, joinEnv *localenv.LocalEnvironment, p InstallPha
 	if err != nil {
 		return trace.Wrap(err)
 	}
-	operator, err := joinEnv.CurrentOperator()
+	operator, err := joinEnv.CurrentOperator(httplib.WithInsecure())
 	if err != nil {
 		return trace.Wrap(err)
 	}
-	apps, err := joinEnv.CurrentApps()
+	apps, err := joinEnv.CurrentApps(httplib.WithInsecure())
 	if err != nil {
 		return trace.Wrap(err)
 	}
-	packages, err := joinEnv.CurrentPackages()
+	packages, err := joinEnv.CurrentPackages(httplib.WithInsecure())
 	if err != nil {
 		return trace.Wrap(err)
 	}
@@ -681,11 +685,15 @@ func executeJoinPhase(localEnv, joinEnv *localenv.LocalEnvironment, p InstallPha
 		LocalBackend:  localEnv.Backend,
 		LocalPackages: localEnv.Packages,
 		LocalApps:     localEnv.Apps,
+		JoinBackend:   joinEnv.Backend,
 		DebugMode:     localEnv.Debug,
 		Insecure:      localEnv.Insecure,
 	})
 	if err != nil {
 		return trace.Wrap(err)
+	}
+	if p.Complete {
+		return joinFSM.Complete(trace.Errorf("completed manually"))
 	}
 	ctx, cancel := context.WithTimeout(context.Background(), p.Timeout)
 	defer cancel()

@@ -276,6 +276,7 @@ func (b *PlanBuilder) AddLabelPhase(plan *storage.OperationPlan) {
 		Description: "Apply labels and taints to Kubernetes nodes",
 		Data: &storage.OperationPhaseData{
 			Server:  &b.Master,
+			Servers: plan.Servers,
 			Package: &b.Application.Package,
 		},
 		Requires: []string{phases.WaitPhase},

@@ -393,6 +393,8 @@ type JoinCmd struct {
 	Resume *bool
 	// Force forces phase execution
 	Force *bool
+	// Complete marks join operation complete
+	Complete *bool
 }
 
 // AutoJoinCmd uses cloud provider info to join existing cluster

@@ -614,6 +614,13 @@ const (
 
 	// TarExtension is the tar file extension
 	TarExtension = ".tar"
+
+	// SuccessMark is used in CLI to visually indicate that something's succeeded
+	SuccessMark = "✓"
+	// FailureMark is used in CLI to visually indicate that something's failed
+	FailureMark = "×"
+	// InProgressMark is used in CLI to visually indicate that something's in progress
+	InProgressMark = "→"
 )
 
 var (

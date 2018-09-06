@@ -95,11 +95,13 @@ func (p *Peer) getOperationPlan(ctx operationContext) (*storage.OperationPlan, e
 		builder.AddPreHookPhase(plan)
 	}
 
-	builder.AddEtcdPhase(plan)
-
 	builder.AddSystemPhase(plan)
 
+	builder.AddEtcdPhase(plan)
+
 	builder.AddWaitPhase(plan)
+
+	builder.AddLabelPhase(plan)
 
 	if builder.Application.Manifest.HasHook(schema.HookNodeAdded) {
 		builder.AddPostHookPhase(plan)

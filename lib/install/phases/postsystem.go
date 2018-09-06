@@ -23,7 +23,6 @@ import (
 	"io/ioutil"
 	"path/filepath"
 
-	"github.com/gravitational/rigging"
 	"github.com/gravitational/gravity/lib/app"
 	"github.com/gravitational/gravity/lib/app/resources"
 	"github.com/gravitational/gravity/lib/archive"
@@ -37,6 +36,7 @@ import (
 	"github.com/gravitational/gravity/lib/status"
 	"github.com/gravitational/gravity/lib/storage"
 	"github.com/gravitational/gravity/lib/utils"
+	"github.com/gravitational/rigging"
 
 	dockerarchive "github.com/docker/docker/pkg/archive"
 	"github.com/gravitational/satellite/agent/proto/agentpb"
@@ -156,7 +156,7 @@ type nodesExecutor struct {
 
 // Execute executes the nodes phase
 func (p *nodesExecutor) Execute(ctx context.Context) error {
-	for _, server := range p.Plan.Servers {
+	for _, server := range p.Phase.Data.Servers {
 		p.Progress.NextStep("Updating node %v with labels and taints",
 			server.Hostname)
 		// find this node's profile
@@ -209,13 +209,9 @@ func (*nodesExecutor) Rollback(ctx context.Context) error {
 
 // PreCheck makes sure that all Kubernetes nodes have registered
 func (p *nodesExecutor) PreCheck(ctx context.Context) error {
-	err := fsm.CheckMasterServer(p.Plan.Servers)
-	if err != nil {
-		return trace.Wrap(err)
-	}
 	// make sure we have a Kubernetes node for each of our servers
 	p.Info("Waiting for Kubernetes nodes to register.")
-	for _, server := range p.Plan.Servers {
+	for _, server := range p.Phase.Data.Servers {
 		err := p.waitForNode(server)
 		if err != nil {
 			return trace.Wrap(err)
