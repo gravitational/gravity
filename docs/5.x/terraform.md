@@ -475,7 +475,7 @@ The following arguments are supported:
             - role - role resource.
             - oidc - OIDC connector resource.
             - saml - SAML connector resource
-            - trusted_cluster - esource that contains trusted cluster configuration.
+            - trusted_cluster - resource that contains trusted cluster configuration.
         - `verbs` - List of operation verbs can be used. Valid options are:
             - register - allow registering of new clusters within an Ops Center
             - connect - allow users to connect to clusters
