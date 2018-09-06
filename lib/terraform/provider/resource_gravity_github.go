@@ -161,7 +161,7 @@ func resourceGravityGithubRead(d *schema.ResourceData, m interface{}) error {
 	mappings := connector.GetTeamsToLogins()
 	var teamsToLogins []interface{}
 	for _, mapping := range mappings {
-		teamsToLogins = append(teams_to_logins, map[string]interface{}{
+		teamsToLogins = append(teamsToLogins, map[string]interface{}{
 			"organization": mapping.Organization,
 			"team":         mapping.Team,
 			"logins":       mapping.Logins,
@@ -186,12 +186,10 @@ func resourceGravityGithubDelete(d *schema.ResourceData, m interface{}) error {
 
 	name := d.Get("token").(string)
 
-	err := client.DeleteGithubConnector(clusterKey, name)
+	err = client.DeleteGithubConnector(clusterKey, name)
 	if err != nil {
 		return trace.Wrap(err)
 	}
-
-	log.Printf("[INFO] Token for %s deleted", user)
 
 	return nil
 }

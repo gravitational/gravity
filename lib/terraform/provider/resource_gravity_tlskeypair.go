@@ -87,7 +87,7 @@ func resourceGravityTLSKeyPairDelete(d *schema.ResourceData, m interface{}) erro
 		return trace.Wrap(err)
 	}
 
-	err = client.DeleteClusterCertificate(clusterKet)
+	err = client.DeleteClusterCertificate(clusterKey)
 	return trace.Wrap(err)
 }
 

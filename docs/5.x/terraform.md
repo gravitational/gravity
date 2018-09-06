@@ -312,7 +312,7 @@ The terraform provider uses token based authentication which must be provisioned
 See TODO(knisbet)
 
 ## telekube_endpoints
-By default an Ops Center is configured with a single endpoint set via `--ops-advertise-addr` flag passed during installation. This configuration allows creating separate endpoints for cluster management and inter-cluster communications that can be firewalled separatly.
+By default an Ops Center is configured with a single endpoint set via `--ops-advertise-addr` flag passed during installation. This configuration allows creating separate endpoints for cluster management and inter-cluster communications that can be firewalled separately.
 
 ### Example Usage
 ```
@@ -442,7 +442,7 @@ The following arguments are supported:
             - role - role resource.
             - oidc - OIDC connector resource.
             - saml - SAML connector resource
-            - trusted_cluster - esource that contains trusted cluster configuration.
+            - trusted_cluster - resource that contains trusted cluster configuration.
         - `verbs` - List of operation verbs can be used. Valid options are:
             - register - allow registering of new clusters within an Ops Center
             - connect - allow users to connect to clusters
