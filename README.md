@@ -49,7 +49,7 @@ We have seen three primary use cases for using a snapshot-based Kubernetes appro
   compliance and security matters. An example would be if you want the same,
   compliant Kubernetes environment across a variety of organizations or infrastructure
   environments.
-* Environments where autonomous Kubernetes is required such as large multi-node
+* Environments where autonomous Kubernetes is required, such as large multi-node
   hardware appliances, production floors, edge deployments, etc.
 
 ## Application Bundles
@@ -93,7 +93,7 @@ much earlier, as a component of a larger, proprietary system called
 
 Fully autonomous Gravity clusters are running inside of large banks, government
 institutions, enterprises, etc. Some of the commercial users of Gravity are
-listed on [Gravitational web site](https://gravitational.com)
+listed on the [Gravitational web site](https://gravitational.com)
 
 ## Why did We Build Gravity?
 
