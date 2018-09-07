@@ -103,6 +103,7 @@ func (b *PlanBuilder) AddBootstrapPhase(plan *storage.OperationPlan) {
 			Description: fmt.Sprintf(description, node.Hostname),
 			Data: &storage.OperationPhaseData{
 				Server:      &allNodes[i],
+				ExecServer:  &allNodes[i],
 				Package:     &b.Application.Package,
 				Agent:       agent,
 				ServiceUser: &b.ServiceUser,
@@ -135,6 +136,7 @@ func (b *PlanBuilder) AddPullPhase(plan *storage.OperationPlan) {
 			Description: fmt.Sprintf(description, node.Hostname),
 			Data: &storage.OperationPhaseData{
 				Server:      &allNodes[i],
+				ExecServer:  &allNodes[i],
 				Package:     &b.Application.Package,
 				ServiceUser: &b.ServiceUser,
 			},
@@ -170,8 +172,9 @@ func (b *PlanBuilder) AddMastersPhase(plan *storage.OperationPlan) error {
 					Description: fmt.Sprintf("Install system package %v:%v on master node %v",
 						b.TeleportPackage.Name, b.TeleportPackage.Version, node.Hostname),
 					Data: &storage.OperationPhaseData{
-						Server:  &b.Masters[i],
-						Package: &b.TeleportPackage,
+						Server:     &b.Masters[i],
+						ExecServer: &b.Masters[i],
+						Package:    &b.TeleportPackage,
 					},
 					Requires: []string{fmt.Sprintf("%v/%v", phases.PullPhase, node.Hostname)},
 					Step:     4,
@@ -181,9 +184,10 @@ func (b *PlanBuilder) AddMastersPhase(plan *storage.OperationPlan) error {
 					Description: fmt.Sprintf("Install system package %v:%v on master node %v",
 						planetPackage.Name, planetPackage.Version, node.Hostname),
 					Data: &storage.OperationPhaseData{
-						Server:  &b.Masters[i],
-						Package: planetPackage,
-						Labels:  pack.RuntimePackageLabels,
+						Server:     &b.Masters[i],
+						ExecServer: &b.Masters[i],
+						Package:    planetPackage,
+						Labels:     pack.RuntimePackageLabels,
 					},
 					Requires: []string{fmt.Sprintf("%v/%v", phases.PullPhase, node.Hostname)},
 					Step:     4,
@@ -222,8 +226,9 @@ func (b *PlanBuilder) AddNodesPhase(plan *storage.OperationPlan) error {
 					Description: fmt.Sprintf("Install system package %v:%v on node %v",
 						b.TeleportPackage.Name, b.TeleportPackage.Version, node.Hostname),
 					Data: &storage.OperationPhaseData{
-						Server:  &b.Nodes[i],
-						Package: &b.TeleportPackage,
+						Server:     &b.Nodes[i],
+						ExecServer: &b.Nodes[i],
+						Package:    &b.TeleportPackage,
 					},
 					Requires: []string{fmt.Sprintf("%v/%v", phases.PullPhase, node.Hostname)},
 					Step:     4,
@@ -233,9 +238,10 @@ func (b *PlanBuilder) AddNodesPhase(plan *storage.OperationPlan) error {
 					Description: fmt.Sprintf("Install system package %v:%v on node %v",
 						planetPackage.Name, planetPackage.Version, node.Hostname),
 					Data: &storage.OperationPhaseData{
-						Server:  &b.Nodes[i],
-						Package: planetPackage,
-						Labels:  pack.RuntimePackageLabels,
+						Server:     &b.Nodes[i],
+						ExecServer: &b.Nodes[i],
+						Package:    planetPackage,
+						Labels:     pack.RuntimePackageLabels,
 					},
 					Requires: []string{fmt.Sprintf("%v/%v", phases.PullPhase, node.Hostname)},
 					Step:     4,
@@ -271,16 +277,34 @@ func (b *PlanBuilder) AddWaitPhase(plan *storage.OperationPlan) {
 
 // AddLabelPhase appends K8s nodes labeling phase to the provided plan
 func (b *PlanBuilder) AddLabelPhase(plan *storage.OperationPlan) {
+	var labelPhases []storage.OperationPhase
+	allNodes := append(b.Masters, b.Nodes...)
+	for i, node := range allNodes {
+		var description string
+		if node.ClusterRole == string(schema.ServiceRoleMaster) {
+			description = "Label and taint master node %v"
+		} else {
+			description = "Label and taint node %v"
+		}
+		labelPhases = append(labelPhases, storage.OperationPhase{
+			ID:          fmt.Sprintf("%v/%v", phases.LabelPhase, node.Hostname),
+			Description: fmt.Sprintf(description, node.Hostname),
+			Data: &storage.OperationPhaseData{
+				Server:     &allNodes[i],
+				ExecServer: &allNodes[i],
+				Package:    &b.Application.Package,
+			},
+			Requires: []string{phases.WaitPhase},
+			Step:     4,
+		})
+	}
 	plan.Phases = append(plan.Phases, storage.OperationPhase{
 		ID:          phases.LabelPhase,
 		Description: "Apply labels and taints to Kubernetes nodes",
-		Data: &storage.OperationPhaseData{
-			Server:  &b.Master,
-			Servers: plan.Servers,
-			Package: &b.Application.Package,
-		},
-		Requires: []string{phases.WaitPhase},
-		Step:     4,
+		Phases:      labelPhases,
+		Requires:    []string{phases.WaitPhase},
+		Parallel:    true,
+		Step:        4,
 	})
 }
 
@@ -321,8 +345,9 @@ func (b *PlanBuilder) AddExportPhase(plan *storage.OperationPlan) {
 			Description: fmt.Sprintf("Populate Docker registry on master node %v",
 				node.Hostname),
 			Data: &storage.OperationPhaseData{
-				Server:  &b.Masters[i],
-				Package: &b.Application.Package,
+				Server:     &b.Masters[i],
+				ExecServer: &b.Masters[i],
+				Package:    &b.Application.Package,
 			},
 			Requires: []string{phases.WaitPhase},
 			Step:     4,

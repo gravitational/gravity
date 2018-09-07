@@ -95,11 +95,6 @@ func (s *site) expandOperationStart(ctx *operationContext) error {
 			return trace.Wrap(err)
 		}
 		ctx.RecordInfo("Infrastructure has been successfully provisioned.")
-		// TODO remove this below
-		if err := s.connectAndConfigureServers(ctx); err != nil {
-			ctx.RecordError("failed to connect and configure servers")
-			return trace.Wrap(err)
-		}
 	}
 
 	s.reportProgress(ctx, ops.ProgressEntry{

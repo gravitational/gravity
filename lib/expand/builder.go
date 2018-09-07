@@ -187,7 +187,6 @@ func (b *planBuilder) AddLabelPhase(plan *storage.OperationPlan) {
 		Description: "Label and taint the joined Kubernetes node",
 		Data: &storage.OperationPhaseData{
 			Server:     &b.Node,
-			Servers:    storage.Servers{b.Node},
 			ExecServer: &b.Node,
 			Package:    &b.Application.Package,
 		},

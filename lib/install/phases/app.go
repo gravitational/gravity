@@ -61,7 +61,7 @@ func NewHook(p fsm.ExecutorParams, operator ops.Operator, apps app.Applications,
 	return &hookExecutor{
 		FieldLogger:    logger,
 		Operator:       operator,
-		LocalApps:      apps,
+		Apps:           apps,
 		ExecutorParams: p,
 		ServiceUser:    *serviceUser,
 	}, nil
@@ -72,8 +72,8 @@ type hookExecutor struct {
 	logrus.FieldLogger
 	// Operator is installer ops service
 	Operator ops.Operator
-	// LocalApps is the machine-local app service
-	LocalApps app.Applications
+	// Apps is the app service that runs the hook
+	Apps app.Applications
 	// ServiceUser is the user used for services and system storage
 	ServiceUser systeminfo.User
 	// Hooks is hook names to be executed
@@ -104,7 +104,7 @@ func (p *hookExecutor) runHooks(ctx context.Context, hooks ...schema.HookType) e
 				GID:  strconv.Itoa(p.ServiceUser.GID),
 			},
 		}
-		_, err := app.CheckHasAppHook(p.LocalApps, req)
+		_, err := app.CheckHasAppHook(p.Apps, req)
 		if err != nil {
 			if trace.IsNotFound(err) {
 				p.Debugf("Application %v does not have %v hook.",
@@ -125,7 +125,7 @@ func (p *hookExecutor) runHooks(ctx context.Context, hooks ...schema.HookType) e
 					trace.DebugReport(err))
 			}
 		}()
-		_, err = app.StreamAppHook(ctx, p.LocalApps, req, writer)
+		_, err = app.StreamAppHook(ctx, p.Apps, req, writer)
 		if err != nil {
 			return trace.Wrap(err, "%v %s hook failed", locator, hook)
 		}
@@ -144,12 +144,8 @@ func (*hookExecutor) Rollback(ctx context.Context) error {
 	return nil
 }
 
-// PreCheck makes sure this phase is executed on a master node
-func (p *hookExecutor) PreCheck(ctx context.Context) error {
-	err := fsm.CheckMasterServer(p.Plan.Servers)
-	if err != nil {
-		return trace.Wrap(err)
-	}
+// PreCheck is no-op for this phase
+func (*hookExecutor) PreCheck(ctx context.Context) error {
 	return nil
 }
 

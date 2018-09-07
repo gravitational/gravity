@@ -23,34 +23,6 @@ import (
 	"github.com/gravitational/trace"
 )
 
-/*
-
-PHASES:
-
-/prechecks
-
-/configure -> gravity-site configures packages
-
-/bootstrap -> setup directories/volumes on the new node, devicemapper, log into site
-
-/pull -> pull configured packages on the new node
-
-/pre -> run preExpand hook
-
-/etcd -> add etcd member
-
-/system -> install teleport/planet units
-
-/wait
-  /planet -> wait for planet to come up and check etcd cluster health
-  /k8s -> wait for new node to register with k8s
-
-/post -> run postExpand hook
-
-/elect -> resume leader election (if master)
-
-*/
-
 func (p *Peer) initOperationPlan(ctx operationContext) error {
 	plan, err := ctx.Operator.GetOperationPlan(ctx.Operation.Key())
 	if err != nil && !trace.IsNotFound(err) {
@@ -85,28 +57,40 @@ func (p *Peer) getOperationPlan(ctx operationContext) (*storage.OperationPlan, e
 		Servers:       builder.Nodes,
 	}
 
+	// have cluster controller configure packages for the joining node
 	builder.AddConfigurePhase(plan)
 
+	// bootstrap local state on the joining node
 	builder.AddBootstrapPhase(plan)
 
+	// download configured packages to the joining node and unpack them
 	builder.AddPullPhase(plan)
 
+	// run pre-join hook if the application has it
 	if builder.Application.Manifest.HasHook(schema.HookNodeAdding) {
 		builder.AddPreHookPhase(plan)
 	}
 
+	// install teleport and planet services on the joining node
 	builder.AddSystemPhase(plan)
 
-	builder.AddEtcdPhase(plan)
+	// when adding a master node, add it to the existing etcd cluster as a full member
+	if builder.Node.ClusterRole == string(schema.ServiceRoleMaster) {
+		builder.AddEtcdPhase(plan)
+	}
 
+	// wait for the planet to start up and the new Kubernetes node to register
 	builder.AddWaitPhase(plan)
 
+	// apply labels and taints to the new Kubernetes node
 	builder.AddLabelPhase(plan)
 
+	// run post-join hook if the application has it
 	if builder.Application.Manifest.HasHook(schema.HookNodeAdded) {
 		builder.AddPostHookPhase(plan)
 	}
 
+	// if added a master node, make sure it participates in leader election
 	if builder.Node.ClusterRole == string(schema.ServiceRoleMaster) {
 		builder.AddElectPhase(plan)
 	}

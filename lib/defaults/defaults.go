@@ -810,6 +810,11 @@ const (
 	// SchedulerCertFilename is the kube-scheduler certificate filename
 	SchedulerCertFilename = "scheduler.cert"
 
+	// KubeletKeyFilename is the kubelet private key filename
+	KubeletKeyFilename = "kubelet.key"
+	// KubeletCertFilename is the kubelet certificate filename
+	KubeletCertFilename = "kubelet.cert"
+
 	// RootCertFilename is the certificate authority certificate filename
 	RootCertFilename = "root.cert"
 

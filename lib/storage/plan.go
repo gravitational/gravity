@@ -90,8 +90,6 @@ type OperationPhase struct {
 type OperationPhaseData struct {
 	// Server is the server the phase operates on
 	Server *Server `json:"server,omitempty" yaml:"server,omitempty"`
-	// Servers is a list of servers the phase should operate on
-	Servers Servers `json:"servers,omitempty" yaml:"servers,omitempty"`
 	// ExecServer is an optional server the phase is supposed to be executed on.
 	// If unspecified, the Server is used
 	ExecServer *Server `json:"exec_server,omitempty" yaml:"exec_server,omitempty"`

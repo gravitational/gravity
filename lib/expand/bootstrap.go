@@ -95,7 +95,11 @@ func (p *Peer) ensureServiceUserAndBinary(ctx operationContext) error {
 // syncOperation synchronizes operation-related data to the local join backend
 func (p *Peer) syncOperation(ctx operationContext) error {
 	// sync cluster
-	_, err := p.JoinBackend.CreateSite(ops.ConvertOpsSite(ctx.Site))
+	err := p.JoinBackend.DeleteSite(ctx.Site.Domain)
+	if err != nil && !trace.IsNotFound(err) {
+		return trace.Wrap(err)
+	}
+	_, err = p.JoinBackend.CreateSite(ops.ConvertOpsSite(ctx.Site))
 	if err != nil {
 		return trace.Wrap(err)
 	}

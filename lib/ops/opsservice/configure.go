@@ -105,7 +105,7 @@ func (o *Operator) ConfigurePackages(key ops.SiteOperationKey) error {
 	if operation.Type == ops.OperationInstall {
 		err = site.configurePackages(ctx)
 	} else {
-		err = site.configureExpandPackages(ctx)
+		err = site.configureExpandPackages(context.TODO(), ctx)
 	}
 	if err != nil {
 		// remove cluster state servers on error so the operation can be retried
@@ -119,16 +119,17 @@ func (o *Operator) ConfigurePackages(key ops.SiteOperationKey) error {
 	return nil
 }
 
-func (s *site) getEtcdConfig(ctx *operationContext) (*etcdConfig, error) {
+// getEtcdConfig returns etcd configuration for the provided server
+func (s *site) getEtcdConfig(ctx context.Context, opCtx *operationContext, server *ProvisionedServer) (*etcdConfig, error) {
 	etcdClient, err := clients.DefaultEtcdMembers()
 	if err != nil {
 		return nil, trace.Wrap(err)
 	}
-	members, err := etcdClient.List(context.TODO()) // TODO pass context
+	members, err := etcdClient.List(ctx)
 	if err != nil {
 		return nil, trace.Wrap(err)
 	}
-	initialCluster := []string{ctx.provisionedServers.InitialCluster(s.domainName)}
+	initialCluster := []string{opCtx.provisionedServers.InitialCluster(s.domainName)}
 	// add existing members
 	for _, member := range members {
 		address, err := utils.URLHostname(member.PeerURLs[0])
@@ -138,15 +139,19 @@ func (s *site) getEtcdConfig(ctx *operationContext) (*etcdConfig, error) {
 		initialCluster = append(initialCluster, fmt.Sprintf("%s:%s",
 			member.Name, address))
 	}
-	// TODO turn on proxy mode for regular nodes
+	proxyMode := etcdProxyOff
+	if !server.IsMaster() {
+		proxyMode = etcdProxyOn
+	}
 	return &etcdConfig{
 		initialCluster:      strings.Join(initialCluster, ","),
 		initialClusterState: etcdExistingCluster,
+		proxyMode:           proxyMode,
 	}, nil
 }
 
-func (s *site) getTeleportMaster() (*teleportServer, error) {
-	masters, err := s.teleport().GetServers(context.TODO(), s.domainName, map[string]string{ // TODO pass context
+func (s *site) getTeleportMaster(ctx context.Context) (*teleportServer, error) {
+	masters, err := s.teleport().GetServers(ctx, s.domainName, map[string]string{
 		schema.ServiceLabelRole: string(schema.ServiceRoleMaster),
 	})
 	if err != nil {
@@ -158,20 +163,20 @@ func (s *site) getTeleportMaster() (*teleportServer, error) {
 	return newTeleportServer(masters[0])
 }
 
-func (s *site) configureExpandPackages(ctx *operationContext) error {
+func (s *site) configureExpandPackages(ctx context.Context, opCtx *operationContext) error {
 	teleportCA, err := s.getTeleportSecrets()
 	if err != nil {
 		return trace.Wrap(err)
 	}
-	teleportMaster, err := s.getTeleportMaster()
+	teleportMaster, err := s.getTeleportMaster(ctx)
 	if err != nil {
 		return trace.Wrap(err)
 	}
-	etcdConfig, err := s.getEtcdConfig(ctx)
+	provisionedServer := opCtx.provisionedServers[0]
+	etcdConfig, err := s.getEtcdConfig(ctx, opCtx, provisionedServer)
 	if err != nil {
 		return trace.Wrap(err)
 	}
-	provisionedServer := ctx.provisionedServers[0]
 	secretsPackage, err := s.planetSecretsPackage(provisionedServer)
 	if err != nil {
 		return trace.Wrap(err)
@@ -184,7 +189,7 @@ func (s *site) configureExpandPackages(ctx *operationContext) error {
 	if err != nil {
 		return trace.Wrap(err)
 	}
-	dockerConfig, err := s.selectDockerConfig(ctx.operation, provisionedServer.Role, s.app.Manifest)
+	dockerConfig, err := s.selectDockerConfig(opCtx.operation, provisionedServer.Role, s.app.Manifest)
 	if err != nil {
 		return trace.Wrap(err)
 	}
@@ -195,17 +200,17 @@ func (s *site) configureExpandPackages(ctx *operationContext) error {
 		configPackage: *configPackage,
 	}
 	if provisionedServer.IsMaster() {
-		err := s.configureTeleportMaster(ctx, teleportCA, provisionedServer)
+		err := s.configureTeleportMaster(opCtx, teleportCA, provisionedServer)
 		if err != nil {
 			return trace.Wrap(err)
 		}
 		masterParams := planetMasterParams{
 			master:            provisionedServer,
 			secretsPackage:    secretsPackage,
-			serviceSubnetCIDR: ctx.operation.InstallExpand.Subnets.Service,
+			serviceSubnetCIDR: opCtx.operation.InstallExpand.Subnets.Service,
 		}
-		// if we have a connection to ops center set up, configure
-		// SNI host so opscenter can dial in
+		// if we have connection to an Ops Center set up, configure
+		// SNI host so it can dial in
 		trustedCluster, err := storage.GetTrustedCluster(s.backend())
 		if err == nil {
 			masterParams.sniHost = trustedCluster.GetSNIHost()
@@ -218,7 +223,7 @@ func (s *site) configureExpandPackages(ctx *operationContext) error {
 			electionEnabled: false,
 			addr:            s.teleport().GetPlanetLeaderIP(),
 		}
-		err = s.configurePlanetMaster(provisionedServer, ctx.operation,
+		err = s.configurePlanetMaster(provisionedServer, opCtx.operation,
 			planetConfig, *secretsPackage, *configPackage)
 		if err != nil {
 			return trace.Wrap(err)
@@ -228,7 +233,7 @@ func (s *site) configureExpandPackages(ctx *operationContext) error {
 		if err != nil {
 			return trace.Wrap(err)
 		}
-		err = s.configurePlanetNode(provisionedServer, ctx.operation,
+		err = s.configurePlanetNode(provisionedServer, opCtx.operation,
 			planetConfig, *secretsPackage, *configPackage)
 		if err != nil {
 			return trace.Wrap(err)
@@ -238,7 +243,7 @@ func (s *site) configureExpandPackages(ctx *operationContext) error {
 	if err != nil {
 		return trace.Wrap(err)
 	}
-	err = s.configureTeleportNode(ctx, teleportMaster.IP, provisionedServer)
+	err = s.configureTeleportNode(opCtx, teleportMaster.IP, provisionedServer)
 	if err != nil {
 		return trace.Wrap(err)
 	}

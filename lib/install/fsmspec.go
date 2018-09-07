@@ -61,7 +61,7 @@ func FSMSpec(config FSMConfig) fsm.FSMSpecFunc {
 			return phases.NewWait(p,
 				config.Operator)
 
-		case p.Phase.ID == phases.LabelPhase:
+		case strings.HasPrefix(p.Phase.ID, phases.LabelPhase):
 			return phases.NewNodes(p,
 				config.Operator,
 				config.LocalApps)

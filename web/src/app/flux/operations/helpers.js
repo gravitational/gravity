@@ -32,10 +32,12 @@ function isInProgress(state){
   switch (state) {
     case OpStateEnum.UPDATE_IN_PROGRESS:
     case OpStateEnum.SHRINK_IN_PROGRESS:
+    case OpStateEnum.EXPAND_PRECHECKS:
     case OpStateEnum.EXPAND_SETTING_PLAN:
     case OpStateEnum.EXPAND_PLANSET:
     case OpStateEnum.EXPAND_PROVISIONING:
     case OpStateEnum.EXPAND_DEPLOYING:
+    case OpStateEnum.READY:
       return true
     default:
       return false

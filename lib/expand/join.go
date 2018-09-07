@@ -207,7 +207,7 @@ func (p *Peer) dialSite(addr string) (*operationContext, error) {
 	if p.OperationID == "" {
 		operation, err = p.createExpandOperation(operator, *cluster)
 	} else {
-		operation, err = p.joinExpandOperation(operator, *cluster)
+		operation, err = p.getExpandOperation(operator, *cluster)
 	}
 	if err != nil {
 		return nil, trace.Wrap(err)
@@ -250,10 +250,8 @@ func (p *Peer) createExpandOperation(operator ops.Operator, cluster ops.Site) (*
 	return operation, nil
 }
 
-// joinExpandOperation joins existing expand operation that was created via UI
-//
-// It will be returning an error until the operation moves to "ready" state
-func (p *Peer) joinExpandOperation(operator ops.Operator, cluster ops.Site) (*ops.SiteOperation, error) {
+// getExpandOperation returns existing expand operation created via UI
+func (p *Peer) getExpandOperation(operator ops.Operator, cluster ops.Site) (*ops.SiteOperation, error) {
 	operation, err := operator.GetSiteOperation(ops.SiteOperationKey{
 		AccountID:   cluster.AccountID,
 		SiteDomain:  cluster.Domain,
@@ -552,7 +550,7 @@ func (p *Peer) waitForAgents(ctx operationContext) error {
 			if err != nil {
 				return trace.Wrap(err)
 			}
-			p.Infof("installation can proceed! %v", report)
+			p.Infof("Installation can proceed! %v", report)
 			return nil
 		}
 	}
@@ -567,7 +565,7 @@ func (p *Peer) send(e install.Event) {
 		default:
 		}
 	default:
-		p.Warningf("failed to send event, events channel is blocked")
+		p.Warningf("Failed to send event, events channel is blocked.")
 	}
 }
 
@@ -677,10 +675,6 @@ After all phases have completed successfully, shutdown this process using Ctrl-C
 				trace.DebugReport(err))
 		}
 	}()
-	// err = ctx.Operator.SiteExpandOperationStart(ctx.Operation.Key())
-	// if err != nil {
-	// 	return trace.Wrap(err)
-	// }
 	return nil
 }
 

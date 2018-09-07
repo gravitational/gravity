@@ -56,7 +56,7 @@ func FSMSpec(config FSMConfig) fsm.FSMSpecFunc {
 		case strings.HasPrefix(p.Phase.ID, PreHookPhase):
 			return installphases.NewHook(p,
 				config.Operator,
-				config.LocalApps,
+				config.Apps,
 				schema.HookNodeAdding)
 
 		case strings.HasPrefix(p.Phase.ID, EtcdPhase):
@@ -84,7 +84,7 @@ func FSMSpec(config FSMConfig) fsm.FSMSpecFunc {
 		case strings.HasPrefix(p.Phase.ID, PostHookPhase):
 			return installphases.NewHook(p,
 				config.Operator,
-				config.LocalApps,
+				config.Apps,
 				schema.HookNodeAdded)
 
 		case strings.HasPrefix(p.Phase.ID, ElectPhase):
