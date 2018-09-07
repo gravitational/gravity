@@ -1,6 +1,6 @@
 # Gravity
 
-Gravity is a highly opinionated configuration of [Kubernetes](https://kubernetes.io/) along with tooling to improve compliance, security, simplicity and reduce operational overhead.
+Gravity is a highly opinionated configuration of [upstream Kubernetes](https://kubernetes.io/), along with tooling to improve compliance, security, simplicity and reduce operational overhead.
 
 |Project Links| Description
 |---|----
