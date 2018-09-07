@@ -1,6 +1,6 @@
 # Gravity
 
-Gravity is a highly opinionated configuration of [upstream Kubernetes](https://kubernetes.io/), along with tooling to improve compliance, security, simplicity and reduce operational overhead.
+Gravity is an opinionated configuration of [upstream Kubernetes](https://kubernetes.io/), along with tooling to improve compliance, security, simplicity and reduce operational overhead.
 
 |Project Links| Description
 |---|----
@@ -15,7 +15,7 @@ clusters and the applications running inside the clusters. The resulting snapsho
 *application bundles*. 
 
 An application bundle can be used to re-create full replicas of the original
-cluster in any environment where compliance matters, even in air-gapped server
+cluster in any environment where compliance and consistency matters, even in air-gapped server
 rooms.
 
 ## Gravity vs ...
