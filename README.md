@@ -99,13 +99,14 @@ listed on the [Gravitational web site](https://gravitational.com)
 
 Gravity was built by [Gravitational Inc](https://gravitational.com), a company
 based in Oakland, California. Gravitational's mission is to allow software
-creators to freely share their products with customers without having to
+creators to easily share their products with customers without having to
 convert themselves into software operators. 
 
 The original use case for Gravity was to allow Kubernetes applications to be
-deployed into 3rd party environments. That's why Gravity includes features like
-the built-in, graphical cluster installer, infrastructure validation and a
-built-in privileged access manager (Teleport) for providing remote support.
+deployed into 3rd party environments, like on-premise datacenters. That's why 
+Gravity includes features like the built-in, graphical cluster installer, 
+infrastructure validation and a built-in privileged access manager (Teleport) 
+for providing remote support.
 
 These features also resonated with security-minded teams who need to run
 applications in environments where _compliance matters_. Gravity clusters are
