@@ -522,6 +522,11 @@ func (o *Operator) CreateSite(r ops.NewSiteRequest) (*ops.Site, error) {
 		serviceUser = storage.DefaultOSUser()
 	}
 
+	dnsConfig := storage.DefaultDNSConfig
+	if !r.DNSConfig.IsEmpty() {
+		dnsConfig = r.DNSConfig
+	}
+
 	clusterData := &storage.Site{
 		AccountID:    account.ID,
 		Domain:       r.DomainName,
@@ -537,7 +542,7 @@ func (o *Operator) CreateSite(r ops.NewSiteRequest) (*ops.Site, error) {
 		ServiceUser:  serviceUser,
 		CloudConfig:  r.CloudConfig,
 		DNSOverrides: r.DNSOverrides,
-		DNSConfig:    r.DNSConfig,
+		DNSConfig:    dnsConfig,
 	}
 	if runtimeLoc := app.Manifest.Base(); runtimeLoc != nil {
 		runtimeApp, err := o.cfg.Apps.GetApp(*runtimeLoc)

@@ -108,11 +108,12 @@ func FSMSpec(config FSMConfig) fsm.FSMSpecFunc {
 
 // GetKubeClient returns a kubernetes client for the specified configuration
 func GetKubeClient(config FSMConfig) (*kubernetes.Clientset, error) {
-	dns, err := config.LocalBackend.DNSConfig()
+	// FIXME: use the backend directly
+	cluster, err := config.Operator.GetLocalSite()
 	if err != nil {
 		return nil, trace.Wrap(err)
 	}
-	client, err := httplib.GetClusterKubeClient(dns.Addr())
+	client, err := httplib.GetClusterKubeClient(cluster.DNSConfig.Addr())
 	if err != nil {
 		return nil, trace.Wrap(err)
 	}

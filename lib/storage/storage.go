@@ -1038,14 +1038,6 @@ type LoginEntries interface {
 	SetCurrentOpsCenter(string) error
 }
 
-// SystemMetadata stores system-relevant data
-type SystemMetadata interface {
-	// DNSConfig returns current DNS configuration
-	DNSConfig() (*DNSConfig, error)
-	// SetDNSConfig sets current DNS configuration
-	SetDNSConfig(DNSConfig) error
-}
-
 // Addr returns the DNS server address as ip:port.
 // Requires that !r.IsEmpty()
 // FIXME(dmitri): fix this API to take other possible addresses into account
@@ -1420,7 +1412,6 @@ type Backend interface {
 	Links
 	ClusterImport
 	LegacyRoles
-	SystemMetadata
 }
 
 const (

@@ -173,14 +173,20 @@ func (env *LocalEnvironment) init() error {
 		return trace.Wrap(err)
 	}
 
+	// Read the DNS configuration stored in the cluster record.
+	// Do not error if the cluster record has not been created yet,
+	// instead, fall back to defaults
 	env.DNS = storage.DefaultDNSConfig
-	dnsConfig, err := env.Backend.DNSConfig()
+	cluster, err := env.Backend.GetLocalSite(defaults.SystemAccountID)
 	if err != nil && !trace.IsNotFound(err) {
 		return trace.Wrap(err)
 	}
-	if dnsConfig != nil {
-		env.DNS = *dnsConfig
+	if cluster != nil {
+		env.DNS = cluster.DNSConfig
 	}
+	// FIXME: if the binary is used with an older cluster, cluster.DNSConfig
+	// might be empty. In this case the defaults will not work - only the legacy
+	// configuration will.
 
 	return nil
 }

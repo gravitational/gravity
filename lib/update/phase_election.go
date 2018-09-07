@@ -23,6 +23,7 @@ import (
 	"github.com/gravitational/gravity/lib/constants"
 	"github.com/gravitational/gravity/lib/defaults"
 	"github.com/gravitational/gravity/lib/fsm"
+	"github.com/gravitational/gravity/lib/ops"
 	"github.com/gravitational/gravity/lib/storage"
 	"github.com/gravitational/gravity/lib/utils"
 
@@ -51,20 +52,23 @@ func NewPhaseElectionChange(
 	plan storage.OperationPlan,
 	phase storage.OperationPhase,
 	remote fsm.Remote,
-	metadata storage.SystemMetadata,
+	operator ops.Operator,
 ) (*phaseElectionChange, error) {
 	if phase.Data == nil || phase.Data.ElectionChange == nil {
 		return nil, trace.BadParameter("no election status specified for phase %q", phase.ID)
 	}
 
-	dns, err := metadata.DNSConfig()
-	if err != nil && !trace.IsNotFound(err) {
+	cluster, err := operator.GetLocalSite()
+	if err != nil {
 		return nil, trace.Wrap(err)
 	}
 
-	dnsConfig := storage.LegacyDNSConfig
-	if dns != nil {
-		dnsConfig = *dns
+	var dnsConfig storage.DNSConfig
+	if cluster != nil {
+		dnsConfig = cluster.DNSConfig
+	}
+	if dnsConfig.IsEmpty() {
+		dnsConfig = storage.LegacyDNSConfig
 	}
 
 	return &phaseElectionChange{
