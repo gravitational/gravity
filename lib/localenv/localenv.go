@@ -90,6 +90,8 @@ type LocalEnvironment struct {
 	Apps appbase.Applications
 	// Creds is the local key store
 	Creds *users.KeyStore
+	// DNS is the local cluster DNS server configuration
+	DNS storage.DNSConfig
 }
 
 // GetLocalKeyStore opens a key store in the specified directory dir. If one does
@@ -170,6 +172,16 @@ func (env *LocalEnvironment) init() error {
 	if err != nil {
 		return trace.Wrap(err)
 	}
+
+	env.DNS = storage.DefaultDNSConfig
+	dnsConfig, err := env.Backend.DNSConfig()
+	if err != nil && !trace.IsNotFound(err) {
+		return trace.Wrap(err)
+	}
+	if dnsConfig != nil {
+		env.DNS = *dnsConfig
+	}
+
 	return nil
 }
 
@@ -324,7 +336,7 @@ func (env *LocalEnvironment) PackageService(opsCenterURL string, options ...http
 	}
 
 	if opsCenterURL == defaults.GravityServiceURL {
-		options = append(options, httplib.WithLocalResolver())
+		options = append(options, httplib.WithLocalResolver(env.DNS.Addr()))
 	}
 
 	// otherwise connect to remote OpsCenter
@@ -385,21 +397,21 @@ func (env *LocalEnvironment) OperatorService(opsCenterURL string, options ...htt
 // SiteOperator returns Operator for the local gravity site
 func (env *LocalEnvironment) SiteOperator() (*opsclient.Client, error) {
 	operator, err := env.OperatorService(
-		defaults.GravityServiceURL, httplib.WithLocalResolver(), httplib.WithInsecure())
+		defaults.GravityServiceURL, httplib.WithLocalResolver(env.DNS.Addr()), httplib.WithInsecure())
 	return operator, trace.Wrap(err)
 }
 
 // SiteApps returns Apps service for the local gravity site
 func (env *LocalEnvironment) SiteApps() (appbase.Applications, error) {
 	apps, err := env.AppService(
-		defaults.GravityServiceURL, AppConfig{}, httplib.WithLocalResolver(), httplib.WithInsecure())
+		defaults.GravityServiceURL, AppConfig{}, httplib.WithLocalResolver(env.DNS.Addr()), httplib.WithInsecure())
 	return apps, trace.Wrap(err)
 }
 
 // ClusterPackages returns package service for the local cluster
 func (env *LocalEnvironment) ClusterPackages() (pack.PackageService, error) {
 	return env.PackageService(defaults.GravityServiceURL,
-		httplib.WithLocalResolver(), httplib.WithInsecure())
+		httplib.WithLocalResolver(env.DNS.Addr()), httplib.WithInsecure())
 }
 
 func (env *LocalEnvironment) AppService(opsCenterURL string, config AppConfig, options ...httplib.ClientOption) (appbase.Applications, error) {
@@ -540,7 +552,7 @@ func ClusterPackages() (pack.PackageService, error) {
 	defer env.Close()
 
 	packages, err := env.PackageService(
-		defaults.GravityServiceURL, httplib.WithLocalResolver(), httplib.WithInsecure())
+		defaults.GravityServiceURL, httplib.WithLocalResolver(env.DNS.Addr()), httplib.WithInsecure())
 	if err != nil {
 		return nil, trace.Wrap(err)
 	}

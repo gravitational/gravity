@@ -360,22 +360,6 @@ type DeleteRequest struct {
 	Force bool
 }
 
-// Resource describes a single application resource
-type Resource struct {
-	// Path defines the path of the resource within the application
-	// directory as seen during import
-	Path string `json:"path"`
-	// Data is the resource payload
-	Data []byte `json:"data"`
-}
-
-type Resources []Resource
-
-// OpaqueResource defines a non-application resource.
-// This can be any other type of resource not required for instantiating
-// a kubernetes application
-type OpaqueResources Resources
-
 // Application defines a Gravity application
 type Application struct {
 	// Package identifies the application package

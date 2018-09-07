@@ -209,7 +209,10 @@ func checkForUpdate(env *localenv.LocalEnvironment, operator ops.Operator, site 
 	}
 
 	apps, err := env.AppService(
-		defaults.GravityServiceURL, localenv.AppConfig{}, httplib.WithLocalResolver(), httplib.WithInsecure())
+		defaults.GravityServiceURL,
+		localenv.AppConfig{},
+		httplib.WithLocalResolver(env.DNS.Addr()),
+		httplib.WithInsecure())
 	if err != nil {
 		return nil, trace.Wrap(err)
 	}

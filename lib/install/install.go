@@ -176,9 +176,8 @@ type Config struct {
 	ServiceCIDR string
 	// VxlanPort is the overlay network port
 	VxlanPort int
-	// DNSListenAddr is the address dnsmasq will listen on.
-	// Defaults to defaults.DNSListenAddr
-	DNSListenAddr string
+	// DNSConfig overrides the local cluster DNS configuration
+	DNSConfig storage.DNSConfig
 	// Docker specifies docker configuration
 	Docker storage.DockerConfig
 	// Insecure allows to turn off cert validation
@@ -259,8 +258,8 @@ func (c *Config) CheckAndSetDefaults() (err error) {
 	if c.NewProcess == nil {
 		c.NewProcess = process.NewProcess
 	}
-	if c.DNSListenAddr == "" {
-		c.DNSListenAddr = defaults.DNSListenAddr
+	if c.DNSConfig.IsEmpty() {
+		c.DNSConfig = storage.DefaultDNSConfig
 	}
 	return nil
 }

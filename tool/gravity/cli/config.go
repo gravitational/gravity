@@ -20,6 +20,7 @@ import (
 	"context"
 	"io/ioutil"
 	"os"
+	"strconv"
 
 	"github.com/gravitational/gravity/lib/constants"
 	"github.com/gravitational/gravity/lib/defaults"
@@ -76,8 +77,8 @@ type InstallConfig struct {
 	DNSHosts []string
 	// DNSZones is a list of DNS zone overrides
 	DNSZones []string
-	// DNSListenAddr is the address for dnsmasq to listen on
-	DNSListenAddr string
+	// DNSConfig is the DNS configuration for cluster local dnsmasq
+	DNSConfig storage.DNSConfig
 	// PodCIDR is the pod network subnet
 	PodCIDR string
 	// ServiceCIDR is the service network subnet
@@ -107,14 +108,28 @@ type InstallConfig struct {
 }
 
 // NewInstallConfig creates install config from the passed CLI args and flags
-func NewInstallConfig(g *Application) InstallConfig {
+func NewInstallConfig(g *Application) (*InstallConfig, error) {
 	mode := *g.InstallCmd.Mode
 	if *g.InstallCmd.Wizard {
 		// this is obsolete parameter but take it into account in
 		// case somebody is still using it
 		mode = constants.InstallModeInteractive
 	}
-	return InstallConfig{
+
+	dnsPort := defaults.DNSPort
+	if *g.InstallCmd.DNSPort != "" {
+		port, err := strconv.Atoi(*g.InstallCmd.DNSPort)
+		if err != nil {
+			return nil, trace.Wrap(err, "invalid DNS port value: %v", *g.InstallCmd.DNSPort)
+		}
+		dnsPort = port
+	}
+
+	dnsConfig := storage.DNSConfig{Port: dnsPort}
+	for _, addr := range *g.InstallCmd.DNSListenAddrs {
+		dnsConfig.Addrs = append(dnsConfig.Addrs, addr.String())
+	}
+	return &InstallConfig{
 		Mode:          mode,
 		Insecure:      *g.Insecure,
 		ReadStateDir:  *g.InstallCmd.Path,
@@ -136,16 +151,16 @@ func NewInstallConfig(g *Application) InstallConfig {
 		PodCIDR:       *g.InstallCmd.PodCIDR,
 		ServiceCIDR:   *g.InstallCmd.ServiceCIDR,
 		VxlanPort:     *g.InstallCmd.VxlanPort,
-		DNSListenAddr: g.InstallCmd.DNSListenAddr.String(),
 		Docker: storage.DockerConfig{
 			StorageDriver: *g.InstallCmd.DockerStorageDriver,
 			Args:          *g.InstallCmd.DockerArgs,
 		},
+		DNSConfig:  dnsConfig,
 		Manual:     *g.InstallCmd.Manual,
 		ServiceUID: *g.InstallCmd.ServiceUID,
 		ServiceGID: *g.InstallCmd.ServiceGID,
 		NodeTags:   *g.InstallCmd.GCENodeTags,
-	}
+	}, nil
 }
 
 // CheckAndSetDefaults validates the configuration object and populates default values
@@ -191,8 +206,8 @@ func (i *InstallConfig) CheckAndSetDefaults() (err error) {
 	if i.VxlanPort == 0 {
 		i.VxlanPort = defaults.VxlanPort
 	}
-	if i.DNSListenAddr == "" {
-		i.DNSListenAddr = defaults.DNSListenAddr
+	if i.DNSConfig.IsEmpty() {
+		i.DNSConfig = storage.DefaultDNSConfig
 	}
 	i.ServiceUser = *serviceUser
 	if i.NewProcess == nil {
@@ -323,7 +338,7 @@ func (i *InstallConfig) ToInstallerConfig(env *localenv.LocalEnvironment) (*inst
 		DockerDevice:  i.DockerDevice,
 		Mounts:        i.Mounts,
 		DNSOverrides:  *dnsOverrides,
-		DNSListenAddr: i.DNSListenAddr,
+		DNSConfig:     i.DNSConfig,
 		Mode:          i.Mode,
 		PodCIDR:       i.PodCIDR,
 		ServiceCIDR:   i.ServiceCIDR,

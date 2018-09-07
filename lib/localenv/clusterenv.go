@@ -65,6 +65,16 @@ func NewClusterEnvironment() (*ClusterEnvironment, error) {
 		return nil, trace.Wrap(err, "failed to connect to etcd")
 	}
 
+	dns, err := backend.DNSConfig()
+	if err != nil && !trace.IsNotFound(err) {
+		return nil, trace.Wrap(err)
+	}
+	dnsConfig := storage.DefaultDNSConfig
+	if dns != nil {
+		// FIXME
+		dnsConfig = *dns
+	}
+
 	packagesDir, err := SitePackagesDir()
 	if err != nil {
 		return nil, trace.Wrap(err)
@@ -89,23 +99,7 @@ func NewClusterEnvironment() (*ClusterEnvironment, error) {
 		return nil, trace.Wrap(err)
 	}
 
-	operator, err := opsservice.NewLocalOperator(opsservice.Config{
-		Backend:  backend,
-		Packages: packages,
-		Apps:     apps,
-		Users:    users,
-		StateDir: siteDir,
-	})
-	if err != nil {
-		return nil, trace.Wrap(err)
-	}
-
-	cluster, err := operator.GetLocalSite()
-	if err != nil {
-		return nil, trace.Wrap(err)
-	}
-
-	client, err := httplib.GetClusterKubeClient(cluster.DNSListenAddr)
+	client, err := httplib.GetClusterKubeClient(dnsConfig.Addr())
 	if err != nil {
 		log.Errorf("Failed to create Kubernetes client: %v.",
 			trace.DebugReport(err))
@@ -129,6 +123,17 @@ func NewClusterEnvironment() (*ClusterEnvironment, error) {
 	}
 
 	siteDir, err := SiteDir()
+	if err != nil {
+		return nil, trace.Wrap(err)
+	}
+
+	operator, err := opsservice.NewLocalOperator(opsservice.Config{
+		Backend:  backend,
+		Packages: packages,
+		Apps:     apps,
+		Users:    users,
+		StateDir: siteDir,
+	})
 	if err != nil {
 		return nil, trace.Wrap(err)
 	}

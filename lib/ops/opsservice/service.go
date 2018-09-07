@@ -537,6 +537,7 @@ func (o *Operator) CreateSite(r ops.NewSiteRequest) (*ops.Site, error) {
 		ServiceUser:  serviceUser,
 		CloudConfig:  r.CloudConfig,
 		DNSOverrides: r.DNSOverrides,
+		DNSConfig:    r.DNSConfig,
 	}
 	if runtimeLoc := app.Manifest.Base(); runtimeLoc != nil {
 		runtimeApp, err := o.cfg.Apps.GetApp(*runtimeLoc)

@@ -175,8 +175,9 @@ func (r *AgentService) Validate(ctx context.Context, key ops.SiteOperationKey, a
 		// Verify full requirements from the manifest
 		FullRequirements: true,
 		Options: &validationpb.ValidateOptions{
-			VxlanPort:     int32(operation.Vars().OnPrem.VxlanPort),
-			DnsListenAddr: operation.Vars().OnPrem.DNSListenAddr,
+			VxlanPort: int32(operation.Vars().OnPrem.VxlanPort),
+			DnsAddrs:  operation.Vars().OnPrem.DNS.Addrs,
+			DnsPort:   int32(operation.Vars().OnPrem.DNS.Port),
 		},
 	}
 	addr = rpc.AgentAddr(addr)

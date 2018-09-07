@@ -36,6 +36,7 @@ import (
 	"github.com/gravitational/gravity/lib/localenv"
 	"github.com/gravitational/gravity/lib/process"
 	"github.com/gravitational/gravity/lib/schema"
+	"github.com/gravitational/gravity/lib/storage"
 	"github.com/gravitational/gravity/lib/systemservice"
 	"github.com/gravitational/gravity/lib/utils"
 
@@ -247,7 +248,11 @@ func Execute(g *Application, cmd string, extraArgs []string) error {
 				Timeout: *g.InstallCmd.PhaseTimeout,
 			})
 		}
-		return startInstall(localEnv, NewInstallConfig(g))
+		config, err := NewInstallConfig(g)
+		if err != nil {
+			return trace.Wrap(err)
+		}
+		return startInstall(localEnv, *config)
 	case g.JoinCmd.FullCommand():
 		return Join(localEnv, JoinConfig{
 			SystemLogFile:     *g.SystemLogFile,
@@ -796,7 +801,9 @@ func pickSiteHost() (string, error) {
 
 // checkInCluster checks if the command is invoked inside Gravity cluster
 func checkInCluster() error {
-	client := httplib.GetClient(true, httplib.WithLocalResolver(), httplib.WithTimeout(time.Second))
+	// FIXME
+	dns := storage.DefaultDNSConfig
+	client := httplib.GetClient(true, httplib.WithLocalResolver(dns.Addr()), httplib.WithTimeout(time.Second))
 	_, err := client.Get(defaults.GravityServiceURL)
 	if err != nil {
 		return trace.NotFound("No telekube cluster detected. This failure could happen during failover, try again. Execute this command locally on one of the cluster nodes.")

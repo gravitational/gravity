@@ -120,6 +120,7 @@ func (i *Installer) NewClusterRequest() ops.NewSiteRequest {
 			GCENodeTags: i.Config.GCENodeTags,
 		},
 		DNSOverrides: i.DNSOverrides,
+		DNSConfig:    i.DNSConfig,
 	}
 }
 
@@ -142,8 +143,9 @@ func (i *Installer) StartCLIInstall() (err error) {
 		Manifest: i.Cluster.App.Manifest,
 		Role:     i.Role,
 		Options: &validationpb.ValidateOptions{
-			VxlanPort:     int32(i.VxlanPort),
-			DnsListenAddr: i.DNSListenAddr,
+			VxlanPort: int32(i.VxlanPort),
+			DnsAddrs:  i.DNSConfig.Addrs,
+			DnsPort:   int32(i.DNSConfig.Port),
 		},
 		AutoFix: true,
 	})
@@ -160,10 +162,10 @@ func (i *Installer) StartCLIInstall() (err error) {
 				Docker: i.Docker,
 			},
 			OnPrem: storage.OnPremVariables{
-				PodCIDR:       i.PodCIDR,
-				ServiceCIDR:   i.ServiceCIDR,
-				VxlanPort:     i.VxlanPort,
-				DNSListenAddr: i.DNSListenAddr,
+				PodCIDR:     i.PodCIDR,
+				ServiceCIDR: i.ServiceCIDR,
+				VxlanPort:   i.VxlanPort,
+				DNS:         i.DNSConfig,
 			},
 		},
 		Profiles: ServerRequirements(*i.flavor),

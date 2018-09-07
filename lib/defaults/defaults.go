@@ -907,6 +907,13 @@ const (
 	// DNSListenAddr is the default address dnsmasq will be configured to listen on
 	DNSListenAddr = "127.0.0.2"
 
+	// LegacyDNSListenAddr is the address dnsmasq was configured to listen on
+	// in older environments
+	LegacyDNSListenAddr = "127.0.0.1"
+
+	// DNSPort is the default DNS port dnsmasq will be configured with
+	DNSPort = 53
+
 	// ModulesPath is the path to the list of gravity-specific kernel modules loaded at boot
 	ModulesPath = "/etc/modules-load.d/gravity.conf"
 	// SysctlPath is the path to gravity-specific kernel parameters configuration

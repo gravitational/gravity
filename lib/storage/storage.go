@@ -561,7 +561,10 @@ type Site struct {
 	// CloudConfig provides additional cloud configuration
 	CloudConfig CloudConfig `json:"cloud_config"`
 	// DNSOverrides contains DNS overrides for this cluster
+	// TODO(dmitri): move to DNSConfig
 	DNSOverrides DNSOverrides `json:"dns_overrides"`
+	// DNSConfig defines cluster local DNS configuration
+	DNSConfig DNSConfig `json:"dns_config"`
 }
 
 func (s *Site) Check() error {
@@ -1035,6 +1038,34 @@ type LoginEntries interface {
 	SetCurrentOpsCenter(string) error
 }
 
+// SystemMetadata stores system-relevant data
+type SystemMetadata interface {
+	// DNSConfig returns current DNS configuration
+	DNSConfig() (*DNSConfig, error)
+	// SetDNSConfig sets current DNS configuration
+	SetDNSConfig(DNSConfig) error
+}
+
+// Addr returns the DNS server address as ip:port.
+// Requires that !r.IsEmpty()
+// FIXME(dmitri): fix this API to take other possible addresses into account
+func (r DNSConfig) Addr() string {
+	return fmt.Sprintf("%v:%v", r.Addrs[0], r.Port)
+}
+
+// IsEmpty returns whether this configuration is empty
+func (r DNSConfig) IsEmpty() bool {
+	return len(r.Addrs) == 0
+}
+
+// DNSConfig describes a DNS server
+type DNSConfig struct {
+	// Addrs lists local cluster DNS server IP addresses
+	Addrs []string `json:"addrs"`
+	// Port specifies the DNS port to use for dnsmasq
+	Port int `json:"port"`
+}
+
 // PackageChangeset is a set of package updates from one version to another
 type PackageChangeset struct {
 	ID string `json:"id"`
@@ -1389,6 +1420,7 @@ type Backend interface {
 	Links
 	ClusterImport
 	LegacyRoles
+	SystemMetadata
 }
 
 const (
@@ -1728,8 +1760,8 @@ type OnPremVariables struct {
 	ServiceCIDR string `json:"service_cidr"`
 	// VxlanPort is the overlay network port
 	VxlanPort int `json:"vxlan_port"`
-	// DNSListenAddr is the address dnsmasq listens on
-	DNSListenAddr string `json:"dns_listen_addr"`
+	// DNS is the cluster local DNS server configuration
+	DNS DNSConfig `json:"dns"`
 }
 
 // AWSVariables is a set of operation variables specific to AWS provider
@@ -1809,6 +1841,18 @@ func (r Subnets) IsEmpty() bool {
 var DefaultSubnets = Subnets{
 	Overlay: defaults.PodSubnet,
 	Service: defaults.ServiceSubnet,
+}
+
+// DefaultDNSConfig defines the default cluster local DNS configuration
+var DefaultDNSConfig = DNSConfig{
+	Port:  defaults.DNSPort,
+	Addrs: []string{defaults.DNSListenAddr},
+}
+
+// LegacyDNSConfig defines the local DNS configuration on older clusters
+var LegacyDNSConfig = DNSConfig{
+	Port:  defaults.DNSPort,
+	Addrs: []string{defaults.LegacyDNSListenAddr},
 }
 
 type Servers []Server

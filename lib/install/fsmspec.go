@@ -20,9 +20,11 @@ import (
 	"strings"
 
 	"github.com/gravitational/gravity/lib/fsm"
+	"github.com/gravitational/gravity/lib/httplib"
 	"github.com/gravitational/gravity/lib/install/phases"
 
 	"github.com/gravitational/trace"
+	"k8s.io/client-go/kubernetes"
 )
 
 // FSMSpec returns a function that returns an appropriate phase executor
@@ -62,14 +64,23 @@ func FSMSpec(config FSMConfig) fsm.FSMSpecFunc {
 				config.Operator)
 
 		case p.Phase.ID == phases.LabelPhase:
-			return phases.NewNodes(p,
-				config.Operator,
-				config.LocalApps)
+			client, err := GetKubeClient(config)
+			if err != nil {
+				return nil, trace.Wrap(err)
+			}
+			return phases.NewNodes(p, config.Operator,
+				config.LocalApps,
+				client)
 
 		case p.Phase.ID == phases.RBACPhase:
+			client, err := GetKubeClient(config)
+			if err != nil {
+				return nil, trace.Wrap(err)
+			}
 			return phases.NewRBAC(p,
 				config.Operator,
-				config.LocalApps)
+				config.LocalApps,
+				client)
 
 		case p.Phase.ID == phases.ResourcesPhase:
 			return phases.NewResources(p,
@@ -93,4 +104,17 @@ func FSMSpec(config FSMConfig) fsm.FSMSpecFunc {
 			return nil, trace.BadParameter("unknown phase %q", p.Phase.ID)
 		}
 	}
+}
+
+// GetKubeClient returns a kubernetes client for the specified configuration
+func GetKubeClient(config FSMConfig) (*kubernetes.Clientset, error) {
+	dns, err := config.LocalBackend.DNSConfig()
+	if err != nil {
+		return nil, trace.Wrap(err)
+	}
+	client, err := httplib.GetClusterKubeClient(dns.Addr())
+	if err != nil {
+		return nil, trace.Wrap(err)
+	}
+	return client, nil
 }

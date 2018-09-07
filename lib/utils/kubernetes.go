@@ -109,7 +109,7 @@ func GetLocalKubeClient() (*kubernetes.Clientset, error) {
 		return nil, trace.Wrap(err)
 	}
 
-	client, _, err := GetKubeClient(configPath)
+	client, err := GetKubeClientFromPath(configPath)
 	if err != nil {
 		return nil, trace.Wrap(err)
 	}

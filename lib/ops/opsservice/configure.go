@@ -809,9 +809,12 @@ func (s *site) getPlanetConfigPackage(
 		args = append(args, fmt.Sprintf("--vxlan-port=%v", vxlanPort))
 	}
 
-	dnsListenAddr := installOrExpand.InstallExpand.Vars.OnPrem.DNSListenAddr
-	if dnsListenAddr != "" {
-		args = append(args, fmt.Sprintf("--dns-listen-addr=%v", dnsListenAddr))
+	dnsConfig := installOrExpand.InstallExpand.Vars.OnPrem.DNS
+	if !dnsConfig.IsEmpty() {
+		for _, addr := range dnsConfig.Addrs {
+			args = append(args, fmt.Sprintf("--dns-listen-addr=%v", addr))
+		}
+		args = append(args, fmt.Sprintf("--dns-port=%v", dnsConfig.Port))
 	}
 
 	dockerArgs, err := configureDockerOptions(&installOrExpand, node, config.docker, config.dockerRuntime)

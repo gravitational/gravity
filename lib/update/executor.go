@@ -94,7 +94,7 @@ func fsmSpec(c FSMConfig) fsm.FSMSpecFunc {
 		case updateApp:
 			return NewUpdatePhaseApp(c, p.Plan, p.Phase)
 		case electionStatus:
-			return NewPhaseElectionChange(p.Plan, p.Phase, remote)
+			return NewPhaseElectionChange(p.Plan, p.Phase, remote, c.LocalBackend)
 		case taintNode:
 			return NewPhaseTaint(c, p.Plan, p.Phase)
 		case untaintNode:

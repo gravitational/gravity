@@ -847,16 +847,7 @@ func defaultPortChecker(options *validationpb.ValidateOptions) health.Checker {
 		vxlanPort = uint64(options.VxlanPort)
 	}
 
-	dnsListenAddr := defaults.DNSListenAddr
-	if options != nil && options.DnsListenAddr != "" {
-		dnsListenAddr = options.DnsListenAddr
-	}
-
-	return monitoring.NewPortChecker(
-		// FIXME(dmitri): these two checks need to consider the address part as well
-		// as dnsmasq is not usually configured to listen on a wildcard address - instead
-		// it is limited to lo and a custom loopback address (i.e. 127.0.0.2)
-		monitoring.PortRange{Protocol: "tcp", From: 53, To: 53, Description: "internal cluster DNS", ListenAddr: dnsListenAddr},
+	var portRanges = []monitoring.PortRange{
 		// FIXME: we don't configure dnsmasq to listen on UDP port 53
 		// monitoring.PortRange{Protocol: "udp", From: 53, To: 53, Description: "internal cluster DNS", ListenAddr: dnsListenAddr},
 		monitoring.PortRange{Protocol: "tcp", From: 7496, To: 7496, Description: "serf (health check agents) peer to peer"},
@@ -874,7 +865,28 @@ func defaultPortChecker(options *validationpb.ValidateOptions) health.Checker {
 		monitoring.PortRange{Protocol: "tcp", From: 32009, To: 32009, Description: "telekube OpsCenter control panel"},
 		monitoring.PortRange{Protocol: "tcp", From: 7575, To: 7575, Description: "telekube RPC agent"},
 		monitoring.PortRange{Protocol: "udp", From: vxlanPort, To: vxlanPort, Description: "overlay network"},
-	)
+	}
+
+	dnsConfig := storage.DefaultDNSConfig
+	if options != nil && len(options.DnsAddrs) != 0 {
+		dnsConfig.Addrs = options.DnsAddrs
+		if options.DnsPort != 0 {
+			dnsConfig.Port = int(options.DnsPort)
+		}
+	}
+	for _, addr := range dnsConfig.Addrs {
+		portRanges = append(portRanges,
+			monitoring.PortRange{
+				Protocol:    "tcp",
+				Description: "internal cluster DNS",
+				From:        uint64(dnsConfig.Port),
+				To:          uint64(dnsConfig.Port),
+				ListenAddr:  addr,
+			},
+		)
+	}
+
+	return monitoring.NewPortChecker(portRanges...)
 }
 
 // constructPingPongRequest constructs a regular ping-pong game request

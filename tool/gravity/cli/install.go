@@ -190,8 +190,9 @@ func Join(env *localenv.LocalEnvironment, j JoinConfig) error {
 		Manifest: cluster.App.Manifest,
 		Role:     j.Role,
 		Options: &validationpb.ValidateOptions{
-			VxlanPort:     int32(operation.GetVars().OnPrem.VxlanPort),
-			DnsListenAddr: operation.GetVars().OnPrem.DNSListenAddr,
+			VxlanPort: int32(operation.GetVars().OnPrem.VxlanPort),
+			DnsAddrs:  operation.GetVars().OnPrem.DNS.Addrs,
+			DnsPort:   int32(operation.GetVars().OnPrem.DNS.Port),
 		},
 		AutoFix: true,
 	})

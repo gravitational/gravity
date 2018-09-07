@@ -271,7 +271,7 @@ func DialWithServiceResolver(ctx context.Context, network, addr string) (conn ne
 		}
 	}
 
-	client, _, err := utils.GetKubeClient(kubeconfigPath)
+	client, err := utils.GetKubeClientFromPath(kubeconfigPath)
 	if err != nil {
 		return nil, trace.Wrap(err)
 	}
