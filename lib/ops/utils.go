@@ -102,6 +102,27 @@ func GetLastOperation(siteKey SiteKey, operator Operator) (*SiteOperation, *Prog
 	return lastOperation, progress, nil
 }
 
+// GetLastCompletedOperations returns the cluster's last completed operation
+func GetLastCompletedOperation(key SiteKey, operator Operator) (*SiteOperation, *ProgressEntry, error) {
+	operations, err := operator.GetSiteOperations(key)
+	if err != nil {
+		return nil, nil, trace.Wrap(err)
+	}
+	// more recent operations appear first
+	for _, operation := range operations {
+		op := (*SiteOperation)(&operation)
+		if op.IsFinished() {
+			progress, err := operator.GetSiteOperationProgress(op.Key())
+			if err != nil {
+				return nil, nil, trace.Wrap(err)
+			}
+			return op, progress, nil
+		}
+	}
+	return nil, nil, trace.NotFound("cluster %v does not have completed operations",
+		key.SiteDomain)
+}
+
 // GetLastUpdateOperation returns the last update operation
 //
 // If there're no operations or the last operation is not of type 'update', returns NotFound error
@@ -143,26 +164,37 @@ func GetOperationWithProgress(opKey SiteOperationKey, operator Operator) (*SiteO
 	return operation, progress, nil
 }
 
-// GetActiveOperations returns a list of cluster operations that are currently in progress
-func GetActiveOperations(key SiteKey, operator Operator, opType string) ([]SiteOperation, error) {
+// GetActiveOperations returns a list of currently active cluster operations
+func GetActiveOperations(key SiteKey, operator Operator) (active []SiteOperation, err error) {
 	all, err := operator.GetSiteOperations(key)
 	if err != nil {
 		return nil, trace.Wrap(err)
 	}
-	var ongoing []SiteOperation
 	for _, op := range all {
-		if op.Type != opType {
-			continue
-		}
 		operation := (*SiteOperation)(&op)
 		if !operation.IsFinished() {
-			ongoing = append(ongoing, *operation)
+			active = append(active, *operation)
 		}
 	}
-	if len(ongoing) == 0 {
+	if len(active) == 0 {
 		return nil, trace.NotFound("no operations in progress for %v", key)
 	}
-	return ongoing, nil
+	return active, nil
+}
+
+// GetActiveOperationsByType returns a list of cluster operations of the specified
+// type that are currently in progress
+func GetActiveOperationsByType(key SiteKey, operator Operator, opType string) (result []SiteOperation, err error) {
+	active, err := GetActiveOperations(key, operator)
+	if err != nil {
+		return nil, trace.Wrap(err)
+	}
+	for _, op := range active {
+		if op.Type == opType {
+			result = append(result, op)
+		}
+	}
+	return result, nil
 }
 
 // GetWizardOperation returns the install operation assuming that the

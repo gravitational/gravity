@@ -135,6 +135,7 @@ func RegisterCommands(app *kingpin.Application) *Application {
 	g.PlanCmd.Init = g.PlanCmd.Flag("init", "Initialize operation plan").Bool()
 	g.PlanCmd.Sync = g.PlanCmd.Flag("sync", "Sync the operation plan from etcd to local store").Hidden().Bool()
 	g.PlanCmd.Output = common.Format(g.PlanCmd.Flag("output", "Output format for the plan, text, json or yaml").Short('o').Default(string(constants.EncodingText)))
+	g.PlanCmd.OperationID = g.PlanCmd.Flag("operation-id", "ID of the operation to display the plan for. It not specified, the last operation plan will be displayed").String()
 
 	// Explicit install/upgrade plan alias commands
 	g.InstallPlanCmd.CmdClause = g.Command("install-plan", "Operations on install plan")

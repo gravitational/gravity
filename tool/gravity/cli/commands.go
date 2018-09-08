@@ -439,6 +439,8 @@ type PlanCmd struct {
 	Sync *bool
 	// Output is output format
 	Output *constants.Format
+	// OperationID is optional ID of operation to show the plan for
+	OperationID *string
 }
 
 // InstallPlanCmd combines subcommands for install plan

@@ -332,7 +332,7 @@ func Execute(g *Application, cmd string, extraArgs []string) error {
 		if *g.PlanCmd.Sync {
 			return syncOperationPlan(localEnv, upgradeEnv)
 		}
-		return displayOperationPlan(localEnv, upgradeEnv, joinEnv, *g.PlanCmd.Output)
+		return displayOperationPlan(localEnv, upgradeEnv, joinEnv, *g.PlanCmd.OperationID, *g.PlanCmd.Output)
 	case g.LeaveCmd.FullCommand():
 		return leave(localEnv, leaveConfig{
 			force:         *g.LeaveCmd.Force,

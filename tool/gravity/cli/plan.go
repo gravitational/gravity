@@ -79,8 +79,8 @@ func syncOperationPlan(localEnv *localenv.LocalEnvironment, updateEnv *localenv.
 	return trace.Wrap(update.SyncOperationPlan(clusterEnv.Backend, updateEnv.Backend))
 }
 
-func displayOperationPlan(localEnv, updateEnv, joinEnv *localenv.LocalEnvironment, format constants.Format) error {
-	err := displayClusterOperationPlan(localEnv, format)
+func displayOperationPlan(localEnv, updateEnv, joinEnv *localenv.LocalEnvironment, operationID string, format constants.Format) error {
+	err := displayClusterOperationPlan(localEnv, operationID, format)
 	if err != nil && !trace.IsNotFound(err) {
 		log.Warnf("Failed to display the cluster operation plan: %v.", trace.DebugReport(err))
 		// Fall-through to update/install operation plans
@@ -100,7 +100,7 @@ func displayOperationPlan(localEnv, updateEnv, joinEnv *localenv.LocalEnvironmen
 	return displayInstallOperationPlan(format)
 }
 
-func displayClusterOperationPlan(env *localenv.LocalEnvironment, format constants.Format) error {
+func displayClusterOperationPlan(env *localenv.LocalEnvironment, operationID string, format constants.Format) error {
 	operator, err := env.SiteOperator()
 	if err != nil {
 		return trace.Wrap(err)
@@ -111,7 +111,16 @@ func displayClusterOperationPlan(env *localenv.LocalEnvironment, format constant
 		return trace.Wrap(err)
 	}
 
-	op, _, err := ops.GetLastOperation(cluster.Key(), operator)
+	var op *ops.SiteOperation
+	if operationID != "" {
+		op, err = operator.GetSiteOperation(ops.SiteOperationKey{
+			AccountID:   cluster.AccountID,
+			SiteDomain:  cluster.Domain,
+			OperationID: operationID,
+		})
+	} else {
+		op, _, err = ops.GetLastOperation(cluster.Key(), operator)
+	}
 	if err != nil {
 		return trace.Wrap(err)
 	}

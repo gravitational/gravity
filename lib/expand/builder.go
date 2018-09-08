@@ -21,6 +21,7 @@ import (
 
 	"github.com/gravitational/gravity/lib/app"
 	"github.com/gravitational/gravity/lib/constants"
+	"github.com/gravitational/gravity/lib/fsm"
 	installphases "github.com/gravitational/gravity/lib/install/phases"
 	"github.com/gravitational/gravity/lib/loc"
 	"github.com/gravitational/gravity/lib/ops"
@@ -53,6 +54,7 @@ type planBuilder struct {
 	ServiceUser storage.OSUser
 }
 
+// AddConfigurePhase appends package configuration phase to the plan
 func (b *planBuilder) AddConfigurePhase(plan *storage.OperationPlan) {
 	plan.Phases = append(plan.Phases, storage.OperationPhase{
 		ID:          installphases.ConfigurePhase,
@@ -64,6 +66,7 @@ func (b *planBuilder) AddConfigurePhase(plan *storage.OperationPlan) {
 	})
 }
 
+// AddBootstrapPhase appends local node bootstrap phase to the plan
 func (b *planBuilder) AddBootstrapPhase(plan *storage.OperationPlan) {
 	agent := &b.AdminAgent
 	if b.Node.ClusterRole != string(schema.ServiceRoleMaster) {
@@ -83,6 +86,7 @@ func (b *planBuilder) AddBootstrapPhase(plan *storage.OperationPlan) {
 	})
 }
 
+// AddPullPhase appends package pull phase to the plan
 func (b *planBuilder) AddPullPhase(plan *storage.OperationPlan) {
 	plan.Phases = append(plan.Phases, storage.OperationPhase{
 		ID:          installphases.PullPhase,
@@ -93,10 +97,12 @@ func (b *planBuilder) AddPullPhase(plan *storage.OperationPlan) {
 			Package:     &b.Application.Package,
 			ServiceUser: &b.ServiceUser,
 		},
-		Step: 3,
+		Requires: []string{installphases.ConfigurePhase, installphases.BootstrapPhase},
+		Step:     3,
 	})
 }
 
+// AddPreHookPhase appends pre-expand hook phase to the plan
 func (b *planBuilder) AddPreHookPhase(plan *storage.OperationPlan) {
 	plan.Phases = append(plan.Phases, storage.OperationPhase{
 		ID:          PreHookPhase,
@@ -106,22 +112,12 @@ func (b *planBuilder) AddPreHookPhase(plan *storage.OperationPlan) {
 			Package:     &b.Application.Package,
 			ServiceUser: &b.ServiceUser,
 		},
-		Step: 4,
+		Requires: []string{installphases.PullPhase},
+		Step:     4,
 	})
 }
 
-func (b *planBuilder) AddEtcdPhase(plan *storage.OperationPlan) {
-	plan.Phases = append(plan.Phases, storage.OperationPhase{
-		ID:          EtcdPhase,
-		Description: "Add the joining node to the etcd cluster",
-		Data: &storage.OperationPhaseData{
-			Server:     &b.Node,
-			ExecServer: &b.Node,
-		},
-		Step: 5,
-	})
-}
-
+// AddSystemPhase appends teleport/planet installation phase to the plan
 func (b *planBuilder) AddSystemPhase(plan *storage.OperationPlan) {
 	plan.Phases = append(plan.Phases, storage.OperationPhase{
 		ID:          SystemPhase,
@@ -136,7 +132,8 @@ func (b *planBuilder) AddSystemPhase(plan *storage.OperationPlan) {
 					ExecServer: &b.Node,
 					Package:    &b.TeleportPackage,
 				},
-				Step: 6,
+				Requires: []string{installphases.PullPhase},
+				Step:     6,
 			},
 			{
 				ID: fmt.Sprintf("%v/planet", SystemPhase),
@@ -148,12 +145,28 @@ func (b *planBuilder) AddSystemPhase(plan *storage.OperationPlan) {
 					Package:    &b.PlanetPackage,
 					Labels:     pack.RuntimePackageLabels,
 				},
-				Step: 7,
+				Requires: []string{installphases.PullPhase},
+				Step:     7,
 			},
 		},
 	})
 }
 
+// AddEtcdPhase appends etcd member addition phase to the plan
+func (b *planBuilder) AddEtcdPhase(plan *storage.OperationPlan) {
+	plan.Phases = append(plan.Phases, storage.OperationPhase{
+		ID:          EtcdPhase,
+		Description: "Add the joining node to the etcd cluster",
+		Data: &storage.OperationPhaseData{
+			Server:     &b.Node,
+			ExecServer: &b.Node,
+		},
+		Requires: []string{SystemPhase},
+		Step:     5,
+	})
+}
+
+// AddWaitPhase appends planet startup wait phase to the plan
 func (b *planBuilder) AddWaitPhase(plan *storage.OperationPlan) {
 	plan.Phases = append(plan.Phases, storage.OperationPhase{
 		ID:          installphases.WaitPhase,
@@ -166,7 +179,8 @@ func (b *planBuilder) AddWaitPhase(plan *storage.OperationPlan) {
 					Server:     &b.Node,
 					ExecServer: &b.Node,
 				},
-				Step: 8,
+				Requires: fsm.RequireIfPresent(plan, SystemPhase, EtcdPhase),
+				Step:     8,
 			},
 			{
 				ID:          WaitK8sPhase,
@@ -175,12 +189,14 @@ func (b *planBuilder) AddWaitPhase(plan *storage.OperationPlan) {
 					Server:     &b.Node,
 					ExecServer: &b.Node,
 				},
-				Step: 9,
+				Requires: []string{WaitPlanetPhase},
+				Step:     9,
 			},
 		},
 	})
 }
 
+// AddLabelPhase appens Kubernetes node labeling/tainting phase to the plan
 func (b *planBuilder) AddLabelPhase(plan *storage.OperationPlan) {
 	plan.Phases = append(plan.Phases, storage.OperationPhase{
 		ID:          installphases.LabelPhase,
@@ -190,10 +206,12 @@ func (b *planBuilder) AddLabelPhase(plan *storage.OperationPlan) {
 			ExecServer: &b.Node,
 			Package:    &b.Application.Package,
 		},
-		Step: 10,
+		Requires: []string{WaitK8sPhase},
+		Step:     10,
 	})
 }
 
+// AddPostHookPhase appends post-expand hook phase to the plan
 func (b *planBuilder) AddPostHookPhase(plan *storage.OperationPlan) {
 	plan.Phases = append(plan.Phases, storage.OperationPhase{
 		ID:          PostHookPhase,
@@ -203,10 +221,12 @@ func (b *planBuilder) AddPostHookPhase(plan *storage.OperationPlan) {
 			Package:     &b.Application.Package,
 			ServiceUser: &b.ServiceUser,
 		},
-		Step: 11,
+		Requires: []string{installphases.WaitPhase},
+		Step:     11,
 	})
 }
 
+// AddElectPhase appends phase that enables leader election to the plan
 func (b *planBuilder) AddElectPhase(plan *storage.OperationPlan) {
 	plan.Phases = append(plan.Phases, storage.OperationPhase{
 		ID:          ElectPhase,
@@ -215,7 +235,8 @@ func (b *planBuilder) AddElectPhase(plan *storage.OperationPlan) {
 			Server:     &b.Node,
 			ExecServer: &b.Node,
 		},
-		Step: 12,
+		Requires: []string{installphases.WaitPhase},
+		Step:     12,
 	})
 }
 

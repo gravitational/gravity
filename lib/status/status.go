@@ -62,6 +62,19 @@ func FromCluster(ctx context.Context, operator ops.Operator, cluster ops.Site, o
 		return status, trace.Wrap(err)
 	}
 
+	activeOperations, err := ops.GetActiveOperations(cluster.Key(), operator)
+	if err != nil && !trace.IsNotFound(err) {
+		return status, trace.Wrap(err)
+	}
+	for _, op := range activeOperations {
+		progress, err := operator.GetSiteOperationProgress(op.Key())
+		if err != nil {
+			return status, trace.Wrap(err)
+		}
+		status.ActiveOperations = append(status.ActiveOperations,
+			fromOperationAndProgress(op, *progress))
+	}
+
 	var operation *ops.SiteOperation
 	var progress *ops.ProgressEntry
 	// if operation ID is provided, get info for that operation, otherwise
@@ -70,7 +83,7 @@ func FromCluster(ctx context.Context, operator ops.Operator, cluster ops.Site, o
 		operation, progress, err = ops.GetOperationWithProgress(
 			cluster.OperationKey(operationID), operator)
 	} else {
-		operation, progress, err = ops.GetLastOperation(
+		operation, progress, err = ops.GetLastCompletedOperation(
 			cluster.Key(), operator)
 	}
 	if err != nil {
@@ -144,8 +157,10 @@ type Cluster struct {
 	// Token specifies the provisioning token used for joining nodes to cluster if any
 	Token storage.ProvisioningToken `json:"token"`
 	// Operation describes a cluster operation.
-	// This can either refer to the last or a specific operation
+	// This can either refer to the last completed or a specific operation
 	Operation *ClusterOperation `json:"operation,omitempty"`
+	// ActiveOperations is a list of operations currently active in the cluster
+	ActiveOperations []*ClusterOperation `json:"active_operations,omitempty"`
 	// Extension is a cluster status extension
 	Extension `json:",inline,omitempty"`
 }
