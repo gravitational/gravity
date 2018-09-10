@@ -45,6 +45,7 @@ import (
 	"github.com/gravitational/gravity/lib/users/usersservice"
 	"github.com/gravitational/gravity/lib/utils"
 	"github.com/gravitational/gravity/tool/common"
+	"k8s.io/client-go/kubernetes"
 
 	"github.com/gravitational/roundtrip"
 	"github.com/gravitational/trace"
@@ -69,6 +70,8 @@ type LocalEnvironmentArgs struct {
 	EtcdRetryTimeout time.Duration
 	// Reporter controls progress output
 	Reporter pack.ProgressReporter
+	// DNS is the local cluster DNS server configuration
+	DNS storage.DNSConfig
 }
 
 // LocalEnvironment sets up local gravity environment
@@ -90,8 +93,6 @@ type LocalEnvironment struct {
 	Apps appbase.Applications
 	// Creds is the local key store
 	Creds *users.KeyStore
-	// DNS is the local cluster DNS server configuration
-	DNS storage.DNSConfig
 }
 
 // GetLocalKeyStore opens a key store in the specified directory dir. If one does
@@ -143,6 +144,7 @@ func (env *LocalEnvironment) init() error {
 	if err != nil {
 		return trace.Wrap(err)
 	}
+
 	env.Backend, err = keyval.NewBolt(keyval.BoltConfig{
 		Path:  filepath.Join(env.StateDir, defaults.GravityDBFile),
 		Multi: true,
@@ -150,6 +152,15 @@ func (env *LocalEnvironment) init() error {
 	if err != nil {
 		return trace.Wrap(err)
 	}
+
+	if env.DNS.IsEmpty() {
+		dns, err := storage.GetDNSConfig(env.Backend, storage.LegacyDNSConfig)
+		if err != nil {
+			return trace.Wrap(err)
+		}
+		env.DNS = *dns
+	}
+
 	env.Objects, err = fs.New(filepath.Join(env.StateDir, defaults.PackagesDir))
 	if err != nil {
 		return trace.Wrap(err)
@@ -172,21 +183,6 @@ func (env *LocalEnvironment) init() error {
 	if err != nil {
 		return trace.Wrap(err)
 	}
-
-	// Read the DNS configuration stored in the cluster record.
-	// Do not error if the cluster record has not been created yet,
-	// instead, fall back to defaults
-	env.DNS = storage.DefaultDNSConfig
-	cluster, err := env.Backend.GetLocalSite(defaults.SystemAccountID)
-	if err != nil && !trace.IsNotFound(err) {
-		return trace.Wrap(err)
-	}
-	if cluster != nil {
-		env.DNS = cluster.DNSConfig
-	}
-	// FIXME: if the binary is used with an older cluster, cluster.DNSConfig
-	// might be empty. In this case the defaults will not work - only the legacy
-	// configuration will.
 
 	return nil
 }
@@ -465,10 +461,7 @@ func (env *LocalEnvironment) AppServiceLocal(config AppConfig) (service appbase.
 	} else {
 		packages = env.Packages
 	}
-	kubeClient, err := utils.GetKubeClientFromPath(constants.PrivilegedKubeconfig)
-	if err != nil {
-		log.Warnf("Failed to load privileged kube config: %v, app service will proceed without Kubernetes connection.", err)
-	}
+
 	return appservice.New(appservice.Config{
 		Backend:      env.Backend,
 		Packages:     packages,
@@ -477,7 +470,7 @@ func (env *LocalEnvironment) AppServiceLocal(config AppConfig) (service appbase.
 		StateDir:     filepath.Join(env.StateDir, "import"),
 		Devmode:      env.Debug,
 		UnpackedDir:  filepath.Join(env.StateDir, defaults.PackagesDir, defaults.UnpackedDir),
-		Client:       kubeClient,
+		GetClient:    env.getKubeClient,
 	})
 }
 
@@ -503,6 +496,27 @@ func (env *LocalEnvironment) GravityCommand(gravityPath string, args ...string) 
 		command = append(command, "--insecure")
 	}
 	return append(command, args...)
+}
+
+func (env *LocalEnvironment) getKubeClient() (*kubernetes.Clientset, error) {
+	_, err := os.Stat(constants.PrivilegedKubeconfig)
+	if err == nil {
+		return utils.GetKubeClientFromPath(constants.PrivilegedKubeconfig)
+	}
+	log.Warnf("Privileged kubeconfig unavailable, falling back to cluster client: %v.", err)
+
+	if env.DNS.IsEmpty() {
+		log.Warnf("WAT, DNS configuration is empty: %#v.", env.DNS)
+		return nil, nil
+	}
+
+	client, err := httplib.GetClusterKubeClient(env.DNS.Addr())
+	if err != nil {
+		log.Warnf("Failed to create cluster kube client: %v.", err)
+		return nil, trace.Wrap(err)
+	}
+
+	return client, nil
 }
 
 // AppConfig is applications-specific configuration

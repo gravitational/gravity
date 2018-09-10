@@ -17,12 +17,15 @@ limitations under the License.
 package cli
 
 import (
+	"net"
 	"path/filepath"
+	"strconv"
 
 	"github.com/gravitational/gravity/lib/defaults"
 	"github.com/gravitational/gravity/lib/localenv"
 	"github.com/gravitational/gravity/lib/processconfig"
 	"github.com/gravitational/gravity/lib/state"
+	"github.com/gravitational/gravity/lib/storage"
 	"github.com/gravitational/gravity/tool/common"
 
 	"github.com/gravitational/trace"
@@ -58,6 +61,13 @@ func (g *Application) getEnv(stateDir string) (*localenv.LocalEnvironment, error
 		Debug:            *g.Debug,
 		EtcdRetryTimeout: *g.EtcdRetryTimeout,
 		Reporter:         common.ProgressReporter(*g.Silent),
+	}
+	if len(*g.InstallCmd.DNSListenAddrs) != 0 {
+		config, err := dnsConfig(*g.InstallCmd.DNSListenAddrs, *g.InstallCmd.DNSPort)
+		if err != nil {
+			return nil, trace.Wrap(err)
+		}
+		args.DNS = *config
 	}
 	if *g.StateDir != defaults.LocalGravityDir {
 		args.LocalKeyStoreDir = *g.StateDir
@@ -133,4 +143,20 @@ func (g *Application) isUpgradeCommand(cmd string) bool {
 		return len(*g.RPCAgentRunCmd.Args) > 0
 	}
 	return false
+}
+
+func dnsConfig(addrs []net.IP, port string) (config *storage.DNSConfig, err error) {
+	dnsPort := defaults.DNSPort
+	if port != "" {
+		parsedPort, err := strconv.Atoi(port)
+		if err != nil {
+			return nil, trace.Wrap(err, "invalid DNS port value: %v", port)
+		}
+		dnsPort = parsedPort
+	}
+	config = &storage.DNSConfig{Port: dnsPort}
+	for _, addr := range addrs {
+		config.Addrs = append(config.Addrs, addr.String())
+	}
+	return config, nil
 }

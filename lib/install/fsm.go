@@ -77,6 +77,8 @@ type FSMConfig struct {
 	UserLogFile string
 	// ReportProgress controls whether engine should report progress to Operator
 	ReportProgress bool
+	// DNSConfig specifies the DNS configuration to set
+	DNSConfig storage.DNSConfig
 }
 
 // Check validates install FSM config and sets some defaults
@@ -102,6 +104,9 @@ func (c *FSMConfig) CheckAndSetDefaults() (err error) {
 	}
 	if c.LocalBackend == nil {
 		return trace.BadParameter("missing LocalBackend")
+	}
+	if c.DNSConfig.IsEmpty() {
+		return trace.BadParameter("missing DNSConfig")
 	}
 	if c.Spec == nil {
 		c.Spec = FSMSpec(*c)

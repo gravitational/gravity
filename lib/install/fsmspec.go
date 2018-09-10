@@ -45,7 +45,7 @@ func FSMSpec(config FSMConfig) fsm.FSMSpecFunc {
 			return phases.NewBootstrap(p,
 				config.Operator,
 				config.Apps,
-				config.LocalBackend, remote)
+				config.LocalBackend, remote, config.DNSConfig)
 
 		case strings.HasPrefix(p.Phase.ID, phases.PullPhase):
 			return phases.NewPull(p,
@@ -108,12 +108,7 @@ func FSMSpec(config FSMConfig) fsm.FSMSpecFunc {
 
 // GetKubeClient returns a kubernetes client for the specified configuration
 func GetKubeClient(config FSMConfig) (*kubernetes.Clientset, error) {
-	// FIXME: use the backend directly
-	cluster, err := config.Operator.GetLocalSite()
-	if err != nil {
-		return nil, trace.Wrap(err)
-	}
-	client, err := httplib.GetClusterKubeClient(cluster.DNSConfig.Addr())
+	client, err := httplib.GetClusterKubeClient(config.DNSConfig.Addr())
 	if err != nil {
 		return nil, trace.Wrap(err)
 	}

@@ -20,7 +20,6 @@ import (
 	"context"
 	"io/ioutil"
 	"os"
-	"strconv"
 
 	"github.com/gravitational/gravity/lib/constants"
 	"github.com/gravitational/gravity/lib/defaults"
@@ -116,19 +115,11 @@ func NewInstallConfig(g *Application) (*InstallConfig, error) {
 		mode = constants.InstallModeInteractive
 	}
 
-	dnsPort := defaults.DNSPort
-	if *g.InstallCmd.DNSPort != "" {
-		port, err := strconv.Atoi(*g.InstallCmd.DNSPort)
-		if err != nil {
-			return nil, trace.Wrap(err, "invalid DNS port value: %v", *g.InstallCmd.DNSPort)
-		}
-		dnsPort = port
+	dnsConfig, err := dnsConfig(*g.InstallCmd.DNSListenAddrs, *g.InstallCmd.DNSPort)
+	if err != nil {
+		return nil, trace.Wrap(err)
 	}
 
-	dnsConfig := storage.DNSConfig{Port: dnsPort}
-	for _, addr := range *g.InstallCmd.DNSListenAddrs {
-		dnsConfig.Addrs = append(dnsConfig.Addrs, addr.String())
-	}
 	return &InstallConfig{
 		Mode:          mode,
 		Insecure:      *g.Insecure,
@@ -155,7 +146,7 @@ func NewInstallConfig(g *Application) (*InstallConfig, error) {
 			StorageDriver: *g.InstallCmd.DockerStorageDriver,
 			Args:          *g.InstallCmd.DockerArgs,
 		},
-		DNSConfig:  dnsConfig,
+		DNSConfig:  *dnsConfig,
 		Manual:     *g.InstallCmd.Manual,
 		ServiceUID: *g.InstallCmd.ServiceUID,
 		ServiceGID: *g.InstallCmd.ServiceGID,

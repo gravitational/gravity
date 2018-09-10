@@ -324,6 +324,7 @@ func (i *Installer) GetFSM() (*fsm.FSM, error) {
 		LocalBackend:   i.LocalBackend,
 		Insecure:       i.Insecure,
 		UserLogFile:    i.UserLogFile,
+		DNSConfig:      i.DNSConfig,
 		ReportProgress: true,
 	})
 }

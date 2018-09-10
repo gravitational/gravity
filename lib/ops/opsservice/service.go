@@ -393,7 +393,7 @@ func (o *Operator) GetTrustedClusterToken(key ops.SiteKey) (storage.Token, error
 }
 
 // validateNewSiteRequest makes sure that the provided request is valid
-func (o *Operator) validateNewSiteRequest(req ops.NewSiteRequest) error {
+func (o *Operator) validateNewSiteRequest(req *ops.NewSiteRequest) error {
 	if req.AppPackage == "" {
 		return trace.BadParameter("missing AppPackage")
 	}
@@ -444,6 +444,15 @@ func (o *Operator) validateNewSiteRequest(req ops.NewSiteRequest) error {
 		return trace.Wrap(err, "failed to validate provided license")
 	}
 
+	serviceUser := req.ServiceUser
+	if serviceUser.IsEmpty() {
+		req.ServiceUser = storage.DefaultOSUser()
+	}
+
+	if req.DNSConfig.IsEmpty() {
+		req.DNSConfig = storage.DefaultDNSConfig
+	}
+
 	return nil
 }
 
@@ -466,7 +475,7 @@ func validateLabels(labels map[string]string) error {
 }
 
 func (o *Operator) CreateSite(r ops.NewSiteRequest) (*ops.Site, error) {
-	err := o.validateNewSiteRequest(r)
+	err := o.validateNewSiteRequest(&r)
 	if err != nil {
 		return nil, trace.Wrap(err)
 	}
@@ -517,16 +526,6 @@ func (o *Operator) CreateSite(r ops.NewSiteRequest) (*ops.Site, error) {
 		labels[ops.SiteLabelName] = r.DomainName
 	}
 
-	serviceUser := r.ServiceUser
-	if serviceUser.IsEmpty() {
-		serviceUser = storage.DefaultOSUser()
-	}
-
-	dnsConfig := storage.DefaultDNSConfig
-	if !r.DNSConfig.IsEmpty() {
-		dnsConfig = r.DNSConfig
-	}
-
 	clusterData := &storage.Site{
 		AccountID:    account.ID,
 		Domain:       r.DomainName,
@@ -539,10 +538,10 @@ func (o *Operator) CreateSite(r ops.NewSiteRequest) (*ops.Site, error) {
 		App:          app.PackageEnvelope.ToPackage(),
 		Resources:    r.Resources,
 		Location:     r.Location,
-		ServiceUser:  serviceUser,
+		ServiceUser:  r.ServiceUser,
 		CloudConfig:  r.CloudConfig,
 		DNSOverrides: r.DNSOverrides,
-		DNSConfig:    dnsConfig,
+		DNSConfig:    r.DNSConfig,
 	}
 	if runtimeLoc := app.Manifest.Base(); runtimeLoc != nil {
 		runtimeApp, err := o.cfg.Apps.GetApp(*runtimeLoc)

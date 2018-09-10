@@ -36,7 +36,6 @@ import (
 	"github.com/gravitational/gravity/lib/localenv"
 	"github.com/gravitational/gravity/lib/process"
 	"github.com/gravitational/gravity/lib/schema"
-	"github.com/gravitational/gravity/lib/storage"
 	"github.com/gravitational/gravity/lib/systemservice"
 	"github.com/gravitational/gravity/lib/utils"
 
@@ -123,7 +122,11 @@ func InitAndCheck(g *Application, cmd string) error {
 	case g.UpdateCompleteCmd.FullCommand(),
 		g.UpdateTriggerCmd.FullCommand(),
 		g.RemoveCmd.FullCommand():
-		if err := checkInCluster(); err != nil {
+		localEnv, err := g.LocalEnv(cmd)
+		if err != nil {
+			return trace.Wrap(err)
+		}
+		if err := checkInCluster(localEnv.DNS.Addr()); err != nil {
 			return trace.Wrap(err)
 		}
 	}
@@ -800,10 +803,8 @@ func pickSiteHost() (string, error) {
 }
 
 // checkInCluster checks if the command is invoked inside Gravity cluster
-func checkInCluster() error {
-	// FIXME
-	dns := storage.DefaultDNSConfig
-	client := httplib.GetClient(true, httplib.WithLocalResolver(dns.Addr()), httplib.WithTimeout(time.Second))
+func checkInCluster(dnsAddr string) error {
+	client := httplib.GetClient(true, httplib.WithLocalResolver(dnsAddr), httplib.WithTimeout(time.Second))
 	_, err := client.Get(defaults.GravityServiceURL)
 	if err != nil {
 		return trace.NotFound("No telekube cluster detected. This failure could happen during failover, try again. Execute this command locally on one of the cluster nodes.")

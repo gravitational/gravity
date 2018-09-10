@@ -1038,8 +1038,16 @@ type LoginEntries interface {
 	SetCurrentOpsCenter(string) error
 }
 
+// SystemMetadata stores system-relevant data
+type SystemMetadata interface {
+	// GetDNSConfig returns current DNS configuration
+	GetDNSConfig() (*DNSConfig, error)
+	// SetDNSConfig sets current DNS configuration
+	SetDNSConfig(DNSConfig) error
+}
+
 // Addr returns the DNS server address as ip:port.
-// Requires that !r.IsEmpty()
+// Requires that !r.IsEmpty.
 // FIXME(dmitri): fix this API to take other possible addresses into account
 func (r DNSConfig) Addr() string {
 	return fmt.Sprintf("%v:%v", r.Addrs[0], r.Port)
@@ -1412,6 +1420,7 @@ type Backend interface {
 	Links
 	ClusterImport
 	LegacyRoles
+	SystemMetadata
 }
 
 const (

@@ -20,7 +20,6 @@ import (
 	"github.com/gravitational/gravity/lib/app"
 	"github.com/gravitational/gravity/lib/app/service"
 	"github.com/gravitational/gravity/lib/blob/fs"
-	"github.com/gravitational/gravity/lib/defaults"
 	"github.com/gravitational/gravity/lib/httplib"
 	"github.com/gravitational/gravity/lib/ops/opsservice"
 	"github.com/gravitational/gravity/lib/pack"
@@ -66,15 +65,6 @@ func NewClusterEnvironment() (*ClusterEnvironment, error) {
 		return nil, trace.Wrap(err, "failed to connect to etcd")
 	}
 
-	dnsConfig := storage.DefaultDNSConfig
-	cluster, err := backend.GetLocalSite(defaults.SystemAccountID)
-	if err != nil && !trace.IsNotFound(err) {
-		return nil, trace.Wrap(err)
-	}
-	if cluster != nil {
-		dnsConfig = cluster.DNSConfig
-	}
-
 	packagesDir, err := SitePackagesDir()
 	if err != nil {
 		return nil, trace.Wrap(err)
@@ -99,7 +89,12 @@ func NewClusterEnvironment() (*ClusterEnvironment, error) {
 		return nil, trace.Wrap(err)
 	}
 
-	client, err := httplib.GetClusterKubeClient(dnsConfig.Addr())
+	dns, err := storage.GetClusterDNSConfig(backend)
+	if err != nil {
+		return nil, trace.Wrap(err)
+	}
+
+	client, err := httplib.GetClusterKubeClient(dns.Addr())
 	if err != nil {
 		log.Errorf("Failed to create Kubernetes client: %v.",
 			trace.DebugReport(err))
