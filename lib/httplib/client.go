@@ -3,7 +3,9 @@ package httplib
 import (
 	"context"
 	"crypto/tls"
+	"crypto/x509"
 	"fmt"
+	"io/ioutil"
 	"net"
 	"net/http"
 	"net/url"
@@ -105,6 +107,24 @@ func WithDialTimeout(t time.Duration) ClientOption {
 	}
 }
 
+func WithClientCert(cert tls.Certificate) ClientOption {
+	return func(c *http.Client) {
+		transport := c.Transport.(*http.Transport)
+		transport.TLSClientConfig.Certificates = append(transport.TLSClientConfig.Certificates, cert)
+	}
+}
+
+func WithCa(cert []byte) ClientOption {
+	return func(c *http.Client) {
+		transport := c.Transport.(*http.Transport)
+		if transport.TLSClientConfig.RootCAs == nil {
+			transport.TLSClientConfig.RootCAs = x509.NewCertPool()
+		}
+
+		transport.TLSClientConfig.RootCAs.AppendCertsFromPEM(cert)
+	}
+}
+
 // GetClient returns secure or insecure client based on settings
 func GetClient(insecure bool, options ...ClientOption) *http.Client {
 	var client *http.Client
@@ -118,12 +138,45 @@ func GetClient(insecure bool, options ...ClientOption) *http.Client {
 			},
 		}
 	} else {
-		client = &http.Client{Transport: &http.Transport{}}
+		client = &http.Client{Transport: &http.Transport{TLSClientConfig: &tls.Config{}}}
 	}
 	for _, o := range options {
 		o(client)
 	}
 	return client
+}
+
+func GetPlanetClient(options ...ClientOption) (*http.Client, error) {
+	stateDir, err := state.GetStateDir()
+	if err != nil {
+		return nil, trace.Wrap(err)
+	}
+
+	caFile := state.Secret(stateDir, defaults.RootCertFilename)
+	clientCertFile := state.Secret(stateDir, fmt.Sprint(constants.PlanetRpcKeyPair, ".", utils.CertSuffix))
+	clientKeyFile := state.Secret(stateDir, fmt.Sprint(constants.PlanetRpcKeyPair, ".", utils.KeySuffix))
+
+	// Load the CA of the server
+	ca, err := ioutil.ReadFile(caFile)
+	if err != nil {
+		return nil, trace.Wrap(err)
+	}
+	options = append(options, WithCa(ca))
+
+	// For backwards compatability, only add the client key file if it exists on disk
+	// TODO(knisbet) this fallback can be removed when we no longer suppor upgrades from 5.0
+	if _, err := os.Stat(clientKeyFile); !os.IsNotExist(err) {
+		// Load client cert/key
+		clientCert, err := tls.LoadX509KeyPair(clientCertFile, clientKeyFile)
+		if err != nil {
+			return nil, trace.Wrap(err)
+		}
+
+		options = append(options, WithClientCert(clientCert))
+	}
+
+	httpClient := GetClient(false, options...)
+	return httpClient, nil
 }
 
 type Dialer func(ctx context.Context, network, addr string) (net.Conn, error)

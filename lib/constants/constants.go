@@ -248,6 +248,9 @@ const (
 	ETCDKeyPair = "etcd"
 	// OpsCenterKeyPair is a name of key pair for OpsCenter
 	OpsCenterKeyPair = "ops"
+	// PlanetRPCKeyPair is a keypair for planet's RPC client for
+	// satellite monitoring and exchange
+	PlanetRpcKeyPair = "planet-rpc-client"
 
 	// ClusterAdminGroup is a group name for Kubernetes cluster amdin
 	ClusterAdminGroup = "system:masters"

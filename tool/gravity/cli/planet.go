@@ -2,12 +2,15 @@ package cli
 
 import (
 	"context"
+	"fmt"
 
+	"github.com/gravitational/gravity/lib/constants"
 	"github.com/gravitational/gravity/lib/defaults"
 	"github.com/gravitational/gravity/lib/localenv"
 	"github.com/gravitational/gravity/lib/schema"
 	libstatus "github.com/gravitational/gravity/lib/status"
 	"github.com/gravitational/gravity/lib/storage"
+	"github.com/gravitational/gravity/lib/utils"
 
 	"github.com/coreos/go-semver/semver"
 	"github.com/gravitational/trace"
@@ -55,12 +58,22 @@ func getPlanetStatus(env *localenv.LocalEnvironment, args []string) error {
 		return trace.Wrap(err)
 	}
 
-	certFile, err := localenv.InGravity(defaults.SecretsDir, "root.cert")
+	caFile, err := localenv.InGravity(defaults.SecretsDir, defaults.RootCertFilename)
+	if err != nil {
+		return trace.Wrap(err)
+	}
+	clientCertFile, err := localenv.InGravity(defaults.SecretsDir, fmt.Sprint(constants.PlanetRpcKeyPair, ".", utils.CertSuffix))
+	if err != nil {
+		return trace.Wrap(err)
+	}
+	clientKeyFile, err := localenv.InGravity(defaults.SecretsDir, fmt.Sprint(constants.PlanetRpcKeyPair, ".", utils.KeySuffix))
 	if err != nil {
 		return trace.Wrap(err)
 	}
 
-	args = append(args, "--cert-file", certFile)
+	args = append(args, "--ca-file", caFile)
+	args = append(args, "--client-cert-file", clientCertFile)
+	args = append(args, "--client-key-file", clientKeyFile)
 	return executePackageCommand(
 		env, "status", *planetPackage, planetConfigPackage, args)
 }
