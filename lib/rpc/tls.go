@@ -161,6 +161,21 @@ func ClientCredentialsFromKeyPairs(keys, caKeys authority.TLSKeyPair) (credentia
 	return creds, nil
 }
 
+// ClientCredentialsFromPackage reads client credentials from specified packages
+func ClientCredentialsFromPackage(packages pack.PackageService, secretsPackage loc.Locator) (credentials.TransportCredentials, error) {
+	_, reader, err := packages.ReadPackage(secretsPackage)
+	if err != nil {
+		return nil, trace.Wrap(err)
+	}
+	defer reader.Close()
+	tlsArchive, err := utils.ReadTLSArchive(reader)
+	if err != nil {
+		return nil, trace.Wrap(err)
+	}
+	return ClientCredentialsFromKeyPairs(*tlsArchive[pb.Client],
+		*tlsArchive[pb.CA])
+}
+
 // ServerCredentials loads server agent credentials from the specified location
 func ServerCredentials(secretsDir string) (credentials.TransportCredentials, error) {
 	serverCertPath := filepath.Join(secretsDir, fmt.Sprintf("%s.%s", pb.Server, pb.Cert))

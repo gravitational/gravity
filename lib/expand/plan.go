@@ -54,7 +54,7 @@ func (p *Peer) getOperationPlan(ctx operationContext) (*storage.OperationPlan, e
 		OperationType: ctx.Operation.Type,
 		AccountID:     ctx.Operation.AccountID,
 		ClusterName:   ctx.Operation.SiteDomain,
-		Servers:       builder.Nodes,
+		Servers:       builder.ClusterNodes,
 	}
 
 	// have cluster controller configure packages for the joining node
@@ -75,12 +75,28 @@ func (p *Peer) getOperationPlan(ctx operationContext) (*storage.OperationPlan, e
 	builder.AddSystemPhase(plan)
 
 	// when adding a master node, add it to the existing etcd cluster as a full member
-	if builder.Node.ClusterRole == string(schema.ServiceRoleMaster) {
+	if builder.JoiningNode.Master() {
+		// when adding a second master node, etcd cluster becomes unavailable
+		// from the moment the second member is added to the moment the planet
+		// on the joining node comes up
+		//
+		// if the planet fails to start, the cluster will stay unhealthy and a
+		// special rollback procedure will be required so we're starting an agent
+		// on the first master which will be used for recovery
+		if len(builder.ClusterNodes.Masters()) == 1 {
+			builder.AddStartAgentPhase(plan)
+		}
 		builder.AddEtcdPhase(plan)
 	}
 
 	// wait for the planet to start up and the new Kubernetes node to register
 	builder.AddWaitPhase(plan)
+
+	// everything has started correctly so if we started a recovery agent
+	// above, we don't need it anymore
+	if builder.JoiningNode.Master() && len(builder.ClusterNodes.Masters()) == 1 {
+		builder.AddStopAgentPhase(plan)
+	}
 
 	// apply labels and taints to the new Kubernetes node
 	builder.AddLabelPhase(plan)
@@ -91,7 +107,7 @@ func (p *Peer) getOperationPlan(ctx operationContext) (*storage.OperationPlan, e
 	}
 
 	// if added a master node, make sure it participates in leader election
-	if builder.Node.ClusterRole == string(schema.ServiceRoleMaster) {
+	if builder.JoiningNode.Master() {
 		builder.AddElectPhase(plan)
 	}
 

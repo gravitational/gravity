@@ -25,6 +25,7 @@ import (
 	"github.com/gravitational/gravity/lib/constants"
 	"github.com/gravitational/gravity/lib/defaults"
 	"github.com/gravitational/gravity/lib/loc"
+	"github.com/gravitational/gravity/lib/ops"
 	"github.com/gravitational/gravity/lib/schema"
 	"github.com/gravitational/gravity/lib/state"
 	"github.com/gravitational/gravity/lib/storage"
@@ -120,6 +121,31 @@ type DeployServer struct {
 	Hostname string
 	// NodeAddr is the server's address in teleport context
 	NodeAddr string
+}
+
+// NewDeployServer creates a new instance of DeployServer using teleport node information
+func NewDeployServer(ctx context.Context, node storage.Server, proxyClient *teleclient.ProxyClient) (*DeployServer, error) {
+	teleservers, err := proxyClient.FindServersByLabels(ctx, defaults.Namespace,
+		map[string]string{ops.AdvertiseIP: node.AdvertiseIP})
+	if err != nil {
+		return nil, trace.Wrap(err)
+	}
+	if len(teleservers) == 0 {
+		return nil, trace.NotFound("no teleport server found for %v", node)
+	}
+	// there should be at most a single server with the specified advertise IP
+	teleserver := teleservers[0]
+	role, ok := teleserver.GetLabels()[schema.ServiceLabelRole]
+	if !ok {
+		role = node.ClusterRole
+	}
+	advertiseIP := teleserver.GetLabels()[ops.AdvertiseIP]
+	return &DeployServer{
+		Role:        schema.ServiceRole(role),
+		Hostname:    teleserver.GetHostname(),
+		AdvertiseIP: advertiseIP,
+		NodeAddr:    teleserver.GetAddr(),
+	}, nil
 }
 
 func deployAgentOnNode(ctx context.Context, req DeployAgentsRequest, node, nodeStateDir string, leader bool, secretsPackage string) error {

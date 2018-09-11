@@ -625,6 +625,9 @@ const (
 	FailureMark = "×"
 	// InProgressMark is used in CLI to visually indicate that something's in progress
 	InProgressMark = "→"
+
+	// MasterRole is the name of the master node role
+	MasterRole = "master"
 )
 
 var (

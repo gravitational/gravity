@@ -1504,6 +1504,11 @@ func (s *Server) KubeNodeID() string {
 	return s.AdvertiseIP
 }
 
+// Master returns true if the server has a master role
+func (s *Server) Master() bool {
+	return s.ClusterRole == constants.MasterRole
+}
+
 // Hostnames returns a list of hostnames for the provided servers
 func Hostnames(servers []Server) (hostnames []string) {
 	for _, server := range servers {
@@ -1815,8 +1820,10 @@ var DefaultSubnets = Subnets{
 	Service: defaults.ServiceSubnet,
 }
 
+// Servers is a list of servers
 type Servers []Server
 
+// FindByIP returns a server with the specified IP
 func (r Servers) FindByIP(ip string) *Server {
 	for _, server := range r {
 		if server.AdvertiseIP == ip {
@@ -1824,6 +1831,16 @@ func (r Servers) FindByIP(ip string) *Server {
 		}
 	}
 	return nil
+}
+
+// Masters returns a list of master nodes
+func (r Servers) Masters() (masters []Server) {
+	for _, server := range r {
+		if server.Master() {
+			masters = append(masters, server)
+		}
+	}
+	return
 }
 
 type AgentProfile struct {

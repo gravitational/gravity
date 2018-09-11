@@ -30,12 +30,10 @@ import (
 	"github.com/gravitational/gravity/lib/fsm"
 	"github.com/gravitational/gravity/lib/loc"
 	"github.com/gravitational/gravity/lib/localenv"
-	"github.com/gravitational/gravity/lib/ops"
 	"github.com/gravitational/gravity/lib/pack"
 	"github.com/gravitational/gravity/lib/rpc"
 	pb "github.com/gravitational/gravity/lib/rpc/proto"
 	rpcserver "github.com/gravitational/gravity/lib/rpc/server"
-	"github.com/gravitational/gravity/lib/schema"
 	"github.com/gravitational/gravity/lib/storage"
 	"github.com/gravitational/gravity/lib/update"
 	"github.com/gravitational/gravity/lib/utils"
@@ -187,30 +185,15 @@ func verifyCluster(
 	servers = make([]rpc.DeployServer, 0, len(servers))
 
 	for _, server := range clusterState.Servers {
-		teleservers, err := proxy.FindServersByLabels(
-			ctx, defaults.Namespace, map[string]string{ops.AdvertiseIP: server.AdvertiseIP})
-		if err != nil {
+		deployServer, err := rpc.NewDeployServer(ctx, server, proxy)
+		if err != nil && !trace.IsNotFound(err) {
 			return nil, trace.Wrap(err)
 		}
-		if len(teleservers) == 0 {
+		if trace.IsNotFound(err) {
 			missing = append(missing, server.Hostname)
+		} else {
+			servers = append(servers, *deployServer)
 		}
-		if len(missing) != 0 {
-			continue
-		}
-		// There should be at most a single server with the specified advertise IP
-		teleserver := teleservers[0]
-		role, ok := teleserver.GetLabels()[schema.ServiceLabelRole]
-		if !ok {
-			role = server.ClusterRole
-		}
-		advertiseIP := teleserver.GetLabels()[ops.AdvertiseIP]
-		servers = append(servers, rpc.DeployServer{
-			Role:        schema.ServiceRole(role),
-			Hostname:    teleserver.GetHostname(),
-			AdvertiseIP: advertiseIP,
-			NodeAddr:    teleserver.GetAddr(),
-		})
 	}
 	if len(missing) != 0 {
 		return nil, trace.NotFound(

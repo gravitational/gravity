@@ -19,6 +19,8 @@ package phases
 import (
 	"context"
 	"fmt"
+	"os"
+	"path/filepath"
 
 	"github.com/gravitational/gravity/lib/clients"
 	"github.com/gravitational/gravity/lib/constants"
@@ -28,6 +30,7 @@ import (
 	"github.com/gravitational/gravity/lib/schema"
 	"github.com/gravitational/gravity/lib/state"
 	"github.com/gravitational/gravity/lib/storage"
+	"github.com/gravitational/gravity/lib/utils"
 
 	etcd "github.com/coreos/etcd/client"
 	"github.com/gravitational/trace"
@@ -65,6 +68,7 @@ func NewEtcd(p fsm.ExecutorParams, operator ops.Operator) (*etcdExecutor, error)
 		}),
 		Key:      opKey(p.Plan),
 		Operator: operator,
+		// TODO add server
 	}
 	return &etcdExecutor{
 		FieldLogger:    logger,
@@ -108,6 +112,74 @@ func (*etcdExecutor) PreCheck(ctx context.Context) error {
 // PostCheck is no-op for this phase
 func (*etcdExecutor) PostCheck(ctx context.Context) error {
 	return nil
+}
+
+// NewEtcdBackup returns executor that backs up etcd data
+func NewEtcdBackup(p fsm.ExecutorParams, operator ops.Operator) (*etcdBackupExecutor, error) {
+	logger := &fsm.Logger{
+		FieldLogger: logrus.WithFields(logrus.Fields{
+			constants.FieldInstallPhase: p.Phase.ID,
+		}),
+		Key:      opKey(p.Plan),
+		Operator: operator,
+		Server:   p.Phase.Data.Server,
+	}
+	return &etcdBackupExecutor{
+		FieldLogger:    logger,
+		ExecutorParams: p,
+	}, nil
+}
+
+type etcdBackupExecutor struct {
+	// FieldLogger is used for logging
+	logrus.FieldLogger
+	// ExecutorParams is common executor params
+	fsm.ExecutorParams
+}
+
+// Execute backs up etcd data on the node
+func (p *etcdBackupExecutor) Execute(ctx context.Context) error {
+	p.Progress.NextStep("Backing up etcd data")
+	backupPath, err := ensureBackupPath(p.Plan.OperationID)
+	if err != nil {
+		return trace.Wrap(err)
+	}
+	out, err := utils.RunPlanetCommand(ctx, p.FieldLogger, "etcd", "backup", backupPath)
+	if err != nil {
+		return trace.Wrap(err, "failed to backup etcd data: %s", out)
+	}
+	p.Infof("Backed up etcd data to %v.", backupPath)
+	return nil
+}
+
+// Rollback is no-op for this phase
+func (p *etcdBackupExecutor) Rollback(ctx context.Context) error {
+	return nil
+}
+
+// PreCheck is no-op for this phase
+func (*etcdBackupExecutor) PreCheck(ctx context.Context) error {
+	return nil
+}
+
+// PostCheck is no-op for this phase
+func (*etcdBackupExecutor) PostCheck(ctx context.Context) error {
+	return nil
+}
+
+// ensureBackupPath returns etcd data backup path for the provided operation
+// making sure that the directory where it's located exists
+func ensureBackupPath(operationID string) (string, error) {
+	backupDir, err := state.BackupDir()
+	if err != nil {
+		return "", trace.Wrap(err)
+	}
+	err = os.MkdirAll(backupDir, defaults.SharedDirMask)
+	if err != nil {
+		return "", trace.Wrap(err)
+	}
+	return filepath.Join(backupDir,
+		fmt.Sprintf("join-%v.backup", operationID)), nil
 }
 
 func opKey(plan storage.OperationPlan) ops.SiteOperationKey {

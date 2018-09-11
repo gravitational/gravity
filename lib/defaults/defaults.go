@@ -367,6 +367,9 @@ const (
 	// StateRegistryDir is the name of the docker registry directory inside the planet state directory
 	StateRegistryDir = "registry"
 
+	// BackupDir is the directory where some internal backups are stored
+	BackupDir = "backup"
+
 	// ResourcesFile is the default name of the file with application k8s resources
 	ResourcesFile = "resources.yaml"
 

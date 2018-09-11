@@ -42,10 +42,12 @@ type planBuilder struct {
 	TeleportPackage loc.Locator
 	// PlanetPackage is the planet package to install
 	PlanetPackage loc.Locator
-	// Node is the node that's joining to the cluster
-	Node storage.Server
-	// Nodes is the list of existing cluster nodes
-	Nodes []storage.Server
+	// JoiningNode is the node that's joining to the cluster
+	JoiningNode storage.Server
+	// ClusterNodes is the list of existing cluster nodes
+	ClusterNodes storage.Servers
+	// Master is one of the cluster's existing master nodes
+	Master storage.Server
 	// AdminAgent is the cluster agent with admin privileges
 	AdminAgent storage.LoginEntry
 	// RegularAgent is the cluster agent with non-admin privileges
@@ -60,7 +62,7 @@ func (b *planBuilder) AddConfigurePhase(plan *storage.OperationPlan) {
 		ID:          installphases.ConfigurePhase,
 		Description: "Configure packages for the joining node",
 		Data: &storage.OperationPhaseData{
-			ExecServer: &b.Node,
+			ExecServer: &b.JoiningNode,
 		},
 		Step: 1,
 	})
@@ -69,15 +71,15 @@ func (b *planBuilder) AddConfigurePhase(plan *storage.OperationPlan) {
 // AddBootstrapPhase appends local node bootstrap phase to the plan
 func (b *planBuilder) AddBootstrapPhase(plan *storage.OperationPlan) {
 	agent := &b.AdminAgent
-	if b.Node.ClusterRole != string(schema.ServiceRoleMaster) {
+	if !b.JoiningNode.Master() {
 		agent = &b.RegularAgent
 	}
 	plan.Phases = append(plan.Phases, storage.OperationPhase{
 		ID:          installphases.BootstrapPhase,
 		Description: "Bootstrap the joining node",
 		Data: &storage.OperationPhaseData{
-			Server:      &b.Node,
-			ExecServer:  &b.Node,
+			Server:      &b.JoiningNode,
+			ExecServer:  &b.JoiningNode,
 			Package:     &b.Application.Package,
 			Agent:       agent,
 			ServiceUser: &b.ServiceUser,
@@ -92,8 +94,8 @@ func (b *planBuilder) AddPullPhase(plan *storage.OperationPlan) {
 		ID:          installphases.PullPhase,
 		Description: "Pull packages on the joining node",
 		Data: &storage.OperationPhaseData{
-			Server:      &b.Node,
-			ExecServer:  &b.Node,
+			Server:      &b.JoiningNode,
+			ExecServer:  &b.JoiningNode,
 			Package:     &b.Application.Package,
 			ServiceUser: &b.ServiceUser,
 		},
@@ -108,7 +110,7 @@ func (b *planBuilder) AddPreHookPhase(plan *storage.OperationPlan) {
 		ID:          PreHookPhase,
 		Description: fmt.Sprintf("Execute the application's %v hook", schema.HookNodeAdding),
 		Data: &storage.OperationPhaseData{
-			ExecServer:  &b.Node,
+			ExecServer:  &b.JoiningNode,
 			Package:     &b.Application.Package,
 			ServiceUser: &b.ServiceUser,
 		},
@@ -128,27 +130,57 @@ func (b *planBuilder) AddSystemPhase(plan *storage.OperationPlan) {
 				Description: fmt.Sprintf("Install system package %v:%v",
 					b.TeleportPackage.Name, b.TeleportPackage.Version),
 				Data: &storage.OperationPhaseData{
-					Server:     &b.Node,
-					ExecServer: &b.Node,
+					Server:     &b.JoiningNode,
+					ExecServer: &b.JoiningNode,
 					Package:    &b.TeleportPackage,
 				},
 				Requires: []string{installphases.PullPhase},
-				Step:     6,
+				Step:     5,
 			},
 			{
 				ID: fmt.Sprintf("%v/planet", SystemPhase),
 				Description: fmt.Sprintf("Install system package %v:%v",
 					b.PlanetPackage.Name, b.PlanetPackage.Version),
 				Data: &storage.OperationPhaseData{
-					Server:     &b.Node,
-					ExecServer: &b.Node,
+					Server:     &b.JoiningNode,
+					ExecServer: &b.JoiningNode,
 					Package:    &b.PlanetPackage,
 					Labels:     pack.RuntimePackageLabels,
 				},
 				Requires: []string{installphases.PullPhase},
-				Step:     7,
+				Step:     6,
 			},
 		},
+	})
+}
+
+// AddStartAgentPhase appends phase that starts agent on a master node
+func (b *planBuilder) AddStartAgentPhase(plan *storage.OperationPlan) {
+	plan.Phases = append(plan.Phases, storage.OperationPhase{
+		ID: StartAgentPhase,
+		Description: fmt.Sprintf("Start RPC agent on the master node %v",
+			b.ClusterNodes[0].AdvertiseIP),
+		Data: &storage.OperationPhaseData{
+			ExecServer: &b.JoiningNode,
+			Server:     &b.Master,
+		},
+		Requires: []string{SystemPhase},
+		Step:     7,
+	})
+}
+
+// AddEtcdBackupPhase appends etcd data backup phase to the plan
+func (b *planBuilder) AddEtcdBackupPhase(plan *storage.OperationPlan) {
+	plan.Phases = append(plan.Phases, storage.OperationPhase{
+		ID: EtcdBackupPhase,
+		Description: fmt.Sprintf("Backup etcd data on the master node %v",
+			b.Master.AdvertiseIP),
+		Data: &storage.OperationPhaseData{
+			Server:     &b.Master,
+			ExecServer: &b.Master,
+		},
+		Requires: []string{StartAgentPhase},
+		Step:     8,
 	})
 }
 
@@ -158,11 +190,11 @@ func (b *planBuilder) AddEtcdPhase(plan *storage.OperationPlan) {
 		ID:          EtcdPhase,
 		Description: "Add the joining node to the etcd cluster",
 		Data: &storage.OperationPhaseData{
-			Server:     &b.Node,
-			ExecServer: &b.Node,
+			Server:     &b.JoiningNode,
+			ExecServer: &b.JoiningNode,
 		},
-		Requires: []string{SystemPhase},
-		Step:     5,
+		Requires: fsm.RequireIfPresent(plan, SystemPhase, EtcdBackupPhase),
+		Step:     8,
 	})
 }
 
@@ -176,23 +208,38 @@ func (b *planBuilder) AddWaitPhase(plan *storage.OperationPlan) {
 				ID:          WaitPlanetPhase,
 				Description: "Wait for the planet to start",
 				Data: &storage.OperationPhaseData{
-					Server:     &b.Node,
-					ExecServer: &b.Node,
+					Server:     &b.JoiningNode,
+					ExecServer: &b.JoiningNode,
 				},
 				Requires: fsm.RequireIfPresent(plan, SystemPhase, EtcdPhase),
-				Step:     8,
+				Step:     9,
 			},
 			{
 				ID:          WaitK8sPhase,
 				Description: "Wait for the node to join Kubernetes cluster",
 				Data: &storage.OperationPhaseData{
-					Server:     &b.Node,
-					ExecServer: &b.Node,
+					Server:     &b.JoiningNode,
+					ExecServer: &b.JoiningNode,
 				},
 				Requires: []string{WaitPlanetPhase},
-				Step:     9,
+				Step:     10,
 			},
 		},
+	})
+}
+
+// AddStopAgentPhase appends phase that stops RPC agent on a master node
+func (b *planBuilder) AddStopAgentPhase(plan *storage.OperationPlan) {
+	plan.Phases = append(plan.Phases, storage.OperationPhase{
+		ID: StopAgentPhase,
+		Description: fmt.Sprintf("Stop RPC agent on the master node %v",
+			b.Master.AdvertiseIP),
+		Data: &storage.OperationPhaseData{
+			ExecServer: &b.JoiningNode,
+			Server:     &b.Master,
+		},
+		Requires: []string{installphases.WaitPhase},
+		Step:     11,
 	})
 }
 
@@ -202,12 +249,12 @@ func (b *planBuilder) AddLabelPhase(plan *storage.OperationPlan) {
 		ID:          installphases.LabelPhase,
 		Description: "Label and taint the joined Kubernetes node",
 		Data: &storage.OperationPhaseData{
-			Server:     &b.Node,
-			ExecServer: &b.Node,
+			Server:     &b.JoiningNode,
+			ExecServer: &b.JoiningNode,
 			Package:    &b.Application.Package,
 		},
 		Requires: []string{WaitK8sPhase},
-		Step:     10,
+		Step:     12,
 	})
 }
 
@@ -217,12 +264,12 @@ func (b *planBuilder) AddPostHookPhase(plan *storage.OperationPlan) {
 		ID:          PostHookPhase,
 		Description: fmt.Sprintf("Execute the application's %v hook", schema.HookNodeAdded),
 		Data: &storage.OperationPhaseData{
-			ExecServer:  &b.Node,
+			ExecServer:  &b.JoiningNode,
 			Package:     &b.Application.Package,
 			ServiceUser: &b.ServiceUser,
 		},
 		Requires: []string{installphases.WaitPhase},
-		Step:     11,
+		Step:     13,
 	})
 }
 
@@ -232,11 +279,11 @@ func (b *planBuilder) AddElectPhase(plan *storage.OperationPlan) {
 		ID:          ElectPhase,
 		Description: "Enable leader election on the joined node",
 		Data: &storage.OperationPhaseData{
-			Server:     &b.Node,
-			ExecServer: &b.Node,
+			Server:     &b.JoiningNode,
+			ExecServer: &b.JoiningNode,
 		},
 		Requires: []string{installphases.WaitPhase},
-		Step:     12,
+		Step:     14,
 	})
 }
 
@@ -291,8 +338,9 @@ func (p *Peer) getPlanBuilder(ctx operationContext) (*planBuilder, error) {
 		Runtime:         *runtime,
 		TeleportPackage: *teleportPackage,
 		PlanetPackage:   *planetPackage,
-		Node:            operation.Servers[0],
-		Nodes:           ctx.Site.ClusterState.Servers,
+		JoiningNode:     operation.Servers[0],
+		ClusterNodes:    storage.Servers(ctx.Site.ClusterState.Servers),
+		Master:          storage.Servers(ctx.Site.ClusterState.Servers).Masters()[0],
 		AdminAgent:      *adminAgent,
 		RegularAgent:    *regularAgent,
 		ServiceUser:     ctx.Site.ServiceUser,

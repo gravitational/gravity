@@ -162,8 +162,7 @@ func (g *operationGroup) canCreateExpandOperation(site ops.Site, operation ops.S
 
 	// now check the opposite use-case: if we're about to add a master,
 	// it has to be the only operation running
-	for _, server := range operation.Servers {
-		profile := operation.InstallExpand.Profiles[server.Role]
+	for _, profile := range operation.InstallExpand.Profiles {
 		switch profile.ServiceRole {
 		case string(schema.ServiceRoleMaster):
 			// the joining node wants to be a master

@@ -59,6 +59,19 @@ func FSMSpec(config FSMConfig) fsm.FSMSpecFunc {
 				config.Apps,
 				schema.HookNodeAdding)
 
+		case strings.HasPrefix(p.Phase.ID, StartAgentPhase):
+			return phases.NewAgentStart(p,
+				config.Operator)
+
+		case strings.HasPrefix(p.Phase.ID, StopAgentPhase):
+			return phases.NewAgentStop(p,
+				config.Operator,
+				config.Packages)
+
+		case strings.HasPrefix(p.Phase.ID, EtcdBackupPhase):
+			return phases.NewEtcdBackup(p,
+				config.Operator)
+
 		case strings.HasPrefix(p.Phase.ID, EtcdPhase):
 			return phases.NewEtcd(p,
 				config.Operator)
@@ -99,7 +112,9 @@ func FSMSpec(config FSMConfig) fsm.FSMSpecFunc {
 
 const (
 	// PreHookPhase runs pre-expand application hook
-	PreHookPhase = "/prehook"
+	PreHookPhase = "/preHook"
+	// EtcdBackupPhase backs up etcd data on a master node
+	EtcdBackupPhase = "/etcdBackup"
 	// EtcdPhase adds joining node to cluster's etcd cluster
 	EtcdPhase = "/etcd"
 	// SystemPhase installs system software on the joining node
@@ -109,7 +124,11 @@ const (
 	// WaitK8sPhase waits for joining node to register with Kubernetes
 	WaitK8sPhase = "/wait/k8s"
 	// PostHookPhase runs post-expand application hook
-	PostHookPhase = "/posthook"
+	PostHookPhase = "/postHook"
 	// ElectPhase enables leader election on master node
 	ElectPhase = "/elect"
+	// StartAgentPhase starts RPC agent
+	StartAgentPhase = "/startAgent"
+	// StopAgentPhase stops RPC agent
+	StopAgentPhase = "/stopAgent"
 )
