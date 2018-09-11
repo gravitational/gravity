@@ -100,8 +100,23 @@ func (p *etcdExecutor) Execute(ctx context.Context) error {
 
 // Rollback removes the joined node from the cluster's etcd cluster
 func (p *etcdExecutor) Rollback(ctx context.Context) error {
-	// TODO Implement rollback
-	return trace.NotImplemented("implement me!")
+	p.Progress.NextStep("Restoring etcd data")
+	backupPath, err := getBackupPath(p.Plan.OperationID)
+	if err != nil {
+		return trace.Wrap(err)
+	}
+	_, err = utils.StatFile(backupPath) // make sure backup exists
+	if err != nil {
+		return trace.Wrap(err, "etcd backup %v does not exist", backupPath)
+	}
+	// TODO take another backup just in case
+	out, err := utils.RunPlanetCommand(ctx, p.FieldLogger, defaults.SystemctlBin, "stop", "etcd")
+	if err != nil {
+		return trace.Wrap(err, "failed to backup etcd data: %s", out)
+	}
+
+	p.Infof("Restored etcd data.")
+	return nil
 }
 
 // PreCheck is no-op for this phase
@@ -140,7 +155,7 @@ type etcdBackupExecutor struct {
 // Execute backs up etcd data on the node
 func (p *etcdBackupExecutor) Execute(ctx context.Context) error {
 	p.Progress.NextStep("Backing up etcd data")
-	backupPath, err := ensureBackupPath(p.Plan.OperationID)
+	backupPath, err := getBackupPath(p.Plan.OperationID)
 	if err != nil {
 		return trace.Wrap(err)
 	}
@@ -167,9 +182,9 @@ func (*etcdBackupExecutor) PostCheck(ctx context.Context) error {
 	return nil
 }
 
-// ensureBackupPath returns etcd data backup path for the provided operation
+// getBackupPath returns etcd data backup path for the provided operation
 // making sure that the directory where it's located exists
-func ensureBackupPath(operationID string) (string, error) {
+func getBackupPath(operationID string) (string, error) {
 	backupDir, err := state.BackupDir()
 	if err != nil {
 		return "", trace.Wrap(err)
