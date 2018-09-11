@@ -5,7 +5,13 @@ The gravity terraform provider is used to support terraform management of openso
 ## Getting Started
 
 ### Install the Gravity provider
-TODO(knisbet)
+The terraform provider will be automatically installed when getting the telekube tools.
+
+```
+curl https://get.gravitational.io/telekube/install/5.0.23 | bash
+```
+
+Please see the [getting started guide](https://gravitational.com/telekube/docs/quickstart/#getting-the-tools) for more information.
 
 ### Example Usage
 
@@ -25,7 +31,7 @@ resource "gravity_log_forwarder" "logs" {
 ### Authentication
 The terraform provider uses token based authentication which must be provisioned to the cluster before being used. 
 
-See TODO(knisbet)
+See [Configuring Users & Tokens](https://gravitational.com/telekube/docs/cluster/#configuring-users-tokens) for more information
 
 ## gravity_cluster_auth_preference
 Configures authentication preferences for authenticating users on the cluster.
@@ -52,8 +58,8 @@ The following arguments are supported:
     - otp: Use TOTP based second factor authentication.
     - u2f: Use U2F based second factor authentication.
 * `connector_name` - (Optional) The name of the OIDC or SAML connector to use for providing identity. If left blank, the first provider will be used.
-* `u2f_appid` - (Optional) TODO(knisbet)
-* `u2f_facets` - (Optional) A list of TODO(knisbet)
+* `u2f_appid` - (Optional) The application ID of the cluster. See [the teleport documents](https://gravitational.com/teleport/docs/admin-guide/#fido-u2f) for more information.
+* `u2f_facets` - (Optional) A list of facets for U2F authentication. See [the teleport documents](https://gravitational.com/teleport/docs/admin-guide/#fido-u2f) for more information.
 
 ## gravity_github
 Configures the cluster to allow authentication using github as an identity provider.
@@ -264,11 +270,6 @@ The following arguments are supported:
 * `name` - An email address style username.
 * `full_name` - (Optional) A friendly name for the user.
 * `password` - (Optional) A password to provision for the user.
-* `type` - The type of account.
-    - agent - A restricted user used during OpsCenter operations.
-    - admin - A user with maximum permissions.
-    - regular - A standard interactive user .
-    TODO(knisbet) can these description be any more vague????
 * `roles` - A customized list of roles.
 
 
@@ -277,8 +278,14 @@ The telekube terraform provider is used to support terraform management of resou
 
 ## Getting Started
 
-### Install the Gravity provider
-TODO(knisbet)
+### Install the Telekube provider
+The terraform provider will be automatically installed when getting the telekube tools.
+
+```
+curl https://get.gravitational.io/telekube/install/5.0.23 | bash
+```
+
+Please see the [getting started guide](https://gravitational.com/telekube/docs/quickstart/#getting-the-tools) for more information.
 
 ### Example Usage
 
@@ -309,7 +316,8 @@ resource "telekube_oidc" "test" {
 ### Authentication
 The terraform provider uses token based authentication which must be provisioned to the cluster before being used. 
 
-See TODO(knisbet)
+See [Configuring Users & Tokens](https://gravitational.com/telekube/docs/cluster/#configuring-users-tokens) for more information
+
 
 ## telekube_endpoints
 By default an Ops Center is configured with a single endpoint set via `--ops-advertise-addr` flag passed during installation. This configuration allows creating separate endpoints for cluster management and inter-cluster communications that can be firewalled separately.
@@ -356,7 +364,7 @@ The following arguments are supported:
 * `display` - (Optional) The display name of the connector as shown in the UI.
 * `redirect_url` - The url on the telekube cluster that will process the OpenID callback. Should be in the format https://<cluster-hostname>/portalapi/v1/oidc/callback.
 * `acr` - Authentication Context Class Reference value. The meaning of the ACR value is context-specific and varies for identity providers.
-* `identity_provider` - (Optional) TODO(knisbet)
+* `identity_provider` - (Optional)
 * `client_id` - Is the client-id used by the identity provider.
 * `client_secret` - Is the secret used to authenticate with the identity provider.
 * `issuer_url` - Is the url of the identity provider to direct users to.
@@ -365,14 +373,6 @@ The following arguments are supported:
     - `claim` - OIDC claim name.
     - `value` - OIDC claim value to match.
     - `roles` - (Optional) A list of static roles to assign the user on login.
-    - `role_template` - Is a dictionary for generating a role that will be filled with claims from OIDC TODO(knisbet) how to use the role template
-        - `name` - 
-        - `max_session_ttl` -
-        - `logins` -
-        - `node_labels` -
-        - `namespaces` -
-        - `resources` -
-        - `forward_agent` - 
 
 ## telekube_role
 Roles can be used to tune access permissions to the cluster.
@@ -397,25 +397,7 @@ resource "telekube_role" "admin" {
 }
 ```
 
-User level access to a cluster:
-TODO(knisbet) how to actually do this correctly with RoleV3?
-```
-resource "telekube_role" "user" {
-  name = "user"
-  
-  allow {
-    logins = ["guest"]
-    namespaces = ["default"]
-    node_labels = { 
-      "*"= "*" 
-    }
-    rule {
-      resources = ["*"]
-      verbs = ["*"]
-    }
-  }
-}
-```
+See [the teleport documents](https://gravitational.com/teleport/docs/ssh_adfs/#create-teleport-roles) for more information.
 
 ### Argument Reference
 The following arguments are supported:
@@ -426,7 +408,6 @@ The following arguments are supported:
 * `forward_agent` - Enable ssh agent forwarding for tsh sessions. Default: false
 * `allow` - Map of allowed conditions for this role.
     - `logins` - List of logins that the user can login as.
-    - `namespaces` - TODO(knisbet) how do we use namespaces in the role context?
     - `node_labels` - Map of key=value pairs that identify nodes user is able to access via tsh.
     - `rule` - A map of rules to apply to the condition. Multiple rules can be created.
         - `resources` - A list of resources that this rule applies to:
@@ -453,13 +434,12 @@ The following arguments are supported:
             - readnosecrets - Can read a single object without secrets.
             - update - Can update a single object.
             - delete - Can remove an object.
-        - `where` - TODO(knisbet) how to specify a where condition??
+        - `where` - 
         - `actions` - A list of optional actions taken when a rule matches. Valid options are:
             - log - emits an entry when specified rule matches.
             - assignKubernetesGroups - assigns specified kubernetes groups to the role.
 * `deny` - Map of deny conditions for this role.
     - `logins` - List of logins that the user can login as.
-    - `namespaces` - TODO(knisbet) how do we use namespaces in the role context?
     - `node_labels` - Map of key=value pairs that identify nodes user is able to access via tsh.
     - `rule` - A map of rules to apply to the condition. Multiple rules can be created.
         - `resources` - A list of resources that this rule applies to:
@@ -486,9 +466,10 @@ The following arguments are supported:
             - readnosecrets - Can read a single object without secrets.
             - update - Can update a single object.
             - delete - Can remove an object.
-        - `where` - TODO(knisbet) how to specify a where condition??
+        - `where` - 
         - `actions` - A list of optional actions taken when a rule matches. Valid options are:
-            - `log` - TODO(knisbet) ???
+            - log - emits an entry when specified rule matches.
+            - assignKubernetesGroups - assigns specified kubernetes groups to the role.
 
 ## telekube_saml
 Enables using SAML as an identity provider for cluster logins.
@@ -525,14 +506,6 @@ The following arguments are supported:
     - `name` - claim name.
     - `value` - claim value to match.
     - `roles` - (Optional) A list of static roles to assign the user on login.
-    - `role_template` - Is a dictionary for generating a role that will be filled with claims from OIDC TODO(knisbet) how to use the role template
-        - `name` - 
-        - `max_session_ttl` -
-        - `logins` -
-        - `node_labels` -
-        - `namespaces` -
-        - `resources` -
-        - `forward_agent` - 
 * `signing_key` - (Optional) Cert used to sign AuthnRequest
 * `signing_cert` - (Optional) Key used to sign AuthnRequest
 * `identity_provider` - (Optional) is the external identity provider.
