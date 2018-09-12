@@ -18,11 +18,6 @@ variable "cpu_count" {
   default = "1"
 }
 
-variable "username" {
-  type = "string"
-  default = "ubuntu"
-}
-
 # Initialize the provider
 provider "libvirt" {
   uri = "qemu:///system"
@@ -67,9 +62,6 @@ resource "libvirt_cloudinit" "commoninit" {
     packages: [python, curl, htop, iotop, lsof, ltrace, mc, net-tools, strace, tcpdump, telnet, vim, wget, ntp, traceroute, bash-completion]
     ssh_authorized_keys: ["${file("ssh/key.pub")}"]
     write_files:
-    - content: "${var.username} ALL=(ALL) NOPASSWD:ALL"
-      path: /etc/sudoers.d/${var.username}
-      permissions: '0400'
     - content: "br_netfilter"
       path: /etc/modules-load.d/br_netfilter.conf
     - content: "ebtables"
