@@ -19,6 +19,7 @@ package utils
 import (
 	"os"
 
+	"github.com/gravitational/gravity/lib/constants"
 	"github.com/gravitational/trace"
 )
 
@@ -43,6 +44,12 @@ func PlanetCommand(cmd Command) []string {
 // The command is using the path of the currently running process for the fork call.
 func PlanetCommandSlice(args []string, gravityArgs ...string) []string {
 	return Exe.PlanetCommandSlice(args, gravityArgs...)
+}
+
+// PlanetEnterCommand returns command that runs in planet using gravity from path
+func PlanetEnterCommand(args ...string) []string {
+	return append([]string{constants.GravityBin, "planet", "enter",
+		"--", "--notty", args[0], "--"}, args[1:]...)
 }
 
 // Exe is the Executable for the currently running gravity binary

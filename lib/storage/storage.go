@@ -1008,7 +1008,7 @@ type LoginEntry struct {
 	// Created is when the entry was created
 	Created time.Time `yaml:"created"`
 	// Tags adds extra information about the login entry
-	Tags []string `yaml:"tags"`
+	Tags []string `yaml:"tags"` // TODO REMOVE THIS
 }
 
 func (l *LoginEntry) Check() error {

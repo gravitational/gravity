@@ -84,8 +84,8 @@ const (
 	FieldAdvertiseIP = "advertise-ip"
 	// FieldHostname is the log field with node hostname
 	FieldHostname = "hostname"
-	// FieldInstallPhase is the log field with install phase name
-	FieldInstallPhase = "install-phase"
+	// FieldInstallPhase is the log field with phase name
+	FieldInstallPhase = "phase"
 	// FieldMode is the log field with the process mode (cluster/opscenter)
 	FieldMode = "mode"
 	// FieldDir is the log field that contains a directory path which meaning

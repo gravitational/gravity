@@ -22,12 +22,15 @@ import (
 	"github.com/gravitational/gravity/lib/clients"
 	"github.com/gravitational/gravity/lib/constants"
 	"github.com/gravitational/gravity/lib/fsm"
+	"github.com/gravitational/gravity/lib/httplib"
 	"github.com/gravitational/gravity/lib/loc"
 	"github.com/gravitational/gravity/lib/ops"
+	"github.com/gravitational/gravity/lib/ops/opsclient"
 	"github.com/gravitational/gravity/lib/pack"
 	"github.com/gravitational/gravity/lib/rpc"
 	"github.com/gravitational/gravity/lib/storage"
 
+	"github.com/gravitational/roundtrip"
 	"github.com/gravitational/teleport/lib/client"
 	"github.com/gravitational/trace"
 	"github.com/sirupsen/logrus"
@@ -42,13 +45,8 @@ func NewAgentStart(p fsm.ExecutorParams, operator ops.Operator) (*agentStartExec
 		Key:      opKey(p.Plan),
 		Operator: operator,
 	}
-	proxyClient, err := clients.TeleportProxy(operator, p.Phase.Data.Server.AdvertiseIP)
-	if err != nil {
-		return nil, trace.Wrap(err)
-	}
 	return &agentStartExecutor{
 		FieldLogger:    logger,
-		TeleportProxy:  proxyClient,
 		Master:         *p.Phase.Data.Server,
 		Operator:       operator,
 		ExecutorParams: p,
@@ -58,8 +56,6 @@ func NewAgentStart(p fsm.ExecutorParams, operator ops.Operator) (*agentStartExec
 type agentStartExecutor struct {
 	// FieldLogger is used for logging
 	logrus.FieldLogger
-	// TeleportProxy is teleport proxy client
-	TeleportProxy *client.ProxyClient
 	// Master is the master node where the agent is deployed
 	Master storage.Server
 	// Operator is the cluster operator service
@@ -70,7 +66,11 @@ type agentStartExecutor struct {
 
 // Execute starts an RPC agent on a node
 func (p *agentStartExecutor) Execute(ctx context.Context) error {
-	deployServer, err := rpc.NewDeployServer(ctx, p.Master, p.TeleportProxy)
+	proxyClient, err := p.getProxyClient()
+	if err != nil {
+		return trace.Wrap(err)
+	}
+	deployServer, err := rpc.NewDeployServer(ctx, p.Master, proxyClient)
 	if err != nil {
 		return trace.Wrap(err)
 	}
@@ -87,7 +87,7 @@ func (p *agentStartExecutor) Execute(ctx context.Context) error {
 		ClusterState:   cluster.ClusterState,
 		GravityPackage: *gravityPackage,
 		SecretsPackage: loc.RPCSecrets,
-		Proxy:          p.TeleportProxy,
+		Proxy:          proxyClient,
 		FieldLogger:    p.FieldLogger,
 	})
 	if err != nil {
@@ -95,6 +95,19 @@ func (p *agentStartExecutor) Execute(ctx context.Context) error {
 	}
 	p.Infof("Deployed agent on master node %v.", p.Master.AdvertiseIP)
 	return nil
+}
+
+func (p *agentStartExecutor) getProxyClient() (*client.ProxyClient, error) {
+	operator, err := opsclient.NewBearerClient(p.Phase.Data.Agent.OpsCenterURL,
+		p.Phase.Data.Agent.Password, roundtrip.HTTPClient(httplib.GetClient(true)))
+	if err != nil {
+		return nil, trace.Wrap(err)
+	}
+	proxyClient, err := clients.TeleportProxy(operator, p.Phase.Data.Server.AdvertiseIP)
+	if err != nil {
+		return nil, trace.Wrap(err)
+	}
+	return proxyClient, nil
 }
 
 // Rollback is no-op for this phase

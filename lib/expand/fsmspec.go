@@ -31,8 +31,6 @@ import (
 func FSMSpec(config FSMConfig) fsm.FSMSpecFunc {
 	return func(p fsm.ExecutorParams, remote fsm.Remote) (fsm.PhaseExecutor, error) {
 		switch {
-		// TODO add prechecks phase
-
 		case strings.HasPrefix(p.Phase.ID, installphases.ConfigurePhase):
 			return installphases.NewConfigure(p,
 				config.Operator)
@@ -70,11 +68,13 @@ func FSMSpec(config FSMConfig) fsm.FSMSpecFunc {
 
 		case strings.HasPrefix(p.Phase.ID, EtcdBackupPhase):
 			return phases.NewEtcdBackup(p,
-				config.Operator)
+				config.Operator,
+				config.Runner)
 
 		case strings.HasPrefix(p.Phase.ID, EtcdPhase):
 			return phases.NewEtcd(p,
-				config.Operator)
+				config.Operator,
+				config.Runner)
 
 		case strings.HasPrefix(p.Phase.ID, SystemPhase):
 			return installphases.NewSystem(p,

@@ -85,6 +85,7 @@ func (p *Peer) getOperationPlan(ctx operationContext) (*storage.OperationPlan, e
 		// on the first master which will be used for recovery
 		if len(builder.ClusterNodes.Masters()) == 1 {
 			builder.AddStartAgentPhase(plan)
+			builder.AddEtcdBackupPhase(plan)
 		}
 		builder.AddEtcdPhase(plan)
 	}

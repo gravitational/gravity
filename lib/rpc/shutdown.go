@@ -35,9 +35,9 @@ func ShutdownAgents(ctx context.Context, servers []string, logger log.FieldLogge
 		go func(host string) {
 			err := shutdownAgent(ctx, host, rpc)
 			if err != nil {
-				logger.WithError(err).Errorf("failed to shut down agent at %s", host)
+				logger.WithError(err).Errorf("Failed to shut down agent on %s.", host)
 			} else {
-				logger.Infof("shut down agent at %s", host)
+				logger.Infof("Shut down agent on %s.", host)
 			}
 			errs <- trace.Wrap(err)
 		}(srv)

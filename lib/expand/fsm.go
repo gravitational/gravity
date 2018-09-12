@@ -59,6 +59,8 @@ type FSMConfig struct {
 	Spec fsm.FSMSpecFunc
 	// Credentials is the credentials for gRPC agents
 	Credentials credentials.TransportCredentials
+	// Runner is optional runner to use when running remote commands
+	Runner fsm.AgentRepository
 	// Debug turns on FSM debug mode
 	DebugMode bool
 	// Insecure turns on FSM insecure mode
@@ -89,14 +91,17 @@ func (c *FSMConfig) CheckAndSetDefaults() error {
 	if c.LocalPackages == nil {
 		return trace.BadParameter("missing LocalPackages")
 	}
-	if c.Spec == nil {
-		c.Spec = FSMSpec(*c)
-	}
 	if c.Credentials == nil {
 		c.Credentials, err = rpc.ClientCredentials(defaults.RPCAgentSecretsDir)
 		if err != nil {
 			return trace.Wrap(err)
 		}
+	}
+	if c.Runner == nil {
+		c.Runner = fsm.NewAgentRunner(c.Credentials)
+	}
+	if c.Spec == nil {
+		c.Spec = FSMSpec(*c)
 	}
 	return nil
 }
@@ -107,13 +112,13 @@ func NewFSM(config FSMConfig) (*fsm.FSM, error) {
 	if err != nil {
 		return nil, trace.Wrap(err)
 	}
-	operation, err := config.Operator.GetSiteOperation(config.OperationKey)
-	if err != nil {
-		return nil, trace.Wrap(err)
-	}
-	if operation.Type != ops.OperationExpand {
-		return nil, trace.BadParameter("not a join operation: %v", operation)
-	}
+	// operation, err := config.Operator.GetSiteOperation(config.OperationKey)
+	// if err != nil {
+	// 	return nil, trace.Wrap(err)
+	// }
+	// if operation.Type != ops.OperationExpand {
+	// 	return nil, trace.BadParameter("not a join operation: %v", operation)
+	// }
 	logger := logrus.WithField(trace.Component, "fsm:join")
 	engine := &fsmEngine{
 		FSMConfig:   config,
@@ -121,7 +126,7 @@ func NewFSM(config FSMConfig) (*fsm.FSM, error) {
 	}
 	fsm, err := fsm.New(fsm.Config{
 		Engine: engine,
-		Runner: fsm.NewAgentRunner(config.Credentials),
+		Runner: config.Runner,
 		Logger: logger,
 	})
 	if err != nil {
@@ -157,11 +162,15 @@ func (e *fsmEngine) ChangePhaseState(ctx context.Context, change fsm.StateChange
 		Error:       utils.ToRawTrace(change.Error),
 		Created:     time.Now().UTC(),
 	}
-	if _, err := e.JoinBackend.CreateOperationPlanChange(planChange); err != nil {
+	_, err := e.JoinBackend.CreateOperationPlanChange(planChange)
+	if err != nil {
 		return trace.Wrap(err)
 	}
-	if err := e.Operator.CreateOperationPlanChange(e.OperationKey, planChange); err != nil {
-		return trace.Wrap(err)
+	// TODO sync plan back to etcd once it's available
+	err = e.Operator.CreateOperationPlanChange(e.OperationKey, planChange)
+	if err != nil {
+		e.Warnf("Failed to create changelog entry %v: %v.", change,
+			trace.DebugReport(err))
 	}
 	e.Debugf("Applied %s.", change)
 	return nil
@@ -224,7 +233,7 @@ func (e *fsmEngine) UpdateProgress(ctx context.Context, p fsm.Params) error {
 	entry := ops.ProgressEntry{
 		SiteDomain:  e.OperationKey.SiteDomain,
 		OperationID: e.OperationKey.OperationID,
-		Completion:  100 / 12 * phase.Step, // 12 is the max number of phases
+		Completion:  100 / 14 * phase.Step, // 14 is the max number of phases
 		Step:        phase.Step,
 		State:       ops.ProgressStateInProgress,
 		Message:     phase.Description,

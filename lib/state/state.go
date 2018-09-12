@@ -83,15 +83,6 @@ func SecretDir(baseDir string) string {
 	return filepath.Join(baseDir, defaults.SecretsDir)
 }
 
-// BackupDir returns backups directory
-func BackupDir() (string, error) {
-	stateDir, err := GetStateDir()
-	if err != nil {
-		return "", trace.Wrap(err)
-	}
-	return filepath.Join(stateDir, defaults.PlanetDir, defaults.BackupDir), nil
-}
-
 // GravityUpdateDir returns full path to the update directory
 func GravityUpdateDir(baseDir string) string {
 	return filepath.Join(baseDir, defaults.SiteDir, defaults.UpdateDir)

@@ -220,6 +220,7 @@ func (p *Peer) dialSite(addr string) (*operationContext, error) {
 		Operator:  operator,
 		Packages:  packages,
 		Apps:      apps,
+		Peer:      addr,
 		Operation: *operation,
 		Site:      *cluster,
 		Creds:     *creds,
@@ -293,6 +294,7 @@ func (p *Peer) dialWizard(addr string) (*operationContext, error) {
 		Operator:  env.Operator,
 		Packages:  env.Packages,
 		Apps:      env.Apps,
+		Peer:      addr,
 		Operation: *operation,
 		Site:      *cluster,
 		Creds:     *creds,
@@ -332,9 +334,11 @@ func (p *Peer) runLocalChecks(cluster ops.Site, installOperation ops.SiteOperati
 // Used by peers to add new nodes for install/expand and poll progress
 // of the operation.
 type operationContext struct {
-	Operator  ops.Operator
-	Packages  pack.PackageService
-	Apps      app.Applications
+	Operator ops.Operator
+	Packages pack.PackageService
+	Apps     app.Applications
+	// Peer is the address this peer is joining to
+	Peer      string
 	Operation ops.SiteOperation
 	Site      ops.Site
 	Creds     rpcserver.Credentials

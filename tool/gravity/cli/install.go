@@ -682,6 +682,55 @@ func executeJoinPhase(localEnv, joinEnv *localenv.LocalEnvironment, p InstallPha
 	})
 }
 
+func rollbackJoinPhase(localEnv, joinEnv *localenv.LocalEnvironment, p rollbackParams) error {
+	// determine the ongoing expand operation, it should be the only
+	// operation present in the local join-specific backend
+	operation, err := ops.GetExpandOperation(joinEnv.Backend)
+	if err != nil {
+		return trace.Wrap(err)
+	}
+	operator, err := joinEnv.CurrentOperator(httplib.WithInsecure(), httplib.WithTimeout(5*time.Second))
+	if err != nil {
+		return trace.Wrap(err)
+	}
+	apps, err := joinEnv.CurrentApps(httplib.WithInsecure(), httplib.WithTimeout(5*time.Second))
+	if err != nil {
+		return trace.Wrap(err)
+	}
+	packages, err := joinEnv.CurrentPackages(httplib.WithInsecure(), httplib.WithTimeout(5*time.Second))
+	if err != nil {
+		return trace.Wrap(err)
+	}
+	joinFSM, err := expand.NewFSM(expand.FSMConfig{
+		OperationKey: ops.SiteOperationKey{
+			AccountID:   operation.AccountID,
+			SiteDomain:  operation.SiteDomain,
+			OperationID: operation.ID,
+		},
+		Operator:      operator,
+		Apps:          apps,
+		Packages:      packages,
+		LocalBackend:  localEnv.Backend,
+		LocalPackages: localEnv.Packages,
+		LocalApps:     localEnv.Apps,
+		JoinBackend:   joinEnv.Backend,
+		DebugMode:     localEnv.Debug,
+		Insecure:      localEnv.Insecure,
+	})
+	if err != nil {
+		return trace.Wrap(err)
+	}
+	ctx, cancel := context.WithTimeout(context.Background(), p.timeout)
+	defer cancel()
+	progress := utils.NewProgress(ctx, fmt.Sprintf("Rolling back join phase %q", p.phaseID), -1, false)
+	defer progress.Stop()
+	return joinFSM.RollbackPhase(ctx, fsm.Params{
+		PhaseID:  p.phaseID,
+		Force:    p.force,
+		Progress: progress,
+	})
+}
+
 func ResumeInstall(ctx context.Context, machine *fsm.FSM, progress utils.Progress, force bool) error {
 	fsmErr := machine.ExecutePlan(ctx, progress, force)
 	if fsmErr != nil {

@@ -21,6 +21,7 @@ import (
 
 	"github.com/gravitational/gravity/lib/app"
 	"github.com/gravitational/gravity/lib/constants"
+	"github.com/gravitational/gravity/lib/defaults"
 	"github.com/gravitational/gravity/lib/fsm"
 	installphases "github.com/gravitational/gravity/lib/install/phases"
 	"github.com/gravitational/gravity/lib/loc"
@@ -46,6 +47,8 @@ type planBuilder struct {
 	JoiningNode storage.Server
 	// ClusterNodes is the list of existing cluster nodes
 	ClusterNodes storage.Servers
+	// Peer is the IP address of the cluster node this peer is joining to
+	Peer string
 	// Master is one of the cluster's existing master nodes
 	Master storage.Server
 	// AdminAgent is the cluster agent with admin privileges
@@ -163,6 +166,12 @@ func (b *planBuilder) AddStartAgentPhase(plan *storage.OperationPlan) {
 		Data: &storage.OperationPhaseData{
 			ExecServer: &b.JoiningNode,
 			Server:     &b.Master,
+			Agent: &storage.LoginEntry{
+				Email:    b.AdminAgent.Email,
+				Password: b.AdminAgent.Password,
+				OpsCenterURL: fmt.Sprintf("https://%v:%v", b.Peer,
+					defaults.GravitySiteNodePort),
+			},
 		},
 		Requires: []string{SystemPhase},
 		Step:     7,
@@ -177,7 +186,7 @@ func (b *planBuilder) AddEtcdBackupPhase(plan *storage.OperationPlan) {
 			b.Master.AdvertiseIP),
 		Data: &storage.OperationPhaseData{
 			Server:     &b.Master,
-			ExecServer: &b.Master,
+			ExecServer: &b.JoiningNode,
 		},
 		Requires: []string{StartAgentPhase},
 		Step:     8,
@@ -192,6 +201,7 @@ func (b *planBuilder) AddEtcdPhase(plan *storage.OperationPlan) {
 		Data: &storage.OperationPhaseData{
 			Server:     &b.JoiningNode,
 			ExecServer: &b.JoiningNode,
+			Master:     &b.Master,
 		},
 		Requires: fsm.RequireIfPresent(plan, SystemPhase, EtcdBackupPhase),
 		Step:     8,
@@ -340,6 +350,7 @@ func (p *Peer) getPlanBuilder(ctx operationContext) (*planBuilder, error) {
 		PlanetPackage:   *planetPackage,
 		JoiningNode:     operation.Servers[0],
 		ClusterNodes:    storage.Servers(ctx.Site.ClusterState.Servers),
+		Peer:            ctx.Peer,
 		Master:          storage.Servers(ctx.Site.ClusterState.Servers).Masters()[0],
 		AdminAgent:      *adminAgent,
 		RegularAgent:    *regularAgent,

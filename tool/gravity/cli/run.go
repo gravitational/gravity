@@ -217,7 +217,7 @@ func Execute(g *Application, cmd string, extraArgs []string) error {
 	// create an environment where join-specific data is stored
 	var joinEnv *localenv.LocalEnvironment
 	switch cmd {
-	case g.JoinCmd.FullCommand(), g.AutoJoinCmd.FullCommand(), g.PlanCmd.FullCommand():
+	case g.JoinCmd.FullCommand(), g.AutoJoinCmd.FullCommand(), g.PlanCmd.FullCommand(), g.RollbackCmd.FullCommand():
 		joinEnv, err = g.JoinEnv()
 		if err != nil {
 			return trace.Wrap(err)
@@ -314,6 +314,7 @@ func Execute(g *Application, cmd string, extraArgs []string) error {
 	case g.RollbackCmd.FullCommand():
 		return rollbackOperationPhase(localEnv,
 			upgradeEnv,
+			joinEnv,
 			rollbackParams{
 				phaseID:          *g.RollbackCmd.Phase,
 				force:            *g.RollbackCmd.Force,
