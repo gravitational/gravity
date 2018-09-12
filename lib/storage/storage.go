@@ -1046,6 +1046,19 @@ type SystemMetadata interface {
 	SetDNSConfig(DNSConfig) error
 }
 
+// DefaultDNSConfig defines the default cluster local DNS configuration
+var DefaultDNSConfig = DNSConfig{
+	Port:  defaults.DNSPort,
+	Addrs: []string{defaults.DNSListenAddr},
+}
+
+// LegacyDNSConfig defines the local DNS configuration on older clusters
+var LegacyDNSConfig = DNSConfig{
+	Port:       defaults.DNSPort,
+	Addrs:      []string{defaults.LegacyDNSListenAddr},
+	Interfaces: []string{"lo"},
+}
+
 // Addr returns the DNS server address as ip:port.
 // Requires that !r.IsEmpty.
 // FIXME(dmitri): fix this API to take other possible addresses into account
@@ -1062,6 +1075,10 @@ func (r DNSConfig) IsEmpty() bool {
 type DNSConfig struct {
 	// Addrs lists local cluster DNS server IP addresses
 	Addrs []string `json:"addrs"`
+	// Interfaces lists network interfaces dnsmasq will listen on.
+	// This is mostly to support the legacy DNS configuration is not
+	// exposed as a configuration parameter
+	Interfaces []string `json:"interfaces"`
 	// Port specifies the DNS port to use for dnsmasq
 	Port int `json:"port"`
 }
@@ -1841,18 +1858,6 @@ func (r Subnets) IsEmpty() bool {
 var DefaultSubnets = Subnets{
 	Overlay: defaults.PodSubnet,
 	Service: defaults.ServiceSubnet,
-}
-
-// DefaultDNSConfig defines the default cluster local DNS configuration
-var DefaultDNSConfig = DNSConfig{
-	Port:  defaults.DNSPort,
-	Addrs: []string{defaults.DNSListenAddr},
-}
-
-// LegacyDNSConfig defines the local DNS configuration on older clusters
-var LegacyDNSConfig = DNSConfig{
-	Port:  defaults.DNSPort,
-	Addrs: []string{defaults.LegacyDNSListenAddr},
 }
 
 type Servers []Server

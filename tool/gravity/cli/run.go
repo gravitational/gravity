@@ -297,7 +297,7 @@ func Execute(g *Application, cmd string, extraArgs []string) error {
 			*g.UpgradeCmd.Phase = fsm.RootPhase
 		}
 		if *g.UpgradeCmd.Phase != "" {
-			return executeUpgradePhase(upgradeEnv,
+			return executeUpgradePhase(localEnv, upgradeEnv,
 				upgradePhaseParams{
 					phaseID:          *g.UpgradeCmd.Phase,
 					force:            *g.UpgradeCmd.Force,
@@ -722,7 +722,7 @@ func Execute(g *Application, cmd string, extraArgs []string) error {
 	case g.RPCAgentInstallCmd.FullCommand():
 		return rpcAgentInstall(localEnv, *g.RPCAgentInstallCmd.Args)
 	case g.RPCAgentRunCmd.FullCommand():
-		return rpcAgentRun(upgradeEnv, *g.RPCAgentRunCmd.Args)
+		return rpcAgentRun(localEnv, upgradeEnv, *g.RPCAgentRunCmd.Args)
 	case g.RPCAgentShutdownCmd.FullCommand():
 		return rpcAgentShutdown(localEnv)
 	case g.CheckCmd.FullCommand():

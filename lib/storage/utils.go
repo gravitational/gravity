@@ -257,7 +257,7 @@ func GetClusterDNSConfig(backend Backend) (*DNSConfig, error) {
 		return nil, trace.Wrap(err)
 	}
 	config := LegacyDNSConfig
-	if cluster != nil {
+	if cluster != nil && !cluster.DNSConfig.IsEmpty() {
 		config = cluster.DNSConfig
 	}
 

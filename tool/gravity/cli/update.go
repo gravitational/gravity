@@ -166,7 +166,7 @@ mark the operation as "completed" and return the cluster to the "active" state:
 $ gravity upgrade --complete
 
 To abort an unsuccessful operation, rollback all completed/failed phases and
-run the same command. The operawtion will be marked as "failed" and the cluster
+run the same command. The operation will be marked as "failed" and the cluster
 will be returned to the "active" state.
 `)
 

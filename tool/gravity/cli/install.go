@@ -245,6 +245,7 @@ func joinLoop(env *localenv.LocalEnvironment, j JoinConfig, peers []string, runt
 		EventsC:       eventsC,
 		WatchCh:       watchCh,
 		RuntimeConfig: runtimeConfig,
+		LocalBackend:  env.Backend,
 	}, logrus.WithFields(logrus.Fields{
 		"role": j.Role,
 		"addr": j.AdvertiseAddr,

@@ -809,10 +809,13 @@ func (s *site) getPlanetConfigPackage(
 		args = append(args, fmt.Sprintf("--vxlan-port=%v", vxlanPort))
 	}
 
-	dnsConfig := installOrExpand.InstallExpand.Vars.OnPrem.DNS
+	dnsConfig := s.backendSite.DNSConfig
 	if !dnsConfig.IsEmpty() {
 		for _, addr := range dnsConfig.Addrs {
 			args = append(args, fmt.Sprintf("--dns-listen-addr=%v", addr))
+		}
+		for _, iface := range dnsConfig.Interfaces {
+			args = append(args, fmt.Sprintf("--dns-interface=%v", iface))
 		}
 		args = append(args, fmt.Sprintf("--dns-port=%v", dnsConfig.Port))
 	}

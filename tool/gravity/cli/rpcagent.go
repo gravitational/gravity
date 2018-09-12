@@ -62,7 +62,7 @@ func rpcAgentInstall(env *localenv.LocalEnvironment, args []string) error {
 }
 
 // rpcAgentRun runs a local agent executing the function specified with optional args
-func rpcAgentRun(upgradeEnv *localenv.LocalEnvironment, args []string) error {
+func rpcAgentRun(localEnv, upgradeEnv *localenv.LocalEnvironment, args []string) error {
 	server, err := startAgent()
 	if err != nil {
 		return trace.Wrap(err)
@@ -81,7 +81,7 @@ func rpcAgentRun(upgradeEnv *localenv.LocalEnvironment, args []string) error {
 
 	go func(handler string, args []string) {
 		log.Infof("Executing function %q.", handler)
-		err = agentFunc(ctx, upgradeEnv, args)
+		err = agentFunc(ctx, localEnv, upgradeEnv, args)
 		if err != nil {
 			log.Infof("Error executing function %q: %q", handler, trace.DebugReport(err))
 		}
@@ -123,7 +123,7 @@ func startAgent() (rpcserver.Server, error) {
 	return server, nil
 }
 
-type agentFunc func(ctx context.Context, upgradeEnv *localenv.LocalEnvironment, args []string) error
+type agentFunc func(ctx context.Context, localEnv, upgradeEnv *localenv.LocalEnvironment, args []string) error
 
 var agentFunctions map[string]agentFunc = map[string]agentFunc{
 	constants.RpcAgentUpgradeFunction: executeAutomaticUpgrade,

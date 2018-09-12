@@ -34,6 +34,7 @@ import (
 	pb "github.com/gravitational/gravity/lib/rpc/proto"
 	rpcserver "github.com/gravitational/gravity/lib/rpc/server"
 	"github.com/gravitational/gravity/lib/schema"
+	"github.com/gravitational/gravity/lib/storage"
 	"github.com/gravitational/gravity/lib/utils"
 
 	"github.com/cenkalti/backoff"
@@ -60,6 +61,8 @@ type PeerConfig struct {
 	WatchCh chan rpcserver.WatchEvent
 	// RuntimeConfig is peer's runtime configuration
 	pb.RuntimeConfig
+	// LocalBackend is the local configuration backend
+	LocalBackend storage.Backend
 }
 
 // CheckAndSetDefaults checks the parameters and autodetects some defaults
@@ -482,12 +485,33 @@ func (p *Peer) Done() <-chan struct{} {
 }
 
 func (p *Peer) startExpandOperation(ctx operationContext) error {
-	err := p.waitForAgents(ctx.Site, ctx.Operator, ctx.Operation.Key())
+	err := p.setDNSConfig(ctx.Operator)
+	if err != nil {
+		return trace.Wrap(err)
+	}
+
+	err = p.waitForAgents(ctx.Site, ctx.Operator, ctx.Operation.Key())
 	if err != nil {
 		return trace.Wrap(err)
 	}
 
 	err = ctx.Operator.SiteExpandOperationStart(ctx.Operation.Key())
+	if err != nil {
+		return trace.Wrap(err)
+	}
+	return nil
+}
+
+// setDNSConfig persists cluster DNS configuration into the local backend.
+// This is necessary for local commands that rely on cluster services.
+// TODO(dmitri): remove once the expand FSM workflow has landed
+func (p *Peer) setDNSConfig(operator ops.Operator) error {
+	cluster, err := operator.GetLocalSite()
+	if err != nil {
+		return trace.Wrap(err)
+	}
+
+	err = p.LocalBackend.SetDNSConfig(cluster.DNSConfig)
 	if err != nil {
 		return trace.Wrap(err)
 	}

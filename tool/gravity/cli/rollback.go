@@ -35,7 +35,7 @@ type rollbackParams struct {
 
 func rollbackOperationPhase(env *localenv.LocalEnvironment, updateEnv *localenv.LocalEnvironment, p rollbackParams) error {
 	if hasUpdateOperation(updateEnv) {
-		return rollbackUpgradePhase(updateEnv, p)
+		return rollbackUpgradePhase(env, updateEnv, p)
 	}
 	return rollbackInstallPhase(env, p)
 }

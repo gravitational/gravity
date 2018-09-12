@@ -30,7 +30,7 @@ import (
 )
 
 // AutomaticUpgrade starts automatic upgrade process
-func AutomaticUpgrade(ctx context.Context, updateEnv *localenv.LocalEnvironment) (err error) {
+func AutomaticUpgrade(ctx context.Context, localEnv, updateEnv *localenv.LocalEnvironment) (err error) {
 	clusterEnv, err := localenv.NewClusterEnvironment()
 	if err != nil {
 		return trace.Wrap(err)
@@ -43,15 +43,16 @@ func AutomaticUpgrade(ctx context.Context, updateEnv *localenv.LocalEnvironment)
 	runner := fsm.NewAgentRunner(creds)
 
 	config := FSMConfig{
-		Backend:         clusterEnv.Backend,
-		Packages:        clusterEnv.Packages,
-		ClusterPackages: clusterEnv.ClusterPackages,
-		Apps:            clusterEnv.Apps,
-		Client:          clusterEnv.Client,
-		Operator:        clusterEnv.Operator,
-		Users:           clusterEnv.Users,
-		LocalBackend:    updateEnv.Backend,
-		Remote:          runner,
+		Backend:          clusterEnv.Backend,
+		LocalBackend:     updateEnv.Backend,
+		HostLocalBackend: localEnv.Backend,
+		Packages:         clusterEnv.Packages,
+		ClusterPackages:  clusterEnv.ClusterPackages,
+		Apps:             clusterEnv.Apps,
+		Client:           clusterEnv.Client,
+		Operator:         clusterEnv.Operator,
+		Users:            clusterEnv.Users,
+		Remote:           runner,
 	}
 
 	fsm, err := NewFSM(ctx, config)
