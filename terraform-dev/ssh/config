@@ -1,6 +1,5 @@
 # Use github throwaway key for github git commits
 Host 172.28.128.*
-	User ubuntu
 	IdentityFile ./ssh/key
     UserKnownHostsFile /dev/null
     StrictHostKeyChecking no

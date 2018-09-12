@@ -1,13 +1,38 @@
+variable "image_name" {
+  type = "string"
+  default = "ubuntu-16.04-server-cloudimg-amd64-disk1.img"
+}
+
+variable "gravity_dir_size" {
+  type = "string"
+  default = "12000000000"
+}
+
+variable "memory_size" {
+  type = "string"
+  default = "4096"
+}
+
+variable "cpu_count" {
+  type = "string"
+  default = "1"
+}
+
+variable "username" {
+  type = "string"
+  default = "ubuntu"
+}
+
 # Initialize the provider
 provider "libvirt" {
   uri = "qemu:///system"
 }
 
 # Use locally pre-fetched image
-resource "libvirt_volume" "ubuntu-qcow2" {
-  name = "ubuntu-${count.index}-qcow2"
+resource "libvirt_volume" "os-qcow2" {
+  name = "os-${count.index}-qcow2"
   pool = "default"
-  source = "/var/lib/libvirt/images/ubuntu-16.04-server-cloudimg-amd64-disk1.img"  
+  source = "/var/lib/libvirt/images/${var.image_name}"
   format = "qcow2"
   count = 3
 }
@@ -22,7 +47,7 @@ resource "libvirt_network" "vm_network" {
 resource "libvirt_volume" "gravity" {
   name = "gravity-disk-${count.index}.qcow2"
   pool = "default"
-  size = 12000000000
+  size = "${var.gravity_dir_size}"
   count = 3
 }
 
@@ -39,9 +64,12 @@ resource "libvirt_cloudinit" "commoninit" {
   name           = "commoninit.iso"
   user_data = <<EOF
     #cloud-config
-    packages: [python, curl, htop, iotop, lsof, ltrace, mc, net-tools, strace, tcpdump, telnet, vim, wget, ntp, traceroute]
+    packages: [python, curl, htop, iotop, lsof, ltrace, mc, net-tools, strace, tcpdump, telnet, vim, wget, ntp, traceroute, bash-completion]
     ssh_authorized_keys: ["${file("ssh/key.pub")}"]
     write_files:
+    - content: "${var.username} ALL=(ALL) NOPASSWD:ALL"
+      path: /etc/sudoers.d/${var.username}
+      permissions: '0400'
     - content: "br_netfilter"
       path: /etc/modules-load.d/br_netfilter.conf
     - content: "ebtables"
@@ -85,10 +113,10 @@ resource "libvirt_cloudinit" "commoninit" {
 }
 
 # Create the machine
-resource "libvirt_domain" "domain-ubuntu" {
+resource "libvirt_domain" "domain-gravity" {
   name = "telekube${count.index}"
-  memory = "4096"
-  vcpu = 1
+  memory = "${var.memory_size}"
+  vcpu = "${var.cpu_count}"
   count = 3
   cloudinit = "${libvirt_cloudinit.commoninit.id}"
 
@@ -115,7 +143,7 @@ resource "libvirt_domain" "domain-ubuntu" {
   }
 
   disk {
-    volume_id = "${element(libvirt_volume.ubuntu-qcow2.*.id, count.index)}"
+    volume_id = "${element(libvirt_volume.os-qcow2.*.id, count.index)}"
   }
 
   disk {
