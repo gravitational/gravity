@@ -69,7 +69,7 @@ func WebsocketClientForURL(URL string, headers http.Header) (*websocket.Conn, er
 }
 
 // SetupWebsocketClient sets up roundtrip client to dial web socket method
-func SetupWebsocketClient(ctx context.Context, c *roundtrip.Client, dnsAddr, endpoint string) (io.ReadCloser, error) {
+func SetupWebsocketClient(ctx context.Context, c *roundtrip.Client, endpoint string, localDialer Dialer) (io.ReadCloser, error) {
 	u, err := url.Parse(endpoint)
 	if err != nil {
 		return nil, trace.Wrap(err)
@@ -100,7 +100,7 @@ func SetupWebsocketClient(ctx context.Context, c *roundtrip.Client, dnsAddr, end
 	if err != nil {
 		// try to dial using local resolver in case of error
 		log.Warningf("got error, re-dialing with local resolver: %v", trace.DebugReport(err))
-		conn, err = DialWithLocalResolver(ctx, dnsAddr, "tcp", u.Host)
+		conn, err = localDialer(ctx, "tcp", u.Host)
 		if err != nil {
 			return nil, trace.Wrap(err)
 		}

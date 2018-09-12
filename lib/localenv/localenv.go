@@ -89,7 +89,7 @@ type LocalEnvironment struct {
 	Objects blob.Objects
 	// Packages is the local package service
 	Packages *localpack.PackageServer
-	// Apps is the local apps services
+	// Apps is the local application service
 	Apps appbase.Applications
 	// Creds is the local key store
 	Creds *users.KeyStore
@@ -388,8 +388,11 @@ func (env *LocalEnvironment) OperatorService(opsCenterURL string, options ...htt
 		return nil, trace.Wrap(err)
 	}
 
-	httpClient := roundtrip.HTTPClient(env.HTTPClient(options...))
-	client, err := NewOpsClient(*entry, opsCenterURL, httpClient)
+	params := []opsclient.ClientParam{
+		opsclient.HTTPClient(env.HTTPClient(options...)),
+		opsclient.WithLocalDialer(httplib.LocalResolverDialer(env.DNS.Addr())),
+	}
+	client, err := NewOpsClient(*entry, opsCenterURL, params...)
 	if err != nil {
 		return nil, trace.Wrap(err)
 	}
@@ -424,13 +427,17 @@ func (env *LocalEnvironment) AppService(opsCenterURL string, config AppConfig, o
 	if err != nil {
 		return nil, trace.Wrap(err)
 	}
-	var client appbase.Applications
+	var client *appclient.Client
+	params := []appclient.ClientParam{
+		appclient.HTTPClient(env.HTTPClient(options...)),
+		appclient.WithLocalDialer(httplib.LocalResolverDialer(env.DNS.Addr())),
+	}
 	if entry.Email != "" {
 		client, err = appclient.NewAuthenticatedClient(
-			opsCenterURL, entry.Email, entry.Password, roundtrip.HTTPClient(env.HTTPClient(options...)))
+			opsCenterURL, entry.Email, entry.Password, params...)
 	} else {
 		client, err = appclient.NewBearerClient(
-			opsCenterURL, entry.Password, roundtrip.HTTPClient(env.HTTPClient(options...)))
+			opsCenterURL, entry.Password, params...)
 	}
 	if err != nil {
 		return nil, trace.Wrap(err)
@@ -536,7 +543,7 @@ type AppConfig struct {
 // NewOpsClient creates a new client to Operator service using the specified
 // login entry, address of the Ops Center and a set of optional connection
 // options
-func NewOpsClient(entry users.LoginEntry, opsCenterURL string, params ...roundtrip.ClientParam) (client *opsclient.Client, err error) {
+func NewOpsClient(entry users.LoginEntry, opsCenterURL string, params ...opsclient.ClientParam) (client *opsclient.Client, err error) {
 	if entry.Email != "" {
 		client, err = opsclient.NewAuthenticatedClient(
 			opsCenterURL, entry.Email, entry.Password, params...)

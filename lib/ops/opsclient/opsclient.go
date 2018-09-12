@@ -45,30 +45,67 @@ const CurrentVersion = "portal/v1"
 
 type Client struct {
 	roundtrip.Client
-	// FIXME: initialize me
-	dnsAddr string
+	dialer httplib.Dialer
 }
 
 // NewAuthenticatedClient returns client authenticated as username with the given password
-func NewAuthenticatedClient(addr, username, password string, params ...roundtrip.ClientParam) (*Client, error) {
-	params = append(params, roundtrip.BasicAuth(username, password))
+func NewAuthenticatedClient(addr, username, password string, params ...ClientParam) (*Client, error) {
+	params = append(params, BasicAuth(username, password))
 	return NewClient(addr, params...)
 }
 
 // NewBearerClient returns client authenticated with the given password
-func NewBearerClient(addr, password string, params ...roundtrip.ClientParam) (*Client, error) {
-	params = append(params, roundtrip.BearerAuth(password))
+func NewBearerClient(addr, password string, params ...ClientParam) (*Client, error) {
+	params = append(params, BearerAuth(password))
 	return NewClient(addr, params...)
 }
 
 // NewClient returns a new Client for the specified target address addr
-func NewClient(addr string, params ...roundtrip.ClientParam) (*Client, error) {
-	c, err := roundtrip.NewClient(addr, CurrentVersion, params...)
+func NewClient(addr string, params ...ClientParam) (*Client, error) {
+	c, err := roundtrip.NewClient(addr, CurrentVersion)
 	if err != nil {
 		return nil, err
 	}
-	return &Client{Client: *c}, nil
+	client := &Client{Client: *c}
+	for _, param := range params {
+		param(client)
+	}
+	return client, nil
 }
+
+// BasicAuth sets username and password for HTTP client
+func BasicAuth(username, password string) ClientParam {
+	return func(c *Client) error {
+		return roundtrip.BasicAuth(username, password)(&c.Client)
+	}
+}
+
+// BearerAuth sets token for HTTP client
+func BearerAuth(password string) ClientParam {
+	return func(c *Client) error {
+		return roundtrip.BearerAuth(password)(&c.Client)
+	}
+}
+
+// HTTPClient is a functional parameter that sets the internal
+// HTTP client
+func HTTPClient(h *http.Client) ClientParam {
+	return func(c *Client) error {
+		return roundtrip.HTTPClient(h)(&c.Client)
+	}
+}
+
+// WithLocalDialer specifies the dialer to use for connecting to an endpoint
+// if standard dialing fails
+func WithLocalDialer(dialer httplib.Dialer) ClientParam {
+	return func(c *Client) error {
+		c.dialer = dialer
+		return nil
+	}
+}
+
+// ClientParam defines the API to override configuration on client c
+type ClientParam func(c *Client) error
 
 func (c *Client) GetAccount(accountID string) (*ops.Account, error) {
 	out, err := c.Get(c.Endpoint("accounts", accountID), url.Values{})
@@ -559,7 +596,7 @@ func (c *Client) CreateSiteAppUpdateOperation(req ops.CreateSiteAppUpdateOperati
 
 func (c *Client) GetSiteOperationLogs(key ops.SiteOperationKey) (io.ReadCloser, error) {
 	endpoint := c.Endpoint("accounts", key.AccountID, "sites", key.SiteDomain, "operations", "common", key.OperationID, "logs")
-	return httplib.SetupWebsocketClient(context.TODO(), &c.Client, c.dnsAddr, endpoint)
+	return httplib.SetupWebsocketClient(context.TODO(), &c.Client, endpoint, c.dialer)
 }
 
 func (c *Client) CreateLogEntry(key ops.SiteOperationKey, entry ops.LogEntry) error {

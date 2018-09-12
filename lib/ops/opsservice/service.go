@@ -44,7 +44,6 @@ import (
 
 	"github.com/docker/docker/pkg/archive"
 	"github.com/gravitational/configure/cstrings"
-	"github.com/gravitational/roundtrip"
 	teleservices "github.com/gravitational/teleport/lib/services"
 	"github.com/gravitational/trace"
 	"github.com/mailgun/timetools"
@@ -1412,7 +1411,7 @@ func (o *Operator) RemoteOpsClient(cluster teleservices.TrustedCluster) (*opscli
 	client, err := opsclient.NewBearerClient(
 		fmt.Sprintf("https://%v", cluster.GetProxyAddress()),
 		cluster.GetToken(),
-		roundtrip.HTTPClient(httplib.GetClient(o.cfg.Devmode)))
+		opsclient.HTTPClient(httplib.GetClient(o.cfg.Devmode)))
 	if err != nil {
 		return nil, trace.Wrap(err)
 	}

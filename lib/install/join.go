@@ -115,13 +115,13 @@ func (p *Peer) dialSite(addr string) (*operationContext, error) {
 	} else {
 		targetURL = fmt.Sprintf("https://%v:%v", addr, defaults.GravitySiteNodePort)
 	}
-	httpClient := roundtrip.HTTPClient(httplib.GetClient(true))
-	operator, err := opsclient.NewBearerClient(targetURL, p.Token, httpClient)
+	httpClient := httplib.GetClient(true)
+	operator, err := opsclient.NewBearerClient(targetURL, p.Token, opsclient.HTTPClient(httpClient))
 	if err != nil {
 		return nil, trace.Wrap(err)
 	}
 
-	packages, err := webpack.NewBearerClient(targetURL, p.Token, httpClient)
+	packages, err := webpack.NewBearerClient(targetURL, p.Token, roundtrip.HTTPClient(httpClient))
 	if err != nil {
 		return nil, trace.Wrap(err)
 	}

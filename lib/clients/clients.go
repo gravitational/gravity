@@ -32,7 +32,6 @@ import (
 	"github.com/gravitational/gravity/lib/storage"
 	"github.com/gravitational/gravity/lib/users"
 
-	"github.com/gravitational/roundtrip"
 	"github.com/gravitational/teleport/lib/reversetunnel"
 	"github.com/gravitational/trace"
 	"github.com/gravitational/ttlmap"
@@ -132,7 +131,7 @@ func (r *ClusterClients) newOpsClient(clusterName string) (ops.Operator, error) 
 	}
 
 	client, err := opsclient.NewAuthenticatedClient(
-		info.url.String(), info.key.UserEmail, info.key.Token, roundtrip.HTTPClient(info.httpClient))
+		info.url.String(), info.key.UserEmail, info.key.Token, opsclient.HTTPClient(info.httpClient))
 	if err != nil {
 		return nil, trace.Wrap(err)
 	}
@@ -156,7 +155,7 @@ func (r *ClusterClients) newAppsClient(clusterName string) (app.Applications, er
 	}
 
 	client, err := appsclient.NewAuthenticatedClient(
-		info.url.String(), info.key.UserEmail, info.key.Token, roundtrip.HTTPClient(info.httpClient))
+		info.url.String(), info.key.UserEmail, info.key.Token, appsclient.HTTPClient(info.httpClient))
 	if err != nil {
 		return nil, trace.Wrap(err)
 	}

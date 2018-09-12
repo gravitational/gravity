@@ -1061,7 +1061,6 @@ var LegacyDNSConfig = DNSConfig{
 
 // Addr returns the DNS server address as ip:port.
 // Requires that !r.IsEmpty.
-// FIXME(dmitri): fix this API to take other possible addresses into account
 func (r DNSConfig) Addr() string {
 	return fmt.Sprintf("%v:%v", r.Addrs[0], r.Port)
 }
@@ -1078,7 +1077,7 @@ type DNSConfig struct {
 	// Interfaces lists network interfaces dnsmasq will listen on.
 	// This is mostly to support the legacy DNS configuration is not
 	// exposed as a configuration parameter
-	Interfaces []string `json:"interfaces"`
+	Interfaces []string `json:"interfaces,omitempty"`
 	// Port specifies the DNS port to use for dnsmasq
 	Port int `json:"port"`
 }

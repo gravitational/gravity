@@ -221,6 +221,13 @@ func DialFromEnviron(dnsAddr string) func(ctx context.Context, network, addr str
 	}
 }
 
+// LocalResolverDialer returns Dialer that uses the specified DNS server
+func LocalResolverDialer(dnsAddr string) Dialer {
+	return func(ctx context.Context, network, addr string) (net.Conn, error) {
+		return DialWithLocalResolver(ctx, dnsAddr, network, addr)
+	}
+}
+
 // dial dials the specified address and returns a new connection
 func Dial(ctx context.Context, network, addr string) (net.Conn, error) {
 	var d net.Dialer
