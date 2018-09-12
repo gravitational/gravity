@@ -24,7 +24,6 @@ import (
 	"time"
 
 	autoscaleaws "github.com/gravitational/gravity/lib/autoscale/aws"
-	"github.com/gravitational/gravity/lib/checks"
 	cloudaws "github.com/gravitational/gravity/lib/cloudprovider/aws"
 	"github.com/gravitational/gravity/lib/defaults"
 	"github.com/gravitational/gravity/lib/expand"
@@ -32,19 +31,17 @@ import (
 	"github.com/gravitational/gravity/lib/httplib"
 	"github.com/gravitational/gravity/lib/install"
 	"github.com/gravitational/gravity/lib/localenv"
-	validationpb "github.com/gravitational/gravity/lib/network/validation/proto"
 	"github.com/gravitational/gravity/lib/ops"
 	pb "github.com/gravitational/gravity/lib/rpc/proto"
 	rpcserver "github.com/gravitational/gravity/lib/rpc/server"
-	"github.com/gravitational/gravity/lib/schema"
 	"github.com/gravitational/gravity/lib/storage"
 	"github.com/gravitational/gravity/lib/systeminfo"
 	"github.com/gravitational/gravity/lib/systemservice"
 	"github.com/gravitational/gravity/lib/utils"
-	"github.com/sirupsen/logrus"
 
 	"github.com/gravitational/configure"
 	"github.com/gravitational/trace"
+	"github.com/sirupsen/logrus"
 )
 
 func startInstall(env *localenv.LocalEnvironment, i InstallConfig) error {
@@ -100,89 +97,6 @@ func Join(env, joinEnv *localenv.LocalEnvironment, j JoinConfig) error {
 	err = j.CheckAndSetDefaults()
 	if err != nil {
 		return trace.Wrap(err)
-	}
-
-	if !j.ExistingOperation {
-		return trace.Wrap(joinLoop(env, joinEnv, j))
-	}
-
-	// TODO REMOVE THIS ⮟⮟⮟⮟⮟⮟⮟
-
-	peers, err := utils.ParseAddrList(j.PeerAddrs)
-	if err != nil {
-		return trace.Wrap(err)
-	}
-	if len(peers) == 0 {
-		return trace.BadParameter("required argument peer-addr not provided")
-	}
-
-	runtimeConfig := pb.RuntimeConfig{
-		Token:        j.Token,
-		Role:         j.Role,
-		SystemDevice: j.SystemDevice,
-		DockerDevice: j.DockerDevice,
-		Mounts:       convertMounts(j.Mounts),
-	}
-	if err = install.FetchCloudMetadata(j.CloudProvider, &runtimeConfig); err != nil {
-		return trace.Wrap(err)
-	}
-
-	wizardEnv, err := localenv.NewRemoteEnvironment()
-	if err != nil {
-		return trace.Wrap(err)
-	}
-
-	entry, err := wizardEnv.LoginWizard(peers[0])
-	if err != nil {
-		return trace.Wrap(err)
-	}
-
-	cluster, err := ops.GetWizardCluster(wizardEnv.Operator)
-	if err != nil {
-		return trace.Wrap(err)
-	}
-
-	op, _, err := ops.GetInstallOperation(cluster.Key(), wizardEnv.Operator)
-	if err != nil {
-		return trace.Wrap(err)
-	}
-
-	err = checks.RunLocalChecks(checks.LocalChecksRequest{
-		Manifest: cluster.App.Manifest,
-		Role:     j.Role,
-		Options: &validationpb.ValidateOptions{
-			VxlanPort: int32(op.GetVars().OnPrem.VxlanPort),
-		},
-		AutoFix: true,
-	})
-	if err != nil {
-		return trace.Wrap(err)
-	}
-
-	ctx, cancel := context.WithCancel(context.Background())
-	watchCh := make(chan rpcserver.WatchEvent, 1)
-	agent, err := install.NewAgent(context.TODO(), install.AgentConfig{
-		PackageAddr:   entry.OpsCenterURL,
-		AdvertiseAddr: j.AdvertiseAddr,
-		ServerAddr:    j.ServerAddr,
-		RuntimeConfig: runtimeConfig,
-	}, log.WithField("role", j.Role), watchCh)
-	if err != nil {
-		return trace.Wrap(err)
-	}
-
-	watchReconnects(ctx, cancel, watchCh)
-	utils.WatchTerminationSignals(ctx, cancel, agent, logrus.StandardLogger())
-
-	return trace.Wrap(agent.Serve())
-}
-
-func joinLoop(env, joinEnv *localenv.LocalEnvironment, j JoinConfig) error {
-	env.PrintStep("Joining cluster")
-
-	if j.CloudProvider != schema.ProviderOnPrem {
-		env.PrintStep("Enabling %q cloud provider integration",
-			j.CloudProvider)
 	}
 
 	peerConfig, err := j.ToPeerConfig(env, joinEnv)

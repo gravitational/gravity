@@ -27,6 +27,7 @@ import (
 	"github.com/gravitational/gravity/lib/defaults"
 	"github.com/gravitational/gravity/lib/fsm"
 	"github.com/gravitational/gravity/lib/ops"
+	rpcclient "github.com/gravitational/gravity/lib/rpc/client"
 	"github.com/gravitational/gravity/lib/schema"
 	"github.com/gravitational/gravity/lib/state"
 	"github.com/gravitational/gravity/lib/storage"
@@ -107,43 +108,84 @@ func (p *etcdExecutor) Execute(ctx context.Context) error {
 // Rollback removes the joined node from the cluster's etcd cluster
 func (p *etcdExecutor) Rollback(ctx context.Context) error {
 	p.Progress.NextStep("Restoring etcd data")
-	backupPath, err := getBackupPath(p.Plan.OperationID)
-	if err != nil {
-		return trace.Wrap(err)
-	}
-	// _, err = utils.StatFile(backupPath) // make sure backup exists
-	// if err != nil {
-	// 	return trace.Wrap(err, "etcd backup %v does not exist", backupPath)
-	// }
+	backupPath := getBackupPath(p.Plan.OperationID)
 	agentClient, err := p.Runner.GetClient(ctx, p.Master.AdvertiseIP)
 	if err != nil {
 		return trace.Wrap(err)
 	}
-	// TODO take another backup just in case?
+	err = p.checkBackup(ctx, agentClient, backupPath)
+	if err != nil {
+		return trace.Wrap(err)
+	}
+	err = p.stopEtcd(ctx, agentClient)
+	if err != nil {
+		return trace.Wrap(err)
+	}
+	err = p.wipeEtcd(ctx, agentClient)
+	if err != nil {
+		return trace.Wrap(err)
+	}
+	err = p.startEtcd(ctx, agentClient)
+	if err != nil {
+		return trace.Wrap(err)
+	}
+	err = p.restoreEtcd(ctx, agentClient, backupPath)
+	if err != nil {
+		return trace.Wrap(err)
+	}
+	p.Infof("Restored etcd data from %v.", backupPath)
+	return nil
+}
+
+func (p *etcdExecutor) checkBackup(ctx context.Context, agent rpcclient.Client, backupPath string) error {
 	var out bytes.Buffer
-	err = agentClient.Command(ctx, p.FieldLogger, &out, utils.PlanetEnterCommand(
+	err := agent.Command(ctx, p.FieldLogger, &out, utils.PlanetEnterCommand(
+		defaults.StatBin, backupPath)...)
+	if err != nil {
+		return trace.Wrap(err, "failed to check backup file %v: %s", backupPath, out.String())
+	}
+	return nil
+}
+
+func (p *etcdExecutor) stopEtcd(ctx context.Context, agent rpcclient.Client) error {
+	var out bytes.Buffer
+	err := agent.Command(ctx, p.FieldLogger, &out, utils.PlanetEnterCommand(
 		defaults.SystemctlBin, "stop", "etcd")...)
 	if err != nil {
 		return trace.Wrap(err, "failed to stop etcd: %s", out.String())
 	}
-	err = agentClient.Command(ctx, p.FieldLogger, &out, utils.PlanetEnterCommand(
+	return nil
+}
+
+func (p *etcdExecutor) wipeEtcd(ctx context.Context, agent rpcclient.Client) error {
+	var out bytes.Buffer
+	err := agent.Command(ctx, p.FieldLogger, &out, utils.PlanetEnterCommand(
 		defaults.PlanetBin, "etcd", "wipe", "--confirm")...)
 	if err != nil {
 		return trace.Wrap(err, "failed to wipe out etcd data: %s", out.String())
 	}
-	err = agentClient.Command(ctx, p.FieldLogger, &out, utils.PlanetEnterCommand(
+	return nil
+}
+
+func (p *etcdExecutor) startEtcd(ctx context.Context, agent rpcclient.Client) error {
+	var out bytes.Buffer
+	err := agent.Command(ctx, p.FieldLogger, &out, utils.PlanetEnterCommand(
 		defaults.SystemctlBin, "start", "etcd")...)
 	if err != nil {
 		return trace.Wrap(err, "failed to start etcd: %s", out.String())
 	}
-	err = utils.Retry(defaults.RetryInterval, defaults.RetryLessAttempts, func() error {
-		return agentClient.Command(ctx, p.FieldLogger, &out, utils.PlanetEnterCommand(
+	return nil
+}
+
+func (p *etcdExecutor) restoreEtcd(ctx context.Context, agent rpcclient.Client, backupPath string) error {
+	var out bytes.Buffer
+	err := utils.Retry(defaults.RetryInterval, defaults.RetryLessAttempts, func() error {
+		return agent.Command(ctx, p.FieldLogger, &out, utils.PlanetEnterCommand(
 			defaults.PlanetBin, "etcd", "restore", backupPath)...)
 	})
 	if err != nil {
 		return trace.Wrap(err, "failed to restore etcd data: %s", out.String())
 	}
-	p.Infof("Restored etcd data from %v.", backupPath)
 	return nil
 }
 
@@ -189,26 +231,31 @@ type etcdBackupExecutor struct {
 // Execute backs up etcd data on the node
 func (p *etcdBackupExecutor) Execute(ctx context.Context) error {
 	p.Progress.NextStep("Backing up etcd data")
-	backupPath, err := getBackupPath(p.Plan.OperationID)
-	if err != nil {
-		return trace.Wrap(err)
-	}
+	backupPath := getBackupPath(p.Plan.OperationID)
 	agentClient, err := p.Runner.GetClient(ctx, p.Master.AdvertiseIP)
 	if err != nil {
 		return trace.Wrap(err)
 	}
-	var out bytes.Buffer
-	err = agentClient.Command(ctx, p.FieldLogger, &out, utils.PlanetEnterCommand(
-		defaults.PlanetBin, "etcd", "backup", backupPath)...)
+	err = p.backupEtcd(ctx, agentClient, backupPath)
 	if err != nil {
-		return trace.Wrap(err, "failed to backup etcd data: %s", out.String())
+		return trace.Wrap(err)
 	}
 	p.Infof("Backed up etcd data to %v.", backupPath)
 	return nil
 }
 
+func (p *etcdBackupExecutor) backupEtcd(ctx context.Context, agent rpcclient.Client, backupPath string) error {
+	var out bytes.Buffer
+	err := agent.Command(ctx, p.FieldLogger, &out, utils.PlanetEnterCommand(
+		defaults.PlanetBin, "etcd", "backup", backupPath)...)
+	if err != nil {
+		return trace.Wrap(err, "failed to backup etcd data: %s", out.String())
+	}
+	return nil
+}
+
 // Rollback is no-op for this phase
-func (p *etcdBackupExecutor) Rollback(ctx context.Context) error {
+func (*etcdBackupExecutor) Rollback(ctx context.Context) error {
 	return nil
 }
 
@@ -222,15 +269,11 @@ func (*etcdBackupExecutor) PostCheck(ctx context.Context) error {
 	return nil
 }
 
-// getBackupPath returns etcd data backup path for the provided operation
-// making sure that the directory where it's located exists
-func getBackupPath(operationID string) (string, error) {
-	stateDir, err := state.GetStateDir()
-	if err != nil {
-		return "", trace.Wrap(err)
-	}
-	return filepath.Join(stateDir, defaults.PlanetDir,
-		fmt.Sprintf("join-%v.backup", operationID)), nil
+// getBackupPath returns in-planet etcd data backup path for the provided
+// operation making sure that the directory where it's located exists
+func getBackupPath(operationID string) string {
+	return filepath.Join(defaults.GravityDir, defaults.PlanetDir,
+		fmt.Sprintf("join-%v.backup", operationID))
 }
 
 func opKey(plan storage.OperationPlan) ops.SiteOperationKey {

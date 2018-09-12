@@ -100,10 +100,6 @@ func RegisterCommands(app *kingpin.Application) *Application {
 	g.JoinCmd.DockerDevice = g.JoinCmd.Flag("docker-device", "Docker device to use").Hidden().String()
 	g.JoinCmd.SystemDevice = g.JoinCmd.Flag("system-device", "Device to use for system data directory").Hidden().String()
 	g.JoinCmd.ServerAddr = g.JoinCmd.Flag("server-addr", "Address of the agent server").Hidden().String()
-	g.JoinCmd.ExistingOperation = g.JoinCmd.Flag("existing-operation", "If unspecified, the command will initiate a new expand operation").
-		Hidden().
-		OverrideDefaultFromEnvar(constants.ExistingOperationEnvVar).
-		Bool()
 	g.JoinCmd.Mounts = configure.KeyValParam(g.JoinCmd.Flag("mount", "One or several mounts in form <mount-name>:<path>, e.g. data:/var/lib/data"))
 	g.JoinCmd.CloudProvider = g.JoinCmd.Flag("cloud-provider", "Cloud provider integration e.g. 'generic', 'aws'. If not set, autodetect environment").String()
 	g.JoinCmd.Manual = g.JoinCmd.Flag("manual", "Manually execute join operation phases").Bool()

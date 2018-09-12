@@ -43,20 +43,6 @@ a8266ecf031671f3: name=node1 peerURLs=http://1.1.1.1:23801 clientURLs=http://127
 	c.Assert(out, Equals, "node2:2.2.2.2,node3:3.3.3.3,node1:1.1.1.1")
 }
 
-func (s *UtilsSuite) TestEtcdParseAddMember(c *C) {
-	memberAddOutput := `Added member named 019879e1adfe44dcac2cee9687632ce9.example770.com with ID ac89f88caf21c86f to cluster
-
-ETCD_NAME="019879e1adfe44dcac2cee9687632ce9.example770.com"
-ETCD_INITIAL_CLUSTER="3acffda9e287487b9c2d03ffd2e5dd43.example770.com=https://192.168.122.64:2380,019879e1adfe44dcac2cee9687632ce9.example770.com=https://192.168.122.26:2380"
-ETCD_INITIAL_CLUSTER_STATE="existing"`
-
-	name, initialCluster, initialClusterState, err := EtcdParseAddMember(memberAddOutput)
-	c.Assert(err, IsNil)
-	c.Assert(name, Equals, "019879e1adfe44dcac2cee9687632ce9.example770.com")
-	c.Assert(initialCluster, Equals, "3acffda9e287487b9c2d03ffd2e5dd43.example770.com=https://192.168.122.64:2380,019879e1adfe44dcac2cee9687632ce9.example770.com=https://192.168.122.26:2380")
-	c.Assert(initialClusterState, Equals, "existing")
-}
-
 func (s *UtilsSuite) TestFindMemberID(c *C) {
 	tcs := []struct {
 		input string

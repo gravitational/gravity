@@ -77,18 +77,6 @@ func EtcdInitialCluster(memberListOutput string) (string, error) {
 	return strings.Join(initialCluster, ","), nil
 }
 
-// EtcdParseAddMember parses the output of 'etcdctl member add' command and returns
-// new member name, initial cluster and initial cluster state.
-func EtcdParseAddMember(memberAddOutput string) (string, string, string, error) {
-	match := reMemberAdd.FindStringSubmatch(memberAddOutput)
-	if len(match) != 4 {
-		return "", "", "", trace.BadParameter(
-			"unexpected 'member add' output, failed to extract member info: %v", memberAddOutput)
-	}
-
-	return match[1], match[2], match[3], nil
-}
-
 // EtcdParseMemberList parses "etcdctl member list" output
 func EtcdParseMemberList(memberListOutput string) (EtcdMemberList, error) {
 	var result EtcdMemberList

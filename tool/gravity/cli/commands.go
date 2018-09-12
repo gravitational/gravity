@@ -373,8 +373,6 @@ type JoinCmd struct {
 	SystemDevice *string
 	// ServerAddr is RPC server address
 	ServerAddr *string
-	// ExistingOperation means joining to existing operation
-	ExistingOperation *bool
 	// Mounts is additional app mounts
 	Mounts *configure.KeyVal
 	// CloudProvider turns on cloud provider integration

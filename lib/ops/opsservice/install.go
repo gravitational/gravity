@@ -690,20 +690,6 @@ func (s *site) configureOnPremServers(ctx *operationContext, servers []storage.S
 	return updated, nil
 }
 
-func (s *site) setOperationServers(key ops.SiteOperationKey, servers []storage.Server) error {
-	operation, err := s.getSiteOperation(key.OperationID)
-	if err != nil {
-		return trace.Wrap(err)
-	}
-
-	operation.Servers = servers
-	if _, err = s.updateSiteOperation(operation); err != nil {
-		return trace.Wrap(err)
-	}
-
-	return nil
-}
-
 // addClusterStateServers adds the provided servers to the cluster state
 func (s *site) addClusterStateServers(servers []storage.Server) error {
 	return trace.Wrap(s.getOperationGroup().addClusterStateServers(servers))

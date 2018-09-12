@@ -112,5 +112,6 @@ func (p *Peer) getOperationPlan(ctx operationContext) (*storage.OperationPlan, e
 		builder.AddElectPhase(plan)
 	}
 
+	fillSteps(plan)
 	return plan, nil
 }

@@ -335,41 +335,39 @@ func (i *InstallConfig) ToInstallerConfig(env *localenv.LocalEnvironment) (*inst
 
 // JoinConfig is the configuration object built from gravity join command args and flags
 type JoinConfig struct {
-	SystemLogFile     string
-	UserLogFile       string
-	AdvertiseAddr     string
-	ServerAddr        string
-	PeerAddrs         string
-	Token             string
-	Role              string
-	SystemDevice      string
-	DockerDevice      string
-	Mounts            map[string]string
-	ExistingOperation bool
-	CloudProvider     string
-	Manual            bool
-	Phase             string
-	OperationID       string
+	SystemLogFile string
+	UserLogFile   string
+	AdvertiseAddr string
+	ServerAddr    string
+	PeerAddrs     string
+	Token         string
+	Role          string
+	SystemDevice  string
+	DockerDevice  string
+	Mounts        map[string]string
+	CloudProvider string
+	Manual        bool
+	Phase         string
+	OperationID   string
 }
 
 // NewJoinConfig populates join configuration from the provided CLI application
 func NewJoinConfig(g *Application) JoinConfig {
 	return JoinConfig{
-		SystemLogFile:     *g.SystemLogFile,
-		UserLogFile:       *g.UserLogFile,
-		PeerAddrs:         *g.JoinCmd.PeerAddr,
-		AdvertiseAddr:     *g.JoinCmd.AdvertiseAddr,
-		ServerAddr:        *g.JoinCmd.ServerAddr,
-		Token:             *g.JoinCmd.Token,
-		Role:              *g.JoinCmd.Role,
-		SystemDevice:      *g.JoinCmd.SystemDevice,
-		DockerDevice:      *g.JoinCmd.DockerDevice,
-		Mounts:            *g.JoinCmd.Mounts,
-		ExistingOperation: *g.JoinCmd.ExistingOperation,
-		CloudProvider:     *g.JoinCmd.CloudProvider,
-		Manual:            *g.JoinCmd.Manual,
-		Phase:             *g.JoinCmd.Phase,
-		OperationID:       *g.JoinCmd.OperationID,
+		SystemLogFile: *g.SystemLogFile,
+		UserLogFile:   *g.UserLogFile,
+		PeerAddrs:     *g.JoinCmd.PeerAddr,
+		AdvertiseAddr: *g.JoinCmd.AdvertiseAddr,
+		ServerAddr:    *g.JoinCmd.ServerAddr,
+		Token:         *g.JoinCmd.Token,
+		Role:          *g.JoinCmd.Role,
+		SystemDevice:  *g.JoinCmd.SystemDevice,
+		DockerDevice:  *g.JoinCmd.DockerDevice,
+		Mounts:        *g.JoinCmd.Mounts,
+		CloudProvider: *g.JoinCmd.CloudProvider,
+		Manual:        *g.JoinCmd.Manual,
+		Phase:         *g.JoinCmd.Phase,
+		OperationID:   *g.JoinCmd.OperationID,
 	}
 }
 

@@ -67,7 +67,6 @@ func (b *planBuilder) AddConfigurePhase(plan *storage.OperationPlan) {
 		Data: &storage.OperationPhaseData{
 			ExecServer: &b.JoiningNode,
 		},
-		Step: 1,
 	})
 }
 
@@ -87,7 +86,6 @@ func (b *planBuilder) AddBootstrapPhase(plan *storage.OperationPlan) {
 			Agent:       agent,
 			ServiceUser: &b.ServiceUser,
 		},
-		Step: 2,
 	})
 }
 
@@ -103,7 +101,6 @@ func (b *planBuilder) AddPullPhase(plan *storage.OperationPlan) {
 			ServiceUser: &b.ServiceUser,
 		},
 		Requires: []string{installphases.ConfigurePhase, installphases.BootstrapPhase},
-		Step:     3,
 	})
 }
 
@@ -118,7 +115,6 @@ func (b *planBuilder) AddPreHookPhase(plan *storage.OperationPlan) {
 			ServiceUser: &b.ServiceUser,
 		},
 		Requires: []string{installphases.PullPhase},
-		Step:     4,
 	})
 }
 
@@ -138,7 +134,6 @@ func (b *planBuilder) AddSystemPhase(plan *storage.OperationPlan) {
 					Package:    &b.TeleportPackage,
 				},
 				Requires: []string{installphases.PullPhase},
-				Step:     5,
 			},
 			{
 				ID: fmt.Sprintf("%v/planet", SystemPhase),
@@ -151,7 +146,6 @@ func (b *planBuilder) AddSystemPhase(plan *storage.OperationPlan) {
 					Labels:     pack.RuntimePackageLabels,
 				},
 				Requires: []string{installphases.PullPhase},
-				Step:     6,
 			},
 		},
 	})
@@ -174,7 +168,6 @@ func (b *planBuilder) AddStartAgentPhase(plan *storage.OperationPlan) {
 			},
 		},
 		Requires: []string{SystemPhase},
-		Step:     7,
 	})
 }
 
@@ -189,7 +182,6 @@ func (b *planBuilder) AddEtcdBackupPhase(plan *storage.OperationPlan) {
 			ExecServer: &b.JoiningNode,
 		},
 		Requires: []string{StartAgentPhase},
-		Step:     8,
 	})
 }
 
@@ -204,7 +196,6 @@ func (b *planBuilder) AddEtcdPhase(plan *storage.OperationPlan) {
 			Master:     &b.Master,
 		},
 		Requires: fsm.RequireIfPresent(plan, SystemPhase, EtcdBackupPhase),
-		Step:     8,
 	})
 }
 
@@ -222,7 +213,6 @@ func (b *planBuilder) AddWaitPhase(plan *storage.OperationPlan) {
 					ExecServer: &b.JoiningNode,
 				},
 				Requires: fsm.RequireIfPresent(plan, SystemPhase, EtcdPhase),
-				Step:     9,
 			},
 			{
 				ID:          WaitK8sPhase,
@@ -232,7 +222,6 @@ func (b *planBuilder) AddWaitPhase(plan *storage.OperationPlan) {
 					ExecServer: &b.JoiningNode,
 				},
 				Requires: []string{WaitPlanetPhase},
-				Step:     10,
 			},
 		},
 	})
@@ -249,7 +238,6 @@ func (b *planBuilder) AddStopAgentPhase(plan *storage.OperationPlan) {
 			Server:     &b.Master,
 		},
 		Requires: []string{installphases.WaitPhase},
-		Step:     11,
 	})
 }
 
@@ -264,7 +252,6 @@ func (b *planBuilder) AddLabelPhase(plan *storage.OperationPlan) {
 			Package:    &b.Application.Package,
 		},
 		Requires: []string{WaitK8sPhase},
-		Step:     12,
 	})
 }
 
@@ -279,7 +266,6 @@ func (b *planBuilder) AddPostHookPhase(plan *storage.OperationPlan) {
 			ServiceUser: &b.ServiceUser,
 		},
 		Requires: []string{installphases.WaitPhase},
-		Step:     13,
 	})
 }
 
@@ -293,7 +279,6 @@ func (b *planBuilder) AddElectPhase(plan *storage.OperationPlan) {
 			ExecServer: &b.JoiningNode,
 		},
 		Requires: []string{installphases.WaitPhase},
-		Step:     14,
 	})
 }
 
@@ -356,4 +341,11 @@ func (p *Peer) getPlanBuilder(ctx operationContext) (*planBuilder, error) {
 		RegularAgent:    *regularAgent,
 		ServiceUser:     ctx.Site.ServiceUser,
 	}, nil
+}
+
+// fillSteps sets each phase's step number to its index number in the plan
+func fillSteps(plan *storage.OperationPlan) {
+	for i, phase := range fsm.FlattenPlan(plan) {
+		phase.Step = i
+	}
 }

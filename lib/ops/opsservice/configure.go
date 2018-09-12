@@ -1029,25 +1029,6 @@ type planetConfig struct {
 	configPackage loc.Locator
 }
 
-func (s *site) configureDevicemapper(op *ops.SiteOperation, node *ProvisionedServer, runner remoteRunner) error {
-	state := op.InstallExpand
-	if state == nil {
-		return nil
-	}
-	// if the disk for docker devicemapper configuration has not been specified,
-	// skip direct-lvm configuration (fall back to loop-lvm)
-	if server := state.Servers.FindByIP(node.AdvertiseIP); server != nil && server.Docker.Device.Path() != "" {
-		args := s.gravityCommand("system", "devicemapper", "mount", server.Docker.Device.Path())
-		if out, err := runner.Run(node, args...); err != nil {
-			return trace.Wrap(err, "failed to configure devicemapper on %v: %s", node, out)
-
-		}
-	} else if server == nil {
-		log.Warningf("no server instance for %v", node.AdvertiseIP)
-	}
-	return nil
-}
-
 func (s *site) configureTeleportMaster(ctx *operationContext, secrets *teleportSecrets, master *ProvisionedServer) error {
 	configPackage, err := s.teleportMasterConfigPackage(master)
 	if err != nil {

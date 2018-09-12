@@ -294,6 +294,9 @@ const (
 	// SystemctlBin is systemctl executable inside planet
 	SystemctlBin = "/bin/systemctl"
 
+	// StatBin is stat executable path inside planet
+	StatBin = "/usr/bin/stat"
+
 	// SystemdLogDir specifies the default location of the systemd journal files
 	SystemdLogDir = "/var/log/journal"
 
