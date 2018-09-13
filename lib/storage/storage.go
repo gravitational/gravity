@@ -1843,6 +1843,8 @@ type AgentProfile struct {
 	Instructions string `json:"instructions"`
 	// AgentURL is connection string for install agent
 	AgentURL string `json:"agent_url"`
+	// Token is the token used to connect to the agent server
+	Token string `json:"token"`
 }
 
 // ShrinkOperationState contains information about shrink operation

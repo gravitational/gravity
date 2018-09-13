@@ -398,6 +398,7 @@ func (p *Peer) tryConnect() (op *operationContext, err error) {
 		p.Debugf("Trying peer %v.", addr)
 		op, err = p.dialWizard(addr)
 		if err == nil {
+			p.Debugf("Connected to wizard at %v.", op.Peer)
 			p.sendMessage("Connected to installer at %v", addr)
 			return op, nil
 		}
@@ -415,6 +416,7 @@ func (p *Peer) tryConnect() (op *operationContext, err error) {
 
 		op, err = p.dialSite(addr)
 		if err == nil {
+			p.Debugf("Connected to cluster at %v.", op.Peer)
 			p.sendMessage("Connected to existing cluster at %v", addr)
 			return op, nil
 		}
@@ -444,8 +446,13 @@ func (p *Peer) agentURL(ctx operationContext) (string, error) {
 	if err != nil {
 		return "", trace.Wrap(err)
 	}
+	instructions, ok := ctx.Operation.InstallExpand.Agents[p.Role]
+	if !ok {
+		return "", trace.BadParameter("no agent instructions for role %q: %v",
+			p.Role, ctx.Operation.InstallExpand)
+	}
 	query := agentURL.Query()
-	query.Set(httplib.AccessTokenQueryParam, p.Token)
+	query.Set(httplib.AccessTokenQueryParam, instructions.Token)
 	if p.CloudProvider == schema.ProviderAWS {
 		query.Set(ops.AgentProvisioner, schema.ProvisionerAWSTerraform)
 	}
@@ -528,6 +535,8 @@ func (p *Peer) Stop(ctx context.Context) error {
 func (p *Peer) waitForOperation(ctx operationContext) error {
 	ticker := backoff.NewTicker(backoff.NewConstantBackOff(1 * time.Second))
 	defer ticker.Stop()
+	log := p.WithField(constants.FieldOperationID, ctx.Operation.ID)
+	log.Debug("Waiting for the operation to become ready.")
 	for {
 		select {
 		case <-p.Context.Done():
@@ -538,10 +547,10 @@ func (p *Peer) waitForOperation(ctx operationContext) error {
 				return trace.Wrap(err)
 			}
 			if operation.State != ops.OperationStateReady {
-				p.Info("Operation is not ready yet.")
+				log.Info("Operation is not ready yet.")
 				continue
 			}
-			p.Info("Operation is ready!")
+			log.Info("Operation is ready!")
 			return nil
 		}
 	}
@@ -556,6 +565,8 @@ func (p *Peer) waitForAgents(ctx operationContext) error {
 		Clock:           backoff.SystemClock,
 	})
 	defer ticker.Stop()
+	log := p.WithField(constants.FieldOperationID, ctx.Operation.ID)
+	log.Debug("Waiting for the agent to join.")
 	for {
 		select {
 		case <-p.Context.Done():
@@ -566,27 +577,28 @@ func (p *Peer) waitForAgents(ctx operationContext) error {
 			}
 			report, err := ctx.Operator.GetSiteExpandOperationAgentReport(ctx.Operation.Key())
 			if err != nil {
-				p.Warningf("%v", err)
+				log.Warningf("%v", err)
 				continue
 			}
 			if len(report.Servers) == 0 {
+				log.Debug("The agent hasn't joined yet.")
 				continue
 			}
 			op, err := ctx.Operator.GetSiteOperation(ctx.Operation.Key())
 			if err != nil {
-				p.Warningf("%v", err)
+				log.Warningf("%v", err)
 				continue
 			}
 			req, err := install.GetServers(*op, report.Servers)
 			if err != nil {
-				p.Warningf("%v", err)
+				log.Warningf("%v", err)
 				continue
 			}
 			err = ctx.Operator.UpdateExpandOperationState(ctx.Operation.Key(), *req)
 			if err != nil {
 				return trace.Wrap(err)
 			}
-			p.Infof("Installation can proceed! %v", report)
+			log.Infof("Installation can proceed! %v", report)
 			return nil
 		}
 	}

@@ -170,6 +170,7 @@ func (s *site) createInstallExpandOperation(operationType, operationInitialState
 		agents[role] = storage.AgentProfile{
 			Instructions: instructions,
 			AgentURL:     u.String(),
+			Token:        token,
 		}
 	}
 
