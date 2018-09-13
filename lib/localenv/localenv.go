@@ -71,8 +71,24 @@ type LocalEnvironmentArgs struct {
 	// Reporter controls progress output
 	Reporter pack.ProgressReporter
 	// DNS is the local cluster DNS server configuration
-	DNS storage.DNSConfig
+	DNS DNSConfig
 }
+
+// Addr returns the first listen address of the DNS server
+func (r DNSConfig) Addr() string {
+	if len(r.Addrs) == 0 {
+		return storage.DefaultDNSConfig.Addr()
+	}
+	return (storage.DNSConfig)(r).Addr()
+}
+
+// IsEmpty returns whether this DNS configuration is empty
+func (r DNSConfig) IsEmpty() bool {
+	return (storage.DNSConfig)(r).IsEmpty()
+}
+
+// DNSConfig is the DNS configuration with a fallback to storage.DefaultDNSConfig
+type DNSConfig storage.DNSConfig
 
 // LocalEnvironment sets up local gravity environment
 // and services that make sense for it:
@@ -158,7 +174,7 @@ func (env *LocalEnvironment) init() error {
 		if err != nil {
 			return trace.Wrap(err)
 		}
-		env.DNS = *dns
+		env.DNS = DNSConfig(*dns)
 	}
 
 	env.Objects, err = fs.New(filepath.Join(env.StateDir, defaults.PackagesDir))
@@ -513,7 +529,6 @@ func (env *LocalEnvironment) getKubeClient() (*kubernetes.Clientset, error) {
 	log.Warnf("Privileged kubeconfig unavailable, falling back to cluster client: %v.", err)
 
 	if env.DNS.IsEmpty() {
-		log.Warnf("WAT, DNS configuration is empty: %#v.", env.DNS)
 		return nil, nil
 	}
 

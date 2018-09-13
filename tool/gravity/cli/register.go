@@ -135,15 +135,6 @@ func RegisterCommands(app *kingpin.Application) *Application {
 	g.PlanCmd.Sync = g.PlanCmd.Flag("sync", "Sync the operation plan from etcd to local store").Hidden().Bool()
 	g.PlanCmd.Output = common.Format(g.PlanCmd.Flag("output", "Output format for the plan, text, json or yaml").Short('o').Default(string(constants.EncodingText)))
 
-	// Explicit install/upgrade plan alias commands
-	g.InstallPlanCmd.CmdClause = g.Command("install-plan", "Operations on install plan")
-	g.InstallPlanDisplayCmd.CmdClause = g.InstallPlanCmd.Command("display", "Display plan for an ongoing install operation").Hidden()
-	g.InstallPlanDisplayCmd.Output = common.Format(g.InstallPlanDisplayCmd.Flag("output", "Output format for the plan, text, json or yaml").Short('o').Default(string(constants.EncodingText)))
-
-	g.UpgradePlanCmd.CmdClause = g.Command("upgrade-plan", "Operations on upgrade plan")
-	g.UpgradePlanDisplayCmd.CmdClause = g.UpgradePlanCmd.Command("display", "Display plan for an ongoing upgrade operation").Hidden()
-	g.UpgradePlanDisplayCmd.Output = common.Format(g.UpgradePlanDisplayCmd.Flag("output", "Output format for the plan, text, json or yaml").Short('o').Default(string(constants.EncodingText)))
-
 	g.RollbackCmd.CmdClause = g.Command("rollback", "Rollback actions")
 	g.RollbackCmd.Phase = g.RollbackCmd.Flag("phase", "Operation phase to rollback").Required().String()
 	g.RollbackCmd.PhaseTimeout = g.RollbackCmd.Flag("timeout", "Phase rollback timeout").Default(defaults.PhaseTimeout).Hidden().Duration()

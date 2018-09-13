@@ -72,7 +72,7 @@ func updateTrigger(
 		return trace.Wrap(err, "failed to connect to teleport proxy")
 	}
 
-	clusterEnv, err := localenv.NewClusterEnvironment()
+	clusterEnv, err := localEnv.NewClusterEnvironment()
 	if err != nil {
 		return trace.Wrap(err)
 	}

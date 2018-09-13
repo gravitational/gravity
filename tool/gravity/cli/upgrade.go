@@ -47,7 +47,7 @@ type upgradePhaseParams struct {
 }
 
 func executeUpgradePhase(localEnv, upgradeEnv *localenv.LocalEnvironment, p upgradePhaseParams) error {
-	clusterEnv, err := localenv.NewClusterEnvironment()
+	clusterEnv, err := localEnv.NewClusterEnvironment()
 	if err != nil {
 		return trace.Wrap(err)
 	}
@@ -85,7 +85,7 @@ func executeUpgradePhase(localEnv, upgradeEnv *localenv.LocalEnvironment, p upgr
 }
 
 func rollbackUpgradePhase(localEnv, updateEnv *localenv.LocalEnvironment, p rollbackParams) error {
-	clusterEnv, err := localenv.NewClusterEnvironment()
+	clusterEnv, err := localEnv.NewClusterEnvironment()
 	if err != nil {
 		return trace.Wrap(err)
 	}
@@ -122,8 +122,8 @@ func rollbackUpgradePhase(localEnv, updateEnv *localenv.LocalEnvironment, p roll
 	return trace.Wrap(err)
 }
 
-func completeUpgrade(updateEnv *localenv.LocalEnvironment) error {
-	clusterEnv, err := localenv.NewClusterEnvironment()
+func completeUpgrade(localEnv, updateEnv *localenv.LocalEnvironment) error {
+	clusterEnv, err := localEnv.NewClusterEnvironment()
 	if err != nil {
 		return trace.Wrap(err)
 	}

@@ -132,7 +132,7 @@ var agentFunctions map[string]agentFunc = map[string]agentFunc{
 func rpcAgentDeploy(env *localenv.LocalEnvironment, leaderParams []string) error {
 	ctx := context.TODO()
 
-	clusterEnv, err := localenv.NewClusterEnvironment()
+	clusterEnv, err := env.NewClusterEnvironment()
 	if err != nil {
 		return trace.Wrap(err)
 	}

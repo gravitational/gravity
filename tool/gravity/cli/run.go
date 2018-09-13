@@ -97,9 +97,7 @@ func InitAndCheck(g *Application, cmd string) error {
 		g.PlanCmd.FullCommand(),
 		g.UpgradeCmd.FullCommand(),
 		g.RollbackCmd.FullCommand(),
-		g.ResourceCreateCmd.FullCommand(),
-		g.InstallPlanDisplayCmd.FullCommand(),
-		g.UpgradePlanDisplayCmd.FullCommand():
+		g.ResourceCreateCmd.FullCommand():
 		if *g.Debug {
 			teleutils.InitLogger(teleutils.LoggingForDaemon, level)
 		}
@@ -149,8 +147,6 @@ func InitAndCheck(g *Application, cmd string) error {
 		g.PlanetEnterCmd.FullCommand(),
 		g.PlanCmd.FullCommand(),
 		g.InstallCmd.FullCommand(),
-		g.InstallPlanDisplayCmd.FullCommand(),
-		g.UpgradePlanDisplayCmd.FullCommand(),
 		g.SystemDevicemapperMountCmd.FullCommand(),
 		g.SystemDevicemapperUnmountCmd.FullCommand(),
 		g.BackupCmd.FullCommand(),
@@ -306,7 +302,7 @@ func Execute(g *Application, cmd string, extraArgs []string) error {
 				})
 		}
 		if *g.UpgradeCmd.Complete {
-			return completeUpgrade(upgradeEnv)
+			return completeUpgrade(localEnv, upgradeEnv)
 		}
 		return updateTrigger(localEnv,
 			upgradeEnv,
@@ -322,14 +318,9 @@ func Execute(g *Application, cmd string, extraArgs []string) error {
 				skipVersionCheck: *g.RollbackCmd.SkipVersionCheck,
 				timeout:          *g.RollbackCmd.PhaseTimeout,
 			})
-	case g.InstallPlanDisplayCmd.FullCommand():
-		return displayInstallOperationPlan(*g.InstallPlanDisplayCmd.Output)
-	case g.UpgradePlanDisplayCmd.FullCommand():
-		return displayUpdateOperationPlan(localEnv,
-			*g.UpgradePlanDisplayCmd.Output)
 	case g.PlanCmd.FullCommand():
 		if *g.PlanCmd.Init {
-			return initOperationPlan(upgradeEnv)
+			return initOperationPlan(localEnv, upgradeEnv)
 		}
 		if *g.PlanCmd.Sync {
 			return syncOperationPlan(localEnv, upgradeEnv)

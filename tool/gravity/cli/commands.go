@@ -67,14 +67,6 @@ type Application struct {
 	RemoveCmd RemoveCmd
 	// PlanCmd displays current operation plan
 	PlanCmd PlanCmd
-	// InstallPlanCmd combines install plan related subcommands
-	InstallPlanCmd InstallPlanCmd
-	// InstallPlanDisplayCmd displays install operation plan
-	InstallPlanDisplayCmd InstallPlanDisplayCmd
-	// UpgradePlanCmd combines upgrade plan related subcommands
-	UpgradePlanCmd UpgradePlanCmd
-	// UpgradePlanDisplayCmd displays upgrade operation plan
-	UpgradePlanDisplayCmd UpgradePlanDisplayCmd
 	// RollbackCmd rolls back the specified operation plan phase
 	RollbackCmd RollbackCmd
 	// UpdateCmd combines app update related commands

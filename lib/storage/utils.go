@@ -238,7 +238,7 @@ func DisableAccess(backend Backend, name string, delay time.Duration) error {
 // if no configuration is available
 func GetDNSConfig(backend Backend, fallback DNSConfig) (config *DNSConfig, err error) {
 	config, err = backend.GetDNSConfig()
-	log.Infof("Backend: dns=%v (%v)", config, err)
+	log.Debugf("Backend: dns=%v (%v)", config, err)
 	if err != nil && !trace.IsNotFound(err) {
 		return nil, trace.Wrap(err)
 	}

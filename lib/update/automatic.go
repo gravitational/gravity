@@ -31,7 +31,7 @@ import (
 
 // AutomaticUpgrade starts automatic upgrade process
 func AutomaticUpgrade(ctx context.Context, localEnv, updateEnv *localenv.LocalEnvironment) (err error) {
-	clusterEnv, err := localenv.NewClusterEnvironment()
+	clusterEnv, err := localEnv.NewClusterEnvironment()
 	if err != nil {
 		return trace.Wrap(err)
 	}

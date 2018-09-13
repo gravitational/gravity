@@ -67,7 +67,7 @@ func (g *Application) getEnv(stateDir string) (*localenv.LocalEnvironment, error
 		if err != nil {
 			return nil, trace.Wrap(err)
 		}
-		args.DNS = *config
+		args.DNS = localenv.DNSConfig(*config)
 	}
 	if *g.StateDir != defaults.LocalGravityDir {
 		args.LocalKeyStoreDir = *g.StateDir
@@ -135,7 +135,6 @@ func (g *Application) isUpgradeCommand(cmd string) bool {
 	switch cmd {
 	case g.PlanCmd.FullCommand(),
 		g.UpdateTriggerCmd.FullCommand(),
-		g.UpgradePlanDisplayCmd.FullCommand(),
 		g.RollbackCmd.FullCommand(),
 		g.UpgradeCmd.FullCommand():
 		return true

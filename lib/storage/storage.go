@@ -1075,7 +1075,7 @@ type DNSConfig struct {
 	// Addrs lists local cluster DNS server IP addresses
 	Addrs []string `json:"addrs"`
 	// Interfaces lists network interfaces dnsmasq will listen on.
-	// This is mostly to support the legacy DNS configuration is not
+	// This is mostly to support the legacy DNS configuration and is not
 	// exposed as a configuration parameter
 	Interfaces []string `json:"interfaces,omitempty"`
 	// Port specifies the DNS port to use for dnsmasq
