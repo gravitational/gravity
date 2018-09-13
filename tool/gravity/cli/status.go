@@ -30,6 +30,7 @@ import (
 	"github.com/gravitational/gravity/lib/defaults"
 	"github.com/gravitational/gravity/lib/localenv"
 	"github.com/gravitational/gravity/lib/ops"
+	"github.com/gravitational/gravity/lib/schema"
 	statusapi "github.com/gravitational/gravity/lib/status"
 
 	"github.com/dustin/go-humanize"
@@ -306,20 +307,43 @@ func printAgentStatus(status statusapi.Agent, w io.Writer) {
 	if len(status.Nodes) == 0 {
 		fmt.Fprintln(w, color.YellowString("Failed to collect system status from nodes"))
 	}
+	var masters, nodes []statusapi.ClusterServer
+	for _, node := range status.Nodes {
+		if node.Role == string(schema.ServiceRoleMaster) {
+			masters = append(masters, node)
+		} else {
+			nodes = append(nodes, node)
+		}
+	}
+	if len(masters) > 0 {
+		fmt.Fprintln(w, "    Masters:")
+		for _, node := range masters {
+			printNodeStatus(node, w)
+		}
+	}
+	if len(nodes) > 0 {
+		fmt.Fprintln(w, "    Nodes:")
+		for _, node := range nodes {
+			printNodeStatus(node, w)
+		}
+	}
+}
 
-	for _, server := range status.Nodes {
-		fmt.Fprintf(w, "    * %v (%v)\n", unknownFallback(server.Hostname), server.AdvertiseIP)
-
-		switch server.Status {
-		case statusapi.NodeOffline:
-			fmt.Fprintf(w, "        Status:\t%v\n", color.YellowString("offline"))
-		case statusapi.NodeHealthy:
-			fmt.Fprintf(w, "        Status:\t%v\n", color.GreenString("healthy"))
-		case statusapi.NodeDegraded:
-			fmt.Fprintf(w, "        Status:\t%v\n", color.RedString("degraded"))
-			for _, probe := range server.FailedProbes {
-				fmt.Fprintf(w, "        [x]\t%v\n", color.RedString(probe))
-			}
+func printNodeStatus(node statusapi.ClusterServer, w io.Writer) {
+	description := node.AdvertiseIP
+	if node.Profile != "" {
+		description = fmt.Sprintf("%v, %v", description, node.Profile)
+	}
+	fmt.Fprintf(w, "        * %v (%v)\n", unknownFallback(node.Hostname), description)
+	switch node.Status {
+	case statusapi.NodeOffline:
+		fmt.Fprintf(w, "            Status:\t%v\n", color.YellowString("offline"))
+	case statusapi.NodeHealthy:
+		fmt.Fprintf(w, "            Status:\t%v\n", color.GreenString("healthy"))
+	case statusapi.NodeDegraded:
+		fmt.Fprintf(w, "            Status:\t%v\n", color.RedString("degraded"))
+		for _, probe := range node.FailedProbes {
+			fmt.Fprintf(w, "            [%v]\t%v\n", constants.FailureMark, color.RedString(probe))
 		}
 	}
 }

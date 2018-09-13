@@ -221,8 +221,10 @@ type ClusterServer struct {
 	Hostname string `json:"hostname"`
 	// AdvertiseIP specifies the advertise IP address
 	AdvertiseIP string `json:"advertise_ip"`
-	// Role describes the node's cluster service role (control plane node or not)
+	// Role is the node's cluster service role (master or regular)
 	Role string `json:"role"`
+	// Profile is the node's profile name from application manifest
+	Profile string `json:"profile"`
 	// Status describes the node's status
 	Status string `json:"status"`
 	// FailedProbes lists all failed probes if the node is not healthy
@@ -278,6 +280,7 @@ func fromClusterState(systemStatus pb.SystemStatus, cluster []storage.Server) (o
 
 		status := fromNodeStatus(*node)
 		status.Hostname = server.Hostname
+		status.Profile = server.Role
 		out = append(out, status)
 	}
 	return out

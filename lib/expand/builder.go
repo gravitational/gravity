@@ -46,7 +46,7 @@ type planBuilder struct {
 	JoiningNode storage.Server
 	// ClusterNodes is the list of existing cluster nodes
 	ClusterNodes storage.Servers
-	// Peer is the IP address of the cluster node this peer is joining to
+	// Peer is the IP:port of the cluster node this peer is joining to
 	Peer string
 	// Master is one of the cluster's existing master nodes
 	Master storage.Server
@@ -162,7 +162,7 @@ func (b *planBuilder) AddStartAgentPhase(plan *storage.OperationPlan) {
 			Agent: &storage.LoginEntry{
 				Email:        b.AdminAgent.Email,
 				Password:     b.AdminAgent.Password,
-				OpsCenterURL: formatClusterURL(b.Peer),
+				OpsCenterURL: fmt.Sprintf("https://%v", b.Peer),
 			},
 		},
 		Requires: []string{SystemPhase},
