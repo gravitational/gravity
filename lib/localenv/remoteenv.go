@@ -55,13 +55,11 @@ type RemoteEnvironment struct {
 
 // NewRemoteEnvironment creates a new remote environment
 func NewRemoteEnvironment() (*RemoteEnvironment, error) {
-	// for simplicity, the login data is stored in the current
-	// gravity working directory
-	dir, err := os.Getwd()
+	err := os.MkdirAll(defaults.WizardDir, defaults.SharedDirMask)
 	if err != nil {
-		return nil, trace.Wrap(err)
+		return nil, trace.ConvertSystemError(err)
 	}
-	env, err := newRemoteEnvironment(dir)
+	env, err := newRemoteEnvironment(defaults.WizardDir)
 	if err != nil {
 		return nil, trace.Wrap(err)
 	}

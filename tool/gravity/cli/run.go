@@ -204,6 +204,7 @@ func Execute(g *Application, cmd string, extraArgs []string) error {
 	if err != nil {
 		return trace.Wrap(err)
 	}
+	defer localEnv.Close()
 
 	// create an environment used during upgrades
 	var upgradeEnv *localenv.LocalEnvironment
@@ -212,6 +213,7 @@ func Execute(g *Application, cmd string, extraArgs []string) error {
 		if err != nil {
 			return trace.Wrap(err)
 		}
+		defer upgradeEnv.Close()
 	}
 
 	// create an environment where join-specific data is stored
@@ -222,6 +224,7 @@ func Execute(g *Application, cmd string, extraArgs []string) error {
 		if err != nil {
 			return trace.Wrap(err)
 		}
+		defer joinEnv.Close()
 	}
 
 	switch cmd {

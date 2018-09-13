@@ -25,6 +25,7 @@ import (
 	"github.com/gravitational/gravity/lib/constants"
 	"github.com/gravitational/gravity/lib/ops"
 	"github.com/gravitational/gravity/lib/ops/monitoring"
+	"github.com/gravitational/gravity/lib/ops/opsservice"
 	"github.com/gravitational/gravity/lib/storage"
 
 	teleservices "github.com/gravitational/teleport/lib/services"
@@ -36,7 +37,7 @@ type RouterConfig struct {
 	// Backend is a storage backend
 	Backend storage.Backend
 	// Local is local ops service
-	Local ops.Operator
+	Local *opsservice.Operator
 	// Wizard is true if this is an install wizard process
 	Wizard bool
 	// Clients provides access to clients for remote clusters such as operator or apps

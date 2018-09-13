@@ -21,7 +21,6 @@ import (
 
 	"github.com/gravitational/gravity/lib/app"
 	"github.com/gravitational/gravity/lib/constants"
-	"github.com/gravitational/gravity/lib/defaults"
 	"github.com/gravitational/gravity/lib/fsm"
 	installphases "github.com/gravitational/gravity/lib/install/phases"
 	"github.com/gravitational/gravity/lib/loc"
@@ -161,10 +160,9 @@ func (b *planBuilder) AddStartAgentPhase(plan *storage.OperationPlan) {
 			ExecServer: &b.JoiningNode,
 			Server:     &b.Master,
 			Agent: &storage.LoginEntry{
-				Email:    b.AdminAgent.Email,
-				Password: b.AdminAgent.Password,
-				OpsCenterURL: fmt.Sprintf("https://%v:%v", b.Peer,
-					defaults.GravitySiteNodePort),
+				Email:        b.AdminAgent.Email,
+				Password:     b.AdminAgent.Password,
+				OpsCenterURL: formatClusterURL(b.Peer),
 			},
 		},
 		Requires: []string{SystemPhase},

@@ -303,6 +303,12 @@ const (
 	// SystemdMachineIDFile specifies the default location of the systemd machine-id file
 	SystemdMachineIDFile = "/etc/machine-id"
 
+	// GravityEphemeralDir is used to store short-lived data (for example,
+	// that's only needed for the duration of the operation) that can't be
+	// stored in a regular state directory (for example, during initial
+	// installation or join the state director can be formatted)
+	GravityEphemeralDir = "/usr/local/share/gravity"
+
 	// GravityConfigFilename is the name of the file with gravity configuration
 	GravityConfigFilename = ".gravity.config"
 
@@ -837,9 +843,6 @@ const (
 	// RPCAgentSecretsPackage specifies the name of the RPC credentials package
 	RPCAgentSecretsPackage = "rpcagent-secrets"
 
-	// RPCAgentSecretsDir specifies the location of the unpacked credentials
-	RPCAgentSecretsDir = "./rpcsecrets"
-
 	// ArchiveUid specifies the user ID to use for tarball items that do not exist on disk
 	ArchiveUid = 1000
 
@@ -938,6 +941,15 @@ var (
 
 	// GravityConfigDirs specify default locations for gravity configuration search
 	GravityConfigDirs = []string{GravityDir, "assets/local"}
+
+	// GravityJoinDir is where join FSM stores its information on the joining node
+	GravityJoinDir = filepath.Join(GravityEphemeralDir, "join")
+
+	// RPCAgentSecretsDir specifies the location of the unpacked credentials
+	RPCAgentSecretsDir = filepath.Join(GravityEphemeralDir, "rpcsecrets")
+
+	// WizardDir is where wizard login information is stored during install
+	WizardDir = filepath.Join(GravityEphemeralDir, "wizard")
 
 	// LocalCacheDir is the location where gravity stores downloaded packages
 	LocalCacheDir = filepath.Join(LocalDataDir, "cache")

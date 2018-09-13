@@ -573,10 +573,10 @@ func newCompletedProgressEntry() *ops.ProgressEntry {
 func updateProgress(progress ops.ProgressEntry, send func(Event)) {
 	send(Event{Progress: &progress})
 	if progress.State == ops.ProgressStateCompleted {
-		log.Info("operation completed")
+		log.Info("Operation completed.")
 	}
 	if progress.State == ops.ProgressStateFailed {
-		log.Info("operation failed")
+		log.Info("Operation failed.")
 	}
 }
 

@@ -51,11 +51,11 @@ func (g *Application) UpgradeEnv() (*localenv.LocalEnvironment, error) {
 
 // JoinEnv returns an instance of local environment where join-specific data is stored
 func (g *Application) JoinEnv() (*localenv.LocalEnvironment, error) {
-	dir, err := os.Getwd()
+	err := os.MkdirAll(defaults.GravityJoinDir, defaults.SharedDirMask)
 	if err != nil {
-		return nil, trace.Wrap(err)
+		return nil, trace.ConvertSystemError(err)
 	}
-	return g.getEnv(dir)
+	return g.getEnv(defaults.GravityJoinDir)
 }
 
 func (g *Application) getEnv(stateDir string) (*localenv.LocalEnvironment, error) {

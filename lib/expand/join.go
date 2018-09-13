@@ -20,6 +20,7 @@ import (
 	"context"
 	"fmt"
 	"net"
+	"net/url"
 	"strings"
 	"time"
 
@@ -66,6 +67,8 @@ type PeerConfig struct {
 	// ServerAddr is optional address of the agent server.
 	// It will be derived from agent instructions if unspecified
 	ServerAddr string
+	// CloudProvider is the node cloud provider
+	CloudProvider string
 	// EventsC is channel with events indicating install progress
 	EventsC chan install.Event
 	// WatchCh is channel that relays peer reconnect events
@@ -166,14 +169,17 @@ func (p *Peer) Init() error {
 	return nil
 }
 
-func (p *Peer) dialSite(addr string) (*operationContext, error) {
-	var targetURL string
-	// assume that is URL
+// formatClusterURL returns cluster API URL from the provided peer addr which
+// can be either IP address or a URL (in which case it is returned as-is)
+func formatClusterURL(addr string) string {
 	if strings.Contains(addr, "http") {
-		targetURL = addr
-	} else {
-		targetURL = fmt.Sprintf("https://%v:%v", addr, defaults.GravitySiteNodePort)
+		return addr
 	}
+	return fmt.Sprintf("https://%v:%v", addr, defaults.GravitySiteNodePort)
+}
+
+func (p *Peer) dialSite(addr string) (*operationContext, error) {
+	targetURL := formatClusterURL(addr)
 	httpClient := roundtrip.HTTPClient(httplib.GetClient(true))
 	operator, err := opsclient.NewBearerClient(targetURL, p.Token, httpClient)
 	if err != nil {
@@ -216,11 +222,15 @@ func (p *Peer) dialSite(addr string) (*operationContext, error) {
 	if err != nil {
 		return nil, trace.Wrap(err)
 	}
+	peerURL, err := url.Parse(targetURL)
+	if err != nil {
+		return nil, trace.Wrap(err)
+	}
 	return &operationContext{
 		Operator:  operator,
 		Packages:  packages,
 		Apps:      apps,
-		Peer:      addr,
+		Peer:      peerURL.Host,
 		Operation: *operation,
 		Site:      *cluster,
 		Creds:     *creds,
@@ -270,7 +280,7 @@ func (p *Peer) dialWizard(addr string) (*operationContext, error) {
 	if err != nil {
 		return nil, trace.Wrap(err)
 	}
-	_, err = env.LoginWizard(addr)
+	entry, err := env.LoginWizard(addr)
 	if err != nil {
 		return nil, trace.Wrap(err)
 	}
@@ -290,11 +300,15 @@ func (p *Peer) dialWizard(addr string) (*operationContext, error) {
 	if err != nil {
 		return nil, trace.Wrap(err)
 	}
+	peerURL, err := url.Parse(entry.OpsCenterURL)
+	if err != nil {
+		return nil, trace.Wrap(err)
+	}
 	return &operationContext{
 		Operator:  env.Operator,
 		Packages:  env.Packages,
 		Apps:      env.Apps,
-		Peer:      addr,
+		Peer:      peerURL.Host,
 		Operation: *operation,
 		Site:      *cluster,
 		Creds:     *creds,
@@ -337,7 +351,7 @@ type operationContext struct {
 	Operator ops.Operator
 	Packages pack.PackageService
 	Apps     app.Applications
-	// Peer is the address this peer is joining to
+	// Peer is the IP:port of the peer this peer is joining to
 	Peer      string
 	Operation ops.SiteOperation
 	Site      ops.Site
@@ -381,6 +395,7 @@ func (p *Peer) connect() (*operationContext, error) {
 func (p *Peer) tryConnect() (op *operationContext, err error) {
 	p.sendMessage("Connecting to cluster")
 	for _, addr := range p.Peers {
+		p.Debugf("Trying peer %v.", addr)
 		op, err = p.dialWizard(addr)
 		if err == nil {
 			p.sendMessage("Connected to installer at %v", addr)
@@ -415,6 +430,29 @@ func (p *Peer) tryConnect() (op *operationContext, err error) {
 	return op, trace.Wrap(err)
 }
 
+// agentURL returns the agent server URL this peer should connect to
+func (p *Peer) agentURL(ctx operationContext) (string, error) {
+	peerAddress := ctx.Peer
+	if strings.Contains(peerAddress, "http") { // peer may be an URL
+		peerURL, err := url.Parse(ctx.Peer)
+		if err != nil {
+			return "", trace.Wrap(err)
+		}
+		peerAddress = peerURL.Host
+	}
+	agentURL, err := url.Parse(fmt.Sprintf("agent://%v/%v", peerAddress, p.Role))
+	if err != nil {
+		return "", trace.Wrap(err)
+	}
+	query := agentURL.Query()
+	query.Set(httplib.AccessTokenQueryParam, p.Token)
+	if p.CloudProvider == schema.ProviderAWS {
+		query.Set(ops.AgentProvisioner, schema.ProvisionerAWSTerraform)
+	}
+	agentURL.RawQuery = query.Encode()
+	return agentURL.String(), nil
+}
+
 func (p *Peer) run() error {
 	ctx, err := p.connect()
 	if err != nil {
@@ -426,20 +464,14 @@ func (p *Peer) run() error {
 		return trace.Wrap(err)
 	}
 
-	installState := ctx.Operation.InstallExpand
-	if installState == nil {
-		return trace.BadParameter("internal error, no install state for %v", ctx.Operation)
-	}
-	p.Debugf("Got operation state: %#v.", installState)
-
 	err = p.checkAndSetServerProfile(ctx.Site.App)
 	if err != nil {
 		return trace.Wrap(err)
 	}
 
-	agentInstructions, ok := installState.Agents[p.Role]
-	if !ok {
-		return trace.NotFound("agent instructions not found for %v", p.Role)
+	agentURL, err := p.agentURL(*ctx)
+	if err != nil {
+		return trace.Wrap(err)
 	}
 
 	listener, err := net.Listen("tcp", defaults.GravityRPCAgentAddr(p.AdvertiseAddr))
@@ -458,8 +490,8 @@ func (p *Peer) run() error {
 			ShouldReconnect: utils.ShouldReconnectPeer,
 		},
 	}
-	agent, err := install.StartAgent(agentInstructions.AgentURL, config,
-		p.WithField("peer", listener.Addr().String()))
+
+	agent, err := install.StartAgent(agentURL, config, p.WithField("peer", listener.Addr().String()))
 	if err != nil {
 		listener.Close()
 		return trace.Wrap(err)

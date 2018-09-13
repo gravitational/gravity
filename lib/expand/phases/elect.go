@@ -72,7 +72,7 @@ func (p *electExecutor) Execute(ctx context.Context) error {
 	if err != nil {
 		return trace.Wrap(err, "failed to enable leader election: %s", out)
 	}
-	p.Infof("Enabled leader election: %s.", out)
+	p.Info("Enabled leader election.")
 	return nil
 }
 

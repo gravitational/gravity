@@ -210,7 +210,7 @@ func (*nodesExecutor) Rollback(ctx context.Context) error {
 // PreCheck makes sure that all Kubernetes nodes have registered
 func (p *nodesExecutor) PreCheck(ctx context.Context) error {
 	// make sure a Kubernetes node for this phase has registered
-	p.Info("Waiting for Kubernetes node %v to register.", p.Node.AdvertiseIP)
+	p.Infof("Waiting for Kubernetes node %v to register.", p.Node.AdvertiseIP)
 	err := p.waitForNode(p.Node)
 	if err != nil {
 		return trace.Wrap(err)
@@ -361,7 +361,7 @@ func (p *resourcesExecutor) Execute(ctx context.Context) error {
 	if err != nil {
 		return trace.Wrap(err, "failed to write user resources on disk")
 	}
-	out, err := utils.RunPlanetCommand(
+	out, err := utils.RunInPlanetCommand(
 		ctx,
 		p.FieldLogger,
 		defaults.KubectlBin,

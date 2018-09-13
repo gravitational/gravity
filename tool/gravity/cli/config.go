@@ -447,6 +447,7 @@ func (j *JoinConfig) ToPeerConfig(env, joinEnv *localenv.LocalEnvironment) (*exp
 		Peers:         peers,
 		AdvertiseAddr: advertiseAddr,
 		ServerAddr:    j.ServerAddr,
+		CloudProvider: j.CloudProvider,
 		EventsC:       make(chan install.Event, 100),
 		WatchCh:       make(chan rpcserver.WatchEvent, 1),
 		RuntimeConfig: *runtimeConfig,

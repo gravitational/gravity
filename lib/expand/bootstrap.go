@@ -17,9 +17,6 @@ limitations under the License.
 package expand
 
 import (
-	"fmt"
-
-	"github.com/gravitational/gravity/lib/defaults"
 	"github.com/gravitational/gravity/lib/install"
 	"github.com/gravitational/gravity/lib/ops"
 	"github.com/gravitational/gravity/lib/state"
@@ -61,7 +58,7 @@ func (p *Peer) clearLogins() error {
 // logIntoPeer creates a login entry for the peer's peer in the local join backend
 func (p *Peer) logIntoPeer() error {
 	_, err := p.JoinBackend.UpsertLoginEntry(storage.LoginEntry{
-		OpsCenterURL: fmt.Sprintf("https://%v:%v", p.Peers[0], defaults.GravityServicePort),
+		OpsCenterURL: formatClusterURL(p.Peers[0]),
 		Password:     p.Token,
 	})
 	if err != nil {
