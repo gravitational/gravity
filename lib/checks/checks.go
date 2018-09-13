@@ -848,8 +848,6 @@ func defaultPortChecker(options *validationpb.ValidateOptions) health.Checker {
 	}
 
 	var portRanges = []monitoring.PortRange{
-		// FIXME: we don't configure dnsmasq to listen on UDP port 53
-		// monitoring.PortRange{Protocol: "udp", From: 53, To: 53, Description: "internal cluster DNS", ListenAddr: dnsListenAddr},
 		monitoring.PortRange{Protocol: "tcp", From: 7496, To: 7496, Description: "serf (health check agents) peer to peer"},
 		monitoring.PortRange{Protocol: "tcp", From: 7373, To: 7373, Description: "serf (health check agents) peer to peer"},
 		monitoring.PortRange{Protocol: "tcp", From: 2379, To: 2380, Description: "etcd"},

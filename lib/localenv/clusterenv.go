@@ -67,8 +67,8 @@ type ClusterEnvironment struct {
 }
 
 // NewClusterEnvironment initializes local cluster services and
-// returns a new instance of cluster environment
-// FIXME: this is deprecated. Use localenv.LocalEnvronment.NewClusterEnvironment instead
+// returns a new instance of cluster environment.
+// The resulting environment will not have a kubernetes client
 func NewClusterEnvironment() (*ClusterEnvironment, error) {
 	return newClusterEnvironment(clusterEnvironmentArgs{})
 }

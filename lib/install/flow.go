@@ -165,7 +165,6 @@ func (i *Installer) StartCLIInstall() (err error) {
 				PodCIDR:     i.PodCIDR,
 				ServiceCIDR: i.ServiceCIDR,
 				VxlanPort:   i.VxlanPort,
-				DNS:         i.DNSConfig,
 			},
 		},
 		Profiles: ServerRequirements(*i.flavor),

@@ -5,7 +5,6 @@ import (
 	"os"
 	"path/filepath"
 
-	// "github.com/gravitational/gravity/lib/app/resources"
 	"github.com/gravitational/gravity/lib/defaults"
 	"github.com/gravitational/gravity/lib/systeminfo"
 

@@ -191,8 +191,8 @@ func Join(env *localenv.LocalEnvironment, j JoinConfig) error {
 		Role:     j.Role,
 		Options: &validationpb.ValidateOptions{
 			VxlanPort: int32(operation.GetVars().OnPrem.VxlanPort),
-			DnsAddrs:  operation.GetVars().OnPrem.DNS.Addrs,
-			DnsPort:   int32(operation.GetVars().OnPrem.DNS.Port),
+			DnsAddrs:  cluster.DNSConfig.Addrs,
+			DnsPort:   int32(cluster.DNSConfig.Port),
 		},
 		AutoFix: true,
 	})
@@ -683,7 +683,7 @@ func executeInstallPhase(localEnv *localenv.LocalEnvironment, p InstallPhasePara
 		LocalApps:     localApps,
 		LocalBackend:  localEnv.Backend,
 		Insecure:      localEnv.Insecure,
-		DNSConfig:     op.GetVars().OnPrem.DNS,
+		DNSConfig:     storage.DNSConfig(localEnv.DNS),
 	})
 	if err != nil {
 		return trace.Wrap(err)
@@ -747,7 +747,7 @@ func rollbackInstallPhase(localEnv *localenv.LocalEnvironment, p rollbackParams)
 		LocalApps:     localApps,
 		LocalBackend:  localEnv.Backend,
 		Insecure:      localEnv.Insecure,
-		DNSConfig:     op.GetVars().OnPrem.DNS,
+		DNSConfig:     storage.DNSConfig(localEnv.DNS),
 	})
 	if err != nil {
 		return trace.Wrap(err)

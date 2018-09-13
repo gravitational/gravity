@@ -164,6 +164,11 @@ func (r *AgentService) Validate(ctx context.Context, key ops.SiteOperationKey, a
 		return nil, trace.Wrap(err)
 	}
 
+	cluster, err := r.peerStore.backend.GetSite(key.SiteDomain)
+	if err != nil {
+		return nil, trace.Wrap(err)
+	}
+
 	operation, err := r.peerStore.backend.GetSiteOperation(key.SiteDomain, key.OperationID)
 	if err != nil {
 		return nil, trace.Wrap(err)
@@ -176,8 +181,8 @@ func (r *AgentService) Validate(ctx context.Context, key ops.SiteOperationKey, a
 		FullRequirements: true,
 		Options: &validationpb.ValidateOptions{
 			VxlanPort: int32(operation.Vars().OnPrem.VxlanPort),
-			DnsAddrs:  operation.Vars().OnPrem.DNS.Addrs,
-			DnsPort:   int32(operation.Vars().OnPrem.DNS.Port),
+			DnsAddrs:  cluster.DNSConfig.Addrs,
+			DnsPort:   int32(cluster.DNSConfig.Port),
 		},
 	}
 	addr = rpc.AgentAddr(addr)
