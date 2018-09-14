@@ -269,7 +269,11 @@ func fromClusterState(systemStatus pb.SystemStatus, cluster []storage.Server) (o
 }
 
 func planetAgentStatus(ctx context.Context) (*pb.SystemStatus, error) {
-	httpClient := roundtrip.HTTPClient(httplib.GetClient(true))
+	planetClient, err := httplib.GetPlanetClient()
+	if err != nil {
+		return nil, trace.Wrap(err)
+	}
+	httpClient := roundtrip.HTTPClient(planetClient)
 	addr := fmt.Sprintf("https://%v:%v", constants.Localhost, defaults.SatelliteRPCAgentPort)
 	client, err := roundtrip.NewClient(addr, "", httpClient)
 	if err != nil {

@@ -250,6 +250,8 @@ const (
 	RootKeyPair = "root"
 	// APIServerKeyPair is a name of the K8s apiserver key pair
 	APIServerKeyPair = "apiserver"
+	// APIServerKubeletClientKeyPair is the name of the cert for the API server to connect to kubelet
+	APIServerKubeletClientKeyPair = "apiserver-kubelet-client"
 	// KubeletKeyPair is a name of the Kubelet client Key pair
 	KubeletKeyPair = "kubelet"
 	// ProxyKeyPair is a name of the K8s Proxy client Key Pair
@@ -262,6 +264,9 @@ const (
 	ETCDKeyPair = "etcd"
 	// OpsCenterKeyPair is a name of key pair for OpsCenter
 	OpsCenterKeyPair = "ops"
+	// PlanetRPCKeyPair is a keypair for planet's RPC client for
+	// satellite monitoring and exchange
+	PlanetRpcKeyPair = "planet-rpc-client"
 
 	// ClusterAdminGroup is a group name for Kubernetes cluster amdin
 	ClusterAdminGroup = "system:masters"
