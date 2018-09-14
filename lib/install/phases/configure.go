@@ -31,7 +31,7 @@ import (
 func NewConfigure(p fsm.ExecutorParams, operator ops.Operator) (*configureExecutor, error) {
 	logger := &fsm.Logger{
 		FieldLogger: logrus.WithFields(logrus.Fields{
-			constants.FieldInstallPhase: p.Phase.ID,
+			constants.FieldPhase: p.Phase.ID,
 		}),
 		Key:      opKey(p.Plan),
 		Operator: operator,

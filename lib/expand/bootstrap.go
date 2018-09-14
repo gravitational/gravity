@@ -82,7 +82,7 @@ func (p *Peer) configureStateDirectory() error {
 
 // ensureServiceUserAndBinary makes sure specified service user exists and installs gravity binary
 func (p *Peer) ensureServiceUserAndBinary(ctx operationContext) error {
-	_, err := install.EnsureServiceUserAndBinary(ctx.Site.ServiceUser.UID, ctx.Site.ServiceUser.GID)
+	_, err := install.EnsureServiceUserAndBinary(ctx.Cluster.ServiceUser.UID, ctx.Cluster.ServiceUser.GID)
 	if err != nil {
 		return trace.Wrap(err)
 	}
@@ -92,11 +92,11 @@ func (p *Peer) ensureServiceUserAndBinary(ctx operationContext) error {
 // syncOperation synchronizes operation-related data to the local join backend
 func (p *Peer) syncOperation(ctx operationContext) error {
 	// sync cluster
-	err := p.JoinBackend.DeleteSite(ctx.Site.Domain)
+	err := p.JoinBackend.DeleteSite(ctx.Cluster.Domain)
 	if err != nil && !trace.IsNotFound(err) {
 		return trace.Wrap(err)
 	}
-	_, err = p.JoinBackend.CreateSite(ops.ConvertOpsSite(ctx.Site))
+	_, err = p.JoinBackend.CreateSite(ops.ConvertOpsSite(ctx.Cluster))
 	if err != nil {
 		return trace.Wrap(err)
 	}

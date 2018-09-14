@@ -65,7 +65,7 @@ func NewEtcd(p fsm.ExecutorParams, operator ops.Operator, runner fsm.AgentReposi
 	}
 	logger := &fsm.Logger{
 		FieldLogger: logrus.WithFields(logrus.Fields{
-			constants.FieldInstallPhase: p.Phase.ID,
+			constants.FieldPhase: p.Phase.ID,
 		}),
 		Key:      opKey(p.Plan),
 		Operator: operator,
@@ -203,7 +203,7 @@ func (*etcdExecutor) PostCheck(ctx context.Context) error {
 func NewEtcdBackup(p fsm.ExecutorParams, operator ops.Operator, runner fsm.AgentRepository) (*etcdBackupExecutor, error) {
 	logger := &fsm.Logger{
 		FieldLogger: logrus.WithFields(logrus.Fields{
-			constants.FieldInstallPhase: p.Phase.ID,
+			constants.FieldPhase: p.Phase.ID,
 		}),
 		Key:      opKey(p.Plan),
 		Operator: operator,

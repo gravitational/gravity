@@ -40,7 +40,7 @@ import (
 func NewAgentStart(p fsm.ExecutorParams, operator ops.Operator) (*agentStartExecutor, error) {
 	logger := &fsm.Logger{
 		FieldLogger: logrus.WithFields(logrus.Fields{
-			constants.FieldInstallPhase: p.Phase.ID,
+			constants.FieldPhase: p.Phase.ID,
 		}),
 		Key:      opKey(p.Plan),
 		Operator: operator,
@@ -129,7 +129,7 @@ func (*agentStartExecutor) PostCheck(ctx context.Context) error {
 func NewAgentStop(p fsm.ExecutorParams, operator ops.Operator, packages pack.PackageService) (*agentStopExecutor, error) {
 	logger := &fsm.Logger{
 		FieldLogger: logrus.WithFields(logrus.Fields{
-			constants.FieldInstallPhase: p.Phase.ID,
+			constants.FieldPhase: p.Phase.ID,
 		}),
 		Key:      opKey(p.Plan),
 		Operator: operator,

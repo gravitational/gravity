@@ -52,7 +52,7 @@ func NewHook(p fsm.ExecutorParams, operator ops.Operator, apps app.Applications,
 
 	logger := &fsm.Logger{
 		FieldLogger: logrus.WithFields(logrus.Fields{
-			constants.FieldInstallPhase: p.Phase.ID,
+			constants.FieldPhase: p.Phase.ID,
 		}),
 		Key:      opKey(p.Plan),
 		Operator: operator,

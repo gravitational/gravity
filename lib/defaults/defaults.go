@@ -306,7 +306,7 @@ const (
 	// GravityEphemeralDir is used to store short-lived data (for example,
 	// that's only needed for the duration of the operation) that can't be
 	// stored in a regular state directory (for example, during initial
-	// installation or join the state director can be formatted)
+	// installation or join the state directory can be formatted)
 	GravityEphemeralDir = "/usr/local/share/gravity"
 
 	// GravityConfigFilename is the name of the file with gravity configuration
@@ -378,9 +378,6 @@ const (
 
 	// StateRegistryDir is the name of the docker registry directory inside the planet state directory
 	StateRegistryDir = "registry"
-
-	// BackupDir is the directory where some internal backups are stored
-	BackupDir = "backup"
 
 	// ResourcesFile is the default name of the file with application k8s resources
 	ResourcesFile = "resources.yaml"

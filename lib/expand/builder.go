@@ -281,14 +281,14 @@ func (b *planBuilder) AddElectPhase(plan *storage.OperationPlan) {
 }
 
 func (p *Peer) getPlanBuilder(ctx operationContext) (*planBuilder, error) {
-	application, err := ctx.Apps.GetApp(ctx.Site.App.Package)
+	application, err := ctx.Apps.GetApp(ctx.Cluster.App.Package)
 	if err != nil {
 		return nil, trace.Wrap(err)
 	}
 	base := application.Manifest.Base()
 	if base == nil {
 		return nil, trace.NotFound("application %v does not have a runtime",
-			ctx.Site.App.Package)
+			ctx.Cluster.App.Package)
 	}
 	runtime, err := ctx.Apps.GetApp(*base)
 	if err != nil {
@@ -332,12 +332,12 @@ func (p *Peer) getPlanBuilder(ctx operationContext) (*planBuilder, error) {
 		TeleportPackage: *teleportPackage,
 		PlanetPackage:   *planetPackage,
 		JoiningNode:     operation.Servers[0],
-		ClusterNodes:    storage.Servers(ctx.Site.ClusterState.Servers),
+		ClusterNodes:    storage.Servers(ctx.Cluster.ClusterState.Servers),
 		Peer:            ctx.Peer,
-		Master:          storage.Servers(ctx.Site.ClusterState.Servers).Masters()[0],
+		Master:          storage.Servers(ctx.Cluster.ClusterState.Servers).Masters()[0],
 		AdminAgent:      *adminAgent,
 		RegularAgent:    *regularAgent,
-		ServiceUser:     ctx.Site.ServiceUser,
+		ServiceUser:     ctx.Cluster.ServiceUser,
 	}, nil
 }
 

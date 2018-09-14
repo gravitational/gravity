@@ -112,13 +112,6 @@ func NewFSM(config FSMConfig) (*fsm.FSM, error) {
 	if err != nil {
 		return nil, trace.Wrap(err)
 	}
-	// operation, err := config.Operator.GetSiteOperation(config.OperationKey)
-	// if err != nil {
-	// 	return nil, trace.Wrap(err)
-	// }
-	// if operation.Type != ops.OperationExpand {
-	// 	return nil, trace.BadParameter("not a join operation: %v", operation)
-	// }
 	logger := logrus.WithField(trace.Component, "fsm:join")
 	engine := &fsmEngine{
 		FSMConfig:   config,
@@ -233,7 +226,7 @@ func (e *fsmEngine) UpdateProgress(ctx context.Context, p fsm.Params) error {
 	entry := ops.ProgressEntry{
 		SiteDomain:  e.OperationKey.SiteDomain,
 		OperationID: e.OperationKey.OperationID,
-		Completion:  100 / 14 * phase.Step, // 14 is the max number of phases
+		Completion:  100 / len(fsm.FlattenPlan(plan)) * phase.Step,
 		Step:        phase.Step,
 		State:       ops.ProgressStateInProgress,
 		Message:     phase.Description,

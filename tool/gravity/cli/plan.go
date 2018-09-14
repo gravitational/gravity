@@ -21,7 +21,6 @@ import (
 	"fmt"
 	"os"
 
-	"github.com/fatih/color"
 	"github.com/gravitational/gravity/lib/constants"
 	"github.com/gravitational/gravity/lib/defaults"
 	"github.com/gravitational/gravity/lib/fsm"
@@ -32,6 +31,7 @@ import (
 	"github.com/gravitational/gravity/lib/update"
 	"github.com/gravitational/gravity/lib/utils"
 
+	"github.com/fatih/color"
 	"github.com/gravitational/trace"
 )
 

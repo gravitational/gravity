@@ -335,20 +335,34 @@ func (i *InstallConfig) ToInstallerConfig(env *localenv.LocalEnvironment) (*inst
 
 // JoinConfig is the configuration object built from gravity join command args and flags
 type JoinConfig struct {
+	// SystemLogFile is telekube-system log file path
 	SystemLogFile string
-	UserLogFile   string
+	// UserLogFile is telekube-install log file path
+	UserLogFile string
+	// AdvertiseAddr is the advertise IP for the joining node
 	AdvertiseAddr string
-	ServerAddr    string
-	PeerAddrs     string
-	Token         string
-	Role          string
-	SystemDevice  string
-	DockerDevice  string
-	Mounts        map[string]string
+	// ServerAddr is the RPC server address
+	ServerAddr string
+	// PeerAddrs is the list of peers to try connecting to
+	PeerAddrs string
+	// Token is the join token
+	Token string
+	// Role is the joining node profile
+	Role string
+	// SystemDevice is device for gravity data
+	SystemDevice string
+	// DockerDevice is device for docker data
+	DockerDevice string
+	// Mounts is a list of additional mounts
+	Mounts map[string]string
+	// CloudProvider is the node cloud provider
 	CloudProvider string
-	Manual        bool
-	Phase         string
-	OperationID   string
+	// Manual turns on manual plan execution mode
+	Manual bool
+	// Phase is the plan phase to execute
+	Phase string
+	// OperationID is ID of existing join operation
+	OperationID string
 }
 
 // NewJoinConfig populates join configuration from the provided CLI application

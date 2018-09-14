@@ -55,9 +55,9 @@ func NewExport(p fsm.ExecutorParams, operator ops.Operator, packages pack.Packag
 	}
 	logger := &fsm.Logger{
 		FieldLogger: logrus.WithFields(logrus.Fields{
-			constants.FieldInstallPhase: p.Phase.ID,
-			constants.FieldAdvertiseIP:  p.Phase.Data.Server.AdvertiseIP,
-			constants.FieldHostname:     p.Phase.Data.Server.Hostname,
+			constants.FieldPhase:       p.Phase.ID,
+			constants.FieldAdvertiseIP: p.Phase.Data.Server.AdvertiseIP,
+			constants.FieldHostname:    p.Phase.Data.Server.Hostname,
 		}),
 		Key:      opKey(p.Plan),
 		Operator: operator,

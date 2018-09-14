@@ -50,7 +50,7 @@ import (
 func NewWait(p fsm.ExecutorParams, operator ops.Operator) (*waitExecutor, error) {
 	logger := &fsm.Logger{
 		FieldLogger: logrus.WithFields(logrus.Fields{
-			constants.FieldInstallPhase: p.Phase.ID,
+			constants.FieldPhase: p.Phase.ID,
 		}),
 		Key:      opKey(p.Plan),
 		Operator: operator,
@@ -129,7 +129,7 @@ func NewNodes(p fsm.ExecutorParams, operator ops.Operator, apps app.Applications
 	}
 	logger := &fsm.Logger{
 		FieldLogger: logrus.WithFields(logrus.Fields{
-			constants.FieldInstallPhase: p.Phase.ID,
+			constants.FieldPhase: p.Phase.ID,
 		}),
 		Key:      opKey(p.Plan),
 		Operator: operator,
@@ -253,7 +253,7 @@ func NewRBAC(p fsm.ExecutorParams, operator ops.Operator, apps app.Applications)
 	}
 	logger := &fsm.Logger{
 		FieldLogger: logrus.WithFields(logrus.Fields{
-			constants.FieldInstallPhase: p.Phase.ID,
+			constants.FieldPhase: p.Phase.ID,
 		}),
 		Key:      opKey(p.Plan),
 		Operator: operator,
@@ -330,7 +330,7 @@ func (*rbacExecutor) PostCheck(ctx context.Context) error {
 func NewResources(p fsm.ExecutorParams, operator ops.Operator) (*resourcesExecutor, error) {
 	logger := &fsm.Logger{
 		FieldLogger: logrus.WithFields(logrus.Fields{
-			constants.FieldInstallPhase: p.Phase.ID,
+			constants.FieldPhase: p.Phase.ID,
 		}),
 		Key:      opKey(p.Plan),
 		Operator: operator,

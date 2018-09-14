@@ -232,7 +232,7 @@ func (p *Peer) dialSite(addr string) (*operationContext, error) {
 		Apps:      apps,
 		Peer:      peerURL.Host,
 		Operation: *operation,
-		Site:      *cluster,
+		Cluster:   *cluster,
 		Creds:     *creds,
 	}, nil
 }
@@ -310,7 +310,7 @@ func (p *Peer) dialWizard(addr string) (*operationContext, error) {
 		Apps:      env.Apps,
 		Peer:      peerURL.Host,
 		Operation: *operation,
-		Site:      *cluster,
+		Cluster:   *cluster,
 		Creds:     *creds,
 	}, nil
 }
@@ -358,8 +358,8 @@ type operationContext struct {
 	Peer string
 	// Operation is the expand operation this peer is executing
 	Operation ops.SiteOperation
-	// Site is the cluster this peer is joining to
-	Site ops.Site // TODO rename to cluster
+	// Cluster is the cluster this peer is joining to
+	Cluster ops.Site
 	// Creds is the RPC agent credentials
 	Creds rpcserver.Credentials
 }
@@ -477,7 +477,7 @@ func (p *Peer) run() error {
 		return trace.Wrap(err)
 	}
 
-	err = p.checkAndSetServerProfile(ctx.Site.App)
+	err = p.checkAndSetServerProfile(ctx.Cluster.App)
 	if err != nil {
 		return trace.Wrap(err)
 	}

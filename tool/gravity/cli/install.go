@@ -422,19 +422,6 @@ func agent(env *localenv.LocalEnvironment, config agentConfig, serviceName strin
 	return trace.Wrap(agent.Serve())
 }
 
-func watchReconnects(ctx context.Context, cancel context.CancelFunc, watchCh <-chan rpcserver.WatchEvent) {
-	go func() {
-		for event := range watchCh {
-			if event.Error == nil {
-				continue
-			}
-			log.Warnf("Failed to reconnect to %v: %v.", event.Peer, event.Error)
-			cancel()
-			return
-		}
-	}()
-}
-
 // findServer searches the provided cluster's state for a server that matches one of the provided
 // tokens, where a token can be the server's advertise IP, hostname or AWS internal DNS name
 func findServer(site ops.Site, tokens []string) (*storage.Server, error) {
@@ -478,9 +465,8 @@ func findLocalServer(site ops.Site) (*storage.Server, error) {
 	return server, nil
 }
 
-// InstallPhaseParams is a set of parameters for a single phase execution
-// TODO rename since join's using this too now
-type InstallPhaseParams struct {
+// PhaseParams is a set of parameters for a single phase execution
+type PhaseParams struct {
 	// PhaseID is the ID of the phase to execute
 	PhaseID string
 	// Force allows to force phase execution
@@ -491,7 +477,7 @@ type InstallPhaseParams struct {
 	Complete bool
 }
 
-func executeInstallPhase(localEnv *localenv.LocalEnvironment, p InstallPhaseParams) error {
+func executeInstallPhase(localEnv *localenv.LocalEnvironment, p PhaseParams) error {
 	localApps, err := localEnv.AppServiceLocal(localenv.AppConfig{})
 	if err != nil {
 		return trace.Wrap(err)
@@ -541,7 +527,7 @@ func executeInstallPhase(localEnv *localenv.LocalEnvironment, p InstallPhasePara
 	return nil
 }
 
-func executeJoinPhase(localEnv, joinEnv *localenv.LocalEnvironment, p InstallPhaseParams) error {
+func executeJoinPhase(localEnv, joinEnv *localenv.LocalEnvironment, p PhaseParams) error {
 	// determine the ongoing expand operation, it should be the only
 	// operation present in the local join-specific backend
 	operation, err := ops.GetExpandOperation(joinEnv.Backend)
@@ -723,4 +709,17 @@ func CheckLocalState(env *localenv.LocalEnvironment) error {
 			env.StateDir)
 	}
 	return nil
+}
+
+func watchReconnects(ctx context.Context, cancel context.CancelFunc, watchCh <-chan rpcserver.WatchEvent) {
+	go func() {
+		for event := range watchCh {
+			if event.Error == nil {
+				continue
+			}
+			log.Warnf("Failed to reconnect to %v: %v.", event.Peer, event.Error)
+			cancel()
+			return
+		}
+	}()
 }

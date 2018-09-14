@@ -37,7 +37,7 @@ import (
 func NewWaitPlanet(p fsm.ExecutorParams, operator ops.Operator) (*waitPlanetExecutor, error) {
 	logger := &fsm.Logger{
 		FieldLogger: logrus.WithFields(logrus.Fields{
-			constants.FieldInstallPhase: p.Phase.ID,
+			constants.FieldPhase: p.Phase.ID,
 		}),
 		Key:      opKey(p.Plan),
 		Operator: operator,
@@ -106,7 +106,7 @@ func NewWaitK8s(p fsm.ExecutorParams, operator ops.Operator) (*waitK8sExecutor, 
 	}
 	logger := &fsm.Logger{
 		FieldLogger: logrus.WithFields(logrus.Fields{
-			constants.FieldInstallPhase: p.Phase.ID,
+			constants.FieldPhase: p.Phase.ID,
 		}),
 		Key:      opKey(p.Plan),
 		Operator: operator,

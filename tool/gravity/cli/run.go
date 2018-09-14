@@ -256,7 +256,7 @@ func Execute(g *Application, cmd string, extraArgs []string) error {
 			*g.InstallCmd.Phase = fsm.RootPhase
 		}
 		if *g.InstallCmd.Phase != "" {
-			return executeInstallPhase(localEnv, InstallPhaseParams{
+			return executeInstallPhase(localEnv, PhaseParams{
 				PhaseID: *g.InstallCmd.Phase,
 				Force:   *g.InstallCmd.Force,
 				Timeout: *g.InstallCmd.PhaseTimeout,
@@ -268,7 +268,7 @@ func Execute(g *Application, cmd string, extraArgs []string) error {
 			*g.JoinCmd.Phase = fsm.RootPhase
 		}
 		if *g.JoinCmd.Phase != "" || *g.JoinCmd.Complete {
-			return executeJoinPhase(localEnv, joinEnv, InstallPhaseParams{
+			return executeJoinPhase(localEnv, joinEnv, PhaseParams{
 				PhaseID:  *g.JoinCmd.Phase,
 				Force:    *g.JoinCmd.Force,
 				Timeout:  *g.JoinCmd.PhaseTimeout,

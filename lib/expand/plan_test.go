@@ -185,7 +185,7 @@ func (s *PlanSuite) TestPlan(c *check.C) {
 		Apps:      s.services.Apps,
 		Peer:      fmt.Sprintf("%v:%v", s.masterNode.AdvertiseIP, defaults.GravitySiteNodePort),
 		Operation: *s.joinOp,
-		Site:      *s.cluster,
+		Cluster:   *s.cluster,
 	})
 	c.Assert(err, check.IsNil)
 
