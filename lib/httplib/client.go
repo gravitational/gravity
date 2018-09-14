@@ -107,6 +107,7 @@ func WithDialTimeout(t time.Duration) ClientOption {
 	}
 }
 
+// WithClientCert sets a certificate for mTLS client authentication
 func WithClientCert(cert tls.Certificate) ClientOption {
 	return func(c *http.Client) {
 		transport := c.Transport.(*http.Transport)
@@ -114,7 +115,8 @@ func WithClientCert(cert tls.Certificate) ClientOption {
 	}
 }
 
-func WithCa(cert []byte) ClientOption {
+// WithCA to use a custom certificate authority for server validation
+func WithCA(cert []byte) ClientOption {
 	return func(c *http.Client) {
 		transport := c.Transport.(*http.Transport)
 		if transport.TLSClientConfig.RootCAs == nil {
@@ -159,12 +161,12 @@ func GetPlanetClient(options ...ClientOption) (*http.Client, error) {
 	// Load the CA of the server
 	ca, err := ioutil.ReadFile(caFile)
 	if err != nil {
-		return nil, trace.Wrap(err)
+		return nil, trace.ConvertSystemError(err)
 	}
-	options = append(options, WithCa(ca))
+	options = append(options, WithCA(ca))
 
 	// For backwards compatability, only add the client key file if it exists on disk
-	// TODO(knisbet) this fallback can be removed when we no longer suppor upgrades from 5.0
+	// TODO(knisbet) this fallback can be removed when we no longer support upgrades from 5.0
 	if _, err := os.Stat(clientKeyFile); !os.IsNotExist(err) {
 		// Load client cert/key
 		clientCert, err := tls.LoadX509KeyPair(clientCertFile, clientKeyFile)
