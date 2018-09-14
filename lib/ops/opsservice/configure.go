@@ -624,7 +624,10 @@ func (s *site) getPlanetMasterSecretsPackage(p planetMasterParams) (*ops.RotateP
 		constants.ProxyKeyPair:     {userName: constants.ClusterKubeProxyUser, group: constants.ClusterNodeGroup},
 		constants.KubeletKeyPair: {
 			userName: constants.ClusterNodeNamePrefix + ":" + p.master.KubeNodeID(),
-			group:    constants.ClusterNodeGroup},
+			group:    constants.ClusterNodeGroup,
+		},
+		constants.APIServerKubeletClientKeyPair: {group: constants.ClusterAdminGroup},
+		constants.PlanetRpcKeyPair:              {},
 	}
 
 	for name, config := range keyPairTypes {
@@ -726,6 +729,7 @@ func (s *site) getPlanetNodeSecretsPackage(node *ProvisionedServer, secretsPacka
 		constants.KubectlKeyPair:   {group: constants.ClusterNodeGroup},
 		constants.ProxyKeyPair:     {userName: constants.ClusterKubeProxyUser, group: constants.ClusterNodeGroup},
 		constants.KubeletKeyPair:   {userName: constants.ClusterNodeNamePrefix + ":" + node.KubeNodeID(), group: constants.ClusterNodeGroup},
+		constants.PlanetRpcKeyPair: {},
 	}
 
 	var privateKeyPEM []byte
