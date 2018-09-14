@@ -7,14 +7,18 @@
   tasks:
   - name: Capture gravity version
     delegate_to: localhost
+    become: no
     shell: "make --silent get-version"
     args:
       chdir: "{{root_dir}}"
     register: command_output
+    when: gravity_version is not defined
+
   - set_fact:
       gravity_version: "{{ command_output.stdout }}"
-  - debug: msg="gravity version - {{gravity_version}}"
+    when: gravity_version is not defined
 
+  - debug: msg="gravity version - {{gravity_version}}"
   - set_fact: gopath="{{ lookup('env','GOPATH') }}"
   - debug: msg="gopath {{gopath}}"
 
@@ -43,17 +47,13 @@
 - hosts: all
   become: yes
   become_user: root
-  become_method: sudo  
-  vars:
-    root_dir: "{{playbook_dir}}/.."
+  become_method: sudo
   tasks:
   - name: Install gravity
-    become: yes
     shell: |
       umask 0066
       {% if inventory_hostname == groups['all'][0] %}
       cd /tmp/installer
-      tar -xf installer.tar
       ./gravity install \
         --cluster=dev.test \
         --advertise-addr=172.28.128.3 \
@@ -73,4 +73,3 @@
     file:
       state: absent
       path: /tmp/gravity
-

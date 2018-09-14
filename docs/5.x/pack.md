@@ -341,7 +341,8 @@ providers:
 
   # Generic provider is used for on-premise installations
   generic:
-    # Network section allows to specify networking type; default is "vxlan", also supports "calico"
+    # Network section allows to specify networking type; only "vxlan" is
+    # currently supported for on-prem installations
     network:
       type: vxlan
 
