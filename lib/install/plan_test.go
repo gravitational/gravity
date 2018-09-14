@@ -21,7 +21,6 @@ import (
 	"strconv"
 	"testing"
 
-	"github.com/gravitational/gravity/lib/compare"
 	"github.com/gravitational/gravity/lib/constants"
 	"github.com/gravitational/gravity/lib/defaults"
 	"github.com/gravitational/gravity/lib/install/phases"
@@ -219,7 +218,7 @@ func (s *PlanSuite) TestPlan(c *check.C) {
 }
 
 func (s *PlanSuite) verifyChecksPhase(c *check.C, phase storage.OperationPhase) {
-	deepComparePhases(c, storage.OperationPhase{
+	storage.DeepComparePhases(c, storage.OperationPhase{
 		ID: phases.ChecksPhase,
 		Data: &storage.OperationPhaseData{
 			Package: &s.installer.AppPackage,
@@ -228,14 +227,14 @@ func (s *PlanSuite) verifyChecksPhase(c *check.C, phase storage.OperationPhase) 
 }
 
 func (s *PlanSuite) verifyConfigurePhase(c *check.C, phase storage.OperationPhase) {
-	deepComparePhases(c, storage.OperationPhase{
+	storage.DeepComparePhases(c, storage.OperationPhase{
 		ID: phases.ConfigurePhase,
 	}, phase)
 }
 
 func (s *PlanSuite) verifyBootstrapPhase(c *check.C, phase storage.OperationPhase) {
 	serviceUser := s.user()
-	deepComparePhases(c, storage.OperationPhase{
+	storage.DeepComparePhases(c, storage.OperationPhase{
 		ID: phases.BootstrapPhase,
 		Phases: []storage.OperationPhase{
 			{
@@ -265,7 +264,7 @@ func (s *PlanSuite) verifyBootstrapPhase(c *check.C, phase storage.OperationPhas
 
 func (s *PlanSuite) verifyPullPhase(c *check.C, phase storage.OperationPhase) {
 	serviceUser := s.user()
-	deepComparePhases(c, storage.OperationPhase{
+	storage.DeepComparePhases(c, storage.OperationPhase{
 		ID: phases.PullPhase,
 		Phases: []storage.OperationPhase{
 			{
@@ -295,7 +294,7 @@ func (s *PlanSuite) verifyPullPhase(c *check.C, phase storage.OperationPhase) {
 }
 
 func (s *PlanSuite) verifyMastersPhase(c *check.C, phase storage.OperationPhase) {
-	deepComparePhases(c, storage.OperationPhase{
+	storage.DeepComparePhases(c, storage.OperationPhase{
 		ID: phases.MastersPhase,
 		Phases: []storage.OperationPhase{
 			{
@@ -331,7 +330,7 @@ func (s *PlanSuite) verifyMastersPhase(c *check.C, phase storage.OperationPhase)
 }
 
 func (s *PlanSuite) verifyNodesPhase(c *check.C, phase storage.OperationPhase) {
-	deepComparePhases(c, storage.OperationPhase{
+	storage.DeepComparePhases(c, storage.OperationPhase{
 		ID: phases.NodesPhase,
 		Phases: []storage.OperationPhase{
 			{
@@ -367,7 +366,7 @@ func (s *PlanSuite) verifyNodesPhase(c *check.C, phase storage.OperationPhase) {
 }
 
 func (s *PlanSuite) verifyWaitPhase(c *check.C, phase storage.OperationPhase) {
-	deepComparePhases(c, storage.OperationPhase{
+	storage.DeepComparePhases(c, storage.OperationPhase{
 		ID: phases.WaitPhase,
 		Data: &storage.OperationPhaseData{
 			Server: &s.masterNode,
@@ -377,7 +376,7 @@ func (s *PlanSuite) verifyWaitPhase(c *check.C, phase storage.OperationPhase) {
 }
 
 func (s *PlanSuite) verifyLabelPhase(c *check.C, phase storage.OperationPhase) {
-	deepComparePhases(c, storage.OperationPhase{
+	storage.DeepComparePhases(c, storage.OperationPhase{
 		ID: phases.LabelPhase,
 		Phases: []storage.OperationPhase{
 			{
@@ -405,7 +404,7 @@ func (s *PlanSuite) verifyLabelPhase(c *check.C, phase storage.OperationPhase) {
 }
 
 func (s *PlanSuite) verifyRBACPhase(c *check.C, phase storage.OperationPhase) {
-	deepComparePhases(c, storage.OperationPhase{
+	storage.DeepComparePhases(c, storage.OperationPhase{
 		ID: phases.RBACPhase,
 		Data: &storage.OperationPhaseData{
 			Server:  &s.masterNode,
@@ -416,7 +415,7 @@ func (s *PlanSuite) verifyRBACPhase(c *check.C, phase storage.OperationPhase) {
 }
 
 func (s *PlanSuite) verifyResourcesPhase(c *check.C, phase storage.OperationPhase) {
-	deepComparePhases(c, storage.OperationPhase{
+	storage.DeepComparePhases(c, storage.OperationPhase{
 		ID: phases.ResourcesPhase,
 		Data: &storage.OperationPhaseData{
 			Server:    &s.masterNode,
@@ -427,7 +426,7 @@ func (s *PlanSuite) verifyResourcesPhase(c *check.C, phase storage.OperationPhas
 }
 
 func (s *PlanSuite) verifyExportPhase(c *check.C, phase storage.OperationPhase) {
-	deepComparePhases(c, storage.OperationPhase{
+	storage.DeepComparePhases(c, storage.OperationPhase{
 		ID: phases.ExportPhase,
 		Phases: []storage.OperationPhase{
 			{
@@ -446,7 +445,7 @@ func (s *PlanSuite) verifyExportPhase(c *check.C, phase storage.OperationPhase) 
 }
 
 func (s *PlanSuite) verifyRuntimePhase(c *check.C, phase storage.OperationPhase) {
-	deepComparePhases(c, storage.OperationPhase{
+	storage.DeepComparePhases(c, storage.OperationPhase{
 		ID: phases.RuntimePhase,
 		Phases: []storage.OperationPhase{
 			{
@@ -518,7 +517,7 @@ func (s *PlanSuite) verifyAppPhase(c *check.C, phase storage.OperationPhase) {
 	for _, phase := range appPhases {
 		phase.Data.ServiceUser = serviceUser
 	}
-	deepComparePhases(c, storage.OperationPhase{
+	storage.DeepComparePhases(c, storage.OperationPhase{
 		ID:       phases.AppPhase,
 		Phases:   appPhases,
 		Requires: []string{phases.RuntimePhase},
@@ -526,7 +525,7 @@ func (s *PlanSuite) verifyAppPhase(c *check.C, phase storage.OperationPhase) {
 }
 
 func (s *PlanSuite) verifyEnableElectionPhase(c *check.C, phase storage.OperationPhase) {
-	deepComparePhases(c, storage.OperationPhase{
+	storage.DeepComparePhases(c, storage.OperationPhase{
 		ID: phases.EnableElectionPhase,
 		Data: &storage.OperationPhaseData{
 			Server: &s.masterNode,
@@ -540,26 +539,6 @@ func (s *PlanSuite) user() *storage.OSUser {
 		Name: s.serviceUser.Name,
 		UID:  strconv.Itoa(s.serviceUser.UID),
 		GID:  strconv.Itoa(s.serviceUser.GID),
-	}
-}
-
-// deepComparePhases compares the actual phase to the expected phase omitting
-// some insignificant fields like description or UI step number
-func deepComparePhases(c *check.C, expected, actual storage.OperationPhase) {
-	c.Assert(expected.ID, check.Equals, actual.ID,
-		check.Commentf("phase ID does not match"))
-	c.Assert(expected.Requires, check.DeepEquals, actual.Requires,
-		check.Commentf("field Requires on phase %v does not match", expected.ID))
-	c.Assert(expected.Parallel, check.Equals, actual.Parallel,
-		check.Commentf("field Parallel on phase %v does not match", expected.ID))
-	c.Assert(expected.Data, check.DeepEquals, actual.Data,
-		check.Commentf("field Data on phase %v does not match: %v", expected.ID,
-			compare.Diff(expected.Data, actual.Data)))
-	c.Assert(len(expected.Phases), check.Equals, len(actual.Phases),
-		check.Commentf("number of subphases on phase %v does not match: %v", expected.ID,
-			compare.Diff(expected.Phases, actual.Phases)))
-	for i := range expected.Phases {
-		deepComparePhases(c, expected.Phases[i], actual.Phases[i])
 	}
 }
 

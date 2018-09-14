@@ -348,14 +348,20 @@ func (p *Peer) runLocalChecks(cluster ops.Site, installOperation ops.SiteOperati
 // Used by peers to add new nodes for install/expand and poll progress
 // of the operation.
 type operationContext struct {
+	// Operator is the ops service of cluster or installer
 	Operator ops.Operator
+	// Packages is the pack service of cluster or installer
 	Packages pack.PackageService
-	Apps     app.Applications
-	// Peer is the IP:port of the peer this peer is joining to
-	Peer      string
+	// Apps is the apps service of cluster or installer
+	Apps app.Applications
+	// Peer is the IP:port of the peer this peer has joined to
+	Peer string
+	// Operation is the expand operation this peer is executing
 	Operation ops.SiteOperation
-	Site      ops.Site
-	Creds     rpcserver.Credentials
+	// Site is the cluster this peer is joining to
+	Site ops.Site // TODO rename to cluster
+	// Creds is the RPC agent credentials
+	Creds rpcserver.Credentials
 }
 
 // connect dials to either a running wizard OpsCenter or a local gravity cluster.
