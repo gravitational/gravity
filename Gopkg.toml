@@ -58,7 +58,7 @@ ignored = ["github.com/Sirupsen/logrus", "github.com/gravitational/gravity/build
 [[constraint]]
   name = "github.com/gravitational/satellite"
   #version = "=5.2.3"
-  revision = "9728be98c4d55205a2d3c9fb9218570a7e00708c"
+  revision = "4f0a95fcef4b475175bf2a8fddd34f288d956eb1"
 
 [[constraint]]
   name = "github.com/xtgo/set"

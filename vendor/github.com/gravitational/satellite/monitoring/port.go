@@ -109,18 +109,13 @@ func (c *portChecker) checkProcess(proc process, reporter health.Reporter) bool 
 		}
 		switch proc.socket.state() {
 		case TimeWait:
-			// ignore sockets in time-wait and closed states since they're going
+			// ignore sockets in time-wait state since they're going
 			// away soon
 			log.Debugf("Ignoring %v for program %q(pid=%v).", formatSocket(proc.socket), proc.name, proc.pid)
 			continue
 		}
-		localAddr := proc.localAddr().ip.String()
-		addr := r.ListenAddr
-		if addr == "" {
-			addr = localAddr
-		}
-		if uint64(proc.localAddr().port) >= r.From && uint64(proc.localAddr().port) <= r.To &&
-			localAddr == addr {
+
+		if isPortConflict(proc, r) && isIPConflict(proc, r) {
 			conflicts = true
 			reporter.Add(&pb.Probe{
 				Checker: portCheckerID,
@@ -130,6 +125,21 @@ func (c *portChecker) checkProcess(proc process, reporter health.Reporter) bool 
 		}
 	}
 	return conflicts
+}
+
+func isPortConflict(proc process, portRange PortRange) bool {
+	return uint64(proc.localAddr().port) >= portRange.From &&
+		uint64(proc.localAddr().port) <= portRange.To
+}
+
+func isIPConflict(proc process, portRange PortRange) bool {
+	localAddr := proc.localAddr().ip.String()
+	addr := portRange.ListenAddr
+	if addr == "" {
+		addr = localAddr
+	}
+
+	return proc.localAddr().ip.IsUnspecified() || localAddr == addr
 }
 
 const (
