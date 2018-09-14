@@ -394,6 +394,7 @@ func (s *site) checkUpdateParameters(update *pack.PackageEnvelope, provisioner s
 
 	manifest := s.app.Manifest
 
+	// Verify update application has all profiles of the installed one
 	for _, profile := range manifest.NodeProfiles {
 		updateProfile, err := updateManifest.NodeProfiles.ByName(profile.Name)
 		if err != nil {
@@ -401,15 +402,6 @@ func (s *site) checkUpdateParameters(update *pack.PackageEnvelope, provisioner s
 				return trace.NotFound("profile %q not found in update manifest", profile.Name)
 			}
 			return trace.Wrap(err)
-		}
-
-		docker := manifest.Docker(profile)
-		updateDocker := updateManifest.Docker(*updateProfile)
-
-		// we do not support upgrades changing storage drivers
-		if docker.StorageDriver != updateDocker.StorageDriver {
-			return trace.BadParameter("changing docker storage driver is not supported (current %q, new %q)",
-				docker.StorageDriver, updateDocker.StorageDriver)
 		}
 	}
 
