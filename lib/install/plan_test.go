@@ -242,6 +242,7 @@ func (s *PlanSuite) verifyBootstrapPhase(c *check.C, phase storage.OperationPhas
 				ID: fmt.Sprintf("%v/%v", phases.BootstrapPhase, s.masterNode.Hostname),
 				Data: &storage.OperationPhaseData{
 					Server:      &s.masterNode,
+					ExecServer:  &s.masterNode,
 					Package:     &s.installer.AppPackage,
 					Agent:       s.adminAgent,
 					ServiceUser: serviceUser,
@@ -251,6 +252,7 @@ func (s *PlanSuite) verifyBootstrapPhase(c *check.C, phase storage.OperationPhas
 				ID: fmt.Sprintf("%v/%v", phases.BootstrapPhase, s.regularNode.Hostname),
 				Data: &storage.OperationPhaseData{
 					Server:      &s.regularNode,
+					ExecServer:  &s.regularNode,
 					Package:     &s.installer.AppPackage,
 					Agent:       s.regularAgent,
 					ServiceUser: serviceUser,
@@ -270,6 +272,7 @@ func (s *PlanSuite) verifyPullPhase(c *check.C, phase storage.OperationPhase) {
 				ID: fmt.Sprintf("%v/%v", phases.PullPhase, s.masterNode.Hostname),
 				Data: &storage.OperationPhaseData{
 					Server:      &s.masterNode,
+					ExecServer:  &s.masterNode,
 					Package:     &s.installer.AppPackage,
 					ServiceUser: serviceUser,
 				},
@@ -279,6 +282,7 @@ func (s *PlanSuite) verifyPullPhase(c *check.C, phase storage.OperationPhase) {
 				ID: fmt.Sprintf("%v/%v", phases.PullPhase, s.regularNode.Hostname),
 				Data: &storage.OperationPhaseData{
 					Server:      &s.regularNode,
+					ExecServer:  &s.regularNode,
 					Package:     &s.installer.AppPackage,
 					ServiceUser: serviceUser,
 				},
@@ -300,17 +304,19 @@ func (s *PlanSuite) verifyMastersPhase(c *check.C, phase storage.OperationPhase)
 					{
 						ID: fmt.Sprintf("%v/%v/teleport", phases.MastersPhase, s.masterNode.Hostname),
 						Data: &storage.OperationPhaseData{
-							Server:  &s.masterNode,
-							Package: s.teleportPackage,
+							Server:     &s.masterNode,
+							ExecServer: &s.masterNode,
+							Package:    s.teleportPackage,
 						},
 						Requires: []string{fmt.Sprintf("%v/%v", phases.PullPhase, s.masterNode.Hostname)},
 					},
 					{
 						ID: fmt.Sprintf("%v/%v/planet", phases.MastersPhase, s.masterNode.Hostname),
 						Data: &storage.OperationPhaseData{
-							Server:  &s.masterNode,
-							Package: &s.runtimePackage,
-							Labels:  pack.RuntimePackageLabels,
+							Server:     &s.masterNode,
+							ExecServer: &s.masterNode,
+							Package:    &s.runtimePackage,
+							Labels:     pack.RuntimePackageLabels,
 						},
 						Requires: []string{fmt.Sprintf("%v/%v", phases.PullPhase, s.masterNode.Hostname)},
 						Step:     4,
@@ -334,17 +340,19 @@ func (s *PlanSuite) verifyNodesPhase(c *check.C, phase storage.OperationPhase) {
 					{
 						ID: fmt.Sprintf("%v/%v/teleport", phases.NodesPhase, s.regularNode.Hostname),
 						Data: &storage.OperationPhaseData{
-							Server:  &s.regularNode,
-							Package: s.teleportPackage,
+							Server:     &s.regularNode,
+							ExecServer: &s.regularNode,
+							Package:    s.teleportPackage,
 						},
 						Requires: []string{fmt.Sprintf("%v/%v", phases.PullPhase, s.regularNode.Hostname)},
 					},
 					{
 						ID: fmt.Sprintf("%v/%v/planet", phases.NodesPhase, s.regularNode.Hostname),
 						Data: &storage.OperationPhaseData{
-							Server:  &s.regularNode,
-							Package: &s.runtimePackage,
-							Labels:  pack.RuntimePackageLabels,
+							Server:     &s.regularNode,
+							ExecServer: &s.regularNode,
+							Package:    &s.runtimePackage,
+							Labels:     pack.RuntimePackageLabels,
 						},
 						Requires: []string{fmt.Sprintf("%v/%v", phases.PullPhase, s.regularNode.Hostname)},
 						Step:     4,
@@ -371,11 +379,28 @@ func (s *PlanSuite) verifyWaitPhase(c *check.C, phase storage.OperationPhase) {
 func (s *PlanSuite) verifyLabelPhase(c *check.C, phase storage.OperationPhase) {
 	deepComparePhases(c, storage.OperationPhase{
 		ID: phases.LabelPhase,
-		Data: &storage.OperationPhaseData{
-			Server:  &s.masterNode,
-			Package: &s.installer.AppPackage,
+		Phases: []storage.OperationPhase{
+			{
+				ID: fmt.Sprintf("%v/%v", phases.LabelPhase, s.masterNode.Hostname),
+				Data: &storage.OperationPhaseData{
+					Server:     &s.masterNode,
+					ExecServer: &s.masterNode,
+					Package:    &s.installer.AppPackage,
+				},
+				Requires: []string{phases.WaitPhase},
+			},
+			{
+				ID: fmt.Sprintf("%v/%v", phases.LabelPhase, s.regularNode.Hostname),
+				Data: &storage.OperationPhaseData{
+					Server:     &s.regularNode,
+					ExecServer: &s.regularNode,
+					Package:    &s.installer.AppPackage,
+				},
+				Requires: []string{phases.WaitPhase},
+			},
 		},
 		Requires: []string{phases.WaitPhase},
+		Parallel: true,
 	}, phase)
 }
 
@@ -408,8 +433,9 @@ func (s *PlanSuite) verifyExportPhase(c *check.C, phase storage.OperationPhase) 
 			{
 				ID: fmt.Sprintf("%v/%v", phases.ExportPhase, s.masterNode.Hostname),
 				Data: &storage.OperationPhaseData{
-					Server:  &s.masterNode,
-					Package: &s.installer.AppPackage,
+					Server:     &s.masterNode,
+					ExecServer: &s.masterNode,
+					Package:    &s.installer.AppPackage,
 				},
 				Requires: []string{phases.WaitPhase},
 			},
