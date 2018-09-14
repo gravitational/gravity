@@ -241,6 +241,13 @@ publish-telekube: build
 	@echo -e "\n----> Publishing Tsh to $(DISTRIBUTION_OPSCENTER)...\n"
 	$(GRAVITY_OUT) package delete --ops-url=$(DISTRIBUTION_OPSCENTER) $(TELEKUBE_PUBLISH_FLAGS) --force $(TELEKUBE_TSH_PKG) && \
 	$(GRAVITY_OUT) package import --ops-url=$(DISTRIBUTION_OPSCENTER) $(TELEKUBE_PUBLISH_FLAGS) $(TSH_OUT) $(TELEKUBE_TSH_PKG)
+	@echo -e "\n----> Publishing terraform-provider-gravity to $(DISTRIBUTION_OPSCENTER)...\n"
+	$(GRAVITY_OUT) package delete --ops-url=$(DISTRIBUTION_OPSCENTER) $(TELEKUBE_PUBLISH_FLAGS) --force $(TF_PROVIDER_GRAVITY_PKG) && \
+	$(GRAVITY_OUT) package import --ops-url=$(DISTRIBUTION_OPSCENTER) $(TELEKUBE_PUBLISH_FLAGS) $(TF_PROVIDER_GRAVITY_OUT) $(TF_PROVIDER_GRAVITY_PKG)
+	@echo -e "\n----> Publishing terraform-provider-telekube to $(DISTRIBUTION_OPSCENTER)...\n"
+	$(GRAVITY_OUT) package delete --ops-url=$(DISTRIBUTION_OPSCENTER) $(TELEKUBE_PUBLISH_FLAGS) --force $(TF_PROVIDER_TELEKUBE_PKG) && \
+	$(GRAVITY_OUT) package import --ops-url=$(DISTRIBUTION_OPSCENTER) $(TELEKUBE_PUBLISH_FLAGS) $(TF_PROVIDER_TELEKUBE_OUT) $(TF_PROVIDER_TELEKUBE_PKG)
+
 
 #
 # publish telekube/opscenter application packages to S3

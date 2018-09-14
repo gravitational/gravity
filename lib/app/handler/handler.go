@@ -29,6 +29,7 @@ import (
 	"time"
 
 	"github.com/coreos/go-semver/semver"
+	"github.com/davecgh/go-spew/spew"
 	"github.com/gravitational/form"
 	"github.com/gravitational/gravity/lib/app"
 	serviceapi "github.com/gravitational/gravity/lib/app/api"
@@ -823,15 +824,47 @@ func (h *WebHandler) telekubeInstallScript(w http.ResponseWriter, r *http.Reques
 		ver = constants.LatestVersion
 	}
 
+	tfVersion := pack.LatestVersion
+
 	// make sure the provided version is a valid semver
 	if ver != constants.LatestVersion {
 		_, err := semver.NewVersion(ver)
 		if err != nil {
 			return trace.BadParameter("the provided version is not valid: %v", ver)
 		}
+		tfVersion = ver
 	}
 
-	err := telekubeInstallScriptTemplate.Execute(w, map[string]string{"version": ver})
+	// Check whether the terraform provider is available, and find the version of the provider
+	// Note: for tf we should convert the version 'latest' to the real version, since tf
+	// supports having multiple module versions available for talking to different clusters
+	// and use the linux x86_64 package as the reference for getting the version
+	name := strings.Join([]string{constants.TerraformGravityPackage, "linux", "x86_64"}, "_")
+	locator, err := loc.NewLocator(defaults.SystemAccountOrg, name, tfVersion)
+	if err != nil {
+		return trace.Wrap(err)
+	}
+	log.Info("locator: ", locator.String())
+
+	envelope, err := h.Packages.ReadPackageEnvelope(*locator)
+	log.Info("envelope: ", spew.Sdump(envelope))
+	if err != nil {
+		if !trace.IsNotFound(err) {
+			return trace.Wrap(err)
+		}
+		// if the package isn't found, set tfVersion to an empty string
+		// so that we don't include it in our install script
+		// this is normal behaviour, because every version of gravity may
+		// not have a terraform provider
+		tfVersion = ""
+	} else {
+		tfVersion = envelope.Locator.Version
+	}
+
+	err = telekubeInstallScriptTemplate.Execute(w, map[string]string{
+		"version":    ver,
+		"tf_version": tfVersion,
+	})
 	if err != nil {
 		return trace.Wrap(err)
 	}
@@ -1088,5 +1121,28 @@ for BINARY in tele tsh; do
     rm $BINARY
 
     echo "Done! Try running '$BINARY version'"
-done`))
+done
+
+# tf_version: {{.tf_version}}
+
+
+{{ if .tf_version }}
+mkdir -p ${HOME}/.terraform.d/plugins
+TF_URL=https://get.gravitational.io/telekube/bin/{{.tf_version}}/$OS/$ARCH
+for BINARY in terraform-provider-gravity terraform-provider-telekube; do
+    echo "Downloading $BINARY..."
+    rm -f $BINARY
+    curl -sOfL $TF_URL/$BINARY
+    if [ $? -ne 0 ]; then
+        echo -e "Failed downloading $BINARY of version {{.tf_version}}. Is the URL correct?\n$URL/$BINARY"
+        exit 1
+    fi
+    chmod +x $BINARY
+    sudo install -m 0755 $BINARY ${HOME}/.terraform.d/plugins/$BINARY_{{.tf_version}}
+    rm $BINARY
+
+    echo "Done! Terraform provider '$BINARY' is now available."
+done
+{{ end }}
+`))
 )
