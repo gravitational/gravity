@@ -35,9 +35,9 @@ import (
 	"github.com/gravitational/gravity/lib/pack"
 	"github.com/gravitational/gravity/lib/schema"
 	"github.com/gravitational/gravity/lib/storage"
+	"github.com/gravitational/gravity/lib/users"
 	"github.com/gravitational/gravity/lib/utils"
 
-	"github.com/gravitational/gravity/lib/users"
 	"github.com/gravitational/license"
 	"github.com/gravitational/trace"
 	"github.com/mailgun/timetools"

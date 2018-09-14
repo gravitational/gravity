@@ -149,6 +149,8 @@ func RegisterCommands(app *kingpin.Application) *Application {
 	g.UpdateTriggerCmd.CmdClause = g.UpdateCmd.Command("trigger", "Trigger an update operation for given application").Hidden()
 	g.UpdateTriggerCmd.App = g.UpdateTriggerCmd.Arg("app", "Application version to update to, in the 'name:version' or 'name' (for latest version) format. If unspecified, currently installed application is updated").String()
 	g.UpdateTriggerCmd.Manual = g.UpdateTriggerCmd.Flag("manual", "Manual operation. Do not trigger automatic update").Short('m').Bool()
+	g.UpdateTriggerCmd.DockerStorageDriver = g.UpdateTriggerCmd.Flag("docker-storage-driver", "Override Docker storage driver").String()
+	g.UpdateTriggerCmd.DockerArgs = g.UpdateTriggerCmd.Flag("docker-opt", "Additional arguments to Docker. Can be specified multiple times").Strings()
 
 	// upgrade is aliased to "update trigger"
 	g.UpgradeCmd.CmdClause = g.Command("upgrade", "Trigger an update operation for given application").Hidden()
@@ -160,6 +162,8 @@ func RegisterCommands(app *kingpin.Application) *Application {
 	g.UpgradeCmd.Complete = g.UpgradeCmd.Flag("complete", "Complete update operation").Bool()
 	g.UpgradeCmd.Resume = g.UpgradeCmd.Flag("resume", "Resume upgrade from the last failed step").Bool()
 	g.UpgradeCmd.SkipVersionCheck = g.UpgradeCmd.Flag("skip-version-check", "Bypass version compatibility check").Hidden().Bool()
+	g.UpgradeCmd.DockerStorageDriver = g.UpgradeCmd.Flag("docker-storage-driver", "Override Docker storage driver").String()
+	g.UpgradeCmd.DockerArgs = g.UpgradeCmd.Flag("docker-options", "Additional arguments to Docker. Can be specified multiple times").Strings()
 
 	g.UpdateUploadCmd.CmdClause = g.UpdateCmd.Command("upload", "Upload update package to locally running site").Hidden()
 	g.UpdateUploadCmd.OpsCenterURL = g.UpdateUploadCmd.Flag("ops-url", "Optional OpsCenter URL to upload new packages to (defaults to local gravity site)").Default(defaults.GravityServiceURL).String()

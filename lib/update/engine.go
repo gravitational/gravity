@@ -28,7 +28,6 @@ import (
 	"github.com/gravitational/gravity/lib/constants"
 	"github.com/gravitational/gravity/lib/defaults"
 	"github.com/gravitational/gravity/lib/fsm"
-	"github.com/gravitational/gravity/lib/loc"
 	"github.com/gravitational/gravity/lib/ops"
 	"github.com/gravitational/gravity/lib/storage"
 	"github.com/gravitational/gravity/lib/utils"
@@ -138,7 +137,7 @@ func (f *fsmUpdateEngine) Complete(fsmErr error) error {
 		return trace.Wrap(err)
 	}
 
-	updateAppLoc, err := loc.ParseLocator(op.Update.UpdatePackage)
+	updateAppLoc, err := op.Update.Package()
 	if err != nil {
 		return trace.Wrap(err)
 	}

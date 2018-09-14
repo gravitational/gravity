@@ -1695,27 +1695,35 @@ func (s *site) selectDockerConfig(operation ops.SiteOperation, profileName strin
 	}
 
 	docker := manifest.Docker(*profile)
-
-	var vars storage.SystemVariables
+	var config storage.DockerConfig
 
 	switch operation.Type {
 	case ops.OperationInstall:
-		if operation.InstallExpand.Vars.System.Docker.StorageDriver != "" {
-			vars = operation.InstallExpand.Vars.System
+		if !operation.InstallExpand.Vars.System.Docker.IsEmpty() {
+			config = operation.InstallExpand.Vars.System.Docker
 		}
+	case ops.OperationUpdate:
+		// Update Docker state overrides defaults or install state
+		if !operation.Update.Docker.IsEmpty() {
+			config = operation.Update.Docker
+		}
+		if !config.IsEmpty() {
+			break
+		}
+		fallthrough
 	default:
 		// for other operations, use the install operation state
 		installOperation, err := ops.GetCompletedInstallOperation(s.key, s.service)
 		if err != nil {
 			return nil, trace.Wrap(err)
 		}
-		vars = installOperation.InstallExpand.Vars.System
+		config = installOperation.InstallExpand.Vars.System.Docker
 	}
 
-	if vars.Docker.StorageDriver != "" {
-		docker.StorageDriver = vars.Docker.StorageDriver
+	if config.StorageDriver != "" {
+		docker.StorageDriver = config.StorageDriver
 	}
-	docker.Args = append(docker.Args, vars.Docker.Args...)
+	docker.Args = append(docker.Args, config.Args...)
 	return &docker, nil
 }
 

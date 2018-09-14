@@ -77,7 +77,7 @@ func (o *Operator) RotatePlanetConfig(req ops.RotatePlanetConfigRequest) (*ops.R
 		return nil, trace.Wrap(err)
 	}
 
-	updatePackage, err := loc.ParseLocator(operation.Update.UpdatePackage)
+	updatePackage, err := operation.Update.Package()
 	if err != nil {
 		return nil, trace.Wrap(err)
 	}
@@ -196,7 +196,7 @@ func (o *Operator) ConfigureNode(req ops.ConfigureNodeRequest) error {
 		return trace.Wrap(err)
 	}
 
-	updatePackage, err := loc.ParseLocator(operation.Update.UpdatePackage)
+	updatePackage, err := operation.Update.Package()
 	if err != nil {
 		return trace.Wrap(err)
 	}
@@ -260,6 +260,7 @@ func (s *site) createUpdateOperation(req ops.CreateSiteAppUpdateOperationRequest
 		Update: &storage.UpdateOperationState{
 			UpdatePackage: req.App,
 			Manual:        req.Manual,
+			Docker:        req.Docker,
 		},
 	}
 
@@ -396,7 +397,7 @@ func (s *site) checkUpdateParameters(update *pack.PackageEnvelope, provisioner s
 
 	// Verify update application has all profiles of the installed one
 	for _, profile := range manifest.NodeProfiles {
-		updateProfile, err := updateManifest.NodeProfiles.ByName(profile.Name)
+		_, err = updateManifest.NodeProfiles.ByName(profile.Name)
 		if err != nil {
 			if trace.IsNotFound(err) {
 				return trace.NotFound("profile %q not found in update manifest", profile.Name)
