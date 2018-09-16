@@ -22,6 +22,7 @@ import (
 
 	"github.com/gravitational/gravity/lib/constants"
 	"github.com/gravitational/gravity/lib/loc"
+	"github.com/gravitational/gravity/lib/storage"
 
 	"github.com/gravitational/configure"
 	"gopkg.in/alecthomas/kingpin.v2"
@@ -285,6 +286,15 @@ type VersionCmd struct {
 	Output *constants.Format
 }
 
+// DNSConfig returns DNS configuration
+func (r InstallCmd) DNSConfig() (config storage.DNSConfig) {
+	for _, addr := range *r.DNSListenAddrs {
+		config.Addrs = append(config.Addrs, addr.String())
+	}
+	config.Port = *r.DNSPort
+	return config
+}
+
 // InstallCmd launches cluster installation
 type InstallCmd struct {
 	*kingpin.CmdClause
@@ -325,7 +335,7 @@ type InstallCmd struct {
 	// DNSListenAddrs specifies listen addresses for dnsmasq
 	DNSListenAddrs *[]net.IP
 	// DNSPort overrides default DNS port for dnsmasq
-	DNSPort *string
+	DNSPort *int
 	// DockerStorageDriver specifies Docker storage engine to use
 	DockerStorageDriver *string
 	// DockerArgs specifies additional Docker arguments

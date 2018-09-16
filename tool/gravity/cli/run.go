@@ -247,11 +247,7 @@ func Execute(g *Application, cmd string, extraArgs []string) error {
 				Timeout: *g.InstallCmd.PhaseTimeout,
 			})
 		}
-		config, err := NewInstallConfig(g)
-		if err != nil {
-			return trace.Wrap(err)
-		}
-		return startInstall(localEnv, *config)
+		return startInstall(localEnv, NewInstallConfig(g))
 	case g.JoinCmd.FullCommand():
 		return Join(localEnv, JoinConfig{
 			SystemLogFile:     *g.SystemLogFile,

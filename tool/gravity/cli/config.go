@@ -19,6 +19,7 @@ package cli
 import (
 	"context"
 	"io/ioutil"
+	"net"
 	"os"
 
 	"github.com/gravitational/gravity/lib/constants"
@@ -107,7 +108,7 @@ type InstallConfig struct {
 }
 
 // NewInstallConfig creates install config from the passed CLI args and flags
-func NewInstallConfig(g *Application) (*InstallConfig, error) {
+func NewInstallConfig(g *Application) InstallConfig {
 	mode := *g.InstallCmd.Mode
 	if *g.InstallCmd.Wizard {
 		// this is obsolete parameter but take it into account in
@@ -115,12 +116,7 @@ func NewInstallConfig(g *Application) (*InstallConfig, error) {
 		mode = constants.InstallModeInteractive
 	}
 
-	dnsConfig, err := dnsConfig(*g.InstallCmd.DNSListenAddrs, *g.InstallCmd.DNSPort)
-	if err != nil {
-		return nil, trace.Wrap(err)
-	}
-
-	return &InstallConfig{
+	return InstallConfig{
 		Mode:          mode,
 		Insecure:      *g.Insecure,
 		ReadStateDir:  *g.InstallCmd.Path,
@@ -146,12 +142,12 @@ func NewInstallConfig(g *Application) (*InstallConfig, error) {
 			StorageDriver: *g.InstallCmd.DockerStorageDriver,
 			Args:          *g.InstallCmd.DockerArgs,
 		},
-		DNSConfig:  *dnsConfig,
+		DNSConfig:  g.InstallCmd.DNSConfig(),
 		Manual:     *g.InstallCmd.Manual,
 		ServiceUID: *g.InstallCmd.ServiceUID,
 		ServiceGID: *g.InstallCmd.ServiceGID,
 		NodeTags:   *g.InstallCmd.GCENodeTags,
-	}, nil
+	}
 }
 
 // CheckAndSetDefaults validates the configuration object and populates default values
@@ -199,6 +195,9 @@ func (i *InstallConfig) CheckAndSetDefaults() (err error) {
 	}
 	if i.DNSConfig.IsEmpty() {
 		i.DNSConfig = storage.DefaultDNSConfig
+	}
+	if err := i.validateDNSConfig(); err != nil {
+		return trace.Wrap(err)
 	}
 	i.ServiceUser = *serviceUser
 	if i.NewProcess == nil {
@@ -341,4 +340,28 @@ func (i *InstallConfig) ToInstallerConfig(env *localenv.LocalEnvironment) (*inst
 		GCENodeTags:   i.NodeTags,
 		NewProcess:    i.NewProcess,
 	}, nil
+}
+
+func (i *InstallConfig) validateDNSConfig() error {
+	blocks, err := utils.LocalIPNetworks()
+	if err != nil {
+		return trace.Wrap(err)
+	}
+	for _, addr := range i.DNSConfig.Addrs {
+		ip := net.ParseIP(addr)
+		if !validateIP(blocks, ip) {
+			return trace.BadParameter(
+				"IP address %v does not belong to any local IP network", addr)
+		}
+	}
+	return nil
+}
+
+func validateIP(blocks []net.IPNet, ip net.IP) bool {
+	for _, block := range blocks {
+		if block.Contains(ip) {
+			return true
+		}
+	}
+	return false
 }

@@ -71,7 +71,7 @@ func RegisterCommands(app *kingpin.Application) *Application {
 	g.InstallCmd.ServiceCIDR = g.InstallCmd.Flag("service-cidr", "Subnet range for services").Default(defaults.ServiceSubnet).String()
 	g.InstallCmd.VxlanPort = g.InstallCmd.Flag("vxlan-port", "Custom overlay network port").Default(strconv.Itoa(defaults.VxlanPort)).Int()
 	g.InstallCmd.DNSListenAddrs = g.InstallCmd.Flag("dns-listen-addr", "Custom listen address for dnsmasq").Default(defaults.DNSListenAddr).IPList()
-	g.InstallCmd.DNSPort = g.InstallCmd.Flag("dns-port", "Custom DNS port for dnsmasq").Default(strconv.Itoa(defaults.DNSPort)).String()
+	g.InstallCmd.DNSPort = g.InstallCmd.Flag("dns-port", "Custom DNS port for dnsmasq").Default(strconv.Itoa(defaults.DNSPort)).Int()
 	g.InstallCmd.DockerStorageDriver = g.InstallCmd.Flag("storage-driver",
 		fmt.Sprintf("Docker storage driver, overrides the one from app manifest. Recognized are: %v", strings.Join(constants.DockerSupportedDrivers, ", "))).String()
 	g.InstallCmd.DockerArgs = g.InstallCmd.Flag("docker-opt", "Additional arguments to docker. Can be specified multiple times").Strings()
