@@ -72,6 +72,8 @@ const (
 	planP                       = "plan"
 	trustedClustersP            = "trustedclusters"
 	tunnelConnectionsP          = "tunnelconnections"
+	systemP                     = "system"
+	dnsP                        = "dns"
 
 	// AllCollectionIDs identifies a collection without a specification (an ID)
 	AllCollectionIDs = "__all__"

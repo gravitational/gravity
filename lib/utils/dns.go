@@ -21,15 +21,13 @@ import (
 	"net"
 	"strings"
 
-	"github.com/gravitational/gravity/lib/defaults"
-
 	"github.com/gravitational/trace"
 	"github.com/miekg/dns"
 	log "github.com/sirupsen/logrus"
 )
 
 // ResolveAddr resolves the provided hostname using the local resolver
-func ResolveAddr(addr string) (hostPort string, err error) {
+func ResolveAddr(dnsAddr, addr string) (hostPort string, err error) {
 	host := addr
 	port := ""
 	if strings.Contains(addr, ":") {
@@ -42,7 +40,7 @@ func ResolveAddr(addr string) (hostPort string, err error) {
 		c := dns.Client{}
 		m := dns.Msg{}
 		m.SetQuestion(host+".", dns.TypeA)
-		r, t, err := c.Exchange(&m, defaults.LocalResolverAddr)
+		r, t, err := c.Exchange(&m, dnsAddr)
 		if err != nil {
 			return "", trace.Wrap(err)
 		}

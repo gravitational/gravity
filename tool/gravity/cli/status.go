@@ -40,7 +40,7 @@ import (
 )
 
 func status(env *localenv.LocalEnvironment, printOptions printOptions) error {
-	clusterEnv, err := localenv.NewClusterEnvironment()
+	clusterEnv, err := env.NewClusterEnvironment()
 	if err != nil {
 		return trace.Wrap(err)
 	}

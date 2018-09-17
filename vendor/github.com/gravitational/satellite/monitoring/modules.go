@@ -69,18 +69,21 @@ func (r kernelModuleChecker) check(ctx context.Context, reporter health.Reporter
 	}
 
 	for _, module := range r.Modules {
+		if modules.IsLoaded(module) {
+			continue
+		}
+
 		data, err := json.Marshal(KernelModuleCheckerData{Module: module})
 		if err != nil {
 			return trace.Wrap(err)
 		}
-		if !modules.IsLoaded(module) {
-			reporter.Add(&pb.Probe{
-				Checker:     r.Name(),
-				Detail:      fmt.Sprintf("%v not loaded", module),
-				Status:      pb.Probe_Failed,
-				CheckerData: data,
-			})
-		}
+
+		reporter.Add(&pb.Probe{
+			Checker:     r.Name(),
+			Detail:      fmt.Sprintf("%v not loaded", module),
+			Status:      pb.Probe_Failed,
+			CheckerData: data,
+		})
 	}
 
 	return nil
@@ -89,7 +92,7 @@ func (r kernelModuleChecker) check(ctx context.Context, reporter health.Reporter
 // KernelModuleCheckerData gets attached to the kernel module check probes
 type KernelModuleCheckerData struct {
 	// Module is the probed kernel module
-	Module ModuleRequest
+	Module ModuleRequest `json:"module"`
 }
 
 // kernelModuleChecker checks if the specified set of kernel modules are loaded
@@ -162,11 +165,11 @@ func (r ModuleRequest) String() string {
 // ModuleRequest describes a kernel module
 type ModuleRequest struct {
 	// Name names the kernel module
-	Name string
+	Name string `json:"name"`
 	// Names lists alternative names for the module if any.
 	// For example, on CentOS 7.2 bridge netfilter module is called "bridge"
 	// instead of "br_netfilter".
-	Names []string
+	Names []string `json:"names,omitempty"`
 }
 
 // Modules lists kernel modules

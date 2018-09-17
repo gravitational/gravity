@@ -94,9 +94,9 @@ func GetRemoteClient(remoteSite rt.RemoteSite, remoteURL *url.URL) *http.Client 
 type ClientOption func(*http.Client)
 
 // WithLocalResolver sets up client to use local DNS resolver
-func WithLocalResolver() ClientOption {
+func WithLocalResolver(dnsAddr string) ClientOption {
 	return func(c *http.Client) {
-		c.Transport.(*http.Transport).DialContext = DialFromEnviron
+		c.Transport.(*http.Transport).DialContext = DialFromEnviron(dnsAddr)
 	}
 }
 
@@ -200,22 +200,31 @@ type Dialer func(ctx context.Context, network, addr string) (net.Conn, error)
 
 // DialFromEnviron determines if the specified address should be resolved
 // using local resolver prior to dialing
-func DialFromEnviron(ctx context.Context, network, addr string) (conn net.Conn, err error) {
-	log.Debugf("dialing %v", addr)
+func DialFromEnviron(dnsAddr string) func(ctx context.Context, network, addr string) (net.Conn, error) {
+	return func(ctx context.Context, network, addr string) (conn net.Conn, err error) {
+		log.Debugf("dialing %v", addr)
 
-	if isInsidePod() {
-		return Dial(ctx, network, addr)
+		if isInsidePod() {
+			return Dial(ctx, network, addr)
+		}
+
+		conn, err = DialWithLocalResolver(ctx, dnsAddr, network, addr)
+		if err == nil {
+			return conn, nil
+		}
+
+		// Dial with a kubernetes service resolver
+		log.Warnf("Failed to dial with local resolver: %v.", trace.DebugReport(err))
+		return DialWithServiceResolver(ctx, network, addr)
+
 	}
+}
 
-	conn, err = DialWithLocalResolver(ctx, network, addr)
-	if err == nil {
-		return conn, nil
+// LocalResolverDialer returns Dialer that uses the specified DNS server
+func LocalResolverDialer(dnsAddr string) Dialer {
+	return func(ctx context.Context, network, addr string) (net.Conn, error) {
+		return DialWithLocalResolver(ctx, dnsAddr, network, addr)
 	}
-
-	// Dial with a kubernetes service resolver
-	log.Warnf("Failed to dial with local resolver: %v.", trace.DebugReport(err))
-	return DialWithServiceResolver(ctx, network, addr)
-
 }
 
 // dial dials the specified address and returns a new connection
@@ -226,8 +235,8 @@ func Dial(ctx context.Context, network, addr string) (net.Conn, error) {
 
 // DialWithLocalResolver resolves the specified address using the local resolver before dialing.
 // Returns a new connection on success.
-func DialWithLocalResolver(ctx context.Context, network, addr string) (net.Conn, error) {
-	hostPort, err := utils.ResolveAddr(addr)
+func DialWithLocalResolver(ctx context.Context, dnsAddr, network, addr string) (net.Conn, error) {
+	hostPort, err := utils.ResolveAddr(dnsAddr, addr)
 	if err != nil {
 		return nil, trace.Wrap(err, "failed to resolve %v", addr)
 	}
@@ -268,7 +277,7 @@ func DialWithServiceResolver(ctx context.Context, network, addr string) (conn ne
 		}
 	}
 
-	client, _, err := utils.GetKubeClient(kubeconfigPath)
+	client, err := utils.GetKubeClientFromPath(kubeconfigPath)
 	if err != nil {
 		return nil, trace.Wrap(err)
 	}
@@ -298,12 +307,12 @@ func isInsidePod() bool {
 
 // GetUnprivilegedKubeClient returns a Kubernetes client that uses kubelet
 // certificate for authentication
-func GetUnprivilegedKubeClient() (*kubernetes.Clientset, error) {
+func GetUnprivilegedKubeClient(dnsAddr string) (*kubernetes.Clientset, error) {
 	stateDir, err := state.GetStateDir()
 	if err != nil {
 		return nil, trace.Wrap(err)
 	}
-	return getKubeClient(rest.TLSClientConfig{
+	return getKubeClient(dnsAddr, rest.TLSClientConfig{
 		CertFile: state.Secret(stateDir, defaults.KubeletCertFilename),
 		KeyFile:  state.Secret(stateDir, defaults.KubeletKeyFilename),
 		CAFile:   state.Secret(stateDir, defaults.RootCertFilename),
@@ -312,25 +321,25 @@ func GetUnprivilegedKubeClient() (*kubernetes.Clientset, error) {
 
 // GetClusterKubeClient returns a Kubernetes client that uses scheduler
 // certificate for authentication
-func GetClusterKubeClient() (*kubernetes.Clientset, error) {
+func GetClusterKubeClient(dnsAddr string) (*kubernetes.Clientset, error) {
 	stateDir, err := state.GetStateDir()
 	if err != nil {
 		return nil, trace.Wrap(err)
 	}
-	return getKubeClient(rest.TLSClientConfig{
+	return getKubeClient(dnsAddr, rest.TLSClientConfig{
 		CertFile: state.Secret(stateDir, defaults.SchedulerCertFilename),
 		KeyFile:  state.Secret(stateDir, defaults.SchedulerKeyFilename),
 		CAFile:   state.Secret(stateDir, defaults.RootCertFilename),
 	})
 }
 
-func getKubeClient(tlsConfig rest.TLSClientConfig) (*kubernetes.Clientset, error) {
+func getKubeClient(dnsAddr string, tlsConfig rest.TLSClientConfig) (*kubernetes.Clientset, error) {
 	return kubernetes.NewForConfig(&rest.Config{
 		Host: fmt.Sprintf("https://%v:%v",
 			constants.APIServerDomainName, defaults.APIServerSecurePort),
 		TLSClientConfig: tlsConfig,
 		WrapTransport: func(t http.RoundTripper) http.RoundTripper {
-			t.(*http.Transport).DialContext = DialFromEnviron
+			t.(*http.Transport).DialContext = DialFromEnviron(dnsAddr)
 			return t
 		},
 	})

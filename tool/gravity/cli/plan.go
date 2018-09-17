@@ -35,9 +35,9 @@ import (
 	"github.com/gravitational/trace"
 )
 
-func initOperationPlan(updateEnv *localenv.LocalEnvironment) error {
+func initOperationPlan(localEnv, updateEnv *localenv.LocalEnvironment) error {
 	ctx := context.TODO()
-	clusterEnv, err := localenv.NewClusterEnvironment()
+	clusterEnv, err := localEnv.NewClusterEnvironment()
 	if err != nil {
 		return trace.Wrap(err)
 	}
@@ -71,7 +71,7 @@ func initOperationPlan(updateEnv *localenv.LocalEnvironment) error {
 }
 
 func syncOperationPlan(localEnv *localenv.LocalEnvironment, updateEnv *localenv.LocalEnvironment) error {
-	clusterEnv, err := localenv.NewClusterEnvironment()
+	clusterEnv, err := localEnv.NewClusterEnvironment()
 	if err != nil {
 		return trace.Wrap(err)
 	}
@@ -90,7 +90,7 @@ func displayOperationPlan(localEnv, updateEnv, joinEnv *localenv.LocalEnvironmen
 	}
 
 	if hasUpdateOperation(updateEnv) {
-		return displayUpdateOperationPlan(updateEnv, format)
+		return displayUpdateOperationPlan(localEnv, updateEnv, format)
 	}
 
 	if hasExpandOperation(joinEnv) {
@@ -135,8 +135,8 @@ func displayClusterOperationPlan(env *localenv.LocalEnvironment, operationID str
 	return trace.Wrap(err)
 }
 
-func displayUpdateOperationPlan(updateEnv *localenv.LocalEnvironment, format constants.Format) error {
-	clusterEnv, err := localenv.NewClusterEnvironment()
+func displayUpdateOperationPlan(localEnv, updateEnv *localenv.LocalEnvironment, format constants.Format) error {
+	clusterEnv, err := localEnv.NewClusterEnvironment()
 	if err != nil {
 		return trace.Wrap(err)
 	}

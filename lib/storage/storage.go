@@ -561,7 +561,10 @@ type Site struct {
 	// CloudConfig provides additional cloud configuration
 	CloudConfig CloudConfig `json:"cloud_config"`
 	// DNSOverrides contains DNS overrides for this cluster
+	// TODO(dmitri): move to DNSConfig
 	DNSOverrides DNSOverrides `json:"dns_overrides"`
+	// DNSConfig defines cluster local DNS configuration
+	DNSConfig DNSConfig `json:"dns_config"`
 }
 
 func (s *Site) Check() error {
@@ -1035,6 +1038,50 @@ type LoginEntries interface {
 	SetCurrentOpsCenter(string) error
 }
 
+// SystemMetadata stores system-relevant data
+type SystemMetadata interface {
+	// GetDNSConfig returns current DNS configuration
+	GetDNSConfig() (*DNSConfig, error)
+	// SetDNSConfig sets current DNS configuration
+	SetDNSConfig(DNSConfig) error
+}
+
+// DefaultDNSConfig defines the default cluster local DNS configuration
+var DefaultDNSConfig = DNSConfig{
+	Port:  defaults.DNSPort,
+	Addrs: []string{defaults.DNSListenAddr},
+}
+
+// LegacyDNSConfig defines the local DNS configuration on older clusters
+var LegacyDNSConfig = DNSConfig{
+	Port:       defaults.DNSPort,
+	Addrs:      []string{defaults.LegacyDNSListenAddr},
+	Interfaces: []string{"lo"},
+}
+
+// Addr returns the DNS server address as ip:port.
+// Requires that !r.IsEmpty.
+func (r DNSConfig) Addr() string {
+	return fmt.Sprintf("%v:%v", r.Addrs[0], r.Port)
+}
+
+// IsEmpty returns whether this configuration is empty
+func (r DNSConfig) IsEmpty() bool {
+	return len(r.Addrs) == 0
+}
+
+// DNSConfig describes a DNS server
+type DNSConfig struct {
+	// Addrs lists local cluster DNS server IP addresses
+	Addrs []string `json:"addrs"`
+	// Interfaces lists network interfaces dnsmasq will listen on.
+	// This is mostly to support the legacy DNS configuration and is not
+	// exposed as a configuration parameter
+	Interfaces []string `json:"interfaces,omitempty"`
+	// Port specifies the DNS port to use for dnsmasq
+	Port int `json:"port"`
+}
+
 // PackageChangeset is a set of package updates from one version to another
 type PackageChangeset struct {
 	ID string `json:"id"`
@@ -1389,6 +1436,7 @@ type Backend interface {
 	Links
 	ClusterImport
 	LegacyRoles
+	SystemMetadata
 }
 
 const (

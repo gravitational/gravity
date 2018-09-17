@@ -30,7 +30,6 @@ import (
 	"github.com/gravitational/gravity/lib/rpc"
 	"github.com/gravitational/gravity/lib/storage"
 
-	"github.com/gravitational/roundtrip"
 	"github.com/gravitational/teleport/lib/client"
 	"github.com/gravitational/trace"
 	"github.com/sirupsen/logrus"
@@ -99,7 +98,7 @@ func (p *agentStartExecutor) Execute(ctx context.Context) error {
 
 func (p *agentStartExecutor) getProxyClient() (*client.ProxyClient, error) {
 	operator, err := opsclient.NewBearerClient(p.Phase.Data.Agent.OpsCenterURL,
-		p.Phase.Data.Agent.Password, roundtrip.HTTPClient(httplib.GetClient(true)))
+		p.Phase.Data.Agent.Password, opsclient.HTTPClient(httplib.GetClient(true)))
 	if err != nil {
 		return nil, trace.Wrap(err)
 	}

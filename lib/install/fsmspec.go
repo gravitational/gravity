@@ -20,6 +20,7 @@ import (
 	"strings"
 
 	"github.com/gravitational/gravity/lib/fsm"
+	"github.com/gravitational/gravity/lib/httplib"
 	"github.com/gravitational/gravity/lib/install/phases"
 
 	"github.com/gravitational/trace"
@@ -43,7 +44,7 @@ func FSMSpec(config FSMConfig) fsm.FSMSpecFunc {
 			return phases.NewBootstrap(p,
 				config.Operator,
 				config.Apps,
-				config.LocalBackend, remote)
+				config.LocalBackend, remote, config.DNSConfig)
 
 		case strings.HasPrefix(p.Phase.ID, phases.PullPhase):
 			return phases.NewPull(p,
@@ -62,14 +63,24 @@ func FSMSpec(config FSMConfig) fsm.FSMSpecFunc {
 				config.Operator)
 
 		case strings.HasPrefix(p.Phase.ID, phases.LabelPhase):
+			client, err := httplib.GetUnprivilegedKubeClient(config.DNSConfig.Addr())
+			if err != nil {
+				return nil, trace.Wrap(err)
+			}
 			return phases.NewNodes(p,
 				config.Operator,
-				config.LocalApps)
+				config.LocalApps,
+				client)
 
 		case p.Phase.ID == phases.RBACPhase:
+			client, err := httplib.GetClusterKubeClient(config.DNSConfig.Addr())
+			if err != nil {
+				return nil, trace.Wrap(err)
+			}
 			return phases.NewRBAC(p,
 				config.Operator,
-				config.LocalApps)
+				config.LocalApps,
+				client)
 
 		case p.Phase.ID == phases.ResourcesPhase:
 			return phases.NewResources(p,

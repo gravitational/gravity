@@ -159,6 +159,27 @@ func PickAdvertiseIP() (string, error) {
 	return ip.String(), nil
 }
 
+// LocalIPNetworks returns the list of all local IP networks
+func LocalIPNetworks() (blocks []net.IPNet, err error) {
+	ifaces, err := net.Interfaces()
+	if err != nil {
+		return nil, trace.Wrap(err)
+	}
+	for _, iface := range ifaces {
+		addrs, err := iface.Addrs()
+		if err != nil {
+			return nil, trace.Wrap(err)
+		}
+		for _, addr := range addrs {
+			switch block := addr.(type) {
+			case *net.IPNet:
+				blocks = append(blocks, *block)
+			}
+		}
+	}
+	return blocks, nil
+}
+
 // parseCIDRs returns a list of IP networks parsed from the provided list
 func parseCIDRs(blocks []string) ([]net.IPNet, error) {
 	ipNets := make([]net.IPNet, 0, len(blocks))

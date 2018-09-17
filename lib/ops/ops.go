@@ -1249,6 +1249,8 @@ type NewSiteRequest struct {
 	CloudConfig storage.CloudConfig `json:"cloud_config"`
 	// DNSOverrides specifies DNS host/zone overrides for the cluster
 	DNSOverrides storage.DNSOverrides `json:"dns_overrides"`
+	// DNSConfig specifies the cluster local DNS server configuration
+	DNSConfig storage.DNSConfig `json:"dns_config"`
 }
 
 // SiteKey is a key used to identify site
@@ -1334,6 +1336,8 @@ type Site struct {
 	CloudConfig storage.CloudConfig `json:"cloud_config"`
 	// DNSOverrides contains DNS overrides for this cluster
 	DNSOverrides storage.DNSOverrides `json:"dns_overrides"`
+	// DNSConfig specifies the cluster local DNS server configuration
+	DNSConfig storage.DNSConfig `json:"dns_config"`
 }
 
 // IsOnline returns whether this site is online

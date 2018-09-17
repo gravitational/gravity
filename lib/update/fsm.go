@@ -37,6 +37,11 @@ import (
 type FSMConfig struct {
 	// Backend is the cluster etcd backend
 	Backend storage.Backend
+	// LocalBackend is used as a redundant local storage for cases when etcd goes down
+	LocalBackend storage.Backend
+	// HostLocalBackend is the host-local backend that stores bootstrap configuration
+	// like DNS, logins etc.
+	HostLocalBackend storage.Backend
 	// Packages is the local package service
 	Packages pack.PackageService
 	// ClusterPackages is the package service that talks to cluster API
@@ -49,8 +54,6 @@ type FSMConfig struct {
 	Operator ops.Operator
 	// Users is the cluster identity service
 	Users users.Identity
-	// LocalBackend is used as a redundant local storage for cases when etcd goes down
-	LocalBackend storage.Backend
 	// Spec is used to retrieve a phase executor, allows
 	// plugging different phase executors during tests
 	Spec fsm.FSMSpecFunc

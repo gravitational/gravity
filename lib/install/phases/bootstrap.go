@@ -43,7 +43,7 @@ import (
 
 // NewBootstrap returns a new "bootstrap" phase executor
 func NewBootstrap(p fsm.ExecutorParams, operator ops.Operator, apps app.Applications, backend storage.Backend,
-	remote fsm.Remote) (*bootstrapExecutor, error) {
+	remote fsm.Remote, dnsConfig storage.DNSConfig) (*bootstrapExecutor, error) {
 	if p.Phase.Data == nil || p.Phase.Data.ServiceUser == nil {
 		return nil, trace.BadParameter("service user is required: %#v", p.Phase.Data)
 	}
@@ -84,6 +84,7 @@ func NewBootstrap(p fsm.ExecutorParams, operator ops.Operator, apps app.Applicat
 		ExecutorParams: p,
 		ServiceUser:    *serviceUser,
 		remote:         remote,
+		dnsConfig:      dnsConfig,
 	}, nil
 }
 
@@ -100,6 +101,8 @@ type bootstrapExecutor struct {
 	ServiceUser systeminfo.User
 	// ExecutorParams is common executor params
 	fsm.ExecutorParams
+	// dnsConfig specifies local cluster DNS configuration to set
+	dnsConfig storage.DNSConfig
 	// remote specifies the server remote control interface
 	remote fsm.Remote
 }
@@ -125,6 +128,10 @@ func (p *bootstrapExecutor) Execute(ctx context.Context) error {
 		return trace.Wrap(err)
 	}
 	err = p.logIntoCluster()
+	if err != nil {
+		return trace.Wrap(err)
+	}
+	err = p.configureDNS()
 	if err != nil {
 		return trace.Wrap(err)
 	}
@@ -304,6 +311,16 @@ func (p *bootstrapExecutor) logIntoCluster() error {
 		return trace.Wrap(err)
 	}
 	p.Infof("Created agent user %s.", p.Phase.Data.Agent.Email)
+	return nil
+}
+
+// configureDNS creates local cluster DNS configuration
+func (p *bootstrapExecutor) configureDNS() error {
+	err := p.LocalBackend.SetDNSConfig(p.dnsConfig)
+	if err != nil {
+		return trace.Wrap(err)
+	}
+	p.Infof("Created DNS configuration: %v.", p.dnsConfig)
 	return nil
 }
 

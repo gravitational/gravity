@@ -180,16 +180,17 @@ func formatClusterURL(addr string) string {
 
 func (p *Peer) dialSite(addr string) (*operationContext, error) {
 	targetURL := formatClusterURL(addr)
-	httpClient := roundtrip.HTTPClient(httplib.GetClient(true))
-	operator, err := opsclient.NewBearerClient(targetURL, p.Token, httpClient)
+	httpClient := httplib.GetClient(true)
+	operator, err := opsclient.NewBearerClient(targetURL, p.Token, opsclient.HTTPClient(httpClient))
 	if err != nil {
 		return nil, trace.Wrap(err)
 	}
-	packages, err := webpack.NewBearerClient(targetURL, p.Token, httpClient)
+
+	packages, err := webpack.NewBearerClient(targetURL, p.Token, roundtrip.HTTPClient(httpClient))
 	if err != nil {
 		return nil, trace.Wrap(err)
 	}
-	apps, err := client.NewBearerClient(targetURL, p.Token, httpClient)
+	apps, err := client.NewBearerClient(targetURL, p.Token, client.HTTPClient(httpClient))
 	if err != nil {
 		return nil, trace.Wrap(err)
 	}
@@ -339,6 +340,8 @@ func (p *Peer) runLocalChecks(cluster ops.Site, installOperation ops.SiteOperati
 		Role:     p.Role,
 		Options: &validationpb.ValidateOptions{
 			VxlanPort: int32(installOperation.GetVars().OnPrem.VxlanPort),
+			DnsAddrs:  cluster.DNSConfig.Addrs,
+			DnsPort:   int32(cluster.DNSConfig.Port),
 		},
 		AutoFix: true,
 	})
@@ -745,6 +748,7 @@ func (p *Peer) getFSM(ctx operationContext) (*fsm.FSM, error) {
 		Credentials:   ctx.Creds.Client,
 		DebugMode:     p.DebugMode,
 		Insecure:      p.Insecure,
+		DNSConfig:     ctx.Cluster.DNSConfig,
 	})
 }
 

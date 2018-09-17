@@ -30,8 +30,8 @@ import (
 	"github.com/gravitational/trace"
 )
 
-func executeAutomaticUpgrade(ctx context.Context, upgradeEnv *localenv.LocalEnvironment, args []string) error {
-	return trace.Wrap(update.AutomaticUpgrade(ctx, upgradeEnv))
+func executeAutomaticUpgrade(ctx context.Context, localEnv, upgradeEnv *localenv.LocalEnvironment, args []string) error {
+	return trace.Wrap(update.AutomaticUpgrade(ctx, localEnv, upgradeEnv))
 }
 
 // upgradePhaseParams combines parameters for an upgrade phase execution/rollback
@@ -46,8 +46,8 @@ type upgradePhaseParams struct {
 	timeout time.Duration
 }
 
-func executeUpgradePhase(upgradeEnv *localenv.LocalEnvironment, p upgradePhaseParams) error {
-	clusterEnv, err := localenv.NewClusterEnvironment()
+func executeUpgradePhase(localEnv, upgradeEnv *localenv.LocalEnvironment, p upgradePhaseParams) error {
+	clusterEnv, err := localEnv.NewClusterEnvironment()
 	if err != nil {
 		return trace.Wrap(err)
 	}
@@ -65,15 +65,16 @@ func executeUpgradePhase(upgradeEnv *localenv.LocalEnvironment, p upgradePhasePa
 	runner := fsm.NewAgentRunner(creds)
 
 	err = update.ExecutePhase(ctx, update.FSMConfig{
-		Backend:         clusterEnv.Backend,
-		Packages:        clusterEnv.Packages,
-		ClusterPackages: clusterEnv.ClusterPackages,
-		Apps:            clusterEnv.Apps,
-		Client:          clusterEnv.Client,
-		Operator:        clusterEnv.Operator,
-		Users:           clusterEnv.Users,
-		LocalBackend:    upgradeEnv.Backend,
-		Remote:          runner,
+		Backend:          clusterEnv.Backend,
+		LocalBackend:     upgradeEnv.Backend,
+		HostLocalBackend: localEnv.Backend,
+		Packages:         clusterEnv.Packages,
+		ClusterPackages:  clusterEnv.ClusterPackages,
+		Apps:             clusterEnv.Apps,
+		Client:           clusterEnv.Client,
+		Operator:         clusterEnv.Operator,
+		Users:            clusterEnv.Users,
+		Remote:           runner,
 	}, fsm.Params{
 		PhaseID:  p.phaseID,
 		Force:    p.force,
@@ -83,8 +84,8 @@ func executeUpgradePhase(upgradeEnv *localenv.LocalEnvironment, p upgradePhasePa
 	return trace.Wrap(err)
 }
 
-func rollbackUpgradePhase(updateEnv *localenv.LocalEnvironment, p rollbackParams) error {
-	clusterEnv, err := localenv.NewClusterEnvironment()
+func rollbackUpgradePhase(localEnv, updateEnv *localenv.LocalEnvironment, p rollbackParams) error {
+	clusterEnv, err := localEnv.NewClusterEnvironment()
 	if err != nil {
 		return trace.Wrap(err)
 	}
@@ -102,15 +103,16 @@ func rollbackUpgradePhase(updateEnv *localenv.LocalEnvironment, p rollbackParams
 	runner := fsm.NewAgentRunner(creds)
 
 	err = update.RollbackPhase(ctx, update.FSMConfig{
-		Backend:         clusterEnv.Backend,
-		Packages:        clusterEnv.Packages,
-		ClusterPackages: clusterEnv.ClusterPackages,
-		Apps:            clusterEnv.Apps,
-		Client:          clusterEnv.Client,
-		Operator:        clusterEnv.Operator,
-		Users:           clusterEnv.Users,
-		LocalBackend:    updateEnv.Backend,
-		Remote:          runner,
+		Backend:          clusterEnv.Backend,
+		LocalBackend:     updateEnv.Backend,
+		HostLocalBackend: localEnv.Backend,
+		Packages:         clusterEnv.Packages,
+		ClusterPackages:  clusterEnv.ClusterPackages,
+		Apps:             clusterEnv.Apps,
+		Client:           clusterEnv.Client,
+		Operator:         clusterEnv.Operator,
+		Users:            clusterEnv.Users,
+		Remote:           runner,
 	}, fsm.Params{
 		PhaseID:  p.phaseID,
 		Force:    p.force,
@@ -120,8 +122,8 @@ func rollbackUpgradePhase(updateEnv *localenv.LocalEnvironment, p rollbackParams
 	return trace.Wrap(err)
 }
 
-func completeUpgrade(updateEnv *localenv.LocalEnvironment) error {
-	clusterEnv, err := localenv.NewClusterEnvironment()
+func completeUpgrade(localEnv, updateEnv *localenv.LocalEnvironment) error {
+	clusterEnv, err := localEnv.NewClusterEnvironment()
 	if err != nil {
 		return trace.Wrap(err)
 	}

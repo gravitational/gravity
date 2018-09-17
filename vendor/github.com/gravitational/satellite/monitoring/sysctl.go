@@ -112,7 +112,7 @@ func Sysctl(name string) (string, error) {
 // SysctlCheckerData gets attached to the sysctl parameter check probes
 type SysctlCheckerData struct {
 	// ParameterName is the name of sysctl parameter
-	ParameterName string
+	ParameterName string `json:"parameter_name"`
 	// ParameterValue is the expected value of sysctl parameter
-	ParameterValue string
+	ParameterValue string `json:"parameter_value"`
 }

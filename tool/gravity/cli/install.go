@@ -154,7 +154,7 @@ func tryLeave(env *localenv.LocalEnvironment, c leaveConfig) error {
 		return trace.Wrap(err)
 	}
 
-	err := checkInCluster()
+	err := checkInCluster(env.DNS.Addr())
 	if err != nil {
 		return trace.NotFound(
 			"no running cluster detected, please use --force flag to clean up the local state")
@@ -502,6 +502,7 @@ func executeInstallPhase(localEnv *localenv.LocalEnvironment, p PhaseParams) err
 		LocalApps:     localApps,
 		LocalBackend:  localEnv.Backend,
 		Insecure:      localEnv.Insecure,
+		DNSConfig:     storage.DNSConfig(localEnv.DNS),
 	})
 	if err != nil {
 		return trace.Wrap(err)
@@ -669,6 +670,7 @@ func rollbackInstallPhase(localEnv *localenv.LocalEnvironment, p rollbackParams)
 		LocalApps:     localApps,
 		LocalBackend:  localEnv.Backend,
 		Insecure:      localEnv.Insecure,
+		DNSConfig:     storage.DNSConfig(localEnv.DNS),
 	})
 	if err != nil {
 		return trace.Wrap(err)

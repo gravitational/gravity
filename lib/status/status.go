@@ -57,6 +57,7 @@ func FromCluster(ctx context.Context, operator ops.Operator, cluster ops.Site, o
 		status.Token = *token
 	}
 
+	// FIXME: have status extension accept the operator/environment
 	err = status.Cluster.Extension.Collect()
 	if err != nil {
 		return status, trace.Wrap(err)

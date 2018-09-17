@@ -49,6 +49,7 @@ import (
 	"github.com/gravitational/roundtrip"
 	"github.com/gravitational/trace"
 	log "github.com/sirupsen/logrus"
+	"k8s.io/client-go/kubernetes"
 )
 
 // LocalEnvironmentArgs holds configuration values for opening or creating a LocalEnvironment
@@ -69,7 +70,25 @@ type LocalEnvironmentArgs struct {
 	EtcdRetryTimeout time.Duration
 	// Reporter controls progress output
 	Reporter pack.ProgressReporter
+	// DNS is the local cluster DNS server configuration
+	DNS DNSConfig
 }
+
+// Addr returns the first listen address of the DNS server
+func (r DNSConfig) Addr() string {
+	if len(r.Addrs) == 0 {
+		return storage.DefaultDNSConfig.Addr()
+	}
+	return (storage.DNSConfig)(r).Addr()
+}
+
+// IsEmpty returns whether this DNS configuration is empty
+func (r DNSConfig) IsEmpty() bool {
+	return (storage.DNSConfig)(r).IsEmpty()
+}
+
+// DNSConfig is the DNS configuration with a fallback to storage.DefaultDNSConfig
+type DNSConfig storage.DNSConfig
 
 // LocalEnvironment sets up local gravity environment
 // and services that make sense for it:
@@ -86,7 +105,7 @@ type LocalEnvironment struct {
 	Objects blob.Objects
 	// Packages is the local package service
 	Packages *localpack.PackageServer
-	// Apps is the local apps services
+	// Apps is the local application service
 	Apps appbase.Applications
 	// Creds is the local key store
 	Creds *users.KeyStore
@@ -141,6 +160,7 @@ func (env *LocalEnvironment) init() error {
 	if err != nil {
 		return trace.Wrap(err)
 	}
+
 	env.Backend, err = keyval.NewBolt(keyval.BoltConfig{
 		Path:  filepath.Join(env.StateDir, defaults.GravityDBFile),
 		Multi: true,
@@ -148,6 +168,15 @@ func (env *LocalEnvironment) init() error {
 	if err != nil {
 		return trace.Wrap(err)
 	}
+
+	if env.DNS.IsEmpty() {
+		dns, err := storage.GetDNSConfig(env.Backend, storage.LegacyDNSConfig)
+		if err != nil {
+			return trace.Wrap(err)
+		}
+		env.DNS = DNSConfig(*dns)
+	}
+
 	env.Objects, err = fs.New(filepath.Join(env.StateDir, defaults.PackagesDir))
 	if err != nil {
 		return trace.Wrap(err)
@@ -170,6 +199,7 @@ func (env *LocalEnvironment) init() error {
 	if err != nil {
 		return trace.Wrap(err)
 	}
+
 	return nil
 }
 
@@ -324,7 +354,7 @@ func (env *LocalEnvironment) PackageService(opsCenterURL string, options ...http
 	}
 
 	if opsCenterURL == defaults.GravityServiceURL {
-		options = append(options, httplib.WithLocalResolver())
+		options = append(options, httplib.WithLocalResolver(env.DNS.Addr()))
 	}
 
 	// otherwise connect to remote OpsCenter
@@ -361,7 +391,7 @@ func (env *LocalEnvironment) CurrentOperator(options ...httplib.ClientOption) (*
 		return nil, trace.Wrap(err)
 	}
 	return NewOpsClient(*entry, entry.OpsCenterURL,
-		roundtrip.HTTPClient(env.HTTPClient(options...)))
+		opsclient.HTTPClient(env.HTTPClient(options...)))
 }
 
 // CurrentPackages returns package service for the current login entry
@@ -381,7 +411,7 @@ func (env *LocalEnvironment) CurrentApps(options ...httplib.ClientOption) (appba
 		return nil, trace.Wrap(err)
 	}
 	return newAppsClient(*entry, entry.OpsCenterURL,
-		roundtrip.HTTPClient(env.HTTPClient(options...)))
+		appclient.HTTPClient(env.HTTPClient(options...)))
 }
 
 // CurrentUser returns name of the currently logged in user
@@ -408,8 +438,11 @@ func (env *LocalEnvironment) OperatorService(opsCenterURL string, options ...htt
 		return nil, trace.Wrap(err)
 	}
 
-	httpClient := roundtrip.HTTPClient(env.HTTPClient(options...))
-	client, err := NewOpsClient(*entry, opsCenterURL, httpClient)
+	params := []opsclient.ClientParam{
+		opsclient.HTTPClient(env.HTTPClient(options...)),
+		opsclient.WithLocalDialer(httplib.LocalResolverDialer(env.DNS.Addr())),
+	}
+	client, err := NewOpsClient(*entry, opsCenterURL, params...)
 	if err != nil {
 		return nil, trace.Wrap(err)
 	}
@@ -419,21 +452,21 @@ func (env *LocalEnvironment) OperatorService(opsCenterURL string, options ...htt
 // SiteOperator returns Operator for the local gravity site
 func (env *LocalEnvironment) SiteOperator() (*opsclient.Client, error) {
 	operator, err := env.OperatorService(
-		defaults.GravityServiceURL, httplib.WithLocalResolver(), httplib.WithInsecure())
+		defaults.GravityServiceURL, httplib.WithLocalResolver(env.DNS.Addr()), httplib.WithInsecure())
 	return operator, trace.Wrap(err)
 }
 
 // SiteApps returns Apps service for the local gravity site
 func (env *LocalEnvironment) SiteApps() (appbase.Applications, error) {
 	apps, err := env.AppService(
-		defaults.GravityServiceURL, AppConfig{}, httplib.WithLocalResolver(), httplib.WithInsecure())
+		defaults.GravityServiceURL, AppConfig{}, httplib.WithLocalResolver(env.DNS.Addr()), httplib.WithInsecure())
 	return apps, trace.Wrap(err)
 }
 
 // ClusterPackages returns package service for the local cluster
 func (env *LocalEnvironment) ClusterPackages() (pack.PackageService, error) {
 	return env.PackageService(defaults.GravityServiceURL,
-		httplib.WithLocalResolver(), httplib.WithInsecure())
+		httplib.WithLocalResolver(env.DNS.Addr()), httplib.WithInsecure())
 }
 
 func (env *LocalEnvironment) AppService(opsCenterURL string, config AppConfig, options ...httplib.ClientOption) (appbase.Applications, error) {
@@ -444,7 +477,9 @@ func (env *LocalEnvironment) AppService(opsCenterURL string, config AppConfig, o
 	if err != nil {
 		return nil, trace.Wrap(err)
 	}
-	client, err := newAppsClient(*entry, opsCenterURL, roundtrip.HTTPClient(env.HTTPClient(options...)))
+	client, err := newAppsClient(*entry, opsCenterURL,
+		appclient.HTTPClient(env.HTTPClient(options...)),
+		appclient.WithLocalDialer(httplib.LocalResolverDialer(env.DNS.Addr())))
 	if err != nil {
 		return nil, trace.Wrap(err)
 	}
@@ -474,10 +509,7 @@ func (env *LocalEnvironment) AppServiceLocal(config AppConfig) (service appbase.
 	} else {
 		packages = env.Packages
 	}
-	kubeClient, err := utils.GetKubeClientFromPath(constants.PrivilegedKubeconfig)
-	if err != nil {
-		log.Warnf("Failed to load privileged kube config: %v, app service will proceed without Kubernetes connection.", err)
-	}
+
 	return appservice.New(appservice.Config{
 		Backend:      env.Backend,
 		Packages:     packages,
@@ -486,7 +518,7 @@ func (env *LocalEnvironment) AppServiceLocal(config AppConfig) (service appbase.
 		StateDir:     filepath.Join(env.StateDir, "import"),
 		Devmode:      env.Debug,
 		UnpackedDir:  filepath.Join(env.StateDir, defaults.PackagesDir, defaults.UnpackedDir),
-		Client:       kubeClient,
+		GetClient:    env.getKubeClient,
 	})
 }
 
@@ -514,6 +546,26 @@ func (env *LocalEnvironment) GravityCommand(gravityPath string, args ...string) 
 	return append(command, args...)
 }
 
+func (env *LocalEnvironment) getKubeClient() (*kubernetes.Clientset, error) {
+	_, err := os.Stat(constants.PrivilegedKubeconfig)
+	if err == nil {
+		return utils.GetKubeClientFromPath(constants.PrivilegedKubeconfig)
+	}
+	log.Warnf("Privileged kubeconfig unavailable, falling back to cluster client: %v.", err)
+
+	if env.DNS.IsEmpty() {
+		return nil, nil
+	}
+
+	client, err := httplib.GetClusterKubeClient(env.DNS.Addr())
+	if err != nil {
+		log.Warnf("Failed to create cluster kube client: %v.", err)
+		return nil, trace.Wrap(err)
+	}
+
+	return client, nil
+}
+
 // AppConfig is applications-specific configuration
 type AppConfig struct {
 	// DockerURL specifies the address of the docker daemon
@@ -531,7 +583,7 @@ type AppConfig struct {
 // NewOpsClient creates a new client to Operator service using the specified
 // login entry, address of the Ops Center and a set of optional connection
 // options
-func NewOpsClient(entry users.LoginEntry, opsCenterURL string, params ...roundtrip.ClientParam) (client *opsclient.Client, err error) {
+func NewOpsClient(entry users.LoginEntry, opsCenterURL string, params ...opsclient.ClientParam) (client *opsclient.Client, err error) {
 	if entry.Email != "" {
 		client, err = opsclient.NewAuthenticatedClient(
 			opsCenterURL, entry.Email, entry.Password, params...)
@@ -551,7 +603,7 @@ func newPackClient(entry users.LoginEntry, opsCenterURL string, params ...roundt
 	return client, trace.Wrap(err)
 }
 
-func newAppsClient(entry users.LoginEntry, opsCenterURL string, params ...roundtrip.ClientParam) (client appbase.Applications, err error) {
+func newAppsClient(entry users.LoginEntry, opsCenterURL string, params ...appclient.ClientParam) (client appbase.Applications, err error) {
 	if entry.Email != "" {
 		client, err = appclient.NewAuthenticatedClient(
 			opsCenterURL, entry.Email, entry.Password, params...)
@@ -578,7 +630,7 @@ func ClusterPackages() (pack.PackageService, error) {
 	defer env.Close()
 
 	packages, err := env.PackageService(
-		defaults.GravityServiceURL, httplib.WithLocalResolver(), httplib.WithInsecure())
+		defaults.GravityServiceURL, httplib.WithLocalResolver(env.DNS.Addr()), httplib.WithInsecure())
 	if err != nil {
 		return nil, trace.Wrap(err)
 	}

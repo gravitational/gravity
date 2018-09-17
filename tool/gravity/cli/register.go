@@ -70,6 +70,8 @@ func RegisterCommands(app *kingpin.Application) *Application {
 	g.InstallCmd.PodCIDR = g.InstallCmd.Flag("pod-network-cidr", "Subnet range for pods. Must be a minimum of /16").Default(defaults.PodSubnet).String()
 	g.InstallCmd.ServiceCIDR = g.InstallCmd.Flag("service-cidr", "Subnet range for services").Default(defaults.ServiceSubnet).String()
 	g.InstallCmd.VxlanPort = g.InstallCmd.Flag("vxlan-port", "Custom overlay network port").Default(strconv.Itoa(defaults.VxlanPort)).Int()
+	g.InstallCmd.DNSListenAddrs = g.InstallCmd.Flag("dns-listen-addr", "Custom listen address for dnsmasq").Default(defaults.DNSListenAddr).IPList()
+	g.InstallCmd.DNSPort = g.InstallCmd.Flag("dns-port", "Custom DNS port for dnsmasq").Default(strconv.Itoa(defaults.DNSPort)).Int()
 	g.InstallCmd.DockerStorageDriver = g.InstallCmd.Flag("storage-driver",
 		fmt.Sprintf("Docker storage driver, overrides the one from app manifest. Recognized are: %v", strings.Join(constants.DockerSupportedDrivers, ", "))).String()
 	g.InstallCmd.DockerArgs = g.InstallCmd.Flag("docker-opt", "Additional arguments to docker. Can be specified multiple times").Strings()
@@ -132,15 +134,6 @@ func RegisterCommands(app *kingpin.Application) *Application {
 	g.PlanCmd.Sync = g.PlanCmd.Flag("sync", "Sync the operation plan from etcd to local store").Hidden().Bool()
 	g.PlanCmd.Output = common.Format(g.PlanCmd.Flag("output", "Output format for the plan, text, json or yaml").Short('o').Default(string(constants.EncodingText)))
 	g.PlanCmd.OperationID = g.PlanCmd.Flag("operation-id", "ID of the operation to display the plan for. It not specified, the last operation plan will be displayed").String()
-
-	// Explicit install/upgrade plan alias commands
-	g.InstallPlanCmd.CmdClause = g.Command("install-plan", "Operations on install plan")
-	g.InstallPlanDisplayCmd.CmdClause = g.InstallPlanCmd.Command("display", "Display plan for an ongoing install operation").Hidden()
-	g.InstallPlanDisplayCmd.Output = common.Format(g.InstallPlanDisplayCmd.Flag("output", "Output format for the plan, text, json or yaml").Short('o').Default(string(constants.EncodingText)))
-
-	g.UpgradePlanCmd.CmdClause = g.Command("upgrade-plan", "Operations on upgrade plan")
-	g.UpgradePlanDisplayCmd.CmdClause = g.UpgradePlanCmd.Command("display", "Display plan for an ongoing upgrade operation").Hidden()
-	g.UpgradePlanDisplayCmd.Output = common.Format(g.UpgradePlanDisplayCmd.Flag("output", "Output format for the plan, text, json or yaml").Short('o').Default(string(constants.EncodingText)))
 
 	g.RollbackCmd.CmdClause = g.Command("rollback", "Rollback actions")
 	g.RollbackCmd.Phase = g.RollbackCmd.Flag("phase", "Operation phase to rollback").Required().String()

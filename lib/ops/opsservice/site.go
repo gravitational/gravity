@@ -673,6 +673,7 @@ func convertSite(in storage.Site, apps appservice.Applications) (*ops.Site, erro
 		ServiceUser:              serviceUser,
 		CloudConfig:              in.CloudConfig,
 		DNSOverrides:             in.DNSOverrides,
+		DNSConfig:                in.DNSConfig,
 	}
 	if in.License != "" {
 		parsed, err := license.ParseLicense(in.License)

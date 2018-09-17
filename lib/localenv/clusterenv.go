@@ -34,6 +34,20 @@ import (
 	"k8s.io/client-go/kubernetes"
 )
 
+// NewClusterEnvironment returns a new instance of ClusterEnvironment
+// with all services initialized
+func (r *LocalEnvironment) NewClusterEnvironment() (*ClusterEnvironment, error) {
+	client, err := httplib.GetClusterKubeClient(r.DNS.Addr())
+	if err != nil {
+		log.Errorf("Failed to create Kubernetes client: %v.",
+			trace.DebugReport(err))
+	}
+
+	return newClusterEnvironment(clusterEnvironmentArgs{
+		client: client,
+	})
+}
+
 // ClusterEnvironment provides access to local cluster services
 type ClusterEnvironment struct {
 	// Backend is the cluster etcd backend
@@ -53,8 +67,13 @@ type ClusterEnvironment struct {
 }
 
 // NewClusterEnvironment initializes local cluster services and
-// returns a new instance of cluster environment
+// returns a new instance of cluster environment.
+// The resulting environment will not have a kubernetes client
 func NewClusterEnvironment() (*ClusterEnvironment, error) {
+	return newClusterEnvironment(clusterEnvironmentArgs{})
+}
+
+func newClusterEnvironment(args clusterEnvironmentArgs) (*ClusterEnvironment, error) {
 	etcdConfig, err := keyval.LocalEtcdConfig(0)
 	if err != nil {
 		return nil, trace.Wrap(err)
@@ -89,17 +108,11 @@ func NewClusterEnvironment() (*ClusterEnvironment, error) {
 		return nil, trace.Wrap(err)
 	}
 
-	client, err := httplib.GetClusterKubeClient()
-	if err != nil {
-		log.Errorf("Failed to create Kubernetes client: %v.",
-			trace.DebugReport(err))
-	}
-
 	apps, err := service.New(service.Config{
 		Backend:     backend,
 		Packages:    packages,
 		UnpackedDir: unpackedDir,
-		Client:      client,
+		Client:      args.client,
 	})
 	if err != nil {
 		return nil, trace.Wrap(err)
@@ -140,6 +153,10 @@ func NewClusterEnvironment() (*ClusterEnvironment, error) {
 		Apps:            apps,
 		Users:           users,
 		Operator:        operator,
-		Client:          client,
+		Client:          args.client,
 	}, nil
+}
+
+type clusterEnvironmentArgs struct {
+	client *kubernetes.Clientset
 }

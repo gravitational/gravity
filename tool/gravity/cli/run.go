@@ -97,9 +97,7 @@ func InitAndCheck(g *Application, cmd string) error {
 		g.PlanCmd.FullCommand(),
 		g.UpgradeCmd.FullCommand(),
 		g.RollbackCmd.FullCommand(),
-		g.ResourceCreateCmd.FullCommand(),
-		g.InstallPlanDisplayCmd.FullCommand(),
-		g.UpgradePlanDisplayCmd.FullCommand():
+		g.ResourceCreateCmd.FullCommand():
 		if *g.Debug {
 			teleutils.InitLogger(teleutils.LoggingForDaemon, level)
 		}
@@ -122,7 +120,11 @@ func InitAndCheck(g *Application, cmd string) error {
 	case g.UpdateCompleteCmd.FullCommand(),
 		g.UpdateTriggerCmd.FullCommand(),
 		g.RemoveCmd.FullCommand():
-		if err := checkInCluster(); err != nil {
+		localEnv, err := g.LocalEnv(cmd)
+		if err != nil {
+			return trace.Wrap(err)
+		}
+		if err := checkInCluster(localEnv.DNS.Addr()); err != nil {
 			return trace.Wrap(err)
 		}
 	}
@@ -145,10 +147,8 @@ func InitAndCheck(g *Application, cmd string) error {
 		g.PlanetEnterCmd.FullCommand(),
 		g.PlanCmd.FullCommand(),
 		g.InstallCmd.FullCommand(),
-		g.InstallPlanDisplayCmd.FullCommand(),
 		g.JoinCmd.FullCommand(),
 		g.AutoJoinCmd.FullCommand(),
-		g.UpgradePlanDisplayCmd.FullCommand(),
 		g.SystemDevicemapperMountCmd.FullCommand(),
 		g.SystemDevicemapperUnmountCmd.FullCommand(),
 		g.BackupCmd.FullCommand(),
@@ -298,7 +298,7 @@ func Execute(g *Application, cmd string, extraArgs []string) error {
 			*g.UpgradeCmd.Phase = fsm.RootPhase
 		}
 		if *g.UpgradeCmd.Phase != "" {
-			return executeUpgradePhase(upgradeEnv,
+			return executeUpgradePhase(localEnv, upgradeEnv,
 				upgradePhaseParams{
 					phaseID:          *g.UpgradeCmd.Phase,
 					force:            *g.UpgradeCmd.Force,
@@ -307,7 +307,7 @@ func Execute(g *Application, cmd string, extraArgs []string) error {
 				})
 		}
 		if *g.UpgradeCmd.Complete {
-			return completeUpgrade(upgradeEnv)
+			return completeUpgrade(localEnv, upgradeEnv)
 		}
 		return updateTrigger(localEnv,
 			upgradeEnv,
@@ -324,14 +324,9 @@ func Execute(g *Application, cmd string, extraArgs []string) error {
 				skipVersionCheck: *g.RollbackCmd.SkipVersionCheck,
 				timeout:          *g.RollbackCmd.PhaseTimeout,
 			})
-	case g.InstallPlanDisplayCmd.FullCommand():
-		return displayInstallOperationPlan(*g.InstallPlanDisplayCmd.Output)
-	case g.UpgradePlanDisplayCmd.FullCommand():
-		return displayUpdateOperationPlan(localEnv,
-			*g.UpgradePlanDisplayCmd.Output)
 	case g.PlanCmd.FullCommand():
 		if *g.PlanCmd.Init {
-			return initOperationPlan(upgradeEnv)
+			return initOperationPlan(localEnv, upgradeEnv)
 		}
 		if *g.PlanCmd.Sync {
 			return syncOperationPlan(localEnv, upgradeEnv)
@@ -724,7 +719,7 @@ func Execute(g *Application, cmd string, extraArgs []string) error {
 	case g.RPCAgentInstallCmd.FullCommand():
 		return rpcAgentInstall(localEnv, *g.RPCAgentInstallCmd.Args)
 	case g.RPCAgentRunCmd.FullCommand():
-		return rpcAgentRun(upgradeEnv, *g.RPCAgentRunCmd.Args)
+		return rpcAgentRun(localEnv, upgradeEnv, *g.RPCAgentRunCmd.Args)
 	case g.RPCAgentShutdownCmd.FullCommand():
 		return rpcAgentShutdown(localEnv)
 	case g.CheckCmd.FullCommand():
@@ -805,8 +800,8 @@ func pickSiteHost() (string, error) {
 }
 
 // checkInCluster checks if the command is invoked inside Gravity cluster
-func checkInCluster() error {
-	client := httplib.GetClient(true, httplib.WithLocalResolver(), httplib.WithTimeout(time.Second))
+func checkInCluster(dnsAddr string) error {
+	client := httplib.GetClient(true, httplib.WithLocalResolver(dnsAddr), httplib.WithTimeout(time.Second))
 	_, err := client.Get(defaults.GravityServiceURL)
 	if err != nil {
 		return trace.NotFound("No telekube cluster detected. This failure could happen during failover, try again. Execute this command locally on one of the cluster nodes.")

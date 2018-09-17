@@ -45,6 +45,8 @@ import (
 type updatePhaseInit struct {
 	// Backend is the cluster etcd backend
 	Backend storage.Backend
+	// LocalBackend is the local state backend
+	LocalBackend storage.Backend
 	// Operator is the local cluster ops service
 	Operator ops.Operator
 	// Packages is the cluster package service
@@ -90,13 +92,14 @@ func NewUpdatePhaseInit(c FSMConfig, plan storage.OperationPlan, phase storage.O
 		return nil, trace.Wrap(err, "failed to query installed application")
 	}
 	return &updatePhaseInit{
-		Backend:   c.Backend,
-		Operator:  c.Operator,
-		Packages:  c.ClusterPackages,
-		Users:     c.Users,
-		Cluster:   *cluster,
-		Operation: *operation,
-		Servers:   plan.Servers,
+		Backend:      c.Backend,
+		LocalBackend: c.LocalBackend,
+		Operator:     c.Operator,
+		Packages:     c.ClusterPackages,
+		Users:        c.Users,
+		Cluster:      *cluster,
+		Operation:    *operation,
+		Servers:      plan.Servers,
 		FieldLogger: log.WithFields(log.Fields{
 			trace.Component: "update",
 			"phase":         phase.ID,
@@ -133,6 +136,9 @@ func (p *updatePhaseInit) Execute(context.Context) error {
 	}
 	if err := p.updateClusterRoles(); err != nil {
 		return trace.Wrap(err, "failed to update RPC credentials")
+	}
+	if err := p.updateClusterDNSConfig(); err != nil {
+		return trace.Wrap(err, "failed to update DNS configuration")
 	}
 	for _, server := range p.Servers {
 		if err := p.rotateSecrets(server); err != nil {
@@ -204,6 +210,23 @@ func (p *updatePhaseInit) updateClusterRoles() error {
 		}
 		stateServer := state[server.AdvertiseIP]
 		cluster.ClusterState.Servers[i].ClusterRole = stateServer.ClusterRole
+	}
+
+	_, err = p.Backend.UpdateSite(*cluster)
+	if err != nil {
+		return trace.Wrap(err)
+	}
+	return nil
+}
+
+func (p *updatePhaseInit) updateClusterDNSConfig() error {
+	cluster, err := p.Backend.GetLocalSite(defaults.SystemAccountID)
+	if err != nil {
+		return trace.Wrap(err)
+	}
+
+	if cluster.DNSConfig.IsEmpty() {
+		cluster.DNSConfig = storage.LegacyDNSConfig
 	}
 
 	_, err = p.Backend.UpdateSite(*cluster)

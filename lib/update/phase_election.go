@@ -23,6 +23,7 @@ import (
 	"github.com/gravitational/gravity/lib/constants"
 	"github.com/gravitational/gravity/lib/defaults"
 	"github.com/gravitational/gravity/lib/fsm"
+	"github.com/gravitational/gravity/lib/ops"
 	"github.com/gravitational/gravity/lib/storage"
 	"github.com/gravitational/gravity/lib/utils"
 
@@ -42,13 +43,32 @@ type phaseElectionChange struct {
 	ElectionChange storage.ElectionChange
 	// FieldLogger is used for logging
 	logrus.FieldLogger
-	remote fsm.Remote
+	dnsConfig storage.DNSConfig
+	remote    fsm.Remote
 }
 
 // NewPhaseElectionChange is a phase for modifying cluster elections during upgrades
-func NewPhaseElectionChange(plan storage.OperationPlan, phase storage.OperationPhase, remote fsm.Remote) (*phaseElectionChange, error) {
+func NewPhaseElectionChange(
+	plan storage.OperationPlan,
+	phase storage.OperationPhase,
+	remote fsm.Remote,
+	operator ops.Operator,
+) (*phaseElectionChange, error) {
 	if phase.Data == nil || phase.Data.ElectionChange == nil {
 		return nil, trace.BadParameter("no election status specified for phase %q", phase.ID)
+	}
+
+	cluster, err := operator.GetLocalSite()
+	if err != nil {
+		return nil, trace.Wrap(err)
+	}
+
+	var dnsConfig storage.DNSConfig
+	if cluster != nil {
+		dnsConfig = cluster.DNSConfig
+	}
+	if dnsConfig.IsEmpty() {
+		dnsConfig = storage.LegacyDNSConfig
 	}
 
 	return &phaseElectionChange{
@@ -57,13 +77,14 @@ func NewPhaseElectionChange(plan storage.OperationPlan, phase storage.OperationP
 		ClusterName:    plan.ClusterName,
 		ElectionChange: *phase.Data.ElectionChange,
 		FieldLogger:    logrus.NewEntry(logrus.New()),
+		dnsConfig:      dnsConfig,
 		remote:         remote,
 	}, nil
 }
 
 func (p *phaseElectionChange) waitForMasterMigration(rollback bool) error {
 	err := utils.Retry(defaults.RetryInterval, defaults.RetryAttempts, func() error {
-		leaderAddr, err := utils.ResolveAddr(constants.APIServerDomainName)
+		leaderAddr, err := utils.ResolveAddr(constants.APIServerDomainName, p.dnsConfig.Addr())
 		if err != nil {
 			return trace.Wrap(err, "resolving current leader IP")
 		}

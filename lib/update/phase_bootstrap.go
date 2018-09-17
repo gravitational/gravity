@@ -54,6 +54,9 @@ type updatePhaseBootstrap struct {
 	Backend storage.Backend
 	// LocalBackend is the local state backend
 	LocalBackend storage.Backend
+	// HostLocalBackend is the host-local state backend used to persist global settings
+	// like DNS configuration, logins etc.
+	HostLocalBackend storage.Backend
 	// GravityPath is the path to the new gravity binary
 	GravityPath string
 	// GravityPackage specifies the package with the gravity binary
@@ -101,19 +104,20 @@ func NewUpdatePhaseBootstrap(c FSMConfig, plan storage.OperationPlan, phase stor
 	}
 
 	return &updatePhaseBootstrap{
-		Operator:       c.Operator,
-		Backend:        c.Backend,
-		LocalBackend:   c.LocalBackend,
-		Packages:       c.ClusterPackages,
-		GravityPackage: plan.GravityPackage,
-		Server:         *phase.Data.Server,
-		Servers:        plan.Servers,
-		Operation:      *operation,
-		GravityPath:    gravityPath,
-		ServiceUser:    cluster.ServiceUser,
-		FieldLogger:    log.NewEntry(log.New()),
-		remote:         remote,
-		runtimePackage: *runtimePackage,
+		Operator:         c.Operator,
+		Backend:          c.Backend,
+		LocalBackend:     c.LocalBackend,
+		HostLocalBackend: c.HostLocalBackend,
+		Packages:         c.ClusterPackages,
+		GravityPackage:   plan.GravityPackage,
+		Server:           *phase.Data.Server,
+		Servers:          plan.Servers,
+		Operation:        *operation,
+		GravityPath:      gravityPath,
+		ServiceUser:      cluster.ServiceUser,
+		FieldLogger:      log.NewEntry(log.New()),
+		remote:           remote,
+		runtimePackage:   *runtimePackage,
 	}, nil
 }
 
@@ -136,6 +140,10 @@ func (p *updatePhaseBootstrap) Execute(context.Context) error {
 		return trace.Wrap(err)
 	}
 	err = p.exportGravity()
+	if err != nil {
+		return trace.Wrap(err)
+	}
+	err = p.updateDNSConfig()
 	if err != nil {
 		return trace.Wrap(err)
 	}
@@ -184,6 +192,25 @@ func (p *updatePhaseBootstrap) exportGravity() error {
 		return trace.Wrap(err)
 	}
 	log.Debugf("%v exported to %v.", p.GravityPackage, p.GravityPath)
+	return nil
+}
+
+// updateDNSConfig persists the DNS configuration in the local backend if it has not been set
+func (p *updatePhaseBootstrap) updateDNSConfig() error {
+	cluster, err := p.Operator.GetLocalSite()
+	if err != nil {
+		return trace.Wrap(err)
+	}
+
+	dnsConfig := storage.LegacyDNSConfig
+	if !cluster.DNSConfig.IsEmpty() {
+		dnsConfig = cluster.DNSConfig
+	}
+
+	err = p.HostLocalBackend.SetDNSConfig(dnsConfig)
+	if err != nil {
+		return trace.Wrap(err)
+	}
 	return nil
 }
 
