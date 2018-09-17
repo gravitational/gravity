@@ -32,7 +32,7 @@ import (
 	"github.com/jonboulle/clockwork"
 )
 
-// TrustedCluster extends Teleport's trusted cluster interface with Telekube
+// TrustedCluster extends Teleport's trusted cluster interface with Gravity
 // specific methods
 type TrustedCluster interface {
 	// TrustedCluster is the base trusted cluster interface from Teleport

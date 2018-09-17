@@ -39,7 +39,7 @@ import (
 
 // RunKubernetesTests returns true if requested to run
 // tests against running kubernetes. This mode requires
-// kubeconfig to point to proper cluster with telekube running
+// kubeconfig to point to proper cluster with gravity running
 func RunKubernetesTests() bool {
 	testEnabled := os.Getenv(defaults.TestK8s)
 	ok, _ := strconv.ParseBool(testEnabled)
