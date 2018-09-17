@@ -1546,8 +1546,8 @@ func (s *Server) KubeNodeID() string {
 	return s.AdvertiseIP
 }
 
-// Master returns true if the server has a master role
-func (s *Server) Master() bool {
+// IsMaster returns true if the server has a master role
+func (s *Server) IsMaster() bool {
 	return s.ClusterRole == constants.MasterRole
 }
 
@@ -1878,7 +1878,7 @@ func (r Servers) FindByIP(ip string) *Server {
 // Masters returns a list of master nodes
 func (r Servers) Masters() (masters []Server) {
 	for _, server := range r {
-		if server.Master() {
+		if server.IsMaster() {
 			masters = append(masters, server)
 		}
 	}

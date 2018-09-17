@@ -270,7 +270,7 @@ func (*etcdBackupExecutor) PostCheck(ctx context.Context) error {
 }
 
 // getBackupPath returns in-planet etcd data backup path for the provided
-// operation making sure that the directory where it's located exists
+// operation
 func getBackupPath(operationID string) string {
 	return filepath.Join(defaults.GravityDir, defaults.PlanetDir,
 		fmt.Sprintf("join-%v.backup", operationID))

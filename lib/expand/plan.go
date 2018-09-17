@@ -75,7 +75,7 @@ func (p *Peer) getOperationPlan(ctx operationContext) (*storage.OperationPlan, e
 	builder.AddSystemPhase(plan)
 
 	// when adding a master node, add it to the existing etcd cluster as a full member
-	if builder.JoiningNode.Master() {
+	if builder.JoiningNode.IsMaster() {
 		// when adding a second master node, etcd cluster becomes unavailable
 		// from the moment the second member is added to the moment the planet
 		// on the joining node comes up
@@ -95,7 +95,7 @@ func (p *Peer) getOperationPlan(ctx operationContext) (*storage.OperationPlan, e
 
 	// everything has started correctly so if we started a recovery agent
 	// above, we don't need it anymore
-	if builder.JoiningNode.Master() && len(builder.ClusterNodes.Masters()) == 1 {
+	if builder.JoiningNode.IsMaster() && len(builder.ClusterNodes.Masters()) == 1 {
 		builder.AddStopAgentPhase(plan)
 	}
 
@@ -108,7 +108,7 @@ func (p *Peer) getOperationPlan(ctx operationContext) (*storage.OperationPlan, e
 	}
 
 	// if added a master node, make sure it participates in leader election
-	if builder.JoiningNode.Master() {
+	if builder.JoiningNode.IsMaster() {
 		builder.AddElectPhase(plan)
 	}
 

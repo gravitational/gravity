@@ -61,7 +61,7 @@ type FSMConfig struct {
 	Credentials credentials.TransportCredentials
 	// Runner is optional runner to use when running remote commands
 	Runner fsm.AgentRepository
-	// Debug turns on FSM debug mode
+	// DebugMode turns on FSM debug mode
 	DebugMode bool
 	// Insecure turns on FSM insecure mode
 	Insecure bool

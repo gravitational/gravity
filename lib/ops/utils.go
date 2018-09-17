@@ -282,7 +282,8 @@ func VerifyLicense(packages pack.PackageService, license string) error {
 	return parsed.Verify(ca.CertPEM)
 }
 
-// GetExpandOperation returns the expand operation from the provided backend
+// GetExpandOperation returns the first available expand operation from
+// the provided backend
 func GetExpandOperation(backend storage.Backend) (*storage.SiteOperation, error) {
 	cluster, err := backend.GetLocalSite(defaults.SystemAccountID)
 	if err != nil {

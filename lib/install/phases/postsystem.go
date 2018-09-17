@@ -23,6 +23,7 @@ import (
 	"io/ioutil"
 	"path/filepath"
 
+	"github.com/cenkalti/backoff"
 	"github.com/gravitational/gravity/lib/app"
 	"github.com/gravitational/gravity/lib/app/resources"
 	"github.com/gravitational/gravity/lib/archive"
@@ -162,7 +163,7 @@ func (p *nodesExecutor) Execute(ctx context.Context) error {
 	}
 	// update the node with labels and taints, try a few times to
 	// account for possible transient errors
-	err = utils.Retry(defaults.RetryInterval, defaults.RetryLessAttempts,
+	err = utils.RetryWithInterval(ctx, backoff.NewExponentialBackOff(),
 		func() error {
 			return p.updateNode(p.Client, p.Node, profile.Labels, profile.Taints)
 		})

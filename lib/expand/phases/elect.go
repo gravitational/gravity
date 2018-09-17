@@ -24,7 +24,6 @@ import (
 	"github.com/gravitational/gravity/lib/defaults"
 	"github.com/gravitational/gravity/lib/fsm"
 	"github.com/gravitational/gravity/lib/ops"
-	"github.com/gravitational/gravity/lib/schema"
 	"github.com/gravitational/gravity/lib/utils"
 
 	"github.com/gravitational/trace"
@@ -58,9 +57,6 @@ type electExecutor struct {
 
 // Execute executes the system phase
 func (p *electExecutor) Execute(ctx context.Context) error {
-	if p.Phase.Data.Server.ClusterRole != string(schema.ServiceRoleMaster) {
-		return nil
-	}
 	p.Progress.NextStep("Enabling leader elections")
 	// TODO use etcd client?
 	out, err := utils.RunPlanetCommand(ctx, p.FieldLogger, "leader", "resume",

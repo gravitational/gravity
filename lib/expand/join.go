@@ -79,7 +79,7 @@ type PeerConfig struct {
 	localenv.Silent
 	// FieldLogger is used for logging
 	log.FieldLogger
-	// Debug turns on FSM debug mode
+	// DebugMode turns on FSM debug mode
 	DebugMode bool
 	// Insecure turns on FSM insecure mode
 	Insecure bool
@@ -712,8 +712,8 @@ func (p *Peer) startExpandOperation(ctx operationContext) error {
 	}
 	if p.Manual {
 		p.Silent.Println(`Operation was started in manual mode
-Inspect the operation plan using "gravity plan" and execute plan phases manually using "gravity join --phase=<phase-id>"
-After all phases have completed successfully, shutdown this process using Ctrl-C`)
+Inspect the operation plan using "gravity plan" and execute plan phases manually on this node using "gravity join --phase=<phase-id>"
+After all phases have completed successfully, complete the operation using "gravity join --complete" and shutdown this process using Ctrl-C`)
 		return nil
 	}
 	fsm, err := p.getFSM(ctx)

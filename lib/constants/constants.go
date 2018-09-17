@@ -620,11 +620,11 @@ const (
 	// TarExtension is the tar file extension
 	TarExtension = ".tar"
 
-	// SuccessMark is used in CLI to visually indicate that something's succeeded
+	// SuccessMark is used in CLI to visually indicate success
 	SuccessMark = "✓"
-	// FailureMark is used in CLI to visually indicate that something's failed
+	// FailureMark is used in CLI to visually indicate failure
 	FailureMark = "×"
-	// InProgressMark is used in CLI to visually indicate that something's in progress
+	// InProgressMark is used in CLI to visually indicate progress
 	InProgressMark = "→"
 
 	// MasterRole is the name of the master node role

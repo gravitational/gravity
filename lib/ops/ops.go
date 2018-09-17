@@ -1364,7 +1364,7 @@ func (s *Site) Masters() (masters []storage.Server) {
 			masters = append(masters, node)
 		}
 	}
-	return
+	return masters
 }
 
 // Application holds information about application, such

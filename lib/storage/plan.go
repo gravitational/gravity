@@ -93,7 +93,7 @@ type OperationPhaseData struct {
 	// ExecServer is an optional server the phase is supposed to be executed on.
 	// If unspecified, the Server is used
 	ExecServer *Server `json:"exec_server,omitempty" yaml:"exec_server,omitempty"`
-	// Master is a selected master node the phase needs access to
+	// Master is the selected master node the phase needs access to
 	Master *Server `json:"master,omitempty" yaml:"master,omitempty"`
 	// Package is the package locator for the phase, e.g. update package
 	Package *loc.Locator `json:"package,omitempty" yaml:"package,omitempty"`

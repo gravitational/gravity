@@ -144,7 +144,6 @@ func (s *PlanSuite) SetUpSuite(c *check.C) {
 			},
 		})
 	c.Assert(err, check.IsNil)
-	fmt.Println(s.services.Operator.GetSiteOperations(s.cluster.Key()))
 	s.joinOpKey, err = s.services.Operator.CreateSiteExpandOperation(
 		ops.CreateSiteExpandOperationRequest{
 			AccountID:   account.ID,

@@ -72,7 +72,7 @@ func (b *planBuilder) AddConfigurePhase(plan *storage.OperationPlan) {
 // AddBootstrapPhase appends local node bootstrap phase to the plan
 func (b *planBuilder) AddBootstrapPhase(plan *storage.OperationPlan) {
 	agent := &b.AdminAgent
-	if !b.JoiningNode.Master() {
+	if !b.JoiningNode.IsMaster() {
 		agent = &b.RegularAgent
 	}
 	plan.Phases = append(plan.Phases, storage.OperationPhase{
@@ -155,7 +155,7 @@ func (b *planBuilder) AddStartAgentPhase(plan *storage.OperationPlan) {
 	plan.Phases = append(plan.Phases, storage.OperationPhase{
 		ID: StartAgentPhase,
 		Description: fmt.Sprintf("Start RPC agent on the master node %v",
-			b.ClusterNodes[0].AdvertiseIP),
+			b.Master.AdvertiseIP),
 		Data: &storage.OperationPhaseData{
 			ExecServer: &b.JoiningNode,
 			Server:     &b.Master,
