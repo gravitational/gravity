@@ -164,7 +164,6 @@ func (e *fsmEngine) ChangePhaseState(ctx context.Context, change fsm.StateChange
 	if err != nil {
 		return trace.Wrap(err)
 	}
-	// TODO sync plan back to etcd once it's available
 	err = e.Operator.CreateOperationPlanChange(e.OperationKey, planChange)
 	if err != nil {
 		e.Warnf("Failed to create changelog entry %v: %v.", change,
