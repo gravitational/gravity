@@ -61,6 +61,13 @@ func NewBootstrap(p fsm.ExecutorParams, operator ops.Operator, apps app.Applicat
 		return nil, trace.Wrap(err)
 	}
 
+	if operation.Type != ops.OperationInstall {
+		operation, err = ops.GetCompletedInstallOperation(operation.ClusterKey(), operator)
+		if err != nil {
+			return nil, trace.Wrap(err)
+		}
+	}
+
 	application, err := apps.GetApp(*p.Phase.Data.Package)
 	if err != nil {
 		return nil, trace.Wrap(err)
@@ -77,22 +84,22 @@ func NewBootstrap(p fsm.ExecutorParams, operator ops.Operator, apps app.Applicat
 		Server:   p.Phase.Data.Server,
 	}
 	return &bootstrapExecutor{
-		FieldLogger:    logger,
-		Operation:      *operation,
-		Application:    *application,
-		LocalBackend:   backend,
-		ExecutorParams: p,
-		ServiceUser:    *serviceUser,
-		remote:         remote,
-		dnsConfig:      dnsConfig,
+		FieldLogger:      logger,
+		InstallOperation: *operation,
+		Application:      *application,
+		LocalBackend:     backend,
+		ExecutorParams:   p,
+		ServiceUser:      *serviceUser,
+		remote:           remote,
+		dnsConfig:        dnsConfig,
 	}, nil
 }
 
 type bootstrapExecutor struct {
 	// FieldLogger is used for logging
 	logrus.FieldLogger
-	// Operation is the current install operation
-	Operation ops.SiteOperation
+	// InstallOperation is the cluster install operation
+	InstallOperation ops.SiteOperation
 	// Application is the application being installed
 	Application app.Application
 	// LocalBackend is the machine-local backend
@@ -145,9 +152,8 @@ func (p *bootstrapExecutor) getDockerConfig() (*schema.Docker, error) {
 	if err != nil {
 		return nil, trace.Wrap(err)
 	}
-
 	config := p.Application.Manifest.Docker(*profile)
-	vars := p.Operation.InstallExpand.Vars.System
+	vars := p.InstallOperation.InstallExpand.Vars.System
 	if vars.Docker.StorageDriver != "" {
 		config.StorageDriver = vars.Docker.StorageDriver
 	}

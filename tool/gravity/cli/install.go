@@ -562,6 +562,7 @@ func executeJoinPhase(localEnv, joinEnv *localenv.LocalEnvironment, p PhaseParam
 		JoinBackend:   joinEnv.Backend,
 		DebugMode:     localEnv.Debug,
 		Insecure:      localEnv.Insecure,
+		DNSConfig:     storage.DNSConfig(localEnv.DNS),
 	})
 	if err != nil {
 		return trace.Wrap(err)
@@ -617,6 +618,7 @@ func rollbackJoinPhase(localEnv, joinEnv *localenv.LocalEnvironment, p rollbackP
 		JoinBackend:   joinEnv.Backend,
 		DebugMode:     localEnv.Debug,
 		Insecure:      localEnv.Insecure,
+		DNSConfig:     storage.DNSConfig(localEnv.DNS),
 	})
 	if err != nil {
 		return trace.Wrap(err)

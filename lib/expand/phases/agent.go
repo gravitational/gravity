@@ -161,9 +161,11 @@ func (p *agentStopExecutor) Execute(ctx context.Context) error {
 	err := rpc.ShutdownAgents(ctx, []string{p.Master.AdvertiseIP},
 		p.FieldLogger, p.AgentClient)
 	if err != nil {
-		return trace.Wrap(err)
+		p.Errorf("Failed to stop agent on master node %v: %v.",
+			p.Master.AdvertiseIP, trace.DebugReport(err))
+	} else {
+		p.Infof("Stopped agent on master node %v.", p.Master.AdvertiseIP)
 	}
-	p.Infof("Stopped agent on master node %v.", p.Master.AdvertiseIP)
 	return nil
 }
 
