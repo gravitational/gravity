@@ -160,9 +160,11 @@ function jsx(args){
   args = args || {};
   var plugins = ["transform-class-properties", "transform-object-rest-spread", "syntax-dynamic-import"];
   var moduleType = false;
+  var emitWarning = false;
 
   if(args.withHot){
     plugins.unshift('react-hot-loader/babel');
+    emitWarning = true;
   }
 
   // use commonjs modules to be able to override exports in tests
@@ -191,7 +193,7 @@ function jsx(args){
       {
         loader: "eslint-loader",
         options: {
-          failOnError: true,
+          emitWarning,
         }
       }
     ]

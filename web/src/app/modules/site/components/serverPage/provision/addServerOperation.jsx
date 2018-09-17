@@ -34,8 +34,8 @@ const AddExistingServerOperation = React.createClass({
     return {
       serverCount: opAgentGetters.serverCountByOp(opId),
       model: getters.existingServerPendingOperation(opId),
-      startOperationAttemp: getters.startOperationAttemp,
-      deleteOperationAttemp: getters.deleteOperationAttemp
+      startOperationAttempt: getters.startOperationAttempt,
+      deleteOperationAttempt: getters.deleteOperationAttempt
     }
   },
 
@@ -48,14 +48,14 @@ const AddExistingServerOperation = React.createClass({
   },
 
   render() {
-    let { startOperationAttemp, deleteOperationAttemp, serverCount} = this.state;
-    
-    let isDeleting = deleteOperationAttemp.isProcessing;
-    let isCreating = startOperationAttemp.isProcessing;
+    let { startOperationAttempt, deleteOperationAttempt, serverCount} = this.state;
+
+    let isDeleting = deleteOperationAttempt.isProcessing;
+    let isCreating = startOperationAttempt.isProcessing;
 
     let isStartDisabled = isDeleting || serverCount === 0;
     let startBtnText = serverCount > 0 ? 'Start' : 'Waiting for servers...';
-            
+
     return (
       <form ref="form">
         <AjaxPoller onFetch={actions.fetchAgentReport} />

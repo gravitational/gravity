@@ -17,19 +17,19 @@ limitations under the License.
 import React from 'react';
 import reactor from 'app/reactor';
 import {ProfileSelector} from './items';
-import AddExistingServerOperation from './addExistingServerOperation';
+import AddExistingServerOperation from './addServerOperation';
 import getters from './../../../flux/servers/getters';
 import * as actions from './../../../flux/servers/actions';
 import $ from 'jQuery';
 
-var AddExistingServer = React.createClass({
+var AddServer = React.createClass({
 
   mixins: [reactor.ReactMixin],
 
   getDataBindings() {
     return {
       model: getters.existingServer,
-      createOperationAttemp: getters.createOperationAttemp
+      createOperationAttempt: getters.createOperationAttempt
     }
   },
 
@@ -42,7 +42,7 @@ var AddExistingServer = React.createClass({
   },
 
   render() {
-    let { createOperationAttemp} = this.state;
+    let { createOperationAttempt} = this.state;
     let { selectedProfileKey, profiles } = this.state.model;
     let {opId} = this.props;
 
@@ -52,7 +52,7 @@ var AddExistingServer = React.createClass({
           profiles={profiles}
           value={selectedProfileKey}
           onChange={actions.setProfile}
-          attemp={createOperationAttemp}
+          attemp={createOperationAttempt}
           onOk={actions.createExpandOperation}
           onCancel={actions.cancelExpandOperation} />
       )
@@ -62,4 +62,4 @@ var AddExistingServer = React.createClass({
   }
 });
 
-export default AddExistingServer;
+export default AddServer;

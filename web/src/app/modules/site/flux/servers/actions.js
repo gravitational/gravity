@@ -23,7 +23,7 @@ import opAgentActions from 'app/flux/opAgent/actions';
 import { createExpand, createShrink, fetchOps, deleteOp, startOp } from 'app/flux/operations/actions';
 import api from 'app/services/api';
 import cfg from 'app/config';
-import { ProviderEnum, ProvisionerEnum } from 'app/services/enums';
+import { ProvisionerEnum } from 'app/services/enums';
 import opAgentGetters from 'app/flux/opAgent/getters';
 
 import {
@@ -40,16 +40,6 @@ import {
   TRYING_TO_CREATE_EXPAND_OPERATION,
   TRYING_TO_START_EXPAND_OPERATION,
   TRYING_TO_START_SHRINK_OPERATION } from 'app/flux/restApi/constants';
-
-export function initWithNewServer(){
-  let {provider} = reactor.evaluate(currentSiteGetters.currentSite());
-  let needKeys = provider === ProviderEnum.AWS;
-  reactor.dispatch(SITE_SERVERS_PROV_INIT, {
-    needKeys,
-    isNewServer: true,
-    isExistingServer: false
-  });
-}
 
 export function initWithExistingServer(){
   reactor.dispatch(SITE_SERVERS_PROV_INIT, {
