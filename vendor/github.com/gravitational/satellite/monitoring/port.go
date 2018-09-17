@@ -44,6 +44,9 @@ type PortRange struct {
 	From, To uint64
 	// Description specifies the user-friendly range description
 	Description string
+	// ListenAddr optionally restricts the listener address.
+	// Any address will match if unspecified
+	ListenAddr string
 }
 
 // portChecker will validate that all required ports are in fact unoccupied
@@ -104,14 +107,15 @@ func (c *portChecker) checkProcess(proc process, reporter health.Reporter) bool 
 		if r.Protocol != proc.socket.proto() {
 			continue
 		}
-		// ignore sockets in time-wait and closed states since they're going
-		// away soon
 		switch proc.socket.state() {
 		case TimeWait:
+			// ignore sockets in time-wait state since they're going
+			// away soon
 			log.Debugf("Ignoring %v for program %q(pid=%v).", formatSocket(proc.socket), proc.name, proc.pid)
 			continue
 		}
-		if uint64(proc.localAddr().port) >= r.From && uint64(proc.localAddr().port) <= r.To {
+
+		if isPortConflict(proc, r) && isIPConflict(proc, r) {
 			conflicts = true
 			reporter.Add(&pb.Probe{
 				Checker: portCheckerID,
@@ -121,6 +125,21 @@ func (c *portChecker) checkProcess(proc process, reporter health.Reporter) bool 
 		}
 	}
 	return conflicts
+}
+
+func isPortConflict(proc process, portRange PortRange) bool {
+	return uint64(proc.localAddr().port) >= portRange.From &&
+		uint64(proc.localAddr().port) <= portRange.To
+}
+
+func isIPConflict(proc process, portRange PortRange) bool {
+	localAddr := proc.localAddr().ip.String()
+	addr := portRange.ListenAddr
+	if addr == "" {
+		addr = localAddr
+	}
+
+	return proc.localAddr().ip.IsUnspecified() || localAddr == addr
 }
 
 const (

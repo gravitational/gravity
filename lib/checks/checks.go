@@ -846,25 +846,45 @@ func defaultPortChecker(options *validationpb.ValidateOptions) health.Checker {
 	if options != nil && options.VxlanPort != 0 {
 		vxlanPort = uint64(options.VxlanPort)
 	}
-	return monitoring.NewPortChecker(
-		monitoring.PortRange{"tcp", 53, 53, "internal cluster DNS"},
-		monitoring.PortRange{"tcp", 7496, 7496, "serf (health check agents) peer to peer"},
-		monitoring.PortRange{"tcp", 7373, 7373, "serf (health check agents) peer to peer"},
-		monitoring.PortRange{"tcp", 2379, 2380, "etcd"},
-		monitoring.PortRange{"tcp", 4001, 4001, "etcd"},
-		monitoring.PortRange{"tcp", 7001, 7001, "etcd"},
-		monitoring.PortRange{"tcp", 6443, 6443, "kubernetes API server"},
-		monitoring.PortRange{"tcp", 30000, 32767, "kubernetes internal services range"},
-		monitoring.PortRange{"tcp", 10248, 10255, "kubernetes internal services range"},
-		monitoring.PortRange{"tcp", 5000, 5000, "docker registry"},
-		monitoring.PortRange{"tcp", 3022, 3025, "teleport internal SSH control panel"},
-		monitoring.PortRange{"tcp", 3080, 3080, "teleport Web UI"},
-		monitoring.PortRange{"tcp", 3008, 3011, "internal Telekube services"},
-		monitoring.PortRange{"tcp", 32009, 32009, "telekube OpsCenter control panel"},
-		monitoring.PortRange{"tcp", 7575, 7575, "telekube RPC agent"},
-		monitoring.PortRange{"udp", 53, 53, "internal cluster DNS"},
-		monitoring.PortRange{"udp", vxlanPort, vxlanPort, "overlay network"},
-	)
+
+	var portRanges = []monitoring.PortRange{
+		monitoring.PortRange{Protocol: "tcp", From: 7496, To: 7496, Description: "serf (health check agents) peer to peer"},
+		monitoring.PortRange{Protocol: "tcp", From: 7373, To: 7373, Description: "serf (health check agents) peer to peer"},
+		monitoring.PortRange{Protocol: "tcp", From: 2379, To: 2380, Description: "etcd"},
+		monitoring.PortRange{Protocol: "tcp", From: 4001, To: 4001, Description: "etcd"},
+		monitoring.PortRange{Protocol: "tcp", From: 7001, To: 7001, Description: "etcd"},
+		monitoring.PortRange{Protocol: "tcp", From: 6443, To: 6443, Description: "kubernetes API server"},
+		monitoring.PortRange{Protocol: "tcp", From: 30000, To: 32767, Description: "kubernetes internal services range"},
+		monitoring.PortRange{Protocol: "tcp", From: 10248, To: 10255, Description: "kubernetes internal services range"},
+		monitoring.PortRange{Protocol: "tcp", From: 5000, To: 5000, Description: "docker registry"},
+		monitoring.PortRange{Protocol: "tcp", From: 3022, To: 3025, Description: "teleport internal SSH control panel"},
+		monitoring.PortRange{Protocol: "tcp", From: 3080, To: 3080, Description: "teleport Web UI"},
+		monitoring.PortRange{Protocol: "tcp", From: 3008, To: 3011, Description: "internal Telekube services"},
+		monitoring.PortRange{Protocol: "tcp", From: 32009, To: 32009, Description: "telekube OpsCenter control panel"},
+		monitoring.PortRange{Protocol: "tcp", From: 7575, To: 7575, Description: "telekube RPC agent"},
+		monitoring.PortRange{Protocol: "udp", From: vxlanPort, To: vxlanPort, Description: "overlay network"},
+	}
+
+	dnsConfig := storage.DefaultDNSConfig
+	if options != nil && len(options.DnsAddrs) != 0 {
+		dnsConfig.Addrs = options.DnsAddrs
+		if options.DnsPort != 0 {
+			dnsConfig.Port = int(options.DnsPort)
+		}
+	}
+	for _, addr := range dnsConfig.Addrs {
+		portRanges = append(portRanges,
+			monitoring.PortRange{
+				Protocol:    "tcp",
+				Description: "internal cluster DNS",
+				From:        uint64(dnsConfig.Port),
+				To:          uint64(dnsConfig.Port),
+				ListenAddr:  addr,
+			},
+		)
+	}
+
+	return monitoring.NewPortChecker(portRanges...)
 }
 
 // constructPingPongRequest constructs a regular ping-pong game request

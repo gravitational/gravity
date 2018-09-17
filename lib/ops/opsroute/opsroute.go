@@ -26,7 +26,6 @@ import (
 	"github.com/gravitational/gravity/lib/storage"
 	"github.com/gravitational/gravity/lib/users"
 
-	"github.com/gravitational/roundtrip"
 	"github.com/gravitational/trace"
 )
 
@@ -70,7 +69,7 @@ func (p *ClientPool) httpClient() *http.Client {
 func (p *ClientPool) newClient(url, username, password string) (ops.Operator, error) {
 	// create remote package service client
 	client, err := opsclient.NewAuthenticatedClient(
-		url, username, password, roundtrip.HTTPClient(p.httpClient()))
+		url, username, password, opsclient.HTTPClient(p.httpClient()))
 	if err != nil {
 		return nil, trace.Wrap(err)
 	}

@@ -19,6 +19,7 @@ package cli
 import (
 	"context"
 	"io/ioutil"
+	"net"
 	"os"
 
 	"github.com/gravitational/gravity/lib/constants"
@@ -76,6 +77,8 @@ type InstallConfig struct {
 	DNSHosts []string
 	// DNSZones is a list of DNS zone overrides
 	DNSZones []string
+	// DNSConfig is the DNS configuration for cluster local dnsmasq
+	DNSConfig storage.DNSConfig
 	// PodCIDR is the pod network subnet
 	PodCIDR string
 	// ServiceCIDR is the service network subnet
@@ -112,6 +115,7 @@ func NewInstallConfig(g *Application) InstallConfig {
 		// case somebody is still using it
 		mode = constants.InstallModeInteractive
 	}
+
 	return InstallConfig{
 		Mode:          mode,
 		Insecure:      *g.Insecure,
@@ -138,6 +142,7 @@ func NewInstallConfig(g *Application) InstallConfig {
 			StorageDriver: *g.InstallCmd.DockerStorageDriver,
 			Args:          *g.InstallCmd.DockerArgs,
 		},
+		DNSConfig:  g.InstallCmd.DNSConfig(),
 		Manual:     *g.InstallCmd.Manual,
 		ServiceUID: *g.InstallCmd.ServiceUID,
 		ServiceGID: *g.InstallCmd.ServiceGID,
@@ -187,6 +192,12 @@ func (i *InstallConfig) CheckAndSetDefaults() (err error) {
 	}
 	if i.VxlanPort == 0 {
 		i.VxlanPort = defaults.VxlanPort
+	}
+	if i.DNSConfig.IsEmpty() {
+		i.DNSConfig = storage.DefaultDNSConfig
+	}
+	if err := i.validateDNSConfig(); err != nil {
+		return trace.Wrap(err)
 	}
 	i.ServiceUser = *serviceUser
 	if i.NewProcess == nil {
@@ -317,6 +328,7 @@ func (i *InstallConfig) ToInstallerConfig(env *localenv.LocalEnvironment) (*inst
 		DockerDevice:  i.DockerDevice,
 		Mounts:        i.Mounts,
 		DNSOverrides:  *dnsOverrides,
+		DNSConfig:     i.DNSConfig,
 		Mode:          i.Mode,
 		PodCIDR:       i.PodCIDR,
 		ServiceCIDR:   i.ServiceCIDR,
@@ -328,4 +340,28 @@ func (i *InstallConfig) ToInstallerConfig(env *localenv.LocalEnvironment) (*inst
 		GCENodeTags:   i.NodeTags,
 		NewProcess:    i.NewProcess,
 	}, nil
+}
+
+func (i *InstallConfig) validateDNSConfig() error {
+	blocks, err := utils.LocalIPNetworks()
+	if err != nil {
+		return trace.Wrap(err)
+	}
+	for _, addr := range i.DNSConfig.Addrs {
+		ip := net.ParseIP(addr)
+		if !validateIP(blocks, ip) {
+			return trace.BadParameter(
+				"IP address %v does not belong to any local IP network", addr)
+		}
+	}
+	return nil
+}
+
+func validateIP(blocks []net.IPNet, ip net.IP) bool {
+	for _, block := range blocks {
+		if block.Contains(ip) {
+			return true
+		}
+	}
+	return false
 }

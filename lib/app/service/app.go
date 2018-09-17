@@ -33,7 +33,6 @@ import (
 	"github.com/gravitational/gravity/lib/archive"
 	"github.com/gravitational/gravity/lib/constants"
 	"github.com/gravitational/gravity/lib/defaults"
-	"github.com/gravitational/gravity/lib/httplib"
 	"github.com/gravitational/gravity/lib/loc"
 	"github.com/gravitational/gravity/lib/pack"
 	"github.com/gravitational/gravity/lib/schema"
@@ -76,8 +75,10 @@ type Config struct {
 	CacheResources bool
 	// UnpackedDir is the dir where packages are unpacked
 	UnpackedDir string
-	// Client is kubernetes client, if not set
-	// hooks can not be executed by this service
+	// GetClient constructs kubernetes clients.
+	// Either this or Client must be set to use the kubernetes API.
+	GetClient func() (*kubernetes.Clientset, error)
+	// Client is an optional kubernetes client
 	Client *kubernetes.Clientset
 	// FieldLogger specifies the optional logger
 	log.FieldLogger
@@ -278,6 +279,7 @@ func (r *applications) StartAppHook(ctx context.Context, req appservice.HookRunR
 		req.Env = make(map[string]string)
 	}
 	req.Env[constants.DevmodeEnvVar] = strconv.FormatBool(r.Devmode)
+
 	client, err := r.getKubeClient()
 	if err != nil {
 		return nil, trace.Wrap(err)
@@ -286,6 +288,7 @@ func (r *applications) StartAppHook(ctx context.Context, req appservice.HookRunR
 	if err != nil {
 		return nil, trace.Wrap(err)
 	}
+
 	creds, err := storage.GetClusterLoginEntry(r.Backend)
 	if err != nil {
 		return nil, trace.Wrap(err)
@@ -323,11 +326,7 @@ func (r *applications) WaitAppHook(ctx context.Context, ref appservice.HookRef) 
 	if err != nil {
 		return trace.Wrap(err)
 	}
-	runner, err := hooks.NewRunner(client)
-	if err != nil {
-		return trace.Wrap(err)
-	}
-	return runner.Wait(ctx, hooks.JobRef{Name: ref.Name, Namespace: ref.Namespace})
+	return appservice.WaitAppHook(ctx, client, ref)
 }
 
 // StreamAppHookLogs streams app hook logs to output writer, this is a blocking call
@@ -336,11 +335,7 @@ func (r *applications) StreamAppHookLogs(ctx context.Context, ref appservice.Hoo
 	if err != nil {
 		return trace.Wrap(err)
 	}
-	runner, err := hooks.NewRunner(client)
-	if err != nil {
-		return trace.Wrap(err)
-	}
-	return runner.StreamLogs(ctx, hooks.JobRef{Name: ref.Name, Namespace: ref.Namespace}, out)
+	return appservice.StreamAppHookLogs(ctx, client, ref, out)
 }
 
 // DeleteAppHookJob deletes app hook job
@@ -349,11 +344,7 @@ func (r *applications) DeleteAppHookJob(ctx context.Context, ref appservice.Hook
 	if err != nil {
 		return trace.Wrap(err)
 	}
-	runner, err := hooks.NewRunner(client)
-	if err != nil {
-		return trace.Wrap(err)
-	}
-	return runner.DeleteJob(ctx, hooks.JobRef{Name: ref.Name, Namespace: ref.Namespace})
+	return appservice.DeleteAppHookJob(ctx, client, ref)
 }
 
 // StatusApp retrieves the status of a running application
@@ -909,7 +900,7 @@ func (r *applications) getKubeClient() (_ *kubernetes.Clientset, err error) {
 	r.Lock()
 	defer r.Unlock()
 	if r.Client == nil {
-		r.Client, err = httplib.GetClusterKubeClient()
+		r.Client, err = r.GetClient()
 		if err != nil {
 			return nil, trace.Wrap(err, "failed to create Kubernetes client")
 		}
@@ -918,6 +909,7 @@ func (r *applications) getKubeClient() (_ *kubernetes.Clientset, err error) {
 }
 
 type applications struct {
+	// Mutex guards Client
 	sync.Mutex
 	Config
 }

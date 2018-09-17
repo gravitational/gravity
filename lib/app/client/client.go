@@ -46,6 +46,7 @@ const CurrentVersion = "app/v1"
 // Client implements the application management interface
 type Client struct {
 	roundtrip.Client
+	dialer httplib.Dialer
 }
 
 // progressPollInterval defines the time to wait between two progress polling
@@ -53,25 +54,63 @@ type Client struct {
 const progressPollInterval = 2 * time.Second
 
 // NewAuthenticatedClient returns a new client with the specified user security context
-func NewAuthenticatedClient(addr, username, password string, params ...roundtrip.ClientParam) (*Client, error) {
-	params = append(params, roundtrip.BasicAuth(username, password))
+func NewAuthenticatedClient(addr, username, password string, params ...ClientParam) (*Client, error) {
+	params = append(params, BasicAuth(username, password))
 	return NewClient(addr, params...)
 }
 
 // NewBearerClient returns a new client that user bearer token for authentication
-func NewBearerClient(addr, token string, params ...roundtrip.ClientParam) (*Client, error) {
-	params = append(params, roundtrip.BearerAuth(token))
+func NewBearerClient(addr, token string, params ...ClientParam) (*Client, error) {
+	params = append(params, BearerAuth(token))
 	return NewClient(addr, params...)
 }
 
 // NewClient returns a new client
-func NewClient(addr string, params ...roundtrip.ClientParam) (*Client, error) {
-	c, err := roundtrip.NewClient(addr, CurrentVersion, params...)
+func NewClient(addr string, params ...ClientParam) (*Client, error) {
+	c, err := roundtrip.NewClient(addr, CurrentVersion)
 	if err != nil {
 		return nil, err
 	}
-	return &Client{*c}, nil
+	client := &Client{Client: *c}
+	for _, param := range params {
+		param(client)
+	}
+	return client, nil
 }
+
+// BasicAuth sets username and password for HTTP client
+func BasicAuth(username, password string) ClientParam {
+	return func(c *Client) error {
+		return roundtrip.BasicAuth(username, password)(&c.Client)
+	}
+}
+
+// BearerAuth sets token for HTTP client
+func BearerAuth(password string) ClientParam {
+	return func(c *Client) error {
+		return roundtrip.BearerAuth(password)(&c.Client)
+	}
+}
+
+// HTTPClient is a functional parameter that sets the internal
+// HTTP client
+func HTTPClient(h *http.Client) ClientParam {
+	return func(c *Client) error {
+		return roundtrip.HTTPClient(h)(&c.Client)
+	}
+}
+
+// WithLocalDialer specifies the dialer to use for connecting to an endpoint
+// if standard dialing fails
+func WithLocalDialer(dialer httplib.Dialer) ClientParam {
+	return func(c *Client) error {
+		c.dialer = dialer
+		return nil
+	}
+}
+
+// ClientParam defines the API to override configuration on client c
+type ClientParam func(c *Client) error
 
 // POST app/v1/operations/import/
 func (c *Client) CreateImportOperation(req *app.ImportRequest) (*storage.AppOperation, error) {
@@ -322,7 +361,7 @@ func (c *Client) WaitAppHook(ctx context.Context, ref app.HookRef) error {
 func (c *Client) StreamAppHookLogs(ctx context.Context, ref app.HookRef, out io.Writer) error {
 	endpoint := c.Endpoint(
 		"applications", ref.Application.Repository, ref.Application.Name, ref.Application.Version, "hook", ref.Namespace, ref.Name, "stream")
-	client, err := httplib.SetupWebsocketClient(ctx, &c.Client, endpoint)
+	client, err := httplib.SetupWebsocketClient(ctx, &c.Client, endpoint, c.dialer)
 	if err != nil {
 		return trace.Wrap(err)
 	}

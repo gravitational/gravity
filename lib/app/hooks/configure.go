@@ -24,7 +24,7 @@ import (
 	"text/template"
 	"time"
 
-	appservice "github.com/gravitational/gravity/lib/app"
+	"github.com/gravitational/gravity/lib/app/resources"
 	"github.com/gravitational/gravity/lib/constants"
 	"github.com/gravitational/gravity/lib/defaults"
 	"github.com/gravitational/gravity/lib/schema"
@@ -244,7 +244,7 @@ func configureSecurityContext(job *batchv1.Job, p Params) error {
 	if err != nil {
 		return trace.Wrap(err)
 	}
-	appservice.UpdateSecurityContext(&job.Spec.Template.Spec,
+	resources.UpdateSecurityContext(&job.Spec.Template.Spec,
 		systeminfo.User{Name: p.ServiceUser.Name, UID: uid, GID: gid})
 	return nil
 }

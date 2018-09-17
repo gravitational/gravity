@@ -21,33 +21,33 @@ import "github.com/gravitational/satellite/agent/health"
 // DefaultPortChecker returns a port range checker with a default set of port ranges
 func DefaultPortChecker() health.Checker {
 	return NewPortChecker(
-		PortRange{protoTCP, 53, 53, "internal cluster DNS"},
-		PortRange{protoUDP, 53, 53, "internal cluster DNS"},
-		PortRange{protoUDP, 8472, 8472, "overlay network"},
-		PortRange{protoTCP, 7496, 7496, "serf (health check agents) peer to peer"},
-		PortRange{protoTCP, 7373, 7373, "serf (health check agents) peer to peer"},
-		PortRange{protoTCP, 2379, 2380, "etcd"},
-		PortRange{protoTCP, 4001, 4001, "etcd"},
-		PortRange{protoTCP, 7001, 7001, "etcd"},
-		PortRange{protoTCP, 6443, 6443, "kubernetes API server"},
-		PortRange{protoTCP, 30000, 32767, "kubernetes internal services range"},
-		PortRange{protoTCP, 10248, 10255, "kubernetes internal services range"},
-		PortRange{protoTCP, 5000, 5000, "docker registry"},
-		PortRange{protoTCP, 3022, 3025, "teleport internal ssh control panel"},
-		PortRange{protoTCP, 3080, 3080, "teleport Web UI"},
-		PortRange{protoTCP, 3008, 3012, "internal Telekube services"},
-		PortRange{protoTCP, 32009, 32009, "telekube OpsCenter control panel"},
-		PortRange{protoTCP, 7575, 7575, "telekube RPC agent"},
+		PortRange{Protocol: protoTCP, From: 53, To: 53, Description: "internal cluster DNS"},
+		PortRange{Protocol: protoUDP, From: 53, To: 53, Description: "internal cluster DNS"},
+		PortRange{Protocol: protoUDP, From: 8472, To: 8472, Description: "overlay network"},
+		PortRange{Protocol: protoTCP, From: 7496, To: 7496, Description: "serf (health check agents) peer to peer"},
+		PortRange{Protocol: protoTCP, From: 7373, To: 7373, Description: "serf (health check agents) peer to peer"},
+		PortRange{Protocol: protoTCP, From: 2379, To: 2380, Description: "etcd"},
+		PortRange{Protocol: protoTCP, From: 4001, To: 4001, Description: "etcd"},
+		PortRange{Protocol: protoTCP, From: 7001, To: 7001, Description: "etcd"},
+		PortRange{Protocol: protoTCP, From: 6443, To: 6443, Description: "kubernetes API server"},
+		PortRange{Protocol: protoTCP, From: 30000, To: 32767, Description: "kubernetes internal services range"},
+		PortRange{Protocol: protoTCP, From: 10248, To: 10255, Description: "kubernetes internal services range"},
+		PortRange{Protocol: protoTCP, From: 5000, To: 5000, Description: "docker registry"},
+		PortRange{Protocol: protoTCP, From: 3022, To: 3025, Description: "teleport internal ssh control panel"},
+		PortRange{Protocol: protoTCP, From: 3080, To: 3080, Description: "teleport Web UI"},
+		PortRange{Protocol: protoTCP, From: 3008, To: 3012, Description: "internal Telekube services"},
+		PortRange{Protocol: protoTCP, From: 32009, To: 32009, Description: "telekube OpsCenter control panel"},
+		PortRange{Protocol: protoTCP, From: 7575, To: 7575, Description: "telekube RPC agent"},
 	)
 }
 
 // PreInstallPortChecker validates ports required for installation
 func PreInstallPortChecker() health.Checker {
 	return NewPortChecker(
-		PortRange{protoTCP, 4242, 4242, "bandwidth checker"},
-		PortRange{protoTCP, 61008, 61010, "installer agent ports"},
-		PortRange{protoTCP, 61022, 61024, "installer agent ports"},
-		PortRange{protoTCP, 61009, 61009, "install wizard"},
+		PortRange{Protocol: protoTCP, From: 4242, To: 4242, Description: "bandwidth checker"},
+		PortRange{Protocol: protoTCP, From: 61008, To: 61010, Description: "installer agent ports"},
+		PortRange{Protocol: protoTCP, From: 61022, To: 61024, Description: "installer agent ports"},
+		PortRange{Protocol: protoTCP, From: 61009, To: 61009, Description: "install wizard"},
 	)
 }
 

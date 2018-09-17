@@ -181,7 +181,7 @@ func Join(env *localenv.LocalEnvironment, j JoinConfig) error {
 		return trace.Wrap(err)
 	}
 
-	op, _, err := ops.GetInstallOperation(cluster.Key(), wizardEnv.Operator)
+	operation, _, err := ops.GetInstallOperation(cluster.Key(), wizardEnv.Operator)
 	if err != nil {
 		return trace.Wrap(err)
 	}
@@ -190,7 +190,9 @@ func Join(env *localenv.LocalEnvironment, j JoinConfig) error {
 		Manifest: cluster.App.Manifest,
 		Role:     j.Role,
 		Options: &validationpb.ValidateOptions{
-			VxlanPort: int32(op.GetVars().OnPrem.VxlanPort),
+			VxlanPort: int32(operation.GetVars().OnPrem.VxlanPort),
+			DnsAddrs:  cluster.DNSConfig.Addrs,
+			DnsPort:   int32(cluster.DNSConfig.Port),
 		},
 		AutoFix: true,
 	})
@@ -243,6 +245,7 @@ func joinLoop(env *localenv.LocalEnvironment, j JoinConfig, peers []string, runt
 		EventsC:       eventsC,
 		WatchCh:       watchCh,
 		RuntimeConfig: runtimeConfig,
+		LocalBackend:  env.Backend,
 	}, logrus.WithFields(logrus.Fields{
 		"role": j.Role,
 		"addr": j.AdvertiseAddr,
@@ -322,7 +325,7 @@ func tryLeave(env *localenv.LocalEnvironment, c leaveConfig) error {
 		return trace.Wrap(err)
 	}
 
-	err := checkInCluster()
+	err := checkInCluster(env.DNS.Addr())
 	if err != nil {
 		return trace.NotFound(
 			"no running cluster detected, please use --force flag to clean up the local state")
@@ -680,6 +683,7 @@ func executeInstallPhase(localEnv *localenv.LocalEnvironment, p InstallPhasePara
 		LocalApps:     localApps,
 		LocalBackend:  localEnv.Backend,
 		Insecure:      localEnv.Insecure,
+		DNSConfig:     storage.DNSConfig(localEnv.DNS),
 	})
 	if err != nil {
 		return trace.Wrap(err)
@@ -743,6 +747,7 @@ func rollbackInstallPhase(localEnv *localenv.LocalEnvironment, p rollbackParams)
 		LocalApps:     localApps,
 		LocalBackend:  localEnv.Backend,
 		Insecure:      localEnv.Insecure,
+		DNSConfig:     storage.DNSConfig(localEnv.DNS),
 	})
 	if err != nil {
 		return trace.Wrap(err)

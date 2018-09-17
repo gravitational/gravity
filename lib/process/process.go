@@ -1009,10 +1009,10 @@ func (p *Process) initService() (err error) {
 		if err != nil {
 			return trace.Wrap(err)
 		}
+		p.client = client
 	} else {
 		p.Debug("Not running inside Kubernetes.")
 	}
-	p.client = client
 
 	applications, err := appservice.New(appservice.Config{
 		StateDir:       filepath.Join(p.cfg.DataDir, defaults.ImportDir),
@@ -1022,7 +1022,7 @@ func (p *Process) initService() (err error) {
 		Users:          p.identity,
 		CacheResources: true,
 		UnpackedDir:    filepath.Join(p.cfg.DataDir, defaults.PackagesDir, defaults.UnpackedDir),
-		Client:         client,
+		GetClient:      tryGetPrivilegedKubeClient,
 	})
 	if err != nil {
 		return trace.Wrap(err)

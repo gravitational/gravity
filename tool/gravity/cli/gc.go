@@ -160,7 +160,7 @@ func newCollector(env *localenv.LocalEnvironment) (*vacuum.Collector, error) {
 		return nil, trace.Wrap(err)
 	}
 
-	clusterEnv, err := localenv.NewClusterEnvironment()
+	clusterEnv, err := env.NewClusterEnvironment()
 	if err != nil {
 		return nil, trace.Wrap(err)
 	}
@@ -292,7 +292,7 @@ func removeUnusedImages(env *localenv.LocalEnvironment, dryRun, confirmed bool) 
 		return trace.Wrap(err)
 	}
 
-	clusterEnv, err := localenv.NewClusterEnvironment()
+	clusterEnv, err := env.NewClusterEnvironment()
 	if err != nil {
 		return trace.Wrap(err)
 	}

@@ -23,20 +23,19 @@ import (
 	"io/ioutil"
 	"path/filepath"
 
-	"github.com/gravitational/rigging"
 	"github.com/gravitational/gravity/lib/app"
 	"github.com/gravitational/gravity/lib/app/resources"
 	"github.com/gravitational/gravity/lib/archive"
 	"github.com/gravitational/gravity/lib/constants"
 	"github.com/gravitational/gravity/lib/defaults"
 	"github.com/gravitational/gravity/lib/fsm"
-	"github.com/gravitational/gravity/lib/httplib"
 	kubeutils "github.com/gravitational/gravity/lib/kubernetes"
 	"github.com/gravitational/gravity/lib/ops"
 	"github.com/gravitational/gravity/lib/state"
 	"github.com/gravitational/gravity/lib/status"
 	"github.com/gravitational/gravity/lib/storage"
 	"github.com/gravitational/gravity/lib/utils"
+	"github.com/gravitational/rigging"
 
 	dockerarchive "github.com/docker/docker/pkg/archive"
 	"github.com/gravitational/satellite/agent/proto/agentpb"
@@ -118,11 +117,7 @@ func (*waitExecutor) PostCheck(ctx context.Context) error {
 }
 
 // NewNodes returns a new "nodes" phase executor
-func NewNodes(p fsm.ExecutorParams, operator ops.Operator, apps app.Applications) (*nodesExecutor, error) {
-	client, err := httplib.GetClusterKubeClient()
-	if err != nil {
-		return nil, trace.Wrap(err, "failed to create a Kubernetes client")
-	}
+func NewNodes(p fsm.ExecutorParams, operator ops.Operator, apps app.Applications, client *kubernetes.Clientset) (*nodesExecutor, error) {
 	application, err := apps.GetApp(*p.Phase.Data.Package)
 	if err != nil {
 		return nil, trace.Wrap(err)
@@ -253,11 +248,7 @@ func (*nodesExecutor) PostCheck(ctx context.Context) error {
 }
 
 // NewRBAC returns a new "rbac" phase executor
-func NewRBAC(p fsm.ExecutorParams, operator ops.Operator, apps app.Applications) (*rbacExecutor, error) {
-	client, err := httplib.GetClusterKubeClient()
-	if err != nil {
-		return nil, trace.Wrap(err, "failed to create a Kubernetes client")
-	}
+func NewRBAC(p fsm.ExecutorParams, operator ops.Operator, apps app.Applications, client *kubernetes.Clientset) (*rbacExecutor, error) {
 	logger := &fsm.Logger{
 		FieldLogger: logrus.WithFields(logrus.Fields{
 			constants.FieldInstallPhase: p.Phase.ID,

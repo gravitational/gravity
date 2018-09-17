@@ -120,6 +120,7 @@ func (i *Installer) NewClusterRequest() ops.NewSiteRequest {
 			GCENodeTags: i.Config.GCENodeTags,
 		},
 		DNSOverrides: i.DNSOverrides,
+		DNSConfig:    i.DNSConfig,
 	}
 }
 
@@ -143,6 +144,8 @@ func (i *Installer) StartCLIInstall() (err error) {
 		Role:     i.Role,
 		Options: &validationpb.ValidateOptions{
 			VxlanPort: int32(i.VxlanPort),
+			DnsAddrs:  i.DNSConfig.Addrs,
+			DnsPort:   int32(i.DNSConfig.Port),
 		},
 		AutoFix: true,
 	})
@@ -320,6 +323,7 @@ func (i *Installer) GetFSM() (*fsm.FSM, error) {
 		LocalBackend:   i.LocalBackend,
 		Insecure:       i.Insecure,
 		UserLogFile:    i.UserLogFile,
+		DNSConfig:      i.DNSConfig,
 		ReportProgress: true,
 	})
 }

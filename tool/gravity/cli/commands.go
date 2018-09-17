@@ -22,6 +22,7 @@ import (
 
 	"github.com/gravitational/gravity/lib/constants"
 	"github.com/gravitational/gravity/lib/loc"
+	"github.com/gravitational/gravity/lib/storage"
 
 	"github.com/gravitational/configure"
 	"gopkg.in/alecthomas/kingpin.v2"
@@ -67,14 +68,6 @@ type Application struct {
 	RemoveCmd RemoveCmd
 	// PlanCmd displays current operation plan
 	PlanCmd PlanCmd
-	// InstallPlanCmd combines install plan related subcommands
-	InstallPlanCmd InstallPlanCmd
-	// InstallPlanDisplayCmd displays install operation plan
-	InstallPlanDisplayCmd InstallPlanDisplayCmd
-	// UpgradePlanCmd combines upgrade plan related subcommands
-	UpgradePlanCmd UpgradePlanCmd
-	// UpgradePlanDisplayCmd displays upgrade operation plan
-	UpgradePlanDisplayCmd UpgradePlanDisplayCmd
 	// RollbackCmd rolls back the specified operation plan phase
 	RollbackCmd RollbackCmd
 	// UpdateCmd combines app update related commands
@@ -293,6 +286,15 @@ type VersionCmd struct {
 	Output *constants.Format
 }
 
+// DNSConfig returns DNS configuration
+func (r InstallCmd) DNSConfig() (config storage.DNSConfig) {
+	for _, addr := range *r.DNSListenAddrs {
+		config.Addrs = append(config.Addrs, addr.String())
+	}
+	config.Port = *r.DNSPort
+	return config
+}
+
 // InstallCmd launches cluster installation
 type InstallCmd struct {
 	*kingpin.CmdClause
@@ -330,6 +332,10 @@ type InstallCmd struct {
 	ServiceCIDR *string
 	// VxlanPort overrides default overlay network port
 	VxlanPort *int
+	// DNSListenAddrs specifies listen addresses for dnsmasq
+	DNSListenAddrs *[]net.IP
+	// DNSPort overrides default DNS port for dnsmasq
+	DNSPort *int
 	// DockerStorageDriver specifies Docker storage engine to use
 	DockerStorageDriver *string
 	// DockerArgs specifies additional Docker arguments
