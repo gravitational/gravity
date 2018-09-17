@@ -19,7 +19,7 @@ package storage
 import teleservices "github.com/gravitational/teleport/lib/services"
 
 const (
-	// KindCluster is a resource kind for telekube clusters
+	// KindCluster is a resource kind for gravity clusters
 	KindCluster = "cluster"
 	// KindRepository represents repositories
 	KindRepository = "repository"
@@ -31,7 +31,7 @@ const (
 	KindAccount = "account"
 	// KindToken is security token (e.g. API Key)
 	KindToken = "token"
-	// KindLicense represents telekube software license
+	// KindLicense represents Gravity software license
 	KindLicense = "license"
 	// VerbRegister is used to allow registering new clusters
 	// within an Ops Center

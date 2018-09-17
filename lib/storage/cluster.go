@@ -198,7 +198,7 @@ func (c *ClusterV2) CheckAndSetDefaults() error {
 		return trace.BadParameter("parameter spec.app can't be empty")
 	}
 	if _, err := loc.ParseLocator(defaults.SystemAccountOrg + "/" + c.Spec.App); err != nil {
-		return trace.Wrap(err, "failed to parse spec.app parameter, has to be valid app name with version, e.g. telekube:4.14.0")
+		return trace.Wrap(err, "failed to parse spec.app parameter, has to be valid app name with version, e.g. gravity:4.14.0")
 	}
 	if c.Spec.Provider == "" {
 		return trace.BadParameter("parameter spec.provider can't be empty")

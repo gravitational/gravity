@@ -100,7 +100,7 @@ func NewWebHandler(cfg WebHandlerConfig) (*WebHandler, error) {
 	// the server will reply with the download response
 	h.POST("/app/v1/applications/:repository_id/:package_id/:version/standalone-installer", h.needsAuth(h.getAppInstaller))
 
-	// Telekube install URLs
+	// Gravity install URLs
 	h.GET("/telekube/install", h.wrap(h.telekubeInstallScript))
 	h.GET("/telekube/install/:version", h.wrap(h.telekubeInstallScript))
 	h.GET("/telekube/gravity", h.wrap(h.telekubeGravityBinary))

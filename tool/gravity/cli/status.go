@@ -74,7 +74,7 @@ func status(env *localenv.LocalEnvironment, printOptions printOptions) error {
 		defer cancel()
 
 		if printOptions.format == constants.EncodingText {
-			env.Println("Failed to query telekube cluster status. Running additional checks")
+			env.Println("Failed to query Gravity cluster status. Running additional checks")
 		}
 
 		failed = checks.RunBasicChecks(ctx, nil)

@@ -360,7 +360,7 @@ func checkBinaryVersion(fsm *fsm.FSM) error {
 		return trace.BadParameter(
 			`Current operation plan should be executed with the gravity binary of version %q while this binary is of version %q.
 
-Please use the gravity binary from the upgrade installer tarball to execute the plan, or download appropriate version from the Telekube Distribution Ops Center (curl https://get.gravitational.io/telekube/install/%v | bash).
+Please use the gravity binary from the upgrade installer tarball to execute the plan, or download appropriate version from the Ops Center (curl https://get.gravitational.io/telekube/install/%v | bash).
 `, requiredVersion, ourVersion, plan.GravityPackage.Version)
 	}
 

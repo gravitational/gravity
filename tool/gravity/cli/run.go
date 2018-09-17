@@ -794,7 +794,7 @@ func checkInCluster(dnsAddr string) error {
 	client := httplib.GetClient(true, httplib.WithLocalResolver(dnsAddr), httplib.WithTimeout(time.Second))
 	_, err := client.Get(defaults.GravityServiceURL)
 	if err != nil {
-		return trace.NotFound("No telekube cluster detected. This failure could happen during failover, try again. Execute this command locally on one of the cluster nodes.")
+		return trace.NotFound("No Gravity cluster detected. This failure could happen during failover, try again. Execute this command locally on one of the cluster nodes.")
 	}
 	return nil
 }
