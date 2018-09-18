@@ -1768,7 +1768,7 @@ func (u *UsersService) createUserToken(tokenType string, name string, ttl time.D
 		return nil, trace.Wrap(err)
 	}
 
-	otpQR, err := otp.QR(fmt.Sprintf("Telekube: %v", name))
+	otpQR, err := otp.QR(fmt.Sprintf("Gravity: %v", name))
 	if err != nil {
 		return nil, trace.Wrap(err)
 	}

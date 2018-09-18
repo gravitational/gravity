@@ -39,7 +39,7 @@ const (
 	ComponentApp = "app"
 
 	// ComponentSite represents the name of the mode gravity process is
-	// running in in a Telekube cluster
+	// running in in a Gravity cluster
 	ComponentSite = "site"
 	// ComponentInstaller represents the name of the mode gravity process
 	// is running in when started as a standalone installer

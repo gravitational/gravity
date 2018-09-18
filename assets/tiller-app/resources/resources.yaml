@@ -30,12 +30,10 @@ spec:
         - name: tiller
           image: gcr.io/kubernetes-helm/tiller:canary
           imagePullPolicy: IfNotPresent
+          command: ["/tiller"]
+          args: ["--listen=localhost:44134"]
           securityContext:
             runAsUser: -1
-          ports:
-            - name: tiller
-              protocol: TCP
-              containerPort: 44134
           env:
             - name: TILLER_NAMESPACE
               value: kube-system
@@ -51,22 +49,4 @@ spec:
               port: 44135
             initialDelaySeconds: 1
             timeoutSeconds: 1
----
-apiVersion: v1
-kind: Service
-metadata:
-  name: tiller-deploy
-  namespace: kube-system
-  labels:
-    app: helm
-    name: tiller
-spec:
-  ports:
-  - name: tiller
-    port: 44134
-    protocol: TCP
-    targetPort: tiller
-  selector:
-    app: helm
-    name: tiller
-  type: ClusterIP
+

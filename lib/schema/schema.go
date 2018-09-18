@@ -43,7 +43,7 @@ func init() {
 const manifestSchema = `
 {
   "$schema": "http://json-schema.org/draft-06/schema#",
-  "description": "Telekube Application Manifest Schema v2",
+  "description": "Gravity Application Manifest Schema v2",
   "$ref": "#/definitions/Manifest",
   "definitions": {
     "Manifest": {

@@ -22,19 +22,19 @@ Design
                       +-------------------------+           +--------------------------+
                       |                         |           |                          |
                       |                         |           |                          |
-                      |   Telekube Master Node  |           |    Auto Scaling Group    +---------------------------------+
+                      |   Gravity  Master Node  |           |    Auto Scaling Group    +---------------------------------+
                       |                         |           |                          |                                 |
                       |                         |           |                          |                                 |
                       ++-----+------------------+           +--------------------------+                                 |
                        |     |                                               +---------------+                           |
                        |     |                                               |               |                           |
-                       |     | Publish Telekube ELB address                  |               |                           |
+                       |     | Publish Gravity  ELB address                  |               |                           |
                        |     | Publish Encrypted Join Token                  |  AWS Instance |                           |
 Read SQS notifications |     |                                               |               |                           |
 Remove deleted nodes   |     |                                               |               |                           |
                        |     |                                               +--------+------+                           |   Push Scale Up/Scale Down Events
                        |     |                                                        |                                  |   to SQS service
-                       |     |              +--------------------------+              | Discover Telekube ELB            |
+                       |     |              +--------------------------+              | Discover Gravity  ELB            |
                        |     |              |                          |              | Read Join Token                  |
                        |     +-------------->    SSM Parameter Store   <--------------+ Join the cluster                 |
                        |                    |                          |                                                 |
@@ -49,7 +49,7 @@ Remove deleted nodes   |     |                                               |  
 
 
 * Autoscaler runs on master nodes
-* Autoscaler publishes Telekube load balancer service and encrypted join token
+* Autoscaler publishes the Gravity load balancer service and encrypted join token
   to the SSM (AWS systems manager) parameter store
 * Instances started up as a part of auto scaling group discover the cluster
   by reading SSM parameters from the parameter store.
