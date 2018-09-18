@@ -43,8 +43,6 @@ type OperationPlan struct {
 	GravityPackage loc.Locator `json:"gravity_package"`
 	// CreatedAt is the plan creation timestamp
 	CreatedAt time.Time `json:"created_at"`
-	// Update is the optional state for the update operation
-	Update *UpdateOperationState
 }
 
 // Check makes sure operation plan is valid

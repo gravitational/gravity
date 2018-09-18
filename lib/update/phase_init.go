@@ -65,8 +65,6 @@ type updatePhaseInit struct {
 	app app.Application
 	// installedApp references the installed application instance
 	installedApp app.Application
-	// docker specifies updated Docker configuration
-	docker storage.DockerConfig
 }
 
 // NewUpdatePhaseInit creates a new update init phase executor
@@ -304,7 +302,6 @@ func (p *updatePhaseInit) rotatePlanetConfig(server storage.Server, runtimePacka
 		OperationID: p.Operation.ID,
 		Server:      server,
 		Servers:     p.Servers,
-		Docker:      p.docker,
 	})
 	if err != nil {
 		return trace.Wrap(err)

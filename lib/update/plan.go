@@ -46,8 +46,7 @@ import (
 func InitOperationPlan(
 	ctx context.Context,
 	updateEnv *localenv.LocalEnvironment,
-	clusterEnv *localenv.ClusterEnvironment,
-) (*storage.OperationPlan, error) {
+	clusterEnv *localenv.ClusterEnvironment) (*storage.OperationPlan, error) {
 	operation, err := storage.GetLastOperation(clusterEnv.Backend)
 	if err != nil {
 		return nil, trace.Wrap(err)
@@ -256,7 +255,6 @@ func newOperationPlan(p newPlanParams) (*storage.OperationPlan, error) {
 		OperationType:  p.operation.Type,
 		AccountID:      p.operation.AccountID,
 		ClusterName:    p.operation.SiteDomain,
-		Update:         p.operation.Update,
 		Servers:        p.servers,
 		GravityPackage: *gravityPackage,
 	}

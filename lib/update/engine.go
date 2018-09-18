@@ -25,7 +25,6 @@ import (
 	"time"
 
 	"github.com/gravitational/gravity/lib/app"
-	"github.com/gravitational/gravity/lib/constants"
 	"github.com/gravitational/gravity/lib/defaults"
 	"github.com/gravitational/gravity/lib/fsm"
 	"github.com/gravitational/gravity/lib/ops"
@@ -96,38 +95,23 @@ func (f *fsmUpdateEngine) PreRollback(ctx context.Context, p fsm.Params) error {
 // Complete marks the provided update operation as completed or failed
 // and moves the cluster into active state
 func (f *fsmUpdateEngine) Complete(fsmErr error) error {
-	if !fsm.IsCompleted(f.plan) && !fsm.IsFailed(f.plan) {
-		return trace.BadParameter(
-			"to complete the operation, all phases must be either completed or failed / rolled back / unstarted, check 'gravity plan'")
-	}
-
-	op, err := storage.GetLastOperation(f.Backend)
+	plan, err := f.GetPlan()
 	if err != nil {
 		return trace.Wrap(err)
 	}
 
-	if fsmErr != nil {
-		_, err := f.Backend.CreateProgressEntry(storage.ProgressEntry{
-			SiteDomain:  op.SiteDomain,
-			OperationID: op.ID,
-			Step:        constants.FinalStep,
-			Completion:  constants.Completed,
-			State:       ops.ProgressStateFailed,
-			Message:     trace.Unwrap(fsmErr).Error(),
-			Created:     time.Now().UTC(),
-		})
-		if err != nil {
-			return trace.Wrap(err)
-		}
+	opKey := clusterOperationKey(*plan)
+	op, err := f.Operator.GetSiteOperation(opKey)
+	if err != nil {
+		return trace.Wrap(err)
 	}
 
-	if fsm.IsCompleted(f.plan) {
-		op.State = ops.OperationStateCompleted
+	completed := fsm.IsCompleted(plan)
+	if completed {
+		err = ops.CompleteOperation(opKey, f.Operator)
 	} else {
-		op.State = ops.OperationStateFailed
+		err = ops.FailOperation(opKey, f.Operator, trace.Unwrap(fsmErr).Error())
 	}
-
-	_, err = f.Backend.UpdateSiteOperation(*op)
 	if err != nil {
 		return trace.Wrap(err)
 	}
@@ -156,7 +140,7 @@ func (f *fsmUpdateEngine) Complete(fsmErr error) error {
 	}
 
 	cluster.State = ops.SiteStateActive
-	if op.State == ops.OperationStateCompleted {
+	if completed {
 		cluster.App = updateApp.PackageEnvelope.ToPackage()
 		if updateBaseApp != nil {
 			cluster.App.Base = updateBaseApp.PackageEnvelope.ToPackagePtr()
@@ -364,4 +348,12 @@ Please use the gravity binary from the upgrade installer tarball to execute the 
 	}
 
 	return nil
+}
+
+func clusterOperationKey(plan storage.OperationPlan) ops.SiteOperationKey {
+	return ops.SiteOperationKey{
+		SiteDomain:  plan.ClusterName,
+		AccountID:   plan.AccountID,
+		OperationID: plan.OperationID,
+	}
 }

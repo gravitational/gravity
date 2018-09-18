@@ -117,8 +117,8 @@ func (c *FSMConfig) checkAndSetDefaults() error {
 }
 
 // ExecutePhase executes the specified phase
-func ExecutePhase(ctx context.Context, c FSMConfig, p fsm.Params, skipVersionCheck bool) error {
-	machine, err := NewFSM(ctx, c)
+func ExecutePhase(ctx context.Context, config FSMConfig, params fsm.Params, skipVersionCheck bool) error {
+	machine, err := NewFSM(ctx, config)
 	if err != nil {
 		return trace.Wrap(err)
 	}
@@ -130,17 +130,17 @@ func ExecutePhase(ctx context.Context, c FSMConfig, p fsm.Params, skipVersionChe
 		}
 	}
 
-	if p.PhaseID == fsm.RootPhase {
-		return trace.Wrap(resumeUpdate(ctx, machine, p, c.Remote))
+	if params.PhaseID == fsm.RootPhase {
+		return trace.Wrap(resumeUpdate(ctx, machine, params, config.Remote))
 	}
 
-	return trace.Wrap(machine.ExecutePhase(ctx, p))
+	return trace.Wrap(machine.ExecutePhase(ctx, params))
 }
 
 // RollbackPhase rolls back the specified phase, allows fallback to
 // recovery fsm in case etcd is down
-func RollbackPhase(ctx context.Context, c FSMConfig, p fsm.Params, skipVersionCheck bool) error {
-	fsm, err := NewFSM(ctx, c)
+func RollbackPhase(ctx context.Context, config FSMConfig, params fsm.Params, skipVersionCheck bool) error {
+	fsm, err := NewFSM(ctx, config)
 	if err != nil {
 		return trace.Wrap(err)
 	}
@@ -152,7 +152,7 @@ func RollbackPhase(ctx context.Context, c FSMConfig, p fsm.Params, skipVersionCh
 		}
 	}
 
-	return trace.Wrap(fsm.RollbackPhase(ctx, p))
+	return trace.Wrap(fsm.RollbackPhase(ctx, params))
 }
 
 func resumeUpdate(ctx context.Context, machine *fsm.FSM, p fsm.Params, runner rpc.AgentRepository) error {

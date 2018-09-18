@@ -759,8 +759,6 @@ type RotatePlanetConfigRequest struct {
 	Server storage.Server `json:"server"`
 	// Servers is all cluster servers
 	Servers []storage.Server `json:"servers"`
-	// Docker is the updated Docker configuration
-	Docker storage.DockerConfig
 }
 
 // SiteKey returns a cluster key from this request
@@ -1062,6 +1060,7 @@ type CreateSiteAppUpdateOperationRequest struct {
 	// App specifies a new application package in the "locator" form, e.g. gravitational.io/mattermost:1.2.3
 	App string `json:"package"`
 	// Manual specifies whether a manual update mode is requested.
+	// Deprecated.
 	Manual bool `json:"manual"`
 	// Docker overrides Docker configuration
 	Docker storage.DockerConfig `json:"docker"`

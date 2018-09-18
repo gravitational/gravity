@@ -1756,19 +1756,6 @@ type SystemVariables struct {
 	Docker DockerConfig `json:"docker"`
 }
 
-// IsEqual compares this configuration with other
-func (r DockerConfig) IsEqual(other DockerConfig) bool {
-	if len(r.Args) != len(other.Args) {
-		return false
-	}
-	for i, arg := range r.Args {
-		if arg != other.Args[i] {
-			return false
-		}
-	}
-	return r.StorageDriver == other.StorageDriver
-}
-
 // IsEmpty returns whether this configuration is empty
 func (r DockerConfig) IsEmpty() bool {
 	return r.StorageDriver == "" && len(r.Args) == 0
@@ -1931,7 +1918,6 @@ type ShrinkOperationState struct {
 }
 
 // UpdateOperationState describes the state of the update operation.
-// It also contains configuration overrides for server attributes from UI
 type UpdateOperationState struct {
 	// UpdatePackage references the application package to update to
 	UpdatePackage string `json:"update_package"`
@@ -1945,7 +1931,7 @@ type UpdateOperationState struct {
 	ServerUpdates []ServerUpdate `json:"server_updates,omitempty"`
 	// Manual specifies whether this update operation was created in manual mode
 	Manual bool `json:"manual"`
-	// Docker overrides docker configuration
+	// Docker overrides existing Docker configuration.
 	Docker DockerConfig `json:"docker"`
 }
 
