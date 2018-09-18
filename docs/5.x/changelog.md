@@ -7,7 +7,7 @@ LTS starts with `3.51.0` with minor backwards compatible changes added over time
 
 | LTS Release   | Release Date         | Supported Until      | Kubernetes Version | Teleport Version   |
 | ------------- | -------------------- | -------------------- | ------------------ |--------------------|
-| 5.0.23      | August, 28th 2018     | April, 13th 2019        | 1.9.6             |  2.4.7
+| 5.0.24      | August, 28th 2018     | April, 13th 2019        | 1.9.6             |  2.4.7
 | 4.63.0      | June, 25th 2018     | November, 16th 2018     | 1.7.14            |  2.3.5           |
 | 3.64.0      | December, 21st 2017     | June, 2nd 2018     | 1.5.7            |  2.0.6           |
 | 1.30.0      | March, 21st 2017   | March, 21st 2018   | 1.3.8            |  1.2.0           |
@@ -20,6 +20,28 @@ LTS starts with `3.51.0` with minor backwards compatible changes added over time
     article in our Help Center.
 
 ## 5.x Releases
+
+### 5.2.0-alpha.3
+
+#### Security
+
+* Disable exposed tiller service which allows privilege escalation.
+* Use mTLS to protect metrics and status endpoints.
+
+#### Improvements
+
+* Deprecate expanding cluster on AWS through UI.
+* Add support for overriding DNS listen address during install.
+
+### 5.0.24 LTS
+
+#### Security
+
+* Disable exposed tiller service which allows privilege escalation.
+
+#### Improvements
+
+* Feature to allow deletion and update of continuous influxdb queries.
 
 ### 5.0.23 LTS
 
