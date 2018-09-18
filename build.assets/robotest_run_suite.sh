@@ -16,7 +16,6 @@ export ROBOTEST_VERSION=${ROBOTEST_VERSION:-stable}
 export ROBOTEST_REPO=quay.io/gravitational/robotest-suite:$ROBOTEST_VERSION
 export WAIT_FOR_INSTALLER=true
 export INSTALLER_URL=$GRAVITY_BUILDDIR/telekube.tar
-export OPSCENTER_URL=$GRAVITY_BUILDDIR/opscenter.tar
 export DEPLOY_TO=${DEPLOY_TO:-azure}
 export TAG=$(git rev-parse --short HEAD)
 export GCL_PROJECT_ID=${GCL_PROJECT_ID:-"kubeadm-167321"}
@@ -83,7 +82,7 @@ function build_install_suite {
 #     done
 #   done
   suite+=$(cat <<EOF
- install={"installer_url":"${OPSCENTER_URL}","nodes":1,"flavor":"standalone","role":"node","os":"ubuntu:latest","ops_advertise_addr":"example.com:443"}
+ install={"installer_url":"/installer/opscenter.tar","nodes":1,"flavor":"standalone","role":"node","os":"ubuntu:latest","ops_advertise_addr":"example.com:443"}
 EOF
 )
   echo $suite
