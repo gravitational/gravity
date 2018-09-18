@@ -1119,10 +1119,6 @@ type RPCAgentInstallCmd struct {
 	*kingpin.CmdClause
 	// Args is additional arguments to the agent
 	Args *[]string
-	// DockerStorageDriver specifies Docker storage driver to use
-	DockerStorageDriver *string
-	// DockerArgs specifies additional Docker arguments
-	DockerArgs *[]string
 }
 
 // RPCAgentRunCmd runs RPC agent
@@ -1130,10 +1126,6 @@ type RPCAgentRunCmd struct {
 	*kingpin.CmdClause
 	// Args is additional arguments to the agent
 	Args *[]string
-	// DockerStorageDriver specifies Docker storage driver to use
-	DockerStorageDriver *string
-	// DockerArgs specifies additional Docker arguments
-	DockerArgs *[]string
 }
 
 // SystemCmd combines system subcommands

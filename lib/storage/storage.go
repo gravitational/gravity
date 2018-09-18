@@ -1756,6 +1756,19 @@ type SystemVariables struct {
 	Docker DockerConfig `json:"docker"`
 }
 
+// IsEqual compares this configuration with other
+func (r DockerConfig) IsEqual(other DockerConfig) bool {
+	if len(r.Args) != len(other.Args) {
+		return false
+	}
+	for i, arg := range r.Args {
+		if arg != other.Args[i] {
+			return false
+		}
+	}
+	return r.StorageDriver == other.StorageDriver
+}
+
 // IsEmpty returns whether this configuration is empty
 func (r DockerConfig) IsEmpty() bool {
 	return r.StorageDriver == "" && len(r.Args) == 0

@@ -97,6 +97,7 @@ func updateTrigger(
 		SiteDomain: cluster.Domain,
 		App:        app.Package.String(),
 		Manual:     true,
+		Docker:     docker,
 	})
 	if err != nil {
 		return trace.Wrap(err)
@@ -115,6 +116,19 @@ func updateTrigger(
 			panic(r)
 		}
 	}()
+
+	// FIXME
+	op, err := clusterEnv.Backend.GetSiteOperation(opKey.SiteDomain, opKey.OperationID)
+	if err != nil {
+		return trace.Wrap(err)
+	}
+	if op.Update == nil || !op.Update.Docker.IsEqual(docker) {
+		op.Update.Docker = docker
+		_, err = clusterEnv.Backend.UpdateSiteOperation(*op)
+		if err != nil {
+			return trace.Wrap(err)
+		}
+	}
 
 	req := deployAgentsRequest{
 		clusterState: cluster.ClusterState,

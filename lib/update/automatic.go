@@ -22,7 +22,6 @@ import (
 	"github.com/gravitational/gravity/lib/fsm"
 	"github.com/gravitational/gravity/lib/localenv"
 	"github.com/gravitational/gravity/lib/rpc"
-	"github.com/gravitational/gravity/lib/storage"
 	"github.com/gravitational/gravity/lib/utils"
 	"github.com/gravitational/gravity/lib/utils/kubectl"
 
@@ -31,11 +30,7 @@ import (
 )
 
 // AutomaticUpgrade starts automatic upgrade process
-func AutomaticUpgrade(
-	ctx context.Context,
-	localEnv, updateEnv *localenv.LocalEnvironment,
-	docker storage.DockerConfig,
-) (err error) {
+func AutomaticUpgrade(ctx context.Context, localEnv, updateEnv *localenv.LocalEnvironment) (err error) {
 	clusterEnv, err := localEnv.NewClusterEnvironment()
 	if err != nil {
 		return trace.Wrap(err)
@@ -58,7 +53,6 @@ func AutomaticUpgrade(
 		Operator:         clusterEnv.Operator,
 		Users:            clusterEnv.Users,
 		Remote:           runner,
-		Docker:           docker,
 	}
 
 	fsm, err := NewFSM(ctx, config)
