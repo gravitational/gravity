@@ -85,6 +85,7 @@ function build_install_suite {
   suite+=$(cat <<EOF
  install={"installer_url": "${OPSCENTER_URL}", "nodes": 1, "flavor": "standalone", "os": "ubuntu:latest", "flags": "--ops-advertise-addr=example.com:443"}
 EOF
+)
   echo $suite
 }
 
