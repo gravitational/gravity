@@ -190,21 +190,6 @@ func (s *site) agentUser() (storage.User, error) {
 	return s.users().GetTelekubeUser(s.agentUserEmail())
 }
 
-func (s *site) agentUserAndKey() (storage.User, *storage.APIKey, error) {
-	u, err := s.agentUser()
-	if err != nil {
-		return nil, nil, trace.Wrap(err)
-	}
-	keys, err := s.users().GetAPIKeys(u.GetName())
-	if err != nil {
-		return nil, nil, trace.Wrap(err)
-	}
-	if len(keys) == 0 {
-		return nil, nil, trace.NotFound("no api keys found for user(%v)", u.GetName())
-	}
-	return u, &keys[0], nil
-}
-
 func (s *site) appPackage() (*loc.Locator, error) {
 	site, err := s.backend().GetSite(s.key.SiteDomain)
 	if err != nil {

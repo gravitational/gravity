@@ -1357,6 +1357,16 @@ func (s *Site) IsAWS() bool {
 	}, s.Provider)
 }
 
+// Masters returns a list of master nodes from the cluster's state
+func (s *Site) Masters() (masters []storage.Server) {
+	for _, node := range s.ClusterState.Servers {
+		if node.ClusterRole == string(schema.ServiceRoleMaster) {
+			masters = append(masters, node)
+		}
+	}
+	return masters
+}
+
 // Application holds information about application, such
 // as package name and version, manifest and runtime information
 type Application struct {

@@ -164,3 +164,16 @@ func addPhases(phase *storage.OperationPhase, result *[]*storage.OperationPhase)
 		addPhases(&phase.Phases[i], result)
 	}
 }
+
+// GetOperationPlan returns resolved operation plan for the specified operation
+func GetOperationPlan(b storage.Backend, clusterName, operationID string) (*storage.OperationPlan, error) {
+	plan, err := b.GetOperationPlan(clusterName, operationID)
+	if err != nil {
+		return nil, trace.Wrap(err)
+	}
+	ch, err := b.GetOperationPlanChangelog(clusterName, operationID)
+	if err != nil {
+		return nil, trace.Wrap(err)
+	}
+	return ResolvePlan(*plan, ch), nil
+}

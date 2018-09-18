@@ -58,3 +58,44 @@ func NewClusterFromSite(site Site) *storage.ClusterV2 {
 	}
 	return cluster
 }
+
+// ConvertOpsSite converts ops.Site to storage.Site
+func ConvertOpsSite(in Site) storage.Site {
+	site := storage.Site{
+		AccountID: in.AccountID,
+		Domain:    in.Domain,
+		Created:   in.Created,
+		CreatedBy: in.CreatedBy,
+		State:     in.State,
+		Reason:    in.Reason,
+		Provider:  in.Provider,
+		Local:     in.Local,
+		App: storage.Package{
+			Repository:    in.App.PackageEnvelope.Locator.Repository,
+			Name:          in.App.PackageEnvelope.Locator.Name,
+			Version:       in.App.PackageEnvelope.Locator.Version,
+			SHA512:        in.App.PackageEnvelope.SHA512,
+			SizeBytes:     int(in.App.PackageEnvelope.SizeBytes),
+			Created:       in.App.PackageEnvelope.Created,
+			CreatedBy:     in.App.PackageEnvelope.CreatedBy,
+			RuntimeLabels: in.App.PackageEnvelope.RuntimeLabels,
+			Type:          in.App.PackageEnvelope.Type,
+			Hidden:        in.App.PackageEnvelope.Hidden,
+			Encrypted:     in.App.PackageEnvelope.Encrypted,
+			Manifest:      in.App.PackageEnvelope.Manifest,
+		},
+		Resources:       in.Resources,
+		Labels:          in.Labels,
+		Location:        in.Location,
+		UpdateInterval:  in.UpdateInterval,
+		NextUpdateCheck: in.NextUpdateCheck,
+		ClusterState:    in.ClusterState,
+		ServiceUser:     in.ServiceUser,
+		CloudConfig:     in.CloudConfig,
+		DNSOverrides:    in.DNSOverrides,
+	}
+	if in.License != nil {
+		site.License = in.License.Raw
+	}
+	return site
+}

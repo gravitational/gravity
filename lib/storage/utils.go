@@ -19,6 +19,7 @@ package storage
 import (
 	"time"
 
+	"github.com/gravitational/gravity/lib/compare"
 	"github.com/gravitational/gravity/lib/constants"
 	"github.com/gravitational/gravity/lib/defaults"
 	"github.com/gravitational/gravity/lib/loc"
@@ -27,6 +28,7 @@ import (
 	teleservices "github.com/gravitational/teleport/lib/services"
 	"github.com/gravitational/trace"
 	log "github.com/sirupsen/logrus"
+	check "gopkg.in/check.v1"
 )
 
 // GetClusterAgentCreds returns credentials for cluster agent
@@ -262,4 +264,24 @@ func GetClusterDNSConfig(backend Backend) (*DNSConfig, error) {
 	}
 
 	return &config, nil
+}
+
+// DeepComparePhases compares the actual phase to the expected phase omitting
+// some insignificant fields like description or UI step number
+func DeepComparePhases(c *check.C, expected, actual OperationPhase) {
+	c.Assert(expected.ID, check.Equals, actual.ID,
+		check.Commentf("phase ID does not match"))
+	c.Assert(expected.Requires, check.DeepEquals, actual.Requires,
+		check.Commentf("field Requires on phase %v does not match", expected.ID))
+	c.Assert(expected.Parallel, check.Equals, actual.Parallel,
+		check.Commentf("field Parallel on phase %v does not match", expected.ID))
+	c.Assert(expected.Data, check.DeepEquals, actual.Data,
+		check.Commentf("field Data on phase %v does not match: %v", expected.ID,
+			compare.Diff(expected.Data, actual.Data)))
+	c.Assert(len(expected.Phases), check.Equals, len(actual.Phases),
+		check.Commentf("number of subphases on phase %v does not match: %v", expected.ID,
+			compare.Diff(expected.Phases, actual.Phases)))
+	for i := range expected.Phases {
+		DeepComparePhases(c, expected.Phases[i], actual.Phases[i])
+	}
 }

@@ -23,6 +23,7 @@ import (
 	"io/ioutil"
 	"path/filepath"
 
+	"github.com/cenkalti/backoff"
 	"github.com/gravitational/gravity/lib/app"
 	"github.com/gravitational/gravity/lib/app/resources"
 	"github.com/gravitational/gravity/lib/archive"
@@ -49,7 +50,7 @@ import (
 func NewWait(p fsm.ExecutorParams, operator ops.Operator) (*waitExecutor, error) {
 	logger := &fsm.Logger{
 		FieldLogger: logrus.WithFields(logrus.Fields{
-			constants.FieldInstallPhase: p.Phase.ID,
+			constants.FieldPhase: p.Phase.ID,
 		}),
 		Key:      opKey(p.Plan),
 		Operator: operator,
@@ -116,7 +117,7 @@ func (*waitExecutor) PostCheck(ctx context.Context) error {
 	return nil
 }
 
-// NewNodes returns a new "nodes" phase executor
+// NewNodes returns executor that applies labels and taints to a Kubernetes node
 func NewNodes(p fsm.ExecutorParams, operator ops.Operator, apps app.Applications, client *kubernetes.Clientset) (*nodesExecutor, error) {
 	application, err := apps.GetApp(*p.Phase.Data.Package)
 	if err != nil {
@@ -124,7 +125,7 @@ func NewNodes(p fsm.ExecutorParams, operator ops.Operator, apps app.Applications
 	}
 	logger := &fsm.Logger{
 		FieldLogger: logrus.WithFields(logrus.Fields{
-			constants.FieldInstallPhase: p.Phase.ID,
+			constants.FieldPhase: p.Phase.ID,
 		}),
 		Key:      opKey(p.Plan),
 		Operator: operator,
@@ -134,6 +135,7 @@ func NewNodes(p fsm.ExecutorParams, operator ops.Operator, apps app.Applications
 		FieldLogger:    logger,
 		Client:         client,
 		Application:    *application,
+		Node:           *p.Phase.Data.Server,
 		ExecutorParams: p,
 	}, nil
 }
@@ -145,29 +147,28 @@ type nodesExecutor struct {
 	Client *kubernetes.Clientset
 	// Application is the application being installed
 	Application app.Application
+	// Node is the node that should be labeled / tainted
+	Node storage.Server
 	// ExecutorParams is common executor params
 	fsm.ExecutorParams
 }
 
 // Execute executes the nodes phase
 func (p *nodesExecutor) Execute(ctx context.Context) error {
-	for _, server := range p.Plan.Servers {
-		p.Progress.NextStep("Updating node %v with labels and taints",
-			server.Hostname)
-		// find this node's profile
-		profile, err := p.Application.Manifest.NodeProfiles.ByName(server.Role)
-		if err != nil {
-			return trace.Wrap(err, "could not find node profile for %#v", server)
-		}
-		// update the node with labels and taints, try a few times to
-		// account for possible transient errors
-		err = utils.Retry(defaults.RetryInterval, defaults.RetryLessAttempts,
-			func() error {
-				return p.updateNode(p.Client, server, profile.Labels, profile.Taints)
-			})
-		if err != nil {
-			return trace.Wrap(err)
-		}
+	p.Progress.NextStep("Updating node %v with labels and taints", p.Node.Hostname)
+	// find this node's profile
+	profile, err := p.Application.Manifest.NodeProfiles.ByName(p.Node.Role)
+	if err != nil {
+		return trace.Wrap(err, "could not find node profile for %#v", p.Node)
+	}
+	// update the node with labels and taints, try a few times to
+	// account for possible transient errors
+	err = utils.RetryWithInterval(ctx, backoff.NewExponentialBackOff(),
+		func() error {
+			return p.updateNode(p.Client, p.Node, profile.Labels, profile.Taints)
+		})
+	if err != nil {
+		return trace.Wrap(err)
 	}
 	return nil
 }
@@ -204,19 +205,12 @@ func (*nodesExecutor) Rollback(ctx context.Context) error {
 
 // PreCheck makes sure that all Kubernetes nodes have registered
 func (p *nodesExecutor) PreCheck(ctx context.Context) error {
-	err := fsm.CheckMasterServer(p.Plan.Servers)
+	// make sure a Kubernetes node for this phase has registered
+	p.Infof("Waiting for Kubernetes node %v to register.", p.Node.AdvertiseIP)
+	err := p.waitForNode(p.Node)
 	if err != nil {
 		return trace.Wrap(err)
 	}
-	// make sure we have a Kubernetes node for each of our servers
-	p.Info("Waiting for Kubernetes nodes to register.")
-	for _, server := range p.Plan.Servers {
-		err := p.waitForNode(server)
-		if err != nil {
-			return trace.Wrap(err)
-		}
-	}
-	p.Info("All Kubernetes nodes have registered.")
 	return nil
 }
 
@@ -251,7 +245,7 @@ func (*nodesExecutor) PostCheck(ctx context.Context) error {
 func NewRBAC(p fsm.ExecutorParams, operator ops.Operator, apps app.Applications, client *kubernetes.Clientset) (*rbacExecutor, error) {
 	logger := &fsm.Logger{
 		FieldLogger: logrus.WithFields(logrus.Fields{
-			constants.FieldInstallPhase: p.Phase.ID,
+			constants.FieldPhase: p.Phase.ID,
 		}),
 		Key:      opKey(p.Plan),
 		Operator: operator,
@@ -328,7 +322,7 @@ func (*rbacExecutor) PostCheck(ctx context.Context) error {
 func NewResources(p fsm.ExecutorParams, operator ops.Operator) (*resourcesExecutor, error) {
 	logger := &fsm.Logger{
 		FieldLogger: logrus.WithFields(logrus.Fields{
-			constants.FieldInstallPhase: p.Phase.ID,
+			constants.FieldPhase: p.Phase.ID,
 		}),
 		Key:      opKey(p.Plan),
 		Operator: operator,
@@ -359,7 +353,7 @@ func (p *resourcesExecutor) Execute(ctx context.Context) error {
 	if err != nil {
 		return trace.Wrap(err, "failed to write user resources on disk")
 	}
-	out, err := utils.RunPlanetCommand(
+	out, err := utils.RunInPlanetCommand(
 		ctx,
 		p.FieldLogger,
 		defaults.KubectlBin,

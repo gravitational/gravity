@@ -84,13 +84,17 @@ const (
 	FieldAdvertiseIP = "advertise-ip"
 	// FieldHostname is the log field with node hostname
 	FieldHostname = "hostname"
-	// FieldInstallPhase is the log field with install phase name
-	FieldInstallPhase = "install-phase"
+	// FieldPhase is the log field with phase name
+	FieldPhase = "phase"
 	// FieldMode is the log field with the process mode (cluster/opscenter)
 	FieldMode = "mode"
 	// FieldDir is the log field that contains a directory path which meaning
 	// is specific to the component doing the logging
 	FieldDir = "dir"
+	// FieldSuccess contains boolean value whether something succeeded or not
+	FieldSuccess = "success"
+	// FieldError contains error message
+	FieldError = "error"
 
 	// ComponentSystem is for system integration
 	ComponentSystem = "system"
@@ -196,10 +200,6 @@ const (
 	// checks during install or update.
 	// If not empty, turns the preflight checks off
 	PreflightChecksOffEnvVar = "GRAVITY_CHECKS_OFF"
-
-	// ExistingOperationEnvVar names the environment variable that specifies whether there is
-	// an active operation.
-	ExistingOperationEnvVar = "GRAVITY_EXISTING_OPERATION"
 
 	// DockerRegistry is a default name for private docker registry
 	DockerRegistry = "leader.telekube.local:5000"
@@ -619,6 +619,16 @@ const (
 
 	// TarExtension is the tar file extension
 	TarExtension = ".tar"
+
+	// SuccessMark is used in CLI to visually indicate success
+	SuccessMark = "✓"
+	// FailureMark is used in CLI to visually indicate failure
+	FailureMark = "×"
+	// InProgressMark is used in CLI to visually indicate progress
+	InProgressMark = "→"
+
+	// MasterRole is the name of the master node role
+	MasterRole = "master"
 )
 
 var (

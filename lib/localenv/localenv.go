@@ -45,11 +45,11 @@ import (
 	"github.com/gravitational/gravity/lib/users/usersservice"
 	"github.com/gravitational/gravity/lib/utils"
 	"github.com/gravitational/gravity/tool/common"
-	"k8s.io/client-go/kubernetes"
 
 	"github.com/gravitational/roundtrip"
 	"github.com/gravitational/trace"
 	log "github.com/sirupsen/logrus"
+	"k8s.io/client-go/kubernetes"
 )
 
 // LocalEnvironmentArgs holds configuration values for opening or creating a LocalEnvironment
@@ -372,12 +372,46 @@ func (env *LocalEnvironment) PackageService(opsCenterURL string, options ...http
 	return client, nil
 }
 
+// CurrentLogin returns the login entry for the cluster this environment
+// is currently logged into
+//
+// If there are no entries or more than a single entry, it returns an error
 func (env *LocalEnvironment) CurrentLogin() (*users.LoginEntry, error) {
 	opsCenterURL, err := env.SelectOpsCenter("")
 	if err != nil {
 		return nil, trace.Wrap(err)
 	}
 	return env.GetLoginEntry(opsCenterURL)
+}
+
+// CurrentOperator returns operator for the current login entry
+func (env *LocalEnvironment) CurrentOperator(options ...httplib.ClientOption) (*opsclient.Client, error) {
+	entry, err := env.CurrentLogin()
+	if err != nil {
+		return nil, trace.Wrap(err)
+	}
+	return NewOpsClient(*entry, entry.OpsCenterURL,
+		opsclient.HTTPClient(env.HTTPClient(options...)))
+}
+
+// CurrentPackages returns package service for the current login entry
+func (env *LocalEnvironment) CurrentPackages(options ...httplib.ClientOption) (pack.PackageService, error) {
+	entry, err := env.CurrentLogin()
+	if err != nil {
+		return nil, trace.Wrap(err)
+	}
+	return newPackClient(*entry, entry.OpsCenterURL,
+		roundtrip.HTTPClient(env.HTTPClient(options...)))
+}
+
+// CurrentApps returns app service for the current login entry
+func (env *LocalEnvironment) CurrentApps(options ...httplib.ClientOption) (appbase.Applications, error) {
+	entry, err := env.CurrentLogin()
+	if err != nil {
+		return nil, trace.Wrap(err)
+	}
+	return newAppsClient(*entry, entry.OpsCenterURL,
+		appclient.HTTPClient(env.HTTPClient(options...)))
 }
 
 // CurrentUser returns name of the currently logged in user
@@ -443,18 +477,9 @@ func (env *LocalEnvironment) AppService(opsCenterURL string, config AppConfig, o
 	if err != nil {
 		return nil, trace.Wrap(err)
 	}
-	var client *appclient.Client
-	params := []appclient.ClientParam{
+	client, err := newAppsClient(*entry, opsCenterURL,
 		appclient.HTTPClient(env.HTTPClient(options...)),
-		appclient.WithLocalDialer(httplib.LocalResolverDialer(env.DNS.Addr())),
-	}
-	if entry.Email != "" {
-		client, err = appclient.NewAuthenticatedClient(
-			opsCenterURL, entry.Email, entry.Password, params...)
-	} else {
-		client, err = appclient.NewBearerClient(
-			opsCenterURL, entry.Password, params...)
-	}
+		appclient.WithLocalDialer(httplib.LocalResolverDialer(env.DNS.Addr())))
 	if err != nil {
 		return nil, trace.Wrap(err)
 	}
@@ -574,6 +599,17 @@ func newPackClient(entry users.LoginEntry, opsCenterURL string, params ...roundt
 			opsCenterURL, entry.Email, entry.Password, params...)
 	} else {
 		client, err = webpack.NewBearerClient(opsCenterURL, entry.Password, params...)
+	}
+	return client, trace.Wrap(err)
+}
+
+func newAppsClient(entry users.LoginEntry, opsCenterURL string, params ...appclient.ClientParam) (client appbase.Applications, err error) {
+	if entry.Email != "" {
+		client, err = appclient.NewAuthenticatedClient(
+			opsCenterURL, entry.Email, entry.Password, params...)
+	} else {
+		client, err = appclient.NewBearerClient(
+			opsCenterURL, entry.Password, params...)
 	}
 	return client, trace.Wrap(err)
 }

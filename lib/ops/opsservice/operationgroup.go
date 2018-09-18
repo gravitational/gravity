@@ -133,7 +133,7 @@ func (g *operationGroup) canCreateExpandOperation(site ops.Site, operation ops.S
 		return nil
 	}
 
-	operations, err := ops.GetActiveOperations(g.siteKey, g.operator, ops.OperationExpand)
+	operations, err := ops.GetActiveOperationsByType(g.siteKey, g.operator, ops.OperationExpand)
 	if err != nil && !trace.IsNotFound(err) {
 		return trace.Wrap(err)
 	}
@@ -145,18 +145,41 @@ func (g *operationGroup) canCreateExpandOperation(site ops.Site, operation ops.S
 	}
 
 	if len(operations) >= defaults.MaxExpandConcurrency {
-		return trace.CompareFailed(
-			"at most %v nodes can be joining simultaneously", defaults.MaxExpandConcurrency)
+		return trace.CompareFailed("at most %v nodes can be joining simultaneously",
+			defaults.MaxExpandConcurrency)
 	}
 
-	for _, server := range operation.Servers {
-		profile := operation.InstallExpand.Profiles[server.Role]
-		if profile.ServiceRole == string(schema.ServiceRoleMaster) {
-			return trace.CompareFailed(
-				"simultaneous joins are allowed for nodes only, %q is a %v", server.Hostname, profile.ServiceRole)
+	// if an expand operation that's adding master node is currently running,
+	// it has to finish before another expand can be started
+	for _, op := range operations {
+		for _, node := range op.Servers {
+			if node.ClusterRole == string(schema.ServiceRoleMaster) {
+				return trace.CompareFailed("can't launch another expand while master node %v is joining",
+					node.AdvertiseIP)
+			}
 		}
 	}
 
+	// now check the opposite use-case: if we're about to add a master,
+	// it has to be the only operation running
+	for _, profile := range operation.InstallExpand.Profiles {
+		switch profile.ServiceRole {
+		case string(schema.ServiceRoleMaster):
+			// the joining node wants to be a master
+			return trace.CompareFailed("can't join master node while another node is joining")
+		case "":
+			// cluster role was not set explicitly on the joining node, so
+			// it will be auto-set to master if the max number of masters
+			// haven't been reached yet
+			if len(site.Masters()) < defaults.MaxMasterNodes {
+				return trace.CompareFailed("can't join master node while another node is joining")
+			}
+		}
+	}
+
+	// if we've reached here, we're about to join a regular node, there are
+	// other regular nodes joining right now too and the total number of join
+	// operations is under the maximum
 	return nil
 }
 
@@ -214,7 +237,7 @@ func (g *operationGroup) onSiteOperationComplete(key ops.SiteOperationKey) error
 		return trace.Wrap(err)
 	}
 
-	operations, err := ops.GetActiveOperations(g.siteKey, g.operator, operation.Type)
+	operations, err := ops.GetActiveOperationsByType(g.siteKey, g.operator, operation.Type)
 	if err != nil && !trace.IsNotFound(err) {
 		return trace.Wrap(err)
 	}

@@ -291,11 +291,23 @@ const (
 	// JournalctlBin is the default location of the journalctl inside planet
 	JournalctlBin = "/usr/bin/journalctl"
 
+	// SystemctlBin is systemctl executable inside planet
+	SystemctlBin = "/bin/systemctl"
+
+	// StatBin is stat executable path inside planet
+	StatBin = "/usr/bin/stat"
+
 	// SystemdLogDir specifies the default location of the systemd journal files
 	SystemdLogDir = "/var/log/journal"
 
 	// SystemdMachineIDFile specifies the default location of the systemd machine-id file
 	SystemdMachineIDFile = "/etc/machine-id"
+
+	// GravityEphemeralDir is used to store short-lived data (for example,
+	// that's only needed for the duration of the operation) that can't be
+	// stored in a regular state directory (for example, during initial
+	// installation or join the state directory can be formatted)
+	GravityEphemeralDir = "/usr/local/share/gravity"
 
 	// GravityConfigFilename is the name of the file with gravity configuration
 	GravityConfigFilename = ".gravity.config"
@@ -800,10 +812,20 @@ const (
 	// EtcdUpgradeBackupFile is the filename to store a temporary backup of the etcd database when recreating the etcd datastore
 	EtcdUpgradeBackupFile = "etcd.bak"
 
+	// EtcdPeerPort is etcd inter-cluster communication port
+	EtcdPeerPort = 2380
+	// EtcdAPIPort is etcd client API port
+	EtcdAPIPort = 2379
+
 	// SchedulerKeyFilename is the kube-scheduler private key filename
 	SchedulerKeyFilename = "scheduler.key"
 	// SchedulerCertFilename is the kube-scheduler certificate filename
 	SchedulerCertFilename = "scheduler.cert"
+
+	// KubeletKeyFilename is the kubelet private key filename
+	KubeletKeyFilename = "kubelet.key"
+	// KubeletCertFilename is the kubelet certificate filename
+	KubeletCertFilename = "kubelet.cert"
 
 	// RootCertFilename is the certificate authority certificate filename
 	RootCertFilename = "root.cert"
@@ -817,9 +839,6 @@ const (
 
 	// RPCAgentSecretsPackage specifies the name of the RPC credentials package
 	RPCAgentSecretsPackage = "rpcagent-secrets"
-
-	// RPCAgentSecretsDir specifies the location of the unpacked credentials
-	RPCAgentSecretsDir = "./rpcsecrets"
 
 	// ArchiveUid specifies the user ID to use for tarball items that do not exist on disk
 	ArchiveUid = 1000
@@ -930,6 +949,15 @@ var (
 	// GravityConfigDirs specify default locations for gravity configuration search
 	GravityConfigDirs = []string{GravityDir, "assets/local"}
 
+	// GravityJoinDir is where join FSM stores its information on the joining node
+	GravityJoinDir = filepath.Join(GravityEphemeralDir, "join")
+
+	// RPCAgentSecretsDir specifies the location of the unpacked credentials
+	RPCAgentSecretsDir = filepath.Join(GravityEphemeralDir, "rpcsecrets")
+
+	// WizardDir is where wizard login information is stored during install
+	WizardDir = filepath.Join(GravityEphemeralDir, "wizard")
+
 	// LocalCacheDir is the location where gravity stores downloaded packages
 	LocalCacheDir = filepath.Join(LocalDataDir, "cache")
 
@@ -1015,6 +1043,11 @@ func HookSecurityContext() *v1.PodSecurityContext {
 // InGravity builds a directory path within gravity working directory
 func InGravity(parts ...string) string {
 	return filepath.Join(append([]string{GravityDir}, parts...)...)
+}
+
+// Secret returns full path to the specified secret file
+func Secret(filename string) string {
+	return InGravity(SecretsDir, filename)
 }
 
 // AWSPublicIPv4Command is a command to query AWS metadata for an instance's public IP address

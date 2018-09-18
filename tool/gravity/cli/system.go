@@ -1004,7 +1004,7 @@ func systemUninstall(env *localenv.LocalEnvironment, confirmed bool) error {
 	}
 
 	// remove all files and directories gravity might have created on the system
-	for _, path := range append(state.StateLocatorPaths, defaults.ModulesPath, defaults.SysctlPath) {
+	for _, path := range append(state.StateLocatorPaths, defaults.ModulesPath, defaults.SysctlPath, defaults.GravityEphemeralDir) {
 		// errors are expected since some of them may not exist
 		if err := os.Remove(path); err == nil {
 			env.PrintStep("Removed %v", path)
