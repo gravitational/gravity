@@ -17,13 +17,9 @@ limitations under the License.
 import React from 'react';
 import classnames from 'classnames';
 import reactor from 'app/reactor';
-import { ProviderEnum } from 'app/services/enums';
-import { If } from 'app/components/common/helpers';
-import AddNewServer from './addNewServer';
-import AddExistingServer from './addExistingServer';
+import AddServer from './addServer';
 import * as actions from './../../../flux/servers/actions';
 import getters from './../../../flux/servers/getters';
-
 import { HistoryLinkLabel } from './../../items';
 
 const ServerProvisioner = React.createClass({
@@ -33,59 +29,39 @@ const ServerProvisioner = React.createClass({
   getDataBindings() {
     return {
       model: getters.serverProvision,
-      createOperationAttemp: getters.createOperationAttemp
+      createOperationAttempt: getters.createOperationAttempt
     }
   },
 
   renderButtons() {
-    let { createOperationAttemp, model } = this.state;
-    let { isProcessing } = createOperationAttemp;
-    let {
-      provider,
-      isNewServer,
-      isExistingServer } = model;
-
-    let isAnyActive = isNewServer || isExistingServer;
-
-    let addNewBtnClass = classnames('btn btn-sm grv-site-servers-provisioner-add-new', {
-      'btn-primary active disabled': isNewServer,
-      'disabled': isExistingServer || isProcessing,
-      'btn-primary': !isAnyActive,
-      'hidden': provider === ProviderEnum.ONPREM
-    });
-
-    let addExistingBtnClass = classnames('btn btn-sm m-l-sm grv-site-servers-provisioner-add-existing', {
+    const { createOperationAttempt, model } = this.state;
+    const { isProcessing } = createOperationAttempt;
+    const { isExistingServer } = model;
+    const addExistingBtnClass = classnames('btn btn-sm m-l-sm btn-primary grv-site-servers-provisioner-add-existing', {
       'btn-primary active disabled': isExistingServer,
-      'disabled': isNewServer || isProcessing,
-      'btn-primary': !isAnyActive
+      'disabled': isProcessing,
     });
 
     return (
       <div className="grv-site-servers-provisioner-header-controls">
         <a type="button"
-            onClick={actions.initWithNewServer}
-            className={addNewBtnClass}>
-          Provision New
-        </a>
-        <a type="button"
             onClick={()=>actions.initWithExistingServer()}
             className={addExistingBtnClass}>
-          Add Existing
+          Add Server
         </a>
       </div>
     )
   },
 
   render() {
-    let {
+    const {
       siteId,
       inProgressOpId,
       inProgressOpType,
       initiatedOpId,
-      isNewServer,
       isExistingServer } = this.state.model;
 
-    let $headerContent = inProgressOpId ? (
+    const $headerContent = inProgressOpId ? (
       <HistoryLinkLabel opType={inProgressOpType} siteId={siteId} />
     ) : this.renderButtons();
 
@@ -99,16 +75,11 @@ const ServerProvisioner = React.createClass({
           </div>
           {$headerContent}
         </div>
-        <If isTrue={isNewServer}>
+        { isExistingServer &&
           <MakeBox>
-            <AddNewServer opId={initiatedOpId}/>
+            <AddServer opId={initiatedOpId}/>
           </MakeBox>
-        </If>
-        <If isTrue={isExistingServer}>
-          <MakeBox>
-            <AddExistingServer opId={initiatedOpId}/>
-          </MakeBox>
-        </If>
+        }
       </div>
     )
   }

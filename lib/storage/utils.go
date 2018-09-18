@@ -233,3 +233,33 @@ func DisableAccess(backend Backend, name string, delay time.Duration) error {
 	}
 	return nil
 }
+
+// GetDNSConfig returns the DNS configuration from the backend using fallback
+// if no configuration is available
+func GetDNSConfig(backend Backend, fallback DNSConfig) (config *DNSConfig, err error) {
+	config, err = backend.GetDNSConfig()
+	log.Debugf("Backend: dns=%v (%v)", config, err)
+	if err != nil && !trace.IsNotFound(err) {
+		return nil, trace.Wrap(err)
+	}
+	if config == nil {
+		config = &fallback
+	}
+
+	return config, nil
+}
+
+// GetClusterDNSConfig returns the DNS configuration from the cluster record.
+// Returns a copy of storage.LegacyDNSConfig if no cluster record is available
+func GetClusterDNSConfig(backend Backend) (*DNSConfig, error) {
+	cluster, err := backend.GetLocalSite(defaults.SystemAccountID)
+	if err != nil && !trace.IsNotFound(err) {
+		return nil, trace.Wrap(err)
+	}
+	config := LegacyDNSConfig
+	if cluster != nil && !cluster.DNSConfig.IsEmpty() {
+		config = cluster.DNSConfig
+	}
+
+	return &config, nil
+}

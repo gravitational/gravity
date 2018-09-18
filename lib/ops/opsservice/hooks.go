@@ -280,7 +280,7 @@ func (s *site) runNodesDeprovisionHook(ctx *operationContext) error {
 	return nil
 }
 
-// runIntegrationHook runs integration provisioning hook, sets up all secrets and deletes hook and secret after completed
+// runIntegrationHook runs integration provisioning hook, sets up all secrets and deletes hook and secret after completing
 func (s *site) runIntegrationHook(ctx *operationContext, job *batchv1.Job, request app.HookRunRequest, secretParams secretParams) error {
 	pack, err := secret(job.Name, job.Namespace, secretParams)
 	if err != nil {

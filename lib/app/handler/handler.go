@@ -41,11 +41,11 @@ import (
 	"github.com/gravitational/gravity/lib/users"
 	"github.com/gravitational/roundtrip"
 	"github.com/gravitational/trace"
+	"golang.org/x/net/websocket"
 
 	teleservices "github.com/gravitational/teleport/lib/services"
 	"github.com/julienschmidt/httprouter"
 	log "github.com/sirupsen/logrus"
-	"golang.org/x/net/websocket"
 )
 
 // WebHandlerConfig

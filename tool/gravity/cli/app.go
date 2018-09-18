@@ -27,6 +27,7 @@ import (
 	"strconv"
 
 	appservice "github.com/gravitational/gravity/lib/app"
+	"github.com/gravitational/gravity/lib/app/resources"
 	"github.com/gravitational/gravity/lib/app/service"
 	"github.com/gravitational/gravity/lib/archive"
 	"github.com/gravitational/gravity/lib/defaults"
@@ -442,7 +443,7 @@ func unpackAppResources(env *localenv.LocalEnvironment, loc loc.Locator, dir, op
 			return trace.BadParameter("invalid numeric user ID %q: %v", serviceUID, err)
 		}
 	}
-	err = appservice.UpdateSecurityContextInDir(filepath.Join(dir, defaults.ResourcesDir),
+	err = resources.UpdateSecurityContextInDir(filepath.Join(dir, defaults.ResourcesDir),
 		systeminfo.User{UID: uid})
 	if err != nil {
 		return trace.Wrap(err, "failed to render application resources")

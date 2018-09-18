@@ -38,7 +38,6 @@ import (
 	"github.com/gravitational/gravity/lib/users/usersservice"
 	"github.com/gravitational/gravity/lib/utils"
 
-	"github.com/gravitational/roundtrip"
 	"github.com/mailgun/timetools"
 	. "gopkg.in/check.v1"
 	"k8s.io/client-go/kubernetes"
@@ -128,7 +127,7 @@ func (r *HandlerSuite) SetUpTest(c *C) {
 
 		apps, err := client.NewAuthenticatedClient(
 			r.server.URL, r.user.GetName(), "admin-password",
-			roundtrip.HTTPClient(&http.Client{
+			client.HTTPClient(&http.Client{
 				Transport: &http.Transport{
 					TLSClientConfig: &tls.Config{
 						InsecureSkipVerify: true,

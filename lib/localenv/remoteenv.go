@@ -189,33 +189,33 @@ func (w *RemoteEnvironment) clearWizardEntry() error {
 
 func (w *RemoteEnvironment) init(entry storage.LoginEntry) error {
 	var err error
-	httpClient := roundtrip.HTTPClient(httplib.GetClient(true))
+	httpClient := httplib.GetClient(true)
 	if entry.Email != "" {
 		w.Packages, err = webpack.NewAuthenticatedClient(
-			entry.OpsCenterURL, entry.Email, entry.Password, httpClient)
+			entry.OpsCenterURL, entry.Email, entry.Password, roundtrip.HTTPClient(httpClient))
 	} else {
 		w.Packages, err = webpack.NewBearerClient(
-			entry.OpsCenterURL, entry.Password, httpClient)
+			entry.OpsCenterURL, entry.Password, roundtrip.HTTPClient(httpClient))
 	}
 	if err != nil {
 		return trace.Wrap(err)
 	}
 	if entry.Email != "" {
 		w.Apps, err = client.NewAuthenticatedClient(
-			entry.OpsCenterURL, entry.Email, entry.Password, httpClient)
+			entry.OpsCenterURL, entry.Email, entry.Password, client.HTTPClient(httpClient))
 	} else {
 		w.Apps, err = client.NewBearerClient(
-			entry.OpsCenterURL, entry.Password, httpClient)
+			entry.OpsCenterURL, entry.Password, client.HTTPClient(httpClient))
 	}
 	if err != nil {
 		return trace.Wrap(err)
 	}
 	if entry.Email != "" {
 		w.Operator, err = opsclient.NewAuthenticatedClient(
-			entry.OpsCenterURL, entry.Email, entry.Password, httpClient)
+			entry.OpsCenterURL, entry.Email, entry.Password, opsclient.HTTPClient(httpClient))
 	} else {
 		w.Operator, err = opsclient.NewBearerClient(
-			entry.OpsCenterURL, entry.Password, httpClient)
+			entry.OpsCenterURL, entry.Password, opsclient.HTTPClient(httpClient))
 	}
 	if err != nil {
 		return trace.Wrap(err)

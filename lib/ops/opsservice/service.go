@@ -44,7 +44,6 @@ import (
 
 	"github.com/docker/docker/pkg/archive"
 	"github.com/gravitational/configure/cstrings"
-	"github.com/gravitational/roundtrip"
 	teleservices "github.com/gravitational/teleport/lib/services"
 	"github.com/gravitational/trace"
 	"github.com/mailgun/timetools"
@@ -393,7 +392,7 @@ func (o *Operator) GetTrustedClusterToken(key ops.SiteKey) (storage.Token, error
 }
 
 // validateNewSiteRequest makes sure that the provided request is valid
-func (o *Operator) validateNewSiteRequest(req ops.NewSiteRequest) error {
+func (o *Operator) validateNewSiteRequest(req *ops.NewSiteRequest) error {
 	if req.AppPackage == "" {
 		return trace.BadParameter("missing AppPackage")
 	}
@@ -444,6 +443,15 @@ func (o *Operator) validateNewSiteRequest(req ops.NewSiteRequest) error {
 		return trace.Wrap(err, "failed to validate provided license")
 	}
 
+	serviceUser := req.ServiceUser
+	if serviceUser.IsEmpty() {
+		req.ServiceUser = storage.DefaultOSUser()
+	}
+
+	if req.DNSConfig.IsEmpty() {
+		req.DNSConfig = storage.DefaultDNSConfig
+	}
+
 	return nil
 }
 
@@ -466,7 +474,7 @@ func validateLabels(labels map[string]string) error {
 }
 
 func (o *Operator) CreateSite(r ops.NewSiteRequest) (*ops.Site, error) {
-	err := o.validateNewSiteRequest(r)
+	err := o.validateNewSiteRequest(&r)
 	if err != nil {
 		return nil, trace.Wrap(err)
 	}
@@ -517,11 +525,6 @@ func (o *Operator) CreateSite(r ops.NewSiteRequest) (*ops.Site, error) {
 		labels[ops.SiteLabelName] = r.DomainName
 	}
 
-	serviceUser := r.ServiceUser
-	if serviceUser.IsEmpty() {
-		serviceUser = storage.DefaultOSUser()
-	}
-
 	clusterData := &storage.Site{
 		AccountID:    account.ID,
 		Domain:       r.DomainName,
@@ -534,9 +537,10 @@ func (o *Operator) CreateSite(r ops.NewSiteRequest) (*ops.Site, error) {
 		App:          app.PackageEnvelope.ToPackage(),
 		Resources:    r.Resources,
 		Location:     r.Location,
-		ServiceUser:  serviceUser,
+		ServiceUser:  r.ServiceUser,
 		CloudConfig:  r.CloudConfig,
 		DNSOverrides: r.DNSOverrides,
+		DNSConfig:    r.DNSConfig,
 	}
 	if runtimeLoc := app.Manifest.Base(); runtimeLoc != nil {
 		runtimeApp, err := o.cfg.Apps.GetApp(*runtimeLoc)
@@ -1407,7 +1411,7 @@ func (o *Operator) RemoteOpsClient(cluster teleservices.TrustedCluster) (*opscli
 	client, err := opsclient.NewBearerClient(
 		fmt.Sprintf("https://%v", cluster.GetProxyAddress()),
 		cluster.GetToken(),
-		roundtrip.HTTPClient(httplib.GetClient(o.cfg.Devmode)))
+		opsclient.HTTPClient(httplib.GetClient(o.cfg.Devmode)))
 	if err != nil {
 		return nil, trace.Wrap(err)
 	}
