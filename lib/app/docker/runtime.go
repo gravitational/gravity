@@ -36,9 +36,9 @@ import (
 )
 
 // TranslateRuntimeImage translates the specified docker image
-// into a telekube package specified in req.
+// into a gravity package specified in req.
 func TranslateRuntimeImage(req TranslateImageRequest) error {
-	f, err := ioutil.TempFile("", "telekube-runtime")
+	f, err := ioutil.TempFile("", "gravity-runtime")
 	if err != nil {
 		return trace.ConvertSystemError(err)
 	}
@@ -83,7 +83,7 @@ func TranslateRuntimeImage(req TranslateImageRequest) error {
 		"container ID":                   container.ID,
 		"package":                        req.Package,
 	})
-	log.Info("Translating docker image to telekube package.")
+	log.Info("Translating docker image to the gravity package.")
 
 	defer func() {
 		log.Info("Removing container.")
