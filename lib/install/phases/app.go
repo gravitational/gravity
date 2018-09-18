@@ -63,6 +63,7 @@ func NewHook(p fsm.ExecutorParams, operator ops.Operator, apps app.Applications,
 		Operator:       operator,
 		Apps:           apps,
 		ExecutorParams: p,
+		Hooks:          hooks,
 		ServiceUser:    *serviceUser,
 	}, nil
 }
@@ -84,7 +85,7 @@ type hookExecutor struct {
 
 // Execute runs install and post install hooks for an app
 func (p *hookExecutor) Execute(ctx context.Context) error {
-	err := p.runHooks(ctx, schema.HookInstall, schema.HookInstalled)
+	err := p.runHooks(ctx, p.Hooks...)
 	if err != nil {
 		return trace.Wrap(err)
 	}
