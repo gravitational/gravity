@@ -59,6 +59,8 @@ type FSMConfig struct {
 	Spec fsm.FSMSpecFunc
 	// Remote allows to create RPC clients
 	Remote fsm.AgentRepository
+	// Docker is the updated Docker configuration
+	Docker storage.DockerConfig
 }
 
 // NewFSM returns a new FSM instance

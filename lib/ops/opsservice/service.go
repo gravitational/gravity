@@ -216,6 +216,9 @@ func (cfg *Config) CheckRelaxed() error {
 	if cfg.StateDir == "" {
 		return trace.BadParameter("missing StateDir")
 	}
+	if cfg.Clock == nil {
+		cfg.Clock = &timetools.RealTime{}
+	}
 	return nil
 }
 

@@ -483,9 +483,13 @@ func RegisterCommands(app *kingpin.Application) *Application {
 
 	g.RPCAgentInstallCmd.CmdClause = g.RPCAgentCmd.Command("install", "install and launch local RPC agent service").Hidden()
 	g.RPCAgentInstallCmd.Args = g.RPCAgentInstallCmd.Arg("arg", "additional arguments").Strings()
+	g.RPCAgentInstallCmd.DockerStorageDriver = g.RPCAgentInstallCmd.Flag("docker-storage-driver", "Override Docker storage driver").String()
+	g.RPCAgentInstallCmd.DockerArgs = g.RPCAgentInstallCmd.Flag("docker-opt", "Additional arguments to Docker. Can be specified multiple times").Strings()
 
 	g.RPCAgentRunCmd.CmdClause = g.RPCAgentCmd.Command("run", "run RPC agent").Hidden()
 	g.RPCAgentRunCmd.Args = g.RPCAgentRunCmd.Arg("arg", "additional arguments").Strings()
+	g.RPCAgentRunCmd.DockerStorageDriver = g.RPCAgentRunCmd.Flag("docker-storage-driver", "Override Docker storage driver").String()
+	g.RPCAgentRunCmd.DockerArgs = g.RPCAgentRunCmd.Flag("docker-opt", "Additional arguments to Docker. Can be specified multiple times").Strings()
 
 	g.SystemCmd.CmdClause = g.Command("system", "operations on system components")
 

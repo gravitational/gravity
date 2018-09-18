@@ -24,14 +24,24 @@ import (
 	"github.com/gravitational/gravity/lib/defaults"
 	"github.com/gravitational/gravity/lib/fsm"
 	"github.com/gravitational/gravity/lib/localenv"
+	"github.com/gravitational/gravity/lib/storage"
 	"github.com/gravitational/gravity/lib/update"
 	"github.com/gravitational/gravity/lib/utils"
 
 	"github.com/gravitational/trace"
 )
 
-func executeAutomaticUpgrade(ctx context.Context, localEnv, upgradeEnv *localenv.LocalEnvironment, args []string) error {
-	return trace.Wrap(update.AutomaticUpgrade(ctx, localEnv, upgradeEnv))
+func executeAutomaticUpgrade(
+	ctx context.Context,
+	localEnv, upgradeEnv *localenv.LocalEnvironment,
+	config autoUpdateConfig,
+) error {
+	return trace.Wrap(update.AutomaticUpgrade(ctx, localEnv, upgradeEnv, config.docker))
+}
+
+type autoUpdateConfig struct {
+	args   []string
+	docker storage.DockerConfig
 }
 
 // upgradePhaseParams combines parameters for an upgrade phase execution/rollback
@@ -44,6 +54,8 @@ type upgradePhaseParams struct {
 	skipVersionCheck bool
 	// timeout is phase execution timeout
 	timeout time.Duration
+	// docker is the updated Docker configuration
+	docker storage.DockerConfig
 }
 
 func executeUpgradePhase(localEnv, upgradeEnv *localenv.LocalEnvironment, p upgradePhaseParams) error {
@@ -75,6 +87,7 @@ func executeUpgradePhase(localEnv, upgradeEnv *localenv.LocalEnvironment, p upgr
 		Operator:         clusterEnv.Operator,
 		Users:            clusterEnv.Users,
 		Remote:           runner,
+		Docker:           p.docker,
 	}, fsm.Params{
 		PhaseID:  p.phaseID,
 		Force:    p.force,

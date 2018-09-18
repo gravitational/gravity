@@ -759,6 +759,8 @@ type RotatePlanetConfigRequest struct {
 	Server storage.Server `json:"server"`
 	// Servers is all cluster servers
 	Servers []storage.Server `json:"servers"`
+	// Docker is the updated Docker configuration
+	Docker storage.DockerConfig
 }
 
 // SiteKey returns a cluster key from this request
