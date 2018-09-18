@@ -16,71 +16,75 @@ export ROBOTEST_VERSION=${ROBOTEST_VERSION:-stable}
 export ROBOTEST_REPO=quay.io/gravitational/robotest-suite:$ROBOTEST_VERSION
 export WAIT_FOR_INSTALLER=true
 export INSTALLER_URL=$GRAVITY_BUILDDIR/telekube.tar
+export OPSCENTER_URL=$GRAVITY_BUILDDIR/opscenter.tar
 export DEPLOY_TO=${DEPLOY_TO:-azure}
 export TAG=$(git rev-parse --short HEAD)
 export GCL_PROJECT_ID=${GCL_PROJECT_ID:-"kubeadm-167321"}
 export AZURE_REGION=${AZURE_REGION:-"westus,westus2,centralus,canadacentral"}
 
-function build_resize_suite {
-  cat <<EOF
- resize={"to":3,"flavor":"one","nodes":1,"role":"node","state_dir":"/var/lib/telekube","os":"ubuntu:latest","storage_driver":"devicemapper"}
-EOF
-}
+# function build_resize_suite {
+#   cat <<EOF
+#  resize={"to":3,"flavor":"one","nodes":1,"role":"node","state_dir":"/var/lib/telekube","os":"ubuntu:latest","storage_driver":"devicemapper"}
+# EOF
+# }
 
-function build_upgrade_step {
-  local usage="$FUNCNAME os release"
-  local os=${1:?$usage}
-  local release=${2:?$usage}
-  local cluster_sizes=('"flavor":"three","nodes":3,"role":"node"' '"flavor":"six","nodes":6,"role":"node"' '"flavor":"one","nodes":1,"role":"node"')
-  local suite=''
-  for size in ${cluster_sizes[@]}; do
-    suite+=$(cat <<EOF
- upgrade3lts={${size},"os":"${os}","storage_driver":"overlay2","from":"/telekube_${release}.tar"}
-EOF
-)
-  done
-  echo $suite
-}
+# function build_upgrade_step {
+#   local usage="$FUNCNAME os release"
+#   local os=${1:?$usage}
+#   local release=${2:?$usage}
+#   local cluster_sizes=('"flavor":"three","nodes":3,"role":"node"' '"flavor":"six","nodes":6,"role":"node"' '"flavor":"one","nodes":1,"role":"node"')
+#   local suite=''
+#   for size in ${cluster_sizes[@]}; do
+#     suite+=$(cat <<EOF
+#  upgrade3lts={${size},"os":"${os}","storage_driver":"overlay2","from":"/telekube_${release}.tar"}
+# EOF
+# )
+#   done
+#   echo $suite
+# }
 
-function build_devicemapper_upgrade_step {
-  local usage="$FUNCNAME os release"
-  local os=${1:?$usage}
-  local release=${2:?$usage}
-  local suite=''
-  suite+=$(cat <<EOF
- upgrade3lts={"flavor":"three","nodes":3,"role":"node","os":"${os}","storage_driver":"devicemapper","from":"/telekube_${release}.tar"}
-EOF
-)
-  echo $suite
-}
+# function build_devicemapper_upgrade_step {
+#   local usage="$FUNCNAME os release"
+#   local os=${1:?$usage}
+#   local release=${2:?$usage}
+#   local suite=''
+#   suite+=$(cat <<EOF
+#  upgrade3lts={"flavor":"three","nodes":3,"role":"node","os":"${os}","storage_driver":"devicemapper","from":"/telekube_${release}.tar"}
+# EOF
+# )
+#   echo $suite
+# }
 
-function build_upgrade_suite {
-  local suite=''
-  for release in ${!UPGRADE_FROM[@]}; do
-    for os in ${UPGRADE_FROM[$release]}; do
-      suite+=$(build_upgrade_step $os $release)
-      suite+=' '
-    done
-    suite+=$(build_devicemapper_upgrade_step 'redhat:7.4' $release)
-  done
-  echo $suite
-}
+# function build_upgrade_suite {
+#   local suite=''
+#   for release in ${!UPGRADE_FROM[@]}; do
+#     for os in ${UPGRADE_FROM[$release]}; do
+#       suite+=$(build_upgrade_step $os $release)
+#       suite+=' '
+#     done
+#     suite+=$(build_devicemapper_upgrade_step 'redhat:7.4' $release)
+#   done
+#   echo $suite
+# }
 
 function build_install_suite {
   local suite=''
   local test_os="redhat:7.4 centos:7.4 ubuntu:latest"
   local cluster_sizes=('"flavor":"three","nodes":3,"role":"node"' '"flavor":"six","nodes":6,"role":"node"')
   local storage_drivers="overlay2 devicemapper"
-  for os in $test_os; do
-    for driver in $storage_drivers; do
-      for size in ${cluster_sizes[@]}; do
-        suite+=$(cat <<EOF
- install={${size},"os":"${os}","storage_driver":"${driver}"}
+#   for os in $test_os; do
+#     for driver in $storage_drivers; do
+#       for size in ${cluster_sizes[@]}; do
+#         suite+=$(cat <<EOF
+#  install={${size},"os":"${os}","storage_driver":"${driver}"}
+# EOF
+# )
+#       done
+#     done
+#   done
+  suite+=$(cat <<EOF
+ install={"installer_url": "${OPSCENTER_URL}", "nodes": 1, "flavor": "standalone", "os": "ubuntu:latest", "flags": "--ops-advertise-addr=example.com:443"}
 EOF
-)
-      done
-    done
-  done
   echo $suite
 }
 
