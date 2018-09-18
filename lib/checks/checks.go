@@ -859,9 +859,9 @@ func defaultPortChecker(options *validationpb.ValidateOptions) health.Checker {
 		monitoring.PortRange{Protocol: "tcp", From: 5000, To: 5000, Description: "docker registry"},
 		monitoring.PortRange{Protocol: "tcp", From: 3022, To: 3025, Description: "teleport internal SSH control panel"},
 		monitoring.PortRange{Protocol: "tcp", From: 3080, To: 3080, Description: "teleport Web UI"},
-		monitoring.PortRange{Protocol: "tcp", From: 3008, To: 3011, Description: "internal Telekube services"},
-		monitoring.PortRange{Protocol: "tcp", From: 32009, To: 32009, Description: "telekube OpsCenter control panel"},
-		monitoring.PortRange{Protocol: "tcp", From: 7575, To: 7575, Description: "telekube RPC agent"},
+		monitoring.PortRange{Protocol: "tcp", From: 3008, To: 3011, Description: "internal Gravity services"},
+		monitoring.PortRange{Protocol: "tcp", From: 32009, To: 32009, Description: "Gravity OpsCenter control panel"},
+		monitoring.PortRange{Protocol: "tcp", From: 7575, To: 7575, Description: "Gravity RPC agent"},
 		monitoring.PortRange{Protocol: "udp", From: vxlanPort, To: vxlanPort, Description: "overlay network"},
 	}
 

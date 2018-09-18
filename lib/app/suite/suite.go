@@ -642,7 +642,7 @@ metadata:
 version: 2.2.1
 description: Mattermost Example
 keywords:
-  - Demo of Mattermost chart with Telekube
+  - Demo of Mattermost chart with Gravity
 tillerVersion: ">=2.8.0"
 `
 

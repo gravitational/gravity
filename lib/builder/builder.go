@@ -222,7 +222,7 @@ func (b *Builder) Vendor(ctx context.Context, dir string, progress utils.Progres
 	return archive.Tar(dir, archive.Uncompressed)
 }
 
-// CreateApplication creates a Telekube application from the provided
+// CreateApplication creates a Gravity application from the provided
 // data in the local database
 func (b *Builder) CreateApplication(data io.ReadCloser) (*app.Application, error) {
 	progressC := make(chan *app.ProgressEntry)
@@ -329,7 +329,7 @@ func (b *Builder) checkVersion() error {
 		return trace.BadParameter(
 			`The version of the tele binary (%v) is not compatible with the selected runtime (%v).
 
-Please upgrade your Telekube tools to match the runtime version (curl https://get.gravitational.io/telekube/install/%v | bash), or specify an appropriate runtime version in your application manifest. You can view available runtimes using "tele ls --runtimes" and pick the one that matches your tele version.`, teleVersion, runtimeVersion, withoutMeta)
+Please upgrade your Gravity tools to match the runtime version (curl https://get.gravitational.io/telekube/install/%v | bash), or specify an appropriate runtime version in your application manifest. You can view available runtimes using "tele ls --runtimes" and pick the one that matches your tele version.`, teleVersion, runtimeVersion, withoutMeta)
 	}
 
 	b.Debugf("version check passed, tele version: %v, runtime version: %v",

@@ -32,7 +32,7 @@ import (
 func main() {
 	teleutils.InitLogger(teleutils.LoggingForCLI, log.WarnLevel)
 	stdlog.SetOutput(log.StandardLogger().Writer())
-	app := kingpin.New("tele", "Telekube CLI client")
+	app := kingpin.New("tele", "Gravity CLI client")
 	if err := run(app); err != nil {
 		log.Error(trace.DebugReport(err))
 		common.PrintError(err)
