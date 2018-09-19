@@ -182,7 +182,7 @@ build:
 # 'install' uses the host's Golang to place output into $GOPATH/bin
 .PHONY:install
 install:
-	go install ./tool/tele ./tool/gravity
+	go install -ldflags "$(VERSION_FLAGS)" ./tool/tele ./tool/gravity
 
 # 'clean' removes the build artifacts
 .PHONY: clean
