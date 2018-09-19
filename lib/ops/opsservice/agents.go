@@ -25,6 +25,7 @@ import (
 	"time"
 
 	"github.com/gravitational/gravity/lib/checks"
+	"github.com/gravitational/gravity/lib/defaults"
 	"github.com/gravitational/gravity/lib/httplib"
 	validationpb "github.com/gravitational/gravity/lib/network/validation/proto"
 	"github.com/gravitational/gravity/lib/ops"
@@ -87,13 +88,15 @@ func (s *site) agentReport(ctx context.Context, opCtx *operationContext) (*ops.A
 }
 
 func (s *site) waitForAgents(ctx context.Context, opCtx *operationContext) (*ops.AgentReport, error) {
-	numAgents := opCtx.getNumServers()
-	err := s.agentService().Wait(ctx, opCtx.key(), numAgents)
+	localCtx, cancel := defaults.WithTimeout(ctx)
+	defer cancel()
+
+	err := s.agentService().Wait(localCtx, opCtx.key(), opCtx.getNumServers())
 	if err != nil {
 		return nil, trace.Wrap(err)
 	}
 
-	report, err := s.agentReport(ctx, opCtx)
+	report, err := s.agentReport(localCtx, opCtx)
 	if err != nil {
 		return nil, trace.Wrap(err)
 	}

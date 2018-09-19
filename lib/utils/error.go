@@ -17,6 +17,7 @@ limitations under the License.
 package utils
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -25,6 +26,7 @@ import (
 	"os"
 	"strings"
 
+	"github.com/cenkalti/backoff"
 	"github.com/gravitational/gravity/lib/loc"
 
 	"github.com/aws/aws-sdk-go/aws/awserr"
@@ -250,4 +252,31 @@ func (e *UnsupportedFilesystemError) Error() string {
 // NewUnsupportedFilesystemError creates a new error for an unsupported filesystem at the specified path
 func NewUnsupportedFilesystemError(err error, path string) *UnsupportedFilesystemError {
 	return &UnsupportedFilesystemError{Err: err, Path: path}
+}
+
+// IsContextCancelledError returns true if the provided error is a result
+// of a context cancellation
+func IsContextCancelledError(err error) bool {
+	origErr := trace.Unwrap(err)
+	if origErr == context.Canceled {
+		return true
+	}
+	if connErr, ok := origErr.(*trace.ConnectionProblemError); ok {
+		return connErr.Err == context.Canceled
+	}
+	return false
+}
+
+// ShouldReconnectPeer implements the error classification for peer connection errors
+//
+// It detects unrecoverable errors and aborts the reconnect attempts
+func ShouldReconnectPeer(err error) error {
+	if isPeerDeniedError(err.Error()) {
+		return &backoff.PermanentError{err}
+	}
+	return err
+}
+
+func isPeerDeniedError(message string) bool {
+	return strings.Contains(message, "AccessDenied")
 }

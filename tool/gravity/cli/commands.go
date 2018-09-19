@@ -379,16 +379,24 @@ type JoinCmd struct {
 	SystemDevice *string
 	// ServerAddr is RPC server address
 	ServerAddr *string
-	// ExistingOperation means joining to existing operation
-	ExistingOperation *bool
 	// Mounts is additional app mounts
 	Mounts *configure.KeyVal
-	// ServiceUID is system user ID
-	ServiceUID *string
-	// ServiceGID is system user group ID
-	ServiceGID *string
 	// CloudProvider turns on cloud provider integration
 	CloudProvider *string
+	// Manual turns on manual phases execution mode
+	Manual *bool
+	// Phase specifies the operation phase to execute
+	Phase *string
+	// PhaseTimeout is phase execution timeout
+	PhaseTimeout *time.Duration
+	// Resume resumes failed join operation
+	Resume *bool
+	// Force forces phase execution
+	Force *bool
+	// Complete marks join operation complete
+	Complete *bool
+	// OperationID is the ID of the operation created via UI
+	OperationID *string
 }
 
 // AutoJoinCmd uses cloud provider info to join existing cluster
@@ -404,10 +412,6 @@ type AutoJoinCmd struct {
 	SystemDevice *string
 	// Mounts is additional app mounts
 	Mounts *configure.KeyVal
-	// ServiceUID is system user ID
-	ServiceUID *string
-	// ServiceGID is system user group ID
-	ServiceGID *string
 }
 
 // LeaveCmd removes the current node from the cluster
@@ -439,6 +443,8 @@ type PlanCmd struct {
 	Sync *bool
 	// Output is output format
 	Output *constants.Format
+	// OperationID is optional ID of operation to show the plan for
+	OperationID *string
 }
 
 // InstallPlanCmd combines subcommands for install plan

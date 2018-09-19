@@ -34,8 +34,13 @@ import (
 	"github.com/sirupsen/logrus"
 )
 
-// NewApp returns a new "app" phase executor
-func NewApp(p fsm.ExecutorParams, operator ops.Operator, apps app.Applications) (*appExecutor, error) {
+// NewApp returns executor that runs install and post-install hooks
+func NewApp(p fsm.ExecutorParams, operator ops.Operator, apps app.Applications) (*hookExecutor, error) {
+	return NewHook(p, operator, apps, schema.HookInstall, schema.HookInstalled)
+}
+
+// NewHook returns executor that runs specified application hooks
+func NewHook(p fsm.ExecutorParams, operator ops.Operator, apps app.Applications, hooks ...schema.HookType) (*hookExecutor, error) {
 	if p.Phase.Data == nil || p.Phase.Data.ServiceUser == nil {
 		return nil, trace.BadParameter("service user is required")
 	}
@@ -47,37 +52,40 @@ func NewApp(p fsm.ExecutorParams, operator ops.Operator, apps app.Applications) 
 
 	logger := &fsm.Logger{
 		FieldLogger: logrus.WithFields(logrus.Fields{
-			constants.FieldInstallPhase: p.Phase.ID,
+			constants.FieldPhase: p.Phase.ID,
 		}),
 		Key:      opKey(p.Plan),
 		Operator: operator,
 		Server:   p.Phase.Data.Server,
 	}
-	return &appExecutor{
+	return &hookExecutor{
 		FieldLogger:    logger,
 		Operator:       operator,
-		LocalApps:      apps,
+		Apps:           apps,
 		ExecutorParams: p,
+		Hooks:          hooks,
 		ServiceUser:    *serviceUser,
 	}, nil
 }
 
-type appExecutor struct {
+type hookExecutor struct {
 	// FieldLogger is used for logging
 	logrus.FieldLogger
 	// Operator is installer ops service
 	Operator ops.Operator
-	// LocalApps is the machine-local app service
-	LocalApps app.Applications
+	// Apps is the app service that runs the hook
+	Apps app.Applications
 	// ServiceUser is the user used for services and system storage
 	ServiceUser systeminfo.User
+	// Hooks is hook names to be executed
+	Hooks []schema.HookType
 	// ExecutorParams is common executor params
 	fsm.ExecutorParams
 }
 
 // Execute runs install and post install hooks for an app
-func (p *appExecutor) Execute(ctx context.Context) error {
-	err := p.runHooks(ctx, schema.HookInstall, schema.HookInstalled)
+func (p *hookExecutor) Execute(ctx context.Context) error {
+	err := p.runHooks(ctx, p.Hooks...)
 	if err != nil {
 		return trace.Wrap(err)
 	}
@@ -85,7 +93,7 @@ func (p *appExecutor) Execute(ctx context.Context) error {
 }
 
 // runHooks runs specified app hooks
-func (p *appExecutor) runHooks(ctx context.Context, hooks ...schema.HookType) error {
+func (p *hookExecutor) runHooks(ctx context.Context, hooks ...schema.HookType) error {
 	for _, hook := range hooks {
 		locator := *p.Phase.Data.Package
 		req := app.HookRunRequest{
@@ -97,7 +105,7 @@ func (p *appExecutor) runHooks(ctx context.Context, hooks ...schema.HookType) er
 				GID:  strconv.Itoa(p.ServiceUser.GID),
 			},
 		}
-		_, err := app.CheckHasAppHook(p.LocalApps, req)
+		_, err := app.CheckHasAppHook(p.Apps, req)
 		if err != nil {
 			if trace.IsNotFound(err) {
 				p.Debugf("Application %v does not have %v hook.",
@@ -118,7 +126,7 @@ func (p *appExecutor) runHooks(ctx context.Context, hooks ...schema.HookType) er
 					trace.DebugReport(err))
 			}
 		}()
-		_, err = app.StreamAppHook(ctx, p.LocalApps, req, writer)
+		_, err = app.StreamAppHook(ctx, p.Apps, req, writer)
 		if err != nil {
 			return trace.Wrap(err, "%v %s hook failed", locator, hook)
 		}
@@ -133,20 +141,16 @@ func (p *appExecutor) runHooks(ctx context.Context, hooks ...schema.HookType) er
 }
 
 // Rollback is no-op for this phase
-func (*appExecutor) Rollback(ctx context.Context) error {
+func (*hookExecutor) Rollback(ctx context.Context) error {
 	return nil
 }
 
-// PreCheck makes sure this phase is executed on a master node
-func (p *appExecutor) PreCheck(ctx context.Context) error {
-	err := fsm.CheckMasterServer(p.Plan.Servers)
-	if err != nil {
-		return trace.Wrap(err)
-	}
+// PreCheck is no-op for this phase
+func (*hookExecutor) PreCheck(ctx context.Context) error {
 	return nil
 }
 
 // PostCheck is no-op for this phase
-func (*appExecutor) PostCheck(ctx context.Context) error {
+func (*hookExecutor) PostCheck(ctx context.Context) error {
 	return nil
 }

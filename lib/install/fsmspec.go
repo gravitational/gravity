@@ -24,7 +24,6 @@ import (
 	"github.com/gravitational/gravity/lib/install/phases"
 
 	"github.com/gravitational/trace"
-	"k8s.io/client-go/kubernetes"
 )
 
 // FSMSpec returns a function that returns an appropriate phase executor
@@ -63,17 +62,18 @@ func FSMSpec(config FSMConfig) fsm.FSMSpecFunc {
 			return phases.NewWait(p,
 				config.Operator)
 
-		case p.Phase.ID == phases.LabelPhase:
-			client, err := GetKubeClient(config)
+		case strings.HasPrefix(p.Phase.ID, phases.LabelPhase):
+			client, err := httplib.GetUnprivilegedKubeClient(config.DNSConfig.Addr())
 			if err != nil {
 				return nil, trace.Wrap(err)
 			}
-			return phases.NewNodes(p, config.Operator,
+			return phases.NewNodes(p,
+				config.Operator,
 				config.LocalApps,
 				client)
 
 		case p.Phase.ID == phases.RBACPhase:
-			client, err := GetKubeClient(config)
+			client, err := httplib.GetClusterKubeClient(config.DNSConfig.Addr())
 			if err != nil {
 				return nil, trace.Wrap(err)
 			}
@@ -104,13 +104,4 @@ func FSMSpec(config FSMConfig) fsm.FSMSpecFunc {
 			return nil, trace.BadParameter("unknown phase %q", p.Phase.ID)
 		}
 	}
-}
-
-// GetKubeClient returns a kubernetes client for the specified configuration
-func GetKubeClient(config FSMConfig) (*kubernetes.Clientset, error) {
-	client, err := httplib.GetClusterKubeClient(config.DNSConfig.Addr())
-	if err != nil {
-		return nil, trace.Wrap(err)
-	}
-	return client, nil
 }

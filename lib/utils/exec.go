@@ -80,6 +80,11 @@ func RunPlanetCommand(ctx context.Context, log log.FieldLogger, args ...string) 
 	return RunCommand(ctx, log, args...)
 }
 
+// RunInPlanetCommand executes the command specified with args inside planet container
+func RunInPlanetCommand(ctx context.Context, log log.FieldLogger, args ...string) ([]byte, error) {
+	return RunCommand(ctx, log, PlanetCommandArgs(args...)...)
+}
+
 // RunCommand executes the command specified with args
 func RunCommand(ctx context.Context, log log.FieldLogger, args ...string) ([]byte, error) {
 	r := NewRunnerWithContext(ctx, log)

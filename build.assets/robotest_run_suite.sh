@@ -81,6 +81,10 @@ EOF
       done
     done
   done
+  suite+=$(cat <<EOF
+ install={"installer_url":"/installer/opscenter.tar","nodes":1,"flavor":"standalone","role":"node","os":"ubuntu:latest","storage_driver":"overlay2","ops_advertise_addr":"example.com:443"}
+EOF
+)
   echo $suite
 }
 

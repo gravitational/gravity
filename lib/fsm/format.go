@@ -59,7 +59,7 @@ func FormatOperationPlanJSON(w io.Writer, plan storage.OperationPlan) error {
 func FormatOperationPlanText(w io.Writer, plan storage.OperationPlan) {
 	var t tabwriter.Writer
 	t.Init(w, 0, 10, 5, ' ', 0)
-	common.PrintTableHeader(&t, []string{"Phase", "Description", "State", "Requires", "Updated"})
+	common.PrintTableHeader(&t, []string{"Phase", "Description", "State", "Node", "Requires", "Updated"})
 	for _, phase := range plan.Phases {
 		printPhase(&t, phase, 0)
 	}
@@ -69,23 +69,31 @@ func FormatOperationPlanText(w io.Writer, plan storage.OperationPlan) {
 func printPhase(w io.Writer, phase storage.OperationPhase, indent int) {
 	marker := "*"
 	if phase.GetState() == storage.OperationPhaseStateInProgress {
-		marker = "→"
+		marker = constants.InProgressMark
 	} else if phase.GetState() == storage.OperationPhaseStateCompleted {
-		marker = "✓"
+		marker = constants.SuccessMark
 	} else if phase.GetState() == storage.OperationPhaseStateFailed || phase.GetState() == storage.OperationPhaseStateRolledBack {
-		marker = "⚠"
+		marker = constants.FailureMark
 	}
-	fmt.Fprintf(w, "%v%v %v\t%v\t%v\t%v\t%v\n",
+	fmt.Fprintf(w, "%v%v %v\t%v\t%v\t%v\t%v\t%v\n",
 		strings.Repeat("  ", indent),
 		marker,
 		formatName(phase.ID),
 		phase.Description,
 		formatState(phase.GetState()),
+		formatNode(phase),
 		formatRequires(phase.Requires),
 		formatTimestamp(phase.GetLastUpdateTime()))
 	for _, subPhase := range phase.Phases {
 		printPhase(w, subPhase, indent+1)
 	}
+}
+
+func formatNode(phase storage.OperationPhase) string {
+	if phase.Data == nil || phase.Data.ExecServer == nil {
+		return "-"
+	}
+	return phase.Data.ExecServer.AdvertiseIP
 }
 
 func formatName(phaseID string) string {

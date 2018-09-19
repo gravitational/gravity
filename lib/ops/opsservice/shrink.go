@@ -506,9 +506,7 @@ func (s *site) launchAgent(ctx *operationContext, server storage.Server) (*serve
 		return nil, trace.Wrap(err, "failed to start shrink agent: %s", out)
 	}
 
-	localCtx, cancel := defaults.WithTimeout(context.TODO())
-	agentReport, err := s.waitForAgents(localCtx, ctx)
-	cancel()
+	agentReport, err := s.waitForAgents(context.TODO(), ctx)
 	if err != nil {
 		return nil, trace.Wrap(err, "failed to wait for shrink agent")
 	}

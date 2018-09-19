@@ -82,7 +82,7 @@ echo "$(date) [INFO] Install agent will be using ${TMPDIR:-/tmp} for temporary f
     --server-addr={{.agent_server_addr}} \
     --role={{.profile}} \
     --cloud-provider={{.cloud_provider}} \
-    --existing-operation {{if .background}}1>/dev/null 2>&1 &{{end}}
+    --operation-id={{.operation_id}} {{if .background}}1>/dev/null 2>&1 &{{end}}
 `, gravityTemplateSource)))
 
 	downloadInstructionsTemplate = template.Must(
@@ -183,6 +183,7 @@ func (s *site) getJoinInstructions(token storage.ProvisioningToken, serverProfil
 		"service_group_env": constants.ServiceGroupEnvVar,
 		"gravity_bin_path":  defaults.GravityBin,
 		"cloud_provider":    s.provider,
+		"operation_id":      token.OperationID,
 	}
 	var out bytes.Buffer
 	err = joinTemplate.Execute(&out, vars)

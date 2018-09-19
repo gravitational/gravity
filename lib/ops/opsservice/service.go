@@ -908,6 +908,7 @@ func (o *Operator) CreateClusterGarbageCollectOperation(r ops.CreateClusterGarba
 }
 
 func (o *Operator) SetOperationState(key ops.SiteOperationKey, req ops.SetOperationStateRequest) error {
+	o.Infof("%#v", req)
 	site, err := o.openSite(key.SiteKey())
 	if err != nil {
 		return trace.Wrap(err)

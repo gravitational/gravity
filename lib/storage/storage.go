@@ -1546,6 +1546,11 @@ func (s *Server) KubeNodeID() string {
 	return s.AdvertiseIP
 }
 
+// IsMaster returns true if the server has a master role
+func (s *Server) IsMaster() bool {
+	return s.ClusterRole == constants.MasterRole
+}
+
 // Hostnames returns a list of hostnames for the provided servers
 func Hostnames(servers []Server) (hostnames []string) {
 	for _, server := range servers {
@@ -1857,8 +1862,10 @@ var DefaultSubnets = Subnets{
 	Service: defaults.ServiceSubnet,
 }
 
+// Servers is a list of servers
 type Servers []Server
 
+// FindByIP returns a server with the specified IP
 func (r Servers) FindByIP(ip string) *Server {
 	for _, server := range r {
 		if server.AdvertiseIP == ip {
@@ -1868,12 +1875,24 @@ func (r Servers) FindByIP(ip string) *Server {
 	return nil
 }
 
+// Masters returns a list of master nodes
+func (r Servers) Masters() (masters []Server) {
+	for _, server := range r {
+		if server.IsMaster() {
+			masters = append(masters, server)
+		}
+	}
+	return
+}
+
 type AgentProfile struct {
 	// Instructions defines the set of shell commands to download and start an agent
 	// on a host
 	Instructions string `json:"instructions"`
 	// AgentURL is connection string for install agent
 	AgentURL string `json:"agent_url"`
+	// Token is the token used to connect to the agent server
+	Token string `json:"token"`
 }
 
 // ShrinkOperationState contains information about shrink operation

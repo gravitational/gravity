@@ -95,21 +95,22 @@ func RegisterCommands(app *kingpin.Application) *Application {
 	g.InstallCmd.DNSZones = g.InstallCmd.Flag("dns-zone", "Specify an upstream server for the given zone within the cluster. Accepts <zone>/<nameserver> format where <nameserver> can be either <ip> or <ip>:<port>. Can be specified multiple times.").Strings()
 
 	g.JoinCmd.CmdClause = g.Command("join", "Join existing cluster or on-going install operation")
-	g.JoinCmd.PeerAddr = g.JoinCmd.Arg("peer-addrs", "One or several IP addresses of cluster node to join, as comma-separated values").Required().String()
+	g.JoinCmd.PeerAddr = g.JoinCmd.Arg("peer-addrs", "One or several IP addresses of cluster node to join, as comma-separated values").String()
 	g.JoinCmd.AdvertiseAddr = g.JoinCmd.Flag("advertise-addr", "IP address to advertise").String()
-	g.JoinCmd.Token = g.JoinCmd.Flag("token", "Unique install token to authorize this node to join the cluster").Required().String()
+	g.JoinCmd.Token = g.JoinCmd.Flag("token", "Unique install token to authorize this node to join the cluster").String()
 	g.JoinCmd.Role = g.JoinCmd.Flag("role", "Role of this node, optional").String()
 	g.JoinCmd.DockerDevice = g.JoinCmd.Flag("docker-device", "Docker device to use").Hidden().String()
 	g.JoinCmd.SystemDevice = g.JoinCmd.Flag("system-device", "Device to use for system data directory").Hidden().String()
 	g.JoinCmd.ServerAddr = g.JoinCmd.Flag("server-addr", "Address of the agent server").Hidden().String()
-	g.JoinCmd.ExistingOperation = g.JoinCmd.Flag("existing-operation", "If unspecified, the command will initiate a new expand operation").
-		Hidden().
-		OverrideDefaultFromEnvar(constants.ExistingOperationEnvVar).
-		Bool()
 	g.JoinCmd.Mounts = configure.KeyValParam(g.JoinCmd.Flag("mount", "One or several mounts in form <mount-name>:<path>, e.g. data:/var/lib/data"))
-	g.JoinCmd.ServiceUID = g.JoinCmd.Flag("service-uid", fmt.Sprintf("Service user ID for planet. %q user will created and used if none specified", defaults.ServiceUser)).Default(defaults.ServiceUserID).OverrideDefaultFromEnvar(constants.ServiceUserEnvVar).String()
-	g.JoinCmd.ServiceGID = g.JoinCmd.Flag("service-gid", fmt.Sprintf("Service group ID for planet. %q group will created and used if none specified", defaults.ServiceUserGroup)).Default(defaults.ServiceGroupID).OverrideDefaultFromEnvar(constants.ServiceGroupEnvVar).String()
 	g.JoinCmd.CloudProvider = g.JoinCmd.Flag("cloud-provider", "Cloud provider integration e.g. 'generic', 'aws'. If not set, autodetect environment").String()
+	g.JoinCmd.Manual = g.JoinCmd.Flag("manual", "Manually execute join operation phases").Bool()
+	g.JoinCmd.Phase = g.JoinCmd.Flag("phase", "Execute specific operation phase").String()
+	g.JoinCmd.PhaseTimeout = g.JoinCmd.Flag("timeout", "Phase execution timeout").Default(defaults.PhaseTimeout).Hidden().Duration()
+	g.JoinCmd.Resume = g.JoinCmd.Flag("resume", "Resume joining from last failed step").Bool()
+	g.JoinCmd.Force = g.JoinCmd.Flag("force", "Force phase execution").Bool()
+	g.JoinCmd.Complete = g.JoinCmd.Flag("complete", "Complete join operation").Bool()
+	g.JoinCmd.OperationID = g.JoinCmd.Flag("operation-id", "ID of the operation that was created via UI").Hidden().String()
 
 	g.AutoJoinCmd.CmdClause = g.Command("autojoin", "Use cloud provider data to join a node to existing cluster")
 	g.AutoJoinCmd.ClusterName = g.AutoJoinCmd.Arg("cluster-name", "Cluster name used for discovery").Required().String()
@@ -117,8 +118,6 @@ func RegisterCommands(app *kingpin.Application) *Application {
 	g.AutoJoinCmd.DockerDevice = g.AutoJoinCmd.Flag("docker-device", "Docker device to use").Hidden().String()
 	g.AutoJoinCmd.SystemDevice = g.AutoJoinCmd.Flag("system-device", "Device to use for system data directory").Hidden().String()
 	g.AutoJoinCmd.Mounts = configure.KeyValParam(g.AutoJoinCmd.Flag("mount", "One or several mounts in form <mount-name>:<path>, e.g. data:/var/lib/data"))
-	g.AutoJoinCmd.ServiceUID = g.AutoJoinCmd.Flag("service-uid", fmt.Sprintf("Service user ID for planet. %q user will created and used if none specified", defaults.ServiceUser)).Default(defaults.ServiceUserID).OverrideDefaultFromEnvar(constants.ServiceUserEnvVar).String()
-	g.AutoJoinCmd.ServiceGID = g.AutoJoinCmd.Flag("service-gid", fmt.Sprintf("Service group ID for planet. %q group will created and used if none specified", defaults.ServiceUserGroup)).Default(defaults.ServiceGroupID).OverrideDefaultFromEnvar(constants.ServiceGroupEnvVar).String()
 
 	g.LeaveCmd.CmdClause = g.Command("leave", "Decommission this node from the cluster")
 	g.LeaveCmd.Force = g.LeaveCmd.Flag("force", "Force local state cleanup").Bool()
@@ -134,6 +133,7 @@ func RegisterCommands(app *kingpin.Application) *Application {
 	g.PlanCmd.Init = g.PlanCmd.Flag("init", "Initialize operation plan").Bool()
 	g.PlanCmd.Sync = g.PlanCmd.Flag("sync", "Sync the operation plan from etcd to local store").Hidden().Bool()
 	g.PlanCmd.Output = common.Format(g.PlanCmd.Flag("output", "Output format for the plan, text, json or yaml").Short('o').Default(string(constants.EncodingText)))
+	g.PlanCmd.OperationID = g.PlanCmd.Flag("operation-id", "ID of the operation to display the plan for. It not specified, the last operation plan will be displayed").String()
 
 	g.RollbackCmd.CmdClause = g.Command("rollback", "Rollback actions")
 	g.RollbackCmd.Phase = g.RollbackCmd.Flag("phase", "Operation phase to rollback").Required().String()

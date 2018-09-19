@@ -147,6 +147,8 @@ func InitAndCheck(g *Application, cmd string) error {
 		g.PlanetEnterCmd.FullCommand(),
 		g.PlanCmd.FullCommand(),
 		g.InstallCmd.FullCommand(),
+		g.JoinCmd.FullCommand(),
+		g.AutoJoinCmd.FullCommand(),
 		g.SystemDevicemapperMountCmd.FullCommand(),
 		g.SystemDevicemapperUnmountCmd.FullCommand(),
 		g.BackupCmd.FullCommand(),
@@ -202,6 +204,7 @@ func Execute(g *Application, cmd string, extraArgs []string) error {
 	if err != nil {
 		return trace.Wrap(err)
 	}
+	defer localEnv.Close()
 
 	// create an environment used during upgrades
 	var upgradeEnv *localenv.LocalEnvironment
@@ -210,6 +213,18 @@ func Execute(g *Application, cmd string, extraArgs []string) error {
 		if err != nil {
 			return trace.Wrap(err)
 		}
+		defer upgradeEnv.Close()
+	}
+
+	// create an environment where join-specific data is stored
+	var joinEnv *localenv.LocalEnvironment
+	switch cmd {
+	case g.JoinCmd.FullCommand(), g.AutoJoinCmd.FullCommand(), g.PlanCmd.FullCommand(), g.RollbackCmd.FullCommand():
+		joinEnv, err = g.JoinEnv()
+		if err != nil {
+			return trace.Wrap(err)
+		}
+		defer joinEnv.Close()
 	}
 
 	switch cmd {
@@ -241,7 +256,7 @@ func Execute(g *Application, cmd string, extraArgs []string) error {
 			*g.InstallCmd.Phase = fsm.RootPhase
 		}
 		if *g.InstallCmd.Phase != "" {
-			return executeInstallPhase(localEnv, InstallPhaseParams{
+			return executeInstallPhase(localEnv, PhaseParams{
 				PhaseID: *g.InstallCmd.Phase,
 				Force:   *g.InstallCmd.Force,
 				Timeout: *g.InstallCmd.PhaseTimeout,
@@ -249,24 +264,20 @@ func Execute(g *Application, cmd string, extraArgs []string) error {
 		}
 		return startInstall(localEnv, NewInstallConfig(g))
 	case g.JoinCmd.FullCommand():
-		return Join(localEnv, JoinConfig{
-			SystemLogFile:     *g.SystemLogFile,
-			UserLogFile:       *g.UserLogFile,
-			PeerAddrs:         *g.JoinCmd.PeerAddr,
-			AdvertiseAddr:     *g.JoinCmd.AdvertiseAddr,
-			ServerAddr:        *g.JoinCmd.ServerAddr,
-			Token:             *g.JoinCmd.Token,
-			Role:              *g.JoinCmd.Role,
-			SystemDevice:      *g.JoinCmd.SystemDevice,
-			DockerDevice:      *g.JoinCmd.DockerDevice,
-			Mounts:            *g.JoinCmd.Mounts,
-			ExistingOperation: *g.JoinCmd.ExistingOperation,
-			CloudProvider:     *g.JoinCmd.CloudProvider,
-			ServiceUID:        *g.JoinCmd.ServiceUID,
-			ServiceGID:        *g.JoinCmd.ServiceGID,
-		})
+		if *g.JoinCmd.Resume {
+			*g.JoinCmd.Phase = fsm.RootPhase
+		}
+		if *g.JoinCmd.Phase != "" || *g.JoinCmd.Complete {
+			return executeJoinPhase(localEnv, joinEnv, PhaseParams{
+				PhaseID:  *g.JoinCmd.Phase,
+				Force:    *g.JoinCmd.Force,
+				Timeout:  *g.JoinCmd.PhaseTimeout,
+				Complete: *g.JoinCmd.Complete,
+			})
+		}
+		return Join(localEnv, joinEnv, NewJoinConfig(g))
 	case g.AutoJoinCmd.FullCommand():
-		return autojoin(localEnv, autojoinConfig{
+		return autojoin(localEnv, joinEnv, autojoinConfig{
 			systemLogFile: *g.SystemLogFile,
 			userLogFile:   *g.UserLogFile,
 			clusterName:   *g.AutoJoinCmd.ClusterName,
@@ -274,8 +285,6 @@ func Execute(g *Application, cmd string, extraArgs []string) error {
 			systemDevice:  *g.AutoJoinCmd.SystemDevice,
 			dockerDevice:  *g.AutoJoinCmd.DockerDevice,
 			mounts:        *g.AutoJoinCmd.Mounts,
-			serviceUID:    *g.AutoJoinCmd.ServiceUID,
-			serviceGID:    *g.AutoJoinCmd.ServiceGID,
 		})
 	case g.UpdateCheckCmd.FullCommand():
 		return updateCheck(localEnv, *g.UpdateCheckCmd.App)
@@ -308,6 +317,7 @@ func Execute(g *Application, cmd string, extraArgs []string) error {
 	case g.RollbackCmd.FullCommand():
 		return rollbackOperationPhase(localEnv,
 			upgradeEnv,
+			joinEnv,
 			rollbackParams{
 				phaseID:          *g.RollbackCmd.Phase,
 				force:            *g.RollbackCmd.Force,
@@ -321,7 +331,7 @@ func Execute(g *Application, cmd string, extraArgs []string) error {
 		if *g.PlanCmd.Sync {
 			return syncOperationPlan(localEnv, upgradeEnv)
 		}
-		return displayOperationPlan(localEnv, upgradeEnv, *g.PlanCmd.Output)
+		return displayOperationPlan(localEnv, upgradeEnv, joinEnv, *g.PlanCmd.OperationID, *g.PlanCmd.Output)
 	case g.LeaveCmd.FullCommand():
 		return leave(localEnv, leaveConfig{
 			force:         *g.LeaveCmd.Force,

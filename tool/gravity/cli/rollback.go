@@ -33,9 +33,12 @@ type rollbackParams struct {
 	timeout time.Duration
 }
 
-func rollbackOperationPhase(env *localenv.LocalEnvironment, updateEnv *localenv.LocalEnvironment, p rollbackParams) error {
+func rollbackOperationPhase(env, updateEnv, joinEnv *localenv.LocalEnvironment, p rollbackParams) error {
 	if hasUpdateOperation(updateEnv) {
 		return rollbackUpgradePhase(env, updateEnv, p)
+	}
+	if joinEnv != nil && hasExpandOperation(joinEnv) {
+		return rollbackJoinPhase(env, joinEnv, p)
 	}
 	return rollbackInstallPhase(env, p)
 }

@@ -17,43 +17,14 @@ limitations under the License.
 package opsservice
 
 import (
-	"context"
-	"fmt"
-	"strings"
-	"time"
-
 	"github.com/gravitational/gravity/lib/constants"
 	"github.com/gravitational/gravity/lib/ops"
 	"github.com/gravitational/gravity/lib/schema"
 	"github.com/gravitational/gravity/lib/storage"
-	"github.com/gravitational/gravity/lib/systemservice"
-	"github.com/gravitational/gravity/lib/utils"
 
 	"github.com/gravitational/trace"
 	log "github.com/sirupsen/logrus"
 )
-
-func (s *site) checkSystemServiceStatus(ctx *operationContext, runner *serverRunner, serviceName string, timeout time.Duration) error {
-	err := utils.RetryFor(context.Background(), timeout, func() error {
-		out, err := runner.Run(s.gravityCommand("system", "service", "status", "--name", serviceName)...)
-		serviceStatus := strings.TrimSpace(string(out))
-		ctx.Debugf("service %v status: %v", serviceName, serviceStatus)
-		switch serviceStatus {
-		case systemservice.ServiceStatusFailed:
-			return utils.Abort(
-				trace.Errorf("%v reported failed status", serviceName))
-		case systemservice.ServiceStatusActive:
-			return nil
-		case systemservice.ServiceStatusActivating:
-			return utils.Continue(fmt.Sprintf("%v is still in progress", serviceName))
-		case systemservice.ServiceStatusUnknown, systemservice.ServiceStatusInactive:
-			return utils.Abort(trace.NotFound("%v is not found or inactive", serviceName))
-		default:
-			return trace.Wrap(err, "unsupported status or error")
-		}
-	})
-	return trace.Wrap(err)
-}
 
 // rotateSecrets generates a new set of TLS keys for the given node
 // as a package that will be automatically downloaded during upgrade

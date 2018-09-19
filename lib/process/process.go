@@ -1065,8 +1065,7 @@ func (p *Process) initService() (err error) {
 	}
 
 	// start operator service and HTTP API
-	var operator ops.Operator
-	operator, err = opsservice.New(opsservice.Config{
+	operator, err := opsservice.New(opsservice.Config{
 		Devmode:         p.cfg.Devmode,
 		StateDir:        p.cfg.DataDir,
 		Backend:         p.backend,
@@ -1096,7 +1095,7 @@ func (p *Process) initService() (err error) {
 		// in case of ops center, wrap operator in a special router
 		// that will route ops requests either to remote site via API
 		// or local ops center using local service
-		operator, err = opsroute.NewRouter(opsroute.RouterConfig{
+		p.operator, err = opsroute.NewRouter(opsroute.RouterConfig{
 			Backend: p.backend,
 			Local:   operator,
 			Clients: clusterClients,
@@ -1105,18 +1104,17 @@ func (p *Process) initService() (err error) {
 		if err != nil {
 			return trace.Wrap(err)
 		}
-
 		err = p.initCertificateAuthority()
 		if err != nil {
 			return trace.Wrap(err)
 		}
+	} else {
+		p.operator = operator
 	}
-
-	p.operator = operator
 
 	p.handlers.Operator, err = opshandler.NewWebHandler(opshandler.WebHandlerConfig{
 		Users:               p.identity,
-		Operator:            operator,
+		Operator:            p.operator,
 		Applications:        applications,
 		Packages:            p.packages,
 		Authenticator:       p.handlers.WebProxy.GetHandler().AuthenticateRequest,
@@ -1216,7 +1214,7 @@ func (p *Process) initService() (err error) {
 
 	p.handlers.Proxy = newProxyHandler(proxyHandlerConfig{
 		tunnel:        reverseTunnel,
-		operator:      operator,
+		operator:      p.operator,
 		users:         p.identity,
 		backend:       p.backend,
 		authenticator: p.handlers.WebProxy.GetHandler().AuthenticateRequest,
@@ -1234,7 +1232,7 @@ func (p *Process) initService() (err error) {
 		Applications:     applications,
 		Packages:         p.packages,
 		Backend:          p.backend,
-		Operator:         operator,
+		Operator:         p.operator,
 		Providers:        providers,
 		Tunnel:           reverseTunnel,
 		Clients:          clusterClients,
@@ -1256,7 +1254,7 @@ func (p *Process) initService() (err error) {
 
 	if seedConfig.Account != nil {
 		account := p.cfg.OpsCenter.SeedConfig.Account
-		_, err = operator.CreateAccount(ops.NewAccountRequest{
+		_, err = p.operator.CreateAccount(ops.NewAccountRequest{
 			ID:  account.ID,
 			Org: account.Org,
 		})

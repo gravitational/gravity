@@ -31,7 +31,7 @@ import (
 // NewChecks creates a new preflight checks executor
 func NewChecks(p fsm.ExecutorParams, operator ops.Operator, key ops.SiteOperationKey) (fsm.PhaseExecutor, error) {
 	logger := &fsm.Logger{
-		FieldLogger: log.WithField(constants.FieldInstallPhase, p.Phase.ID),
+		FieldLogger: log.WithField(constants.FieldPhase, p.Phase.ID),
 		Key:         opKey(p.Plan),
 		Operator:    operator,
 	}

@@ -24,11 +24,14 @@ import (
 
 	"github.com/gravitational/gravity/lib/constants"
 	"github.com/gravitational/gravity/lib/defaults"
+	"github.com/gravitational/gravity/lib/expand"
 	"github.com/gravitational/gravity/lib/install"
 	"github.com/gravitational/gravity/lib/loc"
 	"github.com/gravitational/gravity/lib/localenv"
 	"github.com/gravitational/gravity/lib/pack"
 	"github.com/gravitational/gravity/lib/process"
+	"github.com/gravitational/gravity/lib/rpc/proto"
+	rpcserver "github.com/gravitational/gravity/lib/rpc/server"
 	"github.com/gravitational/gravity/lib/storage"
 	"github.com/gravitational/gravity/lib/systeminfo"
 	"github.com/gravitational/gravity/lib/utils"
@@ -364,4 +367,156 @@ func validateIP(blocks []net.IPNet, ip net.IP) bool {
 		}
 	}
 	return false
+}
+
+// JoinConfig is the configuration object built from gravity join command args and flags
+type JoinConfig struct {
+	// SystemLogFile is telekube-system log file path
+	SystemLogFile string
+	// UserLogFile is telekube-install log file path
+	UserLogFile string
+	// AdvertiseAddr is the advertise IP for the joining node
+	AdvertiseAddr string
+	// ServerAddr is the RPC server address
+	ServerAddr string
+	// PeerAddrs is the list of peers to try connecting to
+	PeerAddrs string
+	// Token is the join token
+	Token string
+	// Role is the joining node profile
+	Role string
+	// SystemDevice is device for gravity data
+	SystemDevice string
+	// DockerDevice is device for docker data
+	DockerDevice string
+	// Mounts is a list of additional mounts
+	Mounts map[string]string
+	// CloudProvider is the node cloud provider
+	CloudProvider string
+	// Manual turns on manual plan execution mode
+	Manual bool
+	// Phase is the plan phase to execute
+	Phase string
+	// OperationID is ID of existing join operation
+	OperationID string
+}
+
+// NewJoinConfig populates join configuration from the provided CLI application
+func NewJoinConfig(g *Application) JoinConfig {
+	return JoinConfig{
+		SystemLogFile: *g.SystemLogFile,
+		UserLogFile:   *g.UserLogFile,
+		PeerAddrs:     *g.JoinCmd.PeerAddr,
+		AdvertiseAddr: *g.JoinCmd.AdvertiseAddr,
+		ServerAddr:    *g.JoinCmd.ServerAddr,
+		Token:         *g.JoinCmd.Token,
+		Role:          *g.JoinCmd.Role,
+		SystemDevice:  *g.JoinCmd.SystemDevice,
+		DockerDevice:  *g.JoinCmd.DockerDevice,
+		Mounts:        *g.JoinCmd.Mounts,
+		CloudProvider: *g.JoinCmd.CloudProvider,
+		Manual:        *g.JoinCmd.Manual,
+		Phase:         *g.JoinCmd.Phase,
+		OperationID:   *g.JoinCmd.OperationID,
+	}
+}
+
+// CheckAndSetDefaults validates the configuration and sets default values
+func (j *JoinConfig) CheckAndSetDefaults() (err error) {
+	j.CloudProvider, err = install.ValidateCloudProvider(j.CloudProvider)
+	if err != nil {
+		return trace.Wrap(err)
+	}
+	return nil
+}
+
+// GetAdvertiseAddr return the advertise address provided in the config, or
+// picks one among the host's interfaces
+func (j *JoinConfig) GetAdvertiseAddr() (string, error) {
+	// if it was set explicitly with --advertise-addr flag, use it
+	if j.AdvertiseAddr != "" {
+		return j.AdvertiseAddr, nil
+	}
+	// otherwise, try to pick an address among machine's interfaces
+	addr, err := utils.PickAdvertiseIP()
+	if err != nil {
+		return "", trace.Wrap(err, "could not pick advertise address among "+
+			"the host's network interfaces, please set the advertise address "+
+			"via --advertise-addr flag")
+	}
+	return addr, nil
+}
+
+// GetPeers returns a list of peers parsed from the peers CLI argument
+func (j *JoinConfig) GetPeers() ([]string, error) {
+	peers, err := utils.ParseAddrList(j.PeerAddrs)
+	if err != nil {
+		return nil, trace.Wrap(err)
+	}
+	if len(peers) == 0 {
+		return nil, trace.BadParameter("peers list can't be empty")
+	}
+	return peers, nil
+}
+
+// GetRuntimeConfig returns the RPC agent runtime configuration
+func (j *JoinConfig) GetRuntimeConfig() (*proto.RuntimeConfig, error) {
+	config := &proto.RuntimeConfig{
+		Token:        j.Token,
+		Role:         j.Role,
+		SystemDevice: j.SystemDevice,
+		DockerDevice: j.DockerDevice,
+		Mounts:       convertMounts(j.Mounts),
+	}
+	err := install.FetchCloudMetadata(j.CloudProvider, config)
+	if err != nil {
+		return nil, trace.Wrap(err)
+	}
+	return config, nil
+}
+
+// ToPeerConfig converts the CLI join configuration to a peer configuration
+func (j *JoinConfig) ToPeerConfig(env, joinEnv *localenv.LocalEnvironment) (*expand.PeerConfig, error) {
+	advertiseAddr, err := j.GetAdvertiseAddr()
+	if err != nil {
+		return nil, trace.Wrap(err)
+	}
+	peers, err := j.GetPeers()
+	if err != nil {
+		return nil, trace.Wrap(err)
+	}
+	runtimeConfig, err := j.GetRuntimeConfig()
+	if err != nil {
+		return nil, trace.Wrap(err)
+	}
+	ctx, cancel := context.WithCancel(context.Background())
+	return &expand.PeerConfig{
+		Context:       ctx,
+		Cancel:        cancel,
+		SystemLogFile: j.SystemLogFile,
+		Peers:         peers,
+		AdvertiseAddr: advertiseAddr,
+		ServerAddr:    j.ServerAddr,
+		CloudProvider: j.CloudProvider,
+		EventsC:       make(chan install.Event, 100),
+		WatchCh:       make(chan rpcserver.WatchEvent, 1),
+		RuntimeConfig: *runtimeConfig,
+		Silent:        env.Silent,
+		DebugMode:     env.Debug,
+		Insecure:      env.Insecure,
+		LocalBackend:  env.Backend,
+		LocalApps:     env.Apps,
+		LocalPackages: env.Packages,
+		JoinBackend:   joinEnv.Backend,
+		Manual:        j.Manual,
+		OperationID:   j.OperationID,
+	}, nil
+}
+
+func convertMounts(mounts map[string]string) (result []*proto.Mount) {
+	result = make([]*proto.Mount, 0, len(mounts))
+	for name, source := range mounts {
+		result = append(result, &proto.Mount{Name: name, Source: source})
+	}
+	return result
 }

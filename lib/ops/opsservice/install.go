@@ -127,11 +127,16 @@ func (s *site) createInstallExpandOperation(operationType, operationInitialState
 		}
 	}
 
+	tokenType := storage.ProvisioningTokenTypeInstall
+	if op.Type == ops.OperationExpand {
+		tokenType = storage.ProvisioningTokenTypeExpand
+	}
+
 	_, err = s.users().CreateProvisioningToken(storage.ProvisioningToken{
 		Token:       token,
 		AccountID:   s.key.AccountID,
 		SiteDomain:  s.key.SiteDomain,
-		Type:        storage.ProvisioningTokenTypeInstall,
+		Type:        storage.ProvisioningTokenType(tokenType),
 		Expires:     s.clock().UtcNow().Add(defaults.InstallTokenTTL),
 		OperationID: op.ID,
 		UserEmail:   agentUser.GetName(),
@@ -165,6 +170,7 @@ func (s *site) createInstallExpandOperation(operationType, operationInitialState
 		agents[role] = storage.AgentProfile{
 			Instructions: instructions,
 			AgentURL:     u.String(),
+			Token:        token,
 		}
 	}
 
@@ -685,20 +691,6 @@ func (s *site) configureOnPremServers(ctx *operationContext, servers []storage.S
 	return updated, nil
 }
 
-func (s *site) setOperationServers(key ops.SiteOperationKey, servers []storage.Server) error {
-	operation, err := s.getSiteOperation(key.OperationID)
-	if err != nil {
-		return trace.Wrap(err)
-	}
-
-	operation.Servers = servers
-	if _, err = s.updateSiteOperation(operation); err != nil {
-		return trace.Wrap(err)
-	}
-
-	return nil
-}
-
 // addClusterStateServers adds the provided servers to the cluster state
 func (s *site) addClusterStateServers(servers []storage.Server) error {
 	return trace.Wrap(s.getOperationGroup().addClusterStateServers(servers))
@@ -827,7 +819,7 @@ func (s *site) installOperationStart(ctx *operationContext) error {
 
 	s.reportProgress(ctx, ops.ProgressEntry{
 		State:   ops.ProgressStateInProgress,
-		Message: "Infrastructure provisioned, waiting for servers to come up",
+		Message: "Waiting for the provisioned nodes to come up",
 	})
 
 	installer, err := s.waitForInstaller(ctx)

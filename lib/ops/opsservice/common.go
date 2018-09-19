@@ -171,23 +171,6 @@ func (s *site) executeOnServers(ctx context.Context, servers []remoteServer, fn 
 	return trace.NewAggregate(errors...)
 }
 
-func (s *site) resumeLeaderElection(runner *serverRunner, provServer *ProvisionedServer) error {
-	clusterID := s.domainName
-	command := s.planetEnterCommand(
-		defaults.PlanetBin, "leader", "resume",
-		fmt.Sprintf("--public-ip=%v", provServer.AdvertiseIP),
-		fmt.Sprintf("--election-key=/planet/cluster/%v/election", clusterID),
-		"--etcd-cafile=/var/state/root.cert",
-		"--etcd-certfile=/var/state/etcd.cert",
-		"--etcd-keyfile=/var/state/etcd.key",
-	)
-	out, err := runner.Run(command...)
-	if err != nil {
-		return trace.Wrap(err, "failed to resume election for %v: %s", provServer.AdvertiseIP, out)
-	}
-	return nil
-}
-
 func (s *site) getActiveMasterIP(runner *serverRunner) (string, error) {
 	clusterID := s.domainName
 	command := s.planetEnterCommand(

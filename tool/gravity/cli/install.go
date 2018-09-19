@@ -24,28 +24,24 @@ import (
 	"time"
 
 	autoscaleaws "github.com/gravitational/gravity/lib/autoscale/aws"
-	"github.com/gravitational/gravity/lib/checks"
 	cloudaws "github.com/gravitational/gravity/lib/cloudprovider/aws"
 	"github.com/gravitational/gravity/lib/defaults"
+	"github.com/gravitational/gravity/lib/expand"
 	"github.com/gravitational/gravity/lib/fsm"
+	"github.com/gravitational/gravity/lib/httplib"
 	"github.com/gravitational/gravity/lib/install"
 	"github.com/gravitational/gravity/lib/localenv"
-	validationpb "github.com/gravitational/gravity/lib/network/validation/proto"
 	"github.com/gravitational/gravity/lib/ops"
 	pb "github.com/gravitational/gravity/lib/rpc/proto"
 	rpcserver "github.com/gravitational/gravity/lib/rpc/server"
-	"github.com/gravitational/gravity/lib/schema"
-	"github.com/gravitational/gravity/lib/state"
 	"github.com/gravitational/gravity/lib/storage"
-	systemstate "github.com/gravitational/gravity/lib/system/state"
 	"github.com/gravitational/gravity/lib/systeminfo"
 	"github.com/gravitational/gravity/lib/systemservice"
 	"github.com/gravitational/gravity/lib/utils"
-	"github.com/sirupsen/logrus"
 
-	"github.com/fatih/color"
 	"github.com/gravitational/configure"
 	"github.com/gravitational/trace"
+	"github.com/sirupsen/logrus"
 )
 
 func startInstall(env *localenv.LocalEnvironment, i InstallConfig) error {
@@ -92,205 +88,38 @@ func startInstall(env *localenv.LocalEnvironment, i InstallConfig) error {
 	return installer.Wait()
 }
 
-type JoinConfig struct {
-	SystemLogFile     string
-	UserLogFile       string
-	AdvertiseAddr     string
-	ServerAddr        string
-	PeerAddrs         string
-	Token             string
-	Role              string
-	SystemDevice      string
-	DockerDevice      string
-	Mounts            map[string]string
-	ExistingOperation bool
-	ServiceUID        string
-	ServiceGID        string
-	CloudProvider     string
-}
-
-func Join(env *localenv.LocalEnvironment, j JoinConfig) error {
+func Join(env, joinEnv *localenv.LocalEnvironment, j JoinConfig) error {
 	err := CheckLocalState(env)
 	if err != nil {
 		return trace.Wrap(err)
 	}
 
-	if err := j.checkAndSetDefaults(); err != nil {
-		return trace.Wrap(err)
-	}
-
-	if err := checkRunningAsRoot(); err != nil {
-		return trace.Wrap(err)
-	}
-
-	if err := install.InitLogging(j.SystemLogFile); err != nil {
-		return trace.Wrap(err)
-	}
-
-	peers, err := utils.ParseAddrList(j.PeerAddrs)
-	if err != nil {
-		return trace.Wrap(err)
-	}
-	if len(peers) == 0 {
-		return trace.BadParameter("required argument peer-addr not provided")
-	}
-
-	stateDir, err := state.GetStateDir()
+	err = j.CheckAndSetDefaults()
 	if err != nil {
 		return trace.Wrap(err)
 	}
 
-	err = systemstate.ConfigureStateDirectory(stateDir, j.SystemDevice)
+	peerConfig, err := j.ToPeerConfig(env, joinEnv)
 	if err != nil {
 		return trace.Wrap(err)
 	}
 
-	runtimeConfig := pb.RuntimeConfig{
-		Token:        j.Token,
-		Role:         j.Role,
-		SystemDevice: j.SystemDevice,
-		DockerDevice: j.DockerDevice,
-		Mounts:       convertMounts(j.Mounts),
-	}
-	if err = install.FetchCloudMetadata(j.CloudProvider, &runtimeConfig); err != nil {
-		return trace.Wrap(err)
-	}
-
-	if !j.ExistingOperation {
-		return trace.Wrap(joinLoop(env, j, peers, runtimeConfig))
-	}
-
-	serviceUser, err := install.EnsureServiceUserAndBinary(j.ServiceUID, j.ServiceGID)
-	if err != nil {
-		return trace.Wrap(err)
-	}
-	log.Infof("Service user: %+v.", serviceUser)
-
-	wizardEnv, err := localenv.NewRemoteEnvironment()
+	peer, err := expand.NewPeer(*peerConfig)
 	if err != nil {
 		return trace.Wrap(err)
 	}
 
-	entry, err := wizardEnv.LoginWizard(peers[0])
+	err = peer.Init()
 	if err != nil {
 		return trace.Wrap(err)
 	}
 
-	cluster, err := ops.GetWizardCluster(wizardEnv.Operator)
+	err = peer.Start()
 	if err != nil {
 		return trace.Wrap(err)
 	}
 
-	operation, _, err := ops.GetInstallOperation(cluster.Key(), wizardEnv.Operator)
-	if err != nil {
-		return trace.Wrap(err)
-	}
-
-	err = checks.RunLocalChecks(checks.LocalChecksRequest{
-		Manifest: cluster.App.Manifest,
-		Role:     j.Role,
-		Options: &validationpb.ValidateOptions{
-			VxlanPort: int32(operation.GetVars().OnPrem.VxlanPort),
-			DnsAddrs:  cluster.DNSConfig.Addrs,
-			DnsPort:   int32(cluster.DNSConfig.Port),
-		},
-		AutoFix: true,
-	})
-	if err != nil {
-		return trace.Wrap(err)
-	}
-
-	ctx, cancel := context.WithCancel(context.Background())
-	watchCh := make(chan rpcserver.WatchEvent, 1)
-	agent, err := install.NewAgent(context.TODO(), install.AgentConfig{
-		PackageAddr:   entry.OpsCenterURL,
-		AdvertiseAddr: j.AdvertiseAddr,
-		ServerAddr:    j.ServerAddr,
-		RuntimeConfig: runtimeConfig,
-	}, log.WithField("role", j.Role), watchCh)
-	if err != nil {
-		return trace.Wrap(err)
-	}
-
-	watchReconnects(ctx, cancel, watchCh)
-	utils.WatchTerminationSignals(ctx, cancel, agent, logrus.StandardLogger())
-
-	return trace.Wrap(agent.Serve())
-}
-
-func (j *JoinConfig) checkAndSetDefaults() (err error) {
-	j.CloudProvider, err = install.ValidateCloudProvider(j.CloudProvider)
-	if err != nil {
-		return trace.Wrap(err)
-	}
-	return nil
-}
-
-func joinLoop(env *localenv.LocalEnvironment, j JoinConfig, peers []string, runtimeConfig pb.RuntimeConfig) error {
-	env.PrintStep("Joining cluster")
-
-	if j.CloudProvider != schema.ProviderOnPrem {
-		env.PrintStep("Enabling %q cloud provider integration",
-			j.CloudProvider)
-	}
-
-	ctx, cancel := context.WithCancel(context.Background())
-	watchCh := make(chan rpcserver.WatchEvent, 1)
-	eventsC := make(chan install.Event, 100)
-	peer, err := install.NewPeer(install.PeerConfig{
-		Peers:         peers,
-		Context:       ctx,
-		AdvertiseAddr: j.AdvertiseAddr,
-		ServerAddr:    j.ServerAddr,
-		EventsC:       eventsC,
-		WatchCh:       watchCh,
-		RuntimeConfig: runtimeConfig,
-		LocalBackend:  env.Backend,
-	}, logrus.WithFields(logrus.Fields{
-		"role": j.Role,
-		"addr": j.AdvertiseAddr,
-	}))
-	if err != nil {
-		return trace.Wrap(err)
-	}
-
-	watchReconnects(ctx, cancel, watchCh)
-
-	start := time.Now()
-	if err := peer.Start(); err != nil {
-		return trace.Wrap(err)
-	}
-
-	utils.WatchTerminationSignals(ctx, cancel, peer, peer.FieldLogger)
-
-	for {
-		select {
-		case <-peer.Done():
-			log.Info("Agent shut down.")
-			return nil
-		case event := <-eventsC:
-			if event.Error != nil {
-				if isContextCancelledError(event.Error) {
-					// Ignore
-					return nil
-				}
-				return trace.Wrap(event.Error)
-			}
-			progress := event.Progress
-			if progress.Message != "" {
-				env.PrintStep(progress.Message)
-			}
-			if progress.State == ops.ProgressStateCompleted {
-				env.PrintStep(color.GreenString("Joined cluster in %v", time.Now().Sub(start)))
-				return nil
-			}
-			if progress.State == ops.ProgressStateFailed {
-				env.Println(color.RedString("Installation failed."))
-				env.Printf("---\nAgent process will keep running so you can re-run certain installation steps.\n" +
-					"Once no longer needed, this process can be shutdown using Ctrl-C.\n")
-			}
-		}
-	}
+	return peer.Wait()
 }
 
 type leaveConfig struct {
@@ -444,11 +273,9 @@ type autojoinConfig struct {
 	systemDevice  string
 	dockerDevice  string
 	mounts        map[string]string
-	serviceUID    string
-	serviceGID    string
 }
 
-func autojoin(env *localenv.LocalEnvironment, d autojoinConfig) error {
+func autojoin(env, joinEnv *localenv.LocalEnvironment, d autojoinConfig) error {
 	if err := checkRunningAsRoot(); err != nil {
 		return trace.Wrap(err)
 	}
@@ -477,7 +304,7 @@ func autojoin(env *localenv.LocalEnvironment, d autojoinConfig) error {
 
 	fmt.Printf("auto joining to cluster %q via %v\n", d.clusterName, serviceURL)
 
-	return Join(env, JoinConfig{
+	return Join(env, joinEnv, JoinConfig{
 		SystemLogFile: d.systemLogFile,
 		UserLogFile:   d.userLogFile,
 		AdvertiseAddr: instance.PrivateIP,
@@ -487,8 +314,6 @@ func autojoin(env *localenv.LocalEnvironment, d autojoinConfig) error {
 		SystemDevice:  d.systemDevice,
 		DockerDevice:  d.dockerDevice,
 		Mounts:        d.mounts,
-		ServiceUID:    d.serviceUID,
-		ServiceGID:    d.serviceGID,
 	})
 }
 
@@ -640,25 +465,19 @@ func findLocalServer(site ops.Site) (*storage.Server, error) {
 	return server, nil
 }
 
-func convertMounts(mounts map[string]string) (result []*pb.Mount) {
-	result = make([]*pb.Mount, 0, len(mounts))
-	for name, source := range mounts {
-		result = append(result, &pb.Mount{Name: name, Source: source})
-	}
-	return result
-}
-
-// InstallPhaseParams is a set of parameters for a single phase execution
-type InstallPhaseParams struct {
+// PhaseParams is a set of parameters for a single phase execution
+type PhaseParams struct {
 	// PhaseID is the ID of the phase to execute
 	PhaseID string
 	// Force allows to force phase execution
 	Force bool
 	// Timeout is phase execution timeout
 	Timeout time.Duration
+	// Complete marks operation complete
+	Complete bool
 }
 
-func executeInstallPhase(localEnv *localenv.LocalEnvironment, p InstallPhaseParams) error {
+func executeInstallPhase(localEnv *localenv.LocalEnvironment, p PhaseParams) error {
 	localApps, err := localEnv.AppServiceLocal(localenv.AppConfig{})
 	if err != nil {
 		return trace.Wrap(err)
@@ -707,6 +526,112 @@ func executeInstallPhase(localEnv *localenv.LocalEnvironment, p InstallPhasePara
 		return trace.Wrap(err)
 	}
 	return nil
+}
+
+func executeJoinPhase(localEnv, joinEnv *localenv.LocalEnvironment, p PhaseParams) error {
+	// determine the ongoing expand operation, it should be the only
+	// operation present in the local join-specific backend
+	operation, err := ops.GetExpandOperation(joinEnv.Backend)
+	if err != nil {
+		return trace.Wrap(err)
+	}
+	operator, err := joinEnv.CurrentOperator(httplib.WithInsecure())
+	if err != nil {
+		return trace.Wrap(err)
+	}
+	apps, err := joinEnv.CurrentApps(httplib.WithInsecure())
+	if err != nil {
+		return trace.Wrap(err)
+	}
+	packages, err := joinEnv.CurrentPackages(httplib.WithInsecure())
+	if err != nil {
+		return trace.Wrap(err)
+	}
+	joinFSM, err := expand.NewFSM(expand.FSMConfig{
+		OperationKey: ops.SiteOperationKey{
+			AccountID:   operation.AccountID,
+			SiteDomain:  operation.SiteDomain,
+			OperationID: operation.ID,
+		},
+		Operator:      operator,
+		Apps:          apps,
+		Packages:      packages,
+		LocalBackend:  localEnv.Backend,
+		LocalPackages: localEnv.Packages,
+		LocalApps:     localEnv.Apps,
+		JoinBackend:   joinEnv.Backend,
+		DebugMode:     localEnv.Debug,
+		Insecure:      localEnv.Insecure,
+		DNSConfig:     storage.DNSConfig(localEnv.DNS),
+	})
+	if err != nil {
+		return trace.Wrap(err)
+	}
+	if p.Complete {
+		return joinFSM.Complete(trace.Errorf("completed manually"))
+	}
+	ctx, cancel := context.WithTimeout(context.Background(), p.Timeout)
+	defer cancel()
+	progress := utils.NewProgress(ctx, fmt.Sprintf("Executing join phase %q", p.PhaseID), -1, false)
+	defer progress.Stop()
+	if p.PhaseID == fsm.RootPhase {
+		return trace.Wrap(ResumeInstall(ctx, joinFSM, progress, p.Force))
+	}
+	return joinFSM.ExecutePhase(ctx, fsm.Params{
+		PhaseID:  p.PhaseID,
+		Force:    p.Force,
+		Progress: progress,
+	})
+}
+
+func rollbackJoinPhase(localEnv, joinEnv *localenv.LocalEnvironment, p rollbackParams) error {
+	// determine the ongoing expand operation, it should be the only
+	// operation present in the local join-specific backend
+	operation, err := ops.GetExpandOperation(joinEnv.Backend)
+	if err != nil {
+		return trace.Wrap(err)
+	}
+	operator, err := joinEnv.CurrentOperator(httplib.WithInsecure(), httplib.WithTimeout(5*time.Second))
+	if err != nil {
+		return trace.Wrap(err)
+	}
+	apps, err := joinEnv.CurrentApps(httplib.WithInsecure(), httplib.WithTimeout(5*time.Second))
+	if err != nil {
+		return trace.Wrap(err)
+	}
+	packages, err := joinEnv.CurrentPackages(httplib.WithInsecure(), httplib.WithTimeout(5*time.Second))
+	if err != nil {
+		return trace.Wrap(err)
+	}
+	joinFSM, err := expand.NewFSM(expand.FSMConfig{
+		OperationKey: ops.SiteOperationKey{
+			AccountID:   operation.AccountID,
+			SiteDomain:  operation.SiteDomain,
+			OperationID: operation.ID,
+		},
+		Operator:      operator,
+		Apps:          apps,
+		Packages:      packages,
+		LocalBackend:  localEnv.Backend,
+		LocalPackages: localEnv.Packages,
+		LocalApps:     localEnv.Apps,
+		JoinBackend:   joinEnv.Backend,
+		DebugMode:     localEnv.Debug,
+		Insecure:      localEnv.Insecure,
+		DNSConfig:     storage.DNSConfig(localEnv.DNS),
+	})
+	if err != nil {
+		return trace.Wrap(err)
+	}
+	ctx, cancel := context.WithTimeout(context.Background(), p.timeout)
+	defer cancel()
+	progress := utils.NewProgress(ctx, fmt.Sprintf("Rolling back join phase %q", p.phaseID), -1, false)
+	defer progress.Stop()
+	return joinFSM.RollbackPhase(ctx, fsm.Params{
+		PhaseID:  p.phaseID,
+		Force:    p.force,
+		Progress: progress,
+	})
 }
 
 func ResumeInstall(ctx context.Context, machine *fsm.FSM, progress utils.Progress, force bool) error {
@@ -801,16 +726,4 @@ func watchReconnects(ctx context.Context, cancel context.CancelFunc, watchCh <-c
 			return
 		}
 	}()
-}
-
-func isContextCancelledError(err error) bool {
-	origErr := trace.Unwrap(err)
-	if origErr == context.Canceled {
-		return true
-	}
-	// FIXME: ConnectionProblemError should properly implement Error.OrigError
-	if connErr, ok := origErr.(*trace.ConnectionProblemError); ok {
-		return connErr.Err == context.Canceled
-	}
-	return false
 }

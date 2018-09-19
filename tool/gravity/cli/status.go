@@ -30,6 +30,7 @@ import (
 	"github.com/gravitational/gravity/lib/defaults"
 	"github.com/gravitational/gravity/lib/localenv"
 	"github.com/gravitational/gravity/lib/ops"
+	"github.com/gravitational/gravity/lib/schema"
 	statusapi "github.com/gravitational/gravity/lib/status"
 
 	"github.com/dustin/go-humanize"
@@ -267,26 +268,37 @@ func printClusterStatus(cluster statusapi.Cluster, w io.Writer) {
 		cluster.App.Version)
 	fmt.Fprintf(w, "Join token:\t%v\n", cluster.Token.Token)
 	cluster.Extension.WriteTo(w)
+	if len(cluster.ActiveOperations) != 0 {
+		fmt.Fprintf(w, "Active operations:\n")
+		for _, op := range cluster.ActiveOperations {
+			printOperation(op, w)
+		}
+	}
 	if cluster.Operation != nil {
-		fmt.Fprintf(w, "Last operation:\n")
-		fmt.Fprintf(w, "    %v (%v)\n", cluster.Operation.Type, cluster.Operation.ID)
-		fmt.Fprintf(w, "    started:\t%v (%v)\n",
-			cluster.Operation.Created.Format(constants.HumanDateFormat),
-			humanize.RelTime(cluster.Operation.Created, time.Now(), "ago", ""))
-		if cluster.Operation.Progress.IsCompleted() {
-			fmt.Fprintf(w, "    %v:\t%v (%v)\n", cluster.Operation.State,
-				cluster.Operation.Progress.Created.Format(constants.HumanDateFormat),
-				humanize.RelTime(cluster.Operation.Progress.Created, time.Now(), "ago", ""))
+		fmt.Fprintf(w, "Last completed operation:\n")
+		printOperation(cluster.Operation, w)
+	}
+}
+
+func printOperation(operation *statusapi.ClusterOperation, w io.Writer) {
+	fmt.Fprintf(w, "    * %v (%v)\n", operation.Type, operation.ID)
+	fmt.Fprintf(w, "      started:\t%v (%v)\n",
+		operation.Created.Format(constants.HumanDateFormat),
+		humanize.RelTime(operation.Created, time.Now(), "ago", ""))
+	if operation.Progress.IsCompleted() {
+		fmt.Fprintf(w, "      %v:\t%v (%v)\n", operation.State,
+			operation.Progress.Created.Format(constants.HumanDateFormat),
+			humanize.RelTime(operation.Progress.Created, time.Now(), "ago", ""))
+	} else {
+		if operation.Type == ops.OperationUpdate {
+			fmt.Fprintf(w, "      use 'gravity plan --operation-id=%v' to check operation status\n",
+				operation.ID)
 		} else {
-			if cluster.Operation.Type == ops.OperationUpdate {
-				fmt.Fprint(w, "    use 'gravity plan' to check operation status\n")
-			} else {
-				fmt.Fprint(w, "    ")
-				if cluster.Operation.Progress.Message != "" {
-					fmt.Fprintf(w, "%v, ", cluster.Operation.Progress.Message)
-				}
-				fmt.Fprintf(w, "%v%% complete\n", cluster.Operation.Progress.Completion)
+			fmt.Fprint(w, "      ")
+			if operation.Progress.Message != "" {
+				fmt.Fprintf(w, "%v, ", operation.Progress.Message)
 			}
+			fmt.Fprintf(w, "%v%% complete\n", operation.Progress.Completion)
 		}
 	}
 }
@@ -295,20 +307,43 @@ func printAgentStatus(status statusapi.Agent, w io.Writer) {
 	if len(status.Nodes) == 0 {
 		fmt.Fprintln(w, color.YellowString("Failed to collect system status from nodes"))
 	}
+	var masters, nodes []statusapi.ClusterServer
+	for _, node := range status.Nodes {
+		if node.Role == string(schema.ServiceRoleMaster) {
+			masters = append(masters, node)
+		} else {
+			nodes = append(nodes, node)
+		}
+	}
+	if len(masters) > 0 {
+		fmt.Fprintln(w, "    Masters:")
+		for _, node := range masters {
+			printNodeStatus(node, w)
+		}
+	}
+	if len(nodes) > 0 {
+		fmt.Fprintln(w, "    Nodes:")
+		for _, node := range nodes {
+			printNodeStatus(node, w)
+		}
+	}
+}
 
-	for _, server := range status.Nodes {
-		fmt.Fprintf(w, "    * %v (%v)\n", unknownFallback(server.Hostname), server.AdvertiseIP)
-
-		switch server.Status {
-		case statusapi.NodeOffline:
-			fmt.Fprintf(w, "        Status:\t%v\n", color.YellowString("offline"))
-		case statusapi.NodeHealthy:
-			fmt.Fprintf(w, "        Status:\t%v\n", color.GreenString("healthy"))
-		case statusapi.NodeDegraded:
-			fmt.Fprintf(w, "        Status:\t%v\n", color.RedString("degraded"))
-			for _, probe := range server.FailedProbes {
-				fmt.Fprintf(w, "        [x]\t%v\n", color.RedString(probe))
-			}
+func printNodeStatus(node statusapi.ClusterServer, w io.Writer) {
+	description := node.AdvertiseIP
+	if node.Profile != "" {
+		description = fmt.Sprintf("%v, %v", description, node.Profile)
+	}
+	fmt.Fprintf(w, "        * %v (%v)\n", unknownFallback(node.Hostname), description)
+	switch node.Status {
+	case statusapi.NodeOffline:
+		fmt.Fprintf(w, "            Status:\t%v\n", color.YellowString("offline"))
+	case statusapi.NodeHealthy:
+		fmt.Fprintf(w, "            Status:\t%v\n", color.GreenString("healthy"))
+	case statusapi.NodeDegraded:
+		fmt.Fprintf(w, "            Status:\t%v\n", color.RedString("degraded"))
+		for _, probe := range node.FailedProbes {
+			fmt.Fprintf(w, "            [%v]\t%v\n", constants.FailureMark, color.RedString(probe))
 		}
 	}
 }

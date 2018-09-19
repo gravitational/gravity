@@ -113,9 +113,10 @@ nodeProfiles:
 systemOptions:
   runtime:
     version: 0.0.1
+%v
 %v`
 
-	manifestBytes := fmt.Sprintf(manifestTemplate, loc.Name, loc.Version, dependencies)
+	manifestBytes := fmt.Sprintf(manifestTemplate, loc.Name, loc.Version, hooks, dependencies)
 
 	const resourceBytes = `
 apiVersion: v1
@@ -223,3 +224,31 @@ func CreatePackageData(items []*archive.Item, c *C) *bytes.Buffer {
 
 	return buf
 }
+
+const hooks = `hooks:
+  preNodeAdd:
+    job: |
+      apiVersion: batch/v1
+      kind: Job
+      metadata:
+        name: pre-join
+      spec:
+        template:
+          spec:
+            containers:
+              - name: hook
+                image: quay.io/gravitational/debian-tall:0.0.1
+                command: ["/bin/echo", "Pre-join hook"]
+  postNodeAdd:
+    job: |
+      apiVersion: batch/v1
+      kind: Job
+      metadata:
+        name: post-join
+      spec:
+        template:
+          spec:
+            containers:
+              - name: hook
+                image: quay.io/gravitational/debian-tall:0.0.1
+                command: ["/bin/echo", "Post-join hook"]`
