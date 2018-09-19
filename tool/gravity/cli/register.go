@@ -27,9 +27,11 @@ import (
 	"github.com/gravitational/gravity/lib/loc"
 	"github.com/gravitational/gravity/lib/modules"
 	"github.com/gravitational/gravity/lib/schema"
+	"github.com/gravitational/gravity/lib/utils"
 	"github.com/gravitational/gravity/tool/common"
 
 	"github.com/gravitational/configure"
+	"github.com/gravitational/trace"
 	"gopkg.in/alecthomas/kingpin.v2"
 )
 
@@ -72,8 +74,8 @@ func RegisterCommands(app *kingpin.Application) *Application {
 	g.InstallCmd.VxlanPort = g.InstallCmd.Flag("vxlan-port", "Custom overlay network port").Default(strconv.Itoa(defaults.VxlanPort)).Int()
 	g.InstallCmd.DNSListenAddrs = g.InstallCmd.Flag("dns-listen-addr", "Custom listen address for dnsmasq").Default(defaults.DNSListenAddr).IPList()
 	g.InstallCmd.DNSPort = g.InstallCmd.Flag("dns-port", "Custom DNS port for dnsmasq").Default(strconv.Itoa(defaults.DNSPort)).Int()
-	g.InstallCmd.DockerStorageDriver = g.InstallCmd.Flag("storage-driver",
-		fmt.Sprintf("Docker storage driver, overrides the one from app manifest. Recognized are: %v", strings.Join(constants.DockerSupportedDrivers, ", "))).String()
+	g.InstallCmd.DockerStorageDriver = DockerStorageDriver(g.InstallCmd.Flag("storage-driver",
+		fmt.Sprintf("Docker storage driver, overrides the one from app manifest. Recognized are: %v", strings.Join(constants.DockerSupportedDrivers, ", "))))
 	g.InstallCmd.DockerArgs = g.InstallCmd.Flag("docker-opt", "Additional arguments to docker. Can be specified multiple times").Strings()
 	g.InstallCmd.Phase = g.InstallCmd.Flag("phase", "Execute an install plan phase").String()
 	g.InstallCmd.PhaseTimeout = g.InstallCmd.Flag("timeout", "Phase execution timeout").Default(defaults.PhaseTimeout).Hidden().Duration()
@@ -149,7 +151,11 @@ func RegisterCommands(app *kingpin.Application) *Application {
 	g.UpdateTriggerCmd.CmdClause = g.UpdateCmd.Command("trigger", "Trigger an update operation for given application").Hidden()
 	g.UpdateTriggerCmd.App = g.UpdateTriggerCmd.Arg("app", "Application version to update to, in the 'name:version' or 'name' (for latest version) format. If unspecified, currently installed application is updated").String()
 	g.UpdateTriggerCmd.Manual = g.UpdateTriggerCmd.Flag("manual", "Manual operation. Do not trigger automatic update").Short('m').Bool()
-	g.UpdateTriggerCmd.DockerStorageDriver = g.UpdateTriggerCmd.Flag("docker-storage-driver", "Override Docker storage driver").String()
+	g.UpdateTriggerCmd.DockerStorageDriver = DockerStorageDriver(
+		g.UpdateTriggerCmd.Flag("docker-storage-driver",
+			fmt.Sprintf("Override Docker storage driver. Recognized drivers: %v",
+				strings.Join(constants.DockerSupportedDrivers, ", "),
+			)))
 	g.UpdateTriggerCmd.DockerArgs = g.UpdateTriggerCmd.Flag("docker-opt", "Additional arguments to Docker. Can be specified multiple times").Strings()
 
 	// upgrade is aliased to "update trigger"
@@ -162,7 +168,11 @@ func RegisterCommands(app *kingpin.Application) *Application {
 	g.UpgradeCmd.Complete = g.UpgradeCmd.Flag("complete", "Complete update operation").Bool()
 	g.UpgradeCmd.Resume = g.UpgradeCmd.Flag("resume", "Resume upgrade from the last failed step").Bool()
 	g.UpgradeCmd.SkipVersionCheck = g.UpgradeCmd.Flag("skip-version-check", "Bypass version compatibility check").Hidden().Bool()
-	g.UpgradeCmd.DockerStorageDriver = g.UpgradeCmd.Flag("docker-storage-driver", "Override Docker storage driver").String()
+	g.UpgradeCmd.DockerStorageDriver = DockerStorageDriver(
+		g.UpgradeCmd.Flag("docker-storage-driver",
+			fmt.Sprintf("Override Docker storage driver. Recognized drivers: %v",
+				strings.Join(constants.DockerSupportedDrivers, ", "),
+			)))
 	g.UpgradeCmd.DockerArgs = g.UpgradeCmd.Flag("docker-options", "Additional arguments to Docker. Can be specified multiple times").Strings()
 
 	g.UpdateUploadCmd.CmdClause = g.UpdateCmd.Command("upload", "Upload update package to locally running site").Hidden()
@@ -655,8 +665,40 @@ func RegisterCommands(app *kingpin.Application) *Application {
 	return g
 }
 
+// Locator defines a command line flag that accepts input
+// in package locator format
 func Locator(s kingpin.Settings) *loc.Locator {
 	l := new(loc.Locator)
 	s.SetValue(l)
 	return l
 }
+
+// DockerStorageDriver defines a command line flag that recognizes
+// Docker storage drivers
+func DockerStorageDriver(s kingpin.Settings) *string {
+	driver := new(string)
+	s.SetValue((*dockerStorageDriver)(driver))
+	return driver
+}
+
+// Set validates value as a Docker storage driver
+func (r *dockerStorageDriver) Set(value string) error {
+	if !utils.StringInSlice(constants.DockerSupportedDrivers, value) {
+		return trace.BadParameter("unrecognized docker storage driver %q, supported are: %v",
+			value, constants.DockerSupportedDrivers)
+	}
+	*r = dockerStorageDriver(value)
+	return nil
+}
+
+// String returns the value of the storage driver
+func (r *dockerStorageDriver) String() string {
+	if r == nil {
+		return ""
+	}
+	return string(*r)
+}
+
+// dockerStorageDriver is a string that only accepts recognized
+// Docker storage driver name as a value
+type dockerStorageDriver string
