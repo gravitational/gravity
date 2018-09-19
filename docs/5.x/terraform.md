@@ -5,7 +5,7 @@ The gravity terraform provider is used to support terraform management of openso
 ## Getting Started
 
 ### Install the Gravity provider
-The terraform provider will be automatically installed when getting the telekube tools.
+The terraform provider will be automatically installed when getting the gravity tools.
 
 ```
 curl https://get.gravitational.io/telekube/install/5.0.23 | bash
@@ -274,12 +274,12 @@ The following arguments are supported:
 
 
 # Terraform Provider (Enterprise)
-The telekube terraform provider is used to support terraform management of resources only available in the enterprise version of telekube. This provider should be used in conjunction with the opensource gravity provider to manage a telekube cluster.
+The gravity enterprise terraform provider is used to support terraform management of resources only available in the enterprise version of gravity. This provider should be used in conjunction with the opensource gravity provider to manage a gravity cluster.
 
 ## Getting Started
 
-### Install the Telekube provider
-The terraform provider will be automatically installed when getting the telekube tools.
+### Install the Gravity Enterprise provider
+The terraform provider will be automatically installed when getting the gravity tools.
 
 ```
 curl https://get.gravitational.io/telekube/install/5.0.23 | bash
@@ -301,14 +301,14 @@ resource "gravity_log_forwarder" "logs" {
     # ...
 }
 
-# Configure the Telekube provider
-provider "telekube" {
+# Configure the gravity enterprise provider
+provider "gravityenterprise" {
     host  = "https://example.com"
     token = "abcdefghi"
 }
 
 # Create an oidc connector
-resource "telekube_oidc" "test" {
+resource "gravityenterprise_oidc" "test" {
     # ...
 }
 ```
@@ -319,12 +319,12 @@ The terraform provider uses token based authentication which must be provisioned
 See [Configuring Users & Tokens](https://gravitational.com/telekube/docs/cluster/#configuring-users-tokens) for more information
 
 
-## telekube_endpoints
+## gravityenterprise_endpoints
 By default an Ops Center is configured with a single endpoint set via `--ops-advertise-addr` flag passed during installation. This configuration allows creating separate endpoints for cluster management and inter-cluster communications that can be firewalled separately.
 
 ### Example Usage
 ```
-resource "telekube_endpoints" "test" {
+resource "gravityenterprise_endpoints" "test" {
   public_advertise_addr = "public.example.com:443"
   agents_advertise_addr = "agents.example.com:443"
 }
@@ -336,12 +336,12 @@ The following arguments are supported:
 * `public_advertise_addr` - Endpoint used by the Ops Center UI and CLI tools such as `tele` and `tsh`.
 * `agents_advertise_addr` - (Optional) Endpoint used by remote clusters to connect to Ops Center as a trusted cluster.
 
-## telekube_oidc
-A telekube cluster can be configured to use Open ID connect as an identity provider and authenticate users.
+## gravityenterprise_oidc
+A gravity enterprise cluster can be configured to use Open ID connect as an identity provider and authenticate users.
 
 ### Example Usage
 ```
-resource "telekube_oidc" "test" {
+resource "gravityenterprise_oidc" "test" {
   name = "auth0"
   redirect_url = "https://example.com/portalapi/v1/oidc/callback"
   client_id = "1234"
@@ -362,7 +362,7 @@ The following arguments are supported:
 
 * `name` - The name of the connector.
 * `display` - (Optional) The display name of the connector as shown in the UI.
-* `redirect_url` - The url on the telekube cluster that will process the OpenID callback. Should be in the format https://<cluster-hostname>/portalapi/v1/oidc/callback.
+* `redirect_url` - The url on the gravity cluster that will process the OpenID callback. Should be in the format https://<cluster-hostname>/portalapi/v1/oidc/callback.
 * `acr` - Authentication Context Class Reference value. The meaning of the ACR value is context-specific and varies for identity providers.
 * `identity_provider` - (Optional)
 * `client_id` - Is the client-id used by the identity provider.
@@ -374,13 +374,13 @@ The following arguments are supported:
     - `value` - OIDC claim value to match.
     - `roles` - (Optional) A list of static roles to assign the user on login.
 
-## telekube_role
+## gravityenterprise_role
 Roles can be used to tune access permissions to the cluster.
 
 ### Example Usage
 Admin access to all resources:
 ```
-resource "telekube_role" "admin" {
+resource "gravityenterprise_role" "admin" {
   name = "administrator"
   
   allow {
@@ -471,12 +471,12 @@ The following arguments are supported:
             - log - emits an entry when specified rule matches.
             - assignKubernetesGroups - assigns specified kubernetes groups to the role.
 
-## telekube_saml
+## gravityenterprise_saml
 Enables using SAML as an identity provider for cluster logins.
 
 ### Example Usage
 ```
-resource "telekube_saml" "test" {
+resource "gravityenterprise_saml" "test" {
   name = "saml"
   display = "SAML Example"
   acs = "https://example.com/portalapi/v1/saml/callback"
@@ -497,7 +497,7 @@ The following arguments are supported:
 * `issuer` - A unique name (usually a URL) that the identity provider uses for SAML 2.0
 * `sso` - URL of the identity provider SSO service.
 * `cert` - The identity provider certificate.
-* `acs` - The callback url on the telekube cluster. Format https://<host>/portalapi/v1/saml/callback.
+* `acs` - The callback url on the gravity cluster. Format https://<host>/portalapi/v1/saml/callback.
 * `audience` - (Optional) Uniquely identifies our service provider.
 * `service_provider_issuer` - (Optional) is the issuer of the service provider
 * `entity_descriptor` - (Optional) - Inline entity descriptor xml configuration.
@@ -510,12 +510,12 @@ The following arguments are supported:
 * `signing_cert` - (Optional) Key used to sign AuthnRequest
 * `identity_provider` - (Optional) is the external identity provider.
 
-## telekube_trusted_cluster
-Trusted clusters allows connecting a standalone telekube cluster to an Ops Center.
+## gravityenterprise_trusted_cluster
+Trusted clusters allows connecting a standalone gravity enterprise cluster to an Ops Center.
 
 ### Example Usage
 ```
-resource "telekube_trusted_cluster" "test" {
+resource "gravityenterprise_trusted_cluster" "test" {
   name = "test"
   token = "abcdef"
   web_proxy_addr = "1.1.1.1"
