@@ -17,7 +17,9 @@ limitations under the License.
 package update
 
 import (
+	"bufio"
 	"context"
+	"io"
 	"path/filepath"
 
 	"github.com/gravitational/gravity/lib/app"
@@ -190,11 +192,25 @@ func (p *phaseApp) runHooks(ctx context.Context, hooks ...schema.HookType) error
 			}
 			return trace.Wrap(err)
 		}
-		_, out, err := app.RunAppHook(ctx, p.Apps, req)
+		reader, writer := io.Pipe()
+		go func() {
+			defer reader.Close()
+			scanner := bufio.NewScanner(reader)
+			for scanner.Scan() {
+				log.WithField(trace.Component, "hook").Info(scanner.Text())
+			}
+			if err := scanner.Err(); err != nil {
+				log.Warnf("Failed to stream hook logs: %v.", err)
+			}
+		}()
+		_, err = app.StreamAppHook(ctx, p.Apps, req, writer)
 		if err != nil {
-			return trace.Wrap(err, "%v %s hook failed: %s", p.Package, hook, out)
+			return trace.Wrap(err, "%v %s hook failed", p.Package, hook)
 		}
-		log.Debugf("%v %s hook output: %s.", p.Package, hook, out)
+		err = writer.Close()
+		if err != nil {
+			log.Warnf("Failed to close pipe writer: %v.", err)
+		}
 	}
 	return nil
 }

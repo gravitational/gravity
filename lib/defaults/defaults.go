@@ -211,10 +211,10 @@ const (
 	GravityPackagePrefix = "gravitational.io/gravity"
 
 	// TelekubeSystemLog defines the default location for the system log
-	TelekubeSystemLog = "./telekube-system.log"
+	TelekubeSystemLog = "/var/log/telekube-system.log"
 
 	// TelekubeUserLog the default location for user-facing log file
-	TelekubeUserLog = "./telekube-install.log"
+	TelekubeUserLog = "/var/log/telekube-install.log"
 
 	// TelekubePackage is the Telekube application package name
 	TelekubePackage = "telekube"

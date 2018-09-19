@@ -135,7 +135,6 @@ func InitAndCheck(g *Application, cmd string) error {
 		g.UpgradeCmd.FullCommand(),
 		g.SystemRollbackCmd.FullCommand(),
 		g.SystemUninstallCmd.FullCommand(),
-		g.UpgradeCmd.FullCommand(),
 		g.RollbackCmd.FullCommand(),
 		g.UpdateSystemCmd.FullCommand(),
 		g.RPCAgentShutdownCmd.FullCommand(),
@@ -292,7 +291,8 @@ func Execute(g *Application, cmd string, extraArgs []string) error {
 		return updateTrigger(localEnv,
 			upgradeEnv,
 			*g.UpdateTriggerCmd.App,
-			*g.UpdateTriggerCmd.Manual)
+			*g.UpdateTriggerCmd.Manual,
+			*g.SystemLogFile)
 	case g.UpgradeCmd.FullCommand():
 		if *g.UpgradeCmd.Resume {
 			*g.UpgradeCmd.Phase = fsm.RootPhase
@@ -313,7 +313,7 @@ func Execute(g *Application, cmd string, extraArgs []string) error {
 			upgradeEnv,
 			*g.UpgradeCmd.App,
 			*g.UpgradeCmd.Manual,
-		)
+			*g.SystemLogFile)
 	case g.RollbackCmd.FullCommand():
 		return rollbackOperationPhase(localEnv,
 			upgradeEnv,
@@ -719,7 +719,9 @@ func Execute(g *Application, cmd string, extraArgs []string) error {
 	case g.RPCAgentInstallCmd.FullCommand():
 		return rpcAgentInstall(localEnv, *g.RPCAgentInstallCmd.Args)
 	case g.RPCAgentRunCmd.FullCommand():
-		return rpcAgentRun(localEnv, upgradeEnv, *g.RPCAgentRunCmd.Args)
+		return rpcAgentRun(localEnv, upgradeEnv,
+			*g.RPCAgentRunCmd.Args,
+			*g.SystemLogFile)
 	case g.RPCAgentShutdownCmd.FullCommand():
 		return rpcAgentShutdown(localEnv)
 	case g.CheckCmd.FullCommand():

@@ -24,6 +24,7 @@ import (
 	"github.com/gravitational/gravity/lib/constants"
 	"github.com/gravitational/gravity/lib/defaults"
 	"github.com/gravitational/gravity/lib/httplib"
+	"github.com/gravitational/gravity/lib/install"
 	"github.com/gravitational/gravity/lib/loc"
 	"github.com/gravitational/gravity/lib/localenv"
 	"github.com/gravitational/gravity/lib/ops"
@@ -51,7 +52,14 @@ func updateTrigger(
 	localEnv *localenv.LocalEnvironment,
 	upgradeEnv *localenv.LocalEnvironment,
 	appPackage string,
-	manual bool) (err error) {
+	manual bool,
+	systemLogFile string,
+) error {
+	err := install.InitLogging(systemLogFile)
+	if err != nil {
+		return trace.Wrap(err)
+	}
+
 	operator, err := localEnv.SiteOperator()
 	if err != nil {
 		return trace.Wrap(err)
