@@ -3,7 +3,6 @@ package provider
 import (
 	"github.com/gravitational/gravity/lib/httplib"
 	"github.com/gravitational/gravity/lib/ops/opsclient"
-	"github.com/gravitational/roundtrip"
 	"github.com/gravitational/trace"
 	"github.com/hashicorp/terraform/helper/schema"
 	"github.com/hashicorp/terraform/terraform"
@@ -50,7 +49,7 @@ func providerConfigure(d *schema.ResourceData) (interface{}, error) {
 	insecure := d.Get("insecure").(bool)
 
 	client, err := opsclient.NewBearerClient(host, token,
-		roundtrip.HTTPClient(httplib.GetClient(insecure)))
+		opsclient.HTTPClient(httplib.GetClient(insecure)))
 
 	if err != nil {
 		return nil, trace.Wrap(err)
