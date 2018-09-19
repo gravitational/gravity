@@ -207,6 +207,12 @@ const (
 	// AgentConnectTimeout specifies the timeout for the initial connect
 	AgentConnectTimeout = 1 * time.Minute
 
+	// AgentStopTimeout is amount of time agent gets to gracefully shut down
+	AgentStopTimeout = 10 * time.Second
+
+	// PeerConnectTimeout is the timeout of an RPC agent connecting to its peer
+	PeerConnectTimeout = 10 * time.Second
+
 	// GravityPackagePrefix defines base prefix of gravity package
 	GravityPackagePrefix = "gravitational.io/gravity"
 
