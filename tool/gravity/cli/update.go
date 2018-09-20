@@ -87,7 +87,7 @@ func updateTrigger(
 		return trace.Wrap(err)
 	}
 
-	err = checkCanUpdate(*cluster, operator, app.Manifest, docker)
+	err = checkCanUpdate(*cluster, operator, app.Manifest)
 	if err != nil {
 		return trace.Wrap(err)
 	}
@@ -96,7 +96,6 @@ func updateTrigger(
 		AccountID:  cluster.AccountID,
 		SiteDomain: cluster.Domain,
 		App:        app.Package.String(),
-		Docker:     docker,
 	})
 	if err != nil {
 		return trace.Wrap(err)
@@ -181,7 +180,7 @@ will be returned to the "active" state.
 	return nil
 }
 
-func checkCanUpdate(cluster ops.Site, operator ops.Operator, manifest schema.Manifest, docker storage.DockerConfig) error {
+func checkCanUpdate(cluster ops.Site, operator ops.Operator, manifest schema.Manifest) error {
 	existingGravityPackage, err := cluster.App.Manifest.Dependencies.ByName(constants.GravityPackage)
 	if err != nil {
 		return trace.Wrap(err)
@@ -198,23 +197,32 @@ Please update this installation to a minimum required runtime version (%q) befor
 			existingGravityPackage.Version, defaults.BaseUpdateVersion)
 	}
 
-	manifestDocker := manifest.SystemDocker()
-	existingManifestDocker := cluster.App.Manifest.SystemDocker()
-	existingDocker, err := ops.GetExistingDockerConfig(cluster.Key(), operator, existingManifestDocker)
-	if err != nil {
-		return trace.Wrap(err)
+	docker := manifest.SystemOptions.DockerConfig()
+	if docker == nil {
+		// No changes
+		return nil
 	}
 
-	storageDriver := manifestDocker.StorageDriver
-	if docker.StorageDriver != "" {
-		storageDriver = docker.StorageDriver
+	existingDocker := cluster.ClusterState.Docker
+	if existingDocker.IsEmpty() {
+		installOperation, err := ops.GetCompletedInstallOperation(cluster.Key(), operator)
+		if err != nil {
+			return trace.Wrap(err)
+		}
+
+		existingManifestDocker := cluster.App.Manifest.SystemDocker()
+		config, err := update.GetExistingDockerConfig(*installOperation, existingManifestDocker)
+		if err != nil {
+			return trace.Wrap(err)
+		}
+		existingDocker = *config
 	}
 
 	if docker.StorageDriver != existingDocker.StorageDriver &&
-		!utils.StringInSlice(constants.DockerSupportedTargetDrivers, storageDriver) {
+		!utils.StringInSlice(constants.DockerSupportedTargetDrivers, docker.StorageDriver) {
 		return trace.BadParameter(`Updating Docker storage driver to %q is not supported.
 The storage driver can only be updated to one of %q.
-`, storageDriver, constants.DockerSupportedTargetDrivers)
+`, docker.StorageDriver, constants.DockerSupportedTargetDrivers)
 	}
 
 	return nil

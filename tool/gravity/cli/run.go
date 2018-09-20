@@ -37,7 +37,6 @@ import (
 	"github.com/gravitational/gravity/lib/localenv"
 	"github.com/gravitational/gravity/lib/process"
 	"github.com/gravitational/gravity/lib/schema"
-	"github.com/gravitational/gravity/lib/storage"
 	"github.com/gravitational/gravity/lib/systemservice"
 	"github.com/gravitational/gravity/lib/utils"
 

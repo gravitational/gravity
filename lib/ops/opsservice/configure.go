@@ -189,7 +189,7 @@ func (s *site) configureExpandPackages(ctx context.Context, opCtx *operationCont
 	if err != nil {
 		return trace.Wrap(err)
 	}
-	dockerConfig, err := s.selectDockerConfig(opCtx.operation, provisionedServer.Role, s.app.Manifest)
+	dockerConfig, err := s.selectDockerConfig(opCtx.operation, s.app.Manifest, nil)
 	if err != nil {
 		return trace.Wrap(err)
 	}
@@ -350,7 +350,7 @@ func (s *site) configurePackages(ctx *operationContext) error {
 				master, etcdConfig)
 		}
 
-		docker, err := s.selectDockerConfig(ctx.operation, master.Role, s.app.Manifest)
+		docker, err := s.selectDockerConfig(ctx.operation, s.app.Manifest, nil)
 		if err != nil {
 			return trace.Wrap(err)
 		}
@@ -419,7 +419,7 @@ func (s *site) configurePackages(ctx *operationContext) error {
 				node.AdvertiseIP, etcdConfig)
 		}
 
-		docker, err := s.selectDockerConfig(ctx.operation, node.Role, s.app.Manifest)
+		docker, err := s.selectDockerConfig(ctx.operation, s.app.Manifest, nil)
 		if err != nil {
 			return trace.Wrap(err)
 		}
@@ -1688,24 +1688,17 @@ func configureDockerOptions(
 	return args, nil
 }
 
-func (s *site) selectDockerConfig(operation ops.SiteOperation, profileName string, manifest schema.Manifest) (*schema.Docker, error) {
-	profile, err := manifest.NodeProfiles.ByName(profileName)
-	if err != nil {
-		return nil, trace.Wrap(err)
-	}
-
-	docker := manifest.Docker(*profile)
+func (s *site) selectDockerConfig(
+	operation ops.SiteOperation,
+	old schema.Manifest,
+	new *schema.Manifest,
+) (*schema.Docker, error) {
+	docker := old.SystemDocker()
 	var config storage.DockerConfig
-
 	switch operation.Type {
 	case ops.OperationInstall:
 		if !operation.InstallExpand.Vars.System.Docker.IsEmpty() {
 			config = operation.InstallExpand.Vars.System.Docker
-		}
-	case ops.OperationUpdate:
-		// Update Docker state overrides defaults or install state
-		if !operation.Update.Docker.IsEmpty() {
-			config = operation.Update.Docker
 		}
 	default:
 		// for other operations, use the install operation state
@@ -1719,7 +1712,20 @@ func (s *site) selectDockerConfig(operation ops.SiteOperation, profileName strin
 	if config.StorageDriver != "" {
 		docker.StorageDriver = config.StorageDriver
 	}
-	docker.Args = append(docker.Args, config.Args...)
+	if len(config.Args) != 0 {
+		docker.Args = config.Args
+	}
+	if new != nil {
+		updateConfig := new.SystemOptions.DockerConfig()
+		if updateConfig != nil {
+			if updateConfig.StorageDriver != "" {
+				docker.StorageDriver = updateConfig.StorageDriver
+			}
+			if len(updateConfig.Args) != 0 {
+				docker.Args = updateConfig.Args
+			}
+		}
+	}
 	return &docker, nil
 }
 

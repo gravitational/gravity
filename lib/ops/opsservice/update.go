@@ -245,7 +245,6 @@ func (s *site) createUpdateOperation(req ops.CreateSiteAppUpdateOperationRequest
 		Provisioner: installOperation.Provisioner,
 		Update: &storage.UpdateOperationState{
 			UpdatePackage: req.App,
-			Docker:        req.Docker,
 		},
 	}
 

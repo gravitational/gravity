@@ -20,12 +20,15 @@ import (
 	appservice "github.com/gravitational/gravity/lib/app"
 	"github.com/gravitational/gravity/lib/fsm"
 	"github.com/gravitational/gravity/lib/loc"
+	"github.com/gravitational/gravity/lib/ops"
+	"github.com/gravitational/gravity/lib/schema"
 	"github.com/gravitational/gravity/lib/storage"
 
 	"github.com/gravitational/trace"
 	"github.com/sirupsen/logrus"
 )
 
+// GetOperationPlan returns an up-to-date operation plan
 func GetOperationPlan(b storage.Backend) (*storage.OperationPlan, error) {
 	op, err := storage.GetLastOperation(b)
 	if err != nil {
@@ -49,6 +52,25 @@ func GetOperationPlan(b storage.Backend) (*storage.OperationPlan, error) {
 
 	plan = fsm.ResolvePlan(*plan, changelog)
 	return plan, nil
+}
+
+// GetExistingDockerConfig returns existing cluster Docker configuration
+func GetExistingDockerConfig(
+	installOperation ops.SiteOperation,
+	manifestDocker schema.Docker,
+) (config *storage.DockerConfig, err error) {
+	config = &storage.DockerConfig{
+		StorageDriver: manifestDocker.StorageDriver,
+		Args:          manifestDocker.Args,
+	}
+
+	installDocker := installOperation.InstallExpand.Vars.System.Docker
+	if installDocker.StorageDriver != "" {
+		config.StorageDriver = installDocker.StorageDriver
+	}
+	config.Args = append(config.Args, installDocker.Args...)
+
+	return config, nil
 }
 
 // planetNeedsUpdate returns true if the planet version in the update application is

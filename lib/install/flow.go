@@ -147,7 +147,6 @@ func (i *Installer) StartCLIInstall() (err error) {
 			DnsAddrs:  i.DNSConfig.Addrs,
 			DnsPort:   int32(i.DNSConfig.Port),
 		},
-		Docker:  i.Docker,
 		AutoFix: true,
 	})
 	if err != nil {

@@ -187,9 +187,6 @@ func (r *AgentService) Validate(ctx context.Context, key ops.SiteOperationKey, a
 			DnsAddrs:  cluster.DNSConfig.Addrs,
 			DnsPort:   int32(cluster.DNSConfig.Port),
 		},
-		Docker: &validationpb.Docker{
-			StorageDriver: cluster.Docker.StorageDriver,
-		},
 	}
 	addr = rpc.AgentAddr(addr)
 	failedProbes, err := group.WithContext(ctx, addr).Validate(ctx, &req)

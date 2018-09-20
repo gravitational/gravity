@@ -25,7 +25,6 @@ import (
 	"github.com/gravitational/gravity/lib/defaults"
 	"github.com/gravitational/gravity/lib/pack"
 	"github.com/gravitational/gravity/lib/pack/encryptedpack"
-	"github.com/gravitational/gravity/lib/schema"
 	"github.com/gravitational/gravity/lib/storage"
 
 	licenseapi "github.com/gravitational/license"
@@ -330,38 +329,3 @@ func MatchByType(opType string) OperationMatcher {
 
 // OperationMatcher is a function type that matches the given operation
 type OperationMatcher func(SiteOperation) bool
-
-// GetExistingDockerConfig returns existing cluster Docker configuration
-func GetExistingDockerConfig(
-	clusterKey SiteKey,
-	operator Operator,
-	manifestDocker schema.Docker,
-) (config *storage.DockerConfig, err error) {
-	config = &storage.DockerConfig{
-		StorageDriver: manifestDocker.StorageDriver,
-		Args:          manifestDocker.Args,
-	}
-
-	installOperation, err := GetCompletedInstallOperation(clusterKey, operator)
-	if err != nil {
-		return nil, trace.Wrap(err)
-	}
-	installDocker := installOperation.InstallExpand.Vars.System.Docker
-	if installDocker.StorageDriver != "" {
-		config.StorageDriver = installDocker.StorageDriver
-	}
-	config.Args = append(config.Args, installDocker.Args...)
-
-	updateOperation, err := GetLastCompletedUpdateOperation(clusterKey, operator)
-	if err != nil && !trace.IsNotFound(err) {
-		return nil, trace.Wrap(err)
-	}
-	if updateOperation != nil &&
-		updateOperation.Update != nil &&
-		updateOperation.Update.Docker.StorageDriver != "" {
-		config.StorageDriver = updateOperation.Update.Docker.StorageDriver
-		config.Args = append(config.Args, updateOperation.Update.Docker.Args...)
-	}
-
-	return config, nil
-}

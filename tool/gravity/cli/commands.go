@@ -503,10 +503,6 @@ type UpdateTriggerCmd struct {
 	App *string
 	// Manual starts operation in manual mode
 	Manual *bool
-	// DockerStorageDriver overrides Docker storage driver
-	DockerStorageDriver *dockerStorageDriver
-	// DockerArgs specifies additional Docker arguments
-	DockerArgs *[]string
 }
 
 // UpdateUploadCmd uploads new app version to local cluster
@@ -555,10 +551,6 @@ type UpgradeCmd struct {
 	Resume *bool
 	// SkipVersionCheck suppresses version mismatch errors
 	SkipVersionCheck *bool
-	// DockerStorageDriver overrides Docker storage driver
-	DockerStorageDriver *dockerStorageDriver
-	// DockerArgs specifies additional Docker arguments
-	DockerArgs *[]string
 }
 
 // StatusCmd displays cluster status

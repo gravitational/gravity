@@ -79,25 +79,14 @@ func ValidateManifest(
 	}
 	failedProbes = append(failedProbes, failed...)
 
-	failedProbes = append(failedProbes, schema.ValidateKubelet(profile, manifest)...)
-	return failedProbes, trace.NewAggregate(errors...)
-}
-
-// ValidateDocker verifies the specified Docker configuration against
-// the host environment.
-// Returns list of failed health probes.
-func ValidateDocker(
-	dockerSchema schema.Docker,
-	config storage.DockerConfig,
-	stateDir string,
-) (failedProbes []*agentpb.Probe, err error) {
-	if config.StorageDriver != "" {
-		dockerSchema.StorageDriver = config.StorageDriver
+	failed, err = schema.ValidateDocker(manifest.SystemDocker(), stateDir)
+	if err != nil {
+		errors = append(errors, trace.Wrap(err,
+			"error validating docker requirements, see syslog for details"))
 	}
 
-	failedProbes, err = schema.ValidateDocker(dockerSchema, stateDir)
-	return failedProbes, trace.Wrap(err,
-		"error validating docker requirements, see syslog for details")
+	failedProbes = append(failedProbes, schema.ValidateKubelet(profile, manifest)...)
+	return failedProbes, trace.NewAggregate(errors...)
 }
 
 // RunBasicChecks executes a set of additional health checks.
@@ -129,8 +118,6 @@ type LocalChecksRequest struct {
 	AutoFix bool
 	// Progress is used to report information about auto-fixed problems
 	utils.Progress
-	// Docker overrides default Docker configuration
-	Docker storage.DockerConfig
 }
 
 // CheckAndSetDefaults checks the request and sets some defaults
@@ -185,11 +172,6 @@ func ValidateLocal(req LocalChecksRequest) (*LocalChecksResult, error) {
 	}
 
 	failedProbes, err := ValidateManifest(req.Manifest, *profile, stateDir)
-	if err != nil {
-		return nil, trace.Wrap(err)
-	}
-
-	failedProbes, err = ValidateDocker(req.Manifest.Docker(*profile), req.Docker, stateDir)
 	if err != nil {
 		return nil, trace.Wrap(err)
 	}
@@ -373,12 +355,7 @@ func (r *checker) Run(ctx context.Context) error {
 			errors = append(errors, err)
 		}
 
-		profile, err := r.manifest.NodeProfiles.ByName(server.Server.Role)
-		if err != nil {
-			errors = append(errors, err)
-		}
-
-		dockerConfig := r.manifest.Docker(*profile)
+		dockerConfig := r.manifest.SystemDocker()
 		if r.TestDockerDevice {
 			err = checkDockerDevice(server, dockerConfig)
 			if err != nil {

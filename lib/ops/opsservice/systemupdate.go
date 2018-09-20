@@ -86,7 +86,7 @@ func (s *site) configurePlanetOnNode(
 		}
 	}
 
-	docker, err := s.selectDockerConfig(ctx.operation, node.Role, manifest)
+	docker, err := s.selectDockerConfig(ctx.operation, s.app.Manifest, &manifest)
 	if err != nil {
 		return nil, trace.Wrap(err)
 	}

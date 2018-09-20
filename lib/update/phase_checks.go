@@ -22,7 +22,6 @@ import (
 	"github.com/gravitational/gravity/lib/app"
 	"github.com/gravitational/gravity/lib/fsm"
 	"github.com/gravitational/gravity/lib/loc"
-	"github.com/gravitational/gravity/lib/ops"
 	"github.com/gravitational/gravity/lib/storage"
 
 	"github.com/gravitational/trace"
@@ -43,8 +42,6 @@ type updatePhaseChecks struct {
 	installedPackage loc.Locator
 	// remote allows remote control of servers
 	remote fsm.AgentRepository
-	// docker overrides existing Docker configuration
-	docker storage.DockerConfig
 }
 
 // NewUpdatePhaseChecks creates a new preflight checks phase executor
@@ -60,18 +57,6 @@ func NewUpdatePhaseChecks(
 	if phase.Data.InstalledPackage == nil {
 		return nil, trace.NotFound("no installed application package specified for phase %v", phase)
 	}
-	operation, err := c.Operator.GetSiteOperation(ops.SiteOperationKey{
-		SiteDomain:  plan.ClusterName,
-		AccountID:   plan.AccountID,
-		OperationID: plan.OperationID,
-	})
-	if err != nil {
-		return nil, trace.Wrap(err)
-	}
-	var docker storage.DockerConfig
-	if operation.Update != nil {
-		docker = operation.Update.Docker
-	}
 	return &updatePhaseChecks{
 		FieldLogger:      log.NewEntry(log.New()),
 		apps:             c.Apps,
@@ -79,7 +64,6 @@ func NewUpdatePhaseChecks(
 		updatePackage:    *phase.Data.Package,
 		installedPackage: *phase.Data.InstalledPackage,
 		remote:           remote,
-		docker:           docker,
 	}, nil
 }
 
@@ -104,7 +88,7 @@ func (p *updatePhaseChecks) Execute(ctx context.Context) error {
 		return trace.Wrap(err)
 	}
 
-	err = validate(ctx, p.remote, p.servers, installedApp.Manifest, app.Manifest, p.docker)
+	err = validate(ctx, p.remote, p.servers, installedApp.Manifest, app.Manifest)
 	return trace.Wrap(err, "failed to validate requirements")
 }
 

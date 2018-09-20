@@ -1067,8 +1067,6 @@ type CreateSiteAppUpdateOperationRequest struct {
 	// Manual specifies whether a manual update mode is requested.
 	// Deprecated.
 	Manual bool `json:"manual"`
-	// Docker overrides Docker configuration
-	Docker storage.DockerConfig `json:"docker"`
 }
 
 // Check validates this request

@@ -565,8 +565,6 @@ type Site struct {
 	DNSOverrides DNSOverrides `json:"dns_overrides"`
 	// DNSConfig defines cluster local DNS configuration
 	DNSConfig DNSConfig `json:"dns_config"`
-	// Docker specifies cluster Docker configuration
-	Docker DockerConfig `json:"docker"`
 }
 
 func (s *Site) Check() error {
@@ -589,6 +587,8 @@ func (s *Site) Check() error {
 type ClusterState struct {
 	// Servers is a list of servers in the cluster
 	Servers Servers `json:"servers"`
+	// Docker specifies current cluster Docker configuration
+	Docker DockerConfig `json:"docker"`
 }
 type nodeKey struct {
 	profile      string
@@ -1933,8 +1933,6 @@ type UpdateOperationState struct {
 	ServerUpdates []ServerUpdate `json:"server_updates,omitempty"`
 	// Manual specifies whether this update operation was created in manual mode
 	Manual bool `json:"manual"`
-	// Docker overrides existing Docker configuration.
-	Docker DockerConfig `json:"docker"`
 }
 
 // Package returns the update package locator

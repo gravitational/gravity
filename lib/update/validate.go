@@ -39,7 +39,7 @@ import (
 	"github.com/xtgo/set"
 )
 
-func validate(ctx context.Context, remote fsm.AgentRepository, servers []storage.Server, old, new schema.Manifest, docker storage.DockerConfig) error {
+func validate(ctx context.Context, remote fsm.AgentRepository, servers []storage.Server, old, new schema.Manifest) error {
 	profiles := make(map[string]string, len(servers))
 	nodes := make([]checks.Server, 0, len(servers))
 	for _, server := range servers {
@@ -67,7 +67,6 @@ func validate(ctx context.Context, remote fsm.AgentRepository, servers []storage
 	remoteExec := &remoteCommands{
 		remote:   remote,
 		profiles: profiles,
-		docker:   docker,
 	}
 	c, err := checks.New(remoteExec, nodes, new, requirements)
 	if err != nil && !trace.IsNotFound(err) {
@@ -120,7 +119,6 @@ func (r *remoteCommands) Validate(ctx context.Context, addr string, manifest sch
 	req := validationpb.ValidateRequest{
 		Manifest: bytes,
 		Profile:  profileName,
-		Docker:   &validationpb.Docker{StorageDriver: r.docker.StorageDriver},
 	}
 	failed, err := clt.Validate(ctx, &req)
 	if err != nil {
@@ -136,7 +134,6 @@ type remoteCommands struct {
 	remote fsm.AgentRepository
 	// profiles maps server address to its profile
 	profiles map[string]string
-	docker   storage.DockerConfig
 }
 
 func pingPong(ctx context.Context, remote fsm.AgentRepository, game checks.PingPongGame, fn pingpongHandler) (checks.PingPongGameResults, error) {

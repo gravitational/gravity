@@ -155,17 +155,20 @@ func (f *fsmUpdateEngine) commitClusterChanges(cluster *storage.Site, op ops.Sit
 		}
 	}
 
-	existingDocker, err := ops.GetExistingDockerConfig(clusterKey(*f.plan),
-		f.Operator, updateApp.Manifest.SystemDocker())
-	if err != nil {
-		return trace.Wrap(err)
-	}
-
 	cluster.App = updateApp.PackageEnvelope.ToPackage()
 	if updateBaseApp != nil {
 		cluster.App.Base = updateBaseApp.PackageEnvelope.ToPackagePtr()
 	}
-	cluster.Docker = *existingDocker
+
+	updateConfig := updateApp.Manifest.SystemOptions.DockerConfig()
+	if updateConfig != nil {
+		if updateConfig.StorageDriver != "" {
+			cluster.ClusterState.Docker.StorageDriver = updateConfig.StorageDriver
+		}
+		if len(updateConfig.Args) != 0 {
+			cluster.ClusterState.Docker.Args = updateConfig.Args
+		}
+	}
 
 	return nil
 }
