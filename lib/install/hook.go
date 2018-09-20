@@ -31,6 +31,10 @@ func InitLogging(logFile string) {
 	log.StandardLogger().Hooks.Add(&Hook{
 		path: logFile,
 	})
+	setLoggingOptions()
+}
+
+func setLoggingOptions() {
 	log.SetLevel(log.DebugLevel)
 	log.SetOutput(ioutil.Discard)
 }
