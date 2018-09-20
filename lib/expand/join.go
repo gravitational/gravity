@@ -469,6 +469,46 @@ func (p *Peer) agentURL(ctx operationContext) (string, error) {
 	return agentURL.String(), nil
 }
 
+// getAgent creates an RPC agent instance that, once started, will connect
+// to its peer which can be either installer process or existing cluster
+func (p *Peer) getAgent(opCtx operationContext) (*rpcserver.PeerServer, error) {
+	agentURL, err := p.agentURL(opCtx)
+	if err != nil {
+		return nil, trace.Wrap(err)
+	}
+	listener, err := net.Listen("tcp", defaults.GravityRPCAgentAddr(p.AdvertiseAddr))
+	if err != nil {
+		return nil, trace.Wrap(err)
+	}
+	defer func() {
+		if err != nil {
+			listener.Close()
+		}
+	}()
+	agent, err := install.StartAgent(agentURL, rpcserver.PeerConfig{
+		Config: rpcserver.Config{
+			Listener:      listener,
+			Credentials:   opCtx.Creds,
+			RuntimeConfig: p.RuntimeConfig,
+		},
+		WatchCh: p.WatchCh,
+		ReconnectStrategy: rpcserver.ReconnectStrategy{
+			ShouldReconnect: utils.ShouldReconnectPeer,
+		},
+	}, p.WithField("peer", listener.Addr().String()))
+	if err != nil {
+		return nil, trace.Wrap(err)
+	}
+	// make sure that connection to the RPC server can be established
+	ctx, cancel := context.WithTimeout(p.Context, defaults.PeerConnectTimeout)
+	defer cancel()
+	err = agent.ValidateConnection(ctx)
+	if err != nil {
+		return agent, trace.Wrap(err)
+	}
+	return agent, nil
+}
+
 func (p *Peer) run() error {
 	ctx, err := p.connect()
 	if err != nil {
@@ -485,50 +525,51 @@ func (p *Peer) run() error {
 		return trace.Wrap(err)
 	}
 
-	agentURL, err := p.agentURL(*ctx)
+	// schedule cleanup function in case anything goes wrong before
+	// the operation can start
+	defer func() {
+		if err == nil {
+			return
+		}
+		p.Warnf("Peer is exiting with error: %v.", trace.DebugReport(err))
+		stopCtx, cancel := context.WithTimeout(p.Context, defaults.AgentStopTimeout)
+		defer cancel()
+		p.Warn("Stopping peer.")
+		if err := p.Stop(stopCtx); err != nil {
+			p.Errorf("Failed to stop peer: %v.", trace.DebugReport(err))
+		}
+		// in case of join via CLI the operation has already been created
+		// above but the agent failed to connect so we're deleting the
+		// operation because from user's perspective it hasn't started
+		//
+		// in case of join via UI the peer is joining to the existing
+		// operation created via UI so we're not touching it and the
+		// user can cancel it in the UI
+		if p.OperationID == "" { // operation ID is given in UI usecase
+			p.Warnf("Cleaning up unstarted operation %v.", ctx.Operation)
+			if err := ctx.Operator.DeleteSiteOperation(ctx.Operation.Key()); err != nil {
+				p.Errorf("Failed to delete unstarted operation: %v.",
+					trace.DebugReport(err))
+			}
+		}
+	}()
+
+	p.agent, err = p.getAgent(*ctx)
 	if err != nil {
 		return trace.Wrap(err)
 	}
 
-	listener, err := net.Listen("tcp", defaults.GravityRPCAgentAddr(p.AdvertiseAddr))
-	if err != nil {
-		return trace.Wrap(err)
-	}
-
-	config := rpcserver.PeerConfig{
-		Config: rpcserver.Config{
-			Listener:      listener,
-			Credentials:   ctx.Creds,
-			RuntimeConfig: p.RuntimeConfig,
-		},
-		WatchCh: p.WatchCh,
-		ReconnectStrategy: rpcserver.ReconnectStrategy{
-			ShouldReconnect: utils.ShouldReconnectPeer,
-		},
-	}
-
-	agent, err := install.StartAgent(agentURL, config, p.WithField("peer", listener.Addr().String()))
-	if err != nil {
-		listener.Close()
-		return trace.Wrap(err)
-	}
-
-	p.agent = agent
-	p.agentDoneCh = agent.Done()
-	go agent.Serve()
+	p.agentDoneCh = p.agent.Done()
+	go p.agent.Serve()
 
 	if ctx.Operation.Type == ops.OperationExpand {
 		err = p.startExpandOperation(*ctx)
 		if err != nil {
-			agent.Stop(p.Context)
-			if err := ctx.Operator.DeleteSiteOperation(ctx.Operation.Key()); err != nil {
-				p.Errorf("failed to delete operation: %v", trace.DebugReport(err))
-			}
 			return trace.Wrap(err)
 		}
 	}
 
-	install.PollProgress(p.Context, p.send, ctx.Operator, ctx.Operation.Key(), agent.Done())
+	install.PollProgress(p.Context, p.send, ctx.Operator, ctx.Operation.Key(), p.agent.Done())
 	return nil
 }
 
@@ -537,7 +578,11 @@ func (p *Peer) Stop(ctx context.Context) error {
 	if p.agent == nil {
 		return nil
 	}
-	return trace.Wrap(p.agent.Stop(ctx))
+	err := p.agent.Stop(ctx)
+	if err != nil {
+		return trace.Wrap(err)
+	}
+	return nil
 }
 
 // waitForOperation blocks until the join operation is not ready

@@ -31,7 +31,7 @@ import (
 
 // NewTestPeer creates a new peer instance for tests
 func NewTestPeer(c *C, config PeerConfig, serverAddr string, log log.FieldLogger,
-	cmd commandExecutor, sysinfo TestSystemInfo) *peerServer {
+	cmd commandExecutor, sysinfo TestSystemInfo) *PeerServer {
 	if config.Credentials.IsEmpty() {
 		config.Credentials = TestCredentials(c)
 	}

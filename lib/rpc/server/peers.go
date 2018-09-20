@@ -78,6 +78,29 @@ func (r *peers) start() {
 	go r.monitorPeers()
 }
 
+// validateConnection makes sure connection to all peers can be established
+func (r *peers) validateConnection(ctx context.Context) error {
+	r.RLock()
+	defer r.RUnlock()
+	var errors []error
+	for _, p := range r.peers {
+		errors = append(errors, r.tryPeer(ctx, p))
+	}
+	return trace.NewAggregate(errors...)
+}
+
+// tryPeer tests connection to the provided peer
+func (r *peers) tryPeer(ctx context.Context, peer *peer) error {
+	client, err := peer.Reconnect(ctx)
+	if err != nil {
+		return trace.Wrap(err, "RPC agent could not connect to %v", peer.Addr())
+	}
+	if err := client.Close(); err != nil {
+		r.WithField("peer", peer).Warnf("Failed to close client: %v.", err)
+	}
+	return nil
+}
+
 func (r *peers) monitorPeers() {
 	log := r.WithField("health.checker", r)
 	log.Info("Monitoring peers.")
