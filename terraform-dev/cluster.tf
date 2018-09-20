@@ -81,6 +81,9 @@ resource "libvirt_cloudinit" "commoninit" {
     - content: |
         net.ipv4.ip_forward=1
       path: /etc/sysctl.d/10-ipv4-forwarding-on.conf
+    - content: |
+        fs.may_detach_mounts=1
+      path: /etc/sysctl.d/10-fs-may-detach-mounts.conf
     runcmd:
     - 'modprobe overlay'
     - 'modprobe br_netfilter'
