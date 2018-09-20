@@ -75,7 +75,7 @@ func RegisterCommands(app *kingpin.Application) *Application {
 	g.InstallCmd.DNSListenAddrs = g.InstallCmd.Flag("dns-listen-addr", "Custom listen address for dnsmasq").Default(defaults.DNSListenAddr).IPList()
 	g.InstallCmd.DNSPort = g.InstallCmd.Flag("dns-port", "Custom DNS port for dnsmasq").Default(strconv.Itoa(defaults.DNSPort)).Int()
 	g.InstallCmd.DockerStorageDriver = DockerStorageDriver(g.InstallCmd.Flag("storage-driver",
-		fmt.Sprintf("Docker storage driver, overrides the one from app manifest. Recognized are: %v", strings.Join(constants.DockerSupportedDrivers, ", "))))
+		fmt.Sprintf("Docker storage driver, overrides the one from app manifest. Recognized are: %v", strings.Join(constants.DockerSupportedDrivers, ", "))), constants.DockerSupportedDrivers)
 	g.InstallCmd.DockerArgs = g.InstallCmd.Flag("docker-opt", "Additional arguments to docker. Can be specified multiple times").Strings()
 	g.InstallCmd.Phase = g.InstallCmd.Flag("phase", "Execute an install plan phase").String()
 	g.InstallCmd.PhaseTimeout = g.InstallCmd.Flag("timeout", "Phase execution timeout").Default(defaults.PhaseTimeout).Hidden().Duration()
@@ -154,8 +154,8 @@ func RegisterCommands(app *kingpin.Application) *Application {
 	g.UpdateTriggerCmd.DockerStorageDriver = DockerStorageDriver(
 		g.UpdateTriggerCmd.Flag("docker-storage-driver",
 			fmt.Sprintf("Override Docker storage driver. Recognized drivers: %v",
-				strings.Join(constants.DockerSupportedDrivers, ", "),
-			)))
+				strings.Join(constants.DockerSupportedTargetDrivers, ", "),
+			)), constants.DockerSupportedTargetDrivers)
 	g.UpdateTriggerCmd.DockerArgs = g.UpdateTriggerCmd.Flag("docker-opt", "Additional arguments to Docker. Can be specified multiple times").Strings()
 
 	// upgrade is aliased to "update trigger"
@@ -171,8 +171,8 @@ func RegisterCommands(app *kingpin.Application) *Application {
 	g.UpgradeCmd.DockerStorageDriver = DockerStorageDriver(
 		g.UpgradeCmd.Flag("docker-storage-driver",
 			fmt.Sprintf("Override Docker storage driver. Recognized drivers: %v",
-				strings.Join(constants.DockerSupportedDrivers, ", "),
-			)))
+				strings.Join(constants.DockerSupportedTargetDrivers, ", "),
+			)), constants.DockerSupportedTargetDrivers)
 	g.UpgradeCmd.DockerArgs = g.UpgradeCmd.Flag("docker-options", "Additional arguments to Docker. Can be specified multiple times").Strings()
 
 	g.UpdateUploadCmd.CmdClause = g.UpdateCmd.Command("upload", "Upload update package to locally running site").Hidden()
@@ -675,19 +675,19 @@ func Locator(s kingpin.Settings) *loc.Locator {
 
 // DockerStorageDriver defines a command line flag that recognizes
 // Docker storage drivers
-func DockerStorageDriver(s kingpin.Settings) *string {
-	driver := new(string)
-	s.SetValue((*dockerStorageDriver)(driver))
+func DockerStorageDriver(s kingpin.Settings, allowed []string) *dockerStorageDriver {
+	driver := &dockerStorageDriver{allowed: allowed}
+	s.SetValue(driver)
 	return driver
 }
 
 // Set validates value as a Docker storage driver
 func (r *dockerStorageDriver) Set(value string) error {
-	if !utils.StringInSlice(constants.DockerSupportedDrivers, value) {
+	if !utils.StringInSlice(r.allowed, value) {
 		return trace.BadParameter("unrecognized docker storage driver %q, supported are: %v",
-			value, constants.DockerSupportedDrivers)
+			value, r.allowed)
 	}
-	*r = dockerStorageDriver(value)
+	r.value = value
 	return nil
 }
 
@@ -696,9 +696,12 @@ func (r *dockerStorageDriver) String() string {
 	if r == nil {
 		return ""
 	}
-	return string(*r)
+	return r.value
 }
 
 // dockerStorageDriver is a string that only accepts recognized
 // Docker storage driver name as a value
-type dockerStorageDriver string
+type dockerStorageDriver struct {
+	allowed []string
+	value   string
+}

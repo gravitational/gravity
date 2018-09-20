@@ -337,7 +337,7 @@ type InstallCmd struct {
 	// DNSPort overrides default DNS port for dnsmasq
 	DNSPort *int
 	// DockerStorageDriver specifies Docker storage driver to use
-	DockerStorageDriver *string
+	DockerStorageDriver *dockerStorageDriver
 	// DockerArgs specifies additional Docker arguments
 	DockerArgs *[]string
 	// Phase specifies the install phase ID to execute
@@ -504,7 +504,7 @@ type UpdateTriggerCmd struct {
 	// Manual starts operation in manual mode
 	Manual *bool
 	// DockerStorageDriver overrides Docker storage driver
-	DockerStorageDriver *string
+	DockerStorageDriver *dockerStorageDriver
 	// DockerArgs specifies additional Docker arguments
 	DockerArgs *[]string
 }
@@ -556,7 +556,7 @@ type UpgradeCmd struct {
 	// SkipVersionCheck suppresses version mismatch errors
 	SkipVersionCheck *bool
 	// DockerStorageDriver overrides Docker storage driver
-	DockerStorageDriver *string
+	DockerStorageDriver *dockerStorageDriver
 	// DockerArgs specifies additional Docker arguments
 	DockerArgs *[]string
 }

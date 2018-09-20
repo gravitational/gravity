@@ -169,10 +169,15 @@ func (m Manifest) HasHook(hook HookType) bool {
 // With no explicit configuration, default docker configuration is returned
 func (m Manifest) Docker(profile NodeProfile) Docker {
 	config := profile.SystemOptions.DockerConfig()
+	systemConfig := m.SystemDocker()
 	if config == nil {
-		config = m.SystemOptions.DockerConfig()
+		config = &systemConfig
 	}
-	return dockerConfigWithDefaults(config)
+	dockerConfig := dockerConfigWithDefaults(config)
+	// We do not support having different Docker storage drivers
+	// per node profile
+	dockerConfig.StorageDriver = systemConfig.StorageDriver
+	return dockerConfig
 }
 
 // SystemDocker returns global docker configuration

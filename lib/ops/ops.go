@@ -825,6 +825,11 @@ func (s *SiteOperation) IsFailed() bool {
 	return s.State == OperationStateFailed
 }
 
+// IsCompleted returns whether the operation has completed successfully
+func (s *SiteOperation) IsCompleted() bool {
+	return s.State == OperationStateCompleted
+}
+
 // IsFinished returns true if the operation has finished (succeeded or failed)
 func (s *SiteOperation) IsFinished() bool {
 	return s.State == OperationStateCompleted || s.State == OperationStateFailed

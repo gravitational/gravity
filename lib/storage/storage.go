@@ -565,6 +565,8 @@ type Site struct {
 	DNSOverrides DNSOverrides `json:"dns_overrides"`
 	// DNSConfig defines cluster local DNS configuration
 	DNSConfig DNSConfig `json:"dns_config"`
+	// Docker specifies cluster Docker configuration
+	Docker DockerConfig `json:"docker"`
 }
 
 func (s *Site) Check() error {
@@ -586,7 +588,7 @@ func (s *Site) Check() error {
 // ClusterState defines the state of the cluster
 type ClusterState struct {
 	// Servers is a list of servers in the cluster
-	Servers []Server `json:"servers"`
+	Servers Servers `json:"servers"`
 }
 type nodeKey struct {
 	profile      string
@@ -1761,10 +1763,10 @@ func (r DockerConfig) IsEmpty() bool {
 	return r.StorageDriver == "" && len(r.Args) == 0
 }
 
-// DockerConfig specifies docker configuration overrides
+// DockerConfig overrides Docker configuration for the cluster
 type DockerConfig struct {
 	// StorageDriver specifies a storage driver to use
-	StorageDriver string `json:"storage_driver"`
+	StorageDriver string `json:"storage_driver,omitempty"`
 	// Args specifies additional options to the docker daemon
 	Args []string `json:"args,omitempty"`
 }

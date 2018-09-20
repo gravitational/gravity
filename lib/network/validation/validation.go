@@ -24,6 +24,7 @@ import (
 	pb "github.com/gravitational/gravity/lib/network/validation/proto"
 	"github.com/gravitational/gravity/lib/schema"
 	"github.com/gravitational/gravity/lib/state"
+	"github.com/gravitational/gravity/lib/storage"
 	"github.com/gravitational/gravity/lib/utils"
 
 	"github.com/gravitational/satellite/agent/health"
@@ -138,16 +139,27 @@ func (_ *Server) Validate(ctx context.Context, req *pb.ValidateRequest) (resp *p
 		return nil, trace.Wrap(err)
 	}
 
+	docker := storage.DockerConfig{StorageDriver: req.Docker.StorageDriver}
 	var failedProbes []*agentpb.Probe
+	var errors []error
 	if req.FullRequirements {
-		failedProbes, err = checks.ValidateManifest(manifest, req.Profile, stateDir)
+		failedProbes, err = checks.ValidateManifest(manifest, *profile, stateDir)
+		if err != nil {
+			errors = append(errors, err)
+		}
+		var failed []*agentpb.Probe
+		failed, err = checks.ValidateDocker(manifest.Docker(*profile), docker, stateDir)
+		failedProbes = append(failedProbes, failed...)
 		failedProbes = append(failedProbes, checks.RunBasicChecks(ctx, req.Options)...)
 	} else {
-		failedProbes, err = validateManifest(*profile, manifest, stateDir)
+		failedProbes, err = validateManifest(*profile, manifest, docker, stateDir)
 		failedProbes = append(failedProbes, runLocalChecks(ctx)...)
 	}
+	if err != nil {
+		errors = append(errors, err)
+	}
 
-	return &pb.ValidateResponse{failedProbes}, trace.Wrap(err)
+	return &pb.ValidateResponse{failedProbes}, trace.NewAggregate(errors...)
 }
 
 func listen(ctx context.Context, server pb.Addr, duration time.Duration) error {
@@ -186,9 +198,14 @@ func computeDiff(expected []*pb.Addr, actual []*pb.ServerResult) (diff []*pb.Add
 // validateManifest validates the node against the specified profile.
 // The profile requirements are skipped as these are only meaningful during
 // installation.
-func validateManifest(profile schema.NodeProfile, manifest schema.Manifest, stateDir string) (failedProbes []*agentpb.Probe, err error) {
+func validateManifest(
+	profile schema.NodeProfile,
+	manifest schema.Manifest,
+	docker storage.DockerConfig,
+	stateDir string,
+) (failedProbes []*agentpb.Probe, err error) {
 	var errors []error
-	failed, err := schema.ValidateDocker(manifest.Docker(profile), stateDir)
+	failed, err := checks.ValidateDocker(manifest.Docker(profile), docker, stateDir)
 	if err != nil {
 		errors = append(errors, trace.Wrap(err,
 			"error validating docker requirements, see syslog for details"))

@@ -121,6 +121,22 @@ func (f *fsmUpdateEngine) Complete(fsmErr error) error {
 		return trace.Wrap(err)
 	}
 
+	if completed {
+		err = f.commitClusterChanges(cluster, *op)
+		if err != nil {
+			return trace.Wrap(err)
+		}
+	}
+	err = f.activateCluster(*cluster)
+	return trace.Wrap(err)
+}
+
+// GetPlan returns an up-to-date plan
+func (f *fsmUpdateEngine) GetPlan() (*storage.OperationPlan, error) {
+	return f.plan, nil
+}
+
+func (f *fsmUpdateEngine) commitClusterChanges(cluster *storage.Site, op ops.SiteOperation) error {
 	updateAppLoc, err := op.Update.Package()
 	if err != nil {
 		return trace.Wrap(err)
@@ -139,30 +155,33 @@ func (f *fsmUpdateEngine) Complete(fsmErr error) error {
 		}
 	}
 
-	cluster.State = ops.SiteStateActive
-	if completed {
-		cluster.App = updateApp.PackageEnvelope.ToPackage()
-		if updateBaseApp != nil {
-			cluster.App.Base = updateBaseApp.PackageEnvelope.ToPackagePtr()
-		}
-	}
-
-	_, err = f.Backend.UpdateSite(*cluster)
+	existingDocker, err := ops.GetExistingDockerConfig(clusterKey(*f.plan),
+		f.Operator, updateApp.Manifest.SystemDocker())
 	if err != nil {
 		return trace.Wrap(err)
 	}
 
-	_, err = f.LocalBackend.UpdateSite(*cluster)
-	if err != nil {
-		return trace.Wrap(err)
+	cluster.App = updateApp.PackageEnvelope.ToPackage()
+	if updateBaseApp != nil {
+		cluster.App.Base = updateBaseApp.PackageEnvelope.ToPackagePtr()
 	}
+	cluster.Docker = *existingDocker
 
 	return nil
 }
 
-// GetPlan returns an up-to-date plan
-func (f *fsmUpdateEngine) GetPlan() (*storage.OperationPlan, error) {
-	return f.plan, nil
+func (f *fsmUpdateEngine) activateCluster(cluster storage.Site) error {
+	cluster.State = ops.SiteStateActive
+	_, err := f.Backend.UpdateSite(cluster)
+	if err != nil {
+		return trace.Wrap(err)
+	}
+
+	_, err = f.LocalBackend.UpdateSite(cluster)
+	if err != nil {
+		return trace.Wrap(err)
+	}
+	return nil
 }
 
 func (f *fsmUpdateEngine) loadPlan() error {
@@ -355,5 +374,12 @@ func clusterOperationKey(plan storage.OperationPlan) ops.SiteOperationKey {
 		SiteDomain:  plan.ClusterName,
 		AccountID:   plan.AccountID,
 		OperationID: plan.OperationID,
+	}
+}
+
+func clusterKey(plan storage.OperationPlan) ops.SiteKey {
+	return ops.SiteKey{
+		SiteDomain: plan.ClusterName,
+		AccountID:  plan.AccountID,
 	}
 }

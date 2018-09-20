@@ -338,6 +338,7 @@ func (p *Peer) runLocalChecks(cluster ops.Site, installOperation ops.SiteOperati
 			DnsAddrs:  cluster.DNSConfig.Addrs,
 			DnsPort:   int32(cluster.DNSConfig.Port),
 		},
+		Docker:  installOperation.GetVars().System.Docker,
 		AutoFix: true,
 	})
 }

@@ -87,7 +87,7 @@ func updateTrigger(
 		return trace.Wrap(err)
 	}
 
-	err = checkCanUpdate(*cluster)
+	err = checkCanUpdate(*cluster, operator, app.Manifest, docker)
 	if err != nil {
 		return trace.Wrap(err)
 	}
@@ -181,13 +181,13 @@ will be returned to the "active" state.
 	return nil
 }
 
-func checkCanUpdate(site ops.Site) error {
-	gravityPackage, err := site.App.Manifest.Dependencies.ByName(constants.GravityPackage)
+func checkCanUpdate(cluster ops.Site, operator ops.Operator, manifest schema.Manifest, docker storage.DockerConfig) error {
+	existingGravityPackage, err := cluster.App.Manifest.Dependencies.ByName(constants.GravityPackage)
 	if err != nil {
 		return trace.Wrap(err)
 	}
 
-	supportsUpdate, err := supportsUpdate(*gravityPackage)
+	supportsUpdate, err := supportsUpdate(*existingGravityPackage)
 	if err != nil {
 		return trace.Wrap(err)
 	}
@@ -195,8 +195,28 @@ func checkCanUpdate(site ops.Site) error {
 		return trace.BadParameter(`
 Installed runtime version (%q) is too old and cannot be updated by this package.
 Please update this installation to a minimum required runtime version (%q) before using this update.`,
-			gravityPackage.Version, defaults.BaseUpdateVersion)
+			existingGravityPackage.Version, defaults.BaseUpdateVersion)
 	}
+
+	manifestDocker := manifest.SystemDocker()
+	existingManifestDocker := cluster.App.Manifest.SystemDocker()
+	existingDocker, err := ops.GetExistingDockerConfig(cluster.Key(), operator, existingManifestDocker)
+	if err != nil {
+		return trace.Wrap(err)
+	}
+
+	storageDriver := manifestDocker.StorageDriver
+	if docker.StorageDriver != "" {
+		storageDriver = docker.StorageDriver
+	}
+
+	if docker.StorageDriver != existingDocker.StorageDriver &&
+		!utils.StringInSlice(constants.DockerSupportedTargetDrivers, storageDriver) {
+		return trace.BadParameter(`Updating Docker storage driver to %q is not supported.
+The storage driver can only be updated to one of %q.
+`, storageDriver, constants.DockerSupportedTargetDrivers)
+	}
+
 	return nil
 }
 

@@ -830,7 +830,7 @@ func (s *site) configurePlanetMaster(
 	config planetConfig,
 	secretsPackage, configPackage loc.Locator,
 ) error {
-	if server := installOrExpand.InstallExpand.Servers.FindByIP(master.AdvertiseIP); server != nil {
+	if server := s.backendSite.ClusterState.Servers.FindByIP(master.AdvertiseIP); server != nil {
 		config.dockerRuntime = server.Docker
 	}
 
@@ -1707,10 +1707,6 @@ func (s *site) selectDockerConfig(operation ops.SiteOperation, profileName strin
 		if !operation.Update.Docker.IsEmpty() {
 			config = operation.Update.Docker
 		}
-		if !config.IsEmpty() {
-			break
-		}
-		fallthrough
 	default:
 		// for other operations, use the install operation state
 		installOperation, err := ops.GetCompletedInstallOperation(s.key, s.service)

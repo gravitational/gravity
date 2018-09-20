@@ -93,7 +93,7 @@ func (s *site) configurePlanetOnNode(
 
 	var dockerRuntime storage.Docker
 	if docker.StorageDriver == constants.DockerStorageDriverDevicemapper {
-		server := ctx.update.installOp.InstallExpand.Servers.FindByIP(node.AdvertiseIP)
+		server := s.backendSite.ClusterState.Servers.FindByIP(node.AdvertiseIP)
 		if server != nil {
 			dockerRuntime = server.Docker
 			if dockerRuntime.LVMSystemDirectory == "" {
@@ -117,15 +117,10 @@ func (s *site) configurePlanetOnNode(
 	}
 	log.Debugf("Created new planet configuration package %v for %v.", configPackage, node)
 
-	profile, err := ctx.update.app.Manifest.NodeProfiles.ByName(node.Role)
-	if err != nil {
-		return nil, trace.Wrap(err)
-	}
-
 	config := planetConfig{
 		master:        masterConfig{addr: ctx.update.masterIP},
 		etcd:          etcd,
-		docker:        ctx.update.app.Manifest.Docker(*profile),
+		docker:        *docker,
 		dockerRuntime: dockerRuntime,
 		planetPackage: *planetPackage,
 		configPackage: *configPackage,

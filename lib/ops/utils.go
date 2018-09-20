@@ -25,6 +25,7 @@ import (
 	"github.com/gravitational/gravity/lib/defaults"
 	"github.com/gravitational/gravity/lib/pack"
 	"github.com/gravitational/gravity/lib/pack/encryptedpack"
+	"github.com/gravitational/gravity/lib/schema"
 	"github.com/gravitational/gravity/lib/storage"
 
 	licenseapi "github.com/gravitational/license"
@@ -33,42 +34,40 @@ import (
 
 // GetInstallOperation returns an install operation for the specified siteKey
 func GetInstallOperation(siteKey SiteKey, operator Operator) (op *SiteOperation, progress *ProgressEntry, err error) {
-	operations, err := operator.GetSiteOperations(siteKey)
+	op, progress, err = MatchOperation(siteKey, operator, MatchByType(OperationInstall))
 	if err != nil {
+		if trace.IsNotFound(err) {
+			return nil, nil, trace.NotFound("no install operation for %v found", siteKey)
+		}
 		return nil, nil, trace.Wrap(err)
 	}
-	for _, op := range operations {
-		if op.Type != OperationInstall {
-			continue
-		}
-		operation := (*SiteOperation)(&op)
-		entry, err := operator.GetSiteOperationProgress(operation.Key())
-		if err != nil {
-			return nil, nil, trace.Wrap(err)
-		}
-		return operation, entry, nil
-	}
-	return nil, nil, trace.NotFound("no install operation for %v found", siteKey)
+	return op, progress, nil
 }
 
 // GetLastUninstallOperation returns the last uninstall operation for the specified siteKey
 func GetLastUninstallOperation(siteKey SiteKey, operator Operator) (op *SiteOperation, progress *ProgressEntry, err error) {
-	operations, err := operator.GetSiteOperations(siteKey)
+	op, progress, err = MatchOperation(siteKey, operator, MatchByType(OperationUninstall))
 	if err != nil {
+		if trace.IsNotFound(err) {
+			return nil, nil, trace.NotFound("no uninstall operation for %v found", siteKey)
+		}
 		return nil, nil, trace.Wrap(err)
 	}
-	for _, op := range operations {
-		if op.Type != OperationUninstall {
-			continue
+	return op, progress, nil
+}
+
+// GetLastCompletedUpdateOperation returns the last completed update operation
+func GetLastCompletedUpdateOperation(siteKey SiteKey, operator Operator) (op *SiteOperation, err error) {
+	op, _, err = MatchOperation(siteKey, operator, func(op SiteOperation) bool {
+		return op.Type == OperationUpdate && op.IsCompleted()
+	})
+	if err != nil {
+		if trace.IsNotFound(err) {
+			return nil, trace.NotFound("no update operation for %v found", siteKey)
 		}
-		operation := (*SiteOperation)(&op)
-		entry, err := operator.GetSiteOperationProgress(operation.Key())
-		if err != nil {
-			return nil, nil, trace.Wrap(err)
-		}
-		return operation, entry, nil
+		return nil, trace.Wrap(err)
 	}
-	return nil, nil, trace.NotFound("no uninstall operation for %v found", siteKey)
+	return op, nil
 }
 
 // GetCompletedInstallOperation returns a completed install operation for the specified site
@@ -197,6 +196,27 @@ func GetActiveOperationsByType(key SiteKey, operator Operator, opType string) (r
 	return result, nil
 }
 
+// MatchOperation returns an operation that matches given match function.
+// Returns trace.NotFound if no operation matches
+func MatchOperation(siteKey SiteKey, operator Operator, match OperationMatcher) (op *SiteOperation, progress *ProgressEntry, err error) {
+	operations, err := operator.GetSiteOperations(siteKey)
+	if err != nil {
+		return nil, nil, trace.Wrap(err)
+	}
+	for _, op := range operations {
+		if !match(SiteOperation(op)) {
+			continue
+		}
+		operation := (*SiteOperation)(&op)
+		entry, err := operator.GetSiteOperationProgress(operation.Key())
+		if err != nil {
+			return nil, nil, trace.Wrap(err)
+		}
+		return operation, entry, nil
+	}
+	return nil, nil, trace.NotFound("no operation for %v found", siteKey)
+}
+
 // GetWizardOperation returns the install operation assuming that the
 // provided operator talks to an install wizard process
 func GetWizardOperation(operator Operator) (*SiteOperation, error) {
@@ -299,4 +319,49 @@ func GetExpandOperation(backend storage.Backend) (*storage.SiteOperation, error)
 		}
 	}
 	return nil, trace.NotFound("expand operation not found")
+}
+
+// MatchByType returns an OperationMatcher to match operations by type
+func MatchByType(opType string) OperationMatcher {
+	return func(op SiteOperation) bool {
+		return op.Type == opType
+	}
+}
+
+// OperationMatcher is a function type that matches the given operation
+type OperationMatcher func(SiteOperation) bool
+
+// GetExistingDockerConfig returns existing cluster Docker configuration
+func GetExistingDockerConfig(
+	clusterKey SiteKey,
+	operator Operator,
+	manifestDocker schema.Docker,
+) (config *storage.DockerConfig, err error) {
+	config = &storage.DockerConfig{
+		StorageDriver: manifestDocker.StorageDriver,
+		Args:          manifestDocker.Args,
+	}
+
+	installOperation, err := GetCompletedInstallOperation(clusterKey, operator)
+	if err != nil {
+		return nil, trace.Wrap(err)
+	}
+	installDocker := installOperation.InstallExpand.Vars.System.Docker
+	if installDocker.StorageDriver != "" {
+		config.StorageDriver = installDocker.StorageDriver
+	}
+	config.Args = append(config.Args, installDocker.Args...)
+
+	updateOperation, err := GetLastCompletedUpdateOperation(clusterKey, operator)
+	if err != nil && !trace.IsNotFound(err) {
+		return nil, trace.Wrap(err)
+	}
+	if updateOperation != nil &&
+		updateOperation.Update != nil &&
+		updateOperation.Update.Docker.StorageDriver != "" {
+		config.StorageDriver = updateOperation.Update.Docker.StorageDriver
+		config.Args = append(config.Args, updateOperation.Update.Docker.Args...)
+	}
+
+	return config, nil
 }

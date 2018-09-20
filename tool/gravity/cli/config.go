@@ -142,7 +142,7 @@ func NewInstallConfig(g *Application) InstallConfig {
 		ServiceCIDR:   *g.InstallCmd.ServiceCIDR,
 		VxlanPort:     *g.InstallCmd.VxlanPort,
 		Docker: storage.DockerConfig{
-			StorageDriver: *g.InstallCmd.DockerStorageDriver,
+			StorageDriver: g.InstallCmd.DockerStorageDriver.value,
 			Args:          *g.InstallCmd.DockerArgs,
 		},
 		DNSConfig:  g.InstallCmd.DNSConfig(),
