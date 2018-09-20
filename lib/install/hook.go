@@ -27,13 +27,12 @@ import (
 )
 
 // InitLogging initalizes logging for local installer
-func InitLogging(logFile string) error {
+func InitLogging(logFile string) {
 	log.StandardLogger().Hooks.Add(&Hook{
 		path: logFile,
 	})
 	log.SetLevel(log.DebugLevel)
 	log.SetOutput(ioutil.Discard)
-	return nil
 }
 
 // Hook implements log.Hook and multiplexes log messages

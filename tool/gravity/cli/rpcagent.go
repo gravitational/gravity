@@ -28,7 +28,6 @@ import (
 	"github.com/gravitational/gravity/lib/constants"
 	"github.com/gravitational/gravity/lib/defaults"
 	"github.com/gravitational/gravity/lib/fsm"
-	"github.com/gravitational/gravity/lib/install"
 	"github.com/gravitational/gravity/lib/loc"
 	"github.com/gravitational/gravity/lib/localenv"
 	"github.com/gravitational/gravity/lib/pack"
@@ -61,12 +60,7 @@ func rpcAgentInstall(env *localenv.LocalEnvironment, args []string) error {
 }
 
 // rpcAgentRun runs a local agent executing the function specified with optional args
-func rpcAgentRun(localEnv, upgradeEnv *localenv.LocalEnvironment, args []string, systemLogFile string) error {
-	err := install.InitLogging(systemLogFile)
-	if err != nil {
-		return trace.Wrap(err)
-	}
-
+func rpcAgentRun(localEnv, upgradeEnv *localenv.LocalEnvironment, args []string) error {
 	server, err := startAgent()
 	if err != nil {
 		return trace.Wrap(err)
@@ -371,4 +365,5 @@ type deployAgentsRequest struct {
 	clusterName  string
 	proxy        *teleclient.ProxyClient
 	leaderParams []string
+	leader       *storage.Server
 }

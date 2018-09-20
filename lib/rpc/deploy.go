@@ -61,6 +61,45 @@ type DeployAgentsRequest struct {
 	// LeaderParams defines which parameters to pass to the leader agent process.
 	// The leader agent is responsible for driving the automatic update
 	LeaderParams []string
+
+	// Leader is the node where the leader agent should be launched
+	//
+	// If not set, the first master node will serve as a leader
+	Leader *storage.Server
+}
+
+// Check validates the request to deploy agents
+func (r DeployAgentsRequest) Check() error {
+	// if the leader node was explicitly passed, make sure
+	// it is present among the deploy nodes
+	if r.Leader != nil && len(r.LeaderParams) != 0 {
+		leaderPresent := false
+		for _, node := range r.Servers {
+			if node.AdvertiseIP == r.Leader.AdvertiseIP {
+				leaderPresent = true
+				break
+			}
+		}
+		if !leaderPresent {
+			return trace.NotFound("requested leader node %v was not found among deploy servers: %v",
+				r.Leader.AdvertiseIP, r.Servers)
+		}
+	}
+	return nil
+}
+
+// canBeLeader returns true if the provided node can run leader agent
+func (r DeployAgentsRequest) canBeLeader(node DeployServer) bool {
+	// if there are no leader-specific parameters, there is no leader agent
+	if len(r.LeaderParams) == 0 {
+		return false
+	}
+	// if no specific leader node was requested, any master will do
+	if r.Leader == nil {
+		return node.Role == schema.ServiceRoleMaster
+	}
+	// otherwise see if this is the requested leader node
+	return r.Leader.AdvertiseIP == node.AdvertiseIP
 }
 
 // DeployAgents uses teleport to discover cluster nodes, distribute and run RPC agents
@@ -68,11 +107,14 @@ type DeployAgentsRequest struct {
 // One of the master nodes is selected to control the automatic update operation specified
 // with req.LeaderParams.
 func DeployAgents(ctx context.Context, req DeployAgentsRequest) error {
+	if err := req.Check(); err != nil {
+		return trace.Wrap(err)
+	}
 	errors := make(chan error, len(req.Servers))
 	leaderProcessScheduled := false
 	for _, server := range req.Servers {
 		leaderProcess := false
-		if !leaderProcessScheduled && len(req.LeaderParams) > 0 && server.Role == schema.ServiceRoleMaster {
+		if !leaderProcessScheduled && req.canBeLeader(server) {
 			leaderProcess = true
 			leaderProcessScheduled = true
 			req.WithField("args", req.LeaderParams).

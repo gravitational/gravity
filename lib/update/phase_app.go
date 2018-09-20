@@ -193,24 +193,28 @@ func (p *phaseApp) runHooks(ctx context.Context, hooks ...schema.HookType) error
 			return trace.Wrap(err)
 		}
 		reader, writer := io.Pipe()
-		go func() {
-			defer reader.Close()
-			scanner := bufio.NewScanner(reader)
-			for scanner.Scan() {
-				log.WithField(trace.Component, "hook").Info(scanner.Text())
-			}
-			if err := scanner.Err(); err != nil {
-				log.Warnf("Failed to stream hook logs: %v.", err)
-			}
-		}()
+		defer writer.Close()
+		go streamHook(hook, reader)
 		_, err = app.StreamAppHook(ctx, p.Apps, req, writer)
 		if err != nil {
 			return trace.Wrap(err, "%v %s hook failed", p.Package, hook)
 		}
-		err = writer.Close()
-		if err != nil {
-			log.Warnf("Failed to close pipe writer: %v.", err)
-		}
 	}
 	return nil
+}
+
+func streamHook(hook schema.HookType, reader io.ReadCloser) {
+	defer reader.Close()
+	scanner := bufio.NewScanner(reader)
+	logger := log.WithFields(log.Fields{
+		trace.Component: "hook",
+		"hook":          string(hook),
+	})
+	for scanner.Scan() {
+		logger.Info(scanner.Text())
+	}
+	err := scanner.Err()
+	if err != nil {
+		logger.Warnf("Failed to stream hook logs: %v.", err)
+	}
 }

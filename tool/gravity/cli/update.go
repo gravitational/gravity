@@ -24,7 +24,6 @@ import (
 	"github.com/gravitational/gravity/lib/constants"
 	"github.com/gravitational/gravity/lib/defaults"
 	"github.com/gravitational/gravity/lib/httplib"
-	"github.com/gravitational/gravity/lib/install"
 	"github.com/gravitational/gravity/lib/loc"
 	"github.com/gravitational/gravity/lib/localenv"
 	"github.com/gravitational/gravity/lib/ops"
@@ -53,13 +52,7 @@ func updateTrigger(
 	upgradeEnv *localenv.LocalEnvironment,
 	appPackage string,
 	manual bool,
-	systemLogFile string,
 ) error {
-	err := install.InitLogging(systemLogFile)
-	if err != nil {
-		return trace.Wrap(err)
-	}
-
 	operator, err := localEnv.SiteOperator()
 	if err != nil {
 		return trace.Wrap(err)
@@ -132,6 +125,13 @@ func updateTrigger(
 
 	if !manual {
 		req.leaderParams = []string{constants.RpcAgentUpgradeFunction}
+		// attempt to schedule the master agent on this node but do not
+		// treat the failure to do so as critical
+		req.leader, err = findLocalServer(*cluster)
+		if err != nil {
+			log.Errorf("Failed to determine local node: %v.",
+				trace.DebugReport(err))
+		}
 	}
 
 	ctx := context.TODO()

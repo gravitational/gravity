@@ -123,10 +123,8 @@ func Join(env, joinEnv *localenv.LocalEnvironment, j JoinConfig) error {
 }
 
 type leaveConfig struct {
-	force         bool
-	confirmed     bool
-	systemLogFile string
-	userLogFile   string
+	force     bool
+	confirmed bool
 }
 
 func leave(env *localenv.LocalEnvironment, c leaveConfig) error {
@@ -147,10 +145,6 @@ func leave(env *localenv.LocalEnvironment, c leaveConfig) error {
 
 func tryLeave(env *localenv.LocalEnvironment, c leaveConfig) error {
 	if err := checkRunningAsRoot(); err != nil {
-		return trace.Wrap(err)
-	}
-
-	if err := install.InitLogging(c.systemLogFile); err != nil {
 		return trace.Wrap(err)
 	}
 
@@ -185,11 +179,9 @@ func tryLeave(env *localenv.LocalEnvironment, c leaveConfig) error {
 	}
 
 	err = remove(env, removeConfig{
-		server:        server.Hostname,
-		confirmed:     true,
-		force:         c.force,
-		systemLogFile: c.systemLogFile,
-		userLogFile:   c.userLogFile,
+		server:    server.Hostname,
+		confirmed: true,
+		force:     c.force,
 	})
 	if err != nil {
 		return trace.BadParameter(
@@ -207,11 +199,9 @@ func (r *removeConfig) checkAndSetDefaults() error {
 }
 
 type removeConfig struct {
-	server        string
-	force         bool
-	confirmed     bool
-	systemLogFile string
-	userLogFile   string
+	server    string
+	force     bool
+	confirmed bool
 }
 
 func remove(env *localenv.LocalEnvironment, c removeConfig) error {
@@ -220,10 +210,6 @@ func remove(env *localenv.LocalEnvironment, c removeConfig) error {
 	}
 
 	if err := c.checkAndSetDefaults(); err != nil {
-		return trace.Wrap(err)
-	}
-
-	if err := install.InitLogging(c.systemLogFile); err != nil {
 		return trace.Wrap(err)
 	}
 
@@ -353,10 +339,6 @@ func agent(env *localenv.LocalEnvironment, config agentConfig, serviceName strin
 	}
 
 	if err := config.checkAndSetDefaults(); err != nil {
-		return trace.Wrap(err)
-	}
-
-	if err := install.InitLogging(config.systemLogFile); err != nil {
 		return trace.Wrap(err)
 	}
 

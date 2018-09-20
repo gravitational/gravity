@@ -60,8 +60,6 @@ type PeerConfig struct {
 	Context context.Context
 	// Cancel can be used to cancel the context above
 	Cancel context.CancelFunc
-	// SystemLogFile is the telekube-system.log file path
-	SystemLogFile string
 	// AdvertiseAddr is advertise addr of this node
 	AdvertiseAddr string
 	// ServerAddr is optional address of the agent server.
@@ -158,9 +156,6 @@ func NewPeer(cfg PeerConfig) (*Peer, error) {
 
 // Init initializes the peer
 func (p *Peer) Init() error {
-	if err := install.InitLogging(p.SystemLogFile); err != nil {
-		return trace.Wrap(err)
-	}
 	if err := p.bootstrap(); err != nil {
 		return trace.Wrap(err)
 	}

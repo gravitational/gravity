@@ -35,10 +35,7 @@ func InitProcess(ctx context.Context, installerConfig Config, gravityConfig proc
 	if err != nil {
 		return nil, trace.Wrap(err)
 	}
-	err = InitLogging(installerConfig.SystemLogFile)
-	if err != nil {
-		return nil, trace.Wrap(err)
-	}
+	InitLogging(installerConfig.SystemLogFile)
 	err = p.InitRPCCredentials()
 	if err != nil {
 		return nil, trace.Wrap(err)
