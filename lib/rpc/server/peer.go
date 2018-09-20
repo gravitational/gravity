@@ -173,8 +173,8 @@ func (r *PeerServer) Serve() error {
 	return r.agentServer.Serve()
 }
 
-// Check makes sure that connection to the control server can be established
-func (r *PeerServer) Check(ctx context.Context) error {
+// ValidateConnection makes sure that connection to the control server can be established
+func (r *PeerServer) ValidateConnection(ctx context.Context) error {
 	return r.peers.validateConnection(ctx)
 }
 

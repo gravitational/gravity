@@ -502,7 +502,7 @@ func (p *Peer) getAgent(opCtx operationContext) (*rpcserver.PeerServer, error) {
 	// make sure that connection to the RPC server can be established
 	ctx, cancel := context.WithTimeout(p.Context, defaults.PeerConnectTimeout)
 	defer cancel()
-	err = agent.Check(ctx)
+	err = agent.ValidateConnection(ctx)
 	if err != nil {
 		return agent, trace.Wrap(err)
 	}
