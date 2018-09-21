@@ -1,6 +1,7 @@
 # Gravity
 
-Gravity is an opinionated configuration of [upstream Kubernetes](https://kubernetes.io/), along with tooling to improve compliance, security, simplicity and reduce operational overhead.
+Gravity is an [upstream Kubernetes](https://kubernetes.io/) packaging solution
+that takes the drama out of on-premise deployments.
 
 |Project Links| Description
 |---|----
@@ -11,12 +12,18 @@ Gravity is an opinionated configuration of [upstream Kubernetes](https://kuberne
 ## Introduction
 
 Gravity is an open source tooklit for creating "snapshots" of Kubernetes
-clusters and the applications running inside the clusters. The resulting snapshots are called
-*application bundles*. 
+clusters and the applications running inside the clusters. The resulting
+snapshots are called *application bundles*.
 
 An application bundle can be used to re-create full replicas of the original
-cluster in any environment where compliance and consistency matters, even in air-gapped server
-rooms.
+cluster in any environment where compliance and consistency matters, even in
+air-gapped server rooms. A bundle can run without human supervision, as a
+"kubernetes appliance".
+
+Gravity has been running in production in major financial institutions, 
+government data centers and enterprises as part of a proprietary product 
+called [Telekube](https://gravitational.com/telekube). 
+Gravitational open sourced it in the fall of 2018.
 
 ## Gravity vs ...
 
@@ -41,16 +48,19 @@ on compliance and autonomous operations:
 
 ## Who is Gravity for?
 
-We have seen three primary use cases for using a snapshot-based Kubernetes approach
+We have seen the primary use cases for using a snapshot-based Kubernetes approach
 (there may be others):
 
 * Deploying complex SaaS applications into on-premise enterprise environments.
-* Managing many idempotent Kubernetes clusters in environments where
-  compliance and security matters. An example would be if you want the same,
-  compliant Kubernetes environment across a variety of organizations or infrastructure
+* Managing many idempotent Kubernetes clusters in environments where compliance
+  and security matters. An example would be if you want the same, compliant
+  Kubernetes environment across a variety of organizations or infrastructure
   environments.
 * Environments where autonomous Kubernetes is required, such as large multi-node
   hardware appliances, production floors, edge deployments, etc.
+* Anyone who needs Kubernetes best practices out of the box, without having to
+  proactively manage it, can benefit from Gravity. Focus on building your
+  product instead of managing Kubernetes.
 
 ## Application Bundles
 
