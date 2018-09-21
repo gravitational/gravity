@@ -82,6 +82,8 @@ message ValidateRequest {
     bool full_requirements = 3;
     // ValidateOptions is additional validation options
     ValidateOptions options = 4;
+    // Docker specifies the Docker configuration to validate
+    Docker docker = 5;
 }
 
 // ValidateResponse describes a validation response
@@ -98,4 +100,10 @@ message ValidateOptions {
     repeated string dns_addrs = 2;
     // DnsPort specifies the DNS port for dnsmasq
     int32 dns_port = 3;
+}
+
+// Docker groups Docker-relevant attributes to validate
+message Docker {
+    // StorageDriver specifies the Docker storage driver
+    string storage_driver = 1;
 }

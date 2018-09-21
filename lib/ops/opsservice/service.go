@@ -548,6 +548,9 @@ func (o *Operator) CreateSite(r ops.NewSiteRequest) (*ops.Site, error) {
 		CloudConfig:  r.CloudConfig,
 		DNSOverrides: r.DNSOverrides,
 		DNSConfig:    r.DNSConfig,
+		ClusterState: storage.ClusterState{
+			Docker: r.Docker,
+		},
 	}
 	if runtimeLoc := app.Manifest.Base(); runtimeLoc != nil {
 		runtimeApp, err := o.cfg.Apps.GetApp(*runtimeLoc)
@@ -812,8 +815,10 @@ func (o *Operator) DeleteSiteOperation(key ops.SiteOperationKey) (err error) {
 		log.Warnf("Failed to set cluster %v state to %q: %v.", cluster, ops.SiteStateActive, errState)
 	}
 
-	if err := cluster.agentService().StopAgents(context.TODO(), key); err != nil && !trace.IsNotFound(err) {
-		log.Warnf("Failed to clean up agents for %v: %v.", key, trace.UserMessage(err))
+	if cluster.agentService() != nil {
+		if err := cluster.agentService().StopAgents(context.TODO(), key); err != nil && !trace.IsNotFound(err) {
+			log.Warnf("Failed to clean up agents for %v: %v.", key, trace.UserMessage(err))
+		}
 	}
 
 	return trace.Wrap(err)

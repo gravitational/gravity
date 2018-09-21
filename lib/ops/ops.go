@@ -1257,6 +1257,8 @@ type NewSiteRequest struct {
 	DNSOverrides storage.DNSOverrides `json:"dns_overrides"`
 	// DNSConfig specifies the cluster local DNS server configuration
 	DNSConfig storage.DNSConfig `json:"dns_config"`
+	// Docker specifies the cluster Docker configuration
+	Docker storage.DockerConfig `json:"docker"`
 }
 
 // SiteKey is a key used to identify site

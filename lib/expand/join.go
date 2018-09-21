@@ -333,6 +333,7 @@ func (p *Peer) runLocalChecks(cluster ops.Site, installOperation ops.SiteOperati
 		Context:  p.Context,
 		Manifest: cluster.App.Manifest,
 		Role:     p.Role,
+		Docker:   cluster.ClusterState.Docker,
 		Options: &validationpb.ValidateOptions{
 			VxlanPort: int32(installOperation.GetVars().OnPrem.VxlanPort),
 			DnsAddrs:  cluster.DNSConfig.Addrs,

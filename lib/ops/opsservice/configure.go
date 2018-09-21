@@ -830,7 +830,7 @@ func (s *site) configurePlanetMaster(
 	config planetConfig,
 	secretsPackage, configPackage loc.Locator,
 ) error {
-	if server := s.backendSite.ClusterState.Servers.FindByIP(master.AdvertiseIP); server != nil {
+	if server := installOrExpand.InstallExpand.Servers.FindByIP(master.AdvertiseIP); server != nil {
 		config.dockerRuntime = server.Docker
 	}
 
@@ -963,7 +963,8 @@ func (s *site) getPlanetConfigPackage(
 	}
 	args = append(args, fmt.Sprintf("--dns-port=%v", dnsConfig.Port))
 
-	dockerArgs, err := configureDockerOptions(&installOrExpand, node, config.docker, config.dockerRuntime)
+	dockerArgs, err := configureDockerOptions(&installOrExpand, node,
+		config.docker, config.dockerRuntime)
 	if err != nil {
 		return nil, trace.Wrap(err)
 	}
@@ -1043,7 +1044,7 @@ func (s *site) configurePlanetServer(node *ProvisionedServer, installOrExpand op
 type planetConfig struct {
 	etcd          etcdConfig
 	master        masterConfig
-	docker        schema.Docker
+	docker        storage.DockerConfig
 	dockerRuntime storage.Docker
 	planetPackage loc.Locator
 	configPackage loc.Locator
@@ -1640,7 +1641,7 @@ func addPackage(newPackage loc.Locator, labels map[string]string, source *[]pack
 func configureDockerOptions(
 	op *ops.SiteOperation,
 	node *ProvisionedServer,
-	docker schema.Docker,
+	docker storage.DockerConfig,
 	dockerRuntime storage.Docker,
 ) (args []string, err error) {
 	formatOptions := func(args []string) string {
@@ -1692,41 +1693,44 @@ func (s *site) selectDockerConfig(
 	operation ops.SiteOperation,
 	old schema.Manifest,
 	new *schema.Manifest,
-) (*schema.Docker, error) {
-	docker := old.SystemDocker()
-	var config storage.DockerConfig
+) (config *storage.DockerConfig, err error) {
+	clusterConfig := s.dockerConfig()
+	if !clusterConfig.IsEmpty() {
+		return &clusterConfig, nil
+	}
+
+	dockerSchema := old.SystemDocker()
+	config = &storage.DockerConfig{
+		StorageDriver: dockerSchema.StorageDriver,
+		Args:          dockerSchema.Args,
+	}
+
+	var overrideConfig storage.DockerConfig
 	switch operation.Type {
 	case ops.OperationInstall:
 		if !operation.InstallExpand.Vars.System.Docker.IsEmpty() {
-			config = operation.InstallExpand.Vars.System.Docker
+			overrideConfig = operation.InstallExpand.Vars.System.Docker
 		}
-	default:
-		// for other operations, use the install operation state
-		installOperation, err := ops.GetCompletedInstallOperation(s.key, s.service)
-		if err != nil {
-			return nil, trace.Wrap(err)
-		}
-		config = installOperation.InstallExpand.Vars.System.Docker
 	}
 
-	if config.StorageDriver != "" {
-		docker.StorageDriver = config.StorageDriver
+	if overrideConfig.StorageDriver != "" {
+		config.StorageDriver = overrideConfig.StorageDriver
 	}
-	if len(config.Args) != 0 {
-		docker.Args = config.Args
+	if len(overrideConfig.Args) != 0 {
+		config.Args = overrideConfig.Args
 	}
 	if new != nil {
 		updateConfig := new.SystemOptions.DockerConfig()
 		if updateConfig != nil {
 			if updateConfig.StorageDriver != "" {
-				docker.StorageDriver = updateConfig.StorageDriver
+				config.StorageDriver = updateConfig.StorageDriver
 			}
 			if len(updateConfig.Args) != 0 {
-				docker.Args = updateConfig.Args
+				config.Args = updateConfig.Args
 			}
 		}
 	}
-	return &docker, nil
+	return config, nil
 }
 
 type teleportSecrets struct {

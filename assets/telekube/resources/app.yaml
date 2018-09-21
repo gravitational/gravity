@@ -189,4 +189,4 @@ systemOptions:
   runtime:
     version: "0.0.0+latest"
   docker:
-    storageDriver: overlay
+    storageDriver: overlay2

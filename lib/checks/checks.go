@@ -69,6 +69,7 @@ func New(remote Remote, servers []Server, manifest schema.Manifest, requirements
 func ValidateManifest(
 	manifest schema.Manifest,
 	profile schema.NodeProfile,
+	dockerSchema schema.Docker,
 	stateDir string,
 ) (failedProbes []*agentpb.Probe, err error) {
 	var errors []error
@@ -79,11 +80,12 @@ func ValidateManifest(
 	}
 	failedProbes = append(failedProbes, failed...)
 
-	failed, err = schema.ValidateDocker(manifest.SystemDocker(), stateDir)
+	failed, err = schema.ValidateDocker(dockerSchema, stateDir)
 	if err != nil {
 		errors = append(errors, trace.Wrap(err,
 			"error validating docker requirements, see syslog for details"))
 	}
+	failedProbes = append(failedProbes, failed...)
 
 	failedProbes = append(failedProbes, schema.ValidateKubelet(profile, manifest)...)
 	return failedProbes, trace.NewAggregate(errors...)
@@ -114,6 +116,8 @@ type LocalChecksRequest struct {
 	Role string
 	// Options is additional validation options
 	Options *validationpb.ValidateOptions
+	// Docker specifies the Docker configuration to validate
+	Docker storage.DockerConfig
 	// AutoFix when set to true attempts to fix some common problems
 	AutoFix bool
 	// Progress is used to report information about auto-fixed problems
@@ -127,6 +131,9 @@ func (r *LocalChecksRequest) CheckAndSetDefaults() error {
 	}
 	if r.Role == "" {
 		return trace.BadParameter("role name is required")
+	}
+	if r.Docker.IsEmpty() {
+		return trace.BadParameter("docker configuration is required")
 	}
 	if r.Progress == nil {
 		r.Progress = utils.NewConsoleProgress(r.Context, "", 0)
@@ -171,7 +178,8 @@ func ValidateLocal(req LocalChecksRequest) (*LocalChecksResult, error) {
 		return nil, trace.Wrap(err)
 	}
 
-	failedProbes, err := ValidateManifest(req.Manifest, *profile, stateDir)
+	dockerSchema := schema.Docker{StorageDriver: req.Docker.StorageDriver}
+	failedProbes, err := ValidateManifest(req.Manifest, *profile, dockerSchema, stateDir)
 	if err != nil {
 		return nil, trace.Wrap(err)
 	}

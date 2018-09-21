@@ -63,7 +63,7 @@ func (s *PlanSuite) TestPlanWithRuntimeUpdate(c *check.C) {
 
 	builder := phaseBuilder{}
 	init := *builder.init(appLoc1, appLoc2)
-	checks := *builder.checks(appLoc1, appLoc2)
+	checks := *builder.checks(appLoc1, appLoc2).Require(init)
 	preUpdate := *builder.preUpdate(appLoc2).Require(init)
 	bootstrap := *builder.bootstrap(params.servers, appLoc2).Require(init)
 	leadMaster := params.servers[0]
@@ -129,7 +129,7 @@ func (s *PlanSuite) TestPlanWithoutRuntimeUpdate(c *check.C) {
 
 	builder := phaseBuilder{}
 	init := *builder.init(appLoc1, appLoc2)
-	checks := *builder.checks(appLoc1, appLoc2)
+	checks := *builder.checks(appLoc1, appLoc2).Require(init)
 	preUpdate := *builder.preUpdate(appLoc2).Require(init)
 	appLocs := []loc.Locator{loc.MustParseLocator("gravitational.io/app-dep-2:2.0.0"), appLoc2}
 	app := *builder.app(appLocs)

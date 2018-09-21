@@ -139,8 +139,11 @@ func (_ *Server) Validate(ctx context.Context, req *pb.ValidateRequest) (resp *p
 	}
 
 	var failedProbes []*agentpb.Probe
+	dockerSchema := schema.Docker{
+		StorageDriver: req.Docker.StorageDriver,
+	}
 	if req.FullRequirements {
-		failedProbes, err = checks.ValidateManifest(manifest, *profile, stateDir)
+		failedProbes, err = checks.ValidateManifest(manifest, *profile, dockerSchema, stateDir)
 		failedProbes = append(failedProbes, checks.RunBasicChecks(ctx, req.Options)...)
 	} else {
 		failedProbes, err = validateManifest(*profile, manifest, stateDir)
