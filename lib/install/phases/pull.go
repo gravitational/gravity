@@ -167,7 +167,7 @@ func (p *pullExecutor) applyInstalledLabels() error {
 		constants.GravityPackage,
 	}
 	locators := []loc.Locator{p.runtimePackage}
-	err := pack.ForeachPackageInRepo(p.WizardPackages, defaults.SystemAccountOrg,
+	err := pack.ForeachPackageInRepo(p.LocalPackages, defaults.SystemAccountOrg,
 		func(e pack.PackageEnvelope) error {
 			if utils.StringInSlice(packages, e.Locator.Name) {
 				locators = append(locators, e.Locator)
@@ -253,7 +253,7 @@ func (p *pullExecutor) collectMasterPackages() ([]pack.PackageEnvelope, error) {
 					p.Phase.Data.Server.AdvertiseIP,
 				},
 			})
-			if pull {
+			if pull && e.RuntimeLabels[pack.OperationIDLabel] == p.Plan.OperationID {
 				envelopes = append(envelopes, e)
 			}
 			return nil
@@ -275,7 +275,7 @@ func (p *pullExecutor) collectNodePackages() ([]pack.PackageEnvelope, error) {
 					p.Phase.Data.Server.AdvertiseIP,
 				},
 			})
-			if pull {
+			if pull && e.RuntimeLabels[pack.OperationIDLabel] == p.Plan.OperationID {
 				envelopes = append(envelopes, e)
 			}
 			return nil
