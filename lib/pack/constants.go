@@ -27,6 +27,8 @@ const (
 	PurposeLabel = "purpose"
 	// AdvertiseIPLabel contains advertise IP of the server the package is for
 	AdvertiseIPLabel = "advertise-ip"
+	// OperationIDLabel contains ID of the operation the package was configured for
+	OperationIDLabel = "operation-id"
 
 	// PurposeCA marks the planet certificate authority package
 	PurposeCA = "ca"

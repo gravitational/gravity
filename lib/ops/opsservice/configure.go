@@ -215,7 +215,7 @@ func (s *site) configureExpandPackages(ctx context.Context, opCtx *operationCont
 		if err == nil {
 			masterParams.sniHost = trustedCluster.GetSNIHost()
 		}
-		err = s.configurePlanetMasterSecrets(masterParams)
+		err = s.configurePlanetMasterSecrets(opCtx, masterParams)
 		if err != nil {
 			return trace.Wrap(err)
 		}
@@ -229,7 +229,7 @@ func (s *site) configureExpandPackages(ctx context.Context, opCtx *operationCont
 			return trace.Wrap(err)
 		}
 	} else {
-		err := s.configurePlanetNodeSecrets(provisionedServer, secretsPackage)
+		err := s.configurePlanetNodeSecrets(opCtx, provisionedServer, secretsPackage)
 		if err != nil {
 			return trace.Wrap(err)
 		}
@@ -258,7 +258,7 @@ func (s *site) configurePackages(ctx *operationContext) error {
 
 	p := ctx.provisionedServers
 
-	if err := s.configurePlanetCertAuthority(); err != nil {
+	if err := s.configurePlanetCertAuthority(ctx); err != nil {
 		return trace.Wrap(err)
 	}
 
@@ -325,7 +325,7 @@ func (s *site) configurePackages(ctx *operationContext) error {
 			return trace.Wrap(err)
 		}
 
-		err = s.configurePlanetMasterSecrets(planetMasterParams{
+		err = s.configurePlanetMasterSecrets(ctx, planetMasterParams{
 			master:            master,
 			secretsPackage:    secretsPackage,
 			serviceSubnetCIDR: ctx.operation.InstallExpand.Subnets.Service,
@@ -399,7 +399,7 @@ func (s *site) configurePackages(ctx *operationContext) error {
 			return trace.Wrap(err)
 		}
 
-		if err := s.configurePlanetNodeSecrets(node, secretsPackage); err != nil {
+		if err := s.configurePlanetNodeSecrets(ctx, node, secretsPackage); err != nil {
 			return trace.Wrap(err)
 		}
 
@@ -496,7 +496,7 @@ func (s *site) configureUserApp(server *ProvisionedServer) error {
 	return nil
 }
 
-func (s *site) configurePlanetCertAuthority() error {
+func (s *site) configurePlanetCertAuthority(ctx *operationContext) error {
 	caPackage, err := s.planetCertAuthorityPackage()
 	if err != nil {
 		return trace.Wrap(err)
@@ -554,7 +554,8 @@ func (s *site) configurePlanetCertAuthority() error {
 
 	_, err = s.packages().CreatePackage(*caPackage, reader, pack.WithLabels(
 		map[string]string{
-			pack.PurposeLabel: pack.PurposeCA,
+			pack.PurposeLabel:     pack.PurposeCA,
+			pack.OperationIDLabel: ctx.operation.ID,
 		}))
 	return trace.Wrap(err)
 }
@@ -585,7 +586,7 @@ type planetMasterParams struct {
 	sniHost           string
 }
 
-func (s *site) getPlanetMasterSecretsPackage(p planetMasterParams) (*ops.RotatePackageResponse, error) {
+func (s *site) getPlanetMasterSecretsPackage(ctx *operationContext, p planetMasterParams) (*ops.RotatePackageResponse, error) {
 	archive, err := s.readCertAuthorityPackage()
 	if err != nil {
 		return nil, trace.Wrap(err)
@@ -685,6 +686,7 @@ func (s *site) getPlanetMasterSecretsPackage(p planetMasterParams) (*ops.RotateP
 	labels := map[string]string{
 		pack.PurposeLabel:     pack.PurposePlanetSecrets,
 		pack.AdvertiseIPLabel: p.master.AdvertiseIP,
+		pack.OperationIDLabel: ctx.operation.ID,
 	}
 
 	return &ops.RotatePackageResponse{
@@ -694,8 +696,8 @@ func (s *site) getPlanetMasterSecretsPackage(p planetMasterParams) (*ops.RotateP
 	}, nil
 }
 
-func (s *site) configurePlanetMasterSecrets(p planetMasterParams) error {
-	resp, err := s.getPlanetMasterSecretsPackage(p)
+func (s *site) configurePlanetMasterSecrets(ctx *operationContext, p planetMasterParams) error {
+	resp, err := s.getPlanetMasterSecretsPackage(ctx, p)
 	if err != nil {
 		return trace.Wrap(err)
 	}
@@ -703,7 +705,7 @@ func (s *site) configurePlanetMasterSecrets(p planetMasterParams) error {
 	return trace.Wrap(err)
 }
 
-func (s *site) getPlanetNodeSecretsPackage(node *ProvisionedServer, secretsPackage *loc.Locator) (*ops.RotatePackageResponse, error) {
+func (s *site) getPlanetNodeSecretsPackage(ctx *operationContext, node *ProvisionedServer, secretsPackage *loc.Locator) (*ops.RotatePackageResponse, error) {
 	archive, err := s.readCertAuthorityPackage()
 	if err != nil {
 		return nil, trace.Wrap(err)
@@ -773,6 +775,7 @@ func (s *site) getPlanetNodeSecretsPackage(node *ProvisionedServer, secretsPacka
 	labels := map[string]string{
 		pack.PurposeLabel:     pack.PurposePlanetSecrets,
 		pack.AdvertiseIPLabel: node.AdvertiseIP,
+		pack.OperationIDLabel: ctx.operation.ID,
 	}
 
 	return &ops.RotatePackageResponse{
@@ -782,8 +785,8 @@ func (s *site) getPlanetNodeSecretsPackage(node *ProvisionedServer, secretsPacka
 	}, nil
 }
 
-func (s *site) configurePlanetNodeSecrets(node *ProvisionedServer, secretsPackage *loc.Locator) error {
-	resp, err := s.getPlanetNodeSecretsPackage(node, secretsPackage)
+func (s *site) configurePlanetNodeSecrets(ctx *operationContext, node *ProvisionedServer, secretsPackage *loc.Locator) error {
+	resp, err := s.getPlanetNodeSecretsPackage(ctx, node, secretsPackage)
 	if err != nil {
 		return trace.Wrap(err)
 	}
@@ -1018,6 +1021,7 @@ func (s *site) getPlanetConfigPackage(
 		pack.PurposeLabel:     pack.PurposePlanetConfig,
 		pack.ConfigLabel:      config.planetPackage.ZeroVersion().String(),
 		pack.AdvertiseIPLabel: node.AdvertiseIP,
+		pack.OperationIDLabel: installOrExpand.ID,
 	}
 
 	return &ops.RotatePackageResponse{
@@ -1152,6 +1156,7 @@ func (s *site) configureTeleportMaster(ctx *operationContext, secrets *teleportS
 		s.packages(), s.teleportPackage, *configPackage, args, map[string]string{
 			pack.PurposeLabel:     pack.PurposeTeleportConfig,
 			pack.AdvertiseIPLabel: master.AdvertiseIP,
+			pack.OperationIDLabel: ctx.operation.ID,
 		})
 	if err != nil {
 		return trace.Wrap(err)
@@ -1247,6 +1252,7 @@ func (s *site) configureTeleportNode(ctx *operationContext, masterIP string, nod
 		s.packages(), s.teleportPackage, *configPackage, args, map[string]string{
 			pack.PurposeLabel:     pack.PurposeTeleportConfig,
 			pack.AdvertiseIPLabel: node.AdvertiseIP,
+			pack.OperationIDLabel: ctx.operation.ID,
 		})
 	if err != nil {
 		return trace.Wrap(err)
@@ -1273,7 +1279,8 @@ func (s *site) configureResourcesPackage(ctx *operationContext) (*loc.Locator, e
 	_, err = s.packages().CreatePackage(
 		*resourcesPackage, bytes.NewBuffer(s.resources), pack.WithLabels(
 			map[string]string{
-				pack.PurposeLabel: pack.PurposeResources,
+				pack.PurposeLabel:     pack.PurposeResources,
+				pack.OperationIDLabel: ctx.operation.ID,
 			},
 		))
 	if err != nil {
@@ -1311,7 +1318,8 @@ func (s *site) configureSiteExportPackage(ctx *operationContext) (*loc.Locator, 
 
 	_, err = s.packages().CreatePackage(*exportPackage, reader, pack.WithLabels(
 		map[string]string{
-			pack.PurposeLabel: pack.PurposeExport,
+			pack.PurposeLabel:     pack.PurposeExport,
+			pack.OperationIDLabel: ctx.operation.ID,
 		},
 	))
 	if err != nil {
@@ -1334,7 +1342,8 @@ func (s *site) configureLicensePackage(ctx *operationContext) (*loc.Locator, err
 	reader := strings.NewReader(s.license)
 	_, err = s.packages().CreatePackage(*licensePackage, reader, pack.WithLabels(
 		map[string]string{
-			pack.PurposeLabel: pack.PurposeLicense,
+			pack.PurposeLabel:     pack.PurposeLicense,
+			pack.OperationIDLabel: ctx.operation.ID,
 		},
 	))
 	if err != nil {
