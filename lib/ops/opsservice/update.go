@@ -57,7 +57,12 @@ func (o *Operator) RotateSecrets(req ops.RotateSecretsRequest) (*ops.RotatePacka
 		return nil, trace.Wrap(err)
 	}
 
-	resp, err := cluster.rotateSecrets(node, *op)
+	ctx, err := cluster.newOperationContext(*op)
+	if err != nil {
+		return nil, trace.Wrap(err)
+	}
+
+	resp, err := cluster.rotateSecrets(ctx, node, *op)
 	if err != nil {
 		return nil, trace.Wrap(err)
 	}

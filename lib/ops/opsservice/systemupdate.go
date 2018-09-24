@@ -28,7 +28,7 @@ import (
 
 // rotateSecrets generates a new set of TLS keys for the given node
 // as a package that will be automatically downloaded during upgrade
-func (s *site) rotateSecrets(node *ProvisionedServer, installOp ops.SiteOperation) (*ops.RotatePackageResponse, error) {
+func (s *site) rotateSecrets(ctx *operationContext, node *ProvisionedServer, installOp ops.SiteOperation) (*ops.RotatePackageResponse, error) {
 	secretsPackage, err := s.planetSecretsNextPackage(node)
 	if err != nil {
 		return nil, trace.Wrap(err)
@@ -41,7 +41,7 @@ func (s *site) rotateSecrets(node *ProvisionedServer, installOp ops.SiteOperatio
 	}
 
 	if !node.IsMaster() {
-		resp, err := s.getPlanetNodeSecretsPackage(node, secretsPackage)
+		resp, err := s.getPlanetNodeSecretsPackage(ctx, node, secretsPackage)
 		if err != nil {
 			return nil, trace.Wrap(err)
 		}
@@ -60,7 +60,7 @@ func (s *site) rotateSecrets(node *ProvisionedServer, installOp ops.SiteOperatio
 		masterParams.sniHost = trustedCluster.GetSNIHost()
 	}
 
-	resp, err := s.getPlanetMasterSecretsPackage(masterParams)
+	resp, err := s.getPlanetMasterSecretsPackage(ctx, masterParams)
 	if err != nil {
 		return nil, trace.Wrap(err)
 	}

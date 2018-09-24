@@ -39,7 +39,7 @@ import (
 // To start the peer, invoke its Serve method.
 // Once started, the peer connects to the control server to register its identity.
 // The control server establishes reverse connection to execute remote commands.
-func NewPeer(config PeerConfig, serverAddr string, log log.FieldLogger) (*peerServer, error) {
+func NewPeer(config PeerConfig, serverAddr string, log log.FieldLogger) (*PeerServer, error) {
 	if err := config.CheckAndSetDefaults(); err != nil {
 		return nil, trace.Wrap(err)
 	}
@@ -73,7 +73,7 @@ func NewPeer(config PeerConfig, serverAddr string, log log.FieldLogger) (*peerSe
 		return nil, trace.Wrap(err)
 	}
 
-	peer := &peerServer{
+	peer := &PeerServer{
 		PeerConfig:  config,
 		agentServer: server,
 		peers:       checker,
@@ -168,13 +168,18 @@ type WatchEvent struct {
 }
 
 // Serve starts this peer
-func (r *peerServer) Serve() error {
+func (r *PeerServer) Serve() error {
 	r.peers.start()
 	return r.agentServer.Serve()
 }
 
+// ValidateConnection makes sure that connection to the control server can be established
+func (r *PeerServer) ValidateConnection(ctx context.Context) error {
+	return r.peers.validateConnection(ctx)
+}
+
 // Stop stops this server and its internal goroutines
-func (r *peerServer) Stop(ctx context.Context) error {
+func (r *PeerServer) Stop(ctx context.Context) error {
 	err := r.peers.close(ctx)
 	if err != nil {
 		return trace.Wrap(err)
@@ -183,7 +188,9 @@ func (r *peerServer) Stop(ctx context.Context) error {
 	return nil
 }
 
-type peerServer struct {
+// PeerServer represents a peer connected to a control server
+type PeerServer struct {
+	// PeerConfig is the peer configuration
 	PeerConfig
 	*agentServer
 	*peers
@@ -317,7 +324,7 @@ func newClient(ctx context.Context, creds credentials.TransportCredentials, addr
 
 	conn, err := grpc.DialContext(ctx, addr, opts...)
 	if err != nil {
-		return nil, trace.Wrap(err, "failed to establish connection")
+		return nil, trace.Wrap(err)
 	}
 	return &agentClient{pb.NewAgentClient(conn), healthpb.NewHealthClient(conn), conn}, nil
 }

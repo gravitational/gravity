@@ -3,7 +3,10 @@
   become_user: root
   become_method: sudo
   vars:
+    ansible_user: ubuntu
     root_dir: "{{playbook_dir}}/.."
+    tarball_path: ""
+    gravity_bin_path: ""
   tasks:
   - name: Capture gravity version
     delegate_to: localhost
@@ -17,6 +20,12 @@
   - set_fact:
       gravity_version: "{{ command_output.stdout }}"
     when: gravity_version is not defined
+  - set_fact:
+      gravity_bin_path: "{{root_dir}}/build/{{gravity_version}}/gravity"
+    when: gravity_bin_path == ""
+  - set_fact:
+      tarball_path: "{{root_dir}}/build/{{gravity_version}}/{{tarball_name}}"
+    when: tarball_path == ""
 
   - debug: msg="gravity version - {{gravity_version}}"
   - set_fact: gopath="{{ lookup('env','GOPATH') }}"
@@ -27,12 +36,12 @@
       path: /tmp/installer
       state: directory
 
-  - name: upload telekube tarball to the first node
+  - name: upload installer tarball to the first node
     when: inventory_hostname == groups['all'][0]
     become: yes
     unarchive:
       force: yes
-      src: "{{root_dir}}/build/{{gravity_version}}/telekube.tar"
+      src: "{{tarball_path}}"
       dest: "/tmp/installer"
 
   - name: upload gravity binary
@@ -40,7 +49,7 @@
     become: yes
     copy:
       force: yes
-      src: "{{root_dir}}/build/{{gravity_version}}/gravity"
+      src: "{{gravity_bin_path}}"
       dest: "/tmp/gravity"
       mode: 0755
 
