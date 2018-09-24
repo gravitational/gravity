@@ -21,6 +21,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"net/url"
+	"strings"
 	"time"
 
 	"github.com/gravitational/gravity/lib/constants"
@@ -28,11 +29,15 @@ import (
 	"github.com/gravitational/gravity/lib/httplib"
 	"github.com/gravitational/gravity/lib/loc"
 	"github.com/gravitational/gravity/lib/ops"
+	"github.com/gravitational/gravity/lib/state"
 	"github.com/gravitational/gravity/lib/storage"
+	"github.com/gravitational/gravity/lib/utils"
 
 	"github.com/gravitational/roundtrip"
 	pb "github.com/gravitational/satellite/agent/proto/agentpb"
+	"github.com/gravitational/satellite/monitoring"
 	"github.com/gravitational/trace"
+	"github.com/sirupsen/logrus"
 )
 
 // FromCluster collects cluster status information.
@@ -357,7 +362,31 @@ func probeErrorDetail(p pb.Probe) string {
 	if p.Detail == "" {
 		detail = p.Checker
 	}
-	return fmt.Sprintf("%v failed", detail)
+	// state directory disk space checker always checks /var/lib/gravity
+	// which is default path inside planet but may be different on host
+	// so determine the real state directory if needed
+	if strings.HasPrefix(p.Checker, monitoring.DiskSpaceCheckerID) {
+		var data monitoring.HighWatermarkCheckerData
+		err := json.Unmarshal(p.CheckerData, &data)
+		if err != nil {
+			logrus.Error(trace.DebugReport(err))
+			return detail
+		}
+		if data.Path == defaults.GravityDir {
+			// if status command was run inside planet, just output
+			// the default path /var/lib/gravity
+			if utils.CheckInPlanet() {
+				return p.Detail
+			}
+			data.Path, err = state.GetStateDir()
+			if err != nil {
+				logrus.Error(trace.DebugReport(err))
+				return detail
+			}
+			return data.FailureMessage()
+		}
+	}
+	return detail
 }
 
 const (

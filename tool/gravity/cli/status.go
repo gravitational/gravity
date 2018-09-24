@@ -343,7 +343,7 @@ func printNodeStatus(node statusapi.ClusterServer, w io.Writer) {
 	case statusapi.NodeDegraded:
 		fmt.Fprintf(w, "            Status:\t%v\n", color.RedString("degraded"))
 		for _, probe := range node.FailedProbes {
-			fmt.Fprintf(w, "            [%v]\t%v\n", constants.FailureMark, color.RedString(probe))
+			fmt.Fprintf(w, "            [%v]\t%v\n", constants.FailureMark, color.New(color.FgRed).SprintFunc()(probe))
 		}
 	}
 }
