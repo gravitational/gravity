@@ -60,6 +60,8 @@ ARCH := $(shell uname -m)
 
 TELEKUBE_GRAVITY_PKG := gravitational.io/gravity_$(OS)_$(ARCH):$(GRAVITY_TAG)
 TELEKUBE_TELE_PKG := gravitational.io/tele_$(OS)_$(ARCH):$(GRAVITY_TAG)
+TF_PROVIDER_GRAVITY_PKG := gravitational.io/terraform-provider-gravity_$(OS)_$(ARCH):$(GRAVITY_TAG)
+TF_PROVIDER_GRAVITYENTERPRISE_PKG := gravitational.io/terraform-provider-gravityenterprise_$(OS)_$(ARCH):$(GRAVITY_TAG)
 
 TELEPORT_PKG := gravitational.io/teleport:$(TELEPORT_TAG)
 PLANET_PKG := gravitational.io/planet:$(PLANET_TAG)
@@ -74,6 +76,7 @@ TELEKUBE_APP_PKG := gravitational.io/telekube:$(TELEKUBE_APP_TAG)
 BANDWAGON_PKG := gravitational.io/bandwagon:$(BANDWAGON_TAG)
 RBAC_APP_PKG := gravitational.io/rbac-app:$(RBAC_APP_TAG)
 TILLER_APP_PKG := gravitational.io/tiller-app:$(TILLER_APP_TAG)
+
 
 # Output directory that stores all of the build artifacts.
 # Artifacts from the gravity build (the binary and any internal packages)
@@ -91,6 +94,7 @@ PLANET_BINDIR := $(PLANET_BUILDDIR)/bin
 TELEPORT_BUILDDIR := $(BUILDDIR)/teleport
 TELEPORT_SRCDIR := $(TELEPORT_BUILDDIR)/src
 TELEPORT_BINDIR := $(TELEPORT_BUILDDIR)/bin/$(TELEPORT_TAG)
+TF_PROVIDER_DIR := $(HOME)/.terraform.d/plugins
 
 LOCAL_BUILDDIR ?= /gopath/src/github.com/gravitational/gravity/build
 LOCAL_GRAVITY_BUILDDIR ?= /gopath/src/github.com/gravitational/gravity/build/$(GRAVITY_VERSION)
@@ -172,7 +176,8 @@ GRPC_GATEWAY_TAG ?= v1.1.0
 
 export
 
-INSTALL_BINARIES = tele gravity
+INSTALL_BINARIES ?= tele gravity terraform-provider-gravity
+TF_PROVIDERS ?= terraform-provider-gravity
 
 # the default target is a containerized CI/CD build
 .PHONY:build
@@ -522,8 +527,14 @@ tele-mac: flags
 .PHONY: goinstall
 goinstall: remove-temp-files compile
 	mkdir -p $(GRAVITY_BUILDDIR)
+	mkdir -p $(TF_PROVIDER_DIR)
 	cp $(GOPATH)/bin/gravity $(GRAVITY_OUT)
 	cp $(GOPATH)/bin/tele $(TELE_OUT)
+	for provider in ${TF_PROVIDERS} ; do \
+		echo $${provider} ; \
+		cp $(GOPATH)/bin/$${provider} $(GRAVITY_BUILDDIR)/$${provider}_${GRAVITY_VERSION} ; \
+		cp $(GOPATH)/bin/$${provider} $(TF_PROVIDER_DIR)/$${provider}_${GRAVITY_VERSION} ; \
+	done
 	$(GRAVITY) package delete $(GRAVITY_PKG) $(DELETE_OPTS) && \
 		$(GRAVITY) package import $(GRAVITY_OUT) $(GRAVITY_PKG)
 	$(MAKE) binary-packages

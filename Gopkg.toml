@@ -153,7 +153,7 @@ ignored = ["github.com/Sirupsen/logrus", "github.com/gravitational/gravity/build
 
 [[constraint]]
   name = "github.com/fatih/color"
-  version = "0.1.0-12-g9aae6aa"
+  version = "v1.7.0"
 
 [[constraint]]
   branch = "master"
@@ -212,3 +212,7 @@ ignored = ["github.com/Sirupsen/logrus", "github.com/gravitational/gravity/build
 [[override]]
   name = "github.com/json-iterator/go"
   version = "=1.1.5"
+
+[[constraint]]
+  name = "github.com/hashicorp/terraform"
+  version = "=v0.11.7" 
