@@ -823,39 +823,9 @@ func (h *WebHandler) telekubeInstallScript(w http.ResponseWriter, r *http.Reques
 		ver = constants.LatestVersion
 	}
 
-	// Check whether the terraform provider is available
-	// Note: The terraform provider for older releases may not be published, so the following code tries to detect
-	// whether the terraform provider has been published for the requested release
-	//
-	// This works by attempting to locate the package, and resolving the version in the tfVersion variable:
-	// NotFound  -> ""          - Don't try and install if it doesn't exist for the specified version
-	// <version> -> "<version>" - If a specific version is requested, install that version
-	// latest    -> "<version>" - If latest is specified, resolve that to the latest available version.
-	tfVersion := pack.LatestVersion
-	if ver != constants.LatestVersion {
-		_, err := semver.NewVersion(ver)
-		if err != nil {
-			return trace.BadParameter("the provided version is not valid: %v", ver)
-		}
-		tfVersion = ver
-	}
-
-	// hard code our module lookup based on linux/x86_64, if it exists, we assume it exists
-	// for other requested architectures/os, which won't be detected until later
-	name := strings.Join([]string{constants.TerraformGravityPackage, "linux", "x86_64"}, "_")
-	locator, err := loc.NewLocator(defaults.SystemAccountOrg, name, tfVersion)
+	tfVersion, err := getTerraformVersion(ver, h.Packages)
 	if err != nil {
 		return trace.Wrap(err)
-	}
-
-	envelope, err := h.Packages.ReadPackageEnvelope(*locator)
-	if err != nil {
-		if !trace.IsNotFound(err) {
-			return trace.Wrap(err)
-		}
-		tfVersion = ""
-	} else {
-		tfVersion = envelope.Locator.Version
 	}
 
 	err = telekubeInstallScriptTemplate.Execute(w, map[string]string{
@@ -867,6 +837,45 @@ func (h *WebHandler) telekubeInstallScript(w http.ResponseWriter, r *http.Reques
 	}
 
 	return nil
+}
+
+func getTerraformVersion(binaryVersion string, packages pack.PackageService) (tfVersion string, err error) {
+	// Check whether the terraform provider is available
+	// Note: The terraform provider for older releases may not be published, so the following code tries to detect
+	// whether the terraform provider has been published for the requested release
+	//
+	// This works by attempting to locate the package, and resolving the version in the tfVersion variable:
+	// NotFound  -> ""          - Don't try and install if it doesn't exist for the specified version
+	// <version> -> "<version>" - If a specific version is requested, install that version
+	// latest    -> "<version>" - If latest is specified, resolve that to the latest available version.
+	tfVersion = constants.LatestVersion
+	if binaryVersion != constants.LatestVersion {
+		_, err := semver.NewVersion(binaryVersion)
+		if err != nil {
+			return "", trace.BadParameter("the provided version is not valid: %v", binaryVersion)
+		}
+		tfVersion = binaryVersion
+	}
+
+	// hard code our module lookup based on linux/x86_64, if it exists, we assume it exists
+	// for other requested architectures/os, which won't be detected until later
+	name := strings.Join([]string{constants.TerraformGravityPackage, "linux", "x86_64"}, "_")
+	locator, err := loc.NewLocator(defaults.SystemAccountOrg, name, tfVersion)
+	if err != nil {
+		return "", trace.Wrap(err)
+	}
+
+	envelope, err := packages.ReadPackageEnvelope(*locator)
+	if err != nil {
+		if !trace.IsNotFound(err) {
+			return "", trace.Wrap(err)
+		}
+		tfVersion = ""
+	} else {
+		tfVersion = envelope.Locator.Version
+	}
+
+	return tfVersion, nil
 }
 
 /* telekubeGravityBinary returns latest gravity binary available on this cluster
