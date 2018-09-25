@@ -33,6 +33,7 @@ import (
 	"github.com/gravitational/gravity/lib/defaults"
 	"github.com/gravitational/gravity/lib/fsm"
 	"github.com/gravitational/gravity/lib/httplib"
+	"github.com/gravitational/gravity/lib/install"
 	"github.com/gravitational/gravity/lib/localenv"
 	"github.com/gravitational/gravity/lib/process"
 	"github.com/gravitational/gravity/lib/schema"
@@ -106,6 +107,30 @@ func InitAndCheck(g *Application, cmd string) error {
 	}
 	logrus.SetFormatter(&trace.TextFormatter{})
 
+	// the following commands write logs to the system log file (in
+	// addition to journald)
+	switch cmd {
+	case g.InstallCmd.FullCommand(),
+		g.JoinCmd.FullCommand(),
+		g.AutoJoinCmd.FullCommand(),
+		g.UpdateTriggerCmd.FullCommand(),
+		g.UpgradeCmd.FullCommand(),
+		g.RPCAgentRunCmd.FullCommand(),
+		g.LeaveCmd.FullCommand(),
+		g.RemoveCmd.FullCommand(),
+		g.OpsAgentCmd.FullCommand():
+		install.InitLogging(*g.SystemLogFile)
+		// install and join command also duplicate their logs to the file in
+		// the current directory for convenience, unless the user set their
+		// own location
+		switch cmd {
+		case g.InstallCmd.FullCommand(), g.JoinCmd.FullCommand():
+			if *g.SystemLogFile == defaults.TelekubeSystemLog {
+				install.InitLogging(defaults.TelekubeSystemLogFile)
+			}
+		}
+	}
+
 	if *g.ProfileEndpoint != "" {
 		err := process.StartProfiling(context.TODO(), *g.ProfileEndpoint, *g.ProfileTo)
 		if err != nil {
@@ -135,7 +160,6 @@ func InitAndCheck(g *Application, cmd string) error {
 		g.UpgradeCmd.FullCommand(),
 		g.SystemRollbackCmd.FullCommand(),
 		g.SystemUninstallCmd.FullCommand(),
-		g.UpgradeCmd.FullCommand(),
 		g.RollbackCmd.FullCommand(),
 		g.UpdateSystemCmd.FullCommand(),
 		g.RPCAgentShutdownCmd.FullCommand(),
@@ -312,8 +336,7 @@ func Execute(g *Application, cmd string, extraArgs []string) error {
 		return updateTrigger(localEnv,
 			upgradeEnv,
 			*g.UpgradeCmd.App,
-			*g.UpgradeCmd.Manual,
-		)
+			*g.UpgradeCmd.Manual)
 	case g.RollbackCmd.FullCommand():
 		return rollbackOperationPhase(localEnv,
 			upgradeEnv,
@@ -334,18 +357,14 @@ func Execute(g *Application, cmd string, extraArgs []string) error {
 		return displayOperationPlan(localEnv, upgradeEnv, joinEnv, *g.PlanCmd.OperationID, *g.PlanCmd.Output)
 	case g.LeaveCmd.FullCommand():
 		return leave(localEnv, leaveConfig{
-			force:         *g.LeaveCmd.Force,
-			confirmed:     *g.LeaveCmd.Confirm,
-			systemLogFile: *g.SystemLogFile,
-			userLogFile:   *g.UserLogFile,
+			force:     *g.LeaveCmd.Force,
+			confirmed: *g.LeaveCmd.Confirm,
 		})
 	case g.RemoveCmd.FullCommand():
 		return remove(localEnv, removeConfig{
-			server:        *g.RemoveCmd.Node,
-			force:         *g.RemoveCmd.Force,
-			confirmed:     *g.RemoveCmd.Confirm,
-			systemLogFile: *g.SystemLogFile,
-			userLogFile:   *g.UserLogFile,
+			server:    *g.RemoveCmd.Node,
+			force:     *g.RemoveCmd.Force,
+			confirmed: *g.RemoveCmd.Confirm,
 		})
 	case g.StatusCmd.FullCommand():
 		printOptions := printOptions{
@@ -719,7 +738,8 @@ func Execute(g *Application, cmd string, extraArgs []string) error {
 	case g.RPCAgentInstallCmd.FullCommand():
 		return rpcAgentInstall(localEnv, *g.RPCAgentInstallCmd.Args)
 	case g.RPCAgentRunCmd.FullCommand():
-		return rpcAgentRun(localEnv, upgradeEnv, *g.RPCAgentRunCmd.Args)
+		return rpcAgentRun(localEnv, upgradeEnv,
+			*g.RPCAgentRunCmd.Args)
 	case g.RPCAgentShutdownCmd.FullCommand():
 		return rpcAgentShutdown(localEnv)
 	case g.CheckCmd.FullCommand():

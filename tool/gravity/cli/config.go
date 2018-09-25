@@ -493,7 +493,6 @@ func (j *JoinConfig) ToPeerConfig(env, joinEnv *localenv.LocalEnvironment) (*exp
 	return &expand.PeerConfig{
 		Context:       ctx,
 		Cancel:        cancel,
-		SystemLogFile: j.SystemLogFile,
 		Peers:         peers,
 		AdvertiseAddr: advertiseAddr,
 		ServerAddr:    j.ServerAddr,

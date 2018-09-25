@@ -51,7 +51,8 @@ func updateTrigger(
 	localEnv *localenv.LocalEnvironment,
 	upgradeEnv *localenv.LocalEnvironment,
 	appPackage string,
-	manual bool) (err error) {
+	manual bool,
+) error {
 	operator, err := localEnv.SiteOperator()
 	if err != nil {
 		return trace.Wrap(err)
@@ -124,6 +125,13 @@ func updateTrigger(
 
 	if !manual {
 		req.leaderParams = []string{constants.RpcAgentUpgradeFunction}
+		// attempt to schedule the master agent on this node but do not
+		// treat the failure to do so as critical
+		req.leader, err = findLocalServer(*cluster)
+		if err != nil {
+			log.Errorf("Failed to determine local node: %v.",
+				trace.DebugReport(err))
+		}
 	}
 
 	ctx := context.TODO()

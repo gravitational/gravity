@@ -216,11 +216,14 @@ const (
 	// GravityPackagePrefix defines base prefix of gravity package
 	GravityPackagePrefix = "gravitational.io/gravity"
 
-	// TelekubeSystemLog defines the default location for the system log
-	TelekubeSystemLog = "./telekube-system.log"
+	// TelekubeSystemLogFile is the system log file name
+	TelekubeSystemLogFile = "telekube-system.log"
 
-	// TelekubeUserLog the default location for user-facing log file
-	TelekubeUserLog = "./telekube-install.log"
+	// TelekubeUserLogFile is the user log file name
+	TelekubeUserLogFile = "telekube-install.log"
+
+	// SystemLogDir is the directory where gravity logs go
+	SystemLogDir = "/var/log"
 
 	// TelekubePackage is the Telekube application package name
 	TelekubePackage = "telekube"
@@ -1029,6 +1032,12 @@ var (
 	// CertificateExpiry is the validity period of certificates generated
 	// during cluster installation (such as apiserver, etcd, kubelet, etc.)
 	CertificateExpiry time.Duration = 10 * 365 * 24 * time.Hour // 10 years
+
+	// TelekubeSystemLog defines the default location for the system log
+	TelekubeSystemLog = filepath.Join(SystemLogDir, TelekubeSystemLogFile)
+
+	// TelekubeUserLog the default location for user-facing log file
+	TelekubeUserLog = filepath.Join(SystemLogDir, TelekubeUserLogFile)
 )
 
 // HookSecurityContext returns default securityContext for hook pods

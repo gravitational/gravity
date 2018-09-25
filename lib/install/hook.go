@@ -22,33 +22,21 @@ import (
 
 	"github.com/gravitational/gravity/lib/defaults"
 
-	log "github.com/sirupsen/logrus"
 	"github.com/gravitational/trace"
+	log "github.com/sirupsen/logrus"
 )
 
 // InitLogging initalizes logging for local installer
-func InitLogging(logFile string) error {
-	hook, err := NewLogHook(logFile)
-	if err != nil {
-		return trace.Wrap(err, "failed to create log file %v", logFile)
-	}
-	log.StandardLogger().Hooks.Add(hook)
-	log.SetLevel(log.DebugLevel)
-	log.SetOutput(ioutil.Discard)
-	return nil
+func InitLogging(logFile string) {
+	log.StandardLogger().Hooks.Add(&Hook{
+		path: logFile,
+	})
+	setLoggingOptions()
 }
 
-// NewLogHook returns new logging hook
-func NewLogHook(path string) (*Hook, error) {
-	// Truncate the contents of the log file
-	f, err := os.Create(path)
-	if err != nil {
-		return nil, trace.Wrap(err)
-	}
-	f.Close()
-	return &Hook{
-		path: path,
-	}, nil
+func setLoggingOptions() {
+	log.SetLevel(log.DebugLevel)
+	log.SetOutput(ioutil.Discard)
 }
 
 // Hook implements log.Hook and multiplexes log messages
