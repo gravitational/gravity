@@ -64,11 +64,7 @@ func updateTrigger(
 	if clusterEnv.Client == nil {
 		return trace.BadParameter("this operation can only be executed on one of the master nodes")
 	}
-
-	operator, err := localEnv.SiteOperator()
-	if err != nil {
-		return trace.Wrap(err)
-	}
+	operator := clusterEnv.Operator
 
 	cluster, err := operator.GetLocalSite()
 	if err != nil {
