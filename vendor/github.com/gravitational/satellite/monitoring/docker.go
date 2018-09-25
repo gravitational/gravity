@@ -42,7 +42,7 @@ func NewDockerDevicemapperChecker(config DockerDevicemapperConfig) health.Checke
 
 // DockerDevicemapperConfig is the docker devicemapper checker configuration
 type DockerDevicemapperConfig struct {
-	// HighWatermark is the devicemapper high watermark usage
+	// HighWatermark is the devicemapper high watermark usage percentage
 	HighWatermark uint
 }
 
@@ -72,40 +72,37 @@ func (c *devicemapperChecker) check(ctx context.Context, reporter health.Reporte
 		return trace.Wrap(err, "failed to get docker info: %s", out)
 	}
 	var info dockerInfo
-	if err := json.Unmarshal(out, &info); err != nil {
+	err = json.Unmarshal(out, &info)
+	if err != nil {
 		return trace.Wrap(err, "failed to unmarshal docker info: %s", out)
 	}
 	if info.Driver != "devicemapper" {
 		return nil
 	}
-	var usedBytes, availableBytes uint64
-	for _, status := range info.DriverStatus {
-		switch status[0] {
-		case "Data Space Used":
-			if usedBytes, err = humanize.ParseBytes(status[1]); err != nil {
-				return trace.Wrap(err)
-			}
-		case "Data Space Available":
-			if availableBytes, err = humanize.ParseBytes(status[1]); err != nil {
-				return trace.Wrap(err)
-			}
-		}
+	usedBytes, err := info.DataSpaceUsed()
+	if err != nil {
+		return trace.Wrap(err)
 	}
-	if usedBytes == 0 && availableBytes == 0 {
-		return trace.BadParameter("failed to determine used docker space: %v", info)
+	availableBytes, err := info.DataSpaceAvailable()
+	if err != nil {
+		return trace.Wrap(err)
 	}
 	totalBytes := usedBytes + availableBytes
+	if totalBytes == 0 {
+		return trace.BadParameter("docker devicemapper disk has 0 bytes: %v",
+			info)
+	}
 	if float64(usedBytes)/float64(totalBytes)*100 > float64(c.HighWatermark) {
 		reporter.Add(&pb.Probe{
 			Checker: c.Name(),
-			Detail: fmt.Sprintf("docker devicemapper disk utilization exceeds %v%% (%s is available out of %s), see https://gravitational.com/telekube/docs/cluster/#garbage-collection",
+			Detail: fmt.Sprintf("docker devicemapper disk utilization exceeds %v percent (%s is available out of %s), see https://gravitational.com/telekube/docs/cluster/#garbage-collection",
 				c.HighWatermark, humanize.Bytes(availableBytes), humanize.Bytes(totalBytes)),
 			Status: pb.Probe_Failed,
 		})
 	} else {
 		reporter.Add(&pb.Probe{
 			Checker: c.Name(),
-			Detail: fmt.Sprintf("docker devicemapper disk utilization is below %v%% (%s is available out of %s)",
+			Detail: fmt.Sprintf("docker devicemapper disk utilization is below %v percent (%s is available out of %s)",
 				c.HighWatermark, humanize.Bytes(availableBytes), humanize.Bytes(totalBytes)),
 			Status: pb.Probe_Running,
 		})
@@ -119,4 +116,32 @@ type dockerInfo struct {
 	Driver string `json:"Driver"`
 	// DriverStatus is the docker storage driver information
 	DriverStatus [][]string `json:"DriverStatus"`
+}
+
+// DataSpaceUsed returns used data space in bytes
+func (d dockerInfo) DataSpaceUsed() (uint64, error) {
+	for _, status := range d.DriverStatus {
+		if len(status) != 2 {
+			continue
+		}
+		if status[0] == "Data Space Used" {
+			return humanize.ParseBytes(status[1])
+		}
+	}
+	return 0, trace.NotFound("docker info does not "+
+		"contain Data Space Used information: %v", d)
+}
+
+// DataSpaceAvailable returns available data space in bytes
+func (d dockerInfo) DataSpaceAvailable() (uint64, error) {
+	for _, status := range d.DriverStatus {
+		if len(status) != 2 {
+			continue
+		}
+		if status[0] == "Data Space Available" {
+			return humanize.ParseBytes(status[1])
+		}
+	}
+	return 0, trace.NotFound("docker info does not "+
+		"contain Data Space Available information: %v", d)
 }

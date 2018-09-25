@@ -21,7 +21,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"net/url"
-	"strings"
 	"time"
 
 	"github.com/gravitational/gravity/lib/constants"
@@ -358,35 +357,49 @@ func emptyNodeStatus(server storage.Server) ClusterServer {
 
 // probeErrorDetail describes the failed probe
 func probeErrorDetail(p pb.Probe) string {
+	if p.Checker == monitoring.DiskSpaceCheckerID {
+		detail, err := diskSpaceProbeErrorDetail(p)
+		if err == nil {
+			return detail
+		}
+		logrus.Warnf(trace.DebugReport(err))
+	}
 	detail := p.Detail
 	if p.Detail == "" {
 		detail = p.Checker
 	}
-	// state directory disk space checker always checks /var/lib/gravity
-	// which is default path inside planet but may be different on host
-	// so determine the real state directory if needed
-	if strings.HasPrefix(p.Checker, monitoring.DiskSpaceCheckerID) {
-		var data monitoring.HighWatermarkCheckerData
-		err := json.Unmarshal(p.CheckerData, &data)
-		if err != nil {
-			logrus.Error(trace.DebugReport(err))
-			return detail
-		}
-		if data.Path == defaults.GravityDir {
-			// if status command was run inside planet, just output
-			// the default path /var/lib/gravity
-			if utils.CheckInPlanet() {
-				return p.Detail
-			}
-			data.Path, err = state.GetStateDir()
-			if err != nil {
-				logrus.Error(trace.DebugReport(err))
-				return detail
-			}
-			return data.FailureMessage()
-		}
-	}
 	return detail
+}
+
+// diskSpaceProbeErrorDetail returns an appropriate error message for disk
+// space checker probe
+//
+// The reason is that state directory disk space checker always checks
+// /var/lib/gravity which is default path inside planet but may be different
+// on host so determine the real state directory if needed
+func diskSpaceProbeErrorDetail(p pb.Probe) (string, error) {
+	if p.Checker != monitoring.DiskSpaceCheckerID {
+		return "", trace.BadParameter("not disk space checker probe: %v", p)
+	}
+	var data monitoring.HighWatermarkCheckerData
+	err := json.Unmarshal(p.CheckerData, &data)
+	if err != nil {
+		return "", trace.Wrap(err)
+	}
+	// not state directory checker, return error as-is
+	if data.Path != defaults.GravityDir {
+		return p.Detail, nil
+	}
+	// if status command was run inside planet, the default error message is fine
+	if utils.CheckInPlanet() {
+		return p.Detail, nil
+	}
+	// otherwise determine the real state directory on host and reconstruct the message
+	data.Path, err = state.GetStateDir()
+	if err != nil {
+		return "", trace.Wrap(err)
+	}
+	return data.FailureMessage(), nil
 }
 
 const (

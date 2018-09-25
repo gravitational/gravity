@@ -129,7 +129,7 @@ func updateTrigger(
 		// treat the failure to do so as critical
 		req.leader, err = findLocalServer(*cluster)
 		if err != nil {
-			log.Errorf("Failed to determine local node: %v.",
+			log.Warnf("Failed to determine local node: %v.",
 				trace.DebugReport(err))
 		}
 	}

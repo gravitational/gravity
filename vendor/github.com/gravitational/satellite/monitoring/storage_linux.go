@@ -66,23 +66,23 @@ type StorageConfig struct {
 type HighWatermarkCheckerData struct {
 	// HighWatermark is the watermark percentage value
 	HighWatermark uint `json:"high_watermark"`
-	// Path is the checked path
+	// Path is the absolute path to check
 	Path string `json:"path"`
-	// TotalBytes is the total disk capacity in bytes
+	// TotalBytes is the total disk capacity
 	TotalBytes uint64 `json:"total_bytes"`
-	// AvailableBytes is the available disk capacity in bytes
+	// AvailableBytes is the available disk capacity
 	AvailableBytes uint64 `json:"available_bytes"`
 }
 
 // FailureMessage returns failure watermark check message
 func (d HighWatermarkCheckerData) FailureMessage() string {
-	return fmt.Sprintf("disk utilization on %s exceeds %v%% (%s is available out of %s), see https://gravitational.com/telekube/docs/cluster/#garbage-collection",
+	return fmt.Sprintf("disk utilization on %s exceeds %v percent (%s is available out of %s), see https://gravitational.com/telekube/docs/cluster/#garbage-collection",
 		d.Path, d.HighWatermark, humanize.Bytes(d.AvailableBytes), humanize.Bytes(d.TotalBytes))
 }
 
 // SuccessMessage returns success watermark check message
 func (d HighWatermarkCheckerData) SuccessMessage() string {
-	return fmt.Sprintf("disk utilization on %s is below %v%% (%s is available out of %s)",
+	return fmt.Sprintf("disk utilization on %s is below %v percent (%s is available out of %s)",
 		d.Path, d.HighWatermark, humanize.Bytes(d.AvailableBytes), humanize.Bytes(d.TotalBytes))
 }
 
@@ -194,9 +194,8 @@ func (c *storageChecker) checkHighWatermark(ctx context.Context, reporter health
 		return trace.Wrap(err)
 	}
 	if totalBytes == 0 {
-		return trace.BadParameter("failed to determine disk capacity at %v", c.path)
+		return trace.BadParameter("disk capacity at %v is 0", c.path)
 	}
-	checkerName := fmt.Sprintf("%v(%v)", DiskSpaceCheckerID, c.path)
 	checkerData := HighWatermarkCheckerData{
 		HighWatermark:  c.HighWatermark,
 		Path:           c.Path,
@@ -209,14 +208,14 @@ func (c *storageChecker) checkHighWatermark(ctx context.Context, reporter health
 	}
 	if float64(totalBytes-availableBytes)/float64(totalBytes)*100 > float64(c.HighWatermark) {
 		reporter.Add(&pb.Probe{
-			Checker:     checkerName,
+			Checker:     DiskSpaceCheckerID,
 			Detail:      checkerData.FailureMessage(),
 			CheckerData: checkerDataBytes,
 			Status:      pb.Probe_Failed,
 		})
 	} else {
 		reporter.Add(&pb.Probe{
-			Checker:     checkerName,
+			Checker:     DiskSpaceCheckerID,
 			Detail:      checkerData.SuccessMessage(),
 			CheckerData: checkerDataBytes,
 			Status:      pb.Probe_Running,
