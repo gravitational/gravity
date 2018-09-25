@@ -91,6 +91,8 @@ message Probe {
     Running = 1;
     Failed = 2;
     Terminated = 3;
+    // Temporary denotes a temporary failed status
+    Temporary = 4;
   }
   // Status is the result of the probe
   Type status = 4;

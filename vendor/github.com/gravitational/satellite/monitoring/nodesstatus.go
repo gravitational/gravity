@@ -31,9 +31,9 @@ import (
 )
 
 // NewNodesStatusChecker returns a Checker that tests kubernetes nodes availability
-func NewNodesStatusChecker(hostPort string, nodesReadyThreshold int) health.Checker {
+func NewNodesStatusChecker(kubeAddr string, nodesReadyThreshold int) health.Checker {
 	return &nodesStatusChecker{
-		hostPort:            hostPort,
+		kubeAddr:            kubeAddr,
 		nodesReadyThreshold: nodesReadyThreshold,
 	}
 }
@@ -41,17 +41,16 @@ func NewNodesStatusChecker(hostPort string, nodesReadyThreshold int) health.Chec
 // nodesStatusChecker tests and reports health failures in kubernetes
 // nodes availability
 type nodesStatusChecker struct {
-	name                string
-	hostPort            string
+	kubeAddr            string
 	nodesReadyThreshold int
 }
 
 // Name returns the name of this checker
-func (r *nodesStatusChecker) Name() string { return "nodesstatuses" }
+func (r *nodesStatusChecker) Name() string { return NodesStatusCheckerID }
 
 // Check validates the status of kubernetes components
 func (r *nodesStatusChecker) Check(ctx context.Context, reporter health.Reporter) {
-	client, err := ConnectToKube(r.hostPort, "")
+	client, err := ConnectToKube(r.kubeAddr, "")
 	if err != nil {
 		reason := "failed to connect to kubernetes apiserver"
 		reporter.Add(NewProbeFromErr(r.Name(), reason, trace.Wrap(err)))
@@ -94,3 +93,94 @@ func (r *nodesStatusChecker) Check(ctx context.Context, reporter health.Reporter
 		})
 	}
 }
+
+// NewNodeStatusChecker returns a Checker that validates availability
+// of a single kubernetes node
+func NewNodeStatusChecker(kubeAddr, nodeName string) *nodeStatusChecker {
+	nodeLister := kubeNodeLister{kubeAddr: kubeAddr}
+	return &nodeStatusChecker{
+		nodeLister: nodeLister,
+		nodeName:   nodeName,
+	}
+}
+
+// NewNodeStatusChecker returns a Checker that validates availability
+// of a single kubernetes node
+type nodeStatusChecker struct {
+	nodeLister
+	nodeName string
+}
+
+// Name returns the name of this checker
+func (r *nodeStatusChecker) Name() string { return NodeStatusCheckerID }
+
+// Check validates the status of kubernetes components
+func (r *nodeStatusChecker) Check(ctx context.Context, reporter health.Reporter) {
+	nodes, err := r.nodeLister.Nodes()
+	if err != nil {
+		reporter.Add(NewProbeFromErr(r.Name(), trace.UserMessage(err), trace.Wrap(err)))
+		return
+	}
+
+	var unavailableNode *v1.Node
+L:
+	for _, node := range nodes.Items {
+		for _, condition := range node.Status.Conditions {
+			if condition.Type != v1.NodeReady {
+				continue
+			}
+			if condition.Status != v1.ConditionTrue && node.Name == r.nodeName {
+				unavailableNode = &node
+				break L
+			}
+		}
+	}
+
+	if unavailableNode == nil {
+		reporter.Add(&pb.Probe{
+			Checker: r.Name(),
+			Status:  pb.Probe_Running,
+			Detail:  r.nodeName,
+		})
+		return
+	}
+
+	reporter.Add(&pb.Probe{
+		Checker: r.Name(),
+		Status:  pb.Probe_Temporary,
+		Detail:  unavailableNode.Name,
+		Error:   "Node is not ready",
+	})
+}
+
+type nodeLister interface {
+	Nodes() (*v1.NodeList, error)
+}
+
+func (r kubeNodeLister) Nodes() (*v1.NodeList, error) {
+	client, err := ConnectToKube(r.kubeAddr, "")
+	if err != nil {
+		return nil, trace.Wrap(err, "failed to connect to kubernetes apiserver")
+	}
+
+	options := metav1.ListOptions{
+		LabelSelector: labels.Everything().String(),
+		FieldSelector: fields.Everything().String(),
+	}
+	nodes, err := client.CoreV1().Nodes().List(options)
+	if err != nil {
+		return nil, trace.Wrap(err, "failed to query nodes")
+	}
+	return nodes, nil
+}
+
+type kubeNodeLister struct {
+	kubeAddr string
+}
+
+const (
+	// NodeStatusCheckerID identifies the checker that detects whether a node is not ready
+	NodeStatusCheckerID = "nodestatus"
+	// NodesStatusCheckerID identifies the checker that validates node availability in a cluster
+	NodesStatusCheckerID = "nodesstatus"
+)

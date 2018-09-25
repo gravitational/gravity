@@ -59,7 +59,11 @@ func status(env *localenv.LocalEnvironment, printOptions printOptions) error {
 	log.Warnf("Failed to collect cluster status: %v.", trace.DebugReport(err))
 
 	if status == nil {
-		status = &statusapi.Status{}
+		status = &statusapi.Status{
+			Cluster: &statusapi.Cluster{
+				State: ops.SiteStateDegraded,
+			},
+		}
 	}
 	if status.Agent == nil {
 		status.Agent, err = statusapi.FromPlanetAgent(context.TODO(), nil)
@@ -264,10 +268,16 @@ func printStatusText(cluster clusterStatus) {
 }
 
 func printClusterStatus(cluster statusapi.Cluster, w io.Writer) {
-	fmt.Fprintf(w, "Application:\t%v, version %v\n", cluster.App.Name,
-		cluster.App.Version)
-	fmt.Fprintf(w, "Join token:\t%v\n", cluster.Token.Token)
-	cluster.Extension.WriteTo(w)
+	if cluster.App.Name != "" {
+		fmt.Fprintf(w, "Application:\t%v, version %v\n", cluster.App.Name,
+			cluster.App.Version)
+	}
+	if cluster.Token.Token != "" {
+		fmt.Fprintf(w, "Join token:\t%v\n", cluster.Token.Token)
+	}
+	if cluster.Extension != nil {
+		cluster.Extension.WriteTo(w)
+	}
 	if len(cluster.ActiveOperations) != 0 {
 		fmt.Fprintf(w, "Active operations:\n")
 		for _, op := range cluster.ActiveOperations {

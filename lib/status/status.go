@@ -132,7 +132,7 @@ func FromPlanetAgent(ctx context.Context, servers []storage.Server) (*Agent, err
 	if len(servers) != 0 {
 		nodes = fromClusterState(*status, servers)
 	} else {
-		nodes = fromSystemStatus(*status)
+		nodes = fromSystemStatus(status)
 	}
 
 	return &Agent{
@@ -263,10 +263,14 @@ func fromProgressEntry(src ops.ProgressEntry) ClusterOperationProgress {
 // fromSystemStatus returns the list of node statuses in the absence
 // of the actual cluster server list so it might be missing information
 // about nodes agent status did not get response back from
-func fromSystemStatus(systemStatus pb.SystemStatus) (out []ClusterServer) {
+func fromSystemStatus(systemStatus *pb.SystemStatus) (out []ClusterServer) {
 	out = make([]ClusterServer, 0, len(systemStatus.Nodes))
 	for _, node := range systemStatus.Nodes {
-		out = append(out, fromNodeStatus(*node))
+		nodeStatus := fromNodeStatus(*node)
+		out = append(out, nodeStatus)
+		if nodeStatus.Status == NodeDegraded {
+			systemStatus.Status = pb.SystemStatus_Degraded
+		}
 	}
 	return out
 }
@@ -333,16 +337,20 @@ func fromNodeStatus(node pb.NodeStatus) (status ClusterServer) {
 	switch node.Status {
 	case pb.NodeStatus_Unknown:
 		status.Status = NodeOffline
+		return status
 	case pb.NodeStatus_Running:
 		status.Status = NodeHealthy
 	case pb.NodeStatus_Degraded:
 		status.Status = NodeDegraded
-		for _, probe := range node.Probes {
-			if probe.Status != pb.Probe_Running {
-				status.FailedProbes = append(status.FailedProbes,
-					probeErrorDetail(*probe))
-			}
+	}
+	for _, probe := range node.Probes {
+		if probe.Status != pb.Probe_Running {
+			status.FailedProbes = append(status.FailedProbes,
+				probeErrorDetail(*probe))
 		}
+	}
+	if len(status.FailedProbes) != 0 {
+		status.Status = NodeDegraded
 	}
 	return status
 }
@@ -368,7 +376,7 @@ func probeErrorDetail(p pb.Probe) string {
 	if p.Detail == "" {
 		detail = p.Checker
 	}
-	return detail
+	return fmt.Sprintf("%v failed (%v)", detail, p.Error)
 }
 
 // diskSpaceProbeErrorDetail returns an appropriate error message for disk

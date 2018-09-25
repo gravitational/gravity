@@ -81,6 +81,8 @@ func (s Probe_Type) MarshalText() (text []byte, err error) {
 		return []byte("failed"), nil
 	case Probe_Terminated:
 		return []byte("terminated"), nil
+	case Probe_Temporary:
+		return []byte("temporary"), nil
 	default:
 		return nil, nil
 	}
@@ -95,6 +97,8 @@ func (s *Probe_Type) UnmarshalText(text []byte) error {
 		*s = Probe_Failed
 	case "terminated":
 		*s = Probe_Terminated
+	case "temporary":
+		*s = Probe_Temporary
 	default:
 		*s = Probe_Unknown
 	}
