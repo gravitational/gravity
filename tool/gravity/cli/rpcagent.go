@@ -365,5 +365,5 @@ type deployAgentsRequest struct {
 	clusterName  string
 	proxy        *teleclient.ProxyClient
 	leaderParams []string
-	docker       storage.DockerConfig
+	leader       *storage.Server
 }

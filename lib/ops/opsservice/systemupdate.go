@@ -86,9 +86,15 @@ func (s *site) configurePlanetOnNode(
 		}
 	}
 
-	docker, err := s.selectDockerConfig(ctx.operation, s.app.Manifest, &manifest)
-	if err != nil {
-		return nil, trace.Wrap(err)
+	docker := s.dockerConfig()
+	updateConfig := manifest.SystemOptions.DockerConfig()
+	if updateConfig != nil {
+		if updateConfig.StorageDriver != "" {
+			docker.StorageDriver = updateConfig.StorageDriver
+		}
+		if len(updateConfig.Args) != 0 {
+			docker.Args = updateConfig.Args
+		}
 	}
 
 	var dockerRuntime storage.Docker
@@ -120,7 +126,7 @@ func (s *site) configurePlanetOnNode(
 	config := planetConfig{
 		master:        masterConfig{addr: ctx.update.masterIP},
 		etcd:          etcd,
-		docker:        *docker,
+		docker:        docker,
 		dockerRuntime: dockerRuntime,
 		planetPackage: *planetPackage,
 		configPackage: *configPackage,

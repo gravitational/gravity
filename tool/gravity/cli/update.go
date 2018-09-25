@@ -28,6 +28,9 @@ import (
 	"github.com/gravitational/gravity/lib/localenv"
 	"github.com/gravitational/gravity/lib/ops"
 	"github.com/gravitational/gravity/lib/pack"
+	"github.com/gravitational/gravity/lib/schema"
+	"github.com/gravitational/gravity/lib/update"
+	"github.com/gravitational/gravity/lib/utils"
 
 	"github.com/gravitational/trace"
 )
@@ -53,6 +56,15 @@ func updateTrigger(
 	appPackage string,
 	manual bool,
 ) error {
+	clusterEnv, err := localEnv.NewClusterEnvironment()
+	if err != nil {
+		return trace.Wrap(err)
+	}
+
+	if clusterEnv.Client == nil {
+		return trace.BadParameter("this operation can only be executed on one of the master nodes")
+	}
+
 	operator, err := localEnv.SiteOperator()
 	if err != nil {
 		return trace.Wrap(err)
@@ -71,15 +83,6 @@ func updateTrigger(
 	proxy, err := teleportClient.ConnectToProxy()
 	if err != nil {
 		return trace.Wrap(err, "failed to connect to teleport proxy")
-	}
-
-	clusterEnv, err := localEnv.NewClusterEnvironment()
-	if err != nil {
-		return trace.Wrap(err)
-	}
-
-	if clusterEnv.Client == nil {
-		return trace.BadParameter("this operation can only be executed on one of the master nodes")
 	}
 
 	app, err := checkForUpdate(localEnv, operator, cluster, appPackage)

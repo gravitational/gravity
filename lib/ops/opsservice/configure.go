@@ -189,7 +189,7 @@ func (s *site) configureExpandPackages(ctx context.Context, opCtx *operationCont
 	if err != nil {
 		return trace.Wrap(err)
 	}
-	dockerConfig, err := s.selectDockerConfig(opCtx.operation, s.app.Manifest, nil)
+	dockerConfig, err := s.selectDockerConfig(opCtx.operation, s.app.Manifest)
 	if err != nil {
 		return trace.Wrap(err)
 	}
@@ -350,7 +350,7 @@ func (s *site) configurePackages(ctx *operationContext) error {
 				master, etcdConfig)
 		}
 
-		docker, err := s.selectDockerConfig(ctx.operation, s.app.Manifest, nil)
+		docker, err := s.selectDockerConfig(ctx.operation, s.app.Manifest)
 		if err != nil {
 			return trace.Wrap(err)
 		}
@@ -419,7 +419,7 @@ func (s *site) configurePackages(ctx *operationContext) error {
 				node.AdvertiseIP, etcdConfig)
 		}
 
-		docker, err := s.selectDockerConfig(ctx.operation, s.app.Manifest, nil)
+		docker, err := s.selectDockerConfig(ctx.operation, s.app.Manifest)
 		if err != nil {
 			return trace.Wrap(err)
 		}
@@ -1692,7 +1692,6 @@ func configureDockerOptions(
 func (s *site) selectDockerConfig(
 	operation ops.SiteOperation,
 	old schema.Manifest,
-	new *schema.Manifest,
 ) (config *storage.DockerConfig, err error) {
 	clusterConfig := s.dockerConfig()
 	if !clusterConfig.IsEmpty() {
@@ -1719,17 +1718,7 @@ func (s *site) selectDockerConfig(
 	if len(overrideConfig.Args) != 0 {
 		config.Args = overrideConfig.Args
 	}
-	if new != nil {
-		updateConfig := new.SystemOptions.DockerConfig()
-		if updateConfig != nil {
-			if updateConfig.StorageDriver != "" {
-				config.StorageDriver = updateConfig.StorageDriver
-			}
-			if len(updateConfig.Args) != 0 {
-				config.Args = updateConfig.Args
-			}
-		}
-	}
+
 	return config, nil
 }
 
