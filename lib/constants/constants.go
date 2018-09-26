@@ -665,6 +665,13 @@ var (
 		DockerStorageDriverOverlay2,
 	}
 
+	// DockerSupportedTargetDrivers is a list of docker storage drivers
+	// that the existing storage driver can be switched to
+	DockerSupportedTargetDrivers = []string{
+		DockerStorageDriverOverlay,
+		DockerStorageDriverOverlay2,
+	}
+
 	// PlanetMultiRegistryVersion is the planet release starting from which registries
 	// are running on all master nodes
 	PlanetMultiRegistryVersion = semver.New("0.1.55")

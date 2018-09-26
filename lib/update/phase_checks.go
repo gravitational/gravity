@@ -41,7 +41,8 @@ type updatePhaseChecks struct {
 	// installedPackage specifies the installed application package
 	installedPackage loc.Locator
 	// remote allows remote control of servers
-	remote fsm.AgentRepository
+	remote         fsm.AgentRepository
+	existingDocker storage.DockerConfig
 }
 
 // NewUpdatePhaseChecks creates a new preflight checks phase executor
@@ -57,12 +58,17 @@ func NewUpdatePhaseChecks(
 	if phase.Data.InstalledPackage == nil {
 		return nil, trace.NotFound("no installed application package specified for phase %v", phase)
 	}
+	cluster, err := c.Operator.GetLocalSite()
+	if err != nil {
+		return nil, trace.Wrap(err)
+	}
 	return &updatePhaseChecks{
 		FieldLogger:      log.NewEntry(log.New()),
 		apps:             c.Apps,
 		servers:          plan.Servers,
 		updatePackage:    *phase.Data.Package,
 		installedPackage: *phase.Data.InstalledPackage,
+		existingDocker:   cluster.ClusterState.Docker,
 		remote:           remote,
 	}, nil
 }
@@ -88,7 +94,15 @@ func (p *updatePhaseChecks) Execute(ctx context.Context) error {
 		return trace.Wrap(err)
 	}
 
-	err = validate(ctx, p.remote, p.servers, installedApp.Manifest, app.Manifest)
+	dockerConfig := storage.DockerConfig{
+		StorageDriver: p.existingDocker.StorageDriver,
+	}
+	dockerSchema := app.Manifest.SystemDocker()
+	if dockerSchema.StorageDriver != "" {
+		dockerConfig.StorageDriver = dockerSchema.StorageDriver
+	}
+
+	err = validate(ctx, p.remote, p.servers, installedApp.Manifest, app.Manifest, dockerConfig)
 	return trace.Wrap(err, "failed to validate requirements")
 }
 

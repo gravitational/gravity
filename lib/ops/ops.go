@@ -825,6 +825,11 @@ func (s *SiteOperation) IsFailed() bool {
 	return s.State == OperationStateFailed
 }
 
+// IsCompleted returns whether the operation has completed successfully
+func (s *SiteOperation) IsCompleted() bool {
+	return s.State == OperationStateCompleted
+}
+
 // IsFinished returns true if the operation has finished (succeeded or failed)
 func (s *SiteOperation) IsFinished() bool {
 	return s.State == OperationStateCompleted || s.State == OperationStateFailed
@@ -1060,6 +1065,7 @@ type CreateSiteAppUpdateOperationRequest struct {
 	// App specifies a new application package in the "locator" form, e.g. gravitational.io/mattermost:1.2.3
 	App string `json:"package"`
 	// Manual specifies whether a manual update mode is requested.
+	// Deprecated.
 	Manual bool `json:"manual"`
 }
 
@@ -1251,6 +1257,8 @@ type NewSiteRequest struct {
 	DNSOverrides storage.DNSOverrides `json:"dns_overrides"`
 	// DNSConfig specifies the cluster local DNS server configuration
 	DNSConfig storage.DNSConfig `json:"dns_config"`
+	// Docker specifies the cluster Docker configuration
+	Docker storage.DockerConfig `json:"docker"`
 }
 
 // SiteKey is a key used to identify site

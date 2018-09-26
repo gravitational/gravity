@@ -189,13 +189,9 @@ func (s *site) configureExpandPackages(ctx context.Context, opCtx *operationCont
 	if err != nil {
 		return trace.Wrap(err)
 	}
-	dockerConfig, err := s.selectDockerConfig(opCtx.operation, provisionedServer.Role, s.app.Manifest)
-	if err != nil {
-		return trace.Wrap(err)
-	}
 	planetConfig := planetConfig{
 		etcd:          *etcdConfig,
-		docker:        *dockerConfig,
+		docker:        s.dockerConfig(),
 		planetPackage: *planetPackage,
 		configPackage: *configPackage,
 	}
@@ -350,15 +346,10 @@ func (s *site) configurePackages(ctx *operationContext) error {
 				master, etcdConfig)
 		}
 
-		docker, err := s.selectDockerConfig(ctx.operation, master.Role, s.app.Manifest)
-		if err != nil {
-			return trace.Wrap(err)
-		}
-
 		config := planetConfig{
 			etcd:          masterEtcdConfig,
 			master:        masterConfig,
-			docker:        *docker,
+			docker:        s.dockerConfig(),
 			planetPackage: *planetPackage,
 			configPackage: *configPackage,
 		}
@@ -419,15 +410,10 @@ func (s *site) configurePackages(ctx *operationContext) error {
 				node.AdvertiseIP, etcdConfig)
 		}
 
-		docker, err := s.selectDockerConfig(ctx.operation, node.Role, s.app.Manifest)
-		if err != nil {
-			return trace.Wrap(err)
-		}
-
 		config := planetConfig{
 			etcd:          nodeEtcdConfig,
 			master:        masterConfig{addr: p.FirstMaster().AdvertiseIP},
-			docker:        *docker,
+			docker:        s.dockerConfig(),
 			planetPackage: *planetPackage,
 			configPackage: *configPackage,
 		}
@@ -963,7 +949,8 @@ func (s *site) getPlanetConfigPackage(
 	}
 	args = append(args, fmt.Sprintf("--dns-port=%v", dnsConfig.Port))
 
-	dockerArgs, err := configureDockerOptions(&installOrExpand, node, config.docker, config.dockerRuntime)
+	dockerArgs, err := configureDockerOptions(&installOrExpand, node,
+		config.docker, config.dockerRuntime)
 	if err != nil {
 		return nil, trace.Wrap(err)
 	}
@@ -1043,7 +1030,7 @@ func (s *site) configurePlanetServer(node *ProvisionedServer, installOrExpand op
 type planetConfig struct {
 	etcd          etcdConfig
 	master        masterConfig
-	docker        schema.Docker
+	docker        storage.DockerConfig
 	dockerRuntime storage.Docker
 	planetPackage loc.Locator
 	configPackage loc.Locator
@@ -1640,7 +1627,7 @@ func addPackage(newPackage loc.Locator, labels map[string]string, source *[]pack
 func configureDockerOptions(
 	op *ops.SiteOperation,
 	node *ProvisionedServer,
-	docker schema.Docker,
+	docker storage.DockerConfig,
 	dockerRuntime storage.Docker,
 ) (args []string, err error) {
 	formatOptions := func(args []string) string {
@@ -1686,37 +1673,6 @@ func configureDockerOptions(
 	}
 
 	return args, nil
-}
-
-func (s *site) selectDockerConfig(operation ops.SiteOperation, profileName string, manifest schema.Manifest) (*schema.Docker, error) {
-	profile, err := manifest.NodeProfiles.ByName(profileName)
-	if err != nil {
-		return nil, trace.Wrap(err)
-	}
-
-	docker := manifest.Docker(*profile)
-
-	var vars storage.SystemVariables
-
-	switch operation.Type {
-	case ops.OperationInstall:
-		if operation.InstallExpand.Vars.System.Docker.StorageDriver != "" {
-			vars = operation.InstallExpand.Vars.System
-		}
-	default:
-		// for other operations, use the install operation state
-		installOperation, err := ops.GetCompletedInstallOperation(s.key, s.service)
-		if err != nil {
-			return nil, trace.Wrap(err)
-		}
-		vars = installOperation.InstallExpand.Vars.System
-	}
-
-	if vars.Docker.StorageDriver != "" {
-		docker.StorageDriver = vars.Docker.StorageDriver
-	}
-	docker.Args = append(docker.Args, vars.Docker.Args...)
-	return &docker, nil
 }
 
 type teleportSecrets struct {

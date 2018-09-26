@@ -136,8 +136,8 @@ type Operator struct {
 	// operationGroups maintains operation group for each site
 	operationGroups map[ops.SiteKey]*operationGroup
 
-	// Entry allows this operator to log messages
-	*log.Entry
+	// FieldLogger allows this operator to log messages
+	log.FieldLogger
 }
 
 // New creates an instance of the Operator service
@@ -152,20 +152,24 @@ func New(cfg Config) (*Operator, error) {
 		mu:              sync.Mutex{},
 		providers:       map[ops.SiteKey]CloudProvider{},
 		operationGroups: map[ops.SiteKey]*operationGroup{},
-		Entry:           log.WithField(trace.Component, constants.ComponentOps),
+		FieldLogger:     log.WithField(trace.Component, constants.ComponentOps),
 	}
 	return operator, nil
 }
 
-// NewLocalOperator creates an instance of a relaxed operator
-// with only basic services set
+// NewLocalOperator creates an instance of the operator service
+// that is used in a restricted context to allow access to the
+// up-to-date APIs (i.e. during update)
 func NewLocalOperator(cfg Config) (*Operator, error) {
 	err := cfg.CheckRelaxed()
 	if err != nil {
 		return nil, trace.Wrap(err)
 	}
 	return &Operator{
-		cfg: cfg,
+		cfg:             cfg,
+		mu:              sync.Mutex{},
+		operationGroups: map[ops.SiteKey]*operationGroup{},
+		FieldLogger:     log.WithField(trace.Component, constants.ComponentOps),
 	}, nil
 }
 
@@ -215,6 +219,9 @@ func (cfg *Config) CheckRelaxed() error {
 	}
 	if cfg.StateDir == "" {
 		return trace.BadParameter("missing StateDir")
+	}
+	if cfg.Clock == nil {
+		cfg.Clock = &timetools.RealTime{}
 	}
 	return nil
 }
@@ -541,6 +548,9 @@ func (o *Operator) CreateSite(r ops.NewSiteRequest) (*ops.Site, error) {
 		CloudConfig:  r.CloudConfig,
 		DNSOverrides: r.DNSOverrides,
 		DNSConfig:    r.DNSConfig,
+		ClusterState: storage.ClusterState{
+			Docker: r.Docker,
+		},
 	}
 	if runtimeLoc := app.Manifest.Base(); runtimeLoc != nil {
 		runtimeApp, err := o.cfg.Apps.GetApp(*runtimeLoc)
@@ -805,8 +815,10 @@ func (o *Operator) DeleteSiteOperation(key ops.SiteOperationKey) (err error) {
 		log.Warnf("Failed to set cluster %v state to %q: %v.", cluster, ops.SiteStateActive, errState)
 	}
 
-	if err := cluster.agentService().StopAgents(context.TODO(), key); err != nil && !trace.IsNotFound(err) {
-		log.Warnf("Failed to clean up agents for %v: %v.", key, trace.UserMessage(err))
+	if cluster.agentService() != nil {
+		if err := cluster.agentService().StopAgents(context.TODO(), key); err != nil && !trace.IsNotFound(err) {
+			log.Warnf("Failed to clean up agents for %v: %v.", key, trace.UserMessage(err))
+		}
 	}
 
 	return trace.Wrap(err)

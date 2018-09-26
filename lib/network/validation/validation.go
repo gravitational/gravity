@@ -139,8 +139,11 @@ func (_ *Server) Validate(ctx context.Context, req *pb.ValidateRequest) (resp *p
 	}
 
 	var failedProbes []*agentpb.Probe
+	dockerSchema := schema.Docker{
+		StorageDriver: req.Docker.StorageDriver,
+	}
 	if req.FullRequirements {
-		failedProbes, err = checks.ValidateManifest(manifest, req.Profile, stateDir)
+		failedProbes, err = checks.ValidateManifest(manifest, *profile, dockerSchema, stateDir)
 		failedProbes = append(failedProbes, checks.RunBasicChecks(ctx, req.Options)...)
 	} else {
 		failedProbes, err = validateManifest(*profile, manifest, stateDir)
@@ -188,7 +191,7 @@ func computeDiff(expected []*pb.Addr, actual []*pb.ServerResult) (diff []*pb.Add
 // installation.
 func validateManifest(profile schema.NodeProfile, manifest schema.Manifest, stateDir string) (failedProbes []*agentpb.Probe, err error) {
 	var errors []error
-	failed, err := schema.ValidateDocker(manifest.Docker(profile), stateDir)
+	failed, err := schema.ValidateDocker(manifest.SystemDocker(), stateDir)
 	if err != nil {
 		errors = append(errors, trace.Wrap(err,
 			"error validating docker requirements, see syslog for details"))

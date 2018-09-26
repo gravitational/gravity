@@ -208,7 +208,9 @@ func deployAgentOnNode(ctx context.Context, req DeployAgentsRequest, node, nodeS
 
 	var runCmd string
 	if leader {
-		runCmd = fmt.Sprintf("%s agent --debug install %s", gravityHostPath, strings.Join(req.LeaderParams, " "))
+		runCmd = fmt.Sprintf("%s agent --debug install %s",
+			gravityHostPath,
+			strings.Join(req.LeaderParams, " "))
 	} else {
 		runCmd = fmt.Sprintf("%s agent --debug install", gravityHostPath)
 	}

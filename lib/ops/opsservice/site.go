@@ -35,9 +35,9 @@ import (
 	"github.com/gravitational/gravity/lib/pack"
 	"github.com/gravitational/gravity/lib/schema"
 	"github.com/gravitational/gravity/lib/storage"
+	"github.com/gravitational/gravity/lib/users"
 	"github.com/gravitational/gravity/lib/utils"
 
-	"github.com/gravitational/gravity/lib/users"
 	"github.com/gravitational/license"
 	"github.com/gravitational/trace"
 	"github.com/mailgun/timetools"
@@ -607,6 +607,10 @@ func (s *site) updateSiteOperation(o *ops.SiteOperation) (*ops.SiteOperation, er
 		return nil, trace.Wrap(err)
 	}
 	return (*ops.SiteOperation)(out), nil
+}
+
+func (s site) dockerConfig() storage.DockerConfig {
+	return s.backendSite.ClusterState.Docker
 }
 
 func (s site) serviceUser() storage.OSUser {

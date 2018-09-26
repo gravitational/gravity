@@ -281,7 +281,7 @@ func reinstallOneshotService(env *localenv.LocalEnvironment, serviceName string,
 
 	err = services.StopService(serviceName)
 	if err != nil {
-		log.Warnf("Error stopping service %v: %v.", serviceName, trace.DebugReport(err))
+		log.Warnf("Error stopping service %v: %v.", serviceName, err)
 	}
 
 	err = services.InstallService(systemservice.NewServiceRequest{

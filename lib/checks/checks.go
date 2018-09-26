@@ -66,12 +66,12 @@ func New(remote Remote, servers []Server, manifest schema.Manifest, requirements
 
 // ValidateManifest verifies the specified manifest against the host environment.
 // Returns list of failed health probes.
-func ValidateManifest(manifest schema.Manifest, profileName, stateDir string) (failedProbes []*agentpb.Probe, err error) {
-	profile, err := manifest.NodeProfiles.ByName(profileName)
-	if err != nil {
-		return nil, trace.Wrap(err)
-	}
-
+func ValidateManifest(
+	manifest schema.Manifest,
+	profile schema.NodeProfile,
+	dockerSchema schema.Docker,
+	stateDir string,
+) (failedProbes []*agentpb.Probe, err error) {
 	var errors []error
 	failed, err := schema.ValidateRequirements(profile.Requirements, stateDir)
 	if err != nil {
@@ -80,14 +80,14 @@ func ValidateManifest(manifest schema.Manifest, profileName, stateDir string) (f
 	}
 	failedProbes = append(failedProbes, failed...)
 
-	failed, err = schema.ValidateDocker(manifest.Docker(*profile), stateDir)
+	failed, err = schema.ValidateDocker(dockerSchema, stateDir)
 	if err != nil {
 		errors = append(errors, trace.Wrap(err,
 			"error validating docker requirements, see syslog for details"))
 	}
 	failedProbes = append(failedProbes, failed...)
 
-	failedProbes = append(failedProbes, schema.ValidateKubelet(*profile, manifest)...)
+	failedProbes = append(failedProbes, schema.ValidateKubelet(profile, manifest)...)
 	return failedProbes, trace.NewAggregate(errors...)
 }
 
@@ -116,6 +116,8 @@ type LocalChecksRequest struct {
 	Role string
 	// Options is additional validation options
 	Options *validationpb.ValidateOptions
+	// Docker specifies the Docker configuration to validate
+	Docker storage.DockerConfig
 	// AutoFix when set to true attempts to fix some common problems
 	AutoFix bool
 	// Progress is used to report information about auto-fixed problems
@@ -129,6 +131,9 @@ func (r *LocalChecksRequest) CheckAndSetDefaults() error {
 	}
 	if r.Role == "" {
 		return trace.BadParameter("role name is required")
+	}
+	if r.Docker.IsEmpty() {
+		return trace.BadParameter("docker configuration is required")
 	}
 	if r.Progress == nil {
 		r.Progress = utils.NewConsoleProgress(r.Context, "", 0)
@@ -157,22 +162,33 @@ func ValidateLocal(req LocalChecksRequest) (*LocalChecksResult, error) {
 		log.Infof("Skipping local checks due to %v set.", constants.PreflightChecksOffEnvVar)
 		return &LocalChecksResult{}, nil
 	}
+
 	err := req.CheckAndSetDefaults()
 	if err != nil {
 		return nil, trace.Wrap(err)
 	}
+
 	stateDir, err := state.GetStateDir()
 	if err != nil {
 		return nil, trace.Wrap(err)
 	}
-	failedProbes, err := ValidateManifest(req.Manifest, req.Role, stateDir)
+
+	profile, err := req.Manifest.NodeProfiles.ByName(req.Role)
 	if err != nil {
 		return nil, trace.Wrap(err)
 	}
+
+	dockerSchema := schema.Docker{StorageDriver: req.Docker.StorageDriver}
+	failedProbes, err := ValidateManifest(req.Manifest, *profile, dockerSchema, stateDir)
+	if err != nil {
+		return nil, trace.Wrap(err)
+	}
+
 	failedProbes = append(failedProbes, RunBasicChecks(req.Context, req.Options)...)
 	if len(failedProbes) == 0 {
 		return &LocalChecksResult{}, nil
 	}
+
 	if !req.AutoFix {
 		failed, fixable := autofix.GetFixable(failedProbes)
 		return &LocalChecksResult{
@@ -180,6 +196,7 @@ func ValidateLocal(req LocalChecksRequest) (*LocalChecksResult, error) {
 			Fixable: fixable,
 		}, nil
 	}
+
 	// try to auto-fix some of the issues
 	fixed, unfixed := autofix.Fix(req.Context, failedProbes, req.Progress)
 	return &LocalChecksResult{
@@ -346,12 +363,7 @@ func (r *checker) Run(ctx context.Context) error {
 			errors = append(errors, err)
 		}
 
-		profile, err := r.manifest.NodeProfiles.ByName(server.Server.Role)
-		if err != nil {
-			errors = append(errors, err)
-		}
-
-		dockerConfig := r.manifest.Docker(*profile)
+		dockerConfig := r.manifest.SystemDocker()
 		if r.TestDockerDevice {
 			err = checkDockerDevice(server, dockerConfig)
 			if err != nil {

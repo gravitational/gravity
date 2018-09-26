@@ -42,7 +42,8 @@ func ValidateDocker(d Docker, dir string) (failed []*pb.Probe, err error) {
 	checkers = append(checkers,
 		monitoring.GetStorageDriverBootConfigParams(d.StorageDriver))
 
-	if d.StorageDriver == constants.DockerStorageDriverOverlay {
+	switch d.StorageDriver {
+	case constants.DockerStorageDriverOverlay, constants.DockerStorageDriverOverlay2:
 		checkers = append(checkers,
 			monitoring.NewKernelModuleChecker(moduleName("overlay")),
 			monitoring.NewDTypeChecker(dir),

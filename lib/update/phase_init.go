@@ -55,7 +55,7 @@ type updatePhaseInit struct {
 	Users users.Identity
 	// Cluster is the local cluster
 	Cluster ops.Site
-	// Operation is the operation being initialized
+	// Operation is the current update operation
 	Operation ops.SiteOperation
 	// Servers is the list of local cluster servers
 	Servers []storage.Server
@@ -65,6 +65,8 @@ type updatePhaseInit struct {
 	app app.Application
 	// installedApp references the installed application instance
 	installedApp app.Application
+	// existingDocker describes the existing Docker configuration
+	existingDocker storage.DockerConfig
 }
 
 // NewUpdatePhaseInit creates a new update init phase executor
@@ -83,6 +85,10 @@ func NewUpdatePhaseInit(c FSMConfig, plan storage.OperationPlan, phase storage.O
 	if err != nil {
 		return nil, trace.Wrap(err)
 	}
+	installOperation, err := ops.GetCompletedInstallOperation(cluster.Key(), c.Operator)
+	if err != nil {
+		return nil, trace.Wrap(err)
+	}
 	app, err := c.Apps.GetApp(*phase.Data.Package)
 	if err != nil {
 		return nil, trace.Wrap(err, "failed to query application")
@@ -91,6 +97,10 @@ func NewUpdatePhaseInit(c FSMConfig, plan storage.OperationPlan, phase storage.O
 	if err != nil {
 		return nil, trace.Wrap(err, "failed to query installed application")
 	}
+
+	existingDocker := ops.DockerConfigFromSchemaValue(installedApp.Manifest.SystemDocker())
+	ops.OverrideDockerConfig(&existingDocker, installOperation.InstallExpand.Vars.System.Docker)
+
 	return &updatePhaseInit{
 		Backend:      c.Backend,
 		LocalBackend: c.LocalBackend,
@@ -104,8 +114,9 @@ func NewUpdatePhaseInit(c FSMConfig, plan storage.OperationPlan, phase storage.O
 			trace.Component: "update",
 			"phase":         phase.ID,
 		}),
-		app:          *app,
-		installedApp: *installedApp,
+		app:            *app,
+		installedApp:   *installedApp,
+		existingDocker: existingDocker,
 	}, nil
 }
 
@@ -139,6 +150,9 @@ func (p *updatePhaseInit) Execute(context.Context) error {
 	}
 	if err := p.updateClusterDNSConfig(); err != nil {
 		return trace.Wrap(err, "failed to update DNS configuration")
+	}
+	if err := p.updateDockerConfig(); err != nil {
+		return trace.Wrap(err, "failed to update Docker configuration")
 	}
 	for _, server := range p.Servers {
 		if err := p.rotateSecrets(server); err != nil {
@@ -229,6 +243,27 @@ func (p *updatePhaseInit) updateClusterDNSConfig() error {
 		cluster.DNSConfig = storage.LegacyDNSConfig
 	}
 
+	_, err = p.Backend.UpdateSite(*cluster)
+	if err != nil {
+		return trace.Wrap(err)
+	}
+	return nil
+}
+
+// updateDockerConfig persists the Docker configuration
+// of the currently installed application
+func (p *updatePhaseInit) updateDockerConfig() error {
+	cluster, err := p.Backend.GetLocalSite(defaults.SystemAccountID)
+	if err != nil {
+		return trace.Wrap(err)
+	}
+
+	if !cluster.ClusterState.Docker.IsEmpty() {
+		// Nothing to do
+		return nil
+	}
+
+	cluster.ClusterState.Docker = p.existingDocker
 	_, err = p.Backend.UpdateSite(*cluster)
 	if err != nil {
 		return trace.Wrap(err)

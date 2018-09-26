@@ -121,6 +121,7 @@ func (i *Installer) NewClusterRequest() ops.NewSiteRequest {
 		},
 		DNSOverrides: i.DNSOverrides,
 		DNSConfig:    i.DNSConfig,
+		Docker:       i.Docker,
 	}
 }
 
@@ -142,6 +143,7 @@ func (i *Installer) StartCLIInstall() (err error) {
 		Context:  i.Context,
 		Manifest: i.Cluster.App.Manifest,
 		Role:     i.Role,
+		Docker:   i.Docker,
 		Options: &validationpb.ValidateOptions{
 			VxlanPort: int32(i.VxlanPort),
 			DnsAddrs:  i.DNSConfig.Addrs,

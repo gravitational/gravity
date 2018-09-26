@@ -26,6 +26,7 @@ import (
 	"github.com/sirupsen/logrus"
 )
 
+// GetOperationPlan returns an up-to-date operation plan
 func GetOperationPlan(b storage.Backend) (*storage.OperationPlan, error) {
 	op, err := storage.GetLastOperation(b)
 	if err != nil {

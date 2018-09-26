@@ -163,13 +163,13 @@ func (p *bootstrapExecutor) getDockerConfig() (*schema.Docker, error) {
 
 // configureDeviceMapper configures Docker devicemapper storage
 func (p *bootstrapExecutor) configureDeviceMapper() error {
-	p.Progress.NextStep("Configuring device mapper")
+	p.Progress.NextStep("Configuring device for Docker devicemapper storage driver")
 	node := p.Phase.Data.Server
 	if node.Docker.Device.Path() == "" {
 		p.Warnf("No device has been specified for Docker: %#v.", node.Docker)
 		return nil
 	}
-	p.Info("Configuring device mapper.")
+	p.Info("Configuring device for Docker devicemapper storage driver.")
 	err := devicemapper.Mount(node.Docker.Device.Path(), os.Stderr, p.FieldLogger)
 	if err != nil {
 		return trace.Wrap(err)

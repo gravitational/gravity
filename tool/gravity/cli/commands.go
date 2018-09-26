@@ -336,8 +336,8 @@ type InstallCmd struct {
 	DNSListenAddrs *[]net.IP
 	// DNSPort overrides default DNS port for dnsmasq
 	DNSPort *int
-	// DockerStorageDriver specifies Docker storage engine to use
-	DockerStorageDriver *string
+	// DockerStorageDriver specifies Docker storage driver to use
+	DockerStorageDriver *dockerStorageDriver
 	// DockerArgs specifies additional Docker arguments
 	DockerArgs *[]string
 	// Phase specifies the install phase ID to execute

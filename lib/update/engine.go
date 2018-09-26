@@ -25,10 +25,8 @@ import (
 	"time"
 
 	"github.com/gravitational/gravity/lib/app"
-	"github.com/gravitational/gravity/lib/constants"
 	"github.com/gravitational/gravity/lib/defaults"
 	"github.com/gravitational/gravity/lib/fsm"
-	"github.com/gravitational/gravity/lib/loc"
 	"github.com/gravitational/gravity/lib/ops"
 	"github.com/gravitational/gravity/lib/storage"
 	"github.com/gravitational/gravity/lib/utils"
@@ -97,38 +95,23 @@ func (f *fsmUpdateEngine) PreRollback(ctx context.Context, p fsm.Params) error {
 // Complete marks the provided update operation as completed or failed
 // and moves the cluster into active state
 func (f *fsmUpdateEngine) Complete(fsmErr error) error {
-	if !fsm.IsCompleted(f.plan) && !fsm.IsFailed(f.plan) {
-		return trace.BadParameter(
-			"to complete the operation, all phases must be either completed or failed / rolled back / unstarted, check 'gravity plan'")
-	}
-
-	op, err := storage.GetLastOperation(f.Backend)
+	plan, err := f.GetPlan()
 	if err != nil {
 		return trace.Wrap(err)
 	}
 
-	if fsmErr != nil {
-		_, err := f.Backend.CreateProgressEntry(storage.ProgressEntry{
-			SiteDomain:  op.SiteDomain,
-			OperationID: op.ID,
-			Step:        constants.FinalStep,
-			Completion:  constants.Completed,
-			State:       ops.ProgressStateFailed,
-			Message:     trace.Unwrap(fsmErr).Error(),
-			Created:     time.Now().UTC(),
-		})
-		if err != nil {
-			return trace.Wrap(err)
-		}
+	opKey := clusterOperationKey(*plan)
+	op, err := f.Operator.GetSiteOperation(opKey)
+	if err != nil {
+		return trace.Wrap(err)
 	}
 
-	if fsm.IsCompleted(f.plan) {
-		op.State = ops.OperationStateCompleted
+	completed := fsm.IsCompleted(plan)
+	if completed {
+		err = ops.CompleteOperation(opKey, f.Operator)
 	} else {
-		op.State = ops.OperationStateFailed
+		err = ops.FailOperation(opKey, f.Operator, trace.Unwrap(fsmErr).Error())
 	}
-
-	_, err = f.Backend.UpdateSiteOperation(*op)
 	if err != nil {
 		return trace.Wrap(err)
 	}
@@ -138,7 +121,23 @@ func (f *fsmUpdateEngine) Complete(fsmErr error) error {
 		return trace.Wrap(err)
 	}
 
-	updateAppLoc, err := loc.ParseLocator(op.Update.UpdatePackage)
+	if completed {
+		err = f.commitClusterChanges(cluster, *op)
+		if err != nil {
+			return trace.Wrap(err)
+		}
+	}
+	err = f.activateCluster(*cluster)
+	return trace.Wrap(err)
+}
+
+// GetPlan returns an up-to-date plan
+func (f *fsmUpdateEngine) GetPlan() (*storage.OperationPlan, error) {
+	return f.plan, nil
+}
+
+func (f *fsmUpdateEngine) commitClusterChanges(cluster *storage.Site, op ops.SiteOperation) error {
+	updateAppLoc, err := op.Update.Package()
 	if err != nil {
 		return trace.Wrap(err)
 	}
@@ -156,30 +155,29 @@ func (f *fsmUpdateEngine) Complete(fsmErr error) error {
 		}
 	}
 
-	cluster.State = ops.SiteStateActive
-	if op.State == ops.OperationStateCompleted {
-		cluster.App = updateApp.PackageEnvelope.ToPackage()
-		if updateBaseApp != nil {
-			cluster.App.Base = updateBaseApp.PackageEnvelope.ToPackagePtr()
-		}
+	cluster.App = updateApp.PackageEnvelope.ToPackage()
+	if updateBaseApp != nil {
+		cluster.App.Base = updateBaseApp.PackageEnvelope.ToPackagePtr()
 	}
 
-	_, err = f.Backend.UpdateSite(*cluster)
-	if err != nil {
-		return trace.Wrap(err)
-	}
-
-	_, err = f.LocalBackend.UpdateSite(*cluster)
-	if err != nil {
-		return trace.Wrap(err)
-	}
+	ops.OverrideDockerConfig(&cluster.ClusterState.Docker,
+		ops.DockerConfigFromSchema(updateApp.Manifest.SystemOptions.DockerConfig()))
 
 	return nil
 }
 
-// GetPlan returns an up-to-date plan
-func (f *fsmUpdateEngine) GetPlan() (*storage.OperationPlan, error) {
-	return f.plan, nil
+func (f *fsmUpdateEngine) activateCluster(cluster storage.Site) error {
+	cluster.State = ops.SiteStateActive
+	_, err := f.Backend.UpdateSite(cluster)
+	if err != nil {
+		return trace.Wrap(err)
+	}
+
+	_, err = f.LocalBackend.UpdateSite(cluster)
+	if err != nil {
+		return trace.Wrap(err)
+	}
+	return nil
 }
 
 func (f *fsmUpdateEngine) loadPlan() error {
@@ -365,4 +363,19 @@ Please use the gravity binary from the upgrade installer tarball to execute the 
 	}
 
 	return nil
+}
+
+func clusterOperationKey(plan storage.OperationPlan) ops.SiteOperationKey {
+	return ops.SiteOperationKey{
+		SiteDomain:  plan.ClusterName,
+		AccountID:   plan.AccountID,
+		OperationID: plan.OperationID,
+	}
+}
+
+func clusterKey(plan storage.OperationPlan) ops.SiteKey {
+	return ops.SiteKey{
+		SiteDomain: plan.ClusterName,
+		AccountID:  plan.AccountID,
+	}
 }

@@ -27,9 +27,11 @@ import (
 	"github.com/gravitational/gravity/lib/loc"
 	"github.com/gravitational/gravity/lib/modules"
 	"github.com/gravitational/gravity/lib/schema"
+	"github.com/gravitational/gravity/lib/utils"
 	"github.com/gravitational/gravity/tool/common"
 
 	"github.com/gravitational/configure"
+	"github.com/gravitational/trace"
 	"gopkg.in/alecthomas/kingpin.v2"
 )
 
@@ -72,8 +74,8 @@ func RegisterCommands(app *kingpin.Application) *Application {
 	g.InstallCmd.VxlanPort = g.InstallCmd.Flag("vxlan-port", "Custom overlay network port").Default(strconv.Itoa(defaults.VxlanPort)).Int()
 	g.InstallCmd.DNSListenAddrs = g.InstallCmd.Flag("dns-listen-addr", "Custom listen address for dnsmasq").Default(defaults.DNSListenAddr).IPList()
 	g.InstallCmd.DNSPort = g.InstallCmd.Flag("dns-port", "Custom DNS port for dnsmasq").Default(strconv.Itoa(defaults.DNSPort)).Int()
-	g.InstallCmd.DockerStorageDriver = g.InstallCmd.Flag("storage-driver",
-		fmt.Sprintf("Docker storage driver, overrides the one from app manifest. Recognized are: %v", strings.Join(constants.DockerSupportedDrivers, ", "))).String()
+	g.InstallCmd.DockerStorageDriver = DockerStorageDriver(g.InstallCmd.Flag("storage-driver",
+		fmt.Sprintf("Docker storage driver, overrides the one from app manifest. Recognized are: %v", strings.Join(constants.DockerSupportedDrivers, ", "))), constants.DockerSupportedDrivers)
 	g.InstallCmd.DockerArgs = g.InstallCmd.Flag("docker-opt", "Additional arguments to docker. Can be specified multiple times").Strings()
 	g.InstallCmd.Phase = g.InstallCmd.Flag("phase", "Execute an install plan phase").String()
 	g.InstallCmd.PhaseTimeout = g.InstallCmd.Flag("timeout", "Phase execution timeout").Default(defaults.PhaseTimeout).Hidden().Duration()
@@ -651,8 +653,43 @@ func RegisterCommands(app *kingpin.Application) *Application {
 	return g
 }
 
+// Locator defines a command line flag that accepts input
+// in package locator format
 func Locator(s kingpin.Settings) *loc.Locator {
 	l := new(loc.Locator)
 	s.SetValue(l)
 	return l
+}
+
+// DockerStorageDriver defines a command line flag that recognizes
+// Docker storage drivers
+func DockerStorageDriver(s kingpin.Settings, allowed []string) *dockerStorageDriver {
+	driver := &dockerStorageDriver{allowed: allowed}
+	s.SetValue(driver)
+	return driver
+}
+
+// Set validates value as a Docker storage driver
+func (r *dockerStorageDriver) Set(value string) error {
+	if !utils.StringInSlice(r.allowed, value) {
+		return trace.BadParameter("unrecognized docker storage driver %q, supported are: %v",
+			value, r.allowed)
+	}
+	r.value = value
+	return nil
+}
+
+// String returns the value of the storage driver
+func (r *dockerStorageDriver) String() string {
+	if r == nil {
+		return ""
+	}
+	return r.value
+}
+
+// dockerStorageDriver is a string that only accepts recognized
+// Docker storage driver name as a value
+type dockerStorageDriver struct {
+	allowed []string
+	value   string
 }

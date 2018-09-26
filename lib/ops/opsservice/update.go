@@ -17,13 +17,9 @@ limitations under the License.
 package opsservice
 
 import (
-	"context"
-	"fmt"
 	"path/filepath"
 
-	"github.com/gravitational/gravity/lib/app"
 	"github.com/gravitational/gravity/lib/constants"
-	"github.com/gravitational/gravity/lib/defaults"
 	"github.com/gravitational/gravity/lib/loc"
 	"github.com/gravitational/gravity/lib/ops"
 	"github.com/gravitational/gravity/lib/pack"
@@ -77,7 +73,7 @@ func (o *Operator) RotatePlanetConfig(req ops.RotatePlanetConfigRequest) (*ops.R
 		return nil, trace.Wrap(err)
 	}
 
-	updatePackage, err := loc.ParseLocator(operation.Update.UpdatePackage)
+	updatePackage, err := operation.Update.Package()
 	if err != nil {
 		return nil, trace.Wrap(err)
 	}
@@ -196,7 +192,7 @@ func (o *Operator) ConfigureNode(req ops.ConfigureNodeRequest) error {
 		return trace.Wrap(err)
 	}
 
-	updatePackage, err := loc.ParseLocator(operation.Update.UpdatePackage)
+	updatePackage, err := operation.Update.Package()
 	if err != nil {
 		return trace.Wrap(err)
 	}
@@ -238,16 +234,6 @@ func (s *site) createUpdateOperation(req ops.CreateSiteAppUpdateOperationRequest
 		return nil, trace.Wrap(err)
 	}
 
-	updatePackage, err := loc.ParseLocator(req.App)
-	if err != nil {
-		return nil, trace.Wrap(err)
-	}
-
-	updateApp, err := s.service.cfg.Apps.GetApp(*updatePackage)
-	if err != nil {
-		return nil, trace.Wrap(err)
-	}
-
 	op := ops.SiteOperation{
 		ID:          uuid.New(),
 		AccountID:   s.key.AccountID,
@@ -259,7 +245,6 @@ func (s *site) createUpdateOperation(req ops.CreateSiteAppUpdateOperationRequest
 		Provisioner: installOperation.Provisioner,
 		Update: &storage.UpdateOperationState{
 			UpdatePackage: req.App,
-			Manual:        req.Manual,
 		},
 	}
 
@@ -291,73 +276,7 @@ func (s *site) createUpdateOperation(req ops.CreateSiteAppUpdateOperationRequest
 		Message:    "initializing the operation",
 	})
 
-	if req.Manual {
-		return key, nil
-	}
-
-	err = s.startUpdateAgent(context.TODO(), updateApp)
-	if err != nil {
-		return key, trace.Wrap(err,
-			"update operation was created but the automatic update agent failed to start. Refer to the documentation on how to proceed with manual update")
-	}
-
 	return key, nil
-}
-
-// startUpdateAgent runs deploy procedure on one of the leader nodes
-func (s *site) startUpdateAgent(ctx context.Context, updateApp *app.Application) error {
-	master, err := s.getTeleportServer(schema.ServiceLabelRole, string(schema.ServiceRoleMaster))
-	if err != nil {
-		return trace.Wrap(err)
-	}
-
-	proxy, err := s.teleport().GetProxyClient(ctx, s.key.SiteDomain, nil)
-	if err != nil {
-		return trace.Wrap(err)
-	}
-
-	gravityPackage, err := updateApp.Manifest.Dependencies.ByName(constants.GravityPackage)
-	if err != nil {
-		return trace.Wrap(err)
-	}
-
-	// determine the server's state dir location
-	site, err := s.service.GetSite(s.key)
-	if err != nil {
-		return trace.Wrap(err)
-	}
-	advertiseIP, ok := master.Labels[ops.AdvertiseIP]
-	if !ok {
-		return trace.NotFound("server %v is missing %s label", master, ops.AdvertiseIP)
-	}
-	stateServer, err := site.ClusterState.FindServerByIP(advertiseIP)
-	if err != nil {
-		return trace.Wrap(err)
-	}
-	serverStateDir := stateServer.StateDir()
-
-	agentExecPath := filepath.Join(state.GravityRPCAgentDir(serverStateDir),
-		fmt.Sprintf("%s-%s-kickstart", gravityPackage.Name, gravityPackage.Version))
-
-	nodeClient, err := proxy.ConnectToNode(ctx, master.Addr, defaults.SSHUser, false)
-	if err != nil {
-		return trace.Wrap(err)
-	}
-	defer nodeClient.Close()
-
-	err = utils.NewSSHCommands(nodeClient.Client).
-		// extract new gravity version
-		C("rm -f %s", agentExecPath).
-		C("%s package export --file-mask=%o %s %s --ops-url=%s --insecure",
-			constants.GravityBin, defaults.SharedExecutableMask,
-			gravityPackage.String(), agentExecPath, defaults.GravityServiceURL).
-		// distribute agents and upgrade process
-		C("%s agent deploy upgrade", agentExecPath).
-		C("/bin/rm -f %s", agentExecPath).
-		WithLogger(log.StandardLogger().WithField("node", master.HostName())).
-		Run(ctx)
-
-	return trace.Wrap(err)
 }
 
 func (s *site) validateUpdateOperationRequest(req ops.CreateSiteAppUpdateOperationRequest, provisioner string) error {
@@ -394,22 +313,14 @@ func (s *site) checkUpdateParameters(update *pack.PackageEnvelope, provisioner s
 
 	manifest := s.app.Manifest
 
+	// Verify update application has all profiles of the installed one
 	for _, profile := range manifest.NodeProfiles {
-		updateProfile, err := updateManifest.NodeProfiles.ByName(profile.Name)
+		_, err = updateManifest.NodeProfiles.ByName(profile.Name)
 		if err != nil {
 			if trace.IsNotFound(err) {
 				return trace.NotFound("profile %q not found in update manifest", profile.Name)
 			}
 			return trace.Wrap(err)
-		}
-
-		docker := manifest.Docker(profile)
-		updateDocker := updateManifest.Docker(*updateProfile)
-
-		// we do not support upgrades changing storage drivers
-		if docker.StorageDriver != updateDocker.StorageDriver {
-			return trace.BadParameter("changing docker storage driver is not supported (current %q, new %q)",
-				docker.StorageDriver, updateDocker.StorageDriver)
 		}
 	}
 
@@ -421,5 +332,37 @@ func (s *site) checkUpdateParameters(update *pack.PackageEnvelope, provisioner s
 			networkType, updateNetworkType)
 	}
 
+	if err = s.validateDockerConfig(*updateManifest); err != nil {
+		return trace.Wrap(err)
+	}
+
+	return nil
+}
+
+func (s *site) validateDockerConfig(updateManifest schema.Manifest) error {
+	docker := updateManifest.SystemOptions.DockerConfig()
+	if docker == nil {
+		// No changes
+		return nil
+	}
+
+	existingDocker := s.dockerConfig()
+	if existingDocker.IsEmpty() {
+		installOperation, err := ops.GetCompletedInstallOperation(s.key, s.service)
+		if err != nil {
+			return trace.Wrap(err)
+		}
+
+		defaultConfig := ops.DockerConfigFromSchemaValue(s.app.Manifest.SystemDocker())
+		ops.OverrideDockerConfig(&defaultConfig, installOperation.InstallExpand.Vars.System.Docker)
+		existingDocker = defaultConfig
+	}
+
+	if docker.StorageDriver != existingDocker.StorageDriver &&
+		!utils.StringInSlice(constants.DockerSupportedTargetDrivers, docker.StorageDriver) {
+		return trace.BadParameter(`Updating Docker storage driver to %q is not supported.
+The storage driver can only be updated to one of %q.
+`, docker.StorageDriver, constants.DockerSupportedTargetDrivers)
+	}
 	return nil
 }

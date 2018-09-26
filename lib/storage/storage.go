@@ -586,7 +586,9 @@ func (s *Site) Check() error {
 // ClusterState defines the state of the cluster
 type ClusterState struct {
 	// Servers is a list of servers in the cluster
-	Servers []Server `json:"servers"`
+	Servers Servers `json:"servers"`
+	// Docker specifies current cluster Docker configuration
+	Docker DockerConfig `json:"docker"`
 }
 type nodeKey struct {
 	profile      string
@@ -1756,10 +1758,15 @@ type SystemVariables struct {
 	Docker DockerConfig `json:"docker"`
 }
 
-// DockerConfig specifies docker configuration overrides
+// IsEmpty returns whether this configuration is empty
+func (r DockerConfig) IsEmpty() bool {
+	return r.StorageDriver == "" && len(r.Args) == 0
+}
+
+// DockerConfig overrides Docker configuration for the cluster
 type DockerConfig struct {
 	// StorageDriver specifies a storage driver to use
-	StorageDriver string `json:"storage_driver"`
+	StorageDriver string `json:"storage_driver,omitempty"`
 	// Args specifies additional options to the docker daemon
 	Args []string `json:"args,omitempty"`
 }
@@ -1912,17 +1919,18 @@ type ShrinkOperationState struct {
 	NodeRemoved bool `json:node_removed`
 }
 
+// UpdateOperationState describes the state of the update operation.
 type UpdateOperationState struct {
-	// UpdatePackage contains the package to be updated
+	// UpdatePackage references the application package to update to
 	UpdatePackage string `json:"update_package"`
 	// ChangesetID is id of the package changeset used by this operation
-	ChangesetID string `json:"changeset_id"`
+	ChangesetID string `json:"changeset_id,omitempty"`
 	// UpdateServiceName is a name of systemd service performing update
-	UpdateServiceName string `json:"update_service_name"`
+	UpdateServiceName string `json:"update_service_name,omitempty"`
 	// RollbackServiceName is a name of systemd service performing rollback
-	RollbackServiceName string `json:"rollback_service_name"`
+	RollbackServiceName string `json:"rollback_service_name,omitempty"`
 	// ServerUpdates contains servers and their update state
-	ServerUpdates []ServerUpdate `json:"server_updates"`
+	ServerUpdates []ServerUpdate `json:"server_updates,omitempty"`
 	// Manual specifies whether this update operation was created in manual mode
 	Manual bool `json:"manual"`
 }

@@ -28,6 +28,7 @@ import (
 	"github.com/gravitational/gravity/lib/localenv"
 	"github.com/gravitational/gravity/lib/ops"
 	"github.com/gravitational/gravity/lib/pack"
+	"github.com/gravitational/gravity/lib/schema"
 
 	"github.com/gravitational/trace"
 )
@@ -53,10 +54,15 @@ func updateTrigger(
 	appPackage string,
 	manual bool,
 ) error {
-	operator, err := localEnv.SiteOperator()
+	clusterEnv, err := localEnv.NewClusterEnvironment()
 	if err != nil {
 		return trace.Wrap(err)
 	}
+
+	if clusterEnv.Client == nil {
+		return trace.BadParameter("this operation can only be executed on one of the master nodes")
+	}
+	operator := clusterEnv.Operator
 
 	cluster, err := operator.GetLocalSite()
 	if err != nil {
@@ -73,21 +79,12 @@ func updateTrigger(
 		return trace.Wrap(err, "failed to connect to teleport proxy")
 	}
 
-	clusterEnv, err := localEnv.NewClusterEnvironment()
-	if err != nil {
-		return trace.Wrap(err)
-	}
-
-	if clusterEnv.Client == nil {
-		return trace.BadParameter("this operation can only be executed on one of the master nodes")
-	}
-
 	app, err := checkForUpdate(localEnv, operator, cluster, appPackage)
 	if err != nil {
 		return trace.Wrap(err)
 	}
 
-	err = checkCanUpdate(*cluster)
+	err = checkCanUpdate(*cluster, operator, app.Manifest)
 	if err != nil {
 		return trace.Wrap(err)
 	}
@@ -96,7 +93,6 @@ func updateTrigger(
 		AccountID:  cluster.AccountID,
 		SiteDomain: cluster.Domain,
 		App:        app.Package.String(),
-		Manual:     true,
 	})
 	if err != nil {
 		return trace.Wrap(err)
@@ -181,13 +177,13 @@ will be returned to the "active" state.
 	return nil
 }
 
-func checkCanUpdate(site ops.Site) error {
-	gravityPackage, err := site.App.Manifest.Dependencies.ByName(constants.GravityPackage)
+func checkCanUpdate(cluster ops.Site, operator ops.Operator, manifest schema.Manifest) error {
+	existingGravityPackage, err := cluster.App.Manifest.Dependencies.ByName(constants.GravityPackage)
 	if err != nil {
 		return trace.Wrap(err)
 	}
 
-	supportsUpdate, err := supportsUpdate(*gravityPackage)
+	supportsUpdate, err := supportsUpdate(*existingGravityPackage)
 	if err != nil {
 		return trace.Wrap(err)
 	}
@@ -195,8 +191,9 @@ func checkCanUpdate(site ops.Site) error {
 		return trace.BadParameter(`
 Installed runtime version (%q) is too old and cannot be updated by this package.
 Please update this installation to a minimum required runtime version (%q) before using this update.`,
-			gravityPackage.Version, defaults.BaseUpdateVersion)
+			existingGravityPackage.Version, defaults.BaseUpdateVersion)
 	}
+
 	return nil
 }
 
