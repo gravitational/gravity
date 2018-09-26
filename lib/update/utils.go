@@ -20,7 +20,6 @@ import (
 	appservice "github.com/gravitational/gravity/lib/app"
 	"github.com/gravitational/gravity/lib/fsm"
 	"github.com/gravitational/gravity/lib/loc"
-	"github.com/gravitational/gravity/lib/schema"
 	"github.com/gravitational/gravity/lib/storage"
 
 	"github.com/gravitational/trace"
@@ -51,32 +50,6 @@ func GetOperationPlan(b storage.Backend) (*storage.OperationPlan, error) {
 
 	plan = fsm.ResolvePlan(*plan, changelog)
 	return plan, nil
-}
-
-// OverrideDockerConfig updates given config with values from overrideConfig where necessary
-func OverrideDockerConfig(config *storage.DockerConfig, overrideConfig storage.DockerConfig) {
-	if overrideConfig.StorageDriver != "" {
-		config.StorageDriver = overrideConfig.StorageDriver
-	}
-	if len(overrideConfig.Args) != 0 {
-		config.Args = overrideConfig.Args
-	}
-}
-
-// DockerConfigFromSchema converts the specified Docker schema to storage configuration format
-func DockerConfigFromSchema(dockerSchema *schema.Docker) (config storage.DockerConfig) {
-	if dockerSchema == nil {
-		return config
-	}
-	return DockerConfigFromSchemaValue(*dockerSchema)
-}
-
-// DockerConfigFromSchemaValue converts the specified Docker schema to storage configuration format
-func DockerConfigFromSchemaValue(dockerSchema schema.Docker) (config storage.DockerConfig) {
-	return storage.DockerConfig{
-		StorageDriver: dockerSchema.StorageDriver,
-		Args:          dockerSchema.Args,
-	}
 }
 
 // planetNeedsUpdate returns true if the planet version in the update application is

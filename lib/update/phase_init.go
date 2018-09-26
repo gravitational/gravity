@@ -98,8 +98,8 @@ func NewUpdatePhaseInit(c FSMConfig, plan storage.OperationPlan, phase storage.O
 		return nil, trace.Wrap(err, "failed to query installed application")
 	}
 
-	existingDocker := DockerConfigFromSchemaValue(installedApp.Manifest.SystemDocker())
-	OverrideDockerConfig(&existingDocker, installOperation.InstallExpand.Vars.System.Docker)
+	existingDocker := ops.DockerConfigFromSchemaValue(installedApp.Manifest.SystemDocker())
+	ops.OverrideDockerConfig(&existingDocker, installOperation.InstallExpand.Vars.System.Docker)
 
 	return &updatePhaseInit{
 		Backend:      c.Backend,

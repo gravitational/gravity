@@ -160,8 +160,8 @@ func (f *fsmUpdateEngine) commitClusterChanges(cluster *storage.Site, op ops.Sit
 		cluster.App.Base = updateBaseApp.PackageEnvelope.ToPackagePtr()
 	}
 
-	OverrideDockerConfig(&cluster.ClusterState.Docker,
-		DockerConfigFromSchema(updateApp.Manifest.SystemOptions.DockerConfig()))
+	ops.OverrideDockerConfig(&cluster.ClusterState.Docker,
+		ops.DockerConfigFromSchema(updateApp.Manifest.SystemOptions.DockerConfig()))
 
 	return nil
 }

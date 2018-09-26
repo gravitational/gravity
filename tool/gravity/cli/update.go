@@ -29,8 +29,6 @@ import (
 	"github.com/gravitational/gravity/lib/ops"
 	"github.com/gravitational/gravity/lib/pack"
 	"github.com/gravitational/gravity/lib/schema"
-	"github.com/gravitational/gravity/lib/update"
-	"github.com/gravitational/gravity/lib/utils"
 
 	"github.com/gravitational/trace"
 )
@@ -194,31 +192,6 @@ func checkCanUpdate(cluster ops.Site, operator ops.Operator, manifest schema.Man
 Installed runtime version (%q) is too old and cannot be updated by this package.
 Please update this installation to a minimum required runtime version (%q) before using this update.`,
 			existingGravityPackage.Version, defaults.BaseUpdateVersion)
-	}
-
-	docker := manifest.SystemOptions.DockerConfig()
-	if docker == nil {
-		// No changes
-		return nil
-	}
-
-	existingDocker := cluster.ClusterState.Docker
-	if existingDocker.IsEmpty() {
-		installOperation, err := ops.GetCompletedInstallOperation(cluster.Key(), operator)
-		if err != nil {
-			return trace.Wrap(err)
-		}
-
-		defaultConfig := update.DockerConfigFromSchemaValue(cluster.App.Manifest.SystemDocker())
-		update.OverrideDockerConfig(&defaultConfig, installOperation.InstallExpand.Vars.System.Docker)
-		existingDocker = defaultConfig
-	}
-
-	if docker.StorageDriver != existingDocker.StorageDriver &&
-		!utils.StringInSlice(constants.DockerSupportedTargetDrivers, docker.StorageDriver) {
-		return trace.BadParameter(`Updating Docker storage driver to %q is not supported.
-The storage driver can only be updated to one of %q.
-`, docker.StorageDriver, constants.DockerSupportedTargetDrivers)
 	}
 
 	return nil

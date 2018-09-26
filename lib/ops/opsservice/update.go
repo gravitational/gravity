@@ -332,5 +332,37 @@ func (s *site) checkUpdateParameters(update *pack.PackageEnvelope, provisioner s
 			networkType, updateNetworkType)
 	}
 
+	if err = s.validateDockerConfig(*updateManifest); err != nil {
+		return trace.Wrap(err)
+	}
+
+	return nil
+}
+
+func (s *site) validateDockerConfig(updateManifest schema.Manifest) error {
+	docker := updateManifest.SystemOptions.DockerConfig()
+	if docker == nil {
+		// No changes
+		return nil
+	}
+
+	existingDocker := s.dockerConfig()
+	if existingDocker.IsEmpty() {
+		installOperation, err := ops.GetCompletedInstallOperation(s.key, s.service)
+		if err != nil {
+			return trace.Wrap(err)
+		}
+
+		defaultConfig := ops.DockerConfigFromSchemaValue(s.app.Manifest.SystemDocker())
+		ops.OverrideDockerConfig(&defaultConfig, installOperation.InstallExpand.Vars.System.Docker)
+		existingDocker = defaultConfig
+	}
+
+	if docker.StorageDriver != existingDocker.StorageDriver &&
+		!utils.StringInSlice(constants.DockerSupportedTargetDrivers, docker.StorageDriver) {
+		return trace.BadParameter(`Updating Docker storage driver to %q is not supported.
+The storage driver can only be updated to one of %q.
+`, docker.StorageDriver, constants.DockerSupportedTargetDrivers)
+	}
 	return nil
 }

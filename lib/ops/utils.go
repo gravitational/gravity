@@ -25,6 +25,7 @@ import (
 	"github.com/gravitational/gravity/lib/defaults"
 	"github.com/gravitational/gravity/lib/pack"
 	"github.com/gravitational/gravity/lib/pack/encryptedpack"
+	"github.com/gravitational/gravity/lib/schema"
 	"github.com/gravitational/gravity/lib/storage"
 
 	licenseapi "github.com/gravitational/license"
@@ -329,3 +330,29 @@ func MatchByType(opType string) OperationMatcher {
 
 // OperationMatcher is a function type that matches the given operation
 type OperationMatcher func(SiteOperation) bool
+
+// OverrideDockerConfig updates given config with values from overrideConfig where necessary
+func OverrideDockerConfig(config *storage.DockerConfig, overrideConfig storage.DockerConfig) {
+	if overrideConfig.StorageDriver != "" {
+		config.StorageDriver = overrideConfig.StorageDriver
+	}
+	if len(overrideConfig.Args) != 0 {
+		config.Args = overrideConfig.Args
+	}
+}
+
+// DockerConfigFromSchema converts the specified Docker schema to storage configuration format
+func DockerConfigFromSchema(dockerSchema *schema.Docker) (config storage.DockerConfig) {
+	if dockerSchema == nil {
+		return config
+	}
+	return DockerConfigFromSchemaValue(*dockerSchema)
+}
+
+// DockerConfigFromSchemaValue converts the specified Docker schema to storage configuration format
+func DockerConfigFromSchemaValue(dockerSchema schema.Docker) (config storage.DockerConfig) {
+	return storage.DockerConfig{
+		StorageDriver: dockerSchema.StorageDriver,
+		Args:          dockerSchema.Args,
+	}
+}
