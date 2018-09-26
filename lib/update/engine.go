@@ -160,15 +160,8 @@ func (f *fsmUpdateEngine) commitClusterChanges(cluster *storage.Site, op ops.Sit
 		cluster.App.Base = updateBaseApp.PackageEnvelope.ToPackagePtr()
 	}
 
-	updateConfig := updateApp.Manifest.SystemOptions.DockerConfig()
-	if updateConfig != nil {
-		if updateConfig.StorageDriver != "" {
-			cluster.ClusterState.Docker.StorageDriver = updateConfig.StorageDriver
-		}
-		if len(updateConfig.Args) != 0 {
-			cluster.ClusterState.Docker.Args = updateConfig.Args
-		}
-	}
+	OverrideDockerConfig(&cluster.ClusterState.Docker,
+		DockerConfigFromSchema(updateApp.Manifest.SystemOptions.DockerConfig()))
 
 	return nil
 }

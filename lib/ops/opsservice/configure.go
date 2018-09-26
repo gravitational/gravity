@@ -189,13 +189,9 @@ func (s *site) configureExpandPackages(ctx context.Context, opCtx *operationCont
 	if err != nil {
 		return trace.Wrap(err)
 	}
-	dockerConfig, err := s.selectDockerConfig(opCtx.operation, s.app.Manifest)
-	if err != nil {
-		return trace.Wrap(err)
-	}
 	planetConfig := planetConfig{
 		etcd:          *etcdConfig,
-		docker:        *dockerConfig,
+		docker:        s.dockerConfig(),
 		planetPackage: *planetPackage,
 		configPackage: *configPackage,
 	}
@@ -350,15 +346,10 @@ func (s *site) configurePackages(ctx *operationContext) error {
 				master, etcdConfig)
 		}
 
-		docker, err := s.selectDockerConfig(ctx.operation, s.app.Manifest)
-		if err != nil {
-			return trace.Wrap(err)
-		}
-
 		config := planetConfig{
 			etcd:          masterEtcdConfig,
 			master:        masterConfig,
-			docker:        *docker,
+			docker:        s.dockerConfig(),
 			planetPackage: *planetPackage,
 			configPackage: *configPackage,
 		}
@@ -419,15 +410,10 @@ func (s *site) configurePackages(ctx *operationContext) error {
 				node.AdvertiseIP, etcdConfig)
 		}
 
-		docker, err := s.selectDockerConfig(ctx.operation, s.app.Manifest)
-		if err != nil {
-			return trace.Wrap(err)
-		}
-
 		config := planetConfig{
 			etcd:          nodeEtcdConfig,
 			master:        masterConfig{addr: p.FirstMaster().AdvertiseIP},
-			docker:        *docker,
+			docker:        s.dockerConfig(),
 			planetPackage: *planetPackage,
 			configPackage: *configPackage,
 		}
@@ -1687,39 +1673,6 @@ func configureDockerOptions(
 	}
 
 	return args, nil
-}
-
-func (s *site) selectDockerConfig(
-	operation ops.SiteOperation,
-	old schema.Manifest,
-) (config *storage.DockerConfig, err error) {
-	clusterConfig := s.dockerConfig()
-	if !clusterConfig.IsEmpty() {
-		return &clusterConfig, nil
-	}
-
-	dockerSchema := old.SystemDocker()
-	config = &storage.DockerConfig{
-		StorageDriver: dockerSchema.StorageDriver,
-		Args:          dockerSchema.Args,
-	}
-
-	var overrideConfig storage.DockerConfig
-	switch operation.Type {
-	case ops.OperationInstall:
-		if !operation.InstallExpand.Vars.System.Docker.IsEmpty() {
-			overrideConfig = operation.InstallExpand.Vars.System.Docker
-		}
-	}
-
-	if overrideConfig.StorageDriver != "" {
-		config.StorageDriver = overrideConfig.StorageDriver
-	}
-	if len(overrideConfig.Args) != 0 {
-		config.Args = overrideConfig.Args
-	}
-
-	return config, nil
 }
 
 type teleportSecrets struct {

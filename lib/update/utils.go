@@ -20,7 +20,6 @@ import (
 	appservice "github.com/gravitational/gravity/lib/app"
 	"github.com/gravitational/gravity/lib/fsm"
 	"github.com/gravitational/gravity/lib/loc"
-	"github.com/gravitational/gravity/lib/ops"
 	"github.com/gravitational/gravity/lib/schema"
 	"github.com/gravitational/gravity/lib/storage"
 
@@ -54,23 +53,30 @@ func GetOperationPlan(b storage.Backend) (*storage.OperationPlan, error) {
 	return plan, nil
 }
 
-// GetExistingDockerConfig returns existing cluster Docker configuration
-func GetExistingDockerConfig(
-	installOperation ops.SiteOperation,
-	manifestDocker schema.Docker,
-) (config *storage.DockerConfig, err error) {
-	config = &storage.DockerConfig{
-		StorageDriver: manifestDocker.StorageDriver,
-		Args:          manifestDocker.Args,
+// OverrideDockerConfig updates given config with values from overrideConfig where necessary
+func OverrideDockerConfig(config *storage.DockerConfig, overrideConfig storage.DockerConfig) {
+	if overrideConfig.StorageDriver != "" {
+		config.StorageDriver = overrideConfig.StorageDriver
 	}
-
-	installDocker := installOperation.InstallExpand.Vars.System.Docker
-	if installDocker.StorageDriver != "" {
-		config.StorageDriver = installDocker.StorageDriver
+	if len(overrideConfig.Args) != 0 {
+		config.Args = overrideConfig.Args
 	}
-	config.Args = append(config.Args, installDocker.Args...)
+}
 
-	return config, nil
+// DockerConfigFromSchema converts the specified Docker schema to storage configuration format
+func DockerConfigFromSchema(dockerSchema *schema.Docker) (config storage.DockerConfig) {
+	if dockerSchema == nil {
+		return config
+	}
+	return DockerConfigFromSchemaValue(*dockerSchema)
+}
+
+// DockerConfigFromSchemaValue converts the specified Docker schema to storage configuration format
+func DockerConfigFromSchemaValue(dockerSchema schema.Docker) (config storage.DockerConfig) {
+	return storage.DockerConfig{
+		StorageDriver: dockerSchema.StorageDriver,
+		Args:          dockerSchema.Args,
+	}
 }
 
 // planetNeedsUpdate returns true if the planet version in the update application is

@@ -209,12 +209,9 @@ Please update this installation to a minimum required runtime version (%q) befor
 			return trace.Wrap(err)
 		}
 
-		existingManifestDocker := cluster.App.Manifest.SystemDocker()
-		config, err := update.GetExistingDockerConfig(*installOperation, existingManifestDocker)
-		if err != nil {
-			return trace.Wrap(err)
-		}
-		existingDocker = *config
+		defaultConfig := update.DockerConfigFromSchemaValue(cluster.App.Manifest.SystemDocker())
+		update.OverrideDockerConfig(&defaultConfig, installOperation.InstallExpand.Vars.System.Docker)
+		existingDocker = defaultConfig
 	}
 
 	if docker.StorageDriver != existingDocker.StorageDriver &&
