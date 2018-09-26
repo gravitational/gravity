@@ -27,6 +27,7 @@ import (
 	"path/filepath"
 	"strings"
 
+	"github.com/gravitational/gravity/lib/clients"
 	"github.com/gravitational/gravity/lib/constants"
 	"github.com/gravitational/gravity/lib/defaults"
 	"github.com/gravitational/gravity/lib/httplib"
@@ -46,28 +47,45 @@ import (
 	log "github.com/sirupsen/logrus"
 )
 
+// WebHandler serves web UI
 type WebHandler struct {
+	// Router is used to route web requests
 	httprouter.Router
+	// cfg is the web handler configuration
 	cfg WebHandlerConfig
+	// FieldLogger allows handler to log messages
+	log.FieldLogger
 }
 
 // WebHandlerConfig defines a configuration object for the handler
 type WebHandlerConfig struct {
-	AssetsDir      string
-	Mode           string
-	Wizard         bool
+	// AssetsDir is the directory containing web assets
+	AssetsDir string
+	// Mode is the gravity process mode
+	Mode string
+	// Wizard is whether this process is install wizard
+	Wizard bool
+	// TeleportConfig is the teleport configuration
 	TeleportConfig *service.Config
-	Identity       users.Identity
-	Operator       ops.Operator
-	Authenticator  httplib.Authenticator
-	Forwarder      Forwarder
-	Backend        storage.Backend
+	// Identity is the cluster user service
+	Identity users.Identity
+	// Operator is the cluster operator service
+	Operator ops.Operator
+	// Authenticator is used to authenticate web requests
+	Authenticator httplib.Authenticator
+	// Forwarder is used to forward web requests to clusters
+	Forwarder Forwarder
+	// Backend is the cluster backend
+	Backend storage.Backend
+	// Clients provides access to remote cluster client
+	Clients *clients.ClusterClients
 }
 
 // NewHandler returns a new instance of NewHandler
 func NewHandler(cfg WebHandlerConfig) *WebHandler {
 	wh := &WebHandler{
-		cfg: cfg,
+		cfg:         cfg,
+		FieldLogger: log.WithField(trace.Component, "webhandler"),
 	}
 
 	wh.Handle("GET", "/web/config.js", wh.noLogin(wh.configHandler))
@@ -513,6 +531,9 @@ func (h *WebHandler) authenticate(w http.ResponseWriter, r *http.Request) (*sess
 		Username: ctx.GetUser(),
 		ctx:      ctx,
 		Operator: wrappedOperator,
+		UserInfo: ops.UserInfo{
+			User: user,
+		},
 	}, nil
 }
 
@@ -592,6 +613,7 @@ type session struct {
 	Session  string
 	Username string
 	Operator ops.Operator
+	UserInfo ops.UserInfo
 	ctx      *teleweb.SessionContext
 }
 

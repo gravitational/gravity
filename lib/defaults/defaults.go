@@ -537,7 +537,7 @@ const (
 	// traffic behind SNI router
 	LocalAgentsAddr = "127.0.0.1:3012"
 
-	// ManifestFileName is the name of the application manifesst
+	// ManifestFileName is the name of the application manifest
 	ManifestFileName = "app.yaml"
 
 	// RegistryDir is the name of the layers directory inside an application tarball
@@ -561,7 +561,7 @@ const (
 
 	// KubeSystemNamespace is the name of k8s namespace where all our system stuff goes
 	KubeSystemNamespace = "kube-system"
-	// MonitoringNamespace is the name of k8s namespace where all our monitoring stuff goes
+	// MonitoringNamespace is the name of k8s namespace for the monitoring-related resources
 	MonitoringNamespace = "monitoring"
 
 	// SystemServiceWantedBy sets default target for system services installed by gravity
@@ -953,6 +953,11 @@ const (
 var (
 	// GravityServiceURL defines the address the internal gravity site is located
 	GravityServiceURL = fmt.Sprintf("https://%s:%d", GravityServiceHost, GravityServicePort)
+
+	// KubernetesAPIAddress is the Kubernetes API address
+	KubernetesAPIAddress = fmt.Sprintf("%s:%d", constants.APIServerDomainName, APIServerSecurePort)
+	// KubernetesAPIURL is the Kubernetes API URL
+	KubernetesAPIURL = fmt.Sprintf("https://%s", KubernetesAPIAddress)
 
 	// GravityRPCAgentDir specifies the directory used by the RPC agent
 	GravityRPCAgentDir = filepath.Join(GravityUpdateDir, "agent")

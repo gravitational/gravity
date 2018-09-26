@@ -16,7 +16,16 @@ limitations under the License.
 
 package monitoring
 
-import "time"
+import (
+	"time"
+
+	"github.com/gravitational/gravity/lib/defaults"
+	"github.com/gravitational/rigging"
+	"github.com/gravitational/trace"
+
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/client-go/kubernetes"
+)
 
 // Monitoring defines the interface for monitoring provider
 type Monitoring interface {
@@ -32,4 +41,20 @@ type RetentionPolicy struct {
 	Name string `json:"name"`
 	// Duration is the policy duration
 	Duration time.Duration `json:"duration"`
+}
+
+// GetNamespace uses the provided Kubernetes client to determine namespace
+// where monitoring resources reside
+func GetNamespace(client *kubernetes.Clientset) (string, error) {
+	// try "monitoring" namespace first, then "kube-system"
+	for _, ns := range []string{defaults.MonitoringNamespace, defaults.KubeSystemNamespace} {
+		_, err := client.Core().Services(ns).Get(defaults.GrafanaServiceName, metav1.GetOptions{})
+		if err != nil && !trace.IsNotFound(rigging.ConvertError(err)) {
+			return "", trace.Wrap(err)
+		}
+		if err == nil {
+			return ns, nil
+		}
+	}
+	return "", trace.NotFound("service %q was not found", defaults.GrafanaServiceName)
 }

@@ -22,10 +22,10 @@ import (
 	"github.com/gravitational/gravity/lib/constants"
 	"github.com/gravitational/gravity/lib/defaults"
 	"github.com/gravitational/gravity/lib/httplib"
-	"github.com/gravitational/trace"
+	"github.com/gravitational/gravity/lib/ops/monitoring"
 
+	"github.com/gravitational/trace"
 	"github.com/julienschmidt/httprouter"
-	log "github.com/sirupsen/logrus"
 )
 
 const (
@@ -52,7 +52,7 @@ func (h *WebHandler) grafanaServeHandler(w http.ResponseWriter, r *http.Request,
 	err := httplib.VerifySameOrigin(r)
 	if err != nil {
 		msg := "access denied"
-		log.Warningf("%v: %v", msg, trace.DebugReport(err))
+		h.Warningf("%v: %v", msg, trace.DebugReport(err))
 		replyError(w, msg, http.StatusForbidden)
 		return
 	}
@@ -63,20 +63,37 @@ func (h *WebHandler) grafanaServeHandler(w http.ResponseWriter, r *http.Request,
 		return
 	}
 
-	site, err := h.cfg.Operator.GetSiteByDomain(cookie.Value)
+	cluster, err := h.cfg.Operator.GetSiteByDomain(cookie.Value)
 	if err != nil {
 		h.siteNotFoundHandler(w, r, p)
 		return
 	}
 
+	// before forwarding request to grafana, determine the namespace
+	// where it is located on the remote cluster
+	//
+	// monitoring resources used to live in kube-system namespace and
+	// were moved to the dedicated namespace so this is needed for
+	// compatibility with older clusters
+	kubeClient, err := h.cfg.Clients.KubeClient(s.Operator, s.UserInfo, cluster.Domain)
+	if err != nil {
+		replyError(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+
+	namespace, err := monitoring.GetNamespace(kubeClient)
+	if err != nil {
+		replyError(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+
 	err = h.cfg.Forwarder.ForwardToService(w, r, ForwardRequest{
-		ClusterName:      site.Domain,
+		ClusterName:      cluster.Domain,
 		ServiceName:      defaults.GrafanaServiceName,
 		ServicePort:      defaults.GrafanaServicePort,
-		ServiceNamespace: defaults.MonitoringNamespace,
+		ServiceNamespace: namespace,
 		URL:              p.ByName("rest"),
 	})
-
 	if err != nil {
 		replyError(w, err.Error(), http.StatusInternalServerError)
 		return
