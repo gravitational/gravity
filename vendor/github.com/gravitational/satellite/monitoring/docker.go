@@ -115,15 +115,12 @@ type dockerInfo struct {
 	// Driver is the docker storage driver
 	Driver string `json:"Driver"`
 	// DriverStatus is the docker storage driver information
-	DriverStatus [][]string `json:"DriverStatus"`
+	DriverStatus [][2]string `json:"DriverStatus"`
 }
 
 // DataSpaceUsed returns used data space in bytes
 func (d dockerInfo) DataSpaceUsed() (uint64, error) {
 	for _, status := range d.DriverStatus {
-		if len(status) != 2 {
-			continue
-		}
 		if status[0] == "Data Space Used" {
 			return humanize.ParseBytes(status[1])
 		}
@@ -135,9 +132,6 @@ func (d dockerInfo) DataSpaceUsed() (uint64, error) {
 // DataSpaceAvailable returns available data space in bytes
 func (d dockerInfo) DataSpaceAvailable() (uint64, error) {
 	for _, status := range d.DriverStatus {
-		if len(status) != 2 {
-			continue
-		}
 		if status[0] == "Data Space Available" {
 			return humanize.ParseBytes(status[1])
 		}
