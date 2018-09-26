@@ -57,8 +57,7 @@ ignored = ["github.com/Sirupsen/logrus", "github.com/gravitational/gravity/build
 
 [[constraint]]
   name = "github.com/gravitational/satellite"
-  #version = "=5.2.3"
-  revision = "4f0a95fcef4b475175bf2a8fddd34f288d956eb1"
+  version = "=5.2.5"
 
 [[constraint]]
   name = "github.com/xtgo/set"
@@ -215,4 +214,4 @@ ignored = ["github.com/Sirupsen/logrus", "github.com/gravitational/gravity/build
 
 [[constraint]]
   name = "github.com/hashicorp/terraform"
-  version = "=v0.11.7" 
+  version = "=v0.11.7"

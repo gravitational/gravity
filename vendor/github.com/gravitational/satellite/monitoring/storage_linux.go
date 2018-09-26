@@ -18,6 +18,7 @@ package monitoring
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"io/ioutil"
 	"os"
@@ -57,6 +58,32 @@ type StorageConfig struct {
 	Filesystems []string
 	// MinFreeBytes define minimum free volume capacity
 	MinFreeBytes uint64
+	// HighWatermark is the disk occupancy percentage that is considered degrading
+	HighWatermark uint
+}
+
+// HighWatermarkCheckerData is attached to high watermark check results
+type HighWatermarkCheckerData struct {
+	// HighWatermark is the watermark percentage value
+	HighWatermark uint `json:"high_watermark"`
+	// Path is the absolute path to check
+	Path string `json:"path"`
+	// TotalBytes is the total disk capacity
+	TotalBytes uint64 `json:"total_bytes"`
+	// AvailableBytes is the available disk capacity
+	AvailableBytes uint64 `json:"available_bytes"`
+}
+
+// FailureMessage returns failure watermark check message
+func (d HighWatermarkCheckerData) FailureMessage() string {
+	return fmt.Sprintf("disk utilization on %s exceeds %v percent (%s is available out of %s), see https://gravitational.com/telekube/docs/cluster/#garbage-collection",
+		d.Path, d.HighWatermark, humanize.Bytes(d.AvailableBytes), humanize.Bytes(d.TotalBytes))
+}
+
+// SuccessMessage returns success watermark check message
+func (d HighWatermarkCheckerData) SuccessMessage() string {
+	return fmt.Sprintf("disk utilization on %s is below %v percent (%s is available out of %s)",
+		d.Path, d.HighWatermark, humanize.Bytes(d.AvailableBytes), humanize.Bytes(d.TotalBytes))
 }
 
 // storageChecker verifies volume requirements
@@ -71,9 +98,11 @@ type storageChecker struct {
 
 const (
 	storageWriteCheckerID = "io-check"
-	blockSize             = 1e5
-	cycles                = 1024
-	stRdonly              = int64(1)
+	// DiskSpaceCheckerID is the checker that checks disk space utilization
+	DiskSpaceCheckerID = "disk-space"
+	blockSize          = 1e5
+	cycles             = 1024
+	stRdonly           = int64(1)
 )
 
 // Name returns name of the checker
@@ -86,8 +115,6 @@ func (c *storageChecker) Check(ctx context.Context, reporter health.Reporter) {
 	if err != nil {
 		reporter.Add(NewProbeFromErr(c.Name(),
 			"failed to validate storage requirements", trace.Wrap(err)))
-	} else {
-		reporter.Add(&pb.Probe{Checker: c.Name(), Status: pb.Probe_Running})
 	}
 }
 
@@ -99,6 +126,7 @@ func (c *storageChecker) check(ctx context.Context, reporter health.Reporter) er
 
 	return trace.NewAggregate(c.checkFsType(ctx, reporter),
 		c.checkCapacity(ctx, reporter),
+		c.checkHighWatermark(ctx, reporter),
 		c.checkWriteSpeed(ctx, reporter))
 }
 
@@ -157,8 +185,51 @@ func (c *storageChecker) checkFsType(ctx context.Context, reporter health.Report
 	return nil
 }
 
+func (c *storageChecker) checkHighWatermark(ctx context.Context, reporter health.Reporter) error {
+	if c.HighWatermark == 0 {
+		return nil
+	}
+	availableBytes, totalBytes, err := c.diskCapacity(c.path)
+	if err != nil {
+		return trace.Wrap(err)
+	}
+	if totalBytes == 0 {
+		return trace.BadParameter("disk capacity at %v is 0", c.path)
+	}
+	checkerData := HighWatermarkCheckerData{
+		HighWatermark:  c.HighWatermark,
+		Path:           c.Path,
+		TotalBytes:     totalBytes,
+		AvailableBytes: availableBytes,
+	}
+	checkerDataBytes, err := json.Marshal(checkerData)
+	if err != nil {
+		return trace.Wrap(err)
+	}
+	if float64(totalBytes-availableBytes)/float64(totalBytes)*100 > float64(c.HighWatermark) {
+		reporter.Add(&pb.Probe{
+			Checker:     DiskSpaceCheckerID,
+			Detail:      checkerData.FailureMessage(),
+			CheckerData: checkerDataBytes,
+			Status:      pb.Probe_Failed,
+		})
+	} else {
+		reporter.Add(&pb.Probe{
+			Checker:     DiskSpaceCheckerID,
+			Detail:      checkerData.SuccessMessage(),
+			CheckerData: checkerDataBytes,
+			Status:      pb.Probe_Running,
+		})
+	}
+	return nil
+}
+
 func (c *storageChecker) checkCapacity(ctx context.Context, reporter health.Reporter) error {
-	avail, err := c.diskCapacity(c.path)
+	if c.MinFreeBytes == 0 {
+		return nil
+	}
+
+	avail, _, err := c.diskCapacity(c.path)
 	if err != nil {
 		return trace.Wrap(err)
 	}
@@ -166,9 +237,16 @@ func (c *storageChecker) checkCapacity(ctx context.Context, reporter health.Repo
 	if avail < c.MinFreeBytes {
 		reporter.Add(&pb.Probe{
 			Checker: c.Name(),
-			Detail: fmt.Sprintf("%s available space left on %s, minimum of %s required",
+			Detail: fmt.Sprintf("%s available space left on %s, minimum of %s is required",
 				humanize.Bytes(avail), c.Path, humanize.Bytes(c.MinFreeBytes)),
 			Status: pb.Probe_Failed,
+		})
+	} else {
+		reporter.Add(&pb.Probe{
+			Checker: c.Name(),
+			Detail: fmt.Sprintf("available disk space %s on %s satisfies minimum requirement of %s",
+				humanize.Bytes(avail), c.Path, humanize.Bytes(c.MinFreeBytes)),
+			Status: pb.Probe_Running,
 		})
 	}
 
@@ -186,8 +264,15 @@ func (c *storageChecker) checkWriteSpeed(ctx context.Context, reporter health.Re
 	}
 
 	if bps >= c.MinBytesPerSecond {
+		reporter.Add(&pb.Probe{
+			Checker: c.Name(),
+			Detail: fmt.Sprintf("disk write speed %s/sec satisfies minumum requirement of %s",
+				humanize.Bytes(bps), humanize.Bytes(c.MinBytesPerSecond)),
+			Status: pb.Probe_Running,
+		})
 		return nil
 	}
+
 	reporter.Add(&pb.Probe{
 		Checker: c.Name(),
 		Detail: fmt.Sprintf("min write speed %s/sec required, have %s",
@@ -269,16 +354,17 @@ func (r realOS) diskSpeed(ctx context.Context, path, prefix string) (bps uint64,
 	return bps, nil
 }
 
-func (r realOS) diskCapacity(path string) (bytesAvail uint64, err error) {
+func (r realOS) diskCapacity(path string) (bytesAvail, bytesTotal uint64, err error) {
 	var stat syscall.Statfs_t
 
 	err = syscall.Statfs(path, &stat)
 	if err != nil {
-		return 0, trace.Wrap(err)
+		return 0, 0, trace.Wrap(err)
 	}
 
 	bytesAvail = uint64(stat.Bsize) * stat.Bavail
-	return bytesAvail, nil
+	bytesTotal = uint64(stat.Bsize) * stat.Blocks
+	return bytesAvail, bytesTotal, nil
 }
 
 func writeN(ctx context.Context, file *os.File, buf []byte, n int) error {
@@ -303,5 +389,5 @@ type mountInfo interface {
 type osInterface interface {
 	mountInfo
 	diskSpeed(ctx context.Context, path, name string) (bps uint64, err error)
-	diskCapacity(path string) (bytes uint64, err error)
+	diskCapacity(path string) (bytesAvailable, bytesTotal uint64, err error)
 }
