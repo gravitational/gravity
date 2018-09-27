@@ -37,9 +37,9 @@ func KubernetesInfo(runner utils.CommandRunner) Collectors {
 		Cmd("k8s-nodes", utils.PlanetCommand(kubectl.Command("get", "nodes", "-o", "yaml"))...),
 		Cmd("k8s-nodes-describe", utils.PlanetCommand(kubectl.Command("describe", "nodes"))...),
 		Cmd("k8s-podlist", utils.PlanetCommand(kubectl.Command(
-			"get", "pods", "--all-namespaces", "--show-all", "--output", "wide"))...),
+			"get", "pods", "--all-namespaces", "--output", "wide"))...),
 		Cmd("k8s-pod-yaml", utils.PlanetCommand(kubectl.Command(
-			"get", "pods", "-o", "yaml", "--all-namespaces", "--show-all"))...),
+			"get", "pods", "-o", "yaml", "--all-namespaces"))...),
 		Cmd("k8s-events", utils.PlanetCommand(kubectl.Command(
 			"get", "events", "--all-namespaces"))...),
 	}

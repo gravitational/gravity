@@ -135,7 +135,6 @@ L:
 		reporter.Add(&pb.Probe{
 			Checker: r.Name(),
 			Status:  pb.Probe_Running,
-			Detail:  r.nodeName,
 		})
 		return
 	}
@@ -143,7 +142,6 @@ L:
 	reporter.Add(&pb.Probe{
 		Checker: r.Name(),
 		Status:  pb.Probe_Temporary,
-		Detail:  unavailableNode.Name,
 		Error:   "Node is not ready",
 	})
 }

@@ -110,7 +110,7 @@ func GetNamespaces(runner utils.CommandRunner) ([]string, error) {
 
 // GetPods fetches the names of the pods from the given namespace
 func GetPods(namespace string, runner utils.CommandRunner) ([]string, error) {
-	cmd := Command("get", "pods", "--show-all",
+	cmd := Command("get", "pods",
 		"--namespace", namespace,
 		"--output", "jsonpath={.items..metadata.name}")
 	var buf bytes.Buffer

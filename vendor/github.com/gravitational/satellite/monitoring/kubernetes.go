@@ -29,8 +29,6 @@ import (
 	kube "k8s.io/client-go/kubernetes"
 )
 
-const systemNamespace = "kube-system"
-
 // KubeConfig defines Kubernetes access configuration
 type KubeConfig struct {
 	// Client is the initialized Kubernetes client

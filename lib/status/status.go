@@ -130,7 +130,7 @@ func FromPlanetAgent(ctx context.Context, servers []storage.Server) (*Agent, err
 
 	var nodes []ClusterServer
 	if len(servers) != 0 {
-		nodes = fromClusterState(*status, servers)
+		nodes = fromClusterState(status, servers)
 	} else {
 		nodes = fromSystemStatus(status)
 	}
@@ -277,9 +277,9 @@ func fromSystemStatus(systemStatus *pb.SystemStatus) (out []ClusterServer) {
 
 // fromClusterState generates accurate node status report including nodes missing
 // in the agent report
-func fromClusterState(systemStatus pb.SystemStatus, cluster []storage.Server) (out []ClusterServer) {
+func fromClusterState(systemStatus *pb.SystemStatus, cluster []storage.Server) (out []ClusterServer) {
 	out = make([]ClusterServer, 0, len(systemStatus.Nodes))
-	nodes := nodes(systemStatus)
+	nodes := nodes(*systemStatus)
 	for _, server := range cluster {
 		node, found := nodes[server.AdvertiseIP]
 		if !found {
@@ -291,6 +291,9 @@ func fromClusterState(systemStatus pb.SystemStatus, cluster []storage.Server) (o
 		status.Hostname = server.Hostname
 		status.Profile = server.Role
 		out = append(out, status)
+		if status.Status == NodeDegraded {
+			systemStatus.Status = pb.SystemStatus_Degraded
+		}
 	}
 	return out
 }
@@ -386,9 +389,6 @@ func probeErrorDetail(p pb.Probe) string {
 // /var/lib/gravity which is default path inside planet but may be different
 // on host so determine the real state directory if needed
 func diskSpaceProbeErrorDetail(p pb.Probe) (string, error) {
-	if p.Checker != monitoring.DiskSpaceCheckerID {
-		return "", trace.BadParameter("not disk space checker probe: %v", p)
-	}
 	var data monitoring.HighWatermarkCheckerData
 	err := json.Unmarshal(p.CheckerData, &data)
 	if err != nil {

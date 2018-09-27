@@ -45,10 +45,14 @@ func (*awsHasProfileChecker) Name() string {
 // Check will check the metadata API to see if an IAM profile is assigned to the node
 // Implements health.Checker
 func (*awsHasProfileChecker) Check(ctx context.Context, reporter health.Reporter) {
-	session := session.New()
+	session, err := session.NewSession()
+	if err != nil {
+		reporter.Add(NewProbeFromErr(awsHasProfileCheckerID, "failed to create session", trace.Wrap(err)))
+		return
+	}
 	metadata := ec2metadata.New(session)
 
-	_, err := metadata.IAMInfo()
+	_, err = metadata.IAMInfo()
 	if err != nil {
 		reporter.Add(NewProbeFromErr(awsHasProfileCheckerID, "failed to determine node IAM profile", trace.Wrap(err)))
 		return

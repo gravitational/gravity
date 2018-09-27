@@ -45,7 +45,7 @@ func KubeAPIServerHealth(config KubeConfig) health.Checker {
 
 // testHealthz executes a test by using k8s API
 func (h *healthzChecker) testHealthz(ctx context.Context, client *kube.Clientset) error {
-	_, err := client.Core().ComponentStatuses().Get("scheduler", metav1.GetOptions{})
+	_, err := client.CoreV1().ComponentStatuses().Get("scheduler", metav1.GetOptions{})
 	return err
 }
 
