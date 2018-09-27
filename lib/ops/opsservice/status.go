@@ -35,6 +35,15 @@ func (o *Operator) CheckSiteStatus(key ops.SiteKey) error {
 		return trace.Wrap(err)
 	}
 
+	// pause status checks while the cluster is undergoing an operation
+	switch cluster.backendSite.State {
+	case ops.SiteStateActive, ops.SiteStateDegraded:
+	default:
+		o.Infof("Status checks are paused, cluster is %v.",
+			cluster.backendSite.State)
+		return nil
+	}
+
 	statusErr := cluster.checkPlanetStatus(context.TODO())
 	reason := storage.ReasonNodeDegraded
 	if statusErr == nil {
@@ -54,6 +63,8 @@ func (o *Operator) CheckSiteStatus(key ops.SiteKey) error {
 		return trace.Wrap(statusErr)
 	}
 
+	// all status checks passed so if the cluster was previously disabled
+	// because of those checks, enable it back
 	if cluster.backendSite.State == ops.SiteStateDegraded {
 		if cluster.backendSite.Reason != storage.ReasonLicenseInvalid {
 			err := o.ActivateSite(ops.ActivateSiteRequest{
@@ -76,9 +87,9 @@ func (s *site) checkPlanetStatus(ctx context.Context) error {
 		return trace.Wrap(err)
 	}
 	for _, node := range planetStatus.Nodes {
-		if node.Status != status.NodeHealthy {
-			return trace.BadParameter("node %v is not healthy",
-				node.AdvertiseIP)
+		if node.AdvertiseIP != "" && node.Status != status.NodeHealthy {
+			return trace.BadParameter("node %v is not healthy: %#v",
+				node.AdvertiseIP, planetStatus)
 		}
 	}
 	return nil
