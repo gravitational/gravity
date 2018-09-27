@@ -224,7 +224,7 @@ func (r *ClusterClients) newKubeClient(operator ops.Operator, user ops.UserInfo,
 			transport := t.(*http.Transport)
 			transport.DialContext = func(ctx context.Context, network, address string) (net.Conn, error) {
 				return remoteCluster.Dial(
-					&httplib.Addr{Net: "tcp", Addr: "127.0.0.1:3024"},
+					&httplib.Addr{Net: "tcp", Addr: defaults.RemoteClusterDialAddr},
 					&httplib.Addr{Net: "tcp", Addr: defaults.KubernetesAPIAddress},
 					nil)
 			}

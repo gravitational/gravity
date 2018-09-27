@@ -948,6 +948,9 @@ const (
 	ModulesPath = "/etc/modules-load.d/gravity.conf"
 	// SysctlPath is the path to gravity-specific kernel parameters configuration
 	SysctlPath = "/etc/sysctl.d/50-gravity.conf"
+
+	// RemoteClusterDialAddr is the "from" address used when dialing remote cluster
+	RemoteClusterDialAddr = "127.0.0.1:3024"
 )
 
 var (

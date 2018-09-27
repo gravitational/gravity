@@ -195,7 +195,7 @@ func (f *forwarder) newKubeForwarder(ctx *sessionContext) (*forward.Forwarder, e
 
 	remoteDialer := func(_, _ string) (net.Conn, error) {
 		conn, err := remoteCluster.Dial(
-			NewTCPAddr("127.0.0.1:3024"), NewTCPAddr(targetAddr), nil)
+			NewTCPAddr(defaults.RemoteClusterDialAddr), NewTCPAddr(targetAddr), nil)
 		return conn, trace.Wrap(err)
 	}
 
@@ -313,7 +313,7 @@ func NewTCPAddr(a string) net.Addr {
 func (f *forwarder) forward(w http.ResponseWriter, r *http.Request, remoteSite rt.RemoteSite, targetAddr, URL string) error {
 	remoteDialer := func(_, _ string) (net.Conn, error) {
 		conn, err := remoteSite.Dial(
-			NewTCPAddr("127.0.0.1:3024"), NewTCPAddr(targetAddr), nil)
+			NewTCPAddr(defaults.RemoteClusterDialAddr), NewTCPAddr(targetAddr), nil)
 		return conn, trace.Wrap(err)
 	}
 

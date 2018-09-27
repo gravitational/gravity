@@ -81,7 +81,7 @@ func (h *WebHandler) grafanaServeHandler(w http.ResponseWriter, r *http.Request,
 		return
 	}
 
-	namespace, err := monitoring.GetNamespace(kubeClient)
+	namespace, err := monitoring.GetNamespace(kubeClient.CoreV1())
 	if err != nil {
 		replyError(w, err.Error(), http.StatusInternalServerError)
 		return

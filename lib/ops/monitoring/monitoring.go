@@ -24,7 +24,7 @@ import (
 	"github.com/gravitational/trace"
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/client-go/kubernetes"
+	corev1 "k8s.io/client-go/kubernetes/typed/core/v1"
 )
 
 // Monitoring defines the interface for monitoring provider
@@ -45,10 +45,10 @@ type RetentionPolicy struct {
 
 // GetNamespace uses the provided Kubernetes client to determine namespace
 // where monitoring resources reside
-func GetNamespace(client *kubernetes.Clientset) (string, error) {
+func GetNamespace(client corev1.CoreV1Interface) (string, error) {
 	// try "monitoring" namespace first, then "kube-system"
 	for _, ns := range []string{defaults.MonitoringNamespace, defaults.KubeSystemNamespace} {
-		_, err := client.Core().Services(ns).Get(defaults.GrafanaServiceName, metav1.GetOptions{})
+		_, err := client.Services(ns).Get(defaults.GrafanaServiceName, metav1.GetOptions{})
 		if err != nil && !trace.IsNotFound(rigging.ConvertError(err)) {
 			return "", trace.Wrap(err)
 		}
