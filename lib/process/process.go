@@ -566,7 +566,7 @@ func (p *Process) startSiteStatusChecker(ctx context.Context) error {
 		return trace.Wrap(err)
 	}
 
-	p.Info("Starting site status checker.")
+	p.Info("Starting cluster status checker.")
 	ticker := time.NewTicker(defaults.SiteStatusCheckInterval)
 	for {
 		select {
@@ -576,10 +576,11 @@ func (p *Process) startSiteStatusChecker(ctx context.Context) error {
 				SiteDomain: site.Domain,
 			}
 			if err := p.operator.CheckSiteStatus(key); err != nil {
-				p.Errorf("Site status check failed: %v.", trace.DebugReport(err))
+				p.Errorf("Cluster status check failed: %v.",
+					trace.DebugReport(err))
 			}
 		case <-ctx.Done():
-			p.Info("Stopping site status checker.")
+			p.Info("Stopping cluster status checker.")
 			ticker.Stop()
 			return nil
 		}

@@ -1105,39 +1105,45 @@ func (o *Operator) GetSites(accountID string) ([]ops.Site, error) {
 // DeactivateSite puts the site in the degraded state and, if requested,
 // stops an application.
 func (o *Operator) DeactivateSite(req ops.DeactivateSiteRequest) error {
-	site, err := o.cfg.Backend.GetSite(req.SiteDomain)
+	cluster, err := o.cfg.Backend.GetSite(req.SiteDomain)
 	if err != nil {
 		return trace.Wrap(err)
 	}
 
-	if site.State == ops.SiteStateDegraded {
+	if cluster.State == ops.SiteStateDegraded {
 		return nil // nothing to do
 	}
 
-	log.Infof("deactivating site %v with reason %v", site.Domain, req.Reason)
+	o.Infof("Deactivating cluster %v with reason %q.",
+		cluster.Domain, req.Reason)
 
-	site.State = ops.SiteStateDegraded
-	site.Reason = req.Reason
+	cluster.State = ops.SiteStateDegraded
+	cluster.Reason = req.Reason
 
-	_, err = o.cfg.Backend.UpdateSite(*site)
+	_, err = o.cfg.Backend.UpdateSite(*cluster)
 	if err != nil {
 		return trace.Wrap(err)
 	}
 
-	s, err := o.openSite(ops.SiteKey{
-		AccountID:  site.AccountID,
-		SiteDomain: site.Domain,
+	if !req.StopApp {
+		return nil // nothing to do anymore
+	}
+
+	site, err := o.openSite(ops.SiteKey{
+		AccountID:  cluster.AccountID,
+		SiteDomain: cluster.Domain,
 	})
 	if err != nil {
 		return trace.Wrap(err)
 	}
 
-	if req.StopApp && s.app.Manifest.HasHook(schema.HookStop) {
-		_, _, err = appservice.RunAppHook(context.TODO(), o.cfg.Apps, appservice.HookRunRequest{
-			Application: site.App.Locator(),
-			Hook:        schema.HookStop,
-			ServiceUser: site.ServiceUser,
-		})
+	if site.app.Manifest.HasHook(schema.HookStop) {
+		_, _, err = appservice.RunAppHook(context.TODO(), o.cfg.Apps,
+			appservice.HookRunRequest{
+				Application: cluster.App.Locator(),
+				Hook:        schema.HookStop,
+				ServiceUser: cluster.ServiceUser,
+			})
 		return trace.Wrap(err)
 	}
 
@@ -1147,39 +1153,44 @@ func (o *Operator) DeactivateSite(req ops.DeactivateSiteRequest) error {
 // ActivateSite moves site to the active state and, if requested, starts
 // an application.
 func (o *Operator) ActivateSite(req ops.ActivateSiteRequest) error {
-	site, err := o.cfg.Backend.GetSite(req.SiteDomain)
+	cluster, err := o.cfg.Backend.GetSite(req.SiteDomain)
 	if err != nil {
 		return trace.Wrap(err)
 	}
 
-	if site.State == ops.SiteStateActive {
+	if cluster.State == ops.SiteStateActive {
 		return nil // nothing to do
 	}
 
-	log.Infof("activating site %v", site.Domain)
+	o.Infof("Activating cluster %v.", cluster.Domain)
 
-	site.State = ops.SiteStateActive
-	site.Reason = ""
+	cluster.State = ops.SiteStateActive
+	cluster.Reason = ""
 
-	_, err = o.cfg.Backend.UpdateSite(*site)
+	_, err = o.cfg.Backend.UpdateSite(*cluster)
 	if err != nil {
 		return trace.Wrap(err)
 	}
 
-	s, err := o.openSite(ops.SiteKey{
-		AccountID:  site.AccountID,
-		SiteDomain: site.Domain,
+	if !req.StartApp {
+		return nil // nothing to do anymore
+	}
+
+	site, err := o.openSite(ops.SiteKey{
+		AccountID:  cluster.AccountID,
+		SiteDomain: cluster.Domain,
 	})
 	if err != nil {
 		return trace.Wrap(err)
 	}
 
-	if req.StartApp && s.app.Manifest.HasHook(schema.HookStart) {
-		_, _, err = appservice.RunAppHook(context.TODO(), o.cfg.Apps, appservice.HookRunRequest{
-			Application: site.App.Locator(),
-			Hook:        schema.HookStart,
-			ServiceUser: site.ServiceUser,
-		})
+	if site.app.Manifest.HasHook(schema.HookStart) {
+		_, _, err = appservice.RunAppHook(context.TODO(), o.cfg.Apps,
+			appservice.HookRunRequest{
+				Application: cluster.App.Locator(),
+				Hook:        schema.HookStart,
+				ServiceUser: cluster.ServiceUser,
+			})
 		return trace.Wrap(err)
 	}
 
