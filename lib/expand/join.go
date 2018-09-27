@@ -280,7 +280,7 @@ func (p *Peer) dialWizard(addr string) (*operationContext, error) {
 	if err != nil {
 		return nil, trace.Wrap(err)
 	}
-	cluster, operation, err := validateWizardState(env.Operator)
+	cluster, operation, err := p.validateWizardState(env.Operator)
 	if err != nil {
 		return nil, trace.Wrap(err)
 	}
@@ -793,7 +793,7 @@ func (p *Peer) getFSM(ctx operationContext) (*fsm.FSM, error) {
 	})
 }
 
-func validateWizardState(operator ops.Operator) (*ops.Site, *ops.SiteOperation, error) {
+func (p *Peer) validateWizardState(operator ops.Operator) (*ops.Site, *ops.SiteOperation, error) {
 	accounts, err := operator.GetAccounts()
 	if err != nil {
 		return nil, nil, trace.Wrap(err)
@@ -839,14 +839,17 @@ func validateWizardState(operator ops.Operator) (*ops.Site, *ops.SiteOperation, 
 		return &cluster, operation, nil
 	}
 
-	report, err := operator.GetSiteInstallOperationAgentReport(operation.Key())
-	if err != nil {
-		return nil, nil, trace.Wrap(err)
-	}
-	// do not join until there's at least one other agent, this way we can make sure that
-	// the agent on the installer node (the one that runs "install") joins first
-	if len(report.Servers) == 0 {
-		return nil, nil, trace.NotFound("no other agents joined yet")
+	// unless installing via UI, do not join until there's at least one other
+	// agent, this way we can make sure that the agent on the installer node
+	// (the one that runs "install") joins first
+	if p.OperationID == "" { // operation ID is given in UI usecase
+		report, err := operator.GetSiteInstallOperationAgentReport(operation.Key())
+		if err != nil {
+			return nil, nil, trace.Wrap(err)
+		}
+		if len(report.Servers) == 0 {
+			return nil, nil, trace.NotFound("no other agents joined yet")
+		}
 	}
 
 	return &cluster, operation, nil
