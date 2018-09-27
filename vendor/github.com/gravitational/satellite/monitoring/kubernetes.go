@@ -27,11 +27,15 @@ import (
 	"github.com/gravitational/trace"
 
 	kube "k8s.io/client-go/kubernetes"
-	"k8s.io/client-go/rest"
-	"k8s.io/client-go/tools/clientcmd"
 )
 
 const systemNamespace = "kube-system"
+
+// KubeConfig defines Kubernetes access configuration
+type KubeConfig struct {
+	// Client is the initialized Kubernetes client
+	Client *kube.Clientset
+}
 
 // kubeHealthz is httpResponseChecker that interprets health status of common kubernetes services.
 func kubeHealthz(response io.Reader) error {
@@ -51,27 +55,9 @@ type KubeStatusChecker func(ctx context.Context, client *kube.Clientset) error
 // KubeChecker implements Checker that can check and report problems
 // with kubernetes services.
 type KubeChecker struct {
-	name       string
-	masterURL  string
-	configPath string
-	checker    KubeStatusChecker
-}
-
-// ConnectToKube establishes a connection to kubernetes on the specified address
-// and returns an API client.
-func ConnectToKube(masterURL string, configPath string) (*kube.Clientset, error) {
-	config, err := rest.InClusterConfig()
-	if err != nil {
-		config, err = clientcmd.BuildConfigFromFlags(masterURL, configPath)
-		if err != nil {
-			return nil, trace.Wrap(err)
-		}
-	}
-	client, err := kube.NewForConfig(config)
-	if err != nil {
-		return nil, trace.Wrap(err)
-	}
-	return client, nil
+	name    string
+	checker KubeStatusChecker
+	client  *kube.Clientset
 }
 
 // Name returns the name of this checker
@@ -80,12 +66,7 @@ func (r *KubeChecker) Name() string { return r.name }
 // Check runs the wrapped kubernetes service checker function and reports
 // status to the specified reporter
 func (r *KubeChecker) Check(ctx context.Context, reporter health.Reporter) {
-	client, err := r.connect()
-	if err != nil {
-		reporter.Add(NewProbeFromErr(r.name, "failed to connect to health endpoint", err))
-		return
-	}
-	err = r.checker(ctx, client)
+	err := r.checker(ctx, r.client)
 	if err != nil {
 		reporter.Add(NewProbeFromErr(r.name, noErrorDetail, err))
 		return
@@ -94,8 +75,4 @@ func (r *KubeChecker) Check(ctx context.Context, reporter health.Reporter) {
 		Checker: r.name,
 		Status:  pb.Probe_Running,
 	})
-}
-
-func (r *KubeChecker) connect() (*kube.Clientset, error) {
-	return ConnectToKube(r.masterURL, r.configPath)
 }

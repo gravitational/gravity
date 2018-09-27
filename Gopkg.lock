@@ -541,7 +541,7 @@
     "monitoring",
     "utils"
   ]
-  revision = "bd20fa6e46aea1c1982a3c249cdd39457d40151b"
+  revision = "3bd7974afa01122951b7e231e30e05d2f12dfeeb"
 
 [[projects]]
   name = "github.com/gravitational/tail"

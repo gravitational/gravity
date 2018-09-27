@@ -57,14 +57,14 @@ type interPodChecker struct {
 }
 
 // NewInterPodChecker returns an instance of interPodChecker.
-func NewInterPodChecker(masterURL, nettestContainerImage string) health.Checker {
+func NewInterPodChecker(config KubeConfig, nettestContainerImage string) health.Checker {
 	checker := &interPodChecker{
 		nettestContainerImage: nettestContainerImage,
 	}
 	kubeChecker := &KubeChecker{
-		name:      "networking",
-		masterURL: masterURL,
-		checker:   checker.testInterPodCommunication,
+		name:    "networking",
+		checker: checker.testInterPodCommunication,
+		client:  config.Client,
 	}
 	checker.KubeChecker = kubeChecker
 	return kubeChecker
