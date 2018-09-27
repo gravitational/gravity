@@ -36,6 +36,7 @@ import (
 	"github.com/gravitational/gravity/lib/storage"
 	"github.com/gravitational/gravity/lib/utils"
 
+	"github.com/cloudflare/cfssl/csr"
 	"github.com/cloudflare/cfssl/signer"
 	"github.com/gravitational/license"
 	"github.com/gravitational/satellite/agent/proto/agentpb"
@@ -136,6 +137,17 @@ type UserInfo struct {
 	User storage.User `json:"user"`
 	// KubernetesGroups lists all groups the user has access to
 	KubernetesGroups []string `json:"kubernetes_groups"`
+}
+
+// ToCSR returns a certificate signing request for this user
+func (u UserInfo) ToCSR() csr.CertificateRequest {
+	request := csr.CertificateRequest{
+		CN: u.User.GetName(),
+	}
+	for _, group := range u.KubernetesGroups {
+		request.Names = append(request.Names, csr.Name{O: group})
+	}
+	return request
 }
 
 // ToRaw returns wire-friendly representation of the request

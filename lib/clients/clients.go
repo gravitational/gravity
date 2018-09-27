@@ -17,6 +17,9 @@ limitations under the License.
 package clients
 
 import (
+	"context"
+	"fmt"
+	"net"
 	"net/http"
 	"net/url"
 	"strings"
@@ -31,10 +34,13 @@ import (
 	"github.com/gravitational/gravity/lib/ops/opsclient"
 	"github.com/gravitational/gravity/lib/storage"
 	"github.com/gravitational/gravity/lib/users"
+	"github.com/gravitational/license/authority"
 
 	"github.com/gravitational/teleport/lib/reversetunnel"
 	"github.com/gravitational/trace"
 	"github.com/gravitational/ttlmap"
+	"k8s.io/client-go/kubernetes"
+	"k8s.io/client-go/rest"
 )
 
 // ClusterClientsConfig contains configuration needed for remote clients
@@ -48,11 +54,13 @@ type ClusterClientsConfig struct {
 // ClusterClients provides access to remote clusters' services such as operator or application
 type ClusterClients struct {
 	ClusterClientsConfig
-	sync.Mutex
+	sync.RWMutex
 	// opsClients is remote operators cache
 	opsClients *ttlmap.TTLMap
 	// appsClients is remote app services cache
 	appsClients *ttlmap.TTLMap
+	// kubeClients is remote Kubernetes clients cache
+	kubeClients *ttlmap.TTLMap
 }
 
 // NewClusterClients returns a new cluster clients interface
@@ -65,16 +73,21 @@ func NewClusterClients(conf ClusterClientsConfig) (*ClusterClients, error) {
 	}
 	opsClients, err := ttlmap.New(defaults.ClientCacheSize)
 	if err != nil {
-		return nil, err
+		return nil, trace.Wrap(err)
 	}
 	appsClients, err := ttlmap.New(defaults.ClientCacheSize)
 	if err != nil {
-		return nil, err
+		return nil, trace.Wrap(err)
+	}
+	kubeClients, err := ttlmap.New(defaults.ClientCacheSize)
+	if err != nil {
+		return nil, trace.Wrap(err)
 	}
 	return &ClusterClients{
 		ClusterClientsConfig: conf,
 		opsClients:           opsClients,
 		appsClients:          appsClients,
+		kubeClients:          kubeClients,
 	}, nil
 }
 
@@ -96,9 +109,18 @@ func (r *ClusterClients) AppsClient(clusterName string) (app.Applications, error
 	return r.newAppsClient(clusterName)
 }
 
+// KubeClient returns Kubernetes API client for the specified cluster and user
+func (r *ClusterClients) KubeClient(operator ops.Operator, user ops.UserInfo, clusterName string) (*kubernetes.Clientset, error) {
+	client := r.getKubeClient(clusterName, user)
+	if client != nil {
+		return client, nil
+	}
+	return r.newKubeClient(operator, user, clusterName)
+}
+
 func (r *ClusterClients) getOpsClient(clusterName string) ops.Operator {
-	r.Lock()
-	defer r.Unlock()
+	r.RLock()
+	defer r.RUnlock()
 	clientI, ok := r.opsClients.Get(clusterName)
 	if ok {
 		return clientI.(ops.Operator)
@@ -107,11 +129,21 @@ func (r *ClusterClients) getOpsClient(clusterName string) ops.Operator {
 }
 
 func (r *ClusterClients) getAppsClient(clusterName string) app.Applications {
-	r.Lock()
-	defer r.Unlock()
+	r.RLock()
+	defer r.RUnlock()
 	clientI, ok := r.appsClients.Get(clusterName)
 	if ok {
 		return clientI.(app.Applications)
+	}
+	return nil
+}
+
+func (r *ClusterClients) getKubeClient(clusterName string, user ops.UserInfo) *kubernetes.Clientset {
+	r.RLock()
+	defer r.RUnlock()
+	clientI, ok := r.kubeClients.Get(fmt.Sprintf("%v.%v", clusterName, user.User.GetName()))
+	if ok {
+		return clientI.(*kubernetes.Clientset)
 	}
 	return nil
 }
@@ -161,6 +193,53 @@ func (r *ClusterClients) newAppsClient(clusterName string) (app.Applications, er
 	}
 
 	r.appsClients.Set(clusterName, client, defaults.ClientCacheTTL)
+	return client, nil
+}
+
+func (r *ClusterClients) newKubeClient(operator ops.Operator, user ops.UserInfo, clusterName string) (*kubernetes.Clientset, error) {
+	remoteCluster, err := r.Tunnel.GetSite(clusterName)
+	if err != nil {
+		return nil, trace.Wrap(err)
+	}
+	csr, key, err := authority.GenerateCSR(user.ToCSR(), nil)
+	if err != nil {
+		return nil, trace.Wrap(err)
+	}
+	signResponse, err := operator.SignTLSKey(ops.TLSSignRequest{
+		AccountID:  defaults.SystemAccountID,
+		SiteDomain: clusterName,
+		CSR:        csr,
+	})
+	if err != nil {
+		return nil, trace.Wrap(err)
+	}
+	client, err := kubernetes.NewForConfig(&rest.Config{
+		Host: defaults.KubernetesAPIURL,
+		TLSClientConfig: rest.TLSClientConfig{
+			CAData:   signResponse.CACert,
+			CertData: signResponse.Cert,
+			KeyData:  key,
+		},
+		WrapTransport: func(t http.RoundTripper) http.RoundTripper {
+			transport := t.(*http.Transport)
+			transport.DialContext = func(ctx context.Context, network, address string) (net.Conn, error) {
+				return remoteCluster.Dial(
+					&httplib.Addr{Net: "tcp", Addr: defaults.RemoteClusterDialAddr},
+					&httplib.Addr{Net: "tcp", Addr: defaults.KubernetesAPIAddress},
+					nil)
+			}
+			transport.MaxIdleConnsPerHost = defaults.MaxRouterIdleConnsPerHost
+			transport.IdleConnTimeout = defaults.ClientCacheTTL
+			return transport
+		},
+	})
+	if err != nil {
+		return nil, trace.Wrap(err)
+	}
+	r.Lock()
+	defer r.Unlock()
+	r.kubeClients.Set(fmt.Sprintf("%v.%v", clusterName, user.User.GetName()),
+		client, defaults.ClientCacheTTL)
 	return client, nil
 }
 

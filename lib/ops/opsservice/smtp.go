@@ -18,6 +18,7 @@ package opsservice
 
 import (
 	"github.com/gravitational/gravity/lib/constants"
+	"github.com/gravitational/gravity/lib/defaults"
 	"github.com/gravitational/gravity/lib/ops"
 	"github.com/gravitational/gravity/lib/storage"
 
@@ -35,7 +36,7 @@ func (o *Operator) GetSMTPConfig(key ops.SiteKey) (storage.SMTPConfig, error) {
 		return nil, trace.Wrap(err)
 	}
 
-	data, err := getSMTPConfig(client.Core().Secrets(metav1.NamespaceSystem))
+	data, err := getSMTPConfig(client.Core().Secrets(defaults.MonitoringNamespace))
 	if err != nil {
 		return nil, trace.Wrap(err)
 	}
@@ -55,7 +56,7 @@ func (o *Operator) UpdateSMTPConfig(key ops.SiteKey, config storage.SMTPConfig) 
 		return trace.Wrap(err)
 	}
 
-	return updateSMTPConfig(client.Core().Secrets(metav1.NamespaceSystem), config)
+	return updateSMTPConfig(client.Core().Secrets(defaults.MonitoringNamespace), config)
 }
 
 // DeleteSMTPConfig deletes the cluster SMTP configuration
@@ -65,7 +66,7 @@ func (o *Operator) DeleteSMTPConfig(key ops.SiteKey) error {
 		return trace.Wrap(err)
 	}
 
-	err = rigging.ConvertError(client.Core().Secrets(metav1.NamespaceSystem).Delete(constants.SMTPSecret, nil))
+	err = rigging.ConvertError(client.Core().Secrets(defaults.MonitoringNamespace).Delete(constants.SMTPSecret, nil))
 	if trace.IsNotFound(err) {
 		return trace.NotFound("no SMTP configuration found")
 	}
@@ -99,7 +100,7 @@ func updateSMTPConfig(client corev1.SecretInterface, config storage.SMTPConfig) 
 	secret := &v1.Secret{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      constants.SMTPSecret,
-			Namespace: metav1.NamespaceSystem,
+			Namespace: defaults.MonitoringNamespace,
 			Labels: map[string]string{
 				// Update SMTP configuration for monitoring
 				constants.MonitoringType: constants.MonitoringTypeSMTP,

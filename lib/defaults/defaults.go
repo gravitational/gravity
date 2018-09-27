@@ -106,7 +106,7 @@ const (
 
 	// ProvisionRetryInterval is the interval between provisioning attempts
 	ProvisionRetryInterval = 1 * time.Second
-	// ProvisionRetryAttemps is the number of provisioning attempts
+	// ProvisionRetryAttempts is the number of provisioning attempts
 	ProvisionRetryAttempts = 5
 
 	// ResumeRetryInterval specifies the frequency of attempts to resume last operation
@@ -153,7 +153,7 @@ const (
 	// CertRenewPeriod is how often the certificate is renewed
 	CertRenewPeriod = time.Minute
 
-	// PathEnv is a default value for PATH environment variable
+	// PathEnvVal is a default value for PATH environment variable
 	PathEnvVal = "/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin:/writable/bin"
 
 	// PathEnv is a name for standard linux path environment variable
@@ -173,7 +173,7 @@ const (
 	// GravityYAMLFile is a default filename for gravity config file
 	GravityYAMLFile = "gravity.yaml"
 
-	// GravityYAMLFile is a default filename for teleport config file
+	// TeleportYAMLFile is a default filename for teleport config file
 	TeleportYAMLFile = "teleport.yaml"
 
 	// LocalGravityDir is the path to local gravity package state
@@ -459,10 +459,10 @@ const (
 	// for the response headers to arrive
 	ReadHeadersTimeout = 30 * time.Second
 
-	// KeepaliveTimeout tells for how long keep the connection alive with no activity
+	// KeepAliveTimeout tells for how long keep the connection alive with no activity
 	KeepAliveTimeout = 30 * time.Second
 
-	// MaxIdleConnsPer host specifies the max amount of idle HTTP conns to keep
+	// MaxIdleConnsPerHost specifies the max amount of idle HTTP conns to keep
 	MaxIdleConnsPerHost = 500
 
 	// DBOpenTimeout is a default timeout for opening the DB
@@ -500,7 +500,7 @@ const (
 	LogServicePort = 8083
 	// LogServiceName defines the name the internal logging service is accessible on
 	LogServiceName = "log-collector"
-	// LogServiceVersion defines the current version of the log service API
+	// LogServiceAPIVersion defines the current version of the log service API
 	LogServiceAPIVersion = "v1"
 
 	// LogForwardersConfigMap is the name of the config map that contains log forwarders configuration
@@ -512,7 +512,7 @@ const (
 	GrafanaServicePort = 3000
 
 	// InfluxDBServiceAddr is the address of InfluxDB service
-	InfluxDBServiceAddr = "influxdb.kube-system.svc.cluster.local"
+	InfluxDBServiceAddr = "influxdb.monitoring.svc.cluster.local"
 	// InfluxDBServicePort is the API port of InfluxDB service
 	InfluxDBServicePort = 8086
 	// InfluxDBAdminUser is the InfluxDB admin user name
@@ -537,7 +537,7 @@ const (
 	// traffic behind SNI router
 	LocalAgentsAddr = "127.0.0.1:3012"
 
-	// manifestFileName is the name of the application manifesst
+	// ManifestFileName is the name of the application manifest
 	ManifestFileName = "app.yaml"
 
 	// RegistryDir is the name of the layers directory inside an application tarball
@@ -561,6 +561,8 @@ const (
 
 	// KubeSystemNamespace is the name of k8s namespace where all our system stuff goes
 	KubeSystemNamespace = "kube-system"
+	// MonitoringNamespace is the name of k8s namespace for the monitoring-related resources
+	MonitoringNamespace = "monitoring"
 
 	// SystemServiceWantedBy sets default target for system services installed by gravity
 	SystemServiceWantedBy = "multi-user.target"
@@ -609,7 +611,7 @@ const (
 	// ReportTarball is the name of the gzipped tarball with collected site report information
 	ReportTarball = "report.tar.gz"
 
-	//  ServiceSubnet is a subnet dedicated to the services in cluster
+	// ServiceSubnet is a subnet dedicated to the services in cluster
 	ServiceSubnet = "10.100.0.0/16"
 	// PodSubnet is a subnet dedicated to the pods in the cluster
 	PodSubnet = "10.244.0.0/16"
@@ -656,7 +658,7 @@ const (
 
 	// DistributionOpsCenter is the address of OpsCenter used for distributing dependencies for app builds
 	DistributionOpsCenter = "https://get.gravitational.io"
-	// DistributionOpsCenterUser is the read-only disribution OpsCenter username
+	// DistributionOpsCenterUsername is the read-only disribution OpsCenter username
 	DistributionOpsCenterUsername = "reader@gravitational.com"
 	// DistributionOpsCenterPassword is the password for the distribution OpsCenter user
 	DistributionOpsCenterPassword = "knowL3dge?"
@@ -849,11 +851,11 @@ const (
 	// RPCAgentSecretsPackage specifies the name of the RPC credentials package
 	RPCAgentSecretsPackage = "rpcagent-secrets"
 
-	// ArchiveUid specifies the user ID to use for tarball items that do not exist on disk
-	ArchiveUid = 1000
+	// ArchiveUID specifies the user ID to use for tarball items that do not exist on disk
+	ArchiveUID = 1000
 
-	// ArchiveGid specifies the group ID to use for tarball items that do not exist on disk
-	ArchiveGid = 1000
+	// ArchiveGID specifies the group ID to use for tarball items that do not exist on disk
+	ArchiveGID = 1000
 
 	// EndpointsWaitTimeout specifies the timeout for waiting for system service endpoints
 	EndpointsWaitTimeout = 5 * time.Minute
@@ -946,14 +948,22 @@ const (
 	ModulesPath = "/etc/modules-load.d/gravity.conf"
 	// SysctlPath is the path to gravity-specific kernel parameters configuration
 	SysctlPath = "/etc/sysctl.d/50-gravity.conf"
+
+	// RemoteClusterDialAddr is the "from" address used when dialing remote cluster
+	RemoteClusterDialAddr = "127.0.0.1:3024"
 )
 
 var (
 	// GravityServiceURL defines the address the internal gravity site is located
 	GravityServiceURL = fmt.Sprintf("https://%s:%d", GravityServiceHost, GravityServicePort)
 
-	// GravityRpcAgentDir specifies the directory used by the RPC agent
-	GravityRpcAgentDir = filepath.Join(GravityUpdateDir, "agent")
+	// KubernetesAPIAddress is the Kubernetes API address
+	KubernetesAPIAddress = fmt.Sprintf("%s:%d", constants.APIServerDomainName, APIServerSecurePort)
+	// KubernetesAPIURL is the Kubernetes API URL
+	KubernetesAPIURL = fmt.Sprintf("https://%s", KubernetesAPIAddress)
+
+	// GravityRPCAgentDir specifies the directory used by the RPC agent
+	GravityRPCAgentDir = filepath.Join(GravityUpdateDir, "agent")
 
 	// GravityConfigDirs specify default locations for gravity configuration search
 	GravityConfigDirs = []string{GravityDir, "assets/local"}
@@ -1028,10 +1038,10 @@ var (
 
 	// CACertificateExpiry is the validity period of self-signed CA generated
 	// for clusters during installation
-	CACertificateExpiry time.Duration = 20 * 365 * 24 * time.Hour // 20 years
+	CACertificateExpiry = 20 * 365 * 24 * time.Hour // 20 years
 	// CertificateExpiry is the validity period of certificates generated
 	// during cluster installation (such as apiserver, etcd, kubelet, etc.)
-	CertificateExpiry time.Duration = 10 * 365 * 24 * time.Hour // 10 years
+	CertificateExpiry = 10 * 365 * 24 * time.Hour // 10 years
 
 	// TelekubeSystemLog defines the default location for the system log
 	TelekubeSystemLog = filepath.Join(SystemLogDir, TelekubeSystemLogFile)

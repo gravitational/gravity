@@ -1210,6 +1210,7 @@ func (p *Process) initService() (err error) {
 		Authenticator:  p.handlers.WebProxy.GetHandler().AuthenticateRequest,
 		Forwarder:      forwarder,
 		Backend:        p.backend,
+		Clients:        clusterClients,
 	})
 
 	p.handlers.Proxy = newProxyHandler(proxyHandlerConfig{
