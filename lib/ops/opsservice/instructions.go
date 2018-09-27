@@ -39,7 +39,7 @@ var (
 #!/bin/bash
 set -e
 
-CURL_OPTS="--retry 100 --retry-delay 0 --connect-timeout 10 --max-time 300 --tlsv1.2 --silent --show-error"
+CURL_OPTS="--retry 100 --retry-delay 0 --connect-timeout 10 --max-time 300 --tlsv1.2 --silent --show-error --http1.0"
 echo "$(date) [INFO] Downloading install agent..."
 curl $CURL_OPTS {{if .devmode}}--insecure{{end}} -H "Authorization: Bearer {{.ops_token}}" {{.gravity_url}} -o {{.gravity_bin_path}}
 chmod 755 {{.gravity_bin_path}}
@@ -87,7 +87,7 @@ echo "$(date) [INFO] Install agent will be using ${TMPDIR:-/tmp} for temporary f
 
 	downloadInstructionsTemplate = template.Must(
 		template.New("instructions").Parse(`
-curl -s --tlsv1.2 {{if .devmode}}--insecure{{end}} "{{.url}}" | sudo bash
+curl -s --tlsv1.2 --http1.0 {{if .devmode}}--insecure{{end}} "{{.url}}" | sudo bash
 `))
 )
 
