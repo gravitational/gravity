@@ -56,9 +56,8 @@ func status(env *localenv.LocalEnvironment, printOptions printOptions) error {
 		return trace.Wrap(err)
 	}
 
-	log.Warnf("Failed to collect cluster status: %v.", trace.DebugReport(err))
-
 	if status == nil {
+		log.Warnf("Failed to collect cluster status: %v.", trace.DebugReport(err))
 		status = &statusapi.Status{
 			Cluster: &statusapi.Cluster{
 				State: ops.SiteStateDegraded,

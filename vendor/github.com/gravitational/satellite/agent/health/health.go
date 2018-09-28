@@ -102,20 +102,10 @@ func (r Probes) GetFailed() []*pb.Probe {
 func (r Probes) Status() pb.NodeStatus_Type {
 	result := pb.NodeStatus_Running
 	for _, probe := range r {
-		if probe.Status == pb.Probe_Failed && probe.Severity == pb.Probe_Critical {
+		if probe.Status == pb.Probe_Failed {
 			result = pb.NodeStatus_Degraded
 			break
 		}
 	}
 	return result
-}
-
-// IsFailedProbe determines whether the given probe describes a failure
-func IsFailedProbe(probe *pb.Probe) bool {
-	return probe.Status == pb.Probe_Failed && probe.Severity == pb.Probe_Critical
-}
-
-// IsHealthyProbe determines whether the given probe is healthy
-func IsHealthyProbe(probe *pb.Probe) bool {
-	return probe.Status == pb.Probe_Running
 }
