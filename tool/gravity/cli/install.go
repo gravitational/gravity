@@ -75,10 +75,23 @@ func startInstall(env *localenv.LocalEnvironment, i InstallConfig) error {
 		return trace.Wrap(err)
 	}
 
-	installer, err := install.Init(context.TODO(), *installerConfig)
+	wizard, err := localenv.LoginWizard(fmt.Sprintf("https://%v",
+		installerConfig.Process.Config().Pack.GetAddr().Addr))
 	if err != nil {
 		return trace.Wrap(err)
 	}
+
+	installer, err := install.Init(context.TODO(), *installerConfig, wizard)
+	if err != nil {
+		return trace.Wrap(err)
+	}
+
+	dockerConfig, err := install.GetDockerConfig(installerConfig.Docker, wizard.Apps,
+		*installerConfig.AppPackage)
+	if err != nil {
+		return trace.Wrap(err)
+	}
+	installer.Docker = *dockerConfig
 
 	err = installer.Start()
 	if err != nil {

@@ -246,8 +246,8 @@ func (c *Config) CheckAndSetDefaults() (err error) {
 	if c.AppPackage == nil {
 		return trace.BadParameter("missing AppPackage")
 	}
-	rand.Seed(time.Now().UnixNano())
 	if c.SiteDomain == "" {
+		rand.Seed(time.Now().UnixNano())
 		c.SiteDomain = fmt.Sprintf(
 			"%v%d",
 			strings.Replace(namesgenerator.GetRandomName(0), "_", "", -1),
@@ -302,13 +302,8 @@ func (c *Config) validateCloudConfig() error {
 
 // Init creates a new installer and initializes various services it will
 // need based on the provided config
-func Init(ctx context.Context, cfg Config) (*Installer, error) {
+func Init(ctx context.Context, cfg Config, wizard *localenv.RemoteEnvironment) (*Installer, error) {
 	err := cfg.CheckAndSetDefaults()
-	if err != nil {
-		return nil, trace.Wrap(err)
-	}
-	wizard, err := localenv.LoginWizard(fmt.Sprintf("https://%v",
-		cfg.Process.Config().Pack.GetAddr().Addr))
 	if err != nil {
 		return nil, trace.Wrap(err)
 	}
@@ -317,10 +312,6 @@ func Init(ctx context.Context, cfg Config) (*Installer, error) {
 		return nil, trace.Wrap(err)
 	}
 	token, err := generateInstallToken(wizard.Operator, account.ID, cfg.Token)
-	if err != nil {
-		return nil, trace.Wrap(err)
-	}
-	dockerConfig, err := getDockerConfig(cfg.Docker, wizard.Apps, *cfg.AppPackage)
 	if err != nil {
 		return nil, trace.Wrap(err)
 	}
@@ -333,7 +324,6 @@ func Init(ctx context.Context, cfg Config) (*Installer, error) {
 		Operator:    wizard.Operator,
 		Apps:        wizard.Apps,
 		Packages:    wizard.Packages,
-		Docker:      *dockerConfig,
 	}
 	// set the installer engine to itself by default, and external
 	// implementations will be able to override it via SetEngine
@@ -709,6 +699,28 @@ func FetchCloudMetadata(cloudProvider string, config *pb.RuntimeConfig) error {
 	return nil
 }
 
+// GetDockerConfig builds Docker configuration from specified overrides and the application manifest
+func GetDockerConfig(overrides storage.DockerConfig, apps appservice.Applications, appPackage loc.Locator) (*storage.DockerConfig, error) {
+	app, err := apps.GetApp(appPackage)
+	if err != nil {
+		return nil, trace.Wrap(err)
+	}
+
+	dockerSchema := app.Manifest.SystemDocker()
+	config := storage.DockerConfig{
+		StorageDriver: dockerSchema.StorageDriver,
+		Args:          dockerSchema.Args,
+	}
+	if overrides.StorageDriver != "" {
+		config.StorageDriver = overrides.StorageDriver
+	}
+	if len(overrides.Args) != 0 {
+		config.Args = overrides.Args
+	}
+
+	return &config, nil
+}
+
 // installBinary places the system binary into the proper binary directory
 // depending on the distribution.
 // The specified uid/gid pair is used to set user/group permissions on the
@@ -818,25 +830,4 @@ func wait(ctx context.Context, cancel context.CancelFunc, p process.GravityProce
 		log.Debug("Operation context closed.")
 		return nil
 	}
-}
-
-func getDockerConfig(overrides storage.DockerConfig, apps appservice.Applications, appPackage loc.Locator) (*storage.DockerConfig, error) {
-	app, err := apps.GetApp(appPackage)
-	if err != nil {
-		return nil, trace.Wrap(err)
-	}
-
-	dockerSchema := app.Manifest.SystemDocker()
-	config := storage.DockerConfig{
-		StorageDriver: dockerSchema.StorageDriver,
-		Args:          dockerSchema.Args,
-	}
-	if overrides.StorageDriver != "" {
-		config.StorageDriver = overrides.StorageDriver
-	}
-	if len(overrides.Args) != 0 {
-		config.Args = overrides.Args
-	}
-
-	return &config, nil
 }
