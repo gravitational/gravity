@@ -67,9 +67,6 @@ type Probes []*pb.Probe
 // Add adds a health probe for a specific node.
 // Implements Reporter
 func (r *Probes) Add(probe *pb.Probe) {
-	if probe.Status == pb.Probe_Failed && probe.Severity == pb.Probe_Cleared {
-		probe.Severity = pb.Probe_Critical
-	}
 	*r = append(*r, probe)
 }
 

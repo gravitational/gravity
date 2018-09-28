@@ -106,8 +106,8 @@ func (s *Probe_Type) UnmarshalText(text []byte) error {
 // encoding.TextMarshaler
 func (s Probe_Severity) MarshalText() (text []byte, err error) {
 	switch s {
-	case Probe_Cleared:
-		return []byte("cleared"), nil
+	case Probe_None:
+		return []byte("none"), nil
 	case Probe_Critical:
 		return []byte("critical"), nil
 	case Probe_Warning:
@@ -120,8 +120,8 @@ func (s Probe_Severity) MarshalText() (text []byte, err error) {
 // encoding.TextUnmarshaler
 func (s *Probe_Severity) UnmarshalText(text []byte) error {
 	switch string(text) {
-	case "cleared":
-		*s = Probe_Cleared
+	case "none":
+		*s = Probe_None
 	case "critical":
 		*s = Probe_Critical
 	case "warning":

@@ -129,14 +129,13 @@ func (r *nodeStatusChecker) Check(ctx context.Context, reporter health.Reporter)
 
 	node := nodes.Items[0]
 	var failureCondition *v1.NodeCondition
-L:
 	for _, condition := range node.Status.Conditions {
 		if condition.Type != v1.NodeReady {
 			continue
 		}
 		if condition.Status != v1.ConditionTrue && node.Name == r.nodeName {
 			failureCondition = &condition
-			break L
+			break
 		}
 	}
 

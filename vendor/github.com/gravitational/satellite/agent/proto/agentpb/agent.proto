@@ -94,8 +94,8 @@ message Probe {
   }
   // Severity defines the severity of the probe.
   enum Severity {
-    // Cleared severity denotes the severity of a running probe
-    Cleared = 0;
+    // None severity denotes the severity of a running probe
+    None = 0;
     // Critical defines a serious error that requires immediate attention
     Critical = 1;
     // Warning defines a (possibly transient) condition that requires attention

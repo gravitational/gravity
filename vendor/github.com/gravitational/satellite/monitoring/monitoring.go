@@ -26,11 +26,10 @@ const noErrorDetail = ""
 // NewProbeFromErr creates a new Probe given an error and a checker name
 func NewProbeFromErr(name, detail string, err error) *pb.Probe {
 	return &pb.Probe{
-		Checker:  name,
-		Detail:   detail,
-		Error:    trace.UserMessage(err),
-		Status:   pb.Probe_Failed,
-		Severity: pb.Probe_Critical,
+		Checker: name,
+		Detail:  detail,
+		Error:   trace.UserMessage(err),
+		Status:  pb.Probe_Failed,
 	}
 }
 
