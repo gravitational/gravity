@@ -166,6 +166,11 @@ func NewOperationPlan(env *localenv.ClusterEnvironment, op storage.SiteOperation
 		return nil, trace.Wrap(err)
 	}
 
+	updateCoreDNS, err := shouldUpdateCoreDNS(env.Client)
+	if err != nil {
+		return nil, trace.Wrap(err)
+	}
+
 	installedPackage, err := storage.GetLocalPackage(env.Backend)
 	if err != nil {
 		return nil, trace.Wrap(err)
@@ -212,6 +217,7 @@ func NewOperationPlan(env *localenv.ClusterEnvironment, op storage.SiteOperation
 		trustedClusters:  trustedClusters,
 		packageService:   env.ClusterPackages,
 		shouldUpdateEtcd: shouldUpdateEtcd,
+		updateCoreDNS:    updateCoreDNS,
 	})
 	if err != nil {
 		return nil, trace.Wrap(err)
@@ -242,6 +248,8 @@ type newPlanParams struct {
 	packageService pack.PackageService
 	// shouldUpdateEtcd returns whether we should update etcd and the versions of etcd in use
 	shouldUpdateEtcd func(newPlanParams) (bool, string, string, error)
+	// updateCoreDNS indicates whether we need to run coreDNS phase
+	updateCoreDNS bool
 }
 
 func newOperationPlan(p newPlanParams) (*storage.OperationPlan, error) {
@@ -342,6 +350,12 @@ func newOperationPlan(p newPlanParams) (*storage.OperationPlan, error) {
 	if len(runtimeUpdates) > 0 {
 		// if there are no runtime updates, then these phases are not needed
 		// as we're not going to update system software
+		if p.updateCoreDNS {
+			corednsPhase := *builder.corednsPhase(leadMaster)
+			mastersPhase = *mastersPhase.Require(corednsPhase)
+			phases = append(phases, corednsPhase)
+		}
+
 		phases = append(phases, bootstrapPhase, mastersPhase)
 		if len(nodesPhase.Phases) > 0 {
 			phases = append(phases, nodesPhase)

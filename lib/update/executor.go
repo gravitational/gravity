@@ -34,6 +34,8 @@ const (
 	updateSystem = "update_system"
 	// preUpdate is the phase to run pre-update application hook
 	preUpdate = "pre_update"
+	// coredns is a phase to create coredns related roles
+	coredns = "coredns"
 	// updateApp is the phase to update the application
 	updateApp = "update_app"
 	// electionStatus is the phase to control node leader elections
@@ -87,6 +89,8 @@ func fsmSpec(c FSMConfig) fsm.FSMSpecFunc {
 			return NewUpdatePhaseChecks(c, p.Plan, p.Phase, c.Remote)
 		case updateBootstrap:
 			return NewUpdatePhaseBootstrap(c, p.Plan, p.Phase, remote)
+		case coredns:
+			return NewPhaseCoreDNS(c, p.Plan, p.Phase)
 		case updateSystem:
 			return NewUpdatePhaseSystem(c, p.Plan, p.Phase, remote)
 		case preUpdate:

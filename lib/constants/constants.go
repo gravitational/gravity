@@ -270,6 +270,8 @@ const (
 	// PlanetRPCKeyPair is a keypair for planet's RPC client for
 	// satellite monitoring and exchange
 	PlanetRpcKeyPair = "planet-rpc-client"
+	// CoreDNSKeyPair is a cert/key used for accessing coredns related configmap from the kubernetes api
+	CoreDNSKeyPair = "coredns"
 
 	// ClusterAdminGroup is a group name for Kubernetes cluster amdin
 	ClusterAdminGroup = "system:masters"
