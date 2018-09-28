@@ -349,7 +349,10 @@ func printNodeStatus(node statusapi.ClusterServer, w io.Writer) {
 }
 
 func isClusterDegrated(status clusterStatus) bool {
-	return (status.Cluster == nil || status.Agent == nil || status.Agent.SystemStatus != pb.SystemStatus_Running)
+	return (status.Cluster == nil ||
+		status.Cluster.State == ops.SiteStateDegraded ||
+		status.Agent == nil ||
+		status.Agent.SystemStatus != pb.SystemStatus_Running)
 }
 
 func unknownFallback(text string) string {

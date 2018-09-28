@@ -100,7 +100,7 @@ func (g *operationGroup) createSiteOperation(operation ops.SiteOperation) (*ops.
 // In case of failed checks returns trace.CompareFailed error to indicate that
 // the cluster is not in the appropriate state.
 func (g *operationGroup) canCreateOperation(operation ops.SiteOperation) error {
-	site, err := g.operator.GetSite(g.siteKey)
+	cluster, err := g.operator.GetSite(g.siteKey)
 	if err != nil {
 		return trace.Wrap(err)
 	}
@@ -110,14 +110,23 @@ func (g *operationGroup) canCreateOperation(operation ops.SiteOperation) error {
 		// no special checks for install/uninstall are needed
 	case ops.OperationExpand:
 		// expand has to undergo some checks
-		err := g.canCreateExpandOperation(*site, operation)
+		err := g.canCreateExpandOperation(*cluster, operation)
 		if err != nil {
 			return trace.Wrap(err)
 		}
+	case ops.OperationShrink:
+		// shrink is allowed for degraded clusters (to be able to remove offline nodes)
+		switch cluster.State {
+		case ops.SiteStateActive, ops.SiteStateDegraded:
+		default:
+			return trace.CompareFailed("the cluster is %v", cluster.State)
+		}
 	default:
 		// other operation can be performed by active clusters only
-		if site.State != ops.SiteStateActive {
-			return trace.CompareFailed("the cluster is %v", site.State)
+		switch cluster.State {
+		case ops.SiteStateActive:
+		default:
+			return trace.CompareFailed("the cluster is %v", cluster.State)
 		}
 	}
 
