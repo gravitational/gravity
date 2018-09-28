@@ -379,7 +379,7 @@ func probeErrorDetail(p pb.Probe) string {
 	if p.Detail == "" {
 		detail = p.Checker
 	}
-	return fmt.Sprintf("%v failed (%v)", detail, p.Error)
+	return fmt.Sprintf("%v (%v)", detail, p.Error)
 }
 
 // diskSpaceProbeErrorDetail returns an appropriate error message for disk

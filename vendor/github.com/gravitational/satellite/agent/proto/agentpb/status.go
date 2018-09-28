@@ -17,6 +17,8 @@ limitations under the License.
 // This file implements JSON encoding/decoding for status types
 package agentpb
 
+import "github.com/gravitational/trace"
+
 // EmptyStatus returns an empty system status
 func EmptyStatus() *SystemStatus {
 	return &SystemStatus{Status: SystemStatus_Unknown}
@@ -81,8 +83,6 @@ func (s Probe_Type) MarshalText() (text []byte, err error) {
 		return []byte("failed"), nil
 	case Probe_Terminated:
 		return []byte("terminated"), nil
-	case Probe_Temporary:
-		return []byte("temporary"), nil
 	default:
 		return nil, nil
 	}
@@ -97,10 +97,37 @@ func (s *Probe_Type) UnmarshalText(text []byte) error {
 		*s = Probe_Failed
 	case "terminated":
 		*s = Probe_Terminated
-	case "temporary":
-		*s = Probe_Temporary
 	default:
 		*s = Probe_Unknown
+	}
+	return nil
+}
+
+// encoding.TextMarshaler
+func (s Probe_Severity) MarshalText() (text []byte, err error) {
+	switch s {
+	case Probe_Cleared:
+		return []byte("cleared"), nil
+	case Probe_Critical:
+		return []byte("critical"), nil
+	case Probe_Warning:
+		return []byte("warning"), nil
+	default:
+		return nil, trace.BadParameter("unknown severity %s", s)
+	}
+}
+
+// encoding.TextUnmarshaler
+func (s *Probe_Severity) UnmarshalText(text []byte) error {
+	switch string(text) {
+	case "cleared":
+		*s = Probe_Cleared
+	case "critical":
+		*s = Probe_Critical
+	case "warning":
+		*s = Probe_Warning
+	default:
+		return trace.BadParameter("unknown severity %s", text)
 	}
 	return nil
 }

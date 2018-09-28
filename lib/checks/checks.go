@@ -98,7 +98,7 @@ func RunBasicChecks(ctx context.Context, options *validationpb.ValidateOptions) 
 	basicCheckers(options).Check(ctx, &reporter)
 
 	for _, p := range reporter {
-		if p.Status == agentpb.Probe_Failed {
+		if health.IsFailedProbe(p) {
 			failed = append(failed, p)
 		}
 	}
