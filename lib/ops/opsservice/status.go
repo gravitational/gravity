@@ -25,6 +25,7 @@ import (
 	"github.com/gravitational/gravity/lib/status"
 	"github.com/gravitational/gravity/lib/storage"
 
+	"github.com/gravitational/satellite/agent/proto/agentpb"
 	"github.com/gravitational/trace"
 )
 
@@ -45,7 +46,7 @@ func (o *Operator) CheckSiteStatus(key ops.SiteKey) error {
 	}
 
 	statusErr := cluster.checkPlanetStatus(context.TODO())
-	reason := storage.ReasonNodeDegraded
+	reason := storage.ReasonClusterDegraded
 	if statusErr == nil {
 		statusErr = cluster.checkStatusHook(context.TODO())
 		reason = storage.ReasonStatusCheckFailed
@@ -65,19 +66,23 @@ func (o *Operator) CheckSiteStatus(key ops.SiteKey) error {
 
 	// all status checks passed so if the cluster was previously disabled
 	// because of those checks, enable it back
-	if cluster.backendSite.State == ops.SiteStateDegraded {
-		if cluster.backendSite.Reason != storage.ReasonLicenseInvalid {
-			err := o.ActivateSite(ops.ActivateSiteRequest{
-				AccountID:  key.AccountID,
-				SiteDomain: cluster.backendSite.Domain,
-			})
-			if err != nil {
-				return trace.Wrap(err)
-			}
+	if cluster.canActivate() {
+		err := o.ActivateSite(ops.ActivateSiteRequest{
+			AccountID:  key.AccountID,
+			SiteDomain: cluster.backendSite.Domain,
+		})
+		if err != nil {
+			return trace.Wrap(err)
 		}
 	}
 
 	return nil
+}
+
+// canActivate retursn true if the cluster is disabled b/c of status checks
+func (s *site) canActivate() bool {
+	return s.backendSite.State == ops.SiteStateDegraded &&
+		s.backendSite.Reason != storage.ReasonLicenseInvalid
 }
 
 // checkPlanetStatus checks the cluster health using planet agents
@@ -86,11 +91,8 @@ func (s *site) checkPlanetStatus(ctx context.Context) error {
 	if err != nil {
 		return trace.Wrap(err)
 	}
-	for _, node := range planetStatus.Nodes {
-		if node.AdvertiseIP != "" && node.Status != status.NodeHealthy {
-			return trace.BadParameter("node %v is not healthy: %#v",
-				node.AdvertiseIP, planetStatus)
-		}
+	if planetStatus.SystemStatus != agentpb.SystemStatus_Running {
+		return trace.BadParameter("cluster is not healthy: %#v", planetStatus)
 	}
 	return nil
 }
@@ -107,13 +109,11 @@ func (s *site) checkStatusHook(ctx context.Context) error {
 		ServiceUser: s.serviceUser(),
 	})
 	if ref != nil {
-		defer func() {
-			err := s.service.cfg.Apps.DeleteAppHookJob(ctx, *ref)
-			if err != nil {
-				s.Warnf("Failed to delete status hook %v: %v.",
-					ref, trace.DebugReport(err))
-			}
-		}()
+		err := s.service.cfg.Apps.DeleteAppHookJob(ctx, *ref)
+		if err != nil {
+			s.Warnf("Failed to delete status hook %v: %v.",
+				ref, trace.DebugReport(err))
+		}
 	}
 	if err != nil {
 		return trace.Wrap(err, "status hook failed: %s", out)

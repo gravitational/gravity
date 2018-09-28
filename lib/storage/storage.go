@@ -488,8 +488,8 @@ const (
 	ReasonLicenseInvalid Reason = "license_invalid"
 	// ReasonStatusCheckFailed means that the site's status check failed
 	ReasonStatusCheckFailed Reason = "status_check_failed"
-	// ReasonNodeDegraded means one or more of cluster nodes are degraded
-	ReasonNodeDegraded Reason = "node_degraded"
+	// ReasonClusterDegraded means one or more of cluster nodes are degraded
+	ReasonClusterDegraded Reason = "cluster_degraded"
 )
 
 // Description returns human-readable description of the reason
@@ -499,7 +499,7 @@ func (r *Reason) Description() string {
 		return "the license is not valid"
 	case ReasonStatusCheckFailed:
 		return "application status check failed"
-	case ReasonNodeDegraded:
+	case ReasonClusterDegraded:
 		return "one or more of cluster nodes are not healthy"
 	default:
 		return "unknown reason"
@@ -508,7 +508,7 @@ func (r *Reason) Description() string {
 
 func (r *Reason) Check() error {
 	switch *r {
-	case "", ReasonLicenseInvalid, ReasonStatusCheckFailed, ReasonNodeDegraded:
+	case "", ReasonLicenseInvalid, ReasonStatusCheckFailed, ReasonClusterDegraded:
 		return nil
 	}
 	return trace.BadParameter("unsupported reason: %s", r)
