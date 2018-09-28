@@ -946,9 +946,6 @@ func (s *site) getPlanetConfigPackage(
 	for _, addr := range dnsConfig.Addrs {
 		args = append(args, fmt.Sprintf("--dns-listen-addr=%v", addr))
 	}
-	for _, iface := range dnsConfig.Interfaces {
-		args = append(args, fmt.Sprintf("--dns-interface=%v", iface))
-	}
 	args = append(args, fmt.Sprintf("--dns-port=%v", dnsConfig.Port))
 
 	dockerArgs, err := configureDockerOptions(&installOrExpand, node,

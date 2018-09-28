@@ -1056,9 +1056,8 @@ var DefaultDNSConfig = DNSConfig{
 
 // LegacyDNSConfig defines the local DNS configuration on older clusters
 var LegacyDNSConfig = DNSConfig{
-	Port:       defaults.DNSPort,
-	Addrs:      []string{defaults.LegacyDNSListenAddr},
-	Interfaces: []string{"lo"},
+	Port:  defaults.DNSPort,
+	Addrs: []string{defaults.LegacyDNSListenAddr},
 }
 
 // Addr returns the DNS server address as ip:port.
@@ -1076,10 +1075,6 @@ func (r DNSConfig) IsEmpty() bool {
 type DNSConfig struct {
 	// Addrs lists local cluster DNS server IP addresses
 	Addrs []string `json:"addrs"`
-	// Interfaces lists network interfaces dnsmasq will listen on.
-	// This is mostly to support the legacy DNS configuration and is not
-	// exposed as a configuration parameter
-	Interfaces []string `json:"interfaces,omitempty"`
 	// Port specifies the DNS port to use for dnsmasq
 	Port int `json:"port"`
 }
