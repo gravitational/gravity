@@ -25,8 +25,8 @@ import (
 
 	"github.com/gravitational/gravity/lib/storage"
 	"github.com/gravitational/gravity/lib/systeminfo"
-	"github.com/gravitational/gravity/tool/common"
 
+	"github.com/fatih/color"
 	"github.com/gravitational/configure/cstrings"
 	"github.com/gravitational/trace"
 )
@@ -59,22 +59,27 @@ func validDomain(v string) (string, error) {
 	return v, nil
 }
 
-func selectInterface() (string, error) {
+// selectInterface returns IP address of the network interface selected
+// for the installation
+//
+// If the machine has a single network interface (not counting loopback),
+// it is returned right away. Otherwise, a user is shown a prompt dialog
+// where they can pick an interface.
+func selectInterface() (addr string, autoselected bool, err error) {
 	ifaces, err := systeminfo.NetworkInterfaces()
 	if err != nil {
-		return "", trace.Wrap(err)
+		return "", false, trace.Wrap(err)
 	}
 	if len(ifaces) == 0 {
-		return "", trace.Errorf("no network interfaces found")
+		return "", false, trace.Errorf("no network interfaces found")
 	}
 	if len(ifaces) == 1 {
 		for _, iface := range ifaces {
-			return iface.IPv4, nil
+			return iface.IPv4, true, nil
 		}
 	}
-	fmt.Printf("\nYou have following interfaces:\n")
+	fmt.Printf("\nSelect an interface for the installer to listen on:\n\n")
 
-	common.PrintHeader("interfaces")
 	num2iface := make(map[string]storage.NetworkInterface)
 	number := 0
 	for _, iface := range ifaces {
@@ -84,22 +89,20 @@ func selectInterface() (string, error) {
 			fmt.Printf("%v. %v\n", number, iface.IPv4)
 		}
 	}
-	fmt.Printf("\n Select an interface for installer to listen on.\n")
-	fmt.Printf("*IMPORTANT*: target servers should be able to connect to this IP\n")
+	fmt.Printf(color.YellowString("\nNote: Target servers should be able to connect to this IP\n"))
 
-	return readCheck(fmt.Sprintf("\nselect interface number: [%v-%v]", 1, number), func(number string) (string, error) {
+	addr, err = readCheck(fmt.Sprintf("\nSelect interface number [%v-%v]", 1, number), func(number string) (string, error) {
 		iface, ok := num2iface[number]
 		if !ok {
 			return "", fmt.Errorf("select interface number")
 		}
 		return iface.IPv4, nil
 	})
-}
+	if err != nil {
+		return "", false, trace.Wrap(err)
+	}
 
-func selectDomain() (string, error) {
-	return readCheck(
-		"enter domain name that will identify this installation, e.g. 'example.com'",
-		validDomain)
+	return addr, false, nil
 }
 
 func checkYesNo(v string) (string, error) {
