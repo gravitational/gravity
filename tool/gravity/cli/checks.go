@@ -22,6 +22,7 @@ import (
 
 	"github.com/gravitational/gravity/lib/checks"
 	"github.com/gravitational/gravity/lib/localenv"
+	"github.com/gravitational/gravity/lib/ops"
 	"github.com/gravitational/gravity/lib/schema"
 
 	pb "github.com/gravitational/satellite/agent/proto/agentpb"
@@ -41,6 +42,7 @@ func checkManifest(env *localenv.LocalEnvironment, manifestPath, profileName str
 
 	result, err := checks.ValidateLocal(checks.LocalChecksRequest{
 		Manifest: *manifest,
+		Docker:   ops.DockerConfigFromSchemaValue(manifest.SystemDocker()),
 		Role:     profileName,
 		AutoFix:  autoFix,
 	})

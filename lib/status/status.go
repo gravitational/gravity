@@ -337,12 +337,15 @@ func fromNodeStatus(node pb.NodeStatus) (status ClusterServer) {
 		status.Status = NodeHealthy
 	case pb.NodeStatus_Degraded:
 		status.Status = NodeDegraded
-		for _, probe := range node.Probes {
-			if probe.Status != pb.Probe_Running {
-				status.FailedProbes = append(status.FailedProbes,
-					probeErrorDetail(*probe))
-			}
+	}
+	for _, probe := range node.Probes {
+		if probe.Status != pb.Probe_Running {
+			status.FailedProbes = append(status.FailedProbes,
+				probeErrorDetail(*probe))
 		}
+	}
+	if len(status.FailedProbes) != 0 {
+		status.Status = NodeDegraded
 	}
 	return status
 }
@@ -368,7 +371,7 @@ func probeErrorDetail(p pb.Probe) string {
 	if p.Detail == "" {
 		detail = p.Checker
 	}
-	return detail
+	return fmt.Sprintf("%v (%v)", detail, p.Error)
 }
 
 // diskSpaceProbeErrorDetail returns an appropriate error message for disk
@@ -378,9 +381,6 @@ func probeErrorDetail(p pb.Probe) string {
 // /var/lib/gravity which is default path inside planet but may be different
 // on host so determine the real state directory if needed
 func diskSpaceProbeErrorDetail(p pb.Probe) (string, error) {
-	if p.Checker != monitoring.DiskSpaceCheckerID {
-		return "", trace.BadParameter("not disk space checker probe: %v", p)
-	}
 	var data monitoring.HighWatermarkCheckerData
 	err := json.Unmarshal(p.CheckerData, &data)
 	if err != nil {
