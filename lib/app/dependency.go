@@ -56,14 +56,22 @@ func VerifyDependencies(app *Application, apps Applications, packages pack.Packa
 	for _, dependency := range dependencies.Packages {
 		_, err := packages.ReadPackageEnvelope(dependency)
 		if err != nil {
+			if trace.IsNotFound(err) {
+				log.Debugf("Package dependency %v is not present.", dependency)
+			}
 			return trace.Wrap(err)
 		}
+		log.Debugf("Package dependency %v is present.", dependency)
 	}
 	for _, dependency := range dependencies.Apps {
 		_, err := apps.GetApp(dependency)
 		if err != nil {
+			if trace.IsNotFound(err) {
+				log.Debugf("App dependency %v is not present.", dependency)
+			}
 			return trace.Wrap(err)
 		}
+		log.Debugf("App dependency %v is present.", dependency)
 	}
 	return nil
 }

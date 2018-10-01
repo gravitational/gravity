@@ -31,13 +31,13 @@ import (
 	"github.com/gravitational/trace"
 )
 
-func list(env localenv.LocalEnvironment, runtimes bool, format constants.Format) error {
+func list(env localenv.LocalEnvironment, runtimes bool, format constants.Format, withPrereleases bool) error {
 	hub, err := hub.New(hub.Config{})
 	if err != nil {
 		return trace.Wrap(err)
 	}
 
-	items, err := hub.List()
+	items, err := hub.List(withPrereleases)
 	if err != nil {
 		return trace.Wrap(err)
 	}
@@ -46,13 +46,13 @@ func list(env localenv.LocalEnvironment, runtimes bool, format constants.Format)
 	case constants.EncodingText:
 		w := new(tabwriter.Writer)
 		w.Init(os.Stdout, 0, 8, 1, '\t', 0)
-		fmt.Fprintf(w, "Name\tVersion\tCreated\tSize\n")
-		fmt.Fprintf(w, "----\t-------\t-------\t----\n")
+		fmt.Fprintf(w, "Name:Version\tCreated (UTC)\tSize\n")
+		fmt.Fprintf(w, "------------\t-------------\t----\n")
 		for _, item := range items {
-			fmt.Fprintf(w, "%v\t%v\t%v\t%v\n",
+			fmt.Fprintf(w, "%v:%v\t%v\t%v\n",
 				item.Name,
 				item.Version,
-				item.Created.Format(constants.HumanDateFormat),
+				item.Created.Format(constants.ShortDateFormat),
 				humanize.Bytes(uint64(item.SizeBytes)))
 		}
 		w.Flush()

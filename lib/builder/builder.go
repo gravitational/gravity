@@ -18,7 +18,6 @@ package builder
 
 import (
 	"context"
-	"fmt"
 	"io"
 	"io/ioutil"
 	"os"
@@ -50,6 +49,8 @@ import (
 
 // Config is the builder configuration
 type Config struct {
+	// Context is the build context
+	Context context.Context
 	// Env is the local build environment
 	Env *localenv.LocalEnvironment
 	// ManifestPath holds the path to the application manifest
@@ -74,10 +75,15 @@ type Config struct {
 	Syncer Syncer
 	// FieldLogger is used for logging
 	logrus.FieldLogger
+	// Progress allows builder to report build progress
+	utils.Progress
 }
 
 // CheckAndSetDefaults validates builder config and fills in defaults
 func (c *Config) CheckAndSetDefaults() error {
+	if c.Context == nil {
+		c.Context = context.Background()
+	}
 	manifestAbsPath, err := filepath.Abs(c.ManifestPath)
 	if err != nil {
 		return trace.Wrap(err)
@@ -88,16 +94,6 @@ func (c *Config) CheckAndSetDefaults() error {
 		return trace.BadParameter("manifest filename should be %q",
 			defaults.ManifestFileName)
 	}
-	// if output tarball name is not specified, it defaults to the name of the
-	// directory with manifest
-	if c.OutPath == "" {
-		c.OutPath = fmt.Sprintf("%v.tar", filepath.Base(c.manifestDir))
-	}
-	_, err = os.Stat(c.OutPath)
-	if err == nil && !c.Overwrite {
-		return trace.BadParameter("tarball %v already exists, please remove "+
-			"it first or provide '-f' flag to overwrite it", c.OutPath)
-	}
 	if c.VendorReq.Parallel == 0 {
 		c.VendorReq.Parallel = runtime.NumCPU()
 	}
@@ -105,13 +101,13 @@ func (c *Config) CheckAndSetDefaults() error {
 		c.Generator = &generator{}
 	}
 	if c.Syncer == nil {
-		c.Syncer, err = newSyncer()
-		if err != nil {
-			return trace.Wrap(err)
-		}
+		return trace.BadParameter("missing Syncer")
 	}
 	if c.FieldLogger == nil {
 		c.FieldLogger = logrus.WithField(trace.Component, "builder")
+	}
+	if c.Progress == nil {
+		c.Progress = utils.NewProgress(c.Context, "Build", 6, false)
 	}
 	return nil
 }
@@ -128,8 +124,9 @@ func New(config Config) (*Builder, error) {
 	}
 	manifest, err := schema.ParseManifestYAMLNoValidate(manifestBytes)
 	if err != nil {
-		return nil, trace.Wrap(err, "failed to parse the application manifest, "+
-			"please check that it's in correct YAML format: %v", err)
+		logrus.Errorf(trace.DebugReport(err))
+		return nil, trace.BadParameter("Could not parse the application manifest:\n%v",
+			trace.Unwrap(err)) // show original parsing error
 	}
 	b := &Builder{
 		Config:   config,
@@ -174,27 +171,54 @@ func (b *Builder) Locator() loc.Locator {
 	}
 }
 
+// SelectRuntime picks an appropriate runtime for the application that's
+// being built
+func (b *Builder) SelectRuntime() (*semver.Version, error) {
+	// first see if runtime is pinned to specific version in manifest
+	runtime := b.Manifest.Base()
+	if runtime == nil {
+		return nil, trace.NotFound("failed to determine application runtime")
+	}
+	if runtime.Version != loc.LatestVersion {
+		b.Infof("Using pinned runtime version: %s.", runtime.Version)
+		b.PrintSubStep("Will use runtime version %s from manifest", runtime.Version)
+		return semver.NewVersion(runtime.Version)
+	}
+	// latest is specified, find the latest compatible in repository
+	version, err := b.Syncer.SelectRuntime(b)
+	if err != nil {
+		return nil, trace.Wrap(err)
+	}
+	b.Infof("Selected runtime version: %s.", version)
+	b.PrintSubStep("Will use latest runtime version %s", version)
+	return version, nil
+}
+
 // SyncPackageCache ensures that all system dependencies are present in
 // the local cache directory
-func (b *Builder) SyncPackageCache() error {
+func (b *Builder) SyncPackageCache(runtimeVersion *semver.Version) error {
 	apps, err := b.Env.AppServiceLocal(localenv.AppConfig{})
 	if err != nil {
 		return trace.Wrap(err)
 	}
 	// see if all required packages/apps are already present in the local cache
+	manifest := b.Manifest
+	manifest.SetBase(loc.Runtime.WithVersion(runtimeVersion))
 	err = app.VerifyDependencies(&app.Application{
-		Manifest: b.Manifest,
-		Package:  b.Manifest.Locator(),
+		Manifest: manifest,
+		Package:  manifest.Locator(),
 	}, apps, b.Env.Packages)
 	if err != nil && !trace.IsNotFound(err) {
 		return trace.Wrap(err)
 	}
 	if err == nil {
-		b.Info("Package cache is up-to-date.")
+		b.Info("Local package cache is up-to-date.")
+		b.NextStep("Local package cache is up-to-date")
 		return nil
 	}
-	b.Info("Synchronizing package cache.")
-	return b.Syncer.Sync(b)
+	b.Info("Synchronizing package cache with %v.", b.Repository)
+	b.NextStep("Downloading dependencies from %v", b.Repository)
+	return b.Syncer.Sync(b, runtimeVersion)
 }
 
 // Vendor vendors the application images in the provided directory and
@@ -302,37 +326,26 @@ func (b *Builder) initServices() (err error) {
 // checkVersion makes sure that the tele version is compatible with the selected
 // runtime version
 //
-// Compatibility is defined as "tele version must be >= runtime version"
-func (b *Builder) checkVersion() error {
+// Versions are compatible if they only differ in patch version at most, while
+// having the same major and minor versions.
+func (b *Builder) checkVersion(runtimeVersion *semver.Version) error {
 	teleVersion, err := semver.NewVersion(version.Get().Version)
 	if err != nil {
 		return trace.Wrap(err, "failed to determine tele version")
 	}
-	runtimeLoc := b.Manifest.Base()
-	if runtimeLoc == nil {
-		return trace.BadParameter("failed to determine runtime version, make "+
-			"sure your application type is %q", schema.KindBundle)
-	}
-	runtimePackage, err := b.Packages.ReadPackageEnvelope(*runtimeLoc)
-	if err != nil {
-		return trace.Wrap(err)
-	}
-	runtimeVersion, err := semver.NewVersion(runtimePackage.Locator.Version)
-	if err != nil {
-		return trace.Wrap(err, "invalid runtime version: %v",
-			runtimePackage.Locator.Version)
-	}
-	if teleVersion.LessThan(*runtimeVersion) {
-		// truncate meta information
-		withoutMeta := fmt.Sprintf("%v.%v.%v",
-			runtimeVersion.Major, runtimeVersion.Minor, runtimeVersion.Patch)
+	if teleVersion.Major != runtimeVersion.Major || teleVersion.Minor != runtimeVersion.Minor {
 		return trace.BadParameter(
 			`The version of the tele binary (%v) is not compatible with the selected runtime (%v).
 
-Please upgrade your Gravity tools to match the runtime version (curl https://get.gravitational.io/telekube/install/%v | bash), or specify an appropriate runtime version in your application manifest. You can view available runtimes using "tele ls --runtimes" and pick the one that matches your tele version.`, teleVersion, runtimeVersion, withoutMeta)
+To remediate the issue you can do one of the following:
+
+ * Use a different version of tele that is compatible with your selected runtime (latest %v.%v.x version is recommended).
+ * Pin runtime version in application manifest to the version compatible with your tele version (latest %v.%v.x version is recommended).
+ * Unpin runtime version in application manifest to let tele automatically select the latest compatible runtime.
+`, teleVersion, runtimeVersion, runtimeVersion.Major, runtimeVersion.Minor, teleVersion.Major, teleVersion.Minor)
 	}
 
-	b.Debugf("version check passed, tele version: %v, runtime version: %v",
+	b.Debugf("Version check passed; tele version: %v, runtime version: %v.",
 		teleVersion, runtimeVersion)
 	return nil
 }
@@ -350,6 +363,9 @@ func (b *Builder) Close() error {
 		if err != nil {
 			return trace.Wrap(err)
 		}
+	}
+	if b.Progress != nil {
+		b.Progress.Stop()
 	}
 	return nil
 }

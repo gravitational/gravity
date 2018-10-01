@@ -87,6 +87,8 @@ type Progress interface {
 	Stop()
 	// PrintCurrentStep updates and prints current step
 	PrintCurrentStep(message string, args ...interface{})
+	// PrintSubStep outputs the message as a sub-step of the current step
+	PrintSubStep(message string, args ...interface{})
 	// Print outputs the specified message in regular color
 	Print(message string, args ...interface{})
 	// PrintInfo outputs the specified info message in color
@@ -144,6 +146,17 @@ func (p *ConsoleProgress) PrintCurrentStep(message string, args ...interface{}) 
 	PrintStep(entry.current, p.steps, entry.message)
 }
 
+// PrintSubStep outputs the message as a sub-step of the current step
+func (p *ConsoleProgress) PrintSubStep(message string, args ...interface{}) {
+	message = fmt.Sprintf(message, args...)
+	var entry *entry
+	p.Lock()
+	p.currentEntry.message = message
+	entry = p.currentEntry
+	p.Unlock()
+	fmt.Fprintf(os.Stdout, "\t%v\n", entry.message)
+}
+
 // Print outputs the specified message in regular color
 func (p *ConsoleProgress) Print(message string, args ...interface{}) {
 	PrintStep(0, 0, fmt.Sprintf(message, args...))
@@ -173,8 +186,7 @@ func (p *ConsoleProgress) printPeriodic(current int, message string, ctx context
 			select {
 			case <-ticker.C:
 				diff := humanize.RelTime(start, time.Now(), "elapsed", "elapsed")
-				PrintStep(current, p.steps, fmt.Sprintf("Still %v (%v)",
-					lowerFirst(message), diff))
+				fmt.Fprintf(os.Stdout, "\tStill %v (%v)\n", lowerFirst(message), diff)
 			case <-ctx.Done():
 				return
 			}
@@ -271,6 +283,9 @@ func (*NopProgress) Stop() {}
 
 // PrintCurrentStep updates and prints current step
 func (*NopProgress) PrintCurrentStep(message string, args ...interface{}) {}
+
+// PrintSubStep outputs the message as a sub-step of the current step
+func (*NopProgress) PrintSubStep(message string, args ...interface{}) {}
 
 // Print outputs the specified message in regular color
 func (*NopProgress) Print(message string, args ...interface{}) {}

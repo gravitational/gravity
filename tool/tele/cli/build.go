@@ -22,6 +22,7 @@ import (
 	"github.com/gravitational/gravity/lib/app/service"
 	"github.com/gravitational/gravity/lib/builder"
 	"github.com/gravitational/gravity/lib/localenv"
+	"github.com/gravitational/gravity/lib/utils"
 
 	"github.com/gravitational/trace"
 )
@@ -30,6 +31,8 @@ import (
 type BuildParameters struct {
 	// BuildEnv is the local environment used to build the application
 	BuildEnv *localenv.LocalEnvironment
+	// StateDir is build state directory, if was specified
+	StateDir string
 	// ManifestPath holds the path to the application manifest
 	ManifestPath string
 	// OutPath holds the path to the installer tarball to be output
@@ -40,11 +43,25 @@ type BuildParameters struct {
 	Repository string
 	// SkipVersionCheck indicates whether or not to perform the version check of the tele binary with the application's runtime at build time
 	SkipVersionCheck bool
+	// Silent is whether builder should report progress to the console
+	Silent bool
 }
 
 // build builds an installer tarball according to the provided parameters
-func build(params BuildParameters, req service.VendorRequest, silent bool) error {
+func build(ctx context.Context, params BuildParameters, req service.VendorRequest) (err error) {
+	var syncer builder.Syncer
+	if params.StateDir != "" {
+		// if state directory was explicitly provided, use it as package source
+		syncer, err = builder.NewLocalPackSyncer(params.BuildEnv)
+	} else {
+		// otherwise sync packages with S3 bucket
+		syncer, err = builder.NewS3Syncer()
+	}
+	if err != nil {
+		return trace.Wrap(err)
+	}
 	installerBuilder, err := builder.New(builder.Config{
+		Context:          ctx,
 		Env:              params.BuildEnv,
 		ManifestPath:     params.ManifestPath,
 		OutPath:          params.OutPath,
@@ -52,10 +69,12 @@ func build(params BuildParameters, req service.VendorRequest, silent bool) error
 		Repository:       params.Repository,
 		SkipVersionCheck: params.SkipVersionCheck,
 		VendorReq:        req,
+		Syncer:           syncer,
+		Progress:         utils.NewProgress(ctx, "Build", 6, params.Silent),
 	})
 	if err != nil {
 		return trace.Wrap(err)
 	}
 	defer installerBuilder.Close()
-	return builder.Build(context.TODO(), installerBuilder, silent)
+	return builder.Build(ctx, installerBuilder)
 }

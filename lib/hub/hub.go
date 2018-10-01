@@ -33,6 +33,7 @@ import (
 	"github.com/gravitational/gravity/lib/loc"
 	"github.com/gravitational/gravity/lib/utils"
 
+	"github.com/coreos/go-semver/semver"
 	"github.com/dustin/go-humanize"
 	"github.com/gravitational/trace"
 	"github.com/sirupsen/logrus"
@@ -63,11 +64,13 @@ import (
 //         ∟ stable: // same as versioned sub-bucket
 type Hub interface {
 	// List returns a list of applications in the hub
-	List() ([]App, error)
+	List(withPrereleases bool) ([]App, error)
 	// Downloads downloads the specified application installer into provided file
 	Download(*os.File, loc.Locator, utils.Progress) error
 	// Get returns application installer tarball of the specified version
 	Get(loc.Locator) (io.ReadCloser, error)
+	// GetLatestVersion returns latest version of the specified application
+	GetLatestVersion(name string) (string, error)
 }
 
 // App represents a single application item in the hub
@@ -150,7 +153,7 @@ func New(config Config) (*s3Hub, error) {
 }
 
 // List returns a list of applications in the hub
-func (h *s3Hub) List() ([]App, error) {
+func (h *s3Hub) List(withPrereleases bool) ([]App, error) {
 	objects, err := h.S3.ListObjectsV2(&s3.ListObjectsV2Input{
 		Bucket:  aws.String(h.Bucket),
 		Prefix:  aws.String(h.appsBucket()),
@@ -174,6 +177,14 @@ func (h *s3Hub) List() ([]App, error) {
 		case constants.LatestVersion, constants.StableVersion:
 			continue
 		}
+		version, err := semver.NewVersion(match[2])
+		if err != nil {
+			h.Warnf("Failed to parse version: %v: %v.", match[2], trace.Wrap(err))
+			continue
+		}
+		if version.PreRelease != "" && !withPrereleases {
+			continue
+		}
 		items = append(items, App{
 			Name:      match[1],
 			Version:   match[2],
@@ -194,7 +205,7 @@ func (h *s3Hub) Download(f *os.File, locator loc.Locator, progress utils.Progres
 	// we need to look into respective bucket to find out the actual version
 	switch version {
 	case loc.LatestVersion:
-		locator.Version, err = h.getLatestVersion(locator.Name)
+		locator.Version, err = h.GetLatestVersion(locator.Name)
 	case loc.StableVersion:
 		locator.Version, err = h.getStableVersion(locator.Name)
 	}
@@ -264,13 +275,30 @@ func (h *s3Hub) shaPath(name, version string) string {
 	return h.appPath(name, version) + ".sha256"
 }
 
-// getLatestVersion returns the latest version of the specified application in the hub
-func (h *s3Hub) getLatestVersion(name string) (string, error) {
-	filename, err := h.getFilename(name, constants.LatestVersion)
+// GetLatestVersion returns the latest version of the specified application in the hub
+func (h *s3Hub) GetLatestVersion(name string) (string, error) {
+	apps, err := h.List(true)
 	if err != nil {
 		return "", trace.Wrap(err)
 	}
-	return parseVersion(name, filename)
+	var latest *semver.Version
+	for _, app := range apps {
+		if app.Name != name {
+			continue
+		}
+		ver, err := semver.NewVersion(app.Version)
+		if err != nil {
+			h.Warnf("Invalid semver: %#v %v.", app, err)
+			continue
+		}
+		if latest == nil || latest.LessThan(*ver) {
+			latest = ver
+		}
+	}
+	if latest == nil {
+		return "", trace.NotFound("could not find latest version of app %v", name)
+	}
+	return latest.String(), nil
 }
 
 // getStableVersion returns the stable version of the specified application in the hub

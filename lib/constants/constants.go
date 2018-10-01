@@ -419,6 +419,9 @@ const (
 	// HumanDateFormatMilli is a human readable date formatting with milliseconds
 	HumanDateFormatMilli = "Mon Jan _2 15:04:05.000 UTC"
 
+	// ShortDateFormat is the short version of human readable timestamp format
+	ShortDateFormat = "01/02/15 15:04"
+
 	// LatestVersion is the shortcut for the latest Telekube version
 	LatestVersion = "latest"
 	// StableVersion is the shortcut for the latest stable Telekube version

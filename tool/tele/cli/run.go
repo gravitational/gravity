@@ -17,6 +17,7 @@ limitations under the License.
 package cli
 
 import (
+	"context"
 	"io/ioutil"
 	"os"
 
@@ -54,13 +55,15 @@ func Run(tele Application) error {
 			return trace.Wrap(err)
 		}
 		defer buildEnv.Close()
-		return build(BuildParameters{
+		return build(context.Background(), BuildParameters{
 			BuildEnv:         buildEnv,
+			StateDir:         *tele.StateDir,
 			ManifestPath:     *tele.BuildCmd.ManifestPath,
 			OutPath:          *tele.BuildCmd.OutFile,
 			Overwrite:        *tele.BuildCmd.Overwrite,
 			Repository:       *tele.BuildCmd.Repository,
 			SkipVersionCheck: *tele.BuildCmd.SkipVersionCheck,
+			Silent:           *tele.Quiet,
 		}, service.VendorRequest{
 			PackageName:            *tele.BuildCmd.Name,
 			PackageVersion:         *tele.BuildCmd.Version,
@@ -70,7 +73,7 @@ func Run(tele Application) error {
 			SetDeps:                *tele.BuildCmd.SetDeps,
 			Parallel:               *tele.BuildCmd.Parallel,
 			VendorRuntime:          true,
-		}, *tele.Quiet)
+		})
 	}
 
 	keystoreDir := *tele.StateDir
@@ -103,7 +106,8 @@ func Run(tele Application) error {
 	case tele.ListCmd.FullCommand():
 		return list(*env,
 			*tele.ListCmd.Runtimes,
-			*tele.ListCmd.Format)
+			*tele.ListCmd.Format,
+			*tele.ListCmd.WithPrereleases)
 	}
 
 	return trace.NotFound("unknown command %v", cmd)
