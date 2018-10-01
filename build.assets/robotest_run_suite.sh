@@ -5,6 +5,7 @@ readonly UPGRADE_FROM_DIR=${1:-$(pwd)/../upgrade_from}
 
 declare -A UPGRADE_FROM
 UPGRADE_FROM[4.56.0]="redhat:7.4 ubuntu:latest"
+UPGRADE_FROM[5.0.24]="ubuntu:latest"
 
 readonly GET_GRAVITATIONAL_IO_APIKEY=${GET_GRAVITATIONAL_IO_APIKEY:?API key for distribution Ops Center required}
 readonly GRAVITY_BUILDDIR=${GRAVITY_BUILDDIR:?Set GRAVITY_BUILDDIR to the build directory}
