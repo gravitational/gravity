@@ -1102,9 +1102,13 @@ func findAnyRuntimePackage(packages pack.PackageService) (runtimePackage *loc.Lo
 // findLegacyRuntimePackage locates the planet package using the obsolete master/node
 // flavors.
 func findLegacyRuntimePackage(packages pack.PackageService) (runtimePackage *loc.Locator, err error) {
+	isLegacyRuntimePackage := func(pkg loc.Locator) bool {
+		return pkg.Name == loc.LegacyPlanetMaster.Name ||
+			pkg.Name == loc.LegacyPlanetNode.Name
+	}
 	err = pack.ForeachPackage(packages, func(env pack.PackageEnvelope) error {
-		if env.Locator.Name == loc.LegacyPlanetMaster.Name ||
-			env.Locator.Name == loc.LegacyPlanetNode.Name {
+		if isLegacyRuntimePackage(env.Locator) &&
+			env.HasLabel(pack.InstalledLabel, pack.InstalledLabel) {
 			runtimePackage = &env.Locator
 			return utils.Abort(nil)
 		}
