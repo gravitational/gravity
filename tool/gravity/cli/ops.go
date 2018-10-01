@@ -29,6 +29,7 @@ import (
 	"github.com/gravitational/gravity/lib/defaults"
 	"github.com/gravitational/gravity/lib/install"
 	"github.com/gravitational/gravity/lib/localenv"
+	"github.com/gravitational/gravity/lib/ops"
 	"github.com/gravitational/gravity/lib/pack"
 	"github.com/gravitational/gravity/lib/pack/encryptedpack"
 	"github.com/gravitational/gravity/lib/state"
@@ -104,6 +105,13 @@ func uploadUpdate(env *localenv.LocalEnvironment, opsURL string) error {
 	cluster, err := clusterOperator.GetLocalSite()
 	if err != nil {
 		return trace.Wrap(err)
+	}
+
+	if cluster.State == ops.SiteStateDegraded {
+		return trace.BadParameter("The cluster is in degraded state so " +
+			"uploading new applications is prohibited. Please check " +
+			"gravity status output and correct the situation before " +
+			"attempting again.")
 	}
 
 	var tarballPackages pack.PackageService = env.Packages
