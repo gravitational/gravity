@@ -42,23 +42,25 @@ import (
 	"github.com/gravitational/trace"
 )
 
-func selectNetworkInterface() (addr string, err error) {
+func selectNetworkInterface() (string, error) {
 	for {
-		addr, err = selectInterface()
+		addr, autoselected, err := selectInterface()
 		if err != nil {
 			return "", trace.Wrap(err)
 		}
-		fmt.Printf("confirm the config:\n\n* IP address: %v\n\n", addr)
-		re, err := confirm()
+		if autoselected {
+			return addr, nil
+		}
+		confirmed, err := confirmWithTitle(fmt.Sprintf(
+			"\nConfirm the selected interface [%v]", addr))
 		if err != nil {
 			return "", trace.Wrap(err)
 		}
-		if !re {
+		if !confirmed {
 			continue
 		}
-		break
+		return addr, nil
 	}
-	return addr, nil
 }
 
 func mustJSON(i interface{}) string {
