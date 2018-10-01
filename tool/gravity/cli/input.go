@@ -74,9 +74,7 @@ func selectInterface() (addr string, autoselected bool, err error) {
 		return "", false, trace.Errorf("no network interfaces found")
 	}
 	if len(ifaces) == 1 {
-		for _, iface := range ifaces {
-			return iface.IPv4, true, nil
-		}
+		return ifaces[0].IPv4, true, nil
 	}
 	fmt.Printf("\nSelect an interface for the installer to listen on:\n\n")
 
