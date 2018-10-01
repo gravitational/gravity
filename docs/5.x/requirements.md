@@ -236,54 +236,73 @@ Telekube requires that these modules are loaded prior to installation.
 When deploying on AWS, the supplied keys should have a set of EC2/ELB/IAM permissions
 to be able to provision required infrastructure on your AWS account.
 
-Here's an example IAM policy that defines the necessary permissions:
-
-```json
+<details><summary>Click here to view an example IAM policy.</summary>
+```
 {
     "Version": "2012-10-17",
     "Statement": [
         {
             "Effect": "Allow",
             "Action": [
-                "ec2:*"
-            ],
-            "Resource": [
-                "*"
-            ]
-        },
-        {
-            "Effect": "Allow",
-            "Action": [
-                "elasticloadbalancing:*"
-            ],
-            "Resource": [
-                "*"
-            ]
-        },
-        {
-            "Effect": "Allow",
-            "Action": [
+                "autoscaling:*",
+                "ec2:*",
+                "elasticloadbalancing:*",
                 "iam:AddRoleToInstanceProfile",
                 "iam:CreateInstanceProfile",
-                "iam:GetInstanceProfile",
                 "iam:CreateRole",
-                "iam:GetRole",
+                "iam:DeleteInstanceProfile",
                 "iam:DeleteRole",
-                "iam:PassRole",
-                "iam:PutRolePolicy",
-                "iam:GetRolePolicy",
                 "iam:DeleteRolePolicy",
-                "iam:ListRoles",
+                "iam:GetInstanceProfile",
+                "iam:GetRole",
+                "iam:GetRolePolicy",
                 "iam:ListInstanceProfiles",
                 "iam:ListInstanceProfilesForRole",
+                "iam:ListRoles",
+                "iam:PassRole",
+                "iam:PutRolePolicy",
                 "iam:RemoveRoleFromInstanceProfile",
-                "iam:DeleteInstanceProfile"
+                "kms:DescribeKey",
+                "kms:ListAliases",
+                "kms:ListKeys",
+                "s3:*",
+                "sqs:ChangeMessageVisibility",
+                "sqs:ChangeMessageVisibilityBatch",
+                "sqs:CreateQueue",
+                "sqs:DeleteMessage",
+                "sqs:DeleteMessageBatch",
+                "sqs:DeleteQueue",
+                "sqs:GetQueueAttributes",
+                "sqs:GetQueueUrl",
+                "sqs:ListDeadLetterSourceQueues",
+                "sqs:ListQueueTags",
+                "sqs:ListQueues",
+                "sqs:PurgeQueue",
+                "sqs:ReceiveMessage",
+                "sqs:SendMessage",
+                "sqs:SendMessageBatch",
+                "sqs:SetQueueAttributes",
+                "sqs:TagQueue",
+                "sqs:UntagQueue",
+                "ssm:DeleteParameter",
+                "ssm:DeleteParameters",
+                "ssm:DescribeParameters",
+                "ssm:GetParameter",
+                "ssm:GetParameters",
+                "ssm:ListTagsForResource",
+                "ssm:PutParameter"
             ],
             "Resource": "*"
         }
     ]
 }
 ```
+</details>
+
+!!! note
+    The exact list of required permissions may depend on the provisioner you're
+    using. The IAM policy shown above is an example for
+    [gravitational/provisioner](https://github.com/gravitational/provisioner).
 
 ## Etcd Disk
 
