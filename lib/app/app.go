@@ -317,8 +317,6 @@ type ImportRequest struct {
 	PackageName string `json:"package_name"`
 	// PackageVersion is an optional app version, overrides the one specified in the app manifest
 	PackageVersion string `json:"package_version"`
-	// Description overrides application description from manifest
-	Description string `json:"description"`
 	// Email is email address of a user who imported the application
 	Email string `json:"email"`
 	// ProgressC is an chan to receive progress events on

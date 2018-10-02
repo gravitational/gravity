@@ -326,8 +326,7 @@ func (b *Builder) initServices() (err error) {
 // checkVersion makes sure that the tele version is compatible with the selected
 // runtime version
 //
-// Versions are compatible if they only differ in patch version at most, while
-// having the same major and minor versions.
+// Versions are compatible when they have equal major and minor components.
 func (b *Builder) checkVersion(runtimeVersion *semver.Version) error {
 	teleVersion, err := semver.NewVersion(version.Get().Version)
 	if err != nil {
