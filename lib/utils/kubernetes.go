@@ -91,7 +91,7 @@ func GetKubeClient(configPath string) (client *kubernetes.Clientset, config *res
 func GetKubeClientFromPath(configPath string) (*kubernetes.Clientset, error) {
 	config, err := clientcmd.BuildConfigFromFlags("", configPath)
 	if err != nil {
-		return nil, trace.Wrap(err)
+		return nil, trace.Wrap(trace.ConvertSystemError(err))
 	}
 
 	client, err := kubernetes.NewForConfig(config)

@@ -52,7 +52,7 @@ func (r phaseBuilder) checks(installed, update loc.Locator) *phase {
 	return &phase
 }
 
-func (r phaseBuilder) bootstrap(servers []storage.Server, update loc.Locator) *phase {
+func (r phaseBuilder) bootstrap(servers []storage.Server, installed, update loc.Locator) *phase {
 	root := root(phase{
 		ID:          "bootstrap",
 		Description: "Bootstrap update operation on nodes",
@@ -64,8 +64,9 @@ func (r phaseBuilder) bootstrap(servers []storage.Server, update loc.Locator) *p
 			Executor:    updateBootstrap,
 			Description: fmt.Sprintf("Bootstrap node %q", server.Hostname),
 			Data: &storage.OperationPhaseData{
-				Server:  &servers[i],
-				Package: &update,
+				Server:           &servers[i],
+				Package:          &update,
+				InstalledPackage: &installed,
 			},
 		})
 	}

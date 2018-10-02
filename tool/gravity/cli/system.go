@@ -61,11 +61,6 @@ func systemPullUpdates(env *localenv.LocalEnvironment, opsCenterURL string, runt
 		return trace.Wrap(err)
 	}
 
-	err = updateRuntimePackage(env.Packages)
-	if err != nil {
-		return trace.Wrap(err)
-	}
-
 	packages, err := findPackages(env.Packages, runtimePackage)
 	if err != nil {
 		return trace.Wrap(err)
@@ -162,11 +157,6 @@ func systemUpdate(env *localenv.LocalEnvironment, changesetID string, serviceNam
 			args = append(args, "--with-status")
 		}
 		return trace.Wrap(installOneshotService(env.Silent, serviceName, args))
-	}
-
-	err := updateRuntimePackage(env.Packages)
-	if err != nil {
-		return trace.Wrap(err)
 	}
 
 	packages, err := findPackages(env.Packages, runtimePackage)
@@ -1044,24 +1034,6 @@ func removeInterfaces(env *localenv.LocalEnvironment) error {
 	return nil
 }
 
-// updateRuntimePackage updates labels on the runtime package
-// from the previous installation
-func updateRuntimePackage(packages pack.PackageService) error {
-	runtimePackage, err := findLegacyRuntimePackage(packages)
-	if err != nil {
-		if trace.IsNotFound(err) {
-			return nil
-		}
-		return trace.Wrap(err)
-	}
-
-	err = packages.UpdatePackageLabels(*runtimePackage, pack.RuntimePackageLabels, nil)
-	if err != nil {
-		return trace.Wrap(err)
-	}
-	return nil
-}
-
 func findSecretsPackage(packages pack.PackageService) (*pack.PackageEnvelope, error) {
 	return pack.FindPackage(packages, func(env pack.PackageEnvelope) bool {
 		return isSecretsPackage(env.Locator)
@@ -1102,12 +1074,8 @@ func findAnyRuntimePackage(packages pack.PackageService) (runtimePackage *loc.Lo
 // findLegacyRuntimePackage locates the planet package using the obsolete master/node
 // flavors.
 func findLegacyRuntimePackage(packages pack.PackageService) (runtimePackage *loc.Locator, err error) {
-	isLegacyRuntimePackage := func(pkg loc.Locator) bool {
-		return pkg.Name == loc.LegacyPlanetMaster.Name ||
-			pkg.Name == loc.LegacyPlanetNode.Name
-	}
 	err = pack.ForeachPackage(packages, func(env pack.PackageEnvelope) error {
-		if isLegacyRuntimePackage(env.Locator) &&
+		if loc.IsLegacyRuntimePackage(env.Locator) &&
 			env.HasLabel(pack.InstalledLabel, pack.InstalledLabel) {
 			runtimePackage = &env.Locator
 			return utils.Abort(nil)

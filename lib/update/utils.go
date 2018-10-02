@@ -20,6 +20,7 @@ import (
 	appservice "github.com/gravitational/gravity/lib/app"
 	"github.com/gravitational/gravity/lib/fsm"
 	"github.com/gravitational/gravity/lib/loc"
+	"github.com/gravitational/gravity/lib/schema"
 	"github.com/gravitational/gravity/lib/storage"
 
 	"github.com/gravitational/trace"
@@ -75,16 +76,9 @@ func planetNeedsUpdate(profile string, installed, update appservice.Application)
 		return false, trace.Wrap(err)
 	}
 
-	runtimePackage, err := installed.Manifest.RuntimePackage(*installedProfile)
-	if err != nil && !trace.IsNotFound(err) {
-		return false, trace.Wrap(err)
-	}
+	runtimePackage, err := getRuntimePackage(installed.Manifest, *installedProfile, schema.ServiceRoleMaster)
 	if err != nil {
-		runtimePackage, err = installed.Manifest.Dependencies.ByName(loc.LegacyPlanetMaster.Name)
-		if err != nil {
-			logrus.Warnf("Failed to fetch the runtime package: %v.", err)
-			return false, trace.NotFound("runtime package not found")
-		}
+		return false, trace.Wrap(err)
 	}
 
 	version, err := runtimePackage.SemVer()
@@ -95,4 +89,25 @@ func planetNeedsUpdate(profile string, installed, update appservice.Application)
 	logrus.Debugf("Runtime installed: %v, runtime to update to: %v.", runtimePackage, updateRuntimePackage)
 	updateNewer := updateVersion.Compare(*version) > 0
 	return updateNewer, nil
+}
+
+func getRuntimePackage(manifest schema.Manifest, profile schema.NodeProfile, clusterRole schema.ServiceRole) (*loc.Locator, error) {
+	runtimePackage, err := manifest.RuntimePackage(profile)
+	if err != nil && !trace.IsNotFound(err) {
+		return nil, trace.Wrap(err)
+	}
+	if err == nil {
+		return runtimePackage, nil
+	}
+	// Look for legacy package
+	packageName := loc.LegacyPlanetMaster.Name
+	if clusterRole == schema.ServiceRoleNode {
+		packageName = loc.LegacyPlanetNode.Name
+	}
+	runtimePackage, err = manifest.Dependencies.ByName(packageName)
+	if err != nil {
+		logrus.Warnf("Failed to find the legacy runtime package in manifest: %v.", err)
+		return nil, trace.NotFound("runtime package not found")
+	}
+	return runtimePackage, nil
 }

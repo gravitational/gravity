@@ -21,12 +21,14 @@ import (
 	"os"
 	"path/filepath"
 
+	"github.com/gravitational/gravity/lib/app"
 	"github.com/gravitational/gravity/lib/constants"
 	"github.com/gravitational/gravity/lib/defaults"
 	"github.com/gravitational/gravity/lib/fsm"
 	"github.com/gravitational/gravity/lib/loc"
 	"github.com/gravitational/gravity/lib/ops"
 	"github.com/gravitational/gravity/lib/pack"
+	"github.com/gravitational/gravity/lib/schema"
 	"github.com/gravitational/gravity/lib/state"
 	"github.com/gravitational/gravity/lib/storage"
 	"github.com/gravitational/gravity/lib/utils"
@@ -46,6 +48,8 @@ import (
 type updatePhaseBootstrap struct {
 	// Packages is the cluster package service
 	Packages pack.PackageService
+	// LocalPackages is the local package service
+	LocalPackages pack.PackageService
 	// Operation is the operation being initialized
 	Operation ops.SiteOperation
 	// Operator is the cluster operator interface
@@ -72,6 +76,8 @@ type updatePhaseBootstrap struct {
 	remote fsm.Remote
 	// runtimePackage specifies the runtime package to update to
 	runtimePackage loc.Locator
+	// installedRuntime specifies the installed runtime package
+	installedRuntime loc.Locator
 }
 
 // NewUpdatePhaseBootstrap creates a new bootstrap phase executor
@@ -98,6 +104,11 @@ func NewUpdatePhaseBootstrap(c FSMConfig, plan storage.OperationPlan, phase stor
 	if err != nil {
 		return nil, trace.Wrap(err, "failed to query application")
 	}
+	installedRuntime, err := getInstalledRuntime(c.Apps, *phase.Data.InstalledPackage,
+		phase.Data.Server.Role, phase.Data.Server.ClusterRole)
+	if err != nil {
+		return nil, trace.Wrap(err)
+	}
 	runtimePackage, err := app.Manifest.RuntimePackageForProfile(phase.Data.Server.Role)
 	if err != nil {
 		return nil, trace.Wrap(err)
@@ -108,6 +119,7 @@ func NewUpdatePhaseBootstrap(c FSMConfig, plan storage.OperationPlan, phase stor
 		Backend:          c.Backend,
 		LocalBackend:     c.LocalBackend,
 		HostLocalBackend: c.HostLocalBackend,
+		LocalPackages:    c.HostLocalPackages,
 		Packages:         c.ClusterPackages,
 		GravityPackage:   plan.GravityPackage,
 		Server:           *phase.Data.Server,
@@ -118,6 +130,7 @@ func NewUpdatePhaseBootstrap(c FSMConfig, plan storage.OperationPlan, phase stor
 		FieldLogger:      log.NewEntry(log.New()),
 		remote:           remote,
 		runtimePackage:   *runtimePackage,
+		installedRuntime: *installedRuntime,
 	}, nil
 }
 
@@ -148,6 +161,10 @@ func (p *updatePhaseBootstrap) Execute(context.Context) error {
 		return trace.Wrap(err)
 	}
 	err = p.syncPlan()
+	if err != nil {
+		return trace.Wrap(err)
+	}
+	err = p.updateRuntimePackage()
 	if err != nil {
 		return trace.Wrap(err)
 	}
@@ -251,6 +268,69 @@ func (p *updatePhaseBootstrap) syncPlan() error {
 		return trace.Wrap(err)
 	}
 	return nil
+}
+
+// updateRuntimePackage updates labels on the runtime package
+// from the previous installation so the system package pull
+// step can find and pull the correct package update.
+//
+// To do this, it will update the labels on the installed runtime package
+// to mark it as such.
+// For legacy runtime packages ('planet-master' and 'planet-node')
+// the sibling runtime package (i.e. 'planet-master' on a regular node
+// and vice versa), will be updated to _not_ include the installed label
+// to simplify the search
+func (p *updatePhaseBootstrap) updateRuntimePackage() error {
+	type updateLabels struct {
+		loc.Locator
+		add    map[string]string
+		remove []string
+	}
+	var runtimePackages []updateLabels
+	runtimePackages = append(runtimePackages, updateLabels{
+		Locator: p.installedRuntime,
+		add:     utils.CombineLabels(pack.RuntimePackageLabels, pack.InstalledLabels),
+	})
+	if loc.IsLegacyRuntimePackage(p.installedRuntime) {
+		var runtimePackageToClear loc.Locator
+		switch p.installedRuntime.Name {
+		case loc.LegacyPlanetMaster.Name:
+			runtimePackageToClear = loc.LegacyPlanetNode.Versioned(p.installedRuntime.Version)
+		case loc.LegacyPlanetNode.Name:
+			runtimePackageToClear = loc.LegacyPlanetMaster.Versioned(p.installedRuntime.Version)
+		}
+		runtimePackages = append(runtimePackages, updateLabels{
+			Locator: runtimePackageToClear,
+			add:     pack.RuntimePackageLabels,
+			remove:  []string{pack.InstalledLabel},
+		})
+	}
+
+	for _, update := range runtimePackages {
+		p.Infof("Update package labels %v (+%v -%v).", update.Locator, update.add, update.remove)
+		err := p.LocalPackages.UpdatePackageLabels(update.Locator, update.add, update.remove)
+		if err != nil {
+			return trace.Wrap(err)
+		}
+	}
+	return nil
+}
+
+func getInstalledRuntime(apps app.Applications, installedApp loc.Locator, serverRole, clusterRole string) (*loc.Locator, error) {
+	installed, err := apps.GetApp(installedApp)
+	if err != nil {
+		return nil, trace.Wrap(err, "failed to query installed application")
+	}
+	installedProfile, err := installed.Manifest.NodeProfiles.ByName(serverRole)
+	if err != nil {
+		return nil, trace.NotFound("failed to find node profile %q", serverRole)
+	}
+	installedRuntime, err := getRuntimePackage(installed.Manifest, *installedProfile,
+		schema.ServiceRole(clusterRole))
+	if err != nil {
+		return nil, trace.Wrap(err)
+	}
+	return installedRuntime, nil
 }
 
 // getGravityPath returns path to the new gravity binary

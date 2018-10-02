@@ -46,6 +46,9 @@ type FSMConfig struct {
 	Packages pack.PackageService
 	// ClusterPackages is the package service that talks to cluster API
 	ClusterPackages pack.PackageService
+	// HostLocalPackages is the host-local package service that contains package
+	// metadata used for updates
+	HostLocalPackages pack.PackageService
 	// Apps is the cluster apps service
 	Apps app.Applications
 	// Client is the cluster Kubernetes client
