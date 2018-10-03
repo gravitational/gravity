@@ -50,13 +50,7 @@ func Run(tele Application) error {
 	case tele.VersionCmd.FullCommand():
 		return printVersion(*tele.VersionCmd.Output)
 	case tele.BuildCmd.FullCommand():
-		buildEnv, err := tele.BuildEnv()
-		if err != nil {
-			return trace.Wrap(err)
-		}
-		defer buildEnv.Close()
 		return build(context.Background(), BuildParameters{
-			BuildEnv:         buildEnv,
 			StateDir:         *tele.StateDir,
 			ManifestPath:     *tele.BuildCmd.ManifestPath,
 			OutPath:          *tele.BuildCmd.OutFile,
@@ -64,6 +58,7 @@ func Run(tele Application) error {
 			Repository:       *tele.BuildCmd.Repository,
 			SkipVersionCheck: *tele.BuildCmd.SkipVersionCheck,
 			Silent:           *tele.Quiet,
+			Insecure:         *tele.Insecure,
 		}, service.VendorRequest{
 			PackageName:            *tele.BuildCmd.Name,
 			PackageVersion:         *tele.BuildCmd.Version,

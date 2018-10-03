@@ -21,7 +21,6 @@ import (
 
 	"github.com/gravitational/gravity/lib/app/service"
 	"github.com/gravitational/gravity/lib/builder"
-	"github.com/gravitational/gravity/lib/localenv"
 	"github.com/gravitational/gravity/lib/utils"
 
 	"github.com/gravitational/trace"
@@ -29,8 +28,6 @@ import (
 
 // BuildParameters represents the arguments provided for building an application
 type BuildParameters struct {
-	// BuildEnv is the local environment used to build the application
-	BuildEnv *localenv.LocalEnvironment
 	// StateDir is build state directory, if was specified
 	StateDir string
 	// ManifestPath holds the path to the application manifest
@@ -45,31 +42,22 @@ type BuildParameters struct {
 	SkipVersionCheck bool
 	// Silent is whether builder should report progress to the console
 	Silent bool
+	// Insecure turns on insecury verify mode
+	Insecure bool
 }
 
 // build builds an installer tarball according to the provided parameters
 func build(ctx context.Context, params BuildParameters, req service.VendorRequest) (err error) {
-	var syncer builder.Syncer
-	if params.StateDir != "" {
-		// if state directory was explicitly provided, use it as package source
-		syncer, err = builder.NewLocalPackSyncer(params.BuildEnv)
-	} else {
-		// otherwise sync packages with S3 bucket
-		syncer, err = builder.NewS3Syncer()
-	}
-	if err != nil {
-		return trace.Wrap(err)
-	}
 	installerBuilder, err := builder.New(builder.Config{
 		Context:          ctx,
-		Env:              params.BuildEnv,
+		StateDir:         params.StateDir,
+		Insecure:         params.Insecure,
 		ManifestPath:     params.ManifestPath,
 		OutPath:          params.OutPath,
 		Overwrite:        params.Overwrite,
 		Repository:       params.Repository,
 		SkipVersionCheck: params.SkipVersionCheck,
 		VendorReq:        req,
-		Syncer:           syncer,
 		Progress:         utils.NewProgress(ctx, "Build", 6, params.Silent),
 	})
 	if err != nil {

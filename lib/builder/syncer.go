@@ -17,6 +17,7 @@ limitations under the License.
 package builder
 
 import (
+	"fmt"
 	"io/ioutil"
 	"os"
 
@@ -44,6 +45,18 @@ type Syncer interface {
 	// SelectRuntime picks an appropriate runtime for the application that's
 	// being built
 	SelectRuntime(*Builder) (*semver.Version, error)
+	// GetRepository returns the syncer repository
+	GetRepository() string
+}
+
+// NewSyncerFunc defines function that creates syncer for a builder
+type NewSyncerFunc func(*Builder) (Syncer, error)
+
+// NewSyncer returns a new syncer instance for the provided builder
+//
+// Satisfies NewSyncerFunc type.
+func NewSyncer(b *Builder) (Syncer, error) {
+	return newS3Syncer()
 }
 
 // s3Syncer synchronizes local package cache with S3 bucket
@@ -52,8 +65,8 @@ type s3Syncer struct {
 	hub hub.Hub
 }
 
-// NewS3Syncer returns a syncer that syncs packages with S3 bucket
-func NewS3Syncer() (*s3Syncer, error) {
+// newS3Syncer returns a syncer that syncs packages with S3 bucket
+func newS3Syncer() (*s3Syncer, error) {
 	hub, err := hub.New(hub.Config{})
 	if err != nil {
 		return nil, trace.Wrap(err)
@@ -61,6 +74,11 @@ func NewS3Syncer() (*s3Syncer, error) {
 	return &s3Syncer{
 		hub: hub,
 	}, nil
+}
+
+// GetRepository returns the name of S3 hub
+func (s *s3Syncer) GetRepository() string {
+	return fmt.Sprintf("s3://%v", defaults.HubBucket)
 }
 
 // SelectRuntime picks an appropriate runtime for the application that's
@@ -78,15 +96,16 @@ func (s *s3Syncer) SelectRuntime(builder *Builder) (*semver.Version, error) {
 	}
 	var latest *semver.Version
 	for _, release := range releases {
-		version, err := semver.NewVersion(release.Version)
+		ver, err := semver.NewVersion(release.Version)
 		if err != nil {
 			logrus.Warnf("Failed to parse release version: %v %v.", release, err)
 			continue
 		}
-		if version.Major == teleVersion.Major &&
-			version.Minor == teleVersion.Minor &&
-			(latest == nil || latest.LessThan(*version)) {
-			latest = version
+		if ver.Major != teleVersion.Major || ver.Minor != teleVersion.Minor {
+			continue
+		}
+		if latest == nil || latest.LessThan(*ver) {
+			latest = ver
 		}
 	}
 	if latest == nil {
@@ -145,35 +164,21 @@ func (s *s3Syncer) Sync(builder *Builder, runtimeVersion *semver.Version) error 
 type packSyncer struct {
 	pack pack.PackageService
 	apps app.Applications
+	repo string
 }
 
-// NewLocalPackSyncer returns syncer that syncs packages with local pack and
-// apps services from the provided local env
-func NewLocalPackSyncer(env *localenv.LocalEnvironment) (*packSyncer, error) {
-	apps, err := env.AppServiceLocal(localenv.AppConfig{})
-	if err != nil {
-		return nil, trace.Wrap(err)
-	}
-	return &packSyncer{
-		pack: env.Packages,
-		apps: apps,
-	}, nil
-}
-
-// NewRepoSyncer returns syncer that syncs packages with remote repository
-func NewRepoSyncer(env *localenv.LocalEnvironment, repository string) (*packSyncer, error) {
-	pack, err := env.PackageService(repository)
-	if err != nil {
-		return nil, trace.Wrap(err)
-	}
-	apps, err := env.AppService(repository, localenv.AppConfig{})
-	if err != nil {
-		return nil, trace.Wrap(err)
-	}
+// NewPackSyncer creates a new syncer from provided pack and apps services
+func NewPackSyncer(pack pack.PackageService, apps app.Applications, repo string) *packSyncer {
 	return &packSyncer{
 		pack: pack,
 		apps: apps,
-	}, nil
+		repo: repo,
+	}
+}
+
+// GetRepository returns the syncer's repository address
+func (s *packSyncer) GetRepository() string {
+	return s.repo
 }
 
 // SelectRuntime picks an appropriate runtime for the application that's

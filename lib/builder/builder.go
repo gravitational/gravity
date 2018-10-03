@@ -18,8 +18,10 @@ package builder
 
 import (
 	"context"
+	"fmt"
 	"io"
 	"io/ioutil"
+	"net/url"
 	"os"
 	"path/filepath"
 	"runtime"
@@ -51,8 +53,10 @@ import (
 type Config struct {
 	// Context is the build context
 	Context context.Context
-	// Env is the local build environment
-	Env *localenv.LocalEnvironment
+	// StateDir is the configured builder state directory
+	StateDir string
+	// Insecure enables insecure verify mode
+	Insecure bool
 	// ManifestPath holds the path to the application manifest
 	ManifestPath string
 	// manifestDir is the fully-qualified directory path where manifest file resides
@@ -71,8 +75,8 @@ type Config struct {
 	VendorReq service.VendorRequest
 	// Generator is used to generate installer
 	Generator Generator
-	// Syncer is used to synchronize local package cache
-	Syncer Syncer
+	// NewSyncer is used to initialize package cache syncer for the builder
+	NewSyncer NewSyncerFunc
 	// FieldLogger is used for logging
 	logrus.FieldLogger
 	// Progress allows builder to report build progress
@@ -100,8 +104,11 @@ func (c *Config) CheckAndSetDefaults() error {
 	if c.Generator == nil {
 		c.Generator = &generator{}
 	}
-	if c.Syncer == nil {
-		return trace.BadParameter("missing Syncer")
+	if c.NewSyncer == nil {
+		c.NewSyncer = NewSyncer
+	}
+	if c.Repository == "" {
+		c.Repository = fmt.Sprintf("s3://%v", defaults.HubBucket)
 	}
 	if c.FieldLogger == nil {
 		c.FieldLogger = logrus.WithField(trace.Component, "builder")
@@ -144,6 +151,8 @@ func New(config Config) (*Builder, error) {
 type Builder struct {
 	// Config is the builder configuration
 	Config
+	// Env is the local build environment
+	Env *localenv.LocalEnvironment
 	// Manifest is the parsed manifest of the application being built
 	Manifest schema.Manifest
 	// Dir is the directory where build-related data is stored
@@ -156,6 +165,8 @@ type Builder struct {
 	Packages pack.PackageService
 	// Apps is the application service based on the layered package service
 	Apps app.Applications
+	// syncer is used to sync local package cache with repository
+	syncer Syncer
 }
 
 // Locator returns locator of the application that's being built
@@ -185,7 +196,7 @@ func (b *Builder) SelectRuntime() (*semver.Version, error) {
 		return semver.NewVersion(runtime.Version)
 	}
 	// latest is specified, find the latest compatible in repository
-	version, err := b.Syncer.SelectRuntime(b)
+	version, err := b.syncer.SelectRuntime(b)
 	if err != nil {
 		return nil, trace.Wrap(err)
 	}
@@ -216,9 +227,9 @@ func (b *Builder) SyncPackageCache(runtimeVersion *semver.Version) error {
 		b.NextStep("Local package cache is up-to-date")
 		return nil
 	}
-	b.Info("Synchronizing package cache with %v.", b.Repository)
-	b.NextStep("Downloading dependencies from %v", b.Repository)
-	return b.Syncer.Sync(b, runtimeVersion)
+	b.Info("Synchronizing package cache with %v.", b.syncer.GetRepository())
+	b.NextStep("Downloading dependencies from %v", b.syncer.GetRepository())
+	return b.syncer.Sync(b, runtimeVersion)
 }
 
 // Vendor vendors the application images in the provided directory and
@@ -291,6 +302,10 @@ func (b *Builder) WriteInstaller(data io.ReadCloser) error {
 
 // initServices initializes the builder backend, package and apps services
 func (b *Builder) initServices() (err error) {
+	b.Env, err = b.makeBuildEnv()
+	if err != nil {
+		return trace.Wrap(err)
+	}
 	b.Dir, err = ioutil.TempDir("", "build")
 	if err != nil {
 		return trace.Wrap(err)
@@ -320,7 +335,46 @@ func (b *Builder) initServices() (err error) {
 	if err != nil {
 		return trace.Wrap(err)
 	}
+	b.syncer, err = b.getSyncer()
+	if err != nil {
+		return trace.Wrap(err)
+	}
 	return nil
+}
+
+// makeBuildEnv creates a new local build environment instance
+func (b *Builder) makeBuildEnv() (*localenv.LocalEnvironment, error) {
+	// if state directory was specified explicitly, it overrides
+	// both cache directory and config directory as it's used as
+	// a special case only for building from local packages
+	if b.StateDir != "" {
+		return localenv.NewLocalEnvironment(localenv.LocalEnvironmentArgs{
+			StateDir:         b.StateDir,
+			LocalKeyStoreDir: b.StateDir,
+			Insecure:         b.Insecure,
+		})
+	}
+	// otherwise use default locations for cache / key store
+	cacheDir, err := ensureCacheDir(b.Repository)
+	if err != nil {
+		return nil, trace.Wrap(err)
+	}
+	return localenv.NewLocalEnvironment(localenv.LocalEnvironmentArgs{
+		StateDir: cacheDir,
+		Insecure: b.Insecure,
+	})
+}
+
+// getSyncer returns a new syncer instance for this builder
+func (b *Builder) getSyncer() (Syncer, error) {
+	if b.StateDir != "" {
+		apps, err := b.Env.AppServiceLocal(localenv.AppConfig{})
+		if err != nil {
+			return nil, trace.Wrap(err)
+		}
+		return NewPackSyncer(b.Env.Packages, apps, b.StateDir), nil
+	}
+	return b.NewSyncer(b)
 }
 
 // checkVersion makes sure that the tele version is compatible with the selected
@@ -351,6 +405,12 @@ To remediate the issue you can do one of the following:
 
 // Close cleans up build environment
 func (b *Builder) Close() error {
+	if b.Env != nil {
+		err := b.Env.Close()
+		if err != nil {
+			return trace.Wrap(err)
+		}
+	}
 	if b.Backend != nil {
 		err := b.Backend.Close()
 		if err != nil {
@@ -367,4 +427,19 @@ func (b *Builder) Close() error {
 		b.Progress.Stop()
 	}
 	return nil
+}
+
+// ensureCacheDir makes sure a local cache directory for the provided Ops Center
+// exists
+func ensureCacheDir(opsURL string) (string, error) {
+	u, err := url.Parse(opsURL)
+	if err != nil {
+		return "", trace.Wrap(err)
+	}
+	// cache directory is ~/.gravity/cache/<opscenter>/
+	dir, err := utils.EnsureLocalPath("", defaults.LocalCacheDir, u.Host)
+	if err != nil {
+		return "", trace.Wrap(err)
+	}
+	return dir, nil
 }

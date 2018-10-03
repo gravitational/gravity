@@ -22,7 +22,6 @@ import (
 	"github.com/gravitational/gravity/lib/constants"
 	"github.com/gravitational/gravity/lib/defaults"
 	"github.com/gravitational/gravity/lib/loc"
-	"github.com/gravitational/gravity/lib/modules"
 	"github.com/gravitational/gravity/tool/common"
 
 	"gopkg.in/alecthomas/kingpin.v2"
@@ -46,7 +45,7 @@ func RegisterCommands(app *kingpin.Application) Application {
 	tele.BuildCmd.ManifestPath = tele.BuildCmd.Arg("manifest-path", fmt.Sprintf("Path to the application manifest file, must be %q", defaults.ManifestFileName)).Default(defaults.ManifestFileName).String()
 	tele.BuildCmd.OutFile = tele.BuildCmd.Flag("output", "Name of the generated tarball, defaults to <dirname>.tar.gz where <dirname> is the name of the directory where app manifest is located").Short('o').String()
 	tele.BuildCmd.Overwrite = tele.BuildCmd.Flag("overwrite", "Overwrite the existing tarball").Short('f').Bool()
-	tele.BuildCmd.Repository = tele.BuildCmd.Flag("repository", "Optional address of Ops Center to download dependencies from").Hidden().Default(modules.Get().TeleRepository()).String()
+	tele.BuildCmd.Repository = tele.BuildCmd.Flag("repository", "Optional address of Ops Center to download dependencies from").Hidden().String()
 	tele.BuildCmd.Name = tele.BuildCmd.Flag("name", "Optional application name, overrides the one specified in the manifest file").Hidden().String()
 	tele.BuildCmd.Version = tele.BuildCmd.Flag("version", "Optional application version, overrides the one specified in the manifest file").Hidden().String()
 	tele.BuildCmd.VendorPatterns = tele.BuildCmd.Flag("glob", "File pattern to search for container image references").Default(defaults.VendorPattern).Hidden().Strings()

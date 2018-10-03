@@ -30,7 +30,6 @@ import (
 	"github.com/gravitational/gravity/lib/users/usersservice"
 
 	"github.com/gravitational/trace"
-	log "github.com/sirupsen/logrus"
 	"k8s.io/client-go/kubernetes"
 )
 
