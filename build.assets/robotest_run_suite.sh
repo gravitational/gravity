@@ -5,14 +5,7 @@ readonly UPGRADE_FROM_DIR=${1:-$(pwd)/../upgrade_from}
 
 declare -A UPGRADE_FROM
 # gravity version -> list of OS releases to exercise on
-UPGRADE_FROM[4.56.0]="redhat:7.4 ubuntu:latest"
-UPGRADE_FROM[5.0.24]="ubuntu:latest"
-
-CLUSTER_SIZES_1=('"flavor":"three","nodes":3,"role":"node"' '"flavor":"six","nodes":6,"role":"node"' '"flavor":"one","nodes":1,"role":"node"')
-CLUSTER_SIZES_2=('"flavor":"six","nodes":6,"role":"node"')
-declare -A CLUSTER_SIZES
-CLUSTER_SIZES[4.56.0]=CLUSTER_SIZES_1[@]
-CLUSTER_SIZES[5.0.24]=CLUSTER_SIZES_2[@]
+UPGRADE_FROM[5.0.24]="redhat:7.4 ubuntu:latest"
 
 readonly GET_GRAVITATIONAL_IO_APIKEY=${GET_GRAVITATIONAL_IO_APIKEY:?API key for distribution Ops Center required}
 readonly GRAVITY_BUILDDIR=${GRAVITY_BUILDDIR:?Set GRAVITY_BUILDDIR to the build directory}
@@ -36,9 +29,10 @@ EOF
 }
 
 function build_upgrade_step {
-  local usage="$FUNCNAME os release cluster_sizes"
+  local usage="$FUNCNAME os release"
   local os=${1:?$usage}
   local release=${2:?$usage}
+  local cluster_sizes=('"flavor":"three","nodes":3,"role":"node"' '"flavor":"six","nodes":6,"role":"node"' '"flavor":"one","nodes":1,"role":"node"')
   local suite=''
   for size in ${cluster_sizes[@]}; do
     suite+=$(cat <<EOF
@@ -65,8 +59,7 @@ function build_upgrade_suite {
   local suite=''
   for release in ${!UPGRADE_FROM[@]}; do
     for os in ${UPGRADE_FROM[$release]}; do
-      cluster_sizes=${!CLUSTER_SIZES[$release]}
-      suite+=$(build_upgrade_step $os $release $cluster_sizes)
+      suite+=$(build_upgrade_step $os $release)
       suite+=' '
     done
     suite+=$(build_devicemapper_upgrade_step 'redhat:7.4' $release)
