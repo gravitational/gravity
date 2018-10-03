@@ -510,6 +510,12 @@ func (o *Operator) CreateSite(r ops.NewSiteRequest) (*ops.Site, error) {
 		return nil, trace.Wrap(err)
 	}
 
+	dockerConfig := ops.DockerConfigFromSchemaValue(app.Manifest.SystemDocker())
+	ops.OverrideDockerConfig(&dockerConfig, r.Docker)
+	if err != nil {
+		return nil, trace.Wrap(err)
+	}
+
 	// expand token is used when joining nodes to the cluster
 	expandToken, err := users.CryptoRandomToken(defaults.ProvisioningTokenBytes)
 	if err != nil {
@@ -549,7 +555,7 @@ func (o *Operator) CreateSite(r ops.NewSiteRequest) (*ops.Site, error) {
 		DNSOverrides: r.DNSOverrides,
 		DNSConfig:    r.DNSConfig,
 		ClusterState: storage.ClusterState{
-			Docker: r.Docker,
+			Docker: dockerConfig,
 		},
 	}
 	if runtimeLoc := app.Manifest.Base(); runtimeLoc != nil {
