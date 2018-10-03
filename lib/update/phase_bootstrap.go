@@ -295,9 +295,9 @@ func (p *updatePhaseBootstrap) updateRuntimePackage() error {
 		var runtimePackageToClear loc.Locator
 		switch p.installedRuntime.Name {
 		case loc.LegacyPlanetMaster.Name:
-			runtimePackageToClear = loc.LegacyPlanetNode.Versioned(p.installedRuntime.Version)
+			runtimePackageToClear = withVersion(loc.LegacyPlanetNode, p.installedRuntime.Version)
 		case loc.LegacyPlanetNode.Name:
-			runtimePackageToClear = loc.LegacyPlanetMaster.Versioned(p.installedRuntime.Version)
+			runtimePackageToClear = withVersion(loc.LegacyPlanetMaster, p.installedRuntime.Version)
 		}
 		runtimePackages = append(runtimePackages, updateLabels{
 			Locator: runtimePackageToClear,
@@ -309,7 +309,7 @@ func (p *updatePhaseBootstrap) updateRuntimePackage() error {
 	for _, update := range runtimePackages {
 		p.Infof("Update package labels %v (+%v -%v).", update.Locator, update.add, update.remove)
 		err := p.LocalPackages.UpdatePackageLabels(update.Locator, update.add, update.remove)
-		if err != nil {
+		if err != nil && !trace.IsNotFound(err) {
 			return trace.Wrap(err)
 		}
 	}
@@ -341,4 +341,12 @@ func getGravityPath() (string, error) {
 	}
 	return filepath.Join(
 		stateDir, "site", "update", constants.GravityBin), nil
+}
+
+func withVersion(filter loc.Locator, version string) loc.Locator {
+	return loc.Locator{
+		Repository: filter.Repository,
+		Name:       filter.Name,
+		Version:    version,
+	}
 }

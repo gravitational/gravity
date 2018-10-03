@@ -108,11 +108,6 @@ func (l *Locator) ZeroVersion() Locator {
 	return Locator{Repository: l.Repository, Name: l.Name, Version: ZeroVersion}
 }
 
-// Versioned returns the package with the specified version
-func (l Locator) Versioned(version string) Locator {
-	return Locator{Repository: l.Repository, Name: l.Name, Version: version}
-}
-
 // SemVer obtains emver from a marshalled version
 func (l *Locator) SemVer() (*semver.Version, error) {
 	v, err := semver.NewVersion(l.Version)

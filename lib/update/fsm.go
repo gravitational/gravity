@@ -161,7 +161,8 @@ func RollbackPhase(ctx context.Context, config FSMConfig, params fsm.Params, ski
 func resumeUpdate(ctx context.Context, machine *fsm.FSM, p fsm.Params, runner rpc.AgentRepository) error {
 	fsmErr := machine.ExecutePlan(ctx, p.Progress, p.Force)
 	if fsmErr != nil {
-		return trace.Wrap(fsmErr)
+		logrus.Warnf("Failed to execute plan: %v.", fsmErr)
+		// fallthrough
 	}
 
 	err := machine.Complete(fsmErr)

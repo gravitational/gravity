@@ -68,7 +68,8 @@ func AutomaticUpgrade(ctx context.Context, localEnv, updateEnv *localenv.LocalEn
 	force := false
 	fsmErr := fsm.ExecutePlan(ctx, progress, force)
 	if fsmErr != nil {
-		return trace.Wrap(err)
+		log.Warnf("Failed to execute plan: %v.", fsmErr)
+		// fallthrough
 	}
 
 	err = fsm.Complete(fsmErr)
