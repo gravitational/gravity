@@ -22,61 +22,101 @@ import (
 	"github.com/gravitational/gravity/lib/app"
 	"github.com/gravitational/gravity/lib/ops"
 	"github.com/gravitational/gravity/lib/schema"
+	"github.com/gravitational/gravity/lib/status"
 	"github.com/gravitational/gravity/lib/storage"
 
+	"github.com/gravitational/satellite/agent/proto/agentpb"
 	"github.com/gravitational/trace"
-	log "github.com/sirupsen/logrus"
 )
 
-// CheckSiteStatus runs app status hook and updates site status appropriately.
+// CheckSiteStatus runs application status hook and updates cluster status appropriately
 func (o *Operator) CheckSiteStatus(key ops.SiteKey) error {
 	cluster, err := o.openSite(key)
 	if err != nil {
 		return trace.Wrap(err)
 	}
 
-	if !cluster.app.Manifest.HasHook(schema.HookStatus) {
-		log.Debugf("%v does not have status hook", key)
+	// pause status checks while the cluster is undergoing an operation
+	switch cluster.backendSite.State {
+	case ops.SiteStateActive, ops.SiteStateDegraded:
+	default:
+		o.Infof("Status checks are paused, cluster is %v.",
+			cluster.backendSite.State)
 		return nil
 	}
 
-	ref, out, err := app.RunAppHook(context.TODO(), o.cfg.Apps, app.HookRunRequest{
-		Application: cluster.backendSite.App.Locator(),
-		Hook:        schema.HookStatus,
-		ServiceUser: cluster.serviceUser(),
-	})
-
-	if ref != nil {
-		defer func() {
-			err := o.cfg.Apps.DeleteAppHookJob(context.TODO(), *ref)
-			if err != nil {
-				log.Warningf("failed to delete hook %v: %v",
-					ref, trace.DebugReport(err))
-			}
-		}()
+	statusErr := cluster.checkPlanetStatus(context.TODO())
+	reason := storage.ReasonClusterDegraded
+	if statusErr == nil {
+		statusErr = cluster.checkStatusHook(context.TODO())
+		reason = storage.ReasonStatusCheckFailed
 	}
 
+	if statusErr != nil {
+		err := o.DeactivateSite(ops.DeactivateSiteRequest{
+			AccountID:  key.AccountID,
+			SiteDomain: cluster.backendSite.Domain,
+			Reason:     reason,
+		})
+		if err != nil {
+			return trace.Wrap(err)
+		}
+		return trace.Wrap(statusErr)
+	}
+
+	// all status checks passed so if the cluster was previously disabled
+	// because of those checks, enable it back
+	if cluster.canActivate() {
+		err := o.ActivateSite(ops.ActivateSiteRequest{
+			AccountID:  key.AccountID,
+			SiteDomain: cluster.backendSite.Domain,
+		})
+		if err != nil {
+			return trace.Wrap(err)
+		}
+	}
+
+	return nil
+}
+
+// canActivate retursn true if the cluster is disabled b/c of status checks
+func (s *site) canActivate() bool {
+	return s.backendSite.State == ops.SiteStateDegraded &&
+		s.backendSite.Reason != storage.ReasonLicenseInvalid
+}
+
+// checkPlanetStatus checks the cluster health using planet agents
+func (s *site) checkPlanetStatus(ctx context.Context) error {
+	planetStatus, err := status.FromPlanetAgent(ctx, nil)
 	if err != nil {
-		req := ops.DeactivateSiteRequest{
-			AccountID:  key.AccountID,
-			SiteDomain: cluster.backendSite.Domain,
-			Reason:     storage.ReasonStatusCheckFailed,
-		}
-		if err := o.DeactivateSite(req); err != nil {
-			return trace.Wrap(err)
-		}
-		return trace.Wrap(err, string(out))
+		return trace.Wrap(err)
 	}
+	if planetStatus.SystemStatus != agentpb.SystemStatus_Running {
+		return trace.BadParameter("cluster is not healthy: %#v", planetStatus)
+	}
+	return nil
+}
 
-	if cluster.backendSite.State == ops.SiteStateDegraded && cluster.backendSite.Reason == storage.ReasonStatusCheckFailed {
-		req := ops.ActivateSiteRequest{
-			AccountID:  key.AccountID,
-			SiteDomain: cluster.backendSite.Domain,
-		}
-		if err := o.ActivateSite(req); err != nil {
-			return trace.Wrap(err)
+// checkStatusHook executes the application's status hook
+func (s *site) checkStatusHook(ctx context.Context) error {
+	if !s.app.Manifest.HasHook(schema.HookStatus) {
+		s.Debugf("Application %s does not have status hook.", s.app)
+		return nil
+	}
+	ref, out, err := app.RunAppHook(ctx, s.service.cfg.Apps, app.HookRunRequest{
+		Application: s.backendSite.App.Locator(),
+		Hook:        schema.HookStatus,
+		ServiceUser: s.serviceUser(),
+	})
+	if ref != nil {
+		err := s.service.cfg.Apps.DeleteAppHookJob(ctx, *ref)
+		if err != nil {
+			s.Warnf("Failed to delete status hook %v: %v.",
+				ref, trace.DebugReport(err))
 		}
 	}
-
+	if err != nil {
+		return trace.Wrap(err, "status hook failed: %s", out)
+	}
 	return nil
 }

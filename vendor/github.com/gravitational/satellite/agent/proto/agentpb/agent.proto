@@ -92,12 +92,24 @@ message Probe {
     Failed = 2;
     Terminated = 3;
   }
+  // Severity defines the severity of the probe.
+  enum Severity {
+    // None severity denotes the severity of a running probe
+    None = 0;
+    // Critical defines a serious error that requires immediate attention
+    Critical = 1;
+    // Warning defines a (possibly transient) condition that requires attention
+    // but is not critical
+    Warning = 2;
+  }
   // Status is the result of the probe
   Type status = 4;
   // Error is the probe-specific error message
   string error = 5;
   // CheckerData is a free-form data specific to the checker
   bytes checker_data = 6;
+  // Severity is the severity of the probe
+  Severity severity = 7;
 }
 
 message Timestamp {

@@ -32,13 +32,12 @@ type healthzChecker struct {
 }
 
 // KubeAPIServerHealth creates a checker for the kubernetes API server
-func KubeAPIServerHealth(kubeAddr string, config string) health.Checker {
+func KubeAPIServerHealth(config KubeConfig) health.Checker {
 	checker := &healthzChecker{}
 	kubeChecker := &KubeChecker{
-		name:       "kube-apiserver",
-		masterURL:  kubeAddr,
-		checker:    checker.testHealthz,
-		configPath: config,
+		name:    "kube-apiserver",
+		checker: checker.testHealthz,
+		client:  config.Client,
 	}
 	checker.KubeChecker = kubeChecker
 	return kubeChecker
@@ -46,7 +45,7 @@ func KubeAPIServerHealth(kubeAddr string, config string) health.Checker {
 
 // testHealthz executes a test by using k8s API
 func (h *healthzChecker) testHealthz(ctx context.Context, client *kube.Clientset) error {
-	_, err := client.Core().ComponentStatuses().Get("scheduler", metav1.GetOptions{})
+	_, err := client.CoreV1().ComponentStatuses().Get("scheduler", metav1.GetOptions{})
 	return err
 }
 
@@ -56,8 +55,8 @@ func KubeletHealth(addr string) health.Checker {
 }
 
 // NodesStatusHealth creates a checker that reports a number of ready kubernetes nodes
-func NodesStatusHealth(kubeAddr string, nodesReadyThreshold int) health.Checker {
-	return NewNodesStatusChecker(kubeAddr, nodesReadyThreshold)
+func NodesStatusHealth(config KubeConfig, nodesReadyThreshold int) health.Checker {
+	return NewNodesStatusChecker(config, nodesReadyThreshold)
 }
 
 // EtcdHealth creates a checker that checks health of etcd
@@ -97,8 +96,8 @@ func SystemdHealth() health.Checker {
 
 // InterPodCommunication creates a checker that runs a network test in the cluster
 // by scheduling pods and verifying the communication
-func InterPodCommunication(kubeAddr, nettestImage string) health.Checker {
-	return NewInterPodChecker(kubeAddr, nettestImage)
+func InterPodCommunication(config KubeConfig, nettestImage string) health.Checker {
+	return NewInterPodChecker(config, nettestImage)
 }
 
 func (_ noopChecker) Name() string                           { return "noop" }

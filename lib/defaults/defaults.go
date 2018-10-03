@@ -237,6 +237,10 @@ const (
 	// HumanReasonableTimeout is amount of time certain command can run without producing any output
 	HumanReasonableTimeout = 3 * time.Second
 
+	// ClusterCheckTimeout is amount of time allotted to the test that verifies if cluster controller
+	// is accessible
+	ClusterCheckTimeout = 5 * time.Second
+
 	// SatelliteRPCAgentPort is port used by satellite agent to expose its status
 	SatelliteRPCAgentPort = 7575
 

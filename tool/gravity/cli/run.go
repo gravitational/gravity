@@ -26,7 +26,6 @@ import (
 	"strconv"
 	"strings"
 	"syscall"
-	"time"
 
 	appapi "github.com/gravitational/gravity/lib/app"
 	"github.com/gravitational/gravity/lib/constants"
@@ -821,9 +820,12 @@ func pickSiteHost() (string, error) {
 
 // checkInCluster checks if the command is invoked inside Gravity cluster
 func checkInCluster(dnsAddr string) error {
-	client := httplib.GetClient(true, httplib.WithLocalResolver(dnsAddr), httplib.WithTimeout(time.Second))
+	client := httplib.GetClient(true,
+		httplib.WithLocalResolver(dnsAddr),
+		httplib.WithTimeout(defaults.ClusterCheckTimeout))
 	_, err := client.Get(defaults.GravityServiceURL)
 	if err != nil {
+		log.Warnf("Gravity controller is inaccessible: %v.", err)
 		return trace.NotFound("No Gravity cluster detected. This failure could happen during failover, try again. Execute this command locally on one of the cluster nodes.")
 	}
 	return nil

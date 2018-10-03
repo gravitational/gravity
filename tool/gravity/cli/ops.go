@@ -29,6 +29,7 @@ import (
 	"github.com/gravitational/gravity/lib/defaults"
 	"github.com/gravitational/gravity/lib/install"
 	"github.com/gravitational/gravity/lib/localenv"
+	"github.com/gravitational/gravity/lib/ops"
 	"github.com/gravitational/gravity/lib/pack"
 	"github.com/gravitational/gravity/lib/pack/encryptedpack"
 	"github.com/gravitational/gravity/lib/state"
@@ -41,23 +42,25 @@ import (
 	"github.com/gravitational/trace"
 )
 
-func selectNetworkInterface() (addr string, err error) {
+func selectNetworkInterface() (string, error) {
 	for {
-		addr, err = selectInterface()
+		addr, autoselected, err := selectInterface()
 		if err != nil {
 			return "", trace.Wrap(err)
 		}
-		fmt.Printf("confirm the config:\n\n* IP address: %v\n\n", addr)
-		re, err := confirm()
+		if autoselected {
+			return addr, nil
+		}
+		confirmed, err := confirmWithTitle(fmt.Sprintf(
+			"\nConfirm the selected interface [%v]", addr))
 		if err != nil {
 			return "", trace.Wrap(err)
 		}
-		if !re {
+		if !confirmed {
 			continue
 		}
-		break
+		return addr, nil
 	}
-	return addr, nil
 }
 
 func mustJSON(i interface{}) string {
@@ -104,6 +107,13 @@ func uploadUpdate(env *localenv.LocalEnvironment, opsURL string) error {
 	cluster, err := clusterOperator.GetLocalSite()
 	if err != nil {
 		return trace.Wrap(err)
+	}
+
+	if cluster.State == ops.SiteStateDegraded {
+		return trace.BadParameter("The cluster is in degraded state so " +
+			"uploading new applications is prohibited. Please check " +
+			"gravity status output and correct the situation before " +
+			"attempting again.")
 	}
 
 	var tarballPackages pack.PackageService = env.Packages
