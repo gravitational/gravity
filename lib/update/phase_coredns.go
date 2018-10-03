@@ -19,7 +19,6 @@ package update
 import (
 	"context"
 
-	"github.com/gravitational/gravity/lib/constants"
 	"github.com/gravitational/gravity/lib/storage"
 	"github.com/gravitational/rigging"
 	"github.com/gravitational/trace"
@@ -50,7 +49,9 @@ type updatePhaseCoreDNS struct {
 	kubernetesOperation
 }
 
-// NewPhaseCoreDNS does provisioning for coredns during the upgrade
+// NewPhaseCoreDNS create an upgrade phase to add coredns rbac permissions
+// HACK: This phase needs to run before updating planet, as coredns is embedded in planet
+// and will come online as planet restarts
 func NewPhaseCoreDNS(c FSMConfig, plan storage.OperationPlan, phase storage.OperationPhase) (*updatePhaseCoreDNS, error) {
 	op, err := newKubernetesOperation(c, plan, phase)
 	if err != nil {
@@ -62,7 +63,7 @@ func NewPhaseCoreDNS(c FSMConfig, plan storage.OperationPlan, phase storage.Oper
 	}, nil
 }
 
-// Execute
+// Execute will add rbac permissions for coredns to sync cluster information
 func (p *updatePhaseCoreDNS) Execute(ctx context.Context) error {
 	_, err := p.kubernetesOperation.Client.RbacV1().ClusterRoles().Create(&rbacv1.ClusterRole{
 		ObjectMeta: metav1.ObjectMeta{Name: corednsResourceName},
@@ -99,74 +100,11 @@ func (p *updatePhaseCoreDNS) Execute(ctx context.Context) error {
 		return trace.Wrap(err)
 	}
 
-	_, err = p.kubernetesOperation.Client.RbacV1().Roles(constants.KubeSystemNamespace).Create(&rbacv1.Role{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      corednsResourceName,
-			Namespace: constants.KubeSystemNamespace,
-		},
-		Rules: []rbacv1.PolicyRule{
-			{
-				APIGroups:     []string{""},
-				Verbs:         []string{"get", "watch", "list"},
-				Resources:     []string{"configmaps"},
-				ResourceNames: []string{"coredns"},
-			},
-		},
-	})
-	err = rigging.ConvertError(err)
-	if err != nil && !trace.IsAlreadyExists(err) {
-		return trace.Wrap(err)
-	}
-
-	_, err = p.kubernetesOperation.Client.RbacV1().RoleBindings(constants.KubeSystemNamespace).Create(&rbacv1.RoleBinding{
-		ObjectMeta: metav1.ObjectMeta{Name: corednsResourceName},
-		RoleRef: rbacv1.RoleRef{
-			APIGroup: "rbac.authorization.k8s.io",
-			Kind:     "Role",
-			Name:     corednsResourceName,
-		},
-		Subjects: []rbacv1.Subject{
-			{
-				Kind:     "User",
-				Name:     "coredns",
-				APIGroup: "rbac.authorization.k8s.io",
-			},
-		},
-	})
-	err = rigging.ConvertError(err)
-	if err != nil && !trace.IsAlreadyExists(err) {
-		return trace.Wrap(err)
-	}
-
 	return nil
 }
 
-// Rollback
+// Rollback - Noop (don't worry about deleting resources during a rollback, they'll just be unused)
 func (p *updatePhaseCoreDNS) Rollback(context.Context) error {
-	err := p.kubernetesOperation.Client.RbacV1().ClusterRoles().Delete(corednsResourceName, &metav1.DeleteOptions{})
-	err = rigging.ConvertError(err)
-	if err != nil && !trace.IsNotFound(err) {
-		return trace.Wrap(err)
-	}
-
-	err = p.kubernetesOperation.Client.RbacV1().ClusterRoleBindings().Delete(corednsResourceName, &metav1.DeleteOptions{})
-	err = rigging.ConvertError(err)
-	if err != nil && !trace.IsNotFound(err) {
-		return trace.Wrap(err)
-	}
-
-	err = p.kubernetesOperation.Client.RbacV1().Roles(constants.KubeSystemNamespace).Delete(corednsResourceName, &metav1.DeleteOptions{})
-	err = rigging.ConvertError(err)
-	if err != nil && !trace.IsNotFound(err) {
-		return trace.Wrap(err)
-	}
-
-	err = p.kubernetesOperation.Client.RbacV1().RoleBindings(constants.KubeSystemNamespace).Delete(corednsResourceName, &metav1.DeleteOptions{})
-	err = rigging.ConvertError(err)
-	if err != nil && !trace.IsNotFound(err) {
-		return trace.Wrap(err)
-	}
-
 	return nil
 }
 
@@ -181,24 +119,6 @@ func shouldUpdateCoreDNS(client *kubernetes.Clientset) (bool, error) {
 	}
 
 	_, err = client.RbacV1().ClusterRoleBindings().Get(corednsResourceName, metav1.GetOptions{})
-	err = rigging.ConvertError(err)
-	if err != nil {
-		if trace.IsNotFound(err) {
-			return true, nil
-		}
-		return false, trace.Wrap(err)
-	}
-
-	_, err = client.RbacV1().Roles(constants.KubeSystemNamespace).Get(corednsResourceName, metav1.GetOptions{})
-	err = rigging.ConvertError(err)
-	if err != nil {
-		if trace.IsNotFound(err) {
-			return true, nil
-		}
-		return false, trace.Wrap(err)
-	}
-
-	_, err = client.RbacV1().RoleBindings(constants.KubeSystemNamespace).Get(corednsResourceName, metav1.GetOptions{})
 	err = rigging.ConvertError(err)
 	if err != nil {
 		if trace.IsNotFound(err) {

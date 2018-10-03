@@ -62,6 +62,34 @@ func GetUpsertBootstrapResourceFunc(client *kubernetes.Clientset) resources.Reso
 				return trace.Wrap(rigging.ConvertError(err))
 			}
 			log.Debugf("Updated ClusterRoleBinding %q.", resource.Name)
+		case *rbacv1.Role:
+			_, err = client.Rbac().Roles(resource.Namespace).Create(resource)
+			if err == nil {
+				log.Debugf("Created Role %q.", resource.Name)
+				return nil
+			}
+			if !trace.IsAlreadyExists(rigging.ConvertError(err)) {
+				return trace.Wrap(rigging.ConvertError(err))
+			}
+			_, err = client.Rbac().Roles(resource.Namespace).Update(resource)
+			if err != nil {
+				return trace.Wrap(rigging.ConvertError(err))
+			}
+			log.Debugf("Updated Role %q.", resource.Name)
+		case *rbacv1.RoleBinding:
+			_, err = client.Rbac().RoleBindings(resource.Namespace).Create(resource)
+			if err == nil {
+				log.Debugf("Created RoleBinding %q.", resource.Name)
+				return nil
+			}
+			if !trace.IsAlreadyExists(rigging.ConvertError(err)) {
+				return trace.Wrap(rigging.ConvertError(err))
+			}
+			_, err = client.Rbac().RoleBindings(resource.Namespace).Update(resource)
+			if err != nil {
+				return trace.Wrap(rigging.ConvertError(err))
+			}
+			log.Debugf("Updated RoleBinding %q.", resource.Name)
 		case *v1beta1.PodSecurityPolicy:
 			_, err = client.Extensions().PodSecurityPolicies().Create(resource)
 			if err == nil {

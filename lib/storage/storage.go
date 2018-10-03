@@ -1075,7 +1075,7 @@ func (r DNSConfig) IsEmpty() bool {
 type DNSConfig struct {
 	// Addrs lists local cluster DNS server IP addresses
 	Addrs []string `json:"addrs"`
-	// Port specifies the DNS port to use for dnsmasq
+	// Port specifies the DNS port to use for dns
 	Port int `json:"port"`
 }
 
