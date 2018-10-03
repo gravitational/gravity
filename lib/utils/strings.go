@@ -99,7 +99,8 @@ func TrimPathPrefix(path string, prefixPath ...string) string {
 	return strings.TrimPrefix(path, filepath.Join(prefixPath...)+string(os.PathSeparator))
 }
 
-// CombineLabels combines the specified label sets into a single map
+// CombineLabels combines the specified label sets into a single map.
+// Existing labels will get overwritten with the last value
 func CombineLabels(labels ...map[string]string) (result map[string]string) {
 	result = make(map[string]string)
 	for _, set := range labels {

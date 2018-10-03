@@ -316,14 +316,14 @@ func (p *updatePhaseBootstrap) updateRuntimePackage() error {
 	return nil
 }
 
-func getInstalledRuntime(apps app.Applications, installedApp loc.Locator, serverRole, clusterRole string) (*loc.Locator, error) {
+func getInstalledRuntime(apps app.Applications, installedApp loc.Locator, profileName, clusterRole string) (*loc.Locator, error) {
 	installed, err := apps.GetApp(installedApp)
 	if err != nil {
 		return nil, trace.Wrap(err, "failed to query installed application")
 	}
-	installedProfile, err := installed.Manifest.NodeProfiles.ByName(serverRole)
+	installedProfile, err := installed.Manifest.NodeProfiles.ByName(profileName)
 	if err != nil {
-		return nil, trace.NotFound("failed to find node profile %q", serverRole)
+		return nil, trace.Wrap(err, "failed to find node profile %q", profileName)
 	}
 	installedRuntime, err := getRuntimePackage(installed.Manifest, *installedProfile,
 		schema.ServiceRole(clusterRole))

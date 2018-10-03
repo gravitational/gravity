@@ -106,8 +106,11 @@ func getRuntimePackage(manifest schema.Manifest, profile schema.NodeProfile, clu
 	}
 	runtimePackage, err = manifest.Dependencies.ByName(packageName)
 	if err != nil {
-		logrus.Warnf("Failed to find the legacy runtime package in manifest: %v.", err)
-		return nil, trace.NotFound("runtime package not found")
+		logrus.Warnf("Failed to find the legacy runtime package in manifest "+
+			"for profile %v and cluster role %v: %v.", profile.Name, clusterRole, err)
+		return nil, trace.NotFound("runtime package for profile %v "+
+			"(cluster role %v) not found in manifest",
+			profile.Name, clusterRole)
 	}
 	return runtimePackage, nil
 }
