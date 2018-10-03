@@ -107,10 +107,6 @@ type Installer struct {
 	// engine allows to customize installer behavior
 	engine Engine
 	flavor *schema.Flavor
-	// Docker defines the cluster Docker configuration.
-	// It is constructed from the application manifest
-	// and command line overrides
-	Docker storage.DockerConfig
 }
 
 // SetFlavor sets the flavor that will be installed
@@ -302,11 +298,17 @@ func (c *Config) validateCloudConfig() error {
 
 // Init creates a new installer and initializes various services it will
 // need based on the provided config
-func Init(ctx context.Context, cfg Config, wizard *localenv.RemoteEnvironment) (*Installer, error) {
+func Init(ctx context.Context, cfg Config) (*Installer, error) {
 	err := cfg.CheckAndSetDefaults()
 	if err != nil {
 		return nil, trace.Wrap(err)
 	}
+	wizard, err := localenv.LoginWizard(fmt.Sprintf("https://%v",
+		cfg.Process.Config().Pack.GetAddr().Addr))
+	if err != nil {
+		return nil, trace.Wrap(err)
+	}
+
 	account, err := getSystemAccount(wizard.Operator)
 	if err != nil {
 		return nil, trace.Wrap(err)
@@ -697,28 +699,6 @@ func FetchCloudMetadata(cloudProvider string, config *pb.RuntimeConfig) error {
 	}
 	config.CloudMetadata = metadata
 	return nil
-}
-
-// GetDockerConfig builds Docker configuration from specified overrides and the application manifest
-func GetDockerConfig(overrides storage.DockerConfig, apps appservice.Applications, appPackage loc.Locator) (*storage.DockerConfig, error) {
-	app, err := apps.GetApp(appPackage)
-	if err != nil {
-		return nil, trace.Wrap(err)
-	}
-
-	dockerSchema := app.Manifest.SystemDocker()
-	config := storage.DockerConfig{
-		StorageDriver: dockerSchema.StorageDriver,
-		Args:          dockerSchema.Args,
-	}
-	if overrides.StorageDriver != "" {
-		config.StorageDriver = overrides.StorageDriver
-	}
-	if len(overrides.Args) != 0 {
-		config.Args = overrides.Args
-	}
-
-	return &config, nil
 }
 
 // installBinary places the system binary into the proper binary directory
