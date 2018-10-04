@@ -129,7 +129,7 @@ spec:
 
 - [ ] Install 3-node cluster.
   - [ ] Shutdown currently active master node.
-  - [ ] Verify planet master was re-elected and apiserver and other services started on it.
+  - [ ] Verify that another node was elected as master and all relevant Kubernetes services are running.
 
 ### Tele Build
 
@@ -163,7 +163,8 @@ systemOptions:
 
 #### Enterprise Edition
 
-- [ ] Verify same things as with open-source but `get.gravitational.io` should be used as repository.
+- [ ] Run the same tests as for OSS version.
+  - [ ] Verify `get.gravitational.io` instead of `hub.gravitational.io` was used as a remote repository.
 
 - [ ] Log into some Ops Center (could be local dev one).
 ```bash
@@ -176,7 +177,7 @@ $ tele login -o example.gravitational.io
 ### Licensing & Encryption (Enterprise Edition)
 
 This scenario builds an encrypted installer for an application that requires
-a license and makes sure that is can be installed with valid license. It is
+a license and makes sure that it can be installed with valid license. It is
 only supported in the enterprise edition.
 
 - [ ] Generate test CA and private key:
@@ -206,7 +207,7 @@ $ tele build app.yaml --ca-cert=domain.crt --encryption-key=qwe123
 ```
 
 - [ ] Verify can install in wizard UI mode.
-  - [ ] Verify license prompts appears in the UI.
+  - [ ] Verify license prompt appears in the UI.
   - [ ] Insert the generated license and verify the installation succeeds.
   - [ ] Verify license can be updated via cluster UI after installation.
 
