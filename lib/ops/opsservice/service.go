@@ -27,6 +27,7 @@ import (
 	"time"
 
 	appservice "github.com/gravitational/gravity/lib/app"
+	"github.com/gravitational/gravity/lib/checks"
 	"github.com/gravitational/gravity/lib/clients"
 	"github.com/gravitational/gravity/lib/constants"
 	"github.com/gravitational/gravity/lib/defaults"
@@ -510,8 +511,8 @@ func (o *Operator) CreateSite(r ops.NewSiteRequest) (*ops.Site, error) {
 		return nil, trace.Wrap(err)
 	}
 
-	dockerConfig := ops.DockerConfigFromSchemaValue(app.Manifest.SystemDocker())
-	ops.OverrideDockerConfig(&dockerConfig, r.Docker)
+	dockerConfig := checks.DockerConfigFromSchemaValue(app.Manifest.SystemDocker())
+	checks.OverrideDockerConfig(&dockerConfig, r.Docker)
 	if err != nil {
 		return nil, trace.Wrap(err)
 	}

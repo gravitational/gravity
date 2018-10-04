@@ -22,6 +22,7 @@ import (
 	"strconv"
 
 	"github.com/gravitational/gravity/lib/app"
+	"github.com/gravitational/gravity/lib/checks"
 	"github.com/gravitational/gravity/lib/defaults"
 	"github.com/gravitational/gravity/lib/fsm"
 	"github.com/gravitational/gravity/lib/install"
@@ -98,8 +99,8 @@ func NewUpdatePhaseInit(c FSMConfig, plan storage.OperationPlan, phase storage.O
 		return nil, trace.Wrap(err, "failed to query installed application")
 	}
 
-	existingDocker := ops.DockerConfigFromSchemaValue(installedApp.Manifest.SystemDocker())
-	ops.OverrideDockerConfig(&existingDocker, installOperation.InstallExpand.Vars.System.Docker)
+	existingDocker := checks.DockerConfigFromSchemaValue(installedApp.Manifest.SystemDocker())
+	checks.OverrideDockerConfig(&existingDocker, installOperation.InstallExpand.Vars.System.Docker)
 
 	return &updatePhaseInit{
 		Backend:      c.Backend,
