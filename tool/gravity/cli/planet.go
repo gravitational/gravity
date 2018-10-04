@@ -27,6 +27,7 @@ import (
 	libstatus "github.com/gravitational/gravity/lib/status"
 	"github.com/gravitational/gravity/lib/storage"
 	"github.com/gravitational/gravity/lib/utils"
+	agentpb "github.com/gravitational/satellite/agent/proto/agentpb"
 
 	"github.com/coreos/go-semver/semver"
 	"github.com/gravitational/trace"
@@ -114,6 +115,10 @@ func getMasterNodes(ctx context.Context, servers []storage.Server) (addrs []stri
 	status, err := libstatus.FromPlanetAgent(ctx, servers)
 	if err != nil {
 		return nil, trace.Wrap(err)
+	}
+
+	if status.SystemStatus != agentpb.SystemStatus_Running {
+		return nil, trace.BadParameter("cluster is degraded")
 	}
 
 	for _, node := range status.Nodes {
