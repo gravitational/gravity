@@ -125,6 +125,12 @@ spec:
    - [ ] Verify can uninstall the cluster.
      - [ ] Verify AWS instances and other resources are deprovisioned.
 
+### Failover
+
+- [ ] Install 3-node cluster.
+  - [ ] Shutdown currently active master node.
+  - [ ] Verify planet master was re-elected and apiserver and other services started on it.
+
 ### Tele Build
 
 #### Open-Source Edition
