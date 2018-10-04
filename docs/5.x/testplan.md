@@ -124,3 +124,99 @@ spec:
    - [ ] Verify can join a node.
    - [ ] Verify can uninstall the cluster.
      - [ ] Verify AWS instances and other resources are deprovisioned.
+
+### Failover
+
+- [ ] Install 3-node cluster.
+  - [ ] Shutdown currently active master node.
+  - [ ] Verify that another node was elected as master and all relevant Kubernetes services are running.
+
+### Tele Build
+
+#### Open-Source Edition
+
+- [ ] Create minimal app manifest (`app.yaml`):
+```yaml
+apiVersion: bundle.gravitational.io/v2
+kind: Bundle
+metadata:
+    name: test
+    resourceVersion: 1.0.0
+```
+
+- [ ] Verify can build installer:
+```bash
+$ tele build app.yaml
+```
+  - [ ] Verify the latest compatible runtime from `hub.gravitational.io` was selected:
+  ```bash
+  $ tele ls --with-prereleases
+  ```
+
+- [ ] Pin runtime in the manifest to some version compatible with tele (same major/minor version components):
+```yaml
+systemOptions:
+    runtime:
+        version: 5.2.0
+```
+  - [ ] Verify can build the installer.
+
+#### Enterprise Edition
+
+- [ ] Run the same tests as for OSS version.
+  - [ ] Verify `get.gravitational.io` instead of `hub.gravitational.io` was used as a remote repository.
+
+- [ ] Log into some Ops Center (could be local dev one).
+```bash
+$ tele login -o example.gravitational.io
+```
+
+- [ ] Unpin runtime from manifest and run tele build.
+  - [ ] Verify latest compatible runtime from active Ops Center was selected.
+
+### Licensing & Encryption (Enterprise Edition)
+
+This scenario builds an encrypted installer for an application that requires
+a license and makes sure that it can be installed with valid license. It is
+only supported in the enterprise edition.
+
+- [ ] Generate test CA and private key:
+```bash
+$ openssl req -newkey rsa:2048 -nodes -keyout domain.key -x509 -days 365 -out domain.crt
+```
+
+- [ ] Create test app manifest that requires license (`app.yaml`):
+```yaml
+apiVersion: bundle.gravitational.io/v2
+kind: Bundle
+metadata:
+    name: test
+    resourceVersion: 1.0.0
+license:
+    enabled: true
+```
+
+- [ ] Generate a license with encryption key:
+```bash
+$ gravity license new --max-nodes=3 --valid-for=24h --ca-cert=domain.crt --ca-key=domain.key --encryption-key=qwe123 > license.pem
+```
+
+- [ ] Build an encrypted application installer:
+```bash
+$ tele build app.yaml --ca-cert=domain.crt --encryption-key=qwe123
+```
+
+- [ ] Verify can install in wizard UI mode.
+  - [ ] Verify license prompt appears in the UI.
+  - [ ] Insert the generated license and verify the installation succeeds.
+  - [ ] Verify license can be updated via cluster UI after installation.
+
+- [ ] Verify license is enforced in CLI mode:
+```bash
+$ sudo ./gravity install # should return a license error
+```
+
+- [ ] Verify can install in CLI mode with license:
+```bash
+$ sudo ./gravity install --license="$(cat /tmp/license)"
+```
