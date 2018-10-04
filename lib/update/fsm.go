@@ -170,11 +170,14 @@ func resumeUpdate(ctx context.Context, machine *fsm.FSM, p fsm.Params, runner rp
 		return trace.Wrap(err)
 	}
 
+	if fsmErr != nil {
+		return trace.Wrap(fsmErr)
+	}
+
 	ctx, cancel := context.WithTimeout(ctx, defaults.RPCAgentShutdownTimeout)
 	defer cancel()
 	if err = ShutdownClusterAgents(ctx, runner); err != nil {
 		logrus.Warnf("Failed to shutdown cluster agents: %v.", trace.DebugReport(err))
 	}
-
 	return nil
 }

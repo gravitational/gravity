@@ -77,8 +77,13 @@ func AutomaticUpgrade(ctx context.Context, localEnv, updateEnv *localenv.LocalEn
 		return trace.Wrap(err)
 	}
 
-	err = ShutdownClusterAgents(ctx, runner)
-	return trace.Wrap(err)
+	if fsmErr == nil {
+		err = ShutdownClusterAgents(ctx, runner)
+		if err != nil {
+			return trace.Wrap(err)
+		}
+	}
+	return trace.Wrap(fsmErr)
 }
 
 // ShutdownClusterAgents fetches all nodes in a cluster
