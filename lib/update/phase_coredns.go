@@ -59,7 +59,9 @@ func NewPhaseCoreDNS(c FSMConfig, plan storage.OperationPlan, phase storage.Oper
 	}
 	return &updatePhaseCoreDNS{
 		kubernetesOperation: *op,
-		FieldLogger:         log.NewEntry(log.New()),
+		FieldLogger: log.WithFields(log.Fields{
+			"phase": phase.ID,
+		}),
 	}, nil
 }
 

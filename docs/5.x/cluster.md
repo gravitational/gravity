@@ -2112,7 +2112,7 @@ data:
   The CoreDNS configuration in this example is a go template, which will generate configuration based on the node and install time configuration. 
 
 The following template variables are supported:
-* `ListenAddrs` - (Required) The overlay network address to bind CoreDNS to.
+* `ListenAddrs` - (Required) The list of overlay network address to bind CoreDNS to.
 * `Port` - The port to use for DNS binding ([see Standalone Offline CLI Installation](/installation/#standalone-offline-cli-installation))
-* `UpstreamNameservers` - A list of upstream resolvers to use for general DNS reoslution. ([see Standalone Offline CLI Installation](/installation/#standalone-offline-cli-installation))
+* `UpstreamNameservers` - A list of upstream resolvers to use for general DNS resolution. ([see Standalone Offline CLI Installation](/installation/#standalone-offline-cli-installation))
 * `Zones` - A map of zones to servers for upstream DNS resolution. ([see Standalone Offline CLI Installation](/installation/#standalone-offline-cli-installation))
