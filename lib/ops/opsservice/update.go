@@ -19,6 +19,7 @@ package opsservice
 import (
 	"path/filepath"
 
+	"github.com/gravitational/gravity/lib/checks"
 	"github.com/gravitational/gravity/lib/constants"
 	"github.com/gravitational/gravity/lib/loc"
 	"github.com/gravitational/gravity/lib/ops"
@@ -353,8 +354,8 @@ func (s *site) validateDockerConfig(updateManifest schema.Manifest) error {
 			return trace.Wrap(err)
 		}
 
-		defaultConfig := ops.DockerConfigFromSchemaValue(s.app.Manifest.SystemDocker())
-		ops.OverrideDockerConfig(&defaultConfig, installOperation.InstallExpand.Vars.System.Docker)
+		defaultConfig := checks.DockerConfigFromSchemaValue(s.app.Manifest.SystemDocker())
+		checks.OverrideDockerConfig(&defaultConfig, installOperation.InstallExpand.Vars.System.Docker)
 		existingDocker = defaultConfig
 	}
 

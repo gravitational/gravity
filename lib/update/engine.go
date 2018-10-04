@@ -25,6 +25,7 @@ import (
 	"time"
 
 	"github.com/gravitational/gravity/lib/app"
+	"github.com/gravitational/gravity/lib/checks"
 	"github.com/gravitational/gravity/lib/defaults"
 	"github.com/gravitational/gravity/lib/fsm"
 	"github.com/gravitational/gravity/lib/ops"
@@ -160,8 +161,8 @@ func (f *fsmUpdateEngine) commitClusterChanges(cluster *storage.Site, op ops.Sit
 		cluster.App.Base = updateBaseApp.PackageEnvelope.ToPackagePtr()
 	}
 
-	ops.OverrideDockerConfig(&cluster.ClusterState.Docker,
-		ops.DockerConfigFromSchema(updateApp.Manifest.SystemOptions.DockerConfig()))
+	checks.OverrideDockerConfig(&cluster.ClusterState.Docker,
+		checks.DockerConfigFromSchema(updateApp.Manifest.SystemOptions.DockerConfig()))
 
 	return nil
 }
