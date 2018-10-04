@@ -55,7 +55,7 @@ type Config struct {
 	Context context.Context
 	// StateDir is the configured builder state directory
 	StateDir string
-	// Insecure enables insecure verify mode
+	// Insecure disables client verification of the server TLS certificate chain
 	Insecure bool
 	// ManifestPath holds the path to the application manifest
 	ManifestPath string
@@ -234,7 +234,7 @@ func (b *Builder) SyncPackageCache(runtimeVersion *semver.Version) error {
 
 // Vendor vendors the application images in the provided directory and
 // returns the compressed data stream with the application data
-func (b *Builder) Vendor(ctx context.Context, dir string, progress utils.Progress) (io.ReadCloser, error) {
+func (b *Builder) Vendor(ctx context.Context, dir string) (io.ReadCloser, error) {
 	err := utils.CopyDirContents(b.manifestDir, filepath.Join(dir, defaults.ResourcesDir))
 	if err != nil {
 		return nil, trace.Wrap(err)
@@ -249,7 +249,7 @@ func (b *Builder) Vendor(ctx context.Context, dir string, progress utils.Progres
 	}
 	vendorReq := b.VendorReq
 	vendorReq.ManifestPath = filepath.Join(dir, defaults.ResourcesDir, b.manifestFilename)
-	vendorReq.ProgressReporter = progress
+	vendorReq.ProgressReporter = b.Progress
 	err = vendorer.VendorDir(ctx, dir, vendorReq)
 	if err != nil {
 		return nil, trace.Wrap(err)
@@ -388,13 +388,15 @@ func (b *Builder) checkVersion(runtimeVersion *semver.Version) error {
 	}
 	if teleVersion.Major != runtimeVersion.Major || teleVersion.Minor != runtimeVersion.Minor {
 		return trace.BadParameter(
-			`The version of the tele binary (%v) is not compatible with the selected runtime (%v).
+			`Version of this tele binary (%v) is not compatible with the selected runtime (%v).
 
-To remediate the issue you can do one of the following:
+To remedy the issue you can do one of the following:
 
- * Use a different version of tele that is compatible with your selected runtime (latest %v.%v.x version is recommended).
- * Pin runtime version in application manifest to the version compatible with your tele version (latest %v.%v.x version is recommended).
- * Unpin runtime version in application manifest to let tele automatically select the latest compatible runtime.
+ * Use the latest %v.%v.x version of tele to make sure it is compatible with your selected runtime.
+ * Specify %v.%v.x runtime version in application manifest explicitly to make sure it is compatible with your tele version.
+ * Do not specify runtime version in application manifest to let tele automatically select the latest compatible runtime.
+
+See https://gravitational.com/telekube/docs/pack/#sample-application-manifest for details on how to specify runtime in manifest.
 `, teleVersion, runtimeVersion, runtimeVersion.Major, runtimeVersion.Minor, teleVersion.Major, teleVersion.Minor)
 	}
 
@@ -405,28 +407,20 @@ To remediate the issue you can do one of the following:
 
 // Close cleans up build environment
 func (b *Builder) Close() error {
+	var errors []error
 	if b.Env != nil {
-		err := b.Env.Close()
-		if err != nil {
-			return trace.Wrap(err)
-		}
+		errors = append(errors, b.Env.Close())
 	}
 	if b.Backend != nil {
-		err := b.Backend.Close()
-		if err != nil {
-			return trace.Wrap(err)
-		}
+		errors = append(errors, b.Backend.Close())
 	}
 	if b.Dir != "" {
-		err := os.RemoveAll(b.Dir)
-		if err != nil {
-			return trace.Wrap(err)
-		}
+		errors = append(errors, os.RemoveAll(b.Dir))
 	}
 	if b.Progress != nil {
 		b.Progress.Stop()
 	}
-	return nil
+	return trace.NewAggregate(errors...)
 }
 
 // ensureCacheDir makes sure a local cache directory for the provided Ops Center

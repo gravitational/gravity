@@ -137,24 +137,24 @@ type ConsoleProgress struct {
 
 // PrintCurrentStep updates message printed for current step that is in progress
 func (p *ConsoleProgress) PrintCurrentStep(message string, args ...interface{}) {
-	message = fmt.Sprintf(message, args...)
-	var entry *entry
-	p.Lock()
-	p.currentEntry.message = message
-	entry = p.currentEntry
-	p.Unlock()
+	entry := p.updateCurrentEntry(message, args...)
 	PrintStep(entry.current, p.steps, entry.message)
 }
 
 // PrintSubStep outputs the message as a sub-step of the current step
 func (p *ConsoleProgress) PrintSubStep(message string, args ...interface{}) {
+	entry := p.updateCurrentEntry(message, args...)
+	fmt.Fprintf(os.Stdout, "\t%v\n", entry.message)
+}
+
+func (p *ConsoleProgress) updateCurrentEntry(message string, args ...interface{}) *entry {
 	message = fmt.Sprintf(message, args...)
 	var entry *entry
 	p.Lock()
 	p.currentEntry.message = message
 	entry = p.currentEntry
 	p.Unlock()
-	fmt.Fprintf(os.Stdout, "\t%v\n", entry.message)
+	return entry
 }
 
 // Print outputs the specified message in regular color

@@ -57,7 +57,8 @@ func pull(env localenv.LocalEnvironment, app, outFile string, force, quiet bool)
 		return trace.Wrap(err)
 	}
 	if fi != nil && !force {
-		return trace.AlreadyExists("file %v already exists, provide --force flag to overwrite it", outFile)
+		return trace.AlreadyExists("file %v already exists, provide '--force'"+
+			"flag to overwrite it", outFile)
 	}
 
 	f, err := os.Create(outFile)

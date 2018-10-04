@@ -37,7 +37,7 @@ import (
 	"github.com/sirupsen/logrus"
 )
 
-// Syncer defines methods for synchronizing the local package cache
+// Syncer synchronizes the local package cache from a (remote) repository
 type Syncer interface {
 	// Sync makes sure that local cache has all required dependencies for the
 	// selected runtime
@@ -197,8 +197,7 @@ func (s *packSyncer) SelectRuntime(builder *Builder) (*semver.Version, error) {
 	return runtime.SemVer()
 }
 
-// Sync makes sure that local cache has all required dependencies for the
-// selected runtime
+// Sync pulls dependencies from the package/app service not available locally
 func (s *packSyncer) Sync(builder *Builder, runtimeVersion *semver.Version) error {
 	cacheApps, err := builder.Env.AppServiceLocal(localenv.AppConfig{})
 	if err != nil {
@@ -216,7 +215,7 @@ func (s *packSyncer) Sync(builder *Builder, runtimeVersion *semver.Version) erro
 		if utils.IsNetworkError(err) || trace.IsEOF(err) {
 			return trace.ConnectionProblem(err, "failed to download "+
 				"application dependencies from %v - please make sure the "+
-				"repository is reachable: %v", builder.Repository, err)
+				"repository is reachable: %v", s.repo, err)
 		}
 		return trace.Wrap(err)
 	}

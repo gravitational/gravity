@@ -386,11 +386,8 @@ func FindLatestCompatiblePackage(packages PackageService, filter loc.Locator, ve
 		return nil, trace.NotFound("latest compatible package for %v not found",
 			filter.String())
 	}
-	return &loc.Locator{
-		Repository: filter.Repository,
-		Name:       filter.Name,
-		Version:    latest.String(),
-	}, nil
+	loc := filter.WithVersion(latest)
+	return &loc, nil
 }
 
 // FindLatestPackage returns package with the latest possible version

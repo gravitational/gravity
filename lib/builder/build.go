@@ -42,7 +42,7 @@ func Build(ctx context.Context, builder *Builder) error {
 		builder.OutPath = fmt.Sprintf("%v-%v.tar", locator.Name, locator.Version)
 		if _, err := os.Stat(builder.OutPath); err == nil && !builder.Overwrite {
 			return trace.BadParameter("tarball %v already exists, please remove "+
-				"it first or provide '-f' flag to overwrite it", builder.OutPath)
+				"it first or provide '--force' flag to overwrite it", builder.OutPath)
 		}
 	}
 
@@ -70,7 +70,7 @@ func Build(ctx context.Context, builder *Builder) error {
 		return trace.Wrap(err)
 	}
 	defer os.RemoveAll(vendorDir)
-	stream, err := builder.Vendor(ctx, vendorDir, builder.Progress)
+	stream, err := builder.Vendor(ctx, vendorDir)
 	if err != nil {
 		return trace.Wrap(err)
 	}

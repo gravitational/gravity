@@ -42,7 +42,7 @@ type BuildParameters struct {
 	SkipVersionCheck bool
 	// Silent is whether builder should report progress to the console
 	Silent bool
-	// Insecure turns on insecury verify mode
+	// Insecure turns on insecure verify mode
 	Insecure bool
 }
 
