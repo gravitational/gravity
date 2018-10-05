@@ -50,6 +50,7 @@ func New(config Config) (*cleanup, error) {
 	return &cleanup{
 		Config:         config,
 		runtimeVersion: *baseVersion,
+		state:          make(map[loc.Locator]statePackage),
 	}, nil
 }
 
@@ -96,6 +97,7 @@ type Application struct {
 type packageService interface {
 	GetRepositories() ([]string, error)
 	GetPackages(respository string) ([]pack.PackageEnvelope, error)
+	ReadPackageEnvelope(loc.Locator) (*pack.PackageEnvelope, error)
 	DeletePackage(loc.Locator) error
 }
 
@@ -105,37 +107,27 @@ type packageService interface {
 // It will not remove packages from repositories other than the defaults.SystemAccountOrg
 // unless it can tell if a package is safe to remove.
 func (r *cleanup) Prune(context.Context) error {
-	repositories, err := r.Packages.GetRepositories()
-	if err != nil {
-		return trace.Wrap(err)
-	}
-
 	required, err := r.mark()
+	r.Infof("Required package list: %v.", required)
 	if err != nil {
 		return trace.Wrap(err)
 	}
 
-	for _, repository := range repositories {
-		envelopes, err := r.Packages.GetPackages(repository)
-		if err != nil {
-			return trace.Wrap(err)
+	err = r.build(required)
+	if err != nil {
+		return trace.Wrap(err)
+	}
+
+	for _, item := range r.state {
+		for _, dep := range item.dependencies {
+			err = r.deletePackage(dep)
+			if err != nil && !trace.IsNotFound(err) {
+				return trace.Wrap(err)
+			}
 		}
-		for _, envelope := range envelopes {
-			shouldDelete, err := r.shouldDeletePackage(envelope, required)
-			if err != nil {
-				return trace.Wrap(err)
-			}
-			if !shouldDelete {
-				continue
-			}
-			r.PrintStep("Deleting package %v.", envelope.Locator)
-			if r.DryRun {
-				continue
-			}
-			err = r.Packages.DeletePackage(envelope.Locator)
-			if err != nil {
-				return trace.Wrap(err)
-			}
+		err = r.deletePackage(item)
+		if err != nil && !trace.IsNotFound(err) {
+			return trace.Wrap(err)
 		}
 	}
 
@@ -162,66 +154,90 @@ func (r *cleanup) mark() (required packageMap, err error) {
 			return nil, trace.Wrap(err)
 		}
 		r.PrintStep("Mark package %v as required.", dependency)
-		required[dependency.ZeroVersion()] = requiredPackage{
-			Version: *semver,
-			Locator: dependency,
+		required[dependency.ZeroVersion()] = existingPackage{
+			Version:         *semver,
+			PackageEnvelope: pack.PackageEnvelope{Locator: dependency},
 		}
 	}
 	return required, nil
+}
+
+// build builds a tree of package dependencies to be able to remove
+// packages properly
+func (r *cleanup) build(required packageMap) error {
+	repositories, err := r.Packages.GetRepositories()
+	if err != nil {
+		return trace.Wrap(err)
+	}
+
+	for _, repository := range repositories {
+		envelopes, err := r.Packages.GetPackages(repository)
+		if err != nil {
+			return trace.Wrap(err)
+		}
+		for _, envelope := range envelopes {
+			version, err := envelope.Locator.SemVer()
+			if err != nil {
+				return trace.Wrap(err)
+			}
+			current := existingPackage{PackageEnvelope: envelope, Version: *version}
+
+			var items []statePackage
+			switch {
+			case isPlanetConfigPackage(envelope):
+				r.Infof("Check whether should prune planet configuration package %v.", envelope.Locator)
+				items, err = r.withDependencies(current, packageForConfig)
+			case isAppResourcesPackage(envelope):
+				r.Infof("Check whether should prune app resource package %v.", envelope.Locator)
+				items, err = r.withDependencies(current, packageForResources)
+			default:
+				items = append(items, statePackage{existingPackage: current})
+			}
+			if err != nil {
+				return trace.Wrap(err)
+			}
+
+			for _, item := range items {
+				deletePackage, err := r.shouldDeletePackage(item.existingPackage, required)
+				if err != nil {
+					return trace.Wrap(err)
+				}
+
+				if deletePackage {
+					r.Infof("Will delete package %v.", envelope.Locator)
+					r.state[item.Locator] = item
+				}
+			}
+		}
+	}
+	return nil
+}
+
+func (r *cleanup) deletePackage(item statePackage) error {
+	r.PrintStep("Deleting package %v.", item.Locator)
+	if r.DryRun {
+		return nil
+	}
+	err := r.Packages.DeletePackage(item.Locator)
+	if err != nil {
+		return trace.Wrap(err)
+	}
+	return nil
 }
 
 // shouldDeletePackage determines if the specified package pkg is eligible for removal.
 // It will match the package against the specified map of required packages.
 // It will also apply a couple of additional ad-hoc heuristics to decide if a package
 // should be deleted
-func (r *cleanup) shouldDeletePackage(envelope pack.PackageEnvelope, required packageMap) (delete bool, err error) {
-	log := r.WithField("package", envelope.Locator)
+func (r *cleanup) shouldDeletePackage(pkg existingPackage, required packageMap) (delete bool, err error) {
+	log := r.WithField("package", pkg.Locator)
 
-	version, err := envelope.Locator.SemVer()
-	if err != nil {
-		return false, trace.Wrap(err)
-	}
-
-	if isPlanetConfigPackage(envelope) {
-		runtimePackage, err := packageForConfig(envelope, required)
-		if err != nil && !trace.IsNotFound(err) {
-			return false, trace.Wrap(err)
-		}
-		if trace.IsNotFound(err) {
-			log.Warnf("Orphaned runtime configuration package %v.", envelope.Locator)
-			return false, nil
-		}
-		runtimeVersion, err := runtimePackage.Locator.SemVer()
-		if err != nil {
-			return false, trace.Wrap(err)
-		}
-		if version.Compare(*runtimeVersion) < 0 {
-			log.Debug("Will delete an obsolete runtime configuration package.")
-			return true, nil
-		}
-	}
-
-	if isAppResourcesPackage(envelope) {
-		appPackage, err := packageForResources(envelope, required)
-		if err != nil {
-			return false, trace.Wrap(err)
-		}
-		appVersion, err := appPackage.Locator.SemVer()
-		if err != nil {
-			return false, trace.Wrap(err)
-		}
-		if version.Compare(*appVersion) < 0 {
-			log.Debug("Will delete an obsolete application resources package.")
-			return true, nil
-		}
-	}
-
-	if loc.IsLegacyRuntimePackage(envelope.Locator) {
+	if isLegacyRuntimePackage(pkg.PackageEnvelope) {
 		log.Debug("Will delete a legacy runtime package.")
 		return true, nil
 	}
 
-	if isRPCUpdateCredentialsPackage(envelope) && version.Compare(r.runtimeVersion) < 0 {
+	if isRPCUpdateCredentialsPackage(pkg.PackageEnvelope) && pkg.Version.Compare(r.runtimeVersion) < 0 {
 		// Remove obsolete update RPC credentials used in prior update operations.
 		// All RPC packages with versions prior or equal to the currently
 		// installed runtime version are eligible for removal.
@@ -229,15 +245,15 @@ func (r *cleanup) shouldDeletePackage(envelope pack.PackageEnvelope, required pa
 		return true, nil
 	}
 
-	if existingVersion, exists := required[envelope.Locator.ZeroVersion()]; exists {
-		if existingVersion.Compare(*version) > 0 {
+	if existingVersion, exists := required[pkg.Locator.ZeroVersion()]; exists {
+		if existingVersion.Compare(pkg.Version) > 0 {
 			log.Debug("Will delete an obsolete package.")
 			return true, nil
 		}
 		log.Debug("Will not delete a package still in use.")
 	}
 
-	if envelope.Locator.Repository != defaults.SystemAccountOrg {
+	if pkg.Locator.Repository != defaults.SystemAccountOrg {
 		log.Debug("Will not delete from a custom repository.")
 		return false, nil
 	}
@@ -245,33 +261,92 @@ func (r *cleanup) shouldDeletePackage(envelope pack.PackageEnvelope, required pa
 	return false, nil
 }
 
-func packageForConfig(envelope pack.PackageEnvelope, packages packageMap) (*requiredPackage, error) {
-	parentPackageName := envelope.RuntimeLabels[pack.ConfigLabel]
-	parentPackageFilter, err := loc.ParseLocator(parentPackageName)
-	if err != nil {
-		return nil, trace.Wrap(err, "invalid package locator")
+func (r *cleanup) withDependencies(pkg existingPackage, depender dependerFunc) (items []statePackage, err error) {
+	dependerPackages, err := depender(pkg.PackageEnvelope, r.Packages)
+	r.Infof("Depender packages for %v: %v (%v).", pkg.Locator, dependerPackages, err)
+	if err != nil && !trace.IsNotFound(err) {
+		return nil, trace.Wrap(err)
 	}
-	for packageFilter, pkg := range packages {
-		if parentPackageFilter.IsEqualTo(packageFilter) {
-			return &pkg, nil
+	if trace.IsNotFound(err) {
+		r.Warnf("Orphaned package %v.", pkg.Locator)
+		return []statePackage{
+			statePackage{existingPackage: pkg},
+		}, nil
+	}
+
+	for _, dependerPackage := range dependerPackages {
+		dependerVersion, err := dependerPackage.Locator.SemVer()
+		r.Infof("Depender package version: %v (%v).", dependerVersion, err)
+		if err != nil {
+			return nil, trace.Wrap(err)
 		}
+
+		var parent statePackage
+		var exists bool
+		if parent, exists = r.state[dependerPackage.Locator]; !exists {
+			parent = statePackage{
+				existingPackage: existingPackage{
+					PackageEnvelope: dependerPackage,
+					Version:         *dependerVersion,
+				},
+			}
+		}
+		parent.dependencies = append(parent.dependencies, statePackage{existingPackage: pkg})
+		items = append(items, parent)
 	}
-	return nil, trace.NotFound("no package found for configuration package %v", envelope.Locator)
+	return items, nil
 }
 
-func packageForResources(envelope pack.PackageEnvelope, packages packageMap) (*requiredPackage, error) {
+type dependerFunc func(pack.PackageEnvelope, packageService) ([]pack.PackageEnvelope, error)
+
+func packageForConfig(envelope pack.PackageEnvelope, service packageService) ([]pack.PackageEnvelope, error) {
+	parentPackageRef := envelope.RuntimeLabels[pack.ConfigLabel]
+	parentPackageFilter, err := loc.ParseLocator(parentPackageRef)
+	if err != nil {
+		return nil, trace.Wrap(err)
+	}
+	parentPackage := loc.Locator{
+		Repository: parentPackageFilter.Repository,
+		Name:       parentPackageFilter.Name,
+		Version:    envelope.Locator.Version,
+	}
+
+	return dependerForPackage(envelope, service, parentPackage)
+}
+
+func packageForResources(envelope pack.PackageEnvelope, service packageService) ([]pack.PackageEnvelope, error) {
 	appPackageName := strings.TrimSuffix(envelope.Locator.Name, "-resources")
-	appPackageFilter := loc.Locator{
+	appPackage := loc.Locator{
 		Repository: envelope.Locator.Repository,
 		Name:       appPackageName,
-		Version:    loc.ZeroVersion,
+		Version:    envelope.Locator.Version,
 	}
-	for packageFilter, pkg := range packages {
-		if appPackageFilter.IsEqualTo(packageFilter) {
-			return &pkg, nil
+	return dependerForPackage(envelope, service, appPackage)
+}
+
+func dependerForPackage(envelope pack.PackageEnvelope, service packageService, depender loc.Locator) ([]pack.PackageEnvelope, error) {
+	dependerEnv, err := service.ReadPackageEnvelope(depender)
+	if err != nil {
+		if trace.IsNotFound(err) {
+			return nil, trace.NotFound("no depender package %v found for package %v",
+				depender, envelope.Locator)
+		}
+		return nil, trace.Wrap(err)
+	}
+	return []pack.PackageEnvelope{*dependerEnv}, nil
+}
+
+func getPackagesByFilter(service packageService, filter loc.Locator) (result []pack.PackageEnvelope, err error) {
+	envelopes, err := service.GetPackages(filter.Repository)
+	if err != nil {
+		return nil, trace.Wrap(err)
+	}
+	for _, env := range envelopes {
+		if env.Locator.Name == filter.Name {
+			result = append(result, env)
 		}
 	}
-	return nil, trace.NotFound("no package found for resources package %v", envelope.Locator)
+	return result, nil
 }
 
 func isAppResourcesPackage(envelope pack.PackageEnvelope) bool {
@@ -302,15 +377,21 @@ func isRPCUpdateCredentialsPackage(envelope pack.PackageEnvelope) bool {
 	return envelope.Locator.ZeroVersion().IsEqualTo(pattern)
 }
 
-type packageMap map[loc.Locator]requiredPackage
+type packageMap map[loc.Locator]existingPackage
 
-type requiredPackage struct {
+type existingPackage struct {
 	semver.Version
-	loc.Locator
+	pack.PackageEnvelope
 }
 
 type cleanup struct {
 	Config
+	state map[loc.Locator]statePackage
 	// runtimeVersion specifies the version of telekube
 	runtimeVersion semver.Version
+}
+
+type statePackage struct {
+	existingPackage
+	dependencies []statePackage
 }

@@ -30,6 +30,8 @@ import (
 	"github.com/gravitational/gravity/lib/storage"
 	"github.com/gravitational/gravity/lib/vacuum/prune"
 
+	"github.com/gravitational/trace"
+	log "github.com/sirupsen/logrus"
 	. "gopkg.in/check.v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
@@ -98,10 +100,11 @@ func (*S) TestPrunesOldDependencies(c *C) {
 	c.Assert(byLocator(allPackages), compare.SortedSliceEquals, byLocator(dependencies))
 }
 
-func (*S) TestPrunesOldAppResourcesPackages(c *C) {
+func (*S) TestPrunesOldAppResourcePackages(c *C) {
 	// setup
 	runtimePackage := newPackage("gravitational.io/planet:0.0.1", pack.PurposeLabel, pack.PurposeRuntime)
 	app := newAppPackage("gravitational.io/app:0.0.2", storage.AppUser)
+	oldApp := newAppPackage("gravitational.io/app:0.0.1", storage.AppUser)
 	appResources := newPackage("gravitational.io/app-resources:0.0.2")
 	runtimeApp := newAppPackage("gravitational.io/runtime:0.0.1", storage.AppRuntime)
 	oldAppResources := newPackage("gravitational.io/app-resources:0.0.1")
@@ -111,10 +114,11 @@ func (*S) TestPrunesOldAppResourcesPackages(c *C) {
 	}
 
 	a, dependencies := newApp(app, runtimeApp, runtimePackage, dependencies...)
-	allPackages := append(dependencies, appResources, oldAppResources)
+	allPackages := append(dependencies, appResources, oldApp, oldAppResources)
 
 	// exercise
 	p, err := New(Config{
+		Config:   prune.Config{FieldLogger: log.WithField("test", "TestPrunesOldAppResourcePackages")},
 		App:      a,
 		Packages: &allPackages,
 	})
@@ -125,7 +129,8 @@ func (*S) TestPrunesOldAppResourcesPackages(c *C) {
 
 	// verify
 	expected := append(dependencies, appResources)
-	c.Assert(byLocator(allPackages), compare.SortedSliceEquals, byLocator(expected))
+	c.Assert(byLocator(allPackages), compare.SortedSliceEquals, byLocator(expected),
+		Commentf("Should prune old application resource packages"))
 }
 
 func (*S) TestNoopIfDryRun(c *C) {
@@ -163,6 +168,7 @@ func (*S) TestNoopIfDryRun(c *C) {
 func (*S) TestPrunesOldPlanetConfiguration(c *C) {
 	// setup
 	runtimePackage := newPackage("gravitational.io/planet:0.0.3", pack.PurposeLabel, pack.PurposeRuntime)
+	oldRuntimePackage := newPackage("gravitational.io/planet:0.0.2", pack.PurposeLabel, pack.PurposeRuntime)
 	app := newAppPackage("gravitational.io/app:0.0.2", storage.AppUser)
 	runtimeApp := newAppPackage("gravitational.io/runtime:0.0.1", storage.AppRuntime)
 	planetConfig := newPackage("cluster/planet-config:0.0.3",
@@ -179,10 +185,13 @@ func (*S) TestPrunesOldPlanetConfiguration(c *C) {
 		pack.PurposeLabel, pack.PurposePlanetConfig,
 		pack.ConfigLabel, runtimePackage.Locator.ZeroVersion().String(),
 	)
-	allPackages := append(dependencies, planetConfig, oldPlanetConfig)
+	allPackages := append(dependencies, planetConfig, oldPlanetConfig, oldRuntimePackage)
 
 	// exercise
 	p, err := New(Config{
+		Config: prune.Config{
+			FieldLogger: log.WithField("test", "TestPrunesOldPlanetConfiguration"),
+		},
 		App:      a,
 		Packages: &allPackages,
 	})
@@ -193,7 +202,8 @@ func (*S) TestPrunesOldPlanetConfiguration(c *C) {
 
 	// verify
 	expected := append(dependencies, planetConfig)
-	c.Assert(byLocator(allPackages), compare.SortedSliceEquals, byLocator(expected))
+	c.Assert(byLocator(allPackages), compare.SortedSliceEquals, byLocator(expected),
+		Commentf("Should prune old planet configuration package"))
 }
 
 func (*S) TestPrunesOldPlanetPackages(c *C) {
@@ -212,6 +222,9 @@ func (*S) TestPrunesOldPlanetPackages(c *C) {
 
 	// exercise
 	p, err := New(Config{
+		Config: prune.Config{
+			FieldLogger: log.WithField("test", "TestPrunesOldPlanetPackages"),
+		},
 		App:      a,
 		Packages: &allPackages,
 	})
@@ -221,7 +234,8 @@ func (*S) TestPrunesOldPlanetPackages(c *C) {
 	c.Assert(err, IsNil)
 
 	// verify
-	c.Assert(byLocator(allPackages), compare.SortedSliceEquals, byLocator(dependencies))
+	c.Assert(byLocator(allPackages), compare.SortedSliceEquals, byLocator(dependencies),
+		Commentf("Should prune old planet packages"))
 }
 
 func (*S) TestPrunesOldUpdateRPCCredentials(c *C) {
@@ -409,6 +423,15 @@ func (r testPackages) GetPackages(repository string) (envelopes []pack.PackageEn
 		}
 	}
 	return envelopes, nil
+}
+
+func (r testPackages) ReadPackageEnvelope(loc loc.Locator) (*pack.PackageEnvelope, error) {
+	for _, envelope := range r {
+		if envelope.Locator.IsEqualTo(loc) {
+			return (*pack.PackageEnvelope)(&envelope), nil
+		}
+	}
+	return nil, trace.NotFound("no package %v found", loc)
 }
 
 func (r *testPackages) DeletePackage(loc loc.Locator) error {
