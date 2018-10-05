@@ -113,7 +113,7 @@ func (r *layerExporter) pushImage(image string) func() error {
 			r.Warnf("Failed to push %v: %v.", image, err)
 			return trace.Wrap(err)
 		}
-		r.progressReporter.PrintCurrentStep("Vendored image %v", image)
+		r.progressReporter.PrintSubStep("Vendored image %v", image)
 		if err = r.removeTagCmd(name, tag); err != nil {
 			return trace.Wrap(err)
 		}
@@ -206,12 +206,12 @@ func pullMissingRemoteImage(image string, puller docker.DockerPuller, log log.Fi
 		return trace.Wrap(err)
 	}
 	if !present {
-		progressReporter.PrintCurrentStep("Pulling remote image %v", image)
+		progressReporter.PrintSubStep("Pulling remote image %v", image)
 		if err = puller.Pull(image); err != nil {
 			return trace.Wrap(err)
 		}
 	} else {
-		progressReporter.PrintCurrentStep("Using local image %v", image)
+		progressReporter.PrintSubStep("Using local image %v", image)
 	}
 	return nil
 }

@@ -62,7 +62,7 @@ func parseManifestYAML(data []byte) (*Manifest, error) {
 	}
 	var manifest Manifest
 	if err := json.Unmarshal(bytes, &manifest); err != nil {
-		return nil, trace.Wrap(err, "failed to parse manifest")
+		return nil, trace.Wrap(err)
 	}
 	return &manifest, nil
 }
