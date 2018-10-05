@@ -20,7 +20,6 @@ import (
 	"context"
 	"fmt"
 	"os"
-	"path/filepath"
 
 	"github.com/gravitational/gravity/lib/constants"
 	"github.com/gravitational/gravity/lib/defaults"
@@ -491,7 +490,6 @@ func (s *site) launchAgent(ctx *operationContext, server storage.Server) (*serve
 		"--advertise-addr", server.AdvertiseIP,
 		"--server-addr", serverAddr,
 		"--token", tokenID,
-		"--system-log-file", filepath.Join(server.StateDir(), defaults.TelekubeSystemLog),
 		"--vars", fmt.Sprintf("%v:%v", ops.AgentMode, ops.AgentModeShrink),
 		"--service-uid", s.uid(),
 		"--service-gid", s.gid(),
