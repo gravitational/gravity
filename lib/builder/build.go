@@ -24,7 +24,6 @@ import (
 	"runtime"
 
 	"github.com/gravitational/gravity/lib/constants"
-	"github.com/gravitational/gravity/lib/utils"
 
 	docker "github.com/fsouza/go-dockerclient"
 	"github.com/gravitational/trace"
@@ -32,56 +31,65 @@ import (
 )
 
 // Build builds the standalone application installer using the provided builder
-func Build(ctx context.Context, builder *Builder, silent bool) error {
+func Build(ctx context.Context, builder *Builder) error {
 	err := checkBuildEnv()
 	if err != nil {
 		return trace.Wrap(err)
 	}
 
 	locator := builder.Locator()
-	progress := utils.NewProgress(ctx, fmt.Sprintf("Build %v:%v", locator.Name,
-		locator.Version), 5, silent)
-	defer progress.Stop()
+	if builder.OutPath == "" {
+		builder.OutPath = fmt.Sprintf("%v-%v.tar", locator.Name, locator.Version)
+		if _, err := os.Stat(builder.OutPath); err == nil && !builder.Overwrite {
+			return trace.BadParameter("tarball %v already exists, please remove "+
+				"it first or provide '--force' flag to overwrite it", builder.OutPath)
+		}
+	}
 
-	progress.NextStep("Downloading dependencies from %v", builder.Repository)
-	err = builder.SyncPackageCache()
+	builder.NextStep("Selecting application runtime")
+	runtimeVersion, err := builder.SelectRuntime()
 	if err != nil {
 		return trace.Wrap(err)
 	}
 
 	if !builder.SkipVersionCheck {
-		err := builder.checkVersion()
+		err := builder.checkVersion(runtimeVersion)
 		if err != nil {
 			return trace.Wrap(err)
 		}
 	}
 
-	progress.NextStep("Embedding Docker images")
+	err = builder.SyncPackageCache(runtimeVersion)
+	if err != nil {
+		return trace.Wrap(err)
+	}
+
+	builder.NextStep("Embedding application container images")
 	vendorDir, err := ioutil.TempDir("", "vendor")
 	if err != nil {
 		return trace.Wrap(err)
 	}
 	defer os.RemoveAll(vendorDir)
-	stream, err := builder.Vendor(ctx, vendorDir, progress)
+	stream, err := builder.Vendor(ctx, vendorDir)
 	if err != nil {
 		return trace.Wrap(err)
 	}
 	defer stream.Close()
 
-	progress.NextStep("Creating application")
+	builder.NextStep("Using runtime version %s", runtimeVersion)
 	application, err := builder.CreateApplication(stream)
 	if err != nil {
 		return trace.Wrap(err)
 	}
 
-	progress.NextStep("Generating installer tarball")
+	builder.NextStep("Generating the cluster snapshot")
 	installer, err := builder.GenerateInstaller(*application)
 	if err != nil {
 		return trace.Wrap(err)
 	}
 	defer installer.Close()
 
-	progress.NextStep("Writing installer tarball to disk")
+	builder.NextStep("Saving the snapshot as %v", builder.OutPath)
 	err = builder.WriteInstaller(installer)
 	if err != nil {
 		return trace.Wrap(err)

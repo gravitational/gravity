@@ -21,15 +21,15 @@ import (
 
 	"github.com/gravitational/gravity/lib/app/service"
 	"github.com/gravitational/gravity/lib/builder"
-	"github.com/gravitational/gravity/lib/localenv"
+	"github.com/gravitational/gravity/lib/utils"
 
 	"github.com/gravitational/trace"
 )
 
 // BuildParameters represents the arguments provided for building an application
 type BuildParameters struct {
-	// BuildEnv is the local environment used to build the application
-	BuildEnv *localenv.LocalEnvironment
+	// StateDir is build state directory, if was specified
+	StateDir string
 	// ManifestPath holds the path to the application manifest
 	ManifestPath string
 	// OutPath holds the path to the installer tarball to be output
@@ -40,22 +40,29 @@ type BuildParameters struct {
 	Repository string
 	// SkipVersionCheck indicates whether or not to perform the version check of the tele binary with the application's runtime at build time
 	SkipVersionCheck bool
+	// Silent is whether builder should report progress to the console
+	Silent bool
+	// Insecure turns on insecure verify mode
+	Insecure bool
 }
 
 // build builds an installer tarball according to the provided parameters
-func build(params BuildParameters, req service.VendorRequest, silent bool) error {
+func build(ctx context.Context, params BuildParameters, req service.VendorRequest) (err error) {
 	installerBuilder, err := builder.New(builder.Config{
-		Env:              params.BuildEnv,
+		Context:          ctx,
+		StateDir:         params.StateDir,
+		Insecure:         params.Insecure,
 		ManifestPath:     params.ManifestPath,
 		OutPath:          params.OutPath,
 		Overwrite:        params.Overwrite,
 		Repository:       params.Repository,
 		SkipVersionCheck: params.SkipVersionCheck,
 		VendorReq:        req,
+		Progress:         utils.NewProgress(ctx, "Build", 6, params.Silent),
 	})
 	if err != nil {
 		return trace.Wrap(err)
 	}
 	defer installerBuilder.Close()
-	return builder.Build(context.TODO(), installerBuilder, silent)
+	return builder.Build(ctx, installerBuilder)
 }

@@ -48,9 +48,11 @@ import (
 
 	"github.com/gravitational/roundtrip"
 	"github.com/gravitational/trace"
-	log "github.com/sirupsen/logrus"
+	"github.com/sirupsen/logrus"
 	"k8s.io/client-go/kubernetes"
 )
+
+var log = logrus.WithField(trace.Component, "local")
 
 // LocalEnvironmentArgs holds configuration values for opening or creating a LocalEnvironment
 type LocalEnvironmentArgs struct {
@@ -225,12 +227,12 @@ func (env *LocalEnvironment) GetLoginEntry(opsCenterURL string) (*users.LoginEnt
 	if err == nil {
 		entry, err := keys.GetLoginEntry(parsedOpsCenterURL)
 		if err == nil {
-			log.Debugf("found login entry for %v @ %v", entry.Email, opsCenterURL)
+			log.Debugf("Found login entry for %v @ %v.", entry.Email, opsCenterURL)
 			return entry, nil
 		}
 		entry, err = keys.GetLoginEntry(opsCenterURL)
 		if err == nil {
-			log.Debugf("found login entry for %v @ %v", entry.Email, opsCenterURL)
+			log.Debugf("Found login entry for %v @ %v.", entry.Email, opsCenterURL)
 			return entry, nil
 		}
 	}
@@ -419,7 +421,7 @@ func (env *LocalEnvironment) CurrentUser() string {
 	login, err := env.CurrentLogin()
 	if err != nil {
 		if !trace.IsNotFound(err) {
-			log.Errorf("failed to get current login entry: %v",
+			log.Errorf("Failed to get current login entry: %v.",
 				trace.DebugReport(err))
 		}
 		return ""

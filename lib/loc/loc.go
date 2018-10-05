@@ -159,6 +159,15 @@ func (l Locator) String() string {
 	return fmt.Sprintf("%v/%v:%v", l.Repository, l.Name, l.Version)
 }
 
+// WithVersion returns a copy of this locator with version set to the specified one
+func (l Locator) WithVersion(version *semver.Version) Locator {
+	return Locator{
+		Repository: l.Repository,
+		Name:       l.Name,
+		Version:    version.String(),
+	}
+}
+
 func ParseLocator(v string) (*Locator, error) {
 	parts := strings.Split(v, "/")
 	if len(parts) != 2 || parts[0] == "" || parts[1] == "" {

@@ -51,7 +51,7 @@ func (s *HubSuite) SetUpSuite(c *check.C) {
 }
 
 func (s *HubSuite) TestList(c *check.C) {
-	apps, err := s.hub.List()
+	apps, err := s.hub.List(true)
 	c.Assert(err, check.IsNil)
 	c.Assert(apps, check.DeepEquals, []App{toHubApp(app1), toHubApp(app2)})
 }
