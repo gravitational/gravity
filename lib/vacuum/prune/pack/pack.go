@@ -142,12 +142,20 @@ func (r *cleanup) mark() (required packageMap, err error) {
 	dependencies := append(r.App.Manifest.AllPackageDependencies(),
 		r.App.Manifest.Dependencies.GetApps()...)
 	dependencies = append(dependencies, r.App.Locator)
+	if base := r.App.Manifest.Base(); base != nil {
+		dependencies = append(dependencies, *base)
+	}
+
 	required = make(packageMap)
 	for _, app := range r.Apps {
 		dependencies = append(dependencies, app.Manifest.AllPackageDependencies()...)
 		dependencies = append(dependencies, app.Manifest.Dependencies.GetApps()...)
 		dependencies = append(dependencies, app.Locator)
+		if base := app.Manifest.Base(); base != nil {
+			dependencies = append(dependencies, *base)
+		}
 	}
+
 	for _, dependency := range dependencies {
 		semver, err := dependency.SemVer()
 		if err != nil {
@@ -159,6 +167,7 @@ func (r *cleanup) mark() (required packageMap, err error) {
 			PackageEnvelope: pack.PackageEnvelope{Locator: dependency},
 		}
 	}
+
 	return required, nil
 }
 
@@ -185,10 +194,8 @@ func (r *cleanup) build(required packageMap) error {
 			var items []statePackage
 			switch {
 			case isPlanetConfigPackage(envelope):
-				r.Infof("Check whether should prune planet configuration package %v.", envelope.Locator)
 				items, err = r.withDependencies(current, packageForConfig)
 			case isAppResourcesPackage(envelope):
-				r.Infof("Check whether should prune app resource package %v.", envelope.Locator)
 				items, err = r.withDependencies(current, packageForResources)
 			default:
 				items = append(items, statePackage{existingPackage: current})
@@ -204,7 +211,6 @@ func (r *cleanup) build(required packageMap) error {
 				}
 
 				if deletePackage {
-					r.Infof("Will delete package %v.", envelope.Locator)
 					r.state[item.Locator] = item
 				}
 			}
@@ -263,7 +269,6 @@ func (r *cleanup) shouldDeletePackage(pkg existingPackage, required packageMap) 
 
 func (r *cleanup) withDependencies(pkg existingPackage, depender dependerFunc) (items []statePackage, err error) {
 	dependerPackages, err := depender(pkg.PackageEnvelope, r.Packages)
-	r.Infof("Depender packages for %v: %v (%v).", pkg.Locator, dependerPackages, err)
 	if err != nil && !trace.IsNotFound(err) {
 		return nil, trace.Wrap(err)
 	}
@@ -276,7 +281,6 @@ func (r *cleanup) withDependencies(pkg existingPackage, depender dependerFunc) (
 
 	for _, dependerPackage := range dependerPackages {
 		dependerVersion, err := dependerPackage.Locator.SemVer()
-		r.Infof("Depender package version: %v (%v).", dependerVersion, err)
 		if err != nil {
 			return nil, trace.Wrap(err)
 		}
@@ -387,7 +391,7 @@ type existingPackage struct {
 type cleanup struct {
 	Config
 	state map[loc.Locator]statePackage
-	// runtimeVersion specifies the version of telekube
+	// runtimeVersion specifies the version of gravity
 	runtimeVersion semver.Version
 }
 
