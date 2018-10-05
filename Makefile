@@ -678,6 +678,10 @@ get-tag:
 docs:
 	$(MAKE) -C docs
 
+.PHONY: run-docs
+run-docs:
+	$(MAKE) -C docs run
+
 # Dump current full k8s app tag
 .PHONY: get-k8s-tag
 get-k8s-tag:
