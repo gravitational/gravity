@@ -50,7 +50,6 @@ func New(config Config) (*cleanup, error) {
 	return &cleanup{
 		Config:         config,
 		runtimeVersion: *baseVersion,
-		state:          make(map[loc.Locator]statePackage),
 	}, nil
 }
 
@@ -101,24 +100,23 @@ type packageService interface {
 	DeletePackage(loc.Locator) error
 }
 
-// Prune removes unused packages from the conigured package service.
+// Prune removes unused packages from the configured package service.
 // It uses the direct application dependencies to determine the set of packages
 // that are still required, and sweeps the rest.
 // It will not remove packages from repositories other than the defaults.SystemAccountOrg
 // unless it can tell if a package is safe to remove.
 func (r *cleanup) Prune(context.Context) error {
 	required, err := r.mark()
-	r.Infof("Required package list: %v.", required)
 	if err != nil {
 		return trace.Wrap(err)
 	}
 
-	err = r.build(required)
+	state, err := r.build(required)
 	if err != nil {
 		return trace.Wrap(err)
 	}
 
-	for _, item := range r.state {
+	for _, item := range state {
 		for _, dep := range item.dependencies {
 			err = r.deletePackage(dep)
 			if err != nil && !trace.IsNotFound(err) {
@@ -171,52 +169,53 @@ func (r *cleanup) mark() (required packageMap, err error) {
 	return required, nil
 }
 
-// build builds a tree of package dependencies to be able to remove
-// packages properly
-func (r *cleanup) build(required packageMap) error {
+// build builds a package tree to be able to track package dependencies
+// and prune packages in proper order
+func (r *cleanup) build(required packageMap) (state map[loc.Locator]statePackage, err error) {
+	state = make(map[loc.Locator]statePackage)
 	repositories, err := r.Packages.GetRepositories()
 	if err != nil {
-		return trace.Wrap(err)
+		return nil, trace.Wrap(err)
 	}
 
 	for _, repository := range repositories {
 		envelopes, err := r.Packages.GetPackages(repository)
 		if err != nil {
-			return trace.Wrap(err)
+			return nil, trace.Wrap(err)
 		}
 		for _, envelope := range envelopes {
 			version, err := envelope.Locator.SemVer()
 			if err != nil {
-				return trace.Wrap(err)
+				return nil, trace.Wrap(err)
 			}
 			current := existingPackage{PackageEnvelope: envelope, Version: *version}
 
 			var items []statePackage
 			switch {
 			case isPlanetConfigPackage(envelope):
-				items, err = r.withDependencies(current, packageForConfig)
+				items, err = r.withDependencies(current, packageForConfig, state)
 			case isAppResourcesPackage(envelope):
-				items, err = r.withDependencies(current, packageForResources)
+				items, err = r.withDependencies(current, packageForResources, state)
 			default:
 				items = append(items, statePackage{existingPackage: current})
 			}
 			if err != nil {
-				return trace.Wrap(err)
+				return nil, trace.Wrap(err)
 			}
 
 			for _, item := range items {
 				deletePackage, err := r.shouldDeletePackage(item.existingPackage, required)
 				if err != nil {
-					return trace.Wrap(err)
+					return nil, trace.Wrap(err)
 				}
 
 				if deletePackage {
-					r.state[item.Locator] = item
+					state[item.Locator] = item
 				}
 			}
 		}
 	}
-	return nil
+	return state, nil
 }
 
 func (r *cleanup) deletePackage(item statePackage) error {
@@ -267,7 +266,9 @@ func (r *cleanup) shouldDeletePackage(pkg existingPackage, required packageMap) 
 	return false, nil
 }
 
-func (r *cleanup) withDependencies(pkg existingPackage, depender dependerFunc) (items []statePackage, err error) {
+// withDependencies computes depender packages for the specified package pkg using
+// the specified depender search algorithm and the existing package state
+func (r *cleanup) withDependencies(pkg existingPackage, depender dependerFunc, state map[loc.Locator]statePackage) (items []statePackage, err error) {
 	dependerPackages, err := depender(pkg.PackageEnvelope, r.Packages)
 	if err != nil && !trace.IsNotFound(err) {
 		return nil, trace.Wrap(err)
@@ -287,7 +288,7 @@ func (r *cleanup) withDependencies(pkg existingPackage, depender dependerFunc) (
 
 		var parent statePackage
 		var exists bool
-		if parent, exists = r.state[dependerPackage.Locator]; !exists {
+		if parent, exists = state[dependerPackage.Locator]; !exists {
 			parent = statePackage{
 				existingPackage: existingPackage{
 					PackageEnvelope: dependerPackage,
@@ -301,6 +302,7 @@ func (r *cleanup) withDependencies(pkg existingPackage, depender dependerFunc) (
 	return items, nil
 }
 
+// dependerFunc computes a depender package for specified package
 type dependerFunc func(pack.PackageEnvelope, packageService) ([]pack.PackageEnvelope, error)
 
 func packageForConfig(envelope pack.PackageEnvelope, service packageService) ([]pack.PackageEnvelope, error) {
@@ -390,7 +392,6 @@ type existingPackage struct {
 
 type cleanup struct {
 	Config
-	state map[loc.Locator]statePackage
 	// runtimeVersion specifies the version of gravity
 	runtimeVersion semver.Version
 }
