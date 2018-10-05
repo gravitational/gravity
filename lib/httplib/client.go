@@ -279,7 +279,7 @@ func DialWithServiceResolver(ctx context.Context, network, addr string) (conn ne
 
 	client, err := utils.GetKubeClientFromPath(kubeconfigPath)
 	if err != nil {
-		return nil, trace.Wrap(err)
+		return nil, trace.Wrap(err, "failed to create kubernetes client from %v", kubeconfigPath)
 	}
 
 	service, err := client.Core().Services(namespace).Get(serviceName, metav1.GetOptions{})

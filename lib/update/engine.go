@@ -117,17 +117,20 @@ func (f *fsmUpdateEngine) Complete(fsmErr error) error {
 		return trace.Wrap(err)
 	}
 
+	if !completed {
+		return nil
+	}
+
 	cluster, err := f.Backend.GetLocalSite(defaults.SystemAccountID)
 	if err != nil {
 		return trace.Wrap(err)
 	}
 
-	if completed {
-		err = f.commitClusterChanges(cluster, *op)
-		if err != nil {
-			return trace.Wrap(err)
-		}
+	err = f.commitClusterChanges(cluster, *op)
+	if err != nil {
+		return trace.Wrap(err)
 	}
+
 	err = f.activateCluster(*cluster)
 	return trace.Wrap(err)
 }

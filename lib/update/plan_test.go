@@ -65,7 +65,7 @@ func (s *PlanSuite) TestPlanWithRuntimeUpdate(c *check.C) {
 	init := *builder.init(appLoc1, appLoc2)
 	checks := *builder.checks(appLoc1, appLoc2).Require(init)
 	preUpdate := *builder.preUpdate(appLoc2).Require(init)
-	bootstrap := *builder.bootstrap(params.servers, appLoc2).Require(init)
+	bootstrap := *builder.bootstrap(params.servers, appLoc1, appLoc2).Require(init)
 	leadMaster := params.servers[0]
 	masters := *builder.masters(leadMaster, params.servers[1:2], false, appLoc2).Require(checks, bootstrap, preUpdate)
 	nodes := *builder.nodes(leadMaster, params.servers[2:], false, appLoc2).Require(masters)

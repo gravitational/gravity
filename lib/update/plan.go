@@ -263,7 +263,8 @@ func newOperationPlan(p newPlanParams) (*storage.OperationPlan, error) {
 	initPhase := *builder.init(p.installedApp.Package, p.updateApp.Package)
 	checksPhase := *builder.checks(p.installedApp.Package, p.updateApp.Package).Require(initPhase)
 	preUpdatePhase := *builder.preUpdate(p.updateApp.Package).Require(initPhase)
-	bootstrapPhase := *builder.bootstrap(p.servers, p.updateApp.Package).Require(initPhase)
+	bootstrapPhase := *builder.bootstrap(p.servers,
+		p.installedApp.Package, p.updateApp.Package).Require(initPhase)
 
 	var masters, nodes []storage.Server
 	for _, server := range p.servers {

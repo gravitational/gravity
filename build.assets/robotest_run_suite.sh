@@ -4,7 +4,8 @@ set -eu -o pipefail
 readonly UPGRADE_FROM_DIR=${1:-$(pwd)/../upgrade_from}
 
 declare -A UPGRADE_FROM
-UPGRADE_FROM[4.56.0]="redhat:7.4 ubuntu:latest"
+# gravity version -> list of OS releases to exercise on
+UPGRADE_FROM[5.0.24]="redhat:7.4 ubuntu:latest"
 
 readonly GET_GRAVITATIONAL_IO_APIKEY=${GET_GRAVITATIONAL_IO_APIKEY:?API key for distribution Ops Center required}
 readonly GRAVITY_BUILDDIR=${GRAVITY_BUILDDIR:?Set GRAVITY_BUILDDIR to the build directory}
@@ -62,6 +63,7 @@ function build_upgrade_suite {
       suite+=' '
     done
     suite+=$(build_devicemapper_upgrade_step 'redhat:7.4' $release)
+    suite+=' '
   done
   echo $suite
 }

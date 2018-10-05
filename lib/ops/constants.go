@@ -228,11 +228,13 @@ var (
 	}
 
 	// OperationFailedToClusterState defines states the cluster transitions
-	// into when a certain operation fails
+	// into when a certain operation fails.
+	// If an state transition for a specific operation is missing, the cluster
+	// state is left unchanged
 	OperationFailedToClusterState = map[string]string{
 		OperationInstall:        SiteStateFailed,
 		OperationExpand:         SiteStateActive,
-		OperationUpdate:         SiteStateActive,
+		OperationUpdate:         SiteStateUpdating,
 		OperationShrink:         SiteStateActive,
 		OperationUninstall:      SiteStateFailed,
 		OperationGarbageCollect: SiteStateActive,

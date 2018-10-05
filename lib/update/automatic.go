@@ -43,16 +43,17 @@ func AutomaticUpgrade(ctx context.Context, localEnv, updateEnv *localenv.LocalEn
 	runner := fsm.NewAgentRunner(creds)
 
 	config := FSMConfig{
-		Backend:          clusterEnv.Backend,
-		LocalBackend:     updateEnv.Backend,
-		HostLocalBackend: localEnv.Backend,
-		Packages:         clusterEnv.Packages,
-		ClusterPackages:  clusterEnv.ClusterPackages,
-		Apps:             clusterEnv.Apps,
-		Client:           clusterEnv.Client,
-		Operator:         clusterEnv.Operator,
-		Users:            clusterEnv.Users,
-		Remote:           runner,
+		Backend:           clusterEnv.Backend,
+		LocalBackend:      updateEnv.Backend,
+		HostLocalBackend:  localEnv.Backend,
+		HostLocalPackages: localEnv.Packages,
+		Packages:          clusterEnv.Packages,
+		ClusterPackages:   clusterEnv.ClusterPackages,
+		Apps:              clusterEnv.Apps,
+		Client:            clusterEnv.Client,
+		Operator:          clusterEnv.Operator,
+		Users:             clusterEnv.Users,
+		Remote:            runner,
 	}
 
 	fsm, err := NewFSM(ctx, config)
@@ -67,7 +68,8 @@ func AutomaticUpgrade(ctx context.Context, localEnv, updateEnv *localenv.LocalEn
 	force := false
 	fsmErr := fsm.ExecutePlan(ctx, progress, force)
 	if fsmErr != nil {
-		return trace.Wrap(err)
+		log.Warnf("Failed to execute plan: %v.", fsmErr)
+		// fallthrough
 	}
 
 	err = fsm.Complete(fsmErr)
@@ -75,8 +77,13 @@ func AutomaticUpgrade(ctx context.Context, localEnv, updateEnv *localenv.LocalEn
 		return trace.Wrap(err)
 	}
 
-	err = ShutdownClusterAgents(ctx, runner)
-	return trace.Wrap(err)
+	if fsmErr == nil {
+		err = ShutdownClusterAgents(ctx, runner)
+		if err != nil {
+			return trace.Wrap(err)
+		}
+	}
+	return trace.Wrap(fsmErr)
 }
 
 // ShutdownClusterAgents fetches all nodes in a cluster

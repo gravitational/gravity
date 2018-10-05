@@ -212,7 +212,7 @@ func (r *cleanup) shouldDeletePackage(envelope pack.PackageEnvelope, required pa
 		}
 	}
 
-	if isLegacyRuntimePackage(envelope) {
+	if loc.IsLegacyRuntimePackage(envelope.Locator) {
 		log.Debug("Will delete a legacy runtime package.")
 		return true, nil
 	}
@@ -272,19 +272,6 @@ func packageForResources(envelope pack.PackageEnvelope, packages packageMap) (*r
 
 func isAppResourcesPackage(envelope pack.PackageEnvelope) bool {
 	return strings.HasSuffix(envelope.Locator.Name, "-resources")
-}
-
-func isLegacyRuntimePackage(envelope pack.PackageEnvelope) bool {
-	if envelope.Locator.Repository != loc.LegacyPlanetMaster.Repository {
-		// Skip runtime package with a non-standard repository
-		return false
-	}
-	switch envelope.Locator.Name {
-	case loc.LegacyPlanetMaster.Name, loc.LegacyPlanetNode.Name:
-		return true
-	default:
-		return false
-	}
 }
 
 func isPlanetConfigPackage(envelope pack.PackageEnvelope) bool {

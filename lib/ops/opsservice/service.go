@@ -817,13 +817,13 @@ func (o *Operator) DeleteSiteOperation(key ops.SiteOperationKey) (err error) {
 	}
 
 	err = o.backend().DeleteSiteOperation(key.SiteDomain, key.OperationID)
-	// restore site state to "active"
+	// restore cluster state to "active"
 	if errState := cluster.setSiteState(ops.SiteStateActive); errState != nil {
 		log.Warnf("Failed to set cluster %v state to %q: %v.", cluster, ops.SiteStateActive, errState)
 	}
 
-	if cluster.agentService() != nil {
-		if err := cluster.agentService().StopAgents(context.TODO(), key); err != nil && !trace.IsNotFound(err) {
+	if o.cfg.Agents != nil {
+		if err := o.cfg.Agents.StopAgents(context.TODO(), key); err != nil && !trace.IsNotFound(err) {
 			log.Warnf("Failed to clean up agents for %v: %v.", key, trace.UserMessage(err))
 		}
 	}
