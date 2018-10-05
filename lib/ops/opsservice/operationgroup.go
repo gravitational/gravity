@@ -121,6 +121,13 @@ func (g *operationGroup) canCreateOperation(operation ops.SiteOperation) error {
 		default:
 			return trace.CompareFailed("the cluster is %v", cluster.State)
 		}
+	case ops.OperationGarbageCollect:
+		// garbage collection is allowed for degraded clusters (to be able to free space)
+		switch cluster.State {
+		case ops.SiteStateActive, ops.SiteStateDegraded:
+		default:
+			return trace.CompareFailed("the cluster is %v", cluster.State)
+		}
 	default:
 		// other operation can be performed by active clusters only
 		switch cluster.State {

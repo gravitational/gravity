@@ -184,8 +184,12 @@ func (r *cleanup) shouldDeletePackage(envelope pack.PackageEnvelope, required pa
 
 	if isPlanetConfigPackage(envelope) {
 		runtimePackage, err := packageForConfig(envelope, required)
-		if err != nil {
+		if err != nil && !trace.IsNotFound(err) {
 			return false, trace.Wrap(err)
+		}
+		if trace.IsNotFound(err) {
+			log.Warnf("Orphaned runtime configuration package %v.", envelope.Locator)
+			return false, nil
 		}
 		runtimeVersion, err := runtimePackage.Locator.SemVer()
 		if err != nil {
