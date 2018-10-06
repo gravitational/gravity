@@ -1,7 +1,7 @@
 // +build !linux
 
 /*
-Copyright 2017 Gravitational, Inc.
+Copyright 2017-2018 Gravitational, Inc.
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -18,7 +18,12 @@ limitations under the License.
 
 package monitoring
 
-import "github.com/gravitational/satellite/agent/health"
+import (
+	"fmt"
+
+	humanize "github.com/dustin/go-humanize"
+	"github.com/gravitational/satellite/agent/health"
+)
 
 // DefaultPortChecker returns a port range checker with a default set of port ranges
 // Only implemented on Linux.
@@ -83,4 +88,33 @@ type StorageConfig struct {
 	Filesystems []string
 	// MinFreeBytes define minimum free volume capacity
 	MinFreeBytes uint64
+	// HighWatermark is the disk occupancy percentage that is considered degrading
+	HighWatermark uint
 }
+
+// HighWatermarkCheckerData is attached to high watermark check results
+type HighWatermarkCheckerData struct {
+	// HighWatermark is the watermark percentage value
+	HighWatermark uint `json:"high_watermark"`
+	// Path is the absolute path to check
+	Path string `json:"path"`
+	// TotalBytes is the total disk capacity
+	TotalBytes uint64 `json:"total_bytes"`
+	// AvailableBytes is the available disk capacity
+	AvailableBytes uint64 `json:"available_bytes"`
+}
+
+// FailureMessage returns failure watermark check message
+func (d HighWatermarkCheckerData) FailureMessage() string {
+	return fmt.Sprintf("disk utilization on %s exceeds %v percent (%s is available out of %s), see https://gravitational.com/telekube/docs/cluster/#garbage-collection",
+		d.Path, d.HighWatermark, humanize.Bytes(d.AvailableBytes), humanize.Bytes(d.TotalBytes))
+}
+
+// SuccessMessage returns success watermark check message
+func (d HighWatermarkCheckerData) SuccessMessage() string {
+	return fmt.Sprintf("disk utilization on %s is below %v percent (%s is available out of %s)",
+		d.Path, d.HighWatermark, humanize.Bytes(d.AvailableBytes), humanize.Bytes(d.TotalBytes))
+}
+
+// DiskSpaceCheckerID is the checker that checks disk space utilization
+const DiskSpaceCheckerID = "disk-space"

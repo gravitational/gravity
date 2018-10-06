@@ -532,6 +532,7 @@
   version = "0.0.2"
 
 [[projects]]
+  branch = "roman/fixmac"
   name = "github.com/gravitational/satellite"
   packages = [
     "agent/health",
@@ -540,8 +541,7 @@
     "monitoring",
     "utils"
   ]
-  revision = "682472121b75f6fb0b3aeafdfe8fe34e0842ae8c"
-  version = "5.2.6"
+  revision = "1ad2b16eccd692d35c2f36bf0625e02b4b5b8f21"
 
 [[projects]]
   name = "github.com/gravitational/tail"
@@ -1497,6 +1497,6 @@
 [solve-meta]
   analyzer-name = "dep"
   analyzer-version = 1
-  inputs-digest = "e9b507bfd71c880018e6c3f883b23fc4d36fbd107274c87c67fa1065f9da944d"
+  inputs-digest = "2e5625fed2887132729e8a55d445375626b3ba7059a6de73bf47cc6a2fd6e2af"
   solver-name = "gps-cdcl"
   solver-version = 1
