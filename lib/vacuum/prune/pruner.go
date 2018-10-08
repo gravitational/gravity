@@ -35,7 +35,7 @@ func (r Config) PrintStep(format string, args ...interface{}) {
 	if r.DryRun {
 		format = "[dry-run] " + format
 	}
-	r.Emitter.PrintStep(format, args...)
+	_, _ = r.Emitter.PrintStep(format, args...)
 }
 
 // Config is the common pruner configuration

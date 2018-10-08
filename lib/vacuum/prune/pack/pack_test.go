@@ -375,6 +375,30 @@ func (*S) TestPrunesOldRuntimeAppPackage(c *C) {
 	c.Assert(byLocator(allPackages), compare.SortedSliceEquals, byLocator(dependencies))
 }
 
+func (*S) TestDoesnotPruneUnrelatedPackages(c *C) {
+	// setup
+	runtimePackage := newPackage("gravitational.io/planet:0.0.1", pack.PurposeLabel, pack.PurposeRuntime)
+	app := newAppPackage("gravitational.io/app:0.0.1", storage.AppUser)
+	runtimeApp := newAppPackage("gravitational.io/runtime:0.0.1", storage.AppRuntime)
+	anotherApp := newAppPackage("gravitational.io/app2:0.0.2", storage.AppUser)
+	a, dependencies := newApp(app, runtimeApp, runtimePackage)
+	allPackages := append(testPackages(dependencies), anotherApp)
+
+	// exercise
+	p, err := New(Config{
+		App:      a,
+		Packages: &allPackages,
+	})
+	c.Assert(err, IsNil)
+
+	err = p.Prune(context.TODO())
+	c.Assert(err, IsNil)
+
+	// verify
+	expected := append(dependencies, anotherApp)
+	c.Assert(byLocator(allPackages), compare.SortedSliceEquals, byLocator(expected))
+}
+
 func newApp(app, runtimeApp, runtimePackage packageEnvelope, dependencies ...packageEnvelope) (*Application, []packageEnvelope) {
 	m := schema.Manifest{
 		Header: schema.Header{
@@ -503,8 +527,6 @@ func (emitter) PrintStep(format string, args ...interface{}) (int, error) {
 }
 
 type emitter struct{}
-
-type labels map[string]string
 
 func (r byLocator) GoString() string {
 	var result []string

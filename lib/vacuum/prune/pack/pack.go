@@ -237,7 +237,7 @@ func (r *cleanup) deletePackage(item statePackage) error {
 func (r *cleanup) shouldDeletePackage(pkg existingPackage, required packageMap) (delete bool, err error) {
 	log := r.WithField("package", pkg.Locator)
 
-	if isLegacyRuntimePackage(pkg.PackageEnvelope) {
+	if loc.IsLegacyRuntimePackage(pkg.PackageEnvelope.Locator) {
 		log.Debug("Will delete a legacy runtime package.")
 		return true, nil
 	}
@@ -302,7 +302,12 @@ func (r *cleanup) withDependencies(pkg existingPackage, depender dependerFunc, s
 	return items, nil
 }
 
-// dependerFunc computes a depender package for specified package
+// dependerFunc computes a depender package for specified package.
+//
+// Pruner will remove dependee packages before depender packages.
+//
+// For example, the application resource package is considered a dependee
+// for the related application package.
 type dependerFunc func(pack.PackageEnvelope, packageService) ([]pack.PackageEnvelope, error)
 
 func packageForConfig(envelope pack.PackageEnvelope, service packageService) ([]pack.PackageEnvelope, error) {
@@ -340,19 +345,6 @@ func dependerForPackage(envelope pack.PackageEnvelope, service packageService, d
 		return nil, trace.Wrap(err)
 	}
 	return []pack.PackageEnvelope{*dependerEnv}, nil
-}
-
-func getPackagesByFilter(service packageService, filter loc.Locator) (result []pack.PackageEnvelope, err error) {
-	envelopes, err := service.GetPackages(filter.Repository)
-	if err != nil {
-		return nil, trace.Wrap(err)
-	}
-	for _, env := range envelopes {
-		if env.Locator.Name == filter.Name {
-			result = append(result, env)
-		}
-	}
-	return result, nil
 }
 
 func isAppResourcesPackage(envelope pack.PackageEnvelope) bool {
