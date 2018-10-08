@@ -20,8 +20,10 @@ import (
 	"encoding/json"
 	"io"
 
-	"github.com/gravitational/trace"
+	"github.com/gravitational/gravity/lib/utils"
 
+	"github.com/gravitational/trace"
+	log "github.com/sirupsen/logrus"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	serializer "k8s.io/apimachinery/pkg/runtime/serializer/json"
@@ -30,12 +32,19 @@ import (
 )
 
 // Decode decodes kubernetes resources from the specified io.Reader
-func Decode(r io.Reader) (resource *Resource, err error) {
+func Decode(r io.Reader, options ...DecodeOption) (resource *Resource, err error) {
 	decoder, _, encoding := newCodec(r)
 	var objects []runtime.Object
 L:
 	for {
 		object, err := decoder.Decode()
+		for _, option := range options {
+			err := option(object, err)
+			if utils.IsContinueError(err) {
+				log.Warn(err)
+				continue L
+			}
+		}
 		if err != nil {
 			if trace.Unwrap(err) == io.EOF {
 				break L
@@ -45,6 +54,23 @@ L:
 		objects = append(objects, object)
 	}
 	return &Resource{Objects: objects, encoding: encoding}, nil
+}
+
+// DecodeOption is a functional argument for decoding
+type DecodeOption func(runtime.Object, error) error
+
+// SkipUnrecognized returns "continue" error is decoding failed with
+// unrecognized object error
+func SkipUnrecognized() DecodeOption {
+	return func(o runtime.Object, err error) error {
+		if err == nil {
+			return nil
+		}
+		if runtime.IsNotRegisteredError(trace.Unwrap(err)) {
+			return utils.Continue("skipping unrecognized object: %v", err)
+		}
+		return err
+	}
 }
 
 type encoding int

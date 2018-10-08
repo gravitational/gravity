@@ -42,6 +42,12 @@ func IsAbortError(err error) bool {
 	return ok
 }
 
+// IsContinueError returns true if provided error if of ContinueRetry type
+func IsContinueError(err error) bool {
+	_, ok := trace.Unwrap(err).(*ContinueRetry)
+	return ok
+}
+
 // Continue causes Retry function to continue trying and logging message
 func Continue(format string, args ...interface{}) *ContinueRetry {
 	return &ContinueRetry{Message: fmt.Sprintf(format, args...)}

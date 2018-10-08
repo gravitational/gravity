@@ -59,6 +59,16 @@ func (_ *ResourceCodecSuite) TestDecodesAndEncodes(c *C) {
 	}
 }
 
+func (*ResourceCodecSuite) TestDecodeUnrecognizedResource(c *C) {
+	r := strings.NewReader(unrecognizedResource)
+
+	_, err := Decode(r)
+	c.Assert(err, NotNil)
+
+	_, err = Decode(r, SkipUnrecognized())
+	c.Assert(err, IsNil)
+}
+
 func (_ *ResourceCodecSuite) TestEncodesInProperFormat(c *C) {
 	var testCases = []struct {
 		resource string
@@ -207,3 +217,21 @@ const resourcesJSON = `
    }
 }
 `
+
+const unrecognizedResource = `apiVersion: apiextensions.k8s.io/v1beta1
+kind: CustomResourceDefinition
+metadata:
+  name: crontabs.stable.example.com
+spec:
+  group: stable.example.com
+  versions:
+    - name: v1
+      served: true
+      storage: true
+  scope: Namespaced
+  names:
+    plural: crontabs
+    singular: crontab
+    kind: CronTab
+    shortNames:
+    - ct`
