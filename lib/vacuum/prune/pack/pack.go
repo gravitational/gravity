@@ -266,10 +266,10 @@ func (r *cleanup) shouldDeletePackage(pkg existingPackage, required packageMap) 
 	return false, nil
 }
 
-// withDependencies computes depender packages for the specified package pkg using
-// the specified depender search algorithm and the existing package state
-func (r *cleanup) withDependencies(pkg existingPackage, depender dependerFunc, state map[loc.Locator]statePackage) (items []statePackage, err error) {
-	dependerPackages, err := depender(pkg.PackageEnvelope, r.Packages)
+// withDependencies computes owner packages for the specified package pkg using
+// the specified owner search algorithm and the existing package state
+func (r *cleanup) withDependencies(pkg existingPackage, owner ownerFunc, state map[loc.Locator]statePackage) (items []statePackage, err error) {
+	ownerPackages, err := owner(pkg.PackageEnvelope, r.Packages)
 	if err != nil && !trace.IsNotFound(err) {
 		return nil, trace.Wrap(err)
 	}
@@ -280,19 +280,19 @@ func (r *cleanup) withDependencies(pkg existingPackage, depender dependerFunc, s
 		}, nil
 	}
 
-	for _, dependerPackage := range dependerPackages {
-		dependerVersion, err := dependerPackage.Locator.SemVer()
+	for _, ownerPackage := range ownerPackages {
+		ownerVersion, err := ownerPackage.Locator.SemVer()
 		if err != nil {
 			return nil, trace.Wrap(err)
 		}
 
 		var parent statePackage
 		var exists bool
-		if parent, exists = state[dependerPackage.Locator]; !exists {
+		if parent, exists = state[ownerPackage.Locator]; !exists {
 			parent = statePackage{
 				existingPackage: existingPackage{
-					PackageEnvelope: dependerPackage,
-					Version:         *dependerVersion,
+					PackageEnvelope: ownerPackage,
+					Version:         *ownerVersion,
 				},
 			}
 		}
@@ -302,13 +302,14 @@ func (r *cleanup) withDependencies(pkg existingPackage, depender dependerFunc, s
 	return items, nil
 }
 
-// dependerFunc computes a depender package for specified package.
+// ownerFunc computes the owner of the specified package.
 //
-// Pruner will remove dependee packages before depender packages.
+// Pruner will remove dependee packages before owner packages.
 //
 // For example, the application resource package is considered a dependee
-// for the related application package.
-type dependerFunc func(pack.PackageEnvelope, packageService) ([]pack.PackageEnvelope, error)
+// for the related application package, so the resource package is removed
+// before the application package is.
+type ownerFunc func(pack.PackageEnvelope, packageService) ([]pack.PackageEnvelope, error)
 
 func packageForConfig(envelope pack.PackageEnvelope, service packageService) ([]pack.PackageEnvelope, error) {
 	parentPackageRef := envelope.RuntimeLabels[pack.ConfigLabel]
@@ -322,7 +323,7 @@ func packageForConfig(envelope pack.PackageEnvelope, service packageService) ([]
 		Version:    envelope.Locator.Version,
 	}
 
-	return dependerForPackage(envelope, service, parentPackage)
+	return ownerForPackage(envelope, service, parentPackage)
 }
 
 func packageForResources(envelope pack.PackageEnvelope, service packageService) ([]pack.PackageEnvelope, error) {
@@ -332,19 +333,19 @@ func packageForResources(envelope pack.PackageEnvelope, service packageService) 
 		Name:       appPackageName,
 		Version:    envelope.Locator.Version,
 	}
-	return dependerForPackage(envelope, service, appPackage)
+	return ownerForPackage(envelope, service, appPackage)
 }
 
-func dependerForPackage(envelope pack.PackageEnvelope, service packageService, depender loc.Locator) ([]pack.PackageEnvelope, error) {
-	dependerEnv, err := service.ReadPackageEnvelope(depender)
+func ownerForPackage(envelope pack.PackageEnvelope, service packageService, owner loc.Locator) ([]pack.PackageEnvelope, error) {
+	ownerEnv, err := service.ReadPackageEnvelope(owner)
 	if err != nil {
 		if trace.IsNotFound(err) {
-			return nil, trace.NotFound("no depender package %v found for package %v",
-				depender, envelope.Locator)
+			return nil, trace.NotFound("no owner package %v found for package %v",
+				owner, envelope.Locator)
 		}
 		return nil, trace.Wrap(err)
 	}
-	return []pack.PackageEnvelope{*dependerEnv}, nil
+	return []pack.PackageEnvelope{*ownerEnv}, nil
 }
 
 func isAppResourcesPackage(envelope pack.PackageEnvelope) bool {
