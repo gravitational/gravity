@@ -61,8 +61,7 @@ ignored = [
 
 [[constraint]]
   name = "github.com/gravitational/satellite"
-  branch = "roman/fixmac"
-#  version = "=5.2.6"
+  version = "=5.2.7"
 
 [[constraint]]
   name = "github.com/xtgo/set"
