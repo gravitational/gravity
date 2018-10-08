@@ -20,7 +20,11 @@
 #  name = "github.com/x/y"
 #  version = "2.4.0"
 
-ignored = ["github.com/Sirupsen/logrus", "github.com/gravitational/gravity/build/*"]
+ignored = [
+  "github.com/Sirupsen/logrus",
+  "github.com/gravitational/gravity/build/*",
+  "github.com/gravitational/gravity/e/build/*"
+]
 
 [prune]
   unused-packages = true
