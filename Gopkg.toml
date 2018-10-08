@@ -20,7 +20,11 @@
 #  name = "github.com/x/y"
 #  version = "2.4.0"
 
-ignored = ["github.com/Sirupsen/logrus", "github.com/gravitational/gravity/build/*"]
+ignored = [
+  "github.com/Sirupsen/logrus",
+  "github.com/gravitational/gravity/build/*",
+  "github.com/gravitational/gravity/e/build/*"
+]
 
 [prune]
   unused-packages = true
@@ -57,7 +61,7 @@ ignored = ["github.com/Sirupsen/logrus", "github.com/gravitational/gravity/build
 
 [[constraint]]
   name = "github.com/gravitational/satellite"
-  version = "=5.2.6"
+  version = "=5.2.7"
 
 [[constraint]]
   name = "github.com/xtgo/set"

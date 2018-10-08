@@ -540,8 +540,8 @@
     "monitoring",
     "utils"
   ]
-  revision = "682472121b75f6fb0b3aeafdfe8fe34e0842ae8c"
-  version = "5.2.6"
+  revision = "6dd4a7b5b530f2d1567e916644c076a9533a8db5"
+  version = "5.2.7"
 
 [[projects]]
   name = "github.com/gravitational/tail"
@@ -1497,6 +1497,6 @@
 [solve-meta]
   analyzer-name = "dep"
   analyzer-version = 1
-  inputs-digest = "e9b507bfd71c880018e6c3f883b23fc4d36fbd107274c87c67fa1065f9da944d"
+  inputs-digest = "eade331c283a91c134822ede7d0b8bac279fa4febf414bcd31967725a7c7e38d"
   solver-name = "gps-cdcl"
   solver-version = 1

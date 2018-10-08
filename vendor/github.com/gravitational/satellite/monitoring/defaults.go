@@ -1,7 +1,7 @@
 // +build !linux
 
 /*
-Copyright 2017 Gravitational, Inc.
+Copyright 2017-2018 Gravitational, Inc.
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -18,7 +18,9 @@ limitations under the License.
 
 package monitoring
 
-import "github.com/gravitational/satellite/agent/health"
+import (
+	"github.com/gravitational/satellite/agent/health"
+)
 
 // DefaultPortChecker returns a port range checker with a default set of port ranges
 // Only implemented on Linux.
@@ -69,18 +71,4 @@ func GetStorageDriverBootConfigParams(drv string) health.Checker {
 // using the specified checker as configuration
 func NewStorageChecker(config StorageConfig) health.Checker {
 	return noopChecker{}
-}
-
-// StorageConfig describes checker configuration
-type StorageConfig struct {
-	// Path represents volume to be checked
-	Path string
-	// WillBeCreated when true, then all checks will be applied to first existing dir, or fail otherwise
-	WillBeCreated bool
-	// MinBytesPerSecond is minimum write speed for probe to succeed
-	MinBytesPerSecond uint64
-	// Filesystems define list of supported filesystems, or any if empty
-	Filesystems []string
-	// MinFreeBytes define minimum free volume capacity
-	MinFreeBytes uint64
 }
