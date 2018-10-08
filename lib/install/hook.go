@@ -22,7 +22,6 @@ import (
 
 	"github.com/gravitational/gravity/lib/defaults"
 
-	"github.com/gravitational/trace"
 	log "github.com/sirupsen/logrus"
 )
 
@@ -47,20 +46,31 @@ type Hook struct {
 	path string
 }
 
+// Fire writes the provided log entry to the configured log file
+//
+// It never returns an error to avoid default logrus behavior of spitting
+// out fire hook errors into stderr.
 func (r *Hook) Fire(entry *log.Entry) error {
 	msg, err := entry.String()
 	if err != nil {
-		return trace.Wrap(err)
+		log.StandardLogger().Warnf("Failed to convert log entry: %v.", err)
+		return nil
 	}
 
 	f, err := os.OpenFile(r.path, os.O_WRONLY|os.O_APPEND|os.O_CREATE, defaults.SharedReadWriteMask)
 	if err != nil {
-		return trace.Wrap(err)
+		log.StandardLogger().Warnf("Failed to open %v: %v.", r.path, err)
+		return nil
 	}
 	defer f.Close()
 
 	_, err = f.WriteString(msg)
-	return trace.Wrap(err)
+	if err != nil {
+		log.StandardLogger().Warnf("Failed to write log entry: %v.", err)
+		return nil
+	}
+
+	return nil
 }
 
 func (r *Hook) Levels() []log.Level {
