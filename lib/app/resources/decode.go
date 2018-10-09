@@ -20,8 +20,10 @@ import (
 	"encoding/json"
 	"io"
 
-	"github.com/gravitational/trace"
+	"github.com/gravitational/gravity/lib/utils"
 
+	"github.com/gravitational/trace"
+	log "github.com/sirupsen/logrus"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	serializer "k8s.io/apimachinery/pkg/runtime/serializer/json"
@@ -30,8 +32,8 @@ import (
 )
 
 // Decode decodes kubernetes resources from the specified io.Reader
-func Decode(r io.Reader) (resource *Resource, err error) {
-	decoder, _, encoding := newCodec(r)
+func Decode(r io.Reader, options ...DecodeOption) (resource *Resource, err error) {
+	decoder, _, encoding := newCodec(r, options...)
 	var objects []runtime.Object
 L:
 	for {
@@ -40,11 +42,26 @@ L:
 			if trace.Unwrap(err) == io.EOF {
 				break L
 			}
+			if utils.IsContinueError(err) {
+				log.Warn(err)
+				continue L
+			}
 			return nil, trace.Wrap(err)
 		}
 		objects = append(objects, object)
 	}
 	return &Resource{Objects: objects, encoding: encoding}, nil
+}
+
+// DecodeOption is a functional argument for decoding
+type DecodeOption func(*universalDecoder)
+
+// SkipUnrecognized returns "continue" error if decoding failed with
+// unrecognized object error
+func SkipUnrecognized() DecodeOption {
+	return func(d *universalDecoder) {
+		d.skipUnrecognized = true
+	}
 }
 
 type encoding int
@@ -78,9 +95,12 @@ func (r Resource) Encode(w io.Writer) error {
 }
 
 // newCodec creates decoder/encoder pair for the specified reader r
-func newCodec(r io.Reader) (decoder *universalDecoder, encoder *universalEncoder, encoding encoding) {
+func newCodec(r io.Reader, options ...DecodeOption) (decoder *universalDecoder, encoder *universalEncoder, encoding encoding) {
 	buffer, _, isJSON := yaml.GuessJSONStream(r, bufferSize)
 	decoder = newUniversalDecoder(buffer)
+	for _, o := range options {
+		o(decoder)
+	}
 	if isJSON {
 		encoding = jsonEncoding
 		pretty := true
@@ -112,7 +132,8 @@ func newUniversalDecoder(r io.Reader) *universalDecoder {
 // universalDecoder is a decoder for resources in either JSON or YAML format
 type universalDecoder struct {
 	runtime.Decoder
-	streamDecoder *yaml.YAMLOrJSONDecoder
+	streamDecoder    *yaml.YAMLOrJSONDecoder
+	skipUnrecognized bool
 }
 
 // Decode obtains the next object from the stream.
@@ -128,6 +149,9 @@ func (r *universalDecoder) Decode() (runtime.Object, error) {
 	}
 	object, err := runtime.Decode(r.Decoder, unk.Raw)
 	if err != nil {
+		if r.skipUnrecognized && runtime.IsNotRegisteredError(trace.Unwrap(err)) {
+			return nil, utils.Continue("skipping unrecognized object: %v", err)
+		}
 		return nil, trace.Wrap(err)
 	}
 	return object, nil
