@@ -21,6 +21,24 @@ LTS starts with `3.51.0` with minor backwards compatible changes added over time
 
 ## 5.x Releases
 
+### 5.2.0-rc.1
+
+#### Improvements
+
+* Introduce gravity terraform provider. See [Terraform Provider](/terraform) for details.
+* Refactor join operation to use FSM approach.
+* Suppress selection prompt in UI install flow if the installer machine has a single network interface.
+* Improve upgrade operation logging and move default log location to `/var/log`.
+* Add a high disk usage check to the cluster health checker.
+* Extend cluster health checker with detection of Kubernetes `NotReady` nodes.
+* Add support for switching Docker storage drivers during upgrade.
+* General improvements to `gravity` and `tele` CLI experience.
+
+#### Bugfixes
+
+* Fail quickly on initial RPC connect error during join.
+* Fix the issue with Monitoring tab not loading Grafana interface.
+
 ### 5.2.0-alpha.3
 
 #### Security
