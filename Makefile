@@ -182,7 +182,7 @@ TF_PROVIDERS ?= terraform-provider-gravity
 # the default target is a containerized CI/CD build
 .PHONY:build
 build:
-	$(MAKE) -C build.assets buildbox build
+	$(MAKE) -C build.assets build
 
 # 'install' uses the host's Golang to place output into $GOPATH/bin
 .PHONY:install

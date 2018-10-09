@@ -193,7 +193,7 @@ validate-deps: buildbox
 # build gravity binaries in a buildbox container
 #
 .PHONY: build-in-container
-build-in-container:
+build-in-container: buildbox
 	docker run --rm=true -u $$(id -u) \
 		   -v $(TOP):$(SRCDIR) \
 		   -e "LOCAL_BUILDDIR=$(LOCAL_BUILDDIR)" \
