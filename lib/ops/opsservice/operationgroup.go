@@ -114,8 +114,9 @@ func (g *operationGroup) canCreateOperation(operation ops.SiteOperation) error {
 		if err != nil {
 			return trace.Wrap(err)
 		}
-	case ops.OperationShrink:
-		// shrink is allowed for degraded clusters (to be able to remove offline nodes)
+	case ops.OperationShrink, ops.OperationGarbageCollect:
+		// shrink and gc are allowed for degraded clusters
+		// shrink is allowed to be able to remove failed/offline nodes
 		switch cluster.State {
 		case ops.SiteStateActive, ops.SiteStateDegraded:
 		default:
