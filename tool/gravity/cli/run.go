@@ -110,6 +110,7 @@ func InitAndCheck(g *Application, cmd string) error {
 	// addition to journald)
 	switch cmd {
 	case g.InstallCmd.FullCommand(),
+		g.WizardCmd.FullCommand(),
 		g.JoinCmd.FullCommand(),
 		g.AutoJoinCmd.FullCommand(),
 		g.UpdateTriggerCmd.FullCommand(),
