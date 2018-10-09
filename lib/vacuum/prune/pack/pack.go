@@ -237,6 +237,15 @@ func (r *cleanup) deletePackage(item statePackage) error {
 func (r *cleanup) shouldDeletePackage(pkg existingPackage, required packageMap) (delete bool, err error) {
 	log := r.WithField("package", pkg.Locator)
 
+	if existingVersion, exists := required[pkg.Locator.ZeroVersion()]; exists {
+		if existingVersion.Compare(pkg.Version) > 0 {
+			log.Debug("Will delete an obsolete package.")
+			return true, nil
+		}
+		log.Debug("Will not delete a package still in use.")
+		return false, nil
+	}
+
 	if loc.IsLegacyRuntimePackage(pkg.PackageEnvelope.Locator) {
 		log.Debug("Will delete a legacy runtime package.")
 		return true, nil
@@ -250,19 +259,12 @@ func (r *cleanup) shouldDeletePackage(pkg existingPackage, required packageMap) 
 		return true, nil
 	}
 
-	if existingVersion, exists := required[pkg.Locator.ZeroVersion()]; exists {
-		if existingVersion.Compare(pkg.Version) > 0 {
-			log.Debug("Will delete an obsolete package.")
-			return true, nil
-		}
-		log.Debug("Will not delete a package still in use.")
-	}
-
 	if pkg.Locator.Repository != defaults.SystemAccountOrg {
 		log.Debug("Will not delete from a custom repository.")
 		return false, nil
 	}
 
+	log.Debug("Will not delete an unknown package.")
 	return false, nil
 }
 

@@ -238,6 +238,33 @@ func (*S) TestPrunesOldPlanetPackages(c *C) {
 		Commentf("Should prune old planet packages"))
 }
 
+func (*S) TestDoesnotPruneRequiredLegacyPlanetPackages(c *C) {
+	// setup
+	runtimePackage := newPackage("gravitational.io/planet-master:0.0.3", pack.PurposeLabel, pack.PurposeRuntime)
+	app := newAppPackage("gravitational.io/app:0.0.2", storage.AppUser)
+	runtimeApp := newAppPackage("gravitational.io/runtime:0.0.1", storage.AppRuntime)
+	a, dependencies := newApp(app, runtimeApp, runtimePackage)
+	allPackages := append(testPackages{}, dependencies...)
+
+	// exercise
+	p, err := New(Config{
+		Config: prune.Config{
+			FieldLogger: log.WithField("test", "TestDoesnotPruneRequiredLegacyPlanetPackages"),
+			Emitter:     emitter{},
+		},
+		App:      a,
+		Packages: &allPackages,
+	})
+	c.Assert(err, IsNil)
+
+	err = p.Prune(context.TODO())
+	c.Assert(err, IsNil)
+
+	// verify
+	c.Assert(byLocator(allPackages), compare.SortedSliceEquals, byLocator(dependencies),
+		Commentf("Should not prune legacy planet packages that are still in use"))
+}
+
 func (*S) TestPrunesOldUpdateRPCCredentials(c *C) {
 	// setup
 	runtimePackage := newPackage("gravitational.io/planet:0.0.3", pack.PurposeLabel, pack.PurposeRuntime)
