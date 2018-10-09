@@ -42,7 +42,7 @@ func IsAbortError(err error) bool {
 	return ok
 }
 
-// IsContinueError returns true if provided error if of ContinueRetry type
+// IsContinueError returns true if provided error is of ContinueRetry type
 func IsContinueError(err error) bool {
 	_, ok := trace.Unwrap(err).(*ContinueRetry)
 	return ok
