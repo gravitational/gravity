@@ -43,6 +43,7 @@ func GetDependencies(app *Application, apps Applications) (result *Dependencies,
 			result.Apps = append(result.Apps, locator)
 		}
 	}
+	result.Packages = loc.Deduplicate(result.Packages)
 	return result, nil
 }
 
@@ -87,9 +88,10 @@ type Dependencies struct {
 
 func getDependencies(app *Application, apps Applications, state *state) error {
 	log.Infof("Getting dependencies for %v.", app.Package)
-	for _, dependency := range append(
+	packageDeps := loc.Deduplicate(append(
 		app.Manifest.Dependencies.GetPackages(),
-		app.Manifest.NodeProfiles.RuntimePackages()...) {
+		app.Manifest.NodeProfiles.RuntimePackages()...))
+	for _, dependency := range packageDeps {
 		packageName := dependency.String()
 		if _, ok := state.visitedPackages[packageName]; !ok {
 			state.visitedPackages[packageName] = struct{}{}
