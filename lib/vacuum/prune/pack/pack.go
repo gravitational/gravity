@@ -18,6 +18,7 @@ package pack
 
 import (
 	"context"
+	"fmt"
 	"strings"
 
 	"github.com/gravitational/gravity/lib/defaults"
@@ -209,12 +210,23 @@ func (r *cleanup) build(required packageMap) (state map[loc.Locator]statePackage
 					return nil, trace.Wrap(err)
 				}
 
-				if deletePackage {
-					state[item.Locator] = item
+				if !deletePackage {
+					continue
 				}
+
+				var existingItem statePackage
+				var exists bool
+				if existingItem, exists = state[item.Locator]; exists {
+					existingItem.dependencies = append(existingItem.dependencies,
+						item.dependencies...)
+				} else {
+					existingItem = item
+				}
+				state[item.Locator] = existingItem
 			}
 		}
 	}
+	r.Debug("Package state:", state)
 	return state, nil
 }
 
@@ -389,6 +401,20 @@ type cleanup struct {
 	Config
 	// runtimeVersion specifies the version of gravity
 	runtimeVersion semver.Version
+}
+
+func (r statePackage) String() string {
+	var deps []string
+	for _, dep := range r.dependencies {
+		deps = append(deps, dep.String())
+	}
+	formatDeps := func(deps []string) string {
+		if len(deps) == 0 {
+			return "none"
+		}
+		return strings.Join(deps, ",")
+	}
+	return fmt.Sprintf("%v(deps=%v)", r.Locator.String(), formatDeps(deps))
 }
 
 type statePackage struct {

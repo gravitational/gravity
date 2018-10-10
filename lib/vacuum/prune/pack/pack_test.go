@@ -42,6 +42,12 @@ type S struct{}
 
 var _ = Suite(&S{})
 
+func (*S) SetUpSuite(c *C) {
+	if testing.Verbose() {
+		log.SetLevel(log.DebugLevel)
+	}
+}
+
 func (*S) TestDoesnotPruneDirectDependencies(c *C) {
 	// setup
 	runtimePackage := newPackage("gravitational.io/planet:0.0.1", pack.PurposeLabel, pack.PurposeRuntime)
@@ -250,7 +256,6 @@ func (*S) TestDoesnotPruneRequiredLegacyPlanetPackages(c *C) {
 	p, err := New(Config{
 		Config: prune.Config{
 			FieldLogger: log.WithField("test", "TestDoesnotPruneRequiredLegacyPlanetPackages"),
-			Emitter:     emitter{},
 		},
 		App:      a,
 		Packages: &allPackages,
