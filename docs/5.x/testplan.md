@@ -125,11 +125,16 @@ spec:
    - [ ] Verify can uninstall the cluster.
      - [ ] Verify AWS instances and other resources are deprovisioned.
 
-### Failover
+### Failover & Resiliency
 
 - [ ] Install 3-node cluster.
-  - [ ] Shutdown currently active master node.
-  - [ ] Verify that another node was elected as master and all relevant Kubernetes services are running.
+  - [ ] Shutdown currently active master node (let's say it's `node-1`).
+    - [ ] Verify that another node was elected as master and all relevant Kubernetes services are running.
+    - [ ] Verify that `kubectl` commands keep working.
+    - [ ] Verify that `gravity status` is reporting the cluster as degraded.
+  - [ ] Remove the shutdown node from the cluster by executing `gravity remove node-1 --force` from one of the remaining healthy nodes.
+    - [ ] Verify that `node-1` is successfully removed from the cluster.
+    - [ ] Verify that `gravity status` is reporting the cluster as healthy (may take a minute for it to recover).
 
 ### Tele Build
 
