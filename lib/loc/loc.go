@@ -199,6 +199,23 @@ func MustParseLocator(v string) Locator {
 	return *l
 }
 
+// Deduplicate returns ls with duplicates removed
+func Deduplicate(ls []Locator) (result []Locator) {
+	if len(ls) == 0 {
+		return ls
+	}
+	result = make([]Locator, 0, len(ls))
+	seen := make(map[Locator]struct{}, len(ls))
+	for _, loc := range ls {
+		if _, exists := seen[loc]; exists {
+			continue
+		}
+		result = append(result, loc)
+		seen[loc] = struct{}{}
+	}
+	return result
+}
+
 var (
 	// OpsCenterCertificateAuthority is locator for the package containing certificate and private
 	// key for the OpsCenter
