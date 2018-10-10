@@ -1,5 +1,4 @@
-# ![Gravity](http://gravitational.com/gravitational/images/logos/logo-gravity-x-large.png "Gravity")
-
+# <a href='https://gravitational.com/gravity/'><img src='http://gravitational.com/gravitational/images/logos/logo-gravity-x-large.png' height='60' alt='Gravity'></a>
 
 Gravity is an [upstream Kubernetes](https://kubernetes.io/) packaging solution
 that takes the drama out of on-premise deployments.
@@ -25,6 +24,8 @@ Gravity has been running in production in major financial institutions,
 government data centers and enterprises as part of a proprietary product
 called [Telekube](https://gravitational.com/telekube).
 Gravitational open sourced it in the fall of 2018.
+
+<a href='https://gravitational.com/gravity/'><img src='http://gravitational.com/gravitational/images/graphics/gravity-oss-hero.png' alt='Gravity'></a>
 
 ## Gravity vs ...
 
