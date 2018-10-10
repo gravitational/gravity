@@ -19,6 +19,8 @@ package loc
 import (
 	"testing"
 
+	"github.com/gravitational/gravity/lib/compare"
+
 	. "gopkg.in/check.v1"
 )
 
@@ -136,4 +138,20 @@ func (s *LocatorSuite) TestIsUpdate(c *C) {
 		c.Assert(err, IsNil)
 		c.Assert(result, Equals, test.result, Commentf("%v", test))
 	}
+}
+
+func (s *LocatorSuite) TestDeduplicate(c *C) {
+	locs := []Locator{
+		MustParseLocator("test1/foo:1.0.0"),
+		MustParseLocator("test2/bar:1.0.0"),
+		MustParseLocator("test3/qux:1.0.0"),
+		MustParseLocator("test2/bar:1.0.0"),
+	}
+	uniq := Deduplicate(locs)
+	expected := []Locator{
+		MustParseLocator("test1/foo:1.0.0"),
+		MustParseLocator("test2/bar:1.0.0"),
+		MustParseLocator("test3/qux:1.0.0"),
+	}
+	c.Assert(uniq, compare.DeepEquals, expected)
 }

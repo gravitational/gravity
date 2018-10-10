@@ -21,6 +21,18 @@ LTS starts with `3.51.0` with minor backwards compatible changes added over time
 
 ## 5.x Releases
 
+### 5.1.1
+
+#### Improvements
+
+* Speed up image vendoring during tele build.
+* Add cleanup phase to the upgrade operation.
+* Make new application upload more efficient.
+
+#### Bugfixes
+
+* Fix tele build failure when encountering unrecognized resources.
+
 ### 5.2.0-rc.1
 
 #### Improvements

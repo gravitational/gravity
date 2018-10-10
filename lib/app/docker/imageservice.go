@@ -41,6 +41,7 @@ import (
 	registrystorage "github.com/docker/distribution/registry/storage"
 	"github.com/docker/distribution/registry/storage/cache/memory"
 	"github.com/docker/distribution/registry/storage/driver/filesystem"
+	"github.com/docker/libtrust"
 	"github.com/gravitational/trace"
 	log "github.com/sirupsen/logrus"
 )
@@ -349,6 +350,12 @@ func openLocal(dir string) (store *localStore, err error) {
 	if !fi.IsDir() {
 		return nil, trace.BadParameter("%v not a valid directory", dir)
 	}
+
+	key, err := libtrust.GenerateECP256PrivateKey()
+	if err != nil {
+		return nil, trace.Wrap(err, "failed to generate a signing key")
+	}
+
 	driver := filesystem.New(filesystem.DriverParameters{
 		RootDirectory: dir,
 		MaxThreads:    defaults.ImageServiceMaxThreads,
@@ -356,6 +363,7 @@ func openLocal(dir string) (store *localStore, err error) {
 	cacheProvider := memory.NewInMemoryBlobDescriptorCacheProvider()
 	options := []registrystorage.RegistryOption{
 		registrystorage.BlobDescriptorCacheProvider(cacheProvider),
+		registrystorage.Schema1SigningKey(key),
 		registrystorage.EnableDelete,
 	}
 	ns, err := registrystorage.NewRegistry(context.Background(), driver, options...)

@@ -18,6 +18,7 @@ package pack
 
 import (
 	"context"
+	"fmt"
 	"strings"
 
 	"github.com/gravitational/gravity/lib/defaults"
@@ -209,12 +210,23 @@ func (r *cleanup) build(required packageMap) (state map[loc.Locator]statePackage
 					return nil, trace.Wrap(err)
 				}
 
-				if deletePackage {
-					state[item.Locator] = item
+				if !deletePackage {
+					continue
 				}
+
+				var existingItem statePackage
+				var exists bool
+				if existingItem, exists = state[item.Locator]; exists {
+					existingItem.dependencies = append(existingItem.dependencies,
+						item.dependencies...)
+				} else {
+					existingItem = item
+				}
+				state[item.Locator] = existingItem
 			}
 		}
 	}
+	r.Debug("Package state:", state)
 	return state, nil
 }
 
@@ -237,6 +249,15 @@ func (r *cleanup) deletePackage(item statePackage) error {
 func (r *cleanup) shouldDeletePackage(pkg existingPackage, required packageMap) (delete bool, err error) {
 	log := r.WithField("package", pkg.Locator)
 
+	if existingVersion, exists := required[pkg.Locator.ZeroVersion()]; exists {
+		if existingVersion.Compare(pkg.Version) > 0 {
+			log.Debug("Will delete an obsolete package.")
+			return true, nil
+		}
+		log.Debug("Will not delete a package still in use.")
+		return false, nil
+	}
+
 	if loc.IsLegacyRuntimePackage(pkg.PackageEnvelope.Locator) {
 		log.Debug("Will delete a legacy runtime package.")
 		return true, nil
@@ -250,19 +271,12 @@ func (r *cleanup) shouldDeletePackage(pkg existingPackage, required packageMap) 
 		return true, nil
 	}
 
-	if existingVersion, exists := required[pkg.Locator.ZeroVersion()]; exists {
-		if existingVersion.Compare(pkg.Version) > 0 {
-			log.Debug("Will delete an obsolete package.")
-			return true, nil
-		}
-		log.Debug("Will not delete a package still in use.")
-	}
-
 	if pkg.Locator.Repository != defaults.SystemAccountOrg {
 		log.Debug("Will not delete from a custom repository.")
 		return false, nil
 	}
 
+	log.Debug("Will not delete an unknown package.")
 	return false, nil
 }
 
@@ -387,6 +401,20 @@ type cleanup struct {
 	Config
 	// runtimeVersion specifies the version of gravity
 	runtimeVersion semver.Version
+}
+
+func (r statePackage) String() string {
+	var deps []string
+	for _, dep := range r.dependencies {
+		deps = append(deps, dep.String())
+	}
+	formatDeps := func(deps []string) string {
+		if len(deps) == 0 {
+			return "none"
+		}
+		return strings.Join(deps, ",")
+	}
+	return fmt.Sprintf("%v(deps=%v)", r.Locator.String(), formatDeps(deps))
 }
 
 type statePackage struct {

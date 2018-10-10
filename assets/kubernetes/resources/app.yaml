@@ -72,6 +72,7 @@ dependencies:
     - gravitational.io/gravity:0.0.0
     - gravitational.io/web-assets:0.0.0
     - gravitational.io/teleport:0.0.0
+    - gravitational.io/planet:0.0.0
   apps:
     - gravitational.io/rbac-app:0.0.0
     - gravitational.io/dns-app:0.0.0
