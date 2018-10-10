@@ -407,17 +407,16 @@ func (p *Peer) tryConnect() (op *operationContext, err error) {
 			p.sendMessage("Connected to installer at %v", addr)
 			return op, nil
 		}
+		p.Infof("Failed connecting to wizard: %v.", err)
 		if utils.IsAbortError(err) {
 			return nil, trace.Wrap(err)
 		}
-
-		// already exists error is returned when there's an ongoing install operation,
-		// do not attempt to dial the site until it fully completes
+		// already exists error is returned when there's an ongoing install
+		// operation, do not attempt to dial the site until it completes
 		if trace.IsAlreadyExists(err) {
 			p.sendMessage("Waiting for the install operation to finish")
 			return nil, trace.Wrap(err)
 		}
-		p.Infof("Failed connecting to wizard: %v.", err)
 
 		op, err = p.dialSite(addr)
 		if err == nil {
@@ -425,11 +424,10 @@ func (p *Peer) tryConnect() (op *operationContext, err error) {
 			p.sendMessage("Connected to existing cluster at %v", addr)
 			return op, nil
 		}
+		p.Infof("Failed connecting to cluster: %v.", err)
 		if utils.IsAbortError(err) {
 			return nil, trace.Wrap(err)
 		}
-
-		p.Infof("Failed connecting to cluster: %v.", err)
 		if trace.IsCompareFailed(err) {
 			p.sendMessage("Waiting for another operation to finish at %v", addr)
 		}
@@ -821,12 +819,12 @@ func (p *Peer) validateWizardState(operator ops.Operator) (*ops.Site, *ops.SiteO
 	}
 
 	switch operation.State {
-	case ops.OperationStateInstallInitiated, ops.OperationStateFailed:
+	case ops.OperationStateInstallInitiated, ops.OperationStateInstallProvisioning, ops.OperationStateFailed:
 		// Consider these states for resuming the installation
 		// (including failed that puts the operation into manual mode)
 	default:
-		return nil, nil,
-			trace.AlreadyExists("operation %v is in progress", operation)
+		return nil, nil, trace.AlreadyExists("operation %#v is in progress",
+			operation)
 	}
 	if len(operation.InstallExpand.Profiles) == 0 {
 		return nil, nil,
