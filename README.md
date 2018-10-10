@@ -1,4 +1,4 @@
-# <a href='https://gravitational.com/gravity/'><img src='http://gravitational.com/gravitational/images/logos/logo-gravity-x-large.png' height='60' alt='Gravity'></a>
+# <a href='https://gravitational.com/gravity/'><img src='http://gravitational.com/gravitational/images/logos/logo-gravity-x-large.png' alt='Gravity'></a>
 
 Gravity is an [upstream Kubernetes](https://kubernetes.io/) packaging solution
 that takes the drama out of on-premise deployments.
