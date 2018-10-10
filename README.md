@@ -1,4 +1,4 @@
-# Gravity
+# <a href='https://gravitational.com/gravity/'><img src='http://gravitational.com/gravitational/images/logos/logo-gravity-x-large.png' alt='Gravity'></a>
 
 Gravity is an [upstream Kubernetes](https://kubernetes.io/) packaging solution
 that takes the drama out of on-premise deployments.
@@ -20,10 +20,12 @@ cluster in any environment where compliance and consistency matters, even in
 air-gapped server rooms. A bundle can run without human supervision, as a
 "kubernetes appliance".
 
-Gravity has been running in production in major financial institutions, 
-government data centers and enterprises as part of a proprietary product 
-called [Telekube](https://gravitational.com/telekube). 
+Gravity has been running in production in major financial institutions,
+government data centers and enterprises as part of a proprietary product
+called [Telekube](https://gravitational.com/telekube).
 Gravitational open sourced it in the fall of 2018.
+
+<a href='https://gravitational.com/gravity/'><img src='http://gravitational.com/gravitational/images/graphics/gravity-oss-hero.png' alt='Gravity'></a>
 
 ## Gravity vs ...
 
@@ -35,7 +37,7 @@ on compliance and autonomous operations:
   are _always identical_. There is no configuration drift over time; no
   "special snowflakes".
 * Gravity clusters are always "wrapped" with a privileged access gateway called
-  [Teleport](https://gravitational.com/teleport), which unifies k8s and SSH authentication 
+  [Teleport](https://gravitational.com/teleport), which unifies k8s and SSH authentication
   and keeps a detailed audit log for compliance purposes.
 * Gravity includes tools to perform _infrastructure validation_ prior to
   cluster provisioning. This allows cluster designers to prevent users from
@@ -79,8 +81,8 @@ air-gapped server room.
 
 ## Remote Access and Compliance
 
-Each cluster provisioned with Gravity includes the built-in SSH/Kubernetes gateway 
-called [Teleport](https://github.com/gravitational/teleport). Teleport provides the 
+Each cluster provisioned with Gravity includes the built-in SSH/Kubernetes gateway
+called [Teleport](https://github.com/gravitational/teleport). Teleport provides the
 following benefits:
 
 * One-step authentication which issues credentials for both k8s API and SSH.
@@ -91,15 +93,15 @@ following benefits:
   for all SSH commands and all `kubectl` commands executed on cluster nodes.
 
 Teleport can also be used independently without Gravity, it has been audited
-multiple times by [reputable](https://gravitational.com/blog/teleport-security-audit/) 
-cyber security companies and it has been deployed in production in [multiple](https://gravitational.com/teleport) 
+multiple times by [reputable](https://gravitational.com/blog/teleport-security-audit/)
+cyber security companies and it has been deployed in production in [multiple](https://gravitational.com/teleport)
 organizations.
 
 ## Is Gravity Production Ready?
 
 Yes! Even though Gravity was open sourced in September 2018, it started life
 much earlier, as a component of a larger, proprietary system called
-[Telekube](https://gravitational.com/telekube). 
+[Telekube](https://gravitational.com/telekube).
 
 Fully autonomous Gravity clusters are running inside of large banks, government
 institutions, enterprises, etc. Some of the commercial users of Gravity are
@@ -110,12 +112,12 @@ listed on the [Gravitational web site](https://gravitational.com)
 Gravity was built by [Gravitational Inc](https://gravitational.com), a company
 based in Oakland, California. Gravitational's mission is to allow software
 creators to easily share their products with customers without having to
-convert themselves into software operators. 
+convert themselves into software operators.
 
 The original use case for Gravity was to allow Kubernetes applications to be
-deployed into 3rd party environments, like on-premise datacenters. That's why 
-Gravity includes features like the built-in, graphical cluster installer, 
-infrastructure validation and a built-in privileged access manager (Teleport) 
+deployed into 3rd party environments, like on-premise datacenters. That's why
+Gravity includes features like the built-in, graphical cluster installer,
+infrastructure validation and a built-in privileged access manager (Teleport)
 for providing remote support.
 
 These features also resonated with security-minded teams who need to run
