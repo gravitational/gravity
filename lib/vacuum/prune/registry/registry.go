@@ -176,7 +176,7 @@ func (r *cleanup) waitForService(ctx context.Context, status string) error {
 	err := utils.RetryWithInterval(localCtx, b, func() error {
 		out, err := r.serviceStatus(localCtx)
 		actualStatus := strings.TrimSpace(string(out))
-		if actualStatus == status {
+		if strings.HasPrefix(actualStatus, status) {
 			return nil
 		}
 		return trace.Retry(err, "unexpected service status: %s", actualStatus)

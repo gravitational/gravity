@@ -18,11 +18,13 @@ package install
 
 import (
 	"io/ioutil"
+	"log/syslog"
 	"os"
 
 	"github.com/gravitational/gravity/lib/defaults"
 
 	log "github.com/sirupsen/logrus"
+	syslogrus "github.com/sirupsen/logrus/hooks/syslog"
 )
 
 // InitLogging initalizes logging for local installer
@@ -53,20 +55,20 @@ type Hook struct {
 func (r *Hook) Fire(entry *log.Entry) error {
 	msg, err := entry.String()
 	if err != nil {
-		log.StandardLogger().Warnf("Failed to convert log entry: %v.", err)
+		defaultLogger().Warnf("Failed to convert log entry: %v.", err)
 		return nil
 	}
 
 	f, err := os.OpenFile(r.path, os.O_WRONLY|os.O_APPEND|os.O_CREATE, defaults.SharedReadWriteMask)
 	if err != nil {
-		log.StandardLogger().Warnf("Failed to open %v: %v.", r.path, err)
+		defaultLogger().Warnf("Failed to open %v: %v.", r.path, err)
 		return nil
 	}
 	defer f.Close()
 
 	_, err = f.WriteString(msg)
 	if err != nil {
-		log.StandardLogger().Warnf("Failed to write log entry: %v.", err)
+		defaultLogger().Warnf("Failed to write log entry: %v.", err)
 		return nil
 	}
 
@@ -75,4 +77,15 @@ func (r *Hook) Fire(entry *log.Entry) error {
 
 func (r *Hook) Levels() []log.Level {
 	return log.AllLevels
+}
+
+func defaultLogger() *log.Logger {
+	logger := log.New()
+	hook, err := syslogrus.NewSyslogHook("", "", syslog.LOG_WARNING, "")
+	if err != nil {
+		return logger
+	}
+	logger.AddHook(hook)
+	logger.Out = ioutil.Discard
+	return logger
 }

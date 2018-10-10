@@ -628,7 +628,7 @@ func resourceFromChart(path string) (*resources.Resource, error) {
 	if err != nil {
 		return nil, trace.Wrap(err, buf.String())
 	}
-	return resources.Decode(buf)
+	return resources.Decode(buf, resources.SkipUnrecognized())
 }
 
 // resourcesFromPath collects resource files in root for further processing.
