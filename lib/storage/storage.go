@@ -1065,6 +1065,15 @@ var LegacyDNSConfig = DNSConfig{
 	Interfaces: []string{"lo"},
 }
 
+// String returns textual representation of this DNS configuration
+func (r DNSConfig) String() string {
+	var addrs []string
+	for _, addr := range r.Addrs {
+		addrs = append(addrs, fmt.Sprintf("%v:%v", addr, r.Port))
+	}
+	return strings.Join(addrs, ",")
+}
+
 // Addr returns the DNS server address as ip:port.
 // Requires that !r.IsEmpty.
 func (r DNSConfig) Addr() string {

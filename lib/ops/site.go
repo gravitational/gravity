@@ -61,7 +61,7 @@ func NewClusterFromSite(site Site) *storage.ClusterV2 {
 
 // ConvertOpsSite converts ops.Site to storage.Site
 func ConvertOpsSite(in Site) storage.Site {
-	site := storage.Site{
+	cluster := storage.Site{
 		AccountID: in.AccountID,
 		Domain:    in.Domain,
 		Created:   in.Created,
@@ -93,9 +93,13 @@ func ConvertOpsSite(in Site) storage.Site {
 		ServiceUser:     in.ServiceUser,
 		CloudConfig:     in.CloudConfig,
 		DNSOverrides:    in.DNSOverrides,
+		DNSConfig:       in.DNSConfig,
 	}
 	if in.License != nil {
-		site.License = in.License.Raw
+		cluster.License = in.License.Raw
 	}
-	return site
+	if in.DNSConfig.IsEmpty() {
+		cluster.DNSConfig = storage.DefaultDNSConfig
+	}
+	return cluster
 }

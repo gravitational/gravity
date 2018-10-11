@@ -439,6 +439,15 @@ func (o *Operator) validateNewSiteRequest(req *ops.NewSiteRequest) error {
 		return trace.Wrap(err)
 	}
 
+	serviceUser := req.ServiceUser
+	if serviceUser.IsEmpty() {
+		req.ServiceUser = storage.DefaultOSUser()
+	}
+
+	if req.DNSConfig.IsEmpty() {
+		req.DNSConfig = storage.DefaultDNSConfig
+	}
+
 	if req.License == "" {
 		if app.RequiresLicense() {
 			return trace.BadParameter("the app requires a license")
@@ -449,15 +458,6 @@ func (o *Operator) validateNewSiteRequest(req *ops.NewSiteRequest) error {
 	err = ops.VerifyLicense(o.packages(), req.License)
 	if err != nil {
 		return trace.Wrap(err, "failed to validate provided license")
-	}
-
-	serviceUser := req.ServiceUser
-	if serviceUser.IsEmpty() {
-		req.ServiceUser = storage.DefaultOSUser()
-	}
-
-	if req.DNSConfig.IsEmpty() {
-		req.DNSConfig = storage.DefaultDNSConfig
 	}
 
 	return nil
@@ -482,6 +482,7 @@ func validateLabels(labels map[string]string) error {
 }
 
 func (o *Operator) CreateSite(r ops.NewSiteRequest) (*ops.Site, error) {
+	o.Infof("CreateSite(%#v).", r)
 	err := o.validateNewSiteRequest(&r)
 	if err != nil {
 		return nil, trace.Wrap(err)

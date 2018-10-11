@@ -258,9 +258,6 @@ func (c *Config) CheckAndSetDefaults() (err error) {
 	if c.NewProcess == nil {
 		c.NewProcess = process.NewProcess
 	}
-	if c.DNSConfig.IsEmpty() {
-		c.DNSConfig = storage.DefaultDNSConfig
-	}
 	return nil
 }
 
