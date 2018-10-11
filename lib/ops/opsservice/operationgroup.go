@@ -253,8 +253,8 @@ func (g *operationGroup) onSiteOperationComplete(key ops.SiteOperationKey) error
 	}
 
 	if len(operations) > 0 {
-		log.Debugf("%v more %q operation(-s) in progress for %v",
-			len(operations), operation.Type, key.SiteDomain)
+		log.Debugf("%v more %q operation(-s) in progress for %v: %#v %#v",
+			len(operations), operation.Type, key.SiteDomain, key, operations)
 		return nil
 	}
 
