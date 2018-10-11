@@ -1,14 +1,14 @@
 # Remote Management
 
-This chapter covers how Telekube can remotely manage Telekube Clusters
+This chapter covers how Gravity can remotely manage Gravity Clusters
 and securely access them via SSH.
 
-Every application deployed via Telekube can "dial home" to an Ops Center
+Every application deployed via Gravity can "dial home" to an Ops Center
 to report its health status and query for updates. The address of the Ops Center
 can be configured in the Application Manifest, or it can be set via command line
 arguments during application installation.
 
-This capability is called "Remote Assistance" in the Telekube Cluster GUI.
+This capability is called "Remote Assistance" in the Gravity Cluster GUI.
 
 * The end users can turn "Remote Assistance" on or off. Sometimes they may
   want to enable it only when they need vendor help troubleshooting.
@@ -17,29 +17,29 @@ This capability is called "Remote Assistance" in the Telekube Cluster GUI.
 
 ## Gravitational Teleport
 
-Telekube uses [Teleport](https://gravitational.com/teleport) to implement
-Remote Assistance. Teleport is an open source SSH server bundled with Telekube
+Gravity uses [Teleport](https://gravitational.com/teleport) to implement
+Remote Assistance. Teleport is an open source SSH server bundled with Gravity
 and it provides the following capabilities:
 
-* It manages SSH identities and access rights to a Telekube Cluster.
+* It manages SSH identities and access rights to a Gravity Cluster.
   The Ops Center acts as a certificate authority (CA)
   capable of creating short-lived SSH sessions keys for accessing Clusters.
 
-* Every Telekube Cluster runs in its own Kubernetes cluster and also
+* Every Gravity Cluster runs in its own Kubernetes cluster and also
   runs a local SSH certificate authority (CA) which manages remote access
   rights to that cluster.
 
-* Telekube Clusters establish outbound SSH tunnels to the
+* Gravity Clusters establish outbound SSH tunnels to the
   Ops Center. These tunnels are used to report application health and check for
   updates.
 
 * The Ops Center also acts as an "SSH jump host" (aka, "SSH bastion"), allowing
-  the Ops Center to remotely access any server inside the Telekube Clusters.
+  the Ops Center to remotely access any server inside the Gravity Clusters.
 
 For more information, the [Teleport Architecture Document](http://gravitational.com/teleport/docs/architecture/)
 covers these topics in depth.
 
-## Creating Telekube Clusters
+## Creating Gravity Clusters
 
 The command `tele create` command can be used to provision a new remote cluster. The new
 cluster will be remotely accessible and managed via the Ops Center.
@@ -48,7 +48,7 @@ cluster will be remotely accessible and managed via the Ops Center.
 	The `tele create` operation is only available for creating clusters on programmable
 	infrastructure. At this time only AWS is supported.
 
-An Telekube Cluster is defined by two things:
+An Gravity Cluster is defined by two things:
 
 1. The Application Manifest [manifest](pack/#application-manifest).
 2. The Cluster Spec.
@@ -66,7 +66,7 @@ defined by the Application Manifest. Remember that in case of a [manual installa
 of an application bundle the user is responsible to provide the same information manually
 to create a cluster.
 
-To provision a new Telekube Cluster on AWS:
+To provision a new Gravity Cluster on AWS:
 
 1. Declare the Cluster Spec in a YAML file, for example `cluster.yaml`
 2. Execute `$ tele create cluster.yaml`
@@ -106,7 +106,7 @@ spec:
     instanceType: m4.xlarge
 ```
 
-To provision the Telekube Cluster defined above, make sure to log into the Ops Center and
+To provision the Gravity Cluster defined above, make sure to log into the Ops Center and
 execute:
 
 ```bash
@@ -178,7 +178,7 @@ either in a separate YAML file as shown above, or inline.
 
 
 !!! tip "Important":
-    * Telekube requires all 4 hooks when using custom provisioning.
+    * Gravity requires all 4 hooks when using custom provisioning.
     * Docker images in custom provisioning jobs are not embedded into the application
       and are pulled from the registries directly. When using private registries, use
       [special secrets](https://kubernetes.io/docs/tasks/configure-pod-container/pull-image-private-registry/)
@@ -220,7 +220,7 @@ The following parameters are specific to AWS:
 **Error Handling**
 
 In case of an error the hook author must write a useful error message to
-`stdout` and to return a non-0 exit code. Telekube will collect and report all
+`stdout` and to return a non-0 exit code. Gravity will collect and report all
 such errors when a user checks the status of the cluster provisioning
 operation.
 
@@ -232,12 +232,12 @@ the Ops Center and execute:
 $ gravity status
 ```
 
-Future versions of Telekube will allow listing Ops Center operations remotely
+Future versions of Gravity will allow listing Ops Center operations remotely
 via `tele` command.
 
-## Listing Telekube Clusters
+## Listing Gravity Clusters
 
-To see the list of Telekube Clusters available:
+To see the list of Gravity Clusters available:
 
 ```bash
 $ tele get clusters
@@ -252,7 +252,7 @@ hello1                          active     aws                us-west-2
 
 ```
 
-Use `tsh ls` command to list all nodes (servers) inside of a given Telekube Cluster:
+Use `tsh ls` command to list all nodes (servers) inside of a given Gravity Cluster:
 
 ```bash
 $ tsh --cluster=name ls

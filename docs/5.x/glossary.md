@@ -18,21 +18,21 @@ Applicaion Manifest's purpose is to describe the infrastructure requirements and
 A centralized repository of your Application Bundles and its deployed instances. If an
 Application Bundle is distributed via the Ops Center, it can optionally "phone home" for automating updates, remote monitoring and trouble shooting.
 
-## [Telekube Cluster or Cluster](/)
+## [Gravity Cluster or Cluster](/)
 
 ##[Gravity](/)
 
 ## [tele](/cli)
 
-The Telekube CLI client used for packaging applications and publishing them into the Ops Center.
+The Gravity CLI client used for packaging applications and publishing them into the Ops Center.
 
 ## [tsh](/cli)
 
-Telekube SSH client used to remotely connect to a node inside of any Telekube cluster. tsh is fully compatible with OpenSSH's ssh.
+Gravity SSH client used to remotely connect to a node inside of any Gravity cluster. tsh is fully compatible with OpenSSH's ssh.
 
 ## [gravity](/cli)
 
-Telekube component for managing Kubernetes. It manages Kubernetes daemons and their health, cluster updates and so on.
+Gravity component for managing Kubernetes. It manages Kubernetes daemons and their health, cluster updates and so on.
 
 ## [Application Resources]()
 
@@ -47,13 +47,13 @@ response to certain events happening in the cluster.
 
 ## [Bandwagan](/pack/#custom-installation-screen)
 
-A sample Custom Installation Screen packaged with Telekube that allows a user to create credentials and enable or disable remote access to an Application Cluster.
+A sample Custom Installation Screen packaged with Gravity that allows a user to create credentials and enable or disable remote access to an Application Cluster.
 
 ## [Operation Plan](/cluster/#updating-a-cluster)
 
 ## [Cluster Spec](/)
 
 Provides the infrastructure resources that satisfy the requirements
-defined by the application bundle. Remember that in case of a [manual installation](quickstart/#installing-the-application) 
+defined by the application bundle. Remember that in case of a [manual installation](quickstart/#installing-the-application)
 of an application bundle the user is responsible to provide the same information manually
-to create a cluster. 
+to create a cluster.

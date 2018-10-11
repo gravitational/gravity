@@ -1,8 +1,8 @@
 # Packaging And Deployment
 
-This section covers how to prepare an application for distribution with Telekube.
+This section covers how to prepare an application for distribution with Gravity.
 
-Telekube works with Kubernetes applications. This means the following prerequisites exist in order to use Telekube:
+Gravity works with Kubernetes applications. This means the following prerequisites exist in order to use Gravity:
 
 * The application is packaged into Docker containers.
 * You have Kubernetes resource definitions for application services, pods, etc. Kubernetes resources should be stored in the resources directory.
@@ -11,31 +11,31 @@ Telekube works with Kubernetes applications. This means the following prerequisi
 		For easy development while porting applications to Kubernetes, we recommend
 		[minikube](https://github.com/kubernetes/minikube), a Kubernetes distribution
 		optimized to run on a developer's machine. Once your application runs on
-		Kubernetes, it's trivial to package it for distribution using Telekube tools.
+		Kubernetes, it's trivial to package it for distribution using Gravity tools.
 
 ## Getting Started
 
 Any Linux or macOS laptop can be used to package and publish Kubernetes
-applications using Telekube. To get started, you need to download and
-install the Telekube SDK tools:
+applications using Gravity. To get started, you need to download and
+install the Gravity SDK tools:
 
 ```bash
 $ curl https://get.gravitational.io/telekube/install | bash
 ```
 
-You will be using `tele`, the Telekube CLI client. By using `tele` on your laptop you can:
+You will be using `tele`, the Gravity CLI client. By using `tele` on your laptop you can:
 
 * Package Kubernetes applications into self-installing tarballs, ("Application Bundles" or "Applications")
 * Publish Application Bundles into the Ops center.
-* Deploy Application Bundles to server clusters ("Telekube Clusters" or "Clusters")
-* Manage Telekube Clusters in the Ops Center.
+* Deploy Application Bundles to server clusters ("Gravity Clusters" or "Clusters")
+* Manage Gravity Clusters in the Ops Center.
 
 Here's the full list of `tele` commands:
 
 | Command  | Description |
 |----------|-------------|
 | login    | Log in to an Ops Center and makes that Ops Center active for other commands like `tsh`.
-| status   | Shows the status of Telekube SDK and the current Ops Center you're connected to.
+| status   | Shows the status of Gravity SDK and the current Ops Center you're connected to.
 | build    | Packages a Kubernetes application into a self-deployable tarball ("Application Bundle").
 | push     | Pushes a Kubernetes application into the Ops Center for publishing.
 | pull     | Downloads an application from the Ops Center.
@@ -44,7 +44,7 @@ Here's the full list of `tele` commands:
 
 ## Ops Center Login
 
-Telekube CLI tools require that a user be first logged into an Ops Center account.
+Gravity CLI tools require that a user be first logged into an Ops Center account.
 
 `tele login` is used to log into an Ops center. You can optionally specify a `cluster` parameter to
 log into a specific remote application instance.
@@ -100,7 +100,7 @@ Expires:	Wed Oct 11 16:57 UTC (19 hours from now)
 
 ## Packaging Applications
 
-Telekube can package any Kubernetes application (along with any dependencies) into a self-deploying,
+Gravity can package any Kubernetes application (along with any dependencies) into a self-deploying,
 tarball ("Application Bundle").
 
 An Application Manifest is required to create an Application Bundle. An Application Manifest is
@@ -126,7 +126,7 @@ Options:
 `tele build` can be used inside a Docker container. Using Linux containers is a good strategy to introduce reproducible builds
 that do not depend on the host OS. Containerized builds are also easier to automate by plugging them into a CI/CD pipeline.
 
-The example below builds a Docker image called `tele-buildbox`. This image will contain `tele` tool and can be used to create Telekube packages.
+The example below builds a Docker image called `tele-buildbox`. This image will contain `tele` tool and can be used to create Gravity packages.
 
 #### Build Docker image with Tele
 
@@ -240,8 +240,8 @@ installation process and requirements for an Application Bundle.
 
 ### Manifest Design Goals
 
-Telekube was designed with the goal of being compatible with existing, standard
-Kubernetes applications. The Application Manifest is _the only Telekube-specific artifact_ you
+Gravity was designed with the goal of being compatible with existing, standard
+Kubernetes applications. The Application Manifest is _the only Gravity-specific artifact_ you
 will have to create and maintain.
 
 The file format was designed to mimic a Kubernete
@@ -260,7 +260,7 @@ for efficiency:
 Additionally, the Application Manifest is designed to be as small as possible in an effort to promote
 open standards as the project matures.
 
-The Application Manifest shown here covers the basic capabilities of Telekube.
+The Application Manifest shown here covers the basic capabilities of Gravity.
 It can be extended with additional Kubernetes plug-ins. Examples of pluggable features
 include PostgreSQL, streaming replication, cluster-wide state snapshots or in-cluster encryption.
 
@@ -405,7 +405,7 @@ installer:
 # Node profiles section describes the system requirements of the application. The
 # requirements are expressed as 'server profiles'.
 #
-# Telekube will ensure that the provisioned machines match the system requirements
+# Gravity will ensure that the provisioned machines match the system requirements
 # for each profile.
 #
 # This example uses two profiles: 'db' and 'node'. For example it might make sense to
@@ -461,7 +461,7 @@ nodeProfiles:
           mode: "0755"
 
       # This directive makes sure specified devices from host are made available
-      # inside Telekube container
+      # inside Gravity container
       devices:
           # Device(-s) path, treated as a glob
         - path: /dev/nvidia*
@@ -713,14 +713,14 @@ To see more examples of specific hooks, please refer to the following documentat
     Support for Helm charts is available starting from version `5.0.0-alpha.10`.
 
 It is possible to use [Helm](https://docs.helm.sh/) charts as a way to package
-and install applications as every Telekube cluster comes with a preconfigured
+and install applications as every Gravity cluster comes with a preconfigured
 Tiller server and its client, Helm.
 
 Suppose you have the application resources directory with the following layout:
 
 ```
 example/
-   ├── app.yaml     # Telekube application manifest
+   ├── app.yaml     # Gravity application manifest
    └── charts/      # Directory with all Helm charts
        └── example/ # An application chart
            ├── Chart.yaml
@@ -786,18 +786,18 @@ correct image references.
 
 ## Custom Installation Screen
 
-The Telekube graphical installer supports plugging in custom screens after the main
+The Gravity graphical installer supports plugging in custom screens after the main
 installation phase (such as installing Kubernetes and system dependencies) has successfully completed.
 
 A "Custom Installation Screen" is just a web application running inside the deployed Kuberneted cluster
 and reachable via a Kubernetes service. Enabling a Custom Installation Screen allows the user to perform
-actions specific to an Telekube Cluster upon successful install (for example, configuring an application or
+actions specific to an Gravity Cluster upon successful install (for example, configuring an application or
 launch a database migration).
 
-Telekube comes with a sample Custom Installation Screen called "bandwagon". It is a web application that itself
+Gravity comes with a sample Custom Installation Screen called "bandwagon". It is a web application that itself
 runs on Kubernetes and exposes a Kubernetes endpoint. The installer can be configured to transfer
 the user to that endpoint after the installation. Bandwagon presents users with a form where they
-can enter login and password to provision a local Telekube Cluster user and choose whether to enable or disable
+can enter login and password to provision a local Gravity Cluster user and choose whether to enable or disable
 remote support.
 
 Bandwagon is [open source](https://github.com/gravitational/bandwagon) on Github and can be used as an
@@ -824,11 +824,11 @@ installer:
 
 
 ## Service User
-Telekube uses a special user for running system services inside the environment container called `planet`.
+Gravity uses a special user for running system services inside the environment container called `planet`.
 Historically, this user has had a hardcoded UID `1000` on host hence rendering user management
 inflexible and cumbersome.
 
-Starting with LTS 4.54, Telekube allows this user to be configured in offline installation.
+Starting with LTS 4.54, Gravity allows this user to be configured in offline installation.
 A single service user is configured for the whole cluster. This means you cannot use different
 user IDs on multiple nodes.
 
@@ -889,7 +889,7 @@ available to each hook.
     the `5.1.x` line of releases starting from `5.1.0-alpha.4`.
 
 To ensure consistency across various supported OS distributions and versions,
-Telekube clusters are deployed on top of a containerized Kubernetes environment
+Gravity clusters are deployed on top of a containerized Kubernetes environment
 called `planet`. The `planet` is a Docker image maintained by Gravitational. At
 this moment `planet` image is based on Debian 9.
 
@@ -959,7 +959,7 @@ the container. The main use-case for this is simplifying OS-specific mount confi
           name: ubuntu-library
 
         # Path can also accept a shell file pattern. In this case,
-        # it will be mounted in the telekube container under the
+        # it will be mounted in the gravity container under the
         # same path as matched on host.
         - path: /path/to/dir-???
           targetPath: /path/to/dir-???  # targetPath is required even though

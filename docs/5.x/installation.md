@@ -54,7 +54,7 @@ $ ls -lh
 The installation wizard is launched by typing `./install` and will guide the end user
 through the installation process.
 
-![Telekube Offline Installer](images/offline-install.svg?style=grv-image-center-md)
+![Gravity Offline Installer](images/offline-install.svg?style=grv-image-center-md)
 
 ### Standalone Offline CLI Installation
 
@@ -102,7 +102,7 @@ The `install` command accepts the following arguments:
 Flag      | Description
 ----------|-------------
 `--token` | Secure token which prevents rogue nodes from joining the cluster during installation. Carefully pick a hard-to-guess value.
-`--advertise-addr` | IP address this node should be visible as. This setting is needed to correctly configure Telekube on every node.
+`--advertise-addr` | IP address this node should be visible as. This setting is needed to correctly configure Gravity on every node.
 `--role` | _(Optional)_ Application role of the node.
 `--cluster` | _(Optional)_ Name of the cluster. Auto-generated if not set.
 `--cloud-provider` | _(Optional)_ Enable cloud provider integration: `generic` (no cloud provider integration), `aws` or `gce`. Autodetected if not set.
@@ -111,7 +111,7 @@ Flag      | Description
 `--pod-network-cidr` | _(Optional)_ CIDR range Kubernetes will be allocating node subnets and pod IPs from. Must be a minimum of /16 so Kubernetes is able to allocate /24 to each node. Defaults to `10.244.0.0/16`.
 `--service-cidr` | _(Optional)_ CIDR range Kubernetes will be allocating service IPs from. Defaults to `10.100.0.0/16`.
 `--wizard` | _(Optional)_ Start the installation wizard.
-`--state-dir` | _(Optional)_ Directory where all Telekube system data will be kept on this node. Defaults to `/var/lib/gravity`.
+`--state-dir` | _(Optional)_ Directory where all Gravity system data will be kept on this node. Defaults to `/var/lib/gravity`.
 `--service-uid` | _(Optional)_ Service user ID (numeric). See [Service User](pack/#service-user) for details. A user named `planet` is created automatically if unspecified.
 `--service-gid` | _(Optional)_ Service group ID (numeric). See [Service User](pack/#service-user) for details. A group named `planet` is created automatically if unspecified.
 `--dns-zone` | _(Optional)_ Specify an upstream server for the given DNS zone within the cluster. Accepts `<zone>/<nameserver>` format where `<nameserver>` can be either `<ip>` or `<ip>:<port>`. Can be specified multiple times.
@@ -122,11 +122,11 @@ The `join` command accepts the following arguments:
 Flag      | Description
 ----------|-------------
 `--token` | Secure token which prevents rogue nodes from joining the cluster during installation. Carefully pick a hard-to-guess value.
-`--advertise-addr` | IP address this node should be visible as. This setting is needed to correctly configure Telekube on every node.
+`--advertise-addr` | IP address this node should be visible as. This setting is needed to correctly configure Gravity on every node.
 `--role` | _(Optional)_ Application role of the node.
 `--cloud-provider` | _(Optional)_ Cloud provider integration, `generic` or `aws`. Autodetected if not set.
 `--mounts` | _(Optional)_ Comma-separated list of mount points as <name>:<path>.
-`--state-dir` | _(Optional)_ Directory where all Telekube system data will be kept on this node. Defaults to `/var/lib/gravity`.
+`--state-dir` | _(Optional)_ Directory where all Gravity system data will be kept on this node. Defaults to `/var/lib/gravity`.
 `--service-uid` | _(Optional)_ Service user ID (numeric). See [Service User](pack/#service-user) for details. A user named `planet` is created automatically if unspecified.
 `--service-gid` | _(Optional)_ Service group ID (numeric). See [Service User](pack/#service-user) for details. A group named `planet` is created automatically if unspecified.
 
@@ -229,11 +229,11 @@ Flag      | Description
 ## Installing on Google Compute Engine
 
 !!! note:
-    GCE cloud provider integration is supported starting from Telekube
+    GCE cloud provider integration is supported starting from Gravity
     version `5.1.0-alpha.1`.
 
 Before installation make sure that GCE instances used for installation
-satisfy all of Telekube [system requirements](/requirements). In addition to these
+satisfy all of Gravity [system requirements](/requirements). In addition to these
 generic requirements GCE nodes also must be configured in the following way to
 ensure proper cloud provider integration:
 

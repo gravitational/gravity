@@ -692,7 +692,7 @@ transient error
 #### Improvements
 
 * Add support for `uid`, `gid` and `mode` properties in application manifest `Volume`
-  [section](http://gravitational.com/docs/pack/#application-manifest)
+  [section](https://gravitational.com/gravity/docs/ver/4.x/pack/#application-manifest)
 
 ### 4.29.0
 
@@ -1059,8 +1059,8 @@ It contains a number of improvements and bugfixes.
 #### Features
 
 * Add ability to specify pod/service network CIDR range via UI and CLI
-* Add AWS IAM policy to the [docs](http://telekube.com/docs/pack/#aws-iam-policy)
-* Add runbook to recover the cluster after node failure [docs](http://telekube.com/docs/cluster/#recovering-a-node)
+* Add AWS IAM policy to the [docs](https://gravitational.com/gravity/docs/ver/4.x/pack/#aws-iam-policy)
+* Add runbook to recover the cluster after node failure [docs](https://gravitational.com/gravity/docs/ver/4.x/cluster/#recovering-a-node)
 
 ### 3.36.0
 

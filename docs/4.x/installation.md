@@ -189,7 +189,7 @@ Phase                  Description                                              
 Phase Execute preflight checks (/checks) failed.
 Error:
 server("node-1", 192.168.121.23) failed checks:
-	⚠ fs.may_detach_mounts should be set to 1 or pods may get stuck in the Terminating state, see https://www.gravitational.com/docs/faq/#kubernetes-pods-stuck-in-terminating-state
+	⚠ fs.may_detach_mounts should be set to 1 or pods may get stuck in the Terminating state, see https://gravitational.com/gravity/docs/ver/4.x/faq/#kubernetes-pods-stuck-in-terminating-state
 ```
 
 After fixing the error (i.e. enabling the kernel parameter in this example), resume the installation:

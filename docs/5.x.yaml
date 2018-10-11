@@ -1,7 +1,7 @@
-site_name: Gravitational Telekube
-site_url: https://gravitational.com/telekube/docs
+site_name: Gravitational Gravity
+site_url: https://gravitational.com/gravity/docs/ver/5.x/
 repo_url: https://github.com/gravitational/gravity
-site_description: Telekube Documentation
+site_description: Gravity Documentation
 site_author: Gravitational Inc
 copyright: Gravitational Inc, 2017-18
 
@@ -24,7 +24,7 @@ extra:
     version: 5.x
 
 pages:
-    - Telekube Overview: overview.md
+    - Gravity Overview: overview.md
     - Quick Start: quickstart.md
     - Packaging And Deployment: pack.md
     - Installation: installation.md
