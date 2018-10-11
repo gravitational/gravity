@@ -93,6 +93,7 @@ func ConvertOpsSite(in Site) storage.Site {
 		ServiceUser:     in.ServiceUser,
 		CloudConfig:     in.CloudConfig,
 		DNSOverrides:    in.DNSOverrides,
+		DNSConfig:       in.DNSConfig,
 	}
 	if in.License != nil {
 		cluster.License = in.License.Raw
