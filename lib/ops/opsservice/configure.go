@@ -937,10 +937,7 @@ func (s *site) getPlanetConfigPackage(
 		args = append(args, fmt.Sprintf("--vxlan-port=%v", vxlanPort))
 	}
 
-	dnsConfig := s.backendSite.DNSConfig
-	if dnsConfig.IsEmpty() {
-		dnsConfig = storage.DefaultDNSConfig
-	}
+	dnsConfig := s.dnsConfig()
 	for _, addr := range dnsConfig.Addrs {
 		args = append(args, fmt.Sprintf("--dns-listen-addr=%v", addr))
 	}

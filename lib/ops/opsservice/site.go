@@ -613,6 +613,13 @@ func (s site) dockerConfig() storage.DockerConfig {
 	return s.backendSite.ClusterState.Docker
 }
 
+func (s site) dnsConfig() storage.DNSConfig {
+	if s.backendSite.DNSConfig.IsEmpty() {
+		return storage.DefaultDNSConfig
+	}
+	return s.backendSite.DNSConfig
+}
+
 func (s site) serviceUser() storage.OSUser {
 	if !s.backendSite.ServiceUser.IsEmpty() {
 		return s.backendSite.ServiceUser

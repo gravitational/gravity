@@ -482,6 +482,7 @@ func validateLabels(labels map[string]string) error {
 }
 
 func (o *Operator) CreateSite(r ops.NewSiteRequest) (*ops.Site, error) {
+	o.Infof("CreateSite(%#v).", r)
 	err := o.validateNewSiteRequest(&r)
 	if err != nil {
 		return nil, trace.Wrap(err)
