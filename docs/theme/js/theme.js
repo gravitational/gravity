@@ -5,44 +5,44 @@ function handleVerSelector() {
 
   var docVersions = window.grvConfig.docVersions || [];
   var docCurrentVer = window.grvConfig.docCurrentVer;
-    
+
   function getVerUrl(ver, isLatest) {
     // looks for version number and replaces it with new value
     // ex: http://host/docs/ver/1.2/review -> http://host/docs/ver/4.0
     //var reg = new RegExp("\/ver\/([0-9|\.]+(?=\/.))");
     var reg = new RegExp("\/ver\/(.*)\/");
-    var url = window.location.href.replace(reg, '');    
+    var url = window.location.href.replace(reg, '');
     var newPrefix = isLatest ? "" : "/ver/" + ver +"/";
     return url.replace(mkdocs_page_url, newPrefix);
   }
-    
-  var $options = [];  
+
+  var $options = [];
   // show links to other versions
   for (var i = 0; i < docVersions.length; i++) {
     var ver = docVersions[i];
-    var $li = null;    
+    var $li = null;
     var isCurrent = docCurrentVer === ver;
-    if (isCurrent) {      
+    if (isCurrent) {
       curValue = ver;
-      $options.push('<option selected value="' + ver + '" >v' + ver + "</option>"  );        
+      $options.push('<option selected value="' + ver + '" >v' + ver + "</option>"  );
       continue;
     }
-        
+
     var isLatest = docVersions.indexOf(ver) === (docVersions.length - 1);
     var baseUrl = getVerUrl(ver, isLatest);
     $options.push(' <option value="' + baseUrl + '" >v' + ver + "</option>");
   }
-      
-  var $container = $(".rst-content");  
+
+  var $container = $(".rst-content");
   var $versionList = $(
     '<form name="grv-ver-selector" class="grv-ver-selector">' +
       '<label for="menu">Version</label>' +
-      '<select name="menu" onChange="window.document.location.href=this.options[this.selectedIndex].value;" value="' + curValue + '">' 
+      '<select name="menu" onChange="window.document.location.href=this.options[this.selectedIndex].value;" value="' + curValue + '">'
         + $options.reverse().join('') +
       '</select>' +
     '</form>'
   );
-  
+
   // show warning if older version
   var isLatest =
     docVersions.length === 0 ||
@@ -53,7 +53,7 @@ function handleVerSelector() {
     $('div [role="main"] div.section h1').after(
       '<div class="admonition warning" style="margin: 0px 0 15px 0;"> ' +
       '   <p class="admonition-title">Version Warning</p> ' +
-      '   <p>This chapter covers Telekube ' + docCurrentVer +'. We highly recommend evaluating ' +
+      '   <p>This chapter covers Gravity ' + docCurrentVer +'. We highly recommend evaluating ' +
       '   the <a href="' + latestVerUrl + '">latest</a> version instead.</p> ' +
       '</div>'
     );

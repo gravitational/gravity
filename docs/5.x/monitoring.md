@@ -1,6 +1,6 @@
 # Cluster Monitoring
 
-Telekube Clusters come with a fully configured and customizable monitoring/alerting system by default.
+Gravity Clusters come with a fully configured and customizable monitoring/alerting system by default.
 This system consists of the following components: Heapster, InfluxDB, Grafana and Kapacitor.
 
 These components are automatically included into an Application Bundle built with `tele build` as a
@@ -30,10 +30,10 @@ the end user. It exposes the service `kapacitor.kube-system.svc.cluster.local`.
 ## Grafana integration
 
 The standard Grafana configuration includes two pre-configured dashboards providing machine- and pod-level overview
-of the installed cluster by default. The Grafana UI is integrated with Telekube control panel. To view dashboards once
+of the installed cluster by default. The Grafana UI is integrated with Gravity control panel. To view dashboards once
 the cluster is up and running, navigate to the Cluster's Monitoring page.
 
-By default, Grafana is running in anonymous read-only mode which allows anyone logged into Telekube to view existing
+By default, Grafana is running in anonymous read-only mode which allows anyone logged into Gravity to view existing
 dashboards (but not modify them or create new ones).
 
 ## Pluggable dashboards
@@ -80,7 +80,7 @@ by heapster with 10s interval). The `default` policy is default for `k8s` databa
 specify retention policy explicitly go in there. The other two policies - `medium` and `long` are intended to store
 metric rollups and should not be used directly.
 
-Durations for each of the retention policies can be configured through the Telekube Cluster control panel.
+Durations for each of the retention policies can be configured through the Gravity Cluster control panel.
 
 ## Rollups
 
@@ -203,7 +203,7 @@ $ gravity resource rm alert my-formula
 
 ### Builtin Alerts
 
-Following table shows the alerts Telekube ships with by default:
+Following table shows the alerts Gravity ships with by default:
 
 | Component   | Alert         | Description      |
 | ------------- | -------------------- | -------------------- |

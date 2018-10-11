@@ -38,7 +38,7 @@ Telekube consists of three major components:
 * **`tele`**: the CLI tool which is used for packaging and publishing applications.
 * **`tsh`**: the SSH client for establishing secure SSH connections between the
   Ops Center and the application instances running behind firewalls on private clouds.
-  `tsh` is a part of [Gravitational Teleport](http://gravitational.com/teleport/),
+  `tsh` is a part of [Gravitational Teleport](https://gravitational.com/teleport/),
   a free open source SSH server developed, maintained and supported by Gravitational.
   It can be used independently from Telekube.
 * **Ops Center**: the Web UI for managing published applications and remotely

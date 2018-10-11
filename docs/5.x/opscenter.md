@@ -1,11 +1,11 @@
 # Setting up an Ops Center
 
 An Ops Center controls access and lifecycle of Applicaion Clusters and provides a distribution endpoint
-for Application Bundles to be installed on Telekube Clusters.
+for Application Bundles to be installed on Gravity Clusters.
 
 ## Pre-requisites
 
- - [Telekube binaries](quickstart.md)
+ - [Gravity binaries](quickstart.md)
  - The Gravitational [Quickstart Repository](https://github.com/gravitational/quickstart)
 
 ## Generating a token
@@ -21,7 +21,7 @@ Included in the [Quickstart repository](https://github.com/gravitational/quickst
 
 ### Manual Provisioning
 
-Install Telekube:
+Install Gravity:
 
 ```bash
 $ curl https://get.gravitational.io/telekube/install | bash

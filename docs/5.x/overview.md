@@ -1,34 +1,37 @@
 # Introduction
 
-Welcome to Telekube, by Gravitational. Telekube allows developers to package
+!!! tip "Information"
+    As of October 10, 2018, Telekube has been renamed to Gravity.
+
+Welcome to Gravity, by Gravitational. Gravity allows developers to package
 and deploy their complex multi-node, multi-tier application clusters into a
 variety of target infrastructure options, such as their own AWS accounts, 3rd
 party AWS accounts or even into air-gapped, bare metal server clusters.
 
-Telekube uses Google's [Kubernetes](http://k8s.io) as a portable cluster runtime
+Gravity uses Google's [Kubernetes](http://k8s.io) as a portable cluster runtime
 and allows ops teams to remotely manage many instances of a cluster either
 via SSH or via Kubernetes API, even if they are located behind
 a firewall.
 
-This overview will walk you through the basic concepts of Telekube and explain how
+This overview will walk you through the basic concepts of Gravity and explain how
 it is used to solve the operational challenges that arise in the use cases below.
 
-If you already have a good understanding of Telekube you can choose to jump right in with our [Quick Start](/quickstart) guide or dive deeper into Telekube documentation through the table of contents.
+If you already have a good understanding of Gravity you can choose to jump right in with our [Quick Start](/quickstart) guide or dive deeper into Gravity documentation through the table of contents.
 
 ## Use Cases
 
-There are two primary use cases for Telekube:
+There are two primary use cases for Gravity:
 
 1. **Private SaaS:** Software vendors (including SaaS applications) often
    need to deploy their complex software into private datacenters or 3rd
    party cloud accounts owned by their enterprise customers.
-   Telekube allows them to snapshot, publish and distribute updates to the
+   Gravity allows them to snapshot, publish and distribute updates to the
    enterprise customers.
 
 2. **Multi-Region Kubernetes:** Ops teams in large companies with many
    distributed product teams often need to provide Kubernetes-as-a-Service
    within their organization across multiple hosting regions and multiple
-   hosting providers. Telekube allows them to pre-package supported Kubernetes
+   hosting providers. Gravity allows them to pre-package supported Kubernetes
    configurations into "applications" and streamline their management and
    cross-organizational trust.
 
@@ -39,14 +42,14 @@ via simple SSH or via Kubernetes API.
 
 ## Application Lifecycle
 
-A Telekube application is a snapshot of a Kubernetes cluster, stored
+A Gravity application is a snapshot of a Kubernetes cluster, stored
 as a compressed `.tar` file ("Application Bundle" or "Application"). Application
 Bundles may contain nothing but pre-packaged Kubernetes for centralized management
 of Kubernetes resources within an organization or may also contain other
 applications running on Kubernetes. This allows a user to replicate complex cloud
 native stacks in multiple environments.
 
-The typical application lifecycle using Telekube consists of the following:
+The typical application lifecycle using Gravity consists of the following:
 
 0. Prepare your application to run on [Kubernetes](https://k8s.io). If
    you do not have Kubernetes expertise, our Implementation Services team can help.
@@ -54,19 +57,19 @@ The typical application lifecycle using Telekube consists of the following:
    "Bundle").
 2. Publish the Application Bundle for distribution.
 3. Deploy and install the Application Bundle onto Linux based server cluster
-   ("Telekube Cluster" or "Cluster").
+   ("Gravity Cluster" or "Cluster").
 4. Securely connect to any Cluster to monitor health and roll out
    updates.
 
 ## Packaging
 
-Telekube works only with applications running on Kubernetes. This means the following
-prerequisites apply in order to use Telekube:
+Gravity works only with applications running on Kubernetes. This means the following
+prerequisites apply in order to use Gravity:
 
 * The application is packaged into containers.
 * You have Kubernetes resource definitions for application services, pods, etc.
 
-To prepare a Kubernetes application for distribution via Telekube, you have to write
+To prepare a Kubernetes application for distribution via Gravity, you have to write
 an Application Manifest. Below is a sample of a simple Application Manifest in YAML format. It follows Kubernetes configuration conventions:
 
 ```bash
@@ -117,9 +120,9 @@ As shown in the diagram below, the build machine (often times a
 developer's laptop or a CI/CD server) should contain everything needed to
 build a self-sufficient portable package to distribute the Application Bundle:
 
-![Telekube Build Diagram](images/build.svg?style=grv-image-center-md)
+![Gravity Build Diagram](images/build.svg?style=grv-image-center-md)
 
-Telekube's `build` command creates the Application Bundle tarball:
+Gravity's `build` command creates the Application Bundle tarball:
 
 ```
 $ tele build -o app-name.tar app.yaml
@@ -134,7 +137,7 @@ private clouds.
 Publishing can be as simple as uploading the Application Bundle to an
 S3 bucket for others to download and install.
 
-Another option is to publish the Application Bundle into the Telekube "Ops Center", a
+Another option is to publish the Application Bundle into the Gravity "Ops Center", a
 centralized repository of your Application Bundles and its deployed Clusters. If an
 Application Bundle is distributed via the Ops Center, the resulting Cluster can
 optionally "phone home" for automating updates, remote monitoring and trouble
@@ -147,10 +150,10 @@ repeatable, scalable way, even if they are deployed on 3rd party infrastructure.
 ## Deploying and Installing
 
 Once an Application Bundle is deployed and installed it becomes a fully operational,
-autonomous, self-regulating and self-updating Kubernetes cluster ("Telekube
+autonomous, self-regulating and self-updating Kubernetes cluster ("Gravity
 Cluster" or "Cluster"). All Clusters can optionally "phone home" to a centralized control plane ("Ops Center") and be remotely managed.
 
-The Telekube Ops Center supports two methods for deploying Application Bundles:
+The Gravity Ops Center supports two methods for deploying Application Bundles:
 
 * **Online Installation**: The Ops Center generates a URL to an installer which
   can be shared with users to install the application into their infrastructure.
@@ -161,14 +164,14 @@ The Telekube Ops Center supports two methods for deploying Application Bundles:
   connected to the Internet. The end user can then unpack the Application Bundle and
   launch a self-contained installer.
 
-In either mode, the Telekube installer can run as a command line (CLI) tool or by
+In either mode, the Gravity installer can run as a command line (CLI) tool or by
 opening a browser-based graphical installation wizard.
 
 For more details about the installation process, refer to [Installation Guide](installation.md).
 
 ## Ongoing Management
 
-Telekube uses a component called "Gravity" to manage Clusters. Gravity commands are available through a CLI and can:
+Gravity uses a component called "Gravity" to manage Clusters. Gravity commands are available through a CLI and can:
 
 1. Add new nodes to a Cluster.
 2. Remove nodes from a Cluster.
@@ -186,6 +189,6 @@ See more details in [Cluster Management](cluster.md) section.
 For Applications running on remote infrastructure, Ops Center can be used to
 get remote access to the Application (assuming the end users allow it).
 
-If the Application is offline, the Telekube offline updating mechanism can be used to perform updates.
+If the Application is offline, the Gravity offline updating mechanism can be used to perform updates.
 
 See more details in [Remote Management](manage.md) section.

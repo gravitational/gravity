@@ -2,7 +2,7 @@
 
 ## Conflicting Programs
 
-Certain programs such as `dnsmasq`, `dockerd` and `lxd` interfere with Telekube operation and need be uninstalled.
+Certain programs such as `dnsmasq`, `dockerd` and `lxd` interfere with Gravity operation and need be uninstalled.
 
 ## IPv4 Forwarding
 

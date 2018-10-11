@@ -1,6 +1,6 @@
 ### Telekube Documentation
 
-This Telekube documentation is public and is hosted on http://gravitational.com/docs
+This Telekube documentation is public and is hosted on https://gravitational.com/gravity/docs
 It's based on [MkDocs](http://www.mkdocs.org/) with our own theme, similar to
 [Teleport docs](http://gravitational.com/teleport/docs/quickstart/).
 

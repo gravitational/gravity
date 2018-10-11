@@ -2,7 +2,7 @@
 
 ## LTS Releases
 
-Every major telekube version `x.0.0` has it's long term support release, e.g. for `3.0.0` version
+Every major gravity version `x.0.0` has it's long term support release, e.g. for `3.0.0` version
 LTS starts with `3.51.0` with minor backwards compatible changes added over time until the end of support cycle.
 
 | LTS Release   | Release Date         | Supported Until      | Kubernetes Version | Teleport Version   |
@@ -13,10 +13,10 @@ LTS starts with `3.51.0` with minor backwards compatible changes added over time
 | 1.30.0      | March, 21st 2017   | March, 21st 2018   | 1.3.8            |  1.2.0           |
 
 !!! tip "Cluster certificates expiration"
-    If you have a Telekube cluster of version before `5.0.0-alpha.12` that
+    If you have a Gravity cluster of version before `5.0.0-alpha.12` that
     hasn't been upgraded in about a year, its certificates may be expiring soon.
     If you are unable to upgrade, or your cluster certificates have already
-    expired, please refer to the [Telekube Manual Certificates Renewal](https://gravitational.zendesk.com/hc/en-us/articles/360000755967-Telekube-Manual-Certificates-Renewal)
+    expired, please refer to the [Gravity Manual Certificates Renewal](https://gravitational.zendesk.com/hc/en-us/articles/360000755967-Telekube-Manual-Certificates-Renewal)
     article in our Help Center.
 
 ## 5.x Releases
@@ -222,7 +222,7 @@ upgrade from older versions.
 
 #### Bugfixes
 
-* Fix translation of custom planet images to telekube packages when image reference
+* Fix translation of custom planet images to gravity packages when image reference
 is using domain/path components.
 
 ### 5.1.0-alpha.6
@@ -238,7 +238,7 @@ See [Application Manifest Changes](/pack/#application-manifest-changes) for more
 
 #### Improvements
 
-* Add ability to mount host devices into the Telekube container. See
+* Add ability to mount host devices into the Gravity container. See
 [Application Manifest](/pack/#application-manifest) for more details.
 
 ### 5.1.0-alpha.4
@@ -528,8 +528,8 @@ to invite users and reset user passwords from CLI.
 
 ## Instructions on upgrading to 4.23.0+
 
-Upgrading clusters to Telekube 4.23.0 works via the command line interface (CLI) only.
-To upgrade a cluster with an application packaged with the Telekube 4.23+
+Upgrading clusters to Gravity 4.23.0 works via the command line interface (CLI) only.
+To upgrade a cluster with an application packaged with the Gravity 4.23+
 follow the procedure below.
 
 First, the application must be published into the Ops Center. This allows
@@ -656,7 +656,7 @@ does not specify OS requirements.
 
 #### Improvements
 
-* Stopping the telekube runtime systemd unit is now more stable due to increased service stop timeout.
+* Stopping the gravity runtime systemd unit is now more stable due to increased service stop timeout.
 
 #### Bugfixes
 
@@ -924,7 +924,7 @@ transient error
 
 #### Bugfixes
 
-* Prevent telekube cluster controller from running busy loops when etcd is misconfigured or unavailable.
+* Prevent gravity cluster controller from running busy loops when etcd is misconfigured or unavailable.
 * Fix an issue with user-defined volume failing performance precheck if its directory doesn't exist.
 
 ### 4.14.0
@@ -983,7 +983,7 @@ transient error
 
 #### Security
 
-* Enable Kubernetes [Pod Security Policies](https://kubernetes.io/docs/concepts/policy/pod-security-policy/) for Telekube clusters.
+* Enable Kubernetes [Pod Security Policies](https://kubernetes.io/docs/concepts/policy/pod-security-policy/) for Gravity clusters.
 
 ### 4.6.0
 
@@ -1095,7 +1095,7 @@ transient error
 
 #### Security
 
-* Telekube security audit fixes
+* Gravity security audit fixes
 
 ### 3.58.0
 
@@ -1126,7 +1126,7 @@ transient error
 
 ### 3.51.0
 
-Telekube 3.51.0 is **LTS release supported for 1 year** for our enterprise customers with EOL of June, 2nd 2018.
+Gravity 3.51.0 is **LTS release supported for 1 year** for our enterprise customers with EOL of June, 2nd 2018.
 
 It contains a number of improvements and bugfixes.
 
@@ -1177,7 +1177,7 @@ It contains a number of improvements and bugfixes.
 
 #### Features
 
-* Add 5 and 6 node flavors to telekube bundle
+* Add 5 and 6 node flavors to gravity bundle
 * Don't exit interactive installer after failure. This will allow to collect crashreports via UI.
 
 ### 3.41.0
@@ -1201,7 +1201,7 @@ It contains a number of improvements and bugfixes.
 
 #### Features
 
-* Add example of getting the telekube binaries of a certain version
+* Add example of getting the gravity binaries of a certain version
 * Update to teleport 2.0.6
 
 ### 3.37.0
@@ -1209,8 +1209,8 @@ It contains a number of improvements and bugfixes.
 #### Features
 
 * Add ability to specify pod/service network CIDR range via UI and CLI
-* Add AWS IAM policy to the [docs](http://telekube.com/docs/pack/#aws-iam-policy)
-* Add runbook to recover the cluster after node failure [docs](http://telekube.com/docs/cluster/#recovering-a-node)
+* Add AWS IAM policy to the [docs](https://gravitational.com/gravity/docs/ver/5.x/pack/#aws-iam-policy)
+* Add runbook to recover the cluster after node failure [docs](https://gravitational.com/gravity/docs/ver/5.x/cluster/#recovering-a-node)
 
 ### 3.36.0
 
@@ -1335,7 +1335,7 @@ It contains a number of improvements and bugfixes.
 
 #### Features
 
-* Use overlay for telekube-app by default
+* Use overlay for gravity-app by default
 
 #### Bugfixes
 
@@ -1410,8 +1410,8 @@ It contains a number of improvements and bugfixes.
 
 * Control leader notifications arriving faster than app export
 * Use pod IP as process ID
-* give telekube-admin admin on default namespace
-* Remove name check for telekube binaries
+* give gravity-admin admin on default namespace
+* Remove name check for gravity binaries
 
 
 ## 1.x Releases

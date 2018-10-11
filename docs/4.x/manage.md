@@ -1,6 +1,6 @@
 # Remote Management
 
-This chapter covers how Telekube can remotely manage Telekube Clusters 
+This chapter covers how Telekube can remotely manage Telekube Clusters
 and securely access them via SSH.
 
 Every application deployed via Telekube can "dial home" to an Ops Center
@@ -21,7 +21,7 @@ Telekube uses [Teleport](https://gravitational.com/teleport) to implement
 Remote Assistance. Teleport is an open source SSH server bundled with Telekube
 and it provides the following capabilities:
 
-* It manages SSH identities and access rights to a Telekube Cluster. 
+* It manages SSH identities and access rights to a Telekube Cluster.
   The Ops Center acts as a certificate authority (CA)
   capable of creating short-lived SSH sessions keys for accessing Clusters.
 
@@ -36,13 +36,13 @@ and it provides the following capabilities:
 * The Ops Center also acts as an "SSH jump host" (aka, "SSH bastion"), allowing
   the Ops Center to remotely access any server inside the Telekube Clusters.
 
-For more information, the [Teleport Architecture Document](http://gravitational.com/teleport/docs/architecture/)
+For more information, the [Teleport Architecture Document](https://gravitational.com/teleport/docs/architecture/)
 covers these topics in depth.
 
 ## Creating Telekube Clusters
 
 The command `tele create` command can be used to provision a new remote cluster. The new
-cluster will be remotely accessible and managed via the Ops Center. 
+cluster will be remotely accessible and managed via the Ops Center.
 
 !!! note:
 	The `tele create` operation is only available for creating clusters on programmable
@@ -62,16 +62,16 @@ The _Application Manifest_ declares **what** should be inside a cluster:
   are CI/CD tools, databases, etc.
 
 The _Cluster Spec_ provides the infrastructure resources that satisfy the requirements
-defined by the Application Manifest. Remember that in case of a [manual installation](quickstart/#installing-the-application) 
+defined by the Application Manifest. Remember that in case of a [manual installation](quickstart/#installing-the-application)
 of an application bundle the user is responsible to provide the same information manually
-to create a cluster. 
+to create a cluster.
 
-To provision a new Telekube Cluster on AWS: 
+To provision a new Telekube Cluster on AWS:
 
 1. Declare the Cluster Spec in a YAML file, for example `cluster.yaml`
 2. Execute `$ tele create cluster.yaml`
 3. Optional: provisioning of a cluster can be customzied with user-supplied
-   scripts based on tools like [Terraform](https://www.terraform.io/) or 
+   scripts based on tools like [Terraform](https://www.terraform.io/) or
    [Cloud Formation](https://aws.amazon.com/cloudformation/).
 
 Below is the example of a Cluster Spec definition:
@@ -121,7 +121,7 @@ $ tele create cluster.yaml
 
 ### Verifying Node Requirements
 
-The following command will verify that a node is compatible with requirements defined by given 
+The following command will verify that a node is compatible with requirements defined by given
 profile, such as CPU, RAM and volume storage.
 
 ```bash
@@ -130,7 +130,7 @@ $ gravity check --profile=node manifest.yaml
 
 ### Customized Cluster Provisioning
 
-Cluster provisioning can be customized by the [Application Manifest](pack/#application-manifest) 
+Cluster provisioning can be customized by the [Application Manifest](pack/#application-manifest)
 author. This is achieved by implementing four _provisioning hooks_ and listing them in the
 Application Manifest. A provisioning hook is a Kubernetes job and can be
 implemented using any language.

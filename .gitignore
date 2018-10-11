@@ -1,5 +1,6 @@
 .vscode
 .vagrant
+.DS_Store
 build
 *.test
 flymake*

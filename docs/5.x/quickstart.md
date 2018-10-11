@@ -1,6 +1,6 @@
 # Quick Start
 
-The purpose of this Quick Start Guide is to quickly evaluate Telekube by using a real world example.
+The purpose of this Quick Start Guide is to quickly evaluate Gravity by using a real world example.
 
 We believe in learning by doing!
 
@@ -13,13 +13,13 @@ instance.
 
 This Quick Start Guide will walk you through the process of packaging
 Mattermost for private deployments. Before we start, please take a look at the
-[Telekube Overview](overview.md) to get familiar with basic concepts of the
-Telekube system.
+[Gravity Overview](overview.md) to get familiar with basic concepts of the
+Gravity system.
 
 ### System Requirements
 
 
-Telekube is a Linux-based toolkit. By default it supports 64-bit versions of the
+Gravity is a Linux-based toolkit. By default it supports 64-bit versions of the
 following Linux distributions as [specified here](/pack/#distributions)
 
 If you have a need to support a Linux distribution not listed above,
@@ -33,18 +33,18 @@ You will also need `git` to be able to download Mattermost code from Github.
 
 ## Getting the Tools
 
-Telekube consists of three major components:
+Gravity consists of three major components:
 
 * **`tele`**: the CLI tool which is used for packaging and publishing applications.
 * **`tsh`**: the SSH client for establishing secure SSH connections between the
   Ops Center and the application instances running behind firewalls on private clouds.
   `tsh` is a part of [Gravitational Teleport](http://gravitational.com/teleport/),
   a free open source SSH server developed, maintained and supported by Gravitational.
-  It can be used independently from Telekube.
+  It can be used independently from Gravity.
 * **Ops Center**: the Web UI for managing published applications and remotely
   accessing private cloud deployments.
 
-### Installing Telekube Tools
+### Installing Gravity Tools
 
 Let's start by installing `tele` and `tsh` CLI tools onto your machine. You
 need to have `sudo` priviliges:
@@ -68,7 +68,7 @@ $ git clone https://github.com/gravitational/quickstart.git
 ## Packaging the Application
 
 There are three major logical steps in preparing an application to be deployed
-via Telekube:
+via Gravity:
 
 1. Creating Docker containers for application components.
 2. Creating Kubernetes definitions for application components, this enables your
@@ -82,7 +82,7 @@ application manually, or you can publish it by uploading it into the Ops Center.
 ### Building Containers
 
 Before an application (Mattermost in our case) can be packaged and published
-via Telekube, you need to "containerize" it first.
+via Gravity, you need to "containerize" it first.
 
 The sample project you have fetched via `git` above contains Docker files
 for Mattermost, as well as its Kubernetes resources.
@@ -143,7 +143,7 @@ away as a free download to people who are not cloud experts.
 
 ### Publishing
 
-While the resulting Application Bundle can be used as is, Telekube also allows you
+While the resulting Application Bundle can be used as is, Gravity also allows you
 to publish it in your Ops Center for distribution. Publishing it in the Ops Center also allows
 you to see how many instances of the application are running and even connect to them remotely.
 
@@ -185,7 +185,7 @@ Now the application is ready to be distributed and installed.
 ## Installing the Application
 
 As shown in the [Overview](overview.md), there are two ways to install an
-Application Bundle packaged with Telekube:
+Application Bundle packaged with Gravity:
 
 * Online, via the Ops Center.
 * Offline, via a downloadable tarball.
@@ -200,7 +200,7 @@ The simplest way to launch an online installer is to log in to the Ops Center
 and click on "Install" in the dropdown menu for the published Application.
 This will take you to a URL where the installation wizard will run.
 
-![Telekube Online Installer](/images/installer.png)
+![Gravity Online Installer](/images/installer.png)
 
 ### Offline Mode
 
@@ -250,12 +250,12 @@ via SSH. See more in [Remote Management](manage) section.
 ## Conclusion
 
 This is a brief overview of how publishing and distributing an application
-works using Telekube. Feel free to dive further into the documentation
+works using Gravity. Feel free to dive further into the documentation
 for more details.
 
-Telekube avoids proprietary configuration formats or closed source tools.
-Outside of having a small Telekube-specific application manifest, your
-application is just a regular Kubernetes deployment. Telekube simply makes
+Gravity avoids proprietary configuration formats or closed source tools.
+Outside of having a small Gravity-specific application manifest, your
+application is just a regular Kubernetes deployment. Gravity simply makes
 it portable and deployable into private infrastructure.
 
 If you need help packaging your application into Docker containers, or if you
