@@ -412,7 +412,7 @@ func (p *Peer) tryConnect() (op *operationContext, err error) {
 			return nil, trace.Wrap(err)
 		}
 		// already exists error is returned when there's an ongoing install
-		// operation, do not attempt to dial the site until it completes
+		// operation, do not attempt to dial the cluster until it completes
 		if trace.IsAlreadyExists(err) {
 			p.sendMessage("Waiting for the install operation to finish")
 			return nil, trace.Wrap(err)
