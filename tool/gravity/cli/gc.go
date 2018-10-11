@@ -344,7 +344,7 @@ func removeUnusedPackages(env *localenv.LocalEnvironment, dryRun, pruneClusterPa
 		return trace.Wrap(err)
 	}
 
-	if err = validateCanPrunePackages(operator, *cluster); err != nil {
+	if err = validateCanPrunePackages(*cluster); err != nil {
 		return trace.Wrap(err)
 	}
 
@@ -425,20 +425,14 @@ func collectRemoteApplications(operator ops.Operator, clusterKey ops.SiteKey) ([
 	return remoteApps, nil
 }
 
-func validateCanPrunePackages(operator ops.Operator, cluster ops.Site) error {
-	operation, _, err := ops.GetLastOperation(cluster.Key(), operator)
-	if err != nil {
-		return trace.Wrap(err)
-	}
-
+func validateCanPrunePackages(cluster ops.Site) error {
 	// Use the cluster state to determine the operation progress to account
 	// for older clusters where update operation was not explicitly completed.
 	// TODO(dmitri): remove when there's no more need to support this legacy case
-	if cluster.State != ops.SiteStateActive {
-		return trace.CompareFailed("%v is still in progress. "+
-			"Package pruning can only run on a cluster with no active operations. "+
-			"Please wait for the active operation to complete and try again.",
-			operation.String())
+	switch cluster.State {
+	case ops.SiteStateActive, ops.SiteStateDegraded:
+		return trace.CompareFailed("Package pruning can only run on an active or degraded cluster. " +
+			"Please complete any pending operations and try again.")
 	}
 
 	return nil
