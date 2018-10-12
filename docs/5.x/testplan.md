@@ -149,6 +149,13 @@ spec:
   - [ ] Verify the cluster stays connected & online.
   - [ ] Verify remote support can be toggled off/on.
 
+### Cluster Upgrade & Join
+
+- [ ] Install a 1-node cluster of previous LTS version.
+- [ ] Upgrade the cluster to the current version.
+- [ ] Join another node to the cluster.
+  - [ ] Verify the node joined successfully.
+
 ### Tele Build
 
 #### Open-Source Edition
