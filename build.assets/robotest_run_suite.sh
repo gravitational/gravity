@@ -70,7 +70,7 @@ function build_upgrade_suite {
 
 function build_install_suite {
   local suite=''
-  local test_os="redhat:7.4 centos:7.5 ubuntu:latest"
+  local test_os="redhat:7.5 centos:7.5 ubuntu:latest"
   local cluster_sizes=('"flavor":"three","nodes":3,"role":"node"' '"flavor":"six","nodes":6,"role":"node"')
   local storage_drivers="overlay2 devicemapper"
   for os in $test_os; do
