@@ -5,7 +5,7 @@ readonly UPGRADE_FROM_DIR=${1:-$(pwd)/../upgrade_from}
 
 declare -A UPGRADE_FROM
 # gravity version -> list of OS releases to exercise on
-UPGRADE_FROM[5.0.24]="redhat:7.4 ubuntu:latest"
+UPGRADE_FROM[5.0.24]="centos:7.5 ubuntu:latest"
 
 readonly GET_GRAVITATIONAL_IO_APIKEY=${GET_GRAVITATIONAL_IO_APIKEY:?API key for distribution Ops Center required}
 readonly GRAVITY_BUILDDIR=${GRAVITY_BUILDDIR:?Set GRAVITY_BUILDDIR to the build directory}
@@ -70,7 +70,7 @@ function build_upgrade_suite {
 
 function build_install_suite {
   local suite=''
-  local test_os="redhat:7.4 centos:7.4 ubuntu:latest"
+  local test_os="redhat:7.4 centos:7.5 ubuntu:latest"
   local cluster_sizes=('"flavor":"three","nodes":3,"role":"node"' '"flavor":"six","nodes":6,"role":"node"')
   local storage_drivers="overlay2 devicemapper"
   for os in $test_os; do
