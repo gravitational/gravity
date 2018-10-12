@@ -136,6 +136,26 @@ spec:
     - [ ] Verify that `node-1` is successfully removed from the cluster.
     - [ ] Verify that `gravity status` is reporting the cluster as healthy (may take a minute for it to recover).
 
+### Ops Center / Cluster Upgrade & Connectivity
+
+- [ ] Install an Ops Center of previous LTS version.
+  - [ ] Push Telekube app of previous LTS version into it.
+  - [ ] Install a single-node Telekube cluster.
+- [ ] Upgrade Ops Center to the current version.
+  - [ ] Verify the cluster stays connected & online.
+  - [ ] Verify remote support can be toggled off/on.
+- [ ] Push Telekube app of the current version to the Ops Center.
+- [ ] Upgrade the cluster to the current version.
+  - [ ] Verify the cluster stays connected & online.
+  - [ ] Verify remote support can be toggled off/on.
+
+### Cluster Upgrade & Join
+
+- [ ] Install a 1-node cluster of previous LTS version.
+- [ ] Upgrade the cluster to the current version.
+- [ ] Join another node to the cluster.
+  - [ ] Verify the node joined successfully.
+
 ### Tele Build
 
 #### Open-Source Edition
