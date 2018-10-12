@@ -28,14 +28,12 @@ LTS starts with `3.51.0` with minor backwards compatible changes added over time
 * Fix an issue with deploying AWS clusters using provisioner.
 * Fix an issue with installers downloaded from the distribution portal.
 * Fix an issue with expanding clusters installed via an Ops Center.
-* Fix an issue with garbage collection not working on older clusters sometimes.
 
 ### 5.2.0-rc.2
 
 #### Bugfixes
 
 * Fix `tele build` failure when encountering unrecognized resources.
-* Fix an issue with garbage collector removing used packages sometimes.
 
 ### 5.1.1
 
