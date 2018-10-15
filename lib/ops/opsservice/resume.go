@@ -61,7 +61,12 @@ func (s *site) resumeShrink() (*ops.SiteOperationKey, error) {
 
 	s.Debugf("resuming shrink operation: %v", op)
 
-	err = s.executeOperation(key, s.shrinkOperationStart)
+	ctx, err := s.newOperationContext(*op)
+	if err != nil {
+		return nil, trace.Wrap(err)
+	}
+
+	err = s.executeOperationWithContext(ctx, op, s.shrinkOperationStart)
 	if err != nil {
 		return nil, trace.Wrap(err)
 	}

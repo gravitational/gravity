@@ -62,9 +62,9 @@ func (s *PlanSuite) TestPlanWithRuntimeUpdate(c *check.C) {
 	})
 
 	runtimeLoc := loc.MustParseLocator("gravitational.io/planet:2.0.0")
-	var servers serversWithRuntime
+	var servers runtimeServers
 	for _, server := range params.servers {
-		servers = append(servers, serverWithRuntime{server, runtimeLoc})
+		servers = append(servers, runtimeServer{server, runtimeLoc})
 	}
 
 	builder := phaseBuilder{}
@@ -72,7 +72,7 @@ func (s *PlanSuite) TestPlanWithRuntimeUpdate(c *check.C) {
 	checks := *builder.checks(appLoc1, appLoc2).Require(init)
 	preUpdate := *builder.preUpdate(appLoc2).Require(init)
 	bootstrap := *builder.bootstrap(params.servers, appLoc1, appLoc2).Require(init)
-	leadMaster := serverWithRuntime{params.servers[0], runtimeLoc}
+	leadMaster := runtimeServer{params.servers[0], runtimeLoc}
 	masters := *builder.masters(leadMaster, servers[1:2], false).Require(checks, bootstrap, preUpdate)
 	nodes := *builder.nodes(leadMaster.Server, servers[2:], false).Require(masters)
 	etcd := *builder.etcdPlan(leadMaster.Server, params.servers[1:2], params.servers[2:], "1.0.0", "2.0.0")

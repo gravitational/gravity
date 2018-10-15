@@ -266,7 +266,7 @@ func newOperationPlan(p newPlanParams) (*storage.OperationPlan, error) {
 	bootstrapPhase := *builder.bootstrap(p.servers,
 		p.installedApp.Package, p.updateApp.Package).Require(initPhase)
 
-	var masters, nodes serversWithRuntime
+	var masters, nodes runtimeServers
 	for _, server := range p.servers {
 		runtimePackage, err := p.updateApp.Manifest.RuntimePackageForProfile(server.Role)
 		if err != nil {
@@ -274,9 +274,9 @@ func newOperationPlan(p newPlanParams) (*storage.OperationPlan, error) {
 		}
 
 		if fsm.IsMasterServer(server) {
-			masters = append(masters, serverWithRuntime{server, *runtimePackage})
+			masters = append(masters, runtimeServer{Server: server, runtime: *runtimePackage})
 		} else {
-			nodes = append(nodes, serverWithRuntime{server, *runtimePackage})
+			nodes = append(nodes, runtimeServer{Server: server, runtime: *runtimePackage})
 		}
 	}
 

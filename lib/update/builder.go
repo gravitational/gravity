@@ -168,7 +168,7 @@ func (r phaseBuilder) runtime(updates []loc.Locator, rbacUpdateAvailable bool) *
 // masters returns a new phase for upgrading master servers.
 // leadMaster is the master node that is upgraded first and gets to be the leader during the operation.
 // otherMasters lists the rest of the master nodes (can be empty)
-func (r phaseBuilder) masters(leadMaster serverWithRuntime, otherMasters []serverWithRuntime,
+func (r phaseBuilder) masters(leadMaster runtimeServer, otherMasters runtimeServers,
 	supportsTaints bool) *phase {
 	root := root(phase{
 		ID:          "masters",
@@ -198,10 +198,7 @@ func (r phaseBuilder) masters(leadMaster serverWithRuntime, otherMasters []serve
 	if len(otherMasters) != 0 {
 		// election - force election to first upgraded node
 		enable := []storage.Server{leadMaster.Server}
-		var disable []storage.Server
-		for _, node := range otherMasters {
-			disable = append(disable, node.Server)
-		}
+		disable := otherMasters.asServers()
 		root.AddSequential(setLeaderElection(enable, disable, leadMaster.Server, "elect", "Make node %q Kubernetes leader"))
 	}
 
@@ -218,7 +215,7 @@ func (r phaseBuilder) masters(leadMaster serverWithRuntime, otherMasters []serve
 	return &root
 }
 
-func (r phaseBuilder) nodes(leadMaster storage.Server, nodes []serverWithRuntime, supportsTaints bool) *phase {
+func (r phaseBuilder) nodes(leadMaster storage.Server, nodes []runtimeServer, supportsTaints bool) *phase {
 	root := root(phase{
 		ID:          "nodes",
 		Description: "Update regular nodes",
@@ -388,7 +385,7 @@ type phases []phase
 
 type waitsForEndpoints bool
 
-func (r serversWithRuntime) asServers() (result []storage.Server) {
+func (r runtimeServers) asServers() (result []storage.Server) {
 	result = make([]storage.Server, 0, len(r))
 	for _, server := range r {
 		result = append(result, server.Server)
@@ -396,9 +393,9 @@ func (r serversWithRuntime) asServers() (result []storage.Server) {
 	return result
 }
 
-type serversWithRuntime []serverWithRuntime
+type runtimeServers []runtimeServer
 
-type serverWithRuntime struct {
+type runtimeServer struct {
 	storage.Server
 	runtime loc.Locator
 }

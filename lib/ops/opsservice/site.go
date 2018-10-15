@@ -406,13 +406,13 @@ func (s *site) executeOperation(key ops.SiteOperationKey, fn func(ctx *operation
 	return nil
 }
 
-func (s *site) executeOperationWithContext(ctx *operationContext, op *ops.SiteOperation, fn func(ctx *operationContext) error) {
+func (s *site) executeOperationWithContext(ctx *operationContext, op *ops.SiteOperation, fn func(ctx *operationContext) error) error {
 	defer ctx.Close()
 
 	opErr := fn(ctx)
 
 	if opErr == nil {
-		return
+		return trace.Wrap(opErr)
 	}
 
 	ctx.Errorf("operation failure: %v", trace.DebugReport(opErr))
@@ -432,6 +432,7 @@ func (s *site) executeOperationWithContext(ctx *operationContext, op *ops.SiteOp
 		Completion: constants.Completed,
 		Message:    opErr.Error(),
 	})
+	return trace.Wrap(err)
 }
 
 type transformFn func(reader io.Reader) (io.ReadCloser, error)
