@@ -168,62 +168,63 @@ func (r phaseBuilder) runtime(updates []loc.Locator, rbacUpdateAvailable bool) *
 // masters returns a new phase for upgrading master servers.
 // leadMaster is the master node that is upgraded first and gets to be the leader during the operation.
 // otherMasters lists the rest of the master nodes (can be empty)
-func (r phaseBuilder) masters(leadMaster storage.Server, otherMasters []storage.Server, supportsTaints bool,
-	application loc.Locator) *phase {
+func (r phaseBuilder) masters(leadMaster runtimeServer, otherMasters runtimeServers,
+	supportsTaints bool) *phase {
 	root := root(phase{
 		ID:          "masters",
 		Description: "Update master nodes",
 	})
 
-	node := r.node(leadMaster, root, "Update system software on master node %q")
+	node := r.node(leadMaster.Server, root, "Update system software on master node %q")
 	if len(otherMasters) != 0 {
 		node.AddSequential(phase{
 			ID:          "kubelet-permissions",
 			Executor:    kubeletPermissions,
 			Description: fmt.Sprintf("Add permissions to kubelet on %q", leadMaster.Hostname),
 			Data: &storage.OperationPhaseData{
-				Server: &leadMaster,
+				Server: &leadMaster.Server,
 			}})
 
 		// election - stepdown first node we will upgrade
 		enable := []storage.Server{}
-		disable := []storage.Server{leadMaster}
-		node.AddSequential(setLeaderElection(enable, disable, leadMaster, "stepdown", "Step down %q as Kubernetes leader"))
+		disable := []storage.Server{leadMaster.Server}
+		node.AddSequential(setLeaderElection(enable, disable, leadMaster.Server, "stepdown", "Step down %q as Kubernetes leader"))
 	}
-	node.AddSequential(r.commonNode(leadMaster, leadMaster, supportsTaints,
-		waitsForEndpoints(len(otherMasters) == 0), application)...)
+
+	node.AddSequential(r.commonNode(leadMaster.Server, leadMaster.runtime, leadMaster.Server, supportsTaints,
+		waitsForEndpoints(len(otherMasters) == 0))...)
 	root.AddSequential(node)
 
 	if len(otherMasters) != 0 {
 		// election - force election to first upgraded node
-		enable := []storage.Server{leadMaster}
-		disable := otherMasters
-		root.AddSequential(setLeaderElection(enable, disable, leadMaster, "elect", "Make node %q Kubernetes leader"))
+		enable := []storage.Server{leadMaster.Server}
+		disable := otherMasters.asServers()
+		root.AddSequential(setLeaderElection(enable, disable, leadMaster.Server, "elect", "Make node %q Kubernetes leader"))
 	}
 
 	for _, server := range otherMasters {
-		node = r.node(server, root, "Update system software on master node %q")
-		node.AddSequential(r.commonNode(server, leadMaster, supportsTaints, waitsForEndpoints(true), application)...)
-
+		node = r.node(server.Server, root, "Update system software on master node %q")
+		node.AddSequential(r.commonNode(server.Server, server.runtime, leadMaster.Server, supportsTaints,
+			waitsForEndpoints(true))...)
 		// election - enable election on the upgraded node
-		enable := []storage.Server{server}
+		enable := []storage.Server{server.Server}
 		disable := []storage.Server{}
-		node.AddSequential(setLeaderElection(enable, disable, server, "enable", "Enable leader election on node %q"))
+		node.AddSequential(setLeaderElection(enable, disable, server.Server, "enable", "Enable leader election on node %q"))
 		root.AddSequential(node)
 	}
 	return &root
 }
 
-func (r phaseBuilder) nodes(leadMaster storage.Server, nodes []storage.Server, supportsTaints bool, application loc.Locator) *phase {
+func (r phaseBuilder) nodes(leadMaster storage.Server, nodes []runtimeServer, supportsTaints bool) *phase {
 	root := root(phase{
 		ID:          "nodes",
 		Description: "Update regular nodes",
 	})
 
 	for _, server := range nodes {
-		node := r.node(server, root, "Update system software on node %q")
-		node.AddSequential(r.commonNode(server, leadMaster, supportsTaints,
-			waitsForEndpoints(true), application)...)
+		node := r.node(server.Server, root, "Update system software on node %q")
+		node.AddSequential(r.commonNode(server.Server, server.runtime, leadMaster, supportsTaints,
+			waitsForEndpoints(true))...)
 		root.AddParallel(node)
 	}
 	return &root
@@ -237,8 +238,8 @@ func (r phaseBuilder) node(server storage.Server, parent phase, format string) p
 }
 
 // commonNode returns a list of operations required for any node role to upgrade its system software
-func (r phaseBuilder) commonNode(server storage.Server, leadMaster storage.Server, supportsTaints bool,
-	waitsForEndpoints waitsForEndpoints, application loc.Locator) []phase {
+func (r phaseBuilder) commonNode(server storage.Server, runtimePackage loc.Locator, leadMaster storage.Server, supportsTaints bool,
+	waitsForEndpoints waitsForEndpoints) []phase {
 	phases := []phase{
 		phase{
 			ID:          "drain",
@@ -253,8 +254,8 @@ func (r phaseBuilder) commonNode(server storage.Server, leadMaster storage.Serve
 			Executor:    updateSystem,
 			Description: fmt.Sprintf("Update system software on node %q", server.Hostname),
 			Data: &storage.OperationPhaseData{
-				Server:  &server,
-				Package: &application,
+				Server:         &server,
+				RuntimePackage: &runtimePackage,
 			}},
 	}
 	if supportsTaints {
@@ -383,3 +384,18 @@ func (r phases) asPhases() (result []storage.OperationPhase) {
 type phases []phase
 
 type waitsForEndpoints bool
+
+func (r runtimeServers) asServers() (result []storage.Server) {
+	result = make([]storage.Server, 0, len(r))
+	for _, server := range r {
+		result = append(result, server.Server)
+	}
+	return result
+}
+
+type runtimeServers []runtimeServer
+
+type runtimeServer struct {
+	storage.Server
+	runtime loc.Locator
+}

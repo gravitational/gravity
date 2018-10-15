@@ -479,11 +479,13 @@ func (p *Process) InitRPCCredentials() error {
 	return nil
 }
 
-func (p *Process) setLeader(id string) {
+func (p *Process) setLeader(id string) (oldID string) {
 	p.Lock()
 	defer p.Unlock()
+	oldID = p.leaderID
 	p.Infof("setLeader(%v)", id)
 	p.leaderID = id
+	return oldID
 }
 
 func (p *Process) leaderStatus() (string, bool) {
@@ -603,8 +605,8 @@ func (p *Process) startElection() error {
 	p.RegisterFunc(func() error {
 		p.Infof("Start watching gravity leaders.")
 		for leaderID := range gravityLeadersC {
-			p.setLeader(leaderID)
-			p.onSiteLeader()
+			oldLeaderID := p.setLeader(leaderID)
+			p.onSiteLeader(oldLeaderID)
 		}
 		return nil
 	})
@@ -613,10 +615,17 @@ func (p *Process) startElection() error {
 }
 
 // onSiteLeader executes leader actions when active gravity master is re-elected
-func (p *Process) onSiteLeader() {
-	if leaderID, isLeader := p.leaderStatus(); !isLeader {
+func (p *Process) onSiteLeader(oldLeaderID string) {
+	var leaderID string
+	var isLeader bool
+	if leaderID, isLeader = p.leaderStatus(); !isLeader {
 		p.Debugf("We are not a leader, the leader is %v.", leaderID)
 		p.stopClusterServices()
+		return
+	}
+
+	if oldLeaderID == leaderID {
+		p.Debug("We are still the leader.")
 		return
 	}
 

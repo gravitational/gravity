@@ -121,11 +121,14 @@ func systemRollback(env *localenv.LocalEnvironment, changesetID, serviceName str
 		return trace.Wrap(err)
 	}
 
-	if withStatus {
-		err = getLocalNodeStatus(env)
-		if err != nil {
-			return trace.Wrap(err)
-		}
+	if !withStatus {
+		env.Printf("system rolled back: %v\n", rollback)
+		return nil
+	}
+
+	err = getLocalNodeStatus(env)
+	if err != nil {
+		return trace.Wrap(err)
 	}
 
 	env.Printf("system rolled back: %v\n", rollback)
@@ -193,11 +196,19 @@ func systemUpdate(env *localenv.LocalEnvironment, changesetID string, serviceNam
 		return trace.Wrap(err)
 	}
 
-	if withStatus {
-		err = getLocalNodeStatus(env)
-		if err != nil {
-			return trace.Wrap(err)
-		}
+	if !withStatus {
+		env.Printf("System successfully updated: %v.\n", changeset)
+		return nil
+	}
+
+	err = ensureServiceRunning(runtimePackage)
+	if err != nil {
+		return trace.Wrap(err)
+	}
+
+	err = getLocalNodeStatus(env)
+	if err != nil {
+		return trace.Wrap(err)
 	}
 
 	env.Printf("System successfully updated: %v.\n", changeset)
@@ -1239,6 +1250,17 @@ func updateInstalledLabelIfNecessary(packages pack.PackageService, locator loc.L
 		return trace.Wrap(err)
 	}
 	return nil
+}
+
+func ensureServiceRunning(servicePackage loc.Locator) error {
+	services, err := systemservice.New()
+	if err != nil {
+		return trace.Wrap(err)
+	}
+
+	noBlock := true
+	err = services.StartPackageService(servicePackage, noBlock)
+	return trace.Wrap(err)
 }
 
 func getLocalNodeStatus(env *localenv.LocalEnvironment) error {
