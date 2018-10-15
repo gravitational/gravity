@@ -54,7 +54,7 @@ need to have `sudo` priviliges:
 $ curl https://get.gravitational.io/telekube/install | bash
 
 # ... or, if a specific version is needed:
-$ curl https://get.gravitational.io/telekube/install/5.0.24 | bash
+$ curl https://get.gravitational.io/telekube/install/5.2.0 | bash
 ```
 
 To make sure the installation succeeded, try typing `tele version`.
