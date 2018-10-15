@@ -126,16 +126,6 @@ func systemRollback(env *localenv.LocalEnvironment, changesetID, serviceName str
 		return nil
 	}
 
-	runtimePackage, err := findRuntimePackage(env.Packages)
-	if err != nil {
-		return trace.Wrap(err)
-	}
-
-	err = ensureServiceRunning(*runtimePackage)
-	if err != nil {
-		return trace.Wrap(err)
-	}
-
 	err = getLocalNodeStatus(env)
 	if err != nil {
 		return trace.Wrap(err)
