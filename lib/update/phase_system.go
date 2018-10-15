@@ -49,18 +49,10 @@ func NewUpdatePhaseSystem(c FSMConfig, plan storage.OperationPlan, phase storage
 	if phase.Data == nil || phase.Data.Server == nil {
 		return nil, trace.NotFound("no server specified for phase %q", phase.ID)
 	}
-	if phase.Data.Package == nil {
-		return nil, trace.NotFound("no application package specified for phase %q", phase.ID)
+	if phase.Data.RuntimePackage == nil {
+		return nil, trace.NotFound("no runtime package specified for phase %q", phase.ID)
 	}
 	gravityPath, err := getGravityPath()
-	if err != nil {
-		return nil, trace.Wrap(err)
-	}
-	app, err := c.Apps.GetApp(*phase.Data.Package)
-	if err != nil {
-		return nil, trace.Wrap(err)
-	}
-	runtimePackage, err := app.Manifest.RuntimePackageForProfile(phase.Data.Server.Role)
 	if err != nil {
 		return nil, trace.Wrap(err)
 	}
@@ -70,7 +62,7 @@ func NewUpdatePhaseSystem(c FSMConfig, plan storage.OperationPlan, phase storage
 		GravityPath:    gravityPath,
 		FieldLogger:    log.NewEntry(log.New()),
 		remote:         remote,
-		runtimePackage: *runtimePackage,
+		runtimePackage: *phase.Data.RuntimePackage,
 	}, nil
 }
 

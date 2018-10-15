@@ -101,6 +101,8 @@ type OperationPhaseData struct {
 	Labels map[string]string `json:"labels,omitempty" yaml:"labels,omitempty"`
 	// InstalledPackage references the installed application package
 	InstalledPackage *loc.Locator `json:"installed_package,omitempty" yaml:"installed_package,omitempty"`
+	// RuntimePackage references the update runtime package
+	RuntimePackage *loc.Locator `json:"runtime_package,omitempty" yaml:"runtime_package,omitempty"`
 	// UpdatePlanet indicates whether the planet needs to be updated during bootstrap
 	UpdatePlanet bool `json:"update_planet" yaml:"update_planet"`
 	// ElectionChange describes changes to make to cluster elections

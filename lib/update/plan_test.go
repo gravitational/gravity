@@ -61,15 +61,21 @@ func (s *PlanSuite) TestPlanWithRuntimeUpdate(c *check.C) {
 		},
 	})
 
+	runtimeLoc := loc.MustParseLocator("gravitational.io/planet:2.0.0")
+	var servers serversWithRuntime
+	for _, server := range params.servers {
+		servers = append(servers, serverWithRuntime{server, runtimeLoc})
+	}
+
 	builder := phaseBuilder{}
 	init := *builder.init(appLoc1, appLoc2)
 	checks := *builder.checks(appLoc1, appLoc2).Require(init)
 	preUpdate := *builder.preUpdate(appLoc2).Require(init)
 	bootstrap := *builder.bootstrap(params.servers, appLoc1, appLoc2).Require(init)
-	leadMaster := params.servers[0]
-	masters := *builder.masters(leadMaster, params.servers[1:2], false, appLoc2).Require(checks, bootstrap, preUpdate)
-	nodes := *builder.nodes(leadMaster, params.servers[2:], false, appLoc2).Require(masters)
-	etcd := *builder.etcdPlan(leadMaster, params.servers[1:2], params.servers[2:], "1.0.0", "2.0.0")
+	leadMaster := serverWithRuntime{params.servers[0], runtimeLoc}
+	masters := *builder.masters(leadMaster, servers[1:2], false).Require(checks, bootstrap, preUpdate)
+	nodes := *builder.nodes(leadMaster.Server, servers[2:], false).Require(masters)
+	etcd := *builder.etcdPlan(leadMaster.Server, params.servers[1:2], params.servers[2:], "1.0.0", "2.0.0")
 	migration := builder.migration(params)
 	c.Assert(migration, check.NotNil)
 
@@ -154,16 +160,19 @@ func newTestPlan(c *check.C, p params) (storage.OperationPlan, newPlanParams) {
 		{
 			AdvertiseIP: "192.168.0.1",
 			Hostname:    "node-1",
+			Role:        "node",
 			ClusterRole: string(schema.ServiceRoleMaster),
 		},
 		{
 			AdvertiseIP: "192.168.0.2",
 			Hostname:    "node-2",
+			Role:        "node",
 			ClusterRole: string(schema.ServiceRoleMaster),
 		},
 		{
 			AdvertiseIP: "192.168.0.3",
 			Hostname:    "node-3",
+			Role:        "node",
 			ClusterRole: string(schema.ServiceRoleNode),
 		},
 	}
@@ -253,9 +262,6 @@ dependencies:
     - gravitational.io/runtime-dep-1:1.0.0
     - gravitational.io/runtime-dep-2:1.0.0
     - gravitational.io/rbac-app:1.0.0
-systemOptions:
-  dependencies:
-    runtimePackage: gravitational.io/planet:1.0.0
 `
 
 const installedAppManifest = `apiVersion: bundle.gravitational.io/v2
@@ -266,7 +272,13 @@ metadata:
 dependencies:
   apps:
     - gravitational.io/app-dep-1:1.0.0
-    - gravitational.io/app-dep-2:1.0.0`
+    - gravitational.io/app-dep-2:1.0.0
+nodeProfiles:
+  - name: node
+systemOptions:
+  dependencies:
+    runtimePackage: gravitational.io/planet:1.0.0
+`
 
 const updateRuntimeManifest = `apiVersion: bundle.gravitational.io/v2
 kind: Runtime
@@ -280,9 +292,6 @@ dependencies:
     - gravitational.io/runtime-dep-1:1.0.0
     - gravitational.io/runtime-dep-2:2.0.0
     - gravitational.io/rbac-app:2.0.0
-systemOptions:
-  dependencies:
-    runtimePackage: gravitational.io/planet:2.0.0
 `
 
 const updateAppManifest = `apiVersion: bundle.gravitational.io/v2
@@ -293,4 +302,10 @@ metadata:
 dependencies:
   apps:
     - gravitational.io/app-dep-1:1.0.0
-    - gravitational.io/app-dep-2:2.0.0`
+    - gravitational.io/app-dep-2:2.0.0
+nodeProfiles:
+  - name: node
+systemOptions:
+  dependencies:
+    runtimePackage: gravitational.io/planet:2.0.0
+`
