@@ -61,7 +61,8 @@ ignored = [
 
 [[constraint]]
   name = "github.com/gravitational/satellite"
-  version = "=5.2.7"
+  branch = "roman/k8s112"
+  # version = "=5.2.7"
 
 [[constraint]]
   name = "github.com/xtgo/set"
@@ -81,19 +82,20 @@ ignored = [
 
 [[override]]
   name = "k8s.io/apimachinery"
-  version = "kubernetes-1.11.2"
+  version = "kubernetes-1.12.1"
 
 [[override]]
   name = "k8s.io/api"
-  version = "kubernetes-1.11.2"
+  version = "kubernetes-1.12.1"
 
 [[override]]
   name = "k8s.io/apiextensions-apiserver"
-  version = "kubernetes-1.11.2"
+  version = "kubernetes-1.12.1"
 
 [[constraint]]
   name = "github.com/gravitational/rigging"
-  version = "0.0.14"
+  branch = "roman/k8s112"
+  # version = "0.0.14"
 
 [[override]]
   name = "github.com/docker/distribution"
@@ -202,7 +204,7 @@ ignored = [
 
 [[constraint]]
   name = "k8s.io/client-go"
-  version = "=v8.0.0"
+  version = "=v9.0.0"
 
 [[constraint]]
   name = "github.com/gravitational/license"

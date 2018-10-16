@@ -18,7 +18,7 @@ GRAVITY_PKG_PATH ?= github.com/gravitational/gravity
 ASSETSDIR=$(TOP)/assets
 BINDIR ?= /usr/bin
 
-# Current Kubernetes version: 1.11.2
+# Current Kubernetes version: 1.12.1
 K8S_VER := 11102
 GOLFLAGS ?= -w -s
 
@@ -42,7 +42,7 @@ GRAVITY_LINKFLAGS = "$(VERSION_FLAGS) $(GOLFLAGS)"
 TELEPORT_TAG = 2.4.7
 # TELEPORT_REPOTAG adapts TELEPORT_TAG to the teleport tagging scheme
 TELEPORT_REPOTAG := v$(TELEPORT_TAG)
-PLANET_TAG := 5.2.15-$(K8S_VER)
+PLANET_TAG := 5.2.15-$(K8S_VER)-2-ga930275
 PLANET_BRANCH := $(PLANET_TAG)
 K8S_APP_TAG := $(GRAVITY_TAG)
 TELEKUBE_APP_TAG := $(GRAVITY_TAG)
