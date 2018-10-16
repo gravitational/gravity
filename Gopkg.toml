@@ -61,8 +61,7 @@ ignored = [
 
 [[constraint]]
   name = "github.com/gravitational/satellite"
-  branch = "roman/k8s112"
-  # version = "=5.2.7"
+  version = "=5.3.0"
 
 [[constraint]]
   name = "github.com/xtgo/set"
@@ -94,8 +93,7 @@ ignored = [
 
 [[constraint]]
   name = "github.com/gravitational/rigging"
-  branch = "roman/k8s112"
-  # version = "0.0.14"
+  version = "=5.3.0"
 
 [[override]]
   name = "github.com/docker/distribution"
