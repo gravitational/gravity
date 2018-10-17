@@ -35,19 +35,19 @@
 
 [[constraint]]
   name = "k8s.io/apiextensions-apiserver"
-  version = "kubernetes-1.11.2"
+  version = "kubernetes-1.12.1"
 
 [[override]]
   name = "k8s.io/api"
-  version = "kubernetes-1.11.2"
+  version = "kubernetes-1.12.1"
 
 [[override]]
   name = "k8s.io/apimachinery"
-  version = "kubernetes-1.11.2"
+  version = "kubernetes-1.12.1"
 
 [[constraint]]
   name = "k8s.io/client-go"
-  version = "=v8.0.0"
+  version = "=v9.0.0"
 
 [[override]]
 name = "cloud.google.com/go"
@@ -150,8 +150,8 @@ name = "github.com/howeyc/gopass"
 revision = "bf9dde6d0d2c004a008c27aaee91170c786f6db8"
 
 [[override]]
-name = "github.com/imdario/mergo"
-revision = "6633656539c1639d9d78127b7d47c622b5d7b6dc"
+  name = "github.com/imdario/mergo"
+  version = "=v0.3.6"
 
 [[override]]
 name = "github.com/jonboulle/clockwork"
