@@ -78,8 +78,12 @@ func (p *updatePhaseCoreDNS) Execute(ctx context.Context) error {
 		},
 	})
 	err = rigging.ConvertError(err)
-	if err != nil && !trace.IsAlreadyExists(err) {
+	if err != nil && {
+		if trace.IsAlreadyExists(err) {
+			p.Infof("ClusterRoles/%v already exists, skiping...", corednsResourceName)
+		} else {
 		return trace.Wrap(err)
+		}
 	}
 
 	_, err = p.kubernetesOperation.Client.RbacV1().ClusterRoleBindings().Create(&rbacv1.ClusterRoleBinding{
@@ -98,8 +102,12 @@ func (p *updatePhaseCoreDNS) Execute(ctx context.Context) error {
 		},
 	})
 	err = rigging.ConvertError(err)
-	if err != nil && !trace.IsAlreadyExists(err) {
+	if err != nil && {
+		if trace.IsAlreadyExists(err) {
+			p.Infof("ClusterRoles/%v already exists, skiping...", corednsResourceName)
+		} else {
 		return trace.Wrap(err)
+		}
 	}
 
 	return nil
