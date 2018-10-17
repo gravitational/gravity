@@ -61,11 +61,6 @@ func systemPullUpdates(env *localenv.LocalEnvironment, opsCenterURL string, runt
 		return trace.Wrap(err)
 	}
 
-	err = updateRuntimePackage(env.Packages)
-	if err != nil {
-		return trace.Wrap(err)
-	}
-
 	packages, err := findPackages(env.Packages, runtimePackage)
 	if err != nil {
 		return trace.Wrap(err)
@@ -126,11 +121,14 @@ func systemRollback(env *localenv.LocalEnvironment, changesetID, serviceName str
 		return trace.Wrap(err)
 	}
 
-	if withStatus {
-		err = getLocalNodeStatus(env)
-		if err != nil {
-			return trace.Wrap(err)
-		}
+	if !withStatus {
+		env.Printf("system rolled back: %v\n", rollback)
+		return nil
+	}
+
+	err = getLocalNodeStatus(env)
+	if err != nil {
+		return trace.Wrap(err)
 	}
 
 	env.Printf("system rolled back: %v\n", rollback)
@@ -162,11 +160,6 @@ func systemUpdate(env *localenv.LocalEnvironment, changesetID string, serviceNam
 			args = append(args, "--with-status")
 		}
 		return trace.Wrap(installOneshotService(env.Silent, serviceName, args))
-	}
-
-	err := updateRuntimePackage(env.Packages)
-	if err != nil {
-		return trace.Wrap(err)
 	}
 
 	packages, err := findPackages(env.Packages, runtimePackage)
@@ -203,11 +196,19 @@ func systemUpdate(env *localenv.LocalEnvironment, changesetID string, serviceNam
 		return trace.Wrap(err)
 	}
 
-	if withStatus {
-		err = getLocalNodeStatus(env)
-		if err != nil {
-			return trace.Wrap(err)
-		}
+	if !withStatus {
+		env.Printf("System successfully updated: %v.\n", changeset)
+		return nil
+	}
+
+	err = ensureServiceRunning(runtimePackage)
+	if err != nil {
+		return trace.Wrap(err)
+	}
+
+	err = getLocalNodeStatus(env)
+	if err != nil {
+		return trace.Wrap(err)
 	}
 
 	env.Printf("System successfully updated: %v.\n", changeset)
@@ -1044,24 +1045,6 @@ func removeInterfaces(env *localenv.LocalEnvironment) error {
 	return nil
 }
 
-// updateRuntimePackage updates labels on the runtime package
-// from the previous installation
-func updateRuntimePackage(packages pack.PackageService) error {
-	runtimePackage, err := findLegacyRuntimePackage(packages)
-	if err != nil {
-		if trace.IsNotFound(err) {
-			return nil
-		}
-		return trace.Wrap(err)
-	}
-
-	err = packages.UpdatePackageLabels(*runtimePackage, pack.RuntimePackageLabels, nil)
-	if err != nil {
-		return trace.Wrap(err)
-	}
-	return nil
-}
-
 func findSecretsPackage(packages pack.PackageService) (*pack.PackageEnvelope, error) {
 	return pack.FindPackage(packages, func(env pack.PackageEnvelope) bool {
 		return isSecretsPackage(env.Locator)
@@ -1103,8 +1086,8 @@ func findAnyRuntimePackage(packages pack.PackageService) (runtimePackage *loc.Lo
 // flavors.
 func findLegacyRuntimePackage(packages pack.PackageService) (runtimePackage *loc.Locator, err error) {
 	err = pack.ForeachPackage(packages, func(env pack.PackageEnvelope) error {
-		if env.Locator.Name == loc.LegacyPlanetMaster.Name ||
-			env.Locator.Name == loc.LegacyPlanetNode.Name {
+		if loc.IsLegacyRuntimePackage(env.Locator) &&
+			env.HasLabel(pack.InstalledLabel, pack.InstalledLabel) {
 			runtimePackage = &env.Locator
 			return utils.Abort(nil)
 		}
@@ -1267,6 +1250,17 @@ func updateInstalledLabelIfNecessary(packages pack.PackageService, locator loc.L
 		return trace.Wrap(err)
 	}
 	return nil
+}
+
+func ensureServiceRunning(servicePackage loc.Locator) error {
+	services, err := systemservice.New()
+	if err != nil {
+		return trace.Wrap(err)
+	}
+
+	noBlock := true
+	err = services.StartPackageService(servicePackage, noBlock)
+	return trace.Wrap(err)
 }
 
 func getLocalNodeStatus(env *localenv.LocalEnvironment) error {

@@ -46,6 +46,9 @@ type FSMConfig struct {
 	Packages pack.PackageService
 	// ClusterPackages is the package service that talks to cluster API
 	ClusterPackages pack.PackageService
+	// HostLocalPackages is the host-local package service that contains package
+	// metadata used for updates
+	HostLocalPackages pack.PackageService
 	// Apps is the cluster apps service
 	Apps app.Applications
 	// Client is the cluster Kubernetes client
@@ -158,7 +161,8 @@ func RollbackPhase(ctx context.Context, config FSMConfig, params fsm.Params, ski
 func resumeUpdate(ctx context.Context, machine *fsm.FSM, p fsm.Params, runner rpc.AgentRepository) error {
 	fsmErr := machine.ExecutePlan(ctx, p.Progress, p.Force)
 	if fsmErr != nil {
-		return trace.Wrap(fsmErr)
+		logrus.Warnf("Failed to execute plan: %v.", fsmErr)
+		// fallthrough
 	}
 
 	err := machine.Complete(fsmErr)
@@ -166,11 +170,14 @@ func resumeUpdate(ctx context.Context, machine *fsm.FSM, p fsm.Params, runner rp
 		return trace.Wrap(err)
 	}
 
+	if fsmErr != nil {
+		return trace.Wrap(fsmErr)
+	}
+
 	ctx, cancel := context.WithTimeout(ctx, defaults.RPCAgentShutdownTimeout)
 	defer cancel()
 	if err = ShutdownClusterAgents(ctx, runner); err != nil {
 		logrus.Warnf("Failed to shutdown cluster agents: %v.", trace.DebugReport(err))
 	}
-
 	return nil
 }

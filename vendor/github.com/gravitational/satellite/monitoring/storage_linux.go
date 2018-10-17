@@ -46,46 +46,6 @@ func NewStorageChecker(config StorageConfig) health.Checker {
 	}
 }
 
-// StorageConfig describes checker configuration
-type StorageConfig struct {
-	// Path represents volume to be checked
-	Path string
-	// WillBeCreated when true, then all checks will be applied to first existing dir, or fail otherwise
-	WillBeCreated bool
-	// MinBytesPerSecond is minimum write speed for probe to succeed
-	MinBytesPerSecond uint64
-	// Filesystems define list of supported filesystems, or any if empty
-	Filesystems []string
-	// MinFreeBytes define minimum free volume capacity
-	MinFreeBytes uint64
-	// HighWatermark is the disk occupancy percentage that is considered degrading
-	HighWatermark uint
-}
-
-// HighWatermarkCheckerData is attached to high watermark check results
-type HighWatermarkCheckerData struct {
-	// HighWatermark is the watermark percentage value
-	HighWatermark uint `json:"high_watermark"`
-	// Path is the absolute path to check
-	Path string `json:"path"`
-	// TotalBytes is the total disk capacity
-	TotalBytes uint64 `json:"total_bytes"`
-	// AvailableBytes is the available disk capacity
-	AvailableBytes uint64 `json:"available_bytes"`
-}
-
-// FailureMessage returns failure watermark check message
-func (d HighWatermarkCheckerData) FailureMessage() string {
-	return fmt.Sprintf("disk utilization on %s exceeds %v percent (%s is available out of %s), see https://gravitational.com/telekube/docs/cluster/#garbage-collection",
-		d.Path, d.HighWatermark, humanize.Bytes(d.AvailableBytes), humanize.Bytes(d.TotalBytes))
-}
-
-// SuccessMessage returns success watermark check message
-func (d HighWatermarkCheckerData) SuccessMessage() string {
-	return fmt.Sprintf("disk utilization on %s is below %v percent (%s is available out of %s)",
-		d.Path, d.HighWatermark, humanize.Bytes(d.AvailableBytes), humanize.Bytes(d.TotalBytes))
-}
-
 // storageChecker verifies volume requirements
 type storageChecker struct {
 	// Config describes the checker configuration
@@ -98,11 +58,9 @@ type storageChecker struct {
 
 const (
 	storageWriteCheckerID = "io-check"
-	// DiskSpaceCheckerID is the checker that checks disk space utilization
-	DiskSpaceCheckerID = "disk-space"
-	blockSize          = 1e5
-	cycles             = 1024
-	stRdonly           = int64(1)
+	blockSize             = 1e5
+	cycles                = 1024
+	stRdonly              = int64(1)
 )
 
 // Name returns name of the checker

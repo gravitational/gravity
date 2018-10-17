@@ -24,6 +24,7 @@ import (
 	pb "github.com/gravitational/gravity/lib/network/validation/proto"
 	"github.com/gravitational/gravity/lib/schema"
 	"github.com/gravitational/gravity/lib/state"
+	"github.com/gravitational/gravity/lib/storage"
 	"github.com/gravitational/gravity/lib/utils"
 
 	"github.com/gravitational/satellite/agent/health"
@@ -139,11 +140,11 @@ func (_ *Server) Validate(ctx context.Context, req *pb.ValidateRequest) (resp *p
 	}
 
 	var failedProbes []*agentpb.Probe
-	dockerSchema := schema.Docker{
+	dockerConfig := storage.DockerConfig{
 		StorageDriver: req.Docker.StorageDriver,
 	}
 	if req.FullRequirements {
-		failedProbes, err = checks.ValidateManifest(manifest, *profile, dockerSchema, stateDir)
+		failedProbes, err = checks.ValidateManifest(manifest, *profile, dockerConfig, stateDir)
 		failedProbes = append(failedProbes, checks.RunBasicChecks(ctx, req.Options)...)
 	} else {
 		failedProbes, err = validateManifest(*profile, manifest, stateDir)

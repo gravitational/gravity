@@ -27,6 +27,7 @@ import (
 	"time"
 
 	appservice "github.com/gravitational/gravity/lib/app"
+	"github.com/gravitational/gravity/lib/checks"
 	"github.com/gravitational/gravity/lib/clients"
 	"github.com/gravitational/gravity/lib/constants"
 	"github.com/gravitational/gravity/lib/defaults"
@@ -438,6 +439,15 @@ func (o *Operator) validateNewSiteRequest(req *ops.NewSiteRequest) error {
 		return trace.Wrap(err)
 	}
 
+	serviceUser := req.ServiceUser
+	if serviceUser.IsEmpty() {
+		req.ServiceUser = storage.DefaultOSUser()
+	}
+
+	if req.DNSConfig.IsEmpty() {
+		req.DNSConfig = storage.DefaultDNSConfig
+	}
+
 	if req.License == "" {
 		if app.RequiresLicense() {
 			return trace.BadParameter("the app requires a license")
@@ -448,15 +458,6 @@ func (o *Operator) validateNewSiteRequest(req *ops.NewSiteRequest) error {
 	err = ops.VerifyLicense(o.packages(), req.License)
 	if err != nil {
 		return trace.Wrap(err, "failed to validate provided license")
-	}
-
-	serviceUser := req.ServiceUser
-	if serviceUser.IsEmpty() {
-		req.ServiceUser = storage.DefaultOSUser()
-	}
-
-	if req.DNSConfig.IsEmpty() {
-		req.DNSConfig = storage.DefaultDNSConfig
 	}
 
 	return nil
@@ -481,6 +482,7 @@ func validateLabels(labels map[string]string) error {
 }
 
 func (o *Operator) CreateSite(r ops.NewSiteRequest) (*ops.Site, error) {
+	o.Infof("CreateSite(%#v).", r)
 	err := o.validateNewSiteRequest(&r)
 	if err != nil {
 		return nil, trace.Wrap(err)
@@ -506,6 +508,12 @@ func (o *Operator) CreateSite(r ops.NewSiteRequest) (*ops.Site, error) {
 	}
 
 	app, err := o.cfg.Apps.GetApp(*sitePackage)
+	if err != nil {
+		return nil, trace.Wrap(err)
+	}
+
+	dockerConfig := checks.DockerConfigFromSchemaValue(app.Manifest.SystemDocker())
+	checks.OverrideDockerConfig(&dockerConfig, r.Docker)
 	if err != nil {
 		return nil, trace.Wrap(err)
 	}
@@ -549,7 +557,7 @@ func (o *Operator) CreateSite(r ops.NewSiteRequest) (*ops.Site, error) {
 		DNSOverrides: r.DNSOverrides,
 		DNSConfig:    r.DNSConfig,
 		ClusterState: storage.ClusterState{
-			Docker: r.Docker,
+			Docker: dockerConfig,
 		},
 	}
 	if runtimeLoc := app.Manifest.Base(); runtimeLoc != nil {
@@ -810,13 +818,13 @@ func (o *Operator) DeleteSiteOperation(key ops.SiteOperationKey) (err error) {
 	}
 
 	err = o.backend().DeleteSiteOperation(key.SiteDomain, key.OperationID)
-	// restore site state to "active"
+	// restore cluster state to "active"
 	if errState := cluster.setSiteState(ops.SiteStateActive); errState != nil {
 		log.Warnf("Failed to set cluster %v state to %q: %v.", cluster, ops.SiteStateActive, errState)
 	}
 
-	if cluster.agentService() != nil {
-		if err := cluster.agentService().StopAgents(context.TODO(), key); err != nil && !trace.IsNotFound(err) {
+	if o.cfg.Agents != nil {
+		if err := o.cfg.Agents.StopAgents(context.TODO(), key); err != nil && !trace.IsNotFound(err) {
 			log.Warnf("Failed to clean up agents for %v: %v.", key, trace.UserMessage(err))
 		}
 	}

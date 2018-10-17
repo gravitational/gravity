@@ -1,11 +1,11 @@
 # System Requirements
 
 This section outlines system requirements and best practices for installing
-Telekube Clusters.
+Gravity Clusters.
 
 ## Distributions
 
-Telekube supports the following distributions:
+Gravity supports the following distributions:
 
 | Linux Distribution        | Version         | Docker Storage Drivers                |
 |--------------------------|-----------------|---------------------------------------|
@@ -63,7 +63,7 @@ nodeProfiles:
 
 #### Network backends
 
-Telekube supports two networking backends in production:
+Gravity supports two networking backends in production:
 
 * VPC and routing tables based network for `AWS` cloud provider.
 * VXLAN based network for `generic` provider to be used on generic linux installations.
@@ -72,7 +72,7 @@ See [Application Manifest](/pack/#application-manifest) section for details on h
 
 #### Air-gapped installs
 
-Telekube Clusters do not need internet access to operate by default and ships all containers and binaries
+Gravity Clusters do not need internet access to operate by default and ships all containers and binaries
 with every install or update.
 
 #### Installer Ports
@@ -103,9 +103,9 @@ These ports are used for Cluster operation and should be open between cluster no
 | 5000                    | HTTPS                                   | Docker registry                           |
 | 3022-3025               | SSH                                     | Teleport internal SSH control panel       |
 | 3080                    | HTTPS                                   | Teleport Web  UI                          |
-| 3008-3012               | HTTPS                                   | Internal Telekube services                |
-| 32009                   | HTTPS                                   | Telekube Cluster/OpsCenter Admin panel UI |
-| 3012                    | HTTPS                                   | Telekube RPC  agent                       |
+| 3008-3012               | HTTPS                                   | Internal Gravity services                 |
+| 32009                   | HTTPS                                   | Gravity Cluster/OpsCenter Admin panel UI  |
+| 3012                    | HTTPS                                   | Gravity RPC  agent                        |
 
 !!! note "Custom vxlan port":
     If the default overlay network port (`8472`) was changed by supplying
@@ -118,7 +118,7 @@ The following kernel modules are essential for Kubernetes cluster to properly
 function.
 
 !!! note
-    The Telekube installer includes a set of pre-flight checks that alert the
+    The Gravity installer includes a set of pre-flight checks that alert the
     user if any of the required modules are not loaded.
 
 ### br_netfilter module
@@ -216,7 +216,7 @@ root$ modprobe iptable_nat
 ### Kernel Module Matrix
 
 Following table summarizes the required kernel modules per OS distribution.
-Telekube requires that these modules are loaded prior to installation.
+Gravity requires that these modules are loaded prior to installation.
 
 | Linux Distribution                     | Version | Modules |
 |--------------------------|-----------|---------------------------|
@@ -306,12 +306,12 @@ to be able to provision required infrastructure on your AWS account.
 
 ## Etcd Disk
 
-Telekube Clusters make high use of etcd, both for the Kubernetes cluster and for
+Gravity Clusters make high use of etcd, both for the Kubernetes cluster and for
 the application's own bookeeping with respect to e.g. deployed clusters' health
 and reachability. As a result, it is helpful to have a reliable, performance
 isolated disk.
 
-To achieve this, by default, Telekube looks for a disk mounted at
+To achieve this, by default, Gravity looks for a disk mounted at
 `/var/lib/gravity/planet/etcd`. We recommend you mount a dedicated disk there,
 ext4 formatted with at least 50GiB of free space. A reasonably high perfomance
 SSD is prefered. On AWS, we recommend an io1 class EBS volume with at least

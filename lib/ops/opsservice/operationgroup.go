@@ -114,8 +114,9 @@ func (g *operationGroup) canCreateOperation(operation ops.SiteOperation) error {
 		if err != nil {
 			return trace.Wrap(err)
 		}
-	case ops.OperationShrink:
-		// shrink is allowed for degraded clusters (to be able to remove offline nodes)
+	case ops.OperationShrink, ops.OperationGarbageCollect:
+		// shrink and gc are allowed for degraded clusters
+		// shrink is allowed to be able to remove failed/offline nodes
 		switch cluster.State {
 		case ops.SiteStateActive, ops.SiteStateDegraded:
 		default:
@@ -252,8 +253,8 @@ func (g *operationGroup) onSiteOperationComplete(key ops.SiteOperationKey) error
 	}
 
 	if len(operations) > 0 {
-		log.Debugf("%v more %q operation(-s) in progress for %v",
-			len(operations), operation.Type, key.SiteDomain)
+		log.Debugf("%v more %q operation(-s) in progress for %v: %#v %#v",
+			len(operations), operation.Type, key.SiteDomain, key, operations)
 		return nil
 	}
 

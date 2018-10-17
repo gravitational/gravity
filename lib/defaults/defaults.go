@@ -955,6 +955,10 @@ const (
 
 	// RemoteClusterDialAddr is the "from" address used when dialing remote cluster
 	RemoteClusterDialAddr = "127.0.0.1:3024"
+
+	// ElectionWaitTimeout specifies the maximum amount of time to wait to resume elections
+	// on a master node
+	ElectionWaitTimeout = 1 * time.Minute
 )
 
 var (

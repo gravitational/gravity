@@ -327,17 +327,17 @@ func printResourceStatus(resourceFile resources.ResourceFile, manifestPath strin
 	if resourceFile.Path() == manifestPath {
 		resourceType = "application manifest"
 	}
-	progressReporter.PrintCurrentStep("Detected %v %v", resourceType, relPath)
+	progressReporter.PrintSubStep("Detected %v %v", resourceType, relPath)
 	extractedImages, err := resourceFile.Images()
 	if err != nil {
 		return trace.Wrap(err)
 	}
 	if len(extractedImages.Images) == 0 {
-		progressReporter.PrintInfo("Found no images to vendor in %v %v", resourceType, relPath)
+		progressReporter.PrintSubStep("Found no images to vendor in %v %v", resourceType, relPath)
 	}
 	for _, o := range extractedImages.UnrecognizedObjects {
 		gvk := o.GetObjectKind().GroupVersionKind()
-		progressReporter.PrintInfo("Will skip unrecognized object in %v %v: apiVersion=%v/%v, kind=%v",
+		progressReporter.PrintSubStep("Will skip unrecognized object in %v %v: apiVersion=%v/%v, kind=%v",
 			resourceType, relPath, gvk.Group, gvk.Version, gvk.Kind)
 	}
 	return nil
@@ -628,7 +628,7 @@ func resourceFromChart(path string) (*resources.Resource, error) {
 	if err != nil {
 		return nil, trace.Wrap(err, buf.String())
 	}
-	return resources.Decode(buf)
+	return resources.Decode(buf, resources.SkipUnrecognized())
 }
 
 // resourcesFromPath collects resource files in root for further processing.

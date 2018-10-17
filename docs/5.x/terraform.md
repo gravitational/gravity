@@ -8,7 +8,7 @@ The gravity terraform provider is used to support terraform management of openso
 The terraform provider will be automatically installed when getting the gravity tools.
 
 ```
-curl https://get.gravitational.io/telekube/install/5.0.23 | bash
+curl https://get.gravitational.io/telekube/install/5.2.0 | bash
 ```
 
 Please see the [getting started guide](https://gravitational.com/telekube/docs/quickstart/#getting-the-tools) for more information.
@@ -29,7 +29,7 @@ resource "gravity_log_forwarder" "logs" {
 ```
 
 ### Authentication
-The terraform provider uses token based authentication which must be provisioned to the cluster before being used. 
+The terraform provider uses token based authentication which must be provisioned to the cluster before being used.
 
 See [Configuring Users & Tokens](https://gravitational.com/telekube/docs/cluster/#configuring-users-tokens) for more information
 
@@ -127,7 +127,7 @@ resource "gravity_tlskeypair" "test" {
 -----END CERTIFICATE-----
 -----BEGIN CERTIFICATE-----
 # ...
------END CERTIFICATE----- 
+-----END CERTIFICATE-----
 EOF
 
   private_key = <<EOF
@@ -201,7 +201,7 @@ The gravity enterprise terraform provider is used to support terraform managemen
 The terraform provider will be automatically installed when getting the gravity tools.
 
 ```
-curl https://get.gravitational.io/telekube/install/5.0.23 | bash
+curl https://get.gravitational.io/telekube/install/5.2.0 | bash
 ```
 
 Please see the [getting started guide](https://gravitational.com/telekube/docs/quickstart/#getting-the-tools) for more information.
@@ -233,7 +233,7 @@ resource "gravityenterprise_oidc" "test" {
 ```
 
 ### Authentication
-The terraform provider uses token based authentication which must be provisioned to the cluster before being used. 
+The terraform provider uses token based authentication which must be provisioned to the cluster before being used.
 
 See [Configuring Users & Tokens](https://gravitational.com/telekube/docs/cluster/#configuring-users-tokens) for more information
 
@@ -301,12 +301,12 @@ Admin access to all resources:
 ```
 resource "gravityenterprise_role" "admin" {
   name = "administrator"
-  
+
   allow {
     logins = ["root"]
     namespaces = ["default"]
-    node_labels = { 
-      "*"= "*" 
+    node_labels = {
+      "*"= "*"
     }
     rule {
       resources = ["*"]
@@ -353,7 +353,7 @@ The following arguments are supported:
             - readnosecrets - Can read a single object without secrets.
             - update - Can update a single object.
             - delete - Can remove an object.
-        - `where` - 
+        - `where` -
         - `actions` - A list of optional actions taken when a rule matches. Valid options are:
             - log - emits an entry when specified rule matches.
             - assignKubernetesGroups - assigns specified kubernetes groups to the role.
@@ -385,7 +385,7 @@ The following arguments are supported:
             - readnosecrets - Can read a single object without secrets.
             - update - Can update a single object.
             - delete - Can remove an object.
-        - `where` - 
+        - `where` -
         - `actions` - A list of optional actions taken when a rule matches. Valid options are:
             - log - emits an entry when specified rule matches.
             - assignKubernetesGroups - assigns specified kubernetes groups to the role.

@@ -29,8 +29,8 @@ import (
 	"github.com/gravitational/gravity/lib/defaults"
 	"github.com/gravitational/gravity/lib/loc"
 	"github.com/gravitational/gravity/lib/utils"
-	"github.com/gravitational/trace"
 
+	"github.com/gravitational/trace"
 	"k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -279,7 +279,7 @@ func (m Manifest) AllPackageDependencies() (deps []loc.Locator) {
 		deps = append(deps, m.SystemOptions.Dependencies.Runtime.Locator)
 	}
 	deps = append(deps, m.NodeProfiles.RuntimePackages()...)
-	return append(m.Dependencies.GetPackages(), deps...)
+	return loc.Deduplicate(append(m.Dependencies.GetPackages(), deps...))
 }
 
 // PackageDependencies returns the list of package dependencies
@@ -289,7 +289,7 @@ func (m Manifest) PackageDependencies(profile string) (deps []loc.Locator, err e
 	if err != nil {
 		return nil, trace.Wrap(err)
 	}
-	return append(m.Dependencies.GetPackages(), *runtimePackage), nil
+	return loc.Deduplicate(append(m.Dependencies.GetPackages(), *runtimePackage)), nil
 }
 
 // Header is manifest header
@@ -383,15 +383,7 @@ func (d Dependencies) GetApps() []loc.Locator {
 	for _, app := range d.Apps {
 		apps = append(apps, app.Locator)
 	}
-	return apps
-}
-
-// All returns a list of locators of all package and application dependencies
-func (d Dependencies) All() (deps []loc.Locator) {
-	for _, dep := range append(d.Packages, d.Apps...) {
-		deps = append(deps, dep.Locator)
-	}
-	return deps
+	return loc.Deduplicate(apps)
 }
 
 // Dependency represents a package or app dependency

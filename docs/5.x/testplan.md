@@ -7,7 +7,7 @@
 ### Ops Center
 
 - [ ] Install Ops Center in CLI mode.
-  - [ ] Verify can configure [OIDC connector](https://gravitational.com/telekube/docs/cluster/#google-oidc-connector-example), for example:
+  - [ ] Verify can configure [OIDC connector](https://gravitational.com/gravity/docs/ver/5.x/cluster/#google-oidc-connector-example), for example:
 ```yaml
 kind: oidc
 version: v2
@@ -23,7 +23,7 @@ spec:
     - {claim: "hd", value: "gravitational.com", roles: ["@teleadmin"]}
 ```
   - [ ] Verify can log into Ops Center UI.
-  - [ ] Verify can update TLS certificate via [resource](https://gravitational.com/telekube/docs/cluster/#configuring-tls-key-pair) or UI.
+  - [ ] Verify can update TLS certificate via [resource](https://gravitational.com/gravity/docs/ver/5.x/cluster/#configuring-tls-key-pair) or UI.
   - [ ] Verify can log in with `tele login`.
   - [ ] Verify can push Telekube app into Ops Center.
   - [ ] Verify can invite user to Ops Center using CLI.
@@ -40,7 +40,7 @@ spec:
 #### CLI mode
 
 - [ ] Install Telekube application in standalone CLI mode.
-  - [ ] Verify can create [local user](https://gravitational.com/telekube/docs/cluster/#example-provisioning-a-cluster-admin-user), for example:
+  - [ ] Verify can create [local user](https://gravitational.com/gravity/docs/ver/5.x/cluster/#example-provisioning-a-cluster-admin-user), for example:
 ```yaml
 kind: user
 version: v2
@@ -60,7 +60,7 @@ spec:
     - [ ] Open the generated link and reset the password.
     - [ ] Verify can login with the new password.
   - [ ] Verify can log into local cluster UI using the user created above.
-  - [ ] Verify can connect to [Ops Center](https://gravitational.com/telekube/docs/cluster/#configuring-trusted-clusters).
+  - [ ] Verify can connect to [Ops Center](https://gravitational.com/gravity/docs/ver/5.x/cluster/#configuring-trusted-clusters).
     - [ ] Verify cluster appears as online in Ops Center and can be accessed via UI.
     - [ ] Verify remote support can be toggled off/on and cluster goes offline/online respectively.
     - [ ] Verify trusted cluster can be deleted and cluster disappears from Ops Center.
@@ -72,7 +72,7 @@ spec:
 - [ ] Install Telekube application in standalone UI wizard mode.
   - [ ] Verify can complete bandwagon through wizard UI.
   - [ ] Verify can log into local cluster UI with the user created in bandwagon.
-  - [ ] Verify can connect to [Ops Center](https://gravitational.com/telekube/docs/cluster/#configuring-trusted-clusters).
+  - [ ] Verify can connect to [Ops Center](https://gravitational.com/gravity/docs/ver/5.x/cluster/#configuring-trusted-clusters).
     - [ ] Verify cluster appears as online in Ops Center and can be accessed via UI.
     - [ ] Verify remote support can be toggled off/on and cluster goes offline/online respectively.
     - [ ] Verify trusted cluster can be deleted and cluster disappears from Ops Center.
@@ -124,3 +124,124 @@ spec:
    - [ ] Verify can join a node.
    - [ ] Verify can uninstall the cluster.
      - [ ] Verify AWS instances and other resources are deprovisioned.
+
+### Failover & Resiliency
+
+- [ ] Install 3-node cluster.
+  - [ ] Shutdown currently active master node (let's say it's `node-1`).
+    - [ ] Verify that another node was elected as master and all relevant Kubernetes services are running.
+    - [ ] Verify that `kubectl` commands keep working.
+    - [ ] Verify that `gravity status` is reporting the cluster as degraded.
+  - [ ] Remove the shutdown node from the cluster by executing `gravity remove node-1 --force` from one of the remaining healthy nodes.
+    - [ ] Verify that `node-1` is successfully removed from the cluster.
+    - [ ] Verify that `gravity status` is reporting the cluster as healthy (may take a minute for it to recover).
+
+### Ops Center / Cluster Upgrade & Connectivity
+
+- [ ] Install an Ops Center of previous LTS version.
+  - [ ] Push Telekube app of previous LTS version into it.
+  - [ ] Install a single-node Telekube cluster.
+- [ ] Upgrade Ops Center to the current version.
+  - [ ] Verify the cluster stays connected & online.
+  - [ ] Verify remote support can be toggled off/on.
+- [ ] Push Telekube app of the current version to the Ops Center.
+- [ ] Upgrade the cluster to the current version.
+  - [ ] Verify the cluster stays connected & online.
+  - [ ] Verify remote support can be toggled off/on.
+
+### Cluster Upgrade & Join
+
+- [ ] Install a 1-node cluster of previous LTS version.
+- [ ] Upgrade the cluster to the current version.
+- [ ] Join another node to the cluster.
+  - [ ] Verify the node joined successfully.
+
+### Tele Build
+
+#### Open-Source Edition
+
+- [ ] Create minimal app manifest (`app.yaml`):
+```yaml
+apiVersion: bundle.gravitational.io/v2
+kind: Bundle
+metadata:
+    name: test
+    resourceVersion: 1.0.0
+```
+
+- [ ] Verify can build installer:
+```bash
+$ tele build app.yaml
+```
+  - [ ] Verify the latest compatible runtime from `hub.gravitational.io` was selected:
+  ```bash
+  $ tele ls --with-prereleases
+  ```
+
+- [ ] Pin runtime in the manifest to some version compatible with tele (same major/minor version components):
+```yaml
+systemOptions:
+    runtime:
+        version: 5.2.0
+```
+  - [ ] Verify can build the installer.
+
+#### Enterprise Edition
+
+- [ ] Run the same tests as for OSS version.
+  - [ ] Verify `get.gravitational.io` instead of `hub.gravitational.io` was used as a remote repository.
+
+- [ ] Log into some Ops Center (could be local dev one).
+```bash
+$ tele login -o example.gravitational.io
+```
+
+- [ ] Unpin runtime from manifest and run tele build.
+  - [ ] Verify latest compatible runtime from active Ops Center was selected.
+
+### Licensing & Encryption (Enterprise Edition)
+
+This scenario builds an encrypted installer for an application that requires
+a license and makes sure that it can be installed with valid license. It is
+only supported in the enterprise edition.
+
+- [ ] Generate test CA and private key:
+```bash
+$ openssl req -newkey rsa:2048 -nodes -keyout domain.key -x509 -days 365 -out domain.crt
+```
+
+- [ ] Create test app manifest that requires license (`app.yaml`):
+```yaml
+apiVersion: bundle.gravitational.io/v2
+kind: Bundle
+metadata:
+    name: test
+    resourceVersion: 1.0.0
+license:
+    enabled: true
+```
+
+- [ ] Generate a license with encryption key:
+```bash
+$ gravity license new --max-nodes=3 --valid-for=24h --ca-cert=domain.crt --ca-key=domain.key --encryption-key=qwe123 > license.pem
+```
+
+- [ ] Build an encrypted application installer:
+```bash
+$ tele build app.yaml --ca-cert=domain.crt --encryption-key=qwe123
+```
+
+- [ ] Verify can install in wizard UI mode.
+  - [ ] Verify license prompt appears in the UI.
+  - [ ] Insert the generated license and verify the installation succeeds.
+  - [ ] Verify license can be updated via cluster UI after installation.
+
+- [ ] Verify license is enforced in CLI mode:
+```bash
+$ sudo ./gravity install # should return a license error
+```
+
+- [ ] Verify can install in CLI mode with license:
+```bash
+$ sudo ./gravity install --license="$(cat /tmp/license)"
+```

@@ -20,7 +20,11 @@
 #  name = "github.com/x/y"
 #  version = "2.4.0"
 
-ignored = ["github.com/Sirupsen/logrus", "github.com/gravitational/gravity/build/*"]
+ignored = [
+  "github.com/Sirupsen/logrus",
+  "github.com/gravitational/gravity/build/*",
+  "github.com/gravitational/gravity/e/build/*"
+]
 
 [prune]
   unused-packages = true
@@ -57,7 +61,7 @@ ignored = ["github.com/Sirupsen/logrus", "github.com/gravitational/gravity/build
 
 [[constraint]]
   name = "github.com/gravitational/satellite"
-  version = "=5.2.6"
+  version = "=5.3.0"
 
 [[constraint]]
   name = "github.com/xtgo/set"
@@ -77,19 +81,19 @@ ignored = ["github.com/Sirupsen/logrus", "github.com/gravitational/gravity/build
 
 [[override]]
   name = "k8s.io/apimachinery"
-  version = "kubernetes-1.11.2"
+  version = "kubernetes-1.12.1"
 
 [[override]]
   name = "k8s.io/api"
-  version = "kubernetes-1.11.2"
+  version = "kubernetes-1.12.1"
 
 [[override]]
   name = "k8s.io/apiextensions-apiserver"
-  version = "kubernetes-1.11.2"
+  version = "kubernetes-1.12.1"
 
 [[constraint]]
   name = "github.com/gravitational/rigging"
-  version = "0.0.14"
+  version = "=5.3.0"
 
 [[override]]
   name = "github.com/docker/distribution"
@@ -198,7 +202,7 @@ ignored = ["github.com/Sirupsen/logrus", "github.com/gravitational/gravity/build
 
 [[constraint]]
   name = "k8s.io/client-go"
-  version = "=v8.0.0"
+  version = "=v9.0.0"
 
 [[constraint]]
   name = "github.com/gravitational/license"

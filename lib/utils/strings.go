@@ -98,3 +98,15 @@ func MatchesLabels(targetLabels, wantedLabels map[string]string) bool {
 func TrimPathPrefix(path string, prefixPath ...string) string {
 	return strings.TrimPrefix(path, filepath.Join(prefixPath...)+string(os.PathSeparator))
 }
+
+// CombineLabels combines the specified label sets into a single map.
+// Existing labels will get overwritten with the last value
+func CombineLabels(labels ...map[string]string) (result map[string]string) {
+	result = make(map[string]string)
+	for _, set := range labels {
+		for k, v := range set {
+			result[k] = v
+		}
+	}
+	return result
+}

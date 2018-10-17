@@ -69,7 +69,7 @@ func New(remote Remote, servers []Server, manifest schema.Manifest, requirements
 func ValidateManifest(
 	manifest schema.Manifest,
 	profile schema.NodeProfile,
-	dockerSchema schema.Docker,
+	dockerConfig storage.DockerConfig,
 	stateDir string,
 ) (failedProbes []*agentpb.Probe, err error) {
 	var errors []error
@@ -80,6 +80,7 @@ func ValidateManifest(
 	}
 	failedProbes = append(failedProbes, failed...)
 
+	dockerSchema := schema.Docker{StorageDriver: dockerConfig.StorageDriver}
 	failed, err = schema.ValidateDocker(dockerSchema, stateDir)
 	if err != nil {
 		errors = append(errors, trace.Wrap(err,
@@ -116,7 +117,7 @@ type LocalChecksRequest struct {
 	Role string
 	// Options is additional validation options
 	Options *validationpb.ValidateOptions
-	// Docker specifies the Docker configuration to validate
+	// Docker specifies Docker configuration overrides (if any)
 	Docker storage.DockerConfig
 	// AutoFix when set to true attempts to fix some common problems
 	AutoFix bool
@@ -131,9 +132,6 @@ func (r *LocalChecksRequest) CheckAndSetDefaults() error {
 	}
 	if r.Role == "" {
 		return trace.BadParameter("role name is required")
-	}
-	if r.Docker.IsEmpty() {
-		return trace.BadParameter("docker configuration is required")
 	}
 	if r.Progress == nil {
 		r.Progress = utils.NewConsoleProgress(r.Context, "", 0)
@@ -178,8 +176,9 @@ func ValidateLocal(req LocalChecksRequest) (*LocalChecksResult, error) {
 		return nil, trace.Wrap(err)
 	}
 
-	dockerSchema := schema.Docker{StorageDriver: req.Docker.StorageDriver}
-	failedProbes, err := ValidateManifest(req.Manifest, *profile, dockerSchema, stateDir)
+	dockerConfig := DockerConfigFromSchemaValue(req.Manifest.SystemDocker())
+	OverrideDockerConfig(&dockerConfig, req.Docker)
+	failedProbes, err := ValidateManifest(req.Manifest, *profile, dockerConfig, stateDir)
 	if err != nil {
 		return nil, trace.Wrap(err)
 	}
@@ -254,6 +253,32 @@ func FormatFailedChecks(failed []*agentpb.Probe) string {
 		fmt.Fprintf(&buf, "\t[%v] %s\n", constants.FailureMark, formatProbe(*p))
 	}
 	return buf.String()
+}
+
+// OverrideDockerConfig updates given config with values from overrideConfig where necessary
+func OverrideDockerConfig(config *storage.DockerConfig, overrideConfig storage.DockerConfig) {
+	if overrideConfig.StorageDriver != "" {
+		config.StorageDriver = overrideConfig.StorageDriver
+	}
+	if len(overrideConfig.Args) != 0 {
+		config.Args = overrideConfig.Args
+	}
+}
+
+// DockerConfigFromSchema converts the specified Docker schema to storage configuration format
+func DockerConfigFromSchema(dockerSchema *schema.Docker) (config storage.DockerConfig) {
+	if dockerSchema == nil {
+		return config
+	}
+	return DockerConfigFromSchemaValue(*dockerSchema)
+}
+
+// DockerConfigFromSchemaValue converts the specified Docker schema to storage configuration format
+func DockerConfigFromSchemaValue(dockerSchema schema.Docker) (config storage.DockerConfig) {
+	return storage.DockerConfig{
+		StorageDriver: dockerSchema.StorageDriver,
+		Args:          dockerSchema.Args,
+	}
 }
 
 type checker struct {

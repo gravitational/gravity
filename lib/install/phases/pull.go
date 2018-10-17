@@ -112,7 +112,7 @@ func (p *pullExecutor) Execute(ctx context.Context) error {
 	if err != nil {
 		return trace.Wrap(err)
 	}
-	err = p.applyInstalledLabels()
+	err = p.applyPackageLabels()
 	if err != nil {
 		return trace.Wrap(err)
 	}
@@ -158,15 +158,14 @@ func (p *pullExecutor) pullUserApplication() error {
 	return nil
 }
 
-// applyInstalledLabels adds "installed" label to system packages that are
-// required to have one in order for update to properly detect an installed
-// version
-func (p *pullExecutor) applyInstalledLabels() error {
+// applyPackageLabels adds labels to system packages in order for update
+// to properly detect an installed version
+func (p *pullExecutor) applyPackageLabels() error {
 	packages := []string{
 		constants.TeleportPackage,
 		constants.GravityPackage,
 	}
-	locators := []loc.Locator{p.runtimePackage}
+	var locators []loc.Locator
 	err := pack.ForeachPackageInRepo(p.LocalPackages, defaults.SystemAccountOrg,
 		func(e pack.PackageEnvelope) error {
 			if utils.StringInSlice(packages, e.Locator.Name) {
@@ -178,13 +177,21 @@ func (p *pullExecutor) applyInstalledLabels() error {
 		return trace.Wrap(err)
 	}
 	for _, locator := range locators {
-		p.Infof("Marking package %v as installed.", locator)
+		p.Infof("Marking installed package: %v.", locator)
 		err := p.LocalPackages.UpdatePackageLabels(locator, map[string]string{
 			pack.InstalledLabel: pack.InstalledLabel,
 		}, nil)
 		if err != nil {
 			return trace.Wrap(err)
 		}
+	}
+	p.Infof("Marking runtime package: %v.", p.runtimePackage)
+	err = p.LocalPackages.UpdatePackageLabels(p.runtimePackage, map[string]string{
+		pack.InstalledLabel: pack.InstalledLabel,
+		pack.PurposeLabel:   pack.PurposeRuntime,
+	}, nil)
+	if err != nil {
+		return trace.Wrap(err)
 	}
 	return nil
 }

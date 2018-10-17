@@ -196,9 +196,6 @@ func (i *InstallConfig) CheckAndSetDefaults() (err error) {
 	if i.VxlanPort == 0 {
 		i.VxlanPort = defaults.VxlanPort
 	}
-	if i.DNSConfig.IsEmpty() {
-		i.DNSConfig = storage.DefaultDNSConfig
-	}
 	if err := i.validateDNSConfig(); err != nil {
 		return trace.Wrap(err)
 	}

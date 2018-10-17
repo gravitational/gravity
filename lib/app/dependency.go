@@ -43,6 +43,7 @@ func GetDependencies(app *Application, apps Applications) (result *Dependencies,
 			result.Apps = append(result.Apps, locator)
 		}
 	}
+	result.Packages = loc.Deduplicate(result.Packages)
 	return result, nil
 }
 
@@ -56,14 +57,22 @@ func VerifyDependencies(app *Application, apps Applications, packages pack.Packa
 	for _, dependency := range dependencies.Packages {
 		_, err := packages.ReadPackageEnvelope(dependency)
 		if err != nil {
+			if trace.IsNotFound(err) {
+				log.Debugf("Package dependency %v is not present.", dependency)
+			}
 			return trace.Wrap(err)
 		}
+		log.Debugf("Package dependency %v is present.", dependency)
 	}
 	for _, dependency := range dependencies.Apps {
 		_, err := apps.GetApp(dependency)
 		if err != nil {
+			if trace.IsNotFound(err) {
+				log.Debugf("App dependency %v is not present.", dependency)
+			}
 			return trace.Wrap(err)
 		}
+		log.Debugf("App dependency %v is present.", dependency)
 	}
 	return nil
 }
@@ -79,9 +88,10 @@ type Dependencies struct {
 
 func getDependencies(app *Application, apps Applications, state *state) error {
 	log.Infof("Getting dependencies for %v.", app.Package)
-	for _, dependency := range append(
+	packageDeps := loc.Deduplicate(append(
 		app.Manifest.Dependencies.GetPackages(),
-		app.Manifest.NodeProfiles.RuntimePackages()...) {
+		app.Manifest.NodeProfiles.RuntimePackages()...))
+	for _, dependency := range packageDeps {
 		packageName := dependency.String()
 		if _, ok := state.visitedPackages[packageName]; !ok {
 			state.visitedPackages[packageName] = struct{}{}

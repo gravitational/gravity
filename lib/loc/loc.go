@@ -159,6 +159,15 @@ func (l Locator) String() string {
 	return fmt.Sprintf("%v/%v:%v", l.Repository, l.Name, l.Version)
 }
 
+// WithVersion returns a copy of this locator with version set to the specified one
+func (l Locator) WithVersion(version *semver.Version) Locator {
+	return Locator{
+		Repository: l.Repository,
+		Name:       l.Name,
+		Version:    version.String(),
+	}
+}
+
 func ParseLocator(v string) (*Locator, error) {
 	parts := strings.Split(v, "/")
 	if len(parts) != 2 || parts[0] == "" || parts[1] == "" {
@@ -188,6 +197,23 @@ func MustParseLocator(v string) Locator {
 		panic(err)
 	}
 	return *l
+}
+
+// Deduplicate returns ls with duplicates removed
+func Deduplicate(ls []Locator) (result []Locator) {
+	if len(ls) == 0 {
+		return ls
+	}
+	result = make([]Locator, 0, len(ls))
+	seen := make(map[Locator]struct{}, len(ls))
+	for _, loc := range ls {
+		if _, exists := seen[loc]; exists {
+			continue
+		}
+		result = append(result, loc)
+		seen[loc] = struct{}{}
+	}
+	return result
 }
 
 var (

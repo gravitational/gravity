@@ -107,10 +107,6 @@ type Installer struct {
 	// engine allows to customize installer behavior
 	engine Engine
 	flavor *schema.Flavor
-	// Docker defines the cluster Docker configuration.
-	// It is constructed from the application manifest
-	// and command line overrides
-	Docker storage.DockerConfig
 }
 
 // SetFlavor sets the flavor that will be installed
@@ -246,8 +242,8 @@ func (c *Config) CheckAndSetDefaults() (err error) {
 	if c.AppPackage == nil {
 		return trace.BadParameter("missing AppPackage")
 	}
-	rand.Seed(time.Now().UnixNano())
 	if c.SiteDomain == "" {
+		rand.Seed(time.Now().UnixNano())
 		c.SiteDomain = fmt.Sprintf(
 			"%v%d",
 			strings.Replace(namesgenerator.GetRandomName(0), "_", "", -1),
@@ -261,9 +257,6 @@ func (c *Config) CheckAndSetDefaults() (err error) {
 	}
 	if c.NewProcess == nil {
 		c.NewProcess = process.NewProcess
-	}
-	if c.DNSConfig.IsEmpty() {
-		c.DNSConfig = storage.DefaultDNSConfig
 	}
 	return nil
 }
@@ -312,15 +305,12 @@ func Init(ctx context.Context, cfg Config) (*Installer, error) {
 	if err != nil {
 		return nil, trace.Wrap(err)
 	}
+
 	account, err := getSystemAccount(wizard.Operator)
 	if err != nil {
 		return nil, trace.Wrap(err)
 	}
 	token, err := generateInstallToken(wizard.Operator, account.ID, cfg.Token)
-	if err != nil {
-		return nil, trace.Wrap(err)
-	}
-	dockerConfig, err := getDockerConfig(cfg.Docker, wizard.Apps, *cfg.AppPackage)
 	if err != nil {
 		return nil, trace.Wrap(err)
 	}
@@ -333,7 +323,6 @@ func Init(ctx context.Context, cfg Config) (*Installer, error) {
 		Operator:    wizard.Operator,
 		Apps:        wizard.Apps,
 		Packages:    wizard.Packages,
-		Docker:      *dockerConfig,
 	}
 	// set the installer engine to itself by default, and external
 	// implementations will be able to override it via SetEngine
@@ -818,25 +807,4 @@ func wait(ctx context.Context, cancel context.CancelFunc, p process.GravityProce
 		log.Debug("Operation context closed.")
 		return nil
 	}
-}
-
-func getDockerConfig(overrides storage.DockerConfig, apps appservice.Applications, appPackage loc.Locator) (*storage.DockerConfig, error) {
-	app, err := apps.GetApp(appPackage)
-	if err != nil {
-		return nil, trace.Wrap(err)
-	}
-
-	dockerSchema := app.Manifest.SystemDocker()
-	config := storage.DockerConfig{
-		StorageDriver: dockerSchema.StorageDriver,
-		Args:          dockerSchema.Args,
-	}
-	if overrides.StorageDriver != "" {
-		config.StorageDriver = overrides.StorageDriver
-	}
-	if len(overrides.Args) != 0 {
-		config.Args = overrides.Args
-	}
-
-	return &config, nil
 }

@@ -4,7 +4,8 @@ set -eu -o pipefail
 readonly UPGRADE_FROM_DIR=${1:-$(pwd)/../upgrade_from}
 
 declare -A UPGRADE_FROM
-UPGRADE_FROM[4.56.0]="redhat:7.4 ubuntu:latest"
+# gravity version -> list of OS releases to exercise on
+UPGRADE_FROM[5.0.24]="centos:7.5 ubuntu:latest"
 
 readonly GET_GRAVITATIONAL_IO_APIKEY=${GET_GRAVITATIONAL_IO_APIKEY:?API key for distribution Ops Center required}
 readonly GRAVITY_BUILDDIR=${GRAVITY_BUILDDIR:?Set GRAVITY_BUILDDIR to the build directory}
@@ -62,13 +63,14 @@ function build_upgrade_suite {
       suite+=' '
     done
     suite+=$(build_devicemapper_upgrade_step 'redhat:7.4' $release)
+    suite+=' '
   done
   echo $suite
 }
 
 function build_install_suite {
   local suite=''
-  local test_os="redhat:7.4 centos:7.4 ubuntu:latest"
+  local test_os="redhat:7.5 centos:7.5 ubuntu:latest"
   local cluster_sizes=('"flavor":"three","nodes":3,"role":"node"' '"flavor":"six","nodes":6,"role":"node"')
   local storage_drivers="overlay2 devicemapper"
   for os in $test_os; do
@@ -82,7 +84,7 @@ EOF
     done
   done
   suite+=$(cat <<EOF
- install={"installer_url":"/installer/opscenter.tar","nodes":1,"flavor":"standalone","role":"node","os":"ubuntu:latest","storage_driver":"overlay2","ops_advertise_addr":"example.com:443"}
+ install={"installer_url":"/installer/opscenter.tar","nodes":1,"flavor":"standalone","role":"node","os":"ubuntu:latest","ops_advertise_addr":"example.com:443"}
 EOF
 )
   echo $suite

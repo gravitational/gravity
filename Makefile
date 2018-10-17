@@ -18,8 +18,8 @@ GRAVITY_PKG_PATH ?= github.com/gravitational/gravity
 ASSETSDIR=$(TOP)/assets
 BINDIR ?= /usr/bin
 
-# Current Kubernetes version: 1.11.2
-K8S_VER := 11102
+# Current Kubernetes version: 1.12.1
+K8S_VER := 11201
 GOLFLAGS ?= -w -s
 
 ETCD_VER := v2.3.7
@@ -42,7 +42,7 @@ GRAVITY_LINKFLAGS = "$(VERSION_FLAGS) $(GOLFLAGS)"
 TELEPORT_TAG = 2.4.7
 # TELEPORT_REPOTAG adapts TELEPORT_TAG to the teleport tagging scheme
 TELEPORT_REPOTAG := v$(TELEPORT_TAG)
-PLANET_TAG := 5.2.14-$(K8S_VER)
+PLANET_TAG := 5.3.0-$(K8S_VER)
 PLANET_BRANCH := $(PLANET_TAG)
 K8S_APP_TAG := $(GRAVITY_TAG)
 TELEKUBE_APP_TAG := $(GRAVITY_TAG)
@@ -182,7 +182,7 @@ TF_PROVIDERS ?= terraform-provider-gravity
 # the default target is a containerized CI/CD build
 .PHONY:build
 build:
-	$(MAKE) -C build.assets buildbox build
+	$(MAKE) -C build.assets build
 
 # 'install' uses the host's Golang to place output into $GOPATH/bin
 .PHONY:install
@@ -677,6 +677,10 @@ get-tag:
 .PHONY: docs
 docs:
 	$(MAKE) -C docs
+
+.PHONY: run-docs
+run-docs:
+	$(MAKE) -C docs run
 
 # Dump current full k8s app tag
 .PHONY: get-k8s-tag

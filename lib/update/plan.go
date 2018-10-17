@@ -271,14 +271,20 @@ func newOperationPlan(p newPlanParams) (*storage.OperationPlan, error) {
 	initPhase := *builder.init(p.installedApp.Package, p.updateApp.Package)
 	checksPhase := *builder.checks(p.installedApp.Package, p.updateApp.Package).Require(initPhase)
 	preUpdatePhase := *builder.preUpdate(p.updateApp.Package).Require(initPhase)
-	bootstrapPhase := *builder.bootstrap(p.servers, p.updateApp.Package).Require(initPhase)
+	bootstrapPhase := *builder.bootstrap(p.servers,
+		p.installedApp.Package, p.updateApp.Package).Require(initPhase)
 
-	var masters, nodes []storage.Server
+	var masters, nodes runtimeServers
 	for _, server := range p.servers {
+		runtimePackage, err := p.updateApp.Manifest.RuntimePackageForProfile(server.Role)
+		if err != nil {
+			return nil, trace.Wrap(err)
+		}
+
 		if fsm.IsMasterServer(server) {
-			masters = append(masters, server)
+			masters = append(masters, runtimeServer{Server: server, runtime: *runtimePackage})
 		} else {
-			nodes = append(nodes, server)
+			nodes = append(nodes, runtimeServer{Server: server, runtime: *runtimePackage})
 		}
 	}
 
@@ -303,10 +309,10 @@ func newOperationPlan(p newPlanParams) (*storage.OperationPlan, error) {
 	// Choose the first master node for upgrade to be the leader during the operation
 	leadMaster := masters[0]
 
-	mastersPhase := *builder.masters(leadMaster, masters[1:], supportsTaints,
-		p.updateApp.Package).Require(checksPhase, bootstrapPhase, preUpdatePhase)
-	nodesPhase := *builder.nodes(leadMaster, nodes, supportsTaints,
-		p.updateApp.Package).Require(mastersPhase)
+	mastersPhase := *builder.masters(leadMaster, masters[1:], supportsTaints).
+		Require(checksPhase, bootstrapPhase, preUpdatePhase)
+	nodesPhase := *builder.nodes(leadMaster.Server, nodes, supportsTaints).
+		Require(mastersPhase)
 
 	runtimeUpdates, err := app.GetUpdatedDependencies(p.installedRuntime, p.updateRuntime)
 	if err != nil && !trace.IsNotFound(err) {
@@ -362,7 +368,8 @@ func newOperationPlan(p newPlanParams) (*storage.OperationPlan, error) {
 		}
 
 		if updateEtcd {
-			etcdPhase := *builder.etcdPlan(leadMaster, masters[1:], nodes, currentVersion, desiredVersion)
+			etcdPhase := *builder.etcdPlan(leadMaster.Server, masters[1:].asServers(), nodes.asServers(),
+				currentVersion, desiredVersion)
 			phases = append(phases, etcdPhase)
 		}
 

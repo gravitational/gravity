@@ -1,5 +1,8 @@
 # Introduction
 
+!!! tip "Information"
+    Starting with the version 5.3 Telekube will be renamed to Gravity.
+
 Welcome to Telekube, by Gravitational. Telekube allows developers to package
 and deploy their complex multi-node, multi-tier application clusters into a
 variety of target infrastructure options, such as their own AWS accounts, 3rd

@@ -30,7 +30,6 @@ import (
 	"github.com/gravitational/gravity/lib/users/usersservice"
 
 	"github.com/gravitational/trace"
-	log "github.com/sirupsen/logrus"
 	"k8s.io/client-go/kubernetes"
 )
 
@@ -136,6 +135,7 @@ func newClusterEnvironment(args clusterEnvironmentArgs) (*ClusterEnvironment, er
 		Apps:     apps,
 		Users:    users,
 		StateDir: siteDir,
+		Local:    true,
 	})
 	if err != nil {
 		return nil, trace.Wrap(err)

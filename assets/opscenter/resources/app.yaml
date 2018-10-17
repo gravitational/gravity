@@ -61,4 +61,4 @@ hooks:
                 command: ["/usr/local/bin/kubectl", "delete", "services", "-l", "app=gravity-opscenter", "--ignore-not-found"]
 systemOptions:
   docker:
-    storageDriver: overlay
+    storageDriver: overlay2

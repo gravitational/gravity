@@ -25,6 +25,7 @@ import (
 	"time"
 
 	"github.com/gravitational/gravity/lib/app"
+	"github.com/gravitational/gravity/lib/checks"
 	"github.com/gravitational/gravity/lib/defaults"
 	"github.com/gravitational/gravity/lib/fsm"
 	"github.com/gravitational/gravity/lib/ops"
@@ -116,17 +117,20 @@ func (f *fsmUpdateEngine) Complete(fsmErr error) error {
 		return trace.Wrap(err)
 	}
 
+	if !completed {
+		return nil
+	}
+
 	cluster, err := f.Backend.GetLocalSite(defaults.SystemAccountID)
 	if err != nil {
 		return trace.Wrap(err)
 	}
 
-	if completed {
-		err = f.commitClusterChanges(cluster, *op)
-		if err != nil {
-			return trace.Wrap(err)
-		}
+	err = f.commitClusterChanges(cluster, *op)
+	if err != nil {
+		return trace.Wrap(err)
 	}
+
 	err = f.activateCluster(*cluster)
 	return trace.Wrap(err)
 }
@@ -160,8 +164,8 @@ func (f *fsmUpdateEngine) commitClusterChanges(cluster *storage.Site, op ops.Sit
 		cluster.App.Base = updateBaseApp.PackageEnvelope.ToPackagePtr()
 	}
 
-	ops.OverrideDockerConfig(&cluster.ClusterState.Docker,
-		ops.DockerConfigFromSchema(updateApp.Manifest.SystemOptions.DockerConfig()))
+	checks.OverrideDockerConfig(&cluster.ClusterState.Docker,
+		checks.DockerConfigFromSchema(updateApp.Manifest.SystemOptions.DockerConfig()))
 
 	return nil
 }

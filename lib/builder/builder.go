@@ -21,6 +21,7 @@ import (
 	"fmt"
 	"io"
 	"io/ioutil"
+	"net/url"
 	"os"
 	"path/filepath"
 	"runtime"
@@ -50,8 +51,12 @@ import (
 
 // Config is the builder configuration
 type Config struct {
-	// Env is the local build environment
-	Env *localenv.LocalEnvironment
+	// Context is the build context
+	Context context.Context
+	// StateDir is the configured builder state directory
+	StateDir string
+	// Insecure disables client verification of the server TLS certificate chain
+	Insecure bool
 	// ManifestPath holds the path to the application manifest
 	ManifestPath string
 	// manifestDir is the fully-qualified directory path where manifest file resides
@@ -70,14 +75,19 @@ type Config struct {
 	VendorReq service.VendorRequest
 	// Generator is used to generate installer
 	Generator Generator
-	// Syncer is used to synchronize local package cache
-	Syncer Syncer
+	// NewSyncer is used to initialize package cache syncer for the builder
+	NewSyncer NewSyncerFunc
 	// FieldLogger is used for logging
 	logrus.FieldLogger
+	// Progress allows builder to report build progress
+	utils.Progress
 }
 
 // CheckAndSetDefaults validates builder config and fills in defaults
 func (c *Config) CheckAndSetDefaults() error {
+	if c.Context == nil {
+		c.Context = context.Background()
+	}
 	manifestAbsPath, err := filepath.Abs(c.ManifestPath)
 	if err != nil {
 		return trace.Wrap(err)
@@ -88,30 +98,23 @@ func (c *Config) CheckAndSetDefaults() error {
 		return trace.BadParameter("manifest filename should be %q",
 			defaults.ManifestFileName)
 	}
-	// if output tarball name is not specified, it defaults to the name of the
-	// directory with manifest
-	if c.OutPath == "" {
-		c.OutPath = fmt.Sprintf("%v.tar", filepath.Base(c.manifestDir))
-	}
-	_, err = os.Stat(c.OutPath)
-	if err == nil && !c.Overwrite {
-		return trace.BadParameter("tarball %v already exists, please remove "+
-			"it first or provide '-f' flag to overwrite it", c.OutPath)
-	}
 	if c.VendorReq.Parallel == 0 {
 		c.VendorReq.Parallel = runtime.NumCPU()
 	}
 	if c.Generator == nil {
 		c.Generator = &generator{}
 	}
-	if c.Syncer == nil {
-		c.Syncer, err = newSyncer()
-		if err != nil {
-			return trace.Wrap(err)
-		}
+	if c.NewSyncer == nil {
+		c.NewSyncer = NewSyncer
+	}
+	if c.Repository == "" {
+		c.Repository = fmt.Sprintf("s3://%v", defaults.HubBucket)
 	}
 	if c.FieldLogger == nil {
 		c.FieldLogger = logrus.WithField(trace.Component, "builder")
+	}
+	if c.Progress == nil {
+		c.Progress = utils.NewProgress(c.Context, "Build", 6, false)
 	}
 	return nil
 }
@@ -128,8 +131,9 @@ func New(config Config) (*Builder, error) {
 	}
 	manifest, err := schema.ParseManifestYAMLNoValidate(manifestBytes)
 	if err != nil {
-		return nil, trace.Wrap(err, "failed to parse the application manifest, "+
-			"please check that it's in correct YAML format: %v", err)
+		logrus.Errorf(trace.DebugReport(err))
+		return nil, trace.BadParameter("Could not parse the application manifest:\n%v",
+			trace.Unwrap(err)) // show original parsing error
 	}
 	b := &Builder{
 		Config:   config,
@@ -147,6 +151,8 @@ func New(config Config) (*Builder, error) {
 type Builder struct {
 	// Config is the builder configuration
 	Config
+	// Env is the local build environment
+	Env *localenv.LocalEnvironment
 	// Manifest is the parsed manifest of the application being built
 	Manifest schema.Manifest
 	// Dir is the directory where build-related data is stored
@@ -159,6 +165,8 @@ type Builder struct {
 	Packages pack.PackageService
 	// Apps is the application service based on the layered package service
 	Apps app.Applications
+	// syncer is used to sync local package cache with repository
+	syncer Syncer
 }
 
 // Locator returns locator of the application that's being built
@@ -174,32 +182,59 @@ func (b *Builder) Locator() loc.Locator {
 	}
 }
 
+// SelectRuntime picks an appropriate runtime for the application that's
+// being built
+func (b *Builder) SelectRuntime() (*semver.Version, error) {
+	// first see if runtime is pinned to specific version in manifest
+	runtime := b.Manifest.Base()
+	if runtime == nil {
+		return nil, trace.NotFound("failed to determine application runtime")
+	}
+	if runtime.Version != loc.LatestVersion {
+		b.Infof("Using pinned runtime version: %s.", runtime.Version)
+		b.PrintSubStep("Will use runtime version %s from manifest", runtime.Version)
+		return semver.NewVersion(runtime.Version)
+	}
+	// latest is specified, find the latest compatible in repository
+	version, err := b.syncer.SelectRuntime(b)
+	if err != nil {
+		return nil, trace.Wrap(err)
+	}
+	b.Infof("Selected runtime version: %s.", version)
+	b.PrintSubStep("Will use latest runtime version %s", version)
+	return version, nil
+}
+
 // SyncPackageCache ensures that all system dependencies are present in
 // the local cache directory
-func (b *Builder) SyncPackageCache() error {
+func (b *Builder) SyncPackageCache(runtimeVersion *semver.Version) error {
 	apps, err := b.Env.AppServiceLocal(localenv.AppConfig{})
 	if err != nil {
 		return trace.Wrap(err)
 	}
 	// see if all required packages/apps are already present in the local cache
+	manifest := b.Manifest
+	manifest.SetBase(loc.Runtime.WithVersion(runtimeVersion))
 	err = app.VerifyDependencies(&app.Application{
-		Manifest: b.Manifest,
-		Package:  b.Manifest.Locator(),
+		Manifest: manifest,
+		Package:  manifest.Locator(),
 	}, apps, b.Env.Packages)
 	if err != nil && !trace.IsNotFound(err) {
 		return trace.Wrap(err)
 	}
 	if err == nil {
-		b.Info("Package cache is up-to-date.")
+		b.Info("Local package cache is up-to-date.")
+		b.NextStep("Local package cache is up-to-date")
 		return nil
 	}
-	b.Info("Synchronizing package cache.")
-	return b.Syncer.Sync(b)
+	b.Info("Synchronizing package cache with %v.", b.syncer.GetRepository())
+	b.NextStep("Downloading dependencies from %v", b.syncer.GetRepository())
+	return b.syncer.Sync(b, runtimeVersion)
 }
 
 // Vendor vendors the application images in the provided directory and
 // returns the compressed data stream with the application data
-func (b *Builder) Vendor(ctx context.Context, dir string, progress utils.Progress) (io.ReadCloser, error) {
+func (b *Builder) Vendor(ctx context.Context, dir string) (io.ReadCloser, error) {
 	err := utils.CopyDirContents(b.manifestDir, filepath.Join(dir, defaults.ResourcesDir))
 	if err != nil {
 		return nil, trace.Wrap(err)
@@ -214,7 +249,7 @@ func (b *Builder) Vendor(ctx context.Context, dir string, progress utils.Progres
 	}
 	vendorReq := b.VendorReq
 	vendorReq.ManifestPath = filepath.Join(dir, defaults.ResourcesDir, b.manifestFilename)
-	vendorReq.ProgressReporter = progress
+	vendorReq.ProgressReporter = b.Progress
 	err = vendorer.VendorDir(ctx, dir, vendorReq)
 	if err != nil {
 		return nil, trace.Wrap(err)
@@ -267,6 +302,10 @@ func (b *Builder) WriteInstaller(data io.ReadCloser) error {
 
 // initServices initializes the builder backend, package and apps services
 func (b *Builder) initServices() (err error) {
+	b.Env, err = b.makeBuildEnv()
+	if err != nil {
+		return trace.Wrap(err)
+	}
 	b.Dir, err = ioutil.TempDir("", "build")
 	if err != nil {
 		return trace.Wrap(err)
@@ -296,60 +335,105 @@ func (b *Builder) initServices() (err error) {
 	if err != nil {
 		return trace.Wrap(err)
 	}
+	b.syncer, err = b.getSyncer()
+	if err != nil {
+		return trace.Wrap(err)
+	}
 	return nil
+}
+
+// makeBuildEnv creates a new local build environment instance
+func (b *Builder) makeBuildEnv() (*localenv.LocalEnvironment, error) {
+	// if state directory was specified explicitly, it overrides
+	// both cache directory and config directory as it's used as
+	// a special case only for building from local packages
+	if b.StateDir != "" {
+		return localenv.NewLocalEnvironment(localenv.LocalEnvironmentArgs{
+			StateDir:         b.StateDir,
+			LocalKeyStoreDir: b.StateDir,
+			Insecure:         b.Insecure,
+		})
+	}
+	// otherwise use default locations for cache / key store
+	cacheDir, err := ensureCacheDir(b.Repository)
+	if err != nil {
+		return nil, trace.Wrap(err)
+	}
+	return localenv.NewLocalEnvironment(localenv.LocalEnvironmentArgs{
+		StateDir: cacheDir,
+		Insecure: b.Insecure,
+	})
+}
+
+// getSyncer returns a new syncer instance for this builder
+func (b *Builder) getSyncer() (Syncer, error) {
+	if b.StateDir != "" {
+		apps, err := b.Env.AppServiceLocal(localenv.AppConfig{})
+		if err != nil {
+			return nil, trace.Wrap(err)
+		}
+		return NewPackSyncer(b.Env.Packages, apps, b.StateDir), nil
+	}
+	return b.NewSyncer(b)
 }
 
 // checkVersion makes sure that the tele version is compatible with the selected
 // runtime version
 //
-// Compatibility is defined as "tele version must be >= runtime version"
-func (b *Builder) checkVersion() error {
+// Versions are compatible when they have equal major and minor components.
+func (b *Builder) checkVersion(runtimeVersion *semver.Version) error {
 	teleVersion, err := semver.NewVersion(version.Get().Version)
 	if err != nil {
 		return trace.Wrap(err, "failed to determine tele version")
 	}
-	runtimeLoc := b.Manifest.Base()
-	if runtimeLoc == nil {
-		return trace.BadParameter("failed to determine runtime version, make "+
-			"sure your application type is %q", schema.KindBundle)
-	}
-	runtimePackage, err := b.Packages.ReadPackageEnvelope(*runtimeLoc)
-	if err != nil {
-		return trace.Wrap(err)
-	}
-	runtimeVersion, err := semver.NewVersion(runtimePackage.Locator.Version)
-	if err != nil {
-		return trace.Wrap(err, "invalid runtime version: %v",
-			runtimePackage.Locator.Version)
-	}
-	if teleVersion.LessThan(*runtimeVersion) {
-		// truncate meta information
-		withoutMeta := fmt.Sprintf("%v.%v.%v",
-			runtimeVersion.Major, runtimeVersion.Minor, runtimeVersion.Patch)
+	if teleVersion.Major != runtimeVersion.Major || teleVersion.Minor != runtimeVersion.Minor {
 		return trace.BadParameter(
-			`The version of the tele binary (%v) is not compatible with the selected runtime (%v).
+			`Version of this tele binary (%v) is not compatible with the selected runtime (%v).
 
-Please upgrade your Gravity tools to match the runtime version (curl https://get.gravitational.io/telekube/install/%v | bash), or specify an appropriate runtime version in your application manifest. You can view available runtimes using "tele ls --runtimes" and pick the one that matches your tele version.`, teleVersion, runtimeVersion, withoutMeta)
+To remedy the issue you can do one of the following:
+
+ * Use the latest %v.%v.x version of tele to make sure it is compatible with your selected runtime.
+ * Specify %v.%v.x runtime version in application manifest explicitly to make sure it is compatible with your tele version.
+ * Do not specify runtime version in application manifest to let tele automatically select the latest compatible runtime.
+
+See https://gravitational.com/telekube/docs/pack/#sample-application-manifest for details on how to specify runtime in manifest.
+`, teleVersion, runtimeVersion, runtimeVersion.Major, runtimeVersion.Minor, teleVersion.Major, teleVersion.Minor)
 	}
 
-	b.Debugf("version check passed, tele version: %v, runtime version: %v",
+	b.Debugf("Version check passed; tele version: %v, runtime version: %v.",
 		teleVersion, runtimeVersion)
 	return nil
 }
 
 // Close cleans up build environment
 func (b *Builder) Close() error {
+	var errors []error
+	if b.Env != nil {
+		errors = append(errors, b.Env.Close())
+	}
 	if b.Backend != nil {
-		err := b.Backend.Close()
-		if err != nil {
-			return trace.Wrap(err)
-		}
+		errors = append(errors, b.Backend.Close())
 	}
 	if b.Dir != "" {
-		err := os.RemoveAll(b.Dir)
-		if err != nil {
-			return trace.Wrap(err)
-		}
+		errors = append(errors, os.RemoveAll(b.Dir))
 	}
-	return nil
+	if b.Progress != nil {
+		b.Progress.Stop()
+	}
+	return trace.NewAggregate(errors...)
+}
+
+// ensureCacheDir makes sure a local cache directory for the provided Ops Center
+// exists
+func ensureCacheDir(opsURL string) (string, error) {
+	u, err := url.Parse(opsURL)
+	if err != nil {
+		return "", trace.Wrap(err)
+	}
+	// cache directory is ~/.gravity/cache/<opscenter>/
+	dir, err := utils.EnsureLocalPath("", defaults.LocalCacheDir, u.Host)
+	if err != nil {
+		return "", trace.Wrap(err)
+	}
+	return dir, nil
 }

@@ -18,6 +18,7 @@ limitations under the License.
 package proxy
 
 import (
+	"context"
 	"fmt"
 	"io"
 	"net"
@@ -28,11 +29,13 @@ import (
 
 // New returns a new proxy for the given link
 func New(link Link, log log.FieldLogger) *Proxy {
+	ctx, cancel := context.WithCancel(context.Background())
 	return &Proxy{
 		link:        link,
 		FieldLogger: log.WithField("proxy", link.String()),
-		doneCh:      make(chan struct{}),
 		teardownCh:  make(chan struct{}),
+		doneCh:      ctx.Done(),
+		cancel:      cancel,
 	}
 }
 
@@ -42,7 +45,8 @@ type Proxy struct {
 	link Link
 	// doneCh signals that the connections should be dropped
 	// and proxy loop stopped
-	doneCh chan struct{}
+	doneCh <-chan struct{}
+	cancel context.CancelFunc
 	// teardownCh signals when the connection cleanup has completed
 	// and proxy loop has finished
 	teardownCh chan struct{}
@@ -61,13 +65,9 @@ func (r *Proxy) Start() error {
 
 // Stop stops the proxy and drops all active connections
 func (r *Proxy) Stop() {
-	select {
-	case <-r.doneCh:
-	default:
-		close(r.doneCh)
-		<-r.teardownCh
-		r.Info("Proxy stopped.")
-	}
+	r.cancel()
+	<-r.teardownCh
+	r.Info("Proxy stopped.")
 }
 
 // Link allows to build a proxying link between two endpoints.

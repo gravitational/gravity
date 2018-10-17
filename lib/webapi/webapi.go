@@ -1060,11 +1060,6 @@ func (m *Handler) createSite(w http.ResponseWriter, r *http.Request, p httproute
 		return nil, trace.Wrap(err)
 	}
 
-	dockerConfig, err := dockerConfig(input.AppPackage, context.Applications)
-	if err != nil {
-		return nil, trace.Wrap(err)
-	}
-
 	req := ops.NewSiteRequest{
 		AppPackage: input.AppPackage,
 		AccountID:  context.User.GetAccountID(),
@@ -1072,7 +1067,6 @@ func (m *Handler) createSite(w http.ResponseWriter, r *http.Request, p httproute
 		DomainName: input.DomainName,
 		License:    input.License,
 		Labels:     input.Labels,
-		Docker:     *dockerConfig,
 	}
 
 	var vars storage.OperationVariables
@@ -2040,19 +2034,4 @@ type webAPIResponse struct {
 // makeResponse takes a collection of objects and returns API response object
 func makeResponse(items interface{}) (interface{}, error) {
 	return webAPIResponse{Items: items}, nil
-}
-
-func dockerConfig(appPackage string, apps app.Applications) (*storage.DockerConfig, error) {
-	appLoc, err := loc.ParseLocator(appPackage)
-	if err != nil {
-		return nil, trace.Wrap(err)
-	}
-
-	app, err := apps.GetApp(*appLoc)
-	if err != nil {
-		return nil, trace.Wrap(err)
-	}
-
-	dockerConfig := ops.DockerConfigFromSchemaValue(app.Manifest.SystemDocker())
-	return &dockerConfig, nil
 }

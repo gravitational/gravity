@@ -1,18 +1,18 @@
 # Cluster Management
 
-This chapter covers Telekube Cluster administration.
+This chapter covers Gravity Cluster administration.
 
-Every application packaged with Telekube ("Application Bundle") is a self-contained Kubernetes system.
-This means that every application running on a cluster ("Telekube Cluster" or "Cluster") consists
+Every application packaged with Gravity ("Application Bundle") is a self-contained Kubernetes system.
+This means that every application running on a cluster ("Gravity Cluster" or "Cluster") consists
 of the following components:
 
 1. The application and its services: workers, databases, caches, etc.
 2. Kubernetes services and CLI tools.
-3. Telekube tooling such as the [Teleport SSH server](https://gravitational.com/teleport)
+3. Gravity tooling such as the [Teleport SSH server](https://gravitational.com/teleport)
    and the Gravity CLI.
 
-Telekube uses software we call "Gravity" for managing Clusters. The Gravity CLI is
-the Telekube interface that can be used to manage the Cluster. Each Telekube Cluster
+Gravity uses software we call "Gravity" for managing Clusters. The Gravity CLI is
+the Gravity interface that can be used to manage the Cluster. Each Gravity Cluster
 also has a graphical, web-based UI to view and manage the Cluster.
 
 You can also use familiar Kubernetes tools such as `kubectl` to perform regular cluster
@@ -20,13 +20,13 @@ tasks such as watching logs, seeing stats for pods or volumes or managing config
 
 ## Kubernetes Environment
 
-Every Telekube Cluster is a standalone instance of Kubernetes running on
+Every Gravity Cluster is a standalone instance of Kubernetes running on
 multiple nodes, so the standard Kubernetes tools will work and Kubernetes rules
 will apply.
 
-However, Telekube pre-configures Kubernetes to be as reliable as possible
+However, Gravity pre-configures Kubernetes to be as reliable as possible
 greatly reducing the need for ongoing active management. To make this possible
-on a node level, Telekube runs all Kubernetes services from a single executable
+on a node level, Gravity runs all Kubernetes services from a single executable
 called `gravity`.
 
 !!! tip "Gravity Master Container":
@@ -42,18 +42,18 @@ advantages as opposed to installing Kubernetes components in a more traditional
 way:
 
 * Since all Kubernetes services such as `kubelet` or `kube-apiserver` always
-  run enclosed inside the master container, it makes it possible for Telekube
+  run enclosed inside the master container, it makes it possible for Gravity
   to closely monitor Kubernetes' health and perform cluster updates "from below".
 
-* Telekube _continuously_ maintains Kubernetes configuration to be highly
+* Gravity _continuously_ maintains Kubernetes configuration to be highly
   available ("HA").  This means that any node can go down without disrupting
   Kubernetes' operation.
 
-* Telekube runs its own local Docker registry which is used as a cluster-level
+* Gravity runs its own local Docker registry which is used as a cluster-level
   cache for container images. This makes application updates and restarts
   faster and more reliable.
 
-* Telekube provides the ability to perform cluster state snapshots as part of
+* Gravity provides the ability to perform cluster state snapshots as part of
   cluster updates or to be used independently.
 
 ### Kubernetes Extensions
@@ -85,8 +85,8 @@ The `gravity` commands allows you to:
 
 1. Quickly add new nodes to a cluster.
 2. Remove nodes from a cluster.
-3. Monitor Telekube Cluster health.
-4. Update / backup / restore the Telekube Cluster.
+3. Monitor Gravity Cluster health.
+4. Update / backup / restore the Gravity Cluster.
 5. Request shell inside the master container to troubleshoot Kubernetes health on a node level.
 
 
@@ -98,10 +98,10 @@ The full list of `gravity` commands:
 | Command   | Description                                                        |
 |-----------|--------------------------------------------------------------------|
 | status    | show the status of the cluster and the application running in it   |
-| update    | manage application updates on a Telekube Cluster                   |
-| upgrade   | start the upgrade operation for a Telekube Cluster                 |
+| update    | manage application updates on a Gravity Cluster                    |
+| upgrade   | start the upgrade operation for a Gravity Cluster                  |
 | plan      | view the upgrade operation plan                                    |
-| rollback  | roll back the upgrade operation for a Telekube Cluster             |
+| rollback  | roll back the upgrade operation for a Gravity Cluster              |
 | join      | add a new node to the cluster                                      |
 | autojoin  | join the cluster using cloud provider for discovery                |
 | leave     | decommission a node: execute on a node being decommissioned        |
@@ -128,7 +128,7 @@ $ tsh --cluster=production ssh admin@node gravity status
 ```
 
 !!! tip "Reminder":
-    Keep in mind that `tsh` always uses the Telekube Ops Center as an SSH proxy. This
+    Keep in mind that `tsh` always uses the Gravity Ops Center as an SSH proxy. This
     means the command above will work with clusters located behind
     corporate firewalls. You can read more in the [remote management](/manage/) section.
 
@@ -223,7 +223,7 @@ In this case the response HTTP status code will be `503 Service Unavailable`.
 
 ## Application Status
 
-Telekube provides a way to automatically monitor the application health.
+Gravity provides a way to automatically monitor the application health.
 
 To enable this, define a "status" hook in your Application Manifest (see
 [Application Hooks](/pack/#application-hooks) section for more details on them). The Kubernetes
@@ -275,12 +275,12 @@ completes successfully, the cluster automatically moves back to a "healthy" stat
 
 ## Exploring a Cluster
 
-Any Telekube cluster can be explored using the standard Kubernetes tool, `kubectl`, which is
+Any Gravity cluster can be explored using the standard Kubernetes tool, `kubectl`, which is
 installed and configured on every cluster node. See the command's [overview](http://kubernetes.io/docs/user-guide/kubectl-overview/)
 and a [full reference](https://kubernetes.io/docs/user-guide/kubectl/) to see what it can
 do, or simply use `kubectl --help`.
 
-Each Telekube Cluster also has a graphical UI to explore and manage the Cluster. To log into
+Each Gravity Cluster also has a graphical UI to explore and manage the Cluster. To log into
 the Cluster Admin UI you need to create an admin user. Please see the
 [Custom Installer Screens](/pack/#custom-installer-screens) chapter for details on how
 to enable a post-install screen that will let you create a local user.
@@ -291,21 +291,21 @@ Cluster updates can get quite complicated for complex cloud applications
 composed of multiple micro-services. On a high level, there are two major layers
 that will need periodic updating:
 
-* The Kubernetes itself and its dependencies, like Docker. Telekube refers to this
+* The Kubernetes itself and its dependencies, like Docker. Gravity refers to this
   layer as "system software updates".
 * The application(s) deployed inside, including auxiliary subsystems used for
   monitoring and logging. Special care must be taken around database
   migrations and the sequence in which various components are updated.
 
-The Telekube update process is designed to update both layers. Here is how
-Telekube update process works:
+The Gravity update process is designed to update both layers. Here is how
+Gravity update process works:
 
 1. New versions of an application and the system binaries (container
    images) are downloaded and stored inside the cluster. This means that during the
    update, all data has already been saved locally and disruptions to external
    services, like Docker registries, will not affect the update process.
 
-2. Telekube uses the Kubernetes [rolling update](http://kubernetes.io/docs/user-guide/rolling-updates/)
+2. Gravity uses the Kubernetes [rolling update](http://kubernetes.io/docs/user-guide/rolling-updates/)
    mechanism to perform the update.
 
 3. Custom update hooks can be used to perform application specific
@@ -323,7 +323,7 @@ large numbers of remotely running application instances.
 ### Uploading an Update
 
 The first step to updating a cluster to a new version is to import a new Application
-Bundle onto a Telekube Cluster. Telekube supports this in both online and offline environments.
+Bundle onto a Gravity Cluster. Gravity supports this in both online and offline environments.
 
 #### Online Cluster Update
 
@@ -341,7 +341,7 @@ $ gravity update download --every=off  # Turn off automatic downloading of updat
 
 #### Offline Cluster Update
 
-If a Telekube Cluster is offline or not connected to an Ops Center, the new version of the Application
+If a Gravity Cluster is offline or not connected to an Ops Center, the new version of the Application
 Bundle has to be copied to one of the Application Cluster nodes and the Cluster nodes need to be accessible
 to each other. To upload the new version, extract the tarball and launch the `upload` script.
 
@@ -467,7 +467,7 @@ command, the following actions take place:
 
 Below is the list of the low level sub-commands executed by `gravity update`
 to do all of this. These commands can be executed manually
-from a machine in a Telekube Cluster:
+from a machine in a Gravity Cluster:
 
 ```bash
 # copy the update agent to every cluster node and start the agents:
@@ -499,14 +499,14 @@ $ ./gravity agent run --upgrade
 
 ## Interacting with the Master Container
 
-As explained [above](#kubernetes-environment), Telekube runs Kubernetes inside a master container.  
+As explained [above](#kubernetes-environment), Gravity runs Kubernetes inside a master container.
 The master container (sometimes called "planet") makes sure that every single
-deployment of Telekube is the same and all nodes look identical to each other
+deployment of Gravity is the same and all nodes look identical to each other
 from the inside.  The master container includes all Kubernetes components and
 dependencies such as kube-apiserver, etcd and docker.
 
-To launch an interactive shell to get a system view of a Telekube cluster, you
-can use `gravity shell` command on a node running Telekube:
+To launch an interactive shell to get a system view of a Gravity cluster, you
+can use `gravity shell` command on a node running Gravity:
 
 ```bash
 $ sudo gravity shell
@@ -527,7 +527,7 @@ $ sudo gravity exec /bin/ls
 
 Clusters with complex software deployed on them require separation of workloads between the control plane and application components to enable a seamless upgrade experience.
 
-Telekube release 4.23+ leverages the support for node taints and tolerations in Kubernetes. Taints are special labels that control which resources can be scheduled onto a node. A pod needs to tolerate a taint in order to be schedulable on that particular node.
+Gravity release 4.23+ leverages the support for node taints and tolerations in Kubernetes. Taints are special labels that control which resources can be scheduled onto a node. A pod needs to tolerate a taint in order to be schedulable on that particular node.
 
 A system run-level controls load on a node required for operations like cluster update. In normal operation, application resources are scheduled according to the specifications including node labels and node/pod (anti-)affinity. When the cluster is operating under special conditions (like updating), application resources might be subject to runtime restriction until the operation is complete.
 
@@ -578,10 +578,10 @@ In order to scale down resources prior to the upgrade operation, the Application
                 command: ["/scale-down.sh"]
 ```
 
-With the new `preUpdate` hook, the Telekube Cluster scales down the application resources in preparation for the update. The scaling logic needs to be aware of the cluster size to make appropriate scaling decisions.
+With the new `preUpdate` hook, the Gravity Cluster scales down the application resources in preparation for the update. The scaling logic needs to be aware of the cluster size to make appropriate scaling decisions.
 The hook execution is implemented as a separate phase and is executed automatically in automatic upgrade mode.
 
-You can find out more about other hook types on the [Telekube documentation on Packaging and Deployment](/pack/#application-hooks).
+You can find out more about other hook types on the [Gravity documentation on Packaging and Deployment](/pack/#application-hooks).
 
 #### Apply a system taint to the node
 
@@ -677,7 +677,7 @@ The hook runs as part of the `/app` phase.
 ## Adding a Node
 
 The `gravity` binary must be present on a node in order to add it to
-the Telekube Cluster.
+the Gravity Cluster.
 
 The node can then be added with the `gravity join` command:
 
@@ -692,11 +692,11 @@ Flag | Description
 `--advertise-addr` | IP address the new node should be visible as.
 `--token` | Token to authorize this node to join the cluster. Can be discovered by running `gravity status`.
 `--role` | _(Optional)_ Role of the joining node. Autodetected if not specified.
-`--state-dir` | _(Optional)_ Directory where all Telekube system data will be kept on this node. Defaults to `/var/lib/gravity`.
+`--state-dir` | _(Optional)_ Directory where all Gravity system data will be kept on this node. Defaults to `/var/lib/gravity`.
 
 Every node in a Cluster must have a role, defined in the Application
 Manifest. A role defines the system requirements for the node. For example, nodes
-of "database" role must have storage attached to them. Telekube enforces the
+of "database" role must have storage attached to them. Gravity enforces the
 system requirements for the role when adding a new node.
 
 ## Removing a Node
@@ -747,7 +747,7 @@ one:
 On any node that has a functioning cluster running, execute the command `remove` to
 forcefully remove the unavailable node from the cluster.
 
-This command will update Etcd, Kubernetes and Telekube state to remove faulty node from the
+This command will update Etcd, Kubernetes and Gravity state to remove faulty node from the
 database. Let's assume the remaining nodes are:
 
 ```bash
@@ -805,7 +805,7 @@ You should see the third node registered in the cluster and cluster status set t
 
 #### Autoscaling the cluster
 
-When running on AWS, Telekube integrates with [Systems manager parameter store](http://docs.aws.amazon.com/systems-manager/latest/userguide/systems-manager-paramstore.html) to simplify the discovery.
+When running on AWS, Gravity integrates with [Systems manager parameter store](http://docs.aws.amazon.com/systems-manager/latest/userguide/systems-manager-paramstore.html) to simplify the discovery.
 
 Assuming the cluster name is known, a new node can join the cluster using `gravity autojoin` command
 
@@ -820,7 +820,7 @@ Users can read more about AWS integration [here](https://github.com/gravitationa
 
 ## Backup And Restore
 
-Telekube Clusters support backing up and restoring the application state. To enable backup
+Gravity Clusters support backing up and restoring the application state. To enable backup
 and restore capabilities, the application should define "backup" and "restore" hooks in the
 manifest. These hooks are Kubernetes jobs that have `/var/lib/gravity/backup` directory
 mounted into them. The hooks are run on the same node the backup/restore that the command is invoked
@@ -896,14 +896,14 @@ root$ gravity restore <data.tar.gz>
 
 ## Garbage Collection
 
-Every now and then, the cluster would accumulate resources it has no use for - be it telekube
+Every now and then, the cluster would accumulate resources it has no use for - be it gravity
 packages or docker images from previous versions of the application. These resources will unnecessarily
 waste disk space and while possible are usually difficult to get rid of manually.
 
 The `gravity` tool offers a subset of commands to run cluster-wide garbage collection.
 During garbage collection, the following resources are pruned:
 
-  * Unused telekube packages from previous versions of the application
+  * Unused gravity packages from previous versions of the application
   * Unused docker images from previous versions of the application
   * Obsolete systemd journal directories
 
@@ -944,13 +944,13 @@ $ sudo gravity gc --phase=<PHASE>
 
 ## Remote Assistance
 
-Every Telekube cluster can be connected to an Ops Center,
+Every Gravity cluster can be connected to an Ops Center,
 assuming the cluster is connected to the Internet. This creates an outbound SSH tunnel from the cluster
 to the Ops Center and the operator can use that tunnel to perform remote troubleshooting
 by using the `tsh` tool. You can read more about remote assistance in the
 [remote management](/manage/) section.
 
-However, some Telekube Cluster owners may want to disable the SSH tunnel and keep their
+However, some Gravity Cluster owners may want to disable the SSH tunnel and keep their
 clusters disconnected from the vendor, only enabling this capability when they
 need help.
 
@@ -977,7 +977,7 @@ of the tunnel. The status can be one of the following
 To delete a cluster installed on existing machines you can execute `gravity leave` on
 them to gradually shrink the cluster to the size of a single node (see [Removing a Node](#removing-a-node)
 section for more information). After that, run `gravity leave --force` on the remaining
-node to uninstall the application as well as all Telekube software and data.
+node to uninstall the application as well as all Gravity software and data.
 
 ### Cloud Provider Cluster
 
@@ -1029,7 +1029,7 @@ submit to engineering for evaluation.
 
 ## Configuring a Cluster
 
-Telekube borrows the concept of resources from Kubernetes to configure itself.
+Gravity borrows the concept of resources from Kubernetes to configure itself.
 Use `gravity resource` command to update the cluster configuration.
 
 Currently supported resources are:
@@ -1049,7 +1049,7 @@ Resource Name             | Resource Description
 
 ### Configuring OpenID Connect
 
-An Telekube Cluster can be configured to authenticate users using an
+An Gravity Cluster can be configured to authenticate users using an
 OpenID Connect (OIDC) provider such as Auth0, Okta and others.
 
 A resource file in YAML format creates the connector.  Below is an
@@ -1118,7 +1118,7 @@ allowed to log in and granted the admin role.
 
 ### Configuring Github Connector
 
-Telekube supports authentication and authorization via Github. To configure
+Gravity supports authentication and authorization via Github. To configure
 it, create a YAML file with the resource spec based on the following example:
 
 ```yaml
@@ -1137,7 +1137,7 @@ spec:
   # connector display name that will be appended to the title of "Login with"
   # button on the cluster login screen so it will say "Login with Github"
   display: Github
-  # mapping of Github team memberships to Telekube cluster roles
+  # mapping of Github team memberships to Gravity cluster roles
   teams_to_logins:
     - organization: example
       team: admins
@@ -1157,7 +1157,7 @@ presenting "Login with Github" button.
 !!! note:
     When going through the Github authentication flow for the first time, the
     application must be granted the access to all organizations that are present
-    in the "teams to logins" mapping, otherwise Telekube will not be able to
+    in the "teams to logins" mapping, otherwise Gravity will not be able to
     determine team memberships for these organizations.
 
 To view configured Github connectors:
@@ -1174,7 +1174,7 @@ $ gravity resource rm github example
 
 ### Configuring SAML Connector
 
-Telekube supports authentication and authorization via SAML providers. To
+Gravity supports authentication and authorization via SAML providers. To
 configure it, create a YAML file with the resource spec based on the following example:
 
 ```yaml
@@ -1186,7 +1186,7 @@ spec:
   # SAML provider will make a callback to this URL after successful authentication
   # cluster-url is the address the cluster UI is reachable at
   acs: https://<cluster-url>/portalapi/v1/saml/callback
-  # mapping of SAML attributes to Telekube roles
+  # mapping of SAML attributes to Gravity roles
   attributes_to_roles:
     - name: groups
       value: admins
@@ -1441,7 +1441,7 @@ credentials created above.
 
 ### Configuring Log Forwarders
 
-Every Telekube Cluster is automatically set up to aggregate the logs from all
+Every Gravity Cluster is automatically set up to aggregate the logs from all
 running containers. By default the logs are kept inside the Cluster but they can be configured to be
 shipped to a remote log collector such as a rsyslog server.
 
@@ -1477,7 +1477,7 @@ $ gravity resource rm logforwarder forwarder1
 
 ### Configuring TLS Key Pair
 
-Ops Center and Telekube Cluster Web UI and API TLS key pair can be configured
+Ops Center and Gravity Cluster Web UI and API TLS key pair can be configured
 using `tlskeypair` resource.
 
 ```yaml
@@ -1516,10 +1516,10 @@ $ gravity resource rm tls keypair
 ### Configuring Trusted Clusters
 
 !!! note
-    Support for trusted clusters is available since Telekube version
+    Support for trusted clusters is available since Gravity version
     `5.0.0-alpha.5`.
 
-Trusted clusters is a concept for connecting standalone Telekube clusters to
+Trusted clusters is a concept for connecting standalone Gravity clusters to
 arbitrary Ops Centers. It brings the following advantages:
 
 * Allows agents of the remote Ops Center to SSH into your cluster nodes to
@@ -1716,7 +1716,7 @@ gravity-agents   LoadBalancer   10.100.91.204   <pending>     4443:30873/TCP,302
 ### Configuring Cluster Authentication Preference
 
 Cluster authentication preference resource allows to configure method of
-authentication users will use when logging into a Telekube cluster.
+authentication users will use when logging into a Gravity cluster.
 
 The resource has the following format:
 
@@ -1778,7 +1778,7 @@ local                       off
 
 ## Managing Users
 
-Telekube cluster allows to invite new users and reset passwords for existing
+Gravity cluster allows to invite new users and reset passwords for existing
 users by executing CLI commands on the cluster nodes.
 
 ### Invite User
@@ -1825,14 +1825,14 @@ https://<host>/web/reset/<token>
 
 ## Securing a Cluster
 
-Telekube comes with a set of roles and bindings (for role-based access control or RBAC) and a set of pod security policies. This lays the ground for further security configurations.
+Gravity comes with a set of roles and bindings (for role-based access control or RBAC) and a set of pod security policies. This lays the ground for further security configurations.
 
 ### Pod security policies
 
 Introduced in Kubernetes 1.5, Pod security policies allow controlled access to privileged containers based on user roles and groups. A Pod security policy specifies what a Pod can do and what it has access to.
 Policies allow the administrator to control many facets of the system (See [PodSecurityPolicies] for details).
 
-By default Telekube provides two security policies: `privileged` and `restricted`.
+By default Gravity provides two security policies: `privileged` and `restricted`.
 
   * A `restricted` policy has the following attributes:
      1. limits the range of user IDs Pods can run as
@@ -1926,10 +1926,10 @@ the new group or the new `psp-volume-account` service account.
 
 ### RBAC
 
-By default Telekube:
+By default Gravity:
 
   * connects default service accounts (in `default` and `kube-system` namespaces) to the built-in `cluster-admin` role
-  * creates `admin`/`edit`/`view` Telekube specific groups (bound to respective built-in cluster roles)
+  * creates `admin`/`edit`/`view` Gravity specific groups (bound to respective built-in cluster roles)
 
 See the Kubernetes [RBAC] documentation for more information.
 
@@ -1938,7 +1938,7 @@ See the Kubernetes [RBAC] documentation for more information.
 
 Kubernetes includes support for evicting pods in order to maintain node stability, which is documented [here](https://kubernetes.io/docs/tasks/administer-cluster/out-of-resource/).
 
-Telekube uses the following eviction policies by default:
+Gravity uses the following eviction policies by default:
 
  - Hard eviction
     1. less than 10% of disk space is available (`nodefs.available<10%`)
@@ -1968,7 +1968,7 @@ systemOptions:
 
 ## Custom Taints
 
-Telekube supports provisioning nodes with [Taints](https://kubernetes.io/docs/concepts/configuration/taint-and-toleration/) to control
+Gravity supports provisioning nodes with [Taints](https://kubernetes.io/docs/concepts/configuration/taint-and-toleration/) to control
 workload distribution. Use `taints` property of the node profiles:
 
 ```yaml
@@ -1983,7 +1983,7 @@ nodeProfiles:
 
 ### Dedicated control plane nodes
 
-To install Kubernetes nodes running only system components, Telekube supports `node-role.kubernetes.io/master` taint:
+To install Kubernetes nodes running only system components, Gravity supports `node-role.kubernetes.io/master` taint:
 
 ```yaml
 nodeProfiles:
@@ -2021,7 +2021,7 @@ nodeProfiles:
       node-role.kubernetes.io/node: "true"
 ```
 
-If none of the labels above are set, Telekube will automatically assign node roles according to the following algorithm:
+If none of the labels above are set, Gravity will automatically assign node roles according to the following algorithm:
 
   * If there are already 3 master nodes available (either explicitly set via labels or already installed/elected
     in the system) - assign as kubernetes node.
