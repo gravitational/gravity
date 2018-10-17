@@ -431,6 +431,7 @@ func validateCanPrunePackages(cluster ops.Site) error {
 	// TODO(dmitri): remove when there's no more need to support this legacy case
 	switch cluster.State {
 	case ops.SiteStateActive, ops.SiteStateDegraded:
+	default:
 		return trace.CompareFailed("Package pruning can only run on an active or degraded cluster. " +
 			"Please complete any pending operations and try again.")
 	}
