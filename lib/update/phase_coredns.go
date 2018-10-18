@@ -35,7 +35,7 @@ const (
 func (r phaseBuilder) corednsPhase(leadMaster storage.Server) *phase {
 	phase := root(phase{
 		ID:          "coredns",
-		Description: "Provision coredns resources",
+		Description: "Provision CoreDNS resources",
 		Executor:    coredns,
 		Data: &storage.OperationPhaseData{
 			Server: &leadMaster,
@@ -49,9 +49,10 @@ type updatePhaseCoreDNS struct {
 	kubernetesOperation
 }
 
-// NewPhaseCoreDNS create an upgrade phase to add coredns rbac permissions
-// HACK: This phase needs to run before updating planet, as coredns is embedded in planet
-// and will come online as planet restarts
+// NewPhaseCoreDNS creates an upgrade phase to add coredns rbac permissions
+// The normal upgrade sequence is to Rolling update planet, then to update our RBAC settings in the RBAC app
+// However, CoreDNS within planet needs these settings to function, so these settings specifically need to be created
+// before the rolling restart of planet
 func NewPhaseCoreDNS(c FSMConfig, plan storage.OperationPlan, phase storage.OperationPhase) (*updatePhaseCoreDNS, error) {
 	op, err := newKubernetesOperation(c, plan, phase)
 	if err != nil {
@@ -78,12 +79,14 @@ func (p *updatePhaseCoreDNS) Execute(ctx context.Context) error {
 		},
 	})
 	err = rigging.ConvertError(err)
-	if err != nil && {
+	if err != nil {
 		if trace.IsAlreadyExists(err) {
 			p.Infof("ClusterRoles/%v already exists, skiping...", corednsResourceName)
 		} else {
-		return trace.Wrap(err)
+			return trace.Wrap(err)
 		}
+	} else {
+		p.Infof("ClusterRole/%v created.", corednsResourceName)
 	}
 
 	_, err = p.kubernetesOperation.Client.RbacV1().ClusterRoleBindings().Create(&rbacv1.ClusterRoleBinding{
@@ -102,12 +105,14 @@ func (p *updatePhaseCoreDNS) Execute(ctx context.Context) error {
 		},
 	})
 	err = rigging.ConvertError(err)
-	if err != nil && {
+	if err != nil {
 		if trace.IsAlreadyExists(err) {
-			p.Infof("ClusterRoles/%v already exists, skiping...", corednsResourceName)
+			p.Infof("ClusterRoleBinding/%v already exists, skiping...", corednsResourceName)
 		} else {
-		return trace.Wrap(err)
+			return trace.Wrap(err)
 		}
+	} else {
+		p.Infof("ClusterRoleBinding/%v created.", corednsResourceName)
 	}
 
 	return nil

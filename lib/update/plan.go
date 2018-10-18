@@ -357,7 +357,7 @@ func newOperationPlan(p newPlanParams) (*storage.OperationPlan, error) {
 		// if there are no runtime updates, then these phases are not needed
 		// as we're not going to update system software
 		if p.updateCoreDNS {
-			corednsPhase := *builder.corednsPhase(leadMaster)
+			corednsPhase := *builder.corednsPhase(leadMaster.Server)
 			mastersPhase = *mastersPhase.Require(corednsPhase)
 			phases = append(phases, corednsPhase)
 		}
