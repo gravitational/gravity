@@ -122,12 +122,12 @@ func ValidateKubernetesSubnets(podCIDR, serviceCIDR string) error {
 				"invalid pod network CIDR: %v", podCIDR)
 		}
 
-		// the pod network should be /16 minimum so k8s can allocate /24 to each node
-		ones, _ := podNet.Mask.Size()
-		if ones > 16 {
-			return trace.BadParameter(
-				"pod network should be a minimum of /16: %v", podCIDR)
-		}
+		// // the pod network should be /16 minimum so k8s can allocate /24 to each node
+		// ones, _ := podNet.Mask.Size()
+		// if ones > 16 {
+		// 	return trace.BadParameter(
+		// 		"pod network should be a minimum of /16: %v", podCIDR)
+		// }
 	}
 
 	// make sure the service subnet is valid
