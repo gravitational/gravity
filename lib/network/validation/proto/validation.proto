@@ -96,9 +96,9 @@ message ValidateResponse {
 message ValidateOptions {
     // VxlanPort is the custom overlay network port
     int32 vxlan_port = 1;
-    // DnsAddrs specifies the list of listen IP addresses for dnsmasq
+    // DnsAddrs specifies the list of listen IP addresses for coredns
     repeated string dns_addrs = 2;
-    // DnsPort specifies the DNS port for dnsmasq
+    // DnsPort specifies the DNS port for coredns
     int32 dns_port = 3;
 }
 

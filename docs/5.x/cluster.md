@@ -2069,3 +2069,51 @@ With `promiscuous-bridge`, the behavior is similar to that of the kubenet networ
 [PodSecurityPolicies]: https://kubernetes.io/docs/concepts/policy/pod-security-policy/
 [RBAC]: https://kubernetes.io/docs/admin/authorization/rbac/
 [promiscuous-mode]: https://en.wikipedia.org/wiki/Promiscuous_mode
+
+## Customizing Cluster DNS
+
+Gravity uses [CoreDNS](https://coredns.io) for DNS resolution and service discovery within the cluster. 
+
+The following configuration is used by default, which can be customized and applied to a gravity cluster. The default
+configuration will be restored automatically if the `kube-system/coredns` configmap is deleted from kubernetes. 
+
+```
+kind: ConfigMap
+apiVersion: v1
+metadata:
+  name: coredns
+  namespace: kube-system
+data:
+  Corefile: |
+    .:{{.Port}} {
+      reload
+      bind {{range $bind := .ListenAddrs}}{{$bind}} {{end}}
+      errors
+      hosts /etc/coredns/coredns.hosts { {{range $hostname, $ips := .Hosts}}{{range $ip := $ips}}
+        {{$ip}} {{$hostname}}{{end}}{{end}}
+        fallthrough
+      }
+      kubernetes cluster.local in-addr.arpa ip6.arpa {
+        endpoint https://leader.telekube.local:6443
+        tls /var/state/coredns.cert /var/state/coredns.key /var/state/root.cert
+        pods disabled
+        fallthrough in-addr.arpa ip6.arpa
+      }{{range $zone, $servers := .Zones}}
+      proxy {{$zone}} {{range $server := $servers}}{{$server}} {{end}}{
+        policy sequential
+      }{{end}}
+      forward . {{range $server := .UpstreamNameservers}}{{$server}} {{end}}{
+        policy sequential
+        health_check 0
+      }
+    }
+```
+
+!!! tip "Templates":
+  The CoreDNS configuration in this example is a Go template, which will generate configuration based on the node and install time configuration. 
+
+The following template variables are supported:
+* `ListenAddrs` - (Required) The list of overlay network address to bind CoreDNS to.
+* `Port` - The port to use for DNS binding. ([see Standalone Offline CLI Installation](/installation/#standalone-offline-cli-installation))
+* `UpstreamNameservers` - A list of upstream resolvers to use for general DNS resolution. ([see Standalone Offline CLI Installation](/installation/#standalone-offline-cli-installation))
+* `Zones` - A map of zone names to upstream servers as specified by `--dns-zone` flag at installation time. ([see Standalone Offline CLI Installation](/installation/#standalone-offline-cli-installation))

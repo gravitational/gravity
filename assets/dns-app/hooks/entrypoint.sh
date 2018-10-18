@@ -9,12 +9,10 @@ if [ $1 = "update" ]; then
     echo "Starting update, changeset: $RIG_CHANGESET"
     rig cs delete --force -c cs/$RIG_CHANGESET
 
-    echo "Deleting old daemonset"
+    echo "Deleting old resources"
     rig delete ds/kube-dns-v18 --resource-namespace=kube-system --force --debug
     rig delete ds/kube-dns --resource-namespace=kube-system --force --debug
-
-    echo "Creating new resources"
-    rig upsert -f /var/lib/gravity/resources/dns.yaml
+    rig delete serviceaccount/kube-dns --resource-namespace=kube-system --force --debug
 
     echo "Checking status"
     rig status $RIG_CHANGESET --retry-attempts=120 --retry-period=1s --debug

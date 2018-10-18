@@ -615,6 +615,7 @@ func (s *site) getPlanetMasterSecretsPackage(ctx *operationContext, p planetMast
 		},
 		constants.APIServerKubeletClientKeyPair: {group: constants.ClusterAdminGroup},
 		constants.PlanetRpcKeyPair:              {},
+		constants.CoreDNSKeyPair:                {},
 	}
 
 	for name, config := range keyPairTypes {
@@ -718,6 +719,7 @@ func (s *site) getPlanetNodeSecretsPackage(ctx *operationContext, node *Provisio
 		constants.ProxyKeyPair:     {userName: constants.ClusterKubeProxyUser, group: constants.ClusterNodeGroup},
 		constants.KubeletKeyPair:   {userName: constants.ClusterNodeNamePrefix + ":" + node.KubeNodeID(), group: constants.ClusterNodeGroup},
 		constants.PlanetRpcKeyPair: {},
+		constants.CoreDNSKeyPair:   {},
 	}
 
 	var privateKeyPEM []byte
@@ -940,9 +942,6 @@ func (s *site) getPlanetConfigPackage(
 	dnsConfig := s.dnsConfig()
 	for _, addr := range dnsConfig.Addrs {
 		args = append(args, fmt.Sprintf("--dns-listen-addr=%v", addr))
-	}
-	for _, iface := range dnsConfig.Interfaces {
-		args = append(args, fmt.Sprintf("--dns-interface=%v", iface))
 	}
 	args = append(args, fmt.Sprintf("--dns-port=%v", dnsConfig.Port))
 

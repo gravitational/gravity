@@ -50,6 +50,7 @@ func (s *PlanSuite) TestPlanWithRuntimeUpdate(c *check.C) {
 		installedAppManifest:     installedAppManifest,
 		updateRuntimeManifest:    updateRuntimeManifest,
 		updateAppManifest:        updateAppManifest,
+		updateCoreDNS:            true,
 		links: []storage.OpsCenterLink{
 			{
 				Hostname:   "ops.example.com",
@@ -73,7 +74,8 @@ func (s *PlanSuite) TestPlanWithRuntimeUpdate(c *check.C) {
 	preUpdate := *builder.preUpdate(appLoc2).Require(init)
 	bootstrap := *builder.bootstrap(params.servers, appLoc1, appLoc2).Require(init)
 	leadMaster := runtimeServer{params.servers[0], runtimeLoc}
-	masters := *builder.masters(leadMaster, servers[1:2], false).Require(checks, bootstrap, preUpdate)
+	coreDNS := *builder.corednsPhase(leadMaster.Server)
+	masters := *builder.masters(leadMaster, servers[1:2], false).Require(checks, bootstrap, preUpdate, coreDNS)
 	nodes := *builder.nodes(leadMaster.Server, servers[2:], false).Require(masters)
 	etcd := *builder.etcdPlan(leadMaster.Server, params.servers[1:2], params.servers[2:], "1.0.0", "2.0.0")
 	migration := builder.migration(params)
@@ -94,6 +96,7 @@ func (s *PlanSuite) TestPlanWithRuntimeUpdate(c *check.C) {
 		init,
 		checks,
 		preUpdate,
+		coreDNS,
 		bootstrap,
 		masters,
 		nodes,
@@ -214,6 +217,7 @@ func newTestPlan(c *check.C, p params) (storage.OperationPlan, newPlanParams) {
 		links:            p.links,
 		trustedClusters:  p.trustedClusters,
 		shouldUpdateEtcd: shouldUpdateEtcdTeest,
+		updateCoreDNS:    p.updateCoreDNS,
 	}
 
 	gravityPackage, err := params.updateRuntime.Manifest.Dependencies.ByName(
@@ -238,6 +242,7 @@ type params struct {
 	installedAppManifest     string
 	updateRuntimeManifest    string
 	updateAppManifest        string
+	updateCoreDNS            bool
 	links                    []storage.OpsCenterLink
 	trustedClusters          []teleservices.TrustedCluster
 }

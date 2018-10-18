@@ -5,22 +5,6 @@ metadata:
   resourceVersion: "0.0.0"
   namespace: kube-system
 hooks:
-  install:
-    job: |
-      apiVersion: batch/v1
-      kind: Job
-      metadata:
-        name: dns-app-install
-      spec:
-        template:
-          metadata:
-            name: dns-app-install
-          spec:
-            restartPolicy: OnFailure
-            containers:
-            - name: hook
-              image: quay.io/gravitational/debian-tall:0.0.1
-              command: ["/usr/local/bin/kubectl", "apply", "-f", "/var/lib/gravity/resources/dns.yaml"]
   update:
       job: |
         apiVersion: batch/v1

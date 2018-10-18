@@ -80,7 +80,7 @@ type InstallConfig struct {
 	DNSHosts []string
 	// DNSZones is a list of DNS zone overrides
 	DNSZones []string
-	// DNSConfig is the DNS configuration for cluster local dnsmasq
+	// DNSConfig is the DNS configuration for planet container DNS.
 	DNSConfig storage.DNSConfig
 	// PodCIDR is the pod network subnet
 	PodCIDR string

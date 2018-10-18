@@ -35,7 +35,7 @@ func GetUpsertBootstrapResourceFunc(client *kubernetes.Clientset) resources.Reso
 	return func(object runtime.Object) (err error) {
 		switch resource := object.(type) {
 		case *rbacv1.ClusterRole:
-			_, err = client.Rbac().ClusterRoles().Create(resource)
+			_, err = client.RbacV1().ClusterRoles().Create(resource)
 			if err == nil {
 				log.Debugf("Created ClusterRole %q.", resource.Name)
 				return nil
@@ -43,13 +43,13 @@ func GetUpsertBootstrapResourceFunc(client *kubernetes.Clientset) resources.Reso
 			if !trace.IsAlreadyExists(rigging.ConvertError(err)) {
 				return trace.Wrap(rigging.ConvertError(err))
 			}
-			_, err = client.Rbac().ClusterRoles().Update(resource)
+			_, err = client.RbacV1().ClusterRoles().Update(resource)
 			if err != nil {
 				return trace.Wrap(rigging.ConvertError(err))
 			}
 			log.Debugf("Updated ClusterRole %q.", resource.Name)
 		case *rbacv1.ClusterRoleBinding:
-			_, err = client.Rbac().ClusterRoleBindings().Create(resource)
+			_, err = client.RbacV1().ClusterRoleBindings().Create(resource)
 			if err == nil {
 				log.Debugf("Created ClusterRoleBinding %q.", resource.Name)
 				return nil
@@ -57,11 +57,39 @@ func GetUpsertBootstrapResourceFunc(client *kubernetes.Clientset) resources.Reso
 			if !trace.IsAlreadyExists(rigging.ConvertError(err)) {
 				return trace.Wrap(rigging.ConvertError(err))
 			}
-			_, err = client.Rbac().ClusterRoleBindings().Update(resource)
+			_, err = client.RbacV1().ClusterRoleBindings().Update(resource)
 			if err != nil {
 				return trace.Wrap(rigging.ConvertError(err))
 			}
 			log.Debugf("Updated ClusterRoleBinding %q.", resource.Name)
+		case *rbacv1.Role:
+			_, err = client.RbacV1().Roles(resource.Namespace).Create(resource)
+			if err == nil {
+				log.Debugf("Created Role %q.", resource.Name)
+				return nil
+			}
+			if !trace.IsAlreadyExists(rigging.ConvertError(err)) {
+				return trace.Wrap(rigging.ConvertError(err))
+			}
+			_, err = client.RbacV1().Roles(resource.Namespace).Update(resource)
+			if err != nil {
+				return trace.Wrap(rigging.ConvertError(err))
+			}
+			log.Debugf("Updated Role %q.", resource.Name)
+		case *rbacv1.RoleBinding:
+			_, err = client.RbacV1().RoleBindings(resource.Namespace).Create(resource)
+			if err == nil {
+				log.Debugf("Created RoleBinding %q.", resource.Name)
+				return nil
+			}
+			if !trace.IsAlreadyExists(rigging.ConvertError(err)) {
+				return trace.Wrap(rigging.ConvertError(err))
+			}
+			_, err = client.RbacV1().RoleBindings(resource.Namespace).Update(resource)
+			if err != nil {
+				return trace.Wrap(rigging.ConvertError(err))
+			}
+			log.Debugf("Updated RoleBinding %q.", resource.Name)
 		case *v1beta1.PodSecurityPolicy:
 			_, err = client.Extensions().PodSecurityPolicies().Create(resource)
 			if err == nil {
