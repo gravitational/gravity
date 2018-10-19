@@ -7,7 +7,7 @@ LTS starts with `3.51.0` with minor backwards compatible changes added over time
 
 | LTS Release   | Release Date         | Supported Until      | Kubernetes Version | Teleport Version |
 | ------------- | -------------------- | -------------------- | ------------------ |------------------|
-| 5.2.0         | October, 15th 2018   | October, 15th, 2019  | 1.11.2             | 2.4.7            |
+| 5.2.1         | October, 19th 2018   | October, 15th, 2019  | 1.11.2             | 2.4.7            |
 | 5.0.24        | August, 28th 2018    | April, 13th 2019     | 1.9.6              | 2.4.7            |
 | 4.63.0        | June, 25th 2018      | November, 16th 2018  | 1.7.14             | 2.3.5            |
 | 3.64.0        | December, 21st 2017  | June, 2nd 2018       | 1.5.7              | 2.0.6            |
@@ -21,6 +21,13 @@ LTS starts with `3.51.0` with minor backwards compatible changes added over time
     article in our Help Center.
 
 ## 5.x Releases
+
+### 5.2.1 LTS
+
+#### Bugfixes
+
+* Fix an issue with garbage collection refusing to launch on active clusters.
+* Fix an issue with open-source `tele` requiring AWS credentials.
 
 ### 5.2.0 LTS
 
