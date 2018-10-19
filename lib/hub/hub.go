@@ -39,6 +39,7 @@ import (
 	"github.com/sirupsen/logrus"
 
 	"github.com/aws/aws-sdk-go/aws"
+	"github.com/aws/aws-sdk-go/aws/credentials"
 	"github.com/aws/aws-sdk-go/aws/session"
 	"github.com/aws/aws-sdk-go/service/s3"
 	"github.com/aws/aws-sdk-go/service/s3/s3iface"
@@ -125,7 +126,8 @@ func (c *Config) CheckAndSetDefaults() error {
 	}
 	if c.S3 == nil {
 		session, err := session.NewSession(&aws.Config{
-			Region: aws.String(c.Region),
+			Region:      aws.String(c.Region),
+			Credentials: credentials.AnonymousCredentials,
 		})
 		if err != nil {
 			return trace.Wrap(err)
