@@ -248,7 +248,7 @@ publish-telekube: build
 	$(GRAVITY_OUT) package import --ops-url=$(DISTRIBUTION_OPSCENTER) $(TELEKUBE_PUBLISH_FLAGS) $(TF_PROVIDER_GRAVITY_OUT) $(TF_PROVIDER_GRAVITY_PKG)
 	@echo -e "\n----> Publishing terraform-provider-gravityenterprise to $(DISTRIBUTION_OPSCENTER)...\n"
 	$(GRAVITY_OUT) package delete --ops-url=$(DISTRIBUTION_OPSCENTER) $(TELEKUBE_PUBLISH_FLAGS) --force $(TF_PROVIDER_GRAVITYENTERPRISE_PKG) && \
-	$(GRAVITY_OUT) package import --ops-url=$(DISTRIBUTION_OPSCENTER) $(TELEKUBE_PUBLISH_FLAGS) $(TF_PROVIDER_TELEKUBE_OUT) $(TF_PROVIDER_GRAVITYENTERPRISE_PKG)
+	$(GRAVITY_OUT) package import --ops-url=$(DISTRIBUTION_OPSCENTER) $(TELEKUBE_PUBLISH_FLAGS) $(TF_PROVIDER_GRAVITYENTERPRISE_OUT) $(TF_PROVIDER_GRAVITYENTERPRISE_PKG)
 
 
 #
@@ -296,7 +296,6 @@ $(GRAVITY_BUILDDIR):
 	mkdir -p $@
 
 # Builds binaries inside a docker container
-.PHONY: $(BINARIES) $(TF_BINARIES)
 $(BINARIES) $(TF_BINARIES):
 	@echo -e "\n----> Building $@ binary...\n"
 	go build -o $@ -ldflags $(GRAVITY_LINKFLAGS) $(GRAVITY_PKG_PATH)/tool/$(notdir $@)
