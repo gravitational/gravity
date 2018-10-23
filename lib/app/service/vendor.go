@@ -204,12 +204,14 @@ func (v *vendorer) VendorDir(ctx context.Context, unpackedDir string, req Vendor
 	if err != nil {
 		return trace.Wrap(err)
 	}
+	log.Infof("Images: %v.", images)
 
 	// vendor chart images as well
 	chartImages, err := chartResources.Images()
 	if err != nil {
 		return trace.Wrap(err)
 	}
+	log.Infof("Chart images: %v.", chartImages)
 	log.Infof("Found images captured from charts: %v.", chartResources)
 	for _, resourceFile := range chartResources {
 		if err := printResourceStatus(resourceFile, req.ManifestPath, req.ProgressReporter, "Helm chart"); err != nil {
