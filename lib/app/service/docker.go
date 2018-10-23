@@ -102,20 +102,20 @@ func (r *layerExporter) stop() error {
 
 func (r *layerExporter) pushImage(image string) func() error {
 	return func() error {
-		name, tag, err := parseImageRef(image)
+		parsed, err := loc.ParseDockerImage(image)
 		if err != nil {
 			return trace.Wrap(err)
 		}
-		if err = r.tagCmd(image, name, tag); err != nil {
+		if err = r.tagCmd(image, parsed.Repository, parsed.Tag); err != nil {
 			return trace.Wrap(err)
 		}
-		if err = r.pushCmd(name, tag); err != nil {
+		if err = r.pushCmd(parsed.Repository, parsed.Tag); err != nil {
 			r.Warnf("Failed to push %v: %v.", image, err)
 			return trace.Wrap(err)
 		}
 		r.progressReporter.PrintSubStep("Vendored image %v", image)
-		if err = r.removeTagCmd(name, tag); err != nil {
-			return trace.Wrap(err)
+		if err = r.removeTagCmd(parsed.Repository, parsed.Tag); err != nil {
+			r.Warnf("Failed to remove %v.", image)
 		}
 		return nil
 	}
@@ -147,26 +147,6 @@ func (r *layerExporter) removeTagCmd(name, tag string) error {
 	localImage := fmt.Sprintf("%v/%v:%v", r.registry.Addr(), name, tag)
 	r.Infof("Removing %v.", localImage)
 	return r.dockerClient.RemoveImage(localImage)
-}
-
-// parseImageRef parses the specified image reference into (repository/name,tag) tuple.
-// For input:
-//	repo/subrepo/name:tag
-// it returns
-//	(repo/subrepo/name, tag)
-func parseImageRef(image string) (name, tag string, err error) {
-	ref, err := docker.Parse(image)
-	if err != nil {
-		return "", "", trace.Wrap(err, "failed to parse image reference %q", image)
-	}
-	named, isNamed := ref.(docker.Named)
-	if !isNamed {
-		return "", "", trace.BadParameter("image reference %v has no name", image)
-	}
-	if tagged, isTagged := named.(docker.NamedTagged); isTagged {
-		tag = tagged.Tag()
-	}
-	return named.Name(), tag, nil
 }
 
 // parseImageNameTag parses the specified image reference into name/tag tuple.
@@ -223,11 +203,14 @@ func tagImageWithoutRegistry(image string, docker docker.DockerInterface, log lo
 		return trace.Wrap(err)
 	}
 
-	if err = docker.TagImage(image, dockerapi.TagImageOptions{
+	tagOpts := dockerapi.TagImageOptions{
 		Repo:  parsed.Repository,
 		Tag:   parsed.Tag,
 		Force: true,
-	}); err != nil {
+	}
+	log.Infof("Tagging image %q: %#v.", image, tagOpts)
+
+	if err = docker.TagImage(image, tagOpts); err != nil {
 		return trace.Wrap(err)
 	}
 
