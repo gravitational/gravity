@@ -164,11 +164,11 @@ func (p *updatePhaseBootstrap) Execute(context.Context) error {
 	if err != nil {
 		return trace.Wrap(err)
 	}
-	err = p.updateRuntimePackage()
+	err = p.pullSystemUpdates()
 	if err != nil {
 		return trace.Wrap(err)
 	}
-	err = p.pullSystemUpdates()
+	err = p.updateRuntimePackage()
 	if err != nil {
 		return trace.Wrap(err)
 	}
