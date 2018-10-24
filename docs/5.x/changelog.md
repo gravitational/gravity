@@ -8,7 +8,7 @@ LTS starts with `3.51.0` with minor backwards compatible changes added over time
 | Release | LTS | Release Date         | Supported Until      | Kubernetes Version | Teleport Version |
 | --------|-----| -------------------- | -------------------- | ------------------ |------------------|
 | 5.3.1   | No  | October, 23rd 2018   | -                    | 1.12.1             | 2.4.7            |
-| 5.2.1   | Yes | October, 19th 2018   | October, 15th, 2019  | 1.11.2             | 2.4.7            |
+| 5.2.2   | Yes | October, 23rd 2018   | October, 15th, 2019  | 1.11.2             | 2.4.7            |
 | 5.0.24  | Yes | August, 28th 2018    | April, 13th 2019     | 1.9.6              | 2.4.7            |
 | 4.63.0  | Yes | June, 25th 2018      | November, 16th 2018  | 1.7.14             | 2.3.5            |
 | 3.64.0  | Yes | December, 21st 2017  | June, 2nd 2018       | 1.5.7              | 2.0.6            |
@@ -22,6 +22,12 @@ LTS starts with `3.51.0` with minor backwards compatible changes added over time
     article in our Help Center.
 
 ## 5.x Releases
+
+### 5.2.2 LTS
+
+#### Bugfixes
+
+* Strip original registry when tagging images to local registry when using Helm charts.
 
 ### 5.3.1
 
