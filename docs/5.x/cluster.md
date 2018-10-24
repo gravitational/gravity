@@ -2072,10 +2072,10 @@ With `promiscuous-bridge`, the behavior is similar to that of the kubenet networ
 
 ## Customizing Cluster DNS
 
-Gravity uses [CoreDNS](https://coredns.io) for DNS resolution and service discovery within the cluster. 
+Gravity uses [CoreDNS](https://coredns.io) for DNS resolution and service discovery within the cluster.
 
 The following configuration is used by default, which can be customized and applied to a gravity cluster. The default
-configuration will be restored automatically if the `kube-system/coredns` configmap is deleted from kubernetes. 
+configuration will be restored automatically if the `kube-system/coredns` configmap is deleted from kubernetes.
 
 ```
 kind: ConfigMap
@@ -2110,9 +2110,10 @@ data:
 ```
 
 !!! tip "Templates":
-  The CoreDNS configuration in this example is a Go template, which will generate configuration based on the node and install time configuration. 
+    The CoreDNS configuration in this example is a Go template, which will generate configuration based on the node and install time configuration.
 
 The following template variables are supported:
+
 * `ListenAddrs` - (Required) The list of overlay network address to bind CoreDNS to.
 * `Port` - The port to use for DNS binding. ([see Standalone Offline CLI Installation](/installation/#standalone-offline-cli-installation))
 * `UpstreamNameservers` - A list of upstream resolvers to use for general DNS resolution. ([see Standalone Offline CLI Installation](/installation/#standalone-offline-cli-installation))
