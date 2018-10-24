@@ -291,6 +291,14 @@ func (p *updatePhaseBootstrap) updateRuntimePackage() error {
 		Locator: p.installedRuntime,
 		add:     utils.CombineLabels(pack.RuntimePackageLabels, pack.InstalledLabels),
 	})
+	// Include the runtime package from the update as it might not have the proper
+	// runtime label if generated on the Ops Center that does not replicate remote
+	// package labels when building installers
+	// See: https://github.com/gravitational/gravity.e/issues/3768
+	runtimePackages = append(runtimePackages, updateLabels{
+		Locator: p.runtimePackage,
+		add:     pack.RuntimePackageLabels,
+	})
 	if loc.IsLegacyRuntimePackage(p.installedRuntime) {
 		var runtimePackageToClear loc.Locator
 		switch p.installedRuntime.Name {
