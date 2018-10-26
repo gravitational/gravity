@@ -126,6 +126,8 @@ RBAC_APP_OUT := $(GRAVITY_BUILDDIR)/rbac-app.tar.gz
 TELEKUBE_APP_OUT := $(GRAVITY_BUILDDIR)/telekube-app.tar.gz
 TILLER_APP_OUT := $(GRAVITY_BUILDDIR)/tiller-app.tar.gz
 TELEKUBE_OUT := $(GRAVITY_BUILDDIR)/telekube.tar
+TF_PROVIDER_GRAVITY_OUT := $(GRAVITY_BUILDDIR)/terraform-provider-gravity
+TF_PROVIDER_GRAVITYENTERPRISE_OUT := $(GRAVITY_BUILDDIR)/terraform-provider-gravityenterprise
 
 GRAVITY_DIR := /var/lib/gravity
 GRAVITY_ASSETS_DIR := /usr/local/share/gravity
