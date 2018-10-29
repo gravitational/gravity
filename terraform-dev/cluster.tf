@@ -93,6 +93,7 @@ resource "libvirt_cloudinit" "commoninit" {
     - 'modprobe iptable_filter'
     - 'sysctl -p /etc/sysctl.d/10-br-netfilter.conf'
     - 'sysctl -p /etc/sysctl.d/10-ipv4-forwarding-on.conf'
+    - 'sysctl -p /etc/sysctl.d/10-fs-may-detach-mounts.conf'
     - 'parted -a opt /dev/vdb mktable msdos'
     - 'parted -a opt /dev/vdb mkpart primary ext4 0% 100%'
     - 'mkfs.ext4 -L GRAVITY /dev/vdb1'
