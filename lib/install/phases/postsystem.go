@@ -117,7 +117,7 @@ func (*waitExecutor) PostCheck(ctx context.Context) error {
 	return nil
 }
 
-// NewNodes returns executor that applies labels and taints to a Kubernetes node
+// NewNodes returns executor that applies labels to a Kubernetes node
 func NewNodes(p fsm.ExecutorParams, operator ops.Operator, apps app.Applications, client *kubernetes.Clientset) (*nodesExecutor, error) {
 	application, err := apps.GetApp(*p.Phase.Data.Package)
 	if err != nil {
@@ -147,7 +147,7 @@ type nodesExecutor struct {
 	Client *kubernetes.Clientset
 	// Application is the application being installed
 	Application app.Application
-	// Node is the node that should be labeled / tainted
+	// Node is the node that should be labeled
 	Node storage.Server
 	// ExecutorParams is common executor params
 	fsm.ExecutorParams
@@ -155,17 +155,17 @@ type nodesExecutor struct {
 
 // Execute executes the nodes phase
 func (p *nodesExecutor) Execute(ctx context.Context) error {
-	p.Progress.NextStep("Updating node %v with labels and taints", p.Node.Hostname)
+	p.Progress.NextStep("Updating node %v with labels", p.Node.Hostname)
 	// find this node's profile
 	profile, err := p.Application.Manifest.NodeProfiles.ByName(p.Node.Role)
 	if err != nil {
 		return trace.Wrap(err, "could not find node profile for %#v", p.Node)
 	}
-	// update the node with labels and taints, try a few times to
+	// update the node with labels, try a few times to
 	// account for possible transient errors
 	err = utils.RetryWithInterval(ctx, backoff.NewExponentialBackOff(),
 		func() error {
-			return p.updateNode(p.Client, p.Node, profile.Labels, profile.Taints)
+			return p.updateNode(p.Client, p.Node, profile.Labels)
 		})
 	if err != nil {
 		return trace.Wrap(err)
@@ -173,7 +173,7 @@ func (p *nodesExecutor) Execute(ctx context.Context) error {
 	return nil
 }
 
-func (p *nodesExecutor) updateNode(client *kubernetes.Clientset, server storage.Server, labels map[string]string, taints []v1.Taint) error {
+func (p *nodesExecutor) updateNode(client *kubernetes.Clientset, server storage.Server, labels map[string]string) error {
 	// find corresponding Kubernetes node
 	node, err := kubeutils.GetNode(client, server)
 	if err != nil {
@@ -187,13 +187,12 @@ func (p *nodesExecutor) updateNode(client *kubernetes.Clientset, server storage.
 		}
 	}
 	node.Labels[defaults.KubernetesAdvertiseIPLabel] = server.AdvertiseIP
-	node.Spec.Taints = taints
-	p.Infof("Updating node %v with labels %v and taints %v.",
-		node.Name, node.Labels, node.Spec.Taints)
+	p.Infof("Updating node %v with labels %v",
+		node.Name, node.Labels)
 	_, err = client.Core().Nodes().Update(node)
 	if err != nil {
 		return rigging.ConvertErrorWithContext(err,
-			"failed to label and taint node %v", node.Name)
+			"failed to label node %v", node.Name)
 	}
 	return nil
 }

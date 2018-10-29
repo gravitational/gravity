@@ -995,6 +995,10 @@ func (s *site) getPlanetConfigPackage(
 		args = append(args, fmt.Sprintf("--device=%v", device.Format()))
 	}
 
+	for _, taint := range profile.Taints {
+		args = append(args, fmt.Sprintf("--taint=%v=%v:%v", taint.Key, taint.Value, taint.Effect))
+	}
+
 	reader, err := pack.GetConfigPackage(s.packages(), config.planetPackage, config.configPackage, args)
 	if err != nil {
 		return nil, trace.Wrap(err)
