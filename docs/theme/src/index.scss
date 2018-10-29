@@ -1,92 +1,64 @@
-@import "base/defaults";
-@import "base/mixins";
-@import "base/type";
-@import "layout/grid";
-@import "layout/layout";
+/*
+* Docs custom styles
+*
+*/
 
-// overrides 
-@import "theme";
-@import "theme-nav";
-@import "theme-admonition";
-@import "ver-selector";
+@import "defaults";
+@import "mixins";
 
-img[src$="grv-image-center-md"] {
-  max-width: 500px;
-  display: block;
-  margin: 0 auto;
-  border-radius: 5px;
+
+/*
+* Version Selector
+*
+*/
+
+h1 {
+  position: relative;
 }
 
-img[src$="grv-image-center-md"] {
-  max-width: 500px;
-  display: block;
-  margin: 0 auto;
-  border-radius: 5px;
-}
+.version-selector {
+  bottom: 0;
+  position: absolute;
+  top: 0;
+  right: 0;
+  width: 150px;
+  z-index: 1;
 
-img[src$="grv-image-center-lg"] {
-  max-width: 700px;
-  display: block;
-  margin: 0 auto;
-  border-radius: 5px;
-}
-
-.grv-nav-versions {
-  .grv-ver {
-    padding-left: 5px;
+  @include respond-to('mobile') {
+    margin-bottom: $unit * 3;
+    position: relative;
+    width: auto;
   }
-  .grv-current-ver {
-    color: $color-font-1;
-    display: inline-block;
-    padding: 5px;
-  }
-}
 
-.grv-footer {  
-  background-color: $color-bkg-1;
-  max-width: 1020px;
-  color: $color-font-9;
-  padding: 0;
-  display: block;
-  font-size: 13px;
-  margin-bottom: 0 !important;
+  select {
+    margin-top: $unit;
+    position: absolute;
+    text-transform: none;
 
-  max-width: 1000px;  
-  flex-wrap: wrap;
-  
-  .footer-item {        
-    padding: 15px 15px 10px 15px;
-    border-right: 1px solid $color-border-5;    
-    margin: 0 !important;
-    min-height: 170px;
-    min-width: 200px;
-    
     @include respond-to('mobile') {
-      width: 100%;
-      border: none;
-      border-bottom: 1px solid $color-border-5;
-    }
-
-    &:nth-child(3) {      
-      background: url(../img/bridge.svg) no-repeat center;
-      background-size: contain;
-    }
-
-    &:last-child {
-      border-right: 0;
-    }
-          
-    p {
-      line-height: 25px;
-      font-size: 13px;
       margin: 0;
+      position: relative;
     }
-              
-    img.footer-talk {
-      width: 70px;
-      position: relative;        
-      opacity: .3;
-    }  
+  }
+}
 
-  }  
+
+/*
+* Diagrams / Images
+*
+*/
+
+p img {
+  display: block;
+  margin: 0 auto ($unit * 3) auto;
+  width: auto;
+}
+
+img[src$=grv-image-center-md],
+img[src$='raw=true'] {
+  border-radius: 4px;
+  border: 1px solid $color-dark;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, .24);
+  display: block;
+  width: auto;
 }
