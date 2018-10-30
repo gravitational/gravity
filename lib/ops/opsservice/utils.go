@@ -131,6 +131,7 @@ func newMount(m schema.Volume) storage.Mount {
 		CreateIfMissing: utils.BoolValue(m.CreateIfMissing),
 		SkipIfMissing:   utils.BoolValue(m.SkipIfMissing),
 		Mode:            m.Mode,
+		Recursive:       m.Recursive,
 	}
 	if m.UID != nil {
 		mount.UID = utils.IntPtr(*m.UID)
