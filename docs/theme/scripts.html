@@ -19,15 +19,7 @@
   window.grvConfig = window.grvConfig || {
     docVersions:  ["4.x", "5.x"],
     docCurrentVer:  "{{ config.extra.version }}"
-  }
-
-  // append sub-anchors to the H1..H4 elements for easy linking:
-  $(document).ready(function(){
-      $("h2,h3").each(function(){
-          var e = $(this)
-          e.append("<a href='#" + e.attr("id") + "'></a>");
-      });
-  });
+  };
  </script>
 {% endif %}
 
