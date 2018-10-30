@@ -8410,6 +8410,12 @@ pre .dec, code .dec {
   .lang-bsh pre .kwd, .lang-bsh code .kwd {
     color: #FFFFFF; }
 
+.lang-yaml {
+  /* keyword */ }
+  .lang-yaml pre .kwd, .lang-yaml code .kwd {
+    color: #8C9EFF;
+    font-weight: 500; }
+
 /* Specify class=linenums on a pre to get line numbering */
 ol.linenums {
   margin-top: 0;

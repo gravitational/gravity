@@ -109,7 +109,7 @@ spec:
 To provision the Gravity Cluster defined above, make sure to log into the Ops Center and
 execute:
 
-```bash
+```bsh
 $ tele create cluster.yaml
 ```
 
@@ -124,7 +124,7 @@ $ tele create cluster.yaml
 The following command will verify that a node is compatible with requirements defined by given
 profile, such as CPU, RAM and volume storage.
 
-```bash
+```bsh
 $ gravity check --profile=node app.yaml
 ```
 
@@ -135,7 +135,7 @@ If the list of failed checks includes unloaded kernel modules and unset kernel
 parameters required for installation (see [System Requirements](/requirements/#kernel-modules)),
 this command can be re-run with `--autofix` flag to attempt to fix those issues:
 
-```bash
+```bsh
 $ gravity check --profile=node --autofix app.yaml
 ```
 
@@ -228,7 +228,7 @@ To check the status of the cluster provisioning operation (as well as other
 ongoing operations) on the Ops Center, a user must SSH into a machine running
 the Ops Center and execute:
 
-```bash
+```bsh
 $ gravity status
 ```
 
@@ -239,13 +239,13 @@ via `tele` command.
 
 To see the list of Gravity Clusters available:
 
-```bash
+```bsh
 $ tele get clusters
 ```
 
 Example output:
 
-```bash
+```bsh
 Name                            Status     Cloud Provider     Region
 ----                            ------     --------------     ------
 hello1                          active     aws                us-west-2
@@ -254,7 +254,7 @@ hello1                          active     aws                us-west-2
 
 Use `tsh ls` command to list all nodes (servers) inside of a given Gravity Cluster:
 
-```bash
+```bsh
 $ tsh --cluster=name ls
 ```
 
@@ -263,7 +263,7 @@ $ tsh --cluster=name ls
 Use `tele rm clusters [cluster-name]` command to start a non-blocking operation
 that de-provisions a Cluster.
 
-```bash
+```bsh
 $ tele rm clusters clustername
 ```
 
@@ -279,7 +279,7 @@ of clusters via Ops Center. Ops Center roles make it possible using
 `where` expressions in rules:
 
 
-```bash
+```bsh
 kind: role
 version: v3
 metadata:
@@ -313,7 +313,7 @@ Kubernetes access to clusters marked with label `team:developers`
 
 Users can use `deny` rules to limit access to some privileged Clusters:
 
-```bash
+```bsh
 kind: role
 version: v3
 metadata:
@@ -335,13 +335,13 @@ with label `env:production`.
 
 Users can use `tsh ssh` command to SSH into individual Clusters. For example:
 
-```bash
+```bsh
 $ tsh --cluster=example.east ssh admin@node2
 ```
 
 You can also copy files using secure file copy (scp):
 
-```bash
+```bsh
 $ tsh --cluster=example.east scp <src> admin@node2:<dest>
 ```
 

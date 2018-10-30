@@ -127,14 +127,14 @@ The bridge netfilter kernel module is required for Kubernetes iptables-based
 proxy to work correctly. Kernels prior to version 3.18 had this module built
 in:
 
-```bash
+```bsh
 root$ cat /lib/modules/$(uname -r)/modules.builtin | grep netfilter
 ```
 
 Starting from kernel 3.18 it became a separate module. To check that it is
 loaded run:
 
-```bash
+```bsh
 root$ lsmod | grep netfilter
 br_netfilter           24576  0
 ```
@@ -142,7 +142,7 @@ br_netfilter           24576  0
 If the above command didn't produce any result, then the module is not loaded.
 Use the following commands to load the module and make sure it is loaded on boot:
 
-```bash
+```bsh
 root$ modprobe br_netfilter
 root$ echo 'br_netfilter' > /etc/modules-load.d/netfilter.conf
 ```
@@ -150,7 +150,7 @@ root$ echo 'br_netfilter' > /etc/modules-load.d/netfilter.conf
 When the module is loaded, check the iptables setting and, if required, enable
 it as well:
 
-```bash
+```bsh
 root$ sysctl net.bridge.bridge-nf-call-iptables
 net.bridge.bridge-nf-call-iptables = 0
 root$ sysctl -w net.bridge.bridge-nf-call-iptables=1
@@ -169,14 +169,14 @@ overlay2 Docker storage driver (see [Application Manifest](/pack/#application-ma
 for information on how to configure the storage driver). To check that it's
 loaded:
 
-```bash
+```bsh
 root$ lsmod | grep overlay
 overlay                49152  29
 ```
 
 To load the module and make it persist across reboots:
 
-```bash
+```bsh
 root$ modprobe overlay
 root$ echo 'overlay' > /etc/modules-load.d/overlay.conf
 ```
@@ -189,7 +189,7 @@ and setting up docker bridge in "promiscuous-bridge" mode.
 
 To see if the module is loaded:
 
-```bash
+```bsh
 root$ lsmod | grep ebtable
 ebtable_filter         12827  0
 ebtables               35009  1 ebtable_filter
@@ -197,7 +197,7 @@ ebtables               35009  1 ebtable_filter
 
 To load the module and make it persist across reboots:
 
-```bash
+```bsh
 root$ modprobe ebtable_filter
 root$ echo 'ebtable_filter' > /etc/modules-load.d/network.conf
 ```
@@ -207,7 +207,7 @@ root$ echo 'ebtable_filter' > /etc/modules-load.d/network.conf
 The following modules also need to be loaded to make sure firewall rules
 that Kubernetes sets up function properly:
 
-```bash
+```bsh
 root$ modprobe ip_tables
 root$ modprobe iptable_filter
 root$ modprobe iptable_nat
@@ -237,7 +237,7 @@ When deploying on AWS, the supplied keys should have a set of EC2/ELB/IAM permis
 to be able to provision required infrastructure on your AWS account.
 
 <details><summary>Click here to view an example IAM policy.</summary>
-```
+```js
 {
     "Version": "2012-10-17",
     "Statement": [

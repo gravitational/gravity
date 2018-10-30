@@ -165,7 +165,7 @@ spec:
   email: triage@example.com # Email address of the alert recipient
 ```
 
-```shell
+```bsh
 $ gravity resource create -f smtp.yaml
 ```
 
@@ -184,20 +184,20 @@ spec:
 
 And introduce it with:
 
-```shell
+```bsh
 $ gravity resource create -f formula.yaml
 ```
 
 To view SMTP configuration or alerts:
 
-```shell
+```bsh
 $ gravity resource get smtps smtp
 $ gravity resource get alert my-formula
 ```
 
 To remove an alert:
 
-```shell
+```bsh
 $ gravity resource rm alert my-formula
 ```
 

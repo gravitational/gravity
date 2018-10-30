@@ -44,7 +44,7 @@ ssh -i ~/.ssh/ops.pem admin@<instance-ip>
 
 Now create file system on the attached volume, in my case it is `/dev/xvdf`:
 
-```
+```bsh
 admin@ip-172-31-16-134:~$ sudo fdisk -l
 
 Disk /dev/xvda: 8 GiB, 8589934592 bytes, 16777216 sectors
@@ -63,13 +63,13 @@ Sector size (logical/physical): 512 bytes / 512 bytes
 I/O size (minimum/optimal): 512 bytes / 512 bytes
 ```
 
-```
+```bsh
 sudo mkfs.ext4 /dev/xvdf
 ```
 
 Add auto mount point:
 
-```
+```bsh
 sudo su
 echo -e "[Mount]\nWhat = /dev/xvdf\nWhere = /var/lib/gravity\nType = ext4\n[Install]\nWantedBy = multi-user.target" > /etc/systemd/system/var-lib-gravity.mount
 systemctl enable var-lib-gravity.mount
@@ -77,11 +77,11 @@ systemctl enable var-lib-gravity.mount
 
 Change the default listening port on sshd:
 
-```
+```bsh
 sudo emacs -nw /etc/ssh/sshd_config
 ```
 
-```
+```bsh
 Port 61822
 ```
 
@@ -95,7 +95,7 @@ Reboot to make sure everything is cool
 * Create new inventory [wake.gravitaional.io](../deploy/wake.gravitational.io)
 * Clone `ops` repository in your $GOPATH:
 
-```
+```bsh
 mkdir -p $GOPATH/src/github.com/gravitational
 cd $GOPATH/src/github.com/gravitational
 git clone git@github.com:gravitational/ops.git
@@ -106,7 +106,7 @@ git clone git@github.com:gravitational/ops.git
 You will be asked to enter GPG password to decrypt secrets in github.
 The password to decrypt GPG keys is in lastpass ("GPG Provisioning Key)", so get it before launching provisioning script.
 
-```
+```bsh
 cd $GOPATH/src/github.com/gravitational/gravity/deploy
 KEY=--private-key=~/.ssh/ops.pem INVENTORY=wake.gravitational.io make provision
 ```

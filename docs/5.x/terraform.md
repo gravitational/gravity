@@ -7,7 +7,7 @@ The gravity terraform provider is used to support terraform management of openso
 ### Install the Gravity provider
 The terraform provider will be automatically installed when getting the gravity tools.
 
-```
+```bsh
 curl https://get.gravitational.io/telekube/install/5.2.0 | bash
 ```
 
@@ -15,7 +15,7 @@ Please see the [getting started guide](https://gravitational.com/telekube/docs/q
 
 ### Example Usage
 
-```
+```bsh
 # Configure the Gravity provider
 provider "gravity" {
     host  = "https://example.com"
@@ -37,7 +37,7 @@ See [Configuring Users & Tokens](https://gravitational.com/telekube/docs/cluster
 Configures authentication preferences for authenticating users on the cluster.
 
 ### Example Usage
-```
+```bsh
 resource "gravity_cluster_auth_preference" "test" {
     type = "local"
     second_factor = "otp"
@@ -65,7 +65,7 @@ The following arguments are supported:
 Configures the cluster to allow authentication using github as an identity provider.
 
 ### Example Usage
-```
+```bsh
 resource "gravity_github" "test" {
   name          = "github"
   display       = "Github"
@@ -98,7 +98,7 @@ The following arguments are supported:
 Configure log forwarding to an external syslog server.
 
 ### Example Usage
-```
+```bsh
 resource "gravity_log_forwarder" "test" {
   name     = "logzer"
   address  = "192.168.1.1:514"
@@ -119,7 +119,7 @@ The following arguments are supported:
 Apply a TLS Certificate and Key to the cluster to be used for the Web UI and API of the cluster.
 
 ### Example Usage
-```
+```bsh
 resource "gravity_tlskeypair" "test" {
   cert = <<EOF
 -----BEGIN CERTIFICATE-----
@@ -148,7 +148,7 @@ The following arguments are supported:
 A token is a static secret that can be used to login to a cluster as a user.
 
 ### Example Usage
-```
+```bsh
 resource "random_id" "secret_admin_token" {
   byte_length = 32
 }
@@ -169,7 +169,7 @@ The following arguments are supported:
 A local cluster user
 
 ### Example Usage
-```
+```bsh
 resource "random_id" "admin_password" {
   byte_length = 32
 }
@@ -200,7 +200,7 @@ The gravity enterprise terraform provider is used to support terraform managemen
 ### Install the Gravity Enterprise provider
 The terraform provider will be automatically installed when getting the gravity tools.
 
-```
+```bsh
 curl https://get.gravitational.io/telekube/install/5.2.0 | bash
 ```
 
@@ -208,7 +208,7 @@ Please see the [getting started guide](https://gravitational.com/telekube/docs/q
 
 ### Example Usage
 
-```
+```bsh
 # Configure the Gravity provider
 provider "gravity" {
     host  = "https://example.com"
@@ -242,7 +242,7 @@ See [Configuring Users & Tokens](https://gravitational.com/telekube/docs/cluster
 By default an Ops Center is configured with a single endpoint set via `--ops-advertise-addr` flag passed during installation. This configuration allows creating separate endpoints for cluster management and inter-cluster communications that can be firewalled separately.
 
 ### Example Usage
-```
+```bsh
 resource "gravityenterprise_endpoints" "test" {
   public_advertise_addr = "public.example.com:443"
   agents_advertise_addr = "agents.example.com:443"
@@ -259,7 +259,7 @@ The following arguments are supported:
 A gravity enterprise cluster can be configured to use Open ID connect as an identity provider and authenticate users.
 
 ### Example Usage
-```
+```bsh
 resource "gravityenterprise_oidc" "test" {
   name = "auth0"
   redirect_url = "https://example.com/portalapi/v1/oidc/callback"
@@ -298,7 +298,7 @@ Roles can be used to tune access permissions to the cluster.
 
 ### Example Usage
 Admin access to all resources:
-```
+```bsh
 resource "gravityenterprise_role" "admin" {
   name = "administrator"
 
@@ -394,7 +394,7 @@ The following arguments are supported:
 Enables using SAML as an identity provider for cluster logins.
 
 ### Example Usage
-```
+```bsh
 resource "gravityenterprise_saml" "test" {
   name = "saml"
   display = "SAML Example"
@@ -433,7 +433,7 @@ The following arguments are supported:
 Trusted clusters allows connecting a standalone gravity enterprise cluster to an Ops Center.
 
 ### Example Usage
-```
+```bsh
 resource "gravityenterprise_trusted_cluster" "test" {
   name = "test"
   token = "abcdef"

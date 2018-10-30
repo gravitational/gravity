@@ -123,7 +123,7 @@ as well as the status of its individual components.
 Here's an example of how to remotely log in to a cluster via `tsh` and check the
 status of the cluster named "production":
 
-```bash
+```bsh
 $ tsh --cluster=production ssh admin@node gravity status
 ```
 
@@ -138,7 +138,7 @@ Clusters expose an HTTP endpoint that provides system health information about
 cluster nodes. Run the following command from one of the cluster nodes to query
 the status:
 
-```bash
+```bsh
 $ curl -sk https://localhost:7575 | python -m json.tool
 {
     "nodes": [
@@ -185,7 +185,7 @@ the failed probe status to `failed` and the node and the cluster status to
 `degraded`. For example, here is what the output would look like if a Docker
 process crashed on a node:
 
-```bash
+```bsh
 $ curl -sk https://localhost:7575 | python -m json.tool
 {
     "nodes": [
@@ -333,7 +333,7 @@ updated Application Bundles directly from that Ops Center.
 Use the `gravity update download` command to automatically discover if there are new
 versions available and download them:
 
-```bash
+```bsh
 $ gravity update download              # Check and download any updates now.
 $ gravity update download --every=12h  # Schedule automatic downloading of updates every 12 hours.
 $ gravity update download --every=off  # Turn off automatic downloading of updates.
@@ -365,7 +365,7 @@ In the manual mode, a user executes a sequence of commands on appropriate nodes 
 cluster according to a generated "Operation Plan". The upgrade operation in manual
 mode is started by running the following command using the gravity binary:
 
-```bash
+```bsh
 $ ./gravity upgrade --manual
 ```
 
@@ -378,14 +378,14 @@ $ ./gravity upgrade --manual
 Once the upgrade operation has been initiated, the generated operation plan can be viewed
 by running:
 
-```bash
+```bsh
 $ ./gravity plan
 ```
 
 It will output the operation plan generated for the cluster that looks like this (it may differ
 depending on what actually needs to be updated):
 
-```bash
+```bsh
 Phase               Description                                               State         Requires       Updated
 -----               -----------                                               -----         --------       -------
 * init             Initialize update operation                               Unstarted     -              -
@@ -404,7 +404,7 @@ Phase               Description                                               St
 The operation plan consists of multiple phases all of which need to be executed in order to complete
 the operation. To execute a particular plan phase, run:
 
-```bash
+```bsh
 $ sudo ./gravity upgrade --phase=/init              # execute phase "init"
 $ sudo ./gravity upgrade --phase=/bootstrap/node-1  # execute subphase "node-1" of the "bootstrap" phase, must be executed on node "node-1"
 $ sudo ./gravity upgrade --phase=/runtime           # execute all subphases of the "runtime" phase
@@ -420,7 +420,7 @@ A couple of things to keep in mind:
 Invoke `gravity plan` to see which phases have been completed and which ones still need to
 be executed. When all of the plan's phases have been successfully completed, finish the upgrade:
 
-```bash
+```bsh
 $ sudo ./gravity upgrade --complete
 ```
 
@@ -432,7 +432,7 @@ The update can be resumed with the `--resume` flag. This will resume the operati
 last failed step. If a step has been marked as in-progress, a `--force` flag might be needed to
 resume operation:
 
-```bash
+```bsh
 $ sudo ./gravity upgrade --resume --force
 ```
 
@@ -440,7 +440,7 @@ $ sudo ./gravity upgrade --resume --force
 
 In case something goes wrong during the upgrade, any phase can be rolled back by running:
 
-```bash
+```bsh
 $ sudo ./gravity rollback --phase=/masters/node-1
 ```
 
@@ -469,7 +469,7 @@ Below is the list of the low level sub-commands executed by `gravity update`
 to do all of this. These commands can be executed manually
 from a machine in a Gravity Cluster:
 
-```bash
+```bsh
 # copy the update agent to every cluster node and start the agents:
 $ ./gravity agent deploy
 
@@ -487,13 +487,13 @@ If one of the update agents fails, an error message will be logged into the sysl
 but the remaining agents on other cluster nodes will continue running. The status
 of the update agent can be found by executing the following command on a failed node:
 
-```bash
+```bsh
 $ ./gravity agent shutdown
 ```
 
 In case an automatic upgrade was interrupted, it can be resumed by executing:
 
-```bash
+```bsh
 $ ./gravity agent run --upgrade
 ```
 
@@ -508,14 +508,14 @@ dependencies such as kube-apiserver, etcd and docker.
 To launch an interactive shell to get a system view of a Gravity cluster, you
 can use `gravity shell` command on a node running Gravity:
 
-```bash
+```bsh
 $ sudo gravity shell
 ```
 
 `graivty exec` command is quite similar to `docker exec`: it executes the
 specified command inside the master container:
 
-```bash
+```bsh
 # Allocate PTY with attached STDIN and launch the interactive bash inside the master container
 $ sudo gravity exec -ti /bin/bash
 
@@ -587,7 +587,7 @@ You can find out more about other hook types on the [Gravity documentation on Pa
 
 The node taint is required so that the node will only schedule the system applications after a restart. The user application pods will be scheduled once the taint has been removed (see below for the step that does this).
 
-```bash
+```bsh
 $ sudo gravity upgrade --phase=/masters/<node-name>/taint
 ```
 
@@ -600,7 +600,7 @@ This process serves multiple purposes:
 - It helps the node to start in a clean state.
 - It marks the resources as not running so that the scheduler and other controllers can make educated decisions.
 
-```bash
+```bsh
 $ sudo gravity upgrade --phase=/masters/<node-name>/drain
 ```
 
@@ -608,7 +608,7 @@ $ sudo gravity upgrade --phase=/masters/<node-name>/drain
 
 This step entails updating the system software on the node.
 
-```bash
+```bsh
 $ sudo gravity upgrade --phase=/masters/<node-name>
 ```
 
@@ -618,14 +618,14 @@ This is the reverse of the drain step. It removes the scheduling restriction and
 
 This step is implemented as an additional phase:
 
-```bash
+```bsh
 $ sudo gravity upgrade --phase=/masters/<node-name>/uncordon
 ```
 #### Remove the system taint
 
 This step removes the artificial restriction imposed by the taint step (see above) and allows the application pods to be scheduled on this node.
 
-```bash
+```bsh
 $ sudo gravity upgrade --phase=/masters/<node-name>/untaint
 ```
 
@@ -633,7 +633,7 @@ $ sudo gravity upgrade --phase=/masters/<node-name>/untaint
 
 This step updates the runtime (system applications) and precedes the user application update.
 
-```bash
+```bsh
 $ sudo gravity upgrade --phase=/runtime
 ```
 
@@ -641,7 +641,7 @@ $ sudo gravity upgrade --phase=/runtime
 
 This step executes the user application update hooks, after which the application is considered updated.
 
-```bash
+```bsh
 $ sudo gravity upgrade --phase=/app
 ```
 
@@ -719,14 +719,14 @@ can access the rest of the Cluster, it will also be removed from the Cluster rec
 In the event of the node being in an invalid state (for example, due to a failed
 install or join), you can force the decommissioning:
 
-```bash
+```bsh
 $ gravity leave --force
 ```
 
 A node can also be removed from the Cluster records by running `gravit remove` on any
 node in the Cluster.
 
-```bash
+```bsh
 $ gravity remove <node>
 ```
 
@@ -750,7 +750,7 @@ forcefully remove the unavailable node from the cluster.
 This command will update Etcd, Kubernetes and Gravity state to remove faulty node from the
 database. Let's assume the remaining nodes are:
 
-```bash
+```bsh
 1.2.3.5
 1.2.3.6
 ```
@@ -759,13 +759,13 @@ We are going to add `1.2.3.7` to replace the faulty `1.2.3.4`.
 
 On the node `1.2.3.5`, execute this command:
 
-```bash
+```bsh
 gravity remove 1.2.3.4 --force
 ```
 
 Wait until the operation completes by polling the status:
 
-```bash
+```bsh
 gravity status
 Cluster:	adoringyalow5948, created at Tue May  2 16:21 UTC (2 hours ago)
     node-2 (1.2.3.5), Tue May  2 16:26 UTC
@@ -783,13 +783,13 @@ Remember the join token. We will use it to add a new node as the next step:
 Once the remove operation finishes, you can add the new node to the cluster.
 Execute this command on node `1.2.3.7`.
 
-```bash
+```bsh
 sudo gravity join 1.2.3.5 --advertise-addr=1.2.3.7 --token=<join token>
 ```
 
 Make sure that operation is completed by executing `gravity status`:
 
-```bash
+```bsh
 [vagrant@node-3 ~]$ gravity status
 Cluster:	adoringyalow5948, created at Tue May  2 16:21 UTC (2 hours ago)
     node-2 (1.2.3.5), Tue May  2 16:26 UTC
@@ -809,7 +809,7 @@ When running on AWS, Gravity integrates with [Systems manager parameter store](h
 
 Assuming the cluster name is known, a new node can join the cluster using `gravity autojoin` command
 
-```bash
+```bsh
 sudo gravity autojoin example.com --role=knode
 ```
 
@@ -877,7 +877,7 @@ hooks:
 
 To trigger a backup, log into one of the cluster nodes and execute:
 
-```bash
+```bsh
 root$ gravity backup <data.tar.gz>
 ```
 
@@ -886,7 +886,7 @@ compressed contents of `/var/lib/gravity/backup` directory from the backup hook.
 
 To restore the data from the backup tarball:
 
-```bash
+```bsh
 root$ gravity restore <data.tar.gz>
 ```
 
@@ -917,7 +917,7 @@ During garbage collection, the following resources are pruned:
 
 To start garbage collection, use the `gc` subcommand of the `gravity` tool:
 
-```bash
+```bsh
 $ sudo gravity gc [--phase=PHASE] [--confirm] [--resume] [--manual]
 ```
 
@@ -928,13 +928,13 @@ ongoing operation.
 In case of any intermediate failures, the command will abort and print the corresponding error message.
 After fixing the issue, the operation can be resumed with:
 
-```bash
+```bsh
 $ sudo gravity gc --resume
 ```
 
 To execute a specific phase:
 
-```bash
+```bsh
 $ sudo gravity gc --phase=<PHASE>
 ```
 
@@ -957,7 +957,7 @@ need help.
 Remote Assistance can be turned on or off in the web UI or by using the
 `gravity tunnel` command:
 
-```bash
+```bsh
 $ gravity tunnel <on|off>
 ```
 
@@ -1002,7 +1002,7 @@ the following order:
 To collect diagnostic information about a cluster (e.g. to submit a bug report or get assistance in troubleshooting cluster problems),
 use the `report` command:
 
-```bash
+```bsh
 $ gravity report --help
 
 usage: gravity report [<flags>]
@@ -1073,19 +1073,19 @@ spec:
 
 Add this connector to the cluster:
 
-```bash
+```bsh
 $ gravity resource create oidc.yaml
 ```
 
 To list the installed connectors:
 
-```bash
+```bsh
 $ gravity resource get oidc
 ```
 
 To remove the connector `auth0`:
 
-```bash
+```bsh
 $ gravity resource rm oidc auth0
 ```
 
@@ -1147,7 +1147,7 @@ spec:
 
 Create the connector:
 
-```bash
+```bsh
 $ gravity resource create github.yaml
 ```
 
@@ -1162,13 +1162,13 @@ presenting "Login with Github" button.
 
 To view configured Github connectors:
 
-```bash
+```bsh
 $ gravity resource get github
 ```
 
 To remove a Github connector:
 
-```bash
+```bsh
 $ gravity resource rm github example
 ```
 
@@ -1206,19 +1206,19 @@ spec:
 
 Create the connector:
 
-```bash
+```bsh
 $ gravity resource create saml.yaml
 ```
 
 To view configured SAML connectors:
 
-```bash
+```bsh
 $ gravity resource get saml
 ```
 
 To remove a SAML connector:
 
-```bash
+```bsh
 $ gravity resource rm saml okta
 ```
 
@@ -1283,20 +1283,20 @@ spec:
 
 To create these two roles you can execute:
 
-```bash
+```bsh
 $ gravity resource create administrator.yaml
 $ gravity resource create developer.yaml
 ```
 
 To view all currently available roles:
 
-```bash
+```bsh
 $ gravity resource get role
 ```
 
 To delete the `developer` role:
 
-```bash
+```bsh
 $ gravity resource delete role developer
 ```
 
@@ -1318,7 +1318,7 @@ spec:
 
 Create the user by executing `gravity resource`:
 
-```bash
+```bsh
 $ gravity resource create user.yaml
 ```
 
@@ -1336,13 +1336,13 @@ spec:
 
 Create the token by executing `gravity resource`:
 
-```bash
+```bsh
 $ gravity resource create token.yaml
 ```
 
 To view available users and a user's tokens:
 
-```bash
+```bsh
 $ gravity resource get user
 $ gravity resource get token --user=alice@example.com
 ```
@@ -1392,13 +1392,13 @@ spec:
 
 Save the resources into `publisher.yaml` and create them on the cluster:
 
-```bash
+```bsh
 $ gravity resource create publisher.yaml
 ```
 
 This is how the new user can publish new application bundles into the Ops Center:
 
-```bash
+```bsh
 $ tele login -o opscenter.example.com --token=s3cr3t!
 $ tele build yourapp.yaml -o installer.tar
 $ tele push installer.tar
@@ -1429,7 +1429,7 @@ cluster administrators.
 To create the user from the YAML above, execute the following command on one of
 the cluster nodes:
 
-```bash
+```bsh
 $ gravity resource create admin.yaml
 ```
 
@@ -1459,19 +1459,19 @@ spec:
 
 The `protocol` field is optional and defaults to `tcp`. Create the log forwarder:
 
-```bash
+```bsh
 $ gravity resource create forwarder.yaml
 ```
 
 To view currently configured log forwarders, run:
 
-```bash
+```bsh
 $ gravity resource get logforwarders
 ```
 
 To delete a log forwarder:
 
-```bash
+```bsh
 $ gravity resource rm logforwarder forwarder1
 ```
 
@@ -1497,19 +1497,19 @@ spec:
 
 To update the key pair:
 
-```bash
+```bsh
 $ gravity resource create tlskeypair.yaml
 ```
 
 To view currently configured key pair:
 
-```bash
+```bsh
 $ gravity resource get tls
 ```
 
 To delete a TLS key pair (in this case default self-signed TLS key pair will be used instead):
 
-```bash
+```bsh
 $ gravity resource rm tls keypair
 ```
 
@@ -1560,13 +1560,13 @@ port).
 
 Create the trusted cluster:
 
-```bash
+```bsh
 $ gravity resource create trustedcluster.yaml
 ```
 
 View the currently configured trusted cluster:
 
-```bash
+```bsh
 $ gravity resource get trustedclusters
 Name                       Enabled     Pull Updates
 ----                       -------     ------------
@@ -1576,7 +1576,7 @@ opscenter.example.com      true        true
 Once the cluster has been created, the reverse tunnel status can be viewed and
 managed using `gravity tunnel` shortcut commands:
 
-```bash
+```bsh
 $ gravity tunnel status
 Ops Center              Status
 opscenter.example.com   enabled
@@ -1592,7 +1592,7 @@ opscenter.example.com   enabled
 
 To disconnect the cluster from the Ops Center, remove the trusted cluster:
 
-```bash
+```bsh
 $ gravity resource rm trustedcluster opscenter.example.com
 trusted cluster "opscenter.example.com" has been deleted
 ```
@@ -1625,7 +1625,7 @@ spec:
 
 Create the resource to update the Ops Center endpoints:
 
-```bash
+```bsh
 $ gravity resource create endpoints.yaml
 ```
 
@@ -1635,7 +1635,7 @@ $ gravity resource create endpoints.yaml
 
 To view currently configured endpoints, run:
 
-```bash
+```bsh
 $ gravity resource get endpoints
 ```
 
@@ -1656,7 +1656,7 @@ With this configuration, the Ops Center cluster will provide a single Kubernetes
 service called `gravity-public` configured to serve both user and cluster
 traffic:
 
-```bash
+```bsh
 $ kubectl get services -n kube-system -l app=gravity-opscenter
 NAME             TYPE           CLUSTER-IP     EXTERNAL-IP   PORT(S)                                       AGE
 gravity-public   LoadBalancer   10.100.20.71   <pending>     443:31033/TCP,3024:30561/TCP,3023:31043/TCP   40m
@@ -1684,7 +1684,7 @@ With this configuration, the Ops Center will provide a single Kubernetes service
 called `gravity-public` (which `ops.example.com` can point at) with two
 different ports for user and cluster traffic respectively:
 
-```bash
+```bsh
 kubectl get services -n kube-system -l app=gravity-opscenter
 NAME             TYPE           CLUSTER-IP     EXTERNAL-IP   PORT(S)                                                      AGE
 gravity-public   LoadBalancer   10.100.20.71   <pending>     443:31265/TCP,4443:30080/TCP,3024:32109/TCP,3023:30716/TCP   54m
@@ -1706,7 +1706,7 @@ behavior, only the respective service configuration.
 With this configuration, an additional Kubernetes service called `gravity-agents`
 is created for the cluster traffic which `ops-agents.example.com` can be point at:
 
-```bash
+```bsh
 # kubectl get services -n kube-system -l app=gravity-opscenter
 NAME             TYPE           CLUSTER-IP      EXTERNAL-IP   PORT(S)                         AGE
 gravity-public   LoadBalancer   10.100.20.71    <pending>     443:31792/TCP,3023:32083/TCP    59m
@@ -1755,7 +1755,7 @@ spec:
 
 Create it:
 
-```bash
+```bsh
 $ gravity resource create auth.yaml
 ```
 
@@ -1765,7 +1765,7 @@ $ gravity resource create auth.yaml
 
 To view the currently configured authentication preference:
 
-```bash
+```bsh
 $ gravity resource get cluster_auth_preference
 Type      ConnectorName     SecondFactor
 ----      -------------     ------------
@@ -1793,7 +1793,7 @@ Flag      | Description
 
 The command will generate a signup URL valid for the specified amount of time:
 
-```bash
+```bsh
 $ gravity users add alice@example.com --roles=@teleadmin --ttl=1h
 Signup token has been created and is valid for 1h0m0s hours. Share this URL with the user:
 https://<host>/web/newuser/<token>
@@ -1814,7 +1814,7 @@ Flag      | Description
 The command will generate a password reset URL valid for the specified amount of
 time:
 
-```bash
+```bsh
 $ gravity users reset alice@example.com --ttl=1h
 Password reset token has been created and is valid for 1h0m0s. Share this URL with the user:
 https://<host>/web/reset/<token>
@@ -1877,7 +1877,7 @@ spec:
   - 'persistentVolumeClaim'
 ```
 
-```bash
+```bsh
 $ kubectl apply -f psp-volumes.yaml
 ```
 
@@ -1899,7 +1899,7 @@ rules:
   - use
 ```
 
-```bash
+```bsh
 $ kubectl apply -f psp-roles.yaml
 ```
 
