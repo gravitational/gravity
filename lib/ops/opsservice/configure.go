@@ -984,6 +984,9 @@ func (s *site) getPlanetConfigPackage(
 		if mount.SkipIfMissing {
 			spec = fmt.Sprintf("--volume=%v:%v:skip", mount.Source, mount.Destination)
 		}
+		if mount.Recursive {
+			spec = fmt.Sprintf("%v:rec", spec)
+		}
 		args = append(args, spec)
 	}
 

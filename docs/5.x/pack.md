@@ -457,8 +457,11 @@ nodeProfiles:
           # UID and GID set linux UID and GID on the directory if specified
           uid: 114
           gid: 114
-          # mode is a linux mode to set on the directory
+          # Linux mode to set on the directory
           mode: "0755"
+          # Recursive defines a recursive mount, i.e. all submounts under specified path
+          # are also mounted at the corresponding location in the targetPath subtree
+          recursive: false
 
       # This directive makes sure specified devices from host are made available
       # inside Gravity container
