@@ -152,9 +152,6 @@ documentation to reflect the differences between the proprietary and
 community/OSS editions of the software. We are also working on providing open
 source users with pre-built binaries on a regular basis.
 
-Gravity OSS is currently in private, preview mode. We will be making this
-repository public once we have updated the documentation, polished user experience
-and discussed feedback from preview users.
 
 ## Questions?
 
