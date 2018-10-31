@@ -7,6 +7,7 @@
     root_dir: "{{playbook_dir}}/.."
     tarball_path: ""
     gravity_bin_path: ""
+    tarball_name: "telekube.tar"
   tasks:
   - name: Capture gravity version
     delegate_to: localhost
@@ -57,6 +58,8 @@
   become: yes
   become_user: root
   become_method: sudo
+  vars:
+    ansible_user: ubuntu
   tasks:
   - name: Install gravity
     shell: |

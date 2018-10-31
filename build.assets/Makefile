@@ -71,7 +71,11 @@ TELEKUBE_TSH_TAG := v2.3.5
 TELEKUBE_PUBLISH_FLAGS ?=
 
 BINARIES = $(LOCAL_GRAVITY_BUILDDIR)/tele $(LOCAL_GRAVITY_BUILDDIR)/gravity
-TF_BINARIES ?= $(LOCAL_GRAVITY_BUILDDIR)/terraform-provider-gravity
+# Temporarily disable TF provider publishing, 
+#TF_BINARIES ?= $(LOCAL_GRAVITY_BUILDDIR)/terraform-provider-gravity
+#TF_BUILD ?= $(GRAVITY_BUILDDIR)/terraform-provider-gravity
+TF_BINARIES =
+TF_BUILD =
 
 # release tarball path
 RELEASE_TARBALL_NAME := gravity-$(GRAVITY_VERSION)-$(OS)-$(ARCH)-bin.tar.gz
@@ -216,7 +220,7 @@ build-on-host:
 	cd $(GOPATH)/src && \
 		LOCAL_GRAVITY_BUILDDIR=$(GRAVITY_BUILDDIR) \
 			$(MAKE) -C $(GOPATH)/src/github.com/gravitational/gravity/build.assets -j \
-			$(GRAVITY_BUILDDIR)/gravity $(GRAVITY_BUILDDIR)/tele $(TF_BINARIES)
+			$(GRAVITY_BUILDDIR)/gravity $(GRAVITY_BUILDDIR)/tele $(TF_BUILD)
 
 #
 # removes build artifacts.
@@ -243,12 +247,12 @@ publish-telekube: build
 	@echo -e "\n----> Publishing Tsh to $(DISTRIBUTION_OPSCENTER)...\n"
 	$(GRAVITY_OUT) package delete --ops-url=$(DISTRIBUTION_OPSCENTER) $(TELEKUBE_PUBLISH_FLAGS) --force $(TELEKUBE_TSH_PKG) && \
 	$(GRAVITY_OUT) package import --ops-url=$(DISTRIBUTION_OPSCENTER) $(TELEKUBE_PUBLISH_FLAGS) $(TSH_OUT) $(TELEKUBE_TSH_PKG)
-	@echo -e "\n----> Publishing terraform-provider-gravity to $(DISTRIBUTION_OPSCENTER)...\n"
-	$(GRAVITY_OUT) package delete --ops-url=$(DISTRIBUTION_OPSCENTER) $(TELEKUBE_PUBLISH_FLAGS) --force $(TF_PROVIDER_GRAVITY_PKG) && \
-	$(GRAVITY_OUT) package import --ops-url=$(DISTRIBUTION_OPSCENTER) $(TELEKUBE_PUBLISH_FLAGS) $(TF_PROVIDER_GRAVITY_OUT) $(TF_PROVIDER_GRAVITY_PKG)
-	@echo -e "\n----> Publishing terraform-provider-gravityenterprise to $(DISTRIBUTION_OPSCENTER)...\n"
-	$(GRAVITY_OUT) package delete --ops-url=$(DISTRIBUTION_OPSCENTER) $(TELEKUBE_PUBLISH_FLAGS) --force $(TF_PROVIDER_GRAVITYENTERPRISE_PKG) && \
-	$(GRAVITY_OUT) package import --ops-url=$(DISTRIBUTION_OPSCENTER) $(TELEKUBE_PUBLISH_FLAGS) $(TF_PROVIDER_GRAVITYENTERPRISE_OUT) $(TF_PROVIDER_GRAVITYENTERPRISE_PKG)
+	# @echo -e "\n----> Publishing terraform-provider-gravity to $(DISTRIBUTION_OPSCENTER)...\n"
+	# $(GRAVITY_OUT) package delete --ops-url=$(DISTRIBUTION_OPSCENTER) $(TELEKUBE_PUBLISH_FLAGS) --force $(TF_PROVIDER_GRAVITY_PKG) && \
+	# $(GRAVITY_OUT) package import --ops-url=$(DISTRIBUTION_OPSCENTER) $(TELEKUBE_PUBLISH_FLAGS) $(TF_PROVIDER_GRAVITY_OUT) $(TF_PROVIDER_GRAVITY_PKG)
+	# @echo -e "\n----> Publishing terraform-provider-gravityenterprise to $(DISTRIBUTION_OPSCENTER)...\n"
+	# $(GRAVITY_OUT) package delete --ops-url=$(DISTRIBUTION_OPSCENTER) $(TELEKUBE_PUBLISH_FLAGS) --force $(TF_PROVIDER_GRAVITYENTERPRISE_PKG) && \
+	# $(GRAVITY_OUT) package import --ops-url=$(DISTRIBUTION_OPSCENTER) $(TELEKUBE_PUBLISH_FLAGS) $(TF_PROVIDER_GRAVITYENTERPRISE_OUT) $(TF_PROVIDER_GRAVITYENTERPRISE_PKG)
 
 
 #
