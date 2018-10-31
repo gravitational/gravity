@@ -60,7 +60,7 @@
 /******/ 	__webpack_require__.p = "/";
 /******/
 /******/ 	// Load entry module and return exports
-/******/ 	return __webpack_require__(__webpack_require__.s = 17);
+/******/ 	return __webpack_require__(__webpack_require__.s = 1);
 /******/ })
 /************************************************************************/
 /******/ ([
@@ -10327,6 +10327,62 @@ return jQuery;
 /* 1 */
 /***/ (function(module, exports, __webpack_require__) {
 
+module.exports = __webpack_require__(2);
+
+
+/***/ }),
+/* 2 */
+/***/ (function(module, exports, __webpack_require__) {
+
+"use strict";
+
+
+var _jquery = __webpack_require__(0);
+
+var _jquery2 = _interopRequireDefault(_jquery);
+
+var _topNav = __webpack_require__(3);
+
+var _topNav2 = _interopRequireDefault(_topNav);
+
+var _secondaryNav = __webpack_require__(4);
+
+var _secondaryNav2 = _interopRequireDefault(_secondaryNav);
+
+var _sideNav = __webpack_require__(5);
+
+var _sideNav2 = _interopRequireDefault(_sideNav);
+
+var _buttons = __webpack_require__(6);
+
+var _code = __webpack_require__(7);
+
+var _docs = __webpack_require__(8);
+
+__webpack_require__(9);
+
+function _interopRequireDefault(obj) { return obj && obj.__esModule ? obj : { default: obj }; }
+
+// register global vars
+// modules
+window.getSearchTerm = _docs.getSearchTerm;
+window.jQuery = _jquery2.default;
+
+(0, _jquery2.default)(document).ready(function () {
+  new _topNav2.default();
+  new _secondaryNav2.default();
+  new _sideNav2.default({ pinned: true });
+  (0, _docs.handleVerSelector)();
+  (0, _docs.handleNavScroll)();
+  (0, _code.formatCodeBlocks)();
+  (0, _buttons.buttonRipple)();
+  (0, _buttons.stopDisabledButtons)();
+});
+
+/***/ }),
+/* 3 */
+/***/ (function(module, exports, __webpack_require__) {
+
 "use strict";
 
 
@@ -10474,7 +10530,7 @@ var TopNav = function () {
 exports.default = TopNav;
 
 /***/ }),
-/* 2 */
+/* 4 */
 /***/ (function(module, exports, __webpack_require__) {
 
 "use strict";
@@ -10590,7 +10646,7 @@ var SecondaryNav = function () {
 exports.default = SecondaryNav;
 
 /***/ }),
-/* 3 */
+/* 5 */
 /***/ (function(module, exports, __webpack_require__) {
 
 "use strict";
@@ -10733,7 +10789,7 @@ var SideNav = function () {
 exports.default = SideNav;
 
 /***/ }),
-/* 4 */
+/* 6 */
 /***/ (function(module, exports, __webpack_require__) {
 
 "use strict";
@@ -10841,18 +10897,7 @@ exports.buttonSmoothScroll = buttonSmoothScroll;
 exports.stopDisabledButtons = stopDisabledButtons;
 
 /***/ }),
-/* 5 */
-/***/ (function(module, exports) {
-
-// removed by extract-text-webpack-plugin
-
-/***/ }),
-/* 6 */,
-/* 7 */,
-/* 8 */,
-/* 9 */,
-/* 10 */,
-/* 11 */
+/* 7 */
 /***/ (function(module, exports, __webpack_require__) {
 
 "use strict";
@@ -10904,84 +10949,7 @@ exports.activateCodeFormatting = activateCodeFormatting;
 exports.formatCodeBlocks = formatCodeBlocks;
 
 /***/ }),
-/* 12 */,
-/* 13 */,
-/* 14 */,
-/* 15 */,
-/* 16 */,
-/* 17 */
-/***/ (function(module, exports, __webpack_require__) {
-
-__webpack_require__(18);
-module.exports = __webpack_require__(5);
-
-
-/***/ }),
-/* 18 */
-/***/ (function(module, exports, __webpack_require__) {
-
-"use strict";
-
-
-var _jquery = __webpack_require__(0);
-
-var _jquery2 = _interopRequireDefault(_jquery);
-
-var _topNav = __webpack_require__(1);
-
-var _topNav2 = _interopRequireDefault(_topNav);
-
-var _secondaryNav = __webpack_require__(2);
-
-var _secondaryNav2 = _interopRequireDefault(_secondaryNav);
-
-var _sideNav = __webpack_require__(3);
-
-var _sideNav2 = _interopRequireDefault(_sideNav);
-
-var _buttons = __webpack_require__(4);
-
-var _code = __webpack_require__(11);
-
-var _docs = __webpack_require__(31);
-
-function _interopRequireDefault(obj) { return obj && obj.__esModule ? obj : { default: obj }; }
-
-// register global vars
-window.getSearchTerm = _docs.getSearchTerm; // modules
-
-window.jQuery = _jquery2.default;
-
-(0, _jquery2.default)(document).ready(function () {
-  /* Prevent disabled links from causing a page reload */
-  (0, _jquery2.default)("li.disabled a").click(function (e) {
-    e.preventDefault();
-  });
-
-  new _topNav2.default();
-  new _secondaryNav2.default();
-  new _sideNav2.default({ pinned: true });
-  (0, _docs.handleVerSelector)();
-  (0, _docs.handleNavScroll)();
-  (0, _code.formatCodeBlocks)();
-  (0, _buttons.buttonRipple)();
-  (0, _buttons.stopDisabledButtons)();
-});
-
-/***/ }),
-/* 19 */,
-/* 20 */,
-/* 21 */,
-/* 22 */,
-/* 23 */,
-/* 24 */,
-/* 25 */,
-/* 26 */,
-/* 27 */,
-/* 28 */,
-/* 29 */,
-/* 30 */,
-/* 31 */
+/* 8 */
 /***/ (function(module, exports, __webpack_require__) {
 
 "use strict";
@@ -11210,6 +11178,12 @@ var handleVerSelector = function handleVerSelector() {
 exports.getSearchTerm = getSearchTerm;
 exports.handleNavScroll = handleNavScroll;
 exports.handleVerSelector = handleVerSelector;
+
+/***/ }),
+/* 9 */
+/***/ (function(module, exports) {
+
+// removed by extract-text-webpack-plugin
 
 /***/ })
 /******/ ]);
