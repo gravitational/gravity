@@ -457,7 +457,7 @@ nodeProfiles:
           # UID and GID set linux UID and GID on the directory if specified
           uid: 114
           gid: 114
-          # Linux mode to set on the directory
+          # Unix file permissions mode to set on the directory
           mode: "0755"
           # Recursive defines a recursive mount, i.e. all submounts under specified path
           # are also mounted at the corresponding location in the targetPath subtree
