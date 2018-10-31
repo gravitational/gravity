@@ -43,8 +43,8 @@ For example, XFS does not support `d_type` if it has been formatted with the
 `-n ftype=0` option.
 
 !!! warning
-  Starting with v1.13.0, Docker deprecates support for file systems without `d_type`
-  support for overlay/overlay2 storage drivers.
+    Starting with v1.13.0, Docker deprecates support for file systems without `d_type`
+    support for overlay/overlay2 storage drivers.
 
 Running on file systems without `d_type` support causes Docker to skip the attempt
 to use the overlay or overlay2 driver. Existing installs will continue to run,

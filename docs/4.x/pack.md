@@ -810,7 +810,7 @@ installer:
 ```
 
 !!! Note:
-	Currently, only one setup endpoint per application is supported.
+	  Currently, only one setup endpoint per application is supported.
 
 
 

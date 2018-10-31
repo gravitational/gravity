@@ -45,8 +45,8 @@ The command `tele create` command can be used to provision a new remote cluster.
 cluster will be remotely accessible and managed via the Ops Center.
 
 !!! note:
-	The `tele create` operation is only available for creating clusters on programmable
-	infrastructure. At this time only AWS is supported.
+	  The `tele create` operation is only available for creating clusters on programmable
+	  infrastructure. At this time only AWS is supported.
 
 An Telekube Cluster is defined by two things:
 

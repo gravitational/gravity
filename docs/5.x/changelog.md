@@ -810,8 +810,8 @@ transient error
 ### 4.41.0
 
 !!! warning
-	Due to a regression this build does not include macOS binaries. Please download 4.42.0 if you
-	need macOS binaries.
+	  Due to a regression this build does not include macOS binaries. Please download 4.42.0 if you
+	  need macOS binaries.
 
 #### Improvements
 

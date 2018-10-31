@@ -57,9 +57,9 @@ include:
   providers.
 
 !!! tip "Note":
-	The list above is not complete. Gravitational Solutions Engineering offers a
-	wide variety of Kubernetes integration and migration services. Reach out to
-	`info@gravitational.com` if you have questions.
+	  The list above is not complete. Gravitational Solutions Engineering offers a
+	  wide variety of Kubernetes integration and migration services. Reach out to
+	  `info@gravitational.com` if you have questions.
 
 ## Gravity Tool
 
