@@ -920,6 +920,7 @@ func (m *Handler) agentReport(w http.ResponseWriter, r *http.Request, p httprout
 				Destination:     m.TargetPath,
 				CreateIfMissing: utils.BoolValue(m.CreateIfMissing),
 				SkipIfMissing:   utils.BoolValue(m.SkipIfMissing),
+				Recursive:       m.Recursive,
 			})
 		}
 		for i := range mounts {
