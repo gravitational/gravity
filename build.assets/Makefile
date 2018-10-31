@@ -72,6 +72,7 @@ TELEKUBE_PUBLISH_FLAGS ?=
 
 BINARIES = $(LOCAL_GRAVITY_BUILDDIR)/tele $(LOCAL_GRAVITY_BUILDDIR)/gravity
 TF_BINARIES ?= $(LOCAL_GRAVITY_BUILDDIR)/terraform-provider-gravity
+TF_BUILD ?= $(GRAVITY_BUILDDIR)/terraform-provider-gravity
 
 # release tarball path
 RELEASE_TARBALL_NAME := gravity-$(GRAVITY_VERSION)-$(OS)-$(ARCH)-bin.tar.gz
@@ -216,7 +217,7 @@ build-on-host:
 	cd $(GOPATH)/src && \
 		LOCAL_GRAVITY_BUILDDIR=$(GRAVITY_BUILDDIR) \
 			$(MAKE) -C $(GOPATH)/src/github.com/gravitational/gravity/build.assets -j \
-			$(GRAVITY_BUILDDIR)/gravity $(GRAVITY_BUILDDIR)/tele $(TF_BINARIES)
+			$(GRAVITY_BUILDDIR)/gravity $(GRAVITY_BUILDDIR)/tele $(TF_BUILD)
 
 #
 # removes build artifacts.
