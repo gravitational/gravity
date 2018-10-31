@@ -49,7 +49,7 @@ Gravity consists of three major components:
 Let's start by installing `tele` and `tsh` CLI tools onto your machine. You
 need to have `sudo` priviliges:
 
-```bash
+```bsh
 # Download the latest version (this includes pre-releases and beta releases):
 $ curl https://get.gravitational.io/telekube/install | bash
 
@@ -61,7 +61,7 @@ To make sure the installation succeeded, try typing `tele version`.
 
 Next, download Mattermost, the sample application used for this tutorial:
 
-```bash
+```bsh
 $ git clone https://github.com/gravitational/quickstart.git
 ```
 
@@ -89,14 +89,14 @@ for Mattermost, as well as its Kubernetes resources.
 
 Run this to build Mattermost containers:
 
-```bash
+```bsh
 $ cd quickstart/mattermost/worker
 $ docker build -t mattermost-worker:2.2.0 .
 ```
 
 When the docker build is done, return to the quickstart home directory.
 
-```bash
+```bsh
 $ cd ../..
 $ pwd
 /home/user/quickstart
@@ -113,7 +113,7 @@ but you are welcome to change it to your liking.
 
 Now you can package Mattermost into an Application Bundle:
 
-```bash
+```bsh
 $ tele build -o mattermost.tar mattermost/resources/app.yaml
 ```
 
@@ -153,7 +153,7 @@ on `https://[yourdomain].gravitational.io`
 
 To log in to to the Ops Center using the CLI:
 
-```bash
+```bsh
 $ tele login -o [yourdomain].gravitational.io
 ```
 
@@ -162,19 +162,19 @@ $ tele login -o [yourdomain].gravitational.io
     when attempting due to network restrictions. If so, first get a temporary key from
     your host environment with the following command:
 
-```bash
+```bsh
 $ tele keys new
 ```
 
 The response should include an API key to use. Now use that key to log in as follows:
 
-```bash
+```bsh
 tele login -o [yourdomain].gravitational.io --key=[key returned in previous step]
 ```
 
 Once you are successfully logged in, you can publish the application into the Ops Center:
 
-```bash
+```bsh
 $ tele push mattermost.tar
 ```
 

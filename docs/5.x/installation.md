@@ -38,7 +38,7 @@ The node running wizard should have port `61009` reachable to other servers.
 
 Unpacking the tarball will produce the following contents:
 
-```bash
+```bsh
 $ tar -xf my-app-installer.tar
 $ ls -lh
 -rwxr--r-- 1 user staff 21K  Oct 24 12:01 app.yaml
@@ -74,7 +74,7 @@ Let's see how to install a 3-node cluster:
 
 Below is a sample `./gravity install` command for the first node:
 
-```bash
+```bsh
 node-1$ sudo ./gravity install --advertise-addr=172.28.128.3 --token=XXX --flavor="three"
 ```
 
@@ -85,11 +85,11 @@ This will initiate the process of setting up a new cluster for the Application.
 
 Below are corresponding `./gravity join` commands for the remaining nodes (`node-2` and `node-3`):
 
-```bash
+```bsh
 node-2$ sudo ./gravity join 172.28.128.3 --advertise-addr=172.28.128.4 --token=XXX --role="database"
 ```
 
-```bash
+```bsh
 node-3$ sudo ./gravity join 172.28.128.3 --advertise-addr=172.28.128.5 --token=XXX --role="worker"
 ```
 
@@ -151,7 +151,7 @@ Every time a step fails, the install pauses and allows one to inspect and correc
 
 If the installation has failed, the installer will print a warning and pause:
 
-```bash
+```bsh
 root$ ./gravity install
 Tue Apr 10 13:44:07 UTC	Starting installer
 Tue Apr 10 13:44:09 UTC	Preparing for installation
@@ -173,7 +173,7 @@ Once no longer needed, this process can be shutdown using Ctrl-C.
 
 To inspect installer's progress, use the `plan` command:
 
-```bash
+```bsh
 root$ ./gravity plan
 Phase                  Description                                                               State         Requires                  Updated
 -----                  -----------                                                               -----         --------                  -------
@@ -195,7 +195,7 @@ server("node-1", 192.168.121.23) failed checks:
 
 After fixing the error (i.e. enabling the kernel parameter in this example), resume the installation:
 
-```bash
+```bsh
 root$ sysctl -w fs.may_detach_mounts=1
 root$ ./gravity install --resume
 Tue Apr 10 13:55:26 UTC	Executing "/checks" locally
@@ -247,7 +247,7 @@ balancers discover proper instances.
 Once the nodes have been properly configured, copy the installer tarball and
 launch installation as described above:
 
-```bash
+```bsh
 node1$ sudo ./gravity install --advertise-addr=<addr> --token=<token> --cluster=<cluster> --cloud-provider=gce
 node2$ sudo ./gravity join <installer-addr> --advertise-addr=<addr> --token=<token> --cloud-provider=gce
 ```

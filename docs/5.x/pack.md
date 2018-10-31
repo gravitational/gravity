@@ -19,7 +19,7 @@ Any Linux or macOS laptop can be used to package and publish Kubernetes
 applications using Gravity. To get started, you need to download and
 install the Gravity SDK tools:
 
-```bash
+```bsh
 $ curl https://get.gravitational.io/telekube/install | bash
 ```
 
@@ -49,7 +49,7 @@ Gravity CLI tools require that a user be first logged into an Ops Center account
 `tele login` is used to log into an Ops center. You can optionally specify a `cluster` parameter to
 log into a specific remote application instance.
 
-```bash
+```bsh
 tele login [options] [cluster]
 
 Options:
@@ -67,13 +67,13 @@ command line.
 
 Example command:
 
-```bash
+```bsh
 $ tele login -o opscenter.example.com
 ```
 
 Example Response:
 
-```bash
+```bsh
 If browser window does not open automatically, open it by clicking on the link:
  https://accounts.google.com/o/oauth2/v2/auth?client_id=281182034774-5opnsdim9rsdfemaljphdqg5a7tpc1lqb.apps.googleusercontent.com&prompt=select_account&redirect_uri=https%3A%2F%2Fdemo.gravitational.io%2Fportalapi%2Fv1%2Foidc%2Fcallback&response_type=code&scope=openid+email&state=fdaa63a0dd83755e267e6e3a422be22e
 Ops Center:	opscenter.example.com
@@ -91,7 +91,7 @@ Further information about the Ops Center will then be displayed by executing
 
 Example Response:
 
-```bash
+```bsh
 Ops Center:	demo.gravitational.io
 Username:	user@gravitational.com
 Cluster:	demo.gravitational.io
@@ -112,7 +112,7 @@ all of the dependencies are available locally on the build machine. If the
 dependencies are not available locally, it will download them from
 the Ops Center.
 
-```bash
+```bsh
 tele build [options] [app-manifest.yaml]
 
 Options:
@@ -132,7 +132,7 @@ The example below builds a Docker image called `tele-buildbox`. This image will 
 
 First, build docker image `tele-buildbox` with `tele` inside:
 
-```Docker
+```bsh
 FROM quay.io/gravitational/debian-grande:0.0.1
 
 ARG TELE_VERSION
@@ -143,7 +143,7 @@ RUN curl https://get.gravitational.io/telekube/bin/${TELE_VERSION}/linux/x86_64/
 
 Then build the image:
 
-```bash
+```bsh
 docker build . -t tele-buildbox:latest
 ```
 
@@ -152,7 +152,7 @@ docker build . -t tele-buildbox:latest
 The example script below uses `tele` to login into ops center (optional step),
 build a local application and publish it (optional step):
 
-```bash
+```bsh
 # optional step: if you are using private ops center
 tele login -o ${OPS_URL} --token=${OPS_TOKEN}
 # start tele build
@@ -171,7 +171,7 @@ To run this build under Docker:
 
 The script below assumes that `build.sh` is located in the same working directory as the application:
 
-```bash
+```bsh
 docker run -e OPS_URL=<opscenter url> \
        -e OPS_TOKEN=<token> \
        -e TELE_FLAGS="--state-dir=/mnt/tele-cache" \
@@ -273,7 +273,7 @@ include PostgreSQL, streaming replication, cluster-wide state snapshots or in-cl
 
 ### Sample Application Manifest
 
-```bash
+```yaml
 #
 # The header of the application manifest uses the same signature as a Kubernetes
 # resource.
@@ -908,7 +908,7 @@ RUN chmod 777 /tmp && \
 
 Now let's build the Docker image:
 
-```bash
+```bsh
 $ docker build . -t custom-planet:1.0.0
 ```
 

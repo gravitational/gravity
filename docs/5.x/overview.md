@@ -72,7 +72,7 @@ prerequisites apply in order to use Gravity:
 To prepare a Kubernetes application for distribution via Gravity, you have to write
 an Application Manifest. Below is a sample of a simple Application Manifest in YAML format. It follows Kubernetes configuration conventions:
 
-```bash
+```yaml
 apiVersion: bundle.gravitational.io/v2
 kind: Bundle
 metadata:
@@ -124,7 +124,7 @@ build a self-sufficient portable package to distribute the Application Bundle:
 
 Gravity's `build` command creates the Application Bundle tarball:
 
-```
+```bsh
 $ tele build -o app-name.tar app.yaml
 ```
 

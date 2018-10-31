@@ -1,92 +1,94 @@
-@import "base/defaults";
-@import "base/mixins";
-@import "base/type";
-@import "layout/grid";
-@import "layout/layout";
+/*
+* Docs custom styles
+*
+*/
 
-// overrides 
-@import "theme";
-@import "theme-nav";
-@import "theme-admonition";
-@import "ver-selector";
+$unit: 8px;
 
-img[src$="grv-image-center-md"] {
-  max-width: 500px;
-  display: block;
-  margin: 0 auto;
-  border-radius: 5px;
-}
+/*
+* Breakpoints
+*
+*/
 
-img[src$="grv-image-center-md"] {
-  max-width: 500px;
-  display: block;
-  margin: 0 auto;
-  border-radius: 5px;
-}
+$phone-breakpoint: 480px !default;
+$mobile-breakpoint: 800px !default;
+$tablet-breakpoint: 1200px !default;
+$desktop-breakpoint: 1400px !default;
 
-img[src$="grv-image-center-lg"] {
-  max-width: 700px;
-  display: block;
-  margin: 0 auto;
-  border-radius: 5px;
-}
 
-.grv-nav-versions {
-  .grv-ver {
-    padding-left: 5px;
+@mixin respond-to($media) {
+
+  @if $media == phone {
+    @media screen and (max-width: $phone-breakpoint),
+    screen and (max-device-width: $phone-breakpoint) {
+      @content;
+    }
   }
-  .grv-current-ver {
-    color: $color-font-1;
-    display: inline-block;
-    padding: 5px;
+  @else if $media == mobile {
+    @media screen and (max-width: $mobile-breakpoint),
+    screen and (max-device-width: $mobile-breakpoint),
+    screen and (max-width: $mobile-breakpoint) {
+      @content;
+    }
+  }
+  @else if $media == tablet {
+    @media screen and (max-width: $tablet-breakpoint) {
+      @content;
+    }
+  }
+  @else if $media == desktop {
+    @media screen and (min-width: $desktop-breakpoint) {
+      @content;
+    }
   }
 }
 
-.grv-footer {  
-  background-color: $color-bkg-1;
-  max-width: 1020px;
-  color: $color-font-9;
-  padding: 0;
-  display: block;
-  font-size: 13px;
-  margin-bottom: 0 !important;
 
-  max-width: 1000px;  
-  flex-wrap: wrap;
-  
-  .footer-item {        
-    padding: 15px 15px 10px 15px;
-    border-right: 1px solid $color-border-5;    
-    margin: 0 !important;
-    min-height: 170px;
-    min-width: 200px;
-    
+/*
+* Version Selector
+*
+*/
+
+h1 {
+  position: relative;
+}
+
+.version-selector {
+  bottom: 0;
+  position: absolute;
+  top: 0;
+  right: 0;
+  width: 150px;
+  z-index: 1;
+
+  @include respond-to('mobile') {
+    margin-bottom: $unit * 3;
+    position: relative;
+    width: auto;
+  }
+
+  select {
+    margin-top: $unit;
+    position: absolute;
+    text-transform: none;
+
     @include respond-to('mobile') {
-      width: 100%;
-      border: none;
-      border-bottom: 1px solid $color-border-5;
-    }
-
-    &:nth-child(3) {      
-      background: url(../img/bridge.svg) no-repeat center;
-      background-size: contain;
-    }
-
-    &:last-child {
-      border-right: 0;
-    }
-          
-    p {
-      line-height: 25px;
-      font-size: 13px;
       margin: 0;
+      position: relative;
     }
-              
-    img.footer-talk {
-      width: 70px;
-      position: relative;        
-      opacity: .3;
-    }  
+  }
+}
 
-  }  
+
+/*
+* Diagrams / Images
+*
+*/
+
+p img,
+img[src$=grv-image-center-md],
+img[src$='raw=true'] {
+  display: block;
+  margin: 0 auto ($unit * 3) auto;
+  width: auto;
 }

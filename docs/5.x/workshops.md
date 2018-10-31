@@ -36,7 +36,7 @@ Xcode will install essential console utilities for us. You can install it from A
 
 Docker is as easy as Linux! To prove that let us write classic "Hello, World" in Docker
 
-```
+```bsh
 $ docker run busybox echo "hello world"
 ```
 
@@ -44,7 +44,7 @@ Docker containers are just as simple as linux processes, but they also provide m
 
 Let's review the structure of the command:
 
-```
+```bsh
 docker run # executes command in a container
 busybox    # container image
 echo "hello world" # command to run
@@ -57,13 +57,13 @@ host operating system shell, but the shell from busybox package when executing D
 
 Let's now take a look at process tree running in the container:
 
-```
+```bsh
 $ docker run busybox ps uax
 ```
 
 My terminal prints out something like this:
 
-```
+```bsh
     1 root       0:00 ps uax
 ```
 
@@ -76,7 +76,7 @@ running on your machine.
 
 Let's see what environment variables we have:
 
-```
+```bsh
 $ docker run busybox env
 PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
 HOSTNAME=0a0169cdec9a
@@ -85,7 +85,7 @@ HOSTNAME=0a0169cdec9a
 The environment is different from your host environment.
 We can extend environment by passing explicit enviornment variable flag to `docker run`:
 
-```
+```bsh
 $ docker run -e HELLO=world busybox env
 PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
 HOSTNAME=8ee8ba3443b6
@@ -97,14 +97,14 @@ HOME=/root
 
 If we look at the disks we will see the OS directories are not here, as well:
 
-```
+```bsh
 $ docker run busybox ls -l /home
 total 0
 ```
 
 What if we want to expose our current directory to the container? For this we can use host mounts:
 
-```
+```bsh
 $ docker run -v $(pwd):/home busybox ls -l /home
 total 72
 -rw-rw-r--    1 1000     1000         11315 Nov 23 19:42 LICENSE
@@ -126,24 +126,24 @@ directory.
 
 Networking in Docker containers is isolated, as well. Let us look at the interfaces inside a running container:
 
-```
+```bsh
 $ docker run busybox ifconfig
-eth0      Link encap:Ethernet  HWaddr 02:42:AC:11:00:02  
+eth0      Link encap:Ethernet  HWaddr 02:42:AC:11:00:02
           inet addr:172.17.0.2  Bcast:0.0.0.0  Mask:255.255.0.0
           inet6 addr: fe80::42:acff:fe11:2/64 Scope:Link
           UP BROADCAST RUNNING MULTICAST  MTU:1500  Metric:1
           RX packets:1 errors:0 dropped:0 overruns:0 frame:0
           TX packets:1 errors:0 dropped:0 overruns:0 carrier:0
-          collisions:0 txqueuelen:0 
+          collisions:0 txqueuelen:0
           RX bytes:90 (90.0 B)  TX bytes:90 (90.0 B)
 
-lo        Link encap:Local Loopback  
+lo        Link encap:Local Loopback
           inet addr:127.0.0.1  Mask:255.0.0.0
           inet6 addr: ::1/128 Scope:Host
           UP LOOPBACK RUNNING  MTU:65536  Metric:1
           RX packets:0 errors:0 dropped:0 overruns:0 frame:0
           TX packets:0 errors:0 dropped:0 overruns:0 carrier:0
-          collisions:0 txqueuelen:1 
+          collisions:0 txqueuelen:1
           RX bytes:0 (0.0 B)  TX bytes:0 (0.0 B)
 ```
 
@@ -151,13 +151,13 @@ lo        Link encap:Local Loopback
 We can use `-p` flag to forward a port on the host to the port 5000 inside the container:
 
 
-```
+```bsh
 $ docker run -p 5000:5000 library/python:3.3 python -m http.server 5000
 ```
 
 This command blocks because the server listens for requests, open a new tab and access the endpoint
 
-```
+```bsh
 $ curl http://localhost:5000
 <!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01//EN" "http://www.w3.org/TR/html4/strict.dtd">
 <html>
@@ -204,13 +204,13 @@ You can find a lot of additional low level detail [here](http://crosbymichael.co
 
 Our last python server example was inconvenient as it worked in foreground:
 
-```
+```bsh
 $ docker run -d -p 5000:5000 --name=simple1 library/python:3.3 python -m http.server 5000
 ```
 
 Flag `-d` instructs Docker to start the process in background. Let's see if still works:
 
-```
+```bsh
 $ curl http://localhost:5000
 ```
 
@@ -218,7 +218,7 @@ $ curl http://localhost:5000
 
 We can use `ps` command to view all running containers:
 
-```
+```bsh
 $ docker ps
 CONTAINER ID        IMAGE                COMMAND                  CREATED             STATUS              PORTS                    NAMES
 eea49c9314db        library/python:3.3   "python -m http.serve"   3 seconds ago       Up 2 seconds        0.0.0.0:5000->5000/tcp   simple1
@@ -231,7 +231,7 @@ eea49c9314db        library/python:3.3   "python -m http.serve"   3 seconds ago 
 
 We can use `logs` to view logs of a running container:
 
-```
+```bsh
 $ docker logs simple1
 ```
 
@@ -239,19 +239,19 @@ $ docker logs simple1
 
 We can execute a process that joins container namespaces using `exec` command:
 
-```
+```bsh
 $ docker exec -ti simple1 /bin/sh
 ```
 
 We can look around to see the process running as PID 1:
 
-```
+```bsh
 # ps uax
 USER       PID %CPU %MEM    VSZ   RSS TTY      STAT START   TIME COMMAND
 root         1  0.5  0.0  74456 17512 ?        Ss   18:07   0:00 python -m http.server 5000
 root         7  0.0  0.0   4336   748 ?        Ss   18:08   0:00 /bin/sh
 root        13  0.0  0.0  19188  2284 ?        R+   18:08   0:00 ps uax
-# 
+#
 ```
 
 This gives an illusion that you `SSH` in a container. However, there is no remote network connection.
@@ -264,7 +264,7 @@ The process `/bin/sh` started an instead of running in the host OS joined all na
 
 To stop and start container we can use `stop` and `start` commands:
 
-```
+```bsh
 $ docker stop simple1
 $ docker start simple1
 ```
@@ -275,7 +275,7 @@ $ docker start simple1
 
 `-it` combination allows us to start interactive containers without attaching to existing ones:
 
-```
+```bsh
 $ docker run -ti busybox
 # ps uax
 PID   USER     TIME   COMMAND
@@ -287,15 +287,15 @@ PID   USER     TIME   COMMAND
 
 To best illustrate the impact of `-i` or `--interactive` in the expanded version, consider this example:
 
-```
+```bsh
 $ echo "hello there " | docker run busybox grep hello
 ```
 
 The example above won't work as the container's input is not attached to the host stdout. The `-i` flag fixes just that:
 
-```
+```bsh
 $ echo "hello there " | docker run -i busybox grep hello
-hello there 
+hello there
 ```
 
 #### Building Container images
@@ -306,12 +306,12 @@ So far we have been using container images downloaded from Docker's public regis
 
 `Dockerfile` is a special file that instructs `docker build` command how to build an image
 
-```
+```bsh
 $ cd docker/scratch
 $ docker build -t hello .
 Sending build context to Docker daemon 3.072 kB
 Step 1 : FROM scratch
- ---> 
+ --->
 Step 2 : ADD hello.sh /hello.sh
  ---> 4dce466cf3de
 Removing intermediate container dc8a5b93d5a8
@@ -321,7 +321,7 @@ Successfully built 4dce466cf3de
 
 The Dockerfile looks very simple:
 
-```dockerfile
+```bsh
 FROM scratch
 ADD hello.sh /hello.sh
 ```
@@ -333,7 +333,7 @@ ADD hello.sh /hello.sh
 
 `docker images` command is used to display images that we have built:
 
-```
+```bsh
 $ docker images
 REPOSITORY                                    TAG                 IMAGE ID            CREATED             SIZE
 hello                                         latest              4dce466cf3de        10 minutes ago      34 B
@@ -352,7 +352,7 @@ linux process in isolation, we don't need any kernel, drivers or libraries to sh
 
 Trying to run it though, will result in the error:
 
-```
+```bsh
 $ docker run hello /hello.sh
 write pipe: bad file descriptor
 ```
@@ -361,7 +361,7 @@ This is because our container is empty. There is no shell and the script won't b
 Let's fix that by changing our base image to `busybox` that contains a proper shell environment:
 
 
-```
+```bsh
 $ cd docker/busybox
 $ docker build -t hello .
 Sending build context to Docker daemon 3.072 kB
@@ -375,7 +375,7 @@ Successfully built c8c3f1ea6ede
 
 Listing the image shows that image id and size have changed:
 
-```
+```bsh
 $ docker images
 REPOSITORY                                    TAG                 IMAGE ID            CREATED             SIZE
 hello                                         latest              c8c3f1ea6ede        10 minutes ago      1.11 MB
@@ -383,7 +383,7 @@ hello                                         latest              c8c3f1ea6ede  
 
 We can run our script now:
 
-```
+```bsh
 $ docker run hello /hello.sh
 hello, world!
 ```
@@ -392,14 +392,14 @@ hello, world!
 
 Let us roll a new version of our script `v2`
 
-```
+```bsh
 $ cd docker/busybox-v2
 docker build -t hello:v2 .
 ```
 
 We will now see 2 images: `hello:v2` and `hello:latest`
 
-```
+```bsh
 $ docker images
 hello                                         v2                  195aa31a5e4d        2 seconds ago       1.11 MB
 hello                                         latest              47060b048841        20 minutes ago      1.11 MB
@@ -409,7 +409,7 @@ hello                                         latest              47060b048841  
 
 Execute the script using `image:tag` notation:
 
-```
+```bsh
 $ docker run hello:v2 /hello.sh
 hello, world v2!
 ```
@@ -419,28 +419,28 @@ hello, world v2!
 We can improve our image by supplying `entrypoint`:
 
 
-```
+```bsh
 $ cd docker/busybox-entrypoint
 $ docker build -t hello:v3 .
 ```
 
 Entrypoint remembers the command to be executed on start, even if you don't supply the arguments:
 
-```
+```bsh
 $ docker run hello:v3
 hello, world !
 ```
 
 What happens if you pass flags? they will be executed as arugments:
 
-```
+```bsh
 $ docker run hello:v3 woo
 hello, world woo!
 ```
 
 This magic happens because our v3 script prints passed arguments:
 
-```
+```bsh
 #!/bin/sh
 
 echo "hello, world $@!"
@@ -453,7 +453,7 @@ We can pass environment variables during build and during runtime as well.
 
 Here's our modified shell script:
 
-```
+```bsh
 #!/bin/sh
 
 echo "hello, $BUILD1 and $RUN1!"
@@ -461,7 +461,7 @@ echo "hello, $BUILD1 and $RUN1!"
 
 Dockerfile now uses `ENV` directive to provide environment variable:
 
-```Dockerfile
+```bsh
 FROM busybox
 ADD hello.sh /hello.sh
 ENV BUILD1 Bob
@@ -470,7 +470,7 @@ ENTRYPOINT ["/hello.sh"]
 
 Let's build and run:
 
-```
+```bsh
 cd docker/busybox-env
 $ docker build -t hello:v4 .
 $ docker run -e RUN1=Alice hello:v4
@@ -483,7 +483,7 @@ Sometimes it is helpful to supply arguments during build process
 (for example, user ID to create inside the container). We can supply build arguments as flags to `docker build`:
 
 
-```
+```bsh
 $ cd docker/busybox-arg
 $ docker build --build-arg=BUILD1="Alice and Bob" -t hello:v5 .
 $ docker run hello:v5
@@ -492,7 +492,7 @@ hello, Alice and Bob!
 
 Here is our updated Dockerfile:
 
-```Dockerfile
+```bsh
 FROM busybox
 ADD hello.sh /hello.sh
 ARG BUILD1
@@ -506,7 +506,7 @@ Notice how `ARG` have supplied the build argument and we have referred to it rig
 
 Let's take a look at the new build image in the `docker/cache` directory:
 
-```
+```bsh
 $ ls -l docker/cache/
 total 12
 -rw-rw-r-- 1 sasha sasha 76 Mar 24 16:23 Dockerfile
@@ -516,7 +516,7 @@ total 12
 
 We have a file and a script that uses the file:
 
-```
+```bsh
 $ cd docker/cache
 $ docker build -t hello:v6 .
 
@@ -541,14 +541,14 @@ hello, hello!
 
 Let's update the script.sh
 
-```
+```bsh
 $ cp script2.sh script.sh
 ```
 
 They are only differrent by one letter, but this makes a difference:
 
 
-```
+```bsh
 $ docker build -t hello:v7 .
 $ docker run hello:v7
 Hello, hello!
@@ -556,7 +556,7 @@ Hello, hello!
 
 Notice `Using cache` diagnostic output from the container:
 
-```
+```bsh
 $ docker build -t hello:v7 .
 Sending build context to Docker daemon  5.12 kB
 Step 1 : FROM busybox
@@ -584,7 +584,7 @@ Docker images are composed of layers:
 
 ![images](https://docs.docker.com/engine/userguide/storagedriver/images/image-layers.jpg)
 
-Every layer is a the result of the execution of a command in the Dockerfile. 
+Every layer is a the result of the execution of a command in the Dockerfile.
 
 **RUN command**
 
@@ -594,7 +594,7 @@ captures the output and records it as an image layer.
 
 Let's us use existing package managers to compose our images:
 
-```Dockerfile
+```bsh
 FROM ubuntu:14.04
 RUN apt-get update
 RUN apt-get install -y curl
@@ -603,14 +603,14 @@ ENTRYPOINT curl
 
 The output of this build will look more like a real Linux install:
 
-```
+```bsh
 $ cd docker/ubuntu
 $ docker build -t myubuntu .
 ```
 
 We can use our newly created ubuntu to curl pages:
 
-```
+```bsh
 $ docker run myubuntu https://google.com
   % Total    % Received % Xferd  Average Speed   Time    Time     Time  Current
                                  Dload  Upload   Total   Spent    Left  Speed
@@ -625,7 +625,7 @@ The document has moved
 
 However, it all comes at a price:
 
-```
+```bsh
 $ docker images
 REPOSITORY                                    TAG                 IMAGE ID            CREATED             SIZE
 myubuntu                                      latest              50928f386c70        53 seconds ago      221.8 MB
@@ -643,7 +643,7 @@ You are already familiar with one command, `docker images`. You can also remove 
 
 Let's start with removing the image that takes too much disk space:
 
-```
+```bsh
 $ docker rmi myubuntu
 Error response from daemon: conflict: unable to remove repository reference "myubuntu" (must force) - container 292d1e8d5103 is using its referenced image 50928f386c70
 ```
@@ -651,7 +651,7 @@ Error response from daemon: conflict: unable to remove repository reference "myu
 Docker complains that there are containers using this image. How is this possible? We thought that all our containers are gone.
 Actually, Docker keeps track of all containers, even those that have stopped:
 
-```
+```bsh
 $ docker ps -a
 CONTAINER ID        IMAGE                        COMMAND                   CREATED             STATUS                           PORTS                    NAMES
 292d1e8d5103        myubuntu                     "curl https://google."    5 minutes ago       Exited (0) 5 minutes ago                                  cranky_lalande
@@ -662,14 +662,14 @@ f79c361a24f9        440a0da6d69e                 "/bin/sh -c curl"         5 min
 
 We can now delete the container:
 
-```
+```bsh
 $ docker rm 292d1e8d5103
 292d1e8d5103
 ```
 
 and the image:
 
-```
+```bsh
 $ docker rmi myubuntu
 Untagged: myubuntu:latest
 Deleted: sha256:50928f386c704610fb16d3ca971904f3150f3702db962a4770958b8bedd9759b
@@ -681,7 +681,7 @@ Deleted: sha256:50928f386c704610fb16d3ca971904f3150f3702db962a4770958b8bedd9759b
 
 We have quite a lot of versions of `hello` built, but latest still points to the old `v1`.
 
-```
+```bsh
 $ docker images | grep hello
 hello                                         v7                  d0ec3cfed6f7        33 minutes ago      1.11 MB
 hello                                         v6                  db7c6f36cba1        42 minutes ago      1.11 MB
@@ -694,7 +694,7 @@ hello                                         latest              47060b048841  
 
 Let's change that by re-tagging `latest` to `v7`:
 
-```
+```bsh
 $ docker tag hello:v7 hello:latest
 $ docker images | grep hello
 hello                                         latest              d0ec3cfed6f7        38 minutes ago      1.11 MB
@@ -714,7 +714,7 @@ Both `v7` and `latest` point to the same image ID `d0ec3cfed6f7`.
 Images are distributed with a special service - `docker registry`.
 Let us spin up a local registry:
 
-```
+```bsh
 $ docker run -p 5000:5000 --name registry -d registry:2
 ```
 
@@ -722,7 +722,7 @@ $ docker run -p 5000:5000 --name registry -d registry:2
 
 To instruct where we want to publish, we need to append registry address to repository name:
 
-```
+```bsh
 $ docker tag hello:v7 127.0.0.1:5000/hello:v7
 $ docker push 127.0.0.1:5000/hello:v7
 ```
@@ -731,7 +731,7 @@ $ docker push 127.0.0.1:5000/hello:v7
 
 We can now download the image using the `docker pull` command:
 
-```
+```bsh
 $ docker pull 127.0.0.1:5000/hello:v7
 v7: Pulling from hello
 Digest: sha256:c472a7ec8ab2b0db8d0839043b24dbda75ca6fa8816cfb6a58e7aaf3714a1423
@@ -746,7 +746,7 @@ However, there is much more to learn. Check out the [official docker documentati
 
 ## Kubernetes 101 Workshop
 
-This is an introduction to Kubernetes and basic Kubernetes concepts. We will set up Kubernetes and guide you through an interactive tutorial to show you how Pods, Services, Deployments, Configuration (ConfigMaps) and Networking (Ingress) work using Kubernetes. 
+This is an introduction to Kubernetes and basic Kubernetes concepts. We will set up Kubernetes and guide you through an interactive tutorial to show you how Pods, Services, Deployments, Configuration (ConfigMaps) and Networking (Ingress) work using Kubernetes.
 
 ### Requirements
 
@@ -777,7 +777,7 @@ Get latest stable version from https://www.virtualbox.org/wiki/Downloads
 
 For Mac OS X:
 
-```
+```bsh
 $ curl -O https://storage.googleapis.com/kubernetes-release/release/v1.3.8/bin/darwin/amd64/kubectl \
         && chmod +x kubectl && sudo mv kubectl /usr/local/bin/
 ```
@@ -830,7 +830,7 @@ docker run -p 5000:5000 --name registry -d registry:2
 images
 ### Quick Example - Running NGINX
 
-Everyone says that Kubernetes is hard. However, we'll see it's pretty easy to get started - 
+Everyone says that Kubernetes is hard. However, we'll see it's pretty easy to get started -
 let's create an NGINX service.
 
 ```
@@ -2118,15 +2118,15 @@ The container appears to be running, but let's check if our server is running th
 
 ```
 $ kubectl exec -ti crash /bin/
-root@crash:/# 
-root@crash:/# 
+root@crash:/#
+root@crash:/#
 root@crash:/# ps uax
 USER       PID %CPU %MEM    VSZ   RSS TTY      STAT START   TIME COMMAND
 root         1  0.0  0.0  21748  1596 ?        Ss   00:17   0:00 /bin/ /start.sh
 root         6  0.0  0.0   5916   612 ?        S    00:17   0:00 sleep 100000
 root         7  0.0  0.0  21924  2044 ?        Ss   00:18   0:00 /bin/
 root        11  0.0  0.0  19180  1296 ?        R+   00:18   0:00 ps uax
-root@crash:/# 
+root@crash:/#
 ```
 
 **Using Probes**
@@ -2337,7 +2337,7 @@ $ kubectl create -f job.yaml
 You are going to observe the race to create hundreds of containers for the job retrying forever:
 
 ```
-$ kubectl describe jobs 
+$ kubectl describe jobs
 Name:		bad
 Namespace:	default
 Image(s):	busybox
@@ -2489,7 +2489,7 @@ def hello():
     out = []
     for letter in mail:
         out.append("<li>From: %s Subject: %s</li>" % (letter['from'], letter['subject']))
-    
+
 
     return '''<html>
 <body>
@@ -2568,7 +2568,7 @@ Build and redeploy:
 ```
 $ docker build -t $(minikube ip):5000/weather-crash:0.0.1 -f weather-crash.dockerfile .
 $ docker push $(minikube ip):5000/weather-crash:0.0.1
-$ kubectl apply -f weather-crash.yaml 
+$ kubectl apply -f weather-crash.yaml
 deployment "weather" configured
 ```
 
@@ -2599,7 +2599,7 @@ curl http://frontend
     </ul>
   </p>
 </body>
-root@cli:/# curl http://frontend                    
+root@cli:/# curl http://frontend
 <html>
 <body>
   <h3>Weather</h3>
@@ -2638,14 +2638,14 @@ Build and redeploy:
 ```
 $ docker build -t $(minikube ip):5000/weather-crash-slow:0.0.1 -f weather-crash-slow.dockerfile .
 $ docker push $(minikube ip):5000/weather-crash-slow:0.0.1
-$ kubectl apply -f weather-crash-slow.yaml 
+$ kubectl apply -f weather-crash-slow.yaml
 deployment "weather" configured
 ```
 
 Just as expected, our weather service is timing out:
 
 ```
-curl http://weather 
+curl http://weather
 <!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 3.2 Final//EN">
 <title>500 Internal Server Error</title>
 <h1>Internal Server Error</h1>
@@ -2693,13 +2693,13 @@ def trip():
         mutex.release()
 
 def is_tripped():
-    global circuit_tripped_until    
+    global circuit_tripped_until
     mutex.acquire()
     try:
         return datetime.now() < circuit_tripped_until
     finally:
         mutex.release()
-    
+
 
 @app.route("/")
 def hello():
@@ -2733,7 +2733,7 @@ Let's build and redeploy circuit breaker:
 ```
 $ docker build -t $(minikube ip):5000/cbreaker:0.0.1 -f cbreaker.dockerfile .
 $ docker push $(minikube ip):5000/cbreaker:0.0.1
-$ kubectl apply -f weather-cbreaker.yaml 
+$ kubectl apply -f weather-cbreaker.yaml
 deployment "weather" configured
 $  kubectl apply -f weather-service.yaml
 service "weather" configured

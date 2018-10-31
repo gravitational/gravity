@@ -12,7 +12,7 @@ for Application Bundles to be installed on Gravity Clusters.
 
 To install an Ops Center, a shared token needs to be generated to allow multiple nodes of a Cluster to join. This token will be used in an environment variable named `TOKEN`:
 
-```bash
+```bsh
 $ export TOKEN="$(uuidgen)"
 ```
 ## Automatic Provisioning
@@ -23,20 +23,20 @@ Included in the [Quickstart repository](https://github.com/gravitational/quickst
 
 Install Gravity:
 
-```bash
+```bsh
 $ curl https://get.gravitational.io/telekube/install | bash
 ```
 
 Pull the latest Ops Center:
 
-```bash
+```bsh
 $ tele pull opscenter -o installer.tar
 $ tar xvf ./installer.tar
 ```
 
 Run the standalone install:
 
-```bash
+```bsh
 $ ./gravity install --advertise-addr=(server IP address) --token=(TOKEN) --flavor=(flavor) --cluster=(cluster name) --ops-advertise-addr=example.com:443
 ```
 
@@ -80,14 +80,14 @@ Log into a root terminal on the OpsCenter server.
 
 Update the tele binary:
 
-```
+```bsh
 $ curl -LO https://get.gravitational.io/telekube/bin/{VERSION}/linux/x86_64/tele
 $ chmod +x ./tele
 ```
 
 Fetch the latest Ops Center application using `tele`:
 
-```
+```bsh
 $ ./tele pull opscenter:{VERSION} -o installer.tar
 ```
 
@@ -98,13 +98,13 @@ This archive provides all dependencies required for the update, including new `g
 
 Extract the tarball:
 
-```
+```bsh
 $ tar xvf installer.tar
 ```
 
 Start the upgrade procedure using `upgrade` script:
 
-```
+```bsh
 $ ./upgrade
 ```
 

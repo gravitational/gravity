@@ -8,7 +8,7 @@ Certain programs such as `dnsmasq`, `dockerd` and `lxd` interfere with Gravity o
 
 IPv4 forwarding on servers is required for internal Kubernetes load balancing and must be turned on.
 
-```bash
+```bsh
 sysctl -w net.ipv4.ip_forward=1
 echo net.ipv4.ip_forward=1 >> /etc/sysconf.d/10-ipv4-forwarding-on.conf
 ```
@@ -21,7 +21,7 @@ In CentOS 7.2, the module is called `bridge` instead of `br_netfilter`.
 
 Additionally, it should be configured to pass IPv4 traffic to `iptables` chains:
 
-```
+```bsh
 sysctl -w net.bridge.bridge-nf-call-iptables=1
 echo net.bridge.bridge-nf-call-iptables=1 >> /etc/sysconf.d/10-bridge-nf-call-iptables.conf
 ```
@@ -60,7 +60,7 @@ Kubernetes master nodes are sensitive to system time differences between nodes t
 
 If `firewalld` is enabled in the system, Kubernetes services may not be able to communicate under default configuration.
 
-```bash
+```bsh
 firewall-cmd --zone=trusted --add-source=10.244.0.0/16 --permanent # pod subnet
 firewall-cmd --zone=trusted --add-source=10.100.0.0/16 --permanent # service subnet
 firewall-cmd --zone=trusted --add-interface=eth0 --permanent       # enable eth0 in trusted zone so nodes can communicate
@@ -76,7 +76,7 @@ Note that pod and service subnet addresses may be [customized at install time](/
 Azure is adjusting VM clock from host, which may result in time drift between nodes.
 Currently a recommended workaround is installing NTP client such as `chrony`, and disabling Hyper-V time sync:
 
-```bash
+```
 function get_vmbus_attr {
   local dev_path=$1
   local attr=$2
