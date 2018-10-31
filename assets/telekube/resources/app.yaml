@@ -138,6 +138,9 @@ nodeProfiles:
           - i2.2xlarge
   - name: master
     description: "Telekube Master"
+    taints:	
+      - key: node-role.kubernetes.io/master	
+        effect: NoSchedule
     labels:
       node-role.kubernetes.io/master: "true"
     requirements:
