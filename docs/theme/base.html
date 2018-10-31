@@ -1,11 +1,11 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>{% include "head.html" %}</head>
-<body role="document" class="has-secondary-nav has-side-nav">
+<body class="has-secondary-nav has-side-nav">
   {% include "topnav.html" %}
   {% include "toc.html" %}
 
-  <article class="l-section">
+  <div class="l-section">
     <section id="docs-content" class="l-section-content text-article">
       {% block content %}
         {{ page.content }}
@@ -15,7 +15,7 @@
         {% include "pagination.html" %}
       {% endblock %}
     </section>
-  </article>
+  </div>
 
   {%- block grvfooter %}{% endblock %}
   {% include "footer.html" %}

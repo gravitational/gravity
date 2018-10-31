@@ -28,7 +28,7 @@
           {% if nav_item == page %}
             <ul class="side-nav-secondary-buttons">
               {% for toc_item in page.toc %}
-                <li class="{% if toc_item.active%}is-active{%endif%}""><a href="{{ toc_item.url }}">{{ toc_item.title }}</a></li>
+                <li class="{% if toc_item.active%}is-active{%endif%}"><a href="{{ toc_item.url }}">{{ toc_item.title }}</a></li>
                 {% for toc_item in toc_item.children %}
                 <li><a href="{{ toc_item.url }}">{{ toc_item.title }}</a></li>
                 {% endfor %}
