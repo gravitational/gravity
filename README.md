@@ -5,8 +5,8 @@ that takes the drama out of on-premise deployments.
 
 |Project Links| Description
 |---|----
-| [Gravity Website](http://gravitational.com/telekube)  | The official website of the enterprise version of Gravity called Telekube |
-| [Gravity Documentation](http://gravitational.com/telekube/documentation)  | Gravity Documentation (aka, Telekube)  |
+| [Gravity Website](https://gravitational.com/gravity/)  | The official website of the enterprise version of Gravity called Telekube |
+| [Gravity Documentation](https://gravitational.com/gravity/docs/)  | Gravity Documentation (aka, Telekube)  |
 | [Blog](http://blog.gravitational.com) | Our blog, where we publish Gravity news |
 
 ## Introduction
