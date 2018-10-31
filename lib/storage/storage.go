@@ -385,6 +385,8 @@ type Mount struct {
 	// Mode sets file mode for a volume path on the host
 	// accepts octal format
 	Mode string `json:"mode,omitempty"`
+	// Recursive means that all mount points inside this mount should also be mounted
+	Recursive bool `json:"recursive,omitempty"`
 }
 
 // Docker defines the configuration specific to docker

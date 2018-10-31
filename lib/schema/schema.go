@@ -239,6 +239,7 @@ const manifestSchema = `
                         "skipIfMissing": {"type": "boolean", "default": false},
                         "minTransferRate": {"type": "string"},
                         "hidden": {"type": "boolean"},
+                        "recursive": {"type": "boolean"},
                         "mode": {"type": "string"},
                         "uid": {"type": "number"},
                         "gid": {"type": "number"}
