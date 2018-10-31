@@ -28,7 +28,7 @@ LTS starts with `3.51.0` with minor backwards compatible changes added over time
 #### Bugfixes
 
 * Fix an issue with cluster expansion when applying taints via app.yaml.
-* Fix an issue with labelling of packages, which could prevent upgrades from completing.
+* Fix an issue with labeling of packages, which could prevent upgrades from completing.
 
 ### Improvements
 
