@@ -164,11 +164,15 @@ func (p *updatePhaseBootstrap) Execute(context.Context) error {
 	if err != nil {
 		return trace.Wrap(err)
 	}
-	err = p.updateRuntimePackage()
+	err = p.updateExistingRuntimePackageLabels()
 	if err != nil {
 		return trace.Wrap(err)
 	}
 	err = p.pullSystemUpdates()
+	if err != nil {
+		return trace.Wrap(err)
+	}
+	err = p.addUpdateRuntimePackageLabel()
 	if err != nil {
 		return trace.Wrap(err)
 	}
@@ -270,7 +274,7 @@ func (p *updatePhaseBootstrap) syncPlan() error {
 	return nil
 }
 
-// updateRuntimePackage updates labels on the runtime package
+// updateExistingRuntimePackageLabels updates labels on the runtime packages
 // from the previous installation so the system package pull
 // step can find and pull the correct package update.
 //
@@ -280,7 +284,7 @@ func (p *updatePhaseBootstrap) syncPlan() error {
 // the sibling runtime package (i.e. 'planet-master' on a regular node
 // and vice versa), will be updated to _not_ include the installed label
 // to simplify the search
-func (p *updatePhaseBootstrap) updateRuntimePackage() error {
+func (p *updatePhaseBootstrap) updateExistingRuntimePackageLabels() error {
 	type updateLabels struct {
 		loc.Locator
 		add    map[string]string
@@ -312,6 +316,18 @@ func (p *updatePhaseBootstrap) updateRuntimePackage() error {
 		if err != nil && !trace.IsNotFound(err) {
 			return trace.Wrap(err)
 		}
+	}
+	return nil
+}
+
+// addUpdateRuntimePackageLabel adds the runtime label on the runtime package from the update
+// in case the installer been generated on the Ops Center that does not replicate remote
+// package labels.
+// See: https://github.com/gravitational/gravity.e/issues/3768
+func (p *updatePhaseBootstrap) addUpdateRuntimePackageLabel() error {
+	err := p.LocalPackages.UpdatePackageLabels(p.runtimePackage, pack.RuntimePackageLabels, nil)
+	if err != nil {
+		return trace.Wrap(err)
 	}
 	return nil
 }
