@@ -46,7 +46,7 @@ func (i *Installer) initOperationPlan() error {
 	if plan != nil {
 		return trace.AlreadyExists("plan is already initialized")
 	}
-	plan, err = i.engine.GetOperationPlan(*op)
+	plan, err = i.engine.GetOperationPlan(clusters[0], *op)
 	if err != nil {
 		return trace.Wrap(err)
 	}
@@ -59,8 +59,8 @@ func (i *Installer) initOperationPlan() error {
 }
 
 // GetOperationPlan builds a plan for the provided operation
-func (i *Installer) GetOperationPlan(op ops.SiteOperation) (*storage.OperationPlan, error) {
-	builder, err := i.GetPlanBuilder(op)
+func (i *Installer) GetOperationPlan(cluster ops.Site, op ops.SiteOperation) (*storage.OperationPlan, error) {
+	builder, err := i.GetPlanBuilder(cluster, op)
 	if err != nil {
 		return nil, trace.Wrap(err)
 	}

@@ -119,7 +119,7 @@ type Engine interface {
 	// NewClusterRequest constructs a request to create a new cluster
 	NewClusterRequest() ops.NewSiteRequest
 	// GetOperationPlan builds a plan for the provided operation
-	GetOperationPlan(ops.SiteOperation) (*storage.OperationPlan, error)
+	GetOperationPlan(ops.Site, ops.SiteOperation) (*storage.OperationPlan, error)
 	// GetFSM returns the installer FSM engine
 	GetFSM() (*fsm.FSM, error)
 	// OnPlanComplete is called when install plan finishes execution
@@ -257,6 +257,9 @@ func (c *Config) CheckAndSetDefaults() (err error) {
 	}
 	if c.NewProcess == nil {
 		c.NewProcess = process.NewProcess
+	}
+	if c.DNSConfig.IsEmpty() {
+		c.DNSConfig = storage.DefaultDNSConfig
 	}
 	return nil
 }
@@ -403,6 +406,10 @@ func (i *Installer) Wait() error {
 			return nil
 		case event := <-i.EventsC:
 			if event.Error != nil {
+				if trace.Unwrap(event.Error) == context.DeadlineExceeded {
+					i.Debug("Context is closing.")
+					return nil
+				}
 				return trace.Wrap(event.Error)
 			}
 			progress := event.Progress

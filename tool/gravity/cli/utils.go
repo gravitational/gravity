@@ -67,9 +67,6 @@ func (g *Application) getEnv(stateDir string) (*localenv.LocalEnvironment, error
 		EtcdRetryTimeout: *g.EtcdRetryTimeout,
 		Reporter:         common.ProgressReporter(*g.Silent),
 	}
-	if len(*g.InstallCmd.DNSListenAddrs) != 0 {
-		args.DNS = localenv.DNSConfig(g.InstallCmd.DNSConfig())
-	}
 	if *g.StateDir != defaults.LocalGravityDir {
 		args.LocalKeyStoreDir = *g.StateDir
 	}
