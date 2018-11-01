@@ -127,7 +127,8 @@ Kubernetes adoption without having to become security and Kubernetes experts the
 ## Building from source
 
 Gravity is written in Go. There are two ways to build the Gravity tools from
-source: by using locally installed build tools or via Docker.
+source: by using locally installed build tools or via Docker. In both cases
+you will need a Linux machine. **Building on MacOS, even with Docker, is not currently supported**
 
 ```bash
 $ git clone git@github.com:gravitational/gravity.git
