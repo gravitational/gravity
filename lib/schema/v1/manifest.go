@@ -213,7 +213,7 @@ type OnPremProvisioner struct {
 	Spec OnPremSpec `json:"variables"`
 }
 
-// OnPremSpec groups all configuration parameters for an on-premise provisioner
+// OnPremSpec groups all configuration parameters for an on-premises provisioner
 type OnPremSpec struct {
 	// Docker defines docker configuration
 	Docker Docker `json:"docker"`

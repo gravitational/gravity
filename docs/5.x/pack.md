@@ -339,7 +339,7 @@ providers:
       - us-east-1
       - us-west-2
 
-  # Generic provider is used for on-premise installations
+  # Generic provider is used for on-premises installations
   generic:
     # Network section allows to specify networking type; only "vxlan" is
     # currently supported for on-prem installations
