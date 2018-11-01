@@ -8,7 +8,7 @@ LTS starts with `3.51.0` with minor backwards compatible changes added over time
 | Release | LTS | Release Date         | Supported Until      | Kubernetes Version | Teleport Version |
 | --------|-----| -------------------- | -------------------- | ------------------ |------------------|
 | 5.3.2   | No  | October, 31st 2018   | -                    | 1.12.1             | 2.4.7            |
-| 5.2.2   | Yes | October, 23rd 2018   | October, 15th, 2019  | 1.11.2             | 2.4.7            |
+| 5.2.3   | Yes | November, 1st 2018   | October, 15th, 2019  | 1.11.2             | 2.4.7            |
 | 5.0.24  | Yes | August, 28th 2018    | April, 13th 2019     | 1.9.6              | 2.4.7            |
 | 4.63.0  | Yes | June, 25th 2018      | November, 16th 2018  | 1.7.14             | 2.3.5            |
 | 3.64.0  | Yes | December, 21st 2017  | June, 2nd 2018       | 1.5.7              | 2.0.6            |
@@ -22,6 +22,13 @@ LTS starts with `3.51.0` with minor backwards compatible changes added over time
     article in our Help Center.
 
 ## 5.x Releases
+
+### 5.2.3 LTS
+
+#### Improvements
+
+* Add support for recursive volume mounts. See [Application Manifest](/pack#sample-application-manifest) for details.
+* Disable `DenyEscalatingExec` admission controller to meet conformance.
 
 ### 5.3.2
 
