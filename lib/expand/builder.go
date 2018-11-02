@@ -56,6 +56,8 @@ type planBuilder struct {
 	RegularAgent storage.LoginEntry
 	// ServiceUser is the cluster system user
 	ServiceUser storage.OSUser
+	// DNSConfig specifies the custom cluster DNS configuration
+	DNSConfig storage.DNSConfig
 }
 
 // AddConfigurePhase appends package configuration phase to the plan
@@ -84,6 +86,7 @@ func (b *planBuilder) AddBootstrapPhase(plan *storage.OperationPlan) {
 			Package:     &b.Application.Package,
 			Agent:       agent,
 			ServiceUser: &b.ServiceUser,
+			DNSConfig:   &b.DNSConfig,
 		},
 	})
 }
@@ -338,6 +341,7 @@ func (p *Peer) getPlanBuilder(ctx operationContext) (*planBuilder, error) {
 		AdminAgent:      *adminAgent,
 		RegularAgent:    *regularAgent,
 		ServiceUser:     ctx.Cluster.ServiceUser,
+		DNSConfig:       ctx.Cluster.DNSConfig,
 	}, nil
 }
 

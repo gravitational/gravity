@@ -406,8 +406,7 @@ func (i *Installer) Wait() error {
 			return nil
 		case event := <-i.EventsC:
 			if event.Error != nil {
-				if trace.Unwrap(event.Error) == context.DeadlineExceeded {
-					i.Debug("Context is closing.")
+				if utils.IsContextCancelledError(event.Error) {
 					return nil
 				}
 				return trace.Wrap(event.Error)

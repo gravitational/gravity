@@ -88,6 +88,33 @@ func status(env *localenv.LocalEnvironment, printOptions printOptions) error {
 	return trace.Wrap(printStatus(operator, clusterStatus, printOptions))
 }
 
+func tailStatus(env *localenv.LocalEnvironment, operationID string) error {
+	if operationID == "" {
+		return trace.BadParameter("operation ID is required to tail operation logs")
+	}
+
+	operator, err := env.SiteOperator()
+	if err != nil {
+		return trace.Wrap(err)
+	}
+
+	status, err := acquireClusterStatus(context.TODO(), env, operator, operationID)
+	if err == nil {
+		err = tailOperationLogs(operator, status.Operation.Key())
+		return trace.Wrap(err)
+	}
+
+	if status.Cluster == nil {
+		return trace.BadParameter("unknown cluster state")
+	}
+
+	if status.Cluster.Operation == nil {
+		return trace.BadParameter("there is no operation in progress")
+	}
+
+	return trace.Wrap(tailOperationLogs(operator, status.Operation.Key()))
+}
+
 func acquireClusterStatus(ctx context.Context, env *localenv.LocalEnvironment, operator ops.Operator, operationID string) (*statusapi.Status, error) {
 	status, err := statusOnce(ctx, operator, operationID)
 	if err != nil {
@@ -151,17 +178,6 @@ func printStatus(operator ops.Operator, status clusterStatus, printOptions print
 		}
 		fmt.Printf("%v\n", status.Operation.State)
 		return nil
-
-	case printOptions.tail:
-		if status.Cluster == nil {
-			fmt.Println("unknown cluster state")
-			return nil
-		}
-		if status.Cluster.Operation == nil {
-			fmt.Println("there is no operation in progress")
-			return nil
-		}
-		return trace.Wrap(tailOperationLogs(operator, status.Operation.Key()))
 
 	case printOptions.token:
 		fmt.Print(status.Token.Token)
@@ -377,8 +393,6 @@ type printOptions struct {
 	token bool
 	// quiet means no output
 	quiet bool
-	// tail means follow current operation logs
-	tail bool
 	// operationID limits output to that of a particular operation
 	operationID string
 	// format specifies the output format (JSON or text)

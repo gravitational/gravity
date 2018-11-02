@@ -399,7 +399,7 @@ func (f *FSM) executeOnePhase(ctx context.Context, p Params, phase storage.Opera
 
 	err = executor.PreCheck(ctx)
 	if err != nil {
-		executor.Errorf("Phase %v precheck failed: %v.", phase.ID, err)
+		executor.Errorf("Phase precheck failed: %v.", err)
 		return trace.Wrap(err)
 	}
 
@@ -416,7 +416,7 @@ func (f *FSM) executeOnePhase(ctx context.Context, p Params, phase storage.Opera
 
 	err = executor.Execute(ctx)
 	if err != nil {
-		executor.Errorf("Phase %v execution failed: %v.", phase.ID, err)
+		executor.Errorf("Phase execution failed: %v.", err)
 		if err := f.ChangePhaseState(ctx,
 			StateChange{
 				Phase: phase.ID,
@@ -430,7 +430,7 @@ func (f *FSM) executeOnePhase(ctx context.Context, p Params, phase storage.Opera
 
 	err = executor.PostCheck(ctx)
 	if err != nil {
-		executor.Errorf("Phase %v postcheck failed: %v.", phase.ID, err)
+		executor.Errorf("Phase postcheck failed: %v.", err)
 		return trace.Wrap(err)
 	}
 

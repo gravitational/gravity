@@ -227,7 +227,17 @@ func (f *fsmEngine) ChangePhaseState(ctx context.Context, change fsm.StateChange
 // GetExecutor returns the appropriate install phase executor based on the
 // provided parameters
 func (f *fsmEngine) GetExecutor(p fsm.ExecutorParams, remote fsm.Remote) (fsm.PhaseExecutor, error) {
-	return f.Spec(p, remote)
+	logger := &fsm.Logger{
+		FieldLogger: logrus.WithField(constants.FieldPhase, p.Phase.ID),
+		Key:         p.Key(),
+		Operator:    f.Operator,
+	}
+	executor, err := f.Spec(p, remote)
+	if err != nil {
+		logger.Warnf("Failed to initialize phase: %v.", err)
+		return nil, trace.Wrap(err)
+	}
+	return executor, nil
 }
 
 // RunCommand executes the phase specified by params on the specified server
