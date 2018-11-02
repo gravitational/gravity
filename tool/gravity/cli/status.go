@@ -377,7 +377,7 @@ func isClusterDegrated(status clusterStatus) bool {
 	return (status.Cluster == nil ||
 		status.Cluster.State == ops.SiteStateDegraded ||
 		status.Agent == nil ||
-		status.Agent.SystemStatus != pb.SystemStatus_Running)
+		status.Agent.GetSystemStatus() != pb.SystemStatus_Running)
 }
 
 func unknownFallback(text string) string {
