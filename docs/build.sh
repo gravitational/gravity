@@ -5,13 +5,13 @@
 #     * copy 5.x.yaml to 6.x.yaml and make changes there
 #     * edit theme/base.html and update the docVersions variable
 
-cd "$(dirname $0)"; 
+cd "$(dirname $0)";
 
 # enumerate all available versions and create a symlink to the latest
 # i.e. latest.yaml -> version.yaml
 rm -f latest.yaml
 versions=$(ls *.yaml | sort)
-for latest in $versions; do 
+for latest in $versions; do
     echo "Found version: $latest"
 done
 echo "Latest version --> $latest"
@@ -25,8 +25,7 @@ if [ "$1" == "run" ] ; then
     trap "exit" INT TERM ERR
     trap "kill 0" EXIT
 
-    echo "Starting mkdocs server..."    
-    sass -C --sourcemap=none --watch theme/src/index.scss:theme/css/telekube-bundle.css &
+    echo "Starting mkdocs server..."
     mkdocs serve --config-file $latest --livereload --dev-addr=0.0.0.0:6600 &
     wait
     exit
@@ -35,7 +34,6 @@ fi
 #
 # build all versions
 #
-sass -C --sourcemap=none theme/src/index.scss:theme/css/telekube-bundle.css     
 for version in $versions; do
     doc_ver=${version%.yaml}
     echo "Building docs version --> $doc_ver"
@@ -48,7 +46,7 @@ echo "SUCCESS --> build/docs"
 # visitors to the latest verion of QuickStart
 cp index.html ../build/docs/index.html
 
-# create a symlink to the latest 
+# create a symlink to the latest
 cd ../build/docs
 rm -f latest
 ln -s $doc_ver latest
