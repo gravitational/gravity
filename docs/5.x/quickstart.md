@@ -41,7 +41,7 @@ Gravity consists of three major components:
   `tsh` is a part of [Gravitational Teleport](http://gravitational.com/teleport/),
   a free open source SSH server developed, maintained and supported by Gravitational.
   It can be used independently from Gravity.
-* **Ops Center**: the Web UI for managing published applications and remotely
+* [Ops Center](./opscenter): the Web UI for managing published applications and remotely
   accessing private cloud deployments.
 
 ### Installing Gravity Tools

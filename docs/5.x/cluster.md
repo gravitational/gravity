@@ -1062,7 +1062,7 @@ version: v2
 metadata:
   name: auth0
 spec:
-  redirect_url: "https://telekube-url/portalapi/v1/oidc/callback"
+  redirect_url: "https://gravity-url/portalapi/v1/oidc/callback"
   client_id: <client id>
   client_secret: <client secret>
   issuer_url: "https://example.com/"
@@ -1974,7 +1974,7 @@ workload distribution. Use `taints` property of the node profiles:
 ```yaml
 nodeProfiles:
   - name: node
-    description: "Telekube Node"
+    description: "Gravity Node"
     taints:
     - key: custom-taint
       value: custom-value
@@ -1988,7 +1988,7 @@ To install Kubernetes nodes running only system components, Gravity supports `no
 ```yaml
 nodeProfiles:
   - name: master
-    description: "Telekube Master"
+    description: "Gravity Master"
     taints:
     - key: node-role.kubernetes.io/master
       effect: NoSchedule
@@ -2005,7 +2005,7 @@ as a Kubernetes master node running Etcd as a part of the cluster:
 ```yaml
 nodeProfiles:
   - name: node
-    description: "Telekube Master Node"
+    description: "Gravity Master Node"
     labels:
       node-role.kubernetes.io/master: "true"
 ```
@@ -2016,7 +2016,7 @@ i.e. will run Etcd configured in proxy mode:
 ```yaml
 nodeProfiles:
   - name: node
-    description: "Telekube Node"
+    description: "Gravity Node"
     labels:
       node-role.kubernetes.io/node: "true"
 ```
