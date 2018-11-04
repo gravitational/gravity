@@ -55,6 +55,18 @@ Gravity consists of these major components:
   It can be used independently from Gravity.
 * [Ops Center](./opscenter): the Web UI for managing published applications and remotely
   accessing private cloud deployments.
+
+## Workflow
+
+The typical Gravity workflow is as follows:
+
+* Start by building and publishing your Application Bundle with `tele` command.  Once
+  a Gravity Cluster is deployed, `tele` command will let you list the active
+  Clusters.
+* Connect to any server inside of any Cluster using the `tsh` command.
+* Manage the Cluster from within by using `gravity` command and/or
+  Kubernetes tools like `kubectl`.
+
 ## Application Lifecycle
 
 A Gravity application is a snapshot of a Kubernetes cluster, stored
