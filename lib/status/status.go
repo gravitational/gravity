@@ -414,7 +414,9 @@ func (r SystemStatus) String() string {
 		return "running"
 	case pb.SystemStatus_Degraded:
 		return "degraded"
-	default: // pb.SystemStatus_Unknown:
+	case pb.SystemStatus_Unknown:
+		return "unknown"
+	default:
 		return "unknown"
 	}
 }

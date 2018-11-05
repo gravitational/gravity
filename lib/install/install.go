@@ -406,9 +406,6 @@ func (i *Installer) Wait() error {
 			return nil
 		case event := <-i.EventsC:
 			if event.Error != nil {
-				if utils.IsContextCancelledError(event.Error) {
-					return nil
-				}
 				return trace.Wrap(event.Error)
 			}
 			progress := event.Progress
