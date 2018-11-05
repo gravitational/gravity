@@ -111,14 +111,13 @@ func tailStatus(env *localenv.LocalEnvironment, operationID string) error {
 	case operationID != "" && status.Cluster.Operation != nil:
 		opKey = status.Operation.Key()
 	case len(status.Cluster.ActiveOperations) != 0:
+		if len(status.Cluster.ActiveOperations) > 1 {
+			return trace.BadParameter("multiple active operations in progress. " +
+				"Please specify the operation with --operation-id")
+		}
 		opKey = status.Cluster.ActiveOperations[0].Key()
 	default:
 		return nil
-	}
-
-	if len(status.Cluster.ActiveOperations) > 1 {
-		return trace.BadParameter("multiple active operations in progress. " +
-			"Please specify the operation with --operation-id")
 	}
 
 	return trace.Wrap(tailOperationLogs(operator, opKey))
