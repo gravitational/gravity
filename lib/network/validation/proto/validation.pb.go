@@ -305,9 +305,9 @@ func (m *ValidateResponse) GetFailed() []*agentpb.Probe {
 type ValidateOptions struct {
 	// VxlanPort is the custom overlay network port
 	VxlanPort int32 `protobuf:"varint,1,opt,name=vxlan_port,json=vxlanPort,proto3" json:"vxlan_port,omitempty"`
-	// DnsAddrs specifies the list of listen IP addresses for dnsmasq
+	// DnsAddrs specifies the list of listen IP addresses for coredns
 	DnsAddrs []string `protobuf:"bytes,2,rep,name=dns_addrs,json=dnsAddrs" json:"dns_addrs,omitempty"`
-	// DnsPort specifies the DNS port for dnsmasq
+	// DnsPort specifies the DNS port for coredns
 	DnsPort int32 `protobuf:"varint,3,opt,name=dns_port,json=dnsPort,proto3" json:"dns_port,omitempty"`
 }
 

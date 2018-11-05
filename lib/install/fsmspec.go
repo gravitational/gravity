@@ -44,7 +44,7 @@ func FSMSpec(config FSMConfig) fsm.FSMSpecFunc {
 			return phases.NewBootstrap(p,
 				config.Operator,
 				config.Apps,
-				config.LocalBackend, remote, config.DNSConfig)
+				config.LocalBackend, remote)
 
 		case strings.HasPrefix(p.Phase.ID, phases.PullPhase):
 			return phases.NewPull(p,

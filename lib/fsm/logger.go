@@ -32,7 +32,7 @@ import (
 type Logger struct {
 	// FieldLogger is the underlying standard logger
 	logrus.FieldLogger
-	// key is the operation the logger is for
+	// Key is the operation the logger is for
 	Key ops.SiteOperationKey
 	// Operator is the operator service where log entries are submitted
 	Operator ops.Operator

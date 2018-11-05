@@ -120,6 +120,8 @@ type OperationPhaseData struct {
 	ServiceUser *OSUser `json:"service_user,omitempty" yaml:"service_user,omitempty"`
 	// Data is arbitrary text data to provide to a phase executor
 	Data string `json:"data,omitempty" yaml:"data,omitempty"`
+	// DNSConfig specifies custom cluster DNS configuration
+	DNSConfig *DNSConfig `json:"dns_config,omitempty" yaml:"dns_config,omitempty"`
 }
 
 // ElectionChange describes changes to make to cluster elections

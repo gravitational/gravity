@@ -111,7 +111,7 @@ func (s Status) Check() error {
 	if s.State == ops.SiteStateDegraded {
 		return trace.BadParameter("Cluster status: degraded")
 	}
-	if s.Agent != nil && s.Agent.SystemStatus != pb.SystemStatus_Running {
+	if s.Agent != nil && s.Agent.GetSystemStatus() != pb.SystemStatus_Running {
 		return trace.BadParameter("Cluster status: degraded")
 	}
 	// if the operation is in bad state, return error
@@ -136,7 +136,7 @@ func FromPlanetAgent(ctx context.Context, servers []storage.Server) (*Agent, err
 	}
 
 	return &Agent{
-		SystemStatus: status.Status,
+		SystemStatus: SystemStatus(status.Status),
 		Nodes:        nodes,
 	}, nil
 }
@@ -212,10 +212,15 @@ type ClusterOperationProgress struct {
 	Created time.Time `json:"created"`
 }
 
+// GetSystemStatus returns the status of the system
+func (r Agent) GetSystemStatus() pb.SystemStatus_Type {
+	return pb.SystemStatus_Type(r.SystemStatus)
+}
+
 // Agent specifies the status of the system and individual nodes
 type Agent struct {
 	// SystemStatus defines the health status of the whole cluster
-	SystemStatus pb.SystemStatus_Type `json:"system_status"`
+	SystemStatus SystemStatus `json:"system_status"`
 	// Nodes lists status of each individual cluster node
 	Nodes []ClusterServer `json:"nodes"`
 }
@@ -401,6 +406,28 @@ func diskSpaceProbeErrorDetail(p pb.Probe) (string, error) {
 	}
 	return data.FailureMessage(), nil
 }
+
+// String returns a textual representation of this system status
+func (r SystemStatus) String() string {
+	switch pb.SystemStatus_Type(r) {
+	case pb.SystemStatus_Running:
+		return "running"
+	case pb.SystemStatus_Degraded:
+		return "degraded"
+	case pb.SystemStatus_Unknown:
+		return "unknown"
+	default:
+		return "unknown"
+	}
+}
+
+// GoString returns a textual representation of this system status
+func (r SystemStatus) GoString() string {
+	return r.String()
+}
+
+// SystemStatus is an alias for system status type
+type SystemStatus pb.SystemStatus_Type
 
 const (
 	// NodeHealthy is the status of a healthy node

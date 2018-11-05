@@ -117,7 +117,7 @@ func getMasterNodes(ctx context.Context, servers []storage.Server) (addrs []stri
 		return nil, trace.Wrap(err)
 	}
 
-	if status.SystemStatus != agentpb.SystemStatus_Running {
+	if status.GetSystemStatus() != agentpb.SystemStatus_Running {
 		return nil, trace.BadParameter("cluster is degraded")
 	}
 

@@ -85,7 +85,7 @@ func (p *waitExecutor) Execute(ctx context.Context) error {
 				return trace.BadParameter("not all planets have come up yet: %v",
 					status)
 			}
-			if status.SystemStatus != agentpb.SystemStatus_Running {
+			if status.GetSystemStatus() != agentpb.SystemStatus_Running {
 				return trace.BadParameter("planet is not running yet: %v",
 					status)
 			}
