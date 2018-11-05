@@ -57,6 +57,7 @@ type PlanSuite struct {
 	installOp       *ops.SiteOperation
 	joinOpKey       *ops.SiteOperationKey
 	joinOp          *ops.SiteOperation
+	dnsConfig       storage.DNSConfig
 }
 
 var _ = check.Suite(&PlanSuite{})
@@ -75,12 +76,17 @@ func (s *PlanSuite) SetUpSuite(c *check.C) {
 	c.Assert(err, check.IsNil)
 	s.teleportPackage, err = app.Manifest.Dependencies.ByName(constants.TeleportPackage)
 	c.Assert(err, check.IsNil)
+	s.dnsConfig = storage.DNSConfig{
+		Addrs: []string{"127.0.0.3"},
+		Port:  10053,
+	}
 	s.cluster, err = s.services.Operator.CreateSite(
 		ops.NewSiteRequest{
 			AccountID:  account.ID,
 			DomainName: "example.com",
 			AppPackage: s.appPackage.String(),
 			Provider:   schema.ProviderAWS,
+			DNSConfig:  s.dnsConfig,
 		})
 	c.Assert(err, check.IsNil)
 	_, err = s.services.Users.CreateClusterAdminAgent(s.cluster.Domain,
@@ -237,6 +243,7 @@ func (s *PlanSuite) verifyBootstrapPhase(c *check.C, phase storage.OperationPhas
 			Package:     &s.appPackage,
 			Agent:       s.adminAgent,
 			ServiceUser: &s.serviceUser,
+			DNSConfig:   &s.dnsConfig,
 		},
 	}, phase)
 }

@@ -135,7 +135,7 @@ func (r *S) TestAgentGroupReconnects(c *C) {
 	go p2.Serve()
 	defer withTestCtx(p2.Stop)
 
-	ctx, cancel := context.WithTimeout(context.TODO(), 1*time.Second)
+	ctx, cancel := context.WithTimeout(context.TODO(), 5*time.Second)
 	c.Assert(store.expect(ctx, 2), IsNil)
 	cancel()
 

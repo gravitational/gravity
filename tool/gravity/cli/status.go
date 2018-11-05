@@ -89,30 +89,35 @@ func status(env *localenv.LocalEnvironment, printOptions printOptions) error {
 }
 
 func tailStatus(env *localenv.LocalEnvironment, operationID string) error {
-	if operationID == "" {
-		return trace.BadParameter("operation ID is required to tail operation logs")
-	}
-
 	operator, err := env.SiteOperator()
 	if err != nil {
 		return trace.Wrap(err)
 	}
 
 	status, err := acquireClusterStatus(context.TODO(), env, operator, operationID)
-	if err == nil {
-		err = tailOperationLogs(operator, status.Operation.Key())
-		return trace.Wrap(err)
+	if err != nil {
+		log.Warnf("Failed to determine cluster status: %v.", trace.DebugReport(err))
+		if status == nil || status.Cluster == nil {
+			return trace.BadParameter("unknown cluster state")
+		}
+
+		if status.Cluster.Operation == nil || len(status.Cluster.ActiveOperations) == 0 {
+			return trace.NotFound("there is no operation in progress")
+		}
 	}
 
-	if status.Cluster == nil {
-		return trace.BadParameter("unknown cluster state")
+	var opKey ops.SiteOperationKey
+	if operationID != "" {
+		opKey = status.Operation.Key()
+	} else {
+		if len(status.Cluster.ActiveOperations) != 1 {
+			return trace.BadParameter("multiple active operations in progress. " +
+				"Please specify the operation with --operation-id")
+		}
+		opKey = status.Cluster.ActiveOperations[0].Key()
 	}
 
-	if status.Cluster.Operation == nil {
-		return trace.BadParameter("there is no operation in progress")
-	}
-
-	return trace.Wrap(tailOperationLogs(operator, status.Operation.Key()))
+	return trace.Wrap(tailOperationLogs(operator, opKey))
 }
 
 func acquireClusterStatus(ctx context.Context, env *localenv.LocalEnvironment, operator ops.Operator, operationID string) (*statusapi.Status, error) {
