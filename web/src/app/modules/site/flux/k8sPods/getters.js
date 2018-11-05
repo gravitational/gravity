@@ -26,7 +26,7 @@ const podInfoList = [
   ['site_k8s_pods'],
   (podsMap) => {
     return podsMap.valueSeq()
-      .filter(itemMap => itemMap.getIn(['status', 'phase']) !== K8sPodPhaseEnum.SUCCEEDED)            
+      .filter(itemMap => itemMap.getIn(['status', 'phase']) !== K8sPodPhaseEnum.SUCCEEDED)
       .map(itemMap => {
         const siteId = reactor.evaluate(currentSiteGetters.getSiteId);
         const podName = itemMap.getIn(['metadata','name']);
@@ -41,13 +41,13 @@ const podInfoList = [
           podName,
           podNamespace,
           podHostIp: itemMap.getIn(['status','hostIP']),
-          podIp: itemMap.getIn(['status','podIP']),          
+          podIp: itemMap.getIn(['status','podIP']),
           containers: getContainers(itemMap),
           containerNames: getContainerNames(itemMap),
           labelsText: getLabelsText(itemMap),
           status,
           statusDisplay,
-          phaseValue: itemMap.getIn(['status', 'phase'])          
+          phaseValue: itemMap.getIn(['status', 'phase'])
         }
       })
       .toJS();
@@ -80,7 +80,7 @@ const autoCompleteOptions = [ ['site_k8s_pods'], (podsMap) => {
   }));
 
   let allOptions = [...podOptions, ...containerOptions];
-    
+
   return uniqBy(allOptions, 'text');
 
 } ];
@@ -91,9 +91,9 @@ export default {
 }
 
 // helpers
-function createContainerStatus(containerMap){  
+function createContainerStatus(containerMap){
   let phaseText = 'unknown';
-  if(containerMap.getIn(['state', 'running'])){  
+  if(containerMap.getIn(['state', 'running'])){
     phaseText = 'running';
   }
 
@@ -102,7 +102,7 @@ function createContainerStatus(containerMap){
   let logUrl = cfg.getSiteLogQueryRoute(siteId, `container:${name}`);
 
   return {
-    name,    
+    name,
     logUrl,
     phaseText
   }
@@ -154,27 +154,27 @@ function getContainerNames(podMap){
 }
 
 
-function getStatus(pod) {      
+function getStatus(pod) {
   // See k8s dashboard js logic
   // https://github.com/kubernetes/dashboard/blob/f63003113555ecf489b2a737797913a045b218c3/src/app/frontend/pod/list/card_component.js#L109
-  let podStatus = K8sPodDisplayStatusEnum.RUNNING;
-  let reason = undefined;    
-  let statusDisplay = pod.getIn(['status', 'phase']);
-  const statuses = pod.getIn(['status', 'containerStatuses']);  
-  if (statuses) {        
+  let podStatus = pod.getIn(['status', 'phase']);
+  let statusDisplay = podStatus;
+  let reason = undefined;
+  const statuses = pod.getIn(['status', 'containerStatuses']);
+  if (statuses) {
     statuses.reverse().forEach(status => {
-      const waiting = status.get('waiting');      
+      const waiting = status.get('waiting');
       if (waiting) {
         podStatus = K8sPodDisplayStatusEnum.PENDING;
         reason = waiting.get('reason');
       }
-      
-      const terminated = status.get('terminated');            
+
+      const terminated = status.get('terminated');
       if (terminated) {
-        const terminatedSignal = terminated.get('signal');      
-        const terminatedExitCode = terminated.get('exitCode');                      
-        const terminatedReason = terminated.get('reason');              
-        podStatus = K8sPodDisplayStatusEnum.TERMINATED;        
+        const terminatedSignal = terminated.get('signal');
+        const terminatedExitCode = terminated.get('exitCode');
+        const terminatedReason = terminated.get('reason');
+        podStatus = K8sPodDisplayStatusEnum.TERMINATED;
         reason = terminatedReason;
         if (!reason) {
           if (terminatedSignal) {
@@ -186,9 +186,9 @@ function getStatus(pod) {
       }
     });
   }
-          
+
   if (podStatus === K8sPodDisplayStatusEnum.PENDING) {
-    statusDisplay = `Waiting: ${reason}`;  
+    statusDisplay = `Waiting: ${reason}`;
   }
   if (podStatus === K8sPodDisplayStatusEnum.TERMINATED) {
     statusDisplay = `Terminated: ${reason}`;
