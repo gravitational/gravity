@@ -100,21 +100,25 @@ func tailStatus(env *localenv.LocalEnvironment, operationID string) error {
 		if status == nil || status.Cluster == nil {
 			return trace.BadParameter("unknown cluster state")
 		}
+	}
 
-		if status.Cluster.Operation == nil || len(status.Cluster.ActiveOperations) == 0 {
-			return trace.NotFound("there is no operation in progress")
-		}
+	if status.Cluster.Operation == nil && len(status.Cluster.ActiveOperations) == 0 {
+		return trace.NotFound("there is no operation in progress")
 	}
 
 	var opKey ops.SiteOperationKey
-	if operationID != "" {
+	switch {
+	case operationID != "" && status.Cluster.Operation != nil:
 		opKey = status.Operation.Key()
-	} else {
-		if len(status.Cluster.ActiveOperations) != 1 {
-			return trace.BadParameter("multiple active operations in progress. " +
-				"Please specify the operation with --operation-id")
-		}
+	case len(status.Cluster.ActiveOperations) != 0:
 		opKey = status.Cluster.ActiveOperations[0].Key()
+	default:
+		return nil
+	}
+
+	if len(status.Cluster.ActiveOperations) > 1 {
+		return trace.BadParameter("multiple active operations in progress. " +
+			"Please specify the operation with --operation-id")
 	}
 
 	return trace.Wrap(tailOperationLogs(operator, opKey))
