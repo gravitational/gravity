@@ -41,8 +41,7 @@ func FSMSpec(config FSMConfig) fsm.FSMSpecFunc {
 				config.Operator,
 				config.Apps,
 				config.LocalBackend,
-				remote,
-				config.DNSConfig)
+				remote)
 
 		case strings.HasPrefix(p.Phase.ID, installphases.PullPhase):
 			return installphases.NewPull(p,

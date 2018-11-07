@@ -146,7 +146,7 @@ func (s *site) validateShrinkRequest(req ops.CreateSiteShrinkOperationRequest, c
 	teleserver := servers.getWithLabels(labels{ops.Hostname: server.Hostname})
 	if len(teleserver) == 0 {
 		if !req.Force {
-			return nil, trace.Wrap(err,
+			return nil, trace.BadParameter(
 				"node %q is offline, add --force flag to force removal", serverName)
 		}
 		log.Warnf("Node %q is offline, forcing removal.", serverName)

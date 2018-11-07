@@ -85,7 +85,11 @@ func startInstall(env *localenv.LocalEnvironment, i InstallConfig) error {
 		return trace.Wrap(err)
 	}
 
-	return installer.Wait()
+	err = installer.Wait()
+	if utils.IsContextCancelledError(err) {
+		return nil
+	}
+	return trace.Wrap(err)
 }
 
 func Join(env, joinEnv *localenv.LocalEnvironment, j JoinConfig) error {
@@ -119,7 +123,12 @@ func Join(env, joinEnv *localenv.LocalEnvironment, j JoinConfig) error {
 		return trace.Wrap(err)
 	}
 
-	return peer.Wait()
+	err = peer.Wait()
+	if utils.IsContextCancelledError(err) {
+		return nil
+	}
+	return trace.Wrap(err)
+
 }
 
 type leaveConfig struct {

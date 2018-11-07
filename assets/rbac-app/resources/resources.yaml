@@ -239,7 +239,7 @@ metadata:
   name: gravity:coredns
 rules:
   - apiGroups: [""]
-    resources: ["endpoints", "services", "namespaces"]
+    resources: ["endpoints", "services", "namespaces", "pods"]
     verbs: ["list", "watch"]
 ---
 apiVersion: rbac.authorization.k8s.io/v1

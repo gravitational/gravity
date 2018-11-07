@@ -61,6 +61,8 @@ type PlanSuite struct {
 	sitePackage        *loc.Locator
 	serviceUser        systeminfo.User
 	operationKey       *ops.SiteOperationKey
+	dnsConfig          storage.DNSConfig
+	cluster            *ops.Site
 }
 
 var _ = check.Suite(&PlanSuite{})
@@ -105,33 +107,38 @@ func (s *PlanSuite) SetUpSuite(c *check.C) {
 		KeyPair:  *ca,
 	})
 	c.Assert(err, check.IsNil)
-	cluster, err := s.services.Operator.CreateSite(
+	s.dnsConfig = storage.DNSConfig{
+		Addrs: []string{"127.0.0.3"},
+		Port:  10053,
+	}
+	s.cluster, err = s.services.Operator.CreateSite(
 		ops.NewSiteRequest{
 			AccountID:  account.ID,
 			DomainName: "example.com",
 			AppPackage: appPackage.String(),
 			Provider:   schema.ProviderAWS,
 			Resources:  configMap,
+			DNSConfig:  s.dnsConfig,
 		})
-	_, err = s.services.Users.CreateClusterAdminAgent(cluster.Domain,
-		storage.NewUser(storage.ClusterAdminAgent(cluster.Domain), storage.UserSpecV2{
+	_, err = s.services.Users.CreateClusterAdminAgent(s.cluster.Domain,
+		storage.NewUser(storage.ClusterAdminAgent(s.cluster.Domain), storage.UserSpecV2{
 			AccountID: defaults.SystemAccountID,
 		}))
 	c.Assert(err, check.IsNil)
 	s.adminAgent, err = s.services.Operator.GetClusterAgent(ops.ClusterAgentRequest{
 		AccountID:   account.ID,
-		ClusterName: cluster.Domain,
+		ClusterName: s.cluster.Domain,
 		Admin:       true,
 	})
 	s.regularAgent, err = s.services.Operator.GetClusterAgent(ops.ClusterAgentRequest{
 		AccountID:   account.ID,
-		ClusterName: cluster.Domain,
+		ClusterName: s.cluster.Domain,
 	})
 	c.Assert(err, check.IsNil)
 	s.operationKey, err = s.services.Operator.CreateSiteInstallOperation(
 		ops.CreateSiteInstallOperationRequest{
 			AccountID:   account.ID,
-			SiteDomain:  cluster.Domain,
+			SiteDomain:  s.cluster.Domain,
 			Provisioner: schema.ProvisionerAWSTerraform,
 		})
 	c.Assert(err, check.IsNil)
@@ -168,22 +175,23 @@ func (s *PlanSuite) SetUpSuite(c *check.C) {
 			Resources:   configMap,
 			ServiceUser: s.serviceUser,
 			Mode:        constants.InstallModeCLI,
+			DNSConfig:   s.dnsConfig,
 		},
 		FieldLogger: logrus.WithField(trace.Component, "plan-suite"),
 		AppPackage:  appPackage,
 		Packages:    s.services.Packages,
 		Apps:        s.services.Apps,
 		Operator:    s.services.Operator,
-		Cluster:     cluster,
+		Cluster:     s.cluster,
 	}
 	s.installer.SetEngine(s.installer)
 }
 
 func (s *PlanSuite) TestPlan(c *check.C) {
-	err := s.installer.initOperationPlan()
+	op, err := s.services.Operator.GetSiteOperation(*s.operationKey)
 	c.Assert(err, check.IsNil)
 
-	plan, err := s.services.Operator.GetOperationPlan(*s.operationKey)
+	plan, err := s.installer.GetOperationPlan(*s.cluster, *op)
 	c.Assert(err, check.IsNil)
 
 	expected := []struct {
@@ -245,6 +253,7 @@ func (s *PlanSuite) verifyBootstrapPhase(c *check.C, phase storage.OperationPhas
 					Package:     &s.installer.AppPackage,
 					Agent:       s.adminAgent,
 					ServiceUser: serviceUser,
+					DNSConfig:   &s.dnsConfig,
 				},
 			},
 			{
@@ -255,6 +264,7 @@ func (s *PlanSuite) verifyBootstrapPhase(c *check.C, phase storage.OperationPhas
 					Package:     &s.installer.AppPackage,
 					Agent:       s.regularAgent,
 					ServiceUser: serviceUser,
+					DNSConfig:   &s.dnsConfig,
 				},
 			},
 		},
