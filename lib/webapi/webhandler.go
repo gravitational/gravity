@@ -88,8 +88,6 @@ func NewHandler(cfg WebHandlerConfig) *WebHandler {
 		FieldLogger: log.WithField(trace.Component, "webhandler"),
 	}
 
-	wh.Handle("GET", "/web/config.js", wh.noLogin(wh.configHandler))
-
 	noLoginRoutes := []string{
 		"/web/login",
 		"/web/recover/*rest",
@@ -101,40 +99,32 @@ func NewHandler(cfg WebHandlerConfig) *WebHandler {
 		wh.Handle("GET", route, wh.noLogin(wh.defaultHandler))
 	}
 
-	defaultRoutes := []string{
-		"/web",
-		"/web/",
-		"/web/portal",
-		"/web/portal/*rest",
-		"/web/installer/new/*rest",
-	}
-	for _, route := range defaultRoutes {
-		wh.Handle("GET", route, wh.needsLogin(wh.defaultHandler))
+	// root
+	wh.Handle("GET", "/web", wh.needsLogin(wh.rootHandler))
+	wh.Handle("GET", "/web/", wh.needsLogin(wh.rootHandler))
+
+	// portal
+	wh.Handle("GET", "/web/portal", wh.needsLogin(wh.defaultHandler))
+	wh.Handle("GET", "/web/portal/*rest", wh.needsLogin(wh.defaultHandler))
+
+	// installer
+	wh.Handle("GET", "/web/installer/new/*rest", wh.needsLogin(wh.installerHandler))
+	wh.Handle("GET", "/web/installer/site/:site_domain", wh.needsLogin(wh.installerHandler))
+	for _, verb := range []string{"GET", "POST", "PUT", "DELETE", "OPTIONS"} {
+		// to handle bandwagon API calls
+		wh.Handle(verb, "/web/installer/site/:site_domain/*rest", wh.needsLogin(wh.installerHandler))
 	}
 
-	installerRoutes := []string{
-		"/web/installer/site/:site_domain",
-		"/web/installer/site/:site_domain/*rest",
-	}
-	for _, route := range installerRoutes {
-		for _, m := range []string{"GET", "POST", "PUT", "DELETE", "OPTIONS"} {
-			wh.Handle(m, route, wh.needsLogin(wh.installerHandler))
-		}
-	}
+	// cluster
+	wh.Handle("GET", "/web/site/:site_domain", wh.needsLogin(wh.siteHandler))
+	wh.Handle("GET", "/web/site/:site_domain/*rest", wh.needsLogin(wh.siteHandler))
 
-	siteRoutes := []string{
-		"/web/site/:site_domain",
-		"/web/site/:site_domain/*rest",
-	}
-	for _, route := range siteRoutes {
-		for _, m := range []string{"GET", "POST"} {
-			wh.Handle(m, route, wh.needsLogin(wh.siteHandler))
-		}
-	}
-
+	// grafana
 	wh.Handle("GET", grafanaURL+"/*rest", wh.needsLogin(wh.grafanaServeHandler))
 
+	// static files
 	ServeStaticFiles(wh, "/web/app/*filepath", http.Dir(filepath.Join(cfg.AssetsDir, "app")))
+	wh.Handle("GET", "/web/config.js", wh.noLogin(wh.configHandler))
 
 	// all routes not specified here are handled by the "not found" handler which actually
 	// just serves the index page so frontend can figure out how to handle it itself
@@ -154,6 +144,13 @@ func ServeStaticFiles(wh *WebHandler, path string, root http.FileSystem) {
 	fileServer := http.FileServer(root)
 	wh.GET(path, func(w http.ResponseWriter, req *http.Request, ps httprouter.Params) {
 		telehttplib.SetStaticFileHeaders(w.Header())
+		// do not list directory files
+		url := req.URL.Path
+		if url[len(url)-1] == '/' {
+			http.NotFound(w, req)
+			return
+		}
+
 		req.URL.Path = ps.ByName("filepath")
 		fileServer.ServeHTTP(w, req)
 	})
@@ -166,18 +163,18 @@ func (h *WebHandler) configHandler(w http.ResponseWriter, r *http.Request, p htt
 	config.Auth = getWebConfigAuthSettings(h.cfg)
 	config.Modules.OpsCenter.Features.LicenseGenerator.Enabled = true
 
-	site, err := h.cfg.Operator.GetLocalSite()
+	cluster, err := h.cfg.Operator.GetLocalSite()
 	if err != nil && !trace.IsNotFound(err) {
-		log.Errorf("failed to get local site: %v", trace.DebugReport(err))
+		log.Errorf("Failed to get local site: %v.", trace.DebugReport(err))
 		replyError(w, "failed to get local site", http.StatusInternalServerError)
 		return
 	}
-	if site != nil {
-		config.SystemInfo.ClusterName = site.Domain
+	if cluster != nil {
+		config.SystemInfo.ClusterName = cluster.Domain
 		if h.cfg.Mode == constants.ComponentSite {
-			config.Routes.DefaultEntry = fmt.Sprintf("/web/site/%v", site.Domain)
+			config.Routes.DefaultEntry = fmt.Sprintf("/web/site/%v", cluster.Domain)
 		}
-		manifest := site.App.Manifest
+		manifest := cluster.App.Manifest
 		config.User.Logo = manifest.Logo
 		config.User.Login.HeaderText = manifest.Metadata.Name
 	}
@@ -194,6 +191,21 @@ func (h *WebHandler) configHandler(w http.ResponseWriter, r *http.Request, p htt
 	}
 
 	fmt.Fprintf(w, "var GRV_CONFIG = %v;", string(out))
+}
+
+func (h *WebHandler) rootHandler(w http.ResponseWriter, r *http.Request, p httprouter.Params, s session) {
+	cluster, err := h.cfg.Operator.GetLocalSite()
+	if err != nil && !trace.IsNotFound(err) {
+		log.Errorf("Failed to get local site: %v.", trace.DebugReport(err))
+		replyError(w, "failed to get local site", http.StatusInternalServerError)
+		return
+	}
+	if cluster != nil && h.cfg.Mode == constants.ComponentSite {
+		http.Redirect(w, r, fmt.Sprintf("/web/site/%v", cluster.Domain), http.StatusFound)
+		return
+	}
+
+	h.defaultHandler(w, r, p, s)
 }
 
 func (h *WebHandler) defaultHandler(w http.ResponseWriter, r *http.Request, p httprouter.Params, s session) {
@@ -307,8 +319,8 @@ func (h *WebHandler) siteHandler(w http.ResponseWriter, r *http.Request, p httpr
 	}
 
 	// if the app defines custom install step and the site hasn't completed it yet,
-	// always redirect the site to it
-	http.Redirect(w, r, "/web/installer/site/"+siteDomain+"/complete/", http.StatusFound)
+	// always redirect the site back to installer
+	http.Redirect(w, r, "/web/installer/site/"+siteDomain, http.StatusFound)
 }
 
 // completeHandler serves /web/installer/site/<sitename>/complete

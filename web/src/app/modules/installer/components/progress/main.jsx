@@ -21,10 +21,11 @@ import getters from './../../flux/progress/getters';
 import { fetchOpProgress} from './../../flux/progress/actions';
 import LogViewer from 'app/components/logViewer';
 import connect from 'app/lib/connect';
+import cfg from 'app/config';
 
 import { SiteOperationLogProvider } from 'app/components/dataProviders';
 
-const PROGRESS_STATE_STRINGS = [  
+const PROGRESS_STATE_STRINGS = [
   'Provisioning Instances',
   'Connecting to instances',
   'Verifying instances',
@@ -121,7 +122,7 @@ class ProgressIndicactor extends React.Component {
 }
 
 class Progress extends React.Component {
-  
+
   constructor(props) {
     super(props);
     this.state = {
@@ -136,8 +137,8 @@ class Progress extends React.Component {
   }
 
   scrollIntoView() {
-    let container = document.querySelector('.grv-installer-logviewer');
-    container.scrollIntoView()    
+    const container = document.querySelector('.grv-installer-logviewer');
+    container.scrollIntoView()
   }
 
   componentDidMount(){
@@ -148,26 +149,27 @@ class Progress extends React.Component {
   componentWillUnmount() {
     clearInterval(this.refreshInterval);
   }
-    
+
   render() {
     if(!this.props.model){
       return null;
     }
 
-    let { isError, isCompleted, step, siteId, opId, siteUrl, crashReportUrl } = this.props.model;
-    let { isLogsVisible } = this.state;            
-    let expandIconClass = classnames('fa', {
+    const { isError, isCompleted, step, siteId, opId, crashReportUrl } = this.props.model;
+    const { isLogsVisible } = this.state;
+    const completeInstallUrl = cfg.getInstallerLastStepUrl(siteId);
+    const expandIconClass = classnames('fa', {
       'fa-caret-down': isLogsVisible,
       'fa-caret-up': !isLogsVisible
-    });    
+    });
 
-    let logViewerClassName = classnames('grv-installer-logviewer m-b', {
+    const logViewerClassName = classnames('grv-installer-logviewer m-b', {
       hidden: !isLogsVisible
-    })    
-    
+    })
+
     return (
       <div>
-        { isCompleted ? <Success siteUrl={siteUrl}/> : null }
+        { isCompleted && <Success siteUrl={completeInstallUrl}/> }
         { isError ? <Failure tarballUrl={crashReportUrl}/> :
           <div>
             <div className="inline">
@@ -181,15 +183,15 @@ class Progress extends React.Component {
             <small>Click here to see/hide executable logs </small>
             <i className={expandIconClass} />
           </button>
-        </div>        
+        </div>
         <div>
-          <LogViewer                  
-            wrap={true}  
+          <LogViewer
+            wrap={true}
             className={logViewerClassName}
             autoScroll={true}
-            provider={ <SiteOperationLogProvider siteId={siteId} opId={opId} /> }            
-          />                                                          
-        </div>        
+            provider={ <SiteOperationLogProvider siteId={siteId} opId={opId} /> }
+          />
+        </div>
       </div>
     );
   }
@@ -197,8 +199,8 @@ class Progress extends React.Component {
 
 function mapStateToProps() {
   return {
-    model: getters.installProgress()    
-  }  
+    model: getters.installProgress()
+  }
 }
 
 export default connect(mapStateToProps)(Progress);

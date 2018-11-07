@@ -105,6 +105,7 @@ let cfg = {
     installerBase: '/web/installer',
     installerNewSite: '/web/installer/new/:repository/:name/:version',
     installerExistingSite: '/web/installer/site/:siteId',
+    installerComplete: '/web/installer/site/:siteId/complete/',
 
     // settings
     settingsUsers: 'users',
@@ -478,6 +479,10 @@ let cfg = {
 
   getInstallerProvisionUrl(siteId){
     return formatPattern(cfg.routes.installerExistingSite, {siteId});
+  },
+
+  getInstallerLastStepUrl(siteId){
+    return formatPattern(cfg.routes.installerComplete, {siteId});
   },
 
   getCheckDomainNameUrl(domainName){
