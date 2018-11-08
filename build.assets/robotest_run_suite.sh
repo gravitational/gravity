@@ -24,7 +24,7 @@ export AZURE_REGION=${AZURE_REGION:-"westus,westus2,centralus,canadacentral"}
 
 function build_resize_suite {
   cat <<EOF
- resize={"to":3,"flavor":"one","nodes":1,"role":"node","state_dir":"/var/lib/telekube","os":"ubuntu:latest","storage_driver":"devicemapper"}
+ resize={"to":3,"flavor":"one","nodes":1,"role":"node","state_dir":"/var/lib/telekube","os":"ubuntu:16","storage_driver":"devicemapper"}
 EOF
 }
 

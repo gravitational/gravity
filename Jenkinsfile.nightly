@@ -7,19 +7,6 @@ def propagateParamsToEnv() {
   }
 }
 
-// Source: https://stackoverflow.com/questions/43516025/how-to-handle-nightly-build-in-jenkins-declarative-pipeline
-def cancelActiveBuilds() {
-  def jobName = env.JOB_NAME
-  def buildNumber = env.BUILD_NUMBER.toInteger()
-  def job = Jenkins.instance.getItemByFullName(jobName)
-
-  for (build in job.builds) {
-    if (build.isBuilding() && buildNumber != build.getNumber().toInteger()) {
-      build.doStop();
-    }
-  }
-}
-
 def triggers = []
 
 if env.BRANCH_NAME == "master" {
