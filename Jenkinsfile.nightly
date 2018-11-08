@@ -7,8 +7,29 @@ def propagateParamsToEnv() {
   }
 }
 
+// Source: https://stackoverflow.com/questions/43516025/how-to-handle-nightly-build-in-jenkins-declarative-pipeline
+def cancelActiveBuilds() {
+  def jobName = env.JOB_NAME
+  def buildNumber = env.BUILD_NUMBER.toInteger()
+  def job = Jenkins.instance.getItemByFullName(jobName)
+
+  for (build in job.builds) {
+    if (build.isBuilding() && buildNumber != build.getNumber().toInteger()) {
+      build.doStop();
+    }
+  }
+}
+
+def triggers = []
+
+if env.BRANCH_NAME == "master" {
+  // Schedule a daily build between 8:00am and 8:30am UTC (0:00am-0:30am PST)
+  triggers << cron('H(0,30) 08 * * *')
+}
+
 properties([
   disableConcurrentBuilds(),
+  pipelineTriggers(triggers),
   parameters([
     choice(choices: ["run", "skip"].join("\n"),
            defaultValue: 'run',
@@ -84,7 +105,7 @@ node {
             [$class: 'FileBinding', credentialsId:'OPS_SSH_PUB', variable: 'SSH_PUB'],
             ]) {
               sh """
-              make -C e robotest-run-suite \
+              make -C e robotest-run-nightly \
                 AWS_KEYPAIR=ops \
                 AWS_REGION=us-east-1 \
                 AZURE_VM=Standard_F4s \

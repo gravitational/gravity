@@ -610,6 +610,10 @@ robotest-publish-gravity:
 robotest-run-suite:
 	./build.assets/robotest_run_suite.sh $(shell pwd)/upgrade_from
 
+.PHONY: robotest-run-nightly
+robotest-run-suite:
+	./build.assets/robotest_run_nightly.sh $(shell pwd)/upgrade_from
+
 .PHONY: robotest-installer-ready
 robotest-installer-ready:
 	mv $(GRAVITY_BUILDDIR)/telekube.tar $(GRAVITY_BUILDDIR)/telekube_ready.tar
