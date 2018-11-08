@@ -80,6 +80,10 @@ const Root = () => (
 
 // enable hot reloading
 if (module.hot) {
+  module.hot.accept('./modules/installer', () => {
+    require('./modules/installer');
+  })
+
   module.hot.accept('./modules/site', () => {
     require('./modules/site');
   })
