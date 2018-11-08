@@ -6,6 +6,32 @@ metadata:
   namespace: kube-system
 ---
 apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: gravity-site
+  namespace: kube-system
+rules:
+- apiGroups:
+  - ""
+  resources:
+  - secrets
+  verbs:
+  - create
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: gravity-site
+  namespace: kube-system
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: Role
+  name: gravity-site
+subjects:
+- kind: ServiceAccount
+  name: gravity-site
+---
+apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRole
 metadata:
   name: system:serviceaccount:kube-system:gravity-site
@@ -14,6 +40,8 @@ rules:
   - ""
   resources:
   - nodes
+  - namespaces
+  - services
   verbs:
   - get
   - list
@@ -31,6 +59,7 @@ subjects:
 - kind: ServiceAccount
   name: gravity-site
   namespace: kube-system
+---
 apiVersion: extensions/v1beta1
 kind: DaemonSet
 metadata:
