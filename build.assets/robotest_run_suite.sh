@@ -17,10 +17,9 @@ export ROBOTEST_VERSION=${ROBOTEST_VERSION:-dima}
 export ROBOTEST_REPO=quay.io/gravitational/robotest-suite:$ROBOTEST_VERSION
 export WAIT_FOR_INSTALLER=true
 export INSTALLER_URL=$GRAVITY_BUILDDIR/telekube.tar
-export DEPLOY_TO=${DEPLOY_TO:-azure}
+export DEPLOY_TO=${DEPLOY_TO:-gce}
 export TAG=$(git rev-parse --short HEAD)
 export GCL_PROJECT_ID=${GCL_PROJECT_ID:-"kubeadm-167321"}
-export AZURE_REGION=${AZURE_REGION:-"westus,westus2,centralus,canadacentral"}
 
 function build_resize_suite {
   cat <<EOF
@@ -33,6 +32,7 @@ function build_upgrade_step {
   local os=${1:?$usage}
   local release=${2:?$usage}
   local storage_driver=${3:?$usage}
+  local cluster_size=${4:?$usage}
   local suite=''
   suite+=$(cat <<EOF
  upgrade3lts={${cluster_size},"os":"${os}","storage_driver":"${storage_driver}","from":"/telekube_${release}.tar"}

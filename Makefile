@@ -611,7 +611,7 @@ robotest-run-suite:
 	./build.assets/robotest_run_suite.sh $(shell pwd)/upgrade_from
 
 .PHONY: robotest-run-nightly
-robotest-run-suite:
+robotest-run-nightly:
 	./build.assets/robotest_run_nightly.sh $(shell pwd)/upgrade_from
 
 .PHONY: robotest-installer-ready
