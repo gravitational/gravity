@@ -17,25 +17,16 @@ limitations under the License.
 import React from 'react';
 import $ from 'jQuery';
 import {debounce} from 'lodash';
-import reactor from 'app/reactor';
+import connect from 'app/lib/connect';
 import {isDomainName} from 'app/lib/paramUtils';
 import getters from './../../flux/newApp/getters';
 import * as actions from './../../flux/newApp/actions';
 
 const VALIDATION_ERROR_MSG = 'Not valid name';
 
-var  debouncedSetDomainName = debounce(actions.setDomainName, 400);
+const  debouncedSetDomainName = debounce(actions.setDomainName, 400);
 
-var DomainName = React.createClass({
-
-  mixins: [reactor.ReactMixin],
-
-  getDataBindings() {
-    return {
-      newApp: getters.newApp,
-      attemp: getters.validateDomainNameAttempt
-    }
-  },
+class DomainName extends React.Component {
 
   componentDidMount(){
     $.validator.addMethod("domain", function(value, element){
@@ -62,23 +53,23 @@ var DomainName = React.createClass({
         }
       }
     })
-  },
+  }
 
-  onChange(event){
-    var $form = $(this.refs.form);
+  onChange = event => {
+    const $form = $(this.refs.form);
     debouncedSetDomainName.cancel();
     if($form.valid()){
       debouncedSetDomainName(event.target.value)
     }else{
       actions.setDomainNameVerifiedFlag(false);
     }
-  },
+  }
 
   render(){
-    let {isProcessing, isFailed, message} = this.state.attemp;
-    let {isDomainNameValid, domainName, name} = this.state.newApp;
-    let hintText = `Please enter a unique deployment name. Example: "${name}.yourcompany"`;
-    
+    const { isProcessing, isFailed, message } = this.props.attempt;
+    const { isDomainNameValid, domainName, name } = this.props.newApp;
+    const hintText = `Please enter a unique deployment name. Example: "${name}.yourcompany"`;
+
     return(
       <div className="m-t-lg m-b-lg">
         <h3>Cluster Name</h3>
@@ -88,23 +79,30 @@ var DomainName = React.createClass({
               { isProcessing ? <i className="fa fa-cog fa-spin fa-lg"></i> : null }
               { isDomainNameValid ? <i className="fa fa-check fa-lg"></i> : null }
             </span>
-            <input className="form-control" name="domainName" autoComplete="off" type="text" aria-required="true" aria-invalid="false"
+            <input className="form-control" name="domainName" autoComplete="off" type="text"
               autoFocus
               onChange={this.onChange}
               defaultValue={domainName}
               placeholder="Cluster name"/>
           </form>
           <div className="grv-installer-fqdn-errors" ref="formErrors"></div>
-          {!isFailed ? null :
-            (<div className="grv-installer-fqdn-errors">
+          {isFailed && (
+            <div className="grv-installer-fqdn-errors">
               <label className="error" htmlFor="domainName">{message}</label>
             </div>
-            )}
+          )}
         </div>
         <div className="help-block">{hintText}</div>
     </div>
     )
   }
-});
+}
 
-export default DomainName;
+function mapStateToProps() {
+  return {
+    newApp: getters.newApp,
+    attempt: getters.validateDomainNameAttempt
+  }
+}
+
+export default connect(mapStateToProps)(DomainName);

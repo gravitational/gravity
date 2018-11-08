@@ -190,7 +190,7 @@ let cfg = {
       provisionUserHintText: 'Drag the slider to estimate the number of resources needed for that performance level. You can also add / remove resources after the installation. \n\n Once you click "Start Installation" the resources will be provisioned on your infrastructure.',
       iamPermissionsHelpLink: 'https://gravitational.com/telekube/docs/overview/',
 
-      providers: [ProviderEnum.AWS, ProviderEnum.AZURE, ProviderEnum.ONPREM],
+      providers: [ProviderEnum.AWS, ProviderEnum.ONPREM],
       providerSettings: {
         [ProviderEnum.AWS]: {
           useExisting: false
