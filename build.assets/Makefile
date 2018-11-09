@@ -488,8 +488,6 @@ build-planet-sub:
 
 .PHONY: pull-planet
 pull-planet:
-	@env | grep -i aws_access
-	@ls -lah ~/.aws/
 	-$(AWS) s3 sync $(S3_OPTS) $(BUILD_BUCKET_URL)/planet/$(PLANET_TAG) $(PLANET_BINDIR)
 
 

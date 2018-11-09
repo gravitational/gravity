@@ -59,7 +59,12 @@ node {
   stage('build-gravity') {
     withCredentials([
     [$class: 'SSHUserPrivateKeyBinding', credentialsId: '08267d86-0b3a-4101-841e-0036bf780b11', keyFileVariable: 'GITHUB_SSH_KEY'],
-    [$class: 'UsernamePasswordMultiBinding', credentialsId: 'jenkins-aws-s3', usernameVariable: 'AWS_ACCESS_KEY', passwordVariable: 'AWS_SECRET_KEY'],
+    [
+      $class: 'UsernamePasswordMultiBinding',
+      credentialsId: 'jenkins-aws-s3',
+      usernameVariable: 'AWS_ACCESS_KEY_ID',
+      passwordVariable: 'AWS_SECRET_ACCESS_KEY',
+    ],
     ]) {
       sh 'make -C e production telekube opscenter'
     }
@@ -75,7 +80,12 @@ node {
     robotest : {
       if (params.RUN_ROBOTEST == 'run') {
         withCredentials([
-            [$class: 'UsernamePasswordMultiBinding', credentialsId: 'jenkins-aws-s3', usernameVariable: 'AWS_ACCESS_KEY', passwordVariable: 'AWS_SECRET_KEY'],
+            [
+              $class: 'UsernamePasswordMultiBinding',
+              credentialsId: 'jenkins-aws-s3',
+              usernameVariable: 'AWS_ACCESS_KEY_ID',
+              passwordVariable: 'AWS_SECRET_ACCESS_KEY'
+            ],
             [$class: 'StringBinding', credentialsId: 'GET_GRAVITATIONAL_IO_APIKEY', variable: 'GET_GRAVITATIONAL_IO_APIKEY'],
             [$class: 'FileBinding', credentialsId:'ROBOTEST_LOG_GOOGLE_APPLICATION_CREDENTIALS', variable: 'GOOGLE_APPLICATION_CREDENTIALS'],
             [$class: 'FileBinding', credentialsId:'OPS_SSH_KEY', variable: 'SSH_KEY'],
