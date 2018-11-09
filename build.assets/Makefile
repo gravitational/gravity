@@ -89,7 +89,7 @@ TEST_K8S ?= false
 ifdef SKIP_S3
 	AWS := :
 else
-	AWS := aws
+	AWS := aws --quiet
 endif
 
 #
