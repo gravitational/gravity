@@ -11,4 +11,4 @@ set -e
 # removing a load balancer on AWS happens in background (even if control panel
 # shows it as deleted) and may take some time
 #
-sleep 120
+/usr/local/bin/kubectl wait --for=delete services/gravity-site --namespace=kube-system
