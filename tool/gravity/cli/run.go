@@ -33,6 +33,7 @@ import (
 	"github.com/gravitational/gravity/lib/fsm"
 	"github.com/gravitational/gravity/lib/httplib"
 	"github.com/gravitational/gravity/lib/install"
+	"github.com/gravitational/gravity/lib/loc"
 	"github.com/gravitational/gravity/lib/localenv"
 	"github.com/gravitational/gravity/lib/process"
 	"github.com/gravitational/gravity/lib/schema"
@@ -438,9 +439,12 @@ func Execute(g *Application, cmd string, extraArgs []string) error {
 			*g.AppStatusCmd.Locator,
 			*g.AppStatusCmd.OpsCenterURL)
 	case g.AppUninstallCmd.FullCommand():
-		return uninstallApp(localEnv,
-			*g.AppUninstallCmd.Locator,
-			*g.AppUninstallCmd.OpsCenterURL)
+		var appPackage *loc.Locator
+		appPackage, err = loc.ParseLocator(*g.AppUninstallCmd.Locator)
+		if err != nil {
+			return trace.Wrap(err)
+		}
+		return uninstallApp(localEnv, appPackage)
 	case g.AppPullCmd.FullCommand():
 		return pullApp(localEnv,
 			*g.AppPullCmd.Package,

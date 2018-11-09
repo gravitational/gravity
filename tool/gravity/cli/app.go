@@ -124,20 +124,31 @@ func listApps(env *localenv.LocalEnvironment, repository, appType string, showHi
 }
 
 // uninstallApp uninstalls gravity application from cluster
-func uninstallApp(env *localenv.LocalEnvironment, appPackage loc.Locator, portalURL string) error {
-	registryURL, err := localAppEnviron()
+func uninstallApp(env *localenv.LocalEnvironment, appPackage *loc.Locator) error {
+	apps, err := env.SiteApps()
 	if err != nil {
 		return trace.Wrap(err)
 	}
-	apps, err := env.AppServiceLocal(localenv.AppConfig{RegistryURL: registryURL})
+
+	if appPackage == nil {
+		operator, err := env.SiteOperator()
+		if err != nil {
+			return trace.Wrap(err)
+		}
+		cluster, err := operator.GetLocalSite()
+		if err != nil {
+			return trace.Wrap(err)
+		}
+
+		appPackage = &cluster.App.Package
+	}
+
+	app, err := apps.UninstallApp(*appPackage)
 	if err != nil {
 		return trace.Wrap(err)
 	}
-	app, err := apps.UninstallApp(appPackage)
-	if err != nil {
-		return trace.Wrap(err)
-	}
-	fmt.Printf("%v uninstalled\n", app)
+
+	env.Printf("%v uninstalled\n", app)
 	return nil
 }
 

@@ -683,13 +683,11 @@ type AppListCmd struct {
 	OpsCenterURL *string
 }
 
-// AppUninstallCmd launches app uninstall hook
+// AppUninstallCmd launches application uninstall hook
 type AppUninstallCmd struct {
 	*kingpin.CmdClause
-	// Locator is app locator
-	Locator *loc.Locator
-	// OpsCenterURL is app service URL
-	OpsCenterURL *string
+	// Locator is the application locator
+	Locator *string
 }
 
 // AppStatusCmd shows app status
