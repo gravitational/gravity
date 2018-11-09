@@ -22,8 +22,8 @@ import {CREATE_NEW_VPC_OPTION_VALUE} from './constants';
 import {
   TRYING_TO_VALIDATE_DOMAIN_NAME,
   TRYING_TO_CREATE_NEW_SITE,
-  TRYING_TO_VALIDATE_LICENSE,
-  TRYING_TO_VERIFY_PROVIDER_KEYS } from 'app/flux/restApi/constants';
+  TRYING_TO_VALIDATE_LICENSE
+  } from 'app/flux/restApi/constants';
 
 const newApp = [
   ['installer_new_app'],
@@ -143,7 +143,6 @@ export default {
   onpremProvider,
   isDomainNameValid: [['installer_new_app', 'isDomainNameValid'], isValid => isValid],
   validateDomainNameAttempt: requestStatus(TRYING_TO_VALIDATE_DOMAIN_NAME),
-  createSiteAttemp: requestStatus(TRYING_TO_CREATE_NEW_SITE),
-  verifyKeysAttemp: requestStatus(TRYING_TO_VERIFY_PROVIDER_KEYS),
+  createSiteAttempt: requestStatus(TRYING_TO_CREATE_NEW_SITE),
   verifyLicenseAttemp: requestStatus(TRYING_TO_VALIDATE_LICENSE)
 }

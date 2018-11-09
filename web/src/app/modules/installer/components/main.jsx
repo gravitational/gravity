@@ -15,7 +15,7 @@ limitations under the License.
 */
 
 import React from 'react';
-import reactor from 'app/reactor';
+import connect from 'app/lib/connect';
 import {Failed} from 'app/components/msgPage';
 import Indicator from 'app/components/common/indicator';
 import * as actions from './../flux/installer/actions';
@@ -32,20 +32,11 @@ import UserHints from './userHints';
 import { StepValueEnum } from './../flux/enums';
 import OverlayHost from 'app/components/common/overlayHost';
 
-const Installer = React.createClass({
 
-  mixins: [reactor.ReactMixin],
-
-  getDataBindings() {
-    return {
-      model: getters.installer,
-      logoUri: getters.logoUri,
-      initAttemp: getters.initInstallerAttemp
-    }
-  },
+class Installer extends React.Component {
 
   renderStepComponent(){
-    let { step, cfg } = this.state.model;
+    const { step, cfg } = this.props.model;
     switch (step) {
       case StepValueEnum.LICENSE:
         return <License {...cfg} />
@@ -56,13 +47,13 @@ const Installer = React.createClass({
       default:
         return <Progress />
     }
-  },
-  
+  }
+
   render() {
-    let { model, initAttemp, logoUri } = this.state;
-    let { step, displayName, stepOptions, cfg, eulaAccepted, eula } = model;
-    let { isFailed, isProcessing, message } = initAttemp;
-                  
+    const { model, initAttempt, logoUri } = this.props;
+    const { step, displayName, stepOptions, cfg, eulaAccepted, eula } = model;
+    const { isFailed, isProcessing, message } = initAttempt;
+
     if(isFailed){
       return <Failed message={message} />;
     }
@@ -70,7 +61,7 @@ const Installer = React.createClass({
     if(isProcessing){
       return <div><Indicator enabled={true} type={'bounce'}/></div>;
     }
-        
+
     if(eula.enabled && !eulaAccepted){
       return (
         <Eula {...cfg}
@@ -80,19 +71,19 @@ const Installer = React.createClass({
           content={eula.content}
           />
       )
-    }    
-    
-    return (      
-      <div className="grv-installer">                
+    }
+
+    return (
+      <div className="grv-installer">
         <OverlayHost>
           <div style={boxContentStyle}>
-            <div style={{ flex: "1", minWidth: "720px" }}>              
+            <div style={{ flex: "1", minWidth: "720px" }}>
               <div className="grv-installer-header">
                 <div>
                   <AppLogo logoUri={logoUri}/>
                 </div>
                 <StepIndicator value={step} options={stepOptions}/>
-              </div>                            
+              </div>
               <div className="grv-installer-content m-t-xl border-right">
                 {this.renderStepComponent(step)}
               </div>
@@ -100,12 +91,12 @@ const Installer = React.createClass({
             <div style={hintStyle}>
               <UserHints {...cfg} step={step}/>
             </div>
-          </div>       
-        </OverlayHost>  
+          </div>
+        </OverlayHost>
       </div>
     );
   }
-});
+}
 
 const boxContentStyle = {
   display: "flex",
@@ -115,7 +106,15 @@ const boxContentStyle = {
 
 const hintStyle = {
   maxWidth: "300px",
-  paddingLeft: "25px" 
+  paddingLeft: "25px"
 }
 
-export default Installer;
+function mapStateToProps() {
+  return {
+    model: getters.installer,
+    logoUri: getters.logoUri,
+    initAttempt: getters.initInstallerAttempt
+  }
+}
+
+export default connect(mapStateToProps)(Installer);

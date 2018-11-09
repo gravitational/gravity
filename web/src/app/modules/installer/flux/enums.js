@@ -14,13 +14,9 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-const StepValueEnum = {
+export const StepValueEnum = {
   LICENSE: 'license',
   NEW_APP: 'new_app',
   PROVISION: 'provision',
   PROGRESS: 'progress'
-}
-
-module.exports = {
-  StepValueEnum
 }

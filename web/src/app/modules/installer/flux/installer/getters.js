@@ -40,7 +40,7 @@ const logoUri = [['installer'], map => {
 
 export default {
   installer,
-  initInstallerAttemp: requestStatus(TRYING_TO_INIT_INSTALLER),
+  initInstallerAttempt: requestStatus(TRYING_TO_INIT_INSTALLER),
   userHints,
   logoUri
 }

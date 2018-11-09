@@ -45,26 +45,26 @@ const KeyPairName = ({options=[], value})=> {
 }
 
 class AwsProvider extends React.Component {
-  
-  onAccessKeyChange = value => {    
+
+  onAccessKeyChange = value => {
     this.accessKey = value;
     this.onKeysChange();
   }
 
-  onSecretKeyChange = value => {    
+  onSecretKeyChange = value => {
     this.secretKey = value;
     this.onKeysChange();
   }
-  
-  onSessionKeyChange = value => {    
+
+  onSessionKeyChange = value => {
     this.sessionToken = value;
     this.onKeysChange();
   }
 
-  onKeysChange(){    
+  onKeysChange(){
     actions.setProviderKeys(this.accessKey, this.secretKey, this.sessionToken);
   }
-    
+
   render() {
     let {
       useExisting,
@@ -81,8 +81,8 @@ class AwsProvider extends React.Component {
         <form ref="form" className="m-t">
           <div className="row">
             <InputGroups.AwsAccessKey className="col-sm-6" onChange={this.onAccessKeyChange} />
-            <InputGroups.AwsSecretKey className="col-sm-6" onChange={this.onSecretKeyChange} />  
-            <InputGroups.AwsSessionToken className="col-sm-12" onChange={this.onSessionKeyChange}/>                      
+            <InputGroups.AwsSecretKey className="col-sm-6" onChange={this.onSecretKeyChange} />
+            <InputGroups.AwsSessionToken className="col-sm-12" onChange={this.onSessionKeyChange}/>
         </div>
         {
           keysVerified ?
@@ -104,7 +104,7 @@ class AwsProvider extends React.Component {
                     options={regions}
                   />
                 </div>
-               { selectedRegion ? (
+               { selectedRegion && (
                  <div>
                    <div className="form-group col-sm-6">
                      <KeyPairName options={regionKeyPairNames} value={selectedKeyPairName}/>
@@ -124,7 +124,7 @@ class AwsProvider extends React.Component {
                         onChange={actions.setAwsVpc}
                         options={regionVpcs} />
                     </div>
-                  </div> ) : null
+                  </div> )
                 }
               </div>
               <Separator/>
@@ -144,9 +144,8 @@ class AwsProvider extends React.Component {
 
 function mapStateToProps() {
   return {
-    model: getters.awsProvider,
-    verifyKeysAttemp: getters.verifyKeysAttemp
-  }  
+    model: getters.awsProvider
+  }
 }
 
 export default connect(mapStateToProps)(AwsProvider);
