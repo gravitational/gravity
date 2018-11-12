@@ -1,4 +1,3 @@
----
 apiVersion: policy/v1beta1
 kind: PodSecurityPolicy
 metadata:
@@ -72,27 +71,6 @@ subjects:
 - kind: ServiceAccount
   name: coredns
   namespace: kube-system
----
-apiVersion: v1
-kind: ConfigMap
-metadata:
-  name: coredns
-  namespace: kube-system
-data:
-  Corefile: |
-    .:53 {
-        errors
-        health
-        kubernetes cluster.local in-addr.arpa ip6.arpa {
-          pods verified
-          fallthrough in-addr.arpa ip6.arpa
-        }
-        prometheus :9153
-        cache 30
-        loop
-        reload
-        loadbalance
-    }
 ---
 apiVersion: extensions/v1beta1
 kind: DaemonSet

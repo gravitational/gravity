@@ -39,6 +39,8 @@ const (
 	LabelPhase = "/label"
 	// RBACPhase is a phase that creates Kubernetes RBAC resources
 	RBACPhase = "/rbac"
+	// CorednsPhase is a phase that generated coredns configuration for the cluster
+	CorednsPhase = "/coredns"
 	// ResourcesPhase is a phase that creates user supplied Kubernetes resources
 	ResourcesPhase = "/resources"
 	// ExportPhase is a phase that exports application layers to registries

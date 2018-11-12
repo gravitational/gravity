@@ -443,6 +443,19 @@ type OSUser struct {
 	GID string `json:"gid"`
 }
 
+// ResolvConf describes the system resolv.conf configuration
+type ResolvConf struct {
+	Servers    []string // servers to use
+	Domain     string   // Domain parameter
+	Search     []string // suffixes to append to local name
+	Ndots      int      // number of dots in name to trigger absolute lookup
+	Timeout    int      // seconds before giving up on packet
+	Attempts   int      // lost packets before giving up on server
+	Rotate     bool     // round robin among servers
+	UnknownOpt bool     // anything unknown was encountered
+	Lookup     []string // OpenBSD top-level database "lookup" order
+}
+
 func DefaultOSUser() OSUser {
 	return OSUser{
 		defaults.ServiceUser,
