@@ -27,74 +27,74 @@ import { makeHelper } from 'app/__tests__/domUtils';
 const $node = $('<div>');
 const helper = makeHelper($node);
 
-let rootRoutes = [  
+let rootRoutes = [
   {
     component: DocumentTitle,
-    childRoutes: [  
+    childRoutes: [
       { path: cfg.routes.errorPage, component: Messages.ErrorPage },
-      { path: cfg.routes.infoPage, component: Messages.InfoPage }    
+      { path: cfg.routes.infoPage, component: Messages.InfoPage }
     ]
   }
 ]
 
 describe('components/msgPage', function () {
-    
-  const history = new createMemoryHistory();   
+
+  const history = new createMemoryHistory();
 
   beforeEach(()=>{
     helper.setup()
   });
 
-  afterEach(() => {    
-    helper.clean();    
+  afterEach(() => {
+    helper.clean();
   })
-  
-  it('should render default error', () => {                                     
+
+  it('should render default error', () => {
     history.push('/web/msg/error')
-    render();    
+    render();
     expectHeaderText(Messages.MSG_ERROR_DEFAULT)
     expectDetailsText('')
   });
-        
-  it('should render login failed', () => {                                         
+
+  it('should render login failed', () => {
     history.push('/web/msg/error/login_failed?details=test')
     render();
     expectHeaderText(Messages.MSG_ERROR_LOGIN_FAILED)
     expectDetailsText('test')
   });
 
-  it('should render expired link', () => {                                         
+  it('should render expired link', () => {
     history.push('/web/msg/error/expired_link')
     render();
-    expectHeaderText(Messages.MSG_ERROR_LINK_EXPIRED)    
+    expectHeaderText(Messages.MSG_ERROR_LINK_EXPIRED)
   });
 
-  it('should render invalid user', () => {                                         
+  it('should render invalid user', () => {
     history.push('/web/msg/error/invalid_user')
     render();
-    expectHeaderText(Messages.MSG_ERROR_INVALID_USER)    
+    expectHeaderText(Messages.MSG_ERROR_INVALID_USER)
   });
 
-  it('should render not found', () => {                                         
+  it('should render not found', () => {
     history.push('/web/msg/error/not_found')
     render();
-    expectHeaderText(Messages.MSG_ERROR_NOT_FOUND)        
+    expectHeaderText(Messages.MSG_ERROR_NOT_FOUND)
   });
 
-  it('should render login succesfull', () => {                                         
+  it('should render login succesfull', () => {
     history.push('/web/msg/info/login_success')
     render();
     expectHeaderText(Messages.MSG_INFO_LOGIN_SUCCESS)
   });
 
-  it('should render site offline', () => {                                                 
-    ReactDOM.render(( <Messages.SiteOffline siteId="hello"/> ) , $node[0]);        
+  it('should render site offline', () => {
+    ReactDOM.render(( <Messages.SiteOffline siteId="hello"/> ) , $node[0]);
     expect($node.find('.grv-msg-page h3:first').text())
-      .toEqual('This cluster is not available from Telekube.')
+      .toEqual('This cluster is not available from Gravity.')
   });
 
-  it('should render site is scheduled for uninstall', () => {                                                 
-    ReactDOM.render(( <Messages.SiteUninstall siteId="hello"/> ) , $node[0]);        
+  it('should render site is scheduled for uninstall', () => {
+    ReactDOM.render(( <Messages.SiteUninstall siteId="hello"/> ) , $node[0]);
     expect($node.find('.grv-msg-page h3:first').text())
       .toEqual('This cluster has been scheduled for deletion.')
   });
@@ -107,8 +107,8 @@ describe('components/msgPage', function () {
     expect($node.find('.grv-msg-page h1:first').text()).toEqual(text)
   }
 
-  const render = () => {    
-    ReactDOM.render(( <Router history={history} routes={rootRoutes} /> ) , $node[0]);  
+  const render = () => {
+    ReactDOM.render(( <Router history={history} routes={rootRoutes} /> ) , $node[0]);
   }
 
 });

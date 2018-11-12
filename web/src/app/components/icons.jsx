@@ -16,10 +16,10 @@ limitations under the License.
 
 import React from 'react';
 
-import telekubeSvg from 'assets/img/grv-logo-telekube.svg';
+import gravitySvg from 'assets/img/grv-logo.svg';
 
 export const GravitationalLogo = () => (
-  <svg className="grv-icon-gravitational-logo"><use xlinkHref={"#"+telekubeSvg.id}/></svg>
+  <svg className="grv-icon-gravitational-logo"><use xlinkHref={"#"+gravitySvg.id}/></svg>
 )
 
 export const CustomerLogo = ({className, imageUri, style}) => {

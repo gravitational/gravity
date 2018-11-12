@@ -1,4 +1,4 @@
-## Telekube Web Client
+## Web Client
 
 #### To build using docker:
 
