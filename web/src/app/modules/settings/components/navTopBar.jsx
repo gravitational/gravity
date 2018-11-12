@@ -22,32 +22,32 @@ const SettingsNavTopBar = ({goBackUrl, goBackLabel, customerLogoUri}) => {
   let $logo = null;
 
   if(customerLogoUri){
-    $logo = ( 
-      <CustomerLogo 
-        className="grv-settings-nav-customer-logo" 
+    $logo = (
+      <CustomerLogo
+        className="grv-settings-nav-customer-logo"
         imageUri={customerLogoUri}
       />
     )
   }else{
-    $logo = <GravitationalLogo/> 
+    $logo = <GravitationalLogo/>
   }
 
   return (
-    <div className="border-bottom">              
+    <div className="border-bottom">
         <div className="grv-settings-nav-top m-sm m-r">
           <div className="grv-settings-nav-top-item">
-            <a href={goBackUrl} style={{fontSize: "1px"}}>          
+            <a href={goBackUrl} style={{fontSize: "1px"}}>
               {$logo}
-            </a>          
+            </a>
             <ol className="breadcrumb m-l-sm">
               <li><a href={goBackUrl}>{goBackLabel}</a></li>
-              <li className="active"><a>Settings</a></li>            
-            </ol>          
-          </div>  
-          <div className="grv-settings-nav-top-item grv-settings-nav-top-item-user">
-            <UserLogo />          
+              <li className="active"><a>Settings</a></li>
+            </ol>
           </div>
-        </div>    
+          <div className="grv-settings-nav-top-item grv-settings-nav-top-item-user">
+            <UserLogo />
+          </div>
+        </div>
     </div>
   )
 }
