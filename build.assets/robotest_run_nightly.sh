@@ -22,6 +22,7 @@ export INSTALLER_URL=$GRAVITY_BUILDDIR/telekube.tar
 export DEPLOY_TO=${DEPLOY_TO:-gce}
 export TAG=$(git rev-parse --short HEAD)
 export GCL_PROJECT_ID=${GCL_PROJECT_ID:-"kubeadm-167321"}
+export GCE_REGION="northamerica-northeast1,us-west1,us-east1,us-east4,us-central1"
 
 function build_resize_suite {
   cat <<EOF
