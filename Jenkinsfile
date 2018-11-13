@@ -31,7 +31,7 @@ properties([
            description: 'Cloud provider to deploy to.',
            name: 'DEPLOY_TO'),
     string(name: 'PARALLEL_TESTS',
-           defaultValue: '1',
+           defaultValue: '4',
            description: 'Number of parallel tests to run.'),
     string(name: 'REPEAT_TESTS',
            defaultValue: '1',

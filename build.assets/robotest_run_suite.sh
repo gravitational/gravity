@@ -44,7 +44,7 @@ EOF
 
 function build_upgrade_suite {
   local suite=''
-  local cluster_size='"flavor":"six","nodes":6,"role":"node"'
+  local cluster_size='"flavor":"three","nodes":3,"role":"node"'
   for release in ${!UPGRADE_MAP[@]}; do
     for os in ${UPGRADE_MAP[$release]}; do
       suite+=$(build_upgrade_step $os $release 'overlay2' $cluster_size)
@@ -65,7 +65,7 @@ EOF
 function build_install_suite {
   local suite=''
   local test_os="redhat:7"
-  local cluster_size='"flavor":"six","nodes":6,"role":"node"'
+  local cluster_size='"flavor":"three","nodes":3,"role":"node"'
   suite+=$(cat <<EOF
  install={${cluster_size},"os":"${test_os}","storage_driver":"overlay2"}
 EOF
