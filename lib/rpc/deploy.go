@@ -130,8 +130,12 @@ func DeployAgents(ctx context.Context, req DeployAgentsRequest) error {
 		serverStateDir := stateServer.StateDir()
 
 		go func(node, nodeStateDir string, leader bool) {
-			err := deployAgentOnNode(ctx, req, node, nodeStateDir, leader, req.SecretsPackage.String())
-			errors <- trace.Wrap(err)
+			err := trace.Wrap(deployAgentOnNode(ctx, req, node, nodeStateDir,
+				leader, req.SecretsPackage.String()))
+			if err != nil {
+				log.WithError(err).WithField("node", node).Warnf("Failed to deploy agent.")
+			}
+			errors <- err
 		}(server.NodeAddr, serverStateDir, leaderProcess)
 	}
 
