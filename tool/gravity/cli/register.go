@@ -249,7 +249,7 @@ func RegisterCommands(app *kingpin.Application) *Application {
 
 	// uninstall app
 	g.AppUninstallCmd.CmdClause = g.AppCmd.Command("uninstall", "uninstall application").Hidden()
-	g.AppUninstallCmd.Locator = g.AppUninstallCmd.Arg("pkg", "package name with application").String()
+	g.AppUninstallCmd.Locator = Locator(g.AppUninstallCmd.Arg("pkg", "package name with application").Required())
 
 	// get status of an application
 	g.AppStatusCmd.CmdClause = g.AppCmd.Command("status", "get app status").Hidden()

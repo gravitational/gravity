@@ -687,7 +687,7 @@ type AppListCmd struct {
 type AppUninstallCmd struct {
 	*kingpin.CmdClause
 	// Locator is the application locator
-	Locator *string
+	Locator *loc.Locator
 }
 
 // AppStatusCmd shows app status
