@@ -39,14 +39,24 @@ const (
 type Backend interface {
 	// GetKeys returns a list of keys for a given path
 	GetKeys(bucket []string) ([]string, error)
+	// GetItems returns a list of items (key value pairs) for a bucket.
+	GetItems(bucket []string) ([]Item, error)
 	// CreateVal creates value with a given TTL and key in the bucket
 	// if the value already exists, it must return trace.AlreadyExistsError
 	CreateVal(bucket []string, key string, val []byte, ttl time.Duration) error
 	// UpsertVal updates or inserts value with a given TTL into a bucket
 	// ForeverTTL for no TTL
 	UpsertVal(bucket []string, key string, val []byte, ttl time.Duration) error
+	// UpsertItems updates or inserts all passed in backend.Items (with a TTL)
+	// into the given bucket.
+	UpsertItems(bucket []string, items []Item) error
 	// GetVal return a value for a given key in the bucket
 	GetVal(path []string, key string) ([]byte, error)
+	// CompareAndSwapVal compares and swaps values in atomic operation,
+	// succeeds if prevVal matches the value stored in the database,
+	// requires prevVal as a non-empty value. Returns trace.CompareFailed
+	// in case if value did not match.
+	CompareAndSwapVal(bucket []string, key string, val []byte, prevVal []byte, ttl time.Duration) error
 	// DeleteKey deletes a key in a bucket
 	DeleteKey(bucket []string, key string) error
 	// DeleteBucket deletes the bucket by a given path
@@ -61,19 +71,31 @@ type Backend interface {
 	Clock() clockwork.Clock
 }
 
-// Item is a pair of key and value
+// Item is a pair of key and value.
 type Item struct {
-	// Key is an item key
+	// Key is an item key.
 	Key string
-	// Value is an item value
+	// Value is an item value.
 	Value []byte
+	// TTL is the expire time for the item.
+	TTL time.Duration
 }
 
-// ItemsGetter is an interface that allows gettings all
-// items in the bucket at once
-type ItemsGetter interface {
-	// GetItems returns a list of items - key value pairs
-	GetItems(bucket []string) ([]Item, error)
+type Items []Item
+
+// Len is part of sort.Interface.
+func (it Items) Len() int {
+	return len(it)
+}
+
+// Swap is part of sort.Interface.
+func (it Items) Swap(i, j int) {
+	it[i], it[j] = it[j], it[i]
+}
+
+// Less is part of sort.Interface.
+func (it Items) Less(i, j int) bool {
+	return it[i].Key < it[j].Key
 }
 
 // backend.Params type defines a flexible unified back-end configuration API.

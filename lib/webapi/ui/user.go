@@ -215,7 +215,7 @@ func newAccess(roleSet teleservices.RoleSet, ctx *teleservices.Context, kind str
 
 func hasAccess(roleSet teleservices.RoleSet, ctx *teleservices.Context, kind string, verbs ...string) bool {
 	for _, verb := range verbs {
-		err := roleSet.CheckAccessToRule(ctx, defaults.Namespace, kind, verb)
+		err := roleSet.CheckAccessToRule(ctx, defaults.Namespace, kind, verb, false)
 		if err != nil {
 			return false
 		}
@@ -236,7 +236,8 @@ func getLogins(roleSet teleservices.RoleSet) []string {
 	denied = utils.Deduplicate(denied)
 	userLogins := []string{}
 	for _, login := range allowed {
-		if teleservices.MatchLogin(denied, login) == false {
+		match, _ := teleservices.MatchLogin(denied, login)
+		if match == false {
 			userLogins = append(userLogins, login)
 		}
 	}

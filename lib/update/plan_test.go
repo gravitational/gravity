@@ -78,7 +78,7 @@ func (s *PlanSuite) TestPlanWithRuntimeUpdate(c *check.C) {
 	masters := *builder.masters(leadMaster, servers[1:2], false).Require(checks, bootstrap, preUpdate, coreDNS)
 	nodes := *builder.nodes(leadMaster.Server, servers[2:], false).Require(masters)
 	etcd := *builder.etcdPlan(leadMaster.Server, params.servers[1:2], params.servers[2:], "1.0.0", "2.0.0")
-	migration := builder.migration(params)
+	migration := builder.migration(leadMaster.Server, params)
 	c.Assert(migration, check.NotNil)
 
 	runtimeLocs := []loc.Locator{

@@ -25,10 +25,10 @@ import (
 	"context"
 	"crypto/subtle"
 	"encoding/json"
-	"fmt"
 	"io"
 	"net"
 	"sync"
+	"sync/atomic"
 	"time"
 
 	"github.com/gravitational/teleport"
@@ -67,6 +67,11 @@ type Server struct {
 
 	closeContext context.Context
 	closeFunc    context.CancelFunc
+
+	// conns tracks amount of current active connections
+	conns int32
+	// shutdownPollPeriod sets polling period for shutdown
+	shutdownPollPeriod time.Duration
 }
 
 const (
@@ -96,6 +101,14 @@ type ServerOption func(cfg *Server) error
 func SetLimiter(limiter *limiter.Limiter) ServerOption {
 	return func(s *Server) error {
 		s.limiter = limiter
+		return nil
+	}
+}
+
+// SetShutdownPollPeriod sets a polling period for graceful shutdowns of SSH servers
+func SetShutdownPollPeriod(period time.Duration) ServerOption {
+	return func(s *Server) error {
+		s.shutdownPollPeriod = period
 		return nil
 	}
 }
@@ -134,6 +147,10 @@ func NewServer(
 			return nil, err
 		}
 	}
+	if s.shutdownPollPeriod == 0 {
+		s.shutdownPollPeriod = defaults.ShutdownPollPeriod
+	}
+
 	for _, signer := range hostSigners {
 		(&s.cfg).AddHostKey(signer)
 	}
@@ -141,9 +158,10 @@ func NewServer(
 	s.cfg.PasswordCallback = ah.Password
 	s.cfg.NoClientAuth = ah.NoClient
 
-	// Teleport SSH server will be sending the following "version string" during
-	// SSH handshake (example): "SSH-2.0-T eleport 1.5.1-beta" (space is important!)
-	s.cfg.ServerVersion = fmt.Sprintf("%s %s", SSHVersionPrefix, teleport.Version)
+	// Teleport servers need to identify as such to allow passing of the client
+	// IP from the client to the proxy to the destination node.
+	s.cfg.ServerVersion = SSHVersionPrefix
+
 	return s, nil
 }
 
@@ -163,7 +181,7 @@ func SetRequestHandler(req RequestHandler) ServerOption {
 
 func SetCiphers(ciphers []string) ServerOption {
 	return func(s *Server) error {
-		s.Debugf("supported ciphers: %q", ciphers)
+		s.Debugf("Supported ciphers: %q.", ciphers)
 		if ciphers != nil {
 			s.cfg.Ciphers = ciphers
 		}
@@ -173,7 +191,7 @@ func SetCiphers(ciphers []string) ServerOption {
 
 func SetKEXAlgorithms(kexAlgorithms []string) ServerOption {
 	return func(s *Server) error {
-		s.Debugf("supported KEX algorithms: %q", kexAlgorithms)
+		s.Debugf("Supported KEX algorithms: %q.", kexAlgorithms)
 		if kexAlgorithms != nil {
 			s.cfg.KeyExchanges = kexAlgorithms
 		}
@@ -183,7 +201,7 @@ func SetKEXAlgorithms(kexAlgorithms []string) ServerOption {
 
 func SetMACAlgorithms(macAlgorithms []string) ServerOption {
 	return func(s *Server) error {
-		s.Debugf("supported MAC algorithms: %q", macAlgorithms)
+		s.Debugf("Supported MAC algorithms: %q.", macAlgorithms)
 		if macAlgorithms != nil {
 			s.cfg.MACs = macAlgorithms
 		}
@@ -234,8 +252,43 @@ func (s *Server) setListener(l net.Listener) error {
 
 // Wait waits until server stops serving new connections
 // on the listener socket
-func (s *Server) Wait() {
-	<-s.closeContext.Done()
+func (s *Server) Wait(ctx context.Context) {
+	select {
+	case <-s.closeContext.Done():
+	case <-ctx.Done():
+	}
+}
+
+// Shutdown initiates graceful shutdown - waiting until all active
+// connections will get closed
+func (s *Server) Shutdown(ctx context.Context) error {
+	// close listener to stop receiving new connections
+	err := s.Close()
+	s.Wait(ctx)
+	activeConnections := s.trackConnections(0)
+	if activeConnections == 0 {
+		return err
+	}
+	s.Infof("Shutdown: waiting for %v connections to finish.", activeConnections)
+	lastReport := time.Time{}
+	ticker := time.NewTicker(s.shutdownPollPeriod)
+	defer ticker.Stop()
+	for {
+		select {
+		case <-ticker.C:
+			activeConnections = s.trackConnections(0)
+			if activeConnections == 0 {
+				return err
+			}
+			if time.Now().Sub(lastReport) > 10*s.shutdownPollPeriod {
+				s.Infof("Shutdown: waiting for %v connections to finish.", activeConnections)
+				lastReport = time.Now()
+			}
+		case <-ctx.Done():
+			s.Infof("Context cancelled wait, returning")
+			return trace.ConnectionProblem(err, "context cancelled")
+		}
+	}
 }
 
 // Close closes listening socket and stops accepting connections
@@ -261,25 +314,29 @@ func (s *Server) acceptConnections() {
 	backoffTimer := time.NewTicker(5 * time.Second)
 	defer backoffTimer.Stop()
 	addr := s.Addr()
-	s.Debugf("listening on %v", addr)
+	s.Debugf("Listening on %v.", addr)
 	for {
 		conn, err := s.listener.Accept()
 		if err != nil {
 			if s.isClosed() {
-				s.Debugf("server %v has closed", addr)
+				s.Debugf("Server %v has closed.", addr)
 				return
 			}
 			select {
 			case <-s.closeContext.Done():
-				s.Debugf("server %v has closed", addr)
+				s.Debugf("Server %v has closed.", addr)
 				return
 			case <-backoffTimer.C:
-				s.Debugf("backoff on network error: %v", err)
+				s.Debugf("Backoff on network error: %v.", err)
 			}
 		} else {
 			go s.handleConnection(conn)
 		}
 	}
+}
+
+func (s *Server) trackConnections(delta int32) int32 {
+	return atomic.AddInt32(&s.conns, delta)
 }
 
 // handleConnection is called every time an SSH server accepts a new
@@ -289,6 +346,8 @@ func (s *Server) acceptConnections() {
 // and proxies, proxies and servers, servers and auth, etc).
 //
 func (s *Server) handleConnection(conn net.Conn) {
+	s.trackConnections(1)
+	defer s.trackConnections(-1)
 	// initiate an SSH connection, note that we don't need to close the conn here
 	// in case of error as ssh server takes care of this
 	remoteAddr, _, err := net.SplitHostPort(conn.RemoteAddr().String())
@@ -467,7 +526,10 @@ func (c *connectionWrapper) Read(b []byte) (int, error) {
 	buff := make([]byte, MaxVersionStringBytes)
 	n, err := c.Conn.Read(buff)
 	if err != nil {
-		log.Error(err)
+		// EOF happens quite often, don't pollute the logs with EOF
+		if err != io.EOF {
+			log.Error(err)
+		}
 		return n, err
 	}
 	// chop off extra unused bytes at the end of the buffer:

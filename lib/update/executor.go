@@ -56,6 +56,8 @@ const (
 	migrateLinks = "links"
 	// updateLabels is the phase to update node labels in the cluster
 	updateLabels = "labels"
+	// migrateRoles is the phase to migrate roles to a new format
+	migrateRoles = "roles"
 	// updateEtcdBackup is the phase to backup the etcd datastore before upgrade
 	updateEtcdBackup = "etcd_backup"
 	// updateEtcdShutdown is the phase to shutdown the etcd datastore for upgrade
@@ -115,6 +117,8 @@ func fsmSpec(c FSMConfig) fsm.FSMSpecFunc {
 			return NewPhaseMigrateLinks(c, p.Plan, p.Phase)
 		case updateLabels:
 			return NewPhaseUpdateLabels(c, p.Plan, p.Phase)
+		case migrateRoles:
+			return NewPhaseMigrateRoles(c, p.Plan, p.Phase)
 		case updateEtcdBackup:
 			return NewPhaseUpgradeEtcdBackup(c, p.Plan, p.Phase)
 		case updateEtcdShutdown:

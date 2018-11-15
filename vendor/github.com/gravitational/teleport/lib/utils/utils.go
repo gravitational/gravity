@@ -1,5 +1,5 @@
 /*
-Copyright 2015 Gravitational, Inc.
+Copyright 2015-2018 Gravitational, Inc.
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -17,6 +17,7 @@ limitations under the License.
 package utils
 
 import (
+	"encoding/json"
 	"io"
 	"io/ioutil"
 	"net"
@@ -30,8 +31,88 @@ import (
 	"github.com/gravitational/teleport/lib/modules"
 	"github.com/gravitational/trace"
 	"github.com/pborman/uuid"
-	"golang.org/x/crypto/ssh"
 )
+
+// AsBool converts string to bool, in case of the value is empty
+// or unknown, defaults to false
+func AsBool(v string) bool {
+	if v == "" {
+		return false
+	}
+	out, _ := ParseBool(v)
+	return out
+}
+
+// ParseBool parses string as boolean value,
+// returns error in case if value is not recognized
+func ParseBool(value string) (bool, error) {
+	switch strings.ToLower(value) {
+	case "yes", "yeah", "y", "true", "1", "on":
+		return true, nil
+	case "no", "nope", "n", "false", "0", "off":
+		return false, nil
+	default:
+		return false, trace.BadParameter("unsupported value: %q", value)
+	}
+}
+
+// ParseAdvertiseAddress validates advertise address,
+// makes sure it's not an unreachable or multicast address
+// returns address split into host and port, port could be empty
+// if not specified
+func ParseAdvertiseAddr(advertiseIP string) (string, string, error) {
+	advertiseIP = strings.TrimSpace(advertiseIP)
+	host := advertiseIP
+	port := ""
+	if len(net.ParseIP(host)) == 0 && strings.Contains(advertiseIP, ":") {
+		var err error
+		host, port, err = net.SplitHostPort(advertiseIP)
+		if err != nil {
+			return "", "", trace.BadParameter("failed to parse address %q", advertiseIP)
+		}
+		if _, err := strconv.Atoi(port); err != nil {
+			return "", "", trace.BadParameter("bad port %q, expected integer", port)
+		}
+		if host == "" {
+			return "", "", trace.BadParameter("missing host parameter")
+		}
+	}
+	ip := net.ParseIP(host)
+	if len(ip) != 0 {
+		if ip.IsUnspecified() || ip.IsMulticast() {
+			return "", "", trace.BadParameter("unreachable advertise IP: %v", advertiseIP)
+		}
+	}
+	return host, port, nil
+}
+
+// StringsSet creates set of string (map[string]struct{})
+// from a list of strings
+func StringsSet(in []string) map[string]struct{} {
+	if in == nil {
+		return nil
+	}
+	out := make(map[string]struct{})
+	for _, v := range in {
+		out[v] = struct{}{}
+	}
+	return out
+}
+
+// ParseOnOff parses whether value is "on" or "off", parameterName is passed for error
+// reporting purposes, defaultValue is returned when no value is set
+func ParseOnOff(parameterName, val string, defaultValue bool) (bool, error) {
+	switch val {
+	case teleport.On:
+		return true, nil
+	case teleport.Off:
+		return false, nil
+	case "":
+		return defaultValue, nil
+	default:
+		return false, trace.BadParameter("bad %q parameter value: %q, supported values are on or off", parameterName, val)
+	}
+}
 
 // IsGroupMember returns whether currently logged user is a member of a group
 func IsGroupMember(gid int) (bool, error) {
@@ -47,6 +128,18 @@ func IsGroupMember(gid int) (bool, error) {
 	return false, nil
 }
 
+// Host extracts host from host:port string
+func Host(hostname string) (string, error) {
+	if hostname == "" {
+		return "", trace.BadParameter("missing parameter hostname")
+	}
+	if !strings.Contains(hostname, ":") {
+		return hostname, nil
+	}
+	host, _, err := SplitHostPort(hostname)
+	return host, err
+}
+
 // SplitHostPort splits host and port and checks that host is not empty
 func SplitHostPort(hostname string) (string, string, error) {
 	host, port, err := net.SplitHostPort(hostname)
@@ -58,8 +151,6 @@ func SplitHostPort(hostname string) (string, string, error) {
 	}
 	return host, port, nil
 }
-
-type HostKeyCallback func(hostID string, remote net.Addr, key ssh.PublicKey) error
 
 func ReadPath(path string) ([]byte, error) {
 	s, err := filepath.Abs(path)
@@ -122,10 +213,37 @@ func (p *PortList) Pop() string {
 	return val
 }
 
+// PopInt returns a value from the list, it panics if not enough values
+// were allocated
+func (p *PortList) PopInt() int {
+	i, err := strconv.Atoi(p.Pop())
+	if err != nil {
+		panic(err)
+	}
+	return i
+}
+
+// PopIntSlice returns a slice of values from the list, it panics if not enough
+// ports were allocated
+func (p *PortList) PopIntSlice(num int) []int {
+	ports := make([]int, num)
+	for i := range ports {
+		ports[i] = p.PopInt()
+	}
+	return ports
+}
+
+// PortStartingNumber is a starting port number for tests
+const PortStartingNumber = 20000
+
 // GetFreeTCPPorts returns n ports starting from port 20000.
-func GetFreeTCPPorts(n int) (PortList, error) {
+func GetFreeTCPPorts(n int, offset ...int) (PortList, error) {
 	list := make(PortList, 0, n)
-	for i := 20000; i < 20000+n; i++ {
+	start := PortStartingNumber
+	if len(offset) != 0 {
+		start = offset[0]
+	}
+	for i := start; i < start+n; i++ {
 		list = append(list, strconv.Itoa(i))
 	}
 	return list, nil
@@ -137,7 +255,7 @@ func ReadHostUUID(dataDir string) (string, error) {
 	if err != nil {
 		return "", trace.Wrap(err)
 	}
-	return string(out), nil
+	return strings.TrimSpace(string(out)), nil
 }
 
 // WriteHostUUID writes host UUID into a file
@@ -202,6 +320,26 @@ func SliceContainsStr(slice []string, value string) bool {
 	return false
 }
 
+// RemoveFromSlice makes a copy of the slice and removes the passed in values from the copy.
+func RemoveFromSlice(slice []string, values ...string) []string {
+	output := make([]string, 0, len(slice))
+
+	remove := make(map[string]bool)
+	for _, value := range values {
+		remove[value] = true
+	}
+
+	for _, s := range slice {
+		_, ok := remove[s]
+		if ok {
+			continue
+		}
+		output = append(output, s)
+	}
+
+	return output
+}
+
 // CheckCertificateFormatFlag checks if the certificate format is valid.
 func CheckCertificateFormatFlag(s string) (string, error) {
 	switch s {
@@ -210,6 +348,83 @@ func CheckCertificateFormatFlag(s string) (string, error) {
 	default:
 		return "", trace.BadParameter("invalid certificate format parameter: %q", s)
 	}
+}
+
+// Strings is a list of string that can unmarshal from list of strings
+// or a scalar string from scalar yaml or json property
+type Strings []string
+
+// UnmarshalJSON unmarshals scalar string or strings slice to Strings
+func (s *Strings) UnmarshalJSON(data []byte) error {
+	if len(data) == 0 {
+		return nil
+	}
+	var stringVar string
+	if err := json.Unmarshal(data, &stringVar); err == nil {
+		*s = []string{stringVar}
+		return nil
+	}
+	var stringsVar []string
+	if err := json.Unmarshal(data, &stringsVar); err != nil {
+		return trace.Wrap(err)
+	}
+	*s = stringsVar
+	return nil
+}
+
+// UnmarshalYAML is used to allow Strings to unmarshal from
+// scalar string value or from the list
+func (s *Strings) UnmarshalYAML(unmarshal func(interface{}) error) error {
+	// try unmarshal as string
+	var val string
+	err := unmarshal(&val)
+	if err == nil {
+		*s = []string{val}
+		return nil
+	}
+
+	// try unmarshal as slice
+	var slice []string
+	err = unmarshal(&slice)
+	if err == nil {
+		*s = slice
+		return nil
+	}
+
+	return err
+}
+
+// MarshalJSON marshals to scalar value
+// if there is only one value in the list
+// to list otherwise
+func (s Strings) MarshalJSON() ([]byte, error) {
+	if len(s) == 1 {
+		return json.Marshal(s[0])
+	}
+	return json.Marshal([]string(s))
+}
+
+// MarshalYAML marshals to scalar value
+// if there is only one value in the list,
+// marshals to list otherwise
+func (s Strings) MarshalYAML() (interface{}, error) {
+	if len(s) == 1 {
+		return s[0], nil
+	}
+	return []string(s), nil
+}
+
+// Addrs returns strings list converted to address list
+func (s Strings) Addrs(defaultPort int) ([]NetAddr, error) {
+	addrs := make([]NetAddr, len(s))
+	for i, val := range s {
+		addr, err := ParseHostPortAddr(val, defaultPort)
+		if err != nil {
+			return nil, trace.Wrap(err)
+		}
+		addrs[i] = *addr
+	}
+	return addrs, nil
 }
 
 const (

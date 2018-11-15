@@ -17,6 +17,7 @@ limitations under the License.
 package client
 
 import (
+	"crypto/x509"
 	"fmt"
 	"net"
 	"os"
@@ -26,7 +27,7 @@ import (
 	"golang.org/x/crypto/ssh/agent"
 
 	"github.com/gravitational/teleport"
-	"github.com/gravitational/teleport/lib/services"
+	"github.com/gravitational/teleport/lib/auth"
 	"github.com/gravitational/teleport/lib/sshutils"
 	"github.com/gravitational/trace"
 
@@ -107,6 +108,11 @@ func NewLocalAgent(keyDir string, proxyHost string, username string) (a *LocalKe
 	}
 
 	return a, nil
+}
+
+// UpdateProxyHost changes the proxy host that the local agent operates on.
+func (a *LocalKeyAgent) UpdateProxyHost(proxyHost string) {
+	a.proxyHost = proxyHost
 }
 
 // LoadKey adds a key into the Teleport ssh agent as well as the system ssh
@@ -218,20 +224,32 @@ func (a *LocalKeyAgent) GetKey() (*Key, error) {
 //
 // Why do we trust these CAs? Because we received them from a trusted Teleport Proxy.
 // Why do we trust the proxy? Because we've connected to it via HTTPS + username + Password + HOTP.
-func (a *LocalKeyAgent) AddHostSignersToCache(hostSigners []services.CertAuthorityV1) error {
-	for _, hostSigner := range hostSigners {
-		publicKeys, err := hostSigner.V2().Checkers()
+func (a *LocalKeyAgent) AddHostSignersToCache(certAuthorities []auth.TrustedCerts) error {
+	for _, ca := range certAuthorities {
+		publicKeys, err := ca.SSHCertPublicKeys()
 		if err != nil {
 			a.log.Error(err)
 			return trace.Wrap(err)
 		}
-		a.log.Debugf("Adding CA key for %s", hostSigner.DomainName)
-		err = a.keyStore.AddKnownHostKeys(hostSigner.DomainName, publicKeys)
+		a.log.Debugf("Adding CA key for %s", ca.ClusterName)
+		err = a.keyStore.AddKnownHostKeys(ca.ClusterName, publicKeys)
 		if err != nil {
 			return trace.Wrap(err)
 		}
 	}
 	return nil
+}
+
+func (a *LocalKeyAgent) SaveCerts(certAuthorities []auth.TrustedCerts) error {
+	return a.keyStore.SaveCerts(a.proxyHost, certAuthorities)
+}
+
+func (a *LocalKeyAgent) GetCerts() (*x509.CertPool, error) {
+	return a.keyStore.GetCerts(a.proxyHost)
+}
+
+func (a *LocalKeyAgent) GetCertsPEM() ([]byte, error) {
+	return a.keyStore.GetCertsPEM(a.proxyHost)
 }
 
 // UserRefusedHosts returns 'true' if a user refuses connecting to remote hosts

@@ -207,6 +207,7 @@ func (p *bootstrapExecutor) configureSystemDirectories() error {
 		filepath.Join(stateDir, "site", "packages", "blobs"),
 		filepath.Join(stateDir, "site", "packages", "tmp"),
 		filepath.Join(stateDir, "secrets"),
+		filepath.Join(stateDir, "backup"),
 	}
 	for _, dir := range mkdirList {
 		p.Infof("Creating system directory %v.", dir)
@@ -230,6 +231,7 @@ func (p *bootstrapExecutor) configureSystemDirectories() error {
 		filepath.Join(stateDir, "planet"),
 		filepath.Join(stateDir, "site"),
 		filepath.Join(stateDir, "secrets"),
+		filepath.Join(stateDir, "backup"),
 	}
 	for _, dir := range chownList {
 		p.Infof("Setting ownership on system directory %v to %v:%v.",

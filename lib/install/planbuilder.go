@@ -62,6 +62,8 @@ type PlanBuilder struct {
 	ServiceUser storage.OSUser
 	// DNSConfig specifies the custom cluster DNS configuration
 	DNSConfig storage.DNSConfig
+	// InstallerTrustedCluster represents the trusted cluster for installer process
+	InstallerTrustedCluster storage.TrustedCluster
 }
 
 // AddChecksPhase appends preflight checks phase to the provided plan
@@ -431,11 +433,30 @@ func (b *PlanBuilder) AddApplicationPhase(plan *storage.OperationPlan) error {
 	return nil
 }
 
+// AddConnectInstallerPhase appends installer/cluster connection phase
+func (b *PlanBuilder) AddConnectInstallerPhase(plan *storage.OperationPlan) error {
+	bytes, err := storage.MarshalTrustedCluster(b.InstallerTrustedCluster)
+	if err != nil {
+		return trace.Wrap(err)
+	}
+	plan.Phases = append(plan.Phases, storage.OperationPhase{
+		ID:          phases.ConnectInstallerPhase,
+		Description: "Connect to installer",
+		Data: &storage.OperationPhaseData{
+			Server:         &b.Master,
+			TrustedCluster: bytes,
+		},
+		Requires: []string{phases.RuntimePhase},
+		Step:     8,
+	})
+	return nil
+}
+
 // AddEnableElectionPhase appends leader election enabling phase to the provided plan
 func (b *PlanBuilder) AddEnableElectionPhase(plan *storage.OperationPlan) {
 	plan.Phases = append(plan.Phases, storage.OperationPhase{
 		ID:          phases.EnableElectionPhase,
-		Description: "Enable elections",
+		Description: "Enable cluster leader elections",
 		Requires:    []string{phases.AppPhase},
 		Data: &storage.OperationPhaseData{
 			Server: &b.Master,
@@ -508,6 +529,10 @@ func (i *Installer) GetPlanBuilder(cluster ops.Site, op ops.SiteOperation) (*Pla
 	if err != nil {
 		return nil, trace.Wrap(err)
 	}
+	trustedCluster, err := i.getInstallerTrustedCluster()
+	if err != nil {
+		return nil, trace.Wrap(err)
+	}
 	return &PlanBuilder{
 		Application:        *application,
 		Runtime:            *runtime,
@@ -525,8 +550,25 @@ func (i *Installer) GetPlanBuilder(cluster ops.Site, op ops.SiteOperation) (*Pla
 			UID:  strconv.Itoa(i.Config.ServiceUser.UID),
 			GID:  strconv.Itoa(i.Config.ServiceUser.GID),
 		},
-		DNSConfig: cluster.DNSConfig,
+		DNSConfig:               cluster.DNSConfig,
+		InstallerTrustedCluster: trustedCluster,
 	}, nil
+}
+
+// getInstallerTrustedCluster returns trusted cluster representing installer process
+func (i *Installer) getInstallerTrustedCluster() (storage.TrustedCluster, error) {
+	seedConfig := i.Process.Config().OpsCenter.SeedConfig
+	if seedConfig == nil {
+		return nil, trace.NotFound("process config is missing seed config: %#v",
+			i.Process.Config())
+	}
+	for _, tc := range seedConfig.TrustedClusters {
+		if tc.GetWizard() {
+			return tc, nil
+		}
+	}
+	return nil, trace.NotFound("no installer trusted cluster in seed config: %#v",
+		seedConfig)
 }
 
 // splitServers splits the provided servers into masters and nodes

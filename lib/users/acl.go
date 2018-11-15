@@ -76,7 +76,7 @@ func (i *IdentityACL) clusterContext(clusterName string) (*Context, storage.Clus
 // usersAction checks whether the user has the requested permissions
 func (i *IdentityACL) usersAction(action string) error {
 	return i.checker.CheckAccessToRule(
-		i.context(), defaults.Namespace, teleservices.KindUser, action)
+		i.context(), defaults.Namespace, teleservices.KindUser, action, false)
 }
 
 // currentUserAction is a special checker that allows certain actions for users
@@ -87,7 +87,7 @@ func (i *IdentityACL) currentUserAction(username string) error {
 		return nil
 	}
 	return i.checker.CheckAccessToRule(
-		i.context(), defaults.Namespace, teleservices.KindUser, teleservices.VerbUpdate)
+		i.context(), defaults.Namespace, teleservices.KindUser, teleservices.VerbUpdate, false)
 }
 
 func (i *IdentityACL) SetAuth(auth teleauth.ClientI) {
@@ -99,8 +99,8 @@ func (i *IdentityACL) SetAuth(auth teleauth.ClientI) {
 // If not, it checks if the requester has the meta KindAuthConnector access
 // (which grants access to all connectors).
 func (i *IdentityACL) authConnectorAction(resource string, verb string) error {
-	if err := i.checker.CheckAccessToRule(i.context(), teledefaults.Namespace, resource, verb); err != nil {
-		if err := i.checker.CheckAccessToRule(i.context(), teledefaults.Namespace, teleservices.KindAuthConnector, verb); err != nil {
+	if err := i.checker.CheckAccessToRule(i.context(), teledefaults.Namespace, resource, verb, false); err != nil {
+		if err := i.checker.CheckAccessToRule(i.context(), teledefaults.Namespace, teleservices.KindAuthConnector, verb, false); err != nil {
 			return trace.Wrap(err)
 		}
 	}
@@ -117,7 +117,7 @@ func (i *IdentityACL) clusterAction(clusterName string, verbs ...string) error {
 		return trace.Wrap(err)
 	}
 	for _, verb := range verbs {
-		if err := i.checker.CheckAccessToRule(ctx, cluster.GetMetadata().Namespace, storage.KindCluster, verb); err != nil {
+		if err := i.checker.CheckAccessToRule(ctx, cluster.GetMetadata().Namespace, storage.KindCluster, verb, false); err != nil {
 			return trace.Wrap(err)
 		}
 	}
@@ -133,19 +133,19 @@ func (i *IdentityACL) DeactivateCertAuthority(id teleservices.CertAuthID) error 
 }
 
 // UpsertTrustedCluster creates or updates a TrustedCluster in the backend.
-func (i *IdentityACL) UpsertTrustedCluster(trustedCluster teleservices.TrustedCluster) error {
-	if err := i.checker.CheckAccessToRule(i.context(), trustedCluster.GetMetadata().Namespace, teleservices.KindTrustedCluster, teleservices.VerbCreate); err != nil {
-		return trace.Wrap(err)
+func (i *IdentityACL) UpsertTrustedCluster(trustedCluster teleservices.TrustedCluster) (teleservices.TrustedCluster, error) {
+	if err := i.checker.CheckAccessToRule(i.context(), trustedCluster.GetMetadata().Namespace, teleservices.KindTrustedCluster, teleservices.VerbCreate, false); err != nil {
+		return nil, trace.Wrap(err)
 	}
-	if err := i.checker.CheckAccessToRule(i.context(), trustedCluster.GetMetadata().Namespace, teleservices.KindTrustedCluster, teleservices.VerbUpdate); err != nil {
-		return trace.Wrap(err)
+	if err := i.checker.CheckAccessToRule(i.context(), trustedCluster.GetMetadata().Namespace, teleservices.KindTrustedCluster, teleservices.VerbUpdate, false); err != nil {
+		return nil, trace.Wrap(err)
 	}
 	return i.identity.UpsertTrustedCluster(trustedCluster)
 }
 
 // GetTrustedCluster returns a single TrustedCluster by name.
 func (i *IdentityACL) GetTrustedCluster(name string) (teleservices.TrustedCluster, error) {
-	if err := i.checker.CheckAccessToRule(i.context(), defaults.Namespace, teleservices.KindTrustedCluster, teleservices.VerbRead); err != nil {
+	if err := i.checker.CheckAccessToRule(i.context(), defaults.Namespace, teleservices.KindTrustedCluster, teleservices.VerbRead, false); err != nil {
 		return nil, trace.Wrap(err)
 	}
 	return i.identity.GetTrustedCluster(name)
@@ -153,7 +153,7 @@ func (i *IdentityACL) GetTrustedCluster(name string) (teleservices.TrustedCluste
 
 // GetTrustedClusters returns all TrustedClusters in the backend.
 func (i *IdentityACL) GetTrustedClusters() ([]teleservices.TrustedCluster, error) {
-	if err := i.checker.CheckAccessToRule(i.context(), defaults.Namespace, teleservices.KindTrustedCluster, teleservices.VerbList); err != nil {
+	if err := i.checker.CheckAccessToRule(i.context(), defaults.Namespace, teleservices.KindTrustedCluster, teleservices.VerbList, false); err != nil {
 		return nil, trace.Wrap(err)
 	}
 	return i.identity.GetTrustedClusters()
@@ -161,18 +161,61 @@ func (i *IdentityACL) GetTrustedClusters() ([]teleservices.TrustedCluster, error
 
 // DeleteTrustedCluster removes a TrustedCluster from the backend by name.
 func (i *IdentityACL) DeleteTrustedCluster(name string) error {
-	if err := i.checker.CheckAccessToRule(i.context(), defaults.Namespace, teleservices.KindTrustedCluster, teleservices.VerbDelete); err != nil {
+	if err := i.checker.CheckAccessToRule(i.context(), defaults.Namespace, teleservices.KindTrustedCluster, teleservices.VerbDelete, false); err != nil {
 		return trace.Wrap(err)
 	}
 	return i.identity.DeleteTrustedCluster(name)
 }
 
-// UpsertTunnelConnection upserts tunnel connection
-func (i *IdentityACL) UpsertTunnelConnection(conn teleservices.TunnelConnection) error {
-	if err := i.checker.CheckAccessToRule(i.context(), defaults.Namespace, teleservices.KindTunnelConnection, teleservices.VerbCreate); err != nil {
+// CreateRemoteCluster creates a remote cluster
+func (i *IdentityACL) CreateRemoteCluster(conn teleservices.RemoteCluster) error {
+	if err := i.checker.CheckAccessToRule(i.context(), defaults.Namespace, teleservices.KindRemoteCluster, teleservices.VerbCreate, false); err != nil {
 		return trace.Wrap(err)
 	}
-	if err := i.checker.CheckAccessToRule(i.context(), defaults.Namespace, teleservices.KindTunnelConnection, teleservices.VerbUpdate); err != nil {
+	return i.identity.CreateRemoteCluster(conn)
+}
+
+// GetRemoteCluster returns a remote cluster by name
+func (i *IdentityACL) GetRemoteCluster(clusterName string) (teleservices.RemoteCluster, error) {
+	if err := i.checker.CheckAccessToRule(i.context(), defaults.Namespace, teleservices.KindRemoteCluster, teleservices.VerbRead, false); err != nil {
+		return nil, trace.Wrap(err)
+	}
+	return i.identity.GetRemoteCluster(clusterName)
+}
+
+// GetRemoteClusters returns a list of remote clusters
+func (i *IdentityACL) GetRemoteClusters() ([]teleservices.RemoteCluster, error) {
+	if err := i.checker.CheckAccessToRule(i.context(), defaults.Namespace, teleservices.KindRemoteCluster, teleservices.VerbList, false); err != nil {
+		return nil, trace.Wrap(err)
+	}
+	return i.identity.GetRemoteClusters()
+}
+
+// DeleteRemoteCluster deletes remote cluster by name
+func (i *IdentityACL) DeleteRemoteCluster(clusterName string) error {
+	if err := i.checker.CheckAccessToRule(i.context(), defaults.Namespace, teleservices.KindRemoteCluster, teleservices.VerbDelete, false); err != nil {
+		return trace.Wrap(err)
+	}
+	return i.identity.DeleteRemoteCluster(clusterName)
+}
+
+// DeleteAllRemoteClusters deletes all remote clusters
+func (i *IdentityACL) DeleteAllRemoteClusters() error {
+	if err := i.checker.CheckAccessToRule(i.context(), defaults.Namespace, teleservices.KindRemoteCluster, teleservices.VerbList, false); err != nil {
+		return trace.Wrap(err)
+	}
+	if err := i.checker.CheckAccessToRule(i.context(), defaults.Namespace, teleservices.KindRemoteCluster, teleservices.VerbDelete, false); err != nil {
+		return trace.Wrap(err)
+	}
+	return i.identity.DeleteAllRemoteClusters()
+}
+
+// UpsertTunnelConnection upserts tunnel connection
+func (i *IdentityACL) UpsertTunnelConnection(conn teleservices.TunnelConnection) error {
+	if err := i.checker.CheckAccessToRule(i.context(), defaults.Namespace, teleservices.KindTunnelConnection, teleservices.VerbCreate, false); err != nil {
+		return trace.Wrap(err)
+	}
+	if err := i.checker.CheckAccessToRule(i.context(), defaults.Namespace, teleservices.KindTunnelConnection, teleservices.VerbUpdate, false); err != nil {
 		return trace.Wrap(err)
 	}
 	return i.identity.UpsertTunnelConnection(conn)
@@ -180,7 +223,7 @@ func (i *IdentityACL) UpsertTunnelConnection(conn teleservices.TunnelConnection)
 
 // GetTunnelConnections returns tunnel connections for a given cluster
 func (i *IdentityACL) GetTunnelConnections(clusterName string) ([]teleservices.TunnelConnection, error) {
-	if err := i.checker.CheckAccessToRule(i.context(), defaults.Namespace, teleservices.KindTunnelConnection, teleservices.VerbList); err != nil {
+	if err := i.checker.CheckAccessToRule(i.context(), defaults.Namespace, teleservices.KindTunnelConnection, teleservices.VerbList, false); err != nil {
 		return nil, trace.Wrap(err)
 	}
 	return i.identity.GetTunnelConnections(clusterName)
@@ -188,7 +231,7 @@ func (i *IdentityACL) GetTunnelConnections(clusterName string) ([]teleservices.T
 
 // GetAllTunnelConnections returns all tunnel connections
 func (i *IdentityACL) GetAllTunnelConnections() ([]teleservices.TunnelConnection, error) {
-	if err := i.checker.CheckAccessToRule(i.context(), defaults.Namespace, teleservices.KindTunnelConnection, teleservices.VerbList); err != nil {
+	if err := i.checker.CheckAccessToRule(i.context(), defaults.Namespace, teleservices.KindTunnelConnection, teleservices.VerbList, false); err != nil {
 		return nil, trace.Wrap(err)
 	}
 	return i.identity.GetAllTunnelConnections()
@@ -196,7 +239,7 @@ func (i *IdentityACL) GetAllTunnelConnections() ([]teleservices.TunnelConnection
 
 // DeleteTunnelConnection deletes tunnel connection by name
 func (i *IdentityACL) DeleteTunnelConnection(clusterName string, connName string) error {
-	if err := i.checker.CheckAccessToRule(i.context(), defaults.Namespace, teleservices.KindTunnelConnection, teleservices.VerbDelete); err != nil {
+	if err := i.checker.CheckAccessToRule(i.context(), defaults.Namespace, teleservices.KindTunnelConnection, teleservices.VerbDelete, false); err != nil {
 		return trace.Wrap(err)
 	}
 	return i.identity.DeleteTunnelConnection(clusterName, connName)
@@ -204,10 +247,10 @@ func (i *IdentityACL) DeleteTunnelConnection(clusterName string, connName string
 
 // DeleteTunnelConnections deletes all tunnel connections for cluster
 func (i *IdentityACL) DeleteTunnelConnections(clusterName string) error {
-	if err := i.checker.CheckAccessToRule(i.context(), defaults.Namespace, teleservices.KindTunnelConnection, teleservices.VerbList); err != nil {
+	if err := i.checker.CheckAccessToRule(i.context(), defaults.Namespace, teleservices.KindTunnelConnection, teleservices.VerbList, false); err != nil {
 		return trace.Wrap(err)
 	}
-	if err := i.checker.CheckAccessToRule(i.context(), defaults.Namespace, teleservices.KindTunnelConnection, teleservices.VerbDelete); err != nil {
+	if err := i.checker.CheckAccessToRule(i.context(), defaults.Namespace, teleservices.KindTunnelConnection, teleservices.VerbDelete, false); err != nil {
 		return trace.Wrap(err)
 	}
 	return i.identity.DeleteTunnelConnections(clusterName)
@@ -215,10 +258,10 @@ func (i *IdentityACL) DeleteTunnelConnections(clusterName string) error {
 
 // DeleteAllTunnelConnections deletes all tunnel connections for cluster
 func (i *IdentityACL) DeleteAllTunnelConnections() error {
-	if err := i.checker.CheckAccessToRule(i.context(), defaults.Namespace, teleservices.KindTunnelConnection, teleservices.VerbList); err != nil {
+	if err := i.checker.CheckAccessToRule(i.context(), defaults.Namespace, teleservices.KindTunnelConnection, teleservices.VerbList, false); err != nil {
 		return trace.Wrap(err)
 	}
-	if err := i.checker.CheckAccessToRule(i.context(), defaults.Namespace, teleservices.KindTunnelConnection, teleservices.VerbDelete); err != nil {
+	if err := i.checker.CheckAccessToRule(i.context(), defaults.Namespace, teleservices.KindTunnelConnection, teleservices.VerbDelete, false); err != nil {
 		return trace.Wrap(err)
 	}
 	return i.identity.DeleteAllTunnelConnections()
@@ -256,10 +299,10 @@ func (i *IdentityACL) GetLocalClusterName() (string, error) {
 }
 
 func (i *IdentityACL) UpsertLocalClusterName(clusterName string) error {
-	if err := i.checker.CheckAccessToRule(i.context(), teledefaults.Namespace, teleservices.KindAuthServer, teleservices.VerbCreate); err != nil {
+	if err := i.checker.CheckAccessToRule(i.context(), teledefaults.Namespace, teleservices.KindAuthServer, teleservices.VerbCreate, false); err != nil {
 		return trace.Wrap(err)
 	}
-	if err := i.checker.CheckAccessToRule(i.context(), teledefaults.Namespace, teleservices.KindAuthServer, teleservices.VerbUpdate); err != nil {
+	if err := i.checker.CheckAccessToRule(i.context(), teledefaults.Namespace, teleservices.KindAuthServer, teleservices.VerbUpdate, false); err != nil {
 		return trace.Wrap(err)
 	}
 	return i.identity.UpsertLocalClusterName(clusterName)
@@ -855,11 +898,11 @@ func (i *IdentityACL) DeleteGithubConnector(connectorID string) error {
 }
 
 // CreateGithubAuthRequest creates a new Github auth request
-func (i *IdentityACL) CreateGithubAuthRequest(req teleservices.GithubAuthRequest, ttl time.Duration) error {
+func (i *IdentityACL) CreateGithubAuthRequest(req teleservices.GithubAuthRequest) error {
 	if err := i.authConnectorAction(teleservices.KindGithubConnector, teleservices.VerbCreate); err != nil {
 		return trace.Wrap(err)
 	}
-	return i.identity.CreateGithubAuthRequest(req, ttl)
+	return i.identity.CreateGithubAuthRequest(req)
 }
 
 // GetGithubAuthRequest returns Github auth request
@@ -872,7 +915,7 @@ func (i *IdentityACL) GetGithubAuthRequest(stateToken string) (*teleservices.Git
 
 // GetAccount returns account
 func (i *IdentityACL) GetAccount(accountID string) (*Account, error) {
-	if err := i.checker.CheckAccessToRule(i.context(), storage.KindAccount, teledefaults.Namespace, teleservices.VerbRead); err != nil {
+	if err := i.checker.CheckAccessToRule(i.context(), storage.KindAccount, teledefaults.Namespace, teleservices.VerbRead, false); err != nil {
 		return nil, trace.Wrap(err)
 	}
 	return i.identity.GetAccount(accountID)
@@ -919,14 +962,14 @@ func (i *IdentityACL) GetU2FSignChallenge(user string) (*u2f.Challenge, error) {
 }
 
 func (i *IdentityACL) CreateAccount(a Account) (*Account, error) {
-	if err := i.checker.CheckAccessToRule(i.context(), teledefaults.Namespace, storage.KindAccount, teleservices.VerbCreate); err != nil {
+	if err := i.checker.CheckAccessToRule(i.context(), teledefaults.Namespace, storage.KindAccount, teleservices.VerbCreate, false); err != nil {
 		return nil, trace.Wrap(err)
 	}
 	return i.identity.CreateAccount(a)
 }
 
 func (i *IdentityACL) GetAccounts() ([]Account, error) {
-	if err := i.checker.CheckAccessToRule(i.context(), teledefaults.Namespace, storage.KindAccount, teleservices.VerbRead); err != nil {
+	if err := i.checker.CheckAccessToRule(i.context(), teledefaults.Namespace, storage.KindAccount, teleservices.VerbRead, false); err != nil {
 		return nil, trace.Wrap(err)
 	}
 	return i.identity.GetAccounts()
@@ -1045,28 +1088,39 @@ func (i *IdentityACL) GetTokens() ([]teleservices.ProvisionToken, error) {
 }
 
 // GetNodes returns a list of registered servers
-func (i *IdentityACL) GetNodes(namespace string) ([]teleservices.Server, error) {
-	if err := i.checker.CheckAccessToRule(i.context(), namespace, teleservices.KindNode, teleservices.VerbList); err != nil {
+func (i *IdentityACL) GetNodes(namespace string, opts ...teleservices.MarshalOption) ([]teleservices.Server, error) {
+	if err := i.checker.CheckAccessToRule(i.context(), namespace, teleservices.KindNode, teleservices.VerbList, false); err != nil {
 		return nil, trace.Wrap(err)
 	}
-	return i.identity.GetNodes(namespace)
+	return i.identity.GetNodes(namespace, opts...)
 }
 
 // UpsertNode registers node presence, permanently if ttl is 0 or
 // for the specified duration with second resolution if it's >= 1 second
 func (i *IdentityACL) UpsertNode(server teleservices.Server) error {
-	if err := i.checker.CheckAccessToRule(i.context(), server.GetNamespace(), teleservices.KindNode, teleservices.VerbCreate); err != nil {
+	if err := i.checker.CheckAccessToRule(i.context(), server.GetNamespace(), teleservices.KindNode, teleservices.VerbCreate, false); err != nil {
 		return trace.Wrap(err)
 	}
-	if err := i.checker.CheckAccessToRule(i.context(), server.GetNamespace(), teleservices.KindNode, teleservices.VerbUpdate); err != nil {
+	if err := i.checker.CheckAccessToRule(i.context(), server.GetNamespace(), teleservices.KindNode, teleservices.VerbUpdate, false); err != nil {
 		return trace.Wrap(err)
 	}
 	return i.identity.UpsertNode(server)
 }
 
+// UpsertNode upserts multiple nodes
+func (i *IdentityACL) UpsertNodes(namespace string, servers []teleservices.Server) error {
+	if err := i.checker.CheckAccessToRule(i.context(), namespace, teleservices.KindNode, teleservices.VerbCreate, false); err != nil {
+		return trace.Wrap(err)
+	}
+	if err := i.checker.CheckAccessToRule(i.context(), namespace, teleservices.KindNode, teleservices.VerbUpdate, false); err != nil {
+		return trace.Wrap(err)
+	}
+	return i.identity.UpsertNodes(namespace, servers)
+}
+
 // DeleteAllNodes deletes all nodes
 func (i *IdentityACL) DeleteAllNodes(namespace string) error {
-	if err := i.checker.CheckAccessToRule(i.context(), namespace, teleservices.KindNode, teleservices.VerbDelete); err != nil {
+	if err := i.checker.CheckAccessToRule(i.context(), namespace, teleservices.KindNode, teleservices.VerbDelete, false); err != nil {
 		return trace.Wrap(err)
 	}
 	return i.identity.DeleteAllNodes(namespace)
@@ -1074,7 +1128,7 @@ func (i *IdentityACL) DeleteAllNodes(namespace string) error {
 
 // GetAuthServers returns a list of registered servers
 func (i *IdentityACL) GetAuthServers() ([]teleservices.Server, error) {
-	if err := i.checker.CheckAccessToRule(i.context(), teledefaults.Namespace, teleservices.KindAuthServer, teleservices.VerbList); err != nil {
+	if err := i.checker.CheckAccessToRule(i.context(), teledefaults.Namespace, teleservices.KindAuthServer, teleservices.VerbList, false); err != nil {
 		return nil, trace.Wrap(err)
 	}
 	return i.identity.GetAuthServers()
@@ -1083,10 +1137,10 @@ func (i *IdentityACL) GetAuthServers() ([]teleservices.Server, error) {
 // UpsertAuthServer registers auth server presence, permanently if ttl is 0 or
 // for the specified duration with second resolution if it's >= 1 second
 func (i *IdentityACL) UpsertAuthServer(server teleservices.Server) error {
-	if err := i.checker.CheckAccessToRule(i.context(), teledefaults.Namespace, teleservices.KindAuthServer, teleservices.VerbCreate); err != nil {
+	if err := i.checker.CheckAccessToRule(i.context(), teledefaults.Namespace, teleservices.KindAuthServer, teleservices.VerbCreate, false); err != nil {
 		return trace.Wrap(err)
 	}
-	if err := i.checker.CheckAccessToRule(i.context(), teledefaults.Namespace, teleservices.KindAuthServer, teleservices.VerbUpdate); err != nil {
+	if err := i.checker.CheckAccessToRule(i.context(), teledefaults.Namespace, teleservices.KindAuthServer, teleservices.VerbUpdate, false); err != nil {
 		return trace.Wrap(err)
 	}
 	return i.identity.UpsertAuthServer(server)
@@ -1095,10 +1149,10 @@ func (i *IdentityACL) UpsertAuthServer(server teleservices.Server) error {
 // UpsertProxy registers proxy server presence, permanently if ttl is 0 or
 // for the specified duration with second resolution if it's >= 1 second
 func (i *IdentityACL) UpsertProxy(server teleservices.Server) error {
-	if err := i.checker.CheckAccessToRule(i.context(), teledefaults.Namespace, teleservices.KindAuthServer, teleservices.VerbCreate); err != nil {
+	if err := i.checker.CheckAccessToRule(i.context(), teledefaults.Namespace, teleservices.KindAuthServer, teleservices.VerbCreate, false); err != nil {
 		return trace.Wrap(err)
 	}
-	if err := i.checker.CheckAccessToRule(i.context(), teledefaults.Namespace, teleservices.KindAuthServer, teleservices.VerbUpdate); err != nil {
+	if err := i.checker.CheckAccessToRule(i.context(), teledefaults.Namespace, teleservices.KindAuthServer, teleservices.VerbUpdate, false); err != nil {
 		return trace.Wrap(err)
 	}
 	return i.identity.UpsertProxy(server)
@@ -1106,7 +1160,7 @@ func (i *IdentityACL) UpsertProxy(server teleservices.Server) error {
 
 // DeleteAllProxies deletes all proxies
 func (i *IdentityACL) DeleteAllProxies() error {
-	if err := i.checker.CheckAccessToRule(i.context(), teledefaults.Namespace, teleservices.KindNode, teleservices.VerbDelete); err != nil {
+	if err := i.checker.CheckAccessToRule(i.context(), teledefaults.Namespace, teleservices.KindNode, teleservices.VerbDelete, false); err != nil {
 		return trace.Wrap(err)
 	}
 	return i.identity.DeleteAllProxies()
@@ -1114,7 +1168,7 @@ func (i *IdentityACL) DeleteAllProxies() error {
 
 // GetProxies returns a list of registered proxies
 func (i *IdentityACL) GetProxies() ([]teleservices.Server, error) {
-	if err := i.checker.CheckAccessToRule(i.context(), teledefaults.Namespace, teleservices.KindProxy, teleservices.VerbList); err != nil {
+	if err := i.checker.CheckAccessToRule(i.context(), teledefaults.Namespace, teleservices.KindProxy, teleservices.VerbList, false); err != nil {
 		return nil, trace.Wrap(err)
 	}
 	return i.identity.GetProxies()
@@ -1122,10 +1176,10 @@ func (i *IdentityACL) GetProxies() ([]teleservices.Server, error) {
 
 // UpsertReverseTunnel upserts reverse tunnel entry temporarily or permanently
 func (i *IdentityACL) UpsertReverseTunnel(tunnel teleservices.ReverseTunnel) error {
-	if err := i.checker.CheckAccessToRule(i.context(), teledefaults.Namespace, teleservices.KindReverseTunnel, teleservices.VerbCreate); err != nil {
+	if err := i.checker.CheckAccessToRule(i.context(), teledefaults.Namespace, teleservices.KindReverseTunnel, teleservices.VerbCreate, false); err != nil {
 		return trace.Wrap(err)
 	}
-	if err := i.checker.CheckAccessToRule(i.context(), teledefaults.Namespace, teleservices.KindReverseTunnel, teleservices.VerbUpdate); err != nil {
+	if err := i.checker.CheckAccessToRule(i.context(), teledefaults.Namespace, teleservices.KindReverseTunnel, teleservices.VerbUpdate, false); err != nil {
 		return trace.Wrap(err)
 	}
 	return i.identity.UpsertReverseTunnel(tunnel)
@@ -1133,15 +1187,23 @@ func (i *IdentityACL) UpsertReverseTunnel(tunnel teleservices.ReverseTunnel) err
 
 // GetReverseTunnels returns a list of registered servers
 func (i *IdentityACL) GetReverseTunnels() ([]teleservices.ReverseTunnel, error) {
-	if err := i.checker.CheckAccessToRule(i.context(), teledefaults.Namespace, teleservices.KindReverseTunnel, teleservices.VerbList); err != nil {
+	if err := i.checker.CheckAccessToRule(i.context(), teledefaults.Namespace, teleservices.KindReverseTunnel, teleservices.VerbList, false); err != nil {
 		return nil, trace.Wrap(err)
 	}
 	return i.identity.GetReverseTunnels()
 }
 
+// GetReverseTunnel returns reverse tunnel by name
+func (i *IdentityACL) GetReverseTunnel(name string) (teleservices.ReverseTunnel, error) {
+	if err := i.checker.CheckAccessToRule(i.context(), teledefaults.Namespace, teleservices.KindReverseTunnel, teleservices.VerbRead, false); err != nil {
+		return nil, trace.Wrap(err)
+	}
+	return i.identity.GetReverseTunnel(name)
+}
+
 // DeleteReverseTunnel deletes reverse tunnel by it's domain name
 func (i *IdentityACL) DeleteReverseTunnel(domainName string) error {
-	if err := i.checker.CheckAccessToRule(i.context(), teledefaults.Namespace, teleservices.KindReverseTunnel, teleservices.VerbDelete); err != nil {
+	if err := i.checker.CheckAccessToRule(i.context(), teledefaults.Namespace, teleservices.KindReverseTunnel, teleservices.VerbDelete, false); err != nil {
 		return trace.Wrap(err)
 	}
 	return i.identity.DeleteReverseTunnel(domainName)
@@ -1149,7 +1211,7 @@ func (i *IdentityACL) DeleteReverseTunnel(domainName string) error {
 
 // DeleteAllReverseTunnels
 func (i *IdentityACL) DeleteAllReverseTunnels() error {
-	if err := i.checker.CheckAccessToRule(i.context(), teledefaults.Namespace, teleservices.KindReverseTunnel, teleservices.VerbDelete); err != nil {
+	if err := i.checker.CheckAccessToRule(i.context(), teledefaults.Namespace, teleservices.KindReverseTunnel, teleservices.VerbDelete, false); err != nil {
 		return trace.Wrap(err)
 	}
 	return i.identity.DeleteAllReverseTunnels()
@@ -1157,18 +1219,30 @@ func (i *IdentityACL) DeleteAllReverseTunnels() error {
 
 // UpsertCertAuthority updates or inserts a new certificate authority
 func (i *IdentityACL) UpsertCertAuthority(ca teleservices.CertAuthority) error {
-	if err := i.checker.CheckAccessToRule(i.context(), teledefaults.Namespace, teleservices.KindCertAuthority, teleservices.VerbCreate); err != nil {
+	if err := i.checker.CheckAccessToRule(i.context(), teledefaults.Namespace, teleservices.KindCertAuthority, teleservices.VerbCreate, false); err != nil {
 		return trace.Wrap(err)
 	}
-	if err := i.checker.CheckAccessToRule(i.context(), teledefaults.Namespace, teleservices.KindCertAuthority, teleservices.VerbUpdate); err != nil {
+	if err := i.checker.CheckAccessToRule(i.context(), teledefaults.Namespace, teleservices.KindCertAuthority, teleservices.VerbUpdate, false); err != nil {
 		return trace.Wrap(err)
 	}
 	return i.identity.UpsertCertAuthority(ca)
 }
 
+// CompareAndSwapCertAuthority updates existing cert authority if the existing
+// cert authority value matches the value stored in the backend
+func (i *IdentityACL) CompareAndSwapCertAuthority(new, existing teleservices.CertAuthority) error {
+	if err := i.checker.CheckAccessToRule(i.context(), teledefaults.Namespace, teleservices.KindCertAuthority, teleservices.VerbCreate, false); err != nil {
+		return trace.Wrap(err)
+	}
+	if err := i.checker.CheckAccessToRule(i.context(), teledefaults.Namespace, teleservices.KindCertAuthority, teleservices.VerbUpdate, false); err != nil {
+		return trace.Wrap(err)
+	}
+	return i.identity.CompareAndSwapCertAuthority(new, existing)
+}
+
 // CreateCertAuthority updates or inserts a new certificate authority
 func (i *IdentityACL) CreateCertAuthority(ca teleservices.CertAuthority) error {
-	if err := i.checker.CheckAccessToRule(i.context(), teledefaults.Namespace, teleservices.KindCertAuthority, teleservices.VerbCreate); err != nil {
+	if err := i.checker.CheckAccessToRule(i.context(), teledefaults.Namespace, teleservices.KindCertAuthority, teleservices.VerbCreate, false); err != nil {
 		return trace.Wrap(err)
 	}
 	return i.identity.CreateCertAuthority(ca)
@@ -1176,7 +1250,7 @@ func (i *IdentityACL) CreateCertAuthority(ca teleservices.CertAuthority) error {
 
 // DeleteCertAuthority deletes particular certificate authority
 func (i *IdentityACL) DeleteCertAuthority(id teleservices.CertAuthID) error {
-	if err := i.checker.CheckAccessToRule(i.context(), teledefaults.Namespace, teleservices.KindCertAuthority, teleservices.VerbDelete); err != nil {
+	if err := i.checker.CheckAccessToRule(i.context(), teledefaults.Namespace, teleservices.KindCertAuthority, teleservices.VerbDelete, false); err != nil {
 		return trace.Wrap(err)
 	}
 	return i.identity.DeleteCertAuthority(id)
@@ -1184,7 +1258,7 @@ func (i *IdentityACL) DeleteCertAuthority(id teleservices.CertAuthID) error {
 
 // DeleteAllCertAuthorities deletes all cert authorities
 func (i *IdentityACL) DeleteAllCertAuthorities(certAuthType teleservices.CertAuthType) error {
-	if err := i.checker.CheckAccessToRule(i.context(), teledefaults.Namespace, teleservices.KindCertAuthority, teleservices.VerbDelete); err != nil {
+	if err := i.checker.CheckAccessToRule(i.context(), teledefaults.Namespace, teleservices.KindCertAuthority, teleservices.VerbDelete, false); err != nil {
 		return trace.Wrap(err)
 	}
 	return i.identity.DeleteAllCertAuthorities(certAuthType)
@@ -1193,7 +1267,7 @@ func (i *IdentityACL) DeleteAllCertAuthorities(certAuthType teleservices.CertAut
 // GetCertAuthority returns certificate authority by given id. Parameter loadSigningKeys
 // controls if signing keys are loaded
 func (i *IdentityACL) GetCertAuthority(id teleservices.CertAuthID, loadSigningKeys bool) (teleservices.CertAuthority, error) {
-	if err := i.checker.CheckAccessToRule(i.context(), teledefaults.Namespace, teleservices.KindCertAuthority, teleservices.VerbRead); err != nil {
+	if err := i.checker.CheckAccessToRule(i.context(), teledefaults.Namespace, teleservices.KindCertAuthority, teleservices.VerbRead, false); err != nil {
 		return nil, trace.Wrap(err)
 	}
 	return i.identity.GetCertAuthority(id, loadSigningKeys)
@@ -1201,16 +1275,16 @@ func (i *IdentityACL) GetCertAuthority(id teleservices.CertAuthID, loadSigningKe
 
 // GetCertAuthorities returns a list of authorities of a given type
 // loadSigningKeys controls whether signing keys should be loaded or not
-func (i *IdentityACL) GetCertAuthorities(caType teleservices.CertAuthType, loadSigningKeys bool) ([]teleservices.CertAuthority, error) {
-	if err := i.checker.CheckAccessToRule(i.context(), teledefaults.Namespace, teleservices.KindCertAuthority, teleservices.VerbList); err != nil {
+func (i *IdentityACL) GetCertAuthorities(caType teleservices.CertAuthType, loadSigningKeys bool, opts ...teleservices.MarshalOption) ([]teleservices.CertAuthority, error) {
+	if err := i.checker.CheckAccessToRule(i.context(), teledefaults.Namespace, teleservices.KindCertAuthority, teleservices.VerbList, false); err != nil {
 		return nil, trace.Wrap(err)
 	}
-	return i.identity.GetCertAuthorities(caType, loadSigningKeys)
+	return i.identity.GetCertAuthorities(caType, loadSigningKeys, opts...)
 }
 
 // GetNamespaces returns a list of namespaces
 func (i *IdentityACL) GetNamespaces() ([]teleservices.Namespace, error) {
-	if err := i.checker.CheckAccessToRule(i.context(), teledefaults.Namespace, teleservices.KindNamespace, teleservices.VerbList); err != nil {
+	if err := i.checker.CheckAccessToRule(i.context(), teledefaults.Namespace, teleservices.KindNamespace, teleservices.VerbList, false); err != nil {
 		return nil, trace.Wrap(err)
 	}
 	return i.identity.GetNamespaces()
@@ -1218,10 +1292,10 @@ func (i *IdentityACL) GetNamespaces() ([]teleservices.Namespace, error) {
 
 // UpsertNamespace upserts namespace
 func (i *IdentityACL) UpsertNamespace(n teleservices.Namespace) error {
-	if err := i.checker.CheckAccessToRule(i.context(), teledefaults.Namespace, teleservices.KindNamespace, teleservices.VerbCreate); err != nil {
+	if err := i.checker.CheckAccessToRule(i.context(), teledefaults.Namespace, teleservices.KindNamespace, teleservices.VerbCreate, false); err != nil {
 		return trace.Wrap(err)
 	}
-	if err := i.checker.CheckAccessToRule(i.context(), teledefaults.Namespace, teleservices.KindNamespace, teleservices.VerbUpdate); err != nil {
+	if err := i.checker.CheckAccessToRule(i.context(), teledefaults.Namespace, teleservices.KindNamespace, teleservices.VerbUpdate, false); err != nil {
 		return trace.Wrap(err)
 	}
 	return i.identity.UpsertNamespace(n)
@@ -1229,7 +1303,7 @@ func (i *IdentityACL) UpsertNamespace(n teleservices.Namespace) error {
 
 // GetNamespace returns a namespace by name
 func (i *IdentityACL) GetNamespace(name string) (*teleservices.Namespace, error) {
-	if err := i.checker.CheckAccessToRule(i.context(), teledefaults.Namespace, teleservices.KindNamespace, teleservices.VerbRead); err != nil {
+	if err := i.checker.CheckAccessToRule(i.context(), teledefaults.Namespace, teleservices.KindNamespace, teleservices.VerbRead, false); err != nil {
 		return nil, trace.Wrap(err)
 	}
 	return i.identity.GetNamespace(name)
@@ -1237,7 +1311,7 @@ func (i *IdentityACL) GetNamespace(name string) (*teleservices.Namespace, error)
 
 // DeleteNamespace deletes a namespace with all the keys from the backend
 func (i *IdentityACL) DeleteNamespace(namespace string) error {
-	if err := i.checker.CheckAccessToRule(i.context(), teledefaults.Namespace, teleservices.KindNamespace, teleservices.VerbDelete); err != nil {
+	if err := i.checker.CheckAccessToRule(i.context(), teledefaults.Namespace, teleservices.KindNamespace, teleservices.VerbDelete, false); err != nil {
 		return trace.Wrap(err)
 	}
 	return i.identity.DeleteNamespace(namespace)
@@ -1245,7 +1319,7 @@ func (i *IdentityACL) DeleteNamespace(namespace string) error {
 
 // DeleteAllNamespaces deletes all namespaces
 func (i *IdentityACL) DeleteAllNamespaces() error {
-	if err := i.checker.CheckAccessToRule(i.context(), teledefaults.Namespace, teleservices.KindNamespace, teleservices.VerbDelete); err != nil {
+	if err := i.checker.CheckAccessToRule(i.context(), teledefaults.Namespace, teleservices.KindNamespace, teleservices.VerbDelete, false); err != nil {
 		return trace.Wrap(err)
 	}
 	return i.identity.DeleteAllNamespaces()
@@ -1253,7 +1327,7 @@ func (i *IdentityACL) DeleteAllNamespaces() error {
 
 // GetRoles returns a list of roles registered with the local auth server
 func (i *IdentityACL) GetRoles() ([]teleservices.Role, error) {
-	if err := i.checker.CheckAccessToRule(i.context(), teledefaults.Namespace, teleservices.KindRole, teleservices.VerbList); err != nil {
+	if err := i.checker.CheckAccessToRule(i.context(), teledefaults.Namespace, teleservices.KindRole, teleservices.VerbList, false); err != nil {
 		return nil, trace.Wrap(err)
 	}
 	return i.identity.GetRoles()
@@ -1264,10 +1338,10 @@ func (i *IdentityACL) UpsertRole(role teleservices.Role, ttl time.Duration) erro
 	if role.GetMetadata().Labels[constants.SystemLabel] == constants.True {
 		return trace.AccessDenied("modifying roles with %v label is prohibited", constants.SystemLabel)
 	}
-	if err := i.checker.CheckAccessToRule(i.context(), teledefaults.Namespace, teleservices.KindRole, teleservices.VerbCreate); err != nil {
+	if err := i.checker.CheckAccessToRule(i.context(), teledefaults.Namespace, teleservices.KindRole, teleservices.VerbCreate, false); err != nil {
 		return trace.Wrap(err)
 	}
-	if err := i.checker.CheckAccessToRule(i.context(), teledefaults.Namespace, teleservices.KindRole, teleservices.VerbUpdate); err != nil {
+	if err := i.checker.CheckAccessToRule(i.context(), teledefaults.Namespace, teleservices.KindRole, teleservices.VerbUpdate, false); err != nil {
 		return trace.Wrap(err)
 	}
 	return i.identity.UpsertRole(role, ttl)
@@ -1278,7 +1352,7 @@ func (i *IdentityACL) CreateRole(role teleservices.Role, ttl time.Duration) erro
 	if role.GetMetadata().Labels[constants.SystemLabel] == constants.True {
 		return trace.AccessDenied("creating roles with %v label is prohibited", constants.SystemLabel)
 	}
-	if err := i.checker.CheckAccessToRule(i.context(), teledefaults.Namespace, teleservices.KindRole, teleservices.VerbCreate); err != nil {
+	if err := i.checker.CheckAccessToRule(i.context(), teledefaults.Namespace, teleservices.KindRole, teleservices.VerbCreate, false); err != nil {
 		return trace.Wrap(err)
 	}
 	return i.identity.CreateRole(role, ttl)
@@ -1286,7 +1360,7 @@ func (i *IdentityACL) CreateRole(role teleservices.Role, ttl time.Duration) erro
 
 // GetRole returns a role by name
 func (i *IdentityACL) GetRole(name string) (teleservices.Role, error) {
-	if err := i.checker.CheckAccessToRule(i.context(), teledefaults.Namespace, teleservices.KindRole, teleservices.VerbRead); err != nil {
+	if err := i.checker.CheckAccessToRule(i.context(), teledefaults.Namespace, teleservices.KindRole, teleservices.VerbRead, false); err != nil {
 		return nil, trace.Wrap(err)
 	}
 	return i.identity.GetRole(name)
@@ -1294,7 +1368,7 @@ func (i *IdentityACL) GetRole(name string) (teleservices.Role, error) {
 
 // DeleteRole deletes a role with all the keys from the backend
 func (i *IdentityACL) DeleteRole(roleName string) error {
-	if err := i.checker.CheckAccessToRule(i.context(), teledefaults.Namespace, teleservices.KindRole, teleservices.VerbDelete); err != nil {
+	if err := i.checker.CheckAccessToRule(i.context(), teledefaults.Namespace, teleservices.KindRole, teleservices.VerbDelete, false); err != nil {
 		return trace.Wrap(err)
 	}
 	role, err := i.identity.GetRole(roleName)
@@ -1309,7 +1383,7 @@ func (i *IdentityACL) DeleteRole(roleName string) error {
 
 // DeleteAllRoles deletes all roles
 func (i *IdentityACL) DeleteAllRoles() error {
-	if err := i.checker.CheckAccessToRule(i.context(), teledefaults.Namespace, teleservices.KindRole, teleservices.VerbDelete); err != nil {
+	if err := i.checker.CheckAccessToRule(i.context(), teledefaults.Namespace, teleservices.KindRole, teleservices.VerbDelete, false); err != nil {
 		return trace.Wrap(err)
 	}
 	return i.identity.DeleteAllRoles()
@@ -1317,11 +1391,11 @@ func (i *IdentityACL) DeleteAllRoles() error {
 
 // SetAuthPreference updates cluster auth preference
 func (i *IdentityACL) SetAuthPreference(authP teleservices.AuthPreference) error {
-	if err := i.checker.CheckAccessToRule(i.context(), teledefaults.Namespace, teleservices.KindClusterAuthPreference, teleservices.VerbCreate); err != nil {
+	if err := i.checker.CheckAccessToRule(i.context(), teledefaults.Namespace, teleservices.KindClusterAuthPreference, teleservices.VerbCreate, false); err != nil {
 		return trace.Wrap(err)
 	}
 
-	if err := i.checker.CheckAccessToRule(i.context(), teledefaults.Namespace, teleservices.KindClusterAuthPreference, teleservices.VerbUpdate); err != nil {
+	if err := i.checker.CheckAccessToRule(i.context(), teledefaults.Namespace, teleservices.KindClusterAuthPreference, teleservices.VerbUpdate, false); err != nil {
 		return trace.Wrap(err)
 	}
 
@@ -1330,7 +1404,7 @@ func (i *IdentityACL) SetAuthPreference(authP teleservices.AuthPreference) error
 
 // GetAuthPreference returns cluster auth preference
 func (i *IdentityACL) GetAuthPreference() (teleservices.AuthPreference, error) {
-	if err := i.checker.CheckAccessToRule(i.context(), teledefaults.Namespace, teleservices.KindClusterAuthPreference, teleservices.VerbRead); err != nil {
+	if err := i.checker.CheckAccessToRule(i.context(), teledefaults.Namespace, teleservices.KindClusterAuthPreference, teleservices.VerbRead, false); err != nil {
 		return nil, trace.Wrap(err)
 	}
 
@@ -1339,7 +1413,7 @@ func (i *IdentityACL) GetAuthPreference() (teleservices.AuthPreference, error) {
 
 // GetClusterName returns cluster name
 func (i *IdentityACL) GetClusterName() (teleservices.ClusterName, error) {
-	if err := i.checker.CheckAccessToRule(i.context(), teledefaults.Namespace, teleservices.KindClusterName, teleservices.VerbRead); err != nil {
+	if err := i.checker.CheckAccessToRule(i.context(), teledefaults.Namespace, teleservices.KindClusterName, teleservices.VerbRead, false); err != nil {
 		return nil, trace.Wrap(err)
 	}
 
@@ -1348,11 +1422,11 @@ func (i *IdentityACL) GetClusterName() (teleservices.ClusterName, error) {
 
 // SetClusterName updates cluster name
 func (i *IdentityACL) SetClusterName(clusterName teleservices.ClusterName) error {
-	if err := i.checker.CheckAccessToRule(i.context(), teledefaults.Namespace, teleservices.KindClusterName, teleservices.VerbCreate); err != nil {
+	if err := i.checker.CheckAccessToRule(i.context(), teledefaults.Namespace, teleservices.KindClusterName, teleservices.VerbCreate, false); err != nil {
 		return trace.Wrap(err)
 	}
 
-	if err := i.checker.CheckAccessToRule(i.context(), teledefaults.Namespace, teleservices.KindClusterName, teleservices.VerbUpdate); err != nil {
+	if err := i.checker.CheckAccessToRule(i.context(), teledefaults.Namespace, teleservices.KindClusterName, teleservices.VerbUpdate, false); err != nil {
 		return trace.Wrap(err)
 	}
 
@@ -1361,7 +1435,7 @@ func (i *IdentityACL) SetClusterName(clusterName teleservices.ClusterName) error
 
 // GetStaticTokens returns static tokens
 func (i *IdentityACL) GetStaticTokens() (teleservices.StaticTokens, error) {
-	if err := i.checker.CheckAccessToRule(i.context(), teledefaults.Namespace, teleservices.KindStaticTokens, teleservices.VerbRead); err != nil {
+	if err := i.checker.CheckAccessToRule(i.context(), teledefaults.Namespace, teleservices.KindStaticTokens, teleservices.VerbRead, false); err != nil {
 		return nil, trace.Wrap(err)
 	}
 	return i.identity.GetStaticTokens()
@@ -1369,11 +1443,11 @@ func (i *IdentityACL) GetStaticTokens() (teleservices.StaticTokens, error) {
 
 // SetStaticTokens updates static tokens
 func (i *IdentityACL) SetStaticTokens(tokens teleservices.StaticTokens) error {
-	if err := i.checker.CheckAccessToRule(i.context(), teledefaults.Namespace, teleservices.KindStaticTokens, teleservices.VerbCreate); err != nil {
+	if err := i.checker.CheckAccessToRule(i.context(), teledefaults.Namespace, teleservices.KindStaticTokens, teleservices.VerbCreate, false); err != nil {
 		return trace.Wrap(err)
 	}
 
-	if err := i.checker.CheckAccessToRule(i.context(), teledefaults.Namespace, teleservices.KindStaticTokens, teleservices.VerbUpdate); err != nil {
+	if err := i.checker.CheckAccessToRule(i.context(), teledefaults.Namespace, teleservices.KindStaticTokens, teleservices.VerbUpdate, false); err != nil {
 		return trace.Wrap(err)
 	}
 
@@ -1382,7 +1456,7 @@ func (i *IdentityACL) SetStaticTokens(tokens teleservices.StaticTokens) error {
 
 // GetClusterConfig returns cluster configuration
 func (i *IdentityACL) GetClusterConfig() (teleservices.ClusterConfig, error) {
-	if err := i.checker.CheckAccessToRule(i.context(), teledefaults.Namespace, teleservices.KindClusterConfig, teleservices.VerbRead); err != nil {
+	if err := i.checker.CheckAccessToRule(i.context(), teledefaults.Namespace, teleservices.KindClusterConfig, teleservices.VerbRead, false); err != nil {
 		return nil, trace.Wrap(err)
 	}
 	return i.identity.GetClusterConfig()
@@ -1390,11 +1464,11 @@ func (i *IdentityACL) GetClusterConfig() (teleservices.ClusterConfig, error) {
 
 // SetClusterConfig updates cluster configuration
 func (i *IdentityACL) SetClusterConfig(config teleservices.ClusterConfig) error {
-	if err := i.checker.CheckAccessToRule(i.context(), teledefaults.Namespace, teleservices.KindClusterConfig, teleservices.VerbCreate); err != nil {
+	if err := i.checker.CheckAccessToRule(i.context(), teledefaults.Namespace, teleservices.KindClusterConfig, teleservices.VerbCreate, false); err != nil {
 		return trace.Wrap(err)
 	}
 
-	if err := i.checker.CheckAccessToRule(i.context(), teledefaults.Namespace, teleservices.KindClusterConfig, teleservices.VerbUpdate); err != nil {
+	if err := i.checker.CheckAccessToRule(i.context(), teledefaults.Namespace, teleservices.KindClusterConfig, teleservices.VerbUpdate, false); err != nil {
 		return trace.Wrap(err)
 	}
 	return i.identity.SetClusterConfig(config)

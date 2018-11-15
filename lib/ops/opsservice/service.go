@@ -41,10 +41,12 @@ import (
 	"github.com/gravitational/gravity/lib/storage"
 	"github.com/gravitational/gravity/lib/users"
 	"github.com/gravitational/gravity/lib/utils"
-	"github.com/gravitational/teleport/lib/reversetunnel"
 
+	"github.com/cloudflare/cfssl/signer"
 	"github.com/docker/docker/pkg/archive"
 	"github.com/gravitational/configure/cstrings"
+	"github.com/gravitational/license/authority"
+	"github.com/gravitational/teleport/lib/reversetunnel"
 	teleservices "github.com/gravitational/teleport/lib/services"
 	"github.com/gravitational/trace"
 	"github.com/mailgun/timetools"
@@ -379,12 +381,13 @@ func (o *Operator) GetExpandToken(key ops.SiteKey) (*storage.ProvisioningToken, 
 	}
 
 	for _, token := range tokens {
-		if token.Type == storage.ProvisioningTokenTypeExpand {
+		// return long-lived join token
+		if token.Type == storage.ProvisioningTokenTypeExpand && token.Expires.IsZero() {
 			return &token, nil
 		}
 	}
 
-	return nil, trace.NotFound("expand token for %v not found", key.SiteDomain)
+	return nil, trace.NotFound("join token for %v not found", key.SiteDomain)
 }
 
 func (o *Operator) GetTrustedClusterToken(key ops.SiteKey) (storage.Token, error) {
@@ -743,9 +746,28 @@ func (o *Operator) SignSSHKey(req ops.SSHSignRequest) (*ops.SSHSignResponse, err
 	if err != nil {
 		return nil, trace.Wrap(err)
 	}
+	authorityDomain, err := o.users().GetClusterName()
+	if err != nil {
+		return nil, trace.Wrap(err)
+	}
+	ca, err := proxy.GetCertAuthority(teleservices.CertAuthID{
+		Type:       teleservices.HostCA,
+		DomainName: authorityDomain.GetClusterName(),
+	}, true)
+	if err != nil {
+		return nil, trace.Wrap(err)
+	}
+	tlsCert, err := authority.ProcessCSR(signer.SignRequest{
+		Request: string(req.CSR),
+	}, req.TTL, ca)
+	if err != nil {
+		return nil, trace.Wrap(err)
+	}
 	return &ops.SSHSignResponse{
 		Cert: cert,
 		TrustedHostAuthorities: authorities,
+		TLSCert:                tlsCert,
+		CACert:                 ca.CertPEM,
 	}, nil
 }
 

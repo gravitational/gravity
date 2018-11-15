@@ -32,9 +32,9 @@ import (
 	"github.com/gravitational/gravity/lib/storage"
 	"github.com/gravitational/gravity/lib/storage/keyval"
 	"github.com/gravitational/gravity/lib/transfer"
-
 	telecfg "github.com/gravitational/teleport/lib/config"
 	teledefaults "github.com/gravitational/teleport/lib/defaults"
+
 	"github.com/gravitational/trace"
 	"github.com/sirupsen/logrus"
 )

@@ -18,6 +18,7 @@ package update
 
 import (
 	appservice "github.com/gravitational/gravity/lib/app"
+	"github.com/gravitational/gravity/lib/constants"
 	"github.com/gravitational/gravity/lib/fsm"
 	"github.com/gravitational/gravity/lib/loc"
 	"github.com/gravitational/gravity/lib/schema"
@@ -53,42 +54,70 @@ func GetOperationPlan(b storage.Backend) (*storage.OperationPlan, error) {
 	return plan, nil
 }
 
-// planetNeedsUpdate returns true if the planet version in the update application is
-// greater than in the installed one for the specified node profile
-func planetNeedsUpdate(profile string, installed, update appservice.Application) (needsUpdate bool, err error) {
+// systemNeedsUpdate determines whether planet or teleport services need
+// to be updated by comparing versions of respective packages in the
+// installed and update application manifest
+func systemNeedsUpdate(profile string, installed, update appservice.Application) (planetNeedsUpdate, teleportNeedsUpdate bool, err error) {
 	installedProfile, err := installed.Manifest.NodeProfiles.ByName(profile)
 	if err != nil {
-		return false, trace.Wrap(err)
+		return false, false, trace.Wrap(err)
 	}
 
 	updateProfile, err := update.Manifest.NodeProfiles.ByName(profile)
 	if err != nil {
-		return false, trace.Wrap(err)
+		return false, false, trace.Wrap(err)
 	}
 
 	updateRuntimePackage, err := update.Manifest.RuntimePackage(*updateProfile)
 	if err != nil {
-		return false, trace.Wrap(err)
+		return false, false, trace.Wrap(err)
 	}
 
-	updateVersion, err := updateRuntimePackage.SemVer()
+	updateRuntimeVersion, err := updateRuntimePackage.SemVer()
 	if err != nil {
-		return false, trace.Wrap(err)
+		return false, false, trace.Wrap(err)
 	}
 
-	runtimePackage, err := getRuntimePackage(installed.Manifest, *installedProfile, schema.ServiceRoleMaster)
+	installedRuntimePackage, err := getRuntimePackage(installed.Manifest, *installedProfile, schema.ServiceRoleMaster)
 	if err != nil {
-		return false, trace.Wrap(err)
+		return false, false, trace.Wrap(err)
 	}
 
-	version, err := runtimePackage.SemVer()
+	installedRuntimeVersion, err := installedRuntimePackage.SemVer()
 	if err != nil {
-		return false, trace.Wrap(err)
+		return false, false, trace.Wrap(err)
 	}
 
-	logrus.Debugf("Runtime installed: %v, runtime to update to: %v.", runtimePackage, updateRuntimePackage)
-	updateNewer := updateVersion.Compare(*version) > 0
-	return updateNewer, nil
+	logrus.Debugf("Runtime installed: %v, runtime to update to: %v.",
+		installedRuntimePackage, updateRuntimePackage)
+
+	installedTeleportPackage, err := installed.Manifest.Dependencies.ByName(
+		constants.TeleportPackage)
+	if err != nil {
+		return false, false, trace.Wrap(err)
+	}
+
+	installedTeleportVersion, err := installedTeleportPackage.SemVer()
+	if err != nil {
+		return false, false, trace.Wrap(err)
+	}
+
+	updateTeleportPackage, err := update.Manifest.Dependencies.ByName(
+		constants.TeleportPackage)
+	if err != nil {
+		return false, false, trace.Wrap(err)
+	}
+
+	updateTeleportVersion, err := updateTeleportPackage.SemVer()
+	if err != nil {
+		return false, false, trace.Wrap(err)
+	}
+
+	logrus.Debugf("Teleport installed: %v, teleport update: %v.",
+		installedTeleportPackage, updateTeleportPackage)
+
+	return installedRuntimeVersion.LessThan(*updateRuntimeVersion),
+		installedTeleportVersion.LessThan(*updateTeleportVersion), nil
 }
 
 func getRuntimePackage(manifest schema.Manifest, profile schema.NodeProfile, clusterRole schema.ServiceRole) (*loc.Locator, error) {

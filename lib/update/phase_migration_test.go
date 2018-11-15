@@ -18,18 +18,25 @@ package update
 
 import (
 	"context"
+	"path/filepath"
 	"time"
 
+	"github.com/gravitational/gravity/lib/compare"
 	"github.com/gravitational/gravity/lib/constants"
 	"github.com/gravitational/gravity/lib/ops/opsservice"
 	"github.com/gravitational/gravity/lib/storage"
+	"github.com/gravitational/gravity/lib/storage/keyval"
+	"github.com/gravitational/gravity/lib/users"
 
+	teleservices "github.com/gravitational/teleport/lib/services"
 	"github.com/pborman/uuid"
 	"gopkg.in/check.v1"
 )
 
 type PhaseMigrationSuite struct {
-	backend storage.Backend
+	backend   storage.Backend
+	cluster   storage.Site
+	backupDir string
 }
 
 var _ = check.Suite(&PhaseMigrationSuite{})
@@ -37,26 +44,77 @@ var _ = check.Suite(&PhaseMigrationSuite{})
 func (s *PhaseMigrationSuite) SetUpSuite(c *check.C) {
 	services := opsservice.SetupTestServices(c)
 	s.backend = services.Backend
-}
-
-func (s *PhaseMigrationSuite) TestMigrateLinks(c *check.C) {
 	cluster, err := s.backend.CreateSite(storage.Site{
 		AccountID: uuid.New(),
 		Domain:    "example.com",
 		Created:   time.Now(),
 	})
 	c.Assert(err, check.IsNil)
+	s.cluster = *cluster
+	s.backupDir = c.MkDir()
+}
 
+func (s *PhaseMigrationSuite) TestMigrateRoles(c *check.C) {
+	phase, err := NewPhaseMigrateRoles(
+		FSMConfig{Backend: s.backend},
+		storage.OperationPlan{
+			OperationID: uuid.New(),
+			ClusterName: s.cluster.Domain,
+		},
+		storage.OperationPhase{})
+	c.Assert(err, check.IsNil)
+
+	phase.getBackupBackend = func(_ string) (storage.Backend, error) {
+		return keyval.NewBolt(keyval.BoltConfig{
+			Path: filepath.Join(s.backupDir, "backup.db"),
+		})
+	}
+
+	role, err := users.NewSystemRole(constants.RoleAdmin, teleservices.RoleSpecV3{
+		Allow: teleservices.RoleConditions{
+			Rules: []teleservices.Rule{
+				{
+					Resources: []string{teleservices.Wildcard},
+					Verbs:     []string{teleservices.Wildcard},
+					Actions: []string{storage.AssignKubernetesGroupsExpr{
+						Groups: users.GetAdminKubernetesGroups(),
+					}.String()},
+				},
+			},
+		},
+	})
+	c.Assert(err, check.IsNil)
+
+	err = s.backend.UpsertRole(role, storage.Forever)
+	c.Assert(err, check.IsNil)
+
+	err = phase.Execute(context.TODO())
+	c.Assert(err, check.IsNil)
+
+	convertedRole, err := s.backend.GetRole(role.GetName())
+	c.Assert(err, check.IsNil)
+	c.Assert(convertedRole.GetKubeGroups(teleservices.Allow), check.DeepEquals,
+		users.GetAdminKubernetesGroups())
+
+	err = phase.Rollback(context.TODO())
+	c.Assert(err, check.IsNil)
+
+	rolledBackRole, err := s.backend.GetRole(role.GetName())
+	c.Assert(err, check.IsNil)
+	compare.DeepCompare(c, rolledBackRole, role)
+}
+
+func (s *PhaseMigrationSuite) TestMigrateLinks(c *check.C) {
 	phase, err := NewPhaseMigrateLinks(
 		FSMConfig{Backend: s.backend},
-		storage.OperationPlan{ClusterName: cluster.Domain},
+		storage.OperationPlan{ClusterName: s.cluster.Domain},
 		storage.OperationPhase{})
 	c.Assert(err, check.IsNil)
 
 	// insert a few links
 	links := []storage.OpsCenterLink{
 		{
-			SiteDomain: cluster.Domain,
+			SiteDomain: s.cluster.Domain,
 			Hostname:   "ops.example.com",
 			Type:       storage.OpsCenterRemoteAccessLink,
 			RemoteAddr: "ops.example.com:3024",
@@ -68,7 +126,7 @@ func (s *PhaseMigrationSuite) TestMigrateLinks(c *check.C) {
 			Enabled: true,
 		},
 		{
-			SiteDomain: cluster.Domain,
+			SiteDomain: s.cluster.Domain,
 			Hostname:   "ops.example.com",
 			Type:       storage.OpsCenterUpdateLink,
 			RemoteAddr: "ops.example.com:3024",
@@ -76,7 +134,7 @@ func (s *PhaseMigrationSuite) TestMigrateLinks(c *check.C) {
 			Enabled:    true,
 		},
 		{
-			SiteDomain: cluster.Domain,
+			SiteDomain: s.cluster.Domain,
 			Hostname:   "ops2.example.com",
 			Type:       storage.OpsCenterRemoteAccessLink,
 			RemoteAddr: "ops2.example.com:3024",
@@ -99,7 +157,7 @@ func (s *PhaseMigrationSuite) TestMigrateLinks(c *check.C) {
 	err = phase.Execute(ctx)
 	c.Assert(err, check.IsNil)
 
-	linksAfterExecute, err := s.backend.GetOpsCenterLinks(cluster.Domain)
+	linksAfterExecute, err := s.backend.GetOpsCenterLinks(s.cluster.Domain)
 	c.Assert(err, check.IsNil)
 	c.Assert(len(linksAfterExecute), check.Equals, 3, check.Commentf(
 		"links should not have been removed during migration"))

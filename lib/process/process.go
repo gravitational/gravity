@@ -27,6 +27,7 @@ import (
 	"os"
 	"os/user"
 	"path/filepath"
+	"strings"
 	"sync"
 	"time"
 
@@ -67,18 +68,22 @@ import (
 	web "github.com/gravitational/gravity/lib/webapi"
 	"github.com/gravitational/gravity/lib/webapi/ui"
 
-	"github.com/cloudflare/cfssl/csr"
-	"github.com/gravitational/license/authority"
-	"github.com/gravitational/roundtrip"
 	telelib "github.com/gravitational/teleport/lib"
+	teleauth "github.com/gravitational/teleport/lib/auth"
 	telecfg "github.com/gravitational/teleport/lib/config"
 	teledefaults "github.com/gravitational/teleport/lib/defaults"
 	telemodules "github.com/gravitational/teleport/lib/modules"
 	"github.com/gravitational/teleport/lib/reversetunnel"
 	"github.com/gravitational/teleport/lib/service"
+	teleservice "github.com/gravitational/teleport/lib/service"
 	teleservices "github.com/gravitational/teleport/lib/services"
 	teleutils "github.com/gravitational/teleport/lib/utils"
 	teleweb "github.com/gravitational/teleport/lib/web"
+
+	"github.com/cloudflare/cfssl/csr"
+	"github.com/gravitational/license/authority"
+	"github.com/gravitational/roundtrip"
+	"github.com/gravitational/teleport"
 	"github.com/gravitational/trace"
 	"github.com/julienschmidt/httprouter"
 	"github.com/sirupsen/logrus"
@@ -260,7 +265,7 @@ func New(ctx context.Context, cfg processconfig.Config, tcfg telecfg.FileConfig)
 
 	process.Infof("Process ID: %v.", processID)
 
-	telecfgFromImport, err := process.getTeleportConfigFromImportState()
+	telecfgFromImport, err := process.getTeleportMasterConfig()
 	if err != nil {
 		return nil, trace.Wrap(err, "failed to query teleport config from import")
 	}
@@ -320,15 +325,16 @@ func New(ctx context.Context, cfg processconfig.Config, tcfg telecfg.FileConfig)
 	process.Infof("Teleport config: %#v.", process.teleportConfig)
 	process.Infof("Gravity config: %#v.", cfg)
 
+	process.removeLegacyIdentities()
 	return process, nil
 }
 
 // Init initializes the process internal services but does not start them
-func (p *Process) Init() error {
+func (p *Process) Init(ctx context.Context) error {
 	if err := p.initAccount(); err != nil {
 		return trace.Wrap(err)
 	}
-	if err := p.initService(); err != nil {
+	if err := p.initService(ctx); err != nil {
 		return trace.Wrap(err)
 	}
 	return nil
@@ -340,12 +346,12 @@ func (p *Process) Start() (err error) {
 	if err != nil {
 		return trace.Wrap(err)
 	}
-	p.Supervisor.RegisterFunc(func() (err error) {
+	p.Supervisor.RegisterFunc("gravity.service", func() (err error) {
 		defer p.Supervisor.BroadcastEvent(service.Event{
 			Name:    constants.ServiceStartedEvent,
 			Payload: &ServiceStartedEvent{Error: err},
 		})
-		if err = p.Init(); err != nil {
+		if err = p.Init(p.context); err != nil {
 			return trace.Wrap(err)
 		}
 		if err = p.Serve(); err != nil {
@@ -406,6 +412,11 @@ func (p *Process) KubeClient() *kubernetes.Clientset {
 	return p.client
 }
 
+// Context returns the process context
+func (p *Process) Context() context.Context {
+	return p.context
+}
+
 // Config returns the process config
 func (p *Process) Config() *processconfig.Config {
 	return &p.cfg
@@ -416,6 +427,54 @@ func (p *Process) Config() *processconfig.Config {
 func (p *Process) StartResumeOperationLoop() {
 	p.resumeOperationCh = make(chan struct{})
 	go p.resumeLastOperationLoop()
+}
+
+func (p *Process) getTeleportMasterConfig() (*telecfg.FileConfig, error) {
+	if !p.inKubernetes() {
+		return nil, nil
+	}
+	advertiseIP := os.Getenv(constants.EnvPodIP)
+	if advertiseIP == "" {
+		return nil, trace.BadParameter("could not determine advertise IP: "+
+			"%v env var is missing", constants.EnvPodIP)
+	}
+	localCluster, err := p.backend.GetLocalSite(defaults.SystemAccountID)
+	if err != nil && !trace.IsNotFound(err) {
+		return nil, trace.Wrap(err)
+	}
+	// if there's no local cluster yet, this means import hasn't completed
+	// yet so get the teleport master config package from import state
+	if trace.IsNotFound(err) {
+		return p.getTeleportConfigFromImportState()
+	}
+	masterConfigLoc, err := pack.FindLatestPackageWithLabels(
+		p.packages, localCluster.Domain, map[string]string{
+			pack.AdvertiseIPLabel: advertiseIP,
+			pack.PurposeLabel:     pack.PurposeTeleportMasterConfig,
+		})
+	if err != nil {
+		return nil, trace.Wrap(err)
+	}
+	p.Infof("Using Teleport master config from %v.", masterConfigLoc)
+	_, reader, err := p.packages.ReadPackage(*masterConfigLoc)
+	if err != nil {
+		return nil, trace.Wrap(err)
+	}
+	defer reader.Close()
+	vars, err := pack.ReadConfigPackage(reader)
+	if err != nil {
+		return nil, trace.Wrap(err)
+	}
+	configString, ok := vars[teledefaults.ConfigEnvar]
+	if !ok {
+		return nil, trace.NotFound("variable %q is not found in config",
+			teledefaults.ConfigEnvar)
+	}
+	fileConf, err := telecfg.ReadFromString(configString)
+	if err != nil {
+		return nil, trace.Wrap(err)
+	}
+	return fileConf, nil
 }
 
 func (p *Process) getTeleportConfigFromImportState() (*telecfg.FileConfig, error) {
@@ -602,7 +661,7 @@ func (p *Process) startElection() error {
 
 	gravityLeadersC := make(chan string)
 	p.leader.AddWatch(gravityLeaderKey, defaults.ElectionTerm/3, gravityLeadersC)
-	p.RegisterFunc(func() error {
+	p.RegisterFunc("gravity.election", func() error {
 		p.Infof("Start watching gravity leaders.")
 		for leaderID := range gravityLeadersC {
 			oldLeaderID := p.setLeader(leaderID)
@@ -881,28 +940,43 @@ func (p *Process) APIAdvertiseHost() string {
 	return host
 }
 
-func (p *Process) initService() (err error) {
+func (p *Process) teleportProcess() *teleservice.TeleportProcess {
+	return p.Supervisor.(*teleservice.TeleportProcess)
+}
+
+func (p *Process) newAuthClient(authServers []teleutils.NetAddr, identity *teleauth.Identity) (*teleauth.Client, error) {
+	tlsConfig, err := identity.TLSConfig(p.teleportProcess().Config.CipherSuites)
+	if err != nil {
+		return nil, trace.Wrap(err)
+	}
+	if p.teleportProcess().Config.ClientTimeout != 0 {
+		return teleauth.NewTLSClient(authServers, tlsConfig,
+			teleauth.ClientTimeout(p.teleportProcess().Config.ClientTimeout))
+	}
+	return teleauth.NewTLSClient(authServers, tlsConfig)
+}
+
+func (p *Process) initService(ctx context.Context) (err error) {
 	eventC := make(chan service.Event)
-	cancelC := make(chan struct{})
-	p.WaitForEvent(service.AuthIdentityEvent, eventC, cancelC)
+	p.WaitForEvent(ctx, service.AuthIdentityEvent, eventC)
 	event := <-eventC
-	p.Infof("Received %v.", &event)
+	p.Infof("Received %v event.", &event)
 	conn, ok := (event.Payload).(*service.Connector)
 	if !ok {
 		return trace.BadParameter("unsupported Connector type: %T", event.Payload)
 	}
-	p.WaitForEvent(service.ProxyReverseTunnelServerEvent, eventC, cancelC)
+	p.WaitForEvent(ctx, service.ProxyReverseTunnelReady, eventC)
 	event = <-eventC
-	p.Infof("Received %v.", &event)
+	p.Infof("Received %v event.", &event)
 	reverseTunnel, ok := (event.Payload).(reversetunnel.Server)
 	if !ok {
 		return trace.BadParameter("ReverseTunnel: unsupported type: %T", event.Payload)
 	}
 	p.reverseTunnel = reverseTunnel
 
-	p.WaitForEvent(service.ProxyIdentityEvent, eventC, cancelC)
+	p.WaitForEvent(ctx, service.ProxyIdentityEvent, eventC)
 	event = <-eventC
-	p.Infof("Received %v.", &event)
+	p.Infof("Received %v event.", &event)
 
 	proxyConn, ok := (event.Payload).(*service.Connector)
 	if !ok {
@@ -928,18 +1002,25 @@ func (p *Process) initService() (err error) {
 		return trace.Wrap(err)
 	}
 
-	p.identity.SetAuth(conn.Client)
+	authClient, err := p.newAuthClient(p.teleportConfig.AuthServers, conn.ClientIdentity)
+	if err != nil {
+		return trace.Wrap(err)
+	}
+
+	p.identity.SetAuth(authClient)
 
 	proxyConfig, err := p.proxyConfig()
 	if err != nil {
 		return trace.Wrap(err)
 	}
 
-	proxyHost := fmt.Sprintf("%v:%v,%v", proxyConfig.host, proxyConfig.webPort, proxyConfig.sshPort)
+	sshProxyHost := fmt.Sprintf("%v:%v", proxyConfig.host, proxyConfig.sshPort)
+	webProxyHost := fmt.Sprintf("%v:%v", proxyConfig.host, proxyConfig.webPort)
 	teleportProxy, err := newTeleportProxyService(teleportProxyConfig{
-		AuthClient:        conn.Client,
+		AuthClient:        authClient,
 		ReverseTunnelAddr: proxyConfig.reverseTunnelAddr,
-		ProxyHost:         proxyHost,
+		WebProxyAddr:      webProxyHost,
+		SSHProxyAddr:      sshProxyHost,
 		// TODO(klizhentas) this means that it will only work if auth server
 		// and portal are on the same node, this is a bug
 		// to fix that we need to make sure that Auth server provides it's authority
@@ -1237,7 +1318,7 @@ func (p *Process) initService() (err error) {
 
 	p.handlers.WebAPI, err = web.NewAPI(web.Config{
 		Identity:         p.identity,
-		Auth:             conn.Client,
+		Auth:             authClient,
 		PrefixURL:        fmt.Sprintf("https://%v/portalapi/v1", p.cfg.Pack.GetAddr().Addr),
 		WebAuthenticator: p.handlers.WebProxy.GetHandler().AuthenticateRequest,
 		Applications:     applications,
@@ -1249,7 +1330,7 @@ func (p *Process) initService() (err error) {
 		Clients:          clusterClients,
 		Converter:        ui.NewConverter(),
 		Mode:             p.mode,
-		ProxyHost:        proxyHost,
+		ProxyHost:        sshProxyHost,
 		ServiceUser:      *p.cfg.ServiceUser,
 	})
 
@@ -1311,7 +1392,7 @@ func (p *Process) ServeHealth() error {
 	healthMux := &httprouter.Router{}
 	healthMux.HandlerFunc("GET", "/readyz", p.ReportReadiness)
 	healthMux.HandlerFunc("GET", "/healthz", p.ReportHealth)
-	p.RegisterFunc(func() error {
+	p.RegisterFunc("gravity.healthz", func() error {
 		p.Infof("Start healthcheck server on %v.", p.cfg.HealthAddr)
 		return trace.Wrap(http.ListenAndServe(p.cfg.HealthAddr.Addr, healthMux))
 	})
@@ -1357,7 +1438,7 @@ func (p *Process) proxyConfig() (*proxyConfig, error) {
 		return nil, trace.Wrap(err)
 	}
 
-	_, proxyWebPort, err := net.SplitHostPort(p.teleportConfig.Proxy.SSHAddr.Addr)
+	_, proxyWebPort, err := net.SplitHostPort(p.teleportConfig.Proxy.WebAddr.Addr)
 	if err != nil {
 		return nil, trace.Wrap(err)
 	}
@@ -1400,14 +1481,14 @@ func (p *Process) initMux(ctx context.Context) error {
 //
 // The listener is restarted when a certificate change event is detected.
 func (p *Process) ServeLocal(ctx context.Context, mux http.Handler, addr string) error {
-	p.RegisterFunc(func() error {
+	p.RegisterFunc("gravity.listener", func() error {
 		webListener, err := p.startListening(mux, addr)
 		if err != nil {
 			return trace.Wrap(err)
 		}
 
 		eventsCh := make(chan service.Event)
-		p.WaitForEvent(constants.ClusterCertificateUpdatedEvent, eventsCh, nil)
+		p.WaitForEvent(ctx, constants.ClusterCertificateUpdatedEvent, eventsCh)
 
 		for {
 			select {
@@ -1777,6 +1858,17 @@ func (p *Process) initAccount() error {
 	}
 
 	return nil
+}
+
+// removeLegacyIdentities removes legacy admin/proxy identities so that new
+// ones can be generated new ones upon the first start of new teleport
+func (p *Process) removeLegacyIdentities() {
+	for _, role := range []teleport.Role{teleport.RoleAdmin, teleport.RoleProxy} {
+		for _, ext := range []string{"key", "cert"} {
+			os.Remove(filepath.Join(p.teleportConfig.DataDir,
+				fmt.Sprintf("%s.%s", strings.ToLower(string(role)), ext)))
+		}
+	}
 }
 
 // ensureClusterState creates cluster state if missing (e.g. when updating

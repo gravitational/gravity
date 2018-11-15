@@ -65,11 +65,7 @@ type agentStartExecutor struct {
 
 // Execute starts an RPC agent on a node
 func (p *agentStartExecutor) Execute(ctx context.Context) error {
-	proxyClient, err := p.getProxyClient()
-	if err != nil {
-		return trace.Wrap(err)
-	}
-	deployServer, err := rpc.NewDeployServer(ctx, p.Master, proxyClient)
+	proxyClient, err := p.getProxyClient(ctx)
 	if err != nil {
 		return trace.Wrap(err)
 	}
@@ -82,7 +78,7 @@ func (p *agentStartExecutor) Execute(ctx context.Context) error {
 		return trace.Wrap(err)
 	}
 	err = rpc.DeployAgents(ctx, rpc.DeployAgentsRequest{
-		Servers:        []rpc.DeployServer{*deployServer},
+		Servers:        []rpc.DeployServer{rpc.NewDeployServer(p.Master)},
 		ClusterState:   cluster.ClusterState,
 		GravityPackage: *gravityPackage,
 		SecretsPackage: loc.RPCSecrets,
@@ -96,13 +92,14 @@ func (p *agentStartExecutor) Execute(ctx context.Context) error {
 	return nil
 }
 
-func (p *agentStartExecutor) getProxyClient() (*client.ProxyClient, error) {
+func (p *agentStartExecutor) getProxyClient(ctx context.Context) (*client.ProxyClient, error) {
 	operator, err := opsclient.NewBearerClient(p.Phase.Data.Agent.OpsCenterURL,
 		p.Phase.Data.Agent.Password, opsclient.HTTPClient(httplib.GetClient(true)))
 	if err != nil {
 		return nil, trace.Wrap(err)
 	}
-	proxyClient, err := clients.TeleportProxy(operator, p.Phase.Data.Server.AdvertiseIP)
+	proxyClient, err := clients.TeleportProxy(ctx, operator, p.Phase.Data.Server.AdvertiseIP,
+		p.Plan.ClusterName)
 	if err != nil {
 		return nil, trace.Wrap(err)
 	}

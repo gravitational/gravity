@@ -35,6 +35,7 @@ import (
 	telefixtures "github.com/gravitational/teleport/lib/fixtures"
 	teleservices "github.com/gravitational/teleport/lib/services"
 	telesuite "github.com/gravitational/teleport/lib/services/suite"
+	teleutils "github.com/gravitational/teleport/lib/utils"
 	"github.com/gravitational/trace"
 	"github.com/jonboulle/clockwork"
 	log "github.com/sirupsen/logrus"
@@ -1472,7 +1473,7 @@ func (s *StorageSuite) AuthoritiesCRUD(c *C) {
 // NodesCRUD tests presence service implementation
 func (s *StorageSuite) NodesCRUD(c *C) {
 	type getFn func() ([]teleservices.Server, error)
-	type getNS func(namespace string) ([]teleservices.Server, error)
+	type getNS func(namespace string, opts ...teleservices.MarshalOption) ([]teleservices.Server, error)
 	type upsertFn func(server teleservices.Server) error
 
 	type tuple struct {
@@ -1707,12 +1708,14 @@ func (s *StorageSuite) RolesCRUD(c *C) {
 
 	role, err := teleservices.NewRole("role1", teleservices.RoleSpecV3{
 		Options: teleservices.RoleOptions{
-			teleservices.MaxSessionTTL: teleservices.NewDuration(teledefaults.MaxCertDuration),
+			MaxSessionTTL: teleservices.NewDuration(teledefaults.MaxCertDuration),
 		},
 		Allow: teleservices.RoleConditions{
 			Namespaces: []string{teledefaults.Namespace},
 			Logins:     []string{"root"},
-			NodeLabels: map[string]string{teleservices.Wildcard: teleservices.Wildcard},
+			NodeLabels: teleservices.Labels(map[string]teleutils.Strings{
+				teleservices.Wildcard: teleutils.Strings{teleservices.Wildcard},
+			}),
 			Rules: []teleservices.Rule{
 				{
 					Resources: []string{teleservices.Wildcard},

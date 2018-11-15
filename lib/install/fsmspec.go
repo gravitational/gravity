@@ -97,6 +97,10 @@ func FSMSpec(config FSMConfig) fsm.FSMSpecFunc {
 				config.Operator,
 				config.LocalApps)
 
+		case p.Phase.ID == phases.ConnectInstallerPhase:
+			return phases.NewConnectInstaller(p,
+				config.Operator)
+
 		case strings.HasPrefix(p.Phase.ID, phases.EnableElectionPhase):
 			return phases.NewEnableElectionPhase(p, config.Operator)
 

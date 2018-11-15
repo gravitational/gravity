@@ -18,7 +18,6 @@ package events
 
 import (
 	"context"
-	"io"
 	"sync"
 	"time"
 
@@ -66,7 +65,7 @@ func (d *MockAuditLog) EmitAuditEvent(eventType string, fields EventFields) erro
 	return nil
 }
 
-func (d *MockAuditLog) PostSessionChunk(namespace string, sid session.ID, reader io.Reader) error {
+func (d *MockAuditLog) UploadSessionRecording(SessionRecording) error {
 	return nil
 }
 
@@ -83,14 +82,14 @@ func (d *MockAuditLog) GetSessionChunk(namespace string, sid session.ID, offsetB
 	return make([]byte, 0), nil
 }
 
-func (d *MockAuditLog) GetSessionEvents(namespace string, sid session.ID, after int) ([]EventFields, error) {
+func (d *MockAuditLog) GetSessionEvents(namespace string, sid session.ID, after int, fetchPrintEvents bool) ([]EventFields, error) {
 	return make([]EventFields, 0), nil
 }
 
-func (d *MockAuditLog) SearchEvents(fromUTC, toUTC time.Time, query string) ([]EventFields, error) {
+func (d *MockAuditLog) SearchEvents(fromUTC, toUTC time.Time, query string, limit int) ([]EventFields, error) {
 	return make([]EventFields, 0), nil
 }
 
-func (d *MockAuditLog) SearchSessionEvents(fromUTC, toUTC time.Time) ([]EventFields, error) {
+func (d *MockAuditLog) SearchSessionEvents(fromUTC, toUTC time.Time, limit int) ([]EventFields, error) {
 	return make([]EventFields, 0), nil
 }

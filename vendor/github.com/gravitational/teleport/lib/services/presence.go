@@ -23,22 +23,25 @@ import (
 // Presence records and reports the presence of all components
 // of the cluster - Nodes, Proxies and SSH nodes
 type Presence interface {
-
 	// UpsertLocalClusterName upserts local domain
 	UpsertLocalClusterName(name string) error
 
 	// GetLocalClusterName upserts local domain
 	GetLocalClusterName() (string, error)
 
-	// GetNodes returns a list of registered servers
-	GetNodes(namespace string) ([]Server, error)
+	// GetNodes returns a list of registered servers. Schema validation can be
+	// skipped to improve performance.
+	GetNodes(namespace string, opts ...MarshalOption) ([]Server, error)
 
-	// DeleteAllNodes deletes all nodes in a namespace
+	// DeleteAllNodes deletes all nodes in a namespace.
 	DeleteAllNodes(namespace string) error
 
-	// UpsertNode registers node presence, permanently if ttl is 0 or
-	// for the specified duration with second resolution if it's >= 1 second
+	// UpsertNode registers node presence, permanently if TTL is 0 or for the
+	// specified duration with second resolution if it's >= 1 second.
 	UpsertNode(server Server) error
+
+	// UpsertNodes bulk inserts nodes.
+	UpsertNodes(namespace string, servers []Server) error
 
 	// GetAuthServers returns a list of registered servers
 	GetAuthServers() ([]Server, error)
@@ -59,6 +62,9 @@ type Presence interface {
 
 	// UpsertReverseTunnel upserts reverse tunnel entry temporarily or permanently
 	UpsertReverseTunnel(tunnel ReverseTunnel) error
+
+	// GetReverseTunnel returns reverse tunnel by name
+	GetReverseTunnel(name string) (ReverseTunnel, error)
 
 	// GetReverseTunnels returns a list of registered servers
 	GetReverseTunnels() ([]ReverseTunnel, error)
@@ -85,7 +91,7 @@ type Presence interface {
 	DeleteNamespace(name string) error
 
 	// UpsertTrustedCluster creates or updates a TrustedCluster in the backend.
-	UpsertTrustedCluster(TrustedCluster) error
+	UpsertTrustedCluster(TrustedCluster) (TrustedCluster, error)
 
 	// GetTrustedCluster returns a single TrustedCluster by name.
 	GetTrustedCluster(string) (TrustedCluster, error)
@@ -113,6 +119,21 @@ type Presence interface {
 
 	// DeleteAllTunnelConnections deletes all tunnel connections for cluster
 	DeleteAllTunnelConnections() error
+
+	// CreateRemoteCluster creates a remote cluster
+	CreateRemoteCluster(RemoteCluster) error
+
+	// GetRemoteClusters returns a list of remote clusters
+	GetRemoteClusters() ([]RemoteCluster, error)
+
+	// GetRemoteCluster returns a remote cluster by name
+	GetRemoteCluster(clusterName string) (RemoteCluster, error)
+
+	// DeleteRemoteCluster deletes remote cluster by name
+	DeleteRemoteCluster(clusterName string) error
+
+	// DeleteAllRemoteClusters deletes all remote clusters
+	DeleteAllRemoteClusters() error
 }
 
 // NewNamespace returns new namespace

@@ -33,7 +33,7 @@ import (
 
 	"github.com/coreos/go-oidc/oauth2"
 	"github.com/gravitational/trace"
-	log "github.com/sirupsen/logrus"
+	"github.com/sirupsen/logrus"
 )
 
 // CreateGithubAuthRequest creates a new request for Github OAuth2 flow
@@ -51,9 +51,10 @@ func (s *AuthServer) CreateGithubAuthRequest(req services.GithubAuthRequest) (*s
 		return nil, trace.Wrap(err)
 	}
 	req.RedirectURL = client.AuthCodeURL(req.StateToken, "", "")
-	log.WithFields(log.Fields{trace.Component: "github"}).Debugf(
+	log.WithFields(logrus.Fields{trace.Component: "github"}).Debugf(
 		"Redirect URL: %v.", req.RedirectURL)
-	err = s.Identity.CreateGithubAuthRequest(req, defaults.GithubAuthRequestTTL)
+	req.SetTTL(s.GetClock(), defaults.GithubAuthRequestTTL)
+	err = s.Identity.CreateGithubAuthRequest(req)
 	if err != nil {
 		return nil, trace.Wrap(err)
 	}
@@ -68,8 +69,10 @@ type GithubAuthResponse struct {
 	Identity services.ExternalIdentity `json:"identity"`
 	// Session is the created web session
 	Session services.WebSession `json:"session,omitempty"`
-	// Cert is the generated cert
+	// Cert is the generated SSH client certificate
 	Cert []byte `json:"cert,omitempty"`
+	// TLSCert is PEM encoded TLS client certificate
+	TLSCert []byte `json:"tls_cert,omitempty"`
 	// Req is the original auth request
 	Req services.GithubAuthRequest `json:"req"`
 	// HostSigners is a list of signing host public keys
@@ -78,8 +81,27 @@ type GithubAuthResponse struct {
 }
 
 // ValidateGithubAuthCallback validates Github auth callback redirect
-func (s *AuthServer) ValidateGithubAuthCallback(q url.Values) (*GithubAuthResponse, error) {
-	logger := log.WithFields(log.Fields{trace.Component: "github"})
+func (a *AuthServer) ValidateGithubAuthCallback(q url.Values) (*GithubAuthResponse, error) {
+	re, err := a.validateGithubAuthCallback(q)
+	if err != nil {
+		a.EmitAuditEvent(events.UserLoginEvent, events.EventFields{
+			events.LoginMethod:        events.LoginMethodGithub,
+			events.AuthAttemptSuccess: false,
+			events.AuthAttemptErr:     err.Error(),
+		})
+	} else {
+		a.EmitAuditEvent(events.UserLoginEvent, events.EventFields{
+			events.EventUser:          re.Username,
+			events.AuthAttemptSuccess: true,
+			events.LoginMethod:        events.LoginMethodGithub,
+		})
+	}
+	return re, err
+}
+
+// ValidateGithubAuthCallback validates Github auth callback redirect
+func (s *AuthServer) validateGithubAuthCallback(q url.Values) (*GithubAuthResponse, error) {
+	logger := log.WithFields(logrus.Fields{trace.Component: "github"})
 	error := q.Get("error")
 	if error != "" {
 		return nil, trace.OAuth2(oauth2.ErrorInvalidRequest, error, q)
@@ -121,7 +143,10 @@ func (s *AuthServer) ValidateGithubAuthCallback(q url.Values) (*GithubAuthRespon
 		token.TokenType, token.Expires, token.Scope)
 	// Github does not support OIDC so user claims have to be populated
 	// by making requests to Github API using the access token
-	claims, err := populateGithubClaims(&githubAPIClient{token: token.AccessToken})
+	claims, err := populateGithubClaims(&githubAPIClient{
+		token:      token.AccessToken,
+		authServer: s,
+	})
 	if err != nil {
 		return nil, trace.Wrap(err)
 	}
@@ -162,46 +187,40 @@ func (s *AuthServer) ValidateGithubAuthCallback(q url.Values) (*GithubAuthRespon
 	}
 	if len(req.PublicKey) != 0 {
 		certTTL := utils.MinTTL(defaults.OAuth2TTL, req.CertTTL)
-		allowedLogins, err := roles.CheckLoginDuration(
-			roles.AdjustSessionTTL(certTTL))
+		certs, err := s.generateUserCert(certRequest{
+			user:          user,
+			roles:         roles,
+			ttl:           certTTL,
+			publicKey:     req.PublicKey,
+			compatibility: req.Compatibility,
+		})
 		if err != nil {
 			return nil, trace.Wrap(err)
 		}
-		cert, err := s.GenerateUserCert(
-			req.PublicKey,
-			user,
-			allowedLogins,
-			certTTL,
-			roles.CanForwardAgents(),
-			roles.CanPortForward(),
-			req.Compatibility)
+		response.Cert = certs.ssh
+		response.TLSCert = certs.tls
+
+		// Return the host CA for this cluster only.
+		authority, err := s.GetCertAuthority(services.CertAuthID{
+			Type:       services.HostCA,
+			DomainName: s.clusterName.GetClusterName(),
+		}, false)
 		if err != nil {
 			return nil, trace.Wrap(err)
 		}
-		response.Cert = cert
-		authorities, err := s.GetCertAuthorities(services.HostCA, false)
-		if err != nil {
-			return nil, trace.Wrap(err)
-		}
-		for _, authority := range authorities {
-			response.HostSigners = append(response.HostSigners, authority)
-		}
+		response.HostSigners = append(response.HostSigners, authority)
 	}
-	s.EmitAuditEvent(events.UserLoginEvent, events.EventFields{
-		events.EventUser:   user.GetName(),
-		events.LoginMethod: events.LoginMethodGithub,
-	})
 	return response, nil
 }
 
 func (s *AuthServer) createGithubUser(connector services.GithubConnector, claims services.GithubClaims) error {
-	logins := connector.MapClaims(claims)
+	logins, kubeGroups := connector.MapClaims(claims)
 	if len(logins) == 0 {
 		return trace.BadParameter(
 			"user %q does not belong to any teams configured in %q connector",
 			claims.Username, connector.GetName())
 	}
-	log.WithFields(log.Fields{trace.Component: "github"}).Debugf(
+	log.WithFields(logrus.Fields{trace.Component: "github"}).Debugf(
 		"Generating dynamic identity %v/%v with logins: %v.",
 		connector.GetName(), claims.Username, logins)
 	user, err := services.GetUserMarshaler().GenerateUser(&services.UserV2{
@@ -213,7 +232,7 @@ func (s *AuthServer) createGithubUser(connector services.GithubConnector, claims
 		},
 		Spec: services.UserSpecV2{
 			Roles:   modules.GetModules().RolesFromLogins(logins),
-			Traits:  modules.GetModules().TraitsFromLogins(logins),
+			Traits:  modules.GetModules().TraitsFromLogins(logins, kubeGroups),
 			Expires: s.clock.Now().UTC().Add(defaults.OAuth2TTL),
 			GithubIdentities: []services.ExternalIdentity{{
 				ConnectorID: connector.GetName(),
@@ -261,6 +280,8 @@ func populateGithubClaims(client githubAPIClientI) (*services.GithubClaims, erro
 	if err != nil {
 		return nil, trace.Wrap(err, "failed to query Github user teams")
 	}
+	log.Debugf("Retrieved %v teams for GitHub user %v.", len(teams), user.Login)
+
 	orgToTeams := make(map[string][]string)
 	for _, team := range teams {
 		orgToTeams[team.Org.Login] = append(
@@ -274,7 +295,7 @@ func populateGithubClaims(client githubAPIClientI) (*services.GithubClaims, erro
 		Username:            user.Login,
 		OrganizationToTeams: orgToTeams,
 	}
-	log.WithFields(log.Fields{trace.Component: "github"}).Debugf(
+	log.WithFields(logrus.Fields{trace.Component: "github"}).Debugf(
 		"Claims: %#v.", claims)
 	return claims, nil
 }
@@ -321,6 +342,8 @@ type githubAPIClientI interface {
 type githubAPIClient struct {
 	// token is the access token retrieved during OAuth2 flow
 	token string
+	// authServer points to the Auth Server.
+	authServer *AuthServer
 }
 
 // userResponse represents response from "user" API call
@@ -331,7 +354,8 @@ type userResponse struct {
 
 // getEmails retrieves a list of emails for authenticated user
 func (c *githubAPIClient) getUser() (*userResponse, error) {
-	bytes, err := c.get("/user")
+	// Ignore pagination links, we should never get more than a single user here.
+	bytes, _, err := c.get("/user")
 	if err != nil {
 		return nil, trace.Wrap(err)
 	}
@@ -359,50 +383,108 @@ type orgResponse struct {
 	Login string `json:"login"`
 }
 
-// getTeams retrieves a list of teams authenticated user belongs to
+// getTeams retrieves a list of teams authenticated user belongs to.
 func (c *githubAPIClient) getTeams() ([]teamResponse, error) {
-	bytes, err := c.get("/user/teams")
+	var result []teamResponse
+
+	bytes, nextPage, err := c.get("/user/teams")
 	if err != nil {
 		return nil, trace.Wrap(err)
 	}
+
+	// Extract the first page of results and append them to the full result set.
 	var teams []teamResponse
 	err = json.Unmarshal(bytes, &teams)
 	if err != nil {
 		return nil, trace.Wrap(err)
 	}
-	return teams, nil
+	result = append(result, teams...)
+
+	// If the response returned a next page link, continue following the next
+	// page links until all teams have been retrieved.
+	var count int
+	for nextPage != "" {
+		// To prevent this from looping forever, don't fetch more than a set number
+		// of pages, print an error when it does happen, and return the results up
+		// to that point.
+		if count > MaxPages {
+			warningMessage := "Truncating list of teams used to populate claims: " +
+				"hit maximum number pages that can be fetched from GitHub."
+
+			// Print warning to Teleport logs as well as the Audit Log.
+			log.Warnf(warningMessage)
+			c.authServer.EmitAuditEvent(events.UserLoginEvent, events.EventFields{
+				events.LoginMethod:        events.LoginMethodGithub,
+				events.AuthAttemptMessage: warningMessage,
+			})
+
+			return result, nil
+		}
+
+		u, err := url.Parse(nextPage)
+		if err != nil {
+			return nil, trace.Wrap(err)
+		}
+
+		bytes, nextPage, err = c.get(u.RequestURI())
+		if err != nil {
+			return nil, trace.Wrap(err)
+		}
+
+		err = json.Unmarshal(bytes, &teams)
+		if err != nil {
+			return nil, trace.Wrap(err)
+		}
+
+		// Append this page of teams to full result set.
+		result = append(result, teams...)
+
+		count = count + 1
+	}
+
+	return result, nil
 }
 
 // get makes a GET request to the provided URL using the client's token for auth
-func (c *githubAPIClient) get(url string) ([]byte, error) {
+func (c *githubAPIClient) get(url string) ([]byte, string, error) {
 	request, err := http.NewRequest("GET", fmt.Sprintf("%v%v", GithubAPIURL, url), nil)
 	if err != nil {
-		return nil, trace.Wrap(err)
+		return nil, "", trace.Wrap(err)
 	}
 	request.Header.Set("Authorization", fmt.Sprintf("token %v", c.token))
 	response, err := http.DefaultClient.Do(request)
 	if err != nil {
-		return nil, trace.Wrap(err)
+		return nil, "", trace.Wrap(err)
 	}
 	defer response.Body.Close()
 	bytes, err := ioutil.ReadAll(response.Body)
 	if err != nil {
-		return nil, trace.Wrap(err)
+		return nil, "", trace.Wrap(err)
 	}
 	if response.StatusCode != 200 {
-		return nil, trace.AccessDenied("bad response: %v %v",
+		return nil, "", trace.AccessDenied("bad response: %v %v",
 			response.StatusCode, string(bytes))
 	}
-	return bytes, nil
+
+	// Parse web links header to extract any pagination links. This is used to
+	// return the next link which can be used in a loop to pull back all data.
+	wls := utils.ParseWebLinks(response)
+
+	return bytes, wls.NextPage, nil
 }
 
 const (
 	// GithubAuthURL is the Github authorization endpoint
 	GithubAuthURL = "https://github.com/login/oauth/authorize"
+
 	// GithubTokenURL is the Github token exchange endpoint
 	GithubTokenURL = "https://github.com/login/oauth/access_token"
+
 	// GithubAPIURL is the Github base API URL
 	GithubAPIURL = "https://api.github.com"
+
+	// MaxPages is the maximum number of pagination links that will be followed.
+	MaxPages = 99
 )
 
 var (

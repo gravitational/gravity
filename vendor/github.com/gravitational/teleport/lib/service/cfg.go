@@ -19,7 +19,6 @@ package service
 import (
 	"fmt"
 	"io"
-	"net"
 	"os"
 	"path/filepath"
 	"time"
@@ -28,18 +27,20 @@ import (
 
 	"github.com/gravitational/teleport/lib/auth"
 	"github.com/gravitational/teleport/lib/backend"
-	"github.com/gravitational/teleport/lib/backend/boltbk"
+	"github.com/gravitational/teleport/lib/backend/dir"
 	"github.com/gravitational/teleport/lib/defaults"
+	"github.com/gravitational/teleport/lib/events"
 	"github.com/gravitational/teleport/lib/limiter"
+	"github.com/gravitational/teleport/lib/pam"
 	"github.com/gravitational/teleport/lib/services"
+	"github.com/gravitational/teleport/lib/sshca"
 	"github.com/gravitational/teleport/lib/utils"
 
 	"github.com/ghodss/yaml"
-	log "github.com/sirupsen/logrus"
 )
 
 // Config structure is used to initialize _all_ services Teleporot can run.
-// Some settings are globl (like DataDir) while others are grouped into
+// Some settings are global (like DataDir) while others are grouped into
 // sections, like AuthConfig
 type Config struct {
 	// DataDir provides directory where teleport stores it's permanent state
@@ -60,9 +61,9 @@ type Config struct {
 	// for teleport roles, this is helpful when server is preconfigured
 	Identities []*auth.Identity
 
-	// AdvertiseIP is used to "publish" an alternative IP address this node
+	// AdvertiseIP is used to "publish" an alternative IP address or hostname this node
 	// can be reached on, if running behind NAT
-	AdvertiseIP net.IP
+	AdvertiseIP string
 
 	// CachePolicy sets caching policy for nodes and proxies
 	// in case if they loose connection to auth servers
@@ -75,7 +76,7 @@ type Config struct {
 	Auth AuthConfig
 
 	// Keygen points to a key generator implementation
-	Keygen auth.Authority
+	Keygen sshca.Authority
 
 	// Proxy is SSH proxy that manages incoming and outbound connections
 	// via multiple reverse tunnels
@@ -116,17 +117,47 @@ type Config struct {
 	// ClusterConfiguration is a service that provides cluster configuration
 	ClusterConfiguration services.ClusterConfiguration
 
-	// Ciphers is a list of ciphers that the server supports. If omitted,
+	// CipherSuites is a list of TLS ciphersuites that Teleport supports. If
+	// omitted, a Teleport selected list of defaults will be used.
+	CipherSuites []uint16
+
+	// Ciphers is a list of SSH ciphers that the server supports. If omitted,
 	// the defaults will be used.
 	Ciphers []string
 
-	// KEXAlgorithms is a list of key exchange (KEX) algorithms that the
+	// KEXAlgorithms is a list of SSH key exchange (KEX) algorithms that the
 	// server supports. If omitted, the defaults will be used.
 	KEXAlgorithms []string
 
-	// MACAlgorithms is a list of message authentication codes (MAC) that
+	// MACAlgorithms is a list of SSH message authentication codes (MAC) that
 	// the server supports. If omitted the defaults will be used.
 	MACAlgorithms []string
+
+	// DiagnosticAddr is an address for diagnostic and healthz endpoint service
+	DiagnosticAddr utils.NetAddr
+
+	// Debug sets debugging mode, results in diagnostic address
+	// endpoint extended with additional /debug handlers
+	Debug bool
+
+	// UploadEventsC is a channel for upload events
+	// used in tests
+	UploadEventsC chan *events.UploadEvent `json:"-"`
+
+	// FileDescriptors is an optional list of file descriptors for the process
+	// to inherit and use for listeners, used for in-process updates.
+	FileDescriptors []FileDescriptor
+
+	// PollingPeriod is set to override default internal polling periods
+	// of sync agents, used to speed up integration tests.
+	PollingPeriod time.Duration
+
+	// ClientTimeout is set to override default client timeouts
+	// used by internal clients, used to speed up integration tests.
+	ClientTimeout time.Duration
+
+	// ShutdownTimeout is set to override default shutdown timeout.
+	ShutdownTimeout time.Duration
 }
 
 // ApplyToken assigns a given token to all internal services but only if token
@@ -177,6 +208,17 @@ type CachePolicy struct {
 	// NeverExpires means that cache values without TTL
 	// set by the auth server won't expire
 	NeverExpires bool
+	// RecentTTL is the recently accessed items cache TTL
+	RecentTTL *time.Duration
+}
+
+// GetRecentTTL either returns TTL that was set,
+// or default recent TTL value
+func (c *CachePolicy) GetRecentTTL() time.Duration {
+	if c.RecentTTL == nil {
+		return defaults.RecentCacheTTL
+	}
+	return *c.RecentTTL
 }
 
 // String returns human-friendly representation of the policy
@@ -184,16 +226,22 @@ func (c CachePolicy) String() string {
 	if !c.Enabled {
 		return "no cache policy"
 	}
+	recentCachePolicy := ""
+	if c.GetRecentTTL() == 0 {
+		recentCachePolicy = "will not cache frequently accessed items"
+	} else {
+		recentCachePolicy = fmt.Sprintf("will cache frequently accessed items for %v", c.GetRecentTTL())
+	}
 	if c.NeverExpires {
-		return "never expiring cache policy"
+		return fmt.Sprintf("cache that will not expire in case if connection to database is lost, %v", recentCachePolicy)
 	}
 	if c.TTL == 0 {
-		return fmt.Sprintf("cache policy with %v TTL", defaults.CacheTTL)
+		return fmt.Sprintf("cache that will expire after connection to database is lost after %v, %v", defaults.CacheTTL, recentCachePolicy)
 	}
-	return fmt.Sprintf("cache policy with %v TTL", c.TTL)
+	return fmt.Sprintf("cache that will expire after connection to database is lost after %v, %v", c.TTL, recentCachePolicy)
 }
 
-// ProxyConfig configures proy service
+// ProxyConfig specifies configuration for proxy service
 type ProxyConfig struct {
 	// Enabled turns proxy role on or off for this process
 	Enabled bool
@@ -213,6 +261,9 @@ type ProxyConfig struct {
 	// ReverseTunnelListenAddr is address where reverse tunnel dialers connect to
 	ReverseTunnelListenAddr utils.NetAddr
 
+	// EnableProxyProtocol enables proxy protocol support
+	EnableProxyProtocol bool
+
 	// WebAddr is address for web portal of the proxy
 	WebAddr utils.NetAddr
 
@@ -227,14 +278,50 @@ type ProxyConfig struct {
 
 	Limiter limiter.LimiterConfig
 
-	// PublicAddr is the public address the Teleport UI can be accessed at.
-	PublicAddr utils.NetAddr
+	// PublicAddrs is a list of the public addresses the proxy advertises
+	// for the HTTP endpoint. The hosts in in PublicAddr are included in the
+	// list of host principals on the TLS and SSH certificate.
+	PublicAddrs []utils.NetAddr
+
+	// SSHPublicAddrs is a list of the public addresses the proxy advertises
+	// for the SSH endpoint. The hosts in in PublicAddr are included in the
+	// list of host principals on the TLS and SSH certificate.
+	SSHPublicAddrs []utils.NetAddr
+
+	// Kube specifies kubernetes proxy configuration
+	Kube KubeProxyConfig
+}
+
+// KubeProxyConfig specifies configuration for proxy service
+type KubeProxyConfig struct {
+	// Enabled turns kubernetes proxy role on or off for this process
+	Enabled bool
+
+	// ListenAddr is address where reverse tunnel dialers connect to
+	ListenAddr utils.NetAddr
+
+	// KubeAPIAddr is address of kubernetes API server
+	APIAddr utils.NetAddr
+
+	// ClusterOverride causes all traffic to go to a specific remote
+	// cluster, used only in tests
+	ClusterOverride string
+
+	// CACert is a PEM encoded kubernetes CA certificate
+	CACert []byte
+
+	// PublicAddrs is a list of the public addresses the Teleport Kube proxy can be accessed by,
+	// it also affects the host principals and routing logic
+	PublicAddrs []utils.NetAddr
 }
 
 // AuthConfig is a configuration of the auth server
 type AuthConfig struct {
 	// Enabled turns auth role on or off for this process
 	Enabled bool
+
+	// EnableProxyProtocol enables proxy protocol support
+	EnableProxyProtocol bool
 
 	// SSHAddr is the listening address of SSH tunnel to HTTP service
 	SSHAddr utils.NetAddr
@@ -273,6 +360,12 @@ type AuthConfig struct {
 
 	// LicenseFile is a full path to the license file
 	LicenseFile string
+
+	// PublicAddrs affects the SSH host principals and DNS names added to the SSH and TLS certs.
+	PublicAddrs []utils.NetAddr
+
+	// KubeconfigPath is a path to kubeconfig
+	KubeconfigPath string
 }
 
 // SSHConfig configures SSH server node role
@@ -285,6 +378,12 @@ type SSHConfig struct {
 	Labels                map[string]string
 	CmdLabels             services.CommandLabels
 	PermitUserEnvironment bool
+
+	// PAM holds PAM configuration for Teleport.
+	PAM *pam.Config
+
+	// PublicAddrs affects the SSH host principals and DNS names added to the SSH and TLS certs.
+	PublicAddrs []utils.NetAddr
 }
 
 // MakeDefaultConfig creates a new Config structure and populates it with defaults
@@ -296,30 +395,42 @@ func MakeDefaultConfig() (config *Config) {
 
 // ApplyDefaults applies default values to the existing config structure
 func ApplyDefaults(cfg *Config) {
-	// get defaults for cipher, kex algorithms, and mac algorithms from
+	// Get defaults for Cipher, Kex algorithms, and MAC algorithms from
 	// golang.org/x/crypto/ssh default config.
 	var sc ssh.Config
 	sc.SetDefaults()
 
+	// Remove insecure and (borderline insecure) cryptographic primitives from
+	// default configuration. These can still be added back in file configuration by
+	// users, but not supported by default by Teleport. See #1856 for more
+	// details.
+	kex := utils.RemoveFromSlice(sc.KeyExchanges,
+		defaults.DiffieHellmanGroup1SHA1,
+		defaults.DiffieHellmanGroup14SHA1)
+	macs := utils.RemoveFromSlice(sc.MACs,
+		defaults.HMACSHA1,
+		defaults.HMACSHA196)
+
 	hostname, err := os.Hostname()
 	if err != nil {
 		hostname = "localhost"
-		log.Errorf("Failed to determine hostname: %v", err)
+		log.Errorf("Failed to determine hostname: %v.", err)
 	}
 
 	// global defaults
 	cfg.Hostname = hostname
 	cfg.DataDir = defaults.DataDir
 	cfg.Console = os.Stdout
+	cfg.CipherSuites = utils.DefaultCipherSuites()
 	cfg.Ciphers = sc.Ciphers
-	cfg.KEXAlgorithms = sc.KeyExchanges
-	cfg.MACAlgorithms = sc.MACs
+	cfg.KEXAlgorithms = kex
+	cfg.MACAlgorithms = macs
 
 	// defaults for the auth service:
 	cfg.Auth.Enabled = true
 	cfg.Auth.SSHAddr = *defaults.AuthListenAddr()
-	cfg.Auth.StorageConfig.Type = boltbk.GetName()
-	cfg.Auth.StorageConfig.Params = backend.Params{"path": cfg.DataDir}
+	cfg.Auth.StorageConfig.Type = dir.GetName()
+	cfg.Auth.StorageConfig.Params = backend.Params{defaults.BackendPath: filepath.Join(cfg.DataDir, defaults.BackendDir)}
 	cfg.Auth.StaticTokens = services.DefaultStaticTokens()
 	cfg.Auth.ClusterConfig = services.DefaultClusterConfig()
 	defaults.ConfigureLimiter(&cfg.Auth.Limiter)
@@ -336,9 +447,14 @@ func ApplyDefaults(cfg *Config) {
 	cfg.Proxy.ReverseTunnelListenAddr = *defaults.ReverseTunnellListenAddr()
 	defaults.ConfigureLimiter(&cfg.Proxy.Limiter)
 
+	// defaults for the Kubernetes proxy service
+	cfg.Proxy.Kube.Enabled = false
+	cfg.Proxy.Kube.ListenAddr = *defaults.KubeProxyListenAddr()
+
 	// defaults for the SSH service:
 	cfg.SSH.Enabled = true
 	cfg.SSH.Addr = *defaults.SSHServerListenAddr()
 	cfg.SSH.Shell = defaults.DefaultShell
 	defaults.ConfigureLimiter(&cfg.SSH.Limiter)
+	cfg.SSH.PAM = &pam.Config{Enabled: false}
 }

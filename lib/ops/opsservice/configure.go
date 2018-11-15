@@ -24,7 +24,6 @@ import (
 	"fmt"
 	"net"
 	"os"
-	"os/user"
 	"path/filepath"
 	"strings"
 	"time"
@@ -41,15 +40,13 @@ import (
 	"github.com/gravitational/gravity/lib/transfer"
 	"github.com/gravitational/gravity/lib/utils"
 
+	teleetcd "github.com/gravitational/teleport/lib/backend/etcdbk"
+	telecfg "github.com/gravitational/teleport/lib/config"
+	teleservices "github.com/gravitational/teleport/lib/services"
+
 	"github.com/cloudflare/cfssl/csr"
 	"github.com/gravitational/configure"
 	"github.com/gravitational/license/authority"
-	"github.com/gravitational/teleport"
-	"github.com/gravitational/teleport/lib/auth/native"
-	teleetcd "github.com/gravitational/teleport/lib/backend/etcdbk"
-	telecfg "github.com/gravitational/teleport/lib/config"
-	"github.com/gravitational/teleport/lib/services"
-	teleservices "github.com/gravitational/teleport/lib/services"
 	"github.com/gravitational/trace"
 	log "github.com/sirupsen/logrus"
 	"gopkg.in/yaml.v2"
@@ -164,10 +161,6 @@ func (s *site) getTeleportMaster(ctx context.Context) (*teleportServer, error) {
 }
 
 func (s *site) configureExpandPackages(ctx context.Context, opCtx *operationContext) error {
-	teleportCA, err := s.getTeleportSecrets()
-	if err != nil {
-		return trace.Wrap(err)
-	}
 	teleportMaster, err := s.getTeleportMaster(ctx)
 	if err != nil {
 		return trace.Wrap(err)
@@ -196,7 +189,7 @@ func (s *site) configureExpandPackages(ctx context.Context, opCtx *operationCont
 		configPackage: *configPackage,
 	}
 	if provisionedServer.IsMaster() {
-		err := s.configureTeleportMaster(opCtx, teleportCA, provisionedServer)
+		err := s.configureTeleportMaster(opCtx, provisionedServer)
 		if err != nil {
 			return trace.Wrap(err)
 		}
@@ -235,10 +228,6 @@ func (s *site) configureExpandPackages(ctx context.Context, opCtx *operationCont
 			return trace.Wrap(err)
 		}
 	}
-	err = s.configureTeleportKeyPair(teleportCA, provisionedServer, teleport.RoleNode)
-	if err != nil {
-		return trace.Wrap(err)
-	}
 	err = s.configureTeleportNode(opCtx, teleportMaster.IP, provisionedServer)
 	if err != nil {
 		return trace.Wrap(err)
@@ -258,28 +247,17 @@ func (s *site) configurePackages(ctx *operationContext) error {
 		return trace.Wrap(err)
 	}
 
-	// configure teleport master keys and secrets
-	teleportCA, err := s.initTeleportCertAuthority()
+	err = s.configureRemoteCluster()
 	if err != nil {
 		return trace.Wrap(err)
 	}
 
-	for _, node := range ctx.provisionedServers {
-		node.PackageSet.AddPackage(
-			s.gravityPackage, map[string]string{pack.InstalledLabel: pack.InstalledLabel})
-
-		err := s.configureTeleportKeyPair(teleportCA, node, teleport.RoleNode)
-		if err != nil {
-			return trace.Wrap(err)
-		}
-	}
-
-	siteExportPackage, err := s.configureSiteExportPackage(ctx)
+	_, err = s.configureSiteExportPackage(ctx)
 	if err != nil {
 		return trace.Wrap(err)
 	}
 
-	licensePackage, err := s.configureLicensePackage(ctx)
+	_, err = s.configureLicensePackage(ctx)
 	if err != nil {
 		return trace.Wrap(err)
 	}
@@ -358,24 +336,11 @@ func (s *site) configurePackages(ctx *operationContext) error {
 			return trace.Wrap(err)
 		}
 
-		if err := s.configureTeleportMaster(ctx, teleportCA, master); err != nil {
+		if err := s.configureTeleportMaster(ctx, master); err != nil {
 			return trace.Wrap(err)
 		}
 
 		if err := s.configureTeleportNode(ctx, activeMaster.AdvertiseIP, master); err != nil {
-			return trace.Wrap(err)
-		}
-
-		master.PackageSet.AddArchivePackages(s.webAssetsPackage)
-		master.PackageSet.AddPackages(*planetPackage)
-		master.PackageSet.AddPackages(*siteExportPackage)
-		if licensePackage != nil {
-			master.PackageSet.AddPackages(*licensePackage)
-		}
-		if s.hasResources() {
-			master.PackageSet.AddPackages(*resourcesPackage)
-		}
-		if err := s.configureUserApp(master); err != nil {
 			return trace.Wrap(err)
 		}
 	}
@@ -427,6 +392,20 @@ func (s *site) configurePackages(ctx *operationContext) error {
 	return nil
 }
 
+// configureRemoteCluster creates a remote cluster object in the installer
+// database which is required for the installing cluster to connect back
+func (s *site) configureRemoteCluster() error {
+	remoteCluster, err := teleservices.NewRemoteCluster(s.domainName)
+	if err != nil {
+		return trace.Wrap(err)
+	}
+	err = s.users().CreateRemoteCluster(remoteCluster)
+	if err != nil {
+		return trace.Wrap(err)
+	}
+	return trace.Wrap(err)
+}
+
 // prepareEtcdConfig assigns each of the provisioned servers a etcd config that indicates
 // whether the server is a full etcd member or a proxy
 func (s *site) prepareEtcdConfig(ctx *operationContext) clusterEtcdConfig {
@@ -462,24 +441,6 @@ func (s *site) prepareEtcdConfig(ctx *operationContext) clusterEtcdConfig {
 	}
 
 	return config
-}
-
-// configureUserApp adds the application being installed as well as all its dependencies to
-// the package set of master servers
-func (s *site) configureUserApp(server *ProvisionedServer) error {
-	var apps []loc.Locator
-
-	for _, dep := range s.app.Manifest.Dependencies.Apps {
-		apps = append(apps, dep.Locator)
-	}
-
-	appPackage, err := s.appPackage()
-	if err != nil {
-		return trace.Wrap(err)
-	}
-
-	server.PackageSet.AddApps(append(apps, *appPackage)...)
-	return nil
 }
 
 func (s *site) configurePlanetCertAuthority(ctx *operationContext) error {
@@ -827,21 +788,6 @@ func (s *site) configurePlanetMaster(
 		return trace.Wrap(err)
 	}
 
-	certAuthorityPackage, err := s.planetCertAuthorityPackage()
-	if err != nil {
-		return trace.Wrap(err)
-	}
-
-	master.PackageSet.AddArchivePackages(*certAuthorityPackage)
-	master.PackageSet.AddArchivePackage(secretsPackage,
-		map[string]string{pack.InstalledLabel: pack.InstalledLabel})
-	master.PackageSet.AddArchivePackage(
-		config.planetPackage, map[string]string{
-			pack.InstalledLabel: pack.InstalledLabel,
-			pack.PurposeLabel:   pack.PurposeRuntime,
-		})
-	master.PackageSet.AddArchivePackage(configPackage,
-		pack.ConfigLabels(config.planetPackage, pack.PurposePlanetConfig))
 	return nil
 }
 
@@ -860,15 +806,6 @@ func (s *site) configurePlanetNode(
 		return trace.Wrap(err)
 	}
 
-	node.PackageSet.AddArchivePackage(secretsPackage, map[string]string{
-		pack.InstalledLabel: pack.InstalledLabel,
-	})
-	node.PackageSet.AddArchivePackage(config.planetPackage, map[string]string{
-		pack.InstalledLabel: pack.InstalledLabel,
-		pack.PurposeLabel:   pack.PurposeRuntime,
-	})
-	node.PackageSet.AddArchivePackage(configPackage,
-		pack.ConfigLabels(config.planetPackage, pack.PurposePlanetConfig))
 	return nil
 }
 
@@ -1039,63 +976,14 @@ type planetConfig struct {
 	configPackage loc.Locator
 }
 
-func (s *site) configureTeleportMaster(ctx *operationContext, secrets *teleportSecrets, master *ProvisionedServer) error {
+func (s *site) getTeleportMasterConfig(ctx *operationContext, master *ProvisionedServer) (*ops.RotatePackageResponse, error) {
 	configPackage, err := s.teleportMasterConfigPackage(master)
 	if err != nil {
-		return trace.Wrap(err)
+		return nil, trace.Wrap(err)
 	}
 
 	fileConf := &telecfg.FileConfig{}
 
-	// trust host and user keys of our portal
-	proxyAuthorities, err := s.teleport().CertAuthorities(false)
-	if err != nil {
-		return trace.Wrap(err)
-	}
-	fileConf.Auth.Authorities = make([]telecfg.Authority, 0, len(proxyAuthorities)+2)
-
-	currentUser, err := user.Current()
-	if err != nil {
-		log.Warningf("failed to query current user: %v", trace.ConvertSystemError(err))
-	}
-
-	for _, a := range proxyAuthorities {
-		authority := telecfg.Authority{
-			Type:          a.GetType(),
-			DomainName:    a.GetClusterName(),
-			CheckingKeys:  make([]string, 0, len(a.GetCheckingKeys())),
-			AllowedLogins: storage.GetAllowedLogins(currentUser),
-		}
-		for _, key := range a.GetCheckingKeys() {
-			authority.CheckingKeys = append(authority.CheckingKeys, string(key))
-		}
-		fileConf.Auth.Authorities = append(fileConf.Auth.Authorities, authority)
-	}
-
-	if secrets != nil {
-		// teleport master has pre-configured keypair that we've used
-		// to sign certs for other nodes
-		fileConf.Auth.Authorities = append(
-			fileConf.Auth.Authorities,
-			telecfg.Authority{
-				Type:         services.HostCA,
-				DomainName:   s.domainName,
-				SigningKeys:  []string{string(secrets.HostCAPrivateKey)},
-				CheckingKeys: []string{string(secrets.HostCAPublicKey)},
-			})
-
-		fileConf.Auth.Authorities = append(
-			fileConf.Auth.Authorities,
-			telecfg.Authority{
-				Type:         services.UserCA,
-				DomainName:   s.domainName,
-				SigningKeys:  []string{string(secrets.UserCAPrivateKey)},
-				CheckingKeys: []string{string(secrets.UserCAPublicKey)},
-			})
-	}
-
-	dynamicConfig := true
-	fileConf.Auth.DynamicConfig = &dynamicConfig
 	fileConf.DataDir = defaults.InGravity("site/teleport")
 	fileConf.Storage.Type = teleetcd.GetName()
 	secretsDir := defaults.InGravity(defaults.SecretsDir)
@@ -1108,24 +996,31 @@ func (s *site) configureTeleportMaster(ctx *operationContext, secrets *teleportS
 		TLSCAFile:   filepath.Join(secretsDir, "root.cert"),
 	})
 	if err != nil {
-		return trace.Wrap(err)
+		return nil, trace.Wrap(err)
 	}
 	fileConf.Storage.Params = params
 
 	fileConf.SSH.Labels = map[string]string{}
 
-	configureTeleportLabels(master, &ctx.operation, fileConf.SSH.Labels, s.domainName)
+	configureTeleportLabels(master, fileConf.SSH.Labels, s.domainName)
 
 	for key, val := range master.Profile.Labels {
 		fileConf.SSH.Labels[key] = val
 	}
 
-	fileConf.AdvertiseIP = net.ParseIP(master.AdvertiseIP)
+	fileConf.AdvertiseIP = net.ParseIP(master.AdvertiseIP).String()
 	fileConf.Global.NodeName = master.FQDN(s.domainName)
+
+	joinToken, err := s.service.GetExpandToken(s.key)
+	if err != nil {
+		return nil, trace.Wrap(err)
+	}
 
 	// turn on auth service
 	fileConf.Auth.EnabledFlag = "yes"
 	fileConf.Auth.ClusterName = telecfg.ClusterName(s.domainName)
+	fileConf.Auth.StaticTokens = telecfg.StaticTokens{
+		telecfg.StaticToken(fmt.Sprintf("node:%v", joinToken.Token))}
 
 	// turn on proxy
 	fileConf.Proxy.EnabledFlag = "yes"
@@ -1135,25 +1030,39 @@ func (s *site) configureTeleportMaster(ctx *operationContext, secrets *teleportS
 
 	bytes, err := yaml.Marshal(fileConf)
 	if err != nil {
-		return trace.Wrap(err)
+		return nil, trace.Wrap(err)
 	}
 
 	args := []string{
 		fmt.Sprintf("--config-string=%v", base64.StdEncoding.EncodeToString(bytes)),
 	}
 
-	err = pack.ConfigurePackage(
-		s.packages(), s.teleportPackage, *configPackage, args, map[string]string{
-			pack.PurposeLabel:     pack.PurposeTeleportConfig,
+	reader, err := pack.GetConfigPackage(s.packages(), s.teleportPackage, *configPackage, args)
+	if err != nil {
+		return nil, trace.Wrap(err)
+	}
+
+	return &ops.RotatePackageResponse{
+		Locator: *configPackage,
+		Reader:  reader,
+		Labels: map[string]string{
+			pack.PurposeLabel:     pack.PurposeTeleportMasterConfig,
 			pack.AdvertiseIPLabel: master.AdvertiseIP,
 			pack.OperationIDLabel: ctx.operation.ID,
-		})
+			pack.ConfigLabel:      s.teleportPackage.ZeroVersion().String(),
+		},
+	}, nil
+}
+
+func (s *site) configureTeleportMaster(ctx *operationContext, master *ProvisionedServer) error {
+	resp, err := s.getTeleportMasterConfig(ctx, master)
 	if err != nil {
 		return trace.Wrap(err)
 	}
-
-	master.PackageSet.AddArchivePackage(*configPackage, nil)
-
+	_, err = s.packages().CreatePackage(resp.Locator, resp.Reader, pack.WithLabels(resp.Labels))
+	if err != nil {
+		return trace.Wrap(err)
+	}
 	return nil
 }
 
@@ -1172,26 +1081,38 @@ func toObject(in interface{}) (map[string]interface{}, error) {
 
 func (s *site) teleportMasterConfigPackage(master remoteServer) (*loc.Locator, error) {
 	configPackage, err := loc.ParseLocator(
-		fmt.Sprintf("%v/%v:0.0.1-%v", s.siteRepoName(), constants.TeleportMasterConfigPackage,
-			PackageSuffix(master, s.domainName)))
+		fmt.Sprintf("%v/%v:0.0.%v-%v", s.siteRepoName(), constants.TeleportMasterConfigPackage,
+			time.Now().UTC().Unix(), PackageSuffix(master, s.domainName)))
 	return configPackage, trace.Wrap(err)
 }
 
-func (s *site) configureTeleportNode(ctx *operationContext, masterIP string, node *ProvisionedServer) error {
+func (s *site) getTeleportNodeConfig(ctx *operationContext, masterIP string, node *ProvisionedServer) (*ops.RotatePackageResponse, error) {
 	configPackage, err := s.teleportNodeConfigPackage(node)
 	if err != nil {
-		return trace.Wrap(err)
+		return nil, trace.Wrap(err)
+	}
+
+	joinToken, err := s.service.GetExpandToken(s.key)
+	if err != nil {
+		return nil, trace.Wrap(err)
 	}
 
 	fileConf := &telecfg.FileConfig{}
 
 	fileConf.DataDir = node.InGravity("teleport")
 
+	if s.service.cfg.Devmode {
+		fileConf.Logger.Severity = "debug"
+	} else {
+		fileConf.Logger.Severity = "info"
+	}
+
 	fileConf.AuthServers = []string{fmt.Sprintf("%v:3025", masterIP)}
+	fileConf.AuthToken = joinToken.Token
 
 	fileConf.SSH.Labels = map[string]string{}
 
-	configureTeleportLabels(node, &ctx.operation, fileConf.SSH.Labels, s.domainName)
+	configureTeleportLabels(node, fileConf.SSH.Labels, s.domainName)
 
 	// for AWS sites, use dynamic teleport labels to periodically query AWS metadata
 	// for servers' public IPs
@@ -1214,7 +1135,7 @@ func (s *site) configureTeleportNode(ctx *operationContext, masterIP string, nod
 	// for now set to 365 days
 	fileConf.CachePolicy.TTL = fmt.Sprintf("%v", 365*24*time.Hour)
 
-	fileConf.AdvertiseIP = net.ParseIP(node.AdvertiseIP)
+	fileConf.AdvertiseIP = net.ParseIP(node.AdvertiseIP).String()
 	fileConf.Global.NodeName = node.FQDN(s.domainName)
 
 	// turn off auth service and proxy, turn on SSH
@@ -1222,42 +1143,48 @@ func (s *site) configureTeleportNode(ctx *operationContext, masterIP string, nod
 	fileConf.Proxy.EnabledFlag = "no"
 	fileConf.SSH.EnabledFlag = "yes"
 
-	fileConf.Keys = []telecfg.KeyPair{
-		{
-			PrivateKey: string(node.keyPair.PrivateKey),
-			Cert:       string(node.keyPair.Cert),
-		},
-	}
-
 	bytes, err := yaml.Marshal(fileConf)
 	if err != nil {
-		return trace.Wrap(err)
+		return nil, trace.Wrap(err)
 	}
 
 	args := []string{
 		fmt.Sprintf("--config-string=%v", base64.StdEncoding.EncodeToString(bytes)),
 	}
 
-	err = pack.ConfigurePackage(
-		s.packages(), s.teleportPackage, *configPackage, args, map[string]string{
-			pack.PurposeLabel:     pack.PurposeTeleportConfig,
+	reader, err := pack.GetConfigPackage(s.packages(), s.teleportPackage, *configPackage, args)
+	if err != nil {
+		return nil, trace.Wrap(err)
+	}
+
+	return &ops.RotatePackageResponse{
+		Locator: *configPackage,
+		Reader:  reader,
+		Labels: map[string]string{
+			pack.PurposeLabel:     pack.PurposeTeleportNodeConfig,
 			pack.AdvertiseIPLabel: node.AdvertiseIP,
 			pack.OperationIDLabel: ctx.operation.ID,
-		})
+			pack.ConfigLabel:      s.teleportPackage.ZeroVersion().String(),
+		},
+	}, nil
+}
+
+func (s *site) configureTeleportNode(ctx *operationContext, masterIP string, node *ProvisionedServer) error {
+	resp, err := s.getTeleportNodeConfig(ctx, masterIP, node)
 	if err != nil {
 		return trace.Wrap(err)
 	}
-
-	node.PackageSet.AddArchivePackage(s.teleportPackage, map[string]string{pack.InstalledLabel: pack.InstalledLabel})
-	node.PackageSet.AddArchivePackage(*configPackage, map[string]string{pack.ConfigLabel: s.teleportPackage.ZeroVersion().String()})
-
+	_, err = s.packages().CreatePackage(resp.Locator, resp.Reader, pack.WithLabels(resp.Labels))
+	if err != nil {
+		return trace.Wrap(err)
+	}
 	return nil
 }
 
 func (s *site) teleportNodeConfigPackage(node remoteServer) (*loc.Locator, error) {
 	configPackage, err := loc.ParseLocator(
-		fmt.Sprintf("%v/%v:0.0.1-%v", s.siteRepoName(), constants.TeleportNodeConfigPackage,
-			PackageSuffix(node, s.domainName)))
+		fmt.Sprintf("%v/%v:0.0.%v-%v", s.siteRepoName(), constants.TeleportNodeConfigPackage,
+			time.Now().UTC().Unix(), PackageSuffix(node, s.domainName)))
 	return configPackage, trace.Wrap(err)
 }
 
@@ -1343,96 +1270,16 @@ func (s *site) configureLicensePackage(ctx *operationContext) (*loc.Locator, err
 	return licensePackage, nil
 }
 
-func configureTeleportLabels(node *ProvisionedServer, operation *ops.SiteOperation, labels map[string]string, domainName string) {
+func configureTeleportLabels(node *ProvisionedServer, labels map[string]string, domainName string) {
 	labels[ops.AdvertiseIP] = node.AdvertiseIP
 	labels[ops.ServerFQDN] = node.FQDN(domainName)
 	labels[ops.AppRole] = node.Role
 	labels[ops.Hostname] = node.Hostname
-
-	state := operation.InstallExpand
-	if state == nil {
-		return
-	}
-
-	profile := state.Profiles[node.Role]
-	displayRole := profile.Labels[schema.DisplayRole]
-	if displayRole == "" {
-		displayRole = profile.Description
-	}
-
-	labels[schema.DisplayRole] = displayRole
 	labels[ops.InstanceType] = node.InstanceType
-}
-
-func (s *site) initTeleportCertAuthority() (*teleportSecrets, error) {
-	hostPriv, hostPub, err := native.New().GenerateKeyPair("")
-	if err != nil {
-		return nil, trace.Wrap(err)
+	labels[schema.DisplayRole] = node.Profile.Labels[schema.DisplayRole]
+	if labels[schema.DisplayRole] == "" {
+		labels[schema.DisplayRole] = node.Profile.Description
 	}
-
-	userPriv, userPub, err := native.New().GenerateKeyPair("")
-	if err != nil {
-		return nil, trace.Wrap(err)
-	}
-
-	secrets := &teleportSecrets{
-		HostCAPublicKey:  hostPub,
-		HostCAPrivateKey: hostPriv,
-		UserCAPublicKey:  userPub,
-		UserCAPrivateKey: userPriv,
-	}
-
-	// make sure teleport proxy trusts the keys we've just generated
-	err = s.teleport().TrustCertAuthority(
-		services.NewCertAuthority(
-			services.UserCA,
-			s.domainName,
-			nil,
-			[][]byte{userPub},
-			nil,
-		))
-	if err != nil {
-		return nil, trace.Wrap(err)
-	}
-
-	err = s.teleport().TrustCertAuthority(services.NewCertAuthority(
-		services.HostCA,
-		s.domainName,
-		nil,
-		[][]byte{hostPub},
-		nil))
-	if err != nil {
-		return nil, trace.Wrap(err)
-	}
-
-	return secrets, nil
-}
-
-// configureTeleportKeyPair configures private key and a cert signed by the correct authority
-func (s *site) configureTeleportKeyPair(secrets *teleportSecrets, server *ProvisionedServer, role teleport.Role) error {
-	unqualifiedName := server.UnqualifiedName(s.domainName)
-
-	log.Infof("%v going to generate token for %v", s, unqualifiedName)
-
-	auth := native.New()
-
-	hostPriv, hostPub, err := auth.GenerateKeyPair("")
-	if err != nil {
-		return trace.Wrap(err)
-	}
-	cert, err := auth.GenerateHostCert(teleservices.HostCertParams{
-		PrivateCASigningKey: secrets.HostCAPrivateKey,
-		PublicHostKey:       hostPub,
-		HostID:              unqualifiedName,
-		ClusterName:         s.domainName,
-		Roles:               teleport.Roles{role},
-	})
-	if err != nil {
-		return trace.Wrap(err)
-	}
-
-	server.keyPair = &teleportKeyPair{Cert: cert, PrivateKey: hostPriv}
-	return nil
 }
 
 // PlanetCertAuthorityPackage returns the name of the planet CA package
@@ -1676,18 +1523,6 @@ func configureDockerOptions(
 	}
 
 	return args, nil
-}
-
-type teleportSecrets struct {
-	HostCAPublicKey  []byte `json:"host_ca_public_key"`
-	HostCAPrivateKey []byte `json:"host_ca_private_key"`
-	UserCAPublicKey  []byte `json:"user_ca_public_key"`
-	UserCAPrivateKey []byte `json:"user_ca_private_key"`
-}
-
-type teleportKeyPair struct {
-	Cert       []byte `json:"cert"`
-	PrivateKey []byte `json:"private_key"`
 }
 
 // exportBackend defines a shim to export site information

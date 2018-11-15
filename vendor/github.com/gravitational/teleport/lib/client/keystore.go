@@ -18,6 +18,8 @@ package client
 
 import (
 	"bufio"
+	"crypto/x509"
+	"encoding/pem"
 	"fmt"
 	"io"
 	"io/ioutil"
@@ -25,11 +27,11 @@ import (
 	"os/user"
 	"path/filepath"
 	"strings"
-	"time"
 
 	"golang.org/x/crypto/ssh"
 
 	"github.com/gravitational/teleport"
+	"github.com/gravitational/teleport/lib/auth"
 	"github.com/gravitational/teleport/lib/sshutils"
 
 	"github.com/gravitational/trace"
@@ -38,10 +40,12 @@ import (
 
 const (
 	defaultKeyDir      = ProfileDir
+	fileExtTLSCert     = "-x509.pem"
 	fileExtCert        = "-cert.pub"
 	fileExtPub         = ".pub"
 	sessionKeyDir      = "keys"
 	fileNameKnownHosts = "known_hosts"
+	fileNameTLSCerts   = "certs.pem"
 
 	// profileDirPerms is the default permissions applied to the profile
 	// directory (usually ~/.tsh)
@@ -77,6 +81,15 @@ type LocalKeyStore interface {
 
 	// GetKnownHostKeys returns all public keys for a hostname.
 	GetKnownHostKeys(hostname string) ([]ssh.PublicKey, error)
+
+	// SaveCerts saves trusted TLS certificates of certificate authorities.
+	SaveCerts(proxy string, cas []auth.TrustedCerts) error
+
+	// GetCerts gets trusted TLS certificates of certificate authorities.
+	GetCerts(proxy string) (*x509.CertPool, error)
+
+	// GetCertsPEM gets trusted TLS certificates of certificate authorities.
+	GetCertsPEM(proxy string) ([]byte, error)
 }
 
 // FSLocalKeyStore implements LocalKeyStore interface using the filesystem.
@@ -126,7 +139,7 @@ func NewFSLocalKeyStore(dirPath string) (s *FSLocalKeyStore, err error) {
 // AddKey adds a new key to the session store. If a key for the host is already
 // stored, overwrites it.
 func (fs *FSLocalKeyStore) AddKey(host, username string, key *Key) error {
-	dirPath, err := fs.dirFor(host)
+	dirPath, err := fs.dirFor(host, true)
 	if err != nil {
 		return trace.Wrap(err)
 	}
@@ -141,6 +154,9 @@ func (fs *FSLocalKeyStore) AddKey(host, username string, key *Key) error {
 	if err = writeBytes(username+fileExtCert, key.Cert); err != nil {
 		return trace.Wrap(err)
 	}
+	if err = writeBytes(username+fileExtTLSCert, key.TLSCert); err != nil {
+		return trace.Wrap(err)
+	}
 	if err = writeBytes(username+fileExtPub, key.Pub); err != nil {
 		return trace.Wrap(err)
 	}
@@ -152,12 +168,13 @@ func (fs *FSLocalKeyStore) AddKey(host, username string, key *Key) error {
 
 // DeleteKey deletes a key from the local store
 func (fs *FSLocalKeyStore) DeleteKey(host string, username string) error {
-	dirPath, err := fs.dirFor(host)
+	dirPath, err := fs.dirFor(host, false)
 	if err != nil {
 		return trace.Wrap(err)
 	}
 	files := []string{
 		filepath.Join(dirPath, username+fileExtCert),
+		filepath.Join(dirPath, username+fileExtTLSCert),
 		filepath.Join(dirPath, username+fileExtPub),
 		filepath.Join(dirPath, username),
 	}
@@ -184,7 +201,7 @@ func (fs *FSLocalKeyStore) DeleteKeys() error {
 // GetKey returns a key for a given host. If the key is not found,
 // returns trace.NotFound error.
 func (fs *FSLocalKeyStore) GetKey(proxyHost string, username string) (*Key, error) {
-	dirPath, err := fs.dirFor(proxyHost)
+	dirPath, err := fs.dirFor(proxyHost, false)
 	if err != nil {
 		return nil, trace.Wrap(err)
 	}
@@ -199,7 +216,12 @@ func (fs *FSLocalKeyStore) GetKey(proxyHost string, username string) (*Key, erro
 		fs.log.Error(err)
 		return nil, trace.Wrap(err)
 	}
-
+	tlsCertFile := filepath.Join(dirPath, username+fileExtTLSCert)
+	tlsCert, err := ioutil.ReadFile(tlsCertFile)
+	if err != nil {
+		fs.log.Error(err)
+		return nil, trace.Wrap(err)
+	}
 	pub, err := ioutil.ReadFile(filepath.Join(dirPath, username+fileExtPub))
 	if err != nil {
 		fs.log.Error(err)
@@ -211,20 +233,92 @@ func (fs *FSLocalKeyStore) GetKey(proxyHost string, username string) (*Key, erro
 		return nil, trace.Wrap(err)
 	}
 
-	key := &Key{Pub: pub, Priv: priv, Cert: cert, ProxyHost: proxyHost}
+	key := &Key{Pub: pub, Priv: priv, Cert: cert, ProxyHost: proxyHost, TLSCert: tlsCert}
 
-	// expired certificate? this key won't be accepted anymore, lets delete it:
 	certExpiration, err := key.CertValidBefore()
 	if err != nil {
 		return nil, trace.Wrap(err)
 	}
-	fs.log.Debugf("Returning certificate %q valid until %q", certFile, certExpiration)
-	if certExpiration.Before(time.Now()) {
-		fs.log.Infof("TTL expired (%v) for session key %v", certExpiration, dirPath)
-		os.RemoveAll(dirPath)
-		return nil, trace.NotFound("session keys for %s are not found", proxyHost)
+	tlsCertExpiration, err := key.TLSCertValidBefore()
+	if err != nil {
+		return nil, trace.Wrap(err)
 	}
+
+	// TODO(russjones): Note, we may be returning expired certificates here, that
+	// is okay. If the certificates is expired, it's the responsibility of the
+	// TeleportClient to perform cleanup of the certificates and the profile.
+	fs.log.Debugf("Returning SSH certificate %q valid until %q, TLS certificate %q valid until %q",
+		certFile, certExpiration, tlsCertFile, tlsCertExpiration)
+
 	return key, nil
+}
+
+// SaveCerts saves trusted TLS certificates of certificate authorities
+func (fs *FSLocalKeyStore) SaveCerts(proxy string, cas []auth.TrustedCerts) error {
+	dir, err := fs.dirFor(proxy, true)
+	if err != nil {
+		return trace.Wrap(err)
+	}
+	fp, err := os.OpenFile(filepath.Join(dir, fileNameTLSCerts), os.O_CREATE|os.O_RDWR|os.O_TRUNC, 0640)
+	if err != nil {
+		return trace.Wrap(err)
+	}
+	defer fp.Sync()
+	defer fp.Close()
+	for _, ca := range cas {
+		for _, cert := range ca.TLSCertificates {
+			_, err := fp.Write(cert)
+			if err != nil {
+				return trace.ConvertSystemError(err)
+			}
+			_, err = fp.WriteString("\n")
+			if err != nil {
+				return trace.ConvertSystemError(err)
+			}
+		}
+	}
+	return nil
+}
+
+// GetCertsPEM returns trusted TLS certificates of certificate authorities PEM block
+func (fs *FSLocalKeyStore) GetCertsPEM(proxy string) ([]byte, error) {
+	dir, err := fs.dirFor(proxy, false)
+	if err != nil {
+		return nil, trace.Wrap(err)
+	}
+	return ioutil.ReadFile(filepath.Join(dir, fileNameTLSCerts))
+}
+
+// GetCerts returns trusted TLS certificates of certificate authorities
+func (fs *FSLocalKeyStore) GetCerts(proxy string) (*x509.CertPool, error) {
+	dir, err := fs.dirFor(proxy, false)
+	if err != nil {
+		return nil, trace.Wrap(err)
+	}
+	bytes, err := ioutil.ReadFile(filepath.Join(dir, fileNameTLSCerts))
+	if err != nil {
+		return nil, trace.ConvertSystemError(err)
+	}
+	pool := x509.NewCertPool()
+	for len(bytes) > 0 {
+		var block *pem.Block
+		block, bytes = pem.Decode(bytes)
+		if block == nil {
+			break
+		}
+		if block.Type != "CERTIFICATE" || len(block.Headers) != 0 {
+			fs.log.Debugf("Skipping PEM block type=%v headers=%v.", block.Type, block.Headers)
+			continue
+		}
+
+		cert, err := x509.ParseCertificate(block.Bytes)
+		if err != nil {
+			return nil, trace.BadParameter("failed to parse certificate: %v", err)
+		}
+		fs.log.Debugf("Adding trusted cluster certificate authority %q to trusted pool.", cert.Issuer)
+		pool.AddCert(cert)
+	}
+	return pool, nil
 }
 
 // AddKnownHostKeys adds a new entry to 'known_hosts' file
@@ -307,16 +401,22 @@ func (fs *FSLocalKeyStore) GetKnownHostKeys(hostname string) ([]ssh.PublicKey, e
 	return retval, nil
 }
 
-// dirFor is a helper function. It returns a directory where session keys
-// for a given host are stored. fs.KeyDir is typically "~/.tsh", sessionKeyDir
-// is typically "keys", and proxyHost is typically something like
-// "proxy.example.com".
-func (fs *FSLocalKeyStore) dirFor(proxyHost string) (string, error) {
+// dirFor returns the path to the session keys for a given host. The value
+// for fs.KeyDir is typically "~/.tsh", sessionKeyDir is typically "keys",
+// and proxyHost typically has values like "proxy.example.com".
+//
+// If the create flag is true, the directory will be created if it does
+// not exist.
+func (fs *FSLocalKeyStore) dirFor(proxyHost string, create bool) (string, error) {
 	dirPath := filepath.Join(fs.KeyDir, sessionKeyDir, proxyHost)
-	if err := os.MkdirAll(dirPath, profileDirPerms); err != nil {
-		fs.log.Error(err)
-		return "", trace.Wrap(err)
+
+	if create {
+		if err := os.MkdirAll(dirPath, profileDirPerms); err != nil {
+			fs.log.Error(err)
+			return "", trace.Wrap(err)
+		}
 	}
+
 	return dirPath, nil
 }
 

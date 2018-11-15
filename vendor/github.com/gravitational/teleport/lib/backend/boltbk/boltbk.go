@@ -17,7 +17,9 @@ limitations under the License.
 package boltbk
 
 import (
+	"bytes"
 	"encoding/json"
+	"os"
 	"path/filepath"
 	"sort"
 	"sync"
@@ -57,6 +59,24 @@ type BoltBackend struct {
 // as shown in 'storage/type' section of Teleport YAML config
 func GetName() string {
 	return "bolt"
+}
+
+// Exists returns true if backend has been used before
+func Exists(path string) (bool, error) {
+	path, err := filepath.Abs(filepath.Join(path, keysBoltFile))
+	if err != nil {
+		return false, trace.Wrap(err)
+	}
+	f, err := os.Open(path)
+	err = trace.ConvertSystemError(err)
+	if err != nil {
+		if trace.IsNotFound(err) {
+			return false, nil
+		}
+		return false, trace.Wrap(err)
+	}
+	defer f.Close()
+	return true, nil
 }
 
 // New initializes and returns a fully created BoltDB backend. It's
@@ -105,6 +125,32 @@ func (b *BoltBackend) Close() error {
 	return b.db.Close()
 }
 
+// GetItems fetches keys and values and returns them to the caller.
+func (b *BoltBackend) GetItems(path []string) ([]backend.Item, error) {
+	keys, err := b.GetKeys(path)
+	if err != nil {
+		return nil, trace.Wrap(err)
+	}
+
+	// This is a very inefficient approach. It's here to satisfy the
+	// backend.Backend interface since the Bolt backend is slated for removal
+	// in 2.7.0 anyway.
+	items := make([]backend.Item, 0, len(keys))
+	for _, e := range keys {
+		val, err := b.GetVal(path, e)
+		if err != nil {
+			continue
+		}
+
+		items = append(items, backend.Item{
+			Key:   e,
+			Value: val,
+		})
+	}
+
+	return items, nil
+}
+
 func (b *BoltBackend) GetKeys(path []string) ([]string, error) {
 	keys, err := b.getKeys(path)
 	if err != nil {
@@ -125,6 +171,10 @@ func (b *BoltBackend) GetKeys(path []string) ([]string, error) {
 	return keys, nil
 }
 
+func (bk *BoltBackend) UpsertItems(bucket []string, items []backend.Item) error {
+	return trace.BadParameter("not implemented")
+}
+
 func (b *BoltBackend) UpsertVal(path []string, key string, val []byte, ttl time.Duration) error {
 	return b.upsertVal(path, key, val, ttl)
 }
@@ -140,6 +190,51 @@ func (b *BoltBackend) CreateVal(bucket []string, key string, val []byte, ttl tim
 		return trace.Wrap(err)
 	}
 	err = b.createKey(bucket, key, bytes)
+	return trace.Wrap(err)
+}
+
+// CompareAndSwapVal compares and swap values in atomic operation,
+// succeeds if prevData matches the value stored in the databases,
+// requires prevData as a non-empty value. Returns trace.CompareFailed
+// in case if value did not match
+func (b *BoltBackend) CompareAndSwapVal(bucket []string, key string, newData []byte, prevData []byte, ttl time.Duration) error {
+	if len(prevData) == 0 {
+		return trace.BadParameter("missing prevData parameter, to atomically create item, use CreateVal method")
+	}
+	v := &kv{
+		Created: b.clock.Now().UTC(),
+		Value:   newData,
+		TTL:     ttl,
+	}
+	newEncodedData, err := json.Marshal(v)
+	if err != nil {
+		return trace.Wrap(err)
+	}
+	err = b.db.Update(func(tx *bolt.Tx) error {
+		bkt, err := GetBucket(tx, bucket)
+		if err != nil {
+			if trace.IsNotFound(err) {
+				return trace.CompareFailed("key %q is not found", key)
+			}
+			return trace.Wrap(err)
+		}
+		currentData := bkt.Get([]byte(key))
+		if currentData == nil {
+			_, err := GetBucket(tx, append(bucket, key))
+			if err == nil {
+				return trace.BadParameter("key %q is a bucket", key)
+			}
+			return trace.CompareFailed("%v %v is not found", bucket, key)
+		}
+		var currentVal kv
+		if err := json.Unmarshal(currentData, &currentVal); err != nil {
+			return trace.Wrap(err)
+		}
+		if bytes.Compare(prevData, currentVal.Value) != 0 {
+			return trace.CompareFailed("%q is not matching expected value", key)
+		}
+		return boltErr(bkt.Put([]byte(key), newEncodedData))
+	})
 	return trace.Wrap(err)
 }
 
@@ -159,7 +254,7 @@ func (b *BoltBackend) upsertVal(path []string, key string, val []byte, ttl time.
 func (b *BoltBackend) GetVal(path []string, key string) ([]byte, error) {
 	var val []byte
 	if err := b.getKey(path, key, &val); err != nil {
-		return nil, trace.Wrap(err)
+		return nil, trace.Wrap(boltErr(err))
 	}
 	var k *kv
 	if err := json.Unmarshal(val, &k); err != nil {

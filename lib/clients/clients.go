@@ -119,8 +119,8 @@ func (r *ClusterClients) KubeClient(operator ops.Operator, user ops.UserInfo, cl
 }
 
 func (r *ClusterClients) getOpsClient(clusterName string) ops.Operator {
-	r.RLock()
-	defer r.RUnlock()
+	r.Lock()
+	defer r.Unlock()
 	clientI, ok := r.opsClients.Get(clusterName)
 	if ok {
 		return clientI.(ops.Operator)
@@ -129,8 +129,8 @@ func (r *ClusterClients) getOpsClient(clusterName string) ops.Operator {
 }
 
 func (r *ClusterClients) getAppsClient(clusterName string) app.Applications {
-	r.RLock()
-	defer r.RUnlock()
+	r.Lock()
+	defer r.Unlock()
 	clientI, ok := r.appsClients.Get(clusterName)
 	if ok {
 		return clientI.(app.Applications)
@@ -139,8 +139,8 @@ func (r *ClusterClients) getAppsClient(clusterName string) app.Applications {
 }
 
 func (r *ClusterClients) getKubeClient(clusterName string, user ops.UserInfo) *kubernetes.Clientset {
-	r.RLock()
-	defer r.RUnlock()
+	r.Lock()
+	defer r.Unlock()
 	clientI, ok := r.kubeClients.Get(fmt.Sprintf("%v.%v", clusterName, user.User.GetName()))
 	if ok {
 		return clientI.(*kubernetes.Clientset)
