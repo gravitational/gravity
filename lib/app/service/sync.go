@@ -89,6 +89,8 @@ func SyncApp(ctx context.Context, req SyncRequest) error {
 	// unpack the app and sync its registry with the local registry
 	unpackedPath := pack.PackagePath(dir, req.Package)
 	if err = pack.Unpack(req.PackService, req.Package, unpackedPath, nil); err != nil {
+		log.Warnf("Failed to unpack package %[1]v: (%[2]v : %[2]T) %[3]v.",
+			req.Package, trace.Unwrap(err), trace.DebugReport(err))
 		return trace.Wrap(err)
 	}
 
@@ -110,7 +112,7 @@ func SyncApp(ctx context.Context, req SyncRequest) error {
 		return nil
 	}
 
-	log.Infof("syncing %v", req.Package)
+	log.Infof("Syncing %v.", req.Package)
 
 	if _, err = req.ImageService.Sync(ctx, syncPath); err != nil {
 		return trace.Wrap(err)
