@@ -50,6 +50,8 @@ const (
 	uncordonNode = "uncordon_node"
 	// endpoints is the phase to wait for system service endpoints
 	endpoints = "endpoints"
+	// config is the phase that updates system configuration
+	config = "config"
 	// kubeletPermissions is the phase to add kubelet permissions
 	kubeletPermissions = "kubelet_permissions"
 	// migrateLinks is the phase to migrate links to trusted clusters
@@ -111,6 +113,8 @@ func fsmSpec(c FSMConfig) fsm.FSMSpecFunc {
 			return NewPhaseUncordon(c, p.Plan, p.Phase)
 		case endpoints:
 			return NewPhaseEndpoints(c, p.Plan, p.Phase)
+		case config:
+			return NewUpdatePhaseConfig(c, p, remote)
 		case kubeletPermissions:
 			return NewPhaseKubeletPermissions(c, p.Plan, p.Phase)
 		case migrateLinks:

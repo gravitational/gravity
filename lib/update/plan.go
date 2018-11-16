@@ -384,7 +384,9 @@ func newOperationPlan(p newPlanParams) (*storage.OperationPlan, error) {
 		if migrationPhase := builder.migration(leadMaster.Server, p); migrationPhase != nil {
 			phases = append(phases, *migrationPhase)
 		}
-		phases = append(phases, runtimePhase)
+
+		configPhase := *builder.config(masters.asServers()).Require(mastersPhase)
+		phases = append(phases, configPhase, runtimePhase)
 	}
 	phases = append(phases, appPhase, cleanupPhase)
 	plan.Phases = phases.asPhases()

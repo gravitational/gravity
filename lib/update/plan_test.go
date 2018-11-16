@@ -80,6 +80,7 @@ func (s *PlanSuite) TestPlanWithRuntimeUpdate(c *check.C) {
 	etcd := *builder.etcdPlan(leadMaster.Server, params.servers[1:2], params.servers[2:], "1.0.0", "2.0.0")
 	migration := builder.migration(leadMaster.Server, params)
 	c.Assert(migration, check.NotNil)
+	config := *builder.config(servers[:2].asServers()).Require(masters)
 
 	runtimeLocs := []loc.Locator{
 		loc.MustParseLocator("gravitational.io/runtime-dep-2:2.0.0"),
@@ -102,6 +103,7 @@ func (s *PlanSuite) TestPlanWithRuntimeUpdate(c *check.C) {
 		nodes,
 		etcd,
 		*migration,
+		config,
 		runtime,
 		app,
 		cleanup,
