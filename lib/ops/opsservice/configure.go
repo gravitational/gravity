@@ -1049,7 +1049,6 @@ func (s *site) getTeleportMasterConfig(ctx *operationContext, master *Provisione
 			pack.PurposeLabel:     pack.PurposeTeleportMasterConfig,
 			pack.AdvertiseIPLabel: master.AdvertiseIP,
 			pack.OperationIDLabel: ctx.operation.ID,
-			pack.ConfigLabel:      s.teleportPackage.ZeroVersion().String(),
 		},
 	}, nil
 }

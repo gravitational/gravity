@@ -265,7 +265,7 @@ func New(ctx context.Context, cfg processconfig.Config, tcfg telecfg.FileConfig)
 
 	process.Infof("Process ID: %v.", processID)
 
-	telecfgFromImport, err := process.getTeleportMasterConfig()
+	telecfgFromImport, err := process.getTeleportConfigFromImportState()
 	if err != nil {
 		return nil, trace.Wrap(err, "failed to query teleport config from import")
 	}
@@ -427,54 +427,6 @@ func (p *Process) Config() *processconfig.Config {
 func (p *Process) StartResumeOperationLoop() {
 	p.resumeOperationCh = make(chan struct{})
 	go p.resumeLastOperationLoop()
-}
-
-func (p *Process) getTeleportMasterConfig() (*telecfg.FileConfig, error) {
-	if !p.inKubernetes() {
-		return nil, nil
-	}
-	advertiseIP := os.Getenv(constants.EnvPodIP)
-	if advertiseIP == "" {
-		return nil, trace.BadParameter("could not determine advertise IP: "+
-			"%v env var is missing", constants.EnvPodIP)
-	}
-	localCluster, err := p.backend.GetLocalSite(defaults.SystemAccountID)
-	if err != nil && !trace.IsNotFound(err) {
-		return nil, trace.Wrap(err)
-	}
-	// if there's no local cluster yet, this means import hasn't completed
-	// yet so get the teleport master config package from import state
-	if trace.IsNotFound(err) {
-		return p.getTeleportConfigFromImportState()
-	}
-	masterConfigLoc, err := pack.FindLatestPackageWithLabels(
-		p.packages, localCluster.Domain, map[string]string{
-			pack.AdvertiseIPLabel: advertiseIP,
-			pack.PurposeLabel:     pack.PurposeTeleportMasterConfig,
-		})
-	if err != nil {
-		return nil, trace.Wrap(err)
-	}
-	p.Infof("Using Teleport master config from %v.", masterConfigLoc)
-	_, reader, err := p.packages.ReadPackage(*masterConfigLoc)
-	if err != nil {
-		return nil, trace.Wrap(err)
-	}
-	defer reader.Close()
-	vars, err := pack.ReadConfigPackage(reader)
-	if err != nil {
-		return nil, trace.Wrap(err)
-	}
-	configString, ok := vars[teledefaults.ConfigEnvar]
-	if !ok {
-		return nil, trace.NotFound("variable %q is not found in config",
-			teledefaults.ConfigEnvar)
-	}
-	fileConf, err := telecfg.ReadFromString(configString)
-	if err != nil {
-		return nil, trace.Wrap(err)
-	}
-	return fileConf, nil
 }
 
 func (p *Process) getTeleportConfigFromImportState() (*telecfg.FileConfig, error) {

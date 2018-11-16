@@ -393,18 +393,37 @@ func FindLatestCompatiblePackage(packages PackageService, filter loc.Locator, ve
 // FindLatestPackageWithLabels returns the latest package matching the provided
 // labels
 func FindLatestPackageWithLabels(packages PackageService, repository string, labels map[string]string) (*loc.Locator, error) {
-	return FindLatestPackagePredicate(packages, repository, func(e PackageEnvelope) bool {
+	loc, err := FindLatestPackagePredicate(packages, repository, func(e PackageEnvelope) bool {
 		return e.HasLabels(labels)
 	})
+	if err != nil && trace.IsNotFound(err) {
+		return nil, trace.NotFound("latest package in repo %q with labels %v not found", repository, labels)
+	}
+	return loc, trace.Wrap(err)
 }
 
 // FindLatestPackage returns package the latest package matching the provided
 // locator
 func FindLatestPackage(packages PackageService, filter loc.Locator) (*loc.Locator, error) {
-	return FindLatestPackagePredicate(packages, filter.Repository, func(e PackageEnvelope) bool {
+	loc, err := FindLatestPackagePredicate(packages, filter.Repository, func(e PackageEnvelope) bool {
 		return e.Locator.Repository == filter.Repository &&
 			e.Locator.Name == filter.Name
 	})
+	if err != nil && trace.IsNotFound(err) {
+		return nil, trace.NotFound("latest package with filter %v not found", filter)
+	}
+	return loc, trace.Wrap(err)
+}
+
+// FindLatestPackageByName returns latest package with the specified name (across all repos)
+func FindLatestPackageByName(packages PackageService, name string) (*loc.Locator, error) {
+	loc, err := FindLatestPackagePredicate(packages, "", func(e PackageEnvelope) bool {
+		return e.Locator.Name == name
+	})
+	if err != nil && trace.IsNotFound(err) {
+		return nil, trace.NotFound("latest package with name %q not found", name)
+	}
+	return loc, trace.Wrap(err)
 }
 
 // FindLatestPackagePredicate returns the latest package matching the provided

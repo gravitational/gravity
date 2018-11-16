@@ -179,8 +179,12 @@ func (p *updatePhaseBootstrap) Execute(context.Context) error {
 	return nil
 }
 
-// Rollback is no-op for bootstrap phase
+// Rollback reverts the bootstrap phase
 func (p *updatePhaseBootstrap) Rollback(context.Context) error {
+	err := p.removePulledPackages()
+	if err != nil {
+		return trace.Wrap(err)
+	}
 	return nil
 }
 
@@ -280,6 +284,18 @@ func (p *updatePhaseBootstrap) pullSystemUpdates() error {
 }
 
 func (p *updatePhaseBootstrap) collectTeleportUpdates() (updates []loc.Locator, err error) {
+	teleportMasterConfigUpdate, err := pack.FindLatestPackageWithLabels(
+		p.Packages, p.Operation.SiteDomain, map[string]string{
+			pack.AdvertiseIPLabel: p.Server.AdvertiseIP,
+			pack.OperationIDLabel: p.Operation.ID,
+			pack.PurposeLabel:     pack.PurposeTeleportMasterConfig,
+		})
+	if err != nil && !trace.IsNotFound(err) {
+		return nil, trace.Wrap(err)
+	}
+	if teleportMasterConfigUpdate != nil {
+		updates = append(updates, *teleportMasterConfigUpdate)
+	}
 	teleportNodeConfigUpdate, err := pack.FindLatestPackageWithLabels(
 		p.Packages, p.Operation.SiteDomain, map[string]string{
 			pack.AdvertiseIPLabel: p.Server.AdvertiseIP,
@@ -375,6 +391,19 @@ func (p *updatePhaseBootstrap) addUpdateRuntimePackageLabel() error {
 		return trace.Wrap(err)
 	}
 	return nil
+}
+
+// removePulledPackages removes some packages pulled locally during phase execution
+func (p *updatePhaseBootstrap) removePulledPackages() error {
+	p.Info("Removing local packages.")
+	return pack.ForeachPackageInRepo(p.LocalPackages, p.Operation.SiteDomain,
+		func(e pack.PackageEnvelope) error {
+			if e.HasLabel(pack.OperationIDLabel, p.Operation.ID) {
+				p.Infof("Removing package %q.", e.Locator)
+				return p.LocalPackages.DeletePackage(e.Locator)
+			}
+			return nil
+		})
 }
 
 func getInstalledRuntime(apps app.Applications, installedApp loc.Locator, profileName, clusterRole string) (*loc.Locator, error) {

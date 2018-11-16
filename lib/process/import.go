@@ -110,19 +110,14 @@ func (i *importer) Close() error {
 
 // getTeleportConfig extracts configuration from teleport package
 func (i *importer) getTeleportConfig() (*telecfg.FileConfig, error) {
-	var configPackage *loc.Locator
-	err := pack.ForeachPackage(i.packages, func(e pack.PackageEnvelope) error {
-		if e.Locator.Name == constants.TeleportMasterConfigPackage {
-			configPackage = &e.Locator
-		}
-		return nil
-	})
+	configPackage, err := pack.FindLatestPackageByName(i.packages,
+		constants.TeleportMasterConfigPackage)
 	if err != nil {
 		return nil, trace.Wrap(err)
 	}
-	if configPackage == nil {
-		return nil, trace.NotFound("package %q not found", constants.TeleportMasterConfigPackage)
-	}
+
+	i.Infof("Using teleport master config from %v.", configPackage)
+
 	_, reader, err := i.packages.ReadPackage(*configPackage)
 	if err != nil {
 		return nil, trace.Wrap(err)
