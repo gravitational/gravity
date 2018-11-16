@@ -15,57 +15,60 @@ limitations under the License.
 */
 
 import $ from 'jQuery';
-import React from 'react';
-import reactor from 'app/reactor';
+import React, { PropTypes } from 'react';
+import connect from 'app/lib/connect';
 import getters from './../../flux/newApp/getters';
 import * as actions from './../../flux/newApp/actions';
-
-import LicenseField from './licenseField';
 import Footer from './../footer.jsx';
+class AppLicense extends React.Component {
 
-const AppLicense = React.createClass({
+  static propTypes = {
+   licenseHeaderText: PropTypes.string.isRequired,
+   licenseOptionText: PropTypes.string.isRequired,
+   licenseOptionTrialText: PropTypes.string.isRequired
+  }
 
-  mixins: [reactor.ReactMixin],
-
-  propTypes: {
-   licenseHeaderText: React.PropTypes.string.isRequired,
-   licenseOptionText: React.PropTypes.string.isRequired,
-   licenseOptionTrialText: React.PropTypes.string.isRequired
-  },
-
-  getDataBindings() {
-    return {
-      newApp: getters.newApp,
-      verifyLicenseAttemp: getters.verifyLicenseAttemp
-    }
-  },
-  
-  onContinue(){    
-    let { packageName } = this.state.newApp;    
+  onContinue = () => {
+    const { packageName } = this.props.newApp;
     if($(this.refs.form).valid()){
-      let license = this.refs.licenseField.getValue();
+      const license = this.refLicense.value;
       actions.setDeploymentType(license, packageName);
-    }    
-  },
+    }
+  }
 
   render() {
-    let { verifyLicenseAttemp } = this.state;
-    let { licenseHeaderText } = this.props;
+    const { licenseHeaderText, attempt } = this.props;
     return (
       <div ref="container">
         <div className="m-t">
-          <h2>{licenseHeaderText}</h2>          
+          <h2>{licenseHeaderText}</h2>
           <form ref="form" className="m-l m-t-lg">
-            <LicenseField ref="licenseField"/>
-          </form>          
+            <div className="grv-installer-license">
+              <div className="form-group">
+                <label><i className="fa fa-key"></i> License</label>
+                <textArea ref={ e => this.refLicense = e }
+                  className="form-control required grv-license" autoComplete="off" type="text"
+                  autoFocus
+                  required
+                  placeholder="Insert your license key here"/>
+              </div>
+            </div>
+          </form>
         </div>
-        <Footer 
-          text="Continue" 
-          attemp={verifyLicenseAttemp} 
+        <Footer
+          text="Continue"
+          attemp={attempt}
           onClick={this.onContinue} />
       </div>
     );
   }
-});
+}
 
-export default AppLicense;
+function mapStateToProps() {
+  return {
+    newApp: getters.newApp,
+    attempt: getters.verifyLicenseAttempt
+  }
+}
+
+export default connect(mapStateToProps)(AppLicense);
