@@ -24,19 +24,19 @@ var SiteLeftNav = React.createClass({
 
   mixins: [reactor.ReactMixin],
 
-  getDataBindings() {    
+  getDataBindings() {
     return {
       nav: getters.currentSiteNav
     }
   },
 
   getInitialState(){
-    let { appInfo } = reactor.evaluate(getters.currentSite());    
+    let { appInfo } = reactor.evaluate(getters.currentSite());
     this.logoUri = appInfo.logoUri;
     return null;
   },
 
-  render() {    
+  render() {
     let { nav } = this.state;
     let $header = null;
     if(this.logoUri){

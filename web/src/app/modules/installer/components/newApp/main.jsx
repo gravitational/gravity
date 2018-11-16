@@ -15,9 +15,8 @@ limitations under the License.
 */
 
 import React from 'react';
-import reactor from 'app/reactor';
+import connect from 'app/lib/connect';
 import AwsProvider from './awsProvider';
-import OnPremProvider from './onPremProvider';
 import { ProviderEnum } from 'app/services/enums';
 import { ProviderOptions } from './items';
 import getters from './../../flux/newApp/getters';
@@ -27,59 +26,44 @@ import Footer from  './../footer.jsx';
 import DomainName from './domainName';
 import AdvancedOptions from './advanced';
 
-const NewApp = React.createClass({
-
-  mixins: [reactor.ReactMixin],
-
-  getDataBindings() {
-    return {
-      newApp: getters.newApp,
-      createSiteAttemp: getters.createSiteAttemp
-    }
-  },
+class NewApp extends React.Component {
 
   componentDidMount(){
-    let { availableProviders=[] } = this.state.newApp;
+    const { availableProviders=[] } = this.props.newApp;
     // pre-select provider if only 1 is available
     if(availableProviders.length === 1){
       setTimeout( () => this.setDefaultProvider(availableProviders[0]), 0);
     }
-  },
+  }
 
   setDefaultProvider(providerName){
     actions.setProvider(providerName);
     // since provider component may change focus,
     // ensure that focus is set back on first installer input element
-    let tabbables = document.querySelectorAll("input");
+    const tabbables = document.querySelectorAll("input");
     if(tabbables.length > 0){
       tabbables[0].focus();
     }
-  },
+  }
 
-  onChangeProvider(providerName){
+  onChangeProvider = providerName => {
     actions.setProvider(providerName);
-  },
+  }
 
-  onChangeDomainName(domainName){
-    actions.setDomainName(domainName);
-  },
-
-  onCreateSite(){
+  onCreateSite = () => {
     actions.createSite();
-  },
+  }
 
   renderProvider(provName){
     if(provName === ProviderEnum.AWS){
       return <AwsProvider/>;
-    }else if(provName === ProviderEnum.ONPREM){
-      return <OnPremProvider/>;
     }
 
     return null;
-  },
+  }
 
-  renderAdvancedOptions(){
-    let { enableTags, subnets, tags, selectedProvider } = this.state.newApp;
+  renderAdvancedOptions(newApp){
+    const { enableTags, subnets, tags, selectedProvider } = newApp;
     if( !enableTags || !selectedProvider ){
       return null;
     }
@@ -90,18 +74,18 @@ const NewApp = React.createClass({
           <AdvancedOptions
             provider={selectedProvider}
             tags={tags}
-            subnets={subnets}            
+            subnets={subnets}
             onChangeTags={actions.setAppTags} />
         </div>
       </div>
     )
-  },
+  }
 
   render() {
-    let {createSiteAttemp} = this.state;
-    let {availableProviders, selectedProvider} = this.state.newApp;
-    let $provider = this.renderProvider(selectedProvider);
-    let $advancedOptions = this.renderAdvancedOptions();
+    const { createSiteAttempt, newApp} = this.props;
+    const { availableProviders, selectedProvider } = newApp;
+    const $provider = this.renderProvider(selectedProvider);
+    const $advancedOptions = this.renderAdvancedOptions(newApp);
 
     return (
       <div ref="container">
@@ -112,10 +96,18 @@ const NewApp = React.createClass({
           {$provider}
           {$advancedOptions}
         </div>
-        <Footer text="Continue" attemp={createSiteAttemp} onClick={this.onCreateSite}/>
+        <Footer text="Continue" attemp={createSiteAttempt} onClick={this.onCreateSite}/>
       </div>
     );
   }
-});
+}
 
-export default NewApp;
+function mapStateToProps() {
+  return {
+    newApp: getters.newApp,
+    createSiteAttempt: getters.createSiteAttempt
+  }
+}
+
+export default connect(mapStateToProps)(NewApp);
+
