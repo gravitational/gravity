@@ -144,5 +144,5 @@ export default {
   isDomainNameValid: [['installer_new_app', 'isDomainNameValid'], isValid => isValid],
   validateDomainNameAttempt: requestStatus(TRYING_TO_VALIDATE_DOMAIN_NAME),
   createSiteAttempt: requestStatus(TRYING_TO_CREATE_NEW_SITE),
-  verifyLicenseAttemp: requestStatus(TRYING_TO_VALIDATE_LICENSE)
+  verifyLicenseAttempt: requestStatus(TRYING_TO_VALIDATE_LICENSE)
 }
