@@ -144,7 +144,7 @@ func NewUpdatePhaseConfig(c FSMConfig, p fsm.ExecutorParams, remote fsm.Remote) 
 	}, nil
 }
 
-// Execute runs system update on the node
+// Execute pulls rotated teleport master config package to the local package store
 func (p *updatePhaseConfig) Execute(context.Context) error {
 	update, err := pack.FindLatestPackageWithLabels(
 		p.Packages, p.Plan.ClusterName, map[string]string{
@@ -182,9 +182,21 @@ func (p *updatePhaseConfig) Execute(context.Context) error {
 	return nil
 }
 
-// Rollback runs rolls back the system upgrade on the node
+// Rollback removes teleport master config packages pulled during this
+// operation from the local package store
 func (p *updatePhaseConfig) Rollback(context.Context) error {
-	return nil
+	labels := map[string]string{
+		pack.AdvertiseIPLabel: p.Phase.Data.Server.AdvertiseIP,
+		pack.OperationIDLabel: p.Plan.OperationID,
+		pack.PurposeLabel:     pack.PurposeTeleportMasterConfig,
+	}
+	return pack.ForeachPackage(p.LocalPackages, func(e pack.PackageEnvelope) error {
+		if e.HasLabels(labels) {
+			p.Infof("Removing package %v.", e.Locator)
+			return p.LocalPackages.DeletePackage(e.Locator)
+		}
+		return nil
+	})
 }
 
 // PreCheck makes sure the phase is being executed on the correct server

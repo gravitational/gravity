@@ -76,24 +76,6 @@ func (r phaseBuilder) bootstrap(servers []storage.Server, installed, update loc.
 	return &root
 }
 
-func (r phaseBuilder) config(nodes []storage.Server) *phase {
-	root := root(phase{
-		ID:          "config",
-		Description: "Update system configuration on nodes",
-	})
-	for i, node := range nodes {
-		root.AddParallel(phase{
-			ID:          root.ChildLiteral(node.Hostname),
-			Executor:    config,
-			Description: fmt.Sprintf("Update system configuration on node %q", node.Hostname),
-			Data: &storage.OperationPhaseData{
-				Server: &nodes[i],
-			},
-		})
-	}
-	return &root
-}
-
 func (r phaseBuilder) preUpdate(appPackage loc.Locator) *phase {
 	phase := root(phase{
 		ID:          "pre-update",
@@ -170,6 +152,26 @@ func (r phaseBuilder) migration(leadMaster storage.Server, p newPlanParams) *pha
 	}
 
 	root.AddParallel(subphases...)
+	return &root
+}
+
+// config returns phase that pulls system configuration on provided nodes
+func (r phaseBuilder) config(nodes []storage.Server) *phase {
+	root := root(phase{
+		ID:          "config",
+		Description: "Update system configuration on nodes",
+	})
+	for i, node := range nodes {
+		root.AddParallel(phase{
+			ID:       root.ChildLiteral(node.Hostname),
+			Executor: config,
+			Description: fmt.Sprintf("Update system configuration on node %q",
+				node.Hostname),
+			Data: &storage.OperationPhaseData{
+				Server: &nodes[i],
+			},
+		})
+	}
 	return &root
 }
 
