@@ -92,12 +92,12 @@ func (r *corednsExecutor) Execute(ctx context.Context) error {
 		return trace.Wrap(err)
 	}
 
-	conf, err := generateCoreDNSConfig(coreDNSConfig{
+	conf, err := GenerateCorefile(CorednsConfig{
 		UpstreamNameservers: resolvConf.Servers,
 		Rotate:              resolvConf.Rotate,
 		Hosts:               r.DNSOverrides.Hosts,
 		Zones:               r.DNSOverrides.Zones,
-	}, coreDNSTemplate)
+	})
 	if err != nil {
 		return trace.Wrap(err)
 	}
@@ -128,8 +128,9 @@ func (r *corednsExecutor) Rollback(context.Context) error {
 	return nil
 }
 
-func generateCoreDNSConfig(config coreDNSConfig, tpl string) (string, error) {
-	parsed, err := template.New("coredns").Parse(tpl)
+// GenerateCorefile will generate a coredns configuration file to be used from within the cluster
+func GenerateCorefile(config CorednsConfig) (string, error) {
+	parsed, err := template.New("coredns").Parse(coreDNSTemplate)
 	if err != nil {
 		return "", trace.Wrap(err)
 	}
@@ -142,7 +143,8 @@ func generateCoreDNSConfig(config coreDNSConfig, tpl string) (string, error) {
 	return coredns.String(), nil
 }
 
-type coreDNSConfig struct {
+// CoreDNSConfig represents the CoreDNS configuration options to apply to our template
+type CorednsConfig struct {
 	Zones               map[string][]string
 	Hosts               map[string]string
 	UpstreamNameservers []string

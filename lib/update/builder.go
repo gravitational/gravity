@@ -140,6 +140,23 @@ func (r phaseBuilder) migration(p newPlanParams) *phase {
 	return &root
 }
 
+// Only applicable for 5.3.0 -> 5.3.2
+// We need to update the CoreDNS app before doing rolling restarts, because the new planet will not have embedded
+// coredns, and will instead point to the kube-dns service on startup. Updating the app will deploy coredns as pods.
+// TODO(knisbet) remove when 5.3.2 is no longer supported as an upgrade path
+func (r phaseBuilder) earlyDNSApp(locator loc.Locator) *phase {
+	phase := phase{
+		ID:       locator.Name,
+		Executor: updateApp,
+		Description: fmt.Sprintf(
+			"Update system application %q to %v", locator.Name, locator.Version),
+		Data: &storage.OperationPhaseData{
+			Package: &locator,
+		},
+	}
+	return &phase
+}
+
 func (r phaseBuilder) runtime(updates []loc.Locator, rbacUpdateAvailable bool) *phase {
 	root := root(phase{
 		ID:          "runtime",

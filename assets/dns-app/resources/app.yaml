@@ -10,11 +10,11 @@ hooks:
         apiVersion: batch/v1
         kind: Job
         metadata:
-          name: dns-app-update
+          name: dns-app-install
         spec:
           template:
             metadata:
-              name: dns-app-update
+              name: dns-app-install
             spec:
               restartPolicy: OnFailure
               containers:
