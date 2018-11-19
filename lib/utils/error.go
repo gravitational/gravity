@@ -267,6 +267,14 @@ func IsContextCancelledError(err error) bool {
 	return false
 }
 
+// IsConnectionResetError determines whether err is a
+// 'connection reset by peer' error.
+// err is expected to be non-nil
+func IsConnectionResetError(err error) bool {
+	return strings.Contains(trace.Unwrap(err).Error(),
+		"connection reset by peer")
+}
+
 // ShouldReconnectPeer implements the error classification for peer connection errors
 //
 // It detects unrecoverable errors and aborts the reconnect attempts
