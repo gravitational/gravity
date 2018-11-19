@@ -31,6 +31,7 @@ import (
 	"github.com/gravitational/gravity/lib/storage/keyval"
 
 	"github.com/gravitational/trace"
+	log "github.com/sirupsen/logrus"
 	. "gopkg.in/check.v1"
 )
 
@@ -53,14 +54,16 @@ func (s *PullerSuite) TestPullPackage(c *C) {
 	c.Assert(err, IsNil)
 
 	loc := loc.MustParseLocator("example.com/package:0.0.1")
+	logger := log.WithField("test", "PullPackage")
 
 	_, err = s.srcPack.CreatePackage(loc, bytes.NewBuffer([]byte("data")))
 	c.Assert(err, IsNil)
 
 	env, err := PullPackage(PackagePullRequest{
-		SrcPack: s.srcPack,
-		DstPack: s.dstPack,
-		Package: loc,
+		FieldLogger: logger,
+		SrcPack:     s.srcPack,
+		DstPack:     s.dstPack,
+		Package:     loc,
 	})
 	c.Assert(err, IsNil)
 	c.Assert(env.Locator, Equals, loc)
@@ -70,9 +73,10 @@ func (s *PullerSuite) TestPullPackage(c *C) {
 	c.Assert(env.Locator, Equals, loc)
 
 	_, err = PullPackage(PackagePullRequest{
-		SrcPack: s.srcPack,
-		DstPack: s.dstPack,
-		Package: loc,
+		FieldLogger: logger,
+		SrcPack:     s.srcPack,
+		DstPack:     s.dstPack,
+		Package:     loc,
 	})
 	c.Assert(trace.IsAlreadyExists(err), Equals, true)
 }

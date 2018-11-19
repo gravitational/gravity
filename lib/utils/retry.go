@@ -203,6 +203,9 @@ func (t *teeReadCloser) Close() error {
 func RetryTransient(ctx context.Context, interval backoff.BackOff, fn func() error) error {
 	return trace.Wrap(RetryWithInterval(ctx, interval, func() error {
 		err := fn()
+		if err == nil {
+			return nil
+		}
 		switch {
 		case IsTransientClusterError(err):
 			// Retry on transient etcd errors
@@ -216,10 +219,7 @@ func RetryTransient(ctx context.Context, interval backoff.BackOff, fn func() err
 		case trace.IsConnectionProblem(err):
 			return trace.Wrap(err)
 		default:
-			if err != nil {
-				return &backoff.PermanentError{Err: err}
-			}
-			return nil
+			return &backoff.PermanentError{Err: err}
 		}
 	}))
 }
