@@ -30,6 +30,7 @@ import (
 	"github.com/gravitational/gravity/lib/schema"
 	"github.com/gravitational/gravity/lib/utils"
 
+	"github.com/cenkalti/backoff"
 	"github.com/gravitational/trace"
 	"github.com/sirupsen/logrus"
 )
@@ -143,8 +144,10 @@ func pullPackageHandler(loc loc.Locator, req AppPullRequest, state *pullState) f
 }
 
 func pullPackageWithRetries(req PackagePullRequest, state *pullState) (env *pack.PackageEnvelope, err error) {
-	err = utils.RetryTransient(context.TODO(),
-		utils.NewExponentialBackOff(defaults.TransientErrorTimeout),
+	ctx, cancel := context.WithTimeout(context.Background(), defaults.TransientErrorTimeout)
+	defer cancel()
+	err = utils.RetryTransient(ctx,
+		backoff.NewConstantBackOff(defaults.RetryInterval),
 		func() (err error) {
 			env, err = pullPackage(req)
 			return trace.Wrap(err)
@@ -232,8 +235,10 @@ func PullApp(req AppPullRequest) (*app.Application, error) {
 }
 
 func pullAppWithRetries(req AppPullRequest, state *pullState) (app *app.Application, err error) {
-	err = utils.RetryTransient(context.TODO(),
-		utils.NewExponentialBackOff(defaults.TransientErrorTimeout),
+	ctx, cancel := context.WithTimeout(context.Background(), defaults.TransientErrorTimeout)
+	defer cancel()
+	err = utils.RetryTransient(ctx,
+		backoff.NewConstantBackOff(defaults.RetryInterval),
 		func() error {
 			var err error
 			app, err = pullApp(req, state)

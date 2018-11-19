@@ -25,8 +25,9 @@ import (
 	"os"
 	"time"
 
-	"github.com/cenkalti/backoff"
 	"github.com/gravitational/gravity/lib/defaults"
+
+	"github.com/cenkalti/backoff"
 	"github.com/gravitational/trace"
 	log "github.com/sirupsen/logrus"
 )
