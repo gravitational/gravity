@@ -26,18 +26,18 @@ properties([
            defaultValue: 'true',
            description: 'Abort all tests upon first failure.',
            name: 'FAIL_FAST'),
-    choice(choices: ["azure", "aws"].join("\n"),
-           defaultValue: 'azure',
+    choice(choices: ["gce"].join("\n"),
+           defaultValue: 'gce',
            description: 'Cloud provider to deploy to.',
            name: 'DEPLOY_TO'),
     string(name: 'PARALLEL_TESTS',
-           defaultValue: '80',
+           defaultValue: '4',
            description: 'Number of parallel tests to run.'),
     string(name: 'REPEAT_TESTS',
            defaultValue: '1',
            description: 'How many times to repeat each test.'),
     string(name: 'ROBOTEST_VERSION',
-           defaultValue: 'stable',
+           defaultValue: 'dima',
            description: 'Robotest tag to use.'),
   ]),
 ])
@@ -46,7 +46,7 @@ timestamps {
 node {
   stage('checkout') {
     checkout scm
-    sh "git submodule update --init"
+    sh "git submodule update --init --recursive"
     sh "sudo git clean -ffdx" // supply -f flag twice to force-remove untracked dirs with .git subdirs (e.g. submodules)
   }
   stage('params') {
@@ -56,9 +56,16 @@ node {
   stage('clean') {
     sh "make -C e clean"
   }
-  stage('build-telekube') {
+  stage('build-gravity') {
     withCredentials([
-    [$class: 'SSHUserPrivateKeyBinding', credentialsId: '08267d86-0b3a-4101-841e-0036bf780b11', keyFileVariable: 'GITHUB_SSH_KEY']]) {
+    [$class: 'SSHUserPrivateKeyBinding', credentialsId: '08267d86-0b3a-4101-841e-0036bf780b11', keyFileVariable: 'GITHUB_SSH_KEY'],
+    [
+      $class: 'UsernamePasswordMultiBinding',
+      credentialsId: 'jenkins-aws-s3',
+      usernameVariable: 'AWS_ACCESS_KEY_ID',
+      passwordVariable: 'AWS_SECRET_ACCESS_KEY',
+    ],
+    ]) {
       sh 'make -C e production telekube opscenter'
     }
   }
@@ -73,12 +80,13 @@ node {
     robotest : {
       if (params.RUN_ROBOTEST == 'run') {
         withCredentials([
-            [$class: 'UsernamePasswordMultiBinding', credentialsId: 'jenkins-aws', usernameVariable: 'AWS_ACCESS_KEY', passwordVariable: 'AWS_SECRET_KEY'],
+            [
+              $class: 'UsernamePasswordMultiBinding',
+              credentialsId: 'jenkins-aws-s3',
+              usernameVariable: 'AWS_ACCESS_KEY_ID',
+              passwordVariable: 'AWS_SECRET_ACCESS_KEY'
+            ],
             [$class: 'StringBinding', credentialsId: 'GET_GRAVITATIONAL_IO_APIKEY', variable: 'GET_GRAVITATIONAL_IO_APIKEY'],
-            [$class: 'StringBinding', credentialsId: 'AZURE_SUBSCRIPTION_ID', variable: 'AZURE_SUBSCRIPTION_ID'],
-            [$class: 'StringBinding', credentialsId: 'AZURE_TENANT_ID', variable: 'AZURE_TENANT_ID'],
-            [$class: 'StringBinding', credentialsId: 'AZURE_CLIENT_SECRET', variable: 'AZURE_CLIENT_SECRET'],
-            [$class: 'StringBinding', credentialsId: 'AZURE_CLIENT_ID', variable: 'AZURE_CLIENT_ID'],
             [$class: 'FileBinding', credentialsId:'ROBOTEST_LOG_GOOGLE_APPLICATION_CREDENTIALS', variable: 'GOOGLE_APPLICATION_CREDENTIALS'],
             [$class: 'FileBinding', credentialsId:'OPS_SSH_KEY', variable: 'SSH_KEY'],
             [$class: 'FileBinding', credentialsId:'OPS_SSH_PUB', variable: 'SSH_PUB'],
@@ -87,7 +95,6 @@ node {
               make -C e robotest-run-suite \
                 AWS_KEYPAIR=ops \
                 AWS_REGION=us-east-1 \
-                AZURE_VM=Standard_F4s \
                 ROBOTEST_VERSION=$ROBOTEST_VERSION"""
         }
       }else {

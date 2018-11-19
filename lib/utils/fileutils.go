@@ -18,6 +18,7 @@ package utils
 
 import (
 	"bufio"
+	"context"
 	"fmt"
 	"io"
 	"io/ioutil"
@@ -28,6 +29,7 @@ import (
 	"github.com/gravitational/gravity/lib/constants"
 	"github.com/gravitational/gravity/lib/defaults"
 
+	"github.com/cenkalti/backoff"
 	"github.com/gravitational/trace"
 	log "github.com/sirupsen/logrus"
 )
@@ -381,4 +383,22 @@ func EnsureLineInFile(path, line string) error {
 		return trace.Wrap(err)
 	}
 	return nil
+}
+
+// CopyReaderTo copies the contents of the specified reader to the file at targetPath.
+// Mode specifies the file mode for the resulting file
+func CopyReaderTo(targetPath string, reader io.Reader, mode os.FileMode) error {
+	b := backoff.NewExponentialBackOff()
+	b.MaxElapsedTime = defaults.TransientErrorTimeout
+	err := RetryWithInterval(context.TODO(), b, func() error {
+		err := CopyReaderWithPerms(targetPath, reader, mode)
+		if err == nil {
+			return nil
+		}
+		if IsConnectionResetError(err) {
+			return trace.Wrap(err)
+		}
+		return &backoff.PermanentError{Err: err}
+	})
+	return trace.Wrap(err)
 }

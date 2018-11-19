@@ -46,7 +46,7 @@ func status(env *localenv.LocalEnvironment, printOptions printOptions) error {
 	}
 	operator := clusterEnv.Operator
 
-	status, err := acquireClusterStatus(context.TODO(), env, operator, printOptions.operationID)
+	status, err := statusOnce(context.TODO(), operator, printOptions.operationID)
 	if err == nil {
 		err = printStatus(operator, clusterStatus{*status, nil}, printOptions)
 		return trace.Wrap(err)
@@ -121,19 +121,6 @@ func tailStatus(env *localenv.LocalEnvironment, operationID string) error {
 	}
 
 	return trace.Wrap(tailOperationLogs(operator, opKey))
-}
-
-func acquireClusterStatus(ctx context.Context, env *localenv.LocalEnvironment, operator ops.Operator, operationID string) (*statusapi.Status, error) {
-	status, err := statusOnce(ctx, operator, operationID)
-	if err != nil {
-		return status, trace.Wrap(err)
-	}
-
-	if err := status.Check(); err != nil {
-		return status, trace.Wrap(err)
-	}
-
-	return status, nil
 }
 
 // statusPeriodic continuously polls for site status with the provided interval and prints it

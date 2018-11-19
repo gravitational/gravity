@@ -18,7 +18,6 @@ package update
 
 import (
 	"context"
-	"os"
 	"path/filepath"
 
 	"github.com/gravitational/gravity/lib/app"
@@ -195,21 +194,14 @@ func (p *updatePhaseBootstrap) configureNode() error {
 }
 
 func (p *updatePhaseBootstrap) exportGravity() error {
-	_, reader, err := p.Packages.ReadPackage(p.GravityPackage)
+	_, rc, err := p.Packages.ReadPackage(p.GravityPackage)
 	if err != nil {
 		return trace.Wrap(err)
 	}
-	defer reader.Close()
-	err = os.RemoveAll(p.GravityPath)
-	if err != nil {
-		return trace.Wrap(err)
-	}
-	err = utils.CopyReaderWithPerms(p.GravityPath, reader, defaults.SharedExecutableMask)
-	if err != nil {
-		return trace.Wrap(err)
-	}
-	log.Debugf("%v exported to %v.", p.GravityPackage, p.GravityPath)
-	return nil
+	defer rc.Close()
+
+	err = utils.CopyReaderTo(p.GravityPath, rc, defaults.SharedExecutableMask)
+	return trace.Wrap(err)
 }
 
 // updateDNSConfig persists the DNS configuration in the local backend if it has not been set

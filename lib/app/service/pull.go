@@ -23,12 +23,14 @@ import (
 	"time"
 
 	"github.com/gravitational/gravity/lib/app"
+	"github.com/gravitational/gravity/lib/defaults"
 	"github.com/gravitational/gravity/lib/loc"
 	"github.com/gravitational/gravity/lib/pack"
 	"github.com/gravitational/gravity/lib/run"
 	"github.com/gravitational/gravity/lib/schema"
 	"github.com/gravitational/gravity/lib/utils"
 
+	"github.com/cenkalti/backoff"
 	"github.com/gravitational/trace"
 	"github.com/sirupsen/logrus"
 )
@@ -165,13 +167,24 @@ func PullPackage(req PackagePullRequest) (*pack.PackageEnvelope, error) {
 		}
 	}
 
-	if req.Upsert {
-		env, err = req.DstPack.UpsertPackage(
-			env.Locator, reader, pack.WithLabels(req.Labels))
-	} else {
-		env, err = req.DstPack.CreatePackage(
-			env.Locator, reader, pack.WithLabels(req.Labels))
-	}
+	b := backoff.NewExponentialBackOff()
+	b.MaxElapsedTime = defaults.TransientErrorTimeout
+	err = utils.RetryWithInterval(context.TODO(), b, func() error {
+		if req.Upsert {
+			env, err = req.DstPack.UpsertPackage(
+				env.Locator, reader, pack.WithLabels(req.Labels))
+		} else {
+			env, err = req.DstPack.CreatePackage(
+				env.Locator, reader, pack.WithLabels(req.Labels))
+		}
+		if err == nil {
+			return nil
+		}
+		if utils.IsConnectionResetError(err) {
+			return trace.Wrap(err)
+		}
+		return &backoff.PermanentError{Err: err}
+	})
 	if err != nil {
 		return nil, trace.Wrap(err)
 	}

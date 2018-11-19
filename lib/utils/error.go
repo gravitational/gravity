@@ -277,6 +277,14 @@ func ShouldReconnectPeer(err error) error {
 	return err
 }
 
+// IsConnectionResetError determines whether err is a
+// 'connection reset by peer' error.
+// err is expected to be non-nil
+func IsConnectionResetError(err error) bool {
+	return strings.Contains(trace.Unwrap(err).Error(),
+		"connection reset by peer")
+}
+
 func isPeerDeniedError(message string) bool {
 	return strings.Contains(message, "AccessDenied")
 }

@@ -137,7 +137,7 @@ func exportPackage(env *localenv.LocalEnvironment, loc loc.Locator, opsCenterURL
 	}
 	defer reader.Close()
 
-	err = utils.CopyReaderWithPerms(targetPath, reader, mode)
+	err = utils.CopyReaderTo(targetPath, reader, mode)
 	if err != nil {
 		return trace.Wrap(err)
 	}
