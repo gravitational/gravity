@@ -211,6 +211,10 @@ func RetryTransient(ctx context.Context, interval backoff.BackOff, fn func() err
 			// Kubernetes replies with unauthorized for certain
 			// operations when etcd is down
 			return trace.Wrap(err)
+		case IsConnectionResetError(err):
+			return trace.Wrap(err)
+		case trace.IsConnectionProblem(err):
+			return trace.Wrap(err)
 		default:
 			if err != nil {
 				return &backoff.PermanentError{Err: err}
@@ -250,5 +254,12 @@ func RetryWithInterval(ctx context.Context, interval backoff.BackOff, fn func() 
 func NewUnlimitedExponentialBackOff() backoff.BackOff {
 	b := backoff.NewExponentialBackOff()
 	b.MaxElapsedTime = 0
+	return b
+}
+
+// NewExponentialBackOff creates a new backoff interval with the specified timeout
+func NewExponentialBackOff(timeout time.Duration) backoff.BackOff {
+	b := backoff.NewExponentialBackOff()
+	b.MaxElapsedTime = timeout
 	return b
 }

@@ -30,7 +30,6 @@ import (
 	"github.com/gravitational/gravity/lib/schema"
 	"github.com/gravitational/gravity/lib/utils"
 
-	"github.com/cenkalti/backoff"
 	"github.com/gravitational/trace"
 	"github.com/sirupsen/logrus"
 )
@@ -167,24 +166,13 @@ func PullPackage(req PackagePullRequest) (*pack.PackageEnvelope, error) {
 		}
 	}
 
-	b := backoff.NewExponentialBackOff()
-	b.MaxElapsedTime = defaults.TransientErrorTimeout
-	err = utils.RetryWithInterval(context.TODO(), b, func() error {
-		if req.Upsert {
-			env, err = req.DstPack.UpsertPackage(
-				env.Locator, reader, pack.WithLabels(req.Labels))
-		} else {
-			env, err = req.DstPack.CreatePackage(
-				env.Locator, reader, pack.WithLabels(req.Labels))
-		}
-		if err == nil {
-			return nil
-		}
-		if utils.IsConnectionResetError(err) {
-			return trace.Wrap(err)
-		}
-		return &backoff.PermanentError{Err: err}
-	})
+	if req.Upsert {
+		env, err = req.DstPack.UpsertPackage(
+			env.Locator, reader, pack.WithLabels(req.Labels))
+	} else {
+		env, err = req.DstPack.CreatePackage(
+			env.Locator, reader, pack.WithLabels(req.Labels))
+	}
 	if err != nil {
 		return nil, trace.Wrap(err)
 	}
@@ -197,7 +185,24 @@ func PullPackage(req PackagePullRequest) (*pack.PackageEnvelope, error) {
 // the "destination" application service
 func PullApp(req AppPullRequest) (*app.Application, error) {
 	state := newPullState()
-	return pullApp(req, state)
+	return pullAppWithRetries(req, state)
+}
+
+func pullAppWithRetries(req AppPullRequest, state *pullState) (app *app.Application, err error) {
+	err = utils.RetryTransient(context.TODO(),
+		utils.NewExponentialBackOff(defaults.TransientErrorTimeout),
+		func() error {
+			var err error
+			app, err = pullApp(req, state)
+			if err != nil {
+				return trace.Wrap(err)
+			}
+			return nil
+		})
+	if err != nil {
+		return nil, trace.Wrap(err)
+	}
+	return app, nil
 }
 
 func pullApp(req AppPullRequest, state *pullState) (*app.Application, error) {
@@ -290,7 +295,7 @@ func pullAppDeps(req AppPullRequest, manifest schema.Manifest, state *pullState)
 	// pull base application if any
 	base := manifest.Base()
 	if base != nil {
-		_, err := pullApp(req.Clone(*base), state)
+		_, err := pullAppWithRetries(req.Clone(*base), state)
 		if err != nil {
 			if !trace.IsAlreadyExists(err) {
 				return trace.Wrap(err)
@@ -328,21 +333,27 @@ func pullAppDeps(req AppPullRequest, manifest schema.Manifest, state *pullState)
 
 func pullPackage(loc loc.Locator, req AppPullRequest, state *pullState) func() error {
 	return func() error {
-		_, err := PullPackage(PackagePullRequest{
-			FieldLogger:  req.FieldLogger,
-			SrcPack:      req.SrcPack,
-			DstPack:      req.DstPack,
-			Package:      loc,
-			Upsert:       req.Upsert,
-			Progress:     req.Progress,
-			MetadataOnly: req.MetadataOnly,
-		})
+		err := utils.RetryTransient(context.TODO(),
+			utils.NewExponentialBackOff(defaults.TransientErrorTimeout),
+			func() error {
+				_, err := PullPackage(PackagePullRequest{
+					FieldLogger:  req.FieldLogger,
+					SrcPack:      req.SrcPack,
+					DstPack:      req.DstPack,
+					Package:      loc,
+					Upsert:       req.Upsert,
+					Progress:     req.Progress,
+					MetadataOnly: req.MetadataOnly,
+				})
+				return trace.Wrap(err)
+			})
 		if err != nil {
 			if !trace.IsAlreadyExists(err) {
 				return trace.Wrap(err)
 			}
 			req.Infof("Package %v already exists.", loc)
 		}
+
 		// Mark package as pulled
 		state.markPulled(loc)
 		return nil
