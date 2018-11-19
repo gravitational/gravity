@@ -24,6 +24,7 @@ import (
 	"io"
 	"io/ioutil"
 	"strings"
+	"text/template"
 
 	"github.com/gravitational/gravity/lib/defaults"
 	"github.com/gravitational/trace"
@@ -50,6 +51,9 @@ type SSHCommands interface {
 	C(format string, a ...interface{}) SSHCommands
 	// adds new command which will tolerate any error occured
 	IgnoreError(format string, a ...interface{}) SSHCommands
+	// WithRetries executes the specified command as a script,
+	// retrying several times upon failure
+	WithRetries(format string, a ...interface{}) SSHCommands
 	// WithLogger sets logger
 	WithLogger(logrus.FieldLogger) SSHCommands
 	// executes sequence
@@ -60,6 +64,7 @@ type sshCommands struct {
 	client   *ssh.Client
 	logger   logrus.FieldLogger
 	commands []sshCommand
+	err      error
 }
 
 func NewSSHCommands(client *ssh.Client) SSHCommands {
@@ -69,6 +74,9 @@ func NewSSHCommands(client *ssh.Client) SSHCommands {
 }
 
 func (c *sshCommands) C(format string, args ...interface{}) SSHCommands {
+	if c.err != nil {
+		return c
+	}
 	c.commands = append(c.commands, sshCommand{
 		command:      fmt.Sprintf(format, args...),
 		abortOnError: true,
@@ -78,7 +86,30 @@ func (c *sshCommands) C(format string, args ...interface{}) SSHCommands {
 	return c
 }
 
+func (c *sshCommands) WithRetries(format string, args ...interface{}) SSHCommands {
+	if c.err != nil {
+		return c
+	}
+	var cmd bytes.Buffer
+	err := scriptTemplate.Execute(&cmd, map[string]string{
+		"command": fmt.Sprintf(format, args...),
+	})
+	if err != nil {
+		c.err = err
+	}
+	c.commands = append(c.commands, sshCommand{
+		command:      cmd.String(),
+		abortOnError: true,
+		env: map[string]string{
+			defaults.PathEnv: defaults.PathEnvVal,
+		}})
+	return c
+}
+
 func (c *sshCommands) IgnoreError(format string, args ...interface{}) SSHCommands {
+	if c.err != nil {
+		return c
+	}
 	c.commands = append(c.commands, sshCommand{
 		command:      fmt.Sprintf(format, args...),
 		abortOnError: false,
@@ -95,6 +126,9 @@ func (c *sshCommands) WithLogger(logger logrus.FieldLogger) SSHCommands {
 
 // RunCommands executes commands sequentially
 func (c *sshCommands) Run(ctx context.Context) error {
+	if c.err != nil {
+		return trace.Wrap(c.err)
+	}
 	for _, cmd := range c.commands {
 		_, err := SSHRunAndParse(ctx,
 			c.client, c.logger,
@@ -260,3 +294,6 @@ func (w *stderrLogger) Write(p []byte) (n int, err error) {
 	w.log.Warn(string(p))
 	return len(p), nil
 }
+
+var scriptTemplate = template.Must(template.New("script").
+	Parse(`/bin/bash -c 'for i in $(seq 1 20); do {{.command}} && break || sleep 5; done'`))

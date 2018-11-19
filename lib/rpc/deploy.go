@@ -225,7 +225,7 @@ func deployAgentOnNode(ctx context.Context, req DeployAgentsRequest, node, nodeS
 		C("%s enter -- --notty %s -- package unpack %s %s --debug --ops-url=%s --insecure",
 			constants.GravityBin, defaults.GravityBin, secretsPackage, secretsPlanetDir, defaults.GravityServiceURL).
 		IgnoreError("/usr/bin/systemctl stop %s", defaults.GravityRPCAgentServiceName).
-		C("%s enter -- --notty %s -- package export --file-mask=%o %s %s --ops-url=%s --insecure",
+		WithRetries("%s enter -- --notty %s -- package export --file-mask=%o %s %s --ops-url=%s --insecure",
 			constants.GravityBin, defaults.GravityBin, defaults.SharedExecutableMask,
 			req.GravityPackage, gravityPlanetPath, defaults.GravityServiceURL).
 		C(runCmd).
