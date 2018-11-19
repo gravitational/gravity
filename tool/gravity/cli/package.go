@@ -17,7 +17,6 @@ limitations under the License.
 package cli
 
 import (
-	"context"
 	"fmt"
 	"io"
 	"os"
@@ -34,7 +33,6 @@ import (
 	"github.com/gravitational/gravity/lib/utils"
 	"github.com/gravitational/gravity/tool/common"
 
-	"github.com/cenkalti/backoff"
 	"github.com/docker/docker/pkg/archive"
 	"github.com/gravitational/configure"
 	"github.com/gravitational/trace"
@@ -139,29 +137,13 @@ func exportPackage(env *localenv.LocalEnvironment, loc loc.Locator, opsCenterURL
 	}
 	defer reader.Close()
 
-	err = copyPackageTo(targetPath, reader, mode)
+	err = utils.CopyReaderTo(targetPath, reader, mode)
 	if err != nil {
 		return trace.Wrap(err)
 	}
 
 	env.Printf("%v exported to file %v\n", loc, targetPath)
 	return nil
-}
-
-func copyPackageTo(targetPath string, reader io.Reader, mode os.FileMode) error {
-	b := backoff.NewExponentialBackOff()
-	b.MaxElapsedTime = defaults.TransientErrorTimeout
-	err := utils.RetryWithInterval(context.TODO(), b, func() error {
-		err := utils.CopyReaderWithPerms(targetPath, reader, mode)
-		if err == nil {
-			return nil
-		}
-		if utils.IsConnectionResetError(err) {
-			return trace.Wrap(err)
-		}
-		return &backoff.PermanentError{Err: err}
-	})
-	return trace.Wrap(err)
 }
 
 func listPackages(app *localenv.LocalEnvironment, repositoryFilter string, opsCenterURL string) error {
