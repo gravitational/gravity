@@ -1059,7 +1059,7 @@ var (
 
 	// TransientErrorTimeout specifies the maximum amount of time to attempt
 	// an operation experiencing transient errors
-	TransientErrorTimeout = 10 * time.Minute
+	TransientErrorTimeout = 15 * time.Minute
 )
 
 // HookSecurityContext returns default securityContext for hook pods

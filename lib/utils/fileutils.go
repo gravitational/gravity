@@ -385,20 +385,19 @@ func EnsureLineInFile(path, line string) error {
 	return nil
 }
 
-// CopyReaderTo copies the contents of the specified reader to the file at targetPath.
-// Mode specifies the file mode for the resulting file
-func CopyReaderTo(targetPath string, reader io.Reader, mode os.FileMode) error {
-	b := backoff.NewExponentialBackOff()
-	b.MaxElapsedTime = defaults.TransientErrorTimeout
-	err := RetryWithInterval(context.TODO(), b, func() error {
-		err := CopyReaderWithPerms(targetPath, reader, mode)
-		if err == nil {
-			return nil
-		}
-		if IsConnectionResetError(err) {
+// CopyWithRetries copies the contents of the reader obtained with open to targetPath
+// retrying on transient errors
+func CopyWithRetries(ctx context.Context, targetPath string, open func() (io.ReadCloser, error), mode os.FileMode) error {
+	b := backoff.NewConstantBackOff(defaults.RetryInterval)
+	err := RetryTransient(ctx, b, func() error {
+		rc, err := open()
+		if err != nil {
 			return trace.Wrap(err)
 		}
-		return &backoff.PermanentError{Err: err}
+		defer rc.Close()
+
+		err = CopyReaderWithPerms(targetPath, rc, mode)
+		return trace.Wrap(err)
 	})
 	return trace.Wrap(err)
 }
