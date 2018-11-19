@@ -77,6 +77,8 @@ type Config struct {
 	Generator Generator
 	// NewSyncer is used to initialize package cache syncer for the builder
 	NewSyncer NewSyncerFunc
+	// GetRepository is a function that returns package source repository
+	GetRepository GetRepositoryFn
 	// FieldLogger is used for logging
 	logrus.FieldLogger
 	// Progress allows builder to report build progress
@@ -107,8 +109,8 @@ func (c *Config) CheckAndSetDefaults() error {
 	if c.NewSyncer == nil {
 		c.NewSyncer = NewSyncer
 	}
-	if c.Repository == "" {
-		c.Repository = fmt.Sprintf("s3://%v", defaults.HubBucket)
+	if c.GetRepository == nil {
+		c.GetRepository = getRepository
 	}
 	if c.FieldLogger == nil {
 		c.FieldLogger = logrus.WithField(trace.Component, "builder")
@@ -227,8 +229,12 @@ func (b *Builder) SyncPackageCache(runtimeVersion *semver.Version) error {
 		b.NextStep("Local package cache is up-to-date")
 		return nil
 	}
-	b.Info("Synchronizing package cache with %v.", b.syncer.GetRepository())
-	b.NextStep("Downloading dependencies from %v", b.syncer.GetRepository())
+	repository, err := b.GetRepository(b)
+	if err != nil {
+		return trace.Wrap(err)
+	}
+	b.Info("Synchronizing package cache with %v.", repository)
+	b.NextStep("Downloading dependencies from %v", repository)
 	return b.syncer.Sync(b, runtimeVersion)
 }
 
@@ -355,7 +361,11 @@ func (b *Builder) makeBuildEnv() (*localenv.LocalEnvironment, error) {
 		})
 	}
 	// otherwise use default locations for cache / key store
-	cacheDir, err := ensureCacheDir(b.Repository)
+	repository, err := b.GetRepository(b)
+	if err != nil {
+		return nil, trace.Wrap(err)
+	}
+	cacheDir, err := ensureCacheDir(repository)
 	if err != nil {
 		return nil, trace.Wrap(err)
 	}
@@ -367,7 +377,11 @@ func (b *Builder) makeBuildEnv() (*localenv.LocalEnvironment, error) {
 
 // getSyncer returns a new syncer instance for this builder
 func (b *Builder) getSyncer() (Syncer, error) {
-	if b.StateDir != "" {
+	// to ensure backward-compatible behavior: if the --state-dir was
+	// provided to the tele build command, the specified directory is
+	// used as a package source - unless the repository was specified
+	// explicitly via --repository flag
+	if b.StateDir != "" && b.Repository == "" {
 		apps, err := b.Env.AppServiceLocal(localenv.AppConfig{})
 		if err != nil {
 			return nil, trace.Wrap(err)
@@ -436,4 +450,12 @@ func ensureCacheDir(opsURL string) (string, error) {
 		return "", trace.Wrap(err)
 	}
 	return dir, nil
+}
+
+// GetRepositoryFn defines function that returns package source repository
+type GetRepositoryFn func(*Builder) (string, error)
+
+// getRepository returns package source repository for the provided builder
+func getRepository(b *Builder) (string, error) {
+	return fmt.Sprintf("s3://%v", defaults.HubBucket), nil
 }
