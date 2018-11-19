@@ -144,7 +144,7 @@ optionally "phone home" for automating updates, remote monitoring and trouble
 shooting.
 
 The Ops Center allows Application Bundle publishers to oversee how many Clusters are
-running and perform administration and maitenance across all of them in a
+running and perform administration and maintenance across all of them in a
 repeatable, scalable way, even if they are deployed on 3rd party infrastructure.
 
 ## Deploying and Installing
