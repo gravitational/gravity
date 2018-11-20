@@ -7,7 +7,7 @@ LTS starts with `3.51.0` with minor backwards compatible changes added over time
 
 | Release | LTS | Release Date         | Supported Until      | Kubernetes Version | Teleport Version |
 | --------|-----| -------------------- | -------------------- | ------------------ |------------------|
-| 5.3.2   | No  | October, 31st 2018   | -                    | 1.12.1             | 2.4.7            |
+| 5.3.3   | No  | November, 20th 2018  | -                    | 1.12.1             | 2.4.7            |
 | 5.2.3   | Yes | November, 1st 2018   | October, 15th, 2019  | 1.11.2             | 2.4.7            |
 | 5.0.24  | Yes | August, 28th 2018    | April, 13th 2019     | 1.9.6              | 2.4.7            |
 | 4.63.0  | Yes | June, 25th 2018      | November, 16th 2018  | 1.7.14             | 2.3.5            |
@@ -22,6 +22,18 @@ LTS starts with `3.51.0` with minor backwards compatible changes added over time
     article in our Help Center.
 
 ## 5.x Releases
+
+### 5.3.3
+
+#### Improvements
+
+* Add support for recursive volume mounts. See [Sample Manifest](/pack#sample-application-manifest) for details.
+* Adjust CoreDNS permissions for cluster conformance.
+
+#### Bugfixes
+
+* Fix an issue with `tele build` ignoring `--repository` flag when `--state-dir` flag is provided.
+* Fix an issue with installer complaining about "missing DNS config" in some cases.
 
 ### 5.2.3 LTS
 
