@@ -88,6 +88,41 @@ func status(env *localenv.LocalEnvironment, printOptions printOptions) error {
 	return trace.Wrap(printStatus(operator, clusterStatus, printOptions))
 }
 
+func tailStatus(env *localenv.LocalEnvironment, operationID string) error {
+	operator, err := env.SiteOperator()
+	if err != nil {
+		return trace.Wrap(err)
+	}
+
+	status, err := acquireClusterStatus(context.TODO(), env, operator, operationID)
+	if err != nil {
+		log.Warnf("Failed to determine cluster status: %v.", trace.DebugReport(err))
+		if status == nil || status.Cluster == nil {
+			return trace.BadParameter("unknown cluster state")
+		}
+	}
+
+	if status.Cluster.Operation == nil && len(status.Cluster.ActiveOperations) == 0 {
+		return trace.NotFound("there is no operation in progress")
+	}
+
+	var opKey ops.SiteOperationKey
+	switch {
+	case operationID != "" && status.Cluster.Operation != nil:
+		opKey = status.Operation.Key()
+	case len(status.Cluster.ActiveOperations) != 0:
+		if len(status.Cluster.ActiveOperations) > 1 {
+			return trace.BadParameter("multiple active operations in progress. " +
+				"Please specify the operation with --operation-id")
+		}
+		opKey = status.Cluster.ActiveOperations[0].Key()
+	default:
+		return nil
+	}
+
+	return trace.Wrap(tailOperationLogs(operator, opKey))
+}
+
 func acquireClusterStatus(ctx context.Context, env *localenv.LocalEnvironment, operator ops.Operator, operationID string) (*statusapi.Status, error) {
 	status, err := statusOnce(ctx, operator, operationID)
 	if err != nil {
@@ -151,17 +186,6 @@ func printStatus(operator ops.Operator, status clusterStatus, printOptions print
 		}
 		fmt.Printf("%v\n", status.Operation.State)
 		return nil
-
-	case printOptions.tail:
-		if status.Cluster == nil {
-			fmt.Println("unknown cluster state")
-			return nil
-		}
-		if status.Cluster.Operation == nil {
-			fmt.Println("there is no operation in progress")
-			return nil
-		}
-		return trace.Wrap(tailOperationLogs(operator, status.Operation.Key()))
 
 	case printOptions.token:
 		fmt.Print(status.Token.Token)
@@ -361,7 +385,7 @@ func isClusterDegrated(status clusterStatus) bool {
 	return (status.Cluster == nil ||
 		status.Cluster.State == ops.SiteStateDegraded ||
 		status.Agent == nil ||
-		status.Agent.SystemStatus != pb.SystemStatus_Running)
+		status.Agent.GetSystemStatus() != pb.SystemStatus_Running)
 }
 
 func unknownFallback(text string) string {
@@ -377,8 +401,6 @@ type printOptions struct {
 	token bool
 	// quiet means no output
 	quiet bool
-	// tail means follow current operation logs
-	tail bool
 	// operationID limits output to that of a particular operation
 	operationID string
 	// format specifies the output format (JSON or text)

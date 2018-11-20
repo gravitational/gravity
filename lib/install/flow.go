@@ -58,16 +58,16 @@ func (i *Installer) StartInteractiveInstall() error {
 			if tm.IsZero() {
 				return trace.ConnectionProblem(nil, "timeout")
 			}
-			sites, err := i.Operator.GetSites(i.AccountID)
+			clusters, err := i.Operator.GetSites(i.AccountID)
 			if err != nil {
 				i.Warnf("Failed to get sites: %v.", trace.DebugReport(err))
 				continue
 			}
-			if len(sites) == 0 {
-				i.Info("No sites created yet.")
+			if len(clusters) == 0 {
+				i.Info("No clusters created yet.")
 				continue
 			}
-			i.Cluster = &sites[0]
+			i.Cluster = &clusters[0]
 			// set site domain set by user, otherwise we will attempt
 			// to generate new cluster
 			i.SiteDomain = i.Cluster.Domain
@@ -409,7 +409,7 @@ func (i *Installer) waitForAgents() error {
 	for {
 		select {
 		case <-i.Context.Done():
-			return trace.ConnectionProblem(nil, "context is closing")
+			return trace.ConnectionProblem(i.Context.Err(), "context is closing")
 		case tm := <-ticker.C:
 			if tm.IsZero() {
 				return trace.ConnectionProblem(nil, "timed out waiting for agents to join")
@@ -500,7 +500,7 @@ func PollProgress(ctx context.Context, send func(Event), operator ops.Operator,
 	for {
 		select {
 		case <-ctx.Done():
-			send(Event{Error: trace.ConnectionProblem(nil, "context is closing")})
+			send(Event{Error: trace.ConnectionProblem(ctx.Err(), "context is closing")})
 		case <-agentDoneCh:
 			log.Debug("Agent shut down.")
 			// avoid receiving on closed channel

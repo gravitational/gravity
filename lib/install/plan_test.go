@@ -61,6 +61,8 @@ type PlanSuite struct {
 	sitePackage        *loc.Locator
 	serviceUser        systeminfo.User
 	operationKey       *ops.SiteOperationKey
+	dnsConfig          storage.DNSConfig
+	cluster            *ops.Site
 }
 
 var _ = check.Suite(&PlanSuite{})
@@ -105,6 +107,10 @@ func (s *PlanSuite) SetUpSuite(c *check.C) {
 		KeyPair:  *ca,
 	})
 	c.Assert(err, check.IsNil)
+	s.dnsConfig = storage.DNSConfig{
+		Addrs: []string{"127.0.0.3"},
+		Port:  10053,
+	}
 	cluster, err := s.services.Operator.CreateSite(
 		ops.NewSiteRequest{
 			AccountID:  account.ID,
@@ -112,7 +118,9 @@ func (s *PlanSuite) SetUpSuite(c *check.C) {
 			AppPackage: appPackage.String(),
 			Provider:   schema.ProviderAWS,
 			Resources:  configMap,
+			DNSConfig:  s.dnsConfig,
 		})
+	s.cluster = cluster
 	_, err = s.services.Users.CreateClusterAdminAgent(cluster.Domain,
 		storage.NewUser(storage.ClusterAdminAgent(cluster.Domain), storage.UserSpecV2{
 			AccountID: defaults.SystemAccountID,
@@ -168,6 +176,7 @@ func (s *PlanSuite) SetUpSuite(c *check.C) {
 			Resources:   configMap,
 			ServiceUser: s.serviceUser,
 			Mode:        constants.InstallModeCLI,
+			DNSConfig:   s.dnsConfig,
 		},
 		FieldLogger: logrus.WithField(trace.Component, "plan-suite"),
 		AppPackage:  appPackage,
@@ -180,10 +189,10 @@ func (s *PlanSuite) SetUpSuite(c *check.C) {
 }
 
 func (s *PlanSuite) TestPlan(c *check.C) {
-	err := s.installer.initOperationPlan()
+	op, err := s.services.Operator.GetSiteOperation(*s.operationKey)
 	c.Assert(err, check.IsNil)
 
-	plan, err := s.services.Operator.GetOperationPlan(*s.operationKey)
+	plan, err := s.installer.GetOperationPlan(*s.cluster, *op)
 	c.Assert(err, check.IsNil)
 
 	expected := []struct {
@@ -245,6 +254,7 @@ func (s *PlanSuite) verifyBootstrapPhase(c *check.C, phase storage.OperationPhas
 					Package:     &s.installer.AppPackage,
 					Agent:       s.adminAgent,
 					ServiceUser: serviceUser,
+					DNSConfig:   &s.dnsConfig,
 				},
 			},
 			{
@@ -255,6 +265,7 @@ func (s *PlanSuite) verifyBootstrapPhase(c *check.C, phase storage.OperationPhas
 					Package:     &s.installer.AppPackage,
 					Agent:       s.regularAgent,
 					ServiceUser: serviceUser,
+					DNSConfig:   &s.dnsConfig,
 				},
 			},
 		},

@@ -146,7 +146,17 @@ type fsmEngine struct {
 
 // GetExecutor returns a new executor based on the provided parameters
 func (e *fsmEngine) GetExecutor(p fsm.ExecutorParams, remote fsm.Remote) (fsm.PhaseExecutor, error) {
-	return e.Spec(p, remote)
+	logger := &fsm.Logger{
+		FieldLogger: logrus.WithField(constants.FieldPhase, p.Phase.ID),
+		Key:         p.Key(),
+		Operator:    e.Operator,
+	}
+	executor, err := e.Spec(p, remote)
+	if err != nil {
+		logger.Warnf("Failed to initialize phase: %v.", err)
+		return nil, trace.Wrap(err)
+	}
+	return executor, nil
 }
 
 // ChangePhaseState updates the phase state based on the provided parameters

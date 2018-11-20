@@ -77,7 +77,7 @@ type FSMConfig struct {
 	UserLogFile string
 	// ReportProgress controls whether engine should report progress to Operator
 	ReportProgress bool
-	// DNSConfig specifies the DNS configuration to set
+	// DNSConfig specifies the DNS configuration to use
 	DNSConfig storage.DNSConfig
 }
 
@@ -104,9 +104,6 @@ func (c *FSMConfig) CheckAndSetDefaults() (err error) {
 	}
 	if c.LocalBackend == nil {
 		return trace.BadParameter("missing LocalBackend")
-	}
-	if c.DNSConfig.IsEmpty() {
-		return trace.BadParameter("missing DNSConfig")
 	}
 	if c.Spec == nil {
 		c.Spec = FSMSpec(*c)
@@ -230,7 +227,17 @@ func (f *fsmEngine) ChangePhaseState(ctx context.Context, change fsm.StateChange
 // GetExecutor returns the appropriate install phase executor based on the
 // provided parameters
 func (f *fsmEngine) GetExecutor(p fsm.ExecutorParams, remote fsm.Remote) (fsm.PhaseExecutor, error) {
-	return f.Spec(p, remote)
+	logger := &fsm.Logger{
+		FieldLogger: logrus.WithField(constants.FieldPhase, p.Phase.ID),
+		Key:         p.Key(),
+		Operator:    f.Operator,
+	}
+	executor, err := f.Spec(p, remote)
+	if err != nil {
+		logger.Warnf("Failed to initialize phase: %v.", err)
+		return nil, trace.Wrap(err)
+	}
+	return executor, nil
 }
 
 // RunCommand executes the phase specified by params on the specified server
