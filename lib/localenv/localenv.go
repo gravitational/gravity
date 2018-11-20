@@ -248,7 +248,8 @@ func (env *LocalEnvironment) GetLoginEntry(opsCenterURL string) (*users.LoginEnt
 				Password:     defaults.DistributionOpsCenterPassword,
 			}, nil
 		}
-		return nil, trace.NotFound("Please login to Ops Center")
+		return nil, trace.NotFound("Please login to Ops Center: %v",
+			opsCenterURL)
 	}
 	return entry, nil
 }
@@ -288,10 +289,12 @@ func (env *LocalEnvironment) SelectOpsCenter(opsURL string) (string, error) {
 		return "", trace.Wrap(err)
 	}
 	if len(entries) == 0 {
-		return "", trace.AccessDenied("Please login to Ops Center")
+		return "", trace.AccessDenied("Please login to Ops Center: %v",
+			opsURL)
 	}
 	if len(entries) != 1 {
-		return "", trace.AccessDenied("Please login to Ops Center")
+		return "", trace.AccessDenied("Please login to Ops Center: %v",
+			opsURL)
 	}
 	return entries[0].OpsCenterURL, nil
 }
@@ -305,7 +308,8 @@ func (env *LocalEnvironment) SelectOpsCenterWithDefault(opsURL, defaultURL strin
 		if defaultURL != "" {
 			return defaultURL, nil
 		}
-		return "", trace.AccessDenied("Please login to Ops Center")
+		return "", trace.AccessDenied("Please login to Ops Center: %v",
+			opsURL)
 	}
 	return url, nil
 }
