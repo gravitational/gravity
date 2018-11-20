@@ -74,7 +74,7 @@ const LocationIndicator = ({ provider, location }) => {
       providerLabel = `AWS${location}`;
       break;
     case ProviderEnum.ONPREM:
-      providerLabel = 'On premise';
+      providerLabel = 'On premises';
       break;
     default:
       providerLabel = 'unknown';
