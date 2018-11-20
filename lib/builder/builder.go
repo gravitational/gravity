@@ -78,7 +78,7 @@ type Config struct {
 	// NewSyncer is used to initialize package cache syncer for the builder
 	NewSyncer NewSyncerFunc
 	// GetRepository is a function that returns package source repository
-	GetRepository GetRepositoryFn
+	GetRepository GetRepositoryFunc
 	// FieldLogger is used for logging
 	logrus.FieldLogger
 	// Progress allows builder to report build progress
@@ -233,7 +233,7 @@ func (b *Builder) SyncPackageCache(runtimeVersion *semver.Version) error {
 	if err != nil {
 		return trace.Wrap(err)
 	}
-	b.Info("Synchronizing package cache with %v.", repository)
+	b.Infof("Synchronizing package cache with %v.", repository)
 	b.NextStep("Downloading dependencies from %v", repository)
 	return b.syncer.Sync(b, runtimeVersion)
 }
@@ -452,8 +452,8 @@ func ensureCacheDir(opsURL string) (string, error) {
 	return dir, nil
 }
 
-// GetRepositoryFn defines function that returns package source repository
-type GetRepositoryFn func(*Builder) (string, error)
+// GetRepositoryFunc defines function that returns package source repository
+type GetRepositoryFunc func(*Builder) (string, error)
 
 // getRepository returns package source repository for the provided builder
 func getRepository(b *Builder) (string, error) {
