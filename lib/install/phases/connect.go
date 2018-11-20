@@ -39,6 +39,10 @@ import (
 // NewConnectInstaller returns executor that establishes trust b/w installed
 // cluster and the installer process
 func NewConnectInstaller(p fsm.ExecutorParams, operator ops.Operator) (*connectExecutor, error) {
+	err := checkConnectData(p.Phase.Data)
+	if err != nil {
+		return nil, trace.Wrap(err)
+	}
 	// the cluster should already be up at this point
 	clusterOperator, err := localenv.ClusterOperator()
 	if err != nil {
@@ -48,7 +52,7 @@ func NewConnectInstaller(p fsm.ExecutorParams, operator ops.Operator) (*connectE
 		FieldLogger: logrus.WithFields(logrus.Fields{
 			constants.FieldPhase: p.Phase.ID,
 		}),
-		Key:      opKey(p.Plan),
+		Key:      p.Key(),
 		Operator: operator,
 		Server:   p.Phase.Data.Server,
 	}
@@ -58,6 +62,21 @@ func NewConnectInstaller(p fsm.ExecutorParams, operator ops.Operator) (*connectE
 		InstallerOperator: operator,
 		ExecutorParams:    p,
 	}, nil
+}
+
+// checkConnectData makes sure the provided data contains everything needed
+// for the connect phase
+func checkConnectData(data *storage.OperationPhaseData) error {
+	if data == nil {
+		return trace.BadParameter("phase data is missing")
+	}
+	if data.Server == nil {
+		return trace.BadParameter("phase data is missing server: %#v", data)
+	}
+	if len(data.TrustedCluster) == 0 {
+		return trace.BadParameter("phase data is missing trusted cluster: %#v", data)
+	}
+	return nil
 }
 
 type connectExecutor struct {
@@ -108,6 +127,8 @@ func (p *connectExecutor) Execute(ctx context.Context) error {
 		}
 	}
 	for _, ca := range installerAuthorities {
+		// wipe out roles sent from the remote cluster and set roles
+		// from the trusted cluster
 		ca.SetRoles(nil)
 		if ca.GetType() == services.UserCA {
 			for _, role := range trustedCluster.GetRoles() {

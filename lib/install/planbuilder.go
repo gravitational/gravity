@@ -559,16 +559,16 @@ func (i *Installer) GetPlanBuilder(cluster ops.Site, op ops.SiteOperation) (*Pla
 func (i *Installer) getInstallerTrustedCluster() (storage.TrustedCluster, error) {
 	seedConfig := i.Process.Config().OpsCenter.SeedConfig
 	if seedConfig == nil {
-		return nil, trace.NotFound("process config is missing seed config: %#v",
-			i.Process.Config())
+		return nil, trace.NotFound("expected SeedConfig field to be present "+
+			"in the Process configuration: %#v", i.Process.Config())
 	}
 	for _, tc := range seedConfig.TrustedClusters {
 		if tc.GetWizard() {
 			return tc, nil
 		}
 	}
-	return nil, trace.NotFound("no installer trusted cluster in seed config: %#v",
-		seedConfig)
+	return nil, trace.NotFound("trusted cluster representing this installer "+
+		"is not found in the Process configuration: %#v", seedConfig)
 }
 
 // splitServers splits the provided servers into masters and nodes

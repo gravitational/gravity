@@ -267,45 +267,17 @@ func (p *phaseMigrateRoles) Rollback(context.Context) error {
 // migrateRole migrates obsolete "assignKubernetesGroups" rule action
 // to the KubeGroups rule property
 func (p *phaseMigrateRoles) migrateRole(role teleservices.Role) error {
-	var allowKubeGroups []string
-	var allowRules []teleservices.Rule
-	for _, rule := range role.GetRules(teleservices.Allow) {
-		var actions []string
-		for _, action := range rule.Actions {
-			if !strings.HasPrefix(action, constants.AssignKubernetesGroupsFnName) {
-				actions = append(actions, action)
-				continue
-			}
-			groups, err := users.ExtractKubeGroups(action)
-			if err != nil {
-				return trace.Wrap(err)
-			}
-			allowKubeGroups = append(allowKubeGroups, groups...)
-		}
-		rule.Actions = actions
-		allowRules = append(allowRules, rule)
+	allowKubeGroups, allowRules, err := p.rewriteRole(role, teleservices.Allow)
+	if err != nil {
+		return trace.Wrap(err)
 	}
 
-	var denyKubeGroups []string
-	var denyRules []teleservices.Rule
-	for _, rule := range role.GetRules(teleservices.Deny) {
-		var actions []string
-		for _, action := range rule.Actions {
-			if !strings.HasPrefix(action, constants.AssignKubernetesGroupsFnName) {
-				actions = append(actions, action)
-				continue
-			}
-			groups, err := users.ExtractKubeGroups(action)
-			if err != nil {
-				return trace.Wrap(err)
-			}
-			denyKubeGroups = append(denyKubeGroups, groups...)
-		}
-		rule.Actions = actions
-		denyRules = append(denyRules, rule)
+	denyKubeGroups, denyRules, err := p.rewriteRole(role, teleservices.Deny)
+	if err != nil {
+		return trace.Wrap(err)
 	}
 
-	err := p.backupRole(role)
+	err = p.backupRole(role)
 	if err != nil {
 		return trace.Wrap(err)
 	}
@@ -321,6 +293,28 @@ func (p *phaseMigrateRoles) migrateRole(role teleservices.Role) error {
 	}
 
 	return nil
+}
+
+// rewriteRole returns kube groups from the legacy "assignKubernetesGroups"
+// role action and the rewritten rules without this action
+func (p *phaseMigrateRoles) rewriteRole(role teleservices.Role, condition teleservices.RoleConditionType) (kubeGroups []string, rules []teleservices.Rule, err error) {
+	for _, rule := range role.GetRules(condition) {
+		var actions []string
+		for _, action := range rule.Actions {
+			if !strings.HasPrefix(action, constants.AssignKubernetesGroupsFnName) {
+				actions = append(actions, action)
+				continue
+			}
+			groups, err := users.ExtractKubeGroups(action)
+			if err != nil {
+				return nil, nil, trace.Wrap(err)
+			}
+			kubeGroups = append(kubeGroups, groups...)
+		}
+		rule.Actions = actions
+		rules = append(rules, rule)
+	}
+	return kubeGroups, rules, nil
 }
 
 func (p *phaseMigrateRoles) extractKubeGroups(rules []teleservices.Rule) (result []string, err error) {
@@ -380,7 +374,7 @@ func (*phaseMigrateRoles) PostCheck(context.Context) error {
 	return nil
 }
 
-// getBackupBackend returns a new local backend specific for current operation
+// getBackupBackend returns a new local backend specific to the current operation
 //
 // It is the caller's responsibility to close the backend.
 func getBackupBackend(operationID string) (storage.Backend, error) {

@@ -237,7 +237,7 @@ func getLogins(roleSet teleservices.RoleSet) []string {
 	userLogins := []string{}
 	for _, login := range allowed {
 		match, _ := teleservices.MatchLogin(denied, login)
-		if match == false {
+		if !match {
 			userLogins = append(userLogins, login)
 		}
 	}

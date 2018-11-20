@@ -19,7 +19,6 @@ package update
 import (
 	"context"
 	"path/filepath"
-	"time"
 
 	"github.com/gravitational/gravity/lib/compare"
 	"github.com/gravitational/gravity/lib/constants"
@@ -47,7 +46,7 @@ func (s *PhaseMigrationSuite) SetUpSuite(c *check.C) {
 	cluster, err := s.backend.CreateSite(storage.Site{
 		AccountID: uuid.New(),
 		Domain:    "example.com",
-		Created:   time.Now(),
+		Created:   services.Clock.Now(),
 	})
 	c.Assert(err, check.IsNil)
 	s.cluster = *cluster
@@ -58,7 +57,7 @@ func (s *PhaseMigrationSuite) TestMigrateRoles(c *check.C) {
 	phase, err := NewPhaseMigrateRoles(
 		FSMConfig{Backend: s.backend},
 		storage.OperationPlan{
-			OperationID: uuid.New(),
+			OperationID: "op-1",
 			ClusterName: s.cluster.Domain,
 		},
 		storage.OperationPhase{})

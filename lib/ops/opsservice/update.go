@@ -66,7 +66,7 @@ func (o *Operator) RotateSecrets(req ops.RotateSecretsRequest) (*ops.RotatePacka
 	return resp, nil
 }
 
-// RotateTeleportConfig rotates teleport configuration for the specified server
+// RotateTeleportConfig generates teleport configuration for the server specified in the provided request
 func (o *Operator) RotateTeleportConfig(req ops.RotateConfigPackageRequest) (masterConfig *ops.RotatePackageResponse, nodeConfig *ops.RotatePackageResponse, err error) {
 	operation, err := o.GetSiteOperation(req.SiteOperationKey())
 	if err != nil {

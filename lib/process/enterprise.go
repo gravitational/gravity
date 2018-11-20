@@ -36,7 +36,7 @@ func (p *enterpriseModules) EmptyRolesHandler() error {
 	return trace.BadParameter("missing 'role_map' parameter")
 }
 
-// SupportsKubernetes returns true if this cluster supports kubernetes
+// SupportsKubernetes returns true if kubernetes support is enabled in teleport (not used in gravity)
 func (p *enterpriseModules) SupportsKubernetes() bool {
 	return true
 }

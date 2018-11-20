@@ -351,7 +351,7 @@ type SSHSignRequest struct {
 	// AllowedLogins is a list of linux allowed logins
 	// is set by access controller and is ignored from request
 	AllowedLogins []string `json:"-"`
-	// CSR is x509 CSR to sign with teleport's certificate
+	// CSR is x509 request to sign a certificate using teleport's certificate
 	CSR []byte `json:"csr"`
 }
 

@@ -392,8 +392,8 @@ func (s *site) configurePackages(ctx *operationContext) error {
 	return nil
 }
 
-// configureRemoteCluster creates a remote cluster object in the installer
-// database which is required for the installing cluster to connect back
+// configureRemoteCluster creates a RemoteCluster resource that represents
+// the cluster that is being installed on the installer side
 func (s *site) configureRemoteCluster() error {
 	remoteCluster, err := teleservices.NewRemoteCluster(s.domainName)
 	if err != nil {
@@ -1008,7 +1008,13 @@ func (s *site) getTeleportMasterConfig(ctx *operationContext, master *Provisione
 		fileConf.SSH.Labels[key] = val
 	}
 
-	fileConf.AdvertiseIP = net.ParseIP(master.AdvertiseIP).String()
+	advertiseIP := net.ParseIP(master.AdvertiseIP)
+	if advertiseIP == nil {
+		return nil, trace.BadParameter("failed to parse master advertise IP: %v",
+			master.AdvertiseIP)
+	}
+
+	fileConf.AdvertiseIP = advertiseIP.String()
 	fileConf.Global.NodeName = master.FQDN(s.domainName)
 
 	joinToken, err := s.service.GetExpandToken(s.key)
@@ -1134,7 +1140,13 @@ func (s *site) getTeleportNodeConfig(ctx *operationContext, masterIP string, nod
 	// for now set to 365 days
 	fileConf.CachePolicy.TTL = fmt.Sprintf("%v", 365*24*time.Hour)
 
-	fileConf.AdvertiseIP = net.ParseIP(node.AdvertiseIP).String()
+	advertiseIP := net.ParseIP(node.AdvertiseIP)
+	if advertiseIP == nil {
+		return nil, trace.BadParameter("failed to parse advertise IP: %v",
+			node.AdvertiseIP)
+	}
+
+	fileConf.AdvertiseIP = advertiseIP.String()
 	fileConf.Global.NodeName = node.FQDN(s.domainName)
 
 	// turn off auth service and proxy, turn on SSH

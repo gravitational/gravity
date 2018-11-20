@@ -108,8 +108,8 @@ func (i *importer) Close() error {
 	return i.backend.Close()
 }
 
-// getTeleportConfig extracts configuration from teleport package
-func (i *importer) getTeleportConfig() (*telecfg.FileConfig, error) {
+// getMasterTeleportConfig extracts configuration from teleport package
+func (i *importer) getMasterTeleportConfig() (*telecfg.FileConfig, error) {
 	configPackage, err := pack.FindLatestPackageByName(i.packages,
 		constants.TeleportMasterConfigPackage)
 	if err != nil {

@@ -440,7 +440,7 @@ func (p *Process) getTeleportConfigFromImportState() (*telecfg.FileConfig, error
 	}
 	defer importer.Close()
 
-	telecfg, err := importer.getTeleportConfig()
+	telecfg, err := importer.getMasterTeleportConfig()
 	if err != nil {
 		return nil, trace.Wrap(err)
 	}
@@ -1813,7 +1813,10 @@ func (p *Process) initAccount() error {
 }
 
 // removeLegacyIdentities removes legacy admin/proxy identities so that new
-// ones can be generated new ones upon the first start of new teleport
+// ones can be generated upon the first start of new teleport
+//
+// If they are not removed, this process that includes teleport 3.0 will not
+// be able to start after upgrade from older gravity that used teleport 2.4.
 func (p *Process) removeLegacyIdentities() {
 	for _, role := range []teleport.Role{teleport.RoleAdmin, teleport.RoleProxy} {
 		for _, ext := range []string{"key", "cert"} {

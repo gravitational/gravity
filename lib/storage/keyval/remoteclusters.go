@@ -23,7 +23,7 @@ import (
 	"github.com/gravitational/trace"
 )
 
-// CreateRemoteCluster creates remote cluster
+// CreateRemoteCluster saves the provided RemoteCluster resource
 func (b *backend) CreateRemoteCluster(rc services.RemoteCluster) error {
 	data, err := json.Marshal(rc)
 	if err != nil {

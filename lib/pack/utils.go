@@ -429,7 +429,7 @@ func FindLatestPackageByName(packages PackageService, name string) (*loc.Locator
 // FindLatestPackagePredicate returns the latest package matching the provided
 // predicate function
 //
-// If provided repository is empty, searches all repos
+// If the provided repository is empty, searches all repositories.
 func FindLatestPackagePredicate(packages PackageService, repository string, filter func(PackageEnvelope) bool) (*loc.Locator, error) {
 	var max *loc.Locator
 	predicate := func(e PackageEnvelope) error {

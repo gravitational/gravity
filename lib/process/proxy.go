@@ -211,9 +211,14 @@ func (t *teleportProxyService) GetCertAuthority(id services.CertAuthID, loadSign
 	if err != nil {
 		return nil, trace.Wrap(err)
 	}
+	keyPairs := ca.GetTLSKeyPairs()
+	if len(keyPairs) == 0 {
+		return nil, trace.NotFound("certificate authority %v does not "+
+			"have TLS key pairs", id)
+	}
 	return &authority.TLSKeyPair{
-		KeyPEM:  ca.GetTLSKeyPairs()[0].Key,
-		CertPEM: ca.GetTLSKeyPairs()[0].Cert,
+		KeyPEM:  keyPairs[0].Key,
+		CertPEM: keyPairs[0].Cert,
 	}, nil
 }
 

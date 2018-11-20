@@ -156,7 +156,7 @@ func (p *updatePhaseConfig) Execute(context.Context) error {
 		return trace.Wrap(err)
 	}
 	if trace.IsNotFound(err) {
-		p.Infof("No teleport master config update found.")
+		p.Info("No teleport master config update found.")
 		return nil
 	}
 	p.Infof("Pulling teleport master config update: %v.", update)
