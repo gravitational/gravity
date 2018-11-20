@@ -17,7 +17,6 @@ limitations under the License.
 package builder
 
 import (
-	"fmt"
 	"io/ioutil"
 	"os"
 
@@ -45,8 +44,6 @@ type Syncer interface {
 	// SelectRuntime picks an appropriate runtime for the application that's
 	// being built
 	SelectRuntime(*Builder) (*semver.Version, error)
-	// GetRepository returns the syncer repository
-	GetRepository() string
 }
 
 // NewSyncerFunc defines function that creates syncer for a builder
@@ -74,11 +71,6 @@ func newS3Syncer() (*s3Syncer, error) {
 	return &s3Syncer{
 		hub: hub,
 	}, nil
-}
-
-// GetRepository returns the name of S3 hub
-func (s *s3Syncer) GetRepository() string {
-	return fmt.Sprintf("s3://%v", defaults.HubBucket)
 }
 
 // SelectRuntime picks an appropriate runtime for the application that's
@@ -174,11 +166,6 @@ func NewPackSyncer(pack pack.PackageService, apps app.Applications, repo string)
 		apps: apps,
 		repo: repo,
 	}
-}
-
-// GetRepository returns the syncer's repository address
-func (s *packSyncer) GetRepository() string {
-	return s.repo
 }
 
 // SelectRuntime picks an appropriate runtime for the application that's
