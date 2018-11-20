@@ -17,6 +17,7 @@ limitations under the License.
 package cli
 
 import (
+	"context"
 	"fmt"
 	"io"
 	"os"
@@ -24,7 +25,6 @@ import (
 	"syscall"
 	"time"
 
-	"github.com/gravitational/configure"
 	"github.com/gravitational/gravity/lib/app/service"
 	"github.com/gravitational/gravity/lib/defaults"
 	"github.com/gravitational/gravity/lib/httplib"
@@ -35,6 +35,7 @@ import (
 	"github.com/gravitational/gravity/tool/common"
 
 	"github.com/docker/docker/pkg/archive"
+	"github.com/gravitational/configure"
 	"github.com/gravitational/trace"
 )
 
@@ -131,13 +132,12 @@ func exportPackage(env *localenv.LocalEnvironment, loc loc.Locator, opsCenterURL
 	}
 	loc = *locPtr
 
-	_, reader, err := packageService.ReadPackage(loc)
-	if err != nil {
-		return trace.Wrap(err)
-	}
-	defer reader.Close()
-
-	err = utils.CopyReaderTo(targetPath, reader, mode)
+	ctx, cancel := context.WithTimeout(context.Background(), defaults.TransientErrorTimeout)
+	defer cancel()
+	err = utils.CopyWithRetries(ctx, targetPath, func() (io.ReadCloser, error) {
+		_, rc, err := packageService.ReadPackage(loc)
+		return rc, trace.Wrap(err)
+	}, mode)
 	if err != nil {
 		return trace.Wrap(err)
 	}

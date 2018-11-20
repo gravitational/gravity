@@ -18,6 +18,7 @@ package update
 
 import (
 	"context"
+	"io"
 	"path/filepath"
 
 	"github.com/gravitational/gravity/lib/app"
@@ -194,13 +195,12 @@ func (p *updatePhaseBootstrap) configureNode() error {
 }
 
 func (p *updatePhaseBootstrap) exportGravity() error {
-	_, rc, err := p.Packages.ReadPackage(p.GravityPackage)
-	if err != nil {
-		return trace.Wrap(err)
-	}
-	defer rc.Close()
-
-	err = utils.CopyReaderTo(p.GravityPath, rc, defaults.SharedExecutableMask)
+	ctx, cancel := context.WithTimeout(context.Background(), defaults.TransientErrorTimeout)
+	defer cancel()
+	err := utils.CopyWithRetries(ctx, p.GravityPath, func() (io.ReadCloser, error) {
+		_, rc, err := p.Packages.ReadPackage(p.GravityPackage)
+		return rc, trace.Wrap(err)
+	}, defaults.SharedExecutableMask)
 	return trace.Wrap(err)
 }
 
