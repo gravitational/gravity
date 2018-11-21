@@ -1,7 +1,7 @@
 # <a href='https://gravitational.com/gravity/'><img src='http://gravitational.com/gravitational/images/logos/logo-gravity-x-large.png' alt='Gravity'></a>
 
 Gravity is an [upstream Kubernetes](https://kubernetes.io/) packaging solution
-that takes the drama out of on-premise deployments.
+that takes the drama out of on-premises deployments.
 
 |Project Links| Description
 |---|----
@@ -51,7 +51,7 @@ on compliance and autonomous operations:
 We have seen the primary use cases for using a snapshot-based Kubernetes approach
 (there may be others):
 
-* Deploying complex SaaS applications into on-premise enterprise environments.
+* Deploying complex SaaS applications into on-premises enterprise environments.
 * Managing many idempotent Kubernetes clusters in environments where compliance
   and security matters. An example would be if you want the same, compliant
   Kubernetes environment across a variety of organizations or infrastructure
@@ -112,7 +112,7 @@ creators to easily share their products with customers without having to
 convert themselves into software operators.
 
 The original use case for Gravity was to allow Kubernetes applications to be
-deployed into 3rd party environments, like on-premise datacenters. That's why
+deployed into 3rd party environments, like on-premises datacenters. That's why
 Gravity includes features like the built-in, graphical cluster installer,
 infrastructure validation and a built-in privileged access manager (Teleport)
 for providing remote support.
@@ -127,7 +127,8 @@ Kubernetes adoption without having to become security and Kubernetes experts the
 ## Building from source
 
 Gravity is written in Go. There are two ways to build the Gravity tools from
-source: by using locally installed build tools or via Docker.
+source: by using locally installed build tools or via Docker. In both cases
+you will need a Linux machine. **Building on MacOS, even with Docker, is not currently supported**
 
 ```bash
 $ git clone git@github.com:gravitational/gravity.git
