@@ -43,12 +43,15 @@ import (
 
 // NewBootstrap returns a new "bootstrap" phase executor
 func NewBootstrap(p fsm.ExecutorParams, operator ops.Operator, apps app.Applications, backend storage.Backend,
-	remote fsm.Remote, dnsConfig storage.DNSConfig) (*bootstrapExecutor, error) {
+	remote fsm.Remote) (*bootstrapExecutor, error) {
 	if p.Phase.Data == nil || p.Phase.Data.ServiceUser == nil {
 		return nil, trace.BadParameter("service user is required: %#v", p.Phase.Data)
 	}
 	if p.Phase.Data.Package == nil {
 		return nil, trace.BadParameter("application package is required: %#v", p.Phase.Data)
+	}
+	if p.Phase.Data.DNSConfig == nil {
+		return nil, trace.BadParameter("DNS configuration is required: %#v", p.Phase.Data)
 	}
 
 	serviceUser, err := userFromOSUser(*p.Phase.Data.ServiceUser)
@@ -91,7 +94,7 @@ func NewBootstrap(p fsm.ExecutorParams, operator ops.Operator, apps app.Applicat
 		ExecutorParams:   p,
 		ServiceUser:      *serviceUser,
 		remote:           remote,
-		dnsConfig:        dnsConfig,
+		dnsConfig:        *p.Phase.Data.DNSConfig,
 	}, nil
 }
 

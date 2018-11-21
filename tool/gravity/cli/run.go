@@ -369,10 +369,12 @@ func Execute(g *Application, cmd string, extraArgs []string) error {
 	case g.StatusCmd.FullCommand():
 		printOptions := printOptions{
 			token:       *g.StatusCmd.Token,
-			tail:        *g.StatusCmd.Tail,
 			operationID: *g.StatusCmd.OperationID,
 			quiet:       *g.Silent,
 			format:      *g.StatusCmd.Output,
+		}
+		if *g.StatusCmd.Tail {
+			return tailStatus(localEnv, *g.StatusCmd.OperationID)
 		}
 		if *g.StatusCmd.Seconds != 0 {
 			return statusPeriodic(localEnv, printOptions, *g.StatusCmd.Seconds)

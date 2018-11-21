@@ -101,7 +101,9 @@ func uploadUpdate(env *localenv.LocalEnvironment, opsURL string) error {
 
 	clusterOperator, err := defaultEnv.SiteOperator()
 	if err != nil {
-		return trace.Wrap(err)
+		return trace.Wrap(err, "unable to access cluster.\n"+
+			"Use 'gravity status' to check the cluster state and make sure "+
+			"that the cluster DNS is working properly.")
 	}
 
 	cluster, err := clusterOperator.GetLocalSite()

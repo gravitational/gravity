@@ -91,7 +91,7 @@ func (s *site) checkPlanetStatus(ctx context.Context) error {
 	if err != nil {
 		return trace.Wrap(err)
 	}
-	if planetStatus.SystemStatus != agentpb.SystemStatus_Running {
+	if planetStatus.GetSystemStatus() != agentpb.SystemStatus_Running {
 		return trace.BadParameter("cluster is not healthy: %#v", planetStatus)
 	}
 	return nil
