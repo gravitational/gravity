@@ -94,7 +94,7 @@ func tailStatus(env *localenv.LocalEnvironment, operationID string) error {
 		return trace.Wrap(err)
 	}
 
-	status, err := acquireClusterStatus(context.TODO(), env, operator, operationID)
+	status, err := statusOnce(context.TODO(), operator, operationID)
 	if err != nil {
 		log.Warnf("Failed to determine cluster status: %v.", trace.DebugReport(err))
 		if status == nil || status.Cluster == nil {

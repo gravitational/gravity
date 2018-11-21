@@ -26,7 +26,6 @@ import (
 	"strings"
 
 	"github.com/gravitational/gravity/lib/defaults"
-	"github.com/gravitational/planet/lib/utils"
 
 	"github.com/cenkalti/backoff"
 	"github.com/gravitational/trace"
@@ -137,7 +136,7 @@ func (c *sshCommands) runWithRetries(ctx context.Context, cmd sshCommand) error 
 	ctx, cancel := context.WithTimeout(ctx, defaults.TransientErrorTimeout)
 	defer cancel()
 	b := backoff.NewConstantBackOff(defaults.RetryInterval)
-	err := utils.RetryWithInterval(ctx, b, func() error {
+	err := RetryWithInterval(ctx, b, func() error {
 		_, err := SSHRunAndParse(ctx,
 			c.client, c.logger,
 			cmd.command, cmd.env, ParseDiscard)
