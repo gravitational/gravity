@@ -215,10 +215,6 @@ func RetryTransient(ctx context.Context, interval backoff.BackOff, fn func() err
 			// Kubernetes replies with unauthorized for certain
 			// operations when etcd is down
 			return trace.Wrap(err)
-		case IsConnectionResetError(err):
-			return trace.Wrap(err)
-		case trace.IsConnectionProblem(err):
-			return trace.Wrap(err)
 		default:
 			return &backoff.PermanentError{Err: err}
 		}

@@ -86,7 +86,7 @@ func IsClosedConnectionError(err error) bool {
 // IsClusterUnavailableError determines if the specified error is a cluster unavailable error
 func IsClusterUnavailableError(err error) bool {
 	text := trace.Unwrap(err).Error()
-	return isEtcdClusterError(text)
+	return isEtcdClusterErrorMessage(text)
 }
 
 // IsKubeAuthError determines whether the specified error is an authorization
@@ -102,19 +102,22 @@ func IsKubeAuthError(err error) bool {
 // error - e.g. which can be retried. An error that can be retried
 // is either a connection failure or an etcd cluster error.
 func IsTransientClusterError(err error) bool {
-	if trace.IsConnectionProblem(err) {
-		return true
+	if err == nil {
+		return false
 	}
 
-	switch origErr := trace.Unwrap(err).(type) {
-	case *etcd.ClusterError:
+	switch {
+	case trace.IsConnectionProblem(err):
 		return true
-	case *kubeerrors.StatusError:
-		if origErr.Status().Code == http.StatusInternalServerError && isEtcdClusterError(origErr.ErrStatus.Message) {
-			return true
-		}
+	case IsConnectionResetError(err):
+		return true
+	case IsClusterUnavailableError(err) || isEtcdClusterError(err):
+		return true
+	case isKubernetesEtcdClusterError(err):
+		return true
+	default:
+		return false
 	}
-	return err != nil && isEtcdClusterError(err.Error())
 }
 
 // IsNetworkError returns true if the provided error is Go's network error
@@ -169,7 +172,21 @@ func IsPathError(err error) bool {
 	return ok
 }
 
-func isEtcdClusterError(message string) bool {
+func isKubernetesEtcdClusterError(err error) bool {
+	switch origErr := trace.Unwrap(err).(type) {
+	case *kubeerrors.StatusError:
+		return origErr.Status().Code == http.StatusInternalServerError &&
+			isEtcdClusterErrorMessage(origErr.ErrStatus.Message)
+	}
+	return false
+}
+
+func isEtcdClusterError(err error) bool {
+	_, ok := trace.Unwrap(err).(*etcd.ClusterError)
+	return ok
+}
+
+func isEtcdClusterErrorMessage(message string) bool {
 	return isEtcdClusterMisconfigured(message) || isEtcdClusterHasNoLeader(message)
 }
 

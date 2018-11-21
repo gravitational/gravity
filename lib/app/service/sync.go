@@ -90,7 +90,9 @@ func SyncApp(ctx context.Context, req SyncRequest) error {
 
 	// unpack the app and sync its registry with the local registry
 	unpackedPath := pack.PackagePath(dir, req.Package)
-	err = unpackRemotePackage(req.PackService, req.Package, unpackedPath)
+	ctx, cancel := context.WithTimeout(context.Background(), defaults.TransientErrorTimeout)
+	defer cancel()
+	err = unpackRemotePackage(ctx, req.PackService, req.Package, unpackedPath)
 	if err != nil {
 		return trace.Wrap(err)
 	}
@@ -122,19 +124,15 @@ func SyncApp(ctx context.Context, req SyncRequest) error {
 	return nil
 }
 
-func unpackRemotePackage(packages pack.PackageService, package_ loc.Locator, unpackPath string) error {
-	b := backoff.NewExponentialBackOff()
-	b.MaxElapsedTime = defaults.TransientErrorTimeout
-	err := utils.RetryWithInterval(context.TODO(), b, func() error {
+func unpackRemotePackage(ctx context.Context, packages pack.PackageService, package_ loc.Locator, unpackPath string) error {
+	b := backoff.NewConstantBackOff(defaults.RetryInterval)
+	err := utils.RetryTransient(ctx, b, func() error {
 		err := pack.Unpack(packages, package_, unpackPath, nil)
 		if err == nil {
 			return nil
 		}
 		log.Warnf("Failed to unpack package %v: %v.", package_, err)
-		if utils.IsConnectionResetError(err) {
-			return trace.Wrap(err)
-		}
-		return &backoff.PermanentError{Err: err}
+		return trace.Wrap(err)
 	})
 	return trace.Wrap(err)
 }

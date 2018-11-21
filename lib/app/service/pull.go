@@ -111,6 +111,7 @@ func (r *AppPullRequest) Clone(locator loc.Locator) AppPullRequest {
 		Package:      locator,
 		Upsert:       r.Upsert,
 		Progress:     r.Progress,
+		Parallel:     r.Parallel,
 		MetadataOnly: r.MetadataOnly,
 	}
 }
