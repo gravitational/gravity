@@ -294,6 +294,7 @@ $(GRAVITY_BUILDDIR):
 	mkdir -p $@
 
 # Builds binaries inside a docker container
+.PHONY: $(BINARIES)
 $(BINARIES):
 	@echo -e "\n----> Building $(LOCAL_GRAVITY_BUILDDIR)/$@ binary...\n"
 	go build -o $(LOCAL_GRAVITY_BUILDDIR)/$@ -ldflags $(GRAVITY_LINKFLAGS) $(GRAVITY_PKG_PATH)/tool/$@
