@@ -51,7 +51,7 @@ let cfg = {
     logo: null,
 
     login: {
-      headerText: 'Telekube'
+      headerText: 'Gravity'
     },
 
     completeRequest: {
@@ -105,6 +105,7 @@ let cfg = {
     installerBase: '/web/installer',
     installerNewSite: '/web/installer/new/:repository/:name/:version',
     installerExistingSite: '/web/installer/site/:siteId',
+    installerComplete: '/web/installer/site/:siteId/complete/',
 
     // settings
     settingsUsers: 'users',
@@ -141,7 +142,7 @@ let cfg = {
   modules: {
 
     settings: {
-      clusterHeaderText: 'Telekube Cluster',
+      clusterHeaderText: 'Gravity Cluster',
       features: {
         logs: {
           enabled: true
@@ -187,9 +188,9 @@ let cfg = {
       progressUserHintText: 'Your infrastructure is being provisioned and your application is being installed.\n\n Once the installation is complete you will be taken to your infrastructure where you can access your application.',
       prereqUserHintText: `If you select a cloud provider, we will automate the infrastructure provisioning on your account with your provided keys in the next step. Your keys are not stored on our system. \n\n If you select BareMetal we will provide you with a command to be run on each of your machines in the next step.`,
       provisionUserHintText: 'Drag the slider to estimate the number of resources needed for that performance level. You can also add / remove resources after the installation. \n\n Once you click "Start Installation" the resources will be provisioned on your infrastructure.',
-      iamPermissionsHelpLink: 'https://gravitational.com/telekube/docs/overview/',
+      iamPermissionsHelpLink: 'https://gravitational.com/gravity/docs/overview/',
 
-      providers: [ProviderEnum.AWS, ProviderEnum.AZURE, ProviderEnum.ONPREM],
+      providers: [ProviderEnum.AWS, ProviderEnum.ONPREM],
       providerSettings: {
         [ProviderEnum.AWS]: {
           useExisting: false
@@ -478,6 +479,10 @@ let cfg = {
 
   getInstallerProvisionUrl(siteId){
     return formatPattern(cfg.routes.installerExistingSite, {siteId});
+  },
+
+  getInstallerLastStepUrl(siteId){
+    return formatPattern(cfg.routes.installerComplete, {siteId});
   },
 
   getCheckDomainNameUrl(domainName){

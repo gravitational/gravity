@@ -188,7 +188,7 @@ install/upgrade.
 
 #### Improvements
 
-* Do not try to fetch cloud metadata in on-premise installs.
+* Do not try to fetch cloud metadata in on-premises installs.
 * Improve handling of agent disconnects.
 * When updating node labels, account for possible conflicts.
 * Do not display server version for unauthorized users.

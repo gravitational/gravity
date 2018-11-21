@@ -7,7 +7,7 @@ metadata:
 logo: file://logo.svg
 endpoints:
   - name: "Ops Center Control Panel"
-    description: "Telekube Ops Center"
+    description: "Gravity Ops Center"
     selector:
       role: gravity-opscenter
     protocol: http

@@ -19,19 +19,18 @@ import classnames from 'classnames';
 import RadioGroup from 'app/components/common/radioGroup.jsx';
 import { ProviderEnum } from 'app/services/enums';
 
-const NewOrExistingServers = React.createClass({
+class NewOrExistingServers extends React.Component {
 
-  onChange(value){
+  onChange = value => {
     this.props.onChange(value === 'existing');
-  },
+  }
 
-  render: function() {
-    let {useExisting} = this.props;
-    let value = useExisting ? 'existing' : 'newServer';
-
-    var options = [
+  render() {
+    const { useExisting } = this.props;
+    const value = useExisting ? 'existing' : 'newServer';
+    const options = [
       {
-        value: 'newServer',        
+        value: 'newServer',
         title: (
           <span>
             <span> Provision new servers </span>
@@ -42,7 +41,7 @@ const NewOrExistingServers = React.createClass({
         value: 'existing',
         title: (
           <span>
-            <span> Use existing servers </span>            
+            <span> Use existing servers </span>
           </span>
         )
       }
@@ -54,40 +53,34 @@ const NewOrExistingServers = React.createClass({
       </div>
     );
   }
-});
+}
 
-const ProviderOptions = React.createClass({
+class ProviderOptions extends React.Component {
 
-  propTypes: {
-   options: React.PropTypes.array.isRequired,
-   value: React.PropTypes.string
-  },
+  static propTypes = {
+    options: React.PropTypes.array.isRequired,
+    value: React.PropTypes.string
+  }
 
-  onChange(providerType){
-    if(providerType === ProviderEnum.AZURE){
-      return;
-    }
-
+  onChange = providerType => {
     this.props.onChange(providerType)
-  },
+  }
 
   renderProviderIcon(providerType){
     let iconClass = classnames('grv-installer-icon', {
       '--aws': providerType === ProviderEnum.AWS,
-      '--metal': providerType === ProviderEnum.ONPREM,
-      '--azure': providerType === ProviderEnum.AZURE
+      '--metal': providerType === ProviderEnum.ONPREM
     });
 
     return <div className={iconClass}/>
-  },
+  }
 
   render(){
-    let {options, value} = this.props;
-    let $options = options.map((providerType, index) =>{
+    const { options, value } = this.props;
+    const $options = options.map((providerType, index) =>{
 
-      let itemClass = classnames('grv-item', {
+      const itemClass = classnames('grv-item', {
         'grv-active': value === providerType,
-        'grv-disabled': providerType === ProviderEnum.AZURE
       });
 
       return(
@@ -106,7 +99,7 @@ const ProviderOptions = React.createClass({
       </div>
     )
   }
-});
+}
 
 export {
   NewOrExistingServers,

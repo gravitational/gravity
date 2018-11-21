@@ -92,12 +92,17 @@ server.app.use(changeProxyResponse(
         return false;
     },
     (req, res, body) => {
-      // body is a Buffer with the current response; return Buffer or string with the modified response
+        // body is a Buffer with the current response; return Buffer or string with the modified response
         // can also return a Promise.
         var str = body.toString();
         res.set({
           'content-security-policy': ""
         })
+
+        if (req.path.endsWith('/complete/')) {
+          return body;
+        }
+
         var htmlWithTokens = htmlToSend;
         htmlWithTokens = replaceToken(new RegExp(/<meta name="grv_csrf_token" .*\>/), str, htmlWithTokens);
         htmlWithTokens = replaceToken(new RegExp(/<meta name="grv_bearer_token" .*\>/), str, htmlWithTokens);

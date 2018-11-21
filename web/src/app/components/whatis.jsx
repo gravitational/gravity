@@ -22,8 +22,8 @@ import cfg from 'app/config';
 import { LinkEnum } from 'app/services/enums';
 
 const makeTrigger = ({ triger="click", ...props }) => (
-  <OverlayTrigger {...props} triger={triger} >  
-    <Icons.Question/>  
+  <OverlayTrigger {...props} triger={triger} >
+    <Icons.Question/>
   </OverlayTrigger>
 )
 
@@ -43,7 +43,7 @@ const AwsInstanceType = props => makeTrigger({
   ...props,
   overlay: (
     <Popover title="Amazon Instance Type">
-      <div>Read about 
+      <div>Read about
         <a href={LinkEnum.AWS_INSTANCE_TYPES} target="_blank"> Amazon Instance Types in AWS documentation</a>
       </div>
     </Popover>
@@ -54,7 +54,7 @@ const AwsAccessKey = props => makeTrigger({
   ...props,
   overlay: (
     <Popover title="Amazon Access Key">
-      <div>Read about 
+      <div>Read about
         <a href={LinkEnum.AWS_ACCESS_KEY} target="_blank"> Access Keys in AWS documentation</a>
       </div>
     </Popover>
@@ -65,7 +65,7 @@ const AwsRegion = props => makeTrigger({
   ...props,
   overlay: (
     <Popover title="Amazon Regions">
-      <div>Read about 
+      <div>Read about
         <a href={LinkEnum.AWS_REGIONS} target="_blank"> AWS regions in the AWS documentation</a>
       </div>
     </Popover>
@@ -87,7 +87,7 @@ const AwsVPC = props => makeTrigger({
   ...props,
   overlay: (
     <Popover title="Amazon Virtual Private Clouds">
-      <div>Read about 
+      <div>Read about
         <a href={LinkEnum.AWS_REGIONS} target="_blank"> Amazon Virtual Private Clouds in the AWS documentation</a>
       </div>
     </Popover>
@@ -98,7 +98,7 @@ const NewServer = props => makeTrigger({
   ...props,
   overlay: (
     <Popover title="New Servers">
-      <div> Telekube will provision new servers in your AWS account </div>
+      <div> Gravity will provision new servers in your AWS account </div>
     </Popover>
   )
 })
@@ -107,7 +107,7 @@ const UseExistingServer = props => makeTrigger({
   ...props,
   overlay: (
     <Popover title="Existing Server">
-      <div> Telekube will give you a command to run on your existing servers </div>
+      <div> Gravity will give you a command to run on your existing servers </div>
     </Popover>
   )
 })
@@ -131,28 +131,28 @@ const ServerDevice = props => makeTrigger({
 })
 
 const OpsCenterApps = props => makeTrigger({
-  ...props,    
+  ...props,
   overlay: (
     <Popover title="Application Bundles" className="grv-whatis-application-popover">
-      <div> 
-        <p>This table shows all of the Application Bundles that have been published to your Ops Center. </p>        
+      <div>
+        <p>This table shows all of the Application Bundles that have been published to your Ops Center. </p>
         <span>See </span>
         <a href={LinkEnum.DOC_OPSCENTER_PACKAGE} target="_blank">Packaging and Deployment</a>
-        <span> in the documentation for more information </span>        
+        <span> in the documentation for more information </span>
       </div>
     </Popover>
   )
 })
 
 const OpsCenterClusters = props => makeTrigger({
-  ...props,    
+  ...props,
   overlay: (
     <Popover title="Clusters" className="grv-whatis-cluster-popover">
-      <div> 
-        <p>This table shows all of the Clusters that have been deployed from your Ops Center.</p>        
+      <div>
+        <p>This table shows all of the Clusters that have been deployed from your Ops Center.</p>
         <span>See </span>
         <a href={LinkEnum.DOC_OPSCENTER_CLUSTER} target="_blank">Cluster Management and Remote Management</a>
-        <span> in the documentation for more information </span>        
+        <span> in the documentation for more information </span>
       </div>
     </Popover>
   )
@@ -194,7 +194,7 @@ const WhatIs = {
   AwsSessionToken,
   NewServer,
   UseExistingServer,
-  IpAddress,  
+  IpAddress,
   ServerDevice,
   OpsCenterApps,
   OpsCenterClusters,

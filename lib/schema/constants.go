@@ -29,14 +29,14 @@ const (
 	ProviderAWS = "aws"
 	// ProviderGeneric defines a generic provider
 	ProviderGeneric = "generic"
-	// ProviderOnPrem defines an On-Premise infrastructure provider
+	// ProviderOnPrem defines an On-Premises infrastructure provider
 	ProviderOnPrem = "onprem"
 	// ProviderGCE defines Google Compute Engine provider
 	ProviderGCE = "gce"
 
 	// ProvisionerAWSTerraform defines an operation provisioner based on terraform
 	ProvisionerAWSTerraform = "aws_terraform"
-	// ProvisionerOnPrem defines a provisioner for an On-Premise operation
+	// ProvisionerOnPrem defines a provisioner for an On-Premises operation
 	ProvisionerOnPrem = "onprem"
 
 	// NetworkingAWSVPC defines a type of networking for AWS based on AWS-VPC
