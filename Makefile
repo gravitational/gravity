@@ -176,10 +176,10 @@ PROTOC_PLATFORM := linux-x86_64
 GOGO_PROTO_TAG ?= v0.4
 GRPC_GATEWAY_TAG ?= v1.1.0
 
-export
-
-INSTALL_BINARIES ?= tele gravity terraform-provider-gravity
+BINARIES ?= tele gravity terraform-provider-gravity
 TF_PROVIDERS ?= terraform-provider-gravity
+
+export
 
 # the default target is a containerized CI/CD build
 .PHONY:build
@@ -516,7 +516,7 @@ current-build:
 
 .PHONY: compile
 compile:
-	$(MAKE) -j $(INSTALL_BINARIES)
+	$(MAKE) -j $(BINARIES)
 
 .PHONY: tele-mac
 tele-mac: flags
@@ -541,8 +541,8 @@ goinstall: remove-temp-files compile
 		$(GRAVITY) package import $(GRAVITY_OUT) $(GRAVITY_PKG)
 	$(MAKE) binary-packages
 
-.PHONY: $(INSTALL_BINARIES)
-$(INSTALL_BINARIES):
+.PHONY: $(BINARIES)
+$(BINARIES):
 	go install -ldflags $(GRAVITY_LINKFLAGS) $(GRAVITY_PKG_PATH)/tool/$@
 
 .PHONY: wizard-publish
