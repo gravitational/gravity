@@ -24,11 +24,12 @@ import (
 	"io"
 	"io/ioutil"
 	"strings"
-	"text/template"
 
 	"github.com/gravitational/gravity/lib/defaults"
-	"github.com/gravitational/trace"
+	"github.com/gravitational/planet/lib/utils"
 
+	"github.com/cenkalti/backoff"
+	"github.com/gravitational/trace"
 	"github.com/sirupsen/logrus"
 	"golang.org/x/crypto/ssh"
 )
@@ -44,6 +45,7 @@ type sshCommand struct {
 	command      string
 	abortOnError bool
 	env          map[string]string
+	withRetries  bool
 }
 
 type SSHCommands interface {
@@ -64,7 +66,6 @@ type sshCommands struct {
 	client   *ssh.Client
 	logger   logrus.FieldLogger
 	commands []sshCommand
-	err      error
 }
 
 func NewSSHCommands(client *ssh.Client) SSHCommands {
@@ -74,9 +75,6 @@ func NewSSHCommands(client *ssh.Client) SSHCommands {
 }
 
 func (c *sshCommands) C(format string, args ...interface{}) SSHCommands {
-	if c.err != nil {
-		return c
-	}
 	c.commands = append(c.commands, sshCommand{
 		command:      fmt.Sprintf(format, args...),
 		abortOnError: true,
@@ -87,19 +85,9 @@ func (c *sshCommands) C(format string, args ...interface{}) SSHCommands {
 }
 
 func (c *sshCommands) WithRetries(format string, args ...interface{}) SSHCommands {
-	if c.err != nil {
-		return c
-	}
-	var cmd bytes.Buffer
-	err := scriptTemplate.Execute(&cmd, map[string]string{
-		"command": fmt.Sprintf(format, args...),
-	})
-	if err != nil {
-		c.err = err
-	}
 	c.commands = append(c.commands, sshCommand{
-		command:      cmd.String(),
-		abortOnError: true,
+		command:     fmt.Sprintf(format, args...),
+		withRetries: true,
 		env: map[string]string{
 			defaults.PathEnv: defaults.PathEnvVal,
 		}})
@@ -107,9 +95,6 @@ func (c *sshCommands) WithRetries(format string, args ...interface{}) SSHCommand
 }
 
 func (c *sshCommands) IgnoreError(format string, args ...interface{}) SSHCommands {
-	if c.err != nil {
-		return c
-	}
 	c.commands = append(c.commands, sshCommand{
 		command:      fmt.Sprintf(format, args...),
 		abortOnError: false,
@@ -125,14 +110,13 @@ func (c *sshCommands) WithLogger(logger logrus.FieldLogger) SSHCommands {
 }
 
 // RunCommands executes commands sequentially
-func (c *sshCommands) Run(ctx context.Context) error {
-	if c.err != nil {
-		return trace.Wrap(c.err)
-	}
+func (c *sshCommands) Run(ctx context.Context) (err error) {
 	for _, cmd := range c.commands {
-		_, err := SSHRunAndParse(ctx,
-			c.client, c.logger,
-			cmd.command, cmd.env, ParseDiscard)
+		if cmd.withRetries {
+			err = c.runWithRetries(ctx, cmd)
+		} else {
+			err = c.run(ctx, cmd)
+		}
 		if err != nil {
 			log := c.logger.WithFields(logrus.Fields{
 				"error":   err,
@@ -147,6 +131,26 @@ func (c *sshCommands) Run(ctx context.Context) error {
 		}
 	}
 	return nil
+}
+
+func (c *sshCommands) runWithRetries(ctx context.Context, cmd sshCommand) error {
+	ctx, cancel := context.WithTimeout(ctx, defaults.TransientErrorTimeout)
+	defer cancel()
+	b := backoff.NewConstantBackOff(defaults.RetryInterval)
+	err := utils.RetryWithInterval(ctx, b, func() error {
+		_, err := SSHRunAndParse(ctx,
+			c.client, c.logger,
+			cmd.command, cmd.env, ParseDiscard)
+		return trace.Wrap(err)
+	})
+	return trace.Wrap(err)
+}
+
+func (c *sshCommands) run(ctx context.Context, cmd sshCommand) error {
+	_, err := SSHRunAndParse(ctx,
+		c.client, c.logger,
+		cmd.command, cmd.env, ParseDiscard)
+	return trace.Wrap(err)
 }
 
 // Run is a simple method to run external program and don't care about its output or exit status
@@ -294,6 +298,3 @@ func (w *stderrLogger) Write(p []byte) (n int, err error) {
 	w.log.Warn(string(p))
 	return len(p), nil
 }
-
-var scriptTemplate = template.Must(template.New("script").
-	Parse(`/bin/bash -c 'for i in $(seq 1 20); do {{.command}} && break || sleep 5; done'`))
