@@ -534,8 +534,8 @@ goinstall: remove-temp-files compile
 	cp $(GOPATH)/bin/tele $(TELE_OUT)
 	for provider in ${TF_PROVIDERS} ; do \
 		echo $${provider} ; \
-		cp $(GOPATH)/bin/$${provider} $(GRAVITY_BUILDDIR)/$${provider}_${GRAVITY_VERSION} ; \
-		cp $(GOPATH)/bin/$${provider} $(TF_PROVIDER_DIR)/$${provider}_${GRAVITY_VERSION} ; \
+		cp $(GOPATH)/bin/$${provider} $(GRAVITY_BUILDDIR)/$${provider} ; \
+		cp $(GOPATH)/bin/$${provider} $(TF_PROVIDER_DIR)/$${provider} ; \
 	done
 	$(GRAVITY) package delete $(GRAVITY_PKG) $(DELETE_OPTS) && \
 		$(GRAVITY) package import $(GRAVITY_OUT) $(GRAVITY_PKG)
