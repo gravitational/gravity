@@ -1,4 +1,4 @@
-# <a href='https://gravitational.com/gravity/'>
+<a href='https://gravitational.com/gravity/'>
     <img src='https://gravitational.com/gravitational/images/logos/logo-gravity-x-large.png' alt='Gravity'>
 </a>
 
