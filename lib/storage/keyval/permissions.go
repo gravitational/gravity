@@ -56,7 +56,7 @@ func (b *backend) GetPermission(s storage.Permission) (*storage.Permission, erro
 	err := b.getVal(b.key(usersP, s.UserEmail, permissionsP, s.Action, s.Collection, s.CollectionID), &p)
 	if err != nil {
 		if trace.IsNotFound(err) {
-			return nil, trace.NotFound("user(%v) has no permission to %v on %v",
+			return nil, trace.NotFound("user(%v) has no permission to %v on %v (%v)",
 				s.UserEmail, s.Action, s.Collection, s.CollectionID)
 		}
 	}

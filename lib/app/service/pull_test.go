@@ -18,14 +18,13 @@ package service
 
 import (
 	"bytes"
-	"fmt"
-	"io/ioutil"
 	"path/filepath"
 	"time"
 
 	"github.com/gravitational/gravity/lib/app"
 	apptest "github.com/gravitational/gravity/lib/app/service/test"
 	"github.com/gravitational/gravity/lib/blob/fs"
+	"github.com/gravitational/gravity/lib/compare"
 	"github.com/gravitational/gravity/lib/defaults"
 	"github.com/gravitational/gravity/lib/loc"
 	"github.com/gravitational/gravity/lib/pack"
@@ -112,7 +111,14 @@ func (s *PullerSuite) pullApp(c *C, parallel int) {
 	apptest.CreateRuntimeApplication(s.srcApp, c)
 
 	locator := loc.MustParseLocator("example.com/app:0.0.2")
-	apptest.CreateDummyApplication(s.srcApp, locator, c)
+	const dependencies = `
+dependencies:
+  packages:
+  - example.com/new:0.0.1
+  - example.com/new:0.0.2
+  - example.com/existing:0.0.1
+`
+	apptest.CreateDummyApplication2(s.srcApp, locator, dependencies, c)
 
 	pulled, err := PullApp(AppPullRequest{
 		SrcPack:  s.srcPack,
