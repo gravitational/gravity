@@ -47,65 +47,68 @@ properties([
 ])
 
 timestamps {
-node {
-  stage('checkout') {
-    checkout scm
-    sh "git submodule update --init --recursive"
-    sh "sudo git clean -ffdx" // supply -f flag twice to force-remove untracked dirs with .git subdirs (e.g. submodules)
-  }
-  stage('params') {
-    echo "${params}"
-    propagateParamsToEnv()
-  }
-  stage('clean') {
-    sh "make -C e clean"
-  }
-  stage('build-gravity') {
-    withCredentials([
-    [$class: 'SSHUserPrivateKeyBinding', credentialsId: '08267d86-0b3a-4101-841e-0036bf780b11', keyFileVariable: 'GITHUB_SSH_KEY'],
-    [
-      $class: 'UsernamePasswordMultiBinding',
-      credentialsId: 'jenkins-aws-s3',
-      usernameVariable: 'AWS_ACCESS_KEY_ID',
-      passwordVariable: 'AWS_SECRET_ACCESS_KEY',
-    ],
-    ]) {
-      sh 'make -C e production telekube opscenter'
+  node {
+    stage('checkout') {
+      checkout scm
+      sh "git submodule update --init --recursive"
+      sh "sudo git clean -ffdx" // supply -f flag twice to force-remove untracked dirs with .git subdirs (e.g. submodules)
+    }
+    stage('params') {
+      echo "${params}"
+      propagateParamsToEnv()
+    }
+    stage('clean') {
+      sh "make -C e clean"
+    }
+    stage('build-gravity') {
+      withCredentials([
+      [$class: 'SSHUserPrivateKeyBinding', credentialsId: '08267d86-0b3a-4101-841e-0036bf780b11', keyFileVariable: 'GITHUB_SSH_KEY'],
+      [
+        $class: 'UsernamePasswordMultiBinding',
+        credentialsId: 'jenkins-aws-s3',
+        usernameVariable: 'AWS_ACCESS_KEY_ID',
+        passwordVariable: 'AWS_SECRET_ACCESS_KEY',
+      ],
+      ]) {
+        sh 'make -C e production telekube opscenter'
+      }
     }
   }
-  stage('build-and-test') {
-    parallel (
-    build : {
-      withCredentials([
-      [$class: 'SSHUserPrivateKeyBinding', credentialsId: '08267d86-0b3a-4101-841e-0036bf780b11', keyFileVariable: 'GITHUB_SSH_KEY']]) {
-        sh 'make test && make -C e test'
-      }
-    },
-    throttle(['robotest']) {
-      robotest : {
-        if (params.RUN_ROBOTEST == 'run') {
+  throttle(['robotest']) {
+    node {
+      stage('build-and-test') {
+        parallel (
+        build : {
           withCredentials([
-              [
-                $class: 'UsernamePasswordMultiBinding',
-                credentialsId: 'jenkins-aws-s3',
-                usernameVariable: 'AWS_ACCESS_KEY_ID',
-                passwordVariable: 'AWS_SECRET_ACCESS_KEY'
-              ],
-              [$class: 'StringBinding', credentialsId: 'GET_GRAVITATIONAL_IO_APIKEY', variable: 'GET_GRAVITATIONAL_IO_APIKEY'],
-              [$class: 'FileBinding', credentialsId:'ROBOTEST_LOG_GOOGLE_APPLICATION_CREDENTIALS', variable: 'GOOGLE_APPLICATION_CREDENTIALS'],
-              [$class: 'FileBinding', credentialsId:'OPS_SSH_KEY', variable: 'SSH_KEY'],
-              [$class: 'FileBinding', credentialsId:'OPS_SSH_PUB', variable: 'SSH_PUB'],
-              ]) {
-                sh """
-                make -C e robotest-run-suite \
-                  AWS_KEYPAIR=ops \
-                  AWS_REGION=us-east-1 \
-                  ROBOTEST_VERSION=$ROBOTEST_VERSION"""
+          [$class: 'SSHUserPrivateKeyBinding', credentialsId: '08267d86-0b3a-4101-841e-0036bf780b11', keyFileVariable: 'GITHUB_SSH_KEY']]) {
+            sh 'make test && make -C e test'
           }
-        }else {
-          echo 'skipped system tests'
-        }
+        },
+        robotest : {
+          if (params.RUN_ROBOTEST == 'run') {
+            withCredentials([
+                [
+                  $class: 'UsernamePasswordMultiBinding',
+                  credentialsId: 'jenkins-aws-s3',
+                  usernameVariable: 'AWS_ACCESS_KEY_ID',
+                  passwordVariable: 'AWS_SECRET_ACCESS_KEY'
+                ],
+                [$class: 'StringBinding', credentialsId: 'GET_GRAVITATIONAL_IO_APIKEY', variable: 'GET_GRAVITATIONAL_IO_APIKEY'],
+                [$class: 'FileBinding', credentialsId:'ROBOTEST_LOG_GOOGLE_APPLICATION_CREDENTIALS', variable: 'GOOGLE_APPLICATION_CREDENTIALS'],
+                [$class: 'FileBinding', credentialsId:'OPS_SSH_KEY', variable: 'SSH_KEY'],
+                [$class: 'FileBinding', credentialsId:'OPS_SSH_PUB', variable: 'SSH_PUB'],
+                ]) {
+                  sh """
+                  make -C e robotest-run-suite \
+                    AWS_KEYPAIR=ops \
+                    AWS_REGION=us-east-1 \
+                    ROBOTEST_VERSION=$ROBOTEST_VERSION"""
+            }
+          }else {
+            echo 'skipped system tests'
+          }
+        } )
       }
-    } )
+    }
   }
-} }
+}
