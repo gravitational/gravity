@@ -85,8 +85,9 @@ func (c *sshCommands) C(format string, args ...interface{}) SSHCommands {
 
 func (c *sshCommands) WithRetries(format string, args ...interface{}) SSHCommands {
 	c.commands = append(c.commands, sshCommand{
-		command:     fmt.Sprintf(format, args...),
-		withRetries: true,
+		command:      fmt.Sprintf(format, args...),
+		withRetries:  true,
+		abortOnError: true,
 		env: map[string]string{
 			defaults.PathEnv: defaults.PathEnvVal,
 		}})

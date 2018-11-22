@@ -28,9 +28,9 @@ import (
 	"github.com/gravitational/gravity/lib/loc"
 	"github.com/gravitational/gravity/lib/pack"
 	"github.com/gravitational/gravity/lib/utils"
-	"github.com/gravitational/trace"
 
 	"github.com/cenkalti/backoff"
+	"github.com/gravitational/trace"
 	log "github.com/sirupsen/logrus"
 )
 
@@ -115,7 +115,7 @@ func SyncApp(ctx context.Context, req SyncRequest) error {
 		return nil
 	}
 
-	log.Infof("syncing %v", req.Package)
+	log.Infof("Syncing %v.", req.Package)
 
 	if _, err = req.ImageService.Sync(ctx, syncPath); err != nil {
 		return trace.Wrap(err)

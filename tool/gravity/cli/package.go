@@ -213,7 +213,7 @@ func deletePackage(app *localenv.LocalEnvironment, loc loc.Locator, force bool, 
 }
 
 func configurePackage(s *localenv.LocalEnvironment, loc loc.Locator, confLoc loc.Locator, args []string) error {
-	log.Infof("configure %v %v into %v %v", loc, confLoc)
+	log.Infof("configure %v into %v", loc, confLoc)
 
 	if len(args) == 0 {
 		fmt.Printf(

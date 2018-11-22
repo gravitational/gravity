@@ -107,6 +107,8 @@ func IsTransientClusterError(err error) bool {
 	}
 
 	switch {
+	case trace.IsConnectionProblem(err):
+		return true
 	case IsConnectionResetError(err):
 		return true
 	case IsClusterUnavailableError(err) || isEtcdClusterError(err):
@@ -282,6 +284,14 @@ func IsContextCancelledError(err error) bool {
 	return false
 }
 
+// IsConnectionResetError determines whether err is a
+// 'connection reset by peer' error.
+// err is expected to be non-nil
+func IsConnectionResetError(err error) bool {
+	return strings.Contains(trace.Unwrap(err).Error(),
+		"connection reset by peer")
+}
+
 // ShouldReconnectPeer implements the error classification for peer connection errors
 //
 // It detects unrecoverable errors and aborts the reconnect attempts
@@ -290,14 +300,6 @@ func ShouldReconnectPeer(err error) error {
 		return &backoff.PermanentError{err}
 	}
 	return err
-}
-
-// IsConnectionResetError determines whether err is a
-// 'connection reset by peer' error.
-// err is expected to be non-nil
-func IsConnectionResetError(err error) bool {
-	return strings.Contains(trace.Unwrap(err).Error(),
-		"connection reset by peer")
 }
 
 func isPeerDeniedError(message string) bool {
