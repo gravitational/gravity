@@ -1006,7 +1006,7 @@ func (h *WebHandler) needsAuth(fn serviceHandler) httprouter.Handle {
 			}
 		} else {
 			if h.WebHandlerConfig.Authenticator == nil {
-				log.Debugf("web sessions are not supported", err)
+				log.Debugf("web sessions are not supported: %v", err)
 				// we hide the error from the remote user to avoid giving any hints
 				trace.WriteError(
 					w, trace.AccessDenied("web sessions are not supported"))

@@ -544,7 +544,7 @@ func (r retryApi) retry(ctx context.Context, fn apiCall) (resp *client.Response,
 			return trace.Wrap(err)
 		}
 		if err != nil {
-			return &backoff.PermanentError{err}
+			return &backoff.PermanentError{Err: err}
 		}
 		return nil
 	}, b)

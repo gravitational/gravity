@@ -189,7 +189,7 @@ func (ta TLSArchive) AddKeyPair(name string, kp authority.TLSKeyPair) error {
 func (ta TLSArchive) GetKeyPair(name string) (*authority.TLSKeyPair, error) {
 	keyPair, ok := ta[name]
 	if !ok {
-		return nil, trace.NotFound("archive key pair %v is not found")
+		return nil, trace.NotFound("archive key pair %v is not found", name)
 	}
 	return keyPair, nil
 }

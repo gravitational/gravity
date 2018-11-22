@@ -238,7 +238,7 @@ func (r serverPeer) Reconnect(ctx context.Context) (Client, error) {
 
 	_, err = clt.PeerJoin(ctx, &pb.PeerJoinRequest{Addr: r.addr, Config: &r.config, SystemInfo: payload})
 	if err != nil {
-		return nil, &backoff.PermanentError{trace.Wrap(err)}
+		return nil, &backoff.PermanentError{Err: trace.Wrap(err)}
 	}
 
 	return clt, nil

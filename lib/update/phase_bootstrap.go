@@ -18,7 +18,7 @@ package update
 
 import (
 	"context"
-	"os"
+	"io"
 	"path/filepath"
 
 	"github.com/gravitational/gravity/lib/app"
@@ -147,31 +147,39 @@ func (p *updatePhaseBootstrap) PostCheck(context.Context) error {
 // Execute executes the bootstrap phase locally, e.g. exports new gravity
 // binary, creates new secrets/config packages in the local backend and
 // initializes local operation state
-func (p *updatePhaseBootstrap) Execute(context.Context) error {
+func (p *updatePhaseBootstrap) Execute(ctx context.Context) error {
 	err := p.configureNode()
 	if err != nil {
 		return trace.Wrap(err)
 	}
-	err = p.exportGravity()
+
+	exportCtx, cancel := context.WithTimeout(ctx, defaults.TransientErrorTimeout)
+	defer cancel()
+	err = p.exportGravity(exportCtx)
 	if err != nil {
 		return trace.Wrap(err)
 	}
+
 	err = p.updateDNSConfig()
 	if err != nil {
 		return trace.Wrap(err)
 	}
+
 	err = p.syncPlan()
 	if err != nil {
 		return trace.Wrap(err)
 	}
+
 	err = p.updateRuntimePackage()
 	if err != nil {
 		return trace.Wrap(err)
 	}
+
 	err = p.pullSystemUpdates()
 	if err != nil {
 		return trace.Wrap(err)
 	}
+
 	return nil
 }
 
@@ -194,22 +202,12 @@ func (p *updatePhaseBootstrap) configureNode() error {
 	return nil
 }
 
-func (p *updatePhaseBootstrap) exportGravity() error {
-	_, reader, err := p.Packages.ReadPackage(p.GravityPackage)
-	if err != nil {
-		return trace.Wrap(err)
-	}
-	defer reader.Close()
-	err = os.RemoveAll(p.GravityPath)
-	if err != nil {
-		return trace.Wrap(err)
-	}
-	err = utils.CopyReaderWithPerms(p.GravityPath, reader, defaults.SharedExecutableMask)
-	if err != nil {
-		return trace.Wrap(err)
-	}
-	log.Debugf("%v exported to %v.", p.GravityPackage, p.GravityPath)
-	return nil
+func (p *updatePhaseBootstrap) exportGravity(ctx context.Context) error {
+	err := utils.CopyWithRetries(ctx, p.GravityPath, func() (io.ReadCloser, error) {
+		_, rc, err := p.Packages.ReadPackage(p.GravityPackage)
+		return rc, trace.Wrap(err)
+	}, defaults.SharedExecutableMask)
+	return trace.Wrap(err)
 }
 
 // updateDNSConfig persists the DNS configuration in the local backend if it has not been set
