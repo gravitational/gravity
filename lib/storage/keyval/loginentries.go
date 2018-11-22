@@ -77,7 +77,7 @@ func (b *backend) GetLoginEntry(opsCenterURL string) (*storage.LoginEntry, error
 	err := b.getVal(b.key(loginsP, opsCenterURL), &e)
 	if err != nil {
 		if trace.IsNotFound(err) {
-			return nil, trace.NotFound("entry(%v) not found")
+			return nil, trace.NotFound("entry(%v) not found", opsCenterURL)
 		}
 		return nil, trace.Wrap(err)
 	}

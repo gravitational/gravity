@@ -96,6 +96,9 @@ func (d *drain) evictPodAndWait(ctx context.Context, pod v1.Pod, policyGroupVers
 	err := utils.RetryWithInterval(ctx, b,
 		func() error {
 			err := d.evictPod(pod, policyGroupVersion)
+			if err == nil {
+				return nil
+			}
 			if errors.IsNotFound(trace.Unwrap(err)) {
 				return nil
 			} else if errors.IsTooManyRequests(trace.Unwrap(err)) {
@@ -263,7 +266,7 @@ func waitForDelete(ctx context.Context, client corev1.CoreV1Interface, pods []v1
 				}
 				continue
 			} else if err != nil {
-				return &backoff.PermanentError{rigging.ConvertError(err)}
+				return &backoff.PermanentError{Err: rigging.ConvertError(err)}
 			}
 			pendingPods = append(pendingPods, pods[i])
 		}

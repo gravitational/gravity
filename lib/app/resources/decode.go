@@ -182,7 +182,7 @@ func Encode(objects []runtime.Object, encoding encoding, w io.Writer) error {
 			Encoder:   serializer.NewSerializer(nil, nil, nil, true),
 		}
 	default:
-		return trace.BadParameter("unknown encoding: ", encoding)
+		return trace.BadParameter("unknown encoding: %v", encoding)
 	}
 
 	if len(objects) > 1 {

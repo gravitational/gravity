@@ -18,6 +18,7 @@ package utils
 
 import (
 	"bufio"
+	"context"
 	"fmt"
 	"io"
 	"io/ioutil"
@@ -28,6 +29,7 @@ import (
 	"github.com/gravitational/gravity/lib/constants"
 	"github.com/gravitational/gravity/lib/defaults"
 
+	"github.com/cenkalti/backoff"
 	"github.com/gravitational/trace"
 	log "github.com/sirupsen/logrus"
 )
@@ -381,4 +383,21 @@ func EnsureLineInFile(path, line string) error {
 		return trace.Wrap(err)
 	}
 	return nil
+}
+
+// CopyWithRetries copies the contents of the reader obtained with open to targetPath
+// retrying on transient errors
+func CopyWithRetries(ctx context.Context, targetPath string, open func() (io.ReadCloser, error), mode os.FileMode) error {
+	b := backoff.NewConstantBackOff(defaults.RetryInterval)
+	err := RetryTransient(ctx, b, func() error {
+		rc, err := open()
+		if err != nil {
+			return trace.Wrap(err)
+		}
+		defer rc.Close()
+
+		err = CopyReaderWithPerms(targetPath, rc, mode)
+		return trace.Wrap(err)
+	})
+	return trace.Wrap(err)
 }

@@ -47,6 +47,11 @@ func CreateDummyApplication(apps app.Applications, loc loc.Locator, c *C) *app.A
 	return createApp(loc, "", apps, c)
 }
 
+// CreateDummyApplication2 creates a test application with a valid manifest and specified dependencies
+func CreateDummyApplication2(apps app.Applications, loc loc.Locator, dependencies string, c *C) *app.Application {
+	return createApp(loc, dependencies, apps, c)
+}
+
 // CreateAppWithDeps creates app with valid app manifest and all proper dependency packages
 // although it has fake contents
 func CreateAppWithDeps(apps app.Applications, packages pack.PackageService, c *C) *app.Application {

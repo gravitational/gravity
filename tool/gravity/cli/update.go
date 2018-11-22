@@ -171,8 +171,7 @@ $ gravity upgrade --complete
 
 To abort an unsuccessful operation, rollback all completed/failed phases and
 run the same command. The operation will be marked as "failed" and the cluster
-will be returned to the "active" state.
-`)
+will be returned to the "active" state.`)
 
 	return nil
 }

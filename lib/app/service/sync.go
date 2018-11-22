@@ -24,11 +24,13 @@ import (
 
 	"github.com/gravitational/gravity/lib/app"
 	"github.com/gravitational/gravity/lib/app/docker"
+	"github.com/gravitational/gravity/lib/defaults"
 	"github.com/gravitational/gravity/lib/loc"
 	"github.com/gravitational/gravity/lib/pack"
 	"github.com/gravitational/gravity/lib/utils"
-	"github.com/gravitational/trace"
 
+	"github.com/cenkalti/backoff"
+	"github.com/gravitational/trace"
 	log "github.com/sirupsen/logrus"
 )
 
@@ -88,7 +90,10 @@ func SyncApp(ctx context.Context, req SyncRequest) error {
 
 	// unpack the app and sync its registry with the local registry
 	unpackedPath := pack.PackagePath(dir, req.Package)
-	if err = pack.Unpack(req.PackService, req.Package, unpackedPath, nil); err != nil {
+	ctx, cancel := context.WithTimeout(context.Background(), defaults.TransientErrorTimeout)
+	defer cancel()
+	err = unpackRemotePackage(ctx, req.PackService, req.Package, unpackedPath)
+	if err != nil {
 		return trace.Wrap(err)
 	}
 
@@ -110,11 +115,24 @@ func SyncApp(ctx context.Context, req SyncRequest) error {
 		return nil
 	}
 
-	log.Infof("syncing %v", req.Package)
+	log.Infof("Syncing %v.", req.Package)
 
 	if _, err = req.ImageService.Sync(ctx, syncPath); err != nil {
 		return trace.Wrap(err)
 	}
 
 	return nil
+}
+
+func unpackRemotePackage(ctx context.Context, packages pack.PackageService, package_ loc.Locator, unpackPath string) error {
+	b := backoff.NewConstantBackOff(defaults.RetryInterval)
+	err := utils.RetryTransient(ctx, b, func() error {
+		err := pack.Unpack(packages, package_, unpackPath, nil)
+		if err == nil {
+			return nil
+		}
+		log.Warnf("Failed to unpack package %v: %v.", package_, err)
+		return trace.Wrap(err)
+	})
+	return trace.Wrap(err)
 }

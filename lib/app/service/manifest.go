@@ -110,7 +110,7 @@ func unpackedSource(source io.Reader, excludeRegistry bool) (dir string, cleanup
 	cleanup = func() {
 		err := os.RemoveAll(dir)
 		if err != nil {
-			log.Warningf("failed to remove directory %q: %v", err)
+			log.Warningf("failed to remove directory %q: %v", dir, err)
 		}
 	}
 

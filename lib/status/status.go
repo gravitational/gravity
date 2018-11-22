@@ -105,22 +105,6 @@ func FromCluster(ctx context.Context, operator ops.Operator, cluster ops.Site, o
 	return status, nil
 }
 
-// Check classifies this cluster status as error
-func (s Status) Check() error {
-	// if the site is in degraded status, make sure to exit with non-0 code
-	if s.State == ops.SiteStateDegraded {
-		return trace.BadParameter("Cluster status: degraded")
-	}
-	if s.Agent != nil && s.Agent.GetSystemStatus() != pb.SystemStatus_Running {
-		return trace.BadParameter("Cluster status: degraded")
-	}
-	// if the operation is in bad state, return error
-	if s.Operation != nil && s.Operation.isFailed() {
-		return trace.BadParameter("Operation failed")
-	}
-	return nil
-}
-
 // FromPlanetAgent collects cluster status from the planet agent
 func FromPlanetAgent(ctx context.Context, servers []storage.Server) (*Agent, error) {
 	status, err := planetAgentStatus(ctx)

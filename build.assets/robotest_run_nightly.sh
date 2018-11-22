@@ -3,9 +3,11 @@ set -eu -o pipefail
 
 readonly UPGRADE_FROM_DIR=${1:-$(pwd)/../upgrade_from}
 
+DOCKER_STORAGE_DRIVERS="overlay2 devicemapper"
+
 declare -A UPGRADE_MAP
 # gravity version -> list of OS releases to exercise on
-UPGRADE_MAP[5.0.24]="ubuntu:16"
+UPGRADE_MAP[5.0.24]="redhat:7 centos:7 debian:9 suse:12 ubuntu:16"
 
 readonly GET_GRAVITATIONAL_IO_APIKEY=${GET_GRAVITATIONAL_IO_APIKEY:?API key for distribution Ops Center required}
 readonly GRAVITY_BUILDDIR=${GRAVITY_BUILDDIR:?Set GRAVITY_BUILDDIR to the build directory}
@@ -25,6 +27,7 @@ export GCE_REGION="northamerica-northeast1,us-west1,us-east1,us-east4,us-central
 function build_resize_suite {
   cat <<EOF
  resize={"to":3,"flavor":"one","nodes":1,"role":"node","state_dir":"/var/lib/telekube","os":"ubuntu:16","storage_driver":"devicemapper"}
+ resize={"to":6,"flavor":"three","nodes":3,"role":"node","state_dir":"/var/lib/telekube","os":"ubuntu:16","storage_driver":"overlay2"}
 EOF
 }
 
@@ -44,33 +47,46 @@ EOF
 
 function build_upgrade_suite {
   local suite=''
-  local cluster_size='"flavor":"three","nodes":3,"role":"node"'
+  local cluster_sizes=( \
+    '"flavor":"three","nodes":3,"role":"node"' \
+    '"flavor":"six","nodes":6,"role":"node"' \
+    '"flavor":"one","nodes":1,"role":"node"')
   for release in ${!UPGRADE_MAP[@]}; do
     for os in ${UPGRADE_MAP[$release]}; do
-      suite+=$(build_upgrade_step $os $release 'overlay2' $cluster_size)
-      suite+=' '
+      for storage_driver in ${DOCKER_STORAGE_DRIVERS[@]}; do
+        for size in ${cluster_sizes[@]}; do
+          suite+=$(build_upgrade_step $os $release $storage_driver $size)
+          suite+=' '
+        done
+      done
     done
   done
   echo $suite
 }
 
 function build_ops_install_suite {
-  local suite=$(cat <<EOF
+  cat <<EOF
  install={"installer_url":"/installer/opscenter.tar","nodes":1,"flavor":"standalone","role":"node","os":"ubuntu:16","ops_advertise_addr":"example.com:443"}
 EOF
-)
-  echo $suite
 }
 
 function build_install_suite {
   local suite=''
-  local test_os="redhat:7"
-  local cluster_size='"flavor":"three","nodes":3,"role":"node"'
-  suite+=$(cat <<EOF
- install={${cluster_size},"os":"${test_os}","storage_driver":"overlay2"}
+  local test_os="redhat:7 centos:7 suse:12 debian:9 ubuntu:16"
+  local cluster_sizes=( \
+    '"flavor":"three","nodes":3,"role":"node"' \
+    '"flavor":"six","nodes":6,"role":"node"')
+  for os in $test_os; do
+    for storage_driver in ${DOCKER_STORAGE_DRIVERS[@]}; do
+      for size in ${cluster_sizes[@]}; do
+        suite+=$(cat <<EOF
+ install={${size},"os":"${os}","storage_driver":"${storage_driver}"}
 EOF
+        suite+=' '
 )
-  suite+=' '
+      done
+    done
+  done
   suite+=$(build_ops_install_suite)
   echo $suite
 }
