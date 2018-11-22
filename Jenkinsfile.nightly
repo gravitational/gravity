@@ -7,21 +7,41 @@ def propagateParamsToEnv() {
   }
 }
 
+def withBuildResult(Closure body) {
+  def previousBuildResult = currentBuild.previousBuild?.result
+  try {
+    body()
+    currentBuild.result = 'SUCCESS'
+  } catch(InterruptedException e) {
+    currentBuild.result = 'ABORTED'
+    throw e
+  } catch(e) {
+    currentBuild.result = 'FAILURE'
+    throw e
+  } finally {
+    sendBuildNotification(currentBuild.result, previousBuildResult)
+  }
+}
+
 /*
 * sendBuildNotification sends a notification to slack if the build
 * has recovered from a failure (i.e. had failed previously)
 * or failed.
+* See https://github.com/jenkinsci/jenkins/blob/jenkins-2.121.1/core/src/main/java/hudson/model/Result.java
+* for the list of possible values for currentBuild.result.
 */
 def sendBuildNotification(String currentBuildResult, String prevousBuildResult) {
-  currentBuildResult = currentBuildResult ?: 'SUCCESS'
-  prevousBuildResult = prevousBuildResult ?: 'SUCCESS'
+  currentBuildResult = currentBuildResult ?: "SUCCESS"
+  prevousBuildResult = prevousBuildResult ?: "SUCCESS"
 
   def color = "warning"
   def message = "${env.JOB_NAME} ${env.BUILD_NUMBER} (<${env.BUILD_URL}|Open>)"
-  if currentBuildResult == 'SUCCESS' {
+  if (currentBuildResult == "SUCCESS") {
     color = "good"
   }
-  def shouldNotify = currentBuildResult != 'STARTED' && currentBuildResult != 'SUCCESS'
+  def shouldNotify = currentBuildResult != "STARTED" &&
+                     currentBuildResult != "SUCCESS" &&
+                     currentBuildResult != "ABORTED"
   if (shouldNotify) {
     slackSend(color: color, message: message)
   }
@@ -105,9 +125,7 @@ timestamps {
   throttle(['robotest']) {
     node {
       stage('build-and-test') {
-        try {
-          def previousBuildResult = currentBuild.previousBuild?.result
-
+        withBuildResult {
           parallel (
           build : {
             withCredentials([
@@ -135,15 +153,10 @@ timestamps {
                       AWS_REGION=us-east-1 \
                       ROBOTEST_VERSION=$ROBOTEST_VERSION"""
               }
-            }else {
+            } else {
               echo 'skipped system tests'
             }
           } )
-        } catch(e) {
-          currentBuild.result = 'FAILED'
-          throw e
-        } finally {
-          sendBuildNotification(currentBuild.result, previousBuildResult)
         }
       }
     }
