@@ -7,6 +7,26 @@ def propagateParamsToEnv() {
   }
 }
 
+/*
+* sendBuildNotification sends a notification to slack if the build
+* has recovered from a failure (i.e. had failed previously)
+* or failed.
+*/
+def sendBuildNotification(String currentBuildResult, String prevousBuildResult) {
+  currentBuildResult = currentBuildResult ?: 'SUCCESS'
+  prevousBuildResult = prevousBuildResult ?: 'SUCCESS'
+
+  def color = "warning"
+  def message = "${env.JOB_NAME} ${env.BUILD_NUMBER} (<${env.BUILD_URL}|Open>)"
+  if currentBuildResult == 'SUCCESS' {
+    color = "good"
+  }
+  def shouldNotify = currentBuildResult != 'STARTED' && currentBuildResult != 'SUCCESS'
+  if (shouldNotify) {
+    slackSend(color: color, message: message)
+  }
+}
+
 def triggers = []
 
 if env.BRANCH_NAME == "master" {
@@ -39,7 +59,7 @@ properties([
            description: 'Cloud provider to deploy to.',
            name: 'DEPLOY_TO'),
     string(name: 'PARALLEL_TESTS',
-           defaultValue: '1',
+           defaultValue: '8',
            description: 'Number of parallel tests to run.'),
     string(name: 'REPEAT_TESTS',
            defaultValue: '1',
@@ -55,63 +75,77 @@ properties([
 ])
 
 timestamps {
-node {
-  stage('checkout') {
-    checkout scm
-    sh "git submodule update --init --recursive"
-    sh "sudo git clean -ffdx" // supply -f flag twice to force-remove untracked dirs with .git subdirs (e.g. submodules)
-  }
-  stage('params') {
-    echo "${params}"
-    propagateParamsToEnv()
-  }
-  stage('clean') {
-    sh "make -C e clean"
-  }
-  stage('build-gravity') {
-    withCredentials([
-    [$class: 'SSHUserPrivateKeyBinding', credentialsId: '08267d86-0b3a-4101-841e-0036bf780b11', keyFileVariable: 'GITHUB_SSH_KEY'],
-    [
-      $class: 'UsernamePasswordMultiBinding',
-      credentialsId: 'jenkins-aws-s3',
-      usernameVariable: 'AWS_ACCESS_KEY_ID',
-      passwordVariable: 'AWS_SECRET_ACCESS_KEY',
-    ],
-    ]) {
-      sh 'make -C e production telekube opscenter'
+  node {
+    stage('checkout') {
+      checkout scm
+      sh "git submodule update --init --recursive"
+      sh "sudo git clean -ffdx" // supply -f flag twice to force-remove untracked dirs with .git subdirs (e.g. submodules)
+    }
+    stage('params') {
+      echo "${params}"
+      propagateParamsToEnv()
+    }
+    stage('clean') {
+      sh "make -C e clean"
+    }
+    stage('build-gravity') {
+      withCredentials([
+      [$class: 'SSHUserPrivateKeyBinding', credentialsId: '08267d86-0b3a-4101-841e-0036bf780b11', keyFileVariable: 'GITHUB_SSH_KEY'],
+      [
+        $class: 'UsernamePasswordMultiBinding',
+        credentialsId: 'jenkins-aws-s3',
+        usernameVariable: 'AWS_ACCESS_KEY_ID',
+        passwordVariable: 'AWS_SECRET_ACCESS_KEY',
+      ],
+      ]) {
+        sh 'make -C e production telekube opscenter'
+      }
     }
   }
-  stage('build-and-test') {
-    parallel (
-    build : {
-      withCredentials([
-      [$class: 'SSHUserPrivateKeyBinding', credentialsId: '08267d86-0b3a-4101-841e-0036bf780b11', keyFileVariable: 'GITHUB_SSH_KEY']]) {
-        sh 'make test && make -C e test'
-      }
-    },
-    robotest : {
-      if (params.RUN_ROBOTEST == 'run') {
-        withCredentials([
-            [
-              $class: 'UsernamePasswordMultiBinding',
-              credentialsId: 'jenkins-aws-s3',
-              usernameVariable: 'AWS_ACCESS_KEY_ID',
-              passwordVariable: 'AWS_SECRET_ACCESS_KEY',
-            ],
-            [$class: 'StringBinding', credentialsId: 'GET_GRAVITATIONAL_IO_APIKEY', variable: 'GET_GRAVITATIONAL_IO_APIKEY'],
-            [$class: 'FileBinding', credentialsId:'ROBOTEST_LOG_GOOGLE_APPLICATION_CREDENTIALS', variable: 'GOOGLE_APPLICATION_CREDENTIALS'],
-            [$class: 'FileBinding', credentialsId:'OPS_SSH_KEY', variable: 'SSH_KEY'],
-            [$class: 'FileBinding', credentialsId:'OPS_SSH_PUB', variable: 'SSH_PUB'],
-            ]) {
-              sh """
-              make -C e robotest-run-nightly \
-                AWS_KEYPAIR=ops \
-                AWS_REGION=us-east-1 \
-                ROBOTEST_VERSION=$ROBOTEST_VERSION"""
+  throttle(['robotest']) {
+    node {
+      stage('build-and-test') {
+        try {
+          def previousBuildResult = currentBuild.previousBuild?.result
+
+          parallel (
+          build : {
+            withCredentials([
+            [$class: 'SSHUserPrivateKeyBinding', credentialsId: '08267d86-0b3a-4101-841e-0036bf780b11', keyFileVariable: 'GITHUB_SSH_KEY']]) {
+              sh 'make test && make -C e test'
+            }
+          },
+          robotest : {
+            if (params.RUN_ROBOTEST == 'run') {
+              withCredentials([
+                  [
+                    $class: 'UsernamePasswordMultiBinding',
+                    credentialsId: 'jenkins-aws-s3',
+                    usernameVariable: 'AWS_ACCESS_KEY_ID',
+                    passwordVariable: 'AWS_SECRET_ACCESS_KEY',
+                  ],
+                  [$class: 'StringBinding', credentialsId: 'GET_GRAVITATIONAL_IO_APIKEY', variable: 'GET_GRAVITATIONAL_IO_APIKEY'],
+                  [$class: 'FileBinding', credentialsId:'ROBOTEST_LOG_GOOGLE_APPLICATION_CREDENTIALS', variable: 'GOOGLE_APPLICATION_CREDENTIALS'],
+                  [$class: 'FileBinding', credentialsId:'OPS_SSH_KEY', variable: 'SSH_KEY'],
+                  [$class: 'FileBinding', credentialsId:'OPS_SSH_PUB', variable: 'SSH_PUB'],
+                  ]) {
+                    sh """
+                    make -C e robotest-run-nightly \
+                      AWS_KEYPAIR=ops \
+                      AWS_REGION=us-east-1 \
+                      ROBOTEST_VERSION=$ROBOTEST_VERSION"""
+              }
+            }else {
+              echo 'skipped system tests'
+            }
+          } )
+        } catch(e) {
+          currentBuild.result = 'FAILED'
+          throw e
+        } finally {
+          sendBuildNotification(currentBuild.result, previousBuildResult)
         }
-      }else {
-        echo 'skipped system tests'
       }
-    } )
+    }
   }
-} }
+}

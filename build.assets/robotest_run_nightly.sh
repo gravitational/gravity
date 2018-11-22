@@ -6,8 +6,8 @@ readonly UPGRADE_FROM_DIR=${1:-$(pwd)/../upgrade_from}
 DOCKER_STORAGE_DRIVERS="overlay2"
 
 declare -A UPGRADE_MAP
-# gravity version -> list of OS releases to exercise on
-UPGRADE_MAP[5.2.3]="redhat:7 centos:7 debian:9 suse:12 ubuntu:16"
+# gravity version -> list of OS releases to test upgrades on
+UPGRADE_MAP[5.2.3]="centos:7 ubuntu:16"
 
 readonly GET_GRAVITATIONAL_IO_APIKEY=${GET_GRAVITATIONAL_IO_APIKEY:?API key for distribution Ops Center required}
 readonly GRAVITY_BUILDDIR=${GRAVITY_BUILDDIR:?Set GRAVITY_BUILDDIR to the build directory}
@@ -53,11 +53,9 @@ function build_upgrade_suite {
     '"flavor":"one","nodes":1,"role":"node"')
   for release in ${!UPGRADE_MAP[@]}; do
     for os in ${UPGRADE_MAP[$release]}; do
-      for storage_driver in ${DOCKER_STORAGE_DRIVERS[@]}; do
-        for size in ${cluster_sizes[@]}; do
-          suite+=$(build_upgrade_step $os $release $storage_driver $size)
-          suite+=' '
-        done
+      for size in ${cluster_sizes[@]}; do
+        suite+=$(build_upgrade_step $os $release "overlay2" $size)
+        suite+=' '
       done
     done
   done
@@ -72,7 +70,7 @@ EOF
 
 function build_install_suite {
   local suite=''
-  local test_os="redhat:7 centos:7 suse:12 debian:9 ubuntu:16"
+  local test_os="redhat:7 debian:9 ubuntu:16"
   local cluster_sizes=( \
     '"flavor":"three","nodes":3,"role":"node"' \
     '"flavor":"six","nodes":6,"role":"node"')
