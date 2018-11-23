@@ -17,7 +17,6 @@ limitations under the License.
 package systeminfo
 
 import (
-	"fmt"
 	"strings"
 	"testing"
 
@@ -90,7 +89,7 @@ func TestResolvParser(t *testing.T) {
 			options ndots:-1
 			options timeout:-5
 			options attempts:-5
-			options blahblah
+			options unknownoption
 			`,
 			&storage.ResolvConf{
 				Ndots:      1,
@@ -103,7 +102,6 @@ func TestResolvParser(t *testing.T) {
 
 	for _, tt := range tests {
 		r, err := ResolvFromReader(strings.NewReader(tt.in))
-		fmt.Print(err)
 		assert.Nil(t, err)
 		assert.Equal(t, r, tt.out)
 	}

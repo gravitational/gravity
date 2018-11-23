@@ -392,7 +392,7 @@ func supportsTaints(gravityPackage loc.Locator) (supports bool, err error) {
 
 func waitForEndpoints(ctx context.Context, client corev1.CoreV1Interface, server storage.Server) error {
 	clusterLabels := labels.Set{"app": defaults.GravityClusterLabel}
-	kubednsLegacyLabels := labels.Set{"k8s-app": "kube-dns"}
+	kubednsLegacyLabels := labels.Set{"k8s-app": "kubedns"}
 	kubednsLabels := labels.Set{"k8s-app": defaults.KubeDNSLabel}
 	kubednsWorkerLabels := labels.Set{"k8s-app": defaults.KubeDNSWorkerLabel}
 

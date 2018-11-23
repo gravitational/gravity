@@ -195,7 +195,7 @@ func shouldUpdateDNSAppEarly(client *kubernetes.Clientset) (bool, error) {
 // Corefile, as that may have been modified by a user.
 func (p *updatePhaseCoreDNS) generateCorefile(context.Context) error {
 	p.Info("Generating coredns corefile.")
-	// Read the resolv.conf from the host doing installation
+	// Read the resolv.conf from the host doing upgrade
 	// it will be used for configuring coredns upstream servers
 	resolvConf, err := systeminfo.ResolvFromFile("/etc/resolv.conf")
 	if err != nil {

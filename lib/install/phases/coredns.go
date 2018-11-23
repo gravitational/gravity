@@ -34,7 +34,7 @@ import (
 	"k8s.io/client-go/kubernetes"
 )
 
-//  is the phase which executes preflight checks on a set of nodes
+// corednsExecutor is the phase which generated CoreDNS configuration for the cluster
 type corednsExecutor struct {
 	// FieldLogger specifies the logger used by the executor
 	log.FieldLogger
@@ -46,7 +46,7 @@ type corednsExecutor struct {
 	DNSOverrides storage.DNSOverrides
 }
 
-// NewCorednsPhase creates a new preflight checks executor
+// NewCorednsPhase creates a new coredns phase executor
 func NewCorednsPhase(p fsm.ExecutorParams, operator ops.Operator, client *kubernetes.Clientset) (fsm.PhaseExecutor, error) {
 	logger := &fsm.Logger{
 		FieldLogger: log.WithField(constants.FieldPhase, p.Phase.ID),
@@ -80,7 +80,7 @@ func (r *corednsExecutor) PostCheck(context.Context) error {
 	return nil
 }
 
-// Execute runs preflight checks
+// Execute generated coredns configuration
 func (r *corednsExecutor) Execute(ctx context.Context) error {
 	r.Progress.NextStep("Configuring Coredns")
 	r.Info("Configuring Coredns.")
@@ -118,7 +118,7 @@ func (r *corednsExecutor) Execute(ctx context.Context) error {
 	return nil
 }
 
-// Rollback is a no-op for this phase
+// Rollback deletes the coredns configmap that was created in the execute step
 func (r *corednsExecutor) Rollback(context.Context) error {
 	err := r.Client.CoreV1().ConfigMaps(constants.KubeSystemNamespace).Delete("coredns", &metav1.DeleteOptions{})
 	if err != nil && !trace.IsNotFound(err) {
@@ -130,13 +130,8 @@ func (r *corednsExecutor) Rollback(context.Context) error {
 
 // GenerateCorefile will generate a coredns configuration file to be used from within the cluster
 func GenerateCorefile(config CorednsConfig) (string, error) {
-	parsed, err := template.New("coredns").Parse(coreDNSTemplate)
-	if err != nil {
-		return "", trace.Wrap(err)
-	}
-
 	var coredns bytes.Buffer
-	err = parsed.Execute(&coredns, config)
+	err := coreDNSTemplate.Execute(&coredns, config)
 	if err != nil {
 		return "", trace.Wrap(err)
 	}
@@ -151,7 +146,8 @@ type CorednsConfig struct {
 	Rotate              bool
 }
 
-var coreDNSTemplate = `
+var coreDNSTemplate = template.Must(template.New("coredns").Parse(coreDNSTemplateText))
+var coreDNSTemplateText = `
 .:53 {
   reload
   errors

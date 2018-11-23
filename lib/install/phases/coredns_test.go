@@ -31,11 +31,11 @@ var _ = check.Suite(&StartSuite{})
 
 func (*StartSuite) TestCoreDNSConf(c *check.C) {
 	var configTable = []struct {
-		config   coreDNSConfig
+		config   CorednsConfig
 		expected string
 	}{
 		{
-			coreDNSConfig{
+			CorednsConfig{
 				Zones: map[string][]string{
 					"example.com":  []string{"1.1.1.1", "2.2.2.2"},
 					"example2.com": []string{"1.1.1.1", "2.2.2.2"},
@@ -79,7 +79,7 @@ func (*StartSuite) TestCoreDNSConf(c *check.C) {
 `,
 		},
 		{
-			coreDNSConfig{
+			CorednsConfig{
 				UpstreamNameservers: []string{"1.1.1.1"},
 				Rotate:              true,
 			},
@@ -110,7 +110,7 @@ func (*StartSuite) TestCoreDNSConf(c *check.C) {
 	}
 
 	for _, tt := range configTable {
-		config, err := generateCoreDNSConfig(tt.config, coreDNSTemplate)
+		config, err := GenerateCorefile(tt.config)
 
 		c.Assert(err, check.IsNil)
 		c.Assert(config, check.Equals, tt.expected)
