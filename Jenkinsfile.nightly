@@ -47,17 +47,10 @@ def sendBuildNotification(String currentBuildResult, String prevousBuildResult) 
   }
 }
 
-def triggers = []
-
-// FIXME: "master"
-if env.BRANCH_NAME == "dmitri/3827-nightly" {
-  // Schedule a daily build between 8:00am and 8:30am UTC (0:00am-0:30am PST)
-  triggers << cron('H(0,30) 08 * * *')
-}
-
 properties([
   disableConcurrentBuilds(),
-  pipelineTriggers(triggers),
+  // Schedule a daily build between 8:00am and 8:30am UTC (0:00am-0:30am PST)
+  pipelineTriggers([cron('H(0,30) 08 * * *')]),
   parameters([
     choice(choices: ["run", "skip"].join("\n"),
            defaultValue: 'run',
