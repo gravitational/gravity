@@ -72,7 +72,7 @@ func ResolvFromReader(rdr io.Reader) (*storage.ResolvConf, error) {
 
 		switch f[0] {
 		case "nameserver":
-			if len(f) > 1 && len(resolv.Servers) < 3 { // limit number of servers
+			if len(f) > 1 {
 				resolv.Servers = append(resolv.Servers, f[1])
 			}
 
