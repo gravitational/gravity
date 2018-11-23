@@ -24,6 +24,7 @@ import (
 	"github.com/gravitational/gravity/lib/app"
 	apptest "github.com/gravitational/gravity/lib/app/service/test"
 	"github.com/gravitational/gravity/lib/blob/fs"
+	"github.com/gravitational/gravity/lib/compare"
 	"github.com/gravitational/gravity/lib/defaults"
 	"github.com/gravitational/gravity/lib/loc"
 	"github.com/gravitational/gravity/lib/pack"
@@ -31,6 +32,7 @@ import (
 	"github.com/gravitational/gravity/lib/storage/keyval"
 
 	"github.com/gravitational/trace"
+	log "github.com/sirupsen/logrus"
 	. "gopkg.in/check.v1"
 )
 
@@ -43,24 +45,27 @@ type PullerSuite struct {
 
 var _ = Suite(&PullerSuite{})
 
-func (s *PullerSuite) SetUpSuite(c *C) {
+func (s *PullerSuite) SetUpTest(c *C) {
 	s.srcPack, s.srcApp = setupServices(c)
 	s.dstPack, s.dstApp = setupServices(c)
+	err := s.srcPack.UpsertRepository("example.com", time.Time{})
+	c.Assert(err, IsNil)
+	err = s.dstPack.UpsertRepository("example.com", time.Time{})
+	c.Assert(err, IsNil)
 }
 
 func (s *PullerSuite) TestPullPackage(c *C) {
-	err := s.srcPack.UpsertRepository("example.com", time.Time{})
-	c.Assert(err, IsNil)
-
 	loc := loc.MustParseLocator("example.com/package:0.0.1")
+	logger := log.WithField("test", "PullPackage")
 
-	_, err = s.srcPack.CreatePackage(loc, bytes.NewBuffer([]byte("data")))
+	_, err := s.srcPack.CreatePackage(loc, bytes.NewBuffer([]byte("data")))
 	c.Assert(err, IsNil)
 
 	env, err := PullPackage(PackagePullRequest{
-		SrcPack: s.srcPack,
-		DstPack: s.dstPack,
-		Package: loc,
+		FieldLogger: logger,
+		SrcPack:     s.srcPack,
+		DstPack:     s.dstPack,
+		Package:     loc,
 	})
 	c.Assert(err, IsNil)
 	c.Assert(env.Locator, Equals, loc)
@@ -70,44 +75,82 @@ func (s *PullerSuite) TestPullPackage(c *C) {
 	c.Assert(env.Locator, Equals, loc)
 
 	_, err = PullPackage(PackagePullRequest{
-		SrcPack: s.srcPack,
-		DstPack: s.dstPack,
-		Package: loc,
+		FieldLogger: logger,
+		SrcPack:     s.srcPack,
+		DstPack:     s.dstPack,
+		Package:     loc,
 	})
 	c.Assert(trace.IsAlreadyExists(err), Equals, true)
 }
 
 func (s *PullerSuite) TestPullApp(c *C) {
-	err := s.srcPack.UpsertRepository("example.com", time.Time{})
-	c.Assert(err, IsNil)
+	s.pullApp(c, 0)
+}
+
+func (s *PullerSuite) TestPullAppInParallel(c *C) {
+	s.pullApp(c, 2)
+}
+
+func (s *PullerSuite) pullApp(c *C, parallel int) {
+	packageBytes := bytes.NewReader([]byte(nil))
+	for _, loc := range []loc.Locator{loc.MustParseLocator("example.com/existing:0.0.1")} {
+		_, err := s.dstPack.CreatePackage(loc, packageBytes)
+		c.Assert(err, IsNil)
+	}
+	for _, loc := range []loc.Locator{
+		loc.MustParseLocator("example.com/new:0.0.1"),
+		loc.MustParseLocator("example.com/new:0.0.2"),
+		loc.MustParseLocator("example.com/existing:0.0.1"),
+	} {
+		_, err := s.srcPack.CreatePackage(loc, packageBytes)
+		c.Assert(err, IsNil)
+	}
 
 	runtimePackage := loc.MustParseLocator("gravitational.io/planet:0.0.1")
 	apptest.CreatePackage(s.srcPack, runtimePackage, nil, c)
 	apptest.CreateRuntimeApplication(s.srcApp, c)
 
-	locator := loc.MustParseLocator("example.com/package:0.0.2")
-	apptest.CreateDummyApplication(s.srcApp, locator, c)
+	locator := loc.MustParseLocator("example.com/app:0.0.2")
+	const dependencies = `
+dependencies:
+  packages:
+  - example.com/new:0.0.1
+  - example.com/new:0.0.2
+  - example.com/existing:0.0.1
+`
+	apptest.CreateDummyApplication2(s.srcApp, locator, dependencies, c)
 
 	pulled, err := PullApp(AppPullRequest{
-		SrcPack: s.srcPack,
-		DstPack: s.dstPack,
-		SrcApp:  s.srcApp,
-		DstApp:  s.dstApp,
-		Package: locator,
+		SrcPack:  s.srcPack,
+		DstPack:  s.dstPack,
+		SrcApp:   s.srcApp,
+		DstApp:   s.dstApp,
+		Package:  locator,
+		Parallel: parallel,
 	})
 	c.Assert(err, IsNil)
 	c.Assert(pulled.Package, Equals, locator)
+
+	packages, err := s.dstPack.GetPackages("example.com")
+	c.Assert(err, IsNil)
+	c.Assert(packagesByName(locators(packages)), compare.SortedSliceEquals, packagesByName([]loc.Locator{
+		loc.MustParseLocator("example.com/app:0.0.2"),
+		loc.MustParseLocator("example.com/existing:0.0.1"),
+		loc.MustParseLocator("example.com/new:0.0.1"),
+		loc.MustParseLocator("example.com/new:0.0.2"),
+	}))
 
 	local, err := s.dstApp.GetApp(locator)
 	c.Assert(err, IsNil)
 	c.Assert(local.Package, Equals, locator)
 
 	_, err = PullApp(AppPullRequest{
-		SrcPack: s.srcPack,
-		DstPack: s.dstPack,
-		SrcApp:  s.srcApp,
-		DstApp:  s.dstApp,
-		Package: locator,
+		SrcPack:  s.srcPack,
+		DstPack:  s.dstPack,
+		SrcApp:   s.srcApp,
+		DstApp:   s.dstApp,
+		Package:  locator,
+		Parallel: parallel,
 	})
 	c.Assert(trace.IsAlreadyExists(err), Equals, true)
 }
@@ -139,3 +182,17 @@ func setupServices(c *C) (pack.PackageService, app.Applications) {
 
 	return packService, appService
 }
+
+func locators(envelopes []pack.PackageEnvelope) []loc.Locator {
+	out := make([]loc.Locator, 0, len(envelopes))
+	for _, env := range envelopes {
+		out = append(out, env.Locator)
+	}
+	return out
+}
+
+type packagesByName []loc.Locator
+
+func (r packagesByName) Len() int           { return len(r) }
+func (r packagesByName) Swap(i, j int)      { r[i], r[j] = r[j], r[i] }
+func (r packagesByName) Less(i, j int) bool { return r[i].String() < r[j].String() }
