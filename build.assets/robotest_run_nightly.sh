@@ -97,9 +97,11 @@ function build_volume_mounts {
 
 export EXTRA_VOLUME_MOUNTS=$(build_volume_mounts)
 
-suite=$(build_resize_suite)
-suite="$suite $(build_upgrade_suite)"
-suite="$suite $(build_install_suite)"
+# FIXME: debugging
+suite='install={"flavor":"three","nodes":3,"role":"node","os":"debian:9","storage_driver":"devicemapper"}'
+# suite=$(build_resize_suite)
+# suite="$suite $(build_upgrade_suite)"
+# suite="$suite $(build_install_suite)"
 
 echo $suite
 

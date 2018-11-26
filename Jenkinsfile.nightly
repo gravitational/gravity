@@ -144,7 +144,7 @@ timestamps {
                   [$class: 'FileBinding', credentialsId:'OPS_SSH_PUB', variable: 'SSH_PUB'],
                   ]) {
                     sh """
-                    make robotest-run-nightly \
+                    make -C e robotest-run-nightly \
                       AWS_KEYPAIR=ops \
                       AWS_REGION=us-east-1 \
                       ROBOTEST_VERSION=$ROBOTEST_VERSION"""
