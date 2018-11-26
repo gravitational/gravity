@@ -1817,6 +1817,8 @@ func (p *Process) initAccount() error {
 //
 // If they are not removed, this process that includes teleport 3.0 will not
 // be able to start after upgrade from older gravity that used teleport 2.4.
+//
+// TODO Remove after 5.4.0 LTS release.
 func (p *Process) removeLegacyIdentities() {
 	for _, role := range []teleport.Role{teleport.RoleAdmin, teleport.RoleProxy} {
 		for _, ext := range []string{"key", "cert"} {
