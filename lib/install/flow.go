@@ -52,8 +52,7 @@ func (i *Installer) StartInteractiveInstall() error {
 	for {
 		select {
 		case <-i.Context.Done():
-			i.Warnf("Context is closing: %v.", i.Context.Err())
-			return nil
+			return trace.Wrap(i.Context.Err())
 		case tm := <-ticker.C:
 			if tm.IsZero() {
 				return trace.ConnectionProblem(nil, "timeout")
@@ -409,7 +408,7 @@ func (i *Installer) waitForAgents() error {
 	for {
 		select {
 		case <-i.Context.Done():
-			return trace.ConnectionProblem(i.Context.Err(), "context is closing")
+			return trace.Wrap(i.Context.Err())
 		case tm := <-ticker.C:
 			if tm.IsZero() {
 				return trace.ConnectionProblem(nil, "timed out waiting for agents to join")
@@ -500,7 +499,7 @@ func PollProgress(ctx context.Context, send func(Event), operator ops.Operator,
 	for {
 		select {
 		case <-ctx.Done():
-			send(Event{Error: trace.ConnectionProblem(ctx.Err(), "context is closing")})
+			return
 		case <-agentDoneCh:
 			log.Debug("Agent shut down.")
 			// avoid receiving on closed channel
