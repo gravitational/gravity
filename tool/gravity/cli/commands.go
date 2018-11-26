@@ -350,6 +350,10 @@ type InstallCmd struct {
 	Resume *bool
 	// Manual puts install operation in manual mode
 	Manual *bool
+	// Unattended executes the operation in unattended mode.
+	// In this mode, the installer will exit immediately after ther operation
+	// instead of waiting for user input
+	Unattanded *bool
 	// ServiceUID is system user ID
 	ServiceUID *string
 	// ServiceGID is system user group ID
