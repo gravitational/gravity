@@ -9,17 +9,19 @@ def propagateParamsToEnv() {
 
 def withBuildResult(Closure body) {
   def previousBuildResult = currentBuild.previousBuild?.result
-  try {
-    body()
-    currentBuild.result = 'SUCCESS'
-  } catch(InterruptedException e) {
-    currentBuild.result = 'ABORTED'
-    throw e
-  } catch(e) {
-    currentBuild.result = 'FAILURE'
-    throw e
-  } finally {
-    sendBuildNotification(currentBuild.result, previousBuildResult)
+  withCredentials([string(credentialsId: 'jenkins-slack-token', variable: 'TOKEN')]) {
+    try {
+      body()
+      currentBuild.result = 'SUCCESS'
+    } catch(InterruptedException e) {
+      currentBuild.result = 'ABORTED'
+      throw e
+    } catch(e) {
+      currentBuild.result = 'FAILURE'
+      throw e
+    } finally {
+      sendBuildNotification(currentBuild.result, previousBuildResult, env.TOKEN)
+    }
   }
 }
 
@@ -30,7 +32,7 @@ def withBuildResult(Closure body) {
 * See https://github.com/jenkinsci/jenkins/blob/jenkins-2.121.1/core/src/main/java/hudson/model/Result.java
 * for the list of possible values for currentBuild.result.
 */
-def sendBuildNotification(String currentBuildResult, String prevousBuildResult) {
+def sendBuildNotification(String currentBuildResult, String prevousBuildResult, String token) {
   currentBuildResult = currentBuildResult ?: "SUCCESS"
   prevousBuildResult = prevousBuildResult ?: "SUCCESS"
 
@@ -43,7 +45,7 @@ def sendBuildNotification(String currentBuildResult, String prevousBuildResult) 
                      currentBuildResult != "SUCCESS" &&
                      currentBuildResult != "ABORTED"
   if (shouldNotify) {
-    slackSend(color: color, message: message)
+    slackSend(color: color, message: message, token: token)
   }
 }
 
@@ -142,7 +144,7 @@ timestamps {
                   [$class: 'FileBinding', credentialsId:'OPS_SSH_PUB', variable: 'SSH_PUB'],
                   ]) {
                     sh """
-                    make -C e robotest-run-nightly \
+                    make robotest-run-nightly \
                       AWS_KEYPAIR=ops \
                       AWS_REGION=us-east-1 \
                       ROBOTEST_VERSION=$ROBOTEST_VERSION"""
