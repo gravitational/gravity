@@ -26,6 +26,7 @@ import (
 	"github.com/gravitational/teleport"
 	"github.com/gravitational/teleport/lib/auth"
 	"github.com/gravitational/teleport/lib/defaults"
+	"github.com/gravitational/teleport/lib/sshca"
 
 	"github.com/gravitational/trace"
 	"github.com/gravitational/ttlmap"
@@ -36,12 +37,12 @@ type certificateCache struct {
 
 	cache      *ttlmap.TTLMap
 	authClient auth.ClientI
-	keygen     auth.Authority
+	keygen     sshca.Authority
 }
 
 // NewHostCertificateCache creates a shared host certificate cache that is
 // used by the forwarding server.
-func NewHostCertificateCache(keygen auth.Authority, authClient auth.ClientI) (*certificateCache, error) {
+func NewHostCertificateCache(keygen sshca.Authority, authClient auth.ClientI) (*certificateCache, error) {
 	cache, err := ttlmap.New(defaults.HostCertCacheSize)
 	if err != nil {
 		return nil, trace.Wrap(err)

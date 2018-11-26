@@ -32,9 +32,9 @@ import (
 	"github.com/gravitational/gravity/lib/storage"
 	"github.com/gravitational/gravity/lib/storage/keyval"
 	"github.com/gravitational/gravity/lib/transfer"
-
 	telecfg "github.com/gravitational/teleport/lib/config"
 	teledefaults "github.com/gravitational/teleport/lib/defaults"
+
 	"github.com/gravitational/trace"
 	"github.com/sirupsen/logrus"
 )
@@ -108,21 +108,16 @@ func (i *importer) Close() error {
 	return i.backend.Close()
 }
 
-// getTeleportConfig extracts configuration from teleport package
-func (i *importer) getTeleportConfig() (*telecfg.FileConfig, error) {
-	var configPackage *loc.Locator
-	err := pack.ForeachPackage(i.packages, func(e pack.PackageEnvelope) error {
-		if e.Locator.Name == constants.TeleportMasterConfigPackage {
-			configPackage = &e.Locator
-		}
-		return nil
-	})
+// getMasterTeleportConfig extracts configuration from teleport package
+func (i *importer) getMasterTeleportConfig() (*telecfg.FileConfig, error) {
+	configPackage, err := pack.FindLatestPackageByName(i.packages,
+		constants.TeleportMasterConfigPackage)
 	if err != nil {
 		return nil, trace.Wrap(err)
 	}
-	if configPackage == nil {
-		return nil, trace.NotFound("package %q not found", constants.TeleportMasterConfigPackage)
-	}
+
+	i.Infof("Using teleport master config from %v.", configPackage)
+
 	_, reader, err := i.packages.ReadPackage(*configPackage)
 	if err != nil {
 		return nil, trace.Wrap(err)

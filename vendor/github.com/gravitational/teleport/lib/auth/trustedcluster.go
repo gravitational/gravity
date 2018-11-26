@@ -18,7 +18,6 @@ limitations under the License.
 package auth
 
 import (
-	"crypto/tls"
 	"encoding/json"
 	"net/http"
 	"net/url"
@@ -28,106 +27,143 @@ import (
 	"github.com/gravitational/teleport/lib"
 	"github.com/gravitational/teleport/lib/httplib"
 	"github.com/gravitational/teleport/lib/services"
+	"github.com/gravitational/teleport/lib/tlsca"
+	"github.com/gravitational/teleport/lib/utils"
 
 	"github.com/gravitational/roundtrip"
 	"github.com/gravitational/trace"
-
-	log "github.com/sirupsen/logrus"
 )
 
 // UpsertTrustedCluster creates or toggles a Trusted Cluster relationship.
-func (a *AuthServer) UpsertTrustedCluster(trustedCluster services.TrustedCluster) error {
+func (a *AuthServer) UpsertTrustedCluster(trustedCluster services.TrustedCluster) (services.TrustedCluster, error) {
 	var exists bool
-	existingCluster, err := a.Presence.GetTrustedCluster(trustedCluster.GetName())
-	if err == nil {
-		exists = true
+
+	// it is recommended to omit trusted cluster name, because
+	// it will be always set to the cluster name as set by the cluster
+	var existingCluster services.TrustedCluster
+	var err error
+	if trustedCluster.GetName() != "" {
+		existingCluster, err = a.Presence.GetTrustedCluster(trustedCluster.GetName())
+		if err == nil {
+			exists = true
+		}
 	}
+
 	enable := trustedCluster.GetEnabled()
 
 	// if the trusted cluster already exists in the backend, make sure it's a
-	// valid state change we are trying to make
+	// valid state change client is trying to make
 	if exists == true {
 		err := existingCluster.CanChangeStateTo(trustedCluster)
 		if err != nil {
-			return trace.Wrap(err)
+			return nil, trace.Wrap(err)
 		}
 	}
 
 	// change state
 	switch {
 	case exists == true && enable == true:
-		log.Debugf("[TRUSTED CLUSTER] Enabling existing Trusted Cluster relationship.")
+		log.Debugf("Enabling existing Trusted Cluster relationship.")
 
 		err := a.activateCertAuthority(trustedCluster)
 		if err != nil {
 			if trace.IsNotFound(err) {
-				return trace.BadParameter("enable only supported for Trusted Clusters created with Teleport 2.3 and above")
+				return nil, trace.BadParameter("enable only supported for Trusted Clusters created with Teleport 2.3 and above")
 			}
-			return trace.Wrap(err)
+			return nil, trace.Wrap(err)
 		}
 
 		err = a.createReverseTunnel(trustedCluster)
 		if err != nil {
-			return trace.Wrap(err)
+			return nil, trace.Wrap(err)
 		}
 	case exists == true && enable == false:
-		log.Debugf("[TRUSTED CLUSTER] Disabling existing Trusted Cluster relationship.")
+		log.Debugf("Disabling existing Trusted Cluster relationship.")
 
 		err := a.deactivateCertAuthority(trustedCluster)
 		if err != nil {
 			if trace.IsNotFound(err) {
-				return trace.BadParameter("enable only supported for Trusted Clusters created with Teleport 2.3 and above")
+				return nil, trace.BadParameter("enable only supported for Trusted Clusters created with Teleport 2.3 and above")
 			}
-			return trace.Wrap(err)
+			return nil, trace.Wrap(err)
 		}
 
 		err = a.DeleteReverseTunnel(trustedCluster.GetName())
 		if err != nil {
-			return trace.Wrap(err)
+			return nil, trace.Wrap(err)
 		}
 	case exists == false && enable == true:
-		log.Debugf("[TRUSTED CLUSTER] Creating enabled Trusted Cluster relationship.")
+		log.Debugf("Creating enabled Trusted Cluster relationship.")
+
+		if err := a.checkLocalRoles(trustedCluster.GetRoleMap()); err != nil {
+			return nil, trace.Wrap(err)
+		}
 
 		remoteCAs, err := a.establishTrust(trustedCluster)
 		if err != nil {
-			return trace.Wrap(err)
+			return nil, trace.Wrap(err)
 		}
+
+		// force name of the trusted cluster resource
+		// to be equal to the name of the remote cluster it is connecting to
+		trustedCluster.SetName(remoteCAs[0].GetClusterName())
 
 		err = a.addCertAuthorities(trustedCluster, remoteCAs)
 		if err != nil {
-			return trace.Wrap(err)
+			return nil, trace.Wrap(err)
 		}
 
 		err = a.createReverseTunnel(trustedCluster)
 		if err != nil {
-			return trace.Wrap(err)
+			return nil, trace.Wrap(err)
 		}
+
 	case exists == false && enable == false:
-		log.Debugf("[TRUSTED CLUSTER] Creating disabled Trusted Cluster relationship.")
+		log.Debugf("Creating disabled Trusted Cluster relationship.")
+
+		if err := a.checkLocalRoles(trustedCluster.GetRoleMap()); err != nil {
+			return nil, trace.Wrap(err)
+		}
 
 		remoteCAs, err := a.establishTrust(trustedCluster)
 		if err != nil {
-			return trace.Wrap(err)
+			return nil, trace.Wrap(err)
 		}
+
+		// force name to the name of the trusted cluster
+		trustedCluster.SetName(remoteCAs[0].GetClusterName())
 
 		err = a.addCertAuthorities(trustedCluster, remoteCAs)
 		if err != nil {
-			return trace.Wrap(err)
+			return nil, trace.Wrap(err)
 		}
 
 		err = a.deactivateCertAuthority(trustedCluster)
 		if err != nil {
-			return trace.Wrap(err)
+			return nil, trace.Wrap(err)
 		}
 	}
+	return a.Presence.UpsertTrustedCluster(trustedCluster)
+}
 
-	err = a.Presence.UpsertTrustedCluster(trustedCluster)
-	if err != nil {
-		return trace.Wrap(err)
+func (a *AuthServer) checkLocalRoles(roleMap services.RoleMap) error {
+	for _, mapping := range roleMap {
+		for _, localRole := range mapping.Local {
+			// expansion means dynamic mapping is in place,
+			// so local role is undefined
+			if utils.ContainsExpansion(localRole) {
+				continue
+			}
+			_, err := a.GetRole(localRole)
+			if err != nil {
+				if trace.IsNotFound(err) {
+					return trace.NotFound("a role %q referenced in a mapping %v:%v is not defined", localRole, mapping.Remote, mapping.Local)
+				}
+				return trace.Wrap(err)
+			}
+		}
 	}
-
 	return nil
-
 }
 
 // DeleteTrustedCluster removes services.CertAuthority, services.ReverseTunnel,
@@ -188,7 +224,7 @@ func (a *AuthServer) establishTrust(trustedCluster services.TrustedCluster) ([]s
 	}
 
 	// log the local certificate authorities that we are sending
-	log.Debugf("[TRUSTED CLUSTER] Sending validate request; token=%v, CAs=%v", validateRequest.Token, validateRequest.CAs)
+	log.Debugf("Sending validate request; token=%v, CAs=%v", validateRequest.Token, validateRequest.CAs)
 
 	// send the request to the remote auth server via the proxy
 	validateResponse, err := a.sendValidateRequestToProxy(trustedCluster.GetProxyAddress(), &validateRequest)
@@ -201,7 +237,26 @@ func (a *AuthServer) establishTrust(trustedCluster services.TrustedCluster) ([]s
 	}
 
 	// log the remote certificate authorities we are adding
-	log.Debugf("[TRUSTED CLUSTER] Received validate response; CAs=%v", validateResponse.CAs)
+	log.Debugf("Received validate response; CAs=%v", validateResponse.CAs)
+
+	for _, ca := range validateResponse.CAs {
+		for _, keyPair := range ca.GetTLSKeyPairs() {
+			cert, err := tlsca.ParseCertificatePEM(keyPair.Cert)
+			if err != nil {
+				return nil, trace.Wrap(err)
+			}
+			remoteClusterName, err := tlsca.ClusterName(cert.Subject)
+			if err != nil {
+				return nil, trace.Wrap(err)
+			}
+			if remoteClusterName == domainName {
+				return nil, trace.BadParameter("remote cluster name can not be the same as local cluster name")
+			}
+			// TODO(klizhentas) in 2.5.0 prohibit adding trusted cluster resource name
+			// different from cluster name (we had no way of checking this before x509,
+			// because SSH CA was a public key, not a cert with metadata)
+		}
+	}
 
 	return validateResponse.CAs, nil
 }
@@ -233,6 +288,87 @@ func (a *AuthServer) addCertAuthorities(trustedCluster services.TrustedCluster, 
 	return nil
 }
 
+// DeleteRemoteCluster deletes remote cluster resource, all certificate authorities
+// associated with it
+func (a *AuthServer) DeleteRemoteCluster(clusterName string) error {
+	// To make sure remote cluster exists - to protect against random
+	// clusterName requests (e.g. when clusterName is set to local cluster name)
+	_, err := a.Presence.GetRemoteCluster(clusterName)
+	if err != nil {
+		return trace.Wrap(err)
+	}
+	// delete cert authorities associated with the cluster
+	err = a.DeleteCertAuthority(services.CertAuthID{
+		Type:       services.HostCA,
+		DomainName: clusterName,
+	})
+	if err != nil {
+		// this method could have succeeded on the first call,
+		// but then if the remote cluster resource could not be deleted
+		// it would be impossible to delete the cluster after then
+		if !trace.IsNotFound(err) {
+			return trace.Wrap(err)
+		}
+	}
+	// there should be no User CA in trusted clusters on the main cluster side
+	// per standard automation but clean up just in case
+	err = a.DeleteCertAuthority(services.CertAuthID{
+		Type:       services.UserCA,
+		DomainName: clusterName,
+	})
+	if err != nil {
+		if !trace.IsNotFound(err) {
+			return trace.Wrap(err)
+		}
+	}
+	return a.Presence.DeleteRemoteCluster(clusterName)
+}
+
+// GetRemoteCluster returns remote cluster by name
+func (a *AuthServer) GetRemoteCluster(clusterName string) (services.RemoteCluster, error) {
+	// To make sure remote cluster exists - to protect against random
+	// clusterName requests (e.g. when clusterName is set to local cluster name)
+	remoteCluster, err := a.Presence.GetRemoteCluster(clusterName)
+	if err != nil {
+		return nil, trace.Wrap(err)
+	}
+	if err := a.updateRemoteClusterStatus(remoteCluster); err != nil {
+		return nil, trace.Wrap(err)
+	}
+	return remoteCluster, nil
+}
+
+func (a *AuthServer) updateRemoteClusterStatus(remoteCluster services.RemoteCluster) error {
+	// fetch tunnel connections for the cluster to update runtime status
+	connections, err := a.GetTunnelConnections(remoteCluster.GetName())
+	if err != nil {
+		return trace.Wrap(err)
+	}
+	remoteCluster.SetConnectionStatus(teleport.RemoteClusterStatusOffline)
+	lastConn, err := services.LatestTunnelConnection(connections)
+	if err == nil {
+		remoteCluster.SetConnectionStatus(services.TunnelConnectionStatus(a.clock, lastConn))
+		remoteCluster.SetLastHeartbeat(lastConn.GetLastHeartbeat())
+	}
+	return nil
+}
+
+// GetRemoteClusters returns remote clusters with udpated statuses
+func (a *AuthServer) GetRemoteClusters() ([]services.RemoteCluster, error) {
+	// To make sure remote cluster exists - to protect against random
+	// clusterName requests (e.g. when clusterName is set to local cluster name)
+	remoteClusters, err := a.Presence.GetRemoteClusters()
+	if err != nil {
+		return nil, trace.Wrap(err)
+	}
+	for i := range remoteClusters {
+		if err := a.updateRemoteClusterStatus(remoteClusters[i]); err != nil {
+			return nil, trace.Wrap(err)
+		}
+	}
+	return remoteClusters, nil
+}
+
 func (a *AuthServer) validateTrustedCluster(validateRequest *ValidateTrustedClusterRequest) (*ValidateTrustedClusterResponse, error) {
 	domainName, err := a.GetDomainName()
 	if err != nil {
@@ -246,14 +382,31 @@ func (a *AuthServer) validateTrustedCluster(validateRequest *ValidateTrustedClus
 	}
 
 	// log the remote certificate authorities we are adding
-	log.Debugf("[TRUSTED CLUSTER] Received validate request: token=%v, CAs=%v", validateRequest.Token, validateRequest.CAs)
+	log.Debugf("Received validate request: token=%v, CAs=%v", validateRequest.Token, validateRequest.CAs)
 
-	// token has been validated, upsert the given certificate authority
+	// add remote cluster resource to keep track of the remote cluster
+	var remoteClusterName string
 	for _, certAuthority := range validateRequest.CAs {
-		// don't add a ca with the same as as your own
+		// don't add a ca with the same as as local cluster name
 		if certAuthority.GetName() == domainName {
 			return nil, trace.AccessDenied("remote certificate authority has same name as cluster certificate authority: %v", domainName)
 		}
+		remoteClusterName = certAuthority.GetName()
+	}
+	remoteCluster, err := services.NewRemoteCluster(remoteClusterName)
+	if err != nil {
+		return nil, trace.Wrap(err)
+	}
+
+	err = a.CreateRemoteCluster(remoteCluster)
+	if err != nil {
+		if !trace.IsAlreadyExists(err) {
+			return nil, trace.Wrap(err)
+		}
+	}
+
+	// token has been validated, upsert the given certificate authority
+	for _, certAuthority := range validateRequest.CAs {
 		err = a.UpsertCertAuthority(certAuthority)
 		if err != nil {
 			return nil, trace.Wrap(err)
@@ -265,7 +418,7 @@ func (a *AuthServer) validateTrustedCluster(validateRequest *ValidateTrustedClus
 		CAs: []services.CertAuthority{},
 	}
 	for _, caType := range []services.CertAuthType{services.HostCA, services.UserCA} {
-		certAuthorities, err := a.GetCertAuthorities(caType, false)
+		certAuthorities, err := a.GetCertAuthorities(caType, false, services.SkipValidation())
 		if err != nil {
 			return nil, trace.Wrap(err)
 		}
@@ -278,7 +431,7 @@ func (a *AuthServer) validateTrustedCluster(validateRequest *ValidateTrustedClus
 	}
 
 	// log the local certificate authorities we are sending
-	log.Debugf("[TRUSTED CLUSTER] Sending validate response: CAs=%v", validateResponse.CAs)
+	log.Debugf("Sending validate response: CAs=%v", validateResponse.CAs)
 
 	return &validateResponse, nil
 }
@@ -293,10 +446,6 @@ func (a *AuthServer) validateTrustedClusterToken(token string) error {
 		return trace.AccessDenied("role does not match")
 	}
 
-	if !a.checkTokenTTL(token) {
-		return trace.AccessDenied("expired token")
-	}
-
 	return nil
 }
 
@@ -306,18 +455,24 @@ func (s *AuthServer) sendValidateRequestToProxy(host string, validateRequest *Va
 		Host:   host,
 	}
 
-	var opts []roundtrip.ClientParam
+	opts := []roundtrip.ClientParam{
+		roundtrip.SanitizerEnabled(true),
+	}
 
 	if lib.IsInsecureDevMode() {
-		log.Warn("insecureSkipVerify is used to communicate with proxy. make sure you intend to run Teleport in insecure mode!")
+		log.Warn("The setting insecureSkipVerify is used to communicate with proxy. Make sure you intend to run Teleport in insecure mode!")
 
-		// get the default transport (so we can get the proxy from environment)
-		// but disable tls certificate checking.
+		// Get the default transport, this allows picking up proxy from the
+		// environment.
 		tr, ok := http.DefaultTransport.(*http.Transport)
 		if !ok {
 			return nil, trace.BadParameter("unable to get default transport")
 		}
-		tr.TLSClientConfig = &tls.Config{InsecureSkipVerify: true}
+
+		// Disable certificate checking while in debug mode.
+		tlsConfig := utils.TLSConfig(s.cipherSuites)
+		tlsConfig.InsecureSkipVerify = true
+		tr.TLSClientConfig = tlsConfig
 
 		insecureWebClient := &http.Client{
 			Transport: tr,

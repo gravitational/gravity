@@ -1,5 +1,5 @@
 /*
-Copyright 2015 Gravitational, Inc.
+Copyright 2015-2018 Gravitational, Inc.
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -22,7 +22,6 @@ import (
 	"fmt"
 	"io"
 	"io/ioutil"
-	"net"
 	"os"
 	"strings"
 	"time"
@@ -33,6 +32,7 @@ import (
 	"github.com/gravitational/teleport/lib/auth"
 	"github.com/gravitational/teleport/lib/backend"
 	"github.com/gravitational/teleport/lib/defaults"
+	"github.com/gravitational/teleport/lib/pam"
 	"github.com/gravitational/teleport/lib/service"
 	"github.com/gravitational/teleport/lib/services"
 	"github.com/gravitational/teleport/lib/utils"
@@ -47,92 +47,105 @@ var (
 	// true  = has sub-keys
 	// false = does not have sub-keys (a leaf)
 	validKeys = map[string]bool{
-		"namespace":              true,
-		"cluster_name":           true,
-		"trusted_clusters":       true,
-		"pid_file":               true,
-		"cert_file":              true,
-		"private_key_file":       true,
-		"cert":                   true,
-		"private_key":            true,
-		"checking_keys":          true,
-		"checking_key_files":     true,
-		"signing_keys":           true,
-		"signing_key_files":      true,
-		"allowed_logins":         true,
-		"teleport":               true,
-		"enabled":                true,
-		"ssh_service":            true,
-		"proxy_service":          true,
-		"auth_service":           true,
-		"auth_token":             true,
-		"auth_servers":           true,
-		"domain_name":            true,
-		"storage":                false,
-		"nodename":               true,
-		"log":                    true,
-		"period":                 true,
-		"connection_limits":      true,
-		"max_connections":        true,
-		"max_users":              true,
-		"rates":                  true,
-		"commands":               true,
-		"labels":                 false,
-		"output":                 true,
-		"severity":               true,
-		"role":                   true,
-		"name":                   true,
-		"type":                   true,
-		"data_dir":               true,
-		"web_listen_addr":        true,
-		"tunnel_listen_addr":     true,
-		"ssh_listen_addr":        true,
-		"listen_addr":            true,
-		"https_key_file":         true,
-		"https_cert_file":        true,
-		"advertise_ip":           true,
-		"authorities":            true,
-		"keys":                   true,
-		"reverse_tunnels":        true,
-		"addresses":              true,
-		"oidc_connectors":        true,
-		"id":                     true,
-		"issuer_url":             true,
-		"client_id":              true,
-		"client_secret":          true,
-		"redirect_url":           true,
-		"acr_values":             true,
-		"provider":               true,
-		"tokens":                 true,
-		"region":                 true,
-		"table_name":             true,
-		"access_key":             true,
-		"secret_key":             true,
-		"u2f":                    true,
-		"app_id":                 true,
-		"facets":                 true,
-		"authentication":         true,
-		"second_factor":          false,
-		"oidc":                   true,
-		"display":                false,
-		"scope":                  false,
-		"claims_to_roles":        true,
-		"dynamic_config":         false,
-		"seed_config":            false,
-		"public_addr":            false,
-		"cache":                  true,
-		"ttl":                    false,
-		"issuer":                 false,
-		"permit_user_env":        false,
-		"ciphers":                false,
-		"kex_algos":              false,
-		"mac_algos":              false,
-		"connector_name":         false,
-		"session_recording":      false,
-		"read_capacity_units":    false,
-		"write_capacity_units":   false,
-		"license_file":           false,
-		"proxy_checks_host_keys": false,
+		"proxy_protocol":          false,
+		"namespace":               true,
+		"cluster_name":            true,
+		"trusted_clusters":        true,
+		"pid_file":                true,
+		"cert_file":               true,
+		"private_key_file":        true,
+		"cert":                    true,
+		"private_key":             true,
+		"checking_keys":           true,
+		"checking_key_files":      true,
+		"signing_keys":            true,
+		"signing_key_files":       true,
+		"allowed_logins":          true,
+		"teleport":                true,
+		"enabled":                 true,
+		"ssh_service":             true,
+		"proxy_service":           true,
+		"auth_service":            true,
+		"kubernetes":              true,
+		"kubeconfig_file":         true,
+		"auth_token":              true,
+		"auth_servers":            true,
+		"domain_name":             true,
+		"storage":                 false,
+		"nodename":                true,
+		"log":                     true,
+		"period":                  true,
+		"connection_limits":       true,
+		"max_connections":         true,
+		"max_users":               true,
+		"rates":                   true,
+		"commands":                true,
+		"labels":                  false,
+		"output":                  true,
+		"severity":                true,
+		"role":                    true,
+		"name":                    true,
+		"type":                    true,
+		"data_dir":                true,
+		"web_listen_addr":         true,
+		"tunnel_listen_addr":      true,
+		"ssh_listen_addr":         true,
+		"listen_addr":             true,
+		"ca_cert_file":            false,
+		"https_key_file":          true,
+		"https_cert_file":         true,
+		"advertise_ip":            true,
+		"authorities":             true,
+		"keys":                    true,
+		"reverse_tunnels":         true,
+		"addresses":               true,
+		"oidc_connectors":         true,
+		"id":                      true,
+		"issuer_url":              true,
+		"client_id":               true,
+		"client_secret":           true,
+		"redirect_url":            true,
+		"acr_values":              true,
+		"provider":                true,
+		"tokens":                  true,
+		"region":                  true,
+		"table_name":              true,
+		"access_key":              true,
+		"secret_key":              true,
+		"u2f":                     true,
+		"app_id":                  true,
+		"facets":                  true,
+		"authentication":          true,
+		"second_factor":           false,
+		"oidc":                    true,
+		"display":                 false,
+		"scope":                   false,
+		"claims_to_roles":         true,
+		"dynamic_config":          false,
+		"seed_config":             false,
+		"public_addr":             false,
+		"ssh_public_addr":         false,
+		"cache":                   true,
+		"ttl":                     false,
+		"issuer":                  false,
+		"permit_user_env":         false,
+		"ciphers":                 false,
+		"kex_algos":               false,
+		"mac_algos":               false,
+		"connector_name":          false,
+		"session_recording":       false,
+		"read_capacity_units":     false,
+		"write_capacity_units":    false,
+		"license_file":            false,
+		"proxy_checks_host_keys":  false,
+		"audit_table_name":        false,
+		"audit_sessions_uri":      false,
+		"audit_events_uri":        false,
+		"pam":                     true,
+		"service_name":            false,
+		"client_idle_timeout":     false,
+		"disconnect_expired_cert": false,
+		"ciphersuites":            false,
 	}
 )
 
@@ -348,7 +361,7 @@ type Global struct {
 	Limits      ConnectionLimits `yaml:"connection_limits,omitempty"`
 	Logger      Log              `yaml:"log,omitempty"`
 	Storage     backend.Config   `yaml:"storage,omitempty"`
-	AdvertiseIP net.IP           `yaml:"advertise_ip,omitempty"`
+	AdvertiseIP string           `yaml:"advertise_ip,omitempty"`
 	CachePolicy CachePolicy      `yaml:"cache,omitempty"`
 	SeedConfig  *bool            `yaml:"seed_config,omitempty"`
 
@@ -357,15 +370,19 @@ type Global struct {
 	// by looking into certificate
 	Keys []KeyPair `yaml:"keys,omitempty"`
 
-	// Ciphers is a list of ciphers that the server supports. If omitted,
+	// CipherSuites is a list of TLS ciphersuites that Teleport supports. If
+	// omitted, a Teleport selected list of defaults will be used.
+	CipherSuites []string `yaml:"ciphersuites,omitempty"`
+
+	// Ciphers is a list of SSH ciphers that the server supports. If omitted,
 	// the defaults will be used.
 	Ciphers []string `yaml:"ciphers,omitempty"`
 
-	// KEXAlgorithms is a list of key exchange (KEX) algorithms that the
+	// KEXAlgorithms is a list of SSH key exchange (KEX) algorithms that the
 	// server supports. If omitted, the defaults will be used.
 	KEXAlgorithms []string `yaml:"kex_algos,omitempty"`
 
-	// MACAlgorithms is a list of message authentication codes (MAC) that
+	// MACAlgorithms is a list of SSH message authentication codes (MAC) that
 	// the server supports. If omitted the defaults will be used.
 	MACAlgorithms []string `yaml:"mac_algos,omitempty"`
 }
@@ -378,14 +395,6 @@ type CachePolicy struct {
 	TTL string `yaml:"ttl,omitempty"`
 }
 
-func isTrue(v string) bool {
-	switch v {
-	case "yes", "yeah", "y", "true", "1":
-		return true
-	}
-	return false
-}
-
 func isNever(v string) bool {
 	switch v {
 	case "never", "no", "0":
@@ -396,7 +405,11 @@ func isNever(v string) bool {
 
 // Enabled determines if a given "_service" section has been set to 'true'
 func (c *CachePolicy) Enabled() bool {
-	return c.EnabledFlag == "" || isTrue(c.EnabledFlag)
+	if c.EnabledFlag == "" {
+		return true
+	}
+	enabled, _ := utils.ParseBool(c.EnabledFlag)
+	return enabled
 }
 
 // NeverExpires returns if cache never expires by itself
@@ -439,11 +452,14 @@ func (s *Service) Configured() bool {
 
 // Enabled determines if a given "_service" section has been set to 'true'
 func (s *Service) Enabled() bool {
-	switch strings.ToLower(s.EnabledFlag) {
-	case "", "yes", "yeah", "y", "true", "1":
+	if s.EnabledFlag == "" {
 		return true
 	}
-	return false
+	v, err := utils.ParseBool(s.EnabledFlag)
+	if err != nil {
+		return false
+	}
+	return v
 }
 
 // Disabled returns 'true' if the service has been deliberately turned off
@@ -454,6 +470,12 @@ func (s *Service) Disabled() bool {
 // Auth is 'auth_service' section of the config file
 type Auth struct {
 	Service `yaml:",inline"`
+
+	// ProxyProtocol turns on support for HAProxy proxy protocol
+	// this is the option that has be turned on only by administrator,
+	// as only admin knows whether service is in front of trusted load balancer
+	// or not.
+	ProxyProtocol string `yaml:"proxy_protocol,omitempty"`
 
 	// ClusterName is the name of the CA who manages this cluster
 	ClusterName ClusterName `yaml:"cluster_name,omitempty"`
@@ -506,6 +528,22 @@ type Auth struct {
 	// it here overrides defaults.
 	// Deprecated: Remove in Teleport 2.4.1.
 	DynamicConfig *bool `yaml:"dynamic_config,omitempty"`
+
+	// PublicAddr sets SSH host principals and TLS DNS names to auth
+	// server certificates
+	PublicAddr utils.Strings `yaml:"public_addr,omitempty"`
+
+	// ClientIdleTimeout sets global cluster default setting for client idle timeouts
+	ClientIdleTimeout services.Duration `yaml:"client_idle_timeout"`
+
+	// DisconnectExpiredCert provides disconnect expired certificate setting -
+	// if true, connections with expired client certificates will get disconnected
+	DisconnectExpiredCert services.Bool `yaml:"disconnect_expired_cert"`
+
+	// KubeconfigFile is an optional path to kubeconfig file,
+	// if specified, teleport will use API server address and
+	// trusted certificate authority information from it
+	KubeconfigFile string `yaml:"kubeconfig_file,omitempty"`
 }
 
 // TrustedCluster struct holds configuration values under "trusted_clusters" key
@@ -638,6 +676,9 @@ type SSH struct {
 	Labels                map[string]string `yaml:"labels,omitempty"`
 	Commands              []CommandLabel    `yaml:"commands,omitempty"`
 	PermitUserEnvironment bool              `yaml:"permit_user_env,omitempty"`
+	PAM                   *PAM              `yaml:"pam,omitempty"`
+	// PublicAddr sets SSH host principals for SSH service
+	PublicAddr utils.Strings `yaml:"public_addr,omitempty"`
 }
 
 // CommandLabel is `command` section of `ssh_service` in the config file
@@ -647,14 +688,65 @@ type CommandLabel struct {
 	Period  time.Duration `yaml:"period"`
 }
 
-// Proxy is `proxy_service` section of the config file:
+// PAM is configuration for Pluggable Authentication Modules (PAM).
+type PAM struct {
+	// Enabled controls if PAM will be used or not.
+	Enabled string `yaml:"enabled"`
+
+	// ServiceName is the name of the PAM policy to apply.
+	ServiceName string `yaml:"service_name"`
+}
+
+// Parse returns a parsed pam.Config.
+func (p *PAM) Parse() *pam.Config {
+	serviceName := p.ServiceName
+	if serviceName == "" {
+		serviceName = defaults.ServiceName
+	}
+	enabled, _ := utils.ParseBool(p.Enabled)
+	return &pam.Config{
+		Enabled:     enabled,
+		ServiceName: serviceName,
+	}
+}
+
+// Proxy is a `proxy_service` section of the config file:
 type Proxy struct {
-	Service    `yaml:",inline"`
-	WebAddr    string `yaml:"web_listen_addr,omitempty"`
-	TunAddr    string `yaml:"tunnel_listen_addr,omitempty"`
-	KeyFile    string `yaml:"https_key_file,omitempty"`
-	CertFile   string `yaml:"https_cert_file,omitempty"`
-	PublicAddr string `yaml:"public_addr,omitempty"`
+	// Service is a generic service configuration section
+	Service `yaml:",inline"`
+	// WebAddr is a web UI listen address
+	WebAddr string `yaml:"web_listen_addr,omitempty"`
+	// TunAddr is a reverse tunnel address
+	TunAddr string `yaml:"tunnel_listen_addr,omitempty"`
+	// KeyFile is a TLS key file
+	KeyFile string `yaml:"https_key_file,omitempty"`
+	// CertFile is a TLS Certificate file
+	CertFile string `yaml:"https_cert_file,omitempty"`
+	// ProxyProtocol turns on support for HAProxy proxy protocol
+	// this is the option that has be turned on only by administrator,
+	// as only admin knows whether service is in front of trusted load balancer
+	// or not.
+	ProxyProtocol string `yaml:"proxy_protocol,omitempty"`
+	// Kube configures kubernetes protocol support of the proxy
+	Kube Kube `yaml:"kubernetes,omitempty"`
+
+	// PublicAddr sets the hostport the proxy advertises for the HTTP endpoint.
+	// The hosts in PublicAddr are included in the list of host principals
+	// on the SSH certificate.
+	PublicAddr utils.Strings `yaml:"public_addr,omitempty"`
+
+	// SSHPublicAddr sets the hostport the proxy advertises for the SSH endpoint.
+	// The hosts in PublicAddr are included in the list of host principals
+	// on the SSH certificate.
+	SSHPublicAddr utils.Strings `yaml:"ssh_public_addr,omitempty"`
+}
+
+// Kube is a `kubernetes_service`
+type Kube struct {
+	// Service is a generic service configuration section
+	Service `yaml:",inline"`
+	// PublicAddr is a publicly advertised address of the kubernetes proxy
+	PublicAddr utils.Strings `yaml:"public_addr,omitempty"`
 }
 
 // ReverseTunnel is a SSH reverse tunnel maintained by one cluster's
@@ -691,6 +783,10 @@ type KeyPair struct {
 	PrivateKey string `yaml:"private_key"`
 	// Cert is certificate in OpenSSH authorized keys format
 	Cert string `yaml:"cert"`
+	// TLSCert is TLS certificate in PEM format
+	TLSCert string `yaml:"tls_cert"`
+	// TLSCACert is TLS certificate in PEM format for trusted CA
+	TLSCACert string `yaml:"tls_ca_cert"`
 }
 
 // Identity parses keypair into auth server identity
@@ -714,7 +810,7 @@ func (k *KeyPair) Identity() (*auth.Identity, error) {
 	} else {
 		certBytes = []byte(k.Cert)
 	}
-	return auth.ReadIdentityFromKeyPair(keyBytes, certBytes)
+	return auth.ReadIdentityFromKeyPair(keyBytes, certBytes, []byte(k.TLSCert), [][]byte{[]byte(k.TLSCACert)})
 }
 
 // Authority is a host or user certificate authority that

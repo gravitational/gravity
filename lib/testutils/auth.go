@@ -98,6 +98,10 @@ func (s FakeReverseTunnel) Wait() {
 	return
 }
 
+func (s FakeReverseTunnel) Shutdown(context.Context) error {
+	return nil
+}
+
 // FakeRemoteSite represents a teleport's remote site that is used to configure the fake
 // reverse tunnel in tests
 type FakeRemoteSite struct {
@@ -126,6 +130,10 @@ func (s FakeRemoteSite) Dial(net.Addr, net.Addr, agent.Agent) (net.Conn, error) 
 	return nil, nil
 }
 
+func (s FakeRemoteSite) DialTCP(net.Addr, net.Addr) (net.Conn, error) {
+	return nil, nil
+}
+
 func (s FakeRemoteSite) GetLastConnected() time.Time {
 	return s.LastConnected
 }
@@ -144,6 +152,10 @@ func (s FakeRemoteSite) GetClient() (auth.ClientI, error) {
 
 func (s FakeRemoteSite) CachingAccessPoint() (auth.AccessPoint, error) {
 	return nil, nil
+}
+
+func (s FakeRemoteSite) GetTunnelsCount() int {
+	return 0
 }
 
 // AuthClient implements Teleport's auth.ClientI interface
@@ -249,7 +261,7 @@ func (s *AuthClient) CreateUserWithOTP(token, password, otpToken string) (servic
 func (s *AuthClient) CreateUserWithoutOTP(token string, password string) (services.WebSession, error) {
 	return nil, nil
 }
-func (s *AuthClient) GenerateToken(roles teleport.Roles, ttl time.Duration) (string, error) {
+func (s *AuthClient) GenerateToken(req auth.GenerateTokenRequest) (string, error) {
 	return "", nil
 }
 func (s *AuthClient) GenerateKeyPair(pass string) ([]byte, []byte, error) {
@@ -276,7 +288,7 @@ func (s *AuthClient) GetToken(token string) (*services.ProvisionToken, error) {
 func (s *AuthClient) DeleteToken(token string) error {
 	return nil
 }
-func (s *AuthClient) RegisterUsingToken(token, hostID string, nodeName string, role teleport.Role) (*auth.PackedKeys, error) {
+func (s *AuthClient) RegisterUsingToken(req auth.RegisterUsingTokenRequest) (*auth.PackedKeys, error) {
 	return nil, nil
 }
 func (s *AuthClient) RegisterNewAuthServer(token string) error {
@@ -294,13 +306,13 @@ func (s *AuthClient) PostSessionChunk(namespace string, sid session.ID, reader i
 func (s *AuthClient) GetSessionChunk(namespace string, sid session.ID, offsetBytes, maxBytes int) ([]byte, error) {
 	return nil, nil
 }
-func (s *AuthClient) GetSessionEvents(namespace string, sid session.ID, after int) ([]events.EventFields, error) {
+func (s *AuthClient) GetSessionEvents(namespace string, sid session.ID, after int, b bool) ([]events.EventFields, error) {
 	return nil, nil
 }
-func (s *AuthClient) SearchEvents(fromUTC, toUTC time.Time, query string) ([]events.EventFields, error) {
+func (s *AuthClient) SearchEvents(fromUTC, toUTC time.Time, query string, i int) ([]events.EventFields, error) {
 	return nil, nil
 }
-func (s *AuthClient) SearchSessionEvents(fromUTC time.Time, toUTC time.Time) ([]events.EventFields, error) {
+func (s *AuthClient) SearchSessionEvents(fromUTC time.Time, toUTC time.Time, i int) ([]events.EventFields, error) {
 	return nil, nil
 }
 func (s *AuthClient) WaitForDelivery(context.Context) error {
@@ -365,4 +377,25 @@ func (s *AuthClient) ValidateTrustedCluster(req *auth.ValidateTrustedClusterRequ
 }
 func (s *AuthClient) GetDomainName() (string, error) {
 	return "", nil
+}
+func (s *AuthClient) GenerateServerKeys(auth.GenerateServerKeysRequest) (*auth.PackedKeys, error) {
+	return nil, nil
+}
+func (s *AuthClient) AuthenticateWebUser(req auth.AuthenticateUserRequest) (services.WebSession, error) {
+	return nil, nil
+}
+func (s *AuthClient) AuthenticateSSHUser(req auth.AuthenticateSSHRequest) (*auth.SSHLoginResponse, error) {
+	return nil, nil
+}
+func (s *AuthClient) ProcessKubeCSR(req auth.KubeCSR) (*auth.KubeCSRResponse, error) {
+	return nil, nil
+}
+func (s *AuthClient) RotateCertAuthority(req auth.RotateRequest) error {
+	return nil
+}
+func (s *AuthClient) RotateExternalCertAuthority(ca services.CertAuthority) error {
+	return nil
+}
+func (c *AuthClient) UploadSessionRecording(r events.SessionRecording) error {
+	return nil
 }

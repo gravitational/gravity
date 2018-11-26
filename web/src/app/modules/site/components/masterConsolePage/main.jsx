@@ -15,7 +15,7 @@ limitations under the License.
 */
 
 import React from 'react';
-import reactor from 'app/reactor';
+import connect from 'app/lib/connect';
 import * as actions from './../../flux/masterConsole/actions';
 import getters from './../../flux/masterConsole/getters';
 import classnames from 'classnames';
@@ -23,65 +23,56 @@ import $ from 'jQuery';
 import {TabItem, ServerTabs} from './tabs';
 import TerminalContainer from './terminalContainer';
 
-const MasterConsole = React.createClass({
+class MasterConsole extends React.Component {
 
-  mixins: [reactor.ReactMixin],
-
-  getDataBindings() {
-    return {
-      masterConsole: getters.masterConsole
-    }
-  },
-
-  childContextTypes: {
+  static childContextTypes = {
     isParentVisible: React.PropTypes.bool
-  },
+  }
 
-  getChildContext: function() {
-    let {isVisible} = this.state.masterConsole;
-    return {isParentVisible: isVisible};
-  },
+  getChildContext() {
+    const { isVisible } = this.props.masterConsole;
+    return { isParentVisible: isVisible };
+  }
 
   componentDidMount(){
     actions.initMasterConsole();
-  },
+  }
 
   componentDidUpdate(){
-    let {isVisible} = this.state.masterConsole;
-
+    const { isVisible } = this.props.masterConsole;
     if(isVisible){
       $('.grv-site-mconsole .terminal').focus();
     }
-  },
+  }
 
-  onTabClick(index){
-    let {terminals} =  this.state.masterConsole;
+  onTabClick = index => {
+    const { terminals } =  this.props.masterConsole;
     if(terminals[index]){
       actions.setActiveTerminal(terminals[index].key);
     }
-  },
+  }
 
-  onTabClose(index) {
-    let {terminals} =  this.state.masterConsole;
+  onTabClose = index => {
+    const { terminals } =  this.props.masterConsole;
     if(terminals[index]){
       actions.removeTerminal(terminals[index].key);
-    }     
-  },
+    }
+  }
 
   renderTermTabItem(terminal){
-    let {title, key} = terminal;
+    const { title, key } = terminal;
     return (
       <TabItem key={key} title={title}>
         <TerminalContainer {...terminal}/>
       </TabItem>
     );
-  },
+  }
 
   render() {
-    let {terminals, isVisible, activeTerminal, isInitialized} =  this.state.masterConsole;
-    let $termTabItems = terminals.map(this.renderTermTabItem);
+    const {terminals, isVisible, activeTerminal, isInitialized} =  this.props.masterConsole;
+    const $termTabItems = terminals.map(this.renderTermTabItem);
+
     let activeTabIndex = 0;
-    
     for (let i = 0; i < terminals.length; i++) {
       if (terminals[i].key === activeTerminal) {
         activeTabIndex = i;
@@ -89,7 +80,7 @@ const MasterConsole = React.createClass({
       }
     }
 
-    let className = classnames('grv-site-mconsole m-t-sm m-b-sm', {
+    const className = classnames('grv-site-mconsole m-t-sm m-b-sm', {
         'hidden' : !isVisible
       });
 
@@ -106,25 +97,25 @@ const MasterConsole = React.createClass({
       </div>
     )
   }
-});
+}
 
-const MasterConsoleActivator = React.createClass({
+export class MasterConsoleActivator extends React.Component {
 
   componentDidMount(){
     actions.showTerminal()
-  },
+  }
 
   componentWillUnmount(){
     actions.hideTerminal();
-  },
+  }
 
   render(){
     return null;
   }
-});
-
-export default MasterConsole;
-
-export {
-  MasterConsoleActivator
 }
+
+const mapStateToProps = () => ({
+  masterConsole: getters.masterConsole
+})
+
+export default connect(mapStateToProps)(MasterConsole);

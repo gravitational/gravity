@@ -206,6 +206,11 @@ func NewOperationPlan(env *localenv.ClusterEnvironment, op storage.SiteOperation
 		return nil, trace.Wrap(err)
 	}
 
+	roles, err := env.Backend.GetRoles()
+	if err != nil {
+		return nil, trace.Wrap(err)
+	}
+
 	plan, err := newOperationPlan(newPlanParams{
 		operation:        op,
 		servers:          servers,
@@ -218,6 +223,7 @@ func NewOperationPlan(env *localenv.ClusterEnvironment, op storage.SiteOperation
 		packageService:   env.ClusterPackages,
 		shouldUpdateEtcd: shouldUpdateEtcd,
 		updateCoreDNS:    updateCoreDNS,
+		roles:            roles,
 	})
 	if err != nil {
 		return nil, trace.Wrap(err)
@@ -250,6 +256,8 @@ type newPlanParams struct {
 	shouldUpdateEtcd func(newPlanParams) (bool, string, string, error)
 	// updateCoreDNS indicates whether we need to run coreDNS phase
 	updateCoreDNS bool
+	// roles is the existing cluster roles
+	roles []teleservices.Role
 }
 
 func newOperationPlan(p newPlanParams) (*storage.OperationPlan, error) {
@@ -373,10 +381,17 @@ func newOperationPlan(p newPlanParams) (*storage.OperationPlan, error) {
 			phases = append(phases, etcdPhase)
 		}
 
-		if migrationPhase := builder.migration(p); migrationPhase != nil {
+		if migrationPhase := builder.migration(leadMaster.Server, p); migrationPhase != nil {
 			phases = append(phases, *migrationPhase)
 		}
-		phases = append(phases, runtimePhase)
+
+		// the "config" phase pulls new teleport master config packages used
+		// by gravity-sites on master nodes: it needs to run *after* system
+		// upgrade phase to make sure that old gravity-sites start up fine
+		// in case new configuration is incompatible, but *before* runtime
+		// phase so new gravity-sites can find it after they start
+		configPhase := *builder.config(masters.asServers()).Require(mastersPhase)
+		phases = append(phases, configPhase, runtimePhase)
 	}
 	phases = append(phases, appPhase, cleanupPhase)
 	plan.Phases = phases.asPhases()

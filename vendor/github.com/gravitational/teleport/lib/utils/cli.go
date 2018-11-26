@@ -21,16 +21,15 @@ import (
 	"fmt"
 	"io"
 	"io/ioutil"
-	"log/syslog"
 	"os"
 	"strconv"
+	"strings"
 
 	"github.com/gravitational/teleport"
 
 	"github.com/gravitational/kingpin"
 	"github.com/gravitational/trace"
 	log "github.com/sirupsen/logrus"
-	logrusSyslog "github.com/sirupsen/logrus/hooks/syslog"
 )
 
 type LoggingPurpose int
@@ -50,7 +49,13 @@ func InitLogger(purpose LoggingPurpose, level log.Level) {
 
 	switch purpose {
 	case LoggingForCLI:
-		SwitchLoggingtoSyslog()
+		// If debug logging was asked for on the CLI, then write logs to stderr.
+		// Otherwise discard all logs.
+		if level == log.DebugLevel {
+			log.SetOutput(os.Stderr)
+		} else {
+			log.SetOutput(ioutil.Discard)
+		}
 	case LoggingForDaemon:
 		log.SetOutput(os.Stderr)
 	case LoggingForTests:
@@ -70,21 +75,6 @@ func InitLogger(purpose LoggingPurpose, level log.Level) {
 
 func InitLoggerForTests() {
 	InitLogger(LoggingForTests, log.DebugLevel)
-}
-
-// SwitchLoggingtoSyslog tells the logger to send the output to syslog
-func SwitchLoggingtoSyslog() {
-	log.StandardLogger().SetHooks(make(log.LevelHooks))
-	hook, err := logrusSyslog.NewSyslogHook("", "", syslog.LOG_WARNING, "")
-	if err != nil {
-		// syslog not available
-		log.SetOutput(os.Stderr)
-		log.Warn("syslog not available. reverting to stderr")
-	} else {
-		// ... and disable stderr:
-		log.AddHook(hook)
-		log.SetOutput(ioutil.Discard)
-	}
 }
 
 // FatalError is for CLI front-ends: it detects gravitational/trace debugging
@@ -133,19 +123,32 @@ func UserMessageFromError(err error) string {
 		return trace.DebugReport(err)
 	}
 	if err != nil {
-		return err.Error()
+		// If the error is a trace error, check if it has a user message embedded in
+		// it. If a user message is embedded in it, print the user message and the
+		// original error. Otherwise return the original with a generic "A fatal
+		// error occured" message.
+		if er, ok := err.(*trace.TraceErr); ok {
+			if er.Message != "" {
+				return fmt.Sprintf("error: %v", er.Message)
+			}
+		}
+		return fmt.Sprintf("error: %v", err.Error())
 	}
 	return ""
 }
 
 // Consolef prints the same message to a 'ui console' (if defined) and also to
 // the logger with INFO priority
-func Consolef(w io.Writer, msg string, params ...interface{}) {
+func Consolef(w io.Writer, component string, msg string, params ...interface{}) {
+	entry := log.WithFields(log.Fields{
+		trace.Component: component,
+	})
 	msg = fmt.Sprintf(msg, params...)
+	entry.Info(msg)
 	if w != nil {
-		fmt.Fprintln(w, msg)
+		component := strings.ToUpper(component)
+		fmt.Fprintf(w, "[%v]%v%v\n", strings.ToUpper(component), strings.Repeat(" ", 8-len(component)), msg)
 	}
-	log.Info(msg)
 }
 
 // InitCLIParser configures kingpin command line args parser with

@@ -42,13 +42,14 @@ import (
 
 // OperatorWithACL retruns new instance of the Operator interface
 // that is checking every action against this username privileges
-func OperatorWithACL(operator Operator, users users.Users, user storage.User, checker teleservices.AccessChecker) *OperatorACL {
+func OperatorWithACL(operator Operator, users users.Identity, user storage.User, checker teleservices.AccessChecker) *OperatorACL {
 	return &OperatorACL{
-		operator: operator,
-		users:    users,
-		user:     user,
-		username: user.GetName(),
-		checker:  checker,
+		operator:    operator,
+		users:       users,
+		user:        user,
+		username:    user.GetName(),
+		checker:     checker,
+		FieldLogger: log.WithField(trace.Component, "acl"),
 	}
 }
 
@@ -58,10 +59,11 @@ type OperatorACL struct {
 	isOneTimeLink bool
 	backend       storage.Backend
 	operator      Operator
-	users         users.Users
+	users         users.Identity
 	username      string
 	checker       teleservices.AccessChecker
 	user          storage.User
+	log.FieldLogger
 }
 
 type localOperator interface {
@@ -76,8 +78,7 @@ func (o *OperatorACL) context() *users.Context {
 func (o *OperatorACL) clusterContext(clusterName string) (*users.Context, storage.Cluster, error) {
 	site, err := o.operator.GetSiteByDomain(clusterName)
 	if err != nil {
-		log.Errorf("falling back to local operator, get site '%v' error: %v", clusterName, trace.DebugReport(err))
-
+		o.Warnf("Falling back to local operator: %v.", err)
 		localOperator, ok := o.operator.(localOperator)
 		if !ok {
 			return nil, nil, trace.Wrap(err)
@@ -99,7 +100,7 @@ func (o *OperatorACL) clusterContext(clusterName string) (*users.Context, storag
 // Action checks access to the specified action on the specified resource kind
 func (o *OperatorACL) Action(resourceKind, action string) error {
 	return o.checker.CheckAccessToRule(o.context(), defaults.Namespace,
-		resourceKind, action)
+		resourceKind, action, false)
 }
 
 func (o *OperatorACL) ClusterAction(clusterName, resourceKind, action string) error {
@@ -107,7 +108,7 @@ func (o *OperatorACL) ClusterAction(clusterName, resourceKind, action string) er
 	if err != nil {
 		return trace.Wrap(err)
 	}
-	return o.checker.CheckAccessToRule(ctx, cluster.GetMetadata().Namespace, resourceKind, action)
+	return o.checker.CheckAccessToRule(ctx, cluster.GetMetadata().Namespace, resourceKind, action, false)
 }
 
 func (o *OperatorACL) repoContext(repoName string) *users.Context {
@@ -365,7 +366,7 @@ func (o *OperatorACL) GetSite(siteKey SiteKey) (site *Site, err error) {
 }
 
 func (o *OperatorACL) GetAppInstaller(req AppInstallerRequest) (io.ReadCloser, error) {
-	if err := o.checker.CheckAccessToRule(o.repoContext(req.Application.Repository), teledefaults.Namespace, storage.KindApp, teleservices.VerbRead); err != nil {
+	if err := o.checker.CheckAccessToRule(o.repoContext(req.Application.Repository), teledefaults.Namespace, storage.KindApp, teleservices.VerbRead, false); err != nil {
 		return nil, trace.Wrap(err)
 	}
 	return o.operator.GetAppInstaller(req)
@@ -645,11 +646,18 @@ func (o *OperatorACL) RotateSecrets(req RotateSecretsRequest) (*RotatePackageRes
 	return o.operator.RotateSecrets(req)
 }
 
-func (o *OperatorACL) RotatePlanetConfig(req RotatePlanetConfigRequest) (*RotatePackageResponse, error) {
+func (o *OperatorACL) RotatePlanetConfig(req RotateConfigPackageRequest) (*RotatePackageResponse, error) {
 	if err := o.ClusterAction(req.ClusterName, storage.KindCluster, teleservices.VerbUpdate); err != nil {
 		return nil, trace.Wrap(err)
 	}
 	return o.operator.RotatePlanetConfig(req)
+}
+
+func (o *OperatorACL) RotateTeleportConfig(req RotateConfigPackageRequest) (*RotatePackageResponse, *RotatePackageResponse, error) {
+	if err := o.ClusterAction(req.ClusterName, storage.KindCluster, teleservices.VerbUpdate); err != nil {
+		return nil, nil, trace.Wrap(err)
+	}
+	return o.operator.RotateTeleportConfig(req)
 }
 
 func (o *OperatorACL) ConfigureNode(req ConfigureNodeRequest) error {
@@ -782,14 +790,19 @@ func (o *OperatorACL) SignTLSKey(req TLSSignRequest) (*TLSSignResponse, error) {
 		return nil, trace.Wrap(err)
 	}
 
-	err = o.checker.CheckAccessToRule(ctx, cluster.GetMetadata().Namespace, storage.KindCluster, storage.VerbConnect)
+	err = o.checker.CheckAccessToRule(ctx, cluster.GetMetadata().Namespace, storage.KindCluster, storage.VerbConnect, false)
 	if err != nil {
 		return nil, trace.Wrap(err)
 	}
 
-	// we are expecting some groups to be assigned
-	if len(ctx.KubernetesGroups) == 0 {
-		return nil, trace.AccessDenied("access to cluster %q is denied: no kubernetes groups are allowed for user %q", req.SiteDomain, o.user.GetName())
+	roles, err := teleservices.FetchRoles(ctx.User.GetRoles(), o.users, ctx.User.GetTraits())
+	if err != nil {
+		return nil, trace.Wrap(err)
+	}
+
+	kubernetesGroups, err := roles.CheckKubeGroups(req.TTL)
+	if err != nil {
+		return nil, trace.Wrap(err)
 	}
 
 	block, _ := pem.Decode(req.CSR)
@@ -805,14 +818,15 @@ func (o *OperatorACL) SignTLSKey(req TLSSignRequest) (*TLSSignResponse, error) {
 	switch certRequest.Subject.CommonName {
 	case o.username, defaults.KubeForwarderUser:
 	default:
-		return nil, trace.AccessDenied("expected common name %v, got %v instead",
-			o.username, certRequest.Subject.CommonName)
+		if err := o.currentUserActions(o.username, teleservices.VerbCreate); err != nil {
+			return nil, trace.Wrap(err)
+		}
 	}
 
 	req.Subject = &signer.Subject{
 		CN: certRequest.Subject.CommonName,
 	}
-	for _, group := range ctx.KubernetesGroups {
+	for _, group := range kubernetesGroups {
 		req.Subject.Names = append(req.Subject.Names, csr.Name{O: group})
 	}
 

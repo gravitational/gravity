@@ -69,6 +69,15 @@ func (s *Sanitizer) GetKeys(bucket []string) ([]string, error) {
 	return s.backend.GetKeys(bucket)
 }
 
+// GetItems returns a list of items (key value pairs) for a bucket.
+func (s *Sanitizer) GetItems(bucket []string) ([]Item, error) {
+	if !isSliceSafe(bucket) {
+		return nil, trace.BadParameter(errorMessage)
+	}
+
+	return s.backend.GetItems(bucket)
+}
+
 // CreateVal creates value with a given TTL and key in the bucket. If the
 // value already exists, returns trace.AlreadyExistsError.
 func (s *Sanitizer) CreateVal(bucket []string, key string, val []byte, ttl time.Duration) error {
@@ -95,6 +104,21 @@ func (s *Sanitizer) UpsertVal(bucket []string, key string, val []byte, ttl time.
 	return s.backend.UpsertVal(bucket, key, val, ttl)
 }
 
+// UpsertItems updates or inserts all passed in backend.Items (with a TTL)
+// into the given bucket.
+func (s *Sanitizer) UpsertItems(bucket []string, items []Item) error {
+	if !isSliceSafe(bucket) {
+		return trace.BadParameter(errorMessage)
+	}
+	for _, e := range items {
+		if !isStringSafe(e.Key) {
+			return trace.BadParameter(errorMessage)
+		}
+	}
+
+	return s.backend.UpsertItems(bucket, items)
+}
+
 // GetVal returns a value for a given key in the bucket.
 func (s *Sanitizer) GetVal(bucket []string, key string) ([]byte, error) {
 	if !isSliceSafe(bucket) {
@@ -105,6 +129,20 @@ func (s *Sanitizer) GetVal(bucket []string, key string) ([]byte, error) {
 	}
 
 	return s.backend.GetVal(bucket, key)
+}
+
+// CompareAndSwapVal compares and swaps values in atomic operation, succeeds
+// if prevVal matches the value stored in the database, requires prevVal as a
+// non-empty value. Returns trace.CompareFailed in case if value did not match.
+func (s *Sanitizer) CompareAndSwapVal(bucket []string, key string, val []byte, prevVal []byte, ttl time.Duration) error {
+	if !isSliceSafe(bucket) {
+		return trace.BadParameter(errorMessage)
+	}
+	if !isStringSafe(key) {
+		return trace.BadParameter(errorMessage)
+	}
+
+	return s.backend.CompareAndSwapVal(bucket, key, val, prevVal, ttl)
 }
 
 // DeleteKey deletes a key in a bucket.

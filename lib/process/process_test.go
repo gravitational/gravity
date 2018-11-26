@@ -166,7 +166,7 @@ func (s *ProcessSuite) TestReverseTunnelsFromTrustedClusters(c *check.C) {
 		})
 		c.Assert(err, check.IsNil)
 		for _, cluster := range testCase.clusters {
-			err := backend.UpsertTrustedCluster(cluster)
+			_, err := backend.UpsertTrustedCluster(cluster)
 			c.Assert(err, check.IsNil)
 		}
 		tunnels, err := reverseTunnelsFromTrustedClusters(backend)

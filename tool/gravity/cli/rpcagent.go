@@ -150,7 +150,7 @@ func rpcAgentDeploy(env *localenv.LocalEnvironment, leaderParams []string) error
 		return trace.Wrap(err, "failed to create a teleport client")
 	}
 
-	proxy, err := teleportClient.ConnectToProxy()
+	proxy, err := teleportClient.ConnectToProxy(context.TODO())
 	if err != nil {
 		return trace.Wrap(err, "failed to connect to teleport proxy")
 	}
@@ -176,8 +176,7 @@ func rpcAgentDeploy(env *localenv.LocalEnvironment, leaderParams []string) error
 	return nil
 }
 
-func verifyCluster(
-	ctx context.Context,
+func verifyCluster(ctx context.Context,
 	clusterState storage.ClusterState,
 	proxy *teleclient.ProxyClient,
 ) (servers []rpc.DeployServer, err error) {
@@ -185,16 +184,22 @@ func verifyCluster(
 	servers = make([]rpc.DeployServer, 0, len(servers))
 
 	for _, server := range clusterState.Servers {
-		deployServer, err := rpc.NewDeployServer(ctx, server, proxy)
-		if err != nil && !trace.IsNotFound(err) {
-			return nil, trace.Wrap(err)
-		}
-		if trace.IsNotFound(err) {
+		deployServer := rpc.NewDeployServer(server)
+		// do a quick check to make sure we can connect to the teleport node
+		client, err := proxy.ConnectToNode(ctx, deployServer.NodeAddr,
+			defaults.SSHUser, false)
+		if err != nil {
+			log.Errorf("Failed to connect to teleport on node %v: %v.",
+				deployServer, trace.DebugReport(err))
 			missing = append(missing, server.Hostname)
 		} else {
-			servers = append(servers, *deployServer)
+			client.Close()
+			log.Infof("Successfully connected to teleport on node %v (%v).",
+				server.Hostname, deployServer.NodeAddr)
+			servers = append(servers, deployServer)
 		}
 	}
+
 	if len(missing) != 0 {
 		return nil, trace.NotFound(
 			"Teleport is unavailable "+

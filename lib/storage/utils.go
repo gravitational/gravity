@@ -230,7 +230,7 @@ func DisableAccess(backend Backend, name string, delay time.Duration) error {
 		return trace.Wrap(err)
 	}
 	cluster.SetTTL(backend, delay)
-	if err := backend.UpsertTrustedCluster(cluster); err != nil {
+	if _, err := backend.UpsertTrustedCluster(cluster); err != nil {
 		return trace.Wrap(err)
 	}
 	return nil

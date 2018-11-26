@@ -80,7 +80,7 @@ func copySite(site *storage.Site, dst storage.Backend, src ExportBackend, cluste
 		}
 	}
 	for _, cluster := range trustedClusters {
-		if err := dst.UpsertTrustedCluster(cluster); err != nil {
+		if _, err := dst.UpsertTrustedCluster(cluster); err != nil {
 			return trace.Wrap(err)
 		}
 	}

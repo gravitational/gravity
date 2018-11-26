@@ -44,7 +44,7 @@ func InitProcess(ctx context.Context, installerConfig Config, gravityConfig proc
 	if err != nil {
 		return nil, trace.Wrap(err)
 	}
-	err = process.WaitForServiceStarted(p)
+	err = process.WaitForServiceStarted(ctx, p)
 	if err != nil {
 		return nil, trace.Wrap(err)
 	}

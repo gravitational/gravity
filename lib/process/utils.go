@@ -17,6 +17,8 @@ limitations under the License.
 package process
 
 import (
+	"context"
+
 	"github.com/gravitational/gravity/lib/constants"
 
 	teleservice "github.com/gravitational/teleport/lib/service"
@@ -25,9 +27,9 @@ import (
 
 // WaitForServiceStarted blocks until an event notifying that the service had started
 // is received
-func WaitForServiceStarted(service GravityProcess) error {
+func WaitForServiceStarted(ctx context.Context, service GravityProcess) error {
 	eventC := make(chan teleservice.Event)
-	service.WaitForEvent(constants.ServiceStartedEvent, eventC, nil)
+	service.WaitForEvent(ctx, constants.ServiceStartedEvent, eventC)
 	event := <-eventC
 	serviceStartedEvent, ok := event.Payload.(*ServiceStartedEvent)
 	if !ok {
@@ -35,12 +37,4 @@ func WaitForServiceStarted(service GravityProcess) error {
 	}
 
 	return trace.Wrap(serviceStartedEvent.Error)
-}
-
-// WaitForServiceLeader blocks until it receives the leader notification from the service.
-// Only the notification of this service itself becoming the leader are dispatched.
-func WaitForServiceSelfLeader(service *Process) {
-	eventC := make(chan teleservice.Event)
-	service.WaitForEvent(constants.ServiceSelfLeaderEvent, eventC, nil)
-	<-eventC
 }

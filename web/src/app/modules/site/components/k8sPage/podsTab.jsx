@@ -30,7 +30,7 @@ import {
   RowDetails,
   ToggableCell
 } from 'app/components/common/tables/table.jsx';
-  
+
 import { K8sPodsProvider } from './dataProviders';
 import podGetters from './../../flux/k8sPods/getters';
 import { Wrap, JsonContent } from './items.jsx';
@@ -39,37 +39,37 @@ const NAMESPACE_KEY = 'podNamespace';
 const stopPropagation = e => { e.stopPropagation(); e.preventDefault(); }
 
 const NameCell = ({ rowIndex, expanded, monitoringEnabled, data }) => {
-  let {podName, podMonitorUrl, podHostIp, podIp='', podLogUrl} = data[rowIndex];  
+  let {podName, podMonitorUrl, podHostIp, podIp='', podLogUrl} = data[rowIndex];
   let isExpanded = expanded[rowIndex] === true;
-  
+
   return (
-    <ToggableCell isExpanded={isExpanded} className="grv-site-k8s-pods-name">                                
-      <div>     
-        <Dropdowns.Menu text={podName} onClick={stopPropagation}>                            
-            { monitoringEnabled && 
-              <Dropdowns.MenuItem> 
-                <Link to={podMonitorUrl}>Monitoring</Link>                                                             
+    <ToggableCell isExpanded={isExpanded} className="grv-site-k8s-pods-name">
+      <div>
+        <Dropdowns.Menu text={podName} onClick={stopPropagation}>
+            { monitoringEnabled &&
+              <Dropdowns.MenuItem>
+                <Link to={podMonitorUrl}>Monitoring</Link>
               </Dropdowns.MenuItem>
             }
             <Dropdowns.MenuItem>
-              <Link to={podLogUrl}>Logs</Link>                                                             
+              <Link to={podLogUrl}>Logs</Link>
             </Dropdowns.MenuItem>
-        </Dropdowns.Menu>                  
+        </Dropdowns.Menu>
         <div><small>host: {podHostIp}</small></div>
-        { podIp.length > 0 &&  <small>pod: {podIp}</small> }        
+        { podIp.length > 0 &&  <small>pod: {podIp}</small> }
       </div>
     </ToggableCell>
   )
 };
 
 const StatusCell = ({ rowIndex, data, ...props }) => {
-  const { status, statusDisplay } = data[rowIndex];  
-  const classname = classnames({    
+  const { status, statusDisplay } = data[rowIndex];
+  const classname = classnames({
     'text-success': status === K8sPodDisplayStatusEnum.RUNNING,
     'text-danger': status === K8sPodDisplayStatusEnum.FAILED,
-    'text-warning': status === K8sPodDisplayStatusEnum.PENDING || status === K8sPodDisplayStatusEnum.TERMINATED      
+    'text-warning': status === K8sPodDisplayStatusEnum.PENDING || status === K8sPodDisplayStatusEnum.TERMINATED
   })
-    
+
   return (
     <Cell {...props} className="grv-site-k8s-pods-status">
       <strong className={classname}>{statusDisplay}</strong>
@@ -78,54 +78,54 @@ const StatusCell = ({ rowIndex, data, ...props }) => {
 };
 
 const ContainerCell = ({ rowIndex, expanded, data, sshLogins }) => {
-  const { podName, podNamespace } = data[rowIndex];  
+  const { podName, podNamespace } = data[rowIndex];
   const { containers } = data[rowIndex];
   const isExpanded = expanded[rowIndex];
 
-  const makeOnClick = (containerName, login) => () =>  {        
+  const makeOnClick = (containerName, login) => () =>  {
     const pod = {
       namespace: podNamespace,
       name: podName,
       container: containerName
     }
 
-    openServerTerminal({ pod, login });  
+    openServerTerminal({ pod, login });
   }
 
-  const makeLoginInputKeyPress = containerName => e =>  {        
-    if (e.key === 'Enter' && e.target.value) {        
+  const makeLoginInputKeyPress = containerName => e =>  {
+    if (e.key === 'Enter' && e.target.value) {
       const pod = {
         namespace: podNamespace,
         name: podName,
         container: containerName
-      }  
-      openServerTerminal({ pod, login: e.target.value });        
-    }            
+      }
+      openServerTerminal({ pod, login: e.target.value });
+    }
   }
-  
+
   const $containerItems = containers.map((item, key) => {
     const { name, logUrl } = item;
     const menuHeaterText = `SSH to ${name} as:`
-    const $menuItems = [];      
+    const $menuItems = [];
     for (var i = 0; i < sshLogins.size; i++){
       const login = sshLogins.get(i);
       $menuItems.push(
-        <Dropdowns.MenuItemLogin key={i} onClick={makeOnClick(name, login)} text={login}/>                    
+        <Dropdowns.MenuItemLogin key={i} onClick={makeOnClick(name, login)} text={login}/>
       );
-    }  
+    }
 
-    return (      
-      <Dropdowns.Menu key={key} text={name} onClick={stopPropagation}>                            
-        <Dropdowns.MenuItemTitle text={menuHeaterText}/>                  
-        {$menuItems}        
+    return (
+      <Dropdowns.Menu key={key} text={name} onClick={stopPropagation}>
+        <Dropdowns.MenuItemTitle text={menuHeaterText}/>
+        {$menuItems}
         <Dropdowns.MenuItemLoginInput onKeyPress={makeLoginInputKeyPress(name)} />
         <Dropdowns.MenuItemDivider/>
         <Dropdowns.MenuItem>
           <Link to={logUrl}>
               Logs
-          </Link>          
+          </Link>
         </Dropdowns.MenuItem>
-      </Dropdowns.Menu>                  
+      </Dropdowns.Menu>
     )
   });
 
@@ -140,17 +140,17 @@ const LabelCell = ({ rowIndex, expanded, data }) => {
   const { labelsText } = data[rowIndex];
   const isExpanded = expanded[rowIndex];
 
-  const $labels = labelsText.map((item, key) => (  
-    <div key={key}>      
-      <div className="label">{item}</div>    
-    </div>      
+  const $labels = labelsText.map((item, key) => (
+    <div key={key}>
+      <div className="label">{item}</div>
+    </div>
   ))
 
   return (
     <Wrap className="grv-site-k8s-pods-label grv-site-k8s-table-label" isExpanded={isExpanded}>
-      
+
       {$labels}
-      
+
     </Wrap>
   )
 };
@@ -167,7 +167,7 @@ class PodPage extends React.Component {
       monitoringEnabled
     };
   }
-    
+
   onRowClick = index => {
     const { expanded } = this.state;
     expanded[index] = !expanded[index];
@@ -195,15 +195,15 @@ class PodPage extends React.Component {
   }
 
   render() {
-    const { podInfos, userAcl } = this.props;    
-    const { expanded, monitoringEnabled } = this.state;    
+    const { podInfos, userAcl } = this.props;
+    const { expanded, monitoringEnabled } = this.state;
     const data = this.sortAndFilter(podInfos);
     const sshLogins = userAcl.getSshLogins();
     return (
       <div className="grv-site-k8s-pods">
         <K8sPodsProvider/>
         <Table className="grv-table-with-details grv-site-k8s-table" onRowClick={this.onRowClick} rowCount={data.length} data={data}>
-          <RowDetails            
+          <RowDetails
             content={<JsonContent colSpan={4} expanded={expanded} columnKey="podMap" />}
           />
           <Column
@@ -214,14 +214,14 @@ class PodPage extends React.Component {
             header={<Cell className="--col-status">Status</Cell> }
             cell={<StatusCell/>}
           />
-          <Column            
+          <Column
             header={<Cell className="--col-containers">Containers</Cell> }
             cell={<ContainerCell sshLogins={sshLogins} expanded={expanded}/>}
           />
           <Column
             header={<Cell>Labels</Cell> }
             cell={<LabelCell expanded={expanded}/>}
-            />                    
+            />
         </Table>
       </div>
     )
@@ -230,7 +230,7 @@ class PodPage extends React.Component {
 
 const mapStateToProps = () => ({
   podInfos: podGetters.podInfoList,
-  userAcl: userAclFlux.getters.userAcl  
-})  
+  userAcl: userAclFlux.getters.userAcl
+})
 
 export default connect(mapStateToProps)(PodPage);

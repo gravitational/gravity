@@ -27,6 +27,7 @@ import (
 
 	teledefaults "github.com/gravitational/teleport/lib/defaults"
 	teleservices "github.com/gravitational/teleport/lib/services"
+	teleutils "github.com/gravitational/teleport/lib/utils"
 	"github.com/gravitational/trace"
 )
 
@@ -74,7 +75,7 @@ func NewSystemRole(name string, spec teleservices.RoleSpecV3) (teleservices.Role
 func NewOneTimeLinkRole() (teleservices.Role, error) {
 	return NewSystemRole(constants.RoleOneTimeLink, teleservices.RoleSpecV3{
 		Options: teleservices.RoleOptions{
-			teleservices.MaxSessionTTL: teleservices.NewDuration(teledefaults.MaxCertDuration),
+			MaxSessionTTL: teleservices.NewDuration(teledefaults.MaxCertDuration),
 		},
 		Allow: teleservices.RoleConditions{
 			Namespaces: []string{defaults.Namespace},
@@ -100,7 +101,7 @@ func NewOneTimeLinkRoleForApp(loc loc.Locator) (teleservices.Role, error) {
 		loc.Repository, loc.Name, loc.Version)
 	return NewSystemRole(roleName, teleservices.RoleSpecV3{
 		Options: teleservices.RoleOptions{
-			teleservices.MaxSessionTTL: teleservices.NewDuration(teledefaults.MaxCertDuration),
+			MaxSessionTTL: teleservices.NewDuration(teledefaults.MaxCertDuration),
 		},
 		Allow: teleservices.RoleConditions{
 			Namespaces: []string{defaults.Namespace},
@@ -129,7 +130,7 @@ func NewOneTimeLinkRoleForApp(loc loc.Locator) (teleservices.Role, error) {
 func NewInstallTokenRole(name string, clusterName, repoName string) (teleservices.Role, error) {
 	return NewSystemRole(name, teleservices.RoleSpecV3{
 		Options: teleservices.RoleOptions{
-			teleservices.MaxSessionTTL: teleservices.NewDuration(teledefaults.MaxCertDuration),
+			MaxSessionTTL: teleservices.NewDuration(teledefaults.MaxCertDuration),
 		},
 		Allow: teleservices.RoleConditions{
 			Namespaces: []string{defaults.Namespace},
@@ -193,19 +194,19 @@ func NewAdminRole() (teleservices.Role, error) {
 	user, _ := user.Current()
 	return NewSystemRole(constants.RoleAdmin, teleservices.RoleSpecV3{
 		Options: teleservices.RoleOptions{
-			teleservices.MaxSessionTTL: teleservices.NewDuration(teledefaults.MaxCertDuration),
+			MaxSessionTTL: teleservices.NewDuration(teledefaults.MaxCertDuration),
 		},
 		Allow: teleservices.RoleConditions{
 			Namespaces: []string{defaults.Namespace},
 			Logins:     storage.GetAllowedLogins(user),
-			NodeLabels: map[string]string{teleservices.Wildcard: teleservices.Wildcard},
+			NodeLabels: teleservices.Labels(map[string]teleutils.Strings{
+				teleservices.Wildcard: teleutils.Strings{teleservices.Wildcard},
+			}),
+			KubeGroups: GetAdminKubernetesGroups(),
 			Rules: []teleservices.Rule{
 				{
 					Resources: []string{teleservices.Wildcard},
 					Verbs:     []string{teleservices.Wildcard},
-					Actions: []string{storage.AssignKubernetesGroupsExpr{
-						Groups: GetAdminKubernetesGroups(),
-					}.String()},
 				},
 			},
 		},
@@ -231,7 +232,7 @@ func NewGatekeeperRole() (teleservices.Role, error) {
 func NewUpdateAgentRole(name string) (teleservices.Role, error) {
 	return NewSystemRole(name, teleservices.RoleSpecV3{
 		Options: teleservices.RoleOptions{
-			teleservices.MaxSessionTTL: teleservices.NewDuration(teledefaults.MaxCertDuration),
+			MaxSessionTTL: teleservices.NewDuration(teledefaults.MaxCertDuration),
 		},
 		Allow: teleservices.RoleConditions{
 			Namespaces: []string{defaults.Namespace},
@@ -263,6 +264,7 @@ func NewClusterAgentRole(name string, clusterName string) (teleservices.Role, er
 	return NewSystemRole(name, teleservices.RoleSpecV3{
 		Allow: teleservices.RoleConditions{
 			Namespaces: []string{defaults.Namespace},
+			KubeGroups: GetAdminKubernetesGroups(),
 			Rules: []teleservices.Rule{
 				{
 					Resources: []string{storage.KindCluster},
@@ -275,9 +277,6 @@ func NewClusterAgentRole(name string, clusterName string) (teleservices.Role, er
 						Left:  storage.ResourceNameExpr,
 						Right: storage.StringExpr(clusterName),
 					}.String(),
-					Actions: []string{storage.AssignKubernetesGroupsExpr{
-						Groups: GetAdminKubernetesGroups(),
-					}.String()},
 				},
 				{
 					Resources: []string{storage.KindApp},

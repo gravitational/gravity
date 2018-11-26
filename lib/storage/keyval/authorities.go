@@ -90,8 +90,7 @@ func (b *backend) GetCertAuthority(id teleservices.CertAuthID, loadSigningKeys b
 
 // GetCertAuthorities returns a list of authorities of a given type
 // loadSigningKeys controls whether signing keys should be loaded or not
-func (b *backend) GetCertAuthorities(
-	caType teleservices.CertAuthType, loadSigningKeys bool) ([]teleservices.CertAuthority, error) {
+func (b *backend) GetCertAuthorities(caType teleservices.CertAuthType, loadSigningKeys bool, opts ...teleservices.MarshalOption) ([]teleservices.CertAuthority, error) {
 	if err := caType.Check(); err != nil {
 		return nil, trace.Wrap(err)
 	}
@@ -160,5 +159,31 @@ func (b *backend) DeactivateCertAuthority(id teleservices.CertAuthID) error {
 		return trace.Wrap(err)
 	}
 
+	return nil
+}
+
+// CompareAndSwapCertAuthority updates the cert authority value if the existing
+// value matches existing parameter
+func (b *backend) CompareAndSwapCertAuthority(new, existing teleservices.CertAuthority) error {
+	if err := new.Check(); err != nil {
+		return trace.Wrap(err)
+	}
+	newData, err := teleservices.GetCertAuthorityMarshaler().MarshalCertAuthority(new)
+	if err != nil {
+		return trace.Wrap(err)
+	}
+	existingData, err := teleservices.GetCertAuthorityMarshaler().MarshalCertAuthority(existing)
+	if err != nil {
+		return trace.Wrap(err)
+	}
+	ttl := b.ttl(new.Expiry())
+	var outData []byte
+	err = b.compareAndSwapBytes(b.key(authoritiesP, string(new.GetType()), new.GetClusterName()), newData, existingData, &outData, ttl)
+	if err != nil {
+		if trace.IsCompareFailed(err) {
+			return trace.CompareFailed("cluster %v settings have been updated, try again", new.GetClusterName())
+		}
+		return trace.Wrap(err)
+	}
 	return nil
 }

@@ -77,7 +77,7 @@ func Run(ctx context.Context, configDir, importDir string, newProcess NewGravity
 	if err != nil {
 		return trace.Wrap(err)
 	}
-	err = WaitForServiceStarted(process)
+	err = WaitForServiceStarted(ctx, process)
 	if err != nil {
 		return trace.Wrap(err)
 	}

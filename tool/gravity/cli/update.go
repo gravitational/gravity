@@ -74,7 +74,7 @@ func updateTrigger(
 		return trace.Wrap(err, "failed to create a teleport client")
 	}
 
-	proxy, err := teleportClient.ConnectToProxy()
+	proxy, err := teleportClient.ConnectToProxy(context.TODO())
 	if err != nil {
 		return trace.Wrap(err, "failed to connect to teleport proxy")
 	}
@@ -141,15 +141,15 @@ func updateTrigger(
 		return nil
 	}
 
-	localEnv.Printf("update operation (%v) has been started\n", opKey.OperationID)
+	localEnv.Printf("Upgrade operation (%v) has been started.\n", opKey.OperationID)
 
 	if !manual {
-		localEnv.Println("the cluster is updating in background")
+		localEnv.Println("The cluster is being upgraded in the background.")
 		return nil
 	}
 
 	localEnv.Println(`
-The update operation has been created in manual mode.
+The upgrade operation has been created in manual mode.
 
 To view the operation plan, run:
 
@@ -231,7 +231,7 @@ func checkForUpdate(env *localenv.LocalEnvironment, operator ops.Operator, site 
 		return nil, trace.Wrap(err)
 	}
 
-	env.Printf("updating %v from %v to %v\n",
+	env.Printf("Upgrading application %v from %v to %v.\n",
 		update.Package.Name, site.App.Package.Version, update.Package.Version)
 
 	return update, nil

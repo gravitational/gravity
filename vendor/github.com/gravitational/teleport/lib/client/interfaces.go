@@ -1,5 +1,5 @@
 /*
-Copyright 2015 Gravitational, Inc.
+Copyright 2015-2017 Gravitational, Inc.
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -18,37 +18,81 @@ package client
 
 import (
 	"bytes"
+	"crypto/tls"
+	"crypto/x509"
 	"fmt"
+	"runtime"
 	"time"
 
+	"github.com/gravitational/teleport"
+	"github.com/gravitational/teleport/lib/auth"
+	"github.com/gravitational/teleport/lib/tlsca"
+	"github.com/gravitational/teleport/lib/utils"
+
 	"github.com/gravitational/trace"
+
 	"golang.org/x/crypto/ssh"
 	"golang.org/x/crypto/ssh/agent"
 )
 
 // Key describes a complete (signed) client key
 type Key struct {
+	// Priv is a PEM encoded private key
 	Priv []byte `json:"Priv,omitempty"`
-	Pub  []byte `json:"Pub,omitempty"`
+	// Pub is a public key
+	Pub []byte `json:"Pub,omitempty"`
+	// Cert is an SSH client certificate
 	Cert []byte `json:"Cert,omitempty"`
+	// TLSCert is a PEM encoded client TLS x509 certificate
+	TLSCert []byte `json:"TLSCert,omitempty"`
 
 	// ProxyHost (optionally) contains the hostname of the proxy server
 	// which issued this key
 	ProxyHost string
+
+	// TrustedCA is a list of trusted certificate authorities
+	TrustedCA []auth.TrustedCerts
+}
+
+// TLSConfig returns client TLS configuration used
+// to authenticate against API servers
+func (k *Key) ClientTLSConfig() (*tls.Config, error) {
+	// Because Teleport clients can't be configured (yet), they take the default
+	// list of cipher suites from Go.
+	tlsConfig := utils.TLSConfig(nil)
+
+	pool := x509.NewCertPool()
+	for _, ca := range k.TrustedCA {
+		for _, certPEM := range ca.TLSCertificates {
+			if !pool.AppendCertsFromPEM(certPEM) {
+				return nil, trace.BadParameter("failed to parse certificate received from the proxy")
+			}
+		}
+	}
+	tlsConfig.RootCAs = pool
+	tlsCert, err := tls.X509KeyPair(k.TLSCert, k.Priv)
+	if err != nil {
+		return nil, trace.Wrap(err, "failed to parse TLS cert and key")
+	}
+	tlsConfig.Certificates = append(tlsConfig.Certificates, tlsCert)
+	return tlsConfig, nil
+}
+
+// CertUsername returns the name of the teleport user encoded in the certificate
+func (k *Key) CertUsername() (string, error) {
+	pubKey, _, _, _, err := ssh.ParseAuthorizedKey(k.Cert)
+	if err != nil {
+		return "", trace.Wrap(err)
+	}
+	cert, ok := pubKey.(*ssh.Certificate)
+	if !ok {
+		return "", trace.BadParameter("expected SSH certificate, got public key")
+	}
+	return cert.KeyId, nil
 }
 
 // AsAgentKeys converts client.Key struct to a []*agent.AddedKey. All elements
 // of the []*agent.AddedKey slice need to be loaded into the agent!
-//
-// This is done because OpenSSH clients older than OpenSSH 7.3/7.3p1
-// (2016-08-01) have a bug in how they use certificates that have been loaded
-// in an agent. Specifically when you add a certificate to an agent, you can't
-// just embed the private key within the certificate, you have to add the
-// certificate and private key to the agent separately. Teleport works around
-// this behavior to ensure OpenSSH interoperability.
-//
-// For more details see the following: https://bugzilla.mindrot.org/show_bug.cgi?id=2550
-// WARNING: callers expect the returned slice to be __exactly as it is__
 func (k *Key) AsAgentKeys() ([]*agent.AddedKey, error) {
 	// unmarshal certificate bytes into a ssh.PublicKey
 	publicKey, _, _, _, err := ssh.ParseAuthorizedKey(k.Cert)
@@ -65,7 +109,31 @@ func (k *Key) AsAgentKeys() ([]*agent.AddedKey, error) {
 	// put a teleport identifier along with the teleport user into the comment field
 	comment := fmt.Sprintf("teleport:%v", publicKey.(*ssh.Certificate).KeyId)
 
-	// return a certificate (with embedded private key) as well as a private key
+	// On Windows, return the certificate with the private key embedded.
+	if runtime.GOOS == teleport.WindowsOS {
+		return []*agent.AddedKey{
+			&agent.AddedKey{
+				PrivateKey:       privateKey,
+				Certificate:      publicKey.(*ssh.Certificate),
+				Comment:          comment,
+				LifetimeSecs:     0,
+				ConfirmBeforeUse: false,
+			},
+		}, nil
+	}
+
+	// On Unix, return the certificate (with embedded private key) as well as
+	// a private key.
+	//
+	// This is done because OpenSSH clients older than OpenSSH 7.3/7.3p1
+	// (2016-08-01) have a bug in how they use certificates that have been loaded
+	// in an agent. Specifically when you add a certificate to an agent, you can't
+	// just embed the private key within the certificate, you have to add the
+	// certificate and private key to the agent separately. Teleport works around
+	// this behavior to ensure OpenSSH interoperability.
+	//
+	// For more details see the following: https://bugzilla.mindrot.org/show_bug.cgi?id=2550
+	// WARNING: callers expect the returned slice to be __exactly as it is__
 	return []*agent.AddedKey{
 		&agent.AddedKey{
 			PrivateKey:       privateKey,
@@ -92,7 +160,17 @@ func (k *Key) EqualsTo(other *Key) bool {
 	}
 	return bytes.Equal(k.Cert, other.Cert) &&
 		bytes.Equal(k.Priv, other.Priv) &&
-		bytes.Equal(k.Pub, other.Pub)
+		bytes.Equal(k.Pub, other.Pub) &&
+		bytes.Equal(k.TLSCert, other.TLSCert)
+}
+
+// TLSCertValidBefore returns the time of the TLS cert expiration
+func (k *Key) TLSCertValidBefore() (t time.Time, err error) {
+	cert, err := tlsca.ParseCertificatePEM(k.TLSCert)
+	if err != nil {
+		return t, trace.Wrap(err)
+	}
+	return cert.NotAfter, nil
 }
 
 // CertValidBefore returns the time of the cert expiration

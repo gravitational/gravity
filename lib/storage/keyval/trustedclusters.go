@@ -21,17 +21,17 @@ import (
 	"github.com/gravitational/trace"
 )
 
-func (b *backend) UpsertTrustedCluster(cluster teleservices.TrustedCluster) error {
+func (b *backend) UpsertTrustedCluster(cluster teleservices.TrustedCluster) (teleservices.TrustedCluster, error) {
 	bytes, err := teleservices.GetTrustedClusterMarshaler().Marshal(cluster)
 	if err != nil {
-		return trace.Wrap(err)
+		return nil, trace.Wrap(err)
 	}
 	err = b.upsertValBytes(b.key(trustedClustersP, cluster.GetName()),
 		bytes, b.ttl(cluster.Expiry()))
 	if err != nil {
-		return trace.Wrap(err)
+		return nil, trace.Wrap(err)
 	}
-	return nil
+	return cluster, nil
 }
 
 func (b *backend) GetTrustedCluster(name string) (teleservices.TrustedCluster, error) {

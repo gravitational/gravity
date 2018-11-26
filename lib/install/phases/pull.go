@@ -19,7 +19,6 @@ package phases
 import (
 	"context"
 	"fmt"
-	"os/exec"
 	"path/filepath"
 
 	"github.com/gravitational/gravity/lib/app"
@@ -130,10 +129,9 @@ func (p *pullExecutor) Execute(ctx context.Context) error {
 	if err != nil {
 		return trace.Wrap(err)
 	}
-	// Go does not provide recursive chown method
-	err = exec.Command("chown", "-R",
-		fmt.Sprintf("%v:%v", p.ServiceUser.UID, p.ServiceUser.GID),
-		filepath.Join(stateDir, defaults.LocalDir)).Run()
+	err = utils.Chown(filepath.Join(stateDir, defaults.LocalDir),
+		fmt.Sprintf("%v", p.ServiceUser.UID),
+		fmt.Sprintf("%v", p.ServiceUser.GID))
 	if err != nil {
 		return trace.Wrap(err)
 	}
@@ -309,7 +307,8 @@ func (p *pullExecutor) unpackPackages() error {
 				pack.PurposeCA,
 				pack.PurposePlanetSecrets,
 				pack.PurposePlanetConfig,
-				pack.PurposeTeleportConfig,
+				pack.PurposeTeleportMasterConfig,
+				pack.PurposeTeleportNodeConfig,
 			},
 		})
 		if unpack || utils.StringInSlice(packages, e.Locator.Name) {
