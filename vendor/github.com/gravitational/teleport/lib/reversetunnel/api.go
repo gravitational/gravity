@@ -17,6 +17,7 @@ limitations under the License.
 package reversetunnel
 
 import (
+	"context"
 	"net"
 	"time"
 
@@ -32,8 +33,14 @@ import (
 type RemoteSite interface {
 	// DialAuthServer returns a net.Conn to the Auth Server of a site.
 	DialAuthServer() (net.Conn, error)
-	// Dial dials any address within the site network.
+	// Dial dials any address within the site network, in terminating
+	// mode it uses local instance of forwarding server to terminate
+	// and record the connection
 	Dial(fromAddr, toAddr net.Addr, userAgent agent.Agent) (net.Conn, error)
+	// DialTCP dials any address within the site network,
+	// ignores recording mode and always uses TCP dial, used
+	// in components that need direct dialer.
+	DialTCP(fromAddr, toAddr net.Addr) (net.Conn, error)
 	// GetLastConnected returns last time the remote site was seen connected
 	GetLastConnected() time.Time
 	// GetName returns site name (identified by authority domain's name)
@@ -45,6 +52,9 @@ type RemoteSite interface {
 	// CachingAccessPoint returns access point that is lightweight
 	// but is resilient to auth server crashes
 	CachingAccessPoint() (auth.AccessPoint, error)
+	// GetTunnelsCount returns the amount of active inbound tunnels
+	// from the remote cluster
+	GetTunnelsCount() int
 }
 
 // Server is a TCP/IP SSH server which listens on an SSH endpoint and remote/local
@@ -58,8 +68,10 @@ type Server interface {
 	RemoveSite(domainName string) error
 	// Start starts server
 	Start() error
-	// CLose closes server's socket
+	// Close closes server's operations immediately
 	Close() error
+	// Shutdown performs graceful server shutdown
+	Shutdown(context.Context) error
 	// Wait waits for server to close all outstanding operations
 	Wait()
 }

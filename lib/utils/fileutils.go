@@ -23,6 +23,7 @@ import (
 	"io"
 	"io/ioutil"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"strings"
 
@@ -381,6 +382,15 @@ func EnsureLineInFile(path, line string) error {
 	}
 	if err := writer.Flush(); err != nil {
 		return trace.Wrap(err)
+	}
+	return nil
+}
+
+// Chown adjusts ownership of the specified directory and all its subdirectories
+func Chown(dir, uid, gid string) error {
+	out, err := exec.Command("chown", "-R", fmt.Sprintf("%v:%v", uid, gid), dir).CombinedOutput()
+	if err != nil {
+		return trace.Wrap(err, "failed to chown %q to %v:%v: %s", dir, uid, gid, out)
 	}
 	return nil
 }

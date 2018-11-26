@@ -26,7 +26,6 @@ import (
 	"github.com/gravitational/gravity/lib/defaults"
 	"github.com/gravitational/gravity/lib/fsm"
 	"github.com/gravitational/gravity/lib/install"
-	"github.com/gravitational/gravity/lib/loc"
 	"github.com/gravitational/gravity/lib/ops"
 	"github.com/gravitational/gravity/lib/pack"
 	"github.com/gravitational/gravity/lib/rpc"
@@ -133,8 +132,7 @@ func (p *updatePhaseInit) PostCheck(context.Context) error {
 
 // Execute prepares the update.
 func (p *updatePhaseInit) Execute(context.Context) error {
-	err := removeLegacyUpdateDirectory(p.FieldLogger)
-	if err != nil {
+	if err := removeLegacyUpdateDirectory(p.FieldLogger); err != nil {
 		return trace.Wrap(err, "failed to remove legacy update directory")
 	}
 	if err := p.createAdminAgent(); err != nil {
@@ -159,27 +157,21 @@ func (p *updatePhaseInit) Execute(context.Context) error {
 		if err := p.rotateSecrets(server); err != nil {
 			return trace.Wrap(err, "failed to rotate secrets for %v", server)
 		}
-		updatePlanet, err := planetNeedsUpdate(server.Role, p.installedApp, p.app)
+		updatePlanet, updateTeleport, err := systemNeedsUpdate(server.Role, p.installedApp, p.app)
 		if err != nil {
 			return trace.Wrap(err)
 		}
-		if !updatePlanet {
-			continue
+		if updatePlanet {
+			if err := p.rotatePlanetConfig(server); err != nil {
+				return trace.Wrap(err, "failed to rotate planet configuration for %v", server)
+			}
 		}
-		runtimePackage, err := p.app.Manifest.RuntimePackageForProfile(server.Role)
-		if err != nil {
-			return trace.Wrap(err)
-		}
-		err = p.rotatePlanetConfig(server, *runtimePackage)
-		if err != nil {
-			return trace.Wrap(err, "failed to rotate planet configuration for %v", server)
+		if updateTeleport {
+			if err := p.rotateTeleportConfig(server); err != nil {
+				return trace.Wrap(err, "failed to rotate teleport configuration for %v", server)
+			}
 		}
 	}
-	return nil
-}
-
-// Rollback is no-op for the init phase
-func (p *updatePhaseInit) Rollback(context.Context) error {
 	return nil
 }
 
@@ -331,8 +323,8 @@ func (p *updatePhaseInit) rotateSecrets(server storage.Server) error {
 	return nil
 }
 
-func (p *updatePhaseInit) rotatePlanetConfig(server storage.Server, runtimePackage loc.Locator) error {
-	resp, err := p.Operator.RotatePlanetConfig(ops.RotatePlanetConfigRequest{
+func (p *updatePhaseInit) rotatePlanetConfig(server storage.Server) error {
+	resp, err := p.Operator.RotatePlanetConfig(ops.RotateConfigPackageRequest{
 		AccountID:   p.Operation.AccountID,
 		ClusterName: p.Operation.SiteDomain,
 		OperationID: p.Operation.ID,
@@ -342,13 +334,38 @@ func (p *updatePhaseInit) rotatePlanetConfig(server storage.Server, runtimePacka
 	if err != nil {
 		return trace.Wrap(err)
 	}
-
 	_, err = p.Packages.UpsertPackage(resp.Locator, resp.Reader,
 		pack.WithLabels(resp.Labels))
 	if err != nil {
 		return trace.Wrap(err)
 	}
 	p.Debugf("Rotated planet config package for %v: %v.", server, resp.Locator)
+	return nil
+}
+
+func (p *updatePhaseInit) rotateTeleportConfig(server storage.Server) error {
+	masterConf, nodeConf, err := p.Operator.RotateTeleportConfig(ops.RotateConfigPackageRequest{
+		AccountID:   p.Operation.AccountID,
+		ClusterName: p.Operation.SiteDomain,
+		OperationID: p.Operation.ID,
+		Server:      server,
+		Servers:     p.Servers,
+	})
+	if err != nil {
+		return trace.Wrap(err)
+	}
+	if masterConf != nil {
+		_, err = p.Packages.UpsertPackage(masterConf.Locator, masterConf.Reader, pack.WithLabels(masterConf.Labels))
+		if err != nil {
+			return trace.Wrap(err)
+		}
+		p.Debugf("Rotated teleport master config package for %v: %v.", server, masterConf.Locator)
+	}
+	_, err = p.Packages.UpsertPackage(nodeConf.Locator, nodeConf.Reader, pack.WithLabels(nodeConf.Labels))
+	if err != nil {
+		return trace.Wrap(err)
+	}
+	p.Debugf("Rotated teleport node config package for %v: %v.", server, nodeConf.Locator)
 	return nil
 }
 
@@ -369,7 +386,30 @@ func removeLegacyUpdateDirectory(log log.FieldLogger) error {
 		return nil
 	}
 
-	log.Debugf("removing legacy update dictory %v", updateDir)
+	log.Debugf("Removing legacy update dictory %v.", updateDir)
 	err = os.RemoveAll(updateDir)
 	return trace.ConvertSystemError(err)
+}
+
+// Rollback rolls back the init phase
+func (p *updatePhaseInit) Rollback(context.Context) error {
+	if err := p.removeConfiguredPackages(); err != nil {
+		return trace.Wrap(err)
+	}
+	return nil
+}
+
+// removeConfiguredPackages removes packages configured during init phase
+func (p *updatePhaseInit) removeConfiguredPackages() error {
+	// all packages created during this operation were marked
+	// with corresponding operation-id label
+	p.Info("Removing configured packages.")
+	return pack.ForeachPackageInRepo(p.Packages, p.Operation.SiteDomain,
+		func(e pack.PackageEnvelope) error {
+			if e.HasLabel(pack.OperationIDLabel, p.Operation.ID) {
+				p.Infof("Removing package %q.", e.Locator)
+				return p.Packages.DeletePackage(e.Locator)
+			}
+			return nil
+		})
 }

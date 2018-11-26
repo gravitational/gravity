@@ -31,7 +31,8 @@ type kvengine interface {
 	updateVal(key key, val interface{}, ttl time.Duration) error
 	updateValBytes(key key, data []byte, ttl time.Duration) error
 	updateTTL(key key, ttl time.Duration) error
-	compareAndSwap(key key, val interface{}, prevVal interface{}, newVal interface{}, ttl time.Duration) error
+	compareAndSwap(key key, val, prevVal, outVal interface{}, ttl time.Duration) error
+	compareAndSwapBytes(key key, val, prevVal []byte, outVal *[]byte, ttl time.Duration) error
 	getVal(key key, val interface{}) error
 	getValBytes(key key) ([]byte, error)
 	deleteKey(key key) error

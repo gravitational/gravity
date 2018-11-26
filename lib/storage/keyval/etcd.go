@@ -327,6 +327,38 @@ func (e *engine) compareAndSwap(key key, val interface{}, prevVal interface{}, o
 	return nil
 }
 
+func (e *engine) compareAndSwapBytes(key key, val, prevVal []byte, outVal *[]byte, ttl time.Duration) error {
+	encoded, err := e.codec.EncodeBytesToString(val)
+	if err != nil {
+		return trace.Wrap(err)
+	}
+	var re *client.Response
+	var encodedPrev string
+	if prevVal != nil {
+		encodedPrev, err = e.codec.EncodeBytesToString(prevVal)
+		if err != nil {
+			return trace.Wrap(err)
+		}
+		re, err = e.Set(
+			context.TODO(), ekey(key), encoded,
+			&client.SetOptions{TTL: ttl, PrevValue: encodedPrev, PrevExist: client.PrevExist})
+	} else {
+		re, err = e.Set(
+			context.TODO(),
+			ekey(key), encoded,
+			&client.SetOptions{TTL: ttl, PrevExist: client.PrevNoExist})
+	}
+	err = convertErr(err)
+	if err != nil {
+		return trace.Wrap(err)
+	}
+	if re != nil && re.PrevNode != nil {
+		*outVal, err = e.codec.DecodeBytesFromString(re.PrevNode.Value)
+		return trace.Wrap(err)
+	}
+	return nil
+}
+
 func (e *engine) getValBytes(key key) ([]byte, error) {
 	re, err := e.Get(context.TODO(), ekey(key), nil)
 	if err != nil {

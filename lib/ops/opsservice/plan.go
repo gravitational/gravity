@@ -89,10 +89,6 @@ func (p provisionedServers) Contains(ip string) bool {
 type ProvisionedServer struct {
 	storage.Server
 	Profile schema.NodeProfile
-	// PackageSet contains  packages that should be delivered and installed
-	// on this server
-	PackageSet *PackageSet
-	keyPair    *teleportKeyPair
 }
 
 // Address returns the address this server is accessible on

@@ -69,11 +69,11 @@ ignored = [
 
 [[constraint]]
   name = "github.com/gogo/protobuf"
-  version = "v0.4"
+  version = "=v1.1.0"
 
-[[constraint]]
+[[override]]
   name = "golang.org/x/net"
-  branch = "release-branch.go1.9"
+  branch = "master"
 
 [[constraint]]
   name = "google.golang.org/grpc"
@@ -144,7 +144,7 @@ ignored = [
 
 [[constraint]]
   name = "github.com/coreos/etcd"
-  version = "3.2.4"
+  version = "3.3.9"
 
 [[constraint]]
   name = "github.com/coreos/go-semver"
@@ -172,11 +172,11 @@ ignored = [
 
 [[override]]
   name = "github.com/gravitational/roundtrip"
-  version = "0.0.2"
+  revision = "6a87d116a90b9c4e73bedc19ebc9c17f1b43d826"
 
 [[constraint]]
   name = "github.com/gravitational/teleport"
-  version = "=v2.4.9"
+  branch = "branch/3.0"
 
 [[constraint]]
   branch = "master"
@@ -200,7 +200,7 @@ ignored = [
   #version = "=v2.2.7"
   branch = "telekube"
 
-[[constraint]]
+[[override]]
   name = "k8s.io/client-go"
   version = "=v9.0.0"
 
@@ -219,3 +219,7 @@ ignored = [
 [[constraint]]
   name = "github.com/hashicorp/terraform"
   version = "=v0.11.7"
+
+[[override]]
+  name = "github.com/ugorji/go"
+  version = "=v1.1.1"

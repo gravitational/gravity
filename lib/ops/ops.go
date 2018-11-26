@@ -39,6 +39,7 @@ import (
 	"github.com/cloudflare/cfssl/csr"
 	"github.com/cloudflare/cfssl/signer"
 	"github.com/gravitational/license"
+	"github.com/gravitational/license/authority"
 	"github.com/gravitational/satellite/agent/proto/agentpb"
 	teleauth "github.com/gravitational/teleport/lib/auth"
 	teleclient "github.com/gravitational/teleport/lib/client"
@@ -61,6 +62,9 @@ type TeleportProxyService interface {
 	// DeleteAuthority deletes teleport authorities for the provided
 	// site name
 	DeleteAuthority(domainName string) error
+
+	// DeleteRemoteCluster deletes remote cluster resource
+	DeleteRemoteCluster(clusterName string) error
 
 	// TrustCertAuthority sets up trust for certificate authority
 	TrustCertAuthority(teleservices.CertAuthority) error
@@ -88,6 +92,9 @@ type TeleportProxyService interface {
 
 	// GetCertAuthorities returns a list of cert authorities this proxy trusts
 	GetCertAuthorities(caType teleservices.CertAuthType) ([]teleservices.CertAuthority, error)
+
+	// GetCertAuthority returns the requested certificate authority
+	GetCertAuthority(id teleservices.CertAuthID, loadSigningKeys bool) (*authority.TLSKeyPair, error)
 
 	// GetPlanetLeaderIP returns the IP address of the active planet leader
 	GetPlanetLeaderIP() string
@@ -344,6 +351,8 @@ type SSHSignRequest struct {
 	// AllowedLogins is a list of linux allowed logins
 	// is set by access controller and is ignored from request
 	AllowedLogins []string `json:"-"`
+	// CSR is x509 request to sign a certificate using teleport's certificate
+	CSR []byte `json:"csr"`
 }
 
 // SSHSignResponse is a response to SSHSignRequest
@@ -352,6 +361,10 @@ type SSHSignResponse struct {
 	Cert []byte `json:"cert"`
 	// TrustedHostAuthorities is a list of trusted host authorities of sites
 	TrustedHostAuthorities []teleservices.CertAuthority `json:"trusted_authorities"`
+	// TLSCert is the signed x590 certificate
+	TLSCert []byte `json:"tls_cert"`
+	// CACert is the teleport TLS CA certificate
+	CACert []byte `json:"ca_cert"`
 }
 
 // ToRaw returns wire-friendly representation of the request
@@ -360,10 +373,12 @@ func (s *SSHSignResponse) ToRaw() (*SSHSignResponseRaw, error) {
 	raw := SSHSignResponseRaw{
 		Cert: s.Cert,
 		TrustedHostAuthorities: make([]json.RawMessage, 0, len(s.TrustedHostAuthorities)),
+		TLSCert:                s.TLSCert,
+		CACert:                 s.CACert,
 	}
 	for i := range s.TrustedHostAuthorities {
 		cert := s.TrustedHostAuthorities[i]
-		data, err := teleservices.GetCertAuthorityMarshaler().MarshalCertAuthority(cert, teleservices.WithVersion(teleservices.V1))
+		data, err := teleservices.GetCertAuthorityMarshaler().MarshalCertAuthority(cert)
 		if err != nil {
 			return nil, trace.Wrap(err)
 		}
@@ -379,6 +394,10 @@ type SSHSignResponseRaw struct {
 	Cert []byte `json:"cert"`
 	// TrustedHostAuthorities is a list of trusted host authorities of sites
 	TrustedHostAuthorities []json.RawMessage `json:"trusted_authorities"`
+	// TLSCert is the signed x590 certificate
+	TLSCert []byte `json:"tls_cert"`
+	// CACert is the teleport TLS CA certificate
+	CACert []byte `json:"ca_cert"`
 }
 
 // ToNative converts back to request that has all interfaces inside
@@ -386,6 +405,8 @@ func (s *SSHSignResponseRaw) ToNative() (*SSHSignResponse, error) {
 	native := SSHSignResponse{
 		Cert: s.Cert,
 		TrustedHostAuthorities: make([]teleservices.CertAuthority, 0, len(s.TrustedHostAuthorities)),
+		TLSCert:                s.TLSCert,
+		CACert:                 s.CACert,
 	}
 	for i := range s.TrustedHostAuthorities {
 		ca, err := teleservices.GetCertAuthorityMarshaler().UnmarshalCertAuthority(s.TrustedHostAuthorities[i])
@@ -696,7 +717,10 @@ type Updates interface {
 	RotateSecrets(RotateSecretsRequest) (*RotatePackageResponse, error)
 
 	// RotatePlanetConfig rotates planet configuration package for the server specified in the request
-	RotatePlanetConfig(RotatePlanetConfigRequest) (*RotatePackageResponse, error)
+	RotatePlanetConfig(RotateConfigPackageRequest) (*RotatePackageResponse, error)
+
+	// RotateTeleportConfig rotates teleport configuration package for the server specified in the request
+	RotateTeleportConfig(RotateConfigPackageRequest) (masterConfig *RotatePackageResponse, nodeConfig *RotatePackageResponse, err error)
 
 	// ConfigureNode prepares the node for the upgrade
 	ConfigureNode(ConfigureNodeRequest) error
@@ -759,8 +783,8 @@ func (r RotateSecretsRequest) SiteKey() SiteKey {
 	}
 }
 
-// RotatePlanetConfigRequest is a request to rotate server's planet configuration package
-type RotatePlanetConfigRequest struct {
+// RotateConfigPackageRequest is a request to rotate server's configuration package
+type RotateConfigPackageRequest struct {
 	// AccountID is the account id of the local cluster
 	AccountID string `json:"account_id"`
 	// ClusterName is the local cluster name
@@ -770,11 +794,11 @@ type RotatePlanetConfigRequest struct {
 	// Server is the server to rotate configuration for
 	Server storage.Server `json:"server"`
 	// Servers is all cluster servers
-	Servers []storage.Server `json:"servers"`
+	Servers storage.Servers `json:"servers"`
 }
 
 // SiteKey returns a cluster key from this request
-func (r RotatePlanetConfigRequest) SiteKey() SiteKey {
+func (r RotateConfigPackageRequest) SiteKey() SiteKey {
 	return SiteKey{
 		AccountID:  r.AccountID,
 		SiteDomain: r.ClusterName,
@@ -782,7 +806,7 @@ func (r RotatePlanetConfigRequest) SiteKey() SiteKey {
 }
 
 // SiteOperationKey returns an operation key from this request
-func (r RotatePlanetConfigRequest) SiteOperationKey() SiteOperationKey {
+func (r RotateConfigPackageRequest) SiteOperationKey() SiteOperationKey {
 	return SiteOperationKey{
 		AccountID:   r.AccountID,
 		SiteDomain:  r.ClusterName,

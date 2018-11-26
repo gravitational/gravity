@@ -44,8 +44,10 @@ const (
 	PurposePlanetConfig = "planet-config"
 	// PurposeRuntime marks a package as a runtime container package
 	PurposeRuntime = "runtime"
-	// PurposeTeleportConfig marks packages with teleport config
-	PurposeTeleportConfig = "teleport-config"
+	// PurposeTeleportMasterConfig marks package with teleport master config
+	PurposeTeleportMasterConfig = "teleport-master-config"
+	// PurposeTeleportNodeConfig marks package with teleport node config
+	PurposeTeleportNodeConfig = "teleport-node-config"
 	// PurposeMetadata defines a label to use for application packages
 	// that represent another package on a remote cluster.
 	// A metadata package only contains a metadata block w/o actual contents of the

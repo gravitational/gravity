@@ -18,12 +18,20 @@ package update
 
 import (
 	"context"
+	"os"
+	"path/filepath"
+	"strings"
 
+	"github.com/gravitational/gravity/lib/constants"
 	"github.com/gravitational/gravity/lib/defaults"
 	"github.com/gravitational/gravity/lib/fsm"
 	libkubernetes "github.com/gravitational/gravity/lib/kubernetes"
+	"github.com/gravitational/gravity/lib/state"
 	"github.com/gravitational/gravity/lib/storage"
+	"github.com/gravitational/gravity/lib/storage/keyval"
+	"github.com/gravitational/gravity/lib/users"
 
+	teleservices "github.com/gravitational/teleport/lib/services"
 	"github.com/gravitational/trace"
 	log "github.com/sirupsen/logrus"
 	"k8s.io/client-go/kubernetes"
@@ -91,7 +99,7 @@ func (p *phaseMigrateLinks) Execute(context.Context) error {
 		return trace.Wrap(err)
 	}
 	p.Debugf("creating trusted cluster: %s", trustedCluster)
-	err = p.Backend.UpsertTrustedCluster(trustedCluster)
+	_, err = p.Backend.UpsertTrustedCluster(trustedCluster)
 	if err != nil {
 		return trace.Wrap(err)
 	}
@@ -147,7 +155,7 @@ func (p *phaseMigrateLinks) sortOutLinks(links []storage.OpsCenterLink) (remoteL
 
 // phaseUpdateLabels adds / updates labels as required
 type phaseUpdateLabels struct {
-	// Entry is used for logging
+	// FieldLogger is used for logging
 	log.FieldLogger
 	// Servers is the list of servers to update
 	Servers []storage.Server
@@ -193,4 +201,196 @@ func (p *phaseUpdateLabels) PreCheck(context.Context) error {
 // PostCheck is no-op for this phase
 func (*phaseUpdateLabels) PostCheck(context.Context) error {
 	return nil
+}
+
+// phaseMigrateRoles migrates cluster roles to a new format
+type phaseMigrateRoles struct {
+	// FieldLogger is used for logging
+	log.FieldLogger
+	// Backend is the cluster backend
+	Backend storage.Backend
+	// ClusterName is the name of the cluster performing the operation
+	ClusterName string
+	// OperationID is the current operation ID
+	OperationID string
+	// getBackupBackend returns backend for backup data, overridden in tests
+	getBackupBackend func(operationID string) (storage.Backend, error)
+}
+
+// NewPhaseMigrateRoles returns a new roles migration executor
+func NewPhaseMigrateRoles(c FSMConfig, plan storage.OperationPlan, phase storage.OperationPhase) (*phaseMigrateRoles, error) {
+	return &phaseMigrateRoles{
+		FieldLogger: log.WithFields(log.Fields{
+			constants.FieldPhase: phase.ID,
+		}),
+		Backend:          c.Backend,
+		ClusterName:      plan.ClusterName,
+		OperationID:      plan.OperationID,
+		getBackupBackend: getBackupBackend,
+	}, nil
+}
+
+// Execute migrates cluster roles to a new format
+func (p *phaseMigrateRoles) Execute(context.Context) error {
+	roles, err := p.Backend.GetRoles()
+	if err != nil {
+		return trace.Wrap(err)
+	}
+	for _, role := range roles {
+		if needMigrateRole(role) {
+			p.Infof("Migrating role %q.", role.GetName())
+			if err := p.migrateRole(role); err != nil {
+				return trace.Wrap(err)
+			}
+		}
+	}
+	return nil
+}
+
+// Rollback rolls back role migration changes
+func (p *phaseMigrateRoles) Rollback(context.Context) error {
+	roles, err := p.Backend.GetRoles()
+	if err != nil {
+		return trace.Wrap(err)
+	}
+	for _, role := range roles {
+		if len(role.GetKubeGroups(teleservices.Allow))+len(role.GetKubeGroups(teleservices.Deny)) != 0 {
+			p.Infof("Rolling back role %q.", role.GetName())
+			if err := p.restoreRole(role.GetName()); err != nil {
+				return trace.Wrap(err)
+			}
+		}
+	}
+	return nil
+}
+
+// migrateRole migrates obsolete "assignKubernetesGroups" rule action
+// to the KubeGroups rule property
+func (p *phaseMigrateRoles) migrateRole(role teleservices.Role) error {
+	allowKubeGroups, allowRules, err := p.rewriteRole(role, teleservices.Allow)
+	if err != nil {
+		return trace.Wrap(err)
+	}
+
+	denyKubeGroups, denyRules, err := p.rewriteRole(role, teleservices.Deny)
+	if err != nil {
+		return trace.Wrap(err)
+	}
+
+	err = p.backupRole(role)
+	if err != nil {
+		return trace.Wrap(err)
+	}
+
+	role.SetRules(teleservices.Allow, allowRules)
+	role.SetKubeGroups(teleservices.Allow, allowKubeGroups)
+	role.SetRules(teleservices.Deny, denyRules)
+	role.SetKubeGroups(teleservices.Deny, denyKubeGroups)
+
+	err = p.Backend.UpsertRole(role, storage.Forever)
+	if err != nil {
+		return trace.Wrap(err)
+	}
+
+	return nil
+}
+
+// rewriteRole returns kube groups from the legacy "assignKubernetesGroups"
+// role action and the rewritten rules without this action
+func (p *phaseMigrateRoles) rewriteRole(role teleservices.Role, condition teleservices.RoleConditionType) (kubeGroups []string, rules []teleservices.Rule, err error) {
+	for _, rule := range role.GetRules(condition) {
+		var actions []string
+		for _, action := range rule.Actions {
+			if !strings.HasPrefix(action, constants.AssignKubernetesGroupsFnName) {
+				actions = append(actions, action)
+				continue
+			}
+			groups, err := users.ExtractKubeGroups(action)
+			if err != nil {
+				return nil, nil, trace.Wrap(err)
+			}
+			kubeGroups = append(kubeGroups, groups...)
+		}
+		rule.Actions = actions
+		rules = append(rules, rule)
+	}
+	return kubeGroups, rules, nil
+}
+
+func (p *phaseMigrateRoles) extractKubeGroups(rules []teleservices.Rule) (result []string, err error) {
+	for _, rule := range rules {
+		for _, action := range rule.Actions {
+			if strings.HasPrefix(action, constants.AssignKubernetesGroupsFnName) {
+				groups, err := users.ExtractKubeGroups(action)
+				if err != nil {
+					return nil, trace.Wrap(err)
+				}
+				result = append(result, groups...)
+			}
+		}
+	}
+	return result, nil
+}
+
+// backupRole saves the provided role in the operation's backup backend
+func (p *phaseMigrateRoles) backupRole(role teleservices.Role) error {
+	backend, err := p.getBackupBackend(p.OperationID)
+	if err != nil {
+		return trace.Wrap(err)
+	}
+	defer backend.Close()
+	err = backend.UpsertRole(role, storage.Forever)
+	if err != nil {
+		return trace.Wrap(err)
+	}
+	return nil
+}
+
+// restoreRole restores role with the provided name from the operation's backup backend
+func (p *phaseMigrateRoles) restoreRole(name string) error {
+	backend, err := p.getBackupBackend(p.OperationID)
+	if err != nil {
+		return trace.Wrap(err)
+	}
+	defer backend.Close()
+	role, err := backend.GetRole(name)
+	if err != nil {
+		return trace.Wrap(err)
+	}
+	err = p.Backend.UpsertRole(role, storage.Forever)
+	if err != nil {
+		return trace.Wrap(err)
+	}
+	return nil
+}
+
+// PreCheck is no-op for this phase
+func (*phaseMigrateRoles) PreCheck(context.Context) error {
+	return nil
+}
+
+// PostCheck is no-op for this phase
+func (*phaseMigrateRoles) PostCheck(context.Context) error {
+	return nil
+}
+
+// getBackupBackend returns a new local backend specific to the current operation
+//
+// It is the caller's responsibility to close the backend.
+func getBackupBackend(operationID string) (storage.Backend, error) {
+	stateDir, err := state.GetStateDir()
+	if err != nil {
+		return nil, trace.Wrap(err)
+	}
+	err = os.MkdirAll(filepath.Join(stateDir, defaults.BackupDir, operationID), defaults.SharedDirMask)
+	if err != nil {
+		return nil, trace.ConvertSystemError(err)
+	}
+	backend, err := keyval.NewBolt(keyval.BoltConfig{
+		Path: filepath.Join(stateDir, defaults.BackupDir, operationID, "backup.db"),
+	})
+	if err != nil {
+		return nil, trace.Wrap(err)
+	}
+	return backend, nil
 }

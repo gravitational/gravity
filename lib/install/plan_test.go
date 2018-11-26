@@ -30,6 +30,8 @@ import (
 	"github.com/gravitational/gravity/lib/ops/suite"
 	"github.com/gravitational/gravity/lib/pack"
 	"github.com/gravitational/gravity/lib/pack/encryptedpack"
+	"github.com/gravitational/gravity/lib/process"
+	"github.com/gravitational/gravity/lib/processconfig"
 	"github.com/gravitational/gravity/lib/schema"
 	"github.com/gravitational/gravity/lib/storage"
 	"github.com/gravitational/gravity/lib/systeminfo"
@@ -37,6 +39,7 @@ import (
 	"github.com/cloudflare/cfssl/csr"
 	"github.com/gravitational/license/authority"
 	"github.com/gravitational/trace"
+	"github.com/pborman/uuid"
 	"github.com/sirupsen/logrus"
 	"gopkg.in/check.v1"
 )
@@ -176,6 +179,7 @@ func (s *PlanSuite) SetUpSuite(c *check.C) {
 			ServiceUser: s.serviceUser,
 			Mode:        constants.InstallModeCLI,
 			DNSConfig:   s.dnsConfig,
+			Process:     &mockProcess{},
 		},
 		FieldLogger: logrus.WithField(trace.Component, "plan-suite"),
 		AppPackage:  appPackage,
@@ -213,6 +217,7 @@ func (s *PlanSuite) TestPlan(c *check.C) {
 		{phases.ExportPhase, s.verifyExportPhase},
 		{phases.RuntimePhase, s.verifyRuntimePhase},
 		{phases.AppPhase, s.verifyAppPhase},
+		{phases.ConnectInstallerPhase, s.verifyConnectInstallerPhase},
 		{phases.EnableElectionPhase, s.verifyEnableElectionPhase},
 	}
 
@@ -534,6 +539,19 @@ func (s *PlanSuite) verifyAppPhase(c *check.C, phase storage.OperationPhase) {
 	}, phase)
 }
 
+func (s *PlanSuite) verifyConnectInstallerPhase(c *check.C, phase storage.OperationPhase) {
+	bytes, err := storage.MarshalTrustedCluster(installerTrustedCluster)
+	c.Assert(err, check.IsNil)
+	storage.DeepComparePhases(c, storage.OperationPhase{
+		ID: phases.ConnectInstallerPhase,
+		Data: &storage.OperationPhaseData{
+			Server:         &s.masterNode,
+			TrustedCluster: bytes,
+		},
+		Requires: []string{phases.RuntimePhase},
+	}, phase)
+}
+
 func (s *PlanSuite) verifyEnableElectionPhase(c *check.C, phase storage.OperationPhase) {
 	storage.DeepComparePhases(c, storage.OperationPhase{
 		ID: phases.EnableElectionPhase,
@@ -620,3 +638,28 @@ data:
 
 // encryptionKey is used to test encrypted installer packages
 const encryptionKey = "secret"
+
+type mockProcess struct {
+	process.GravityProcess
+}
+
+func (p *mockProcess) Config() *processconfig.Config {
+	return &processconfig.Config{
+		OpsCenter: processconfig.OpsCenterConfig{
+			SeedConfig: &ops.SeedConfig{
+				TrustedClusters: []storage.TrustedCluster{
+					installerTrustedCluster,
+				},
+			},
+		},
+	}
+}
+
+var installerTrustedCluster = storage.NewTrustedCluster("installer",
+	storage.TrustedClusterSpecV2{
+		Enabled:              true,
+		Token:                uuid.New(),
+		ProxyAddress:         "localhost",
+		ReverseTunnelAddress: "localhost",
+		Wizard:               true,
+	})

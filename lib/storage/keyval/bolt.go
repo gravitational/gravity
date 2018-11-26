@@ -371,31 +371,45 @@ func (b *blt) compareAndSwap(k key, val interface{}, prevVal interface{}, outVal
 			return trace.Wrap(err)
 		}
 	}
+	var outEncoded []byte
+	err = b.compareAndSwapBytes(k, encoded, prevEncoded, &outEncoded, ttl)
+	if err != nil {
+		return trace.Wrap(err)
+	}
+	err = b.codec.DecodeFromBytes(outEncoded, outVal)
+	if err != nil {
+		return trace.Wrap(err)
+	}
+	return nil
+}
 
+func (b *blt) compareAndSwapBytes(k key, val, prevVal []byte, outVal *[]byte, ttl time.Duration) error {
 	buckets, key := b.split(k)
 	return b.db.Update(func(tx *bolt.Tx) error {
 		bkt, err := upsertBucket(tx, buckets)
 		if err != nil {
 			return trace.Wrap(err)
 		}
-		currentEncoded := bkt.Get([]byte(key))
+		currentVal := bkt.Get([]byte(key))
 		if prevVal == nil { // we don't expect the value to exist
-			if currentEncoded != nil {
-				return trace.AlreadyExists("key '%v' already exists", key)
+			if currentVal != nil {
+				return trace.AlreadyExists("key %q already exists", key)
 			}
-			return trace.Wrap(bkt.Put([]byte(key), encoded))
+			return trace.Wrap(bkt.Put([]byte(key), val))
 		} else { // we expect the previous value to exist
 			if val == nil {
-				return trace.NotFound("key '%v' not found", key)
+				return trace.NotFound("key %q not found", key)
 			}
-			if bytes.Compare(currentEncoded, prevEncoded) != 0 {
-				return trace.CompareFailed("expected %v got %v", string(prevEncoded), string(currentEncoded))
+			if bytes.Compare(currentVal, prevVal) != 0 {
+				return trace.CompareFailed("expected %v got %v",
+					string(prevVal), string(currentVal))
 			}
-			err = bkt.Put([]byte(key), encoded)
+			err = bkt.Put([]byte(key), val)
 			if err != nil {
 				return trace.Wrap(err)
 			}
-			return trace.Wrap(b.codec.DecodeFromBytes(currentEncoded, outVal))
+			*outVal = currentVal
+			return nil
 		}
 	})
 }

@@ -1,5 +1,404 @@
 # Changelog
 
+## 3.0.1
+
+This release of Teleport contains the following bug fix:
+
+* Fix regression that marked ADFS claims as invalid. [#2293](https://github.com/gravitational/teleport/pull/2293)
+
+## 3.0
+
+This is a major Teleport release which introduces support for Kubernetes
+clusters. In addition to this new feature this release includes several
+usability and performance improvements listed below.
+
+#### Kubernetes Support
+
+* `tsh login` can retreive and install certificates for both Kubernetes and SSH
+  at the same time.
+* Full audit log support for `kubectl` commands, including recording of the sessions
+  if `kubectl exec` command was interactive.
+* Unified (AKA "single pane of glass") RBAC for both SSH and Kubernetes permissions.
+
+For more information about Kubernetes support, take a look at
+the [Kubernetes and SSH Integration Guide](https://gravitational.com/teleport/docs/kubernetes_ssh/)
+
+#### Improvements
+
+* Teleport administrators can now fine-tune the enabled ciphersuites [#1999](https://github.com/gravitational/teleport/issues/1999)
+* Improved user experience linking trusted clusters together [#1971](https://github.com/gravitational/teleport/issues/1971)
+* All Teleport components (proxy, auth and nodes) now support `public_addr`
+  setting which allows them to be hosted behind NAT/Load Balancers. [#1793](https://github.com/gravitational/teleport/issues/1793)
+* We have documented the previously undocumented monitoring endpoints [#2103](https://github.com/gravitational/teleport/issues/2103)
+* The `etcd` back-end has been updated to implement 3.3+ protocol. See the upgrading notes below.
+* Listing nodes via `tsh ls` or the web UI no longer shows nodes that the currently logged in user has no access to. [#1954](https://github.com/gravitational/teleport/issues/1954)
+* It is now possible to build `tsh` client on Windows. Note: only `tsh login` command is implemented. [#1996](https://github.com/gravitational/teleport/pull/1996).
+* `-i` flag to `tsh login` is now guarantees to be non-interactive. [#2221](https://github.com/gravitational/teleport/issues/2221)
+
+#### Bugfixes
+
+* Removed the bogus error message "access denied to perform action create on user" [#2132](https://github.com/gravitational/teleport/issues/2132)
+* `scp` implementation in "recording proxy" mode did not work correctly. [#2176](https://github.com/gravitational/teleport/issues/2176)
+* Removed the limit of 8 trusted clusters with SSO. [#2192](https://github.com/gravitational/teleport/issues/2192)
+* `tsh ls` now works correctly when executed on a remote/trusted cluster [#2204](https://github.com/gravitational/teleport/milestone/24?closed=1)
+
+The lists of improvements and bug fixes above mention only the significant
+changes, please take a look at [the complete list](https://github.com/gravitational/teleport/milestone/24?closed=1)
+on Github for more.
+
+#### Upgrading to 3.0
+
+Follow the [recommended upgrade procedure](https://gravitational.com/teleport/docs/admin-guide/#upgrading-teleport)
+to upgrade to this version.
+
+**WARNING:** if you are using Teleport with the etcd back-end, make sure your
+`etcd` version is 3.3 or newer prior to upgrading to Teleport 3.0.
+
+## 2.7.6
+
+This release of Teleport contains the following bug fix:
+
+* Fix regression that marked ADFS claims as invalid. [#2293](https://github.com/gravitational/teleport/pull/2293)
+
+## 2.7.5
+
+This release of Teleport contains the following bug fix:
+
+* Teleport auth servers do not delete temporary files named `/tmp/multipart-` [#2250](https://github.com/gravitational/teleport/issues/2250)
+
+## 2.7.4
+
+This release of Teleport focuses on bugfixes.
+
+#### Bug Fixes
+
+* Fixed issues with `client_idle_timeout`. [#2166](https://github.com/gravitational/teleport/issues/2166)
+* Added support for scalar and list values for `node_labels` in roles. [#2136](https://github.com/gravitational/teleport/issues/2136)
+* Improved font support on Ubuntu.
+
+## 2.7.3
+
+This release of Teleport focuses on bugfixes.
+
+#### Bug Fixes
+
+* Fixed issue that cause `failed executing request: user agent missing` missing error when upgrading from 2.6.
+
+## 2.7.2
+
+This release of Teleport focuses on bugfixes.
+
+#### Bug Fixes
+
+* Fixed issue in Teleport 2.7.2 where rollback to Go 1.9.7 was not complete for `linux-amd64` binaries.
+
+## 2.7.1
+
+This release of Teleport focuses on bugfixes.
+
+#### Bug Fixes
+
+* Rollback to Go 1.9.7 for users with custom CA running into `x509: certificate signed by unknown authority`.
+
+## 2.7.0
+
+The primary goal of 2.7.0 release was to address the community feedback and improve the performance and flexibility when running Teleport clusters with large number of nodes.
+
+#### New Features
+
+* The Web UI now includes `scp` (secure copy) functionality. This allows Windows users and other users of the Web UI to upload/download files into SSH nodes using a web browser.
+* Fine-grained control over forceful session termination has been added [#1935](https://github.com/gravitational/teleport/issues/1935). It is now possible to:
+  * Forcefully disconnect idle clients (no client activity) after a specified timeout.
+  * Forcefully disconnect clients when their certificates expire in the middle of an active SSH session.
+
+#### Performance Improvements
+
+* Performance of SSH login commands have been improved on large clusters (thousands of nodes). [#2061](https://github.com/gravitational/teleport/issues/2061)
+* DynamoDB storage back-end performance has been improved. [#2021](https://github.com/gravitational/teleport/issues/2021)
+* Performance of session recording via a proxy has been improved [#1966](https://github.com/gravitational/teleport/issues/1966)
+* Connections between trusted clusters are managed better [#2023](https://github.com/gravitational/teleport/issues/2023)
+
+#### Bug Fixes
+
+As awlays, this release contains several bug fixes. The full list can be seen [here](https://github.com/gravitational/teleport/milestone/25?closed=1). Here are some notable ones:
+
+* It is now possible to issue certificates with a long TTL via admin's `auth sign` tool. Previously they were limited to 30 hours for undocumented reason. [1745](https://github.com/gravitational/teleport/issues/1745)
+* Dynamic label values were shown as empty strings. [2056](https://github.com/gravitational/teleport/issues/2056)
+
+#### Upgrading
+
+Follow the [recommended upgrade procedure](https://gravitational.com/teleport/docs/admin-guide/#upgrading-teleport) to upgrade to this version.
+
+## 2.6.9
+
+This release of Teleport focuses on bugfixes.
+
+#### Bug Fixes
+
+* Fixed issue in Teleport 2.6.8 where rollback to Go 1.9.7 was not complete for `linux-amd64` binaries.
+
+## 2.6.8
+
+This release of Teleport focuses on bugfixes.
+
+#### Bug Fixes
+
+* Rollback to Go 1.9.7 for users with custom CA running into `x509: certificate signed by unknown authority`.
+
+## 2.6.7
+
+This release of Teleport focuses on bugfixes.
+
+#### Bug Fixes
+
+* Resolved dynamic label regression. [#2056](https://github.com/gravitational/teleport/issues/2056)
+
+## 2.6.5
+
+This release of Teleport focuses on bugfixes.
+
+#### Bug Fixes
+
+* Remote clusters no longer try to re-connect to proxies that have been permanently removed. [#2023](https://github.com/gravitational/teleport/issues/2023)
+* Speed up login on systems with many users. [#2021](https://github.com/gravitational/teleport/issues/2021)
+* Improve overall performance of the etcd backend. [#2030](https://github.com/gravitational/teleport/issues/2030)
+* Role login validation now applies after variables have been substituted. [#2022](https://github.com/gravitational/teleport/issues/2022)
+
+## 2.6.3
+
+This release of Teleport focuses on bugfixes.
+
+#### Bug Fixes
+
+* Remote clusters no longer try to re-connect to proxies that have been permanently removed. [#2023](https://github.com/gravitational/teleport/issues/2023)
+* Speed up login on systems with many users. [#2021](https://github.com/gravitational/teleport/issues/2021)
+* Improve overall performance of the etcd backend. [#2030](https://github.com/gravitational/teleport/issues/2030)
+* Role login validation now applies after variables have been substituted. [#2022](https://github.com/gravitational/teleport/issues/2022)
+
+## 2.6.2
+
+This release of Teleport focuses on bugfixes.
+
+#### Bug Fixes
+
+* Reduced go routine usage by the forwarding proxy. [#1966](https://github.com/gravitational/teleport/issues/1966)
+* Teleport no longer sends full version in the SSH handshake. [#970](https://github.com/gravitational/teleport/issues/970)
+* Force flag works correctly for Trusted Clusters. [#1871](https://github.com/gravitational/teleport/issues/1871)
+* Allow manual creation of Certificate Authorities. [#2001](https://github.com/gravitational/teleport/pull/2001)
+* Include Teleport username in port forwarding events. [#2004](https://github.com/gravitational/teleport/pull/2004)
+* Allow `tctl auth sign` to create user certificate with arbitrary TTL values. [#1745](https://github.com/gravitational/teleport/issues/1745)
+* Upgrade to Go 1.10.3. [#2008](https://github.com/gravitational/teleport/pull/2008)
+
+## 2.6.1
+
+This release of Teleport focuses on bugfixes.
+
+#### Bug Fixes
+
+* Use ciphers, KEX, and MAC algorithms from Teleport configuration in reverse tunnel server. [#1984](https://github.com/gravitational/teleport/pull/1984)
+* Update path sanitizer it allow `@`. [#1985](https://github.com/gravitational/teleport/pull/1985)
+
+## 2.6.0
+
+This release of Teleport brings new features, significant performance and
+usability improvements as well usual bugfixes.
+
+During this release cycle, the Teleport source code has been audited for
+security vulnerabilities by Cure53 and this release (2.6.0) contains patches
+for the discovered problems.
+
+#### New Features
+
+* Support for DynamoDB for storing the audit log events. [#1755](https://github.com/gravitational/teleport/issues/1755)
+* Support for Amazon S3 for storing the recorded SSH sessions. [#1755](https://github.com/gravitational/teleport/issues/1755)
+* Support for rotating certificate authorities (CA rotation). [#1899] (https://github.com/gravitational/teleport/pull/1899)
+* Integration with Linux PAM (pluggable authentication modules) subsystem. [#742](https://github.com/gravitational/teleport/issues/742) and [#1766](https://github.com/gravitational/teleport/issues/1766)
+* The new CLI command `tsh status` shows users which Teleport clusters they are authenticated with. [#1628](https://github.com/gravitational/teleport/issues/1628)
+
+Additionally, Teleport 2.6.0 has been submitted to the AWS marketplace. Soon
+AWS users will be able to create properly configured, secure and highly
+available Teleport clusters with ease.
+
+#### Configuration Changes
+
+* Role templates (depreciated in Teleport 2.3) were fully removed. We recommend
+  migrating to role variables which are documented [here](https://gravitational.com/teleport/docs/ssh_rbac/#roles)
+
+* Resource names (like roles, connectors, trusted clusters) can no longer
+  contain unicode or other special characters. Update the names of all user
+  created resources to only include characters, hyphens, and dots.
+
+* `advertise_ip` has been deprecated and replaced with `public_addr` setting. See [#1803](https://github.com/gravitational/teleport/issues/1803)
+  The existing configuration files will still work, but we advise Teleport
+  administrators to update it to reflect the new format.
+
+* Teleport no longer uses `boltdb` back-end for storing cluster state _by
+  default_.  The new default is called `dir` and it uses simple JSON files
+  stored in `/var/lib/teleport/backend`. This change applies to brand new
+  Teleport installations, the existing clusters will continue to use `boltdb`.
+
+* The default set of enabled cryptographic primitives has been
+  updated to reflect the latest state of SSH and TLS security. [#1856](https://github.com/gravitational/teleport/issues/1856).
+
+#### Bug Fixes
+
+The list of most visible bug fixes in this release:
+
+* `tsh` now properly handles Ctrl+C [#1882](https://github.com/gravitational/teleport/issues/1882)
+* High CPU utilization on ARM platforms during daemon start-up. [#1886](https://github.com/gravitational/teleport/issues/1886)
+* Terminal window size can get out of sync on AWS. [#1874](https://github.com/gravitational/teleport/issues/1874)
+* Some CLI commands print errors twice. [#1889](https://github.com/gravitational/teleport/issues/1889)
+* SSH session playback can be interrupted for long sessions. [#1774](https://github.com/gravitational/teleport/issues/1774)
+* Processing `HUP` UNIX signal is unreliable when `teleport` daemon runs under `systemd`. [#1844](https://github.com/gravitational/teleport/issues/1844)
+
+You can see the full list of 2.6.0 changes [here](https://github.com/gravitational/teleport/milestone/22?closed=1).
+
+#### Upgrading
+
+Follow the [recommended upgrade procedure](https://gravitational.com/teleport/docs/admin-guide/#upgrading-teleport)
+to upgrade to this version.
+
+## 2.5.7
+
+This release of Teleport focuses on bugfixes.
+
+#### Bug Fixes
+
+* Allow creation of users from `tctl create`. [#1949](https://github.com/gravitational/teleport/pull/1949)
+
+## 2.5.6
+
+This release of Teleport focuses on bugfixes.
+
+#### Bug Fixes
+
+* Improvements to Teleport HUP signal handling for more reliable reload.  [#1844](https://github.com/gravitational/teleport/issues/1844)
+* Restore output format of `tctl nodes add --format=json`. [#1846](https://github.com/gravitational/teleport/issues/1846)
+
+## 2.5.5
+
+This release of Teleport focuses on bugfixes.
+
+#### Bug Fixes
+
+* Allow creation of multiple sessions per connection (fixes Ansible issues with the recording proxy). [#1811](https://github.com/gravitational/teleport/issues/1811)
+
+## 2.5.4
+
+This release of Teleport focuses on bugfixes.
+
+#### Bug Fixes
+
+* Only reset SIGINT handler if it has not been set to ignore. [#1814](https://github.com/gravitational/teleport/pull/1814)
+* Improvement of user-visible errors. [#1798](https://github.com/gravitational/teleport/issues/1798) [#1779](https://github.com/gravitational/teleport/issues/1779)
+
+## 2.5.3
+
+This release of Teleport focuses on bugfixes.
+
+#### Bug Fixes
+
+* Fix logging, collect status of forked processes. [#1785](https://github.com/gravitational/teleport/issues/1785) [#1776](https://github.com/gravitational/teleport/issues/1776)
+* Turn off proxy support when no-tls is used. [#1800](https://github.com/gravitational/teleport/issues/1800)
+* Correct the signup URL. [#1777](https://github.com/gravitational/teleport/issues/1777)
+* Fix GitHub team pagination issues. [#1734](https://github.com/gravitational/teleport/issues/1734)
+* Increase global dial timeout to 30 seconds. [#1760](https://github.com/gravitational/teleport/issues/1760)
+* Reuse existing singing key. [#1713](https://github.com/gravitational/teleport/issues/1713)
+* Don't panic on channel failures. [#1808](https://github.com/gravitational/teleport/pull/1808)
+
+## 2.5.2
+
+This release of Teleport includes bug fixes and regression fixes.
+
+#### Bug Fixes
+
+* Run session migration in the background. [#1784](https://github.com/gravitational/teleport/pull/1784)
+* Include node name in regenerated host certificates. [#1786](https://github.com/gravitational/teleport/issues/1786)
+
+## 2.5.1
+
+This release of Teleport fixes a regression in Teleport binaries.
+
+#### Bug Fixes
+
+* Binaries for macOS have been rebuilt to resolve "certificate signed by a unknown authority" issue.
+
+## 2.5.0
+
+This is a major release of Teleport. Its goal is to make cloud-native
+deployments easier. Numerous AWS users have contributed feedback to this
+release, which includes:
+
+#### New Features
+
+* Auth servers in highly available (HA) configuration can share the same `/var/lib/teleport`
+  data directory when it's hosted on NFS (or AWS EFS).
+  [#1351](https://github.com/gravitational/teleport/issues/1351)
+
+* There is now an AWS reference deployment in `examples/aws` directory.  It
+  uses Terraform and demonstrates how to deploy large Teleport clusters on AWS
+  using best practices like auto-scaling groups, security groups, secrets
+  management, load balancers, etc.
+
+* The Teleport daemon now implements built-in connection draining which allows
+  zero-downtime upgrades.
+  [See documentation](https://gravitational.com/teleport/docs/admin-guide/#graceful-restarts).
+
+* Dynamic join tokens for new nodes can now be explicitly set via `tctl node add --token`.
+  This allows Teleport admins to use an external mechanism for generating
+  cluster invitation tokens.
+  [#1615](https://github.com/gravitational/teleport/pull/1615)
+
+* Teleport now correctly manages certificates for accessing proxies behind a
+  load balancer with the same domain name. The new configuration parameter
+  `public_addr` must be used for this.
+  [#1174](https://github.com/gravitational/teleport/issues/1174).
+
+#### Improvements
+
+* Switching to a new TLS-based auth server API improves performance of large clusters.
+  [#1528](https://github.com/gravitational/teleport/issues/1528)
+
+* Session recordings are now compressed by default using gzip. This reduces storage
+  requirements by up to 80% in our real-world tests.
+  [#1579](https://github.com/gravitational/teleport/issues/1528)
+
+* More user-friendly authentication errors in Teleport audit log helps Teleport admins
+  troubleshoot configuration errors when integrating with SAML/OIDC providers.
+  [#1554](https://github.com/gravitational/teleport/issues/1554),
+  [#1553](https://github.com/gravitational/teleport/issues/1553),
+  [#1599](https://github.com/gravitational/teleport/issues/1599)
+
+* `tsh` client will now report if a server's API is no longer compatible.
+
+#### Bug Fixes
+
+* `tsh logout` will now correctly log out from all active Teleport sessions. This is useful
+  for users who're connected to multiple Teleport clusters at the same time.
+  [#1541](https://github.com/gravitational/teleport/issues/1541)
+
+* When parsing YAML, Teleport now supports `--` list item separator to create
+  multiple resources with a single `tctl create` command.
+  [#1663](https://github.com/gravitational/teleport/issues/1663)
+
+* Fixed a panic in the Web UI backend [#1558](https://github.com/gravitational/teleport/issues/1558)
+
+#### Behavior Changes
+
+Certain components of Teleport behave differently in version 2.5. It is important to
+note that these changes are not breaking Teleport functionality. They improve
+Teleport behavior on large clusters deployed on highly dynamic cloud
+environments such as AWS. This includes:
+
+* Session list in the Web UI is now limited to 1,000 sessions.
+* The audit log and recorded session storage has been moved from `/var/lib/teleport/log`
+  to `/var/lib/teleport/log/<auth-server-id>`. This is related to [#1351](https://github.com/gravitational/teleport/issues/1351)
+  described above.
+* When connecting a trusted cluster users can no longer pick an arbitrary name for them.
+  Their own (local) names will be used, i.e. the `cluster_name` setting now defines how
+  the cluster is seen from the outside.
+  [#1543](https://github.com/gravitational/teleport/issues/1543)
+
 ## 2.4.7
 
 This release of Teleport contains a bugfix.
@@ -41,8 +440,8 @@ This release of Teleport focuses on bugfixes.
 #### Bug Fixes
 
 * Resolved "access denied" regression in Trusted Clusters. [#1733](https://github.com/gravitational/teleport/issues/1733)
-* Resolved toggling regression in Trusted Clusters. [#1751](https://github.com/gravitational/teleport/issues/1751)
 * Key written with wrong username to `~/.tsh`. [#1749](https://github.com/gravitational/teleport/issues/1749)
+* Resolved Trusted Clusters toggling regression. [#1751](https://github.com/gravitational/teleport/issues/1751)
 
 ## 2.4.2
 
@@ -104,27 +503,6 @@ notable fixed bugs are listed below:
 * Resource (file descriptor) leak [#1433](https://github.com/gravitational/teleport/issues/1433)
 * Correct handling of the terminal type [#1402](https://github.com/gravitational/teleport/issues/1402)
 * Crash on startup [#1395](https://github.com/gravitational/teleport/issues/1395)
-
-## 2.3.7
-
-Teleport 2.3.7 fixes a security vulnerability that allowed an attacker with
-direct network access to the Auth Server to write a client for the Auth Server
-that could by-pass second factor authentication.
-
-We strongly encourage anyone running Teleport 2.3 to upgrade their Auth Server
-to 2.3.7 to mitigate this issue.
-
-#### Bug Fixes
-
-* Don't allow second factor by-pass. [#1550](https://github.com/gravitational/teleport/pull/1550)
-
-## 2.3.6
-
-This release contains a minor bugfix.
-
-#### Bug fixes
-
-* When returning a full trusted cluster schema, the extension schema was ignored [#1476](https://github.com/gravitational/teleport/pull/1476)
 
 ## 2.3.5
 

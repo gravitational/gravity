@@ -419,3 +419,29 @@ func ToUnknownResource(resource teleservices.Resource) (*teleservices.UnknownRes
 	}
 	return &unknown, nil
 }
+
+// ParseProxyAddr parses proxy address in the format "host:webPort,sshPort"
+//
+// If web/SSH ports are missing the provided defaults are used.
+func ParseProxyAddr(proxyAddr, defaultWebPort, defaultSSHPort string) (host string, webPort string, sshPort string, err error) {
+	host, port, err := net.SplitHostPort(proxyAddr)
+	if err != nil {
+		return proxyAddr, defaultWebPort, defaultSSHPort, nil
+	}
+
+	parts := strings.Split(port, ",")
+
+	switch {
+
+	case len(parts) == 0: // default ports for both the SSH and HTTP proxy
+		return host, defaultWebPort, defaultSSHPort, nil
+
+	case len(parts) == 1: // user defined HTTP proxy port, default SSH proxy port
+		return host, parts[0], defaultSSHPort, nil
+
+	case len(parts) == 2: // user defined HTTP and SSH proxy ports
+		return host, parts[0], parts[1], nil
+	}
+
+	return "", "", "", trace.BadParameter("unable to parse port: %v", port)
+}

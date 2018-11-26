@@ -992,8 +992,8 @@ func (c *UsersService) DeleteGithubConnector(name string) error {
 }
 
 // CreateGithubAuthRequest creates a new auth request for Github OAuth2 flow
-func (c *UsersService) CreateGithubAuthRequest(req teleservices.GithubAuthRequest, ttl time.Duration) error {
-	return c.backend.CreateGithubAuthRequest(req, ttl)
+func (c *UsersService) CreateGithubAuthRequest(req teleservices.GithubAuthRequest) error {
+	return c.backend.CreateGithubAuthRequest(req)
 }
 
 // GetGithubAuthRequest retrieves Github auth request by the token
@@ -1514,14 +1514,19 @@ func (*UsersService) GetTokens() ([]teleservices.ProvisionToken, error) {
 }
 
 // GetNodes returns a list of registered servers
-func (u *UsersService) GetNodes(namespace string) ([]teleservices.Server, error) {
-	return u.backend.GetNodes(namespace)
+func (u *UsersService) GetNodes(namespace string, opts ...teleservices.MarshalOption) ([]teleservices.Server, error) {
+	return u.backend.GetNodes(namespace, opts...)
 }
 
 // UpsertNode registers node presence, permanently if ttl is 0 or
 // for the specified duration with second resolution if it's >= 1 second
 func (u *UsersService) UpsertNode(server teleservices.Server) error {
 	return u.backend.UpsertNode(server)
+}
+
+// UpsertNode upserts multiple nodes
+func (u *UsersService) UpsertNodes(namespace string, servers []teleservices.Server) error {
+	return u.backend.UpsertNodes(namespace, servers)
 }
 
 // GetAuthServers returns a list of registered servers
@@ -1556,6 +1561,11 @@ func (u *UsersService) GetReverseTunnels() ([]teleservices.ReverseTunnel, error)
 	return u.backend.GetReverseTunnels()
 }
 
+// GetReverseTunnel returns reverse tunnel by name
+func (u *UsersService) GetReverseTunnel(name string) (teleservices.ReverseTunnel, error) {
+	return u.backend.GetReverseTunnel(name)
+}
+
 // DeleteReverseTunnel deletes reverse tunnel by it's domain name
 func (u *UsersService) DeleteReverseTunnel(domainName string) error {
 	return u.backend.DeleteReverseTunnel(domainName)
@@ -1569,6 +1579,12 @@ func (u *UsersService) CreateCertAuthority(ca teleservices.CertAuthority) error 
 // UpsertCertAuthority updates or inserts a new certificate authority
 func (u *UsersService) UpsertCertAuthority(ca teleservices.CertAuthority) error {
 	return u.backend.UpsertCertAuthority(ca)
+}
+
+// CompareAndSwapCertAuthority updates existing cert authority if the existing
+// cert authority value matches the value stored in the backend
+func (u *UsersService) CompareAndSwapCertAuthority(new, existing teleservices.CertAuthority) error {
+	return u.backend.CompareAndSwapCertAuthority(new, existing)
 }
 
 // DeleteCertAuthority deletes particular certificate authority
@@ -1589,8 +1605,8 @@ func (u *UsersService) GetCertAuthority(id teleservices.CertAuthID, loadSigningK
 
 // GetCertAuthorities returns a list of authorities of a given type
 // loadSigningKeys controls whether signing keys should be loaded or not
-func (u *UsersService) GetCertAuthorities(caType teleservices.CertAuthType, loadSigningKeys bool) ([]teleservices.CertAuthority, error) {
-	return u.backend.GetCertAuthorities(caType, loadSigningKeys)
+func (u *UsersService) GetCertAuthorities(caType teleservices.CertAuthType, loadSigningKeys bool, opts ...teleservices.MarshalOption) ([]teleservices.CertAuthority, error) {
+	return u.backend.GetCertAuthorities(caType, loadSigningKeys, opts...)
 }
 
 // GetNamespaces returns a list of namespaces
@@ -1660,7 +1676,7 @@ func (u *UsersService) DeleteAllRoles() error {
 }
 
 // UpsertTrustedCluster creates or updates a TrustedCluster in the backend.
-func (u *UsersService) UpsertTrustedCluster(trustedCluster teleservices.TrustedCluster) error {
+func (u *UsersService) UpsertTrustedCluster(trustedCluster teleservices.TrustedCluster) (teleservices.TrustedCluster, error) {
 	return u.auth.UpsertTrustedCluster(trustedCluster)
 }
 
@@ -1677,6 +1693,31 @@ func (u *UsersService) GetTrustedClusters() ([]teleservices.TrustedCluster, erro
 // DeleteTrustedCluster removes a TrustedCluster from the backend by name.
 func (u *UsersService) DeleteTrustedCluster(name string) error {
 	return u.auth.DeleteTrustedCluster(name)
+}
+
+// CreateRemoteCluster creates a remote cluster
+func (u *UsersService) CreateRemoteCluster(conn teleservices.RemoteCluster) error {
+	return u.backend.CreateRemoteCluster(conn)
+}
+
+// GetRemoteCluster returns a remote cluster by name
+func (u *UsersService) GetRemoteCluster(clusterName string) (teleservices.RemoteCluster, error) {
+	return u.backend.GetRemoteCluster(clusterName)
+}
+
+// GetRemoteClusters returns a list of remote clusters
+func (u *UsersService) GetRemoteClusters() ([]teleservices.RemoteCluster, error) {
+	return u.backend.GetRemoteClusters()
+}
+
+// DeleteRemoteCluster deletes remote cluster by name
+func (u *UsersService) DeleteRemoteCluster(clusterName string) error {
+	return u.backend.DeleteRemoteCluster(clusterName)
+}
+
+// DeleteAllRemoteClusters deletes all remote clusters
+func (u *UsersService) DeleteAllRemoteClusters() error {
+	return u.backend.DeleteAllRemoteClusters()
 }
 
 // DeleteAllNodes deletes all nodes

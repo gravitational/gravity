@@ -389,6 +389,9 @@ const (
 	// LogDir is the name of the log directory
 	LogDir = "log"
 
+	// BackupDir is the directory where some operations store backup data
+	BackupDir = "backup"
+
 	// StateRegistryDir is the name of the docker registry directory inside the planet state directory
 	StateRegistryDir = "registry"
 

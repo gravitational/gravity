@@ -28,5 +28,9 @@ func (env *LocalEnvironment) TeleportClient(proxyHost string) (*teleclient.Telep
 	if err != nil {
 		return nil, trace.Wrap(err, "failed to get cluster operator service")
 	}
-	return clients.Teleport(operator, proxyHost)
+	cluster, err := operator.GetLocalSite()
+	if err != nil {
+		return nil, trace.Wrap(err)
+	}
+	return clients.Teleport(operator, proxyHost, cluster.Domain)
 }

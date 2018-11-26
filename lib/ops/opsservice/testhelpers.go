@@ -34,6 +34,7 @@ import (
 	"github.com/gravitational/gravity/lib/users"
 	"github.com/gravitational/gravity/lib/users/usersservice"
 
+	"github.com/jonboulle/clockwork"
 	"github.com/mailgun/timetools"
 	log "github.com/sirupsen/logrus"
 	"gopkg.in/check.v1"
@@ -57,6 +58,8 @@ type TestServices struct {
 	Users users.Identity
 	// Dir is the temporary directory where all data is stored
 	Dir string
+	// Clock provides time interface
+	Clock clockwork.Clock
 }
 
 // SetupTestServices initializes backend and package and application services
@@ -133,5 +136,6 @@ func SetupTestServices(c *check.C) TestServices {
 		Operator:    opsService,
 		Users:       usersService,
 		Dir:         dir,
+		Clock:       clockwork.NewFakeClock(),
 	}
 }

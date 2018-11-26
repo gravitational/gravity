@@ -71,11 +71,12 @@ func systemPullUpdates(env *localenv.LocalEnvironment, opsCenterURL string, runt
 		update, err := findPackageUpdate(env.Packages, remotePackages, req)
 		if err != nil {
 			if trace.IsNotFound(err) {
-				log.Info(err)
+				log.Infof("No update for: %s.", req)
 				continue
 			}
 			return trace.Wrap(err)
 		}
+		log.Infof("Pulling update: %s.", update)
 		env.Printf("Pulling update %v\n.", update)
 		pullReq := appservice.PackagePullRequest{
 			SrcPack:  remotePackages,
@@ -262,7 +263,12 @@ func systemReinstallPackage(env *localenv.LocalEnvironment, oldPackage, newPacka
 		updates, err := updatePlanetPackage(env, *installedPackage, newPackage, *configPackage)
 		return updates, trace.Wrap(err)
 	case newPackage.Name == constants.TeleportPackage:
-		updates, err := reinstallSystemService(env, newPackage, newPackage, nil)
+		configPackage, err := findLatestTeleportConfigPackage(env.Packages)
+		log.Debugf("Latest teleport configuration package: %v (%v).", configPackage, err)
+		if err != nil {
+			return nil, trace.Wrap(err)
+		}
+		updates, err := reinstallSystemService(env, newPackage, newPackage, configPackage)
 		return updates, trace.Wrap(err)
 	case isSecretsPackage(newPackage):
 		updates, err := reinstallSecretsPackage(env, newPackage)
@@ -1201,6 +1207,20 @@ func findLatestPlanetConfigPackage(localPackages pack.PackageService, planetPack
 		return nil, trace.Wrap(err)
 	}
 	return pack.FindLatestPackage(localPackages, *configPackage)
+}
+
+func findLatestTeleportConfigPackage(localPackages pack.PackageService) (*loc.Locator, error) {
+	// use generic FindPackage function instead of FindConfigPackage because
+	// for some reason both teleport-master-config and teleport-node-config
+	// have a config-package-for label while we're looking specifically for
+	// a node config
+	pkg, err := pack.FindPackage(localPackages, func(e pack.PackageEnvelope) bool {
+		return e.Locator.Name == constants.TeleportNodeConfigPackage
+	})
+	if err != nil {
+		return nil, trace.Wrap(err)
+	}
+	return pack.FindLatestPackage(localPackages, pkg.Locator)
 }
 
 func isPlanetPackage(packageLoc loc.Locator, labels map[string]string) bool {
