@@ -79,7 +79,7 @@ properties([
            defaultValue: '1',
            description: 'How many times to repeat each test.'),
     string(name: 'ROBOTEST_VERSION',
-           defaultValue: 'stable-gce',
+           defaultValue: 'dima',
            description: 'Robotest tag to use.'),
     choice(choices: ["true", "false"].join("\n"),
            defaultValue: 'true',
@@ -89,37 +89,37 @@ properties([
 ])
 
 timestamps {
-  node {
-    stage('checkout') {
-      checkout scm
-      sh "git submodule update --init --recursive"
-      sh "sudo git clean -ffdx" // supply -f flag twice to force-remove untracked dirs with .git subdirs (e.g. submodules)
-    }
-    stage('params') {
-      echo "${params}"
-      propagateParamsToEnv()
-    }
-    stage('clean') {
-      sh "make -C e clean"
-    }
-    stage('build-gravity') {
-      withCredentials([
-      [$class: 'SSHUserPrivateKeyBinding', credentialsId: '08267d86-0b3a-4101-841e-0036bf780b11', keyFileVariable: 'GITHUB_SSH_KEY'],
-      [
-        $class: 'UsernamePasswordMultiBinding',
-        credentialsId: 'jenkins-aws-s3',
-        usernameVariable: 'AWS_ACCESS_KEY_ID',
-        passwordVariable: 'AWS_SECRET_ACCESS_KEY',
-      ],
-      ]) {
-        sh 'make -C e production telekube opscenter'
+  withBuildResult {
+    node {
+      stage('checkout') {
+        checkout scm
+        sh "git submodule update --init --recursive"
+        sh "sudo git clean -ffdx" // supply -f flag twice to force-remove untracked dirs with .git subdirs (e.g. submodules)
+      }
+      stage('params') {
+        echo "${params}"
+        propagateParamsToEnv()
+      }
+      stage('clean') {
+        sh "make -C e clean"
+      }
+      stage('build-gravity') {
+        withCredentials([
+        [$class: 'SSHUserPrivateKeyBinding', credentialsId: '08267d86-0b3a-4101-841e-0036bf780b11', keyFileVariable: 'GITHUB_SSH_KEY'],
+        [
+          $class: 'UsernamePasswordMultiBinding',
+          credentialsId: 'jenkins-aws-s3',
+          usernameVariable: 'AWS_ACCESS_KEY_ID',
+          passwordVariable: 'AWS_SECRET_ACCESS_KEY',
+        ],
+        ]) {
+          sh 'make -C e production telekube opscenter'
+        }
       }
     }
-  }
-  throttle(['robotest']) {
-    node {
-      stage('build-and-test') {
-        withBuildResult {
+    throttle(['robotest']) {
+      node {
+        stage('build-and-test') {
           parallel (
           build : {
             withCredentials([
