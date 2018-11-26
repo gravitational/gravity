@@ -130,8 +130,12 @@ func DeployAgents(ctx context.Context, req DeployAgentsRequest) error {
 		serverStateDir := stateServer.StateDir()
 
 		go func(node, nodeStateDir string, leader bool) {
-			err := deployAgentOnNode(ctx, req, node, nodeStateDir, leader, req.SecretsPackage.String())
-			errors <- trace.Wrap(err)
+			err := trace.Wrap(deployAgentOnNode(ctx, req, node, nodeStateDir,
+				leader, req.SecretsPackage.String()))
+			if err != nil {
+				logrus.WithError(err).WithField("node", node).Warnf("Failed to deploy agent.")
+			}
+			errors <- err
 		}(server.NodeAddr, serverStateDir, leaderProcess)
 	}
 
@@ -204,10 +208,10 @@ func deployAgentOnNode(ctx context.Context, req DeployAgentsRequest, node, nodeS
 	err = utils.NewSSHCommands(nodeClient.Client).
 		C("rm -rf %s", secretsHostDir).
 		C("mkdir -p %s", secretsHostDir).
-		C("%s enter -- --notty %s -- package unpack %s %s --debug --ops-url=%s --insecure",
+		WithRetries("%s enter -- --notty %s -- package unpack %s %s --debug --ops-url=%s --insecure",
 			constants.GravityBin, defaults.GravityBin, secretsPackage, secretsPlanetDir, defaults.GravityServiceURL).
 		IgnoreError("/usr/bin/systemctl stop %s", defaults.GravityRPCAgentServiceName).
-		C("%s enter -- --notty %s -- package export --file-mask=%o %s %s --ops-url=%s --insecure",
+		WithRetries("%s enter -- --notty %s -- package export --file-mask=%o %s %s --ops-url=%s --insecure",
 			constants.GravityBin, defaults.GravityBin, defaults.SharedExecutableMask,
 			req.GravityPackage, gravityPlanetPath, defaults.GravityServiceURL).
 		C(runCmd).

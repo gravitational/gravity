@@ -80,8 +80,7 @@ $ sudo gravity gc --phase=<phase-id>
 
 To resume automatic collection from any point, run:
 
-$ gravity gc --resume
-`)
+$ gravity gc --resume`)
 	return trace.Wrap(err)
 }
 

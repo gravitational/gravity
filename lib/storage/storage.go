@@ -513,7 +513,7 @@ func (r *Reason) Check() error {
 	case "", ReasonLicenseInvalid, ReasonStatusCheckFailed, ReasonClusterDegraded:
 		return nil
 	}
-	return trace.BadParameter("unsupported reason: %s", r)
+	return trace.BadParameter("unsupported reason: %s", *r)
 }
 
 // Site is a group of servers that belongs to some account and

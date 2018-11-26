@@ -23,12 +23,14 @@ import (
 	"time"
 
 	"github.com/gravitational/gravity/lib/app"
+	"github.com/gravitational/gravity/lib/defaults"
 	"github.com/gravitational/gravity/lib/loc"
 	"github.com/gravitational/gravity/lib/pack"
 	"github.com/gravitational/gravity/lib/run"
 	"github.com/gravitational/gravity/lib/schema"
 	"github.com/gravitational/gravity/lib/utils"
 
+	"github.com/cenkalti/backoff"
 	"github.com/gravitational/trace"
 	"github.com/sirupsen/logrus"
 )
@@ -109,12 +111,58 @@ func (r *AppPullRequest) Clone(locator loc.Locator) AppPullRequest {
 		Package:      locator,
 		Upsert:       r.Upsert,
 		Progress:     r.Progress,
+		Parallel:     r.Parallel,
 		MetadataOnly: r.MetadataOnly,
 	}
 }
 
 // PullPackage pulls a package from the "source" package service and creates it in the "destination" service
 func PullPackage(req PackagePullRequest) (*pack.PackageEnvelope, error) {
+	state := newPullState()
+	return pullPackageWithRetries(req, state)
+}
+
+// pullPackageHandler returns a function to pull the specified package loc for running
+// as part of parallel pull operation.
+// If the package already exists, the error is ignored
+func pullPackageHandler(loc loc.Locator, req AppPullRequest, state *pullState) func() error {
+	return func() error {
+		_, err := pullPackageWithRetries(PackagePullRequest{
+			FieldLogger:  req.FieldLogger,
+			SrcPack:      req.SrcPack,
+			DstPack:      req.DstPack,
+			Package:      loc,
+			Upsert:       req.Upsert,
+			Progress:     req.Progress,
+			MetadataOnly: req.MetadataOnly,
+		}, state)
+		if !trace.IsAlreadyExists(err) {
+			return trace.Wrap(err)
+		}
+		req.Infof("Package %v already exists.", loc)
+		return nil
+	}
+}
+
+func pullPackageWithRetries(req PackagePullRequest, state *pullState) (env *pack.PackageEnvelope, err error) {
+	ctx, cancel := context.WithTimeout(context.Background(), defaults.TransientErrorTimeout)
+	defer cancel()
+	err = utils.RetryTransient(ctx,
+		backoff.NewConstantBackOff(defaults.RetryInterval),
+		func() (err error) {
+			env, err = pullPackage(req)
+			return trace.Wrap(err)
+		})
+	if err != nil {
+		return nil, trace.Wrap(err)
+	}
+
+	// Mark package as pulled
+	state.markPulled(req.Package)
+	return env, nil
+}
+
+func pullPackage(req PackagePullRequest) (*pack.PackageEnvelope, error) {
 	err := req.CheckAndSetDefaults()
 	if err != nil {
 		return nil, trace.Wrap(err)
@@ -184,7 +232,26 @@ func PullPackage(req PackagePullRequest) (*pack.PackageEnvelope, error) {
 // the "destination" application service
 func PullApp(req AppPullRequest) (*app.Application, error) {
 	state := newPullState()
-	return pullApp(req, state)
+	return pullAppWithRetries(req, state)
+}
+
+func pullAppWithRetries(req AppPullRequest, state *pullState) (app *app.Application, err error) {
+	ctx, cancel := context.WithTimeout(context.Background(), defaults.TransientErrorTimeout)
+	defer cancel()
+	err = utils.RetryTransient(ctx,
+		backoff.NewConstantBackOff(defaults.RetryInterval),
+		func() error {
+			var err error
+			app, err = pullApp(req, state)
+			if err != nil {
+				return trace.Wrap(err)
+			}
+			return nil
+		})
+	if err != nil {
+		return nil, trace.Wrap(err)
+	}
+	return app, nil
 }
 
 func pullApp(req AppPullRequest, state *pullState) (*app.Application, error) {
@@ -277,7 +344,7 @@ func pullAppDeps(req AppPullRequest, manifest schema.Manifest, state *pullState)
 	// pull base application if any
 	base := manifest.Base()
 	if base != nil {
-		_, err := pullApp(req.Clone(*base), state)
+		_, err := pullAppWithRetries(req.Clone(*base), state)
 		if err != nil {
 			if !trace.IsAlreadyExists(err) {
 				return trace.Wrap(err)
@@ -290,10 +357,10 @@ func pullAppDeps(req AppPullRequest, manifest schema.Manifest, state *pullState)
 	group, ctx := run.WithContext(context.TODO(), run.WithParallel(req.Parallel))
 	for _, dep := range manifest.AllPackageDependencies() {
 		if state.pulled(dep) {
-			req.Debugf("Package %v already pulled.", dep)
+			req.Infof("Package %v already pulled.", dep)
 			continue
 		}
-		group.Go(ctx, pullPackage(dep, req, state))
+		group.Go(ctx, pullPackageHandler(dep, req, state))
 	}
 	if err := group.Wait(); err != nil {
 		return trace.Wrap(err)
@@ -311,29 +378,6 @@ func pullAppDeps(req AppPullRequest, manifest schema.Manifest, state *pullState)
 	}
 
 	return nil
-}
-
-func pullPackage(loc loc.Locator, req AppPullRequest, state *pullState) func() error {
-	return func() error {
-		_, err := PullPackage(PackagePullRequest{
-			FieldLogger:  req.FieldLogger,
-			SrcPack:      req.SrcPack,
-			DstPack:      req.DstPack,
-			Package:      loc,
-			Upsert:       req.Upsert,
-			Progress:     req.Progress,
-			MetadataOnly: req.MetadataOnly,
-		})
-		if err != nil {
-			if !trace.IsAlreadyExists(err) {
-				return trace.Wrap(err)
-			}
-			req.Infof("Package %v already exists.", loc)
-		}
-		// Mark package as pulled
-		state.markPulled(loc)
-		return nil
-	}
 }
 
 func newPullState() *pullState {

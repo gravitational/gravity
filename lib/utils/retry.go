@@ -25,8 +25,9 @@ import (
 	"os"
 	"time"
 
-	"github.com/cenkalti/backoff"
 	"github.com/gravitational/gravity/lib/defaults"
+
+	"github.com/cenkalti/backoff"
 	"github.com/gravitational/trace"
 	log "github.com/sirupsen/logrus"
 )
@@ -206,6 +207,9 @@ func (t *teeReadCloser) Close() error {
 func RetryTransient(ctx context.Context, interval backoff.BackOff, fn func() error) error {
 	return trace.Wrap(RetryWithInterval(ctx, interval, func() error {
 		err := fn()
+		if err == nil {
+			return nil
+		}
 		switch {
 		case IsTransientClusterError(err):
 			// Retry on transient etcd errors
@@ -215,10 +219,7 @@ func RetryTransient(ctx context.Context, interval backoff.BackOff, fn func() err
 			// operations when etcd is down
 			return trace.Wrap(err)
 		default:
-			if err != nil {
-				return &backoff.PermanentError{Err: err}
-			}
-			return nil
+			return &backoff.PermanentError{Err: err}
 		}
 	}))
 }
@@ -253,5 +254,12 @@ func RetryWithInterval(ctx context.Context, interval backoff.BackOff, fn func() 
 func NewUnlimitedExponentialBackOff() backoff.BackOff {
 	b := backoff.NewExponentialBackOff()
 	b.MaxElapsedTime = 0
+	return b
+}
+
+// NewExponentialBackOff creates a new backoff interval with the specified timeout
+func NewExponentialBackOff(timeout time.Duration) backoff.BackOff {
+	b := backoff.NewExponentialBackOff()
+	b.MaxElapsedTime = timeout
 	return b
 }

@@ -70,12 +70,7 @@ TELEKUBE_TSH_TAG := v2.3.5
 # Extra flags that may be provided when publishing telekube artifacts (e.g. --insecure)
 TELEKUBE_PUBLISH_FLAGS ?=
 
-BINARIES = $(LOCAL_GRAVITY_BUILDDIR)/tele $(LOCAL_GRAVITY_BUILDDIR)/gravity
-# Temporarily disable TF provider publishing, 
-#TF_BINARIES ?= $(LOCAL_GRAVITY_BUILDDIR)/terraform-provider-gravity
-#TF_BUILD ?= $(GRAVITY_BUILDDIR)/terraform-provider-gravity
-TF_BINARIES =
-TF_BUILD =
+BINARIES ?= tele gravity terraform-provider-gravity
 
 # release tarball path
 RELEASE_TARBALL_NAME := gravity-$(GRAVITY_VERSION)-$(OS)-$(ARCH)-bin.tar.gz
@@ -207,10 +202,9 @@ build-in-container: buildbox
 		   -e "GRAVITY_VERSION=$(GRAVITY_VERSION)" \
 		   -e "GRAVITY_TAG=$(GRAVITY_TAG)" \
 		   -e 'GRAVITY_LINKFLAGS=$(GRAVITY_LINKFLAGS)' \
-		   -e 'TF_BINARIES=$(TF_BINARIES)' \
+		   -e 'BINARIES=$(BINARIES)' \
 		   $(BBOX) \
-		   dumb-init make -C $(SRCDIR)/build.assets -j \
-		   	$(LOCAL_GRAVITY_BUILDDIR)/tele $(LOCAL_GRAVITY_BUILDDIR)/gravity $(TF_BINARIES)
+		   dumb-init make -C $(SRCDIR)/build.assets -j $(BINARIES)
 
 #
 # build gravity binaries on host
@@ -220,7 +214,7 @@ build-on-host:
 	cd $(GOPATH)/src && \
 		LOCAL_GRAVITY_BUILDDIR=$(GRAVITY_BUILDDIR) \
 			$(MAKE) -C $(GOPATH)/src/github.com/gravitational/gravity/build.assets -j \
-			$(GRAVITY_BUILDDIR)/gravity $(GRAVITY_BUILDDIR)/tele $(TF_BUILD)
+			$(BINARIES)
 
 #
 # removes build artifacts.
@@ -247,12 +241,12 @@ publish-telekube: build
 	@echo -e "\n----> Publishing Tsh to $(DISTRIBUTION_OPSCENTER)...\n"
 	$(GRAVITY_OUT) package delete --ops-url=$(DISTRIBUTION_OPSCENTER) $(TELEKUBE_PUBLISH_FLAGS) --force $(TELEKUBE_TSH_PKG) && \
 	$(GRAVITY_OUT) package import --ops-url=$(DISTRIBUTION_OPSCENTER) $(TELEKUBE_PUBLISH_FLAGS) $(TSH_OUT) $(TELEKUBE_TSH_PKG)
-	# @echo -e "\n----> Publishing terraform-provider-gravity to $(DISTRIBUTION_OPSCENTER)...\n"
-	# $(GRAVITY_OUT) package delete --ops-url=$(DISTRIBUTION_OPSCENTER) $(TELEKUBE_PUBLISH_FLAGS) --force $(TF_PROVIDER_GRAVITY_PKG) && \
-	# $(GRAVITY_OUT) package import --ops-url=$(DISTRIBUTION_OPSCENTER) $(TELEKUBE_PUBLISH_FLAGS) $(TF_PROVIDER_GRAVITY_OUT) $(TF_PROVIDER_GRAVITY_PKG)
-	# @echo -e "\n----> Publishing terraform-provider-gravityenterprise to $(DISTRIBUTION_OPSCENTER)...\n"
-	# $(GRAVITY_OUT) package delete --ops-url=$(DISTRIBUTION_OPSCENTER) $(TELEKUBE_PUBLISH_FLAGS) --force $(TF_PROVIDER_GRAVITYENTERPRISE_PKG) && \
-	# $(GRAVITY_OUT) package import --ops-url=$(DISTRIBUTION_OPSCENTER) $(TELEKUBE_PUBLISH_FLAGS) $(TF_PROVIDER_GRAVITYENTERPRISE_OUT) $(TF_PROVIDER_GRAVITYENTERPRISE_PKG)
+	@echo -e "\n----> Publishing terraform-provider-gravity to $(DISTRIBUTION_OPSCENTER)...\n"
+	$(GRAVITY_OUT) package delete --ops-url=$(DISTRIBUTION_OPSCENTER) $(TELEKUBE_PUBLISH_FLAGS) --force $(TF_PROVIDER_GRAVITY_PKG) && \
+	$(GRAVITY_OUT) package import --ops-url=$(DISTRIBUTION_OPSCENTER) $(TELEKUBE_PUBLISH_FLAGS) $(TF_PROVIDER_GRAVITY_OUT) $(TF_PROVIDER_GRAVITY_PKG)
+	@echo -e "\n----> Publishing terraform-provider-gravityenterprise to $(DISTRIBUTION_OPSCENTER)...\n"
+	$(GRAVITY_OUT) package delete --ops-url=$(DISTRIBUTION_OPSCENTER) $(TELEKUBE_PUBLISH_FLAGS) --force $(TF_PROVIDER_GRAVITYENTERPRISE_PKG) && \
+	$(GRAVITY_OUT) package import --ops-url=$(DISTRIBUTION_OPSCENTER) $(TELEKUBE_PUBLISH_FLAGS) $(TF_PROVIDER_GRAVITYENTERPRISE_OUT) $(TF_PROVIDER_GRAVITYENTERPRISE_PKG)
 
 
 #
@@ -300,10 +294,11 @@ $(GRAVITY_BUILDDIR):
 	mkdir -p $@
 
 # Builds binaries inside a docker container
-$(BINARIES) $(TF_BINARIES):
-	@echo -e "\n----> Building $@ binary...\n"
-	go build -o $@ -ldflags $(GRAVITY_LINKFLAGS) $(GRAVITY_PKG_PATH)/tool/$(notdir $@)
-	@echo "Done --> $@"
+.PHONY: $(BINARIES)
+$(BINARIES):
+	@echo -e "\n----> Building $(LOCAL_GRAVITY_BUILDDIR)/$@ binary...\n"
+	go build -o $(LOCAL_GRAVITY_BUILDDIR)/$@ -ldflags $(GRAVITY_LINKFLAGS) $(GRAVITY_PKG_PATH)/tool/$@
+	@echo "\nDone --> $(LOCAL_GRAVITY_BUILDDIR)/$@\n"
 
 .PHONY: compile
 compile: | $(GRAVITY_BUILDDIR)
