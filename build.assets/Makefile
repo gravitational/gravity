@@ -12,7 +12,9 @@ LOCAL_BUILDDIR ?= /gopath/src/github.com/gravitational/gravity/build
 # Path to the local gravity build assets directory used inside the container
 LOCAL_GRAVITY_BUILDDIR ?= /gopath/src/github.com/gravitational/gravity/build/$(GRAVITY_VERSION)
 
+DOCKER_ARGS ?= --pull
 BBOX = gravity-buildbox:latest
+GOCACHE ?= $(HOME)/.cache/go-build
 
 GRAVITY_WEB_APP_DIR ?= $(abspath $(LOCALDIR)/../web)/
 
@@ -196,6 +198,8 @@ validate-deps: buildbox
 build-in-container: buildbox
 	docker run --rm=true -u $$(id -u) \
 		   -v $(TOP):$(SRCDIR) \
+		   -v $(GOCACHE):/gocache \
+		   -e "GOCACHE=/gocache" \
 		   -e "LOCAL_BUILDDIR=$(LOCAL_BUILDDIR)" \
 		   -e "LOCAL_GRAVITY_BUILDDIR=$(LOCAL_GRAVITY_BUILDDIR)" \
 		   -e "GRAVITY_PKG_PATH=$(GRAVITY_PKG_PATH)" \
@@ -458,7 +462,7 @@ clone-teleport:
 	cd $(TELEPORT_SRCDIR)/teleport && git fetch --all --tags && git checkout $(TELEPORT_REPOTAG)
 
 pull-teleport:
-	-$(AWS) s3 cp $(S3_OPTS) $(BUILD_BUCKET_URL)/teleport/$(TELEPORT_TAG) $(TELEPORT_OUT)
+	-$(AWS) s3 cp $(S3_OPTS) $(BUILD_BUCKET_URL)/teleport/$(TELEPORT_TAG)/$(TELEPORT_S3_BUCKET) $(TELEPORT_OUT)
 
 push-teleport: $(TELEPORT_OUT)
 	$(AWS) s3 cp $(S3_OPTS) $(TELEPORT_OUT) $(BUILD_BUCKET_URL)/teleport/$(TELEPORT_TAG)
@@ -554,4 +558,4 @@ buildbox:
 		--build-arg GOGO_PROTO_TAG=$(GOGO_PROTO_TAG) \
 		--build-arg GRPC_GATEWAY_TAG=$(GRPC_GATEWAY_TAG) \
 		--build-arg VERSION_TAG=$(VERSION_TAG) \
-		--pull --tag $(BBOX) .
+		$(DOCKER_ARGS) --tag $(BBOX) .

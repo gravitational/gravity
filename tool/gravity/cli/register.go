@@ -84,7 +84,9 @@ func RegisterCommands(app *kingpin.Application) *Application {
 	g.InstallCmd.Force = g.InstallCmd.Flag("force", "Force phase execution").Bool()
 	g.InstallCmd.Resume = g.InstallCmd.Flag("resume", "Resume installation from last failed step").Bool()
 	g.InstallCmd.Manual = g.InstallCmd.Flag("manual", "Manually execute install operation phases").Bool()
-	g.InstallCmd.Unattended = g.InstallCmd.Flag("unattended", "Exits after the operation without waiting for input").Bool()
+	g.InstallCmd.Unattended = g.InstallCmd.Flag("unattended", "Exits after the operation without waiting for input").
+		OverrideDefaultFromEnvar(constants.UnattendedOperationEnvVar).
+		Bool()
 	g.InstallCmd.ServiceUID = g.InstallCmd.Flag("service-uid",
 		fmt.Sprintf("Service user ID for planet. %q user will created and used if none specified", defaults.ServiceUser)).
 		Default(defaults.ServiceUserID).

@@ -204,6 +204,10 @@ const (
 	// If not empty, turns the preflight checks off
 	PreflightChecksOffEnvVar = "GRAVITY_CHECKS_OFF"
 
+	// UnattendedOperationEnvVar names the environment variable that specifies whether an operation
+	// should run in unattended mode
+	UnattendedOperationEnvVar = "GRAVITY_UNATTENDED_OPERATION"
+
 	// DockerRegistry is a default name for private docker registry
 	DockerRegistry = "leader.telekube.local:5000"
 

@@ -42,6 +42,8 @@ GRAVITY_LINKFLAGS = "$(VERSION_FLAGS) $(GOLFLAGS)"
 TELEPORT_TAG = 3.0.1
 # TELEPORT_REPOTAG adapts TELEPORT_TAG to the teleport tagging scheme
 TELEPORT_REPOTAG := v$(TELEPORT_TAG)
+TELEPORT_S3_BUCKET ?= teleport-v$(TELEPORT_TAG)-linux-amd64.tar.gz
+
 PLANET_TAG := 5.3.4-$(K8S_VER)
 PLANET_BRANCH := $(PLANET_TAG)
 K8S_APP_TAG := $(GRAVITY_TAG)
@@ -187,7 +189,7 @@ build:
 	$(MAKE) -C build.assets build
 
 # 'install' uses the host's Golang to place output into $GOPATH/bin
-.PHONY:install
+.PHONY: install
 install:
 	go install -ldflags "$(VERSION_FLAGS)" ./tool/tele ./tool/gravity
 
