@@ -103,6 +103,12 @@ func (b *multiBolt) compareAndSwap(key key, val interface{}, prevVal interface{}
 	}))
 }
 
+func (b *multiBolt) compareAndSwapBytes(key key, val, prevVal []byte, outVal *[]byte, ttl time.Duration) error {
+	return trace.Wrap(b.withBolt(func(b *blt) error {
+		return trace.Wrap(b.compareAndSwapBytes(key, val, prevVal, outVal, ttl))
+	}))
+}
+
 func (b *multiBolt) getVal(key key, val interface{}) error {
 	return trace.Wrap(b.withBolt(func(b *blt) error {
 		return trace.Wrap(b.getVal(key, val))

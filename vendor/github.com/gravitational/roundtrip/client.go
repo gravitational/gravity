@@ -93,6 +93,15 @@ func CookieJar(jar http.CookieJar) ClientParam {
 	}
 }
 
+// SanitizerEnabled will enable the input sanitizer which passes the URL
+// path through a strict whitelist.
+func SanitizerEnabled(sanitizerEnabled bool) ClientParam {
+	return func(c *Client) error {
+		c.sanitizerEnabled = sanitizerEnabled
+		return nil
+	}
+}
+
 // Client is a wrapper holding HTTP client. It hold target server address and a version prefix,
 // and provides common features for building HTTP client wrappers.
 type Client struct {
@@ -108,6 +117,9 @@ type Client struct {
 	jar http.CookieJar
 	// newTracer creates new request tracer
 	newTracer NewTracer
+	// sanitizerEnabled will enable the input sanitizer which passes the URL
+	// path through a strict whitelist.
+	sanitizerEnabled bool
 }
 
 // NewClient returns a new instance of roundtrip.Client, or nil and error
@@ -158,6 +170,14 @@ func (c *Client) Endpoint(params ...string) string {
 // c.PostForm(c.Endpoint("users"), url.Values{"name": []string{"John"}})
 //
 func (c *Client) PostForm(endpoint string, vals url.Values, files ...File) (*Response, error) {
+	// If the sanitizer is enabled, make sure the requested path is safe.
+	if c.sanitizerEnabled {
+		err := isPathSafe(endpoint)
+		if err != nil {
+			return nil, err
+		}
+	}
+
 	return c.RoundTrip(func() (*http.Response, error) {
 		if len(files) == 0 {
 			req, err := http.NewRequest(http.MethodPost, endpoint, strings.NewReader(vals.Encode()))
@@ -206,6 +226,14 @@ func (c *Client) PostForm(endpoint string, vals url.Values, files ...File) (*Res
 // c.PostJSON(c.Endpoint("users"), map[string]string{"name": "alice@example.com"})
 //
 func (c *Client) PostJSON(endpoint string, data interface{}) (*Response, error) {
+	// If the sanitizer is enabled, make sure the requested path is safe.
+	if c.sanitizerEnabled {
+		err := isPathSafe(endpoint)
+		if err != nil {
+			return nil, err
+		}
+	}
+
 	tracer := c.newTracer()
 	return tracer.Done(c.RoundTrip(func() (*http.Response, error) {
 		data, err := json.Marshal(data)
@@ -225,6 +253,14 @@ func (c *Client) PostJSON(endpoint string, data interface{}) (*Response, error) 
 // c.PutJSON(c.Endpoint("users"), map[string]string{"name": "alice@example.com"})
 //
 func (c *Client) PutJSON(endpoint string, data interface{}) (*Response, error) {
+	// If the sanitizer is enabled, make sure the requested path is safe.
+	if c.sanitizerEnabled {
+		err := isPathSafe(endpoint)
+		if err != nil {
+			return nil, err
+		}
+	}
+
 	tracer := c.newTracer()
 	return tracer.Done(c.RoundTrip(func() (*http.Response, error) {
 		data, err := json.Marshal(data)
@@ -244,6 +280,14 @@ func (c *Client) PutJSON(endpoint string, data interface{}) (*Response, error) {
 // c.PatchJSON(c.Endpoint("users"), map[string]string{"name": "alice@example.com"})
 //
 func (c *Client) PatchJSON(endpoint string, data interface{}) (*Response, error) {
+	// If the sanitizer is enabled, make sure the requested path is safe.
+	if c.sanitizerEnabled {
+		err := isPathSafe(endpoint)
+		if err != nil {
+			return nil, err
+		}
+	}
+
 	tracer := c.newTracer()
 	return tracer.Done(c.RoundTrip(func() (*http.Response, error) {
 		data, err := json.Marshal(data)
@@ -263,6 +307,14 @@ func (c *Client) PatchJSON(endpoint string, data interface{}) (*Response, error)
 // re, err := c.Delete(c.Endpoint("users", "id1"))
 //
 func (c *Client) Delete(endpoint string) (*Response, error) {
+	// If the sanitizer is enabled, make sure the requested path is safe.
+	if c.sanitizerEnabled {
+		err := isPathSafe(endpoint)
+		if err != nil {
+			return nil, err
+		}
+	}
+
 	tracer := c.newTracer()
 	return tracer.Done(c.RoundTrip(func() (*http.Response, error) {
 		req, err := http.NewRequest(http.MethodDelete, endpoint, nil)
@@ -292,8 +344,16 @@ func (c *Client) DeleteWithParams(endpoint string, params url.Values) (*Response
 //
 // re, err := c.Get(c.Endpoint("users"), url.Values{"name": []string{"John"}})
 //
-func (c *Client) Get(u string, params url.Values) (*Response, error) {
-	baseUrl, err := url.Parse(u)
+func (c *Client) Get(endpoint string, params url.Values) (*Response, error) {
+	// If the sanitizer is enabled, make sure the requested path is safe.
+	if c.sanitizerEnabled {
+		err := isPathSafe(endpoint)
+		if err != nil {
+			return nil, err
+		}
+	}
+
+	baseUrl, err := url.Parse(endpoint)
 	if err != nil {
 		return nil, err
 	}
@@ -314,8 +374,16 @@ func (c *Client) Get(u string, params url.Values) (*Response, error) {
 //
 // f, err := c.GetFile("files", "report.txt") // returns "/v1/files/report.txt"
 //
-func (c *Client) GetFile(u string, params url.Values) (*FileResponse, error) {
-	baseUrl, err := url.Parse(u)
+func (c *Client) GetFile(endpoint string, params url.Values) (*FileResponse, error) {
+	// If the sanitizer is enabled, make sure the requested path is safe.
+	if c.sanitizerEnabled {
+		err := isPathSafe(endpoint)
+		if err != nil {
+			return nil, err
+		}
+	}
+
+	baseUrl, err := url.Parse(endpoint)
 	if err != nil {
 		return nil, err
 	}
@@ -349,13 +417,22 @@ type ReadSeekCloser interface {
 // OpenFile opens file using HTTP protocol and uses `Range` headers
 // to seek to various positions in the file, this means that server
 // has to support the flags `Range` and `Content-Range`
-func (c *Client) OpenFile(u string, params url.Values) (ReadSeekCloser, error) {
-	endpoint, err := url.Parse(u)
+func (c *Client) OpenFile(endpoint string, params url.Values) (ReadSeekCloser, error) {
+	// If the sanitizer is enabled, make sure the requested path is safe.
+	if c.sanitizerEnabled {
+		err := isPathSafe(endpoint)
+		if err != nil {
+			return nil, err
+		}
+	}
+
+	u, err := url.Parse(endpoint)
 	if err != nil {
 		return nil, err
 	}
-	endpoint.RawQuery = params.Encode()
-	return newSeeker(c, endpoint.String())
+	u.RawQuery = params.Encode()
+
+	return newSeeker(c, u.String())
 }
 
 // RoundTripFn inidicates any function that can be passed to RoundTrip

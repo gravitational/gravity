@@ -174,6 +174,9 @@ func RetryOnNetworkError(period time.Duration, maxAttempts int, fn func() error)
 		case *net.OpError:
 			return Continue("network error: %v", err)
 		}
+		if trace.IsConnectionProblem(err) {
+			return Continue("network error: %v", err)
+		}
 		if err != nil {
 			return Abort(err)
 		}
@@ -232,7 +235,7 @@ func RetryWithInterval(ctx context.Context, interval backoff.BackOff, fn func() 
 		err = fn()
 		return err
 	}, b, func(err error, d time.Duration) {
-		log.Debugf("Retrying: %v (time %v).", trace.UserMessage(err), d)
+		log.Infof("Retrying: %v (time %v).", trace.UserMessage(err), d)
 	})
 
 	switch errOrig := trace.Unwrap(err).(type) {

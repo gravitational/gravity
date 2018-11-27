@@ -94,7 +94,7 @@ func (a *ObjectsACL) GetBLOBEnvelope(hash string) (*Envelope, error) {
 // check checks whether the user has the requested permissions
 func (a *ObjectsACL) check(action string) error {
 	// first check the access to all repositories
-	return a.checker.CheckAccessToRule(&teleservices.Context{}, defaults.Namespace, storage.KindObject, action)
+	return a.checker.CheckAccessToRule(&teleservices.Context{}, defaults.Namespace, storage.KindObject, action, false)
 }
 
 const (

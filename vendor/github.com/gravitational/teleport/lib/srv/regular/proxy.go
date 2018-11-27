@@ -187,16 +187,16 @@ func (t *proxySubsys) Start(sconn *ssh.ServerConn, ch ssh.Channel, req *ssh.Requ
 			site = sites[0]
 			t.log.Debugf("Cluster not specified. connecting to default='%s'", site.GetName())
 		}
-		return t.proxyToHost(site, clientAddr, ch)
+		return t.proxyToHost(ctx, site, clientAddr, ch)
 	}
 	// connect to a site's auth server:
-	return t.proxyToSite(site, clientAddr, ch)
+	return t.proxyToSite(ctx, site, clientAddr, ch)
 }
 
 // proxyToSite establishes a proxy connection from the connected SSH client to the
 // auth server of the requested remote site
 func (t *proxySubsys) proxyToSite(
-	site reversetunnel.RemoteSite, remoteAddr net.Addr, ch ssh.Channel) error {
+	ctx *srv.ServerContext, site reversetunnel.RemoteSite, remoteAddr net.Addr, ch ssh.Channel) error {
 
 	conn, err := site.DialAuthServer()
 	if err != nil {
@@ -218,7 +218,7 @@ func (t *proxySubsys) proxyToSite(
 			t.close(err)
 		}()
 		defer conn.Close()
-		_, err = io.Copy(conn, ch)
+		_, err = io.Copy(conn, srv.NewTrackingReader(ctx, ch))
 
 	}()
 
@@ -228,7 +228,7 @@ func (t *proxySubsys) proxyToSite(
 // proxyToHost establishes a proxy connection from the connected SSH client to the
 // requested remote node (t.host:t.port) via the given site
 func (t *proxySubsys) proxyToHost(
-	site reversetunnel.RemoteSite, remoteAddr net.Addr, ch ssh.Channel) error {
+	ctx *srv.ServerContext, site reversetunnel.RemoteSite, remoteAddr net.Addr, ch ssh.Channel) error {
 	//
 	// first, lets fetch a list of servers at the given site. this allows us to
 	// match the given "host name" against node configuration (their 'nodename' setting)
@@ -244,7 +244,7 @@ func (t *proxySubsys) proxyToHost(
 	// going to "local" CA? lets use the caching 'auth service' directly and avoid
 	// hitting the reverse tunnel link (it can be offline if the CA is down)
 	if site.GetName() == localDomain {
-		servers, err = t.srv.authService.GetNodes(t.namespace)
+		servers, err = t.srv.authService.GetNodes(t.namespace, services.SkipValidation())
 		if err != nil {
 			t.log.Warn(err)
 		}
@@ -254,7 +254,7 @@ func (t *proxySubsys) proxyToHost(
 		if err != nil {
 			t.log.Warn(err)
 		} else {
-			servers, err = siteClient.GetNodes(t.namespace)
+			servers, err = siteClient.GetNodes(t.namespace, services.SkipValidation())
 			if err != nil {
 				t.log.Warn(err)
 			}
@@ -265,7 +265,7 @@ func (t *proxySubsys) proxyToHost(
 	// which port to use
 	specifiedPort := len(t.port) > 0 && t.port != "0"
 	ips, _ := net.LookupHost(t.host)
-	t.log.Debugf("proxy connecting to host=%v port=%v, exact port=%v\n", t.host, t.port, specifiedPort)
+	t.log.Debugf("proxy connecting to host=%v port=%v, exact port=%v", t.host, t.port, specifiedPort)
 
 	// enumerate and try to find a server with self-registered with a matching name/IP:
 	var server services.Server
@@ -324,7 +324,7 @@ func (t *proxySubsys) proxyToHost(
 			t.close(err)
 		}()
 		defer conn.Close()
-		_, err = io.Copy(conn, ch)
+		_, err = io.Copy(conn, srv.NewTrackingReader(ctx, ch))
 	}()
 
 	return nil

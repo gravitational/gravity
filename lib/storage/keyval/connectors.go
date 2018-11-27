@@ -279,7 +279,7 @@ func (b *backend) DeleteGithubConnector(name string) error {
 }
 
 // CreateGithubAuthRequest creates a new auth request for Github OAuth2 flow
-func (b *backend) CreateGithubAuthRequest(req teleservices.GithubAuthRequest, ttl time.Duration) error {
+func (b *backend) CreateGithubAuthRequest(req teleservices.GithubAuthRequest) error {
 	if err := req.Check(); err != nil {
 		return trace.Wrap(err)
 	}

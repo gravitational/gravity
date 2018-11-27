@@ -110,7 +110,7 @@ func newCollector(env *localenv.LocalEnvironment) (*vacuum.Collector, error) {
 		return nil, trace.Wrap(err, "failed to create a teleport client")
 	}
 
-	proxy, err := teleportClient.ConnectToProxy()
+	proxy, err := teleportClient.ConnectToProxy(context.TODO())
 	if err != nil {
 		return nil, trace.Wrap(err, "failed to connect to teleport proxy")
 	}

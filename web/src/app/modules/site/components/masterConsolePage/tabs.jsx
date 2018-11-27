@@ -16,17 +16,18 @@ limitations under the License.
 
 import React from 'react';
 import classnames from 'classnames';
+export class TabItem extends React.Component {
 
-export const TabItem = React.createClass({
-
-  childContextTypes: {
+  static childContextTypes = {
     isTabActive: React.PropTypes.bool
-  },
+  }
 
-  getChildContext: function() {
+  getChildContext() {
     let {isActive} = this.props;
-    return {isTabActive: isActive};
-  },
+    return {
+      isTabActive: isActive
+    };
+  }
 
   render(){
     let {isActive, children} = this.props;
@@ -40,34 +41,34 @@ export const TabItem = React.createClass({
       </div>
     )
   }
-});
+}
 
-export const ServerTabs = React.createClass({
+export class ServerTabs extends React.Component {
 
   onHeaderClick(item){
-    let index = this.props.children.indexOf(item);
-    let { onTabClick } = this.props
+    const index = this.props.children.indexOf(item);
+    const { onTabClick } = this.props
     if(onTabClick){
       onTabClick(index);
     }
-  },
+  }
 
   onTabClose(item){
-    let index = this.props.children.indexOf(item);
-    let { onTabClose } = this.props
+    const index = this.props.children.indexOf(item);
+    const { onTabClose } = this.props
     if(onTabClose){
       onTabClose(index);
     }
-  },
+  }
 
   renderHeader(item, key){
-    let {value} = this.props;
-    let {title, canClose = true } = item.props;
-    let closeBtnClass = classnames('grv-site-console-tabs-close', {
+    const { value } = this.props;
+    const { title, canClose = true } = item.props;
+    const closeBtnClass = classnames('grv-site-console-tabs-close', {
       'hidden': !canClose
     })
 
-    let headerClass = classnames('grv-site-console-tabs-header',{
+    const headerClass = classnames('grv-site-console-tabs-header',{
       '--active': key === value
     })
 
@@ -81,26 +82,26 @@ export const ServerTabs = React.createClass({
         </div>
       </li>
     )
-  },
+  }
 
   renderTabPane(item, key){
     let $content = null;
-    let isActive = key === this.props.value;
+    const isActive = key === this.props.value;
     if (React.isValidElement(item)) {
        $content = React.cloneElement(item, {isActive, ...item.props});
      }
 
     return $content;
-  },
+  }
 
   render() {
-    let children = [];
+    const children = [];
     React.Children.forEach(this.props.children, (child) => {
       children.push(child);
     });
 
-    let $headers = children.map(this.renderHeader);
-    let $tabPanes = children.map(this.renderTabPane);
+    const $headers = children.map(this.renderHeader.bind(this));
+    const $tabPanes = children.map(this.renderTabPane.bind(this));
 
     return (
       <div className="grv-site-console-tabs-container">
@@ -113,4 +114,5 @@ export const ServerTabs = React.createClass({
       </div>
     );
   }
-});
+
+}

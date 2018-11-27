@@ -25,25 +25,21 @@ import (
 	"github.com/gravitational/teleport/lib/services"
 
 	"github.com/gravitational/trace"
-	log "github.com/sirupsen/logrus"
+	"github.com/sirupsen/logrus"
 )
 
 // PresenceService records and reports the presence of all components
 // of the cluster - Nodes, Proxies and SSH nodes
 type PresenceService struct {
-	*log.Entry
+	log *logrus.Entry
 	backend.Backend
-	// getter is used to make batch requests to the backend.
-	getter backend.ItemsGetter
 }
 
 // NewPresenceService returns new presence service instance
 func NewPresenceService(b backend.Backend) *PresenceService {
-	getter, _ := b.(backend.ItemsGetter)
 	return &PresenceService{
-		Entry:   log.WithFields(log.Fields{trace.Component: "Presence"}),
+		log:     logrus.WithFields(logrus.Fields{trace.Component: "Presence"}),
 		Backend: b,
-		getter:  getter,
 	}
 }
 
@@ -86,7 +82,7 @@ func (s *PresenceService) GetNamespaces() ([]services.Namespace, error) {
 
 // UpsertNamespace upserts namespace
 func (s *PresenceService) UpsertNamespace(n services.Namespace) error {
-	data, err := json.Marshal(n)
+	data, err := services.MarshalNamespace(n)
 	if err != nil {
 		return trace.Wrap(err)
 	}
@@ -141,7 +137,7 @@ func (s *PresenceService) getServers(kind, prefix string) ([]services.Server, er
 			}
 			return nil, trace.Wrap(err)
 		}
-		server, err := services.GetServerMarshaler().UnmarshalServer(data, kind)
+		server, err := services.GetServerMarshaler().UnmarshalServer(data, kind, services.SkipValidation())
 		if err != nil {
 			return nil, trace.Wrap(err)
 		}
@@ -168,64 +164,36 @@ func (s *PresenceService) DeleteAllNodes(namespace string) error {
 }
 
 // GetNodes returns a list of registered servers
-func (s *PresenceService) GetNodes(namespace string) ([]services.Server, error) {
+func (s *PresenceService) GetNodes(namespace string, opts ...services.MarshalOption) ([]services.Server, error) {
 	if namespace == "" {
 		return nil, trace.BadParameter("missing namespace value")
 	}
-	if s.getter != nil {
-		return s.batchGetNodes(namespace)
-	}
-	start := time.Now()
-	keys, err := s.GetKeys([]string{namespacesPrefix, namespace, nodesPrefix})
-	if err != nil {
-		return nil, trace.Wrap(err)
-	}
-	servers := make([]services.Server, 0, len(keys))
-	for _, key := range keys {
-		data, err := s.GetVal([]string{namespacesPrefix, namespace, nodesPrefix}, key)
-		if err != nil {
-			if trace.IsNotFound(err) {
-				continue
-			}
-			return nil, trace.Wrap(err)
-		}
-		server, err := services.GetServerMarshaler().UnmarshalServer(data, services.KindNode)
-		if err != nil {
-			return nil, trace.Wrap(err)
-		}
-		servers = append(servers, server)
-	}
-	s.Infof("GetServers(%v) in %v", len(servers), time.Now().Sub(start))
-	// sorting helps with tests and makes it all deterministic
-	sort.Sort(services.SortedServers(servers))
-	return servers, nil
-}
 
-// batchGetNodes returns a list of registered servers by using fast batch get
-func (s *PresenceService) batchGetNodes(namespace string) ([]services.Server, error) {
-	start := time.Now()
+	// Get all items in the bucket.
 	bucket := []string{namespacesPrefix, namespace, nodesPrefix}
-	items, err := s.getter.GetItems(bucket)
+	items, err := s.GetItems(bucket)
 	if err != nil {
 		return nil, trace.Wrap(err)
 	}
+
+	// Marshal values into a []services.Server slice.
 	servers := make([]services.Server, len(items))
 	for i, item := range items {
-		server, err := services.GetServerMarshaler().UnmarshalServer(item.Value, services.KindNode)
+		server, err := services.GetServerMarshaler().UnmarshalServer(
+			item.Value,
+			services.KindNode,
+			opts...)
 		if err != nil {
 			return nil, trace.Wrap(err)
 		}
 		servers[i] = server
 	}
 
-	s.Infof("GetServers(%v) in %v", len(servers), time.Now().Sub(start))
-	// sorting helps with tests and makes it all deterministic
-	sort.Sort(services.SortedServers(servers))
 	return servers, nil
 }
 
-// UpsertNode registers node presence, permanently if ttl is 0 or
-// for the specified duration with second resolution if it's >= 1 second
+// UpsertNode registers node presence, permanently if TTL is 0 or for the
+// specified duration with second resolution if it's >= 1 second.
 func (s *PresenceService) UpsertNode(server services.Server) error {
 	if server.GetNamespace() == "" {
 		return trace.BadParameter("missing node namespace")
@@ -237,6 +205,39 @@ func (s *PresenceService) UpsertNode(server services.Server) error {
 	ttl := backend.TTL(s.Clock(), server.Expiry())
 	err = s.UpsertVal([]string{namespacesPrefix, server.GetNamespace(), nodesPrefix}, server.GetName(), data, ttl)
 	return trace.Wrap(err)
+}
+
+// UpsertNodes is used for bulk insertion of nodes. Schema validation is
+// always skipped during bulk insertion.
+func (s *PresenceService) UpsertNodes(namespace string, servers []services.Server) error {
+	if namespace == "" {
+		return trace.BadParameter("missing node namespace")
+	}
+
+	start := time.Now()
+
+	var items []backend.Item
+	for _, server := range servers {
+		bytes, err := services.GetServerMarshaler().MarshalServer(server)
+		if err != nil {
+			return trace.Wrap(err)
+		}
+
+		items = append(items, backend.Item{
+			Key:   server.GetName(),
+			Value: bytes,
+			TTL:   backend.TTL(s.Clock(), server.Expiry()),
+		})
+	}
+
+	err := s.UpsertItems([]string{namespacesPrefix, namespace, nodesPrefix}, items)
+	if err != nil {
+		return trace.Wrap(err)
+	}
+
+	s.log.Debugf("UpsertNodes(%v) in %v", len(servers), time.Now().Sub(start))
+
+	return nil
 }
 
 // GetAuthServers returns a list of registered servers
@@ -285,6 +286,15 @@ func (s *PresenceService) UpsertReverseTunnel(tunnel services.ReverseTunnel) err
 	return trace.Wrap(err)
 }
 
+// GetReverseTunnel returns reverse tunnel by name
+func (s *PresenceService) GetReverseTunnel(name string) (services.ReverseTunnel, error) {
+	data, err := s.GetVal([]string{reverseTunnelsPrefix}, name)
+	if err != nil {
+		return nil, trace.Wrap(err)
+	}
+	return services.GetReverseTunnelMarshaler().UnmarshalReverseTunnel(data)
+}
+
 // GetReverseTunnels returns a list of registered servers
 func (s *PresenceService) GetReverseTunnels() ([]services.ReverseTunnel, error) {
 	keys, err := s.GetKeys([]string{reverseTunnelsPrefix})
@@ -293,15 +303,10 @@ func (s *PresenceService) GetReverseTunnels() ([]services.ReverseTunnel, error) 
 	}
 	tunnels := make([]services.ReverseTunnel, len(keys))
 	for i, key := range keys {
-		data, err := s.GetVal([]string{reverseTunnelsPrefix}, key)
+		tunnels[i], err = s.GetReverseTunnel(key)
 		if err != nil {
 			return nil, trace.Wrap(err)
 		}
-		tunnel, err := services.GetReverseTunnelMarshaler().UnmarshalReverseTunnel(data)
-		if err != nil {
-			return nil, trace.Wrap(err)
-		}
-		tunnels[i] = tunnel
 	}
 	// sorting helps with tests and makes it all deterministic
 	sort.Sort(services.SortedReverseTunnels(tunnels))
@@ -315,21 +320,20 @@ func (s *PresenceService) DeleteReverseTunnel(domainName string) error {
 }
 
 // UpsertTrustedCluster creates or updates a TrustedCluster in the backend.
-func (s *PresenceService) UpsertTrustedCluster(trustedCluster services.TrustedCluster) error {
+func (s *PresenceService) UpsertTrustedCluster(trustedCluster services.TrustedCluster) (services.TrustedCluster, error) {
 	if err := trustedCluster.CheckAndSetDefaults(); err != nil {
-		return trace.Wrap(err)
+		return nil, trace.Wrap(err)
 	}
 	data, err := services.GetTrustedClusterMarshaler().Marshal(trustedCluster)
 	if err != nil {
-		return trace.Wrap(err)
+		return nil, trace.Wrap(err)
 	}
 	ttl := backend.TTL(s.Clock(), trustedCluster.Expiry())
 	err = s.UpsertVal([]string{"trustedclusters"}, trustedCluster.GetName(), []byte(data), ttl)
 	if err != nil {
-		return trace.Wrap(err)
+		return nil, trace.Wrap(err)
 	}
-
-	return nil
+	return trustedCluster, nil
 }
 
 // GetTrustedCluster returns a single TrustedCluster by name.
@@ -406,7 +410,7 @@ func (s *PresenceService) GetTunnelConnection(clusterName, connectionName string
 	}
 	conn, err := services.UnmarshalTunnelConnection(data)
 	if err != nil {
-		log.Debugf("got some problem with data: %q", string(data))
+		s.log.Debugf("got some problem with data: %q", string(data))
 	}
 	return conn, err
 }
@@ -480,10 +484,76 @@ func (s *PresenceService) DeleteAllTunnelConnections() error {
 	return err
 }
 
+// CreateRemoteCluster creates remote cluster
+func (s *PresenceService) CreateRemoteCluster(rc services.RemoteCluster) error {
+	data, err := json.Marshal(rc)
+	if err != nil {
+		return trace.Wrap(err)
+	}
+	ttl := backend.TTL(s.Clock(), rc.Expiry())
+	err = s.CreateVal([]string{remoteClustersPrefix}, rc.GetName(), []byte(data), ttl)
+	if err != nil {
+		return trace.Wrap(err)
+	}
+	return nil
+}
+
+// GetRemoteClusters returns a list of remote clusters
+func (s *PresenceService) GetRemoteClusters() ([]services.RemoteCluster, error) {
+	keys, err := s.GetKeys([]string{remoteClustersPrefix})
+	if err != nil {
+		return nil, trace.Wrap(err)
+	}
+	clusters := make([]services.RemoteCluster, 0, len(keys))
+	for _, key := range keys {
+		data, err := s.GetVal([]string{remoteClustersPrefix}, key)
+		if err != nil {
+			if trace.IsNotFound(err) {
+				continue
+			}
+			return nil, trace.Wrap(err)
+		}
+		cluster, err := services.UnmarshalRemoteCluster(data)
+		if err != nil {
+			return nil, trace.Wrap(err)
+		}
+		clusters = append(clusters, cluster)
+	}
+	return clusters, nil
+}
+
+// GetRemoteCluster returns a remote cluster by name
+func (s *PresenceService) GetRemoteCluster(clusterName string) (services.RemoteCluster, error) {
+	data, err := s.GetVal([]string{remoteClustersPrefix}, clusterName)
+	if err != nil {
+		if trace.IsNotFound(err) {
+			return nil, trace.NotFound("remote cluster %q is not found", clusterName)
+		}
+		return nil, trace.Wrap(err)
+	}
+	return services.UnmarshalRemoteCluster(data)
+}
+
+// DeleteRemoteCluster deletes remote cluster by name
+func (s *PresenceService) DeleteRemoteCluster(clusterName string) error {
+	return s.DeleteKey([]string{remoteClustersPrefix}, clusterName)
+
+}
+
+// DeleteAllRemoteClusters deletes all remote clusters
+func (s *PresenceService) DeleteAllRemoteClusters() error {
+	err := s.DeleteBucket([]string{}, remoteClustersPrefix)
+	if trace.IsNotFound(err) {
+		return nil
+	}
+	return trace.Wrap(err)
+}
+
 const (
 	localClusterPrefix      = "localCluster"
 	reverseTunnelsPrefix    = "reverseTunnels"
 	tunnelConnectionsPrefix = "tunnelConnections"
+	remoteClustersPrefix    = "remoteClusters"
 	nodesPrefix             = "nodes"
 	namespacesPrefix        = "namespaces"
 	authServersPrefix       = "authservers"

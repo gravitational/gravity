@@ -56,6 +56,24 @@ type ClusterConfig interface {
 	// CheckAndSetDefaults checks and set default values for missing fields.
 	CheckAndSetDefaults() error
 
+	// GetAuditConfig returns audit settings
+	GetAuditConfig() AuditConfig
+
+	// SetAuditConfig sets audit config
+	SetAuditConfig(AuditConfig)
+
+	// GetClientIdleTimeout returns client idle timeout setting
+	GetClientIdleTimeout() time.Duration
+
+	// SetClientIdleTimeout sets client idle timeout setting
+	SetClientIdleTimeout(t time.Duration)
+
+	// GetDisconnectExpiredCert returns disconnect expired certificate setting
+	GetDisconnectExpiredCert() bool
+
+	// SetDisconnectExpiredCert sets disconnect client with expired certificate setting
+	SetDisconnectExpiredCert(bool)
+
 	// Copy creates a copy of the resource and returns it.
 	Copy() ClusterConfig
 }
@@ -93,6 +111,41 @@ func DefaultClusterConfig() ClusterConfig {
 			ProxyChecksHostKeys: HostKeyCheckYes,
 		},
 	}
+}
+
+// AuditConfig represents audit log settings in the cluster
+type AuditConfig struct {
+	// Type is audit backend type
+	Type string `json:"type,omitempty"`
+	// Region is a region setting for audit sessions used by cloud providers
+	Region string `json:"region,omitempty"`
+	// AuditSessionsURI is a parameter where to upload sessions
+	AuditSessionsURI string `json:"audit_sessions_uri,omitempty"`
+	// AuditEventsURI is a parameter with all supported outputs
+	// for audit events
+	AuditEventsURI utils.Strings `json:"audit_events_uri,omitempty"`
+	// AuditTableName is a DB table name used for audits
+	// Deprecated in favor of AuditEventsURI
+	// DELETE IN (3.1.0)
+	AuditTableName string `json:"audit_table_name,omitempty"`
+}
+
+// ShouldUploadSessions returns whether audit config
+// instructs server to upload sessions
+func (a AuditConfig) ShouldUploadSessions() bool {
+	return a.AuditSessionsURI != ""
+}
+
+// AuditConfigFromObject returns audit config from interface object
+func AuditConfigFromObject(in interface{}) (*AuditConfig, error) {
+	var cfg AuditConfig
+	if in == nil {
+		return &cfg, nil
+	}
+	if err := utils.ObjectToStruct(in, &cfg); err != nil {
+		return nil, trace.Wrap(err)
+	}
+	return &cfg, nil
 }
 
 // ClusterConfigV3 implements the ClusterConfig interface.
@@ -144,6 +197,16 @@ type ClusterConfigSpecV3 struct {
 	// ProxyChecksHostKeys is used to control if the proxy will check host keys
 	// when in recording mode.
 	ProxyChecksHostKeys string `json:"proxy_checks_host_keys"`
+
+	// Audit is a section with audit config
+	Audit AuditConfig `json:"audit"`
+
+	// ClientIdleTimeout sets global cluster default setting for client idle timeouts
+	ClientIdleTimeout Duration `json:"client_idle_timeout"`
+
+	// DisconnectExpiredCert provides disconnect expired certificate setting -
+	// if true, connections with expired client certificates will get disconnected
+	DisconnectExpiredCert Bool `json:"disconnect_expired_cert"`
 }
 
 // GetName returns the name of the cluster.
@@ -206,6 +269,36 @@ func (c *ClusterConfigV3) SetProxyChecksHostKeys(t string) {
 	c.Spec.ProxyChecksHostKeys = t
 }
 
+// GetAuditConfig returns audit settings
+func (c *ClusterConfigV3) GetAuditConfig() AuditConfig {
+	return c.Spec.Audit
+}
+
+// SetAuditConfig sets audit config
+func (c *ClusterConfigV3) SetAuditConfig(cfg AuditConfig) {
+	c.Spec.Audit = cfg
+}
+
+// GetClientIdleTimeout returns client idle timeout setting
+func (c *ClusterConfigV3) GetClientIdleTimeout() time.Duration {
+	return c.Spec.ClientIdleTimeout.Duration
+}
+
+// SetClientIdleTimeout sets client idle timeout setting
+func (c *ClusterConfigV3) SetClientIdleTimeout(d time.Duration) {
+	c.Spec.ClientIdleTimeout.Duration = d
+}
+
+// GetDisconnectExpiredCert returns disconnect expired certificate setting
+func (c *ClusterConfigV3) GetDisconnectExpiredCert() bool {
+	return c.Spec.DisconnectExpiredCert.bool
+}
+
+// SetDisconnectExpiredCert sets disconnect client with expired certificate setting
+func (c *ClusterConfigV3) SetDisconnectExpiredCert(b bool) {
+	c.Spec.DisconnectExpiredCert.bool = b
+}
+
 // CheckAndSetDefaults checks validity of all parameters and sets defaults.
 func (c *ClusterConfigV3) CheckAndSetDefaults() error {
 	// make sure we have defaults for all metadata fields
@@ -263,6 +356,40 @@ const ClusterConfigSpecSchemaTemplate = `{
     },
     "cluster_id": {
       "type": "string"
+    },
+    "client_idle_timeout": {
+      "type": "string"
+    },
+    "disconnect_expired_cert": {
+      "anyOf": [{"type": "string"}, { "type": "boolean"}]
+    },
+    "audit": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "type": {
+          "type": "string"
+        },
+        "region": {
+          "type": "string"
+        },
+        "audit_events_uri": {
+          "anyOf": [
+            {"type": "string"}, 
+            {"type": "array",
+             "items": {
+               "type": "string"
+             }
+            }
+          ]
+        },
+        "audit_sessions_uri": {
+          "type": "string"
+        },
+        "audit_table_name": {
+          "type": "string"
+        }
+      }
     }%v
   }
 }`

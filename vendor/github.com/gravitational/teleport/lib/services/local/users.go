@@ -178,7 +178,7 @@ func (s *IdentityService) DeleteUser(user string) error {
 	err := s.DeleteBucket([]string{"web", "users"}, user)
 	if err != nil {
 		if trace.IsNotFound(err) {
-			return trace.NotFound(fmt.Sprintf("user '%v' is not found", user))
+			return trace.NotFound("user %q is not found", user)
 		}
 	}
 	return trace.Wrap(err)
@@ -921,7 +921,7 @@ func (s *IdentityService) DeleteGithubConnector(id string) error {
 }
 
 // CreateGithubAuthRequest creates a new auth request for Github OAuth2 flow
-func (s *IdentityService) CreateGithubAuthRequest(req services.GithubAuthRequest, ttl time.Duration) error {
+func (s *IdentityService) CreateGithubAuthRequest(req services.GithubAuthRequest) error {
 	err := req.Check()
 	if err != nil {
 		return trace.Wrap(err)
@@ -930,6 +930,7 @@ func (s *IdentityService) CreateGithubAuthRequest(req services.GithubAuthRequest
 	if err != nil {
 		return trace.Wrap(err)
 	}
+	ttl := backend.TTL(s.Clock(), req.Expiry())
 	err = s.CreateVal(githubAuthRequestsPath, req.StateToken, data, ttl)
 	if err != nil {
 		return trace.Wrap(err)

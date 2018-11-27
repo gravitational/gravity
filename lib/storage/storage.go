@@ -191,7 +191,7 @@ type Connectors interface {
 	// DeleteGithubConnector deletes a Github connector by its name
 	DeleteGithubConnector(name string) error
 	// CreateGithubAuthRequest creates a new auth request for Github OAuth2 flow
-	CreateGithubAuthRequest(req teleservices.GithubAuthRequest, ttl time.Duration) error
+	CreateGithubAuthRequest(req teleservices.GithubAuthRequest) error
 	// GetGithubAuthRequest retrieves Github auth request by the token
 	GetGithubAuthRequest(stateToken string) (*teleservices.GithubAuthRequest, error)
 }
@@ -1139,8 +1139,9 @@ type PackageUpdate struct {
 	Labels map[string]string `json:"labels,omitempty"`
 }
 
+// String returns the package update string representation
 func (u *PackageUpdate) String() string {
-	return fmt.Sprintf("update(%v -> %v)", u.From, u.To)
+	return fmt.Sprintf("PackageUpdate(%v -> %v)", u.From, u.To)
 }
 
 // PackageChangesets tracks server local package changes - updates and downgrades

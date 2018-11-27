@@ -15,7 +15,7 @@ limitations under the License.
 */
 
 import $ from 'jQuery';
-import _ from 'lodash';
+import { at } from 'lodash';
 import { isTestEnv } from './services/utils'
 import { formatPattern, removeAllOptionalParameters } from 'app/lib/patternUtils';
 import { ProviderEnum, ErrorPageEnum, ClusterNameEnum, Auth2faTypeEnum } from 'app/services/enums';
@@ -250,8 +250,6 @@ let cfg = {
     // terminal
     ttyWsAddr: ':fqdm/proxy/v1/webapi/sites/:cluster/connect?access_token=:token&params=:params',
     ttyWsK8sPodAddr: ':fqdm/portalapi/v1/sites/:cluster/connect?access_token=:token&params=:params',
-    ttyEventWsAddr: ':fqdm/proxy/v1/webapi/sites/:cluster/sessions/:sid/events/stream?access_token=:token',
-    ttyResizeUrl: '/proxy/v1/webapi/sites/:cluster/sessions/:sid',
 
     // site
     siteTlsCertPath: '/portalapi/v1/sites/:siteId/certificate',
@@ -510,7 +508,7 @@ let cfg = {
   },
 
   getAuth2faType() {
-    let [secondFactor=null] = _.at(cfg, 'auth.second_factor');
+    let [secondFactor=null] = at(cfg, 'auth.second_factor');
     return secondFactor;
   },
 
@@ -573,7 +571,7 @@ let cfg = {
   },
 
   getSiteDefaultDashboard() {
-    let [suffix] = _.at(cfg, 'modules.site.features.monitoring.grafanaDefaultDashboardUrl');
+    let [suffix] = at(cfg, 'modules.site.features.monitoring.grafanaDefaultDashboardUrl');
     return suffix;
   },
 
@@ -584,7 +582,7 @@ let cfg = {
   },
 
   getServerVersion() {
-    let [serverVer] = _.at(cfg, 'systemInfo.serverVersion');
+    let [serverVer] = at(cfg, 'systemInfo.serverVersion');
     return {
       version: serverVer.version,
       gitCommit: serverVer.gitCommit,
@@ -593,27 +591,27 @@ let cfg = {
   },
 
   isSettingsLogsEnabled() {
-    let [isLogsEnabled] = _.at(cfg, 'modules.settings.features.logs.enabled');
+    let [isLogsEnabled] = at(cfg, 'modules.settings.features.logs.enabled');
     return isLogsEnabled;
   },
 
   isSettingsMonitoringEnabled() {
-    let [isMonitoringEnabled] = _.at(cfg, 'modules.settings.features.monitoring.enabled');
+    let [isMonitoringEnabled] = at(cfg, 'modules.settings.features.monitoring.enabled');
     return isMonitoringEnabled;
   },
 
   getAgentDeviceDocker() {
-    let [ option ] = _.at(cfg, 'agentReport.provision.devices.docker');
+    let [ option ] = at(cfg, 'agentReport.provision.devices.docker');
     return option || {};
   },
 
   getAgentDeviceMount(name) {
-    let [ option ] = _.at(cfg, `agentReport.provision.mounts.${name}`);
+    let [ option ] = at(cfg, `agentReport.provision.mounts.${name}`);
     return option || {};
   },
 
   getAgentDeviceIpv4() {
-    let [ option ] = _.at(cfg, 'agentReport.provision.interfaces.ipv4');
+    let [ option ] = at(cfg, 'agentReport.provision.interfaces.ipv4');
     return option || {};
   },
 
@@ -662,7 +660,7 @@ let cfg = {
   },
 
   isStandAlone() {
-    let [wizard] = _.at(cfg, 'systemInfo.wizard');
+    let [wizard] = at(cfg, 'systemInfo.wizard');
     return wizard;
   },
 
@@ -672,12 +670,12 @@ let cfg = {
    * for OpsCenter, running in dev mode i.e. without k8s, it will be ClusterNameEnum.DevCluster.
    */
   getLocalSiteId() {
-    let [siteId] = _.at(cfg, 'systemInfo.clusterName');
+    let [siteId] = at(cfg, 'systemInfo.clusterName');
     return siteId;
   },
 
   getSettingsClusterHeaderText(){
-    let [headerText] = _.at(cfg, 'modules.settings.clusterHeaderText');
+    let [headerText] = at(cfg, 'modules.settings.clusterHeaderText');
     return headerText;
   },
 

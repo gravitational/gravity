@@ -228,11 +228,11 @@ func (r *ApplicationsACL) StreamAppHookLogs(ctx context.Context, ref HookRef, ou
 
 // check checks whether the user has the requested permissions to read write apps
 func (r *ApplicationsACL) check(repoName, verb string) error {
-	return r.checker.CheckAccessToRule(r.repoContext(repoName), teledefaults.Namespace, storage.KindApp, verb)
+	return r.checker.CheckAccessToRule(r.repoContext(repoName), teledefaults.Namespace, storage.KindApp, verb, false)
 }
 
 // checkApp checks whether the user has the requested permissions to the specified app
 func (r *ApplicationsACL) checkApp(locator loc.Locator, verb string) error {
 	return r.checker.CheckAccessToRule(r.appContext(locator),
-		teledefaults.Namespace, storage.KindApp, verb)
+		teledefaults.Namespace, storage.KindApp, verb, false)
 }

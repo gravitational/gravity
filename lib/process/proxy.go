@@ -18,6 +18,7 @@ package process
 
 import (
 	"context"
+	"crypto/tls"
 	"fmt"
 	"io"
 	"net"
@@ -29,23 +30,29 @@ import (
 	"github.com/gravitational/gravity/lib/constants"
 	"github.com/gravitational/gravity/lib/defaults"
 
-	log "github.com/sirupsen/logrus"
 	"github.com/gravitational/teleport/lib/auth"
 	teleauth "github.com/gravitational/teleport/lib/auth"
 	"github.com/gravitational/teleport/lib/auth/native"
 	teleclient "github.com/gravitational/teleport/lib/client"
 	"github.com/gravitational/teleport/lib/services"
 	"github.com/gravitational/teleport/lib/sshutils"
-	"github.com/gravitational/teleport/lib/utils"
+	"github.com/gravitational/teleport/lib/tlsca"
+	teleutils "github.com/gravitational/teleport/lib/utils"
+
+	"github.com/gravitational/license/authority"
 	"github.com/gravitational/trace"
+	"github.com/jonboulle/clockwork"
+	"github.com/sirupsen/logrus"
 	"golang.org/x/crypto/ssh"
 )
 
 func newTeleportProxyService(cfg teleportProxyConfig) (*teleportProxyService, error) {
 	proxy := &teleportProxyService{
-		cfg:        cfg,
-		authClient: cfg.AuthClient,
+		cfg:         cfg,
+		authClient:  cfg.AuthClient,
+		FieldLogger: logrus.WithField(trace.Component, "teleproxy"),
 	}
+	proxy.Debugf("Creating teleportProxyService with %#v.", cfg)
 	proxy.ctx, proxy.cancel = context.WithCancel(context.TODO())
 	certGeneratedCh := make(chan struct{})
 	go proxy.initAuthMethods(certGeneratedCh)
@@ -54,31 +61,38 @@ func newTeleportProxyService(cfg teleportProxyConfig) (*teleportProxyService, er
 }
 
 type teleportProxyConfig struct {
-	AuthClient        *auth.TunClient
-	ReverseTunnelAddr utils.NetAddr
-	ProxyHost         string
-	AuthorityDomain   string
+	// AuthClient is the teleport auth server client
+	AuthClient *auth.Client
+	// ReverseTunnelAddr is the address of the reverse tunnel server
+	ReverseTunnelAddr teleutils.NetAddr
+	// WebProxyAddr is the address of the proxy web server
+	WebProxyAddr string
+	// SSHProxyAddr is the address of the proxy SSH server
+	SSHProxyAddr string
+	// AuthorityDomain is the teleport's authority domain (gravity cluster name)
+	AuthorityDomain string
 }
 
 type teleportProxyService struct {
 	sync.Mutex
-	authClient  *auth.TunClient
+	authClient  *auth.Client
 	cfg         teleportProxyConfig
 	authMethods []ssh.AuthMethod
 	ctx         context.Context
 	cancel      context.CancelFunc
 	// leaderIP is the IP address of the active planet leader
 	leaderIP string
+	logrus.FieldLogger
 }
 
-func (t *teleportProxyService) authServers() ([]utils.NetAddr, error) {
+func (t *teleportProxyService) authServers() ([]teleutils.NetAddr, error) {
 	servers, err := t.authClient.GetAuthServers()
 	if err != nil {
 		return nil, trace.Wrap(err)
 	}
-	authServers := make([]utils.NetAddr, 0, len(servers))
+	authServers := make([]teleutils.NetAddr, 0, len(servers))
 	for _, server := range servers {
-		serverAddr, err := utils.ParseAddr(server.GetAddr())
+		serverAddr, err := teleutils.ParseAddr(server.GetAddr())
 		if err != nil {
 			return nil, trace.Wrap(err)
 		}
@@ -102,8 +116,7 @@ func (t *teleportProxyService) getAuthMethods() []ssh.AuthMethod {
 }
 
 func (t *teleportProxyService) initAuthMethods(certGeneratedCh chan<- struct{}) error {
-	certAuthority := native.New()
-	priv, pub, err := certAuthority.GenerateKeyPair("")
+	priv, pub, err := t.generateKeyPair()
 	if err != nil {
 		return trace.Wrap(err)
 	}
@@ -117,14 +130,15 @@ func (t *teleportProxyService) initAuthMethods(certGeneratedCh chan<- struct{}) 
 		if err != nil {
 			return trace.Wrap(err)
 		}
-		log.Debugf("[TELEPORT] generated certificate for %v", constants.OpsCenterUser)
+		t.Debugf("Renewed certificate for %v.", constants.OpsCenterUser)
 		t.setAuthMethods([]ssh.AuthMethod{ssh.PublicKeys(signer)})
 		return nil
 	}
 
 	// try to renew cert right away
 	if err := renewCert(); err != nil {
-		log.Warningf("failed to generate cert: %v", trace.DebugReport(err))
+		t.Warningf("Failed to generate certificate for %v: %v.",
+			constants.OpsCenterUser, trace.DebugReport(err))
 	}
 	// Notify the listener that the certificate has been renewed
 	close(certGeneratedCh)
@@ -138,7 +152,8 @@ func (t *teleportProxyService) initAuthMethods(certGeneratedCh chan<- struct{}) 
 			return nil
 		case <-ticker.C:
 			if err := renewCert(); err != nil {
-				log.Warningf("failed to generate cert: %v", trace.DebugReport(err))
+				t.Warningf("Failed to renew certificate for %v: %v.",
+					constants.OpsCenterUser, trace.DebugReport(err))
 			}
 		}
 	}
@@ -190,6 +205,23 @@ func (t *teleportProxyService) GetCertAuthorities(caType services.CertAuthType) 
 	return out, nil
 }
 
+// GetCertAuthority returns the requested certificate authority
+func (t *teleportProxyService) GetCertAuthority(id services.CertAuthID, loadSigningKeys bool) (*authority.TLSKeyPair, error) {
+	ca, err := t.authClient.GetCertAuthority(id, loadSigningKeys)
+	if err != nil {
+		return nil, trace.Wrap(err)
+	}
+	keyPairs := ca.GetTLSKeyPairs()
+	if len(keyPairs) == 0 {
+		return nil, trace.NotFound("certificate authority %v does not "+
+			"have TLS key pairs", id)
+	}
+	return &authority.TLSKeyPair{
+		KeyPEM:  keyPairs[0].Key,
+		CertPEM: keyPairs[0].Cert,
+	}, nil
+}
+
 // CertificateAuthorities returns a list of certificate
 // authorities proxy wants remote teleport sites to trust
 func (t *teleportProxyService) CertAuthorities(withPrivateKey bool) ([]services.CertAuthority, error) {
@@ -230,6 +262,11 @@ func (t *teleportProxyService) DeleteAuthority(domainName string) error {
 	return nil
 }
 
+// DeleteRemoteCluster deletes remote cluster resource
+func (t *teleportProxyService) DeleteRemoteCluster(clusterName string) error {
+	return t.authClient.DeleteRemoteCluster(clusterName)
+}
+
 // Start trusting certificate authority
 func (t *teleportProxyService) TrustCertAuthority(cert services.CertAuthority) error {
 	err := t.authClient.UpsertCertAuthority(cert)
@@ -239,7 +276,7 @@ func (t *teleportProxyService) TrustCertAuthority(cert services.CertAuthority) e
 	return nil
 }
 
-func (t *teleportProxyService) hostCertChecker() (teleclient.HostKeyCallback, error) {
+func (t *teleportProxyService) hostCertChecker() (ssh.HostKeyCallback, error) {
 	authorities, err := t.authClient.GetCertAuthorities(services.HostCA, false)
 	if err != nil {
 		return nil, trace.Wrap(err)
@@ -257,7 +294,9 @@ func (t *teleportProxyService) hostCertChecker() (teleclient.HostKeyCallback, er
 				return trace.Wrap(err)
 			}
 			for _, checker := range checkers {
-				log.Infof("remote host signing key: %v, trusted key: %v", sshutils.Fingerprint(cert.SignatureKey), sshutils.Fingerprint(checker))
+				t.Infof("Remote host signing key: %v, trusted key: %v.",
+					sshutils.Fingerprint(cert.SignatureKey),
+					sshutils.Fingerprint(checker))
 				if sshutils.KeysEqual(cert.SignatureKey, checker) {
 					return nil
 				}
@@ -269,8 +308,11 @@ func (t *teleportProxyService) hostCertChecker() (teleclient.HostKeyCallback, er
 }
 
 func (t *teleportProxyService) GetProxyClient(ctx context.Context, siteName string, labels map[string]string) (*teleclient.ProxyClient, error) {
-	log.Infof("GetServers(%v, %v)", siteName, labels)
 	hostChecker, err := t.hostCertChecker()
+	if err != nil {
+		return nil, trace.Wrap(err)
+	}
+	tlsConfig, err := t.getTLSConfig(siteName)
 	if err != nil {
 		return nil, trace.Wrap(err)
 	}
@@ -279,9 +321,11 @@ func (t *teleportProxyService) GetProxyClient(ctx context.Context, siteName stri
 		AuthMethods:     t.getAuthMethods(),
 		SkipLocalAuth:   true,
 		HostLogin:       defaults.SSHUser,
-		ProxyHostPort:   t.cfg.ProxyHost,
+		WebProxyAddr:    t.cfg.WebProxyAddr,
+		SSHProxyAddr:    t.cfg.SSHProxyAddr,
 		SiteName:        siteName,
 		HostKeyCallback: hostChecker,
+		TLS:             tlsConfig,
 		Env: map[string]string{
 			defaults.PathEnv: defaults.PathEnvVal,
 		},
@@ -294,7 +338,7 @@ func (t *teleportProxyService) GetProxyClient(ctx context.Context, siteName stri
 	}
 
 	// query a proxy for server list
-	proxyClient, err := teleportClient.ConnectToProxy()
+	proxyClient, err := teleportClient.ConnectToProxy(ctx)
 	if err != nil {
 		return nil, trace.Wrap(err)
 	}
@@ -303,6 +347,7 @@ func (t *teleportProxyService) GetProxyClient(ctx context.Context, siteName stri
 }
 
 func (t *teleportProxyService) GetServers(ctx context.Context, siteName string, labels map[string]string) ([]services.Server, error) {
+	t.Infof("GetServers(%v, %v)", siteName, labels)
 	proxyClient, err := t.GetProxyClient(ctx, siteName, labels)
 	if err != nil {
 		return nil, trace.Wrap(err)
@@ -325,7 +370,7 @@ func (t *teleportProxyService) GetServerCount(ctx context.Context, siteName stri
 }
 
 func (t *teleportProxyService) ExecuteCommand(ctx context.Context, siteName, nodeAddr, command string, out io.Writer) error {
-	log.Infof("ExecuteCommand(%v, %v, %v)", siteName, nodeAddr, command)
+	t.Infof("ExecuteCommand(%v, %v, %v)", siteName, nodeAddr, command)
 	hostChecker, err := t.hostCertChecker()
 	if err != nil {
 		return trace.Wrap(err)
@@ -338,20 +383,79 @@ func (t *teleportProxyService) ExecuteCommand(ctx context.Context, siteName, nod
 	if err != nil {
 		return trace.Wrap(err, fmt.Sprintf("bad target node address: %v", nodeAddr))
 	}
+	tlsConfig, err := t.getTLSConfig(siteName)
+	if err != nil {
+		return trace.Wrap(err)
+	}
 	proxyClient, err := teleclient.NewClient(&teleclient.Config{
 		Username:        constants.OpsCenterUser,
 		AuthMethods:     t.getAuthMethods(),
 		SkipLocalAuth:   true,
 		HostLogin:       defaults.SSHUser,
-		ProxyHostPort:   t.cfg.ProxyHost,
+		WebProxyAddr:    t.cfg.WebProxyAddr,
+		SSHProxyAddr:    t.cfg.SSHProxyAddr,
 		HostPort:        targetPort,
 		Host:            targetHost,
 		Stdout:          out,
 		SiteName:        siteName,
 		HostKeyCallback: hostChecker,
+		TLS:             tlsConfig,
 		Env: map[string]string{
 			defaults.PathEnv: defaults.PathEnvVal,
 		},
 	})
 	return trace.Wrap(proxyClient.SSH(ctx, strings.Split(command, " "), false))
+}
+
+// getTLSConfig builds a TLS client config using certificate signed by
+// the host's certificate authority of the specified domain
+func (t *teleportProxyService) getTLSConfig(clusterName string) (*tls.Config, error) {
+	ca, err := t.authClient.GetCertAuthority(services.CertAuthID{
+		Type:       services.HostCA,
+		DomainName: clusterName,
+	}, true)
+	if err != nil {
+		return nil, trace.Wrap(err)
+	}
+	tlsAuthority, err := ca.TLSCA()
+	if err != nil {
+		return nil, trace.Wrap(err)
+	}
+	privateKey, publicKey, err := t.generateKeyPair()
+	if err != nil {
+		return nil, trace.Wrap(err)
+	}
+	cryptoPublicKey, err := sshutils.CryptoPublicKey(publicKey)
+	if err != nil {
+		return nil, trace.Wrap(err)
+	}
+	identity := &tlsca.Identity{
+		Username: constants.OpsCenterUser,
+		Groups:   []string{defaults.SystemAccountOrg},
+	}
+	cert, err := tlsAuthority.GenerateCertificate(
+		tlsca.CertificateRequest{
+			Clock:     clockwork.NewRealClock(),
+			PublicKey: cryptoPublicKey,
+			Subject:   identity.Subject(),
+			NotAfter:  time.Now().UTC().Add(defaults.CertTTL),
+		})
+	if err != nil {
+		return nil, trace.Wrap(err)
+	}
+	clientKey := &teleclient.Key{
+		TLSCert: cert,
+		Priv:    privateKey,
+		TrustedCA: auth.AuthoritiesToTrustedCerts(
+			[]services.CertAuthority{ca}),
+	}
+	return clientKey.ClientTLSConfig()
+}
+
+func (t *teleportProxyService) generateKeyPair() ([]byte, []byte, error) {
+	keygen, err := native.New()
+	if err != nil {
+		return nil, nil, trace.Wrap(err)
+	}
+	return keygen.GenerateKeyPair("")
 }

@@ -10,7 +10,7 @@
 # Naming convention:
 #	for stable releases we use "1.0.0" format
 #   for pre-releases, we use   "1.0.0-beta.2" format
-VERSION=2.4.8
+VERSION=3.0.1
 
 # These are standard autotools variables, don't change them please
 BUILDDIR ?= build
@@ -18,23 +18,38 @@ BINDIR ?= /usr/local/bin
 DATADIR ?= /usr/local/share/teleport
 ADDFLAGS ?=
 PWD ?= `pwd`
+GOCACHEDIR ?= `go env GOCACHE`
 TELEPORT_DEBUG ?= no
 GITTAG=v$(VERSION)
 BUILDFLAGS ?= $(ADDFLAGS) -ldflags '-w -s'
 
-ARCH=`go env GOOS`-`go env GOARCH`
-RELEASE=teleport-$(GITTAG)-$(ARCH)-bin
-BINARIES=$(BUILDDIR)/tsh $(BUILDDIR)/teleport $(BUILDDIR)/tctl
+OS ?= `go env GOOS`
+ARCH ?= `go env GOARCH`
+RELEASE=teleport-$(GITTAG)-$(OS)-$(ARCH)-bin
+
+# PAM support will only be built into Teleport if headers exist at build time.
+PAM_MESSAGE := "without PAM support"
+ifneq ("$(wildcard /usr/include/security/pam_appl.h)","")
+PAMFLAGS := -tags pam
+PAM_MESSAGE := "with PAM support"
+endif
+
+# On Windows only build tsh. On all other platforms build teleport, tctl,
+# and tsh.
+BINARIES=$(BUILDDIR)/teleport $(BUILDDIR)/tctl $(BUILDDIR)/tsh
+RELEASE_MESSAGE := "Building with GOOS=$(OS) GOARCH=$(ARCH) and $(PAM_MESSAGE)."
+ifeq ("$(OS)","windows")
+BINARIES=$(BUILDDIR)/tsh
+endif
 
 VERSRC = version.go gitref.go
-LIBS = $(shell find lib -type f -name '*.go') *.go
-TCTLSRC = $(shell find tool/tctl -type f -name '*.go')
-TELEPORTSRC = $(shell find tool/teleport -type f -name '*.go')
-TSHSRC = $(shell find tool/tsh -type f -name '*.go')
-TELEPORTVENDOR = $(shell find vendor -type f -name '*.go')
+
+KUBECONFIG ?=
+TEST_KUBE ?=
+export
 
 #
-# 'make all' builds all 3 executables and plaaces them in a current directory
+# 'make all' builds all 3 executables and places them in the current directory.
 #
 # IMPORTANT: the binaries will not contain the web UI assets and `teleport`
 #            won't start without setting the environment variable DEBUG=1
@@ -42,44 +57,74 @@ TELEPORTVENDOR = $(shell find vendor -type f -name '*.go')
 #            a web UI.
 .PHONY: all
 all: $(VERSRC)
-	go install $(BUILDFLAGS) ./lib/...
-	$(MAKE) -s -j 4 $(BINARIES)
+	@echo "---> Building OSS binaries."
+	$(MAKE) $(BINARIES)
 
-$(BUILDDIR)/tctl: $(LIBS) $(TELEPORTSRC) $(TELEPORTVENDOR)
-	go build -o $(BUILDDIR)/tctl -i $(BUILDFLAGS) ./tool/tctl
+# By making these 3 targets below (tsh, tctl and teleport) PHONY we are solving
+# several problems:
+# * Build will rely on go build internal caching https://golang.org/doc/go1.10 at all times
+# * Manual change detection was broken on a large dependency tree
+# If you are considering changing this behavior, please consult with dev team first
+.PHONY: $(BUILDDIR)/tctl
+$(BUILDDIR)/tctl:
+	go build $(PAMFLAGS) -o $(BUILDDIR)/tctl $(BUILDFLAGS) ./tool/tctl
 
-$(BUILDDIR)/teleport: $(LIBS) $(TELEPORTSRC) $(TELEPORTVENDOR)
-	go build -o $(BUILDDIR)/teleport -i $(BUILDFLAGS) ./tool/teleport
+.PHONY: $(BUILDDIR)/teleport
+$(BUILDDIR)/teleport:
+	go build $(PAMFLAGS) -o $(BUILDDIR)/teleport $(BUILDFLAGS) ./tool/teleport
 
-$(BUILDDIR)/tsh: $(LIBS) $(TELEPORTSRC) $(TELEPORTVENDOR)
-	go build -o $(BUILDDIR)/tsh -i $(BUILDFLAGS) ./tool/tsh
+.PHONY: $(BUILDDIR)/tsh
+$(BUILDDIR)/tsh:
+	GOOS=$(OS) go build $(PAMFLAGS) -o $(BUILDDIR)/tsh $(BUILDFLAGS) ./tool/tsh
 
 #
-# make full - builds the binary with the built-in web assets and places it
-#     into $(BUILDDIR)
+# make full - Builds Teleport binaries with the built-in web assets and
+# places them into $(BUILDDIR). On Windows, this target is skipped because
+# only tsh is built.
 #
 .PHONY:full
 full: all $(BUILDDIR)/webassets.zip
+ifneq ("$(OS)", "windows")
+	@echo "---> Attaching OSS web assets."
 	cat $(BUILDDIR)/webassets.zip >> $(BUILDDIR)/teleport
 	rm -fr $(BUILDDIR)/webassets.zip
 	zip -q -A $(BUILDDIR)/teleport
-
-
-.PHONY: clean
-clean:
-	rm -rf $(BUILDDIR)
-	rm -rf teleport
-	rm -rf *.gz
-	rm -f gitref.go
-	rm -rf `go env GOPATH`/pkg/`go env GOHOSTOS`_`go env GOARCH`/github.com/gravitational/teleport*
-	@if [ -f e/Makefile ]; then $(MAKE) -C e clean; fi
+endif
 
 #
-# make release - produces a binary release tarball
+# make clean - Removed all build artifacts.
+#
+.PHONY: clean
+clean:
+	@echo "---> Cleaning up OSS build artifacts."
+	rm -rf $(BUILDDIR)
+	rm -rf $(GOCACHEDIR)
+	rm -rf teleport
+	rm -rf *.gz
+	rm -rf *.zip
+	rm -f gitref.go
+	rm -rf `go env GOPATH`/pkg/`go env GOHOSTOS`_`go env GOARCH`/github.com/gravitational/teleport*
+
+#
+# make release - Produces a binary release tarball.
 #
 .PHONY:
 export
-release: clean full
+release:
+	@echo "---> $(RELEASE_MESSAGE)"
+ifeq ("$(OS)", "windows")
+	$(MAKE) --no-print-directory release-windows
+else
+	$(MAKE) --no-print-directory release-unix
+endif
+
+#
+# make release-unix - Produces a binary release tarball containing teleport,
+# tctl, and tsh.
+#
+.PHONY:
+release-unix: clean full
+	@echo "---> Creating OSS release archive."
 	mkdir teleport
 	cp -rf $(BUILDDIR)/* \
 		examples \
@@ -90,8 +135,26 @@ release: clean full
 	echo $(GITTAG) > teleport/VERSION
 	tar -czf $(RELEASE).tar.gz teleport
 	rm -rf teleport
-	@echo "\nCREATED: $(RELEASE).tar.gz"
-	if [ -f e/Makefile ]; then $(MAKE) -C e release; fi
+	@echo "---> Created $(RELEASE).tar.gz."
+	@if [ -f e/Makefile ]; then $(MAKE) -C e release; fi
+
+#
+# make release-windows - Produces a binary release tarball containing teleport,
+# tctl, and tsh.
+#
+.PHONY:
+release-windows: clean all
+	@echo "---> Creating OSS release archive."
+	mkdir teleport
+	cp -rf $(BUILDDIR)/* \
+		README.md \
+		CHANGELOG.md \
+		teleport/
+	mv teleport/tsh teleport/tsh.exe
+	echo $(GITTAG) > teleport/VERSION
+	zip -9 -y -r -q $(RELEASE).zip teleport/
+	rm -rf teleport/
+	@echo "---> Created $(RELEASE).zip."
 
 #
 # Builds docs using containerized mkdocs
@@ -124,7 +187,8 @@ test: $(VERSRC)
 #
 .PHONY: integration
 integration:
-	go test -v ./integration/... -check.v
+	@echo KUBECONFIG is: $(KUBECONFIG), TEST_KUBE: $(TEST_KUBE)
+	go test $(PAMFLAGS) -v ./integration/... -check.v
 
 # This rule triggers re-generation of version.go and gitref.go if Makefile changes
 $(VERSRC): Makefile
@@ -145,7 +209,10 @@ tag:
 # build/webassets.zip archive contains the web assets (UI) which gets
 # appended to teleport binary
 $(BUILDDIR)/webassets.zip:
+ifneq ("$(OS)", "windows")
+	@echo "---> Building OSS web assets."
 	cd web/dist ; zip -qr ../../$(BUILDDIR)/webassets.zip .
+endif
 
 .PHONY: test-package
 test-package: remove-temp-files
@@ -154,10 +221,6 @@ test-package: remove-temp-files
 .PHONY: test-grep-package
 test-grep-package: remove-temp-files
 	go test -v ./$(p) -check.f=$(e)
-
-.PHONY: test-dynamo
-test-dynamo:
-	go test -v ./lib/... -tags dynamodb
 
 .PHONY: cover-package
 cover-package: remove-temp-files
@@ -188,7 +251,6 @@ enter:
 
 PROTOC_VER ?= 3.0.0
 GOGO_PROTO_TAG ?= v0.3
-GRPC_GATEWAY_TAG ?= v1.1.0
 PLATFORM := linux-x86_64
 GRPC_API := lib/events
 BUILDBOX_TAG := teleport-grpc-buildbox:0.0.1
@@ -199,7 +261,6 @@ buildbox:
 	cd build.assets/grpc && docker build \
           --build-arg PROTOC_VER=$(PROTOC_VER) \
           --build-arg GOGO_PROTO_TAG=$(GOGO_PROTO_TAG) \
-          --build-arg GRPC_GATEWAY_TAG=$(GRPC_GATEWAY_TAG) \
           --build-arg PLATFORM=$(PLATFORM) \
           -t $(BUILDBOX_TAG) .
 
@@ -214,7 +275,7 @@ buildbox-grpc:
 # standard GRPC output
 	echo $$PROTO_INCLUDE
 	cd $(GRPC_API) && protoc -I=.:$$PROTO_INCLUDE \
-      --gofast_out=plugins=grpc:.\
+	  --gofast_out=plugins=grpc:.\
     *.proto
 
 .PHONY: goinstall
@@ -233,3 +294,22 @@ install: build
 	cp -f $(BUILDDIR)/teleport  $(BINDIR)/
 	mkdir -p $(DATADIR)
 
+
+.PHONY: image
+image:
+	cp ./build.assets/charts/Dockerfile $(BUILDDIR)/
+	cd $(BUILDDIR) && docker build . -t quay.io/gravitational/teleport:$(VERSION)
+	if [ -f e/Makefile ]; then $(MAKE) -C e image; fi
+
+.PHONY: publish
+publish:
+	docker push quay.io/gravitational/teleport:$(VERSION)
+	if [ -f e/Makefile ]; then $(MAKE) -C e publish; fi
+
+.PHONY: print-version
+print-version:
+	@echo $(VERSION)
+
+.PHONY: chart-ent
+chart-ent:
+	$(MAKE) -C e chart

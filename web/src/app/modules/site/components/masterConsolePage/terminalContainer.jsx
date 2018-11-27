@@ -27,19 +27,19 @@ class TerminalContainer extends React.Component {
     isTabActive: React.PropTypes.bool,
     isParentVisible: React.PropTypes.bool
   }
-  
+
   static propTypes = {
     clusterName: React.PropTypes.string.isRequired,
     login: React.PropTypes.string.isRequired,
-    title: React.PropTypes.string.isRequired,  
+    title: React.PropTypes.string.isRequired,
     serverId: React.PropTypes.string.isRequired
   }
 
-  state = { 
-    sid: null, 
-    isConnected: false 
+  state = {
+    sid: null,
+    isConnected: false
   }
-  
+
   updateState(newState){
     this.setState({...newState});
   }
@@ -58,7 +58,7 @@ class TerminalContainer extends React.Component {
 
   shouldConnect(){
     const { sid, isConnected } = this.state;
-    const { isTabActive, isParentVisible } = this.context;    
+    const { isTabActive, isParentVisible } = this.context;
     return !isConnected && isTabActive && isParentVisible && !sid;
   }
 
@@ -91,25 +91,23 @@ class TerminalContainer extends React.Component {
 
 class TerminalControl extends React.Component {
 
-  componentDidMount() {    
+  componentDidMount() {
     const { serverId, login, pod, sid, clusterName } = this.props;
-    const accessToken = localStorage.getAccessToken();    
+    const accessToken = localStorage.getAccessToken();
     const addressResolver = new TtyAddressResolver({
       sid,
       login,
       ttyUrl: pod ? cfg.api.ttyWsK8sPodAddr : cfg.api.ttyWsAddr,
-      ttyEventUrl: cfg.api.ttyEventWsAddr,
-      ttyResizeUrl: cfg.api.ttyResizeUrl,
       cluster: clusterName,
       token: accessToken,
-      getTarget(){        
-        return pod ? { pod } : { server_id : serverId }        
+      getTarget(){
+        return pod ? { pod } : { server_id : serverId }
       }
     })
-    
+
     this.terminal = new XTerm({
       el: this.refs.container,
-      addressResolver      
+      addressResolver
     });
 
     this.terminal.open();

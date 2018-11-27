@@ -49,6 +49,8 @@ const (
 	RuntimePhase = "/runtime"
 	// AppPhase is a phase that installs user application
 	AppPhase = "/app"
+	// ConnectInstallerPhase is a phase that connects cluster to the installer
+	ConnectInstallerPhase = "/connect-installer"
 	// EnableElectionPhase turns on election participation for master nodes
 	// at the end of the installation. During installation, the election is
 	// off with a single master

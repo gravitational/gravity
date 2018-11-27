@@ -19,8 +19,8 @@
 [[projects]]
   name = "github.com/Microsoft/go-winio"
   packages = ["."]
-  revision = "78439966b38d69bf38227fbf57ac8a6fee70f69a"
-  version = "v0.4.5"
+  revision = "a6d595ae73cf27a1b8fc32930668708f45ce1c85"
+  version = "v0.4.9"
 
 [[projects]]
   name = "github.com/agext/levenshtein"
@@ -197,7 +197,12 @@
 [[projects]]
   name = "github.com/coreos/etcd"
   packages = [
+    "auth/authpb",
     "client",
+    "clientv3",
+    "etcdserver/api/v3rpc/rpctypes",
+    "etcdserver/etcdserverpb",
+    "mvcc/mvccpb",
     "pkg/pathutil",
     "pkg/srv",
     "pkg/tlsutil",
@@ -205,8 +210,8 @@
     "pkg/types",
     "version"
   ]
-  revision = "c31bec0f29facff13f7c3e3d948e55dd6689ed42"
-  version = "v3.2.4"
+  revision = "27fc7e2296f506182f58ce846e48f36b34fe6842"
+  version = "v3.3.10"
 
 [[projects]]
   name = "github.com/coreos/go-oidc"
@@ -304,6 +309,7 @@
     "pkg/promise",
     "pkg/random",
     "pkg/system",
+    "pkg/term",
     "pkg/term/windows"
   ]
   revision = "092cba3727bb9b4a2f0e922cd6c0f93ea270e363"
@@ -319,6 +325,15 @@
   name = "github.com/docker/libtrust"
   packages = ["."]
   revision = "9cbd2a1374f46905c68a4eb3694a130610adc62a"
+
+[[projects]]
+  branch = "master"
+  name = "github.com/docker/spdystream"
+  packages = [
+    ".",
+    "spdy"
+  ]
+  revision = "6480d4af844c189cf5dd913db24ddd339d3a4f85"
 
 [[projects]]
   name = "github.com/dustin/go-humanize"
@@ -392,12 +407,14 @@
 [[projects]]
   name = "github.com/gogo/protobuf"
   packages = [
+    "gogoproto",
     "proto",
+    "protoc-gen-gogo/descriptor",
     "sortkeys",
     "types"
   ]
-  revision = "100ba4e885062801d56799d78530b73b178a78f3"
-  version = "v0.4"
+  revision = "7d68e886eac4f7e34d0d82241a6273d6c304c5cf"
+  version = "v1.1.0"
 
 [[projects]]
   branch = "master"
@@ -414,14 +431,14 @@
   name = "github.com/golang/protobuf"
   packages = [
     "proto",
-    "protoc-gen-go/descriptor",
     "ptypes",
     "ptypes/any",
     "ptypes/duration",
     "ptypes/empty",
     "ptypes/timestamp"
   ]
-  revision = "8ee79997227bf9b34611aee7946ae64735e6fd93"
+  revision = "b4deda0973fb4c70b50d226b1af49f3da59f5265"
+  version = "v1.1.0"
 
 [[projects]]
   branch = "master"
@@ -520,6 +537,17 @@
   version = "0.0.2"
 
 [[projects]]
+  name = "github.com/gravitational/oxy"
+  packages = [
+    "connlimit",
+    "forward",
+    "ratelimit",
+    "utils"
+  ]
+  revision = "e4a7e35311e6c4da4cf9e73c6a3d8cf523937211"
+  version = "1.0.2"
+
+[[projects]]
   name = "github.com/gravitational/rigging"
   packages = ["."]
   revision = "57bd6ab416c0e9fb7bcf2f62db91fb9e40298159"
@@ -528,8 +556,7 @@
 [[projects]]
   name = "github.com/gravitational/roundtrip"
   packages = ["."]
-  revision = "ad87871f2c4d31b9bef3f3c6224c3f5e50d0bac1"
-  version = "0.0.2"
+  revision = "6a87d116a90b9c4e73bedc19ebc9c17f1b43d826"
 
 [[projects]]
   name = "github.com/gravitational/satellite"
@@ -556,6 +583,7 @@
   version = "v1.0.1"
 
 [[projects]]
+  branch = "branch/3.0"
   name = "github.com/gravitational/teleport"
   packages = [
     ".",
@@ -572,11 +600,19 @@
     "lib/config",
     "lib/defaults",
     "lib/events",
+    "lib/events/dynamoevents",
+    "lib/events/filesessions",
+    "lib/events/s3sessions",
     "lib/fixtures",
     "lib/httplib",
     "lib/httplib/csrf",
+    "lib/kube/authority",
+    "lib/kube/proxy",
+    "lib/kube/utils",
     "lib/limiter",
     "lib/modules",
+    "lib/multiplexer",
+    "lib/pam",
     "lib/reversetunnel",
     "lib/service",
     "lib/services",
@@ -587,18 +623,21 @@
     "lib/srv",
     "lib/srv/forward",
     "lib/srv/regular",
+    "lib/sshca",
     "lib/sshutils",
     "lib/sshutils/scp",
     "lib/state",
+    "lib/system",
     "lib/teleagent",
+    "lib/tlsca",
     "lib/utils",
+    "lib/utils/agentconn",
     "lib/utils/parse",
     "lib/utils/proxy",
     "lib/web",
     "lib/web/ui"
   ]
-  revision = "64b88f99a1af9e63277c3529c1c006d81ee3499c"
-  version = "v2.4.9"
+  revision = "6f326a12d38a41f78f1fde86d883526868539d67"
 
 [[projects]]
   name = "github.com/gravitational/trace"
@@ -624,12 +663,6 @@
     "diskcache"
   ]
   revision = "9cad4c3443a7200dd6400aef47183728de563a38"
-
-[[projects]]
-  name = "github.com/grpc-ecosystem/grpc-gateway"
-  packages = ["third_party/googleapis/google/api"]
-  revision = "a8f25bd1ab549f8b87afd48aa9181221e9d439bb"
-  version = "v1.1.0"
 
 [[projects]]
   name = "github.com/hashicorp/errwrap"
@@ -828,15 +861,6 @@
   revision = "7c28d80e2ada649fc8ab1a37b86d30a2633bd47c"
 
 [[projects]]
-  branch = "alexander/copy"
-  name = "github.com/mailgun/oxy"
-  packages = [
-    "forward",
-    "utils"
-  ]
-  revision = "0c3e45a1f7b20e1f818612ad4f42abfc0923f3d5"
-
-[[projects]]
   name = "github.com/mailgun/timetools"
   packages = ["."]
   revision = "fd192d755b00c968d312d23f521eb0cdc6f66bd0"
@@ -936,12 +960,6 @@
   packages = ["."]
   revision = "eecee6c969c02c8cc2ae48e1e269843ae8590796"
   version = "v1.0.0"
-
-[[projects]]
-  name = "github.com/moby/moby"
-  packages = ["pkg/term"]
-  revision = "092cba3727bb9b4a2f0e922cd6c0f93ea270e363"
-  version = "v1.13.1"
 
 [[projects]]
   name = "github.com/modern-go/concurrent"
@@ -1124,7 +1142,8 @@
 [[projects]]
   name = "github.com/ugorji/go"
   packages = ["codec"]
-  revision = "646ae4a518c1c3be0739df898118d9bccf993858"
+  revision = "b4c50a2b199d93b13dc15e78929cfb23bfdf21ab"
+  version = "v1.1.1"
 
 [[projects]]
   name = "github.com/ulikunitz/xz"
@@ -1140,18 +1159,19 @@
 [[projects]]
   name = "github.com/vulcand/oxy"
   packages = [
-    "connlimit",
     "forward",
-    "ratelimit",
     "utils"
   ]
   revision = "40720199a16cdfb3854ff58ad91d290a7dd56de0"
 
 [[projects]]
   name = "github.com/vulcand/predicate"
-  packages = ["."]
-  revision = "939c094524d124c55fa8afe0e077701db4a865e2"
-  version = "v1.0.0"
+  packages = [
+    ".",
+    "builder"
+  ]
+  revision = "8fbfb3ab0e94276b6b58bec378600829adc7a203"
+  version = "v1.1.0"
 
 [[projects]]
   name = "github.com/xeipuuv/gojsonpointer"
@@ -1190,6 +1210,7 @@
   revision = "c2393a5d54f2fe015be2ddb1fc55431f749387de"
 
 [[projects]]
+  branch = "master"
   name = "golang.org/x/crypto"
   packages = [
     "bcrypt",
@@ -1198,6 +1219,8 @@
     "curve25519",
     "ed25519",
     "ed25519/internal/edwards25519",
+    "internal/chacha20",
+    "internal/subtle",
     "nacl/secretbox",
     "openpgp",
     "openpgp/armor",
@@ -1213,26 +1236,26 @@
     "ssh/agent",
     "ssh/terminal"
   ]
-  revision = "453249f01cfeb54c3d549ddb75ff152ca243f9d8"
+  revision = "e84da0312774c21d64ee2317962ef669b27ffb41"
 
 [[projects]]
-  branch = "release-branch.go1.9"
+  branch = "master"
   name = "golang.org/x/net"
   packages = [
     "context",
     "context/ctxhttp",
     "html",
     "html/atom",
+    "http/httpguts",
     "http2",
     "http2/hpack",
     "idna",
     "internal/timeseries",
-    "lex/httplex",
     "nettest",
     "trace",
     "websocket"
   ]
-  revision = "ab5485076ff3407ad2d02db054635913f017b0ed"
+  revision = "9b4f9f5ad5197c79fd623a3638e70d8b26cef344"
 
 [[projects]]
   branch = "master"
@@ -1250,7 +1273,7 @@
     "unix",
     "windows"
   ]
-  revision = "2d6f6f883a06fc0d5f4b14a81e4c28705ea64c15"
+  revision = "95b1ffbd15a57cc5abb3f04402b9e8ec0016a52c"
 
 [[projects]]
   name = "golang.org/x/text"
@@ -1304,16 +1327,22 @@
   packages = [
     ".",
     "balancer",
+    "balancer/base",
     "balancer/roundrobin",
     "codes",
     "connectivity",
     "credentials",
     "encoding",
-    "grpclb/grpc_lb_v1/messages",
+    "encoding/proto",
     "grpclog",
     "health",
     "health/grpc_health_v1",
     "internal",
+    "internal/backoff",
+    "internal/channelz",
+    "internal/envconfig",
+    "internal/grpcrand",
+    "internal/transport",
     "keepalive",
     "metadata",
     "naming",
@@ -1323,11 +1352,10 @@
     "resolver/passthrough",
     "stats",
     "status",
-    "tap",
-    "transport"
+    "tap"
   ]
-  revision = "e687fa4e6424368ece6e4fe727cea2c806a0fcb4"
-  version = "v1.8.2"
+  revision = "2e463a05d100327ca47ac218281906921038fd95"
+  version = "v1.16.0"
 
 [[projects]]
   branch = "telekube"
@@ -1444,11 +1472,14 @@
     "pkg/util/clock",
     "pkg/util/errors",
     "pkg/util/framer",
+    "pkg/util/httpstream",
+    "pkg/util/httpstream/spdy",
     "pkg/util/intstr",
     "pkg/util/json",
     "pkg/util/naming",
     "pkg/util/net",
     "pkg/util/rand",
+    "pkg/util/remotecommand",
     "pkg/util/runtime",
     "pkg/util/sets",
     "pkg/util/validation",
@@ -1457,6 +1488,7 @@
     "pkg/util/yaml",
     "pkg/version",
     "pkg/watch",
+    "third_party/forked/golang/netutil",
     "third_party/forked/golang/reflect"
   ]
   revision = "6dd46049f39503a1fc8d65de4bd566829e95faff"
@@ -1512,9 +1544,12 @@
     "tools/clientcmd/api/v1",
     "tools/metrics",
     "tools/reference",
+    "tools/remotecommand",
     "transport",
+    "transport/spdy",
     "util/cert",
     "util/connrotation",
+    "util/exec",
     "util/flowcontrol",
     "util/homedir",
     "util/integer"
@@ -1525,6 +1560,6 @@
 [solve-meta]
   analyzer-name = "dep"
   analyzer-version = 1
-  inputs-digest = "8e5daa274c23a744b04e7da3a2039e0b7171032ace9070d0154170d9825a2eed"
+  inputs-digest = "b30420a80755682f07758d270f55e5e5eeb6323182497e342d775519caad8d9c"
   solver-name = "gps-cdcl"
   solver-version = 1

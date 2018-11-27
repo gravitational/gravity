@@ -223,7 +223,6 @@ func (s *UsersSuite) TestMigrateClusterAgents(c *C) {
 	compare.DeepCompare(c, rule, &teleservices.Rule{
 		Resources: []string{storage.KindCluster},
 		Verbs:     []string{storage.VerbConnect},
-		Actions:   []string{storage.AssignKubernetesGroupsExpr{Groups: users.GetAdminKubernetesGroups()}.String()},
 		Where: storage.ContainsExpr{
 			Left:  storage.StringsExpr([]string{clusterName}),
 			Right: storage.ResourceNameExpr,
@@ -442,14 +441,11 @@ func (s *UsersSuite) TestBuiltinRoles(c *C) {
 		}
 		for j, check := range tc.checks {
 			comment := Commentf("test case %v '%v', check %v", i, tc.name, j)
-			result := set.CheckAccessToRule(check.context, check.namespace, check.rule, check.verb)
+			result := set.CheckAccessToRule(check.context, check.namespace, check.rule, check.verb, false)
 			if check.hasAccess {
 				c.Assert(result, IsNil, comment)
 			} else {
 				c.Assert(trace.IsAccessDenied(result), Equals, true, comment)
-			}
-			if len(check.kubernetesGroups) > 0 {
-				c.Assert(check.context.KubernetesGroups, DeepEquals, check.kubernetesGroups, comment)
 			}
 		}
 	}
