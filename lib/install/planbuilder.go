@@ -325,6 +325,21 @@ func (b *PlanBuilder) AddRBACPhase(plan *storage.OperationPlan) {
 	})
 }
 
+// AddInstallOverlayPhase appends a phase to install a non-flannel overlay network
+func (b *PlanBuilder) AddInstallOverlayPhase(plan *storage.OperationPlan, locator *loc.Locator) {
+	plan.Phases = append(plan.Phases, storage.OperationPhase{
+		ID:          phases.InstallOverlayPhase,
+		Description: "Install overlay network",
+		Data: &storage.OperationPhaseData{
+			Server:      &b.Master,
+			Package:     locator,
+			ServiceUser: &b.ServiceUser,
+		},
+		Requires: fsm.RequireIfPresent(plan, phases.RBACPhase),
+		Step:     4,
+	})
+}
+
 // AddResourcesPhase appends K8s resources initialization phase to the provided plan
 func (b *PlanBuilder) AddResourcesPhase(plan *storage.OperationPlan, resources []byte) {
 	plan.Phases = append(plan.Phases, storage.OperationPhase{

@@ -20,6 +20,7 @@ import (
 	"github.com/gravitational/gravity/lib/constants"
 	"github.com/gravitational/gravity/lib/defaults"
 	"github.com/gravitational/gravity/lib/ops"
+	"github.com/gravitational/gravity/lib/schema"
 	"github.com/gravitational/gravity/lib/storage"
 
 	"github.com/gravitational/trace"
@@ -100,6 +101,10 @@ func (i *Installer) GetOperationPlan(cluster ops.Site, op ops.SiteOperation) (*s
 	builder.AddWaitPhase(plan)
 	builder.AddLabelPhase(plan)
 	builder.AddRBACPhase(plan)
+
+	if cluster.App.Manifest.HasHook(schema.HookOverlayInstall) {
+		builder.AddInstallOverlayPhase(plan, &cluster.App.Package)
+	}
 
 	// if installing a regular app, the resources might have been
 	// provided by a user

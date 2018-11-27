@@ -22,6 +22,7 @@ import (
 	"github.com/gravitational/gravity/lib/fsm"
 	"github.com/gravitational/gravity/lib/httplib"
 	"github.com/gravitational/gravity/lib/install/phases"
+	"github.com/gravitational/gravity/lib/schema"
 
 	"github.com/gravitational/trace"
 )
@@ -99,6 +100,12 @@ func FSMSpec(config FSMConfig) fsm.FSMSpecFunc {
 
 		case strings.HasPrefix(p.Phase.ID, phases.EnableElectionPhase):
 			return phases.NewEnableElectionPhase(p, config.Operator)
+
+		case strings.HasPrefix(p.Phase.ID, phases.InstallOverlayPhase):
+			return phases.NewHook(p,
+				config.Operator,
+				config.LocalApps,
+				schema.HookOverlayInstall)
 
 		default:
 			return nil, trace.BadParameter("unknown phase %q", p.Phase.ID)

@@ -77,6 +77,10 @@ type Hooks struct {
 	Backup *Hook `json:"backup,omitempty"`
 	// Restore restores application state from a backup
 	Restore *Hook `json:"restore,omitempty"`
+	// OverlayInstall is a hook for installing a custom overlay network
+	OverlayInstall *Hook `json:"overlayInstall,omitempty"`
+	// OverlayUpdate is a hook for updating a custom overlay network
+	OverlayUpdate *Hook `json:"overlayUpdate,omitempty"`
 }
 
 // AllHooks returns all non-nil hooks.
@@ -185,6 +189,10 @@ const (
 	// created backup.
 	// The hook is scheduled on the same node where the restore command runs
 	HookRestore HookType = "restore"
+	// HookOverlayInstall defines a hook used to install a custom overlay network
+	HookOverlayInstall = "overlayInstall"
+	// HookOverlayUpdate defines a hook to update the overlay network
+	HookOverlayUpdate = "overlayUpdate"
 )
 
 // String implements Stringer
@@ -220,6 +228,8 @@ func AllHooks() []HookType {
 		HookDump,
 		HookBackup,
 		HookRestore,
+		HookOverlayInstall,
+		HookOverlayUpdate,
 	}
 }
 
@@ -281,6 +291,10 @@ func HookFromString(hookType HookType, manifest Manifest) (*Hook, error) {
 		hook = manifest.Hooks.Backup
 	case HookRestore:
 		hook = manifest.Hooks.Restore
+	case HookOverlayInstall:
+		hook = manifest.Hooks.OverlayInstall
+	case HookOverlayUpdate:
+		hook = manifest.Hooks.OverlayUpdate
 	default:
 		return nil, trace.BadParameter("unknown hook %q", hookType)
 	}

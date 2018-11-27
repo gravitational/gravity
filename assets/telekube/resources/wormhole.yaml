@@ -1,0 +1,204 @@
+---
+apiVersion: extensions/v1beta1
+kind: PodSecurityPolicy
+metadata:
+  annotations:
+    seccomp.security.alpha.kubernetes.io/allowedProfileNames: docker/default
+    seccomp.security.alpha.kubernetes.io/defaultProfileName: docker/default
+  name: wormhole
+  namespace: kube-system
+spec:
+  allowPrivilegeEscalation: true
+  allowedCapabilities: ["NET_ADMIN"]
+  hostPID: true
+  fsGroup:
+    rule: RunAsAny
+  hostNetwork: true
+  hostPorts:
+  - max: 65535
+    min: 1024
+  privileged: true
+  runAsUser:
+    rule: RunAsAny
+  seLinux:
+    rule: RunAsAny
+  supplementalGroups:
+    rule: RunAsAny
+  volumes:
+  - '*'
+---
+kind: ClusterRole
+apiVersion: rbac.authorization.k8s.io/v1
+metadata:
+  name: wormhole
+rules:
+  - apiGroups:
+      - ""
+    resources:
+      - nodes
+    verbs:
+      - list
+      - watch
+      - get
+  - apiGroups:
+      - policy
+    resources:
+      - podsecuritypolicies
+    verbs:
+      - use
+    resourceNames:
+      - wormhole
+---
+kind: ClusterRoleBinding
+apiVersion: rbac.authorization.k8s.io/v1
+metadata:
+  name: wormhole
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: wormhole
+subjects:
+- kind: ServiceAccount
+  name: wormhole
+  namespace: kube-system
+---
+kind: Role
+apiVersion: rbac.authorization.k8s.io/v1
+metadata:
+  namespace: kube-system
+  name: wormhole
+rules:
+  - apiGroups:
+      - ""
+    resources:
+      - secrets
+    verbs:
+      - get
+      - watch
+      - list
+      - create
+    resourceNames:
+#      - wormhole
+  - apiGroups:
+      - ""
+    resources:
+      - configmaps
+    verbs:
+      - get
+    resourceNames:
+      - kubeadm-config
+---
+kind: RoleBinding
+apiVersion: rbac.authorization.k8s.io/v1
+metadata:
+  namespace: kube-system
+  name: wormhole
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: Role
+  name: wormhole
+subjects:
+- kind: ServiceAccount
+  name: wormhole
+  namespace: kube-system
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: wormhole
+  namespace: kube-system
+---
+apiVersion: apps/v1
+kind: DaemonSet
+metadata:
+  name: wormhole
+  namespace: kube-system
+  labels:
+    app: wormhole
+spec:
+  selector:
+    matchLabels:
+      k8s-app: wormhole
+  updateStrategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxUnavailable: 1
+  template:
+    metadata:
+      labels:
+        k8s-app: wormhole
+      annotations:
+        scheduler.alpha.kubernetes.io/critical-pod: ''
+    spec:
+      hostNetwork: true
+      serviceAccountName: wormhole
+      # Short duration for rolling restarts
+      terminationGracePeriodSeconds: 5
+      selector:
+
+      nodeSelector:
+        beta.kubernetes.io/arch: amd64
+      tolerations:
+        # Tolerate all taints
+        - effect: NoSchedule
+          operator: Exists
+        - effect: NoExecute
+          operator: Exists
+      containers:
+        # Run a wormhole container on each node
+        # Configures wireguard / CNI on each node
+        - name: wormhole
+          image: quay.io/gravitational/wormhole:dev
+          command:
+            - /wormhole
+          args:
+            - controller
+            - --kubeconfig-kubelet
+            - /etc/kubernetes/kubelet.conf
+            # TODO(This should be detected if possible)
+            # - --overlay-cidr=10.244.0.0/16
+          env:
+            - name: POD_NAME
+              valueFrom:
+                fieldRef:
+                  fieldPath: metadata.name
+            - name: POD_NAMESPACE
+              valueFrom:
+                fieldRef:
+                  fieldPath: metadata.namespace
+          securityContext:
+            privileged: false
+            capabilities:
+              add: ["NET_ADMIN"]
+          imagePullPolicy: Always
+          resources:
+            requests:
+              cpu: 250m
+          volumeMounts:
+            - mountPath: /host/opt/cni/bin
+              name: cni-bin-dir
+            - mountPath: /host/etc/cni/net.d
+              name: cni-net-dir
+            - mountPath: /var/lib/kubelet/pki/
+              name: kubelet-pki-dir
+            - mountPath: /etc/kubernetes/kubelet.conf
+              name: kubelet-kubeconfig
+            - mountPath: /var/state
+              name: gravity-state
+      volumes:
+        # Used to install CNI.
+        - name: cni-bin-dir
+          hostPath:
+            path: /opt/cni/bin
+        - name: cni-net-dir
+          hostPath:
+            path: /etc/cni/net.d
+        - name: kubelet-pki-dir
+          hostPath:
+            path: /var/lib/kubelet/pki/
+        - name: kubelet-kubeconfig
+          hostPath:
+            path: /etc/kubernetes/kubelet.kubeconfig
+        - name: gravity-state
+          hostPath:
+            path: /var/state

@@ -1002,6 +1002,11 @@ func (s *site) getPlanetConfigPackage(
 		args = append(args, fmt.Sprintf("--taint=%v=%v:%v", taint.Key, taint.Value, taint.Effect))
 	}
 
+	// If the manifest contains an install hook to install a separate overlay network, disable flannel inside planet
+	if manifest.Hooks != nil && manifest.Hooks.OverlayInstall != nil {
+		args = append(args, "--disable-flannel=true")
+	}
+
 	reader, err := pack.GetConfigPackage(s.packages(), config.planetPackage, config.configPackage, args)
 	if err != nil {
 		return nil, trace.Wrap(err)

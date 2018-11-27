@@ -188,6 +188,10 @@ hooks:
     job: file://clusterDeprovision.yaml
   preUpdate:
     job: file://preUpdate.yaml
+  overlayInstall:
+    job: file://wormhole-job.yaml
+  overlayUpdate:
+    job: file://wormhole-job.yaml
 systemOptions:
   runtime:
     version: "0.0.0+latest"

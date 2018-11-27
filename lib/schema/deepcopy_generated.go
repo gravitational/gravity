@@ -636,6 +636,25 @@ func (in *Hooks) DeepCopyInto(out *Hooks) {
 			**out = **in
 		}
 	}
+
+	if in.OverlayInstall != nil {
+		in, out := &in.OverlayInstall, &out.OverlayInstall
+		if *in == nil {
+			*out = nil
+		} else {
+			*out = new(Hook)
+			**out = **in
+		}
+	}
+	if in.OverlayUpdate != nil {
+		in, out := &in.OverlayUpdate, &out.OverlayUpdate
+		if *in == nil {
+			*out = nil
+		} else {
+			*out = new(Hook)
+			**out = **in
+		}
+	}
 	return
 }
 

@@ -22,6 +22,7 @@ import (
 	"io"
 	"io/ioutil"
 	"path/filepath"
+	"time"
 
 	"github.com/cenkalti/backoff"
 	"github.com/gravitational/gravity/lib/app"
@@ -33,13 +34,11 @@ import (
 	kubeutils "github.com/gravitational/gravity/lib/kubernetes"
 	"github.com/gravitational/gravity/lib/ops"
 	"github.com/gravitational/gravity/lib/state"
-	"github.com/gravitational/gravity/lib/status"
 	"github.com/gravitational/gravity/lib/storage"
 	"github.com/gravitational/gravity/lib/utils"
 	"github.com/gravitational/rigging"
 
 	dockerarchive "github.com/docker/docker/pkg/archive"
-	"github.com/gravitational/satellite/agent/proto/agentpb"
 	"github.com/gravitational/trace"
 	"github.com/sirupsen/logrus"
 	v1 "k8s.io/api/core/v1"
@@ -71,29 +70,31 @@ type waitExecutor struct {
 
 // Execute executes the wait phase
 func (p *waitExecutor) Execute(ctx context.Context) error {
-	p.Progress.NextStep("Waiting for the planet to start")
-	p.Info("Waiting for the planet to start.")
-	err := utils.Retry(defaults.RetryInterval, defaults.RetryAttempts,
-		func() error {
-			status, err := status.FromPlanetAgent(ctx, nil)
-			if err != nil {
-				return trace.Wrap(err)
-			}
-			// ideally we'd compare the nodes in the planet status to the plan
-			// servers but simply checking that counts match will work for now
-			if len(status.Nodes) != len(p.Plan.Servers) {
-				return trace.BadParameter("not all planets have come up yet: %v",
-					status)
-			}
-			if status.GetSystemStatus() != agentpb.SystemStatus_Running {
-				return trace.BadParameter("planet is not running yet: %v",
-					status)
-			}
-			return nil
-		})
-	if err != nil {
-		return trace.Wrap(err)
-	}
+	time.Sleep(30 * time.Second)
+	/*
+		p.Progress.NextStep("Waiting for the planet to start")
+		p.Info("Waiting for the planet to start.")
+		err := utils.Retry(defaults.RetryInterval, defaults.RetryAttempts,
+			func() error {
+				status, err := status.FromPlanetAgent(ctx, nil)
+				if err != nil {
+					return trace.Wrap(err)
+				}
+				// ideally we'd compare the nodes in the planet status to the plan
+				// servers but simply checking that counts match will work for now
+				if len(status.Nodes) != len(p.Plan.Servers) {
+					return trace.BadParameter("not all planets have come up yet: %v",
+						status)
+				}
+				if status.GetSystemStatus() != agentpb.SystemStatus_Running {
+					return trace.BadParameter("planet is not running yet: %v",
+						status)
+				}
+				return nil
+			})
+		if err != nil {
+			return trace.Wrap(err)
+		}*/
 	p.Info("Planet is running.")
 	return nil
 }

@@ -51,4 +51,6 @@ const (
 	// at the end of the installation. During installation, the election is
 	// off with a single master
 	EnableElectionPhase = "/election"
+	// InstallOverlayPhase installs a custom overlay network
+	InstallOverlayPhase = "/overlay"
 )

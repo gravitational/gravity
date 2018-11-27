@@ -528,6 +528,22 @@ const manifestSchema = `
                 "type": {"type": "string", "default": "restore"},
                 "job": {"type": "string"}
               }
+            },
+            "overlayInstall": {
+              "type": "object",
+              "additionalProperties": false,
+              "properties": {
+                "type": {"type": "string", "default": "overlayInstall"},
+                "job": {"type": "string"}
+              }
+            },
+            "overlayUpdate": {
+              "type": "object",
+              "additionalProperties": false,
+              "properties": {
+                "type": {"type": "string", "default": "overlayUpdate"},
+                "job": {"type": "string"}
+              }
             }
           }
         },

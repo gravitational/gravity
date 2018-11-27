@@ -301,6 +301,7 @@ func (r *applications) StartAppHook(ctx context.Context, req appservice.HookRunR
 		Mounts:             req.VolumeMounts,
 		NodeSelector:       req.NodeSelector,
 		SkipInitContainers: req.SkipInitContainers,
+		HostNetwork:        req.HostNetwork,
 		JobDeadline:        req.Timeout,
 		AgentUser:          creds.Email,
 		AgentPassword:      creds.Password,
