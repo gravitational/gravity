@@ -28,6 +28,7 @@ import (
 	"github.com/gravitational/trace"
 )
 
+// ResolvFromFile reads the given resolv.conf file
 func ResolvFromFile(filename string) (*storage.ResolvConf, error) {
 	path, err := filepath.EvalSymlinks(filename)
 	if err != nil {
@@ -45,6 +46,7 @@ func ResolvFromFile(filename string) (*storage.ResolvConf, error) {
 	return cfg, nil
 }
 
+// ResolvFromFile reads the given resolv.conf as an io.Reader
 func ResolvFromReader(rdr io.Reader) (*storage.ResolvConf, error) {
 	// initialize with some defaults
 	resolv := &storage.ResolvConf{

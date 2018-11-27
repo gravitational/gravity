@@ -194,7 +194,7 @@ func shouldUpdateDNSAppEarly(client *kubernetes.Clientset) (bool, error) {
 // with settings from the cluster configuration and local system. It should not overwrite an existing
 // Corefile, as that may have been modified by a user.
 func (p *updatePhaseCoreDNS) generateCorefile(context.Context) error {
-	p.Info("Generating coredns corefile.")
+	p.Info("Generating CoreDNS Corefile.")
 	// Read the resolv.conf from the host doing upgrade
 	// it will be used for configuring coredns upstream servers
 	resolvConf, err := systeminfo.ResolvFromFile("/etc/resolv.conf")

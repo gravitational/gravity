@@ -80,10 +80,10 @@ func (r *corednsExecutor) PostCheck(context.Context) error {
 	return nil
 }
 
-// Execute generated coredns configuration
+// Execute generates coredns configuration
 func (r *corednsExecutor) Execute(ctx context.Context) error {
-	r.Progress.NextStep("Configuring Coredns")
-	r.Info("Configuring Coredns.")
+	r.Progress.NextStep("Configuring CoreDNS")
+	r.Info("Configuring CoreDNS.")
 
 	// Read the resolv.conf from the host doing installation
 	// it will be used for configuring coredns upstream servers
@@ -140,14 +140,20 @@ func GenerateCorefile(config CorednsConfig) (string, error) {
 
 // CoreDNSConfig represents the CoreDNS configuration options to apply to our template
 type CorednsConfig struct {
-	Zones               map[string][]string
-	Hosts               map[string]string
+	// Zones maps a DNS zone to nameservers it will be served by as provided by a user at install time
+	Zones map[string][]string
+	// Hosts  maps a hostname to an IP address it will resolve to as provided by a user at install time
+	Hosts map[string]string
+	// UpstreamNameservers is a list of nameservers to use as resolvers as detected from the system resolv.conf
 	UpstreamNameservers []string
-	Rotate              bool
+	// Rotate indicates whether the upstream servers should be round-robin load balanced as detected from the system
+	// resolv.conf
+	Rotate bool
 }
 
 var coreDNSTemplate = template.Must(template.New("coredns").Parse(coreDNSTemplateText))
-var coreDNSTemplateText = `
+
+const coreDNSTemplateText = `
 .:53 {
   reload
   errors
