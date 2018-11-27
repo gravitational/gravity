@@ -15,7 +15,7 @@ limitations under the License.
 */
 
 import React from 'react';
-import _ from 'lodash';
+import { values } from 'lodash';
 import * as actions from './../../flux/provision/actions';
 import { Select } from 'app/components/common/dropDown';
 import { ServerInstructions } from 'app/components/provision/items.jsx';
@@ -103,7 +103,7 @@ const Profiles = React.createClass({
 
   render() {
     let {isOnPrem, profilesToProvision} = this.props;
-    let profiles = _.values(profilesToProvision);
+    let profiles = values(profilesToProvision);
     let $reqItems = isOnPrem ? profiles.map(this.renderOnPremItem) :
       profiles.map(this.renderAwsItem);
 

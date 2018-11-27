@@ -39,7 +39,7 @@ CURRENT_COMMIT := $(shell git rev-parse HEAD)
 VERSION_FLAGS := -X github.com/gravitational/gravity/vendor/github.com/gravitational/version.gitCommit=$(CURRENT_COMMIT) -X github.com/gravitational/gravity/vendor/github.com/gravitational/version.version=$(GRAVITY_VERSION)
 GRAVITY_LINKFLAGS = "$(VERSION_FLAGS) $(GOLFLAGS)"
 
-TELEPORT_TAG = 2.4.7
+TELEPORT_TAG = 3.0.1
 # TELEPORT_REPOTAG adapts TELEPORT_TAG to the teleport tagging scheme
 TELEPORT_REPOTAG := v$(TELEPORT_TAG)
 PLANET_TAG := 5.3.4-$(K8S_VER)
@@ -610,6 +610,10 @@ robotest-publish-gravity:
 robotest-run-suite:
 	./build.assets/robotest_run_suite.sh $(shell pwd)/upgrade_from
 
+.PHONY: robotest-run-nightly
+robotest-run-nightly:
+	./build.assets/robotest_run_nightly.sh $(shell pwd)/upgrade_from
+
 .PHONY: robotest-installer-ready
 robotest-installer-ready:
 	mv $(GRAVITY_BUILDDIR)/telekube.tar $(GRAVITY_BUILDDIR)/telekube_ready.tar
@@ -644,7 +648,7 @@ sloccount:
 
 .PHONY: test-package
 test-package: remove-temp-files
-	TEST_ETCD=$(TEST_ETCD) TEST_ETCD_CONFIG=$(TEST_ETCD_CONFIG) TEST_K8S=$(TEST_K8S) go test -v -test.parallel=0 ./$(p)
+	TEST_ETCD=$(TEST_ETCD) TEST_ETCD_CONFIG=$(TEST_ETCD_CONFIG) TEST_K8S=$(TEST_K8S) go test -v ./$(p)
 
 .PHONY: test-grep-package
 test-grep-package: remove-temp-files

@@ -28,6 +28,7 @@ import (
 	teleclient "github.com/gravitational/teleport/lib/client"
 	"github.com/gravitational/teleport/lib/services"
 
+	"github.com/gravitational/license/authority"
 	"github.com/gravitational/trace"
 )
 
@@ -61,6 +62,11 @@ func (t *TestProxy) DeleteAuthority(domainName string) error {
 	return nil
 }
 
+// DeleteRemoteCluster deletes remote cluster resource
+func (t *TestProxy) DeleteRemoteCluster(clusterName string) error {
+	return nil
+}
+
 // StartCertAuthority sets up trust for certificate authority
 func (t *TestProxy) TrustCertAuthority(services.CertAuthority) error {
 	return nil
@@ -75,6 +81,10 @@ func (t *TestProxy) GenerateUserCert(pub []byte, user string, ttl time.Duration)
 }
 
 func (t *TestProxy) GetCertAuthorities(caType services.CertAuthType) ([]services.CertAuthority, error) {
+	return nil, nil
+}
+
+func (t *TestProxy) GetCertAuthority(id services.CertAuthID, withPrivateKeys bool) (*authority.TLSKeyPair, error) {
 	return nil, nil
 }
 

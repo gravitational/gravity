@@ -246,10 +246,11 @@ func (s *site) deleteSite() error {
 			s.domainName, trace.DebugReport(err))
 	}
 
-	// remove the reverse tunnel site
-	err = s.service.cfg.Tunnel.RemoveSite(s.domainName)
-	if err != nil {
-		s.service.Warnf("Failed to remove reverse tunnel for %q: %v.",
+	// remove the teleport's remote site object (which represents a remote
+	// cluster on the main cluster side in a trusted cluster relationship)
+	err = s.teleport().DeleteRemoteCluster(s.domainName)
+	if err != nil && !trace.IsNotFound(err) {
+		s.service.Warnf("Failed to remove remote cluster for %q: %v.",
 			s.domainName, trace.DebugReport(err))
 	}
 

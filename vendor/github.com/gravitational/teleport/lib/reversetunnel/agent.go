@@ -53,6 +53,9 @@ const (
 	agentStateConnected = "connected"
 	// agentStateDiscovered means that agent has discovered the right proxy
 	agentStateDiscovered = "discovered"
+	// agentStateDisconnected means that the agent has disconnected from the
+	// proxy and this agent and be removed from the pool.
+	agentStateDisconnected = "disconnected"
 )
 
 // AgentConfig holds configuration for agent
@@ -64,7 +67,7 @@ type AgentConfig struct {
 	// Signers contains authentication signers
 	Signers []ssh.Signer
 	// Client is a client to the local auth servers
-	Client *auth.TunClient
+	Client auth.ClientI
 	// AccessPoint is a caching access point to the local auth servers
 	AccessPoint auth.AccessPoint
 	// Context is a parent context
@@ -82,6 +85,8 @@ type AgentConfig struct {
 	Clock clockwork.Clock
 	// EventsC is an optional events channel, used for testing purposes
 	EventsC chan string
+	// KubeDialAddr is a dial address for kubernetes proxy
+	KubeDialAddr utils.NetAddr
 }
 
 // CheckAndSetDefaults checks parameters and sets default values
@@ -126,7 +131,7 @@ type Agent struct {
 	AgentConfig
 	ctx             context.Context
 	cancel          context.CancelFunc
-	hostKeyCallback utils.HostKeyCallback
+	hostKeyCallback ssh.HostKeyCallback
 	authMethods     []ssh.AuthMethod
 	// state is the state of this agent
 	state string
@@ -290,7 +295,7 @@ func (a *Agent) checkHostSignature(hostport string, remote net.Addr, key ssh.Pub
 func (a *Agent) connect() (conn *ssh.Client, err error) {
 	for _, authMethod := range a.authMethods {
 		// if http_proxy is set, dial through the proxy
-		dialer := proxy.DialerFromEnvironment()
+		dialer := proxy.DialerFromEnvironment(a.Addr.Addr)
 		conn, err = dialer.Dial(a.Addr.AddrNetwork, a.Addr.Addr, &ssh.ClientConfig{
 			User:            a.Username,
 			Auth:            []ssh.AuthMethod{authMethod},
@@ -302,40 +307,6 @@ func (a *Agent) connect() (conn *ssh.Client, err error) {
 		}
 	}
 	return conn, err
-}
-
-func (a *Agent) proxyAccessPoint(ch ssh.Channel, req <-chan *ssh.Request) {
-	a.Debugf("proxyAccessPoint")
-	defer ch.Close()
-
-	conn, err := a.Client.GetDialer()()
-	if err != nil {
-		a.Warningf("error dialing: %v", err)
-		return
-	}
-
-	// apply read/write timeouts to this connection that are 10x of what normal
-	// reverse tunnel ping is supposed to be:
-	conn = utils.ObeyIdleTimeout(conn,
-		defaults.ReverseTunnelAgentHeartbeatPeriod*10,
-		"reverse tunnel client")
-
-	wg := sync.WaitGroup{}
-	wg.Add(2)
-
-	go func() {
-		defer wg.Done()
-		defer conn.Close()
-		io.Copy(conn, ch)
-	}()
-
-	go func() {
-		defer wg.Done()
-		defer conn.Close()
-		io.Copy(ch, conn)
-	}()
-
-	wg.Wait()
 }
 
 // proxyTransport runs as a goroutine running inside a reverse tunnel client
@@ -372,15 +343,11 @@ func (a *Agent) proxyTransport(ch ssh.Channel, reqC <-chan *ssh.Request) {
 	server := string(req.Payload)
 	var servers []string
 
-	// Deprecated: Remove in Teleport 2.5.
-	//   Starting with Teleport 2.4 the client now discovers the list of Auth
-	//   Servers and sends them via the transport request. So this block can be
-	//   be replaced just net.Dial.
-	//
 	// if the request is for the special string @remote-auth-server, then get the
 	// list of auth servers and return that. otherwise try and connect to the
 	// passed in server.
-	if server == RemoteAuthServer {
+	switch server {
+	case RemoteAuthServer:
 		authServers, err := a.Client.GetAuthServers()
 		if err != nil {
 			a.Warningf("Unable retrieve list of remote Auth Servers: %v.", err)
@@ -393,7 +360,14 @@ func (a *Agent) proxyTransport(ch ssh.Channel, reqC <-chan *ssh.Request) {
 		for _, as := range authServers {
 			servers = append(servers, as.GetAddr())
 		}
-	} else {
+	case RemoteKubeProxy:
+		// kubernetes is not configured, reject the connection
+		if a.KubeDialAddr.IsEmpty() {
+			req.Reply(false, []byte("connection rejected: configure kubernetes proxy for this cluster."))
+			return
+		}
+		servers = append(servers, a.KubeDialAddr.Addr)
+	default:
 		servers = append(servers, server)
 	}
 
@@ -410,7 +384,7 @@ func (a *Agent) proxyTransport(ch ssh.Channel, reqC <-chan *ssh.Request) {
 		}
 
 		// log the reason we were not able to connect
-		log.Debugf(trace.DebugReport(err))
+		a.Debugf(trace.DebugReport(err))
 	}
 
 	// if we were not able to connect to any server, write the last connection
@@ -422,9 +396,13 @@ func (a *Agent) proxyTransport(ch ssh.Channel, reqC <-chan *ssh.Request) {
 		return
 	}
 
+	if conn == nil {
+		a.Warningf("No error, but conn is nil: %v", conn)
+	}
+
 	// successfully dialed
 	req.Reply(true, []byte("connected"))
-	a.Debugf("successfully dialed to %v, start proxying", server)
+	a.Debugf("Successfully dialed to %v, start proxying.", server)
 
 	wg := sync.WaitGroup{}
 	wg.Add(2)
@@ -446,86 +424,65 @@ func (a *Agent) proxyTransport(ch ssh.Channel, reqC <-chan *ssh.Request) {
 	wg.Wait()
 }
 
-// run is the main agent loop, constantly tries to re-establish
-// the connection until stopped. It has several operation modes:
-// at first it tries to connect with fast retries on errors,
-// but after a certain threshold it slows down retry pace
-// by switching to longer delays between retries.
+// run is the main agent loop. It tries to establish a connection to the
+// remote proxy and then process requests that come over the tunnel.
 //
-// Once run connects to a proxy it starts processing requests
-// from the proxy via SSH channels opened by the remote Proxy.
+// Once run connects to a proxy it starts processing requests from the proxy
+// via SSH channels opened by the remote Proxy.
 //
-// Agent sends periodic heartbeats back to the Proxy
-// and that is how Proxy determines disconnects.
-//
+// Agent sends periodic heartbeats back to the Proxy and that is how Proxy
+// determines disconnects.
 func (a *Agent) run() {
-	ticker, err := utils.NewSwitchTicker(defaults.FastAttempts,
-		defaults.NetworkRetryDuration, defaults.NetworkBackoffDuration)
-	if err != nil {
-		log.Errorf("failed to run: %v", err)
+	defer a.setState(agentStateDisconnected)
+
+	if len(a.DiscoverProxies) != 0 {
+		a.setStateAndPrincipals(agentStateDiscovering, nil)
+	} else {
+		a.setStateAndPrincipals(agentStateConnecting, nil)
+	}
+
+	// Try and connect to remote cluster.
+	conn, err := a.connect()
+	if err != nil || conn == nil {
+		a.Warningf("Failed to create remote tunnel: %v, conn: %v.", err, conn)
 		return
 	}
-	defer ticker.Stop()
-	firstAttempt := true
-	for {
-		if len(a.DiscoverProxies) != 0 {
-			a.setStateAndPrincipals(agentStateDiscovering, nil)
-		} else {
-			a.setStateAndPrincipals(agentStateConnecting, nil)
-		}
 
-		// ignore timer and context on the first attempt
-		if !firstAttempt {
-			select {
-			// abort if asked to stop:
-			case <-a.ctx.Done():
-				a.Debugf("agent has closed, exiting")
-				return
-				// wait backoff on network retries
-			case <-ticker.Channel():
-			}
-		}
+	// Successfully connected to remote cluster.
+	a.Infof("Connected to %s", conn.RemoteAddr())
+	if len(a.DiscoverProxies) != 0 {
+		// If not connected to a proxy in the discover list (which means we
+		// connected to a proxy we already have a connection to), try again.
+		if !a.connectedToRightProxy() {
+			a.Debugf("Missed, connected to %v instead of %v.", a.getPrincipalsList(), Proxies(a.DiscoverProxies))
 
-		// try and connect to remote cluster
-		conn, err := a.connect()
-		firstAttempt = false
-		if err != nil || conn == nil {
-			ticker.IncrementFailureCount()
-			a.Warningf("failed to create remote tunnel: %v, conn: %v", err, conn)
-			continue
+			conn.Close()
+			return
 		}
+		a.setState(agentStateDiscovered)
+	} else {
+		a.setState(agentStateConnected)
+	}
 
-		// successfully connected to remote cluster
-		ticker.Reset()
-		a.Infof("connected to %s", conn.RemoteAddr())
-		if len(a.DiscoverProxies) != 0 {
-			// we did not connect to a proxy in the discover list (which means we
-			// connected to a proxy we already have a connection to), try again
-			if !a.connectedToRightProxy() {
-				a.Debugf("missed, connected to %v instead of %v", a.getPrincipalsList(), Proxies(a.DiscoverProxies))
-				conn.Close()
-				continue
-			}
-			a.setState(agentStateDiscovered)
-		} else {
-			a.setState(agentStateConnected)
+	// Notify waiters that the agent has connected.
+	if a.EventsC != nil {
+		select {
+		case a.EventsC <- ConnectedEvent:
+		case <-a.ctx.Done():
+			a.Debug("Context is closing.")
+			return
+		default:
 		}
-		if a.EventsC != nil {
-			select {
-			case a.EventsC <- ConnectedEvent:
-			case <-a.ctx.Done():
-				a.Debugf("context is closing")
-				return
-			default:
-			}
-		}
-		// start heartbeat even if error happened, it will reconnect
-		// when this happens, this is #1 issue we have right now with Teleport. So we are making
-		// it EASY to see in the logs. This condition should never be permanent (repeats
-		// every XX seconds)
-		if err := a.processRequests(conn); err != nil {
-			log.Warn(err)
-		}
+	}
+
+	// A connection has been established start processing requests. Note that
+	// this function blocks while the connection is up. It will unblock when
+	// the connection is closed either due to intermittent connectivity issues
+	// or permanent loss of a proxy.
+	err = a.processRequests(conn)
+	if err != nil {
+		a.Warnf("Unable to continue processesing requests: %v.", err)
+		return
 	}
 }
 
@@ -544,7 +501,6 @@ func (a *Agent) processRequests(conn *ssh.Client) error {
 	if err != nil {
 		return trace.Wrap(err)
 	}
-	newAccesspointC := conn.HandleChannelOpen(chanAccessPoint)
 	newTransportC := conn.HandleChannelOpen(chanTransport)
 	newDiscoveryC := conn.HandleChannelOpen(chanDiscovery)
 
@@ -561,7 +517,7 @@ func (a *Agent) processRequests(conn *ssh.Client) error {
 			bytes, _ := a.Clock.Now().UTC().MarshalText()
 			_, err := hb.SendRequest("ping", false, bytes)
 			if err != nil {
-				log.Error(err)
+				a.Error(err)
 				return trace.Wrap(err)
 			}
 			a.Debugf("ping -> %v", conn.RemoteAddr())
@@ -570,18 +526,6 @@ func (a *Agent) processRequests(conn *ssh.Client) error {
 			if req == nil {
 				return trace.ConnectionProblem(nil, "heartbeat: connection closed")
 			}
-		// new access point request:
-		case nch := <-newAccesspointC:
-			if nch == nil {
-				continue
-			}
-			a.Debugf("access point request: %v", nch.ChannelType())
-			ch, req, err := nch.Accept()
-			if err != nil {
-				a.Warningf("failed to accept request: %v", err)
-				continue
-			}
-			go a.proxyAccessPoint(ch, req)
 		// new transport request:
 		case nch := <-newTransportC:
 			if nch == nil {
@@ -657,14 +601,11 @@ const (
 )
 
 const (
-	// RemoteSiteStatusOffline indicates that site is considered as
-	// offline, since it has missed a series of heartbeats
-	RemoteSiteStatusOffline = "offline"
-	// RemoteSiteStatusOnline indicates that site is sending heartbeats
-	// at expected interval
-	RemoteSiteStatusOnline = "online"
+	// RemoteAuthServer is a special non-resolvable address that indicates client
+	// requests  a connection to the remote auth server.
+	RemoteAuthServer = "@remote-auth-server"
+	// RemoteKubeProxy is a special non-resolvable address that indicates that clients
+	// requests a connection to the remote kubernetes proxy.
+	// This has to be a valid domain name, so it lacks @
+	RemoteKubeProxy = "remote.kube.proxy.teleport.cluster.local"
 )
-
-// RemoteAuthServer is a special non-resolvable address that indicates we want
-// a connection to the remote auth server.
-const RemoteAuthServer = "@remote-auth-server"

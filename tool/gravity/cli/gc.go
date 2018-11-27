@@ -80,8 +80,7 @@ $ sudo gravity gc --phase=<phase-id>
 
 To resume automatic collection from any point, run:
 
-$ gravity gc --resume
-`)
+$ gravity gc --resume`)
 	return trace.Wrap(err)
 }
 
@@ -111,7 +110,7 @@ func newCollector(env *localenv.LocalEnvironment) (*vacuum.Collector, error) {
 		return nil, trace.Wrap(err, "failed to create a teleport client")
 	}
 
-	proxy, err := teleportClient.ConnectToProxy()
+	proxy, err := teleportClient.ConnectToProxy(context.TODO())
 	if err != nil {
 		return nil, trace.Wrap(err, "failed to connect to teleport proxy")
 	}

@@ -309,7 +309,7 @@ func (s *Server) needsAuth(fn authHandle) httprouter.Handle {
 			}
 		} else {
 			if s.cfg.Authenticator == nil {
-				log.Debugf("web sessions are not supported", err)
+				log.Debugf("web sessions are not supported: %v", err)
 				// we hide the error from the remote user to avoid giving any hints
 				trace.WriteError(
 					w, trace.AccessDenied("web sessions are not supported"))

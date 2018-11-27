@@ -155,7 +155,11 @@ func (m *Handler) clusterContainerConnect(w http.ResponseWriter, r *http.Request
 		"server":        termReq.Server,
 		"cluster":       termReq.Cluster,
 	})
-	term, err := teleweb.NewTerminal(termReq, client, ctx.SessionContext)
+	clt, err := ctx.SessionContext.GetUserClient(remoteCluster)
+	if err != nil {
+		return nil, trace.Wrap(err)
+	}
+	term, err := teleweb.NewTerminal(termReq, clt, ctx.SessionContext)
 	if err != nil {
 		l.Errorf("Unable to create terminal: %v", trace.DebugReport(err))
 		return nil, trace.Wrap(err)
@@ -163,7 +167,7 @@ func (m *Handler) clusterContainerConnect(w http.ResponseWriter, r *http.Request
 
 	// start the websocket session with a web-based terminal:
 	l.Debugf("starting terminal session")
-	term.Run(w, r)
+	term.Serve(w, r)
 
 	return nil, nil
 }

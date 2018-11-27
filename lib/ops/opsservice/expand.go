@@ -23,10 +23,8 @@ import (
 	"github.com/gravitational/gravity/lib/schema"
 	"github.com/gravitational/gravity/lib/storage"
 
-	teleservices "github.com/gravitational/teleport/lib/services"
 	"github.com/gravitational/trace"
 	log "github.com/sirupsen/logrus"
-	"golang.org/x/crypto/ssh"
 )
 
 // createExpandOperation initiates expand operation
@@ -152,58 +150,4 @@ func (s *site) validateExpand(op *ops.SiteOperation, req *ops.OperationUpdateReq
 
 	err = setClusterRoles(req.Servers, *s.app, len(masters))
 	return trace.Wrap(err)
-}
-
-func (s *site) getTeleportSecrets() (*teleportSecrets, error) {
-	withPrivateKey := true
-	authorities, err := s.teleport().CertAuthorities(withPrivateKey)
-	if err != nil {
-		return nil, trace.Wrap(err, "failed to query cert authorities")
-	}
-
-	var hostPrivateKey, userPrivateKey []byte
-	for _, ca := range authorities {
-		if len(ca.GetSigningKeys()) == 0 {
-			log.Errorf("no signing key of type %v", ca.GetType())
-			continue
-		}
-		switch ca.GetType() {
-		case teleservices.HostCA:
-			hostPrivateKey = ca.GetSigningKeys()[0]
-		case teleservices.UserCA:
-			userPrivateKey = ca.GetSigningKeys()[0]
-		}
-	}
-
-	var errors []error
-	if hostPrivateKey == nil {
-		errors = append(errors, trace.NotFound("host CA not found"))
-	}
-	if userPrivateKey == nil {
-		errors = append(errors, trace.NotFound("user CA not found"))
-	}
-	if len(errors) > 0 {
-		return nil, trace.NewAggregate(errors...)
-	}
-
-	hostKey, err := ssh.ParsePrivateKey(hostPrivateKey)
-	if err != nil {
-		return nil, trace.Wrap(err)
-	}
-
-	hostPublicKey := ssh.MarshalAuthorizedKey(hostKey.PublicKey())
-
-	userKey, err := ssh.ParsePrivateKey(userPrivateKey)
-	if err != nil {
-		return nil, trace.Wrap(err)
-	}
-
-	userPublicKey := ssh.MarshalAuthorizedKey(userKey.PublicKey())
-
-	return &teleportSecrets{
-		HostCAPrivateKey: hostPrivateKey,
-		HostCAPublicKey:  hostPublicKey,
-		UserCAPrivateKey: userPrivateKey,
-		UserCAPublicKey:  userPublicKey,
-	}, nil
 }

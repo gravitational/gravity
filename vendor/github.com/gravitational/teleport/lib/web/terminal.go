@@ -18,64 +18,75 @@ package web
 
 import (
 	"context"
-	"fmt"
+	"encoding/json"
 	"io"
-	"net"
 	"net/http"
 	"strconv"
 	"strings"
+	"time"
 
-	"github.com/gravitational/teleport/lib/auth"
+	"golang.org/x/crypto/ssh"
+	"golang.org/x/net/websocket"
+	"golang.org/x/text/encoding"
+	"golang.org/x/text/encoding/unicode"
+
+	"github.com/gravitational/teleport"
 	"github.com/gravitational/teleport/lib/client"
 	"github.com/gravitational/teleport/lib/defaults"
+	"github.com/gravitational/teleport/lib/events"
 	"github.com/gravitational/teleport/lib/services"
 	"github.com/gravitational/teleport/lib/session"
 	"github.com/gravitational/teleport/lib/sshutils"
 	"github.com/gravitational/teleport/lib/utils"
 
 	"github.com/gravitational/trace"
-	log "github.com/sirupsen/logrus"
-	"golang.org/x/crypto/ssh"
-	"golang.org/x/net/websocket"
+
+	"github.com/golang/protobuf/proto"
+	"github.com/sirupsen/logrus"
 )
 
-// TerminalRequest describes a request to crate a web-based terminal
-// to a remote SSH server
+// TerminalRequest describes a request to create a web-based terminal
+// to a remote SSH server.
 type TerminalRequest struct {
-	// Server describes a server to connect to (serverId|hostname[:port])
+	// Server describes a server to connect to (serverId|hostname[:port]).
 	Server string `json:"server_id"`
-	// User is linux username to connect as
+
+	// Login is Linux username to connect as.
 	Login string `json:"login"`
-	// Term sets PTY params like width and height
+
+	// Term is the initial PTY size.
 	Term session.TerminalParams `json:"term"`
-	// SessionID is a teleport session ID to join as
+
+	// SessionID is a Teleport session ID to join as.
 	SessionID session.ID `json:"sid"`
-	// Namespace is node namespace
+
+	// Namespace is node namespace.
 	Namespace string `json:"namespace"`
-	// Proxy server address
+
+	// ProxyHostPort is the address of the server to connect to.
 	ProxyHostPort string `json:"-"`
-	// Remote cluster name
+
+	// Cluster is the name of the remote cluster to connect to.
 	Cluster string `json:"-"`
-	// InteractiveCommand is a command to execute
+
+	// InteractiveCommand is a command to execut.e
 	InteractiveCommand []string `json:"-"`
 }
 
-// NodeProvider is a provider of nodes for namespace
-type NodeProvider interface {
-	GetNodes(namespace string) ([]services.Server, error)
+// AuthProvider is a subset of the full Auth API.
+type AuthProvider interface {
+	GetNodes(namespace string, opts ...services.MarshalOption) ([]services.Server, error)
+	GetSessionEvents(namespace string, sid session.ID, after int, includePrintEvents bool) ([]events.EventFields, error)
 }
 
-// newTerminal creates a web-based terminal based on WebSockets and returns a new
-// TerminalHandler
-func NewTerminal(req TerminalRequest, provider NodeProvider, ctx *SessionContext) (*TerminalHandler, error) {
-	// make sure whatever session is requested is a valid session
+// NewTerminal creates a web-based terminal based on WebSockets and returns a
+// new TerminalHandler.
+func NewTerminal(req TerminalRequest, authProvider AuthProvider, ctx *SessionContext) (*TerminalHandler, error) {
+
+	// Make sure whatever session is requested is a valid session.
 	_, err := session.ParseID(string(req.SessionID))
 	if err != nil {
 		return nil, trace.BadParameter("sid: invalid session id")
-	}
-
-	if req.Server == "" {
-		return nil, trace.BadParameter("server: missing server")
 	}
 
 	if req.Login == "" {
@@ -85,217 +96,454 @@ func NewTerminal(req TerminalRequest, provider NodeProvider, ctx *SessionContext
 		return nil, trace.BadParameter("term: bad term dimensions")
 	}
 
-	servers, err := provider.GetNodes(req.Namespace)
+	servers, err := authProvider.GetNodes(req.Namespace, services.SkipValidation())
 	if err != nil {
 		return nil, trace.Wrap(err)
 	}
 
-	hostName, hostPort, err := resolveHostPort(req.Server, servers)
+	hostName, hostPort, err := resolveServerHostPort(req.Server, servers)
 	if err != nil {
-		return nil, trace.Wrap(err)
+		return nil, trace.BadParameter("invalid server name %q: %v", req.Server, err)
 	}
 
 	return &TerminalHandler{
-		params:   req,
-		ctx:      ctx,
-		hostName: hostName,
-		hostPort: hostPort,
+		log: logrus.WithFields(logrus.Fields{
+			trace.Component: teleport.ComponentWebsocket,
+		}),
+		params:       req,
+		ctx:          ctx,
+		hostName:     hostName,
+		hostPort:     hostPort,
+		authProvider: authProvider,
+		encoder:      unicode.UTF8.NewEncoder(),
+		decoder:      unicode.UTF8.NewDecoder(),
 	}, nil
 }
 
 // TerminalHandler connects together an SSH session with a web-based
 // terminal via a web socket.
 type TerminalHandler struct {
-	// params describe the terminal configuration
+	// log holds the structured logger.
+	log *logrus.Entry
+
+	// params is the initial PTY size.
 	params TerminalRequest
-	// ctx is a web session context for the currently logged in user
+
+	// ctx is a web session context for the currently logged in user.
 	ctx *SessionContext
-	// ws is the websocket which is connected to stdin/out/err of the terminal shell
+
+	// ws is the websocket which is connected to stdin/out/err of the terminal shell.
 	ws *websocket.Conn
-	// hostName we're connected to
+
+	// hostName is the hostname of the server.
 	hostName string
-	// hostPort we're connected to
+
+	// hostPort is the port of the server.
 	hostPort int
-	// sshClient is initialized after an SSH connection to a node is established
+
+	// sshSession holds the "shell" SSH channel to the node.
 	sshSession *ssh.Session
+
+	// teleportClient is the client used to form the connection.
+	teleportClient *client.TeleportClient
+
+	// terminalContext is used to signal when the terminal sesson is closing.
+	terminalContext context.Context
+
+	// terminalCancel is used to signal when the terminal session is closing.
+	terminalCancel context.CancelFunc
+
+	// authProvider is used to fetch nodes and sessions from the backend.
+	authProvider AuthProvider
+
+	// encoder is used to encode strings into UTF-8.
+	encoder *encoding.Encoder
+
+	// decoder is used to decode UTF-8 strings.
+	decoder *encoding.Decoder
 }
 
+// Serve builds a connect to the remote node and then pumps back two types of
+// events: raw input/output events for what's happening on the terminal itself
+// and audit log events relevant to this session.
+func (t *TerminalHandler) Serve(w http.ResponseWriter, r *http.Request) {
+	// This allows closing of the websocket if the user logs out before exiting
+	// the session.
+	t.ctx.AddClosers(t)
+	defer t.ctx.RemoveCloser(t)
+
+	// We initial a server explicitly here instead of using websocket.HandlerFunc
+	// to set an empty origin checker (this is to make our lives easier in tests).
+	// The main use of the origin checker is to enforce the browsers same-origin
+	// policy. That does not matter here because even if malicious Javascript
+	// would try and open a websocket the request to this endpoint requires the
+	// bearer token to be in the URL so it would not be sent along by default
+	// like cookies are.
+	ws := &websocket.Server{Handler: t.handler}
+	ws.ServeHTTP(w, r)
+}
+
+// Close the websocket stream.
 func (t *TerminalHandler) Close() error {
+	// Close the websocket connection to the client web browser.
 	if t.ws != nil {
 		t.ws.Close()
 	}
+
+	// Close the SSH connection to the remote node.
 	if t.sshSession != nil {
 		t.sshSession.Close()
 	}
+
+	// If the terminal handler was closed (most likely due to the *SessionContext
+	// closing) then the stream should be closed as well.
+	t.terminalCancel()
+
 	return nil
 }
 
-// resizePTYWindow is called when a brower resizes its window. Now the node
-// needs to be notified via SSH
-func (t *TerminalHandler) resizePTYWindow(params session.TerminalParams) error {
+// handler is the main websocket loop. It creates a Teleport client and then
+// pumps raw events and audit events back to the client until the SSH session
+// is complete.
+func (t *TerminalHandler) handler(ws *websocket.Conn) {
+	// Create a Teleport client, if not able to, show the reason to the user in
+	// the terminal.
+	tc, err := t.makeClient(ws)
+	if err != nil {
+		er := t.writeError(err, ws)
+		if er != nil {
+			t.log.Warnf("Unable to send error to terminal: %v: %v.", err, er)
+		}
+		return
+	}
+
+	// Create a context for signaling when the terminal session is over.
+	t.terminalContext, t.terminalCancel = context.WithCancel(context.Background())
+
+	t.log.Debugf("Creating websocket stream for %v.", t.params.SessionID)
+
+	// Pump raw terminal in/out and audit events into the websocket.
+	go t.streamTerminal(ws, tc)
+	go t.streamEvents(ws, tc)
+
+	// Block until the terminal session is complete.
+	<-t.terminalContext.Done()
+	t.log.Debugf("Closing websocket stream for %v.", t.params.SessionID)
+}
+
+// makeClient builds a *client.TeleportClient for the connection.
+func (t *TerminalHandler) makeClient(ws *websocket.Conn) (*client.TeleportClient, error) {
+	clientConfig, err := makeTeleportClientConfig(t.ctx)
+	if err != nil {
+		return nil, trace.Wrap(err)
+	}
+
+	// Create a terminal stream that wraps/unwraps the envelope used to
+	// communicate over the websocket.
+	stream, err := t.asTerminalStream(ws)
+	if err != nil {
+		return nil, trace.Wrap(err)
+	}
+
+	clientConfig.ForwardAgent = true
+	clientConfig.HostLogin = t.params.Login
+	clientConfig.Namespace = t.params.Namespace
+	clientConfig.Stdout = stream
+	clientConfig.Stderr = stream
+	clientConfig.Stdin = stream
+	clientConfig.SiteName = t.params.Cluster
+	clientConfig.ParseProxyHost(t.params.ProxyHostPort)
+	clientConfig.Host = t.hostName
+	clientConfig.HostPort = t.hostPort
+	clientConfig.Env = map[string]string{sshutils.SessionEnvVar: string(t.params.SessionID)}
+	clientConfig.ClientAddr = ws.Request().RemoteAddr
+
+	if len(t.params.InteractiveCommand) > 0 {
+		clientConfig.Interactive = true
+	}
+
+	tc, err := client.NewClient(clientConfig)
+	if err != nil {
+		return nil, trace.BadParameter("failed to create client: %v", err)
+	}
+
+	// Save the *ssh.Session after the shell has been created. The session is
+	// used to update all other parties window size to that of the web client and
+	// to allow future window changes.
+	tc.OnShellCreated = func(s *ssh.Session, c *ssh.Client, _ io.ReadWriteCloser) (bool, error) {
+		t.sshSession = s
+		t.windowChange(&t.params.Term)
+		return false, nil
+	}
+
+	return tc, nil
+}
+
+// streamTerminal opens a SSH connection to the remote host and streams
+// events back to the web client.
+func (t *TerminalHandler) streamTerminal(ws *websocket.Conn, tc *client.TeleportClient) {
+	defer t.terminalCancel()
+
+	// Establish SSH connection to the server. This function will block until
+	// either an error occurs or it completes successfully.
+	err := tc.SSH(t.terminalContext, t.params.InteractiveCommand, false)
+	if err != nil {
+		t.log.Warnf("Unable to stream terminal: %v.", err)
+		er := t.writeError(err, ws)
+		if er != nil {
+			t.log.Warnf("Unable to send error to terminal: %v: %v.", err, er)
+		}
+		return
+	}
+
+	// Send close envelope to web terminal upon exit without an error.
+	envelope := &Envelope{
+		Version: defaults.WebsocketVersion,
+		Type:    defaults.WebsocketClose,
+		Payload: "",
+	}
+	envelopeBytes, err := proto.Marshal(envelope)
+	if err != nil {
+		t.log.Errorf("Unable to marshal close event for web client.")
+		return
+	}
+	err = websocket.Message.Send(ws, envelopeBytes)
+	if err != nil {
+		t.log.Errorf("Unable to send close event to web client.")
+		return
+	}
+	t.log.Debugf("Sent close event to web client.")
+}
+
+// streamEvents receives events over the SSH connection and forwards them to
+// the web client.
+func (t *TerminalHandler) streamEvents(ws *websocket.Conn, tc *client.TeleportClient) {
+	for {
+		select {
+		// Send push events that come over the events channel to the web client.
+		case event := <-tc.EventsChannel():
+			data, err := json.Marshal(event)
+			if err != nil {
+				t.log.Errorf("Unable to marshal audit event %v: %v.", event.GetType(), err)
+				continue
+			}
+
+			t.log.Debugf("Sending audit event %v to web client.", event.GetType())
+
+			// UTF-8 encode the error message and then wrap it in a raw envelope.
+			encodedPayload, err := t.encoder.String(string(data))
+			if err != nil {
+				t.log.Debugf("Unable to send audit event %v to web client: %v.", event.GetType(), err)
+				continue
+			}
+			envelope := &Envelope{
+				Version: defaults.WebsocketVersion,
+				Type:    defaults.WebsocketAudit,
+				Payload: encodedPayload,
+			}
+			envelopeBytes, err := proto.Marshal(envelope)
+			if err != nil {
+				t.log.Debugf("Unable to send audit event %v to web client: %v.", event.GetType(), err)
+				continue
+			}
+
+			// Send bytes over the websocket to the web client.
+			err = websocket.Message.Send(ws, envelopeBytes)
+			if err != nil {
+				t.log.Errorf("Unable to send audit event %v to web client: %v.", event.GetType(), err)
+				continue
+			}
+		// Once the terminal stream is over (and the close envelope has been sent),
+		// close stop streaming envelopes.
+		case <-t.terminalContext.Done():
+			return
+		}
+	}
+}
+
+// windowChange is called when the browser window is resized. It sends a
+// "window-change" channel request to the server.
+func (t *TerminalHandler) windowChange(params *session.TerminalParams) error {
 	if t.sshSession == nil {
 		return nil
 	}
+
 	_, err := t.sshSession.SendRequest(
-		// send SSH "window resized" SSH request:
 		sshutils.WindowChangeRequest,
-		// no response needed
 		false,
 		ssh.Marshal(sshutils.WinChangeReqParams{
 			W: uint32(params.W),
 			H: uint32(params.H),
 		}))
 	if err != nil {
-		log.Error(err)
+		t.log.Error(err)
 	}
+
 	return trace.Wrap(err)
 }
 
-// Run creates a new websocket connection to the SSH server and runs
-// the "loop" piping the input/output of the SSH session into the
-// js-based terminal.
-func (t *TerminalHandler) Run(w http.ResponseWriter, r *http.Request) {
-	errToTerm := func(err error, w io.Writer) {
-		fmt.Fprintf(w, "%s\n\r", err.Error())
-		log.Error(err)
+// writeError displays an error in the terminal window.
+func (t *TerminalHandler) writeError(err error, ws *websocket.Conn) error {
+	// Replace \n with \r\n so the message correctly aligned.
+	r := strings.NewReplacer("\r\n", "\r\n", "\n", "\r\n")
+	errMessage := r.Replace(err.Error())
+	_, err = t.write([]byte(errMessage), ws)
+	if err != nil {
+		return trace.Wrap(err)
 	}
-	webSocketLoop := func(ws *websocket.Conn) {
-		// get user's credentials using the SSH agent implementation which
-		// retreives them directly from auth server API:
-		agent, err := t.ctx.GetAgent()
-		if err != nil {
-			log.Warningf("failed to get agent: %v", err)
-			errToTerm(err, ws)
-			return
-		}
-		defer agent.Close()
-		principal, auth, err := getUserCredentials(agent)
-		if err != nil {
-			log.Warningf("failed to get user credentials: %v", err)
-			errToTerm(err, ws)
-			return
-		}
-		// create teleport client:
-		output := utils.NewWebSockWrapper(ws, utils.WebSocketTextMode)
-		clientConfig := &client.Config{
-			SkipLocalAuth:    true,
-			Agent:            agent,
-			ForwardAgent:     true,
-			AuthMethods:      []ssh.AuthMethod{auth},
-			DefaultPrincipal: principal,
-			HostLogin:        t.params.Login,
-			Username:         t.ctx.user,
-			Namespace:        t.params.Namespace,
-			Stdout:           output,
-			Stderr:           output,
-			Stdin:            ws,
-			SiteName:         t.params.Cluster,
-			ProxyHostPort:    t.params.ProxyHostPort,
-			Host:             t.hostName,
-			HostPort:         t.hostPort,
-			Env:              map[string]string{sshutils.SessionEnvVar: string(t.params.SessionID)},
-			HostKeyCallback:  func(string, net.Addr, ssh.PublicKey) error { return nil },
-			ClientAddr:       r.RemoteAddr,
-		}
-		if len(t.params.InteractiveCommand) > 0 {
-			clientConfig.Interactive = true
-		}
-		tc, err := client.NewClient(clientConfig)
-		if err != nil {
-			log.Warningf("failed to create client: %v", err)
-			errToTerm(err, ws)
-			return
-		}
-		// this callback will execute when a shell is created, it will give
-		// us a reference to ssh.Client object
-		tc.OnShellCreated = func(s *ssh.Session, c *ssh.Client, _ io.ReadWriteCloser) (bool, error) {
-			t.sshSession = s
-			t.resizePTYWindow(t.params.Term)
-			return false, nil
-		}
-		if err = tc.SSH(context.TODO(), t.params.InteractiveCommand, false); err != nil {
-			log.Warningf("failed to SSH: %v", err)
-			errToTerm(err, ws)
-			return
-		}
-	}
-	// this is to make sure we close web socket connections once
-	// sessionContext that owns them expires
-	t.ctx.AddClosers(t)
-	defer t.ctx.RemoveCloser(t)
 
-	// TODO(klizhentas)
-	// we instantiate a server explicitly here instead of using
-	// websocket.HandlerFunc to set empty origin checker
-	// make sure we check origin when in prod mode
-	ws := &websocket.Server{Handler: webSocketLoop}
-	ws.ServeHTTP(w, r)
+	return nil
 }
 
-// getUserCredentials retreives the SSH credentials (certificate) for the currently logged in user
-// from the auth server API.
-func getUserCredentials(agent auth.AgentCloser) (string, ssh.AuthMethod, error) {
-	var (
-		cert *ssh.Certificate
-		pub  ssh.PublicKey
-	)
-	// this loop-over-keys is only needed to find an ssh.Certificate (so we can pull
-	// the 1st valid principal out of it)
-	keys, err := agent.List()
-	if err != nil {
-		return "", nil, trace.Wrap(err)
-	}
-	for _, k := range keys {
-		pub, _, _, _, err = ssh.ParseAuthorizedKey([]byte(k.String()))
-		if err != nil {
-			log.Warn(err)
-			continue
-		}
-		cert, _ = pub.(*ssh.Certificate)
-		if cert != nil {
-			break
-		}
-	}
-	// take the principal (SSH username) out of the returned certificate
-	if cert == nil {
-		return "", nil, trace.Errorf("unable to retrieve the user certificate")
-	}
-	signers, err := agent.Signers()
-	if err != nil {
-		return "", nil, trace.Wrap(err)
-	}
-	return cert.ValidPrincipals[0], ssh.PublicKeys(signers...), nil
-}
+// resolveServerHostPort parses server name and attempts to resolve hostname
+// and port.
+func resolveServerHostPort(servername string, existingServers []services.Server) (string, int, error) {
+	// If port is 0, client wants us to figure out which port to use.
+	var defaultPort = 0
 
-// resolveHostPort parses an input value and attempts to resolve hostname and port of requested server
-func resolveHostPort(value string, existingServers []services.Server) (string, int, error) {
-	var hostName = ""
-	// if port is 0, it means the client wants us to figure out which port to use
-	var hostPort = 0
+	if servername == "" {
+		return "", defaultPort, trace.BadParameter("empty server name")
+	}
 
-	// check if server exists by comparing its UUID or hostname
+	// Check if servername is UUID.
 	for i := range existingServers {
 		node := existingServers[i]
-		if node.GetName() == value || strings.EqualFold(node.GetHostname(), value) {
-			hostName = node.GetHostname()
-			break
+		if node.GetName() == servername {
+			return node.GetHostname(), defaultPort, nil
 		}
 	}
 
-	// if server is not found, parse SSH connection string (for joining an unlisted SSH server)
-	if hostName == "" {
-		hostName = value
-		host, port, err := net.SplitHostPort(value)
+	if !strings.Contains(servername, ":") {
+		return servername, defaultPort, nil
+	}
+
+	// Check for explicitly specified port.
+	host, portString, err := utils.SplitHostPort(servername)
+	if err != nil {
+		return "", defaultPort, trace.Wrap(err)
+	}
+
+	port, err := strconv.Atoi(portString)
+	if err != nil {
+		return "", defaultPort, trace.BadParameter("invalid port: %v", err)
+	}
+
+	return host, port, nil
+}
+
+func (t *TerminalHandler) write(data []byte, ws *websocket.Conn) (n int, err error) {
+	// UTF-8 encode data and wrap it in a raw envelope.
+	encodedPayload, err := t.encoder.String(string(data))
+	if err != nil {
+		return 0, trace.Wrap(err)
+	}
+	envelope := &Envelope{
+		Version: defaults.WebsocketVersion,
+		Type:    defaults.WebsocketRaw,
+		Payload: encodedPayload,
+	}
+	envelopeBytes, err := proto.Marshal(envelope)
+	if err != nil {
+		return 0, trace.Wrap(err)
+	}
+
+	// Send bytes over the websocket to the web client.
+	err = websocket.Message.Send(ws, envelopeBytes)
+	if err != nil {
+		return 0, trace.Wrap(err)
+	}
+
+	return len(data), nil
+}
+
+// Read unwraps the envelope and either fills out the passed in bytes or
+// performs an action on the connection (sending window-change request).
+func (t *TerminalHandler) read(out []byte, ws *websocket.Conn) (n int, err error) {
+	var bytes []byte
+	err = websocket.Message.Receive(ws, &bytes)
+	if err != nil {
+		if err == io.EOF {
+			return 0, io.EOF
+		}
+		return 0, trace.Wrap(err)
+	}
+
+	var envelope Envelope
+	err = proto.Unmarshal(bytes, &envelope)
+	if err != nil {
+		return 0, trace.Wrap(err)
+	}
+
+	var data []byte
+	data, err = t.decoder.Bytes([]byte(envelope.GetPayload()))
+	if err != nil {
+		return 0, trace.Wrap(err)
+	}
+
+	if len(data) < 1 {
+		return 0, trace.BadParameter("frame must have length of at least 1")
+	}
+
+	switch string(envelope.GetType()) {
+	case defaults.WebsocketRaw:
+		if len(out) < len(data) {
+			t.log.Warnf("websocket failed to receive everything: %d vs %d", len(out), len(data))
+		}
+		return copy(out, data), nil
+	case defaults.WebsocketResize:
+		var e events.EventFields
+		err := json.Unmarshal(data, &e)
 		if err != nil {
-			hostPort = defaults.SSHDefaultPort
-		} else {
-			hostName = host
-			hostPort, err = strconv.Atoi(port)
-			if err != nil {
-				return "", 0, trace.BadParameter("server: invalid port", err)
-			}
+			return 0, trace.Wrap(err)
 		}
-	}
 
-	return hostName, hostPort, nil
+		params, err := session.UnmarshalTerminalParams(e.GetString("size"))
+		if err != nil {
+			return 0, trace.Wrap(err)
+		}
+
+		// Send the window change request in a goroutine so reads are not blocked
+		// by network connectivity issues.
+		go t.windowChange(params)
+
+		return 0, nil
+	default:
+		return 0, trace.BadParameter("unknown prefix type: %v", envelope.GetType())
+	}
+}
+
+func (t *TerminalHandler) asTerminalStream(ws *websocket.Conn) (*terminalStream, error) {
+	if ws == nil {
+		return nil, trace.BadParameter("missing parameter ws")
+	}
+	return &terminalStream{
+		ws:       ws,
+		terminal: t,
+	}, nil
+}
+
+type terminalStream struct {
+	ws       *websocket.Conn
+	terminal *TerminalHandler
+}
+
+// Write wraps the data bytes in a raw envelope and sends.
+func (w *terminalStream) Write(data []byte) (n int, err error) {
+	return w.terminal.write(data, w.ws)
+}
+
+// Read unwraps the envelope and either fills out the passed in bytes or
+// performs an action on the connection (sending window-change request).
+func (w *terminalStream) Read(out []byte) (n int, err error) {
+	return w.terminal.read(out, w.ws)
+}
+
+// SetReadDeadline sets the network read deadline on the underlying websocket.
+func (w *terminalStream) SetReadDeadline(t time.Time) error {
+	return w.ws.SetReadDeadline(t)
+}
+
+// Close the websocket.
+func (w *terminalStream) Close() error {
+	return w.ws.Close()
 }

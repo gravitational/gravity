@@ -27,7 +27,6 @@ _test
 tmp
 
 # Architecture specific extensions/prefixes
-*.[568vq]
 [568vq].out
 
 *.cgo1.go
@@ -51,3 +50,10 @@ docs/latest.yaml
 # terraform
 .terraform
 terraform.tfstate
+
+# OSX 
+**/.DS_Store
+
+# ansible stuff
+ssh.config
+*.retry

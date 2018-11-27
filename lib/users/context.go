@@ -20,6 +20,7 @@ import (
 	"fmt"
 
 	"github.com/gravitational/gravity/lib/constants"
+	"github.com/gravitational/trace"
 
 	teleservices "github.com/gravitational/teleport/lib/services"
 	log "github.com/sirupsen/logrus"
@@ -60,6 +61,26 @@ func NewActionsParser(ctx teleservices.RuleContext) (predicate.Parser, error) {
 		GetIdentifier: ctx.GetIdentifier,
 		GetProperty:   predicate.GetStringMapValue,
 	})
+}
+
+// ExtractKubeGroups returns a list of Kubernetes groups extracted from
+// the provided assignKubernetesGroups action string
+func ExtractKubeGroups(action string) ([]string, error) {
+	ctx := &Context{}
+	parser, err := NewActionsParser(ctx)
+	if err != nil {
+		return nil, trace.Wrap(err)
+	}
+	assign, err := parser.Parse(action)
+	if err != nil {
+		return nil, trace.Wrap(err)
+	}
+	assignFn, ok := assign.(predicate.BoolPredicate)
+	if ok {
+		assignFn()
+		return ctx.KubernetesGroups, nil
+	}
+	return []string{}, nil
 }
 
 // NewAssignKubernetesGroupsActionFn creates assgin functions

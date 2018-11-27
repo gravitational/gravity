@@ -123,6 +123,12 @@ func (i *Installer) GetOperationPlan(cluster ops.Site, op ops.SiteOperation) (*s
 		return nil, trace.Wrap(err)
 	}
 
+	// establish trust b/w installed cluster and installer process
+	err = builder.AddConnectInstallerPhase(plan)
+	if err != nil {
+		return nil, trace.Wrap(err)
+	}
+
 	// re-enable planet leader elections
 	builder.AddEnableElectionPhase(plan)
 

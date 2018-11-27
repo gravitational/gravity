@@ -23,7 +23,7 @@ import installerGetters from './../installer/getters';
 import getters from './getters';
 import api from 'app/services/api';
 import cfg from 'app/config';
-import _ from 'lodash';
+import { forIn } from 'lodash';
 
 import {
   INSTALLER_PROVISION_INIT,
@@ -61,27 +61,27 @@ export function startInstall(precheckOnly){
     data.servers = reactor.evaluate(opAgentGetters.serverConfigs);
   }
 
-  _.forIn(profilesToProvision, (value, key) => {
+  forIn(profilesToProvision, (value, key) => {
     data.profiles[key] = {
       instance_type: value.instanceType,
       count: value.count
     }
   });
-                
-  let url = precheckOnly ? 
-    cfg.operationPrecheckPath(siteId, opId) : 
+
+  let url = precheckOnly ?
+    cfg.operationPrecheckPath(siteId, opId) :
     cfg.getOperationStartUrl(siteId, opId);
-  
+
   restApiActions.start(TRYING_TO_START_INSTALL);
   return api.post(url, data)
     .done(()=>{
-      // in case of precheck, just notify about success response 
+      // in case of precheck, just notify about success response
       if(precheckOnly){
         restApiActions.success(TRYING_TO_START_INSTALL);
       }else{
-        // reload the page and let the installer to go to the next step          
-        window.location.reload();          
-      }        
+        // reload the page and let the installer to go to the next step
+        window.location.reload();
+      }
     })
     .fail( err => {
       let msg = api.getErrorText(err);

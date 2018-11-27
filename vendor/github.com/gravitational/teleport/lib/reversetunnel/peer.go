@@ -45,6 +45,10 @@ type clusterPeers struct {
 	peers       map[string]*clusterPeer
 }
 
+func (p *clusterPeers) GetTunnelsCount() int {
+	return len(p.peers)
+}
+
 func (p *clusterPeers) pickPeer() (*clusterPeer, error) {
 	var currentPeer *clusterPeer
 	for _, peer := range p.peers {
@@ -98,7 +102,7 @@ func (p *clusterPeers) String() string {
 func (p *clusterPeers) GetStatus() string {
 	peer, err := p.pickPeer()
 	if err != nil {
-		return RemoteSiteStatusOffline
+		return teleport.RemoteClusterStatusOffline
 	}
 	return peer.GetStatus()
 }
@@ -123,6 +127,10 @@ func (p *clusterPeers) DialAuthServer() (net.Conn, error) {
 // located in a remote connected site, the connection goes through the
 // reverse proxy tunnel.
 func (p *clusterPeers) Dial(from, to net.Addr, userAgent agent.Agent) (conn net.Conn, err error) {
+	return p.DialTCP(from, to)
+}
+
+func (p *clusterPeers) DialTCP(from, to net.Addr) (conn net.Conn, err error) {
 	return nil, trace.ConnectionProblem(nil, "unable to dial, this proxy has not been discovered yet, try again later")
 }
 
@@ -165,9 +173,9 @@ func (s *clusterPeer) String() string {
 func (s *clusterPeer) GetStatus() string {
 	diff := time.Now().Sub(s.connInfo.GetLastHeartbeat())
 	if diff > defaults.ReverseTunnelOfflineThreshold {
-		return RemoteSiteStatusOffline
+		return teleport.RemoteClusterStatusOffline
 	}
-	return RemoteSiteStatusOnline
+	return teleport.RemoteClusterStatusOnline
 }
 
 func (s *clusterPeer) GetName() string {
@@ -183,4 +191,9 @@ func (s *clusterPeer) GetLastConnected() time.Time {
 // reverse proxy tunnel.
 func (s *clusterPeer) Dial(from, to net.Addr) (conn net.Conn, err error) {
 	return nil, trace.ConnectionProblem(nil, "unable to dial, this proxy %v has not been discovered yet, try again later", s)
+}
+
+// Close closes cluster peer connections
+func (s *clusterPeer) Close() error {
+	return nil
 }

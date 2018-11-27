@@ -61,6 +61,9 @@ func MakeHandler(fn HandlerFunc) httprouter.Handle {
 // MakeStdHandler returns a new http.Handle func from http.HandlerFunc
 func MakeStdHandler(fn StdHandlerFunc) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
+		// ensure that neither proxies nor browsers cache http traffic
+		SetNoCacheHeaders(w.Header())
+
 		out, err := fn(w, r)
 		if err != nil {
 			trace.WriteError(w, err)
@@ -104,9 +107,9 @@ func ReadJSON(r *http.Request, val interface{}) error {
 func ConvertResponse(re *roundtrip.Response, err error) (*roundtrip.Response, error) {
 	if err != nil {
 		if uerr, ok := err.(*url.Error); ok && uerr != nil && uerr.Err != nil {
-			return nil, trace.Wrap(uerr.Err)
+			return nil, trace.ConnectionProblem(uerr.Err, uerr.Error())
 		}
-		return nil, trace.Wrap(err)
+		return nil, trace.ConvertSystemError(err)
 	}
 	return re, trace.ReadError(re.Code(), re.Bytes())
 }

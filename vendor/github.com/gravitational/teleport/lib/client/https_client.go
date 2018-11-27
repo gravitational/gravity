@@ -18,35 +18,46 @@ limitations under the License.
 package client
 
 import (
-	"crypto/tls"
 	"crypto/x509"
 	"net/http"
 	"net/url"
 
 	"github.com/gravitational/teleport"
 	"github.com/gravitational/teleport/lib/httplib"
+	"github.com/gravitational/teleport/lib/utils"
 
 	"github.com/gravitational/roundtrip"
 	"github.com/gravitational/trace"
 )
 
 func NewInsecureWebClient() *http.Client {
+	// Because Teleport clients can't be configured (yet), they take the default
+	// list of cipher suites from Go.
+	tlsConfig := utils.TLSConfig(nil)
+	tlsConfig.InsecureSkipVerify = true
+
 	return &http.Client{
 		Transport: &http.Transport{
-			TLSClientConfig: &tls.Config{InsecureSkipVerify: true},
+			TLSClientConfig: tlsConfig,
 		},
 	}
 }
 
 func newClientWithPool(pool *x509.CertPool) *http.Client {
+	// Because Teleport clients can't be configured (yet), they take the default
+	// list of cipher suites from Go.
+	tlsConfig := utils.TLSConfig(nil)
+	tlsConfig.RootCAs = pool
+
 	return &http.Client{
 		Transport: &http.Transport{
-			TLSClientConfig: &tls.Config{RootCAs: pool},
+			TLSClientConfig: tlsConfig,
 		},
 	}
 }
 
 func NewWebClient(url string, opts ...roundtrip.ClientParam) (*WebClient, error) {
+	opts = append(opts, roundtrip.SanitizerEnabled(true))
 	clt, err := roundtrip.NewClient(url, teleport.WebAPIVersion, opts...)
 	if err != nil {
 		return nil, trace.Wrap(err)

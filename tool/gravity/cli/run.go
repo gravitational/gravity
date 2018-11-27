@@ -439,8 +439,7 @@ func Execute(g *Application, cmd string, extraArgs []string) error {
 			*g.AppStatusCmd.OpsCenterURL)
 	case g.AppUninstallCmd.FullCommand():
 		return uninstallApp(localEnv,
-			*g.AppUninstallCmd.Locator,
-			*g.AppUninstallCmd.OpsCenterURL)
+			*g.AppUninstallCmd.Locator)
 	case g.AppPullCmd.FullCommand():
 		return pullApp(localEnv,
 			*g.AppPullCmd.Package,

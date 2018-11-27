@@ -19,14 +19,19 @@ package update
 import (
 	"context"
 	"fmt"
+	"path/filepath"
 
+	"github.com/gravitational/gravity/lib/app/service"
+	"github.com/gravitational/gravity/lib/defaults"
 	"github.com/gravitational/gravity/lib/fsm"
 	"github.com/gravitational/gravity/lib/loc"
+	"github.com/gravitational/gravity/lib/pack"
+	"github.com/gravitational/gravity/lib/state"
 	"github.com/gravitational/gravity/lib/storage"
 	"github.com/gravitational/gravity/lib/utils"
 
 	"github.com/gravitational/trace"
-	log "github.com/sirupsen/logrus"
+	"github.com/sirupsen/logrus"
 )
 
 // updatePhaseNode is the executor for the update master/node update phase
@@ -38,7 +43,7 @@ type updatePhaseSystem struct {
 	// GravityPath is the path to the new gravity binary
 	GravityPath string
 	// FieldLogger is used for logging
-	log.FieldLogger
+	logrus.FieldLogger
 	remote fsm.Remote
 	// runtimePackage specifies the runtime package to update to
 	runtimePackage loc.Locator
@@ -60,7 +65,7 @@ func NewUpdatePhaseSystem(c FSMConfig, plan storage.OperationPlan, phase storage
 		OperationID:    plan.OperationID,
 		Server:         *phase.Data.Server,
 		GravityPath:    gravityPath,
-		FieldLogger:    log.NewEntry(log.New()),
+		FieldLogger:    logrus.NewEntry(logrus.New()),
 		remote:         remote,
 		runtimePackage: *phase.Data.RuntimePackage,
 	}, nil
@@ -93,7 +98,7 @@ func (p *updatePhaseSystem) Execute(context.Context) error {
 		}
 		return trace.Wrap(err, message)
 	}
-	log.Infof("System updated: %s.", out)
+	p.Infof("System updated: %s.", out)
 	return nil
 }
 
@@ -104,6 +109,102 @@ func (p *updatePhaseSystem) Rollback(context.Context) error {
 	if err != nil {
 		return trace.Wrap(err, "failed to rollback system: %s", out)
 	}
-	log.Infof("System rolled back: %s.", out)
+	p.Infof("System rolled back: %s.", out)
+	return nil
+}
+
+type updatePhaseConfig struct {
+	// Packages is the cluster package service
+	Packages pack.PackageService
+	// LocalPackages is the local package service
+	LocalPackages pack.PackageService
+	// ServiceUser is the user used for services and system storage
+	ServiceUser storage.OSUser
+	// ExecutorParams is common phase executor parameters
+	fsm.ExecutorParams
+	// FieldLogger allows logging
+	logrus.FieldLogger
+	// remote is the remote executor
+	remote fsm.Remote
+}
+
+// NewUpdatePhaseConfig returns executor that pulls local configuration packages
+func NewUpdatePhaseConfig(c FSMConfig, p fsm.ExecutorParams, remote fsm.Remote) (*updatePhaseConfig, error) {
+	cluster, err := c.Operator.GetLocalSite()
+	if err != nil {
+		return nil, trace.Wrap(err)
+	}
+	return &updatePhaseConfig{
+		Packages:       c.ClusterPackages,
+		LocalPackages:  c.HostLocalPackages,
+		ServiceUser:    cluster.ServiceUser,
+		ExecutorParams: p,
+		FieldLogger:    logrus.NewEntry(logrus.New()),
+		remote:         remote,
+	}, nil
+}
+
+// Execute pulls rotated teleport master config package to the local package store
+func (p *updatePhaseConfig) Execute(context.Context) error {
+	update, err := pack.FindLatestPackageWithLabels(
+		p.Packages, p.Plan.ClusterName, map[string]string{
+			pack.AdvertiseIPLabel: p.Phase.Data.Server.AdvertiseIP,
+			pack.OperationIDLabel: p.Plan.OperationID,
+			pack.PurposeLabel:     pack.PurposeTeleportMasterConfig,
+		})
+	if err != nil && !trace.IsNotFound(err) {
+		return trace.Wrap(err)
+	}
+	if trace.IsNotFound(err) {
+		p.Info("No teleport master config update found.")
+		return nil
+	}
+	p.Infof("Pulling teleport master config update: %v.", update)
+	_, err = service.PullPackage(service.PackagePullRequest{
+		SrcPack: p.Packages,
+		DstPack: p.LocalPackages,
+		Package: *update,
+		Upsert:  true,
+	})
+	if err != nil {
+		return trace.Wrap(err)
+	}
+	// after having pulled as root, update ownership on the blobs dir
+	stateDir, err := state.GetStateDir()
+	if err != nil {
+		return trace.Wrap(err)
+	}
+	err = utils.Chown(filepath.Join(stateDir, defaults.LocalDir),
+		p.ServiceUser.UID, p.ServiceUser.GID)
+	if err != nil {
+		return trace.Wrap(err)
+	}
+	return nil
+}
+
+// Rollback removes teleport master config packages pulled during this
+// operation from the local package store
+func (p *updatePhaseConfig) Rollback(context.Context) error {
+	labels := map[string]string{
+		pack.AdvertiseIPLabel: p.Phase.Data.Server.AdvertiseIP,
+		pack.OperationIDLabel: p.Plan.OperationID,
+		pack.PurposeLabel:     pack.PurposeTeleportMasterConfig,
+	}
+	return pack.ForeachPackage(p.LocalPackages, func(e pack.PackageEnvelope) error {
+		if e.HasLabels(labels) {
+			p.Infof("Removing package %v.", e.Locator)
+			return p.LocalPackages.DeletePackage(e.Locator)
+		}
+		return nil
+	})
+}
+
+// PreCheck makes sure the phase is being executed on the correct server
+func (p *updatePhaseConfig) PreCheck(ctx context.Context) error {
+	return trace.Wrap(p.remote.CheckServer(ctx, *p.Phase.Data.Server))
+}
+
+// PostCheck is no-op for this phase
+func (p *updatePhaseConfig) PostCheck(context.Context) error {
 	return nil
 }

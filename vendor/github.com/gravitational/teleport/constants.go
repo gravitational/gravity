@@ -1,6 +1,7 @@
 package teleport
 
 import (
+	"strings"
 	"time"
 )
 
@@ -40,6 +41,10 @@ const (
 
 	// HTTPProxy is an environment variable pointing to a HTTP proxy.
 	HTTPProxy = "HTTP_PROXY"
+
+	// NoProxy is an environment variable matching the cases
+	// when HTTPS_PROXY or HTTP_PROXY is ignored
+	NoProxy = "NO_PROXY"
 )
 
 const (
@@ -51,6 +56,12 @@ const (
 )
 
 const (
+	// ComponentAuthority is a TLS and an SSH certificate authority
+	ComponentAuthority = "ca"
+
+	// ComponentProcess is a main control process
+	ComponentProcess = "proc"
+
 	// ComponentReverseTunnelServer is reverse tunnel server
 	// that together with agent establish a bi-directional SSH revers tunnel
 	// to bypass firewall restrictions
@@ -60,6 +71,9 @@ const (
 	// that together with server establish a bi-directional SSH revers tunnel
 	// to bypass firewall restrictions
 	ComponentReverseTunnelAgent = "proxy:agent"
+
+	// ComponentKube is a kubernetes proxy
+	ComponentKube = "proxy:kube"
 
 	// ComponentAuth is the cluster CA node (auth server API)
 	ComponentAuth = "auth"
@@ -72,6 +86,12 @@ const (
 
 	// ComponentProxy is SSH proxy (SSH server forwarding connections)
 	ComponentProxy = "proxy"
+
+	// ComponentDiagnostic is a diagnostic service
+	ComponentDiagnostic = "diag"
+
+	// ComponentClient is a client
+	ComponentClient = "client"
 
 	// ComponentTunClient is a tunnel client
 	ComponentTunClient = "client:tunnel"
@@ -92,7 +112,7 @@ const (
 	ComponentRemoteSubsystem = "subsystem:remote"
 
 	// ComponentAuditLog is audit log component
-	ComponentAuditLog = "auditlog"
+	ComponentAuditLog = "audit"
 
 	// ComponentKeyAgent is an agent that has loaded the sessions keys and
 	// certificates for a user connected to a proxy.
@@ -107,6 +127,27 @@ const (
 
 	// ComponentKeyGen is the public/private keypair generator.
 	ComponentKeyGen = "keygen"
+
+	// ComponentSession is an active session.
+	ComponentSession = "session"
+
+	// ComponentDynamoDB represents dynamodb clients
+	ComponentDynamoDB = "dynamodb"
+
+	// Component pluggable authentication module (PAM)
+	ComponentPAM = "pam"
+
+	// ComponentUpload is a session recording upload server
+	ComponentUpload = "upload"
+
+	// ComponentWeb is a web server
+	ComponentWeb = "web"
+
+	// ComponentWebsocket is websocket server that the web client connects to.
+	ComponentWebsocket = "websocket"
+
+	// ComponentRBAC is role-based access control.
+	ComponentRBAC = "rbac"
 
 	// DebugEnvVar tells tests to use verbose debug output
 	DebugEnvVar = "DEBUG"
@@ -180,13 +221,57 @@ const (
 	// LinuxAdminGID is the ID of the standard adm group on linux
 	LinuxAdminGID = 4
 
-	// LinuxOS is the name of the linux OS
+	// LinuxOS is the GOOS constant used for Linux.
 	LinuxOS = "linux"
+
+	// WindowsOS is the GOOS constant used for Microsoft Windows.
+	WindowsOS = "windows"
+
+	// DarwinOS is the GOOS constant for Apple macOS/darwin.
+	DarwinOS = "darwin"
 
 	// DirMaskSharedGroup is the mask for a directory accessible
 	// by the owner and group
 	DirMaskSharedGroup = 0770
+
+	// FileMaskOwnerOnly is the file mask that allows read write access
+	// to owers only
+	FileMaskOwnerOnly = 0600
+
+	// On means mode is on
+	On = "on"
+
+	// Off means mode is off
+	Off = "off"
+
+	// SchemeS3 is S3 file scheme, means upload or download to S3 like object
+	// storage
+	SchemeS3 = "s3"
+
+	// SchemeFile is a local disk file storage
+	SchemeFile = "file"
+
+	// LogsDir is a log subdirectory for events and logs
+	LogsDir = "log"
+
+	// Syslog is a mode for syslog logging
+	Syslog = "syslog"
+
+	// HumanDateFormat is a human readable date formatting
+	HumanDateFormat = "Jan _2 15:04 UTC"
+
+	// HumanDateFormatSeconds is a human readable date formatting with seconds
+	HumanDateFormatSeconds = "Jan _2 15:04:05 UTC"
+
+	// HumanDateFormatMilli is a human readable date formatting with milliseconds
+	HumanDateFormatMilli = "Jan _2 15:04:05.000 UTC"
 )
+
+// Component generates "component:subcomponent1:subcomponent2" strings used
+// in debugging
+func Component(components ...string) string {
+	return strings.Join(components, ":")
+}
 
 const (
 	// AuthorizedKeys are public keys that check against User CAs.
@@ -236,6 +321,9 @@ const (
 	// CertificateFormatUnspecified is used to check if the format was specified
 	// or not.
 	CertificateFormatUnspecified = ""
+
+	// DurationNever is human friendly shortcut that is interpreted as a Duration of 0
+	DurationNever = "never"
 )
 
 const (
@@ -247,9 +335,17 @@ const (
 	// allowed logins.
 	TraitLogins = "logins"
 
-	// TraitInternalRoleVariable is the role variable used to store allowed
+	// TraitKubeGroups is the name the role variable used to store
+	// allowed kubernetes groups
+	TraitKubeGroups = "kubernetes_groups"
+
+	// TraitInternalLoginsVariable is the variable used to store allowed
 	// logins for local accounts.
-	TraitInternalRoleVariable = "{{internal.logins}}"
+	TraitInternalLoginsVariable = "{{internal.logins}}"
+
+	// TraitInternalKubeGroupsVariable is the variable used to store allowed
+	// kubernetes groups for local accounts.
+	TraitInternalKubeGroupsVariable = "{{internal.kubernetes_groups}}"
 )
 
 // SCP is Secure Copy.
@@ -265,3 +361,91 @@ const AdminRoleName = "admin"
 // DefaultImplicitRole is implicit role that gets added to all service.RoleSet
 // objects.
 const DefaultImplicitRole = "default-implicit-role"
+
+// APIDomain is a default domain name for Auth server API
+const APIDomain = "teleport.cluster.local"
+
+const (
+	// RemoteClusterStatusOffline indicates that cluster is considered as
+	// offline, since it has missed a series of heartbeats
+	RemoteClusterStatusOffline = "offline"
+	// RemoteClusterStatusOnline indicates that cluster is sending heartbeats
+	// at expected interval
+	RemoteClusterStatusOnline = "online"
+)
+
+const (
+	// SharedDirMode is a mode for a directory shared with group
+	SharedDirMode = 0750
+
+	// PrivateDirMode is a mode for private directories
+	PrivateDirMode = 0700
+)
+
+const (
+	// SessionEvent is sent by servers to clients when an audit event occurs on
+	// the session.
+	SessionEvent = "x-teleport-event"
+)
+
+const (
+	// EnvKubeConfig is environment variable for kubeconfig
+	EnvKubeConfig = "KUBECONFIG"
+
+	// KubeConfigDir is a default directory where k8s stores its user local config
+	KubeConfigDir = ".kube"
+
+	// KubeConfigFile is a default filename where k8s stores its user local config
+	KubeConfigFile = "config"
+
+	// EnvHome is home environment variable
+	EnvHome = "HOME"
+
+	// EnvUserProfile is the home directory environment variable on Windows.
+	EnvUserProfile = "USERPROFILE"
+
+	// KubeServiceAddr is an address for kubernetes endpoint service
+	KubeServiceAddr = "kubernetes.default.svc.cluster.local:443"
+
+	// KubeCAPath is a hardcode of mounted CA inside every pod of K8s
+	KubeCAPath = "/var/run/secrets/kubernetes.io/serviceaccount/ca.crt"
+
+	// KubeKindCSR is a certificate signing requests
+	KubeKindCSR = "CertificateSigningRequest"
+
+	// KubeKindPod is a kubernetes pod
+	KubeKindPod = "Pod"
+
+	// KubeMetadataNameSelector is a selector for name metadata in API requests
+	KubeMetadataNameSelector = "metadata.name"
+
+	// KubeMetadataLabelSelector is a selector for label
+	KubeMetadataLabelSelector = "metadata.label"
+
+	// KubeRunTests turns on kubernetes tests
+	KubeRunTests = "TEST_KUBE"
+
+	// KubeSystemMasters is a name of the builtin kubernets group for master nodes
+	KubeSystemMasters = "system:masters"
+
+	// UsageKubeOnly specifies certificate usage metadata
+	// that limits certificate to be only used for kubernetes proxying
+	UsageKubeOnly = "usage:kube"
+)
+
+const (
+	// UseOfClosedNetworkConnection is a special string some parts of
+	// go standard lib are using that is the only way to identify some errors
+	UseOfClosedNetworkConnection = "use of closed network connection"
+)
+
+const (
+	// OpenBrowserLinux is the command used to open a web browser on Linux.
+	OpenBrowserLinux = "sensible-browser"
+
+	// OpenBrowserDarwin is the command used to open a web browser on macOS/Darwin.
+	OpenBrowserDarwin = "open"
+
+	// OpenBrowserWindows is the command used to open a web browser on Windows.
+	OpenBrowserWindows = "rundll32.exe"
+)

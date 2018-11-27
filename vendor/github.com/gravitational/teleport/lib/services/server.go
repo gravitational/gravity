@@ -10,6 +10,7 @@ import (
 	"github.com/gravitational/teleport/lib/utils"
 
 	"github.com/gravitational/trace"
+
 	"github.com/jonboulle/clockwork"
 )
 
@@ -31,6 +32,10 @@ type Server interface {
 	GetCmdLabels() map[string]CommandLabel
 	// GetPublicAddr is an optional field that returns the public address this cluster can be reached at.
 	GetPublicAddr() string
+	// GetRotation gets the state of certificate authority rotation.
+	GetRotation() Rotation
+	// SetRotation sets the state of certificate authority rotation.
+	SetRotation(Rotation)
 	// String returns string representation of the server
 	String() string
 	// SetAddr sets server address
@@ -155,6 +160,16 @@ func (s *ServerV2) GetPublicAddr() string {
 	return s.Spec.PublicAddr
 }
 
+// GetRotation gets the state of certificate authority rotation.
+func (s *ServerV2) GetRotation() Rotation {
+	return s.Spec.Rotation
+}
+
+// SetRotation sets the state of certificate authority rotation.
+func (s *ServerV2) SetRotation(r Rotation) {
+	s.Spec.Rotation = r
+}
+
 // GetHostname returns server hostname
 func (s *ServerV2) GetHostname() string {
 	return s.Spec.Hostname
@@ -249,6 +264,8 @@ type ServerSpecV2 struct {
 	Hostname string `json:"hostname"`
 	// CmdLabels is server dynamic labels
 	CmdLabels map[string]CommandLabelV2 `json:"cmd_labels,omitempty"`
+	// Rotation specifies server rotatoin status
+	Rotation Rotation `json:"rotation,omitempty"`
 }
 
 // ServerSpecV2Schema is JSON schema for server
@@ -261,14 +278,16 @@ const ServerSpecV2Schema = `{
     "hostname": {"type": "string"},
     "labels": {
       "type": "object",
+      "additionalProperties": false,
       "patternProperties": {
         "^.*$":  { "type": "string" }
       }
     },
     "cmd_labels": {
       "type": "object",
+      "additionalProperties": false,
       "patternProperties": {
-        "^.*$": { 
+        "^.*$": {
           "type": "object",
           "additionalProperties": false,
           "required": ["command"],
@@ -279,7 +298,8 @@ const ServerSpecV2Schema = `{
           }
         }
       }
-    }
+    },
+    "rotation": %v
   }
 }`
 
@@ -423,24 +443,26 @@ func (c *CommandLabels) SetEnv(v string) error {
 // GetServerSchema returns role schema with optionally injected
 // schema for extensions
 func GetServerSchema() string {
-	return fmt.Sprintf(V2SchemaTemplate, MetadataSchema, ServerSpecV2Schema, DefaultDefinitions)
+	return fmt.Sprintf(V2SchemaTemplate, MetadataSchema, fmt.Sprintf(ServerSpecV2Schema, RotationSchema), DefaultDefinitions)
 }
 
 // UnmarshalServerResource unmarshals role from JSON or YAML,
 // sets defaults and checks the schema
-func UnmarshalServerResource(data []byte, kind string) (Server, error) {
+func UnmarshalServerResource(data []byte, kind string, cfg *MarshalConfig) (Server, error) {
 	if len(data) == 0 {
 		return nil, trace.BadParameter("missing server data")
 	}
+
 	var h ResourceHeader
-	err := json.Unmarshal(data, &h)
+	err := utils.FastUnmarshal(data, &h)
 	if err != nil {
 		return nil, trace.Wrap(err)
 	}
+
 	switch h.Version {
 	case "":
 		var s ServerV1
-		err := json.Unmarshal(data, &s)
+		err := utils.FastUnmarshal(data, &s)
 		if err != nil {
 			return nil, trace.Wrap(err)
 		}
@@ -448,8 +470,15 @@ func UnmarshalServerResource(data []byte, kind string) (Server, error) {
 		return s.V2(), nil
 	case V2:
 		var s ServerV2
-		if err := utils.UnmarshalWithSchema(GetServerSchema(), &s, data); err != nil {
-			return nil, trace.BadParameter(err.Error())
+
+		if cfg.SkipValidation {
+			if err := utils.FastUnmarshal(data, &s); err != nil {
+				return nil, trace.BadParameter(err.Error())
+			}
+		} else {
+			if err := utils.UnmarshalWithSchema(GetServerSchema(), &s, data); err != nil {
+				return nil, trace.BadParameter(err.Error())
+			}
 		}
 
 		if err := s.CheckAndSetDefaults(); err != nil {
@@ -478,20 +507,34 @@ func GetServerMarshaler() ServerMarshaler {
 // ServerMarshaler implements marshal/unmarshal of Role implementations
 // mostly adds support for extended versions
 type ServerMarshaler interface {
-	// UnmarshalServer from binary representation
-	UnmarshalServer(bytes []byte, kind string) (Server, error)
-	// MarshalServer to binary representation
+	// UnmarshalServer from binary representation.
+	UnmarshalServer(bytes []byte, kind string, opts ...MarshalOption) (Server, error)
+
+	// MarshalServer to binary representation.
 	MarshalServer(Server, ...MarshalOption) ([]byte, error)
+
+	// UnmarshalServers is used to unmarshal multiple servers from their
+	// binary representation.
+	UnmarshalServers(bytes []byte) ([]Server, error)
+
+	// MarshalServers is used to marshal multiple servers to their binary
+	// representation.
+	MarshalServers([]Server) ([]byte, error)
 }
 
 type TeleportServerMarshaler struct{}
 
 // UnmarshalServer unmarshals server from JSON
-func (*TeleportServerMarshaler) UnmarshalServer(bytes []byte, kind string) (Server, error) {
-	return UnmarshalServerResource(bytes, kind)
+func (*TeleportServerMarshaler) UnmarshalServer(bytes []byte, kind string, opts ...MarshalOption) (Server, error) {
+	cfg, err := collectOptions(opts)
+	if err != nil {
+		return nil, trace.Wrap(err)
+	}
+
+	return UnmarshalServerResource(bytes, kind, cfg)
 }
 
-// MarshalServer marshals server into JSON
+// MarshalServer marshals server into JSON.
 func (*TeleportServerMarshaler) MarshalServer(s Server, opts ...MarshalOption) ([]byte, error) {
 	cfg, err := collectOptions(opts)
 	if err != nil {
@@ -500,7 +543,6 @@ func (*TeleportServerMarshaler) MarshalServer(s Server, opts ...MarshalOption) (
 	type serverv1 interface {
 		V1() *ServerV1
 	}
-
 	type serverv2 interface {
 		V2() *ServerV2
 	}
@@ -511,16 +553,44 @@ func (*TeleportServerMarshaler) MarshalServer(s Server, opts ...MarshalOption) (
 		if !ok {
 			return nil, trace.BadParameter("don't know how to marshal %v", V1)
 		}
-		return json.Marshal(v.V1())
+		return utils.FastMarshal(v.V1())
 	case V2:
 		v, ok := s.(serverv2)
 		if !ok {
 			return nil, trace.BadParameter("don't know how to marshal %v", V2)
 		}
-		return json.Marshal(v.V2())
+		return utils.FastMarshal(v.V2())
 	default:
 		return nil, trace.BadParameter("version %v is not supported", version)
 	}
+}
+
+// UnmarshalServers is used to unmarshal multiple servers from their
+// binary representation.
+func (*TeleportServerMarshaler) UnmarshalServers(bytes []byte) ([]Server, error) {
+	var servers []ServerV2
+
+	err := utils.FastUnmarshal(bytes, &servers)
+	if err != nil {
+		return nil, trace.Wrap(err)
+	}
+
+	out := make([]Server, len(servers))
+	for i, v := range servers {
+		out[i] = Server(&v)
+	}
+	return out, nil
+}
+
+// MarshalServers is used to marshal multiple servers to their binary
+// representation.
+func (*TeleportServerMarshaler) MarshalServers(s []Server) ([]byte, error) {
+	bytes, err := utils.FastMarshal(s)
+	if err != nil {
+		return nil, trace.Wrap(err)
+	}
+
+	return bytes, nil
 }
 
 // SortedServers is a sort wrapper that sorts servers by name

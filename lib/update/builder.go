@@ -19,10 +19,13 @@ package update
 import (
 	"fmt"
 	"path"
+	"strings"
 
 	"github.com/gravitational/gravity/lib/constants"
 	"github.com/gravitational/gravity/lib/loc"
 	"github.com/gravitational/gravity/lib/storage"
+
+	"github.com/gravitational/teleport/lib/services"
 )
 
 func (r phaseBuilder) init(installed, update loc.Locator) *phase {
@@ -107,10 +110,10 @@ func (r phaseBuilder) app(updates []loc.Locator) *phase {
 // migration constructs a migration phase based on the plan params.
 //
 // If there are no migrations to perform, returns nil.
-func (r phaseBuilder) migration(p newPlanParams) *phase {
+func (r phaseBuilder) migration(leadMaster storage.Server, p newPlanParams) *phase {
 	root := root(phase{
 		ID:          "migration",
-		Description: "Perform system database migration",
+		Description: "Perform system database migrations",
 	})
 
 	var subphases []phase
@@ -130,6 +133,18 @@ func (r phaseBuilder) migration(p newPlanParams) *phase {
 		Description: "Update node labels",
 		Executor:    updateLabels,
 	})
+
+	// migrate roles
+	if needMigrateRoles(p.roles) {
+		subphases = append(subphases, phase{
+			ID:          root.ChildLiteral("roles"),
+			Description: "Migrate cluster roles to a new format",
+			Executor:    migrateRoles,
+			Data: &storage.OperationPhaseData{
+				ExecServer: &leadMaster,
+			},
+		})
+	}
 
 	// no migrations needed
 	if len(subphases) == 0 {
@@ -155,6 +170,52 @@ func (r phaseBuilder) earlyDNSApp(locator loc.Locator) *phase {
 		},
 	}
 	return &phase
+}
+
+// config returns phase that pulls system configuration on provided nodes
+func (r phaseBuilder) config(nodes []storage.Server) *phase {
+	root := root(phase{
+		ID:          "config",
+		Description: "Update system configuration on nodes",
+	})
+	for i, node := range nodes {
+		root.AddParallel(phase{
+			ID:       root.ChildLiteral(node.Hostname),
+			Executor: config,
+			Description: fmt.Sprintf("Update system configuration on node %q",
+				node.Hostname),
+			Data: &storage.OperationPhaseData{
+				Server: &nodes[i],
+			},
+		})
+	}
+	return &root
+}
+
+// needMigrateRoles returns true if the provided cluster roles need to be
+// migrated to a new format
+func needMigrateRoles(roles []services.Role) bool {
+	for _, role := range roles {
+		if needMigrateRole(role) {
+			return true
+		}
+	}
+	return false
+}
+
+// needMigrateRole returns true if the provided cluster role needs to be
+// migrated to a new format
+func needMigrateRole(role services.Role) bool {
+	// if the role has "assignKubernetesGroups" action, it needs to
+	// be migrated to the new KubeGroups property
+	for _, rule := range append(role.GetRules(services.Allow), role.GetRules(services.Deny)...) {
+		for _, action := range rule.Actions {
+			if strings.HasPrefix(action, constants.AssignKubernetesGroupsFnName) {
+				return true
+			}
+		}
+	}
+	return false
 }
 
 func (r phaseBuilder) runtime(updates []loc.Locator, rbacUpdateAvailable bool) *phase {

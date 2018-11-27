@@ -15,7 +15,7 @@ limitations under the License.
 */
 
 import $ from 'jQuery';
-import _ from 'lodash';
+import { at } from 'lodash';
 import cfg from 'app/config';
 import reactor from 'app/reactor';
 import api from 'app/services/api';
@@ -41,7 +41,7 @@ export function initWithApp(nextState){
   tryToInit(
     fetchApps(name, repository, version)
       .then( app => {
-        try{                        
+        try{
           let customConfig = getCustomInstallerCfg(app);
           let licenseInfo =  getLicense(app);
           let eula = getEula(app);
@@ -52,21 +52,21 @@ export function initWithApp(nextState){
           displayName = displayName || name;
 
           reactor.dispatch(INSTALLER_INIT, {
-            step, 
-            name, 
+            step,
+            name,
             displayName,
-            repository, 
-            version, 
-            customConfig, 
+            repository,
+            version,
+            customConfig,
             requiresLicense,
-            eula              
+            eula
           });
 
           initNewApp({
-            name, 
-            repository, 
-            version, 
-            licenseInfo               
+            name,
+            repository,
+            version,
+            licenseInfo
           });
 
           restApiActions.success(TRYING_TO_INIT_INSTALLER);
@@ -79,7 +79,7 @@ export function initWithApp(nextState){
 }
 
 export function acceptEula(){
-  reactor.dispatch(INSTALLER_EULA_ACCEPT);    
+  reactor.dispatch(INSTALLER_EULA_ACCEPT);
 }
 
 export function initWithSite(nextState){
@@ -99,17 +99,17 @@ export function initWithSite(nextState){
         let opState = installOp.state;
         let requiresLicense = getLicense(site).enabled;
         let step = mapOpStateToStep(opState);
-                                      
-        applyConfig(siteId);            
+
+        applyConfig(siteId);
 
         reactor.dispatch(INSTALLER_INIT, {
           step,
           siteId,
-          opId,          
+          opId,
           requiresLicense
         });
 
-        if( step === StepValueEnum.PROVISION ){                        
+        if( step === StepValueEnum.PROVISION ){
           initProvision(siteId, opId, flavors);
         }
 
@@ -124,31 +124,31 @@ export function initWithSite(nextState){
 
 // TODO: too ugly
 function getCustomInstallerCfg(app) {
-  let [webConfigJsonStr] = _.at(app, 'manifest.webConfig');
-  let [providers = {}] = _.at(app, 'manifest.providers');  
-  
+  let [webConfigJsonStr] = at(app, 'manifest.webConfig');
+  let [providers = {}] = at(app, 'manifest.providers');
+
   let customWebCfg = parseWebConfig(webConfigJsonStr);
-  let [customInstallModuleCfg] = _.at(customWebCfg, 'modules.installer');
-  let [defaultProviders] = _.at(cfg, 'modules.installer.providers');    
-      
+  let [customInstallModuleCfg] = at(customWebCfg, 'modules.installer');
+  let [defaultProviders] = at(cfg, 'modules.installer.providers');
+
   defaultProviders = defaultProviders || [];
   customInstallModuleCfg = customInstallModuleCfg || {};
-  
+
   customInstallModuleCfg.providers = defaultProviders.filter(k =>
-    !providers[k] || providers[k].disabled !== true); 
-                
+    !providers[k] || providers[k].disabled !== true);
+
   return customInstallModuleCfg;
 }
 
 function getLicense(obj){
-  let [license={}] = _.at(obj, 'manifest.license');
+  let [license={}] = at(obj, 'manifest.license');
   return license;
 }
 
-function getEula(obj) {    
-  let [content = null] = _.at(obj, 'manifest.installer.eula.source');
+function getEula(obj) {
+  let [content = null] = at(obj, 'manifest.installer.eula.source');
   let enabled = !!content;
-  return { enabled, content };    
+  return { enabled, content };
 }
 
 function tryToInit(promise){
@@ -162,7 +162,7 @@ function tryToInit(promise){
 }
 
 function getAppDisplayName(obj){
-  let [displayName] = _.at(obj, 'manifest.metadata.displayName');  
+  let [displayName] = at(obj, 'manifest.metadata.displayName');
   return displayName;
 }
 
@@ -172,7 +172,7 @@ function mapOpStateToStep(opState){
     case OpStateEnum.CREATED:
     case OpStateEnum.INSTALL_INITIATED:
     case OpStateEnum.INSTALL_PRECHECKS:
-    case OpStateEnum.INSTALL_SETTING_CLUSTER_PLAN:    
+    case OpStateEnum.INSTALL_SETTING_CLUSTER_PLAN:
       step = StepValueEnum.PROVISION;
       break;
     default:

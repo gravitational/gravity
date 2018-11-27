@@ -14,7 +14,7 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-import _ from 'lodash';
+import { at } from 'lodash';
 import reactor from 'app/reactor';
 import api from 'app/services/api';
 import cfg from 'app/config';
@@ -259,7 +259,7 @@ export function setKeyPairName(key){
 }
 
 const getIamPermissionErrorMsg = err => {
-  let [actions] = _.at(err, 'responseJSON.error.actions');
+  let [actions] = at(err, 'responseJSON.error.actions');
   actions = actions || [];
   return {
     code: RestRespCodeEnum.FORBIDDEN,

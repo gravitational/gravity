@@ -1,12 +1,14 @@
 package services
 
 import (
+	"crypto/x509"
 	"encoding/json"
 	"fmt"
 	"time"
 
 	"github.com/gravitational/teleport"
 	"github.com/gravitational/teleport/lib/defaults"
+	"github.com/gravitational/teleport/lib/tlsca"
 	"github.com/gravitational/teleport/lib/utils"
 
 	"github.com/gravitational/trace"
@@ -167,6 +169,8 @@ type CertAuthority interface {
 	CheckAndSetDefaults() error
 	// SetSigningKeys sets signing keys
 	SetSigningKeys([][]byte) error
+	// SetCheckingKeys sets signing keys
+	SetCheckingKeys([][]byte) error
 	// AddRole adds a role to ca role list
 	AddRole(name string)
 	// Checkers returns public keys that can be used to check cert authorities
@@ -179,6 +183,75 @@ type CertAuthority interface {
 	V2() *CertAuthorityV2
 	// String returns human readable version of the CertAuthority
 	String() string
+	// TLSCA returns first TLS certificate authority from the list of key pairs
+	TLSCA() (*tlsca.CertAuthority, error)
+	// SetTLSKeyPairs sets TLS key pairs
+	SetTLSKeyPairs(keyPairs []TLSKeyPair)
+	// GetTLSKeyPairs returns first PEM encoded TLS cert
+	GetTLSKeyPairs() []TLSKeyPair
+	// GetRotation returns rotation state.
+	GetRotation() Rotation
+	// SetRotation sets rotation state.
+	SetRotation(Rotation)
+	// Clone returns a copy of the cert authority object.
+	Clone() CertAuthority
+}
+
+// CertPoolFromCertAuthorities returns certificate pools from TLS certificates
+// set up in the certificate authorities list
+func CertPoolFromCertAuthorities(cas []CertAuthority) (*x509.CertPool, error) {
+	certPool := x509.NewCertPool()
+	for _, ca := range cas {
+		keyPairs := ca.GetTLSKeyPairs()
+		if len(keyPairs) == 0 {
+			continue
+		}
+		for _, keyPair := range keyPairs {
+			cert, err := tlsca.ParseCertificatePEM(keyPair.Cert)
+			if err != nil {
+				return nil, trace.Wrap(err)
+			}
+			certPool.AddCert(cert)
+		}
+		return certPool, nil
+	}
+	return certPool, nil
+}
+
+// CertPool returns certificate pools from TLS certificates
+// set up in the certificate authority
+func CertPool(ca CertAuthority) (*x509.CertPool, error) {
+	keyPairs := ca.GetTLSKeyPairs()
+	if len(keyPairs) == 0 {
+		return nil, trace.BadParameter("certificate authority has no TLS certificates")
+	}
+	certPool := x509.NewCertPool()
+	for _, keyPair := range keyPairs {
+		cert, err := tlsca.ParseCertificatePEM(keyPair.Cert)
+		if err != nil {
+			return nil, trace.Wrap(err)
+		}
+		certPool.AddCert(cert)
+	}
+	return certPool, nil
+}
+
+// TLSCerts returns TLS certificates from CA
+func TLSCerts(ca CertAuthority) [][]byte {
+	pairs := ca.GetTLSKeyPairs()
+	out := make([][]byte, len(pairs))
+	for i, pair := range pairs {
+		out[i] = append([]byte{}, pair.Cert...)
+	}
+	return out
+}
+
+// TLSKeyPair is a TLS key pair
+type TLSKeyPair struct {
+	// Cert is a PEM encoded TLS cert
+	Cert []byte `json:"cert,omitempty"`
+	// Key is a PEM encoded TLS key
+	Key []byte `json:"key,omitempty"`
 }
 
 // NewCertAuthority returns new cert authority
@@ -216,7 +289,7 @@ func CertAuthoritiesToV1(in []CertAuthority) ([]CertAuthorityV1, error) {
 	return out, nil
 }
 
-// CertAuthorityV2 is version 1 resource spec for Cert Authority
+// CertAuthorityV2 is version 2 resource spec for Cert Authority
 type CertAuthorityV2 struct {
 	// Kind is a resource kind
 	Kind string `json:"kind"`
@@ -229,6 +302,53 @@ type CertAuthorityV2 struct {
 	// rawObject is object that is raw object stored in DB
 	// without any conversions applied, used in migrations
 	rawObject interface{}
+}
+
+// Clone returns a copy of the cert authority object.
+func (c *CertAuthorityV2) Clone() CertAuthority {
+	out := *c
+	out.rawObject = nil
+	out.Spec.CheckingKeys = utils.CopyByteSlices(c.Spec.CheckingKeys)
+	out.Spec.SigningKeys = utils.CopyByteSlices(c.Spec.SigningKeys)
+	for i, kp := range c.Spec.TLSKeyPairs {
+		out.Spec.TLSKeyPairs[i] = TLSKeyPair{
+			Key:  utils.CopyByteSlice(kp.Key),
+			Cert: utils.CopyByteSlice(kp.Cert),
+		}
+	}
+	out.Spec.Roles = utils.CopyStrings(c.Spec.Roles)
+	return &out
+}
+
+// GetRotation returns rotation state.
+func (c *CertAuthorityV2) GetRotation() Rotation {
+	if c.Spec.Rotation == nil {
+		return Rotation{}
+	}
+	return *c.Spec.Rotation
+}
+
+// SetRotation sets rotation state.
+func (c *CertAuthorityV2) SetRotation(r Rotation) {
+	c.Spec.Rotation = &r
+}
+
+// TLSCA returns TLS certificate authority
+func (c *CertAuthorityV2) TLSCA() (*tlsca.CertAuthority, error) {
+	if len(c.Spec.TLSKeyPairs) == 0 {
+		return nil, trace.BadParameter("no TLS key pairs found for certificate authority")
+	}
+	return tlsca.New(c.Spec.TLSKeyPairs[0].Cert, c.Spec.TLSKeyPairs[0].Key)
+}
+
+// SetTLSPrivateKey sets TLS key pairs
+func (c *CertAuthorityV2) SetTLSKeyPairs(pairs []TLSKeyPair) {
+	c.Spec.TLSKeyPairs = pairs
+}
+
+// GetTLSPrivateKey returns TLS key pairs
+func (c *CertAuthorityV2) GetTLSKeyPairs() []TLSKeyPair {
+	return c.Spec.TLSKeyPairs
 }
 
 // GetMetadata returns object metadata
@@ -292,6 +412,12 @@ func (ca *CertAuthorityV2) SetSigningKeys(keys [][]byte) error {
 	return nil
 }
 
+// SetCheckingKeys sets SSH public keys
+func (ca *CertAuthorityV2) SetCheckingKeys(keys [][]byte) error {
+	ca.Spec.CheckingKeys = keys
+	return nil
+}
+
 // GetID returns certificate authority ID -
 // combined type and name
 func (ca *CertAuthorityV2) GetID() CertAuthID {
@@ -314,7 +440,7 @@ func (ca *CertAuthorityV2) GetType() CertAuthType {
 }
 
 // GetClusterName returns cluster name this cert authority
-// is associated with
+// is associated with.
 func (ca *CertAuthorityV2) GetClusterName() string {
 	return ca.Spec.ClusterName
 }
@@ -437,11 +563,208 @@ func (ca *CertAuthorityV2) CheckAndSetDefaults() error {
 	return nil
 }
 
+const (
+	// RotationStateStandby is initial status of the rotation -
+	// nothing is being rotated.
+	RotationStateStandby = "standby"
+	// RotationStateInProgress - that rotation is in progress.
+	RotationStateInProgress = "in_progress"
+	// RotationPhaseStandby is the initial phase of the rotation
+	// it means no operations have started.
+	RotationPhaseStandby = "standby"
+	// RotationPhaseInit = is a phase of the rotation
+	// when new certificate authoirty is issued, but not used
+	// It is necessary for remote trusted clusters to fetch the
+	// new certificate authority, otherwise the new clients
+	// will reject it
+	RotationPhaseInit = "init"
+	// RotationPhaseUpdateClients is a phase of the rotation
+	// when client credentials will have to be updated and reloaded
+	// but servers will use and respond with old credentials
+	// because clients have no idea about new credentials at first.
+	RotationPhaseUpdateClients = "update_clients"
+	// RotationPhaseUpdateServers is a phase of the rotation
+	// when servers will have to reload and should start serving
+	// TLS and SSH certificates signed by new CA.
+	RotationPhaseUpdateServers = "update_servers"
+	// RotationPhaseRollback means that rotation is rolling
+	// back to the old certificate authority.
+	RotationPhaseRollback = "rollback"
+	// RotationModeManual is a manual rotation mode when all phases
+	// are set by the operator.
+	RotationModeManual = "manual"
+	// RotationModeAuto is set to go through all phases by the schedule.
+	RotationModeAuto = "auto"
+)
+
+// RotatePhases lists all supported rotation phases
+var RotatePhases = []string{
+	RotationPhaseInit,
+	RotationPhaseStandby,
+	RotationPhaseUpdateClients,
+	RotationPhaseUpdateServers,
+	RotationPhaseRollback,
+}
+
+// Rotation is a status of the rotation of the certificate authority
+type Rotation struct {
+	// State could be one of "init" or "in_progress".
+	State string `json:"state,omitempty"`
+	// Phase is the current rotation phase.
+	Phase string `json:"phase,omitempty"`
+	// Mode sets manual or automatic rotation mode.
+	Mode string `json:"mode,omitempty"`
+	// CurrentID is the ID of the rotation operation
+	// to differentiate between rotation attempts.
+	CurrentID string `json:"current_id"`
+	// Started is set to the time when rotation has been started
+	// in case if the state of the rotation is "in_progress".
+	Started time.Time `json:"started,omitempty"`
+	// GracePeriod is a period during which old and new CA
+	// are valid for checking purposes, but only new CA is issuing certificates.
+	GracePeriod Duration `json:"grace_period,omitempty"`
+	// LastRotated specifies the last time of the completed rotation.
+	LastRotated time.Time `json:"last_rotated,omitempty"`
+	// Schedule is a rotation schedule - used in
+	// automatic mode to switch beetween phases.
+	Schedule RotationSchedule `json:"schedule,omitempty"`
+}
+
+// Matches returns true if this state rotation matches
+// external rotation state, phase and rotation ID should match,
+// notice that matches does not behave like Equals because it does not require
+// all fields to be the same.
+func (s *Rotation) Matches(rotation Rotation) bool {
+	return s.CurrentID == rotation.CurrentID && s.State == rotation.State && s.Phase == rotation.Phase
+}
+
+// LastRotatedDescription returns human friendly description.
+func (r *Rotation) LastRotatedDescription() string {
+	if r.LastRotated.IsZero() {
+		return "never updated"
+	}
+	return fmt.Sprintf("last rotated %v", r.LastRotated.Format(teleport.HumanDateFormatSeconds))
+}
+
+// PhaseDescription returns human friendly description of a current rotation phase.
+func (r *Rotation) PhaseDescription() string {
+	switch r.Phase {
+	case RotationPhaseStandby, "":
+		return "on standby"
+	case RotationPhaseUpdateClients:
+		return "rotating clients"
+	case RotationPhaseUpdateServers:
+		return "rotating servers"
+	case RotationPhaseRollback:
+		return "rolling back"
+	default:
+		return fmt.Sprintf("unknown phase: %q", r.Phase)
+	}
+}
+
+// String returns user friendly information about certificate authority.
+func (r *Rotation) String() string {
+	switch r.State {
+	case "", RotationStateStandby:
+		if r.LastRotated.IsZero() {
+			return "never updated"
+		}
+		return fmt.Sprintf("rotated %v", r.LastRotated.Format(teleport.HumanDateFormatSeconds))
+	case RotationStateInProgress:
+		return fmt.Sprintf("%v (mode: %v, started: %v, ending: %v)",
+			r.PhaseDescription(),
+			r.Mode,
+			r.Started.Format(teleport.HumanDateFormatSeconds),
+			r.Started.Add(r.GracePeriod.Duration).Format(teleport.HumanDateFormatSeconds),
+		)
+	default:
+		return "unknown"
+	}
+}
+
+// CheckAndSetDefaults checks and sets default rotation parameters.
+func (r *Rotation) CheckAndSetDefaults(clock clockwork.Clock) error {
+	switch r.Phase {
+	case "", RotationPhaseRollback, RotationPhaseUpdateClients, RotationPhaseUpdateServers:
+	default:
+		return trace.BadParameter("unsupported phase: %q", r.Phase)
+	}
+	switch r.Mode {
+	case "", RotationModeAuto, RotationModeManual:
+	default:
+		return trace.BadParameter("unsupported mode: %q", r.Mode)
+	}
+	switch r.State {
+	case "":
+		r.State = RotationStateStandby
+	case RotationStateStandby:
+	case RotationStateInProgress:
+		if r.CurrentID == "" {
+			return trace.BadParameter("set 'current_id' parameter for in progress rotation")
+		}
+		if r.Started.IsZero() {
+			return trace.BadParameter("set 'started' parameter for in progress rotation")
+		}
+	default:
+		return trace.BadParameter(
+			"unsupported rotation 'state': %q, supported states are: %q, %q",
+			r.State, RotationStateStandby, RotationStateInProgress)
+	}
+	return nil
+}
+
+// GenerateSchedule generates schedule based on the time period, using
+// even time periods between rotation phases.
+func GenerateSchedule(clock clockwork.Clock, gracePeriod time.Duration) (*RotationSchedule, error) {
+	if gracePeriod <= 0 {
+		return nil, trace.BadParameter("invalid grace period %q, provide value > 0", gracePeriod)
+	}
+	return &RotationSchedule{
+		UpdateClients: clock.Now().UTC().Add(gracePeriod / 3).UTC(),
+		UpdateServers: clock.Now().UTC().Add((gracePeriod * 2) / 3).UTC(),
+		Standby:       clock.Now().UTC().Add(gracePeriod).UTC(),
+	}, nil
+}
+
+// RotationSchedule is a rotation schedule setting time switches
+// for different phases.
+type RotationSchedule struct {
+	// UpdateClients specifies time to switch to the "Update clients" phase
+	UpdateClients time.Time `json:"update_clients,omitempty"`
+	// UpdateServers specifies time to switch to the "Update servers" phase.
+	UpdateServers time.Time `json:"update_servers,omitempty"`
+	// Standby specifies time to switch to the "Standby" phase.
+	Standby time.Time `json:"standby,omitempty"`
+}
+
+// CheckAndSetDefaults checks and sets default values of the rotation schedule.
+func (s *RotationSchedule) CheckAndSetDefaults(clock clockwork.Clock) error {
+	if s.UpdateServers.IsZero() {
+		return trace.BadParameter("phase %q has no time switch scheduled", RotationPhaseUpdateServers)
+	}
+	if s.Standby.IsZero() {
+		return trace.BadParameter("phase %q has no time switch scheduled", RotationPhaseStandby)
+	}
+	if s.Standby.Before(s.UpdateServers) {
+		return trace.BadParameter("phase %q can not be scheduled before %q", RotationPhaseStandby, RotationPhaseUpdateServers)
+	}
+	if s.UpdateServers.Before(clock.Now()) {
+		return trace.BadParameter("phase %q can not be scheduled in the past", RotationPhaseUpdateServers)
+	}
+	if s.Standby.Before(clock.Now()) {
+		return trace.BadParameter("phase %q can not be scheduled in the past", RotationPhaseStandby)
+	}
+	return nil
+}
+
 // CertAuthoritySpecV2 is a host or user certificate authority that
 // can check and if it has private key stored as well, sign it too
 type CertAuthoritySpecV2 struct {
 	// Type is either user or host certificate authority
 	Type CertAuthType `json:"type"`
+	// DELETE IN(2.7.0) this field is deprecated,
+	// as resource name matches cluster name after migrations.
+	// and this property is enforced by the auth server code.
 	// ClusterName identifies cluster name this authority serves,
 	// for host authorities that means base hostname of all servers,
 	// for user authorities that means organization name
@@ -455,6 +778,10 @@ type CertAuthoritySpecV2 struct {
 	Roles []string `json:"roles,omitempty"`
 	// RoleMap specifies role mappings to remote roles
 	RoleMap RoleMap `json:"role_map,omitempty"`
+	// TLS is a list of TLS key pairs
+	TLSKeyPairs []TLSKeyPair `json:"tls_key_pairs,omitempty"`
+	// Rotation is a status of the certificate authority rotation
+	Rotation *Rotation `json:"rotation,omitempty"`
 }
 
 // CertAuthoritySpecV2Schema is JSON schema for cert authority V2
@@ -483,7 +810,42 @@ const CertAuthoritySpecV2Schema = `{
         "type": "string"
       }
     },
+    "tls_key_pairs":  {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+           "cert": {"type": "string"},
+           "key": {"type": "string"}
+        }
+      }
+    },
+    "rotation": %v,
     "role_map": %v
+  }
+}`
+
+// RotationSchema is a JSON validation schema of the CA rotation state object.
+const RotationSchema = `{
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "state": {"type": "string"},
+    "phase": {"type": "string"},
+    "mode": {"type": "string"},
+    "current_id": {"type": "string"},
+    "started": {"type": "string"},
+    "grace_period": {"type": "string"},
+    "last_rotated": {"type": "string"},
+    "schedule": {
+      "type": "object",
+      "properties": {
+        "update_clients": {"type": "string"},
+        "update_servers": {"type": "string"},
+        "standby": {"type": "string"}
+      }
+    }
   }
 }`
 
@@ -570,7 +932,7 @@ func GetCertAuthorityMarshaler() CertAuthorityMarshaler {
 // mostly adds support for extended versions
 type CertAuthorityMarshaler interface {
 	// UnmarshalCertAuthority unmarhsals cert authority from binary representation
-	UnmarshalCertAuthority(bytes []byte) (CertAuthority, error)
+	UnmarshalCertAuthority(bytes []byte, opts ...MarshalOption) (CertAuthority, error)
 	// MarshalCertAuthority to binary representation
 	MarshalCertAuthority(c CertAuthority, opts ...MarshalOption) ([]byte, error)
 	// GenerateCertAuthority is used to generate new cert authority
@@ -581,7 +943,7 @@ type CertAuthorityMarshaler interface {
 
 // GetCertAuthoritySchema returns JSON Schema for cert authorities
 func GetCertAuthoritySchema() string {
-	return fmt.Sprintf(V2SchemaTemplate, MetadataSchema, fmt.Sprintf(CertAuthoritySpecV2Schema, RoleMapSchema), DefaultDefinitions)
+	return fmt.Sprintf(V2SchemaTemplate, MetadataSchema, fmt.Sprintf(CertAuthoritySpecV2Schema, RotationSchema, RoleMapSchema), DefaultDefinitions)
 }
 
 type TeleportCertAuthorityMarshaler struct{}
@@ -594,9 +956,13 @@ func (*TeleportCertAuthorityMarshaler) GenerateCertAuthority(ca CertAuthority) (
 }
 
 // UnmarshalUser unmarshals user from JSON
-func (*TeleportCertAuthorityMarshaler) UnmarshalCertAuthority(bytes []byte) (CertAuthority, error) {
+func (*TeleportCertAuthorityMarshaler) UnmarshalCertAuthority(bytes []byte, opts ...MarshalOption) (CertAuthority, error) {
+	cfg, err := collectOptions(opts)
+	if err != nil {
+		return nil, trace.Wrap(err)
+	}
 	var h ResourceHeader
-	err := json.Unmarshal(bytes, &h)
+	err = utils.FastUnmarshal(bytes, &h)
 	if err != nil {
 		return nil, trace.Wrap(err)
 	}
@@ -610,8 +976,14 @@ func (*TeleportCertAuthorityMarshaler) UnmarshalCertAuthority(bytes []byte) (Cer
 		return ca.V2(), nil
 	case V2:
 		var ca CertAuthorityV2
-		if err := utils.UnmarshalWithSchema(GetCertAuthoritySchema(), &ca, bytes); err != nil {
-			return nil, trace.BadParameter(err.Error())
+		if cfg.SkipValidation {
+			if err := utils.FastUnmarshal(bytes, &ca); err != nil {
+				return nil, trace.BadParameter(err.Error())
+			}
+		} else {
+			if err := utils.UnmarshalWithSchema(GetCertAuthoritySchema(), &ca, bytes); err != nil {
+				return nil, trace.BadParameter(err.Error())
+			}
 		}
 
 		if err := ca.CheckAndSetDefaults(); err != nil {
@@ -644,13 +1016,13 @@ func (*TeleportCertAuthorityMarshaler) MarshalCertAuthority(ca CertAuthority, op
 		if !ok {
 			return nil, trace.BadParameter("don't know how to marshal %v", V1)
 		}
-		return json.Marshal(v.V1())
+		return utils.FastMarshal(v.V1())
 	case V2:
 		v, ok := ca.(cav2)
 		if !ok {
 			return nil, trace.BadParameter("don't know how to marshal %v", V2)
 		}
-		return json.Marshal(v.V2())
+		return utils.FastMarshal(v.V2())
 	default:
 		return nil, trace.BadParameter("version %v is not supported", version)
 	}

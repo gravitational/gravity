@@ -71,10 +71,10 @@ func (a *ACLService) PackageDownloadURL(loc loc.Locator) string {
 }
 
 func (a *ACLService) UpsertRepository(repository string, expires time.Time) error {
-	if err := a.checker.CheckAccessToRule(a.repoContext(repository), teledefaults.Namespace, storage.KindRepository, teleservices.VerbCreate); err != nil {
+	if err := a.checker.CheckAccessToRule(a.repoContext(repository), teledefaults.Namespace, storage.KindRepository, teleservices.VerbCreate, false); err != nil {
 		return trace.Wrap(err)
 	}
-	if err := a.checker.CheckAccessToRule(a.repoContext(repository), teledefaults.Namespace, storage.KindRepository, teleservices.VerbUpdate); err != nil {
+	if err := a.checker.CheckAccessToRule(a.repoContext(repository), teledefaults.Namespace, storage.KindRepository, teleservices.VerbUpdate, false); err != nil {
 		return trace.Wrap(err)
 	}
 	return a.packages.UpsertRepository(repository, expires)
@@ -83,7 +83,7 @@ func (a *ACLService) UpsertRepository(repository string, expires time.Time) erro
 // DeleteRepository deletes repository - packages will remain in the
 // packages repository
 func (a *ACLService) DeleteRepository(repository string) error {
-	if err := a.checker.CheckAccessToRule(a.repoContext(repository), teledefaults.Namespace, storage.KindRepository, teleservices.VerbDelete); err != nil {
+	if err := a.checker.CheckAccessToRule(a.repoContext(repository), teledefaults.Namespace, storage.KindRepository, teleservices.VerbDelete, false); err != nil {
 		return trace.Wrap(err)
 	}
 	return a.packages.DeleteRepository(repository)
@@ -91,7 +91,7 @@ func (a *ACLService) DeleteRepository(repository string) error {
 
 // Get repositories returns a list of repositories
 func (a *ACLService) GetRepositories() ([]string, error) {
-	if err := a.checker.CheckAccessToRule(a.context(), teledefaults.Namespace, storage.KindRepository, teleservices.VerbList); err != nil {
+	if err := a.checker.CheckAccessToRule(a.context(), teledefaults.Namespace, storage.KindRepository, teleservices.VerbList, false); err != nil {
 		return nil, trace.Wrap(err)
 	}
 	return a.packages.GetRepositories()
@@ -109,11 +109,11 @@ func (a *ACLService) repoAction(repository string, verb string) error {
 	// we have a higher level app kind, that grants access to default
 	// repository,  with name defaults.SystemAccountOrg, check for it
 	if repository == defaults.SystemAccountOrg {
-		if err := a.checker.CheckAccessToRule(a.context(), teledefaults.Namespace, storage.KindApp, verb); err == nil {
+		if err := a.checker.CheckAccessToRule(a.context(), teledefaults.Namespace, storage.KindApp, verb, false); err == nil {
 			return nil
 		}
 	}
-	return a.checker.CheckAccessToRule(a.repoContext(repository), teledefaults.Namespace, storage.KindRepository, verb)
+	return a.checker.CheckAccessToRule(a.repoContext(repository), teledefaults.Namespace, storage.KindRepository, verb, false)
 }
 
 // GetPackages returns a list of packages in repository
@@ -164,7 +164,7 @@ func (a *ACLService) ReadPackage(loc loc.Locator) (*PackageEnvelope, io.ReadClos
 		return nil, nil, trace.Wrap(err)
 	}
 	if loc.Name == constants.OpsCenterCAPackage {
-		if err := a.checker.CheckAccessToRule(a.repoContext(loc.Repository), teledefaults.Namespace, storage.KindRepository, storage.VerbReadSecrets); err != nil {
+		if err := a.checker.CheckAccessToRule(a.repoContext(loc.Repository), teledefaults.Namespace, storage.KindRepository, storage.VerbReadSecrets, false); err != nil {
 			return nil, nil, trace.Wrap(err)
 		}
 	}

@@ -1,4 +1,6 @@
-# <a href='https://gravitational.com/gravity/'><img src='http://gravitational.com/gravitational/images/logos/logo-gravity-x-large.png' alt='Gravity'></a>
+<a href='https://gravitational.com/gravity/'>
+    <img src='https://gravitational.com/gravitational/images/logos/logo-gravity-x-large.png' alt='Gravity'>
+</a>
 
 Gravity is an [upstream Kubernetes](https://kubernetes.io/) packaging solution
 that takes the drama out of on-premises deployments.
@@ -11,9 +13,9 @@ that takes the drama out of on-premises deployments.
 
 ## Introduction
 
-Gravity is an open source tooklit for creating "snapshots" of Kubernetes
+Gravity is an open source tooklit for creating "images" of Kubernetes
 clusters and the applications running inside the clusters. The resulting
-snapshots are called *application bundles*.
+images are called *application bundles*.
 
 An application bundle can be used to re-create full replicas of the original
 cluster in any environment where compliance and consistency matters, even in
@@ -23,7 +25,9 @@ air-gapped server rooms. A bundle can run without human supervision, as a
 Gravity has been running in production in major financial institutions, government
 data centers and enterprises. Gravitational open sourced it in the fall of 2018.
 
-<a href='https://gravitational.com/gravity/'><img src='http://gravitational.com/gravitational/images/graphics/gravity-oss-hero.png' alt='Gravity'></a>
+<a href='https://gravitational.com/gravity/'>
+    <img src='https://gravitational.com/gravitational/images/graphics/gravity-oss-hero.png' alt='Gravity'>
+</a>
 
 ## Gravity vs ...
 
@@ -48,7 +52,7 @@ on compliance and autonomous operations:
 
 ## Who is Gravity for?
 
-We have seen the primary use cases for using a snapshot-based Kubernetes approach
+We have seen the primary use cases for using a image-based Kubernetes approach
 (there may be others):
 
 * Deploying complex SaaS applications into on-premises enterprise environments.
@@ -157,4 +161,3 @@ source users with pre-built binaries on a regular basis.
 ## Questions?
 
 For more information reach out to `info@gravitational.com`
-

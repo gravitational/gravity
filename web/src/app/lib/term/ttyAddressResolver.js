@@ -1,5 +1,5 @@
 /*
-Copyright 2018 Gravitational, Inc.
+Copyright 2015 Gravitational, Inc.
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -24,15 +24,13 @@ export default class AddressResolver {
     },
     sid: null,
     clusterName: null,
-    ttyUrl: null,
-    ttyEventUrl: null,
-    ttyResizeUrl: null
+    ttyUrl: null
   }
 
   constructor(params){
     this._params = {
       ...params
-    }    
+    }
   }
 
   getConnStr(w, h){
@@ -40,27 +38,19 @@ export default class AddressResolver {
     const params = JSON.stringify({
       ...getTarget(),
       login,
-      sid,      
+      sid,
       term: { h, w }
     });
-    
-    const encoded = window.encodeURI(params);    
-    return this.format(ttyUrl).replace(':params', encoded);    
-  }
 
-  getEventProviderConnStr(){
-    return this.format(this._params.ttyEventUrl);      
-  }
-
-  getResizeReqUrl(){        
-    return this.format(this._params.ttyResizeUrl);      
+    const encoded = window.encodeURI(params);
+    return this.format(ttyUrl).replace(':params', encoded);
   }
 
   format(url){
     return url
-      .replace(':fqdm', cfg.getWsHostName()) 
+      .replace(':fqdm', cfg.getWsHostName())
       .replace(':token', this._params.token)
-      .replace(':cluster', this._params.cluster) 
-      .replace(':sid', this._params.sid);    
+      .replace(':cluster', this._params.cluster)
+      .replace(':sid', this._params.sid);
   }
 }

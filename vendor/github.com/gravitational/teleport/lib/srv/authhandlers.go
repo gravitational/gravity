@@ -21,6 +21,7 @@ import (
 	"net"
 	"os"
 	"os/user"
+	"time"
 
 	"golang.org/x/crypto/ssh"
 
@@ -41,7 +42,7 @@ type AuthHandlers struct {
 	*log.Entry
 
 	// Server is the services.Server in the backend.
-	Server services.Server
+	Server Server
 
 	// Component is the type of SSH server (node, proxy, or recording proxy).
 	Component string
@@ -70,6 +71,9 @@ func (h *AuthHandlers) CreateIdentityContext(sconn *ssh.ServerConn) (IdentityCon
 	certificate, err := identity.GetCertificate()
 	if err != nil {
 		return IdentityContext{}, trace.Wrap(err)
+	}
+	if certificate.ValidBefore != 0 {
+		identity.CertValidBefore = time.Unix(int64(certificate.ValidBefore), 0)
 	}
 
 	certAuthority, err := h.authorityForCert(services.UserCA, certificate.SignatureKey)
@@ -108,6 +112,7 @@ func (h *AuthHandlers) CheckPortForward(addr string, ctx *ServerContext) error {
 			events.PortForwardSuccess: false,
 			events.PortForwardErr:     systemErrorMessage,
 			events.EventLogin:         ctx.Identity.Login,
+			events.EventUser:          ctx.Identity.TeleportUser,
 			events.LocalAddr:          ctx.Conn.LocalAddr().String(),
 			events.RemoteAddr:         ctx.Conn.RemoteAddr().String(),
 		})
@@ -167,7 +172,7 @@ func (h *AuthHandlers) UserKeyAuth(conn ssh.ConnMetadata, key ssh.PublicKey) (*s
 		h.AuditLog.EmitAuditEvent(events.AuthAttemptEvent, fields)
 	}
 
-	certChecker := ssh.CertChecker{IsAuthority: h.IsUserAuthority}
+	certChecker := ssh.CertChecker{IsUserAuthority: h.IsUserAuthority}
 	permissions, err := certChecker.Authenticate(conn, key)
 	if err != nil {
 		recordFailedLogin(err)
@@ -321,7 +326,7 @@ func (h *AuthHandlers) canLoginWithRBAC(cert *ssh.Certificate, clusterName strin
 	}
 
 	// check if roles allow access to server
-	if err := roles.CheckAccessToServer(osUser, h.Server); err != nil {
+	if err := roles.CheckAccessToServer(osUser, h.Server.GetInfo()); err != nil {
 		return trace.AccessDenied("user %s@%s is not authorized to login as %v@%s: %v",
 			teleportUser, ca.GetClusterName(), osUser, clusterName, err)
 	}
@@ -334,18 +339,14 @@ func (h *AuthHandlers) fetchRoleSet(cert *ssh.Certificate, ca services.CertAutho
 	// for local users, go and check their individual permissions
 	var roles services.RoleSet
 	if clusterName == ca.GetClusterName() {
-		users, err := h.AccessPoint.GetUsers()
+		u, err := h.AccessPoint.GetUser(teleportUser)
 		if err != nil {
 			return nil, trace.Wrap(err)
 		}
-		for _, u := range users {
-			if u.GetName() == teleportUser {
-				// pass along the traits so we get the substituted roles for this user
-				roles, err = services.FetchRoles(u.GetRoles(), h.AccessPoint, u.GetTraits())
-				if err != nil {
-					return nil, trace.Wrap(err)
-				}
-			}
+		// Pass along the traits so we get the substituted roles for this user.
+		roles, err = services.FetchRoles(u.GetRoles(), h.AccessPoint, u.GetTraits())
+		if err != nil {
+			return nil, trace.Wrap(err)
 		}
 	} else {
 		certRoles, err := extractRolesFromCert(cert)

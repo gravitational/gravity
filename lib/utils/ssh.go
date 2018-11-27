@@ -26,8 +26,9 @@ import (
 	"strings"
 
 	"github.com/gravitational/gravity/lib/defaults"
-	"github.com/gravitational/trace"
 
+	"github.com/cenkalti/backoff"
+	"github.com/gravitational/trace"
 	"github.com/sirupsen/logrus"
 	"golang.org/x/crypto/ssh"
 )
@@ -43,6 +44,7 @@ type sshCommand struct {
 	command      string
 	abortOnError bool
 	env          map[string]string
+	withRetries  bool
 }
 
 type SSHCommands interface {
@@ -50,6 +52,9 @@ type SSHCommands interface {
 	C(format string, a ...interface{}) SSHCommands
 	// adds new command which will tolerate any error occured
 	IgnoreError(format string, a ...interface{}) SSHCommands
+	// WithRetries executes the specified command as a script,
+	// retrying several times upon failure
+	WithRetries(format string, a ...interface{}) SSHCommands
 	// WithLogger sets logger
 	WithLogger(logrus.FieldLogger) SSHCommands
 	// executes sequence
@@ -78,6 +83,17 @@ func (c *sshCommands) C(format string, args ...interface{}) SSHCommands {
 	return c
 }
 
+func (c *sshCommands) WithRetries(format string, args ...interface{}) SSHCommands {
+	c.commands = append(c.commands, sshCommand{
+		command:      fmt.Sprintf(format, args...),
+		withRetries:  true,
+		abortOnError: true,
+		env: map[string]string{
+			defaults.PathEnv: defaults.PathEnvVal,
+		}})
+	return c
+}
+
 func (c *sshCommands) IgnoreError(format string, args ...interface{}) SSHCommands {
 	c.commands = append(c.commands, sshCommand{
 		command:      fmt.Sprintf(format, args...),
@@ -94,11 +110,13 @@ func (c *sshCommands) WithLogger(logger logrus.FieldLogger) SSHCommands {
 }
 
 // RunCommands executes commands sequentially
-func (c *sshCommands) Run(ctx context.Context) error {
+func (c *sshCommands) Run(ctx context.Context) (err error) {
 	for _, cmd := range c.commands {
-		_, err := SSHRunAndParse(ctx,
-			c.client, c.logger,
-			cmd.command, cmd.env, ParseDiscard)
+		if cmd.withRetries {
+			err = c.runWithRetries(ctx, cmd)
+		} else {
+			err = c.run(ctx, cmd)
+		}
 		if err != nil {
 			log := c.logger.WithFields(logrus.Fields{
 				"error":   err,
@@ -113,6 +131,26 @@ func (c *sshCommands) Run(ctx context.Context) error {
 		}
 	}
 	return nil
+}
+
+func (c *sshCommands) runWithRetries(ctx context.Context, cmd sshCommand) error {
+	ctx, cancel := context.WithTimeout(ctx, defaults.TransientErrorTimeout)
+	defer cancel()
+	b := backoff.NewConstantBackOff(defaults.RetryInterval)
+	err := RetryWithInterval(ctx, b, func() error {
+		_, err := SSHRunAndParse(ctx,
+			c.client, c.logger,
+			cmd.command, cmd.env, ParseDiscard)
+		return trace.Wrap(err)
+	})
+	return trace.Wrap(err)
+}
+
+func (c *sshCommands) run(ctx context.Context, cmd sshCommand) error {
+	_, err := SSHRunAndParse(ctx,
+		c.client, c.logger,
+		cmd.command, cmd.env, ParseDiscard)
+	return trace.Wrap(err)
 }
 
 // Run is a simple method to run external program and don't care about its output or exit status

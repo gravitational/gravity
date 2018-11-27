@@ -17,27 +17,39 @@ limitations under the License.
 package clients
 
 import (
+	"context"
+	"crypto/tls"
+	"fmt"
 	"net"
+	"strconv"
 
 	"github.com/gravitational/gravity/lib/constants"
 	"github.com/gravitational/gravity/lib/defaults"
 	"github.com/gravitational/gravity/lib/ops"
+	"github.com/gravitational/gravity/lib/utils"
 
+	"github.com/gravitational/teleport/lib/auth"
 	"github.com/gravitational/teleport/lib/auth/native"
 	"github.com/gravitational/teleport/lib/client"
+	teledefaults "github.com/gravitational/teleport/lib/defaults"
 	"github.com/gravitational/teleport/lib/sshutils"
 
+	"github.com/cloudflare/cfssl/csr"
+	"github.com/gravitational/license/authority"
 	"github.com/gravitational/trace"
 	"golang.org/x/crypto/ssh"
 )
 
 // Teleport returns a new teleport client
-func Teleport(operator ops.Operator, proxyHost string) (*client.TeleportClient, error) {
-	cluster, err := operator.GetLocalSite()
+func Teleport(operator ops.Operator, proxyHost, clusterName string) (*client.TeleportClient, error) {
+	auth, tlsConfig, err := authenticateWithTeleport(operator)
 	if err != nil {
 		return nil, trace.Wrap(err)
 	}
-	auth, err := authenticateWithTeleport(operator, cluster)
+	host, webPort, sshPort, err := utils.ParseProxyAddr(
+		proxyHost,
+		strconv.Itoa(defaults.GravityServicePort),
+		strconv.Itoa(teledefaults.SSHProxyListenPort))
 	if err != nil {
 		return nil, trace.Wrap(err)
 	}
@@ -46,9 +58,11 @@ func Teleport(operator ops.Operator, proxyHost string) (*client.TeleportClient, 
 		AuthMethods:     auth,
 		SkipLocalAuth:   true,
 		HostLogin:       defaults.SSHUser,
-		ProxyHostPort:   proxyHost,
-		SiteName:        cluster.Domain,
+		WebProxyAddr:    fmt.Sprintf("%v:%v", host, webPort),
+		SSHProxyAddr:    fmt.Sprintf("%v:%v", host, sshPort),
+		SiteName:        clusterName,
 		HostKeyCallback: sshHostCheckerAcceptAny,
+		TLS:             tlsConfig,
 		Env: map[string]string{
 			defaults.PathEnv: defaults.PathEnvVal,
 		},
@@ -56,34 +70,73 @@ func Teleport(operator ops.Operator, proxyHost string) (*client.TeleportClient, 
 }
 
 // TeleportProxy returns a new teleport proxy client
-func TeleportProxy(operator ops.Operator, proxyHost string) (*client.ProxyClient, error) {
-	teleport, err := Teleport(operator, proxyHost)
+func TeleportProxy(ctx context.Context, operator ops.Operator, proxyHost, clusterName string) (*client.ProxyClient, error) {
+	teleport, err := Teleport(operator, proxyHost, clusterName)
 	if err != nil {
 		return nil, trace.Wrap(err)
 	}
-	return teleport.ConnectToProxy()
+	return teleport.ConnectToProxy(ctx)
 }
 
-func authenticateWithTeleport(operator ops.Operator, cluster *ops.Site) ([]ssh.AuthMethod, error) {
-	private, public, err := native.New().GenerateKeyPair("")
+// TeleportAuth returns a new teleport auth server client
+func TeleportAuth(ctx context.Context, operator ops.Operator, proxyHost, clusterName string) (auth.ClientI, error) {
+	proxyClient, err := TeleportProxy(ctx, operator, proxyHost, clusterName)
 	if err != nil {
 		return nil, trace.Wrap(err)
+	}
+	authClient, err := proxyClient.ConnectToSite(ctx, false)
+	if err != nil {
+		return nil, trace.Wrap(err)
+	}
+	return authClient, nil
+}
+
+func authenticateWithTeleport(operator ops.Operator) ([]ssh.AuthMethod, *tls.Config, error) {
+	keygen, err := native.New()
+	if err != nil {
+		return nil, nil, trace.Wrap(err)
+	}
+	private, public, err := keygen.GenerateKeyPair("")
+	if err != nil {
+		return nil, nil, trace.Wrap(err)
+	}
+	csr, key, err := authority.GenerateCSR(csr.CertificateRequest{
+		CN:    constants.OpsCenterUser,
+		Names: []csr.Name{{O: defaults.SystemAccountOrg}},
+	}, private)
+	if err != nil {
+		return nil, nil, trace.Wrap(err)
 	}
 	response, err := operator.SignSSHKey(ops.SSHSignRequest{
 		User:          constants.OpsCenterUser,
-		AccountID:     cluster.AccountID,
+		AccountID:     defaults.SystemAccountID,
 		PublicKey:     public,
 		TTL:           defaults.CertTTL,
 		AllowedLogins: []string{defaults.SSHUser},
+		CSR:           csr,
 	})
 	if err != nil {
-		return nil, trace.Wrap(err)
+		return nil, nil, trace.Wrap(err)
 	}
 	signer, err := sshutils.NewSigner(private, response.Cert)
 	if err != nil {
-		return nil, trace.Wrap(err)
+		return nil, nil, trace.Wrap(err)
 	}
-	return []ssh.AuthMethod{ssh.PublicKeys(signer)}, nil
+	var tlsConfig *tls.Config
+	// older clusters do not return TLS certificate
+	if response.TLSCert != nil {
+		tlsConfig, err = (&client.Key{
+			TLSCert: response.TLSCert,
+			Priv:    key,
+			TrustedCA: []auth.TrustedCerts{{
+				TLSCertificates: [][]byte{response.CACert},
+			}},
+		}).ClientTLSConfig()
+		if err != nil {
+			return nil, nil, trace.Wrap(err)
+		}
+	}
+	return []ssh.AuthMethod{ssh.PublicKeys(signer)}, tlsConfig, nil
 }
 
 func sshHostCheckerAcceptAny(hostId string, remote net.Addr, key ssh.PublicKey) error {

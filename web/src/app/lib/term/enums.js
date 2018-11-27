@@ -1,5 +1,5 @@
 /*
-Copyright 2018 Gravitational, Inc.
+Copyright 2015 Gravitational, Inc.
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -16,9 +16,18 @@ limitations under the License.
 
 export const EventTypeEnum = {
   START: 'session.start',
+  JOIN: 'session.join',
   END: 'session.end',
   PRINT: 'print',
   RESIZE: 'resize'
+}
+
+export const TermEventEnum = {
+  RESIZE: 'terminal.resize',
+  CLOSE: 'terminal.close',
+  RESET: 'terminal.reset',
+  DATA: 'terminal.data',
+  CONN_CLOSE: 'connection.close'
 }
 
 export const StatusCodeEnum = {

@@ -36,9 +36,12 @@ import (
 	"github.com/gravitational/teleport"
 	"github.com/gravitational/teleport/lib"
 	"github.com/gravitational/teleport/lib/backend"
+	"github.com/gravitational/teleport/lib/backend/boltbk"
+	"github.com/gravitational/teleport/lib/backend/dir"
 	"github.com/gravitational/teleport/lib/client"
 	"github.com/gravitational/teleport/lib/defaults"
 	"github.com/gravitational/teleport/lib/limiter"
+	"github.com/gravitational/teleport/lib/pam"
 	"github.com/gravitational/teleport/lib/service"
 	"github.com/gravitational/teleport/lib/services"
 	"github.com/gravitational/teleport/lib/utils"
@@ -59,7 +62,7 @@ type CommandLineFlags struct {
 	// --listen-ip flag
 	ListenIP net.IP
 	// --advertise-ip flag
-	AdvertiseIP net.IP
+	AdvertiseIP string
 	// --config flag
 	ConfigFile string
 	// ConfigString is a base64 encoded configuration string
@@ -75,15 +78,8 @@ type CommandLineFlags struct {
 
 	// --labels flag
 	Labels string
-	// --httpprofile hidden flag
-	HTTPProfileEndpoint bool
 	// --pid-file flag
 	PIDFile string
-	// Gops starts gops agent on a specified address
-	// if not specified, gops won't start
-	Gops bool
-	// GopsAddr specifies to gops addr to listen on
-	GopsAddr string
 	// DiagnosticAddr is listen address for diagnostic endpoint
 	DiagnosticAddr string
 	// PermitUserEnvironment enables reading of ~/.tsh/environment
@@ -139,8 +135,8 @@ func ApplyFileConfig(fc *FileConfig, cfg *service.Config) error {
 
 	// apply "advertise_ip" setting:
 	advertiseIP := fc.AdvertiseIP
-	if advertiseIP != nil {
-		if err := validateAdvertiseIP(advertiseIP); err != nil {
+	if advertiseIP != "" {
+		if _, _, err := utils.ParseAdvertiseAddr(advertiseIP); err != nil {
 			return trace.Wrap(err)
 		}
 		cfg.AdvertiseIP = advertiseIP
@@ -172,6 +168,27 @@ func ApplyFileConfig(fc *FileConfig, cfg *service.Config) error {
 	// if a backend is specified, override the defaults
 	if fc.Storage.Type != "" {
 		cfg.Auth.StorageConfig = fc.Storage
+		// backend is specified, but no path is set, set a reasonable default
+		_, pathSet := cfg.Auth.StorageConfig.Params[defaults.BackendPath]
+		if cfg.Auth.StorageConfig.Type == dir.GetName() && !pathSet {
+			if cfg.Auth.StorageConfig.Params == nil {
+				cfg.Auth.StorageConfig.Params = make(backend.Params)
+			}
+			cfg.Auth.StorageConfig.Params[defaults.BackendPath] = filepath.Join(cfg.DataDir, defaults.BackendDir)
+		}
+	} else {
+		// bolt backend is deprecated, but is picked if it was setup before
+		exists, err := boltbk.Exists(cfg.DataDir)
+		if err != nil {
+			return trace.Wrap(err)
+		}
+		if exists {
+			cfg.Auth.StorageConfig.Type = boltbk.GetName()
+			cfg.Auth.StorageConfig.Params = backend.Params{defaults.BackendPath: cfg.DataDir}
+		} else {
+			cfg.Auth.StorageConfig.Type = dir.GetName()
+			cfg.Auth.StorageConfig.Params = backend.Params{defaults.BackendPath: filepath.Join(cfg.DataDir, defaults.BackendDir)}
+		}
 	}
 
 	// apply logger settings
@@ -182,6 +199,8 @@ func ApplyFileConfig(fc *FileConfig, cfg *service.Config) error {
 		log.SetOutput(os.Stderr)
 	case "stdout", "out", "1":
 		log.SetOutput(os.Stdout)
+	case teleport.Syslog:
+		utils.SwitchLoggingtoSyslog()
 	default:
 		// assume it's a file path:
 		logFile, err := os.Create(fc.Logger.Output)
@@ -212,13 +231,15 @@ func ApplyFileConfig(fc *FileConfig, cfg *service.Config) error {
 	}
 	cfg.CachePolicy = *cachePolicy
 
-	// TODO(klizhentas): Removed on sasha/ha?
-	// TODO(ekontsevoy): I would advise against it. syslog is the only logger which works with scp
-	if strings.ToLower(fc.Logger.Output) == "syslog" {
-		utils.SwitchLoggingtoSyslog()
+	// Apply (TLS) cipher suites and (SSH) ciphers, KEX algorithms, and MAC
+	// algorithms.
+	if len(fc.CipherSuites) > 0 {
+		cipherSuites, err := utils.CipherSuiteMapping(fc.CipherSuites)
+		if err != nil {
+			return trace.Wrap(err)
+		}
+		cfg.CipherSuites = cipherSuites
 	}
-
-	// apply ciphers, kex algorithms, and mac algorithms
 	if fc.Ciphers != nil {
 		cfg.Ciphers = fc.Ciphers
 	}
@@ -260,7 +281,165 @@ func ApplyFileConfig(fc *FileConfig, cfg *service.Config) error {
 		cfg.Identities = append(cfg.Identities, identity)
 	}
 
-	// apply "proxy_service" section
+	// Apply configuration for "auth_service", "proxy_service", and
+	// "ssh_service" if it's enabled.
+	if fc.Auth.Enabled() {
+		err = applyAuthConfig(fc, cfg)
+		if err != nil {
+			return trace.Wrap(err)
+		}
+	}
+	if fc.Proxy.Enabled() {
+		err = applyProxyConfig(fc, cfg)
+		if err != nil {
+			return trace.Wrap(err)
+		}
+	}
+	if fc.SSH.Enabled() {
+		err = applySSHConfig(fc, cfg)
+		if err != nil {
+			return trace.Wrap(err)
+		}
+	}
+
+	return nil
+}
+
+// applyAuthConfig applies file configuration for the "auth_service" section.
+func applyAuthConfig(fc *FileConfig, cfg *service.Config) error {
+	var err error
+
+	// passhtrough custom certificate authority file
+	if fc.Auth.KubeconfigFile != "" {
+		cfg.Auth.KubeconfigPath = fc.Auth.KubeconfigFile
+	}
+	cfg.Auth.EnableProxyProtocol, err = utils.ParseOnOff("proxy_protocol", fc.Auth.ProxyProtocol, true)
+	if err != nil {
+		return trace.Wrap(err)
+	}
+	if fc.Auth.ListenAddress != "" {
+		addr, err := utils.ParseHostPortAddr(fc.Auth.ListenAddress, int(defaults.AuthListenPort))
+		if err != nil {
+			return trace.Wrap(err)
+		}
+		cfg.Auth.SSHAddr = *addr
+		cfg.AuthServers = append(cfg.AuthServers, *addr)
+	}
+
+	// DELETE IN: 2.7.0
+	// We have converted this warning to error
+	if fc.Auth.DynamicConfig != nil {
+		warningMessage := "Dynamic configuration is no longer supported. Refer to " +
+			"Teleport documentation for more details: " +
+			"http://gravitational.com/teleport/docs/admin-guide"
+		return trace.BadParameter(warningMessage)
+	}
+	// INTERNAL: Authorities (plus Roles) and ReverseTunnels don't follow the
+	// same pattern as the rest of the configuration (they are not configuration
+	// singletons). However, we need to keep them around while Telekube uses them.
+	for _, authority := range fc.Auth.Authorities {
+		ca, role, err := authority.Parse()
+		if err != nil {
+			return trace.Wrap(err)
+		}
+		cfg.Auth.Authorities = append(cfg.Auth.Authorities, ca)
+		cfg.Auth.Roles = append(cfg.Auth.Roles, role)
+	}
+	for _, t := range fc.Auth.ReverseTunnels {
+		tun, err := t.ConvertAndValidate()
+		if err != nil {
+			return trace.Wrap(err)
+		}
+		cfg.ReverseTunnels = append(cfg.ReverseTunnels, tun)
+	}
+	if len(fc.Auth.PublicAddr) != 0 {
+		addrs, err := fc.Auth.PublicAddr.Addrs(defaults.AuthListenPort)
+		if err != nil {
+			return trace.Wrap(err)
+		}
+		cfg.Auth.PublicAddrs = addrs
+	}
+	// DELETE IN: 2.4.0
+	if len(fc.Auth.TrustedClusters) > 0 {
+		warningMessage := "Configuring Trusted Clusters using file configuration has " +
+			"been deprecated, Trusted Clusters must now be configured using resources. " +
+			"Existing Trusted Cluster relationships will be maintained, but you will " +
+			"not be able to add or remove Trusted Clusters using file configuration " +
+			"anymore. Refer to Teleport documentation for more details: " +
+			"http://gravitational.com/teleport/docs/admin-guide"
+		log.Warnf(warningMessage)
+	}
+	// read in cluster name from file configuration and create services.ClusterName
+	cfg.Auth.ClusterName, err = fc.Auth.ClusterName.Parse()
+	if err != nil {
+		return trace.Wrap(err)
+	}
+	// read in static tokens from file configuration and create services.StaticTokens
+	if fc.Auth.StaticTokens != nil {
+		cfg.Auth.StaticTokens, err = fc.Auth.StaticTokens.Parse()
+		if err != nil {
+			return trace.Wrap(err)
+		}
+	}
+	// read in and set authentication preferences
+	if fc.Auth.Authentication != nil {
+		authPreference, oidcConnector, err := fc.Auth.Authentication.Parse()
+		if err != nil {
+			return trace.Wrap(err)
+		}
+		cfg.Auth.Preference = authPreference
+
+		// DELETE IN: 2.4.0
+		if oidcConnector != nil {
+			warningMessage := "Configuring OIDC connectors using file configuration is " +
+				"no longer supported, OIDC connectors must be configured using resources. " +
+				"Existing OIDC connectors will not be removed but you will not be able to " +
+				"add, remove, or update them using file configuration. Refer to Teleport " +
+				"documentation for more details: " +
+				"http://gravitational.com/teleport/docs/admin-guide"
+			log.Warnf(warningMessage)
+		}
+	}
+
+	auditConfig, err := services.AuditConfigFromObject(fc.Storage.Params)
+	if err != nil {
+		return trace.Wrap(err)
+	}
+	auditConfig.Type = fc.Storage.Type
+
+	// build cluster config from session recording and host key checking preferences
+	cfg.Auth.ClusterConfig, err = services.NewClusterConfig(services.ClusterConfigSpecV3{
+		SessionRecording:      fc.Auth.SessionRecording,
+		ProxyChecksHostKeys:   fc.Auth.ProxyChecksHostKeys,
+		Audit:                 *auditConfig,
+		ClientIdleTimeout:     fc.Auth.ClientIdleTimeout,
+		DisconnectExpiredCert: fc.Auth.DisconnectExpiredCert,
+	})
+	if err != nil {
+		return trace.Wrap(err)
+	}
+
+	// read in and set the license file path (not used in open-source version)
+	licenseFile := fc.Auth.LicenseFile
+	if licenseFile != "" {
+		if filepath.IsAbs(licenseFile) {
+			cfg.Auth.LicenseFile = licenseFile
+		} else {
+			cfg.Auth.LicenseFile = filepath.Join(cfg.DataDir, licenseFile)
+		}
+	}
+
+	return nil
+}
+
+// applyProxyConfig applies file configuration for the "proxy_service" section.
+func applyProxyConfig(fc *FileConfig, cfg *service.Config) error {
+	var err error
+
+	cfg.Proxy.EnableProxyProtocol, err = utils.ParseOnOff("proxy_protocol", fc.Proxy.ProxyProtocol, true)
+	if err != nil {
+		return trace.Wrap(err)
+	}
 	if fc.Proxy.ListenAddress != "" {
 		addr, err := utils.ParseHostPortAddr(fc.Proxy.ListenAddress, int(defaults.SSHProxyListenPort))
 		if err != nil {
@@ -282,13 +461,7 @@ func ApplyFileConfig(fc *FileConfig, cfg *service.Config) error {
 		}
 		cfg.Proxy.ReverseTunnelListenAddr = *addr
 	}
-	if fc.Proxy.PublicAddr != "" {
-		addr, err := utils.ParseHostPortAddr(fc.Proxy.PublicAddr, int(defaults.HTTPListenPort))
-		if err != nil {
-			return trace.Wrap(err)
-		}
-		cfg.Proxy.PublicAddr = *addr
-	}
+
 	if fc.Proxy.KeyFile != "" {
 		if !fileExists(fc.Proxy.KeyFile) {
 			return trace.Errorf("https key does not exist: %s", fc.Proxy.KeyFile)
@@ -330,102 +503,45 @@ func ApplyFileConfig(fc *FileConfig, cfg *service.Config) error {
 		cfg.Proxy.TLSCert = fc.Proxy.CertFile
 	}
 
-	// apply "auth_service" section
-	if fc.Auth.ListenAddress != "" {
-		addr, err := utils.ParseHostPortAddr(fc.Auth.ListenAddress, int(defaults.AuthListenPort))
+	// apply kubernetes proxy config, by default kube proxy is disabled
+	if fc.Proxy.Kube.Configured() {
+		cfg.Proxy.Kube.Enabled = fc.Proxy.Kube.Enabled()
+	}
+	if fc.Proxy.Kube.ListenAddress != "" {
+		addr, err := utils.ParseHostPortAddr(fc.Proxy.Kube.ListenAddress, int(defaults.KubeProxyListenPort))
 		if err != nil {
 			return trace.Wrap(err)
 		}
-		cfg.Auth.SSHAddr = *addr
-		cfg.AuthServers = append(cfg.AuthServers, *addr)
+		cfg.Proxy.Kube.ListenAddr = *addr
 	}
-	// DEPRECATED: Remove the following message in Teleport 2.4
-	if fc.Auth.DynamicConfig != nil {
-		warningMessage := "Dynamic configuration is no longer supported. Refer to " +
-			"Teleport documentation for more details: " +
-			"http://gravitational.com/teleport/docs/admin-guide"
-		log.Warnf(warningMessage)
-	}
-	// INTERNAL: Authorities (plus Roles) and ReverseTunnels don't follow the
-	// same pattern as the rest of the configuration (they are not configuration
-	// singletons). However, we need to keep them around while Telekube uses them.
-	for _, authority := range fc.Auth.Authorities {
-		ca, role, err := authority.Parse()
+	if len(fc.Proxy.Kube.PublicAddr) != 0 {
+		addrs, err := fc.Proxy.Kube.PublicAddr.Addrs(defaults.KubeProxyListenPort)
 		if err != nil {
 			return trace.Wrap(err)
 		}
-		cfg.Auth.Authorities = append(cfg.Auth.Authorities, ca)
-		cfg.Auth.Roles = append(cfg.Auth.Roles, role)
+		cfg.Proxy.Kube.PublicAddrs = addrs
 	}
-	for _, t := range fc.Auth.ReverseTunnels {
-		tun, err := t.ConvertAndValidate()
+	if len(fc.Proxy.PublicAddr) != 0 {
+		addrs, err := fc.Proxy.PublicAddr.Addrs(defaults.HTTPListenPort)
 		if err != nil {
 			return trace.Wrap(err)
 		}
-		cfg.ReverseTunnels = append(cfg.ReverseTunnels, tun)
+		cfg.Proxy.PublicAddrs = addrs
 	}
-	// DEPRECATED: Remove the following message in Teleport 2.4.
-	if len(fc.Auth.TrustedClusters) > 0 {
-		warningMessage := "Configuring Trusted Clusters using file configuration has " +
-			"been deprecated, Trusted Clusters must now be configured using resources. " +
-			"Existing Trusted Cluster relationships will be maintained, but you will " +
-			"not be able to add or remove Trusted Clusters using file configuration " +
-			"anymore. Refer to Teleport documentation for more details: " +
-			"http://gravitational.com/teleport/docs/admin-guide"
-		log.Warnf(warningMessage)
-	}
-	// read in cluster name from file configuration and create services.ClusterName
-	cfg.Auth.ClusterName, err = fc.Auth.ClusterName.Parse()
-	if err != nil {
-		return trace.Wrap(err)
-	}
-	// read in static tokens from file configuration and create services.StaticTokens
-	if fc.Auth.StaticTokens != nil {
-		cfg.Auth.StaticTokens, err = fc.Auth.StaticTokens.Parse()
+	if len(fc.Proxy.SSHPublicAddr) != 0 {
+		addrs, err := fc.Proxy.SSHPublicAddr.Addrs(defaults.SSHProxyListenPort)
 		if err != nil {
 			return trace.Wrap(err)
 		}
-	}
-	// read in and set authentication preferences
-	if fc.Auth.Authentication != nil {
-		authPreference, oidcConnector, err := fc.Auth.Authentication.Parse()
-		if err != nil {
-			return trace.Wrap(err)
-		}
-		cfg.Auth.Preference = authPreference
-
-		// DEPRECATED: Remove the following message in Teleport 2.4.
-		if oidcConnector != nil {
-			warningMessage := "Configuring OIDC connectors using file configuration is " +
-				"no longer supported, OIDC connectors must be configured using resources. " +
-				"Existing OIDC connectors will not be removed but you will not be able to " +
-				"add, remove, or update them using file configuration. Refer to Teleport " +
-				"documentation for more details: " +
-				"http://gravitational.com/teleport/docs/admin-guide"
-			log.Warnf(warningMessage)
-		}
+		cfg.Proxy.SSHPublicAddrs = addrs
 	}
 
-	// build cluster config from session recording and host key checking preferences
-	cfg.Auth.ClusterConfig, err = services.NewClusterConfig(services.ClusterConfigSpecV3{
-		SessionRecording:    fc.Auth.SessionRecording,
-		ProxyChecksHostKeys: fc.Auth.ProxyChecksHostKeys,
-	})
-	if err != nil {
-		return trace.Wrap(err)
-	}
+	return nil
 
-	// read in and set the license file path (not used in open-source version)
-	licenseFile := fc.Auth.LicenseFile
-	if licenseFile != "" {
-		if filepath.IsAbs(licenseFile) {
-			cfg.Auth.LicenseFile = licenseFile
-		} else {
-			cfg.Auth.LicenseFile = filepath.Join(cfg.DataDir, licenseFile)
-		}
-	}
+}
 
-	// apply "ssh_service" section
+// applySSHConfig applies file configuration for the "ssh_service" section.
+func applySSHConfig(fc *FileConfig, cfg *service.Config) error {
 	if fc.SSH.ListenAddress != "" {
 		addr, err := utils.ParseHostPortAddr(fc.SSH.ListenAddress, int(defaults.SSHServerListenPort))
 		if err != nil {
@@ -454,6 +570,34 @@ func ApplyFileConfig(fc *FileConfig, cfg *service.Config) error {
 	}
 	if fc.SSH.PermitUserEnvironment {
 		cfg.SSH.PermitUserEnvironment = true
+	}
+	if fc.SSH.PAM != nil {
+		cfg.SSH.PAM = fc.SSH.PAM.Parse()
+
+		// If PAM is enabled, make sure that Teleport was built with PAM support
+		// and the PAM library was found at runtime.
+		if cfg.SSH.PAM.Enabled {
+			if !pam.BuildHasPAM() {
+				errorMessage := "Unable to start Teleport: PAM was enabled in file configuration but this \n" +
+					"Teleport binary was built without PAM support. To continue either download a \n" +
+					"Teleport binary build with PAM support from https://gravitational.com/teleport \n" +
+					"or disable PAM in file configuration."
+				return trace.BadParameter(errorMessage)
+			}
+			if !pam.SystemHasPAM() {
+				errorMessage := "Unable to start Teleport: PAM was enabled in file configuration but this \n" +
+					"system does not have the needed PAM library installed. To continue either \n" +
+					"install libpam or disable PAM in file configuration."
+				return trace.BadParameter(errorMessage)
+			}
+		}
+	}
+	if len(fc.SSH.PublicAddr) != 0 {
+		addrs, err := fc.SSH.PublicAddr.Addrs(defaults.SSHServerListenPort)
+		if err != nil {
+			return trace.Wrap(err)
+		}
+		cfg.SSH.PublicAddrs = addrs
 	}
 
 	return nil
@@ -658,6 +802,15 @@ func Configure(clf *CommandLineFlags, cfg *service.Config) error {
 		return trace.Wrap(err)
 	}
 
+	// apply diangostic address flag
+	if clf.DiagnosticAddr != "" {
+		addr, err := utils.ParseAddr(clf.DiagnosticAddr)
+		if err != nil {
+			return trace.Wrap(err, "failed to parse diag-addr")
+		}
+		cfg.DiagnosticAddr = *addr
+	}
+
 	// apply --insecure-no-tls flag:
 	if clf.DisableTLS {
 		cfg.Proxy.DisableTLS = clf.DisableTLS
@@ -667,6 +820,7 @@ func Configure(clf *CommandLineFlags, cfg *service.Config) error {
 	if clf.Debug {
 		cfg.Console = ioutil.Discard
 		utils.InitLogger(utils.LoggingForDaemon, log.DebugLevel)
+		cfg.Debug = clf.Debug
 	}
 
 	// apply --roles flag:
@@ -698,6 +852,11 @@ func Configure(clf *CommandLineFlags, cfg *service.Config) error {
 		cfg.Hostname = clf.NodeName
 	}
 
+	// apply --pid-file flag
+	if clf.PIDFile != "" {
+		cfg.PIDFile = clf.PIDFile
+	}
+
 	// apply --token flag:
 	cfg.ApplyToken(clf.AuthToken)
 
@@ -707,8 +866,8 @@ func Configure(clf *CommandLineFlags, cfg *service.Config) error {
 	}
 
 	// --advertise-ip flag
-	if clf.AdvertiseIP != nil {
-		if err := validateAdvertiseIP(clf.AdvertiseIP); err != nil {
+	if clf.AdvertiseIP != "" {
+		if _, _, err := utils.ParseAdvertiseAddr(clf.AdvertiseIP); err != nil {
 			return trace.Wrap(err)
 		}
 		cfg.AdvertiseIP = clf.AdvertiseIP
@@ -734,7 +893,6 @@ func Configure(clf *CommandLineFlags, cfg *service.Config) error {
 		cfg.Auth.StorageConfig.Params = backend.Params{}
 	}
 	cfg.Auth.StorageConfig.Params["data_dir"] = cfg.DataDir
-
 	// command line flag takes precedence over file config
 	if clf.PermitUserEnvironment {
 		cfg.SSH.PermitUserEnvironment = true
@@ -857,13 +1015,6 @@ func validateRoles(roles string) error {
 		default:
 			return trace.Errorf("unknown role: '%s'", role)
 		}
-	}
-	return nil
-}
-
-func validateAdvertiseIP(advertiseIP net.IP) error {
-	if advertiseIP.IsLoopback() || advertiseIP.IsUnspecified() || advertiseIP.IsMulticast() {
-		return trace.BadParameter("unreachable advertise IP: %v", advertiseIP)
 	}
 	return nil
 }

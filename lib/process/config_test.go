@@ -17,7 +17,6 @@ limitations under the License.
 package process
 
 import (
-	"net"
 	"testing"
 
 	"github.com/gravitational/gravity/lib/processconfig"
@@ -67,7 +66,7 @@ func (s *ConfigSuite) TestMergeTeleConfig(c *check.C) {
 
 	from := &telecfg.FileConfig{
 		Global: telecfg.Global{
-			AdvertiseIP: net.ParseIP("127.0.0.2"),
+			AdvertiseIP: "127.0.0.2",
 		},
 		Auth: telecfg.Auth{
 			ClusterName: "test.example.com",
@@ -88,7 +87,7 @@ func (s *ConfigSuite) TestMergeTeleConfig(c *check.C) {
 	}
 	err := processconfig.MergeTeleConfig(config, from)
 	c.Assert(err, check.IsNil)
-	c.Assert(config.AdvertiseIP.String(), check.Equals, from.AdvertiseIP.String())
+	c.Assert(config.AdvertiseIP, check.Equals, from.AdvertiseIP)
 	c.Assert(config.Auth.ClusterName, check.Equals, from.Auth.ClusterName)
 	c.Assert(config.Auth.OIDCConnectors, check.DeepEquals, from.Auth.OIDCConnectors)
 }

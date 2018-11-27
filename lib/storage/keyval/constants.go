@@ -23,7 +23,7 @@ const (
 	apikeysP                    = "apikeys"
 	authPreferenceP             = "authpreference"
 	clusterConfigP              = "clusterconfig"
-	clusterConfigStaticTokenP   = "statictokets"
+	clusterConfigStaticTokenP   = "statictokens"
 	clusterConfigNameP          = "name"
 	clusterConfigGeneralP       = "general"
 	locksP                      = "locks"
@@ -72,6 +72,7 @@ const (
 	planP                       = "plan"
 	trustedClustersP            = "trustedclusters"
 	tunnelConnectionsP          = "tunnelconnections"
+	remoteClustersP             = "remoteclusters"
 	systemP                     = "system"
 	dnsP                        = "dns"
 

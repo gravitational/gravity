@@ -389,6 +389,9 @@ const (
 	// LogDir is the name of the log directory
 	LogDir = "log"
 
+	// BackupDir is the directory where some operations store backup data
+	BackupDir = "backup"
+
 	// StateRegistryDir is the name of the docker registry directory inside the planet state directory
 	StateRegistryDir = "registry"
 
@@ -1059,6 +1062,10 @@ var (
 
 	// TelekubeUserLog the default location for user-facing log file
 	TelekubeUserLog = filepath.Join(SystemLogDir, TelekubeUserLogFile)
+
+	// TransientErrorTimeout specifies the maximum amount of time to attempt
+	// an operation experiencing transient errors
+	TransientErrorTimeout = 15 * time.Minute
 )
 
 // HookSecurityContext returns default securityContext for hook pods

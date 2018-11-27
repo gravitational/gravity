@@ -315,8 +315,14 @@ const UserSpecV2SchemaTemplate = `{
     },
     "traits": {
       "type": "object",
+      "additionalProperties": false,
       "patternProperties": {
-        "^[a-zA-Z/.0-9_]$":  { "type": "array", "items": {"type": "string"} }
+        "^[a-zA-Z/.0-9_:]+$": {
+          "type": ["array", "null"],
+          "items": {
+            "type": "string"
+          }
+        }
       }
     },
     "oidc_identities": {
@@ -475,6 +481,10 @@ type UserV1 struct {
 	// user is allowed to login as
 	AllowedLogins []string `json:"allowed_logins"`
 
+	// KubeGroups represents a list of kubernetes groups
+	// this teleport user is allowed to assume
+	KubeGroups []string `json:"kubernetes_groups,omitempty"`
+
 	// OIDCIdentities lists associated OpenID Connect identities
 	// that let user log in using externally verified identity
 	OIDCIdentities []ExternalIdentity `json:"oidc_identities"`
@@ -532,7 +542,8 @@ func (u *UserV1) V2() *UserV2 {
 			CreatedBy:      u.CreatedBy,
 			Roles:          u.Roles,
 			Traits: map[string][]string{
-				teleport.TraitLogins: u.AllowedLogins,
+				teleport.TraitLogins:     u.AllowedLogins,
+				teleport.TraitKubeGroups: u.KubeGroups,
 			},
 		},
 		rawObject: *u,

@@ -100,7 +100,7 @@ func (b *backend) upsertServer(nodeType string, server teleservices.Server) erro
 }
 
 // GetNodes returns a list of registered servers
-func (b *backend) GetNodes(namespace string) ([]teleservices.Server, error) {
+func (b *backend) GetNodes(namespace string, opts ...teleservices.MarshalOption) ([]teleservices.Server, error) {
 	return b.getNodes(namespace)
 }
 
@@ -108,6 +108,20 @@ func (b *backend) GetNodes(namespace string) ([]teleservices.Server, error) {
 // for the specified duration with second resolution if it's >= 1 second
 func (b *backend) UpsertNode(server teleservices.Server) error {
 	return b.upsertNode(server)
+}
+
+// UpsertNodes is used for bulk insertion of nodes
+func (b *backend) UpsertNodes(namespace string, servers []teleservices.Server) error {
+	if namespace == "" {
+		return trace.BadParameter("missing node namespace")
+	}
+	for _, server := range servers {
+		err := b.upsertNode(server)
+		if err != nil {
+			return trace.Wrap(err)
+		}
+	}
+	return nil
 }
 
 // GetAuthServers returns a list of registered servers
@@ -164,6 +178,15 @@ func (b *backend) GetReverseTunnels() ([]teleservices.ReverseTunnel, error) {
 		out = append(out, tun)
 	}
 	return out, nil
+}
+
+// GetReverseTunnel returns reverse tunnel by name
+func (b *backend) GetReverseTunnel(name string) (teleservices.ReverseTunnel, error) {
+	data, err := b.getValBytes(b.key(tunnelsP, name))
+	if err != nil {
+		return nil, trace.Wrap(err)
+	}
+	return teleservices.GetReverseTunnelMarshaler().UnmarshalReverseTunnel(data)
 }
 
 // DeleteReverseTunnel deletes reverse tunnel by cluster name

@@ -18,10 +18,11 @@ package update
 
 import (
 	"context"
-	"os"
+	"io"
 	"path/filepath"
 
 	"github.com/gravitational/gravity/lib/app"
+	"github.com/gravitational/gravity/lib/app/service"
 	"github.com/gravitational/gravity/lib/constants"
 	"github.com/gravitational/gravity/lib/defaults"
 	"github.com/gravitational/gravity/lib/fsm"
@@ -113,7 +114,6 @@ func NewUpdatePhaseBootstrap(c FSMConfig, plan storage.OperationPlan, phase stor
 	if err != nil {
 		return nil, trace.Wrap(err)
 	}
-
 	return &updatePhaseBootstrap{
 		Operator:         c.Operator,
 		Backend:          c.Backend,
@@ -147,12 +147,14 @@ func (p *updatePhaseBootstrap) PostCheck(context.Context) error {
 // Execute executes the bootstrap phase locally, e.g. exports new gravity
 // binary, creates new secrets/config packages in the local backend and
 // initializes local operation state
-func (p *updatePhaseBootstrap) Execute(context.Context) error {
+func (p *updatePhaseBootstrap) Execute(ctx context.Context) error {
 	err := p.configureNode()
 	if err != nil {
 		return trace.Wrap(err)
 	}
-	err = p.exportGravity()
+	exportCtx, cancel := context.WithTimeout(ctx, defaults.TransientErrorTimeout)
+	defer cancel()
+	err = p.exportGravity(exportCtx)
 	if err != nil {
 		return trace.Wrap(err)
 	}
@@ -179,7 +181,7 @@ func (p *updatePhaseBootstrap) Execute(context.Context) error {
 	return nil
 }
 
-// Rollback is no-op for bootstrap phase
+// Rollback is no-op for this phase
 func (p *updatePhaseBootstrap) Rollback(context.Context) error {
 	return nil
 }
@@ -198,22 +200,12 @@ func (p *updatePhaseBootstrap) configureNode() error {
 	return nil
 }
 
-func (p *updatePhaseBootstrap) exportGravity() error {
-	_, reader, err := p.Packages.ReadPackage(p.GravityPackage)
-	if err != nil {
-		return trace.Wrap(err)
-	}
-	defer reader.Close()
-	err = os.RemoveAll(p.GravityPath)
-	if err != nil {
-		return trace.Wrap(err)
-	}
-	err = utils.CopyReaderWithPerms(p.GravityPath, reader, defaults.SharedExecutableMask)
-	if err != nil {
-		return trace.Wrap(err)
-	}
-	log.Debugf("%v exported to %v.", p.GravityPackage, p.GravityPath)
-	return nil
+func (p *updatePhaseBootstrap) exportGravity(ctx context.Context) error {
+	err := utils.CopyWithRetries(ctx, p.GravityPath, func() (io.ReadCloser, error) {
+		_, rc, err := p.Packages.ReadPackage(p.GravityPackage)
+		return rc, trace.Wrap(err)
+	}, defaults.SharedExecutableMask)
+	return trace.Wrap(err)
 }
 
 // updateDNSConfig persists the DNS configuration in the local backend if it has not been set
@@ -247,7 +239,52 @@ func (p *updatePhaseBootstrap) pullSystemUpdates() error {
 		return trace.Wrap(err, "failed to pull system updates: %s", out)
 	}
 	log.Debugf("Pulled system updates: %s.", out)
+	// the low-level pull-updates call above does not pull teleport config
+	// package updates, so do it here: it's easier since we have access to
+	// plan, cluster state, etc.
+	updates, err := p.collectTeleportUpdates()
+	if err != nil {
+		return trace.Wrap(err)
+	}
+	for _, update := range updates {
+		p.Infof("Pulling package update: %v.", update)
+		_, err := service.PullPackage(service.PackagePullRequest{
+			SrcPack: p.Packages,
+			DstPack: p.LocalPackages,
+			Package: update,
+			Upsert:  true,
+		})
+		if err != nil {
+			return trace.Wrap(err)
+		}
+	}
+	// after having pulled packages as root we need to set proper ownership
+	// on the blobs dir
+	stateDir, err := state.GetStateDir()
+	if err != nil {
+		return trace.Wrap(err)
+	}
+	err = utils.Chown(filepath.Join(stateDir, defaults.LocalDir), p.ServiceUser.UID, p.ServiceUser.GID)
+	if err != nil {
+		return trace.Wrap(err)
+	}
 	return nil
+}
+
+func (p *updatePhaseBootstrap) collectTeleportUpdates() (updates []loc.Locator, err error) {
+	teleportNodeConfigUpdate, err := pack.FindLatestPackageWithLabels(
+		p.Packages, p.Operation.SiteDomain, map[string]string{
+			pack.AdvertiseIPLabel: p.Server.AdvertiseIP,
+			pack.OperationIDLabel: p.Operation.ID,
+			pack.PurposeLabel:     pack.PurposeTeleportNodeConfig,
+		})
+	if err != nil && !trace.IsNotFound(err) {
+		return nil, trace.Wrap(err)
+	}
+	if teleportNodeConfigUpdate != nil {
+		updates = append(updates, *teleportNodeConfigUpdate)
+	}
+	return updates, nil
 }
 
 func (p *updatePhaseBootstrap) syncPlan() error {

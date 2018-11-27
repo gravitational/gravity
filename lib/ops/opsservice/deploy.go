@@ -103,6 +103,7 @@ func remoteDirectories(operation ops.SiteOperation, server *ProvisionedServer, m
 		server.InGravity("site", "packages", "unpacked"),
 		server.InGravity("site", "packages", "tmp"),
 		server.InGravity("site", "teleport"),
+		server.InGravity("backup"),
 	}
 
 	chownList := []string{
@@ -114,6 +115,7 @@ func remoteDirectories(operation ops.SiteOperation, server *ProvisionedServer, m
 		server.InGravity("planet", "share"),
 		server.InGravity("planet", "state"),
 		server.InGravity("site"),
+		server.InGravity("backup"),
 	}
 
 	chmodList := []string{

@@ -18,16 +18,19 @@ package utils
 
 import (
 	"bufio"
+	"context"
 	"fmt"
 	"io"
 	"io/ioutil"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"strings"
 
 	"github.com/gravitational/gravity/lib/constants"
 	"github.com/gravitational/gravity/lib/defaults"
 
+	"github.com/cenkalti/backoff"
 	"github.com/gravitational/trace"
 	log "github.com/sirupsen/logrus"
 )
@@ -381,4 +384,30 @@ func EnsureLineInFile(path, line string) error {
 		return trace.Wrap(err)
 	}
 	return nil
+}
+
+// Chown adjusts ownership of the specified directory and all its subdirectories
+func Chown(dir, uid, gid string) error {
+	out, err := exec.Command("chown", "-R", fmt.Sprintf("%v:%v", uid, gid), dir).CombinedOutput()
+	if err != nil {
+		return trace.Wrap(err, "failed to chown %q to %v:%v: %s", dir, uid, gid, out)
+	}
+	return nil
+}
+
+// CopyWithRetries copies the contents of the reader obtained with open to targetPath
+// retrying on transient errors
+func CopyWithRetries(ctx context.Context, targetPath string, open func() (io.ReadCloser, error), mode os.FileMode) error {
+	b := backoff.NewConstantBackOff(defaults.RetryInterval)
+	err := RetryTransient(ctx, b, func() error {
+		rc, err := open()
+		if err != nil {
+			return trace.Wrap(err)
+		}
+		defer rc.Close()
+
+		err = CopyReaderWithPerms(targetPath, rc, mode)
+		return trace.Wrap(err)
+	})
+	return trace.Wrap(err)
 }
