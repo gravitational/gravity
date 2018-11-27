@@ -108,6 +108,10 @@ type InstallConfig struct {
 	NodeTags []string
 	// NewProcess is used to launch gravity API server process
 	NewProcess process.NewGravityProcess
+	// Unattended executes the operation in unattended mode.
+	// In this mode, the process will exit immediately after the failed operation
+	// instead of waiting for user input
+	Unattended bool
 }
 
 // NewInstallConfig creates install config from the passed CLI args and flags
@@ -150,6 +154,7 @@ func NewInstallConfig(g *Application) InstallConfig {
 		ServiceUID: *g.InstallCmd.ServiceUID,
 		ServiceGID: *g.InstallCmd.ServiceGID,
 		NodeTags:   *g.InstallCmd.GCENodeTags,
+		Unattended: *g.InstallCmd.Unattended,
 	}
 }
 
@@ -339,6 +344,7 @@ func (i *InstallConfig) ToInstallerConfig(env *localenv.LocalEnvironment) (*inst
 		ServiceUser:   i.ServiceUser,
 		GCENodeTags:   i.NodeTags,
 		NewProcess:    i.NewProcess,
+		Unattended:    i.Unattended,
 	}, nil
 }
 

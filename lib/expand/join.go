@@ -91,6 +91,10 @@ type PeerConfig struct {
 	JoinBackend storage.Backend
 	// Manual turns on manual plan execution
 	Manual bool
+	// Unattended executes the operation in unattended mode.
+	// In this mode, the process will exit immediately after the failed operation
+	// instead of waiting for user input
+	Unattended bool
 	// OperationID is the ID of existing join operation created via UI
 	OperationID string
 }
@@ -721,6 +725,9 @@ func (p *Peer) Wait() error {
 				return nil
 			}
 			if progress.State == ops.ProgressStateFailed {
+				if p.Unattended {
+					return trace.BadParameter("join operation failed")
+				}
 				p.Silent.Println(color.RedString("Failed to join the cluster"))
 				p.Silent.Printf("---\nAgent process will keep running so you can re-run certain steps.\n" +
 					"Once no longer needed, this process can be shutdown using Ctrl-C.\n")

@@ -201,6 +201,10 @@ type Config struct {
 	NewProcess process.NewGravityProcess
 	// Silent allows installer to output its progress
 	localenv.Silent
+	// Unattended executes the operation in unattended mode.
+	// In this mode, the process will exit immediately after the failed operation
+	// instead of waiting for user input
+	Unattended bool
 }
 
 // CheckAndSetDefaults checks the parameters and autodetects some defaults
@@ -438,6 +442,9 @@ func (i *Installer) Wait() error {
 					}
 					return nil
 				} else {
+					if i.Unattended {
+						return trace.BadParameter("install operation failed")
+					}
 					i.PrintStep(color.RedString("Installation failed in %v, "+
 						"check %v for details", i.timeSinceBeginning(i.OperationKey), i.UserLogFile))
 					i.printf("---\nInstaller process will keep running so you can inspect the operation plan using\n" +

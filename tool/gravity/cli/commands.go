@@ -351,9 +351,9 @@ type InstallCmd struct {
 	// Manual puts install operation in manual mode
 	Manual *bool
 	// Unattended executes the operation in unattended mode.
-	// In this mode, the installer will exit immediately after ther operation
+	// In this mode, the process will exit immediately after the failed operation
 	// instead of waiting for user input
-	Unattanded *bool
+	Unattended *bool
 	// ServiceUID is system user ID
 	ServiceUID *string
 	// ServiceGID is system user group ID
@@ -399,6 +399,10 @@ type JoinCmd struct {
 	Force *bool
 	// Complete marks join operation complete
 	Complete *bool
+	// Unattended executes the operation in unattended mode.
+	// In this mode, the process will exit immediately after the failed operation
+	// instead of waiting for user input
+	Unattended *bool
 	// OperationID is the ID of the operation created via UI
 	OperationID *string
 }
