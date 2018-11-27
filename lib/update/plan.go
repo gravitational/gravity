@@ -171,6 +171,11 @@ func NewOperationPlan(env *localenv.ClusterEnvironment, op storage.SiteOperation
 		return nil, trace.Wrap(err)
 	}
 
+	updateDNSAppEarly, err := shouldUpdateDNSAppEarly(env.Client)
+	if err != nil {
+		return nil, trace.Wrap(err)
+	}
+
 	installedPackage, err := storage.GetLocalPackage(env.Backend)
 	if err != nil {
 		return nil, trace.Wrap(err)
@@ -207,17 +212,18 @@ func NewOperationPlan(env *localenv.ClusterEnvironment, op storage.SiteOperation
 	}
 
 	plan, err := newOperationPlan(newPlanParams{
-		operation:        op,
-		servers:          servers,
-		installedRuntime: *installedRuntime,
-		installedApp:     *installedApp,
-		updateRuntime:    *updateRuntime,
-		updateApp:        *updateApp,
-		links:            links,
-		trustedClusters:  trustedClusters,
-		packageService:   env.ClusterPackages,
-		shouldUpdateEtcd: shouldUpdateEtcd,
-		updateCoreDNS:    updateCoreDNS,
+		operation:         op,
+		servers:           servers,
+		installedRuntime:  *installedRuntime,
+		installedApp:      *installedApp,
+		updateRuntime:     *updateRuntime,
+		updateApp:         *updateApp,
+		links:             links,
+		trustedClusters:   trustedClusters,
+		packageService:    env.ClusterPackages,
+		shouldUpdateEtcd:  shouldUpdateEtcd,
+		updateCoreDNS:     updateCoreDNS,
+		updateDNSAppEarly: updateDNSAppEarly,
 	})
 	if err != nil {
 		return nil, trace.Wrap(err)
@@ -250,6 +256,9 @@ type newPlanParams struct {
 	shouldUpdateEtcd func(newPlanParams) (bool, string, string, error)
 	// updateCoreDNS indicates whether we need to run coreDNS phase
 	updateCoreDNS bool
+	// updateDNSAppEarly indicates whether we need to update the DNS app earlier than normal
+	//	Only applicable for 5.3.0 -> 5.3.2
+	updateDNSAppEarly bool
 }
 
 func newOperationPlan(p newPlanParams) (*storage.OperationPlan, error) {
@@ -354,12 +363,20 @@ func newOperationPlan(p newPlanParams) (*storage.OperationPlan, error) {
 	// Order the phases
 	phases := phases{initPhase, checksPhase, preUpdatePhase}
 	if len(runtimeUpdates) > 0 {
-		// if there are no runtime updates, then these phases are not needed
-		// as we're not going to update system software
 		if p.updateCoreDNS {
 			corednsPhase := *builder.corednsPhase(leadMaster.Server)
 			mastersPhase = *mastersPhase.Require(corednsPhase)
 			phases = append(phases, corednsPhase)
+		}
+
+		if p.updateDNSAppEarly {
+			for _, update := range runtimeUpdates {
+				if update.Name == constants.DNSAppPackage {
+					earlyDNSAppPhase := *builder.earlyDNSApp(update)
+					mastersPhase = *mastersPhase.Require(earlyDNSAppPhase)
+					phases = append(phases, earlyDNSAppPhase)
+				}
+			}
 		}
 
 		phases = append(phases, bootstrapPhase, mastersPhase)

@@ -340,6 +340,19 @@ func (b *PlanBuilder) AddInstallOverlayPhase(plan *storage.OperationPlan, locato
 	})
 }
 
+// AddCorednsPhase generates default coredns configuration for the cluster
+func (b *PlanBuilder) AddCorednsPhase(plan *storage.OperationPlan) {
+	plan.Phases = append(plan.Phases, storage.OperationPhase{
+		ID:          phases.CorednsPhase,
+		Description: "Configure CoreDNS",
+		Data: &storage.OperationPhaseData{
+			Server: &b.Master,
+		},
+		Requires: []string{phases.WaitPhase},
+		Step:     4,
+	})
+}
+
 // AddResourcesPhase appends K8s resources initialization phase to the provided plan
 func (b *PlanBuilder) AddResourcesPhase(plan *storage.OperationPlan, resources []byte) {
 	plan.Phases = append(plan.Phases, storage.OperationPhase{

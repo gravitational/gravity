@@ -101,6 +101,7 @@ func (i *Installer) GetOperationPlan(cluster ops.Site, op ops.SiteOperation) (*s
 	builder.AddWaitPhase(plan)
 	builder.AddLabelPhase(plan)
 	builder.AddRBACPhase(plan)
+	builder.AddCorednsPhase(plan)
 
 	if cluster.App.Manifest.HasHook(schema.HookOverlayInstall) {
 		builder.AddInstallOverlayPhase(plan, &cluster.App.Package)

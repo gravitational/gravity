@@ -209,6 +209,7 @@ func (s *PlanSuite) TestPlan(c *check.C) {
 		{phases.WaitPhase, s.verifyWaitPhase},
 		{phases.LabelPhase, s.verifyLabelPhase},
 		{phases.RBACPhase, s.verifyRBACPhase},
+		{phases.CorednsPhase, s.verifyCorednsPhase},
 		{phases.ResourcesPhase, s.verifyResourcesPhase},
 		{phases.ExportPhase, s.verifyExportPhase},
 		{phases.RuntimePhase, s.verifyRuntimePhase},
@@ -419,6 +420,16 @@ func (s *PlanSuite) verifyRBACPhase(c *check.C, phase storage.OperationPhase) {
 		Data: &storage.OperationPhaseData{
 			Server:  &s.masterNode,
 			Package: s.rbacPackage,
+		},
+		Requires: []string{phases.WaitPhase},
+	}, phase)
+}
+
+func (s *PlanSuite) verifyCorednsPhase(c *check.C, phase storage.OperationPhase) {
+	storage.DeepComparePhases(c, storage.OperationPhase{
+		ID: phases.CorednsPhase,
+		Data: &storage.OperationPhaseData{
+			Server: &s.masterNode,
 		},
 		Requires: []string{phases.WaitPhase},
 	}, phase)
