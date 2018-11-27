@@ -156,7 +156,7 @@ spec:
             - --kubeconfig-kubelet
             - /etc/kubernetes/kubelet.conf
             # TODO(This should be detected if possible)
-            # - --overlay-cidr=10.244.0.0/16
+            - --overlay-cidr=10.244.0.0/16
           env:
             - name: POD_NAME
               valueFrom:
