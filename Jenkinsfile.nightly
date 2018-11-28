@@ -45,7 +45,7 @@ def sendBuildNotification(String currentBuildResult, String prevousBuildResult, 
                      currentBuildResult != "SUCCESS" &&
                      currentBuildResult != "ABORTED"
   if (shouldNotify) {
-    slackSend(color: color, message: message, token: token)
+    slackSend(color: color, message: message)
   }
 }
 
