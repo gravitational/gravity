@@ -24,7 +24,7 @@ export GCE_REGION="northamerica-northeast1,us-west1,us-east1,us-east4,us-central
 
 function build_resize_suite {
   cat <<EOF
- resize={"to":3,"flavor":"one","nodes":1,"role":"node","state_dir":"/var/lib/telekube","os":"ubuntu:16","storage_driver":"devicemapper"}
+ resize={"to":3,"flavor":"one","nodes":1,"role":"node","state_dir":"/var/lib/telekube","os":"ubuntu:16","storage_driver":"overlay2"}
 EOF
 }
 
