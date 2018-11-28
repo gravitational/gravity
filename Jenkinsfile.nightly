@@ -87,6 +87,10 @@ properties([
            defaultValue: 'true',
            description: 'Whether to use preemptible VMs.',
            name: 'GCE_PREEMPTIBLE'),
+    choice(choices: ["custom-4-8192", "custom-8-8192"].join("\n"),
+           defaultValue: 'custom-4-8192',
+           description: 'VM type to use.',
+           name: 'GCE_VM'),
   ]),
 ])
 
