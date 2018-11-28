@@ -108,10 +108,9 @@ type InstallConfig struct {
 	NodeTags []string
 	// NewProcess is used to launch gravity API server process
 	NewProcess process.NewGravityProcess
-	// Unattended executes the operation in unattended mode.
-	// In this mode, the process will exit immediately after the failed operation
+	// ExitAfterError exits the process after the operation failure
 	// instead of waiting for user input
-	Unattended bool
+	ExitAfterError bool
 }
 
 // NewInstallConfig creates install config from the passed CLI args and flags
@@ -149,12 +148,12 @@ func NewInstallConfig(g *Application) InstallConfig {
 			StorageDriver: g.InstallCmd.DockerStorageDriver.value,
 			Args:          *g.InstallCmd.DockerArgs,
 		},
-		DNSConfig:  g.InstallCmd.DNSConfig(),
-		Manual:     *g.InstallCmd.Manual,
-		ServiceUID: *g.InstallCmd.ServiceUID,
-		ServiceGID: *g.InstallCmd.ServiceGID,
-		NodeTags:   *g.InstallCmd.GCENodeTags,
-		Unattended: *g.InstallCmd.Unattended,
+		DNSConfig:      g.InstallCmd.DNSConfig(),
+		Manual:         *g.InstallCmd.Manual,
+		ServiceUID:     *g.InstallCmd.ServiceUID,
+		ServiceGID:     *g.InstallCmd.ServiceGID,
+		NodeTags:       *g.InstallCmd.GCENodeTags,
+		ExitAfterError: *g.InstallCmd.ExitAfterError,
 	}
 }
 
@@ -310,41 +309,41 @@ func (i *InstallConfig) ToInstallerConfig(env *localenv.LocalEnvironment) (*inst
 	}
 	ctx, cancel := context.WithCancel(context.Background())
 	return &install.Config{
-		Context:       ctx,
-		Cancel:        cancel,
-		EventsC:       make(chan install.Event, 100),
-		AdvertiseAddr: advertiseAddr,
-		Resources:     resources,
-		AppPackage:    appPackage,
-		LocalPackages: env.Packages,
-		LocalApps:     env.Apps,
-		LocalBackend:  env.Backend,
-		Silent:        env.Silent,
-		SiteDomain:    i.SiteDomain,
-		StateDir:      i.ReadStateDir,
-		WriteStateDir: i.WriteStateDir,
-		UserLogFile:   i.UserLogFile,
-		SystemLogFile: i.SystemLogFile,
-		Token:         i.InstallToken,
-		CloudProvider: i.CloudProvider,
-		Flavor:        i.Flavor,
-		Role:          i.Role,
-		SystemDevice:  i.SystemDevice,
-		DockerDevice:  i.DockerDevice,
-		Mounts:        i.Mounts,
-		DNSOverrides:  *dnsOverrides,
-		DNSConfig:     i.DNSConfig,
-		Mode:          i.Mode,
-		PodCIDR:       i.PodCIDR,
-		ServiceCIDR:   i.ServiceCIDR,
-		VxlanPort:     i.VxlanPort,
-		Docker:        i.Docker,
-		Insecure:      i.Insecure,
-		Manual:        i.Manual,
-		ServiceUser:   i.ServiceUser,
-		GCENodeTags:   i.NodeTags,
-		NewProcess:    i.NewProcess,
-		Unattended:    i.Unattended,
+		Context:        ctx,
+		Cancel:         cancel,
+		EventsC:        make(chan install.Event, 100),
+		AdvertiseAddr:  advertiseAddr,
+		Resources:      resources,
+		AppPackage:     appPackage,
+		LocalPackages:  env.Packages,
+		LocalApps:      env.Apps,
+		LocalBackend:   env.Backend,
+		Silent:         env.Silent,
+		SiteDomain:     i.SiteDomain,
+		StateDir:       i.ReadStateDir,
+		WriteStateDir:  i.WriteStateDir,
+		UserLogFile:    i.UserLogFile,
+		SystemLogFile:  i.SystemLogFile,
+		Token:          i.InstallToken,
+		CloudProvider:  i.CloudProvider,
+		Flavor:         i.Flavor,
+		Role:           i.Role,
+		SystemDevice:   i.SystemDevice,
+		DockerDevice:   i.DockerDevice,
+		Mounts:         i.Mounts,
+		DNSOverrides:   *dnsOverrides,
+		DNSConfig:      i.DNSConfig,
+		Mode:           i.Mode,
+		PodCIDR:        i.PodCIDR,
+		ServiceCIDR:    i.ServiceCIDR,
+		VxlanPort:      i.VxlanPort,
+		Docker:         i.Docker,
+		Insecure:       i.Insecure,
+		Manual:         i.Manual,
+		ServiceUser:    i.ServiceUser,
+		GCENodeTags:    i.NodeTags,
+		NewProcess:     i.NewProcess,
+		ExitAfterError: i.ExitAfterError,
 	}, nil
 }
 

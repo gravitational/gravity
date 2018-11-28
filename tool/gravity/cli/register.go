@@ -84,8 +84,8 @@ func RegisterCommands(app *kingpin.Application) *Application {
 	g.InstallCmd.Force = g.InstallCmd.Flag("force", "Force phase execution").Bool()
 	g.InstallCmd.Resume = g.InstallCmd.Flag("resume", "Resume installation from last failed step").Bool()
 	g.InstallCmd.Manual = g.InstallCmd.Flag("manual", "Manually execute install operation phases").Bool()
-	g.InstallCmd.Unattended = g.InstallCmd.Flag("unattended", "Exits after the operation without waiting for input").
-		OverrideDefaultFromEnvar(constants.UnattendedOperationEnvVar).
+	g.InstallCmd.ExitAfterError = g.InstallCmd.Flag("exit-after-error", "Exit after operation failure without waiting for input").
+		OverrideDefaultFromEnvar(constants.ExitAfterErrorEnvVar).
 		Bool()
 	g.InstallCmd.ServiceUID = g.InstallCmd.Flag("service-uid",
 		fmt.Sprintf("Service user ID for planet. %q user will created and used if none specified", defaults.ServiceUser)).
@@ -118,7 +118,9 @@ func RegisterCommands(app *kingpin.Application) *Application {
 	g.JoinCmd.Force = g.JoinCmd.Flag("force", "Force phase execution").Bool()
 	g.JoinCmd.Complete = g.JoinCmd.Flag("complete", "Complete join operation").Bool()
 	g.JoinCmd.OperationID = g.JoinCmd.Flag("operation-id", "ID of the operation that was created via UI").Hidden().String()
-	g.JoinCmd.Unattended = g.JoinCmd.Flag("unattended", "Exits after the operation without waiting for input").Bool()
+	g.JoinCmd.ExitAfterError = g.JoinCmd.Flag("exit-after-error", "Exit after operation failure without waiting for input").
+		OverrideDefaultFromEnvar(constants.ExitAfterErrorEnvVar).
+		Bool()
 
 	g.AutoJoinCmd.CmdClause = g.Command("autojoin", "Use cloud provider data to join a node to existing cluster")
 	g.AutoJoinCmd.ClusterName = g.AutoJoinCmd.Arg("cluster-name", "Cluster name used for discovery").Required().String()
