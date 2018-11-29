@@ -164,6 +164,6 @@ type ScriptCollector struct {
 func tarball(pattern string) string {
 	return fmt.Sprintf(`
 #!/bin/bash
-/bin/tar cz --ignore-failed-read --ignore-command-error -f /dev/stdout -C $(readlink -e %v) -P . 2>/dev/null
+/bin/tar cz --ignore-failed-read --ignore-command-error -f /dev/stdout -C / $(readlink -e %v) -P 2> /dev/null
 `, pattern)
 }
