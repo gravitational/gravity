@@ -172,7 +172,11 @@ func parseImageNameTag(image string) (name, tag string, err error) {
 	domain := docker.Domain(named)
 	path := strings.Replace(docker.Path(named), "/", "-", -1)
 	if domain != "" {
-		path = fmt.Sprint(domain, "-", path)
+		host, port := utils.SplitHostPort(domain, "")
+		if port != "" {
+			host = fmt.Sprint(host, "-", port)
+		}
+		path = fmt.Sprint(host, "-", path)
 	}
 
 	return path, tag, nil
