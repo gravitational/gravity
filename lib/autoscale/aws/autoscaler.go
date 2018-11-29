@@ -55,6 +55,11 @@ type Autoscaler struct {
 	// QueueURL is SQS queue name with notifications
 	QueueURL string
 	*log.Entry
+
+	// publishedToken is the token that has been published to SSM
+	publishedToken string
+	// publishedserviceURL is the service url that has been published to SSM
+	publishedServiceURL string
 }
 
 // Config is autoscaler config
@@ -167,7 +172,12 @@ func (a *Autoscaler) GetServiceURL(ctx context.Context) (string, error) {
 	return aws.StringValue(resp.Parameter.Value), nil
 }
 
-func (a *Autoscaler) publishServiceURL(ctx context.Context, serviceURL string) error {
+func (a *Autoscaler) publishServiceURL(ctx context.Context, serviceURL string, force bool) error {
+	// only publish if there is a change
+	if serviceURL == a.publishedServiceURL && !force {
+		return nil
+	}
+
 	name := a.serviceURLParam()
 	_, err := a.SystemsManager.PutParameterWithContext(ctx, &ssm.PutParameterInput{
 		Type:      aws.String("String"),
@@ -178,10 +188,16 @@ func (a *Autoscaler) publishServiceURL(ctx context.Context, serviceURL string) e
 	if err != nil {
 		return ConvertError(err)
 	}
+	a.publishedServiceURL = serviceURL
 	return nil
 }
 
-func (a *Autoscaler) publishJoinToken(ctx context.Context, token string) error {
+func (a *Autoscaler) publishJoinToken(ctx context.Context, token string, force bool) error {
+	// only publish if there is a change
+	if token == a.publishedToken && !force {
+		return nil
+	}
+
 	name := a.tokenParam()
 	a.Debugf("PublishJoinToken(%v)", name)
 	_, err := a.SystemsManager.PutParameterWithContext(ctx, &ssm.PutParameterInput{
@@ -193,6 +209,8 @@ func (a *Autoscaler) publishJoinToken(ctx context.Context, token string) error {
 	if err != nil {
 		return ConvertError(err)
 	}
+
+	a.publishedToken = token
 	return nil
 }
 

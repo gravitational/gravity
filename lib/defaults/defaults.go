@@ -1043,9 +1043,10 @@ var (
 	// LBIdleTimeout is the idle timeout for AWS load balancers
 	LBIdleTimeout = "3600"
 
-	// DiscoveryPublishInterval specifies the frequency to update cluster discovery
-	// details
+	// DiscoveryPublishInterval specifies the frequency to publish changes cluster discovery details
 	DiscoveryPublishInterval = 5 * time.Second
+	// DiscoveryResyncInterval specifies the frequency to force publish cluster discovery details
+	DiscoveryResyncInterval = 10 * time.Minute
 
 	// CACertificateExpiry is the validity period of self-signed CA generated
 	// for clusters during installation
