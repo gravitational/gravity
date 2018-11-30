@@ -9,19 +9,17 @@ def propagateParamsToEnv() {
 
 def withBuildResult(Closure body) {
   def previousBuildResult = currentBuild.previousBuild?.result
-  withCredentials([string(credentialsId: 'jenkins-slack-token', variable: 'TOKEN')]) {
-    try {
-      body()
-      currentBuild.result = 'SUCCESS'
-    } catch(InterruptedException e) {
-      currentBuild.result = 'ABORTED'
-      throw e
-    } catch(e) {
-      currentBuild.result = 'FAILURE'
-      throw e
-    } finally {
-      sendBuildNotification(currentBuild.result, previousBuildResult, env.TOKEN)
-    }
+  try {
+    body()
+    currentBuild.result = 'SUCCESS'
+  } catch(InterruptedException e) {
+    currentBuild.result = 'ABORTED'
+    throw e
+  } catch(e) {
+    currentBuild.result = 'FAILURE'
+    throw e
+  } finally {
+    sendBuildNotification(currentBuild.result, previousBuildResult, env.TOKEN)
   }
 }
 
@@ -51,8 +49,8 @@ def sendBuildNotification(String currentBuildResult, String prevousBuildResult, 
 
 properties([
   disableConcurrentBuilds(),
-  // Schedule a daily build between 8:00am and 8:30am UTC (0:00am-0:30am PST)
-  pipelineTriggers([cron('H(0-30) 08 * * 1-5')]),
+  // Schedule a daily build between 6:00am and 6:30am UTC (10:00am-10:30pm PST)
+  pipelineTriggers([cron('H(0-30) 06 * * 1-5')]),
   parameters([
     choice(choices: ["run", "skip"].join("\n"),
            defaultValue: 'run',
