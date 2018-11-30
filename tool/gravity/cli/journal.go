@@ -113,10 +113,8 @@ func streamRuntimeJournal(env *localenv.LocalEnvironment) error {
 	}
 
 	args := []string{
-		"--since=yesterday",
 		"--output=export",
-		"-D",
-		journalDir,
+		"-D", journalDir,
 	}
 	if err := syscall.Exec(defaults.JournalctlBin, args, nil); err != nil {
 		return trace.Wrap(trace.ConvertSystemError(err),
