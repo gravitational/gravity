@@ -18,6 +18,7 @@ package cli
 
 import (
 	"compress/gzip"
+	"context"
 	"io"
 	"os"
 	"os/exec"
@@ -58,11 +59,21 @@ func exportRuntimeJournal(env *localenv.LocalEnvironment, outputFile string) err
 		return trace.Wrap(err)
 	}
 
-	defer func() {
+	cleanup := func(context.Context) error {
 		if errUnmount := m.Unmount(journalDir); errUnmount != nil {
 			log.Warnf("Failed to unmount %v: %v.", journalDir, errUnmount)
 		}
-	}()
+		return nil
+	}
+	defer cleanup(context.TODO())
+
+	logger := log.WithFields(logrus.Fields{
+		"runtime-package": runtimePackage.String(),
+		"rootfs":          rootDir,
+	})
+	ctx, cancel := context.WithCancel(context.TODO())
+	defer cancel()
+	go utils.WatchTerminationSignals(ctx, cancel, utils.StopperFunc(cleanup), logger)
 
 	var w io.Writer = os.Stdout
 	if outputFile != "" {
@@ -74,17 +85,17 @@ func exportRuntimeJournal(env *localenv.LocalEnvironment, outputFile string) err
 		w = f
 	}
 
-	log.WithFields(logrus.Fields{
-		"runtime-package": runtimePackage.String(),
-		"rootfs":          rootDir,
-	}).Info("Export journal.")
-	cmd := exec.Command(utils.Exe.Path, "system", "stream-runtime-journal", runtimePackage.String())
+	logger.Info("Export journal.")
+
 	zip := gzip.NewWriter(w)
 	defer zip.Close()
-	err = utils.Exec(cmd, zip)
-	if err != nil {
+	cmd := exec.CommandContext(ctx, utils.Exe.Path, "system", "stream-runtime-journal")
+	cmd.Stdout = zip
+	cmd.Stderr = zip
+	if err = cmd.Run(); err != nil {
 		return trace.Wrap(err)
 	}
+
 	return nil
 }
 
@@ -112,13 +123,15 @@ func streamRuntimeJournal(env *localenv.LocalEnvironment) error {
 		return trace.Wrap(err)
 	}
 
+	const cmd = defaults.JournalctlBin
 	args := []string{
-		"--output=export",
+		cmd,
+		"--output", "export",
 		"-D", journalDir,
 	}
-	if err := syscall.Exec(defaults.JournalctlBin, args, nil); err != nil {
+	if err := syscall.Exec(cmd, args, nil); err != nil {
 		return trace.Wrap(trace.ConvertSystemError(err),
-			"failed to execve(%q, %q)", defaults.JournalctlBin, args)
+			"failed to execve(%q, %q)", cmd, args)
 	}
 
 	return nil
