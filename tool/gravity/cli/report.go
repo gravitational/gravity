@@ -44,24 +44,19 @@ import (
 // filters define the specific diagnostics to collect ('system', 'kubernetes'),
 // if empty all diagnostics are collected.
 func systemReport(env *localenv.LocalEnvironment, filters []string, compressed bool) error {
-	runtimePackage, err := findRuntimePackage(env.Packages)
-	if err != nil {
-		return trace.Wrap(err)
-	}
-
 	runner := utils.NewRunner(nil)
 	var collectors report.Collectors
 	for _, filter := range teleutils.Deduplicate(filters) {
 		switch filter {
 		case constants.ReportFilterSystem:
-			collectors = append(collectors, report.SystemInfo(*runtimePackage)...)
+			collectors = append(collectors, report.SystemInfo()...)
 			collectors = append(collectors, packageCollector{env})
 		case constants.ReportFilterKubernetes:
 			collectors = append(collectors, report.KubernetesInfo(runner)...)
 		}
 	}
 	if len(filters) == 0 {
-		collectors = append(collectors, report.SystemInfo(*runtimePackage)...)
+		collectors = append(collectors, report.SystemInfo()...)
 		collectors = append(collectors, report.KubernetesInfo(runner)...)
 		collectors = append(collectors, packageCollector{env})
 	}

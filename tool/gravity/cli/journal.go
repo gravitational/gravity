@@ -24,7 +24,7 @@ import (
 	"path/filepath"
 	"syscall"
 
-	"github.com/gravitational/gravity/lib/loc"
+	"github.com/gravitational/gravity/lib/defaults"
 	"github.com/gravitational/gravity/lib/localenv"
 	"github.com/gravitational/gravity/lib/state"
 	"github.com/gravitational/gravity/lib/system"
@@ -35,13 +35,18 @@ import (
 	"github.com/sirupsen/logrus"
 )
 
-func exportRuntimeJournal(env *localenv.LocalEnvironment, runtimePackage loc.Locator, outputFile string) error {
+func exportRuntimeJournal(env *localenv.LocalEnvironment, outputFile string) error {
 	stateDir, err := state.GetStateDir()
 	if err != nil {
 		return trace.Wrap(err)
 	}
 
-	runtimePath, err := env.Packages.UnpackedPath(runtimePackage)
+	runtimePackage, err := findRuntimePackage(env.Packages)
+	if err != nil {
+		return trace.Wrap(err)
+	}
+
+	runtimePath, err := env.Packages.UnpackedPath(*runtimePackage)
 	if err != nil {
 		return trace.Wrap(err)
 	}
@@ -83,8 +88,13 @@ func exportRuntimeJournal(env *localenv.LocalEnvironment, runtimePackage loc.Loc
 	return nil
 }
 
-func streamRuntimeJournal(env *localenv.LocalEnvironment, runtimePackage loc.Locator) error {
-	runtimePath, err := env.Packages.UnpackedPath(runtimePackage)
+func streamRuntimeJournal(env *localenv.LocalEnvironment) error {
+	runtimePackage, err := findRuntimePackage(env.Packages)
+	if err != nil {
+		return trace.Wrap(err)
+	}
+
+	runtimePath, err := env.Packages.UnpackedPath(*runtimePackage)
 	if err != nil {
 		return trace.Wrap(err)
 	}
@@ -108,10 +118,9 @@ func streamRuntimeJournal(env *localenv.LocalEnvironment, runtimePackage loc.Loc
 		"-D",
 		journalDir,
 	}
-	cmd := "/bin/journalctl"
-	if err := syscall.Exec(cmd, args, nil); err != nil {
+	if err := syscall.Exec(defaults.JournalctlBin, args, nil); err != nil {
 		return trace.Wrap(trace.ConvertSystemError(err),
-			"failed to execve(%q, %q)", cmd, args)
+			"failed to execve(%q, %q)", defaults.JournalctlBin, args)
 	}
 
 	return nil

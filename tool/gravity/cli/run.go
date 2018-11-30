@@ -668,10 +668,9 @@ func Execute(g *Application, cmd string, extraArgs []string) error {
 	case g.SystemDisablePromiscModeCmd.FullCommand():
 		return disablePromiscMode(localEnv, *g.SystemDisablePromiscModeCmd.Iface)
 	case g.SystemExportRuntimeJournalCmd.FullCommand():
-		return exportRuntimeJournal(localEnv, *g.SystemExportRuntimeJournalCmd.Package,
-			*g.SystemExportRuntimeJournalCmd.OutputFile)
+		return exportRuntimeJournal(localEnv, *g.SystemExportRuntimeJournalCmd.OutputFile)
 	case g.SystemStreamRuntimeJournalCmd.FullCommand():
-		return streamRuntimeJournal(localEnv, *g.SystemStreamRuntimeJournalCmd.Package)
+		return streamRuntimeJournal(localEnv)
 	case g.GarbageCollectCmd.FullCommand():
 		phase := *g.GarbageCollectCmd.Phase
 		if *g.GarbageCollectCmd.Resume {

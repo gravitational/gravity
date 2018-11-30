@@ -1318,17 +1318,13 @@ type SystemDisablePromiscModeCmd struct {
 // SystemExportRuntimeJournalCmd exports runtime journal to a file
 type SystemExportRuntimeJournalCmd struct {
 	*kingpin.CmdClause
-	// Package specifies the runtime package
-	Package *loc.Locator
-	// Output specifies the path of the resulting tarball
+	// OutputFile specifies the path of the resulting tarball
 	OutputFile *string
 }
 
 // SystemStreamRuntimeJournalCmd streams contents of the runtime journal
 type SystemStreamRuntimeJournalCmd struct {
 	*kingpin.CmdClause
-	// Package specifies the runtime package
-	Package *loc.Locator
 }
 
 // SystemGCJournalCmd manages cleanup of journal files

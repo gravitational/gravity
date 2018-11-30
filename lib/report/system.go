@@ -22,12 +22,11 @@ import (
 	"strings"
 
 	"github.com/gravitational/gravity/lib/defaults"
-	"github.com/gravitational/gravity/lib/loc"
 	"github.com/gravitational/gravity/lib/utils"
 )
 
 // SystemInfo returns a list of collectors to fetch various bits of system information
-func SystemInfo(runtimePackage loc.Locator) Collectors {
+func SystemInfo() Collectors {
 	var collectors Collectors
 	add := func(additional ...Collector) {
 		collectors = append(collectors, additional...)
@@ -37,7 +36,7 @@ func SystemInfo(runtimePackage loc.Locator) Collectors {
 	add(planetServices()...)
 	add(syslogExportLogs())
 	add(systemFileLogs()...)
-	add(planetLogs(runtimePackage)...)
+	add(planetLogs()...)
 	add(bashHistoryCollector{})
 
 	return collectors
@@ -110,7 +109,7 @@ cat %v 2> /dev/null || true`
 }
 
 // planetLogs fetches planet syslog messages as well as the fresh journal entries
-func planetLogs(runtimePackage loc.Locator) Collectors {
+func planetLogs() Collectors {
 	return Collectors{
 		// Fetch planet syslog messages as a tarball
 		Script("planet-logs.tar.gz", tarball(defaults.InGravity("planet/log/messages*"))),
@@ -119,6 +118,6 @@ func planetLogs(runtimePackage loc.Locator) Collectors {
 		//
 		// $ cat ./node-1-planet-journal-export.log | /lib/systemd/systemd-journal-remote -o ./journal/system.journal -
 		Self("planet-journal-export.log.gz",
-			"system", "export-runtime-journal", runtimePackage.String()),
+			"system", "export-runtime-journal"),
 	}
 }
