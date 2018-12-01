@@ -14,7 +14,7 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package system
+package mount
 
 import (
 	"github.com/gravitational/gravity/lib/storage"
@@ -24,9 +24,9 @@ import (
 	log "github.com/sirupsen/logrus"
 )
 
-// Mount creates a new mount based on the given configuration.
+// MountService creates a new mount based on the given configuration.
 // The mount is created as a systemd mount unit named service.
-func Mount(config MountConfig, service string, services systemservice.ServiceManager) error {
+func MountService(config ServiceConfig, service string, services systemservice.ServiceManager) error {
 	spec := systemservice.MountServiceSpec{
 		Where: config.Where,
 		What:  storage.DeviceName(config.What).Path(),
@@ -49,8 +49,8 @@ func Mount(config MountConfig, service string, services systemservice.ServiceMan
 	return nil
 }
 
-// Unmount uninstalls the specified mount service.
-func Unmount(service string, services systemservice.ServiceManager) error {
+// UnmountService uninstalls the specified mount service.
+func UnmountService(service string, services systemservice.ServiceManager) error {
 	status, err := services.StatusService(service)
 	if err != nil {
 		return trace.Wrap(err)
@@ -65,11 +65,11 @@ func Unmount(service string, services systemservice.ServiceManager) error {
 	return nil
 }
 
-// MountConfig describes configuration to mount a directory
+// ServiceConfig describes configuration to mount a directory
 // on a specific device and filesystem
 //
 // See https://www.freedesktop.org/software/systemd/man/systemd.mount.html
-type MountConfig struct {
+type ServiceConfig struct {
 	// What specifies defines the absolute path of a device node, file or other resource to mount
 	What storage.DeviceName
 	// Where specifies the absolute path of a directory for the mount point

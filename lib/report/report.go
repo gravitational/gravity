@@ -111,6 +111,13 @@ func Cmd(name string, args ...string) Command {
 	return Command{name: name, cmd: cmd, args: args}
 }
 
+// Self returns a reference to this binary.
+// name names the resulting output file.
+// args is the list of optional command line arguments
+func Self(name string, args ...string) Command {
+	return Command{name: name, cmd: utils.Exe.Path, args: args}
+}
+
 // Command defines a generic command with a name and a list of arguments
 type Command struct {
 	name string
