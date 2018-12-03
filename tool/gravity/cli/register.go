@@ -576,6 +576,11 @@ func RegisterCommands(app *kingpin.Application) *Application {
 	g.SystemDisablePromiscModeCmd.CmdClause = g.SystemCmd.Command("disable-promisc-mode", "Remove promiscuous mode flag and deduplication rules").Hidden()
 	g.SystemDisablePromiscModeCmd.Iface = g.SystemDisablePromiscModeCmd.Arg("name", "Name of the interface (i.e. docker0)").Default(defaults.DockerBridge).String()
 
+	g.SystemExportRuntimeJournalCmd.CmdClause = g.SystemCmd.Command("export-runtime-journal", "Export runtime journal logs to a file").Hidden()
+	g.SystemExportRuntimeJournalCmd.OutputFile = g.SystemExportRuntimeJournalCmd.Flag("output", "Name of resulting tarball. Output to stdout if unspecified").String()
+
+	g.SystemStreamRuntimeJournalCmd.CmdClause = g.SystemCmd.Command("stream-runtime-journal", "Stream runtime journal to stdout").Hidden()
+
 	// pruning cluster resources
 	g.GarbageCollectCmd.CmdClause = g.Command("gc", "Prune cluster resources")
 	g.GarbageCollectCmd.Phase = g.GarbageCollectCmd.Flag("phase", "Specific phase to execute").String()

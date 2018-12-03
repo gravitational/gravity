@@ -17,6 +17,7 @@ export ROBOTEST_VERSION=${ROBOTEST_VERSION:-stable-gce}
 export ROBOTEST_REPO=quay.io/gravitational/robotest-suite:$ROBOTEST_VERSION
 export WAIT_FOR_INSTALLER=true
 export INSTALLER_URL=$GRAVITY_BUILDDIR/telekube.tar
+export GRAVITY_URL=$GRAVITY_BUILDDIR/gravity
 export DEPLOY_TO=${DEPLOY_TO:-gce}
 export TAG=$(git rev-parse --short HEAD)
 export GCL_PROJECT_ID=${GCL_PROJECT_ID:-"kubeadm-167321"}
