@@ -190,7 +190,7 @@ func (*VendorSuite) TestGeneratesProperPackageNames(c *C) {
 	}
 
 	imageToPackage := make(map[string]loc.Locator)
-	newName := newRuntimePackage(imageToPackage)
+	newName := newRuntimePackage(imageToPackage, nil)
 	generated := make(map[string]struct{})
 	for _, testCase := range testCases {
 		loc, err := newName(testCase.image)

@@ -9,14 +9,17 @@ Gravity supports the following distributions:
 
 | Linux Distribution        | Version         | Docker Storage Drivers                |
 |--------------------------|-----------------|---------------------------------------|
-| Red Hat Enterprise Linux | 7.2-7.3         | `devicemapper`                        |
-| Red Hat Enterprise Linux | 7.4-7.5         | `devicemapper`, `overlay`, `overlay2` |
-| CentOS                   | 7.2-7.5         | `devicemapper`, `overlay`, `overlay2` |
-| Debian                   | 8-9             | `devicemapper`, `overlay`, `overlay2` |
-| Ubuntu                   | 16.04           | `devicemapper`, `overlay`, `overlay2` |
-| Ubuntu-Core              | 16.04           | `devicemapper`, `overlay`, `overlay2` |
+| Red Hat Enterprise Linux | 7.2-7.3         | `devicemapper`*                        |
+| Red Hat Enterprise Linux | 7.4-7.5         | `devicemapper`*, `overlay`, `overlay2` |
+| CentOS                   | 7.2-7.5         | `devicemapper`*, `overlay`, `overlay2` |
+| Debian                   | 8-9             | `devicemapper`*, `overlay`, `overlay2` |
+| Ubuntu                   | 16.04           | `devicemapper`*, `overlay`, `overlay2` |
+| Ubuntu-Core              | 16.04           | `devicemapper`*, `overlay`, `overlay2` |
 | openSuse                 | 12 SP2 - 12 SP3 | `overlay`, `overlay2`                 |
 | Suse Linux Enterprise    | 12 SP2 - 12 SP3 | `overlay`, `overlay2`                 |
+
+!!! note
+    devicemapper has been deprecated by the docker project, and is not supported by gravity 5.3.4 or later
 
 ### Identifying OS Distributions In Manifest
 
