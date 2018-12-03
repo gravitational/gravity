@@ -81,6 +81,8 @@ type Hooks struct {
 	OverlayInstall *Hook `json:"overlayInstall,omitempty"`
 	// OverlayUpdate is a hook for updating a custom overlay network
 	OverlayUpdate *Hook `json:"overlayUpdate,omitempty"`
+	// OverlayRollback is a hook for rolling back a custom overlay network
+	OverlayRollback *Hook `json:"overlayRollback,omitempty"`
 }
 
 // AllHooks returns all non-nil hooks.
@@ -193,6 +195,8 @@ const (
 	HookOverlayInstall = "overlayInstall"
 	// HookOverlayUpdate defines a hook to update the overlay network
 	HookOverlayUpdate = "overlayUpdate"
+	// HookOverlayRollback defines a hook to rollback the overlay network
+	HookOverlayRollback = "overlayBackup"
 )
 
 // String implements Stringer

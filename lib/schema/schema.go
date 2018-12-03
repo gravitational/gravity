@@ -544,6 +544,14 @@ const manifestSchema = `
                 "type": {"type": "string", "default": "overlayUpdate"},
                 "job": {"type": "string"}
               }
+            },
+            "overlayRollback": {
+              "type": "object",
+              "additionalProperties": false,
+              "properties": {
+                "type": {"type": "string", "default": "overlayRollback"},
+                "job": {"type": "string"}
+              }
             }
           }
         },

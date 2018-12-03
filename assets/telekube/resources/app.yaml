@@ -20,6 +20,9 @@ providers:
       # the current version of gravitational/provisioner supports
       # only us-east-2 region for some reason
       - us-east-2
+  generic:
+    network:
+      type: "wireguard"
 installer:
   setupEndpoints:
     - "Bandwagon"
@@ -188,10 +191,6 @@ hooks:
     job: file://clusterDeprovision.yaml
   preUpdate:
     job: file://preUpdate.yaml
-  overlayInstall:
-    job: file://wormhole-job.yaml
-  overlayUpdate:
-    job: file://wormhole-job.yaml
 systemOptions:
   runtime:
     version: "0.0.0+latest"

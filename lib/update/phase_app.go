@@ -76,7 +76,7 @@ func (p *updatePhaseApp) Execute(ctx context.Context) error {
 		// permissions to launch jobs just yet
 		err = p.createBootstrapResources()
 	} else {
-		err = p.runHooks(ctx, schema.HookUpdate, schema.HookUpdated)
+		err = p.runHooks(ctx, schema.HookOverlayUpdate, schema.HookUpdate, schema.HookUpdated)
 	}
 	if err != nil {
 		return trace.Wrap(err)
@@ -86,7 +86,7 @@ func (p *updatePhaseApp) Execute(ctx context.Context) error {
 
 // Rollback runs rollback/post-rollback hooks for the app
 func (p *updatePhaseApp) Rollback(ctx context.Context) error {
-	err := p.runHooks(ctx, schema.HookRollback, schema.HookRolledBack)
+	err := p.runHooks(ctx, schema.HookRollback, schema.HookRolledBack, schema.HookOverlayRollback)
 	if err != nil {
 		return trace.Wrap(err)
 	}

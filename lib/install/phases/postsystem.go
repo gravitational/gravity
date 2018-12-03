@@ -87,35 +87,11 @@ func (p *waitExecutor) Execute(ctx context.Context) error {
 	case <-ctx.Done():
 		return trace.Wrap(ctx.Err())
 	}
-	/*
-		p.Progress.NextStep("Waiting for the planet to start")
-		p.Info("Waiting for the planet to start.")
-		err := utils.Retry(defaults.RetryInterval, defaults.RetryAttempts,
-			func() error {
-				status, err := status.FromPlanetAgent(ctx, nil)
-				if err != nil {
-					return trace.Wrap(err)
-				}
-				// ideally we'd compare the nodes in the planet status to the plan
-				// servers but simply checking that counts match will work for now
-				if len(status.Nodes) != len(p.Plan.Servers) {
-					return trace.BadParameter("not all planets have come up yet: %v",
-						status)
-				}
-				if status.GetSystemStatus() != agentpb.SystemStatus_Running {
-					return trace.BadParameter("planet is not running yet: %v",
-						status)
-				}
-				return nil
-			})
-		if err != nil {
-			return trace.Wrap(err)
-		}*/
 	p.Info("Kubernetes API is available.")
 	return nil
 }
 
-// waitForAPI tries to query the kubernetes API in a loop until it get's a successful result
+// waitForAPI tries to query the kubernetes API in a loop until it gets a successful result
 func (p *waitExecutor) waitForAPI(ctx context.Context, done chan bool) {
 	timer := time.NewTicker(1 * time.Second)
 	defer timer.Stop()

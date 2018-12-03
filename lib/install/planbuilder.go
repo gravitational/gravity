@@ -271,8 +271,21 @@ func (b *PlanBuilder) AddNodesPhase(plan *storage.OperationPlan) error {
 func (b *PlanBuilder) AddWaitPhase(plan *storage.OperationPlan) {
 	plan.Phases = append(plan.Phases, storage.OperationPhase{
 		ID:          phases.WaitPhase,
-		Description: "Wait for system services to start on all nodes",
+		Description: "Wait for kubernetes to become available",
 		Requires:    fsm.RequireIfPresent(plan, phases.MastersPhase, phases.NodesPhase),
+		Data: &storage.OperationPhaseData{
+			Server: &b.Master,
+		},
+		Step: 4,
+	})
+}
+
+// AddHealthPhase appends phase that waits for the cluster to become healthy
+func (b *PlanBuilder) AddHealthPhase(plan *storage.OperationPlan) {
+	plan.Phases = append(plan.Phases, storage.OperationPhase{
+		ID:          phases.HealthPhase,
+		Description: "Wait for cluster to pass health checks",
+		Requires:    fsm.RequireIfPresent(plan, phases.InstallOverlayPhase, phases.ExportPhase),
 		Data: &storage.OperationPhaseData{
 			Server: &b.Master,
 		},
@@ -337,7 +350,7 @@ func (b *PlanBuilder) AddInstallOverlayPhase(plan *storage.OperationPlan, locato
 			Package:     locator,
 			ServiceUser: &b.ServiceUser,
 		},
-		Requires: fsm.RequireIfPresent(plan, phases.RBACPhase),
+		Requires: fsm.RequireIfPresent(plan, phases.ExportPhase),
 		Step:     4,
 	})
 }

@@ -1066,6 +1066,9 @@ var (
 	// TransientErrorTimeout specifies the maximum amount of time to attempt
 	// an operation experiencing transient errors
 	TransientErrorTimeout = 15 * time.Minute
+
+	// WormholeImg is the docker image reference to use when embedding wormhole
+	WormholeImg = "<build param>"
 )
 
 // HookSecurityContext returns default securityContext for hook pods
