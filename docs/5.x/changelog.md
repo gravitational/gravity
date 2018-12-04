@@ -23,6 +23,46 @@ LTS starts with `3.51.0` with minor backwards compatible changes added over time
 
 ## 5.x Releases
 
+### 5.3.5
+
+#### Bugfixes
+
+* Update Kubernetes to version 1.12.3.
+
+!!! warning
+    Kubernetes 1.12.2 includes fixes for CVE-2018-1002105. Please see
+    [Issue 71411](https://github.com/kubernetes/kubernetes/issues/71411) for more information.
+
+### 5.2.4
+
+#### Bugfixes
+
+* Update Kubernetes to version 1.11.5.
+
+!!! warning
+    Kubernetes 1.12.2 includes fixes for CVE-2018-1002105. Please see
+    [Issue 71411](https://github.com/kubernetes/kubernetes/issues/71411) for more information.
+
+### 5.1.2
+
+#### Bugfixes
+
+* Update Kubernetes to version 1.9.12-gravitational.
+
+!!! warning
+    Gravitational has backported the fix for CVE-2018-1002105 to kubernetes version 1.9.12-gravitational. Please see
+    [Issue 71411](https://github.com/kubernetes/kubernetes/issues/71411) for more information.
+
+### 5.0.25
+
+#### Bugfixes
+
+* Update Kubernetes to version 1.9.12-gravitational.
+
+!!! warning
+    Gravitational has backported the fix for CVE-2018-1002105 to kubernetes version 1.9.12-gravitational. Please see
+    [Issue 71411](https://github.com/kubernetes/kubernetes/issues/71411) for more information.
+
 ### 5.3.4
 
 #### Improvements
