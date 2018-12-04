@@ -110,9 +110,6 @@ cat %v 2> /dev/null || true`
 
 // planetLogs fetches planet syslog messages as well as the fresh journal entries
 func planetLogs() Collectors {
-	const script = `
-#!/bin/bash
-/bin/journalctl --since=yesterday --output=export -D %v | /bin/gzip -f`
 	return Collectors{
 		// Fetch planet syslog messages as a tarball
 		Script("planet-logs.tar.gz", tarball(defaults.InGravity("planet/log/messages*"))),
@@ -120,7 +117,7 @@ func planetLogs() Collectors {
 		// The log can be imported as a journal with systemd-journal-remote:
 		//
 		// $ cat ./node-1-planet-journal-export.log | /lib/systemd/systemd-journal-remote -o ./journal/system.journal -
-		Script("planet-journal-export.log.gz",
-			fmt.Sprintf(script, defaults.InGravity("planet/log/journal"))),
+		Self("planet-journal-export.log.gz",
+			"system", "export-runtime-journal"),
 	}
 }
