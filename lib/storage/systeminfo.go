@@ -443,6 +443,28 @@ type OSUser struct {
 	GID string `json:"gid"`
 }
 
+// ResolvConf describes the system resolv.conf configuration
+type ResolvConf struct {
+	// Servers - Name server IP addresses
+	Servers []string
+	// Domain - Local domain name
+	Domain string
+	// Search list for host-name lookup
+	Search []string
+	// Ndots is the number of dots in name to trigger absolute lookup
+	Ndots int
+	// Timeout is the number of seconds the resolver will wait for a response from the remote server
+	Timeout int
+	// Attempts is the number of times the resolver will send queries before giving up
+	Attempts int
+	// Rotate sets round robin selection of nameservers
+	Rotate bool
+	// UnknownOpt indicates whether we received any unknown options
+	UnknownOpt bool
+	// Lookup is OpenBSD top-level database "lookup" order
+	Lookup []string
+}
+
 func DefaultOSUser() OSUser {
 	return OSUser{
 		defaults.ServiceUser,

@@ -100,6 +100,7 @@ func (i *Installer) GetOperationPlan(cluster ops.Site, op ops.SiteOperation) (*s
 	builder.AddWaitPhase(plan)
 	builder.AddLabelPhase(plan)
 	builder.AddRBACPhase(plan)
+	builder.AddCorednsPhase(plan)
 
 	// if installing a regular app, the resources might have been
 	// provided by a user

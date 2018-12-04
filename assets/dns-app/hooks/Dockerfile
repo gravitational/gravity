@@ -1,4 +1,4 @@
-FROM quay.io/gravitational/rig:0.0.11
+FROM quay.io/gravitational/rig:5.3.1
 
 ARG CHANGESET
 ENV RIG_CHANGESET $CHANGESET

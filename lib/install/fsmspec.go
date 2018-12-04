@@ -81,6 +81,14 @@ func FSMSpec(config FSMConfig) fsm.FSMSpecFunc {
 				config.Operator,
 				config.LocalApps,
 				client)
+		case p.Phase.ID == phases.CorednsPhase:
+			client, err := httplib.GetClusterKubeClient(config.DNSConfig.Addr())
+			if err != nil {
+				return nil, trace.Wrap(err)
+			}
+			return phases.NewCorednsPhase(p,
+				config.Operator,
+				client)
 
 		case p.Phase.ID == phases.ResourcesPhase:
 			return phases.NewResources(p,
