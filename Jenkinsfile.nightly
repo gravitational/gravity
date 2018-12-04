@@ -41,7 +41,8 @@ def sendBuildNotification(String currentBuildResult, String prevousBuildResult, 
   }
   def shouldNotify = currentBuildResult != "STARTED" &&
                      currentBuildResult != "SUCCESS" &&
-                     currentBuildResult != "ABORTED"
+                     currentBuildResult != "ABORTED" ||
+                    (currentBuildResult == "SUCCESS" && previousBuildResult != "SUCCESS")
   if (shouldNotify) {
     slackSend(color: color, message: message)
   }
@@ -49,7 +50,7 @@ def sendBuildNotification(String currentBuildResult, String prevousBuildResult, 
 
 properties([
   disableConcurrentBuilds(),
-  // Schedule a daily build between 6:00am and 6:30am UTC (10:00am-10:30pm PST)
+  // Schedule a daily build between 6:00am and 6:30am UTC (10:00pm-10:30pm PST)
   pipelineTriggers([cron('H(0-30) 06 * * 1-5')]),
   parameters([
     choice(choices: ["run", "skip"].join("\n"),
