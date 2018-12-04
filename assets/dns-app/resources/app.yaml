@@ -5,6 +5,22 @@ metadata:
   resourceVersion: "0.0.0"
   namespace: kube-system
 hooks:
+  install:
+    job: |
+        apiVersion: batch/v1
+        kind: Job
+        metadata:
+          name: dns-app-install
+        spec:
+          template:
+            metadata:
+              name: dns-app-install
+            spec:
+              restartPolicy: OnFailure
+              containers:
+              - name: hooks
+                image: dns-app-hooks:0.0.1
+                args: ["install"]
   update:
       job: |
         apiVersion: batch/v1

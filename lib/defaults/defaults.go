@@ -807,7 +807,10 @@ const (
 	GravityOpsCenterLabel = "gravity-opscenter"
 
 	// KubeDNSLabel defines the label to select cluster DNS service Pods
-	KubeDNSLabel = "kubedns"
+	KubeDNSLabel = "kube-dns"
+
+	// KubeDNSWorkerLabel defines a label to select cluster DNS services on worker nodes
+	KubeDNSWorkerLabel = "kube-dns-worker"
 
 	// ShrinkAgentServiceName specifies the name of the systemd unit file
 	// that executes a shrink agent on a remote node
