@@ -1265,6 +1265,14 @@
   version = "v2.0.1"
 
 [[projects]]
+  digest = "1:0028cb19b2e4c3112225cd871870f2d9cf49b9b4276531f03438a88e94be86fe"
+  name = "github.com/pmezard/go-difflib"
+  packages = ["difflib"]
+  pruneopts = "UT"
+  revision = "792786c7400a136282c1664665ae0a8db921c6c2"
+  version = "v1.0.0"
+
+[[projects]]
   digest = "1:963772912b1d71f582a78a3f55a0e83bbd88777335a07a57cfbe0f01df2df06b"
   name = "github.com/posener/complete"
   packages = [
@@ -1400,6 +1408,14 @@
   ]
   pruneopts = "UT"
   revision = "51ad44105773cafcbe91927f70ac68e1bf78f8b4"
+
+[[projects]]
+  digest = "1:18752d0b95816a1b777505a97f71c7467a8445b8ffb55631a7bf779f6ba4fa83"
+  name = "github.com/stretchr/testify"
+  packages = ["assert"]
+  pruneopts = "UT"
+  revision = "f35b8ab0b5a2cef36673838d662e249dd9c94686"
+  version = "v1.2.2"
 
 [[projects]]
   digest = "1:7c3023016b0d781e856e8cee6cc9b08b31e5ba70bcff9ca5143a9db34e0a24dc"
@@ -1887,6 +1903,7 @@
   analyzer-version = 1
   input-imports = [
     "cloud.google.com/go/compute/metadata",
+    "github.com/alecthomas/template",
     "github.com/aws/aws-sdk-go/aws",
     "github.com/aws/aws-sdk-go/aws/awserr",
     "github.com/aws/aws-sdk-go/aws/credentials",
@@ -1996,6 +2013,7 @@
     "github.com/santhosh-tekuri/jsonschema",
     "github.com/sirupsen/logrus",
     "github.com/sirupsen/logrus/hooks/syslog",
+    "github.com/stretchr/testify/assert",
     "github.com/tstranex/u2f",
     "github.com/vulcand/oxy/forward",
     "github.com/vulcand/predicate",
