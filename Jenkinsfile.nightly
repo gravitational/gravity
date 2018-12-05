@@ -19,7 +19,7 @@ def withBuildResult(Closure body) {
     currentBuild.result = 'FAILURE'
     throw e
   } finally {
-    sendBuildNotification(currentBuild.result, previousBuildResult, env.TOKEN)
+    sendBuildNotification(currentBuild.result, previousBuildResult)
   }
 }
 
@@ -30,9 +30,9 @@ def withBuildResult(Closure body) {
 * See https://github.com/jenkinsci/jenkins/blob/jenkins-2.121.1/core/src/main/java/hudson/model/Result.java
 * for the list of possible values for currentBuild.result.
 */
-def sendBuildNotification(String currentBuildResult, String prevousBuildResult, String token) {
+def sendBuildNotification(String currentBuildResult, String previousBuildResult) {
   currentBuildResult = currentBuildResult ?: "SUCCESS"
-  prevousBuildResult = prevousBuildResult ?: "SUCCESS"
+  previousBuildResult = previousBuildResult ?: "SUCCESS"
 
   def color = "warning"
   def message = "${env.JOB_NAME} ${env.BUILD_NUMBER} (<${env.BUILD_URL}|Open>)"
