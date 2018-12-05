@@ -458,8 +458,8 @@ func (r alertCollection) ToMarshal() interface{} {
 }
 
 // Resources returns the resources collection in the generic format
-func (c alertCollection) Resources() (resources []teleservices.UnknownResource, err error) {
-	for _, item := range c {
+func (r alertCollection) Resources() (resources []teleservices.UnknownResource, err error) {
+	for _, item := range r {
 		resource, err := utils.ToUnknownResource(item)
 		if err != nil {
 			return nil, trace.Wrap(err)
@@ -500,8 +500,8 @@ func (r alertTargetCollection) ToMarshal() interface{} {
 }
 
 // Resources returns the resources collection in the generic format
-func (c alertTargetCollection) Resources() (resources []teleservices.UnknownResource, err error) {
-	for _, item := range c {
+func (r alertTargetCollection) Resources() (resources []teleservices.UnknownResource, err error) {
+	for _, item := range r {
 		resource, err := utils.ToUnknownResource(item)
 		if err != nil {
 			return nil, trace.Wrap(err)
@@ -512,3 +512,42 @@ func (c alertTargetCollection) Resources() (resources []teleservices.UnknownReso
 }
 
 type alertTargetCollection []storage.AlertTarget
+
+// WriteText serializes collection in human-friendly text format
+func (r envCollection) WriteText(w io.Writer) error {
+	t := goterm.NewTable(0, 10, 5, ' ', 0)
+	common.PrintTableHeader(t, []string{"Email"})
+	for k, v := range r.env.GetKeyValues() {
+		fmt.Fprintf(t, "%v=%v\n", k, v)
+	}
+	_, err := io.WriteString(w, t.String())
+	return trace.Wrap(err)
+}
+
+// WriteJSON serializes collection into JSON format
+func (r envCollection) WriteJSON(w io.Writer) error {
+	return utils.WriteJSON(r, w)
+}
+
+// WriteYAML serializes collection into YAML format
+func (r envCollection) WriteYAML(w io.Writer) error {
+	return utils.WriteYAML(r, w)
+}
+
+func (r envCollection) ToMarshal() interface{} {
+	return r.env
+}
+
+// Resources returns the resources collection in the generic format
+func (r envCollection) Resources() (resources []teleservices.UnknownResource, err error) {
+	resource, err := utils.ToUnknownResource(r.env)
+	if err != nil {
+		return nil, trace.Wrap(err)
+	}
+	resources = append(resources, *resource)
+	return resources, nil
+}
+
+type envCollection struct {
+	env storage.Environment
+}

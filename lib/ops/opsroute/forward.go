@@ -650,6 +650,25 @@ func (r *Router) DeleteAlertTarget(key ops.SiteKey) error {
 	return client.DeleteAlertTarget(key)
 }
 
+// GetClusterEnvironment retrieves the cluster environment
+func (r *Router) GetClusterEnvironment(key ops.SiteKey) (storage.Environment, error) {
+	client, err := r.RemoteClient(key.SiteDomain)
+	if err != nil {
+		return nil, trace.Wrap(err)
+	}
+	return client.GetClusterEnvironment(key)
+}
+
+// UpdateClusterEnvironment updates the cluster with the specified environment.
+// Returns the updated environment
+func (r *Router) UpdateClusterEnvironment(req ops.UpdateClusterEnvironmentRequest) error {
+	client, err := r.RemoteClient(req.Key.SiteDomain)
+	if err != nil {
+		return trace.Wrap(err)
+	}
+	return client.UpdateClusterEnvironment(req)
+}
+
 func (r *Router) GetApplicationEndpoints(key ops.SiteKey) ([]ops.Endpoint, error) {
 	client, err := r.RemoteClient(key.SiteDomain)
 	if err != nil {

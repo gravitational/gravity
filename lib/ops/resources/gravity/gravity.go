@@ -207,6 +207,22 @@ func (r *Resources) Create(req resources.CreateRequest) error {
 			return trace.Wrap(err)
 		}
 		r.Printf("Updated monitoring alert target %q\n", target.GetName())
+	case storage.KindEnvironment:
+		env, err := storage.UnmarshalEnvironment(req.Resource.Raw)
+		if err != nil {
+			return trace.Wrap(err)
+		}
+		if err := env.CheckAndSetDefaults(); err != nil {
+			return trace.Wrap(err)
+		}
+		err = r.Operator.UpdateClusterEnvironment(ops.UpdateClusterEnvironmentRequest{
+			Key: r.cluster.Key(),
+			Env: env,
+		})
+		if err != nil {
+			return trace.Wrap(err)
+		}
+		r.Println("Updated cluster environment")
 	case "":
 		return trace.BadParameter("missing resource kind")
 	default:
@@ -335,6 +351,13 @@ func (r *Resources) GetCollection(req resources.ListRequest) (resources.Collecti
 			return nil, trace.Wrap(err)
 		}
 		return alertTargetCollection(alertTargets), nil
+	case storage.KindEnvironment, "environments", "env":
+		// always ignore name parameter for tls key pairs, because there is only one
+		env, err := r.Operator.GetClusterEnvironment(r.cluster.Key())
+		if err != nil {
+			return nil, trace.Wrap(err)
+		}
+		return envCollection{env: env}, nil
 	}
 	return nil, trace.BadParameter("unsupported resource %q, supported are: %v",
 		req.Kind, modules.Get().SupportedResources())

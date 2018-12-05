@@ -117,6 +117,7 @@ type Operator interface {
 	Install
 	Updates
 	Identity
+	Environment
 }
 
 // Accounts represents a collection of accounts in the portal
@@ -455,6 +456,15 @@ type Certificates interface {
 	DeleteClusterCertificate(SiteKey) error
 }
 
+// Envuironment manages cluster environment
+type Environment interface {
+	// GetClusterEnvironment retrieves the cluster environment
+	GetClusterEnvironment(SiteKey) (storage.Environment, error)
+	// UpdateClusterEnvironment updates the cluster environment from the
+	// specified request
+	UpdateClusterEnvironment(UpdateClusterEnvironmentRequest) error
+}
+
 // ClusterCertificate represents the cluster certificate
 type ClusterCertificate struct {
 	// Certificate is the cluster certificate
@@ -497,6 +507,19 @@ func (r UpdateCertificateRequest) Check() error {
 		return trace.Wrap(err, "failed to parse certificate / key pair")
 	}
 	return nil
+}
+
+// Check validates this request
+func (r UpdateClusterEnvironmentRequest) Check() error {
+	return r.Key.Check()
+}
+
+// UpdateClusterEnvironmentRequest describes the request to update cluster environment
+type UpdateClusterEnvironmentRequest struct {
+	// Key identifies the cluster
+	Key SiteKey
+	// Env specifies the new environment
+	Env storage.Environment `json:"env"`
 }
 
 // Leader defines leadership-related operations

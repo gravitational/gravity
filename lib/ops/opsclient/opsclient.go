@@ -1085,6 +1085,37 @@ func (c *Client) DeleteAlertTarget(key ops.SiteKey) error {
 	return trace.Wrap(err)
 }
 
+// GetClusterEnvironment retrieves the cluster environment
+func (c *Client) GetClusterEnvironment(key ops.SiteKey) (storage.Environment, error) {
+	response, err := c.Get(c.Endpoint(
+		"accounts", key.AccountID, "sites", key.SiteDomain, "environment"), url.Values{})
+	if err != nil {
+		return nil, trace.Wrap(err)
+	}
+	var msg json.RawMessage
+	if err = json.Unmarshal(response.Bytes(), &msg); err != nil {
+		return nil, trace.Wrap(err)
+	}
+	env, err := storage.UnmarshalEnvironment(msg)
+	if err != nil {
+		return nil, trace.Wrap(err)
+	}
+	return env, nil
+}
+
+// UpdateClusterEnvironment updates the cluster with the specified environment.
+// Returns the updated environment
+func (c *Client) UpdateClusterEnvironment(req ops.UpdateClusterEnvironmentRequest) error {
+	bytes, err := storage.MarshalEnvironment(req.Env)
+	if err != nil {
+		return trace.Wrap(err)
+	}
+
+	_, err = c.PutJSON(c.Endpoint("accounts", req.Key.AccountID, "sites", req.Key.SiteDomain, "environment"),
+		&UpsertResourceRawReq{Resource: bytes})
+	return trace.Wrap(err)
+}
+
 func (c *Client) GetApplicationEndpoints(key ops.SiteKey) ([]ops.Endpoint, error) {
 	out, err := c.Get(c.Endpoint("accounts", key.AccountID, "sites", key.SiteDomain, "endpoints"), url.Values{})
 	if err != nil {

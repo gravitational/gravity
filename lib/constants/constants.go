@@ -508,6 +508,9 @@ const (
 	// kubernetes, use a lowercase notation instead to make it backwards-compatible
 	ClusterPrivateKeyMapKey = "privatekey"
 
+	// ClusterEnvironmentMap is the name of the ConfigMap that contains cluster environment
+	ClusterEnvironmentMap = "cluster-env"
+
 	// SMTPSecret specifies the name of the Secret with cluster SMTP configuration
 	SMTPSecret = "smtp-configuration-update"
 

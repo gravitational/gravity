@@ -68,7 +68,7 @@ func SetUnschedulable(ctx context.Context, client corev1.NodeInterface, nodeName
 		return nil
 	}
 
-	err = retry(ctx, func() error {
+	err = Retry(ctx, func() error {
 		return trace.Wrap(setUnschedulable(client, nodeName, unschedulable))
 	})
 
@@ -95,7 +95,7 @@ func UpdateTaints(ctx context.Context, client corev1.NodeInterface, nodeName str
 		return nil
 	}
 
-	err = retry(ctx, func() error {
+	err = Retry(ctx, func() error {
 		return trace.Wrap(updateTaints(client, nodeName, newTaints))
 	})
 
@@ -104,7 +104,7 @@ func UpdateTaints(ctx context.Context, client corev1.NodeInterface, nodeName str
 
 // UpdateLabels adds labels on the node specified with nodeName
 func UpdateLabels(ctx context.Context, client corev1.NodeInterface, nodeName string, labels map[string]string) error {
-	err := retry(ctx, func() error {
+	err := Retry(ctx, func() error {
 		return trace.Wrap(updateLabels(client, nodeName, labels))
 	})
 
@@ -239,10 +239,10 @@ func addTaints(oldTaints []v1.Taint, newTaints *[]v1.Taint) bool {
 	return len(oldTaints) != len(*newTaints)
 }
 
-// retry retries the specified function fn using classify to determine
-// whether to retry a particular error.
+// Retry retries the specified function fn using classify to determine
+// whether to Retry a particular error.
 // Returns the first permanent error
-func retry(ctx context.Context, fn func() error) error {
+func Retry(ctx context.Context, fn func() error) error {
 	interval := backoff.NewExponentialBackOff()
 	err := utils.RetryWithInterval(ctx, interval, func() error {
 		err := RetryOnUpdateConflict(fn())
