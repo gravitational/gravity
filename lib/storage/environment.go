@@ -153,16 +153,16 @@ func MarshalEnvironment(env Environment, opts ...teleservices.MarshalOption) ([]
 // EnvironmentSpec defines the environment variable resource
 type EnvironmentSpec struct {
 	// KeyValues specifies the environment
-	KeyValues map[string]string `json:"keyValues"`
+	KeyValues map[string]string `json:"data"`
 }
 
 // EnvironmentSpecSchema is JSON schema for the environment variables resource
 const EnvironmentSpecSchema = `{
   "type": "object",
   "additionalProperties": false,
-  "required": {"keyValues"},
+  "required": ["data"],
   "properties": {
-    "keyValues": {"type": "object"}
+    "data": {"type": "object"}
   }
 }`
 

@@ -516,7 +516,11 @@ type alertTargetCollection []storage.AlertTarget
 // WriteText serializes collection in human-friendly text format
 func (r envCollection) WriteText(w io.Writer) error {
 	t := goterm.NewTable(0, 10, 5, ' ', 0)
-	common.PrintTableHeader(t, []string{"Email"})
+	common.PrintTableHeader(t, []string{"Environment"})
+	if r.env == nil {
+		// Empty
+		return nil
+	}
 	for k, v := range r.env.GetKeyValues() {
 		fmt.Fprintf(t, "%v=%v\n", k, v)
 	}

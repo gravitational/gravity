@@ -246,7 +246,7 @@ func Retry(ctx context.Context, fn func() error) error {
 	interval := backoff.NewExponentialBackOff()
 	err := utils.RetryWithInterval(ctx, interval, func() error {
 		err := RetryOnUpdateConflict(fn())
-		return trace.Wrap(err)
+		return err
 	})
 	return trace.Wrap(err)
 }

@@ -27,6 +27,7 @@ import (
 
 	"github.com/gravitational/rigging"
 	"github.com/gravitational/trace"
+	"k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	corev1 "k8s.io/client-go/kubernetes/typed/core/v1"
 )
@@ -40,7 +41,7 @@ func (o *Operator) GetClusterEnvironment(key ops.SiteKey) (env storage.Environme
 	configmap, err := client.CoreV1().ConfigMaps(defaults.KubeSystemNamespace).
 		Get(constants.ClusterEnvironmentMap, metav1.GetOptions{})
 	if err != nil {
-		return nil, trace.Wrap(rigging.ConvertError(err))
+		return nil, rigging.ConvertError(err)
 	}
 	env = storage.NewEnvironment(configmap.Data)
 	return env, nil
@@ -63,12 +64,29 @@ func (o *Operator) UpdateClusterEnvironment(req ops.UpdateClusterEnvironmentRequ
 func updateClusterEnvironment(client corev1.ConfigMapInterface, keyValues map[string]string) error {
 	configmap, err := client.Get(constants.ClusterEnvironmentMap, metav1.GetOptions{})
 	if err != nil {
-		return trace.Wrap(rigging.ConvertError(err))
+		if !trace.IsNotFound(rigging.ConvertError(err)) {
+			return trace.Wrap(err)
+		}
+		err = rigging.ConvertError(err)
 	}
-	configmap.Data = keyValues
+	if trace.IsNotFound(err) {
+		configmap = &v1.ConfigMap{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      constants.ClusterEnvironmentMap,
+				Namespace: defaults.KubeSystemNamespace,
+			},
+			Data: keyValues,
+		}
+		configmap, err = client.Create(configmap)
+		if err != nil {
+			return trace.Wrap(err)
+		}
+	} else {
+		configmap.Data = keyValues
+	}
 	_, err = client.Update(configmap)
 	if err != nil {
-		return trace.Wrap(rigging.ConvertError(err))
+		return trace.Wrap(err)
 	}
 	return nil
 }

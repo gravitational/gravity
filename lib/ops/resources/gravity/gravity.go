@@ -354,7 +354,7 @@ func (r *Resources) GetCollection(req resources.ListRequest) (resources.Collecti
 	case storage.KindEnvironment, "environments", "env":
 		// always ignore name parameter for tls key pairs, because there is only one
 		env, err := r.Operator.GetClusterEnvironment(r.cluster.Key())
-		if err != nil {
+		if err != nil && !trace.IsNotFound(err) {
 			return nil, trace.Wrap(err)
 		}
 		return envCollection{env: env}, nil
