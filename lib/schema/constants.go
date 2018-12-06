@@ -66,8 +66,12 @@ const (
 	// on GCE
 	GCENodeTags = "gce_node_tags"
 
-	// KindBundle defines a user application type
+	// KindBundle defines an application bundle type (obsoleted by "Cluster")
 	KindBundle = "Bundle"
+	// KindCluster defines a cluster type (former "Bundle")
+	KindCluster = "Cluster"
+	// KindApplication defines a user application type
+	KindApplication = "Application"
 	// KindSystemApplication defines a system application type
 	KindSystemApplication = "SystemApplication"
 	// KindRuntime defines a runtime application type

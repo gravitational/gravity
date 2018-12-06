@@ -101,7 +101,7 @@ func (*waitPlanetExecutor) PostCheck(ctx context.Context) error {
 
 // NewWaitK8s returns executor that waits for Kubernetes node to register
 func NewWaitK8s(p fsm.ExecutorParams, operator ops.Operator, dnsConfig storage.DNSConfig) (*waitK8sExecutor, error) {
-	client, err := httplib.GetUnprivilegedKubeClient(dnsConfig.Addr())
+	client, _, err := httplib.GetUnprivilegedKubeClient(dnsConfig.Addr())
 	if err != nil {
 		return nil, trace.Wrap(err)
 	}

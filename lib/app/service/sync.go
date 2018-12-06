@@ -40,6 +40,7 @@ type SyncRequest struct {
 	AppService   app.Applications
 	ImageService docker.ImageService
 	Package      loc.Locator
+	Progress     utils.Emitter
 }
 
 // SyncApp syncs an application and all its dependencies with registry
@@ -57,6 +58,7 @@ func SyncApp(ctx context.Context, req SyncRequest) error {
 			AppService:   req.AppService,
 			ImageService: req.ImageService,
 			Package:      *base,
+			Progress:     req.Progress,
 		})
 		if err != nil {
 			return trace.Wrap(err)
@@ -70,6 +72,7 @@ func SyncApp(ctx context.Context, req SyncRequest) error {
 			AppService:   req.AppService,
 			ImageService: req.ImageService,
 			Package:      dep.Locator,
+			Progress:     req.Progress,
 		})
 		if err != nil {
 			return trace.Wrap(err)
@@ -117,7 +120,7 @@ func SyncApp(ctx context.Context, req SyncRequest) error {
 
 	log.Infof("Syncing %v.", req.Package)
 
-	if _, err = req.ImageService.Sync(ctx, syncPath); err != nil {
+	if _, err = req.ImageService.Sync(ctx, syncPath, req.Progress); err != nil {
 		return trace.Wrap(err)
 	}
 

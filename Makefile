@@ -51,8 +51,8 @@ MONITORING_APP_TAG ?= 5.2.2
 DNS_APP_TAG = 0.3.0
 BANDWAGON_TAG ?= 5.3.0
 RBAC_APP_TAG := $(GRAVITY_TAG)
-TILLER_VERSION = 2.8.1
-TILLER_APP_TAG = 5.2.1
+TILLER_VERSION = 2.11.0
+TILLER_APP_TAG = 5.5.0
 # set this to true if you want to use locally built planet packages
 DEV_PLANET ?=
 OS := $(shell uname | tr '[:upper:]' '[:lower:]')

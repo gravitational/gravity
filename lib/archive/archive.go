@@ -72,6 +72,25 @@ func CompressDirectory(dir string, writer io.Writer, items ...*Item) error {
 	return nil
 }
 
+// Unpack unpacks the specified tarball to a temporary directory and returns
+// the directory where it was unpacked
+func Unpack(path string) (string, error) {
+	file, err := os.Open(path)
+	if err != nil {
+		return "", trace.Wrap(err)
+	}
+	defer file.Close()
+	tmp, err := ioutil.TempDir("", "")
+	if err != nil {
+		return "", trace.Wrap(err)
+	}
+	err = Extract(file, tmp)
+	if err != nil {
+		return "", trace.Wrap(err)
+	}
+	return tmp, nil
+}
+
 // Extract extracts the contents of the specified tarball under dir.
 // The resulting files and directories are created using the current user context.
 func Extract(r io.Reader, dir string) error {
@@ -88,6 +107,33 @@ func Extract(r io.Reader, dir string) error {
 		if err := extractFile(tarball, header, dir); err != nil {
 			return trace.Wrap(err)
 		}
+	}
+	return nil
+}
+
+// HasFile returns nil if the specified tarball contains specified file
+func HasFile(tarballPath, filename string) error {
+	file, err := os.Open(tarballPath)
+	if err != nil {
+		return trace.ConvertSystemError(err)
+	}
+	defer file.Close()
+	var hasFile bool
+	err = TarGlob(tar.NewReader(file), ".", []string{filename},
+		func(match string, file io.Reader) error {
+			hasFile = true
+			return Abort
+		})
+	if err != nil {
+		if trace.Unwrap(err) == tar.ErrHeader {
+			return trace.BadParameter("file %v does not appear to be a valid tarball",
+				tarballPath)
+		}
+		return trace.Wrap(err)
+	}
+	if !hasFile {
+		return trace.NotFound("tarball %v does not contain file %v",
+			tarballPath, filename)
 	}
 	return nil
 }

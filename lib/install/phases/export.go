@@ -150,7 +150,7 @@ func (p *exportExecutor) exportApp(ctx context.Context, locator loc.Locator) err
 		locator.Name, locator.Version)
 	p.Infof("Exporting application %v:%v to local registry.",
 		locator.Name, locator.Version)
-	_, err := p.ImageService.Sync(ctx, p.registryPath(locator))
+	_, err := p.ImageService.Sync(ctx, p.registryPath(locator), nil)
 	return trace.Wrap(err)
 }
 

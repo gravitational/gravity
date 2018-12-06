@@ -79,5 +79,9 @@ func ping(manager challenge.Manager, endpoint, versionHeader string) error {
 	}
 	defer resp.Body.Close()
 
-	return manager.AddResponse(resp)
+	if err := manager.AddResponse(resp); err != nil {
+		return err
+	}
+
+	return nil
 }

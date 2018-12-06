@@ -5,8 +5,8 @@ import (
 
 	"github.com/docker/distribution"
 	"github.com/docker/distribution/context"
-	"github.com/docker/distribution/digest"
 	storagedriver "github.com/docker/distribution/registry/storage/driver"
+	"github.com/opencontainers/go-digest"
 )
 
 var _ distribution.TagService = &tagStore{}
@@ -122,20 +122,17 @@ func (ts *tagStore) Untag(ctx context.Context, tag string) error {
 		name: ts.repository.Named().Name(),
 		tag:  tag,
 	})
-	if err != nil {
+
+	switch err.(type) {
+	case storagedriver.PathNotFoundError:
+		return distribution.ErrTagUnknown{Tag: tag}
+	case nil:
+		break
+	default:
 		return err
 	}
 
-	if err := ts.blobStore.driver.Delete(ctx, tagPath); err != nil {
-		switch err.(type) {
-		case storagedriver.PathNotFoundError:
-			return nil // Untag is idempotent, we don't care if it didn't exist
-		default:
-			return err
-		}
-	}
-
-	return nil
+	return ts.blobStore.driver.Delete(ctx, tagPath)
 }
 
 // linkedBlobStore returns the linkedBlobStore for the named tag, allowing one
@@ -182,10 +179,6 @@ func (ts *tagStore) Lookup(ctx context.Context, desc distribution.Descriptor) ([
 		tagLinkPath, err := pathFor(tagLinkPathSpec)
 		tagDigest, err := ts.blobStore.readlink(ctx, tagLinkPath)
 		if err != nil {
-			switch err.(type) {
-			case storagedriver.PathNotFoundError:
-				continue
-			}
 			return nil, err
 		}
 

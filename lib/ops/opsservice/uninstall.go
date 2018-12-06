@@ -199,7 +199,7 @@ func (s *site) uninstallUserApp(ctx *operationContext) error {
 		return trace.Wrap(err)
 	}
 
-	command := s.planetGravityCommand("app", "uninstall", userAppPackage.String())
+	command := s.planetGravityCommand("app", "package-uninstall", userAppPackage.String())
 	out, err := runner.Run(master, command...)
 	if err != nil {
 		return trace.Wrap(err)

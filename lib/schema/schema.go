@@ -65,7 +65,8 @@ const manifestSchema = `
             "description": {"type": "string"},
             "author": {"type": "string"},
             "createdTimestamp": {"type": "string"},
-            "hidden": {"type": "boolean"}
+            "hidden": {"type": "boolean"},
+            "labels": {"type": "object"}
           }
         },
 	"logo": {"type": "string"},

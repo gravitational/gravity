@@ -123,8 +123,8 @@ func listApps(env *localenv.LocalEnvironment, repository, appType string, showHi
 	return nil
 }
 
-// uninstallApp uninstalls gravity application from cluster
-func uninstallApp(env *localenv.LocalEnvironment, appPackage loc.Locator) error {
+// uninstallAppPackage uninstalls gravity application from cluster
+func uninstallAppPackage(env *localenv.LocalEnvironment, appPackage loc.Locator) error {
 	apps, err := env.SiteApps()
 	if err != nil {
 		return trace.Wrap(err)

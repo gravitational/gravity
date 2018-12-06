@@ -207,7 +207,48 @@ func RegisterCommands(app *kingpin.Application) *Application {
 	g.RestoreCmd.Timeout = g.RestoreCmd.Flag("timeout", fmt.Sprintf("Maximum time a restore job is active. Defaults to the value from the manifest or %v if unspecified", defaults.HookJobDeadline)).Duration()
 
 	// operations on gravity applications
-	g.AppCmd.CmdClause = g.Command("app", "operations on gravity applications")
+	g.AppCmd.CmdClause = g.Command("app", "Operations with application images and releases.")
+
+	// helm-specific flags
+	g.AppInstallCmd.CmdClause = g.AppCmd.Command("install", "This command installs an application from the specified application image.")
+	g.AppInstallCmd.Image = g.AppInstallCmd.Arg("image", "Specifies application image to install. Can be an image tarball, an unpacked image tarball, or an image name in the form of <name>:<version>.").Required().String()
+	g.AppInstallCmd.Name = g.AppInstallCmd.Flag("name", "Release name. If not specified, will be auto-generated.").String()
+	g.AppInstallCmd.Namespace = g.AppInstallCmd.Flag("namespace", "Namespace to install release into.").Default(defaults.Namespace).String()
+	g.AppInstallCmd.Set = g.AppInstallCmd.Flag("set", "Set values on the command line. Can specify multiple or comma-separated: key1=val1,key2=val2.").Strings()
+	g.AppInstallCmd.Values = g.AppInstallCmd.Flag("values", "Set values from the provided YAML file.").Strings()
+	g.AppInstallCmd.Registry = g.AppInstallCmd.Flag("registry", "Address of Docker registry to push application images to.").String()
+	g.AppInstallCmd.RegistryCA = g.AppInstallCmd.Flag("registry-ca", "Docker registry CA certificate path.").String()
+	g.AppInstallCmd.RegistryCert = g.AppInstallCmd.Flag("registry-cert", "Docker registry client certificate path.").String()
+	g.AppInstallCmd.RegistryKey = g.AppInstallCmd.Flag("registry-key", "Docker registry client private key path.").String()
+
+	g.AppListCmd.CmdClause = g.AppCmd.Command("ls", "This command shows all application releases.")
+
+	g.AppUpgradeCmd.CmdClause = g.AppCmd.Command("upgrade", "This command upgrades a release using the specified application image.")
+	g.AppUpgradeCmd.Release = g.AppUpgradeCmd.Arg("release", "Release name to upgrade.").Required().String()
+	g.AppUpgradeCmd.Image = g.AppUpgradeCmd.Arg("image", "Specifies application image to install. Can be an image tarball, an unpacked image tarball, or an image name in the form of <name>:<version>.").Required().String()
+	g.AppUpgradeCmd.Set = g.AppUpgradeCmd.Flag("set", "Set values on the command line. Can specify multiple or comma-separated: key1=val1,key2=val2.").Strings()
+	g.AppUpgradeCmd.Values = g.AppUpgradeCmd.Flag("values", "Set values from the provided YAML file.").Strings()
+	g.AppUpgradeCmd.Registry = g.AppUpgradeCmd.Flag("registry", "Address of Docker registry to push application images to.").String()
+	g.AppUpgradeCmd.RegistryCA = g.AppUpgradeCmd.Flag("registry-ca", "Docker registry CA certificate path.").String()
+	g.AppUpgradeCmd.RegistryCert = g.AppUpgradeCmd.Flag("registry-cert", "Docker registry client certificate path.").String()
+	g.AppUpgradeCmd.RegistryKey = g.AppUpgradeCmd.Flag("registry-key", "Docker registry client private key path.").String()
+
+	g.AppRollbackCmd.CmdClause = g.AppCmd.Command("rollback", "This command rolls back a release.")
+	g.AppRollbackCmd.Release = g.AppRollbackCmd.Arg("release", "Release name to rollback.").Required().String()
+	g.AppRollbackCmd.Revision = g.AppRollbackCmd.Arg("revision", "Version number to rollback to.").Required().Int()
+
+	g.AppUninstallCmd.CmdClause = g.AppCmd.Command("uninstall", "This command uninstalls a release.")
+	g.AppUninstallCmd.Release = g.AppUninstallCmd.Arg("release", "Release name to uninstall.").Required().String()
+
+	g.AppHistoryCmd.CmdClause = g.AppCmd.Command("history", "This command displays revision history for a release.")
+	g.AppHistoryCmd.Release = g.AppHistoryCmd.Arg("release", "Release name to display revisions for.").Required().String()
+
+	g.AppSyncCmd.CmdClause = g.AppCmd.Command("sync", "This command synchronizes an application image with a cluster.")
+	g.AppSyncCmd.Image = g.AppSyncCmd.Arg("image", "Specifies application image to install. Can be an image tarball, an unpacked image tarball, or an image name in the form of <name>:<version>.").Required().String()
+	g.AppSyncCmd.Registry = g.AppSyncCmd.Flag("registry", "Address of Docker registry to push application images to.").String()
+	g.AppSyncCmd.RegistryCA = g.AppSyncCmd.Flag("registry-ca", "Docker registry CA certificate path.").String()
+	g.AppSyncCmd.RegistryCert = g.AppSyncCmd.Flag("registry-cert", "Docker registry client certificate path.").String()
+	g.AppSyncCmd.RegistryKey = g.AppSyncCmd.Flag("registry-key", "Docker registry client private key path.").String()
 
 	// import gravity application
 	g.AppImportCmd.CmdClause = g.AppCmd.Command("import", "Import application into gravity").Hidden()
@@ -241,15 +282,15 @@ func RegisterCommands(app *kingpin.Application) *Application {
 	g.AppDeleteCmd.Force = g.AppDeleteCmd.Flag("force", "do not produce error if app does not exist").Bool()
 
 	// list installed apps
-	g.AppListCmd.CmdClause = g.AppCmd.Command("list", "list installed applications").Hidden()
-	g.AppListCmd.Repository = g.AppListCmd.Arg("repo", "list applications in the specified repository").String()
-	g.AppListCmd.Type = g.AppListCmd.Flag("type", "restrict applications to the specified type").String()
-	g.AppListCmd.ShowHidden = g.AppListCmd.Flag("hidden", "show hidden apps too").Hidden().Bool()
-	g.AppListCmd.OpsCenterURL = g.AppListCmd.Flag("ops-url", "optional remote Ops Center URL").String()
+	g.AppPackageListCmd.CmdClause = g.AppCmd.Command("package-list", "list installed applications").Hidden()
+	g.AppPackageListCmd.Repository = g.AppPackageListCmd.Arg("repo", "list applications in the specified repository").String()
+	g.AppPackageListCmd.Type = g.AppPackageListCmd.Flag("type", "restrict applications to the specified type").String()
+	g.AppPackageListCmd.ShowHidden = g.AppPackageListCmd.Flag("hidden", "show hidden apps too").Hidden().Bool()
+	g.AppPackageListCmd.OpsCenterURL = g.AppPackageListCmd.Flag("ops-url", "optional remote Ops Center URL").String()
 
 	// uninstall app
-	g.AppUninstallCmd.CmdClause = g.AppCmd.Command("uninstall", "uninstall application").Hidden()
-	g.AppUninstallCmd.Locator = Locator(g.AppUninstallCmd.Arg("pkg", "package name with application").Required())
+	g.AppPackageUninstallCmd.CmdClause = g.AppCmd.Command("package-uninstall", "uninstall application").Hidden()
+	g.AppPackageUninstallCmd.Locator = Locator(g.AppPackageUninstallCmd.Arg("pkg", "package name with application").Required())
 
 	// get status of an application
 	g.AppStatusCmd.CmdClause = g.AppCmd.Command("status", "get app status").Hidden()

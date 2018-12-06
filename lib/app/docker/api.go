@@ -19,6 +19,7 @@ package docker
 import (
 	"github.com/docker/distribution/context"
 	dockerapi "github.com/fsouza/go-dockerclient"
+	"github.com/gravitational/gravity/lib/utils"
 )
 
 // DockerInterfaces defines an interface to docker
@@ -45,7 +46,7 @@ type DockerInterface interface {
 type ImageService interface {
 	// Sync synchronizes the contents of dir with this private docker registry
 	// Returns the list of images synced
-	Sync(ctx context.Context, dir string) ([]TagSpec, error)
+	Sync(ctx context.Context, dir string, progress utils.Emitter) ([]TagSpec, error)
 
 	// Wrap translates the specified image name to point to the private registry.
 	Wrap(image string) string
@@ -53,6 +54,9 @@ type ImageService interface {
 	// Unwrap translates the specified image name to point to the original repository
 	// if it's prefixed with this registry address - functional inverse of Wrap
 	Unwrap(image string) string
+
+	// Registry returns the registry address for this image service
+	Registry() string
 }
 
 // DockerPuller defines an interface to pull images

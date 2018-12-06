@@ -135,7 +135,7 @@ func applicationType(manifest *schema.Manifest) (storage.AppType, error) {
 		return storage.AppService, nil
 	case schema.KindRuntime:
 		return storage.AppRuntime, nil
-	case schema.KindBundle:
+	case schema.KindBundle, schema.KindCluster, schema.KindApplication:
 		return storage.AppUser, nil
 	}
 	return "", trace.BadParameter("unknown application type: %v", manifest.Kind)

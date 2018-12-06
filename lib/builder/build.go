@@ -24,6 +24,8 @@ import (
 	"runtime"
 
 	"github.com/gravitational/gravity/lib/constants"
+	"github.com/gravitational/gravity/lib/schema"
+	"github.com/gravitational/gravity/lib/utils"
 
 	docker "github.com/fsouza/go-dockerclient"
 	"github.com/gravitational/trace"
@@ -46,22 +48,32 @@ func Build(ctx context.Context, builder *Builder) error {
 		}
 	}
 
-	builder.NextStep("Selecting application runtime")
-	runtimeVersion, err := builder.SelectRuntime()
-	if err != nil {
-		return trace.Wrap(err)
+	switch builder.Manifest.Kind {
+	case schema.KindBundle, schema.KindCluster:
+		builder.Config.Progress = utils.NewProgress(ctx, "Build", 6, builder.Config.Silent)
+	case schema.KindApplication:
+		builder.Config.Progress = utils.NewProgress(ctx, "Build", 4, builder.Config.Silent)
 	}
 
-	if !builder.SkipVersionCheck {
-		err := builder.checkVersion(runtimeVersion)
+	switch builder.Manifest.Kind {
+	case schema.KindBundle, schema.KindCluster:
+		builder.NextStep("Selecting application runtime")
+		runtimeVersion, err := builder.SelectRuntime()
 		if err != nil {
 			return trace.Wrap(err)
 		}
-	}
 
-	err = builder.SyncPackageCache(runtimeVersion)
-	if err != nil {
-		return trace.Wrap(err)
+		if !builder.SkipVersionCheck {
+			err := builder.checkVersion(runtimeVersion)
+			if err != nil {
+				return trace.Wrap(err)
+			}
+		}
+
+		err = builder.SyncPackageCache(runtimeVersion)
+		if err != nil {
+			return trace.Wrap(err)
+		}
 	}
 
 	builder.NextStep("Embedding application container images")
@@ -76,7 +88,7 @@ func Build(ctx context.Context, builder *Builder) error {
 	}
 	defer stream.Close()
 
-	builder.NextStep("Using runtime version %s", runtimeVersion)
+	builder.NextStep("Creating application")
 	application, err := builder.CreateApplication(stream)
 	if err != nil {
 		return trace.Wrap(err)
