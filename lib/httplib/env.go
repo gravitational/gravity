@@ -24,7 +24,8 @@ import (
 	log "github.com/sirupsen/logrus"
 )
 
-// InKubernetes returns true if a Kubernetes client can be created.
+// InKubernetes returns true if the current context is inside
+// a Kubernetes cluster.
 func InKubernetes() bool {
 	_, _, err := utils.GetLocalKubeClient()
 	return err == nil

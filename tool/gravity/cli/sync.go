@@ -134,7 +134,7 @@ func appSyncEnv(env *localenv.LocalEnvironment, imageEnv *localenv.ImageEnvironm
 			return trace.Wrap(err)
 		}
 	} else {
-		return trace.BadParameter("Did not detect Gravity/Kubernetes cluster.")
+		return trace.BadParameter("not inside a Kubernetes cluster")
 	}
 	return nil
 }

@@ -210,7 +210,7 @@ func RegisterCommands(app *kingpin.Application) *Application {
 	g.AppCmd.CmdClause = g.Command("app", "Operations with application images and releases.")
 
 	// helm-specific flags
-	g.AppInstallCmd.CmdClause = g.AppCmd.Command("install", "This command installs an application from the specified application image.")
+	g.AppInstallCmd.CmdClause = g.AppCmd.Command("install", "Install an application from the specified application image.")
 	g.AppInstallCmd.Image = g.AppInstallCmd.Arg("image", "Specifies application image to install. Can be an image tarball, an unpacked image tarball, or an image name in the form of <name>:<version>.").Required().String()
 	g.AppInstallCmd.Name = g.AppInstallCmd.Flag("name", "Release name. If not specified, will be auto-generated.").String()
 	g.AppInstallCmd.Namespace = g.AppInstallCmd.Flag("namespace", "Namespace to install release into.").Default(defaults.Namespace).String()
@@ -221,9 +221,9 @@ func RegisterCommands(app *kingpin.Application) *Application {
 	g.AppInstallCmd.RegistryCert = g.AppInstallCmd.Flag("registry-cert", "Docker registry client certificate path.").String()
 	g.AppInstallCmd.RegistryKey = g.AppInstallCmd.Flag("registry-key", "Docker registry client private key path.").String()
 
-	g.AppListCmd.CmdClause = g.AppCmd.Command("ls", "This command shows all application releases.")
+	g.AppListCmd.CmdClause = g.AppCmd.Command("ls", "Show all application releases.")
 
-	g.AppUpgradeCmd.CmdClause = g.AppCmd.Command("upgrade", "This command upgrades a release using the specified application image.")
+	g.AppUpgradeCmd.CmdClause = g.AppCmd.Command("upgrade", "Upgrade a release using the specified application image.")
 	g.AppUpgradeCmd.Release = g.AppUpgradeCmd.Arg("release", "Release name to upgrade.").Required().String()
 	g.AppUpgradeCmd.Image = g.AppUpgradeCmd.Arg("image", "Specifies application image to install. Can be an image tarball, an unpacked image tarball, or an image name in the form of <name>:<version>.").Required().String()
 	g.AppUpgradeCmd.Set = g.AppUpgradeCmd.Flag("set", "Set values on the command line. Can specify multiple or comma-separated: key1=val1,key2=val2.").Strings()
@@ -233,17 +233,17 @@ func RegisterCommands(app *kingpin.Application) *Application {
 	g.AppUpgradeCmd.RegistryCert = g.AppUpgradeCmd.Flag("registry-cert", "Docker registry client certificate path.").String()
 	g.AppUpgradeCmd.RegistryKey = g.AppUpgradeCmd.Flag("registry-key", "Docker registry client private key path.").String()
 
-	g.AppRollbackCmd.CmdClause = g.AppCmd.Command("rollback", "This command rolls back a release.")
+	g.AppRollbackCmd.CmdClause = g.AppCmd.Command("rollback", "Rollback a release.")
 	g.AppRollbackCmd.Release = g.AppRollbackCmd.Arg("release", "Release name to rollback.").Required().String()
 	g.AppRollbackCmd.Revision = g.AppRollbackCmd.Arg("revision", "Version number to rollback to.").Required().Int()
 
-	g.AppUninstallCmd.CmdClause = g.AppCmd.Command("uninstall", "This command uninstalls a release.")
+	g.AppUninstallCmd.CmdClause = g.AppCmd.Command("uninstall", "Uninstall a release.")
 	g.AppUninstallCmd.Release = g.AppUninstallCmd.Arg("release", "Release name to uninstall.").Required().String()
 
-	g.AppHistoryCmd.CmdClause = g.AppCmd.Command("history", "This command displays revision history for a release.")
+	g.AppHistoryCmd.CmdClause = g.AppCmd.Command("history", "Display revision history for a release.")
 	g.AppHistoryCmd.Release = g.AppHistoryCmd.Arg("release", "Release name to display revisions for.").Required().String()
 
-	g.AppSyncCmd.CmdClause = g.AppCmd.Command("sync", "This command synchronizes an application image with a cluster.")
+	g.AppSyncCmd.CmdClause = g.AppCmd.Command("sync", "Synchronize an application image with a cluster.")
 	g.AppSyncCmd.Image = g.AppSyncCmd.Arg("image", "Specifies application image to install. Can be an image tarball, an unpacked image tarball, or an image name in the form of <name>:<version>.").Required().String()
 	g.AppSyncCmd.Registry = g.AppSyncCmd.Flag("registry", "Address of Docker registry to push application images to.").String()
 	g.AppSyncCmd.RegistryCA = g.AppSyncCmd.Flag("registry-ca", "Docker registry CA certificate path.").String()

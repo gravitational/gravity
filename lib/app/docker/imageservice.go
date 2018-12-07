@@ -132,11 +132,6 @@ type imageService struct {
 	remoteStore *remoteStore
 }
 
-// Registry returns the registy address of this image service
-func (r *imageService) Registry() string {
-	return r.RegistryAddress
-}
-
 // Sync synchronizes the contents of the local directory specified with dir
 // with the contents of the remote registry.
 // dir is expected to be in docker registry 2.x format.
@@ -207,16 +202,12 @@ func (r *imageService) Sync(ctx context.Context, dir string, progress utils.Emit
 			// remote registry either does not have this reference, or it is
 			// different from the local one
 			if remoteManifest == nil || !compareManifests(localManifest, remoteManifest) {
-				if progress != nil {
-					progress.PrintStep("Pushing image %s", tagSpec)
-				}
+				progress.PrintStep("Pushing image %s", tagSpec)
 				if err = r.remoteStore.updateRepo(ctx, remoteRepo, localRepo, localManifest, tag); err != nil {
 					return nil, trace.Wrap(err, "failed to update remote for tag %q", tagSpec)
 				}
 			} else {
-				if progress != nil {
-					progress.PrintStep("Image %s is up-to-date", tagSpec)
-				}
+				progress.PrintStep("Image %s is up-to-date", tagSpec)
 			}
 			installedTags = append(installedTags, tagSpec)
 		}

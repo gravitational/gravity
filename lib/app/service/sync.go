@@ -43,6 +43,14 @@ type SyncRequest struct {
 	Progress     utils.Emitter
 }
 
+// CheckAndSetDefaults validates the request and sets some defaults.
+func (r *SyncRequest) CheckAndSetDefaults() error {
+	if r.Progress == nil {
+		r.Progress = utils.NopEmitter()
+	}
+	return nil
+}
+
 // SyncApp syncs an application and all its dependencies with registry
 func SyncApp(ctx context.Context, req SyncRequest) error {
 	application, err := req.AppService.GetApp(req.Package)

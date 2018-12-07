@@ -19,8 +19,8 @@ An application image is a tarball that contains:
     machine where application images are built, or in a cluster. A cluser
     needs to have `tiller` server (Helm's server component) running though.
 
-To check the embedded Helm version, run `tele version` or `gravity version`
-command:
+Both  `tele version` and `gravity version` commands report the embedded Helm
+version:
 
 ```bsh
 $ tele version
@@ -32,8 +32,8 @@ Helm Version: v2.12
 
 ### Build an Application Image
 
-For this example we will be using a [sample Helm chart](https://github.com/helm/helm/tree/master/docs/examples/alpine)
-found among Helm examples. This chart spins up a single pod of Alpine Linux:
+For this example we will be using a [sample Helm chart](https://github.com/helm/helm/tree/master/docs/examples/alpine).
+This chart spins up a single pod of Alpine Linux:
 
 ```bsh
 $ tree alpine
@@ -46,7 +46,7 @@ alpine
 └── values.yaml
 ```
 
-To make it work as an application image, we need to make sure that the pod's
+Before building an application image, we need to make sure that the pod's
 image reference includes a registry template variable which can be set to
 an appropriate registry during installation:
 
@@ -60,7 +60,7 @@ We can now use `tele` to build an application image from this chart:
 $ tele build alpine
 ```
 
-The output is a tarball `alpine-0.1.0.tar` which includes a packaged Helm
+The result is a tarball `alpine-0.1.0.tar` which includes a packaged Helm
 chart and the Alpine image layers.
 
 ### Install a Release
@@ -77,7 +77,7 @@ application to the local cluster controller which will keep the images
 synchonized with the local Docker registries.
 
 When deploying into a generic Kubernetes cluster, the install command needs
-to know where to push the images to and where the chart resources will pull
+to know where to push the images and where the chart resources should pull
 them from:
 
 ```bsh
@@ -86,7 +86,7 @@ $ gravity app install alpine-0.1.0.tar \
     --set image.registry=10.103.27.132:5000/
 ```
 
-Gravity uses embedded Helm for all application lifecycle management which
+Gravity manages application lifecycle using the embedded Helm which
 means that it creates a "release" for each deployed application image. The
 same application image can be installed into a cluster multiple times,
 and a new release will be created to track each installation.
@@ -115,14 +115,15 @@ $ gravity app upgrade falling-horse alpine-0.2.0.tar \
     --set image.registry=10.103.27.132:5000/
 ```
 
-Similar to the install, registry address will be detected automatically
-when running in a Gravity cluster.
+Similar to the install, registry flags need to be provided only when installing
+in a generic Kubernetes cluster. When running in a Gravity cluster, application
+will be synced with the local cluster registries automatically.
 
 ### Rollback a Release
 
 Each release has an incrementing version number which is bumped every time
 a release is upgraded. To rollback a release, first find out the revision
-number it should be rolled back to:
+number to roll back to:
 
 ```bsh
 $ gravity app history falling-horse
@@ -131,7 +132,7 @@ Revision    Chart           Status      Updated                  Description
 1           alpine-0.1.0    SUPERSEDED  Thu Dec  6 21:13:14 UTC  Install complete
 ```
 
-After determining the version, perform a rollback:
+Then rollback to a given revision:
 
 ```bsh
 $ gravity app rollback falling-horse 1
@@ -139,7 +140,7 @@ $ gravity app rollback falling-horse 1
 
 ### Uninstall a Release
 
-To uninstall a release, execute the uninstall command:
+To uninstall a release, execute an uninstall command:
 
 ```bsh
 $ gravity app uninstall falling-horse

@@ -33,6 +33,7 @@ import (
 	"k8s.io/helm/pkg/proto/hapi/release"
 
 	"github.com/gravitational/trace"
+	"github.com/sirupsen/logrus"
 )
 
 // Client is the Helm client.
@@ -71,7 +72,7 @@ func NewClient(conf ClientConfig) (*Client, error) {
 type InstallParameters struct {
 	// Path is the Helm chart path.
 	Path string
-	// Values is a list YAML files with values.
+	// Values is a list of YAML files with values.
 	Values []string
 	// Set is a list of values set on the CLI.
 	Set []string
@@ -101,7 +102,7 @@ func (c *Client) Install(p InstallParameters) (*Release, error) {
 	return fromHelm(response.GetRelease()), nil
 }
 
-// ListParameters defines releases list parameters.
+// ListParameters defines parameters for listing releases.
 type ListParameters struct {
 	// Filter is an optional release name filter as a perl regex.
 	Filter string
@@ -200,7 +201,7 @@ func (c *Client) Uninstall(name string) (*Release, error) {
 // Revisions returns revision history for a release with the provided name.
 func (c *Client) Revisions(name string) ([]Release, error) {
 	response, err := c.client.ReleaseHistory(name,
-		helm.WithMaxHistory(256))
+		helm.WithMaxHistory(maxHistory))
 	if err != nil {
 		return nil, trace.Wrap(err)
 	}
@@ -227,6 +228,7 @@ func (c *Client) Close() error {
 func getKubeClient(dnsAddress string) (*kubernetes.Clientset, *rest.Config, error) {
 	err := httplib.InGravity(dnsAddress)
 	if err != nil {
+		logrus.Infof("Not in Gravity: %v.", err)
 		return utils.GetLocalKubeClient()
 	}
 	kubeClient, kubeConfig, err := httplib.GetClusterKubeClient(dnsAddress)
@@ -246,3 +248,6 @@ var statuses = []release.Status_Code{
 	release.Status_DEPLOYED,
 	release.Status_FAILED,
 }
+
+// maxHistory is the how many history revisions are returned.
+const maxHistory = 256

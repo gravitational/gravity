@@ -141,7 +141,7 @@ func New(config Config) (*Builder, error) {
 	}
 	fi, err := os.Stat(config.ManifestPath)
 	if err != nil {
-		return nil, trace.Wrap(err)
+		return nil, trace.ConvertSystemError(err)
 	}
 	var manifest *schema.Manifest
 	if fi.IsDir() {
@@ -149,6 +149,9 @@ func New(config Config) (*Builder, error) {
 		// and generate a basic application manifest.
 		fi, err := os.Stat(filepath.Join(config.ManifestPath, constants.HelmChartFile))
 		if err != nil || fi.IsDir() {
+			if err != nil {
+				logrus.Warn(err)
+			}
 			return nil, trace.BadParameter("not a chart directory")
 		}
 		chart, err := chartutil.Load(config.ManifestPath)
@@ -167,7 +170,7 @@ func New(config Config) (*Builder, error) {
 		manifest, err = schema.ParseManifestYAMLNoValidate(manifestBytes)
 		if err != nil {
 			logrus.Errorf(trace.DebugReport(err))
-			return nil, trace.BadParameter("Could not parse the application manifest:\n%v",
+			return nil, trace.BadParameter("could not parse the application manifest:\n%v",
 				trace.Unwrap(err)) // show original parsing error
 		}
 	}
@@ -280,7 +283,10 @@ func (b *Builder) Vendor(ctx context.Context, dir string) (io.ReadCloser, error)
 		return nil, trace.Wrap(err)
 	}
 	manifestPath := filepath.Join(dir, defaults.ResourcesDir, "app.yaml")
-	if b.manifestFilename == "" { // was generated
+	// If manifest filename is empty, it means it was auto-generated
+	// out of a Helm chart so write the generated manifest to the
+	// vendor directory as well.
+	if b.manifestFilename == "" {
 		data, err := yaml.Marshal(b.Manifest)
 		if err != nil {
 			return nil, trace.Wrap(err)
@@ -441,6 +447,9 @@ func (b *Builder) getSyncer() (Syncer, error) {
 //
 // Versions are compatible when they have equal major and minor components.
 func (b *Builder) checkVersion(runtimeVersion *semver.Version) error {
+	if b.SkipVersionCheck {
+		return nil
+	}
 	teleVersion, err := semver.NewVersion(version.Get().Version)
 	if err != nil {
 		return trace.Wrap(err, "failed to determine tele version")
@@ -458,7 +467,6 @@ To remedy the issue you can do one of the following:
 See https://gravitational.com/telekube/docs/pack/#sample-application-manifest for details on how to specify runtime in manifest.
 `, teleVersion, runtimeVersion, runtimeVersion.Major, runtimeVersion.Minor, teleVersion.Major, teleVersion.Minor)
 	}
-
 	b.Debugf("Version check passed; tele version: %v, runtime version: %v.",
 		teleVersion, runtimeVersion)
 	return nil

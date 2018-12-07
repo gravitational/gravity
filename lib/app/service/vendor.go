@@ -630,7 +630,7 @@ func resourceFromChart(path string) (*resources.Resource, error) {
 	if err != nil {
 		return nil, trace.Wrap(err)
 	}
-	log.Debug(string(out))
+	log.WithField("path", path).Debug(string(out))
 	return resources.Decode(bytes.NewReader(out), resources.SkipUnrecognized())
 }
 

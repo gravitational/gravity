@@ -66,6 +66,9 @@ func Render(p RenderParameters) ([]byte, error) {
 	var b bytes.Buffer
 	for _, m := range manifest.SplitManifests(renderedTemplates) {
 		filename := filepath.Base(m.Name)
+		// Render only Kubernetes resources skipping internal Helm
+		// files and files that begin with underscore which are not
+		// expected to output a Kubernetes spec.
 		if filename == "NOTES.txt" || strings.HasPrefix(filename, "_") {
 			continue
 		}

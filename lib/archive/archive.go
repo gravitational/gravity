@@ -74,15 +74,15 @@ func CompressDirectory(dir string, writer io.Writer, items ...*Item) error {
 
 // Unpack unpacks the specified tarball to a temporary directory and returns
 // the directory where it was unpacked
-func Unpack(path string) (string, error) {
+func Unpack(path string) (unpackedDir string, err error) {
 	file, err := os.Open(path)
 	if err != nil {
-		return "", trace.Wrap(err)
+		return "", trace.ConvertSystemError(err)
 	}
 	defer file.Close()
 	tmp, err := ioutil.TempDir("", "")
 	if err != nil {
-		return "", trace.Wrap(err)
+		return "", trace.ConvertSystemError(err)
 	}
 	err = Extract(file, tmp)
 	if err != nil {

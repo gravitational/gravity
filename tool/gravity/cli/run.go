@@ -242,7 +242,8 @@ func Execute(g *Application, cmd string, extraArgs []string) error {
 		g.AppHistoryCmd.FullCommand():
 		if err := httplib.InGravity(localEnv.DNS.Addr()); err != nil {
 			if !httplib.InKubernetes() {
-				return trace.BadParameter("not in Kubernetes")
+				return trace.BadParameter("this command must be executed " +
+					"inside a Kubernetes cluster")
 			}
 		}
 	}

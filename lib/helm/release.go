@@ -36,6 +36,8 @@ type Release struct {
 	// Updated is when a release was last updated.
 	Updated time.Time
 	// Revision is a release version number.
+	//
+	// It begins at 1 and is incremented for each upgrade/rollback.
 	Revision int
 	// Description is a release description.
 	Description string

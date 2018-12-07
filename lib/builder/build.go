@@ -50,9 +50,11 @@ func Build(ctx context.Context, builder *Builder) error {
 
 	switch builder.Manifest.Kind {
 	case schema.KindBundle, schema.KindCluster:
-		builder.Config.Progress = utils.NewProgress(ctx, "Build", 6, builder.Config.Silent)
+		builder.Config.Progress = utils.NewProgress(ctx, "Build",
+			clusterBuildSteps, builder.Config.Silent)
 	case schema.KindApplication:
-		builder.Config.Progress = utils.NewProgress(ctx, "Build", 4, builder.Config.Silent)
+		builder.Config.Progress = utils.NewProgress(ctx, "Build",
+			appBuildSteps, builder.Config.Silent)
 	}
 
 	switch builder.Manifest.Kind {
@@ -62,14 +64,10 @@ func Build(ctx context.Context, builder *Builder) error {
 		if err != nil {
 			return trace.Wrap(err)
 		}
-
-		if !builder.SkipVersionCheck {
-			err := builder.checkVersion(runtimeVersion)
-			if err != nil {
-				return trace.Wrap(err)
-			}
+		err = builder.checkVersion(runtimeVersion)
+		if err != nil {
+			return trace.Wrap(err)
 		}
-
 		err = builder.SyncPackageCache(runtimeVersion)
 		if err != nil {
 			return trace.Wrap(err)
@@ -131,3 +129,10 @@ func checkBuildEnv() error {
 	}
 	return nil
 }
+
+const (
+	// clusterBuildSteps is a number of steps when building a cluster image.
+	clusterBuildSteps = 6
+	// appBuildSteps is a number of steps when building an app image.
+	appBuildSteps = 4
+)
