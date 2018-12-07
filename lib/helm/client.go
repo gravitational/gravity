@@ -220,11 +220,12 @@ func (c *Client) Close() error {
 	return nil
 }
 
-// getKubeClient returns Kubernetes client (and its config) for the provided
-// environment.
+// getKubeClient returns a cluster's Kubernetes client and its config.
 //
-// When invoked inside a Gravity cluster, returns the cluster client. Otherwise,
-// returns a client based on the default kubeconfig.
+// When invoked inside a Gravity cluster, returns the cluster client. The
+// dnsAddress parameter specifies the address of in-cluster DNS.
+//
+// Otherwise, returns a client based on the default kubeconfig.
 func getKubeClient(dnsAddress string) (*kubernetes.Clientset, *rest.Config, error) {
 	err := httplib.InGravity(dnsAddress)
 	if err != nil {

@@ -30,7 +30,9 @@ import (
 // vals merges values from files specified via -f/--values and directly via
 // --set or --set-string or --set-file, marshaling them to YAML.
 //
-// This function was copied from Helm.
+// This function was copied from Helm:
+//
+// https://github.com/helm/helm/blob/v2.12.0/cmd/helm/install.go#L363
 func vals(valueFiles valueFiles, values []string, stringValues []string, fileValues []string, CertFile, KeyFile, CAFile string) ([]byte, error) {
 	base := map[string]interface{}{}
 
@@ -88,7 +90,9 @@ func vals(valueFiles valueFiles, values []string, stringValues []string, fileVal
 // mergeValues merges source and destination map, preferring values from the
 // source map.
 //
-// This function was copied from Helm.
+// This function was copied from Helm:
+//
+// https://github.com/helm/helm/blob/v2.12.0/cmd/helm/install.go#L335
 func mergeValues(dest map[string]interface{}, src map[string]interface{}) map[string]interface{} {
 	for k, v := range src {
 		// If the key doesn't exist already, then just set the key to that value

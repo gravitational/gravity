@@ -15,9 +15,10 @@ An application image is a tarball that contains:
 
 !!! tip:
     The `tele` and `gravity` binaries have all required Helm functionality
-    built-in so you don't have to have the `helm` binary installed on the
-    machine where application images are built, or in a cluster. A cluser
-    needs to have `tiller` server (Helm's server component) running though.
+    built-in so the `helm` binary isn't required to be installed on the
+    server when building applications, or inside a deployed cluster. The
+    `tiller` server (Helm's server component) does need to be deployed to
+    the cluster.
 
 Both  `tele version` and `gravity version` commands report the embedded Helm
 version:
@@ -96,7 +97,7 @@ To view all currently deployed releases, run:
 ```bsh
 $ gravity app ls
 Release         Status      Chart          Revision  Namespace  Updated
-falling-horse   DEPLOYED    alpine-0.1.0   1         default    Thu Dec  6 21:13:14 UTC
+test-release    DEPLOYED    alpine-0.1.0   1         default    Thu Dec  6 21:13:14 UTC
 ```
 
 !!! tip:
@@ -106,16 +107,16 @@ falling-horse   DEPLOYED    alpine-0.1.0   1         default    Thu Dec  6 21:13
 
 ### Upgrade a Release
 
-To upgrade a release, build a new application image (say, `alpine-0.2.0.tar`),
+To upgrade a release, build a new application image (`alpine-0.2.0.tar`),
 upload it to a cluster node and execute the upgrade command:
 
 ```bsh
-$ gravity app upgrade falling-horse alpine-0.2.0.tar \
+$ gravity app upgrade test-release alpine-0.2.0.tar \
     --registry 10.103.27.132:5000 \
     --set image.registry=10.103.27.132:5000/
 ```
 
-Similar to the install, registry flags need to be provided only when installing
+Similar to app install, registry flags need to be provided only when installing
 in a generic Kubernetes cluster. When running in a Gravity cluster, application
 will be synced with the local cluster registries automatically.
 
@@ -126,7 +127,7 @@ a release is upgraded. To rollback a release, first find out the revision
 number to roll back to:
 
 ```bsh
-$ gravity app history falling-horse
+$ gravity app history test-release
 Revision    Chart           Status      Updated                  Description
 2           alpine-0.2.0    DEPLOYED    Thu Dec  6 22:53:10 UTC  Upgrade complete
 1           alpine-0.1.0    SUPERSEDED  Thu Dec  6 21:13:14 UTC  Install complete
@@ -135,13 +136,16 @@ Revision    Chart           Status      Updated                  Description
 Then rollback to a given revision:
 
 ```bsh
-$ gravity app rollback falling-horse 1
+$ gravity app rollback test-release 1
 ```
+
+This command will rollback the specified release `test-release` to the
+revision number `1`.
 
 ### Uninstall a Release
 
-To uninstall a release, execute an uninstall command:
+To uninstall a release, execute the following command:
 
 ```bsh
-$ gravity app uninstall falling-horse
+$ gravity app uninstall test-release
 ```
