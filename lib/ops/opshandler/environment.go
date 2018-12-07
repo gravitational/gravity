@@ -43,11 +43,7 @@ func (h *WebHandler) getEnvironment(w http.ResponseWriter, r *http.Request, p ht
 		return trace.Wrap(err)
 	}
 	bytes, err := storage.MarshalEnvironment(env)
-	if err != nil {
-		return trace.Wrap(err)
-	}
-	roundtrip.ReplyJSON(w, http.StatusOK, bytes)
-	return nil
+	return trace.Wrap(rawMessage(w, bytes, err))
 }
 
 /* updateEnvironment updates the cluster environment

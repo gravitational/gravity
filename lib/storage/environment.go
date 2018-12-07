@@ -46,9 +46,9 @@ type Environment interface {
 func NewEnvironment(kvs map[string]string) *EnvironmentV2 {
 	return &EnvironmentV2{
 		Kind:    KindEnvironment,
-		Version: teleservices.V1,
+		Version: teleservices.V2,
 		Metadata: teleservices.Metadata{
-			Name:      constants.KeyPair,
+			Name:      constants.ClusterEnvironmentMap,
 			Namespace: defaults.Namespace,
 		},
 		Spec: EnvironmentSpec{
@@ -59,7 +59,7 @@ func NewEnvironment(kvs map[string]string) *EnvironmentV2 {
 
 // EnvironmentV2 describes the environment variable resource
 type EnvironmentV2 struct {
-	// Kind is a resource kind - always tlskeypair
+	// Kind is a resource kind
 	Kind string `json:"kind"`
 	// Version is a resource version
 	Version string `json:"version"`
