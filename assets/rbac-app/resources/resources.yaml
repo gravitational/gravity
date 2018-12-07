@@ -279,3 +279,28 @@ roleRef:
   apiGroup: rbac.authorization.k8s.io
   kind: Role
   name: gravity:coredns
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: gravity:agent
+  namespace: kube-system
+rules:
+  - apiGroups: [""]
+    resources: ["configmaps"]
+    resourceNames: ["cluster-env"]
+    verbs: ["get", "watch", "list"]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: gravity:agent
+  namespace: kube-system
+subjects:
+- kind: User
+  name: agent
+  apiGroup: rbac.authorization.k8s.io
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: Role
+  name: gravity:agent

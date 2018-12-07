@@ -616,6 +616,7 @@ func (s *site) getPlanetMasterSecretsPackage(ctx *operationContext, p planetMast
 		constants.APIServerKubeletClientKeyPair: {group: constants.ClusterAdminGroup},
 		constants.PlanetRpcKeyPair:              {},
 		constants.CoreDNSKeyPair:                {},
+		constants.RuntimeAgentKeyPair:           {},
 	}
 
 	for name, config := range keyPairTypes {
@@ -713,13 +714,14 @@ func (s *site) getPlanetNodeSecretsPackage(ctx *operationContext, node *Provisio
 	}
 
 	keyPairTypes := map[string]rbacConfig{
-		constants.APIServerKeyPair: {},
-		constants.ETCDKeyPair:      {},
-		constants.KubectlKeyPair:   {group: constants.ClusterNodeGroup},
-		constants.ProxyKeyPair:     {userName: constants.ClusterKubeProxyUser, group: constants.ClusterNodeGroup},
-		constants.KubeletKeyPair:   {userName: constants.ClusterNodeNamePrefix + ":" + node.KubeNodeID(), group: constants.ClusterNodeGroup},
-		constants.PlanetRpcKeyPair: {},
-		constants.CoreDNSKeyPair:   {},
+		constants.APIServerKeyPair:    {},
+		constants.ETCDKeyPair:         {},
+		constants.KubectlKeyPair:      {group: constants.ClusterNodeGroup},
+		constants.ProxyKeyPair:        {userName: constants.ClusterKubeProxyUser, group: constants.ClusterNodeGroup},
+		constants.KubeletKeyPair:      {userName: constants.ClusterNodeNamePrefix + ":" + node.KubeNodeID(), group: constants.ClusterNodeGroup},
+		constants.PlanetRpcKeyPair:    {},
+		constants.CoreDNSKeyPair:      {},
+		constants.RuntimeAgentKeyPair: {},
 	}
 
 	var privateKeyPEM []byte
