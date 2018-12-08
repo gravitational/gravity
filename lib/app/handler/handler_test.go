@@ -101,7 +101,7 @@ func (r *HandlerSuite) SetUpTest(c *C) {
 		var kubeClient *kubernetes.Clientset
 		var err error
 		if utils.RunKubernetesTests() {
-			kubeClient, err = utils.GetLocalKubeClient()
+			kubeClient, _, err = utils.GetLocalKubeClient()
 			c.Assert(err, IsNil)
 		}
 		applications, err := appservice.New(appservice.Config{

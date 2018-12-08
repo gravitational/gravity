@@ -75,7 +75,7 @@ func (s *HooksSuite) SetUpTest(c *check.C) {
 }
 
 func (s *HooksSuite) TestHookSuccess(c *check.C) {
-	client, err := utils.GetLocalKubeClient()
+	client, _, err := utils.GetLocalKubeClient()
 	c.Assert(err, check.IsNil)
 	c.Assert(client, check.NotNil)
 
@@ -151,7 +151,7 @@ func (s *HooksSuite) TestHookSuccess(c *check.C) {
 // TestHookFailNewPods tests scenario when job recreates pods
 // in the scenario when pod specifies restart policy never
 func (s *HooksSuite) TestHookFailNewPods(c *check.C) {
-	client, err := utils.GetLocalKubeClient()
+	client, _, err := utils.GetLocalKubeClient()
 	c.Assert(err, check.IsNil)
 	c.Assert(client, check.NotNil)
 
@@ -224,7 +224,7 @@ func (s *HooksSuite) TestHookFailNewPods(c *check.C) {
 // TestHookFailRestart tests scenario when job recreates pods
 // in the scenario when pod specifies restart policy on failure
 func (s *HooksSuite) TestHookFailPodRestart(c *check.C) {
-	client, err := utils.GetLocalKubeClient()
+	client, _, err := utils.GetLocalKubeClient()
 	c.Assert(err, check.IsNil)
 	c.Assert(client, check.NotNil)
 

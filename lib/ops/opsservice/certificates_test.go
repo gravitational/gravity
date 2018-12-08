@@ -41,7 +41,7 @@ func (s *CertificatesSuite) SetUpTest(c *check.C) {
 }
 
 func (s *CertificatesSuite) TestCertificates(c *check.C) {
-	client, err := utils.GetLocalKubeClient()
+	client, _, err := utils.GetLocalKubeClient()
 	c.Assert(err, check.IsNil)
 
 	cert, err := teleutils.GenerateSelfSignedCert([]string{"test.localhost"})
