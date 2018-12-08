@@ -53,6 +53,11 @@ func (r *SyncRequest) CheckAndSetDefaults() error {
 
 // SyncApp syncs an application and all its dependencies with registry
 func SyncApp(ctx context.Context, req SyncRequest) error {
+	err := req.CheckAndSetDefaults()
+	if err != nil {
+		return trace.Wrap(err)
+	}
+
 	application, err := req.AppService.GetApp(req.Package)
 	if err != nil {
 		return trace.Wrap(err)
