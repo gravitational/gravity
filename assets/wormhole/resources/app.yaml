@@ -15,11 +15,9 @@ endpoints:
     hidden: true
     serviceName: bandwagon
 providers:
-  aws:
-    regions:
-      # the current version of gravitational/provisioner supports
-      # only us-east-2 region for some reason
-      - us-east-2
+  generic:
+    network:
+      type: "wireguard"
 installer:
   setupEndpoints:
     - "Bandwagon"
@@ -90,14 +88,6 @@ nodeProfiles:
         - path: /var/lib/gravity
           capacity: "10GB"
           filesystems: ["xfs", "ext4"]
-    providers:
-      aws:
-        instanceTypes:
-          - m4.xlarge
-          - c3.xlarge
-          - c3.2xlarge
-          - c3.4xlarge
-          - i2.2xlarge
   - name: knode
     description: "Gravity Node"
     labels:
@@ -126,16 +116,6 @@ nodeProfiles:
         - path: /var/lib/gravity
           capacity: "10GB"
           filesystems: ["xfs", "ext4"]
-    providers:
-      aws:
-        instanceTypes:
-          - m3.xlarge
-          - m4.large
-          - m4.xlarge
-          - c3.xlarge
-          - c3.2xlarge
-          - c3.4xlarge
-          - i2.2xlarge
   - name: master
     description: "Gravity Master"
     taints:
@@ -167,27 +147,6 @@ nodeProfiles:
         - path: /var/lib/gravity
           capacity: "10GB"
           filesystems: ["xfs", "ext4"]
-    providers:
-      aws:
-        instanceTypes:
-          - m3.xlarge
-          - m4.large
-          - m4.xlarge
-          - c3.xlarge
-          - c3.2xlarge
-          - c3.4xlarge
-          - i2.2xlarge
-hooks:
-  clusterProvision:
-    job: file://clusterProvision.yaml
-  nodesProvision:
-    job: file://nodesProvision.yaml
-  nodesDeprovision:
-    job: file://nodesDeprovision.yaml
-  clusterDeprovision:
-    job: file://clusterDeprovision.yaml
-  preUpdate:
-    job: file://preUpdate.yaml
 systemOptions:
   runtime:
     version: "0.0.0+latest"

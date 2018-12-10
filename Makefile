@@ -42,6 +42,7 @@ PLANET_TAG := 5.4.1-$(K8S_VER)
 PLANET_BRANCH := $(PLANET_TAG)
 K8S_APP_TAG := $(GRAVITY_TAG)
 TELEKUBE_APP_TAG := $(GRAVITY_TAG)
+WORMHOLE_APP_TAG := $(GRAVITY_TAG)
 LOGGING_APP_TAG ?= 5.0.2
 MONITORING_APP_TAG ?= 5.2.2
 DNS_APP_TAG = 0.3.0
@@ -454,6 +455,20 @@ $(GRAVITY_BUILDDIR)/telekube.tar: packages
 		--state-dir=$(PACKAGES_DIR) \
 		--skip-version-check \
 		-o $(GRAVITY_BUILDDIR)/telekube.tar
+
+#
+# builds wormhole installer
+# 
+.PHONY: wormhole
+wormhole: GRAVITY=$(GRAVITY_OUT) --state-dir=$(PACKAGES_DIR)
+wormhole: $(GRAVITY_BUILDDIR)/wormhole.tar
+
+$(GRAVITY_BUILDDIR)/wormhole.tar: packages
+	$(GRAVITY_BUILDDIR)/tele build $(ASSETSDIR)/wormhole/resources/app.yaml -f \
+		--version=$(GRAVITY_APP_TAG) \
+		--state-dir=$(PACKAGES_DIR) \
+		--skip-version-check \
+		-o $(GRAVITY_BUILDDIR)/wormhole.tar
 
 #
 # Uploads opscenter to S3 is used to test custom releases of the ops center
