@@ -127,15 +127,13 @@ var agentFunctions map[string]agentFunc = map[string]agentFunc{
 	constants.RpcAgentUpgradeFunction: executeAutomaticUpgrade,
 }
 
-func rpcAgentDeploy(env *localenv.LocalEnvironment, leaderParams []string) error {
-	ctx := context.TODO()
-
-	clusterEnv, err := env.NewClusterEnvironment()
+func rpcAgentDeploy(localEnv, updateEnv *localenv.LocalEnvironment, leaderParams []string) error {
+	clusterEnv, err := localEnv.NewClusterEnvironment()
 	if err != nil {
 		return trace.Wrap(err)
 	}
 
-	operator, err := env.SiteOperator()
+	operator, err := localEnv.SiteOperator()
 	if err != nil {
 		return trace.Wrap(err)
 	}
@@ -145,7 +143,7 @@ func rpcAgentDeploy(env *localenv.LocalEnvironment, leaderParams []string) error
 		return trace.Wrap(err)
 	}
 
-	teleportClient, err := env.TeleportClient(constants.Localhost)
+	teleportClient, err := localEnv.TeleportClient(constants.Localhost)
 	if err != nil {
 		return trace.Wrap(err, "failed to create a teleport client")
 	}
@@ -163,17 +161,16 @@ func rpcAgentDeploy(env *localenv.LocalEnvironment, leaderParams []string) error
 		leaderParams: leaderParams,
 	}
 
-	deployReq, err := newDeployAgentsRequest(ctx, req)
+	// attempt to schedule the master agent on this node but do not
+	// treat the failure to do so as critical
+	req.leader, err = findLocalServer(*cluster)
 	if err != nil {
-		return trace.Wrap(err)
+		log.Warnf("Failed to determine local node: %v.",
+			trace.DebugReport(err))
 	}
 
-	err = rpc.DeployAgents(ctx, *deployReq)
-	if err != nil {
-		return trace.Wrap(err, "failed to deploy agents")
-	}
-
-	return nil
+	err = deployUpdateAgents(context.TODO(), localEnv, updateEnv, req)
+	return trace.Wrap(err)
 }
 
 func verifyCluster(
@@ -304,6 +301,7 @@ func newDeployAgentsRequest(ctx context.Context, req deployAgentsRequest) (*rpc.
 		GravityPackage: gravityPackage,
 		FieldLogger:    logrus.WithField(trace.Component, "rpc:deploy"),
 		LeaderParams:   req.leaderParams,
+		Leader:         req.leader,
 	}, nil
 }
 

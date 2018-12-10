@@ -124,7 +124,7 @@ func (c *sshCommands) Run(ctx context.Context) (err error) {
 			})
 
 			if cmd.abortOnError {
-				log.Error("subcommand failed, sequence interrupted")
+				log.Warn("Subcommand failed, sequence interrupted.")
 				return trace.Wrap(err, cmd)
 			}
 			log.Warn("ignoring failed subcommand")
@@ -280,7 +280,7 @@ func (l *readLogger) Read(p []byte) (n int, err error) {
 	if err != nil && err != io.EOF {
 		l.log.WithError(err).Debug("unexpected I/O error")
 	} else if n > 0 {
-		l.log.Debug(string(p[0:n]))
+		l.log.Info(string(p[0:n]))
 	}
 	return n, err
 }

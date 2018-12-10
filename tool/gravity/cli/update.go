@@ -50,7 +50,7 @@ func updateCheck(env *localenv.LocalEnvironment, appPackage string) error {
 
 func updateTrigger(
 	localEnv *localenv.LocalEnvironment,
-	upgradeEnv *localenv.LocalEnvironment,
+	updateEnv *localenv.LocalEnvironment,
 	appPackage string,
 	manual bool,
 ) error {
@@ -93,6 +93,7 @@ func updateTrigger(
 		AccountID:  cluster.AccountID,
 		SiteDomain: cluster.Domain,
 		App:        app.Package.String(),
+		Manual:     true,
 	})
 	if err != nil {
 		return trace.Wrap(err)
@@ -131,7 +132,7 @@ func updateTrigger(
 	}
 
 	ctx := context.TODO()
-	err = deployUpdateAgents(ctx, localEnv, upgradeEnv, req)
+	err = deployUpdateAgents(ctx, localEnv, updateEnv, req)
 	if err != nil {
 		return trace.Wrap(err)
 	}
