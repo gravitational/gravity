@@ -216,6 +216,8 @@ func (s *PlanSuite) TestPlan(c *check.C) {
 		{phases.CorednsPhase, s.verifyCorednsPhase},
 		{phases.ResourcesPhase, s.verifyResourcesPhase},
 		{phases.ExportPhase, s.verifyExportPhase},
+		{phases.InstallOverlayPhase, s.verifyInstallOverlayPhase},
+		{phases.HealthPhase, s.verifyHealthPhase},
 		{phases.RuntimePhase, s.verifyRuntimePhase},
 		{phases.AppPhase, s.verifyAppPhase},
 		{phases.ConnectInstallerPhase, s.verifyConnectInstallerPhase},
@@ -388,6 +390,29 @@ func (s *PlanSuite) verifyWaitPhase(c *check.C, phase storage.OperationPhase) {
 			Server: &s.masterNode,
 		},
 		Requires: []string{phases.MastersPhase, phases.NodesPhase},
+	}, phase)
+}
+
+func (s *PlanSuite) verifyHealthPhase(c *check.C, phase storage.OperationPhase) {
+	storage.DeepComparePhases(c, storage.OperationPhase{
+		ID: phases.HealthPhase,
+		Data: &storage.OperationPhaseData{
+			Server: &s.masterNode,
+		},
+		Requires: []string{phases.InstallOverlayPhase, phases.ExportPhase},
+	}, phase)
+}
+
+func (s *PlanSuite) verifyInstallOverlayPhase(c *check.C, phase storage.OperationPhase) {
+	serviceUser := s.user()
+	storage.DeepComparePhases(c, storage.OperationPhase{
+		ID: phases.InstallOverlayPhase,
+		Data: &storage.OperationPhaseData{
+			Server:      &s.masterNode,
+			ServiceUser: serviceUser,
+			Package:     &s.installer.AppPackage,
+		},
+		Requires: []string{phases.ExportPhase},
 	}, phase)
 }
 
