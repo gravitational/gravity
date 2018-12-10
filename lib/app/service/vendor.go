@@ -406,7 +406,7 @@ func (v *vendorer) translateRuntimeImages(m *schema.Manifest) error {
 		m.SystemOptions.Dependencies.Runtime.Locator = *runtimePackage
 	}
 	imageToPackage := make(map[string]loc.Locator)
-	newPackageName := newRuntimePackage(imageToPackage)
+	newPackageName := newRuntimePackage(imageToPackage, nil)
 	for i, profile := range m.NodeProfiles {
 		if profile.SystemOptions == nil || profile.SystemOptions.BaseImage == "" {
 			continue
@@ -440,14 +440,16 @@ func (v *vendorer) translateRuntimeImages(m *schema.Manifest) error {
 // newRuntimePackage returns a generator to generate package names.
 // Generated package names are guaranteed to not collide with legacy runtime
 // package names and be unique within a single generator.
-func newRuntimePackage(imageToPackage map[string]loc.Locator) packageNameGeneratorFunc {
+func newRuntimePackage(imageToPackage map[string]loc.Locator, randomSuffix randomSuffix) packageNameGeneratorFunc {
 	generatedNames := make(map[string]struct{})
 	nonUnique := func(name string) bool {
 		_, exists := generatedNames[name]
 		return exists
 	}
-	randomSuffix := func(name string) string {
-		return fmt.Sprintf("%v-%v", name, utilrand.String(4))
+	if randomSuffix == nil {
+		randomSuffix = func(name string) string {
+			return fmt.Sprintf("%v-%v", name, utilrand.String(4))
+		}
 	}
 	var legacyPackages = []string{loc.LegacyPlanetMaster.Name, loc.LegacyPlanetNode.Name}
 	return func(image string) (runtimePackage *loc.Locator, err error) {
@@ -479,6 +481,8 @@ func newRuntimePackage(imageToPackage map[string]loc.Locator) packageNameGenerat
 		return runtimePackage, nil
 	}
 }
+
+type randomSuffix func(string) string
 
 type packageNameGeneratorFunc func(image string) (runtimePackage *loc.Locator, err error)
 

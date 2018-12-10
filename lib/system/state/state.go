@@ -25,6 +25,7 @@ import (
 	"github.com/gravitational/gravity/lib/defaults"
 	"github.com/gravitational/gravity/lib/storage"
 	"github.com/gravitational/gravity/lib/system"
+	"github.com/gravitational/gravity/lib/system/mount"
 	"github.com/gravitational/gravity/lib/systemservice"
 	"github.com/gravitational/gravity/lib/utils"
 
@@ -71,13 +72,13 @@ func ConfigureStateDirectory(stateDir, devicePath string) (err error) {
 		return trace.Wrap(err)
 	}
 
-	config := system.MountConfig{
+	config := mount.ServiceConfig{
 		What:       storage.DeviceName(devicePath),
 		Where:      stateDir,
 		Filesystem: filesystem,
 		Options:    []string{"defaults"},
 	}
-	err = system.Mount(config, defaults.GravityMountService, services)
+	err = mount.MountService(config, defaults.GravityMountService, services)
 	if err != nil {
 		return trace.Wrap(err, "failed to mount %q on %q", stateDir, devicePath)
 	}

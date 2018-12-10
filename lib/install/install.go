@@ -402,8 +402,7 @@ func (i *Installer) Wait() error {
 	for {
 		select {
 		case <-i.Context.Done():
-			i.Debug("Operation context closed.")
-			return nil
+			return trace.Wrap(i.Context.Err())
 		case event := <-i.EventsC:
 			if event.Error != nil {
 				return trace.Wrap(event.Error)
@@ -807,7 +806,6 @@ func wait(ctx context.Context, cancel context.CancelFunc, p process.GravityProce
 	case err := <-errC:
 		return trace.Wrap(err)
 	case <-ctx.Done():
-		log.Debug("Operation context closed.")
-		return nil
+		return trace.Wrap(ctx.Err())
 	}
 }

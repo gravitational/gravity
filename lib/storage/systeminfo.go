@@ -445,15 +445,24 @@ type OSUser struct {
 
 // ResolvConf describes the system resolv.conf configuration
 type ResolvConf struct {
-	Servers    []string // servers to use
-	Domain     string   // Domain parameter
-	Search     []string // suffixes to append to local name
-	Ndots      int      // number of dots in name to trigger absolute lookup
-	Timeout    int      // seconds before giving up on packet
-	Attempts   int      // lost packets before giving up on server
-	Rotate     bool     // round robin among servers
-	UnknownOpt bool     // anything unknown was encountered
-	Lookup     []string // OpenBSD top-level database "lookup" order
+	// Servers - Name server IP addresses
+	Servers []string
+	// Domain - Local domain name
+	Domain string
+	// Search list for host-name lookup
+	Search []string
+	// Ndots is the number of dots in name to trigger absolute lookup
+	Ndots int
+	// Timeout is the number of seconds the resolver will wait for a response from the remote server
+	Timeout int
+	// Attempts is the number of times the resolver will send queries before giving up
+	Attempts int
+	// Rotate sets round robin selection of nameservers
+	Rotate bool
+	// UnknownOpt indicates whether we received any unknown options
+	UnknownOpt bool
+	// Lookup is OpenBSD top-level database "lookup" order
+	Lookup []string
 }
 
 func DefaultOSUser() OSUser {

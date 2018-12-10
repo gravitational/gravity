@@ -3,7 +3,7 @@ set -eu -o pipefail
 
 readonly UPGRADE_FROM_DIR=${1:-$(pwd)/../upgrade_from}
 
-DOCKER_STORAGE_DRIVERS="overlay2 devicemapper"
+DOCKER_STORAGE_DRIVERS="overlay2"
 
 declare -A UPGRADE_MAP
 # gravity version -> list of OS releases to exercise on
@@ -26,7 +26,7 @@ export GCE_REGION="northamerica-northeast1,us-west1,us-east1,us-east4,us-central
 
 function build_resize_suite {
   cat <<EOF
- resize={"to":3,"flavor":"one","nodes":1,"role":"node","state_dir":"/var/lib/telekube","os":"ubuntu:16","storage_driver":"devicemapper"}
+ resize={"to":3,"flavor":"one","nodes":1,"role":"node","state_dir":"/var/lib/telekube","os":"ubuntu:16","storage_driver":"overlay2"}
  resize={"to":6,"flavor":"three","nodes":3,"role":"node","state_dir":"/var/lib/telekube","os":"ubuntu:16","storage_driver":"overlay2"}
 EOF
 }

@@ -45,7 +45,6 @@ import (
 // if empty all diagnostics are collected.
 func systemReport(env *localenv.LocalEnvironment, filters []string, compressed bool) error {
 	runner := utils.NewRunner(nil)
-
 	var collectors report.Collectors
 	for _, filter := range teleutils.Deduplicate(filters) {
 		switch filter {

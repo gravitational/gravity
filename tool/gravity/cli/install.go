@@ -87,7 +87,7 @@ func startInstall(env *localenv.LocalEnvironment, i InstallConfig) error {
 
 	err = installer.Wait()
 	if utils.IsContextCancelledError(err) {
-		return nil
+		return trace.BadParameter("cancelled")
 	}
 	return trace.Wrap(err)
 }
