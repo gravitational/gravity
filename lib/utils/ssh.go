@@ -33,6 +33,7 @@ import (
 	"golang.org/x/crypto/ssh"
 )
 
+// OutputParseFn defines a parser function for arbitrary input r
 type OutputParseFn func(r *bufio.Reader) error
 
 const (
@@ -43,10 +44,10 @@ const (
 type sshCommand struct {
 	command      string
 	abortOnError bool
-	env          map[string]string
 	withRetries  bool
 }
 
+// SSHCommands abstracts a way of executing a set of remote commands
 type SSHCommands interface {
 	// adds new command with default policy
 	C(format string, a ...interface{}) SSHCommands
@@ -57,55 +58,68 @@ type SSHCommands interface {
 	WithRetries(format string, a ...interface{}) SSHCommands
 	// WithLogger sets logger
 	WithLogger(logrus.FieldLogger) SSHCommands
+	// WithOutput sets the output sink
+	WithOutput(io.Writer) SSHCommands
 	// executes sequence
 	Run(ctx context.Context) error
 }
 
 type sshCommands struct {
-	client   *ssh.Client
+	runner   CommandRunner
 	logger   logrus.FieldLogger
 	commands []sshCommand
+	output   io.Writer
 }
 
-func NewSSHCommands(client *ssh.Client) SSHCommands {
+// NewSSHCommands returns a new remote command executor
+// that will use the specified runner to execute commands
+func NewSSHCommands(runner CommandRunner) SSHCommands {
 	return &sshCommands{
-		client: client,
-		logger: logrus.StandardLogger()}
+		runner: runner,
+		logger: logrus.StandardLogger(),
+	}
 }
 
+// C adds a new command specified with format/args
 func (c *sshCommands) C(format string, args ...interface{}) SSHCommands {
 	c.commands = append(c.commands, sshCommand{
 		command:      fmt.Sprintf(format, args...),
 		abortOnError: true,
-		env: map[string]string{
-			defaults.PathEnv: defaults.PathEnvVal,
-		}})
+	})
 	return c
 }
 
+// WithRetries adds a new command specified with format/args.
+// The command will be retried in a loop as long as it is failed
+// or the number of attempts has exceeded
 func (c *sshCommands) WithRetries(format string, args ...interface{}) SSHCommands {
 	c.commands = append(c.commands, sshCommand{
 		command:      fmt.Sprintf(format, args...),
 		withRetries:  true,
 		abortOnError: true,
-		env: map[string]string{
-			defaults.PathEnv: defaults.PathEnvVal,
-		}})
+	})
 	return c
 }
 
+// IgnoreError adds a new command specified with format/args.
+// If the command returns an error, it will be ignored
 func (c *sshCommands) IgnoreError(format string, args ...interface{}) SSHCommands {
 	c.commands = append(c.commands, sshCommand{
 		command:      fmt.Sprintf(format, args...),
 		abortOnError: false,
-		env: map[string]string{
-			defaults.PathEnv: defaults.PathEnvVal,
-		}})
+	})
 	return c
 }
 
+// WithLogger configures the logger
 func (c *sshCommands) WithLogger(logger logrus.FieldLogger) SSHCommands {
 	c.logger = logger
+	return c
+}
+
+// WithOutput configures the output writer for the command contents
+func (c *sshCommands) WithOutput(w io.Writer) SSHCommands {
+	c.output = w
 	return c
 }
 
@@ -134,23 +148,53 @@ func (c *sshCommands) Run(ctx context.Context) (err error) {
 }
 
 func (c *sshCommands) runWithRetries(ctx context.Context, cmd sshCommand) error {
+	w := c.output
+	if w == nil {
+		w = ioutil.Discard
+	}
 	ctx, cancel := context.WithTimeout(ctx, defaults.TransientErrorTimeout)
 	defer cancel()
 	b := backoff.NewConstantBackOff(defaults.RetryInterval)
 	err := RetryWithInterval(ctx, b, func() error {
-		_, err := SSHRunAndParse(ctx,
-			c.client, c.logger,
-			cmd.command, cmd.env, ParseDiscard)
+		err := c.runner.RunStream(w, cmd.command)
 		return trace.Wrap(err)
 	})
 	return trace.Wrap(err)
 }
 
 func (c *sshCommands) run(ctx context.Context, cmd sshCommand) error {
-	_, err := SSHRunAndParse(ctx,
-		c.client, c.logger,
-		cmd.command, cmd.env, ParseDiscard)
+	w := c.output
+	if w == nil {
+		w = ioutil.Discard
+	}
+	err := c.runner.RunStream(w, cmd.command)
 	return trace.Wrap(err)
+}
+
+// RunStream executes the commands specified with args
+// using the underlying SSH client
+func (r *sshRunner) RunStream(_ io.Writer, args ...string) error {
+	env := map[string]string{
+		defaults.PathEnv: defaults.PathEnvVal,
+	}
+	cmd := strings.Join(args, " ")
+	_, err := SSHRunAndParse(r.ctx, r.client, r.logger, cmd, env, ParseDiscard)
+	return trace.Wrap(err)
+}
+
+// NewSSHRunner returns a CommandRunner that uses the specified SSH client
+// to execute commands
+func NewSSHRunner(ctx context.Context, client *ssh.Client) *sshRunner {
+	return &sshRunner{
+		ctx:    ctx,
+		client: client,
+	}
+}
+
+type sshRunner struct {
+	ctx    context.Context
+	client *ssh.Client
+	logger logrus.FieldLogger
 }
 
 // Run is a simple method to run external program and don't care about its output or exit status
@@ -254,11 +298,14 @@ func SSHRunAndParse(ctx context.Context, client *ssh.Client, log logrus.FieldLog
 	return 0, nil
 }
 
+// ParseDiscard returns a no-op parser function that discards the input
 func ParseDiscard(r *bufio.Reader) error {
 	io.Copy(ioutil.Discard, r)
 	return nil
 }
 
+// ParseAsString returns a parser function that extracts the stream contents
+// as a string
 func ParseAsString(out *string) OutputParseFn {
 	return func(r *bufio.Reader) error {
 		b, err := ioutil.ReadAll(r)

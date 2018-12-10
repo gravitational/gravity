@@ -17,10 +17,13 @@ limitations under the License.
 package opsservice
 
 import (
+	"context"
 	"path/filepath"
 
+	"github.com/gravitational/gravity/lib/app"
 	"github.com/gravitational/gravity/lib/checks"
 	"github.com/gravitational/gravity/lib/constants"
+	"github.com/gravitational/gravity/lib/defaults"
 	"github.com/gravitational/gravity/lib/loc"
 	"github.com/gravitational/gravity/lib/ops"
 	"github.com/gravitational/gravity/lib/pack"
@@ -277,6 +280,24 @@ func (s *site) createUpdateOperation(req ops.CreateSiteAppUpdateOperationRequest
 		Message:    "initializing the operation",
 	})
 
+	if req.Manual {
+		return key, nil
+	}
+
+	updatePackage, err := loc.ParseLocator(req.App)
+	if err != nil {
+		return nil, trace.Wrap(err)
+	}
+	updateApp, err := s.service.cfg.Apps.GetApp(*updatePackage)
+	if err != nil {
+		return nil, trace.Wrap(err)
+	}
+	err = s.startUpdateAgent(context.TODO(), ctx, updateApp)
+	if err != nil {
+		return key, trace.Wrap(err,
+			"update operation was created but the automatic update agent failed to start. Refer to the documentation on how to proceed with manual update")
+	}
+
 	return key, nil
 }
 
@@ -299,6 +320,48 @@ func (s *site) validateUpdateOperationRequest(req ops.CreateSiteAppUpdateOperati
 		return trace.Wrap(err)
 	}
 	return s.checkUpdateParameters(newEnvelope, provisioner)
+}
+
+// startUpdateAgent runs deploy procedure on one of the leader nodes
+func (s *site) startUpdateAgent(ctx context.Context, opCtx *operationContext, updateApp *app.Application) error {
+	master, err := s.getTeleportServer(schema.ServiceLabelRole, string(schema.ServiceRoleMaster))
+	if err != nil {
+		return trace.Wrap(err)
+	}
+	gravityPackage, err := updateApp.Manifest.Dependencies.ByName(constants.GravityPackage)
+	if err != nil {
+		return trace.Wrap(err)
+	}
+	// determine the server's state dir location
+	site, err := s.service.GetSite(s.key)
+	if err != nil {
+		return trace.Wrap(err)
+	}
+	advertiseIP, ok := master.Labels[ops.AdvertiseIP]
+	if !ok {
+		return trace.NotFound("server %v is missing %s label", master, ops.AdvertiseIP)
+	}
+	stateServer, err := site.ClusterState.FindServerByIP(advertiseIP)
+	if err != nil {
+		return trace.Wrap(err)
+	}
+	serverStateDir := stateServer.StateDir()
+	agentExecPath := filepath.Join(state.GravityRPCAgentDir(serverStateDir), constants.GravityPackage)
+	secretsHostDir := filepath.Join(state.GravityRPCAgentDir(serverStateDir), defaults.SecretsDir)
+	runner := s.newTeleportServerRunner(opCtx, master)
+	err = utils.NewSSHCommands(runner).
+		// extract new gravity version
+		C("rm -rf %s", secretsHostDir).
+		C("mkdir -p %s", secretsHostDir).
+		C("%s package export --file-mask=%o %s %s --ops-url=%s --insecure",
+			constants.GravityBin, defaults.SharedExecutableMask,
+			gravityPackage.String(), agentExecPath, defaults.GravityServiceURL).
+		// distribute agents and upgrade process
+		C("%s agent deploy upgrade", agentExecPath).
+		WithLogger(s.WithField("node", master.HostName())).
+		WithOutput(opCtx.recorder).
+		Run(ctx)
+	return trace.Wrap(err)
 }
 
 // checkUpdateParameters checks if update parameters match

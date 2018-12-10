@@ -93,6 +93,7 @@ func updateTrigger(
 		AccountID:  cluster.AccountID,
 		SiteDomain: cluster.Domain,
 		App:        app.Package.String(),
+		Manual:     true,
 	})
 	if err != nil {
 		return trace.Wrap(err)
