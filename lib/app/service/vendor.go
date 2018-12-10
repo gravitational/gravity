@@ -23,7 +23,6 @@ import (
 	"io"
 	"io/ioutil"
 	"os"
-	"os/exec"
 	"path/filepath"
 	"regexp"
 	"strings"
@@ -35,6 +34,7 @@ import (
 	"github.com/gravitational/gravity/lib/archive"
 	"github.com/gravitational/gravity/lib/constants"
 	"github.com/gravitational/gravity/lib/defaults"
+	"github.com/gravitational/gravity/lib/helm"
 	"github.com/gravitational/gravity/lib/loc"
 	"github.com/gravitational/gravity/lib/pack"
 	"github.com/gravitational/gravity/lib/run"
@@ -626,15 +626,12 @@ func isChartDirectory(path string) (bool, error) {
 }
 
 func resourceFromChart(path string) (*resources.Resource, error) {
-	if err := utils.CheckHelm(); err != nil {
+	out, err := helm.Render(helm.RenderParameters{Path: path})
+	if err != nil {
 		return nil, trace.Wrap(err)
 	}
-	buf := &bytes.Buffer{}
-	err := utils.Exec(exec.Command("helm", "template", path), buf)
-	if err != nil {
-		return nil, trace.Wrap(err, buf.String())
-	}
-	return resources.Decode(buf, resources.SkipUnrecognized())
+	log.WithField("path", path).Debug(string(out))
+	return resources.Decode(bytes.NewReader(out), resources.SkipUnrecognized())
 }
 
 // resourcesFromPath collects resource files in root for further processing.

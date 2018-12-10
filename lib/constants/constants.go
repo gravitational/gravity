@@ -637,6 +637,9 @@ const (
 
 	// MasterRole is the name of the master node role
 	MasterRole = "master"
+
+	// HelmLabel denotes application generated from Helm chart.
+	HelmLabel = "helm"
 )
 
 var (

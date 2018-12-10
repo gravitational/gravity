@@ -277,7 +277,7 @@ func DialWithServiceResolver(ctx context.Context, network, addr string) (conn ne
 		}
 	}
 
-	client, err := utils.GetKubeClientFromPath(kubeconfigPath)
+	client, _, err := utils.GetKubeClientFromPath(kubeconfigPath)
 	if err != nil {
 		return nil, trace.Wrap(err, "failed to create kubernetes client from %v", kubeconfigPath)
 	}
@@ -307,10 +307,10 @@ func isInsidePod() bool {
 
 // GetUnprivilegedKubeClient returns a Kubernetes client that uses kubelet
 // certificate for authentication
-func GetUnprivilegedKubeClient(dnsAddr string) (*kubernetes.Clientset, error) {
+func GetUnprivilegedKubeClient(dnsAddr string) (*kubernetes.Clientset, *rest.Config, error) {
 	stateDir, err := state.GetStateDir()
 	if err != nil {
-		return nil, trace.Wrap(err)
+		return nil, nil, trace.Wrap(err)
 	}
 	return getKubeClient(dnsAddr, rest.TLSClientConfig{
 		CertFile: state.Secret(stateDir, defaults.KubeletCertFilename),
@@ -321,10 +321,10 @@ func GetUnprivilegedKubeClient(dnsAddr string) (*kubernetes.Clientset, error) {
 
 // GetClusterKubeClient returns a Kubernetes client that uses scheduler
 // certificate for authentication
-func GetClusterKubeClient(dnsAddr string) (*kubernetes.Clientset, error) {
+func GetClusterKubeClient(dnsAddr string) (*kubernetes.Clientset, *rest.Config, error) {
 	stateDir, err := state.GetStateDir()
 	if err != nil {
-		return nil, trace.Wrap(err)
+		return nil, nil, trace.Wrap(err)
 	}
 	return getKubeClient(dnsAddr, rest.TLSClientConfig{
 		CertFile: state.Secret(stateDir, defaults.SchedulerCertFilename),
@@ -333,16 +333,24 @@ func GetClusterKubeClient(dnsAddr string) (*kubernetes.Clientset, error) {
 	})
 }
 
-func getKubeClient(dnsAddr string, tlsConfig rest.TLSClientConfig) (*kubernetes.Clientset, error) {
-	return kubernetes.NewForConfig(&rest.Config{
+func getKubeClient(dnsAddr string, tlsConfig rest.TLSClientConfig) (*kubernetes.Clientset, *rest.Config, error) {
+	config := &rest.Config{
 		Host: fmt.Sprintf("https://%v:%v",
 			constants.APIServerDomainName, defaults.APIServerSecurePort),
 		TLSClientConfig: tlsConfig,
 		WrapTransport: func(t http.RoundTripper) http.RoundTripper {
-			t.(*http.Transport).DialContext = DialFromEnviron(dnsAddr)
+			switch t.(type) {
+			case *http.Transport:
+				t.(*http.Transport).DialContext = DialFromEnviron(dnsAddr)
+			}
 			return t
 		},
-	})
+	}
+	client, err := kubernetes.NewForConfig(config)
+	if err != nil {
+		return nil, nil, trace.Wrap(err)
+	}
+	return client, config, nil
 }
 
 // getKubeconfigPath returns the path to the kubeconfig to resolve

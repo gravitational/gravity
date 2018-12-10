@@ -40,10 +40,24 @@ type SyncRequest struct {
 	AppService   app.Applications
 	ImageService docker.ImageService
 	Package      loc.Locator
+	Progress     utils.Emitter
+}
+
+// CheckAndSetDefaults validates the request and sets some defaults.
+func (r *SyncRequest) CheckAndSetDefaults() error {
+	if r.Progress == nil {
+		r.Progress = utils.NopEmitter()
+	}
+	return nil
 }
 
 // SyncApp syncs an application and all its dependencies with registry
 func SyncApp(ctx context.Context, req SyncRequest) error {
+	err := req.CheckAndSetDefaults()
+	if err != nil {
+		return trace.Wrap(err)
+	}
+
 	application, err := req.AppService.GetApp(req.Package)
 	if err != nil {
 		return trace.Wrap(err)
@@ -57,6 +71,7 @@ func SyncApp(ctx context.Context, req SyncRequest) error {
 			AppService:   req.AppService,
 			ImageService: req.ImageService,
 			Package:      *base,
+			Progress:     req.Progress,
 		})
 		if err != nil {
 			return trace.Wrap(err)
@@ -70,6 +85,7 @@ func SyncApp(ctx context.Context, req SyncRequest) error {
 			AppService:   req.AppService,
 			ImageService: req.ImageService,
 			Package:      dep.Locator,
+			Progress:     req.Progress,
 		})
 		if err != nil {
 			return trace.Wrap(err)
@@ -117,7 +133,7 @@ func SyncApp(ctx context.Context, req SyncRequest) error {
 
 	log.Infof("Syncing %v.", req.Package)
 
-	if _, err = req.ImageService.Sync(ctx, syncPath); err != nil {
+	if _, err = req.ImageService.Sync(ctx, syncPath, req.Progress); err != nil {
 		return trace.Wrap(err)
 	}
 

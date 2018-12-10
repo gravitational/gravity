@@ -31,8 +31,11 @@ import (
 	"strings"
 	"time"
 
+	"github.com/gravitational/gravity/lib/constants"
 	"github.com/gravitational/gravity/lib/defaults"
 	"github.com/gravitational/gravity/lib/loc"
+	"github.com/gravitational/gravity/lib/state"
+	"github.com/gravitational/gravity/lib/utils"
 
 	"github.com/docker/distribution"
 	"github.com/docker/distribution/context"
@@ -104,6 +107,22 @@ func NewImageService(req RegistryConnectionRequest) (ImageService, error) {
 	}, nil
 }
 
+// NewClusterImageService returns an in-cluster image service for the
+// specified registry address.
+func NewClusterImageService(registry string) (ImageService, error) {
+	stateDir, err := state.GetStateDir()
+	if err != nil {
+		return nil, trace.Wrap(err)
+	}
+	return NewImageService(RegistryConnectionRequest{
+		RegistryAddress: registry,
+		CertName:        constants.DockerRegistry,
+		CACertPath:      state.Secret(stateDir, defaults.RootCertFilename),
+		ClientCertPath:  state.Secret(stateDir, "kubelet.cert"),
+		ClientKeyPath:   state.Secret(stateDir, "kubelet.key"),
+	})
+}
+
 // imageService implements ImageService using provided remote registry address
 type imageService struct {
 	ImageService
@@ -118,7 +137,7 @@ type imageService struct {
 // dir is expected to be in docker registry 2.x format.
 //
 // Upon success, returns a list of images pushed to the registry.
-func (r *imageService) Sync(ctx context.Context, dir string) (installedTags []TagSpec, err error) {
+func (r *imageService) Sync(ctx context.Context, dir string, progress utils.Emitter) (installedTags []TagSpec, err error) {
 	if err = r.connect(ctx); err != nil {
 		return nil, trace.Wrap(err)
 	}
@@ -183,9 +202,12 @@ func (r *imageService) Sync(ctx context.Context, dir string) (installedTags []Ta
 			// remote registry either does not have this reference, or it is
 			// different from the local one
 			if remoteManifest == nil || !compareManifests(localManifest, remoteManifest) {
+				progress.PrintStep("Pushing image %s", tagSpec)
 				if err = r.remoteStore.updateRepo(ctx, remoteRepo, localRepo, localManifest, tag); err != nil {
 					return nil, trace.Wrap(err, "failed to update remote for tag %q", tagSpec)
 				}
+			} else {
+				progress.PrintStep("Image %s is up-to-date", tagSpec)
 			}
 			installedTags = append(installedTags, tagSpec)
 		}

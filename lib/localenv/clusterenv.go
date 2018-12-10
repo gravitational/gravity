@@ -36,7 +36,7 @@ import (
 // NewClusterEnvironment returns a new instance of ClusterEnvironment
 // with all services initialized
 func (r *LocalEnvironment) NewClusterEnvironment() (*ClusterEnvironment, error) {
-	client, err := httplib.GetClusterKubeClient(r.DNS.Addr())
+	client, _, err := httplib.GetClusterKubeClient(r.DNS.Addr())
 	if err != nil {
 		log.Errorf("Failed to create Kubernetes client: %v.",
 			trace.DebugReport(err))

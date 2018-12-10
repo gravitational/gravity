@@ -92,7 +92,7 @@ func FSMSpec(config FSMConfig) fsm.FSMSpecFunc {
 				config.DNSConfig)
 
 		case strings.HasPrefix(p.Phase.ID, installphases.LabelPhase):
-			client, err := httplib.GetUnprivilegedKubeClient(config.DNSConfig.Addr())
+			client, _, err := httplib.GetUnprivilegedKubeClient(config.DNSConfig.Addr())
 			if err != nil {
 				return nil, trace.Wrap(err)
 			}

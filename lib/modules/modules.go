@@ -27,6 +27,7 @@ import (
 	"github.com/gravitational/teleport"
 	teleservices "github.com/gravitational/teleport/lib/services"
 	"github.com/gravitational/version"
+	helm "k8s.io/helm/pkg/version"
 )
 
 // Modules allows to customize certain behavioral aspects of Telekube
@@ -115,6 +116,7 @@ func (m *defaultModules) Version() Version {
 		Edition:   "open-source",
 		Version:   ver.Version,
 		GitCommit: ver.GitCommit,
+		Helm:      helm.Version,
 	}
 }
 
@@ -131,6 +133,14 @@ type Version struct {
 	Version string `json:"version"`
 	// GitCommit is the git commit hash
 	GitCommit string `json:"gitCommit"`
+	// Helm is the built-in Helm version
+	Helm string `json:"helm"`
+}
+
+// String returns human-friendly version string
+func (v Version) String() string {
+	return fmt.Sprintf("Edition:\t%v\nVersion:\t%v\nGit Commit:\t%v\nHelm Version:\t%v",
+		v.Edition, v.Version, v.GitCommit, v.Helm)
 }
 
 var (
