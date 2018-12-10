@@ -53,6 +53,7 @@ func NewPhaseElectionChange(
 	phase storage.OperationPhase,
 	remote fsm.Remote,
 	operator ops.Operator,
+	logger logrus.FieldLogger,
 ) (*phaseElectionChange, error) {
 	if phase.Data == nil || phase.Data.ElectionChange == nil {
 		return nil, trace.BadParameter("no election status specified for phase %q", phase.ID)
@@ -76,7 +77,7 @@ func NewPhaseElectionChange(
 		Server:         *phase.Data.Server,
 		ClusterName:    plan.ClusterName,
 		ElectionChange: *phase.Data.ElectionChange,
-		FieldLogger:    logrus.NewEntry(logrus.New()),
+		FieldLogger:    logger,
 		dnsConfig:      dnsConfig,
 		remote:         remote,
 	}, nil

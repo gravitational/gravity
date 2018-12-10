@@ -51,6 +51,7 @@ func NewUpdatePhaseChecks(
 	plan storage.OperationPlan,
 	phase storage.OperationPhase,
 	remote fsm.AgentRepository,
+	logger log.FieldLogger,
 ) (*updatePhaseChecks, error) {
 	if phase.Data.Package == nil {
 		return nil, trace.NotFound("no update application package specified for phase %v", phase)
@@ -63,7 +64,7 @@ func NewUpdatePhaseChecks(
 		return nil, trace.Wrap(err)
 	}
 	return &updatePhaseChecks{
-		FieldLogger:      log.NewEntry(log.New()),
+		FieldLogger:      logger,
 		apps:             c.Apps,
 		servers:          plan.Servers,
 		updatePackage:    *phase.Data.Package,

@@ -46,7 +46,6 @@ func (r phaseBuilder) corednsPhase(leadMaster storage.Server) *phase {
 }
 
 type updatePhaseCoreDNS struct {
-	log.FieldLogger
 	kubernetesOperation
 }
 
@@ -54,16 +53,13 @@ type updatePhaseCoreDNS struct {
 // The normal upgrade sequence is to Rolling update planet, then to update our RBAC settings in the RBAC app
 // However, CoreDNS within planet needs these settings to function, so these settings specifically need to be created
 // before the rolling restart of planet
-func NewPhaseCoreDNS(c FSMConfig, plan storage.OperationPlan, phase storage.OperationPhase) (*updatePhaseCoreDNS, error) {
-	op, err := newKubernetesOperation(c, plan, phase)
+func NewPhaseCoreDNS(c FSMConfig, plan storage.OperationPlan, phase storage.OperationPhase, logger log.FieldLogger) (*updatePhaseCoreDNS, error) {
+	op, err := newKubernetesOperation(c, plan, phase, logger)
 	if err != nil {
 		return nil, trace.Wrap(err)
 	}
 	return &updatePhaseCoreDNS{
 		kubernetesOperation: *op,
-		FieldLogger: log.WithFields(log.Fields{
-			"phase": phase.ID,
-		}),
 	}, nil
 }
 

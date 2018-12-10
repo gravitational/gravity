@@ -81,7 +81,7 @@ type updatePhaseBootstrap struct {
 }
 
 // NewUpdatePhaseBootstrap creates a new bootstrap phase executor
-func NewUpdatePhaseBootstrap(c FSMConfig, plan storage.OperationPlan, phase storage.OperationPhase, remote fsm.Remote) (fsm.PhaseExecutor, error) {
+func NewUpdatePhaseBootstrap(c FSMConfig, plan storage.OperationPlan, phase storage.OperationPhase, remote fsm.Remote, logger log.FieldLogger) (fsm.PhaseExecutor, error) {
 	if phase.Data == nil || phase.Data.Package == nil {
 		return nil, trace.NotFound("no application package specified for phase %v", phase)
 	}
@@ -127,7 +127,7 @@ func NewUpdatePhaseBootstrap(c FSMConfig, plan storage.OperationPlan, phase stor
 		Operation:        *operation,
 		GravityPath:      gravityPath,
 		ServiceUser:      cluster.ServiceUser,
-		FieldLogger:      log.NewEntry(log.New()),
+		FieldLogger:      logger,
 		remote:           remote,
 		runtimePackage:   *runtimePackage,
 		installedRuntime: *installedRuntime,

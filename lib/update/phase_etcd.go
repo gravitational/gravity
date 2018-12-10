@@ -227,11 +227,9 @@ type PhaseUpgradeEtcdBackup struct {
 	log.FieldLogger
 }
 
-func NewPhaseUpgradeEtcdBackup(c FSMConfig, plan storage.OperationPlan, phase storage.OperationPhase) (fsm.PhaseExecutor, error) {
+func NewPhaseUpgradeEtcdBackup(c FSMConfig, plan storage.OperationPlan, phase storage.OperationPhase, logger log.FieldLogger) (fsm.PhaseExecutor, error) {
 	return &PhaseUpgradeEtcdBackup{
-		FieldLogger: log.WithFields(log.Fields{
-			trace.Component: "etcd:backup",
-		}),
+		FieldLogger: logger,
 	}, nil
 }
 
@@ -279,13 +277,11 @@ type PhaseUpgradeEtcdShutdown struct {
 
 // NewPhaseUpgradeEtcdShutdown creates a phase for shutting down etcd across the cluster
 // 4. Shutdown etcd (all servers) // API outage starts
-func NewPhaseUpgradeEtcdShutdown(c FSMConfig, plan storage.OperationPlan, phase storage.OperationPhase) (fsm.PhaseExecutor, error) {
+func NewPhaseUpgradeEtcdShutdown(c FSMConfig, plan storage.OperationPlan, phase storage.OperationPhase, logger log.FieldLogger) (fsm.PhaseExecutor, error) {
 	return &PhaseUpgradeEtcdShutdown{
-		FieldLogger: log.WithFields(log.Fields{
-			trace.Component: "etcd:shutdown",
-		}),
-		Client:   c.Client,
-		isLeader: phase.Data.Data == "true",
+		FieldLogger: logger,
+		Client:      c.Client,
+		isLeader:    phase.Data.Data == "true",
 	}, nil
 }
 
@@ -325,12 +321,10 @@ type PhaseUpgradeEtcd struct {
 	Server storage.Server
 }
 
-func NewPhaseUpgradeEtcd(c FSMConfig, plan storage.OperationPlan, phase storage.OperationPhase) (fsm.PhaseExecutor, error) {
+func NewPhaseUpgradeEtcd(c FSMConfig, plan storage.OperationPlan, phase storage.OperationPhase, logger log.FieldLogger) (fsm.PhaseExecutor, error) {
 	return &PhaseUpgradeEtcd{
-		FieldLogger: log.WithFields(log.Fields{
-			trace.Component: "etcd:upgrade",
-		}),
-		Server: *phase.Data.Server,
+		FieldLogger: logger,
+		Server:      *phase.Data.Server,
 	}, nil
 }
 
@@ -384,12 +378,10 @@ type PhaseUpgradeEtcdRestore struct {
 	Server storage.Server
 }
 
-func NewPhaseUpgradeEtcdRestore(c FSMConfig, plan storage.OperationPlan, phase storage.OperationPhase) (fsm.PhaseExecutor, error) {
+func NewPhaseUpgradeEtcdRestore(c FSMConfig, plan storage.OperationPlan, phase storage.OperationPhase, logger log.FieldLogger) (fsm.PhaseExecutor, error) {
 	return &PhaseUpgradeEtcdRestore{
-		FieldLogger: log.WithFields(log.Fields{
-			trace.Component: "etcd:restore",
-		}),
-		Server: *phase.Data.Server,
+		FieldLogger: logger,
+		Server:      *phase.Data.Server,
 	}, nil
 }
 
@@ -434,12 +426,10 @@ type PhaseUpgradeEtcdRestart struct {
 	Server storage.Server
 }
 
-func NewPhaseUpgradeEtcdRestart(c FSMConfig, plan storage.OperationPlan, phase storage.OperationPhase) (fsm.PhaseExecutor, error) {
+func NewPhaseUpgradeEtcdRestart(c FSMConfig, plan storage.OperationPlan, phase storage.OperationPhase, logger log.FieldLogger) (fsm.PhaseExecutor, error) {
 	return &PhaseUpgradeEtcdRestart{
-		FieldLogger: log.WithFields(log.Fields{
-			trace.Component: "etcd:restart",
-		}),
-		Server: *phase.Data.Server,
+		FieldLogger: logger,
+		Server:      *phase.Data.Server,
 	}, nil
 }
 
@@ -488,16 +478,14 @@ type PhaseUpgradeGravitySiteRestart struct {
 	Client *kubeapi.Clientset
 }
 
-func NewPhaseUpgradeGravitySiteRestart(c FSMConfig, plan storage.OperationPlan, phase storage.OperationPhase) (fsm.PhaseExecutor, error) {
+func NewPhaseUpgradeGravitySiteRestart(c FSMConfig, plan storage.OperationPlan, phase storage.OperationPhase, logger log.FieldLogger) (fsm.PhaseExecutor, error) {
 	if c.Client == nil {
 		return nil, trace.BadParameter("phase %q must be run from a master node (requires kubernetes client)", phase.ID)
 	}
 
 	return &PhaseUpgradeGravitySiteRestart{
-		FieldLogger: log.WithFields(log.Fields{
-			trace.Component: "etcd:restart",
-		}),
-		Client: c.Client,
+		FieldLogger: logger,
+		Client:      c.Client,
 	}, nil
 }
 

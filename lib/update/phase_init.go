@@ -71,7 +71,7 @@ type updatePhaseInit struct {
 }
 
 // NewUpdatePhaseInit creates a new update init phase executor
-func NewUpdatePhaseInit(c FSMConfig, plan storage.OperationPlan, phase storage.OperationPhase) (*updatePhaseInit, error) {
+func NewUpdatePhaseInit(c FSMConfig, plan storage.OperationPlan, phase storage.OperationPhase, logger log.FieldLogger) (*updatePhaseInit, error) {
 	if phase.Data == nil || phase.Data.Package == nil {
 		return nil, trace.NotFound("no application package specified for phase %v", phase)
 	}
@@ -103,18 +103,15 @@ func NewUpdatePhaseInit(c FSMConfig, plan storage.OperationPlan, phase storage.O
 	checks.OverrideDockerConfig(&existingDocker, installOperation.InstallExpand.Vars.System.Docker)
 
 	return &updatePhaseInit{
-		Backend:      c.Backend,
-		LocalBackend: c.LocalBackend,
-		Operator:     c.Operator,
-		Packages:     c.ClusterPackages,
-		Users:        c.Users,
-		Cluster:      *cluster,
-		Operation:    *operation,
-		Servers:      plan.Servers,
-		FieldLogger: log.WithFields(log.Fields{
-			trace.Component: "update",
-			"phase":         phase.ID,
-		}),
+		Backend:        c.Backend,
+		LocalBackend:   c.LocalBackend,
+		Operator:       c.Operator,
+		Packages:       c.ClusterPackages,
+		Users:          c.Users,
+		Cluster:        *cluster,
+		Operation:      *operation,
+		Servers:        plan.Servers,
+		FieldLogger:    logger,
 		app:            *app,
 		installedApp:   *installedApp,
 		existingDocker: existingDocker,

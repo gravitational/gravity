@@ -45,7 +45,7 @@ type updatePhaseSystem struct {
 }
 
 // NewUpdatePhaseNode returns a new node update phase executor
-func NewUpdatePhaseSystem(c FSMConfig, plan storage.OperationPlan, phase storage.OperationPhase, remote fsm.Remote) (*updatePhaseSystem, error) {
+func NewUpdatePhaseSystem(c FSMConfig, plan storage.OperationPlan, phase storage.OperationPhase, remote fsm.Remote, logger log.FieldLogger) (*updatePhaseSystem, error) {
 	if phase.Data == nil || phase.Data.Server == nil {
 		return nil, trace.NotFound("no server specified for phase %q", phase.ID)
 	}
@@ -60,7 +60,7 @@ func NewUpdatePhaseSystem(c FSMConfig, plan storage.OperationPlan, phase storage
 		OperationID:    plan.OperationID,
 		Server:         *phase.Data.Server,
 		GravityPath:    gravityPath,
-		FieldLogger:    log.NewEntry(log.New()),
+		FieldLogger:    logger,
 		remote:         remote,
 		runtimePackage: *phase.Data.RuntimePackage,
 	}, nil

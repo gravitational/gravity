@@ -29,14 +29,11 @@ import (
 )
 
 // NewGarbageCollectPhase returns a new executor for the garbage collection phase
-func NewGarbageCollectPhase(plan storage.OperationPlan, phase storage.OperationPhase, remote fsm.Remote) (*phaseGC, error) {
+func NewGarbageCollectPhase(plan storage.OperationPlan, phase storage.OperationPhase, remote fsm.Remote, logger log.FieldLogger) (*phaseGC, error) {
 	return &phaseGC{
-		FieldLogger: log.WithFields(log.Fields{
-			"phase":  phase.ID,
-			"server": phase.Data.Server.AdvertiseIP,
-		}),
-		Server: *phase.Data.Server,
-		remote: remote,
+		FieldLogger: logger,
+		Server:      *phase.Data.Server,
+		remote:      remote,
 	}, nil
 }
 

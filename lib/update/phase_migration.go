@@ -40,11 +40,9 @@ type phaseMigrateLinks struct {
 }
 
 // NewPhaseMigrateLinks returns a new links migration executor
-func NewPhaseMigrateLinks(c FSMConfig, plan storage.OperationPlan, phase storage.OperationPhase) (*phaseMigrateLinks, error) {
+func NewPhaseMigrateLinks(c FSMConfig, plan storage.OperationPlan, phase storage.OperationPhase, logger log.FieldLogger) (*phaseMigrateLinks, error) {
 	return &phaseMigrateLinks{
-		FieldLogger: log.WithFields(log.Fields{
-			trace.Component: "migrate-links",
-		}),
+		FieldLogger: logger,
 		Backend:     c.Backend,
 		ClusterName: plan.ClusterName,
 	}, nil
@@ -156,13 +154,11 @@ type phaseUpdateLabels struct {
 }
 
 // NewPhaseUpdateLabels updates labels during an upgrade
-func NewPhaseUpdateLabels(c FSMConfig, plan storage.OperationPlan, phase storage.OperationPhase) (*phaseUpdateLabels, error) {
+func NewPhaseUpdateLabels(c FSMConfig, plan storage.OperationPlan, phase storage.OperationPhase, logger log.FieldLogger) (*phaseUpdateLabels, error) {
 	return &phaseUpdateLabels{
-		FieldLogger: log.WithFields(log.Fields{
-			trace.Component: "update-labels",
-		}),
-		Servers: plan.Servers,
-		Client:  c.Client,
+		FieldLogger: logger,
+		Servers:     plan.Servers,
+		Client:      c.Client,
 	}, nil
 }
 

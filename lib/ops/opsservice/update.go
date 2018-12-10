@@ -350,7 +350,8 @@ func (s *site) startUpdateAgent(ctx context.Context, updateApp *app.Application)
 		return trace.Wrap(err)
 	}
 	serverStateDir := stateServer.StateDir()
-	agentExecPath := filepath.Join(state.GravityRPCAgentDir(serverStateDir), "gravity")
+	agentExecPath := filepath.Join(state.GravityRPCAgentDir(serverStateDir), constants.GravityBin)
+	secretsHostDir := filepath.Join(state.GravityRPCAgentDir(serverStateDir), defaults.SecretsDir)
 	nodeClient, err := proxy.ConnectToNode(ctx, master.Addr, defaults.SSHUser, false)
 	if err != nil {
 		return trace.Wrap(err)
@@ -358,13 +359,13 @@ func (s *site) startUpdateAgent(ctx context.Context, updateApp *app.Application)
 	defer nodeClient.Close()
 	err = utils.NewSSHCommands(nodeClient.Client).
 		// extract new gravity version
-		C("rm -f %s", agentExecPath).
+		C("rm -rf %s", secretsHostDir).
+		C("mkdir -p %s", secretsHostDir).
 		C("%s package export --file-mask=%o %s %s --ops-url=%s --insecure",
 			constants.GravityBin, defaults.SharedExecutableMask,
 			gravityPackage.String(), agentExecPath, defaults.GravityServiceURL).
 		// distribute agents and upgrade process
 		C("%s agent deploy upgrade", agentExecPath).
-		C("/bin/rm -f %s", agentExecPath).
 		WithLogger(s.WithField("node", master.HostName())).
 		Run(ctx)
 	return trace.Wrap(err)

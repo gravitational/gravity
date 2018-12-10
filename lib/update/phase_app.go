@@ -46,7 +46,7 @@ type updatePhaseApp struct {
 }
 
 // NewUpdatePhaseApp returns a new app phase executor
-func NewUpdatePhaseApp(c FSMConfig, plan storage.OperationPlan, phase storage.OperationPhase) (*updatePhaseApp, error) {
+func NewUpdatePhaseApp(c FSMConfig, plan storage.OperationPlan, phase storage.OperationPhase, logger log.FieldLogger) (*updatePhaseApp, error) {
 	cluster, err := c.Operator.GetLocalSite()
 	if err != nil {
 		return nil, trace.Wrap(err)
@@ -55,7 +55,7 @@ func NewUpdatePhaseApp(c FSMConfig, plan storage.OperationPlan, phase storage.Op
 		return nil, trace.NotFound("no package specified for phase %q", phase.ID)
 	}
 	return &updatePhaseApp{
-		FieldLogger: log.NewEntry(log.New()),
+		FieldLogger: logger,
 		phaseApp: phaseApp{
 			Apps:           c.Apps,
 			Client:         c.Client,
@@ -118,12 +118,12 @@ type updatePhaseBeforeApp struct {
 }
 
 // NewUpdatePhaseBeforeApp returns a new executor for running application pre-update hook
-func NewUpdatePhaseBeforeApp(c FSMConfig, plan storage.OperationPlan, phase storage.OperationPhase) (*updatePhaseBeforeApp, error) {
+func NewUpdatePhaseBeforeApp(c FSMConfig, plan storage.OperationPlan, phase storage.OperationPhase, logger log.FieldLogger) (*updatePhaseBeforeApp, error) {
 	if phase.Data.Package == nil {
 		return nil, trace.NotFound("no package specified for phase %q", phase.ID)
 	}
 	return &updatePhaseBeforeApp{
-		FieldLogger: log.NewEntry(log.New()),
+		FieldLogger: logger,
 		phaseApp: phaseApp{
 			Apps:           c.Apps,
 			Client:         c.Client,
