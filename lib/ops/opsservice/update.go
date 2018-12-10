@@ -353,7 +353,7 @@ func (s *site) startUpdateAgent(ctx context.Context, opCtx *operationContext, up
 		// extract new gravity version
 		C("rm -rf %s", secretsHostDir).
 		C("mkdir -p %s", secretsHostDir).
-		C("%s package export --file-mask=%o %s %s --ops-url=%s --insecure",
+		C("%s package export --file-mask=%o %s %s --ops-url=%s --insecure --quiet",
 			constants.GravityBin, defaults.SharedExecutableMask,
 			gravityPackage.String(), agentExecPath, defaults.GravityServiceURL).
 		// distribute agents and upgrade process
