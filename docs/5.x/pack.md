@@ -341,8 +341,9 @@ providers:
 
   # Generic provider is used for on-premises installations
   generic:
-    # Network section allows to specify networking type; only "vxlan" is
-    # currently supported for on-prem installations
+    # Network section allows to specify networking type;
+    # vxlan - (Default) use flannel for overlay network
+    # wireguard - use wireguard for overlay network
     network:
       type: vxlan
 
@@ -631,6 +632,15 @@ hooks:
 
   # restores application state from backup
   restore:
+
+  # install a custom CNI network plugin during cluster installation
+  networkInstall:
+
+  # update a custom CNI network plugin during cluster upgrade
+  networkUpdate:
+
+  # rollback a custom CNI network plugin during cluster rollback
+  networkRollback
 ```
 
 See [here](/requirements/#identifying-os-distributions-in-manifest) for version matrix to help with
