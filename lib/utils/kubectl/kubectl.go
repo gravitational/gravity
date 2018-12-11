@@ -155,7 +155,7 @@ func GetNodesAddr(ctx context.Context) ([]string, error) {
 		`jsonpath={.items[*].status.addresses[?(@.type=="InternalIP")].address}`))
 	cmd := exec.CommandContext(ctx, args[0], args[1:]...)
 
-	cmd.Stderr = utils.StderrLogger(log.StandardLogger().WithField("cmd", "kubectl get nodes"))
+	cmd.Stderr = utils.NewLoggingWriter(log.WithField("cmd", "kubectl get nodes"))
 
 	out, err := cmd.Output()
 	if err != nil {

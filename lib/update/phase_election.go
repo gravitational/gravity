@@ -84,6 +84,7 @@ func NewPhaseElectionChange(
 }
 
 func (p *phaseElectionChange) waitForMasterMigration(rollback bool) error {
+	p.Info("Wait for new leader election.")
 	err := utils.Retry(defaults.RetryInterval, defaults.RetryAttempts, func() error {
 		leaderAddr, err := utils.ResolveAddr(constants.APIServerDomainName, p.dnsConfig.Addr())
 		if err != nil {

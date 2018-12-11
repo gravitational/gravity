@@ -292,7 +292,7 @@ func (s *site) createUpdateOperation(req ops.CreateSiteAppUpdateOperationRequest
 	if err != nil {
 		return nil, trace.Wrap(err)
 	}
-	err = s.startUpdateAgent(context.TODO(), updateApp)
+	err = s.startUpdateAgent(context.TODO(), ctx, updateApp)
 	if err != nil {
 		return key, trace.Wrap(err,
 			"update operation was created but the automatic update agent failed to start. Refer to the documentation on how to proceed with manual update")
@@ -323,7 +323,7 @@ func (s *site) validateUpdateOperationRequest(req ops.CreateSiteAppUpdateOperati
 }
 
 // startUpdateAgent runs deploy procedure on one of the leader nodes
-func (s *site) startUpdateAgent(ctx context.Context, updateApp *app.Application) error {
+func (s *site) startUpdateAgent(ctx context.Context, opCtx *operationContext, updateApp *app.Application) error {
 	master, err := s.getTeleportServer(schema.ServiceLabelRole, string(schema.ServiceRoleMaster))
 	if err != nil {
 		return trace.Wrap(err)
@@ -332,6 +332,11 @@ func (s *site) startUpdateAgent(ctx context.Context, updateApp *app.Application)
 	if err != nil {
 		return trace.Wrap(err)
 	}
+	nodeClient, err := proxy.ConnectToNode(ctx, master.Addr, defaults.SSHUser, false)
+	if err != nil {
+		return trace.Wrap(err)
+	}
+	defer nodeClient.Close()
 	gravityPackage, err := updateApp.Manifest.Dependencies.ByName(constants.GravityPackage)
 	if err != nil {
 		return trace.Wrap(err)
@@ -352,21 +357,17 @@ func (s *site) startUpdateAgent(ctx context.Context, updateApp *app.Application)
 	serverStateDir := stateServer.StateDir()
 	agentExecPath := filepath.Join(state.GravityRPCAgentDir(serverStateDir), constants.GravityBin)
 	secretsHostDir := filepath.Join(state.GravityRPCAgentDir(serverStateDir), defaults.SecretsDir)
-	nodeClient, err := proxy.ConnectToNode(ctx, master.Addr, defaults.SSHUser, false)
-	if err != nil {
-		return trace.Wrap(err)
-	}
-	defer nodeClient.Close()
 	err = utils.NewSSHCommands(nodeClient.Client).
 		// extract new gravity version
 		C("rm -rf %s", secretsHostDir).
 		C("mkdir -p %s", secretsHostDir).
-		C("%s package export --file-mask=%o %s %s --ops-url=%s --insecure",
+		C("%s package export --file-mask=%o %s %s --ops-url=%s --insecure --quiet",
 			constants.GravityBin, defaults.SharedExecutableMask,
 			gravityPackage.String(), agentExecPath, defaults.GravityServiceURL).
 		// distribute agents and upgrade process
 		C("%s agent deploy upgrade", agentExecPath).
 		WithLogger(s.WithField("node", master.HostName())).
+		WithOutput(opCtx.recorder).
 		Run(ctx)
 	return trace.Wrap(err)
 }

@@ -57,15 +57,15 @@ func (p *phaseMigrateLinks) Execute(context.Context) error {
 	// sort out all links into remote access vs update
 	remoteLinks, updateLinks := p.sortOutLinks(links)
 	if len(remoteLinks) == 0 {
-		p.Debugf("cluster %q does not have links to migrate", p.ClusterName)
+		p.Debugf("Cluster %q does not have links to migrate.", p.ClusterName)
 		return nil
 	}
-	p.Debugf("found links to migrate: %v, %v", remoteLinks, updateLinks)
+	p.Debugf("Found links to migrate: %v, %v.", remoteLinks, updateLinks)
 	// we only support a simultaneous connection to a single Ops Center but in
 	// case some cluster has more than one remote support link, consider only
 	// the first one
 	if len(remoteLinks) > 1 {
-		p.Warnf("only the 1st link will be migrated: %v", remoteLinks)
+		p.Warnf("Only the 1st link will be migrated: %v.", remoteLinks)
 	}
 	remoteLink := remoteLinks[0]
 	// find the corresponding update link
@@ -79,7 +79,7 @@ func (p *phaseMigrateLinks) Execute(context.Context) error {
 	// update link *should* be present but in case of some broken configuration
 	// let's tolerate its absense
 	if updateLink == nil {
-		p.Warnf("could not find update link for remote support link %v: %v %v",
+		p.Warnf("Could not find update link for remote support link %v: %v %v.",
 			remoteLink, remoteLinks, updateLinks)
 	}
 	// now that we've found a remote support link and (possibly) its update
@@ -88,7 +88,7 @@ func (p *phaseMigrateLinks) Execute(context.Context) error {
 	if err != nil {
 		return trace.Wrap(err)
 	}
-	p.Debugf("creating trusted cluster: %s", trustedCluster)
+	p.Debugf("Creating trusted cluster: %s.", trustedCluster)
 	err = p.Backend.UpsertTrustedCluster(trustedCluster)
 	if err != nil {
 		return trace.Wrap(err)
@@ -128,7 +128,7 @@ func (*phaseMigrateLinks) PostCheck(context.Context) error {
 func (p *phaseMigrateLinks) sortOutLinks(links []storage.OpsCenterLink) (remoteLinks, updateLinks []storage.OpsCenterLink) {
 	for _, link := range links {
 		if link.Wizard {
-			p.Debugf("skipping wizard link: %v", link)
+			p.Debugf("Skipping wizard link: %v.", link)
 			continue
 		}
 		switch link.Type {
@@ -137,7 +137,7 @@ func (p *phaseMigrateLinks) sortOutLinks(links []storage.OpsCenterLink) (remoteL
 		case storage.OpsCenterUpdateLink:
 			updateLinks = append(updateLinks, link)
 		default:
-			p.Warnf("unknown link type %q, skipping", link.Type)
+			p.Warnf("Unknown link type %q, skipping.", link.Type)
 		}
 	}
 	return remoteLinks, updateLinks
@@ -168,6 +168,7 @@ func (p *phaseUpdateLabels) Execute(ctx context.Context) error {
 		labels := map[string]string{
 			defaults.KubernetesAdvertiseIPLabel: server.AdvertiseIP,
 		}
+		p.Infof("Update labels on %v.", formatServer(server))
 		err := libkubernetes.UpdateLabels(ctx, p.Client.Core().Nodes(), server.KubeNodeID(), labels)
 		if err != nil {
 			return trace.Wrap(err)

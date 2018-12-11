@@ -41,7 +41,6 @@ import (
 
 // updatePhaseApp is the executor for the app update phase
 type updatePhaseApp struct {
-	log.FieldLogger
 	phaseApp
 }
 
@@ -55,8 +54,8 @@ func NewUpdatePhaseApp(c FSMConfig, plan storage.OperationPlan, phase storage.Op
 		return nil, trace.NotFound("no package specified for phase %q", phase.ID)
 	}
 	return &updatePhaseApp{
-		FieldLogger: logger,
 		phaseApp: phaseApp{
+			FieldLogger:    logger,
 			Apps:           c.Apps,
 			Client:         c.Client,
 			GravityPackage: plan.GravityPackage,
@@ -113,7 +112,6 @@ func (p *updatePhaseApp) createBootstrapResources() error {
 
 // updatePhaseBeforeApp is an executor for application's pre-update hook
 type updatePhaseBeforeApp struct {
-	log.FieldLogger
 	phaseApp
 }
 
@@ -123,8 +121,8 @@ func NewUpdatePhaseBeforeApp(c FSMConfig, plan storage.OperationPlan, phase stor
 		return nil, trace.NotFound("no package specified for phase %q", phase.ID)
 	}
 	return &updatePhaseBeforeApp{
-		FieldLogger: logger,
 		phaseApp: phaseApp{
+			FieldLogger:    logger,
 			Apps:           c.Apps,
 			Client:         c.Client,
 			GravityPackage: plan.GravityPackage,
@@ -160,6 +158,7 @@ type phaseApp struct {
 	Servers []storage.Server
 	// ServiceUser is the user used for services and system storage
 	ServiceUser storage.OSUser
+	log.FieldLogger
 }
 
 // PreCheck makes sure this phase is being executed on a master node
@@ -187,34 +186,31 @@ func (p *phaseApp) runHooks(ctx context.Context, hooks ...schema.HookType) error
 		_, err := app.CheckHasAppHook(p.Apps, req)
 		if err != nil {
 			if trace.IsNotFound(err) {
-				log.Debugf("%v does not have %v hook.", p.Package, hook)
+				p.Debugf("%v does not have %v hook.", p.Package, hook)
 				continue
 			}
 			return trace.Wrap(err)
 		}
+		p.Infof("Execute %v(%v) hook.", p.Package, hook)
 		reader, writer := io.Pipe()
 		defer writer.Close()
-		go streamHook(hook, reader)
+		go streamHook(hook, reader, p.FieldLogger)
 		_, err = app.StreamAppHook(ctx, p.Apps, req, writer)
 		if err != nil {
-			return trace.Wrap(err, "%v %s hook failed", p.Package, hook)
+			return trace.Wrap(err, "%v(%v) hook failed", p.Package, hook)
 		}
 	}
 	return nil
 }
 
-func streamHook(hook schema.HookType, reader io.ReadCloser) {
+func streamHook(hook schema.HookType, reader io.ReadCloser, logger log.FieldLogger) {
 	defer reader.Close()
 	scanner := bufio.NewScanner(reader)
-	logger := log.WithFields(log.Fields{
-		trace.Component: "hook",
-		"hook":          string(hook),
-	})
 	for scanner.Scan() {
 		logger.Info(scanner.Text())
 	}
 	err := scanner.Err()
-	if err != nil {
-		logger.Warnf("Failed to stream hook logs: %v.", err)
+	if err != nil && err != io.EOF {
+		logger.Warnf("Failed to stream logs for hook %v: %v.", hook, err)
 	}
 }

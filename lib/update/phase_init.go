@@ -206,6 +206,7 @@ func (p *updatePhaseInit) initRPCCredentials() error {
 }
 
 func (p *updatePhaseInit) updateClusterRoles() error {
+	p.Info("Update cluster roles.")
 	cluster, err := p.Backend.GetLocalSite(defaults.SystemAccountID)
 	if err != nil {
 		return trace.Wrap(err)
@@ -232,6 +233,7 @@ func (p *updatePhaseInit) updateClusterRoles() error {
 }
 
 func (p *updatePhaseInit) updateClusterDNSConfig() error {
+	p.Info("Update cluster DNS configuration.")
 	cluster, err := p.Backend.GetLocalSite(defaults.SystemAccountID)
 	if err != nil {
 		return trace.Wrap(err)
@@ -280,6 +282,7 @@ func (p *updatePhaseInit) upsertServiceUser() error {
 		return nil
 	}
 
+	p.Info("Create service user.")
 	user, err := install.GetOrCreateServiceUser(defaults.ServiceUserID, defaults.ServiceGroupID)
 	if err != nil {
 		return trace.Wrap(err,
@@ -298,6 +301,7 @@ func (p *updatePhaseInit) upsertServiceUser() error {
 }
 
 func (p *updatePhaseInit) createAdminAgent() error {
+	p.Info("Create admin agent user.")
 	// create a cluster admin agent as it may not exist yet
 	// when upgrading from older versions
 	email := storage.ClusterAdminAgent(p.Cluster.Domain)
@@ -312,6 +316,7 @@ func (p *updatePhaseInit) createAdminAgent() error {
 }
 
 func (p *updatePhaseInit) rotateSecrets(server storage.Server) error {
+	p.Infof("Generate new secrets configuration package for %v.", formatServer(server))
 	resp, err := p.Operator.RotateSecrets(ops.RotateSecretsRequest{
 		AccountID:   p.Operation.AccountID,
 		ClusterName: p.Operation.SiteDomain,
@@ -324,11 +329,12 @@ func (p *updatePhaseInit) rotateSecrets(server storage.Server) error {
 	if err != nil {
 		return trace.Wrap(err)
 	}
-	p.Debugf("Rotated secrets package for %v: %v.", server, resp.Locator)
+	p.Debugf("Rotated secrets package for %v: %v.", formatServer(server), resp.Locator)
 	return nil
 }
 
 func (p *updatePhaseInit) rotatePlanetConfig(server storage.Server, runtimePackage loc.Locator) error {
+	p.Infof("Generate new runtime configuration package for %v.", formatServer(server))
 	resp, err := p.Operator.RotatePlanetConfig(ops.RotatePlanetConfigRequest{
 		AccountID:   p.Operation.AccountID,
 		ClusterName: p.Operation.SiteDomain,
@@ -345,7 +351,10 @@ func (p *updatePhaseInit) rotatePlanetConfig(server storage.Server, runtimePacka
 	if err != nil {
 		return trace.Wrap(err)
 	}
-	p.Debugf("Rotated planet config package for %v: %v.", server, resp.Locator)
+	p.WithFields(log.Fields{
+		"node":    server,
+		"package": resp.Locator,
+	}).Debug("Rotated runtime configuration package.")
 	return nil
 }
 
@@ -366,7 +375,7 @@ func removeLegacyUpdateDirectory(log log.FieldLogger) error {
 		return nil
 	}
 
-	log.Debugf("removing legacy update dictory %v", updateDir)
+	log.WithField("dir", updateDir).Debug("Removing legacy update dictory.")
 	err = os.RemoveAll(updateDir)
 	return trace.ConvertSystemError(err)
 }
