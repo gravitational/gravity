@@ -274,9 +274,12 @@ func pullApp(req AppPullRequest, state *pullState) (*app.Application, error) {
 	}
 
 	// first pull all app dependencies
-	err = pullAppDeps(req, *manifest, state)
-	if err != nil {
-		return nil, trace.Wrap(err)
+	switch manifest.Kind {
+	case schema.KindBundle, schema.KindCluster, schema.KindRuntime:
+		err = pullAppDeps(req, *manifest, state)
+		if err != nil {
+			return nil, trace.Wrap(err)
+		}
 	}
 
 	// see if the app itself already exists

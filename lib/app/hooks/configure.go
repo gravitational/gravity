@@ -58,6 +58,7 @@ func configureJob(job *batchv1.Job, p Params) error {
 		return trace.Wrap(err)
 	}
 	configureTolerations(job)
+	configureNetwork(job, p)
 
 	return nil
 }
@@ -319,6 +320,14 @@ func configureTolerations(job *batchv1.Job) {
 	)
 }
 
+// configureNetwork updates the jobs pod network settings
+// - Set hostnetwork=true, so that jobs can run to install kubernetes networking, or while networking is unavailable
+func configureNetwork(job *batchv1.Job, p Params) {
+	if p.HostNetwork {
+		job.Spec.Template.Spec.HostNetwork = true
+	}
+}
+
 // initScript builds a shell script used as init container entrypoint for this hook
 func initScript(w io.Writer, p Params) error {
 	ctx := initScriptContext{
@@ -335,7 +344,7 @@ func initScript(w io.Writer, p Params) error {
 	var script *template.Template
 
 	switch p.Hook.Type {
-	case schema.HookInstall, schema.HookInstalled:
+	case schema.HookInstall, schema.HookInstalled, schema.HookNetworkInstall:
 		// During initial installation the package should be unpacked directly from local state, in
 		// other cases it will be downloaded from the running gravity site
 		script = initInstallScriptTemplate

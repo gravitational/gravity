@@ -271,8 +271,21 @@ func (b *PlanBuilder) AddNodesPhase(plan *storage.OperationPlan) error {
 func (b *PlanBuilder) AddWaitPhase(plan *storage.OperationPlan) {
 	plan.Phases = append(plan.Phases, storage.OperationPhase{
 		ID:          phases.WaitPhase,
-		Description: "Wait for system services to start on all nodes",
+		Description: "Wait for kubernetes to become available",
 		Requires:    fsm.RequireIfPresent(plan, phases.MastersPhase, phases.NodesPhase),
+		Data: &storage.OperationPhaseData{
+			Server: &b.Master,
+		},
+		Step: 4,
+	})
+}
+
+// AddHealthPhase appends phase that waits for the cluster to become healthy
+func (b *PlanBuilder) AddHealthPhase(plan *storage.OperationPlan) {
+	plan.Phases = append(plan.Phases, storage.OperationPhase{
+		ID:          phases.HealthPhase,
+		Description: "Wait for cluster to pass health checks",
+		Requires:    fsm.RequireIfPresent(plan, phases.InstallOverlayPhase, phases.ExportPhase),
 		Data: &storage.OperationPhaseData{
 			Server: &b.Master,
 		},
@@ -321,6 +334,34 @@ func (b *PlanBuilder) AddRBACPhase(plan *storage.OperationPlan) {
 		Data: &storage.OperationPhaseData{
 			Server:  &b.Master,
 			Package: &b.RBACPackage,
+		},
+		Requires: []string{phases.WaitPhase},
+		Step:     4,
+	})
+}
+
+// AddInstallOverlayPhase appends a phase to install a non-flannel overlay network
+func (b *PlanBuilder) AddInstallOverlayPhase(plan *storage.OperationPlan, locator *loc.Locator) {
+	plan.Phases = append(plan.Phases, storage.OperationPhase{
+		ID:          phases.InstallOverlayPhase,
+		Description: "Install overlay network",
+		Data: &storage.OperationPhaseData{
+			Server:      &b.Master,
+			Package:     locator,
+			ServiceUser: &b.ServiceUser,
+		},
+		Requires: fsm.RequireIfPresent(plan, phases.ExportPhase),
+		Step:     4,
+	})
+}
+
+// AddCorednsPhase generates default coredns configuration for the cluster
+func (b *PlanBuilder) AddCorednsPhase(plan *storage.OperationPlan) {
+	plan.Phases = append(plan.Phases, storage.OperationPhase{
+		ID:          phases.CorednsPhase,
+		Description: "Configure CoreDNS",
+		Data: &storage.OperationPhaseData{
+			Server: &b.Master,
 		},
 		Requires: []string{phases.WaitPhase},
 		Step:     4,

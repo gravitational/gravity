@@ -374,7 +374,7 @@ func (p *Peer) connect() (*operationContext, error) {
 	for {
 		select {
 		case <-p.Context.Done():
-			return nil, trace.ConnectionProblem(p.Context.Err(), "context is closing")
+			return nil, trace.Wrap(p.Context.Err())
 		case tm := <-ticker.C:
 			if tm.IsZero() {
 				return nil, trace.ConnectionProblem(nil, "timeout")
@@ -618,7 +618,7 @@ func (p *Peer) waitForAgents(ctx operationContext) error {
 	for {
 		select {
 		case <-p.Context.Done():
-			return trace.ConnectionProblem(p.Context.Err(), "context is closing")
+			return trace.Wrap(p.Context.Err())
 		case tm := <-ticker.C:
 			if tm.IsZero() {
 				return trace.ConnectionProblem(nil, "timed out waiting for agents to join")
@@ -656,12 +656,8 @@ func (p *Peer) send(e install.Event) {
 	select {
 	case p.EventsC <- e:
 	case <-p.Context.Done():
-		select {
-		case p.EventsC <- install.Event{Error: trace.ConnectionProblem(p.Context.Err(), "context is closing")}:
-		default:
-		}
 	default:
-		p.Warningf("Failed to send event, events channel is blocked.")
+		p.Warnf("Failed to send event, events channel is blocked.")
 	}
 }
 
@@ -708,6 +704,8 @@ func (p *Peer) Wait() error {
 		case <-p.Done():
 			p.Info("Agent shut down.")
 			return nil
+		case <-p.Context.Done():
+			return trace.Wrap(p.Context.Err())
 		case event := <-p.EventsC:
 			if event.Error != nil {
 				return trace.Wrap(event.Error)

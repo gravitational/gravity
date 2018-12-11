@@ -35,10 +35,14 @@ const (
 	NodesPhase = "/nodes"
 	// WaitPhase is a phase that waits for planet to start
 	WaitPhase = "/wait"
+	// HealthPhase is a phase that waits for the cluster to be healthy
+	HealthPhase = "/health"
 	// LabelPhase is a phase that applies labels and taints to Kubernetes nodes
 	LabelPhase = "/label"
 	// RBACPhase is a phase that creates Kubernetes RBAC resources
 	RBACPhase = "/rbac"
+	// CorednsPhase is a phase that generates coredns configuration for the cluster
+	CorednsPhase = "/coredns"
 	// ResourcesPhase is a phase that creates user supplied Kubernetes resources
 	ResourcesPhase = "/resources"
 	// ExportPhase is a phase that exports application layers to registries
@@ -53,4 +57,6 @@ const (
 	// at the end of the installation. During installation, the election is
 	// off with a single master
 	EnableElectionPhase = "/election"
+	// InstallOverlayPhase installs a custom overlay network
+	InstallOverlayPhase = "/overlay"
 )

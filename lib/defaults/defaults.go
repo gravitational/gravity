@@ -807,7 +807,10 @@ const (
 	GravityOpsCenterLabel = "gravity-opscenter"
 
 	// KubeDNSLabel defines the label to select cluster DNS service Pods
-	KubeDNSLabel = "kubedns"
+	KubeDNSLabel = "kube-dns"
+
+	// KubeDNSWorkerLabel defines a label to select cluster DNS services on worker nodes
+	KubeDNSWorkerLabel = "kube-dns-worker"
 
 	// ShrinkAgentServiceName specifies the name of the systemd unit file
 	// that executes a shrink agent on a remote node
@@ -1064,6 +1067,10 @@ var (
 	// TransientErrorTimeout specifies the maximum amount of time to attempt
 	// an operation experiencing transient errors
 	TransientErrorTimeout = 15 * time.Minute
+
+	// WormholeImg is the docker image reference to use when embedding wormhole
+	// Note: This is a build parameter, and the build scripts will replace this with an image reference
+	WormholeImg = "<build param>"
 )
 
 // HookSecurityContext returns default securityContext for hook pods

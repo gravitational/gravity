@@ -19,6 +19,7 @@ package schema
 import (
 	"bytes"
 	"encoding/json"
+	"io/ioutil"
 
 	"github.com/gravitational/gravity/lib/constants"
 	"github.com/gravitational/gravity/lib/defaults"
@@ -55,6 +56,19 @@ func ParseManifestYAMLNoValidate(bytesYAML []byte) (*Manifest, error) {
 	return manifest, nil
 }
 
+// ParseManifest parses manifest file at the specified path
+func ParseManifest(path string) (*Manifest, error) {
+	manifestBytes, err := ioutil.ReadFile(path)
+	if err != nil {
+		return nil, trace.Wrap(err)
+	}
+	manifest, err := ParseManifestYAMLNoValidate(manifestBytes)
+	if err != nil {
+		return nil, trace.Wrap(err)
+	}
+	return manifest, nil
+}
+
 func parseManifestYAML(data []byte) (*Manifest, error) {
 	bytes, err := yaml.YAMLToJSON(data)
 	if err != nil {
@@ -78,7 +92,10 @@ func CheckAndSetDefaults(manifest *Manifest) error {
 	}
 
 	// the rest of the checks apply only to user apps
-	if manifest.Kind != KindBundle {
+	// TODO Do specific checks for Cluster VS Application
+	switch manifest.Kind {
+	case KindBundle, KindCluster, KindApplication:
+	default:
 		return trace.NewAggregate(errors...)
 	}
 

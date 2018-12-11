@@ -3,11 +3,11 @@ set -eu -o pipefail
 
 readonly UPGRADE_FROM_DIR=${1:-$(pwd)/../upgrade_from}
 
-DOCKER_STORAGE_DRIVERS="overlay2 devicemapper"
+DOCKER_STORAGE_DRIVERS="overlay2"
 
 declare -A UPGRADE_MAP
-# gravity version -> list of OS releases to exercise on
-UPGRADE_MAP[5.2.3]="redhat:7 centos:7 debian:9 suse:12 ubuntu:16"
+# gravity version -> list of OS releases to test upgrades on
+UPGRADE_MAP[5.2.3]="centos:7 ubuntu:16"
 
 readonly GET_GRAVITATIONAL_IO_APIKEY=${GET_GRAVITATIONAL_IO_APIKEY:?API key for distribution Ops Center required}
 readonly GRAVITY_BUILDDIR=${GRAVITY_BUILDDIR:?Set GRAVITY_BUILDDIR to the build directory}
@@ -19,6 +19,7 @@ export ROBOTEST_VERSION=${ROBOTEST_VERSION:-stable-gce}
 export ROBOTEST_REPO=quay.io/gravitational/robotest-suite:$ROBOTEST_VERSION
 export WAIT_FOR_INSTALLER=true
 export INSTALLER_URL=$GRAVITY_BUILDDIR/telekube.tar
+export GRAVITY_URL=$GRAVITY_BUILDDIR/gravity
 export DEPLOY_TO=${DEPLOY_TO:-gce}
 export TAG=$(git rev-parse --short HEAD)
 export GCL_PROJECT_ID=${GCL_PROJECT_ID:-"kubeadm-167321"}
@@ -26,7 +27,7 @@ export GCE_REGION="northamerica-northeast1,us-west1,us-east1,us-east4,us-central
 
 function build_resize_suite {
   cat <<EOF
- resize={"to":3,"flavor":"one","nodes":1,"role":"node","state_dir":"/var/lib/telekube","os":"ubuntu:16","storage_driver":"devicemapper"}
+ resize={"to":3,"flavor":"one","nodes":1,"role":"node","state_dir":"/var/lib/telekube","os":"ubuntu:16","storage_driver":"overlay2"}
  resize={"to":6,"flavor":"three","nodes":3,"role":"node","state_dir":"/var/lib/telekube","os":"ubuntu:16","storage_driver":"overlay2"}
 EOF
 }
@@ -53,11 +54,9 @@ function build_upgrade_suite {
     '"flavor":"one","nodes":1,"role":"node"')
   for release in ${!UPGRADE_MAP[@]}; do
     for os in ${UPGRADE_MAP[$release]}; do
-      for storage_driver in ${DOCKER_STORAGE_DRIVERS[@]}; do
-        for size in ${cluster_sizes[@]}; do
-          suite+=$(build_upgrade_step $os $release $storage_driver $size)
-          suite+=' '
-        done
+      for size in ${cluster_sizes[@]}; do
+        suite+=$(build_upgrade_step $os $release "overlay2" $size)
+        suite+=' '
       done
     done
   done
@@ -72,7 +71,7 @@ EOF
 
 function build_install_suite {
   local suite=''
-  local test_os="redhat:7 centos:7 suse:12 debian:9 ubuntu:16"
+  local test_os="redhat:7 debian:9 ubuntu:16"
   local cluster_sizes=( \
     '"flavor":"three","nodes":3,"role":"node"' \
     '"flavor":"six","nodes":6,"role":"node"')

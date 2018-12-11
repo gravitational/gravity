@@ -149,7 +149,8 @@ func InitAndCheck(g *Application, cmd string) error {
 		if err != nil {
 			return trace.Wrap(err)
 		}
-		if err := checkInCluster(localEnv.DNS.Addr()); err != nil {
+		err = httplib.InGravity(localEnv.DNS.Addr())
+		if err != nil {
 			return trace.Wrap(err)
 		}
 	}
@@ -229,6 +230,23 @@ func Execute(g *Application, cmd string, extraArgs []string) error {
 		return trace.Wrap(err)
 	}
 	defer localEnv.Close()
+
+	// the following commands must run when Kubernetes is available (can
+	// be inside gravity cluster or generic Kubernetes cluster)
+	switch cmd {
+	case g.AppInstallCmd.FullCommand(),
+		g.AppListCmd.FullCommand(),
+		g.AppUpgradeCmd.FullCommand(),
+		g.AppRollbackCmd.FullCommand(),
+		g.AppUninstallCmd.FullCommand(),
+		g.AppHistoryCmd.FullCommand():
+		if err := httplib.InGravity(localEnv.DNS.Addr()); err != nil {
+			if !httplib.InKubernetes() {
+				return trace.BadParameter("this command must be executed " +
+					"inside a Kubernetes cluster")
+			}
+		}
+	}
 
 	// create an environment used during upgrades
 	var upgradeEnv *localenv.LocalEnvironment
@@ -385,7 +403,60 @@ func Execute(g *Application, cmd string, extraArgs []string) error {
 		return uploadUpdate(localEnv, *g.UpdateUploadCmd.OpsCenterURL)
 	case g.AppPackageCmd.FullCommand():
 		return appPackage(localEnv)
-	// app commands
+		// app commands
+	case g.AppInstallCmd.FullCommand():
+		return releaseInstall(localEnv, releaseInstallConfig{
+			Image:     *g.AppInstallCmd.Image,
+			Name:      *g.AppInstallCmd.Name,
+			Namespace: *g.AppInstallCmd.Namespace,
+			Set:       *g.AppInstallCmd.Set,
+			Values:    *g.AppInstallCmd.Values,
+			registryConfig: registryConfig{
+				Registry: *g.AppInstallCmd.Registry,
+				CAPath:   *g.AppInstallCmd.RegistryCA,
+				CertPath: *g.AppInstallCmd.RegistryCert,
+				KeyPath:  *g.AppInstallCmd.RegistryKey,
+			},
+		})
+	case g.AppListCmd.FullCommand():
+		return releaseList(localEnv)
+	case g.AppUpgradeCmd.FullCommand():
+		return releaseUpgrade(localEnv, releaseUpgradeConfig{
+			Release: *g.AppUpgradeCmd.Release,
+			Image:   *g.AppUpgradeCmd.Image,
+			Set:     *g.AppUpgradeCmd.Set,
+			Values:  *g.AppUpgradeCmd.Values,
+			registryConfig: registryConfig{
+				Registry: *g.AppUpgradeCmd.Registry,
+				CAPath:   *g.AppUpgradeCmd.RegistryCA,
+				CertPath: *g.AppUpgradeCmd.RegistryCert,
+				KeyPath:  *g.AppUpgradeCmd.RegistryKey,
+			},
+		})
+	case g.AppRollbackCmd.FullCommand():
+		return releaseRollback(localEnv, releaseRollbackConfig{
+			Release:  *g.AppRollbackCmd.Release,
+			Revision: *g.AppRollbackCmd.Revision,
+		})
+	case g.AppUninstallCmd.FullCommand():
+		return releaseUninstall(localEnv, releaseUninstallConfig{
+			Release: *g.AppUninstallCmd.Release,
+		})
+	case g.AppHistoryCmd.FullCommand():
+		return releaseHistory(localEnv, releaseHistoryConfig{
+			Release: *g.AppHistoryCmd.Release,
+		})
+	case g.AppSyncCmd.FullCommand():
+		return appSync(localEnv, appSyncConfig{
+			Image: *g.AppSyncCmd.Image,
+			registryConfig: registryConfig{
+				Registry: *g.AppSyncCmd.Registry,
+				CAPath:   *g.AppSyncCmd.RegistryCA,
+				CertPath: *g.AppSyncCmd.RegistryCert,
+				KeyPath:  *g.AppSyncCmd.RegistryKey,
+			},
+		})
+		// internal (hidden) app commands
 	case g.AppImportCmd.FullCommand():
 		if len(*g.AppImportCmd.SetImages) != 0 || len(*g.AppImportCmd.SetDeps) != 0 || *g.AppImportCmd.Version != "" {
 			if !*g.AppImportCmd.Vendor {
@@ -427,19 +498,19 @@ func Execute(g *Application, cmd string, extraArgs []string) error {
 			*g.AppDeleteCmd.Locator,
 			*g.AppDeleteCmd.OpsCenterURL,
 			*g.AppDeleteCmd.Force)
-	case g.AppListCmd.FullCommand():
+	case g.AppPackageListCmd.FullCommand():
 		return listApps(localEnv,
-			*g.AppListCmd.Repository,
-			*g.AppListCmd.Type,
-			*g.AppListCmd.ShowHidden,
-			*g.AppListCmd.OpsCenterURL)
+			*g.AppPackageListCmd.Repository,
+			*g.AppPackageListCmd.Type,
+			*g.AppPackageListCmd.ShowHidden,
+			*g.AppPackageListCmd.OpsCenterURL)
 	case g.AppStatusCmd.FullCommand():
 		return statusApp(localEnv,
 			*g.AppStatusCmd.Locator,
 			*g.AppStatusCmd.OpsCenterURL)
-	case g.AppUninstallCmd.FullCommand():
-		return uninstallApp(localEnv,
-			*g.AppUninstallCmd.Locator)
+	case g.AppPackageUninstallCmd.FullCommand():
+		return uninstallAppPackage(localEnv,
+			*g.AppPackageUninstallCmd.Locator)
 	case g.AppPullCmd.FullCommand():
 		return pullApp(localEnv,
 			*g.AppPullCmd.Package,
@@ -667,6 +738,10 @@ func Execute(g *Application, cmd string, extraArgs []string) error {
 		return enablePromiscMode(localEnv, *g.SystemEnablePromiscModeCmd.Iface)
 	case g.SystemDisablePromiscModeCmd.FullCommand():
 		return disablePromiscMode(localEnv, *g.SystemDisablePromiscModeCmd.Iface)
+	case g.SystemExportRuntimeJournalCmd.FullCommand():
+		return exportRuntimeJournal(localEnv, *g.SystemExportRuntimeJournalCmd.OutputFile)
+	case g.SystemStreamRuntimeJournalCmd.FullCommand():
+		return streamRuntimeJournal(localEnv)
 	case g.GarbageCollectCmd.FullCommand():
 		phase := *g.GarbageCollectCmd.Phase
 		if *g.GarbageCollectCmd.Resume {
@@ -818,19 +893,6 @@ func pickSiteHost() (string, error) {
 		}
 	}
 	return "", trace.Errorf("failed to find a gravity site to connect to")
-}
-
-// checkInCluster checks if the command is invoked inside Gravity cluster
-func checkInCluster(dnsAddr string) error {
-	client := httplib.GetClient(true,
-		httplib.WithLocalResolver(dnsAddr),
-		httplib.WithTimeout(defaults.ClusterCheckTimeout))
-	_, err := client.Get(defaults.GravityServiceURL)
-	if err != nil {
-		log.Warnf("Gravity controller is inaccessible: %v.", err)
-		return trace.NotFound("No Gravity cluster detected. This failure could happen during failover, try again. Execute this command locally on one of the cluster nodes.")
-	}
-	return nil
 }
 
 func checkRunningAsRoot() error {

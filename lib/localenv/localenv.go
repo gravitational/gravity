@@ -34,6 +34,7 @@ import (
 	"github.com/gravitational/gravity/lib/constants"
 	"github.com/gravitational/gravity/lib/defaults"
 	"github.com/gravitational/gravity/lib/httplib"
+	"github.com/gravitational/gravity/lib/ops"
 	"github.com/gravitational/gravity/lib/ops/opsclient"
 	"github.com/gravitational/gravity/lib/pack"
 	"github.com/gravitational/gravity/lib/pack/localpack"
@@ -462,6 +463,19 @@ func (env *LocalEnvironment) SiteOperator() (*opsclient.Client, error) {
 	return operator, trace.Wrap(err)
 }
 
+// LocalCluster queries a local Gravity cluster.
+func (env *LocalEnvironment) LocalCluster() (*ops.Site, error) {
+	operator, err := env.SiteOperator()
+	if err != nil {
+		return nil, trace.Wrap(err)
+	}
+	cluster, err := operator.GetLocalSite()
+	if err != nil {
+		return nil, trace.Wrap(err)
+	}
+	return cluster, nil
+}
+
 // SiteApps returns Apps service for the local gravity site
 func (env *LocalEnvironment) SiteApps() (appbase.Applications, error) {
 	apps, err := env.AppService(
@@ -555,7 +569,8 @@ func (env *LocalEnvironment) GravityCommand(gravityPath string, args ...string) 
 func (env *LocalEnvironment) getKubeClient() (*kubernetes.Clientset, error) {
 	_, err := os.Stat(constants.PrivilegedKubeconfig)
 	if err == nil {
-		return utils.GetKubeClientFromPath(constants.PrivilegedKubeconfig)
+		client, _, err := utils.GetKubeClientFromPath(constants.PrivilegedKubeconfig)
+		return client, trace.Wrap(err)
 	}
 	log.Warnf("Privileged kubeconfig unavailable, falling back to cluster client: %v.", err)
 
@@ -563,7 +578,7 @@ func (env *LocalEnvironment) getKubeClient() (*kubernetes.Clientset, error) {
 		return nil, nil
 	}
 
-	client, err := httplib.GetClusterKubeClient(env.DNS.Addr())
+	client, _, err := httplib.GetClusterKubeClient(env.DNS.Addr())
 	if err != nil {
 		log.Warnf("Failed to create cluster kube client: %v.", err)
 		return nil, trace.Wrap(err)

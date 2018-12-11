@@ -220,7 +220,7 @@ func syncWithRegistry(ctx context.Context, registryDir string, imageService dock
 	if empty {
 		return trace.BadParameter("registry directory %v is empty", registryDir)
 	}
-	if _, err = imageService.Sync(ctx, registryDir); err != nil {
+	if _, err = imageService.Sync(ctx, registryDir, utils.NopEmitter()); err != nil {
 		return trace.Wrap(err)
 	}
 	return nil
@@ -301,6 +301,7 @@ func (r *applications) StartAppHook(ctx context.Context, req appservice.HookRunR
 		Mounts:             req.VolumeMounts,
 		NodeSelector:       req.NodeSelector,
 		SkipInitContainers: req.SkipInitContainers,
+		HostNetwork:        req.HostNetwork,
 		JobDeadline:        req.Timeout,
 		AgentUser:          creds.Email,
 		AgentPassword:      creds.Password,

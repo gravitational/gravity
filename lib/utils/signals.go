@@ -32,7 +32,6 @@ func WatchTerminationSignals(ctx context.Context, cancel context.CancelFunc, sto
 	signalC := make(chan os.Signal, 1)
 	signals := []os.Signal{
 		syscall.SIGINT,
-		syscall.SIGKILL,
 		syscall.SIGTERM,
 		syscall.SIGQUIT,
 	}
@@ -65,3 +64,13 @@ type Stopper interface {
 	// Stop performs implementation-specific cleanup tasks bound by the provided context
 	Stop(context.Context) error
 }
+
+// Stop invokes this stopper function.
+// Stop implements Stopper
+func (r StopperFunc) Stop(ctx context.Context) error {
+	return r(ctx)
+}
+
+// StopperFunc is an adapter function that allows the use
+// of ordinary functions as Stoppers
+type StopperFunc func(context.Context) error

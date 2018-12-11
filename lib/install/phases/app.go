@@ -105,6 +105,10 @@ func (p *hookExecutor) runHooks(ctx context.Context, hooks ...schema.HookType) e
 				GID:  strconv.Itoa(p.ServiceUser.GID),
 			},
 		}
+		if hook == schema.HookNetworkInstall {
+			req.HostNetwork = true
+		}
+
 		_, err := app.CheckHasAppHook(p.Apps, req)
 		if err != nil {
 			if trace.IsNotFound(err) {

@@ -391,15 +391,22 @@ func supportsTaints(gravityPackage loc.Locator) (supports bool, err error) {
 }
 
 func waitForEndpoints(ctx context.Context, client corev1.CoreV1Interface, server storage.Server) error {
-	node := server.KubeNodeID()
 	clusterLabels := labels.Set{"app": defaults.GravityClusterLabel}
-	kubednsLegacyLabels := labels.Set{"k8s-app": "kube-dns"}
+	kubednsLegacyLabels := labels.Set{"k8s-app": "kubedns"}
 	kubednsLabels := labels.Set{"k8s-app": defaults.KubeDNSLabel}
-	matchesNode := matchesNode(node)
+	kubednsWorkerLabels := labels.Set{"k8s-app": defaults.KubeDNSWorkerLabel}
+
+	// Due to https://github.com/gravitational/gravity.e/issues/3808 the node name we need to match may be inconsistent
+	// so try to match either possible node name
+	matchesNode := matchesNode([]string{
+		server.AdvertiseIP,
+		server.Nodename,
+	})
 	err := retry(ctx, func() error {
 		if (hasEndpoints(client, clusterLabels, existingEndpoint) == nil) &&
 			(hasEndpoints(client, kubednsLabels, matchesNode) == nil ||
-				hasEndpoints(client, kubednsLegacyLabels, matchesNode) == nil) {
+				hasEndpoints(client, kubednsLegacyLabels, matchesNode) == nil ||
+				hasEndpoints(client, kubednsWorkerLabels, matchesNode) == nil) {
 			return nil
 		}
 		return trace.NotFound("endpoints not ready")
@@ -433,12 +440,21 @@ func hasEndpoints(client corev1.CoreV1Interface, labels labels.Set, fn endpointM
 
 // matchesNode is a predicate that matches an endpoint address to the specified
 // node name
-func matchesNode(node string) endpointMatchFn {
+func matchesNode(nodes []string) endpointMatchFn {
 	return func(addr v1.EndpointAddress) bool {
 		// Abort if the node name is not populated.
 		// There is no need to wait for endpoints we cannot
 		// match to a node.
-		return addr.NodeName == nil || *addr.NodeName == node
+		if addr.NodeName == nil {
+			return false
+		}
+
+		for _, node := range nodes {
+			if *addr.NodeName == node {
+				return true
+			}
+		}
+		return false
 	}
 }
 

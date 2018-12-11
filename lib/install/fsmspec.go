@@ -22,6 +22,7 @@ import (
 	"github.com/gravitational/gravity/lib/fsm"
 	"github.com/gravitational/gravity/lib/httplib"
 	"github.com/gravitational/gravity/lib/install/phases"
+	"github.com/gravitational/gravity/lib/schema"
 
 	"github.com/gravitational/trace"
 )
@@ -59,11 +60,20 @@ func FSMSpec(config FSMConfig) fsm.FSMSpecFunc {
 				config.Operator, remote)
 
 		case p.Phase.ID == phases.WaitPhase:
+			client, _, err := httplib.GetClusterKubeClient(config.DNSConfig.Addr())
+			if err != nil {
+				return nil, trace.Wrap(err)
+			}
 			return phases.NewWait(p,
+				config.Operator,
+				client)
+
+		case p.Phase.ID == phases.HealthPhase:
+			return phases.NewHealth(p,
 				config.Operator)
 
 		case strings.HasPrefix(p.Phase.ID, phases.LabelPhase):
-			client, err := httplib.GetUnprivilegedKubeClient(config.DNSConfig.Addr())
+			client, _, err := httplib.GetUnprivilegedKubeClient(config.DNSConfig.Addr())
 			if err != nil {
 				return nil, trace.Wrap(err)
 			}
@@ -73,13 +83,21 @@ func FSMSpec(config FSMConfig) fsm.FSMSpecFunc {
 				client)
 
 		case p.Phase.ID == phases.RBACPhase:
-			client, err := httplib.GetClusterKubeClient(config.DNSConfig.Addr())
+			client, _, err := httplib.GetClusterKubeClient(config.DNSConfig.Addr())
 			if err != nil {
 				return nil, trace.Wrap(err)
 			}
 			return phases.NewRBAC(p,
 				config.Operator,
 				config.LocalApps,
+				client)
+		case p.Phase.ID == phases.CorednsPhase:
+			client, _, err := httplib.GetClusterKubeClient(config.DNSConfig.Addr())
+			if err != nil {
+				return nil, trace.Wrap(err)
+			}
+			return phases.NewCorednsPhase(p,
+				config.Operator,
 				client)
 
 		case p.Phase.ID == phases.ResourcesPhase:
@@ -103,6 +121,12 @@ func FSMSpec(config FSMConfig) fsm.FSMSpecFunc {
 
 		case strings.HasPrefix(p.Phase.ID, phases.EnableElectionPhase):
 			return phases.NewEnableElectionPhase(p, config.Operator)
+
+		case strings.HasPrefix(p.Phase.ID, phases.InstallOverlayPhase):
+			return phases.NewHook(p,
+				config.Operator,
+				config.LocalApps,
+				schema.HookNetworkInstall)
 
 		default:
 			return nil, trace.BadParameter("unknown phase %q", p.Phase.ID)

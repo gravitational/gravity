@@ -96,16 +96,30 @@ type Application struct {
 	CheckCmd CheckCmd
 	// AppCmd combines subcommands for app service
 	AppCmd AppCmd
+	// AppInstallCmd installs an application from an application image
+	AppInstallCmd AppInstallCmd
+	// AppListCmd shows all application releases
+	AppListCmd AppListCmd
+	// AppUpgradeCmd upgrades a release
+	AppUpgradeCmd AppUpgradeCmd
+	// AppRollbackCmd rolls back a release
+	AppRollbackCmd AppRollbackCmd
+	// AppUninstallCmd uninstalls a release
+	AppUninstallCmd AppUninstallCmd
+	// AppHistoryCmd displays revision history for a release
+	AppHistoryCmd AppHistoryCmd
+	// AppSyncCmd synchronizes an application image with a cluster
+	AppSyncCmd AppSyncCmd
 	// AppImportCmd imports an app into cluster
 	AppImportCmd AppImportCmd
 	// AppExportCmd exports specified app into registry
 	AppExportCmd AppExportCmd
 	// AppDeleteCmd deletes the specified app
 	AppDeleteCmd AppDeleteCmd
-	// AppListCmd lists all apps
-	AppListCmd AppListCmd
-	// AppUninstallCmd launches app uninstall hook
-	AppUninstallCmd AppUninstallCmd
+	// AppPackageListCmd lists all app packages
+	AppPackageListCmd AppPackageListCmd
+	// AppPackageUninstallCmd launches app uninstall hook
+	AppPackageUninstallCmd AppPackageUninstallCmd
 	// AppStatusCmd output app status
 	AppStatusCmd AppStatusCmd
 	// AppPullCmd pulls app from specified cluster
@@ -248,6 +262,10 @@ type Application struct {
 	SystemEnablePromiscModeCmd SystemEnablePromiscModeCmd
 	// SystemDisablePromiscModeCmd removes promiscuous mode from interface
 	SystemDisablePromiscModeCmd SystemDisablePromiscModeCmd
+	// SystemExportRuntimeJournalCmd exports runtime journal to a file
+	SystemExportRuntimeJournalCmd SystemExportRuntimeJournalCmd
+	// SystemStreamRuntimeJournalCmd streams contents of the runtime journal to a file
+	SystemStreamRuntimeJournalCmd SystemStreamRuntimeJournalCmd
 	// SystemGCJournalCmd cleans up stale journal files
 	SystemGCJournalCmd SystemGCJournalCmd
 	// SystemGCPackageCmd removes unused packages
@@ -611,6 +629,93 @@ type AppCmd struct {
 	*kingpin.CmdClause
 }
 
+// AppInstallCmd installs an application from an application image.
+type AppInstallCmd struct {
+	*kingpin.CmdClause
+	// Image specifies the application image to install.
+	Image *string
+	// Name is an optional release name.
+	Name *string
+	// Namespace is a namespace to install release into.
+	Namespace *string
+	// Set is a list of values set on the CLI.
+	Set *[]string
+	// Values is a list of YAML files with values.
+	Values *[]string
+	// Registry is a registry address where images will be pushed.
+	Registry *string
+	// RegistryCA is a registry CA certificate path.
+	RegistryCA *string
+	// RegistryCert is a registry client certificate path.
+	RegistryCert *string
+	// RegistryKey is a registry client private key path.
+	RegistryKey *string
+}
+
+// AppListCmd shows all application releases.
+type AppListCmd struct {
+	*kingpin.CmdClause
+}
+
+// AppUpgradeCmd upgrades a release.
+type AppUpgradeCmd struct {
+	*kingpin.CmdClause
+	// Release is the release name to upgrade.
+	Release *string
+	// Image specifies the application image to upgrade to.
+	Image *string
+	// Set is a list of values set on the CLI.
+	Set *[]string
+	// Values is a list of YAML files with values.
+	Values *[]string
+	// Registry is a registry address where images will be pushed.
+	Registry *string
+	// RegistryCA is a registry CA certificate path.
+	RegistryCA *string
+	// RegistryCert is a registry client certificate path.
+	RegistryCert *string
+	// RegistryKey is a registry client private key path.
+	RegistryKey *string
+}
+
+// AppRollbackCmd rolls back a release.
+type AppRollbackCmd struct {
+	*kingpin.CmdClause
+	// Release is a release to rollback.
+	Release *string
+	// Revision is a version number to rollback to.
+	Revision *int
+}
+
+// AppUninstallCmd uninstalls a release.
+type AppUninstallCmd struct {
+	*kingpin.CmdClause
+	// Release is a release name to uninstall.
+	Release *string
+}
+
+// AppHistoryCmd displays application revision history.
+type AppHistoryCmd struct {
+	*kingpin.CmdClause
+	// Release is a release name to display revisions for.
+	Release *string
+}
+
+// AppSyncCmd synchronizes an application image with a cluster.
+type AppSyncCmd struct {
+	*kingpin.CmdClause
+	// Image specifies the application image to sync.
+	Image *string
+	// Registry is a registry address where images will be pushed.
+	Registry *string
+	// RegistryCA is a registry CA certificate path.
+	RegistryCA *string
+	// RegistryCert is a registry client certificate path.
+	RegistryCert *string
+	// RegistryKey is a registry client private key path.
+	RegistryKey *string
+}
+
 // AppImportCmd imports app into cluster
 type AppImportCmd struct {
 	*kingpin.CmdClause
@@ -670,8 +775,8 @@ type AppDeleteCmd struct {
 	Force *bool
 }
 
-// AppListCmd lists all apps
-type AppListCmd struct {
+// AppPackageListCmd lists all app packages
+type AppPackageListCmd struct {
 	*kingpin.CmdClause
 	// Repository is repository to list apps from
 	Repository *string
@@ -683,8 +788,8 @@ type AppListCmd struct {
 	OpsCenterURL *string
 }
 
-// AppUninstallCmd launches application uninstall hook
-type AppUninstallCmd struct {
+// AppPackageUninstallCmd launches application uninstall hook
+type AppPackageUninstallCmd struct {
 	*kingpin.CmdClause
 	// Locator is the application locator
 	Locator *loc.Locator
@@ -1309,6 +1414,18 @@ type SystemDisablePromiscModeCmd struct {
 	*kingpin.CmdClause
 	// Iface is interface to turn promiscuous mode off for
 	Iface *string
+}
+
+// SystemExportRuntimeJournalCmd exports runtime journal to a file
+type SystemExportRuntimeJournalCmd struct {
+	*kingpin.CmdClause
+	// OutputFile specifies the path of the resulting tarball
+	OutputFile *string
+}
+
+// SystemStreamRuntimeJournalCmd streams contents of the runtime journal
+type SystemStreamRuntimeJournalCmd struct {
+	*kingpin.CmdClause
 }
 
 // SystemGCJournalCmd manages cleanup of journal files

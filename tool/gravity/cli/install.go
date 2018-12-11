@@ -87,7 +87,7 @@ func startInstall(env *localenv.LocalEnvironment, i InstallConfig) error {
 
 	err = installer.Wait()
 	if utils.IsContextCancelledError(err) {
-		return nil
+		return trace.BadParameter("cancelled")
 	}
 	return trace.Wrap(err)
 }
@@ -157,7 +157,7 @@ func tryLeave(env *localenv.LocalEnvironment, c leaveConfig) error {
 		return trace.Wrap(err)
 	}
 
-	err := checkInCluster(env.DNS.Addr())
+	err := httplib.InGravity(env.DNS.Addr())
 	if err != nil {
 		return trace.NotFound(
 			"no running cluster detected, please use --force flag to clean up the local state")
