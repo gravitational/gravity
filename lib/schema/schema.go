@@ -530,27 +530,27 @@ const manifestSchema = `
                 "job": {"type": "string"}
               }
             },
-            "overlayInstall": {
+            "networkInstall": {
               "type": "object",
               "additionalProperties": false,
               "properties": {
-                "type": {"type": "string", "default": "overlayInstall"},
+                "type": {"type": "string", "default": "networkInstall"},
                 "job": {"type": "string"}
               }
             },
-            "overlayUpdate": {
+            "networkUpdate": {
               "type": "object",
               "additionalProperties": false,
               "properties": {
-                "type": {"type": "string", "default": "overlayUpdate"},
+                "type": {"type": "string", "default": "networkUpdate"},
                 "job": {"type": "string"}
               }
             },
-            "overlayRollback": {
+            "networkRollback": {
               "type": "object",
               "additionalProperties": false,
               "properties": {
-                "type": {"type": "string", "default": "overlayRollback"},
+                "type": {"type": "string", "default": "networkRollback"},
                 "job": {"type": "string"}
               }
             }

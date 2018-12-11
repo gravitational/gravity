@@ -344,7 +344,7 @@ func initScript(w io.Writer, p Params) error {
 	var script *template.Template
 
 	switch p.Hook.Type {
-	case schema.HookInstall, schema.HookInstalled, schema.HookOverlayInstall:
+	case schema.HookInstall, schema.HookInstalled, schema.HookNetworkInstall:
 		// During initial installation the package should be unpacked directly from local state, in
 		// other cases it will be downloaded from the running gravity site
 		script = initInstallScriptTemplate

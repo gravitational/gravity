@@ -555,17 +555,17 @@ func makeRewriteWormholeJobFunc() resources.ManifestRewriteFunc {
 			}
 
 			var err error
-			m.Hooks.OverlayInstall, err = generateWormholeHook(schema.HookOverlayInstall)
+			m.Hooks.NetworkInstall, err = generateWormholeHook(schema.HookNetworkInstall)
 			if err != nil {
 				return trace.Wrap(err)
 			}
 
-			m.Hooks.OverlayUpdate, err = generateWormholeHook(schema.HookOverlayUpdate)
+			m.Hooks.NetworkUpdate, err = generateWormholeHook(schema.HookNetworkUpdate)
 			if err != nil {
 				return trace.Wrap(err)
 			}
 
-			m.Hooks.OverlayRollback, err = generateWormholeHook(schema.HookOverlayRollback)
+			m.Hooks.NetworkRollback, err = generateWormholeHook(schema.HookNetworkRollback)
 			if err != nil {
 				return trace.Wrap(err)
 			}
@@ -579,11 +579,11 @@ func generateWormholeHook(hook schema.HookType) (*schema.Hook, error) {
 	script := ""
 
 	switch hook {
-	case schema.HookOverlayInstall:
+	case schema.HookNetworkInstall:
 		script = "/gravity/gravity-install.sh"
-	case schema.HookOverlayUpdate:
+	case schema.HookNetworkUpdate:
 		script = "/gravity/gravity-upgrade.sh"
-	case schema.HookOverlayRollback:
+	case schema.HookNetworkRollback:
 		script = "/gravity/gravity-rollback.sh"
 	default:
 		return nil, trace.BadParameter("unsupported hook: %v", hook)

@@ -105,7 +105,7 @@ func (p *hookExecutor) runHooks(ctx context.Context, hooks ...schema.HookType) e
 				GID:  strconv.Itoa(p.ServiceUser.GID),
 			},
 		}
-		if hook == schema.HookOverlayInstall {
+		if hook == schema.HookNetworkInstall {
 			req.HostNetwork = true
 		}
 

@@ -257,7 +257,7 @@ const hooks = `hooks:
               - name: hook
                 image: quay.io/gravitational/debian-tall:0.0.1
                 command: ["/bin/echo", "Post-join hook"]
-  overlayInstall:
+  networkInstall:
     job: |
       apiVersion: batch/v1
       kind: Job

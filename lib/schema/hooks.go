@@ -77,12 +77,12 @@ type Hooks struct {
 	Backup *Hook `json:"backup,omitempty"`
 	// Restore restores application state from a backup
 	Restore *Hook `json:"restore,omitempty"`
-	// OverlayInstall is a hook for installing a custom overlay network
-	OverlayInstall *Hook `json:"overlayInstall,omitempty"`
-	// OverlayUpdate is a hook for updating a custom overlay network
-	OverlayUpdate *Hook `json:"overlayUpdate,omitempty"`
-	// OverlayRollback is a hook for rolling back a custom overlay network
-	OverlayRollback *Hook `json:"overlayRollback,omitempty"`
+	// NetworkInstall is a hook for installing a custom overlay network
+	NetworkInstall *Hook `json:"networkInstall,omitempty"`
+	// NetworkUpdate is a hook for updating a custom overlay network
+	NetworkUpdate *Hook `json:"networkUpdate,omitempty"`
+	// NetworkRollback is a hook for rolling back a custom overlay network
+	NetworkRollback *Hook `json:"networkRollback,omitempty"`
 }
 
 // AllHooks returns all non-nil hooks.
@@ -191,12 +191,12 @@ const (
 	// created backup.
 	// The hook is scheduled on the same node where the restore command runs
 	HookRestore HookType = "restore"
-	// HookOverlayInstall defines a hook used to install a custom overlay network
-	HookOverlayInstall = "overlayInstall"
-	// HookOverlayUpdate defines a hook to update the overlay network
-	HookOverlayUpdate = "overlayUpdate"
-	// HookOverlayRollback defines a hook to rollback the overlay network
-	HookOverlayRollback = "overlayBackup"
+	// HookNetworkInstall defines a hook used to install a custom overlay network
+	HookNetworkInstall = "networkInstall"
+	// HookNetworkUpdate defines a hook to update the overlay network
+	HookNetworkUpdate = "networkUpdate"
+	// HookNetworkRollback defines a hook to rollback the overlay network
+	HookNetworkRollback = "networkRollback"
 )
 
 // String implements Stringer
@@ -232,9 +232,9 @@ func AllHooks() []HookType {
 		HookDump,
 		HookBackup,
 		HookRestore,
-		HookOverlayInstall,
-		HookOverlayUpdate,
-		HookOverlayRollback,
+		HookNetworkInstall,
+		HookNetworkUpdate,
+		HookNetworkRollback,
 	}
 }
 
@@ -296,12 +296,12 @@ func HookFromString(hookType HookType, manifest Manifest) (*Hook, error) {
 		hook = manifest.Hooks.Backup
 	case HookRestore:
 		hook = manifest.Hooks.Restore
-	case HookOverlayInstall:
-		hook = manifest.Hooks.OverlayInstall
-	case HookOverlayUpdate:
-		hook = manifest.Hooks.OverlayUpdate
-	case HookOverlayRollback:
-		hook = manifest.Hooks.OverlayRollback
+	case HookNetworkInstall:
+		hook = manifest.Hooks.NetworkInstall
+	case HookNetworkUpdate:
+		hook = manifest.Hooks.NetworkUpdate
+	case HookNetworkRollback:
+		hook = manifest.Hooks.NetworkRollback
 	default:
 		return nil, trace.BadParameter("unknown hook %q", hookType)
 	}

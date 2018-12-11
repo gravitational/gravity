@@ -126,7 +126,7 @@ func FSMSpec(config FSMConfig) fsm.FSMSpecFunc {
 			return phases.NewHook(p,
 				config.Operator,
 				config.LocalApps,
-				schema.HookOverlayInstall)
+				schema.HookNetworkInstall)
 
 		default:
 			return nil, trace.BadParameter("unknown phase %q", p.Phase.ID)

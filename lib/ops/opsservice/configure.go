@@ -940,7 +940,7 @@ func (s *site) getPlanetConfigPackage(
 	}
 
 	// If the manifest contains an install hook to install a separate overlay network, disable flannel inside planet
-	if manifest.Hooks != nil && manifest.Hooks.OverlayInstall != nil {
+	if manifest.Hooks != nil && manifest.Hooks.NetworkInstall != nil {
 		args = append(args, "--disable-flannel=true")
 	}
 

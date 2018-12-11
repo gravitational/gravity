@@ -637,8 +637,8 @@ func (in *Hooks) DeepCopyInto(out *Hooks) {
 		}
 	}
 
-	if in.OverlayInstall != nil {
-		in, out := &in.OverlayInstall, &out.OverlayInstall
+	if in.NetworkInstall != nil {
+		in, out := &in.NetworkInstall, &out.NetworkInstall
 		if *in == nil {
 			*out = nil
 		} else {
@@ -646,8 +646,17 @@ func (in *Hooks) DeepCopyInto(out *Hooks) {
 			**out = **in
 		}
 	}
-	if in.OverlayUpdate != nil {
-		in, out := &in.OverlayUpdate, &out.OverlayUpdate
+	if in.NetworkUpdate != nil {
+		in, out := &in.NetworkUpdate, &out.NetworkUpdate
+		if *in == nil {
+			*out = nil
+		} else {
+			*out = new(Hook)
+			**out = **in
+		}
+	}
+	if in.NetworkRollback != nil {
+		in, out := &in.NetworkRollback, &out.NetworkRollback
 		if *in == nil {
 			*out = nil
 		} else {

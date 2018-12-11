@@ -112,7 +112,7 @@ func (i *Installer) GetOperationPlan(cluster ops.Site, op ops.SiteOperation) (*s
 	// export applications to registries
 	builder.AddExportPhase(plan)
 
-	if cluster.App.Manifest.HasHook(schema.HookOverlayInstall) {
+	if cluster.App.Manifest.HasHook(schema.HookNetworkInstall) {
 		builder.AddInstallOverlayPhase(plan, &cluster.App.Package)
 	}
 	builder.AddHealthPhase(plan)
