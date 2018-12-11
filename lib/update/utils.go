@@ -17,6 +17,9 @@ limitations under the License.
 package update
 
 import (
+	"fmt"
+	"strings"
+
 	appservice "github.com/gravitational/gravity/lib/app"
 	"github.com/gravitational/gravity/lib/fsm"
 	"github.com/gravitational/gravity/lib/loc"
@@ -113,4 +116,20 @@ func getRuntimePackage(manifest schema.Manifest, profile schema.NodeProfile, clu
 			profile.Name, clusterRole)
 	}
 	return runtimePackage, nil
+}
+
+func formatServers(servers []storage.Server) string {
+	var formats []string
+	for _, server := range servers {
+		formats = append(formats, formatServer(server))
+	}
+	return strings.Join(formats, ",")
+}
+
+func formatServer(server storage.Server) string {
+	return fmt.Sprintf("node(addr=%v, hostname=%v, role=%v, cluster_role=%v)",
+		server.AdvertiseIP,
+		server.Hostname,
+		server.Role,
+		server.ClusterRole)
 }

@@ -44,29 +44,29 @@ import (
 // phaseTaint defines the operation of adding a taint to the node
 type phaseTaint struct {
 	kubernetesOperation
-	log.FieldLogger
 }
 
 // NewPhaseTaint returns a new executor for adding a taint to a node
-func NewPhaseTaint(c FSMConfig, plan storage.OperationPlan, phase storage.OperationPhase) (*phaseTaint, error) {
-	op, err := newKubernetesOperation(c, plan, phase)
+func NewPhaseTaint(c FSMConfig, plan storage.OperationPlan, phase storage.OperationPhase, logger log.FieldLogger) (*phaseTaint, error) {
+	op, err := newKubernetesOperation(c, plan, phase, logger)
 	if err != nil {
 		return nil, trace.Wrap(err)
 	}
 	return &phaseTaint{
 		kubernetesOperation: *op,
-		FieldLogger:         log.NewEntry(log.New()),
 	}, nil
 }
 
 // Execute adds a taint on the specified node.
 func (p *phaseTaint) Execute(ctx context.Context) error {
+	p.Infof("Taint %v.", formatServer(p.Server))
 	err := taint(ctx, p.Client.CoreV1().Nodes(), p.Server.KubeNodeID(), addTaint(true))
 	return trace.Wrap(err)
 }
 
 // Rollback removes the taint from the node
 func (p *phaseTaint) Rollback(ctx context.Context) error {
+	p.Infof("Remove taint from %v.", formatServer(p.Server))
 	err := taint(ctx, p.Client.CoreV1().Nodes(), p.Server.KubeNodeID(), addTaint(false))
 	if err != nil && !trace.IsNotFound(err) {
 		return trace.Wrap(err)
@@ -77,23 +77,22 @@ func (p *phaseTaint) Rollback(ctx context.Context) error {
 // phaseUntaint defines the operation of removing a taint from the node
 type phaseUntaint struct {
 	kubernetesOperation
-	log.FieldLogger
 }
 
 // NewPhaseUntaint returns a new executor for removing a taint from a node
-func NewPhaseUntaint(c FSMConfig, plan storage.OperationPlan, phase storage.OperationPhase) (*phaseUntaint, error) {
-	op, err := newKubernetesOperation(c, plan, phase)
+func NewPhaseUntaint(c FSMConfig, plan storage.OperationPlan, phase storage.OperationPhase, logger log.FieldLogger) (*phaseUntaint, error) {
+	op, err := newKubernetesOperation(c, plan, phase, logger)
 	if err != nil {
 		return nil, trace.Wrap(err)
 	}
 	return &phaseUntaint{
 		kubernetesOperation: *op,
-		FieldLogger:         log.NewEntry(log.New()),
 	}, nil
 }
 
 // Execute removes a taint from the specified node.
 func (p *phaseUntaint) Execute(ctx context.Context) error {
+	p.Infof("Remove taint from %v.", formatServer(p.Server))
 	err := taint(ctx, p.Client.CoreV1().Nodes(), p.Server.KubeNodeID(), addTaint(false))
 	return trace.Wrap(err)
 }
@@ -106,23 +105,22 @@ func (p *phaseUntaint) Rollback(context.Context) error {
 // phaseDrain defines the operation of draining a node
 type phaseDrain struct {
 	kubernetesOperation
-	log.FieldLogger
 }
 
 // NewPhaseDrain returns a new executor for draining a node
-func NewPhaseDrain(c FSMConfig, plan storage.OperationPlan, phase storage.OperationPhase) (*phaseDrain, error) {
-	op, err := newKubernetesOperation(c, plan, phase)
+func NewPhaseDrain(c FSMConfig, plan storage.OperationPlan, phase storage.OperationPhase, logger log.FieldLogger) (*phaseDrain, error) {
+	op, err := newKubernetesOperation(c, plan, phase, logger)
 	if err != nil {
 		return nil, trace.Wrap(err)
 	}
 	return &phaseDrain{
 		kubernetesOperation: *op,
-		FieldLogger:         log.NewEntry(log.New()),
 	}, nil
 }
 
 // Execute drains the specified node
 func (p *phaseDrain) Execute(ctx context.Context) error {
+	p.Infof("Drain %v.", formatServer(p.Server))
 	ctx, cancel := context.WithTimeout(ctx, defaults.DrainTimeout)
 	defer cancel()
 	err := retry(ctx, func() error {
@@ -133,6 +131,7 @@ func (p *phaseDrain) Execute(ctx context.Context) error {
 
 // Rollback reverts the effect of drain by uncordoning the node
 func (p *phaseDrain) Rollback(ctx context.Context) error {
+	p.Infof("Uncordon %v.", formatServer(p.Server))
 	err := uncordon(ctx, p.Client.CoreV1().Nodes(), p.Server.KubeNodeID())
 	return trace.Wrap(err)
 }
@@ -142,23 +141,22 @@ func (p *phaseDrain) Rollback(ctx context.Context) error {
 // on an older api server.
 type phaseKubeletPermissions struct {
 	kubernetesOperation
-	log.FieldLogger
 }
 
 // NewPhaseKubeletPermissions returns a new executor for bootstrapping additional kubelet permissions
-func NewPhaseKubeletPermissions(c FSMConfig, plan storage.OperationPlan, phase storage.OperationPhase) (*phaseKubeletPermissions, error) {
-	op, err := newKubernetesOperation(c, plan, phase)
+func NewPhaseKubeletPermissions(c FSMConfig, plan storage.OperationPlan, phase storage.OperationPhase, logger log.FieldLogger) (*phaseKubeletPermissions, error) {
+	op, err := newKubernetesOperation(c, plan, phase, logger)
 	if err != nil {
 		return nil, trace.Wrap(err)
 	}
 	return &phaseKubeletPermissions{
 		kubernetesOperation: *op,
-		FieldLogger:         log.NewEntry(log.New()),
 	}, nil
 }
 
 // Execute adds additional permissions for kubelet
 func (p *phaseKubeletPermissions) Execute(context.Context) error {
+	p.Infof("Update kubelet perrmissiong on %v.", formatServer(p.Server))
 	err := updateKubeletPermissions(p.Client)
 	return trace.Wrap(err)
 }
@@ -171,24 +169,23 @@ func (p *phaseKubeletPermissions) Rollback(context.Context) error {
 // phaseUncordon defines the operation of uncordoning a node
 type phaseUncordon struct {
 	kubernetesOperation
-	log.FieldLogger
 }
 
 // NewPhaseUncordon returns a new executor for uncordoning a node
-func NewPhaseUncordon(c FSMConfig, plan storage.OperationPlan, phase storage.OperationPhase) (*phaseUncordon, error) {
-	op, err := newKubernetesOperation(c, plan, phase)
+func NewPhaseUncordon(c FSMConfig, plan storage.OperationPlan, phase storage.OperationPhase, logger log.FieldLogger) (*phaseUncordon, error) {
+	op, err := newKubernetesOperation(c, plan, phase, logger)
 	if err != nil {
 		return nil, trace.Wrap(err)
 	}
 	return &phaseUncordon{
 		kubernetesOperation: *op,
-		FieldLogger:         log.NewEntry(log.New()),
 	}, nil
 }
 
 // Execute uncordons the specified node.
 // This will block until DNS/cluster controller endpoints are populated
 func (p *phaseUncordon) Execute(ctx context.Context) error {
+	p.Infof("Uncordon %v.", formatServer(p.Server))
 	err := uncordon(ctx, p.Client.CoreV1().Nodes(), p.Server.KubeNodeID())
 	return trace.Wrap(err)
 }
@@ -202,23 +199,22 @@ func (p *phaseUncordon) Rollback(context.Context) error {
 // a node has been drained
 type phaseEndpoints struct {
 	kubernetesOperation
-	log.FieldLogger
 }
 
 // NewPhaseEndpoints returns a new executor for waiting for endpoints
-func NewPhaseEndpoints(c FSMConfig, plan storage.OperationPlan, phase storage.OperationPhase) (*phaseEndpoints, error) {
-	op, err := newKubernetesOperation(c, plan, phase)
+func NewPhaseEndpoints(c FSMConfig, plan storage.OperationPlan, phase storage.OperationPhase, logger log.FieldLogger) (*phaseEndpoints, error) {
+	op, err := newKubernetesOperation(c, plan, phase, logger)
 	if err != nil {
 		return nil, trace.Wrap(err)
 	}
 	return &phaseEndpoints{
 		kubernetesOperation: *op,
-		FieldLogger:         log.NewEntry(log.New()),
 	}, nil
 }
 
 // Execute waits for endpoints
 func (p *phaseEndpoints) Execute(ctx context.Context) error {
+	p.Infof("Wait for endpoints on %v.", formatServer(p.Server))
 	err := waitForEndpoints(ctx, p.Client.CoreV1(), p.Server)
 	return trace.Wrap(err)
 }
@@ -228,7 +224,7 @@ func (p *phaseEndpoints) Rollback(context.Context) error {
 	return nil
 }
 
-func newKubernetesOperation(c FSMConfig, plan storage.OperationPlan, phase storage.OperationPhase) (*kubernetesOperation, error) {
+func newKubernetesOperation(c FSMConfig, plan storage.OperationPlan, phase storage.OperationPhase, logger log.FieldLogger) (*kubernetesOperation, error) {
 	if phase.Data == nil || phase.Data.Server == nil {
 		return nil, trace.NotFound("no server specified for phase %q", phase.ID)
 	}
@@ -241,6 +237,7 @@ func newKubernetesOperation(c FSMConfig, plan storage.OperationPlan, phase stora
 		OperationID: plan.OperationID,
 		Server:      *phase.Data.Server,
 		Servers:     plan.Servers,
+		FieldLogger: logger,
 	}, nil
 }
 
@@ -254,6 +251,7 @@ type kubernetesOperation struct {
 	Server storage.Server
 	// Servers is the list of servers being updated
 	Servers []storage.Server
+	log.FieldLogger
 }
 
 // PreCheck makes sure the phase is being executed on the correct server

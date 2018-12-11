@@ -53,6 +53,7 @@ func NewPhaseElectionChange(
 	phase storage.OperationPhase,
 	remote fsm.Remote,
 	operator ops.Operator,
+	logger logrus.FieldLogger,
 ) (*phaseElectionChange, error) {
 	if phase.Data == nil || phase.Data.ElectionChange == nil {
 		return nil, trace.BadParameter("no election status specified for phase %q", phase.ID)
@@ -76,13 +77,14 @@ func NewPhaseElectionChange(
 		Server:         *phase.Data.Server,
 		ClusterName:    plan.ClusterName,
 		ElectionChange: *phase.Data.ElectionChange,
-		FieldLogger:    logrus.NewEntry(logrus.New()),
+		FieldLogger:    logger,
 		dnsConfig:      dnsConfig,
 		remote:         remote,
 	}, nil
 }
 
 func (p *phaseElectionChange) waitForMasterMigration(rollback bool) error {
+	p.Info("Wait for new leader election.")
 	err := utils.Retry(defaults.RetryInterval, defaults.RetryAttempts, func() error {
 		leaderAddr, err := utils.ResolveAddr(constants.APIServerDomainName, p.dnsConfig.Addr())
 		if err != nil {

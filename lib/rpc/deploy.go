@@ -219,7 +219,7 @@ func deployAgentOnNode(ctx context.Context, req DeployAgentsRequest, node, nodeS
 		runCmd = fmt.Sprintf("%s agent --debug install", gravityHostPath)
 	}
 
-	err = utils.NewSSHCommands(utils.NewSSHRunner(ctx, nodeClient.Client)).
+	err = utils.NewSSHCommands(nodeClient.Client).
 		C("rm -rf %s", secretsHostDir).
 		C("mkdir -p %s", secretsHostDir).
 		WithRetries("%s enter -- --notty %s -- package unpack %s %s --debug --ops-url=%s --insecure",

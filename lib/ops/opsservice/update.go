@@ -328,6 +328,15 @@ func (s *site) startUpdateAgent(ctx context.Context, opCtx *operationContext, up
 	if err != nil {
 		return trace.Wrap(err)
 	}
+	proxy, err := s.teleport().GetProxyClient(ctx, s.key.SiteDomain, nil)
+	if err != nil {
+		return trace.Wrap(err)
+	}
+	nodeClient, err := proxy.ConnectToNode(ctx, master.Addr, defaults.SSHUser, false)
+	if err != nil {
+		return trace.Wrap(err)
+	}
+	defer nodeClient.Close()
 	gravityPackage, err := updateApp.Manifest.Dependencies.ByName(constants.GravityPackage)
 	if err != nil {
 		return trace.Wrap(err)
@@ -346,10 +355,9 @@ func (s *site) startUpdateAgent(ctx context.Context, opCtx *operationContext, up
 		return trace.Wrap(err)
 	}
 	serverStateDir := stateServer.StateDir()
-	agentExecPath := filepath.Join(state.GravityRPCAgentDir(serverStateDir), constants.GravityPackage)
+	agentExecPath := filepath.Join(state.GravityRPCAgentDir(serverStateDir), constants.GravityBin)
 	secretsHostDir := filepath.Join(state.GravityRPCAgentDir(serverStateDir), defaults.SecretsDir)
-	runner := s.newTeleportServerRunner(opCtx, master)
-	err = utils.NewSSHCommands(runner).
+	err = utils.NewSSHCommands(nodeClient.Client).
 		// extract new gravity version
 		C("rm -rf %s", secretsHostDir).
 		C("mkdir -p %s", secretsHostDir).
