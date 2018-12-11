@@ -28,6 +28,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/ghodss/yaml"
 	"github.com/gravitational/gravity/lib/app/docker"
 	"github.com/gravitational/gravity/lib/app/hooks"
 	"github.com/gravitational/gravity/lib/app/resources"
@@ -45,6 +46,9 @@ import (
 	teleutils "github.com/gravitational/teleport/lib/utils"
 	"github.com/gravitational/trace"
 	log "github.com/sirupsen/logrus"
+	batchv1 "k8s.io/api/batch/v1"
+	corev1 "k8s.io/api/core/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	utilrand "k8s.io/apimachinery/pkg/util/rand"
 )
 
@@ -181,7 +185,8 @@ func (v *vendorer) VendorDir(ctx context.Context, unpackedDir string, req Vendor
 
 	// first, rewrite all "multi-source" values that might refer to files and replace them
 	// with literal values, since some of them may also contain docker image references
-	err = resourceFiles.RewriteManifest(makeRewriteMultiSourceFunc(req.ManifestPath))
+	// and generate overlay network jobs
+	err = resourceFiles.RewriteManifest(makeRewriteMultiSourceFunc(req.ManifestPath), makeRewriteWormholeJobFunc())
 	if err != nil {
 		return trace.Wrap(err)
 	}
@@ -540,6 +545,77 @@ func makeRewriteMultiSourceFunc(manifestPath string) resources.ManifestRewriteFu
 	return func(m *schema.Manifest) error {
 		return trace.Wrap(schema.ProcessMultiSourceValues(m, manifestPath))
 	}
+}
+
+func makeRewriteWormholeJobFunc() resources.ManifestRewriteFunc {
+	return func(m *schema.Manifest) error {
+		if m.Providers != nil && m.Providers.Generic.Networking.Type == constants.WireguardNetworkType {
+			if m.Hooks == nil {
+				m.Hooks = &schema.Hooks{}
+			}
+
+			var err error
+			m.Hooks.NetworkInstall, err = generateWormholeHook(schema.HookNetworkInstall)
+			if err != nil {
+				return trace.Wrap(err)
+			}
+
+			m.Hooks.NetworkUpdate, err = generateWormholeHook(schema.HookNetworkUpdate)
+			if err != nil {
+				return trace.Wrap(err)
+			}
+
+			m.Hooks.NetworkRollback, err = generateWormholeHook(schema.HookNetworkRollback)
+			if err != nil {
+				return trace.Wrap(err)
+			}
+		}
+		return nil
+	}
+}
+
+// generateWormholeHook generates a gravity hook for installing wormhole encrypted network plugin
+func generateWormholeHook(hook schema.HookType) (*schema.Hook, error) {
+	script := ""
+
+	switch hook {
+	case schema.HookNetworkInstall:
+		script = "/gravity/gravity-install.sh"
+	case schema.HookNetworkUpdate:
+		script = "/gravity/gravity-upgrade.sh"
+	case schema.HookNetworkRollback:
+		script = "/gravity/gravity-rollback.sh"
+	default:
+		return nil, trace.BadParameter("unsupported hook: %v", hook)
+	}
+
+	job := batchv1.Job{
+		ObjectMeta: metav1.ObjectMeta{
+			Name: constants.WireguardNetworkType,
+		},
+		Spec: batchv1.JobSpec{
+			Template: corev1.PodTemplateSpec{
+				Spec: corev1.PodSpec{
+					RestartPolicy: corev1.RestartPolicyOnFailure,
+					Containers: []corev1.Container{
+						{
+							Name:    "hook",
+							Image:   defaults.WormholeImg,
+							Command: []string{script},
+						},
+					},
+				},
+			},
+		},
+	}
+	y, err := yaml.Marshal(job)
+	if err != nil {
+		return nil, trace.Wrap(err)
+	}
+	return &schema.Hook{
+		Type: hook,
+		Job:  string(y),
+	}, nil
 }
 
 // makeRewriteDepsFunc returns a function to update package dependencies - for each dependency

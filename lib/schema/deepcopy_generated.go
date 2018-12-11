@@ -636,6 +636,34 @@ func (in *Hooks) DeepCopyInto(out *Hooks) {
 			**out = **in
 		}
 	}
+
+	if in.NetworkInstall != nil {
+		in, out := &in.NetworkInstall, &out.NetworkInstall
+		if *in == nil {
+			*out = nil
+		} else {
+			*out = new(Hook)
+			**out = **in
+		}
+	}
+	if in.NetworkUpdate != nil {
+		in, out := &in.NetworkUpdate, &out.NetworkUpdate
+		if *in == nil {
+			*out = nil
+		} else {
+			*out = new(Hook)
+			**out = **in
+		}
+	}
+	if in.NetworkRollback != nil {
+		in, out := &in.NetworkRollback, &out.NetworkRollback
+		if *in == nil {
+			*out = nil
+		} else {
+			*out = new(Hook)
+			**out = **in
+		}
+	}
 	return
 }
 

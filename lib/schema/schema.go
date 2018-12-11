@@ -529,6 +529,30 @@ const manifestSchema = `
                 "type": {"type": "string", "default": "restore"},
                 "job": {"type": "string"}
               }
+            },
+            "networkInstall": {
+              "type": "object",
+              "additionalProperties": false,
+              "properties": {
+                "type": {"type": "string", "default": "networkInstall"},
+                "job": {"type": "string"}
+              }
+            },
+            "networkUpdate": {
+              "type": "object",
+              "additionalProperties": false,
+              "properties": {
+                "type": {"type": "string", "default": "networkUpdate"},
+                "job": {"type": "string"}
+              }
+            },
+            "networkRollback": {
+              "type": "object",
+              "additionalProperties": false,
+              "properties": {
+                "type": {"type": "string", "default": "networkRollback"},
+                "job": {"type": "string"}
+              }
             }
           }
         },

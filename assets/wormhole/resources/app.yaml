@@ -1,0 +1,154 @@
+apiVersion: bundle.gravitational.io/v2
+kind: Bundle
+metadata:
+  name: telekube
+  resourceVersion: "0.0.0"
+logo: file://logo.svg
+endpoints:
+  - name: "Gravity Control Panel"
+    description: |
+      Local administrative user interface of this Gravity cluster
+    selector:
+      app: gravity-site
+    protocol: https
+  - name: "Bandwagon"
+    hidden: true
+    serviceName: bandwagon
+providers:
+  generic:
+    network:
+      type: "wireguard"
+installer:
+  setupEndpoints:
+    - "Bandwagon"
+  flavors:
+    prompt: "Select a flavor"
+    default: "one"
+    items:
+      # as of the time of this writing, gravitational/provisioner
+      # supports only nodes with role 'node' so all other flavors
+      # have been removed
+      #
+      # we can bring flavors with 'knode' and 'master' roles back
+      # if/when provisioner becomes more flexible
+      - name: "one"
+        description: "1 node"
+        nodes:
+          - profile: node
+            count: 1
+      - name: "two"
+        description: "2 nodes"
+        nodes:
+          - profile: node
+            count: 2
+      - name: "three"
+        description: "3 nodes"
+        nodes:
+          - profile: node
+            count: 3
+      - name: "four"
+        description: "4 nodes"
+        nodes:
+          - profile: node
+            count: 4
+      - name: "five"
+        description: "5 nodes"
+        nodes:
+          - profile: node
+            count: 5
+      - name: "six"
+        description: "6 nodes"
+        nodes:
+          - profile: node
+            count: 6
+nodeProfiles:
+  - name: node
+    description: "Gravity Auto Node"
+    requirements:
+      cpu:
+        min: 1
+      ram:
+        min: "2GB"
+      os:
+        - name: centos
+          versions: ["7"]
+        - name: rhel
+          versions: ["7"]
+        - name: ubuntu
+          versions: ["16"]
+        - name: ubuntu-core
+          versions: ["16"]
+        - name: debian
+          versions: ["8", "9"]
+        - name: suse
+          versions: ["12"]
+        - name: sles  # Suse Linux Enterprise Server
+          versions: ["12"]
+      volumes:
+        - path: /var/lib/gravity
+          capacity: "10GB"
+          filesystems: ["xfs", "ext4"]
+  - name: knode
+    description: "Gravity Node"
+    labels:
+      node-role.kubernetes.io/node: "true"
+    requirements:
+      cpu:
+        min: 1
+      ram:
+        min: "2GB"
+      os:
+        - name: centos
+          versions: ["7"]
+        - name: rhel
+          versions: ["7"]
+        - name: ubuntu
+          versions: ["16"]
+        - name: ubuntu-core
+          versions: ["16"]
+        - name: debian
+          versions: ["8", "9"]
+        - name: suse
+          versions: ["12"]
+        - name: sles  # Suse Linux Enterprise Server
+          versions: ["12"]
+      volumes:
+        - path: /var/lib/gravity
+          capacity: "10GB"
+          filesystems: ["xfs", "ext4"]
+  - name: master
+    description: "Gravity Master"
+    taints:
+      - key: node-role.kubernetes.io/master
+        effect: NoSchedule
+    labels:
+      node-role.kubernetes.io/master: "true"
+    requirements:
+      cpu:
+        min: 1
+      ram:
+        min: "2GB"
+      os:
+        - name: centos
+          versions: ["7"]
+        - name: rhel
+          versions: ["7"]
+        - name: ubuntu
+          versions: ["16"]
+        - name: ubuntu-core
+          versions: ["16"]
+        - name: debian
+          versions: ["8", "9"]
+        - name: suse
+          versions: ["12"]
+        - name: sles  # Suse Linux Enterprise Server
+          versions: ["12"]
+      volumes:
+        - path: /var/lib/gravity
+          capacity: "10GB"
+          filesystems: ["xfs", "ext4"]
+systemOptions:
+  runtime:
+    version: "0.0.0+latest"
+  docker:
+    storageDriver: overlay2

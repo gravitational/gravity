@@ -256,4 +256,17 @@ const hooks = `hooks:
             containers:
               - name: hook
                 image: quay.io/gravitational/debian-tall:0.0.1
-                command: ["/bin/echo", "Post-join hook"]`
+                command: ["/bin/echo", "Post-join hook"]
+  networkInstall:
+    job: |
+      apiVersion: batch/v1
+      kind: Job
+      metadata:
+        name: post-join
+      spec:
+        template:
+          spec:
+            containers:
+            - name: hook
+              image: quay.io/gravitational/debian-tall:0.0.1
+              command: ["/bin/echo", "Install overlay network hook"]`
