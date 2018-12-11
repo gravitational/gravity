@@ -77,7 +77,8 @@ type waitExecutor struct {
 // Execute executes the wait phase
 // This waits for critical components to start within planet
 func (p *waitExecutor) Execute(ctx context.Context) error {
-	ctx, _ = context.WithTimeout(ctx, 5*time.Minute)
+	ctx, cancel = context.WithTimeout(ctx, 5*time.Minute)
+	defer cancel()
 	done := make(chan bool)
 
 	go p.waitForAPI(ctx, done)
@@ -103,7 +104,7 @@ func (p *waitExecutor) waitForAPI(ctx context.Context, done chan bool) {
 				p.Info("Waiting for kubernetes API to start: ", err)
 				continue
 			}
-			done <- true
+			close(done)
 			return
 		case <-ctx.Done():
 			return

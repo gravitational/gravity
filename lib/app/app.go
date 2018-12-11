@@ -197,7 +197,7 @@ type HookRunRequest struct {
 	Env map[string]string `json:"env"`
 	// SkipInitContainers skips injection of init containers
 	SkipInitContainers bool `json:"skip_init_containers"`
-	// HostNetwork has the job use the HostNetwork when run
+	// HostNetwork specifies whether the hook job runs in host network namespace
 	HostNetwork bool `json:"host_network"`
 	// Timeout allows to set timeout for the hook job to override default value
 	// or value from manifest

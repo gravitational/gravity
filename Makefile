@@ -50,6 +50,8 @@ BANDWAGON_TAG ?= 5.3.0
 RBAC_APP_TAG := $(GRAVITY_TAG)
 TILLER_VERSION = 2.11.0
 TILLER_APP_TAG = 5.5.0
+# URI of Wormhole container for default install
+WORMHOLE_IMG ?= quay.io/gravitational/wormhole:0.0.0-1-g6681422-dirty
 # set this to true if you want to use locally built planet packages
 DEV_PLANET ?=
 OS := $(shell uname | tr '[:upper:]' '[:lower:]')

@@ -234,6 +234,7 @@ func AllHooks() []HookType {
 		HookRestore,
 		HookOverlayInstall,
 		HookOverlayUpdate,
+		HookOverlayRollback,
 	}
 }
 
@@ -299,6 +300,8 @@ func HookFromString(hookType HookType, manifest Manifest) (*Hook, error) {
 		hook = manifest.Hooks.OverlayInstall
 	case HookOverlayUpdate:
 		hook = manifest.Hooks.OverlayUpdate
+	case HookOverlayRollback:
+		hook = manifest.Hooks.OverlayRollback
 	default:
 		return nil, trace.BadParameter("unknown hook %q", hookType)
 	}

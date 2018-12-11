@@ -60,7 +60,7 @@ func FSMSpec(config FSMConfig) fsm.FSMSpecFunc {
 				config.Operator, remote)
 
 		case p.Phase.ID == phases.WaitPhase:
-			client, err := httplib.GetClusterKubeClient(config.DNSConfig.Addr())
+			client, _, err := httplib.GetClusterKubeClient(config.DNSConfig.Addr())
 			if err != nil {
 				return nil, trace.Wrap(err)
 			}

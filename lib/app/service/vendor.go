@@ -574,7 +574,7 @@ func makeRewriteWormholeJobFunc() resources.ManifestRewriteFunc {
 	}
 }
 
-// generateWormholeJob generates a gravity hook for installing wormhole encrypted network plugin
+// generateWormholeHook generates a gravity hook for installing wormhole encrypted network plugin
 func generateWormholeHook(hook schema.HookType) (*schema.Hook, error) {
 	script := ""
 
@@ -586,7 +586,7 @@ func generateWormholeHook(hook schema.HookType) (*schema.Hook, error) {
 	case schema.HookOverlayRollback:
 		script = "/gravity/gravity-rollback.sh"
 	default:
-		return nil, trace.BadParameter("Unsupported hook: %v", hook)
+		return nil, trace.BadParameter("unsupported hook: %v", hook)
 	}
 
 	job := batchv1.Job{
