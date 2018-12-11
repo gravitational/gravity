@@ -78,6 +78,7 @@ type updatePhaseBootstrap struct {
 	runtimePackage loc.Locator
 	// installedRuntime specifies the installed runtime package
 	installedRuntime loc.Locator
+	dnsConfig        storage.DNSConfig
 }
 
 // NewUpdatePhaseBootstrap creates a new bootstrap phase executor
@@ -113,6 +114,9 @@ func NewUpdatePhaseBootstrap(c FSMConfig, plan storage.OperationPlan, phase stor
 	if err != nil {
 		return nil, trace.Wrap(err)
 	}
+	if cluster.DNSConfig.IsEmpty() {
+		return nil, trace.NotFound("cluster DNS configuration is missing")
+	}
 
 	return &updatePhaseBootstrap{
 		Operator:         c.Operator,
@@ -131,6 +135,7 @@ func NewUpdatePhaseBootstrap(c FSMConfig, plan storage.OperationPlan, phase stor
 		remote:           remote,
 		runtimePackage:   *runtimePackage,
 		installedRuntime: *installedRuntime,
+		dnsConfig:        cluster.DNSConfig,
 	}, nil
 }
 
@@ -213,18 +218,8 @@ func (p *updatePhaseBootstrap) exportGravity(ctx context.Context) error {
 
 // updateDNSConfig persists the DNS configuration in the local backend if it has not been set
 func (p *updatePhaseBootstrap) updateDNSConfig() error {
-	cluster, err := p.Operator.GetLocalSite()
-	if err != nil {
-		return trace.Wrap(err)
-	}
-
-	dnsConfig := storage.LegacyDNSConfig
-	if !cluster.DNSConfig.IsEmpty() {
-		dnsConfig = cluster.DNSConfig
-	}
-
-	err = p.HostLocalBackend.SetDNSConfig(dnsConfig)
-	p.Infof("Update cluster DNS configuration as %v.", dnsConfig)
+	err := p.HostLocalBackend.SetDNSConfig(p.dnsConfig)
+	p.Infof("Update host-local DNS configuration as %v.", p.dnsConfig)
 	if err != nil {
 		return trace.Wrap(err)
 	}

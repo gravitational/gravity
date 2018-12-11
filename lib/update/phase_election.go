@@ -64,12 +64,8 @@ func NewPhaseElectionChange(
 		return nil, trace.Wrap(err)
 	}
 
-	var dnsConfig storage.DNSConfig
-	if cluster != nil {
-		dnsConfig = cluster.DNSConfig
-	}
-	if dnsConfig.IsEmpty() {
-		dnsConfig = storage.LegacyDNSConfig
+	if cluster.DNSConfig.IsEmpty() {
+		return nil, trace.NotFound("cluster DNS configuration is missing")
 	}
 
 	return &phaseElectionChange{
@@ -78,7 +74,7 @@ func NewPhaseElectionChange(
 		ClusterName:    plan.ClusterName,
 		ElectionChange: *phase.Data.ElectionChange,
 		FieldLogger:    logger,
-		dnsConfig:      dnsConfig,
+		dnsConfig:      cluster.DNSConfig,
 		remote:         remote,
 	}, nil
 }

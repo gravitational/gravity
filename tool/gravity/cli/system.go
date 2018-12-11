@@ -380,7 +380,7 @@ func findPackages(packages pack.PackageService, runtimePackageUpdate loc.Locator
 		return nil, trace.Wrap(err)
 	}
 
-	planetPackage, planetConfig, err := findRuntimePackageWithConfig(packages)
+	planetPackage, planetConfig, err := pack.FindRuntimePackageWithConfig(packages)
 	if err != nil {
 		return nil, trace.Wrap(err, "failed to find runtime package")
 	}
@@ -468,7 +468,7 @@ func getAnyRuntimePackagePath(packages *localpack.PackageServer) (packagePath st
 }
 
 func getRuntimePackagePath(packages *localpack.PackageServer) (packagePath string, err error) {
-	runtimePackage, err := findRuntimePackage(packages)
+	runtimePackage, err := pack.FindRuntimePackage(packages)
 	if err != nil {
 		return "", trace.Wrap(err)
 	}
@@ -1069,7 +1069,7 @@ func findAnyRuntimePackageWithConfig(packages pack.PackageService) (runtimePacka
 }
 
 func findAnyRuntimePackage(packages pack.PackageService) (runtimePackage *loc.Locator, err error) {
-	runtimePackage, err = findRuntimePackage(packages)
+	runtimePackage, err = pack.FindRuntimePackage(packages)
 	if err != nil && !trace.IsNotFound(err) {
 		return nil, trace.Wrap(err)
 	}
@@ -1088,45 +1088,6 @@ func findLegacyRuntimePackage(packages pack.PackageService) (runtimePackage *loc
 	err = pack.ForeachPackage(packages, func(env pack.PackageEnvelope) error {
 		if loc.IsLegacyRuntimePackage(env.Locator) &&
 			env.HasLabel(pack.InstalledLabel, pack.InstalledLabel) {
-			runtimePackage = &env.Locator
-			return utils.Abort(nil)
-		}
-		return nil
-	})
-	if err != nil && !utils.IsAbortError(err) {
-		return nil, trace.Wrap(err)
-	}
-	if runtimePackage == nil {
-		return nil, trace.NotFound("no runtime package found")
-	}
-
-	return runtimePackage, nil
-}
-
-// findRuntimePackageWithConfig locates the planet package using the purpose label.
-// Returns a pair - planet package with the corresponding configuration package.
-func findRuntimePackageWithConfig(packages pack.PackageService) (runtimePackage *loc.Locator, runtimeConfig *loc.Locator, err error) {
-	runtimePackage, err = findRuntimePackage(packages)
-	if err != nil {
-		return nil, nil, trace.Wrap(err)
-	}
-
-	runtimeConfig, err = pack.FindConfigPackage(packages, *runtimePackage)
-	if err != nil {
-		return nil, nil, trace.Wrap(err)
-	}
-
-	return runtimePackage, runtimeConfig, nil
-}
-
-// findRuntimePackage locates the installed runtime package
-func findRuntimePackage(packages pack.PackageService) (runtimePackage *loc.Locator, err error) {
-	labels := map[string]string{
-		pack.PurposeLabel:   pack.PurposeRuntime,
-		pack.InstalledLabel: pack.InstalledLabel,
-	}
-	err = pack.ForeachPackage(packages, func(env pack.PackageEnvelope) error {
-		if env.HasLabels(labels) {
 			runtimePackage = &env.Locator
 			return utils.Abort(nil)
 		}

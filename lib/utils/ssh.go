@@ -221,13 +221,13 @@ func SSHRunAndParse(
 	}
 
 	errCh := make(chan error, 2)
-	expectErrors := 2
+	expectErrs := 2
 	go func() {
 		err := parse(bufio.NewReader(
 			io.TeeReader(
-				&loggingReader{
-					FieldLogger: log.WithField("stream", "stdout"),
-					r:           stdout,
+				&readLogger{
+					log: log.WithField("stream", "stdout"),
+					r:   stdout,
 				},
 				output),
 		),
@@ -238,7 +238,7 @@ func SSHRunAndParse(
 
 	go func() {
 		logger := log.WithField("stream", "stderr")
-		_, _ = io.Copy(io.MultiWriter(output, NewLoggingWriter(logger)), stderr)
+		_, _ = io.Copy(io.MultiWriter(output, NewStderrLogger(logger)), stderr)
 	}()
 
 	go func() {
@@ -246,7 +246,7 @@ func SSHRunAndParse(
 		errCh <- err
 	}()
 
-	for i := 0; i < expectErrors; i++ {
+	for i := 0; i < expectErrs; i++ {
 		select {
 		case <-ctx.Done():
 			_ = session.Signal(ssh.SIGTERM)
@@ -293,32 +293,32 @@ func ParseAsString(out *string) OutputParseFn {
 	}
 }
 
-type loggingReader struct {
-	logrus.FieldLogger
-	r io.Reader
+type readLogger struct {
+	log logrus.FieldLogger
+	r   io.Reader
 }
 
-func (r *loggingReader) Read(p []byte) (n int, err error) {
-	n, err = r.r.Read(p)
+func (l *readLogger) Read(p []byte) (n int, err error) {
+	n, err = l.r.Read(p)
 	if err != nil && err != io.EOF {
-		r.FieldLogger.WithError(err).Debug("Unexpected I/O error.")
+		l.log.WithError(err).Debug("Unexpected I/O error.")
 	} else if n > 0 {
-		r.FieldLogger.Info(string(p[0:n]))
+		l.log.Info(string(p[0:n]))
 	}
 	return n, err
 }
 
-// NewLoggingWriter returns a new io.Writer that relays the data
-// to the specified logger
-func NewLoggingWriter(logger logrus.FieldLogger) *loggingWriter {
-	return &loggingWriter{FieldLogger: logger}
+// NewStderrLogger returns a new io.Writer that logs its input
+// with log.Warn
+func NewStderrLogger(log logrus.FieldLogger) *stderrLogger {
+	return &stderrLogger{log: log}
 }
 
-type loggingWriter struct {
-	logrus.FieldLogger
+type stderrLogger struct {
+	log logrus.FieldLogger
 }
 
-func (w *loggingWriter) Write(p []byte) (n int, err error) {
-	w.FieldLogger.Warn(string(p))
+func (w *stderrLogger) Write(p []byte) (n int, err error) {
+	w.log.Warn(string(p))
 	return len(p), nil
 }

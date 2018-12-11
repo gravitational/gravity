@@ -17,12 +17,16 @@ limitations under the License.
 package update
 
 import (
+	"encoding/json"
 	"fmt"
+	"strconv"
 	"strings"
 
 	appservice "github.com/gravitational/gravity/lib/app"
+	"github.com/gravitational/gravity/lib/defaults"
 	"github.com/gravitational/gravity/lib/fsm"
 	"github.com/gravitational/gravity/lib/loc"
+	"github.com/gravitational/gravity/lib/pack"
 	"github.com/gravitational/gravity/lib/schema"
 	"github.com/gravitational/gravity/lib/storage"
 
@@ -116,6 +120,45 @@ func getRuntimePackage(manifest schema.Manifest, profile schema.NodeProfile, clu
 			profile.Name, clusterRole)
 	}
 	return runtimePackage, nil
+}
+
+func getExistingDNSConfig(packages pack.PackageService) (*storage.DNSConfig, error) {
+	_, configPackage, err := pack.FindRuntimePackageWithConfig(packages)
+	if err != nil {
+		return nil, trace.Wrap(err)
+	}
+	_, rc, err := packages.ReadPackage(*configPackage)
+	if err != nil {
+		return nil, trace.Wrap(err)
+	}
+	defer rc.Close()
+	var runtimeConfig runtimeConfig
+	err = json.NewDecoder(rc).Decode(&runtimeConfig)
+	if err != nil {
+		return nil, trace.Wrap(err)
+	}
+	port := defaults.DNSPort
+	if len(runtimeConfig.DNSPort) != 0 {
+		port, err = strconv.Atoi(runtimeConfig.DNSPort)
+		if err != nil {
+			return nil, trace.Wrap(err, "expected integer value but got %v", runtimeConfig.DNSPort)
+		}
+	}
+	dnsConfig := &storage.DNSConfig{
+		Addrs: []string{runtimeConfig.DNSListenAddr},
+		Port:  port,
+	}
+	if dnsConfig.IsEmpty() {
+		*dnsConfig = storage.LegacyDNSConfig
+	}
+	return dnsConfig, nil
+}
+
+type runtimeConfig struct {
+	// DNSListenAddr specifies the configured DNS listen address
+	DNSListenAddr string `json:"PLANET_DNS_LISTEN_ADDR"`
+	// DNSPort specifies the configured DNS port
+	DNSPort string `json:"PLANET_DNS_PORT"`
 }
 
 func formatServers(servers []storage.Server) string {
