@@ -1068,6 +1068,7 @@ var (
 	TransientErrorTimeout = 15 * time.Minute
 
 	// WormholeImg is the docker image reference to use when embedding wormhole
+	// Note: This is a build parameter, and the build scripts will replace this with an image reference
 	WormholeImg = "<build param>"
 )
 

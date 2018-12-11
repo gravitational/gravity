@@ -549,7 +549,7 @@ func makeRewriteMultiSourceFunc(manifestPath string) resources.ManifestRewriteFu
 
 func makeRewriteWormholeJobFunc() resources.ManifestRewriteFunc {
 	return func(m *schema.Manifest) error {
-		if m.Providers != nil && m.Providers.Generic.Networking.Type == "wireguard" {
+		if m.Providers != nil && m.Providers.Generic.Networking.Type == constants.WireguardNetworkType {
 			if m.Hooks == nil {
 				m.Hooks = &schema.Hooks{}
 			}
@@ -574,7 +574,7 @@ func makeRewriteWormholeJobFunc() resources.ManifestRewriteFunc {
 	}
 }
 
-// generateWormholeJob generates a job to be used
+// generateWormholeJob generates a gravity hook for installing wormhole encrypted network plugin
 func generateWormholeHook(hook schema.HookType) (*schema.Hook, error) {
 	script := ""
 
@@ -591,7 +591,7 @@ func generateWormholeHook(hook schema.HookType) (*schema.Hook, error) {
 
 	job := batchv1.Job{
 		ObjectMeta: metav1.ObjectMeta{
-			Name: "wireguard",
+			Name: constants.WireguardNetworkType,
 		},
 		Spec: batchv1.JobSpec{
 			Template: corev1.PodTemplateSpec{

@@ -637,6 +637,9 @@ const (
 
 	// MasterRole is the name of the master node role
 	MasterRole = "master"
+
+	// WireguardNetworkType is a network type that is used for wireguard/wormhole support
+	WireguardNetworkType = "wireguard"
 )
 
 var (
