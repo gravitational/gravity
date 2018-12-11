@@ -35,19 +35,23 @@
 
 [[constraint]]
   name = "k8s.io/apiextensions-apiserver"
-  version = "kubernetes-1.12.1"
+  version = "kubernetes-1.13.0"
 
 [[override]]
   name = "k8s.io/api"
-  version = "kubernetes-1.12.1"
+  version = "kubernetes-1.13.0"
 
 [[override]]
   name = "k8s.io/apimachinery"
-  version = "kubernetes-1.12.1"
+  version = "kubernetes-1.13.0"
 
 [[constraint]]
   name = "k8s.io/client-go"
-  version = "=v9.0.0"
+  version = "=v10.0.0"
+
+[[override]]
+  name = "gopkg.in/yaml.v2"
+  version = "=v2.2.2"
 
 [[override]]
 name = "cloud.google.com/go"
@@ -208,10 +212,6 @@ revision = "b19bf474d317b857955b12035d2c5acb57ce8b01"
 [[override]]
 name = "gopkg.in/inf.v0"
 revision = "3887ee99ecf07df5b447e9b00d9c0b2adaa9f3e4"
-
-[[override]]
-name = "gopkg.in/yaml.v2"
-revision = "53feefa2559fb8dfa8d81baad31be332c97d6c77"
 
 [[override]]
 name = "k8s.io/kube-openapi"

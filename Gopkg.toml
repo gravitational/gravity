@@ -61,7 +61,8 @@ ignored = [
 
 [[constraint]]
   name = "github.com/gravitational/satellite"
-  version = "=5.3.0"
+  branch = "roman/5.4.x/k13"
+  # version = "=5.3.0"
 
 [[constraint]]
   name = "github.com/xtgo/set"
@@ -81,19 +82,20 @@ ignored = [
 
 [[override]]
   name = "k8s.io/apimachinery"
-  version = "kubernetes-1.12.1"
+  version = "kubernetes-1.13.0"
 
 [[override]]
   name = "k8s.io/api"
-  version = "kubernetes-1.12.1"
+  version = "kubernetes-1.13.0"
 
 [[override]]
   name = "k8s.io/apiextensions-apiserver"
-  version = "kubernetes-1.12.1"
+  version = "kubernetes-1.13.0"
 
 [[constraint]]
   name = "github.com/gravitational/rigging"
-  version = "=5.3.0"
+  branch = "roman/5.4.x/k13"
+  # version = "=5.3.0"
 
 [[override]]
   name = "github.com/docker/distribution"
@@ -202,7 +204,7 @@ ignored = [
 
 [[constraint]]
   name = "k8s.io/client-go"
-  version = "=v9.0.0"
+  version = "=v10.0.0"
 
 [[constraint]]
   name = "github.com/gravitational/license"
@@ -219,3 +221,7 @@ ignored = [
 [[constraint]]
   name = "github.com/hashicorp/terraform"
   version = "=v0.11.7"
+
+[[override]]
+  name = "gopkg.in/yaml.v2"
+  version = "=v2.2.2"
