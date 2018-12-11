@@ -77,7 +77,7 @@ type waitExecutor struct {
 // Execute executes the wait phase
 // This waits for critical components to start within planet
 func (p *waitExecutor) Execute(ctx context.Context) error {
-	ctx, cancel = context.WithTimeout(ctx, 5*time.Minute)
+	ctx, cancel := context.WithTimeout(ctx, 5*time.Minute)
 	defer cancel()
 	done := make(chan bool)
 
