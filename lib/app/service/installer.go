@@ -34,6 +34,7 @@ import (
 	"github.com/gravitational/gravity/lib/pack"
 	"github.com/gravitational/gravity/lib/pack/encryptedpack"
 	"github.com/gravitational/gravity/lib/pack/localpack"
+	"github.com/gravitational/gravity/lib/schema"
 	"github.com/gravitational/gravity/lib/storage"
 	"github.com/gravitational/gravity/lib/storage/keyval"
 	fileutils "github.com/gravitational/gravity/lib/utils"
@@ -43,6 +44,42 @@ import (
 	"github.com/gravitational/trace"
 	log "github.com/sirupsen/logrus"
 )
+
+func (r *applications) getApplicationInstaller(
+	req appservice.InstallerRequest,
+	app *appservice.Application,
+	apps *applications,
+) ([]*archive.Item, error) {
+	err := pullApplications([]loc.Locator{app.Package}, apps, r, r)
+	if err != nil {
+		return nil, trace.Wrap(err)
+	}
+	return []*archive.Item{}, nil
+}
+
+func (r *applications) getClusterInstaller(
+	req appservice.InstallerRequest,
+	app *appservice.Application,
+	apps *applications,
+) ([]*archive.Item, error) {
+	err := pullDependencies(app, apps, r, r)
+	if err != nil {
+		return nil, trace.Wrap(err)
+	}
+	binary, err := r.getGravityBinaryForApp(app)
+	if err != nil {
+		return nil, trace.Wrap(err)
+	}
+	err = addCertificateAuthority(req, apps.Packages)
+	if err != nil {
+		return nil, trace.Wrap(err)
+	}
+	err = addTrustedCluster(req, apps.Packages)
+	if err != nil {
+		return nil, trace.Wrap(err)
+	}
+	return []*archive.Item{binary}, nil
+}
 
 // GetAppInstaller builds an installer package for the
 // specified application and returns a reader for the contents.
@@ -125,22 +162,16 @@ func (r *applications) GetAppInstaller(req appservice.InstallerRequest) (install
 		return nil, trace.Wrap(err)
 	}
 
-	if err = pullDependencies(app, localApps, r, r.FieldLogger); err != nil {
-		return nil, trace.Wrap(err)
+	var items []*archive.Item
+	switch app.Manifest.Kind {
+	case schema.KindBundle, schema.KindCluster:
+		items, err = r.getClusterInstaller(req, app, localApps)
+	case schema.KindApplication:
+		items, err = r.getApplicationInstaller(req, app, localApps)
+	default:
+		return nil, trace.BadParameter("unsupported kind %q",
+			app.Manifest.Kind)
 	}
-
-	var binary *archive.Item
-	binary, err = r.getGravityBinaryForApp(app)
-	if err != nil {
-		return nil, trace.Wrap(err)
-	}
-
-	err = addCertificateAuthority(req, localPackages)
-	if err != nil {
-		return nil, trace.Wrap(err)
-	}
-
-	err = addTrustedCluster(req, localPackages)
 	if err != nil {
 		return nil, trace.Wrap(err)
 	}
@@ -155,9 +186,7 @@ func (r *applications) GetAppInstaller(req appservice.InstallerRequest) (install
 			}
 			return
 		}
-
-		err = archive.CompressDirectory(
-			tempDir, writer, binary,
+		err = archive.CompressDirectory(tempDir, writer, append(items,
 			archive.ItemFromStringMode(
 				defaults.ManifestFileName, string(manifestBytes), defaults.SharedReadMask),
 			archive.ItemFromStringMode(
@@ -167,7 +196,7 @@ func (r *applications) GetAppInstaller(req appservice.InstallerRequest) (install
 			archive.ItemFromStringMode(
 				upgradeScriptFilename, upgradeScript, defaults.SharedExecutableMask),
 			archive.ItemFromStringMode(
-				readmeFilename, readme, defaults.SharedReadMask))
+				readmeFilename, readme, defaults.SharedReadMask))...)
 		writer.CloseWithError(err)
 	}()
 	return &fileutils.CleanupReadCloser{
@@ -208,7 +237,7 @@ func (r *applications) getGravityBinaryForApp(app *appservice.Application) (*arc
 }
 
 // pullDependencies transitively pulls all dependent packages for app to localApps
-func pullDependencies(app *appservice.Application, localApps *applications, remoteApps *applications, log log.FieldLogger) error {
+func pullDependencies(app *appservice.Application, localApps, remoteApps *applications, log log.FieldLogger) error {
 	dependencies, err := appservice.GetDependencies(app, remoteApps)
 	if err != nil {
 		return trace.Wrap(err)

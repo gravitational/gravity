@@ -1354,7 +1354,7 @@ func (p *Process) ServeHealth() error {
 func tryGetPrivilegedKubeClient() (client *kubernetes.Clientset, err error) {
 	_, err = utils.StatFile(constants.PrivilegedKubeconfig)
 	if err == nil || !trace.IsNotFound(err) {
-		client, err = utils.GetKubeClientFromPath(constants.PrivilegedKubeconfig)
+		client, _, err = utils.GetKubeClientFromPath(constants.PrivilegedKubeconfig)
 	} else {
 		client, _, err = utils.GetKubeClient("")
 	}

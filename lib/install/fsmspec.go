@@ -73,7 +73,7 @@ func FSMSpec(config FSMConfig) fsm.FSMSpecFunc {
 				config.Operator)
 
 		case strings.HasPrefix(p.Phase.ID, phases.LabelPhase):
-			client, err := httplib.GetUnprivilegedKubeClient(config.DNSConfig.Addr())
+			client, _, err := httplib.GetUnprivilegedKubeClient(config.DNSConfig.Addr())
 			if err != nil {
 				return nil, trace.Wrap(err)
 			}
@@ -83,7 +83,7 @@ func FSMSpec(config FSMConfig) fsm.FSMSpecFunc {
 				client)
 
 		case p.Phase.ID == phases.RBACPhase:
-			client, err := httplib.GetClusterKubeClient(config.DNSConfig.Addr())
+			client, _, err := httplib.GetClusterKubeClient(config.DNSConfig.Addr())
 			if err != nil {
 				return nil, trace.Wrap(err)
 			}
@@ -92,7 +92,7 @@ func FSMSpec(config FSMConfig) fsm.FSMSpecFunc {
 				config.LocalApps,
 				client)
 		case p.Phase.ID == phases.CorednsPhase:
-			client, err := httplib.GetClusterKubeClient(config.DNSConfig.Addr())
+			client, _, err := httplib.GetClusterKubeClient(config.DNSConfig.Addr())
 			if err != nil {
 				return nil, trace.Wrap(err)
 			}

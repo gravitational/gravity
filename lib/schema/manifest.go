@@ -83,7 +83,9 @@ func (m Manifest) GetObjectKind() kubeschema.ObjectKind {
 //
 // Only user applications (bundles) can have runtimes
 func (m Manifest) Base() *loc.Locator {
-	if m.Kind != KindBundle {
+	switch m.Kind {
+	case KindBundle, KindCluster:
+	default:
 		return nil
 	}
 	if m.SystemOptions == nil || m.SystemOptions.Runtime == nil {
@@ -323,6 +325,8 @@ type Metadata struct {
 	CreatedTimestamp time.Time `json:"createdTimestamp,omitempty"`
 	// Hidden allows to hide the app from a list of apps visible in Ops Center
 	Hidden bool `json:"hidden,omitempty"`
+	// Labels is labels attached to the manifest
+	Labels map[string]string `json:"labels,omitempty"`
 }
 
 // GetName returns an application name
@@ -1039,6 +1043,8 @@ func addKnownTypes(scheme *runtime.Scheme) error {
 	scheme.AddKnownTypeWithName(SchemeGroupVersion.WithKind(KindSystemApplication), &Manifest{})
 	scheme.AddKnownTypeWithName(SchemeGroupVersion.WithKind(KindBundle), &Manifest{})
 	scheme.AddKnownTypeWithName(SchemeGroupVersion.WithKind(KindRuntime), &Manifest{})
+	scheme.AddKnownTypeWithName(SchemeGroupVersion.WithKind(KindCluster), &Manifest{})
+	scheme.AddKnownTypeWithName(SchemeGroupVersion.WithKind(KindApplication), &Manifest{})
 	return nil
 }
 

@@ -41,9 +41,11 @@ import (
 	"github.com/gravitational/gravity/lib/storage"
 	"github.com/gravitational/gravity/lib/storage/keyval"
 	"github.com/gravitational/gravity/lib/utils"
+	"k8s.io/helm/pkg/chartutil"
 
 	"github.com/coreos/go-semver/semver"
 	"github.com/docker/docker/pkg/archive"
+	"github.com/ghodss/yaml"
 	"github.com/gravitational/trace"
 	"github.com/gravitational/version"
 	"github.com/sirupsen/logrus"
@@ -83,6 +85,8 @@ type Config struct {
 	logrus.FieldLogger
 	// Progress allows builder to report build progress
 	utils.Progress
+	// Silent suppresses all std output when set to true
+	Silent bool
 }
 
 // CheckAndSetDefaults validates builder config and fills in defaults
@@ -90,15 +94,23 @@ func (c *Config) CheckAndSetDefaults() error {
 	if c.Context == nil {
 		c.Context = context.Background()
 	}
-	manifestAbsPath, err := filepath.Abs(c.ManifestPath)
+	fi, err := os.Stat(c.ManifestPath)
 	if err != nil {
 		return trace.Wrap(err)
 	}
-	c.manifestDir = filepath.Dir(manifestAbsPath)
-	c.manifestFilename = filepath.Base(manifestAbsPath)
-	if c.manifestFilename != defaults.ManifestFileName {
-		return trace.BadParameter("manifest filename should be %q",
-			defaults.ManifestFileName)
+	if fi.IsDir() {
+		c.manifestDir = c.ManifestPath
+	} else {
+		manifestAbsPath, err := filepath.Abs(c.ManifestPath)
+		if err != nil {
+			return trace.Wrap(err)
+		}
+		c.manifestDir = filepath.Dir(manifestAbsPath)
+		c.manifestFilename = filepath.Base(manifestAbsPath)
+		if c.manifestFilename != defaults.ManifestFileName {
+			return trace.BadParameter("manifest filename should be %q",
+				defaults.ManifestFileName)
+		}
 	}
 	if c.VendorReq.Parallel == 0 {
 		c.VendorReq.Parallel = runtime.NumCPU()
@@ -127,15 +139,40 @@ func New(config Config) (*Builder, error) {
 	if err != nil {
 		return nil, trace.Wrap(err)
 	}
-	manifestBytes, err := ioutil.ReadFile(config.ManifestPath)
+	fi, err := os.Stat(config.ManifestPath)
 	if err != nil {
-		return nil, trace.Wrap(err)
+		return nil, trace.ConvertSystemError(err)
 	}
-	manifest, err := schema.ParseManifestYAMLNoValidate(manifestBytes)
-	if err != nil {
-		logrus.Errorf(trace.DebugReport(err))
-		return nil, trace.BadParameter("Could not parse the application manifest:\n%v",
-			trace.Unwrap(err)) // show original parsing error
+	var manifest *schema.Manifest
+	if fi.IsDir() {
+		// If this is a Helm chart directory, extract the chart metadata
+		// and generate a basic application manifest.
+		fi, err := os.Stat(filepath.Join(config.ManifestPath, constants.HelmChartFile))
+		if err != nil || fi.IsDir() {
+			if err != nil {
+				logrus.Warn(err)
+			}
+			return nil, trace.BadParameter("not a chart directory")
+		}
+		chart, err := chartutil.Load(config.ManifestPath)
+		if err != nil {
+			return nil, trace.Wrap(err)
+		}
+		manifest, err = generateManifest(chart)
+		if err != nil {
+			return nil, trace.Wrap(err)
+		}
+	} else {
+		manifestBytes, err := ioutil.ReadFile(config.ManifestPath)
+		if err != nil {
+			return nil, trace.Wrap(err)
+		}
+		manifest, err = schema.ParseManifestYAMLNoValidate(manifestBytes)
+		if err != nil {
+			logrus.Errorf(trace.DebugReport(err))
+			return nil, trace.BadParameter("could not parse the application manifest:\n%v",
+				trace.Unwrap(err)) // show original parsing error
+		}
 	}
 	b := &Builder{
 		Config:   config,
@@ -245,6 +282,20 @@ func (b *Builder) Vendor(ctx context.Context, dir string) (io.ReadCloser, error)
 	if err != nil {
 		return nil, trace.Wrap(err)
 	}
+	manifestPath := filepath.Join(dir, defaults.ResourcesDir, "app.yaml")
+	// If manifest filename is empty, it means it was auto-generated
+	// out of a Helm chart so write the generated manifest to the
+	// vendor directory as well.
+	if b.manifestFilename == "" {
+		data, err := yaml.Marshal(b.Manifest)
+		if err != nil {
+			return nil, trace.Wrap(err)
+		}
+		err = ioutil.WriteFile(manifestPath, data, defaults.SharedReadMask)
+		if err != nil {
+			return nil, trace.Wrap(err)
+		}
+	}
 	vendorer, err := service.NewVendorer(service.VendorerConfig{
 		DockerURL:   constants.DockerEngineURL,
 		RegistryURL: constants.DockerRegistry,
@@ -254,7 +305,7 @@ func (b *Builder) Vendor(ctx context.Context, dir string) (io.ReadCloser, error)
 		return nil, trace.Wrap(err)
 	}
 	vendorReq := b.VendorReq
-	vendorReq.ManifestPath = filepath.Join(dir, defaults.ResourcesDir, b.manifestFilename)
+	vendorReq.ManifestPath = manifestPath
 	vendorReq.ProgressReporter = b.Progress
 	err = vendorer.VendorDir(ctx, dir, vendorReq)
 	if err != nil {
@@ -396,6 +447,9 @@ func (b *Builder) getSyncer() (Syncer, error) {
 //
 // Versions are compatible when they have equal major and minor components.
 func (b *Builder) checkVersion(runtimeVersion *semver.Version) error {
+	if b.SkipVersionCheck {
+		return nil
+	}
 	teleVersion, err := semver.NewVersion(version.Get().Version)
 	if err != nil {
 		return trace.Wrap(err, "failed to determine tele version")
@@ -413,7 +467,6 @@ To remedy the issue you can do one of the following:
 See https://gravitational.com/telekube/docs/pack/#sample-application-manifest for details on how to specify runtime in manifest.
 `, teleVersion, runtimeVersion, runtimeVersion.Major, runtimeVersion.Minor, teleVersion.Major, teleVersion.Minor)
 	}
-
 	b.Debugf("Version check passed; tele version: %v, runtime version: %v.",
 		teleVersion, runtimeVersion)
 	return nil

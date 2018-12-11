@@ -602,11 +602,6 @@ metadata:
 
 // Charts tests support for vendoring helm charts
 func (r *AppsSuite) Charts(c *C) {
-	err := utils.CheckHelm()
-	if err != nil {
-		c.Skip("this test requires helm and helm template installed")
-	}
-
 	dockerClient, err := docker.NewClientFromEnv()
 	if err != nil {
 		c.Skip("this test requires docker")

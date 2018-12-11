@@ -640,6 +640,9 @@ const (
 
 	// WireguardNetworkType is a network type that is used for wireguard/wormhole support
 	WireguardNetworkType = "wireguard"
+
+	// HelmLabel denotes application generated from Helm chart.
+	HelmLabel = "helm"
 )
 
 var (
