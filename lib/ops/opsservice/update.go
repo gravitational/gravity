@@ -263,16 +263,28 @@ func (s *site) createUpdateOperation(req ops.CreateSiteAppUpdateOperationRequest
 		return nil, trace.Wrap(err, "failed to create update operation")
 	}
 
-	resetSiteState := func() {
+	resetClusterState := func() {
 		if err == nil {
 			return
 		}
-		errReset := s.setSiteState(ops.SiteStateActive)
+
+		// Fail the operation and reset cluster state.
+		// It is important to complete the operation as subsequent same type operations
+		// will not be able to complete if there's an existing incomplete one
+		errReset := ops.FailOperation(op.Key(), s.service, trace.Unwrap(err).Error())
 		if errReset != nil {
-			log.Warningf("failed to reset site state: %v", trace.DebugReport(errReset))
+			log.WithFields(log.Fields{
+				"err":       errReset,
+				"operation": op.Key(),
+			}).Warn("Failed to fail operation.")
+		}
+
+		errReset = s.setSiteState(ops.SiteStateActive)
+		if errReset != nil {
+			log.WithError(errReset).Warn("Failed to reset cluster state.")
 		}
 	}
-	defer resetSiteState()
+	defer resetClusterState()
 
 	s.reportProgress(ctx, ops.ProgressEntry{
 		State:      ops.ProgressStateInProgress,
