@@ -640,7 +640,7 @@ hooks:
   networkUpdate:
 
   # rollback a custom CNI network plugin during cluster rollback
-  networkRollback
+  networkRollback:
 ```
 
 See [here](/requirements/#identifying-os-distributions-in-manifest) for version matrix to help with
