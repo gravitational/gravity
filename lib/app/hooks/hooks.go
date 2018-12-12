@@ -69,6 +69,8 @@ type Params struct {
 	NodeSelector map[string]string
 	// SkipInitContainers skips injection of init containers
 	SkipInitContainers bool
+	// HostNetwork tells the job to use the host network
+	HostNetwork bool
 	// JobDeadline allows to set specific hook job deadline
 	JobDeadline time.Duration
 	// AgentUser is the agent username for logging into local cluster

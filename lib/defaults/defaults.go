@@ -1046,9 +1046,10 @@ var (
 	// LBIdleTimeout is the idle timeout for AWS load balancers
 	LBIdleTimeout = "3600"
 
-	// DiscoveryPublishInterval specifies the frequency to update cluster discovery
-	// details
+	// DiscoveryPublishInterval specifies the frequency to publish changes cluster discovery details
 	DiscoveryPublishInterval = 5 * time.Second
+	// DiscoveryResyncInterval specifies the frequency to force publish cluster discovery details
+	DiscoveryResyncInterval = 10 * time.Minute
 
 	// CACertificateExpiry is the validity period of self-signed CA generated
 	// for clusters during installation
@@ -1066,6 +1067,10 @@ var (
 	// TransientErrorTimeout specifies the maximum amount of time to attempt
 	// an operation experiencing transient errors
 	TransientErrorTimeout = 15 * time.Minute
+
+	// WormholeImg is the docker image reference to use when embedding wormhole
+	// Note: This is a build parameter, and the build scripts will replace this with an image reference
+	WormholeImg = "<build param>"
 )
 
 // HookSecurityContext returns default securityContext for hook pods

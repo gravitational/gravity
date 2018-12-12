@@ -35,10 +35,6 @@ GRAVITY_VERSION := $(CURRENT_TAG)
 RELEASE_TARBALL_NAME ?=
 RELEASE_OUT ?=
 
-CURRENT_COMMIT := $(shell git rev-parse HEAD)
-VERSION_FLAGS := -X github.com/gravitational/gravity/vendor/github.com/gravitational/version.gitCommit=$(CURRENT_COMMIT) -X github.com/gravitational/gravity/vendor/github.com/gravitational/version.version=$(GRAVITY_VERSION)
-GRAVITY_LINKFLAGS = "$(VERSION_FLAGS) $(GOLFLAGS)"
-
 TELEPORT_TAG = 3.0.1
 # TELEPORT_REPOTAG adapts TELEPORT_TAG to the teleport tagging scheme
 TELEPORT_REPOTAG := v$(TELEPORT_TAG)
@@ -46,6 +42,7 @@ PLANET_TAG := 5.4.1-$(K8S_VER)
 PLANET_BRANCH := $(PLANET_TAG)
 K8S_APP_TAG := $(GRAVITY_TAG)
 TELEKUBE_APP_TAG := $(GRAVITY_TAG)
+WORMHOLE_APP_TAG := $(GRAVITY_TAG)
 LOGGING_APP_TAG ?= 5.0.2
 MONITORING_APP_TAG ?= 5.2.2
 DNS_APP_TAG = 0.3.0
@@ -53,10 +50,18 @@ BANDWAGON_TAG ?= 5.3.0
 RBAC_APP_TAG := $(GRAVITY_TAG)
 TILLER_VERSION = 2.11.0
 TILLER_APP_TAG = 5.5.0
+# URI of Wormhole container for default install
+WORMHOLE_IMG ?= quay.io/gravitational/wormhole:0.0.0-1-g6681422-dirty
 # set this to true if you want to use locally built planet packages
 DEV_PLANET ?=
 OS := $(shell uname | tr '[:upper:]' '[:lower:]')
 ARCH := $(shell uname -m)
+
+CURRENT_COMMIT := $(shell git rev-parse HEAD)
+VERSION_FLAGS := -X github.com/gravitational/gravity/vendor/github.com/gravitational/version.gitCommit=$(CURRENT_COMMIT) \
+	-X github.com/gravitational/gravity/vendor/github.com/gravitational/version.version=$(GRAVITY_VERSION) \
+	-X github.com/gravitational/gravity/lib/defaults.WormholeImg=$(WORMHOLE_IMG)
+GRAVITY_LINKFLAGS = "$(VERSION_FLAGS) $(GOLFLAGS)"
 
 TELEKUBE_GRAVITY_PKG := gravitational.io/gravity_$(OS)_$(ARCH):$(GRAVITY_TAG)
 TELEKUBE_TELE_PKG := gravitational.io/tele_$(OS)_$(ARCH):$(GRAVITY_TAG)
@@ -450,6 +455,20 @@ $(GRAVITY_BUILDDIR)/telekube.tar: packages
 		--state-dir=$(PACKAGES_DIR) \
 		--skip-version-check \
 		-o $(GRAVITY_BUILDDIR)/telekube.tar
+
+#
+# builds wormhole installer
+# 
+.PHONY: wormhole
+wormhole: GRAVITY=$(GRAVITY_OUT) --state-dir=$(PACKAGES_DIR)
+wormhole: $(GRAVITY_BUILDDIR)/wormhole.tar
+
+$(GRAVITY_BUILDDIR)/wormhole.tar: packages
+	$(GRAVITY_BUILDDIR)/tele build $(ASSETSDIR)/wormhole/resources/app.yaml -f \
+		--version=$(GRAVITY_APP_TAG) \
+		--state-dir=$(PACKAGES_DIR) \
+		--skip-version-check \
+		-o $(GRAVITY_BUILDDIR)/wormhole.tar
 
 #
 # Uploads opscenter to S3 is used to test custom releases of the ops center

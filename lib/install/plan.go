@@ -20,6 +20,7 @@ import (
 	"github.com/gravitational/gravity/lib/constants"
 	"github.com/gravitational/gravity/lib/defaults"
 	"github.com/gravitational/gravity/lib/ops"
+	"github.com/gravitational/gravity/lib/schema"
 	"github.com/gravitational/gravity/lib/storage"
 
 	"github.com/gravitational/trace"
@@ -110,6 +111,11 @@ func (i *Installer) GetOperationPlan(cluster ops.Site, op ops.SiteOperation) (*s
 
 	// export applications to registries
 	builder.AddExportPhase(plan)
+
+	if cluster.App.Manifest.HasHook(schema.HookNetworkInstall) {
+		builder.AddInstallOverlayPhase(plan, &cluster.App.Package)
+	}
+	builder.AddHealthPhase(plan)
 
 	// install runtime application
 	err = builder.AddRuntimePhase(plan)
