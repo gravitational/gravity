@@ -516,10 +516,10 @@
   version = "0.0.2"
 
 [[projects]]
-  branch = "roman/5.4.x/k13"
   name = "github.com/gravitational/rigging"
   packages = ["."]
-  revision = "23eb84fd17a99182477e34f1ea76d21754347108"
+  revision = "d3ec794bf647441dfc708a1b22bb299943af9bd6"
+  version = "5.4.0"
 
 [[projects]]
   name = "github.com/gravitational/roundtrip"
@@ -528,7 +528,6 @@
   version = "0.0.2"
 
 [[projects]]
-  branch = "roman/5.4.x/k13"
   name = "github.com/gravitational/satellite"
   packages = [
     "agent/health",
@@ -537,7 +536,8 @@
     "monitoring",
     "utils"
   ]
-  revision = "299c4cd5abdceda085db3e103687e32181b3371d"
+  revision = "1b6124cabf17a3d3e16c96c895fe8daf09792fc2"
+  version = "5.4.0"
 
 [[projects]]
   name = "github.com/gravitational/tail"
@@ -1536,6 +1536,6 @@
 [solve-meta]
   analyzer-name = "dep"
   analyzer-version = 1
-  inputs-digest = "c9ded76cb189b0a4dd5b157b75c30cbfbae704503a641959b4b08bd18df4d830"
+  inputs-digest = "69ad3596d0e34cc19552fe14922887929dd84138269849e855fa17d0e00af9b1"
   solver-name = "gps-cdcl"
   solver-version = 1
