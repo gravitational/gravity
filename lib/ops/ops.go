@@ -117,7 +117,7 @@ type Operator interface {
 	Install
 	Updates
 	Identity
-	Environment
+	EnvironmentVariables
 }
 
 // Accounts represents a collection of accounts in the portal
@@ -456,13 +456,13 @@ type Certificates interface {
 	DeleteClusterCertificate(SiteKey) error
 }
 
-// Envuironment manages cluster environment
-type Environment interface {
-	// GetClusterEnvironment retrieves the cluster environment
-	GetClusterEnvironment(SiteKey) (storage.Environment, error)
-	// UpdateClusterEnvironment updates the cluster environment from the
-	// specified request
-	UpdateClusterEnvironment(UpdateClusterEnvironmentRequest) error
+// EnvironmentVariables manages environment variables in cluster
+type EnvironmentVariables interface {
+	// GetClusterEnvironmentVariables retrieves the cluster environment
+	GetClusterEnvironmentVariables(SiteKey) (storage.EnvironmentVariables, error)
+	// UpdateClusterEnvironmentVariables updates environment variables in the cluster
+	// given with request
+	UpdateClusterEnvironmentVariables(UpdateClusterEnvironmentVariablesRequest) error
 }
 
 // ClusterCertificate represents the cluster certificate
@@ -510,16 +510,16 @@ func (r UpdateCertificateRequest) Check() error {
 }
 
 // Check validates this request
-func (r UpdateClusterEnvironmentRequest) Check() error {
+func (r UpdateClusterEnvironmentVariablesRequest) Check() error {
 	return r.Key.Check()
 }
 
-// UpdateClusterEnvironmentRequest describes the request to update cluster environment
-type UpdateClusterEnvironmentRequest struct {
+// UpdateClusterEnvironmentVariablesRequest describes the request to update cluster environment
+type UpdateClusterEnvironmentVariablesRequest struct {
 	// Key identifies the cluster
 	Key SiteKey
 	// Env specifies the new environment
-	Env storage.Environment `json:"env"`
+	Env storage.EnvironmentVariables `json:"env"`
 }
 
 // Leader defines leadership-related operations

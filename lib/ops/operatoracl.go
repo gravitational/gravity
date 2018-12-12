@@ -768,21 +768,21 @@ func (o *OperatorACL) DeleteAlertTarget(key SiteKey) error {
 	return o.operator.DeleteAlertTarget(key)
 }
 
-// GetClusterEnvironment retrieves the cluster environment
-func (o *OperatorACL) GetClusterEnvironment(key SiteKey) (storage.Environment, error) {
+// GetClusterEnvironmentVariables retrieves the cluster environment
+func (o *OperatorACL) GetClusterEnvironmentVariables(key SiteKey) (storage.EnvironmentVariables, error) {
 	if err := o.ClusterAction(key.SiteDomain, storage.KindEnvironment, teleservices.VerbList); err != nil {
 		return nil, trace.Wrap(err)
 	}
-	return o.operator.GetClusterEnvironment(key)
+	return o.operator.GetClusterEnvironmentVariables(key)
 }
 
-// UpdateClusterEnvironment updates the cluster with the specified environment.
+// UpdateClusterEnvironmentVariables updates the cluster with the specified environment.
 // Returns the updated environment
-func (o *OperatorACL) UpdateClusterEnvironment(req UpdateClusterEnvironmentRequest) error {
+func (o *OperatorACL) UpdateClusterEnvironmentVariables(req UpdateClusterEnvironmentVariablesRequest) error {
 	if err := o.ClusterAction(req.Key.SiteDomain, storage.KindEnvironment, teleservices.VerbUpdate); err != nil {
 		return trace.Wrap(err)
 	}
-	return o.operator.UpdateClusterEnvironment(req)
+	return o.operator.UpdateClusterEnvironmentVariables(req)
 }
 
 func (o *OperatorACL) GetApplicationEndpoints(key SiteKey) ([]Endpoint, error) {

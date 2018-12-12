@@ -32,8 +32,8 @@ import (
 	corev1 "k8s.io/client-go/kubernetes/typed/core/v1"
 )
 
-// GetClusterEnvironment retrieves the cluster environment
-func (o *Operator) GetClusterEnvironment(key ops.SiteKey) (env storage.Environment, err error) {
+// GetClusterEnvironmentVariables retrieves the cluster environment variables
+func (o *Operator) GetClusterEnvironmentVariables(key ops.SiteKey) (env storage.EnvironmentVariables, err error) {
 	client, err := o.GetKubeClient()
 	if err != nil {
 		return nil, trace.Wrap(err)
@@ -47,9 +47,8 @@ func (o *Operator) GetClusterEnvironment(key ops.SiteKey) (env storage.Environme
 	return env, nil
 }
 
-// UpdateClusterEnvironment updates the cluster with the specified environment.
-// Returns the updated environment
-func (o *Operator) UpdateClusterEnvironment(req ops.UpdateClusterEnvironmentRequest) error {
+// UpdateClusterEnvironmentVariables updates environment variables in cluster.
+func (o *Operator) UpdateClusterEnvironmentVariables(req ops.UpdateClusterEnvironmentVariablesRequest) error {
 	client, err := o.GetKubeClient()
 	if err != nil {
 		return trace.Wrap(err)

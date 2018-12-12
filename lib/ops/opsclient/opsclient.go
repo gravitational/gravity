@@ -1085,8 +1085,8 @@ func (c *Client) DeleteAlertTarget(key ops.SiteKey) error {
 	return trace.Wrap(err)
 }
 
-// GetClusterEnvironment retrieves the cluster environment
-func (c *Client) GetClusterEnvironment(key ops.SiteKey) (storage.Environment, error) {
+// GetClusterEnvironmentVariables retrieves the cluster environment
+func (c *Client) GetClusterEnvironmentVariables(key ops.SiteKey) (storage.EnvironmentVariables, error) {
 	response, err := c.Get(c.Endpoint(
 		"accounts", key.AccountID, "sites", key.SiteDomain, "environment"), url.Values{})
 	if err != nil {
@@ -1103,9 +1103,9 @@ func (c *Client) GetClusterEnvironment(key ops.SiteKey) (storage.Environment, er
 	return env, nil
 }
 
-// UpdateClusterEnvironment updates the cluster with the specified environment.
+// UpdateClusterEnvironmentVariables updates the cluster with the specified environment.
 // Returns the updated environment
-func (c *Client) UpdateClusterEnvironment(req ops.UpdateClusterEnvironmentRequest) error {
+func (c *Client) UpdateClusterEnvironmentVariables(req ops.UpdateClusterEnvironmentVariablesRequest) error {
 	bytes, err := storage.MarshalEnvironment(req.Env)
 	if err != nil {
 		return trace.Wrap(err)

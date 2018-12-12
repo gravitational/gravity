@@ -553,5 +553,5 @@ func (r envCollection) Resources() (resources []teleservices.UnknownResource, er
 }
 
 type envCollection struct {
-	env storage.Environment
+	env storage.EnvironmentVariables
 }

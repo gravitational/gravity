@@ -278,13 +278,13 @@ func (s *OpsHandlerSuite) TestUpdatesClusterEnvironment(c *C) {
 		"FOO": "foo",
 		"BAR": "bar",
 	})
-	err := s.client.UpdateClusterEnvironment(ops.UpdateClusterEnvironmentRequest{
+	err := s.client.UpdateClusterEnvironmentVariables(ops.UpdateClusterEnvironmentVariablesRequest{
 		Key: key,
 		Env: env,
 	})
 	c.Assert(err, IsNil)
 
-	clusterEnv, err := s.client.GetClusterEnvironment(key)
+	clusterEnv, err := s.client.GetClusterEnvironmentVariables(key)
 	c.Assert(err, IsNil)
 	c.Assert(clusterEnv.GetKeyValues(), DeepEquals, env.GetKeyValues())
 }

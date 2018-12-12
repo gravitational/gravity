@@ -29,16 +29,16 @@ import (
 	"github.com/julienschmidt/httprouter"
 )
 
-/* getEnvironment returns the cluster environment
+/* getEnvironmentVariables fetches the cluster environment variables
 
-     GET /portal/v1/accounts/:account_id/sites/:site_domain/environment
+     GET /portal/v1/accounts/:account_id/sites/:site_domain/envars
 
    Success Response:
 
      storage.Environment
 */
-func (h *WebHandler) getEnvironment(w http.ResponseWriter, r *http.Request, p httprouter.Params, context *HandlerContext) error {
-	env, err := context.Operator.GetClusterEnvironment(siteKey(p))
+func (h *WebHandler) getEnvironmentVariables(w http.ResponseWriter, r *http.Request, p httprouter.Params, context *HandlerContext) error {
+	env, err := context.Operator.GetClusterEnvironmentVariables(siteKey(p))
 	if err != nil {
 		return trace.Wrap(err)
 	}
@@ -46,17 +46,17 @@ func (h *WebHandler) getEnvironment(w http.ResponseWriter, r *http.Request, p ht
 	return trace.Wrap(rawMessage(w, bytes, err))
 }
 
-/* updateEnvironment updates the cluster environment
+/* updateEnvironmentVariables updates the cluster environment
 
-     PUT /portal/v1/accounts/:account_id/sites/:site_domain/environment
+     PUT /portal/v1/accounts/:account_id/sites/:site_domain/envars
 
    Success Response:
 
      {
-       "message": "environment updated"
+       "message": "environment variables updated"
      }
 */
-func (h *WebHandler) updateEnvironment(w http.ResponseWriter, r *http.Request, p httprouter.Params, context *HandlerContext) error {
+func (h *WebHandler) updateEnvironmentVariables(w http.ResponseWriter, r *http.Request, p httprouter.Params, context *HandlerContext) error {
 	var req opsclient.UpsertResourceRawReq
 	if err := telehttplib.ReadJSON(r, &req); err != nil {
 		return trace.Wrap(err)
@@ -66,13 +66,13 @@ func (h *WebHandler) updateEnvironment(w http.ResponseWriter, r *http.Request, p
 		return trace.Wrap(err)
 	}
 	key := siteKey(p)
-	err = context.Operator.UpdateClusterEnvironment(ops.UpdateClusterEnvironmentRequest{
+	err = context.Operator.UpdateClusterEnvironmentVariables(ops.UpdateClusterEnvironmentVariablesRequest{
 		Key: key,
 		Env: env,
 	})
 	if err != nil {
 		return trace.Wrap(err)
 	}
-	roundtrip.ReplyJSON(w, http.StatusOK, statusOK("environment updated"))
+	roundtrip.ReplyJSON(w, http.StatusOK, statusOK("environment variables updated"))
 	return nil
 }

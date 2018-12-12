@@ -30,10 +30,10 @@ import (
 	"github.com/jonboulle/clockwork"
 )
 
-// Environment defines the environment variables resource.
+// EnvironmentVariables defines the environment variables resource.
 // It allows to override environment variables on each node in the cluster.
 // There is only a single instance of the resource in a cluster
-type Environment interface {
+type EnvironmentVariables interface {
 	// Resource provides common resource methods
 	teleservices.Resource
 	// CheckAndSetDefaults validates this resource and sets defaults
@@ -116,7 +116,7 @@ func (r *EnvironmentV2) CheckAndSetDefaults() error {
 }
 
 // UnmarshalEnvironment unmarshals the resource from JSON given with data
-func UnmarshalEnvironment(data []byte) (Environment, error) {
+func UnmarshalEnvironment(data []byte) (EnvironmentVariables, error) {
 	if len(data) == 0 {
 		return &EnvironmentV2{}, nil
 	}
@@ -146,7 +146,7 @@ func UnmarshalEnvironment(data []byte) (Environment, error) {
 }
 
 // MarshalEnvironment marshals this resource as JSON
-func MarshalEnvironment(env Environment, opts ...teleservices.MarshalOption) ([]byte, error) {
+func MarshalEnvironment(env EnvironmentVariables, opts ...teleservices.MarshalOption) ([]byte, error) {
 	return json.Marshal(env)
 }
 

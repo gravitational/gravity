@@ -234,9 +234,9 @@ func NewWebHandler(cfg WebHandlerConfig) (*WebHandler, error) {
 	h.PUT("/portal/v1/accounts/:account_id/sites/:site_domain/monitoring/alert-targets", h.needsAuth(h.updateAlertTarget))
 	h.DELETE("/portal/v1/accounts/:account_id/sites/:site_domain/monitoring/alert-targets", h.needsAuth(h.deleteAlertTarget))
 
-	// environment
-	h.GET("/portal/v1/accounts/:account_id/sites/:site_domain/environment", h.needsAuth(h.getEnvironment))
-	h.PUT("/portal/v1/accounts/:account_id/sites/:site_domain/environment", h.needsAuth(h.updateEnvironment))
+	// environment variables
+	h.GET("/portal/v1/accounts/:account_id/sites/:site_domain/envars", h.needsAuth(h.getEnvironmentVariables))
+	h.PUT("/portal/v1/accounts/:account_id/sites/:site_domain/envars", h.needsAuth(h.updateEnvironmentVariables))
 
 	// validation
 	h.POST("/portal/v1/accounts/:account_id/sites/:site_domain/validation/remoteaccess", h.needsAuth(h.validateRemoteAccess))

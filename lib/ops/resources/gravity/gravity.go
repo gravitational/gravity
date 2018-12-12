@@ -215,7 +215,7 @@ func (r *Resources) Create(req resources.CreateRequest) error {
 		if err := env.CheckAndSetDefaults(); err != nil {
 			return trace.Wrap(err)
 		}
-		err = r.Operator.UpdateClusterEnvironment(ops.UpdateClusterEnvironmentRequest{
+		err = r.Operator.UpdateClusterEnvironmentVariables(ops.UpdateClusterEnvironmentVariablesRequest{
 			Key: r.cluster.Key(),
 			Env: env,
 		})
@@ -353,7 +353,7 @@ func (r *Resources) GetCollection(req resources.ListRequest) (resources.Collecti
 		return alertTargetCollection(alertTargets), nil
 	case storage.KindEnvironment, "environments", "env":
 		// always ignore name parameter for tls key pairs, because there is only one
-		env, err := r.Operator.GetClusterEnvironment(r.cluster.Key())
+		env, err := r.Operator.GetClusterEnvironmentVariables(r.cluster.Key())
 		if err != nil && !trace.IsNotFound(err) {
 			return nil, trace.Wrap(err)
 		}
