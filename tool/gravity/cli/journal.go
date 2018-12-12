@@ -27,6 +27,7 @@ import (
 
 	"github.com/gravitational/gravity/lib/defaults"
 	"github.com/gravitational/gravity/lib/localenv"
+	"github.com/gravitational/gravity/lib/pack"
 	"github.com/gravitational/gravity/lib/state"
 	"github.com/gravitational/gravity/lib/system"
 	"github.com/gravitational/gravity/lib/system/mount"
@@ -42,7 +43,7 @@ func exportRuntimeJournal(env *localenv.LocalEnvironment, outputFile string) err
 		return trace.Wrap(err)
 	}
 
-	runtimePackage, err := findRuntimePackage(env.Packages)
+	runtimePackage, err := pack.FindRuntimePackage(env.Packages)
 	if err != nil {
 		return trace.Wrap(err)
 	}
@@ -100,7 +101,7 @@ func exportRuntimeJournal(env *localenv.LocalEnvironment, outputFile string) err
 }
 
 func streamRuntimeJournal(env *localenv.LocalEnvironment) error {
-	runtimePackage, err := findRuntimePackage(env.Packages)
+	runtimePackage, err := pack.FindRuntimePackage(env.Packages)
 	if err != nil {
 		return trace.Wrap(err)
 	}
