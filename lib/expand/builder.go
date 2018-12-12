@@ -86,7 +86,6 @@ func (b *planBuilder) AddBootstrapPhase(plan *storage.OperationPlan) {
 			Package:     &b.Application.Package,
 			Agent:       agent,
 			ServiceUser: &b.ServiceUser,
-			DNSConfig:   &b.DNSConfig,
 		},
 	})
 }

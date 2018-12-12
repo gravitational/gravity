@@ -253,7 +253,6 @@ func (s *PlanSuite) verifyBootstrapPhase(c *check.C, phase storage.OperationPhas
 					Package:     &s.installer.AppPackage,
 					Agent:       s.adminAgent,
 					ServiceUser: serviceUser,
-					DNSConfig:   &s.dnsConfig,
 				},
 			},
 			{
@@ -264,7 +263,6 @@ func (s *PlanSuite) verifyBootstrapPhase(c *check.C, phase storage.OperationPhas
 					Package:     &s.installer.AppPackage,
 					Agent:       s.regularAgent,
 					ServiceUser: serviceUser,
-					DNSConfig:   &s.dnsConfig,
 				},
 			},
 		},
