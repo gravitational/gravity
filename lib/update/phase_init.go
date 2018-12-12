@@ -101,10 +101,15 @@ func NewUpdatePhaseInit(c FSMConfig, plan storage.OperationPlan, phase storage.O
 		return nil, trace.Wrap(err, "failed to query installed application")
 	}
 
-	dnsConfig, err := getExistingDNSConfig(c.HostLocalPackages)
-	if err != nil {
-		return nil, trace.Wrap(err, "failed to determine existing cluster DNS configuration")
+	dnsConfig := cluster.DNSConfig
+	if dnsConfig.IsEmpty() {
+		existingDNS, err := getExistingDNSConfig(c.HostLocalPackages)
+		if err != nil {
+			return nil, trace.Wrap(err, "failed to determine existing cluster DNS configuration")
+		}
+		dnsConfig = *existingDNS
 	}
+	logger.Infof("Existing DNS configuration: %v.", dnsConfig)
 
 	existingDocker := checks.DockerConfigFromSchemaValue(installedApp.Manifest.SystemDocker())
 	checks.OverrideDockerConfig(&existingDocker, installOperation.InstallExpand.Vars.System.Docker)
@@ -122,7 +127,7 @@ func NewUpdatePhaseInit(c FSMConfig, plan storage.OperationPlan, phase storage.O
 		app:            *app,
 		installedApp:   *installedApp,
 		existingDocker: existingDocker,
-		existingDNS:    *dnsConfig,
+		existingDNS:    dnsConfig,
 	}, nil
 }
 
@@ -380,7 +385,7 @@ func removeLegacyUpdateDirectory(log log.FieldLogger) error {
 		return nil
 	}
 
-	log.Debugf("Removing legacy update dictory %v.", updateDir)
+	log.Debugf("Removing legacy update directory %v.", updateDir)
 	err = os.RemoveAll(updateDir)
 	return trace.ConvertSystemError(err)
 }

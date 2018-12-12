@@ -292,7 +292,7 @@ func (s *site) createUpdateOperation(req ops.CreateSiteAppUpdateOperationRequest
 		Message:    "initializing the operation",
 	})
 
-	if req.Manual {
+	if !req.StartAgents {
 		return key, nil
 	}
 

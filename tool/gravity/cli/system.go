@@ -456,7 +456,7 @@ func updateGravityPackage(packages *localpack.PackageServer, newPackage loc.Loca
 }
 
 func getAnyRuntimePackagePath(packages *localpack.PackageServer) (packagePath string, err error) {
-	runtimePackage, err := findAnyRuntimePackage(packages)
+	runtimePackage, err := pack.FindAnyRuntimePackage(packages)
 	if err != nil {
 		return "", trace.Wrap(err)
 	}
@@ -1049,75 +1049,6 @@ func findSecretsPackage(packages pack.PackageService) (*pack.PackageEnvelope, er
 	return pack.FindPackage(packages, func(env pack.PackageEnvelope) bool {
 		return isSecretsPackage(env.Locator)
 	})
-}
-
-func findAnyRuntimePackageWithConfig(packages pack.PackageService) (runtimePackage *loc.Locator, runtimeConfig *loc.Locator, err error) {
-	runtimePackage, err = findAnyRuntimePackage(packages)
-	if err != nil {
-		return nil, nil, trace.Wrap(err)
-	}
-
-	runtimeConfig, err = pack.FindConfigPackage(packages, *runtimePackage)
-	if trace.IsNotFound(err) {
-		runtimeConfig, err = findLegacyRuntimeConfigPackage(packages)
-		if err != nil {
-			return nil, nil, trace.Wrap(err)
-		}
-	}
-
-	return runtimePackage, runtimeConfig, nil
-}
-
-func findAnyRuntimePackage(packages pack.PackageService) (runtimePackage *loc.Locator, err error) {
-	runtimePackage, err = pack.FindRuntimePackage(packages)
-	if err != nil && !trace.IsNotFound(err) {
-		return nil, trace.Wrap(err)
-	}
-	if trace.IsNotFound(err) {
-		runtimePackage, err = findLegacyRuntimePackage(packages)
-		if err != nil {
-			return nil, trace.Wrap(err)
-		}
-	}
-	return runtimePackage, nil
-}
-
-// findLegacyRuntimePackage locates the planet package using the obsolete master/node
-// flavors.
-func findLegacyRuntimePackage(packages pack.PackageService) (runtimePackage *loc.Locator, err error) {
-	err = pack.ForeachPackage(packages, func(env pack.PackageEnvelope) error {
-		if loc.IsLegacyRuntimePackage(env.Locator) &&
-			env.HasLabel(pack.InstalledLabel, pack.InstalledLabel) {
-			runtimePackage = &env.Locator
-			return utils.Abort(nil)
-		}
-		return nil
-	})
-	if err != nil && !utils.IsAbortError(err) {
-		return nil, trace.Wrap(err)
-	}
-	if runtimePackage == nil {
-		return nil, trace.NotFound("no runtime package found")
-	}
-
-	return runtimePackage, nil
-}
-
-func findLegacyRuntimeConfigPackage(packages pack.PackageService) (configPackage *loc.Locator, err error) {
-	err = pack.ForeachPackage(packages, func(env pack.PackageEnvelope) error {
-		if env.Locator.Name == constants.PlanetConfigPackage {
-			configPackage = &env.Locator
-			return utils.Abort(nil)
-		}
-		return nil
-	})
-	if err != nil && !utils.IsAbortError(err) {
-		return nil, trace.Wrap(err)
-	}
-	if configPackage == nil {
-		return nil, trace.NotFound("no runtime configuration package found")
-	}
-	return configPackage, nil
 }
 
 // findPackageUpdate searches for updates for the installed package specified with req

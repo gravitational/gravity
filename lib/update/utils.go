@@ -17,12 +17,16 @@ limitations under the License.
 package update
 
 import (
+	"archive/tar"
 	"encoding/json"
 	"fmt"
+	"io"
+	"io/ioutil"
 	"strconv"
 	"strings"
 
 	appservice "github.com/gravitational/gravity/lib/app"
+	"github.com/gravitational/gravity/lib/archive"
 	"github.com/gravitational/gravity/lib/defaults"
 	"github.com/gravitational/gravity/lib/fsm"
 	"github.com/gravitational/gravity/lib/loc"
@@ -123,7 +127,7 @@ func getRuntimePackage(manifest schema.Manifest, profile schema.NodeProfile, clu
 }
 
 func getExistingDNSConfig(packages pack.PackageService) (*storage.DNSConfig, error) {
-	_, configPackage, err := pack.FindRuntimePackageWithConfig(packages)
+	_, configPackage, err := pack.FindAnyRuntimePackageWithConfig(packages)
 	if err != nil {
 		return nil, trace.Wrap(err)
 	}
@@ -132,21 +136,39 @@ func getExistingDNSConfig(packages pack.PackageService) (*storage.DNSConfig, err
 		return nil, trace.Wrap(err)
 	}
 	defer rc.Close()
-	var runtimeConfig runtimeConfig
-	err = json.NewDecoder(rc).Decode(&runtimeConfig)
+	var configBytes []byte
+	err = archive.TarGlob(tar.NewReader(rc), "", []string{"vars.json"}, func(_ string, r io.Reader) error {
+		configBytes, err = ioutil.ReadAll(r)
+		if err != nil {
+			return trace.Wrap(err)
+		}
+
+		return archive.Abort
+	})
 	if err != nil {
 		return nil, trace.Wrap(err)
 	}
-	port := defaults.DNSPort
+	var runtimeConfig runtimeConfig
+	if configBytes != nil {
+		err = json.Unmarshal(configBytes, &runtimeConfig)
+		if err != nil {
+			return nil, trace.Wrap(err)
+		}
+	}
+	dnsPort := defaults.DNSPort
 	if len(runtimeConfig.DNSPort) != 0 {
-		port, err = strconv.Atoi(runtimeConfig.DNSPort)
+		dnsPort, err = strconv.Atoi(runtimeConfig.DNSPort)
 		if err != nil {
 			return nil, trace.Wrap(err, "expected integer value but got %v", runtimeConfig.DNSPort)
 		}
 	}
+	var dnsAddrs []string
+	if runtimeConfig.DNSListenAddr != "" {
+		dnsAddrs = append(dnsAddrs, runtimeConfig.DNSListenAddr)
+	}
 	dnsConfig := &storage.DNSConfig{
-		Addrs: []string{runtimeConfig.DNSListenAddr},
-		Port:  port,
+		Addrs: dnsAddrs,
+		Port:  dnsPort,
 	}
 	if dnsConfig.IsEmpty() {
 		*dnsConfig = storage.LegacyDNSConfig
