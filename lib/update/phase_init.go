@@ -101,15 +101,7 @@ func NewUpdatePhaseInit(c FSMConfig, plan storage.OperationPlan, phase storage.O
 		return nil, trace.Wrap(err, "failed to query installed application")
 	}
 
-	dnsConfig := cluster.DNSConfig
-	if dnsConfig.IsEmpty() {
-		existingDNS, err := getExistingDNSConfig(c.HostLocalPackages)
-		if err != nil {
-			return nil, trace.Wrap(err, "failed to determine existing cluster DNS configuration")
-		}
-		dnsConfig = *existingDNS
-	}
-	logger.Infof("Existing DNS configuration: %v.", dnsConfig)
+	logger.Infof("Existing DNS configuration: %v.", plan.DNSConfig)
 
 	existingDocker := checks.DockerConfigFromSchemaValue(installedApp.Manifest.SystemDocker())
 	checks.OverrideDockerConfig(&existingDocker, installOperation.InstallExpand.Vars.System.Docker)
@@ -127,7 +119,7 @@ func NewUpdatePhaseInit(c FSMConfig, plan storage.OperationPlan, phase storage.O
 		app:            *app,
 		installedApp:   *installedApp,
 		existingDocker: existingDocker,
-		existingDNS:    dnsConfig,
+		existingDNS:    plan.DNSConfig,
 	}, nil
 }
 

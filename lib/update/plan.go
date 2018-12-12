@@ -45,7 +45,7 @@ import (
 // InitOperationPlan will initialize operation plan for an operation
 func InitOperationPlan(
 	ctx context.Context,
-	updateEnv *localenv.LocalEnvironment,
+	localEnv, updateEnv *localenv.LocalEnvironment,
 	clusterEnv *localenv.ClusterEnvironment) (*storage.OperationPlan, error) {
 	operation, err := storage.GetLastOperation(clusterEnv.Backend)
 	if err != nil {
@@ -65,7 +65,21 @@ func InitOperationPlan(
 		return nil, trace.AlreadyExists("plan is already initialized")
 	}
 
-	plan, err = NewOperationPlan(clusterEnv, *operation)
+	cluster, err := clusterEnv.Operator.GetLocalSite()
+	if err != nil {
+		return nil, trace.Wrap(err)
+	}
+
+	dnsConfig := cluster.DNSConfig
+	if dnsConfig.IsEmpty() {
+		existingDNS, err := getExistingDNSConfig(localEnv.Packages)
+		if err != nil {
+			return nil, trace.Wrap(err, "failed to determine existing cluster DNS configuration")
+		}
+		dnsConfig = *existingDNS
+	}
+
+	plan, err = newOperationPlan(clusterEnv, dnsConfig, *operation)
 	if err != nil {
 		return nil, trace.Wrap(err)
 	}
@@ -150,8 +164,8 @@ func SyncOperationPlanToCluster(ctx context.Context, plan storage.OperationPlan,
 	return nil
 }
 
-// NewOperationPlan generates a new plan for the provided operation
-func NewOperationPlan(env *localenv.ClusterEnvironment, op storage.SiteOperation) (*storage.OperationPlan, error) {
+// newOperationPlan generates a new plan for the provided operation
+func newOperationPlan(env *localenv.ClusterEnvironment, dnsConfig storage.DNSConfig, op storage.SiteOperation) (*storage.OperationPlan, error) {
 	if env.Client == nil {
 		return nil, trace.BadParameter("Kubernetes client is required")
 	}
@@ -201,7 +215,7 @@ func NewOperationPlan(env *localenv.ClusterEnvironment, op storage.SiteOperation
 		return nil, trace.Wrap(err)
 	}
 
-	plan, err := newOperationPlan(newPlanParams{
+	plan, err := newOperationPlanFromParams(newPlanParams{
 		operation:        op,
 		servers:          servers,
 		installedRuntime: *installedRuntime,
@@ -212,6 +226,7 @@ func NewOperationPlan(env *localenv.ClusterEnvironment, op storage.SiteOperation
 		trustedClusters:  trustedClusters,
 		packageService:   env.ClusterPackages,
 		shouldUpdateEtcd: shouldUpdateEtcd,
+		dnsConfig:        dnsConfig,
 	})
 	if err != nil {
 		return nil, trace.Wrap(err)
@@ -242,9 +257,11 @@ type newPlanParams struct {
 	packageService pack.PackageService
 	// shouldUpdateEtcd returns whether we should update etcd and the versions of etcd in use
 	shouldUpdateEtcd func(newPlanParams) (bool, string, string, error)
+	// dnsConfig defines the existing DNS configuration
+	dnsConfig storage.DNSConfig
 }
 
-func newOperationPlan(p newPlanParams) (*storage.OperationPlan, error) {
+func newOperationPlanFromParams(p newPlanParams) (*storage.OperationPlan, error) {
 	gravityPackage, err := p.updateRuntime.Manifest.Dependencies.ByName(constants.GravityPackage)
 	if err != nil {
 		return nil, trace.Wrap(err)

@@ -257,7 +257,7 @@ func deployUpdateAgents(ctx context.Context, localEnv, updateEnv *localenv.Local
 
 	// Operation plan initialization requires access to TLS RPC credentials
 	// generated above
-	plan, err := update.InitOperationPlan(ctx, updateEnv, req.clusterEnv)
+	plan, err := update.InitOperationPlan(ctx, localEnv, updateEnv, req.clusterEnv)
 	if err != nil {
 		return trace.Wrap(err)
 	}

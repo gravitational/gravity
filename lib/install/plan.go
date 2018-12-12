@@ -71,6 +71,7 @@ func (i *Installer) GetOperationPlan(cluster ops.Site, op ops.SiteOperation) (*s
 		AccountID:     op.AccountID,
 		ClusterName:   op.SiteDomain,
 		Servers:       append(builder.Masters, builder.Nodes...),
+		DNSConfig:     cluster.DNSConfig,
 	}
 
 	switch i.Mode {

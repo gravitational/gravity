@@ -77,8 +77,6 @@ type FSMConfig struct {
 	UserLogFile string
 	// ReportProgress controls whether engine should report progress to Operator
 	ReportProgress bool
-	// DNSConfig specifies the DNS configuration to use
-	DNSConfig storage.DNSConfig
 }
 
 // Check validates install FSM config and sets some defaults
