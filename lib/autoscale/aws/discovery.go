@@ -31,17 +31,23 @@ import (
 
 // PublishDiscovery periodically updates discovery information
 func (a *Autoscaler) PublishDiscovery(ctx context.Context, operator ops.Operator) {
-	err := a.syncDiscovery(ctx, operator)
+	err := a.syncDiscovery(ctx, operator, true)
 	if err != nil {
 		a.Errorf("Failed to publish discovery: %v.", trace.DebugReport(err))
 	}
-	ticker := time.NewTicker(defaults.DiscoveryPublishInterval)
+	publishTicker := time.NewTicker(defaults.DiscoveryPublishInterval)
+	resyncTicker := time.NewTicker(defaults.DiscoveryResyncInterval)
 	for {
 		select {
 		case <-ctx.Done():
 			return
-		case <-ticker.C:
-			err = a.syncDiscovery(ctx, operator)
+		case <-publishTicker.C:
+			err = a.syncDiscovery(ctx, operator, false)
+			if err != nil {
+				a.Errorf("Failed to publish discovery: %v.", trace.DebugReport(err))
+			}
+		case <-resyncTicker.C:
+			err = a.syncDiscovery(ctx, operator, true)
 			if err != nil {
 				a.Errorf("Failed to publish discovery: %v.", trace.DebugReport(err))
 			}
@@ -50,28 +56,28 @@ func (a *Autoscaler) PublishDiscovery(ctx context.Context, operator ops.Operator
 }
 
 // syncDiscovery syncs cluster discovery information in the SSM
-func (a *Autoscaler) syncDiscovery(ctx context.Context, operator ops.Operator) error {
+func (a *Autoscaler) syncDiscovery(ctx context.Context, operator ops.Operator, force bool) error {
 	cluster, err := operator.GetLocalSite()
 	if err != nil {
 		return trace.Wrap(err)
 	}
 
-	if err := a.syncToken(ctx, operator, cluster); err != nil {
+	if err := a.syncToken(ctx, operator, cluster, force); err != nil {
 		return trace.Wrap(err)
 	}
 
-	if err := a.syncMasterService(ctx); err != nil {
+	if err := a.syncMasterService(ctx, force); err != nil {
 		return trace.Wrap(err)
 	}
 	return nil
 }
 
-func (a *Autoscaler) syncToken(ctx context.Context, operator ops.Operator, cluster *ops.Site) error {
+func (a *Autoscaler) syncToken(ctx context.Context, operator ops.Operator, cluster *ops.Site, force bool) error {
 	joinToken, err := operator.GetExpandToken(cluster.Key())
 	if err != nil {
 		return trace.Wrap(err)
 	}
-	if err := a.publishJoinToken(ctx, joinToken.Token); err != nil {
+	if err := a.publishJoinToken(ctx, joinToken.Token, force); err != nil {
 		return trace.Wrap(err)
 	}
 	return nil
@@ -100,10 +106,10 @@ func (a *Autoscaler) getServiceURL() (string, error) {
 	return "", trace.NotFound("ingress load balancer not found for %v", constants.GravityServiceName)
 }
 
-func (a *Autoscaler) syncMasterService(ctx context.Context) error {
+func (a *Autoscaler) syncMasterService(ctx context.Context, force bool) error {
 	serviceURL, err := a.getServiceURL()
 	if err != nil {
 		return trace.Wrap(err)
 	}
-	return a.publishServiceURL(ctx, serviceURL)
+	return a.publishServiceURL(ctx, serviceURL, force)
 }
