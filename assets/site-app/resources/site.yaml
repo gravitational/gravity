@@ -162,21 +162,3 @@ spec:
     nodePort: 32009
   selector:
     app: gravity-site
----
-apiVersion: apiextensions.k8s.io/v1beta1
-kind: CustomResourceDefinition
-metadata:
-  name: environment.gravitational.io/v1
-spec:
-  group: environment.gravitational.io
-  versions:
-    - name: v1
-      served: true
-      storage: true
-  scope: Namespaced
-  names:
-    plural: environments
-    singular: environment
-    kind: Environment
-    shortNames:
-    - ev
