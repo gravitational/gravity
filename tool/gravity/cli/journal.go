@@ -111,10 +111,7 @@ func streamRuntimeJournal(env *localenv.LocalEnvironment) error {
 	}
 
 	rootDir := filepath.Join(runtimePath, "rootfs")
-	keep := map[int]struct{}{
-		system.CAP_SYS_CHROOT: struct{}{},
-	}
-	err = system.DropCapabilities(keep)
+	err = system.DropCapabilitiesForChroot()
 	if err != nil {
 		return trace.Wrap(err)
 	}
