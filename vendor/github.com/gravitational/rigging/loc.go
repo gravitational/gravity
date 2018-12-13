@@ -30,6 +30,8 @@ func ParseShortcut(in, defaultVal string) (string, error) {
 		return KindSecret, nil
 	case "services", "svc":
 		return KindService, nil
+	case "serviceaccount", "serviceaccounts", "sa":
+		return KindServiceAccount, nil
 	}
 	return "", trace.BadParameter("unsupported resource: %v", in)
 }

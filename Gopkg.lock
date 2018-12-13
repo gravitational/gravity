@@ -22,10 +22,11 @@
     "autorest",
     "autorest/adal",
     "autorest/azure",
-    "autorest/date"
+    "autorest/date",
+    "logger",
+    "version"
   ]
-  revision = "7909b98056dd6f6a9fc9b7745af1810c93c15939"
-  version = "v10.3.0"
+  revision = "ea233b6412b0421a65dc6160e16c893364664a95"
 
 [[projects]]
   name = "github.com/BurntSushi/toml"
@@ -368,16 +369,6 @@
 [[projects]]
   name = "github.com/docker/docker"
   packages = [
-    "api/types",
-    "api/types/blkiodev",
-    "api/types/container",
-    "api/types/filters",
-    "api/types/mount",
-    "api/types/network",
-    "api/types/registry",
-    "api/types/strslice",
-    "api/types/swarm",
-    "api/types/versions",
     "pkg/archive",
     "pkg/fileutils",
     "pkg/idtools",
@@ -394,12 +385,6 @@
   ]
   revision = "092cba3727bb9b4a2f0e922cd6c0f93ea270e363"
   version = "v1.13.1"
-
-[[projects]]
-  name = "github.com/docker/go-connections"
-  packages = ["nat"]
-  revision = "7395e3f8aa162843a74ed6d48e79627d9792ac55"
-  version = "v0.4.0"
 
 [[projects]]
   name = "github.com/docker/go-units"
@@ -437,12 +422,6 @@
   name = "github.com/exponent-io/jsonpath"
   packages = ["."]
   revision = "d6023ce2651d8eafb5c75bb0c7167536102ec9f5"
-
-[[projects]]
-  name = "github.com/fatih/camelcase"
-  packages = ["."]
-  revision = "44e46d280b43ec1531bb25252440e34f1b800b65"
-  version = "v1.0.0"
 
 [[projects]]
   name = "github.com/fatih/color"
@@ -564,11 +543,6 @@
   name = "github.com/gokyle/hotp"
   packages = ["."]
   revision = "c180d57d286b385101c999a60087a40d7f48fc77"
-
-[[projects]]
-  name = "github.com/golang/glog"
-  packages = ["."]
-  revision = "fca8c8854093a154ff1eb580aae10276ad6b1b5f"
 
 [[projects]]
   branch = "master"
@@ -717,10 +691,10 @@
   version = "1.0.2"
 
 [[projects]]
+  branch = "roman/k13"
   name = "github.com/gravitational/rigging"
   packages = ["."]
-  revision = "57bd6ab416c0e9fb7bcf2f62db91fb9e40298159"
-  version = "5.3.0"
+  revision = "f63721ea11fc17a432b03bc62e655ebb33fec344"
 
 [[projects]]
   name = "github.com/gravitational/roundtrip"
@@ -728,6 +702,7 @@
   revision = "6a87d116a90b9c4e73bedc19ebc9c17f1b43d826"
 
 [[projects]]
+  branch = "roman/k13"
   name = "github.com/gravitational/satellite"
   packages = [
     "agent/health",
@@ -736,8 +711,7 @@
     "monitoring",
     "utils"
   ]
-  revision = "4f59d48134a5cc21e4f55bf05d16f01e161c788f"
-  version = "5.3.0"
+  revision = "197c1ebb2bf4120f61735385fa4f24d78aee9cac"
 
 [[projects]]
   name = "github.com/gravitational/tail"
@@ -752,7 +726,7 @@
   version = "v1.0.1"
 
 [[projects]]
-  branch = "branch/3.0"
+  branch = "roman/3.0/k13"
   name = "github.com/gravitational/teleport"
   packages = [
     ".",
@@ -806,7 +780,7 @@
     "lib/web",
     "lib/web/ui"
   ]
-  revision = "6f326a12d38a41f78f1fde86d883526868539d67"
+  revision = "9ec92d20b11f8212bdd63f76c20c81f5f0d2962d"
 
 [[projects]]
   name = "github.com/gravitational/trace"
@@ -1643,7 +1617,8 @@
 [[projects]]
   name = "gopkg.in/yaml.v2"
   packages = ["."]
-  revision = "7ad95dd0798a40da1ccdff6dff35fd177b5edf40"
+  revision = "51d6538a90f86fe93ac480b35f37b2be17fef232"
+  version = "v2.2.2"
 
 [[projects]]
   name = "k8s.io/api"
@@ -1654,6 +1629,7 @@
     "apps/v1",
     "apps/v1beta1",
     "apps/v1beta2",
+    "auditregistration/v1alpha1",
     "authentication/v1",
     "authentication/v1beta1",
     "authorization/v1",
@@ -1682,8 +1658,8 @@
     "storage/v1alpha1",
     "storage/v1beta1"
   ]
-  revision = "357ec6384fa7e10d6ea160d2299a98ddfdc3ab3c"
-  version = "kubernetes-1.12.1"
+  revision = "89a74a8d264df0e993299876a8cde88379b940ee"
+  version = "kubernetes-1.13.0"
 
 [[projects]]
   name = "k8s.io/apiextensions-apiserver"
@@ -1695,10 +1671,11 @@
     "pkg/client/clientset/clientset/typed/apiextensions/v1beta1",
     "pkg/features"
   ]
-  revision = "6b7e25efea53b47ea8eabf213954d95afc514d36"
-  version = "kubernetes-1.12.1"
+  revision = "20c909e7c8c3fec1a0e345b1d4e57f1c1623c368"
+  version = "kubernetes-1.13.0"
 
 [[projects]]
+  branch = "release-1.13"
   name = "k8s.io/apimachinery"
   packages = [
     "pkg/api/equality",
@@ -1706,7 +1683,6 @@
     "pkg/api/meta",
     "pkg/api/resource",
     "pkg/api/validation",
-    "pkg/api/validation/path",
     "pkg/apis/meta/internalversion",
     "pkg/apis/meta/v1",
     "pkg/apis/meta/v1/unstructured",
@@ -1755,22 +1731,19 @@
     "third_party/forked/golang/netutil",
     "third_party/forked/golang/reflect"
   ]
-  revision = "6dd46049f39503a1fc8d65de4bd566829e95faff"
-  version = "kubernetes-1.12.1"
+  revision = "2b1284ed4c93a43499e781493253e2ac5959c4fd"
 
 [[projects]]
   name = "k8s.io/apiserver"
   packages = [
-    "pkg/apis/audit",
     "pkg/authentication/authenticator",
     "pkg/authentication/serviceaccount",
     "pkg/authentication/user",
-    "pkg/endpoints/request",
     "pkg/features",
     "pkg/util/feature"
   ]
-  revision = "9f398e330d7fd7d06c2b108460f058f4e1538b0b"
-  version = "kubernetes-1.12.1"
+  revision = "9caa0299108fbdf51d3d9b8e8956834ae84dac75"
+  version = "kubernetes-1.13.0"
 
 [[projects]]
   name = "k8s.io/cli-runtime"
@@ -1779,8 +1752,8 @@
     "pkg/genericclioptions/printers",
     "pkg/genericclioptions/resource"
   ]
-  revision = "7a908ff29916c7c1ab5fe4f19833fcdafffbbbff"
-  version = "kubernetes-1.12.1"
+  revision = "a04da5c88c0796c1dc5ff976a9c91999779ac0e4"
+  version = "kubernetes-1.13.0"
 
 [[projects]]
   name = "k8s.io/client-go"
@@ -1794,6 +1767,7 @@
     "kubernetes/typed/apps/v1",
     "kubernetes/typed/apps/v1beta1",
     "kubernetes/typed/apps/v1beta2",
+    "kubernetes/typed/auditregistration/v1alpha1",
     "kubernetes/typed/authentication/v1",
     "kubernetes/typed/authentication/v1beta1",
     "kubernetes/typed/authorization/v1",
@@ -1867,8 +1841,8 @@
     "util/jsonpath",
     "util/retry"
   ]
-  revision = "1638f8970cefaa404ff3a62950f88b08292b2696"
-  version = "v9.0.0"
+  revision = "e64494209f554a6723674bd494d69445fb76a1d4"
+  version = "v10.0.0"
 
 [[projects]]
   name = "k8s.io/helm"
@@ -1896,6 +1870,12 @@
   version = "v2.12.0-rc.2"
 
 [[projects]]
+  name = "k8s.io/klog"
+  packages = ["."]
+  revision = "a5bc97fbc634d635061f3146511332c7e313a55a"
+  version = "v0.1.0"
+
+[[projects]]
   branch = "master"
   name = "k8s.io/kube-openapi"
   packages = [
@@ -1905,20 +1885,12 @@
   revision = "0317810137be915b9cf888946c6e115c1bfac693"
 
 [[projects]]
-  branch = "release-1.12"
+  branch = "release-1.13"
   name = "k8s.io/kubernetes"
   packages = [
-    "pkg/api/events",
     "pkg/api/legacyscheme",
-    "pkg/api/pod",
-    "pkg/api/ref",
-    "pkg/api/resource",
     "pkg/api/service",
     "pkg/api/v1/pod",
-    "pkg/apis/admissionregistration",
-    "pkg/apis/admissionregistration/install",
-    "pkg/apis/admissionregistration/v1alpha1",
-    "pkg/apis/admissionregistration/v1beta1",
     "pkg/apis/apps",
     "pkg/apis/apps/install",
     "pkg/apis/apps/v1",
@@ -1950,7 +1922,6 @@
     "pkg/apis/coordination/v1beta1",
     "pkg/apis/core",
     "pkg/apis/core/helper",
-    "pkg/apis/core/helper/qos",
     "pkg/apis/core/install",
     "pkg/apis/core/pods",
     "pkg/apis/core/v1",
@@ -1963,8 +1934,6 @@
     "pkg/apis/extensions/install",
     "pkg/apis/extensions/v1beta1",
     "pkg/apis/networking",
-    "pkg/apis/networking/install",
-    "pkg/apis/networking/v1",
     "pkg/apis/policy",
     "pkg/apis/policy/install",
     "pkg/apis/policy/v1beta1",
@@ -1987,43 +1956,19 @@
     "pkg/apis/storage/v1alpha1",
     "pkg/apis/storage/v1beta1",
     "pkg/capabilities",
-    "pkg/client/clientset_generated/internalclientset",
-    "pkg/client/clientset_generated/internalclientset/scheme",
-    "pkg/client/clientset_generated/internalclientset/typed/admissionregistration/internalversion",
-    "pkg/client/clientset_generated/internalclientset/typed/apps/internalversion",
-    "pkg/client/clientset_generated/internalclientset/typed/authentication/internalversion",
-    "pkg/client/clientset_generated/internalclientset/typed/authorization/internalversion",
-    "pkg/client/clientset_generated/internalclientset/typed/autoscaling/internalversion",
-    "pkg/client/clientset_generated/internalclientset/typed/batch/internalversion",
-    "pkg/client/clientset_generated/internalclientset/typed/certificates/internalversion",
-    "pkg/client/clientset_generated/internalclientset/typed/coordination/internalversion",
-    "pkg/client/clientset_generated/internalclientset/typed/core/internalversion",
-    "pkg/client/clientset_generated/internalclientset/typed/events/internalversion",
-    "pkg/client/clientset_generated/internalclientset/typed/extensions/internalversion",
-    "pkg/client/clientset_generated/internalclientset/typed/networking/internalversion",
-    "pkg/client/clientset_generated/internalclientset/typed/policy/internalversion",
-    "pkg/client/clientset_generated/internalclientset/typed/rbac/internalversion",
-    "pkg/client/clientset_generated/internalclientset/typed/scheduling/internalversion",
-    "pkg/client/clientset_generated/internalclientset/typed/settings/internalversion",
-    "pkg/client/clientset_generated/internalclientset/typed/storage/internalversion",
     "pkg/controller",
     "pkg/controller/deployment/util",
-    "pkg/credentialprovider",
     "pkg/features",
     "pkg/fieldpath",
-    "pkg/generated",
-    "pkg/kubectl",
-    "pkg/kubectl/apps",
     "pkg/kubectl/cmd/get",
-    "pkg/kubectl/cmd/templates",
     "pkg/kubectl/cmd/util",
     "pkg/kubectl/cmd/util/openapi",
     "pkg/kubectl/cmd/util/openapi/validation",
+    "pkg/kubectl/generated",
     "pkg/kubectl/scheme",
-    "pkg/kubectl/util",
-    "pkg/kubectl/util/hash",
     "pkg/kubectl/util/i18n",
-    "pkg/kubectl/util/slice",
+    "pkg/kubectl/util/printers",
+    "pkg/kubectl/util/templates",
     "pkg/kubectl/util/term",
     "pkg/kubectl/validation",
     "pkg/kubelet/apis",
@@ -2031,12 +1976,7 @@
     "pkg/master/ports",
     "pkg/printers",
     "pkg/printers/internalversion",
-    "pkg/registry/rbac/validation",
-    "pkg/scheduler/algorithm",
-    "pkg/scheduler/algorithm/priorities/util",
     "pkg/scheduler/api",
-    "pkg/scheduler/cache",
-    "pkg/scheduler/util",
     "pkg/security/apparmor",
     "pkg/serviceaccount",
     "pkg/util/file",
@@ -2046,11 +1986,10 @@
     "pkg/util/net/sets",
     "pkg/util/node",
     "pkg/util/parsers",
-    "pkg/util/slice",
     "pkg/util/taints",
     "pkg/version"
   ]
-  revision = "f7a5f79d437ec07cb25a4d53cf84d3bb2297bc39"
+  revision = "eec55b9ba98609a46fee712359c7b5b365bdd920"
 
 [[projects]]
   branch = "master"
@@ -2062,6 +2001,12 @@
   revision = "0d26856f57b32ec3398579285e5c8a2bfe8c5243"
 
 [[projects]]
+  name = "sigs.k8s.io/yaml"
+  packages = ["."]
+  revision = "fd68e9863619f6ec2fdd8625fe1f02e7c877e480"
+  version = "v1.1.0"
+
+[[projects]]
   branch = "master"
   name = "vbom.ml/util"
   packages = ["sortorder"]
@@ -2070,6 +2015,6 @@
 [solve-meta]
   analyzer-name = "dep"
   analyzer-version = 1
-  inputs-digest = "8da4b89e3e3dc2faaa1e47a8abecd7d0b53adbfc8e0c90cd52623ac300459f5d"
+  inputs-digest = "80fd759776c9d4ceaa0a1f19e104d2ce2b860817107a40db6c0758990e2c6bcd"
   solver-name = "gps-cdcl"
   solver-version = 1

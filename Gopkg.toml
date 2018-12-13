@@ -65,7 +65,8 @@ ignored = [
 
 [[constraint]]
   name = "github.com/gravitational/satellite"
-  version = "=5.3.0"
+  branch = "roman/k13"
+  # version = "=5.3.0"
 
 [[constraint]]
   name = "github.com/xtgo/set"
@@ -89,31 +90,32 @@ ignored = [
 
 [[override]]
   name = "k8s.io/apimachinery"
-  version = "kubernetes-1.12.1"
+  version = "kubernetes-1.13.0"
 
 [[override]]
   name = "k8s.io/api"
-  version = "kubernetes-1.12.1"
+  version = "kubernetes-1.13.0"
 
 [[override]]
   name = "k8s.io/apiserver"
-  version = "kubernetes-1.12.1"
+  version = "kubernetes-1.13.0"
 
 [[override]]
   name = "k8s.io/kubernetes"
-  branch = "release-1.12"
+  branch = "release-1.13"
 
 [[override]]
   name = "k8s.io/cli-runtime"
-  version = "kubernetes-1.12.1"
+  version = "kubernetes-1.13.0"
 
 [[override]]
   name = "k8s.io/apiextensions-apiserver"
-  version = "kubernetes-1.12.1"
+  version = "kubernetes-1.13.0"
 
 [[constraint]]
   name = "github.com/gravitational/rigging"
-  version = "=5.3.0"
+  branch = "roman/k13"
+  # version = "=5.3.0"
 
 [[override]]
   name = "github.com/docker/distribution"
@@ -197,7 +199,8 @@ ignored = [
 
 [[constraint]]
   name = "github.com/gravitational/teleport"
-  branch = "branch/3.0"
+  branch = "roman/3.0/k13"
+  # branch = "branch/3.0"
 
 [[constraint]]
   version = "0.0.1"
@@ -223,7 +226,7 @@ ignored = [
 
 [[override]]
   name = "k8s.io/client-go"
-  version = "=v9.0.0"
+  version = "=v10.0.0"
 
 [[constraint]]
   name = "github.com/gravitational/license"
@@ -247,4 +250,8 @@ ignored = [
 
 [[override]]
   name = "github.com/Azure/go-autorest"
-  version = "=v10.3.0"
+  revision = "ea233b6412b0421a65dc6160e16c893364664a95"
+
+[[override]]
+  name = "gopkg.in/yaml.v2"
+  version = "=v2.2.2"

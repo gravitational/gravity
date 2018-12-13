@@ -72,3 +72,8 @@ func GetStorageDriverBootConfigParams(drv string) health.Checker {
 func NewStorageChecker(config StorageConfig) health.Checker {
 	return noopChecker{}
 }
+
+// NewDNSChecker sends some default queries to monitor DNS / service discovery health
+func NewDNSChecker(questionA []string) health.Checker {
+	return noopChecker{}
+}

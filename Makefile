@@ -18,7 +18,7 @@ GRAVITY_PKG_PATH ?= github.com/gravitational/gravity
 ASSETSDIR=$(TOP)/assets
 BINDIR ?= /usr/bin
 
-# Current Kubernetes version: 1.12.1
+# Current Kubernetes version: 1.13.0
 K8S_VER := 11203
 GOLFLAGS ?= -w -s
 
@@ -38,7 +38,7 @@ RELEASE_OUT ?=
 TELEPORT_TAG = 3.0.1
 # TELEPORT_REPOTAG adapts TELEPORT_TAG to the teleport tagging scheme
 TELEPORT_REPOTAG := v$(TELEPORT_TAG)
-PLANET_TAG := 5.4.1-$(K8S_VER)
+PLANET_TAG := 5.4.1-$(K8S_VER)-1-g4cb56b4
 PLANET_BRANCH := $(PLANET_TAG)
 K8S_APP_TAG := $(GRAVITY_TAG)
 TELEKUBE_APP_TAG := $(GRAVITY_TAG)
@@ -48,8 +48,8 @@ MONITORING_APP_TAG ?= 5.2.2
 DNS_APP_TAG = 0.3.0
 BANDWAGON_TAG ?= 5.3.0
 RBAC_APP_TAG := $(GRAVITY_TAG)
-TILLER_VERSION = 2.11.0
-TILLER_APP_TAG = 5.5.0
+TILLER_VERSION = 2.12.0
+TILLER_APP_TAG = 5.5.1
 # URI of Wormhole container for default install
 WORMHOLE_IMG ?= quay.io/gravitational/wormhole:0.0.0-1-g6681422-dirty
 # set this to true if you want to use locally built planet packages
@@ -458,7 +458,7 @@ $(GRAVITY_BUILDDIR)/telekube.tar: packages
 
 #
 # builds wormhole installer
-# 
+#
 .PHONY: wormhole
 wormhole: GRAVITY=$(GRAVITY_OUT) --state-dir=$(PACKAGES_DIR)
 wormhole: $(GRAVITY_BUILDDIR)/wormhole.tar
