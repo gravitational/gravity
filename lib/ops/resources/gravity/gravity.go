@@ -208,7 +208,7 @@ func (r *Resources) Create(req resources.CreateRequest) error {
 		}
 		r.Printf("Updated monitoring alert target %q\n", target.GetName())
 	case storage.KindEnvironment:
-		env, err := storage.UnmarshalEnvironment(req.Resource.Raw)
+		env, err := storage.UnmarshalEnvironmentVariables(req.Resource.Raw)
 		if err != nil {
 			return trace.Wrap(err)
 		}
@@ -222,7 +222,7 @@ func (r *Resources) Create(req resources.CreateRequest) error {
 		if err != nil {
 			return trace.Wrap(err)
 		}
-		r.Println("Updated cluster environment")
+		r.Println("Updated cluster envars")
 	case "":
 		return trace.BadParameter("missing resource kind")
 	default:

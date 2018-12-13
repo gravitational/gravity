@@ -17,18 +17,20 @@ limitations under the License.
 package cli
 
 import (
-	"context"
-	"time"
+// "context"
+// "time"
 
-	"github.com/gravitational/gravity/lib/environ"
-	libfsm "github.com/gravitational/gravity/lib/fsm"
-	"github.com/gravitational/gravity/lib/localenv"
-	"github.com/gravitational/gravity/lib/ops"
+// "github.com/gravitational/gravity/lib/environ"
+// libfsm "github.com/gravitational/gravity/lib/fsm"
+// "github.com/gravitational/gravity/lib/localenv"
+// "github.com/gravitational/gravity/lib/ops"
+// "github.com/gravitational/gravity/lib/storage"
 
-	teleclient "github.com/gravitational/teleport/lib/client"
-	"github.com/gravitational/trace"
+// teleclient "github.com/gravitational/teleport/lib/client"
+// "github.com/gravitational/trace"
 )
 
+/*
 func updateEnvars(config environ.Config) error {
 	ctx := context.TODO()
 	updater, err := newUpdater(ctx, config, env, teleProxy)
@@ -137,3 +139,4 @@ func updateEnvarsPhase(env *localenv.LocalEnvironment, phase string, phaseTimeou
 	err = updater.RunPhase(context.TODO(), phase, phaseTimeout, force)
 	return trace.Wrap(err)
 }
+*/

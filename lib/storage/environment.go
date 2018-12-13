@@ -115,8 +115,8 @@ func (r *EnvironmentV2) CheckAndSetDefaults() error {
 	return nil
 }
 
-// UnmarshalEnvironment unmarshals the resource from JSON given with data
-func UnmarshalEnvironment(data []byte) (EnvironmentVariables, error) {
+// UnmarshalEnvironmentVariables unmarshals the resource from JSON given with data
+func UnmarshalEnvironmentVariables(data []byte) (EnvironmentVariables, error) {
 	if len(data) == 0 {
 		return &EnvironmentV2{}, nil
 	}

@@ -61,7 +61,7 @@ func (h *WebHandler) updateEnvironmentVariables(w http.ResponseWriter, r *http.R
 	if err := telehttplib.ReadJSON(r, &req); err != nil {
 		return trace.Wrap(err)
 	}
-	env, err := storage.UnmarshalEnvironment(req.Resource)
+	env, err := storage.UnmarshalEnvironmentVariables(req.Resource)
 	if err != nil {
 		return trace.Wrap(err)
 	}

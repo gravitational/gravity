@@ -1096,7 +1096,7 @@ func (c *Client) GetClusterEnvironmentVariables(key ops.SiteKey) (storage.Enviro
 	if err = json.Unmarshal(response.Bytes(), &msg); err != nil {
 		return nil, trace.Wrap(err)
 	}
-	env, err := storage.UnmarshalEnvironment(msg)
+	env, err := storage.UnmarshalEnvironmentVariables(msg)
 	if err != nil {
 		return nil, trace.Wrap(err)
 	}
