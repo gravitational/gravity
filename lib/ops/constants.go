@@ -85,6 +85,8 @@ const (
 	SiteStateUninstalling = "uninstalling"
 	// SiteStateGarbageCollecting is the state of the cluster when it's removing unused resources
 	SiteStateGarbageCollecting = "collecting_garbage"
+	// SiteStateUpdatingEnvars is the state of the cluster when it's updating environment variables on nodes
+	SiteStateUpdatingEnvars = "updating_cluster_envars"
 	// SiteStateDegraded means that the application installed on a deployed site is failing its health check
 	SiteStateDegraded = "degraded"
 	// SiteStateOffline means that OpsCenter cannot connect to remote site
@@ -123,6 +125,10 @@ const (
 	// garbage collection operation
 	OperationGarbageCollect           = "operation_gc"
 	OperationGarbageCollectInProgress = "gc_in_progress"
+
+	// environment variables update operation
+	OperationUpdateEnvars           = "operation_update_envars"
+	OperationUpdateEnvarsInProgress = "update_envars_in_progress"
 
 	// common operation states
 	OperationStateCompleted = "completed"
@@ -214,6 +220,7 @@ var (
 		OperationShrink:         SiteStateShrinking,
 		OperationUninstall:      SiteStateUninstalling,
 		OperationGarbageCollect: SiteStateGarbageCollecting,
+		OperationUpdateEnvars:   SiteStateUpdatingEnvars,
 	}
 
 	// OperationSucceededToClusterState defines states the cluster transitions
@@ -225,6 +232,7 @@ var (
 		OperationShrink:         SiteStateActive,
 		OperationUninstall:      SiteStateNotInstalled,
 		OperationGarbageCollect: SiteStateActive,
+		OperationUpdateEnvars:   SiteStateActive,
 	}
 
 	// OperationFailedToClusterState defines states the cluster transitions
@@ -238,5 +246,6 @@ var (
 		OperationShrink:         SiteStateActive,
 		OperationUninstall:      SiteStateFailed,
 		OperationGarbageCollect: SiteStateActive,
+		OperationUpdateEnvars:   SiteStateActive,
 	}
 )
