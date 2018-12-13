@@ -72,6 +72,7 @@ func InitOperationPlan(
 
 	dnsConfig := cluster.DNSConfig
 	if dnsConfig.IsEmpty() {
+		log.Info("Detecting DNS configuration.")
 		existingDNS, err := getExistingDNSConfig(localEnv.Packages)
 		if err != nil {
 			return nil, trace.Wrap(err, "failed to determine existing cluster DNS configuration")
@@ -273,6 +274,7 @@ func newOperationPlanFromParams(p newPlanParams) (*storage.OperationPlan, error)
 		AccountID:      p.operation.AccountID,
 		ClusterName:    p.operation.SiteDomain,
 		Servers:        p.servers,
+		DNSConfig:      p.dnsConfig,
 		GravityPackage: *gravityPackage,
 	}
 

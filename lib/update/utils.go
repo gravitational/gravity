@@ -173,6 +173,7 @@ func getExistingDNSConfig(packages pack.PackageService) (*storage.DNSConfig, err
 	if dnsConfig.IsEmpty() {
 		*dnsConfig = storage.LegacyDNSConfig
 	}
+	logrus.Infof("Detected DNS configuration: %v.", dnsConfig)
 	return dnsConfig, nil
 }
 
