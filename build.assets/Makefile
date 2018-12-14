@@ -13,6 +13,7 @@ LOCAL_BUILDDIR ?= /gopath/src/github.com/gravitational/gravity/build
 LOCAL_GRAVITY_BUILDDIR ?= /gopath/src/github.com/gravitational/gravity/build/$(GRAVITY_VERSION)
 
 BBOX = gravity-buildbox:latest
+DOCKER_ARGS ?= --pull
 
 GRAVITY_WEB_APP_DIR ?= $(abspath $(LOCALDIR)/../web)/
 
@@ -555,4 +556,4 @@ buildbox:
 		--build-arg GOGO_PROTO_TAG=$(GOGO_PROTO_TAG) \
 		--build-arg GRPC_GATEWAY_TAG=$(GRPC_GATEWAY_TAG) \
 		--build-arg VERSION_TAG=$(VERSION_TAG) \
-		--pull --tag $(BBOX) .
+		$(DOCKER_ARGS) --tag $(BBOX) .

@@ -78,10 +78,11 @@ type updatePhaseBootstrap struct {
 	runtimePackage loc.Locator
 	// installedRuntime specifies the installed runtime package
 	installedRuntime loc.Locator
+	dnsConfig        storage.DNSConfig
 }
 
 // NewUpdatePhaseBootstrap creates a new bootstrap phase executor
-func NewUpdatePhaseBootstrap(c FSMConfig, plan storage.OperationPlan, phase storage.OperationPhase, remote fsm.Remote) (fsm.PhaseExecutor, error) {
+func NewUpdatePhaseBootstrap(c FSMConfig, plan storage.OperationPlan, phase storage.OperationPhase, remote fsm.Remote, logger log.FieldLogger) (fsm.PhaseExecutor, error) {
 	if phase.Data == nil || phase.Data.Package == nil {
 		return nil, trace.NotFound("no application package specified for phase %v", phase)
 	}
@@ -113,6 +114,9 @@ func NewUpdatePhaseBootstrap(c FSMConfig, plan storage.OperationPlan, phase stor
 	if err != nil {
 		return nil, trace.Wrap(err)
 	}
+	if cluster.DNSConfig.IsEmpty() {
+		return nil, trace.NotFound("cluster DNS configuration is missing")
+	}
 
 	return &updatePhaseBootstrap{
 		Operator:         c.Operator,
@@ -127,10 +131,11 @@ func NewUpdatePhaseBootstrap(c FSMConfig, plan storage.OperationPlan, phase stor
 		Operation:        *operation,
 		GravityPath:      gravityPath,
 		ServiceUser:      cluster.ServiceUser,
-		FieldLogger:      log.NewEntry(log.New()),
+		FieldLogger:      logger,
 		remote:           remote,
 		runtimePackage:   *runtimePackage,
 		installedRuntime: *installedRuntime,
+		dnsConfig:        cluster.DNSConfig,
 	}, nil
 }
 
@@ -203,6 +208,7 @@ func (p *updatePhaseBootstrap) configureNode() error {
 }
 
 func (p *updatePhaseBootstrap) exportGravity(ctx context.Context) error {
+	p.Infof("Export gravity binary to %v.", p.GravityPath)
 	err := utils.CopyWithRetries(ctx, p.GravityPath, func() (io.ReadCloser, error) {
 		_, rc, err := p.Packages.ReadPackage(p.GravityPackage)
 		return rc, trace.Wrap(err)
@@ -212,17 +218,8 @@ func (p *updatePhaseBootstrap) exportGravity(ctx context.Context) error {
 
 // updateDNSConfig persists the DNS configuration in the local backend if it has not been set
 func (p *updatePhaseBootstrap) updateDNSConfig() error {
-	cluster, err := p.Operator.GetLocalSite()
-	if err != nil {
-		return trace.Wrap(err)
-	}
-
-	dnsConfig := storage.LegacyDNSConfig
-	if !cluster.DNSConfig.IsEmpty() {
-		dnsConfig = cluster.DNSConfig
-	}
-
-	err = p.HostLocalBackend.SetDNSConfig(dnsConfig)
+	err := p.HostLocalBackend.SetDNSConfig(p.dnsConfig)
+	p.Infof("Update host-local DNS configuration as %v.", p.dnsConfig)
 	if err != nil {
 		return trace.Wrap(err)
 	}
@@ -230,6 +227,7 @@ func (p *updatePhaseBootstrap) updateDNSConfig() error {
 }
 
 func (p *updatePhaseBootstrap) pullSystemUpdates() error {
+	p.Info("Pull system updates.")
 	out, err := fsm.RunCommand(utils.PlanetCommandArgs(
 		filepath.Join(defaults.GravityUpdateDir, constants.GravityBin),
 		"--quiet", "--insecure", "system", "pull-updates",
@@ -240,11 +238,12 @@ func (p *updatePhaseBootstrap) pullSystemUpdates() error {
 	if err != nil {
 		return trace.Wrap(err, "failed to pull system updates: %s", out)
 	}
-	log.Debugf("Pulled system updates: %s.", out)
+	p.Debugf("Pulled system updates: %s.", out)
 	return nil
 }
 
 func (p *updatePhaseBootstrap) syncPlan() error {
+	p.Info("Sync operation plan.")
 	site, err := p.Backend.GetSite(p.Operation.SiteDomain)
 	if err != nil {
 		return trace.Wrap(err)

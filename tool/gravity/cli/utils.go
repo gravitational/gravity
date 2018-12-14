@@ -138,6 +138,8 @@ func (g *Application) isUpgradeCommand(cmd string) bool {
 		return true
 	case g.RPCAgentRunCmd.FullCommand():
 		return len(*g.RPCAgentRunCmd.Args) > 0
+	case g.RPCAgentDeployCmd.FullCommand():
+		return len(*g.RPCAgentDeployCmd.Args) > 0
 	}
 	return false
 }
