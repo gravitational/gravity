@@ -493,7 +493,6 @@ func executeInstallPhase(localEnv *localenv.LocalEnvironment, p PhaseParams) err
 		LocalApps:     localApps,
 		LocalBackend:  localEnv.Backend,
 		Insecure:      localEnv.Insecure,
-		DNSConfig:     storage.DNSConfig(localEnv.DNS),
 	})
 	if err != nil {
 		return trace.Wrap(err)
@@ -663,7 +662,6 @@ func rollbackInstallPhase(localEnv *localenv.LocalEnvironment, p rollbackParams)
 		LocalApps:     localApps,
 		LocalBackend:  localEnv.Backend,
 		Insecure:      localEnv.Insecure,
-		DNSConfig:     storage.DNSConfig(localEnv.DNS),
 	})
 	if err != nil {
 		return trace.Wrap(err)

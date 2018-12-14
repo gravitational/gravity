@@ -109,7 +109,7 @@ func (s *PlanSuite) TestPlanWithRuntimeUpdate(c *check.C) {
 	resolve(&plan)
 
 	// exercise
-	obtainedPlan, err := newOperationPlan(params)
+	obtainedPlan, err := newOperationPlanFromParams(params)
 	c.Assert(err, check.IsNil)
 	// Reset the capacity so the plans can be compared
 	obtainedPlan.Phases = resetCap(obtainedPlan.Phases)
@@ -148,7 +148,7 @@ func (s *PlanSuite) TestPlanWithoutRuntimeUpdate(c *check.C) {
 	resolve(&plan)
 
 	// exercise
-	obtainedPlan, err := newOperationPlan(params)
+	obtainedPlan, err := newOperationPlanFromParams(params)
 	c.Assert(err, check.IsNil)
 	// Reset the capacity so the plans can be compared
 	obtainedPlan.Phases = resetCap(obtainedPlan.Phases)

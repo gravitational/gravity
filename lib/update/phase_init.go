@@ -68,10 +68,12 @@ type updatePhaseInit struct {
 	installedApp app.Application
 	// existingDocker describes the existing Docker configuration
 	existingDocker storage.DockerConfig
+	// existingDNS describes the existing DNS configuration
+	existingDNS storage.DNSConfig
 }
 
 // NewUpdatePhaseInit creates a new update init phase executor
-func NewUpdatePhaseInit(c FSMConfig, plan storage.OperationPlan, phase storage.OperationPhase) (*updatePhaseInit, error) {
+func NewUpdatePhaseInit(c FSMConfig, plan storage.OperationPlan, phase storage.OperationPhase, logger log.FieldLogger) (*updatePhaseInit, error) {
 	if phase.Data == nil || phase.Data.Package == nil {
 		return nil, trace.NotFound("no application package specified for phase %v", phase)
 	}
@@ -99,25 +101,25 @@ func NewUpdatePhaseInit(c FSMConfig, plan storage.OperationPlan, phase storage.O
 		return nil, trace.Wrap(err, "failed to query installed application")
 	}
 
+	logger.Infof("Existing DNS configuration: %v.", plan.DNSConfig)
+
 	existingDocker := checks.DockerConfigFromSchemaValue(installedApp.Manifest.SystemDocker())
 	checks.OverrideDockerConfig(&existingDocker, installOperation.InstallExpand.Vars.System.Docker)
 
 	return &updatePhaseInit{
-		Backend:      c.Backend,
-		LocalBackend: c.LocalBackend,
-		Operator:     c.Operator,
-		Packages:     c.ClusterPackages,
-		Users:        c.Users,
-		Cluster:      *cluster,
-		Operation:    *operation,
-		Servers:      plan.Servers,
-		FieldLogger: log.WithFields(log.Fields{
-			trace.Component: "update",
-			"phase":         phase.ID,
-		}),
+		Backend:        c.Backend,
+		LocalBackend:   c.LocalBackend,
+		Operator:       c.Operator,
+		Packages:       c.ClusterPackages,
+		Users:          c.Users,
+		Cluster:        *cluster,
+		Operation:      *operation,
+		Servers:        plan.Servers,
+		FieldLogger:    logger,
 		app:            *app,
 		installedApp:   *installedApp,
 		existingDocker: existingDocker,
+		existingDNS:    plan.DNSConfig,
 	}, nil
 }
 
@@ -209,6 +211,7 @@ func (p *updatePhaseInit) initRPCCredentials() error {
 }
 
 func (p *updatePhaseInit) updateClusterRoles() error {
+	p.Info("Update cluster roles.")
 	cluster, err := p.Backend.GetLocalSite(defaults.SystemAccountID)
 	if err != nil {
 		return trace.Wrap(err)
@@ -235,13 +238,14 @@ func (p *updatePhaseInit) updateClusterRoles() error {
 }
 
 func (p *updatePhaseInit) updateClusterDNSConfig() error {
+	p.Info("Update cluster DNS configuration.")
 	cluster, err := p.Backend.GetLocalSite(defaults.SystemAccountID)
 	if err != nil {
 		return trace.Wrap(err)
 	}
 
 	if cluster.DNSConfig.IsEmpty() {
-		cluster.DNSConfig = storage.LegacyDNSConfig
+		cluster.DNSConfig = p.existingDNS
 	}
 
 	_, err = p.Backend.UpdateSite(*cluster)
@@ -283,6 +287,7 @@ func (p *updatePhaseInit) upsertServiceUser() error {
 		return nil
 	}
 
+	p.Info("Create service user.")
 	user, err := install.GetOrCreateServiceUser(defaults.ServiceUserID, defaults.ServiceGroupID)
 	if err != nil {
 		return trace.Wrap(err,
@@ -301,6 +306,7 @@ func (p *updatePhaseInit) upsertServiceUser() error {
 }
 
 func (p *updatePhaseInit) createAdminAgent() error {
+	p.Info("Create admin agent user.")
 	// create a cluster admin agent as it may not exist yet
 	// when upgrading from older versions
 	email := storage.ClusterAdminAgent(p.Cluster.Domain)
@@ -315,6 +321,7 @@ func (p *updatePhaseInit) createAdminAgent() error {
 }
 
 func (p *updatePhaseInit) rotateSecrets(server storage.Server) error {
+	p.Infof("Generate new secrets configuration package for %v.", formatServer(server))
 	resp, err := p.Operator.RotateSecrets(ops.RotateSecretsRequest{
 		AccountID:   p.Operation.AccountID,
 		ClusterName: p.Operation.SiteDomain,
@@ -327,11 +334,12 @@ func (p *updatePhaseInit) rotateSecrets(server storage.Server) error {
 	if err != nil {
 		return trace.Wrap(err)
 	}
-	p.Debugf("Rotated secrets package for %v: %v.", server, resp.Locator)
+	p.Debugf("Rotated secrets package for %v: %v.", formatServer(server), resp.Locator)
 	return nil
 }
 
 func (p *updatePhaseInit) rotatePlanetConfig(server storage.Server, runtimePackage loc.Locator) error {
+	p.Infof("Generate new runtime configuration package for %v.", formatServer(server))
 	resp, err := p.Operator.RotatePlanetConfig(ops.RotatePlanetConfigRequest{
 		AccountID:   p.Operation.AccountID,
 		ClusterName: p.Operation.SiteDomain,
@@ -348,7 +356,7 @@ func (p *updatePhaseInit) rotatePlanetConfig(server storage.Server, runtimePacka
 	if err != nil {
 		return trace.Wrap(err)
 	}
-	p.Debugf("Rotated planet config package for %v: %v.", server, resp.Locator)
+	p.Debugf("Rotated runtime configuration package for %v: %v.", server, resp.Locator)
 	return nil
 }
 
@@ -369,7 +377,7 @@ func removeLegacyUpdateDirectory(log log.FieldLogger) error {
 		return nil
 	}
 
-	log.Debugf("removing legacy update dictory %v", updateDir)
+	log.Debugf("Removing legacy update directory %v.", updateDir)
 	err = os.RemoveAll(updateDir)
 	return trace.ConvertSystemError(err)
 }

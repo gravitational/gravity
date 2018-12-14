@@ -57,7 +57,7 @@ func initOperationPlan(localEnv, updateEnv *localenv.LocalEnvironment) error {
 			" or `gravity upgrade --manual` and retry.", secretsDir)
 	}
 
-	plan, err := update.InitOperationPlan(ctx, updateEnv, clusterEnv)
+	plan, err := update.InitOperationPlan(ctx, localEnv, updateEnv, clusterEnv)
 	if err != nil {
 		return trace.Wrap(err)
 	}

@@ -17,9 +17,20 @@ limitations under the License.
 package update
 
 import (
+	"archive/tar"
+	"encoding/json"
+	"fmt"
+	"io"
+	"io/ioutil"
+	"strconv"
+	"strings"
+
 	appservice "github.com/gravitational/gravity/lib/app"
+	"github.com/gravitational/gravity/lib/archive"
+	"github.com/gravitational/gravity/lib/defaults"
 	"github.com/gravitational/gravity/lib/fsm"
 	"github.com/gravitational/gravity/lib/loc"
+	"github.com/gravitational/gravity/lib/pack"
 	"github.com/gravitational/gravity/lib/schema"
 	"github.com/gravitational/gravity/lib/storage"
 
@@ -113,4 +124,78 @@ func getRuntimePackage(manifest schema.Manifest, profile schema.NodeProfile, clu
 			profile.Name, clusterRole)
 	}
 	return runtimePackage, nil
+}
+
+func getExistingDNSConfig(packages pack.PackageService) (*storage.DNSConfig, error) {
+	_, configPackage, err := pack.FindAnyRuntimePackageWithConfig(packages)
+	if err != nil {
+		return nil, trace.Wrap(err)
+	}
+	_, rc, err := packages.ReadPackage(*configPackage)
+	if err != nil {
+		return nil, trace.Wrap(err)
+	}
+	defer rc.Close()
+	var configBytes []byte
+	err = archive.TarGlob(tar.NewReader(rc), "", []string{"vars.json"}, func(_ string, r io.Reader) error {
+		configBytes, err = ioutil.ReadAll(r)
+		if err != nil {
+			return trace.Wrap(err)
+		}
+
+		return archive.Abort
+	})
+	if err != nil {
+		return nil, trace.Wrap(err)
+	}
+	var runtimeConfig runtimeConfig
+	if configBytes != nil {
+		err = json.Unmarshal(configBytes, &runtimeConfig)
+		if err != nil {
+			return nil, trace.Wrap(err)
+		}
+	}
+	dnsPort := defaults.DNSPort
+	if len(runtimeConfig.DNSPort) != 0 {
+		dnsPort, err = strconv.Atoi(runtimeConfig.DNSPort)
+		if err != nil {
+			return nil, trace.Wrap(err, "expected integer value but got %v", runtimeConfig.DNSPort)
+		}
+	}
+	var dnsAddrs []string
+	if runtimeConfig.DNSListenAddr != "" {
+		dnsAddrs = append(dnsAddrs, runtimeConfig.DNSListenAddr)
+	}
+	dnsConfig := &storage.DNSConfig{
+		Addrs: dnsAddrs,
+		Port:  dnsPort,
+	}
+	if dnsConfig.IsEmpty() {
+		*dnsConfig = storage.LegacyDNSConfig
+	}
+	logrus.Infof("Detected DNS configuration: %v.", dnsConfig)
+	return dnsConfig, nil
+}
+
+type runtimeConfig struct {
+	// DNSListenAddr specifies the configured DNS listen address
+	DNSListenAddr string `json:"PLANET_DNS_LISTEN_ADDR"`
+	// DNSPort specifies the configured DNS port
+	DNSPort string `json:"PLANET_DNS_PORT"`
+}
+
+func formatServers(servers []storage.Server) string {
+	var formats []string
+	for _, server := range servers {
+		formats = append(formats, formatServer(server))
+	}
+	return strings.Join(formats, ",")
+}
+
+func formatServer(server storage.Server) string {
+	return fmt.Sprintf("node(addr=%v, hostname=%v, role=%v, cluster_role=%v)",
+		server.AdvertiseIP,
+		server.Hostname,
+		server.Role,
+		server.ClusterRole)
 }
