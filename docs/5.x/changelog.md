@@ -10,7 +10,7 @@ LTS starts with `3.51.0` with minor backwards compatible changes added over time
 | 5.5.0-alpha.1 | No | December, 12th 2018   | -                    | 1.12.3             | 3.0.1            |
 | 5.3.5   | No  | December, 3rd 2018   | -                    | 1.12.3             | 2.4.7            |
 | 5.2.4   | Yes | December, 3rd 2018   | October, 15th, 2019  | 1.11.5             | 2.4.7            |
-| 5.0.25  | Yes | December, 3rd 2018   | April, 13th 2019     | 1.9.6              | 2.4.7            |
+| 5.0.26  | Yes | December, 13th 2018  | April, 13th 2019     | 1.9.6              | 2.4.7            |
 | 4.63.0  | Yes | June, 25th 2018      | November, 16th 2018  | 1.7.14             | 2.3.5            |
 | 3.64.0  | Yes | December, 21st 2017  | June, 2nd 2018       | 1.5.7              | 2.0.6            |
 | 1.30.0  | Yes | March, 21st 2017     | March, 21st 2018     | 1.3.8              | 1.2.0            |
@@ -33,6 +33,12 @@ LTS starts with `3.51.0` with minor backwards compatible changes added over time
 * Update tiller to 2.11.0
 * Add initial support for application catalog. See [Application Catalog](/catalog) for details.
 * Update embedded teleport to 3.0.1
+
+### 5.0.26 LTS
+
+#### Bugfixes
+
+* Fix an issue with upgrade agents failing to start in some cases.
 
 ### 5.3.5
 
