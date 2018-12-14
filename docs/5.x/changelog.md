@@ -1,19 +1,20 @@
 # Releases
 
-## LTS Releases
+## Current Releases
 
 Every major gravity version `x.0.0` has it's long term support release, e.g. for `3.0.0` version
 LTS starts with `3.51.0` with minor backwards compatible changes added over time until the end of support cycle.
 
 | Release       | LTS | Release Date         | Supported Until      | Kubernetes Version | Teleport Version |
-| --------      |-----| -------------------- | -------------------- | ------------------ |------------------|
-| 5.5.0-alpha.3 | No | December, 12th 2018   | -                    | 1.12.3             | 3.0.1            |
-| 5.3.5   | No  | December, 3rd 2018   | -                    | 1.12.3             | 2.4.7            |
-| 5.2.4   | Yes | December, 3rd 2018   | October, 15th, 2019  | 1.11.5             | 2.4.7            |
-| 5.0.27  | Yes | December, 13th 2018  | April, 13th 2019     | 1.9.6              | 2.4.7            |
-| 4.63.0  | Yes | June, 25th 2018      | November, 16th 2018  | 1.7.14             | 2.3.5            |
-| 3.64.0  | Yes | December, 21st 2017  | June, 2nd 2018       | 1.5.7              | 2.0.6            |
-| 1.30.0  | Yes | March, 21st 2017     | March, 21st 2018     | 1.3.8              | 1.2.0            |
+| --------------|-----| -------------------- | -------------------- | ------------------ |------------------|
+| 5.5.0-alpha.3 | No  | December, 12th 2018  | -                    | 1.12.3             | 3.0.1            |
+| 5.4.0         | No  | December, 14th 2018  | -                    | 1.13.0             | 2.4.7
+| 5.3.5         | No  | December, 3rd 2018   | -                    | 1.12.3             | 2.4.7            |
+| 5.2.4         | Yes | December, 3rd 2018   | October, 15th, 2019  | 1.11.5             | 2.4.7            |
+| 5.0.27        | Yes | December, 13th 2018  | April, 13th 2019     | 1.9.6              | 2.4.7            |
+| 4.63.0        | Yes | June, 25th 2018      | November, 16th 2018  | 1.7.14             | 2.3.5            |
+| 3.64.0        | Yes | December, 21st 2017  | June, 2nd 2018       | 1.5.7              | 2.0.6            |
+| 1.30.0        | Yes | March, 21st 2017     | March, 21st 2018     | 1.3.8              | 1.2.0            |
 
 !!! tip "Cluster certificates expiration"
     If you have a Gravity cluster of version before `5.0.0-alpha.12` that
@@ -23,6 +24,12 @@ LTS starts with `3.51.0` with minor backwards compatible changes added over time
     article in our Help Center.
 
 ## 5.x Releases
+
+### 5.4.0
+
+#### Improvements
+
+* Upgrade to Kubernetes `v1.13.0`.
 
 ### 5.0.27 LTS
 
