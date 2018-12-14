@@ -2077,7 +2077,7 @@ providers:
 ```
 
 !!! tip "Version"
-    The WireGuard feature is only available from 5.5.0-alpha.1 and later
+    The WireGuard feature is only available from 5.5.0-alpha.3 and later
 
 !!! tip "Kernel module":
     The WireGuard feature currently requires the WireGuard kernel module to be installed and available on the host. Please see
