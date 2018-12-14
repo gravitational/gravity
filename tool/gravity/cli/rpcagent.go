@@ -225,7 +225,7 @@ func upsertRPCCredentialsPackage(
 	return secretsPackage, nil
 }
 
-func deployAgents(ctx context.Context, env *localenv.LocalEnvironment, req deployAgentsRequest) (credentials.TransportCredentials, error) {
+func deployAgents(ctx context.Context, req deployAgentsRequest) (credentials.TransportCredentials, error) {
 	deployReq, err := newDeployAgentsRequest(ctx, req)
 	if err != nil {
 		return nil, trace.Wrap(err)

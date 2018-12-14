@@ -551,6 +551,20 @@ func (c *Client) CreateClusterGarbageCollectOperation(req ops.CreateClusterGarba
 	return &key, nil
 }
 
+// CreateUpdateEnvarsOperation creates a new operation to update cluster environment variables
+func (c *Client) CreateUpdateEnvarsOperation(req ops.CreateUpdateEnvarsOperationRequest) (*ops.SiteOperationKey, error) {
+	out, err := c.PostJSON(c.Endpoint("accounts", req.AccountID, "sites", req.SiteDomain, "operations", "envars"), req)
+	if err != nil {
+		return nil, trace.Wrap(err)
+	}
+
+	var key ops.SiteOperationKey
+	if err := json.Unmarshal(out.Bytes(), &key); err != nil {
+		return nil, trace.Wrap(err)
+	}
+	return &key, nil
+}
+
 func (c *Client) SiteUninstallOperationStart(req ops.SiteOperationKey) error {
 	_, err := c.PostJSON(c.Endpoint("accounts", req.AccountID, "sites", req.SiteDomain, "operations", "uninstall", req.OperationID, "start"), map[string]interface{}{})
 	if err != nil {

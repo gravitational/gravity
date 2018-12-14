@@ -445,6 +445,16 @@ type PlanCmd struct {
 	Init *bool
 	// Sync the operation plan from etcd to local
 	Sync *bool
+	// Execute executes the given phase
+	Execute *bool
+	// Rollback reverses the given phase
+	Rollback *bool
+	// Resume resumes a paused (aborted) operation
+	Resume *bool
+	// Phase is the phase to execute
+	Phase *string
+	// Force forces execution of the given phase
+	Force *bool
 	// Output is output format
 	Output *constants.Format
 	// OperationID is optional ID of operation to show the plan for

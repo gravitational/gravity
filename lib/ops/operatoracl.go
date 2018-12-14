@@ -494,6 +494,14 @@ func (o *OperatorACL) CreateClusterGarbageCollectOperation(req CreateClusterGarb
 	return o.operator.CreateClusterGarbageCollectOperation(req)
 }
 
+// CreateUpdateEnvarsOperation creates a new operation to update cluster environment variables
+func (o *OperatorACL) CreateUpdateEnvarsOperation(req CreateUpdateEnvarsOperationRequest) (*SiteOperationKey, error) {
+	if err := o.ClusterAction(req.SiteDomain, storage.KindCluster, teleservices.VerbUpdate); err != nil {
+		return nil, trace.Wrap(err)
+	}
+	return o.operator.CreateUpdateEnvarsOperation(req)
+}
+
 func (o *OperatorACL) GetSiteOperationLogs(key SiteOperationKey) (io.ReadCloser, error) {
 	if err := o.ClusterAction(key.SiteDomain, storage.KindCluster, teleservices.VerbRead); err != nil {
 		return nil, trace.Wrap(err)

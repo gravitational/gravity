@@ -592,6 +592,9 @@ type Operations interface {
 	// in the cluster
 	CreateClusterGarbageCollectOperation(CreateClusterGarbageCollectOperationRequest) (*SiteOperationKey, error)
 
+	// CreateUpdateEnvarsOperation creates a new operation to update cluster environment variables
+	CreateUpdateEnvarsOperation(CreateUpdateEnvarsOperationRequest) (*SiteOperationKey, error)
+
 	// GetsiteOperation returns the operation information based on it's key
 	GetSiteOperation(SiteOperationKey) (*SiteOperation, error)
 
@@ -1123,6 +1126,12 @@ type CreateClusterGarbageCollectOperationRequest struct {
 	AccountID string `json:"account_id"`
 	// ClusterName is the name of the cluster
 	ClusterName string `json:"cluster_name"`
+}
+
+// CreateUpdateEnvarsOperationRequest is a request
+// to update cluster environment variables
+type CreateUpdateEnvarsOperationRequest struct {
+	SiteKey `json:"cluster_key"`
 }
 
 // AgentService coordinates install agents that are started on every server

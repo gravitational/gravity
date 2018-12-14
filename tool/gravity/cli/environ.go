@@ -17,56 +17,58 @@ limitations under the License.
 package cli
 
 import (
-// "context"
-// "time"
+	"context"
+	"time"
 
-// "github.com/gravitational/gravity/lib/environ"
-// libfsm "github.com/gravitational/gravity/lib/fsm"
-// "github.com/gravitational/gravity/lib/localenv"
-// "github.com/gravitational/gravity/lib/ops"
-// "github.com/gravitational/gravity/lib/storage"
+	"github.com/gravitational/gravity/lib/constants"
+	"github.com/gravitational/gravity/lib/environ"
+	libfsm "github.com/gravitational/gravity/lib/fsm"
+	"github.com/gravitational/gravity/lib/localenv"
+	"github.com/gravitational/gravity/lib/ops"
 
-// teleclient "github.com/gravitational/teleport/lib/client"
-// "github.com/gravitational/trace"
+	"github.com/gravitational/trace"
+	"github.com/sirupsen/logrus"
 )
 
-/*
-func updateEnvars(config environ.Config) error {
-	ctx := context.TODO()
-	updater, err := newUpdater(ctx, config, env, teleProxy)
+func updateEnvars(env *localenv.LocalEnvironment) error {
+	teleportClient, err := env.TeleportClient(constants.Localhost)
+	if err != nil {
+		return trace.Wrap(err, "failed to create a teleport client")
+	}
+	proxy, err := teleportClient.ConnectToProxy()
+	if err != nil {
+		return trace.Wrap(err, "failed to connect to teleport proxy")
+	}
+	operator, err := env.SiteOperator()
 	if err != nil {
 		return trace.Wrap(err)
 	}
-
-	err = updater.Run(ctx, false)
-	return trace.Wrap(err)
-}
-
-func newUpdater(ctx context.Context, config environ.Config, env storage.EnvironmentVariables, proxy teleclient.ProxyClient) (*environ.Updater, error) {
-	key, err := config.Operator.CreateUpdateEnvarsOperation(
+	cluster, err := operator.GetLocalSite()
+	if err != nil {
+		return trace.Wrap(err)
+	}
+	key, err := operator.CreateUpdateEnvarsOperation(
 		ops.CreateUpdateEnvarsOperationRequest{
-			AccountID:   cluster.AccountID,
-			ClusterName: cluster.Domain,
-			Env:         env,
+			SiteKey: cluster.Key(),
 		},
 	)
 	if err != nil {
 		if trace.IsNotFound(err) {
-			return nil, trace.NotImplemented(
+			return trace.NotImplemented(
 				"cluster operator does not implement the API required for updating cluster environment variables. " +
 					"Please make sure you're running the command on a compatible cluster.")
 		}
-		return nil, trace.Wrap(err)
+		return trace.Wrap(err)
 	}
-
 	defer func() {
 		r := recover()
 		triggered := err == nil && r == nil
 		if !triggered {
-			if err := ops.FailOperation(operator, key); err != nil {
-				log.WithFields(log.Fields{
-					log.ErrorKey: err,
-					"operation":  key,
+			// FIXME: err might be nil (i.e. r != nil)
+			if errMark := ops.FailOperation(*key, operator, err.Error()); errMark != nil {
+				logrus.WithFields(logrus.Fields{
+					logrus.ErrorKey: errMark,
+					"operation":     key,
 				}).Warn("Failed to mark operation as failed.")
 			}
 		}
@@ -75,9 +77,13 @@ func newUpdater(ctx context.Context, config environ.Config, env storage.Environm
 		}
 	}()
 
-	operation, err := config.Operator.GetSiteOperation(*key)
+	operation, err := operator.GetSiteOperation(*key)
 	if err != nil {
-		return nil, trace.Wrap(err)
+		return trace.Wrap(err)
+	}
+	clusterEnv, err := env.NewClusterEnvironment()
+	if err != nil {
+		return trace.Wrap(err)
 	}
 
 	req := deployAgentsRequest{
@@ -86,13 +92,12 @@ func newUpdater(ctx context.Context, config environ.Config, env storage.Environm
 		clusterEnv:   clusterEnv,
 		proxy:        proxy,
 	}
-	creds, err := deployAgents(ctx, env, req)
+	creds, err := deployAgents(context.Background(), req)
 	if err != nil {
-		return nil, trace.Wrap(err)
+		return trace.Wrap(err)
 	}
 	runner := libfsm.NewAgentRunner(creds)
-
-	updater, err := environ.New(environ.Config{
+	config := environ.Config{
 		Operator:   operator,
 		Operation:  operation,
 		Servers:    cluster.ClusterState.Servers,
@@ -100,14 +105,22 @@ func newUpdater(ctx context.Context, config environ.Config, env storage.Environm
 		Silent:     env.Silent,
 		Runner:     runner,
 		Emitter:    env,
-	})
-	if err != nil {
-		return nil, trace.Wrap(err)
 	}
-	return updater, nil
+	updater, err := environ.New(config)
+	if err != nil {
+		return trace.Wrap(err)
+	}
+
+	err = updater.Run(context.Background(), false)
+	return trace.Wrap(err)
 }
 
 func updateEnvarsPhase(env *localenv.LocalEnvironment, phase string, phaseTimeout time.Duration, force bool) error {
+	operator, err := env.SiteOperator()
+	if err != nil {
+		return trace.Wrap(err)
+	}
+
 	cluster, err := operator.GetLocalSite()
 	if err != nil {
 		return trace.Wrap(err)
@@ -139,4 +152,3 @@ func updateEnvarsPhase(env *localenv.LocalEnvironment, phase string, phaseTimeou
 	err = updater.RunPhase(context.TODO(), phase, phaseTimeout, force)
 	return trace.Wrap(err)
 }
-*/

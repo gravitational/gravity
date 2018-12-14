@@ -135,7 +135,12 @@ func RegisterCommands(app *kingpin.Application) *Application {
 
 	g.PlanCmd.CmdClause = g.Command("plan", "Display a plan for an ongoing operation")
 	g.PlanCmd.Init = g.PlanCmd.Flag("init", "Initialize operation plan").Bool()
-	g.PlanCmd.Sync = g.PlanCmd.Flag("sync", "Sync the operation plan from etcd to local store").Hidden().Bool()
+	g.PlanCmd.Sync = g.PlanCmd.Flag("sync", "Sync the operation plan from etcd to local store").Bool()
+	g.PlanCmd.Execute = g.PlanCmd.Flag("execute", "Execute specified operation phase").Bool()
+	g.PlanCmd.Rollback = g.PlanCmd.Flag("rollback", "Rollback specified operation phase").Bool()
+	g.PlanCmd.Resume = g.PlanCmd.Flag("resume", "Resume last aborted operation").Bool()
+	g.PlanCmd.Force = g.PlanCmd.Flag("force", "Force execution of specified phase").Bool()
+	g.PlanCmd.Phase = g.PlanCmd.Flag("phase", "Phase ID to execute").String()
 	g.PlanCmd.Output = common.Format(g.PlanCmd.Flag("output", "Output format for the plan, text, json or yaml").Short('o').Default(string(constants.EncodingText)))
 	g.PlanCmd.OperationID = g.PlanCmd.Flag("operation-id", "ID of the operation to display the plan for. It not specified, the last operation plan will be displayed").String()
 

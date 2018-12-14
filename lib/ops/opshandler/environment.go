@@ -17,6 +17,7 @@ limitations under the License.
 package opshandler
 
 import (
+	"encoding/json"
 	"net/http"
 
 	"github.com/gravitational/gravity/lib/ops"
@@ -28,6 +29,38 @@ import (
 	"github.com/gravitational/trace"
 	"github.com/julienschmidt/httprouter"
 )
+
+/* sOperation creates a new operation to update cluster environment variables
+
+   POST	/portal/v1/accounts/:account_id/sites/:site_domain/operations/envars
+
+   {
+      "account_id": "account id",
+      "site_id": "cluster_name",
+   }
+
+
+Success response:
+
+   ops.SiteKey
+*/
+func (h *WebHandler) createUpdateEnvarsOperation(w http.ResponseWriter, r *http.Request, p httprouter.Params, context *HandlerContext) error {
+	var req ops.CreateUpdateEnvarsOperationRequest
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		return trace.BadParameter(err.Error())
+	}
+
+	key := siteKey(p)
+	req.AccountID = key.AccountID
+	req.SiteDomain = key.SiteDomain
+	op, err := context.Operator.CreateUpdateEnvarsOperation(req)
+	if err != nil {
+		return trace.Wrap(err)
+	}
+
+	roundtrip.ReplyJSON(w, http.StatusOK, op)
+	return nil
+}
 
 /* getEnvironmentVariables fetches the cluster environment variables
 

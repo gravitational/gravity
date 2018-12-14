@@ -27,10 +27,30 @@ import (
 
 	"github.com/gravitational/rigging"
 	"github.com/gravitational/trace"
+	"github.com/pborman/uuid"
 	"k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	corev1 "k8s.io/client-go/kubernetes/typed/core/v1"
 )
+
+// CreateUpdateEnvarsOperation creates a new operation to update cluster environment variables
+func (o *Operator) CreateUpdateEnvarsOperation(r ops.CreateUpdateEnvarsOperationRequest) (*ops.SiteOperationKey, error) {
+	err := r.Check()
+	if err != nil {
+		return nil, trace.Wrap(err)
+	}
+
+	cluster, err := o.openSite(r.SiteKey)
+	if err != nil {
+		return nil, trace.Wrap(err)
+	}
+
+	key, err := cluster.createUpdateEnvarsOperation(r)
+	if err != nil {
+		return nil, trace.Wrap(err)
+	}
+	return key, nil
+}
 
 // GetClusterEnvironmentVariables retrieves the cluster environment variables
 func (o *Operator) GetClusterEnvironmentVariables(key ops.SiteKey) (env storage.EnvironmentVariables, err error) {
@@ -88,4 +108,24 @@ func updateClusterEnvironment(client corev1.ConfigMapInterface, keyValues map[st
 		return trace.Wrap(err)
 	}
 	return nil
+}
+
+// createUpdateEnvarsOperation creates a new operation to update cluster environment variables
+func (s *site) createUpdateEnvarsOperation(req ops.CreateUpdateEnvarsOperationRequest) (*ops.SiteOperationKey, error) {
+	op := ops.SiteOperation{
+		ID:         uuid.New(),
+		AccountID:  s.key.AccountID,
+		SiteDomain: s.key.SiteDomain,
+		Type:       ops.OperationUpdateEnvars,
+		Created:    s.clock().UtcNow(),
+		Updated:    s.clock().UtcNow(),
+		State:      ops.OperationUpdateEnvarsInProgress,
+	}
+
+	key, err := s.getOperationGroup().createSiteOperation(op)
+	if err != nil {
+		return nil, trace.Wrap(err)
+	}
+
+	return key, nil
 }

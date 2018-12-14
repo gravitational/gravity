@@ -23,6 +23,7 @@ import (
 	"github.com/gravitational/gravity/lib/localenv"
 	"github.com/gravitational/gravity/lib/ops/resources"
 	"github.com/gravitational/gravity/lib/ops/resources/gravity"
+	"github.com/gravitational/gravity/lib/storage"
 	"github.com/gravitational/gravity/tool/common"
 
 	"github.com/gravitational/trace"
@@ -47,10 +48,19 @@ func createResource(env *localenv.LocalEnvironment, filename string, upsert bool
 		return trace.Wrap(err)
 	}
 	defer reader.Close()
-	err = resources.NewControl(gravityResources).Create(reader, upsert, user)
+	created, err := resources.NewControl(gravityResources).Create(reader, upsert, user)
 	if err != nil {
 		return trace.Wrap(err)
 	}
+
+	for _, resource := range created {
+		switch resource.Kind {
+		case storage.KindEnvironment:
+			// TODO: create an update operation
+		}
+		env.Println("created ", resource.Kind)
+	}
+
 	return nil
 }
 

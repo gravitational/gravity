@@ -338,6 +338,11 @@ func (r *Router) CreateClusterGarbageCollectOperation(req ops.CreateClusterGarba
 	return r.Local.CreateClusterGarbageCollectOperation(req)
 }
 
+// CreateUpdateEnvarsOperation creates a new operation to update cluster environment variables
+func (r *Router) CreateUpdateEnvarsOperation(req ops.CreateUpdateEnvarsOperationRequest) (*ops.SiteOperationKey, error) {
+	return r.Local.CreateUpdateEnvarsOperation(req)
+}
+
 func (r *Router) GetSiteOperationLogs(key ops.SiteOperationKey) (io.ReadCloser, error) {
 	client, err := r.PickOperationClient(key.SiteDomain)
 	if err != nil {

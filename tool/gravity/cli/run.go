@@ -348,11 +348,17 @@ func Execute(g *Application, cmd string, extraArgs []string) error {
 				timeout:          *g.RollbackCmd.PhaseTimeout,
 			})
 	case g.PlanCmd.FullCommand():
-		if *g.PlanCmd.Init {
+		switch {
+		case *g.PlanCmd.Init:
 			return initOperationPlan(localEnv, updateEnv)
-		}
-		if *g.PlanCmd.Sync {
+		case *g.PlanCmd.Sync:
 			return syncOperationPlan(localEnv, updateEnv)
+		case *g.PlanCmd.Execute:
+			return executeOperation(localEnv, updateEnv, *g.PlanCmd.Phase, *g.PlanCmd.Force)
+		case *g.PlanCmd.Rollback:
+			return rollbackOperation(localEnv, updateEnv, *g.PlanCmd.Phase, *g.PlanCmd.Force)
+		case *g.PlanCmd.Resume:
+			return resumeOperation(localEnv, updateEnv, *g.PlanCmd.Phase, *g.PlanCmd.Force)
 		}
 		return displayOperationPlan(localEnv, updateEnv, joinEnv, *g.PlanCmd.OperationID, *g.PlanCmd.Output)
 	case g.LeaveCmd.FullCommand():
