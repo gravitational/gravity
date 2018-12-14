@@ -5,8 +5,9 @@
 Every major gravity version `x.0.0` has it's long term support release, e.g. for `3.0.0` version
 LTS starts with `3.51.0` with minor backwards compatible changes added over time until the end of support cycle.
 
-| Release | LTS | Release Date         | Supported Until      | Kubernetes Version | Teleport Version |
-| --------|-----| -------------------- | -------------------- | ------------------ |------------------|
+| Release       | LTS | Release Date         | Supported Until      | Kubernetes Version | Teleport Version |
+| --------      |-----| -------------------- | -------------------- | ------------------ |------------------|
+| 5.5.0-alpha.3 | No | December, 12th 2018   | -                    | 1.12.3             | 3.0.1            |
 | 5.3.5   | No  | December, 3rd 2018   | -                    | 1.12.3             | 2.4.7            |
 | 5.2.4   | Yes | December, 3rd 2018   | October, 15th, 2019  | 1.11.5             | 2.4.7            |
 | 5.0.27  | Yes | December, 13th 2018  | April, 13th 2019     | 1.9.6              | 2.4.7            |
@@ -28,6 +29,16 @@ LTS starts with `3.51.0` with minor backwards compatible changes added over time
 #### Bugfixes
 
 * Fix an issue with upgrade failure on clusters with non-master nodes.
+
+### 5.5.0-alpha.3
+
+#### Improvements
+
+* Add support for Wireguard encrypted overlay network. See [Wireguard Encrypted Networking](/cluster#wireguard-encrypted-networking) for details.
+* Reduce writes to AWS SSM store when using AWS integrations.
+* Update tiller to 2.11.0
+* Add initial support for application catalog. See [Application Catalog](/catalog) for details.
+* Update embedded teleport to 3.0.1
 
 ### 5.0.26 LTS
 
