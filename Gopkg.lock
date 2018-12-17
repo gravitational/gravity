@@ -691,10 +691,10 @@
   version = "1.0.2"
 
 [[projects]]
-  branch = "roman/k13"
   name = "github.com/gravitational/rigging"
   packages = ["."]
-  revision = "f63721ea11fc17a432b03bc62e655ebb33fec344"
+  revision = "53e094c60ddc5ac94cebb8301e03660db3996227"
+  version = "5.5.0"
 
 [[projects]]
   name = "github.com/gravitational/roundtrip"
@@ -702,7 +702,6 @@
   revision = "6a87d116a90b9c4e73bedc19ebc9c17f1b43d826"
 
 [[projects]]
-  branch = "roman/k13"
   name = "github.com/gravitational/satellite"
   packages = [
     "agent/health",
@@ -711,7 +710,8 @@
     "monitoring",
     "utils"
   ]
-  revision = "197c1ebb2bf4120f61735385fa4f24d78aee9cac"
+  revision = "9a1c59792191ca876312f8af1884248986a20222"
+  version = "5.5.0"
 
 [[projects]]
   name = "github.com/gravitational/tail"
@@ -726,7 +726,7 @@
   version = "v1.0.1"
 
 [[projects]]
-  branch = "roman/3.0/k13"
+  branch = "branch/3.0-g"
   name = "github.com/gravitational/teleport"
   packages = [
     ".",
@@ -780,7 +780,7 @@
     "lib/web",
     "lib/web/ui"
   ]
-  revision = "9ec92d20b11f8212bdd63f76c20c81f5f0d2962d"
+  revision = "4b88dda33d42c70ea3b79eba893ddefc439bc803"
 
 [[projects]]
   name = "github.com/gravitational/trace"
@@ -2015,6 +2015,6 @@
 [solve-meta]
   analyzer-name = "dep"
   analyzer-version = 1
-  inputs-digest = "80fd759776c9d4ceaa0a1f19e104d2ce2b860817107a40db6c0758990e2c6bcd"
+  inputs-digest = "2c67a600d74e659282495fff394b905a3599d118998504c535e970fb3e8b9aa2"
   solver-name = "gps-cdcl"
   solver-version = 1

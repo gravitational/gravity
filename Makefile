@@ -19,7 +19,7 @@ ASSETSDIR=$(TOP)/assets
 BINDIR ?= /usr/bin
 
 # Current Kubernetes version: 1.13.0
-K8S_VER := 11203
+K8S_VER := 11300
 GOLFLAGS ?= -w -s
 
 ETCD_VER := v2.3.7
@@ -38,7 +38,7 @@ RELEASE_OUT ?=
 TELEPORT_TAG = 3.0.1
 # TELEPORT_REPOTAG adapts TELEPORT_TAG to the teleport tagging scheme
 TELEPORT_REPOTAG := v$(TELEPORT_TAG)
-PLANET_TAG := 5.4.1-$(K8S_VER)-1-g4cb56b4
+PLANET_TAG := 5.5.0-$(K8S_VER)
 PLANET_BRANCH := $(PLANET_TAG)
 K8S_APP_TAG := $(GRAVITY_TAG)
 TELEKUBE_APP_TAG := $(GRAVITY_TAG)

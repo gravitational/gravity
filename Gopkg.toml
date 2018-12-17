@@ -65,8 +65,7 @@ ignored = [
 
 [[constraint]]
   name = "github.com/gravitational/satellite"
-  branch = "roman/k13"
-  # version = "=5.3.0"
+  version = "=5.5.0"
 
 [[constraint]]
   name = "github.com/xtgo/set"
@@ -114,8 +113,7 @@ ignored = [
 
 [[constraint]]
   name = "github.com/gravitational/rigging"
-  branch = "roman/k13"
-  # version = "=5.3.0"
+  version = "=5.5.0"
 
 [[override]]
   name = "github.com/docker/distribution"
@@ -199,8 +197,10 @@ ignored = [
 
 [[constraint]]
   name = "github.com/gravitational/teleport"
-  branch = "roman/3.0/k13"
-  # branch = "branch/3.0"
+  # use gravity-specific 3.0 branch of teleport which includes
+  # new Kubernetes because it can't be revendored in regular
+  # 3.0 branch due to some compability issues
+  branch = "branch/3.0-g"
 
 [[constraint]]
   version = "0.0.1"
