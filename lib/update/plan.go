@@ -65,22 +65,13 @@ func InitOperationPlan(
 		return nil, trace.AlreadyExists("plan is already initialized")
 	}
 
-	cluster, err := clusterEnv.Operator.GetLocalSite()
+	existingDNS, err := getExistingDNSConfig(localEnv.Packages)
 	if err != nil {
-		return nil, trace.Wrap(err)
+		return nil, trace.Wrap(err, "failed to determine existing cluster DNS configuration")
 	}
+	log.Infof("Detected DNS configuration: %v.", *existingDNS)
 
-	dnsConfig := cluster.DNSConfig
-	if dnsConfig.IsEmpty() {
-		log.Info("Detecting DNS configuration.")
-		existingDNS, err := getExistingDNSConfig(localEnv.Packages)
-		if err != nil {
-			return nil, trace.Wrap(err, "failed to determine existing cluster DNS configuration")
-		}
-		dnsConfig = *existingDNS
-	}
-
-	plan, err = newOperationPlan(clusterEnv, dnsConfig, *operation)
+	plan, err = newOperationPlan(clusterEnv, *existingDNS, *operation)
 	if err != nil {
 		return nil, trace.Wrap(err)
 	}
