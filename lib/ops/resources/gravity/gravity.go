@@ -207,22 +207,6 @@ func (r *Resources) Create(req resources.CreateRequest) error {
 			return trace.Wrap(err)
 		}
 		r.Printf("Updated monitoring alert target %q\n", target.GetName())
-	case storage.KindEnvironment:
-		env, err := storage.UnmarshalEnvironmentVariables(req.Resource.Raw)
-		if err != nil {
-			return trace.Wrap(err)
-		}
-		if err := env.CheckAndSetDefaults(); err != nil {
-			return trace.Wrap(err)
-		}
-		err = r.Operator.UpdateClusterEnvironmentVariables(ops.UpdateClusterEnvironmentVariablesRequest{
-			Key: r.cluster.Key(),
-			Env: env,
-		})
-		if err != nil {
-			return trace.Wrap(err)
-		}
-		r.Println("Updated cluster envars")
 	case "":
 		return trace.BadParameter("missing resource kind")
 	default:

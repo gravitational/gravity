@@ -67,19 +67,6 @@ func (o *Operator) GetClusterEnvironmentVariables(key ops.SiteKey) (env storage.
 	return env, nil
 }
 
-// UpdateClusterEnvironmentVariables updates environment variables in cluster.
-func (o *Operator) UpdateClusterEnvironmentVariables(req ops.UpdateClusterEnvironmentVariablesRequest) error {
-	client, err := o.GetKubeClient()
-	if err != nil {
-		return trace.Wrap(err)
-	}
-	configmaps := client.CoreV1().ConfigMaps(defaults.KubeSystemNamespace)
-	err = kubernetes.Retry(context.TODO(), func() error {
-		return trace.Wrap(updateClusterEnvironment(configmaps, req.Env.GetKeyValues()))
-	})
-	return trace.Wrap(err)
-}
-
 func updateClusterEnvironment(client corev1.ConfigMapInterface, keyValues map[string]string) error {
 	configmap, err := client.Get(constants.ClusterEnvironmentMap, metav1.GetOptions{})
 	if err != nil {
@@ -112,6 +99,14 @@ func updateClusterEnvironment(client corev1.ConfigMapInterface, keyValues map[st
 
 // createUpdateEnvarsOperation creates a new operation to update cluster environment variables
 func (s *site) createUpdateEnvarsOperation(req ops.CreateUpdateEnvarsOperationRequest) (*ops.SiteOperationKey, error) {
+	client, err := s.service.GetKubeClient()
+	if err != nil {
+		return nil, trace.Wrap(err)
+	}
+	configmaps := client.CoreV1().ConfigMaps(defaults.KubeSystemNamespace)
+	err = kubernetes.Retry(context.TODO(), func() error {
+		return trace.Wrap(updateClusterEnvironment(configmaps, req.Env))
+	})
 	op := ops.SiteOperation{
 		ID:         uuid.New(),
 		AccountID:  s.key.AccountID,
@@ -124,7 +119,6 @@ func (s *site) createUpdateEnvarsOperation(req ops.CreateUpdateEnvarsOperationRe
 			Env: req.Env,
 		},
 	}
-
 	key, err := s.getOperationGroup().createSiteOperation(op)
 	if err != nil {
 		return nil, trace.Wrap(err)

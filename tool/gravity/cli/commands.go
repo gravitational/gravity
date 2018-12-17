@@ -68,8 +68,6 @@ type Application struct {
 	RemoveCmd RemoveCmd
 	// PlanCmd displays current operation plan
 	PlanCmd PlanCmd
-	// RollbackCmd rolls back the specified operation plan phase
-	RollbackCmd RollbackCmd
 	// UpdateCmd combines app update related commands
 	UpdateCmd UpdateCmd
 	// UpdateCheckCmd checks if a new app version is available
@@ -459,6 +457,10 @@ type PlanCmd struct {
 	Output *constants.Format
 	// OperationID is optional ID of operation to show the plan for
 	OperationID *string
+	// PhaseTimeout is the rollback timeout
+	PhaseTimeout *time.Duration
+	// SkipVersionCheck suppresses version mismatch errors
+	SkipVersionCheck *bool
 }
 
 // InstallPlanCmd combines subcommands for install plan
@@ -483,19 +485,6 @@ type UpgradePlanDisplayCmd struct {
 	*kingpin.CmdClause
 	// Output is output format
 	Output *constants.Format
-}
-
-// RollbackCmd rolls back the specified operation plan phase
-type RollbackCmd struct {
-	*kingpin.CmdClause
-	// Phase is the phase to rollback
-	Phase *string
-	// PhaseTimeout is the rollback timeout
-	PhaseTimeout *time.Duration
-	// Force forces rollback
-	Force *bool
-	// SkipVersionCheck suppresses version mismatch errors
-	SkipVersionCheck *bool
 }
 
 // UpdateCmd combines update related subcommands

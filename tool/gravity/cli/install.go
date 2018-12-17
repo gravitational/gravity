@@ -456,18 +456,6 @@ func findLocalServer(site ops.Site) (*storage.Server, error) {
 	return server, nil
 }
 
-// PhaseParams is a set of parameters for a single phase execution
-type PhaseParams struct {
-	// PhaseID is the ID of the phase to execute
-	PhaseID string
-	// Force allows to force phase execution
-	Force bool
-	// Timeout is phase execution timeout
-	Timeout time.Duration
-	// Complete marks operation complete
-	Complete bool
-}
-
 func executeInstallPhase(localEnv *localenv.LocalEnvironment, p PhaseParams) error {
 	localApps, err := localEnv.AppServiceLocal(localenv.AppConfig{})
 	if err != nil {
@@ -574,7 +562,7 @@ func executeJoinPhase(localEnv, joinEnv *localenv.LocalEnvironment, p PhaseParam
 	})
 }
 
-func rollbackJoinPhase(localEnv, joinEnv *localenv.LocalEnvironment, p rollbackParams) error {
+func rollbackJoinPhase(localEnv, joinEnv *localenv.LocalEnvironment, p PhaseParams) error {
 	// determine the ongoing expand operation, it should be the only
 	// operation present in the local join-specific backend
 	operation, err := ops.GetExpandOperation(joinEnv.Backend)
@@ -613,13 +601,13 @@ func rollbackJoinPhase(localEnv, joinEnv *localenv.LocalEnvironment, p rollbackP
 	if err != nil {
 		return trace.Wrap(err)
 	}
-	ctx, cancel := context.WithTimeout(context.Background(), p.timeout)
+	ctx, cancel := context.WithTimeout(context.Background(), p.Timeout)
 	defer cancel()
-	progress := utils.NewProgress(ctx, fmt.Sprintf("Rolling back join phase %q", p.phaseID), -1, false)
+	progress := utils.NewProgress(ctx, fmt.Sprintf("Rolling back join phase %q", p.PhaseID), -1, false)
 	defer progress.Stop()
 	return joinFSM.RollbackPhase(ctx, fsm.Params{
-		PhaseID:  p.phaseID,
-		Force:    p.force,
+		PhaseID:  p.PhaseID,
+		Force:    p.Force,
 		Progress: progress,
 	})
 }
@@ -637,7 +625,7 @@ func ResumeInstall(ctx context.Context, machine *fsm.FSM, progress utils.Progres
 	return nil
 }
 
-func rollbackInstallPhase(localEnv *localenv.LocalEnvironment, p rollbackParams) error {
+func rollbackInstallPhase(localEnv *localenv.LocalEnvironment, p PhaseParams) error {
 	localApps, err := localEnv.AppServiceLocal(localenv.AppConfig{})
 	if err != nil {
 		return trace.Wrap(err)
@@ -667,14 +655,14 @@ func rollbackInstallPhase(localEnv *localenv.LocalEnvironment, p rollbackParams)
 		return trace.Wrap(err)
 	}
 
-	ctx, cancel := context.WithTimeout(context.Background(), p.timeout)
+	ctx, cancel := context.WithTimeout(context.Background(), p.Timeout)
 	defer cancel()
-	progress := utils.NewProgress(ctx, fmt.Sprintf("Rolling back install phase %q", p.phaseID), -1, false)
+	progress := utils.NewProgress(ctx, fmt.Sprintf("Rolling back install phase %q", p.PhaseID), -1, false)
 	defer progress.Stop()
 
 	return installFSM.RollbackPhase(ctx, fsm.Params{
-		PhaseID:  p.phaseID,
-		Force:    p.force,
+		PhaseID:  p.PhaseID,
+		Force:    p.Force,
 		Progress: progress,
 	})
 }

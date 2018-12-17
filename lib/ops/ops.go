@@ -458,11 +458,10 @@ type Certificates interface {
 
 // EnvironmentVariables manages environment variables in cluster
 type EnvironmentVariables interface {
+	// CreateUpdateEnvarsOperation creates a new operation to update cluster environment variables
+	CreateUpdateEnvarsOperation(CreateUpdateEnvarsOperationRequest) (*SiteOperationKey, error)
 	// GetClusterEnvironmentVariables retrieves the cluster environment
 	GetClusterEnvironmentVariables(SiteKey) (storage.EnvironmentVariables, error)
-	// UpdateClusterEnvironmentVariables updates environment variables in the cluster
-	// given with request
-	UpdateClusterEnvironmentVariables(UpdateClusterEnvironmentVariablesRequest) error
 }
 
 // ClusterCertificate represents the cluster certificate
@@ -591,9 +590,6 @@ type Operations interface {
 	// CreateClusterGarbageCollectOperation creates a new garbage collection operation
 	// in the cluster
 	CreateClusterGarbageCollectOperation(CreateClusterGarbageCollectOperationRequest) (*SiteOperationKey, error)
-
-	// CreateUpdateEnvarsOperation creates a new operation to update cluster environment variables
-	CreateUpdateEnvarsOperation(CreateUpdateEnvarsOperationRequest) (*SiteOperationKey, error)
 
 	// GetsiteOperation returns the operation information based on it's key
 	GetSiteOperation(SiteOperationKey) (*SiteOperation, error)

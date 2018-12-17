@@ -67,6 +67,13 @@ func (r *Config) checkAndSetDefaults() (err error) {
 	if r.Spec == nil {
 		r.Spec = configToExecutor(*r)
 	}
+	if r.FieldLogger == nil {
+		r.FieldLogger = &libfsm.Logger{
+			FieldLogger: log.WithField(trace.Component, "environ"),
+			Key:         r.Operation.Key(),
+			Operator:    r.Operator,
+		}
+	}
 	return nil
 }
 

@@ -133,7 +133,6 @@ func (g *Application) isUpgradeCommand(cmd string) bool {
 	switch cmd {
 	case g.PlanCmd.FullCommand(),
 		g.UpdateTriggerCmd.FullCommand(),
-		g.RollbackCmd.FullCommand(),
 		g.UpgradeCmd.FullCommand():
 		return true
 	case g.RPCAgentRunCmd.FullCommand():

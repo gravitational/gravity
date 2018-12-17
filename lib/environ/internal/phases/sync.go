@@ -37,7 +37,7 @@ func NewSync(params libfsm.ExecutorParams, emitter utils.Emitter, logger log.Fie
 
 // Execute updates environment variables on the underlying node
 func (r *nodeSyncer) Execute(ctx context.Context) error {
-	args := utils.PlanetCommandArgs("update-env")
+	args := utils.PlanetCommandArgs("planet", "envars", "update")
 	cmd := exec.Command(args[0], args[1:]...)
 	var buf bytes.Buffer
 	err := utils.ExecL(cmd, &buf, r.FieldLogger)
@@ -50,8 +50,7 @@ func (r *nodeSyncer) Execute(ctx context.Context) error {
 
 // Rollback restores the previous cluster environment variables
 func (r *nodeSyncer) Rollback(context.Context) error {
-	// FIXME: use a simple rollback from a backup file
-	args := utils.PlanetCommandArgs("restore-env")
+	args := utils.PlanetCommandArgs("planet", "envars", "rollback")
 	cmd := exec.Command(args[0], args[1:]...)
 	var buf bytes.Buffer
 	err := utils.ExecL(cmd, &buf, r.FieldLogger)

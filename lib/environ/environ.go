@@ -73,7 +73,7 @@ L:
 	return trace.Wrap(err)
 }
 
-// RunPhase runs the specified update phase.
+// RunPhase runs the specified phase.
 func (r *Updater) RunPhase(ctx context.Context, phase string, phaseTimeout time.Duration, force bool) error {
 	if phase == libfsm.RootPhase {
 		return trace.Wrap(r.Run(ctx, force))
@@ -91,6 +91,26 @@ func (r *Updater) RunPhase(ctx context.Context, phase string, phaseTimeout time.
 	defer progress.Stop()
 
 	return trace.Wrap(machine.ExecutePhase(ctx, libfsm.Params{
+		PhaseID:  phase,
+		Progress: progress,
+		Force:    force,
+	}))
+}
+
+// Rollbackhase rolls back the specified phase.
+func (r *Updater) RollbackPhase(ctx context.Context, phase string, phaseTimeout time.Duration, force bool) error {
+	machine, err := r.init()
+	if err != nil {
+		return trace.Wrap(err)
+	}
+
+	ctx, cancel := context.WithTimeout(ctx, phaseTimeout)
+	defer cancel()
+
+	progress := utils.NewProgress(ctx, fmt.Sprintf("Rolling back phase %q", phase), -1, false)
+	defer progress.Stop()
+
+	return trace.Wrap(machine.RollbackPhase(ctx, libfsm.Params{
 		PhaseID:  phase,
 		Progress: progress,
 		Force:    force,
@@ -133,6 +153,8 @@ func (r *Updater) executePlan(ctx context.Context, machine *libfsm.FSM, force bo
 		r.Warnf("Failed to execute plan: %v.", trace.DebugReport(planErr))
 	}
 
+	// FIXME: wrap this (or inners) in a retry loop, as cluster controller
+	// might be temporarily unavailable (connection refused)
 	err := machine.Complete(planErr)
 	if err == nil {
 		err = planErr

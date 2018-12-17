@@ -21,43 +21,43 @@ import (
 	"net/http"
 
 	"github.com/gravitational/gravity/lib/ops"
-	"github.com/gravitational/gravity/lib/ops/opsclient"
 	"github.com/gravitational/gravity/lib/storage"
 
 	"github.com/gravitational/roundtrip"
-	telehttplib "github.com/gravitational/teleport/lib/httplib"
 	"github.com/gravitational/trace"
 	"github.com/julienschmidt/httprouter"
 )
 
-/* sOperation creates a new operation to update cluster environment variables
+/* createUpdateEnvarsOperation initiates the operatation of updating cluster environment variables
 
-   POST	/portal/v1/accounts/:account_id/sites/:site_domain/operations/envars
+   POST /portal/v1/accounts/:account_id/sites/:site_domain/operations/envars
 
    {
       "account_id": "account id",
-      "site_id": "cluster_name",
+      "site_id": "site_id",
+      "env": "<new enviornment>"
    }
 
 
 Success response:
 
-   ops.SiteKey
+   {
+      "account_id": "account id",
+      "site_id": "site_id",
+      "operation_id": "operation id"
+   }
 */
 func (h *WebHandler) createUpdateEnvarsOperation(w http.ResponseWriter, r *http.Request, p httprouter.Params, context *HandlerContext) error {
+	d := json.NewDecoder(r.Body)
 	var req ops.CreateUpdateEnvarsOperationRequest
-	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+	if err := d.Decode(&req); err != nil {
 		return trace.BadParameter(err.Error())
 	}
-
-	key := siteKey(p)
-	req.AccountID = key.AccountID
-	req.SiteDomain = key.SiteDomain
+	req.SiteKey = siteKey(p)
 	op, err := context.Operator.CreateUpdateEnvarsOperation(req)
 	if err != nil {
 		return trace.Wrap(err)
 	}
-
 	roundtrip.ReplyJSON(w, http.StatusOK, op)
 	return nil
 }
@@ -77,35 +77,4 @@ func (h *WebHandler) getEnvironmentVariables(w http.ResponseWriter, r *http.Requ
 	}
 	bytes, err := storage.MarshalEnvironment(env)
 	return trace.Wrap(rawMessage(w, bytes, err))
-}
-
-/* updateEnvironmentVariables updates the cluster environment
-
-     PUT /portal/v1/accounts/:account_id/sites/:site_domain/envars
-
-   Success Response:
-
-     {
-       "message": "environment variables updated"
-     }
-*/
-func (h *WebHandler) updateEnvironmentVariables(w http.ResponseWriter, r *http.Request, p httprouter.Params, context *HandlerContext) error {
-	var req opsclient.UpsertResourceRawReq
-	if err := telehttplib.ReadJSON(r, &req); err != nil {
-		return trace.Wrap(err)
-	}
-	env, err := storage.UnmarshalEnvironmentVariables(req.Resource)
-	if err != nil {
-		return trace.Wrap(err)
-	}
-	key := siteKey(p)
-	err = context.Operator.UpdateClusterEnvironmentVariables(ops.UpdateClusterEnvironmentVariablesRequest{
-		Key: key,
-		Env: env,
-	})
-	if err != nil {
-		return trace.Wrap(err)
-	}
-	roundtrip.ReplyJSON(w, http.StatusOK, statusOK("environment variables updated"))
-	return nil
 }

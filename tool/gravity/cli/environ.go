@@ -18,7 +18,6 @@ package cli
 
 import (
 	"context"
-	"time"
 
 	"github.com/gravitational/gravity/lib/constants"
 	"github.com/gravitational/gravity/lib/environ"
@@ -32,7 +31,9 @@ import (
 	"github.com/sirupsen/logrus"
 )
 
-func updateEnvars(localEnv *localenv.LocalEnvironment, resource teleservices.UnknownResource) error {
+// UpdateEnvars executes the loop to update cluster environment variables.
+// resource specifies the new environment variables to apply.
+func UpdateEnvars(localEnv *localenv.LocalEnvironment, resource teleservices.UnknownResource) error {
 	env, err := storage.UnmarshalEnvironmentVariables(resource.Raw)
 	if err != nil {
 		return trace.Wrap(err)
@@ -71,8 +72,12 @@ func updateEnvars(localEnv *localenv.LocalEnvironment, resource teleservices.Unk
 		r := recover()
 		triggered := err == nil && r == nil
 		if !triggered {
-			// FIXME: err might be nil (i.e. r != nil)
-			if errMark := ops.FailOperation(*key, operator, err.Error()); errMark != nil {
+			logrus.WithError(err).Warn("Operation failed.")
+			var msg string
+			if err != nil {
+				msg = err.Error()
+			}
+			if errMark := ops.FailOperation(*key, operator, msg); errMark != nil {
 				logrus.WithFields(logrus.Fields{
 					logrus.ErrorKey: errMark,
 					"operation":     key,
@@ -122,25 +127,44 @@ func updateEnvars(localEnv *localenv.LocalEnvironment, resource teleservices.Unk
 	return trace.Wrap(err)
 }
 
-func updateEnvarsPhase(env *localenv.LocalEnvironment, phase string, phaseTimeout time.Duration, force bool) error {
-	operator, err := env.SiteOperator()
+func updateEnvarsPhase(env *localenv.LocalEnvironment, params PhaseParams) error {
+	updater, err := getUpdater(env)
 	if err != nil {
 		return trace.Wrap(err)
+	}
+
+	err = updater.RunPhase(context.TODO(), params.PhaseID, params.Timeout, params.Force)
+	return trace.Wrap(err)
+}
+
+func rollbackUpdateEnvarsPhase(env *localenv.LocalEnvironment, params PhaseParams) error {
+	updater, err := getUpdater(env)
+	if err != nil {
+		return trace.Wrap(err)
+	}
+	err = updater.RollbackPhase(context.TODO(), params.PhaseID, params.Timeout, params.Force)
+	return trace.Wrap(err)
+}
+
+func getUpdater(env *localenv.LocalEnvironment) (*environ.Updater, error) {
+	operator, err := env.SiteOperator()
+	if err != nil {
+		return nil, trace.Wrap(err)
 	}
 
 	cluster, err := operator.GetLocalSite()
 	if err != nil {
-		return trace.Wrap(err)
+		return nil, trace.Wrap(err)
 	}
 
 	operation, _, err := ops.GetLastOperation(cluster.Key(), operator)
 	if err != nil {
-		return trace.Wrap(err)
+		return nil, trace.Wrap(err)
 	}
 
 	creds, err := libfsm.GetClientCredentials()
 	if err != nil {
-		return trace.Wrap(err)
+		return nil, trace.Wrap(err)
 	}
 	runner := libfsm.NewAgentRunner(creds)
 
@@ -153,9 +177,7 @@ func updateEnvarsPhase(env *localenv.LocalEnvironment, phase string, phaseTimeou
 		Runner:     runner,
 	})
 	if err != nil {
-		return trace.Wrap(err)
+		return nil, trace.Wrap(err)
 	}
-
-	err = updater.RunPhase(context.TODO(), phase, phaseTimeout, force)
-	return trace.Wrap(err)
+	return updater, nil
 }

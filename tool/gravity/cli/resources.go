@@ -17,16 +17,20 @@ limitations under the License.
 package cli
 
 import (
+	"bytes"
 	"os"
 
 	"github.com/gravitational/gravity/lib/constants"
+	"github.com/gravitational/gravity/lib/defaults"
 	"github.com/gravitational/gravity/lib/localenv"
 	"github.com/gravitational/gravity/lib/ops/resources"
 	"github.com/gravitational/gravity/lib/ops/resources/gravity"
 	"github.com/gravitational/gravity/lib/storage"
 	"github.com/gravitational/gravity/tool/common"
 
+	teleservices "github.com/gravitational/teleport/lib/services"
 	"github.com/gravitational/trace"
+	"k8s.io/apimachinery/pkg/util/yaml"
 )
 
 // createResource updates or inserts one or many resources
@@ -48,20 +52,30 @@ func createResource(env *localenv.LocalEnvironment, filename string, upsert bool
 		return trace.Wrap(err)
 	}
 	defer reader.Close()
-	created, err := resources.NewControl(gravityResources).Create(reader, upsert, user)
-	if err != nil {
-		return trace.Wrap(err)
-	}
-
-	for _, resource := range created {
-		switch resource.Kind {
+	decoder := yaml.NewYAMLOrJSONDecoder(reader, defaults.DecoderBufferSize)
+	for {
+		var raw teleservices.UnknownResource
+		err = decoder.Decode(&raw)
+		if err != nil {
+			break
+		}
+		switch raw.Kind {
 		case storage.KindEnvironment:
-			err = updateEnvars(env, resource)
+			if checkRunningAsRoot() != nil {
+				return trace.BadParameter("updating environment variables requires root privileges.\n" +
+					"Please run this command as root")
+			}
+			err = UpdateEnvars(env, raw)
+			if err != nil {
+				return trace.Wrap(err)
+			}
+		default:
+			_, err = resources.NewControl(gravityResources).Create(bytes.NewReader(raw.Raw), upsert, user)
 			if err != nil {
 				return trace.Wrap(err)
 			}
 		}
-		env.Println("created ", resource.Kind)
+		env.Println("created ", raw.Kind)
 	}
 
 	return nil

@@ -236,7 +236,7 @@ func NewWebHandler(cfg WebHandlerConfig) (*WebHandler, error) {
 
 	// environment variables
 	h.GET("/portal/v1/accounts/:account_id/sites/:site_domain/envars", h.needsAuth(h.getEnvironmentVariables))
-	h.PUT("/portal/v1/accounts/:account_id/sites/:site_domain/envars", h.needsAuth(h.updateEnvironmentVariables))
+	h.POST("/portal/v1/accounts/:account_id/sites/:site_domain/operations/envars", h.needsAuth(h.createUpdateEnvarsOperation))
 
 	// validation
 	h.POST("/portal/v1/accounts/:account_id/sites/:site_domain/validation/remoteaccess", h.needsAuth(h.validateRemoteAccess))

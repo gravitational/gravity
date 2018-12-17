@@ -1117,19 +1117,6 @@ func (c *Client) GetClusterEnvironmentVariables(key ops.SiteKey) (storage.Enviro
 	return env, nil
 }
 
-// UpdateClusterEnvironmentVariables updates the cluster with the specified environment.
-// Returns the updated environment
-func (c *Client) UpdateClusterEnvironmentVariables(req ops.UpdateClusterEnvironmentVariablesRequest) error {
-	bytes, err := storage.MarshalEnvironment(req.Env)
-	if err != nil {
-		return trace.Wrap(err)
-	}
-
-	_, err = c.PutJSON(c.Endpoint("accounts", req.Key.AccountID, "sites", req.Key.SiteDomain, "environment"),
-		&UpsertResourceRawReq{Resource: bytes})
-	return trace.Wrap(err)
-}
-
 func (c *Client) GetApplicationEndpoints(key ops.SiteKey) ([]ops.Endpoint, error) {
 	out, err := c.Get(c.Endpoint("accounts", key.AccountID, "sites", key.SiteDomain, "endpoints"), url.Values{})
 	if err != nil {

@@ -784,15 +784,6 @@ func (o *OperatorACL) GetClusterEnvironmentVariables(key SiteKey) (storage.Envir
 	return o.operator.GetClusterEnvironmentVariables(key)
 }
 
-// UpdateClusterEnvironmentVariables updates the cluster with the specified environment.
-// Returns the updated environment
-func (o *OperatorACL) UpdateClusterEnvironmentVariables(req UpdateClusterEnvironmentVariablesRequest) error {
-	if err := o.ClusterAction(req.Key.SiteDomain, storage.KindEnvironment, teleservices.VerbUpdate); err != nil {
-		return trace.Wrap(err)
-	}
-	return o.operator.UpdateClusterEnvironmentVariables(req)
-}
-
 func (o *OperatorACL) GetApplicationEndpoints(key SiteKey) ([]Endpoint, error) {
 	if err := o.ClusterAction(key.SiteDomain, storage.KindCluster, teleservices.VerbRead); err != nil {
 		return nil, trace.Wrap(err)

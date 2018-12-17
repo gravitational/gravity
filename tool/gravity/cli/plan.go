@@ -33,6 +33,7 @@ import (
 
 	"github.com/fatih/color"
 	"github.com/gravitational/trace"
+	"github.com/sirupsen/logrus"
 )
 
 func initOperationPlan(localEnv, updateEnv *localenv.LocalEnvironment) error {
@@ -277,6 +278,10 @@ func hasUpdateOperation(updateEnv *localenv.LocalEnvironment) bool {
 
 // hasExpandOperation returns true if the provided backend contains an expand operation
 func hasExpandOperation(joinEnv *localenv.LocalEnvironment) bool {
-	_, err := ops.GetExpandOperation(joinEnv.Backend)
-	return err == nil
+	op, err := storage.GetLastOperation(joinEnv.Backend)
+	if err != nil {
+		logrus.Debugf("Failed to check for expand operation: %v.", err)
+		return false
+	}
+	return op.Type == ops.OperationExpand
 }

@@ -19,7 +19,6 @@ package cli
 import (
 	"context"
 	"fmt"
-	"time"
 
 	"github.com/gravitational/gravity/lib/defaults"
 	"github.com/gravitational/gravity/lib/fsm"
@@ -36,26 +35,22 @@ func executeAutomaticUpgrade(ctx context.Context, localEnv, upgradeEnv *localenv
 
 // upgradePhaseParams combines parameters for an upgrade phase execution/rollback
 type upgradePhaseParams struct {
-	// phaseID is the ID of the phase to execute
-	phaseID string
-	// force allows to force phase execution
-	force bool
+	// PhaseParams specifies generic phase execution configuration
+	PhaseParams
 	// skipVersionCheck allows to override gravity version compatibility check
 	skipVersionCheck bool
-	// timeout is phase execution timeout
-	timeout time.Duration
 }
 
-func executeUpgradePhase(localEnv, upgradeEnv *localenv.LocalEnvironment, p upgradePhaseParams) error {
+func executeUpgradePhase(localEnv, upgradeEnv *localenv.LocalEnvironment, p PhaseParams) error {
 	clusterEnv, err := localEnv.NewClusterEnvironment()
 	if err != nil {
 		return trace.Wrap(err)
 	}
 
-	ctx, cancel := context.WithTimeout(context.Background(), p.timeout)
+	ctx, cancel := context.WithTimeout(context.Background(), p.Timeout)
 	defer cancel()
 
-	progress := utils.NewProgress(ctx, fmt.Sprintf("phase %q execution", p.phaseID), -1, false)
+	progress := utils.NewProgress(ctx, fmt.Sprintf("phase %q execution", p.PhaseID), -1, false)
 	defer progress.Stop()
 
 	creds, err := fsm.GetClientCredentials()
@@ -77,24 +72,24 @@ func executeUpgradePhase(localEnv, upgradeEnv *localenv.LocalEnvironment, p upgr
 		Users:             clusterEnv.Users,
 		Remote:            runner,
 	}, fsm.Params{
-		PhaseID:  p.phaseID,
-		Force:    p.force,
+		PhaseID:  p.PhaseID,
+		Force:    p.Force,
 		Progress: progress,
-	}, p.skipVersionCheck)
+	}, p.SkipVersionCheck)
 
 	return trace.Wrap(err)
 }
 
-func rollbackUpgradePhase(localEnv, updateEnv *localenv.LocalEnvironment, p rollbackParams) error {
+func rollbackUpgradePhase(localEnv, updateEnv *localenv.LocalEnvironment, p PhaseParams) error {
 	clusterEnv, err := localEnv.NewClusterEnvironment()
 	if err != nil {
 		return trace.Wrap(err)
 	}
 
-	ctx, cancel := context.WithTimeout(context.Background(), p.timeout)
+	ctx, cancel := context.WithTimeout(context.Background(), p.Timeout)
 	defer cancel()
 
-	progress := utils.NewProgress(ctx, fmt.Sprintf("phase %q rollback", p.phaseID), -1, false)
+	progress := utils.NewProgress(ctx, fmt.Sprintf("phase %q rollback", p.PhaseID), -1, false)
 	defer progress.Stop()
 
 	creds, err := fsm.GetClientCredentials()
@@ -116,10 +111,10 @@ func rollbackUpgradePhase(localEnv, updateEnv *localenv.LocalEnvironment, p roll
 		Users:             clusterEnv.Users,
 		Remote:            runner,
 	}, fsm.Params{
-		PhaseID:  p.phaseID,
-		Force:    p.force,
+		PhaseID:  p.PhaseID,
+		Force:    p.Force,
 		Progress: progress,
-	}, p.skipVersionCheck)
+	}, p.SkipVersionCheck)
 
 	return trace.Wrap(err)
 }
