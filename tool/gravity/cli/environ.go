@@ -25,13 +25,19 @@ import (
 	libfsm "github.com/gravitational/gravity/lib/fsm"
 	"github.com/gravitational/gravity/lib/localenv"
 	"github.com/gravitational/gravity/lib/ops"
+	"github.com/gravitational/gravity/lib/storage"
 
+	teleservices "github.com/gravitational/teleport/lib/services"
 	"github.com/gravitational/trace"
 	"github.com/sirupsen/logrus"
 )
 
-func updateEnvars(env *localenv.LocalEnvironment) error {
-	teleportClient, err := env.TeleportClient(constants.Localhost)
+func updateEnvars(localEnv *localenv.LocalEnvironment, resource teleservices.UnknownResource) error {
+	env, err := storage.UnmarshalEnvironmentVariables(resource.Raw)
+	if err != nil {
+		return trace.Wrap(err)
+	}
+	teleportClient, err := localEnv.TeleportClient(constants.Localhost)
 	if err != nil {
 		return trace.Wrap(err, "failed to create a teleport client")
 	}
@@ -39,7 +45,7 @@ func updateEnvars(env *localenv.LocalEnvironment) error {
 	if err != nil {
 		return trace.Wrap(err, "failed to connect to teleport proxy")
 	}
-	operator, err := env.SiteOperator()
+	operator, err := localEnv.SiteOperator()
 	if err != nil {
 		return trace.Wrap(err)
 	}
@@ -50,6 +56,7 @@ func updateEnvars(env *localenv.LocalEnvironment) error {
 	key, err := operator.CreateUpdateEnvarsOperation(
 		ops.CreateUpdateEnvarsOperationRequest{
 			SiteKey: cluster.Key(),
+			Env:     env.GetKeyValues(),
 		},
 	)
 	if err != nil {
@@ -81,7 +88,7 @@ func updateEnvars(env *localenv.LocalEnvironment) error {
 	if err != nil {
 		return trace.Wrap(err)
 	}
-	clusterEnv, err := env.NewClusterEnvironment()
+	clusterEnv, err := localEnv.NewClusterEnvironment()
 	if err != nil {
 		return trace.Wrap(err)
 	}
@@ -102,9 +109,9 @@ func updateEnvars(env *localenv.LocalEnvironment) error {
 		Operation:  operation,
 		Servers:    cluster.ClusterState.Servers,
 		ClusterKey: cluster.Key(),
-		Silent:     env.Silent,
+		Silent:     localEnv.Silent,
 		Runner:     runner,
-		Emitter:    env,
+		Emitter:    localEnv,
 	}
 	updater, err := environ.New(config)
 	if err != nil {

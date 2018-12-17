@@ -48,6 +48,20 @@ func (r *nodeSyncer) Execute(ctx context.Context) error {
 	return nil
 }
 
+// Rollback restores the previous cluster environment variables
+func (r *nodeSyncer) Rollback(context.Context) error {
+	// FIXME: use a simple rollback from a backup file
+	args := utils.PlanetCommandArgs("restore-env")
+	cmd := exec.Command(args[0], args[1:]...)
+	var buf bytes.Buffer
+	err := utils.ExecL(cmd, &buf, r.FieldLogger)
+	if err != nil {
+		r.WithField("output", buf.String()).Warn("Failed to restore cluster environment variables.")
+		return trace.Wrap(err)
+	}
+	return nil
+}
+
 // PreCheck is a no-op
 func (r *nodeSyncer) PreCheck(context.Context) error {
 	return nil
@@ -55,11 +69,6 @@ func (r *nodeSyncer) PreCheck(context.Context) error {
 
 // PostCheck is a no-op
 func (r *nodeSyncer) PostCheck(context.Context) error {
-	return nil
-}
-
-// Rollback is a no-op
-func (r *nodeSyncer) Rollback(context.Context) error {
 	return nil
 }
 

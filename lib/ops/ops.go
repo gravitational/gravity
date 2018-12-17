@@ -1131,7 +1131,10 @@ type CreateClusterGarbageCollectOperationRequest struct {
 // CreateUpdateEnvarsOperationRequest is a request
 // to update cluster environment variables
 type CreateUpdateEnvarsOperationRequest struct {
+	// SiteKey identifies the cluster
 	SiteKey `json:"cluster_key"`
+	// Env specifies the new cluster environment variables
+	Env map[string]string `json:"env"`
 }
 
 // AgentService coordinates install agents that are started on every server

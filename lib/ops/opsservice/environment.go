@@ -120,6 +120,9 @@ func (s *site) createUpdateEnvarsOperation(req ops.CreateUpdateEnvarsOperationRe
 		Created:    s.clock().UtcNow(),
 		Updated:    s.clock().UtcNow(),
 		State:      ops.OperationUpdateEnvarsInProgress,
+		UpdateEnvars: &storage.UpdateEnvarsOperationState{
+			Env: req.Env,
+		},
 	}
 
 	key, err := s.getOperationGroup().createSiteOperation(op)

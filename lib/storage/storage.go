@@ -431,6 +431,8 @@ type SiteOperation struct {
 	Uninstall *UninstallOperationState `json:"uninstall,omitempty"`
 	// Update is for updating application on the gravity site
 	Update *UpdateOperationState `json:"update,omitempty"`
+	// UpdateEnvars defines the environment state
+	UpdateEnvars *UpdateEnvarsOperationState `json:"update_envars,omitempty"`
 }
 
 func (s *SiteOperation) Check() error {
@@ -1943,6 +1945,12 @@ type UpdateOperationState struct {
 	ServerUpdates []ServerUpdate `json:"server_updates,omitempty"`
 	// Manual specifies whether this update operation was created in manual mode
 	Manual bool `json:"manual"`
+}
+
+// UpdateEnvarsOperationState describes the state of the operation to update cluster environment variables.
+type UpdateEnvarsOperationState struct {
+	// Env defines new cluster environment variables
+	Env map[string]string
 }
 
 // Package returns the update package locator

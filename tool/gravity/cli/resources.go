@@ -56,7 +56,10 @@ func createResource(env *localenv.LocalEnvironment, filename string, upsert bool
 	for _, resource := range created {
 		switch resource.Kind {
 		case storage.KindEnvironment:
-			// TODO: create an update operation
+			err = updateEnvars(env, resource)
+			if err != nil {
+				return trace.Wrap(err)
+			}
 		}
 		env.Println("created ", resource.Kind)
 	}
