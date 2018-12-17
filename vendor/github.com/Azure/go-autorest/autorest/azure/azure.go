@@ -21,7 +21,9 @@ import (
 	"fmt"
 	"io/ioutil"
 	"net/http"
+	"regexp"
 	"strconv"
+	"strings"
 
 	"github.com/Azure/go-autorest/autorest"
 )
@@ -42,11 +44,12 @@ const (
 // ServiceError encapsulates the error response from an Azure service.
 // It adhears to the OData v4 specification for error responses.
 type ServiceError struct {
-	Code       string                   `json:"code"`
-	Message    string                   `json:"message"`
-	Target     *string                  `json:"target"`
-	Details    []map[string]interface{} `json:"details"`
-	InnerError map[string]interface{}   `json:"innererror"`
+	Code           string                   `json:"code"`
+	Message        string                   `json:"message"`
+	Target         *string                  `json:"target"`
+	Details        []map[string]interface{} `json:"details"`
+	InnerError     map[string]interface{}   `json:"innererror"`
+	AdditionalInfo []map[string]interface{} `json:"additionalInfo"`
 }
 
 func (se ServiceError) Error() string {
@@ -72,6 +75,14 @@ func (se ServiceError) Error() string {
 		result += fmt.Sprintf(" InnerError=%v", string(d))
 	}
 
+	if se.AdditionalInfo != nil {
+		d, err := json.Marshal(se.AdditionalInfo)
+		if err != nil {
+			result += fmt.Sprintf(" AdditionalInfo=%v", se.AdditionalInfo)
+		}
+		result += fmt.Sprintf(" AdditionalInfo=%v", string(d))
+	}
+
 	return result
 }
 
@@ -84,44 +95,47 @@ func (se *ServiceError) UnmarshalJSON(b []byte) error {
 	// http://docs.oasis-open.org/odata/odata-json-format/v4.0/os/odata-json-format-v4.0-os.html#_Toc372793091
 
 	type serviceError1 struct {
-		Code       string                   `json:"code"`
-		Message    string                   `json:"message"`
-		Target     *string                  `json:"target"`
-		Details    []map[string]interface{} `json:"details"`
-		InnerError map[string]interface{}   `json:"innererror"`
+		Code           string                   `json:"code"`
+		Message        string                   `json:"message"`
+		Target         *string                  `json:"target"`
+		Details        []map[string]interface{} `json:"details"`
+		InnerError     map[string]interface{}   `json:"innererror"`
+		AdditionalInfo []map[string]interface{} `json:"additionalInfo"`
 	}
 
 	type serviceError2 struct {
-		Code       string                 `json:"code"`
-		Message    string                 `json:"message"`
-		Target     *string                `json:"target"`
-		Details    map[string]interface{} `json:"details"`
-		InnerError map[string]interface{} `json:"innererror"`
+		Code           string                   `json:"code"`
+		Message        string                   `json:"message"`
+		Target         *string                  `json:"target"`
+		Details        map[string]interface{}   `json:"details"`
+		InnerError     map[string]interface{}   `json:"innererror"`
+		AdditionalInfo []map[string]interface{} `json:"additionalInfo"`
 	}
 
 	se1 := serviceError1{}
 	err := json.Unmarshal(b, &se1)
 	if err == nil {
-		se.populate(se1.Code, se1.Message, se1.Target, se1.Details, se1.InnerError)
+		se.populate(se1.Code, se1.Message, se1.Target, se1.Details, se1.InnerError, se1.AdditionalInfo)
 		return nil
 	}
 
 	se2 := serviceError2{}
 	err = json.Unmarshal(b, &se2)
 	if err == nil {
-		se.populate(se2.Code, se2.Message, se2.Target, nil, se2.InnerError)
+		se.populate(se2.Code, se2.Message, se2.Target, nil, se2.InnerError, se2.AdditionalInfo)
 		se.Details = append(se.Details, se2.Details)
 		return nil
 	}
 	return err
 }
 
-func (se *ServiceError) populate(code, message string, target *string, details []map[string]interface{}, inner map[string]interface{}) {
+func (se *ServiceError) populate(code, message string, target *string, details []map[string]interface{}, inner map[string]interface{}, additional []map[string]interface{}) {
 	se.Code = code
 	se.Message = message
 	se.Target = target
 	se.Details = details
 	se.InnerError = inner
+	se.AdditionalInfo = additional
 }
 
 // RequestError describes an error response returned by Azure service.
@@ -145,6 +159,41 @@ func (e RequestError) Error() string {
 func IsAzureError(e error) bool {
 	_, ok := e.(*RequestError)
 	return ok
+}
+
+// Resource contains details about an Azure resource.
+type Resource struct {
+	SubscriptionID string
+	ResourceGroup  string
+	Provider       string
+	ResourceType   string
+	ResourceName   string
+}
+
+// ParseResourceID parses a resource ID into a ResourceDetails struct.
+// See https://docs.microsoft.com/en-us/azure/azure-resource-manager/resource-group-template-functions-resource#return-value-4.
+func ParseResourceID(resourceID string) (Resource, error) {
+
+	const resourceIDPatternText = `(?i)subscriptions/(.+)/resourceGroups/(.+)/providers/(.+?)/(.+?)/(.+)`
+	resourceIDPattern := regexp.MustCompile(resourceIDPatternText)
+	match := resourceIDPattern.FindStringSubmatch(resourceID)
+
+	if len(match) == 0 {
+		return Resource{}, fmt.Errorf("parsing failed for %s. Invalid resource Id format", resourceID)
+	}
+
+	v := strings.Split(match[5], "/")
+	resourceName := v[len(v)-1]
+
+	result := Resource{
+		SubscriptionID: match[1],
+		ResourceGroup:  match[2],
+		Provider:       match[3],
+		ResourceType:   match[4],
+		ResourceName:   resourceName,
+	}
+
+	return result, nil
 }
 
 // NewErrorWithError creates a new Error conforming object from the
@@ -242,16 +291,29 @@ func WithErrorUnlessStatusCode(codes ...int) autorest.RespondDecorator {
 				resp.Body = ioutil.NopCloser(&b)
 				if decodeErr != nil {
 					return fmt.Errorf("autorest/azure: error response cannot be parsed: %q error: %v", b.String(), decodeErr)
-				} else if e.ServiceError == nil {
+				}
+				if e.ServiceError == nil {
 					// Check if error is unwrapped ServiceError
-					if err := json.Unmarshal(b.Bytes(), &e.ServiceError); err != nil || e.ServiceError.Message == "" {
-						e.ServiceError = &ServiceError{
-							Code:    "Unknown",
-							Message: "Unknown service error",
-						}
+					if err := json.Unmarshal(b.Bytes(), &e.ServiceError); err != nil {
+						return err
 					}
 				}
-
+				if e.ServiceError.Message == "" {
+					// if we're here it means the returned error wasn't OData v4 compliant.
+					// try to unmarshal the body as raw JSON in hopes of getting something.
+					rawBody := map[string]interface{}{}
+					if err := json.Unmarshal(b.Bytes(), &rawBody); err != nil {
+						return err
+					}
+					e.ServiceError = &ServiceError{
+						Code:    "Unknown",
+						Message: "Unknown service error",
+					}
+					if len(rawBody) > 0 {
+						e.ServiceError.Details = []map[string]interface{}{rawBody}
+					}
+				}
+				e.Response = resp
 				e.RequestID = ExtractRequestID(resp)
 				if e.StatusCode == nil {
 					e.StatusCode = resp.StatusCode

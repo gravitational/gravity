@@ -18,8 +18,8 @@ import (
 	"context"
 	"io"
 
-	log "github.com/sirupsen/logrus"
 	"github.com/gravitational/trace"
+	log "github.com/sirupsen/logrus"
 	appsv1 "k8s.io/api/apps/v1"
 	"k8s.io/api/core/v1"
 	"k8s.io/api/extensions/v1beta1"
@@ -182,6 +182,7 @@ func (c *DSControl) Status() error {
 	if err != nil {
 		return ConvertError(err)
 	}
+
 	currentPods, err := c.collectPods(currentDS)
 	if err != nil {
 		return trace.Wrap(err)
@@ -193,5 +194,12 @@ func (c *DSControl) Status() error {
 	if err != nil {
 		return ConvertError(err)
 	}
+
+	// If the node selector doesn't match any nodes, just return nil
+	// This is for use cases, where the selector is set to say run on worker nodes, but the cluster only has masters
+	if len(nodes.Items) == 0 {
+		return nil
+	}
+
 	return checkRunning(currentPods, nodes.Items, c.Entry)
 }
