@@ -336,7 +336,7 @@ func (r *Resources) GetCollection(req resources.ListRequest) (resources.Collecti
 		}
 		return alertTargetCollection(alertTargets), nil
 	case storage.KindEnvironment, "environments", "env":
-		// always ignore name parameter for tls key pairs, because there is only one
+		// always ignore name parameter for environment variables, because there is only one
 		env, err := r.Operator.GetClusterEnvironmentVariables(r.cluster.Key())
 		if err != nil && !trace.IsNotFound(err) {
 			return nil, trace.Wrap(err)

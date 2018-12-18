@@ -178,7 +178,7 @@ func InitAndCheck(g *Application, cmd string) error {
 		g.GarbageCollectCmd.FullCommand(),
 		g.SystemGCRegistryCmd.FullCommand(),
 		g.CheckCmd.FullCommand():
-		if err := checkRunningAsRoot(); err != nil {
+		if err := CheckRunningAsRoot(); err != nil {
 			return trace.Wrap(err)
 		}
 	}
@@ -847,7 +847,7 @@ func checkInCluster(dnsAddr string) error {
 	return nil
 }
 
-func checkRunningAsRoot() error {
+func CheckRunningAsRoot() error {
 	if os.Geteuid() != 0 {
 		return trace.BadParameter("this command should be run as root")
 	}

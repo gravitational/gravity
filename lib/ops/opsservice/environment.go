@@ -18,6 +18,7 @@ package opsservice
 
 import (
 	"context"
+	"encoding/json"
 
 	"github.com/gravitational/gravity/lib/constants"
 	"github.com/gravitational/gravity/lib/defaults"
@@ -67,36 +68,6 @@ func (o *Operator) GetClusterEnvironmentVariables(key ops.SiteKey) (env storage.
 	return env, nil
 }
 
-func updateClusterEnvironment(client corev1.ConfigMapInterface, keyValues map[string]string) error {
-	configmap, err := client.Get(constants.ClusterEnvironmentMap, metav1.GetOptions{})
-	if err != nil {
-		if !trace.IsNotFound(rigging.ConvertError(err)) {
-			return trace.Wrap(err)
-		}
-		err = rigging.ConvertError(err)
-	}
-	if trace.IsNotFound(err) {
-		configmap = &v1.ConfigMap{
-			ObjectMeta: metav1.ObjectMeta{
-				Name:      constants.ClusterEnvironmentMap,
-				Namespace: defaults.KubeSystemNamespace,
-			},
-			Data: keyValues,
-		}
-		configmap, err = client.Create(configmap)
-		if err != nil {
-			return trace.Wrap(err)
-		}
-	} else {
-		configmap.Data = keyValues
-	}
-	_, err = client.Update(configmap)
-	if err != nil {
-		return trace.Wrap(err)
-	}
-	return nil
-}
-
 // createUpdateEnvarsOperation creates a new operation to update cluster environment variables
 func (s *site) createUpdateEnvarsOperation(req ops.CreateUpdateEnvarsOperationRequest) (*ops.SiteOperationKey, error) {
 	client, err := s.service.GetKubeClient()
@@ -104,9 +75,22 @@ func (s *site) createUpdateEnvarsOperation(req ops.CreateUpdateEnvarsOperationRe
 		return nil, trace.Wrap(err)
 	}
 	configmaps := client.CoreV1().ConfigMaps(defaults.KubeSystemNamespace)
-	err = kubernetes.Retry(context.TODO(), func() error {
-		return trace.Wrap(updateClusterEnvironment(configmaps, req.Env))
-	})
+	configmap, err := getOrCreateEnvironmentConfigMap(configmaps)
+	if err != nil {
+		return nil, trace.Wrap(err)
+	}
+	var previousKeyValues []byte
+	if len(configmap.Data) != 0 {
+		var err error
+		previousKeyValues, err = json.Marshal(configmap.Data)
+		if err != nil {
+			return nil, trace.Wrap(err, "failed to marshal previous key/values")
+		}
+		if configmap.Annotations == nil {
+			configmap.Annotations = make(map[string]string)
+		}
+		configmap.Annotations[constants.PreviousKeyValuesAnnotationKey] = string(previousKeyValues)
+	}
 	op := ops.SiteOperation{
 		ID:         uuid.New(),
 		AccountID:  s.key.AccountID,
@@ -116,13 +100,43 @@ func (s *site) createUpdateEnvarsOperation(req ops.CreateUpdateEnvarsOperationRe
 		Updated:    s.clock().UtcNow(),
 		State:      ops.OperationUpdateEnvarsInProgress,
 		UpdateEnvars: &storage.UpdateEnvarsOperationState{
-			Env: req.Env,
+			PreviousEnv: configmap.Data,
+			Env:         req.Env,
 		},
 	}
 	key, err := s.getOperationGroup().createSiteOperation(op)
 	if err != nil {
 		return nil, trace.Wrap(err)
 	}
+	configmap.Data = req.Env
+	err = kubernetes.Retry(context.TODO(), func() error {
+		_, err := configmaps.Update(configmap)
+		return trace.Wrap(err)
+	})
 
 	return key, nil
+}
+
+func getOrCreateEnvironmentConfigMap(client corev1.ConfigMapInterface) (configmap *v1.ConfigMap, err error) {
+	configmap, err = client.Get(constants.ClusterEnvironmentMap, metav1.GetOptions{})
+	if err != nil {
+		if !trace.IsNotFound(rigging.ConvertError(err)) {
+			return nil, trace.Wrap(err)
+		}
+		err = rigging.ConvertError(err)
+	}
+	if err == nil {
+		return configmap, nil
+	}
+	configmap = &v1.ConfigMap{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      constants.ClusterEnvironmentMap,
+			Namespace: defaults.KubeSystemNamespace,
+		},
+	}
+	configmap, err = client.Create(configmap)
+	if err != nil {
+		return nil, trace.Wrap(rigging.ConvertError(err))
+	}
+	return configmap, nil
 }

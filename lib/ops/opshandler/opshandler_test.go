@@ -32,7 +32,6 @@ import (
 	"github.com/gravitational/gravity/lib/ops/suite"
 	"github.com/gravitational/gravity/lib/storage"
 	"github.com/gravitational/gravity/lib/users"
-	"github.com/gravitational/gravity/lib/utils"
 
 	"github.com/gravitational/teleport"
 	teleservices "github.com/gravitational/teleport/lib/services"
@@ -266,27 +265,6 @@ func (s *OpsHandlerSuite) TestLogForwarder(c *C) {
 	err = s.client.UpdateLogForwarders(key, []storage.LogForwarderV1{forwarderV1})
 	c.Assert(err, IsNil)
 	s.checkForwarders(c, key, []storage.LogForwarder{storage.NewLogForwarderFromV1(forwarderV1)})
-}
-
-func (s *OpsHandlerSuite) TestUpdatesClusterEnvironment(c *C) {
-	if !utils.RunKubernetesTests() {
-		c.Skip("Test requires kubernetes cluster")
-	}
-
-	key := ops.SiteKey{AccountID: "a", SiteDomain: "b"}
-	env := storage.NewEnvironment(map[string]string{
-		"FOO": "foo",
-		"BAR": "bar",
-	})
-	err := s.client.UpdateClusterEnvironmentVariables(ops.UpdateClusterEnvironmentVariablesRequest{
-		Key: key,
-		Env: env,
-	})
-	c.Assert(err, IsNil)
-
-	clusterEnv, err := s.client.GetClusterEnvironmentVariables(key)
-	c.Assert(err, IsNil)
-	c.Assert(clusterEnv.GetKeyValues(), DeepEquals, env.GetKeyValues())
 }
 
 func (s *OpsHandlerSuite) checkForwarders(c *C, key ops.SiteKey, expected []storage.LogForwarder) {

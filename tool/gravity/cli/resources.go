@@ -61,7 +61,7 @@ func createResource(env *localenv.LocalEnvironment, filename string, upsert bool
 		}
 		switch raw.Kind {
 		case storage.KindEnvironment:
-			if checkRunningAsRoot() != nil {
+			if CheckRunningAsRoot() != nil {
 				return trace.BadParameter("updating environment variables requires root privileges.\n" +
 					"Please run this command as root")
 			}
@@ -75,7 +75,7 @@ func createResource(env *localenv.LocalEnvironment, filename string, upsert bool
 				return trace.Wrap(err)
 			}
 		}
-		env.Println("created ", raw.Kind)
+		env.Printf("created %q\n", raw.Kind)
 	}
 
 	return nil
