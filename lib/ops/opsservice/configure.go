@@ -577,6 +577,7 @@ func (s *site) getPlanetMasterSecretsPackage(ctx *operationContext, p planetMast
 		constants.APIServerKubeletClientKeyPair: {group: constants.ClusterAdminGroup},
 		constants.PlanetRpcKeyPair:              {},
 		constants.CoreDNSKeyPair:                {},
+		constants.FrontProxyClientKeyPair:       {},
 	}
 
 	for name, config := range keyPairTypes {
