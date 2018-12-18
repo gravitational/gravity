@@ -54,23 +54,6 @@ subjects:
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRoleBinding
 metadata:
-    name: privileged-psp-users
-roleRef:
-   apiGroup: rbac.authorization.k8s.io
-   kind: ClusterRole
-   name: privileged-psp-user
-subjects:
-- kind: Group
-  name: system:masters
-- kind: ServiceAccount
-  name: kube-dns
-  namespace: kube-system
-- kind: Group
-  name: privileged-psp-users
----
-apiVersion: rbac.authorization.k8s.io/v1
-kind: ClusterRoleBinding
-metadata:
     name: restricted-psp-users
 roleRef:
    apiGroup: rbac.authorization.k8s.io
