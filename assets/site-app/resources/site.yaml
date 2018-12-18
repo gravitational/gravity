@@ -101,6 +101,7 @@ rules:
   resources:
   - nodes
   - namespaces
+  - services
   verbs:
   - get
   - list
