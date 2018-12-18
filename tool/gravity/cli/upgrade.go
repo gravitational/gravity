@@ -142,6 +142,9 @@ func completeUpgrade(localEnv, updateEnv *localenv.LocalEnvironment) error {
 			Packages:        clusterEnv.Packages,
 			ClusterPackages: clusterEnv.ClusterPackages,
 			Apps:            clusterEnv.Apps,
+			Client:          clusterEnv.Client,
+			Operator:        clusterEnv.Operator,
+			Users:           clusterEnv.Users,
 			LocalBackend:    updateEnv.Backend,
 			Remote:          runner,
 		})
