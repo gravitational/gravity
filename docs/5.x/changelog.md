@@ -11,8 +11,8 @@ LTS starts with `3.51.0` with minor backwards compatible changes added over time
 | 5.4.0         | No  | December, 14th 2018  | -                    | 1.13.0             | 2.4.7
 | 5.3.5         | No  | December, 3rd 2018   | -                    | 1.12.3             | 2.4.7            |
 | 5.2.4         | Yes | December, 3rd 2018   | October, 15th, 2019  | 1.11.5             | 2.4.7            |
-| 5.0.27        | Yes | December, 13th 2018  | April, 13th 2019     | 1.9.6              | 2.4.7            |
-| 4.63.0        | Yes | June, 25th 2018      | November, 16th 2018  | 1.7.14             | 2.3.5            |
+| 5.0.27        | Yes | December, 13th 2018  | April, 13th 2019     | 1.9.12-gravitational | 2.4.7            |
+| 4.64.0        | Yes | December, 18th, 2018 | November, 16th 2018  | 1.7.18-gravitational | 2.3.5            |
 | 3.64.0        | Yes | December, 21st 2017  | June, 2nd 2018       | 1.5.7              | 2.0.6            |
 | 1.30.0        | Yes | March, 21st 2017     | March, 21st 2018     | 1.3.8              | 1.2.0            |
 
@@ -24,6 +24,16 @@ LTS starts with `3.51.0` with minor backwards compatible changes added over time
     article in our Help Center.
 
 ## 5.x Releases
+
+### 4.64.0
+
+#### Bugfixes
+
+* Update Kubernetes to version 1.7.18-gravitational.
+
+!!! warning
+    Gravitational has backported the fix for CVE-2018-1002105 to kubernetes version 1.7.18-gravitational. Please see
+    [Issue 71411](https://github.com/kubernetes/kubernetes/issues/71411) for more information.
 
 ### 5.4.0
 
