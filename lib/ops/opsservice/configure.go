@@ -1028,14 +1028,15 @@ func (s *site) getPlanetConfigPackage(
 // getNodeLabels returns labels a Kubernetes node should register with
 func getNodeLabels(node *ProvisionedServer, profile *schema.NodeProfile) map[string]string {
 	labels := profile.Labels
-	for k := range labels {
-		if k == defaults.KubernetesRoleLabel {
-			if node.IsMaster() {
-				labels[k] = string(schema.ServiceRoleMaster)
-			} else {
-				labels[k] = string(schema.ServiceRoleNode)
-			}
+	if labels == nil {
+		labels = make(map[string]string)
+	}
+	if _, ok := labels[defaults.KubernetesRoleLabel]; ok {
+		role := schema.ServiceRoleNode
+		if node.IsMaster() {
+			role = schema.ServiceRoleMaster
 		}
+		labels[defaults.KubernetesRoleLabel] = string(role)
 	}
 	labels[defaults.KubernetesAdvertiseIPLabel] = node.AdvertiseIP
 	return labels
