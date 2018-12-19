@@ -83,12 +83,6 @@ func IsClosedConnectionError(err error) bool {
 	return strings.Contains(text, "use of closed network connection")
 }
 
-// IsConnectionRefusedError determines if the specified error is a connection refused error
-func IsConnectionRefusedError(err error) bool {
-	text := trace.Unwrap(err).Error()
-	return strings.Contains(text, "connection refused")
-}
-
 // IsClusterUnavailableError determines if the specified error is a cluster unavailable error
 func IsClusterUnavailableError(err error) bool {
 	text := trace.Unwrap(err).Error()

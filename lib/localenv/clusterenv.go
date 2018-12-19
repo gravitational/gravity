@@ -136,6 +136,7 @@ func newClusterEnvironment(args clusterEnvironmentArgs) (*ClusterEnvironment, er
 		Users:    users,
 		StateDir: siteDir,
 		Local:    true,
+		Client:   args.client,
 	})
 	if err != nil {
 		return nil, trace.Wrap(err)

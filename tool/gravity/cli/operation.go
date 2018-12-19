@@ -56,7 +56,7 @@ func executeOperation(localEnv, updateEnv, joinEnv *localenv.LocalEnvironment, o
 	case ops.OperationGarbageCollect:
 		return garbageCollectPhase(localEnv, params)
 	case ops.OperationUpdateEnvars:
-		return updateEnvarsPhase(localEnv, params)
+		return updateEnvarsPhase(localEnv, updateEnv, params)
 	default:
 		return trace.BadParameter("operation type %q does not support phase execution",
 			op.Type)
@@ -79,7 +79,7 @@ func rollbackOperation(localEnv, updateEnv, joinEnv *localenv.LocalEnvironment, 
 	case ops.OperationInstall:
 		return rollbackInstallPhase(localEnv, params)
 	case ops.OperationUpdateEnvars:
-		return rollbackUpdateEnvarsPhase(localEnv, params)
+		return rollbackUpdateEnvarsPhase(localEnv, updateEnv, params)
 	default:
 		return trace.BadParameter("operation type %q does not support phase rollback",
 			op.Type)

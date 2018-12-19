@@ -245,8 +245,7 @@ func addTaints(oldTaints []v1.Taint, newTaints *[]v1.Taint) bool {
 func Retry(ctx context.Context, fn func() error) error {
 	interval := backoff.NewExponentialBackOff()
 	err := utils.RetryWithInterval(ctx, interval, func() error {
-		err := RetryOnUpdateConflict(fn())
-		return err
+		return RetryOnUpdateConflict(fn())
 	})
 	return trace.Wrap(err)
 }

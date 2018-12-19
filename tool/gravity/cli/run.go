@@ -731,7 +731,7 @@ func Execute(g *Application, cmd string, extraArgs []string) error {
 			*g.UsersResetCmd.Name,
 			*g.UsersResetCmd.TTL)
 	case g.ResourceCreateCmd.FullCommand():
-		return createResource(localEnv,
+		return createResource(localEnv, updateEnv,
 			*g.ResourceCreateCmd.Filename,
 			*g.ResourceCreateCmd.Upsert,
 			*g.ResourceCreateCmd.User)

@@ -78,10 +78,11 @@ func rpcAgentRun(localEnv, upgradeEnv *localenv.LocalEnvironment, args []string)
 	}
 
 	go func(handler string, args []string) {
-		log.Infof("Executing function %q.", handler)
+		log := log.WithField("handler", handler)
+		log.Info("Execute.")
 		err = agentFunc(ctx, localEnv, upgradeEnv, args)
 		if err != nil {
-			log.Infof("Error executing function %q: %q", handler, trace.DebugReport(err))
+			log.Warnf("Error executing handler: %v.", trace.DebugReport(err))
 		}
 	}(args[0], args[1:])
 
@@ -124,7 +125,8 @@ func startAgent() (rpcserver.Server, error) {
 type agentFunc func(ctx context.Context, localEnv, upgradeEnv *localenv.LocalEnvironment, args []string) error
 
 var agentFunctions map[string]agentFunc = map[string]agentFunc{
-	constants.RpcAgentUpgradeFunction: executeAutomaticUpgrade,
+	constants.RPCAgentUpgradeFunction:  executeAutomaticUpgrade,
+	constants.RPCAgentSyncPlanFunction: executeSyncOperationPlan,
 }
 
 func rpcAgentDeploy(localEnv, updateEnv *localenv.LocalEnvironment, leaderParams []string) error {
@@ -161,15 +163,18 @@ func rpcAgentDeploy(localEnv, updateEnv *localenv.LocalEnvironment, leaderParams
 		leaderParams: leaderParams,
 	}
 
-	// attempt to schedule the master agent on this node but do not
-	// treat the failure to do so as critical
+	// Force this node to be the operation leader
 	req.leader, err = findLocalServer(*cluster)
 	if err != nil {
 		log.Warnf("Failed to determine local node: %v.",
 			trace.DebugReport(err))
+		return trace.Wrap(err, "failed to find local node in cluster state.\n"+
+			"Make sure you start the operation from one of the cluster master nodes.")
 	}
 
-	err = deployUpdateAgents(context.TODO(), localEnv, updateEnv, req)
+	ctx, cancel := context.WithTimeout(context.Background(), defaults.AgentDeployTimeout)
+	defer cancel()
+	err = deployUpdateAgents(ctx, localEnv, updateEnv, req)
 	return trace.Wrap(err)
 }
 
@@ -250,14 +255,10 @@ func deployUpdateAgents(ctx context.Context, localEnv, updateEnv *localenv.Local
 		return trace.Wrap(err)
 	}
 
-	clientCreds, err := getClientCredentials(ctx, req.clusterEnv.ClusterPackages, deployReq.SecretsPackage)
-	if err != nil {
-		return trace.Wrap(err)
-	}
-
+	// FIXME: is below still relevant?
 	// Operation plan initialization requires access to TLS RPC credentials
 	// generated above
-	plan, err := update.InitOperationPlan(ctx, localEnv, updateEnv, req.clusterEnv)
+	_, err = update.InitOperationPlan(ctx, localEnv, updateEnv, req.clusterEnv)
 	if err != nil {
 		return trace.Wrap(err)
 	}
@@ -265,11 +266,6 @@ func deployUpdateAgents(ctx context.Context, localEnv, updateEnv *localenv.Local
 	err = rpc.DeployAgents(ctx, *deployReq)
 	if err != nil {
 		return trace.Wrap(err, "failed to deploy agents")
-	}
-
-	err = update.SyncOperationPlanToCluster(ctx, *plan, clientCreds)
-	if err != nil {
-		return trace.Wrap(err)
 	}
 
 	return nil
@@ -302,6 +298,7 @@ func newDeployAgentsRequest(ctx context.Context, req deployAgentsRequest) (*rpc.
 		FieldLogger:    logrus.WithField(trace.Component, "rpc:deploy"),
 		LeaderParams:   req.leaderParams,
 		Leader:         req.leader,
+		NodeParams:     req.nodeParams,
 	}, nil
 }
 
@@ -348,6 +345,10 @@ func rpcAgentShutdown(env *localenv.LocalEnvironment) error {
 	return trace.Wrap(err)
 }
 
+func executeSyncOperationPlan(ctx context.Context, localEnv, updateEnv *localenv.LocalEnvironment, args []string) error {
+	return syncOperationPlan(localEnv, updateEnv)
+}
+
 func getGravityPackage() loc.Locator {
 	ver := version.Get()
 	return loc.Locator{
@@ -364,4 +365,5 @@ type deployAgentsRequest struct {
 	proxy        *teleclient.ProxyClient
 	leaderParams []string
 	leader       *storage.Server
+	nodeParams   []string
 }

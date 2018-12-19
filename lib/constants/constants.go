@@ -272,8 +272,6 @@ const (
 	PlanetRpcKeyPair = "planet-rpc-client"
 	// CoreDNSKeyPair is a cert/key used for accessing coredns related configmap from the kubernetes api
 	CoreDNSKeyPair = "coredns"
-	// RuntimeAgentKeyPair is a cert/key used by the runtime agent to access kubernetes
-	RuntimeAgentKeyPair = "planet-agent"
 
 	// ClusterAdminGroup is a group name for Kubernetes cluster amdin
 	ClusterAdminGroup = "system:masters"
@@ -550,8 +548,11 @@ const (
 	// ReportFilterKubernetes defines a report filter to fetch kubernetes diagnostics
 	ReportFilterKubernetes = "kubernetes"
 
-	// RpcAgentUpgradeFunction requests deployed agents to run automatic upgrade operation on leader node
-	RpcAgentUpgradeFunction = "upgrade"
+	// RPCAgentUpgradeFunction requests deployed agents to run automatic upgrade operation on leader node
+	RPCAgentUpgradeFunction = "upgrade"
+
+	// RPCAgentSyncPlanFunction requests deployed agents to synchronize local backend with cluster
+	RPCAgentSyncPlanFunction = "sync-plan"
 
 	// TelekubeMountDir is a directory where telekube mounts specific secrets
 	// and other configuration parameters

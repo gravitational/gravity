@@ -458,8 +458,8 @@ func (r alertCollection) ToMarshal() interface{} {
 }
 
 // Resources returns the resources collection in the generic format
-func (r alertCollection) Resources() (resources []teleservices.UnknownResource, err error) {
-	for _, item := range r {
+func (c alertCollection) Resources() (resources []teleservices.UnknownResource, err error) {
+	for _, item := range c {
 		resource, err := utils.ToUnknownResource(item)
 		if err != nil {
 			return nil, trace.Wrap(err)
@@ -500,8 +500,8 @@ func (r alertTargetCollection) ToMarshal() interface{} {
 }
 
 // Resources returns the resources collection in the generic format
-func (r alertTargetCollection) Resources() (resources []teleservices.UnknownResource, err error) {
-	for _, item := range r {
+func (c alertTargetCollection) Resources() (resources []teleservices.UnknownResource, err error) {
+	for _, item := range c {
 		resource, err := utils.ToUnknownResource(item)
 		if err != nil {
 			return nil, trace.Wrap(err)

@@ -963,6 +963,10 @@ func systemUninstall(env *localenv.LocalEnvironment, confirmed bool) error {
 		}
 	}
 
+	if err := svm.UninstallService(defaults.GravityRPCAgentServiceName); err != nil {
+		log.WithError(err).Warn("Failed to uninstall agent sevice.")
+	}
+
 	// close the backend before attempting to unmount as the open file might
 	// prevent the umount from succeeding
 	env.Backend.Close()

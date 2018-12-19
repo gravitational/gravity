@@ -34,7 +34,7 @@ import (
 )
 
 // createResource updates or inserts one or many resources
-func createResource(env *localenv.LocalEnvironment, filename string, upsert bool, user string) error {
+func createResource(env, updateEnv *localenv.LocalEnvironment, filename string, upsert bool, user string) error {
 	operator, err := env.SiteOperator()
 	if err != nil {
 		return trace.Wrap(err)
@@ -65,7 +65,7 @@ func createResource(env *localenv.LocalEnvironment, filename string, upsert bool
 				return trace.BadParameter("updating environment variables requires root privileges.\n" +
 					"Please run this command as root")
 			}
-			err = UpdateEnvars(env, raw)
+			err = UpdateEnvars(env, updateEnv, raw)
 			if err != nil {
 				return trace.Wrap(err)
 			}
@@ -75,7 +75,7 @@ func createResource(env *localenv.LocalEnvironment, filename string, upsert bool
 				return trace.Wrap(err)
 			}
 		}
-		env.Printf("created %q\n", raw.Kind)
+		env.Printf(`created %v "%v/%v"\n`, raw.Kind, raw.Metadata.Namespace, raw.Metadata.Name)
 	}
 
 	return nil

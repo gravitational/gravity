@@ -27,9 +27,9 @@ import (
 	"github.com/gravitational/gravity/lib/localenv"
 	"github.com/gravitational/gravity/lib/ops"
 	"github.com/gravitational/gravity/lib/storage"
+	"github.com/gravitational/gravity/lib/update"
 	"github.com/gravitational/gravity/lib/utils"
 
-	"github.com/cenkalti/backoff"
 	"github.com/gravitational/trace"
 	"github.com/pborman/uuid"
 	log "github.com/sirupsen/logrus"
@@ -43,9 +43,11 @@ func New(config Config) (*libfsm.FSM, error) {
 	}
 
 	engine := &engine{
-		Config:   config,
-		spec:     configToExecutor(config),
-		operator: retryingOperator{Operator: config.Operator},
+		Config: config,
+		spec:   configToExecutor(config),
+		operator: config.Operator,
+		reconciler: update.NewDefaultReconciler(config.Backend, config.LocalBackend,
+			config.Operation.SiteDomain, config.Operation.ID, config.FieldLogger),
 	}
 	machine, err := libfsm.New(libfsm.Config{
 		Engine: engine,
@@ -67,6 +69,12 @@ func (r *Config) checkAndSetDefaults() (err error) {
 	if r.Operator == nil {
 		return trace.BadParameter("operator service is required")
 	}
+	if r.Backend == nil {
+		return trace.BadParameter("primary backend is required")
+	}
+	if r.LocalBackend == nil {
+		return trace.BadParameter("local backend is required")
+	}
 	if r.Runner == nil {
 		return trace.BadParameter("remote command runner is required")
 	}
@@ -86,6 +94,12 @@ type Config struct {
 	Operation *ops.SiteOperation
 	// Operator is the cluster operator service
 	Operator ops.Operator
+	// Backend specifies the primary backend
+	Backend storage.Backend
+	// LocalBackend specifies the backend where intermediate operation state
+	// is stored. It is the fallback backend, if the primary backend is temporarily
+	// unavailable
+	LocalBackend storage.Backend
 	// FieldLogger is the logger
 	log.FieldLogger
 	// Runner specifies the remote command runner
@@ -178,7 +192,7 @@ func (r *engine) GetExecutor(params libfsm.ExecutorParams, remote libfsm.Remote)
 // RunCommand executes the phase specified by params on the specified server
 // using the provided runner
 func (r *engine) RunCommand(ctx context.Context, runner libfsm.RemoteRunner, server storage.Server, params libfsm.Params) error {
-	args := []string{"system", "envars", "--phase", params.PhaseID}
+	args := []string{"plan", "--execute", "--phase", params.PhaseID}
 	if params.Force {
 		args = append(args, "--force")
 	}
@@ -198,7 +212,8 @@ func (r *engine) GetPlan() (*storage.OperationPlan, error) {
 type engine struct {
 	Config
 	// spec specifies the function that resolves to an executor
-	spec libfsm.FSMSpecFunc
+	spec       libfsm.FSMSpecFunc
+	reconciler update.Reconciler
 	operator
 	localenv.Silent
 }
@@ -228,39 +243,6 @@ func configToExecutor(config Config) libfsm.FSMSpecFunc {
 	}
 }
 
-func (r retryingOperator) CreateProgressEntry(key ops.SiteOperationKey, entry ops.ProgressEntry) error {
-	return trace.Wrap(retry(func() error {
-		return r.Operator.CreateProgressEntry(key, entry)
-	}))
-}
-
-func (r retryingOperator) CreateOperationPlanChange(key ops.SiteOperationKey, change storage.PlanChange) error {
-	return trace.Wrap(retry(func() error {
-		return r.Operator.CreateOperationPlanChange(key, change)
-	}))
-}
-
-func (r retryingOperator) GetOperationPlan(key ops.SiteOperationKey) (plan *storage.OperationPlan, err error) {
-	err = retry(func() (err error) {
-		plan, err = r.Operator.GetOperationPlan(key)
-		return trace.Wrap(err)
-	})
-	if err != nil {
-		return nil, trace.Wrap(err)
-	}
-	return plan, nil
-}
-
-func (r retryingOperator) SetOperationState(key ops.SiteOperationKey, req ops.SetOperationStateRequest) error {
-	return trace.Wrap(retry(func() error {
-		return r.Operator.SetOperationState(key, req)
-	}))
-}
-
-type retryingOperator struct {
-	ops.Operator
-}
-
 // operator describes the subset of ops.Operator required for the fsm engine
 type operator interface {
 	CreateProgressEntry(ops.SiteOperationKey, ops.ProgressEntry) error
@@ -268,21 +250,3 @@ type operator interface {
 	GetOperationPlan(ops.SiteOperationKey) (*storage.OperationPlan, error)
 	SetOperationState(ops.SiteOperationKey, ops.SetOperationStateRequest) error
 }
-
-func retry(fn func() error) error {
-	ctx, cancel := context.WithTimeout(context.Background(), maxRetryElapsedTime)
-	defer cancel()
-	b := utils.NewUnlimitedExponentialBackOff()
-	return trace.Wrap(utils.RetryWithInterval(ctx, b, func() error {
-		err := fn()
-		if err == nil {
-			return nil
-		}
-		if utils.IsConnectionRefusedError(err) {
-			return trace.Wrap(err)
-		}
-		return &backoff.PermanentError{Err: err}
-	}))
-}
-
-const maxRetryElapsedTime = 5 * time.Minute

@@ -134,11 +134,13 @@ func (r *Updater) init() (*libfsm.FSM, error) {
 	}
 
 	machine, err := fsm.New(fsm.Config{
-		Operation: r.Operation,
-		Operator:  r.Operator,
-		Runner:    r.Runner,
-		Silent:    r.Silent,
-		Emitter:   r.Emitter,
+		Operation:    r.Operation,
+		Operator:     r.Operator,
+		Backend:      r.Backend,
+		LocalBackend: r.LocalBackend,
+		Runner:       r.Runner,
+		Silent:       r.Silent,
+		Emitter:      r.Emitter,
 	})
 	if err != nil {
 		return nil, trace.Wrap(err)
@@ -153,8 +155,6 @@ func (r *Updater) executePlan(ctx context.Context, machine *libfsm.FSM, force bo
 		r.Warnf("Failed to execute plan: %v.", trace.DebugReport(planErr))
 	}
 
-	// FIXME: wrap this (or inners) in a retry loop, as cluster controller
-	// might be temporarily unavailable (connection refused)
 	err := machine.Complete(planErr)
 	if err == nil {
 		err = planErr
@@ -181,6 +181,12 @@ func (r *Config) checkAndSetDefaults() error {
 	if len(r.Servers) == 0 {
 		return trace.BadParameter("at least a single server is required")
 	}
+	if r.Backend == nil {
+		return trace.BadParameter("primary backend is required")
+	}
+	if r.LocalBackend == nil {
+		return trace.BadParameter("local backend is required")
+	}
 	if r.FieldLogger == nil {
 		r.FieldLogger = log.WithField(trace.Component, "envars:updater")
 	}
@@ -198,6 +204,12 @@ type Config struct {
 	Operator ops.Operator
 	// Operation references a potentially active garbage collection operation
 	Operation *ops.SiteOperation
+	// Backend specifies the primary backend
+	Backend storage.Backend
+	// LocalBackend specifies the backend where intermediate operation state
+	// is stored. It is the fallback backend, if the primary backend is temporarily
+	// unavailable
+	LocalBackend storage.Backend
 	// Servers is the list of cluster servers
 	Servers []storage.Server
 	// Runner specifies the runner for remote commands

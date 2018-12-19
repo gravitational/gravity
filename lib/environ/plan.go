@@ -18,10 +18,29 @@ package environ
 
 import (
 	"github.com/gravitational/gravity/lib/environ/internal/fsm"
+	"github.com/gravitational/gravity/lib/ops"
 	"github.com/gravitational/gravity/lib/storage"
 
 	"github.com/gravitational/trace"
 )
+
+// NewOperationPlan creates a new operation plan for the specified operation
+func NewOperationPlan(operator ops.Operator, operation ops.SiteOperation, servers []storage.Server) (plan *storage.OperationPlan, err error) {
+	plan, err = fsm.NewOperationPlan(operation, servers)
+	if err != nil {
+		return nil, trace.Wrap(err)
+	}
+	err = operator.CreateOperationPlan(operation.Key(), *plan)
+	if err != nil {
+		if trace.IsNotFound(err) {
+			return nil, trace.NotImplemented(
+				"cluster operator does not implement the API required for update environment variables. " +
+					"Please make sure you're running the command on a compatible cluster.")
+		}
+		return nil, trace.Wrap(err)
+	}
+	return plan, nil
+}
 
 func (r *Updater) getOrCreateOperationPlan() (plan *storage.OperationPlan, err error) {
 	plan, err = r.Operator.GetOperationPlan(r.Operation.Key())
@@ -30,17 +49,8 @@ func (r *Updater) getOrCreateOperationPlan() (plan *storage.OperationPlan, err e
 	}
 
 	if trace.IsNotFound(err) {
-		plan, err = fsm.NewOperationPlan(*r.Operation, r.Servers)
+		plan, err = NewOperationPlan(r.Operator, *r.Operation, r.Servers)
 		if err != nil {
-			return nil, trace.Wrap(err)
-		}
-		err = r.Operator.CreateOperationPlan(r.Operation.Key(), *plan)
-		if err != nil {
-			if trace.IsNotFound(err) {
-				return nil, trace.NotImplemented(
-					"cluster operator does not implement the API required for update environment variables. " +
-						"Please make sure you're running the command on a compatible cluster.")
-			}
 			return nil, trace.Wrap(err)
 		}
 	}

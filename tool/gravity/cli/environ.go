@@ -20,6 +20,7 @@ import (
 	"context"
 
 	"github.com/gravitational/gravity/lib/constants"
+	"github.com/gravitational/gravity/lib/defaults"
 	"github.com/gravitational/gravity/lib/environ"
 	libfsm "github.com/gravitational/gravity/lib/fsm"
 	"github.com/gravitational/gravity/lib/localenv"
@@ -33,7 +34,7 @@ import (
 
 // UpdateEnvars executes the loop to update cluster environment variables.
 // resource specifies the new environment variables to apply.
-func UpdateEnvars(localEnv *localenv.LocalEnvironment, resource teleservices.UnknownResource) error {
+func UpdateEnvars(localEnv, updateEnv *localenv.LocalEnvironment, resource teleservices.UnknownResource) error {
 	env, err := storage.UnmarshalEnvironmentVariables(resource.Raw)
 	if err != nil {
 		return trace.Wrap(err)
@@ -46,10 +47,11 @@ func UpdateEnvars(localEnv *localenv.LocalEnvironment, resource teleservices.Unk
 	if err != nil {
 		return trace.Wrap(err, "failed to connect to teleport proxy")
 	}
-	operator, err := localEnv.SiteOperator()
+	clusterEnv, err := localEnv.NewClusterEnvironment()
 	if err != nil {
 		return trace.Wrap(err)
 	}
+	operator := clusterEnv.Operator
 	cluster, err := operator.GetLocalSite()
 	if err != nil {
 		return trace.Wrap(err)
@@ -70,7 +72,7 @@ func UpdateEnvars(localEnv *localenv.LocalEnvironment, resource teleservices.Unk
 	}
 	defer func() {
 		r := recover()
-		triggered := err == nil && r == nil
+		triggered := r == nil
 		if !triggered {
 			logrus.WithError(err).Warn("Operation failed.")
 			var msg string
@@ -93,30 +95,35 @@ func UpdateEnvars(localEnv *localenv.LocalEnvironment, resource teleservices.Unk
 	if err != nil {
 		return trace.Wrap(err)
 	}
-	clusterEnv, err := localEnv.NewClusterEnvironment()
+	// Create the operation plan so it can be replicated on remote nodes
+	_, err = environ.NewOperationPlan(operator, *operation, cluster.ClusterState.Servers)
 	if err != nil {
 		return trace.Wrap(err)
 	}
-
 	req := deployAgentsRequest{
 		clusterState: cluster.ClusterState,
 		clusterName:  cluster.Domain,
 		clusterEnv:   clusterEnv,
 		proxy:        proxy,
+		nodeParams:   []string{constants.RPCAgentSyncPlanFunction},
 	}
-	creds, err := deployAgents(context.Background(), req)
+	ctx, cancel := context.WithTimeout(context.Background(), defaults.AgentDeployTimeout)
+	defer cancel()
+	creds, err := deployAgents(ctx, req)
 	if err != nil {
 		return trace.Wrap(err)
 	}
 	runner := libfsm.NewAgentRunner(creds)
 	config := environ.Config{
-		Operator:   operator,
-		Operation:  operation,
-		Servers:    cluster.ClusterState.Servers,
-		ClusterKey: cluster.Key(),
-		Silent:     localEnv.Silent,
-		Runner:     runner,
-		Emitter:    localEnv,
+		Operator:     operator,
+		Operation:    operation,
+		Backend:      clusterEnv.Backend,
+		LocalBackend: updateEnv.Backend,
+		Servers:      cluster.ClusterState.Servers,
+		ClusterKey:   cluster.Key(),
+		Silent:       localEnv.Silent,
+		Runner:       runner,
+		Emitter:      localEnv,
 	}
 	updater, err := environ.New(config)
 	if err != nil {
@@ -127,8 +134,8 @@ func UpdateEnvars(localEnv *localenv.LocalEnvironment, resource teleservices.Unk
 	return trace.Wrap(err)
 }
 
-func updateEnvarsPhase(env *localenv.LocalEnvironment, params PhaseParams) error {
-	updater, err := getUpdater(env)
+func updateEnvarsPhase(env, updateEnv *localenv.LocalEnvironment, params PhaseParams) error {
+	updater, err := getUpdater(env, updateEnv)
 	if err != nil {
 		return trace.Wrap(err)
 	}
@@ -137,8 +144,8 @@ func updateEnvarsPhase(env *localenv.LocalEnvironment, params PhaseParams) error
 	return trace.Wrap(err)
 }
 
-func rollbackUpdateEnvarsPhase(env *localenv.LocalEnvironment, params PhaseParams) error {
-	updater, err := getUpdater(env)
+func rollbackUpdateEnvarsPhase(env, updateEnv *localenv.LocalEnvironment, params PhaseParams) error {
+	updater, err := getUpdater(env, updateEnv)
 	if err != nil {
 		return trace.Wrap(err)
 	}
@@ -146,11 +153,12 @@ func rollbackUpdateEnvarsPhase(env *localenv.LocalEnvironment, params PhaseParam
 	return trace.Wrap(err)
 }
 
-func getUpdater(env *localenv.LocalEnvironment) (*environ.Updater, error) {
-	operator, err := env.SiteOperator()
+func getUpdater(env, updateEnv *localenv.LocalEnvironment) (*environ.Updater, error) {
+	clusterEnv, err := env.NewClusterEnvironment()
 	if err != nil {
 		return nil, trace.Wrap(err)
 	}
+	operator := clusterEnv.Operator
 
 	cluster, err := operator.GetLocalSite()
 	if err != nil {
@@ -169,12 +177,14 @@ func getUpdater(env *localenv.LocalEnvironment) (*environ.Updater, error) {
 	runner := libfsm.NewAgentRunner(creds)
 
 	updater, err := environ.New(environ.Config{
-		Operator:   operator,
-		Operation:  operation,
-		Servers:    cluster.ClusterState.Servers,
-		ClusterKey: cluster.Key(),
-		Silent:     env.Silent,
-		Runner:     runner,
+		Operator:     operator,
+		Operation:    operation,
+		Backend:      clusterEnv.Backend,
+		LocalBackend: env.Backend,
+		Servers:      cluster.ClusterState.Servers,
+		ClusterKey:   cluster.Key(),
+		Silent:       env.Silent,
+		Runner:       runner,
 	})
 	if err != nil {
 		return nil, trace.Wrap(err)
