@@ -242,20 +242,6 @@ func (b *planBuilder) AddStopAgentPhase(plan *storage.OperationPlan) {
 	})
 }
 
-// AddLabelPhase appens Kubernetes node labeling/tainting phase to the plan
-func (b *planBuilder) AddLabelPhase(plan *storage.OperationPlan) {
-	plan.Phases = append(plan.Phases, storage.OperationPhase{
-		ID:          installphases.LabelPhase,
-		Description: "Label and taint the joined Kubernetes node",
-		Data: &storage.OperationPhaseData{
-			Server:     &b.JoiningNode,
-			ExecServer: &b.JoiningNode,
-			Package:    &b.Application.Package,
-		},
-		Requires: []string{WaitK8sPhase},
-	})
-}
-
 // AddPostHookPhase appends post-expand hook phase to the plan
 func (b *planBuilder) AddPostHookPhase(plan *storage.OperationPlan) {
 	plan.Phases = append(plan.Phases, storage.OperationPhase{

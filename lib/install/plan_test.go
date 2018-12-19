@@ -211,7 +211,6 @@ func (s *PlanSuite) TestPlan(c *check.C) {
 		{phases.MastersPhase, s.verifyMastersPhase},
 		{phases.NodesPhase, s.verifyNodesPhase},
 		{phases.WaitPhase, s.verifyWaitPhase},
-		{phases.LabelPhase, s.verifyLabelPhase},
 		{phases.RBACPhase, s.verifyRBACPhase},
 		{phases.CorednsPhase, s.verifyCorednsPhase},
 		{phases.ResourcesPhase, s.verifyResourcesPhase},
@@ -413,34 +412,6 @@ func (s *PlanSuite) verifyInstallOverlayPhase(c *check.C, phase storage.Operatio
 			Package:     &s.installer.AppPackage,
 		},
 		Requires: []string{phases.ExportPhase},
-	}, phase)
-}
-
-func (s *PlanSuite) verifyLabelPhase(c *check.C, phase storage.OperationPhase) {
-	storage.DeepComparePhases(c, storage.OperationPhase{
-		ID: phases.LabelPhase,
-		Phases: []storage.OperationPhase{
-			{
-				ID: fmt.Sprintf("%v/%v", phases.LabelPhase, s.masterNode.Hostname),
-				Data: &storage.OperationPhaseData{
-					Server:     &s.masterNode,
-					ExecServer: &s.masterNode,
-					Package:    &s.installer.AppPackage,
-				},
-				Requires: []string{phases.WaitPhase},
-			},
-			{
-				ID: fmt.Sprintf("%v/%v", phases.LabelPhase, s.regularNode.Hostname),
-				Data: &storage.OperationPhaseData{
-					Server:     &s.regularNode,
-					ExecServer: &s.regularNode,
-					Package:    &s.installer.AppPackage,
-				},
-				Requires: []string{phases.WaitPhase},
-			},
-		},
-		Requires: []string{phases.WaitPhase},
-		Parallel: true,
 	}, phase)
 }
 
