@@ -62,16 +62,6 @@ func FSMSpec(config FSMConfig) fsm.FSMSpecFunc {
 			return phases.NewWait(p,
 				config.Operator)
 
-		case strings.HasPrefix(p.Phase.ID, phases.LabelPhase):
-			client, err := httplib.GetUnprivilegedKubeClient(config.DNSConfig.Addr())
-			if err != nil {
-				return nil, trace.Wrap(err)
-			}
-			return phases.NewNodes(p,
-				config.Operator,
-				config.LocalApps,
-				client)
-
 		case p.Phase.ID == phases.RBACPhase:
 			client, err := httplib.GetClusterKubeClient(config.DNSConfig.Addr())
 			if err != nil {

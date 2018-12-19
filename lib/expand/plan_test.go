@@ -211,7 +211,6 @@ func (s *PlanSuite) TestPlan(c *check.C) {
 		{EtcdPhase, s.verifyEtcdPhase},
 		{installphases.WaitPhase, s.verifyWaitPhase},
 		{StopAgentPhase, s.verifyStopAgentPhase},
-		{installphases.LabelPhase, s.verifyLabelPhase},
 		{PostHookPhase, s.verifyPostHookPhase},
 		{ElectPhase, s.verifyElectPhase},
 	}
@@ -371,18 +370,6 @@ func (s *PlanSuite) verifyStopAgentPhase(c *check.C, phase storage.OperationPhas
 			ExecServer: &s.joiningNode,
 		},
 		Requires: []string{installphases.WaitPhase},
-	}, phase)
-}
-
-func (s *PlanSuite) verifyLabelPhase(c *check.C, phase storage.OperationPhase) {
-	storage.DeepComparePhases(c, storage.OperationPhase{
-		ID: installphases.LabelPhase,
-		Data: &storage.OperationPhaseData{
-			Server:     &s.joiningNode,
-			ExecServer: &s.joiningNode,
-			Package:    &s.appPackage,
-		},
-		Requires: []string{WaitK8sPhase},
 	}, phase)
 }
 

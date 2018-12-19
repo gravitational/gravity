@@ -99,9 +99,6 @@ func (p *Peer) getOperationPlan(ctx operationContext) (*storage.OperationPlan, e
 		builder.AddStopAgentPhase(plan)
 	}
 
-	// apply labels and taints to the new Kubernetes node
-	builder.AddLabelPhase(plan)
-
 	// run post-join hook if the application has it
 	if builder.Application.Manifest.HasHook(schema.HookNodeAdded) {
 		builder.AddPostHookPhase(plan)
