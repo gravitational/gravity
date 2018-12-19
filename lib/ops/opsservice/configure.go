@@ -1002,6 +1002,10 @@ func (s *site) getPlanetConfigPackage(
 		args = append(args, fmt.Sprintf("--taint=%v=%v:%v", taint.Key, taint.Value, taint.Effect))
 	}
 
+	for k, v := range profile.Labels {
+		args = append(args, fmt.Sprintf("--node-label=%v=%v", k, v))
+	}
+
 	reader, err := pack.GetConfigPackage(s.packages(), config.planetPackage, config.configPackage, args)
 	if err != nil {
 		return nil, trace.Wrap(err)

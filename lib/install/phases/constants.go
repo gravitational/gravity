@@ -35,8 +35,6 @@ const (
 	NodesPhase = "/nodes"
 	// WaitPhase is a phase that waits for planet to start
 	WaitPhase = "/wait"
-	// LabelPhase is a phase that applies labels and taints to Kubernetes nodes
-	LabelPhase = "/label"
 	// RBACPhase is a phase that creates Kubernetes RBAC resources
 	RBACPhase = "/rbac"
 	// ResourcesPhase is a phase that creates user supplied Kubernetes resources
