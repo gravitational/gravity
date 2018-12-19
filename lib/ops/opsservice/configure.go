@@ -1002,7 +1002,7 @@ func (s *site) getPlanetConfigPackage(
 		args = append(args, fmt.Sprintf("--taint=%v=%v:%v", taint.Key, taint.Value, taint.Effect))
 	}
 
-	for k, v := range profile.Labels {
+	for k, v := range getNodeLabels(node, profile) {
 		args = append(args, fmt.Sprintf("--node-label=%v=%v", k, v))
 	}
 
@@ -1023,6 +1023,22 @@ func (s *site) getPlanetConfigPackage(
 		Reader:  reader,
 		Labels:  labels,
 	}, nil
+}
+
+// getNodeLabels returns labels a Kubernetes node should register with
+func getNodeLabels(node *ProvisionedServer, profile *schema.NodeProfile) map[string]string {
+	labels := profile.Labels
+	for k := range labels {
+		if k == defaults.KubernetesRoleLabel {
+			if node.IsMaster() {
+				labels[k] = string(schema.ServiceRoleMaster)
+			} else {
+				labels[k] = string(schema.ServiceRoleNode)
+			}
+		}
+	}
+	labels[defaults.KubernetesAdvertiseIPLabel] = node.AdvertiseIP
+	return labels
 }
 
 func (s *site) configurePlanetServer(node *ProvisionedServer, installOrExpand ops.SiteOperation, config planetConfig) error {
