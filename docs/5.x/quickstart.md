@@ -20,7 +20,7 @@ Gravity system.
 
 
 Gravity is a Linux-based toolkit. By default it supports 64-bit versions of the
-following Linux distributions as [specified here](/pack/#distributions)
+following Linux distributions as [specified here](/requirements/#distributions)
 
 If you have a need to support a Linux distribution not listed above,
 Gravitational offers Implementation Services that may be able to assist you.
