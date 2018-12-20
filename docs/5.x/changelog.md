@@ -8,7 +8,7 @@ LTS starts with `3.51.0` with minor backwards compatible changes added over time
 | Release       | LTS | Release Date         | Supported Until      | Kubernetes Version | Teleport Version |
 | --------------|-----| -------------------- | -------------------- | ------------------ |------------------|
 | 5.5.0-alpha.3 | No  | December, 12th 2018  | -                    | 1.12.3             | 3.0.1            |
-| 5.4.0         | No  | December, 14th 2018  | -                    | 1.13.0             | 2.4.7
+| 5.4.1         | No  | December, 19th 2018  | -                    | 1.13.0             | 2.4.7
 | 5.3.5         | No  | December, 3rd 2018   | -                    | 1.12.3             | 2.4.7            |
 | 5.2.4         | Yes | December, 3rd 2018   | October, 15th, 2019  | 1.11.5             | 2.4.7            |
 | 5.0.27        | Yes | December, 13th 2018  | April, 13th 2019     | 1.9.12-gravitational | 2.4.7            |
@@ -25,15 +25,11 @@ LTS starts with `3.51.0` with minor backwards compatible changes added over time
 
 ## 5.x Releases
 
-### 4.64.0
+### 5.4.1
 
 #### Bugfixes
 
-* Update Kubernetes to version 1.7.18-gravitational.
-
-!!! warning
-    Gravitational has backported the fix for CVE-2018-1002105 to kubernetes version 1.7.18-gravitational. Please see
-    [Issue 71411](https://github.com/kubernetes/kubernetes/issues/71411) for more information.
+* Fix an issue with certain node labels preventing successful installation.
 
 ### 5.4.0
 
@@ -733,6 +729,16 @@ $ /tmp/gravity upgrade
 
 This will upgrade the cluster and the system instance of the `gravity` binary,
 so the temporary copy in `/tmp` can be discarded.
+
+### 4.64.0 LTS
+
+#### Bugfixes
+
+* Update Kubernetes to version 1.7.18-gravitational.
+
+!!! warning
+    Gravitational has backported the fix for CVE-2018-1002105 to kubernetes version 1.7.18-gravitational. Please see
+    [Issue 71411](https://github.com/kubernetes/kubernetes/issues/71411) for more information.
 
 ### 4.63.0 LTS
 
