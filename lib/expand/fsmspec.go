@@ -21,7 +21,6 @@ import (
 
 	"github.com/gravitational/gravity/lib/expand/phases"
 	"github.com/gravitational/gravity/lib/fsm"
-	"github.com/gravitational/gravity/lib/httplib"
 	installphases "github.com/gravitational/gravity/lib/install/phases"
 	"github.com/gravitational/gravity/lib/schema"
 
@@ -90,16 +89,6 @@ func FSMSpec(config FSMConfig) fsm.FSMSpecFunc {
 			return phases.NewWaitK8s(p,
 				config.Operator,
 				config.DNSConfig)
-
-		case strings.HasPrefix(p.Phase.ID, installphases.LabelPhase):
-			client, _, err := httplib.GetUnprivilegedKubeClient(config.DNSConfig.Addr())
-			if err != nil {
-				return nil, trace.Wrap(err)
-			}
-			return installphases.NewNodes(p,
-				config.Operator,
-				config.LocalApps,
-				client)
 
 		case strings.HasPrefix(p.Phase.ID, PostHookPhase):
 			return installphases.NewHook(p,

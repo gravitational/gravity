@@ -293,39 +293,6 @@ func (b *PlanBuilder) AddHealthPhase(plan *storage.OperationPlan) {
 	})
 }
 
-// AddLabelPhase appends K8s nodes labeling phase to the provided plan
-func (b *PlanBuilder) AddLabelPhase(plan *storage.OperationPlan) {
-	var labelPhases []storage.OperationPhase
-	allNodes := append(b.Masters, b.Nodes...)
-	for i, node := range allNodes {
-		var description string
-		if node.ClusterRole == string(schema.ServiceRoleMaster) {
-			description = "Label and taint master node %v"
-		} else {
-			description = "Label and taint node %v"
-		}
-		labelPhases = append(labelPhases, storage.OperationPhase{
-			ID:          fmt.Sprintf("%v/%v", phases.LabelPhase, node.Hostname),
-			Description: fmt.Sprintf(description, node.Hostname),
-			Data: &storage.OperationPhaseData{
-				Server:     &allNodes[i],
-				ExecServer: &allNodes[i],
-				Package:    &b.Application.Package,
-			},
-			Requires: []string{phases.WaitPhase},
-			Step:     4,
-		})
-	}
-	plan.Phases = append(plan.Phases, storage.OperationPhase{
-		ID:          phases.LabelPhase,
-		Description: "Apply labels and taints to Kubernetes nodes",
-		Phases:      labelPhases,
-		Requires:    []string{phases.WaitPhase},
-		Parallel:    true,
-		Step:        4,
-	})
-}
-
 // AddRBACPhase appends K8s RBAC initialization phase to the provided plan
 func (b *PlanBuilder) AddRBACPhase(plan *storage.OperationPlan) {
 	plan.Phases = append(plan.Phases, storage.OperationPhase{

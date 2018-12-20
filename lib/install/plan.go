@@ -97,9 +97,8 @@ func (i *Installer) GetOperationPlan(cluster ops.Site, op ops.SiteOperation) (*s
 	}
 
 	// perform post system install tasks such as waiting for planet
-	// to start up, labeling and tainting nodes, etc.
+	// to start up, creating RBAC resources, etc.
 	builder.AddWaitPhase(plan)
-	builder.AddLabelPhase(plan)
 	builder.AddRBACPhase(plan)
 	builder.AddCorednsPhase(plan)
 
