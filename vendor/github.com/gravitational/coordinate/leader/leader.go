@@ -25,7 +25,7 @@ import (
 	"github.com/gravitational/coordinate/config"
 	"github.com/gravitational/trace"
 
-	log "github.com/Sirupsen/logrus"
+	log "github.com/sirupsen/logrus"
 	ebackoff "github.com/cenkalti/backoff"
 	"github.com/coreos/etcd/client"
 	"github.com/jonboulle/clockwork"
