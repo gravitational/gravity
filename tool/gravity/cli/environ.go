@@ -144,7 +144,7 @@ func updateEnvarsPhase(env, updateEnv *localenv.LocalEnvironment, params PhasePa
 	return trace.Wrap(err)
 }
 
-func rollbackUpdateEnvarsPhase(env, updateEnv *localenv.LocalEnvironment, params PhaseParams) error {
+func rollbackEnvarsPhase(env, updateEnv *localenv.LocalEnvironment, params PhaseParams) error {
 	updater, err := getUpdater(env, updateEnv)
 	if err != nil {
 		return trace.Wrap(err)

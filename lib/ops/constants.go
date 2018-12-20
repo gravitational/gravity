@@ -246,6 +246,6 @@ var (
 		OperationShrink:         SiteStateActive,
 		OperationUninstall:      SiteStateFailed,
 		OperationGarbageCollect: SiteStateActive,
-		OperationUpdateEnvars:   SiteStateActive,
+		OperationUpdateEnvars:   SiteStateUpdatingEnvars,
 	}
 )

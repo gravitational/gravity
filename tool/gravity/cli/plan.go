@@ -270,10 +270,13 @@ const recoveryModeWarning = "Failed to retrieve plan from etcd, showing cached p
 
 // hasUpdateOperation returns true if there is an upgrade operation found
 // in the backend used by the specified environment.
-// updateEnv is the boltdb used for upgrades
 func hasUpdateOperation(updateEnv *localenv.LocalEnvironment) bool {
-	_, err := storage.GetLastOperation(updateEnv.Backend)
-	return err == nil
+	op, err := storage.GetLastOperation(updateEnv.Backend)
+	if err != nil {
+		logrus.Debugf("Failed to check for update operation: %v.", err)
+		return false
+	}
+	return op.Type == ops.OperationUpdate
 }
 
 // hasExpandOperation returns true if the provided backend contains an expand operation

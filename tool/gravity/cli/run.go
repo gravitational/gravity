@@ -347,18 +347,20 @@ func Execute(g *Application, cmd string, extraArgs []string) error {
 			if *g.PlanCmd.Resume {
 				phaseID = fsm.RootPhase
 			}
-			return executeOperation(localEnv, updateEnv, joinEnv,
+			return executePhase(localEnv, updateEnv, joinEnv,
 				*g.PlanCmd.OperationID,
 				PhaseParams{
 					PhaseID: phaseID,
 					Force:   *g.PlanCmd.Force,
+					Timeout: *g.PlanCmd.PhaseTimeout,
 				})
 		case *g.PlanCmd.Rollback:
-			return rollbackOperation(localEnv, updateEnv, joinEnv,
+			return rollbackPhase(localEnv, updateEnv, joinEnv,
 				*g.PlanCmd.OperationID,
 				PhaseParams{
 					PhaseID: *g.PlanCmd.Phase,
 					Force:   *g.PlanCmd.Force,
+					Timeout: *g.PlanCmd.PhaseTimeout,
 				})
 		}
 		return displayOperationPlan(localEnv, updateEnv, joinEnv, *g.PlanCmd.OperationID, *g.PlanCmd.Output)

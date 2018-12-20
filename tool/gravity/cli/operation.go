@@ -17,6 +17,7 @@ limitations under the License.
 package cli
 
 import (
+	"errors"
 	"time"
 
 	"github.com/gravitational/gravity/lib/localenv"
@@ -39,13 +40,16 @@ type PhaseParams struct {
 	SkipVersionCheck bool
 }
 
-func executeOperation(localEnv, updateEnv, joinEnv *localenv.LocalEnvironment, operationID string, params PhaseParams) error {
+func executePhase(localEnv, updateEnv, joinEnv *localenv.LocalEnvironment, operationID string, params PhaseParams) error {
 	if joinEnv != nil && hasExpandOperation(joinEnv) {
 		return executeJoinPhase(localEnv, joinEnv, params)
 	}
-	if hasUpdateOperation(updateEnv) {
-		return executeUpgradePhase(localEnv, updateEnv, params)
+
+	err := dispatchUpdatePhase(localEnv, updateEnv, operationID, params)
+	if err != nil && err != errNotUpdateOperation {
+		return trace.Wrap(err)
 	}
+
 	op, err := getOperationFromEnv(localEnv, operationID)
 	if err != nil {
 		return trace.Wrap(err)
@@ -55,8 +59,6 @@ func executeOperation(localEnv, updateEnv, joinEnv *localenv.LocalEnvironment, o
 		return executeInstallPhase(localEnv, params)
 	case ops.OperationGarbageCollect:
 		return garbageCollectPhase(localEnv, params)
-	case ops.OperationUpdateEnvars:
-		return updateEnvarsPhase(localEnv, updateEnv, params)
 	default:
 		return trace.BadParameter("operation type %q does not support phase execution",
 			op.Type)
@@ -64,13 +66,16 @@ func executeOperation(localEnv, updateEnv, joinEnv *localenv.LocalEnvironment, o
 	return nil
 }
 
-func rollbackOperation(localEnv, updateEnv, joinEnv *localenv.LocalEnvironment, operationID string, params PhaseParams) error {
+func rollbackPhase(localEnv, updateEnv, joinEnv *localenv.LocalEnvironment, operationID string, params PhaseParams) error {
 	if joinEnv != nil && hasExpandOperation(joinEnv) {
 		return rollbackJoinPhase(localEnv, joinEnv, params)
 	}
-	if hasUpdateOperation(updateEnv) {
-		return rollbackUpgradePhase(localEnv, updateEnv, params)
+
+	err := dispatchUpdateRollbackPhase(localEnv, updateEnv, operationID, params)
+	if err != nil && err != errNotUpdateOperation {
+		return trace.Wrap(err)
 	}
+
 	op, err := getOperationFromEnv(localEnv, operationID)
 	if err != nil {
 		return trace.Wrap(err)
@@ -78,13 +83,41 @@ func rollbackOperation(localEnv, updateEnv, joinEnv *localenv.LocalEnvironment, 
 	switch op.Type {
 	case ops.OperationInstall:
 		return rollbackInstallPhase(localEnv, params)
-	case ops.OperationUpdateEnvars:
-		return rollbackUpdateEnvarsPhase(localEnv, updateEnv, params)
 	default:
 		return trace.BadParameter("operation type %q does not support phase rollback",
 			op.Type)
 	}
 	return nil
+}
+
+func dispatchUpdatePhase(localEnv, updateEnv *localenv.LocalEnvironment, operationID string, params PhaseParams) error {
+	op, err := getOperationFromEnv(updateEnv, operationID)
+	if err != nil {
+		return trace.Wrap(err)
+	}
+	switch op.Type {
+	case ops.OperationUpdate:
+		return executeUpgradePhase(localEnv, updateEnv, params)
+	case ops.OperationUpdateEnvars:
+		return updateEnvarsPhase(localEnv, updateEnv, params)
+	default:
+		return errNotUpdateOperation
+	}
+}
+
+func dispatchUpdateRollbackPhase(localEnv, updateEnv *localenv.LocalEnvironment, operationID string, params PhaseParams) error {
+	op, err := getOperationFromEnv(updateEnv, operationID)
+	if err != nil {
+		return trace.Wrap(err)
+	}
+	switch op.Type {
+	case ops.OperationUpdate:
+		return rollbackUpgradePhase(localEnv, updateEnv, params)
+	case ops.OperationUpdateEnvars:
+		return rollbackEnvarsPhase(localEnv, updateEnv, params)
+	default:
+		return errNotUpdateOperation
+	}
 }
 
 func getOperationFromEnv(localEnv *localenv.LocalEnvironment, operationID string) (*ops.SiteOperation, error) {
@@ -113,3 +146,5 @@ func getOperationFromEnv(localEnv *localenv.LocalEnvironment, operationID string
 	}
 	return op, nil
 }
+
+var errNotUpdateOperation = errors.New("not an update operation")
