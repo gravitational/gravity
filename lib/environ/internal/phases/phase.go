@@ -16,11 +16,19 @@ limitations under the License.
 
 package phases
 
+import "github.com/gravitational/gravity/lib/ops"
+
 const (
-	// SyncNode defines the phase to update cluster environment variables
-	// and restart affected services on master nodes
-	Masters = "/masters"
-	// NOdes defines the phase to update cluster environment variables
-	// and restart affected services on regular nodes
-	Nodes = "/nodes"
+	// UpdateEnviron defines the phase to update cluster environment variables
+	// and restart system services on a single node
+	UpdateEnviron = "envars"
+	// Elections defines the phase to control election / leadership on
+	// a set of nodes
+	Elections = "elections"
 )
+
+// LocalClusterGetter fetches data on local cluster
+type LocalClusterGetter interface {
+	// GetLocalSite returns the data record for the local cluster
+	GetLocalSite() (*ops.Site, error)
+}

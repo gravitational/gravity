@@ -20,6 +20,7 @@ import (
 	"testing"
 
 	"github.com/gravitational/gravity/lib/compare"
+	libphase "github.com/gravitational/gravity/lib/environ/internal/phases"
 	"github.com/gravitational/gravity/lib/ops"
 	"github.com/gravitational/gravity/lib/schema"
 	"github.com/gravitational/gravity/lib/storage"
@@ -59,6 +60,7 @@ func (S) TestSingleNodePlan(c *C) {
 				Phases: []storage.OperationPhase{
 					{
 						ID:          "/masters/node-1",
+						Executor:    libphase.UpdateEnviron,
 						Description: `Update environment variables on node "node-1"`,
 						Data: &storage.OperationPhaseData{
 							Server: &servers[0],
@@ -100,15 +102,66 @@ func (S) TestMultiNodePlan(c *C) {
 					{
 						ID:          "/masters/node-1",
 						Description: `Update environment variables on node "node-1"`,
-						Data: &storage.OperationPhaseData{
-							Server: &servers[0],
+						Phases: []storage.OperationPhase{
+							{
+								ID:          "/masters/node-1/stepdown",
+								Executor:    libphase.Elections,
+								Description: `Step down "node-1" as Kubernetes leader`,
+								Data: &storage.OperationPhaseData{
+									Server: &servers[0],
+									ElectionChange: &storage.ElectionChange{
+										DisableServers: []storage.Server{servers[0]},
+									},
+								},
+							},
+							{
+								ID:          "/masters/node-1/envars",
+								Executor:    libphase.UpdateEnviron,
+								Description: `Update environment variables on node "node-1"`,
+								Data: &storage.OperationPhaseData{
+									Server: &servers[0],
+								},
+								Requires: []string{"/masters/node-1/stepdown"},
+							},
+							{
+								ID:          "/masters/node-1/elect",
+								Executor:    libphase.Elections,
+								Description: `Make node "node-1" Kubernetes leader`,
+								Data: &storage.OperationPhaseData{
+									Server: &servers[0],
+									ElectionChange: &storage.ElectionChange{
+										EnableServers:  []storage.Server{servers[0]},
+										DisableServers: []storage.Server{servers[2]},
+									},
+								},
+								Requires: []string{"/masters/node-1/envars"},
+							},
 						},
 					},
 					{
 						ID:          "/masters/node-3",
 						Description: `Update environment variables on node "node-3"`,
-						Data: &storage.OperationPhaseData{
-							Server: &servers[2],
+						Phases: []storage.OperationPhase{
+							{
+								ID:          "/masters/node-3/envars",
+								Executor:    libphase.UpdateEnviron,
+								Description: `Update environment variables on node "node-3"`,
+								Data: &storage.OperationPhaseData{
+									Server: &servers[2],
+								},
+							},
+							{
+								ID:          "/masters/node-3/enable-elections",
+								Executor:    libphase.Elections,
+								Description: `Enable leader election on node "node-3"`,
+								Data: &storage.OperationPhaseData{
+									Server: &servers[2],
+									ElectionChange: &storage.ElectionChange{
+										EnableServers: []storage.Server{servers[2]},
+									},
+								},
+								Requires: []string{"/masters/node-3/envars"},
+							},
 						},
 						Requires: []string{"/masters/node-1"},
 					},
@@ -120,6 +173,7 @@ func (S) TestMultiNodePlan(c *C) {
 				Phases: []storage.OperationPhase{
 					{
 						ID:          "/nodes/node-2",
+						Executor:    libphase.UpdateEnviron,
 						Description: `Update environment variables on node "node-2"`,
 						Data: &storage.OperationPhaseData{
 							Server: &servers[1],
@@ -127,6 +181,7 @@ func (S) TestMultiNodePlan(c *C) {
 					},
 					{
 						ID:          "/nodes/node-4",
+						Executor:    libphase.UpdateEnviron,
 						Description: `Update environment variables on node "node-4"`,
 						Data: &storage.OperationPhaseData{
 							Server: &servers[3],

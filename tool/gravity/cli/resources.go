@@ -75,7 +75,7 @@ func createResource(env, updateEnv *localenv.LocalEnvironment, filename string, 
 				return trace.Wrap(err)
 			}
 		}
-		env.Printf(`created %v "%v/%v"\n`, raw.Kind, raw.Metadata.Namespace, raw.Metadata.Name)
+		env.Printf("created %v \"%v/%v\"\n", raw.Kind, raw.Metadata.Namespace, raw.Metadata.Name)
 	}
 
 	return nil

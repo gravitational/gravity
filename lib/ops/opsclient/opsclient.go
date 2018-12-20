@@ -1102,7 +1102,7 @@ func (c *Client) DeleteAlertTarget(key ops.SiteKey) error {
 // GetClusterEnvironmentVariables retrieves the cluster environment
 func (c *Client) GetClusterEnvironmentVariables(key ops.SiteKey) (storage.EnvironmentVariables, error) {
 	response, err := c.Get(c.Endpoint(
-		"accounts", key.AccountID, "sites", key.SiteDomain, "environment"), url.Values{})
+		"accounts", key.AccountID, "sites", key.SiteDomain, "envars"), url.Values{})
 	if err != nil {
 		return nil, trace.Wrap(err)
 	}

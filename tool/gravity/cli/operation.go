@@ -22,6 +22,7 @@ import (
 
 	"github.com/gravitational/gravity/lib/localenv"
 	"github.com/gravitational/gravity/lib/ops"
+	"github.com/gravitational/gravity/lib/storage"
 
 	"github.com/gravitational/trace"
 )
@@ -46,7 +47,10 @@ func executePhase(localEnv, updateEnv, joinEnv *localenv.LocalEnvironment, opera
 	}
 
 	err := dispatchUpdatePhase(localEnv, updateEnv, operationID, params)
-	if err != nil && err != errNotUpdateOperation {
+	if err == nil {
+		return nil
+	}
+	if err != errNotUpdateOperation {
 		return trace.Wrap(err)
 	}
 
@@ -72,7 +76,10 @@ func rollbackPhase(localEnv, updateEnv, joinEnv *localenv.LocalEnvironment, oper
 	}
 
 	err := dispatchUpdateRollbackPhase(localEnv, updateEnv, operationID, params)
-	if err != nil && err != errNotUpdateOperation {
+	if err == nil {
+		return nil
+	}
+	if err != errNotUpdateOperation {
 		return trace.Wrap(err)
 	}
 
@@ -91,7 +98,7 @@ func rollbackPhase(localEnv, updateEnv, joinEnv *localenv.LocalEnvironment, oper
 }
 
 func dispatchUpdatePhase(localEnv, updateEnv *localenv.LocalEnvironment, operationID string, params PhaseParams) error {
-	op, err := getOperationFromEnv(updateEnv, operationID)
+	op, err := getOperationFromBackend(updateEnv.Backend, operationID)
 	if err != nil {
 		return trace.Wrap(err)
 	}
@@ -106,7 +113,7 @@ func dispatchUpdatePhase(localEnv, updateEnv *localenv.LocalEnvironment, operati
 }
 
 func dispatchUpdateRollbackPhase(localEnv, updateEnv *localenv.LocalEnvironment, operationID string, params PhaseParams) error {
-	op, err := getOperationFromEnv(updateEnv, operationID)
+	op, err := getOperationFromBackend(updateEnv.Backend, operationID)
 	if err != nil {
 		return trace.Wrap(err)
 	}
@@ -120,8 +127,8 @@ func dispatchUpdateRollbackPhase(localEnv, updateEnv *localenv.LocalEnvironment,
 	}
 }
 
-func getOperationFromEnv(localEnv *localenv.LocalEnvironment, operationID string) (*ops.SiteOperation, error) {
-	operator, err := localEnv.SiteOperator()
+func getOperationFromEnv(env *localenv.LocalEnvironment, operationID string) (*ops.SiteOperation, error) {
+	operator, err := env.SiteOperator()
 	if err != nil {
 		return nil, trace.Wrap(err)
 	}
@@ -140,6 +147,18 @@ func getOperationFromEnv(localEnv *localenv.LocalEnvironment, operationID string
 		})
 	} else {
 		op, _, err = ops.GetLastOperation(cluster.Key(), operator)
+	}
+	if err != nil {
+		return nil, trace.Wrap(err)
+	}
+	return op, nil
+}
+
+func getOperationFromBackend(backend storage.Backend, operationID string) (op *storage.SiteOperation, err error) {
+	if operationID != "" {
+		op, err = storage.GetOperationByID(backend, operationID)
+	} else {
+		op, err = storage.GetLastOperation(backend)
 	}
 	if err != nil {
 		return nil, trace.Wrap(err)

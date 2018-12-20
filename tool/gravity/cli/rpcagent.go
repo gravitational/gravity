@@ -255,7 +255,6 @@ func deployUpdateAgents(ctx context.Context, localEnv, updateEnv *localenv.Local
 		return trace.Wrap(err)
 	}
 
-	// FIXME: is below still relevant?
 	// Operation plan initialization requires access to TLS RPC credentials
 	// generated above
 	_, err = update.InitOperationPlan(ctx, localEnv, updateEnv, req.clusterEnv)

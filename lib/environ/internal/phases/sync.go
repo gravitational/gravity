@@ -31,7 +31,7 @@ import (
 )
 
 // NewSync returns a new executor to update cluster environment variables on the specified node
-func NewSync(params libfsm.ExecutorParams, emitter utils.Emitter, op ops.SiteOperation, logger log.FieldLogger) (*nodeSyncer, error) {
+func NewSync(params libfsm.ExecutorParams, op ops.SiteOperation, logger log.FieldLogger) (*nodeSyncer, error) {
 	return &nodeSyncer{
 		FieldLogger: logger,
 		operation:   op,
@@ -79,7 +79,7 @@ func (r *nodeSyncer) PostCheck(context.Context) error {
 }
 
 type nodeSyncer struct {
-	// FieldLogger is the logger the executor uses
+	// FieldLogger specifies the logger for the phase
 	log.FieldLogger
 	operation ops.SiteOperation
 }

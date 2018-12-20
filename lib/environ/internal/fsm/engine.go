@@ -18,7 +18,6 @@ package fsm
 
 import (
 	"context"
-	"strings"
 	"time"
 
 	"github.com/gravitational/gravity/lib/constants"
@@ -43,8 +42,8 @@ func New(config Config) (*libfsm.FSM, error) {
 	}
 
 	engine := &engine{
-		Config: config,
-		spec:   configToExecutor(config),
+		Config:   config,
+		spec:     configToExecutor(config),
 		operator: config.Operator,
 		reconciler: update.NewDefaultReconciler(config.Backend, config.LocalBackend,
 			config.Operation.SiteDomain, config.Operation.ID, config.FieldLogger),
@@ -232,13 +231,15 @@ func configToExecutor(config Config) libfsm.FSMSpecFunc {
 		if params.Phase.Data != nil {
 			logger.Server = params.Phase.Data.Server
 		}
-		switch {
-		case strings.HasPrefix(params.Phase.ID, libphase.Masters),
-			strings.HasPrefix(params.Phase.ID, libphase.Nodes):
-			return libphase.NewSync(params, config.Emitter, *config.Operation, logger)
+		switch params.Phase.Executor {
+		case libphase.UpdateEnviron:
+			return libphase.NewSync(params, *config.Operation, logger)
+		case libphase.Elections:
+			return libphase.NewElections(params, config.Operator, logger)
 
 		default:
-			return nil, trace.BadParameter("unknown phase %q", params.Phase.ID)
+			return nil, trace.BadParameter("unknown executor %v for phase %q",
+				params.Phase.Executor, params.Phase.ID)
 		}
 	}
 }

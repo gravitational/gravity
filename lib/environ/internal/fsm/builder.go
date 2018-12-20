@@ -24,6 +24,7 @@ import (
 	libfsm "github.com/gravitational/gravity/lib/fsm"
 	"github.com/gravitational/gravity/lib/ops"
 	"github.com/gravitational/gravity/lib/storage"
+	"github.com/gravitational/gravity/lib/update"
 
 	"github.com/gravitational/trace"
 )
@@ -52,44 +53,94 @@ func NewOperationPlan(operation ops.SiteOperation, servers []storage.Server) (*s
 		Phases:        phases.asPhases(),
 		Servers:       servers,
 	}
+	update.ResolvePlan(plan)
 
 	return plan, nil
 }
 
 func (r phaseBuilder) masters(servers []storage.Server) *phase {
 	root := root(phase{
-		ID:          libphase.Masters,
+		ID:          "masters",
 		Description: "Update cluster environment variables",
 	})
-	r.sync(&root, servers)
+	first, others := servers[0], servers[1:]
+
+	if len(others) == 0 {
+		root.AddSequential(r.envars(&first, first.Hostname))
+		return &root
+	}
+
+	node := r.node(first, first.Hostname, "Update environment variables on node %q")
+	if len(others) != 0 {
+		node.AddSequential(setLeaderElection(enable(), disable(first), first,
+			"stepdown", "Step down %q as Kubernetes leader"))
+	}
+	node.AddSequential(r.envars(&first, "envars"))
+	if len(others) != 0 {
+		node.AddSequential(setLeaderElection(enable(first), disable(others...), first,
+			"elect", "Make node %q Kubernetes leader"))
+	}
+	root.AddSequential(node)
+	for i, server := range others {
+		node := r.node(server, server.Hostname, "Update environment variables on node %q")
+		node.AddSequential(r.envars(&others[i], "envars"))
+		node.AddSequential(setLeaderElection(enable(server), disable(), server,
+			"enable-elections", "Enable leader election on node %q"))
+		root.AddSequential(node)
+	}
 	return &root
 }
 
 func (r phaseBuilder) nodes(servers []storage.Server) *phase {
 	root := root(phase{
-		ID:          libphase.Nodes,
+		ID:          "nodes",
 		Description: "Update cluster environment variables",
 	})
-	r.sync(&root, servers)
+	for i, server := range servers {
+		root.AddSequential(r.envars(&servers[i], server.Hostname))
+	}
 	return &root
 }
 
-func (r phaseBuilder) sync(root *phase, servers []storage.Server) {
-	for i, server := range servers {
-		node := r.node(server, root, "Update environment variables on node %q")
-		node.Data = &storage.OperationPhaseData{
-			Server: &servers[i],
-		}
-		root.AddSequential(node)
+func (r phaseBuilder) envars(server *storage.Server, id string) phase {
+	node := r.node(*server, id, "Update environment variables on node %q")
+	node.Executor = libphase.UpdateEnviron
+	node.Data = &storage.OperationPhaseData{
+		Server: server,
 	}
+	return node
 }
 
-func (r phaseBuilder) node(server storage.Server, parent *phase, format string) phase {
+func (r phaseBuilder) node(server storage.Server, id, format string) phase {
 	return phase{
-		ID:          parent.ChildLiteral(server.Hostname),
+		ID:          id,
 		Description: fmt.Sprintf(format, server.Hostname),
 	}
 }
+
+// setLeaderElection creates a phase that will change the leader election state in the cluster
+// enable - the list of servers to enable election on
+// disable - the list of servers to disable election on
+// server - The server the phase should be executed on, and used to name the phase
+// key - is the identifier of the phase (combined with server.Hostname)
+// msg - is a format string used to describe the phase
+func setLeaderElection(enable, disable []storage.Server, server storage.Server, id, format string) phase {
+	return phase{
+		ID:          id,
+		Executor:    libphase.Elections,
+		Description: fmt.Sprintf(format, server.Hostname),
+		Data: &storage.OperationPhaseData{
+			Server: &server,
+			ElectionChange: &storage.ElectionChange{
+				EnableServers:  enable,
+				DisableServers: disable,
+			},
+		},
+	}
+}
+
+func enable(servers ...storage.Server) []storage.Server  { return servers }
+func disable(servers ...storage.Server) []storage.Server { return servers }
 
 type phaseBuilder struct{}
 
