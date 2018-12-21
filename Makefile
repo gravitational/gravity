@@ -732,7 +732,7 @@ validate-deps:
 
 .PHONY: fix-logrus
 fix-logrus:
-	find vendor -not \( -path vendor/github.com/fsouza -prune \) -type f -print0 | xargs -0 sed -i 's/Sirupsen/sirupsen/g'
+	find vendor -not \( -path vendor/github.com/fsouza -prune \) -name '*.go' -type f -print0 | xargs -0 sed -i 's/Sirupsen/sirupsen/g'
 	find lib -type f -print0 | xargs -0 sed -i 's/Sirupsen/sirupsen/g'
 	find tool -type f -print0 | xargs -0 sed -i 's/Sirupsen/sirupsen/g'
 	rm -rf vendor/github.com/Sirupsen/logrus
