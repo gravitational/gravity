@@ -168,7 +168,7 @@ func (p *phaseUpdateLabels) Execute(ctx context.Context) error {
 		labels := map[string]string{
 			defaults.KubernetesAdvertiseIPLabel: server.AdvertiseIP,
 		}
-		p.Infof("Update labels on %v.", formatServer(server))
+		p.Infof("Update labels on %v.", server)
 		err := libkubernetes.UpdateLabels(ctx, p.Client.Core().Nodes(), server.KubeNodeID(), labels)
 		if err != nil {
 			return trace.Wrap(err)

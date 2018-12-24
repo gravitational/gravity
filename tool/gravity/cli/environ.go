@@ -115,15 +115,18 @@ func UpdateEnvars(localEnv, updateEnv *localenv.LocalEnvironment, resource teles
 	}
 	runner := libfsm.NewAgentRunner(creds)
 	config := environ.Config{
-		Operator:     operator,
-		Operation:    operation,
-		Backend:      clusterEnv.Backend,
-		LocalBackend: updateEnv.Backend,
-		Servers:      cluster.ClusterState.Servers,
-		ClusterKey:   cluster.Key(),
-		Silent:       localEnv.Silent,
-		Runner:       runner,
-		Emitter:      localEnv,
+		Operator:        operator,
+		Operation:       operation,
+		Apps:            clusterEnv.Apps,
+		Backend:         clusterEnv.Backend,
+		LocalBackend:    updateEnv.Backend,
+		ClusterPackages: clusterEnv.ClusterPackages,
+		Client:          clusterEnv.Client,
+		Servers:         cluster.ClusterState.Servers,
+		ClusterKey:      cluster.Key(),
+		Silent:          localEnv.Silent,
+		Runner:          runner,
+		Emitter:         localEnv,
 	}
 	updater, err := environ.New(config)
 	if err != nil {
@@ -177,14 +180,17 @@ func getUpdater(env, updateEnv *localenv.LocalEnvironment) (*environ.Updater, er
 	runner := libfsm.NewAgentRunner(creds)
 
 	updater, err := environ.New(environ.Config{
-		Operator:     operator,
-		Operation:    operation,
-		Backend:      clusterEnv.Backend,
-		LocalBackend: env.Backend,
-		Servers:      cluster.ClusterState.Servers,
-		ClusterKey:   cluster.Key(),
-		Silent:       env.Silent,
-		Runner:       runner,
+		Operator:        operator,
+		Operation:       operation,
+		Apps:            clusterEnv.Apps,
+		Backend:         clusterEnv.Backend,
+		Client:          clusterEnv.Client,
+		ClusterPackages: clusterEnv.ClusterPackages,
+		LocalBackend:    env.Backend,
+		Servers:         cluster.ClusterState.Servers,
+		ClusterKey:      cluster.Key(),
+		Silent:          env.Silent,
+		Runner:          runner,
 	})
 	if err != nil {
 		return nil, trace.Wrap(err)

@@ -26,7 +26,11 @@ import (
 
 // NewOperationPlan creates a new operation plan for the specified operation
 func NewOperationPlan(operator ops.Operator, operation ops.SiteOperation, servers []storage.Server) (plan *storage.OperationPlan, err error) {
-	plan, err = fsm.NewOperationPlan(operation, servers)
+	cluster, err := operator.GetLocalSite()
+	if err != nil {
+		return nil, trace.Wrap(err)
+	}
+	plan, err = fsm.NewOperationPlan(cluster.App.Package, operation, servers)
 	if err != nil {
 		return nil, trace.Wrap(err)
 	}

@@ -16,19 +16,24 @@ limitations under the License.
 
 package phases
 
-import "github.com/gravitational/gravity/lib/ops"
-
 const (
-	// UpdateEnviron defines the phase to update cluster environment variables
-	// and restart system services on a single node
-	UpdateEnviron = "envars"
+	// UpdateConfig defines the phase to update runtime configuration package
+	// with new environment on a single node
+	UpdateConfig = "update-config"
+	// RestartContainer defines the phase to restart runtime container to make the
+	// configuration package effective
+	RestartContainer = "restart"
 	// Elections defines the phase to control election / leadership on
 	// a set of nodes
 	Elections = "elections"
+	// Taint defines the phase to add a taint to a node
+	Taint = "taint"
+	// Untaint defines the phase to remove the previously added taint from a node
+	Untaint = "untaint"
+	// Drain defines the phase to drain a node
+	Drain = "drain"
+	// Uncordon defines the phase to uncordon a node
+	Uncordon = "uncordon"
+	// Endpoints defines the phase to wait for endpoints on a node to be become active
+	Endpoints = "endpoints"
 )
-
-// LocalClusterGetter fetches data on local cluster
-type LocalClusterGetter interface {
-	// GetLocalSite returns the data record for the local cluster
-	GetLocalSite() (*ops.Site, error)
-}

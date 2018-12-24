@@ -791,8 +791,15 @@ type RotatePlanetConfigRequest struct {
 	OperationID string `json:"operation_id"`
 	// Server is the server to rotate configuration for
 	Server storage.Server `json:"server"`
-	// Servers is all cluster servers
-	Servers []storage.Server `json:"servers"`
+	// Manifest specifies the manifest to generate configuration with
+	Manifest schema.Manifest `json:"manifest"`
+	// Env specifies optional environment variables to set
+	Env map[string]string `json:"env,omitempty"`
+	// Package specifies the runtime package locator
+	Package loc.Locator `json:"package"`
+	// ConfigVersion specifies optional version for the configuration package.
+	// If unspecified, version of the runtime package is used
+	ConfigVersion string `json:"config_version"`
 }
 
 // SiteKey returns a cluster key from this request

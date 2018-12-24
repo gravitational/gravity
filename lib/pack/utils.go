@@ -394,6 +394,12 @@ func FindLatestCompatiblePackage(packages PackageService, filter loc.Locator, ve
 
 // FindLatestPackage returns package with the latest possible version
 func FindLatestPackage(packages PackageService, filter loc.Locator) (*loc.Locator, error) {
+	return FindLatestPackageCustom(packages, filter, Less)
+}
+
+// FindLatestPackageCustom searches for the latest version of the package given with filter
+// using the specified less comparator
+func FindLatestPackageCustom(packages PackageService, filter loc.Locator, less LessFunc) (*loc.Locator, error) {
 	var max *loc.Locator
 	err := ForeachPackageInRepo(packages, filter.Repository, func(e PackageEnvelope) error {
 		if e.Locator.Repository != filter.Repository || e.Locator.Name != filter.Name {
@@ -411,7 +417,7 @@ func FindLatestPackage(packages PackageService, filter loc.Locator) (*loc.Locato
 		if err != nil {
 			return nil
 		}
-		if verb.Compare(*vera) > 0 {
+		if less(vera, verb) {
 			max = &e.Locator
 		}
 		return nil
@@ -503,6 +509,15 @@ func ConfigLabels(loc loc.Locator, purpose string) map[string]string {
 		ConfigLabel:  loc.ZeroVersion().String(),
 		PurposeLabel: purpose,
 	}
+}
+
+// Labels is a set of labels
+type Labels map[string]string
+
+// HasPurpose returns true if these labels contain the purpose label for the given value
+func (r Labels) HasPurpose(value string) bool {
+	purpose, ok := r[PurposeLabel]
+	return ok && purpose == value
 }
 
 // FindAnyRuntimePackageWithConfig searches for the runtime package and the corresponding
@@ -618,4 +633,13 @@ func FindLegacyRuntimeConfigPackage(packages PackageService) (configPackage *loc
 		return nil, trace.NotFound("no runtime configuration package found")
 	}
 	return configPackage, nil
+}
+
+// LessFunc defines a version comparator
+type LessFunc func(a, b *semver.Version) bool
+
+// Less is the standard version comparator that
+// compares the major/minor/patch sub-components
+func Less(a, b *semver.Version) bool {
+	return a.Compare(*b) < 0
 }

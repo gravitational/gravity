@@ -21,16 +21,19 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/gravitational/gravity/lib/app"
 	"github.com/gravitational/gravity/lib/environ/internal/fsm"
 	libfsm "github.com/gravitational/gravity/lib/fsm"
 	"github.com/gravitational/gravity/lib/localenv"
 	"github.com/gravitational/gravity/lib/ops"
+	"github.com/gravitational/gravity/lib/pack"
 	"github.com/gravitational/gravity/lib/rpc"
 	"github.com/gravitational/gravity/lib/storage"
 	"github.com/gravitational/gravity/lib/utils"
 
 	"github.com/gravitational/trace"
 	log "github.com/sirupsen/logrus"
+	"k8s.io/client-go/kubernetes"
 )
 
 // New returns new updater for the specified configuration
@@ -134,13 +137,16 @@ func (r *Updater) init() (*libfsm.FSM, error) {
 	}
 
 	machine, err := fsm.New(fsm.Config{
-		Operation:    r.Operation,
-		Operator:     r.Operator,
-		Backend:      r.Backend,
-		LocalBackend: r.LocalBackend,
-		Runner:       r.Runner,
-		Silent:       r.Silent,
-		Emitter:      r.Emitter,
+		Operation:       r.Operation,
+		Operator:        r.Operator,
+		Apps:            r.Apps,
+		Backend:         r.Backend,
+		LocalBackend:    r.LocalBackend,
+		ClusterPackages: r.ClusterPackages,
+		Client:          r.Client,
+		Runner:          r.Runner,
+		Silent:          r.Silent,
+		Emitter:         r.Emitter,
 	})
 	if err != nil {
 		return nil, trace.Wrap(err)
@@ -178,6 +184,9 @@ func (r *Config) checkAndSetDefaults() error {
 	if r.Operator == nil {
 		return trace.BadParameter("cluster operator service is required")
 	}
+	if r.Apps == nil {
+		return trace.BadParameter("cluster application service is required")
+	}
 	if len(r.Servers) == 0 {
 		return trace.BadParameter("at least a single server is required")
 	}
@@ -186,6 +195,9 @@ func (r *Config) checkAndSetDefaults() error {
 	}
 	if r.LocalBackend == nil {
 		return trace.BadParameter("local backend is required")
+	}
+	if r.ClusterPackages == nil {
+		return trace.BadParameter("cluster package service is required")
 	}
 	if r.FieldLogger == nil {
 		r.FieldLogger = log.WithField(trace.Component, "envars:updater")
@@ -202,6 +214,8 @@ type Config struct {
 	ClusterKey ops.SiteKey
 	// Operator is the cluster operator service
 	Operator ops.Operator
+	// Apps is the cluster application service
+	Apps app.Applications
 	// Operation references a potentially active garbage collection operation
 	Operation *ops.SiteOperation
 	// Backend specifies the primary backend
@@ -210,6 +224,10 @@ type Config struct {
 	// is stored. It is the fallback backend, if the primary backend is temporarily
 	// unavailable
 	LocalBackend storage.Backend
+	// ClusterPackages specifies the cluster package service
+	ClusterPackages pack.PackageService
+	// Client specifies the optional kubernetes client
+	Client *kubernetes.Clientset
 	// Servers is the list of cluster servers
 	Servers []storage.Server
 	// Runner specifies the runner for remote commands

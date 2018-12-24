@@ -19,11 +19,9 @@ package update
 import (
 	"archive/tar"
 	"encoding/json"
-	"fmt"
 	"io"
 	"io/ioutil"
 	"strconv"
-	"strings"
 
 	appservice "github.com/gravitational/gravity/lib/app"
 	"github.com/gravitational/gravity/lib/archive"
@@ -182,20 +180,4 @@ type runtimeConfig struct {
 	DNSListenAddr string `json:"PLANET_DNS_LISTEN_ADDR"`
 	// DNSPort specifies the configured DNS port
 	DNSPort string `json:"PLANET_DNS_PORT"`
-}
-
-func formatServers(servers []storage.Server) string {
-	var formats []string
-	for _, server := range servers {
-		formats = append(formats, formatServer(server))
-	}
-	return strings.Join(formats, ",")
-}
-
-func formatServer(server storage.Server) string {
-	return fmt.Sprintf("node(addr=%v, hostname=%v, role=%v, cluster_role=%v)",
-		server.AdvertiseIP,
-		server.Hostname,
-		server.Role,
-		server.ClusterRole)
 }

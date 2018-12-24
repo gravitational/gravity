@@ -35,6 +35,7 @@ import (
 	"github.com/gravitational/gravity/lib/constants"
 	"github.com/gravitational/gravity/lib/defaults"
 	"github.com/gravitational/gravity/lib/loc"
+	"github.com/gravitational/gravity/lib/schema"
 	"github.com/gravitational/gravity/lib/utils"
 
 	teleservices "github.com/gravitational/teleport/lib/services"
@@ -1562,7 +1563,16 @@ func (s *Server) KubeNodeID() string {
 
 // IsMaster returns true if the server has a master role
 func (s *Server) IsMaster() bool {
-	return s.ClusterRole == constants.MasterRole
+	return s.ClusterRole == string(schema.ServiceRoleMaster)
+}
+
+// Strings formats this server as readable text
+func (s Server) String() string {
+	return fmt.Sprintf("node(addr=%v, hostname=%v, role=%v, cluster_role=%v)",
+		s.AdvertiseIP,
+		s.Hostname,
+		s.Role,
+		s.ClusterRole)
 }
 
 // Hostnames returns a list of hostnames for the provided servers
@@ -1902,6 +1912,15 @@ func (r Servers) Masters() (masters []Server) {
 		}
 	}
 	return
+}
+
+// String formats this list of servers as text
+func (r Servers) String() string {
+	var formats []string
+	for _, server := range r {
+		formats = append(formats, server.String())
+	}
+	return strings.Join(formats, ",")
 }
 
 type AgentProfile struct {

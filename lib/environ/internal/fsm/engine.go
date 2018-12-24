@@ -20,11 +20,13 @@ import (
 	"context"
 	"time"
 
+	"github.com/gravitational/gravity/lib/app"
 	"github.com/gravitational/gravity/lib/constants"
 	libphase "github.com/gravitational/gravity/lib/environ/internal/phases"
 	libfsm "github.com/gravitational/gravity/lib/fsm"
 	"github.com/gravitational/gravity/lib/localenv"
 	"github.com/gravitational/gravity/lib/ops"
+	"github.com/gravitational/gravity/lib/pack"
 	"github.com/gravitational/gravity/lib/storage"
 	"github.com/gravitational/gravity/lib/update"
 	"github.com/gravitational/gravity/lib/utils"
@@ -32,6 +34,7 @@ import (
 	"github.com/gravitational/trace"
 	"github.com/pborman/uuid"
 	log "github.com/sirupsen/logrus"
+	"k8s.io/client-go/kubernetes"
 )
 
 // New returns a new state machine for updating cluster environment variables
@@ -74,6 +77,9 @@ func (r *Config) checkAndSetDefaults() (err error) {
 	if r.LocalBackend == nil {
 		return trace.BadParameter("local backend is required")
 	}
+	if r.ClusterPackages == nil {
+		return trace.BadParameter("cluster package service is required")
+	}
 	if r.Runner == nil {
 		return trace.BadParameter("remote command runner is required")
 	}
@@ -89,18 +95,24 @@ func (r *Config) checkAndSetDefaults() (err error) {
 
 // Config describes configuration for updating cluster environment variables
 type Config struct {
-	// Operation references the active garbage collection operation
+	// FieldLogger is the logger
+	log.FieldLogger
+	// Operation references the active operation
 	Operation *ops.SiteOperation
 	// Operator is the cluster operator service
 	Operator ops.Operator
+	// Apps is the cluster application service
+	Apps app.Applications
 	// Backend specifies the primary backend
 	Backend storage.Backend
 	// LocalBackend specifies the backend where intermediate operation state
 	// is stored. It is the fallback backend, if the primary backend is temporarily
 	// unavailable
 	LocalBackend storage.Backend
-	// FieldLogger is the logger
-	log.FieldLogger
+	// ClusterPackages specifies the cluster package service
+	ClusterPackages pack.PackageService
+	// Client specifies the optional kubernetes client
+	Client *kubernetes.Clientset
 	// Runner specifies the remote command runner
 	Runner libfsm.RemoteRunner
 	// Silent controls whether the process outputs messages to stdout
@@ -232,10 +244,25 @@ func configToExecutor(config Config) libfsm.FSMSpecFunc {
 			logger.Server = params.Phase.Data.Server
 		}
 		switch params.Phase.Executor {
-		case libphase.UpdateEnviron:
-			return libphase.NewSync(params, *config.Operation, logger)
+		case libphase.UpdateConfig:
+			return libphase.NewUpdateConfig(params,
+				config.Operator, *config.Operation, config.Apps, config.ClusterPackages,
+				logger)
+		case libphase.RestartContainer:
+			return libphase.NewRestart(params, config.Operator, config.Apps, config.Operation.ID,
+				logger)
 		case libphase.Elections:
 			return libphase.NewElections(params, config.Operator, logger)
+		case libphase.Drain:
+			return libphase.NewDrain(params, config.Client, logger)
+		case libphase.Taint:
+			return libphase.NewTaint(params, config.Client, logger)
+		case libphase.Untaint:
+			return libphase.NewUntaint(params, config.Client, logger)
+		case libphase.Uncordon:
+			return libphase.NewUncordon(params, config.Client, logger)
+		case libphase.Endpoints:
+			return libphase.NewEndpoints(params, config.Client, logger)
 
 		default:
 			return nil, trace.BadParameter("unknown executor %v for phase %q",

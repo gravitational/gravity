@@ -24,6 +24,7 @@ import (
 	"github.com/gravitational/gravity/lib/constants"
 	"github.com/gravitational/gravity/lib/defaults"
 	libfsm "github.com/gravitational/gravity/lib/fsm"
+	"github.com/gravitational/gravity/lib/ops"
 	"github.com/gravitational/gravity/lib/storage"
 	"github.com/gravitational/gravity/lib/utils"
 
@@ -33,7 +34,7 @@ import (
 
 // NewElections implements the phase to manage election changes in cluster
 // to support failover as the environment variables are updated
-func NewElections(params libfsm.ExecutorParams, operator LocalClusterGetter, logger logrus.FieldLogger) (*elections, error) {
+func NewElections(params libfsm.ExecutorParams, operator localClusterGetter, logger logrus.FieldLogger) (*elections, error) {
 	if params.Phase.Data == nil || params.Phase.Data.ElectionChange == nil {
 		return nil, trace.BadParameter("no election status specified for phase %q", params.Phase.ID)
 	}
@@ -145,4 +146,10 @@ type elections struct {
 	// clusterName is the name of the local cluster
 	clusterName string
 	dnsAddr     string
+}
+
+// localClusterGetter fetches data on local cluster
+type localClusterGetter interface {
+	// GetLocalSite returns the data record for the local cluster
+	GetLocalSite() (*ops.Site, error)
 }

@@ -190,10 +190,13 @@ func (s *site) configureExpandPackages(ctx context.Context, opCtx *operationCont
 		return trace.Wrap(err)
 	}
 	planetConfig := planetConfig{
+		server:        *provisionedServer,
+		installExpand: opCtx.operation,
 		etcd:          *etcdConfig,
 		docker:        s.dockerConfig(),
 		planetPackage: *planetPackage,
 		configPackage: *configPackage,
+		manifest:      s.app.Manifest,
 	}
 	if provisionedServer.IsMaster() {
 		err := s.configureTeleportMaster(opCtx, teleportCA, provisionedServer)
@@ -219,8 +222,7 @@ func (s *site) configureExpandPackages(ctx context.Context, opCtx *operationCont
 			electionEnabled: false,
 			addr:            s.teleport().GetPlanetLeaderIP(),
 		}
-		err = s.configurePlanetMaster(provisionedServer, opCtx.operation,
-			planetConfig, *secretsPackage, *configPackage)
+		err = s.configurePlanetMaster(planetConfig, *secretsPackage, *configPackage)
 		if err != nil {
 			return trace.Wrap(err)
 		}
@@ -229,8 +231,7 @@ func (s *site) configureExpandPackages(ctx context.Context, opCtx *operationCont
 		if err != nil {
 			return trace.Wrap(err)
 		}
-		err = s.configurePlanetNode(provisionedServer, opCtx.operation,
-			planetConfig, *secretsPackage, *configPackage)
+		err = s.configurePlanetNode(planetConfig, *secretsPackage, *configPackage)
 		if err != nil {
 			return trace.Wrap(err)
 		}
@@ -265,21 +266,18 @@ func (s *site) configurePackages(ctx *operationContext) error {
 	}
 
 	for _, node := range ctx.provisionedServers {
-		node.PackageSet.AddPackage(
-			s.gravityPackage, map[string]string{pack.InstalledLabel: pack.InstalledLabel})
-
 		err := s.configureTeleportKeyPair(teleportCA, node, teleport.RoleNode)
 		if err != nil {
 			return trace.Wrap(err)
 		}
 	}
 
-	siteExportPackage, err := s.configureSiteExportPackage(ctx)
+	_, err = s.configureSiteExportPackage(ctx)
 	if err != nil {
 		return trace.Wrap(err)
 	}
 
-	licensePackage, err := s.configureLicensePackage(ctx)
+	_, err = s.configureLicensePackage(ctx)
 	if err != nil {
 		return trace.Wrap(err)
 	}
@@ -347,13 +345,16 @@ func (s *site) configurePackages(ctx *operationContext) error {
 		}
 
 		config := planetConfig{
+			server:        *master,
+			installExpand: ctx.operation,
 			etcd:          masterEtcdConfig,
 			master:        masterConfig,
 			docker:        s.dockerConfig(),
 			planetPackage: *planetPackage,
 			configPackage: *configPackage,
+			manifest:      s.app.Manifest,
 		}
-		err = s.configurePlanetMaster(master, ctx.operation, config, *secretsPackage, *configPackage)
+		err = s.configurePlanetMaster(config, *secretsPackage, *configPackage)
 		if err != nil {
 			return trace.Wrap(err)
 		}
@@ -363,19 +364,6 @@ func (s *site) configurePackages(ctx *operationContext) error {
 		}
 
 		if err := s.configureTeleportNode(ctx, activeMaster.AdvertiseIP, master); err != nil {
-			return trace.Wrap(err)
-		}
-
-		master.PackageSet.AddArchivePackages(s.webAssetsPackage)
-		master.PackageSet.AddPackages(*planetPackage)
-		master.PackageSet.AddPackages(*siteExportPackage)
-		if licensePackage != nil {
-			master.PackageSet.AddPackages(*licensePackage)
-		}
-		if s.hasResources() {
-			master.PackageSet.AddPackages(*resourcesPackage)
-		}
-		if err := s.configureUserApp(master); err != nil {
 			return trace.Wrap(err)
 		}
 	}
@@ -411,14 +399,17 @@ func (s *site) configurePackages(ctx *operationContext) error {
 		}
 
 		config := planetConfig{
+			server:        *node,
+			installExpand: ctx.operation,
 			etcd:          nodeEtcdConfig,
 			master:        masterConfig{addr: p.FirstMaster().AdvertiseIP},
 			docker:        s.dockerConfig(),
 			planetPackage: *planetPackage,
 			configPackage: *configPackage,
+			manifest:      s.app.Manifest,
 		}
 
-		err = s.configurePlanetNode(node, ctx.operation, config, *secretsPackage, *configPackage)
+		err = s.configurePlanetNode(config, *secretsPackage, *configPackage)
 		if err != nil {
 			return trace.Wrap(err)
 		}
@@ -462,24 +453,6 @@ func (s *site) prepareEtcdConfig(ctx *operationContext) clusterEtcdConfig {
 	}
 
 	return config
-}
-
-// configureUserApp adds the application being installed as well as all its dependencies to
-// the package set of master servers
-func (s *site) configureUserApp(server *ProvisionedServer) error {
-	var apps []loc.Locator
-
-	for _, dep := range s.app.Manifest.Dependencies.Apps {
-		apps = append(apps, dep.Locator)
-	}
-
-	appPackage, err := s.appPackage()
-	if err != nil {
-		return trace.Wrap(err)
-	}
-
-	server.PackageSet.AddApps(append(apps, *appPackage)...)
-	return nil
 }
 
 func (s *site) configurePlanetCertAuthority(ctx *operationContext) error {
@@ -813,82 +786,49 @@ type masterConfig struct {
 }
 
 func (s *site) configurePlanetMaster(
-	master *ProvisionedServer,
-	installOrExpand ops.SiteOperation,
 	config planetConfig,
 	secretsPackage, configPackage loc.Locator,
 ) error {
-	if server := installOrExpand.InstallExpand.Servers.FindByIP(master.AdvertiseIP); server != nil {
+	if server := config.installExpand.InstallExpand.Servers.FindByIP(config.server.AdvertiseIP); server != nil {
 		config.dockerRuntime = server.Docker
 	}
 
-	err := s.configurePlanetServer(master, installOrExpand, config)
+	err := s.configurePlanetServer(config)
 	if err != nil {
 		return trace.Wrap(err)
 	}
-
-	certAuthorityPackage, err := s.planetCertAuthorityPackage()
-	if err != nil {
-		return trace.Wrap(err)
-	}
-
-	master.PackageSet.AddArchivePackages(*certAuthorityPackage)
-	master.PackageSet.AddArchivePackage(secretsPackage,
-		map[string]string{pack.InstalledLabel: pack.InstalledLabel})
-	master.PackageSet.AddArchivePackage(
-		config.planetPackage, map[string]string{
-			pack.InstalledLabel: pack.InstalledLabel,
-			pack.PurposeLabel:   pack.PurposeRuntime,
-		})
-	master.PackageSet.AddArchivePackage(configPackage,
-		pack.ConfigLabels(config.planetPackage, pack.PurposePlanetConfig))
 	return nil
 }
 
 func (s *site) configurePlanetNode(
-	node *ProvisionedServer,
-	installOrExpand ops.SiteOperation,
 	config planetConfig,
 	secretsPackage, configPackage loc.Locator,
 ) error {
-	if server := installOrExpand.InstallExpand.Servers.FindByIP(node.AdvertiseIP); server != nil {
+	if server := config.installExpand.InstallExpand.Servers.FindByIP(config.server.AdvertiseIP); server != nil {
 		config.dockerRuntime = server.Docker
 	}
 
-	err := s.configurePlanetServer(node, installOrExpand, config)
+	err := s.configurePlanetServer(config)
 	if err != nil {
 		return trace.Wrap(err)
 	}
-
-	node.PackageSet.AddArchivePackage(secretsPackage, map[string]string{
-		pack.InstalledLabel: pack.InstalledLabel,
-	})
-	node.PackageSet.AddArchivePackage(config.planetPackage, map[string]string{
-		pack.InstalledLabel: pack.InstalledLabel,
-		pack.PurposeLabel:   pack.PurposeRuntime,
-	})
-	node.PackageSet.AddArchivePackage(configPackage,
-		pack.ConfigLabels(config.planetPackage, pack.PurposePlanetConfig))
 	return nil
 }
 
-func (s *site) getPlanetConfigPackage(
-	node *ProvisionedServer,
-	installOrExpand ops.SiteOperation,
-	config planetConfig,
-	manifest schema.Manifest) (*ops.RotatePackageResponse, error) {
+func (s *site) getPlanetConfigPackage(config planetConfig) (*ops.RotatePackageResponse, error) {
+	node := config.server
+	manifest := config.manifest
 	profile, err := manifest.NodeProfiles.ByName(node.Role)
 	if err != nil {
 		return nil, trace.Wrap(err)
 	}
-
 	args := []string{
 		fmt.Sprintf("--node-name=%v", node.KubeNodeID()),
 		fmt.Sprintf("--hostname=%v", node.Hostname),
 		fmt.Sprintf("--master-ip=%v", config.master.addr),
 		fmt.Sprintf("--public-ip=%v", node.AdvertiseIP),
-		fmt.Sprintf("--service-subnet=%v", installOrExpand.InstallExpand.Subnets.Service),
-		fmt.Sprintf("--pod-subnet=%v", installOrExpand.InstallExpand.Subnets.Overlay),
+		fmt.Sprintf("--service-subnet=%v", config.installExpand.InstallExpand.Subnets.Service),
+		fmt.Sprintf("--pod-subnet=%v", config.installExpand.InstallExpand.Subnets.Overlay),
 		fmt.Sprintf("--cluster-id=%v", s.domainName),
 		fmt.Sprintf("--etcd-proxy=%v", config.etcd.proxyMode),
 		fmt.Sprintf("--etcd-member-name=%v", node.EtcdMemberName(s.domainName)),
@@ -904,6 +844,10 @@ func (s *site) getPlanetConfigPackage(
 		fmt.Sprintf("--volume=%v:/var/log", node.InGravity("planet", "log")),
 		fmt.Sprintf("--volume=%v:%v", node.StateDir(), defaults.GravityDir),
 		fmt.Sprintf("--service-uid=%v", s.uid()),
+	}
+
+	for k, v := range config.env {
+		args = append(args, fmt.Sprintf("--env=%v=%v", k, v))
 	}
 
 	if node.IsMaster() {
@@ -934,7 +878,7 @@ func (s *site) getPlanetConfigPackage(
 			s.backendSite.DNSOverrides.FormatZones()))
 	}
 
-	vxlanPort := installOrExpand.InstallExpand.Vars.OnPrem.VxlanPort
+	vxlanPort := config.installExpand.InstallExpand.Vars.OnPrem.VxlanPort
 	if vxlanPort != 0 {
 		args = append(args, fmt.Sprintf("--vxlan-port=%v", vxlanPort))
 	}
@@ -945,7 +889,7 @@ func (s *site) getPlanetConfigPackage(
 	}
 	args = append(args, fmt.Sprintf("--dns-port=%v", dnsConfig.Port))
 
-	dockerArgs, err := configureDockerOptions(&installOrExpand, node,
+	dockerArgs, err := configureDockerOptions(config.installExpand, node,
 		config.docker, config.dockerRuntime)
 	if err != nil {
 		return nil, trace.Wrap(err)
@@ -1011,7 +955,7 @@ func (s *site) getPlanetConfigPackage(
 		pack.PurposeLabel:     pack.PurposePlanetConfig,
 		pack.ConfigLabel:      config.planetPackage.ZeroVersion().String(),
 		pack.AdvertiseIPLabel: node.AdvertiseIP,
-		pack.OperationIDLabel: installOrExpand.ID,
+		pack.OperationIDLabel: config.installExpand.ID,
 	}
 
 	return &ops.RotatePackageResponse{
@@ -1021,8 +965,8 @@ func (s *site) getPlanetConfigPackage(
 	}, nil
 }
 
-func (s *site) configurePlanetServer(node *ProvisionedServer, installOrExpand ops.SiteOperation, config planetConfig) error {
-	resp, err := s.getPlanetConfigPackage(node, installOrExpand, config, s.app.Manifest)
+func (s *site) configurePlanetServer(config planetConfig) error {
+	resp, err := s.getPlanetConfigPackage(config)
 	if err != nil {
 		return trace.Wrap(err)
 	}
@@ -1031,12 +975,16 @@ func (s *site) configurePlanetServer(node *ProvisionedServer, installOrExpand op
 }
 
 type planetConfig struct {
+	manifest      schema.Manifest
+	installExpand ops.SiteOperation
+	server        ProvisionedServer
 	etcd          etcdConfig
 	master        masterConfig
 	docker        storage.DockerConfig
 	dockerRuntime storage.Docker
 	planetPackage loc.Locator
 	configPackage loc.Locator
+	env           map[string]string
 }
 
 func (s *site) configureTeleportMaster(ctx *operationContext, secrets *teleportSecrets, master *ProvisionedServer) error {
@@ -1151,9 +1099,6 @@ func (s *site) configureTeleportMaster(ctx *operationContext, secrets *teleportS
 	if err != nil {
 		return trace.Wrap(err)
 	}
-
-	master.PackageSet.AddArchivePackage(*configPackage, nil)
-
 	return nil
 }
 
@@ -1247,10 +1192,6 @@ func (s *site) configureTeleportNode(ctx *operationContext, masterIP string, nod
 	if err != nil {
 		return trace.Wrap(err)
 	}
-
-	node.PackageSet.AddArchivePackage(s.teleportPackage, map[string]string{pack.InstalledLabel: pack.InstalledLabel})
-	node.PackageSet.AddArchivePackage(*configPackage, map[string]string{pack.ConfigLabel: s.teleportPackage.ZeroVersion().String()})
-
 	return nil
 }
 
@@ -1519,117 +1460,11 @@ func (s *site) serverPackages(server *ProvisionedServer) ([]loc.Locator, error) 
 	}, nil
 }
 
-func NewPackageSet() *PackageSet {
-	return &PackageSet{
-		packages: make([]packageEnvelope, 0),
-	}
-}
-
-type packageEnvelope struct {
-	loc    loc.Locator
-	labels map[string]string
-	// archive specifies if this package is archive
-	// that should be unpacked during install process
-	archive bool
-}
-
-func (p *packageEnvelope) labelFlag() string {
-	kv := configure.KeyVal(p.labels)
-	return kv.String()
-}
-
-// PackageSet defines a collection of packages and applications
-type PackageSet struct {
-	packages []packageEnvelope
-	apps     []packageEnvelope
-}
-
-// AddArchivePackages adds packages specified with ps to this set as archive packages
-func (s *PackageSet) AddArchivePackages(ps ...loc.Locator) {
-	for _, p := range ps {
-		s.AddArchivePackage(p, nil)
-	}
-}
-
-// AddApps adds appications specified with apps to this set
-func (s *PackageSet) AddApps(apps ...loc.Locator) {
-	for _, app := range apps {
-		s.AddApp(app, nil)
-	}
-}
-
-// AddPackages adds packages specified with packages to this set
-// AddArchivePackage adds a package specified with p as an archive package
-func (s *PackageSet) AddArchivePackage(p loc.Locator, labels map[string]string) {
-	addPackage(p, labels, &s.packages, true)
-}
-
-// AddPackages adds packages specified with packages to this set
-func (s *PackageSet) AddPackages(packages ...loc.Locator) {
-	for _, p := range packages {
-		s.AddPackage(p, nil)
-	}
-}
-
-// AddPackage adds a package specified with p with given labels to this set
-func (s *PackageSet) AddPackage(p loc.Locator, labels map[string]string) {
-	addPackage(p, labels, &s.packages, false)
-}
-
-// GetPackage returns the package envelope for the package specified with packageName.
-// Returns trace.NotFound if no package with the specified name exists
-func (s *PackageSet) GetPackage(packageName string) (*packageEnvelope, error) {
-	for _, p := range s.packages {
-		if p.loc.Name == packageName {
-			return &p, nil
-		}
-	}
-	return nil, trace.NotFound("package with name %v not found", packageName)
-}
-
-// GetPackageByLabels returns the package envelope for the package specified with labels.
-// Returns trace.NotFound if no package with the specified set of labels exists
-func (s *PackageSet) GetPackageByLabels(labels map[string]string) (*packageEnvelope, error) {
-L:
-	for _, p := range s.packages {
-		for name, value := range labels {
-			if existing, ok := p.labels[name]; !ok || existing != value {
-				continue L
-			}
-		}
-		return &p, nil
-	}
-	return nil, trace.NotFound("package matching labels %v not found", labels)
-}
-
-// Packages returns all packages in the set
-func (s *PackageSet) Packages() []packageEnvelope {
-	return s.packages
-}
-
-// Apps returns all application packages in the set
-func (s *PackageSet) Apps() []packageEnvelope {
-	return s.apps
-}
-
-// AddApp adds an application specified with p with given labels to this set
-func (s *PackageSet) AddApp(p loc.Locator, labels map[string]string) {
-	addPackage(p, labels, &s.apps, true)
-}
-
-func addPackage(newPackage loc.Locator, labels map[string]string, source *[]packageEnvelope, archive bool) {
-	(*source) = append((*source), packageEnvelope{
-		loc:     newPackage,
-		labels:  labels,
-		archive: archive,
-	})
-}
-
 // configureDockerOptions creates a set of Docker-specific command line arguments to Planet on the specified node
 // based on the operation op and docker manifest configuration block.
 func configureDockerOptions(
-	op *ops.SiteOperation,
-	node *ProvisionedServer,
+	op ops.SiteOperation,
+	node ProvisionedServer,
 	docker storage.DockerConfig,
 	dockerRuntime storage.Docker,
 ) (args []string, err error) {

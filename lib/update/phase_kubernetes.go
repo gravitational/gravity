@@ -59,14 +59,14 @@ func NewPhaseTaint(c FSMConfig, plan storage.OperationPlan, phase storage.Operat
 
 // Execute adds a taint on the specified node.
 func (p *phaseTaint) Execute(ctx context.Context) error {
-	p.Infof("Taint %v.", formatServer(p.Server))
+	p.Infof("Taint %v.", p.Server)
 	err := taint(ctx, p.Client.CoreV1().Nodes(), p.Server.KubeNodeID(), addTaint(true))
 	return trace.Wrap(err)
 }
 
 // Rollback removes the taint from the node
 func (p *phaseTaint) Rollback(ctx context.Context) error {
-	p.Infof("Remove taint from %v.", formatServer(p.Server))
+	p.Infof("Remove taint from %v.", p.Server)
 	err := taint(ctx, p.Client.CoreV1().Nodes(), p.Server.KubeNodeID(), addTaint(false))
 	if err != nil && !trace.IsNotFound(err) {
 		return trace.Wrap(err)
@@ -92,7 +92,7 @@ func NewPhaseUntaint(c FSMConfig, plan storage.OperationPlan, phase storage.Oper
 
 // Execute removes a taint from the specified node.
 func (p *phaseUntaint) Execute(ctx context.Context) error {
-	p.Infof("Remove taint from %v.", formatServer(p.Server))
+	p.Infof("Remove taint from %v.", p.Server)
 	err := taint(ctx, p.Client.CoreV1().Nodes(), p.Server.KubeNodeID(), addTaint(false))
 	return trace.Wrap(err)
 }
@@ -120,7 +120,7 @@ func NewPhaseDrain(c FSMConfig, plan storage.OperationPlan, phase storage.Operat
 
 // Execute drains the specified node
 func (p *phaseDrain) Execute(ctx context.Context) error {
-	p.Infof("Drain %v.", formatServer(p.Server))
+	p.Infof("Drain %v.", p.Server)
 	ctx, cancel := context.WithTimeout(ctx, defaults.DrainTimeout)
 	defer cancel()
 	err := retry(ctx, func() error {
@@ -131,7 +131,7 @@ func (p *phaseDrain) Execute(ctx context.Context) error {
 
 // Rollback reverts the effect of drain by uncordoning the node
 func (p *phaseDrain) Rollback(ctx context.Context) error {
-	p.Infof("Uncordon %v.", formatServer(p.Server))
+	p.Infof("Uncordon %v.", p.Server)
 	err := uncordon(ctx, p.Client.CoreV1().Nodes(), p.Server.KubeNodeID())
 	return trace.Wrap(err)
 }
@@ -156,7 +156,7 @@ func NewPhaseKubeletPermissions(c FSMConfig, plan storage.OperationPlan, phase s
 
 // Execute adds additional permissions for kubelet
 func (p *phaseKubeletPermissions) Execute(context.Context) error {
-	p.Infof("Update kubelet perrmissiong on %v.", formatServer(p.Server))
+	p.Infof("Update kubelet perrmissiong on %v.", p.Server)
 	err := updateKubeletPermissions(p.Client)
 	return trace.Wrap(err)
 }
@@ -185,7 +185,7 @@ func NewPhaseUncordon(c FSMConfig, plan storage.OperationPlan, phase storage.Ope
 // Execute uncordons the specified node.
 // This will block until DNS/cluster controller endpoints are populated
 func (p *phaseUncordon) Execute(ctx context.Context) error {
-	p.Infof("Uncordon %v.", formatServer(p.Server))
+	p.Infof("Uncordon %v.", p.Server)
 	err := uncordon(ctx, p.Client.CoreV1().Nodes(), p.Server.KubeNodeID())
 	return trace.Wrap(err)
 }
@@ -214,7 +214,7 @@ func NewPhaseEndpoints(c FSMConfig, plan storage.OperationPlan, phase storage.Op
 
 // Execute waits for endpoints
 func (p *phaseEndpoints) Execute(ctx context.Context) error {
-	p.Infof("Wait for endpoints on %v.", formatServer(p.Server))
+	p.Infof("Wait for endpoints on %v.", p.Server)
 	err := waitForEndpoints(ctx, p.Client.CoreV1(), p.Server)
 	return trace.Wrap(err)
 }

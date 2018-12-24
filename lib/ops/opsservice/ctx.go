@@ -21,9 +21,7 @@ import (
 	"io"
 	"time"
 
-	appservice "github.com/gravitational/gravity/lib/app"
 	"github.com/gravitational/gravity/lib/constants"
-	"github.com/gravitational/gravity/lib/loc"
 	"github.com/gravitational/gravity/lib/ops"
 	"github.com/gravitational/gravity/lib/storage"
 	"github.com/gravitational/trace"
@@ -55,23 +53,6 @@ type operationContext struct {
 	// serversToRemove is a list of servers to remove
 	// in shrink operation
 	serversToRemove []storage.Server
-	// update groups update-related transient attributes
-	update updateContext
-}
-
-// update groups update-related transient attributes
-type updateContext struct {
-	// masterIP is the IP of the active master node
-	masterIP string
-	// installOp references the installation operation used to create
-	// the cluster
-	installOp ops.SiteOperation
-	// app describes the update application
-	app appservice.Application
-	// gravityPath specifies location of the temporary gravity binary used for update.
-	gravityPath string
-	// gravityPackage specifies the package with the new gravity binary
-	gravityPackage loc.Locator
 }
 
 func (s *site) newOperationContext(operation ops.SiteOperation) (*operationContext, error) {

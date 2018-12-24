@@ -22,6 +22,7 @@ import (
 
 	libphase "github.com/gravitational/gravity/lib/environ/internal/phases"
 	libfsm "github.com/gravitational/gravity/lib/fsm"
+	"github.com/gravitational/gravity/lib/loc"
 	"github.com/gravitational/gravity/lib/ops"
 	"github.com/gravitational/gravity/lib/storage"
 	"github.com/gravitational/gravity/lib/update"
@@ -31,18 +32,18 @@ import (
 
 // NewOperationPlan returns a new plan for the specified operation
 // and the given set of servers
-func NewOperationPlan(operation ops.SiteOperation, servers []storage.Server) (*storage.OperationPlan, error) {
+func NewOperationPlan(app loc.Locator, operation ops.SiteOperation, servers []storage.Server) (*storage.OperationPlan, error) {
 	masters, nodes := libfsm.SplitServers(servers)
 	if len(masters) == 0 {
 		return nil, trace.NotFound("no master servers found in cluster state")
 	}
 
-	builder := phaseBuilder{}
-	syncMasters := *builder.masters(masters)
-	phases := phases{syncMasters}
+	builder := phaseBuilder{app: app}
+	updateMasters := *builder.masters(masters)
+	phases := phases{updateMasters}
 	if len(nodes) != 0 {
-		syncNodes := *builder.nodes(nodes).Require(syncMasters)
-		phases = append(phases, syncNodes)
+		updateNodes := *builder.nodes(nodes).Require(updateMasters)
+		phases = append(phases, updateNodes)
 	}
 
 	plan := &storage.OperationPlan{
@@ -66,7 +67,7 @@ func (r phaseBuilder) masters(servers []storage.Server) *phase {
 	first, others := servers[0], servers[1:]
 
 	if len(others) == 0 {
-		root.AddSequential(r.envars(&first, first.Hostname))
+		root.AddSequential(r.common(&first)...)
 		return &root
 	}
 
@@ -75,7 +76,7 @@ func (r phaseBuilder) masters(servers []storage.Server) *phase {
 		node.AddSequential(setLeaderElection(enable(), disable(first), first,
 			"stepdown", "Step down %q as Kubernetes leader"))
 	}
-	node.AddSequential(r.envars(&first, "envars"))
+	node.AddSequential(r.common(&first)...)
 	if len(others) != 0 {
 		node.AddSequential(setLeaderElection(enable(first), disable(others...), first,
 			"elect", "Make node %q Kubernetes leader"))
@@ -83,7 +84,7 @@ func (r phaseBuilder) masters(servers []storage.Server) *phase {
 	root.AddSequential(node)
 	for i, server := range others {
 		node := r.node(server, server.Hostname, "Update environment variables on node %q")
-		node.AddSequential(r.envars(&others[i], "envars"))
+		node.AddSequential(r.common(&others[i])...)
 		node.AddSequential(setLeaderElection(enable(server), disable(), server,
 			"enable-elections", "Enable leader election on node %q"))
 		root.AddSequential(node)
@@ -97,14 +98,85 @@ func (r phaseBuilder) nodes(servers []storage.Server) *phase {
 		Description: "Update cluster environment variables",
 	})
 	for i, server := range servers {
-		root.AddSequential(r.envars(&servers[i], server.Hostname))
+		node := r.node(server, server.Hostname, "Update environment variables on node %q")
+		node.AddSequential(r.common(&servers[i])...)
+		root.AddSequential(node)
 	}
 	return &root
 }
 
-func (r phaseBuilder) envars(server *storage.Server, id string) phase {
-	node := r.node(*server, id, "Update environment variables on node %q")
-	node.Executor = libphase.UpdateEnviron
+func (r phaseBuilder) common(server *storage.Server) (phases []phase) {
+	phases = append(phases,
+		r.drain(server),
+		r.updateConfig(server),
+		r.restart(server),
+		r.taint(server),
+		r.uncordon(server),
+		r.endpoints(server),
+		r.untaint(server),
+	)
+	return phases
+}
+
+func (r phaseBuilder) updateConfig(server *storage.Server) phase {
+	node := r.node(*server, "update-config", "Update runtime configuration on node %q")
+	node.Executor = libphase.UpdateConfig
+	node.Data = &storage.OperationPhaseData{
+		Server:  server,
+		Package: &r.app,
+	}
+	return node
+}
+
+func (r phaseBuilder) restart(server *storage.Server) phase {
+	node := r.node(*server, "restart", "Restart container on node %q")
+	node.Executor = libphase.RestartContainer
+	node.Data = &storage.OperationPhaseData{
+		Server:  server,
+		Package: &r.app,
+	}
+	return node
+}
+
+func (r phaseBuilder) taint(server *storage.Server) phase {
+	node := r.node(*server, "taint", "Taint node %q")
+	node.Executor = libphase.Taint
+	node.Data = &storage.OperationPhaseData{
+		Server: server,
+	}
+	return node
+}
+
+func (r phaseBuilder) untaint(server *storage.Server) phase {
+	node := r.node(*server, "untaint", "Remove taint from node %q")
+	node.Executor = libphase.Untaint
+	node.Data = &storage.OperationPhaseData{
+		Server: server,
+	}
+	return node
+}
+
+func (r phaseBuilder) uncordon(server *storage.Server) phase {
+	node := r.node(*server, "uncordon", "Uncordon node %q")
+	node.Executor = libphase.Uncordon
+	node.Data = &storage.OperationPhaseData{
+		Server: server,
+	}
+	return node
+}
+
+func (r phaseBuilder) endpoints(server *storage.Server) phase {
+	node := r.node(*server, "endpoints", "Wait for endpoints on node %q")
+	node.Executor = libphase.Endpoints
+	node.Data = &storage.OperationPhaseData{
+		Server: server,
+	}
+	return node
+}
+
+func (r phaseBuilder) drain(server *storage.Server) phase {
+	node := r.node(*server, "drain", "Drain node %q")
+	node.Executor = libphase.Drain
 	node.Data = &storage.OperationPhaseData{
 		Server: server,
 	}
@@ -142,7 +214,9 @@ func setLeaderElection(enable, disable []storage.Server, server storage.Server, 
 func enable(servers ...storage.Server) []storage.Server  { return servers }
 func disable(servers ...storage.Server) []storage.Server { return servers }
 
-type phaseBuilder struct{}
+type phaseBuilder struct {
+	app loc.Locator
+}
 
 // AddSequential will append sub-phases which depend one upon another
 func (p *phase) AddSequential(sub ...phase) {
