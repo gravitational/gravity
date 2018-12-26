@@ -15,7 +15,7 @@ that takes the drama out of on-premises deployments.
 
 Gravity is an open source tooklit for creating "images" of Kubernetes
 clusters and the applications running inside the clusters. The resulting
-images are called *application bundles*.
+images are called *application bundles* and they are just `.tar` files.
 
 An application bundle can be used to re-create full replicas of the original
 cluster in any environment where compliance and consistency matters, i.e. in 
