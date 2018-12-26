@@ -155,6 +155,7 @@ endef
 .PHONY: build
 build:
 	@if [ "$(OS)" = "darwin" ]; then $(MAKE) build-on-host; else $(MAKE) build-in-container; fi
+	ln -sf $(GRAVITY_BUILDDIR) $(GRAVITY_CURRENT_BUILDDIR) 
 
 #
 # generate gRPC code
