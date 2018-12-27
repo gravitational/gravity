@@ -52,7 +52,7 @@ on compliance and autonomous operations:
 
 ## Who is Gravity for?
 
-We have seen the primary use cases for using a image-based Kubernetes approach
+We have seen the following primary use cases for using a image-based Kubernetes approach
 (there may be others):
 
 * Deploying complex SaaS applications into on-premises enterprise environments.
@@ -62,9 +62,10 @@ We have seen the primary use cases for using a image-based Kubernetes approach
   environments.
 * Environments where autonomous Kubernetes is required, such as large multi-node
   hardware appliances, production floors, edge deployments, etc.
-* Anyone who needs Kubernetes best practices out of the box, without having to
-  proactively manage it, can benefit from Gravity. Focus on building your
-  product instead of managing Kubernetes.
+
+Anyone who needs Kubernetes best practices out of the box, without having to
+proactively manage it can benefit from Gravity. It allows you to focus on building 
+your product instead of managing Kubernetes.
 
 ## Application Bundles
 
@@ -94,10 +95,10 @@ following benefits:
 * Keeps a detailed audit log (including fully recorded interactive sessions)
   for all SSH commands and all `kubectl` commands executed on cluster nodes.
 
-Teleport can also be used independently without Gravity, it has been audited
-multiple times by [reputable](https://gravitational.com/blog/teleport-security-audit/)
-cyber security companies and it has been deployed in production in [multiple](https://gravitational.com/teleport)
-organizations.
+Teleport can also be used independently without Gravity, it has been [audited
+multiple times](https://gravitational.com/resources/audits/) by reputable
+cyber security companies and it has been deployed in production in [multiple
+organizations](https://gravitational.com/teleport).
 
 ## Is Gravity Production Ready?
 
