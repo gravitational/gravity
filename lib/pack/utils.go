@@ -331,6 +331,24 @@ func FindConfigPackage(packages PackageService, filter loc.Locator) (*loc.Locato
 	return &configPkg.Locator, nil
 }
 
+// FindInstalledConfigPackage returns an installed configuration package for given package
+func FindInstalledConfigPackage(packages PackageService, filter loc.Locator) (*loc.Locator, error) {
+	configPkg, err := FindPackage(packages, func(e PackageEnvelope) bool {
+		return e.HasLabels(Labels{
+			ConfigLabel:    filter.ZeroVersion().String(),
+			InstalledLabel: InstalledLabel,
+		})
+	})
+	if err != nil {
+		if trace.IsNotFound(err) {
+			return nil, trace.NotFound("no configuration package for %v found",
+				filter)
+		}
+		return nil, trace.Wrap(err)
+	}
+	return &configPkg.Locator, nil
+}
+
 // FindInstalledPackageWithConfig finds installed package and associated configuration package
 func FindInstalledPackageWithConfig(packages PackageService, filter loc.Locator) (*loc.Locator, *loc.Locator, error) {
 	locator, err := FindInstalledPackage(packages, filter)
@@ -564,7 +582,7 @@ func FindRuntimePackageWithConfig(packages PackageService) (runtimePackage *loc.
 		return nil, nil, trace.Wrap(err)
 	}
 
-	runtimeConfig, err = FindConfigPackage(packages, *runtimePackage)
+	runtimeConfig, err = FindInstalledConfigPackage(packages, *runtimePackage)
 	if err != nil {
 		return nil, nil, trace.Wrap(err)
 	}

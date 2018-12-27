@@ -226,7 +226,12 @@ func systemHistory(env *localenv.LocalEnvironment) error {
 
 func systemReinstall(env *localenv.LocalEnvironment, newPackage loc.Locator, serviceName string, labels map[string]string) error {
 	if serviceName == "" {
-		return trace.Wrap(systemBlockingReinstall(env, newPackage, newPackage, labels))
+		update := storage.PackageUpdate{
+			From:   newPackage,
+			To:     newPackage,
+			Labels: labels,
+		}
+		return trace.Wrap(systemBlockingReinstall(env, update))
 	}
 
 	args := []string{"system", "reinstall", newPackage.String()}
@@ -242,49 +247,33 @@ func systemReinstall(env *localenv.LocalEnvironment, newPackage loc.Locator, ser
 	return nil
 }
 
-func systemBlockingReinstall(env *localenv.LocalEnvironment, oldPackage, newPackage loc.Locator, labels map[string]string) error {
-	updates, err := systemReinstallPackage(env, oldPackage, newPackage, labels)
+func systemBlockingReinstall(env *localenv.LocalEnvironment, update storage.PackageUpdate) error {
+	labelUpdates, err := systemReinstallPackage(env, update)
 	if err != nil {
 		return trace.Wrap(err)
 	}
-	if len(updates) == 0 {
+	if len(labelUpdates) == 0 {
 		return nil
 	}
-	return applyLabelUpdates(env.Packages, updates)
+	return applyLabelUpdates(env.Packages, labelUpdates)
 }
 
-func systemReinstallPackage(env *localenv.LocalEnvironment, oldPackage, newPackage loc.Locator, labels map[string]string) ([]packageLabelUpdate, error) {
-	log := log.WithFields(logrus.Fields{
-		"old": oldPackage,
-		"new": newPackage,
-	})
-	log.Info("Reinstalling package.")
+func systemReinstallPackage(env *localenv.LocalEnvironment, update storage.PackageUpdate) ([]packageLabelUpdate, error) {
+	log.WithField("update", update).Info("Reinstalling package.")
 	switch {
-	case newPackage.Name == constants.GravityPackage:
-		return updateGravityPackage(env.Packages, newPackage)
-	case isPlanetPackage(newPackage, labels):
-		configPackage, err := findLatestPlanetConfigPackage(env.Packages, newPackage)
-		if err != nil {
-			return nil, trace.Wrap(err)
-		}
-		log.WithField("package", configPackage).Info("Latest runtime configuration package.")
-		installedPackage, err := pack.FindInstalledPackage(env.Packages, oldPackage)
-		if err != nil {
-			return nil, trace.Wrap(err)
-		}
-		log.WithField("package", installedPackage).Info("Installed runtime package.")
-		updates, err := updatePlanetPackage(env, *installedPackage, newPackage, *configPackage)
+	case update.To.Name == constants.GravityPackage:
+		return updateGravityPackage(env.Packages, update.To)
+	case isPlanetPackage(update.To, update.Labels):
+		updates, err := updatePlanetPackage(env, update)
 		return updates, trace.Wrap(err)
-	case newPackage.Name == constants.TeleportPackage:
-		updates, err := reinstallSystemService(env, newPackage, newPackage, nil)
+	case update.To.Name == constants.TeleportPackage:
+		updates, err := reinstallSystemService(env, update)
 		return updates, trace.Wrap(err)
-	case isSecretsPackage(newPackage, labels):
-		updates, err := reinstallSecretsPackage(env, newPackage)
+	case isSecretsPackage(update.To, update.Labels):
+		updates, err := reinstallSecretsPackage(env, update.To)
 		return updates, trace.Wrap(err)
-	case isPlanetConfigPackage(newPackage, labels):
-		return nil, nil
 	}
-	return nil, trace.BadParameter("unsupported package: %v", newPackage)
+	return nil, trace.BadParameter("unsupported package: %v", update.To)
 }
 
 func reinstallOneshotService(env *localenv.LocalEnvironment, serviceName string, cmd []string) error {
@@ -369,7 +358,7 @@ func applyUpdates(env *localenv.LocalEnvironment, updates []storage.PackageUpdat
 	var errors []error
 	for _, u := range updates {
 		env.Printf("Applying %v\n", u)
-		err := systemBlockingReinstall(env, u.From, u.To, u.Labels)
+		err := systemBlockingReinstall(env, u)
 		if err != nil {
 			log.WithFields(logrus.Fields{
 				"from": u.From,
@@ -398,8 +387,8 @@ func findPackages(packages pack.PackageService, runtimePackageUpdate loc.Locator
 		return nil, trace.Wrap(err, "failed to find runtime package")
 	}
 	log.WithFields(logrus.Fields{
-		"runtime": existingRuntime.String(),
-		"config":  existingRuntimeConfig.String(),
+		"runtime": existingRuntime,
+		"config":  existingRuntimeConfig,
 	}).Info("Found existing runtime and configuration packages.")
 
 	runtimeConfig, err := maybeConvertLegacyPlanetConfigPackage(*existingRuntimeConfig)
@@ -505,13 +494,13 @@ func getRuntimePackagePath(packages *localpack.PackageServer) (packagePath strin
 	return packagePath, nil
 }
 
-func updatePlanetPackage(env *localenv.LocalEnvironment, installedPackage, newPackage, configPackage loc.Locator) (labelUpdates []packageLabelUpdate, err error) {
-	err = env.Packages.Unpack(newPackage, "")
+func updatePlanetPackage(env *localenv.LocalEnvironment, update storage.PackageUpdate) (labelUpdates []packageLabelUpdate, err error) {
+	err = env.Packages.Unpack(update.To, "")
 	if err != nil {
-		return nil, trace.Wrap(err, "failed to unpack package %v", newPackage)
+		return nil, trace.Wrap(err, "failed to unpack package %v", update.To)
 	}
 
-	planetPath, err := env.Packages.UnpackedPath(newPackage)
+	planetPath, err := env.Packages.UnpackedPath(update.To)
 	if err != nil {
 		return nil, trace.Wrap(err)
 	}
@@ -532,15 +521,12 @@ func updatePlanetPackage(env *localenv.LocalEnvironment, installedPackage, newPa
 		log.Warningf("kubectl will not work on host: %v", trace.DebugReport(err))
 	}
 
-	labelUpdates, err = reinstallSystemService(env, installedPackage, newPackage, &configPackage)
+	labelUpdates, err = reinstallSystemService(env, update)
 	if err != nil {
 		return nil, trace.Wrap(err)
 	}
 
-	configLabelUpdates, err := updateRuntimeConfigPackageLabels(env, newPackage, configPackage)
-	if err != nil {
-		return nil, trace.Wrap(err)
-	}
+	configLabelUpdates := updateRuntimeConfigPackageLabels(env.Packages, update)
 	labelUpdates = append(labelUpdates, configLabelUpdates...)
 
 	return labelUpdates, nil
@@ -600,7 +586,7 @@ func copyGravityToPlanet(newPackage loc.Locator, packages pack.PackageService, p
 	return trace.Wrap(utils.CopyReaderWithPerms(targetPath, reader, defaults.SharedExecutableMask))
 }
 
-func reinstallSecretsPackage(env *localenv.LocalEnvironment, newPackage loc.Locator) ([]packageLabelUpdate, error) {
+func reinstallSecretsPackage(env *localenv.LocalEnvironment, newPackage loc.Locator) (labelUpdates []packageLabelUpdate, err error) {
 	prevPackage, err := pack.FindInstalledPackage(env.Packages, newPackage)
 	if err != nil {
 		if !trace.IsNotFound(err) {
@@ -632,39 +618,33 @@ func reinstallSecretsPackage(env *localenv.LocalEnvironment, newPackage loc.Loca
 		return nil, trace.Wrap(err, "failed to unpack package %v", newPackage)
 	}
 
-	var updates []packageLabelUpdate
-	updates = append(updates,
+	labelUpdates = append(labelUpdates,
 		packageLabelUpdate{locator: *prevPackage, remove: []string{pack.InstalledLabel}},
-		packageLabelUpdate{locator: newPackage, add: map[string]string{pack.InstalledLabel: pack.InstalledLabel}},
+		packageLabelUpdate{locator: newPackage, add: pack.InstalledLabels},
 	)
 
 	env.Printf("Secrets package %v installed in %v\n", newPackage, targetPath)
-	return updates, nil
+	return labelUpdates, nil
 }
 
-func updateRuntimeConfigPackageLabels(env *localenv.LocalEnvironment, planetPackage, configPackage loc.Locator) ([]packageLabelUpdate, error) {
-	prevPackage, err := pack.FindConfigPackage(env.Packages, planetPackage)
-	if err != nil && !trace.IsNotFound(err) {
-		return nil, trace.Wrap(err)
+func updateRuntimeConfigPackageLabels(
+	packages pack.PackageService,
+	update storage.PackageUpdate,
+) (labelUpdates []packageLabelUpdate) {
+	if update.ConfigPackage == nil {
+		return nil
 	}
-
-	err = env.Packages.Unpack(configPackage, "")
-	if err != nil {
-		return nil, trace.Wrap(err)
-	}
-
-	var updates []packageLabelUpdate
-	if prevPackage != nil {
-		updates = append(updates,
-			packageLabelUpdate{locator: *prevPackage, remove: []string{pack.ConfigLabel}})
-	}
-	updates = append(updates,
+	return append(labelUpdates,
 		packageLabelUpdate{
-			locator: configPackage,
-			add:     pack.ConfigLabels(planetPackage, pack.PurposePlanetConfig),
+			locator: update.ConfigPackage.From,
+			remove:  []string{pack.ConfigLabel, pack.InstalledLabel},
+		},
+		packageLabelUpdate{
+			locator: update.ConfigPackage.To,
+			add: utils.CombineLabels(
+				pack.ConfigLabels(update.To, pack.PurposePlanetConfig),
+				pack.InstalledLabels),
 		})
-
-	return updates, nil
 }
 
 func getChownOptionsForDir(dir string) (*archive.TarChownOptions, error) {
@@ -744,48 +724,45 @@ func applyLabelUpdates(packages pack.PackageService, labelUpdates []packageLabel
 	return trace.NewAggregate(errors...)
 }
 
-func reinstallSystemService(
-	env *localenv.LocalEnvironment,
-	oldPackage, newPackage loc.Locator,
-	configPackage *loc.Locator,
-) (updates []packageLabelUpdate, err error) {
+func reinstallSystemService(env *localenv.LocalEnvironment, update storage.PackageUpdate) (labelUpdates []packageLabelUpdate, err error) {
 	services, err := systemservice.New()
 	if err != nil {
 		return nil, trace.Wrap(err)
 	}
 
 	// TODO(dmitri): consider optimizing reinstall to restart if the package does not change
-	prevPackage, prevConfigPackage, err := pack.FindInstalledPackageWithConfig(env.Packages, oldPackage)
+	packageUpdates, err := uninstallPackage(env, services, update.From)
+	if err != nil {
+		return nil, trace.Wrap(err)
+	}
+	labelUpdates = append(labelUpdates, packageUpdates...)
+
+	err = unpack(env.Packages, update.To)
 	if err != nil {
 		return nil, trace.Wrap(err)
 	}
 
-	if prevPackage != nil {
-		packageUpdates, err := uninstallPackage(env, services, *prevPackage)
-		if err != nil {
-			return nil, trace.Wrap(err)
-		}
-		updates = append(updates, packageUpdates...)
-	}
-
-	err = unpack(env.Packages, newPackage)
-	if err != nil {
-		return nil, trace.Wrap(err)
-	}
-
-	manifest, err := env.Packages.GetPackageManifest(newPackage)
+	manifest, err := env.Packages.GetPackageManifest(update.To)
 	if err != nil {
 		return nil, trace.Wrap(err)
 	}
 	if manifest.Service == nil {
-		return nil, trace.NotFound("%v needs service section in manifest to be installed", newPackage)
+		return nil, trace.NotFound("%v needs service section in manifest to be installed",
+			update.To)
 	}
 
-	if configPackage == nil {
-		configPackage = prevConfigPackage
+	var configPackage loc.Locator
+	if update.ConfigPackage == nil {
+		existingConfig, err := pack.FindConfigPackage(env.Packages, update.From)
+		if err != nil {
+			return nil, trace.Wrap(err)
+		}
+		configPackage = *existingConfig
+	} else {
+		configPackage = update.ConfigPackage.To
 	}
 
-	err = unpack(env.Packages, *configPackage)
+	err = unpack(env.Packages, configPackage)
 	if err != nil {
 		return nil, trace.Wrap(err)
 	}
@@ -796,27 +773,27 @@ func reinstallSystemService(
 			constants.GravityBin)
 	}
 
-	manifest.Service.Package = newPackage
-	manifest.Service.ConfigPackage = *configPackage
+	manifest.Service.Package = update.To
+	manifest.Service.ConfigPackage = configPackage
 	manifest.Service.GravityPath = gravityPath
 
-	log.WithField("package", newPackage).Info("Installing new package.")
+	log.WithField("package", update.To).Info("Installing new package.")
 	if err = services.InstallPackageService(*manifest.Service); err != nil {
 		return nil, trace.Wrap(err, "error installing %v service", manifest.Service.Package)
 	}
 
-	updates = append(updates,
+	labelUpdates = append(labelUpdates,
 		packageLabelUpdate{
-			locator: newPackage,
-			add:     pack.InstalledLabels,
+			locator: update.To,
+			add:     utils.CombineLabels(update.Labels, pack.InstalledLabels),
 		})
 
-	env.Printf("%v successfully installed\n", newPackage)
-	return updates, nil
+	env.Printf("%v successfully installed\n", update.To)
+	return labelUpdates, nil
 }
 
 func uninstallPackage(
-	env *localenv.LocalEnvironment,
+	printer localenv.Printer,
 	services systemservice.ServiceManager,
 	servicePackage loc.Locator,
 ) (updates []packageLabelUpdate, err error) {
@@ -825,7 +802,7 @@ func uninstallPackage(
 		return nil, trace.Wrap(err)
 	}
 	if installed {
-		env.Printf("%v is installed as a service, uninstalling\n", servicePackage)
+		printer.Printf("%v is installed as a service, uninstalling\n", servicePackage)
 		err = services.UninstallPackageService(servicePackage)
 		if err != nil {
 			return nil, utils.NewUninstallServiceError(servicePackage)

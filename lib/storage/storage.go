@@ -1140,10 +1140,14 @@ type PackageUpdate struct {
 	To loc.Locator `json:"to"`
 	// Labels defines optional identifying set of labels
 	Labels map[string]string `json:"labels,omitempty"`
+	// ConfigPackage specifies optional configuration package dependency
+	ConfigPackage *PackageUpdate `json:"config_package,omitempty"`
 }
 
+// String formats this update as human-readable text
 func (u *PackageUpdate) String() string {
-	return fmt.Sprintf("update(%v -> %v)", u.From, u.To)
+	return fmt.Sprintf("update(%v -> %v, labels:%v, config:%v)",
+		u.From, u.To, u.Labels, u.ConfigPackage)
 }
 
 // PackageChangesets tracks server local package changes - updates and downgrades
