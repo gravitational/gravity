@@ -62,26 +62,12 @@ func systemPullUpdates(env *localenv.LocalEnvironment, opsCenterURL string, runt
 		return trace.Wrap(err)
 	}
 
-	existingRuntimePackage, existingRuntimeConfig, err := pack.FindRuntimePackageWithConfig(env.Packages)
-	if err != nil {
-		return trace.Wrap(err, "failed to find runtime package")
-	}
-	log.WithFields(logrus.Fields{
-		"runtime": existingRuntimePackage.String(),
-		"config":  existingRuntimeConfig.String(),
-	}).Info("Found existing runtime and configuration packages.")
-
-	runtimeReq := packageRequest{
-		filter:       *existingRuntimePackage,
-		updateFilter: &runtimePackage,
-		labels:       pack.RuntimePackageLabels,
-	}
-	packages, err := findPackages(env.Packages, *existingRuntimePackage, *existingRuntimeConfig)
+	packages, err := findPackages(env.Packages, runtimePackage)
 	if err != nil {
 		return trace.Wrap(err)
 	}
 
-	for _, req := range packagesToUpgrade(append(packages, runtimeReq)...) {
+	for _, req := range packagesToUpgrade(packages...) {
 		log := log.WithField("package", req.filter)
 		log.Info("Checking for update.")
 		update, err := findPackageUpdate(env.Packages, remotePackages, req)
@@ -122,16 +108,7 @@ func systemUpdate(env *localenv.LocalEnvironment, changesetID string, serviceNam
 		return trace.Wrap(installOneshotService(env.Silent, serviceName, args))
 	}
 
-	existingRuntimePackage, existingRuntimeConfig, err := pack.FindRuntimePackageWithConfig(env.Packages)
-	if err != nil {
-		return trace.Wrap(err, "failed to find runtime package")
-	}
-	log.WithFields(logrus.Fields{
-		"runtime": existingRuntimePackage.String(),
-		"config":  existingRuntimeConfig.String(),
-	}).Info("Found existing runtime and configuration packages.")
-
-	packages, err := findPackages(env.Packages, *existingRuntimePackage, *existingRuntimeConfig)
+	packages, err := findPackages(env.Packages, runtimePackage)
 	if err != nil {
 		return trace.Wrap(err)
 	}
@@ -153,7 +130,7 @@ func systemUpdate(env *localenv.LocalEnvironment, changesetID string, serviceNam
 		changes = append(changes, *update)
 	}
 
-	changes = maybeAddRuntimeUpdate(*existingRuntimePackage, runtimePackage, changes)
+	changes = maybeAddRuntimeUpdate(runtimePackage, changes)
 
 	if len(changes) == 0 {
 		env.Println("System is already up to date")
@@ -405,7 +382,7 @@ func applyUpdates(env *localenv.LocalEnvironment, updates []storage.PackageUpdat
 }
 
 // findPackages returns a list of additional packages to pull during update.
-func findPackages(packages pack.PackageService, existingRuntime, existingRuntimeConfig loc.Locator) (reqs []packageRequest, err error) {
+func findPackages(packages pack.PackageService, runtimePackageUpdate loc.Locator) (reqs []packageRequest, err error) {
 	secrets, err := findSecretsPackage(packages)
 	if err != nil {
 		return nil, trace.Wrap(err, "failed to find secrets package")
@@ -416,7 +393,16 @@ func findPackages(packages pack.PackageService, existingRuntime, existingRuntime
 		return nil, trace.Wrap(err)
 	}
 
-	runtimeConfig, err := maybeConvertLegacyPlanetConfigPackage(existingRuntimeConfig)
+	existingRuntime, existingRuntimeConfig, err := pack.FindRuntimePackageWithConfig(packages)
+	if err != nil {
+		return nil, trace.Wrap(err, "failed to find runtime package")
+	}
+	log.WithFields(logrus.Fields{
+		"runtime": existingRuntime.String(),
+		"config":  existingRuntimeConfig.String(),
+	}).Info("Found existing runtime and configuration packages.")
+
+	runtimeConfig, err := maybeConvertLegacyPlanetConfigPackage(*existingRuntimeConfig)
 	if err != nil {
 		return nil, trace.Wrap(err, "failed to find runtime configuration package")
 	}
@@ -425,20 +411,25 @@ func findPackages(packages pack.PackageService, existingRuntime, existingRuntime
 		packageRequest{
 			filter: secrets.Locator,
 			labels: pack.ConfigLabels(
-				existingRuntime,
+				*existingRuntime,
 				pack.PurposePlanetSecrets,
 			),
 		},
 		packageRequest{
-			filter: existingRuntimeConfig,
+			filter:       *existingRuntime,
+			updateFilter: &runtimePackageUpdate,
+			labels:       pack.RuntimePackageLabels,
+		},
+		packageRequest{
+			filter: *existingRuntimeConfig,
 			// Look for updated package name in upstream packages
 			updateFilter: runtimeConfig,
 			labels: pack.ConfigLabels(
-				existingRuntimeConfig,
+				*existingRuntimeConfig,
 				pack.PurposePlanetConfig,
 			),
 			withoutInstalledLabel: true,
-			less:                  configPackageLess,
+			less: configPackageLess,
 		},
 	)
 	log.WithField("requests", packageRequests(reqs)).Debug("New package update requests.")
@@ -1238,7 +1229,7 @@ func unpack(p *localpack.PackageServer, loc loc.Locator) error {
 	return trace.Wrap(pack.Unpack(p, loc, path, nil))
 }
 
-func maybeAddRuntimeUpdate(existingRuntime, updateRuntime loc.Locator, changes []storage.PackageUpdate) []storage.PackageUpdate {
+func maybeAddRuntimeUpdate(runtimePackage loc.Locator, changes []storage.PackageUpdate) []storage.PackageUpdate {
 	var hasRuntimeUpdate, hasRuntimeConfigUpdate bool
 	for _, change := range changes {
 		labels := pack.Labels(change.Labels)
@@ -1254,9 +1245,11 @@ func maybeAddRuntimeUpdate(existingRuntime, updateRuntime loc.Locator, changes [
 		return changes
 	}
 	if hasRuntimeConfigUpdate {
+		// Add an update for the runtime package if the configuration
+		// package is to be updated
 		changes = append(changes, storage.PackageUpdate{
-			From:   existingRuntime,
-			To:     updateRuntime,
+			From:   runtimePackage,
+			To:     runtimePackage,
 			Labels: pack.RuntimePackageLabels,
 		})
 	}
