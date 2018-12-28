@@ -428,20 +428,20 @@ func hasEndpoints(client corev1.CoreV1Interface, labels labels.Set, fn endpointM
 		},
 	)
 	if err != nil {
-		log.Warnf("failed to query endpoints: %v", err)
-		return trace.Wrap(err, "failed to query endpoints")
+		log.WithError(err).Warn("Failed to query endpoints.")
+		return trace.Wrap(rigging.ConvertError(err), "failed to query endpoints")
 	}
 	for _, endpoint := range list.Items {
 		for _, subset := range endpoint.Subsets {
 			for _, addr := range subset.Addresses {
-				log.Debugf("trying %v", addr)
+				log.WithField("addr", addr).Debug("Trying endpoint.")
 				if fn(addr) {
 					return nil
 				}
 			}
 		}
 	}
-	log.Warnf("no active endpoints found for query %q", labels)
+	log.WithField("query", labels).Warn("No active endpoints found.")
 	return trace.NotFound("no active endpoints found for query %q", labels)
 }
 

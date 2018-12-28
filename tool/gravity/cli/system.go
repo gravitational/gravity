@@ -1088,6 +1088,11 @@ func findPackageUpdate(localPackages, remotePackages pack.PackageService, req pa
 		return nil, trace.Wrap(err)
 	}
 
+	if packageUpdate == nil && configUpdate == nil {
+		return nil, trace.NotFound("%v/%v is already at the latest version",
+			req.installedPackage, req.configPackage.installedPackage)
+	}
+
 	update := storage.PackageUpdate{
 		From:   req.installedPackage,
 		To:     req.installedPackage,
