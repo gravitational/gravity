@@ -18,6 +18,7 @@ package update
 
 import (
 	"context"
+	"fmt"
 	"io"
 	"path/filepath"
 
@@ -283,14 +284,34 @@ func (p *updatePhaseBootstrap) updateExistingPackageLabels() error {
 		add    map[string]string
 		remove []string
 	}
-
 	var updates []updatePackageLabels
+
+	runtimeConfig, err := pack.FindInstalledConfigPackage(p.LocalPackages, p.installedRuntime)
+	if err != nil && !trace.IsNotFound(err) {
+		return trace.Wrap(err)
+	}
+	if runtimeConfig == nil {
+		// Fall back to first configuration package
+		runtimeConfig, err = pack.FindConfigPackage(p.LocalPackages, p.installedRuntime)
+		if err != nil {
+			return trace.Wrap(err)
+		}
+		runtimeConfig, err := maybeConvertLegacyPlanetConfigPackage(*runtimeConfig)
+		if err != nil {
+			return trace.Wrap(err)
+		}
+		// Mark this configuration package as installed
+		updates = append(updates, updatePackageLabels{
+			Locator: *runtimeConfig,
+			add:     pack.InstalledLabels,
+		})
+	}
 
 	secretsPackage, err := pack.FindSecretsPackage(p.LocalPackages)
 	if err == nil {
 		_, err = pack.FindInstalledPackage(p.LocalPackages, *secretsPackage)
 		if err != nil && trace.IsNotFound(err) {
-			// Mark this secrets packages as installed if none found
+			// Mark this secrets package as installed if none found
 			updates = append(updates, updatePackageLabels{
 				Locator: *secretsPackage,
 				add:     pack.InstalledLabels,
@@ -372,4 +393,24 @@ func withVersion(filter loc.Locator, version string) loc.Locator {
 		Name:       filter.Name,
 		Version:    version,
 	}
+}
+
+func maybeConvertLegacyPlanetConfigPackage(configPackage loc.Locator) (*loc.Locator, error) {
+	if configPackage.Name != constants.PlanetConfigPackage {
+		// Nothing to do
+		return &configPackage, nil
+	}
+
+	ver, err := configPackage.SemVer()
+	if err != nil {
+		return nil, trace.Wrap(err)
+	}
+
+	// Format the new package name as <planet-config-prefix>-<prerelease>
+	name := fmt.Sprintf("%v-%v", constants.PlanetConfigPackage, ver.PreRelease)
+	convertedConfigPackage, err := loc.NewLocator(configPackage.Repository, name, configPackage.Version)
+	if err != nil {
+		return nil, trace.Wrap(err)
+	}
+	return convertedConfigPackage, nil
 }

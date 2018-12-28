@@ -403,11 +403,6 @@ func findPackages(packages pack.PackageService, runtimePackageUpdate loc.Locator
 		"config":  existingRuntimeConfig,
 	}).Info("Found existing runtime and configuration packages.")
 
-	runtimeConfig, err := maybeConvertLegacyPlanetConfigPackage(*existingRuntimeConfig)
-	if err != nil {
-		return nil, trace.Wrap(err, "failed to find runtime configuration package")
-	}
-
 	updateGravityPackage, err := newPackageRequest(packages, gravityPackageFilter)
 	if err != nil {
 		return nil, trace.Wrap(err, "failed to find installed gravity binary package")
@@ -433,8 +428,6 @@ func findPackages(packages pack.PackageService, runtimePackageUpdate loc.Locator
 			labels:           pack.RuntimePackageLabels,
 			configPackage: &packageRequest{
 				installedPackage: *existingRuntimeConfig,
-				// Look for updated package name in upstream packages
-				updatePattern: runtimeConfig,
 				labels: pack.ConfigLabels(
 					*existingRuntimeConfig,
 					pack.PurposePlanetConfig,
@@ -1113,12 +1106,9 @@ func findPackageUpdateHelper(packages pack.PackageService, req packageRequest) (
 	if req.less == nil {
 		req.less = pack.Less
 	}
-	if req.updatePattern == nil {
-		req.updatePattern = &req.installedPackage
-	}
 	latestPackage := req.updatePackage
 	if latestPackage == nil {
-		latestPackage, err = pack.FindLatestPackageCustom(packages, *req.updatePattern, req.less)
+		latestPackage, err = pack.FindLatestPackageCustom(packages, req.installedPackage, req.less)
 		if err != nil {
 			return nil, trace.Wrap(err)
 		}
@@ -1147,26 +1137,6 @@ func findLatestPlanetConfigPackage(localPackages pack.PackageService, planetPack
 		return nil, trace.Wrap(err)
 	}
 	return pack.FindLatestPackageCustom(localPackages, *configPackage, configPackageLess)
-}
-
-func maybeConvertLegacyPlanetConfigPackage(configPackage loc.Locator) (*loc.Locator, error) {
-	if configPackage.Name != constants.PlanetConfigPackage {
-		// Nothing to do
-		return nil, nil
-	}
-
-	ver, err := configPackage.SemVer()
-	if err != nil {
-		return nil, trace.Wrap(err)
-	}
-
-	// Format the new package name as <planet-config-prefix>-<prerelease>
-	name := fmt.Sprintf("%v-%v", constants.PlanetConfigPackage, ver.PreRelease)
-	convertedConfigPackage, err := loc.NewLocator(configPackage.Repository, name, configPackage.Version)
-	if err != nil {
-		return nil, trace.Wrap(err)
-	}
-	return convertedConfigPackage, nil
 }
 
 func ensureServiceRunning(servicePackage loc.Locator) error {
@@ -1242,10 +1212,6 @@ type packageRequest struct {
 	installedPackage loc.Locator
 	// updatePackage specifies the locator of the update package if known
 	updatePackage *loc.Locator
-	// updatePattern specifies the package pattern to use in search.
-	// This is required, for example, to look up packages that were renamed
-	// between versions
-	updatePattern *loc.Locator
 	// labels defines labels to assign to the update package
 	labels map[string]string
 	// less specifies optional version comparator to use when searching
