@@ -3,14 +3,27 @@
 An Ops Center controls access and lifecycle of Applicaion Clusters and provides a distribution endpoint
 for Application Bundles to be installed on Gravity Clusters.
 
+!!! warning "Version Warning":
+    The Ops Center is only available to users of Gravity Enterprise.  OSS users
+    can use the Ops Center for evaluation purposes only.
+
 ## Pre-requisites
 
- - [Gravity binaries](quickstart.md)
+ - [Gravity binaries](/gravity/download/)
  - The Gravitational [Quickstart Repository](https://github.com/gravitational/quickstart)
 
-## Generating a token
+## Generating a Token
 
-To install an Ops Center, a shared token needs to be generated to allow multiple nodes of a Cluster to join. This token will be used in an environment variable named `TOKEN`:
+The Ops Center serves two purposes:
+
+1. It acts as a repository of published application bundles.
+2. Also, it acts as a control plane for all cluster instances created from the
+   published application bundles.
+
+To establish trust between an Ops Center and all K8s clusters, a common shared
+hard-to-guess secret (token) must be generated first. Therefore, before
+installing an Ops Center, a shared token needs to be generated and stored in an
+environment variable named `TOKEN`:
 
 ```bsh
 $ export TOKEN="$(uuidgen)"
@@ -21,32 +34,42 @@ Included in the [Quickstart repository](https://github.com/gravitational/quickst
 
 ### Manual Provisioning
 
-Install Gravity:
+Manual provisioning must be performed on a Linux server will be used to host
+the Ops Center. The Ops Center itself is a Gravity application bundle,
+therefore the installing the Ops Center means creating a K8s cluster. 
 
-```bsh
-$ curl https://get.gravitational.io/telekube/install | bash
-```
-
-Pull the latest Ops Center:
+First, you must [download Gravity](/gravity/download/) binaries and then use
+Gravity's `tele` tool to pull the latest version of the Ops Center application
+bundle:
 
 ```bsh
 $ tele pull opscenter -o installer.tar
-$ tar xvf ./installer.tar
 ```
 
-Run the standalone install:
+!!! warning "Version Warning":
+    The open source version of `tele` will not be able to pull the Ops Center.
+    If you get "could not find latest version of opscenter" error, replace 
+    the OSS version of `tele` with an enterprise one.
+
+Next, expand the downloaded application bundle and launch the installer:
 
 ```bsh
-$ ./gravity install --advertise-addr=(server IP address) --token=(TOKEN) --flavor=(flavor) --cluster=(cluster name) --ops-advertise-addr=example.com:443
+$ tar xvf ./installer.tar
+$ ./gravity install --advertise-addr=10.1.1.5 \
+                    --token=$TOKEN \
+                    --flavor=standalone \
+                    --cluster=opscenter.example.com \
+                    --ops-advertise-addr=opscenter.example.com:443
 ```
 
-* `advertise-addr` is private IPV4 address used for nodes to communicate to each other
+* `advertise-addr` is private IPV4 address of a K8s master node (this node) which will be used by other K8s nodes to form a cluster.
 * `flavor` is the cluster configuration flavor to install; choose `standalone`
-for a single-node install which is great for evaluation/development purposes or
-`ha` to install a 3-node cluster suitable for production use or high-availability
+  for a single-node install which is great for evaluation/development purposes
+  or `ha` to install a 3-node cluster suitable for production use or
+  high-availability
 * `ops-advertise-addr` should be a DNS name publicly accessible via internet
 * `token` is a security token for nodes to join to the cluster
-* `cluster` is a unique cluster name, e.g. `example.com`
+* `cluster` is a unique cluster name, e.g. `opscenter.example.com`
 
 ## Post-provisioning
 
