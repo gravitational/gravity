@@ -70,10 +70,11 @@ func UpdateEnvars(localEnv, updateEnv *localenv.LocalEnvironment, resource teles
 		}
 		return trace.Wrap(err)
 	}
+	var triggered bool
 	defer func() {
 		r := recover()
-		triggered := r == nil
-		if !triggered {
+		panicked := r != nil
+		if !triggered || panicked {
 			logrus.WithError(err).Warn("Operation failed.")
 			var msg string
 			if err != nil {
@@ -133,6 +134,7 @@ func UpdateEnvars(localEnv, updateEnv *localenv.LocalEnvironment, resource teles
 		return trace.Wrap(err)
 	}
 
+	triggered = true
 	err = updater.Run(context.Background(), false)
 	return trace.Wrap(err)
 }

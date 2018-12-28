@@ -24,6 +24,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"strings"
 
 	"github.com/gravitational/gravity/lib/archive"
 	"github.com/gravitational/gravity/lib/constants"
@@ -532,10 +533,15 @@ func ConfigLabels(loc loc.Locator, purpose string) map[string]string {
 // Labels is a set of labels
 type Labels map[string]string
 
-// HasPurpose returns true if these labels contain the purpose label for the given value
-func (r Labels) HasPurpose(value string) bool {
-	purpose, ok := r[PurposeLabel]
-	return ok && purpose == value
+// HasPurpose returns true if these labels contain the purpose label for any of the given values
+func (r Labels) HasPurpose(values ...string) bool {
+	for _, value := range values {
+		purpose, ok := r[PurposeLabel]
+		if ok && purpose == value {
+			return true
+		}
+	}
+	return false
 }
 
 // FindAnyRuntimePackageWithConfig searches for the runtime package and the corresponding
@@ -651,6 +657,43 @@ func FindLegacyRuntimeConfigPackage(packages PackageService) (configPackage *loc
 		return nil, trace.NotFound("no runtime configuration package found")
 	}
 	return configPackage, nil
+}
+
+// FindSecretsPackage returns the first secrets package from the given package service
+func FindSecretsPackage(packages PackageService) (*loc.Locator, error) {
+	env, err := FindPackage(packages, func(env PackageEnvelope) bool {
+		return IsSecretsPackage(env.Locator, env.RuntimeLabels)
+	})
+	if err != nil {
+		return nil, trace.Wrap(err)
+	}
+	return &env.Locator, nil
+}
+
+// IsSecretsPackage returns true if the specified package is a runtime secrets package
+func IsSecretsPackage(loc loc.Locator, labels map[string]string) bool {
+	if Labels(labels).HasPurpose(PurposePlanetSecrets) {
+		return true
+	}
+	return strings.Contains(loc.Name, "secrets") && loc.Repository != defaults.SystemAccountOrg
+}
+
+// IsPlanetPackage returns true if the specified package is a runtime package
+func IsPlanetPackage(packageLoc loc.Locator, labels map[string]string) bool {
+	if Labels(labels).HasPurpose(PurposeRuntime) {
+		return true
+	}
+	return (packageLoc.Name == loc.LegacyPlanetMaster.Name ||
+		packageLoc.Name == loc.LegacyPlanetNode.Name)
+}
+
+// IsPlanetConfigPackage returns true if the specified package is a runtime configuration package
+func IsPlanetConfigPackage(loc loc.Locator, labels map[string]string) bool {
+	if Labels(labels).HasPurpose(PurposePlanetConfig) {
+		return true
+	}
+	return strings.Contains(loc.Name, constants.PlanetConfigPackage) &&
+		loc.Repository != defaults.SystemAccountOrg
 }
 
 // LessFunc defines a version comparator

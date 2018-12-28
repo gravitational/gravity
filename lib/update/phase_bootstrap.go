@@ -166,7 +166,7 @@ func (p *updatePhaseBootstrap) Execute(ctx context.Context) error {
 	if err != nil {
 		return trace.Wrap(err)
 	}
-	err = p.updateExistingRuntimePackageLabels()
+	err = p.updateExistingPackageLabels()
 	if err != nil {
 		return trace.Wrap(err)
 	}
@@ -270,24 +270,35 @@ func (p *updatePhaseBootstrap) syncPlan() error {
 	return nil
 }
 
-// updateExistingRuntimePackageLabels updates labels on the runtime packages
-// from the previous installation so the system package pull
-// step can find and pull the correct package update.
+// updateExistingPackageLabels updates labels on existing packages
+// so the system package pull step can find and pull correct package updates.
 //
-// To do this, it will update the labels on the installed runtime package
-// to mark it as such.
 // For legacy runtime packages ('planet-master' and 'planet-node')
 // the sibling runtime package (i.e. 'planet-master' on a regular node
 // and vice versa), will be updated to _not_ include the installed label
 // to simplify the search
-func (p *updatePhaseBootstrap) updateExistingRuntimePackageLabels() error {
-	type updateLabels struct {
+func (p *updatePhaseBootstrap) updateExistingPackageLabels() error {
+	type updatePackageLabels struct {
 		loc.Locator
 		add    map[string]string
 		remove []string
 	}
-	var runtimePackages []updateLabels
-	runtimePackages = append(runtimePackages, updateLabels{
+
+	var updates []updatePackageLabels
+
+	secretsPackage, err := pack.FindSecretsPackage(p.LocalPackages)
+	if err == nil {
+		_, err = pack.FindInstalledPackage(p.LocalPackages, *secretsPackage)
+		if err != nil && trace.IsNotFound(err) {
+			// Mark this secrets packages as installed if none found
+			updates = append(updates, updatePackageLabels{
+				Locator: *secretsPackage,
+				add:     pack.InstalledLabels,
+			})
+		}
+	}
+
+	updates = append(updates, updatePackageLabels{
 		Locator: p.installedRuntime,
 		add:     utils.CombineLabels(pack.RuntimePackageLabels, pack.InstalledLabels),
 	})
@@ -299,14 +310,14 @@ func (p *updatePhaseBootstrap) updateExistingRuntimePackageLabels() error {
 		case loc.LegacyPlanetNode.Name:
 			runtimePackageToClear = withVersion(loc.LegacyPlanetMaster, p.installedRuntime.Version)
 		}
-		runtimePackages = append(runtimePackages, updateLabels{
+		updates = append(updates, updatePackageLabels{
 			Locator: runtimePackageToClear,
 			add:     pack.RuntimePackageLabels,
 			remove:  []string{pack.InstalledLabel},
 		})
 	}
 
-	for _, update := range runtimePackages {
+	for _, update := range updates {
 		p.Infof("Update package labels %v (+%v -%v).", update.Locator, update.add, update.remove)
 		err := p.LocalPackages.UpdatePackageLabels(update.Locator, update.add, update.remove)
 		if err != nil && !trace.IsNotFound(err) {
