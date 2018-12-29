@@ -256,7 +256,7 @@ func systemBlockingReinstall(env *localenv.LocalEnvironment, update storage.Pack
 	return applyLabelUpdates(env.Packages, labelUpdates)
 }
 
-func systemReinstallPackage(env *localenv.LocalEnvironment, update storage.PackageUpdate) ([]packageLabelUpdate, error) {
+func systemReinstallPackage(env *localenv.LocalEnvironment, update storage.PackageUpdate) ([]pack.LabelUpdate, error) {
 	log.WithField("update", update).Info("Reinstalling package.")
 	switch {
 	case update.To.Name == constants.GravityPackage:
@@ -462,7 +462,7 @@ func getChangesetByID(env *localenv.LocalEnvironment, changesetID string) (*stor
 	return changeset, nil
 }
 
-func updateGravityPackage(packages *localpack.PackageServer, newPackage loc.Locator) (labelUpdates []packageLabelUpdate, err error) {
+func updateGravityPackage(packages *localpack.PackageServer, newPackage loc.Locator) (labelUpdates []pack.LabelUpdate, err error) {
 	for _, targetPath := range state.GravityBinPaths {
 		labelUpdates, err = reinstallBinaryPackage(packages, newPackage, targetPath)
 		if err == nil {
@@ -510,7 +510,7 @@ func getRuntimePackagePath(packages *localpack.PackageServer) (packagePath strin
 	return packagePath, nil
 }
 
-func updatePlanetPackage(env *localenv.LocalEnvironment, update storage.PackageUpdate) (labelUpdates []packageLabelUpdate, err error) {
+func updatePlanetPackage(env *localenv.LocalEnvironment, update storage.PackageUpdate) (labelUpdates []pack.LabelUpdate, err error) {
 	err = env.Packages.Unpack(update.To, "")
 	if err != nil {
 		return nil, trace.Wrap(err, "failed to unpack package %v", update.To)
@@ -602,7 +602,7 @@ func copyGravityToPlanet(newPackage loc.Locator, packages pack.PackageService, p
 	return trace.Wrap(utils.CopyReaderWithPerms(targetPath, reader, defaults.SharedExecutableMask))
 }
 
-func reinstallSecretsPackage(env *localenv.LocalEnvironment, newPackage loc.Locator) (labelUpdates []packageLabelUpdate, err error) {
+func reinstallSecretsPackage(env *localenv.LocalEnvironment, newPackage loc.Locator) (labelUpdates []pack.LabelUpdate, err error) {
 	prevPackage, err := pack.FindInstalledPackage(env.Packages, newPackage)
 	if err != nil {
 		return nil, trace.Wrap(err)
@@ -626,8 +626,8 @@ func reinstallSecretsPackage(env *localenv.LocalEnvironment, newPackage loc.Loca
 	}
 
 	labelUpdates = append(labelUpdates,
-		packageLabelUpdate{locator: *prevPackage, remove: []string{pack.InstalledLabel}},
-		packageLabelUpdate{locator: newPackage, add: pack.InstalledLabels},
+		pack.LabelUpdate{Locator: *prevPackage, Remove: []string{pack.InstalledLabel}},
+		pack.LabelUpdate{Locator: newPackage, Add: pack.InstalledLabels},
 	)
 
 	env.Printf("Secrets package %v installed in %v\n", newPackage, targetPath)
@@ -637,20 +637,21 @@ func reinstallSecretsPackage(env *localenv.LocalEnvironment, newPackage loc.Loca
 func updateRuntimeConfigPackageLabels(
 	packages pack.PackageService,
 	update storage.PackageUpdate,
-) (labelUpdates []packageLabelUpdate) {
+) (labelUpdates []pack.LabelUpdate) {
 	if update.ConfigPackage == nil {
 		return nil
 	}
 	return append(labelUpdates,
-		packageLabelUpdate{
-			locator: update.ConfigPackage.From,
-			remove:  []string{pack.ConfigLabel, pack.InstalledLabel},
+		pack.LabelUpdate{
+			Locator: update.ConfigPackage.From,
+			Remove:  []string{pack.ConfigLabel, pack.InstalledLabel},
 		},
-		packageLabelUpdate{
-			locator: update.ConfigPackage.To,
-			add: utils.CombineLabels(
+		pack.LabelUpdate{
+			Locator: update.ConfigPackage.To,
+			Add: utils.CombineLabels(
 				pack.ConfigLabels(update.To, pack.PurposePlanetConfig),
-				pack.InstalledLabels),
+				pack.InstalledLabels,
+			),
 		})
 }
 
@@ -690,7 +691,7 @@ func getChownOptionsForDir(dir string) (*archive.TarChownOptions, error) {
 	}, nil
 }
 
-func reinstallBinaryPackage(packages pack.PackageService, newPackage loc.Locator, targetPath string) ([]packageLabelUpdate, error) {
+func reinstallBinaryPackage(packages pack.PackageService, newPackage loc.Locator, targetPath string) ([]pack.LabelUpdate, error) {
 	prevPackage, err := pack.FindInstalledPackage(packages, newPackage)
 	if err != nil {
 		return nil, trace.Wrap(err)
@@ -706,32 +707,26 @@ func reinstallBinaryPackage(packages pack.PackageService, newPackage loc.Locator
 		return nil, trace.Wrap(err, "failed to copy package %v to %v", newPackage, targetPath)
 	}
 
-	var updates []packageLabelUpdate
+	var updates []pack.LabelUpdate
 	updates = append(updates,
-		packageLabelUpdate{locator: *prevPackage, remove: []string{pack.InstalledLabel}},
-		packageLabelUpdate{locator: newPackage, add: map[string]string{pack.InstalledLabel: pack.InstalledLabel}},
+		pack.LabelUpdate{Locator: *prevPackage, Remove: []string{pack.InstalledLabel}},
+		pack.LabelUpdate{Locator: newPackage, Add: pack.InstalledLabels},
 	)
 
 	fmt.Printf("binary package %v installed in %v\n", newPackage, targetPath)
 	return updates, nil
 }
 
-type packageLabelUpdate struct {
-	locator loc.Locator
-	remove  []string
-	add     map[string]string
-}
-
-func applyLabelUpdates(packages pack.PackageService, labelUpdates []packageLabelUpdate) error {
+func applyLabelUpdates(packages pack.PackageService, labelUpdates []pack.LabelUpdate) error {
 	var errors []error
 	for _, update := range labelUpdates {
-		err := packages.UpdatePackageLabels(update.locator, update.add, update.remove)
-		errors = append(errors, trace.Wrap(err, "error updating %v", update.locator))
+		err := packages.UpdatePackageLabels(update.Locator, update.Add, update.Remove)
+		errors = append(errors, trace.Wrap(err, "error applying %v", update))
 	}
 	return trace.NewAggregate(errors...)
 }
 
-func reinstallSystemService(env *localenv.LocalEnvironment, update storage.PackageUpdate) (labelUpdates []packageLabelUpdate, err error) {
+func reinstallSystemService(env *localenv.LocalEnvironment, update storage.PackageUpdate) (labelUpdates []pack.LabelUpdate, err error) {
 	services, err := systemservice.New()
 	if err != nil {
 		return nil, trace.Wrap(err)
@@ -790,9 +785,9 @@ func reinstallSystemService(env *localenv.LocalEnvironment, update storage.Packa
 	}
 
 	labelUpdates = append(labelUpdates,
-		packageLabelUpdate{
-			locator: update.To,
-			add:     utils.CombineLabels(update.Labels, pack.InstalledLabels),
+		pack.LabelUpdate{
+			Locator: update.To,
+			Add:     utils.CombineLabels(update.Labels, pack.InstalledLabels),
 		})
 
 	env.Printf("%v successfully installed\n", update.To)
@@ -803,7 +798,7 @@ func uninstallPackage(
 	printer localenv.Printer,
 	services systemservice.ServiceManager,
 	servicePackage loc.Locator,
-) (updates []packageLabelUpdate, err error) {
+) (updates []pack.LabelUpdate, err error) {
 	installed, err := services.IsPackageServiceInstalled(servicePackage)
 	if err != nil {
 		return nil, trace.Wrap(err)
@@ -815,7 +810,10 @@ func uninstallPackage(
 			return nil, utils.NewUninstallServiceError(servicePackage)
 		}
 	}
-	updates = append(updates, packageLabelUpdate{locator: servicePackage, remove: []string{pack.InstalledLabel}})
+	updates = append(updates, pack.LabelUpdate{
+		Locator: servicePackage,
+		Remove:  []string{pack.InstalledLabel},
+	})
 	return updates, nil
 }
 

@@ -704,3 +704,19 @@ type LessFunc func(a, b *semver.Version) bool
 func Less(a, b *semver.Version) bool {
 	return a.Compare(*b) < 0
 }
+
+// String formats this update as readable text
+func (r LabelUpdate) String() string {
+	return fmt.Sprintf("update package labels %v (+%v -%v)",
+		r.Locator, r.Add, r.Remove)
+}
+
+// LabelUpdate defines an intent to update package's labels
+type LabelUpdate struct {
+	// Locator identifies the package
+	loc.Locator
+	// Remove is the list of labels to remove
+	Remove []string
+	// Add is the map of labels to add
+	Add Labels
+}
