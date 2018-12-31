@@ -21,6 +21,7 @@ import (
 
 	"github.com/gravitational/gravity/lib/compare"
 	libphase "github.com/gravitational/gravity/lib/environ/internal/phases"
+	"github.com/gravitational/gravity/lib/loc"
 	"github.com/gravitational/gravity/lib/ops"
 	"github.com/gravitational/gravity/lib/schema"
 	"github.com/gravitational/gravity/lib/storage"
@@ -44,8 +45,9 @@ func (S) TestSingleNodePlan(c *C) {
 	servers := []storage.Server{
 		{Hostname: "node-1", ClusterRole: string(schema.ServiceRoleMaster)},
 	}
+	app := loc.MustParseLocator("gravitational.io/app:0.0.1")
 
-	plan, err := NewOperationPlan(operation, servers)
+	plan, err := newOperationPlan(app, operation, servers, servers, nil, &servers[0])
 	c.Assert(err, IsNil)
 	c.Assert(plan, compare.DeepEquals, &storage.OperationPlan{
 		OperationID:   operation.ID,
@@ -54,6 +56,14 @@ func (S) TestSingleNodePlan(c *C) {
 		ClusterName:   operation.SiteDomain,
 		Servers:       servers,
 		Phases: []storage.OperationPhase{
+			{
+				ID:          "/update-config",
+				Executor:    libphase.UpdateConfig,
+				Description: `Update runtime configuration`,
+				Data: &storage.OperationPhaseData{
+					Package: &app,
+				},
+			},
 			{
 				ID:          "/masters",
 				Description: "Update cluster environment variables",
@@ -66,23 +76,16 @@ func (S) TestSingleNodePlan(c *C) {
 							Server: &servers[0],
 						},
 					},
-					{
-						ID:          "/masters/update-config",
-						Executor:    libphase.UpdateConfig,
-						Description: `Update runtime configuration on node "node-1"`,
-						Data: &storage.OperationPhaseData{
-							Server: &servers[0],
-						},
-						Requires: []string{"/masters/drain"},
-					},
+
 					{
 						ID:          "/masters/restart",
 						Executor:    libphase.RestartContainer,
 						Description: `Restart container on node "node-1"`,
 						Data: &storage.OperationPhaseData{
-							Server: &servers[0],
+							Server:  &servers[0],
+							Package: &app,
 						},
-						Requires: []string{"/masters/update-config"},
+						Requires: []string{"/masters/drain"},
 					},
 					{
 						ID:          "/masters/taint",
@@ -121,6 +124,7 @@ func (S) TestSingleNodePlan(c *C) {
 						Requires: []string{"/masters/endpoints"},
 					},
 				},
+				Requires: []string{"/update-config"},
 			},
 		},
 	})
@@ -139,8 +143,11 @@ func (S) TestMultiNodePlan(c *C) {
 		{Hostname: "node-3", ClusterRole: string(schema.ServiceRoleMaster)},
 		{Hostname: "node-4", ClusterRole: string(schema.ServiceRoleNode)},
 	}
+	app := loc.MustParseLocator("gravitational.io/app:0.0.1")
 
-	plan, err := NewOperationPlan(operation, servers)
+	masters := []storage.Server{servers[0], servers[2]}
+	nodes := []storage.Server{servers[1], servers[3]}
+	plan, err := newOperationPlan(app, operation, servers, masters, nodes, &masters[0])
 	c.Assert(err, IsNil)
 	c.Assert(plan, compare.DeepEquals, &storage.OperationPlan{
 		OperationID:   operation.ID,
@@ -149,6 +156,14 @@ func (S) TestMultiNodePlan(c *C) {
 		ClusterName:   operation.SiteDomain,
 		Servers:       servers,
 		Phases: []storage.OperationPhase{
+			{
+				ID:          "/update-config",
+				Executor:    libphase.UpdateConfig,
+				Description: `Update runtime configuration`,
+				Data: &storage.OperationPhaseData{
+					Package: &app,
+				},
+			},
 			{
 				ID:          "/masters",
 				Description: "Update cluster environment variables",
@@ -178,22 +193,14 @@ func (S) TestMultiNodePlan(c *C) {
 								Requires: []string{"/masters/node-1/stepdown"},
 							},
 							{
-								ID:          "/masters/node-1/update-config",
-								Executor:    libphase.UpdateConfig,
-								Description: `Update runtime configuration on node "node-1"`,
-								Data: &storage.OperationPhaseData{
-									Server: &servers[0],
-								},
-								Requires: []string{"/masters/node-1/drain"},
-							},
-							{
 								ID:          "/masters/node-1/restart",
 								Executor:    libphase.RestartContainer,
 								Description: `Restart container on node "node-1"`,
 								Data: &storage.OperationPhaseData{
-									Server: &servers[0],
+									Server:  &servers[0],
+									Package: &app,
 								},
-								Requires: []string{"/masters/node-1/update-config"},
+								Requires: []string{"/masters/node-1/drain"},
 							},
 
 							{
@@ -260,22 +267,14 @@ func (S) TestMultiNodePlan(c *C) {
 								},
 							},
 							{
-								ID:          "/masters/node-3/update-config",
-								Executor:    libphase.UpdateConfig,
-								Description: `Update runtime configuration on node "node-3"`,
-								Data: &storage.OperationPhaseData{
-									Server: &servers[2],
-								},
-								Requires: []string{"/masters/node-3/drain"},
-							},
-							{
 								ID:          "/masters/node-3/restart",
 								Executor:    libphase.RestartContainer,
 								Description: `Restart container on node "node-3"`,
 								Data: &storage.OperationPhaseData{
-									Server: &servers[2],
+									Server:  &servers[2],
+									Package: &app,
 								},
-								Requires: []string{"/masters/node-3/update-config"},
+								Requires: []string{"/masters/node-3/drain"},
 							},
 							{
 								ID:          "/masters/node-3/taint",
@@ -329,6 +328,7 @@ func (S) TestMultiNodePlan(c *C) {
 						Requires: []string{"/masters/node-1"},
 					},
 				},
+				Requires: []string{"/update-config"},
 			},
 			{
 				ID:          "/nodes",
@@ -343,33 +343,27 @@ func (S) TestMultiNodePlan(c *C) {
 								Executor:    libphase.Drain,
 								Description: `Drain node "node-2"`,
 								Data: &storage.OperationPhaseData{
-									Server: &servers[1],
+									Server:     &servers[1],
+									ExecServer: &servers[0],
 								},
-							},
-							{
-								ID:          "/nodes/node-2/update-config",
-								Executor:    libphase.UpdateConfig,
-								Description: `Update runtime configuration on node "node-2"`,
-								Data: &storage.OperationPhaseData{
-									Server: &servers[1],
-								},
-								Requires: []string{"/nodes/node-2/drain"},
 							},
 							{
 								ID:          "/nodes/node-2/restart",
 								Executor:    libphase.RestartContainer,
 								Description: `Restart container on node "node-2"`,
 								Data: &storage.OperationPhaseData{
-									Server: &servers[1],
+									Server:  &servers[1],
+									Package: &app,
 								},
-								Requires: []string{"/nodes/node-2/update-config"},
+								Requires: []string{"/nodes/node-2/drain"},
 							},
 							{
 								ID:          "/nodes/node-2/taint",
 								Executor:    libphase.Taint,
 								Description: `Taint node "node-2"`,
 								Data: &storage.OperationPhaseData{
-									Server: &servers[1],
+									Server:     &servers[1],
+									ExecServer: &servers[0],
 								},
 								Requires: []string{"/nodes/node-2/restart"},
 							},
@@ -378,7 +372,8 @@ func (S) TestMultiNodePlan(c *C) {
 								Executor:    libphase.Uncordon,
 								Description: `Uncordon node "node-2"`,
 								Data: &storage.OperationPhaseData{
-									Server: &servers[1],
+									Server:     &servers[1],
+									ExecServer: &servers[0],
 								},
 								Requires: []string{"/nodes/node-2/taint"},
 							},
@@ -387,7 +382,8 @@ func (S) TestMultiNodePlan(c *C) {
 								Executor:    libphase.Endpoints,
 								Description: `Wait for endpoints on node "node-2"`,
 								Data: &storage.OperationPhaseData{
-									Server: &servers[1],
+									Server:     &servers[1],
+									ExecServer: &servers[0],
 								},
 								Requires: []string{"/nodes/node-2/uncordon"},
 							},
@@ -396,7 +392,8 @@ func (S) TestMultiNodePlan(c *C) {
 								Executor:    libphase.Untaint,
 								Description: `Remove taint from node "node-2"`,
 								Data: &storage.OperationPhaseData{
-									Server: &servers[1],
+									Server:     &servers[1],
+									ExecServer: &servers[0],
 								},
 								Requires: []string{"/nodes/node-2/endpoints"},
 							},
@@ -411,33 +408,27 @@ func (S) TestMultiNodePlan(c *C) {
 								Executor:    libphase.Drain,
 								Description: `Drain node "node-4"`,
 								Data: &storage.OperationPhaseData{
-									Server: &servers[3],
+									Server:     &servers[3],
+									ExecServer: &servers[0],
 								},
-							},
-							{
-								ID:          "/nodes/node-4/update-config",
-								Executor:    libphase.UpdateConfig,
-								Description: `Update runtime configuration on node "node-4"`,
-								Data: &storage.OperationPhaseData{
-									Server: &servers[3],
-								},
-								Requires: []string{"/nodes/node-4/drain"},
 							},
 							{
 								ID:          "/nodes/node-4/restart",
 								Executor:    libphase.RestartContainer,
 								Description: `Restart container on node "node-4"`,
 								Data: &storage.OperationPhaseData{
-									Server: &servers[3],
+									Server:  &servers[3],
+									Package: &app,
 								},
-								Requires: []string{"/nodes/node-4/update-config"},
+								Requires: []string{"/nodes/node-4/drain"},
 							},
 							{
 								ID:          "/nodes/node-4/taint",
 								Executor:    libphase.Taint,
 								Description: `Taint node "node-4"`,
 								Data: &storage.OperationPhaseData{
-									Server: &servers[3],
+									Server:     &servers[3],
+									ExecServer: &servers[0],
 								},
 								Requires: []string{"/nodes/node-4/restart"},
 							},
@@ -446,7 +437,8 @@ func (S) TestMultiNodePlan(c *C) {
 								Executor:    libphase.Uncordon,
 								Description: `Uncordon node "node-4"`,
 								Data: &storage.OperationPhaseData{
-									Server: &servers[3],
+									Server:     &servers[3],
+									ExecServer: &servers[0],
 								},
 								Requires: []string{"/nodes/node-4/taint"},
 							},
@@ -455,7 +447,8 @@ func (S) TestMultiNodePlan(c *C) {
 								Executor:    libphase.Endpoints,
 								Description: `Wait for endpoints on node "node-4"`,
 								Data: &storage.OperationPhaseData{
-									Server: &servers[3],
+									Server:     &servers[3],
+									ExecServer: &servers[0],
 								},
 								Requires: []string{"/nodes/node-4/uncordon"},
 							},
@@ -464,7 +457,8 @@ func (S) TestMultiNodePlan(c *C) {
 								Executor:    libphase.Untaint,
 								Description: `Remove taint from node "node-4"`,
 								Data: &storage.OperationPhaseData{
-									Server: &servers[3],
+									Server:     &servers[3],
+									ExecServer: &servers[0],
 								},
 								Requires: []string{"/nodes/node-4/endpoints"},
 							},
@@ -472,7 +466,7 @@ func (S) TestMultiNodePlan(c *C) {
 						Requires: []string{"/nodes/node-2"},
 					},
 				},
-				Requires: []string{"/masters"},
+				Requires: []string{"/update-config", "/masters"},
 			},
 		},
 	})

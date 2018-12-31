@@ -644,7 +644,7 @@ func updateRuntimeConfigPackageLabels(
 	return append(labelUpdates,
 		pack.LabelUpdate{
 			Locator: update.ConfigPackage.From,
-			Remove:  []string{pack.ConfigLabel, pack.InstalledLabel},
+			Remove:  []string{pack.InstalledLabel},
 		},
 		pack.LabelUpdate{
 			Locator: update.ConfigPackage.To,

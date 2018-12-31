@@ -51,6 +51,9 @@ func UpdateEnvars(localEnv, updateEnv *localenv.LocalEnvironment, resource teles
 	if err != nil {
 		return trace.Wrap(err)
 	}
+	if clusterEnv.Client == nil {
+		return trace.BadParameter("this operation can only be executed on one of the master nodes")
+	}
 	operator := clusterEnv.Operator
 	cluster, err := operator.GetLocalSite()
 	if err != nil {

@@ -49,40 +49,41 @@ func NewUpdateConfig(
 	if err != nil {
 		return nil, trace.Wrap(err, "failed to query installed application")
 	}
-	runtimePackage, err := app.Manifest.RuntimePackageForProfile(params.Phase.Data.Server.Role)
-	if err != nil {
-		return nil, trace.Wrap(err)
-	}
 	return &updateConfig{
-		FieldLogger:    logger,
-		server:         *params.Phase.Data.Server,
-		operator:       operator,
-		operation:      operation,
-		packages:       packages,
-		manifest:       app.Manifest,
-		runtimePackage: *runtimePackage,
+		FieldLogger: logger,
+		operator:    operator,
+		operation:   operation,
+		packages:    packages,
+		servers:     params.Plan.Servers,
+		manifest:    app.Manifest,
 	}, nil
 }
 
 // Execute generates new runtime configuration with the specified environment
 func (r *updateConfig) Execute(ctx context.Context) error {
-	r.Infof("Generate new runtime configuration package for %v.", r.server)
-	resp, err := r.operator.RotatePlanetConfig(ops.RotatePlanetConfigRequest{
-		AccountID:   r.operation.AccountID,
-		ClusterName: r.operation.SiteDomain,
-		OperationID: r.operation.ID,
-		Server:      r.server,
-		Manifest:    r.manifest,
-		Env:         r.operation.UpdateEnvars.Env,
-		Package:     r.runtimePackage,
-	})
-	if err != nil {
-		return trace.Wrap(err)
-	}
-	_, err = r.packages.UpsertPackage(resp.Locator, resp.Reader,
-		pack.WithLabels(resp.Labels))
-	if err != nil {
-		return trace.Wrap(err)
+	for _, server := range r.servers {
+		r.Infof("Generate new runtime configuration package for %v.", server)
+		runtimePackage, err := r.manifest.RuntimePackageForProfile(server.Role)
+		if err != nil {
+			return trace.Wrap(err)
+		}
+		resp, err := r.operator.RotatePlanetConfig(ops.RotatePlanetConfigRequest{
+			AccountID:   r.operation.AccountID,
+			ClusterName: r.operation.SiteDomain,
+			OperationID: r.operation.ID,
+			Server:      server,
+			Manifest:    r.manifest,
+			Env:         r.operation.UpdateEnvars.Env,
+			Package:     *runtimePackage,
+		})
+		if err != nil {
+			return trace.Wrap(err)
+		}
+		_, err = r.packages.UpsertPackage(resp.Locator, resp.Reader,
+			pack.WithLabels(resp.Labels))
+		if err != nil {
+			return trace.Wrap(err)
+		}
 	}
 	return nil
 }
@@ -105,12 +106,11 @@ func (r *updateConfig) PostCheck(context.Context) error {
 type updateConfig struct {
 	// FieldLogger specifies the logger for the phase
 	log.FieldLogger
-	operator       runtimePackageRotator
-	operation      ops.SiteOperation
-	packages       packageService
-	server         storage.Server
-	manifest       schema.Manifest
-	runtimePackage loc.Locator
+	operator  runtimePackageRotator
+	operation ops.SiteOperation
+	packages  packageService
+	servers   []storage.Server
+	manifest  schema.Manifest
 }
 
 type runtimePackageRotator interface {
