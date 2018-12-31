@@ -393,10 +393,8 @@ func (r runtimeServers) asServers() (result []storage.Server) {
 	return result
 }
 
-// FIXME: export
 type runtimeServers []runtimeServer
 
-// FIXME: export
 type runtimeServer struct {
 	storage.Server
 	runtime loc.Locator

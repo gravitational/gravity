@@ -25,14 +25,13 @@ import (
 	libfsm "github.com/gravitational/gravity/lib/fsm"
 	"github.com/gravitational/gravity/lib/kubernetes"
 	"github.com/gravitational/gravity/lib/storage"
+	"github.com/gravitational/gravity/lib/update"
 	"github.com/gravitational/gravity/lib/utils"
 
 	"github.com/cenkalti/backoff"
 	"github.com/gravitational/trace"
 	log "github.com/sirupsen/logrus"
 	"k8s.io/api/core/v1"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/labels"
 	kubeapi "k8s.io/client-go/kubernetes"
 	corev1 "k8s.io/client-go/kubernetes/typed/core/v1"
 )
@@ -156,7 +155,7 @@ func NewEndpoints(params libfsm.ExecutorParams, client *kubeapi.Clientset, logge
 // Execute waits for endpoints
 func (p *endpoints) Execute(ctx context.Context) error {
 	p.Infof("Wait for endpoints on %v.", p.Server)
-	err := waitForEndpoints(ctx, p.Client.CoreV1(), p.Server)
+	err := update.WaitForEndpoints(ctx, p.Client.CoreV1(), p.Server.KubeNodeID())
 	return trace.Wrap(err)
 }
 
@@ -241,46 +240,6 @@ func uncordon(ctx context.Context, client corev1.NodeInterface, node string) err
 	return trace.Wrap(err)
 }
 
-func waitForEndpoints(ctx context.Context, client corev1.CoreV1Interface, server storage.Server) error {
-	clusterLabels := labels.Set{"app": defaults.GravityClusterLabel}
-	err := retry(ctx, func() error {
-		if hasEndpoints(client, clusterLabels, existingEndpoint) == nil {
-			return nil
-		}
-		return trace.NotFound("endpoints not ready")
-	}, defaults.EndpointsWaitTimeout)
-	return trace.Wrap(err)
-}
-
-func hasEndpoints(client corev1.CoreV1Interface, labels labels.Set, fn endpointMatchFn) error {
-	list, err := client.Endpoints(metav1.NamespaceSystem).List(
-		metav1.ListOptions{
-			LabelSelector: labels.String(),
-		},
-	)
-	if err != nil {
-		log.WithError(err).Warn("Failed to query endpoints.")
-		return trace.Wrap(err, "failed to query endpoints")
-	}
-	for _, endpoint := range list.Items {
-		for _, subset := range endpoint.Subsets {
-			for _, addr := range subset.Addresses {
-				log.Debugf("trying %v", addr)
-				if fn(addr) {
-					return nil
-				}
-			}
-		}
-	}
-	log.WithField("labels", labels).Warn("No active endpoints found for query.")
-	return trace.NotFound("no active endpoints found for query %q", labels)
-}
-
-// existingEndpoint is a trivial predicate that matches for any endpoint.
-func existingEndpoint(v1.EndpointAddress) bool {
-	return true
-}
-
 func retry(ctx context.Context, fn func() error, timeout time.Duration) error {
 	b := backoff.NewExponentialBackOff()
 	b.MaxElapsedTime = timeout
@@ -312,8 +271,5 @@ type uncordoner struct {
 type endpoints struct {
 	kubernetesOperation
 }
-
-// endpointMatchFn matches an endpoint address using custom criteria.
-type endpointMatchFn func(addr v1.EndpointAddress) bool
 
 type addTaint bool

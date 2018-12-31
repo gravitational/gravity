@@ -18,10 +18,12 @@ package update
 
 import (
 	"archive/tar"
+	"context"
 	"encoding/json"
 	"io"
 	"io/ioutil"
 	"strconv"
+	"time"
 
 	appservice "github.com/gravitational/gravity/lib/app"
 	"github.com/gravitational/gravity/lib/archive"
@@ -31,9 +33,17 @@ import (
 	"github.com/gravitational/gravity/lib/pack"
 	"github.com/gravitational/gravity/lib/schema"
 	"github.com/gravitational/gravity/lib/storage"
+	"github.com/gravitational/gravity/lib/utils"
 
+	"github.com/cenkalti/backoff"
+	"github.com/gravitational/rigging"
 	"github.com/gravitational/trace"
 	"github.com/sirupsen/logrus"
+	log "github.com/sirupsen/logrus"
+	"k8s.io/api/core/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/labels"
+	corev1 "k8s.io/client-go/kubernetes/typed/core/v1"
 )
 
 // GetOperationPlan returns an up-to-date operation plan
@@ -61,6 +71,86 @@ func GetOperationPlan(b storage.Backend) (*storage.OperationPlan, error) {
 	plan = fsm.ResolvePlan(*plan, changelog)
 	return plan, nil
 }
+
+// WaitForEndpoints waits for cluster/DNS endpoints to become active for the given server
+func WaitForEndpoints(ctx context.Context, client corev1.CoreV1Interface, nodeID string) error {
+	clusterLabels := labels.Set{"app": defaults.GravityClusterLabel}
+	kubednsLegacyLabels := labels.Set{"k8s-app": "kube-dns"}
+	kubednsLabels := labels.Set{"k8s-app": defaults.KubeDNSLabel}
+	matchesNode := matchesNode(nodeID)
+	err := retry(ctx, func() error {
+		if (hasEndpoints(client, clusterLabels, existingEndpoint) == nil) &&
+			(hasEndpoints(client, kubednsLabels, matchesNode) == nil ||
+				hasEndpoints(client, kubednsLegacyLabels, matchesNode) == nil) {
+			return nil
+		}
+		return trace.NotFound("endpoints not ready")
+	}, defaults.EndpointsWaitTimeout)
+	return trace.Wrap(err)
+}
+
+func hasEndpoints(client corev1.CoreV1Interface, labels labels.Set, fn endpointMatchFn) error {
+	services, err := client.Services(metav1.NamespaceSystem).List(
+		metav1.ListOptions{
+			LabelSelector: labels.String(),
+		},
+	)
+	if err != nil {
+		log.WithError(err).Warn("Failed to query services.")
+		return trace.Wrap(rigging.ConvertError(err), "failed to query services")
+	}
+	if len(services.Items) == 0 {
+		// Ignore endpoints for non-existing service
+		return nil
+	}
+
+	list, err := client.Endpoints(metav1.NamespaceSystem).List(
+		metav1.ListOptions{
+			LabelSelector: labels.String(),
+		},
+	)
+	if err != nil {
+		log.WithError(err).Warn("Failed to query endpoints.")
+		return trace.Wrap(rigging.ConvertError(err), "failed to query endpoints")
+	}
+	for _, endpoint := range list.Items {
+		for _, subset := range endpoint.Subsets {
+			for _, addr := range subset.Addresses {
+				log.WithField("addr", addr).Debug("Trying endpoint.")
+				if fn(addr) {
+					return nil
+				}
+			}
+		}
+	}
+	log.WithField("query", labels).Warn("No active endpoints found.")
+	return trace.NotFound("no active endpoints found for query %q", labels)
+}
+
+// matchesNode is a predicate that matches an endpoint address to the specified
+// node name
+func matchesNode(node string) endpointMatchFn {
+	return func(addr v1.EndpointAddress) bool {
+		// Abort if the node name is not populated.
+		// There is no need to wait for endpoints we cannot
+		// match to a node.
+		return addr.NodeName == nil || *addr.NodeName == node
+	}
+}
+
+// existingEndpoint is a trivial predicate that matches for any endpoint.
+func existingEndpoint(v1.EndpointAddress) bool {
+	return true
+}
+
+func retry(ctx context.Context, fn func() error, timeout time.Duration) error {
+	b := backoff.NewExponentialBackOff()
+	b.MaxElapsedTime = timeout
+	return trace.Wrap(utils.RetryWithInterval(ctx, b, fn))
+}
+
+// endpointMatchFn matches an endpoint address using custom criteria.
+type endpointMatchFn func(addr v1.EndpointAddress) bool
 
 // planetNeedsUpdate returns true if the planet version in the update application is
 // greater than in the installed one for the specified node profile

@@ -100,7 +100,7 @@ func (r *Updater) RunPhase(ctx context.Context, phase string, phaseTimeout time.
 	}))
 }
 
-// Rollbackhase rolls back the specified phase.
+// RollbackPhase rolls back the specified phase.
 func (r *Updater) RollbackPhase(ctx context.Context, phase string, phaseTimeout time.Duration, force bool) error {
 	machine, err := r.init()
 	if err != nil {
@@ -240,7 +240,7 @@ type Config struct {
 	utils.Emitter
 }
 
-// Updater executes a cobntrolled update of cluster environment variables
+// Updater executes a controlled update of cluster environment variables
 type Updater struct {
 	// Config defines the updater configuration
 	Config
