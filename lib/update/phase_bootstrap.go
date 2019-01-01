@@ -18,7 +18,6 @@ package update
 
 import (
 	"context"
-	"fmt"
 	"io"
 	"path/filepath"
 
@@ -289,8 +288,7 @@ func (p *updatePhaseBootstrap) updateExistingPackageLabels() error {
 		return trace.Wrap(err)
 	}
 
-	updates := append([]pack.LabelUpdate{}, configLabels...)
-	updates = append(updates, secretLabels...)
+	updates := append(configLabels, secretLabels...)
 	updates = append(updates, pack.LabelUpdate{
 		Locator: p.installedRuntime,
 		Add:     utils.CombineLabels(pack.RuntimePackageLabels, pack.InstalledLabels),
@@ -381,10 +379,6 @@ func updateRuntimeConfigLabels(packages pack.PackageService, installedRuntime lo
 	if err != nil {
 		return nil, trace.Wrap(err)
 	}
-	runtimeConfig, err = maybeConvertLegacyPlanetConfigPackage(*runtimeConfig)
-	if err != nil {
-		return nil, trace.Wrap(err)
-	}
 	// Mark this configuration package as installed
 	return []pack.LabelUpdate{{
 		Locator: *runtimeConfig,
@@ -410,24 +404,4 @@ func updateRuntimeSecretLabels(packages pack.PackageService) ([]pack.LabelUpdate
 		Locator: *secretsPackage,
 		Add:     pack.InstalledLabels,
 	}}, nil
-}
-
-func maybeConvertLegacyPlanetConfigPackage(configPackage loc.Locator) (*loc.Locator, error) {
-	if configPackage.Name != constants.PlanetConfigPackage {
-		// Nothing to do
-		return &configPackage, nil
-	}
-
-	ver, err := configPackage.SemVer()
-	if err != nil {
-		return nil, trace.Wrap(err)
-	}
-
-	// Format the new package name as <planet-config-prefix>-<prerelease>
-	name := fmt.Sprintf("%v-%v", constants.PlanetConfigPackage, ver.PreRelease)
-	convertedConfigPackage, err := loc.NewLocator(configPackage.Repository, name, configPackage.Version)
-	if err != nil {
-		return nil, trace.Wrap(err)
-	}
-	return convertedConfigPackage, nil
 }
