@@ -28,6 +28,7 @@ import (
 	"github.com/gravitational/gravity/lib/storage"
 	"github.com/gravitational/gravity/tool/common"
 
+	teledefaults "github.com/gravitational/teleport/lib/defaults"
 	teleservices "github.com/gravitational/teleport/lib/services"
 	"github.com/gravitational/trace"
 	"k8s.io/apimachinery/pkg/util/yaml"
@@ -75,7 +76,11 @@ func createResource(env, updateEnv *localenv.LocalEnvironment, filename string, 
 				return trace.Wrap(err)
 			}
 		}
-		env.Printf("created %v \"%v/%v\"\n", raw.Kind, raw.Metadata.Namespace, raw.Metadata.Name)
+		namespace := teledefaults.Namespace
+		if raw.Metadata.Namespace != "" {
+			namespace = raw.Metadata.Namespace
+		}
+		env.Printf("created %v \"%v/%v\"\n", raw.Kind, namespace, raw.Metadata.Name)
 	}
 
 	return nil

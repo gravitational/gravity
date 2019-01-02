@@ -17,7 +17,8 @@ limitations under the License.
 package cli
 
 import (
-	"errors"
+	"fmt"
+	"strings"
 	"time"
 
 	"github.com/gravitational/gravity/lib/localenv"
@@ -42,128 +43,156 @@ type PhaseParams struct {
 }
 
 func executePhase(localEnv, updateEnv, joinEnv *localenv.LocalEnvironment, operationID string, params PhaseParams) error {
-	if joinEnv != nil && hasExpandOperation(joinEnv) {
-		return executeJoinPhase(localEnv, joinEnv, params)
-	}
-
-	err := dispatchUpdatePhase(localEnv, updateEnv, operationID, params)
-	if err == nil {
-		return nil
-	}
-	if err != errNotUpdateOperation {
-		return trace.Wrap(err)
-	}
-
-	op, err := getOperationFromEnv(localEnv, operationID)
-	if err != nil {
-		return trace.Wrap(err)
-	}
-	switch op.Type {
-	case ops.OperationInstall:
-		return executeInstallPhase(localEnv, params)
-	case ops.OperationGarbageCollect:
-		return garbageCollectPhase(localEnv, params)
-	default:
-		return trace.BadParameter("operation type %q does not support phase execution",
-			op.Type)
-	}
-	return nil
+	return dispatchOperation(localEnv, updateEnv, joinEnv, operationID,
+		dispatchExecutePhase(localEnv, updateEnv, joinEnv, params))
 }
 
 func rollbackPhase(localEnv, updateEnv, joinEnv *localenv.LocalEnvironment, operationID string, params PhaseParams) error {
-	if joinEnv != nil && hasExpandOperation(joinEnv) {
-		return rollbackJoinPhase(localEnv, joinEnv, params)
+	return dispatchOperation(localEnv, updateEnv, joinEnv, operationID,
+		dispatchRollbackPhase(localEnv, updateEnv, joinEnv, params))
+}
+
+func dispatchExecutePhase(localEnv, updateEnv, joinEnv *localenv.LocalEnvironment, params PhaseParams) dispatchFunc {
+	return func(op ops.SiteOperation) error {
+		switch op.Type {
+		case ops.OperationInstall:
+			return executeInstallPhase(localEnv, params)
+		case ops.OperationExpand:
+			return executeJoinPhase(localEnv, joinEnv, params)
+		case ops.OperationUpdate:
+			return executeUpgradePhase(localEnv, updateEnv, params)
+		case ops.OperationUpdateEnvars:
+			return updateEnvarsPhase(localEnv, updateEnv, params)
+		case ops.OperationGarbageCollect:
+			return garbageCollectPhase(localEnv, params)
+		default:
+			return trace.BadParameter("operation type %q does not support plan execution", op.Type)
+		}
+	}
+}
+
+func dispatchRollbackPhase(localEnv, updateEnv, joinEnv *localenv.LocalEnvironment, params PhaseParams) dispatchFunc {
+	return func(op ops.SiteOperation) error {
+		switch op.Type {
+		case ops.OperationInstall:
+			return rollbackInstallPhase(localEnv, params)
+		case ops.OperationExpand:
+			return rollbackJoinPhase(localEnv, joinEnv, params)
+		case ops.OperationUpdate:
+			return rollbackUpgradePhase(localEnv, updateEnv, params)
+		case ops.OperationUpdateEnvars:
+			return rollbackEnvarsPhase(localEnv, updateEnv, params)
+		default:
+			return trace.BadParameter("operation type %q does not support plan rollback", op.Type)
+		}
+	}
+}
+
+func dispatchOperation(localEnv, updateEnv, joinEnv *localenv.LocalEnvironment, operationID string, dispatch dispatchFunc) error {
+	operations := getBackendOperations(localEnv, updateEnv, joinEnv)
+	if len(operations) == 0 {
+		return trace.NotFound("no operation found")
 	}
 
-	err := dispatchUpdateRollbackPhase(localEnv, updateEnv, operationID, params)
-	if err == nil {
-		return nil
+	op, err := getActiveOperation(operations, operationID)
+	if err != nil {
+		log.WithError(err).Warn("Failed to find an active operation, will fall back to last.")
 	}
-	if err != errNotUpdateOperation {
-		return trace.Wrap(err)
+	if op == nil {
+		if len(operations) != 1 {
+			return trace.BadParameter("multiple operations found: \n%v\n, please specify operation with --operation-id",
+				formatOperations(operations))
+		}
+		op = &operations[0]
+	}
+	if operationID != "" && op.ID != operationID {
+		return trace.NotFound("no operation with ID %q found", operationID)
 	}
 
-	op, err := getOperationFromEnv(localEnv, operationID)
+	err = dispatch(*op)
 	if err != nil {
 		return trace.Wrap(err)
-	}
-	switch op.Type {
-	case ops.OperationInstall:
-		return rollbackInstallPhase(localEnv, params)
-	default:
-		return trace.BadParameter("operation type %q does not support phase rollback",
-			op.Type)
 	}
 	return nil
 }
 
-func dispatchUpdatePhase(localEnv, updateEnv *localenv.LocalEnvironment, operationID string, params PhaseParams) error {
-	op, err := getOperationFromBackend(updateEnv.Backend, operationID)
+type dispatchFunc func(ops.SiteOperation) error
+
+// getBackendOperations returns the list of operation from the specified backends
+func getBackendOperations(localEnv, updateEnv, joinEnv *localenv.LocalEnvironment) []ops.SiteOperation {
+	clusterEnv, err := localEnv.NewClusterEnvironment()
 	if err != nil {
-		return trace.Wrap(err)
+		log.WithError(err).Debug("Failed to create cluster environment.")
 	}
-	switch op.Type {
-	case ops.OperationUpdate:
-		return executeUpgradePhase(localEnv, updateEnv, params)
-	case ops.OperationUpdateEnvars:
-		return updateEnvarsPhase(localEnv, updateEnv, params)
-	default:
-		return errNotUpdateOperation
+	var operations []ops.SiteOperation
+	if clusterEnv != nil {
+		op, err := storage.GetLastOperation(clusterEnv.Backend)
+		if err == nil {
+			operations = append(operations, (ops.SiteOperation)(*op))
+		} else {
+			log.WithError(err).Debug("Failed to query last cluster operation.")
+		}
 	}
+
+	if updateEnv != nil {
+		op, err := storage.GetLastOperation(updateEnv.Backend)
+		if err == nil {
+			operations = append(operations, (ops.SiteOperation)(*op))
+		} else {
+			log.WithError(err).Debug("Failed to query update operation.")
+		}
+	}
+
+	if joinEnv != nil {
+		op, err := storage.GetLastOperation(joinEnv.Backend)
+		if err == nil {
+			operations = append(operations, (ops.SiteOperation)(*op))
+		} else {
+			log.WithError(err).Debug("Failed to query expand operation.")
+		}
+	}
+
+	wizardEnv, err := localenv.NewRemoteEnvironment()
+	if err != nil {
+		log.WithError(err).Debug("Failed to create wizard environment.")
+	}
+	if wizardEnv != nil && wizardEnv.Operator != nil {
+		op, err := ops.GetWizardOperation(wizardEnv.Operator)
+		if err == nil {
+			operations = append(operations, (ops.SiteOperation)(*op))
+		} else {
+			log.WithError(err).Debug("Failed to query install operation.")
+		}
+	}
+
+	return operations
 }
 
-func dispatchUpdateRollbackPhase(localEnv, updateEnv *localenv.LocalEnvironment, operationID string, params PhaseParams) error {
-	op, err := getOperationFromBackend(updateEnv.Backend, operationID)
-	if err != nil {
-		return trace.Wrap(err)
-	}
-	switch op.Type {
-	case ops.OperationUpdate:
-		return rollbackUpgradePhase(localEnv, updateEnv, params)
-	case ops.OperationUpdateEnvars:
-		return rollbackEnvarsPhase(localEnv, updateEnv, params)
-	default:
-		return errNotUpdateOperation
-	}
-}
-
-func getOperationFromEnv(env *localenv.LocalEnvironment, operationID string) (*ops.SiteOperation, error) {
-	operator, err := env.SiteOperator()
-	if err != nil {
-		return nil, trace.Wrap(err)
-	}
-
-	cluster, err := operator.GetLocalSite()
-	if err != nil {
-		return nil, trace.Wrap(err)
-	}
-
-	var op *ops.SiteOperation
+func getActiveOperation(operations []ops.SiteOperation, operationID string) (*ops.SiteOperation, error) {
 	if operationID != "" {
-		op, err = operator.GetSiteOperation(ops.SiteOperationKey{
-			AccountID:   cluster.AccountID,
-			SiteDomain:  cluster.Domain,
-			OperationID: operationID,
-		})
-	} else {
-		op, _, err = ops.GetLastOperation(cluster.Key(), operator)
+		return getOperationWithID(operations, operationID)
 	}
-	if err != nil {
-		return nil, trace.Wrap(err)
+	for _, op := range operations {
+		if !op.IsCompleted() {
+			return &op, nil
+		}
 	}
-	return op, nil
+	return nil, trace.NotFound("no active operations found")
 }
 
-func getOperationFromBackend(backend storage.Backend, operationID string) (op *storage.SiteOperation, err error) {
-	if operationID != "" {
-		op, err = storage.GetOperationByID(backend, operationID)
-	} else {
-		op, err = storage.GetLastOperation(backend)
+func getOperationWithID(operations []ops.SiteOperation, id string) (*ops.SiteOperation, error) {
+	for _, op := range operations {
+		if op.ID == id {
+			return &op, nil
+		}
 	}
-	if err != nil {
-		return nil, trace.Wrap(err)
-	}
-	return op, nil
+	return nil, trace.NotFound("no operation with ID %v found", id)
 }
 
-var errNotUpdateOperation = errors.New("not an update operation")
+func formatOperations(operations []ops.SiteOperation) string {
+	var formats []string
+	for _, op := range operations {
+		formats = append(formats, fmt.Sprintf("operation(id=%v, type=%v)", op.ID, op.Type))
+	}
+	return strings.Join(formats, "\n")
+}

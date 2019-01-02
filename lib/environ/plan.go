@@ -46,14 +46,14 @@ func NewOperationPlan(operator ops.Operator, operation ops.SiteOperation, server
 	return plan, nil
 }
 
-func (r *Updater) getOrCreateOperationPlan() (plan *storage.OperationPlan, err error) {
-	plan, err = r.Operator.GetOperationPlan(r.Operation.Key())
+func getOrCreateOperationPlan(operator ops.Operator, operation ops.SiteOperation, servers []storage.Server) (plan *storage.OperationPlan, err error) {
+	plan, err = operator.GetOperationPlan(operation.Key())
 	if err != nil && !trace.IsNotFound(err) {
 		return nil, trace.Wrap(err)
 	}
 
 	if trace.IsNotFound(err) {
-		plan, err = NewOperationPlan(r.Operator, *r.Operation, r.Servers)
+		plan, err = NewOperationPlan(operator, operation, servers)
 		if err != nil {
 			return nil, trace.Wrap(err)
 		}

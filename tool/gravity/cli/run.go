@@ -95,6 +95,12 @@ func InitAndCheck(g *Application, cmd string) error {
 		g.RPCAgentInstallCmd.FullCommand(),
 		g.RPCAgentRunCmd.FullCommand(),
 		g.PlanCmd.FullCommand(),
+		g.PlanInitCmd.FullCommand(),
+		g.PlanSyncCmd.FullCommand(),
+		g.PlanDisplayCmd.FullCommand(),
+		g.PlanExecuteCmd.FullCommand(),
+		g.PlanRollbackCmd.FullCommand(),
+		g.PlanResumeCmd.FullCommand(),
 		g.UpgradeCmd.FullCommand(),
 		g.ResourceCreateCmd.FullCommand():
 		if *g.Debug {
@@ -168,6 +174,12 @@ func InitAndCheck(g *Application, cmd string) error {
 		g.EnterCmd.FullCommand(),
 		g.PlanetEnterCmd.FullCommand(),
 		g.PlanCmd.FullCommand(),
+		g.PlanInitCmd.FullCommand(),
+		g.PlanSyncCmd.FullCommand(),
+		g.PlanDisplayCmd.FullCommand(),
+		g.PlanExecuteCmd.FullCommand(),
+		g.PlanRollbackCmd.FullCommand(),
+		g.PlanResumeCmd.FullCommand(),
 		g.InstallCmd.FullCommand(),
 		g.JoinCmd.FullCommand(),
 		g.AutoJoinCmd.FullCommand(),
@@ -230,7 +242,7 @@ func Execute(g *Application, cmd string, extraArgs []string) error {
 
 	// create an environment used during upgrades
 	var updateEnv *localenv.LocalEnvironment
-	if g.isUpgradeCommand(cmd) {
+	if g.isUpdateCommand(cmd) {
 		updateEnv, err = g.UpgradeEnv()
 		if err != nil {
 			return trace.Wrap(err)
@@ -240,8 +252,7 @@ func Execute(g *Application, cmd string, extraArgs []string) error {
 
 	// create an environment where join-specific data is stored
 	var joinEnv *localenv.LocalEnvironment
-	switch cmd {
-	case g.JoinCmd.FullCommand(), g.AutoJoinCmd.FullCommand(), g.PlanCmd.FullCommand():
+	if g.isExpandCommand(cmd) {
 		joinEnv, err = g.JoinEnv()
 		if err != nil {
 			return trace.Wrap(err)
@@ -336,34 +347,40 @@ func Execute(g *Application, cmd string, extraArgs []string) error {
 			updateEnv,
 			*g.UpgradeCmd.App,
 			*g.UpgradeCmd.Manual)
-	case g.PlanCmd.FullCommand():
-		switch {
-		case *g.PlanCmd.Init:
-			return initOperationPlan(localEnv, updateEnv)
-		case *g.PlanCmd.Sync:
-			return syncOperationPlan(localEnv, updateEnv)
-		case *g.PlanCmd.Execute, *g.PlanCmd.Resume:
-			phaseID := *g.PlanCmd.Phase
-			if *g.PlanCmd.Resume {
-				phaseID = fsm.RootPhase
-			}
-			return executePhase(localEnv, updateEnv, joinEnv,
-				*g.PlanCmd.OperationID,
-				PhaseParams{
-					PhaseID: phaseID,
-					Force:   *g.PlanCmd.Force,
-					Timeout: *g.PlanCmd.PhaseTimeout,
-				})
-		case *g.PlanCmd.Rollback:
-			return rollbackPhase(localEnv, updateEnv, joinEnv,
-				*g.PlanCmd.OperationID,
-				PhaseParams{
-					PhaseID: *g.PlanCmd.Phase,
-					Force:   *g.PlanCmd.Force,
-					Timeout: *g.PlanCmd.PhaseTimeout,
-				})
-		}
-		return displayOperationPlan(localEnv, updateEnv, joinEnv, *g.PlanCmd.OperationID, *g.PlanCmd.Output)
+	case g.PlanInitCmd.FullCommand():
+		return initOperationPlan(localEnv, updateEnv)
+	case g.PlanSyncCmd.FullCommand():
+		return syncOperationPlan(localEnv, updateEnv)
+	case g.PlanExecuteCmd.FullCommand():
+		return executePhase(localEnv, updateEnv, joinEnv,
+			*g.PlanCmd.OperationID,
+			PhaseParams{
+				PhaseID:          *g.PlanExecuteCmd.Phase,
+				Force:            *g.PlanExecuteCmd.Force,
+				Timeout:          *g.PlanExecuteCmd.PhaseTimeout,
+				SkipVersionCheck: *g.PlanCmd.SkipVersionCheck,
+			})
+	case g.PlanResumeCmd.FullCommand():
+		return executePhase(localEnv, updateEnv, joinEnv,
+			*g.PlanCmd.OperationID,
+			PhaseParams{
+				PhaseID:          fsm.RootPhase,
+				Force:            *g.PlanResumeCmd.Force,
+				Timeout:          *g.PlanResumeCmd.PhaseTimeout,
+				SkipVersionCheck: *g.PlanCmd.SkipVersionCheck,
+			})
+	case g.PlanRollbackCmd.FullCommand():
+		return rollbackPhase(localEnv, updateEnv, joinEnv,
+			*g.PlanCmd.OperationID,
+			PhaseParams{
+				PhaseID:          *g.PlanRollbackCmd.Phase,
+				Force:            *g.PlanRollbackCmd.Force,
+				Timeout:          *g.PlanRollbackCmd.PhaseTimeout,
+				SkipVersionCheck: *g.PlanCmd.SkipVersionCheck,
+			})
+	case g.PlanDisplayCmd.FullCommand():
+		return displayOperationPlan(localEnv, updateEnv, joinEnv,
+			*g.PlanCmd.OperationID, *g.PlanDisplayCmd.Output)
 	case g.LeaveCmd.FullCommand():
 		return leave(localEnv, leaveConfig{
 			force:     *g.LeaveCmd.Force,

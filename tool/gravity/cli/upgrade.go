@@ -23,6 +23,7 @@ import (
 	"github.com/gravitational/gravity/lib/defaults"
 	"github.com/gravitational/gravity/lib/fsm"
 	"github.com/gravitational/gravity/lib/localenv"
+	"github.com/gravitational/gravity/lib/storage"
 	"github.com/gravitational/gravity/lib/update"
 	"github.com/gravitational/gravity/lib/utils"
 
@@ -160,4 +161,24 @@ func completeUpgrade(localEnv, updateEnv *localenv.LocalEnvironment) error {
 
 	updateEnv.Printf("cluster has been activated\n")
 	return nil
+}
+
+func getUpdateOperationPlan(localEnv, updateEnv *localenv.LocalEnvironment) (*storage.OperationPlan, error) {
+	clusterEnv, err := localEnv.NewClusterEnvironment()
+	if err != nil {
+		return nil, trace.Wrap(err)
+	}
+	fsm, err := update.NewFSM(context.TODO(),
+		update.FSMConfig{
+			Backend:      clusterEnv.Backend,
+			LocalBackend: updateEnv.Backend,
+		})
+	if err != nil {
+		return nil, trace.Wrap(err)
+	}
+	plan, err := fsm.GetPlan()
+	if err != nil {
+		return nil, trace.Wrap(err)
+	}
+	return plan, nil
 }

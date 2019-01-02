@@ -104,7 +104,6 @@ func GetLastOperation(backend Backend) (*SiteOperation, error) {
 	if err != nil {
 		return nil, trace.Wrap(err)
 	}
-
 	operations, err := backend.GetSiteOperations(cluster.Domain)
 	if err != nil {
 		return nil, trace.Wrap(err)
@@ -112,8 +111,7 @@ func GetLastOperation(backend Backend) (*SiteOperation, error) {
 	if len(operations) == 0 {
 		return nil, trace.NotFound("no operations found")
 	}
-
-	return &(operations[0]), nil
+	return &operations[0], nil
 }
 
 // GetOperationByID returns the last operation for the local cluster

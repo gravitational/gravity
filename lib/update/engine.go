@@ -59,9 +59,11 @@ func newUpdateEngine(ctx context.Context, config FSMConfig, logger logrus.FieldL
 		config.Backend, config.LocalBackend,
 		plan.ClusterName, plan.OperationID,
 		logger)
-	plan, err = reconciler.ReconcilePlan(ctx, *plan)
+	reconciledPlan, err := reconciler.ReconcilePlan(ctx, *plan)
 	if err != nil {
-		return nil, trace.Wrap(err)
+		// This is not critical and will be retried during the operation
+		logger.WithError(err).Warn("Failed to reconcile operation plan.")
+		reconciledPlan = plan
 	}
 	engine := &fsmUpdateEngine{
 		FSMConfig: config,
@@ -70,7 +72,7 @@ func newUpdateEngine(ctx context.Context, config FSMConfig, logger logrus.FieldL
 			Key:         fsm.OperationKey(*plan),
 			FieldLogger: logger,
 		},
-		plan:       plan,
+		plan:       reconciledPlan,
 		reconciler: reconciler,
 	}
 	return engine, nil

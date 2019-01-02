@@ -22,6 +22,7 @@ import (
 	"time"
 
 	"github.com/gravitational/gravity/lib/app"
+	"github.com/gravitational/gravity/lib/constants"
 	"github.com/gravitational/gravity/lib/environ/internal/fsm"
 	libfsm "github.com/gravitational/gravity/lib/fsm"
 	"github.com/gravitational/gravity/lib/localenv"
@@ -37,27 +38,26 @@ import (
 )
 
 // New returns new updater for the specified configuration
-func New(config Config) (*Updater, error) {
+func New(ctx context.Context, config Config) (*Updater, error) {
 	if err := config.checkAndSetDefaults(); err != nil {
 		return nil, trace.Wrap(err)
 	}
-
+	machine, err := newMachine(ctx, config)
+	if err != nil {
+		return nil, trace.Wrap(err)
+	}
 	return &Updater{
-		Config: config,
+		Config:  config,
+		machine: machine,
 	}, nil
 }
 
 // Run updates the environment variables in the cluster
 func (r *Updater) Run(ctx context.Context, force bool) (err error) {
-	machine, err := r.init()
-	if err != nil {
-		return trace.Wrap(err)
-	}
-
 	errCh := make(chan error, 1)
 	updateCh := make(chan ops.ProgressEntry)
 	go func() {
-		errCh <- r.executePlan(ctx, machine, force)
+		errCh <- r.executePlan(ctx, r.machine, force)
 	}()
 	go pollProgress(ctx, updateCh, r.Operation.Key(), r.Operator)
 
@@ -67,7 +67,8 @@ L:
 		case <-ctx.Done():
 			return nil
 		case progress := <-updateCh:
-			r.Emitter.PrintStep(progress.Message)
+			r.Silent.Printf("%v\t%v\n", time.Now().UTC().Format(constants.HumanDateFormatSeconds),
+				progress.Message)
 		case err = <-errCh:
 			break L
 		}
@@ -82,18 +83,13 @@ func (r *Updater) RunPhase(ctx context.Context, phase string, phaseTimeout time.
 		return trace.Wrap(r.Run(ctx, force))
 	}
 
-	machine, err := r.init()
-	if err != nil {
-		return trace.Wrap(err)
-	}
-
 	ctx, cancel := context.WithTimeout(ctx, phaseTimeout)
 	defer cancel()
 
 	progress := utils.NewProgress(ctx, fmt.Sprintf("Executing phase %q", phase), -1, false)
 	defer progress.Stop()
 
-	return trace.Wrap(machine.ExecutePhase(ctx, libfsm.Params{
+	return trace.Wrap(r.machine.ExecutePhase(ctx, libfsm.Params{
 		PhaseID:  phase,
 		Progress: progress,
 		Force:    force,
@@ -102,61 +98,29 @@ func (r *Updater) RunPhase(ctx context.Context, phase string, phaseTimeout time.
 
 // RollbackPhase rolls back the specified phase.
 func (r *Updater) RollbackPhase(ctx context.Context, phase string, phaseTimeout time.Duration, force bool) error {
-	machine, err := r.init()
-	if err != nil {
-		return trace.Wrap(err)
-	}
-
 	ctx, cancel := context.WithTimeout(ctx, phaseTimeout)
 	defer cancel()
 
 	progress := utils.NewProgress(ctx, fmt.Sprintf("Rolling back phase %q", phase), -1, false)
 	defer progress.Stop()
 
-	return trace.Wrap(machine.RollbackPhase(ctx, libfsm.Params{
+	return trace.Wrap(r.machine.RollbackPhase(ctx, libfsm.Params{
 		PhaseID:  phase,
 		Progress: progress,
 		Force:    force,
 	}))
 }
 
-// Create creates the update operation but does not start it.
-func (r *Updater) Create(ctx context.Context) error {
-	_, err := r.init()
-	if err != nil {
-		return trace.Wrap(err)
-	}
-
-	return nil
-}
-
-func (r *Updater) init() (*libfsm.FSM, error) {
-	_, err := r.getOrCreateOperationPlan()
-	if err != nil {
-		return nil, trace.Wrap(err)
-	}
-
-	machine, err := fsm.New(fsm.Config{
-		Operation:       r.Operation,
-		Operator:        r.Operator,
-		Apps:            r.Apps,
-		Backend:         r.Backend,
-		LocalBackend:    r.LocalBackend,
-		ClusterPackages: r.ClusterPackages,
-		Client:          r.Client,
-		Runner:          r.Runner,
-		Silent:          r.Silent,
-		Emitter:         r.Emitter,
-	})
-	if err != nil {
-		return nil, trace.Wrap(err)
-	}
-
-	return machine, nil
+// GetPlan returns the up-to-date operation plan
+func (r *Updater) GetPlan() (*storage.OperationPlan, error) {
+	return r.machine.GetPlan()
 }
 
 func (r *Updater) executePlan(ctx context.Context, machine *libfsm.FSM, force bool) error {
-	planErr := machine.ExecutePlan(ctx, nil, force)
+	progress := utils.NewProgress(ctx, "Updating envars", -1, false)
+	defer progress.Stop()
+
+	planErr := machine.ExecutePlan(ctx, progress, force)
 	if planErr != nil {
 		r.Warnf("Failed to execute plan: %v.", trace.DebugReport(planErr))
 	}
@@ -202,9 +166,6 @@ func (r *Config) checkAndSetDefaults() error {
 	if r.FieldLogger == nil {
 		r.FieldLogger = log.WithField(trace.Component, "envars:updater")
 	}
-	if r.Emitter == nil {
-		r.Emitter = utils.NopEmitter()
-	}
 	return nil
 }
 
@@ -236,14 +197,38 @@ type Config struct {
 	log.FieldLogger
 	// Silent controls whether the process outputs messages to stdout
 	localenv.Silent
-	// Emitter outputs progress messages to stdout
-	utils.Emitter
 }
 
 // Updater executes a controlled update of cluster environment variables
 type Updater struct {
 	// Config defines the updater configuration
 	Config
+	machine *libfsm.FSM
+}
+
+func newMachine(ctx context.Context, config Config) (*libfsm.FSM, error) {
+	plan, err := getOrCreateOperationPlan(config.Operator, *config.Operation, config.Servers)
+	if err != nil {
+		return nil, trace.Wrap(err)
+	}
+
+	machine, err := fsm.New(ctx, fsm.Config{
+		Operation:       config.Operation,
+		Operator:        config.Operator,
+		Apps:            config.Apps,
+		Backend:         config.Backend,
+		LocalBackend:    config.LocalBackend,
+		ClusterPackages: config.ClusterPackages,
+		Client:          config.Client,
+		Runner:          config.Runner,
+		Silent:          config.Silent,
+		Plan:            *plan,
+	})
+	if err != nil {
+		return nil, trace.Wrap(err)
+	}
+
+	return machine, nil
 }
 
 func pollProgress(ctx context.Context, updateCh chan<- ops.ProgressEntry, opKey ops.SiteOperationKey, operator ops.Operator) {

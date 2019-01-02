@@ -66,8 +66,20 @@ type Application struct {
 	LeaveCmd LeaveCmd
 	// RemoveCmd removes the specified node from the cluster
 	RemoveCmd RemoveCmd
-	// PlanCmd displays current operation plan
+	// PlanCmd manages an operation plan
 	PlanCmd PlanCmd
+	// PlanInitCmd creates a new update operation plan
+	PlanInitCmd PlanInitCmd
+	// PlanSyncCmd synchronizes operation plan between local and cluster backends
+	PlanSyncCmd PlanSyncCmd
+	// PlanDisplayCmd displays plan of an operation
+	PlanDisplayCmd PlanDisplayCmd
+	// PlanExecuteCmd executes a phase of an active operation
+	PlanExecuteCmd PlanExecuteCmd
+	// PlanRollbackCmd rolls back a phase of an active operation
+	PlanRollbackCmd PlanRollbackCmd
+	// PlanResumeCmd resumes active operation
+	PlanResumeCmd PlanResumeCmd
 	// UpdateCmd combines app update related commands
 	UpdateCmd UpdateCmd
 	// UpdateCheckCmd checks if a new app version is available
@@ -436,31 +448,61 @@ type RemoveCmd struct {
 	Confirm *bool
 }
 
-// PlanCmd displays operation plan
+// PlanCmd manages an operation plan
 type PlanCmd struct {
 	*kingpin.CmdClause
-	// Init initializes the plan
-	Init *bool
-	// Sync the operation plan from etcd to local
-	Sync *bool
-	// Execute executes the given phase
-	Execute *bool
-	// Rollback reverses the given phase
-	Rollback *bool
-	// Resume resumes a paused (aborted) operation
-	Resume *bool
+	// OperationID is optional ID of operation to show the plan for
+	OperationID *string
+	// SkipVersionCheck suppresses version mismatch errors
+	SkipVersionCheck *bool
+}
+
+// PlanInitCmd creates a new update operation plan
+type PlanInitCmd struct {
+	*kingpin.CmdClause
+}
+
+// PlanSyncCmd synchronizes operation plan between local and cluster backends
+type PlanSyncCmd struct {
+	*kingpin.CmdClause
+}
+
+// PlanDisplayCmd displays plan of a specific operation
+type PlanDisplayCmd struct {
+	*kingpin.CmdClause
+	// Output is output format
+	Output *constants.Format
+}
+
+// PlanExecuteCmd executes a phase of an active operation
+type PlanExecuteCmd struct {
+	*kingpin.CmdClause
 	// Phase is the phase to execute
 	Phase *string
 	// Force forces execution of the given phase
 	Force *bool
-	// Output is output format
-	Output *constants.Format
-	// OperationID is optional ID of operation to show the plan for
-	OperationID *string
+	// PhaseTimeout is the execution timeout
+	PhaseTimeout *time.Duration
+}
+
+// PlanRollbackCmd rolls back a phase of an active operation
+type PlanRollbackCmd struct {
+	*kingpin.CmdClause
+	// Phase is the phase to rollback
+	Phase *string
+	// Force forces rollback of the phase given in Phase
+	Force *bool
 	// PhaseTimeout is the rollback timeout
 	PhaseTimeout *time.Duration
-	// SkipVersionCheck suppresses version mismatch errors
-	SkipVersionCheck *bool
+}
+
+// PlanResumeCmd resumes active operation
+type PlanResumeCmd struct {
+	*kingpin.CmdClause
+	// Force forces rollback of the phase given in Phase
+	Force *bool
+	// PhaseTimeout is the rollback timeout
+	PhaseTimeout *time.Duration
 }
 
 // InstallPlanCmd combines subcommands for install plan

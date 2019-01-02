@@ -133,18 +133,29 @@ func RegisterCommands(app *kingpin.Application) *Application {
 	g.RemoveCmd.Force = g.RemoveCmd.Flag("force", "Force removal of offline node").Bool()
 	g.RemoveCmd.Confirm = g.RemoveCmd.Flag("confirm", "Do not ask for confirmation").Bool()
 
-	g.PlanCmd.CmdClause = g.Command("plan", "Display a plan for an ongoing operation")
-	g.PlanCmd.Init = g.PlanCmd.Flag("init", "Initialize operation plan").Bool()
-	g.PlanCmd.Sync = g.PlanCmd.Flag("sync", "Sync the operation plan from etcd to local store").Bool()
-	g.PlanCmd.Execute = g.PlanCmd.Flag("execute", "Execute specified operation phase").Bool()
-	g.PlanCmd.Rollback = g.PlanCmd.Flag("rollback", "Rollback specified operation phase").Bool()
-	g.PlanCmd.Resume = g.PlanCmd.Flag("resume", "Resume last aborted operation").Bool()
-	g.PlanCmd.Force = g.PlanCmd.Flag("force", "Force execution of specified phase").Bool()
-	g.PlanCmd.Phase = g.PlanCmd.Flag("phase", "Phase ID to execute").String()
-	g.PlanCmd.Output = common.Format(g.PlanCmd.Flag("output", "Output format for the plan, text, json or yaml").Short('o').Default(string(constants.EncodingText)))
-	g.PlanCmd.OperationID = g.PlanCmd.Flag("operation-id", "ID of the operation to display the plan for. It not specified, the last operation plan will be displayed").String()
+	g.PlanCmd.CmdClause = g.Command("plan", "Manage ongoing operation")
+	g.PlanCmd.OperationID = g.PlanCmd.Flag("operation-id", "ID of the active operation. It not specified, the last operation will be used").String()
 	g.PlanCmd.SkipVersionCheck = g.PlanCmd.Flag("skip-version-check", "Bypass version compatibility check").Hidden().Bool()
-	g.PlanCmd.PhaseTimeout = g.PlanCmd.Flag("timeout", "Phase timeout").Default(defaults.PhaseTimeout).Hidden().Duration()
+
+	g.PlanInitCmd.CmdClause = g.PlanCmd.Command("init", "Initialize operation plan")
+	g.PlanSyncCmd.CmdClause = g.PlanCmd.Command("sync", "Sync the operation plan from etcd to local store")
+
+	g.PlanDisplayCmd.CmdClause = g.PlanCmd.Command("display", "Display a plan for an ongoing operation").Default()
+	g.PlanDisplayCmd.Output = common.Format(g.PlanDisplayCmd.Flag("output", "Output format for the plan, text, json or yaml").Short('o').Default(string(constants.EncodingText)))
+
+	g.PlanExecuteCmd.CmdClause = g.PlanCmd.Command("execute", "Execute specified operation phase")
+	g.PlanExecuteCmd.Phase = g.PlanExecuteCmd.Flag("phase", "Phase ID to execute").String()
+	g.PlanExecuteCmd.Force = g.PlanExecuteCmd.Flag("force", "Force execution of specified phase").Bool()
+	g.PlanExecuteCmd.PhaseTimeout = g.PlanExecuteCmd.Flag("timeout", "Phase timeout").Default(defaults.PhaseTimeout).Hidden().Duration()
+
+	g.PlanRollbackCmd.CmdClause = g.PlanCmd.Command("rollback", "Rollback specified operation phase")
+	g.PlanRollbackCmd.Phase = g.PlanRollbackCmd.Flag("phase", "Phase ID to execute").String()
+	g.PlanRollbackCmd.Force = g.PlanRollbackCmd.Flag("force", "Force rollback of specified phase").Bool()
+	g.PlanRollbackCmd.PhaseTimeout = g.PlanRollbackCmd.Flag("timeout", "Phase timeout").Default(defaults.PhaseTimeout).Hidden().Duration()
+
+	g.PlanResumeCmd.CmdClause = g.PlanCmd.Command("resume", "Resume last aborted operation")
+	g.PlanResumeCmd.Force = g.PlanResumeCmd.Flag("force", "Force execution of specified phase").Bool()
+	g.PlanResumeCmd.PhaseTimeout = g.PlanResumeCmd.Flag("timeout", "Phase timeout").Default(defaults.PhaseTimeout).Hidden().Duration()
 
 	g.UpdateCmd.CmdClause = g.Command("update", "Update actions on cluster")
 

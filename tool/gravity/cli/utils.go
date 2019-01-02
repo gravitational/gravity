@@ -127,11 +127,17 @@ func (g *Application) isJoinCommand(cmd string) bool {
 	return false
 }
 
-// isUpgradeCommand returns true if the specified commans is
+// isUpdateCommand returns true if the specified commans is
 // an upgrade related command
-func (g *Application) isUpgradeCommand(cmd string) bool {
+func (g *Application) isUpdateCommand(cmd string) bool {
 	switch cmd {
 	case g.PlanCmd.FullCommand(),
+		g.PlanInitCmd.FullCommand(),
+		g.PlanSyncCmd.FullCommand(),
+		g.PlanDisplayCmd.FullCommand(),
+		g.PlanExecuteCmd.FullCommand(),
+		g.PlanRollbackCmd.FullCommand(),
+		g.PlanResumeCmd.FullCommand(),
 		g.UpdateTriggerCmd.FullCommand(),
 		g.UpgradeCmd.FullCommand():
 		return true
@@ -139,6 +145,23 @@ func (g *Application) isUpgradeCommand(cmd string) bool {
 		return len(*g.RPCAgentRunCmd.Args) > 0
 	case g.RPCAgentDeployCmd.FullCommand():
 		return len(*g.RPCAgentDeployCmd.Args) > 0
+	}
+	return false
+}
+
+// isExpandCommand returns true if the specified commans is
+// expand-related command
+func (g *Application) isExpandCommand(cmd string) bool {
+	switch cmd {
+	case g.JoinCmd.FullCommand(), g.AutoJoinCmd.FullCommand(),
+		g.PlanCmd.FullCommand(),
+		g.PlanInitCmd.FullCommand(),
+		g.PlanSyncCmd.FullCommand(),
+		g.PlanDisplayCmd.FullCommand(),
+		g.PlanExecuteCmd.FullCommand(),
+		g.PlanRollbackCmd.FullCommand(),
+		g.PlanResumeCmd.FullCommand():
+		return true
 	}
 	return false
 }

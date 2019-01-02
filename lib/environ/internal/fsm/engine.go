@@ -38,18 +38,26 @@ import (
 )
 
 // New returns a new state machine for updating cluster environment variables
-func New(config Config) (*libfsm.FSM, error) {
+func New(ctx context.Context, config Config) (*libfsm.FSM, error) {
 	err := config.checkAndSetDefaults()
 	if err != nil {
 		return nil, trace.Wrap(err)
 	}
 
+	reconciler := update.NewDefaultReconciler(config.Backend, config.LocalBackend,
+		config.Operation.SiteDomain, config.Operation.ID, config.FieldLogger)
+	plan, err := reconciler.ReconcilePlan(ctx, config.Plan)
+	if err != nil {
+		// This is not critical and will be retried during the operation
+		config.WithError(err).Warn("Failed to reconcile operation plan.")
+		plan = &config.Plan
+	}
 	engine := &engine{
-		Config:   config,
-		spec:     configToExecutor(config),
-		operator: config.Operator,
-		reconciler: update.NewDefaultReconciler(config.Backend, config.LocalBackend,
-			config.Operation.SiteDomain, config.Operation.ID, config.FieldLogger),
+		Config:     config,
+		spec:       configToExecutor(config),
+		operator:   config.Operator,
+		reconciler: reconciler,
+		plan:       *plan,
 	}
 	machine, err := libfsm.New(libfsm.Config{
 		Engine: engine,
@@ -113,12 +121,12 @@ type Config struct {
 	ClusterPackages pack.PackageService
 	// Client specifies the optional kubernetes client
 	Client *kubernetes.Clientset
+	// Plan specifies the actual operation plan
+	Plan storage.OperationPlan
 	// Runner specifies the remote command runner
 	Runner libfsm.RemoteRunner
 	// Silent controls whether the process outputs messages to stdout
 	localenv.Silent
-	// Emitter outputs progress messages to stdout
-	utils.Emitter
 }
 
 // UpdateProgress creates an appropriate progress entry in the operator
@@ -190,6 +198,12 @@ func (r *engine) ChangePhaseState(ctx context.Context, change libfsm.StateChange
 		return trace.Wrap(err)
 	}
 
+	plan, err := r.reconciler.ReconcilePlan(ctx, r.plan)
+	if err != nil {
+		return trace.Wrap(err)
+	}
+	r.plan = *plan
+
 	r.Debugf("Applied %v.", change)
 	return nil
 }
@@ -212,11 +226,7 @@ func (r *engine) RunCommand(ctx context.Context, runner libfsm.RemoteRunner, ser
 
 // GetPlan returns the most up-to-date operation plan
 func (r *engine) GetPlan() (*storage.OperationPlan, error) {
-	plan, err := r.operator.GetOperationPlan(r.Operation.Key())
-	if err != nil {
-		return nil, trace.Wrap(err)
-	}
-	return plan, nil
+	return &r.plan, nil
 }
 
 // engine is the updater engine
@@ -226,6 +236,7 @@ type engine struct {
 	spec       libfsm.FSMSpecFunc
 	reconciler update.Reconciler
 	operator
+	plan storage.OperationPlan
 	localenv.Silent
 }
 

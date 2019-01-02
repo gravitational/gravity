@@ -130,9 +130,8 @@ func UpdateEnvars(localEnv, updateEnv *localenv.LocalEnvironment, resource teles
 		ClusterKey:      cluster.Key(),
 		Silent:          localEnv.Silent,
 		Runner:          runner,
-		Emitter:         localEnv,
 	}
-	updater, err := environ.New(config)
+	updater, err := environ.New(context.TODO(), config)
 	if err != nil {
 		return trace.Wrap(err)
 	}
@@ -161,6 +160,18 @@ func rollbackEnvarsPhase(env, updateEnv *localenv.LocalEnvironment, params Phase
 	return trace.Wrap(err)
 }
 
+func getUpdateEnvarsOperationPlan(env, updateEnv *localenv.LocalEnvironment) (*storage.OperationPlan, error) {
+	updater, err := getUpdater(env, updateEnv)
+	if err != nil {
+		return nil, trace.Wrap(err)
+	}
+	plan, err := updater.GetPlan()
+	if err != nil {
+		return nil, trace.Wrap(err)
+	}
+	return plan, nil
+}
+
 func getUpdater(env, updateEnv *localenv.LocalEnvironment) (*environ.Updater, error) {
 	clusterEnv, err := env.NewClusterEnvironment()
 	if err != nil {
@@ -184,7 +195,7 @@ func getUpdater(env, updateEnv *localenv.LocalEnvironment) (*environ.Updater, er
 	}
 	runner := libfsm.NewAgentRunner(creds)
 
-	updater, err := environ.New(environ.Config{
+	updater, err := environ.New(context.TODO(), environ.Config{
 		Operator:        operator,
 		Operation:       operation,
 		Apps:            clusterEnv.Apps,
