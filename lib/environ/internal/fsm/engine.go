@@ -217,7 +217,7 @@ func (r *engine) GetExecutor(params libfsm.ExecutorParams, remote libfsm.Remote)
 // RunCommand executes the phase specified by params on the specified server
 // using the provided runner
 func (r *engine) RunCommand(ctx context.Context, runner libfsm.RemoteRunner, server storage.Server, params libfsm.Params) error {
-	args := []string{"plan", "--execute", "--phase", params.PhaseID}
+	args := []string{"plan", "execute", "--phase", params.PhaseID}
 	if params.Force {
 		args = append(args, "--force")
 	}
