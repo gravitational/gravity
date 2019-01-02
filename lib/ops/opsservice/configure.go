@@ -577,6 +577,7 @@ func (s *site) getPlanetMasterSecretsPackage(ctx *operationContext, p planetMast
 		constants.APIServerKubeletClientKeyPair: {group: constants.ClusterAdminGroup},
 		constants.PlanetRpcKeyPair:              {},
 		constants.CoreDNSKeyPair:                {},
+		constants.FrontProxyClientKeyPair:       {},
 	}
 
 	for name, config := range keyPairTypes {
@@ -939,6 +940,10 @@ func (s *site) getPlanetConfigPackage(
 		args = append(args, fmt.Sprintf("--taint=%v=%v:%v", taint.Key, taint.Value, taint.Effect))
 	}
 
+	for k, v := range getNodeLabels(node, profile) {
+		args = append(args, fmt.Sprintf("--node-label=%v=%v", k, v))
+	}
+
 	// If the manifest contains an install hook to install a separate overlay network, disable flannel inside planet
 	if manifest.Hooks != nil && manifest.Hooks.NetworkInstall != nil {
 		args = append(args, "--disable-flannel=true")
@@ -961,6 +966,23 @@ func (s *site) getPlanetConfigPackage(
 		Reader:  reader,
 		Labels:  labels,
 	}, nil
+}
+
+// getNodeLabels returns labels a Kubernetes node should register with
+func getNodeLabels(node *ProvisionedServer, profile *schema.NodeProfile) map[string]string {
+	labels := profile.Labels
+	if labels == nil {
+		labels = make(map[string]string)
+	}
+	if _, ok := labels[defaults.KubernetesRoleLabel]; ok {
+		role := schema.ServiceRoleNode
+		if node.IsMaster() {
+			role = schema.ServiceRoleMaster
+		}
+		labels[defaults.KubernetesRoleLabel] = string(role)
+	}
+	labels[defaults.KubernetesAdvertiseIPLabel] = node.AdvertiseIP
+	return labels
 }
 
 func (s *site) configurePlanetServer(node *ProvisionedServer, installOrExpand ops.SiteOperation, config planetConfig) error {

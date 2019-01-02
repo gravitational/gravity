@@ -38,7 +38,7 @@ RELEASE_OUT ?=
 TELEPORT_TAG = 3.0.1
 # TELEPORT_REPOTAG adapts TELEPORT_TAG to the teleport tagging scheme
 TELEPORT_REPOTAG := v$(TELEPORT_TAG)
-PLANET_TAG := 5.5.0-$(K8S_VER)
+PLANET_TAG := 5.5.1-$(K8S_VER)
 PLANET_BRANCH := $(PLANET_TAG)
 K8S_APP_TAG := $(GRAVITY_TAG)
 TELEKUBE_APP_TAG := $(GRAVITY_TAG)
@@ -732,7 +732,7 @@ validate-deps:
 
 .PHONY: fix-logrus
 fix-logrus:
-	find vendor -not \( -path vendor/github.com/fsouza -prune \) -type f -print0 | xargs -0 sed -i 's/Sirupsen/sirupsen/g'
+	find vendor -not \( -path vendor/github.com/fsouza -prune \) -name '*.go' -type f -print0 | xargs -0 sed -i 's/Sirupsen/sirupsen/g'
 	find lib -type f -print0 | xargs -0 sed -i 's/Sirupsen/sirupsen/g'
 	find tool -type f -print0 | xargs -0 sed -i 's/Sirupsen/sirupsen/g'
 	rm -rf vendor/github.com/Sirupsen/logrus

@@ -43,6 +43,8 @@ import (
 	storagev1 "k8s.io/api/storage/v1"
 	storagev1beta1 "k8s.io/api/storage/v1beta1"
 	"k8s.io/apimachinery/pkg/runtime"
+	apiregistrationv1 "k8s.io/kube-aggregator/pkg/apis/apiregistration/v1"
+	apiregistrationv1beta1 "k8s.io/kube-aggregator/pkg/apis/apiregistration/v1beta1"
 )
 
 // Resources is a list of resource objects
@@ -395,7 +397,9 @@ func extractImages(objects []runtime.Object) (*ExtractedImages, error) {
 // https://kubernetes.io/docs/reference/kubectl/overview/#resource-types
 func isKnownNonPodObject(object runtime.Object) bool {
 	switch object.(type) {
-	case *certificatesv1beta1.CertificateSigningRequest,
+	case *apiregistrationv1.APIService,
+		*apiregistrationv1beta1.APIService,
+		*certificatesv1beta1.CertificateSigningRequest,
 		*rbacv1.ClusterRole,
 		*rbacv1.ClusterRoleBinding,
 		*rbacv1.Role,
