@@ -119,16 +119,22 @@ func dispatchOperation(localEnv, updateEnv, joinEnv *localenv.LocalEnvironment, 
 type dispatchFunc func(ops.SiteOperation) error
 
 // getBackendOperations returns the list of operation from the specified backends
-func getBackendOperations(localEnv, updateEnv, joinEnv *localenv.LocalEnvironment) []ops.SiteOperation {
-	clusterEnv, err := localEnv.NewClusterEnvironment()
+func getBackendOperations(localEnv, updateEnv, joinEnv *localenv.LocalEnvironment) (result []ops.SiteOperation) {
+	isOngoingInstallOperation := func(op ops.SiteOperation) bool {
+		return op.Type == ops.OperationInstall && !op.IsCompleted()
+	}
+	clusterEnv, err := localEnv.NewClusterEnvironmentWithTimeout(1 * time.Second)
 	if err != nil {
 		log.WithError(err).Debug("Failed to create cluster environment.")
 	}
-	var operations []ops.SiteOperation
+	// operationID -> operation
+	operations := make(map[string]ops.SiteOperation)
+	var clusterOperation *ops.SiteOperation
 	if clusterEnv != nil {
 		op, err := storage.GetLastOperation(clusterEnv.Backend)
 		if err == nil {
-			operations = append(operations, (ops.SiteOperation)(*op))
+			clusterOperation = (*ops.SiteOperation)(op)
+			operations[op.ID] = *clusterOperation
 		} else {
 			log.WithError(err).Debug("Failed to query last cluster operation.")
 		}
@@ -137,7 +143,9 @@ func getBackendOperations(localEnv, updateEnv, joinEnv *localenv.LocalEnvironmen
 	if updateEnv != nil {
 		op, err := storage.GetLastOperation(updateEnv.Backend)
 		if err == nil {
-			operations = append(operations, (ops.SiteOperation)(*op))
+			if _, exists := operations[op.ID]; !exists {
+				operations[op.ID] = (ops.SiteOperation)(*op)
+			}
 		} else {
 			log.WithError(err).Debug("Failed to query update operation.")
 		}
@@ -146,26 +154,33 @@ func getBackendOperations(localEnv, updateEnv, joinEnv *localenv.LocalEnvironmen
 	if joinEnv != nil {
 		op, err := storage.GetLastOperation(joinEnv.Backend)
 		if err == nil {
-			operations = append(operations, (ops.SiteOperation)(*op))
+			operations[op.ID] = (ops.SiteOperation)(*op)
 		} else {
 			log.WithError(err).Debug("Failed to query expand operation.")
 		}
 	}
 
-	wizardEnv, err := localenv.NewRemoteEnvironment()
-	if err != nil {
-		log.WithError(err).Debug("Failed to create wizard environment.")
-	}
-	if wizardEnv != nil && wizardEnv.Operator != nil {
-		op, err := ops.GetWizardOperation(wizardEnv.Operator)
-		if err == nil {
-			operations = append(operations, (ops.SiteOperation)(*op))
-		} else {
-			log.WithError(err).Debug("Failed to query install operation.")
+	// Only fetch installer operation as long as no cluster operation was created
+	// or the install operation is ongoing
+	if clusterOperation == nil || isOngoingInstallOperation(*clusterOperation) {
+		wizardEnv, err := localenv.NewRemoteEnvironment()
+		if err != nil {
+			log.WithError(err).Debug("Failed to create wizard environment.")
+		}
+		if wizardEnv != nil && wizardEnv.Operator != nil {
+			op, err := ops.GetWizardOperation(wizardEnv.Operator)
+			if err == nil {
+				operations[op.ID] = (ops.SiteOperation)(*op)
+			} else {
+				log.WithError(err).Debug("Failed to query install operation.")
+			}
 		}
 	}
 
-	return operations
+	for _, op := range operations {
+		result = append(result, op)
+	}
+	return result
 }
 
 func getActiveOperation(operations []ops.SiteOperation, operationID string) (*ops.SiteOperation, error) {

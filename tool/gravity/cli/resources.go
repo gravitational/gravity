@@ -18,6 +18,7 @@ package cli
 
 import (
 	"bytes"
+	"io"
 	"os"
 
 	"github.com/gravitational/gravity/lib/constants"
@@ -58,6 +59,9 @@ func createResource(env, updateEnv *localenv.LocalEnvironment, filename string, 
 		var raw teleservices.UnknownResource
 		err = decoder.Decode(&raw)
 		if err != nil {
+			if err == io.EOF {
+				err = nil
+			}
 			break
 		}
 		switch raw.Kind {
@@ -83,7 +87,7 @@ func createResource(env, updateEnv *localenv.LocalEnvironment, filename string, 
 		env.Printf("created %v \"%v/%v\"\n", raw.Kind, namespace, raw.Metadata.Name)
 	}
 
-	return nil
+	return trace.Wrap(err)
 }
 
 // removeResource deletes resource by name
