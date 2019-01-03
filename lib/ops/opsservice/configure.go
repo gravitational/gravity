@@ -189,6 +189,10 @@ func (s *site) configureExpandPackages(ctx context.Context, opCtx *operationCont
 	if err != nil {
 		return trace.Wrap(err)
 	}
+	env, err := s.service.GetClusterEnvironmentVariables(s.key)
+	if err != nil {
+		return trace.Wrap(err)
+	}
 	planetConfig := planetConfig{
 		server:        *provisionedServer,
 		installExpand: opCtx.operation,
@@ -197,6 +201,7 @@ func (s *site) configureExpandPackages(ctx context.Context, opCtx *operationCont
 		planetPackage: *planetPackage,
 		configPackage: *configPackage,
 		manifest:      s.app.Manifest,
+		env:           env.GetKeyValues(),
 	}
 	if provisionedServer.IsMaster() {
 		err := s.configureTeleportMaster(opCtx, teleportCA, provisionedServer)

@@ -61,10 +61,15 @@ func (o *Operator) GetClusterEnvironmentVariables(key ops.SiteKey) (env storage.
 	}
 	configmap, err := client.CoreV1().ConfigMaps(defaults.KubeSystemNamespace).
 		Get(constants.ClusterEnvironmentMap, metav1.GetOptions{})
-	if err != nil {
-		return nil, rigging.ConvertError(err)
+	err = rigging.ConvertError(err)
+	if err != nil && !trace.IsNotFound(err) {
+		return nil, trace.Wrap(err)
 	}
-	env = storage.NewEnvironment(configmap.Data)
+	var data map[string]string
+	if configmap != nil {
+		data = configmap.Data
+	}
+	env = storage.NewEnvironment(data)
 	return env, nil
 }
 

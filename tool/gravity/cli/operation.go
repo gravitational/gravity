@@ -26,6 +26,7 @@ import (
 	"github.com/gravitational/gravity/lib/storage"
 
 	"github.com/gravitational/trace"
+	"github.com/sirupsen/logrus"
 )
 
 // PhaseParams is a set of parameters for a single phase execution
@@ -120,49 +121,42 @@ type dispatchFunc func(ops.SiteOperation) error
 
 // getBackendOperations returns the list of operation from the specified backends
 func getBackendOperations(localEnv, updateEnv, joinEnv *localenv.LocalEnvironment) (result []ops.SiteOperation) {
-	isOngoingInstallOperation := func(op ops.SiteOperation) bool {
-		return op.Type == ops.OperationInstall && !op.IsCompleted()
-	}
-	clusterEnv, err := localEnv.NewClusterEnvironmentWithTimeout(1 * time.Second)
-	if err != nil {
-		log.WithError(err).Debug("Failed to create cluster environment.")
-	}
 	// operationID -> operation
 	operations := make(map[string]ops.SiteOperation)
 	var clusterOperation *ops.SiteOperation
-	if clusterEnv != nil {
-		op, err := storage.GetLastOperation(clusterEnv.Backend)
-		if err == nil {
-			clusterOperation = (*ops.SiteOperation)(op)
-			operations[op.ID] = *clusterOperation
-		} else {
-			log.WithError(err).Debug("Failed to query last cluster operation.")
-		}
+	isOngoingInstallOperation := func() bool {
+		return clusterOperation == nil ||
+			(clusterOperation.Type == ops.OperationInstall && !clusterOperation.IsCompleted())
 	}
-
-	if updateEnv != nil {
-		op, err := storage.GetLastOperation(updateEnv.Backend)
+	getBackendOperation := func(backend storage.Backend, ctx string) *ops.SiteOperation {
+		op, err := storage.GetLastOperation(backend)
 		if err == nil {
 			if _, exists := operations[op.ID]; !exists {
 				operations[op.ID] = (ops.SiteOperation)(*op)
 			}
 		} else {
-			log.WithError(err).Debug("Failed to query update operation.")
+			log.WithFields(logrus.Fields{
+				"context":       ctx,
+				logrus.ErrorKey: err,
+			}).Debug("Failed to query operation.")
 		}
+		return (*ops.SiteOperation)(op)
 	}
-
+	clusterEnv, err := localEnv.NewClusterEnvironmentWithTimeout(1 * time.Second)
+	if err != nil {
+		log.WithError(err).Debug("Failed to create cluster environment.")
+	}
+	if clusterEnv != nil {
+		clusterOperation = getBackendOperation(clusterEnv.Backend, "cluster")
+	}
+	if updateEnv != nil {
+		getBackendOperation(updateEnv.Backend, "update")
+	}
 	if joinEnv != nil {
-		op, err := storage.GetLastOperation(joinEnv.Backend)
-		if err == nil {
-			operations[op.ID] = (ops.SiteOperation)(*op)
-		} else {
-			log.WithError(err).Debug("Failed to query expand operation.")
-		}
+		getBackendOperation(joinEnv.Backend, "expand")
 	}
-
-	// Only fetch installer operation as long as no cluster operation was created
-	// or the install operation is ongoing
-	if clusterOperation == nil || isOngoingInstallOperation(*clusterOperation) {
+	// Only fetch operation from remote (install) environment if the install operation is ongoing
+	if isOngoingInstallOperation() {
 		wizardEnv, err := localenv.NewRemoteEnvironment()
 		if err != nil {
 			log.WithError(err).Debug("Failed to create wizard environment.")
@@ -176,7 +170,6 @@ func getBackendOperations(localEnv, updateEnv, joinEnv *localenv.LocalEnvironmen
 			}
 		}
 	}
-
 	for _, op := range operations {
 		result = append(result, op)
 	}
