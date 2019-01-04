@@ -113,6 +113,11 @@ func (r *Updater) RollbackPhase(ctx context.Context, phase string, phaseTimeout 
 	}))
 }
 
+// Complete completes the active operation
+func (r *Updater) Complete() error {
+	return trace.Wrap(r.machine.Complete(trace.Errorf("completed manually")))
+}
+
 // GetPlan returns the up-to-date operation plan
 func (r *Updater) GetPlan() (*storage.OperationPlan, error) {
 	return r.machine.GetPlan()

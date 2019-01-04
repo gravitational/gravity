@@ -113,7 +113,6 @@ func RegisterCommands(app *kingpin.Application) *Application {
 	g.JoinCmd.PhaseTimeout = g.JoinCmd.Flag("timeout", "Phase execution timeout").Default(defaults.PhaseTimeout).Hidden().Duration()
 	g.JoinCmd.Resume = g.JoinCmd.Flag("resume", "Resume joining from last failed step").Bool()
 	g.JoinCmd.Force = g.JoinCmd.Flag("force", "Force phase execution").Bool()
-	g.JoinCmd.Complete = g.JoinCmd.Flag("complete", "Complete join operation").Bool()
 	g.JoinCmd.OperationID = g.JoinCmd.Flag("operation-id", "ID of the operation that was created via UI").Hidden().String()
 
 	g.AutoJoinCmd.CmdClause = g.Command("autojoin", "Use cloud provider data to join a node to existing cluster")
@@ -157,6 +156,8 @@ func RegisterCommands(app *kingpin.Application) *Application {
 	g.PlanResumeCmd.Force = g.PlanResumeCmd.Flag("force", "Force execution of specified phase").Bool()
 	g.PlanResumeCmd.PhaseTimeout = g.PlanResumeCmd.Flag("timeout", "Phase timeout").Default(defaults.PhaseTimeout).Hidden().Duration()
 
+	g.PlanCompleteCmd.CmdClause = g.PlanCmd.Command("complete", "Mark operation as completed")
+
 	g.UpdateCmd.CmdClause = g.Command("update", "Update actions on cluster")
 
 	g.UpdateCheckCmd.CmdClause = g.UpdateCmd.Command("check", "Check if an update is available for the specified application").Hidden()
@@ -173,7 +174,6 @@ func RegisterCommands(app *kingpin.Application) *Application {
 	g.UpgradeCmd.Phase = g.UpgradeCmd.Flag("phase", "Operation phase to execute").String()
 	g.UpgradeCmd.Timeout = g.UpgradeCmd.Flag("timeout", "Phase execution timeout").Default(defaults.PhaseTimeout).Hidden().Duration()
 	g.UpgradeCmd.Force = g.UpgradeCmd.Flag("force", "Force phase execution even if pre-conditions are not satisfied").Bool()
-	g.UpgradeCmd.Complete = g.UpgradeCmd.Flag("complete", "Complete update operation").Bool()
 	g.UpgradeCmd.Resume = g.UpgradeCmd.Flag("resume", "Resume upgrade from the last failed step").Bool()
 	g.UpgradeCmd.SkipVersionCheck = g.UpgradeCmd.Flag("skip-version-check", "Bypass version compatibility check").Hidden().Bool()
 

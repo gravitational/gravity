@@ -37,8 +37,6 @@ type PhaseParams struct {
 	Force bool
 	// Timeout is phase execution timeout
 	Timeout time.Duration
-	// Complete marks operation complete
-	Complete bool
 	// SkipVersionCheck overrides the verification of binary version compatibility
 	SkipVersionCheck bool
 }
@@ -56,7 +54,7 @@ func executePhase(localEnv, updateEnv, joinEnv *localenv.LocalEnvironment, opera
 	case ops.OperationUpdate:
 		return executeUpgradePhase(localEnv, updateEnv, params)
 	case ops.OperationUpdateEnvars:
-		return updateEnvarsPhase(localEnv, updateEnv, params)
+		return executeEnvarsPhase(localEnv, updateEnv, params)
 	case ops.OperationGarbageCollect:
 		return garbageCollectPhase(localEnv, params)
 	default:
@@ -80,6 +78,25 @@ func rollbackPhase(localEnv, updateEnv, joinEnv *localenv.LocalEnvironment, oper
 		return rollbackEnvarsPhase(localEnv, updateEnv, params)
 	default:
 		return trace.BadParameter("operation type %q does not support plan rollback", op.Type)
+	}
+}
+
+func completeOperationPlan(localEnv, updateEnv, joinEnv *localenv.LocalEnvironment, operationID string) error {
+	op, err := getActiveOperation(localEnv, updateEnv, joinEnv, operationID)
+	if err != nil {
+		return trace.Wrap(err)
+	}
+	switch op.Type {
+	case ops.OperationInstall:
+		return completeInstallPlan(localEnv)
+	case ops.OperationExpand:
+		return completeJoinPlan(localEnv, joinEnv)
+	case ops.OperationUpdate:
+		return completeUpdatePlan(localEnv, updateEnv)
+	case ops.OperationUpdateEnvars:
+		return completeEnvarsPlan(localEnv, updateEnv)
+	default:
+		return trace.BadParameter("operation type %q does not support plan completion", op.Type)
 	}
 }
 

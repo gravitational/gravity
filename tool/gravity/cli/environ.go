@@ -141,7 +141,7 @@ func UpdateEnvars(localEnv, updateEnv *localenv.LocalEnvironment, resource teles
 	return trace.Wrap(err)
 }
 
-func updateEnvarsPhase(env, updateEnv *localenv.LocalEnvironment, params PhaseParams) error {
+func executeEnvarsPhase(env, updateEnv *localenv.LocalEnvironment, params PhaseParams) error {
 	updater, err := getUpdater(env, updateEnv)
 	if err != nil {
 		return trace.Wrap(err)
@@ -158,6 +158,14 @@ func rollbackEnvarsPhase(env, updateEnv *localenv.LocalEnvironment, params Phase
 	}
 	err = updater.RollbackPhase(context.TODO(), params.PhaseID, params.Timeout, params.Force)
 	return trace.Wrap(err)
+}
+
+func completeEnvarsPlan(env, updateEnv *localenv.LocalEnvironment) error {
+	updater, err := getUpdater(env, updateEnv)
+	if err != nil {
+		return trace.Wrap(err)
+	}
+	return trace.Wrap(updater.Complete())
 }
 
 func getUpdateEnvarsOperationPlan(env, updateEnv *localenv.LocalEnvironment) (*storage.OperationPlan, error) {

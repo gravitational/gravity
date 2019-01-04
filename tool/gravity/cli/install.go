@@ -545,9 +545,6 @@ func executeJoinPhase(localEnv, joinEnv *localenv.LocalEnvironment, p PhaseParam
 	if err != nil {
 		return trace.Wrap(err)
 	}
-	if p.Complete {
-		return joinFSM.Complete(trace.Errorf("completed manually"))
-	}
 	ctx, cancel := context.WithTimeout(context.Background(), p.Timeout)
 	defer cancel()
 	progress := utils.NewProgress(ctx, fmt.Sprintf("Executing join phase %q", p.PhaseID), -1, false)
@@ -665,6 +662,85 @@ func rollbackInstallPhase(localEnv *localenv.LocalEnvironment, p PhaseParams) er
 		Force:    p.Force,
 		Progress: progress,
 	})
+}
+
+func completeInstallPlan(localEnv *localenv.LocalEnvironment) error {
+	localApps, err := localEnv.AppServiceLocal(localenv.AppConfig{})
+	if err != nil {
+		return trace.Wrap(err)
+	}
+
+	wizardEnv, err := localenv.NewRemoteEnvironment()
+	if err != nil {
+		return trace.Wrap(err)
+	}
+
+	op, err := ops.GetWizardOperation(wizardEnv.Operator)
+	if err != nil {
+		return trace.Wrap(err)
+	}
+
+	installFSM, err := install.NewFSM(install.FSMConfig{
+		OperationKey:  op.Key(),
+		Packages:      wizardEnv.Packages,
+		Apps:          wizardEnv.Apps,
+		Operator:      wizardEnv.Operator,
+		LocalPackages: localEnv.Packages,
+		LocalApps:     localApps,
+		LocalBackend:  localEnv.Backend,
+		Insecure:      localEnv.Insecure,
+	})
+	if err != nil {
+		return trace.Wrap(err)
+	}
+
+	err = installFSM.Complete(trace.Errorf("completed manually"))
+	if err != nil {
+		return trace.Wrap(err)
+	}
+	return nil
+}
+
+func completeJoinPlan(localEnv, joinEnv *localenv.LocalEnvironment) error {
+	// determine the ongoing expand operation, it should be the only
+	// operation present in the local join-specific backend
+	operation, err := ops.GetExpandOperation(joinEnv.Backend)
+	if err != nil {
+		return trace.Wrap(err)
+	}
+	operator, err := joinEnv.CurrentOperator(httplib.WithInsecure())
+	if err != nil {
+		return trace.Wrap(err)
+	}
+	apps, err := joinEnv.CurrentApps(httplib.WithInsecure())
+	if err != nil {
+		return trace.Wrap(err)
+	}
+	packages, err := joinEnv.CurrentPackages(httplib.WithInsecure())
+	if err != nil {
+		return trace.Wrap(err)
+	}
+	joinFSM, err := expand.NewFSM(expand.FSMConfig{
+		OperationKey: ops.SiteOperationKey{
+			AccountID:   operation.AccountID,
+			SiteDomain:  operation.SiteDomain,
+			OperationID: operation.ID,
+		},
+		Operator:      operator,
+		Apps:          apps,
+		Packages:      packages,
+		LocalBackend:  localEnv.Backend,
+		LocalPackages: localEnv.Packages,
+		LocalApps:     localEnv.Apps,
+		JoinBackend:   joinEnv.Backend,
+		DebugMode:     localEnv.Debug,
+		Insecure:      localEnv.Insecure,
+		DNSConfig:     storage.DNSConfig(localEnv.DNS),
+	})
+	if err != nil {
+		return trace.Wrap(err)
+	}
+	return joinFSM.Complete(trace.Errorf("completed manually"))
 }
 
 func isCancelledError(err error) bool {

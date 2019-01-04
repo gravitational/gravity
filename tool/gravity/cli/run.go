@@ -300,12 +300,11 @@ func Execute(g *Application, cmd string, extraArgs []string) error {
 		if *g.JoinCmd.Resume {
 			*g.JoinCmd.Phase = fsm.RootPhase
 		}
-		if *g.JoinCmd.Phase != "" || *g.JoinCmd.Complete {
+		if *g.JoinCmd.Phase != "" {
 			return executeJoinPhase(localEnv, joinEnv, PhaseParams{
-				PhaseID:  *g.JoinCmd.Phase,
-				Force:    *g.JoinCmd.Force,
-				Timeout:  *g.JoinCmd.PhaseTimeout,
-				Complete: *g.JoinCmd.Complete,
+				PhaseID: *g.JoinCmd.Phase,
+				Force:   *g.JoinCmd.Force,
+				Timeout: *g.JoinCmd.PhaseTimeout,
 			})
 		}
 		return Join(localEnv, joinEnv, NewJoinConfig(g))
@@ -339,9 +338,6 @@ func Execute(g *Application, cmd string, extraArgs []string) error {
 					SkipVersionCheck: *g.UpgradeCmd.SkipVersionCheck,
 				},
 			)
-		}
-		if *g.UpgradeCmd.Complete {
-			return completeUpgrade(localEnv, updateEnv)
 		}
 		return updateTrigger(localEnv,
 			updateEnv,
@@ -381,6 +377,8 @@ func Execute(g *Application, cmd string, extraArgs []string) error {
 	case g.PlanDisplayCmd.FullCommand():
 		return displayOperationPlan(localEnv, updateEnv, joinEnv,
 			*g.PlanCmd.OperationID, *g.PlanDisplayCmd.Output)
+	case g.PlanCompleteCmd.FullCommand():
+		return completeOperationPlan(localEnv, updateEnv, joinEnv, *g.PlanCmd.OperationID)
 	case g.LeaveCmd.FullCommand():
 		return leave(localEnv, leaveConfig{
 			force:     *g.LeaveCmd.Force,

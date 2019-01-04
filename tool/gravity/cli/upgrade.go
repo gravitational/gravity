@@ -120,7 +120,7 @@ func rollbackUpgradePhase(localEnv, updateEnv *localenv.LocalEnvironment, p Phas
 	return trace.Wrap(err)
 }
 
-func completeUpgrade(localEnv, updateEnv *localenv.LocalEnvironment) error {
+func completeUpdatePlan(localEnv, updateEnv *localenv.LocalEnvironment) error {
 	clusterEnv, err := localEnv.NewClusterEnvironment()
 	if err != nil {
 		return trace.Wrap(err)
@@ -159,7 +159,7 @@ func completeUpgrade(localEnv, updateEnv *localenv.LocalEnvironment) error {
 		log.Warnf("Failed to shutdown cluster agents: %v.", trace.DebugReport(err))
 	}
 
-	updateEnv.Printf("cluster has been activated\n")
+	localEnv.Println("cluster has been activated")
 	return nil
 }
 

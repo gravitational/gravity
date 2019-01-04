@@ -80,6 +80,8 @@ type Application struct {
 	PlanRollbackCmd PlanRollbackCmd
 	// PlanResumeCmd resumes active operation
 	PlanResumeCmd PlanResumeCmd
+	// PlanCompleteCmd completes the operation plan
+	PlanCompleteCmd PlanCompleteCmd
 	// UpdateCmd combines app update related commands
 	UpdateCmd UpdateCmd
 	// UpdateCheckCmd checks if a new app version is available
@@ -407,8 +409,6 @@ type JoinCmd struct {
 	Resume *bool
 	// Force forces phase execution
 	Force *bool
-	// Complete marks join operation complete
-	Complete *bool
 	// OperationID is the ID of the operation created via UI
 	OperationID *string
 }
@@ -505,6 +505,11 @@ type PlanResumeCmd struct {
 	PhaseTimeout *time.Duration
 }
 
+// PlanCompleteCmd completes the operation plan
+type PlanCompleteCmd struct {
+	*kingpin.CmdClause
+}
+
 // InstallPlanCmd combines subcommands for install plan
 type InstallPlanCmd struct {
 	*kingpin.CmdClause
@@ -590,8 +595,6 @@ type UpgradeCmd struct {
 	Timeout *time.Duration
 	// Force forces phase execution
 	Force *bool
-	// Complete marks upgrade as complete
-	Complete *bool
 	// Resume resumes failed upgrade
 	Resume *bool
 	// SkipVersionCheck suppresses version mismatch errors

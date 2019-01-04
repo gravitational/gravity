@@ -138,6 +138,7 @@ func (g *Application) isUpdateCommand(cmd string) bool {
 		g.PlanExecuteCmd.FullCommand(),
 		g.PlanRollbackCmd.FullCommand(),
 		g.PlanResumeCmd.FullCommand(),
+		g.PlanCompleteCmd.FullCommand(),
 		g.UpdateTriggerCmd.FullCommand(),
 		g.UpgradeCmd.FullCommand():
 		return true
@@ -160,6 +161,7 @@ func (g *Application) isExpandCommand(cmd string) bool {
 		g.PlanDisplayCmd.FullCommand(),
 		g.PlanExecuteCmd.FullCommand(),
 		g.PlanRollbackCmd.FullCommand(),
+		g.PlanCompleteCmd.FullCommand(),
 		g.PlanResumeCmd.FullCommand():
 		return true
 	}
