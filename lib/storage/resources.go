@@ -84,4 +84,5 @@ var SupportedGravityResourcesToRemove = []string{
 	KindAlert,
 	KindAlertTarget,
 	KindTLSKeyPair,
+	KindEnvironment,
 }

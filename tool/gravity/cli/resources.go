@@ -70,7 +70,7 @@ func createResource(env, updateEnv *localenv.LocalEnvironment, filename string, 
 				return trace.BadParameter("updating environment variables requires root privileges.\n" +
 					"Please run this command as root")
 			}
-			err = UpdateEnvars(env, updateEnv, raw)
+			err = UpdateEnvars(env, updateEnv, raw.Raw)
 			if err != nil {
 				return trace.Wrap(err)
 			}
@@ -91,7 +91,14 @@ func createResource(env, updateEnv *localenv.LocalEnvironment, filename string, 
 }
 
 // removeResource deletes resource by name
-func removeResource(env *localenv.LocalEnvironment, kind string, name string, force bool, user string) error {
+func removeResource(env, updateEnv *localenv.LocalEnvironment, kind string, name string, force bool, user string) error {
+	if kind == storage.KindEnvironment {
+		if CheckRunningAsRoot() != nil {
+			return trace.BadParameter("updating environment variables requires root privileges.\n" +
+				"Please run this command as root")
+		}
+		return trace.Wrap(RemoveEnvars(env, updateEnv))
+	}
 	operator, err := env.SiteOperator()
 	if err != nil {
 		return trace.Wrap(err)

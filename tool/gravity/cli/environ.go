@@ -27,18 +27,27 @@ import (
 	"github.com/gravitational/gravity/lib/ops"
 	"github.com/gravitational/gravity/lib/storage"
 
-	teleservices "github.com/gravitational/teleport/lib/services"
 	"github.com/gravitational/trace"
 	"github.com/sirupsen/logrus"
 )
 
+// RemoveEnvars executes the loop to clear cluster environment variables.
+func RemoveEnvars(localEnv, updateEnv *localenv.LocalEnvironment) error {
+	env := storage.NewEnvironment(nil)
+	return updateEnvars(localEnv, updateEnv, env)
+}
+
 // UpdateEnvars executes the loop to update cluster environment variables.
 // resource specifies the new environment variables to apply.
-func UpdateEnvars(localEnv, updateEnv *localenv.LocalEnvironment, resource teleservices.UnknownResource) error {
-	env, err := storage.UnmarshalEnvironmentVariables(resource.Raw)
+func UpdateEnvars(localEnv, updateEnv *localenv.LocalEnvironment, resource []byte) error {
+	env, err := storage.UnmarshalEnvironmentVariables(resource)
 	if err != nil {
 		return trace.Wrap(err)
 	}
+	return trace.Wrap(updateEnvars(localEnv, updateEnv, env))
+}
+
+func updateEnvars(localEnv, updateEnv *localenv.LocalEnvironment, env storage.EnvironmentVariables) error {
 	teleportClient, err := localEnv.TeleportClient(constants.Localhost)
 	if err != nil {
 		return trace.Wrap(err, "failed to create a teleport client")

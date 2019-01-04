@@ -162,7 +162,7 @@ const EnvironmentSpecSchema = `{
   "additionalProperties": false,
   "required": ["data"],
   "properties": {
-    "data": {"type": "object"}
+    "data": {"type": ["object", "null"]}
   }
 }`
 

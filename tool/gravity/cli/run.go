@@ -753,7 +753,7 @@ func Execute(g *Application, cmd string, extraArgs []string) error {
 			*g.ResourceCreateCmd.Upsert,
 			*g.ResourceCreateCmd.User)
 	case g.ResourceRemoveCmd.FullCommand():
-		return removeResource(localEnv,
+		return removeResource(localEnv, updateEnv,
 			*g.ResourceRemoveCmd.Kind,
 			*g.ResourceRemoveCmd.Name,
 			*g.ResourceRemoveCmd.Force,
