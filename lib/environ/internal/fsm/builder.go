@@ -31,23 +31,17 @@ import (
 
 // NewOperationPlan returns a new plan for the specified operation
 // and the given set of servers
-func NewOperationPlan(app loc.Locator, operation ops.SiteOperation, servers []storage.Server) (*storage.OperationPlan, error) {
+func NewOperationPlan(app loc.Locator, dnsConfig storage.DNSConfig, operation ops.SiteOperation, servers []storage.Server) (*storage.OperationPlan, error) {
 	masters, nodes := libfsm.SplitServers(servers)
 	if len(masters) == 0 {
 		return nil, trace.NotFound("no master servers found in cluster state")
 	}
-	// Pick first master for tasks on behalf of regular nodes
-	execer := &masters[0]
-	return newOperationPlan(app, operation, servers, masters, nodes, execer)
-}
-
-func newOperationPlan(app loc.Locator, operation ops.SiteOperation, servers, masters, nodes []storage.Server, execer *storage.Server) (*storage.OperationPlan, error) {
 	builder := phaseBuilder{app: app}
 	config := *builder.config()
 	updateMasters := *builder.masters(masters).Require(config)
 	phases := phases{config, updateMasters}
 	if len(nodes) != 0 {
-		updateNodes := *builder.nodes(nodes, execer).Require(config, updateMasters)
+		updateNodes := *builder.nodes(nodes, &masters[0]).Require(config, updateMasters)
 		phases = append(phases, updateNodes)
 	}
 
@@ -58,6 +52,7 @@ func newOperationPlan(app loc.Locator, operation ops.SiteOperation, servers, mas
 		ClusterName:   operation.SiteDomain,
 		Phases:        phases.asPhases(),
 		Servers:       servers,
+		DNSConfig:     dnsConfig,
 	}
 	update.ResolvePlan(plan)
 

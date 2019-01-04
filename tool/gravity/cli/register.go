@@ -133,8 +133,8 @@ func RegisterCommands(app *kingpin.Application) *Application {
 	g.RemoveCmd.Force = g.RemoveCmd.Flag("force", "Force removal of offline node").Bool()
 	g.RemoveCmd.Confirm = g.RemoveCmd.Flag("confirm", "Do not ask for confirmation").Bool()
 
-	g.PlanCmd.CmdClause = g.Command("plan", "Manage ongoing operation")
-	g.PlanCmd.OperationID = g.PlanCmd.Flag("operation-id", "ID of the active operation. It not specified, the last operation will be used").String()
+	g.PlanCmd.CmdClause = g.Command("plan", "Manage operation plan")
+	g.PlanCmd.OperationID = g.PlanCmd.Flag("operation-id", "ID of the active operation. It not specified, the last operation will be used").Hidden().String()
 	g.PlanCmd.SkipVersionCheck = g.PlanCmd.Flag("skip-version-check", "Bypass version compatibility check").Hidden().Bool()
 
 	g.PlanInitCmd.CmdClause = g.PlanCmd.Command("init", "Initialize operation plan")

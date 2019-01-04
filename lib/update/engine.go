@@ -200,9 +200,8 @@ func (f *fsmUpdateEngine) activateCluster(cluster storage.Site) error {
 func (f *fsmUpdateEngine) ChangePhaseState(ctx context.Context, change fsm.StateChange) error {
 	f.Debugf("%s.", change)
 
-	id := uuid.New()
 	_, err := f.LocalBackend.CreateOperationPlanChange(storage.PlanChange{
-		ID:          id,
+		ID:          uuid.New(),
 		ClusterName: f.plan.ClusterName,
 		OperationID: f.plan.OperationID,
 		PhaseID:     change.Phase,

@@ -80,29 +80,26 @@ func syncOperationPlan(localEnv *localenv.LocalEnvironment, updateEnv *localenv.
 }
 
 func displayOperationPlan(localEnv, updateEnv, joinEnv *localenv.LocalEnvironment, operationID string, format constants.Format) error {
-	return dispatchOperation(localEnv, updateEnv, joinEnv, operationID,
-		dispatchDisplayOperationPlan(localEnv, updateEnv, joinEnv, format))
-}
-
-func dispatchDisplayOperationPlan(localEnv, updateEnv, joinEnv *localenv.LocalEnvironment, format constants.Format) dispatchFunc {
-	return func(op ops.SiteOperation) error {
-		switch op.Type {
-		case ops.OperationInstall:
-			if op.IsCompleted() {
-				return displayClusterOperationPlan(localEnv, op.Key(), format)
-			}
-			return displayInstallOperationPlan(format)
-		case ops.OperationExpand:
-			return displayExpandOperationPlan(joinEnv, format)
-		case ops.OperationUpdate:
-			return displayUpdateOperationPlan(localEnv, updateEnv, op, format)
-		case ops.OperationGarbageCollect:
+	op, err := getLastOperation(localEnv, updateEnv, joinEnv, operationID)
+	if err != nil {
+		return trace.Wrap(err)
+	}
+	switch op.Type {
+	case ops.OperationInstall:
+		if op.IsCompleted() {
 			return displayClusterOperationPlan(localEnv, op.Key(), format)
-		case ops.OperationUpdateEnvars:
-			return displayUpdateEnvarsOperationPlan(localEnv, updateEnv, op, format)
-		default:
-			return trace.BadParameter("unknown operation type %q", op.Type)
 		}
+		return displayInstallOperationPlan(format)
+	case ops.OperationExpand:
+		return displayExpandOperationPlan(joinEnv, format)
+	case ops.OperationUpdate:
+		return displayUpdateOperationPlan(localEnv, updateEnv, *op, format)
+	case ops.OperationGarbageCollect:
+		return displayClusterOperationPlan(localEnv, op.Key(), format)
+	case ops.OperationUpdateEnvars:
+		return displayUpdateEnvarsOperationPlan(localEnv, updateEnv, *op, format)
+	default:
+		return trace.BadParameter("unknown operation type %q", op.Type)
 	}
 }
 

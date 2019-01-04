@@ -39,18 +39,13 @@ func NewElections(params libfsm.ExecutorParams, operator localClusterGetter, log
 		return nil, trace.BadParameter("no election status specified for phase %q", params.Phase.ID)
 	}
 
-	cluster, err := operator.GetLocalSite()
-	if err != nil {
-		return nil, trace.Wrap(err)
-	}
-
 	return &elections{
 		FieldLogger:    logger,
 		Server:         *params.Phase.Data.Server,
 		ElectionChange: *params.Phase.Data.ElectionChange,
 		progress:       params.Progress,
 		clusterName:    params.Plan.ClusterName,
-		dnsAddr:        cluster.DNSConfig.Addr(),
+		dnsAddr:        params.Plan.DNSConfig.Addr(),
 	}, nil
 }
 

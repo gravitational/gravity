@@ -1974,8 +1974,6 @@ type UpdateOperationState struct {
 type UpdateEnvarsOperationState struct {
 	// Env defines new cluster environment variables
 	Env map[string]string `json:"env"`
-	// PreviousEnv defines previous cluster environment variables
-	PreviousEnv map[string]string `json:"previous_env,omitempty"`
 }
 
 // Package returns the update package locator

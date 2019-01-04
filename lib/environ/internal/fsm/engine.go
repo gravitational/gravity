@@ -182,7 +182,7 @@ func (r *engine) Complete(fsmErr error) error {
 	return nil
 }
 
-// ChangePhaseState creates an new changelog entry
+// ChangePhaseState creates a new changelog entry
 func (r *engine) ChangePhaseState(ctx context.Context, change libfsm.StateChange) error {
 	err := r.operator.CreateOperationPlanChange(r.Operation.Key(),
 		storage.PlanChange{

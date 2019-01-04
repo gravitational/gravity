@@ -59,7 +59,7 @@ type DeployAgentsRequest struct {
 	logrus.FieldLogger
 
 	// LeaderParams defines which parameters to pass to the leader agent process.
-	// The leader agent might be responsible for driving the automatic update, for example
+	// The leader agent would be driving the update in case of the automatic update operation.
 	LeaderParams []string
 
 	// Leader is the node where the leader agent should be launched

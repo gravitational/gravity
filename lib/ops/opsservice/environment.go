@@ -105,8 +105,7 @@ func (s *site) createUpdateEnvarsOperation(req ops.CreateUpdateEnvarsOperationRe
 		Updated:    s.clock().UtcNow(),
 		State:      ops.OperationUpdateEnvarsInProgress,
 		UpdateEnvars: &storage.UpdateEnvarsOperationState{
-			PreviousEnv: configmap.Data,
-			Env:         req.Env,
+			Env: req.Env,
 		},
 	}
 	key, err := s.getOperationGroup().createSiteOperation(op)
@@ -118,7 +117,9 @@ func (s *site) createUpdateEnvarsOperation(req ops.CreateUpdateEnvarsOperationRe
 		_, err := configmaps.Update(configmap)
 		return trace.Wrap(err)
 	})
-
+	if err != nil {
+		return nil, trace.Wrap(err)
+	}
 	return key, nil
 }
 

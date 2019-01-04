@@ -30,7 +30,7 @@ func NewOperationPlan(operator ops.Operator, operation ops.SiteOperation, server
 	if err != nil {
 		return nil, trace.Wrap(err)
 	}
-	plan, err = fsm.NewOperationPlan(cluster.App.Package, operation, servers)
+	plan, err = fsm.NewOperationPlan(cluster.App.Package, cluster.DNSConfig, operation, servers)
 	if err != nil {
 		return nil, trace.Wrap(err)
 	}

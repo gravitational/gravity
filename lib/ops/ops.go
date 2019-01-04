@@ -359,7 +359,7 @@ type SSHSignResponse struct {
 // that does not uses any interfaces
 func (s *SSHSignResponse) ToRaw() (*SSHSignResponseRaw, error) {
 	raw := SSHSignResponseRaw{
-		Cert: s.Cert,
+		Cert:                   s.Cert,
 		TrustedHostAuthorities: make([]json.RawMessage, 0, len(s.TrustedHostAuthorities)),
 	}
 	for i := range s.TrustedHostAuthorities {
@@ -385,7 +385,7 @@ type SSHSignResponseRaw struct {
 // ToNative converts back to request that has all interfaces inside
 func (s *SSHSignResponseRaw) ToNative() (*SSHSignResponse, error) {
 	native := SSHSignResponse{
-		Cert: s.Cert,
+		Cert:                   s.Cert,
 		TrustedHostAuthorities: make([]teleservices.CertAuthority, 0, len(s.TrustedHostAuthorities)),
 	}
 	for i := range s.TrustedHostAuthorities {

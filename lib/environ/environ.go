@@ -55,20 +55,22 @@ func New(ctx context.Context, config Config) (*Updater, error) {
 // Run updates the environment variables in the cluster
 func (r *Updater) Run(ctx context.Context, force bool) (err error) {
 	errCh := make(chan error, 1)
-	updateCh := make(chan ops.ProgressEntry)
 	go func() {
 		errCh <- r.executePlan(ctx, r.machine, force)
 	}()
-	go pollProgress(ctx, updateCh, r.Operation.Key(), r.Operator)
+	ticker := time.NewTicker(1 * time.Second)
+	defer ticker.Stop()
+	var lastProgress *ops.ProgressEntry
 
 L:
 	for {
 		select {
 		case <-ctx.Done():
 			return nil
-		case progress := <-updateCh:
-			r.Silent.Printf("%v\t%v\n", time.Now().UTC().Format(constants.HumanDateFormatSeconds),
-				progress.Message)
+		case <-ticker.C:
+			if progress := r.updateProgress(lastProgress); progress != nil {
+				lastProgress = progress
+			}
 		case err = <-errCh:
 			break L
 		}
@@ -144,6 +146,19 @@ func (r *Updater) executePlan(ctx context.Context, machine *libfsm.FSM, force bo
 	return trace.Wrap(err)
 }
 
+func (r *Updater) updateProgress(lastProgress *ops.ProgressEntry) *ops.ProgressEntry {
+	progress, err := r.Operator.GetSiteOperationProgress(r.Operation.Key())
+	if err != nil {
+		log.WithError(err).Warn("Failed to query operation progress.")
+		return nil
+	}
+	if lastProgress == nil || !lastProgress.IsEqual(*progress) {
+		r.Silent.Printf("%v\t%v\n", time.Now().UTC().Format(constants.HumanDateFormatSeconds),
+			progress.Message)
+	}
+	return progress
+}
+
 func (r *Config) checkAndSetDefaults() error {
 	if r.Operator == nil {
 		return trace.BadParameter("cluster operator service is required")
@@ -179,11 +194,9 @@ type Config struct {
 	Apps app.Applications
 	// Operation references a potentially active garbage collection operation
 	Operation *ops.SiteOperation
-	// Backend specifies the primary backend
+	// When available, used to sync state between nodes
 	Backend storage.Backend
-	// LocalBackend specifies the backend where intermediate operation state
-	// is stored. It is the fallback backend, if the primary backend is temporarily
-	// unavailable
+	// LocalBackend specifies the authoritative source for operation state
 	LocalBackend storage.Backend
 	// ClusterPackages specifies the cluster package service
 	ClusterPackages pack.PackageService
@@ -229,33 +242,4 @@ func newMachine(ctx context.Context, config Config) (*libfsm.FSM, error) {
 	}
 
 	return machine, nil
-}
-
-func pollProgress(ctx context.Context, updateCh chan<- ops.ProgressEntry, opKey ops.SiteOperationKey, operator ops.Operator) {
-	ticker := time.NewTicker(1 * time.Second)
-	defer ticker.Stop()
-	var lastProgress *ops.ProgressEntry
-	for {
-		select {
-		case <-ctx.Done():
-			return
-		case <-ticker.C:
-			progress, err := operator.GetSiteOperationProgress(opKey)
-			if err != nil {
-				log.WithError(err).Warn("Failed to query operation progress.")
-				continue
-			}
-			if lastProgress == nil || !lastProgress.IsEqual(*progress) {
-				select {
-				case <-ctx.Done():
-					return
-				case updateCh <- *progress:
-				}
-			}
-			if progress.IsCompleted() {
-				return
-			}
-			lastProgress = progress
-		}
-	}
 }

@@ -264,8 +264,6 @@ func GetDNSConfig(backend Backend, fallback DNSConfig) (config *DNSConfig, err e
 	if config == nil {
 		config = &fallback
 	}
-
-	log.WithField("dns", config).Debug("Existing DNS.")
 	return config, nil
 }
 

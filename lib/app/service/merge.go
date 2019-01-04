@@ -22,7 +22,6 @@ import (
 	"github.com/gravitational/gravity/lib/utils"
 
 	"github.com/gravitational/trace"
-	log "github.com/sirupsen/logrus"
 )
 
 // mergeManifests combines the manifest of the specified application with
@@ -66,7 +65,6 @@ func mergeRuntime(target *schema.Manifest, source schema.Manifest) error {
 		// TODO: ideally now, that the manifest requires a runtime package, the version of
 		// the manifest schema needs to be bumped to account for this.
 		// Then, it would be natural to convert one to the other.
-		log.Debugf("Merge runtimes: older application manifest skipped.")
 		return nil
 	}
 

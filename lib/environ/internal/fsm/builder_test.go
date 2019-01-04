@@ -47,7 +47,7 @@ func (S) TestSingleNodePlan(c *C) {
 	}
 	app := loc.MustParseLocator("gravitational.io/app:0.0.1")
 
-	plan, err := newOperationPlan(app, operation, servers, servers, nil, &servers[0])
+	plan, err := NewOperationPlan(app, storage.DefaultDNSConfig, operation, servers)
 	c.Assert(err, IsNil)
 	c.Assert(plan, compare.DeepEquals, &storage.OperationPlan{
 		OperationID:   operation.ID,
@@ -55,6 +55,7 @@ func (S) TestSingleNodePlan(c *C) {
 		AccountID:     operation.AccountID,
 		ClusterName:   operation.SiteDomain,
 		Servers:       servers,
+		DNSConfig:     storage.DefaultDNSConfig,
 		Phases: []storage.OperationPhase{
 			{
 				ID:          "/update-config",
@@ -145,9 +146,7 @@ func (S) TestMultiNodePlan(c *C) {
 	}
 	app := loc.MustParseLocator("gravitational.io/app:0.0.1")
 
-	masters := []storage.Server{servers[0], servers[2]}
-	nodes := []storage.Server{servers[1], servers[3]}
-	plan, err := newOperationPlan(app, operation, servers, masters, nodes, &masters[0])
+	plan, err := NewOperationPlan(app, storage.DefaultDNSConfig, operation, servers)
 	c.Assert(err, IsNil)
 	c.Assert(plan, compare.DeepEquals, &storage.OperationPlan{
 		OperationID:   operation.ID,
@@ -155,6 +154,7 @@ func (S) TestMultiNodePlan(c *C) {
 		AccountID:     operation.AccountID,
 		ClusterName:   operation.SiteDomain,
 		Servers:       servers,
+		DNSConfig:     storage.DefaultDNSConfig,
 		Phases: []storage.OperationPhase{
 			{
 				ID:          "/update-config",

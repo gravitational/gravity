@@ -38,7 +38,8 @@ func NewRestart(params libfsm.ExecutorParams, operator localClusterGetter, apps 
 		return nil, trace.NotFound("no installed application package specified for phase %q",
 			params.Phase.ID)
 	}
-	// TODO: move these to OperationPhase.Data
+	// TODO: move these to OperationPhase.Data (i.e. to plan init phase) to avoid
+	// failing operation if a cluster is degraded
 	app, err := apps.GetApp(*params.Phase.Data.Package)
 	if err != nil {
 		return nil, trace.Wrap(err, "failed to query installed application")
