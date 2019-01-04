@@ -78,7 +78,7 @@ func WizardProcessConfig(hostname, readStateDir, stateDir string) (*processconfi
 	}, nil
 }
 
-// WizardTeleportConfig returns
+// WizardTeleportConfig generates a teleport configuration for the gravity wizard process
 func WizardTeleportConfig(clusterName, stateDir string) *telecfg.FileConfig {
 	return &telecfg.FileConfig{
 		Global: telecfg.Global{
@@ -94,6 +94,22 @@ func WizardTeleportConfig(clusterName, stateDir string) *telecfg.FileConfig {
 				Params: make(backend.Params),
 			},
 			AuthServers: []string{fmt.Sprintf("localhost:%v", defaults.WizardAuthServerPort)},
+			CipherSuites: []string{
+				"aes128-gcm@openssh.com",
+				"aes128-ctr",
+				"aes192-ctr",
+				"aes256-ctr",
+			},
+			KEXAlgorithms: []string{
+				"curve25519-sha256@libssh.org",
+				"ecdh-sha2-nistp256",
+				"ecdh-sha2-nistp384",
+				"ecdh-sha2-nistp521",
+			},
+			MACAlgorithms: []string{
+				"hmac-sha2-256-etm@openssh.com",
+				"hmac-sha2-256",
+			},
 		},
 		Auth: telecfg.Auth{
 			Service: telecfg.Service{

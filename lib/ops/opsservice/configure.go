@@ -1011,6 +1011,23 @@ func (s *site) getTeleportMasterConfig(ctx *operationContext, master *Provisione
 
 	fileConf := &telecfg.FileConfig{}
 
+	fileConf.CipherSuites = []string{
+		"aes128-gcm@openssh.com",
+		"aes128-ctr",
+		"aes192-ctr",
+		"aes256-ctr",
+	}
+	fileConf.KEXAlgorithms = []string{
+		"curve25519-sha256@libssh.org",
+		"ecdh-sha2-nistp256",
+		"ecdh-sha2-nistp384",
+		"ecdh-sha2-nistp521",
+	}
+	fileConf.MACAlgorithms = []string{
+		"hmac-sha2-256-etm@openssh.com",
+		"hmac-sha2-256",
+	}
+
 	fileConf.DataDir = defaults.InGravity("site/teleport")
 	fileConf.Storage.Type = teleetcd.GetName()
 	secretsDir := defaults.InGravity(defaults.SecretsDir)
@@ -1130,6 +1147,23 @@ func (s *site) getTeleportNodeConfig(ctx *operationContext, masterIP string, nod
 	}
 
 	fileConf := &telecfg.FileConfig{}
+
+	fileConf.CipherSuites = []string{
+		"aes128-gcm@openssh.com",
+		"aes128-ctr",
+		"aes192-ctr",
+		"aes256-ctr",
+	}
+	fileConf.KEXAlgorithms = []string{
+		"curve25519-sha256@libssh.org",
+		"ecdh-sha2-nistp256",
+		"ecdh-sha2-nistp384",
+		"ecdh-sha2-nistp521",
+	}
+	fileConf.MACAlgorithms = []string{
+		"hmac-sha2-256-etm@openssh.com",
+		"hmac-sha2-256",
+	}
 
 	fileConf.DataDir = node.InGravity("teleport")
 
