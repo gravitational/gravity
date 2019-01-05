@@ -25,9 +25,9 @@ import (
 	"github.com/gravitational/gravity/lib/defaults"
 	libfsm "github.com/gravitational/gravity/lib/fsm"
 	"github.com/gravitational/gravity/lib/loc"
+	"github.com/gravitational/gravity/lib/localenv"
 	"github.com/gravitational/gravity/lib/pack"
 	"github.com/gravitational/gravity/lib/state"
-	"github.com/gravitational/gravity/lib/utils"
 	"github.com/gravitational/gravity/lib/vacuum/prune"
 	"github.com/gravitational/gravity/lib/vacuum/prune/registry"
 
@@ -41,22 +41,12 @@ func NewRegistry(
 	clusterApp loc.Locator,
 	clusterApps app.Applications,
 	clusterPackages pack.PackageService,
-	emitter utils.Emitter,
+	silent localenv.Silent,
+	logger log.FieldLogger,
 ) (*registryExecutor, error) {
-	return &registryExecutor{
-		Emitter:     emitter,
-		FieldLogger: log.WithField("phase", params.Phase),
-		app:         clusterApp,
-		apps:        clusterApps,
-		packages:    clusterPackages,
-	}, nil
-}
-
-// Execute prunes unused docker images on this node
-func (r *registryExecutor) Execute(ctx context.Context) error {
 	stateDir, err := state.GetStateDir()
 	if err != nil {
-		return trace.Wrap(err)
+		return nil, trace.Wrap(err)
 	}
 
 	imageService, err := docker.NewImageService(docker.RegistryConnectionRequest{
@@ -67,24 +57,31 @@ func (r *registryExecutor) Execute(ctx context.Context) error {
 		ClientKeyPath:   state.Secret(stateDir, "kubelet.key"),
 	})
 	if err != nil {
-		return trace.Wrap(err)
+		return nil, trace.Wrap(err)
 	}
-
 	pruner, err := registry.New(registry.Config{
-		App:          &r.app,
-		Apps:         r.apps,
-		Packages:     r.packages,
+		App:          &clusterApp,
+		Apps:         clusterApps,
+		Packages:     clusterPackages,
 		ImageService: imageService,
 		Config: prune.Config{
-			Emitter:     r.Emitter,
-			FieldLogger: r.FieldLogger.WithField(trace.Component, "gc:registry"),
+			Silent:      silent,
+			FieldLogger: logger,
 		},
 	})
 	if err != nil {
-		return trace.Wrap(err)
+		return nil, trace.Wrap(err)
 	}
+	return &registryExecutor{
+		FieldLogger: logger,
+		Pruner:      pruner,
+		silent:      silent,
+	}, nil
+}
 
-	err = pruner.Prune(ctx)
+// Execute prunes unused docker images on this node
+func (r *registryExecutor) Execute(ctx context.Context) error {
+	err := r.Prune(ctx)
 	return trace.Wrap(err)
 }
 
@@ -104,11 +101,8 @@ func (r *registryExecutor) Rollback(context.Context) error {
 }
 
 type registryExecutor struct {
-	// FieldLogger is the logger the executor uses
 	log.FieldLogger
-	// Emitter outputs progress messages to stdout
-	utils.Emitter
-	app      loc.Locator
-	apps     app.Applications
-	packages pack.PackageService
+	// Pruner is the actual clean up implementation
+	prune.Pruner
+	silent localenv.Silent
 }
