@@ -679,7 +679,7 @@
   version = "v1.0.1"
 
 [[projects]]
-  digest = "1:e90bedbd0f362d7d4cb84edbc13fa0fa4fabeb44b67514a680a4d31f66c2fa6a"
+  digest = "1:a10fd3a73305c096aaedea3f09e4fe37ee06221a2c4936a9d343677427b30cdf"
   name = "github.com/gravitational/teleport"
   packages = [
     ".",
@@ -722,8 +722,9 @@
     "lib/web/ui",
   ]
   pruneopts = "UT"
-  revision = "64b88f99a1af9e63277c3529c1c006d81ee3499c"
-  version = "v2.4.9"
+  revision = "874bbe7ab1ca7d11cd741a5cde0c35a4040c27b7"
+  source = "github.com/gravitational/teleport-private"
+  version = "v2.4.10"
 
 [[projects]]
   digest = "1:22c8951489f0e27ec3b2d50d9f74086ff3f08554ce5965d418d6a10296b9ea04"
