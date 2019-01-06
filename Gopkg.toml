@@ -176,7 +176,10 @@ ignored = [
 
 [[constraint]]
   name = "github.com/gravitational/teleport"
-  version = "=v2.4.9"
+  version = "=v2.4.10"
+  # Vendor security update from private repo
+  # TODO(knisbet) Remove after fix integrated with public repo on Thursday January 10, 2019
+  source = "github.com/gravitational/teleport-private"
 
 [[constraint]]
   version = "0.0.1"
