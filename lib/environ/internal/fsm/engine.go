@@ -172,7 +172,11 @@ func (r *engine) Complete(fsmErr error) error {
 	if libfsm.IsCompleted(plan) {
 		err = ops.CompleteOperation(r.Operation.Key(), r.operator)
 	} else {
-		err = ops.FailOperation(r.Operation.Key(), r.operator, trace.Unwrap(fsmErr).Error())
+		var msg string
+		if fsmErr != nil {
+			msg = trace.Unwrap(fsmErr).Error()
+		}
+		err = ops.FailOperation(r.Operation.Key(), r.operator, msg)
 	}
 	if err != nil {
 		return trace.Wrap(err)
