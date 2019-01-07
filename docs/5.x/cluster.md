@@ -1567,10 +1567,10 @@ $ gravity resource create trustedcluster.yaml
 View the currently configured trusted cluster:
 
 ```bsh
-$ gravity resource get trustedclusters
-Name                       Enabled     Pull Updates
-----                       -------     ------------
-opscenter.example.com      true        true
+$ gravity resource get trusted_cluster
+Name                      Enabled     Pull Updates     Reverse Tunnel Address          Proxy Address
+----                      -------     ------------     ----------------------          -------------
+opscenter.example.com     true        true             opscenter.example.com:3024      opscenter.example.com:32009
 ```
 
 Once the cluster has been created, the reverse tunnel status can be viewed and
@@ -2066,8 +2066,7 @@ With `promiscuous-bridge`, the behavior is similar to that of the kubenet networ
 ### WireGuard Encrypted Networking
 
 Gravity supports encrypting all pod-to-pod traffic between hosts using [WireGuard](https://www.wireguard.com) to create
-an encrypted VPN between hosts. This feature is configured through the application manifest when building gravity 
-applications:
+an encrypted VPN between hosts. This feature is configured through the application manifest when building gravity applications:
 
 ```yaml
 providers:
@@ -2095,7 +2094,3 @@ The coredns configuration can be edited after installation, by updating the `kub
 [PodSecurityPolicies]: https://kubernetes.io/docs/concepts/policy/pod-security-policy/
 [RBAC]: https://kubernetes.io/docs/admin/authorization/rbac/
 [promiscuous-mode]: https://en.wikipedia.org/wiki/Promiscuous_mode
-
-
-
-
