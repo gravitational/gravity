@@ -205,6 +205,9 @@ ignored = [
   # new Kubernetes because it can't be revendored in regular
   # 3.0 branch due to some compability issues
   branch = "branch/3.0-g"
+  # Vendor security update from private repo
+  # TODO(knisbet) Remove after fix integrated with public repo on Thursday January 10, 2019
+  source = "github.com/gravitational/teleport-private"
 
 [[constraint]]
   version = "0.0.1"
