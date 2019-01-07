@@ -12,7 +12,7 @@ LTS starts with `3.51.0` with minor backwards compatible changes added over time
 | 5.3.5         | No  | December, 3rd 2018   | -                    | 1.12.3             | 2.4.7            |
 | 5.2.4         | Yes | December, 3rd 2018   | October, 15th, 2019  | 1.11.5             | 2.4.7            |
 | 5.0.27        | Yes | December, 13th 2018  | April, 13th 2019     | 1.9.12-gravitational | 2.4.7            |
-| 4.64.0        | Yes | December, 18th, 2018 | November, 16th 2018  | 1.7.18-gravitational | 2.3.5            |
+| 4.67.0        | Yes | January, 3rd, 2019 | November, 16th 2018  | 1.7.18-gravitational | 2.3.5            |
 | 3.64.0        | Yes | December, 21st 2017  | June, 2nd 2018       | 1.5.7              | 2.0.6            |
 | 1.30.0        | Yes | March, 21st 2017     | March, 21st 2018     | 1.3.8              | 1.2.0            |
 
@@ -729,6 +729,12 @@ $ /tmp/gravity upgrade
 
 This will upgrade the cluster and the system instance of the `gravity` binary,
 so the temporary copy in `/tmp` can be discarded.
+
+### 4.67.0 LTS
+
+#### Bugfixes
+
+* Disable docker volume tests during upgrades which could prevent upgrades from completing. 
 
 ### 4.64.0 LTS
 
