@@ -92,6 +92,7 @@ TILLER_APP_PKG := gravitational.io/tiller-app:$(TILLER_APP_TAG)
 # `aws s3 sync` command (which only works on directories)
 BUILDDIR ?= $(TOP)/build
 GRAVITY_BUILDDIR := $(BUILDDIR)/$(GRAVITY_VERSION)
+GRAVITY_CURRENT_BUILDDIR := $(BUILDDIR)/current
 PLANET_DIR := $(BUILDDIR)/planet
 PLANET_SRCDIR := $(PLANET_DIR)/src
 PLANET_BUILDDIR := $(PLANET_DIR)/$(PLANET_TAG)
