@@ -136,7 +136,7 @@ Each rollup is a JSON object with the following fields:
 * `custom_from` - custom FROM clause for the rollup. Either `custom_from` or `measurement` must be provided.
 * `custom_group_by` - custom GROUP BY clause for the rollup. Default GROUP BY is `*, time($interval)`, where $interval is set from `retention`.
 * `functions` - list of rollup functions to apply to metric measurement
-* `function` - function name, can be mean, median, sum, max, min or percentile_XXX, where 0 <= XXX <= 100
+* `function` - function name
 * `field` - name of the field to apply rollup function to (e.g. "value")
 * `alias` - new name for the rolled up field (e.g. "value_max")
 
@@ -159,6 +159,7 @@ Selectors:
 * last
 * max
 * min
+* percentile
 * sample
 * top
 
