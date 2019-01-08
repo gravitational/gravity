@@ -140,6 +140,30 @@ Each rollup is a JSON object with the following fields:
 * `field` - name of the field to apply rollup function to (e.g. "value")
 * `alias` - new name for the rolled up field (e.g. "value_max")
 
+### List of supported functions
+
+Aggregations:
+* count
+* distinct
+* integral
+* mean
+* median
+* mode
+* spread
+* stddev
+* sum
+
+Selectors:
+* bottom
+* first
+* last
+* max
+* min
+* sample
+* top
+
+Full documentation about functions can be found on [InfluxDB website](https://docs.influxdata.com/influxdb/v1.5/query_language/functions/).
+
 ## Kapacitor integration
 
 Kapacitor provides alerting for default and user-defined alerts.
@@ -205,6 +229,9 @@ $ gravity resource rm alert my-formula
 
 ### Builtin Alerts
 
+Alerts (written in [TICKscript](https://docs.influxdata.com/kapacitor/v1.2/tick)) are automatically detected, loaded and
+enabled. They are read from the Kubernetes ConfigMap named `kapacitor-alerts` in `monitoring` namespace.
+
 Following table shows the alerts Gravity ships with by default:
 
 | Component   | Alert         | Description      |
@@ -225,10 +252,3 @@ Following table shows the alerts Gravity ships with by default:
 
 Kapacitor will also trigger an email for each of the events listed above if stmp resource has been
 configured (see [configuration](/monitoring/#configuration) for details).
-
-
-### Custom and default alerts
-
-Alerts (written in [TICKscript](https://docs.influxdata.com/kapacitor/v1.2/tick)) are automatically detected, loaded and
-enabled. They are read from the Kubernetes ConfigMap named `kapacitor-alerts`. To create new alerts, add your alert scripts
-as new key/values to that ConfigMap and reload any running Kapacitor pods.
