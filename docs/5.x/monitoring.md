@@ -133,6 +133,8 @@ Each rollup is a JSON object with the following fields:
 * `retention` - name of the retention policy (and hence the aggregation interval) for this rollup, can be medium or long
 * `measurement` - name of the metric for the rollup (i.e. which metric is being "rolled up")
 * `name` - name of the resulting "rolled up" metric
+* `custom_from` - custom FROM clause for the rollup. Either `custom_from` or `measurement` must be provided.
+* `custom_group_by` - custom GROUP BY clause for the rollup. Default GROUP BY is `*, time($interval)`, where $interval is set from `retention`.
 * `functions` - list of rollup functions to apply to metric measurement
 * `function` - function name, can be mean, median, sum, max, min or percentile_XXX, where 0 <= XXX <= 100
 * `field` - name of the field to apply rollup function to (e.g. "value")
