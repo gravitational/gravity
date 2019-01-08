@@ -14,18 +14,18 @@ and pods.
 ### InfluxDB
 
 InfluxDB is the main data store for current + future monitoring time series data. It provides the
-service `influxdb.kube-system.svc.cluster.local`.
+service `influxdb.monitoring.svc.cluster.local`.
 
 ### Grafana
 
 Grafana is the dashboard system that provides visualization information on all the information stored
-in InfluxDB. It is exposed as the service `grafana.kube-system.svc.cluster.local`. Grafana credentials
-are generated during initial installation and placed into a secret `grafana` in `kube-system` namespace.
+in InfluxDB. It is exposed as the service `grafana.monitoring.svc.cluster.local`. Grafana credentials
+are generated during initial installation and placed into a secret `grafana` in `monitoring` namespace.
 
 ### Kapacitor
 
 Kapacitor is the alerting system that streams data from InfluxDB and sends alerts as configured by
-the end user. It exposes the service `kapacitor.kube-system.svc.cluster.local`.
+the end user. It exposes the service `kapacitor.monitoring.svc.cluster.local`.
 
 ## Grafana integration
 
@@ -40,14 +40,14 @@ dashboards (but not modify them or create new ones).
 
 Your applications can use their own Grafana dashboards using ConfigMaps.
 A custom dashboard ConfigMap should be assigned a `monitoring` label with value `dashboard` and created in the
-`kube-system` namespace so it is recognized and loaded when installing the application:
+`monitoring` namespace so it is recognized and loaded when installing the application:
 
 ```yaml
 apiVersion: v1
 kind: ConfigMap
 metadata:
   name: mydashboard
-  namespace: kube-system
+  namespace: monitoring
   labels:
     monitoring: dashboard
 data:
@@ -94,7 +94,7 @@ The monitoring system allows for the configuration of two "types" of rollups for
 Rollups are pre-configured for some of the metrics collected by default. Applications that collect their own
 metrics can configure their own rollups as well through ConfigMaps.
 
-A custom rollup ConfigMap should be assigned a `monitoring` label with value `rollup` and created in the `kube-system`
+A custom rollup ConfigMap should be assigned a `monitoring` label with value `rollup` and created in the `monitoring`
 namespace for it to be recognized and loaded. Below is a sample ConfigMap:
 
 ```yaml
@@ -102,7 +102,7 @@ apiVersion: v1
 kind: ConfigMap
 metadata:
   name: myrollups
-  namespace: kube-system
+  namespace: monitoring
   labels:
     monitoring: rollup
 data:
