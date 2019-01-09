@@ -1011,7 +1011,7 @@ func (s *site) getTeleportMasterConfig(ctx *operationContext, master *Provisione
 
 	fileConf := &telecfg.FileConfig{}
 
-	fileConf.CipherSuites = []string{
+	fileConf.Ciphers = []string{
 		"aes128-gcm@openssh.com",
 		"aes128-ctr",
 		"aes192-ctr",
@@ -1148,7 +1148,7 @@ func (s *site) getTeleportNodeConfig(ctx *operationContext, masterIP string, nod
 
 	fileConf := &telecfg.FileConfig{}
 
-	fileConf.CipherSuites = []string{
+	fileConf.Ciphers = []string{
 		"aes128-gcm@openssh.com",
 		"aes128-ctr",
 		"aes192-ctr",
