@@ -5,8 +5,9 @@ site_description: Gravity Documentation
 site_author: Gravitational Inc
 copyright: Gravitational Inc, 2017-18
 
-theme: readthedocs
-theme_dir: theme
+theme:
+    name: null
+    custom_dir: 'theme/'
 
 # UPDATE HERE FOR EACH VERSION
 site_dir: ../build/docs/5.x
@@ -32,7 +33,6 @@ pages:
     - Cluster Monitoring: monitoring.md
     - Remote Management: manage.md
     - Ops Center: opscenter.md
-    - Application Catalog: catalog.md
     - System Requirements: requirements.md
     - CLI Reference: cli.md
     - Releases: changelog.md
