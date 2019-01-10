@@ -10,6 +10,7 @@ that takes the drama out of on-premises deployments.
 | [Gravity Website](https://gravitational.com/gravity/)  | The official website of the enterprise version of Gravity called Telekube |
 | [Gravity Documentation](https://gravitational.com/gravity/docs/)  | Gravity Documentation (aka, Telekube)  |
 | [Blog](http://blog.gravitational.com) | Our blog, where we publish Gravity news |
+| [Security Updates](https://groups.google.com/forum/#!forum/gravity-community-security) | Gravity Community Security Updates |
 
 ## Introduction
 
