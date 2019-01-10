@@ -1,13 +1,12 @@
-site_name: Gravitational Gravity
+site_name: Gravitational Telekube
 site_url: https://gravitational.com/gravity/docs
 repo_url: https://github.com/gravitational/gravity
-site_description: Gravity Documentation
+site_description: Telekube Documentation
 site_author: Gravitational Inc
 copyright: Gravitational Inc, 2017-18
 
-theme:
-    name: null
-    custom_dir: 'theme/'
+theme: readthedocs
+theme_dir: theme
 
 # UPDATE HERE FOR EACH VERSION
 site_dir: ../build/docs/4.x

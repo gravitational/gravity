@@ -22,12 +22,10 @@ RUN apt-get install -q -y \
          tar \
          gzip \
          python \
-         python-pip \
-         python-dev \
-         libyaml-dev 
+         python-pip
 
-RUN (pip install Jinja2==2.10 Markdown==3.0.1 docutils==0.13.1 \
-     recommonmark==0.4.0 mkdocs==1.0.4  markdown-include==0.5.1 ;\
+RUN (pip install Jinja2==2.9.6 Markdown==2.6.8 docutils==0.13.1 click==4.1 \
+     recommonmark==0.4.0 mkdocs==0.16.3  markdown-include==0.5.1 ;\
      apt-get -y autoclean; apt-get -y clean)
 
 RUN groupadd jenkins --gid=$GID -o && useradd jenkins --uid=$UID --gid=$GID --create-home --shell=/bin/sh
