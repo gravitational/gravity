@@ -1071,6 +1071,28 @@ var (
 	// WormholeImg is the docker image reference to use when embedding wormhole
 	// Note: This is a build parameter, and the build scripts will replace this with an image reference
 	WormholeImg = "<build param>"
+
+	// TeleportCiphers is the whitelist of ciphers to enable in embedded teleport services
+	TeleportCiphers = []string{
+		"aes128-gcm@openssh.com",
+		"aes128-ctr",
+		"aes192-ctr",
+		"aes256-ctr",
+	}
+
+	// TeleportKEXAlgorithms is the whitelist of key exchange algorithms to enable in embedded teleport services
+	TeleportKEXAlgorithms = []string{
+		"curve25519-sha256@libssh.org",
+		"ecdh-sha2-nistp256",
+		"ecdh-sha2-nistp384",
+		"ecdh-sha2-nistp521",
+	}
+
+	// TeleportMACAlgorithms is the whitelist of mac algorithms to enable in embedded teleport services
+	TeleportMACAlgorithms = []string{
+		"hmac-sha2-256-etm@openssh.com",
+		"hmac-sha2-256",
+	}
 )
 
 // HookSecurityContext returns default securityContext for hook pods

@@ -1009,23 +1009,10 @@ func (s *site) getTeleportMasterConfig(ctx *operationContext, master *Provisione
 		return nil, trace.Wrap(err)
 	}
 
-	fileConf := &telecfg.FileConfig{}
-
-	fileConf.Ciphers = []string{
-		"aes128-gcm@openssh.com",
-		"aes128-ctr",
-		"aes192-ctr",
-		"aes256-ctr",
-	}
-	fileConf.KEXAlgorithms = []string{
-		"curve25519-sha256@libssh.org",
-		"ecdh-sha2-nistp256",
-		"ecdh-sha2-nistp384",
-		"ecdh-sha2-nistp521",
-	}
-	fileConf.MACAlgorithms = []string{
-		"hmac-sha2-256-etm@openssh.com",
-		"hmac-sha2-256",
+	fileConf := &telecfg.FileConfig{
+		Ciphers:       defaults.TeleportCiphers,
+		KEXAlgorithms: defaults.TeleportKEXAlgorithms,
+		MACAlgorithms: defaults.TeleportMACAlgorithms,
 	}
 
 	fileConf.DataDir = defaults.InGravity("site/teleport")
@@ -1146,23 +1133,10 @@ func (s *site) getTeleportNodeConfig(ctx *operationContext, masterIP string, nod
 		return nil, trace.Wrap(err)
 	}
 
-	fileConf := &telecfg.FileConfig{}
-
-	fileConf.Ciphers = []string{
-		"aes128-gcm@openssh.com",
-		"aes128-ctr",
-		"aes192-ctr",
-		"aes256-ctr",
-	}
-	fileConf.KEXAlgorithms = []string{
-		"curve25519-sha256@libssh.org",
-		"ecdh-sha2-nistp256",
-		"ecdh-sha2-nistp384",
-		"ecdh-sha2-nistp521",
-	}
-	fileConf.MACAlgorithms = []string{
-		"hmac-sha2-256-etm@openssh.com",
-		"hmac-sha2-256",
+	fileConf := &telecfg.FileConfig{
+		Ciphers:       defaults.TeleportCiphers,
+		KEXAlgorithms: defaults.TeleportKEXAlgorithms,
+		MACAlgorithms: defaults.TeleportMACAlgorithms,
 	}
 
 	fileConf.DataDir = node.InGravity("teleport")
