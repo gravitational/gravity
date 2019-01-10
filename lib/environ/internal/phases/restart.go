@@ -92,7 +92,7 @@ func (r *restart) Execute(ctx context.Context) error {
 // Rollback reverses the update and restarts the container with the old
 // configuration package
 func (r *restart) Rollback(context.Context) error {
-	args := utils.Self("system", "rollback")
+	args := utils.Self("system", "rollback", "--changeset-id", r.operationID)
 	cmd := exec.Command(args[0], args[1:]...)
 	var buf bytes.Buffer
 	err := utils.ExecL(cmd, &buf, r.FieldLogger)

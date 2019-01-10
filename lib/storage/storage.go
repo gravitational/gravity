@@ -1119,7 +1119,19 @@ func (u PackageChangeset) String() string {
 func (u *PackageChangeset) ReversedChanges() []PackageUpdate {
 	changes := make([]PackageUpdate, len(u.Changes))
 	for i, c := range u.Changes {
-		changes[i] = PackageUpdate{From: c.To, To: c.From}
+		update := PackageUpdate{
+			From:   c.To,
+			To:     c.From,
+			Labels: c.Labels,
+		}
+		if c.ConfigPackage != nil {
+			update.ConfigPackage = &PackageUpdate{
+				From:   c.ConfigPackage.To,
+				To:     c.ConfigPackage.From,
+				Labels: c.ConfigPackage.Labels,
+			}
+		}
+		changes[i] = update
 	}
 	return changes
 }

@@ -180,6 +180,7 @@ func InitAndCheck(g *Application, cmd string) error {
 		g.PlanExecuteCmd.FullCommand(),
 		g.PlanRollbackCmd.FullCommand(),
 		g.PlanResumeCmd.FullCommand(),
+		g.PlanCompleteCmd.FullCommand(),
 		g.InstallCmd.FullCommand(),
 		g.JoinCmd.FullCommand(),
 		g.AutoJoinCmd.FullCommand(),

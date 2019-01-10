@@ -115,7 +115,15 @@ func (r *Updater) RollbackPhase(ctx context.Context, phase string, phaseTimeout 
 
 // Complete completes the active operation
 func (r *Updater) Complete() error {
-	return trace.Wrap(r.machine.Complete(trace.Errorf("completed manually")))
+	err := r.machine.Complete(trace.Errorf("completed manually"))
+	if err != nil {
+		return trace.Wrap(err)
+	}
+	err = r.Operator.ActivateSite(ops.ActivateSiteRequest{
+		AccountID:  r.ClusterKey.AccountID,
+		SiteDomain: r.ClusterKey.SiteDomain,
+	})
+	return trace.Wrap(err)
 }
 
 // GetPlan returns the up-to-date operation plan
