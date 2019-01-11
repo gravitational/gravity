@@ -134,44 +134,45 @@ Now you can package Mattermost into an Application Bundle:
 $ tele build -o mattermost.tar mattermost/resources/app.yaml
 ```
 
-!!! note
-    The sample Mattermost application is packaged as a Helm chart so you will
-    need `helm` installed on the machine performing the build. See [Installing Helm](https://docs.helm.sh/using_helm/#installing-helm).
+`tele build` does the following:
 
-The command above does the following:
-
-* Scans Kubernetes resources for the Docker images.
-* Packages (vendors) Docker images into the Application Bundle.
-* Removes duplicate container image layers, reducing the size of the Application Bundle.
+* Scans the current directory and subdirectories for Kubernetes resources, Helm charts, Docker images, etc.
 * Downloads Kubernetes and its dependencies, like Docker.
-* Packages downloaded dependencies into the Application Bundle, as well.
+* Packages (vendors) Docker images into the application bundle.
+* Removes duplicate container image layers, reducing the size of the Application Bundle.
+* Packages the downloaded dependencies into the application bundle.
 
-This may take a while, about 2-3 minutes depending on your Internet connection.
+!!! warning "Slow Operation Warning"
+    `tele build` needs to download hundreds of megabytes of binary dependencies which
+    can be quite slow.
 
-!!! tip "Let's Review...":
-    The resulting `mattermost.tar` file is about 1.8GB and it is **entirely
-    self-sufficient**. It contains everything: Kubernetes, the Docker engine,
-    the Docker registry and the Mattermost itself: everything one needs to get
-    Mattermost up and running on any fleet of Linux servers (or into someone's
-    AWS account).
+The resulting `mattermost.tar` file is about 1.8GB and it is **entirely
+self-sufficient**. It contains everything: Kubernetes, the Docker engine, the
+Docker registry and the Mattermost itself: everything one needs to get
+Mattermost up and running on any fleet of Linux servers (or into someone's AWS
+account).
 
-The resulting bundle even has a built-in graphical installer, i.e. can be given
-away as a free download to people who are not cloud experts.
+Congratulations! You have created your first self-installing **Kubernetes virtual appliance**
+which contains Mattermost inside!
 
-### Publishing
+## Publishing
 
-While the resulting Application Bundle can be used as is, Gravity also allows you
-to publish it in your Ops Center for distribution. Publishing it in the Ops Center also allows
-you to see how many instances of the application are running and even connect to them remotely.
+While the resulting _application bundle_ can be used to create Kubernetes
+clusters, Gravity also allows to publish the bundle in the _Gravity Ops Center_ 
+for distribution. 
 
-To publish an application, you have to connect to the Ops Center first.
-You should already have an account setup with Gravitational - usually available
-on `https://[yourdomain].gravitational.io`
+Publishing it in the Ops Center also allows you to see how many clusters
+created from this bundle are running out there and connect to them remotely.
 
-To log in to to the Ops Center using the CLI:
+!!! warning "Version Warning":
+    The Ops Center is only available to users of Gravity Enterprise.  OSS users
+    can skip "publishing" subsection and move on to [installing](#installing) below.
+
+To publish the application bundle, you have to connect `tele` tool to your Ops Center.
+Let's assume your _Ops Center_ is running on `https://opscenter.example.com`
 
 ```bsh
-$ tele login -o [yourdomain].gravitational.io
+$ tele login -o https://opscenter.example.com
 ```
 
 !!! tip "Note":
@@ -179,27 +180,28 @@ $ tele login -o [yourdomain].gravitational.io
     when attempting due to network restrictions. If so, first get a temporary key from
     your host environment with the following command:
 
+Next, generate a new API key for the _Ops Center_ you've just connected to:
+
 ```bsh
 $ tele keys new
 ```
 
-The response should include an API key to use. Now use that key to log in as follows:
+The response will include the API key, let's assume it's called `secret`. 
+Now use that key to log in as follows:
 
-```bsh
-tele login -o [yourdomain].gravitational.io --key=[key returned in previous step]
+```bash
+tele login -o https://opscenter.example.com --key=secret
 ```
 
-Once you are successfully logged in, you can publish the application into the Ops Center:
+Once you are successfully logged in, you can publish the application bundle:
 
-```bsh
+```bash
 $ tele push mattermost.tar
 ```
 
-This uploads the Application Bundle into the Ops Center you have logged in into.
+Now the application is visible to all users of the Ops Center.
 
-Now the application is ready to be distributed and installed.
-
-## Installing the Application
+## Installing 
 
 As shown in the [Overview](overview.md), there are two ways to install an
 Application Bundle packaged with Gravity:
