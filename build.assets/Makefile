@@ -14,7 +14,6 @@ LOCAL_GRAVITY_BUILDDIR ?= /gopath/src/github.com/gravitational/gravity/build/$(G
 
 DOCKER_ARGS ?= --pull
 BBOX = gravity-buildbox:latest
-GOCACHE ?= $(HOME)/.cache/go-build
 
 GRAVITY_WEB_APP_DIR ?= $(abspath $(LOCALDIR)/../web)/
 
@@ -155,7 +154,7 @@ endef
 .PHONY: build
 build:
 	@if [ "$(OS)" = "darwin" ]; then $(MAKE) build-on-host; else $(MAKE) build-in-container; fi
-	ln -sf $(GRAVITY_BUILDDIR) $(GRAVITY_CURRENT_BUILDDIR) 
+	ln -sf $(GRAVITY_BUILDDIR) $(GRAVITY_CURRENT_BUILDDIR)
 
 #
 # generate gRPC code
@@ -199,8 +198,6 @@ validate-deps: buildbox
 build-in-container: buildbox
 	docker run --rm=true -u $$(id -u) \
 		   -v $(TOP):$(SRCDIR) \
-		   -v $(GOCACHE):/gocache \
-		   -e "GOCACHE=/gocache" \
 		   -e "LOCAL_BUILDDIR=$(LOCAL_BUILDDIR)" \
 		   -e "LOCAL_GRAVITY_BUILDDIR=$(LOCAL_GRAVITY_BUILDDIR)" \
 		   -e "GRAVITY_PKG_PATH=$(GRAVITY_PKG_PATH)" \
