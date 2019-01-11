@@ -77,7 +77,6 @@ The _application manifest_ is required to describe hardware/system requirements
 of your Kubernetes cluster and to customize the process of creating a new
 Kubernetes instance (i.e. the installation of the cluster).
 
-
 !!! tip "Gravity Roadmap Tip":
     Kubernetes community is working on finalizing the cluster API spec. Once it
     becomes production ready, Gravity developers will be looking into adopting the
