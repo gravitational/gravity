@@ -56,7 +56,7 @@ func executePhase(localEnv, updateEnv, joinEnv *localenv.LocalEnvironment, opera
 	case ops.OperationUpdateEnvars:
 		return executeEnvarsPhase(localEnv, updateEnv, params)
 	case ops.OperationGarbageCollect:
-		return garbageCollectPhase(localEnv, params)
+		return executeGarbageCollectPhase(localEnv, params)
 	default:
 		return trace.BadParameter("operation type %q does not support plan execution", op.Type)
 	}
