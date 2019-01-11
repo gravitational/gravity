@@ -129,7 +129,6 @@ func displayUpdateOperationPlan(localEnv, updateEnv *localenv.LocalEnvironment, 
 			}
 			return trace.Wrap(err)
 		}
-		localEnv.Println("Warning: plan might not be up-to-date.")
 	}
 	err = outputPlan(*plan, format)
 	if err != nil {
@@ -149,7 +148,6 @@ func displayUpdateEnvarsOperationPlan(localEnv, updateEnv *localenv.LocalEnviron
 			}
 			return trace.Wrap(err)
 		}
-		localEnv.Println("Warning: plan might not be up-to-date.")
 	}
 	err = outputPlan(*plan, format)
 	if err != nil {

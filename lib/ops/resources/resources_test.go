@@ -25,8 +25,6 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/gravitational/gravity/lib/compare"
-
 	"github.com/ghodss/yaml"
 	teleservices "github.com/gravitational/teleport/lib/services"
 	"github.com/gravitational/trace"
@@ -44,9 +42,8 @@ func (s *ResourceControlSuite) TestResourceControl(c *check.C) {
 
 	reader := strings.NewReader(resources)
 
-	created, err := control.Create(reader, false, "")
+	err := control.Create(reader, false, "")
 	c.Assert(err, check.IsNil)
-	c.Assert(byKind(created), compare.SortedSliceEquals, sort.StringSlice([]string{"kind1", "kind1", "kind2"}))
 
 	w := &bytes.Buffer{}
 	err = control.Get(w, "", "", false, "text", "")

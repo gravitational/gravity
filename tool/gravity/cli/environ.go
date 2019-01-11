@@ -150,6 +150,7 @@ func newUpdater(localEnv, updateEnv *localenv.LocalEnvironment, env storage.Envi
 	}
 	ctx, cancel := context.WithTimeout(context.Background(), defaults.AgentDeployTimeout)
 	defer cancel()
+	localEnv.Println("Deploying agents on nodes")
 	creds, err := deployAgents(ctx, req)
 	if err != nil {
 		return nil, trace.Wrap(err)
@@ -269,6 +270,8 @@ Are you sure?`
 The operation might take several minutes to complete depending on the cluster size.
 
 "Are you sure?`
+	// TODO(dmitri): provide a link to the documentation that describes common CLI workflow
+	// for doing operations manually when it is available
 	updateEnvarsManualOperationBanner = `The operation has been created in manual mode.
 
 To view the operation plan, run:
