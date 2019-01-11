@@ -335,7 +335,7 @@ func (r *Resources) GetCollection(req resources.ListRequest) (resources.Collecti
 			return nil, trace.Wrap(err)
 		}
 		return alertTargetCollection(alertTargets), nil
-	case storage.KindEnvironment, "environments", "env":
+	case storage.KindRuntimeEnvironment, "environments", "env":
 		// always ignore name parameter for environment variables, because there is only one
 		env, err := r.Operator.GetClusterEnvironmentVariables(r.cluster.Key())
 		if err != nil {

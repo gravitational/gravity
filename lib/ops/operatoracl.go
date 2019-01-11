@@ -778,7 +778,7 @@ func (o *OperatorACL) DeleteAlertTarget(key SiteKey) error {
 
 // GetClusterEnvironmentVariables retrieves the cluster environment
 func (o *OperatorACL) GetClusterEnvironmentVariables(key SiteKey) (storage.EnvironmentVariables, error) {
-	if err := o.ClusterAction(key.SiteDomain, storage.KindEnvironment, teleservices.VerbList); err != nil {
+	if err := o.ClusterAction(key.SiteDomain, storage.KindRuntimeEnvironment, teleservices.VerbList); err != nil {
 		return nil, trace.Wrap(err)
 	}
 	return o.operator.GetClusterEnvironmentVariables(key)

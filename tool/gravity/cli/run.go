@@ -752,13 +752,17 @@ func Execute(g *Application, cmd string, extraArgs []string) error {
 		return createResource(localEnv, updateEnv,
 			*g.ResourceCreateCmd.Filename,
 			*g.ResourceCreateCmd.Upsert,
-			*g.ResourceCreateCmd.User)
+			*g.ResourceCreateCmd.User,
+			*g.ResourceCreateCmd.Manual,
+			*g.ResourceCreateCmd.Confirmed)
 	case g.ResourceRemoveCmd.FullCommand():
 		return removeResource(localEnv, updateEnv,
 			*g.ResourceRemoveCmd.Kind,
 			*g.ResourceRemoveCmd.Name,
 			*g.ResourceRemoveCmd.Force,
-			*g.ResourceRemoveCmd.User)
+			*g.ResourceRemoveCmd.User,
+			*g.ResourceRemoveCmd.Manual,
+			*g.ResourceRemoveCmd.Confirmed)
 	case g.ResourceGetCmd.FullCommand():
 		return getResources(localEnv,
 			*g.ResourceGetCmd.Kind,

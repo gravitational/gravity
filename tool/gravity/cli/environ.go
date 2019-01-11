@@ -32,41 +32,70 @@ import (
 )
 
 // RemoveEnvars executes the loop to clear cluster environment variables.
-func RemoveEnvars(localEnv, updateEnv *localenv.LocalEnvironment) error {
+func RemoveEnvars(localEnv, updateEnv *localenv.LocalEnvironment, manual, confirmed bool) error {
 	env := storage.NewEnvironment(nil)
-	return updateEnvars(localEnv, updateEnv, env)
+	return trace.Wrap(updateEnvars(localEnv, updateEnv, env, manual, confirmed))
 }
 
 // UpdateEnvars executes the loop to update cluster environment variables.
 // resource specifies the new environment variables to apply.
-func UpdateEnvars(localEnv, updateEnv *localenv.LocalEnvironment, resource []byte) error {
+func UpdateEnvars(localEnv, updateEnv *localenv.LocalEnvironment, resource []byte, manual, confirmed bool) error {
 	env, err := storage.UnmarshalEnvironmentVariables(resource)
 	if err != nil {
 		return trace.Wrap(err)
 	}
-	return trace.Wrap(updateEnvars(localEnv, updateEnv, env))
+	return trace.Wrap(updateEnvars(localEnv, updateEnv, env, manual, confirmed))
 }
 
-func updateEnvars(localEnv, updateEnv *localenv.LocalEnvironment, env storage.EnvironmentVariables) error {
-	teleportClient, err := localEnv.TeleportClient(constants.Localhost)
-	if err != nil {
-		return trace.Wrap(err, "failed to create a teleport client")
+func updateEnvars(localEnv, updateEnv *localenv.LocalEnvironment, env storage.EnvironmentVariables, manual, confirmed bool) error {
+	if !confirmed {
+		if manual {
+			localEnv.Println(updateEnvarsBannerManual)
+		} else {
+			localEnv.Println(updateEnvarsBanner)
+		}
+		resp, err := confirm()
+		if err != nil {
+			return trace.Wrap(err)
+		}
+		if !resp {
+			localEnv.Println("Action cancelled by user.")
+			return nil
+		}
 	}
-	proxy, err := teleportClient.ConnectToProxy()
-	if err != nil {
-		return trace.Wrap(err, "failed to connect to teleport proxy")
-	}
-	clusterEnv, err := localEnv.NewClusterEnvironment()
+	updater, err := newUpdater(localEnv, updateEnv, env)
 	if err != nil {
 		return trace.Wrap(err)
 	}
+	ctx := context.Background()
+	if !manual {
+		err = updater.Run(ctx, false)
+		return trace.Wrap(err)
+	}
+	localEnv.Println(updateEnvarsManualOperationBanner)
+	return nil
+}
+
+func newUpdater(localEnv, updateEnv *localenv.LocalEnvironment, env storage.EnvironmentVariables) (*environ.Updater, error) {
+	teleportClient, err := localEnv.TeleportClient(constants.Localhost)
+	if err != nil {
+		return nil, trace.Wrap(err, "failed to create a teleport client")
+	}
+	proxy, err := teleportClient.ConnectToProxy()
+	if err != nil {
+		return nil, trace.Wrap(err, "failed to connect to teleport proxy")
+	}
+	clusterEnv, err := localEnv.NewClusterEnvironment()
+	if err != nil {
+		return nil, trace.Wrap(err)
+	}
 	if clusterEnv.Client == nil {
-		return trace.BadParameter("this operation can only be executed on one of the master nodes")
+		return nil, trace.BadParameter("this operation can only be executed on one of the master nodes")
 	}
 	operator := clusterEnv.Operator
 	cluster, err := operator.GetLocalSite()
 	if err != nil {
-		return trace.Wrap(err)
+		return nil, trace.Wrap(err)
 	}
 	key, err := operator.CreateUpdateEnvarsOperation(
 		ops.CreateUpdateEnvarsOperationRequest{
@@ -76,17 +105,16 @@ func updateEnvars(localEnv, updateEnv *localenv.LocalEnvironment, env storage.En
 	)
 	if err != nil {
 		if trace.IsNotFound(err) {
-			return trace.NotImplemented(
+			return nil, trace.NotImplemented(
 				"cluster operator does not implement the API required for updating cluster environment variables. " +
 					"Please make sure you're running the command on a compatible cluster.")
 		}
-		return trace.Wrap(err)
+		return nil, trace.Wrap(err)
 	}
-	var triggered bool
 	defer func() {
 		r := recover()
 		panicked := r != nil
-		if !triggered || panicked {
+		if err != nil || panicked {
 			logrus.WithError(err).Warn("Operation failed.")
 			var msg string
 			if err != nil {
@@ -106,12 +134,12 @@ func updateEnvars(localEnv, updateEnv *localenv.LocalEnvironment, env storage.En
 
 	operation, err := operator.GetSiteOperation(*key)
 	if err != nil {
-		return trace.Wrap(err)
+		return nil, trace.Wrap(err)
 	}
 	// Create the operation plan so it can be replicated on remote nodes
 	_, err = environ.NewOperationPlan(operator, *operation, cluster.ClusterState.Servers)
 	if err != nil {
-		return trace.Wrap(err)
+		return nil, trace.Wrap(err)
 	}
 	req := deployAgentsRequest{
 		clusterState: cluster.ClusterState,
@@ -124,7 +152,7 @@ func updateEnvars(localEnv, updateEnv *localenv.LocalEnvironment, env storage.En
 	defer cancel()
 	creds, err := deployAgents(ctx, req)
 	if err != nil {
-		return trace.Wrap(err)
+		return nil, trace.Wrap(err)
 	}
 	runner := libfsm.NewAgentRunner(creds)
 	config := environ.Config{
@@ -142,12 +170,9 @@ func updateEnvars(localEnv, updateEnv *localenv.LocalEnvironment, env storage.En
 	}
 	updater, err := environ.New(context.TODO(), config)
 	if err != nil {
-		return trace.Wrap(err)
+		return nil, trace.Wrap(err)
 	}
-
-	triggered = true
-	err = updater.Run(context.Background(), false)
-	return trace.Wrap(err)
+	return updater, nil
 }
 
 func executeEnvarsPhase(env, updateEnv *localenv.LocalEnvironment, params PhaseParams) error {
@@ -230,3 +255,40 @@ func getUpdater(env, updateEnv *localenv.LocalEnvironment) (*environ.Updater, er
 	}
 	return updater, nil
 }
+
+const (
+	updateEnvarsBanner = `Updating cluster runtime environment requires restart of runtime containers on all nodes.
+The operation might take several minutes to complete depending on the cluster size.
+
+Note, that you will be able to review the operation plan and proceed with each step individually if
+you run the operation manually by specifying '--manual' flag.
+
+Are you sure?`
+	updateEnvarsBannerManual = `Updating cluster runtime environment requires restart of runtime containers on all nodes.
+The operation might take several minutes to complete depending on the cluster size.
+
+"Are you sure?`
+	updateEnvarsManualOperationBanner = `The operation has been created in manual mode.
+
+To view the operation plan, run:
+
+$ sudo gravity plan
+
+The plan is a tree of operational steps (phases).
+To execute a specific phase, use the full path as shown in the plan
+
+$ sudo gravity plan execute --phase=/<root-phase>/<sub-phase>/...
+
+To rollback a phase, execute:
+
+$ sudo gravity plan rollback --phase=/<root-phase>/<sub-phase>/...
+
+To resume operation from any point, run:
+
+$ sudo gravity plan resume
+
+Resume will automatically complete the operation.
+To complete the operation manually (i.e. after rolling back), run:
+
+$ sudo gravity plan complete`
+)

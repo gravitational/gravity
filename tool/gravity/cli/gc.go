@@ -76,12 +76,12 @@ $ gravity plan
 To perform the collection, execute each phase in the order it appears in
 the plan by running:
 
-$ sudo gravity gc --phase=<phase-id>
+$ sudo gravity plan execute --phase=<phase-id>
 
 To resume automatic collection from any point, run:
 
-$ gravity gc --resume`)
-	return trace.Wrap(err)
+$ gravity plan resume`)
+	return nil
 }
 
 func newCollector(env *localenv.LocalEnvironment) (*vacuum.Collector, error) {

@@ -123,10 +123,10 @@ func NewControl(resources Resources) *ResourceControl {
 }
 
 // Create creates all resources found in the provided data
-func (r *ResourceControl) Create(reader io.Reader, upsert bool, user string) (created []teleservices.UnknownResource, err error) {
+func (r *ResourceControl) Create(reader io.Reader, upsert bool, user string) (err error) {
 	decoder := yaml.NewYAMLOrJSONDecoder(reader, defaults.DecoderBufferSize)
 	empty := true
-	for {
+	for err == nil {
 		var raw teleservices.UnknownResource
 		err = decoder.Decode(&raw)
 		if err != nil {
@@ -138,18 +138,14 @@ func (r *ResourceControl) Create(reader io.Reader, upsert bool, user string) (cr
 			Upsert:   upsert,
 			User:     user,
 		})
-		if err != nil {
-			break
-		}
-		created = append(created, raw)
 	}
 	if err != io.EOF {
-		return nil, trace.Wrap(err)
+		return trace.Wrap(err)
 	}
 	if empty {
-		return nil, trace.BadParameter("no resources found, empty input?")
+		return trace.BadParameter("no resources found, empty input?")
 	}
-	return created, nil
+	return nil
 }
 
 // Get retrieves the specified resource collection and outputs it

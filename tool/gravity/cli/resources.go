@@ -29,14 +29,13 @@ import (
 	"github.com/gravitational/gravity/lib/storage"
 	"github.com/gravitational/gravity/tool/common"
 
-	teledefaults "github.com/gravitational/teleport/lib/defaults"
 	teleservices "github.com/gravitational/teleport/lib/services"
 	"github.com/gravitational/trace"
 	"k8s.io/apimachinery/pkg/util/yaml"
 )
 
 // createResource updates or inserts one or many resources
-func createResource(env, updateEnv *localenv.LocalEnvironment, filename string, upsert bool, user string) error {
+func createResource(env, updateEnv *localenv.LocalEnvironment, filename string, upsert bool, user string, manual, confirmed bool) error {
 	operator, err := env.SiteOperator()
 	if err != nil {
 		return trace.Wrap(err)
@@ -65,39 +64,34 @@ func createResource(env, updateEnv *localenv.LocalEnvironment, filename string, 
 			break
 		}
 		switch raw.Kind {
-		case storage.KindEnvironment:
+		case storage.KindRuntimeEnvironment:
 			if CheckRunningAsRoot() != nil {
-				return trace.BadParameter("updating environment variables requires root privileges.\n" +
+				return trace.BadParameter("updating cluster runtime environment variables requires root privileges.\n" +
 					"Please run this command as root")
 			}
-			err = UpdateEnvars(env, updateEnv, raw.Raw)
+			err = UpdateEnvars(env, updateEnv, raw.Raw, manual, confirmed)
 			if err != nil {
 				return trace.Wrap(err)
 			}
 		default:
-			_, err = resources.NewControl(gravityResources).Create(bytes.NewReader(raw.Raw), upsert, user)
+			err = resources.NewControl(gravityResources).Create(bytes.NewReader(raw.Raw), upsert, user)
 			if err != nil {
 				return trace.Wrap(err)
 			}
 		}
-		namespace := teledefaults.Namespace
-		if raw.Metadata.Namespace != "" {
-			namespace = raw.Metadata.Namespace
-		}
-		env.Printf("created %v \"%v/%v\"\n", raw.Kind, namespace, raw.Metadata.Name)
 	}
 
 	return trace.Wrap(err)
 }
 
 // removeResource deletes resource by name
-func removeResource(env, updateEnv *localenv.LocalEnvironment, kind string, name string, force bool, user string) error {
-	if kind == storage.KindEnvironment {
+func removeResource(env, updateEnv *localenv.LocalEnvironment, kind string, name string, force bool, user string, manual, confirmed bool) error {
+	if kind == storage.KindRuntimeEnvironment {
 		if CheckRunningAsRoot() != nil {
 			return trace.BadParameter("updating environment variables requires root privileges.\n" +
 				"Please run this command as root")
 		}
-		return trace.Wrap(RemoveEnvars(env, updateEnv))
+		return trace.Wrap(RemoveEnvars(env, updateEnv, manual, confirmed))
 	}
 	operator, err := env.SiteOperator()
 	if err != nil {

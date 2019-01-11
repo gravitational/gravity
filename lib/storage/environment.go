@@ -45,11 +45,11 @@ type EnvironmentVariables interface {
 // NewEnvironment creates a new instance of the resource
 func NewEnvironment(kvs map[string]string) *EnvironmentV1 {
 	return &EnvironmentV1{
-		Kind:    KindEnvironment,
+		Kind:    KindRuntimeEnvironment,
 		Version: "v1",
 		Metadata: teleservices.Metadata{
 			Name:      constants.ClusterEnvironmentMap,
-			Namespace: defaults.Namespace,
+			Namespace: defaults.KubeSystemNamespace,
 		},
 		Spec: EnvironmentSpec{
 			KeyValues: kvs,
@@ -136,13 +136,16 @@ func UnmarshalEnvironmentVariables(data []byte) (EnvironmentVariables, error) {
 		if err != nil {
 			return nil, trace.BadParameter(err.Error())
 		}
-		if err := env.Metadata.CheckAndSetDefaults(); err != nil {
-			return nil, trace.Wrap(err)
+		// Set namespace explicitly as schema default is ignored in json.Unmarshal
+		// as teleservices.Metadata.Namespace is missing the json serialization tag
+		env.Metadata.Namespace = defaults.KubeSystemNamespace
+		if env.Metadata.Expires != nil {
+			teleutils.UTC(env.Metadata.Expires)
 		}
 		return &env, nil
 	}
 	return nil, trace.BadParameter(
-		"%v resource version %q is not supported", KindEnvironment, hdr.Version)
+		"%v resource version %q is not supported", KindRuntimeEnvironment, hdr.Version)
 }
 
 // MarshalEnvironment marshals this resource as JSON
@@ -160,15 +163,40 @@ type EnvironmentSpec struct {
 const EnvironmentSpecSchema = `{
   "type": "object",
   "additionalProperties": false,
-  "required": ["data"],
+  "required": ["kind", "spec", "version"],
   "properties": {
-    "data": {"type": ["object", "null"]}
+    "kind": {"type": "string"},
+    "version": {"type": "string", "default": "v1"},
+    "metadata": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "name": {"type": "string", "default": "%v"},
+        "namespace": {"type": "string", "default": "%v"},
+        "description": {"type": "string"},
+        "expires": {"type": "string"},
+        "labels": {
+          "type": "object",
+          "patternProperties": {
+             "^[a-zA-Z/.0-9_]$":  {"type": "string"}
+          }
+        }
+      }
+    },
+    "spec": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["data"],
+      "properties": {
+        "data": {"type": ["object", "null"]}
+      }
+    }
   }
 }`
 
 // GetEnvironmentSpecSchema returns the formatted JSON schema for the environment
 // variables resource
 func GetEnvironmentSpecSchema() string {
-	return fmt.Sprintf(teleservices.V2SchemaTemplate, teleservices.MetadataSchema,
-		EnvironmentSpecSchema, "")
+	return fmt.Sprintf(EnvironmentSpecSchema,
+		constants.ClusterEnvironmentMap, defaults.KubeSystemNamespace)
 }

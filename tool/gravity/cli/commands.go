@@ -1483,6 +1483,12 @@ type ResourceCreateCmd struct {
 	Upsert *bool
 	// User is resource owner
 	User *string
+	// Manual controls whether an operation is created in manual mode.
+	// If resource is managed with the help of a cluster operation,
+	// setting this to true will not cause the operation to start automatically
+	Manual *bool
+	// Confirmed suppresses confirmation prompt
+	Confirmed *bool
 }
 
 // ResourceRemoveCmd removes specified resource
@@ -1496,6 +1502,12 @@ type ResourceRemoveCmd struct {
 	Force *bool
 	// User is resource owner
 	User *string
+	// Manual controls whether an operation is created in manual mode.
+	// If resource is managed with the help of a cluster operation,
+	// setting this to true will not cause the operation to start automatically
+	Manual *bool
+	// Confirmed suppresses confirmation prompt
+	Confirmed *bool
 }
 
 // ResourceGetCmd shows specified resource
