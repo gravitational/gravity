@@ -1,26 +1,30 @@
-# Setting up an Ops Center
+# Introduction
 
-An Ops Center controls access and lifecycle of Applicaion Clusters and provides a distribution endpoint
-for Application Bundles to be installed on Gravity Clusters.
+The Gravity _Ops Center_ is a hub which allows users to reduce operational overhead to:
+
+* Publish _application bundles_ and manage their versions.
+* Download and install _application bundles_, i.e. quickly creating Kubernetes clusters.
+* Remotely manage thousands of Kubernetes clusters either via command line (CLI) or via a Web interface.
 
 !!! warning "Version Warning":
     The Ops Center is only available to users of Gravity Enterprise.  OSS users
     can use the Ops Center for evaluation purposes only.
 
+This chapter will guide you through the process of downloading and installing your
+own instance of the _Ops Center_.
+
 ## Pre-requisites
 
- - [Gravity binaries](/gravity/download/)
- - The Gravitational [Quickstart Repository](https://github.com/gravitational/quickstart)
+ - [Gravity binaries](/gravity/download/), you will need an enterprise build of Gravity binaries. The open source edition will not work.
+ - Make a cone of the [QuickStart git repository](https://github.com/gravitational/quickstart) via:
+ 
+```bash
+$ git clone git@github.com:gravitational/quickstart.git
+```
 
 ## Generating a Token
 
-The Ops Center serves two purposes:
-
-1. It acts as a repository of published application bundles.
-2. Also, it acts as a control plane for all cluster instances created from the
-   published application bundles.
-
-To establish trust between an Ops Center and all K8s clusters, a common shared
+To establish trust between an _Ops Center_ and multiple K8s clusters, a common shared
 hard-to-guess secret (token) must be generated first. Therefore, before
 installing an Ops Center, a shared token needs to be generated and stored in an
 environment variable named `TOKEN`:
