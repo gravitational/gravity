@@ -14,18 +14,18 @@ and pods.
 ### InfluxDB
 
 InfluxDB is the main data store for current + future monitoring time series data. It provides the
-service `influxdb.kube-system.svc.cluster.local`.
+service `influxdb.monitoring.svc.cluster.local`.
 
 ### Grafana
 
 Grafana is the dashboard system that provides visualization information on all the information stored
-in InfluxDB. It is exposed as the service `grafana.kube-system.svc.cluster.local`. Grafana credentials
-are generated during initial installation and placed into a secret `grafana` in `kube-system` namespace.
+in InfluxDB. It is exposed as the service `grafana.monitoring.svc.cluster.local`. Grafana credentials
+are generated during initial installation and placed into a secret `grafana` in `monitoring` namespace.
 
 ### Kapacitor
 
 Kapacitor is the alerting system that streams data from InfluxDB and sends alerts as configured by
-the end user. It exposes the service `kapacitor.kube-system.svc.cluster.local`.
+the end user. It exposes the service `kapacitor.monitoring.svc.cluster.local`.
 
 ## Grafana integration
 
@@ -40,14 +40,14 @@ dashboards (but not modify them or create new ones).
 
 Your applications can use their own Grafana dashboards using ConfigMaps.
 A custom dashboard ConfigMap should be assigned a `monitoring` label with value `dashboard` and created in the
-`kube-system` namespace so it is recognized and loaded when installing the application:
+`monitoring` namespace so it is recognized and loaded when installing the application:
 
 ```yaml
 apiVersion: v1
 kind: ConfigMap
 metadata:
   name: mydashboard
-  namespace: kube-system
+  namespace: monitoring
   labels:
     monitoring: dashboard
 data:
@@ -94,7 +94,7 @@ The monitoring system allows for the configuration of two "types" of rollups for
 Rollups are pre-configured for some of the metrics collected by default. Applications that collect their own
 metrics can configure their own rollups as well through ConfigMaps.
 
-A custom rollup ConfigMap should be assigned a `monitoring` label with value `rollup` and created in the `kube-system`
+A custom rollup ConfigMap should be assigned a `monitoring` label with value `rollup` and created in the `monitoring`
 namespace for it to be recognized and loaded. Below is a sample ConfigMap:
 
 ```yaml
@@ -102,7 +102,7 @@ apiVersion: v1
 kind: ConfigMap
 metadata:
   name: myrollups
-  namespace: kube-system
+  namespace: monitoring
   labels:
     monitoring: rollup
 data:
@@ -133,10 +133,37 @@ Each rollup is a JSON object with the following fields:
 * `retention` - name of the retention policy (and hence the aggregation interval) for this rollup, can be medium or long
 * `measurement` - name of the metric for the rollup (i.e. which metric is being "rolled up")
 * `name` - name of the resulting "rolled up" metric
+* `custom_from` - custom FROM clause for the rollup. Either `custom_from` or `measurement` must be provided.
+* `custom_group_by` - custom GROUP BY clause for the rollup. Default GROUP BY is `*, time($interval)`, where $interval is set from `retention`.
 * `functions` - list of rollup functions to apply to metric measurement
-* `function` - function name, can be mean, median, sum, max, min or percentile_XXX, where 0 <= XXX <= 100
+* `function` - function name
 * `field` - name of the field to apply rollup function to (e.g. "value")
 * `alias` - new name for the rolled up field (e.g. "value_max")
+
+### List of supported functions
+
+Aggregations:
+* count
+* distinct
+* integral
+* mean
+* median
+* mode
+* spread
+* stddev
+* sum
+
+Selectors:
+* bottom
+* first
+* last
+* max
+* min
+* percentile
+* sample
+* top
+
+Full documentation about functions can be found on [InfluxDB website](https://docs.influxdata.com/influxdb/v1.5/query_language/functions/).
 
 ## Kapacitor integration
 
@@ -203,6 +230,9 @@ $ gravity resource rm alert my-formula
 
 ### Builtin Alerts
 
+Alerts (written in [TICKscript](https://docs.influxdata.com/kapacitor/v1.2/tick)) are automatically detected, loaded and
+enabled. They are read from the Kubernetes ConfigMap named `kapacitor-alerts` in `monitoring` namespace.
+
 Following table shows the alerts Gravity ships with by default:
 
 | Component   | Alert         | Description      |
@@ -223,10 +253,3 @@ Following table shows the alerts Gravity ships with by default:
 
 Kapacitor will also trigger an email for each of the events listed above if stmp resource has been
 configured (see [configuration](/monitoring/#configuration) for details).
-
-
-### Custom and default alerts
-
-Alerts (written in [TICKscript](https://docs.influxdata.com/kapacitor/v1.2/tick)) are automatically detected, loaded and
-enabled. They are read from the Kubernetes ConfigMap named `kapacitor-alerts`. To create new alerts, add your alert scripts
-as new key/values to that ConfigMap and reload any running Kapacitor pods.

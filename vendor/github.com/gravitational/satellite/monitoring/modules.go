@@ -18,6 +18,8 @@ limitations under the License.
 
 package monitoring
 
+import "github.com/gravitational/satellite/agent/health"
+
 // NewKernelModuleChecker creates a new kernel module checker
 func NewKernelModuleChecker(modules ...ModuleRequest) health.Checker {
 	return noopChecker{}
@@ -31,4 +33,13 @@ type ModuleRequest struct {
 	// For example, on CentOS 7.2 bridge netfilter module is called "bridge"
 	// instead of "br_netfilter".
 	Names []string `json:"names,omitempty"`
+}
+
+// KernelModuleCheckerID is the ID of the checker of kernel modules
+const KernelModuleCheckerID = "kernel-module"
+
+// KernelModuleCheckerData gets attached to the kernel module check probes
+type KernelModuleCheckerData struct {
+	// Module is the probed kernel module
+	Module ModuleRequest `json:"module"`
 }
