@@ -20,6 +20,7 @@ import (
 	"time"
 
 	"github.com/gravitational/gravity/lib/loc"
+	"github.com/gravitational/gravity/lib/schema"
 	"github.com/gravitational/gravity/lib/utils"
 
 	"github.com/gravitational/trace"
@@ -122,6 +123,8 @@ type OperationPhaseData struct {
 	ServiceUser *OSUser `json:"service_user,omitempty" yaml:"service_user,omitempty"`
 	// Data is arbitrary text data to provide to a phase executor
 	Data string `json:"data,omitempty" yaml:"data,omitempty"`
+	// GarbageCollect specifies configuration specific to garbage collect operation
+	GarbageCollect *GarbageCollectOperationData `json:"garbage_collect,omitempty" yaml:"garbage_collect,omitempty"`
 }
 
 // ElectionChange describes changes to make to cluster elections
@@ -130,6 +133,20 @@ type ElectionChange struct {
 	EnableServers []Server `json:"enable_server,omitempty" yaml:"enable_server,omitempty"`
 	// DisableServers is a list of servers that we should disable elections on
 	DisableServers []Server `json:"disable_servers,omitempty" yaml:"disable_servers,omitempty"`
+}
+
+// GarbageCollectOperationData describes configuration for the garbage collect operation
+type GarbageCollectOperationData struct {
+	// RemoteApps lists remote applications known to cluster
+	RemoteApps []Application `json:"remote_apps,omitempty" yaml:"remote_apps,omitempty"`
+}
+
+// Application describes an application for the package cleaner
+type Application struct {
+	// Locator references the application package
+	loc.Locator
+	// Manifest is the application's manifest
+	schema.Manifest
 }
 
 // PlanChange represents a single operation plan state change
