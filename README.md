@@ -33,8 +33,8 @@ fall of 2018.
 ## Gravity vs ...
 
 There are plenty of Kubernetes distributions out there. Most of them aim to be
-flexible, general purpose platforms. Gravity has a more narrow focus
-on compliance and autonomous operations:
+flexible, general purpose platforms. Gravity has a more narrow **focus
+on compliance and reducing the overhead of managing Kubernetes**:
 
 * Gravity clusters are idempotent, i.e. clusters created from the same bundle
   are _always identical_. There is no configuration drift over time; no
