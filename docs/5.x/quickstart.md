@@ -1,115 +1,132 @@
-# Quick Start
+# Introduction
 
-The purpose of this Quick Start Guide is to quickly evaluate Gravity by using a real world example.
+This Quick Start Guide will help you to quickly evaluate Gravity by using a
+real world example. We believe in learning by doing!
 
-We believe in learning by doing!
-
-## Introduction
-
-This guide will use [Mattermost](https://www.mattermost.org/), an open sourced chat application for
-teams, as a sample application. Mattermost represents a fairly typical web application
-and consists of an HTTP request handling process which connects to a PostgreSQL
-instance.
+This guide will use [Mattermost](https://www.mattermost.org/), an open sourced
+chat application for teams, as a sample application. Mattermost represents a
+fairly typical web application and consists of an HTTP request handling process
+which connects to a PostgreSQL instance.
 
 This Quick Start Guide will walk you through the process of packaging
 Mattermost for private deployments. Before we start, please take a look at the
 [Gravity Overview](overview.md) to get familiar with basic concepts of the
 Gravity system.
 
-### System Requirements
+## System Requirements
 
+Gravity is a Kubernetes packaging solution so it only runs on computers capable
+of running Kubernetes. For this QuickStart you will need:
 
-Gravity is a Linux-based toolkit. By default it supports 64-bit versions of the
-following Linux distributions as [specified here](/pack/#distributions)
+* A x86_64 GNU/Linux Linux machine. We recommend taking a look at the [list of supported distributions](requirements/#distributions).
+* [Docker](https://get.docker.io) version 1.8 or newer. Run `docker info` before continuing to make sure 
+  you have Docker up and running. 
+* You must be a member of the `docker` group. Run `groups` command to make sure
+  `docker` group is listed.
+* You must have `git` installed to clone the example application repo.
+* You must have `sudo` privileges.
 
-If you have a need to support a Linux distribution not listed above,
-Gravitational offers Implementation Services that may be able to assist you.
-
-Additionally, this guide requires Docker version 1.8 or newer. Run `docker info`
-before continuing to make sure you have Docker up and running on your
-system.
-
-You will also need `git` to be able to download Mattermost code from Github.
+Obviously, all of this can be accomplished on a Windows or MacOS machine if it's
+capable of running a Linux VM which satisfies the criteria above.
 
 ## Getting the Tools
 
-Gravity consists of three major components:
+Start by [downloading Gravity](https://gravitational.com/gravity/download/) and
+unpacking the archive, you should see:
 
-* **`tele`**: the CLI tool which is used for packaging and publishing applications.
-* **`tsh`**: the SSH client for establishing secure SSH connections between the
-  Ops Center and the application instances running behind firewalls on private clouds.
-  `tsh` is a part of [Gravitational Teleport](http://gravitational.com/teleport/),
-  a free open source SSH server developed, maintained and supported by Gravitational.
-  It can be used independently from Gravity.
-* **Ops Center**: the Web UI for managing published applications and remotely
-  accessing private cloud deployments.
-
-### Installing Gravity Tools
-
-Let's start by installing `tele` and `tsh` CLI tools onto your machine. You
-need to have `sudo` priviliges:
-
-```bsh
-# Download the latest version (this includes pre-releases and beta releases):
-$ curl https://get.gravitational.io/telekube/install | bash
-
-# ... or, if a specific version is needed:
-$ curl https://get.gravitational.io/telekube/install/5.2.3 | bash
+```
+$ ls -l
+-rwxr-xr-x 1 user user      128 Dec  3 13:07 install.sh
+-rwxr-xr-x 1 user user 50562960 Dec  3 13:07 tele
+-rwxr-xr-x 1 user user 21417992 Dec  3 13:07 tsh
 ```
 
-To make sure the installation succeeded, try typing `tele version`.
+You can execute `install.sh` if you want to copy `tele` and `tsh` binaries to
+`/usr/local/bin/`.
 
-Next, download Mattermost, the sample application used for this tutorial:
+* `tele`: the CLI tool which is used for creating _application bundles_.
+* `tsh`: the [Teleport client](https://gravitational.com/teleport/) for establishing 
+   SSH connections to remote Kubernetes clusters. This QuickStart does not use it.
+
+Try typing:
+
+```
+$ tele version
+Edition:	open-source
+Version:	5.2.4
+Git Commit:	708a1f155da4633774281bf8660c7e6cca6e0ff1
+```
+
+Next, let's clone the sample Git repository which contains Kubernetes resources for
+[Mattermost](https://www.mattermost.org/), the open source, self-hosted Slack alternative 
+which we are using in this tutorial as a sample application:
 
 ```bsh
 $ git clone https://github.com/gravitational/quickstart.git
+$ cd quickstart
 ```
 
-## Packaging the Application
+## Building Application Bundle 
 
-There are three major logical steps in preparing an application to be deployed
-via Gravity:
+There are three steps to create an _application bundle_ with Gravity:
 
-1. Creating Docker containers for application components.
-2. Creating Kubernetes definitions for application components, this enables your
-   application to run on Kubernetes.
-3. Packaging "kubernetized" application into a single self-deployable tarball (an
-   "Application Bundle").
+1. Create Docker containers for application services. This step is sometimes
+   called "dockerizing" an application.
+2. Create Kubernetes definitions for application components, this makes an application
+   capable of running on Kubernetes.
+3. Create a Gravity _application manifest_ to describe the system requirements 
+   for a Kubernetes cluster capable of running your application.
+4. Execute `tele build` CLI command.
 
-Once you complete these 3 steps, you can use the resulting tarball to distribute
-application manually, or you can publish it by uploading it into the Ops Center.
+### Step 1: Containerizing
 
-### Building Containers
-
-Before an application (Mattermost in our case) can be packaged and published
-via Gravity, you need to "containerize" it first.
-
-The sample project you have fetched via `git` above contains Docker files
-for Mattermost, as well as its Kubernetes resources.
-
-Run this to build Mattermost containers:
+Run the following to build the Mattermost containers:
 
 ```bsh
-$ cd quickstart/mattermost/worker
+$ cd mattermost/worker
 $ docker build -t mattermost-worker:2.2.0 .
 ```
 
-When the docker build is done, return to the quickstart home directory.
+When Docker finishes building the container, you should be able to see it listed:
 
-```bsh
-$ cd ../..
-$ pwd
-/home/user/quickstart
+```
+$ docker images | grep mattermost
+mattermost-worker      2.2.0       ce3ead6dff48     43 seconds ago      405MB
 ```
 
-### Migrating to Kubernetes
+You can now return to the quickstart home directory.
+
+### Step 2: Creating Kubernetes Resources
 
 Making Mattermost run on Kubernetes is easy. The quickstart repository you have
-cloned above includes the YAML definitions of Kubernetes objects in
-[resources/mattermost.yaml](https://github.com/gravitational/quickstart/blob/master/mattermost/resources/charts/mattermost/templates/mattermost.yaml)
-but you are welcome to change it to your liking.
+cloned above includes the YAML definitions of Kubernetes objects. We'll use
+a Helm chart for this:
 
-### Packaging
+```
+$ tree mattermost/resources/charts/mattermost/
+mattermost/resources/charts/mattermost/
+├── Chart.yaml
+├── templates
+│   ├── _helpers.tpl
+│   └── mattermost.yaml
+└── values.yaml
+```
+The most interesting file to take a look at is [mattermost.yaml](https://github.com/gravitational/quickstart/blob/master/mattermost/resources/charts/mattermost/templates/mattermost.yaml)
+You are welcome to change it to your liking.
+
+**NOTE:** in this tutorial we're packaging a single Helm chart but it's
+possible to have several of them packaged into a single application bundle.
+
+### Step 3: Creating Application Manifest
+
+In this step we must create a _application manifest_ which describes the system
+requirements for a Kubernetes cluster for our application.
+
+The cloned repo already has one in `mattermost/resources/app.yaml`. [Click here](https://github.com/gravitational/quickstart/blob/master/mattermost/resources/app.yaml) 
+to open it on Github for convenience. We have commented the most important fields
+in this example manifest.
+
+### Step 4: Building a Bundle
 
 Now you can package Mattermost into an Application Bundle:
 
