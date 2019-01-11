@@ -260,8 +260,9 @@ const (
 	updateEnvarsBanner = `Updating cluster runtime environment requires restart of runtime containers on all nodes.
 The operation might take several minutes to complete depending on the cluster size.
 
-Note, that you will be able to review the operation plan and proceed with each step individually if
-you run the operation manually by specifying '--manual' flag.
+The operation will start automatically once you approve it.
+If want to review the operation plan first or execute it manually step by step,
+run the operation in manual mode by specifying '--manual' flag.
 
 Are you sure?`
 	updateEnvarsBannerManual = `Updating cluster runtime environment requires restart of runtime containers on all nodes.

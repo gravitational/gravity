@@ -210,7 +210,7 @@ func (r *Resources) Create(req resources.CreateRequest) error {
 	case "":
 		return trace.BadParameter("missing resource kind")
 	default:
-		return trace.BadParameter("unsupported resource %q, supported are: %v",
+		return trace.NotImplemented("unsupported resource %q, supported are: %v",
 			req.Resource.Kind, modules.Get().SupportedResources())
 	}
 	return nil
@@ -343,7 +343,7 @@ func (r *Resources) GetCollection(req resources.ListRequest) (resources.Collecti
 		}
 		return envCollection{env: env}, nil
 	}
-	return nil, trace.BadParameter("unsupported resource %q, supported are: %v",
+	return nil, trace.NotImplemented("unsupported resource %q, supported are: %v",
 		req.Kind, modules.Get().SupportedResources())
 }
 
@@ -424,7 +424,7 @@ func (r *Resources) Remove(req resources.RemoveRequest) error {
 		}
 		r.Println("Alert target has been deleted")
 	default:
-		return trace.BadParameter("unsupported resource %q, supported are: %v",
+		return trace.NotImplemented("unsupported resource %q, supported are: %v",
 			req.Kind, modules.Get().SupportedResourcesToRemove())
 	}
 	return nil

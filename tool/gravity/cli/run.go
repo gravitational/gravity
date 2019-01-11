@@ -191,7 +191,7 @@ func InitAndCheck(g *Application, cmd string) error {
 		g.GarbageCollectCmd.FullCommand(),
 		g.SystemGCRegistryCmd.FullCommand(),
 		g.CheckCmd.FullCommand():
-		if err := CheckRunningAsRoot(); err != nil {
+		if err := checkRunningAsRoot(); err != nil {
 			return trace.Wrap(err)
 		}
 	}
@@ -244,7 +244,7 @@ func Execute(g *Application, cmd string, extraArgs []string) error {
 	// create an environment used during upgrades
 	var updateEnv *localenv.LocalEnvironment
 	if g.isUpdateCommand(cmd) {
-		updateEnv, err = g.UpgradeEnv()
+		updateEnv, err = g.UpdateEnv()
 		if err != nil {
 			return trace.Wrap(err)
 		}
@@ -749,14 +749,14 @@ func Execute(g *Application, cmd string, extraArgs []string) error {
 			*g.UsersResetCmd.Name,
 			*g.UsersResetCmd.TTL)
 	case g.ResourceCreateCmd.FullCommand():
-		return createResource(localEnv, updateEnv,
+		return CreateResource(localEnv, g,
 			*g.ResourceCreateCmd.Filename,
 			*g.ResourceCreateCmd.Upsert,
 			*g.ResourceCreateCmd.User,
 			*g.ResourceCreateCmd.Manual,
 			*g.ResourceCreateCmd.Confirmed)
 	case g.ResourceRemoveCmd.FullCommand():
-		return removeResource(localEnv, updateEnv,
+		return RemoveResource(localEnv, g,
 			*g.ResourceRemoveCmd.Kind,
 			*g.ResourceRemoveCmd.Name,
 			*g.ResourceRemoveCmd.Force,
@@ -869,7 +869,7 @@ func checkInCluster(dnsAddr string) error {
 	return nil
 }
 
-func CheckRunningAsRoot() error {
+func checkRunningAsRoot() error {
 	if os.Geteuid() != 0 {
 		return trace.BadParameter("this command should be run as root")
 	}

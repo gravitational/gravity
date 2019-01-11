@@ -29,6 +29,16 @@ import (
 	"github.com/gravitational/trace"
 )
 
+// LocalEnvironmentFactory defines an interface for creating operation-specific environments
+type LocalEnvironmentFactory interface {
+	// LocalEnv creates a new operational environment for the specified command cmd
+	LocalEnv(cmd string) (*localenv.LocalEnvironment, error)
+	// UpdateEnv creates a new operational environment for updates
+	UpdateEnv() (*localenv.LocalEnvironment, error)
+	// JoinEnv creates a new operational environment for join operation
+	JoinEnv() (*localenv.LocalEnvironment, error)
+}
+
 // LocalEnv returns an instance of a local environment for the specified
 // command
 func (g *Application) LocalEnv(cmd string) (*localenv.LocalEnvironment, error) {
@@ -39,9 +49,9 @@ func (g *Application) LocalEnv(cmd string) (*localenv.LocalEnvironment, error) {
 	return g.getEnv(stateDir)
 }
 
-// UpgradeEnv returns an instance of the local environment that is used
-// only for upgrades
-func (g *Application) UpgradeEnv() (*localenv.LocalEnvironment, error) {
+// UpdateEnv returns an instance of the local environment that is used
+// only for updates
+func (g *Application) UpdateEnv() (*localenv.LocalEnvironment, error) {
 	dir, err := state.GetStateDir()
 	if err != nil {
 		return nil, trace.Wrap(err)

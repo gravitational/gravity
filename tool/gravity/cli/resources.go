@@ -34,8 +34,8 @@ import (
 	"k8s.io/apimachinery/pkg/util/yaml"
 )
 
-// createResource updates or inserts one or many resources
-func createResource(env, updateEnv *localenv.LocalEnvironment, filename string, upsert bool, user string, manual, confirmed bool) error {
+// CreateResource updates or inserts one or many resources
+func CreateResource(env *localenv.LocalEnvironment, factory LocalEnvironmentFactory, filename string, upsert bool, user string, manual, confirmed bool) error {
 	operator, err := env.SiteOperator()
 	if err != nil {
 		return trace.Wrap(err)
@@ -54,43 +54,46 @@ func createResource(env, updateEnv *localenv.LocalEnvironment, filename string, 
 	}
 	defer reader.Close()
 	decoder := yaml.NewYAMLOrJSONDecoder(reader, defaults.DecoderBufferSize)
-	for {
+	for err == nil {
 		var raw teleservices.UnknownResource
 		err = decoder.Decode(&raw)
 		if err != nil {
-			if err == io.EOF {
-				err = nil
-			}
 			break
 		}
 		switch raw.Kind {
 		case storage.KindRuntimeEnvironment:
-			if CheckRunningAsRoot() != nil {
+			if checkRunningAsRoot() != nil {
 				return trace.BadParameter("updating cluster runtime environment variables requires root privileges.\n" +
 					"Please run this command as root")
 			}
-			err = UpdateEnvars(env, updateEnv, raw.Raw, manual, confirmed)
+			updateEnv, err := factory.UpdateEnv()
 			if err != nil {
 				return trace.Wrap(err)
 			}
+			defer updateEnv.Close()
+			err = UpdateEnvars(env, updateEnv, raw.Raw, manual, confirmed)
 		default:
 			err = resources.NewControl(gravityResources).Create(bytes.NewReader(raw.Raw), upsert, user)
-			if err != nil {
-				return trace.Wrap(err)
-			}
 		}
 	}
-
+	if err == io.EOF {
+		err = nil
+	}
 	return trace.Wrap(err)
 }
 
-// removeResource deletes resource by name
-func removeResource(env, updateEnv *localenv.LocalEnvironment, kind string, name string, force bool, user string, manual, confirmed bool) error {
+// RemoveResource deletes resource by name
+func RemoveResource(env *localenv.LocalEnvironment, factory LocalEnvironmentFactory, kind string, name string, force bool, user string, manual, confirmed bool) error {
 	if kind == storage.KindRuntimeEnvironment {
-		if CheckRunningAsRoot() != nil {
+		if checkRunningAsRoot() != nil {
 			return trace.BadParameter("updating environment variables requires root privileges.\n" +
 				"Please run this command as root")
 		}
+		updateEnv, err := factory.UpdateEnv()
+		if err != nil {
+			return trace.Wrap(err)
+		}
+		defer updateEnv.Close()
 		return trace.Wrap(RemoveEnvars(env, updateEnv, manual, confirmed))
 	}
 	operator, err := env.SiteOperator()

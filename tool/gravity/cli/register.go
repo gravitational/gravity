@@ -652,7 +652,7 @@ func RegisterCommands(app *kingpin.Application) *Application {
 	g.ResourceCreateCmd.Filename = g.ResourceCreateCmd.Arg("filename", "resource definition file").String()
 	g.ResourceCreateCmd.Upsert = g.ResourceCreateCmd.Flag("force", "Overwrites a resource if it already exists. (update)").Short('f').Bool()
 	g.ResourceCreateCmd.User = g.ResourceCreateCmd.Flag("user", "user to create resource for, defaults to currently logged in user").String()
-	g.ResourceCreateCmd.Manual = g.ResourceCreateCmd.Flag("manual", "manually execute operation phases").Bool()
+	g.ResourceCreateCmd.Manual = g.ResourceCreateCmd.Flag("manual", "manually execute operation phases").Short('m').Bool()
 	g.ResourceCreateCmd.Confirmed = g.ResourceCreateCmd.Flag("confirm", "do not ask for confirmation").Bool()
 
 	// remove one or many resources
@@ -661,6 +661,7 @@ func RegisterCommands(app *kingpin.Application) *Application {
 	g.ResourceRemoveCmd.Name = g.ResourceRemoveCmd.Arg("name", "resource name, e.g. github").Required().String()
 	g.ResourceRemoveCmd.Force = g.ResourceRemoveCmd.Flag("force", "Do not return errors if a resource is not found").Short('f').Bool()
 	g.ResourceRemoveCmd.User = g.ResourceRemoveCmd.Flag("user", "user to remove resource for, defaults to currently logged in user").String()
+	g.ResourceRemoveCmd.Manual = g.ResourceRemoveCmd.Flag("manual", "manually execute operation phases").Short('m').Bool()
 	g.ResourceRemoveCmd.Confirmed = g.ResourceRemoveCmd.Flag("confirm", "do not ask for confirmation").Bool()
 
 	// get resources returns resources

@@ -153,7 +153,7 @@ func leave(env *localenv.LocalEnvironment, c leaveConfig) error {
 }
 
 func tryLeave(env *localenv.LocalEnvironment, c leaveConfig) error {
-	if err := CheckRunningAsRoot(); err != nil {
+	if err := checkRunningAsRoot(); err != nil {
 		return trace.Wrap(err)
 	}
 
@@ -214,7 +214,7 @@ type removeConfig struct {
 }
 
 func remove(env *localenv.LocalEnvironment, c removeConfig) error {
-	if err := CheckRunningAsRoot(); err != nil {
+	if err := checkRunningAsRoot(); err != nil {
 		return trace.Wrap(err)
 	}
 
@@ -271,7 +271,7 @@ type autojoinConfig struct {
 }
 
 func autojoin(env, joinEnv *localenv.LocalEnvironment, d autojoinConfig) error {
-	if err := CheckRunningAsRoot(); err != nil {
+	if err := checkRunningAsRoot(); err != nil {
 		return trace.Wrap(err)
 	}
 
@@ -343,7 +343,7 @@ type agentConfig struct {
 }
 
 func agent(env *localenv.LocalEnvironment, config agentConfig, serviceName string) error {
-	if err := CheckRunningAsRoot(); err != nil {
+	if err := checkRunningAsRoot(); err != nil {
 		return trace.Wrap(err)
 	}
 
