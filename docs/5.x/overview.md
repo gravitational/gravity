@@ -4,10 +4,10 @@
     As of October 10, 2018, Telekube has been renamed to Gravity.
 
 Gravity is a downloadable open source toolkit which allows developers to
-package their [Kubernetes](http://k8s.io) applications as downloadable 
-"appliances", also known as application bundles.
+package their [Kubernetes](http://k8s.io) clusters and/or K8s applications as
+downloadable "appliances", also known as application bundles.
 
-Each bundle is a single dependency free `.tar` file. It can be used to deploy an
+Each bundle is a single dependency-free `.tar` file. It can be used to deploy an
 entire K8s cluster preloaded with applications into a variety of target
 infrastructure options, such as developers' own AWS accounts, 3rd party AWS
 accounts or even into air-gapped, bare metal infrastructure.
@@ -20,18 +20,14 @@ Kubernetes API, even if they are located behind a firewall.
 This overview will walk you through the basic concepts of Gravity and explain how
 it is used to solve the operational challenges that arise in the use cases below.
 
-If you already have a good understanding of Gravity you can choose to jump
-right in with our [Quick Start](/quickstart) guide or dive deeper into Gravity
-documentation through the table of contents.
-
 ## Use Cases
 
 There are two primary use cases for Gravity:
 
-1. **Private SaaS:** Software vendors (including SaaS applications) often
-   need to deploy and remotely update their complex software into private
-   datacenters or public cloud accounts like AWS, owned by their enterprise
-   customers.  
+1. **On-Premise Deployments of K8s Applications:** Software vendors (including
+   SaaS applications) often need to deploy and remotely update their complex
+   software into private datacenters or public cloud accounts like AWS, owned
+   by their enterprise customers.  
 
 2. **Reducing Operational Overhead:** Ops teams supporting many distributed
    product teams are often tasked with providing Kubernetes-as-a-Service 
@@ -39,24 +35,26 @@ There are two primary use cases for Gravity:
    hosting providers. Gravity's image-based approach allows them to treat 
    K8s clusters as cattle, not pets, dramatically reducing operational overhead.
 
-In both use cases, an application _usually_ includes the Kubernetes binaries,
+In both use cases, an application bundle may include the Kubernetes binaries,
 their dependencies, a private Docker registry for autonomous operation, a
 monitoring system and an SSH bastion for remotely managing the cluster either
 via simple SSH or via Kubernetes API.
 
+In other words, a Gravity application bundle is a _self-contained downloadable
+Kubernetes appliance_ which enables true application portability across any
+public or private infrastructure.
+
 ## Cluster Lifecycle
 
-An application bundle is a snapshot of a Kubernetes cluster, stored as a
-compressed `.tar` file ("Application Bundle" or "K8s appliance"). Application
-Bundles may contain nothing but pre-packaged Kubernetes for centralized
-management of Kubernetes resources within an organization or may also contain
-other applications running on Kubernetes. 
+Application bundles may contain only "empty", pre-packaged Kubernetes for
+centralized management of Kubernetes resources within an organization or may
+also contain other applications running on Kubernetes. 
 
 The typical cluster lifecycle using Gravity consists of the following:
 
 0. Prepare your application(s) to run on [Kubernetes](https://k8s.io). If
    you do not have Kubernetes expertise, our Implementation Services team can help.
-1. Package the application into a deployable `tar` tarball ("Application Bundle" or
+1. Package the applications into a deployable `tar` tarball ("Application Bundle" or
    "Bundle") using Gravity's `tele` tool.
 2. Publish the Application Bundle for distribution. AWS S3 or any CDN can be used
    to publish downloadable images, but enterprise edition of Gravity comes with
@@ -64,20 +62,31 @@ The typical cluster lifecycle using Gravity consists of the following:
    bundles.
 3. Deploy and install the Application Bundle onto any supported Linux-based
    infrastructure ("Gravity Cluster" or "Cluster").
-4. Securely connect to any Cluster to monitor health and roll out
-   updates.
+4. Securely connect to any Cluster to monitor health and roll out updates.
 
 ## Packaging
 
-Gravity works only with applications running on Kubernetes. This means the following
-prerequisites apply in order to use Gravity:
+To prepare a Kubernetes cluster for distribution via Gravity, you have to:
 
-* The application is packaged into containers.
-* You have Kubernetes resource definitions for application services, pods, etc. 
-  [Helm](https://helm.sh/) charts are also supported.
+* Create Kubernetes resources describing your application.
+* Optionally create [Helm charts](https://helm.sh/).
+* Write an _application manifest_ described below.
+* Place all of these files in the same location.
 
-To prepare a Kubernetes application for distribution via Gravity, you have to write
-an Application Manifest. Below is a sample of a simple Application Manifest in YAML format. It follows Kubernetes configuration conventions:
+The _application manifest_ is required to describe hardware/system requirements
+of your Kubernetes cluster and to customize the process of creating a new
+Kubernetes instance (i.e. the installation of the cluster).
+
+
+!!! tip "Gravity Roadmap Tip":
+    Kubernetes community is working on finalizing the cluster API spec. Once it
+    becomes production ready, Gravity developers will be looking into adopting the
+    future standard to replace the application manifest in the future. Meanwhile, 
+    it continues to be the only production-ready method of describing hardware
+    requirements for K8s clusters.
+
+Below is a simple _application manifest_ in YAML format. It follows Kubernetes
+configuration conventions:
 
 ```yaml
 apiVersion: bundle.gravitational.io/v2
@@ -90,8 +99,8 @@ metadata:
 logo: "http://example.com/logo.jpg"
 
 installer:
-# An application can be configured with multiple "flavors", perhaps letting
-# the end user of a cluster to customize its shape and size.
+  # An application can be configured with multiple "flavors", perhaps letting
+  # the end user of a cluster to customize its shape and size.
   flavors:
     prompt: "Select a flavor"
     items:
@@ -113,38 +122,34 @@ nodeProfiles:
         min: "2GB"
 ```
 
-The sample above is intentionally simplistic to illustrate the concept. The
-Applicaion Manifest's purpose is to describe the infrastructure requirements and
-custom steps required for installing the Bundle and updating the Cluster.
+The application manifest works in conjunction with [Helm charts](https://helm.sh/)
+and Kubernetes resources like jobs and configuration maps. Combined, these
+tools provide a high degree of flexibility for specifying how applications are
+installed, updated and configured. 
 
-The Application Manifest works in conjunction with Kubernetes jobs and
-configuration maps. Together, these tools provide a high degree of
-flexibility for specifying how applications are installed, updated and
-configured. You can learn more about the Application Manifest in the
-[Packaging & Deployment](pack.md) section of the documentation.
+To create an application bundle you have to:
 
-As shown in the diagram below, the build machine (often times a
-developer's laptop or a CI/CD server) should contain everything needed to
-build a self-sufficient portable package to distribute the Application Bundle:
-
-![Gravity Build Diagram](images/build.svg?style=grv-image-center-md)
-
-Gravity's `build` command creates the Application Bundle tarball:
+1. Place the required Kubernetes resources, Helm charts and the _application manifest_ in the same directory.
+2. Execute `gravity build` command to create an application bundle from a application manifest:
 
 ```bsh
-$ tele build -o app-name.tar app.yaml
+$ tele build -o my-kubernetes-applicance.tar manifest.yaml
 ```
 
-This will produce a self-sufficient tarball, `app-name.tar`, which can be deployed
-across cloud providers, or onto infrastructure like private data centers or
-private clouds.
+This will produce the _application bundle_ called `my-kubernetes-applicance.tar`, which can 
+be deployed across cloud providers, or onto infrastructure like private data centers or
+private clouds. You can even upload it to AWS S3 and let strangers download & install a full
+replica of your cluster!
+
+You can learn more about the application manifest in the [Packaging & Deployment](pack.md) 
+section of the documentation.
 
 ## Publishing
 
-Publishing can be as simple as uploading the Application Bundle to an
-S3 bucket for others to download and install.
+Publishing can be as simple as uploading the application bundle to an S3 bucket
+for others to download and install.
 
-Another option is to publish the Application Bundle into the Gravity [Ops
+Another option is to publish the _application bundle_ into the Gravity [Ops
 Center](opscenter.md), a centralized repository of your Application Bundles and
 its deployed Clusters. If an Application Bundle is distributed via the Ops
 Center, the resulting Cluster can optionally "phone home" for automating
