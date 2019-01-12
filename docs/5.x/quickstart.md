@@ -69,7 +69,7 @@ $ cd quickstart
 
 ## Building Application Bundle 
 
-There are three steps to create an _application bundle_ with Gravity:
+To create an _application bundle_ the following steps must be performed:
 
 1. Create Docker containers for application services. This step is sometimes
    called "dockerizing" an application.
@@ -78,6 +78,8 @@ There are three steps to create an _application bundle_ with Gravity:
 3. Create a Gravity _application manifest_ to describe the system requirements 
    for a Kubernetes cluster capable of running your application.
 4. Execute `tele build` CLI command.
+
+Let's follow them one by one.
 
 ### Step 1: Containerizing
 
@@ -196,6 +198,210 @@ servers (or into an AWS/GCE/Azure account).
 Congratulations! You have created your first self-installing **Kubernetes
 virtual appliance** which contains Mattermost inside!
 
+
+## Installing 
+
+Installing `mattermost.tar` _application bundle_ means creating a Kubernetes
+cluster with the application pre-loaded in it. This file is the only artifact
+one needs to create a Kubernetes cluster with Mattermost running inside. 
+
+Copy `mattermost.tar` to a clean Linux machine, let's call it `host`. This node
+will be used to bootstrap the cluster. Let's untar it and look inside:
+
+```bash
+$ tar -xf mattermost.tar
+$ tree
+├── app.yaml
+├── gravity
+├── gravity.db
+├── install
+├── packages
+│   ├── blobs
+│   │   ├── 0e1
+│   │   ...
+│   │   └── ff1
+│   │       └── ff19bcf2dc62f037e0016d5d065150d195f714be3c97a301791365a4ec5a43f0
+│   ├── tmp
+│   └── unpacked
+├── README
+├── upgrade
+└── upload
+```
+
+There are a few interesting bits in here:
+
+File Name    | Description
+-------------|------------------------
+`gravity`    | Gravity cluster manager which is a Linux binary (executable). It's responsible for installing, upgrading and managing clusters.
+`app.yaml`   | The application manifest which we've defined earlier and fed to `tele build`. You'll notice that the build process populated the manifest with additional metadata.
+`packages`   | The database of Docker image layers for all containers and other binary artifacts, like Kubernetes binaries.
+`gravity.db` | The metadata of what's stored in `packages`.
+`upgrade`, `install`, `upload` | Helpful bash wrappers around `gravity` command.
+`README`     | Instructions for the end user.
+
+We're ready to install our _first application bundle_ now! But first, it's important
+to note that Gravity supports two modes of installation:
+
+* **CLI mode** also known as non-interactive mode is useful for advanced users
+  and for scripting. It allows clusters to be created programmatically or via a
+  command line.
+  supported by the open source edition of Gravity.
+* **Web mode** uses a web browser to guide a user through an install wizard.
+  This mode is useful for non-technical users, sales demos, etc.
+
+### Installing via CLI
+
+To install a cluster via CLI, you have to execute `./gravity install` command and 
+supply two mandatory flags:
+
+Flag              | Description
+-------------------|---------------------------------
+`--token`          | A secret token of your choosing which will be used to add additional nodes to this cluster in the future. We'll use word "secret" here.
+`--advertise-addr` | The IP address this host will be visible on by other nodes in this cluster. We'll use `10.5.5.28`.
+
+The command below will create a single-node Kubernetes cluster with Mattermost running inside:
+
+```
+# We are executing this on the node named 'host' with IP address of 10.5.5.28
+$ sudo ./gravity install \
+        --advertise-addr=10.5.5.28 \
+        --token=secret
+# Output:
+Sat Jan 12 05:30:44 UTC Starting installer
+Sat Jan 12 05:30:44 UTC Preparing for installation...
+Sat Jan 12 05:31:09 UTC Installing application mattermost:2.2.0
+Sat Jan 12 05:31:09 UTC Starting non-interactive install
+Fri Jan 11 21:31:09 UTC Auto-loaded kernel module: br_netfilter
+Fri Jan 11 21:31:09 UTC Auto-loaded kernel module: iptable_nat
+Fri Jan 11 21:31:09 UTC Auto-loaded kernel module: iptable_filter
+Fri Jan 11 21:31:09 UTC Auto-loaded kernel module: ebtables
+Fri Jan 11 21:31:09 UTC Auto-set kernel parameter: net.ipv4.ip_forward=1
+Fri Jan 11 21:31:09 UTC Auto-set kernel parameter: net.bridge.bridge-nf-call-iptables=1
+Sat Jan 12 05:31:10 UTC All agents have connected!
+Sat Jan 12 05:31:10 UTC Starting the installation
+Sat Jan 12 05:31:11 UTC Operation has been created
+Sat Jan 12 05:31:12 UTC Execute preflight checks
+Sat Jan 12 05:31:16 UTC Configure packages for all nodes
+Sat Jan 12 05:31:20 UTC Bootstrap master node host
+Sat Jan 12 05:31:24 UTC Pull packages on master node host
+Sat Jan 12 05:32:20 UTC Install system package teleport:2.4.7 on master node host
+Sat Jan 12 05:32:22 UTC Install system package planet:5.2.19-11105 on master node host
+Sat Jan 12 05:32:48 UTC Wait for system services to start on all nodes
+Sat Jan 12 05:33:24 UTC Label and taint master node host
+Sat Jan 12 05:33:25 UTC Bootstrap Kubernetes roles and PSPs
+Sat Jan 12 05:33:26 UTC Export applications layers to Docker registries
+Sat Jan 12 05:33:27 UTC Populate Docker registry on master node host
+Sat Jan 12 05:34:24 UTC Install system application dns-app:0.1.0
+Sat Jan 12 05:34:31 UTC Install system application logging-app:5.0.2
+Sat Jan 12 05:35:05 UTC Install system application tiller-app:5.2.1
+Sat Jan 12 05:35:43 UTC Install system application site:5.2.4
+Sat Jan 12 05:36:59 UTC Install system application kubernetes:5.2.4
+Sat Jan 12 05:37:00 UTC Install application mattermost:2.2.0
+Sat Jan 12 05:37:10 UTC Enable elections
+Sat Jan 12 05:37:12 UTC Operation has completed
+Sat Jan 12 05:37:13 UTC Installation succeeded in 6m3.257480586s
+```
+
+**Congratulations!** You have created a fully functional, highly available
+Kubernetes cluster with Mattermost running inside. If a single node cluster 
+is not enough, you can add additional nodes to it:
+
+1. Copy `gravity` binary from the boostrapping node above to another host, let's assume it's IP is `10.5.5.29`.
+2. Execute `gravity join` command as shown below. Note that this command will
+   "think" in silence for a few seconds before dumping any output.
+
+```bash
+# Execute this on the second node with an IP 10.5.5.29
+$ sudo ./gravity join 10.5.5.28 --advertise-addr=10.5.5.29 --token=secret
+
+# Output:
+Sat Jan 12 06:00:16 UTC	Connecting to cluster
+Fri Jan 11 22:00:16 UTC	Auto-loaded kernel module: br_netfilter
+Fri Jan 11 22:00:16 UTC	Auto-loaded kernel module: iptable_nat
+Fri Jan 11 22:00:16 UTC	Auto-loaded kernel module: iptable_filter
+Fri Jan 11 22:00:16 UTC	Auto-loaded kernel module: ebtables
+Fri Jan 11 22:00:16 UTC	Auto-set kernel parameter: net.ipv4.ip_forward=1
+Fri Jan 11 22:00:16 UTC	Auto-set kernel parameter: net.bridge.bridge-nf-call-iptables=1
+Sat Jan 12 06:00:16 UTC	Connected to existing cluster at 10.5.5.28
+Sat Jan 12 06:00:17 UTC	Operation has been created
+Sat Jan 12 06:00:18 UTC	Configure packages for the joining node
+Sat Jan 12 06:00:20 UTC	Bootstrap the joining node
+Sat Jan 12 06:00:21 UTC	Pull packages on the joining node
+Sat Jan 12 06:01:18 UTC	Install system package teleport:2.4.7
+Sat Jan 12 06:01:19 UTC	Install system package planet:5.2.19-11105
+Sat Jan 12 06:01:41 UTC	Start RPC agent on the master node 10.5.5.28
+Sat Jan 12 06:01:45 UTC	Add the joining node to the etcd cluster
+Sat Jan 12 06:01:49 UTC	Wait for the planet to start
+Sat Jan 12 06:02:24 UTC	Stop RPC agent on the master node 10.5.5.28
+Sat Jan 12 06:02:25 UTC	Enable leader election on the joined node
+Sat Jan 12 06:02:26 UTC	Operation has completed
+Sat Jan 12 06:02:26 UTC	Joined cluster in 2m10.547146946s
+```
+
+Now you have a two-node Kubernetes cluster! And you can see Mattermost running on
+`https://10.5.5.28:3009/web/login`
+
+### Installing via Web Browser
+
+
+Obviously, take a look at the `README` file, it explains how to launch an
+installer. Basically it will tell you to execute the `install` script. 
+
+```bash
+$ sudo ./install
+OPEN THIS IN BROWSER: https://host:61009/web/installer/new/gravitational.io/mattermost/2.2.0?install_token=2a9de4a72ede
+```
+
+The `install` launches a daemon which serves a web UI and acts as a
+bootstrapping agent to create a new Kubernetes cluster. It will print a web URL
+for you to click on.
+
+The browser-based installer will ask for the following:
+
+* Name of your cluster. We recommend FQDN-like names like
+  `mattermost.example.com`.
+* The network interface to use. This must be the interface which Kubernetes
+  nodes will use to talk to each other.
+* The "flavor" of the cluster, i.e. 1, 2 or 3 nodes. The installer will offer a CLI
+  command for each node to copy to and execute.
+* Once all nodes report into the cluster the installer will proceed setting up
+  Kubernetes.
+
+!!! tip "Tip":
+    The installer will ask you to copy and paste a CLI command for each node to join the 
+    cluster. If you select a single-node install, you have to open a second terminal session
+    into your node to paste and execute the command in.
+
+The final step is to select the user name and password for the cluster
+administrator. You will be able to change it later (or configure the SSO).
+After that you will be placed in Gravity's cluster management UI, where you
+will find the HTTP end point of Mattermost.
+
+Now you can press `Ctrl+C` in the `node`'s terminal to stop the installer.
+
+
+## Remote Access
+
+Now with at least one instance of Mattermost running, you can go back to the
+machine where you packaged it with the `tele` tool and execute:
+
+```
+$ tsh clusters
+Cluster Name                     Status
+------------                     ------
+yourcompany.gravitational.io     online
+mattermost                       online
+```
+
+You can now see the "mattermost" cluster and you can connect to it by running:
+
+```
+$ tele login mattermost
+```
+
+Now you can run `tsh ls` to see the nodes and `tsh ssh` for connecting to them
+via SSH. See more in [Remote Management](manage) section.
+
 ## Publishing
 
 While the resulting _application bundle_ can be used to create Kubernetes
@@ -249,123 +455,6 @@ $ tele push mattermost.tar
 ... and Mattermost is now visible to all users of the Ops Center, so they can
 install it.
 
-## Installing 
-
-Installing an _application bundle_ means creating a Kubernetes cluster with the
-application pre-loaded in it. You can think of a resulting cluster as an
-_instance_ of the bundle. There are two ways (modes) to do it:
-
-* **Offline mode** uses the application bundle tarball. This is the only method
-  supported by the open source edition of Gravity.
-* **Online mode**, uses the Ops Center. This method of installation is more
-  suitable for enterprise deployments where a single pane of glass for 
-  managing access and compliance for multiple clusters is required.
-
-### Offline Mode
-
-In this scenario, `mattermost.tar` application bundle is the only thing one
-needs to create a Kubernetes cluster with Mattermost running inside. Copy 
-`mattermost.tar` to a clean Linux machine, let's call it `host`. This node 
-will be used to bootstrap the cluster. 
-
-Let's untar it and look inside:
-
-```bash
-$ tar -xf mattermost.tar
-$ ~: tree
-├── app.yaml
-├── gravity
-├── gravity.db
-├── install
-├── mattermost.tar
-├── packages
-│   ├── blobs
-│   │   ├── 0e1
-│   │   ...
-│   │   └── ff1
-│   │       └── ff19bcf2dc62f037e0016d5d065150d195f714be3c97a301791365a4ec5a43f0
-│   ├── tmp
-│   └── unpacked
-├── README
-├── upgrade
-└── upload
-```
-
-Obviously, take a look at the `README` file, it explains how to launch an
-installer. Basically it will tell you to execute the `install` script. 
-
-```bash
-$ sudo ./install
-OPEN THIS IN BROWSER: https://host:61009/web/installer/new/gravitational.io/mattermost/2.2.0?install_token=2a9de4a72ede
-```
-
-The `install` launches a daemon which serves a web UI and acts as a
-bootstrapping agent to create a new Kubernetes cluster. It will print a web URL
-for you to click on.
-
-The browser-based installer will ask for the following:
-
-* Name of your cluster. We recommend FQDN-like names like
-  `mattermost.example.com`.
-* The network interface to use. This must be the interface which Kubernetes
-  nodes will use to talk to each other.
-* The "flavor" of the cluster, i.e. 1, 2 or 3 nodes. The installer will offer a CLI
-  command for each node to copy to and execute.
-* Once all nodes report into the cluster the installer will proceed setting up
-  Kubernetes.
-
-!!! tip "Tip":
-    The installer will ask you to copy and paste a CLI command for each node to join the 
-    cluster. If you select a single-node install, you have to open a second terminal session
-    into your node to paste and execute the command in.
-
-The final step is to select the user name and password for the cluster
-administrator. You will be able to change it later (or configure the SSO).
-After that you will be placed in Gravity's cluster management UI, where you
-will find the HTTP end point of Mattermost.
-
-Now you can press `Ctrl+C` in the `node`'s terminal to stop the installer.
-
-**Congratulations!** You have created a fully functional, highly available
-Kubernetes cluster with Mattermost running inside.
-
-### Installing via OpsCenter
-
-This method of installation is called "online mode" and it assumes that the end
-user (a person installing the application) has access to the Internet.
-
-!!! warning "Version Warning":
-    The Ops Center is only available to users of Gravity Enterprise.  OSS users
-    can skip "publishing" subsection and move on to [installing](#installing) below.
-
-The simplest way to launch an online installer is to log in to the Ops Center
-and click on "Install" in the dropdown menu for the published Application.
-This will take you to a URL where the installation wizard will run.
-
-![Gravity Online Installer](/images/installer.png)
-
-
-### Remote Access
-
-Now with at least one instance of Mattermost running, you can go back to the
-machine where you packaged it with the `tele` tool and execute:
-
-```
-$ tsh clusters
-Cluster Name                     Status
-------------                     ------
-yourcompany.gravitational.io     online
-mattermost                       online
-```
-
-You can now see the "mattermost" cluster and you can connect to it by running:
-
-```
-$ tele login mattermost
-```
-
-Now you can run `tsh ls` to see the nodes and `tsh ssh` for connecting to them
-via SSH. See more in [Remote Management](manage) section.
 
 ## Conclusion
 
