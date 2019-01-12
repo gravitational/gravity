@@ -13,16 +13,20 @@ The Gravity _Ops Center_ is a hub which allows users to reduce operational overh
 This chapter will guide you through the process of downloading and installing your
 own instance of the _Ops Center_.
 
-## Pre-requisites
+## Installing Ops Center
 
- - [Gravity binaries](/gravity/download/), you will need an enterprise build of Gravity binaries. The open source edition will not work.
- - Make a cone of the [QuickStart git repository](https://github.com/gravitational/quickstart) via:
- 
-```bash
-$ git clone git@github.com:gravitational/quickstart.git
-```
+You need to download the [Gravity binaries](/gravity/download/). Note that you will
+need an enterprise edition of Gravity. The open source edition will not work.
 
-## Generating a Token
+Before proceeding, you should have access to:
+
+* `tele` and `tsh`: the enterprise binaries of Gravity.
+* `ops-center.tar`: the _application bundle_ containing the Ops Center installer.
+
+As with any Gravity application, you will need a Linux server to install the
+Ops Center.
+
+### Generating a Token
 
 To establish trust between an _Ops Center_ and multiple K8s clusters, a common shared
 hard-to-guess secret (token) must be generated first. Therefore, before
@@ -32,33 +36,11 @@ environment variable named `TOKEN`:
 ```bsh
 $ export TOKEN="$(uuidgen)"
 ```
-## Automatic Provisioning
 
-Included in the [Quickstart repository](https://github.com/gravitational/quickstart/tree/master/opscenter) is a configuration to provision a Vagrant VM, as well as an AWS instance to run the Ops Center.
-
-### Manual Provisioning
-
-Manual provisioning must be performed on a Linux server will be used to host
-the Ops Center. The Ops Center itself is a Gravity application bundle,
-therefore the installing the Ops Center means creating a K8s cluster. 
-
-First, you must [download Gravity](/gravity/download/) binaries and then use
-Gravity's `tele` tool to pull the latest version of the Ops Center application
-bundle:
+Expand the Ops Center application bundle and launch the installer:
 
 ```bsh
-$ tele pull opscenter -o installer.tar
-```
-
-!!! warning "Version Warning":
-    The open source version of `tele` will not be able to pull the Ops Center.
-    If you get "could not find latest version of opscenter" error, replace 
-    the OSS version of `tele` with an enterprise one.
-
-Next, expand the downloaded application bundle and launch the installer:
-
-```bsh
-$ tar xvf ./installer.tar
+$ tar xvf ./ops-center.tar
 $ ./gravity install --advertise-addr=10.1.1.5 \
                     --token=$TOKEN \
                     --flavor=standalone \
