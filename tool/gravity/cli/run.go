@@ -154,6 +154,7 @@ func InitAndCheck(g *Application, cmd string) error {
 		if err != nil {
 			return trace.Wrap(err)
 		}
+		defer localEnv.Close()
 		if err := checkInCluster(localEnv.DNS.Addr()); err != nil {
 			return trace.Wrap(err)
 		}
@@ -749,7 +750,7 @@ func Execute(g *Application, cmd string, extraArgs []string) error {
 			*g.UsersResetCmd.Name,
 			*g.UsersResetCmd.TTL)
 	case g.ResourceCreateCmd.FullCommand():
-		return CreateResource(localEnv, g,
+		return createResource(localEnv, g,
 			*g.ResourceCreateCmd.Filename,
 			*g.ResourceCreateCmd.Upsert,
 			*g.ResourceCreateCmd.User,

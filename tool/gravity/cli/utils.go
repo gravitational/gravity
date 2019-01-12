@@ -31,8 +31,6 @@ import (
 
 // LocalEnvironmentFactory defines an interface for creating operation-specific environments
 type LocalEnvironmentFactory interface {
-	// LocalEnv creates a new operational environment for the specified command cmd
-	LocalEnv(cmd string) (*localenv.LocalEnvironment, error)
 	// UpdateEnv creates a new operational environment for updates
 	UpdateEnv() (*localenv.LocalEnvironment, error)
 	// JoinEnv creates a new operational environment for join operation

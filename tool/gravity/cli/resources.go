@@ -34,8 +34,12 @@ import (
 	"k8s.io/apimachinery/pkg/util/yaml"
 )
 
-// CreateResource updates or inserts one or many resources
-func CreateResource(env *localenv.LocalEnvironment, factory LocalEnvironmentFactory, filename string, upsert bool, user string, manual, confirmed bool) error {
+// createResource updates or inserts one or many resources from the specified filename.
+// upsert controls whether the resource is expected to exist.
+// manual controls whether the operation is created in manual mode if resource creation is implemented
+// as a cluster operation.
+// confirmed specifies if the user has explicitly approved the operation
+func createResource(env *localenv.LocalEnvironment, factory LocalEnvironmentFactory, filename string, upsert bool, user string, manual, confirmed bool) error {
 	operator, err := env.SiteOperator()
 	if err != nil {
 		return trace.Wrap(err)
@@ -54,32 +58,44 @@ func CreateResource(env *localenv.LocalEnvironment, factory LocalEnvironmentFact
 	}
 	defer reader.Close()
 	decoder := yaml.NewYAMLOrJSONDecoder(reader, defaults.DecoderBufferSize)
+	control := resources.NewControl(gravityResources)
 	for err == nil {
-		var raw teleservices.UnknownResource
-		err = decoder.Decode(&raw)
+		var resource teleservices.UnknownResource
+		err = decoder.Decode(&resource)
 		if err != nil {
 			break
 		}
-		switch raw.Kind {
-		case storage.KindRuntimeEnvironment:
-			if checkRunningAsRoot() != nil {
-				return trace.BadParameter("updating cluster runtime environment variables requires root privileges.\n" +
-					"Please run this command as root")
-			}
-			updateEnv, err := factory.UpdateEnv()
-			if err != nil {
-				return trace.Wrap(err)
-			}
-			defer updateEnv.Close()
-			err = UpdateEnvars(env, updateEnv, raw.Raw, manual, confirmed)
-		default:
-			err = resources.NewControl(gravityResources).Create(bytes.NewReader(raw.Raw), upsert, user)
-		}
+		err = CreateResource(env, factory, control, resource, upsert, user, manual, confirmed)
 	}
 	if err == io.EOF {
 		err = nil
 	}
 	return trace.Wrap(err)
+}
+
+// CreateResource updates or inserts a single resource
+func CreateResource(
+	env *localenv.LocalEnvironment,
+	factory LocalEnvironmentFactory,
+	control *resources.ResourceControl,
+	resource teleservices.UnknownResource,
+	upsert bool,
+	user string,
+	manual, confirmed bool,
+) error {
+	if resource.Kind != storage.KindRuntimeEnvironment {
+		return trace.Wrap(control.Create(bytes.NewReader(resource.Raw), upsert, user))
+	}
+	if checkRunningAsRoot() != nil {
+		return trace.BadParameter("updating cluster runtime environment variables requires root privileges.\n" +
+			"Please run this command as root")
+	}
+	updateEnv, err := factory.UpdateEnv()
+	if err != nil {
+		return trace.Wrap(err)
+	}
+	defer updateEnv.Close()
+	return trace.Wrap(UpdateEnvars(env, updateEnv, resource.Raw, manual, confirmed))
 }
 
 // RemoveResource deletes resource by name
