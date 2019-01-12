@@ -30,8 +30,8 @@ import (
 	"github.com/jonboulle/clockwork"
 )
 
-// EnvironmentVariables defines the environment variables resource.
-// It allows to override environment variables on each node in the cluster.
+// EnvironmentVariables defines the cluster runtime environment variables resource.
+// It allows to override runtime environment variables on each node in the cluster.
 // There is only a single instance of the resource in a cluster
 type EnvironmentVariables interface {
 	// Resource provides common resource methods
@@ -57,7 +57,7 @@ func NewEnvironment(kvs map[string]string) *EnvironmentV1 {
 	}
 }
 
-// EnvironmentV1 describes the environment variable resource
+// EnvironmentV1 describes the cluster runtime environment variables resource
 type EnvironmentV1 struct {
 	// Kind is a resource kind
 	Kind string `json:"kind"`
@@ -100,12 +100,12 @@ func (r *EnvironmentV1) SetTTL(clock clockwork.Clock, ttl time.Duration) {
 	r.Metadata.SetTTL(clock, ttl)
 }
 
-// GetKeyValues returns the variables from this environment
+// GetKeyValues returns the values of environment variables from this resource
 func (r *EnvironmentV1) GetKeyValues() map[string]string {
 	return r.Spec.KeyValues
 }
 
-// SetKeyValues returns the variables from this environment
+// SetKeyValues sets the environment variables to values from the specified map kvs
 func (r *EnvironmentV1) SetKeyValues(kvs map[string]string) {
 	r.Spec.KeyValues = kvs
 }
@@ -115,7 +115,7 @@ func (r *EnvironmentV1) CheckAndSetDefaults() error {
 	return nil
 }
 
-// UnmarshalEnvironmentVariables unmarshals the resource from JSON given with data
+// UnmarshalEnvironmentVariables unmarshals the resource from YAML/JSON given with data
 func UnmarshalEnvironmentVariables(data []byte) (EnvironmentVariables, error) {
 	if len(data) == 0 {
 		return &EnvironmentV1{}, nil
@@ -136,7 +136,7 @@ func UnmarshalEnvironmentVariables(data []byte) (EnvironmentVariables, error) {
 		if err != nil {
 			return nil, trace.BadParameter(err.Error())
 		}
-		// Set namespace explicitly as schema default is ignored in json.Unmarshal
+		// Set namespace explicitly - schema default is ignored in json.Unmarshal
 		// as teleservices.Metadata.Namespace is missing the json serialization tag
 		env.Metadata.Namespace = defaults.KubeSystemNamespace
 		if env.Metadata.Expires != nil {
@@ -159,7 +159,7 @@ type EnvironmentSpec struct {
 	KeyValues map[string]string `json:"data"`
 }
 
-// EnvironmentSpecSchema is JSON schema for the environment variables resource
+// EnvironmentSpecSchema is JSON schema for the cluster runtime environment variables resource
 const EnvironmentSpecSchema = `{
   "type": "object",
   "additionalProperties": false,
@@ -194,7 +194,7 @@ const EnvironmentSpecSchema = `{
   }
 }`
 
-// GetEnvironmentSpecSchema returns the formatted JSON schema for the environment
+// GetEnvironmentSpecSchema returns the formatted JSON schema for the cluster runtime environment
 // variables resource
 func GetEnvironmentSpecSchema() string {
 	return fmt.Sprintf(EnvironmentSpecSchema,

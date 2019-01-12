@@ -98,7 +98,7 @@ func (r *restart) Rollback(context.Context) error {
 	err := utils.ExecL(cmd, &buf, r.FieldLogger)
 	if err != nil {
 		r.WithField("output", buf.String()).
-			Warn("Failed to execute.")
+			Warn("Failed to rollback.")
 		return trace.Wrap(err)
 	}
 	return nil

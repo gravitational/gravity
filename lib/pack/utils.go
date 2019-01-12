@@ -417,8 +417,8 @@ func FindLatestPackage(packages PackageService, filter loc.Locator) (*loc.Locato
 }
 
 // FindLatestPackageCustom searches for the latest version of the package given with filter
-// using the specified less comparator
-func FindLatestPackageCustom(packages PackageService, filter loc.Locator, less LessFunc) (*loc.Locator, error) {
+// using the specified comparator
+func FindLatestPackageCustom(packages PackageService, filter loc.Locator, compare LessFunc) (*loc.Locator, error) {
 	var max *loc.Locator
 	err := ForeachPackageInRepo(packages, filter.Repository, func(e PackageEnvelope) error {
 		if e.Locator.Repository != filter.Repository || e.Locator.Name != filter.Name {
@@ -436,7 +436,7 @@ func FindLatestPackageCustom(packages PackageService, filter loc.Locator, less L
 		if err != nil {
 			return nil
 		}
-		if less(vera, verb) {
+		if compare(vera, verb) {
 			max = &e.Locator
 		}
 		return nil
@@ -700,7 +700,7 @@ func IsPlanetConfigPackage(loc loc.Locator, labels map[string]string) bool {
 type LessFunc func(a, b *semver.Version) bool
 
 // Less is the standard version comparator that
-// compares the major/minor/patch sub-components
+// returns a < b
 func Less(a, b *semver.Version) bool {
 	return a.Compare(*b) < 0
 }

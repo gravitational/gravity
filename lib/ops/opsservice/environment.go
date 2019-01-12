@@ -36,12 +36,12 @@ import (
 
 // CreateUpdateEnvarsOperation creates a new operation to update cluster environment variables
 func (o *Operator) CreateUpdateEnvarsOperation(r ops.CreateUpdateEnvarsOperationRequest) (*ops.SiteOperationKey, error) {
-	err := r.Check()
+	err := r.ClusterKey.Check()
 	if err != nil {
 		return nil, trace.Wrap(err)
 	}
 
-	cluster, err := o.openSite(r.SiteKey)
+	cluster, err := o.openSite(r.ClusterKey)
 	if err != nil {
 		return nil, trace.Wrap(err)
 	}

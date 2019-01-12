@@ -747,7 +747,7 @@ func (o *Operator) SignSSHKey(req ops.SSHSignRequest) (*ops.SSHSignResponse, err
 		return nil, trace.Wrap(err)
 	}
 	return &ops.SSHSignResponse{
-		Cert: cert,
+		Cert:                   cert,
 		TrustedHostAuthorities: authorities,
 	}, nil
 }

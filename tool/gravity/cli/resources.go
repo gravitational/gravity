@@ -86,7 +86,7 @@ func CreateResource(env *localenv.LocalEnvironment, factory LocalEnvironmentFact
 func RemoveResource(env *localenv.LocalEnvironment, factory LocalEnvironmentFactory, kind string, name string, force bool, user string, manual, confirmed bool) error {
 	if kind == storage.KindRuntimeEnvironment {
 		if checkRunningAsRoot() != nil {
-			return trace.BadParameter("updating environment variables requires root privileges.\n" +
+			return trace.BadParameter("updating cluster runtime environment variables requires root privileges.\n" +
 				"Please run this command as root")
 		}
 		updateEnv, err := factory.UpdateEnv()

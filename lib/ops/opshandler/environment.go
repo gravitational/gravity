@@ -28,7 +28,7 @@ import (
 	"github.com/julienschmidt/httprouter"
 )
 
-/* createUpdateEnvarsOperation initiates the operatation of updating cluster environment variables
+/* createUpdateEnvarsOperation initiates the operatation of updating cluster runtime environment variables
 
    POST /portal/v1/accounts/:account_id/sites/:site_domain/operations/envars
 
@@ -53,7 +53,7 @@ func (h *WebHandler) createUpdateEnvarsOperation(w http.ResponseWriter, r *http.
 	if err := d.Decode(&req); err != nil {
 		return trace.BadParameter(err.Error())
 	}
-	req.SiteKey = siteKey(p)
+	req.ClusterKey = siteKey(p)
 	op, err := context.Operator.CreateUpdateEnvarsOperation(req)
 	if err != nil {
 		return trace.Wrap(err)

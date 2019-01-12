@@ -38,7 +38,7 @@ func NewOperationPlan(operator ops.Operator, operation ops.SiteOperation, server
 	if err != nil {
 		if trace.IsNotFound(err) {
 			return nil, trace.NotImplemented(
-				"cluster operator does not implement the API required for update environment variables. " +
+				"cluster operator does not implement the API required to update cluster runtime environment variables. " +
 					"Please make sure you're running the command on a compatible cluster.")
 		}
 		return nil, trace.Wrap(err)

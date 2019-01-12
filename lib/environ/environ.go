@@ -145,18 +145,19 @@ func (r *Updater) executePlan(ctx context.Context, machine *libfsm.FSM, force bo
 		err = planErr
 	}
 
+	// Keep the agents running as long as the operation can be resumed
+	if planErr != nil {
+		return trace.Wrap(err)
+	}
+
 	var addrs []string
 	for _, server := range r.Servers {
 		addrs = append(addrs, server.AdvertiseIP)
 	}
-
-	// Keep the agents running as long as the operation can be resumed
-	if planErr == nil {
-		if errShutdown := rpc.ShutdownAgents(ctx, addrs, r.FieldLogger, r.Runner); errShutdown != nil {
-			r.Warnf("Failed to shutdown agents: %v.", trace.DebugReport(errShutdown))
-		}
+	if errShutdown := rpc.ShutdownAgents(ctx, addrs, r.FieldLogger, r.Runner); errShutdown != nil {
+		r.Warnf("Failed to shutdown agents: %v.", trace.DebugReport(errShutdown))
 	}
-	return trace.Wrap(err)
+	return nil
 }
 
 func (r *Updater) updateProgress(lastProgress *ops.ProgressEntry) *ops.ProgressEntry {
@@ -183,7 +184,7 @@ func (r *Config) checkAndSetDefaults() error {
 		return trace.BadParameter("at least a single server is required")
 	}
 	if r.Backend == nil {
-		return trace.BadParameter("primary backend is required")
+		return trace.BadParameter("backend is required")
 	}
 	if r.LocalBackend == nil {
 		return trace.BadParameter("local backend is required")

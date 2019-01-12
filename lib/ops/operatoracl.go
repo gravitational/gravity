@@ -496,7 +496,7 @@ func (o *OperatorACL) CreateClusterGarbageCollectOperation(req CreateClusterGarb
 
 // CreateUpdateEnvarsOperation creates a new operation to update cluster environment variables
 func (o *OperatorACL) CreateUpdateEnvarsOperation(req CreateUpdateEnvarsOperationRequest) (*SiteOperationKey, error) {
-	if err := o.ClusterAction(req.SiteDomain, storage.KindCluster, teleservices.VerbUpdate); err != nil {
+	if err := o.ClusterAction(req.ClusterKey.SiteDomain, storage.KindCluster, teleservices.VerbUpdate); err != nil {
 		return nil, trace.Wrap(err)
 	}
 	return o.operator.CreateUpdateEnvarsOperation(req)
@@ -776,7 +776,7 @@ func (o *OperatorACL) DeleteAlertTarget(key SiteKey) error {
 	return o.operator.DeleteAlertTarget(key)
 }
 
-// GetClusterEnvironmentVariables retrieves the cluster environment
+// GetClusterEnvironmentVariables retrieves the cluster runtime environment variables
 func (o *OperatorACL) GetClusterEnvironmentVariables(key SiteKey) (storage.EnvironmentVariables, error) {
 	if err := o.ClusterAction(key.SiteDomain, storage.KindRuntimeEnvironment, teleservices.VerbList); err != nil {
 		return nil, trace.Wrap(err)

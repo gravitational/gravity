@@ -80,7 +80,7 @@ func (r *Config) checkAndSetDefaults() (err error) {
 		return trace.BadParameter("operator service is required")
 	}
 	if r.Backend == nil {
-		return trace.BadParameter("primary backend is required")
+		return trace.BadParameter("backend is required")
 	}
 	if r.LocalBackend == nil {
 		return trace.BadParameter("local backend is required")
@@ -101,7 +101,7 @@ func (r *Config) checkAndSetDefaults() (err error) {
 	return nil
 }
 
-// Config describes configuration for updating cluster environment variables
+// Config describes configuration for updating cluster runtime environment variables
 type Config struct {
 	// FieldLogger is the logger
 	log.FieldLogger
@@ -111,11 +111,11 @@ type Config struct {
 	Operator ops.Operator
 	// Apps is the cluster application service
 	Apps app.Applications
-	// Backend specifies the primary backend
+	// Backend specifies the cluster backend
 	Backend storage.Backend
-	// LocalBackend specifies the backend where intermediate operation state
-	// is stored. It is the fallback backend, if the primary backend is temporarily
-	// unavailable
+	// LocalBackend specifies the authorative backend that stores up-to-date
+	// operation state. It will be synced with the Backend at phase boundaries
+	// if it's available
 	LocalBackend storage.Backend
 	// ClusterPackages specifies the cluster package service
 	ClusterPackages pack.PackageService

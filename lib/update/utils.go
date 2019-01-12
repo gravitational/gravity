@@ -90,6 +90,9 @@ func WaitForEndpoints(ctx context.Context, client corev1.CoreV1Interface, nodeID
 }
 
 func hasEndpoints(client corev1.CoreV1Interface, labels labels.Set, fn endpointMatchFn) error {
+	// TODO(dmitri): this is to workaround an issue with DNS service temporarily gone in 5.3.x
+	// See https://github.com/gravitational/gravity.e/issues/3866
+	// This is not necessary in version 5.4.x and up
 	services, err := client.Services(metav1.NamespaceSystem).List(
 		metav1.ListOptions{
 			LabelSelector: labels.String(),
@@ -100,7 +103,7 @@ func hasEndpoints(client corev1.CoreV1Interface, labels labels.Set, fn endpointM
 		return trace.Wrap(rigging.ConvertError(err), "failed to query services")
 	}
 	if len(services.Items) == 0 {
-		// Ignore endpoints for non-existing service
+		// Ignore endpoints for non-existing service (see comment above)
 		return nil
 	}
 

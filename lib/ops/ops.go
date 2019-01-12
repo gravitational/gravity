@@ -456,11 +456,11 @@ type Certificates interface {
 	DeleteClusterCertificate(SiteKey) error
 }
 
-// EnvironmentVariables manages environment variables in cluster
+// EnvironmentVariables manages runtime environment variables in cluster
 type EnvironmentVariables interface {
-	// CreateUpdateEnvarsOperation creates a new operation to update cluster environment variables
+	// CreateUpdateEnvarsOperation creates a new operation to update cluster runtime environment variables
 	CreateUpdateEnvarsOperation(CreateUpdateEnvarsOperationRequest) (*SiteOperationKey, error)
-	// GetClusterEnvironmentVariables retrieves the cluster environment
+	// GetClusterEnvironmentVariables retrieves the cluster runtime environment variables
 	GetClusterEnvironmentVariables(SiteKey) (storage.EnvironmentVariables, error)
 }
 
@@ -513,7 +513,7 @@ func (r UpdateClusterEnvironmentVariablesRequest) Check() error {
 	return r.Key.Check()
 }
 
-// UpdateClusterEnvironmentVariablesRequest describes the request to update cluster environment
+// UpdateClusterEnvironmentVariablesRequest describes the request to update cluster runtime environment variables
 type UpdateClusterEnvironmentVariablesRequest struct {
 	// Key identifies the cluster
 	Key SiteKey
@@ -797,9 +797,6 @@ type RotatePlanetConfigRequest struct {
 	Env map[string]string `json:"env,omitempty"`
 	// Package specifies the runtime package locator
 	Package loc.Locator `json:"package"`
-	// ConfigVersion specifies optional version for the configuration package.
-	// If unspecified, version of the runtime package is used
-	ConfigVersion string `json:"config_version"`
 }
 
 // SiteKey returns a cluster key from this request
@@ -1134,8 +1131,8 @@ type CreateClusterGarbageCollectOperationRequest struct {
 // CreateUpdateEnvarsOperationRequest is a request
 // to update cluster environment variables
 type CreateUpdateEnvarsOperationRequest struct {
-	// SiteKey identifies the cluster
-	SiteKey `json:"cluster_key"`
+	// ClusterKey identifies the cluster
+	ClusterKey SiteKey `json:"cluster_key"`
 	// Env specifies the new cluster environment variables
 	Env map[string]string `json:"env"`
 }

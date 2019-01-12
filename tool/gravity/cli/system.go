@@ -735,7 +735,6 @@ func reinstallSystemService(env *localenv.LocalEnvironment, update storage.Packa
 		return nil, trace.Wrap(err)
 	}
 
-	// TODO(dmitri): consider optimizing reinstall to restart if the package does not change
 	packageUpdates, err := uninstallPackage(env, services, update.From)
 	if err != nil {
 		return nil, trace.Wrap(err)

@@ -34,7 +34,8 @@ import (
 // RemoveEnvars executes the loop to clear cluster environment variables.
 func RemoveEnvars(localEnv, updateEnv *localenv.LocalEnvironment, manual, confirmed bool) error {
 	env := storage.NewEnvironment(nil)
-	return trace.Wrap(updateEnvars(localEnv, updateEnv, env, manual, confirmed))
+	ctx := context.TODO()
+	return trace.Wrap(updateEnvars(ctx, localEnv, updateEnv, env, manual, confirmed))
 }
 
 // UpdateEnvars executes the loop to update cluster environment variables.
@@ -44,10 +45,11 @@ func UpdateEnvars(localEnv, updateEnv *localenv.LocalEnvironment, resource []byt
 	if err != nil {
 		return trace.Wrap(err)
 	}
-	return trace.Wrap(updateEnvars(localEnv, updateEnv, env, manual, confirmed))
+	ctx := context.TODO()
+	return trace.Wrap(updateEnvars(ctx, localEnv, updateEnv, env, manual, confirmed))
 }
 
-func updateEnvars(localEnv, updateEnv *localenv.LocalEnvironment, env storage.EnvironmentVariables, manual, confirmed bool) error {
+func updateEnvars(ctx context.Context, localEnv, updateEnv *localenv.LocalEnvironment, env storage.EnvironmentVariables, manual, confirmed bool) error {
 	if !confirmed {
 		if manual {
 			localEnv.Println(updateEnvarsBannerManual)
@@ -63,11 +65,10 @@ func updateEnvars(localEnv, updateEnv *localenv.LocalEnvironment, env storage.En
 			return nil
 		}
 	}
-	updater, err := newUpdater(localEnv, updateEnv, env)
+	updater, err := newUpdater(ctx, localEnv, updateEnv, env)
 	if err != nil {
 		return trace.Wrap(err)
 	}
-	ctx := context.Background()
 	if !manual {
 		err = updater.Run(ctx, false)
 		return trace.Wrap(err)
@@ -76,7 +77,7 @@ func updateEnvars(localEnv, updateEnv *localenv.LocalEnvironment, env storage.En
 	return nil
 }
 
-func newUpdater(localEnv, updateEnv *localenv.LocalEnvironment, env storage.EnvironmentVariables) (*environ.Updater, error) {
+func newUpdater(ctx context.Context, localEnv, updateEnv *localenv.LocalEnvironment, env storage.EnvironmentVariables) (*environ.Updater, error) {
 	teleportClient, err := localEnv.TeleportClient(constants.Localhost)
 	if err != nil {
 		return nil, trace.Wrap(err, "failed to create a teleport client")
@@ -99,14 +100,14 @@ func newUpdater(localEnv, updateEnv *localenv.LocalEnvironment, env storage.Envi
 	}
 	key, err := operator.CreateUpdateEnvarsOperation(
 		ops.CreateUpdateEnvarsOperationRequest{
-			SiteKey: cluster.Key(),
-			Env:     env.GetKeyValues(),
+			ClusterKey: cluster.Key(),
+			Env:        env.GetKeyValues(),
 		},
 	)
 	if err != nil {
 		if trace.IsNotFound(err) {
 			return nil, trace.NotImplemented(
-				"cluster operator does not implement the API required for updating cluster environment variables. " +
+				"cluster operator does not implement the API required for updating cluster runtime environment variables. " +
 					"Please make sure you're running the command on a compatible cluster.")
 		}
 		return nil, trace.Wrap(err)
@@ -148,10 +149,10 @@ func newUpdater(localEnv, updateEnv *localenv.LocalEnvironment, env storage.Envi
 		proxy:        proxy,
 		nodeParams:   []string{constants.RPCAgentSyncPlanFunction},
 	}
-	ctx, cancel := context.WithTimeout(context.Background(), defaults.AgentDeployTimeout)
+	deployCtx, cancel := context.WithTimeout(ctx, defaults.AgentDeployTimeout)
 	defer cancel()
 	localEnv.Println("Deploying agents on nodes")
-	creds, err := deployAgents(ctx, req)
+	creds, err := deployAgents(deployCtx, req)
 	if err != nil {
 		return nil, trace.Wrap(err)
 	}
@@ -169,7 +170,7 @@ func newUpdater(localEnv, updateEnv *localenv.LocalEnvironment, env storage.Envi
 		Silent:          localEnv.Silent,
 		Runner:          runner,
 	}
-	updater, err := environ.New(context.TODO(), config)
+	updater, err := environ.New(ctx, config)
 	if err != nil {
 		return nil, trace.Wrap(err)
 	}
@@ -271,7 +272,7 @@ The operation might take several minutes to complete depending on the cluster si
 
 "Are you sure?`
 	// TODO(dmitri): provide a link to the documentation that describes common CLI workflow
-	// for doing operations manually when it is available
+	// for doing operations manually one it has been added
 	updateEnvarsManualOperationBanner = `The operation has been created in manual mode.
 
 To view the operation plan, run:

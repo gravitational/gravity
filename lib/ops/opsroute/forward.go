@@ -338,7 +338,7 @@ func (r *Router) CreateClusterGarbageCollectOperation(req ops.CreateClusterGarba
 	return r.Local.CreateClusterGarbageCollectOperation(req)
 }
 
-// CreateUpdateEnvarsOperation creates a new operation to update cluster environment variables
+// CreateUpdateEnvarsOperation creates a new operation to update cluster runtime environment variables
 func (r *Router) CreateUpdateEnvarsOperation(req ops.CreateUpdateEnvarsOperationRequest) (*ops.SiteOperationKey, error) {
 	return r.Local.CreateUpdateEnvarsOperation(req)
 }
@@ -655,7 +655,7 @@ func (r *Router) DeleteAlertTarget(key ops.SiteKey) error {
 	return client.DeleteAlertTarget(key)
 }
 
-// GetClusterEnvironmentVariables retrieves the cluster environment
+// GetClusterEnvironmentVariables retrieves the cluster runtime environment variables
 func (r *Router) GetClusterEnvironmentVariables(key ops.SiteKey) (storage.EnvironmentVariables, error) {
 	client, err := r.RemoteClient(key.SiteDomain)
 	if err != nil {

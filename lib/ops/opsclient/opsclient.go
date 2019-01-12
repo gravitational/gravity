@@ -551,9 +551,9 @@ func (c *Client) CreateClusterGarbageCollectOperation(req ops.CreateClusterGarba
 	return &key, nil
 }
 
-// CreateUpdateEnvarsOperation creates a new operation to update cluster environment variables
+// CreateUpdateEnvarsOperation creates a new operation to update cluster runtime environment variables
 func (c *Client) CreateUpdateEnvarsOperation(req ops.CreateUpdateEnvarsOperationRequest) (*ops.SiteOperationKey, error) {
-	out, err := c.PostJSON(c.Endpoint("accounts", req.AccountID, "sites", req.SiteDomain, "operations", "envars"), req)
+	out, err := c.PostJSON(c.Endpoint("accounts", req.ClusterKey.AccountID, "sites", req.ClusterKey.SiteDomain, "operations", "envars"), req)
 	if err != nil {
 		return nil, trace.Wrap(err)
 	}
@@ -1099,7 +1099,7 @@ func (c *Client) DeleteAlertTarget(key ops.SiteKey) error {
 	return trace.Wrap(err)
 }
 
-// GetClusterEnvironmentVariables retrieves the cluster environment
+// GetClusterEnvironmentVariables retrieves the cluster runtime environment variables
 func (c *Client) GetClusterEnvironmentVariables(key ops.SiteKey) (storage.EnvironmentVariables, error) {
 	response, err := c.Get(c.Endpoint(
 		"accounts", key.AccountID, "sites", key.SiteDomain, "envars"), url.Values{})
