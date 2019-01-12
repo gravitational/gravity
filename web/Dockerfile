@@ -1,6 +1,8 @@
 FROM node:8.11.2-slim
 
-RUN apt-get update && apt-get install -y python python-dev python-pip
+RUN apt-get update && apt-get install git -y
+
+RUN apt-get install -y python python-dev python-pip
 
 RUN npm i npm@6.1.0 -g
 
