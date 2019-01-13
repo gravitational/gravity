@@ -251,21 +251,6 @@ func GetDNSConfig(backend Backend, fallback DNSConfig) (config *DNSConfig, err e
 	return config, nil
 }
 
-// GetClusterDNSConfig returns the DNS configuration from the cluster record.
-// Returns a copy of storage.LegacyDNSConfig if no cluster record is available
-func GetClusterDNSConfig(backend Backend) (*DNSConfig, error) {
-	cluster, err := backend.GetLocalSite(defaults.SystemAccountID)
-	if err != nil && !trace.IsNotFound(err) {
-		return nil, trace.Wrap(err)
-	}
-	config := LegacyDNSConfig
-	if cluster != nil && !cluster.DNSConfig.IsEmpty() {
-		config = cluster.DNSConfig
-	}
-
-	return &config, nil
-}
-
 // DeepComparePhases compares the actual phase to the expected phase omitting
 // some insignificant fields like description or UI step number
 func DeepComparePhases(c *check.C, expected, actual OperationPhase) {

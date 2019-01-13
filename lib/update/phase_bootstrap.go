@@ -78,10 +78,11 @@ type updatePhaseBootstrap struct {
 	runtimePackage loc.Locator
 	// installedRuntime specifies the installed runtime package
 	installedRuntime loc.Locator
+	dnsConfig        storage.DNSConfig
 }
 
 // NewUpdatePhaseBootstrap creates a new bootstrap phase executor
-func NewUpdatePhaseBootstrap(c FSMConfig, plan storage.OperationPlan, phase storage.OperationPhase, remote fsm.Remote) (fsm.PhaseExecutor, error) {
+func NewUpdatePhaseBootstrap(c FSMConfig, plan storage.OperationPlan, phase storage.OperationPhase, remote fsm.Remote, logger log.FieldLogger) (fsm.PhaseExecutor, error) {
 	if phase.Data == nil || phase.Data.Package == nil {
 		return nil, trace.NotFound("no application package specified for phase %v", phase)
 	}
@@ -113,6 +114,9 @@ func NewUpdatePhaseBootstrap(c FSMConfig, plan storage.OperationPlan, phase stor
 	if err != nil {
 		return nil, trace.Wrap(err)
 	}
+	if cluster.DNSConfig.IsEmpty() {
+		return nil, trace.NotFound("cluster DNS configuration is missing")
+	}
 
 	return &updatePhaseBootstrap{
 		Operator:         c.Operator,
@@ -127,10 +131,11 @@ func NewUpdatePhaseBootstrap(c FSMConfig, plan storage.OperationPlan, phase stor
 		Operation:        *operation,
 		GravityPath:      gravityPath,
 		ServiceUser:      cluster.ServiceUser,
-		FieldLogger:      log.NewEntry(log.New()),
+		FieldLogger:      logger,
 		remote:           remote,
 		runtimePackage:   *runtimePackage,
 		installedRuntime: *installedRuntime,
+		dnsConfig:        cluster.DNSConfig,
 	}, nil
 }
 
@@ -170,7 +175,7 @@ func (p *updatePhaseBootstrap) Execute(ctx context.Context) error {
 		return trace.Wrap(err)
 	}
 
-	err = p.updateRuntimePackage()
+	err = p.updateExistingRuntimePackage()
 	if err != nil {
 		return trace.Wrap(err)
 	}
@@ -180,6 +185,10 @@ func (p *updatePhaseBootstrap) Execute(ctx context.Context) error {
 		return trace.Wrap(err)
 	}
 
+	err = p.addUpdateRuntimePackageLabel()
+	if err != nil {
+		return trace.Wrap(err)
+	}
 	return nil
 }
 
@@ -203,6 +212,7 @@ func (p *updatePhaseBootstrap) configureNode() error {
 }
 
 func (p *updatePhaseBootstrap) exportGravity(ctx context.Context) error {
+	p.Infof("Export gravity binary to %v.", p.GravityPath)
 	err := utils.CopyWithRetries(ctx, p.GravityPath, func() (io.ReadCloser, error) {
 		_, rc, err := p.Packages.ReadPackage(p.GravityPackage)
 		return rc, trace.Wrap(err)
@@ -212,17 +222,8 @@ func (p *updatePhaseBootstrap) exportGravity(ctx context.Context) error {
 
 // updateDNSConfig persists the DNS configuration in the local backend if it has not been set
 func (p *updatePhaseBootstrap) updateDNSConfig() error {
-	cluster, err := p.Operator.GetLocalSite()
-	if err != nil {
-		return trace.Wrap(err)
-	}
-
-	dnsConfig := storage.LegacyDNSConfig
-	if !cluster.DNSConfig.IsEmpty() {
-		dnsConfig = cluster.DNSConfig
-	}
-
-	err = p.HostLocalBackend.SetDNSConfig(dnsConfig)
+	err := p.HostLocalBackend.SetDNSConfig(p.dnsConfig)
+	p.Infof("Update host-local DNS configuration as %v.", p.dnsConfig)
 	if err != nil {
 		return trace.Wrap(err)
 	}
@@ -230,6 +231,7 @@ func (p *updatePhaseBootstrap) updateDNSConfig() error {
 }
 
 func (p *updatePhaseBootstrap) pullSystemUpdates() error {
+	p.Info("Pull system updates.")
 	out, err := fsm.RunCommand(utils.PlanetCommandArgs(
 		filepath.Join(defaults.GravityUpdateDir, constants.GravityBin),
 		"--quiet", "--insecure", "system", "pull-updates",
@@ -240,11 +242,12 @@ func (p *updatePhaseBootstrap) pullSystemUpdates() error {
 	if err != nil {
 		return trace.Wrap(err, "failed to pull system updates: %s", out)
 	}
-	log.Debugf("Pulled system updates: %s.", out)
+	p.Debugf("Pulled system updates: %s.", out)
 	return nil
 }
 
 func (p *updatePhaseBootstrap) syncPlan() error {
+	p.Info("Sync operation plan.")
 	site, err := p.Backend.GetSite(p.Operation.SiteDomain)
 	if err != nil {
 		return trace.Wrap(err)
@@ -268,7 +271,7 @@ func (p *updatePhaseBootstrap) syncPlan() error {
 	return nil
 }
 
-// updateRuntimePackage updates labels on the runtime package
+// updateExistingRuntimePackage updates labels on the runtime package
 // from the previous installation so the system package pull
 // step can find and pull the correct package update.
 //
@@ -278,7 +281,7 @@ func (p *updatePhaseBootstrap) syncPlan() error {
 // the sibling runtime package (i.e. 'planet-master' on a regular node
 // and vice versa), will be updated to _not_ include the installed label
 // to simplify the search
-func (p *updatePhaseBootstrap) updateRuntimePackage() error {
+func (p *updatePhaseBootstrap) updateExistingRuntimePackage() error {
 	type updateLabels struct {
 		loc.Locator
 		add    map[string]string
@@ -310,6 +313,19 @@ func (p *updatePhaseBootstrap) updateRuntimePackage() error {
 		if err != nil && !trace.IsNotFound(err) {
 			return trace.Wrap(err)
 		}
+	}
+	return nil
+}
+
+// addUpdateRuntimePackageLabel adds the runtime label on the runtime package from the update
+// in case the installer been generated on the Ops Center that does not replicate remote
+// package labels.
+// See: https://github.com/gravitational/gravity.e/issues/3768
+// TODO(dmitri): remove this once the distribution Ops Center has been updated
+func (p *updatePhaseBootstrap) addUpdateRuntimePackageLabel() error {
+	err := p.LocalPackages.UpdatePackageLabels(p.runtimePackage, pack.RuntimePackageLabels, nil)
+	if err != nil {
+		return trace.Wrap(err)
 	}
 	return nil
 }

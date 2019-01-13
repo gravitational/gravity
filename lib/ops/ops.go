@@ -358,7 +358,7 @@ type SSHSignResponse struct {
 // that does not uses any interfaces
 func (s *SSHSignResponse) ToRaw() (*SSHSignResponseRaw, error) {
 	raw := SSHSignResponseRaw{
-		Cert: s.Cert,
+		Cert:                   s.Cert,
 		TrustedHostAuthorities: make([]json.RawMessage, 0, len(s.TrustedHostAuthorities)),
 	}
 	for i := range s.TrustedHostAuthorities {
@@ -384,7 +384,7 @@ type SSHSignResponseRaw struct {
 // ToNative converts back to request that has all interfaces inside
 func (s *SSHSignResponseRaw) ToNative() (*SSHSignResponse, error) {
 	native := SSHSignResponse{
-		Cert: s.Cert,
+		Cert:                   s.Cert,
 		TrustedHostAuthorities: make([]teleservices.CertAuthority, 0, len(s.TrustedHostAuthorities)),
 	}
 	for i := range s.TrustedHostAuthorities {
@@ -1076,9 +1076,8 @@ type CreateSiteAppUpdateOperationRequest struct {
 	SiteDomain string `json:"site_domain"`
 	// App specifies a new application package in the "locator" form, e.g. gravitational.io/mattermost:1.2.3
 	App string `json:"package"`
-	// Manual specifies whether a manual update mode is requested.
-	// Deprecated.
-	Manual bool `json:"manual"`
+	// StartAgents specifies whether the operation will automatically start the update agents
+	StartAgents bool `json:"start_agents"`
 }
 
 // Check validates this request

@@ -17,10 +17,12 @@ limitations under the License.
 package update
 
 import (
+	"github.com/gravitational/gravity/lib/constants"
 	"github.com/gravitational/gravity/lib/fsm"
 	"github.com/gravitational/gravity/lib/ops"
 
 	"github.com/gravitational/trace"
+	log "github.com/sirupsen/logrus"
 )
 
 const (
@@ -80,51 +82,62 @@ func fsmSpec(c FSMConfig) fsm.FSMSpecFunc {
 			return nil, trace.BadParameter("unsupported operation %q", p.Plan.OperationType)
 		}
 
+		logger := &fsm.Logger{
+			FieldLogger: log.WithFields(log.Fields{
+				constants.FieldPhase: p.Phase.ID,
+			}),
+			Key:      fsm.OperationKey(p.Plan),
+			Operator: c.Operator,
+		}
+		if p.Phase.Data != nil {
+			logger.Server = p.Phase.Data.Server
+		}
+
 		switch p.Phase.Executor {
 		case updateInit:
-			return NewUpdatePhaseInit(c, p.Plan, p.Phase)
+			return NewUpdatePhaseInit(c, p.Plan, p.Phase, logger)
 		case updateChecks:
-			return NewUpdatePhaseChecks(c, p.Plan, p.Phase, c.Remote)
+			return NewUpdatePhaseChecks(c, p.Plan, p.Phase, c.Remote, logger)
 		case updateBootstrap:
-			return NewUpdatePhaseBootstrap(c, p.Plan, p.Phase, remote)
+			return NewUpdatePhaseBootstrap(c, p.Plan, p.Phase, remote, logger)
 		case updateSystem:
-			return NewUpdatePhaseSystem(c, p.Plan, p.Phase, remote)
+			return NewUpdatePhaseSystem(c, p.Plan, p.Phase, remote, logger)
 		case preUpdate:
-			return NewUpdatePhaseBeforeApp(c, p.Plan, p.Phase)
+			return NewUpdatePhaseBeforeApp(c, p.Plan, p.Phase, logger)
 		case updateApp:
-			return NewUpdatePhaseApp(c, p.Plan, p.Phase)
+			return NewUpdatePhaseApp(c, p.Plan, p.Phase, logger)
 		case electionStatus:
-			return NewPhaseElectionChange(p.Plan, p.Phase, remote, c.Operator)
+			return NewPhaseElectionChange(p.Plan, p.Phase, remote, c.Operator, logger)
 		case taintNode:
-			return NewPhaseTaint(c, p.Plan, p.Phase)
+			return NewPhaseTaint(c, p.Plan, p.Phase, logger)
 		case untaintNode:
-			return NewPhaseUntaint(c, p.Plan, p.Phase)
+			return NewPhaseUntaint(c, p.Plan, p.Phase, logger)
 		case drainNode:
-			return NewPhaseDrain(c, p.Plan, p.Phase)
+			return NewPhaseDrain(c, p.Plan, p.Phase, logger)
 		case uncordonNode:
-			return NewPhaseUncordon(c, p.Plan, p.Phase)
+			return NewPhaseUncordon(c, p.Plan, p.Phase, logger)
 		case endpoints:
-			return NewPhaseEndpoints(c, p.Plan, p.Phase)
+			return NewPhaseEndpoints(c, p.Plan, p.Phase, logger)
 		case kubeletPermissions:
-			return NewPhaseKubeletPermissions(c, p.Plan, p.Phase)
+			return NewPhaseKubeletPermissions(c, p.Plan, p.Phase, logger)
 		case migrateLinks:
-			return NewPhaseMigrateLinks(c, p.Plan, p.Phase)
+			return NewPhaseMigrateLinks(c, p.Plan, p.Phase, logger)
 		case updateLabels:
-			return NewPhaseUpdateLabels(c, p.Plan, p.Phase)
+			return NewPhaseUpdateLabels(c, p.Plan, p.Phase, logger)
 		case updateEtcdBackup:
-			return NewPhaseUpgradeEtcdBackup(c, p.Plan, p.Phase)
+			return NewPhaseUpgradeEtcdBackup(c, p.Plan, p.Phase, logger)
 		case updateEtcdShutdown:
-			return NewPhaseUpgradeEtcdShutdown(c, p.Plan, p.Phase)
+			return NewPhaseUpgradeEtcdShutdown(c, p.Plan, p.Phase, logger)
 		case updateEtcdMaster:
-			return NewPhaseUpgradeEtcd(c, p.Plan, p.Phase)
+			return NewPhaseUpgradeEtcd(c, p.Plan, p.Phase, logger)
 		case updateEtcdRestore:
-			return NewPhaseUpgradeEtcdRestore(c, p.Plan, p.Phase)
+			return NewPhaseUpgradeEtcdRestore(c, p.Plan, p.Phase, logger)
 		case updateEtcdRestart:
-			return NewPhaseUpgradeEtcdRestart(c, p.Plan, p.Phase)
+			return NewPhaseUpgradeEtcdRestart(c, p.Plan, p.Phase, logger)
 		case updateEtcdRestartGravity:
-			return NewPhaseUpgradeGravitySiteRestart(c, p.Plan, p.Phase)
+			return NewPhaseUpgradeGravitySiteRestart(c, p.Plan, p.Phase, logger)
 		case cleanupNode:
-			return NewGarbageCollectPhase(p.Plan, p.Phase, remote)
+			return NewGarbageCollectPhase(p.Plan, p.Phase, remote, logger)
 		default:
 			return nil, trace.BadParameter(
 				"phase %q requires executor %q (potential mismatch between upgrade versions)",

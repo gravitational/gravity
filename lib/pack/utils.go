@@ -26,10 +26,12 @@ import (
 	"path/filepath"
 
 	"github.com/gravitational/gravity/lib/archive"
+	"github.com/gravitational/gravity/lib/constants"
 	"github.com/gravitational/gravity/lib/defaults"
 	"github.com/gravitational/gravity/lib/loc"
 	"github.com/gravitational/gravity/lib/state"
 	"github.com/gravitational/gravity/lib/storage"
+	"github.com/gravitational/gravity/lib/utils"
 
 	"github.com/coreos/go-semver/semver"
 	dockerarchive "github.com/docker/docker/pkg/archive"
@@ -501,4 +503,119 @@ func ConfigLabels(loc loc.Locator, purpose string) map[string]string {
 		ConfigLabel:  loc.ZeroVersion().String(),
 		PurposeLabel: purpose,
 	}
+}
+
+// FindAnyRuntimePackageWithConfig searches for the runtime package and the corresponding
+// configuration package in the specified package service.
+// It looks up both legacy packages and packages marked as runtime
+func FindAnyRuntimePackageWithConfig(packages PackageService) (runtimePackage *loc.Locator, runtimeConfig *loc.Locator, err error) {
+	runtimePackage, err = FindAnyRuntimePackage(packages)
+	if err != nil {
+		return nil, nil, trace.Wrap(err)
+	}
+
+	runtimeConfig, err = FindConfigPackage(packages, *runtimePackage)
+	if trace.IsNotFound(err) {
+		runtimeConfig, err = FindLegacyRuntimeConfigPackage(packages)
+		if err != nil {
+			return nil, nil, trace.Wrap(err)
+		}
+	}
+
+	return runtimePackage, runtimeConfig, nil
+}
+
+// FindAnyRuntimePackage searches for the runtime package in the specified package service.
+// It looks up both legacy packages and packages marked as runtime
+func FindAnyRuntimePackage(packages PackageService) (runtimePackage *loc.Locator, err error) {
+	runtimePackage, err = FindRuntimePackage(packages)
+	if err != nil && !trace.IsNotFound(err) {
+		return nil, trace.Wrap(err)
+	}
+	if trace.IsNotFound(err) {
+		runtimePackage, err = FindLegacyRuntimePackage(packages)
+		if err != nil {
+			return nil, trace.Wrap(err)
+		}
+	}
+	return runtimePackage, nil
+}
+
+// FindRuntimePackageWithConfig locates the planet package using the purpose label.
+// Returns a pair - planet package with the corresponding configuration package.
+func FindRuntimePackageWithConfig(packages PackageService) (runtimePackage *loc.Locator, runtimeConfig *loc.Locator, err error) {
+	runtimePackage, err = FindRuntimePackage(packages)
+	if err != nil {
+		return nil, nil, trace.Wrap(err)
+	}
+
+	runtimeConfig, err = FindConfigPackage(packages, *runtimePackage)
+	if err != nil {
+		return nil, nil, trace.Wrap(err)
+	}
+
+	return runtimePackage, runtimeConfig, nil
+}
+
+// FindRuntimePackage locates the installed runtime package
+func FindRuntimePackage(packages PackageService) (runtimePackage *loc.Locator, err error) {
+	labels := map[string]string{
+		PurposeLabel:   PurposeRuntime,
+		InstalledLabel: InstalledLabel,
+	}
+	err = ForeachPackage(packages, func(env PackageEnvelope) error {
+		if env.HasLabels(labels) {
+			runtimePackage = &env.Locator
+			return utils.Abort(nil)
+		}
+		return nil
+	})
+	if err != nil && !utils.IsAbortError(err) {
+		return nil, trace.Wrap(err)
+	}
+	if runtimePackage == nil {
+		return nil, trace.NotFound("no runtime package found")
+	}
+
+	return runtimePackage, nil
+}
+
+// FindLegacyRuntimePackage locates the planet package using the obsolete master/node
+// flavors.
+func FindLegacyRuntimePackage(packages PackageService) (runtimePackage *loc.Locator, err error) {
+	err = ForeachPackage(packages, func(env PackageEnvelope) error {
+		if loc.IsLegacyRuntimePackage(env.Locator) &&
+			env.HasLabel(InstalledLabel, InstalledLabel) {
+			runtimePackage = &env.Locator
+			return utils.Abort(nil)
+		}
+		return nil
+	})
+	if err != nil && !utils.IsAbortError(err) {
+		return nil, trace.Wrap(err)
+	}
+	if runtimePackage == nil {
+		return nil, trace.NotFound("no runtime package found")
+	}
+
+	return runtimePackage, nil
+}
+
+// FindLegacyRuntimeConfigPackage locates the configuration package for the legacy
+// runtime package in the specified package service
+func FindLegacyRuntimeConfigPackage(packages PackageService) (configPackage *loc.Locator, err error) {
+	err = ForeachPackage(packages, func(env PackageEnvelope) error {
+		if env.Locator.Name == constants.PlanetConfigPackage {
+			configPackage = &env.Locator
+			return utils.Abort(nil)
+		}
+		return nil
+	})
+	if err != nil && !utils.IsAbortError(err) {
+		return nil, trace.Wrap(err)
+	}
+	if configPackage == nil {
+		return nil, trace.NotFound("no runtime configuration package found")
+	}
+	return configPackage, nil
 }

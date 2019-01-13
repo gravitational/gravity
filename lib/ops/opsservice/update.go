@@ -17,10 +17,13 @@ limitations under the License.
 package opsservice
 
 import (
+	"context"
 	"path/filepath"
 
+	"github.com/gravitational/gravity/lib/app"
 	"github.com/gravitational/gravity/lib/checks"
 	"github.com/gravitational/gravity/lib/constants"
+	"github.com/gravitational/gravity/lib/defaults"
 	"github.com/gravitational/gravity/lib/loc"
 	"github.com/gravitational/gravity/lib/ops"
 	"github.com/gravitational/gravity/lib/pack"
@@ -260,22 +263,50 @@ func (s *site) createUpdateOperation(req ops.CreateSiteAppUpdateOperationRequest
 		return nil, trace.Wrap(err, "failed to create update operation")
 	}
 
-	resetSiteState := func() {
+	resetClusterState := func() {
 		if err == nil {
 			return
 		}
-		errReset := s.setSiteState(ops.SiteStateActive)
+
+		log := log.WithField("operation", op.Key())
+		// Fail the operation and reset cluster state.
+		// It is important to complete the operation as subsequent same type operations
+		// will not be able to complete if there's an existing incomplete one
+		errReset := ops.FailOperation(op.Key(), s.service, trace.Unwrap(err).Error())
 		if errReset != nil {
-			log.Warningf("failed to reset site state: %v", trace.DebugReport(errReset))
+			log.WithError(errReset).Warn("Failed to mark operation as failed.")
+		}
+
+		errReset = s.setSiteState(ops.SiteStateActive)
+		if errReset != nil {
+			log.WithError(errReset).Warn("Failed to reset cluster state.")
 		}
 	}
-	defer resetSiteState()
+	defer resetClusterState()
 
 	s.reportProgress(ctx, ops.ProgressEntry{
 		State:      ops.ProgressStateInProgress,
 		Completion: 0,
 		Message:    "initializing the operation",
 	})
+
+	if !req.StartAgents {
+		return key, nil
+	}
+
+	updatePackage, err := loc.ParseLocator(req.App)
+	if err != nil {
+		return nil, trace.Wrap(err)
+	}
+	updateApp, err := s.service.cfg.Apps.GetApp(*updatePackage)
+	if err != nil {
+		return nil, trace.Wrap(err)
+	}
+	err = s.startUpdateAgent(context.TODO(), ctx, updateApp)
+	if err != nil {
+		return key, trace.Wrap(err,
+			"update operation was created but the automatic update agent failed to start. Refer to the documentation on how to proceed with manual update")
+	}
 
 	return key, nil
 }
@@ -299,6 +330,56 @@ func (s *site) validateUpdateOperationRequest(req ops.CreateSiteAppUpdateOperati
 		return trace.Wrap(err)
 	}
 	return s.checkUpdateParameters(newEnvelope, provisioner)
+}
+
+// startUpdateAgent runs deploy procedure on one of the leader nodes
+func (s *site) startUpdateAgent(ctx context.Context, opCtx *operationContext, updateApp *app.Application) error {
+	master, err := s.getTeleportServer(schema.ServiceLabelRole, string(schema.ServiceRoleMaster))
+	if err != nil {
+		return trace.Wrap(err)
+	}
+	proxy, err := s.teleport().GetProxyClient(ctx, s.key.SiteDomain, nil)
+	if err != nil {
+		return trace.Wrap(err)
+	}
+	nodeClient, err := proxy.ConnectToNode(ctx, master.Addr, defaults.SSHUser, false)
+	if err != nil {
+		return trace.Wrap(err)
+	}
+	defer nodeClient.Close()
+	gravityPackage, err := updateApp.Manifest.Dependencies.ByName(constants.GravityPackage)
+	if err != nil {
+		return trace.Wrap(err)
+	}
+	// determine the server's state dir location
+	site, err := s.service.GetSite(s.key)
+	if err != nil {
+		return trace.Wrap(err)
+	}
+	advertiseIP, ok := master.Labels[ops.AdvertiseIP]
+	if !ok {
+		return trace.NotFound("server %v is missing %s label", master, ops.AdvertiseIP)
+	}
+	stateServer, err := site.ClusterState.FindServerByIP(advertiseIP)
+	if err != nil {
+		return trace.Wrap(err)
+	}
+	serverStateDir := stateServer.StateDir()
+	agentExecPath := filepath.Join(state.GravityRPCAgentDir(serverStateDir), constants.GravityBin)
+	secretsHostDir := filepath.Join(state.GravityRPCAgentDir(serverStateDir), defaults.SecretsDir)
+	err = utils.NewSSHCommands(nodeClient.Client).
+		// extract new gravity version
+		C("rm -rf %s", secretsHostDir).
+		C("mkdir -p %s", secretsHostDir).
+		C("%s package export --file-mask=%o %s %s --ops-url=%s --insecure --quiet",
+			constants.GravityBin, defaults.SharedExecutableMask,
+			gravityPackage.String(), agentExecPath, defaults.GravityServiceURL).
+		// distribute agents and upgrade process
+		C("%s agent deploy upgrade", agentExecPath).
+		WithLogger(s.WithField("node", master.HostName())).
+		WithOutput(opCtx.recorder).
+		Run(ctx)
+	return trace.Wrap(err)
 }
 
 // checkUpdateParameters checks if update parameters match
