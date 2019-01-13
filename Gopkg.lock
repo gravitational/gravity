@@ -722,7 +722,6 @@
   ]
   pruneopts = "UT"
   revision = "874bbe7ab1ca7d11cd741a5cde0c35a4040c27b7"
-  source = "github.com/gravitational/teleport-private"
   version = "v2.4.10"
 
 [[projects]]
