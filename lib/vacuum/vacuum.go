@@ -31,7 +31,6 @@ import (
 	"github.com/gravitational/gravity/lib/storage"
 	"github.com/gravitational/gravity/lib/utils"
 	"github.com/gravitational/gravity/lib/vacuum/internal/fsm"
-	"github.com/gravitational/gravity/lib/vacuum/prune/pack"
 
 	"github.com/gravitational/trace"
 	log "github.com/sirupsen/logrus"
@@ -56,19 +55,22 @@ func (r *Collector) Run(ctx context.Context, force bool) error {
 	}
 
 	errCh := make(chan error, 1)
-	updateCh := make(chan ops.ProgressEntry)
 	go func() {
 		errCh <- r.executePlan(ctx, machine, force)
 	}()
-	go pollProgress(ctx, updateCh, r.Operation.Key(), r.Operator)
+	ticker := time.NewTicker(1 * time.Second)
+	defer ticker.Stop()
+	var lastProgress *ops.ProgressEntry
 
 L:
 	for {
 		select {
 		case <-ctx.Done():
 			return nil
-		case progress := <-updateCh:
-			r.Emitter.PrintStep(progress.Message)
+		case <-ticker.C:
+			if progress := r.updateProgress(lastProgress); progress != nil {
+				lastProgress = progress
+			}
 		case err = <-errCh:
 			break L
 		}
@@ -127,13 +129,7 @@ func (r *Collector) init() (*libfsm.FSM, error) {
 		Operator:      r.Operator,
 		RuntimePath:   r.RuntimePath,
 		Runner:        r.Runner,
-		FieldLogger: log.WithFields(
-			log.Fields{
-				trace.Component:            "fsm:gc",
-				constants.FieldOperationID: r.Operation.ID,
-			}),
-		Silent:  r.Silent,
-		Emitter: r.Emitter,
+		Silent:        r.Silent,
 	})
 	if err != nil {
 		return nil, trace.Wrap(err)
@@ -167,6 +163,19 @@ func (r *Collector) executePlan(ctx context.Context, machine *libfsm.FSM, force 
 	return trace.Wrap(err)
 }
 
+func (r *Collector) updateProgress(lastProgress *ops.ProgressEntry) *ops.ProgressEntry {
+	progress, err := r.Operator.GetSiteOperationProgress(r.Operation.Key())
+	if err != nil {
+		log.WithError(err).Warn("Failed to query operation progress.")
+		return nil
+	}
+	if lastProgress == nil || !lastProgress.IsEqual(*progress) {
+		r.Silent.Printf("%v\t%v\n", time.Now().UTC().Format(constants.HumanDateFormatSeconds),
+			progress.Message)
+	}
+	return progress
+}
+
 func (r *Config) checkAndSetDefaults() error {
 	if r.App == nil {
 		return trace.BadParameter("application package is required")
@@ -189,9 +198,6 @@ func (r *Config) checkAndSetDefaults() error {
 	if r.FieldLogger == nil {
 		r.FieldLogger = log.WithField(trace.Component, "gc:collector")
 	}
-	if r.Emitter == nil {
-		r.Emitter = utils.NopEmitter()
-	}
 	return nil
 }
 
@@ -200,9 +206,9 @@ type Config struct {
 	// ClusterKey identifies the cluster
 	ClusterKey ops.SiteKey
 	// App specifies the cluster application
-	App *pack.Application
+	App *storage.Application
 	// RemoteApps lists optional applications from remote clusters
-	RemoteApps []pack.Application
+	RemoteApps []storage.Application
 	// Apps is the cluster application service
 	Apps app.Applications
 	// Packages is the cluster package service
@@ -223,41 +229,9 @@ type Config struct {
 	log.FieldLogger
 	// Silent controls whether the process outputs messages to stdout
 	localenv.Silent
-	// Emitter outputs progress messages to stdout
-	utils.Emitter
 }
 
 type Collector struct {
 	// Config is the collector's configuration
 	Config
-}
-
-func pollProgress(ctx context.Context, updateCh chan<- ops.ProgressEntry, opKey ops.SiteOperationKey, operator ops.Operator) {
-	ticker := time.NewTicker(1 * time.Second)
-	defer ticker.Stop()
-	var lastProgress *ops.ProgressEntry
-	for {
-		select {
-		case <-ctx.Done():
-			return
-		case <-ticker.C:
-			progress, err := operator.GetSiteOperationProgress(opKey)
-			if err != nil {
-				log.Warnf("Failed to query operation progress: %v.",
-					trace.DebugReport(err))
-				continue
-			}
-			if lastProgress == nil || !lastProgress.IsEqual(*progress) {
-				select {
-				case <-ctx.Done():
-					return
-				case updateCh <- *progress:
-				}
-			}
-			if progress.IsCompleted() {
-				return
-			}
-			lastProgress = progress
-		}
-	}
 }
