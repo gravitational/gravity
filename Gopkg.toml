@@ -176,7 +176,7 @@ ignored = [
 
 [[constraint]]
   name = "github.com/gravitational/teleport"
-  version = "=v2.4.9"
+  version = "=v2.4.10"
 
 [[constraint]]
   version = "0.0.1"
