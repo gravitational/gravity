@@ -1,24 +1,22 @@
 # Introduction
 
-This Quick Start Guide will help you to quickly evaluate Gravity by using a
-real world example. We believe in learning by doing!
+This Quick Start Guide will help you quickly evaluate Gravity by packaging, publishing and installing a multi-node Kubernetes application.
 
-This guide will use [Mattermost](https://www.mattermost.org/), an open sourced
+We will use [Mattermost](https://www.mattermost.org/), an open sourced
 chat application for teams, as a sample application. Mattermost represents a
 fairly typical web application and consists of an HTTP request handling process
 which connects to a PostgreSQL instance.
 
-This Quick Start Guide will walk you through the process of packaging
-Mattermost for private deployments. Before we start, please take a look at the
+Before we start, you may want to review the
 [Gravity Overview](overview.md) to get familiar with basic concepts of the
 Gravity system.
 
 ## System Requirements
 
 Gravity is a Kubernetes packaging solution so it only runs on computers capable
-of running Kubernetes. For this QuickStart you will need:
+of running Kubernetes. For this QuickStart, you will need:
 
-* A x86_64 GNU/Linux Linux machine. We recommend taking a look at the [list of supported distributions](requirements/#distributions).
+* A x86_64 GNU/Linux machine or VM. We recommend taking a look at the [list of supported distributions](requirements/#distributions).
 * [Docker](https://get.docker.io) version 1.8 or newer. Run `docker info` before continuing to make sure 
   you have Docker up and running. 
 * You must be a member of the `docker` group. Run `groups` command to make sure
@@ -27,13 +25,10 @@ of running Kubernetes. For this QuickStart you will need:
 * You must have `git` installed to clone the example application repo.
 * You must have `sudo` privileges.
 
-Obviously, all of this can be accomplished on a Windows or MacOS machine if it's
-capable of running a Linux VM which satisfies the criteria above.
-
 ## Getting the Tools
 
 Start by [downloading Gravity](https://gravitational.com/gravity/download/) and
-unpacking the archive, you should see:
+unpacking the archive. You should see the following files:
 
 ```
 $ ls -l
@@ -45,11 +40,11 @@ $ ls -l
 You can execute `install.sh` if you want to copy `tele` and `tsh` binaries to
 `/usr/local/bin/`.
 
-* `tele`: the CLI tool which is used for creating _application bundles_.
+* `tele`: the CLI tool which is used to package the application (creating an "Application Bundle").
 * `tsh`: the [Teleport client](https://gravitational.com/teleport/) for establishing 
-   SSH connections to remote Kubernetes clusters. This QuickStart does not use it.
+   SSH connections to remote Kubernetes clusters, which is not used in this guide.
 
-Try typing:
+You can type `tele version` to see confirm it is installed:
 
 ```
 $ tele version
@@ -58,9 +53,8 @@ Version:	5.2.4
 Git Commit:	708a1f155da4633774281bf8660c7e6cca6e0ff1
 ```
 
-Next, let's clone the sample Git repository which contains Kubernetes resources for
-[Mattermost](https://www.mattermost.org/), the open source, self-hosted Slack alternative 
-which we are using in this tutorial as a sample application:
+Next, let's clone the sample Git repository which contains the Kubernetes resources for
+[Mattermost](https://www.mattermost.org/), which we are using in this tutorial as a sample application:
 
 ```bsh
 $ git clone https://github.com/gravitational/quickstart.git
@@ -69,17 +63,15 @@ $ cd quickstart
 
 ## Building Application Bundle 
 
-To create an _application bundle_ the following steps must be performed:
+To create an Application Bundle we'll perform the following steps:
 
 1. Create Docker containers for application services. This step is sometimes
    called "dockerizing" an application.
 2. Create Kubernetes definitions for application components, this makes an application
    capable of running on Kubernetes.
-3. Create a Gravity _application manifest_ to describe the system requirements 
+3. Create a Gravity Application Manifest to describe the system requirements 
    for a Kubernetes cluster capable of running your application.
-4. Execute `tele build` CLI command.
-
-Let's follow them one by one.
+4. Execute the `tele build` CLI command.
 
 ### Step 1: Containerizing
 
@@ -99,7 +91,7 @@ mattermost-worker      2.2.0       ce3ead6dff48     43 seconds ago      405MB
 
 You can now return to the quickstart home directory.
 
-### Step 2: Creating Kubernetes Resources
+### Step 2: Creating the Kubernetes Resources
 
 Making Mattermost run on Kubernetes is easy. The quickstart repository you have
 cloned above includes the YAML definitions of Kubernetes objects. We'll use
@@ -114,24 +106,23 @@ mattermost/resources/charts/mattermost/
 │   └── mattermost.yaml
 └── values.yaml
 ```
-The most interesting file to take a look at is [mattermost.yaml](https://github.com/gravitational/quickstart/blob/master/mattermost/resources/charts/mattermost/templates/mattermost.yaml)
-You are welcome to change it to your liking.
+The most interesting file to take a look at is [mattermost.yaml](https://github.com/gravitational/quickstart/blob/master/mattermost/resources/charts/mattermost/templates/mattermost.yaml).
+You are welcome to modify it to your liking.
 
-**NOTE:** in this tutorial we're packaging a single Helm chart but it's
-possible to have several of them packaged into a single application bundle.
+!!! tip "Tip" 
+    In this tutorial, we are packaging a single Helm chart but it is possible to have several of them packaged into a single Application Bundle.
 
-### Step 3: Creating Application Manifest
+### Step 3: Creating the Application Manifest
 
-In this step we must create a _application manifest_ which describes the system
-requirements for a Kubernetes cluster for our application.
+In this step, we create an Application Manifest which describes the system
+requirements for the Kubernetes cluster.
 
-The cloned repo already has one in `mattermost/resources/app.yaml`. [Click here](https://github.com/gravitational/quickstart/blob/master/mattermost/resources/app.yaml) 
-to open it on Github for convenience. We have commented the most important fields
-in this example manifest.
+We have already prepared one for this guide in the cloned repo: `mattermost/resources/app.yaml`. You can [open it on Github](https://github.com/gravitational/quickstart/blob/master/mattermost/resources/app.yaml) for convenience. We have commented the most important fields
+in the example manifest.
 
-### Step 4: Building a Bundle
+### Step 4: Building the Application Bundle
 
-Before we build our first application bundle, let's make sure [Helm](https://helm.sh/) is properly 
+Before we build our first Application Bundle,   let's make sure [Helm](https://helm.sh/) is properly 
 initialized and [helm-template](https://github.com/technosophos/helm-template) plugin is installed:
 
 ```bash
@@ -139,7 +130,7 @@ $ helm init --client-only
 $ helm plugin install https://github.com/technosophos/helm-template
 ```
 
-Now you let's build the application bundle which will consist of a Kubernetes
+Now you can build the Application Bundle which will consist of a Kubernetes
 cluster with Mattermost pre-installed inside:
 
 ```bsh
@@ -176,36 +167,36 @@ $ tele build -o mattermost.tar mattermost/resources/app.yaml
 * [6/6] Build completed in 2 minutes 
 ```
 
-Let's review what just happened there. `tele build` did the following:
+Let's review what just happened. `tele build` did the following:
 
-* Downloaded Kubernetes binaries and Gravity tooling (these artifacts are called "runtime") from `s3://hub.gravitational.io`.
-* It scanned the current directory and the subdirectories for Kubernetes resources and Helm charts.
+* Downloaded Kubernetes binaries and Gravity tooling from `s3://hub.gravitational.io`. The application "runtime".
+* Scanned the current directory and the subdirectories for Kubernetes resources and Helm charts.
 * Downloaded external container images referenced in the resources discovered in the previous step.
-* Packaged (or vendored) Docker images into the application bundle.
-* Removed the duplicate container image layers, reducing the size of the application bundle.
-* Saved the snapshot AKA _application bundle_ as `mattermost.tar`.
+* Packaged (or vendored) Docker images into the Application Bundle.
+* Removed the duplicate container image layers, reducing the size of the Application Bundle.
+* Saved the Application Bundle as `mattermost.tar`.
 
 !!! warning "Slow Operation Warning"
     `tele build` needs to download hundreds of megabytes of binary dependencies which
-    can take considerable amount of time, depending on your Internet connection speed.
+    can take a considerable amount of time, depending on your Internet connection speed.
 
 The resulting `mattermost.tar` file is about 1.6GB and it is **entirely
 self-sufficient** and dependency-free. It contains everything: the Kubernetes
-binaries, the Docker engine, the Docker registry and the Mattermost itself:
+binaries, the Docker engine, the Docker registry and the Mattermost application itself:
 everything one needs to get Mattermost up and running on any fleet of Linux
 servers (or into an AWS/GCE/Azure account).
 
 Congratulations! You have created your first self-installing **Kubernetes
-virtual appliance** which contains Mattermost inside!
+virtual appliance**!
 
 
 ## Installing 
 
-Installing `mattermost.tar` _application bundle_ means creating a Kubernetes
-cluster with the application pre-loaded in it. This file is the only artifact
+Installing the `mattermost.tar` Application Bundle results in creating a Kubernetes
+cluster with the application pre-loaded. This file is the only artifact
 one needs to create a Kubernetes cluster with Mattermost running inside. 
 
-Copy `mattermost.tar` to a clean Linux machine, let's call it `host`. This node
+Copy `mattermost.tar` to a clean Linux machine. Let's call it `host`. This node
 will be used to bootstrap the cluster. Let's untar it and look inside:
 
 ```bash
@@ -228,7 +219,7 @@ $ tree
 └── upload
 ```
 
-There are a few interesting bits in here:
+Here is a brief description of these files:
 
 File Name    | Description
 -------------|------------------------
@@ -239,13 +230,11 @@ File Name    | Description
 `upgrade`, `install`, `upload` | Helpful bash wrappers around `gravity` command.
 `README`     | Instructions for the end user.
 
-We're ready to install our _first application bundle_ now! But first, it's important
-to note that Gravity supports two modes of installation:
+Gravity supports two modes of installation:
 
 * **CLI mode** also known as non-interactive mode is useful for advanced users
-  and for scripting. It allows clusters to be created programmatically or via a
+  and for scripting. It allows clusters to be created programmatically or via
   command line.
-  supported by the open source edition of Gravity.
 * **Web mode** uses a web browser to guide a user through an install wizard.
   This mode is useful for non-technical users, sales demos, etc.
 
@@ -306,7 +295,7 @@ Sat Jan 12 05:37:13 UTC Installation succeeded in 6m3.257480586s
 Kubernetes cluster with Mattermost running inside. If a single node cluster 
 is not enough, you can add additional nodes to it:
 
-1. Copy `gravity` binary from the boostrapping node above to another host, let's assume it's IP is `10.5.5.29`.
+1. Copy `gravity` binary from the boostrapping node above to another host, let's assume its IP is `10.5.5.29`.
 2. Execute `gravity join` command as shown below. Note that this command will
    "think" in silence for a few seconds before dumping any output.
 
@@ -344,17 +333,15 @@ Now you have a two-node Kubernetes cluster! And you can see Mattermost running o
 ### Installing via Web Browser
 
 
-Obviously, take a look at the `README` file, it explains how to launch an
-installer. Basically it will tell you to execute the `install` script. 
+When you execute the `install` script, it launches a daemon which serves a web UI and acts as a
+bootstrapping agent to create a new Kubernetes cluster. It will print a web URL
+for you to click on.
 
 ```bash
 $ sudo ./install
 OPEN THIS IN BROWSER: https://host:61009/web/installer/new/gravitational.io/mattermost/2.2.0?install_token=2a9de4a72ede
 ```
 
-The `install` launches a daemon which serves a web UI and acts as a
-bootstrapping agent to create a new Kubernetes cluster. It will print a web URL
-for you to click on.
 
 The browser-based installer will ask for the following:
 
@@ -364,7 +351,7 @@ The browser-based installer will ask for the following:
   nodes will use to talk to each other.
 * The "flavor" of the cluster, i.e. 1, 2 or 3 nodes. The installer will offer a CLI
   command for each node to copy to and execute.
-* Once all nodes report into the cluster the installer will proceed setting up
+* Once all nodes report into the cluster, the installer will proceed setting up
   Kubernetes.
 
 !!! tip "Tip":
@@ -404,20 +391,19 @@ via SSH. See more in [Remote Management](manage) section.
 
 ## Publishing
 
-While the resulting _application bundle_ can be used to create Kubernetes
-clusters, Gravity also allows to publish the bundle in the _Gravity Ops Center_
+While the resulting Application Bundle can be used to create Kubernetes
+clusters, Gravity also allows to publish the Application Bundle in the Gravity Ops Center
 for distribution, so other users of the Ops Center will see the published or
-updated versions of application bundles and install them, creating new clusters.
+updated versions of Application Bundles.
 
-The Ops Center also allows to keep track of remote clusters created from
-published application bundles and perform remote administration of them.
+The Ops Center also allows users to keep track of remote clusters created from
+published Application Bundles and perform remote administration of them.
 
 !!! warning "Version Warning":
-    The Ops Center is only available to users of Gravity Enterprise.  OSS users
-    can skip "publishing" subsection and move on to [installing](#installing) below.
+    The Ops Center is only available to users of Gravity Enterprise.
 
-To publish the application bundle, you have to connect `tele` tool to your Ops Center.
-Let's assume your _Ops Center_ is running on `https://opscenter.example.com`
+To publish the Application Bundle, you have to connect the `tele` tool to your Ops Center.
+Let's assume your Ops Center is running on `https://opscenter.example.com`
 
 ```bsh
 $ tele login -o https://opscenter.example.com
@@ -426,12 +412,7 @@ $ tele login -o https://opscenter.example.com
 The command above performs the interactive login, i.e. opens a web browser and
 takes a user through their corporate single sign on (SSO) process.
 
-!!! tip "Note":
-    If you are using a guest environment, like Vagrant on macOS, you may see an error
-    when attempting due to network restrictions. If so, first get a temporary key from
-    your host environment with the following command:
-
-Next, generate a new API key for the _Ops Center_ you've just connected to. The API
+Next, generate a new API key for the Ops Center you've just connected to. The API
 key will allow you to login into the Ops Center automatically in the future without
 having to go through the SSO flow: 
 
@@ -439,20 +420,20 @@ having to go through the SSO flow:
 $ tele keys new
 ```
 
-The response will include the API key, let's assume it's called `secret`. 
+The response will include the API key. Let's assume it's called `secret`. 
 We can use the key to login into the Ops Center non-interactively:
 
 ```bash
 tele login -o https://opscenter.example.com --key=secret
 ```
 
-Now you can publish the application bundle we just built:
+Now you can publish the Application Bundle we just built:
 
 ```bash
 $ tele push mattermost.tar
 ```
 
-... and Mattermost is now visible to all users of the Ops Center, so they can
+The Application Bundle is now visible to all users of the Ops Center, so they can
 install it.
 
 
@@ -463,7 +444,7 @@ works using Gravity. Feel free to dive further into the documentation
 for more details.
 
 Gravity avoids proprietary configuration formats or closed source tools.
-Outside of having a small Gravity-specific application manifest, your
+Outside of having a small Gravity-specific Application Manifest, your
 application is just a regular Kubernetes deployment. Gravity simply makes
 it portable and deployable into private infrastructure.
 
