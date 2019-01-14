@@ -496,9 +496,6 @@ func (s *site) launchAgent(ctx *operationContext, server storage.Server) (*serve
 		"--service-name", serviceName,
 		"--cloud-provider", s.provider,
 	}
-	if s.cloudProviderName() != "" {
-		command = append(command, "--cloud-provider", s.cloudProviderName())
-	}
 	out, err := teleportRunner.Run(s.gravityCommand(command...)...)
 	if err != nil {
 		return nil, trace.Wrap(err, "failed to start shrink agent: %s", out)
