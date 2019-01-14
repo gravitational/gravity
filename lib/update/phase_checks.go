@@ -103,7 +103,7 @@ func (p *updatePhaseChecks) Execute(ctx context.Context) error {
 		dockerConfig.StorageDriver = dockerSchema.StorageDriver
 	}
 
-	p.Infof("Executing preflight checks on %v.", formatServers(p.servers))
+	p.Infof("Executing preflight checks on %v.", storage.Servers(p.servers))
 	err = validate(ctx, p.remote, p.servers, installedApp.Manifest, app.Manifest, dockerConfig)
 	return trace.Wrap(err, "failed to validate requirements")
 }

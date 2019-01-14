@@ -126,7 +126,7 @@ func NewControl(resources Resources) *ResourceControl {
 func (r *ResourceControl) Create(reader io.Reader, upsert bool, user string) (err error) {
 	decoder := yaml.NewYAMLOrJSONDecoder(reader, defaults.DecoderBufferSize)
 	empty := true
-	for {
+	for err == nil {
 		var raw teleservices.UnknownResource
 		err = decoder.Decode(&raw)
 		if err != nil {
@@ -138,9 +138,6 @@ func (r *ResourceControl) Create(reader io.Reader, upsert bool, user string) (er
 			Upsert:   upsert,
 			User:     user,
 		})
-		if err != nil {
-			break
-		}
 	}
 	if err != io.EOF {
 		return trace.Wrap(err)

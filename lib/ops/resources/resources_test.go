@@ -21,6 +21,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"sort"
 	"strings"
 	"testing"
 
@@ -122,6 +123,15 @@ func (c testCollection) WriteJSON(w io.Writer) error {
 	}
 	_, err = w.Write(bytes)
 	return trace.Wrap(err)
+}
+
+func byKind(rs []teleservices.UnknownResource) (kinds sort.StringSlice) {
+	kinds = make([]string, 0, len(rs))
+	for _, resource := range rs {
+		kinds = append(kinds, resource.Kind)
+	}
+	sort.Strings(kinds)
+	return sort.StringSlice(kinds)
 }
 
 const resources = `

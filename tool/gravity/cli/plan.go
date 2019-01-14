@@ -80,77 +80,74 @@ func syncOperationPlan(localEnv *localenv.LocalEnvironment, updateEnv *localenv.
 }
 
 func displayOperationPlan(localEnv, updateEnv, joinEnv *localenv.LocalEnvironment, operationID string, format constants.Format) error {
-	err := displayClusterOperationPlan(localEnv, operationID, format)
-	if err != nil && !trace.IsNotFound(err) {
-		log.Warnf("Failed to display the cluster operation plan: %v.", trace.DebugReport(err))
-		// Fall-through to update/install operation plans
+	op, err := getLastOperation(localEnv, updateEnv, joinEnv, operationID)
+	if err != nil {
+		return trace.Wrap(err)
 	}
-	if err == nil {
-		return nil
-	}
-
-	if hasUpdateOperation(updateEnv) {
-		return displayUpdateOperationPlan(localEnv, updateEnv, format)
-	}
-
-	if hasExpandOperation(joinEnv) {
+	switch op.Type {
+	case ops.OperationInstall:
+		if op.IsCompleted() {
+			return displayClusterOperationPlan(localEnv, op.Key(), format)
+		}
+		return displayInstallOperationPlan(format)
+	case ops.OperationExpand:
 		return displayExpandOperationPlan(joinEnv, format)
+	case ops.OperationUpdate:
+		return displayUpdateOperationPlan(localEnv, updateEnv, *op, format)
+	case ops.OperationGarbageCollect:
+		return displayClusterOperationPlan(localEnv, op.Key(), format)
+	case ops.OperationUpdateEnvars:
+		return displayUpdateEnvarsOperationPlan(localEnv, updateEnv, *op, format)
+	default:
+		return trace.BadParameter("unknown operation type %q", op.Type)
 	}
-
-	return displayInstallOperationPlan(format)
 }
 
-func displayClusterOperationPlan(env *localenv.LocalEnvironment, operationID string, format constants.Format) error {
-	operator, err := env.SiteOperator()
+func displayClusterOperationPlan(env *localenv.LocalEnvironment, operationKey ops.SiteOperationKey, format constants.Format) error {
+	clusterEnv, err := env.NewClusterEnvironment()
 	if err != nil {
 		return trace.Wrap(err)
 	}
 
-	cluster, err := operator.GetLocalSite()
+	plan, err := clusterEnv.Operator.GetOperationPlan(operationKey)
 	if err != nil {
 		return trace.Wrap(err)
 	}
 
-	var op *ops.SiteOperation
-	if operationID != "" {
-		op, err = operator.GetSiteOperation(ops.SiteOperationKey{
-			AccountID:   cluster.AccountID,
-			SiteDomain:  cluster.Domain,
-			OperationID: operationID,
-		})
-	} else {
-		op, _, err = ops.GetLastOperation(cluster.Key(), operator)
-	}
-	if err != nil {
-		return trace.Wrap(err)
-	}
-
-	plan, err := operator.GetOperationPlan(op.Key())
-	if err != nil {
-		return trace.Wrap(err)
-	}
-
-	log.Debug("Showing operation plan retrieved from cluster controller.")
 	err = outputPlan(*plan, format)
 	return trace.Wrap(err)
 }
 
-func displayUpdateOperationPlan(localEnv, updateEnv *localenv.LocalEnvironment, format constants.Format) error {
-	clusterEnv, err := localEnv.NewClusterEnvironment()
+func displayUpdateOperationPlan(localEnv, updateEnv *localenv.LocalEnvironment, operation ops.SiteOperation, format constants.Format) error {
+	plan, err := getUpdateOperationPlan(localEnv, updateEnv)
+	if err != nil {
+		log.WithError(err).Warn("Failed to fetch operation plan from cluster environment.")
+		plan, err = fsm.GetOperationPlan(updateEnv.Backend, operation.SiteDomain, operation.ID)
+		if err != nil {
+			if trace.IsNotFound(err) {
+				return trace.NotFound("no operation has been created yet")
+			}
+			return trace.Wrap(err)
+		}
+	}
+	err = outputPlan(*plan, format)
 	if err != nil {
 		return trace.Wrap(err)
 	}
-	fsm, err := update.NewFSM(context.TODO(),
-		update.FSMConfig{
-			Backend:      clusterEnv.Backend,
-			LocalBackend: updateEnv.Backend,
-		})
+	return nil
+}
+
+func displayUpdateEnvarsOperationPlan(localEnv, updateEnv *localenv.LocalEnvironment, operation ops.SiteOperation, format constants.Format) error {
+	plan, err := getUpdateEnvarsOperationPlan(localEnv, updateEnv)
 	if err != nil {
-		return trace.Wrap(err)
-	}
-	plan, err := fsm.GetPlan()
-	if err != nil {
-		return trace.Wrap(err)
+		log.WithError(err).Warn("Failed to fetch operation plan from cluster environment.")
+		plan, err = fsm.GetOperationPlan(updateEnv.Backend, operation.SiteDomain, operation.ID)
+		if err != nil {
+			if trace.IsNotFound(err) {
+				return trace.NotFound("no operation has been created yet")
+			}
+			return trace.Wrap(err)
+		}
 	}
 	err = outputPlan(*plan, format)
 	if err != nil {
@@ -266,17 +263,3 @@ func outputPhaseError(phase storage.OperationPhase) error {
 }
 
 const recoveryModeWarning = "Failed to retrieve plan from etcd, showing cached plan. If etcd went down as a result of a system upgrade, you can perform a rollback phase. Run 'gravity plan --repair' when etcd connection is restored.\n"
-
-// hasUpdateOperation returns true if there is an upgrade operation found
-// in the backend used by the specified environment.
-// updateEnv is the boltdb used for upgrades
-func hasUpdateOperation(updateEnv *localenv.LocalEnvironment) bool {
-	_, err := storage.GetLastOperation(updateEnv.Backend)
-	return err == nil
-}
-
-// hasExpandOperation returns true if the provided backend contains an expand operation
-func hasExpandOperation(joinEnv *localenv.LocalEnvironment) bool {
-	_, err := ops.GetExpandOperation(joinEnv.Backend)
-	return err == nil
-}

@@ -118,6 +118,9 @@ type Config struct {
 
 	// LogForwarders allows to manage log forwarders via Kubernetes config maps
 	LogForwarders LogForwardersControl
+
+	// Client specifies an optional kubernetes client
+	Client *kubernetes.Clientset
 }
 
 // Operator implements Operator interface
@@ -150,9 +153,9 @@ func New(cfg Config) (*Operator, error) {
 
 	operator := &Operator{
 		cfg:             cfg,
-		mu:              sync.Mutex{},
 		providers:       map[ops.SiteKey]CloudProvider{},
 		operationGroups: map[ops.SiteKey]*operationGroup{},
+		kubeClient:      cfg.Client,
 		FieldLogger:     log.WithField(trace.Component, constants.ComponentOps),
 	}
 	return operator, nil
@@ -168,8 +171,8 @@ func NewLocalOperator(cfg Config) (*Operator, error) {
 	}
 	return &Operator{
 		cfg:             cfg,
-		mu:              sync.Mutex{},
 		operationGroups: map[ops.SiteKey]*operationGroup{},
+		kubeClient:      cfg.Client,
 		FieldLogger:     log.WithField(trace.Component, constants.ComponentOps),
 	}, nil
 }
@@ -744,7 +747,7 @@ func (o *Operator) SignSSHKey(req ops.SSHSignRequest) (*ops.SSHSignResponse, err
 		return nil, trace.Wrap(err)
 	}
 	return &ops.SSHSignResponse{
-		Cert: cert,
+		Cert:                   cert,
 		TrustedHostAuthorities: authorities,
 	}, nil
 }

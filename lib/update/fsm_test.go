@@ -39,8 +39,14 @@ type FSMSuite struct {
 
 var _ = check.Suite(&FSMSuite{})
 
+const (
+	operationID = "operation-1"
+	clusterName = "example.com"
+)
+
 func (s *FSMSuite) SetUpTest(c *check.C) {
 	services := opsservice.SetupTestServices(c)
+	logger := logrus.WithField(trace.Component, "fsm-suite")
 	s.engine = &fsmUpdateEngine{
 		FSMConfig: FSMConfig{
 			LocalBackend: services.Backend,
@@ -49,19 +55,20 @@ func (s *FSMSuite) SetUpTest(c *check.C) {
 			Operator:     services.Operator,
 			Spec:         getTestExecutor(),
 		},
-		FieldLogger: logrus.WithField(trace.Component, "fsm-suite"),
+		FieldLogger: logger,
+		reconciler:  &testReconciler{},
 	}
 	s.fsm = &fsm.FSM{
 		Config:      fsm.Config{Engine: s.engine},
-		FieldLogger: logrus.WithField(trace.Component, "fsm-suite"),
+		FieldLogger: logger,
 	}
 }
 
 func (s *FSMSuite) TestFSMBasic(c *check.C) {
 	plan := storage.OperationPlan{
-		OperationID:   "operation-1",
+		OperationID:   operationID,
 		OperationType: "test_operation",
-		ClusterName:   "example.com",
+		ClusterName:   clusterName,
 		Phases: []storage.OperationPhase{
 			{ID: "/phase1"},
 			{ID: "/phase2", Requires: []string{"/phase1"}},
@@ -105,9 +112,9 @@ func (s *FSMSuite) TestFSMBasic(c *check.C) {
 
 func (s *FSMSuite) TestFSMExecuteSubphase(c *check.C) {
 	plan := storage.OperationPlan{
-		OperationID:   "operation-1",
+		OperationID:   operationID,
 		OperationType: "test_operation",
-		ClusterName:   "example.com",
+		ClusterName:   clusterName,
 		Phases: []storage.OperationPhase{
 			{ID: "/phase1", Phases: []storage.OperationPhase{
 				{ID: "/phase1/sub1"},
@@ -132,9 +139,9 @@ func (s *FSMSuite) TestFSMExecuteSubphase(c *check.C) {
 
 func (s *FSMSuite) TestFSMExecutePhaseWithSubphases(c *check.C) {
 	plan := storage.OperationPlan{
-		OperationID:   "operation-1",
+		OperationID:   operationID,
 		OperationType: "test_operation",
-		ClusterName:   "example.com",
+		ClusterName:   clusterName,
 		Phases: []storage.OperationPhase{
 			{ID: "/phase1", Phases: []storage.OperationPhase{
 				{ID: "/phase1/sub1"},
@@ -220,3 +227,9 @@ func (p *testPhase2) Execute(context.Context) error {
 func (p *testPhase2) Rollback(context.Context) error {
 	return nil
 }
+
+func (r *testReconciler) ReconcilePlan(ctx context.Context, plan storage.OperationPlan) (*storage.OperationPlan, error) {
+	return &plan, nil
+}
+
+type testReconciler struct{}

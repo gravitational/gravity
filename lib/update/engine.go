@@ -21,7 +21,6 @@ import (
 	"context"
 	"fmt"
 	"os"
-	"os/exec"
 	"time"
 
 	"github.com/gravitational/gravity/lib/app"
@@ -46,22 +45,36 @@ type fsmUpdateEngine struct {
 	// FieldLogger is used for logging
 	logrus.FieldLogger
 	// plan is the update operation plan
-	plan *storage.OperationPlan
-	// useEtcd indicated whether the engine should attempt to use etcd or not
-	useEtcd bool
+	plan       *storage.OperationPlan
+	reconciler Reconciler
 }
 
-// NewUpdateEngine returns a new FSM instance
-func NewUpdateEngine(c FSMConfig) (*fsmUpdateEngine, error) {
-	logger := logrus.WithFields(logrus.Fields{
-		trace.Component: "engine:update",
-	})
-	engine := &fsmUpdateEngine{
-		FSMConfig:   c,
-		FieldLogger: logger,
-		useEtcd:     true,
+// newUpdateEngine returns a new instance of FSM engine for update
+func newUpdateEngine(ctx context.Context, config FSMConfig, logger logrus.FieldLogger) (*fsmUpdateEngine, error) {
+	plan, err := loadPlan(config.LocalBackend, logger)
+	if err != nil {
+		return nil, trace.Wrap(err)
 	}
-
+	reconciler := NewDefaultReconciler(
+		config.Backend, config.LocalBackend,
+		plan.ClusterName, plan.OperationID,
+		logger)
+	reconciledPlan, err := reconciler.ReconcilePlan(ctx, *plan)
+	if err != nil {
+		// This is not critical and will be retried during the operation
+		logger.WithError(err).Warn("Failed to reconcile operation plan.")
+		reconciledPlan = plan
+	}
+	engine := &fsmUpdateEngine{
+		FSMConfig: config,
+		FieldLogger: &fsm.Logger{
+			Operator:    config.Operator,
+			Key:         fsm.OperationKey(*plan),
+			FieldLogger: logger,
+		},
+		plan:       reconciledPlan,
+		reconciler: reconciler,
+	}
 	return engine, nil
 }
 
@@ -83,7 +96,7 @@ func (f *fsmUpdateEngine) PreExecute(ctx context.Context, p fsm.Params) error {
 	return nil
 }
 
-// PostExecute reconciles the operation plan after phase execution
+// PostExecute is no-op for the update engine
 func (f *fsmUpdateEngine) PostExecute(ctx context.Context, p fsm.Params) error {
 	return nil
 }
@@ -184,134 +197,11 @@ func (f *fsmUpdateEngine) activateCluster(cluster storage.Site) error {
 	return nil
 }
 
-func (f *fsmUpdateEngine) loadPlan() error {
-	op, err := storage.GetLastOperation(f.LocalBackend)
-	if err != nil {
-		if !trace.IsNotFound(err) {
-			return trace.Wrap(err)
-		}
-
-		f.Error(trace.DebugReport(err))
-		execPath, err := os.Executable()
-		if err != nil {
-			return trace.Wrap(err)
-		}
-
-		return trace.NotFound("Please run `sudo %[1]v upgrade` or `sudo %[1]v upgrade --manual` first", execPath)
-	}
-
-	plan, err := f.LocalBackend.GetOperationPlan(op.SiteDomain, op.ID)
-	if err != nil && !trace.IsNotFound(err) {
-		return trace.Wrap(err)
-	}
-
-	if plan == nil {
-		return trace.NotFound("operation %v (%v) doesn't have a plan",
-			op.Type, op.ID)
-	}
-
-	f.plan = plan
-
-	return nil
-}
-
-func (f *fsmUpdateEngine) reconcilePlan(ctx context.Context) error {
-	err := f.trySyncChangelogFromEtcd(ctx)
-	if err != nil {
-		return trace.Wrap(err)
-	}
-
-	// Always use the local plan as authoritative
-	local, err := f.LocalBackend.GetOperationPlanChangelog(f.plan.ClusterName, f.plan.OperationID)
-	if err != nil {
-		return trace.Wrap(err)
-	}
-
-	f.plan = fsm.ResolvePlan(*f.plan, local)
-
-	var buf bytes.Buffer
-	fsm.FormatOperationPlanText(&buf, *f.plan)
-	f.Debugf("Reconciled plan: %v.", buf.String())
-	return nil
-}
-
-func (f *fsmUpdateEngine) trySyncChangelogToEtcd(ctx context.Context) error {
-	shouldSync, err := f.isEtcdAvailable(ctx)
-	if err != nil {
-		return trace.Wrap(err)
-	}
-
-	if shouldSync {
-		return trace.Wrap(f.syncChangelog(f.LocalBackend, f.Backend))
-	}
-
-	return nil
-}
-
-func (f *fsmUpdateEngine) trySyncChangelogFromEtcd(ctx context.Context) error {
-	shouldSync, err := f.isEtcdAvailable(ctx)
-	if err != nil {
-		return trace.Wrap(err)
-	}
-
-	if shouldSync {
-		return trace.Wrap(f.syncChangelog(f.Backend, f.LocalBackend))
-	}
-
-	return nil
-}
-
-// syncChangelog will sync changelog entries from src to dst storage
-func (f *fsmUpdateEngine) syncChangelog(src storage.Backend, dst storage.Backend) error {
-	return trace.Wrap(syncChangelog(src, dst, f.plan.ClusterName, f.plan.OperationID))
-}
-
-// syncChangelog will sync changelog entries from src to dst storage
-func syncChangelog(src storage.Backend, dst storage.Backend, clusterName string, operationID string) error {
-	srcChangeLog, err := src.GetOperationPlanChangelog(clusterName, operationID)
-	if err != nil {
-		return trace.Wrap(err)
-	}
-
-	dstChangeLog, err := dst.GetOperationPlanChangelog(clusterName, operationID)
-	if err != nil {
-		return trace.Wrap(err)
-	}
-
-	diff := fsm.DiffChangelog(srcChangeLog, dstChangeLog)
-	for _, entry := range diff {
-		_, err = dst.CreateOperationPlanChange(entry)
-		if err != nil {
-			return trace.Wrap(err)
-		}
-	}
-
-	return nil
-}
-
-// isEtdAvailable checks the local backend, and checks if we're in an upgrade phase where we expect etcd to be available
-func (f *fsmUpdateEngine) isEtcdAvailable(ctx context.Context) (bool, error) {
-	if !f.useEtcd {
-		return false, nil
-	}
-	_, err := utils.RunCommand(ctx, f.FieldLogger, utils.PlanetCommandArgs(defaults.EtcdCtlBin, "cluster-health")...)
-	if err != nil {
-		// etcdctl uses an exit code if the health cannot be checked
-		// so we don't need to return an error
-		if _, ok := trace.Unwrap(err).(*exec.ExitError); ok {
-			return false, nil
-		}
-		return false, trace.Wrap(err)
-	}
-	return true, nil
-}
-
 func (f *fsmUpdateEngine) ChangePhaseState(ctx context.Context, change fsm.StateChange) error {
 	f.Debugf("%s.", change)
 
-	id := uuid.New()
 	_, err := f.LocalBackend.CreateOperationPlanChange(storage.PlanChange{
-		ID:          id,
+		ID:          uuid.New(),
 		ClusterName: f.plan.ClusterName,
 		OperationID: f.plan.OperationID,
 		PhaseID:     change.Phase,
@@ -320,13 +210,7 @@ func (f *fsmUpdateEngine) ChangePhaseState(ctx context.Context, change fsm.State
 		Created:     time.Now().UTC(),
 	})
 	if err != nil {
-		f.Errorf("Error recording phase state change %+v: %v.",
-			change, err)
-		return trace.Wrap(err)
-	}
-
-	err = f.trySyncChangelogToEtcd(ctx)
-	if err != nil {
+		f.WithError(err).Warnf("Error recording phase state change %+v.", change)
 		return trace.Wrap(err)
 	}
 
@@ -336,6 +220,47 @@ func (f *fsmUpdateEngine) ChangePhaseState(ctx context.Context, change fsm.State
 	}
 
 	return nil
+}
+
+func (f *fsmUpdateEngine) reconcilePlan(ctx context.Context) error {
+	plan, err := f.reconciler.ReconcilePlan(ctx, *f.plan)
+	if err != nil {
+		return trace.Wrap(err)
+	}
+	*f.plan = *plan
+	var buf bytes.Buffer
+	fsm.FormatOperationPlanText(&buf, *f.plan)
+	f.Debugf("Reconciled plan: %v.", buf.String())
+	return nil
+}
+
+func loadPlan(backend storage.Backend, logger logrus.FieldLogger) (*storage.OperationPlan, error) {
+	op, err := storage.GetLastOperation(backend)
+	if err != nil {
+		if !trace.IsNotFound(err) {
+			return nil, trace.Wrap(err)
+		}
+
+		logger.Error(trace.DebugReport(err))
+		execPath, err := os.Executable()
+		if err != nil {
+			return nil, trace.Wrap(err)
+		}
+
+		return nil, trace.NotFound("Please run `sudo %[1]v upgrade` or `sudo %[1]v upgrade --manual` first", execPath)
+	}
+
+	plan, err := backend.GetOperationPlan(op.SiteDomain, op.ID)
+	if err != nil && !trace.IsNotFound(err) {
+		return nil, trace.Wrap(err)
+	}
+
+	if plan == nil {
+		return nil, trace.NotFound("operation %v (%v) doesn't have a plan",
+			op.Type, op.ID)
+	}
+
+	return plan, nil
 }
 
 // checkBinaryVersion makes sure that the plan phase is being executed with
