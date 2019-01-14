@@ -38,7 +38,7 @@ RELEASE_OUT ?=
 TELEPORT_TAG = 3.0.1
 # TELEPORT_REPOTAG adapts TELEPORT_TAG to the teleport tagging scheme
 TELEPORT_REPOTAG := v$(TELEPORT_TAG)
-PLANET_TAG := 5.5.1-$(K8S_VER)
+PLANET_TAG := 5.5.2-$(K8S_VER)
 PLANET_BRANCH := $(PLANET_TAG)
 K8S_APP_TAG := $(GRAVITY_TAG)
 TELEKUBE_APP_TAG := $(GRAVITY_TAG)
@@ -439,6 +439,7 @@ publish-artifacts: opscenter telekube
 	if [ -z "$(TELE_KEY)" ] || [ -z "$(DISTRIBUTION_OPSCENTER)" ]; then \
 	   echo "TELE_KEY or DISTRIBUTION_OPSCENTER are not set"; exit 1; \
 	fi;
+	$(GRAVITY_BUILDDIR)/tele logout
 	$(GRAVITY_BUILDDIR)/tele login -o $(DISTRIBUTION_OPSCENTER) --token=$(TELE_KEY)
 	$(GRAVITY_BUILDDIR)/tele push $(GRAVITY_BUILDDIR)/telekube.tar
 	$(GRAVITY_BUILDDIR)/tele push $(GRAVITY_BUILDDIR)/opscenter.tar
