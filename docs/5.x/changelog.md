@@ -133,7 +133,7 @@ LTS starts with `3.51.0` with minor backwards compatible changes added over time
 
 !!! warning
     Kubernetes 1.12.3 includes fixes for CVE-2018-1002105. Please see
-    [Teleport Announcements](https://github.com/kubernetes/kubernetes/issues/71411) for more information.
+    [Issue 71411](https://github.com/kubernetes/kubernetes/issues/71411) for more information.
 
 ### 5.2.4
 
