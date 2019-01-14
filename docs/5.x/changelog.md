@@ -7,12 +7,12 @@ LTS starts with `3.51.0` with minor backwards compatible changes added over time
 
 | Release       | LTS | Release Date         | Supported Until      | Kubernetes Version | Teleport Version |
 | --------------|-----| -------------------- | -------------------- | ------------------ |------------------|
-| 5.5.0-alpha.3 | No  | December, 12th 2018  | -                    | 1.12.3             | 3.0.1            |
-| 5.4.1         | No  | December, 19th 2018  | -                    | 1.13.0             | 2.4.7
-| 5.3.5         | No  | December, 3rd 2018   | -                    | 1.12.3             | 2.4.7            |
-| 5.2.4         | Yes | December, 3rd 2018   | October, 15th, 2019  | 1.11.5             | 2.4.7            |
-| 5.0.27        | Yes | December, 13th 2018  | April, 13th 2019     | 1.9.12-gravitational | 2.4.7            |
-| 4.67.0        | Yes | January, 3rd, 2019 | November, 16th 2018  | 1.7.18-gravitational | 2.3.5            |
+| 5.5.0-alpha.5 | No  | January, 8th 2019  | -                    | 1.12.3             | 3.0.1            |
+| 5.4.2         | No  | January, 8th 2019  | -                    | 1.13.0             | 2.4.10
+| 5.3.6         | No  | January, 8th 2019   | -                    | 1.12.3             | 2.4.10            |
+| 5.2.5         | Yes | January, 8th 2019   | October, 15th, 2019  | 1.11.5             | 2.4.10            |
+| 5.0.28        | Yes | January, 7th 2019 | April, 13th 2019     | 1.9.12-gravitational | 2.4.10            |
+| 4.67.0        | Yes | January, 3rd 2019 | November, 16th 2018  | 1.7.18-gravitational | 2.3.5            |
 | 3.64.0        | Yes | December, 21st 2017  | June, 2nd 2018       | 1.5.7              | 2.0.6            |
 | 1.30.0        | Yes | March, 21st 2017     | March, 21st 2018     | 1.3.8              | 1.2.0            |
 
@@ -24,6 +24,72 @@ LTS starts with `3.51.0` with minor backwards compatible changes added over time
     article in our Help Center.
 
 ## 5.x Releases
+
+### 5.5.0-alpha.5
+
+#### Bugfixes
+
+* Set advertise-address on kube-apiserver to fix binding on hosts with multiple network addresses.
+
+### 5.5.0-alpha.4
+
+#### Bugfixes
+
+* Revendor teleport to include security fix.
+
+!!! warning
+    Teleport 3.0.3 includes fixes for a security vulnerability. Please see
+    [Teleport Announcements](https://gravitational.zendesk.com/hc/en-us/articles/360015185614-Teleport-3-1-2-3-0-3-2-7-7-2-6-10) for more information.
+
+### 5.4.2
+
+#### Bugfixes
+
+* Revendor teleport to 2.4.10.
+
+!!! warning
+    Teleport 2.4.10 includes fixes for a security vulnerability. Please see
+    [Teleport Announcements](https://gravitational.zendesk.com/hc/en-us/articles/360015185614-Teleport-3-1-2-3-0-3-2-7-7-2-6-10) for more information.
+
+### 5.3.6
+
+#### Bugfixes
+
+* Revendor teleport to 2.4.10.
+
+!!! warning
+    Teleport 2.4.10 includes fixes for a security vulnerability. Please see
+    [Teleport Announcements](https://gravitational.zendesk.com/hc/en-us/articles/360015185614-Teleport-3-1-2-3-0-3-2-7-7-2-6-10) for more information.
+
+### 5.2.5
+
+#### Bugfixes
+
+* Revendor teleport to 2.4.10.
+
+!!! warning
+    Teleport 2.4.10 includes fixes for a security vulnerability. Please see
+    [Teleport Announcements](https://gravitational.zendesk.com/hc/en-us/articles/360015185614-Teleport-3-1-2-3-0-3-2-7-7-2-6-10) for more information.
+
+### 5.1.3
+
+#### Bugfixes
+
+* Revendor teleport to 2.4.10.
+
+!!! warning
+    Teleport 2.4.10 includes fixes for a security vulnerability. Please see
+    [Teleport Announcements](https://gravitational.zendesk.com/hc/en-us/articles/360015185614-Teleport-3-1-2-3-0-3-2-7-7-2-6-10) for more information.
+
+### 5.0.28
+
+#### Bugfixes
+
+* Revendor teleport to 2.4.10.
+
+!!! warning
+    Teleport 2.4.10 includes fixes for a security vulnerability. Please see
+    [Teleport Announcements](https://gravitational.zendesk.com/hc/en-us/articles/360015185614-Teleport-3-1-2-3-0-3-2-7-7-2-6-10) for more information.
 
 ### 5.4.1
 
