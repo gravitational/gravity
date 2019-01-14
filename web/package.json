@@ -30,7 +30,7 @@
     "react-select": "0.9.1",
     "semver": "5.1.0",
     "u2f-api-polyfill": "^0.4.3",
-    "xterm": "2.4.0"
+    "xterm": "https://github.com/gravitational/xterm.js#v2.4.0"
   },
   "devDependencies": {
     "babel-core": "^6.26.0",
@@ -76,6 +76,6 @@
     "webpack": "4.19.1",
     "webpack-bundle-analyzer": "^2.13.1",
     "webpack-cli": "^2.1.4",
-    "webpack-dev-server": "3.1.10"
+    "webpack-dev-server": "3.1.11"
   }
 }
