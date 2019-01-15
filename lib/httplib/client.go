@@ -143,6 +143,14 @@ func WithCA(cert []byte) ClientOption {
 	}
 }
 
+// WithIdleConnTimeout overrides the transport connection idle timeout
+func WithIdleConnTimeout(timeout time.Duration) ClientOption {
+	return func(c *http.Client) {
+		transport := c.Transport.(*http.Transport)
+		transport.IdleConnTimeout = timeout
+	}
+}
+
 // GetClient returns secure or insecure client based on settings
 func GetClient(insecure bool, options ...ClientOption) *http.Client {
 	var client *http.Client
@@ -178,7 +186,7 @@ func GetPlanetClient(options ...ClientOption) (*http.Client, error) {
 	if err != nil {
 		return nil, trace.ConvertSystemError(err)
 	}
-	options = append(options, WithCA(ca))
+	options = append(options, WithCA(ca), WithIdleConnTimeout(defaults.ConnectionIdleTimeout))
 
 	// For backwards compatability, only add the client key file if it exists on disk
 	// TODO(knisbet) this fallback can be removed when we no longer support upgrades from 5.0
