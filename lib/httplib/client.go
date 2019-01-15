@@ -153,20 +153,21 @@ func WithIdleConnTimeout(timeout time.Duration) ClientOption {
 
 // GetClient returns secure or insecure client based on settings
 func GetClient(insecure bool, options ...ClientOption) *http.Client {
-	var client *http.Client
-	if insecure {
-		client = &http.Client{
-			Transport: &http.Transport{
-				TLSClientConfig: &tls.Config{
-					InsecureSkipVerify: true,
-				},
-			},
-		}
-	} else {
-		client = &http.Client{Transport: &http.Transport{TLSClientConfig: &tls.Config{}}}
+	transport := &http.Transport{
+		TLSClientConfig: &tls.Config{},
 	}
+	if insecure {
+		transport.TLSClientConfig.InsecureSkipVerify = true
+	}
+	client := &http.Client{Transport: transport}
 	for _, o := range options {
 		o(client)
+	}
+	if transport.IdleConnTimeout == 0 {
+		transport.IdleConnTimeout = defaults.ConnectionIdleTimeout
+	}
+	if transport.MaxIdleConnsPerHost == 0 {
+		transport.MaxIdleConnsPerHost = defaults.MaxIdleConnsPerHost
 	}
 	return client
 }
@@ -186,7 +187,7 @@ func GetPlanetClient(options ...ClientOption) (*http.Client, error) {
 	if err != nil {
 		return nil, trace.ConvertSystemError(err)
 	}
-	options = append(options, WithCA(ca), WithIdleConnTimeout(defaults.ConnectionIdleTimeout))
+	options = append(options, WithCA(ca))
 
 	// For backwards compatability, only add the client key file if it exists on disk
 	// TODO(knisbet) this fallback can be removed when we no longer support upgrades from 5.0
