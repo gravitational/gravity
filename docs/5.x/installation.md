@@ -242,7 +242,7 @@ overlay network to work properly.
 * Instances must be assigned a [network tag](https://cloud.google.com/vpc/docs/add-remove-network-tags)
 matching the name of the cluster. It is required to ensure that created load
 balancers discover proper instances.
-* Cloud API access scopes must include RW permissions for Compute Engine.
+* Cloud API access scopes must include read/write permissions for Compute Engine.
 
 Once the nodes have been properly configured, copy the installer tarball and
 launch installation as described above:

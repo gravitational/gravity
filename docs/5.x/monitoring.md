@@ -64,7 +64,7 @@ create a custom dashboard, which can then be exported.
 
 ## Metrics collection
 
-All default metrics collected by heapster go into the `k8s` database in InfluxDB. All other applications that collect
+All default metrics collected by Heapster go into the `k8s` database in InfluxDB. All other applications that collect
 metrics should submit them into the same database in order for proper retention policies to be enforced.
 
 ## Retention policies
@@ -76,7 +76,7 @@ By default InfluxDB has 3 pre-configured retention policies:
 * long = 52w
 
 The `default` retention policy is supposed to store high-precision metrics (for example, all default metrics collected
-by heapster with 10s interval). The `default` policy is default for `k8s` database which means that metrics that do not
+by Heapster with 10s interval). The `default` policy is default for `k8s` database which means that metrics that do not
 specify retention policy explicitly go in there. The other two policies - `medium` and `long` are intended to store
 metric rollups and should not be used directly.
 
@@ -245,11 +245,11 @@ Following table shows the alerts Gravity ships with by default:
 | Filesystem | High inode usage | Triggers a warning, when > 90% used, with > 95% used, triggers a critical error |
 | System | Uptime | Triggers a warning when a node's uptime is less than 5min |
 | System | Kernel parameters | Triggers an error if a parameter is not set. See [value matrix](/requirements/#kernel-module-matrix) for details. |
-| Etcd | Etcd instance health | Triggers an error when an etcd master is down longer than 5min |
+| Etcd | Etcd instance health | Triggers an error when an Etcd master is down longer than 5min |
 | Etcd | Etcd latency check | Triggers a warning, when follower <-> leader latency exceeds 500ms, then an error when it exceeds 1s over a period of 1min |
 | Docker | Docker daemon health | Triggers an error when docker daemon is down |
 | InfluxDB | InfluxDB instance health | Triggers an error when InfluxDB is inaccessible |
 | Kubernetes | Kubernetes node readiness | Triggers an error when the node is not ready |
 
-Kapacitor will also trigger an email for each of the events listed above if stmp resource has been
+Kapacitor will also trigger an email for each of the events listed above if SMTP resource has been
 configured (see [configuration](/monitoring/#configuration) for details).

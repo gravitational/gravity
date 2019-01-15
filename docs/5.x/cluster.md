@@ -58,7 +58,7 @@ way:
 
 ### Kubernetes Extensions
 
-Gravitational also offers various extensions for Kubernets that can be
+Gravitational also offers various extensions for Kubernetes that can be
 pre-packaged and distributed with your application. Examples of such solutions
 include:
 
@@ -99,8 +99,8 @@ The full list of `gravity` commands:
 |-----------|--------------------------------------------------------------------|
 | status    | show the status of the cluster and the application running in it   |
 | update    | manage application updates on a Gravity Cluster                    |
-| upgrade   | start the upgrade operation for a Gravity Cluster                  |
-| plan      | view the upgrade operation plan                                    |
+| upgrade   | manage the application upgrade operation for a Gravity Cluster     |
+| plan      | manage (active) operation plan                                     |
 | rollback  | roll back the upgrade operation for a Gravity Cluster              |
 | join      | add a new node to the cluster                                      |
 | autojoin  | join the cluster using cloud provider for discovery                |
@@ -113,6 +113,7 @@ The full list of `gravity` commands:
 | resource  | manage cluster resources                                           |
 | exec      | execute commands in the master container                           |
 | shell     | launch an interactive shell in the master container                |
+| gc        | clean up unused cluster resources                                  |
 
 
 ## Cluster Status
@@ -363,7 +364,7 @@ An automated upgrade can be triggered through the following methods:
 
 In the manual mode, a user executes a sequence of commands on appropriate nodes of the
 cluster according to a generated "Operation Plan". The upgrade operation in manual
-mode is started by running the following command using the gravity binary:
+mode is started by running the following command using the `gravity` binary:
 
 ```bsh
 $ ./gravity upgrade --manual
@@ -803,7 +804,7 @@ Periodic updates:	OFF
 
 You should see the third node registered in the cluster and cluster status set to `active`.
 
-#### Autoscaling the cluster
+#### Auto Scaling the cluster
 
 When running on AWS, Gravity integrates with [Systems manager parameter store](http://docs.aws.amazon.com/systems-manager/latest/userguide/systems-manager-paramstore.html) to simplify the discovery.
 
@@ -896,14 +897,14 @@ root$ gravity restore <data.tar.gz>
 
 ## Garbage Collection
 
-Every now and then, the cluster would accumulate resources it has no use for - be it gravity
+Every now and then, the cluster would accumulate resources it has no use for - be it Gravity
 packages or docker images from previous versions of the application. These resources will unnecessarily
 waste disk space and while possible are usually difficult to get rid of manually.
 
 The `gravity` tool offers a subset of commands to run cluster-wide garbage collection.
 During garbage collection, the following resources are pruned:
 
-  * Unused gravity packages from previous versions of the application
+  * Unused Gravity packages from previous versions of the application
   * Unused docker images from previous versions of the application
   * Obsolete systemd journal directories
 
@@ -1037,7 +1038,7 @@ Currently supported resources are:
 Resource Name             | Resource Description
 --------------------------|---------------------
 `oidc`                    | OIDC connector
-`github`                  | Github connector
+`github`                  | GitHub connector
 `saml`                    | SAML connector
 `role`                    | cluster role
 `user`                    | cluster user
@@ -1046,6 +1047,10 @@ Resource Name             | Resource Description
 `trusted_cluster`         | managing access to remote Ops Centers
 `endpoints`               | Ops Center endpoints for user and cluster traffic
 `cluster_auth_preference` | cluster authentication settings such as second-factor
+`alert`                   | cluster monitoring alert
+`alerttarget`             | cluster monitoring alert target
+`smtp`                    | cluster monitoring SMTP configuration
+`runtime_environment`     | cluster runtime environment variables
 
 ### Configuring OpenID Connect
 
@@ -1116,9 +1121,9 @@ allowed to log in and granted the admin role.
     The user must belong to a hosted domain, otherwise the `hd` claim will
     not be populated.
 
-### Configuring Github Connector
+### Configuring GitHub Connector
 
-Gravity supports authentication and authorization via Github. To configure
+Gravity supports authentication and authorization via GitHub. To configure
 it, create a YAML file with the resource spec based on the following example:
 
 ```yaml
@@ -1152,7 +1157,7 @@ $ gravity resource create github.yaml
 ```
 
 Once the connector has been created, the cluster login screen will start
-presenting "Login with Github" button.
+presenting "Login with GitHub" button.
 
 !!! note:
     When going through the Github authentication flow for the first time, the
@@ -1160,13 +1165,13 @@ presenting "Login with Github" button.
     in the "teams to logins" mapping, otherwise Gravity will not be able to
     determine team memberships for these organizations.
 
-To view configured Github connectors:
+To view configured GitHub connectors:
 
 ```bsh
 $ gravity resource get github
 ```
 
-To remove a Github connector:
+To remove a GitHub connector:
 
 ```bsh
 $ gravity resource rm github example
@@ -1776,6 +1781,43 @@ local                       off
     Currently authentication preference only affects login via web UI,
     `tele login` will add support for it in the future.
 
+
+### Configuring Monitoring
+
+See (Heapster Integration)[/monitoring/#configuration] about details on how to configure monitoring alerts.
+
+
+### Configuring Runtime Environment Variables
+
+Runtime Environment Variables resource allows to update environment variables inside the runtime container
+running on every cluster node.
+This allows post-installation configuration of cluster-wide HTTP proxy, for example.
+
+To add a new environment variable, `HTTP_PROXY`, create the resource as following:
+
+[envars.yaml]
+```yaml
+kind: runtime_environment
+version: v1
+spec:
+  "HTTP_PROXY": "example.com:8001"
+```
+
+and create it with:
+
+```bash
+$ sudo gravity resource create -f envars.yaml
+```
+
+The environment variables update is implemented as a cluster operation.
+Without additional parameters, the operation is executed automatically, but can be placed into manual mode with the specification of `--manual | -m` flag
+to the 'gravity resource'  command:
+
+```bash
+$ sudo gravity resource create -f envars.yaml --manual
+```
+
+
 ## Managing Users
 
 Gravity cluster allows to invite new users and reset passwords for existing
@@ -2025,7 +2067,7 @@ If none of the labels above are set, Gravity will automatically assign node role
 
   * If there are already 3 master nodes available (either explicitly set via labels or already installed/elected
     in the system) - assign as kubernetes node.
-  * Otherwise promote the node to a kubernetes master.
+  * Otherwise promote the node to a Kubernetes master.
 
 
 ## Networking
@@ -2066,7 +2108,7 @@ With `promiscuous-bridge`, the behavior is similar to that of the kubenet networ
 ### WireGuard Encrypted Networking
 
 Gravity supports encrypting all pod-to-pod traffic between hosts using [WireGuard](https://www.wireguard.com) to create
-an encrypted VPN between hosts. This feature is configured through the application manifest when building gravity applications:
+an encrypted VPN between hosts. This feature is configured through the application manifest when building Gravity applications:
 
 ```yaml
 providers:
@@ -2086,7 +2128,7 @@ providers:
 
 Gravity uses [CoreDNS](https://coredns.io) for DNS resolution and service discovery within the cluster.
 
-The coredns configuration can be edited after installation, by updating the `kube-system/coredns` configmap.
+The CoreDNS configuration can be edited after installation, by updating the `kube-system/coredns` ConfigMap.
 
 
 [//]: # (Footnotes and references)

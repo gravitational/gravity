@@ -309,18 +309,18 @@ to be able to provision required infrastructure on your AWS account.
 
 ## Etcd Disk
 
-Gravity Clusters make high use of etcd, both for the Kubernetes cluster and for
-the application's own bookeeping with respect to e.g. deployed clusters' health
+Gravity Clusters make high use of Etcd, both for the Kubernetes cluster and for
+the application's own bookkeeping with respect to e.g. deployed clusters' health
 and reachability. As a result, it is helpful to have a reliable, performance
 isolated disk.
 
 To achieve this, by default, Gravity looks for a disk mounted at
 `/var/lib/gravity/planet/etcd`. We recommend you mount a dedicated disk there,
-ext4 formatted with at least 50GiB of free space. A reasonably high perfomance
-SSD is prefered. On AWS, we recommend an io1 class EBS volume with at least
+`ext4` formatted with at least 50GiB of free space. A reasonably high performance
+SSD is preferred. On AWS, we recommend an `io1` class EBS volume with at least
 1500 provisioned IOPS.
 
-If your etcd disk is `xvdf`, you can have the following `/etc/fstab` entry to
+If your Etcd disk is `xvdf`, you can have the following `/etc/fstab` entry to
 make sure it's mounted upon machine startup:
 
 ```

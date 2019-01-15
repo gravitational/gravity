@@ -15,7 +15,7 @@ Gravity works with Kubernetes applications. This means the following prerequisit
 
 ## Getting Started
 
-Any Linux or macOS laptop can be used to package and publish Kubernetes
+Any Linux or MacOS laptop can be used to package and publish Kubernetes
 applications using Gravity. To get started, you need to download and
 install the Gravity SDK tools:
 
@@ -128,7 +128,7 @@ that do not depend on the host OS. Containerized builds are also easier to autom
 
 The example below builds a Docker image called `tele-buildbox`. This image will contain `tele` tool and can be used to create Gravity packages.
 
-#### Build Docker image with Tele
+#### Build Docker Image With `tele`
 
 First, build docker image `tele-buildbox` with `tele` inside:
 
@@ -165,9 +165,9 @@ tele push ${OPS_URL}
 
 To run this build under Docker:
 
-* Expose a OPS_TOKEN and TELE_FLAGS environment variables
+* Expose a `OPS_TOKEN` and `TELE_FLAGS` environment variables
 * Use host networking
-* Expose the Docker socket into the container to allow tele to pull container images referenced in the manifest
+* Expose the Docker socket into the container to allow `tele` to pull container images referenced in the manifest
 
 The script below assumes that `build.sh` is located in the same working directory as the application:
 
@@ -244,17 +244,17 @@ Gravity was designed with the goal of being compatible with existing, standard
 Kubernetes applications. The Application Manifest is _the only Gravity-specific artifact_ you
 will have to create and maintain.
 
-The file format was designed to mimic a Kubernete
+The file format was designed to mimic a Kubernetes
 resource as much as possible and several Kubernetes concepts are used
 for efficiency:
 
-1. Kubernetes [Config Maps](http://kubernetes.io/docs/user-guide/configmap/)
+1. Kubernetes [ConfigMaps](http://kubernetes.io/docs/user-guide/configmap/)
    are used to manage the application configuration.
 
 2. The custom Installation Wizard steps are implemented as regular
    [Kubernetes Services](http://kubernetes.io/docs/user-guide/services/).
 
-3. Application lifecycle hooks like _install_, _uninstall_ or _update_ are implemented as
+3. Application life cycle hooks like _install_, _uninstall_ or _update_ are implemented as
    [Kubernetes Jobs](http://kubernetes.io/docs/user-guide/jobs/).
 
 Additionally, the Application Manifest is designed to be as small as possible in an effort to promote
@@ -648,7 +648,7 @@ specifying OS distribution requirements for a node profile.
 
 ## Application Hooks
 
-"Application Hooks" are Kubernetes jobs that run at different points in the application lifecycle or in
+"Application Hooks" are Kubernetes jobs that run at different points in the application life cycle or in
 response to certain events happening in the cluster.
 
 Each hook job has access to the "Application Resources" which are mounted under
@@ -802,7 +802,7 @@ correct image references.
 The Gravity graphical installer supports plugging in custom screens after the main
 installation phase (such as installing Kubernetes and system dependencies) has successfully completed.
 
-A "Custom Installation Screen" is just a web application running inside the deployed Kuberneted cluster
+A "Custom Installation Screen" is just a web application running inside the deployed Kubernetes cluster
 and reachable via a Kubernetes service. Enabling a Custom Installation Screen allows the user to perform
 actions specific to an Gravity Cluster upon successful install (for example, configuring an application or
 launch a database migration).
@@ -813,7 +813,7 @@ the user to that endpoint after the installation. Bandwagon presents users with 
 can enter login and password to provision a local Gravity Cluster user and choose whether to enable or disable
 remote support.
 
-Bandwagon is [open source](https://github.com/gravitational/bandwagon) on Github and can be used as an
+Bandwagon is [open source](https://github.com/gravitational/bandwagon) on GitHub and can be used as an
 example of how to implement your own custom installer screen.
 
 To enable Bandwagon, add this to your Application Manifest:
@@ -838,7 +838,7 @@ installer:
 
 ## Service User
 Gravity uses a special user for running system services inside the environment container called `planet`.
-Historically, this user has had a hardcoded UID `1000` on host hence rendering user management
+Historically, this user has had a hard-coded UID `1000` on host hence rendering user management
 inflexible and cumbersome.
 
 Starting with LTS 4.54, Gravity allows this user to be configured in offline installation.
@@ -865,7 +865,7 @@ root$ ./gravity install <options> --service-uid=1001
 Then agents connecting from every other node in the cluster will use (and create if not
 existing) the same user ID.
 
-Service user can also be used for running unprivileged services inside the kubernetes cluster.
+Service user can also be used for running unprivileged services inside the Kubernetes cluster.
 To run a specific Pod (or just a container) under the service user, use `-1` as a user ID
 which will be translated to the corresponding service user ID:
 
@@ -888,7 +888,7 @@ spec:
       runAsUser: -1   # to use for a single container
 ```
 
-Only resources stored as .yaml files are subject to automatic translation.
+Only resources stored as YAML files are subject to automatic translation.
 If an application hook uses custom resource provisioning, it might need to perform conversion manually.
 
 The value of the effective service user ID is stored in the `GRAVITY_SERVICE_USER` environment variable which is made

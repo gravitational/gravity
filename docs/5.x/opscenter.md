@@ -73,9 +73,9 @@ for information on how to configure Ops Center management endpoints.
 
 ## Upgrading Ops Center
 
-Log into a root terminal on the OpsCenter server.
+Log into a root terminal on the Ops Center server.
 
-Update the tele binary:
+Update the `tele` binary:
 
 ```bsh
 $ curl -LO https://get.gravitational.io/telekube/bin/{VERSION}/linux/x86_64/tele
