@@ -232,7 +232,7 @@ func RetryWithInterval(ctx context.Context, interval backoff.BackOff, fn func() 
 		err = fn()
 		return err
 	}, b, func(err error, d time.Duration) {
-		log.Debugf("Retrying: %v (time %v).", trace.UserMessage(err), d)
+		log.WithError(err).Infof("Retrying at %v.", d)
 	})
 
 	switch errOrig := trace.Unwrap(err).(type) {

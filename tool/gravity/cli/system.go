@@ -43,6 +43,7 @@ import (
 	"github.com/gravitational/gravity/lib/utils"
 	"github.com/gravitational/gravity/tool/common"
 
+	"github.com/coreos/go-semver/semver"
 	"github.com/docker/docker/pkg/archive"
 	"github.com/gravitational/configure"
 	"github.com/gravitational/trace"
@@ -61,34 +62,105 @@ func systemPullUpdates(env *localenv.LocalEnvironment, opsCenterURL string, runt
 		return trace.Wrap(err)
 	}
 
-	packages, err := findPackages(env.Packages, runtimePackage)
+	reqs, err := findPackages(env.Packages, runtimePackage)
 	if err != nil {
 		return trace.Wrap(err)
 	}
 
-	for _, req := range packagesToUpgrade(packages...) {
-		log.Debugf("Checking for update for %v.", req.filter)
+	for _, req := range reqs {
+		log := log.WithField("package", req.installedPackage)
+		log.Info("Checking for update.")
 		update, err := findPackageUpdate(env.Packages, remotePackages, req)
 		if err != nil {
 			if trace.IsNotFound(err) {
-				log.Info(err)
+				log.Info("No update found.")
 				continue
 			}
 			return trace.Wrap(err)
 		}
+		log.WithField("update", update).Info("Pulling update.")
 		env.Printf("Pulling update %v\n.", update)
-		pullReq := appservice.PackagePullRequest{
-			SrcPack:  remotePackages,
-			DstPack:  env.Packages,
-			Package:  update.To,
-			Progress: env.Reporter,
+		err = pullUpdate(env.Packages, remotePackages, env.Reporter, *update)
+		if err != nil {
+			return trace.Wrap(err)
 		}
-		if _, err = appservice.PullPackage(pullReq); err != nil {
-			if !trace.IsAlreadyExists(err) {
+		if update.ConfigPackage != nil {
+			err = pullUpdate(env.Packages, remotePackages, env.Reporter,
+				*update.ConfigPackage)
+			if err != nil {
 				return trace.Wrap(err)
 			}
 		}
 	}
+	return nil
+}
+
+// systemUpdate searches and applies package updates if any
+func systemUpdate(env *localenv.LocalEnvironment, changesetID string, serviceName string, withStatus bool,
+	runtimePackage loc.Locator) error {
+	if serviceName != "" {
+		args := []string{"system", "update",
+			"--changeset-id", changesetID,
+			"--runtime-package", runtimePackage.String(),
+			"--debug"}
+		if withStatus {
+			args = append(args, "--with-status")
+		}
+		return trace.Wrap(installOneshotService(env.Silent, serviceName, args))
+	}
+
+	reqs, err := findPackages(env.Packages, runtimePackage)
+	if err != nil {
+		return trace.Wrap(err)
+	}
+
+	var changes []storage.PackageUpdate
+	for _, req := range reqs {
+		log := log.WithField("package", req)
+		log.Info("Checking for update.")
+		update, err := findPackageUpdate(env.Packages, env.Packages, req)
+		if err != nil {
+			if trace.IsNotFound(err) {
+				log.Info("No update found.")
+				continue
+			}
+			return trace.Wrap(err)
+		}
+		update.Labels = req.labels
+		log.WithField("package", update).Info("Found update.")
+		changes = append(changes, *update)
+	}
+	if len(changes) == 0 {
+		env.Println("System is already up to date")
+		return nil
+	}
+
+	changeset, err := env.Backend.CreatePackageChangeset(storage.PackageChangeset{ID: changesetID, Changes: changes})
+	if err != nil && !trace.IsAlreadyExists(err) {
+		return trace.Wrap(err)
+	}
+
+	err = applyUpdates(env, changes)
+	if err != nil {
+		return trace.Wrap(err)
+	}
+
+	if !withStatus {
+		env.Printf("System successfully updated: %v\n", changeset)
+		return nil
+	}
+
+	err = ensureServiceRunning(runtimePackage)
+	if err != nil {
+		return trace.Wrap(err)
+	}
+
+	err = getLocalNodeStatus(env)
+	if err != nil {
+		return trace.Wrap(err)
+	}
+
+	env.Printf("System successfully updated: %v\n", changeset)
 	return nil
 }
 
@@ -99,7 +171,7 @@ func systemRollback(env *localenv.LocalEnvironment, changesetID, serviceName str
 		return trace.Wrap(err)
 	}
 
-	fmt.Printf("rolling back %v\n", changeset)
+	env.Printf("Rolling back %v\n", changeset)
 	if serviceName != "" {
 		args := []string{"system", "rollback", "--changeset-id", changeset.ID, "--debug"}
 		if withStatus {
@@ -117,12 +189,11 @@ func systemRollback(env *localenv.LocalEnvironment, changesetID, serviceName str
 	err = applyUpdates(env, changes)
 	if err != nil {
 		log.Error(trace.DebugReport(err))
-		fmt.Printf("error deploying packages: %v\n", err)
 		return trace.Wrap(err)
 	}
 
 	if !withStatus {
-		env.Printf("system rolled back: %v\n", rollback)
+		env.Printf("System rolled back: %v\n", rollback)
 		return nil
 	}
 
@@ -131,7 +202,7 @@ func systemRollback(env *localenv.LocalEnvironment, changesetID, serviceName str
 		return trace.Wrap(err)
 	}
 
-	env.Printf("system rolled back: %v\n", rollback)
+	env.Printf("System rolled back: %v\n", rollback)
 	return nil
 }
 
@@ -142,82 +213,23 @@ func systemHistory(env *localenv.LocalEnvironment) error {
 		return trace.Wrap(err)
 	}
 	if len(changesets) == 0 {
-		fmt.Printf("there are no updates recorded\n")
+		env.Println("There are no updates recorded")
 		return nil
 	}
 	for _, changeset := range changesets {
-		fmt.Printf("* %v\n", changeset)
+		env.Printf("* %v\n", changeset)
 	}
-	return nil
-}
-
-// systemUpdate searches and applies package updates if any
-func systemUpdate(env *localenv.LocalEnvironment, changesetID string, serviceName string, withStatus bool,
-	runtimePackage loc.Locator) error {
-	if serviceName != "" {
-		args := []string{"system", "update", "--changeset-id", changesetID, "--debug"}
-		if withStatus {
-			args = append(args, "--with-status")
-		}
-		return trace.Wrap(installOneshotService(env.Silent, serviceName, args))
-	}
-
-	packages, err := findPackages(env.Packages, runtimePackage)
-	if err != nil {
-		return trace.Wrap(err)
-	}
-
-	var changes []storage.PackageUpdate
-	for _, req := range packagesToUpgrade(packages...) {
-		update, err := findPackageUpdate(env.Packages, env.Packages, req)
-		if err != nil {
-			if trace.IsNotFound(err) {
-				log.Info(err)
-				continue
-			}
-			return trace.Wrap(err)
-		}
-		update.Labels = req.labels
-		log.Debugf("Found %v.", update)
-		changes = append(changes, *update)
-	}
-	if len(changes) == 0 {
-		env.Println("System is already up to date.")
-		return nil
-	}
-
-	changeset, err := env.Backend.CreatePackageChangeset(storage.PackageChangeset{ID: changesetID, Changes: changes})
-	if err != nil && !trace.IsAlreadyExists(err) {
-		return trace.Wrap(err)
-	}
-
-	err = applyUpdates(env, changes)
-	if err != nil {
-		return trace.Wrap(err)
-	}
-
-	if !withStatus {
-		env.Printf("System successfully updated: %v.\n", changeset)
-		return nil
-	}
-
-	err = ensureServiceRunning(runtimePackage)
-	if err != nil {
-		return trace.Wrap(err)
-	}
-
-	err = getLocalNodeStatus(env)
-	if err != nil {
-		return trace.Wrap(err)
-	}
-
-	env.Printf("System successfully updated: %v.\n", changeset)
 	return nil
 }
 
 func systemReinstall(env *localenv.LocalEnvironment, newPackage loc.Locator, serviceName string, labels map[string]string) error {
 	if serviceName == "" {
-		return trace.Wrap(systemBlockingReinstall(env, newPackage, newPackage, labels))
+		update := storage.PackageUpdate{
+			From:   newPackage,
+			To:     newPackage,
+			Labels: labels,
+		}
+		return trace.Wrap(systemBlockingReinstall(env, update))
 	}
 
 	args := []string{"system", "reinstall", newPackage.String()}
@@ -233,45 +245,33 @@ func systemReinstall(env *localenv.LocalEnvironment, newPackage loc.Locator, ser
 	return nil
 }
 
-func systemBlockingReinstall(env *localenv.LocalEnvironment, oldPackage, newPackage loc.Locator, labels map[string]string) error {
-	updates, err := systemReinstallPackage(env, oldPackage, newPackage, labels)
+func systemBlockingReinstall(env *localenv.LocalEnvironment, update storage.PackageUpdate) error {
+	labelUpdates, err := systemReinstallPackage(env, update)
 	if err != nil {
 		return trace.Wrap(err)
 	}
-	if len(updates) == 0 {
+	if len(labelUpdates) == 0 {
 		return nil
 	}
-	return applyLabelUpdates(env.Packages, updates)
+	return applyLabelUpdates(env.Packages, labelUpdates)
 }
 
-func systemReinstallPackage(env *localenv.LocalEnvironment, oldPackage, newPackage loc.Locator, labels map[string]string) ([]packageLabelUpdate, error) {
-	log.Debugf("Reinstalling package %v -> %v.", oldPackage, newPackage)
+func systemReinstallPackage(env *localenv.LocalEnvironment, update storage.PackageUpdate) ([]pack.LabelUpdate, error) {
+	log.WithField("update", update).Info("Reinstalling package.")
 	switch {
-	case newPackage.Name == constants.GravityPackage:
-		return updateGravityPackage(env.Packages, newPackage)
-	case isPlanetPackage(newPackage, labels):
-		configPackage, err := findLatestPlanetConfigPackage(env.Packages, newPackage)
-		log.Debugf("Latest runtime configuration package: %v (%v).", configPackage, err)
-		if err != nil {
-			return nil, trace.Wrap(err)
-		}
-		installedPackage, err := pack.FindInstalledPackage(env.Packages, oldPackage)
-		if err != nil {
-			return nil, trace.Wrap(err)
-		}
-		updates, err := updatePlanetPackage(env, *installedPackage, newPackage, *configPackage)
+	case update.To.Name == constants.GravityPackage:
+		return updateGravityPackage(env.Packages, update.To)
+	case pack.IsPlanetPackage(update.To, update.Labels):
+		updates, err := updatePlanetPackage(env, update)
 		return updates, trace.Wrap(err)
-	case newPackage.Name == constants.TeleportPackage:
-		updates, err := reinstallSystemService(env, newPackage, newPackage, nil)
+	case update.To.Name == constants.TeleportPackage:
+		updates, err := reinstallSystemService(env, update)
 		return updates, trace.Wrap(err)
-	case isSecretsPackage(newPackage):
-		updates, err := reinstallSecretsPackage(env, newPackage)
+	case pack.IsSecretsPackage(update.To, update.Labels):
+		updates, err := reinstallSecretsPackage(env, update.To)
 		return updates, trace.Wrap(err)
-	case isPlanetConfigPackage(newPackage):
-		// See updatePlanetPackage for update to configuration package
-		return nil, nil
 	}
-	return nil, trace.BadParameter("unsupported package: %v", newPackage)
+	return nil, trace.BadParameter("unsupported package: %v", update.To)
 }
 
 func reinstallOneshotService(env *localenv.LocalEnvironment, serviceName string, cmd []string) error {
@@ -356,57 +356,91 @@ func applyUpdates(env *localenv.LocalEnvironment, updates []storage.PackageUpdat
 	var errors []error
 	for _, u := range updates {
 		env.Printf("Applying %v\n", u)
-		err := systemBlockingReinstall(env, u.From, u.To, u.Labels)
+		err := systemBlockingReinstall(env, u)
 		if err != nil {
-			log.Warnf("Failed to reinstall %v -> %v: %v.",
-				u.From, u.To, trace.DebugReport(err))
+			log.WithFields(logrus.Fields{
+				"from": u.From,
+				"to":   u.To,
+			}).Warnf("Failed to reinstall: %v.", trace.DebugReport(err))
 			errors = append(errors, err)
 		}
 	}
 	return trace.NewAggregate(errors...)
 }
 
+func pullUpdate(localPackages, remotePackages pack.PackageService, reporter pack.ProgressReporter, update storage.PackageUpdate) error {
+	pullReq := appservice.PackagePullRequest{
+		SrcPack:  remotePackages,
+		DstPack:  localPackages,
+		Package:  update.To,
+		Progress: reporter,
+	}
+	_, err := appservice.PullPackage(pullReq)
+	if err != nil && !trace.IsAlreadyExists(err) {
+		return trace.Wrap(err)
+	}
+	return nil
+}
+
 // findPackages returns a list of additional packages to pull during update.
-// These are packages that do not have a static name and need to be looked up
-// dynamically
 func findPackages(packages pack.PackageService, runtimePackageUpdate loc.Locator) (reqs []packageRequest, err error) {
-	secrets, err := findSecretsPackage(packages)
+	secretsPackage, err := pack.FindSecretsPackage(packages)
 	if err != nil {
-		return nil, trace.Wrap(err, "failed to find secrets package")
+		return nil, trace.Wrap(err, "failed to find installed secrets package")
 	}
 
-	err = updateInstalledLabelIfNecessary(packages, secrets.Locator)
+	installedSecretsPackage, err := pack.FindInstalledPackage(packages, *secretsPackage)
+	if err != nil {
+		return nil, trace.Wrap(err, "failed to find installed secrets package")
+	}
+
+	existingRuntime, existingRuntimeConfig, err := pack.FindRuntimePackageWithConfig(packages)
+	if err != nil {
+		return nil, trace.Wrap(err, "failed to find runtime package")
+	}
+	log.WithFields(logrus.Fields{
+		"runtime": existingRuntime,
+		"config":  existingRuntimeConfig,
+	}).Info("Found existing runtime and configuration packages.")
+
+	runtimeConfigUpdate, err := maybeConvertLegacyPlanetConfigPackage(*existingRuntimeConfig)
 	if err != nil {
 		return nil, trace.Wrap(err)
 	}
 
-	planetPackage, planetConfig, err := pack.FindRuntimePackageWithConfig(packages)
+	updateGravityPackage, err := newPackageRequest(packages, gravityPackageFilter)
 	if err != nil {
-		return nil, trace.Wrap(err, "failed to find runtime package")
+		return nil, trace.Wrap(err, "failed to find installed gravity binary package")
 	}
-	log.Debugf("Found existing runtime package %v with configuration package %v.",
-		*planetPackage, *planetConfig)
 
-	planetConfigUpdate, err := maybeConvertLegacyPlanetConfigPackage(*planetConfig)
+	updateTeleportPackage, err := newPackageRequest(packages, teleportPackageFilter)
 	if err != nil {
-		return nil, trace.Wrap(err, "failed to find runtime configuration package")
+		return nil, trace.Wrap(err, "failed to find installed teleport package")
 	}
 
 	reqs = append(reqs,
-		newPackageRequest(secrets.Locator),
+		*updateGravityPackage,
 		packageRequest{
-			filter:       *planetPackage,
-			updateFilter: &runtimePackageUpdate,
-			labels:       pack.RuntimePackageLabels,
+			installedPackage: *installedSecretsPackage,
+			labels:           pack.RuntimeSecretsPackageLabels,
 		},
 		packageRequest{
-			filter: *planetConfig,
-			// Look for updated package name in upstream packages
-			updateFilter:          planetConfigUpdate,
-			withoutInstalledLabel: true,
+			installedPackage: *existingRuntime,
+			updatePackage:    &runtimePackageUpdate,
+			labels:           pack.RuntimePackageLabels,
+			configPackage: &packageRequest{
+				installedPackage: *existingRuntimeConfig,
+				updateFilter:     runtimeConfigUpdate,
+				labels: pack.ConfigLabels(
+					*existingRuntimeConfig,
+					pack.PurposePlanetConfig,
+				),
+				less: configPackageLess,
+			},
 		},
+		*updateTeleportPackage,
 	)
-	log.Debugf("New package update requests: %v.", packageRequests(reqs))
+	log.WithField("requests", packageRequests(reqs)).Debug("Find package updates.")
 	return reqs, nil
 }
 
@@ -419,7 +453,7 @@ func getChangesetByID(env *localenv.LocalEnvironment, changesetID string) (*stor
 		return changeset, nil
 	}
 
-	env.Println("No changeset-id specified, using last changeset.")
+	env.Println("No changeset-id specified, using last changeset")
 	changesets, err := env.Backend.GetPackageChangesets()
 	if err != nil {
 		return nil, trace.Wrap(err)
@@ -431,7 +465,7 @@ func getChangesetByID(env *localenv.LocalEnvironment, changesetID string) (*stor
 	return changeset, nil
 }
 
-func updateGravityPackage(packages *localpack.PackageServer, newPackage loc.Locator) (labelUpdates []packageLabelUpdate, err error) {
+func updateGravityPackage(packages *localpack.PackageServer, newPackage loc.Locator) (labelUpdates []pack.LabelUpdate, err error) {
 	for _, targetPath := range state.GravityBinPaths {
 		labelUpdates, err = reinstallBinaryPackage(packages, newPackage, targetPath)
 		if err == nil {
@@ -479,13 +513,13 @@ func getRuntimePackagePath(packages *localpack.PackageServer) (packagePath strin
 	return packagePath, nil
 }
 
-func updatePlanetPackage(env *localenv.LocalEnvironment, installedPackage, newPackage, configPackage loc.Locator) (labelUpdates []packageLabelUpdate, err error) {
-	err = env.Packages.Unpack(newPackage, "")
+func updatePlanetPackage(env *localenv.LocalEnvironment, update storage.PackageUpdate) (labelUpdates []pack.LabelUpdate, err error) {
+	err = env.Packages.Unpack(update.To, "")
 	if err != nil {
-		return nil, trace.Wrap(err, "failed to unpack package %v", newPackage)
+		return nil, trace.Wrap(err, "failed to unpack package %v", update.To)
 	}
 
-	planetPath, err := env.Packages.UnpackedPath(newPackage)
+	planetPath, err := env.Packages.UnpackedPath(update.To)
 	if err != nil {
 		return nil, trace.Wrap(err)
 	}
@@ -506,15 +540,12 @@ func updatePlanetPackage(env *localenv.LocalEnvironment, installedPackage, newPa
 		log.Warningf("kubectl will not work on host: %v", trace.DebugReport(err))
 	}
 
-	labelUpdates, err = reinstallSystemService(env, installedPackage, newPackage, &configPackage)
+	labelUpdates, err = reinstallSystemService(env, update)
 	if err != nil {
 		return nil, trace.Wrap(err)
 	}
 
-	configLabelUpdates, err := reinstallPlanetConfigPackage(env, newPackage, configPackage)
-	if err != nil {
-		return nil, trace.Wrap(err)
-	}
+	configLabelUpdates := updateRuntimeConfigPackageLabels(env.Packages, update)
 	labelUpdates = append(labelUpdates, configLabelUpdates...)
 
 	return labelUpdates, nil
@@ -574,24 +605,15 @@ func copyGravityToPlanet(newPackage loc.Locator, packages pack.PackageService, p
 	return trace.Wrap(utils.CopyReaderWithPerms(targetPath, reader, defaults.SharedExecutableMask))
 }
 
-func reinstallSecretsPackage(env *localenv.LocalEnvironment, newPackage loc.Locator) ([]packageLabelUpdate, error) {
+func reinstallSecretsPackage(env *localenv.LocalEnvironment, newPackage loc.Locator) (labelUpdates []pack.LabelUpdate, err error) {
 	prevPackage, err := pack.FindInstalledPackage(env.Packages, newPackage)
 	if err != nil {
-		if !trace.IsNotFound(err) {
-			return nil, trace.Wrap(err)
-		}
-		// this is legacy use case when secrets did not have the installed label,
-		// find the first secrets package
-		p, err := findSecretsPackage(env.Packages)
-		if err != nil {
-			return nil, trace.Wrap(err)
-		}
-		prevPackage = &p.Locator
+		return nil, trace.Wrap(err)
 	}
 
 	targetPath, err := localenv.InGravity(defaults.SecretsDir)
 	if err != nil {
-		return nil, trace.Wrap(err, "failed to determine secrets dir")
+		return nil, trace.Wrap(err, "failed to determine secrets directory")
 	}
 
 	opts, err := getChownOptionsForDir(targetPath)
@@ -606,39 +628,34 @@ func reinstallSecretsPackage(env *localenv.LocalEnvironment, newPackage loc.Loca
 		return nil, trace.Wrap(err, "failed to unpack package %v", newPackage)
 	}
 
-	var updates []packageLabelUpdate
-	updates = append(updates,
-		packageLabelUpdate{locator: *prevPackage, remove: []string{pack.InstalledLabel}},
-		packageLabelUpdate{locator: newPackage, add: map[string]string{pack.InstalledLabel: pack.InstalledLabel}},
+	labelUpdates = append(labelUpdates,
+		pack.LabelUpdate{Locator: *prevPackage, Remove: []string{pack.InstalledLabel}},
+		pack.LabelUpdate{Locator: newPackage, Add: pack.InstalledLabels},
 	)
 
-	env.Printf("secrets package %v installed in %v\n", newPackage, targetPath)
-	return updates, nil
+	env.Printf("Secrets package %v installed in %v\n", newPackage, targetPath)
+	return labelUpdates, nil
 }
 
-func reinstallPlanetConfigPackage(env *localenv.LocalEnvironment, planetPackage, configPackage loc.Locator) ([]packageLabelUpdate, error) {
-	prevPackage, err := pack.FindConfigPackage(env.Packages, planetPackage)
-	if err != nil && !trace.IsNotFound(err) {
-		return nil, trace.Wrap(err)
+func updateRuntimeConfigPackageLabels(
+	packages pack.PackageService,
+	update storage.PackageUpdate,
+) (labelUpdates []pack.LabelUpdate) {
+	if update.ConfigPackage == nil {
+		return nil
 	}
-
-	err = env.Packages.Unpack(configPackage, "")
-	if err != nil {
-		return nil, trace.Wrap(err)
-	}
-
-	var updates []packageLabelUpdate
-	if prevPackage != nil {
-		updates = append(updates,
-			packageLabelUpdate{locator: *prevPackage, remove: []string{pack.ConfigLabel}})
-	}
-	updates = append(updates,
-		packageLabelUpdate{
-			locator: configPackage,
-			add:     pack.ConfigLabels(planetPackage, pack.PurposePlanetConfig),
+	return append(labelUpdates,
+		pack.LabelUpdate{
+			Locator: update.ConfigPackage.From,
+			Remove:  []string{pack.InstalledLabel},
+		},
+		pack.LabelUpdate{
+			Locator: update.ConfigPackage.To,
+			Add: utils.CombineLabels(
+				pack.ConfigLabels(update.To, pack.PurposePlanetConfig),
+				pack.InstalledLabels,
+			),
 		})
-
-	return updates, nil
 }
 
 func getChownOptionsForDir(dir string) (*archive.TarChownOptions, error) {
@@ -677,7 +694,7 @@ func getChownOptionsForDir(dir string) (*archive.TarChownOptions, error) {
 	}, nil
 }
 
-func reinstallBinaryPackage(packages pack.PackageService, newPackage loc.Locator, targetPath string) ([]packageLabelUpdate, error) {
+func reinstallBinaryPackage(packages pack.PackageService, newPackage loc.Locator, targetPath string) ([]pack.LabelUpdate, error) {
 	prevPackage, err := pack.FindInstalledPackage(packages, newPackage)
 	if err != nil {
 		return nil, trace.Wrap(err)
@@ -693,69 +710,63 @@ func reinstallBinaryPackage(packages pack.PackageService, newPackage loc.Locator
 		return nil, trace.Wrap(err, "failed to copy package %v to %v", newPackage, targetPath)
 	}
 
-	var updates []packageLabelUpdate
+	var updates []pack.LabelUpdate
 	updates = append(updates,
-		packageLabelUpdate{locator: *prevPackage, remove: []string{pack.InstalledLabel}},
-		packageLabelUpdate{locator: newPackage, add: map[string]string{pack.InstalledLabel: pack.InstalledLabel}},
+		pack.LabelUpdate{Locator: *prevPackage, Remove: []string{pack.InstalledLabel}},
+		pack.LabelUpdate{Locator: newPackage, Add: pack.InstalledLabels},
 	)
 
 	fmt.Printf("binary package %v installed in %v\n", newPackage, targetPath)
 	return updates, nil
 }
 
-type packageLabelUpdate struct {
-	locator loc.Locator
-	remove  []string
-	add     map[string]string
-}
-
-func applyLabelUpdates(packages pack.PackageService, labelUpdates []packageLabelUpdate) error {
+func applyLabelUpdates(packages pack.PackageService, labelUpdates []pack.LabelUpdate) error {
 	var errors []error
 	for _, update := range labelUpdates {
-		err := packages.UpdatePackageLabels(update.locator, update.add, update.remove)
-		errors = append(errors, trace.Wrap(err, "error updating %v", update.locator))
+		err := packages.UpdatePackageLabels(update.Locator, update.Add, update.Remove)
+		errors = append(errors, trace.Wrap(err, "error applying %v", update))
 	}
 	return trace.NewAggregate(errors...)
 }
 
-func reinstallSystemService(env *localenv.LocalEnvironment, oldPackage, newPackage loc.Locator, configPackage *loc.Locator) ([]packageLabelUpdate, error) {
-	prevPackage, prevConfigPackage, err := pack.FindInstalledPackageWithConfig(env.Packages, oldPackage)
-	if err != nil {
-		return nil, trace.Wrap(err)
-	}
-
+func reinstallSystemService(env *localenv.LocalEnvironment, update storage.PackageUpdate) (labelUpdates []pack.LabelUpdate, err error) {
 	services, err := systemservice.New()
 	if err != nil {
 		return nil, trace.Wrap(err)
 	}
 
-	var updates []packageLabelUpdate
-	if prevPackage != nil {
-		packageUpdates, err := uninstallPackage(env, services, *prevPackage)
-		if err != nil {
-			return nil, trace.Wrap(err)
-		}
-		updates = append(updates, packageUpdates...)
+	packageUpdates, err := uninstallPackage(env, services, update.From)
+	if err != nil {
+		return nil, trace.Wrap(err)
 	}
+	labelUpdates = append(labelUpdates, packageUpdates...)
 
-	err = unpack(env.Packages, newPackage)
+	err = unpack(env.Packages, update.To)
 	if err != nil {
 		return nil, trace.Wrap(err)
 	}
 
-	manifest, err := env.Packages.GetPackageManifest(newPackage)
+	manifest, err := env.Packages.GetPackageManifest(update.To)
 	if err != nil {
 		return nil, trace.Wrap(err)
 	}
 	if manifest.Service == nil {
-		return nil, trace.NotFound("%v needs service section in manifest to be installed", newPackage)
+		return nil, trace.NotFound("%v needs service section in manifest to be installed",
+			update.To)
 	}
 
-	if configPackage == nil {
-		configPackage = prevConfigPackage
+	var configPackage loc.Locator
+	if update.ConfigPackage == nil {
+		existingConfig, err := pack.FindConfigPackage(env.Packages, update.From)
+		if err != nil {
+			return nil, trace.Wrap(err)
+		}
+		configPackage = *existingConfig
+	} else {
+		configPackage = update.ConfigPackage.To
 	}
 
-	err = unpack(env.Packages, *configPackage)
+	err = unpack(env.Packages, configPackage)
 	if err != nil {
 		return nil, trace.Wrap(err)
 	}
@@ -766,34 +777,45 @@ func reinstallSystemService(env *localenv.LocalEnvironment, oldPackage, newPacka
 			constants.GravityBin)
 	}
 
-	manifest.Service.Package = newPackage
-	manifest.Service.ConfigPackage = *configPackage
+	manifest.Service.Package = update.To
+	manifest.Service.ConfigPackage = configPackage
 	manifest.Service.GravityPath = gravityPath
 
-	log.Debugf("Installing new package %v.", newPackage)
+	log.WithField("package", update.To).Info("Installing new package.")
 	if err = services.InstallPackageService(*manifest.Service); err != nil {
 		return nil, trace.Wrap(err, "error installing %v service", manifest.Service.Package)
 	}
 
-	updates = append(updates, packageLabelUpdate{locator: newPackage, add: map[string]string{pack.InstalledLabel: pack.InstalledLabel}})
+	labelUpdates = append(labelUpdates,
+		pack.LabelUpdate{
+			Locator: update.To,
+			Add:     utils.CombineLabels(update.Labels, pack.InstalledLabels),
+		})
 
-	env.Printf("%v successfully installed\n", newPackage)
-	return updates, nil
+	env.Printf("%v successfully installed\n", update.To)
+	return labelUpdates, nil
 }
 
-func uninstallPackage(env *localenv.LocalEnvironment, services systemservice.ServiceManager, servicePackage loc.Locator) (updates []packageLabelUpdate, err error) {
+func uninstallPackage(
+	printer localenv.Printer,
+	services systemservice.ServiceManager,
+	servicePackage loc.Locator,
+) (updates []pack.LabelUpdate, err error) {
 	installed, err := services.IsPackageServiceInstalled(servicePackage)
 	if err != nil {
 		return nil, trace.Wrap(err)
 	}
 	if installed {
-		env.Printf("%v is installed as a service, uninstalling\n", servicePackage)
+		printer.Printf("%v is installed as a service, uninstalling\n", servicePackage)
 		err = services.UninstallPackageService(servicePackage)
 		if err != nil {
 			return nil, utils.NewUninstallServiceError(servicePackage)
 		}
 	}
-	updates = append(updates, packageLabelUpdate{locator: servicePackage, remove: []string{pack.InstalledLabel}})
+	updates = append(updates, pack.LabelUpdate{
+		Locator: servicePackage,
+		Remove:  []string{pack.InstalledLabel},
+	})
 	return updates, nil
 }
 
@@ -963,6 +985,10 @@ func systemUninstall(env *localenv.LocalEnvironment, confirmed bool) error {
 		}
 	}
 
+	if err := svm.UninstallService(defaults.GravityRPCAgentServiceName); err != nil {
+		log.WithError(err).Warn("Failed to uninstall agent sevice.")
+	}
+
 	// close the backend before attempting to unmount as the open file might
 	// prevent the umount from succeeding
 	env.Backend.Close()
@@ -1045,34 +1071,54 @@ func removeInterfaces(env *localenv.LocalEnvironment) error {
 	return nil
 }
 
-func findSecretsPackage(packages pack.PackageService) (*pack.PackageEnvelope, error) {
-	return pack.FindPackage(packages, func(env pack.PackageEnvelope) bool {
-		return isSecretsPackage(env.Locator)
-	})
-}
-
-// findPackageUpdate searches for updates for the installed package specified with req
+// findPackageUpdate searches for remote update for the local package specified with req
 func findPackageUpdate(localPackages, remotePackages pack.PackageService, req packageRequest) (*storage.PackageUpdate, error) {
-	if req.withoutInstalledLabel {
-		return findPackageUpdateHelper(remotePackages, req.filter, req.updateFilter)
+	if req.configPackage == nil {
+		update, err := findPackageUpdateHelper(remotePackages, req)
+		return update, trace.Wrap(err)
 	}
 
-	installedPackage, err := pack.FindInstalledPackage(localPackages, req.filter)
-	if err != nil {
+	packageUpdate, err := findPackageUpdateHelper(remotePackages, req)
+	if err != nil && !trace.IsNotFound(err) {
 		return nil, trace.Wrap(err)
 	}
-	return findPackageUpdateHelper(remotePackages, *installedPackage, req.updateFilter)
+
+	configUpdate, err := findPackageUpdateHelper(remotePackages, *req.configPackage)
+	if err != nil && !trace.IsNotFound(err) {
+		return nil, trace.Wrap(err)
+	}
+
+	if packageUpdate == nil && configUpdate == nil {
+		return nil, trace.NotFound("%v/%v is already at the latest version",
+			req.installedPackage, req.configPackage.installedPackage)
+	}
+
+	update := storage.PackageUpdate{
+		From:   req.installedPackage,
+		To:     req.installedPackage,
+		Labels: req.labels,
+	}
+	if packageUpdate != nil {
+		update = *packageUpdate
+	}
+	if configUpdate != nil {
+		update.ConfigPackage = configUpdate
+	}
+	return &update, nil
 }
 
-func findPackageUpdateHelper(packages pack.PackageService, filter loc.Locator, updateFilter *loc.Locator) (*storage.PackageUpdate, error) {
-	if updateFilter == nil {
-		updateFilter = &filter
+func findPackageUpdateHelper(packages pack.PackageService, req packageRequest) (update *storage.PackageUpdate, err error) {
+	if req.less == nil {
+		req.less = pack.Less
 	}
-	latestPackage, err := pack.FindLatestPackage(packages, *updateFilter)
-	if err != nil {
-		return nil, trace.Wrap(err)
+	latestPackage := req.updatePackage
+	if latestPackage == nil {
+		latestPackage, err = pack.FindLatestPackageCustom(packages, req.updateSearchFilter(), req.less)
+		if err != nil {
+			return nil, trace.Wrap(err)
+		}
 	}
-	currentVersion, err := filter.SemVer()
+	currentVersion, err := req.installedPackage.SemVer()
 	if err != nil {
 		return nil, trace.Wrap(err)
 	}
@@ -1080,68 +1126,22 @@ func findPackageUpdateHelper(packages pack.PackageService, filter loc.Locator, u
 	if err != nil {
 		return nil, trace.Wrap(err)
 	}
-	if latestVersion.Compare(*currentVersion) > 0 {
-		return &storage.PackageUpdate{From: filter, To: *latestPackage}, nil
+	if req.less(currentVersion, latestVersion) {
+		return &storage.PackageUpdate{
+			From:   req.installedPackage,
+			To:     *latestPackage,
+			Labels: req.labels,
+		}, nil
 	}
-	return nil, trace.NotFound("%v is already at the latest version", filter)
+	return nil, trace.NotFound("%v is already at the latest version", req.installedPackage)
 }
 
 func findLatestPlanetConfigPackage(localPackages pack.PackageService, planetPackage loc.Locator) (*loc.Locator, error) {
 	configPackage, err := pack.FindConfigPackage(localPackages, planetPackage)
-	log.Debugf("Runtime configuration package: %v (%v).", configPackage, err)
 	if err != nil {
 		return nil, trace.Wrap(err)
 	}
-	return pack.FindLatestPackage(localPackages, *configPackage)
-}
-
-func isPlanetPackage(packageLoc loc.Locator, labels map[string]string) bool {
-	if purpose := labels[pack.PurposeLabel]; purpose == pack.PurposeRuntime {
-		return true
-	}
-	return (packageLoc.Name == loc.LegacyPlanetMaster.Name ||
-		packageLoc.Name == loc.LegacyPlanetNode.Name)
-}
-
-func isSecretsPackage(loc loc.Locator) bool {
-	return strings.Contains(loc.Name, "secrets") && loc.Repository != defaults.SystemAccountOrg
-}
-
-func isPlanetConfigPackage(loc loc.Locator) bool {
-	return strings.Contains(loc.Name, constants.PlanetConfigPackage) &&
-		loc.Repository != defaults.SystemAccountOrg
-}
-
-func maybeConvertLegacyPlanetConfigPackage(configPackage loc.Locator) (*loc.Locator, error) {
-	if configPackage.Name != constants.PlanetConfigPackage {
-		// Nothing to do
-		return nil, nil
-	}
-
-	ver, err := configPackage.SemVer()
-	if err != nil {
-		return nil, trace.Wrap(err)
-	}
-
-	// Format the new package name as <planet-config-prefix>-<prerelease>
-	name := fmt.Sprintf("%v-%v", constants.PlanetConfigPackage, ver.PreRelease)
-	convertedConfigPackage, err := loc.NewLocator(configPackage.Repository, name, configPackage.Version)
-	if err != nil {
-		return nil, trace.Wrap(err)
-	}
-	return convertedConfigPackage, nil
-}
-
-func updateInstalledLabelIfNecessary(packages pack.PackageService, locator loc.Locator) error {
-	_, err := pack.FindInstalledPackage(packages, locator)
-	if err != nil && trace.IsNotFound(err) {
-		log.Debugf("No installed package found for %[1]v, migrating by applying installed label to %[1]v.", locator)
-		err = packages.UpdatePackageLabels(locator, pack.InstalledLabels, nil)
-	}
-	if err != nil {
-		return trace.Wrap(err)
-	}
-	return nil
+	return pack.FindLatestPackageCustom(localPackages, *configPackage, configPackageLess)
 }
 
 func ensureServiceRunning(servicePackage loc.Locator) error {
@@ -1174,21 +1174,42 @@ func unpack(p *localpack.PackageServer, loc loc.Locator) error {
 	return trace.Wrap(pack.Unpack(p, loc, path, nil))
 }
 
-func newPackageRequest(filter loc.Locator) packageRequest {
-	return packageRequest{filter: filter}
-}
-
-// packagesToUpgrade returns a list of packages to upgrade.
-// Package are upgraded in the order listed.
-func packagesToUpgrade(extraPackages ...packageRequest) (upgrades []packageRequest) {
-	upgrades = append(upgrades, newPackageRequest(gravityPackageFilter))
-	for _, extra := range extraPackages {
-		upgrades = append(upgrades, extra)
+func maybeConvertLegacyPlanetConfigPackage(configPackage loc.Locator) (*loc.Locator, error) {
+	if configPackage.Name != constants.PlanetConfigPackage {
+		// Nothing to do
+		return nil, nil
 	}
-	upgrades = append(upgrades, newPackageRequest(teleportPackageFilter))
-	return upgrades
+
+	ver, err := configPackage.SemVer()
+	if err != nil {
+		return nil, trace.Wrap(err)
+	}
+
+	// Format the new package name as <planet-config-prefix>-<prerelease>
+	name := fmt.Sprintf("%v-%v", constants.PlanetConfigPackage, ver.PreRelease)
+	convertedConfigPackage, err := loc.NewLocator(configPackage.Repository, name, configPackage.Version)
+	if err != nil {
+		return nil, trace.Wrap(err)
+	}
+	return convertedConfigPackage, nil
 }
 
+func configPackageLess(a, b *semver.Version) bool {
+	if pack.Less(a, b) {
+		return true
+	}
+	return a.Metadata < b.Metadata
+}
+
+func newPackageRequest(packages pack.PackageService, filter loc.Locator) (*packageRequest, error) {
+	installed, err := pack.FindInstalledPackage(packages, filter)
+	if err != nil {
+		return nil, trace.Wrap(err)
+	}
+	return &packageRequest{installedPackage: *installed}, nil
+}
+
+// String formats this list of requests as readable text
 func (r packageRequests) String() string {
 	var buf bytes.Buffer
 	for _, req := range r {
@@ -1200,6 +1221,7 @@ func (r packageRequests) String() string {
 
 type packageRequests []packageRequest
 
+// String formats this request as readable text
 func (r packageRequest) String() string {
 	maybe := func(loc *loc.Locator) string {
 		if loc != nil {
@@ -1207,21 +1229,34 @@ func (r packageRequest) String() string {
 		}
 		return "<none>"
 	}
-	return fmt.Sprintf("packageRequest(filter=%v, updateFilter=%v, labels=%v, withoutInstalled=%v)",
-		r.filter, maybe(r.updateFilter), r.labels, r.withoutInstalledLabel)
+	if r.configPackage == nil {
+		return fmt.Sprintf("packageRequest(installed=%v, updatePackage=%v, labels=%v)",
+			r.installedPackage, maybe(r.updatePackage), r.labels)
+	}
+	return fmt.Sprintf("packageRequest(installed=%v, updatePackage=%v, labels=%v, config=%v)",
+		r.installedPackage, maybe(r.updatePackage), r.labels, r.configPackage)
+}
+
+func (r packageRequest) updateSearchFilter() loc.Locator {
+	if r.updateFilter != nil {
+		return *r.updateFilter
+	}
+	return r.installedPackage
 }
 
 type packageRequest struct {
-	filter loc.Locator
-	// updateFilter specifies an alternative filter for the package
-	// when looking for an update.
-	// This is helpful when the package name has changed between releases
+	installedPackage loc.Locator
+	// updatePackage specifies the locator of the update package if known
+	updatePackage *loc.Locator
+	// updateFilter specifies an alternative locator for the upstream package
+	// if it was renamed
 	updateFilter *loc.Locator
-	// labels defines labels to assign to the updated package
+	// labels defines labels to assign to the update package
 	labels map[string]string
-	// withoutInstalledLabel specifies if the search does not require the
-	// source package to be labeled with installed label
-	withoutInstalledLabel bool
+	// less specifies optional version comparator to use when searching
+	// for an update
+	less          pack.LessFunc
+	configPackage *packageRequest
 }
 
 var (

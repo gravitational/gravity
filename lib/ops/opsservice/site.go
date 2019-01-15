@@ -614,6 +614,10 @@ func (s site) dockerConfig() storage.DockerConfig {
 	return s.backendSite.ClusterState.Docker
 }
 
+func (s site) servers() []storage.Server {
+	return s.backendSite.ClusterState.Servers
+}
+
 func (s site) dnsConfig() storage.DNSConfig {
 	if s.backendSite.DNSConfig.IsEmpty() {
 		return storage.DefaultDNSConfig
@@ -674,9 +678,9 @@ func convertSite(in storage.Site, apps appservice.Applications) (*ops.Site, erro
 			Package:         app.Package,
 			PackageEnvelope: app.PackageEnvelope,
 		},
-		Resources: in.Resources,
-		Provider:  in.Provider,
-		Labels:    in.Labels,
+		Resources:                in.Resources,
+		Provider:                 in.Provider,
+		Labels:                   in.Labels,
 		FinalInstallStepComplete: in.FinalInstallStepComplete,
 		Location:                 in.Location,
 		UpdateInterval:           in.UpdateInterval,

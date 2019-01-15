@@ -18,7 +18,6 @@ package cli
 
 import (
 	"context"
-	"time"
 
 	"github.com/gravitational/gravity/lib/app/docker"
 	"github.com/gravitational/gravity/lib/constants"
@@ -77,12 +76,12 @@ $ gravity plan
 To perform the collection, execute each phase in the order it appears in
 the plan by running:
 
-$ sudo gravity gc --phase=<phase-id>
+$ sudo gravity plan execute --phase=<phase-id>
 
 To resume automatic collection from any point, run:
 
-$ gravity gc --resume`)
-	return trace.Wrap(err)
+$ gravity plan resume`)
+	return nil
 }
 
 func newCollector(env *localenv.LocalEnvironment) (*vacuum.Collector, error) {
@@ -176,7 +175,7 @@ func newCollector(env *localenv.LocalEnvironment) (*vacuum.Collector, error) {
 		clusterEnv:   clusterEnv,
 		proxy:        proxy,
 	}
-	creds, err := deployAgents(ctx, env, req)
+	creds, err := deployAgents(ctx, req)
 	if err != nil {
 		return nil, trace.Wrap(err)
 	}
@@ -205,7 +204,7 @@ func newCollector(env *localenv.LocalEnvironment) (*vacuum.Collector, error) {
 	return collector, nil
 }
 
-func executeGarbageCollectPhase(env *localenv.LocalEnvironment, phase string, phaseTimeout time.Duration, force bool) error {
+func executeGarbageCollectPhase(env *localenv.LocalEnvironment, params PhaseParams) error {
 	clusterPackages, err := env.ClusterPackages()
 	if err != nil {
 		return trace.Wrap(err)
@@ -262,7 +261,7 @@ func executeGarbageCollectPhase(env *localenv.LocalEnvironment, phase string, ph
 		return trace.Wrap(err)
 	}
 
-	err = collector.RunPhase(context.TODO(), phase, phaseTimeout, force)
+	err = collector.RunPhase(context.TODO(), params.PhaseID, params.Timeout, params.Force)
 	return trace.Wrap(err)
 }
 

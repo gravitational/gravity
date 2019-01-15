@@ -55,6 +55,7 @@ func (p *Peer) getOperationPlan(ctx operationContext) (*storage.OperationPlan, e
 		AccountID:     ctx.Operation.AccountID,
 		ClusterName:   ctx.Operation.SiteDomain,
 		Servers:       builder.ClusterNodes,
+		DNSConfig:     ctx.Cluster.DNSConfig,
 	}
 
 	// have cluster controller configure packages for the joining node

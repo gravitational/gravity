@@ -18,7 +18,9 @@ package opsservice
 
 import (
 	"context"
+	"fmt"
 	"path/filepath"
+	"time"
 
 	"github.com/gravitational/gravity/lib/app"
 	"github.com/gravitational/gravity/lib/checks"
@@ -40,8 +42,7 @@ import (
 // RotateSecrets rotates secrets package for the server specified in the request
 func (o *Operator) RotateSecrets(req ops.RotateSecretsRequest) (*ops.RotatePackageResponse, error) {
 	node := &ProvisionedServer{
-		PackageSet: NewPackageSet(),
-		Server:     req.Server,
+		Server: req.Server,
 		Profile: schema.NodeProfile{
 			ServiceRole: schema.ServiceRole(req.Server.ClusterRole),
 		},
@@ -72,37 +73,22 @@ func (o *Operator) RotateSecrets(req ops.RotateSecretsRequest) (*ops.RotatePacka
 
 // RotatePlanetConfig rotates planet configuration package for the server specified in the request
 func (o *Operator) RotatePlanetConfig(req ops.RotatePlanetConfigRequest) (*ops.RotatePackageResponse, error) {
-	operation, err := o.GetSiteOperation(req.SiteOperationKey())
-	if err != nil {
-		return nil, trace.Wrap(err)
-	}
-
-	updatePackage, err := operation.Update.Package()
-	if err != nil {
-		return nil, trace.Wrap(err)
-	}
-
-	updateApp, err := o.cfg.Apps.GetApp(*updatePackage)
-	if err != nil {
-		return nil, trace.Wrap(err)
-	}
-
-	nodeProfile, err := updateApp.Manifest.NodeProfiles.ByName(req.Server.Role)
+	nodeProfile, err := req.Manifest.NodeProfiles.ByName(req.Server.Role)
 	if err != nil {
 		return nil, trace.Wrap(err)
 	}
 	// Keep the service role
 	nodeProfile.ServiceRole = schema.ServiceRole(req.Server.ClusterRole)
 
-	node := &ProvisionedServer{
-		PackageSet: NewPackageSet(),
-		Server:     req.Server,
-		Profile:    *nodeProfile,
+	node := ProvisionedServer{
+		Server:  req.Server,
+		Profile: *nodeProfile,
 	}
 
 	runner := &localRunner{}
 
-	cluster, err := o.openSite(req.SiteKey())
+	clusterKey := req.SiteKey()
+	cluster, err := o.openSite(clusterKey)
 	if err != nil {
 		return nil, trace.Wrap(err)
 	}
@@ -137,19 +123,14 @@ func (o *Operator) RotatePlanetConfig(req ops.RotatePlanetConfigRequest) (*ops.R
 		}
 	}
 
-	ctx, err := cluster.newOperationContext(*operation)
-	if err != nil {
-		return nil, trace.Wrap(err)
-	}
-
-	installOperation, err := ops.GetCompletedInstallOperation(req.SiteKey(), o)
+	installOperation, err := ops.GetCompletedInstallOperation(clusterKey, o)
 	if err != nil {
 		return nil, trace.Wrap(err)
 	}
 
 	var master *storage.Server
-	for _, server := range req.Servers {
-		if server.ClusterRole == string(schema.ServiceRoleMaster) {
+	for _, server := range cluster.servers() {
+		if server.IsMaster() {
 			master = &server
 			break
 		}
@@ -158,20 +139,41 @@ func (o *Operator) RotatePlanetConfig(req ops.RotatePlanetConfigRequest) (*ops.R
 		return nil, trace.NotFound("couldn't find master server: %v", req)
 	}
 
-	ctx.update = updateContext{
-		masterIP:  master.AdvertiseIP,
-		installOp: *installOperation,
-		app:       *updateApp,
-		gravityPath: filepath.Join(
-			state.GravityUpdateDir(node.StateDir()), constants.GravityBin),
-	}
+	dockerConfig := cluster.dockerConfig()
+	checks.OverrideDockerConfig(&dockerConfig,
+		checks.DockerConfigFromSchema(req.Manifest.SystemOptions.DockerConfig()))
 
-	resp, err := cluster.configurePlanetOnNode(
-		ctx, runner, node, etcd, updateApp.Manifest)
+	configVersion := fmt.Sprintf("%v+%v", req.Package.Version, time.Now().UTC().Unix())
+	configPackage, err := cluster.planetConfigPackage(&node, configVersion)
 	if err != nil {
 		return nil, trace.Wrap(err)
 	}
 
+	config := planetConfig{
+		master: masterConfig{
+			addr:            master.AdvertiseIP,
+			electionEnabled: node.IsMaster(),
+		},
+		manifest:      req.Manifest,
+		server:        node,
+		installExpand: *installOperation,
+		etcd:          etcd,
+		docker:        dockerConfig,
+		dockerRuntime: node.Docker,
+		planetPackage: req.Package,
+		configPackage: *configPackage,
+		env:           req.Env,
+	}
+
+	resp, err := cluster.getPlanetConfigPackage(config)
+	if err != nil && !trace.IsAlreadyExists(err) {
+		return nil, trace.Wrap(err)
+	}
+
+	log.WithFields(log.Fields{
+		"server":  node.String(),
+		"package": configPackage.String(),
+	}).Info("Created new planet configuration.")
 	return resp, nil
 }
 
@@ -179,8 +181,7 @@ func (o *Operator) RotatePlanetConfig(req ops.RotatePlanetConfigRequest) (*ops.R
 // permissions and creates missing ones
 func (o *Operator) ConfigureNode(req ops.ConfigureNodeRequest) error {
 	node := &ProvisionedServer{
-		PackageSet: NewPackageSet(),
-		Server:     req.Server,
+		Server: req.Server,
 		Profile: schema.NodeProfile{
 			ServiceRole: schema.ServiceRole(req.Server.ClusterRole),
 		},

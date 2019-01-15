@@ -399,7 +399,7 @@ func newOperationPlanFromParams(p newPlanParams) (*storage.OperationPlan, error)
 	}
 	phases = append(phases, appPhase, cleanupPhase)
 	plan.Phases = phases.asPhases()
-	resolve(&plan)
+	ResolvePlan(&plan)
 
 	return &plan, nil
 }
@@ -474,8 +474,9 @@ func setLeaderElection(enable, disable []storage.Server, server storage.Server, 
 	}
 }
 
-// resolve resolves dependencies between phases in the specified plan
-func resolve(plan *storage.OperationPlan) {
+// ResolvePlan resolves dependencies between phases
+// and renders IDs as absolute in the specified plan
+func ResolvePlan(plan *storage.OperationPlan) {
 	resolveIDs(nil, plan.Phases)
 	resolveRequirements(nil, plan.Phases)
 }

@@ -59,13 +59,16 @@ type DeployAgentsRequest struct {
 	logrus.FieldLogger
 
 	// LeaderParams defines which parameters to pass to the leader agent process.
-	// The leader agent is responsible for driving the automatic update
+	// The leader agent would be driving the update in case of the automatic update operation.
 	LeaderParams []string
 
 	// Leader is the node where the leader agent should be launched
 	//
 	// If not set, the first master node will serve as a leader
 	Leader *storage.Server
+
+	// NodeParams defines which parameters to pass to the regular agent process.
+	NodeParams []string
 }
 
 // Check validates the request to deploy agents
@@ -216,7 +219,9 @@ func deployAgentOnNode(ctx context.Context, req DeployAgentsRequest, node, nodeS
 			gravityHostPath,
 			strings.Join(req.LeaderParams, " "))
 	} else {
-		runCmd = fmt.Sprintf("%s agent --debug install", gravityHostPath)
+		runCmd = fmt.Sprintf("%s agent --debug install %s",
+			gravityHostPath,
+			strings.Join(req.NodeParams, " "))
 	}
 
 	err = utils.NewSSHCommands(nodeClient.Client).

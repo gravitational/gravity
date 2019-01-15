@@ -248,7 +248,7 @@ func GetWizardCluster(operator Operator) (*Site, error) {
 }
 
 // CompleteOperation marks the specified operation as completed
-func CompleteOperation(key SiteOperationKey, operator Operator) error {
+func CompleteOperation(key SiteOperationKey, operator OperationStateSetter) error {
 	return operator.SetOperationState(key, SetOperationStateRequest{
 		State: OperationStateCompleted,
 		Progress: &ProgressEntry{
@@ -264,7 +264,7 @@ func CompleteOperation(key SiteOperationKey, operator Operator) error {
 }
 
 // FailOperation marks the specified operation as failed
-func FailOperation(key SiteOperationKey, operator Operator, message string) error {
+func FailOperation(key SiteOperationKey, operator OperationStateSetter, message string) error {
 	if message != "" {
 		message = fmt.Sprintf("Operation failure: %v", message)
 	} else {
@@ -282,6 +282,13 @@ func FailOperation(key SiteOperationKey, operator Operator, message string) erro
 			Created:     time.Now().UTC(),
 		},
 	})
+}
+
+// OperationStateSetter defines an interface to set/update operation state
+type OperationStateSetter interface {
+	// SetOperationState updates state of the operation
+	// specified with given operation key
+	SetOperationState(SiteOperationKey, SetOperationStateRequest) error
 }
 
 // VerifyLicense verifies the provided license

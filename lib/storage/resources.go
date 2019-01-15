@@ -54,6 +54,8 @@ const (
 	KindSystemInfo = "systeminfo"
 	// KindEndpoints defines the Ops Center endpoints resource type
 	KindEndpoints = "endpoints"
+	// KindRuntimeEnvironment defines the resource that manages cluster environment variables
+	KindRuntimeEnvironment = "runtime_environment"
 )
 
 // SupportedGravityResources is a list of resources supported by
@@ -68,6 +70,7 @@ var SupportedGravityResources = []string{
 	KindAlert,
 	KindAlertTarget,
 	KindTLSKeyPair,
+	KindRuntimeEnvironment,
 }
 
 // SupportedGravityResourcesToRemove is a list of resources supported by
@@ -81,4 +84,5 @@ var SupportedGravityResourcesToRemove = []string{
 	KindAlert,
 	KindAlertTarget,
 	KindTLSKeyPair,
+	KindRuntimeEnvironment,
 }

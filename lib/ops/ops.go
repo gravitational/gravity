@@ -117,6 +117,7 @@ type Operator interface {
 	Install
 	Updates
 	Identity
+	EnvironmentVariables
 }
 
 // Accounts represents a collection of accounts in the portal
@@ -455,6 +456,14 @@ type Certificates interface {
 	DeleteClusterCertificate(SiteKey) error
 }
 
+// EnvironmentVariables manages runtime environment variables in cluster
+type EnvironmentVariables interface {
+	// CreateUpdateEnvarsOperation creates a new operation to update cluster runtime environment variables
+	CreateUpdateEnvarsOperation(CreateUpdateEnvarsOperationRequest) (*SiteOperationKey, error)
+	// GetClusterEnvironmentVariables retrieves the cluster runtime environment variables
+	GetClusterEnvironmentVariables(SiteKey) (storage.EnvironmentVariables, error)
+}
+
 // ClusterCertificate represents the cluster certificate
 type ClusterCertificate struct {
 	// Certificate is the cluster certificate
@@ -497,6 +506,19 @@ func (r UpdateCertificateRequest) Check() error {
 		return trace.Wrap(err, "failed to parse certificate / key pair")
 	}
 	return nil
+}
+
+// Check validates this request
+func (r UpdateClusterEnvironmentVariablesRequest) Check() error {
+	return r.Key.Check()
+}
+
+// UpdateClusterEnvironmentVariablesRequest describes the request to update cluster runtime environment variables
+type UpdateClusterEnvironmentVariablesRequest struct {
+	// Key identifies the cluster
+	Key SiteKey
+	// Env specifies the new environment
+	Env storage.EnvironmentVariables `json:"env"`
 }
 
 // Leader defines leadership-related operations
@@ -769,8 +791,12 @@ type RotatePlanetConfigRequest struct {
 	OperationID string `json:"operation_id"`
 	// Server is the server to rotate configuration for
 	Server storage.Server `json:"server"`
-	// Servers is all cluster servers
-	Servers []storage.Server `json:"servers"`
+	// Manifest specifies the manifest to generate configuration with
+	Manifest schema.Manifest `json:"manifest"`
+	// Env specifies optional environment variables to set
+	Env map[string]string `json:"env,omitempty"`
+	// Package specifies the runtime package locator
+	Package loc.Locator `json:"package"`
 }
 
 // SiteKey returns a cluster key from this request
@@ -905,6 +931,8 @@ func (s *SiteOperation) String() string {
 		typeS = "uninstall"
 	case OperationGarbageCollect:
 		typeS = "garbage collect"
+	case OperationUpdateEnvars:
+		typeS = "update cluster envars"
 	}
 	return fmt.Sprintf("operation(%v, cluster=%v, state=%s)", typeS, s.SiteDomain, s.State)
 }
@@ -1098,6 +1126,15 @@ type CreateClusterGarbageCollectOperationRequest struct {
 	AccountID string `json:"account_id"`
 	// ClusterName is the name of the cluster
 	ClusterName string `json:"cluster_name"`
+}
+
+// CreateUpdateEnvarsOperationRequest is a request
+// to update cluster environment variables
+type CreateUpdateEnvarsOperationRequest struct {
+	// ClusterKey identifies the cluster
+	ClusterKey SiteKey `json:"cluster_key"`
+	// Env specifies the new cluster environment variables
+	Env map[string]string `json:"env"`
 }
 
 // AgentService coordinates install agents that are started on every server

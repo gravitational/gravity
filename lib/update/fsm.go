@@ -74,22 +74,13 @@ func NewFSM(ctx context.Context, c FSMConfig) (*fsm.FSM, error) {
 		trace.Component: "fsm:update",
 	})
 
-	updateEngine, err := NewUpdateEngine(c)
-	if err != nil {
-		return nil, trace.Wrap(err)
-	}
-
-	err = updateEngine.loadPlan()
-	if err != nil {
-		return nil, trace.Wrap(err)
-	}
-	err = updateEngine.reconcilePlan(ctx)
+	engine, err := newUpdateEngine(ctx, c, logger)
 	if err != nil {
 		return nil, trace.Wrap(err)
 	}
 
 	fsm, err := fsm.New(fsm.Config{
-		Engine: updateEngine,
+		Engine: engine,
 		Logger: logger,
 		Runner: c.Remote,
 	})
