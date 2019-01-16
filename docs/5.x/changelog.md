@@ -71,6 +71,12 @@ LTS starts with `3.51.0` with minor backwards compatible changes added over time
     Teleport 2.4.10 includes fixes for a security vulnerability. Please see
     [Teleport Announcements](https://gravitational.zendesk.com/hc/en-us/articles/360015185614-Teleport-3-1-2-3-0-3-2-7-7-2-6-10) for more information.
 
+### 5.3.7
+
+#### Improvements
+
+* New resource type `runtime_environment`. See [Configuring Runtime Environment Variables](/cluster#configuring-runtime-environment-variables) for details.
+
 ### 5.3.6
 
 #### Bugfixes
