@@ -1,6 +1,6 @@
 # Introduction
 
-This Quick Start Guide will help you quickly evaluate Gravity by packaging, publishing and installing a multi-node Kubernetes application.
+This Quick Start Guide will help you quickly evaluate Gravity by packaging, and installing a multi-node Kubernetes application.
 
 We will use [Mattermost](https://www.mattermost.org/), an open sourced
 chat application for teams, as a sample application. Mattermost represents a
