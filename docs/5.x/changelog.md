@@ -7,12 +7,12 @@ LTS starts with `3.51.0` with minor backwards compatible changes added over time
 
 | Release       | LTS | Release Date         | Supported Until      | Kubernetes Version | Teleport Version |
 | --------------|-----| -------------------- | -------------------- | ------------------ |------------------|
-| 5.5.0-alpha.5 | No  | January, 8th 2019  | -                    | 1.12.3             | 3.0.1            |
-| 5.4.2         | No  | January, 8th 2019  | -                    | 1.13.0             | 2.4.10
-| 5.3.6         | No  | January, 8th 2019   | -                    | 1.12.3             | 2.4.10            |
-| 5.2.5         | Yes | January, 8th 2019   | October, 15th, 2019  | 1.11.5             | 2.4.10            |
-| 5.0.28        | Yes | January, 7th 2019 | April, 13th 2019     | 1.9.12-gravitational | 2.4.10            |
-| 4.67.0        | Yes | January, 3rd 2019 | November, 16th 2018  | 1.7.18-gravitational | 2.3.5            |
+| 5.5.0-alpha.6 | No  | January, 15th 2019   | -                    | 1.12.3             | 3.0.1            |
+| 5.4.2         | No  | January, 8th 2019    | -                    | 1.13.0             | 2.4.10           |
+| 5.3.6         | No  | January, 8th 2019    | -                    | 1.12.3             | 2.4.10           |
+| 5.2.5         | Yes | January, 8th 2019    | October, 15th, 2019  | 1.11.5             | 2.4.10           |
+| 5.0.28        | Yes | January, 7th 2019    | April, 13th 2019     | 1.9.12-gravitational | 2.4.10         |
+| 4.67.0        | Yes | January, 3rd 2019    | November, 16th 2018  | 1.7.18-gravitational | 2.3.5          |
 | 3.64.0        | Yes | December, 21st 2017  | June, 2nd 2018       | 1.5.7              | 2.0.6            |
 | 1.30.0        | Yes | March, 21st 2017     | March, 21st 2018     | 1.3.8              | 1.2.0            |
 
@@ -24,6 +24,12 @@ LTS starts with `3.51.0` with minor backwards compatible changes added over time
     article in our Help Center.
 
 ## 5.x Releases
+
+### 5.5.0-alpha.6
+
+#### Improvements
+
+* Adjust system resources limits for CoreDNS.
 
 ### 5.5.0-alpha.5
 
@@ -800,7 +806,7 @@ so the temporary copy in `/tmp` can be discarded.
 
 #### Bugfixes
 
-* Disable docker volume tests during upgrades which could prevent upgrades from completing. 
+* Disable docker volume tests during upgrades which could prevent upgrades from completing.
 
 ### 4.64.0 LTS
 
