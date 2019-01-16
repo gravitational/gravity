@@ -389,54 +389,6 @@ $ tele login mattermost
 Now you can run `tsh ls` to see the nodes and `tsh ssh` for connecting to them
 via SSH. See more in [Remote Management](manage) section.
 
-## Publishing
-
-While the resulting Application Bundle can be used to create Kubernetes
-clusters, Gravity also allows to publish the Application Bundle in the Gravity Ops Center
-for distribution, so other users of the Ops Center will see the published or
-updated versions of Application Bundles.
-
-The Ops Center also allows users to keep track of remote clusters created from
-published Application Bundles and perform remote administration of them.
-
-!!! warning "Version Warning":
-    The Ops Center is only available to users of Gravity Enterprise.
-
-To publish the Application Bundle, you have to connect the `tele` tool to your Ops Center.
-Let's assume your Ops Center is running on `https://opscenter.example.com`
-
-```bsh
-$ tele login -o https://opscenter.example.com
-```
-
-The command above performs the interactive login, i.e. opens a web browser and
-takes a user through their corporate single sign on (SSO) process.
-
-Next, generate a new API key for the Ops Center you've just connected to. The API
-key will allow you to login into the Ops Center automatically in the future without
-having to go through the SSO flow: 
-
-```bsh
-$ tele keys new
-```
-
-The response will include the API key. Let's assume it's called `secret`. 
-We can use the key to login into the Ops Center non-interactively:
-
-```bash
-tele login -o https://opscenter.example.com --key=secret
-```
-
-Now you can publish the Application Bundle we just built:
-
-```bash
-$ tele push mattermost.tar
-```
-
-The Application Bundle is now visible to all users of the Ops Center, so they can
-install it.
-
-
 ## Conclusion
 
 This is a brief overview of how publishing and distributing an application
