@@ -1,34 +1,25 @@
 # Introduction
 
-The Gravity _Ops Center_ is a hub which allows users to reduce operational overhead to:
+The Gravity Ops Center is a hub which allows users to reduce operational overhead to:
 
-* Publish _application bundles_ and manage their versions.
-* Download and install _application bundles_, i.e. quickly creating Kubernetes clusters.
+* Publish Application Bundles and manage their versions.
+* Download and install Application Bundles, i.e. quickly creating Kubernetes clusters.
 * Remotely manage thousands of Kubernetes clusters either via command line (CLI) or via a Web interface.
 
 !!! warning "Version Warning":
-    The Ops Center is only available to users of Gravity Enterprise.  OSS users
-    can use the Ops Center for evaluation purposes only.
+    The Ops Center is only available to users of Gravity Enterprise.
 
-This chapter will guide you through the process of downloading and installing your
-own instance of the _Ops Center_.
+This chapter will guide you through the process of downloading and installing your own instance of the _Ops Center_.
 
 ## Installing Ops Center
 
-You need to download the [Gravity binaries](/gravity/download/). Note that you will
-need an enterprise edition of Gravity. The open source edition will not work.
+The Ops Center only works with the Gravity Enterprise Edition license key and the Application Bundle for the Ops Center. You can [contact us](https://gravitational.com/gravity/demo/) to get a trial license key and the Ops Center Application Bundle.
 
-Before proceeding, you should have access to:
-
-* `tele` and `tsh`: the enterprise binaries of Gravity.
-* `ops-center.tar`: the _application bundle_ containing the Ops Center installer.
-
-As with any Gravity application, you will need a Linux server to install the
-Ops Center.
+As with any Gravity application, you will also need a Linux server to install the Ops Center.
 
 ### Generating a Token
 
-To establish trust between an _Ops Center_ and multiple K8s clusters, a common shared
+To establish trust between an Ops Center and multiple K8s clusters, a common shared
 hard-to-guess secret (token) must be generated first. Therefore, before
 installing an Ops Center, a shared token needs to be generated and stored in an
 environment variable named `TOKEN`:
@@ -37,7 +28,7 @@ environment variable named `TOKEN`:
 $ export TOKEN="$(uuidgen)"
 ```
 
-Expand the Ops Center application bundle and launch the installer:
+Next expand the Ops Center Application Bundle `ops-center.tar` and launch the installer:
 
 ```bsh
 $ tar xvf ./ops-center.tar
@@ -61,7 +52,7 @@ $ ./gravity install --advertise-addr=10.1.1.5 \
 
 #### Setting up DNS
 
-After provisioning, DNS records should be created with hostname at either the provisioned ELB load balancer (for AWS) or the IP of the virtual machine (for Vagrant)
+After provisioning, DNS records should be created with hostname at either the provisioned ELB load balancer (for AWS) or the IP of the virtual machine (for Vagrant).
 
 !!! tip "Wildcard DNS name":
 	  The Ops Center DNS records should be wildcard, both `*.opscenter.example.com` and `opscenter.example.com` should point to the IP address
@@ -69,14 +60,11 @@ After provisioning, DNS records should be created with hostname at either the pr
 
 #### Setting up OIDC
 
-After installation [OIDC provider](/cluster/#configuring-a-cluster) should be set up in order to login to the Ops Center.
+After installation [OIDC provider](/cluster/#configuring-a-cluster) should be set up in order to log into the Ops Center.
 
 #### Setting up TLS Key Pair
 
-After installation, a valid [TLS key pair](/cluster/#configuring-tls-key-pair) should be set up in order to login to the Ops Center.
-
-!!! tip "TLS Certificate":
-    The Ops Center has to use a valid, not self-signed TLS certificate to function properly.
+After installation, a valid [TLS key pair](/cluster/#configuring-tls-key-pair) should be set up in order to log into the Ops Center. The Ops Center has to use a valid, not self-signed TLS certificate to function properly.
 
 #### Configuring endpoints
 
