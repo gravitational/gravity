@@ -348,26 +348,74 @@ to each other. To upload the new version, extract the tarball and launch the `up
 
 ### Performing Upgrade
 
-Once a new Application Bundle has been uploaded into the Cluster, it can be upgraded using
-the automatic or manual upgrade modes.
+Once a new Application Bundle has been uploaded into the Cluster, a new upgrade operation can be started.
 
-#### Automatic Upgrade Mode
+An upgrade can be triggered either through web UI or from command line.
+To trigger the upgrade from UI, select an appropriate version on the "Updates" tab click `Update`.
 
-An automated upgrade can be triggered through the following methods:
+To trigger the operation from command line, extract the Application Bundle tarball to a directory:
 
-* Through the web UI, by selecting an appropriate version on the "Updates" tab
-* Executing the `gravity upgrade` CLI command on one of cluster nodes.
-* Executing the `upgrade` script after unpacking the Application Bundle tarball
-  on one of the cluster nodes.
+```bash
+$ cd installer
+$ tar xf application-bundle.tar
+$ ls -lh
+total 64M
+-rw-r--r--. 1 user user 1.1K Jan 14 09:08 README
+-rw-r--r--. 1 user user  13K Jan 14 09:08 app.yaml
+-rwxr-xr-x. 1 user user  63M Jan 14 09:08 gravity
+-rw-------. 1 user user 256K Jan 14 09:08 gravity.db
+-rwxr-xr-x. 1 user user  907 Jan 14 09:08 install
+drwxr-xr-x. 5 user user 4.0K Jan 14 09:08 packages
+-rwxr-xr-x. 1 user user  344 Jan 14 09:08 upgrade
+-rwxr-xr-x. 1 user user  411 Jan 14 09:08 upload
+```
 
-#### Manual Upgrade Mode
+Inside the directory, execute the `upgrade` script to trigger the operation in the background.
 
-In the manual mode, a user executes a sequence of commands on appropriate nodes of the
-cluster according to a generated "Operation Plan". The upgrade operation in manual
-mode is started by running the following command using the `gravity` binary:
+Alternatively, upload the update and execute the `gravity upgrade` command which provides more control:
+
+```bash
+$ sudo ./upload
+Wed Jan 14 17:02:20 UTC	Importing application app v0.0.1-alpha.2
+Wed Jan 14 17:02:24 UTC	Synchronizing application with Docker registry 172.28.128.1:5000
+Wed Jan 14 17:02:53 UTC	Application has been uploaded
+installer$ sudo ./gravity upgrade
+```
+
+Executing the command without parameters also starts the operation in the background.
+
+#### Manual Upgrade
+
+If you specify `--manual | -m` flag, the operation is started in manual mode:
 
 ```bsh
-$ ./gravity upgrade --manual
+installer$ sudo ./gravity upgrade --manual
+updating app from 0.0.1-alpha.1 to 0.0.1-alpha.2
+update operation (e8fec799-856b-4fc1-847f-005feed385a0) has been started
+
+The update operation has been created in manual mode.
+
+To view the operation plan, run:
+
+$ gravity plan
+
+To perform the upgrade, execute all upgrade phases in the order they appear in
+the plan by running:
+
+$ sudo gravity upgrade --phase=<phase-id>
+
+To rollback an unsuccessful phase, you can run:
+
+$ sudo gravity rollback --phase=<phase-id>
+
+Once all phases have been successfully completed, run the following command to
+complete the operation and return the cluster to the "active" state:
+
+$ gravity upgrade --complete
+
+To abort an unsuccessful operation, rollback all completed/failed phases and
+run the same command. The operation will be marked as "failed" and the cluster
+will be returned to the "active" state.
 ```
 
 !!! tip:
@@ -454,49 +502,185 @@ mark the operation as failed and move the cluster into active state.
 !!! tip "Advanced Usage":
     This section covers the "under the hood" details of the automatic updates.
 
-When a user initiates an automatic update by executing `gravity update`
+When a user initiates an automatic update by executing `gravity upgrade`
 command, the following actions take place:
 
-1. An agent (update agent) is deployed and started on all cluster nodes. The
+1. An agent (update agent) is deployed on each cluster node. The
    update agents start on every cluster node as a `systemd` unit called
    `gravity-agent.service`.
-2. The agents sequentially execute all phases of the update plan. These are
-   the same phases a user would run as part of a [manual upgrade](#manual-upgrade-mode).
-3. A successful update must be marked as "completed". This creates a checkpoint
-   which a cluster can be rolled back to in case of future update failures.
-4. Update agents are stopped.
+1. The agents execute phases of the update plan. These are
+   the same phases a user would run as part of a [manual upgrade](#manual-upgrade).
+1. A successful update is marked as "completed".
+1. Update agents are stopped.
 
-Below is the list of the low level sub-commands executed by `gravity update`
-to do all of this. These commands can be executed manually
-from a machine in a Gravity Cluster:
+Below is the list of the low-level commands executed by `gravity upgrade`
+to achieve this. These commands can also be executed manually
+from a terminal on any master node in a Gravity Cluster:
 
 ```bsh
-# copy the update agent to every cluster node and start the agents:
+# Copy the update agent to every cluster node and start the agents:
 $ ./gravity agent deploy
 
-# request all nodnes to start sequentially executing the phases of the upgrade plan:
+# Run specific operation steps:
 $ ./gravity upgrade --phase=<phase>
 
-# complete an upgrade operation (to a state which you can rollback to):
+# After all phases have been completed, finalize the operation:
 $ ./gravity upgrade --complete
 
-# shut down the update agents on all nodes:
-$ ./gravity agent shutdown
-```
-
-If one of the update agents fails, an error message will be logged into the syslog
-but the remaining agents on other cluster nodes will continue running. The status
-of the update agent can be found by executing the following command on a failed node:
-
-```bsh
+# Shut down the update agents on all nodes:
 $ ./gravity agent shutdown
 ```
 
 In case an automatic upgrade was interrupted, it can be resumed by executing:
 
 ```bsh
-$ ./gravity agent run --upgrade
+$ ./gravity upgrade --resume
 ```
+
+## Managing An Ongoing Operation
+
+Some operations in a Gravity cluster require cooperation from all cluster nodes.
+Examples are installs, upgrades and garbage collection.
+Additionally, due to varying complexity and unforeseen conditions, these operations can and do fail in practice.
+
+To provide a foundation for coping with failures, the operations are built as sets of smaller steps
+that can be re-executed or rolled back individually. This allows for interactive fix and retry loop should any of the
+steps fail.
+
+Each operation starts with building an operational plan - a tree of actions to perform in order
+to achieve a particular goal. Once created, the plan is either executed automatically or manually step by step to completion.
+
+
+!!! note
+    Starting with `5.3.7-alpha.1`, operation plan management is conveniently available under the `gravity plan` command:
+
+```bash
+$ gravity plan --help
+usage: gravity plan [<flags>] <command> [<args> ...]
+
+Manage operation plan
+
+Flags:
+      --help                 Show context-sensitive help (also try --help-long and --help-man).
+      --debug                Enable debug mode
+  -q, --quiet                Suppress any extra output to stdout
+      --insecure             Skip TLS verification
+      --state-dir=STATE-DIR  Directory for local state
+      --log-file="/var/log/telekube-install.log"
+                             log file with diagnostic information
+
+Subcommands:
+  plan display* [<flags>]
+    Display a plan for an ongoing operation
+
+  plan execute [<flags>]
+    Execute specified operation phase
+
+  plan rollback [<flags>]
+    Rollback specified operation phase
+
+  plan resume [<flags>]
+    Resume last aborted operation
+
+  plan complete
+    Mark operation as completed
+```
+
+
+### Displaying Operation Plan
+
+In order to display an operation plan for the currently active operation:
+
+```bash
+$ sudo gravity plan
+Phase                    Description                                                 State         Node              Requires                           Updated
+-----                    -----------                                                 -----         ----              --------                           -------
+* init                   Initialize update operation                                 Unstarted     -                 -                                  -
+* checks                 Run preflight checks                                        Unstarted     -                 /init                              -
+* bootstrap              Bootstrap update operation on nodes                         Unstarted     -                 /init                              -
+  * node-1               Bootstrap node "node-1"                                     Unstarted     -                 -                                  -
+* masters                Update master nodes                                         Unstarted     -                 /checks,/bootstrap,/pre-update     -
+  * node-1               Update system software on master node "node-1"              Unstarted     -                 -                                  -
+    * drain              Drain node "node-1"                                         Unstarted     172.28.128.1      -                                  -
+    * system-upgrade     Update system software on node "node-1"                     Unstarted     -                 /masters/node-1/drain              -
+    * taint              Taint node "node-1"                                         Unstarted     172.28.128.1      /masters/node-1/system-upgrade     -
+    ...
+* runtime                Update application runtime                                  Unstarted     -                 /masters                           -
+  * rbac-app             Update system application "rbac-app" to 0.0.1-alpha.2       Unstarted     -                 -                                  -
+  * site                 Update system application "site" to 0.0.1-alpha.2           Unstarted     -                 /runtime/rbac-app                  -
+  * kubernetes           Update system application "kubernetes" to 0.0.1-alpha.2     Unstarted     -                 /runtime/rbac-app                  -
+* app                    Update installed application                                Unstarted     -                 /masters,/runtime/rbac-app         -
+  * telekube             Update application "telekube" to 0.0.1-alpha.2              Unstarted     -                 -                                  -
+...
+```
+
+The command is aliased as `gravity plan display`.
+The plan lists all steps, top to bottom, in the order in which they will be executed.
+Each step (phase), has a state which explains whether it has already ran or whether it failed.
+Also, steps can explicitly or implicitly depend on other steps.
+The commands will make sure a particular phase cannot be executed before its requirements have not run.
+
+If a phase has failed, the `display` command will also show the corresponding error message.
+
+
+### Executing Operation Plan
+
+Remember that an operation plan is effectively a tree of steps. Whenever you need to execute a particular step,
+you need to specify it as absolute path from a root node:
+
+```bash
+$ sudo gravity plan execute --phase=/masters/node-1/drain
+```
+
+Whole groups of steps can be executed if only the parent node has been specified as path.
+For example, the following:
+
+```bash
+$ sudo gravity plan execute --phase=/masters
+```
+
+will execute all steps of the `/masters` node in the order listed.
+
+Sometimes it is necessary to force execution of a particular step although it has already ran.
+To do this, add `--force` flag to the command line:
+
+```bash
+$ sudo gravity plan execute --phase=/masters/node-1/drain --force
+```
+
+If it is impossible to make progress with an operation due to an unforeseen condition, the
+steps that have been executed to this point should be rolled back:
+
+```bash
+$ sudo gravity plan rollback --phase=/masters/node-1/taint
+$ sudo gravity plan rollback --phase=/masters/node-1/system-upgrade
+$ sudo gravity plan rollback --phase=/masters/node-1/drain
+...
+```
+
+Note the reverse order of invocation.
+And just like with execution, the steps can be rolled back in groups:
+
+```bash
+$ sudo gravity plan rollback --phase=/masters
+```
+
+Once all steps have been rolled back, the operation needs to be explicitly completed in order to mark it failed:
+
+```bash
+$ sudo gravity plan complete
+```
+
+If you have fixed and issue and would like to resume the operation:
+
+```bash
+$ sudo gravity plan resume
+```
+
+This will resume the operation at the last failed step and run it through to completion.
+In this case there's no need to explicitly complete the operation afterwards - this is done
+automatically upon success.
+
 
 ## Interacting with the Master Container
 
@@ -1784,16 +1968,18 @@ local                       off
 
 ### Configuring Monitoring
 
-See (Heapster Integration)[/monitoring/#configuration] about details on how to configure monitoring alerts.
+See (Kapacitor Integration)[/monitoring/#kapacitor-integration] about details on how to configure monitoring alerts.
 
 
 ### Configuring Runtime Environment Variables
 
-Runtime Environment Variables resource allows to update environment variables inside the runtime container
-running on every cluster node.
-This allows post-installation configuration of cluster-wide HTTP proxy, for example.
+As you already know, in a Gravity cluster, each node is running a runtime container that hosts Kubernetes.
+All services (including Kubernetes native services like API server or kubelet) execute with the predefined
+environment (set up during installation or update).
+If you need to make changes to the runtime environment post-install or post-update - i.e. introduce new environment variables
+like `HTTP_PROXY`, this resource will allow you to do that.
 
-To add a new environment variable, `HTTP_PROXY`, create the resource as following:
+To add a new environment variable, `HTTP_PROXY`, create the file with following contents:
 
 [envars.yaml]
 ```yaml
@@ -1803,19 +1989,51 @@ spec:
   "HTTP_PROXY": "example.com:8001"
 ```
 
-and create it with:
+and then create the resource with:
 
 ```bash
 $ sudo gravity resource create -f envars.yaml
+Updating cluster runtime environment requires restart of runtime containers on all nodes.
+The operation might take several minutes to complete depending on the cluster size.
+
+The operation will start automatically once you approve it.
+If you want to review the operation plan first or execute it manually step by step,
+run the operation in manual mode by specifying '--manual' flag.
+
+Are you sure?
+confirm (yes/no):
+yes
 ```
 
-The environment variables update is implemented as a cluster operation.
-Without additional parameters, the operation is executed automatically, but can be placed into manual mode with the specification of `--manual | -m` flag
-to the 'gravity resource'  command:
+Without additional parameters, the operation is executed automatically, but can be placed into manual mode with
+the specification of `--manual | -m` flag to the `gravity resource`  command:
 
 ```bash
 $ sudo gravity resource create -f envars.yaml --manual
 ```
+
+This will allow you to control every aspect of the operation as it executes.
+See [Managing an Ongoing Operation](/cluster/#managing-an-ongoing-operation) for more details.
+
+
+To view the currently configured runtime environment variables:
+
+```bash
+$ gravity resource get runtime_environment
+Environment
+-----------
+HTTP_PROXY=example.con:8081
+```
+
+To remove the configured runtime environment variables, run:
+
+```bash
+$ gravity resource rm runtime_environment
+```
+
+!!! warning
+    Adding or removing cluster runtime environment variables is disruptive as it necessitates the restart
+    of runtime containers on each cluster node. Take this into account and plan each update accordingly.
 
 
 ## Managing Users

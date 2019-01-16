@@ -16,7 +16,7 @@ An introduction to [Docker](https://www.docker.com/) and its basic concepts
 
 #### Computer and OS
 
-This workshop is written for MacOS X but should mostly work with Linux as well. You will need a machine with at least `7GB RAM` and `8GB free disk space` available.
+This workshop is written for Mac OS X but should mostly work with Linux as well. You will need a machine with at least `7GB RAM` and `8GB free disk space` available.
 
 #### Docker
 
@@ -750,14 +750,14 @@ This is an introduction to Kubernetes and basic Kubernetes concepts. We will set
 
 ### Requirements
 
-This workshop is written for MacOS X or Linux. You will need a machine with at least `7GB RAM` and `8GB free disk space` available.
+This workshop is written for Mac OS X or Linux. You will need a machine with at least `7GB RAM` and `8GB free disk space` available.
 
 In addition, you will need to install:
 
-* Docker
+* docker
 * VirtualBox
 * kubectl
-* Minikube
+* minikube
 
 #### Docker
 
@@ -809,7 +809,7 @@ $ curl -Lo minikube https://storage.googleapis.com/minikube/releases/v0.12.2/min
         && chmod +x minikube && sudo mv minikube /usr/local/bin/
 ```
 
-Also, you can install drivers for various VM providers to optimize your Minikube VM performance.
+Also, you can install drivers for various VM providers to optimize your minikube VM performance.
 Instructions can be found here: https://github.com/kubernetes/minikube/blob/master/DRIVERS.md.
 
 To run a cluster:
@@ -823,7 +823,7 @@ docker run -p 5000:5000 --name registry -d registry:2
 
 **Notice for Mac OS X users:** you need to allow your docker daemon to work with your local insecure registry. It could be achieved via adding VM address to Docker for Mac.
 
-1. Get Minikube VM IP via calling `minikube ip`
+1. Get minikube VM IP via calling `minikube ip`
 2. Add obtained IP with port 5000 (specified above in `docker run` command) to Docker insecure registries:
 
 ![docker-settings](images/macos-docker-settings.jpg)
@@ -921,7 +921,7 @@ that's rarely necessary.
 
 ### Pod Containers
 
-In our NGINX pod there's only one running container `my-nginx`, however as we've mentioned before we can have multiple
+In our nginx pod there's only one running container `my-nginx`, however as we've mentioned before we can have multiple
 containers running in single Pod.
 
 Our container exposes Port 80. Thanks to overlay network every container can expose the same port on the same machine, and they won't collide.
@@ -940,7 +940,7 @@ If there's just one container, we can omit the container name within the pod:
 $ kubectl exec -ti my-nginx-3800858182-auusv /bin/
 ```
 
-Let's explore our NGINX container a bit:
+Let's explore our nginx container a bit:
 
 ```
 $ ps uax
@@ -950,7 +950,7 @@ root       265  0.2  0.0  20224  1912 ?        Ss   20:24   0:00 /bin/
 root       270  0.0  0.0  17492  1144 ?        R+   20:25   0:00 ps uax
 ```
 
-as you see, our container has it's own separate PID namespace - NGINX process is actually `PID 1`.
+as you see, our container has it's own separate PID namespace - nginx process is actually `PID 1`.
 
 ```
 $ ls -l /var/run/secrets/kubernetes.io/serviceaccount/
@@ -1125,7 +1125,7 @@ Kubernetes is integrated with [SkyDNS](https://github.com/kubernetes/kubernetes/
 that watches the services and pods and sets up appropriate `A` records. Our `sandbox` local DNS server is simply configured to
 point to the DNS service provided by Kubernetes.
 
-That's very similar how Kubernetes manages discovery in containers as well. Let's login into one of the NGINX boxes and
+That's very similar how Kubernetes manages discovery in containers as well. Let's login into one of the nginx boxes and
 discover `/etc/resolv.conf` there:
 
 
@@ -1144,7 +1144,7 @@ As you see, `resolv.conf` is set up to point to the DNS resolution service manag
 
 The power of Deployments comes from ability to do smart upgrades and rollbacks in case if something goes wrong.
 
-Let's update our deployment of NGINX to the newer version.
+Let's update our deployment of nginx to the newer version.
 
 ```
 $ cat my-nginx-new.yaml
@@ -1670,7 +1670,7 @@ Events:
 
 **Creating mattermost service**
 
-Our last touch is to create Mattermost service and check how it all works together:
+Our last touch is to create mattermost service and check how it all works together:
 
 ```
 $ kubectl create -f mattermost/worker-service.yaml
@@ -1751,10 +1751,10 @@ Notice this:
 NodePort:		http	32321/TCP
 ```
 
-Here we see that on my Vagrant every node in the system should have `IP:32321` resolve to the Mattermost web app.
+Here we see that on my Vagrant every node in the system should have `IP:32321` resolve to the mattermost web app.
 On your Vagrant the port most likely will be different!
 
-So on my computer I can now open Mattermost app using one of the nodes IP:
+So on my computer I can now open mattermost app using one of the nodes IP:
 
 
 ![mattermost](images/mattermost.png)
@@ -1773,7 +1773,7 @@ The difference between service and ingress (in Kubernetes terminology) is that s
 works on L7. E.g. while accessing HTTP server service can provide only load-balancing and HA, unlike ingres which could be used to split
 traffic on HTTP location basis, etc.
 
-First, we need to create to 2 different NGINX deployments, ConfigMaps and services for them:
+First, we need to create to 2 different nginx deployments, ConfigMaps and services for them:
 
 ```
 $ kubectl create configmap cola-nginx --from-file=ingress/conf-cola
@@ -1831,10 +1831,10 @@ Notice annotations:
 * `ingress.kubernetes.io/rewrite-target: /` -- sets request's location to `/` instead of specified in `path`.
 * `ingress.kubernetes.io/ssl-redirect: "false"` -- disables HTTP to HTTPS redirect, enabled by default.
 
-Ingress is implemented inside `kube-system` namespace using any kind of configurable proxy. E.g. in Minikube
-ingress uses NGINX. Simply speaking there's special server which reacts to ingress resource creation/deletion/alteration
-and updates configuration of neighboured NGINX. This *ingress controller* application started using
-ReplicationController resource inside Minikube, but could be run as usual Kubernetes application (DS, Deployment, etc),
+Ingress is implemented inside `kube-system` namespace using any kind of configurable proxy. E.g. in minikube
+ingress uses nginx. Simply speaking there's special server which reacts to ingress resource creation/deletion/alteration
+and updates configuration of neighboured nginx. This *ingress controller* application started using
+ReplicationController resource inside minikube, but could be run as usual Kubernetes application (DS, Deployment, etc),
 on special set of "edge router" nodes for improved security.
 
 ```
@@ -1882,10 +1882,10 @@ of Kubernetes deployments and we will take a look at some common mistakes to avo
 
 You will need Mac OS X or a Linux OS with at least `7GB RAM` and `8GB free disk space` available.
 
-* Docker
+* docker
 * VirtualBox
 * kubectl
-* Minikube
+* minikube
 
 #### Docker
 
@@ -1929,7 +1929,7 @@ For Linux:
     curl -Lo minikube https://storage.googleapis.com/minikube/releases/v0.12.2/minikube-linux-amd64 \
         && chmod +x minikube && sudo mv minikube /usr/local/bin/
 
-Also, you can install drivers for various VM providers to optimize your Minikube VM performance.
+Also, you can install drivers for various VM providers to optimize your minikube VM performance.
 Instructions can be found here: https://github.com/kubernetes/minikube/blob/master/DRIVERS.md.
 
 To run a cluster:
@@ -1943,7 +1943,7 @@ docker run -p 5000:5000 --name registry -d registry:2
 
 **Notice for Mac OS X users:** you need to allow your docker daemon to work with your local insecure registry. It could be achieved via adding VM address to Docker for Mac.
 
-1. Get Minikube VM IP via calling `minikube ip`
+1. Get minikube VM IP via calling `minikube ip`
 2. Add obtained IP with port 5000 (specified above in `docker run` command) to Docker insecure registries:
 
 ![docker-settings](images/macos-docker-settings.jpg)
@@ -2765,7 +2765,7 @@ $ curl http://frontend
 In the previous example we have used a sidecar pattern - a special proxy local to the Pod, that adds additional logic to the service, such as error detection, TLS termination
 and other features.
 
-Here is an example of sidecar NGINX proxy that adds rate and connection limits:
+Here is an example of sidecar nginx proxy that adds rate and connection limits:
 
 ```
 $ cd prod/sidecar

@@ -15,7 +15,7 @@ Gravity works with Kubernetes applications. This means the following prerequisit
 
 ## Getting Started
 
-Any Linux or MacOS laptop can be used to package and publish Kubernetes
+Any Linux or Mac OS laptop can be used to package and publish Kubernetes
 applications using Gravity. To get started, you need to download and
 install the Gravity SDK tools:
 
@@ -128,7 +128,7 @@ that do not depend on the host OS. Containerized builds are also easier to autom
 
 The example below builds a Docker image called `tele-buildbox`. This image will contain `tele` tool and can be used to create Gravity packages.
 
-#### Build Docker Image With `tele`
+#### Build Docker Image With Tele
 
 First, build docker image `tele-buildbox` with `tele` inside:
 
