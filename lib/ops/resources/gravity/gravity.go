@@ -74,8 +74,7 @@ func (r *Resources) Create(req resources.CreateRequest) error {
 	if err := req.Check(); err != nil {
 		return trace.Wrap(err)
 	}
-	kind := modules.Get().CanonicalKind(req.Resource.Kind)
-	switch kind {
+	switch req.Resource.Kind {
 	case teleservices.KindGithubConnector:
 		conn, err := teleservices.GetGithubConnectorMarshaler().Unmarshal(req.Resource.Raw)
 		if err != nil {
@@ -223,8 +222,7 @@ func (r *Resources) GetCollection(req resources.ListRequest) (resources.Collecti
 	if err := req.Check(); err != nil {
 		return nil, trace.Wrap(err)
 	}
-	kind := modules.Get().CanonicalKind(req.Kind)
-	switch kind {
+	switch req.Kind {
 	case teleservices.KindGithubConnector, teleservices.KindAuthConnector:
 		if req.Name != "" {
 			connector, err := r.Operator.GetGithubConnector(r.cluster.Key(), req.Name, req.WithSecrets)
