@@ -83,7 +83,7 @@ type ListRequest struct {
 }
 
 // Check validates the request
-func (r ListRequest) Check() error {
+func (r *ListRequest) Check() error {
 	if r.Kind == "" {
 		return trace.BadParameter("resource kind is mandatory")
 	}
@@ -92,6 +92,7 @@ func (r ListRequest) Check() error {
 	if !utils.StringInSlice(resources, kind) {
 		return trace.BadParameter("unknown resource kind %q", r.Kind)
 	}
+	r.Kind = kind
 	return nil
 }
 
@@ -108,7 +109,7 @@ type RemoveRequest struct {
 }
 
 // Check validates the request
-func (r RemoveRequest) Check() error {
+func (r *RemoveRequest) Check() error {
 	if r.Kind == "" {
 		return trace.BadParameter("resource kind is mandatory")
 	}
@@ -125,6 +126,7 @@ func (r RemoveRequest) Check() error {
 			return trace.BadParameter("resource name is mandatory")
 		}
 	}
+	r.Kind = kind
 	return nil
 }
 
