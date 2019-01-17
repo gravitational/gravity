@@ -12,7 +12,7 @@ LTS starts with `3.51.0` with minor backwards compatible changes added over time
 | 5.3.6         | No  | January, 8th 2019    | -                    | 1.12.3             | 2.4.10           |
 | 5.2.5         | Yes | January, 8th 2019    | October, 15th, 2019  | 1.11.5             | 2.4.10           |
 | 5.0.28        | Yes | January, 7th 2019    | April, 13th 2019     | 1.9.12-gravitational | 2.4.10         |
-| 4.67.0        | Yes | January, 3rd 2019    | November, 16th 2018  | 1.7.18-gravitational | 2.3.5          |
+| 4.68.0        | Yes | January, 17th 2019   | November, 16th 2018  | 1.7.18-gravitational | 2.3.5          |
 | 3.64.0        | Yes | December, 21st 2017  | June, 2nd 2018       | 1.5.7              | 2.0.6            |
 | 1.30.0        | Yes | March, 21st 2017     | March, 21st 2018     | 1.3.8              | 1.2.0            |
 
@@ -801,6 +801,12 @@ $ /tmp/gravity upgrade
 
 This will upgrade the cluster and the system instance of the `gravity` binary,
 so the temporary copy in `/tmp` can be discarded.
+
+### 4.68.0 LTS
+
+#### Bugfixes
+
+* Fix an issue with update preflight checks which could prevent upgrades from 3.x.
 
 ### 4.67.0 LTS
 
