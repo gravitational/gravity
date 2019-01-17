@@ -33,6 +33,15 @@ import (
 	log "github.com/sirupsen/logrus"
 )
 
+// DefaultKernelModuleChecker is a satellite kernel module checker with required modules to run kubernetes
+var DefaultKernelModuleChecker = monitoring.NewKernelModuleChecker(
+	moduleName("ebtables"),
+	moduleName("ip_tables"),
+	moduleName("iptable_filter"),
+	moduleName("iptable_nat"),
+	moduleName("br_netfilter"),
+)
+
 // ValidateDocker validates Docker requirements.
 // The specified directory is expected to be on the same filesystem
 // as the Docker graph directory (which might not exist at this point).
@@ -66,13 +75,7 @@ func ValidateKubelet(profile NodeProfile, manifest Manifest) (failed []*pb.Probe
 	}
 
 	checkers := append([]health.Checker{},
-		monitoring.NewKernelModuleChecker(
-			moduleName("ebtables"),
-			moduleName("ip_tables"),
-			moduleName("iptable_filter"),
-			moduleName("iptable_nat"),
-			moduleName("br_netfilter"),
-		),
+		DefaultKernelModuleChecker,
 		monitoring.NewCGroupChecker("cpu", "cpuacct", "cpuset", "memory"),
 	)
 	checker := monitoring.NewCompositeChecker("kubelet", checkers)

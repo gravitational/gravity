@@ -903,6 +903,7 @@ func planetStartCheckers(options *validationpb.ValidateOptions) health.Checker {
 	return monitoring.NewCompositeChecker(
 		"local",
 		[]health.Checker{
+			schema.DefaultKernelModuleChecker,
 			monitoring.NewIPForwardChecker(),
 			monitoring.NewBridgeNetfilterChecker(),
 			monitoring.NewMayDetachMountsChecker(),
