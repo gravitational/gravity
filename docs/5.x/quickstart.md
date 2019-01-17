@@ -169,7 +169,7 @@ $ tele build -o mattermost.tar mattermost/resources/app.yaml
 
 Let's review what just happened. `tele build` did the following:
 
-* Downloaded Kubernetes binaries and Gravity tooling from `s3://hub.gravitational.io`. The application "runtime".
+* Downloaded Kubernetes binaries and Gravity tooling from `s3://hub.gravitational.io`. 
 * Scanned the current directory and the subdirectories for Kubernetes resources and Helm charts.
 * Downloaded external container images referenced in the resources discovered in the previous step.
 * Packaged (or vendored) Docker images into the Application Bundle.
@@ -291,7 +291,7 @@ Sat Jan 12 05:37:12 UTC Operation has completed
 Sat Jan 12 05:37:13 UTC Installation succeeded in 6m3.257480586s
 ```
 
-**Congratulations!** You have created a fully functional, highly available
+**Congratulations!** You have created a fully functional 
 Kubernetes cluster with Mattermost running inside. If a single node cluster 
 is not enough, you can add additional nodes to it:
 

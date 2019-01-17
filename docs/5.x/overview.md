@@ -82,7 +82,7 @@ Cluster (i.e. the installation of the Cluster).
     it continues to be the only production-ready method of describing hardware
     requirements for K8s clusters.
 
-Below is a simple Application Manifest in YAML format. It follows Kubernetes
+Below is a sample Application Manifest in YAML format. It follows Kubernetes
 configuration conventions:
 
 ```yaml
