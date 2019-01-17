@@ -658,7 +658,7 @@ func RegisterCommands(app *kingpin.Application) *Application {
 	// remove one or many resources
 	g.ResourceRemoveCmd.CmdClause = g.ResourceCmd.Command("rm", fmt.Sprintf("Remove a configuration resource, e.g. gravity resource rm oidc google. Supported resources are: %v", modules.Get().SupportedResourcesToRemove()))
 	g.ResourceRemoveCmd.Kind = g.ResourceRemoveCmd.Arg("kind", fmt.Sprintf("resource kind, one of %v", modules.Get().SupportedResourcesToRemove())).Required().String()
-	g.ResourceRemoveCmd.Name = g.ResourceRemoveCmd.Arg("name", "resource name, e.g. github").Required().String()
+	g.ResourceRemoveCmd.Name = g.ResourceRemoveCmd.Arg("name", "resource name, e.g. github").String()
 	g.ResourceRemoveCmd.Force = g.ResourceRemoveCmd.Flag("force", "Do not return errors if a resource is not found").Short('f').Bool()
 	g.ResourceRemoveCmd.User = g.ResourceRemoveCmd.Flag("user", "user to remove resource for, defaults to currently logged in user").String()
 	g.ResourceRemoveCmd.Manual = g.ResourceRemoveCmd.Flag("manual", "manually execute operation phases").Short('m').Bool()

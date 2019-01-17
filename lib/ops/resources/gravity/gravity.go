@@ -71,7 +71,11 @@ func New(config Config) (*Resources, error) {
 
 // Create creates the provided resource
 func (r *Resources) Create(req resources.CreateRequest) error {
-	switch req.Resource.Kind {
+	if err := req.Check(); err != nil {
+		return trace.Wrap(err)
+	}
+	kind := modules.Get().CanonicalKind(req.Resource.Kind)
+	switch kind {
 	case teleservices.KindGithubConnector:
 		conn, err := teleservices.GetGithubConnectorMarshaler().Unmarshal(req.Resource.Raw)
 		if err != nil {
@@ -207,8 +211,6 @@ func (r *Resources) Create(req resources.CreateRequest) error {
 			return trace.Wrap(err)
 		}
 		r.Printf("Updated monitoring alert target %q\n", target.GetName())
-	case "":
-		return trace.BadParameter("missing resource kind")
 	default:
 		return trace.NotImplemented("unsupported resource %q, supported are: %v",
 			req.Resource.Kind, modules.Get().SupportedResources())
@@ -221,8 +223,9 @@ func (r *Resources) GetCollection(req resources.ListRequest) (resources.Collecti
 	if err := req.Check(); err != nil {
 		return nil, trace.Wrap(err)
 	}
-	switch req.Kind {
-	case teleservices.KindGithubConnector, teleservices.KindAuthConnector, "auth":
+	kind := modules.Get().CanonicalKind(req.Kind)
+	switch kind {
+	case teleservices.KindGithubConnector, teleservices.KindAuthConnector:
 		if req.Name != "" {
 			connector, err := r.Operator.GetGithubConnector(r.cluster.Key(), req.Name, req.WithSecrets)
 			if err != nil {
@@ -235,7 +238,7 @@ func (r *Resources) GetCollection(req resources.ListRequest) (resources.Collecti
 			return nil, trace.Wrap(err)
 		}
 		return &githubCollection{connectors: connectors}, nil
-	case teleservices.KindUser, "users":
+	case teleservices.KindUser:
 		if req.Name != "" {
 			user, err := r.Operator.GetUser(r.cluster.Key(), req.Name)
 			if err != nil {
@@ -248,7 +251,7 @@ func (r *Resources) GetCollection(req resources.ListRequest) (resources.Collecti
 			return nil, trace.Wrap(err)
 		}
 		return &userCollection{users: users}, nil
-	case storage.KindToken, "tokens":
+	case storage.KindToken:
 		if req.User == "" {
 			return nil, trace.BadParameter("please specify user via --user flag")
 		}
@@ -269,7 +272,7 @@ func (r *Resources) GetCollection(req resources.ListRequest) (resources.Collecti
 			return nil, trace.NotFound("token not found")
 		}
 		return &tokenCollection{tokens: tokens}, nil
-	case storage.KindLogForwarder, "logforwarders":
+	case storage.KindLogForwarder:
 		forwarders, err := r.Operator.GetLogForwarders(r.cluster.Key())
 		if err != nil {
 			return nil, trace.Wrap(err)
@@ -289,7 +292,7 @@ func (r *Resources) GetCollection(req resources.ListRequest) (resources.Collecti
 			filtered = forwarders
 		}
 		return &logForwardersCollection{logForwarders: filtered}, nil
-	case storage.KindTLSKeyPair, "tlskeypairs", "tls":
+	case storage.KindTLSKeyPair:
 		// always ignore name parameter for tls key pairs, because there is only one
 		cert, err := r.Operator.GetClusterCertificate(r.cluster.Key(), req.WithSecrets)
 		if err != nil {
@@ -297,19 +300,19 @@ func (r *Resources) GetCollection(req resources.ListRequest) (resources.Collecti
 		}
 		keyPair := storage.NewTLSKeyPair(cert.Certificate, cert.PrivateKey)
 		return &tlsKeyPairCollection{keyPairs: []storage.TLSKeyPair{keyPair}}, nil
-	case teleservices.KindClusterAuthPreference, "authpreference", "cap":
+	case teleservices.KindClusterAuthPreference:
 		authPreference, err := r.Operator.GetClusterAuthPreference(r.cluster.Key())
 		if err != nil {
 			return nil, trace.Wrap(err)
 		}
 		return clusterAuthPreferenceCollection{authPreference}, nil
-	case storage.KindSMTPConfig, "smtps":
+	case storage.KindSMTPConfig:
 		config, err := r.Operator.GetSMTPConfig(r.cluster.Key())
 		if err != nil {
 			return nil, trace.Wrap(err)
 		}
 		return smtpConfigCollection{config}, nil
-	case storage.KindAlert, "alerts":
+	case storage.KindAlert:
 		alerts, err := r.Operator.GetAlerts(r.cluster.Key())
 		if err != nil {
 			return nil, trace.Wrap(err)
@@ -329,13 +332,13 @@ func (r *Resources) GetCollection(req resources.ListRequest) (resources.Collecti
 			filtered = alerts
 		}
 		return alertCollection(filtered), nil
-	case storage.KindAlertTarget, "alerttargets":
+	case storage.KindAlertTarget:
 		alertTargets, err := r.Operator.GetAlertTargets(r.cluster.Key())
 		if err != nil {
 			return nil, trace.Wrap(err)
 		}
 		return alertTargetCollection(alertTargets), nil
-	case storage.KindRuntimeEnvironment, "environments", "env":
+	case storage.KindRuntimeEnvironment:
 		// always ignore name parameter for environment variables, because there is only one
 		env, err := r.Operator.GetClusterEnvironmentVariables(r.cluster.Key())
 		if err != nil {
@@ -361,7 +364,7 @@ func (r *Resources) Remove(req resources.RemoveRequest) error {
 			return trace.Wrap(err)
 		}
 		r.Printf("Github connector %q has been deleted\n", req.Name)
-	case teleservices.KindUser, "users":
+	case teleservices.KindUser:
 		if err := r.Operator.DeleteUser(r.cluster.Key(), req.Name); err != nil {
 			if trace.IsNotFound(err) && req.Force {
 				return nil
@@ -369,7 +372,7 @@ func (r *Resources) Remove(req resources.RemoveRequest) error {
 			return trace.Wrap(err)
 		}
 		r.Printf("User %q has been deleted\n", req.Name)
-	case storage.KindToken, "tokens":
+	case storage.KindToken:
 		user := req.User
 		if user == "" {
 			user = r.CurrentUser
@@ -383,7 +386,7 @@ func (r *Resources) Remove(req resources.RemoveRequest) error {
 			return trace.Wrap(err)
 		}
 		r.Printf("Token %q has been deleted for user %q\n", req.Name, user)
-	case storage.KindLogForwarder, "logforwarders":
+	case storage.KindLogForwarder:
 		if err := r.Operator.DeleteLogForwarder(r.cluster.Key(), req.Name); err != nil {
 			if trace.IsNotFound(err) && req.Force {
 				return nil
@@ -391,7 +394,7 @@ func (r *Resources) Remove(req resources.RemoveRequest) error {
 			return trace.Wrap(err)
 		}
 		r.Printf("Log forwarder %q has been deleted\n", req.Name)
-	case storage.KindTLSKeyPair, "tlskeypairs", "tls":
+	case storage.KindTLSKeyPair:
 		if err := r.Operator.DeleteClusterCertificate(r.cluster.Key()); err != nil {
 			if trace.IsNotFound(err) && req.Force {
 				return nil
@@ -399,7 +402,7 @@ func (r *Resources) Remove(req resources.RemoveRequest) error {
 			return trace.Wrap(err)
 		}
 		r.Printf("TLS key pair %q has been deleted\n", req.Name)
-	case storage.KindSMTPConfig, "smtps":
+	case storage.KindSMTPConfig:
 		if err := r.Operator.DeleteSMTPConfig(r.cluster.Key()); err != nil {
 			if trace.IsNotFound(err) && req.Force {
 				return nil
@@ -407,7 +410,7 @@ func (r *Resources) Remove(req resources.RemoveRequest) error {
 			return trace.Wrap(err)
 		}
 		r.Println("SMTP configuration has been deleted")
-	case storage.KindAlert, "alerts":
+	case storage.KindAlert:
 		if err := r.Operator.DeleteAlert(r.cluster.Key(), req.Name); err != nil {
 			if trace.IsNotFound(err) && req.Force {
 				return nil
@@ -415,7 +418,7 @@ func (r *Resources) Remove(req resources.RemoveRequest) error {
 			return trace.Wrap(err)
 		}
 		r.Printf("Alert %q has been deleted\n", req.Name)
-	case storage.KindAlertTarget, "alerttargets":
+	case storage.KindAlertTarget:
 		if err := r.Operator.DeleteAlertTarget(r.cluster.Key()); err != nil {
 			if trace.IsNotFound(err) && req.Force {
 				return nil

@@ -21,6 +21,9 @@ import (
 
 	"github.com/gravitational/gravity/lib/constants"
 	"github.com/gravitational/gravity/lib/defaults"
+	"github.com/gravitational/gravity/lib/modules"
+	"github.com/gravitational/gravity/lib/storage"
+	"github.com/gravitational/gravity/lib/utils"
 
 	teleservices "github.com/gravitational/teleport/lib/services"
 	"github.com/gravitational/trace"
@@ -59,6 +62,14 @@ type CreateRequest struct {
 	User string
 }
 
+// Check validates the request
+func (r CreateRequest) Check() error {
+	if r.Resource.Kind == "" {
+		return trace.BadParameter("resource kind is mandatory")
+	}
+	return nil
+}
+
 // ListRequest describes a request to list resources
 type ListRequest struct {
 	// Kind is kind of the resource
@@ -75,6 +86,11 @@ type ListRequest struct {
 func (r ListRequest) Check() error {
 	if r.Kind == "" {
 		return trace.BadParameter("resource kind is mandatory")
+	}
+	kind := modules.Get().CanonicalKind(r.Kind)
+	resources := modules.Get().SupportedResourcesToRemove()
+	if !utils.StringInSlice(resources, kind) {
+		return trace.BadParameter("unknown resource kind %q", r.Kind)
 	}
 	return nil
 }
@@ -96,8 +112,18 @@ func (r RemoveRequest) Check() error {
 	if r.Kind == "" {
 		return trace.BadParameter("resource kind is mandatory")
 	}
-	if r.Name == "" {
-		return trace.BadParameter("resource name is mandatory")
+	kind := modules.Get().CanonicalKind(r.Kind)
+	resources := modules.Get().SupportedResourcesToRemove()
+	if !utils.StringInSlice(resources, kind) {
+		return trace.BadParameter("unknown resource kind %q", r.Kind)
+	}
+	switch kind {
+	case storage.KindAlertTarget:
+	case storage.KindSMTPConfig:
+	default:
+		if r.Name == "" {
+			return trace.BadParameter("resource name is mandatory")
+		}
 	}
 	return nil
 }

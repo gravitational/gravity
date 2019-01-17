@@ -58,6 +58,36 @@ const (
 	KindRuntimeEnvironment = "runtime_environment"
 )
 
+// CanonicalKind translates the specified kind r to canonical form.
+// Returns an empty string if no canonical form exists
+func CanonicalKind(kind string) string {
+	switch kind {
+	case teleservices.KindGithubConnector:
+		return teleservices.KindGithubConnector
+	case teleservices.KindAuthConnector, "auth":
+		return teleservices.KindAuthConnector
+	case teleservices.KindUser, "users":
+		return teleservices.KindUser
+	case KindToken, "tokens":
+		return KindToken
+	case KindLogForwarder, "logforwarders":
+		return KindLogForwarder
+	case KindTLSKeyPair, "tlskeypairs", "tls":
+		return KindTLSKeyPair
+	case teleservices.KindClusterAuthPreference, "authpreference", "cap":
+		return teleservices.KindClusterAuthPreference
+	case KindSMTPConfig, "smtps":
+		return KindSMTPConfig
+	case KindAlert, "alerts":
+		return KindAlert
+	case KindAlertTarget, "alerttargets":
+		return KindAlertTarget
+	case KindRuntimeEnvironment, "environments", "env":
+		return KindRuntimeEnvironment
+	}
+	return ""
+}
+
 // SupportedGravityResources is a list of resources supported by
 // "gravity resource create/get" subcommands
 var SupportedGravityResources = []string{
@@ -74,7 +104,7 @@ var SupportedGravityResources = []string{
 }
 
 // SupportedGravityResourcesToRemove is a list of resources supported by
-// "gravity resource remove" subcommand
+// "gravity resource rm" subcommand
 var SupportedGravityResourcesToRemove = []string{
 	teleservices.KindGithubConnector,
 	teleservices.KindUser,
