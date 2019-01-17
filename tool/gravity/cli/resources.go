@@ -101,7 +101,7 @@ func CreateResource(
 
 // RemoveResource deletes resource by name
 func RemoveResource(env *localenv.LocalEnvironment, factory LocalEnvironmentFactory, kind string, name string, force bool, user string, manual, confirmed bool) error {
-	if kind := modules.Get().CanonicalKind(kind); kind == storage.KindRuntimeEnvironment {
+	if modules.Get().CanonicalKind(kind) == storage.KindRuntimeEnvironment {
 		if checkRunningAsRoot() != nil {
 			return trace.BadParameter("updating cluster runtime environment variables requires root privileges.\n" +
 				"Please run this command as root")
