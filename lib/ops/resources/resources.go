@@ -88,7 +88,7 @@ func (r ListRequest) Check() error {
 		return trace.BadParameter("resource kind is mandatory")
 	}
 	kind := modules.Get().CanonicalKind(r.Kind)
-	resources := modules.Get().SupportedResourcesToRemove()
+	resources := modules.Get().SupportedResources()
 	if !utils.StringInSlice(resources, kind) {
 		return trace.BadParameter("unknown resource kind %q", r.Kind)
 	}

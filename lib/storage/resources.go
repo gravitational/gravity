@@ -58,7 +58,7 @@ const (
 	KindRuntimeEnvironment = "runtime_environment"
 )
 
-// CanonicalKind translates the specified kind r to canonical form.
+// CanonicalKind translates the specified kind to canonical form.
 // Returns an empty string if no canonical form exists
 func CanonicalKind(kind string) string {
 	switch kind {
@@ -93,6 +93,7 @@ func CanonicalKind(kind string) string {
 var SupportedGravityResources = []string{
 	teleservices.KindClusterAuthPreference,
 	teleservices.KindGithubConnector,
+	teleservices.KindAuthConnector,
 	teleservices.KindUser,
 	KindToken,
 	KindLogForwarder,

@@ -41,7 +41,7 @@ type Modules interface {
 	SupportedResources() []string
 	// SupportedResourcesToRemove returns a list of resources that can be removed
 	SupportedResourcesToRemove() []string
-	// CanonicalKind translates the specified kind r to canonical form.
+	// CanonicalKind translates the specified kind to canonical form.
 	// Returns an empty string if no canonical form exists
 	CanonicalKind(kind string) string
 	// SupportedConnectors returns a list of supported auth connector kinds
@@ -111,7 +111,7 @@ func (m *defaultModules) SupportedConnectors() []string {
 	}
 }
 
-// CanonicalKind translates the specified kind r to canonical form.
+// CanonicalKind translates the specified kind to canonical form.
 // Returns an empty string if no canonical form exists
 func (m *defaultModules) CanonicalKind(kind string) string {
 	return storage.CanonicalKind(kind)
