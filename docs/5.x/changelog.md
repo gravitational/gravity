@@ -2,7 +2,7 @@
 
 ## Current Releases
 
-Every major gravity version `x.0.0` has it's long term support release, e.g. for `3.0.0` version
+Every major Gravity version `x.0.0` has it's long term support release, e.g. for `3.0.0` version
 LTS starts with `3.51.0` with minor backwards compatible changes added over time until the end of support cycle.
 
 | Release       | LTS | Release Date         | Supported Until      | Kubernetes Version | Teleport Version |

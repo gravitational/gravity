@@ -1,6 +1,6 @@
 # Introduction
 
-The Gravity Ops Center is a multi-cluster control plane available in the Enterprise version of Gravity. It reduces the operational overhead of managing multiple Gravity Clusters and Applications Bundles by allowing users to:
+The Gravity Ops Center is a multi-cluster control plane available in the Enterprise version of Gravity. It reduces the operational overhead of managing multiple Gravity Clusters and Application Bundles by allowing users to:
 
 * Publish Application Bundles and manage their versions.
 * Download and install Application Bundles, i.e. quickly creating Kubernetes clusters.
