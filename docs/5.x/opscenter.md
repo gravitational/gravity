@@ -1,58 +1,58 @@
-# Setting up an Ops Center
+# Introduction
 
-An Ops Center controls access and lifecycle of Applicaion Clusters and provides a distribution endpoint
-for Application Bundles to be installed on Gravity Clusters.
+The Gravity Ops Center is a multi-cluster control plane available in the Enterprise version of Gravity. It reduces the operational overhead of managing multiple Gravity Clusters and Applications Bundles by allowing users to:
 
-## Pre-requisites
+* Publish Application Bundles and manage their versions.
+* Download and install Application Bundles, i.e. quickly creating Kubernetes clusters.
+* Remotely manage thousands of Kubernetes clusters either via command line (CLI) or via a Web interface.
 
- - [Gravity binaries](quickstart.md)
- - The Gravitational [Quickstart Repository](https://github.com/gravitational/quickstart)
+!!! warning "Version Warning":
+    The Ops Center is only available to users of Gravity Enterprise.
 
-## Generating a token
+This chapter will guide you through the process of downloading and installing your own instance of the _Ops Center_.
 
-To install an Ops Center, a shared token needs to be generated to allow multiple nodes of a Cluster to join. This token will be used in an environment variable named `TOKEN`:
+## Installing Ops Center
+
+The Ops Center only works with the Gravity Enterprise Edition license key and the Application Bundle for the Ops Center. You can [contact us](https://gravitational.com/gravity/demo/) to get a trial license key and the Ops Center Application Bundle.
+
+As with any Gravity application, you will also need a Linux server to install the Ops Center.
+
+### Generating a Token
+
+To establish trust between an Ops Center and multiple K8s clusters, a common shared
+hard-to-guess secret (token) must be generated first. Therefore, before
+installing an Ops Center, a shared token needs to be generated and stored in an
+environment variable named `TOKEN`:
 
 ```bsh
 $ export TOKEN="$(uuidgen)"
 ```
-## Automatic Provisioning
 
-Included in the [Quickstart repository](https://github.com/gravitational/quickstart/tree/master/opscenter) is a configuration to provision a Vagrant VM, as well as an AWS instance to run the Ops Center.
-
-### Manual Provisioning
-
-Install Gravity:
+Next expand the Ops Center Application Bundle `ops-center.tar` and launch the installer:
 
 ```bsh
-$ curl https://get.gravitational.io/telekube/install | bash
+$ tar xvf ./ops-center.tar
+$ ./gravity install --advertise-addr=10.1.1.5 \
+                    --token=$TOKEN \
+                    --flavor=standalone \
+                    --cluster=opscenter.example.com \
+                    --ops-advertise-addr=opscenter.example.com:443
 ```
 
-Pull the latest Ops Center:
-
-```bsh
-$ tele pull opscenter -o installer.tar
-$ tar xvf ./installer.tar
-```
-
-Run the standalone install:
-
-```bsh
-$ ./gravity install --advertise-addr=(server IP address) --token=(TOKEN) --flavor=(flavor) --cluster=(cluster name) --ops-advertise-addr=example.com:443
-```
-
-* `advertise-addr` is private IPV4 address used for nodes to communicate to each other
+* `advertise-addr` is private IPV4 address of a K8s master node (this node) which will be used by other K8s nodes to form a cluster.
 * `flavor` is the cluster configuration flavor to install; choose `standalone`
-for a single-node install which is great for evaluation/development purposes or
-`ha` to install a 3-node cluster suitable for production use or high-availability
+  for a single-node install which is great for evaluation/development purposes
+  or `ha` to install a 3-node cluster suitable for production use or
+  high-availability
 * `ops-advertise-addr` should be a DNS name publicly accessible via internet
 * `token` is a security token for nodes to join to the cluster
-* `cluster` is a unique cluster name, e.g. `example.com`
+* `cluster` is a unique cluster name, e.g. `opscenter.example.com`
 
 ## Post-provisioning
 
 #### Setting up DNS
 
-After provisioning, DNS records should be created with hostname at either the provisioned ELB load balancer (for AWS) or the IP of the virtual machine (for Vagrant)
+After provisioning, DNS records should be created with hostname at either the provisioned ELB load balancer (for AWS) or the IP of the virtual machine (for Vagrant).
 
 !!! tip "Wildcard DNS name":
 	  The Ops Center DNS records should be wildcard, both `*.opscenter.example.com` and `opscenter.example.com` should point to the IP address
@@ -60,14 +60,11 @@ After provisioning, DNS records should be created with hostname at either the pr
 
 #### Setting up OIDC
 
-After installation [OIDC provider](/cluster/#configuring-a-cluster) should be set up in order to login to the Ops Center.
+After installation [OIDC provider](/cluster/#configuring-a-cluster) should be set up in order to log into the Ops Center.
 
 #### Setting up TLS Key Pair
 
-After installation, a valid [TLS key pair](/cluster/#configuring-tls-key-pair) should be set up in order to login to the Ops Center.
-
-!!! tip "TLS Certificate":
-    The Ops Center has to use a valid, not self-signed TLS certificate to function properly.
+After installation, a valid [TLS key pair](/cluster/#configuring-tls-key-pair) should be set up in order to log into the Ops Center. The Ops Center has to use a valid, not self-signed TLS certificate to function properly.
 
 #### Configuring endpoints
 
