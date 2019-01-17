@@ -99,8 +99,8 @@ The full list of `gravity` commands:
 |-----------|--------------------------------------------------------------------|
 | status    | show the status of the cluster and the application running in it   |
 | update    | manage application updates on a Gravity Cluster                    |
-| upgrade   | manage the application upgrade operation for a Gravity Cluster     |
-| plan      | manage (active) operation plan                                     |
+| upgrade   | manage the cluster upgrade operation for a Gravity Cluster         |
+| plan      | manage operation plan                                              |
 | rollback  | roll back the upgrade operation for a Gravity Cluster              |
 | join      | add a new node to the cluster                                      |
 | autojoin  | join the cluster using cloud provider for discovery                |
@@ -616,7 +616,7 @@ Phase                    Description                                            
 
 The command is aliased as `gravity plan display`.
 The plan lists all steps, top to bottom, in the order in which they will be executed.
-Each step (phase), has a state which explains whether it has already ran or whether it failed.
+Each step (phase), has a state which explains whether it has already run or whether it failed.
 Also, steps can explicitly or implicitly depend on other steps.
 The commands will make sure a particular phase cannot be executed before its requirements have not run.
 
@@ -1973,7 +1973,7 @@ See (Kapacitor Integration)[/monitoring/#kapacitor-integration] about details on
 
 ### Configuring Runtime Environment Variables
 
-As you already know, in a Gravity cluster, each node is running a runtime container that hosts Kubernetes.
+In a Gravity cluster, each node is running a runtime container that hosts Kubernetes.
 All services (including Kubernetes native services like API server or kubelet) execute with the predefined
 environment (set up during installation or update).
 If you need to make changes to the runtime environment post-install or post-update - i.e. introduce new environment variables
@@ -1986,7 +1986,7 @@ To add a new environment variable, `HTTP_PROXY`, create the file with following 
 kind: runtime_environment
 version: v1
 spec:
-  "HTTP_PROXY": "example.com:8001"
+  HTTP_PROXY: "example.com:8001"
 ```
 
 and then create the resource with:
@@ -2022,7 +2022,7 @@ To view the currently configured runtime environment variables:
 $ gravity resource get runtime_environment
 Environment
 -----------
-HTTP_PROXY=example.con:8081
+HTTP_PROXY=example.com:8081
 ```
 
 To remove the configured runtime environment variables, run:

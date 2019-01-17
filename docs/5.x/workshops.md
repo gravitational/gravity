@@ -16,13 +16,13 @@ An introduction to [Docker](https://www.docker.com/) and its basic concepts
 
 #### Computer and OS
 
-This workshop is written for Mac OS X but should mostly work with Linux as well. You will need a machine with at least `7GB RAM` and `8GB free disk space` available.
+This workshop is written for macOS but should mostly work with Linux as well. You will need a machine with at least `7GB RAM` and `8GB free disk space` available.
 
 #### Docker
 
 For Linux: follow instructions provided [here](https://docs.docker.com/engine/installation/linux/).
 
-If you have Mac OS X (Yosemite or newer), please download Docker for Mac [here](https://download.docker.com/mac/stable/Docker.dmg).
+If you have macOS (Yosemite or newer), please download Docker for Mac [here](https://download.docker.com/mac/stable/Docker.dmg).
 
 *Older docker package for OSes older than Yosemite -- Docker Toolbox located [here](https://www.docker.com/products/docker-toolbox).*
 
@@ -750,7 +750,7 @@ This is an introduction to Kubernetes and basic Kubernetes concepts. We will set
 
 ### Requirements
 
-This workshop is written for Mac OS X or Linux. You will need a machine with at least `7GB RAM` and `8GB free disk space` available.
+This workshop is written for macOS or Linux. You will need a machine with at least `7GB RAM` and `8GB free disk space` available.
 
 In addition, you will need to install:
 
@@ -763,7 +763,7 @@ In addition, you will need to install:
 
 For Linux: follow instructions provided [here](https://docs.docker.com/engine/installation/linux/).
 
-If you have Mac OS X (Yosemite or newer), please download Docker for Mac [here](https://download.docker.com/mac/stable/Docker.dmg).
+If you have macOS (Yosemite or newer), please download Docker for Mac [here](https://download.docker.com/mac/stable/Docker.dmg).
 
 *Older docker package for OSes older than Yosemite -- Docker Toolbox located [here](https://www.docker.com/products/docker-toolbox).*
 
@@ -775,7 +775,7 @@ Get latest stable version from https://www.virtualbox.org/wiki/Downloads
 
 #### Kubectl
 
-For Mac OS X:
+For macOS:
 
 ```bsh
 $ curl -O https://storage.googleapis.com/kubernetes-release/release/v1.3.8/bin/darwin/amd64/kubectl \
@@ -795,7 +795,7 @@ Xcode will install essential console utilities for us. You can install it from t
 
 #### Minikube
 
-For Mac OS X:
+For macOS:
 
 ```
 $ curl -Lo minikube https://storage.googleapis.com/minikube/releases/v0.12.2/minikube-darwin-amd64 \
@@ -821,7 +821,7 @@ minikube ssh
 docker run -p 5000:5000 --name registry -d registry:2
 ```
 
-**Notice for Mac OS X users:** you need to allow your docker daemon to work with your local insecure registry. It could be achieved via adding VM address to Docker for Mac.
+**Notice for macOS users:** you need to allow your docker daemon to work with your local insecure registry. It could be achieved via adding VM address to Docker for Mac.
 
 1. Get minikube VM IP via calling `minikube ip`
 2. Add obtained IP with port 5000 (specified above in `docker run` command) to Docker insecure registries:
@@ -1880,7 +1880,7 @@ of Kubernetes deployments and we will take a look at some common mistakes to avo
 
 ### Requirements
 
-You will need Mac OS X or a Linux OS with at least `7GB RAM` and `8GB free disk space` available.
+You will need macOS or a Linux OS with at least `7GB RAM` and `8GB free disk space` available.
 
 * docker
 * VirtualBox
@@ -1891,7 +1891,7 @@ You will need Mac OS X or a Linux OS with at least `7GB RAM` and `8GB free disk 
 
 For Linux: follow instructions provided [here](https://docs.docker.com/engine/installation/linux/).
 
-If you have Mac OS X (Yosemite or newer), please download Docker for Mac [here](https://download.docker.com/mac/stable/Docker.dmg).
+If you have macOS (Yosemite or newer), please download Docker for Mac [here](https://download.docker.com/mac/stable/Docker.dmg).
 
 *Older docker package for OSes older than Yosemite -- Docker Toolbox located [here](https://www.docker.com/products/docker-toolbox).*
 
@@ -1903,7 +1903,7 @@ Get latest stable version from https://www.virtualbox.org/wiki/Downloads
 
 #### Kubectl
 
-For Mac OS X:
+For macOS:
 
     curl -O https://storage.googleapis.com/kubernetes-release/release/v1.3.8/bin/darwin/amd64/kubectl \
         && chmod +x kubectl && sudo mv kubectl /usr/local/bin/
@@ -1919,7 +1919,7 @@ Xcode will install essential console utilities for us. You can install it from t
 
 #### Minikube
 
-For Mac OS X:
+For macOS:
 
     curl -Lo minikube https://storage.googleapis.com/minikube/releases/v0.12.2/minikube-darwin-amd64 \
         && chmod +x minikube && sudo mv minikube /usr/local/bin/
@@ -1941,7 +1941,7 @@ minikube ssh
 docker run -p 5000:5000 --name registry -d registry:2
 ```
 
-**Notice for Mac OS X users:** you need to allow your docker daemon to work with your local insecure registry. It could be achieved via adding VM address to Docker for Mac.
+**Notice for macOS users:** you need to allow your docker daemon to work with your local insecure registry. It could be achieved via adding VM address to Docker for Mac.
 
 1. Get minikube VM IP via calling `minikube ip`
 2. Add obtained IP with port 5000 (specified above in `docker run` command) to Docker insecure registries:

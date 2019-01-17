@@ -15,7 +15,7 @@ Gravity works with Kubernetes applications. This means the following prerequisit
 
 ## Getting Started
 
-Any Linux or Mac OS laptop can be used to package and publish Kubernetes
+Any Linux or macOS laptop can be used to package and publish Kubernetes
 applications using Gravity. To get started, you need to download and
 install the Gravity SDK tools:
 
