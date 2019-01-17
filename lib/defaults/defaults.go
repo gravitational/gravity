@@ -469,7 +469,7 @@ const (
 	// KeepAliveTimeout tells for how long keep the connection alive with no activity
 	KeepAliveTimeout = 30 * time.Second
 
-	// MaxIdleConnsPerHost specifies the max amount of idle HTTP conns to keep
+	// MaxIdleConnsPerHost specifies the max amount of idle HTTP connections to keep
 	MaxIdleConnsPerHost = 500
 
 	// DBOpenTimeout is a default timeout for opening the DB
