@@ -71,7 +71,7 @@ func ValidateKubelet(profile NodeProfile, manifest Manifest) (failed []*pb.Probe
 			moduleName("ip_tables"),
 			moduleName("iptable_filter"),
 			moduleName("iptable_nat"),
-			moduleName("br_netfilter", "bridge"),
+			moduleName("br_netfilter"),
 		),
 		monitoring.NewCGroupChecker("cpu", "cpuacct", "cpuset", "memory"),
 	)
