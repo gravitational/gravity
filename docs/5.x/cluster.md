@@ -641,7 +641,7 @@ $ sudo gravity plan execute --phase=/masters
 
 will execute all steps of the `/masters` node in the order listed.
 
-Sometimes it is necessary to force execution of a particular step although it has already ran.
+Sometimes it is necessary to force execution of a particular step although it has already run.
 To do this, add `--force` flag to the command line:
 
 ```bash
