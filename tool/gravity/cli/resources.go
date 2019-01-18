@@ -24,6 +24,7 @@ import (
 	"github.com/gravitational/gravity/lib/constants"
 	"github.com/gravitational/gravity/lib/defaults"
 	"github.com/gravitational/gravity/lib/localenv"
+	"github.com/gravitational/gravity/lib/modules"
 	"github.com/gravitational/gravity/lib/ops/resources"
 	"github.com/gravitational/gravity/lib/ops/resources/gravity"
 	"github.com/gravitational/gravity/lib/storage"
@@ -100,7 +101,7 @@ func CreateResource(
 
 // RemoveResource deletes resource by name
 func RemoveResource(env *localenv.LocalEnvironment, factory LocalEnvironmentFactory, kind string, name string, force bool, user string, manual, confirmed bool) error {
-	if kind == storage.KindRuntimeEnvironment {
+	if modules.Get().CanonicalKind(kind) == storage.KindRuntimeEnvironment {
 		if checkRunningAsRoot() != nil {
 			return trace.BadParameter("updating cluster runtime environment variables requires root privileges.\n" +
 				"Please run this command as root")

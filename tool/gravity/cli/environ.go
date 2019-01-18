@@ -263,7 +263,7 @@ const (
 The operation might take several minutes to complete depending on the cluster size.
 
 The operation will start automatically once you approve it.
-If want to review the operation plan first or execute it manually step by step,
+If you want to review the operation plan first or execute it manually step by step,
 run the operation in manual mode by specifying '--manual' flag.
 
 Are you sure?`
