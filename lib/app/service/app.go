@@ -24,6 +24,7 @@ import (
 	"io/ioutil"
 	"path/filepath"
 	"strconv"
+	"strings"
 	"sync"
 	"time"
 
@@ -33,6 +34,7 @@ import (
 	"github.com/gravitational/gravity/lib/archive"
 	"github.com/gravitational/gravity/lib/constants"
 	"github.com/gravitational/gravity/lib/defaults"
+	"github.com/gravitational/gravity/lib/helm"
 	"github.com/gravitational/gravity/lib/loc"
 	"github.com/gravitational/gravity/lib/pack"
 	"github.com/gravitational/gravity/lib/schema"
@@ -82,6 +84,8 @@ type Config struct {
 	Client *kubernetes.Clientset
 	// FieldLogger specifies the optional logger
 	log.FieldLogger
+	// Charts provides chart repository methods.
+	Charts helm.Repository
 }
 
 // New creates a new instance of the application manager
@@ -121,6 +125,11 @@ func (r *applications) DeleteApp(req appservice.DeleteRequest) error {
 			return trace.Wrap(err)
 		}
 		r.Warnf("Force deleting app %v: %v.", req.Package, err)
+	}
+	if r.Charts != nil {
+		if err := r.Charts.RemoveFromIndex(req.Package); err != nil {
+			return trace.Wrap(err)
+		}
 	}
 	if err := r.deleteResourcesPackage(req.Package); err != nil {
 		return trace.Wrap(err)
@@ -381,6 +390,9 @@ func (r *applications) ListApps(req appservice.ListAppsRequest) (apps []appservi
 		if string(req.Type) != "" && item.Type != string(req.Type) {
 			continue
 		}
+		if req.Pattern != "" && !strings.Contains(item.Locator.Name, req.Pattern) {
+			continue
+		}
 		app, err := toApp(&item, r)
 		if err != nil {
 			// just skip the app if we failed to resolve its manifest to prevent OpsCenter from
@@ -589,6 +601,13 @@ func (r *applications) createApp(locator loc.Locator, packageBytes io.Reader, ma
 		return nil, trace.Wrap(err)
 	}
 
+	if manifest.Kind == schema.KindApplication && r.Charts != nil {
+		err = r.Charts.AddToIndex(locator, upsert)
+		if err != nil && !trace.IsAlreadyExists(err) {
+			return nil, trace.Wrap(err)
+		}
+	}
+
 	return &appservice.Application{
 		Package:         locator,
 		PackageEnvelope: *envelope,
@@ -751,6 +770,16 @@ func (r *applications) GetOperationCrashReport(op storage.AppOperation) (io.Read
 	}()
 
 	return reader, nil
+}
+
+// FetchChart returns Helm chart package with the specified application.
+func (r *applications) FetchChart(locator loc.Locator) (io.ReadCloser, error) {
+	return r.Charts.FetchChart(locator)
+}
+
+// FetchIndexFile returns Helm chart repository index file data.
+func (r *applications) FetchIndexFile() (io.Reader, error) {
+	return r.Charts.GetIndexFile()
 }
 
 func (r *applications) resolveManifest(manifestBytes []byte) (*schema.Manifest, error) {

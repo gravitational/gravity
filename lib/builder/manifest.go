@@ -36,11 +36,13 @@ func generateManifest(chart *chart.Chart) (*schema.Manifest, error) {
 			Metadata: schema.Metadata{
 				Name:            chart.Metadata.Name,
 				ResourceVersion: chart.Metadata.Version,
+				Description:     chart.Metadata.Description,
 				Repository:      defaults.SystemAccountOrg,
 				// Mark the application with a label so Gravity has an easy
 				// way to detect this was built out of Helm chart.
 				Labels: map[string]string{
-					constants.HelmLabel: "true",
+					constants.HelmLabel:       "true",
+					constants.AppVersionLabel: chart.Metadata.AppVersion,
 				},
 			},
 		},

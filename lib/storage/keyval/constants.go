@@ -75,6 +75,8 @@ const (
 	remoteClustersP             = "remoteclusters"
 	systemP                     = "system"
 	dnsP                        = "dns"
+	chartsP                     = "charts"
+	indexP                      = "index"
 
 	// AllCollectionIDs identifies a collection without a specification (an ID)
 	AllCollectionIDs = "__all__"

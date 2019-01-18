@@ -314,9 +314,20 @@ func isInsidePod() bool {
 	return os.Getenv("POD_IP") != ""
 }
 
+// KubeConfigOption represents a functional argument type that allows to modify
+// Kubernetes client configuration before creating it.
+type KubeConfigOption func(*rest.Config)
+
+// WithHost sets host in the Kubernetes client config.
+func WithHost(host string) KubeConfigOption {
+	return func(config *rest.Config) {
+		config.Host = host
+	}
+}
+
 // GetUnprivilegedKubeClient returns a Kubernetes client that uses kubelet
 // certificate for authentication
-func GetUnprivilegedKubeClient(dnsAddr string) (*kubernetes.Clientset, *rest.Config, error) {
+func GetUnprivilegedKubeClient(dnsAddr string, options ...KubeConfigOption) (*kubernetes.Clientset, *rest.Config, error) {
 	stateDir, err := state.GetStateDir()
 	if err != nil {
 		return nil, nil, trace.Wrap(err)
@@ -325,12 +336,12 @@ func GetUnprivilegedKubeClient(dnsAddr string) (*kubernetes.Clientset, *rest.Con
 		CertFile: state.Secret(stateDir, defaults.KubeletCertFilename),
 		KeyFile:  state.Secret(stateDir, defaults.KubeletKeyFilename),
 		CAFile:   state.Secret(stateDir, defaults.RootCertFilename),
-	})
+	}, options...)
 }
 
 // GetClusterKubeClient returns a Kubernetes client that uses scheduler
 // certificate for authentication
-func GetClusterKubeClient(dnsAddr string) (*kubernetes.Clientset, *rest.Config, error) {
+func GetClusterKubeClient(dnsAddr string, options ...KubeConfigOption) (*kubernetes.Clientset, *rest.Config, error) {
 	stateDir, err := state.GetStateDir()
 	if err != nil {
 		return nil, nil, trace.Wrap(err)
@@ -339,13 +350,13 @@ func GetClusterKubeClient(dnsAddr string) (*kubernetes.Clientset, *rest.Config, 
 		CertFile: state.Secret(stateDir, defaults.SchedulerCertFilename),
 		KeyFile:  state.Secret(stateDir, defaults.SchedulerKeyFilename),
 		CAFile:   state.Secret(stateDir, defaults.RootCertFilename),
-	})
+	}, options...)
 }
 
-func getKubeClient(dnsAddr string, tlsConfig rest.TLSClientConfig) (*kubernetes.Clientset, *rest.Config, error) {
+func getKubeClient(dnsAddr string, tlsConfig rest.TLSClientConfig, options ...KubeConfigOption) (*kubernetes.Clientset, *rest.Config, error) {
 	config := &rest.Config{
-		Host: fmt.Sprintf("https://%v:%v",
-			constants.APIServerDomainName, defaults.APIServerSecurePort),
+		Host: fmt.Sprintf("https://%v:%v", constants.APIServerDomainName,
+			defaults.APIServerSecurePort),
 		TLSClientConfig: tlsConfig,
 		WrapTransport: func(t http.RoundTripper) http.RoundTripper {
 			switch t.(type) {
@@ -354,6 +365,10 @@ func getKubeClient(dnsAddr string, tlsConfig rest.TLSClientConfig) (*kubernetes.
 			}
 			return t
 		},
+	}
+	// Apply passed options before creating the client.
+	for _, option := range options {
+		option(config)
 	}
 	client, err := kubernetes.NewForConfig(config)
 	if err != nil {

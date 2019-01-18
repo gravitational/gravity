@@ -665,6 +665,8 @@ const (
 
 	// DistributionOpsCenter is the address of OpsCenter used for distributing dependencies for app builds
 	DistributionOpsCenter = "https://get.gravitational.io"
+	// DistributionOpsCenterName is the name of the distribution Ops Center.
+	DistributionOpsCenterName = "get.gravitational.io"
 	// DistributionOpsCenterUsername is the read-only disribution OpsCenter username
 	DistributionOpsCenterUsername = "reader@gravitational.com"
 	// DistributionOpsCenterPassword is the password for the distribution OpsCenter user
@@ -965,6 +967,10 @@ const (
 	// ElectionWaitTimeout specifies the maximum amount of time to wait to resume elections
 	// on a master node
 	ElectionWaitTimeout = 1 * time.Minute
+
+	// ImageRegistryVar is a local cluster registry variable that gets
+	// substituted in Helm templates.
+	ImageRegistryVar = "image.registry"
 )
 
 var (
@@ -993,6 +999,9 @@ var (
 
 	// LocalCacheDir is the location where gravity stores downloaded packages
 	LocalCacheDir = filepath.Join(LocalDataDir, "cache")
+
+	// ClusterRegistryDir is the location of the cluster's Docker registry backend.
+	ClusterRegistryDir = filepath.Join(GravityDir, PlanetDir, StateRegistryDir)
 
 	// UsedNamespaces lists the Kubernetes namespaces used by default
 	UsedNamespaces = []string{"default", "kube-system"}

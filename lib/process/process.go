@@ -44,6 +44,8 @@ import (
 	cloudaws "github.com/gravitational/gravity/lib/cloudprovider/aws"
 	"github.com/gravitational/gravity/lib/constants"
 	"github.com/gravitational/gravity/lib/defaults"
+	"github.com/gravitational/gravity/lib/docker"
+	"github.com/gravitational/gravity/lib/helm"
 	"github.com/gravitational/gravity/lib/httplib"
 	"github.com/gravitational/gravity/lib/loc"
 	"github.com/gravitational/gravity/lib/modules"
@@ -60,6 +62,7 @@ import (
 	"github.com/gravitational/gravity/lib/rpc"
 	pb "github.com/gravitational/gravity/lib/rpc/proto"
 	rpcserver "github.com/gravitational/gravity/lib/rpc/server"
+	"github.com/gravitational/gravity/lib/schema"
 	"github.com/gravitational/gravity/lib/storage"
 	"github.com/gravitational/gravity/lib/storage/keyval"
 	"github.com/gravitational/gravity/lib/users"
@@ -146,6 +149,8 @@ type Handlers struct {
 	Proxy *proxyHandler
 	// BLOB is object storage service web handler
 	BLOB *blobhandler.Server
+	// Registry is the Docker registry handler.
+	Registry http.Handler
 }
 
 // rpcCredentials holds generated RPC agents credentials
@@ -540,6 +545,48 @@ func (p *Process) startAutoscale(ctx context.Context) error {
 	return nil
 }
 
+// startApplicationsSynchronizer starts a service that periodically exports
+// Docker images of the cluster's application images to the local Docker
+// registry.
+//
+// TODO There may be a lot of apps, may be worth parallelizing this.
+func (p *Process) startApplicationsSynchronizer(ctx context.Context) error {
+	p.Info("Starting app images synchronizer.")
+	go func() {
+		for {
+			select {
+			case <-time.After(defaults.RegistrySyncInterval):
+				apps, err := p.applications.ListApps(app.ListAppsRequest{
+					Repository: defaults.SystemAccountOrg,
+				})
+				if err != nil {
+					p.Errorf("Failed to query applications: %v.",
+						trace.DebugReport(err))
+					continue
+				}
+				for _, a := range apps {
+					if a.Manifest.Kind == schema.KindApplication {
+						p.Infof("Exporting app image %v to registry.", a.Package)
+						err = p.applications.ExportApp(app.ExportAppRequest{
+							Package:         a.Package,
+							RegistryAddress: constants.LocalRegistryAddr,
+							CertName:        constants.DockerRegistry,
+						})
+						if err != nil {
+							p.Errorf("Failed to synchronize registry: %v.",
+								trace.DebugReport(err))
+						}
+					}
+				}
+			case <-ctx.Done():
+				p.Info("Stopping app images synchronizer.")
+				return
+			}
+		}
+	}()
+	return nil
+}
+
 // startRegistrySynchronizer starts a goroutine that synchronizes the cluster app
 // with the local registry periodically
 func (p *Process) startRegistrySynchronizer(ctx context.Context) error {
@@ -548,19 +595,20 @@ func (p *Process) startRegistrySynchronizer(ctx context.Context) error {
 		for {
 			select {
 			case <-time.After(defaults.RegistrySyncInterval):
-				site, err := p.operator.GetLocalSite()
+				cluster, err := p.operator.GetLocalSite()
 				if err != nil {
-					p.Errorf("Failed to query local cluster: %v.", trace.DebugReport(err))
+					p.Errorf("Failed to query local cluster: %v.",
+						trace.DebugReport(err))
 					continue
 				}
-
 				err = p.applications.ExportApp(app.ExportAppRequest{
-					Package:         site.App.Package,
+					Package:         cluster.App.Package,
 					RegistryAddress: constants.LocalRegistryAddr,
 					CertName:        constants.DockerRegistry,
 				})
 				if err != nil {
-					p.Errorf("Failed to synchronize registry: %v.", trace.DebugReport(err))
+					p.Errorf("Failed to synchronize registry: %v.",
+						trace.DebugReport(err))
 				}
 			case <-ctx.Done():
 				p.Info("Stopping registry synchronizer.")
@@ -568,7 +616,6 @@ func (p *Process) startRegistrySynchronizer(ctx context.Context) error {
 			}
 		}
 	}()
-
 	return nil
 }
 
@@ -1057,12 +1104,28 @@ func (p *Process) initService(ctx context.Context) (err error) {
 		p.Debug("Not running inside Kubernetes.")
 	}
 
+	var charts helm.Repository
+	switch p.cfg.Charts.Backend {
+	case helm.BackendLocal:
+		charts, err = helm.NewRepository(helm.Config{
+			Packages: p.packages,
+			Backend:  p.backend,
+		})
+		if err != nil {
+			return trace.Wrap(err)
+		}
+	default:
+		return trace.BadParameter("unsupported chart repository backend %q, only %q is currently supported",
+			p.cfg.Charts.Backend, helm.BackendLocal)
+	}
+
 	applications, err := appservice.New(appservice.Config{
 		StateDir:       filepath.Join(p.cfg.DataDir, defaults.ImportDir),
 		Backend:        p.backend,
 		Packages:       p.packages,
 		Devmode:        p.cfg.Devmode,
 		Users:          p.identity,
+		Charts:         charts,
 		CacheResources: true,
 		UnpackedDir:    filepath.Join(p.cfg.DataDir, defaults.PackagesDir, defaults.UnpackedDir),
 		GetClient:      tryGetPrivilegedKubeClient,
@@ -1072,10 +1135,21 @@ func (p *Process) initService(ctx context.Context) (err error) {
 	}
 	p.applications = applications
 
+	if p.inKubernetes() {
+		p.handlers.Registry, err = docker.NewRegistry(docker.Config{
+			Context: ctx,
+			Users:   p.identity,
+		})
+		if err != nil {
+			return trace.Wrap(err)
+		}
+	}
+
 	p.handlers.Apps, err = apphandler.NewWebHandler(apphandler.WebHandlerConfig{
 		Users:         p.identity,
 		Applications:  applications,
 		Packages:      p.packages,
+		Charts:        charts,
 		Authenticator: p.handlers.WebProxy.GetHandler().AuthenticateRequest,
 		Devmode:       p.cfg.Devmode,
 	})
@@ -1194,6 +1268,10 @@ func (p *Process) initService(ctx context.Context) (err error) {
 		}
 
 		if err := p.startRegistrySynchronizer(p.context); err != nil {
+			return trace.Wrap(err)
+		}
+
+		if err := p.startApplicationsSynchronizer(p.context); err != nil {
 			return trace.Wrap(err)
 		}
 
@@ -1419,7 +1497,9 @@ func (p *Process) initMux(ctx context.Context) error {
 		mux.Handler(method, "/t/*portal", p.handlers.Operator) // shortener for instructions tokens
 		mux.Handler(method, "/app/*apps", p.handlers.Apps)
 		mux.Handler(method, "/telekube/*rest", p.handlers.Apps)
+		mux.Handler(method, "/charts/*rest", p.handlers.Apps)
 		mux.Handler(method, "/objects/*rest", p.handlers.BLOB)
+		mux.Handler(method, "/v2/*rest", p.handlers.Registry)
 		mux.HandlerFunc(method, "/readyz", p.ReportReadiness)
 		mux.HandlerFunc(method, "/healthz", p.ReportHealth)
 	}

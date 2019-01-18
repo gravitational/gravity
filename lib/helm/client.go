@@ -232,12 +232,14 @@ func getKubeClient(dnsAddress string) (*kubernetes.Clientset, *rest.Config, erro
 		logrus.Infof("Not in Gravity: %v.", err)
 		return utils.GetLocalKubeClient()
 	}
-	kubeClient, kubeConfig, err := httplib.GetClusterKubeClient(dnsAddress)
+	// Resolve the API server address in advance.
+	host, err := utils.ResolveAddr(dnsAddress, fmt.Sprintf("%v:%v",
+		constants.APIServerDomainName, defaults.APIServerSecurePort))
 	if err != nil {
 		return nil, nil, trace.Wrap(err)
 	}
-	kubeConfig.Host, err = utils.ResolveAddr(dnsAddress, fmt.Sprintf("%v:%v",
-		constants.APIServerDomainName, defaults.APIServerSecurePort))
+	kubeClient, kubeConfig, err := httplib.GetClusterKubeClient(dnsAddress,
+		httplib.WithHost(fmt.Sprintf("https://%v", host)))
 	if err != nil {
 		return nil, nil, trace.Wrap(err)
 	}
@@ -250,5 +252,5 @@ var statuses = []release.Status_Code{
 	release.Status_FAILED,
 }
 
-// maxHistory is the how many history revisions are returned.
+// maxHistory is how many history revisions are returned.
 const maxHistory = 256

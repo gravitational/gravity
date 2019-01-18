@@ -22,12 +22,13 @@ import (
 	"path/filepath"
 	"strings"
 
-	"github.com/gravitational/trace"
 	"k8s.io/helm/pkg/chartutil"
 	"k8s.io/helm/pkg/manifest"
 	"k8s.io/helm/pkg/proto/hapi/chart"
 	"k8s.io/helm/pkg/renderutil"
 	"k8s.io/helm/pkg/timeconv"
+
+	"github.com/gravitational/trace"
 )
 
 // RenderParameters defines parameters to render Helm template.

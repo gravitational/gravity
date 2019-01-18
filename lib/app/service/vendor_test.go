@@ -94,7 +94,7 @@ func (s *VendorSuite) TestRewriteDeps(c *C) {
 func (s *VendorSuite) TestRewitePackagesMetadata(c *C) {
 	rFiles := createResourceFile("testmeta", manifestWithPackagesMetadata, c)
 
-	packages, _ := setupServices(c)
+	_, packages, _ := setupServices(c)
 
 	err := packages.UpsertRepository("gravitational.io", time.Time{})
 	c.Assert(err, IsNil)

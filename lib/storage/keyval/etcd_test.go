@@ -260,3 +260,7 @@ func (s *ESuite) TestClusterAgentCreds(c *C) {
 func (s *ESuite) TestClusterLogin(c *C) {
 	s.suite.ClusterLogin(c)
 }
+
+func (s *ESuite) TestIndexFile(c *C) {
+	s.suite.IndexFile(c)
+}

@@ -30,10 +30,18 @@ import (
 // vals merges values from files specified via -f/--values and directly via
 // --set or --set-string or --set-file, marshaling them to YAML.
 //
-// This function was copied from Helm:
+// This function was copied from Helm with slight modifications:
 //
 // https://github.com/helm/helm/blob/v2.12.0/cmd/helm/install.go#L363
 func vals(valueFiles valueFiles, values []string, stringValues []string, fileValues []string, CertFile, KeyFile, CAFile string) ([]byte, error) {
+	base, err := merge(valueFiles, values, stringValues, fileValues, CertFile, KeyFile, CAFile)
+	if err != nil {
+		return []byte{}, trace.Wrap(err)
+	}
+	return yaml.Marshal(base)
+}
+
+func merge(valueFiles valueFiles, values []string, stringValues []string, fileValues []string, CertFile, KeyFile, CAFile string) (map[string]interface{}, error) {
 	base := map[string]interface{}{}
 
 	// User specified a values files via -f/--values
@@ -49,11 +57,11 @@ func vals(valueFiles valueFiles, values []string, stringValues []string, fileVal
 		}
 
 		if err != nil {
-			return []byte{}, trace.Wrap(err)
+			return nil, trace.Wrap(err)
 		}
 
 		if err := yaml.Unmarshal(bytes, &currentMap); err != nil {
-			return []byte{}, trace.Wrap(err, "failed to parse %s", filePath)
+			return nil, trace.Wrap(err, "failed to parse %s", filePath)
 		}
 		// Merge with the previous map
 		base = mergeValues(base, currentMap)
@@ -62,14 +70,14 @@ func vals(valueFiles valueFiles, values []string, stringValues []string, fileVal
 	// User specified a value via --set
 	for _, value := range values {
 		if err := strvals.ParseInto(value, base); err != nil {
-			return []byte{}, trace.Wrap(err, "failed parsing --set data")
+			return nil, trace.Wrap(err, "failed parsing --set data")
 		}
 	}
 
 	// User specified a value via --set-string
 	for _, value := range stringValues {
 		if err := strvals.ParseIntoString(value, base); err != nil {
-			return []byte{}, trace.Wrap(err, "failed parsing --set-string data")
+			return nil, trace.Wrap(err, "failed parsing --set-string data")
 		}
 	}
 
@@ -80,11 +88,11 @@ func vals(valueFiles valueFiles, values []string, stringValues []string, fileVal
 			return string(bytes), trace.Wrap(err)
 		}
 		if err := strvals.ParseIntoFile(value, base, reader); err != nil {
-			return []byte{}, trace.Wrap(err, "failed parsing --set-file data")
+			return nil, trace.Wrap(err, "failed parsing --set-file data")
 		}
 	}
 
-	return yaml.Marshal(base)
+	return base, nil
 }
 
 // mergeValues merges source and destination map, preferring values from the

@@ -409,8 +409,10 @@ func Execute(g *Application, cmd string, extraArgs []string) error {
 			Image:     *g.AppInstallCmd.Image,
 			Name:      *g.AppInstallCmd.Name,
 			Namespace: *g.AppInstallCmd.Namespace,
-			Set:       *g.AppInstallCmd.Set,
-			Values:    *g.AppInstallCmd.Values,
+			valuesConfig: valuesConfig{
+				Set:    *g.AppInstallCmd.Set,
+				Values: *g.AppInstallCmd.Values,
+			},
 			registryConfig: registryConfig{
 				Registry: *g.AppInstallCmd.Registry,
 				CAPath:   *g.AppInstallCmd.RegistryCA,
@@ -424,8 +426,10 @@ func Execute(g *Application, cmd string, extraArgs []string) error {
 		return releaseUpgrade(localEnv, releaseUpgradeConfig{
 			Release: *g.AppUpgradeCmd.Release,
 			Image:   *g.AppUpgradeCmd.Image,
-			Set:     *g.AppUpgradeCmd.Set,
-			Values:  *g.AppUpgradeCmd.Values,
+			valuesConfig: valuesConfig{
+				Set:    *g.AppUpgradeCmd.Set,
+				Values: *g.AppUpgradeCmd.Values,
+			},
 			registryConfig: registryConfig{
 				Registry: *g.AppUpgradeCmd.Registry,
 				CAPath:   *g.AppUpgradeCmd.RegistryCA,
@@ -456,6 +460,13 @@ func Execute(g *Application, cmd string, extraArgs []string) error {
 				KeyPath:  *g.AppSyncCmd.RegistryKey,
 			},
 		})
+	case g.AppSearchCmd.FullCommand():
+		return appSearch(localEnv,
+			*g.AppSearchCmd.Pattern,
+			*g.AppSearchCmd.Remote,
+			*g.AppSearchCmd.All)
+	case g.AppRebuildIndexCmd.FullCommand():
+		return appRebuildIndex(localEnv)
 		// internal (hidden) app commands
 	case g.AppImportCmd.FullCommand():
 		if len(*g.AppImportCmd.SetImages) != 0 || len(*g.AppImportCmd.SetDeps) != 0 || *g.AppImportCmd.Version != "" {

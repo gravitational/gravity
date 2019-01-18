@@ -26,6 +26,7 @@ import (
 
 	"github.com/gravitational/gravity/lib/constants"
 	"github.com/gravitational/gravity/lib/defaults"
+	"github.com/gravitational/gravity/lib/helm"
 	"github.com/gravitational/gravity/lib/loc"
 	"github.com/gravitational/gravity/lib/modules"
 	"github.com/gravitational/gravity/lib/ops"
@@ -146,6 +147,9 @@ type Config struct {
 	// Pack provides settings for package service
 	Pack PackageServiceConfig `yaml:"pack"`
 
+	// Charts is Helm chart repository configuration.
+	Charts ChartsConfig `yaml:"charts"`
+
 	// Users list allows to add registered users to the application
 	// e.g. application admins, what is handy for development purposes
 	Users Users `yaml:"users"`
@@ -210,6 +214,10 @@ func (cfg *Config) CheckAndSetDefaults() error {
 	// Set default service user if unspecified
 	if cfg.ServiceUser == nil {
 		cfg.ServiceUser = systeminfo.DefaultServiceUser()
+	}
+
+	if err := cfg.Charts.CheckAndSetDefaults(); err != nil {
+		return trace.Wrap(err)
 	}
 
 	return nil
@@ -332,6 +340,29 @@ func (p *PackageServiceConfig) GetPublicAddr() teleutils.NetAddr {
 		return p.GetAddr()
 	}
 	return p.PublicAdvertiseAddr
+}
+
+// Charts defines Helm charts repository configuration.
+type ChartsConfig struct {
+	// Backend is the chart repository backend.
+	//
+	// Currently only cluster-local backend is supported (i.e. repository
+	// index file and charts are stored in the cluster's database/object
+	// storage). Other backends, such as S3, will/can be added later.
+	Backend string `yaml:"backend"`
+}
+
+// CheckAndSetDefaults validates chart repository configuration.
+func (c *ChartsConfig) CheckAndSetDefaults() error {
+	switch c.Backend {
+	case helm.BackendLocal:
+	case "":
+		c.Backend = helm.BackendLocal
+	default:
+		return trace.BadParameter("unsupported chart repository backend %q, only %q is currently supported",
+			c.Backend, helm.BackendLocal)
+	}
+	return nil
 }
 
 // OpsCenterConfig provides settings for access and installation portal
