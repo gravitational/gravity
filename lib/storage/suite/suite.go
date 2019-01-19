@@ -29,9 +29,7 @@ import (
 	"github.com/gravitational/gravity/lib/defaults"
 	"github.com/gravitational/gravity/lib/loc"
 	"github.com/gravitational/gravity/lib/storage"
-	"github.com/gravitational/gravity/lib/utils"
-	"k8s.io/helm/pkg/proto/hapi/chart"
-	"k8s.io/helm/pkg/repo"
+	helmutils "github.com/gravitational/gravity/lib/utils/helm"
 
 	"github.com/gravitational/teleport/lib/auth/testauthority"
 	teledefaults "github.com/gravitational/teleport/lib/defaults"
@@ -43,6 +41,8 @@ import (
 	"github.com/jonboulle/clockwork"
 	log "github.com/sirupsen/logrus"
 	. "gopkg.in/check.v1"
+	"k8s.io/helm/pkg/proto/hapi/chart"
+	"k8s.io/helm/pkg/repo"
 )
 
 var now = time.Date(2015, 11, 16, 1, 2, 3, 0, time.UTC)
@@ -1963,7 +1963,7 @@ func newIndex() *repo.IndexFile {
 }
 
 func addToIndex(indexFile repo.IndexFile, name, version string) (updated, previous *repo.IndexFile) {
-	indexCopy := utils.CopyIndexFile(indexFile)
+	indexCopy := helmutils.CopyIndexFile(indexFile)
 	indexCopy.Entries[name] = []*repo.ChartVersion{{
 		Metadata: &chart.Metadata{Name: name, Version: version},
 		Created:  now,

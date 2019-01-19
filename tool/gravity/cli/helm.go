@@ -32,6 +32,7 @@ import (
 	"github.com/gravitational/gravity/lib/localenv"
 	"github.com/gravitational/gravity/lib/pack"
 	"github.com/gravitational/gravity/lib/schema"
+	helmutils "github.com/gravitational/gravity/lib/utils/helm"
 
 	"github.com/gravitational/trace"
 )
@@ -94,10 +95,10 @@ type releaseHistoryConfig struct {
 }
 
 type valuesConfig struct {
-	// Set is a list of values set on the CLI.
-	Set []string
-	// Values is a list of YAML files with values.
+	// Values is a list of values set on the CLI.
 	Values []string
+	// Files is a list of YAML files with values.
+	Files []string
 }
 
 func (c *valuesConfig) setDefaults(env *localenv.LocalEnvironment) error {
@@ -105,7 +106,7 @@ func (c *valuesConfig) setDefaults(env *localenv.LocalEnvironment) error {
 		// If not running inside a Gravity cluster, do not auto-set registry.
 		return nil
 	}
-	hasVar, err := helm.HasVar(defaults.ImageRegistryVar, c.Values, c.Set)
+	hasVar, err := helmutils.HasVar(defaults.ImageRegistryVar, c.Files, c.Values)
 	if err != nil {
 		return trace.Wrap(err)
 	}
@@ -114,7 +115,7 @@ func (c *valuesConfig) setDefaults(env *localenv.LocalEnvironment) error {
 		return nil
 	}
 	// Otherwise, set it to the local cluster registry address.
-	c.Set = append(c.Set, fmt.Sprintf("%v=%v/", defaults.ImageRegistryVar,
+	c.Values = append(c.Values, fmt.Sprintf("%v=%v/", defaults.ImageRegistryVar,
 		constants.DockerRegistry))
 	return nil
 }
@@ -128,13 +129,13 @@ func releaseInstall(env *localenv.LocalEnvironment, conf releaseInstallConfig) e
 	if err == nil { // not a tarball, but locator - should download
 		env.PrintStep("Downloading application image %v", conf.Image)
 		result, err := catalog.Download(catalog.DownloadRequest{
-			Locator: *locator,
+			Application: *locator,
 		})
 		if err != nil {
 			return trace.Wrap(err)
 		}
 		conf.Image = result.Path
-		defer os.RemoveAll(filepath.Dir(conf.Image))
+		defer result.Close() // Remove downloaded tarball after install.
 	}
 	imageEnv, err := localenv.NewImageEnvironment(conf.Image)
 	if err != nil {
@@ -168,8 +169,8 @@ func releaseInstall(env *localenv.LocalEnvironment, conf releaseInstallConfig) e
 	defer helmClient.Close()
 	release, err := helmClient.Install(helm.InstallParameters{
 		Path:      filepath.Join(tmp, "resources"),
-		Values:    conf.Values,
-		Set:       conf.Set,
+		Values:    conf.Files,
+		Set:       conf.Values,
 		Name:      conf.Name,
 		Namespace: conf.Namespace,
 	})
@@ -218,13 +219,13 @@ func releaseUpgrade(env *localenv.LocalEnvironment, conf releaseUpgradeConfig) e
 	if err == nil { // not a tarball, but locator - should download
 		env.PrintStep("Downloading application image %v", conf.Image)
 		result, err := catalog.Download(catalog.DownloadRequest{
-			Locator: *locator,
+			Application: *locator,
 		})
 		if err != nil {
 			return trace.Wrap(err)
 		}
 		conf.Image = result.Path
-		defer os.RemoveAll(filepath.Dir(conf.Image))
+		defer result.Close() // Remove downloaded tarball after upgrade.
 	}
 	helmClient, err := helm.NewClient(helm.ClientConfig{
 		DNSAddress: env.DNS.Addr(),
@@ -260,8 +261,8 @@ func releaseUpgrade(env *localenv.LocalEnvironment, conf releaseUpgradeConfig) e
 	release, err = helmClient.Upgrade(helm.UpgradeParameters{
 		Release: release.Name,
 		Path:    filepath.Join(tmp, "resources"),
-		Values:  conf.Values,
-		Set:     conf.Set,
+		Values:  conf.Files,
+		Set:     conf.Values,
 	})
 	if err != nil {
 		return trace.Wrap(err)

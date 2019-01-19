@@ -21,8 +21,8 @@ import (
 	"net/http"
 
 	"github.com/gravitational/gravity/lib/defaults"
-	"github.com/gravitational/gravity/lib/helm"
 	"github.com/gravitational/gravity/lib/loc"
+	helmutils "github.com/gravitational/gravity/lib/utils/helm"
 
 	"github.com/gravitational/trace"
 	"github.com/julienschmidt/httprouter"
@@ -68,7 +68,7 @@ func (h *WebHandler) fetchChart(w http.ResponseWriter, r *http.Request, p httpro
 	if name == "index.yaml" {
 		return h.getIndexFile(w, r, p, context)
 	}
-	chartName, chartVersion, err := helm.ParseChartFilename(name)
+	chartName, chartVersion, err := helmutils.ParseChartFilename(name)
 	if err != nil {
 		return trace.Wrap(err)
 	}

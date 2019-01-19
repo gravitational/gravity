@@ -126,7 +126,9 @@ type ListAppsRequest struct {
 	// ExcludeHidden is whether to exclude apps marked as 'hidden' from the output
 	ExcludeHidden bool `json:"exclude_hidden"`
 	// Pattern is an optional search pattern.
-	Pattern string `json:"pattern"`
+	//
+	// Treated as an application name substring.
+	Pattern string `json:"pattern,omitempty"`
 }
 
 // Check validates the request

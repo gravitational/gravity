@@ -17,15 +17,12 @@ limitations under the License.
 package catalog
 
 import (
-	"fmt"
-	"io/ioutil"
-	"path/filepath"
+	"io"
 
 	"github.com/gravitational/gravity/lib/app"
 	"github.com/gravitational/gravity/lib/defaults"
 	"github.com/gravitational/gravity/lib/loc"
 	"github.com/gravitational/gravity/lib/ops"
-	"github.com/gravitational/gravity/lib/utils"
 
 	"github.com/gravitational/trace"
 )
@@ -33,9 +30,14 @@ import (
 // Catalog defines an interface for an application catalog.
 type Catalog interface {
 	// Search searches the application catalog.
-	Search(pattern string) (apps map[string][]app.Application, err error)
+	//
+	// The provided pattern is treated as an application name substring. If
+	// the pattern is empty, all applications are returned.
+	Search(pattern string) ([]app.Application, error)
 	// Download downloads an application from the catalog.
-	Download(name, version string) (path string, err error)
+	Download(name, version string) (io.ReadCloser, error)
+	// GetName returns the catalog name.
+	GetName() string
 }
 
 // New returns a new application catalog instance.
@@ -80,45 +82,31 @@ func (c Config) Check() error {
 }
 
 // Search searches for applications in the catalog.
-func (c *catalog) Search(pattern string) (map[string][]app.Application, error) {
-	apps, err := c.Apps.ListApps(app.ListAppsRequest{
+//
+// The provided pattern is treated as an application name substring. If
+// the pattern is empty, all applications are returned.
+func (c *catalog) Search(pattern string) ([]app.Application, error) {
+	return c.Apps.ListApps(app.ListAppsRequest{
 		Repository: defaults.SystemAccountOrg,
 		Pattern:    pattern,
 	})
-	if err != nil {
-		return nil, trace.Wrap(err)
-	}
-	return map[string][]app.Application{
-		c.Name: apps,
-	}, nil
 }
 
 // Download downloads the specified application from the catalog.
-func (c *catalog) Download(name, version string) (string, error) {
-	reader, err := c.Operator.GetAppInstaller(ops.AppInstallerRequest{
-		AccountID: defaults.SystemAccountID,
-		Application: loc.Locator{
-			Repository: defaults.SystemAccountOrg,
-			Name:       name,
-			Version:    version,
-		},
+//
+// Returns path to the downloaded tarball.
+func (c *catalog) Download(name, version string) (io.ReadCloser, error) {
+	locator, err := loc.NewLocator(defaults.SystemAccountOrg, name, version)
+	if err != nil {
+		return nil, trace.Wrap(err)
+	}
+	return c.Operator.GetAppInstaller(ops.AppInstallerRequest{
+		AccountID:   defaults.SystemAccountID,
+		Application: *locator,
 	})
-	if err != nil {
-		return "", trace.Wrap(err)
-	}
-	defer reader.Close()
-	tmpDir, err := ioutil.TempDir("", "app")
-	if err != nil {
-		return "", trace.Wrap(err)
-	}
-	path := filepath.Join(tmpDir, filename(name, version))
-	err = utils.CopyReader(path, reader)
-	if err != nil {
-		return "", trace.Wrap(err)
-	}
-	return path, nil
 }
 
-func filename(name, version string) string {
-	return fmt.Sprintf("%v-%v.tar", name, version)
+// GetName returns the catalog name.
+func (c *catalog) GetName() string {
+	return c.Name
 }

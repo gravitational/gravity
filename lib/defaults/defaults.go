@@ -563,8 +563,10 @@ const (
 	// OfflineCheckInterval is how often OpsCenter checks whether its sites are online/offline
 	OfflineCheckInterval = 10 * time.Second
 
-	// RegistrySyncInterval is how often app's images are synced with the local registry
+	// RegistrySyncInterval is how often cluster images are synced with the local registry
 	RegistrySyncInterval = 20 * time.Second
+	// AppSyncInterval is how often app images are synced with the local registry
+	AppSyncInterval = 30 * time.Second
 
 	// KubeSystemNamespace is the name of k8s namespace where all our system stuff goes
 	KubeSystemNamespace = "kube-system"

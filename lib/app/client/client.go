@@ -30,10 +30,10 @@ import (
 
 	"github.com/gravitational/gravity/lib/app"
 	serviceapi "github.com/gravitational/gravity/lib/app/api"
-	"github.com/gravitational/gravity/lib/helm"
 	"github.com/gravitational/gravity/lib/httplib"
 	"github.com/gravitational/gravity/lib/loc"
 	"github.com/gravitational/gravity/lib/storage"
+	helmutils "github.com/gravitational/gravity/lib/utils/helm"
 
 	"github.com/gravitational/roundtrip"
 	telehttplib "github.com/gravitational/teleport/lib/httplib"
@@ -386,7 +386,7 @@ func (c *Client) DeleteAppHookJob(ctx context.Context, ref app.HookRef) error {
 //
 // GET charts/:name
 func (c *Client) FetchChart(locator loc.Locator) (io.ReadCloser, error) {
-	return c.getFile(c.Endpoint("charts", helm.ToChartFilename(
+	return c.getFile(c.Endpoint("charts", helmutils.ToChartFilename(
 		locator.Name, locator.Version)), url.Values{})
 }
 

@@ -23,6 +23,7 @@ import (
 	"github.com/gravitational/gravity/lib/defaults"
 	"github.com/gravitational/gravity/lib/httplib"
 	"github.com/gravitational/gravity/lib/utils"
+	helmutils "github.com/gravitational/gravity/lib/utils/helm"
 
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/rest"
@@ -84,7 +85,7 @@ type InstallParameters struct {
 
 // Install installs a Helm chart and returns release information.
 func (c *Client) Install(p InstallParameters) (*Release, error) {
-	rawVals, err := vals(p.Values, p.Set, nil, nil, "", "", "")
+	rawVals, err := helmutils.Vals(p.Values, p.Set, nil, nil, "", "", "")
 	if err != nil {
 		return nil, trace.Wrap(err)
 	}
@@ -153,7 +154,7 @@ type UpgradeParameters struct {
 
 // Upgrade upgrades a release.
 func (c *Client) Upgrade(p UpgradeParameters) (*Release, error) {
-	rawVals, err := vals(p.Values, p.Set, nil, nil, "", "", "")
+	rawVals, err := helmutils.Vals(p.Values, p.Set, nil, nil, "", "", "")
 	if err != nil {
 		return nil, trace.Wrap(err)
 	}

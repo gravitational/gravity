@@ -100,18 +100,14 @@ func newRemoteForTrustedCluster(name string) (Catalog, error) {
 // NewRemoteFunc defines a function that returns a new instance of a remote catalog.
 type NewRemoteFunc func() (Catalog, error)
 
-// SetRemoteFunc sets the function that creates Remote.
+// SetRemoteFunc sets the function that creates remote application catalog.
+//
+// This allows external implementations override the default behavior of
+// returning default distribution portal.
 func SetRemoteFunc(f NewRemoteFunc) {
 	mutex.Lock()
 	defer mutex.Unlock()
 	newRemoteFunc = f
-}
-
-// newRemote returns a new Remote instance.
-func newRemote() (Catalog, error) {
-	mutex.Lock()
-	defer mutex.Unlock()
-	return newRemoteFunc()
 }
 
 var (

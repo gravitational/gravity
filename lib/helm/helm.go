@@ -22,6 +22,8 @@ import (
 	"path/filepath"
 	"strings"
 
+	helmutils "github.com/gravitational/gravity/lib/utils/helm"
+
 	"k8s.io/helm/pkg/chartutil"
 	"k8s.io/helm/pkg/manifest"
 	"k8s.io/helm/pkg/proto/hapi/chart"
@@ -43,7 +45,7 @@ type RenderParameters struct {
 
 // RenderHelm renders templates of a provided Helm chart.
 func Render(p RenderParameters) ([]byte, error) {
-	rawVals, err := vals(p.Values, p.Set, nil, nil, "", "", "")
+	rawVals, err := helmutils.Vals(p.Values, p.Set, nil, nil, "", "", "")
 	if err != nil {
 		return nil, trace.Wrap(err)
 	}

@@ -122,7 +122,7 @@ func (s *chartsSuite) TestFetchChart(c *check.C) {
 	// Load the chart archive to make sure it's valid and verify some details.
 	chart, err := chartutil.LoadArchive(reader)
 	c.Assert(err, check.IsNil)
-	compare.DeepCompare(c, chart, test.TestChart(alpine))
+	compare.DeepCompare(c, chart, test.Chart(alpine))
 }
 
 // getIndex returns the suite's app service's chart repo index file.

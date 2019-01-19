@@ -410,8 +410,8 @@ func Execute(g *Application, cmd string, extraArgs []string) error {
 			Name:      *g.AppInstallCmd.Name,
 			Namespace: *g.AppInstallCmd.Namespace,
 			valuesConfig: valuesConfig{
-				Set:    *g.AppInstallCmd.Set,
-				Values: *g.AppInstallCmd.Values,
+				Values: *g.AppInstallCmd.Set,
+				Files:  *g.AppInstallCmd.Values,
 			},
 			registryConfig: registryConfig{
 				Registry: *g.AppInstallCmd.Registry,
@@ -427,8 +427,8 @@ func Execute(g *Application, cmd string, extraArgs []string) error {
 			Release: *g.AppUpgradeCmd.Release,
 			Image:   *g.AppUpgradeCmd.Image,
 			valuesConfig: valuesConfig{
-				Set:    *g.AppUpgradeCmd.Set,
-				Values: *g.AppUpgradeCmd.Values,
+				Values: *g.AppUpgradeCmd.Set,
+				Files:  *g.AppUpgradeCmd.Values,
 			},
 			registryConfig: registryConfig{
 				Registry: *g.AppUpgradeCmd.Registry,

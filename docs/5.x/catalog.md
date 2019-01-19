@@ -70,9 +70,8 @@ chart and the Alpine image layers.
     Publishing applications requires an [Ops Center](/opscenter) and is
     available only in the Enterprise edition of Gravity.
 
-A built application image can be published to an Ops Center. This allows an
-Ops Center to perform a role of a distribution endpoint for application images
-(i.e. an application catalog).
+A built application image can be published to an Ops Center. This allows the
+Ops Center to perform the role of a distribution endpoint for application images.
 
 To upload an application image to an Ops Center, first log into it:
 
@@ -126,7 +125,7 @@ NAME                URL
 ops.example.com     https://ops.example.com:443/charts
 ```
 
-To search for a particular chart a standard Helm command can be used:
+To search for a particular chart the standard Helm command can be used:
 
 ```bsh
 $ helm search alpine
@@ -134,7 +133,7 @@ NAME                        CHART VERSION   APP VERSION DESCRIPTION
 ops.example.com/alpine      0.1.0           3.3         Deploy a basic Alpine Linux pod
 ```
 
-Helm can also be used to retrieve a Helm chart package archive, in a standard
+Helm can also be used to retrieve a Helm chart package archive, in the standard
 Helm format:
 
 ```bsh
@@ -147,25 +146,26 @@ Docker registry and Helm chart repository credentials.
 ### Search Application Images
 
 For the purpose of discovering applications to install in a deployed cluster,
-Gravity provides an application search command:
+Gravity provides a search command:
 
 ```bsh
-$ gravity app search [-r|--remote] [-a|--all]
+$ gravity app search [-r|--remote] [-a|--all] [pattern]
 ```
 
 By default the command will show application images that are available in
-the local cluster. Provide `-r` (or `-a`) flag to the command to instruct
-it to include applications from remote application catalog in the search
-results.
+the local cluster. Provide `-r` flag to the command to display
+applications from remote application catalog in the search results.
 
 Note that the meaning of the "remote application catalog" differs
 between the Open-Source and Enterprise versions of Gravity:
 
-* For the Open-Source edition clusters, it is the Gravitational default
+* For the Open-Source clusters, it is the Gravitational default
 distribution portal (`get.gravitational.io`).
-* For the Enterprise edition clusters, it is Ops Center a cluster
+* For the Enterprise clusters, it is the Ops Center a cluster
 is connected to. See [Configuring Trusted Clusters](/cluster/#configuring-trusted-clusters)
 for details on how to connect a cluster to an Ops Center.
+
+The `-a` flag makes the command to display both local and remote applications.
 
 Here's an example search result in a cluster that is connected to the Ops
 Center `ops.example.com`:
@@ -189,7 +189,7 @@ ops.example.com/alpine  0.1.0   Deploy a basic Alpine Linux pod  Wed Jan 16 23:3
 
 ### Install a Release
 
-To deploy an application image using existing tarball, transfer it onto a
+To deploy an application image from a tarball, transfer it onto a
 cluster node and execute the install command:
 
 ```bsh
@@ -206,7 +206,7 @@ $ gravity app install ops.example.com/alpine:0.1.0
 
 When executed inside a Gravity cluster, it will automatically push the
 application to the local cluster controller which will keep the images
-synchonized with the local Docker registries.
+synchronized with the local Docker registries.
 
 When deploying into a generic Kubernetes cluster, the install command needs
 to know where to push the images and where the chart resources should pull
@@ -247,7 +247,8 @@ $ gravity app upgrade test-release alpine-0.2.0.tar \
     --set image.registry=10.103.27.132:5000/
 ```
 
-Or, download the upgrade application image from the connected Ops Center:
+Or, download and install the upgrade application image from the connected
+Ops Center:
 
 ```bsh
 $ gravity app upgrade test-release ops.example.com/alpine:0.2.0

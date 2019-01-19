@@ -251,7 +251,7 @@ func RegisterCommands(app *kingpin.Application) *Application {
 	g.AppSyncCmd.RegistryKey = g.AppSyncCmd.Flag("registry-key", "Docker registry client private key path.").String()
 
 	g.AppSearchCmd.CmdClause = g.AppCmd.Command("search", "Search for applications.")
-	g.AppSearchCmd.Pattern = g.AppSearchCmd.Arg("pattern", "Application name pattern.").String()
+	g.AppSearchCmd.Pattern = g.AppSearchCmd.Arg("pattern", "Application name pattern, treated as a substring.").String()
 	g.AppSearchCmd.Remote = g.AppSearchCmd.Flag("remote", "Search for applications in a remote Ops Center.").Short('r').Bool()
 	g.AppSearchCmd.All = g.AppSearchCmd.Flag("all", "Search for applications both in a local cluster and in a remote Ops Center.").Short('a').Bool()
 

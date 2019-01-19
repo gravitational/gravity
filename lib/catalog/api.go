@@ -17,9 +17,15 @@ limitations under the License.
 package catalog
 
 import (
+	"fmt"
+	"io/ioutil"
+	"os"
+	"path/filepath"
+
 	"github.com/gravitational/gravity/lib/app"
 	"github.com/gravitational/gravity/lib/loc"
 	"github.com/gravitational/gravity/lib/localenv"
+	"github.com/gravitational/gravity/lib/utils"
 
 	"github.com/gravitational/trace"
 	"github.com/sirupsen/logrus"
@@ -66,21 +72,19 @@ func Search(req SearchRequest) (*SearchResult, error) {
 		Apps: make(map[string][]app.Application),
 	}
 	for _, catalog := range catalogs {
-		subResult, err := catalog.Search(req.Pattern)
+		apps, err := catalog.Search(req.Pattern)
 		if err != nil {
 			return nil, trace.Wrap(err)
 		}
-		for name, apps := range subResult {
-			result.Apps[name] = apps
-		}
+		result.Apps[catalog.GetName()] = apps
 	}
 	return result, nil
 }
 
 // DownloadRequest describes a request to download an application tarball.
 type DownloadRequest struct {
-	// Locator is an application to download.
-	Locator loc.Locator
+	// Application specifies application to download.
+	Application loc.Locator
 }
 
 // DownloadResult is an application download result.
@@ -89,7 +93,14 @@ type DownloadResult struct {
 	Path string
 }
 
-// Downloads downloads the specified application and returns its path.
+// Close removes the downloaded tarball.
+//
+// Implements io.Closer.
+func (r *DownloadResult) Close() error {
+	return os.RemoveAll(filepath.Dir(r.Path))
+}
+
+// Download downloads the specified application and returns its path.
 func Download(req DownloadRequest) (*DownloadResult, error) {
 	log.Debugf("%#v", req)
 	localCluster, err := localenv.LocalCluster()
@@ -97,23 +108,37 @@ func Download(req DownloadRequest) (*DownloadResult, error) {
 		return nil, trace.Wrap(err)
 	}
 	var catalog Catalog
-	switch req.Locator.Repository {
+	switch req.Application.Repository {
 	case "", localCluster.Domain: // local cluster app is requested
 		catalog, err = NewLocal()
 		if err != nil {
 			return nil, trace.Wrap(err)
 		}
 	default: // app from remote catalog (Ops Center) is requested
-		catalog, err = NewRemoteFor(req.Locator.Repository)
+		catalog, err = NewRemoteFor(req.Application.Repository)
 		if err != nil {
 			return nil, trace.Wrap(err)
 		}
 	}
-	path, err := catalog.Download(req.Locator.Name, req.Locator.Version)
+	reader, err := catalog.Download(req.Application.Name, req.Application.Version)
+	if err != nil {
+		return nil, trace.Wrap(err)
+	}
+	defer reader.Close()
+	tmpDir, err := ioutil.TempDir("", "app")
+	if err != nil {
+		return nil, trace.Wrap(err)
+	}
+	path := filepath.Join(tmpDir, filename(req.Application.Name, req.Application.Version))
+	err = utils.CopyReader(path, reader)
 	if err != nil {
 		return nil, trace.Wrap(err)
 	}
 	return &DownloadResult{
 		Path: path,
 	}, nil
+}
+
+func filename(name, version string) string {
+	return fmt.Sprintf("%v-%v.tar", name, version)
 }

@@ -30,6 +30,7 @@ import (
 	"github.com/gravitational/gravity/lib/schema"
 	"github.com/gravitational/gravity/lib/storage"
 	"github.com/gravitational/gravity/lib/utils"
+	helmutils "github.com/gravitational/gravity/lib/utils/helm"
 
 	"k8s.io/helm/pkg/chartutil"
 	"k8s.io/helm/pkg/proto/hapi/chart"
@@ -175,7 +176,7 @@ func (r *clusterRepository) AddToIndex(locator loc.Locator, upsert bool) error {
 			return trace.Wrap(err)
 		}
 	}
-	prevIndexFile := utils.CopyIndexFile(*indexFile)
+	prevIndexFile := helmutils.CopyIndexFile(*indexFile)
 	indexFile.Add(chart.Metadata, r.chartURL(chart), "", digest)
 	indexFile.SortEntries()
 	return r.Backend.CompareAndSwapIndexFile(indexFile, prevIndexFile)
@@ -191,7 +192,7 @@ func (r *clusterRepository) RemoveFromIndex(locator loc.Locator) error {
 	if trace.IsNotFound(err) {
 		return nil
 	}
-	prevIndexFile := utils.CopyIndexFile(*indexFile)
+	prevIndexFile := helmutils.CopyIndexFile(*indexFile)
 L:
 	for name, versions := range indexFile.Entries {
 		if name != locator.Name {
@@ -268,7 +269,7 @@ func (r *clusterRepository) chartForLocator(locator loc.Locator) (*chart.Chart, 
 // chartURL returns URL of the specified chart in the repository.
 func (r *clusterRepository) chartURL(chart *chart.Chart) string {
 	return fmt.Sprintf("%v/charts/%v", r.Packages.PortalURL(),
-		ToChartFilename(chart.Metadata.Name, chart.Metadata.Version))
+		helmutils.ToChartFilename(chart.Metadata.Name, chart.Metadata.Version))
 }
 
 // digest returns a sha256 hash of the specified application data.

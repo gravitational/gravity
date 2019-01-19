@@ -27,13 +27,13 @@ import (
 	"k8s.io/helm/pkg/strvals"
 )
 
-// vals merges values from files specified via -f/--values and directly via
+// Vals merges values from files specified via -f/--values and directly via
 // --set or --set-string or --set-file, marshaling them to YAML.
 //
 // This function was copied from Helm with slight modifications:
 //
 // https://github.com/helm/helm/blob/v2.12.0/cmd/helm/install.go#L363
-func vals(valueFiles valueFiles, values []string, stringValues []string, fileValues []string, CertFile, KeyFile, CAFile string) ([]byte, error) {
+func Vals(valueFiles valueFiles, values []string, stringValues []string, fileValues []string, CertFile, KeyFile, CAFile string) ([]byte, error) {
 	base, err := merge(valueFiles, values, stringValues, fileValues, CertFile, KeyFile, CAFile)
 	if err != nil {
 		return []byte{}, trace.Wrap(err)

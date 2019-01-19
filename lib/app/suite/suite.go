@@ -724,7 +724,7 @@ func (r *AppsSuite) FetchChart(c *C) {
 	// Load the chart archive and make sure it's valid.
 	chart, err := chartutil.LoadArchive(reader)
 	c.Assert(err, IsNil)
-	compare.DeepCompare(c, chart, apptest.TestChart(alpine))
+	compare.DeepCompare(c, chart, apptest.Chart(alpine))
 }
 
 func (r *AppsSuite) FetchIndexFile(c *C) {

@@ -41,8 +41,8 @@ func CreateHelmChartApp(c *check.C, apps app.Applications, locator loc.Locator) 
 	}, c)
 }
 
-// TestChart returns chart object corresponding to the test chart defined below.
-func TestChart(locator loc.Locator) *chart.Chart {
+// Chart returns chart object corresponding to the test chart defined below.
+func Chart(locator loc.Locator) *chart.Chart {
 	return &chart.Chart{
 		Metadata: &chart.Metadata{
 			Name:    locator.Name,

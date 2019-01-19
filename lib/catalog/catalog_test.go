@@ -17,8 +17,6 @@ limitations under the License.
 package catalog
 
 import (
-	"os"
-	"path/filepath"
 	"testing"
 
 	"github.com/gravitational/gravity/lib/app"
@@ -103,24 +101,23 @@ func (s *catalogSuite) TestSearch(c *check.C) {
 	}
 	for _, tc := range testCases {
 		result, err := s.catalog.Search(tc.pattern)
-		c.Assert(err, check.IsNil)
-		c.Assert(map[string][]app.Application{
-			s.catalog.Name: tc.result,
-		}, compare.DeepEquals, result,
+		c.Assert(err, check.IsNil,
+			check.Commentf("Test case %q failed", tc.desc))
+		c.Assert(tc.result, compare.DeepEquals, result,
 			check.Commentf("Test case %q failed", tc.desc))
 	}
 }
 
 func (s *catalogSuite) TestDownload(c *check.C) {
 	// Download the alpine application.
-	path, err := s.catalog.Download(s.alpine.Package.Name, s.alpine.Package.Version)
+	reader, err := s.catalog.Download(s.alpine.Package.Name, s.alpine.Package.Version)
 	c.Assert(err, check.IsNil)
-	defer os.RemoveAll(filepath.Dir(path))
+	defer reader.Close()
 
 	// Unpack the tarball.
-	unpackedDir, err := archive.Unpack(path)
+	unpackedDir := c.MkDir()
+	err = archive.Extract(reader, unpackedDir)
 	c.Assert(err, check.IsNil)
-	defer os.RemoveAll(unpackedDir)
 
 	// Create the local env using unpacked tarball as a state directory.
 	env, err := localenv.New(unpackedDir)

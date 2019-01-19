@@ -553,9 +553,11 @@ func (p *Process) startAutoscale(ctx context.Context) error {
 func (p *Process) startApplicationsSynchronizer(ctx context.Context) error {
 	p.Info("Starting app images synchronizer.")
 	go func() {
+		ticker := time.NewTicker(defaults.AppSyncInterval)
+		defer ticker.Stop()
 		for {
 			select {
-			case <-time.After(defaults.RegistrySyncInterval):
+			case <-ticker.C:
 				apps, err := p.applications.ListApps(app.ListAppsRequest{
 					Repository: defaults.SystemAccountOrg,
 				})
@@ -592,9 +594,11 @@ func (p *Process) startApplicationsSynchronizer(ctx context.Context) error {
 func (p *Process) startRegistrySynchronizer(ctx context.Context) error {
 	p.Info("Starting registry synchronizer.")
 	go func() {
+		ticker := time.NewTicker(defaults.RegistrySyncInterval)
+		defer ticker.Stop()
 		for {
 			select {
-			case <-time.After(defaults.RegistrySyncInterval):
+			case <-ticker.C:
 				cluster, err := p.operator.GetLocalSite()
 				if err != nil {
 					p.Errorf("Failed to query local cluster: %v.",

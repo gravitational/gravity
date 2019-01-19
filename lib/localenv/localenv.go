@@ -422,7 +422,7 @@ func (env *LocalEnvironment) CurrentApps(options ...httplib.ClientOption) (appba
 	if err != nil {
 		return nil, trace.Wrap(err)
 	}
-	return newAppsClient(*entry, entry.OpsCenterURL,
+	return NewAppsClient(*entry, entry.OpsCenterURL,
 		appclient.HTTPClient(env.HTTPClient(options...)))
 }
 
@@ -502,7 +502,7 @@ func (env *LocalEnvironment) AppService(opsCenterURL string, config AppConfig, o
 	if err != nil {
 		return nil, trace.Wrap(err)
 	}
-	client, err := newAppsClient(*entry, opsCenterURL,
+	client, err := NewAppsClient(*entry, opsCenterURL,
 		appclient.HTTPClient(env.HTTPClient(options...)),
 		appclient.WithLocalDialer(httplib.LocalResolverDialer(env.DNS.Addr())))
 	if err != nil {
@@ -629,7 +629,8 @@ func newPackClient(entry users.LoginEntry, opsCenterURL string, params ...roundt
 	return client, trace.Wrap(err)
 }
 
-func newAppsClient(entry users.LoginEntry, opsCenterURL string, params ...appclient.ClientParam) (client appbase.Applications, err error) {
+// NewAppsClient creates a new app service client.
+func NewAppsClient(entry users.LoginEntry, opsCenterURL string, params ...appclient.ClientParam) (client appbase.Applications, err error) {
 	if entry.Email != "" {
 		client, err = appclient.NewAuthenticatedClient(
 			opsCenterURL, entry.Email, entry.Password, params...)

@@ -32,7 +32,11 @@ import (
 
 // init registers Gravity-specific Docker registry access controller.
 func init() {
-	auth.Register("gravityACL", auth.InitFunc(newACL))
+	err := auth.Register("gravityACL", auth.InitFunc(newACL))
+	if err != nil {
+		logrus.Fatalf("Failed to register Docker registry ACL: %v.",
+			err)
+	}
 }
 
 // registryACL is the Docker registry access controller that uses the

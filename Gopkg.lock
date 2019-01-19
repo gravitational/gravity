@@ -401,8 +401,8 @@
   version = "v3.2.0"
 
 [[projects]]
-  branch = "roman/fix"
-  digest = "1:ae2dbcf148fa405d6ea8d6cefb8093e9bc38859070a239fc17a65df5d878d069"
+  branch = "release/2.6-g"
+  digest = "1:274bde53857a0b36f5e1c47fabaf5a8f514677e18fcd9864cd10c47cb14ae573"
   name = "github.com/docker/distribution"
   packages = [
     ".",
@@ -443,7 +443,7 @@
     "version",
   ]
   pruneopts = "UT"
-  revision = "3c5aaddb010efdc32fde566f9511b94feb51424b"
+  revision = "c4f583a8ce2d86c1d512b2c4fd315ac7cf6819b8"
   source = "github.com/gravitational/distribution"
 
 [[projects]]
@@ -2492,6 +2492,7 @@
     "github.com/gogo/protobuf/types",
     "github.com/gokyle/hotp",
     "github.com/golang/protobuf/proto",
+    "github.com/golang/protobuf/ptypes/any",
     "github.com/gravitational/configure",
     "github.com/gravitational/configure/cstrings",
     "github.com/gravitational/configure/schema",

@@ -81,18 +81,30 @@ func (s *helmUtilsSuite) TestHasVar(c *check.C) {
 	}
 	for _, tc := range testCases {
 		result, err := HasVar(tc.name, tc.valueFiles, tc.values)
-		c.Assert(err, check.IsNil)
+		c.Assert(err, check.IsNil, check.Commentf(
+			"Test case %q failed", tc.desc))
 		c.Assert(result, check.Equals, tc.result, check.Commentf(
-			"Test case %q failed.", tc.desc))
+			"Test case %q failed", tc.desc))
 	}
 }
 
 func (s *helmUtilsSuite) TestChartFilename(c *check.C) {
 	filename := ToChartFilename("alpine", "0.1.0")
+	c.Assert(filename, check.Equals, "alpine-0.1.0.tgz")
 	name, version, err := ParseChartFilename(filename)
 	c.Assert(err, check.IsNil)
 	c.Assert(name, check.Equals, "alpine")
 	c.Assert(version, check.Equals, "0.1.0")
+
+	filename = ToChartFilename("nginx-ingress", "1.0.0")
+	c.Assert(filename, check.Equals, "nginx-ingress-1.0.0.tgz")
+	name, version, err = ParseChartFilename(filename)
+	c.Assert(err, check.IsNil)
+	c.Assert(name, check.Equals, "nginx-ingress")
+	c.Assert(version, check.Equals, "1.0.0")
+
+	_, _, err = ParseChartFilename("nginx.tgz")
+	c.Assert(err, check.NotNil)
 }
 
 var (
