@@ -93,8 +93,6 @@ func (c *catalog) Search(pattern string) ([]app.Application, error) {
 }
 
 // Download downloads the specified application from the catalog.
-//
-// Returns path to the downloaded tarball.
 func (c *catalog) Download(name, version string) (io.ReadCloser, error) {
 	locator, err := loc.NewLocator(defaults.SystemAccountOrg, name, version)
 	if err != nil {

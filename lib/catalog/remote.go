@@ -102,7 +102,7 @@ type NewRemoteFunc func() (Catalog, error)
 
 // SetRemoteFunc sets the function that creates remote application catalog.
 //
-// This allows external implementations override the default behavior of
+// This allows external implementations to override the default behavior of
 // returning default distribution portal.
 func SetRemoteFunc(f NewRemoteFunc) {
 	mutex.Lock()
