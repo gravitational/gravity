@@ -289,6 +289,10 @@ const (
 
 	// APIServerDomainName is a domain name set by planet active master
 	APIServerDomainName = "leader.telekube.local"
+	// APIServerDomainNameGravity is the leader node FQDN.
+	APIServerDomainNameGravity = "leader.gravity.local"
+	// RegistryDomainName is another alias for the leader node FQDN.
+	RegistryDomainName = "registry.local"
 
 	// LegacyAPIServerDomainName is legacy domain name used by the leader master node.
 	// This is used to keep backwards compatibility
@@ -645,6 +649,8 @@ const (
 
 	// HelmLabel denotes application generated from Helm chart.
 	HelmLabel = "helm"
+	// AppVersionLabel specifies version of an application in a Helm chart.
+	AppVersionLabel = "app-version"
 )
 
 var (

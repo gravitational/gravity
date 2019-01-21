@@ -236,3 +236,7 @@ func (s *BSuite) TestClusterAgentCreds(c *C) {
 func (s *BSuite) TestClusterLogin(c *C) {
 	s.suite.ClusterLogin(c)
 }
+
+func (s *BSuite) TestIndexFile(c *C) {
+	s.suite.IndexFile(c)
+}

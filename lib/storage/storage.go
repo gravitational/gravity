@@ -36,6 +36,7 @@ import (
 	"github.com/gravitational/gravity/lib/defaults"
 	"github.com/gravitational/gravity/lib/loc"
 	"github.com/gravitational/gravity/lib/utils"
+	"k8s.io/helm/pkg/repo"
 
 	teleservices "github.com/gravitational/teleport/lib/services"
 	teleutils "github.com/gravitational/teleport/lib/utils"
@@ -1450,6 +1451,7 @@ type Backend interface {
 	ClusterImport
 	LegacyRoles
 	SystemMetadata
+	Charts
 }
 
 const (
@@ -2020,4 +2022,14 @@ type ClusterConfiguration interface {
 type CloudConfig struct {
 	// GCENodeTags lists additional node tags on GCE
 	GCENodeTags []string `json:"gce_node_tags,omitempty"`
+}
+
+// Charts defines methods related to Helm chart repository functionality.
+type Charts interface {
+	// GetIndexFile returns the chart repository index file.
+	GetIndexFile() (*repo.IndexFile, error)
+	// CompareAndSwapIndexFile updates the chart repository index file.
+	CompareAndSwapIndexFile(new, existing *repo.IndexFile) error
+	// UpsertIndexFile creates or replaces chart repository index file.
+	UpsertIndexFile(repo.IndexFile) error
 }

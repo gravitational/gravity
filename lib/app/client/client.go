@@ -33,6 +33,7 @@ import (
 	"github.com/gravitational/gravity/lib/httplib"
 	"github.com/gravitational/gravity/lib/loc"
 	"github.com/gravitational/gravity/lib/storage"
+	helmutils "github.com/gravitational/gravity/lib/utils/helm"
 
 	"github.com/gravitational/roundtrip"
 	telehttplib "github.com/gravitational/teleport/lib/httplib"
@@ -255,6 +256,7 @@ func (c *Client) ListApps(req app.ListAppsRequest) (apps []app.Application, err 
 	out, err := c.Get(endpoint, url.Values{
 		"type":           []string{string(req.Type)},
 		"exclude_hidden": []string{strconv.FormatBool(req.ExcludeHidden)},
+		"pattern":        []string{string(req.Pattern)},
 	})
 	if err != nil {
 		return nil, trace.Wrap(err)
@@ -378,6 +380,21 @@ func (c *Client) DeleteAppHookJob(ctx context.Context, ref app.HookRef) error {
 		return trace.Wrap(err)
 	}
 	return nil
+}
+
+// FetchChart returns Helm chart package with the specified application.
+//
+// GET charts/:name
+func (c *Client) FetchChart(locator loc.Locator) (io.ReadCloser, error) {
+	return c.getFile(c.Endpoint("charts", helmutils.ToChartFilename(
+		locator.Name, locator.Version)), url.Values{})
+}
+
+// FetchIndexFile returns Helm chart repository index file data.
+//
+// GET charts/index.yaml
+func (c *Client) FetchIndexFile() (io.Reader, error) {
+	return c.getFile(c.Endpoint("charts", "index.yaml"), url.Values{})
 }
 
 // POST app/v1/applications/:repository_id

@@ -21,12 +21,18 @@ import (
 	"io/ioutil"
 	"os"
 	"path/filepath"
+	"strings"
 	"text/tabwriter"
 
+	"github.com/gravitational/gravity/lib/catalog"
 	"github.com/gravitational/gravity/lib/constants"
+	"github.com/gravitational/gravity/lib/defaults"
 	"github.com/gravitational/gravity/lib/helm"
+	"github.com/gravitational/gravity/lib/loc"
 	"github.com/gravitational/gravity/lib/localenv"
 	"github.com/gravitational/gravity/lib/pack"
+	"github.com/gravitational/gravity/lib/schema"
+	helmutils "github.com/gravitational/gravity/lib/utils/helm"
 
 	"github.com/gravitational/trace"
 )
@@ -38,12 +44,18 @@ type releaseInstallConfig struct {
 	Name string
 	// Namespace is a namespace to install release into.
 	Namespace string
-	// Set is a list of values set on the CLI.
-	Set []string
-	// Values ia a list of YAML files with values.
-	Values []string
+	// valuesConfig combines values set on the CLI.
+	valuesConfig
 	// registryConfig is registry configuration.
 	registryConfig
+}
+
+func (c *releaseInstallConfig) setDefaults(env *localenv.LocalEnvironment) error {
+	err := c.valuesConfig.setDefaults(env)
+	if err != nil {
+		return trace.Wrap(err)
+	}
+	return nil
 }
 
 type releaseUpgradeConfig struct {
@@ -51,12 +63,18 @@ type releaseUpgradeConfig struct {
 	Release string
 	// Image is an application image to upgrade to, can be path or locator.
 	Image string
-	// Set is a list of values set on the CLI.
-	Set []string
-	// Values is a list of YAML files with values.
-	Values []string
+	// valuesConfig combines values set on the CLI.
+	valuesConfig
 	// registryConfig is registry configuration.
 	registryConfig
+}
+
+func (c *releaseUpgradeConfig) setDefaults(env *localenv.LocalEnvironment) error {
+	err := c.valuesConfig.setDefaults(env)
+	if err != nil {
+		return trace.Wrap(err)
+	}
+	return nil
 }
 
 type releaseRollbackConfig struct {
@@ -76,7 +94,49 @@ type releaseHistoryConfig struct {
 	Release string
 }
 
+type valuesConfig struct {
+	// Values is a list of values set on the CLI.
+	Values []string
+	// Files is a list of YAML files with values.
+	Files []string
+}
+
+func (c *valuesConfig) setDefaults(env *localenv.LocalEnvironment) error {
+	if !env.InGravity() {
+		// If not running inside a Gravity cluster, do not auto-set registry.
+		return nil
+	}
+	hasVar, err := helmutils.HasVar(defaults.ImageRegistryVar, c.Files, c.Values)
+	if err != nil {
+		return trace.Wrap(err)
+	}
+	if hasVar {
+		// If image.registry variable was set explicitly, do not touch it.
+		return nil
+	}
+	// Otherwise, set it to the local cluster registry address.
+	c.Values = append(c.Values, fmt.Sprintf("%v=%v/", defaults.ImageRegistryVar,
+		constants.DockerRegistry))
+	return nil
+}
+
 func releaseInstall(env *localenv.LocalEnvironment, conf releaseInstallConfig) error {
+	err := conf.setDefaults(env)
+	if err != nil {
+		return trace.Wrap(err)
+	}
+	locator, err := makeLocator(env, conf.Image)
+	if err == nil { // not a tarball, but locator - should download
+		env.PrintStep("Downloading application image %v", conf.Image)
+		result, err := catalog.Download(catalog.DownloadRequest{
+			Application: *locator,
+		})
+		if err != nil {
+			return trace.Wrap(err)
+		}
+		conf.Image = result.Path
+		defer result.Close() // Remove downloaded tarball after install.
+	}
 	imageEnv, err := localenv.NewImageEnvironment(conf.Image)
 	if err != nil {
 		return trace.Wrap(err)
@@ -109,8 +169,8 @@ func releaseInstall(env *localenv.LocalEnvironment, conf releaseInstallConfig) e
 	defer helmClient.Close()
 	release, err := helmClient.Install(helm.InstallParameters{
 		Path:      filepath.Join(tmp, "resources"),
-		Values:    conf.Values,
-		Set:       conf.Set,
+		Values:    conf.Files,
+		Set:       conf.Values,
 		Name:      conf.Name,
 		Namespace: conf.Namespace,
 	})
@@ -136,6 +196,7 @@ func releaseList(env *localenv.LocalEnvironment) error {
 	w := new(tabwriter.Writer)
 	w.Init(os.Stdout, 0, 8, 1, '\t', 0)
 	fmt.Fprintf(w, "Release\tStatus\tChart\tRevision\tNamespace\tUpdated\n")
+	fmt.Fprintf(w, "-------\t------\t-----\t--------\t---------\t-------\n")
 	for _, r := range releases {
 		fmt.Fprintf(w, "%v\t%v\t%v\t%v\t%v\t%v\n",
 			r.Name,
@@ -150,6 +211,22 @@ func releaseList(env *localenv.LocalEnvironment) error {
 }
 
 func releaseUpgrade(env *localenv.LocalEnvironment, conf releaseUpgradeConfig) error {
+	err := conf.setDefaults(env)
+	if err != nil {
+		return trace.Wrap(err)
+	}
+	locator, err := makeLocator(env, conf.Image)
+	if err == nil { // not a tarball, but locator - should download
+		env.PrintStep("Downloading application image %v", conf.Image)
+		result, err := catalog.Download(catalog.DownloadRequest{
+			Application: *locator,
+		})
+		if err != nil {
+			return trace.Wrap(err)
+		}
+		conf.Image = result.Path
+		defer result.Close() // Remove downloaded tarball after upgrade.
+	}
 	helmClient, err := helm.NewClient(helm.ClientConfig{
 		DNSAddress: env.DNS.Addr(),
 	})
@@ -184,8 +261,8 @@ func releaseUpgrade(env *localenv.LocalEnvironment, conf releaseUpgradeConfig) e
 	release, err = helmClient.Upgrade(helm.UpgradeParameters{
 		Release: release.Name,
 		Path:    filepath.Join(tmp, "resources"),
-		Values:  conf.Values,
-		Set:     conf.Set,
+		Values:  conf.Files,
+		Set:     conf.Values,
 	})
 	if err != nil {
 		return trace.Wrap(err)
@@ -245,6 +322,7 @@ func releaseHistory(env *localenv.LocalEnvironment, conf releaseHistoryConfig) e
 	w := new(tabwriter.Writer)
 	w.Init(os.Stdout, 0, 8, 1, '\t', 0)
 	fmt.Fprintf(w, "Revision\tChart\tStatus\tUpdated\tDescription\n")
+	fmt.Fprintf(w, "--------\t-----\t------\t-------\t-----------\n")
 	for _, r := range releases {
 		fmt.Fprintf(w, "%v\t%v\t%v\t%v\t%v\n",
 			r.Revision,
@@ -255,4 +333,80 @@ func releaseHistory(env *localenv.LocalEnvironment, conf releaseHistoryConfig) e
 	}
 	w.Flush()
 	return nil
+}
+
+func appSearch(env *localenv.LocalEnvironment, pattern string, remoteOnly, all bool) error {
+	result, err := catalog.Search(catalog.SearchRequest{
+		Pattern: pattern,
+		Local:   !remoteOnly || all,
+		Remote:  remoteOnly || all,
+	})
+	if err != nil {
+		return trace.Wrap(err)
+	}
+	w := new(tabwriter.Writer)
+	w.Init(os.Stdout, 0, 8, 1, '\t', 0)
+	fmt.Fprintf(w, "Name\tVersion\tDescription\tCreated\n")
+	fmt.Fprintf(w, "----\t-------\t-----------\t-------\n")
+	for repository, apps := range result.Apps {
+		for _, app := range apps {
+			if app.Manifest.Kind == schema.KindApplication {
+				fmt.Fprintf(w, "%v/%v\t%v\t%v\t%v\n",
+					repository,
+					app.Package.Name,
+					app.Package.Version,
+					app.Manifest.Metadata.Description,
+					app.PackageEnvelope.Created.Format(constants.HumanDateFormat))
+			}
+		}
+	}
+	w.Flush()
+	return nil
+}
+
+func appRebuildIndex(env *localenv.LocalEnvironment) error {
+	env.PrintStep("Rebuilding charts repository index, this might take a while...")
+	clusterEnv, err := env.NewClusterEnvironment()
+	if err != nil {
+		return trace.Wrap(err)
+	}
+	charts, err := helm.NewRepository(helm.Config{
+		Packages: clusterEnv.Packages,
+		Backend:  clusterEnv.Backend,
+	})
+	if err != nil {
+		return trace.Wrap(err)
+	}
+	err = charts.RebuildIndex()
+	if err != nil {
+		return trace.Wrap(err)
+	}
+	env.PrintStep("Index rebuild finished")
+	return nil
+}
+
+// makeLocator attempts to create a locator from the provided app image reference.
+//
+// If the image reference has all parts of the locator (repo/name:ver), then
+// a locator with all these parts is returned.
+//
+// If the image reference omits repository (name:ver), then repository part
+// in the locator will be set to the local cluster name.
+func makeLocator(env *localenv.LocalEnvironment, image string) (*loc.Locator, error) {
+	if !strings.Contains(image, ":") {
+		return nil, trace.BadParameter("not a locator: %q", image)
+	}
+	locator, err := loc.ParseLocator(image)
+	if err == nil {
+		return locator, nil
+	}
+	parts := strings.Split(image, ":")
+	if len(parts) != 2 {
+		return nil, trace.BadParameter("expected <name:ver> format: %q", image)
+	}
+	localCluster, err := env.LocalCluster()
+	if err != nil {
+		return nil, trace.Wrap(err)
+	}
+	return loc.NewLocator(localCluster.Domain, parts[0], parts[1])
 }

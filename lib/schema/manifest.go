@@ -182,6 +182,22 @@ func (m Manifest) SystemDocker() Docker {
 	return dockerConfigWithDefaults(m.SystemOptions.DockerConfig())
 }
 
+// DescribeKind returns a human-friendly short description of the manifest kind.
+func (m Manifest) DescribeKind() string {
+	switch m.Kind {
+	case KindBundle, KindCluster:
+		return "Cluster image"
+	case KindApplication:
+		return "App image"
+	case KindSystemApplication:
+		return "System app"
+	case KindRuntime:
+		return "Runtime app"
+	default:
+		return m.Kind
+	}
+}
+
 func dockerConfigWithDefaults(config *Docker) Docker {
 	if config == nil {
 		return defaultDocker

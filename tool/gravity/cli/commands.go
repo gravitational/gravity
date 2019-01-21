@@ -110,6 +110,10 @@ type Application struct {
 	AppHistoryCmd AppHistoryCmd
 	// AppSyncCmd synchronizes an application image with a cluster
 	AppSyncCmd AppSyncCmd
+	// AppSearchCmd searches for applications.
+	AppSearchCmd AppSearchCmd
+	// AppRebuildIndexCmd rebuilds Helm chart repository index.
+	AppRebuildIndexCmd AppRebuildIndexCmd
 	// AppImportCmd imports an app into cluster
 	AppImportCmd AppImportCmd
 	// AppExportCmd exports specified app into registry
@@ -714,6 +718,22 @@ type AppSyncCmd struct {
 	RegistryCert *string
 	// RegistryKey is a registry client private key path.
 	RegistryKey *string
+}
+
+// AppSearchCmd searches for applications.
+type AppSearchCmd struct {
+	*kingpin.CmdClause
+	// Pattern is an application name pattern.
+	Pattern *string
+	// Remote displays remote applications.
+	Remote *bool
+	// All displays both local and remote applications.
+	All *bool
+}
+
+// AppRebuildIndexCmd rebuilds Helm chart repository index.
+type AppRebuildIndexCmd struct {
+	*kingpin.CmdClause
 }
 
 // AppImportCmd imports app into cluster

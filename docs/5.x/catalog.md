@@ -64,18 +64,149 @@ $ tele build alpine
 The result is a tarball `alpine-0.1.0.tar` which includes a packaged Helm
 chart and the Alpine image layers.
 
+### Publish an Application Image
+
+!!! note:
+    Publishing applications requires an [Ops Center](/opscenter) and is
+    available only in the Enterprise edition of Gravity.
+
+A built application image can be published to an Ops Center. This allows the
+Ops Center to perform the role of a distribution endpoint for application images.
+
+To upload an application image to an Ops Center, first log into it:
+
+```bsh
+$ tele login -o ops.example.com
+```
+
+Then push the application image tarball:
+
+```bsh
+$ tele push alpine-0.1.0.tar
+```
+
+To view all currently published applications:
+
+```bsh
+$ tele ls
+Type        Name:Version    Created (UTC)
+----        ------------    -------------
+App image   alpine:0.1.0    01/16/19 23:31
+```
+
+#### Interacting with Docker Registry and Helm Chart Repository
+
+A Gravity Ops Center (and any Gravity cluster for that matter) acts as a Docker
+registry and a Helm chart repository so it is possible to pull Docker images
+and fetch Helm charts for published applications directly from the Ops Center.
+Note that you have to be logged into the Ops Center with `tele login` for this
+to work.
+
+First let's try to pull a Docker image for the alpine application:
+
+```bsh
+$ docker pull ops.example.com/alpine:3.3
+3.3: Pulling from alpine
+da1f53af4030: Pull complete
+Digest: sha256:014c089bd8b453b6870d2994eb4240ee69555fc5d760ffe515ef3079f5bcdad8
+Status: Downloaded newer image for ops.example.com/alpine:3.3
+```
+
+!!! note:
+    Pushing Docker images directly to the Ops Center registry with `docker push`
+    is not supported. Use `tele push` to publish application image along with
+    its charts and layers to the Ops Center.
+
+Next make sure that the Ops Center was configured as a Helm charts repository:
+
+```bsh
+$ helm repo list
+NAME                URL
+ops.example.com     https://ops.example.com:443/charts
+```
+
+To search for a particular chart the standard Helm command can be used:
+
+```bsh
+$ helm search alpine
+NAME                        CHART VERSION   APP VERSION DESCRIPTION
+ops.example.com/alpine      0.1.0           3.3         Deploy a basic Alpine Linux pod
+```
+
+Helm can also be used to retrieve a Helm chart package archive, in the standard
+Helm format:
+
+```bsh
+$ helm fetch ops.example.com/alpine --version 0.1.0  # will produce alpine-0.1.0.tgz
+```
+
+Execute `tele logout` to clear login information for the Ops Center, including
+Docker registry and Helm chart repository credentials.
+
+### Search Application Images
+
+For the purpose of discovering applications to install in a deployed cluster,
+Gravity provides a search command:
+
+```bsh
+$ gravity app search [-r|--remote] [-a|--all] [pattern]
+```
+
+By default the command will show application images that are available in
+the local cluster. Provide `-r` flag to the command to display
+applications from remote application catalog in the search results.
+
+Note that the meaning of the "remote application catalog" differs
+between the Open-Source and Enterprise versions of Gravity:
+
+* For the Open-Source clusters, it is the Gravitational default
+distribution portal (`get.gravitational.io`).
+* For the Enterprise clusters, it is the Ops Center a cluster
+is connected to. See [Configuring Trusted Clusters](/cluster/#configuring-trusted-clusters)
+for details on how to connect a cluster to an Ops Center.
+
+The `-a` flag makes the command to display both local and remote applications.
+
+Here's an example search result in a cluster that is connected to the Ops
+Center `ops.example.com`:
+
+```bsh
+$ gravity app search -r
+Name                    Version Description                      Created
+----                    ------- -----------                      -------
+ops.example.com/alpine  0.1.0   Deploy a basic Alpine Linux pod  Wed Jan 16 23:31 UTC
+ops.example.com/nginx   0.1.0   A basic NGINX HTTP server        Tue Jan 15 20:58 UTC
+```
+
+The search command also accepts an optional application name pattern:
+
+```bsh
+$ gravity app search -r alpine
+Name                    Version Description                      Created
+----                    ------- -----------                      -------
+ops.example.com/alpine  0.1.0   Deploy a basic Alpine Linux pod  Wed Jan 16 23:31 UTC
+```
+
 ### Install a Release
 
-To deploy an application image, transfer it onto a cluster node and execute
-the install command:
+To deploy an application image from a tarball, transfer it onto a
+cluster node and execute the install command:
 
 ```bsh
 $ gravity app install alpine-0.1.0.tar
 ```
 
+The install command can also download the specified application from a remote
+application catalog. Following up on the search example above, the alpine
+application can be installed directly from the remote Ops Center:
+
+```bsh
+$ gravity app install ops.example.com/alpine:0.1.0
+```
+
 When executed inside a Gravity cluster, it will automatically push the
 application to the local cluster controller which will keep the images
-synchonized with the local Docker registries.
+synchronized with the local Docker registries.
 
 When deploying into a generic Kubernetes cluster, the install command needs
 to know where to push the images and where the chart resources should pull
@@ -114,6 +245,13 @@ upload it to a cluster node and execute the upgrade command:
 $ gravity app upgrade test-release alpine-0.2.0.tar \
     --registry 10.103.27.132:5000 \
     --set image.registry=10.103.27.132:5000/
+```
+
+Or, download and install the upgrade application image from the connected
+Ops Center:
+
+```bsh
+$ gravity app upgrade test-release ops.example.com/alpine:0.2.0
 ```
 
 Similar to app install, registry flags need to be provided only when installing

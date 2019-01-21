@@ -109,6 +109,12 @@ type Applications interface {
 
 	// StreamAppHookLogs streams app hook logs to output writer, this is a blocking call
 	StreamAppHookLogs(ctx context.Context, ref HookRef, out io.Writer) error
+
+	// FetchChart returns Helm chart package with the specified application.
+	FetchChart(loc.Locator) (io.ReadCloser, error)
+
+	// FetchIndexFile returns Helm chart repository index file data.
+	FetchIndexFile() (io.Reader, error)
 }
 
 // ListAppsRequest is a request to show applications in a repository
@@ -119,6 +125,10 @@ type ListAppsRequest struct {
 	Type storage.AppType `json:"type"`
 	// ExcludeHidden is whether to exclude apps marked as 'hidden' from the output
 	ExcludeHidden bool `json:"exclude_hidden"`
+	// Pattern is an optional search pattern.
+	//
+	// Treated as an application name substring.
+	Pattern string `json:"pattern,omitempty"`
 }
 
 // Check validates the request
@@ -137,7 +147,10 @@ type ExportAppRequest struct {
 	// Package represents the package name and version to be exported
 	Package loc.Locator
 
-	// RegistryAddress represents the registry to export the application images to
+	// RegistryAddress specifies a registry address to export the application
+	// images to.
+	//
+	// Either a registry address or a local directory can be specified, not both.
 	RegistryAddress string
 
 	// CertName represents the name of the certificate to use for TLS connecting to the registry

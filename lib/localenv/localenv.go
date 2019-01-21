@@ -353,6 +353,11 @@ func (env *LocalEnvironment) HTTPClient(options ...httplib.ClientOption) *http.C
 	return httplib.GetClient(env.Insecure, options...)
 }
 
+// InGravity returns true if Gravity cluster is available locally.
+func (env *LocalEnvironment) InGravity() bool {
+	return httplib.InGravity(env.DNS.Addr()) == nil
+}
+
 // PackageService returns a service managing gravity packages on the specified OpsCenter
 // or the local packages if the OpsCenter has not been specified.
 func (env *LocalEnvironment) PackageService(opsCenterURL string, options ...httplib.ClientOption) (pack.PackageService, error) {
@@ -417,7 +422,7 @@ func (env *LocalEnvironment) CurrentApps(options ...httplib.ClientOption) (appba
 	if err != nil {
 		return nil, trace.Wrap(err)
 	}
-	return newAppsClient(*entry, entry.OpsCenterURL,
+	return NewAppsClient(*entry, entry.OpsCenterURL,
 		appclient.HTTPClient(env.HTTPClient(options...)))
 }
 
@@ -497,7 +502,7 @@ func (env *LocalEnvironment) AppService(opsCenterURL string, config AppConfig, o
 	if err != nil {
 		return nil, trace.Wrap(err)
 	}
-	client, err := newAppsClient(*entry, opsCenterURL,
+	client, err := NewAppsClient(*entry, opsCenterURL,
 		appclient.HTTPClient(env.HTTPClient(options...)),
 		appclient.WithLocalDialer(httplib.LocalResolverDialer(env.DNS.Addr())))
 	if err != nil {
@@ -624,7 +629,8 @@ func newPackClient(entry users.LoginEntry, opsCenterURL string, params ...roundt
 	return client, trace.Wrap(err)
 }
 
-func newAppsClient(entry users.LoginEntry, opsCenterURL string, params ...appclient.ClientParam) (client appbase.Applications, err error) {
+// NewAppsClient creates a new app service client.
+func NewAppsClient(entry users.LoginEntry, opsCenterURL string, params ...appclient.ClientParam) (client appbase.Applications, err error) {
 	if entry.Email != "" {
 		client, err = appclient.NewAuthenticatedClient(
 			opsCenterURL, entry.Email, entry.Password, params...)
@@ -659,6 +665,19 @@ func ClusterPackages() (pack.PackageService, error) {
 	return packages, nil
 }
 
+// ClusterApps returns apps service for the local cluster.
+func ClusterApps() (appbase.Applications, error) {
+	stateDir, err := LocalGravityDir()
+	if err != nil {
+		return nil, trace.Wrap(err)
+	}
+	env, err := New(stateDir)
+	if err != nil {
+		return nil, trace.Wrap(err)
+	}
+	return env.SiteApps()
+}
+
 // ClusterOperator returns the local cluster ops service
 func ClusterOperator() (*opsclient.Client, error) {
 	stateDir, err := LocalGravityDir()
@@ -677,6 +696,19 @@ func ClusterOperator() (*opsclient.Client, error) {
 		return nil, trace.Wrap(err)
 	}
 	return operator, nil
+}
+
+// LocalCluster returns the local cluster.
+func LocalCluster() (*ops.Site, error) {
+	clusterOperator, err := ClusterOperator()
+	if err != nil {
+		return nil, trace.Wrap(err)
+	}
+	cluster, err := clusterOperator.GetLocalSite()
+	if err != nil {
+		return nil, trace.Wrap(err)
+	}
+	return cluster, nil
 }
 
 // InGravity returns full path to specified subdirectory of local state dir

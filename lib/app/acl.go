@@ -20,6 +20,7 @@ import (
 	"context"
 	"io"
 
+	"github.com/gravitational/gravity/lib/defaults"
 	"github.com/gravitational/gravity/lib/loc"
 	"github.com/gravitational/gravity/lib/storage"
 	"github.com/gravitational/gravity/lib/users"
@@ -224,6 +225,22 @@ func (r *ApplicationsACL) StreamAppHookLogs(ctx context.Context, ref HookRef, ou
 		return trace.Wrap(err)
 	}
 	return r.applications.StreamAppHookLogs(ctx, ref, out)
+}
+
+// FetchChart returns Helm chart package with the specified application.
+func (r *ApplicationsACL) FetchChart(locator loc.Locator) (io.ReadCloser, error) {
+	if err := r.checkApp(locator, teleservices.VerbRead); err != nil {
+		return nil, trace.Wrap(err)
+	}
+	return r.applications.FetchChart(locator)
+}
+
+// FetchIndexFile returns Helm chart repository index file data.
+func (r *ApplicationsACL) FetchIndexFile() (io.Reader, error) {
+	if err := r.check(defaults.SystemAccountOrg, teleservices.VerbRead); err != nil {
+		return nil, trace.Wrap(err)
+	}
+	return r.applications.FetchIndexFile()
 }
 
 // check checks whether the user has the requested permissions to read write apps

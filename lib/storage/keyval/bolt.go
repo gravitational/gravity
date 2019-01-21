@@ -376,9 +376,11 @@ func (b *blt) compareAndSwap(k key, val interface{}, prevVal interface{}, outVal
 	if err != nil {
 		return trace.Wrap(err)
 	}
-	err = b.codec.DecodeFromBytes(outEncoded, outVal)
-	if err != nil {
-		return trace.Wrap(err)
+	if prevVal != nil {
+		err = b.codec.DecodeFromBytes(outEncoded, outVal)
+		if err != nil {
+			return trace.Wrap(err)
+		}
 	}
 	return nil
 }
@@ -401,7 +403,7 @@ func (b *blt) compareAndSwapBytes(k key, val, prevVal []byte, outVal *[]byte, tt
 				return trace.NotFound("key %q not found", key)
 			}
 			if bytes.Compare(currentVal, prevVal) != 0 {
-				return trace.CompareFailed("expected %v got %v",
+				return trace.CompareFailed("expected %q got %q",
 					string(prevVal), string(currentVal))
 			}
 			err = bkt.Put([]byte(key), val)

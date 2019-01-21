@@ -219,6 +219,8 @@ spec:
             mountPath: /var/lib/gravity/site/secrets
           - name: site
             mountPath: /var/lib/gravity/site
+          - name: registry
+            mountPath: /var/lib/gravity/planet/registry
           - name: tmp
             mountPath: /tmp
           - name: kubectl
@@ -255,6 +257,9 @@ spec:
         - name: site
           hostPath:
             path: /var/lib/gravity/site
+        - name: registry
+          hostPath:
+            path: /var/lib/gravity/planet/registry
         - name: kubectl
           hostPath:
             path: /usr/bin/kubectl
