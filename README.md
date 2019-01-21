@@ -8,7 +8,8 @@ that takes the drama out of on-premises deployments.
 |Project Links| Description
 |---|----
 | [Gravity Website](https://gravitational.com/gravity/)  | The official website of the enterprise version of Gravity called Telekube |
-| [Gravity Documentation](https://gravitational.com/gravity/docs/)  | Gravity Documentation (aka, Telekube)  |
+| [Gravity Documentation](https://gravitational.com/gravity/docs/)  | Gravity Documentation  |
+| [Slack Channel](https://join.slack.com/t/grv8/shared_invite/enQtNTEwMTU2NjQ2NzU2LWIzYTM1ZDcyNWFhMzZhNDJhN2IyOWMwZDA4NDA4MmE2MjgzYWNiYmY1NjcxYjA3M2RmOTQ1ZjRkOTAwODE1NDY)  |  Our community Slack channel for Gravitational products, including Gravity |
 | [Blog](http://blog.gravitational.com) | Our blog, where we publish Gravity news |
 | [Security Updates](https://groups.google.com/forum/#!forum/gravity-community-security) | Gravity Community Security Updates |
 
