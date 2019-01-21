@@ -891,7 +891,7 @@
 
 [[projects]]
   branch = "branch/3.0-g"
-  digest = "1:f2cdd05044c11110299af8a67d023dd0514d81dac59063ff717ffa308c56c381"
+  digest = "1:561411b23fb5520c4141fd3a3975335879aa49169c16ac9a8ca89d91d3ce142e"
   name = "github.com/gravitational/teleport"
   packages = [
     ".",
@@ -946,7 +946,7 @@
     "lib/web/ui",
   ]
   pruneopts = "UT"
-  revision = "8685669a811b129b0ddd30039e6c2003e917df43"
+  revision = "ccc63a5b8675415841577b69ff2cfba4496a12e8"
 
 [[projects]]
   digest = "1:22c8951489f0e27ec3b2d50d9f74086ff3f08554ce5965d418d6a10296b9ea04"
