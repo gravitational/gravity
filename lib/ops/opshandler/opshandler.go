@@ -1457,7 +1457,13 @@ func (h *WebHandler) getOperationPlan(w http.ResponseWriter, r *http.Request, p 
    Success response: {"status": "ok", "message": "packages configured"}
 */
 func (h *WebHandler) configurePackages(w http.ResponseWriter, r *http.Request, p httprouter.Params, context *HandlerContext) error {
-	err := context.Operator.ConfigurePackages(siteOperationKey(p))
+	d := json.NewDecoder(r.Body)
+	var req ops.ConfigurePackagesRequest
+	if err := d.Decode(&req); err != nil {
+		return trace.BadParameter(err.Error())
+	}
+	req.SiteOperationKey = siteOperationKey(p)
+	err := context.Operator.ConfigurePackages(req)
 	if err != nil {
 		return trace.Wrap(err)
 	}

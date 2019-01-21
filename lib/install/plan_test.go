@@ -35,6 +35,7 @@ import (
 	"github.com/gravitational/gravity/lib/systeminfo"
 
 	"github.com/cloudflare/cfssl/csr"
+	"github.com/ghodss/yaml"
 	"github.com/gravitational/license/authority"
 	"github.com/gravitational/trace"
 	"github.com/sirupsen/logrus"
@@ -63,6 +64,7 @@ type PlanSuite struct {
 	operationKey       *ops.SiteOperationKey
 	dnsConfig          storage.DNSConfig
 	cluster            *ops.Site
+	resources          []byte
 }
 
 var _ = check.Suite(&PlanSuite{})
@@ -111,13 +113,17 @@ func (s *PlanSuite) SetUpSuite(c *check.C) {
 		Addrs: []string{"127.0.0.3"},
 		Port:  10053,
 	}
+	bytes, err := yaml.YAMLToJSON(configMap)
+	c.Assert(err, check.IsNil)
+	// Resources are translated to JSON during plan generation
+	s.resources = bytes
 	s.cluster, err = s.services.Operator.CreateSite(
 		ops.NewSiteRequest{
 			AccountID:  account.ID,
 			DomainName: "example.com",
 			AppPackage: appPackage.String(),
 			Provider:   schema.ProviderAWS,
-			Resources:  configMap,
+			Resources:  bytes,
 			DNSConfig:  s.dnsConfig,
 		})
 	_, err = s.services.Users.CreateClusterAdminAgent(s.cluster.Domain,
@@ -426,8 +432,10 @@ func (s *PlanSuite) verifyResourcesPhase(c *check.C, phase storage.OperationPhas
 	storage.DeepComparePhases(c, storage.OperationPhase{
 		ID: phases.ResourcesPhase,
 		Data: &storage.OperationPhaseData{
-			Server:    &s.masterNode,
-			Resources: s.installer.Resources,
+			Server: &s.masterNode,
+			Install: &storage.InstallOperationData{
+				Resources: s.resources,
+			},
 		},
 		Requires: []string{phases.RBACPhase},
 	}, phase)

@@ -156,7 +156,7 @@ type Config struct {
 	Role string
 	// AppPackage is the application being installed
 	AppPackage *loc.Locator
-	// Resources is a file with resource specs
+	// Resources specifies optional resources to create upon successful installation
 	Resources []byte
 	// EventsC is channel with events indicating install progress
 	EventsC chan Event

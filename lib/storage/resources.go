@@ -16,7 +16,13 @@ limitations under the License.
 
 package storage
 
-import teleservices "github.com/gravitational/teleport/lib/services"
+import (
+	"bytes"
+	"io"
+	"strings"
+
+	teleservices "github.com/gravitational/teleport/lib/services"
+)
 
 const (
 	// KindCluster is a resource kind for gravity clusters
@@ -55,13 +61,13 @@ const (
 	// KindEndpoints defines the Ops Center endpoints resource type
 	KindEndpoints = "endpoints"
 	// KindRuntimeEnvironment defines the resource that manages cluster environment variables
-	KindRuntimeEnvironment = "runtime_environment"
+	KindRuntimeEnvironment = "runtimeenvironment"
 )
 
 // CanonicalKind translates the specified kind to canonical form.
 // Returns an empty string if no canonical form exists
 func CanonicalKind(kind string) string {
-	switch kind {
+	switch strings.ToLower(kind) {
 	case teleservices.KindGithubConnector:
 		return teleservices.KindGithubConnector
 	case teleservices.KindAuthConnector, "auth":
@@ -82,11 +88,27 @@ func CanonicalKind(kind string) string {
 		return KindAlert
 	case KindAlertTarget, "alerttargets":
 		return KindAlertTarget
-	case KindRuntimeEnvironment, "environments", "env":
+	case KindRuntimeEnvironment, "environment", "env":
 		return KindRuntimeEnvironment
 	}
 	return ""
 }
+
+// NewReader returns an io.Reader for this list of resources
+func (r UnknownResources) NewReader() io.Reader {
+	rs := make([]io.Reader, 0, len(r))
+	for _, res := range r {
+		rs = append(rs, bytes.NewReader(res.Raw), strings.NewReader("---\n"))
+	}
+	if len(r) > 0 {
+		// Remove the last separator
+		rs = rs[:len(rs)-1]
+	}
+	return io.MultiReader(rs...)
+}
+
+// UnknownResoucres is a list of teleservices.UnknownResource with serialization semantics
+type UnknownResources []teleservices.UnknownResource
 
 // SupportedGravityResources is a list of resources supported by
 // "gravity resource create/get" subcommands

@@ -17,7 +17,9 @@ limitations under the License.
 package install
 
 import (
+	"bytes"
 	"fmt"
+	"io"
 	"strconv"
 
 	"github.com/gravitational/gravity/lib/app"
@@ -26,12 +28,16 @@ import (
 	"github.com/gravitational/gravity/lib/fsm"
 	"github.com/gravitational/gravity/lib/install/phases"
 	"github.com/gravitational/gravity/lib/loc"
+	"github.com/gravitational/gravity/lib/modules"
 	"github.com/gravitational/gravity/lib/ops"
 	"github.com/gravitational/gravity/lib/pack"
 	"github.com/gravitational/gravity/lib/schema"
 	"github.com/gravitational/gravity/lib/storage"
 
+	teleservices "github.com/gravitational/teleport/lib/services"
 	"github.com/gravitational/trace"
+	log "github.com/sirupsen/logrus"
+	"k8s.io/apimachinery/pkg/util/yaml"
 )
 
 // PlanBuilder builds operation plan phases
@@ -60,6 +66,10 @@ type PlanBuilder struct {
 	RegularAgent storage.LoginEntry
 	// ServiceUser is the cluster system user
 	ServiceUser storage.OSUser
+	// env specifies optional cluster environment variables to add during install
+	env map[string]string
+	// resources specifies the optional Kubernetes resources to create upon success
+	resources []byte
 }
 
 // AddChecksPhase appends preflight checks phase to the provided plan
@@ -76,12 +86,20 @@ func (b *PlanBuilder) AddChecksPhase(plan *storage.OperationPlan) {
 
 // AddConfigurePhase appends package configuration phase to the provided plan
 func (b *PlanBuilder) AddConfigurePhase(plan *storage.OperationPlan) {
-	plan.Phases = append(plan.Phases, storage.OperationPhase{
+	phase := storage.OperationPhase{
 		ID:          phases.ConfigurePhase,
 		Description: "Configure packages for all nodes",
 		Requires:    fsm.RequireIfPresent(plan, phases.InstallerPhase, phases.DecryptPhase),
 		Step:        3,
-	})
+	}
+	if len(b.env) != 0 {
+		phase.Data = &storage.OperationPhaseData{
+			Install: &storage.InstallOperationData{
+				Env: b.env,
+			},
+		}
+	}
+	plan.Phases = append(plan.Phases, phase)
 }
 
 // AddBootstrapPhase appends nodes bootstrap phase to the provided plan
@@ -323,13 +341,19 @@ func (b *PlanBuilder) AddRBACPhase(plan *storage.OperationPlan) {
 }
 
 // AddResourcesPhase appends K8s resources initialization phase to the provided plan
-func (b *PlanBuilder) AddResourcesPhase(plan *storage.OperationPlan, resources []byte) {
+func (b *PlanBuilder) AddResourcesPhase(plan *storage.OperationPlan) {
+	if len(b.resources) == 0 {
+		// Nothing to add
+		return
+	}
 	plan.Phases = append(plan.Phases, storage.OperationPhase{
 		ID:          phases.ResourcesPhase,
 		Description: "Create user-supplied Kubernetes resources",
 		Data: &storage.OperationPhaseData{
-			Server:    &b.Master,
-			Resources: resources,
+			Server: &b.Master,
+			Install: &storage.InstallOperationData{
+				Resources: b.resources,
+			},
 		},
 		Requires: []string{phases.RBACPhase},
 		Step:     4,
@@ -505,7 +529,11 @@ func (i *Installer) GetPlanBuilder(cluster ops.Site, op ops.SiteOperation) (*Pla
 	if err != nil {
 		return nil, trace.Wrap(err)
 	}
-	return &PlanBuilder{
+	kubernetesResources, gravityResources, err := splitResources(cluster.Resources)
+	if err != nil {
+		return nil, trace.Wrap(err)
+	}
+	builder := &PlanBuilder{
 		Application:        *application,
 		Runtime:            *runtime,
 		TeleportPackage:    *teleportPackage,
@@ -522,7 +550,43 @@ func (i *Installer) GetPlanBuilder(cluster ops.Site, op ops.SiteOperation) (*Pla
 			UID:  strconv.Itoa(i.Config.ServiceUser.UID),
 			GID:  strconv.Itoa(i.Config.ServiceUser.GID),
 		},
-	}, nil
+	}
+	if len(kubernetesResources) != 0 {
+		var buf bytes.Buffer
+		_, err = io.Copy(&buf, kubernetesResources.NewReader())
+		if err != nil {
+			return nil, trace.Wrap(err)
+		}
+		builder.resources = buf.Bytes()
+	}
+	for _, res := range gravityResources {
+		if res.Kind != storage.KindRuntimeEnvironment {
+			continue
+		}
+		e, err := storage.UnmarshalEnvironmentVariables(res.Raw)
+		if err != nil {
+			return nil, trace.Wrap(err)
+		}
+		builder.env = e.GetKeyValues()
+	}
+	return builder, nil
+}
+
+// skipDependency returns true if the dependency package specified by dep
+// should be skipped when installing the provided application
+func (b *PlanBuilder) skipDependency(dep loc.Locator) bool {
+	// rbac-app is installed separately
+	if dep.Name == constants.BootstrapConfigPackage {
+		return true
+	}
+	// do not install bandwagon unless the app uses it in its post-install
+	if dep.Name == defaults.BandwagonPackageName {
+		setup := b.Application.Manifest.SetupEndpoint()
+		if setup == nil || setup.ServiceName != defaults.BandwagonServiceName {
+			return true
+		}
+	}
+	return false
 }
 
 // splitServers splits the provided servers into masters and nodes
@@ -555,19 +619,29 @@ func splitServers(servers []storage.Server, app app.Application) (masters []stor
 	return masters, nodes, nil
 }
 
-// skipDependency returns true if the dependency package specified by dep
-// should be skipped when installing the provided application
-func (b *PlanBuilder) skipDependency(dep loc.Locator) bool {
-	// rbac-app is installed separately
-	if dep.Name == constants.BootstrapConfigPackage {
-		return true
-	}
-	// do not install bandwagon unless the app uses it in its post-install
-	if dep.Name == defaults.BandwagonPackageName {
-		setup := b.Application.Manifest.SetupEndpoint()
-		if setup == nil || setup.ServiceName != defaults.BandwagonServiceName {
-			return true
+func splitResources(resources []byte) (kubernetesResources, gravityResources storage.UnknownResources, err error) {
+	reader := bytes.NewReader(resources)
+	decoder := yaml.NewYAMLOrJSONDecoder(reader, defaults.DecoderBufferSize)
+	for err == nil {
+		var resource teleservices.UnknownResource
+		err = decoder.Decode(&resource)
+		if err != nil {
+			break
+		}
+		log.Infof("Decoded(raw): %s.", resource.Raw)
+		kind := modules.Get().CanonicalKind(resource.Kind)
+		if kind == "" {
+			kubernetesResources = append(kubernetesResources, resource)
+		} else {
+			resource.Kind = kind
+			gravityResources = append(gravityResources, resource)
 		}
 	}
-	return false
+	if err == io.EOF {
+		err = nil
+	}
+	if err != nil {
+		return nil, nil, trace.Wrap(err)
+	}
+	return kubernetesResources, gravityResources, nil
 }

@@ -327,9 +327,14 @@ func NewResources(p fsm.ExecutorParams, operator ops.Operator) (*resourcesExecut
 		Operator: operator,
 		Server:   p.Phase.Data.Server,
 	}
+	var resources []byte
+	if p.Phase.Data != nil && p.Phase.Data.Install != nil {
+		resources = p.Phase.Data.Install.Resources
+	}
 	return &resourcesExecutor{
 		FieldLogger:    logger,
 		ExecutorParams: p,
+		resources:      resources,
 	}, nil
 }
 
@@ -338,17 +343,19 @@ type resourcesExecutor struct {
 	logrus.FieldLogger
 	// ExecutorParams is common executor params
 	fsm.ExecutorParams
+	resources []byte
 }
 
 // Execute executes the resources phase
 func (p *resourcesExecutor) Execute(ctx context.Context) error {
+	const filename = "resources.json"
 	p.Progress.NextStep("Creating user-supplied Kubernetes resources")
 	stateDir, err := state.GetStateDir()
 	if err != nil {
 		return trace.Wrap(err)
 	}
-	err = ioutil.WriteFile(filepath.Join(state.ShareDir(stateDir), "resources.yaml"),
-		p.Phase.Data.Resources, defaults.SharedReadMask)
+	err = ioutil.WriteFile(filepath.Join(state.ShareDir(stateDir), filename),
+		p.resources, defaults.SharedReadMask)
 	if err != nil {
 		return trace.Wrap(err, "failed to write user resources on disk")
 	}
@@ -360,7 +367,7 @@ func (p *resourcesExecutor) Execute(ctx context.Context) error {
 		constants.PrivilegedKubeconfig,
 		"apply",
 		"-f",
-		filepath.Join(defaults.PlanetShareDir, "resources.yaml"),
+		filepath.Join(defaults.PlanetShareDir, filename),
 	)
 	if err != nil {
 		return trace.Wrap(err, "failed to create user resources: %s", out)

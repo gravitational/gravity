@@ -104,9 +104,7 @@ func (i *Installer) GetOperationPlan(cluster ops.Site, op ops.SiteOperation) (*s
 
 	// if installing a regular app, the resources might have been
 	// provided by a user
-	if len(i.Cluster.Resources) != 0 {
-		builder.AddResourcesPhase(plan, i.Cluster.Resources)
-	}
+	builder.AddResourcesPhase(plan)
 
 	// export applications to registries
 	builder.AddExportPhase(plan)

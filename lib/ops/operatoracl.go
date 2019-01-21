@@ -639,11 +639,11 @@ func (o *OperatorACL) GetOperationPlan(key SiteOperationKey) (*storage.Operation
 }
 
 // Configure packages configures packages for the specified operation
-func (o *OperatorACL) ConfigurePackages(key SiteOperationKey) error {
-	if err := o.ClusterAction(key.SiteDomain, storage.KindCluster, teleservices.VerbUpdate); err != nil {
+func (o *OperatorACL) ConfigurePackages(req ConfigurePackagesRequest) error {
+	if err := o.ClusterAction(req.SiteDomain, storage.KindCluster, teleservices.VerbUpdate); err != nil {
 		return trace.Wrap(err)
 	}
-	return o.operator.ConfigurePackages(key)
+	return o.operator.ConfigurePackages(req)
 }
 
 func (o *OperatorACL) RotateSecrets(req RotateSecretsRequest) (*RotatePackageResponse, error) {

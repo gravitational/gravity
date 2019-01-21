@@ -584,7 +584,6 @@ func (o *Operator) CreateSite(r ops.NewSiteRequest) (*ops.Site, error) {
 		appService: o.cfg.Apps,
 		app:        app,
 		seedConfig: o.cfg.SeedConfig,
-		resources:  clusterData.Resources,
 	})
 	if err != nil {
 		return nil, trace.Wrap(err)
@@ -1355,7 +1354,6 @@ func (o *Operator) openSiteInternal(data *storage.Site) (*site, error) {
 		appService:  o.cfg.Apps,
 		seedConfig:  o.cfg.SeedConfig,
 		backendSite: data,
-		resources:   data.Resources,
 	})
 
 	return st, trace.Wrap(err)

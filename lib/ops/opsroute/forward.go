@@ -500,12 +500,12 @@ func (r *Router) GetOperationPlan(key ops.SiteOperationKey) (*storage.OperationP
 }
 
 // Configure packages configures packages for the specified install operation
-func (r *Router) ConfigurePackages(key ops.SiteOperationKey) error {
-	client, err := r.PickOperationClient(key.SiteDomain)
+func (r *Router) ConfigurePackages(req ops.ConfigurePackagesRequest) error {
+	client, err := r.PickOperationClient(req.SiteDomain)
 	if err != nil {
 		return trace.Wrap(err)
 	}
-	return client.ConfigurePackages(key)
+	return client.ConfigurePackages(req)
 }
 
 func (r *Router) RotateSecrets(req ops.RotateSecretsRequest) (*ops.RotatePackageResponse, error) {
