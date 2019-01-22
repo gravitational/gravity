@@ -525,8 +525,7 @@ systemOptions:
 
   # Docker section allows to customize docker
   docker:
-    # Storage backend used, supported: "devicemapper", "overlay", "overlay2" (default)
-    # Note: devicemapper is no longer available from gravity 5.3.4 or later.
+    # Storage backend used, supported: "devicemapper" (pre 5.3), "overlay", "overlay2" (default)
     storageDriver: overlay
     # List of additional command line args to provide to docker daemon
     args: ["--log-level=DEBUG"]
