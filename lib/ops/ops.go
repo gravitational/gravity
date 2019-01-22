@@ -359,7 +359,7 @@ type SSHSignResponse struct {
 // that does not uses any interfaces
 func (s *SSHSignResponse) ToRaw() (*SSHSignResponseRaw, error) {
 	raw := SSHSignResponseRaw{
-		Cert: s.Cert,
+		Cert:                   s.Cert,
 		TrustedHostAuthorities: make([]json.RawMessage, 0, len(s.TrustedHostAuthorities)),
 	}
 	for i := range s.TrustedHostAuthorities {
@@ -385,7 +385,7 @@ type SSHSignResponseRaw struct {
 // ToNative converts back to request that has all interfaces inside
 func (s *SSHSignResponseRaw) ToNative() (*SSHSignResponse, error) {
 	native := SSHSignResponse{
-		Cert: s.Cert,
+		Cert:                   s.Cert,
 		TrustedHostAuthorities: make([]teleservices.CertAuthority, 0, len(s.TrustedHostAuthorities)),
 	}
 	for i := range s.TrustedHostAuthorities {
@@ -463,7 +463,9 @@ type EnvironmentVariables interface {
 	// GetClusterEnvironmentVariables retrieves the cluster runtime environment variables
 	GetClusterEnvironmentVariables(SiteKey) (storage.EnvironmentVariables, error)
 	// CreateClusterEnvironmentVariables creates the cluster runtime environment variables resource.
-	// It does not start the update operation
+	// It does not start the update operation and only creates the backing Kubernetes resource.
+	// It is meant to be used during installation, when runtime containers have already been
+	// configured with the environment
 	CreateClusterEnvironmentVariables(SiteKey, map[string]string) error
 }
 

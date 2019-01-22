@@ -698,6 +698,9 @@ func decode(c *check.C, data []byte) (result []resource) {
 }
 
 func (r *resource) UnmarshalJSON(data []byte) error {
+	if err := json.Unmarshal(data, &r.ResourceHeader); err != nil {
+		return nil
+	}
 	var raw map[string]interface{}
 	if err := json.Unmarshal(data, &raw); err != nil {
 		return nil

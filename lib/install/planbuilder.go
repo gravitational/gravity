@@ -36,7 +36,6 @@ import (
 
 	teleservices "github.com/gravitational/teleport/lib/services"
 	"github.com/gravitational/trace"
-	log "github.com/sirupsen/logrus"
 	"k8s.io/apimachinery/pkg/util/yaml"
 )
 
@@ -365,7 +364,6 @@ func (b *PlanBuilder) AddResourcesPhase(plan *storage.OperationPlan) {
 // AddGravityResourcesPhase appends Gravity resources initialization phase to the provided plan
 func (b *PlanBuilder) AddGravityResourcesPhase(plan *storage.OperationPlan) {
 	if len(b.gravityResources) == 0 {
-		log.Info("No Gravity resources to add.")
 		// Nothing to add
 		return
 	}
@@ -381,7 +379,6 @@ func (b *PlanBuilder) AddGravityResourcesPhase(plan *storage.OperationPlan) {
 		Requires: []string{phases.EnableElectionPhase},
 		Step:     10,
 	})
-	log.Info("Added Gravity resources phase.")
 }
 
 // AddExportPhase appends Docker images export phase to the provided plan
@@ -627,11 +624,6 @@ func splitServers(servers []storage.Server, app app.Application) (masters []stor
 
 func addResources(builder *PlanBuilder, resources []byte) error {
 	kubernetesResources, gravityResources, err := splitResources(resources)
-	log.WithFields(log.Fields{
-		"input":      string(resources),
-		"kubernetes": kubernetesResources,
-		"gravity":    gravityResources,
-	}).Info("Split resources.")
 	if err != nil {
 		return trace.Wrap(err)
 	}
@@ -650,7 +642,6 @@ func addResources(builder *PlanBuilder, resources []byte) error {
 			return trace.Wrap(err)
 		}
 		builder.gravityResources = buf.Bytes()
-		log.Info("Set Gravity resources.")
 	}
 	for _, res := range gravityResources {
 		if res.Kind != storage.KindRuntimeEnvironment {

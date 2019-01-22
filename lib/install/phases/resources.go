@@ -117,7 +117,7 @@ func (*resourcesExecutor) PostCheck(ctx context.Context) error {
 	return nil
 }
 
-// NewGravityResourcesPhase returns executor that creates resources post-install
+// NewGravityResourcesPhase returns executor that creates Gravity resources after a successful install
 func NewGravityResourcesPhase(p fsm.ExecutorParams, operator ops.Operator) (*gravityExecutor, error) {
 	if p.Phase.Data == nil || p.Phase.Data.Install == nil {
 		return nil, trace.BadParameter("phase data is mandatory")
@@ -143,7 +143,7 @@ func NewGravityResourcesPhase(p fsm.ExecutorParams, operator ops.Operator) (*gra
 	}, nil
 }
 
-// Execute runs install and post install hooks for an app
+// Execute creates the Gravity resources from the configured list
 func (r *gravityExecutor) Execute(context.Context) (err error) {
 	decoder := yaml.NewYAMLOrJSONDecoder(bytes.NewReader(r.resources), defaults.DecoderBufferSize)
 	for err == nil {
@@ -152,7 +152,6 @@ func (r *gravityExecutor) Execute(context.Context) (err error) {
 		if err != nil {
 			break
 		}
-		r.WithField("kind", resource.Kind).Info("Create Gravity resource.")
 		resource.Kind = modules.Get().CanonicalKind(resource.Kind)
 		err = r.factory.Create(resources.CreateRequest{Resource: resource})
 	}

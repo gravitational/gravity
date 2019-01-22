@@ -103,7 +103,7 @@ func (r UnknownResources) NewReader() io.Reader {
 	return io.MultiReader(rs...)
 }
 
-// UnknownResoucres is a list of teleservices.UnknownResource with serialization semantics
+// UnknownResources is a list of teleservices.UnknownResource that can serialize itself
 type UnknownResources []teleservices.UnknownResource
 
 // SupportedGravityResources is a list of resources supported by
