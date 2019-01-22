@@ -98,11 +98,7 @@ func CanonicalKind(kind string) string {
 func (r UnknownResources) NewReader() io.Reader {
 	rs := make([]io.Reader, 0, len(r))
 	for _, res := range r {
-		rs = append(rs, bytes.NewReader(res.Raw), strings.NewReader("---\n"))
-	}
-	if len(r) > 0 {
-		// Remove the last separator
-		rs = rs[:len(rs)-1]
+		rs = append(rs, bytes.NewReader(res.Raw))
 	}
 	return io.MultiReader(rs...)
 }

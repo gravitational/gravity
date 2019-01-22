@@ -41,6 +41,8 @@ const (
 	RBACPhase = "/rbac"
 	// ResourcesPhase is a phase that creates user supplied Kubernetes resources
 	ResourcesPhase = "/resources"
+	// GravityResourcesPhase is a phase that creates user supplied Gravity resources
+	GravityResourcesPhase = "/gravity_resources"
 	// ExportPhase is a phase that exports application layers to registries
 	ExportPhase = "/export"
 	// RuntimePhase is a phase that installs system applications

@@ -68,8 +68,10 @@ type PlanBuilder struct {
 	ServiceUser storage.OSUser
 	// env specifies optional cluster environment variables to add during install
 	env map[string]string
-	// resources specifies the optional Kubernetes resources to create upon success
+	// resources specifies the optional Kubernetes resources to create
 	resources []byte
+	// gravityResources specifies the optional Gravity resources to create upon successful install
+	gravityResources []byte
 }
 
 // AddChecksPhase appends preflight checks phase to the provided plan
@@ -360,6 +362,28 @@ func (b *PlanBuilder) AddResourcesPhase(plan *storage.OperationPlan) {
 	})
 }
 
+// AddGravityResourcesPhase appends Gravity resources initialization phase to the provided plan
+func (b *PlanBuilder) AddGravityResourcesPhase(plan *storage.OperationPlan) {
+	if len(b.gravityResources) == 0 {
+		log.Info("No Gravity resources to add.")
+		// Nothing to add
+		return
+	}
+	plan.Phases = append(plan.Phases, storage.OperationPhase{
+		ID:          phases.GravityResourcesPhase,
+		Description: "Create user-supplied Gravity resources",
+		Data: &storage.OperationPhaseData{
+			Server: &b.Master,
+			Install: &storage.InstallOperationData{
+				Resources: b.gravityResources,
+			},
+		},
+		Requires: []string{phases.EnableElectionPhase},
+		Step:     10,
+	})
+	log.Info("Added Gravity resources phase.")
+}
+
 // AddExportPhase appends Docker images export phase to the provided plan
 func (b *PlanBuilder) AddExportPhase(plan *storage.OperationPlan) {
 	var exportPhases []storage.OperationPhase
@@ -529,10 +553,6 @@ func (i *Installer) GetPlanBuilder(cluster ops.Site, op ops.SiteOperation) (*Pla
 	if err != nil {
 		return nil, trace.Wrap(err)
 	}
-	kubernetesResources, gravityResources, err := splitResources(cluster.Resources)
-	if err != nil {
-		return nil, trace.Wrap(err)
-	}
 	builder := &PlanBuilder{
 		Application:        *application,
 		Runtime:            *runtime,
@@ -551,23 +571,9 @@ func (i *Installer) GetPlanBuilder(cluster ops.Site, op ops.SiteOperation) (*Pla
 			GID:  strconv.Itoa(i.Config.ServiceUser.GID),
 		},
 	}
-	if len(kubernetesResources) != 0 {
-		var buf bytes.Buffer
-		_, err = io.Copy(&buf, kubernetesResources.NewReader())
-		if err != nil {
-			return nil, trace.Wrap(err)
-		}
-		builder.resources = buf.Bytes()
-	}
-	for _, res := range gravityResources {
-		if res.Kind != storage.KindRuntimeEnvironment {
-			continue
-		}
-		e, err := storage.UnmarshalEnvironmentVariables(res.Raw)
-		if err != nil {
-			return nil, trace.Wrap(err)
-		}
-		builder.env = e.GetKeyValues()
+	err = addResources(builder, cluster.Resources)
+	if err != nil {
+		return nil, trace.Wrap(err)
 	}
 	return builder, nil
 }
@@ -619,6 +625,46 @@ func splitServers(servers []storage.Server, app app.Application) (masters []stor
 	return masters, nodes, nil
 }
 
+func addResources(builder *PlanBuilder, resources []byte) error {
+	kubernetesResources, gravityResources, err := splitResources(resources)
+	log.WithFields(log.Fields{
+		"input":      string(resources),
+		"kubernetes": kubernetesResources,
+		"gravity":    gravityResources,
+	}).Info("Split resources.")
+	if err != nil {
+		return trace.Wrap(err)
+	}
+	if len(kubernetesResources) != 0 {
+		var buf bytes.Buffer
+		_, err = io.Copy(&buf, kubernetesResources.NewReader())
+		if err != nil {
+			return trace.Wrap(err)
+		}
+		builder.resources = buf.Bytes()
+	}
+	if len(gravityResources) != 0 {
+		var buf bytes.Buffer
+		_, err = io.Copy(&buf, gravityResources.NewReader())
+		if err != nil {
+			return trace.Wrap(err)
+		}
+		builder.gravityResources = buf.Bytes()
+		log.Info("Set Gravity resources.")
+	}
+	for _, res := range gravityResources {
+		if res.Kind != storage.KindRuntimeEnvironment {
+			continue
+		}
+		e, err := storage.UnmarshalEnvironmentVariables(res.Raw)
+		if err != nil {
+			return trace.Wrap(err)
+		}
+		builder.env = e.GetKeyValues()
+	}
+	return nil
+}
+
 func splitResources(resources []byte) (kubernetesResources, gravityResources storage.UnknownResources, err error) {
 	reader := bytes.NewReader(resources)
 	decoder := yaml.NewYAMLOrJSONDecoder(reader, defaults.DecoderBufferSize)
@@ -628,9 +674,8 @@ func splitResources(resources []byte) (kubernetesResources, gravityResources sto
 		if err != nil {
 			break
 		}
-		log.Infof("Decoded(raw): %s.", resource.Raw)
 		kind := modules.Get().CanonicalKind(resource.Kind)
-		if kind == "" {
+		if resource.Version == "" && kind == "" {
 			kubernetesResources = append(kubernetesResources, resource)
 		} else {
 			resource.Kind = kind

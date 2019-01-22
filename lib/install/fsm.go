@@ -57,6 +57,9 @@ type FSMConfig struct {
 	Apps app.Applications
 	// Operator is authenticated installer ops client
 	Operator ops.Operator
+	// LocalOperator is the ops client to the installe cluster.
+	// It is only valid after the cluster has been installed
+	LocalOperator ops.Operator
 	// LocalPackages is the machine-local pack service
 	LocalPackages pack.PackageService
 	// LocalApps is the machine-local apps service

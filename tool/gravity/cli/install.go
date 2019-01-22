@@ -472,11 +472,17 @@ func executeInstallPhase(localEnv *localenv.LocalEnvironment, p PhaseParams) err
 		return trace.Wrap(err)
 	}
 
+	operator, err := localEnv.SiteOperator()
+	if err != nil {
+		log.WithError(err).Warn("Failed to create local operator client.")
+	}
+
 	installFSM, err := install.NewFSM(install.FSMConfig{
 		OperationKey:  op.Key(),
 		Packages:      wizardEnv.Packages,
 		Apps:          wizardEnv.Apps,
 		Operator:      wizardEnv.Operator,
+		LocalOperator: operator,
 		LocalPackages: localEnv.Packages,
 		LocalApps:     localApps,
 		LocalBackend:  localEnv.Backend,
@@ -638,11 +644,17 @@ func rollbackInstallPhase(localEnv *localenv.LocalEnvironment, p PhaseParams) er
 		return trace.Wrap(err)
 	}
 
+	operator, err := localEnv.SiteOperator()
+	if err != nil {
+		log.WithError(err).Warn("Failed to create local operator client.")
+	}
+
 	installFSM, err := install.NewFSM(install.FSMConfig{
 		OperationKey:  op.Key(),
 		Packages:      wizardEnv.Packages,
 		Apps:          wizardEnv.Apps,
 		Operator:      wizardEnv.Operator,
+		LocalOperator: operator,
 		LocalPackages: localEnv.Packages,
 		LocalApps:     localApps,
 		LocalBackend:  localEnv.Backend,

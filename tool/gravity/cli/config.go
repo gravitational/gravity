@@ -291,9 +291,12 @@ func (i *InstallConfig) ToInstallerConfig(env *localenv.LocalEnvironment) (*inst
 	if err != nil {
 		return nil, trace.Wrap(err)
 	}
-	resources, err := i.GetResources()
-	if err != nil && !trace.IsNotFound(err) {
-		return nil, trace.Wrap(err)
+	var resources []byte
+	if i.ResourcesPath != "" {
+		resources, err = i.GetResources()
+		if err != nil {
+			return nil, trace.Wrap(err, "failed to load resources file")
+		}
 	}
 	appPackage, err := i.GetAppPackage()
 	if err != nil {

@@ -784,6 +784,15 @@ func (o *OperatorACL) GetClusterEnvironmentVariables(key SiteKey) (storage.Envir
 	return o.operator.GetClusterEnvironmentVariables(key)
 }
 
+// CreateClusterEnvironmentVariables creates the cluster runtime environment variables resource.
+// It does not start the update operation
+func (o *OperatorACL) CreateClusterEnvironmentVariables(key SiteKey, env map[string]string) error {
+	if err := o.ClusterAction(key.SiteDomain, storage.KindRuntimeEnvironment, teleservices.VerbUpdate); err != nil {
+		return trace.Wrap(err)
+	}
+	return o.operator.CreateClusterEnvironmentVariables(key, env)
+}
+
 func (o *OperatorACL) GetApplicationEndpoints(key SiteKey) ([]Endpoint, error) {
 	if err := o.ClusterAction(key.SiteDomain, storage.KindCluster, teleservices.VerbRead); err != nil {
 		return nil, trace.Wrap(err)

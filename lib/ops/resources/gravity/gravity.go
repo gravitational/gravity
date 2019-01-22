@@ -210,6 +210,16 @@ func (r *Resources) Create(req resources.CreateRequest) error {
 			return trace.Wrap(err)
 		}
 		r.Printf("Updated monitoring alert target %q\n", target.GetName())
+	case storage.KindRuntimeEnvironment:
+		env, err := storage.UnmarshalEnvironmentVariables(req.Resource.Raw)
+		if err != nil {
+			return trace.Wrap(err)
+		}
+		err = r.Operator.CreateClusterEnvironmentVariables(r.cluster.Key(), env.GetKeyValues())
+		if err != nil {
+			return trace.Wrap(err)
+		}
+		r.Println("Set cluster environment variables")
 	default:
 		return trace.NotImplemented("unsupported resource %q, supported are: %v",
 			req.Resource.Kind, modules.Get().SupportedResources())

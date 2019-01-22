@@ -17,7 +17,11 @@ limitations under the License.
 package install
 
 import (
+	"bytes"
+	"encoding/json"
 	"fmt"
+	"io"
+	"sort"
 	"strconv"
 	"testing"
 
@@ -35,11 +39,12 @@ import (
 	"github.com/gravitational/gravity/lib/systeminfo"
 
 	"github.com/cloudflare/cfssl/csr"
-	"github.com/ghodss/yaml"
 	"github.com/gravitational/license/authority"
+	teleservices "github.com/gravitational/teleport/lib/services"
 	"github.com/gravitational/trace"
 	"github.com/sirupsen/logrus"
 	"gopkg.in/check.v1"
+	"k8s.io/apimachinery/pkg/util/yaml"
 )
 
 func TestInstaller(t *testing.T) { check.TestingT(t) }
@@ -64,7 +69,6 @@ type PlanSuite struct {
 	operationKey       *ops.SiteOperationKey
 	dnsConfig          storage.DNSConfig
 	cluster            *ops.Site
-	resources          []byte
 }
 
 var _ = check.Suite(&PlanSuite{})
@@ -113,17 +117,13 @@ func (s *PlanSuite) SetUpSuite(c *check.C) {
 		Addrs: []string{"127.0.0.3"},
 		Port:  10053,
 	}
-	bytes, err := yaml.YAMLToJSON(configMap)
-	c.Assert(err, check.IsNil)
-	// Resources are translated to JSON during plan generation
-	s.resources = bytes
 	s.cluster, err = s.services.Operator.CreateSite(
 		ops.NewSiteRequest{
 			AccountID:  account.ID,
 			DomainName: "example.com",
 			AppPackage: appPackage.String(),
 			Provider:   schema.ProviderAWS,
-			Resources:  bytes,
+			Resources:  []byte(resources),
 			DNSConfig:  s.dnsConfig,
 		})
 	_, err = s.services.Users.CreateClusterAdminAgent(s.cluster.Domain,
@@ -178,7 +178,7 @@ func (s *PlanSuite) SetUpSuite(c *check.C) {
 	}
 	s.installer = &Installer{
 		Config: Config{
-			Resources:   configMap,
+			Resources:   resources,
 			ServiceUser: s.serviceUser,
 			Mode:        constants.InstallModeCLI,
 			DNSConfig:   s.dnsConfig,
@@ -220,6 +220,7 @@ func (s *PlanSuite) TestPlan(c *check.C) {
 		{phases.RuntimePhase, s.verifyRuntimePhase},
 		{phases.AppPhase, s.verifyAppPhase},
 		{phases.EnableElectionPhase, s.verifyEnableElectionPhase},
+		{phases.GravityResourcesPhase, s.verifyGravityResourcesPhase},
 	}
 
 	c.Assert(len(expected), check.Equals, len(plan.Phases))
@@ -243,6 +244,13 @@ func (s *PlanSuite) verifyChecksPhase(c *check.C, phase storage.OperationPhase) 
 func (s *PlanSuite) verifyConfigurePhase(c *check.C, phase storage.OperationPhase) {
 	storage.DeepComparePhases(c, storage.OperationPhase{
 		ID: phases.ConfigurePhase,
+		Data: &storage.OperationPhaseData{
+			Install: &storage.InstallOperationData{
+				Env: map[string]string{
+					"HTTP_PROXY": "example.com:8081",
+				},
+			},
+		},
 	}, phase)
 }
 
@@ -429,16 +437,63 @@ func (s *PlanSuite) verifyRBACPhase(c *check.C, phase storage.OperationPhase) {
 }
 
 func (s *PlanSuite) verifyResourcesPhase(c *check.C, phase storage.OperationPhase) {
+	obtained := phase.Data.Install.Resources
+	expected := []byte(`
+{
+  "apiVersion": "v1",
+  "data": {
+    "test-key": "test-value"
+  },
+  "kind": "ConfigMap",
+  "metadata": {
+    "name": "test-config"
+  }
+}
+	`)
+	phase.Data.Install.Resources = nil // Compare resources separately
 	storage.DeepComparePhases(c, storage.OperationPhase{
 		ID: phases.ResourcesPhase,
 		Data: &storage.OperationPhaseData{
-			Server: &s.masterNode,
-			Install: &storage.InstallOperationData{
-				Resources: s.resources,
-			},
+			Server:  &s.masterNode,
+			Install: &storage.InstallOperationData{},
 		},
 		Requires: []string{phases.RBACPhase},
 	}, phase)
+	validateResources(c, obtained, expected)
+}
+
+func (s *PlanSuite) verifyGravityResourcesPhase(c *check.C, phase storage.OperationPhase) {
+	obtained := phase.Data.Install.Resources
+	expected := []byte(`
+{
+  "kind":"RuntimeEnvironment",
+  "version":"v1",
+  "spec": {
+    "data": {
+      "HTTP_PROXY": "example.com:8081"
+    }
+  }
+}
+{
+  "kind": "AlertTarget",
+  "metadata": {
+    "name": "foo"
+  },
+  "spec": {
+    "email": "info@example.com"
+  },
+  "version": "v1"
+}`)
+	phase.Data.Install.Resources = nil // Compare resources separately
+	storage.DeepComparePhases(c, storage.OperationPhase{
+		ID: phases.GravityResourcesPhase,
+		Data: &storage.OperationPhaseData{
+			Server:  &s.masterNode,
+			Install: &storage.InstallOperationData{},
+		},
+		Requires: []string{phases.EnableElectionPhase},
+	}, phase)
+	validateResources(c, obtained, expected)
 }
 
 func (s *PlanSuite) verifyExportPhase(c *check.C, phase storage.OperationPhase) {
@@ -615,13 +670,67 @@ func (s *PlanSuite) TestSplitServers(c *check.C) {
 	}
 }
 
-// configMap is used as a test resource
-var configMap = []byte(`apiVersion: v1
+func validateResources(c *check.C, obtainedBytes, expectedBytes []byte) {
+	obtained := decode(c, obtainedBytes)
+	expected := decode(c, obtainedBytes)
+	c.Assert(obtained, check.DeepEquals, expected)
+}
+
+func decode(c *check.C, data []byte) (result []resource) {
+	decoder := yaml.NewYAMLOrJSONDecoder(bytes.NewReader(data), defaults.DecoderBufferSize)
+	var err error
+	for err == nil {
+		var resource resource
+		err = decoder.Decode(&resource)
+		if err != nil {
+			break
+		}
+		result = append(result, resource)
+	}
+	if err == io.EOF {
+		err = nil
+	}
+	c.Assert(err, check.IsNil)
+	sort.Slice(result, func(i, j int) bool {
+		return result[i].Kind < result[j].Kind
+	})
+	return result
+}
+
+func (r *resource) UnmarshalJSON(data []byte) error {
+	var raw map[string]interface{}
+	if err := json.Unmarshal(data, &raw); err != nil {
+		return nil
+	}
+	r.Raw = raw
+	return nil
+}
+
+type resource struct {
+	teleservices.ResourceHeader
+	Raw map[string]interface{}
+}
+
+// resurces is used as a test resource
+var resources = []byte(`apiVersion: v1
 kind: ConfigMap
 metadata:
   name: test-config
 data:
   test-key: test-value
+---
+version: v1
+kind: RuntimeEnvironment
+spec:
+  data:
+    HTTP_PROXY: "example.com:8081"
+---
+version: v1
+kind: AlertTarget
+metadata:
+  name: foo
+spec:
+  email: "info@example.com"
 `)
 
 // encryptionKey is used to test encrypted installer packages
