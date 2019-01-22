@@ -26,9 +26,11 @@ import (
 	"github.com/gravitational/gravity/lib/blob/fs"
 	"github.com/gravitational/gravity/lib/compare"
 	"github.com/gravitational/gravity/lib/defaults"
+	"github.com/gravitational/gravity/lib/helm"
 	"github.com/gravitational/gravity/lib/loc"
 	"github.com/gravitational/gravity/lib/pack"
 	"github.com/gravitational/gravity/lib/pack/localpack"
+	"github.com/gravitational/gravity/lib/storage"
 	"github.com/gravitational/gravity/lib/storage/keyval"
 
 	"github.com/gravitational/trace"
@@ -46,8 +48,8 @@ type PullerSuite struct {
 var _ = Suite(&PullerSuite{})
 
 func (s *PullerSuite) SetUpTest(c *C) {
-	s.srcPack, s.srcApp = setupServices(c)
-	s.dstPack, s.dstApp = setupServices(c)
+	_, s.srcPack, s.srcApp = setupServices(c)
+	_, s.dstPack, s.dstApp = setupServices(c)
 	err := s.srcPack.UpsertRepository("example.com", time.Time{})
 	c.Assert(err, IsNil)
 	err = s.dstPack.UpsertRepository("example.com", time.Time{})
@@ -155,7 +157,7 @@ dependencies:
 	c.Assert(trace.IsAlreadyExists(err), Equals, true)
 }
 
-func setupServices(c *C) (pack.PackageService, app.Applications) {
+func setupServices(c *C) (storage.Backend, pack.PackageService, *applications) {
 	dir := c.MkDir()
 
 	backend, err := keyval.NewBolt(keyval.BoltConfig{
@@ -173,14 +175,21 @@ func setupServices(c *C) (pack.PackageService, app.Applications) {
 	})
 	c.Assert(err, IsNil)
 
+	charts, err := helm.NewRepository(helm.Config{
+		Packages: packService,
+		Backend:  backend,
+	})
+	c.Assert(err, IsNil)
+
 	appService, err := New(Config{
 		Backend:  backend,
 		StateDir: filepath.Join(dir, defaults.ImportDir),
 		Packages: packService,
+		Charts:   charts,
 	})
 	c.Assert(err, IsNil)
 
-	return packService, appService
+	return backend, packService, appService
 }
 
 func locators(envelopes []pack.PackageEnvelope) []loc.Locator {

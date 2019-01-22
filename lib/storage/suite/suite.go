@@ -29,6 +29,7 @@ import (
 	"github.com/gravitational/gravity/lib/defaults"
 	"github.com/gravitational/gravity/lib/loc"
 	"github.com/gravitational/gravity/lib/storage"
+	helmutils "github.com/gravitational/gravity/lib/utils/helm"
 
 	"github.com/gravitational/teleport/lib/auth/testauthority"
 	teledefaults "github.com/gravitational/teleport/lib/defaults"
@@ -40,6 +41,8 @@ import (
 	"github.com/jonboulle/clockwork"
 	log "github.com/sirupsen/logrus"
 	. "gopkg.in/check.v1"
+	"k8s.io/helm/pkg/proto/hapi/chart"
+	"k8s.io/helm/pkg/repo"
 )
 
 var now = time.Date(2015, 11, 16, 1, 2, 3, 0, time.UTC)
@@ -1896,4 +1899,74 @@ func (s *StorageSuite) ClusterLogin(c *C) {
 	c.Assert(err, IsNil)
 	c.Assert(login.Email, Equals, anotherAgentEmail)
 	c.Assert(login.Password, Equals, anotherAgentKey)
+}
+
+func (s *StorageSuite) IndexFile(c *C) {
+	// Create a test account just so a basic bucket structure gets initialized.
+	_, err := s.Backend.CreateAccount(storage.Account{Org: "test"})
+	c.Assert(err, IsNil)
+
+	// No index file initially.
+	_, err = s.Backend.GetIndexFile()
+	c.Assert(err, FitsTypeOf, trace.NotFound(""))
+
+	// Create a new index file.
+	indexFile := newIndex()
+	indexFile, _ = addToIndex(*indexFile, "alpine", "0.1.0")
+
+	// Save the index file in the database.
+	err = s.Backend.CompareAndSwapIndexFile(indexFile, nil)
+	c.Assert(err, IsNil)
+
+	// Retrieve it back and compare.
+	retrievedFile, err := s.Backend.GetIndexFile()
+	c.Assert(err, IsNil)
+	compare.DeepCompare(c, retrievedFile, indexFile)
+
+	// Attempt to save it again without providing the previous one should fail.
+	err = s.Backend.CompareAndSwapIndexFile(indexFile, nil)
+	c.Assert(err, FitsTypeOf, trace.CompareFailed(""))
+
+	// Simulate concurrent update to test compare and swap.
+	updatedIndex1, previousIndex1 := addToIndex(*indexFile, "nginx", "0.2.0")
+	updatedIndex2, previousIndex2 := addToIndex(*indexFile, "kafka", "0.3.0")
+
+	// Save the first one.
+	err = s.Backend.CompareAndSwapIndexFile(updatedIndex1, previousIndex1)
+	c.Assert(err, IsNil)
+
+	// Retrieve it back and compare again.
+	retrievedFile, err = s.Backend.GetIndexFile()
+	c.Assert(err, IsNil)
+	compare.DeepCompare(c, retrievedFile, updatedIndex1)
+
+	// Attempt to save the second one via compare-and-swap should fail.
+	err = s.Backend.CompareAndSwapIndexFile(updatedIndex2, previousIndex2)
+	c.Assert(err, FitsTypeOf, trace.CompareFailed(""))
+
+	// Now just force-insert the second one.
+	err = s.Backend.UpsertIndexFile(*updatedIndex2)
+	c.Assert(err, IsNil)
+
+	// Verify that it got replaced.
+	retrievedFile, err = s.Backend.GetIndexFile()
+	c.Assert(err, IsNil)
+	compare.DeepCompare(c, retrievedFile, updatedIndex2)
+}
+
+func newIndex() *repo.IndexFile {
+	return &repo.IndexFile{
+		APIVersion: repo.APIVersionV1,
+		Generated:  now,
+		Entries:    make(map[string]repo.ChartVersions),
+	}
+}
+
+func addToIndex(indexFile repo.IndexFile, name, version string) (updated, previous *repo.IndexFile) {
+	indexCopy := helmutils.CopyIndexFile(indexFile)
+	indexCopy.Entries[name] = []*repo.ChartVersion{{
+		Metadata: &chart.Metadata{Name: name, Version: version},
+		Created:  now,
+	}}
+	return indexCopy, &indexFile
 }

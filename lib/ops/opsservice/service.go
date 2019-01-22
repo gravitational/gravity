@@ -1292,10 +1292,12 @@ func (o *Operator) GetAppInstaller(req ops.AppInstallerRequest) (io.ReadCloser, 
 	caCert := req.CACert
 	if caCert == "" {
 		ca, err := pack.ReadCertificateAuthority(o.cfg.Packages)
-		if err != nil {
+		if err != nil && !trace.IsNotFound(err) {
 			return nil, trace.Wrap(err)
 		}
-		caCert = string(ca.CertPEM)
+		if ca != nil {
+			caCert = string(ca.CertPEM)
+		}
 	}
 
 	var cluster storage.TrustedCluster

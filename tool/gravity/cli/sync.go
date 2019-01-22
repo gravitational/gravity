@@ -110,6 +110,7 @@ func appSyncEnv(env *localenv.LocalEnvironment, imageEnv *localenv.ImageEnvironm
 			SrcApp:  imageEnv.Apps,
 			DstApp:  clusterApps,
 			Package: imageEnv.Manifest.Locator(),
+			Upsert:  true,
 		})
 		if err != nil {
 			return trace.Wrap(err)

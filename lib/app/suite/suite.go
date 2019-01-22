@@ -32,6 +32,7 @@ import (
 	"github.com/gravitational/gravity/lib/app/service"
 	apptest "github.com/gravitational/gravity/lib/app/service/test"
 	"github.com/gravitational/gravity/lib/archive"
+	"github.com/gravitational/gravity/lib/compare"
 	"github.com/gravitational/gravity/lib/constants"
 	"github.com/gravitational/gravity/lib/defaults"
 	"github.com/gravitational/gravity/lib/loc"
@@ -52,6 +53,8 @@ import (
 	batchv1 "k8s.io/api/batch/v1"
 	"k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/helm/pkg/chartutil"
+	"k8s.io/helm/pkg/repo"
 )
 
 type AppsSuite struct {
@@ -704,6 +707,45 @@ registry:
 	}
 	sort.Strings(repos)
 	c.Assert(repos, DeepEquals, []string{"alpine", "gravitational/debian-tall"})
+}
+
+func (r *AppsSuite) FetchChart(c *C) {
+	apps := r.NewService(c, nil, nil)
+
+	// Create a test Helm-based application.
+	alpine := loc.MustParseLocator("gravitational.io/alpine:0.1.0")
+	apptest.CreateHelmChartApp(c, apps, alpine)
+
+	// Fetch it using the app service client.
+	reader, err := apps.FetchChart(alpine)
+	c.Assert(err, IsNil)
+	defer reader.Close()
+
+	// Load the chart archive and make sure it's valid.
+	chart, err := chartutil.LoadArchive(reader)
+	c.Assert(err, IsNil)
+	compare.DeepCompare(c, chart, apptest.Chart(alpine))
+}
+
+func (r *AppsSuite) FetchIndexFile(c *C) {
+	apps := r.NewService(c, nil, nil)
+
+	// Create a test Helm-based application.
+	alpine := loc.MustParseLocator("gravitational.io/alpine:0.1.0")
+	apptest.CreateHelmChartApp(c, apps, alpine)
+
+	// Fetch and parse the index file.
+	reader, err := apps.FetchIndexFile()
+	c.Assert(err, IsNil)
+	indexFileBytes, err := ioutil.ReadAll(reader)
+	c.Assert(err, IsNil)
+	var indexFile repo.IndexFile
+	err = yaml.Unmarshal(indexFileBytes, &indexFile)
+	c.Assert(err, IsNil)
+
+	// Make sure the application is there.
+	c.Assert(len(indexFile.Entries), Equals, 1)
+	c.Assert(indexFile.Has(alpine.Name, alpine.Version), Equals, true)
 }
 
 func writer(in io.Writer) io.Writer {

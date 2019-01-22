@@ -24,8 +24,8 @@ import (
 	"github.com/gravitational/gravity/lib/utils"
 	"github.com/gravitational/trace"
 
-	log "github.com/sirupsen/logrus"
 	dockerapi "github.com/fsouza/go-dockerclient"
+	log "github.com/sirupsen/logrus"
 )
 
 // NewDockerPuller returns an instance of DockerPuller using the specified client
@@ -61,4 +61,26 @@ func (r *dockerPuller) IsImagePresent(image string) (bool, error) {
 		return false, nil
 	}
 	return false, trace.Wrap(err)
+}
+
+// Login logs into a Docker registry.
+func Login(name, username, password string) error {
+	cmd := exec.Command("docker", "login", "-u", username, "-p", password, name)
+	var out bytes.Buffer
+	err := utils.ExecL(cmd, &out, log.WithField(trace.Component, "docker"))
+	if err != nil {
+		return trace.Wrap(err, out.String())
+	}
+	return nil
+}
+
+// Logout logs out of a Docker registry.
+func Logout(name string) error {
+	cmd := exec.Command("docker", "logout", name)
+	var out bytes.Buffer
+	err := utils.ExecL(cmd, &out, log.WithField(trace.Component, "docker"))
+	if err != nil {
+		return trace.Wrap(err, out.String())
+	}
+	return nil
 }

@@ -401,7 +401,8 @@
   version = "v3.2.0"
 
 [[projects]]
-  digest = "1:943b6a9b255018a51bfaf2e53153fcc86ce5e55ab49f7d23c11aaee9970a7d52"
+  branch = "release/2.6-g"
+  digest = "1:274bde53857a0b36f5e1c47fabaf5a8f514677e18fcd9864cd10c47cb14ae573"
   name = "github.com/docker/distribution"
   packages = [
     ".",
@@ -442,7 +443,8 @@
     "version",
   ]
   pruneopts = "UT"
-  revision = "edc3ab29cdff8694dd6feb85cfeb4b5f1b38ed9c"
+  revision = "c4f583a8ce2d86c1d512b2c4fd315ac7cf6819b8"
+  source = "github.com/gravitational/distribution"
 
 [[projects]]
   digest = "1:c945991632e3246dc4d9409a265c4be8ee12d0abcc7b3e72abd4e79be5a1048e"
@@ -891,7 +893,7 @@
 
 [[projects]]
   branch = "branch/3.0-g"
-  digest = "1:f2cdd05044c11110299af8a67d023dd0514d81dac59063ff717ffa308c56c381"
+  digest = "1:561411b23fb5520c4141fd3a3975335879aa49169c16ac9a8ca89d91d3ce142e"
   name = "github.com/gravitational/teleport"
   packages = [
     ".",
@@ -946,7 +948,7 @@
     "lib/web/ui",
   ]
   pruneopts = "UT"
-  revision = "8685669a811b129b0ddd30039e6c2003e917df43"
+  revision = "ccc63a5b8675415841577b69ff2cfba4496a12e8"
 
 [[projects]]
   digest = "1:22c8951489f0e27ec3b2d50d9f74086ff3f08554ce5965d418d6a10296b9ea04"
@@ -1757,7 +1759,7 @@
 
 [[projects]]
   branch = "master"
-  digest = "1:085378cd65d4416e9c3f6f367e0184b8bef99a274a658c61bfea7e6ccb322b8d"
+  digest = "1:91fb794f7b74dea93e026a9fc66afdd3d39479a413946d0295cbf6418943dcdf"
   name = "golang.org/x/crypto"
   packages = [
     "bcrypt",
@@ -1771,6 +1773,7 @@
     "nacl/secretbox",
     "openpgp",
     "openpgp/armor",
+    "openpgp/clearsign",
     "openpgp/elgamal",
     "openpgp/errors",
     "openpgp/packet",
@@ -2232,26 +2235,34 @@
 
 [[projects]]
   branch = "release-2.12"
-  digest = "1:8a6f1c6b2f0a947ccaec4dbc21366adae72368a8697e3dc869d40603fd72d548"
+  digest = "1:586dc9d92ecb8df19fb87af4456c307d58a5453b49a4916450e52c35177586bf"
   name = "k8s.io/helm"
   packages = [
     "pkg/chartutil",
     "pkg/engine",
+    "pkg/getter",
     "pkg/helm",
+    "pkg/helm/environment",
+    "pkg/helm/helmpath",
     "pkg/helm/portforwarder",
     "pkg/ignore",
     "pkg/kube",
     "pkg/manifest",
+    "pkg/plugin",
     "pkg/proto/hapi/chart",
     "pkg/proto/hapi/release",
     "pkg/proto/hapi/services",
     "pkg/proto/hapi/version",
+    "pkg/provenance",
     "pkg/releaseutil",
     "pkg/renderutil",
+    "pkg/repo",
     "pkg/storage/errors",
     "pkg/strvals",
     "pkg/sympath",
     "pkg/timeconv",
+    "pkg/tlsutil",
+    "pkg/urlutil",
     "pkg/version",
   ]
   pruneopts = "UT"
@@ -2461,6 +2472,7 @@
     "github.com/docker/distribution/configuration",
     "github.com/docker/distribution/context",
     "github.com/docker/distribution/registry/api/errcode",
+    "github.com/docker/distribution/registry/auth",
     "github.com/docker/distribution/registry/client",
     "github.com/docker/distribution/registry/handlers",
     "github.com/docker/distribution/registry/listener",
@@ -2480,6 +2492,7 @@
     "github.com/gogo/protobuf/types",
     "github.com/gokyle/hotp",
     "github.com/golang/protobuf/proto",
+    "github.com/golang/protobuf/ptypes/any",
     "github.com/gravitational/configure",
     "github.com/gravitational/configure/cstrings",
     "github.com/gravitational/configure/schema",
@@ -2604,13 +2617,18 @@
     "k8s.io/client-go/tools/clientcmd",
     "k8s.io/client-go/tools/clientcmd/api",
     "k8s.io/helm/pkg/chartutil",
+    "k8s.io/helm/pkg/getter",
     "k8s.io/helm/pkg/helm",
+    "k8s.io/helm/pkg/helm/environment",
+    "k8s.io/helm/pkg/helm/helmpath",
     "k8s.io/helm/pkg/helm/portforwarder",
     "k8s.io/helm/pkg/kube",
     "k8s.io/helm/pkg/manifest",
     "k8s.io/helm/pkg/proto/hapi/chart",
     "k8s.io/helm/pkg/proto/hapi/release",
+    "k8s.io/helm/pkg/provenance",
     "k8s.io/helm/pkg/renderutil",
+    "k8s.io/helm/pkg/repo",
     "k8s.io/helm/pkg/strvals",
     "k8s.io/helm/pkg/timeconv",
     "k8s.io/helm/pkg/version",

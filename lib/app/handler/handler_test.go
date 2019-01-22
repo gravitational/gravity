@@ -31,6 +31,7 @@ import (
 	"github.com/gravitational/gravity/lib/app/suite"
 	"github.com/gravitational/gravity/lib/blob/fs"
 	"github.com/gravitational/gravity/lib/defaults"
+	"github.com/gravitational/gravity/lib/helm"
 	"github.com/gravitational/gravity/lib/pack/localpack"
 	"github.com/gravitational/gravity/lib/storage"
 	"github.com/gravitational/gravity/lib/storage/keyval"
@@ -104,6 +105,11 @@ func (r *HandlerSuite) SetUpTest(c *C) {
 			kubeClient, _, err = utils.GetLocalKubeClient()
 			c.Assert(err, IsNil)
 		}
+		charts, err := helm.NewRepository(helm.Config{
+			Packages: r.suite.Packages,
+			Backend:  r.backend,
+		})
+		c.Assert(err, IsNil)
 		applications, err := appservice.New(appservice.Config{
 			StateDir:       filepath.Join(r.dir, "import"),
 			Backend:        r.backend,
@@ -114,6 +120,7 @@ func (r *HandlerSuite) SetUpTest(c *C) {
 			CacheResources: true,
 			Client:         kubeClient,
 			UnpackedDir:    filepath.Join(r.dir, "apps"),
+			Charts:         charts,
 		})
 		c.Assert(err, IsNil)
 
@@ -198,4 +205,12 @@ func (r *HandlerSuite) TestAppHookCycle(c *C) {
 		c.Skip("skipping Kubernetes test")
 	}
 	r.suite.AppHookCycle(c)
+}
+
+func (r *HandlerSuite) TestFetchChart(c *C) {
+	r.suite.FetchChart(c)
+}
+
+func (r *HandlerSuite) TestFetchIndexFile(c *C) {
+	r.suite.FetchIndexFile(c)
 }

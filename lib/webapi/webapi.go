@@ -1347,6 +1347,10 @@ func (m *Handler) getApps(w http.ResponseWriter, r *http.Request, p httprouter.P
 
 	var out []appsapi.Application
 	for _, app := range apps {
+		// Filter out application images as UI does not support them yet.
+		if app.Manifest.Kind == schema.KindApplication {
+			continue
+		}
 		if app.Package.Name == site.App.Package.Name {
 			out = append(out, app)
 		}

@@ -8,7 +8,7 @@ The gravity terraform provider is used to support terraform management of openso
 The terraform provider will be automatically installed when getting the gravity tools.
 
 ```bsh
-curl https://get.gravitational.io/telekube/install/5.2.0 | bash
+curl https://get.gravitational.io/telekube/install/5.2.5 | bash
 ```
 
 Please see the [getting started guide](https://gravitational.com/telekube/docs/quickstart/#getting-the-tools) for more information.
@@ -201,7 +201,7 @@ The gravity enterprise terraform provider is used to support terraform managemen
 The terraform provider will be automatically installed when getting the gravity tools.
 
 ```bsh
-curl https://get.gravitational.io/telekube/install/5.2.0 | bash
+curl https://get.gravitational.io/telekube/install/5.2.5 | bash
 ```
 
 Please see the [getting started guide](https://gravitational.com/telekube/docs/quickstart/#getting-the-tools) for more information.

@@ -28,24 +28,25 @@ import (
 	"text/template"
 	"time"
 
-	"github.com/coreos/go-semver/semver"
-	"github.com/gravitational/form"
 	"github.com/gravitational/gravity/lib/app"
 	serviceapi "github.com/gravitational/gravity/lib/app/api"
 	"github.com/gravitational/gravity/lib/constants"
 	"github.com/gravitational/gravity/lib/defaults"
+	"github.com/gravitational/gravity/lib/helm"
 	"github.com/gravitational/gravity/lib/httplib"
 	"github.com/gravitational/gravity/lib/loc"
 	"github.com/gravitational/gravity/lib/pack"
 	"github.com/gravitational/gravity/lib/storage"
 	"github.com/gravitational/gravity/lib/users"
-	"github.com/gravitational/roundtrip"
-	"github.com/gravitational/trace"
-	"golang.org/x/net/websocket"
 
+	"github.com/coreos/go-semver/semver"
+	"github.com/gravitational/form"
+	"github.com/gravitational/roundtrip"
 	teleservices "github.com/gravitational/teleport/lib/services"
+	"github.com/gravitational/trace"
 	"github.com/julienschmidt/httprouter"
 	log "github.com/sirupsen/logrus"
+	"golang.org/x/net/websocket"
 )
 
 // WebHandlerConfig
@@ -53,6 +54,7 @@ type WebHandlerConfig struct {
 	Users         users.Identity
 	Applications  app.Applications
 	Packages      pack.PackageService
+	Charts        helm.Repository
 	Authenticator httplib.Authenticator
 	Devmode       bool
 }
@@ -105,6 +107,10 @@ func NewWebHandler(cfg WebHandlerConfig) (*WebHandler, error) {
 	h.GET("/telekube/install/:version", h.wrap(h.telekubeInstallScript))
 	h.GET("/telekube/gravity", h.wrap(h.telekubeGravityBinary))
 	h.GET("/telekube/bin/:version/:os/:arch/:binary", h.wrap(h.telekubeBinary))
+
+	// Helm charts repository handlers.
+	h.GET("/charts/:name", h.needsAuth(h.fetchChart))
+	h.GET("/app/v1/charts/:name", h.needsAuth(h.fetchChart)) // Alias for /charts/:name for easier testing.
 
 	return h, nil
 }
@@ -411,6 +417,7 @@ func (h *WebHandler) listApps(w http.ResponseWriter, req *http.Request, params h
 	} else {
 		appType = storage.AppType(appTypeS)
 	}
+	pattern := req.FormValue("pattern")
 	excludeHidden := true // do not display hidden apps in the control panel by default
 	if req.FormValue("exclude_hidden") != "" {
 		excludeHidden, err = strconv.ParseBool(req.FormValue("exclude_hidden"))
@@ -424,6 +431,7 @@ func (h *WebHandler) listApps(w http.ResponseWriter, req *http.Request, params h
 			Repository:    repository,
 			Type:          appType,
 			ExcludeHidden: excludeHidden,
+			Pattern:       pattern,
 		})
 		if err != nil {
 			return trace.Wrap(err)

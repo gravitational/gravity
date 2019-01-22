@@ -23,6 +23,7 @@ import (
 	"github.com/gravitational/gravity/lib/defaults"
 	"github.com/gravitational/gravity/lib/httplib"
 	"github.com/gravitational/gravity/lib/utils"
+	helmutils "github.com/gravitational/gravity/lib/utils/helm"
 
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/rest"
@@ -84,7 +85,7 @@ type InstallParameters struct {
 
 // Install installs a Helm chart and returns release information.
 func (c *Client) Install(p InstallParameters) (*Release, error) {
-	rawVals, err := vals(p.Values, p.Set, nil, nil, "", "", "")
+	rawVals, err := helmutils.Vals(p.Values, p.Set, nil, nil, "", "", "")
 	if err != nil {
 		return nil, trace.Wrap(err)
 	}
@@ -153,7 +154,7 @@ type UpgradeParameters struct {
 
 // Upgrade upgrades a release.
 func (c *Client) Upgrade(p UpgradeParameters) (*Release, error) {
-	rawVals, err := vals(p.Values, p.Set, nil, nil, "", "", "")
+	rawVals, err := helmutils.Vals(p.Values, p.Set, nil, nil, "", "", "")
 	if err != nil {
 		return nil, trace.Wrap(err)
 	}
@@ -232,12 +233,14 @@ func getKubeClient(dnsAddress string) (*kubernetes.Clientset, *rest.Config, erro
 		logrus.Infof("Not in Gravity: %v.", err)
 		return utils.GetLocalKubeClient()
 	}
-	kubeClient, kubeConfig, err := httplib.GetClusterKubeClient(dnsAddress)
+	// Resolve the API server address in advance.
+	host, err := utils.ResolveAddr(dnsAddress, fmt.Sprintf("%v:%v",
+		constants.APIServerDomainName, defaults.APIServerSecurePort))
 	if err != nil {
 		return nil, nil, trace.Wrap(err)
 	}
-	kubeConfig.Host, err = utils.ResolveAddr(dnsAddress, fmt.Sprintf("%v:%v",
-		constants.APIServerDomainName, defaults.APIServerSecurePort))
+	kubeClient, kubeConfig, err := httplib.GetClusterKubeClient(dnsAddress,
+		httplib.WithHost(fmt.Sprintf("https://%v", host)))
 	if err != nil {
 		return nil, nil, trace.Wrap(err)
 	}
@@ -250,5 +253,5 @@ var statuses = []release.Status_Code{
 	release.Status_FAILED,
 }
 
-// maxHistory is the how many history revisions are returned.
+// maxHistory is how many history revisions are returned.
 const maxHistory = 256

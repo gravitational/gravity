@@ -595,8 +595,10 @@ func (s *site) getPlanetMasterSecretsPackage(ctx *operationContext, p planetMast
 		switch name {
 		case constants.APIServerKeyPair:
 			req.Hosts = append(req.Hosts,
+				constants.APIServerDomainNameGravity,
 				constants.APIServerDomainName,
 				constants.LegacyAPIServerDomainName,
+				constants.RegistryDomainName,
 				apiServerIP)
 			req.Hosts = append(req.Hosts, constants.KubernetesServiceDomainNames...)
 			if p.master.Nodename != "" {
@@ -616,7 +618,9 @@ func (s *site) getPlanetMasterSecretsPackage(ctx *operationContext, p planetMast
 				}
 			}
 		case constants.ProxyKeyPair:
-			req.Hosts = append(req.Hosts, constants.APIServerDomainName)
+			req.Hosts = append(req.Hosts,
+				constants.APIServerDomainNameGravity,
+				constants.APIServerDomainName)
 		}
 		keyPair, err := authority.GenerateCertificate(req, caKeyPair, baseKeyPair.KeyPEM, defaults.CertificateExpiry)
 		if err != nil {
@@ -690,7 +694,9 @@ func (s *site) getPlanetNodeSecretsPackage(ctx *operationContext, node *Provisio
 			Hosts: []string{constants.LoopbackIP, node.AdvertiseIP, node.Hostname},
 		}
 		if keyName == constants.ProxyKeyPair {
-			req.Hosts = append(req.Hosts, constants.APIServerDomainName)
+			req.Hosts = append(req.Hosts,
+				constants.APIServerDomainNameGravity,
+				constants.APIServerDomainName)
 		}
 		if node.Nodename != "" {
 			req.Hosts = append(req.Hosts, node.Nodename)
