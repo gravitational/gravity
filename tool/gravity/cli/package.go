@@ -22,12 +22,10 @@ import (
 	"io"
 	"os"
 	"path/filepath"
-	"strings"
 	"syscall"
 	"time"
 
 	"github.com/gravitational/gravity/lib/app/service"
-	"github.com/gravitational/gravity/lib/checks"
 	"github.com/gravitational/gravity/lib/defaults"
 	"github.com/gravitational/gravity/lib/httplib"
 	"github.com/gravitational/gravity/lib/loc"
@@ -269,11 +267,6 @@ func executePackageCommand(s *localenv.LocalEnvironment, cmd string, loc loc.Loc
 		}
 	}
 
-	// Try and autofix sysctls / kernel modules during startup
-	if strings.ToLower(cmd) == "start" {
-		runStartChecks()
-	}
-
 	manifest, err := s.Packages.GetPackageManifest(loc)
 	if err != nil {
 		return trace.Wrap(err)
@@ -316,18 +309,6 @@ func executePackageCommand(s *localenv.LocalEnvironment, cmd string, loc loc.Loc
 		return trace.Wrap(err)
 	}
 	return syscall.Exec(command.Args[0], args, env)
-}
-
-// runStartChecks runs startup checks that will attempt to autofix any incorrect system settings
-func runStartChecks() {
-	log := log.WithField("module", "autofix")
-	checkResult := checks.RunPlanetStartChecks(context.TODO(), nil)
-	for _, r := range checkResult.Fixed {
-		log.Infof("Fixed %s", r.Detail)
-	}
-	for _, r := range checkResult.Failed {
-		log.Infof("Failed: %s (%s)", r.Error, r.Detail)
-	}
 }
 
 func pushPackage(app *localenv.LocalEnvironment, loc loc.Locator, opsCenterURL string) error {

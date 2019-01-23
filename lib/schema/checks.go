@@ -33,13 +33,20 @@ import (
 	log "github.com/sirupsen/logrus"
 )
 
-// DefaultKernelModuleChecker is a satellite kernel module checker with required modules to run kubernetes
-var DefaultKernelModuleChecker = monitoring.NewKernelModuleChecker(
-	moduleName("ebtables"),
-	moduleName("ip_tables"),
-	moduleName("iptable_filter"),
-	moduleName("iptable_nat"),
-	moduleName("br_netfilter"),
+var (
+	// DefaultKernelModules is the list of kernel modules needed for gravity to function properly
+	DefaultKernelModules = []monitoring.ModuleRequest{
+		moduleName("ebtables"),
+		moduleName("ip_tables"),
+		moduleName("iptable_filter"),
+		moduleName("iptable_nat"),
+		moduleName("br_netfilter"),
+		moduleName("overlay"),
+		moduleName("dummy"),
+	}
+
+	// DefaultKernelModuleChecker is a satellite kernel module checker with required modules to run kubernetes
+	DefaultKernelModuleChecker = monitoring.NewKernelModuleChecker(DefaultKernelModules...)
 )
 
 // ValidateDocker validates Docker requirements.

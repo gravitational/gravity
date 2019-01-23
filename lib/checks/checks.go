@@ -107,27 +107,6 @@ func RunBasicChecks(ctx context.Context, options *validationpb.ValidateOptions) 
 	return failed
 }
 
-// RunPlanetStartChecks executes a set of health checks for planet to start
-// Returns list of failed health probes.
-func RunPlanetStartChecks(ctx context.Context, options *validationpb.ValidateOptions) *LocalChecksResult {
-	var reporter health.Probes
-	planetStartCheckers(options).Check(ctx, &reporter)
-
-	var failed []*agentpb.Probe
-	for _, p := range reporter {
-		if p.Status == agentpb.Probe_Failed {
-			failed = append(failed, p)
-		}
-	}
-
-	// try to auto-fix some of the issues
-	fixed, unfixed := autofix.Fix(ctx, failed, utils.NewNopProgress())
-	return &LocalChecksResult{
-		Failed: unfixed,
-		Fixed:  fixed,
-	}
-}
-
 // LocalChecksRequest describes a request to run local pre-flight checks
 type LocalChecksRequest struct {
 	// Context is used for canceling operation
@@ -196,6 +175,8 @@ func ValidateLocal(req LocalChecksRequest) (*LocalChecksResult, error) {
 	if err != nil {
 		return nil, trace.Wrap(err)
 	}
+
+	autofix.AutoloadModules(req.Context, schema.DefaultKernelModules, req.Progress)
 
 	dockerConfig := DockerConfigFromSchemaValue(req.Manifest.SystemDocker())
 	OverrideDockerConfig(&dockerConfig, req.Docker)
@@ -894,19 +875,6 @@ func basicCheckers(options *validationpb.ValidateOptions) health.Checker {
 			monitoring.NewMayDetachMountsChecker(),
 			monitoring.DefaultProcessChecker(),
 			defaultPortChecker(options),
-			monitoring.DefaultBootConfigParams(),
-		},
-	)
-}
-
-func planetStartCheckers(options *validationpb.ValidateOptions) health.Checker {
-	return monitoring.NewCompositeChecker(
-		"local",
-		[]health.Checker{
-			schema.DefaultKernelModuleChecker,
-			monitoring.NewIPForwardChecker(),
-			monitoring.NewBridgeNetfilterChecker(),
-			monitoring.NewMayDetachMountsChecker(),
 			monitoring.DefaultBootConfigParams(),
 		},
 	)
