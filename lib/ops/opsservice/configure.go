@@ -1042,7 +1042,13 @@ func (s *site) configureTeleportMaster(ctx *operationContext, secrets *teleportS
 		return trace.Wrap(err)
 	}
 
-	fileConf := &telecfg.FileConfig{}
+	fileConf := &telecfg.FileConfig{
+		Global: telecfg.Global{
+			Ciphers:       defaults.TeleportCiphers,
+			KEXAlgorithms: defaults.TeleportKEXAlgorithms,
+			MACAlgorithms: defaults.TeleportMACAlgorithms,
+		},
+	}
 
 	// trust host and user keys of our portal
 	proxyAuthorities, err := s.teleport().CertAuthorities(false)
@@ -1180,7 +1186,13 @@ func (s *site) configureTeleportNode(ctx *operationContext, masterIP string, nod
 		return trace.Wrap(err)
 	}
 
-	fileConf := &telecfg.FileConfig{}
+	fileConf := &telecfg.FileConfig{
+		Global: telecfg.Global{
+			Ciphers:       defaults.TeleportCiphers,
+			KEXAlgorithms: defaults.TeleportKEXAlgorithms,
+			MACAlgorithms: defaults.TeleportMACAlgorithms,
+		},
+	}
 
 	fileConf.DataDir = node.InGravity("teleport")
 
