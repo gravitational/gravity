@@ -57,6 +57,7 @@ import (
 	"github.com/gravitational/trace"
 	"github.com/kardianos/osext"
 	log "github.com/sirupsen/logrus"
+	"k8s.io/apimachinery/pkg/runtime"
 )
 
 // UpsertSystem account creates or updates system account used for all installs
@@ -156,8 +157,12 @@ type Config struct {
 	Role string
 	// AppPackage is the application being installed
 	AppPackage *loc.Locator
-	// Resources specifies optional resources to create upon successful installation
+	// Resources specifies optional resources to create.
+	// This is assumed to be YAML-encoded list of resources
 	Resources []byte
+	// RuntimeResources specifies optional Kubernetes resources to create
+	// If specified, will be combined with Resources
+	RuntimeResources []runtime.Object
 	// EventsC is channel with events indicating install progress
 	EventsC chan Event
 	// SystemDevice is a device for gravity data
@@ -201,6 +206,8 @@ type Config struct {
 	NewProcess process.NewGravityProcess
 	// Silent allows installer to output its progress
 	localenv.Silent
+	// LocalClient is a factory for creating local cluster operator client
+	LocalClient func() (ops.Operator, error)
 }
 
 // CheckAndSetDefaults checks the parameters and autodetects some defaults
@@ -213,6 +220,9 @@ func (c *Config) CheckAndSetDefaults() (err error) {
 	}
 	if c.AdvertiseAddr == "" {
 		return trace.BadParameter("missing AdvertiseAddr")
+	}
+	if c.LocalClient == nil {
+		return trace.BadParameter("missing LocalClient")
 	}
 	if !utils.StringInSlice(modules.Get().InstallModes(), c.Mode) {
 		return trace.BadParameter("invalid Mode %q", c.Mode)

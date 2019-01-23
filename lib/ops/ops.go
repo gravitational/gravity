@@ -462,11 +462,6 @@ type EnvironmentVariables interface {
 	CreateUpdateEnvarsOperation(CreateUpdateEnvarsOperationRequest) (*SiteOperationKey, error)
 	// GetClusterEnvironmentVariables retrieves the cluster runtime environment variables
 	GetClusterEnvironmentVariables(SiteKey) (storage.EnvironmentVariables, error)
-	// CreateClusterEnvironmentVariables creates the cluster runtime environment variables resource.
-	// It does not start the update operation and only creates the backing Kubernetes resource.
-	// It is meant to be used during installation, when runtime containers have already been
-	// configured with the environment
-	CreateClusterEnvironmentVariables(SiteKey, map[string]string) error
 }
 
 // ClusterCertificate represents the cluster certificate

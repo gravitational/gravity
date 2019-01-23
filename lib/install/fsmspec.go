@@ -101,7 +101,11 @@ func FSMSpec(config FSMConfig) fsm.FSMSpecFunc {
 			return phases.NewEnableElectionPhase(p, config.Operator)
 
 		case strings.HasPrefix(p.Phase.ID, phases.GravityResourcesPhase):
-			return phases.NewGravityResourcesPhase(p, config.LocalOperator)
+			operator, err := config.LocalClient()
+			if err != nil {
+				return nil, trace.Wrap(err)
+			}
+			return phases.NewGravityResourcesPhase(p, operator)
 
 		default:
 			return nil, trace.BadParameter("unknown phase %q", p.Phase.ID)

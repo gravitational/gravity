@@ -62,36 +62,6 @@ func (h *WebHandler) createUpdateEnvarsOperation(w http.ResponseWriter, r *http.
 	return nil
 }
 
-/* createEnvars sets the cluster environment variables
-
-     PUT /portal/v1/accounts/:account_id/sites/:site_domain/envars
-
-{
-   "account_id": "account id",
-   "site_id": "site_id",
-   "env": "<new enviornment>"
-}
-
-   Success Response:
-
-   {
-     "message": "environment created"
-   }
-*/
-func (h *WebHandler) createEnvars(w http.ResponseWriter, r *http.Request, p httprouter.Params, context *HandlerContext) error {
-	d := json.NewDecoder(r.Body)
-	var env map[string]string
-	if err := d.Decode(&env); err != nil {
-		return trace.BadParameter(err.Error())
-	}
-	err := context.Operator.CreateClusterEnvironmentVariables(siteKey(p), env)
-	if err != nil {
-		return trace.Wrap(err)
-	}
-	roundtrip.ReplyJSON(w, http.StatusOK, statusOK("environment created"))
-	return nil
-}
-
 /* getEnvironmentVariables fetches the cluster environment variables
 
      GET /portal/v1/accounts/:account_id/sites/:site_domain/envars

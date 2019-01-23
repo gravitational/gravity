@@ -17,11 +17,14 @@ limitations under the License.
 package storage
 
 import (
-	"bytes"
+	"encoding/json"
 	"io"
 	"strings"
 
+	"github.com/ghodss/yaml"
 	teleservices "github.com/gravitational/teleport/lib/services"
+	"github.com/gravitational/trace"
+	serializer "k8s.io/apimachinery/pkg/runtime/serializer/json"
 )
 
 const (
@@ -94,17 +97,47 @@ func CanonicalKind(kind string) string {
 	return ""
 }
 
-// NewReader returns an io.Reader for this list of resources
-func (r UnknownResources) NewReader() io.Reader {
-	rs := make([]io.Reader, 0, len(r))
-	for _, res := range r {
-		rs = append(rs, bytes.NewReader(res.Raw))
-	}
-	return io.MultiReader(rs...)
+// UnknownResource represents an unparsed Gravity resource with an interpreted ResourceHeader
+type UnknownResource struct {
+	teleservices.ResourceHeader
+	Raw json.RawMessage `json:",inline"`
 }
 
-// UnknownResources is a list of teleservices.UnknownResource that can serialize itself
-type UnknownResources []teleservices.UnknownResource
+// UnmarshalJSON consumes the specified data as a binary blob w/o interpreting it
+func (r *UnknownResource) UnmarshalJSON(data []byte) (err error) {
+	if err = json.Unmarshal(data, &r.ResourceHeader); err != nil {
+		return trace.Wrap(err)
+	}
+	if err = r.Raw.UnmarshalJSON(data); err != nil {
+		return trace.Wrap(err)
+	}
+	return nil
+}
+
+// MarshalJSON returns the raw message
+func (r UnknownResource) MarshalJSON() ([]byte, error) {
+	return r.Raw.MarshalJSON()
+}
+
+// Encode YAML-encodes the specified list of resources into w
+func Encode(resources []UnknownResource, w io.Writer) error {
+	w = serializer.YAMLFramer.NewFrameWriter(w)
+	for _, resource := range resources {
+		jsonBytes, err := json.Marshal(resource)
+		if err != nil {
+			return trace.Wrap(err)
+		}
+		data, err := yaml.JSONToYAML(jsonBytes)
+		if err != nil {
+			return trace.Wrap(err)
+		}
+		_, err = w.Write(data)
+		if err != nil {
+			return trace.Wrap(err)
+		}
+	}
+	return nil
+}
 
 // SupportedGravityResources is a list of resources supported by
 // "gravity resource create/get" subcommands

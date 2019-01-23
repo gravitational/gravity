@@ -18,11 +18,13 @@ package install
 
 import (
 	"bytes"
+	"encoding/json"
 	"fmt"
 	"io"
 	"strconv"
 
 	"github.com/gravitational/gravity/lib/app"
+	"github.com/gravitational/gravity/lib/app/resources"
 	"github.com/gravitational/gravity/lib/constants"
 	"github.com/gravitational/gravity/lib/defaults"
 	"github.com/gravitational/gravity/lib/fsm"
@@ -30,12 +32,13 @@ import (
 	"github.com/gravitational/gravity/lib/loc"
 	"github.com/gravitational/gravity/lib/modules"
 	"github.com/gravitational/gravity/lib/ops"
+	"github.com/gravitational/gravity/lib/ops/opsservice"
 	"github.com/gravitational/gravity/lib/pack"
 	"github.com/gravitational/gravity/lib/schema"
 	"github.com/gravitational/gravity/lib/storage"
 
-	teleservices "github.com/gravitational/teleport/lib/services"
 	"github.com/gravitational/trace"
+	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/util/yaml"
 )
 
@@ -568,7 +571,7 @@ func (i *Installer) GetPlanBuilder(cluster ops.Site, op ops.SiteOperation) (*Pla
 			GID:  strconv.Itoa(i.Config.ServiceUser.GID),
 		},
 	}
-	err = addResources(builder, cluster.Resources)
+	err = addResources(builder, cluster.Resources, i.Config.RuntimeResources)
 	if err != nil {
 		return nil, trace.Wrap(err)
 	}
@@ -622,22 +625,14 @@ func splitServers(servers []storage.Server, app app.Application) (masters []stor
 	return masters, nodes, nil
 }
 
-func addResources(builder *PlanBuilder, resources []byte) error {
-	kubernetesResources, gravityResources, err := splitResources(resources)
+func addResources(builder *PlanBuilder, resourceBytes []byte, runtimeResources []runtime.Object) error {
+	kubernetesResources, gravityResources, err := splitResources(resourceBytes)
 	if err != nil {
 		return trace.Wrap(err)
 	}
-	if len(kubernetesResources) != 0 {
-		var buf bytes.Buffer
-		_, err = io.Copy(&buf, kubernetesResources.NewReader())
-		if err != nil {
-			return trace.Wrap(err)
-		}
-		builder.resources = buf.Bytes()
-	}
 	if len(gravityResources) != 0 {
 		var buf bytes.Buffer
-		_, err = io.Copy(&buf, gravityResources.NewReader())
+		err = storage.Encode(gravityResources, &buf)
 		if err != nil {
 			return trace.Wrap(err)
 		}
@@ -647,27 +642,43 @@ func addResources(builder *PlanBuilder, resources []byte) error {
 		if res.Kind != storage.KindRuntimeEnvironment {
 			continue
 		}
-		e, err := storage.UnmarshalEnvironmentVariables(res.Raw)
+		env, err := storage.UnmarshalEnvironmentVariables(res.Raw)
 		if err != nil {
 			return trace.Wrap(err)
 		}
-		builder.env = e.GetKeyValues()
+		builder.env = env.GetKeyValues()
+		configmap := opsservice.NewEnvironmentConfigMap(env.GetKeyValues())
+		kubernetesResources = append(kubernetesResources, configmap)
+	}
+	kubernetesResources = append(kubernetesResources, runtimeResources...)
+	if len(kubernetesResources) != 0 {
+		var buf bytes.Buffer
+		err = resources.NewResource(kubernetesResources...).Encode(&buf)
+		if err != nil {
+			return trace.Wrap(err)
+		}
+		builder.resources = buf.Bytes()
 	}
 	return nil
 }
 
-func splitResources(resources []byte) (kubernetesResources, gravityResources storage.UnknownResources, err error) {
-	reader := bytes.NewReader(resources)
+func splitResources(resourceBytes []byte) (kubernetesResources []runtime.Object, gravityResources []storage.UnknownResource, err error) {
+	reader := bytes.NewReader(resourceBytes)
 	decoder := yaml.NewYAMLOrJSONDecoder(reader, defaults.DecoderBufferSize)
 	for err == nil {
-		var resource teleservices.UnknownResource
+		var resource storage.UnknownResource
 		err = decoder.Decode(&resource)
 		if err != nil {
 			break
 		}
 		kind := modules.Get().CanonicalKind(resource.Kind)
 		if resource.Version == "" && kind == "" {
-			kubernetesResources = append(kubernetesResources, resource)
+			// reinterpret as a Kubernetes resource
+			var kResource resources.Unknown
+			if err := json.Unmarshal(resource.Raw, &kResource); err != nil {
+				return nil, nil, trace.Wrap(err)
+			}
+			kubernetesResources = append(kubernetesResources, &kResource)
 		} else {
 			resource.Kind = kind
 			gravityResources = append(gravityResources, resource)

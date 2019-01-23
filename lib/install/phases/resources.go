@@ -70,7 +70,7 @@ type resourcesExecutor struct {
 
 // Execute executes the resources phase
 func (p *resourcesExecutor) Execute(ctx context.Context) error {
-	const filename = "resources.json"
+	const filename = "resources.yaml"
 	p.Progress.NextStep("Creating user-supplied Kubernetes resources")
 	stateDir, err := state.GetStateDir()
 	if err != nil {
@@ -154,6 +154,9 @@ func (r *gravityExecutor) Execute(context.Context) (err error) {
 		}
 		resource.Kind = modules.Get().CanonicalKind(resource.Kind)
 		err = r.factory.Create(resources.CreateRequest{Resource: resource})
+		if err != nil && trace.IsNotImplemented(err) {
+			err = nil
+		}
 	}
 	if err == io.EOF {
 		err = nil

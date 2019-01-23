@@ -1120,14 +1120,6 @@ func (c *Client) GetClusterEnvironmentVariables(key ops.SiteKey) (storage.Enviro
 	return env, nil
 }
 
-// CreateClusterEnvironmentVariables creates the cluster runtime environment variables resource.
-// It does not start the update operation
-func (c *Client) CreateClusterEnvironmentVariables(key ops.SiteKey, env map[string]string) error {
-	_, err := c.PutJSON(c.Endpoint(
-		"accounts", key.AccountID, "sites", key.SiteDomain, "envars"), env)
-	return trace.Wrap(err)
-}
-
 func (c *Client) GetApplicationEndpoints(key ops.SiteKey) ([]ops.Endpoint, error) {
 	out, err := c.Get(c.Endpoint("accounts", key.AccountID, "sites", key.SiteDomain, "endpoints"), url.Values{})
 	if err != nil {

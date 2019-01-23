@@ -342,6 +342,7 @@ func (i *InstallConfig) ToInstallerConfig(env *localenv.LocalEnvironment) (*inst
 		ServiceUser:   i.ServiceUser,
 		GCENodeTags:   i.NodeTags,
 		NewProcess:    i.NewProcess,
+		LocalClient:   env.LocalClusterOperator,
 	}, nil
 }
 

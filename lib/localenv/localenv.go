@@ -34,6 +34,7 @@ import (
 	"github.com/gravitational/gravity/lib/constants"
 	"github.com/gravitational/gravity/lib/defaults"
 	"github.com/gravitational/gravity/lib/httplib"
+	"github.com/gravitational/gravity/lib/ops"
 	"github.com/gravitational/gravity/lib/ops/opsclient"
 	"github.com/gravitational/gravity/lib/pack"
 	"github.com/gravitational/gravity/lib/pack/localpack"
@@ -461,6 +462,11 @@ func (env *LocalEnvironment) SiteOperator() (*opsclient.Client, error) {
 	operator, err := env.OperatorService(
 		defaults.GravityServiceURL, httplib.WithLocalResolver(env.DNS.Addr()), httplib.WithInsecure())
 	return operator, trace.Wrap(err)
+}
+
+// LocalClusterOperator returns Operator for the local gravity cluster
+func (env *LocalEnvironment) LocalClusterOperator() (ops.Operator, error) {
+	return env.SiteOperator()
 }
 
 // SiteApps returns Apps service for the local gravity site

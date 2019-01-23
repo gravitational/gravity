@@ -57,11 +57,8 @@ type FSMConfig struct {
 	Apps app.Applications
 	// Operator is authenticated installer ops client
 	Operator ops.Operator
-	// LocalOperator is the ops client to the installed cluster.
-	// It is only valid after the cluster has been installed.
-	// This operator is used by steps that require access to the
-	// installed cluster (i.e. creating Gravity resources)
-	LocalOperator ops.Operator
+	// LocalClient is a factory for creating a client to the installed cluster.
+	LocalClient func() (ops.Operator, error)
 	// LocalPackages is the machine-local pack service
 	LocalPackages pack.PackageService
 	// LocalApps is the machine-local apps service
@@ -103,6 +100,9 @@ func (c *FSMConfig) CheckAndSetDefaults() (err error) {
 	}
 	if c.LocalPackages == nil {
 		return trace.BadParameter("missing LocalPackages")
+	}
+	if c.LocalClient == nil {
+		return trace.BadParameter("missing LocalClient")
 	}
 	if c.LocalApps == nil {
 		return trace.BadParameter("missing LocalApps")

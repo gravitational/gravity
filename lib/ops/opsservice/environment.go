@@ -73,14 +73,19 @@ func (o *Operator) GetClusterEnvironmentVariables(key ops.SiteKey) (env storage.
 	return env, nil
 }
 
-// CreateClusterEnvironmentVariables creates cluster environment variables resource
-func (o *Operator) CreateClusterEnvironmentVariables(key ops.SiteKey, env map[string]string) error {
-	client, err := o.GetKubeClient()
-	if err != nil {
-		return trace.Wrap(err)
+// NewEnvironmentConfigMap creates the backing ConfigMap to host cluster runtime environment variables
+func NewEnvironmentConfigMap(data map[string]string) *v1.ConfigMap {
+	return &v1.ConfigMap{
+		TypeMeta: metav1.TypeMeta{
+			Kind:       constants.KindConfigMap,
+			APIVersion: metav1.SchemeGroupVersion.Version,
+		},
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      constants.ClusterEnvironmentMap,
+			Namespace: defaults.KubeSystemNamespace,
+		},
+		Data: data,
 	}
-	_, err = createEnvironmentConfigMap(client.CoreV1().ConfigMaps(defaults.KubeSystemNamespace), env)
-	return rigging.ConvertError(err)
 }
 
 // createUpdateEnvarsOperation creates a new operation to update cluster environment variables
@@ -144,21 +149,7 @@ func getOrCreateEnvironmentConfigMap(client corev1.ConfigMapInterface) (configma
 	if err == nil {
 		return configmap, nil
 	}
-	configmap, err = createEnvironmentConfigMap(client, nil)
-	if err != nil {
-		return nil, trace.Wrap(err)
-	}
-	return configmap, nil
-}
-
-func createEnvironmentConfigMap(client corev1.ConfigMapInterface, data map[string]string) (configmap *v1.ConfigMap, err error) {
-	configmap = &v1.ConfigMap{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      constants.ClusterEnvironmentMap,
-			Namespace: defaults.KubeSystemNamespace,
-		},
-		Data: data,
-	}
+	configmap = NewEnvironmentConfigMap(nil)
 	configmap, err = client.Create(configmap)
 	if err != nil {
 		return nil, trace.Wrap(rigging.ConvertError(err))

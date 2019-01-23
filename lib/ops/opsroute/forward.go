@@ -664,16 +664,6 @@ func (r *Router) GetClusterEnvironmentVariables(key ops.SiteKey) (storage.Enviro
 	return client.GetClusterEnvironmentVariables(key)
 }
 
-// CreateClusterEnvironmentVariables creates the cluster runtime environment variables resource.
-// It does not start the update operation
-func (r *Router) CreateClusterEnvironmentVariables(key ops.SiteKey, env map[string]string) error {
-	client, err := r.RemoteClient(key.SiteDomain)
-	if err != nil {
-		return trace.Wrap(err)
-	}
-	return client.CreateClusterEnvironmentVariables(key, env)
-}
-
 func (r *Router) GetApplicationEndpoints(key ops.SiteKey) ([]ops.Endpoint, error) {
 	client, err := r.RemoteClient(key.SiteDomain)
 	if err != nil {

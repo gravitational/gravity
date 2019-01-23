@@ -320,6 +320,7 @@ func (i *Installer) GetFSM() (*fsm.FSM, error) {
 		Packages:       i.Packages,
 		Apps:           i.Apps,
 		Operator:       i.Operator,
+		LocalClient:    i.Config.LocalClient,
 		LocalPackages:  i.LocalPackages,
 		LocalApps:      i.LocalApps,
 		LocalBackend:   i.LocalBackend,

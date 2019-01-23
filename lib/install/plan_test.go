@@ -25,6 +25,7 @@ import (
 	"strconv"
 	"testing"
 
+	"github.com/gravitational/gravity/lib/compare"
 	"github.com/gravitational/gravity/lib/constants"
 	"github.com/gravitational/gravity/lib/defaults"
 	"github.com/gravitational/gravity/lib/install/phases"
@@ -123,7 +124,7 @@ func (s *PlanSuite) SetUpSuite(c *check.C) {
 			DomainName: "example.com",
 			AppPackage: appPackage.String(),
 			Provider:   schema.ProviderAWS,
-			Resources:  []byte(resources),
+			Resources:  []byte(resourceBytes),
 			DNSConfig:  s.dnsConfig,
 		})
 	_, err = s.services.Users.CreateClusterAdminAgent(s.cluster.Domain,
@@ -178,7 +179,7 @@ func (s *PlanSuite) SetUpSuite(c *check.C) {
 	}
 	s.installer = &Installer{
 		Config: Config{
-			Resources:   resources,
+			Resources:   resourceBytes,
 			ServiceUser: s.serviceUser,
 			Mode:        constants.InstallModeCLI,
 			DNSConfig:   s.dnsConfig,
@@ -449,6 +450,18 @@ func (s *PlanSuite) verifyResourcesPhase(c *check.C, phase storage.OperationPhas
     "name": "test-config"
   }
 }
+{
+  "kind":"ConfigMap",
+  "apiVersion":"v1",
+  "metadata": {
+    "name": "runtimeenvironment",
+    "namespace": "kube-system",
+    "creationTimestamp": null
+  },
+  "data": {
+    "HTTP_PROXY": "example.com:8081"
+  }
+}
 	`)
 	phase.Data.Install.Resources = nil // Compare resources separately
 	storage.DeepComparePhases(c, storage.OperationPhase{
@@ -459,7 +472,7 @@ func (s *PlanSuite) verifyResourcesPhase(c *check.C, phase storage.OperationPhas
 		},
 		Requires: []string{phases.RBACPhase},
 	}, phase)
-	validateResources(c, obtained, expected)
+	validateResources(c, obtained, expected, "invalid resources")
 }
 
 func (s *PlanSuite) verifyGravityResourcesPhase(c *check.C, phase storage.OperationPhase) {
@@ -493,7 +506,7 @@ func (s *PlanSuite) verifyGravityResourcesPhase(c *check.C, phase storage.Operat
 		},
 		Requires: []string{phases.EnableElectionPhase},
 	}, phase)
-	validateResources(c, obtained, expected)
+	validateResources(c, obtained, expected, "invalid Gravity resources")
 }
 
 func (s *PlanSuite) verifyExportPhase(c *check.C, phase storage.OperationPhase) {
@@ -670,10 +683,10 @@ func (s *PlanSuite) TestSplitServers(c *check.C) {
 	}
 }
 
-func validateResources(c *check.C, obtainedBytes, expectedBytes []byte) {
+func validateResources(c *check.C, obtainedBytes, expectedBytes []byte, comment string) {
 	obtained := decode(c, obtainedBytes)
-	expected := decode(c, obtainedBytes)
-	c.Assert(obtained, check.DeepEquals, expected)
+	expected := decode(c, expectedBytes)
+	c.Assert(obtained, compare.DeepEquals, expected, check.Commentf(comment))
 }
 
 func decode(c *check.C, data []byte) (result []resource) {
@@ -714,8 +727,8 @@ type resource struct {
 	Raw map[string]interface{}
 }
 
-// resurces is used as a test resource
-var resources = []byte(`apiVersion: v1
+// resourceBytes is used as a test resource
+var resourceBytes = []byte(`apiVersion: v1
 kind: ConfigMap
 metadata:
   name: test-config
