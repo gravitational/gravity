@@ -16,14 +16,20 @@ Gravity system.
 Gravity is a Kubernetes packaging solution so it only runs on computers capable
 of running Kubernetes. For this QuickStart, you will need:
 
-* A x86_64 GNU/Linux machine or VM. We recommend taking a look at the [list of supported distributions](requirements/#distributions).
+* A x86_64 Linux machine or VM for packaging/building an application bundle.
+  Usually it's commonly called "a developer's box".
+* We recommend taking a look at the [list of supported Linux distributions](requirements/#distributions).
 * [Docker](https://get.docker.io) version 1.8 or newer. Run `docker info` before continuing to make sure
   you have Docker up and running.
 * You must be a member of the `docker` group. Run `groups` command to make sure
   `docker` group is listed.
 * You must install [Helm](https://docs.helm.sh/using_helm/#installing-helm).
 * You must have `git` installed to clone the example application repo.
-* You must have `sudo` privileges.
+* One or two Linux nodes for installing a Kubernetes cluster. They should
+  have at least 2GB of RAM and 40GB of free disk space. These nodes should be
+  clean, i.e. make sure not to have Docker or any other container orchestrator
+  on them.
+* You must have `sudo` privileges on all nodes.
 
 ## Getting the Tools
 
@@ -291,11 +297,31 @@ Sat Jan 12 05:37:12 UTC Operation has completed
 Sat Jan 12 05:37:13 UTC Installation succeeded in 6m3.257480586s
 ```
 
-**Congratulations!** You have created a fully functional
-Kubernetes cluster with Mattermost running inside. If a single node cluster
-is not enough, you can add additional nodes to it:
+**Congratulations!** You have created a fully functional Kubernetes cluster
+with Mattermost running inside. To check the health and status of the cluster,
+execute this command on the target node:
 
-1. Copy `gravity` binary from the boostrapping node above to another host, let's assume its IP is `10.5.5.29`.
+```bash
+$ gravity status
+
+# the output:
+Cluster status:	active
+Application:	mattermost, version 2.2.0
+Join token:	3f59d1923ed4e2f1499f3e272c86310b46666c8ddce708f3131b16f256f10004
+Last completed operation:
+    * operation_install (6784ad01-530a-45f0-a303-119ac8cd3417)
+      started:		Tue Jan 22 22:40 UTC (10 minutes ago)
+      completed:	Tue Jan 22 22:40 UTC (10 minutes ago)
+Cluster:		friendlypoincare4048
+    Masters:
+        * host (10.5.5.28, node)
+            Status:	healthy
+```
+
+If a single node cluster is not enough, you can add additional nodes to it:
+
+1. Copy `gravity` binary from the boostrapping node above to another host which
+   is about to be added to the cluster.  Let's assume its IP is `10.5.5.29`.
 2. Execute `gravity join` command as shown below. Note that this command will
    "think" in silence for a few seconds before dumping any output.
 
@@ -327,11 +353,29 @@ Sat Jan 12 06:02:26 UTC	Operation has completed
 Sat Jan 12 06:02:26 UTC	Joined cluster in 2m10.547146946s
 ```
 
-Now you have a two-node Kubernetes cluster! And you can see Mattermost running on
-`https://10.5.5.28:3009/web/login`
+Now you have a two-node Kubernetes cluster with Mattermost running inside.
+The next step is to create a new Kubernetes user:
+
+```bash
+# execute this on the K8s master node (running on 10.5.5.28 in our example) 
+# to create a user "ekontsevoy"
+$ gravity users add --roles=@teleadmin ekontsevoy
+
+# output:
+Signup token has been created and is valid for 8h0m0s hours. Share this URL with the user:
+https://10.5.5.28:3009/web/newuser/e5b5422da69ff44d41f92e3ce6167659a7fee10e1023acea22062141dfe0238e
+```
+
+Now click on the printed URL and select a password. You are now inside the K8s management UI
+for your cluster. You can bookmark the following URL to access it in the future: `https://https://10.5.5.28:32009/web/`
+
+You will also see that this cluster is running Mattermost inside, accessible as a Kubernetes service 
+on port `32010`, i.e. it's accessible using IP addresses of both machines in the cluster:
+
+* `http://10.5.5.28:32010/`
+* `http://10.5.5.29:32010/`
 
 ### Installing via Web Browser
-
 
 When you execute the `install` script, it launches a daemon which serves a web UI and acts as a
 bootstrapping agent to create a new Kubernetes cluster. It will print a web URL
@@ -366,40 +410,18 @@ will find the HTTP end point of Mattermost.
 
 Now you can press `Ctrl+C` in the `node`'s terminal to stop the installer.
 
-
-## Remote Access
-
-Now with at least one instance of Mattermost running, you can go back to the
-machine where you packaged it with the `tele` tool and execute:
-
-```
-$ tsh clusters
-Cluster Name                     Status
-------------                     ------
-yourcompany.gravitational.io     online
-mattermost                       online
-```
-
-You can now see the "mattermost" cluster and you can connect to it by running:
-
-```
-$ tele login mattermost
-```
-
-Now you can run `tsh ls` to see the nodes and `tsh ssh` for connecting to them
-via SSH. See more in [Remote Management](manage) section.
-
 ## Conclusion
 
-This is a brief overview of how publishing and distributing an application
-works using Gravity. Feel free to dive further into the documentation
-for more details.
+This is a brief overview of how Kubernetes clusters can be treated as cattle,
+not pets, by packaging them into simple `tar` files. Gravity's image-based
+approach is quite similar to how virtual machines/instances are treated by
+using disk images in virtualized environments.
 
-Gravity avoids proprietary configuration formats or closed source tools.
-Outside of having a small Gravity-specific Application Manifest, your
-application is just a regular Kubernetes deployment. Gravity simply makes
-it portable and deployable into private infrastructure.
+This dramatically lowers the operational overhead of running multiple Kubernetes
+cluters within an organization, allows complex SaaS applications to be converted
+into downloadable Kubernetes appliances and dramatically simplifies implementing
+compliance in organizations by publishing Kubernetes images pre-configured and 
+approved by the security and compliance teams.
 
-If you need help packaging your application into Docker containers, or if you
-need help packaging your application for Kubernetes, our implementation
-services team can help (info@gravitational.com).
+If you need additional guidance with packaging your Kubernetes clusters into 
+Gravity appliances, our implementation services team can help (info@gravitational.com).
