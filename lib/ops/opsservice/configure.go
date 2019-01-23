@@ -1015,7 +1015,13 @@ func (s *site) getTeleportMasterConfig(ctx *operationContext, master *Provisione
 		return nil, trace.Wrap(err)
 	}
 
-	fileConf := &telecfg.FileConfig{}
+	fileConf := &telecfg.FileConfig{
+		Global: telecfg.Global{
+			Ciphers:       defaults.TeleportCiphers,
+			KEXAlgorithms: defaults.TeleportKEXAlgorithms,
+			MACAlgorithms: defaults.TeleportMACAlgorithms,
+		},
+	}
 
 	fileConf.DataDir = defaults.InGravity("site/teleport")
 	fileConf.Storage.Type = teleetcd.GetName()
@@ -1135,7 +1141,13 @@ func (s *site) getTeleportNodeConfig(ctx *operationContext, masterIP string, nod
 		return nil, trace.Wrap(err)
 	}
 
-	fileConf := &telecfg.FileConfig{}
+	fileConf := &telecfg.FileConfig{
+		Global: telecfg.Global{
+			Ciphers:       defaults.TeleportCiphers,
+			KEXAlgorithms: defaults.TeleportKEXAlgorithms,
+			MACAlgorithms: defaults.TeleportMACAlgorithms,
+		},
+	}
 
 	fileConf.DataDir = node.InGravity("teleport")
 
