@@ -377,15 +377,25 @@ on port `32010`, i.e. it's accessible using IP addresses of both machines in the
 
 ### Installing via Web Browser
 
-When you execute the `install` script, it launches a daemon which serves a web UI and acts as a
-bootstrapping agent to create a new Kubernetes cluster. It will print a web URL
-for you to click on.
+This method of installation is well-suited for providing web-hosted installers
+for Kubernetes clusters or as a sales demos of installing a pre-packaged SaaS
+application into a private network.
+
+To launch a web installer, you will need:
+
+* The application bundle `mattermost.tar` which we have prepared earlier. 
+* A Linux computer with a graphical interface, connected to the same network
+  with the target Linux nodes. 
+
+First, untar `mattermost.tar` and execute the `install` script. This command
+launches an HTTP server which serves a web UI and acts as a bootstrapping agent
+to create a new Kubernetes cluster. It will print a web URL for you to click
+on.
 
 ```bash
 $ sudo ./install
 OPEN THIS IN BROWSER: https://host:61009/web/installer/new/gravitational.io/mattermost/2.2.0?install_token=2a9de4a72ede
 ```
-
 
 The browser-based installer will ask for the following:
 
@@ -398,17 +408,12 @@ The browser-based installer will ask for the following:
 * Once all nodes report into the cluster, the installer will proceed setting up
   Kubernetes.
 
-!!! tip "Tip":
-    The installer will ask you to copy and paste a CLI command for each node to join the
-    cluster. If you select a single-node install, you have to open a second terminal session
-    into your node to paste and execute the command in.
-
 The final step is to select the user name and password for the cluster
 administrator. You will be able to change it later (or configure the SSO).
 After that you will be placed in Gravity's cluster management UI, where you
 will find the HTTP end point of Mattermost.
 
-Now you can press `Ctrl+C` in the `node`'s terminal to stop the installer.
+Now you can press `Ctrl+C` to stop the `install` script.
 
 ## Conclusion
 
