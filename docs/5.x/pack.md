@@ -525,7 +525,7 @@ systemOptions:
 
   # Docker section allows to customize docker
   docker:
-    # Storage backend used, supported: "devicemapper" (default), "overlay", "overlay2"
+    # Storage backend used, supported: "overlay", "overlay2" (default)
     storageDriver: overlay
     # List of additional command line args to provide to docker daemon
     args: ["--log-level=DEBUG"]
