@@ -25,6 +25,20 @@ LTS starts with `3.51.0` with minor backwards compatible changes added over time
 
 ## 5.x Releases
 
+### 5.4.3
+
+#### Bugfixes
+
+* Adjust system resources limits for CoreDNS.
+* Fixes a connection leak when fetching agent reports.
+* Don't copy rotate option to resolv.conf used inside planet container.
+* Updates kubernetes to 1.13.2.
+* Updates etcd to 3.3.11
+
+!!! warning
+    Kubernetes 1.13.2 and etcd 3.3.11 fix a denial of service vulnerability. Please see 
+    [National Vulnerability Database](https://nvd.nist.gov/vuln/detail/CVE-2018-16875) for more information.
+
 ### 5.5.0-alpha.6
 
 #### Improvements
