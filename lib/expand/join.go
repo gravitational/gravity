@@ -143,7 +143,7 @@ type Peer struct {
 	// Only set after the agent has been started
 	agentDoneCh <-chan struct{}
 	// agent is this peer's RPC agent
-	agent rpcserver.Server
+	agent *rpcserver.PeerServer
 }
 
 // NewPeer returns new cluster peer client
