@@ -36,7 +36,6 @@ import (
 	"github.com/gravitational/gravity/lib/storage"
 
 	"github.com/gravitational/trace"
-	log "github.com/sirupsen/logrus"
 	"k8s.io/apimachinery/pkg/runtime"
 )
 
@@ -628,10 +627,6 @@ func addResources(builder *PlanBuilder, resourceBytes []byte, runtimeResources [
 	if err != nil {
 		return trace.Wrap(err)
 	}
-	log.WithFields(log.Fields{
-		"kubernetes-resources": kubernetesResources,
-		"gravity-resources":    gravityResources,
-	}).Info("Adding resources to plan.")
 	for i, res := range gravityResources {
 		if res.Kind != storage.KindRuntimeEnvironment {
 			// Look for runtime environment resource if available
@@ -645,9 +640,7 @@ func addResources(builder *PlanBuilder, resourceBytes []byte, runtimeResources [
 		configmap := opsservice.NewEnvironmentConfigMap(env.GetKeyValues())
 		kubernetesResources = append(kubernetesResources, configmap)
 		// Strip the runtime environment resource as it is handled implicitly
-		log.WithField("resources", gravityResources).Info("Strip runtimeenvironment.")
 		gravityResources = append(gravityResources[:i], gravityResources[i+1:]...)
-		log.WithField("resources", gravityResources).Info("Stripped runtimeenvironment.")
 		break
 	}
 	builder.gravityResources = gravityResources

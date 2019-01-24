@@ -98,10 +98,8 @@ func CanonicalKind(kind string) string {
 }
 
 // UnknownResource represents an unparsed resource with an interpreted ResourceHeader.
-// The resource can be either Kubernetes or Gravity.
-// This serves the purpose of decoding just enough information to detect the type of resource
-// (i.e. to be able to tell a Gravity resource from a Kubernetes resource) but also to provide
-// JSON serialization
+// The embedded resource can either be a Kubernetes or a Gravity resource.
+// The struct implements both json.Marshaler/json.Unmarshaler
 type UnknownResource struct {
 	// ResourceHeader describes the resource by providing the metadata common to all resources
 	teleservices.ResourceHeader
