@@ -18,9 +18,7 @@ package install
 
 import (
 	"bytes"
-	"encoding/json"
 	"fmt"
-	"io"
 	"strconv"
 
 	"github.com/gravitational/gravity/lib/app"
@@ -30,16 +28,16 @@ import (
 	"github.com/gravitational/gravity/lib/fsm"
 	"github.com/gravitational/gravity/lib/install/phases"
 	"github.com/gravitational/gravity/lib/loc"
-	"github.com/gravitational/gravity/lib/modules"
 	"github.com/gravitational/gravity/lib/ops"
 	"github.com/gravitational/gravity/lib/ops/opsservice"
+	resourceutil "github.com/gravitational/gravity/lib/ops/resources"
 	"github.com/gravitational/gravity/lib/pack"
 	"github.com/gravitational/gravity/lib/schema"
 	"github.com/gravitational/gravity/lib/storage"
 
 	"github.com/gravitational/trace"
+	log "github.com/sirupsen/logrus"
 	"k8s.io/apimachinery/pkg/runtime"
-	"k8s.io/apimachinery/pkg/util/yaml"
 )
 
 // PlanBuilder builds operation plan phases
@@ -73,7 +71,7 @@ type PlanBuilder struct {
 	// resources specifies the optional Kubernetes resources to create
 	resources []byte
 	// gravityResources specifies the optional Gravity resources to create upon successful install
-	gravityResources []byte
+	gravityResources []storage.UnknownResource
 }
 
 // AddChecksPhase appends preflight checks phase to the provided plan
@@ -376,7 +374,7 @@ func (b *PlanBuilder) AddGravityResourcesPhase(plan *storage.OperationPlan) {
 		Data: &storage.OperationPhaseData{
 			Server: &b.Master,
 			Install: &storage.InstallOperationData{
-				Resources: b.gravityResources,
+				GravityResources: b.gravityResources,
 			},
 		},
 		Requires: []string{phases.EnableElectionPhase},
@@ -626,20 +624,17 @@ func splitServers(servers []storage.Server, app app.Application) (masters []stor
 }
 
 func addResources(builder *PlanBuilder, resourceBytes []byte, runtimeResources []runtime.Object) error {
-	kubernetesResources, gravityResources, err := splitResources(resourceBytes)
+	kubernetesResources, gravityResources, err := resourceutil.Split(bytes.NewReader(resourceBytes))
 	if err != nil {
 		return trace.Wrap(err)
 	}
-	if len(gravityResources) != 0 {
-		var buf bytes.Buffer
-		err = storage.Encode(gravityResources, &buf)
-		if err != nil {
-			return trace.Wrap(err)
-		}
-		builder.gravityResources = buf.Bytes()
-	}
-	for _, res := range gravityResources {
+	log.WithFields(log.Fields{
+		"kubernetes-resources": kubernetesResources,
+		"gravity-resources":    gravityResources,
+	}).Info("Adding resources to plan.")
+	for i, res := range gravityResources {
 		if res.Kind != storage.KindRuntimeEnvironment {
+			// Look for runtime environment resource if available
 			continue
 		}
 		env, err := storage.UnmarshalEnvironmentVariables(res.Raw)
@@ -649,7 +644,13 @@ func addResources(builder *PlanBuilder, resourceBytes []byte, runtimeResources [
 		builder.env = env.GetKeyValues()
 		configmap := opsservice.NewEnvironmentConfigMap(env.GetKeyValues())
 		kubernetesResources = append(kubernetesResources, configmap)
+		// Strip the runtime environment resource as it is handled implicitly
+		log.WithField("resources", gravityResources).Info("Strip runtimeenvironment.")
+		gravityResources = append(gravityResources[:i], gravityResources[i+1:]...)
+		log.WithField("resources", gravityResources).Info("Stripped runtimeenvironment.")
+		break
 	}
+	builder.gravityResources = gravityResources
 	kubernetesResources = append(kubernetesResources, runtimeResources...)
 	if len(kubernetesResources) != 0 {
 		var buf bytes.Buffer
@@ -660,35 +661,4 @@ func addResources(builder *PlanBuilder, resourceBytes []byte, runtimeResources [
 		builder.resources = buf.Bytes()
 	}
 	return nil
-}
-
-func splitResources(resourceBytes []byte) (kubernetesResources []runtime.Object, gravityResources []storage.UnknownResource, err error) {
-	reader := bytes.NewReader(resourceBytes)
-	decoder := yaml.NewYAMLOrJSONDecoder(reader, defaults.DecoderBufferSize)
-	for err == nil {
-		var resource storage.UnknownResource
-		err = decoder.Decode(&resource)
-		if err != nil {
-			break
-		}
-		kind := modules.Get().CanonicalKind(resource.Kind)
-		if resource.Version == "" && kind == "" {
-			// reinterpret as a Kubernetes resource
-			var kResource resources.Unknown
-			if err := json.Unmarshal(resource.Raw, &kResource); err != nil {
-				return nil, nil, trace.Wrap(err)
-			}
-			kubernetesResources = append(kubernetesResources, &kResource)
-		} else {
-			resource.Kind = kind
-			gravityResources = append(gravityResources, resource)
-		}
-	}
-	if err == io.EOF {
-		err = nil
-	}
-	if err != nil {
-		return nil, nil, trace.Wrap(err)
-	}
-	return kubernetesResources, gravityResources, nil
 }

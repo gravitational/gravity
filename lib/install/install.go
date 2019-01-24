@@ -40,6 +40,7 @@ import (
 	"github.com/gravitational/gravity/lib/localenv"
 	"github.com/gravitational/gravity/lib/modules"
 	"github.com/gravitational/gravity/lib/ops"
+	"github.com/gravitational/gravity/lib/ops/opsclient"
 	"github.com/gravitational/gravity/lib/pack"
 	"github.com/gravitational/gravity/lib/process"
 	"github.com/gravitational/gravity/lib/rpc"
@@ -206,8 +207,8 @@ type Config struct {
 	NewProcess process.NewGravityProcess
 	// Silent allows installer to output its progress
 	localenv.Silent
-	// LocalClient is a factory for creating local cluster operator client
-	LocalClient func() (ops.Operator, error)
+	// LocalClusterClient is a factory for creating client to the installed cluster
+	LocalClusterClient func() (*opsclient.Client, error)
 }
 
 // CheckAndSetDefaults checks the parameters and autodetects some defaults
@@ -221,7 +222,7 @@ func (c *Config) CheckAndSetDefaults() (err error) {
 	if c.AdvertiseAddr == "" {
 		return trace.BadParameter("missing AdvertiseAddr")
 	}
-	if c.LocalClient == nil {
+	if c.LocalClusterClient == nil {
 		return trace.BadParameter("missing LocalClient")
 	}
 	if !utils.StringInSlice(modules.Get().InstallModes(), c.Mode) {

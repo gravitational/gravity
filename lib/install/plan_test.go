@@ -20,7 +20,6 @@ import (
 	"bytes"
 	"encoding/json"
 	"fmt"
-	"io"
 	"sort"
 	"strconv"
 	"testing"
@@ -32,6 +31,7 @@ import (
 	"github.com/gravitational/gravity/lib/loc"
 	"github.com/gravitational/gravity/lib/ops"
 	"github.com/gravitational/gravity/lib/ops/opsservice"
+	"github.com/gravitational/gravity/lib/ops/resources"
 	"github.com/gravitational/gravity/lib/ops/suite"
 	"github.com/gravitational/gravity/lib/pack"
 	"github.com/gravitational/gravity/lib/pack/encryptedpack"
@@ -45,7 +45,6 @@ import (
 	"github.com/gravitational/trace"
 	"github.com/sirupsen/logrus"
 	"gopkg.in/check.v1"
-	"k8s.io/apimachinery/pkg/util/yaml"
 )
 
 func TestInstaller(t *testing.T) { check.TestingT(t) }
@@ -472,21 +471,12 @@ func (s *PlanSuite) verifyResourcesPhase(c *check.C, phase storage.OperationPhas
 		},
 		Requires: []string{phases.RBACPhase},
 	}, phase)
-	validateResources(c, obtained, expected, "invalid resources")
+	validateResources(c, obtained, expected)
 }
 
 func (s *PlanSuite) verifyGravityResourcesPhase(c *check.C, phase storage.OperationPhase) {
-	obtained := phase.Data.Install.Resources
+	obtained := phase.Data.Install.GravityResources
 	expected := []byte(`
-{
-  "kind":"RuntimeEnvironment",
-  "version":"v1",
-  "spec": {
-    "data": {
-      "HTTP_PROXY": "example.com:8081"
-    }
-  }
-}
 {
   "kind": "AlertTarget",
   "metadata": {
@@ -497,7 +487,7 @@ func (s *PlanSuite) verifyGravityResourcesPhase(c *check.C, phase storage.Operat
   },
   "version": "v1"
 }`)
-	phase.Data.Install.Resources = nil // Compare resources separately
+	phase.Data.Install.GravityResources = nil // Compare resources separately
 	storage.DeepComparePhases(c, storage.OperationPhase{
 		ID: phases.GravityResourcesPhase,
 		Data: &storage.OperationPhaseData{
@@ -506,7 +496,7 @@ func (s *PlanSuite) verifyGravityResourcesPhase(c *check.C, phase storage.Operat
 		},
 		Requires: []string{phases.EnableElectionPhase},
 	}, phase)
-	validateResources(c, obtained, expected, "invalid Gravity resources")
+	validateGravityResources(c, obtained, expected)
 }
 
 func (s *PlanSuite) verifyExportPhase(c *check.C, phase storage.OperationPhase) {
@@ -683,27 +673,34 @@ func (s *PlanSuite) TestSplitServers(c *check.C) {
 	}
 }
 
-func validateResources(c *check.C, obtainedBytes, expectedBytes []byte, comment string) {
-	obtained := decode(c, obtainedBytes)
-	expected := decode(c, expectedBytes)
-	c.Assert(obtained, compare.DeepEquals, expected, check.Commentf(comment))
+func validateResources(c *check.C, obtainedBytes, expectedBytes []byte) {
+	obtained := decodeBytes(c, obtainedBytes)
+	expected := decodeBytes(c, expectedBytes)
+	c.Assert(obtained, compare.DeepEquals, expected, check.Commentf("invalid resources"))
 }
 
-func decode(c *check.C, data []byte) (result []resource) {
-	decoder := yaml.NewYAMLOrJSONDecoder(bytes.NewReader(data), defaults.DecoderBufferSize)
-	var err error
-	for err == nil {
+func validateGravityResources(c *check.C, obtained []storage.UnknownResource, expectedBytes []byte) {
+	expected := decodeBytes(c, expectedBytes)
+	c.Assert(decode(c, obtained), compare.DeepEquals, expected, check.Commentf("invalid Gravity resources"))
+}
+
+func decodeBytes(c *check.C, data []byte) (result []resource) {
+	var rs []storage.UnknownResource
+	err := resources.ForEach(bytes.NewReader(data), func(r storage.UnknownResource) error {
+		rs = append(rs, r)
+		return nil
+	})
+	c.Assert(err, check.IsNil)
+	return decode(c, rs)
+}
+
+func decode(c *check.C, resources []storage.UnknownResource) (result []resource) {
+	for _, res := range resources {
 		var resource resource
-		err = decoder.Decode(&resource)
-		if err != nil {
-			break
-		}
+		err := json.Unmarshal(res.Raw, &resource)
+		c.Assert(err, check.IsNil)
 		result = append(result, resource)
 	}
-	if err == io.EOF {
-		err = nil
-	}
-	c.Assert(err, check.IsNil)
 	sort.Slice(result, func(i, j int) bool {
 		return result[i].Kind < result[j].Kind
 	})

@@ -101,7 +101,7 @@ func FSMSpec(config FSMConfig) fsm.FSMSpecFunc {
 			return phases.NewEnableElectionPhase(p, config.Operator)
 
 		case strings.HasPrefix(p.Phase.ID, phases.GravityResourcesPhase):
-			operator, err := config.LocalClient()
+			operator, err := config.LocalClusterClient()
 			if err != nil {
 				return nil, trace.Wrap(err)
 			}

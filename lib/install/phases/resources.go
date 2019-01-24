@@ -17,30 +17,30 @@ limitations under the License.
 package phases
 
 import (
-	"bytes"
 	"context"
-	"io"
 	"io/ioutil"
 	"path/filepath"
 
 	"github.com/gravitational/gravity/lib/constants"
 	"github.com/gravitational/gravity/lib/defaults"
 	"github.com/gravitational/gravity/lib/fsm"
-	"github.com/gravitational/gravity/lib/modules"
 	"github.com/gravitational/gravity/lib/ops"
 	"github.com/gravitational/gravity/lib/ops/resources"
 	"github.com/gravitational/gravity/lib/ops/resources/gravity"
 	"github.com/gravitational/gravity/lib/state"
+	"github.com/gravitational/gravity/lib/storage"
 	"github.com/gravitational/gravity/lib/utils"
 
 	teleservices "github.com/gravitational/teleport/lib/services"
 	"github.com/gravitational/trace"
 	"github.com/sirupsen/logrus"
-	"k8s.io/apimachinery/pkg/util/yaml"
 )
 
 // NewResources returns a new "resources" phase executor
 func NewResources(p fsm.ExecutorParams, operator ops.Operator) (*resourcesExecutor, error) {
+	if p.Phase.Data == nil || p.Phase.Data.Install == nil {
+		return nil, trace.BadParameter("phase data is mandatory")
+	}
 	logger := &fsm.Logger{
 		FieldLogger: logrus.WithFields(logrus.Fields{
 			constants.FieldPhase: p.Phase.ID,
@@ -49,14 +49,10 @@ func NewResources(p fsm.ExecutorParams, operator ops.Operator) (*resourcesExecut
 		Operator: operator,
 		Server:   p.Phase.Data.Server,
 	}
-	var resources []byte
-	if p.Phase.Data != nil && p.Phase.Data.Install != nil {
-		resources = p.Phase.Data.Install.Resources
-	}
 	return &resourcesExecutor{
 		FieldLogger:    logger,
 		ExecutorParams: p,
-		resources:      resources,
+		resources:      p.Phase.Data.Install.Resources,
 	}, nil
 }
 
@@ -138,30 +134,28 @@ func NewGravityResourcesPhase(p fsm.ExecutorParams, operator ops.Operator) (*gra
 	}
 	return &gravityExecutor{
 		FieldLogger: logger,
+		progress:    p.Progress,
 		factory:     factory,
-		resources:   p.Phase.Data.Install.Resources,
+		resources:   p.Phase.Data.Install.GravityResources,
 	}, nil
 }
 
 // Execute creates the Gravity resources from the configured list
 func (r *gravityExecutor) Execute(context.Context) (err error) {
-	decoder := yaml.NewYAMLOrJSONDecoder(bytes.NewReader(r.resources), defaults.DecoderBufferSize)
-	for err == nil {
-		var resource teleservices.UnknownResource
-		err = decoder.Decode(&resource)
+	r.progress.NextStep("Creating user-supplied Gravity resources")
+	for _, resource := range r.resources {
+		r.Infof("Creating resource %q", resource.Kind)
+		err := r.factory.Create(resources.CreateRequest{
+			Resource: teleservices.UnknownResource{
+				ResourceHeader: resource.ResourceHeader,
+				Raw:            resource.Raw,
+			},
+		})
 		if err != nil {
-			break
-		}
-		resource.Kind = modules.Get().CanonicalKind(resource.Kind)
-		err = r.factory.Create(resources.CreateRequest{Resource: resource})
-		if err != nil && trace.IsNotImplemented(err) {
-			err = nil
+			return trace.Wrap(err)
 		}
 	}
-	if err == io.EOF {
-		err = nil
-	}
-	return trace.Wrap(err)
+	return nil
 }
 
 // Rollback is no-op for this phase
@@ -182,6 +176,7 @@ func (*gravityExecutor) PostCheck(ctx context.Context) error {
 type gravityExecutor struct {
 	// FieldLogger is used for logging
 	logrus.FieldLogger
+	progress  utils.Progress
 	factory   resources.Resources
-	resources []byte
+	resources []storage.UnknownResource
 }
