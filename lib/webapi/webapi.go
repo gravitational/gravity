@@ -167,8 +167,10 @@ type CallbackParams struct {
 	Identity teleservices.ExternalIdentity
 	// Session is the created web session
 	Session teleservices.WebSession
-	// Cert is the generated certificate
+	// Cert is the generated SSH certificate
 	Cert []byte
+	// TLSCert is the generated TLS certificate
+	TLSCert []byte
 	// HostSigners is a list of signing host public keys trusted by proxy
 	HostSigners []teleservices.CertAuthority
 	// Type is the original request type
@@ -326,6 +328,7 @@ func (m *Handler) CallbackHandler(w http.ResponseWriter, r *http.Request, p Call
 		Identity:          p.Identity,
 		Session:           p.Session,
 		Cert:              p.Cert,
+		TLSCert:           p.TLSCert,
 		HostSigners:       p.HostSigners,
 		ClientRedirectURL: p.ClientRedirectURL,
 	})
@@ -354,6 +357,7 @@ func (m *Handler) githubCallback(w http.ResponseWriter, r *http.Request, p httpr
 		Identity:          result.Identity,
 		Session:           result.Session,
 		Cert:              result.Cert,
+		TLSCert:           result.TLSCert,
 		HostSigners:       result.HostSigners,
 		Type:              result.Req.Type,
 		CreateWebSession:  result.Req.CreateWebSession,
