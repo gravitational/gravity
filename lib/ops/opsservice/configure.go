@@ -43,6 +43,7 @@ import (
 	teleetcd "github.com/gravitational/teleport/lib/backend/etcdbk"
 	telecfg "github.com/gravitational/teleport/lib/config"
 	teleservices "github.com/gravitational/teleport/lib/services"
+	teleutils "github.com/gravitational/teleport/lib/utils"
 
 	"github.com/cloudflare/cfssl/csr"
 	"github.com/gravitational/configure"
@@ -557,10 +558,7 @@ func (s *site) getPlanetMasterSecretsPackage(ctx *operationContext, p planetMast
 
 	newArchive := make(utils.TLSArchive)
 
-	caCertKeyPair := *caKeyPair
-	caCertKeyPair.KeyPEM = nil
-
-	if err := newArchive.AddKeyPair(constants.RootKeyPair, caCertKeyPair); err != nil {
+	if err := newArchive.AddKeyPair(constants.RootKeyPair, *caKeyPair); err != nil {
 		return nil, trace.Wrap(err)
 	}
 
@@ -1067,8 +1065,12 @@ func (s *site) getTeleportMasterConfig(ctx *operationContext, master *Provisione
 	fileConf.Auth.StaticTokens = telecfg.StaticTokens{
 		telecfg.StaticToken(fmt.Sprintf("node:%v", joinToken.Token))}
 
-	// turn on proxy
+	// turn on proxy and Kubernetes integration
 	fileConf.Proxy.EnabledFlag = "yes"
+	fileConf.Proxy.Kube.EnabledFlag = "yes"
+	fileConf.Proxy.Kube.PublicAddr = teleutils.Strings{
+		master.AdvertiseIP,
+		master.Hostname}
 
 	// turn off SSH - we won't SSH into container with Gravity running
 	fileConf.SSH.EnabledFlag = "no"
