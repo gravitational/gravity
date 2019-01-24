@@ -1007,6 +1007,20 @@ type planetConfig struct {
 	configPackage loc.Locator
 }
 
+// getPrincipals returns a list of SANs (x509's Subject Alternative Names)
+// for the provided server.
+func (s *site) getPrincipals(node *ProvisionedServer) []string {
+	principals := []string{
+		s.domainName,
+		node.AdvertiseIP,
+		node.Hostname,
+	}
+	if node.Nodename != "" {
+		principals = append(principals, node.Nodename)
+	}
+	return principals
+}
+
 func (s *site) getTeleportMasterConfig(ctx *operationContext, master *ProvisionedServer) (*ops.RotatePackageResponse, error) {
 	configPackage, err := s.teleportMasterConfigPackage(master)
 	if err != nil {
@@ -1068,9 +1082,7 @@ func (s *site) getTeleportMasterConfig(ctx *operationContext, master *Provisione
 	// turn on proxy and Kubernetes integration
 	fileConf.Proxy.EnabledFlag = "yes"
 	fileConf.Proxy.Kube.EnabledFlag = "yes"
-	fileConf.Proxy.Kube.PublicAddr = teleutils.Strings{
-		master.AdvertiseIP,
-		master.Hostname}
+	fileConf.Proxy.Kube.PublicAddr = teleutils.Strings(s.getPrincipals(master))
 
 	// turn off SSH - we won't SSH into container with Gravity running
 	fileConf.SSH.EnabledFlag = "no"
