@@ -522,9 +522,12 @@ func (o *Operator) CreateSite(r ops.NewSiteRequest) (*ops.Site, error) {
 	}
 
 	// expand token is used when joining nodes to the cluster
-	expandToken, err := users.CryptoRandomToken(defaults.ProvisioningTokenBytes)
-	if err != nil {
-		return nil, trace.Wrap(err)
+	expandToken := r.InstallToken
+	if expandToken == "" {
+		expandToken, err = users.CryptoRandomToken(defaults.ProvisioningTokenBytes)
+		if err != nil {
+			return nil, trace.Wrap(err)
+		}
 	}
 
 	b := o.backend()

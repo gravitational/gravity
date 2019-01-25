@@ -20,6 +20,7 @@ import (
 	"fmt"
 
 	"github.com/gravitational/gravity/lib/checks"
+	"github.com/gravitational/gravity/lib/schema"
 
 	"github.com/gravitational/trace"
 )
@@ -78,4 +79,55 @@ func (r *RawAgentReport) FromTransport() (*AgentReport, error) {
 func (s *AgentReport) String() string {
 	return fmt.Sprintf(
 		"AgentReport(Message=%v, Servers=%v)", s.Message, len(s.Servers))
+}
+
+// Has returns true if this agent report contains server with the provided IP.
+func (s *AgentReport) Has(advertiseAddr string) bool {
+	for _, server := range s.Servers {
+		if server.AdvertiseAddr == advertiseAddr {
+			return true
+		}
+	}
+	return false
+}
+
+// Diff returns added/removed servers this agent report has compared to
+// the provided report.
+func (s *AgentReport) Diff(another *AgentReport) (added, removed []checks.ServerInfo) {
+	if another == nil {
+		return s.Servers, nil
+	}
+	for _, server := range s.Servers {
+		if !another.Has(server.AdvertiseAddr) {
+			added = append(added, server)
+		}
+	}
+	for _, server := range another.Servers {
+		if !s.Has(server.AdvertiseAddr) {
+			removed = append(removed, server)
+		}
+	}
+	return
+}
+
+// Check verifies if agents from this report satisfy the provided flavor.
+//
+// Returns number/roles of agents that still need to join as well as any
+// extra servers that are not a part of the flavor.
+func (s *AgentReport) Check(flavor *schema.Flavor) (needed map[string]int, extra []checks.ServerInfo) {
+	needed = make(map[string]int)
+	for _, node := range flavor.Nodes {
+		needed[node.Profile] = node.Count
+	}
+	for _, server := range s.Servers {
+		if _, ok := needed[server.Role]; ok {
+			needed[server.Role] -= 1
+			if needed[server.Role] == 0 {
+				delete(needed, server.Role)
+			}
+		} else {
+			extra = append(extra, server)
+		}
+	}
+	return
 }
