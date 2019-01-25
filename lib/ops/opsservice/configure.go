@@ -403,6 +403,7 @@ func (s *site) configurePackages(ctx *operationContext, req ops.ConfigurePackage
 			planetPackage: *planetPackage,
 			configPackage: *configPackage,
 			manifest:      s.app.Manifest,
+			env:           req.Env,
 		}
 
 		err = s.configurePlanetNode(config, *secretsPackage, *configPackage)
