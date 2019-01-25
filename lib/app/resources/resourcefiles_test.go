@@ -21,9 +21,10 @@ import (
 	"os"
 	"sort"
 
-	"k8s.io/apimachinery/pkg/runtime"
+	"github.com/gravitational/gravity/lib/compare"
 
 	. "gopkg.in/check.v1"
+	"k8s.io/apimachinery/pkg/runtime"
 )
 
 type ResourceFilesSuite struct {
@@ -90,6 +91,62 @@ func (s *ResourceFilesSuite) TestResourceFiles(c *C) {
 	c.Assert(err, IsNil)
 	sort.Strings(images)
 	c.Assert(images, DeepEquals, rewrittenImages)
+
+	// verify that no resources were dropped
+	c.Assert(headers(rFiles), compare.DeepEquals, []runtime.TypeMeta{
+		{
+			Kind:       "Bundle",
+			APIVersion: "bundle.gravitational.io/v2",
+		},
+		{
+			Kind:       "ConfigMap",
+			APIVersion: "v1",
+		},
+		{
+			Kind:       "CronJob",
+			APIVersion: "batch/v2alpha1",
+		},
+		{
+			Kind:       "CronTab",
+			APIVersion: "stable.example.com/v1",
+		},
+		{
+			Kind:       "CustomResourceDefinition",
+			APIVersion: "apiextensions.k8s.io/v1beta1",
+		},
+		{
+			Kind:       "DaemonSet",
+			APIVersion: "extensions/v1beta1",
+		},
+		{
+			Kind:       "Pod",
+			APIVersion: "v1",
+		},
+		{
+			Kind:       "Pod",
+			APIVersion: "v1",
+		},
+		{
+			Kind:       "ReplicationController",
+			APIVersion: "v1",
+		},
+		{
+			Kind:       "ReplicationController",
+			APIVersion: "v1",
+		},
+		{
+			Kind:       "Secret",
+			APIVersion: "v1",
+		},
+		{
+			Kind:       "Service",
+			APIVersion: "v1",
+		},
+		{
+			Kind:       "SystemApplication",
+			APIVersion: "bundle.gravitational.io/v2",
+		},
+	})
 }
 
 func (s *ResourceFilesSuite) TestForEachObjectInFile(c *C) {
@@ -123,7 +180,7 @@ func (s *ResourceFilesSuite) TestForEachObjectInFile(c *C) {
 func prepareResourceFiles(c *C) (files []*os.File) {
 	dir := c.MkDir()
 
-	for _, resource := range []string{resources1, resources2, manifest1, manifest2} {
+	for _, resource := range []string{resources1, resources2, manifest1, manifest2, unrecognizedResource} {
 		file, err := ioutil.TempFile(dir, "resourcefilestest")
 		c.Assert(err, IsNil)
 		_, err = file.Write([]byte(resource))
