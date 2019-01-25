@@ -40,7 +40,7 @@ var _ = check.Suite(&ResourceControlSuite{})
 func (s *ResourceControlSuite) TestResourceControl(c *check.C) {
 	control := NewControl(&testResources{})
 
-	reader := strings.NewReader(resources)
+	reader := strings.NewReader(resourceBytes)
 
 	err := control.Create(reader, false, "")
 	c.Assert(err, check.IsNil)
@@ -134,7 +134,7 @@ func byKind(rs []teleservices.UnknownResource) (kinds sort.StringSlice) {
 	return sort.StringSlice(kinds)
 }
 
-const resources = `
+const resourceBytes = `
 kind: kind1
 metadata:
   name: resource1

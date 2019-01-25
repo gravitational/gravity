@@ -868,10 +868,13 @@ func (c *Client) GetOperationPlan(key ops.SiteOperationKey) (*storage.OperationP
 }
 
 // Configure packages configures packages for the specified install operation
-func (c *Client) ConfigurePackages(key ops.SiteOperationKey) error {
+func (c *Client) ConfigurePackages(req ops.ConfigurePackagesRequest) error {
 	_, err := c.PostJSON(c.Endpoint(
-		"accounts", key.AccountID, "sites", key.SiteDomain, "operations", "common", key.OperationID, "plan", "configure"),
-		struct{}{})
+		"accounts",
+		req.AccountID, "sites",
+		req.SiteDomain, "operations", "common",
+		req.OperationID, "plan", "configure"),
+		&req)
 	if err != nil {
 		return trace.Wrap(err)
 	}

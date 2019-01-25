@@ -73,6 +73,21 @@ func (o *Operator) GetClusterEnvironmentVariables(key ops.SiteKey) (env storage.
 	return env, nil
 }
 
+// NewEnvironmentConfigMap creates the backing ConfigMap to host cluster runtime environment variables
+func NewEnvironmentConfigMap(data map[string]string) *v1.ConfigMap {
+	return &v1.ConfigMap{
+		TypeMeta: metav1.TypeMeta{
+			Kind:       constants.KindConfigMap,
+			APIVersion: metav1.SchemeGroupVersion.Version,
+		},
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      constants.ClusterEnvironmentMap,
+			Namespace: defaults.KubeSystemNamespace,
+		},
+		Data: data,
+	}
+}
+
 // createUpdateEnvarsOperation creates a new operation to update cluster environment variables
 func (s *site) createUpdateEnvarsOperation(req ops.CreateUpdateEnvarsOperationRequest) (*ops.SiteOperationKey, error) {
 	client, err := s.service.GetKubeClient()
@@ -134,12 +149,7 @@ func getOrCreateEnvironmentConfigMap(client corev1.ConfigMapInterface) (configma
 	if err == nil {
 		return configmap, nil
 	}
-	configmap = &v1.ConfigMap{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      constants.ClusterEnvironmentMap,
-			Namespace: defaults.KubeSystemNamespace,
-		},
-	}
+	configmap = NewEnvironmentConfigMap(nil)
 	configmap, err = client.Create(configmap)
 	if err != nil {
 		return nil, trace.Wrap(rigging.ConvertError(err))

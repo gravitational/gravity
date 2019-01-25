@@ -16,7 +16,16 @@ limitations under the License.
 
 package storage
 
-import teleservices "github.com/gravitational/teleport/lib/services"
+import (
+	"encoding/json"
+	"io"
+	"strings"
+
+	"github.com/ghodss/yaml"
+	teleservices "github.com/gravitational/teleport/lib/services"
+	"github.com/gravitational/trace"
+	serializer "k8s.io/apimachinery/pkg/runtime/serializer/json"
+)
 
 const (
 	// KindCluster is a resource kind for gravity clusters
@@ -55,13 +64,13 @@ const (
 	// KindEndpoints defines the Ops Center endpoints resource type
 	KindEndpoints = "endpoints"
 	// KindRuntimeEnvironment defines the resource that manages cluster environment variables
-	KindRuntimeEnvironment = "runtime_environment"
+	KindRuntimeEnvironment = "runtimeenvironment"
 )
 
 // CanonicalKind translates the specified kind to canonical form.
 // Returns an empty string if no canonical form exists
 func CanonicalKind(kind string) string {
-	switch kind {
+	switch strings.ToLower(kind) {
 	case teleservices.KindGithubConnector:
 		return teleservices.KindGithubConnector
 	case teleservices.KindAuthConnector, "auth":
@@ -82,10 +91,56 @@ func CanonicalKind(kind string) string {
 		return KindAlert
 	case KindAlertTarget, "alerttargets":
 		return KindAlertTarget
-	case KindRuntimeEnvironment, "environments", "env":
+	case KindRuntimeEnvironment, "environment", "env":
 		return KindRuntimeEnvironment
 	}
 	return ""
+}
+
+// UnknownResource represents an unparsed resource with an interpreted ResourceHeader.
+// The embedded resource can either be a Kubernetes or a Gravity resource.
+// The struct implements both json.Marshaler/json.Unmarshaler
+type UnknownResource struct {
+	// ResourceHeader describes the resource by providing the metadata common to all resources
+	teleservices.ResourceHeader
+	// Raw is the unparsed resource data.
+	Raw json.RawMessage `json:",inline"`
+}
+
+// UnmarshalJSON consumes the specified data as a binary blob w/o interpreting it
+func (r *UnknownResource) UnmarshalJSON(data []byte) (err error) {
+	if err = json.Unmarshal(data, &r.ResourceHeader); err != nil {
+		return trace.Wrap(err)
+	}
+	if err = r.Raw.UnmarshalJSON(data); err != nil {
+		return trace.Wrap(err)
+	}
+	return nil
+}
+
+// MarshalJSON returns the raw message
+func (r UnknownResource) MarshalJSON() ([]byte, error) {
+	return r.Raw.MarshalJSON()
+}
+
+// Encode YAML-encodes the specified list of resources into w
+func Encode(resources []UnknownResource, w io.Writer) error {
+	w = serializer.YAMLFramer.NewFrameWriter(w)
+	for _, resource := range resources {
+		jsonBytes, err := json.Marshal(resource)
+		if err != nil {
+			return trace.Wrap(err)
+		}
+		data, err := yaml.JSONToYAML(jsonBytes)
+		if err != nil {
+			return trace.Wrap(err)
+		}
+		_, err = w.Write(data)
+		if err != nil {
+			return trace.Wrap(err)
+		}
+	}
+	return nil
 }
 
 // SupportedGravityResources is a list of resources supported by

@@ -509,7 +509,7 @@ const (
 	ClusterPrivateKeyMapKey = "privatekey"
 
 	// ClusterEnvironmentMap is the name of the ConfigMap that contains cluster environment
-	ClusterEnvironmentMap = "cluster-env"
+	ClusterEnvironmentMap = "runtimeenvironment"
 
 	// PreviousKeyValuesAnnotationKey defines the annotation field that keeps the old
 	// environment variables after the update
