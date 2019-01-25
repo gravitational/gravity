@@ -81,7 +81,7 @@ LTS starts with `3.51.0` with minor backwards compatible changes added over time
 
 #### Improvements
 
-* New resource type `runtime_environment`. See [Configuring Runtime Environment Variables](/cluster#configuring-runtime-environment-variables) for details.
+* New resource type `runtimeenvironment`. See [Configuring Runtime Environment Variables](/cluster#configuring-runtime-environment-variables) for details.
 
 ### 5.3.6
 

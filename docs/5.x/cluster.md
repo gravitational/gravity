@@ -1234,7 +1234,7 @@ Resource Name             | Resource Description
 `alert`                   | cluster monitoring alert
 `alerttarget`             | cluster monitoring alert target
 `smtp`                    | cluster monitoring SMTP configuration
-`runtime_environment`     | cluster runtime environment variables
+`runtimeenvironment`     | cluster runtime environment variables
 
 ### Configuring OpenID Connect
 
@@ -1979,11 +1979,11 @@ environment (set up during installation or update).
 If you need to make changes to the runtime environment, i.e. introduce new environment variables
 like `HTTP_PROXY`, this resource will allow you to do that.
 
-To add a new environment variable, `HTTP_PROXY`, create the file with following contents:
+To add a new environment variable, `HTTP_PROXY`, create a file with following contents:
 
 [envars.yaml]
 ```yaml
-kind: runtime_environment
+kind: runtimeenvironment
 version: v1
 spec:
   HTTP_PROXY: "example.com:8001"
@@ -2026,7 +2026,7 @@ See [Managing an Ongoing Operation](/cluster/#managing-an-ongoing-operation) for
 To view the currently configured runtime environment variables:
 
 ```bash
-$ gravity resource get runtime_environment
+$ gravity resource get runtimeenvironment
 Environment
 -----------
 HTTP_PROXY=example.com:8081
@@ -2035,7 +2035,7 @@ HTTP_PROXY=example.com:8081
 To remove the configured runtime environment variables, run:
 
 ```bash
-$ gravity resource rm runtime_environment
+$ gravity resource rm runtimeenvironment
 ```
 
 !!! warning
