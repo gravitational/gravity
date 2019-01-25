@@ -23,7 +23,7 @@ The typical Gravity workflow is as follows:
 `tele` is the Gravity CLI client and can run on macOS and Linux. By using `tele` on your laptop you can:
 
 * Package Kubernetes applications into self-installing tarballs ("Application Bundles").
-* Publish Applications Bundles into the Ops Center.
+* Publish Application Bundles into the Ops Center.
 * Manage the Gravity Clusters in the Ops Center.
 
 See more details in [Packaging & Deployment](pack.md) section.
@@ -37,7 +37,7 @@ To achieve this, `tsh` uses the Ops Center as an "SSH bastion" or "jump host".
 The `tsh` tool is a part of Gravitational Teleport, an [open source SSH server and
 client](https://gravitational.com/teleport) developed and supported by
 Gravitational. Teleport can be used outside of Gravity, but the supplied `tsh`
-client is tighly integrated with other Gravity tools, for example `tele login`.
+client is tightly integrated with other Gravity tools, for example `tele login`.
 
 See more details in [Remote Management](manage.md) section
 

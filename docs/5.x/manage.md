@@ -70,7 +70,7 @@ To provision a new Gravity Cluster on AWS:
 
 1. Declare the Cluster Spec in a YAML file, for example `cluster.yaml`
 2. Execute `$ tele create cluster.yaml`
-3. Optional: provisioning of a cluster can be customzied with user-supplied
+3. Optional: provisioning of a cluster can be customized with user-supplied
    scripts based on tools like [Terraform](https://www.terraform.io/) or
    [Cloud Formation](https://aws.amazon.com/cloudformation/).
 
@@ -187,7 +187,7 @@ either in a separate YAML file as shown above, or inline.
 
 **Hook Parameters**
 
-All provisioning hooks implemented as Kubernetes jobs and their parameters are passed either as an environment
+All provisioning hooks are implemented as Kubernetes jobs and their parameters are passed either as an environment
 variables (env) or as a Kubernetes secret mounted as a file.
 
 The following parameters are common for all cloud providers:

@@ -1,6 +1,6 @@
 # Introduction
 
-These are a series of workshops typically delivered by the Gravitational services team. You can also find them with all the resources needed [on Github](https://github.com/gravitational/workshop).
+These are a series of workshops typically delivered by the Gravitational services team. You can also find them with all the resources needed [on GitHub](https://github.com/gravitational/workshop).
 
 We have published three different workshops that you can work through separately or together. They require an intermediate level of knowledge of Linux computer systems. Each workshop should take a 2 to 3 hours to complete.
 
@@ -16,19 +16,19 @@ An introduction to [Docker](https://www.docker.com/) and its basic concepts
 
 #### Computer and OS
 
-This workshop is written for Mac OSX but should mostly work with Linux as well. You will need a machine with at least `7GB RAM` and `8GB free disk space` available.
+This workshop is written for macOS but should mostly work with Linux as well. You will need a machine with at least `7GB RAM` and `8GB free disk space` available.
 
 #### Docker
 
 For Linux: follow instructions provided [here](https://docs.docker.com/engine/installation/linux/).
 
-If you have Mac OS X (Yosemite or newer), please download Docker for Mac [here](https://download.docker.com/mac/stable/Docker.dmg).
+If you have macOS (Yosemite or newer), please download Docker for Mac [here](https://download.docker.com/mac/stable/Docker.dmg).
 
 *Older docker package for OSes older than Yosemite -- Docker Toolbox located [here](https://www.docker.com/products/docker-toolbox).*
 
 #### Xcode and local tools
 
-Xcode will install essential console utilities for us. You can install it from AppStore.
+Xcode will install essential console utilities for us. You can install it from the App Store.
 
 ### Introduction
 
@@ -40,7 +40,7 @@ Docker is as easy as Linux! To prove that let us write classic "Hello, World" in
 $ docker run busybox echo "hello world"
 ```
 
-Docker containers are just as simple as linux processes, but they also provide many more features that we are going to explore.
+Docker containers are just as simple as Linux processes, but they also provide many more features that we are going to explore.
 
 Let's review the structure of the command:
 
@@ -51,7 +51,7 @@ echo "hello world" # command to run
 ```
 
 Container image supplies environment - binaries with shell for example that is running the command, so you are not using
-host operating system shell, but the shell from busybox package when executing Docker run.
+host operating system shell, but the shell from `busybox` package when executing Docker run.
 
 #### Sneak peek into container environment
 
@@ -72,7 +72,7 @@ My terminal prints out something like this:
 As you can see, the process runs in a very limited and isolated environment, and the PID of the process is 1, so it does not see all other processes
 running on your machine.
 
-#### Adding envrionment variables
+#### Adding Environment Variables
 
 Let's see what environment variables we have:
 
@@ -83,7 +83,7 @@ HOSTNAME=0a0169cdec9a
 ```
 
 The environment is different from your host environment.
-We can extend environment by passing explicit enviornment variable flag to `docker run`:
+We can extend environment by passing explicit environment variable flag to `docker run`:
 
 ```bsh
 $ docker run -e HELLO=world busybox env
@@ -172,11 +172,11 @@ Press `Ctrl-C` to stop the running container.
 
 ![docker-settings](images/containers.png)
 
-A Docker container is a set of linux processes that run isolated from the rest of the processes. Multiple linux subsystems help to create a container concept.
+A Docker container is a set of Linux processes that run isolated from the rest of the processes. Multiple Linux subsystems help to create a container concept.
 
 **Namespaces**
 
-Namespaces create isolated stacks of linux primitives for a running process.
+Namespaces create isolated stacks of Linux primitives for a running process.
 
 * NET namespace creates a separate networking stack for the container, with its own routing tables and devices
 * PID namespace is used to assign isolated process IDs that are separate from host OS. For example, this is important if we want to send signals to a running
@@ -193,7 +193,7 @@ Kernel feature that limits, accounts for, and isolates the resource usage (CPU, 
 
 **Capabilities**
 
-Capabilitites provide enhanced permission checks on the running process, and can limit the interface configuration, even for a root user - for example (`CAP_NET_ADMIN`)
+Capabilities provide enhanced permission checks on the running process, and can limit the interface configuration, even for a root user - for example (`CAP_NET_ADMIN`)
 
 You can find a lot of additional low level detail [here](http://crosbymichael.com/creating-containers-part-1.html).
 
@@ -226,7 +226,7 @@ eea49c9314db        library/python:3.3   "python -m http.serve"   3 seconds ago 
 
 * Container ID - auto generated unique running id.
 * Container image - image name.
-* Command - linux process running as the PID 1 in the container.
+* Command - Linux process running as the PID 1 in the container.
 * Names - user friendly name of the container, we have named our container with `--name=simple1` flag.
 
 We can use `logs` to view logs of a running container:
@@ -345,7 +345,7 @@ hello                                         latest              4dce466cf3de  
 * Size - the size of our image is just 34 bytes.
 
 **NOTE:** Docker images are very different from virtual image formats. Because Docker does not boot any operating system, but simply runs
-linux process in isolation, we don't need any kernel, drivers or libraries to ship with the image, so it could be as tiny as several bytes!
+Linux process in isolation, we don't need any kernel, drivers or libraries to ship with the image, so it could be as tiny as several bytes!
 
 
 **Running the image**
@@ -414,7 +414,7 @@ $ docker run hello:v2 /hello.sh
 hello, world v2!
 ```
 
-**Entry point**
+**Entrypoint**
 
 We can improve our image by supplying `entrypoint`:
 
@@ -424,14 +424,14 @@ $ cd docker/busybox-entrypoint
 $ docker build -t hello:v3 .
 ```
 
-Entrypoint remembers the command to be executed on start, even if you don't supply the arguments:
+`ENTRYPOINT` remembers the command to be executed on start, even if you don't supply the arguments:
 
 ```bsh
 $ docker run hello:v3
 hello, world !
 ```
 
-What happens if you pass flags? they will be executed as arugments:
+What happens if you pass flags? They will be executed as arguments:
 
 ```bsh
 $ docker run hello:v3 woo
@@ -545,7 +545,7 @@ Let's update the script.sh
 $ cp script2.sh script.sh
 ```
 
-They are only differrent by one letter, but this makes a difference:
+They are only different by one letter, but this makes a difference:
 
 
 ```bsh
@@ -576,7 +576,7 @@ Successfully built d0ec3cfed6f7
 
 
 Docker executes every command in a special container. It detects the fact that the content has (or has not) changed,
-and instead of re-exectuing the command, uses cached value isntead. This helps to speed up builds, but sometimes introduces problems.
+and instead of re-executing the command, uses cached value instead. This helps to speed up builds, but sometimes introduces problems.
 
 **NOTE:** You can always turn caching off by using the `--no-cache=true` option for the `docker build` command.
 
@@ -584,7 +584,7 @@ Docker images are composed of layers:
 
 ![images](https://docs.docker.com/engine/userguide/storagedriver/images/image-layers.jpg)
 
-Every layer is a the result of the execution of a command in the Dockerfile.
+Every layer is the result of execution of a command in the Dockerfile.
 
 **RUN command**
 
@@ -750,7 +750,7 @@ This is an introduction to Kubernetes and basic Kubernetes concepts. We will set
 
 ### Requirements
 
-This workshop is written for Mac OSX or Linux. You will need a machine with at least `7GB RAM` and `8GB free disk space` available.
+This workshop is written for macOS or Linux. You will need a machine with at least `7GB RAM` and `8GB free disk space` available.
 
 In addition, you will need to install:
 
@@ -763,7 +763,7 @@ In addition, you will need to install:
 
 For Linux: follow instructions provided [here](https://docs.docker.com/engine/installation/linux/).
 
-If you have Mac OS X (Yosemite or newer), please download Docker for Mac [here](https://download.docker.com/mac/stable/Docker.dmg).
+If you have macOS (Yosemite or newer), please download Docker for Mac [here](https://download.docker.com/mac/stable/Docker.dmg).
 
 *Older docker package for OSes older than Yosemite -- Docker Toolbox located [here](https://www.docker.com/products/docker-toolbox).*
 
@@ -775,7 +775,7 @@ Get latest stable version from https://www.virtualbox.org/wiki/Downloads
 
 #### Kubectl
 
-For Mac OS X:
+For macOS:
 
 ```bsh
 $ curl -O https://storage.googleapis.com/kubernetes-release/release/v1.3.8/bin/darwin/amd64/kubectl \
@@ -791,11 +791,11 @@ $ curl -O https://storage.googleapis.com/kubernetes-release/release/v1.3.8/bin/l
 
 #### Xcode and local tools
 
-Xcode will install essential console utilities for us. You can install it from AppStore.
+Xcode will install essential console utilities for us. You can install it from the App Store.
 
 #### Minikube
 
-For Mac OS X:
+For macOS:
 
 ```
 $ curl -Lo minikube https://storage.googleapis.com/minikube/releases/v0.12.2/minikube-darwin-amd64 \
@@ -821,7 +821,7 @@ minikube ssh
 docker run -p 5000:5000 --name registry -d registry:2
 ```
 
-**Notice for Mac OS X users:** you need to allow your docker daemon to work with your local insecure registry. It could be achieved via adding VM address to Docker for Mac.
+**Notice for macOS users:** you need to allow your docker daemon to work with your local insecure registry. It could be achieved via adding VM address to Docker for Mac.
 
 1. Get minikube VM IP via calling `minikube ip`
 2. Add obtained IP with port 5000 (specified above in `docker run` command) to Docker insecure registries:
@@ -841,8 +841,8 @@ $ kubectl expose deployment my-nginx --type=LoadBalancer --port=80
 Now let's explore what just happened.
 
 * [Pods](http://kubernetes.io/docs/user-guide/pods/) are a building block
-of the infrastructure. In essense this is a group of containers sharing the same networking and host
-linux namespaces. They are used to group related processes together. Our `run` command resulted in several running pods:
+of the infrastructure. In essence this is a group of containers sharing the same networking and host
+Linux namespaces. They are used to group related processes together. Our `run` command resulted in several running pods:
 
 
 ```
@@ -921,7 +921,7 @@ that's rarely necessary.
 
 ### Pod Containers
 
-In our Nginx pod there's only one running container `my-nginx`, however as we've mentioned before we can have multiple
+In our nginx pod there's only one running container `my-nginx`, however as we've mentioned before we can have multiple
 containers running in single Pod.
 
 Our container exposes Port 80. Thanks to overlay network every container can expose the same port on the same machine, and they won't collide.
@@ -956,11 +956,11 @@ as you see, our container has it's own separate PID namespace - nginx process is
 $ ls -l /var/run/secrets/kubernetes.io/serviceaccount/
 ```
 
-K8s also mounted special volume in our container `serviceaccount` with access credentials to talk to K8s API process.
-K8s uses this techinque a lot to mount configuration and secrets into a running container. We will explore this in more detail
+Kubernetes also mounted special volume in our container `serviceaccount` with access credentials to talk to Kubernetes API process.
+Kubernetes uses this technique a lot to mount configuration and secrets into a running container. We will explore this in more detail
 a bit later.
 
-We don't need to always run interactive sessions within container, e.g. we can execute commmand without attaching PTY:
+We don't need to always run interactive sessions within container, e.g. we can execute command without attaching PTY:
 
 ```
 $ kubectl exec my-nginx-3800858182-auusv -- /bin/ls -l
@@ -989,10 +989,10 @@ drwxr-xr-x.   1 root root   90 May  4 02:38 var
 **Note:** when calling exec, don't forget `--`. You don't need to escape or join command arguments passed to exec really, `kubectl` will simply
 send everything after `--` as is.
 
-### Deployments and Replicasets
+### Deployments and ReplicaSets
 
-So k8s created 2 Pods for us and that's it? Not really, it's a bit more advanced system and it really thought through the deployment lifecycle.
-K8s created a deployment with replicaset of 2 pods:
+So Kubernetes created 2 Pods for us and that's it? Not really, it's a bit more advanced system and it really thought through the deployment life cycle.
+Kubernetes created a deployment with ReplicaSet of 2 pods:
 
 ```
 $ kubectl get deployments
@@ -1009,7 +1009,7 @@ my-nginx-3800858182   2         2         1h
 Whoa! Lot's of stuff! Let's go through it one by one:
 
 [Deployment](http://kubernetes.io/docs/user-guide/deployments) is a special declarative state of your [Pods](http://kubernetes.io/docs/user-guide/pods) and [ReplicaSets](http://kubernetes.io/docs/user-guide/replicasets).
-You simply declare the desire state of your deployment and K8s converges the current state to it.
+You simply declare the desire state of your deployment and Kubernetes converges the current state to it.
 
 Every time you update the deployment, it kicks off the update procedure using whatever update strategy you've selected for it.
 
@@ -1042,7 +1042,7 @@ Events tell us what happened to this deployment in the past. We'll dig a little 
 
 ### Services
 
-Pods, Replicasets and Deployments and all done with one command! But that's not all. We need a scalable way to access our services, so k8s team came up with
+Pods, ReplicaSets and Deployments and all done with one command! But that's not all. We need a scalable way to access our services, so k8s team came up with
 [Services](http://kubernetes.io/docs/user-guide/services)
 
 Services provide special Virtual IPs load balancing traffic to the set of pods in a replica sets.
@@ -1053,7 +1053,7 @@ kubernetes   10.100.0.1     <none>        443/TCP   2h
 my-nginx     10.100.68.75   <none>        80/TCP    1h
 ```
 
-As you see there are two services - one is a system service `kubernetes` that points to k8s API. Another one is `my-nginx` service, pointing to our Pods in a replica sets.
+As you see there are two services - one is a system service `kubernetes` that points to Kubernetes API. Another one is `my-nginx` service, pointing to our Pods in a replica sets.
 
 Let's dig a little deeper into services:
 
@@ -1071,7 +1071,7 @@ Session Affinity:	None
 No events.
 ```
 
-`ClusterIP` type of the service means that it's an internal IP managed by k8s and not reachable outside. You can create outher types of services that play nicely with AWS/GCE and Azure `LoadBalancer`, we'll
+`ClusterIP` type of the service means that it's an internal IP managed by Kubernetes and not reachable outside. You can create other types of services that play nicely with AWS/GCE and Azure `LoadBalancer`, we'll
 dig into that some other time though. Meanwhile, let's notice that there are 2 endpoints:
 
 ```
@@ -1111,8 +1111,8 @@ curl http://10.100.68.75
 working. Further configuration is required.</p>
 ```
 
-It works! Wait, so you need to hardcode this VIP in your configuration? What if it changes from environment to environment?
-Thankfully, k8s team thought about this as well, and we can simply do:
+It works! Wait, so you need to hard-code this VIP in your configuration? What if it changes from environment to environment?
+Thankfully, Kubernetes team thought about this as well, and we can simply do:
 
 ```
 $ kubectl run -i -t --rm cli --image=tutum/curl --restart=Never
@@ -1121,11 +1121,11 @@ $ curl http://my-nginx
 ...
 ```
 
-K8s is integrated with [SkyDNS](https://github.com/kubernetes/kubernetes/tree/master/cluster/addons/dns) service
+Kubernetes is integrated with [SkyDNS](https://github.com/kubernetes/kubernetes/tree/master/cluster/addons/dns) service
 that watches the services and pods and sets up appropriate `A` records. Our `sandbox` local DNS server is simply configured to
-point to the DNS service provided by k8s.
+point to the DNS service provided by Kubernetes.
 
-That's very similar how K8s manages discovery in containers as well. Let's login into one of the nginx boxes and
+That's very similar how Kubernetes manages discovery in containers as well. Let's login into one of the nginx boxes and
 discover `/etc/resolv.conf` there:
 
 
@@ -1138,7 +1138,7 @@ search default.svc.cluster.local svc.cluster.local cluster.local hsd1.ca.comcast
 options ndots:5
 ```
 
-As you see, `resolv.conf` is set up to point to the DNS resolution service managed by K8s.
+As you see, `resolv.conf` is set up to point to the DNS resolution service managed by Kubernetes.
 
 ### Back to Deployments
 
@@ -1183,7 +1183,7 @@ $ kubectl apply -f my-nginx-new.yaml
 ```
 
 
-We can see that a new replicaset has been created
+We can see that a new ReplicaSet has been created
 
 ```
 $ kubectl get rs
@@ -1194,7 +1194,7 @@ my-nginx-3800858182   0         0         2h
 ```
 
 If we look at the events section of the deployment we will see how it performed rolling update
-scaling up new replicaset and scaling down old replicaset:
+scaling up new ReplicaSet and scaling down old ReplicaSet:
 
 
 ```
@@ -1352,9 +1352,9 @@ REVISION	CHANGE-CAUSE
 
 Well, our `nginx`es are up and running, let's make sure they actually do something useful by configuring them to say `hello, kubernetes!`
 
-[ConfigMap](http://kubernetes.io/docs/user-guide/configmap/) is a special K8s resource that maps to configuration files or environment variables inside a Pod.
+[ConfigMap](http://kubernetes.io/docs/user-guide/configmap/) is a special Kubernetes resource that maps to configuration files or environment variables inside a Pod.
 
-Lets create configmap from a directory. Our `conf.d` contains a `default.conf` file:
+Lets create ConfigMap from a directory. Our `conf.d` contains a `default.conf` file:
 
 ```
 $ cat conf.d/default.conf
@@ -1368,7 +1368,7 @@ server {
 }
 ```
 
-We can convert the whole directory into configmap:
+We can convert the whole directory into ConfigMap:
 
 ```
 $ kubectl create configmap my-nginx-v1 --from-file=conf.d
@@ -1388,7 +1388,7 @@ default.conf:	125 bytes
 
 ```
 
-Every file is now it's own property, e.g. `default.conf`. Now, the trick is to mount this config map in the `/etc/nginx/conf.d/`
+Every file is now it's own property, e.g. `default.conf`. Now, the trick is to mount this ConfigMap in the `/etc/nginx/conf.d/`
 of our nginxes. We will use new deployment for this purpose:
 
 
@@ -1428,12 +1428,12 @@ spec:
            name: my-nginx-v1
 ```
 
-Notice that we've introduced `volumes` section that tells k8s to attach volumes to the pods. One special volume type we support is `configMap` that
-is created on the fly from the configmap resource `my-nginx-v1` that we've just created.
+Notice that we've introduced `volumes` section that tells Kubernetes to attach volumes to the pods. One special volume type we support is `configMap` that
+is created on the fly from the ConfigMap resource `my-nginx-v1` that we've just created.
 
 Another part of our config is `volumeMounts` that are specified for each container and tell it where to mount the volume.
 
-Let's apply our config map:
+Let's apply our ConfigMap:
 
 ```
 $ kubectl apply -f my-nginx-configmap.yaml
@@ -1448,7 +1448,7 @@ my-nginx-3885498220-0c6h0   1/1       Running   0          39s
 my-nginx-3885498220-9q61s   1/1       Running   0          38s
 ```
 
-Out of curiosity, let's login into one of them and see ourselves the mounted configmap:
+Out of curiosity, let's login into one of them and see ourselves the mounted ConfigMap:
 
 ```
 $ kubectl exec -ti my-nginx-3885498220-0c6h0 /bin/
@@ -1463,7 +1463,7 @@ server {
 }
 ```
 
-and finally, let's see it all in action:
+And finally, let's see it all in action:
 
 ```
 $ kubectl run -i -t --rm cli --image=tutum/curl --restart=Never
@@ -1473,9 +1473,9 @@ hello, Kubernetes!
 
 ### Connecting services
 
-Let's deploy a bit more complicated stack. In this excercise we will deploy [Mattermost](http://www.mattermost.org) - an alternative to Slack that can run
+Let's deploy a bit more complicated stack. In this exercise we will deploy [Mattermost](http://www.mattermost.org) - an alternative to Slack that can run
 on your infrastructure. We will build our own containers and configuration, push it to the registry and
-Mattermost stack is composed of a worker process that connects to a running postgres instance.
+Mattermost stack is composed of a worker process that connects to a running PostgreSQL instance.
 
 **Build container**
 
@@ -1501,19 +1501,19 @@ Mattermost's worker expects configuration to be mounted at:
 $ cat mattermost/worker-config/config.json
 ```
 
-If we examine config closely, we will notice that mattermost expects a connector
-string to postgres:
+If we examine config closely, we will notice that Mattermost expects a connector
+string to PostgreSQL:
 
 ```
    "DataSource": "postgres://postgres:mattermost@postgres:5432/postgres?sslmode=disable"
    "DataSourceReplicas": ["postgres://postgres:mattermost@postgres:5432/postgres?sslmode=disable"]
 ```
 
-Here's where k8s power comes into play. We don't need to provide hardcoded IPs, we can simply make sure that
-there's a `postres` service pointing to our Postgres DB running somewhere in the cluster.
+Here's where Kubernetes power comes into play. We don't need to provide hard-coded IPs, we can simply make sure that
+there's a `postres` service pointing to our PostgreSQL DB running somewhere in the cluster.
 
 
-Let us create config map based on this file:
+Let us create ConfigMap based on this file:
 
 ```
 $ kubectl create configmap mattermost-v1 --from-file=mattermost/worker-config
@@ -1530,7 +1530,7 @@ config.json:	2951 bytes
 
 **Starting Up Postgres**
 
-Let's create a single Pod running posgres and point our service to it:
+Let's create a single Pod running PostgreSQL and point our service to it:
 
 ```
 $ kubectl create -f mattermost/postgres.yaml
@@ -1539,7 +1539,7 @@ NAME                        READY     STATUS    RESTARTS   AGE
 mattermost-database         1/1       Running   0          12m
 ```
 
-Let's check out the logs of our postgres:
+Let's check out the logs of our PostgreSQL:
 
 ```
 $ kubectl logs mattermost-database
@@ -1558,13 +1558,13 @@ selecting default max_connections ... 100
 selecting default shared_buffers ... 128MB
 ```
 
-**Note** Our `mattermost-database` is a special snowflake, in real production systems we must create a proper replicaset
+**Note** Our `mattermost-database` is a special snowflake, in real production systems we must create a proper ReplicaSet
 for the stateful service, what is slightly more complicated than this sample.
 
 
 **Creating Postgres Service**
 
-Let's create postrges service:
+Let's create PostgreSQL service:
 
 ```
 $ kubectl create -f mattermost/postgres-service.yaml
@@ -1645,7 +1645,7 @@ spec:
 $ kubectl create -f mattermost/worker.yaml --record
 ```
 
-Let's check out the status of the deployment to see if everything is allright:
+Let's check out the status of the deployment to see if everything is alright:
 
 ```
 $ kubectl describe deployments/mattermost-worker
@@ -1768,12 +1768,12 @@ $ minikube addons enable ingress
 ```
 
 An Ingress is a collection of rules that allow inbound connections to reach the cluster services.
-It can be configured to give services externally-reachable urls, load balance traffic, terminate SSL, offer name based virtual hosting etc.
-The difference between service and ingress (in K8S terminology) is that service allows you to provide access on OSI L3, and ingress
+It can be configured to give services externally-reachable URLs, load balance traffic, terminate SSL, offer name based virtual hosting etc.
+The difference between service and ingress (in Kubernetes terminology) is that service allows you to provide access on OSI L3, and ingress
 works on L7. E.g. while accessing HTTP server service can provide only load-balancing and HA, unlike ingres which could be used to split
 traffic on HTTP location basis, etc.
 
-First, we need to create to 2 different nginx deployments, configmaps and services for them:
+First, we need to create to 2 different nginx deployments, ConfigMaps and services for them:
 
 ```
 $ kubectl create configmap cola-nginx --from-file=ingress/conf-cola
@@ -1796,7 +1796,7 @@ Now we have two different deployments and services, assume we need to route user
 requests from `/cola` to `cola-nginx` service (backed by `cola-nginx` deployment)
 and `/pepsi` to `pepsi-nginx` service.
 
-This can be acheived using following ingress resource:
+This can be achieved using following ingress resource:
 
 ```yaml
 apiVersion: extensions/v1beta1
@@ -1834,7 +1834,7 @@ Notice annotations:
 Ingress is implemented inside `kube-system` namespace using any kind of configurable proxy. E.g. in minikube
 ingress uses nginx. Simply speaking there's special server which reacts to ingress resource creation/deletion/alteration
 and updates configuration of neighboured nginx. This *ingress controller* application started using
-ReplicationController resource inside minikube, but could be run as usual K8S application (DS, Deployment, etc),
+ReplicationController resource inside minikube, but could be run as usual Kubernetes application (DS, Deployment, etc),
 on special set of "edge router" nodes for improved security.
 
 ```
@@ -1867,8 +1867,8 @@ More details on ingress features and use cases [here](https://kubernetes.io/docs
 
 ### Recap
 
-We've learned several quite important concepts like Services, Pods, Replicasets and
-Configmaps. But that's just a small part of what Kubernetes can do. You can read much more on [Kubernetes website](http://kubernetes.io).
+We've learned several quite important concepts like Services, Pods, ReplicaSet and
+ConfigMaps. But that's just a small part of what Kubernetes can do. You can read much more on [Kubernetes website](http://kubernetes.io).
 
 
 ## Kubernetes Production Patterns
@@ -1880,7 +1880,7 @@ of Kubernetes deployments and we will take a look at some common mistakes to avo
 
 ### Requirements
 
-You will need Mac OSX or a Linux OS with at least `7GB RAM` and `8GB free disk space` available.
+You will need macOS or a Linux OS with at least `7GB RAM` and `8GB free disk space` available.
 
 * docker
 * VirtualBox
@@ -1891,7 +1891,7 @@ You will need Mac OSX or a Linux OS with at least `7GB RAM` and `8GB free disk s
 
 For Linux: follow instructions provided [here](https://docs.docker.com/engine/installation/linux/).
 
-If you have Mac OS X (Yosemite or newer), please download Docker for Mac [here](https://download.docker.com/mac/stable/Docker.dmg).
+If you have macOS (Yosemite or newer), please download Docker for Mac [here](https://download.docker.com/mac/stable/Docker.dmg).
 
 *Older docker package for OSes older than Yosemite -- Docker Toolbox located [here](https://www.docker.com/products/docker-toolbox).*
 
@@ -1903,7 +1903,7 @@ Get latest stable version from https://www.virtualbox.org/wiki/Downloads
 
 #### Kubectl
 
-For Mac OS X:
+For macOS:
 
     curl -O https://storage.googleapis.com/kubernetes-release/release/v1.3.8/bin/darwin/amd64/kubectl \
         && chmod +x kubectl && sudo mv kubectl /usr/local/bin/
@@ -1915,11 +1915,11 @@ For Linux:
 
 #### Xcode and local tools
 
-Xcode will install essential console utilities for us. You can install it from AppStore.
+Xcode will install essential console utilities for us. You can install it from the App Store.
 
 #### Minikube
 
-For Mac OS X:
+For macOS:
 
     curl -Lo minikube https://storage.googleapis.com/minikube/releases/v0.12.2/minikube-darwin-amd64 \
         && chmod +x minikube && sudo mv minikube /usr/local/bin/
@@ -1941,7 +1941,7 @@ minikube ssh
 docker run -p 5000:5000 --name registry -d registry:2
 ```
 
-**Notice for Mac OS X users:** you need to allow your docker daemon to work with your local insecure registry. It could be achieved via adding VM address to Docker for Mac.
+**Notice for macOS users:** you need to allow your docker daemon to work with your local insecure registry. It could be achieved via adding VM address to Docker for Mac.
 
 1. Get minikube VM IP via calling `minikube ip`
 2. Add obtained IP with port 5000 (specified above in `docker run` command) to Docker insecure registries:
@@ -1950,7 +1950,7 @@ docker run -p 5000:5000 --name registry -d registry:2
 
 ### Anti-Pattern: Mixing build environment and runtime environment
 
-Let's take a look at this dockerfile
+Let's take a look at this Dockerfile
 
 ```Dockerfile
 FROM ubuntu:14.04
@@ -1960,7 +1960,7 @@ RUN apt-get install gcc
 RUN gcc hello.c -o /hello
 ```
 
-It compiles and runs simple helloworld program:
+It compiles and runs simple "Hello, World" program:
 
 ```
 $ cd prod/build
@@ -1986,7 +1986,7 @@ Which leads us to the second problem:
 
 **Security**
 
-We distribute the whole build toolchain in addition to that we ship the source code of the image:
+We distribute the whole build tool chain in addition to that we ship the source code of the image:
 
 ```
 $ docker run --entrypoint=cat prod /build/hello.c
@@ -2010,7 +2010,7 @@ $ cd prod/build-fix
 $ docker build -f build.dockerfile -t buildbox .
 ```
 
-**NOTE:** We have used new `-f` flag to specify dockerfile we are going to use.
+**NOTE:** We have used new `-f` flag to specify Dockerfile we are going to use.
 
 Now we have a `buildbox` image that contains our build environment. We can use it to compile the C program now:
 
@@ -2023,7 +2023,7 @@ We have not used `docker build` this time, but mounted the source code and run t
 **NOTE:** Docker will soon support this pattern natively by introducing [build stages](https://github.com/docker/docker/pull/32063) into the build process.
 
 
-We can now use much simpler (and smaller) dockerfile to run our image:
+We can now use much simpler (and smaller) Dockerfile to run our image:
 
 ```Dockerfile
 FROM quay.io/gravitational/debian-tall:0.0.1
@@ -2047,7 +2047,7 @@ prod                                          latest              b2c197180350  
 
 **Orphans**
 
-It is quite easy to leave orphaned processes running in backround. Let's take an image we have build in the previous example:
+It is quite easy to leave orphaned processes running in background. Let's take an image we have build in the previous example:
 
 ```
 docker run busybox sleep 10000
@@ -2419,7 +2419,7 @@ our frontend has to make two requests to the backend:
 * Fetch current mail from the database
 
 If the weather service is down, user still would like to review the email, so weather service
-is auxillary, while current mail service is critical.
+is auxiliary, while current mail service is critical.
 
 Here is our frontend, weather and mail services written in python:
 
@@ -2524,7 +2524,7 @@ service "mail" configured
 service "weather" configured
 ```
 
-Check that everyting is running smoothly:
+Check that everything is running smoothly:
 
 ```
 $ kubectl run -i -t --rm cli --image=tutum/curl --restart=Never
@@ -2740,7 +2740,7 @@ service "weather" configured
 ```
 
 
-Circuit breaker will detect service outage and auxillary weather service will not bring our mail service down any more:
+Circuit breaker will detect service outage and auxiliary weather service will not bring our mail service down any more:
 
 ```
 $ curl http://frontend
@@ -2762,7 +2762,7 @@ $ curl http://frontend
 
 ### Production Pattern: Sidecar For Rate and Connection Limiting
 
-In the previous example we have used a sidecar pattern - a special proxy local to the Pod, that adds additional logic to the service, such as error deteciton, TLS termination
+In the previous example we have used a sidecar pattern - a special proxy local to the Pod, that adds additional logic to the service, such as error detection, TLS termination
 and other features.
 
 Here is an example of sidecar nginx proxy that adds rate and connection limits:
