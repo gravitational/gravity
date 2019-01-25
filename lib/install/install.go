@@ -47,6 +47,7 @@ import (
 	rpcserver "github.com/gravitational/gravity/lib/rpc/server"
 	"github.com/gravitational/gravity/lib/schema"
 	"github.com/gravitational/gravity/lib/state"
+	"github.com/gravitational/gravity/lib/status"
 	"github.com/gravitational/gravity/lib/storage"
 	"github.com/gravitational/gravity/lib/systeminfo"
 	"github.com/gravitational/gravity/lib/utils"
@@ -431,6 +432,8 @@ func (i *Installer) Wait() error {
 				if progress.State == ops.ProgressStateCompleted {
 					i.PrintStep(color.GreenString("Installation succeeded in %v",
 						i.timeSinceBeginning(i.OperationKey)))
+					i.printEndpoints()
+					i.printPostInstallMessage()
 					if i.Mode == constants.InstallModeInteractive {
 						i.printf("\nInstaller process will keep running so the installation can be finished by\n" +
 							"completing necessary post-install actions in the installer UI if the installed\n" +
@@ -460,6 +463,42 @@ func (i *Installer) PrintStep(format string, args ...interface{}) {
 
 func (i *Installer) printf(format string, args ...interface{}) {
 	i.Silent.Printf(format, args...)
+}
+
+func (i *Installer) printPostInstallMessage() {
+	message := modules.Get().PostInstallMessage()
+	if message != "" {
+		i.printf("\n%v\n", message)
+	}
+}
+
+func (i *Installer) printEndpoints() {
+	status, err := i.getClusterStatus()
+	if err != nil {
+		i.Errorf("Failed to collect cluster status: %v.", trace.DebugReport(err))
+		return
+	}
+	i.printf("\n")
+	status.Cluster.Endpoints.Cluster.WriteTo(i.Silent)
+	i.printf("\n")
+	status.Cluster.Endpoints.Applications.WriteTo(i.Silent)
+}
+
+// getClusterStatus collects status of the installer cluster.
+func (i *Installer) getClusterStatus() (*status.Status, error) {
+	clusterOperator, err := localenv.ClusterOperator()
+	if err != nil {
+		return nil, trace.Wrap(err)
+	}
+	cluster, err := clusterOperator.GetLocalSite()
+	if err != nil {
+		return nil, trace.Wrap(err)
+	}
+	status, err := status.FromCluster(i.Context, clusterOperator, *cluster, "")
+	if err != nil {
+		return nil, trace.Wrap(err)
+	}
+	return status, nil
 }
 
 // timeSinceBeginning returns formatted operation duration
