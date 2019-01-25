@@ -1976,7 +1976,7 @@ See (Kapacitor Integration)[/monitoring/#kapacitor-integration] about details on
 In a Gravity cluster, each node is running a runtime container that hosts Kubernetes.
 All services (including Kubernetes native services like API server or kubelet) execute with the predefined
 environment (set up during installation or update).
-If you need to make changes to the runtime environment post-install or post-update - i.e. introduce new environment variables
+If you need to make changes to the runtime environment, i.e. introduce new environment variables
 like `HTTP_PROXY`, this resource will allow you to do that.
 
 To add a new environment variable, `HTTP_PROXY`, create the file with following contents:
@@ -1989,7 +1989,14 @@ spec:
   HTTP_PROXY: "example.com:8001"
 ```
 
-and then create the resource with:
+To install a cluster with the new runtime environment, specify the resources file as an argument
+to the `install` command:
+
+```bsh
+$ sudo gravity install --cluster=<cluster-name> --config=envars.yaml
+```
+
+On an installed cluster, create the resource with:
 
 ```bash
 $ sudo gravity resource create -f envars.yaml

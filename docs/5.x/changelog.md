@@ -9,7 +9,7 @@ LTS starts with `3.51.0` with minor backwards compatible changes added over time
 | --------------|-----| -------------------- | -------------------- | ------------------ |------------------|
 | 5.5.0-alpha.6 | No  | January, 15th 2019   | -                    | 1.12.3             | 3.0.1            |
 | 5.4.2         | No  | January, 8th 2019    | -                    | 1.13.0             | 2.4.10           |
-| 5.3.7         | No  | January, 17th 2019    | -                    | 1.12.3             | 2.4.10           |
+| 5.3.8         | No  | January, 25th 2019    | -                    | 1.12.3             | 2.4.10           |
 | 5.2.5         | Yes | January, 8th 2019    | October, 15th, 2019  | 1.11.5             | 2.4.10           |
 | 5.0.28        | Yes | January, 7th 2019    | April, 13th 2019     | 1.9.12-gravitational | 2.4.10         |
 | 4.68.0        | Yes | January, 17th 2019   | November, 16th 2018  | 1.7.18-gravitational | 2.3.5          |
@@ -70,6 +70,12 @@ LTS starts with `3.51.0` with minor backwards compatible changes added over time
 !!! warning
     Teleport 2.4.10 includes fixes for a security vulnerability. Please see
     [Teleport Announcements](https://gravitational.zendesk.com/hc/en-us/articles/360015185614-Teleport-3-1-2-3-0-3-2-7-7-2-6-10) for more information.
+
+### 5.3.8
+
+#### Improvements
+
+* Add support for creating Gravity resources during install.
 
 ### 5.3.7
 
