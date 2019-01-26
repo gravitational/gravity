@@ -103,7 +103,7 @@ func NewResourceFile(path string) (*ResourceFile, error) {
 	defer file.Close()
 
 	// decode the contents of the resource file into an object
-	resource, err := Decode(file, SkipUnrecognized())
+	resource, err := Decode(file)
 	if err != nil {
 		return nil, trace.Wrap(err)
 	}
