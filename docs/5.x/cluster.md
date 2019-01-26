@@ -1986,8 +1986,9 @@ To add a new environment variable, `HTTP_PROXY`, create a file with following co
 kind: runtimeenvironment
 version: v1
 spec:
-  HTTP_PROXY: "example.com:8001"
-```
+  data:
+    HTTP_PROXY: "example.com:8001"
+  ```
 
 To install a cluster with the new runtime environment, specify the resources file as an argument
 to the `install` command:
