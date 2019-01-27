@@ -17,7 +17,6 @@ limitations under the License.
 package opsservice
 
 import (
-	"bytes"
 	"context"
 	"encoding/base64"
 	"encoding/json"
@@ -71,9 +70,9 @@ const (
 )
 
 // Configure packages configures packages for the specified install operation
-func (o *Operator) ConfigurePackages(key ops.SiteOperationKey) error {
-	log.Infof("Configuring packages: %#v.", key)
-	operation, err := o.GetSiteOperation(key)
+func (o *Operator) ConfigurePackages(req ops.ConfigurePackagesRequest) error {
+	log.Infof("Configuring packages: %#v.", req)
+	operation, err := o.GetSiteOperation(req.SiteOperationKey)
 	if err != nil {
 		return trace.Wrap(err)
 	}
@@ -83,7 +82,7 @@ func (o *Operator) ConfigurePackages(key ops.SiteOperationKey) error {
 		return trace.BadParameter("expected install or expand operation, got: %v",
 			operation)
 	}
-	site, err := o.openSite(key.SiteKey())
+	site, err := o.openSite(req.ClusterKey())
 	if err != nil {
 		return trace.Wrap(err)
 	}
@@ -103,7 +102,7 @@ func (o *Operator) ConfigurePackages(key ops.SiteOperationKey) error {
 		return trace.Wrap(err)
 	}
 	if operation.Type == ops.OperationInstall {
-		err = site.configurePackages(ctx)
+		err = site.configurePackages(ctx, req)
 	} else {
 		err = site.configureExpandPackages(context.TODO(), ctx)
 	}
@@ -252,7 +251,7 @@ func (s *site) configureExpandPackages(ctx context.Context, opCtx *operationCont
 	return nil
 }
 
-func (s *site) configurePackages(ctx *operationContext) error {
+func (s *site) configurePackages(ctx *operationContext, req ops.ConfigurePackagesRequest) error {
 	err := s.packages().UpsertRepository(s.siteRepoName(), time.Time{})
 	if err != nil {
 		return trace.Wrap(err)
@@ -285,15 +284,6 @@ func (s *site) configurePackages(ctx *operationContext) error {
 	_, err = s.configureLicensePackage(ctx)
 	if err != nil {
 		return trace.Wrap(err)
-	}
-
-	var resourcesPackage *loc.Locator
-	if s.hasResources() {
-		resourcesPackage, err = s.configureResourcesPackage(ctx)
-		if err != nil {
-			return trace.Wrap(err)
-		}
-		s.Debugf("configured resources package %v", resourcesPackage.String())
 	}
 
 	masters := p.Masters()
@@ -358,6 +348,7 @@ func (s *site) configurePackages(ctx *operationContext) error {
 			planetPackage: *planetPackage,
 			configPackage: *configPackage,
 			manifest:      s.app.Manifest,
+			env:           req.Env,
 		}
 		err = s.configurePlanetMaster(config, *secretsPackage, *configPackage)
 		if err != nil {
@@ -412,6 +403,7 @@ func (s *site) configurePackages(ctx *operationContext) error {
 			planetPackage: *planetPackage,
 			configPackage: *configPackage,
 			manifest:      s.app.Manifest,
+			env:           req.Env,
 		}
 
 		err = s.configurePlanetNode(config, *secretsPackage, *configPackage)
@@ -1207,24 +1199,6 @@ func (s *site) teleportNodeConfigPackage(node remoteServer) (*loc.Locator, error
 	return configPackage, trace.Wrap(err)
 }
 
-func (s *site) configureResourcesPackage(ctx *operationContext) (*loc.Locator, error) {
-	resourcesPackage, err := s.resourcesPackage()
-	if err != nil {
-		return nil, trace.Wrap(err)
-	}
-	_, err = s.packages().CreatePackage(
-		*resourcesPackage, bytes.NewBuffer(s.resources), pack.WithLabels(
-			map[string]string{
-				pack.PurposeLabel:     pack.PurposeResources,
-				pack.OperationIDLabel: ctx.operation.ID,
-			},
-		))
-	if err != nil {
-		return nil, trace.Wrap(err)
-	}
-	return resourcesPackage, nil
-}
-
 func (s *site) configureSiteExportPackage(ctx *operationContext) (*loc.Locator, error) {
 	exportPackage, err := s.siteExportPackage()
 	if err != nil {
@@ -1417,11 +1391,6 @@ func (s *site) planetSecretsPackage(node *ProvisionedServer) (*loc.Locator, erro
 func (s *site) planetSecretsNextPackage(node *ProvisionedServer) (*loc.Locator, error) {
 	return loc.ParseLocator(
 		fmt.Sprintf("%v/planet-%v-secrets:0.0.%v", s.siteRepoName(), node.AdvertiseIP, time.Now().UTC().Unix()))
-}
-
-func (s *site) resourcesPackage() (*loc.Locator, error) {
-	return loc.ParseLocator(
-		fmt.Sprintf("%v/resources:0.0.1", s.siteRepoName()))
 }
 
 // planetConfigPackage creates a planet configuration package reference

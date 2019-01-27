@@ -57,9 +57,6 @@ type site struct {
 	key        ops.SiteKey
 	provider   string
 	license    string
-	// resources is additional runtime k8s resources injected during
-	// installation process
-	resources []byte
 
 	// app defines the installation configuration
 	app *appservice.Application
@@ -116,10 +113,6 @@ func (s *site) cloudProviderName() string {
 
 func (s *site) gceNodeTags() string {
 	return strings.Join(s.backendSite.CloudConfig.GCENodeTags, ",")
-}
-
-func (s *site) hasResources() bool {
-	return len(s.resources) != 0
 }
 
 func (s *site) String() string {

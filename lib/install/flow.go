@@ -316,16 +316,17 @@ After all phases have completed successfully, shutdown this installer process us
 // GetFSM returns the installer FSM engine
 func (i *Installer) GetFSM() (*fsm.FSM, error) {
 	return NewFSM(FSMConfig{
-		OperationKey:   i.OperationKey,
-		Packages:       i.Packages,
-		Apps:           i.Apps,
-		Operator:       i.Operator,
-		LocalPackages:  i.LocalPackages,
-		LocalApps:      i.LocalApps,
-		LocalBackend:   i.LocalBackend,
-		Insecure:       i.Insecure,
-		UserLogFile:    i.UserLogFile,
-		ReportProgress: true,
+		OperationKey:       i.OperationKey,
+		Packages:           i.Packages,
+		Apps:               i.Apps,
+		Operator:           i.Operator,
+		LocalClusterClient: i.Config.LocalClusterClient,
+		LocalPackages:      i.LocalPackages,
+		LocalApps:          i.LocalApps,
+		LocalBackend:       i.LocalBackend,
+		Insecure:           i.Insecure,
+		UserLogFile:        i.UserLogFile,
+		ReportProgress:     true,
 	})
 }
 

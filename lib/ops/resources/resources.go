@@ -17,8 +17,10 @@ limitations under the License.
 package resources
 
 import (
+	"encoding/json"
 	"io"
 
+	"github.com/gravitational/gravity/lib/app/resources"
 	"github.com/gravitational/gravity/lib/constants"
 	"github.com/gravitational/gravity/lib/defaults"
 	"github.com/gravitational/gravity/lib/modules"
@@ -27,6 +29,7 @@ import (
 
 	teleservices "github.com/gravitational/teleport/lib/services"
 	"github.com/gravitational/trace"
+	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/util/yaml"
 )
 
@@ -211,4 +214,53 @@ func (r *ResourceControl) Remove(kind, name string, force bool, user string) err
 		return trace.Wrap(err)
 	}
 	return nil
+}
+
+// Split interprets the given reader r as a list of resources and splits
+// them in two groups: Kubernetes and Gravity resources
+func Split(r io.Reader) (kubernetesResources []runtime.Object, gravityResources []storage.UnknownResource, err error) {
+	err = ForEach(r, func(resource storage.UnknownResource) error {
+		if isKubernetesResource(resource) {
+			// reinterpret as a Kubernetes resource
+			var kResource resources.Unknown
+			if err := json.Unmarshal(resource.Raw, &kResource); err != nil {
+				return trace.Wrap(err)
+			}
+			kubernetesResources = append(kubernetesResources, &kResource)
+		} else {
+			gravityResources = append(gravityResources, resource)
+		}
+		return nil
+	})
+	if err != nil {
+		return nil, nil, trace.Wrap(err)
+	}
+	return kubernetesResources, gravityResources, nil
+}
+
+// ForEach interprets the given reader r as a collection of Gravity resources
+// and invokes the specified handler for each resource in the list.
+// Returns the first encountered error
+func ForEach(r io.Reader, handler ResourceFunc) (err error) {
+	decoder := yaml.NewYAMLOrJSONDecoder(r, defaults.DecoderBufferSize)
+	for err == nil {
+		var resource storage.UnknownResource
+		err = decoder.Decode(&resource)
+		if err != nil {
+			break
+		}
+		resource.Kind = modules.Get().CanonicalKind(resource.Kind)
+		err = handler(resource)
+	}
+	if err == io.EOF {
+		err = nil
+	}
+	return trace.Wrap(err)
+}
+
+// ResourceFunc is a callback that operates on a Gravity resource
+type ResourceFunc func(storage.UnknownResource) error
+
+func isKubernetesResource(resource storage.UnknownResource) bool {
+	return resource.Version == "" && resource.Kind == ""
 }

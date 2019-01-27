@@ -18,11 +18,9 @@ package cli
 
 import (
 	"bytes"
-	"io"
 	"os"
 
 	"github.com/gravitational/gravity/lib/constants"
-	"github.com/gravitational/gravity/lib/defaults"
 	"github.com/gravitational/gravity/lib/localenv"
 	"github.com/gravitational/gravity/lib/modules"
 	"github.com/gravitational/gravity/lib/ops/resources"
@@ -32,7 +30,6 @@ import (
 
 	teleservices "github.com/gravitational/teleport/lib/services"
 	"github.com/gravitational/trace"
-	"k8s.io/apimachinery/pkg/util/yaml"
 )
 
 // createResource updates or inserts one or many resources from the specified filename.
@@ -58,19 +55,11 @@ func createResource(env *localenv.LocalEnvironment, factory LocalEnvironmentFact
 		return trace.Wrap(err)
 	}
 	defer reader.Close()
-	decoder := yaml.NewYAMLOrJSONDecoder(reader, defaults.DecoderBufferSize)
 	control := resources.NewControl(gravityResources)
-	for err == nil {
-		var resource teleservices.UnknownResource
-		err = decoder.Decode(&resource)
-		if err != nil {
-			break
-		}
-		err = CreateResource(env, factory, control, resource, upsert, user, manual, confirmed)
-	}
-	if err == io.EOF {
-		err = nil
-	}
+	err = resources.ForEach(reader, func(resource storage.UnknownResource) error {
+		res := teleservices.UnknownResource{ResourceHeader: resource.ResourceHeader, Raw: resource.Raw}
+		return trace.Wrap(CreateResource(env, factory, control, res, upsert, user, manual, confirmed))
+	})
 	return trace.Wrap(err)
 }
 

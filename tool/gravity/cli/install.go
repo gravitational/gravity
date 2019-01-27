@@ -473,14 +473,15 @@ func executeInstallPhase(localEnv *localenv.LocalEnvironment, p PhaseParams) err
 	}
 
 	installFSM, err := install.NewFSM(install.FSMConfig{
-		OperationKey:  op.Key(),
-		Packages:      wizardEnv.Packages,
-		Apps:          wizardEnv.Apps,
-		Operator:      wizardEnv.Operator,
-		LocalPackages: localEnv.Packages,
-		LocalApps:     localApps,
-		LocalBackend:  localEnv.Backend,
-		Insecure:      localEnv.Insecure,
+		OperationKey:       op.Key(),
+		Packages:           wizardEnv.Packages,
+		Apps:               wizardEnv.Apps,
+		Operator:           wizardEnv.Operator,
+		LocalClusterClient: localEnv.SiteOperator,
+		LocalPackages:      localEnv.Packages,
+		LocalApps:          localApps,
+		LocalBackend:       localEnv.Backend,
+		Insecure:           localEnv.Insecure,
 	})
 	if err != nil {
 		return trace.Wrap(err)
@@ -639,14 +640,15 @@ func rollbackInstallPhase(localEnv *localenv.LocalEnvironment, p PhaseParams) er
 	}
 
 	installFSM, err := install.NewFSM(install.FSMConfig{
-		OperationKey:  op.Key(),
-		Packages:      wizardEnv.Packages,
-		Apps:          wizardEnv.Apps,
-		Operator:      wizardEnv.Operator,
-		LocalPackages: localEnv.Packages,
-		LocalApps:     localApps,
-		LocalBackend:  localEnv.Backend,
-		Insecure:      localEnv.Insecure,
+		OperationKey:       op.Key(),
+		Packages:           wizardEnv.Packages,
+		Apps:               wizardEnv.Apps,
+		Operator:           wizardEnv.Operator,
+		LocalClusterClient: localEnv.SiteOperator,
+		LocalPackages:      localEnv.Packages,
+		LocalApps:          localApps,
+		LocalBackend:       localEnv.Backend,
+		Insecure:           localEnv.Insecure,
 	})
 	if err != nil {
 		return trace.Wrap(err)

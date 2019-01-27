@@ -706,7 +706,7 @@ func (l LogEntry) String() string {
 // Install provides install-specific methods
 type Install interface {
 	// ConfigurePackages configures packages for the specified operation
-	ConfigurePackages(SiteOperationKey) error
+	ConfigurePackages(ConfigurePackagesRequest) error
 	// StreamOperationLogs appends the logs from the provided reader to the
 	// specified operation (user-facing) log file
 	StreamOperationLogs(SiteOperationKey, io.Reader) error
@@ -797,6 +797,27 @@ type RotatePlanetConfigRequest struct {
 	Env map[string]string `json:"env,omitempty"`
 	// Package specifies the runtime package locator
 	Package loc.Locator `json:"package"`
+}
+
+// Check validates this request
+func (r ConfigurePackagesRequest) Check() error {
+	return r.SiteOperationKey.Check()
+}
+
+// ClusterKey returns a cluster key from this request
+func (r ConfigurePackagesRequest) ClusterKey() SiteKey {
+	return SiteKey{
+		AccountID:  r.AccountID,
+		SiteDomain: r.SiteDomain,
+	}
+}
+
+// ConfigurePackagesConfigRequest is a request to create configuration packages
+type ConfigurePackagesRequest struct {
+	// OperationKey identifies the operation
+	SiteOperationKey `json:"operation_key"`
+	// Env specifies optional cluster environment variables to set
+	Env map[string]string `json:"env,omitempty"`
 }
 
 // SiteKey returns a cluster key from this request

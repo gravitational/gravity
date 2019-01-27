@@ -20,8 +20,6 @@ import (
 	"archive/tar"
 	"context"
 	"io"
-	"io/ioutil"
-	"path/filepath"
 
 	"github.com/cenkalti/backoff"
 	"github.com/gravitational/gravity/lib/app"
@@ -32,7 +30,6 @@ import (
 	"github.com/gravitational/gravity/lib/fsm"
 	kubeutils "github.com/gravitational/gravity/lib/kubernetes"
 	"github.com/gravitational/gravity/lib/ops"
-	"github.com/gravitational/gravity/lib/state"
 	"github.com/gravitational/gravity/lib/status"
 	"github.com/gravitational/gravity/lib/storage"
 	"github.com/gravitational/gravity/lib/utils"
@@ -314,76 +311,5 @@ func (p *rbacExecutor) PreCheck(ctx context.Context) error {
 
 // PostCheck is no-op for this phase
 func (*rbacExecutor) PostCheck(ctx context.Context) error {
-	return nil
-}
-
-// NewResources returns a new "resources" phase executor
-func NewResources(p fsm.ExecutorParams, operator ops.Operator) (*resourcesExecutor, error) {
-	logger := &fsm.Logger{
-		FieldLogger: logrus.WithFields(logrus.Fields{
-			constants.FieldPhase: p.Phase.ID,
-		}),
-		Key:      opKey(p.Plan),
-		Operator: operator,
-		Server:   p.Phase.Data.Server,
-	}
-	return &resourcesExecutor{
-		FieldLogger:    logger,
-		ExecutorParams: p,
-	}, nil
-}
-
-type resourcesExecutor struct {
-	// FieldLogger is used for logging
-	logrus.FieldLogger
-	// ExecutorParams is common executor params
-	fsm.ExecutorParams
-}
-
-// Execute executes the resources phase
-func (p *resourcesExecutor) Execute(ctx context.Context) error {
-	p.Progress.NextStep("Creating user-supplied Kubernetes resources")
-	stateDir, err := state.GetStateDir()
-	if err != nil {
-		return trace.Wrap(err)
-	}
-	err = ioutil.WriteFile(filepath.Join(state.ShareDir(stateDir), "resources.yaml"),
-		p.Phase.Data.Resources, defaults.SharedReadMask)
-	if err != nil {
-		return trace.Wrap(err, "failed to write user resources on disk")
-	}
-	out, err := utils.RunInPlanetCommand(
-		ctx,
-		p.FieldLogger,
-		defaults.KubectlBin,
-		"--kubeconfig",
-		constants.PrivilegedKubeconfig,
-		"apply",
-		"-f",
-		filepath.Join(defaults.PlanetShareDir, "resources.yaml"),
-	)
-	if err != nil {
-		return trace.Wrap(err, "failed to create user resources: %s", out)
-	}
-	p.Info("Created user-supplied Kubernetes resources.")
-	return nil
-}
-
-// Rollback is no-op for this phase
-func (*resourcesExecutor) Rollback(ctx context.Context) error {
-	return nil
-}
-
-// PreCheck makes sure this phase is executed on a master node
-func (p *resourcesExecutor) PreCheck(ctx context.Context) error {
-	err := fsm.CheckMasterServer(p.Plan.Servers)
-	if err != nil {
-		return trace.Wrap(err)
-	}
-	return nil
-}
-
-// PostCheck is no-op for this phase
-func (*resourcesExecutor) PostCheck(ctx context.Context) error {
 	return nil
 }
