@@ -86,6 +86,12 @@ func URLSplitHostPort(in, defaultPort string) (string, string, error) {
 	return host, port, nil
 }
 
+// ExtractHost returns only the host part from the provided address.
+func ExtractHost(addr string) string {
+	host, _ := SplitHostPort(addr, "")
+	return host
+}
+
 // SplitHostPort extracts host name without port from host
 func SplitHostPort(in, defaultPort string) (host string, port string) {
 	parts := strings.SplitN(in, ":", 2)
