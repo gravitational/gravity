@@ -18,14 +18,18 @@ package schema
 
 import (
 	"k8s.io/apiextensions-apiserver/pkg/apis/apiextensions"
-	"k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1beta1"
+	apiextensionsv1beta1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1beta1"
 	"k8s.io/apimachinery/pkg/util/runtime"
 	"k8s.io/client-go/kubernetes/scheme"
+	apiregistrationv1 "k8s.io/kube-aggregator/pkg/apis/apiregistration/v1"
+	apiregistrationv1beta1 "k8s.io/kube-aggregator/pkg/apis/apiregistration/v1beta1"
 )
 
 // init registers additional Kubernetes resources which are not normally
 // registered so our parser can recognize them
 func init() {
 	runtime.Must(apiextensions.AddToScheme(scheme.Scheme))
-	runtime.Must(v1beta1.AddToScheme(scheme.Scheme))
+	runtime.Must(apiextensionsv1beta1.AddToScheme(scheme.Scheme))
+	runtime.Must(apiregistrationv1.AddToScheme(scheme.Scheme))
+	runtime.Must(apiregistrationv1beta1.AddToScheme(scheme.Scheme))
 }
