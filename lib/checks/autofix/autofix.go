@@ -71,7 +71,7 @@ func AutoloadModules(ctx context.Context, modules []monitoring.ModuleRequest, pr
 			}
 		}
 	}
-	progress.PrintInfo("Enable kernel module loading on boot: %v", strings.Join(modList, ","))
+	progress.PrintInfo("Enabled kernel module loading on boot: %v", strings.Join(modList, ","))
 }
 
 // GetFixable returns a list of failed probes that can be attempted to auto-fix
