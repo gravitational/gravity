@@ -242,7 +242,6 @@ func (s *PlanSuite) verifyBootstrapPhase(c *check.C, phase storage.OperationPhas
 			Package:     &s.appPackage,
 			Agent:       s.adminAgent,
 			ServiceUser: &s.serviceUser,
-			DNSConfig:   &s.dnsConfig,
 		},
 	}, phase)
 }

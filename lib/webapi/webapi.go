@@ -1540,9 +1540,10 @@ func (m *Handler) updateSiteApp(w http.ResponseWriter, r *http.Request, p httpro
 		return nil, trace.Wrap(err)
 	}
 	req := ops.CreateSiteAppUpdateOperationRequest{
-		AccountID:  context.User.GetAccountID(),
-		SiteDomain: p[0].Value,
-		App:        input.Package,
+		AccountID:   context.User.GetAccountID(),
+		SiteDomain:  p[0].Value,
+		App:         input.Package,
+		StartAgents: true,
 	}
 	log.Infof("got site update operation request: %v", req)
 	op, err := context.Operator.CreateSiteAppUpdateOperation(req)

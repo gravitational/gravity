@@ -231,13 +231,13 @@ func Execute(g *Application, cmd string, extraArgs []string) error {
 	defer localEnv.Close()
 
 	// create an environment used during upgrades
-	var upgradeEnv *localenv.LocalEnvironment
+	var updateEnv *localenv.LocalEnvironment
 	if g.isUpgradeCommand(cmd) {
-		upgradeEnv, err = g.UpgradeEnv()
+		updateEnv, err = g.UpgradeEnv()
 		if err != nil {
 			return trace.Wrap(err)
 		}
-		defer upgradeEnv.Close()
+		defer updateEnv.Close()
 	}
 
 	// create an environment where join-specific data is stored
@@ -314,7 +314,7 @@ func Execute(g *Application, cmd string, extraArgs []string) error {
 		return updateCheck(localEnv, *g.UpdateCheckCmd.App)
 	case g.UpdateTriggerCmd.FullCommand():
 		return updateTrigger(localEnv,
-			upgradeEnv,
+			updateEnv,
 			*g.UpdateTriggerCmd.App,
 			*g.UpdateTriggerCmd.Manual)
 	case g.UpgradeCmd.FullCommand():
@@ -322,7 +322,7 @@ func Execute(g *Application, cmd string, extraArgs []string) error {
 			*g.UpgradeCmd.Phase = fsm.RootPhase
 		}
 		if *g.UpgradeCmd.Phase != "" {
-			return executeUpgradePhase(localEnv, upgradeEnv,
+			return executeUpgradePhase(localEnv, updateEnv,
 				upgradePhaseParams{
 					phaseID:          *g.UpgradeCmd.Phase,
 					force:            *g.UpgradeCmd.Force,
@@ -331,15 +331,15 @@ func Execute(g *Application, cmd string, extraArgs []string) error {
 				})
 		}
 		if *g.UpgradeCmd.Complete {
-			return completeUpgrade(localEnv, upgradeEnv)
+			return completeUpgrade(localEnv, updateEnv)
 		}
 		return updateTrigger(localEnv,
-			upgradeEnv,
+			updateEnv,
 			*g.UpgradeCmd.App,
 			*g.UpgradeCmd.Manual)
 	case g.RollbackCmd.FullCommand():
 		return rollbackOperationPhase(localEnv,
-			upgradeEnv,
+			updateEnv,
 			joinEnv,
 			rollbackParams{
 				phaseID:          *g.RollbackCmd.Phase,
@@ -349,12 +349,12 @@ func Execute(g *Application, cmd string, extraArgs []string) error {
 			})
 	case g.PlanCmd.FullCommand():
 		if *g.PlanCmd.Init {
-			return initOperationPlan(localEnv, upgradeEnv)
+			return initOperationPlan(localEnv, updateEnv)
 		}
 		if *g.PlanCmd.Sync {
-			return syncOperationPlan(localEnv, upgradeEnv)
+			return syncOperationPlan(localEnv, updateEnv)
 		}
-		return displayOperationPlan(localEnv, upgradeEnv, joinEnv, *g.PlanCmd.OperationID, *g.PlanCmd.Output)
+		return displayOperationPlan(localEnv, updateEnv, joinEnv, *g.PlanCmd.OperationID, *g.PlanCmd.Output)
 	case g.LeaveCmd.FullCommand():
 		return leave(localEnv, leaveConfig{
 			force:     *g.LeaveCmd.Force,
@@ -739,11 +739,11 @@ func Execute(g *Application, cmd string, extraArgs []string) error {
 			*g.ResourceGetCmd.Format,
 			*g.ResourceGetCmd.User)
 	case g.RPCAgentDeployCmd.FullCommand():
-		return rpcAgentDeploy(localEnv, *g.RPCAgentDeployCmd.Args)
+		return rpcAgentDeploy(localEnv, updateEnv, *g.RPCAgentDeployCmd.Args)
 	case g.RPCAgentInstallCmd.FullCommand():
 		return rpcAgentInstall(localEnv, *g.RPCAgentInstallCmd.Args)
 	case g.RPCAgentRunCmd.FullCommand():
-		return rpcAgentRun(localEnv, upgradeEnv,
+		return rpcAgentRun(localEnv, updateEnv,
 			*g.RPCAgentRunCmd.Args)
 	case g.RPCAgentShutdownCmd.FullCommand():
 		return rpcAgentShutdown(localEnv)

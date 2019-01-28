@@ -60,8 +60,6 @@ type PlanBuilder struct {
 	RegularAgent storage.LoginEntry
 	// ServiceUser is the cluster system user
 	ServiceUser storage.OSUser
-	// DNSConfig specifies the custom cluster DNS configuration
-	DNSConfig storage.DNSConfig
 }
 
 // AddChecksPhase appends preflight checks phase to the provided plan
@@ -109,7 +107,6 @@ func (b *PlanBuilder) AddBootstrapPhase(plan *storage.OperationPlan) {
 				Package:     &b.Application.Package,
 				Agent:       agent,
 				ServiceUser: &b.ServiceUser,
-				DNSConfig:   &b.DNSConfig,
 			},
 			Step: 3,
 		})
@@ -492,7 +489,6 @@ func (i *Installer) GetPlanBuilder(cluster ops.Site, op ops.SiteOperation) (*Pla
 			UID:  strconv.Itoa(i.Config.ServiceUser.UID),
 			GID:  strconv.Itoa(i.Config.ServiceUser.GID),
 		},
-		DNSConfig: cluster.DNSConfig,
 	}, nil
 }
 
