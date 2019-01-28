@@ -272,6 +272,8 @@ const (
 	PlanetRpcKeyPair = "planet-rpc-client"
 	// CoreDNSKeyPair is a cert/key used for accessing coredns related configmap from the kubernetes api
 	CoreDNSKeyPair = "coredns"
+	// FrontProxyClientKeyPair is a cert/key used for accessing external APIs through aggregation layer
+	FrontProxyClientKeyPair = "front-proxy-client"
 
 	// ClusterAdminGroup is a group name for Kubernetes cluster amdin
 	ClusterAdminGroup = "system:masters"
