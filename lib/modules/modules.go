@@ -48,7 +48,11 @@ type Modules interface {
 	Version() Version
 	// TeleRepository returns the default repository for tele package cache
 	TeleRepository() string
-	// PostInstallMessage returns a message that gets printed to CLI after successful installation
+}
+
+// Messager provides methods for various informational messages
+type Messager interface {
+	// PostInstallMessage returns a message that gets printed to console after successful installation
 	PostInstallMessage() string
 }
 
@@ -127,8 +131,8 @@ func (m *defaultModules) TeleRepository() string {
 	return fmt.Sprintf("s3://%v", defaults.HubBucket)
 }
 
-// PostInstallMessage returns message that gets printed in CLI after
-// successful installation
+// PostInstallMessage returns message that gets printed to console after
+// successful installation.
 func (m *defaultModules) PostInstallMessage() string {
 	return `Congratulations!
 The cluster is up and running. Please take a look at "cluster management" section:

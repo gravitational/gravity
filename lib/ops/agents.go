@@ -92,17 +92,17 @@ func (s *AgentReport) Has(advertiseAddr string) bool {
 }
 
 // Diff returns added/removed servers this agent report has compared to
-// the provided report.
-func (s *AgentReport) Diff(another *AgentReport) (added, removed []checks.ServerInfo) {
-	if another == nil {
+// the provided previous report.
+func (s *AgentReport) Diff(previous *AgentReport) (added, removed []checks.ServerInfo) {
+	if previous == nil {
 		return s.Servers, nil
 	}
 	for _, server := range s.Servers {
-		if !another.Has(server.AdvertiseAddr) {
+		if !previous.Has(server.AdvertiseAddr) {
 			added = append(added, server)
 		}
 	}
-	for _, server := range another.Servers {
+	for _, server := range previous.Servers {
 		if !s.Has(server.AdvertiseAddr) {
 			removed = append(removed, server)
 		}
@@ -110,11 +110,11 @@ func (s *AgentReport) Diff(another *AgentReport) (added, removed []checks.Server
 	return
 }
 
-// Check verifies if agents from this report satisfy the provided flavor.
+// MatchFlavor verifies if agents from this report satisfy the provided flavor.
 //
 // Returns number/roles of agents that still need to join as well as any
 // extra servers that are not a part of the flavor.
-func (s *AgentReport) Check(flavor *schema.Flavor) (needed map[string]int, extra []checks.ServerInfo) {
+func (s *AgentReport) MatchFlavor(flavor *schema.Flavor) (needed map[string]int, extra []checks.ServerInfo) {
 	needed = make(map[string]int)
 	for _, node := range flavor.Nodes {
 		needed[node.Profile] = node.Count

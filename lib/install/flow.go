@@ -397,10 +397,10 @@ func (i *Installer) canContinue(report *ops.AgentReport) bool {
 		i.sendMessage(color.YellowString("Node %q on %v has left",
 			server.Role, utils.ExtractHost(server.AdvertiseAddr)))
 	}
-	// Save the current agent report so we can compare against it next iteration.
+	// Save the current agent report so we can compare against it on next iteration.
 	i.agentReport = report
 	// See if the current agent report satisfies the selected flavor.
-	needed, extra := report.Check(i.flavor)
+	needed, extra := report.MatchFlavor(i.flavor)
 	if len(needed) == 0 && len(extra) == 0 {
 		i.sendMessage(color.GreenString("All agents have connected!"))
 		return true

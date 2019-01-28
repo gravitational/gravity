@@ -466,9 +466,8 @@ func (i *Installer) printf(format string, args ...interface{}) {
 }
 
 func (i *Installer) printPostInstallMessage() {
-	message := modules.Get().PostInstallMessage()
-	if message != "" {
-		i.printf("\n%v\n", message)
+	if m, ok := modules.Get().(modules.Messager); ok {
+		i.printf("\n%v\n", m.PostInstallMessage())
 	}
 }
 

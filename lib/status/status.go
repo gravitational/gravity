@@ -68,7 +68,7 @@ func FromCluster(ctx context.Context, operator ops.Operator, cluster ops.Site, o
 		return status, trace.Wrap(err)
 	}
 	// Right now only 1 application is supported, in the future there
-	// will be many application each with its own endpoints.
+	// will be many applications each with its own endpoints.
 	status.Endpoints.Applications = append(status.Endpoints.Applications,
 		ApplicationEndpoints{
 			Application: cluster.App.Package,
@@ -187,7 +187,7 @@ type Endpoints struct {
 	Cluster ClusterEndpoints `json:"cluster"`
 }
 
-// ClusterEndpoints describes system cluster endpoints.
+// ClusterEndpoints describes cluster system endpoints.
 type ClusterEndpoints struct {
 	// AuthGateway contains addresses that users should specify via --proxy
 	// flag to tsh commands (essentially, address of gravity-site service)
@@ -198,16 +198,17 @@ type ClusterEndpoints struct {
 
 // WriteTo writes cluster endpoints to the provided writer.
 func (e ClusterEndpoints) WriteTo(w io.Writer) (n int64, err error) {
-	fprintf(&n, w, "Cluster endpoints:\n")
-	fprintf(&n, w, "    * Authentication gateway:\n")
+	var errors []error
+	errors = append(errors, fprintf(&n, w, "Cluster endpoints:\n"))
+	errors = append(errors, fprintf(&n, w, "    * Authentication gateway:\n"))
 	for _, e := range e.AuthGateway {
-		fprintf(&n, w, "        - %v\n", e)
+		errors = append(errors, fprintf(&n, w, "        - %v\n", e))
 	}
-	fprintf(&n, w, "    * Cluster management URL:\n")
+	errors = append(errors, fprintf(&n, w, "    * Cluster management URL:\n"))
 	for _, e := range e.UI {
-		fprintf(&n, w, "        - %v\n", e)
+		errors = append(errors, fprintf(&n, w, "        - %v\n", e))
 	}
-	return n, nil
+	return n, trace.NewAggregate(errors...)
 }
 
 // ApplicationsEndpoints contains endpoints for multiple applications.
@@ -226,26 +227,28 @@ func (e ApplicationsEndpoints) WriteTo(w io.Writer) (n int64, err error) {
 	if len(e) == 0 {
 		return 0, nil
 	}
-	fprintf(&n, w, "Application endpoints:\n")
+	var errors []error
+	errors = append(errors, fprintf(&n, w, "Application endpoints:\n"))
 	for _, app := range e {
-		fprintf(&n, w, "    * %v:%v:\n", app.Application.Name, app.Application.Version)
+		errors = append(errors, fprintf(&n, w, "    * %v:%v:\n",
+			app.Application.Name, app.Application.Version))
 		for _, ep := range app.Endpoints {
-			fprintf(&n, w, "        - %v:\n", ep.Name)
+			errors = append(errors, fprintf(&n, w, "        - %v:\n", ep.Name))
 			for _, addr := range ep.Addresses {
-				fprintf(&n, w, "            - %v\n", addr)
+				errors = append(errors, fprintf(&n, w, "            - %v\n", addr))
 			}
 		}
 	}
-	return n, nil
+	return n, trace.NewAggregate(errors...)
 }
 
-func fprintf(n *int64, w io.Writer, format string, a ...interface{}) {
+func fprintf(n *int64, w io.Writer, format string, a ...interface{}) error {
 	written, err := fmt.Fprintf(w, format, a...)
 	if err != nil {
-		logrus.Errorf(err.Error())
-		return
+		return trace.ConvertSystemError(err)
 	}
 	*n += int64(written)
+	return nil
 }
 
 // Key returns key structure that identifies this operation
