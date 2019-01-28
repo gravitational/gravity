@@ -39,7 +39,7 @@ var _ = check.Suite(&ResourceControlSuite{})
 func (s *ResourceControlSuite) TestResourceControl(c *check.C) {
 	control := NewControl(&testResources{})
 
-	reader := strings.NewReader(resources)
+	reader := strings.NewReader(resourceBytes)
 
 	err := control.Create(reader, false, "")
 	c.Assert(err, check.IsNil)
@@ -124,7 +124,7 @@ func (c testCollection) WriteJSON(w io.Writer) error {
 	return trace.Wrap(err)
 }
 
-const resources = `
+const resourceBytes = `
 kind: kind1
 metadata:
   name: resource1

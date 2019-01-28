@@ -35,6 +35,7 @@ import (
 	"github.com/gravitational/gravity/lib/constants"
 	"github.com/gravitational/gravity/lib/defaults"
 	"github.com/gravitational/gravity/lib/loc"
+	"github.com/gravitational/gravity/lib/schema"
 	"github.com/gravitational/gravity/lib/utils"
 
 	teleservices "github.com/gravitational/teleport/lib/services"
@@ -431,6 +432,8 @@ type SiteOperation struct {
 	Uninstall *UninstallOperationState `json:"uninstall,omitempty"`
 	// Update is for updating application on the gravity site
 	Update *UpdateOperationState `json:"update,omitempty"`
+	// UpdateEnvars defines the environment state
+	UpdateEnvars *UpdateEnvarsOperationState `json:"update_envars,omitempty"`
 }
 
 func (s *SiteOperation) Check() error {
@@ -1116,7 +1119,19 @@ func (u PackageChangeset) String() string {
 func (u *PackageChangeset) ReversedChanges() []PackageUpdate {
 	changes := make([]PackageUpdate, len(u.Changes))
 	for i, c := range u.Changes {
-		changes[i] = PackageUpdate{From: c.To, To: c.From}
+		update := PackageUpdate{
+			From:   c.To,
+			To:     c.From,
+			Labels: c.Labels,
+		}
+		if c.ConfigPackage != nil {
+			update.ConfigPackage = &PackageUpdate{
+				From:   c.ConfigPackage.To,
+				To:     c.ConfigPackage.From,
+				Labels: c.ConfigPackage.Labels,
+			}
+		}
+		changes[i] = update
 	}
 	return changes
 }
@@ -1137,10 +1152,14 @@ type PackageUpdate struct {
 	To loc.Locator `json:"to"`
 	// Labels defines optional identifying set of labels
 	Labels map[string]string `json:"labels,omitempty"`
+	// ConfigPackage specifies optional configuration package dependency
+	ConfigPackage *PackageUpdate `json:"config_package,omitempty"`
 }
 
+// String formats this update as human-readable text
 func (u *PackageUpdate) String() string {
-	return fmt.Sprintf("update(%v -> %v)", u.From, u.To)
+	return fmt.Sprintf("update(%v -> %v, labels:%v, config:%v)",
+		u.From, u.To, u.Labels, u.ConfigPackage)
 }
 
 // PackageChangesets tracks server local package changes - updates and downgrades
@@ -1560,7 +1579,16 @@ func (s *Server) KubeNodeID() string {
 
 // IsMaster returns true if the server has a master role
 func (s *Server) IsMaster() bool {
-	return s.ClusterRole == constants.MasterRole
+	return s.ClusterRole == string(schema.ServiceRoleMaster)
+}
+
+// Strings formats this server as readable text
+func (s Server) String() string {
+	return fmt.Sprintf("node(addr=%v, hostname=%v, role=%v, cluster_role=%v)",
+		s.AdvertiseIP,
+		s.Hostname,
+		s.Role,
+		s.ClusterRole)
 }
 
 // Hostnames returns a list of hostnames for the provided servers
@@ -1902,6 +1930,15 @@ func (r Servers) Masters() (masters []Server) {
 	return
 }
 
+// String formats this list of servers as text
+func (r Servers) String() string {
+	var formats []string
+	for _, server := range r {
+		formats = append(formats, server.String())
+	}
+	return strings.Join(formats, ",")
+}
+
 type AgentProfile struct {
 	// Instructions defines the set of shell commands to download and start an agent
 	// on a host
@@ -1943,6 +1980,12 @@ type UpdateOperationState struct {
 	ServerUpdates []ServerUpdate `json:"server_updates,omitempty"`
 	// Manual specifies whether this update operation was created in manual mode
 	Manual bool `json:"manual"`
+}
+
+// UpdateEnvarsOperationState describes the state of the operation to update cluster environment variables.
+type UpdateEnvarsOperationState struct {
+	// Env defines new cluster environment variables
+	Env map[string]string `json:"env"`
 }
 
 // Package returns the update package locator

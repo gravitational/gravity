@@ -510,6 +510,13 @@ const (
 	// kubernetes, use a lowercase notation instead to make it backwards-compatible
 	ClusterPrivateKeyMapKey = "privatekey"
 
+	// ClusterEnvironmentMap is the name of the ConfigMap that contains cluster environment
+	ClusterEnvironmentMap = "runtimeenvironment"
+
+	// PreviousKeyValuesAnnotationKey defines the annotation field that keeps the old
+	// environment variables after the update
+	PreviousKeyValuesAnnotationKey = "previous-values"
+
 	// SMTPSecret specifies the name of the Secret with cluster SMTP configuration
 	SMTPSecret = "smtp-configuration-update"
 
@@ -543,8 +550,11 @@ const (
 	// ReportFilterKubernetes defines a report filter to fetch kubernetes diagnostics
 	ReportFilterKubernetes = "kubernetes"
 
-	// RpcAgentUpgradeFunction requests deployed agents to run automatic upgrade operation on leader node
-	RpcAgentUpgradeFunction = "upgrade"
+	// RPCAgentUpgradeFunction requests deployed agents to run automatic upgrade operation on leader node
+	RPCAgentUpgradeFunction = "upgrade"
+
+	// RPCAgentSyncPlanFunction requests deployed agents to synchronize local backend with cluster
+	RPCAgentSyncPlanFunction = "sync-plan"
 
 	// TelekubeMountDir is a directory where telekube mounts specific secrets
 	// and other configuration parameters
@@ -636,9 +646,6 @@ const (
 	FailureMark = "×"
 	// InProgressMark is used in CLI to visually indicate progress
 	InProgressMark = "→"
-
-	// MasterRole is the name of the master node role
-	MasterRole = "master"
 )
 
 var (

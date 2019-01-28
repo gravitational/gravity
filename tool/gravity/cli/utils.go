@@ -29,6 +29,14 @@ import (
 	"github.com/gravitational/trace"
 )
 
+// LocalEnvironmentFactory defines an interface for creating operation-specific environments
+type LocalEnvironmentFactory interface {
+	// UpdateEnv creates a new operational environment for updates
+	UpdateEnv() (*localenv.LocalEnvironment, error)
+	// JoinEnv creates a new operational environment for join operation
+	JoinEnv() (*localenv.LocalEnvironment, error)
+}
+
 // LocalEnv returns an instance of a local environment for the specified
 // command
 func (g *Application) LocalEnv(cmd string) (*localenv.LocalEnvironment, error) {
@@ -39,9 +47,9 @@ func (g *Application) LocalEnv(cmd string) (*localenv.LocalEnvironment, error) {
 	return g.getEnv(stateDir)
 }
 
-// UpgradeEnv returns an instance of the local environment that is used
-// only for upgrades
-func (g *Application) UpgradeEnv() (*localenv.LocalEnvironment, error) {
+// UpdateEnv returns an instance of the local environment that is used
+// only for updates
+func (g *Application) UpdateEnv() (*localenv.LocalEnvironment, error) {
 	dir, err := state.GetStateDir()
 	if err != nil {
 		return nil, trace.Wrap(err)
@@ -127,19 +135,43 @@ func (g *Application) isJoinCommand(cmd string) bool {
 	return false
 }
 
-// isUpgradeCommand returns true if the specified commans is
+// isUpdateCommand returns true if the specified commans is
 // an upgrade related command
-func (g *Application) isUpgradeCommand(cmd string) bool {
+func (g *Application) isUpdateCommand(cmd string) bool {
 	switch cmd {
 	case g.PlanCmd.FullCommand(),
+		g.PlanInitCmd.FullCommand(),
+		g.PlanSyncCmd.FullCommand(),
+		g.PlanDisplayCmd.FullCommand(),
+		g.PlanExecuteCmd.FullCommand(),
+		g.PlanRollbackCmd.FullCommand(),
+		g.PlanResumeCmd.FullCommand(),
+		g.PlanCompleteCmd.FullCommand(),
 		g.UpdateTriggerCmd.FullCommand(),
-		g.RollbackCmd.FullCommand(),
 		g.UpgradeCmd.FullCommand():
 		return true
 	case g.RPCAgentRunCmd.FullCommand():
 		return len(*g.RPCAgentRunCmd.Args) > 0
 	case g.RPCAgentDeployCmd.FullCommand():
 		return len(*g.RPCAgentDeployCmd.Args) > 0
+	}
+	return false
+}
+
+// isExpandCommand returns true if the specified commans is
+// expand-related command
+func (g *Application) isExpandCommand(cmd string) bool {
+	switch cmd {
+	case g.JoinCmd.FullCommand(), g.AutoJoinCmd.FullCommand(),
+		g.PlanCmd.FullCommand(),
+		g.PlanInitCmd.FullCommand(),
+		g.PlanSyncCmd.FullCommand(),
+		g.PlanDisplayCmd.FullCommand(),
+		g.PlanExecuteCmd.FullCommand(),
+		g.PlanRollbackCmd.FullCommand(),
+		g.PlanCompleteCmd.FullCommand(),
+		g.PlanResumeCmd.FullCommand():
+		return true
 	}
 	return false
 }

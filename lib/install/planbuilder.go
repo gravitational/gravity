@@ -17,21 +17,26 @@ limitations under the License.
 package install
 
 import (
+	"bytes"
 	"fmt"
 	"strconv"
 
 	"github.com/gravitational/gravity/lib/app"
+	"github.com/gravitational/gravity/lib/app/resources"
 	"github.com/gravitational/gravity/lib/constants"
 	"github.com/gravitational/gravity/lib/defaults"
 	"github.com/gravitational/gravity/lib/fsm"
 	"github.com/gravitational/gravity/lib/install/phases"
 	"github.com/gravitational/gravity/lib/loc"
 	"github.com/gravitational/gravity/lib/ops"
+	"github.com/gravitational/gravity/lib/ops/opsservice"
+	resourceutil "github.com/gravitational/gravity/lib/ops/resources"
 	"github.com/gravitational/gravity/lib/pack"
 	"github.com/gravitational/gravity/lib/schema"
 	"github.com/gravitational/gravity/lib/storage"
 
 	"github.com/gravitational/trace"
+	"k8s.io/apimachinery/pkg/runtime"
 )
 
 // PlanBuilder builds operation plan phases
@@ -60,6 +65,12 @@ type PlanBuilder struct {
 	RegularAgent storage.LoginEntry
 	// ServiceUser is the cluster system user
 	ServiceUser storage.OSUser
+	// env specifies optional cluster environment variables to add during install
+	env map[string]string
+	// resources specifies the optional Kubernetes resources to create
+	resources []byte
+	// gravityResources specifies the optional Gravity resources to create upon successful install
+	gravityResources []storage.UnknownResource
 }
 
 // AddChecksPhase appends preflight checks phase to the provided plan
@@ -76,12 +87,20 @@ func (b *PlanBuilder) AddChecksPhase(plan *storage.OperationPlan) {
 
 // AddConfigurePhase appends package configuration phase to the provided plan
 func (b *PlanBuilder) AddConfigurePhase(plan *storage.OperationPlan) {
-	plan.Phases = append(plan.Phases, storage.OperationPhase{
+	phase := storage.OperationPhase{
 		ID:          phases.ConfigurePhase,
 		Description: "Configure packages for all nodes",
 		Requires:    fsm.RequireIfPresent(plan, phases.InstallerPhase, phases.DecryptPhase),
 		Step:        3,
-	})
+	}
+	if len(b.env) != 0 {
+		phase.Data = &storage.OperationPhaseData{
+			Install: &storage.InstallOperationData{
+				Env: b.env,
+			},
+		}
+	}
+	plan.Phases = append(plan.Phases, phase)
 }
 
 // AddBootstrapPhase appends nodes bootstrap phase to the provided plan
@@ -290,16 +309,42 @@ func (b *PlanBuilder) AddRBACPhase(plan *storage.OperationPlan) {
 }
 
 // AddResourcesPhase appends K8s resources initialization phase to the provided plan
-func (b *PlanBuilder) AddResourcesPhase(plan *storage.OperationPlan, resources []byte) {
+func (b *PlanBuilder) AddResourcesPhase(plan *storage.OperationPlan) {
+	if len(b.resources) == 0 {
+		// Nothing to add
+		return
+	}
 	plan.Phases = append(plan.Phases, storage.OperationPhase{
 		ID:          phases.ResourcesPhase,
 		Description: "Create user-supplied Kubernetes resources",
 		Data: &storage.OperationPhaseData{
-			Server:    &b.Master,
-			Resources: resources,
+			Server: &b.Master,
+			Install: &storage.InstallOperationData{
+				Resources: b.resources,
+			},
 		},
 		Requires: []string{phases.RBACPhase},
 		Step:     4,
+	})
+}
+
+// AddGravityResourcesPhase appends Gravity resources initialization phase to the provided plan
+func (b *PlanBuilder) AddGravityResourcesPhase(plan *storage.OperationPlan) {
+	if len(b.gravityResources) == 0 {
+		// Nothing to add
+		return
+	}
+	plan.Phases = append(plan.Phases, storage.OperationPhase{
+		ID:          phases.GravityResourcesPhase,
+		Description: "Create user-supplied Gravity resources",
+		Data: &storage.OperationPhaseData{
+			Server: &b.Master,
+			Install: &storage.InstallOperationData{
+				GravityResources: b.gravityResources,
+			},
+		},
+		Requires: []string{phases.EnableElectionPhase},
+		Step:     10,
 	})
 }
 
@@ -472,7 +517,7 @@ func (i *Installer) GetPlanBuilder(cluster ops.Site, op ops.SiteOperation) (*Pla
 	if err != nil {
 		return nil, trace.Wrap(err)
 	}
-	return &PlanBuilder{
+	builder := &PlanBuilder{
 		Application:        *application,
 		Runtime:            *runtime,
 		TeleportPackage:    *teleportPackage,
@@ -489,7 +534,29 @@ func (i *Installer) GetPlanBuilder(cluster ops.Site, op ops.SiteOperation) (*Pla
 			UID:  strconv.Itoa(i.Config.ServiceUser.UID),
 			GID:  strconv.Itoa(i.Config.ServiceUser.GID),
 		},
-	}, nil
+	}
+	err = addResources(builder, cluster.Resources, i.Config.RuntimeResources)
+	if err != nil {
+		return nil, trace.Wrap(err)
+	}
+	return builder, nil
+}
+
+// skipDependency returns true if the dependency package specified by dep
+// should be skipped when installing the provided application
+func (b *PlanBuilder) skipDependency(dep loc.Locator) bool {
+	// rbac-app is installed separately
+	if dep.Name == constants.BootstrapConfigPackage {
+		return true
+	}
+	// do not install bandwagon unless the app uses it in its post-install
+	if dep.Name == defaults.BandwagonPackageName {
+		setup := b.Application.Manifest.SetupEndpoint()
+		if setup == nil || setup.ServiceName != defaults.BandwagonServiceName {
+			return true
+		}
+	}
+	return false
 }
 
 // splitServers splits the provided servers into masters and nodes
@@ -522,19 +589,36 @@ func splitServers(servers []storage.Server, app app.Application) (masters []stor
 	return masters, nodes, nil
 }
 
-// skipDependency returns true if the dependency package specified by dep
-// should be skipped when installing the provided application
-func (b *PlanBuilder) skipDependency(dep loc.Locator) bool {
-	// rbac-app is installed separately
-	if dep.Name == constants.BootstrapConfigPackage {
-		return true
+func addResources(builder *PlanBuilder, resourceBytes []byte, runtimeResources []runtime.Object) error {
+	kubernetesResources, gravityResources, err := resourceutil.Split(bytes.NewReader(resourceBytes))
+	if err != nil {
+		return trace.Wrap(err)
 	}
-	// do not install bandwagon unless the app uses it in its post-install
-	if dep.Name == defaults.BandwagonPackageName {
-		setup := b.Application.Manifest.SetupEndpoint()
-		if setup == nil || setup.ServiceName != defaults.BandwagonServiceName {
-			return true
+	for i, res := range gravityResources {
+		if res.Kind != storage.KindRuntimeEnvironment {
+			// Look for runtime environment resource if available
+			continue
 		}
+		env, err := storage.UnmarshalEnvironmentVariables(res.Raw)
+		if err != nil {
+			return trace.Wrap(err)
+		}
+		builder.env = env.GetKeyValues()
+		configmap := opsservice.NewEnvironmentConfigMap(env.GetKeyValues())
+		kubernetesResources = append(kubernetesResources, configmap)
+		// Strip the runtime environment resource as it is handled implicitly
+		gravityResources = append(gravityResources[:i], gravityResources[i+1:]...)
+		break
 	}
-	return false
+	builder.gravityResources = gravityResources
+	kubernetesResources = append(kubernetesResources, runtimeResources...)
+	if len(kubernetesResources) != 0 {
+		var buf bytes.Buffer
+		err = resources.NewResource(kubernetesResources...).Encode(&buf)
+		if err != nil {
+			return trace.Wrap(err)
+		}
+		builder.resources = buf.Bytes()
+	}
+	return nil
 }

@@ -18,7 +18,6 @@ package update
 
 import (
 	"context"
-	"time"
 
 	"github.com/gravitational/gravity/lib/constants"
 	"github.com/gravitational/gravity/lib/defaults"
@@ -26,9 +25,7 @@ import (
 	"github.com/gravitational/gravity/lib/kubernetes"
 	"github.com/gravitational/gravity/lib/loc"
 	"github.com/gravitational/gravity/lib/storage"
-	"github.com/gravitational/gravity/lib/utils"
 
-	"github.com/cenkalti/backoff"
 	"github.com/gravitational/rigging"
 	"github.com/gravitational/trace"
 	log "github.com/sirupsen/logrus"
@@ -36,7 +33,6 @@ import (
 	rbacv1 "k8s.io/api/rbac/v1"
 	rbacv1beta1 "k8s.io/api/rbac/v1beta1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/labels"
 	kubeapi "k8s.io/client-go/kubernetes"
 	corev1 "k8s.io/client-go/kubernetes/typed/core/v1"
 )
@@ -59,14 +55,14 @@ func NewPhaseTaint(c FSMConfig, plan storage.OperationPlan, phase storage.Operat
 
 // Execute adds a taint on the specified node.
 func (p *phaseTaint) Execute(ctx context.Context) error {
-	p.Infof("Taint %v.", formatServer(p.Server))
+	p.Infof("Taint %v.", p.Server)
 	err := taint(ctx, p.Client.CoreV1().Nodes(), p.Server.KubeNodeID(), addTaint(true))
 	return trace.Wrap(err)
 }
 
 // Rollback removes the taint from the node
 func (p *phaseTaint) Rollback(ctx context.Context) error {
-	p.Infof("Remove taint from %v.", formatServer(p.Server))
+	p.Infof("Remove taint from %v.", p.Server)
 	err := taint(ctx, p.Client.CoreV1().Nodes(), p.Server.KubeNodeID(), addTaint(false))
 	if err != nil && !trace.IsNotFound(err) {
 		return trace.Wrap(err)
@@ -92,7 +88,7 @@ func NewPhaseUntaint(c FSMConfig, plan storage.OperationPlan, phase storage.Oper
 
 // Execute removes a taint from the specified node.
 func (p *phaseUntaint) Execute(ctx context.Context) error {
-	p.Infof("Remove taint from %v.", formatServer(p.Server))
+	p.Infof("Remove taint from %v.", p.Server)
 	err := taint(ctx, p.Client.CoreV1().Nodes(), p.Server.KubeNodeID(), addTaint(false))
 	return trace.Wrap(err)
 }
@@ -120,7 +116,7 @@ func NewPhaseDrain(c FSMConfig, plan storage.OperationPlan, phase storage.Operat
 
 // Execute drains the specified node
 func (p *phaseDrain) Execute(ctx context.Context) error {
-	p.Infof("Drain %v.", formatServer(p.Server))
+	p.Infof("Drain %v.", p.Server)
 	ctx, cancel := context.WithTimeout(ctx, defaults.DrainTimeout)
 	defer cancel()
 	err := retry(ctx, func() error {
@@ -131,7 +127,7 @@ func (p *phaseDrain) Execute(ctx context.Context) error {
 
 // Rollback reverts the effect of drain by uncordoning the node
 func (p *phaseDrain) Rollback(ctx context.Context) error {
-	p.Infof("Uncordon %v.", formatServer(p.Server))
+	p.Infof("Uncordon %v.", p.Server)
 	err := uncordon(ctx, p.Client.CoreV1().Nodes(), p.Server.KubeNodeID())
 	return trace.Wrap(err)
 }
@@ -156,7 +152,7 @@ func NewPhaseKubeletPermissions(c FSMConfig, plan storage.OperationPlan, phase s
 
 // Execute adds additional permissions for kubelet
 func (p *phaseKubeletPermissions) Execute(context.Context) error {
-	p.Infof("Update kubelet perrmissiong on %v.", formatServer(p.Server))
+	p.Infof("Update kubelet perrmissiong on %v.", p.Server)
 	err := updateKubeletPermissions(p.Client)
 	return trace.Wrap(err)
 }
@@ -185,7 +181,7 @@ func NewPhaseUncordon(c FSMConfig, plan storage.OperationPlan, phase storage.Ope
 // Execute uncordons the specified node.
 // This will block until DNS/cluster controller endpoints are populated
 func (p *phaseUncordon) Execute(ctx context.Context) error {
-	p.Infof("Uncordon %v.", formatServer(p.Server))
+	p.Infof("Uncordon %v.", p.Server)
 	err := uncordon(ctx, p.Client.CoreV1().Nodes(), p.Server.KubeNodeID())
 	return trace.Wrap(err)
 }
@@ -214,8 +210,8 @@ func NewPhaseEndpoints(c FSMConfig, plan storage.OperationPlan, phase storage.Op
 
 // Execute waits for endpoints
 func (p *phaseEndpoints) Execute(ctx context.Context) error {
-	p.Infof("Wait for endpoints on %v.", formatServer(p.Server))
-	err := waitForEndpoints(ctx, p.Client.CoreV1(), p.Server)
+	p.Infof("Wait for endpoints on %v.", p.Server)
+	err := WaitForEndpoints(ctx, p.Client.CoreV1(), p.Server.KubeNodeID())
 	return trace.Wrap(err)
 }
 
@@ -387,71 +383,5 @@ func supportsTaints(gravityPackage loc.Locator) (supports bool, err error) {
 	}
 	return defaults.BaseTaintsVersion.Compare(*ver) <= 0, nil
 }
-
-func waitForEndpoints(ctx context.Context, client corev1.CoreV1Interface, server storage.Server) error {
-	node := server.KubeNodeID()
-	clusterLabels := labels.Set{"app": defaults.GravityClusterLabel}
-	kubednsLegacyLabels := labels.Set{"k8s-app": "kube-dns"}
-	kubednsLabels := labels.Set{"k8s-app": defaults.KubeDNSLabel}
-	matchesNode := matchesNode(node)
-	err := retry(ctx, func() error {
-		if (hasEndpoints(client, clusterLabels, existingEndpoint) == nil) &&
-			(hasEndpoints(client, kubednsLabels, matchesNode) == nil ||
-				hasEndpoints(client, kubednsLegacyLabels, matchesNode) == nil) {
-			return nil
-		}
-		return trace.NotFound("endpoints not ready")
-	}, defaults.EndpointsWaitTimeout)
-	return trace.Wrap(err)
-}
-
-func hasEndpoints(client corev1.CoreV1Interface, labels labels.Set, fn endpointMatchFn) error {
-	list, err := client.Endpoints(metav1.NamespaceSystem).List(
-		metav1.ListOptions{
-			LabelSelector: labels.String(),
-		},
-	)
-	if err != nil {
-		log.Warnf("failed to query endpoints: %v", err)
-		return trace.Wrap(err, "failed to query endpoints")
-	}
-	for _, endpoint := range list.Items {
-		for _, subset := range endpoint.Subsets {
-			for _, addr := range subset.Addresses {
-				log.Debugf("trying %v", addr)
-				if fn(addr) {
-					return nil
-				}
-			}
-		}
-	}
-	log.Warnf("no active endpoints found for query %q", labels)
-	return trace.NotFound("no active endpoints found for query %q", labels)
-}
-
-// matchesNode is a predicate that matches an endpoint address to the specified
-// node name
-func matchesNode(node string) endpointMatchFn {
-	return func(addr v1.EndpointAddress) bool {
-		// Abort if the node name is not populated.
-		// There is no need to wait for endpoints we cannot
-		// match to a node.
-		return addr.NodeName == nil || *addr.NodeName == node
-	}
-}
-
-// existingEndpoint is a trivial predicate that matches for any endpoint.
-func existingEndpoint(v1.EndpointAddress) bool {
-	return true
-}
-
-func retry(ctx context.Context, fn func() error, timeout time.Duration) error {
-	b := backoff.NewExponentialBackOff()
-	b.MaxElapsedTime = timeout
-	return trace.Wrap(utils.RetryWithInterval(ctx, b, fn))
-}
-
-// endpointMatchFn matches an endpoint address using custom criteria.
-type endpointMatchFn func(addr v1.EndpointAddress) bool
 
 type addTaint bool

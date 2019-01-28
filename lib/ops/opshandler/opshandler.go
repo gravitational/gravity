@@ -234,6 +234,10 @@ func NewWebHandler(cfg WebHandlerConfig) (*WebHandler, error) {
 	h.PUT("/portal/v1/accounts/:account_id/sites/:site_domain/monitoring/alert-targets", h.needsAuth(h.updateAlertTarget))
 	h.DELETE("/portal/v1/accounts/:account_id/sites/:site_domain/monitoring/alert-targets", h.needsAuth(h.deleteAlertTarget))
 
+	// environment variables
+	h.GET("/portal/v1/accounts/:account_id/sites/:site_domain/envars", h.needsAuth(h.getEnvironmentVariables))
+	h.POST("/portal/v1/accounts/:account_id/sites/:site_domain/operations/envars", h.needsAuth(h.createUpdateEnvarsOperation))
+
 	// validation
 	h.POST("/portal/v1/accounts/:account_id/sites/:site_domain/validation/remoteaccess", h.needsAuth(h.validateRemoteAccess))
 
@@ -1453,7 +1457,13 @@ func (h *WebHandler) getOperationPlan(w http.ResponseWriter, r *http.Request, p 
    Success response: {"status": "ok", "message": "packages configured"}
 */
 func (h *WebHandler) configurePackages(w http.ResponseWriter, r *http.Request, p httprouter.Params, context *HandlerContext) error {
-	err := context.Operator.ConfigurePackages(siteOperationKey(p))
+	d := json.NewDecoder(r.Body)
+	var req ops.ConfigurePackagesRequest
+	if err := d.Decode(&req); err != nil {
+		return trace.BadParameter(err.Error())
+	}
+	req.SiteOperationKey = siteOperationKey(p)
+	err := context.Operator.ConfigurePackages(req)
 	if err != nil {
 		return trace.Wrap(err)
 	}

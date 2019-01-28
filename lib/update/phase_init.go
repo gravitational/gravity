@@ -321,7 +321,7 @@ func (p *updatePhaseInit) createAdminAgent() error {
 }
 
 func (p *updatePhaseInit) rotateSecrets(server storage.Server) error {
-	p.Infof("Generate new secrets configuration package for %v.", formatServer(server))
+	p.Infof("Generate new secrets configuration package for %v.", server)
 	resp, err := p.Operator.RotateSecrets(ops.RotateSecretsRequest{
 		AccountID:   p.Operation.AccountID,
 		ClusterName: p.Operation.SiteDomain,
@@ -334,18 +334,19 @@ func (p *updatePhaseInit) rotateSecrets(server storage.Server) error {
 	if err != nil {
 		return trace.Wrap(err)
 	}
-	p.Debugf("Rotated secrets package for %v: %v.", formatServer(server), resp.Locator)
+	p.Debugf("Rotated secrets package for %v: %v.", server, resp.Locator)
 	return nil
 }
 
 func (p *updatePhaseInit) rotatePlanetConfig(server storage.Server, runtimePackage loc.Locator) error {
-	p.Infof("Generate new runtime configuration package for %v.", formatServer(server))
+	p.Infof("Generate new runtime configuration package for %v.", server)
 	resp, err := p.Operator.RotatePlanetConfig(ops.RotatePlanetConfigRequest{
 		AccountID:   p.Operation.AccountID,
 		ClusterName: p.Operation.SiteDomain,
 		OperationID: p.Operation.ID,
 		Server:      server,
-		Servers:     p.Servers,
+		Manifest:    p.app.Manifest,
+		Package:     runtimePackage,
 	})
 	if err != nil {
 		return trace.Wrap(err)
@@ -356,7 +357,7 @@ func (p *updatePhaseInit) rotatePlanetConfig(server storage.Server, runtimePacka
 	if err != nil {
 		return trace.Wrap(err)
 	}
-	p.Debugf("Rotated runtime configuration package for %v: %v.", server, resp.Locator)
+	p.Infof("Generated new runtime configuration package for %v: %v.", server, resp.Locator)
 	return nil
 }
 

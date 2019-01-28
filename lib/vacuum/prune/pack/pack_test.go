@@ -362,7 +362,7 @@ func (*S) TestDoesnotPrunePackagesFromRemoteClusters(c *C) {
 	)
 	allPackages = append(allPackages, remoteDependencies...)
 
-	apps := []Application{*remote}
+	apps := []storage.Application{*remote}
 
 	// exercise
 	p, err := New(Config{
@@ -431,7 +431,7 @@ func (*S) TestDoesnotPruneUnrelatedPackages(c *C) {
 	c.Assert(byLocator(allPackages), compare.SortedSliceEquals, byLocator(expected))
 }
 
-func newApp(app, runtimeApp, runtimePackage packageEnvelope, dependencies ...packageEnvelope) (*Application, []packageEnvelope) {
+func newApp(app, runtimeApp, runtimePackage packageEnvelope, dependencies ...packageEnvelope) (*storage.Application, []packageEnvelope) {
 	m := schema.Manifest{
 		Header: schema.Header{
 			TypeMeta: metav1.TypeMeta{
@@ -461,7 +461,7 @@ func newApp(app, runtimeApp, runtimePackage packageEnvelope, dependencies ...pac
 			m.Dependencies.Apps = append(m.Dependencies.Apps, schema.Dependency{Locator: dep.Locator})
 		}
 	}
-	return &Application{
+	return &storage.Application{
 		Locator:  app.Locator,
 		Manifest: m,
 	}, append(dependencies, app, runtimeApp, runtimePackage)

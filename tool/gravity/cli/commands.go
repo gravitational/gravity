@@ -66,10 +66,22 @@ type Application struct {
 	LeaveCmd LeaveCmd
 	// RemoveCmd removes the specified node from the cluster
 	RemoveCmd RemoveCmd
-	// PlanCmd displays current operation plan
+	// PlanCmd manages an operation plan
 	PlanCmd PlanCmd
-	// RollbackCmd rolls back the specified operation plan phase
-	RollbackCmd RollbackCmd
+	// PlanInitCmd creates a new update operation plan
+	PlanInitCmd PlanInitCmd
+	// PlanSyncCmd synchronizes operation plan between local and cluster backends
+	PlanSyncCmd PlanSyncCmd
+	// PlanDisplayCmd displays plan of an operation
+	PlanDisplayCmd PlanDisplayCmd
+	// PlanExecuteCmd executes a phase of an active operation
+	PlanExecuteCmd PlanExecuteCmd
+	// PlanRollbackCmd rolls back a phase of an active operation
+	PlanRollbackCmd PlanRollbackCmd
+	// PlanResumeCmd resumes active operation
+	PlanResumeCmd PlanResumeCmd
+	// PlanCompleteCmd completes the operation plan
+	PlanCompleteCmd PlanCompleteCmd
 	// UpdateCmd combines app update related commands
 	UpdateCmd UpdateCmd
 	// UpdateCheckCmd checks if a new app version is available
@@ -397,8 +409,6 @@ type JoinCmd struct {
 	Resume *bool
 	// Force forces phase execution
 	Force *bool
-	// Complete marks join operation complete
-	Complete *bool
 	// OperationID is the ID of the operation created via UI
 	OperationID *string
 }
@@ -438,17 +448,66 @@ type RemoveCmd struct {
 	Confirm *bool
 }
 
-// PlanCmd displays operation plan
+// PlanCmd manages an operation plan
 type PlanCmd struct {
 	*kingpin.CmdClause
-	// Init initializes the plan
-	Init *bool
-	// Sync the operation plan from etcd to local
-	Sync *bool
-	// Output is output format
-	Output *constants.Format
 	// OperationID is optional ID of operation to show the plan for
 	OperationID *string
+	// SkipVersionCheck suppresses version mismatch errors
+	SkipVersionCheck *bool
+}
+
+// PlanInitCmd creates a new update operation plan
+type PlanInitCmd struct {
+	*kingpin.CmdClause
+}
+
+// PlanSyncCmd synchronizes operation plan between local and cluster backends
+type PlanSyncCmd struct {
+	*kingpin.CmdClause
+}
+
+// PlanDisplayCmd displays plan of a specific operation
+type PlanDisplayCmd struct {
+	*kingpin.CmdClause
+	// Output is output format
+	Output *constants.Format
+}
+
+// PlanExecuteCmd executes a phase of an active operation
+type PlanExecuteCmd struct {
+	*kingpin.CmdClause
+	// Phase is the phase to execute
+	Phase *string
+	// Force forces execution of the given phase
+	Force *bool
+	// PhaseTimeout is the execution timeout
+	PhaseTimeout *time.Duration
+}
+
+// PlanRollbackCmd rolls back a phase of an active operation
+type PlanRollbackCmd struct {
+	*kingpin.CmdClause
+	// Phase is the phase to rollback
+	Phase *string
+	// Force forces rollback of the phase given in Phase
+	Force *bool
+	// PhaseTimeout is the rollback timeout
+	PhaseTimeout *time.Duration
+}
+
+// PlanResumeCmd resumes active operation
+type PlanResumeCmd struct {
+	*kingpin.CmdClause
+	// Force forces rollback of the phase given in Phase
+	Force *bool
+	// PhaseTimeout is the rollback timeout
+	PhaseTimeout *time.Duration
+}
+
+// PlanCompleteCmd completes the operation plan
+type PlanCompleteCmd struct {
+	*kingpin.CmdClause
 }
 
 // InstallPlanCmd combines subcommands for install plan
@@ -473,19 +532,6 @@ type UpgradePlanDisplayCmd struct {
 	*kingpin.CmdClause
 	// Output is output format
 	Output *constants.Format
-}
-
-// RollbackCmd rolls back the specified operation plan phase
-type RollbackCmd struct {
-	*kingpin.CmdClause
-	// Phase is the phase to rollback
-	Phase *string
-	// PhaseTimeout is the rollback timeout
-	PhaseTimeout *time.Duration
-	// Force forces rollback
-	Force *bool
-	// SkipVersionCheck suppresses version mismatch errors
-	SkipVersionCheck *bool
 }
 
 // UpdateCmd combines update related subcommands
@@ -549,8 +595,6 @@ type UpgradeCmd struct {
 	Timeout *time.Duration
 	// Force forces phase execution
 	Force *bool
-	// Complete marks upgrade as complete
-	Complete *bool
 	// Resume resumes failed upgrade
 	Resume *bool
 	// SkipVersionCheck suppresses version mismatch errors
@@ -1439,6 +1483,12 @@ type ResourceCreateCmd struct {
 	Upsert *bool
 	// User is resource owner
 	User *string
+	// Manual controls whether an operation is created in manual mode.
+	// If resource is managed with the help of a cluster operation,
+	// setting this to true will not cause the operation to start automatically
+	Manual *bool
+	// Confirmed suppresses confirmation prompt
+	Confirmed *bool
 }
 
 // ResourceRemoveCmd removes specified resource
@@ -1452,6 +1502,12 @@ type ResourceRemoveCmd struct {
 	Force *bool
 	// User is resource owner
 	User *string
+	// Manual controls whether an operation is created in manual mode.
+	// If resource is managed with the help of a cluster operation,
+	// setting this to true will not cause the operation to start automatically
+	Manual *bool
+	// Confirmed suppresses confirmation prompt
+	Confirmed *bool
 }
 
 // ResourceGetCmd shows specified resource

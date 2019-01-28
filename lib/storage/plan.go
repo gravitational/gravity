@@ -20,6 +20,7 @@ import (
 	"time"
 
 	"github.com/gravitational/gravity/lib/loc"
+	"github.com/gravitational/gravity/lib/schema"
 	"github.com/gravitational/gravity/lib/utils"
 
 	"github.com/gravitational/trace"
@@ -111,8 +112,6 @@ type OperationPhaseData struct {
 	ElectionChange *ElectionChange `json:"election_status,omitempty" yaml:"election_status,omitempty"`
 	// Agent is the credentials of the agent that should be logged in
 	Agent *LoginEntry `json:"agent,omitempty" yaml:"agent,omitempty"`
-	// Resources is the Kubernetes resources to create
-	Resources []byte `json:"resources,omitempty" yaml:"resources,omitempty"`
 	// License is the cluster license
 	License []byte `json:"license,omitempty" yaml:"license,omitempty"`
 	// TrustedCluster is the resource data for a trusted cluster representing an Ops Center
@@ -122,6 +121,10 @@ type OperationPhaseData struct {
 	ServiceUser *OSUser `json:"service_user,omitempty" yaml:"service_user,omitempty"`
 	// Data is arbitrary text data to provide to a phase executor
 	Data string `json:"data,omitempty" yaml:"data,omitempty"`
+	// GarbageCollect specifies configuration specific to garbage collect operation
+	GarbageCollect *GarbageCollectOperationData `json:"garbage_collect,omitempty" yaml:"garbage_collect,omitempty"`
+	// Install specifies configuration specific to install operation
+	Install *InstallOperationData `json:"install,omitempty" yaml:"install,omitempty"`
 }
 
 // ElectionChange describes changes to make to cluster elections
@@ -130,6 +133,30 @@ type ElectionChange struct {
 	EnableServers []Server `json:"enable_server,omitempty" yaml:"enable_server,omitempty"`
 	// DisableServers is a list of servers that we should disable elections on
 	DisableServers []Server `json:"disable_servers,omitempty" yaml:"disable_servers,omitempty"`
+}
+
+// GarbageCollectOperationData describes configuration for the garbage collect operation
+type GarbageCollectOperationData struct {
+	// RemoteApps lists remote applications known to cluster
+	RemoteApps []Application `json:"remote_apps,omitempty" yaml:"remote_apps,omitempty"`
+}
+
+// InstallOperationData describes configuration for the install operation
+type InstallOperationData struct {
+	// Env specifies optional cluster environment variables to add
+	Env map[string]string `json:"env,omitempty"`
+	// Resources specifies optional Kubernetes resources to create
+	Resources []byte `json:"resources,omitempty" yaml:"resources,omitempty"`
+	// GravityResourcesResources specifies optional Gravity resources to create upon successful installation
+	GravityResources []UnknownResource `json:"gravity_resources,omitempty" yaml:"gravity_resources,omitempty"`
+}
+
+// Application describes an application for the package cleaner
+type Application struct {
+	// Locator references the application package
+	loc.Locator
+	// Manifest is the application's manifest
+	schema.Manifest
 }
 
 // PlanChange represents a single operation plan state change

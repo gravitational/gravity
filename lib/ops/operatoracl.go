@@ -494,6 +494,14 @@ func (o *OperatorACL) CreateClusterGarbageCollectOperation(req CreateClusterGarb
 	return o.operator.CreateClusterGarbageCollectOperation(req)
 }
 
+// CreateUpdateEnvarsOperation creates a new operation to update cluster environment variables
+func (o *OperatorACL) CreateUpdateEnvarsOperation(req CreateUpdateEnvarsOperationRequest) (*SiteOperationKey, error) {
+	if err := o.ClusterAction(req.ClusterKey.SiteDomain, storage.KindCluster, teleservices.VerbUpdate); err != nil {
+		return nil, trace.Wrap(err)
+	}
+	return o.operator.CreateUpdateEnvarsOperation(req)
+}
+
 func (o *OperatorACL) GetSiteOperationLogs(key SiteOperationKey) (io.ReadCloser, error) {
 	if err := o.ClusterAction(key.SiteDomain, storage.KindCluster, teleservices.VerbRead); err != nil {
 		return nil, trace.Wrap(err)
@@ -631,11 +639,11 @@ func (o *OperatorACL) GetOperationPlan(key SiteOperationKey) (*storage.Operation
 }
 
 // Configure packages configures packages for the specified operation
-func (o *OperatorACL) ConfigurePackages(key SiteOperationKey) error {
-	if err := o.ClusterAction(key.SiteDomain, storage.KindCluster, teleservices.VerbUpdate); err != nil {
+func (o *OperatorACL) ConfigurePackages(req ConfigurePackagesRequest) error {
+	if err := o.ClusterAction(req.SiteDomain, storage.KindCluster, teleservices.VerbUpdate); err != nil {
 		return trace.Wrap(err)
 	}
-	return o.operator.ConfigurePackages(key)
+	return o.operator.ConfigurePackages(req)
 }
 
 func (o *OperatorACL) RotateSecrets(req RotateSecretsRequest) (*RotatePackageResponse, error) {
@@ -766,6 +774,14 @@ func (o *OperatorACL) DeleteAlertTarget(key SiteKey) error {
 		return trace.Wrap(err)
 	}
 	return o.operator.DeleteAlertTarget(key)
+}
+
+// GetClusterEnvironmentVariables retrieves the cluster runtime environment variables
+func (o *OperatorACL) GetClusterEnvironmentVariables(key SiteKey) (storage.EnvironmentVariables, error) {
+	if err := o.ClusterAction(key.SiteDomain, storage.KindRuntimeEnvironment, teleservices.VerbList); err != nil {
+		return nil, trace.Wrap(err)
+	}
+	return o.operator.GetClusterEnvironmentVariables(key)
 }
 
 func (o *OperatorACL) GetApplicationEndpoints(key SiteKey) ([]Endpoint, error) {

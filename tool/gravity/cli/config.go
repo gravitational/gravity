@@ -291,9 +291,12 @@ func (i *InstallConfig) ToInstallerConfig(env *localenv.LocalEnvironment) (*inst
 	if err != nil {
 		return nil, trace.Wrap(err)
 	}
-	resources, err := i.GetResources()
-	if err != nil && !trace.IsNotFound(err) {
-		return nil, trace.Wrap(err)
+	var resources []byte
+	if i.ResourcesPath != "" {
+		resources, err = i.GetResources()
+		if err != nil {
+			return nil, trace.Wrap(err, "failed to load resources file")
+		}
 	}
 	appPackage, err := i.GetAppPackage()
 	if err != nil {
@@ -305,40 +308,41 @@ func (i *InstallConfig) ToInstallerConfig(env *localenv.LocalEnvironment) (*inst
 	}
 	ctx, cancel := context.WithCancel(context.Background())
 	return &install.Config{
-		Context:       ctx,
-		Cancel:        cancel,
-		EventsC:       make(chan install.Event, 100),
-		AdvertiseAddr: advertiseAddr,
-		Resources:     resources,
-		AppPackage:    appPackage,
-		LocalPackages: env.Packages,
-		LocalApps:     env.Apps,
-		LocalBackend:  env.Backend,
-		Silent:        env.Silent,
-		SiteDomain:    i.SiteDomain,
-		StateDir:      i.ReadStateDir,
-		WriteStateDir: i.WriteStateDir,
-		UserLogFile:   i.UserLogFile,
-		SystemLogFile: i.SystemLogFile,
-		Token:         i.InstallToken,
-		CloudProvider: i.CloudProvider,
-		Flavor:        i.Flavor,
-		Role:          i.Role,
-		SystemDevice:  i.SystemDevice,
-		DockerDevice:  i.DockerDevice,
-		Mounts:        i.Mounts,
-		DNSOverrides:  *dnsOverrides,
-		DNSConfig:     i.DNSConfig,
-		Mode:          i.Mode,
-		PodCIDR:       i.PodCIDR,
-		ServiceCIDR:   i.ServiceCIDR,
-		VxlanPort:     i.VxlanPort,
-		Docker:        i.Docker,
-		Insecure:      i.Insecure,
-		Manual:        i.Manual,
-		ServiceUser:   i.ServiceUser,
-		GCENodeTags:   i.NodeTags,
-		NewProcess:    i.NewProcess,
+		Context:            ctx,
+		Cancel:             cancel,
+		EventsC:            make(chan install.Event, 100),
+		AdvertiseAddr:      advertiseAddr,
+		Resources:          resources,
+		AppPackage:         appPackage,
+		LocalPackages:      env.Packages,
+		LocalApps:          env.Apps,
+		LocalBackend:       env.Backend,
+		Silent:             env.Silent,
+		SiteDomain:         i.SiteDomain,
+		StateDir:           i.ReadStateDir,
+		WriteStateDir:      i.WriteStateDir,
+		UserLogFile:        i.UserLogFile,
+		SystemLogFile:      i.SystemLogFile,
+		Token:              i.InstallToken,
+		CloudProvider:      i.CloudProvider,
+		Flavor:             i.Flavor,
+		Role:               i.Role,
+		SystemDevice:       i.SystemDevice,
+		DockerDevice:       i.DockerDevice,
+		Mounts:             i.Mounts,
+		DNSOverrides:       *dnsOverrides,
+		DNSConfig:          i.DNSConfig,
+		Mode:               i.Mode,
+		PodCIDR:            i.PodCIDR,
+		ServiceCIDR:        i.ServiceCIDR,
+		VxlanPort:          i.VxlanPort,
+		Docker:             i.Docker,
+		Insecure:           i.Insecure,
+		Manual:             i.Manual,
+		ServiceUser:        i.ServiceUser,
+		GCENodeTags:        i.NodeTags,
+		NewProcess:         i.NewProcess,
+		LocalClusterClient: env.SiteOperator,
 	}, nil
 }
 
