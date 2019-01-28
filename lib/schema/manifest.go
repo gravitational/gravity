@@ -186,7 +186,7 @@ func dockerConfigWithDefaults(config *Docker) Docker {
 	}
 	docker := *config
 	if docker.StorageDriver == "" {
-		docker.StorageDriver = constants.DockerStorageDriverDevicemapper
+		docker.StorageDriver = constants.DockerStorageDriverOverlay2
 	}
 	if docker.Capacity == 0 {
 		docker.Capacity = defaultDockerCapacity
@@ -1051,7 +1051,7 @@ var (
 	defaultDockerCapacity = utils.MustParseCapacity(defaults.DockerDeviceCapacity)
 	// defaultDocker is the default docker settings
 	defaultDocker = Docker{
-		StorageDriver: constants.DockerStorageDriverDevicemapper,
+		StorageDriver: constants.DockerStorageDriverOverlay2,
 		Capacity:      defaultDockerCapacity,
 	}
 
