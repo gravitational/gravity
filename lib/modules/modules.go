@@ -50,6 +50,12 @@ type Modules interface {
 	TeleRepository() string
 }
 
+// Messager provides methods for various informational messages
+type Messager interface {
+	// PostInstallMessage returns a message that gets printed to console after successful installation
+	PostInstallMessage() string
+}
+
 // Set sets the modules interface
 func Set(m Modules) {
 	mutex.Lock()
@@ -123,6 +129,14 @@ func (m *defaultModules) Version() Version {
 // TeleRepository returns the default repository for tele package cache
 func (m *defaultModules) TeleRepository() string {
 	return fmt.Sprintf("s3://%v", defaults.HubBucket)
+}
+
+// PostInstallMessage returns message that gets printed to console after
+// successful installation.
+func (m *defaultModules) PostInstallMessage() string {
+	return `Congratulations!
+The cluster is up and running. Please take a look at "cluster management" section:
+https://gravitational.com/gravity/docs/cluster/`
 }
 
 // Version represents gravity version
