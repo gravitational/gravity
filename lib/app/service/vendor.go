@@ -707,7 +707,7 @@ func resourceFromChart(path string) (*resources.Resource, error) {
 		return nil, trace.Wrap(err)
 	}
 	log.WithField("path", path).Debug(string(out))
-	return resources.Decode(bytes.NewReader(out), resources.SkipUnrecognized())
+	return resources.Decode(bytes.NewReader(out))
 }
 
 // resourcesFromPath collects resource files in root for further processing.

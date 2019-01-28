@@ -98,7 +98,7 @@ func renderResourceTemplate(path string, serviceUser systeminfo.User) error {
 		os.Remove(tmp.Name())
 	}()
 
-	res, err := Decode(in, SkipUnrecognized())
+	res, err := Decode(in)
 	if err != nil {
 		return trace.Wrap(err)
 	}
