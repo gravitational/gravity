@@ -839,7 +839,7 @@ installer:
 By default, Gravity cluster installs with a number of system applications
 that provide logging, monitoring and application catalog functionality. You
 may want to disable any of these components, for example if you prefer to
-replace them with your own preferred solution. To do that, define the following
+replace them with a solution of your choice. To do that, define the following
 section in your application manifest:
 
 ```yaml
