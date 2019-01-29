@@ -91,6 +91,10 @@ ignored = [
   name = "k8s.io/apiextensions-apiserver"
   version = "kubernetes-1.12.1"
 
+[[override]]
+  name = "k8s.io/kube-aggregator"
+  branch = "release-1.12"
+
 [[constraint]]
   name = "github.com/gravitational/rigging"
   version = "=5.3.0"

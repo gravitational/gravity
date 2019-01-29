@@ -1849,6 +1849,18 @@
   revision = "1638f8970cefaa404ff3a62950f88b08292b2696"
   version = "v9.0.0"
 
+[[projects]]
+  branch = "release-1.12"
+  digest = "1:737f4eb42d866102fa7de1d633d390936a6d7cce0d573d6ab2a25a8076d47c38"
+  name = "k8s.io/kube-aggregator"
+  packages = [
+    "pkg/apis/apiregistration",
+    "pkg/apis/apiregistration/v1",
+    "pkg/apis/apiregistration/v1beta1",
+  ]
+  pruneopts = "UT"
+  revision = "599783d2af7259d1825fc6cb39e57df496ed6454"
+
 [solve-meta]
   analyzer-name = "dep"
   analyzer-version = 1
@@ -2023,6 +2035,8 @@
     "k8s.io/client-go/rest",
     "k8s.io/client-go/tools/clientcmd",
     "k8s.io/client-go/tools/clientcmd/api",
+    "k8s.io/kube-aggregator/pkg/apis/apiregistration/v1",
+    "k8s.io/kube-aggregator/pkg/apis/apiregistration/v1beta1",
   ]
   solver-name = "gps-cdcl"
   solver-version = 1
