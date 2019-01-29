@@ -51,47 +51,6 @@ subjects:
   name: gravity-site
 ---
 apiVersion: rbac.authorization.k8s.io/v1
-kind: Role
-metadata:
-  name: gravity-site
-  namespace: monitoring
-rules:
-- apiGroups:
-  - ""
-  resources:
-  - secrets
-  verbs:
-  - get
-- apiGroups:
-  - ""
-  resources:
-  - configmaps
-  verbs:
-  - get
-  - list
-- apiGroups:
-  - ""
-  resources:
-  - services
-  verbs:
-  - get
-  - list
----
-apiVersion: rbac.authorization.k8s.io/v1
-kind: RoleBinding
-metadata:
-  name: gravity-site
-  namespace: monitoring
-roleRef:
-  apiGroup: rbac.authorization.k8s.io
-  kind: Role
-  name: gravity-site
-subjects:
-- kind: ServiceAccount
-  name: gravity-site
-  namespace: kube-system
----
-apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRole
 metadata:
   name: gravity-site

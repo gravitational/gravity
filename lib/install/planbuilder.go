@@ -612,16 +612,8 @@ func splitServers(servers []storage.Server, app app.Application) (masters []stor
 // skipDependency returns true if the dependency package specified by dep
 // should be skipped when installing the provided application
 func (b *PlanBuilder) skipDependency(dep loc.Locator) bool {
-	// rbac-app is installed separately
 	if dep.Name == constants.BootstrapConfigPackage {
-		return true
+		return true // rbac-app is installed separately
 	}
-	// do not install bandwagon unless the app uses it in its post-install
-	if dep.Name == defaults.BandwagonPackageName {
-		setup := b.Application.Manifest.SetupEndpoint()
-		if setup == nil || setup.ServiceName != defaults.BandwagonServiceName {
-			return true
-		}
-	}
-	return false
+	return schema.ShouldSkipApp(b.Application.Manifest, dep)
 }

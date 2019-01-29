@@ -1016,6 +1016,8 @@ type Extensions struct {
 	Kubernetes *KubernetesExtension `json:"kubernetes,omitempty"`
 	// Configuration allows to customize configuration feature
 	Configuration *ConfigurationExtension `json:"configuration,omitempty"`
+	// Catalog allows to customize application catalog feature
+	Catalog *CatalogExtension `json:"catalog,omitempty"`
 }
 
 // EncryptionExtension describes installer encryption extension
@@ -1035,6 +1037,12 @@ type LogsExtension struct {
 // Monitoring allows to customize monitoring feature
 type MonitoringExtension struct {
 	// Disabled allows to disable Monitoring tab
+	Disabled bool `json:"disabled,omitempty"`
+}
+
+// CatalogExtension allows to customize application catalog feature
+type CatalogExtension struct {
+	// Disabled disables application catalog and tiller
 	Disabled bool `json:"disabled,omitempty"`
 }
 
@@ -1080,3 +1088,35 @@ var (
 	// devicePermsRegex is a regular expression used to validate device permissions
 	devicePermsRegex = regexp.MustCompile("^[rwm]+$")
 )
+
+// ShouldSkipApp returns true if the specified application should not be
+// installed in the cluster described by the provided manifest.
+func ShouldSkipApp(manifest Manifest, app loc.Locator) bool {
+	switch app.Name {
+	case defaults.BandwagonPackageName:
+		// do not install bandwagon unless the app uses it in its post-install
+		setup := manifest.SetupEndpoint()
+		if setup == nil || setup.ServiceName != defaults.BandwagonServiceName {
+			return true
+		}
+	case defaults.LoggingAppName:
+		// do not install logging-app if logs feature is disabled
+		ext := manifest.Extensions
+		if ext != nil && ext.Logs != nil && ext.Logs.Disabled {
+			return true
+		}
+	case defaults.MonitoringAppName:
+		// do not install monitoring-app if logs feature is disabled
+		ext := manifest.Extensions
+		if ext != nil && ext.Monitoring != nil && ext.Monitoring.Disabled {
+			return true
+		}
+	case defaults.TillerAppName:
+		// do not install tiller-app if catalog feature is disabled
+		ext := manifest.Extensions
+		if ext != nil && ext.Catalog != nil && ext.Catalog.Disabled {
+			return true
+		}
+	}
+	return false
+}
