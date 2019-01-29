@@ -1034,6 +1034,13 @@ var (
 	// BandwagonServiceName is the name of the default setup endpoint service
 	BandwagonServiceName = "bandwagon"
 
+	// LoggingAppName is the name of the logging application
+	LoggingAppName = "logging-app"
+	// MonitoringAppName is the name of the monitoring application
+	MonitoringAppName = "monitoring-app"
+	// TillerAppName is the name of the tiller application
+	TillerAppName = "tiller-app"
+
 	// KubeletArgs is a list of default command line options for kubelet
 	KubeletArgs = []string{
 		`--eviction-hard="nodefs.available<5%,imagefs.available<5%,nodefs.inodesFree<5%,imagefs.inodesFree<5%"`,

@@ -17,7 +17,10 @@ if [ $1 = "update" ]; then
     echo "Creating or updating configmap"
     rig configmap gravity-site --resource-namespace=kube-system --from-file=/var/lib/gravity/resources/config
     if [ -n "$MANUAL_UPDATE" ]; then
-      rig upsert -f /var/lib/gravity/resources/site.yaml --debug
+        rig upsert -f /var/lib/gravity/resources/site.yaml --debug
+        if kubectl get namespaces/monitoring > /dev/null 2>&1; then
+            rig upsert -f /var/lib/gravity/resources/monitoring.yaml --debug
+        fi
     fi
 
     # Check to see if the Ops Center ConfigMap has already been created.
