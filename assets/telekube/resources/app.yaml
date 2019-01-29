@@ -5,9 +5,9 @@ metadata:
   resourceVersion: "0.0.0"
 logo: file://logo.svg
 endpoints:
-  - name: "Telekube Control Panel"
+  - name: "Gravity Control Panel"
     description: |
-      Local administrative user interface of this Telekube cluster
+      Local administrative user interface of this Gravity cluster
     selector:
       app: gravity-site
     protocol: https
@@ -65,7 +65,7 @@ installer:
             count: 6
 nodeProfiles:
   - name: node
-    description: "Telekube Auto Node"
+    description: "Gravity Auto Node"
     requirements:
       cpu:
         min: 1
@@ -99,7 +99,7 @@ nodeProfiles:
           - c3.4xlarge
           - i2.2xlarge
   - name: knode
-    description: "Telekube Node"
+    description: "Gravity Node"
     labels:
       node-role.kubernetes.io/node: "true"
     requirements:
@@ -137,7 +137,10 @@ nodeProfiles:
           - c3.4xlarge
           - i2.2xlarge
   - name: master
-    description: "Telekube Master"
+    description: "Gravity Master"
+    taints:
+      - key: node-role.kubernetes.io/master
+        effect: NoSchedule
     labels:
       node-role.kubernetes.io/master: "true"
     requirements:
