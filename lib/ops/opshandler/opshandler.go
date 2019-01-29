@@ -266,6 +266,10 @@ func NewWebHandler(cfg WebHandlerConfig) (*WebHandler, error) {
 	h.POST("/portal/v1/accounts/:account_id/sites/:site_domain/authentication/preference", h.needsAuth(h.upsertClusterAuthPreference))
 	h.GET("/portal/v1/accounts/:account_id/sites/:site_domain/authentication/preference", h.needsAuth(h.getClusterAuthPreference))
 
+	// auth gateway settings
+	h.POST("/portal/v1/accounts/:account_id/sites/:site_domain/authgateway", h.needsAuth(h.upsertAuthGateway))
+	h.GET("/portal/v1/accounts/:account_id/sites/:site_domain/authgateway", h.needsAuth(h.getAuthGateway))
+
 	return h, nil
 }
 

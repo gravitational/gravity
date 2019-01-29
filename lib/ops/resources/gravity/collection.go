@@ -512,3 +512,65 @@ func (c alertTargetCollection) Resources() (resources []teleservices.UnknownReso
 }
 
 type alertTargetCollection []storage.AlertTarget
+
+type authGatewayCollection struct {
+	item storage.AuthGateway
+}
+
+// Resources returns the resources collection in the generic format
+func (c *authGatewayCollection) Resources() (resources []teleservices.UnknownResource, err error) {
+	resource, err := utils.ToUnknownResource(c.item)
+	if err != nil {
+		return nil, trace.Wrap(err)
+	}
+	resources = append(resources, *resource)
+	return resources, nil
+}
+
+// WriteText serializes auth gateway config in human-friendly text format
+func (c *authGatewayCollection) WriteText(w io.Writer) error {
+	t := goterm.NewTable(0, 10, 5, ' ', 0)
+	common.PrintTableHeader(t, []string{"Parameter", "Value"})
+	fmt.Fprintf(t, "Max Connections:\t%v\n", c.item.GetMaxConnections())
+	fmt.Fprintf(t, "Max Users:\t%v\n", c.item.GetMaxUsers())
+	if c.item.GetClientIdleTimeout() != nil {
+		fmt.Fprintf(t, "Client Idle Timeout:\t%v\n", c.item.GetClientIdleTimeout().Value())
+	} else {
+		fmt.Fprintf(t, "Client Idle Timeout:\tnever\n")
+	}
+	if c.item.GetDisconnectExpiredCert() != nil {
+		fmt.Fprintf(t, "Disconnect Expired Cert:\t%v\n", c.item.GetDisconnectExpiredCert().Value())
+	} else {
+		fmt.Fprintf(t, "Disconnect Expired Cert:\tno\n")
+	}
+	if ap := c.item.GetAuthPreference(); ap != nil {
+		fmt.Fprintf(t, "Authentication:\ttype: %v, second factor: %v\n", ap.GetType(), ap.GetSecondFactor())
+	}
+	fmt.Fprintf(t, "SSH Public Addrs:\t%v\n", formatList(c.item.GetSSHPublicAddrs()))
+	fmt.Fprintf(t, "Kubernetes Public Addrs:\t%v\n", formatList(c.item.GetKubernetesPublicAddrs()))
+	fmt.Fprintf(t, "Web Public Addrs:\t%v\n", formatList(c.item.GetWebPublicAddrs()))
+	_, err := io.WriteString(w, t.String())
+	return trace.Wrap(err)
+}
+
+func formatList(list []string) string {
+	if len(list) == 0 {
+		return "-"
+	}
+	return strings.Join(list, ", ")
+}
+
+// WriteJSON serializes collection into JSON format
+func (c *authGatewayCollection) WriteJSON(w io.Writer) error {
+	return utils.WriteJSON(c, w)
+}
+
+// WriteYAML serializes collection into YAML format
+func (c *authGatewayCollection) WriteYAML(w io.Writer) error {
+	return utils.WriteYAML(c, w)
+}
+
+// ToMarshal returns object that should be marshaled.
+func (c *authGatewayCollection) ToMarshal() interface{} {
+	return c.item
+}

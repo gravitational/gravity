@@ -54,6 +54,8 @@ const (
 	KindSystemInfo = "systeminfo"
 	// KindEndpoints defines the Ops Center endpoints resource type
 	KindEndpoints = "endpoints"
+	// KindAuthGateway defines the auth gateway resource type
+	KindAuthGateway = "authgateway"
 )
 
 // SupportedGravityResources is a list of resources supported by
@@ -68,6 +70,7 @@ var SupportedGravityResources = []string{
 	KindAlert,
 	KindAlertTarget,
 	KindTLSKeyPair,
+	KindAuthGateway,
 }
 
 // SupportedGravityResourcesToRemove is a list of resources supported by
@@ -82,3 +85,25 @@ var SupportedGravityResourcesToRemove = []string{
 	KindAlertTarget,
 	KindTLSKeyPair,
 }
+
+// MetadataSchema is a copy of teleport/lib/services.MetadataSchema but with
+// optional 'name' property because some Gravity resources do not require it
+const MetadataSchema = `{
+  "type": "object",
+  "additionalProperties": false,
+  "default": {},
+  "properties": {
+    "name": {"type": "string"},
+    "namespace": {"type": "string", "default": "default"},
+    "description": {"type": "string"},
+    "expires": {"type": "string"},
+    "id": {"type": "integer"},
+    "labels": {
+      "type": "object",
+      "additionalProperties": false,
+      "patternProperties": {
+         "^[a-zA-Z/.0-9_*-]+$":  {"type": "string"}
+      }
+    }
+  }
+}`

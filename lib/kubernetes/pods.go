@@ -17,9 +17,14 @@ limitations under the License.
 package kubernetes
 
 import (
+	"os"
+
+	"github.com/gravitational/gravity/lib/constants"
 	"github.com/gravitational/gravity/lib/utils"
 
 	"github.com/gravitational/rigging"
+	"github.com/gravitational/trace"
+	"github.com/sirupsen/logrus"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes"
 )
@@ -30,4 +35,20 @@ func DeletePods(client *kubernetes.Clientset, namespace string, selector map[str
 		nil, metav1.ListOptions{
 			LabelSelector: utils.MakeSelector(selector).String(),
 		}))
+}
+
+// DeleteSelf deletes the pod this process is running as a part of.
+func DeleteSelf(client *kubernetes.Clientset, log logrus.FieldLogger) error {
+	// We expect these environment variables to be set in the container.
+	selfName := os.Getenv(constants.EnvPodName)
+	if selfName == "" {
+		return trace.NotFound("env var %v is not set", constants.EnvPodName)
+	}
+	selfNamespace := os.Getenv(constants.EnvPodNamespace)
+	if selfNamespace == "" {
+		return trace.NotFound("env var %v is not set", constants.EnvPodNamespace)
+	}
+	log.Infof("Deleting pod %v/%v.", selfNamespace, selfName)
+	return rigging.ConvertError(client.Core().Pods(selfNamespace).Delete(
+		selfName, nil))
 }

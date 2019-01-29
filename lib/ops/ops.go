@@ -1725,4 +1725,8 @@ type Identity interface {
 	GetGithubConnectors(key SiteKey, withSecrets bool) ([]teleservices.GithubConnector, error)
 	// DeleteGithubConnector deletes a Github connector by name
 	DeleteGithubConnector(key SiteKey, name string) error
+	// UpsertAuthGateway updates auth gateway configuration
+	UpsertAuthGateway(SiteKey, storage.AuthGateway) error
+	// GetAuthGateway returns auth gateway configuration
+	GetAuthGateway(SiteKey) (storage.AuthGateway, error)
 }

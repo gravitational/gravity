@@ -316,6 +316,10 @@ const (
 	// certificate is updated
 	ClusterCertificateUpdatedEvent = "ClusterCertificateUpdated"
 
+	// AuthGatewayConfigUpdatedEvent is broadcasted when config map with
+	// auth gateway configuration gets updated.
+	AuthGatewayConfigUpdatedEvent = "AuthGatewayConfigUpdated"
+
 	// MaxInteractiveSessionTTL is a max time for an interactive session
 	MaxInteractiveSessionTTL = 20 * time.Hour
 
@@ -339,6 +343,10 @@ const (
 
 	// EnvPodIP is environment variable that contains pod IP address
 	EnvPodIP = "POD_IP"
+	// EnvPodName is environment variable with the pod name
+	EnvPodName = "POD_NAME"
+	// EnvPodNamespace is environment variable with the pod namespace
+	EnvPodNamespace = "POD_NAMESPACE"
 
 	// EnvCloudProvider sets cloud provider name
 	EnvCloudProvider = "CLOUD_PROVIDER"
@@ -534,6 +542,9 @@ const (
 
 	// ResourceSpecKey specifies the name of the key with raw resource specification
 	ResourceSpecKey = "spec"
+
+	// AuthGatewayConfigMaps is the name of config map with auth gateway configuration.
+	AuthGatewayConfigMap = "auth-gateway"
 
 	// LVMSystemDir specifies the default location where lvm2 keeps state and configuration data
 	LVMSystemDir = "/etc/lvm"

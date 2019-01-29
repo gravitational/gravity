@@ -822,3 +822,13 @@ func (r *Router) DeleteGithubConnector(key ops.SiteKey, name string) error {
 	}
 	return client.DeleteGithubConnector(key, name)
 }
+
+// UpsertAuthGateway updates auth gateway configuration.
+func (r *Router) UpsertAuthGateway(key ops.SiteKey, gw storage.AuthGateway) error {
+	return r.Local.UpsertAuthGateway(key, gw)
+}
+
+// GetAuthGateway returns auth gateway configuration.
+func (r *Router) GetAuthGateway(key ops.SiteKey) (storage.AuthGateway, error) {
+	return r.Local.GetAuthGateway(key)
+}

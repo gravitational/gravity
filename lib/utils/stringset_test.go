@@ -44,3 +44,9 @@ func (s *StringSetSuite) TestEverything(c *check.C) {
 	set.AddSlice([]string{"bad", "santa"})
 	c.Assert(set.Slice(), check.DeepEquals, []string{"1", "2", "3", "bad", "one", "santa"})
 }
+
+func (s *StringSetSuite) TestDiff(c *check.C) {
+	set1 := NewStringSetFromSlice([]string{"1", "2", "3"})
+	set2 := NewStringSetFromSlice([]string{"2", "3", "4"})
+	c.Assert(set1.Diff(set2).Slice(), check.DeepEquals, []string{"1", "4"})
+}

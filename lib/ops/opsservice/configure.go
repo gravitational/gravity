@@ -1011,7 +1011,6 @@ type planetConfig struct {
 // for the provided server.
 func (s *site) getPrincipals(node *ProvisionedServer) []string {
 	principals := []string{
-		s.domainName,
 		node.AdvertiseIP,
 		node.Hostname,
 	}
