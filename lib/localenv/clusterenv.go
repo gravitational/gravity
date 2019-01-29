@@ -139,6 +139,7 @@ func newClusterEnvironment(args clusterEnvironmentArgs) (*ClusterEnvironment, er
 	if err != nil {
 		return nil, trace.Wrap(err)
 	}
+	operator.SetKubeClient(args.client)
 
 	clusterPackages, err := ClusterPackages()
 	if err != nil {

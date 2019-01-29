@@ -47,6 +47,7 @@ import (
 	rpcserver "github.com/gravitational/gravity/lib/rpc/server"
 	"github.com/gravitational/gravity/lib/schema"
 	"github.com/gravitational/gravity/lib/state"
+	"github.com/gravitational/gravity/lib/status"
 	"github.com/gravitational/gravity/lib/storage"
 	"github.com/gravitational/gravity/lib/systeminfo"
 	"github.com/gravitational/gravity/lib/utils"
@@ -106,7 +107,10 @@ type Installer struct {
 	Cluster *ops.Site
 	// engine allows to customize installer behavior
 	engine Engine
+	// flavor stores the selected install flavor
 	flavor *schema.Flavor
+	// agentReport stores the last agent report
+	agentReport *ops.AgentReport
 }
 
 // SetFlavor sets the flavor that will be installed
@@ -428,21 +432,23 @@ func (i *Installer) Wait() error {
 				if progress.State == ops.ProgressStateCompleted {
 					i.PrintStep(color.GreenString("Installation succeeded in %v",
 						i.timeSinceBeginning(i.OperationKey)))
+					i.printEndpoints()
+					i.printPostInstallMessage()
 					if i.Mode == constants.InstallModeInteractive {
-						i.printf("---\nInstaller process will keep running so the installation can be finished by\n" +
-							"completing necessary post install actions in the installer UI if the installed\n" +
-							"application requires it. Once no longer needed, this process can be shutdown\n" +
-							"using Ctrl-C.\n")
+						i.printf("\nInstaller process will keep running so the installation can be finished by\n" +
+							"completing necessary post-install actions in the installer UI if the installed\n" +
+							"application requires it.\n")
+						i.printf(color.YellowString("\nOnce no longer needed, press Ctrl-C to shutdown this process.\n"))
 						return wait(i.Context, i.Cancel, i.Process)
 					}
 					return nil
 				} else {
 					i.PrintStep(color.RedString("Installation failed in %v, "+
-						"check %v for details", i.timeSinceBeginning(i.OperationKey), i.UserLogFile))
-					i.printf("---\nInstaller process will keep running so you can inspect the operation plan using\n" +
+						"check %v and %v for details", i.timeSinceBeginning(i.OperationKey), i.UserLogFile, i.SystemLogFile))
+					i.printf("\nInstaller process will keep running so you can inspect the operation plan using\n" +
 						"`gravity plan` command, see what failed and continue plan execution manually\n" +
-						"using `gravity install --phase=<phase-id>` command after fixing the problem.\n" +
-						"Once no longer needed, this process can be shutdown using Ctrl-C.\n")
+						"using `gravity install --phase=<phase-id>` command after fixing the problem.\n")
+					i.printf(color.YellowString("\nOnce no longer needed, press Ctrl-C to shutdown this process.\n"))
 					return wait(i.Context, i.Cancel, i.Process)
 				}
 			}
@@ -457,6 +463,41 @@ func (i *Installer) PrintStep(format string, args ...interface{}) {
 
 func (i *Installer) printf(format string, args ...interface{}) {
 	i.Silent.Printf(format, args...)
+}
+
+func (i *Installer) printPostInstallMessage() {
+	if m, ok := modules.Get().(modules.Messager); ok {
+		i.printf("\n%v\n", m.PostInstallMessage())
+	}
+}
+
+func (i *Installer) printEndpoints() {
+	status, err := i.getClusterStatus()
+	if err != nil {
+		i.Errorf("Failed to collect cluster status: %v.", trace.DebugReport(err))
+		return
+	}
+	i.printf("\n")
+	status.Cluster.Endpoints.Cluster.WriteTo(i.Silent)
+	i.printf("\n")
+	status.Cluster.Endpoints.Applications.WriteTo(i.Silent)
+}
+
+// getClusterStatus collects status of the installer cluster.
+func (i *Installer) getClusterStatus() (*status.Status, error) {
+	clusterOperator, err := localenv.ClusterOperator()
+	if err != nil {
+		return nil, trace.Wrap(err)
+	}
+	cluster, err := clusterOperator.GetLocalSite()
+	if err != nil {
+		return nil, trace.Wrap(err)
+	}
+	status, err := status.FromCluster(i.Context, clusterOperator, *cluster, "")
+	if err != nil {
+		return nil, trace.Wrap(err)
+	}
+	return status, nil
 }
 
 // timeSinceBeginning returns formatted operation duration

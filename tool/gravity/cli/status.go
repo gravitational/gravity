@@ -50,6 +50,8 @@ func status(env *localenv.LocalEnvironment, printOptions printOptions) error {
 	if err == nil {
 		err = printStatus(operator, clusterStatus{*status, nil}, printOptions)
 		return trace.Wrap(err)
+	} else {
+		log.Errorf(trace.DebugReport(err))
 	}
 
 	if printOptions.operationID != "" {
@@ -266,7 +268,7 @@ func printStatusText(cluster clusterStatus) {
 		if cluster.Cluster != nil {
 			domain = cluster.Cluster.Domain
 		}
-		fmt.Fprintf(w, "Cluster:\t%v\n", unknownFallback(domain))
+		fmt.Fprintf(w, "Cluster nodes:\t%v\n", unknownFallback(domain))
 		printAgentStatus(*cluster.Agent, w)
 	}
 
@@ -298,6 +300,7 @@ func printClusterStatus(cluster statusapi.Cluster, w io.Writer) {
 		fmt.Fprintf(w, "Last completed operation:\n")
 		printOperation(cluster.Operation, w)
 	}
+	cluster.Endpoints.Cluster.WriteTo(w)
 }
 
 func printOperation(operation *statusapi.ClusterOperation, w io.Writer) {

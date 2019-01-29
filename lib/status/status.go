@@ -20,6 +20,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"io"
 	"net/url"
 	"time"
 
@@ -59,6 +60,28 @@ func FromCluster(ctx context.Context, operator ops.Operator, cluster ops.Site, o
 	}
 	if token != nil {
 		status.Token = *token
+	}
+
+	// Collect application endpoints.
+	endpoints, err := operator.GetApplicationEndpoints(cluster.Key())
+	if err != nil {
+		return status, trace.Wrap(err)
+	}
+	// Right now only 1 application is supported, in the future there
+	// will be many applications each with its own endpoints.
+	status.Endpoints.Applications = append(status.Endpoints.Applications,
+		ApplicationEndpoints{
+			Application: cluster.App.Package,
+			Endpoints:   endpoints,
+		})
+
+	// For cluster endpoints, they point to gravity-site service on master nodes.
+	masters := cluster.ClusterState.Servers.Masters()
+	for _, master := range masters {
+		status.Endpoints.Cluster.AuthGateway = append(status.Endpoints.Cluster.AuthGateway,
+			fmt.Sprintf("%v:%v", master.AdvertiseIP, defaults.GravitySiteNodePort))
+		status.Endpoints.Cluster.UI = append(status.Endpoints.Cluster.UI,
+			fmt.Sprintf("https://%v:%v", master.AdvertiseIP, defaults.GravitySiteNodePort))
 	}
 
 	// FIXME: have status extension accept the operator/environment
@@ -150,8 +173,82 @@ type Cluster struct {
 	Operation *ClusterOperation `json:"operation,omitempty"`
 	// ActiveOperations is a list of operations currently active in the cluster
 	ActiveOperations []*ClusterOperation `json:"active_operations,omitempty"`
+	// Endpoints contains cluster and application endpoints.
+	Endpoints Endpoints `json:"endpoints"`
 	// Extension is a cluster status extension
 	Extension `json:",inline,omitempty"`
+}
+
+// Endpoints contains information about cluster and application endpoints.
+type Endpoints struct {
+	// Applications contains endpoints for installed applications.
+	Applications ApplicationsEndpoints `json:"applications,omitempty"`
+	// Cluster contains system cluster endpoints.
+	Cluster ClusterEndpoints `json:"cluster"`
+}
+
+// ClusterEndpoints describes cluster system endpoints.
+type ClusterEndpoints struct {
+	// AuthGateway contains addresses that users should specify via --proxy
+	// flag to tsh commands (essentially, address of gravity-site service)
+	AuthGateway []string `json:"auth_gateway"`
+	// UI contains URLs of the cluster control panel.
+	UI []string `json:"ui"`
+}
+
+// WriteTo writes cluster endpoints to the provided writer.
+func (e ClusterEndpoints) WriteTo(w io.Writer) (n int64, err error) {
+	var errors []error
+	errors = append(errors, fprintf(&n, w, "Cluster endpoints:\n"))
+	errors = append(errors, fprintf(&n, w, "    * Authentication gateway:\n"))
+	for _, e := range e.AuthGateway {
+		errors = append(errors, fprintf(&n, w, "        - %v\n", e))
+	}
+	errors = append(errors, fprintf(&n, w, "    * Cluster management URL:\n"))
+	for _, e := range e.UI {
+		errors = append(errors, fprintf(&n, w, "        - %v\n", e))
+	}
+	return n, trace.NewAggregate(errors...)
+}
+
+// ApplicationsEndpoints contains endpoints for multiple applications.
+type ApplicationsEndpoints []ApplicationEndpoints
+
+// ApplicationEndpoints contains endpoints for a single application.
+type ApplicationEndpoints struct {
+	// Application is the application locator.
+	Application loc.Locator `json:"application"`
+	// Endpoints is a list of application endpoints.
+	Endpoints []ops.Endpoint `json:"endpoints"`
+}
+
+// WriteTo writes all application endpoints to the provided writer.
+func (e ApplicationsEndpoints) WriteTo(w io.Writer) (n int64, err error) {
+	if len(e) == 0 {
+		return 0, nil
+	}
+	var errors []error
+	errors = append(errors, fprintf(&n, w, "Application endpoints:\n"))
+	for _, app := range e {
+		errors = append(errors, fprintf(&n, w, "    * %v:%v:\n",
+			app.Application.Name, app.Application.Version))
+		for _, ep := range app.Endpoints {
+			errors = append(errors, fprintf(&n, w, "        - %v:\n", ep.Name))
+			for _, addr := range ep.Addresses {
+				errors = append(errors, fprintf(&n, w, "            - %v\n", addr))
+			}
+		}
+	}
+	return n, trace.NewAggregate(errors...)
+}
+
+func fprintf(n *int64, w io.Writer, format string, a ...interface{}) error {
+	written, err := fmt.Fprintf(w, format, a...)
+	if err != nil {
+		return trace.ConvertSystemError(err)
+	}
+	*n += int64(written)
+	return nil
 }
 
 // Key returns key structure that identifies this operation

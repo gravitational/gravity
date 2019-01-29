@@ -17,12 +17,15 @@ limitations under the License.
 package install
 
 import (
+	"bytes"
 	"context"
 	"fmt"
 	"net"
 	"strconv"
+	"text/tabwriter"
 	"time"
 
+	"github.com/fatih/color"
 	"github.com/gravitational/gravity/lib/checks"
 	"github.com/gravitational/gravity/lib/constants"
 	"github.com/gravitational/gravity/lib/defaults"
@@ -288,7 +291,6 @@ func (i *Installer) createAdminAgent() error {
 // StartOperation inializes installation plan, instantiates the install
 // FSM engine and launches the operation (plan execution)
 func (i *Installer) StartOperation() error {
-	i.Info("Starting installation.")
 	i.sendMessage("Starting the installation")
 	if err := i.createAdminAgent(); err != nil {
 		return trace.Wrap(err, "failed to create cluster admin agent")
@@ -298,7 +300,6 @@ func (i *Installer) StartOperation() error {
 	}
 	// in the manual mode do not launch FSM
 	if i.Manual {
-		i.Info("Manual install mode, not starting automatic plan execution.")
 		i.sendMessage(`Installation was started in manual mode
 Inspect the operation plan using "gravity plan" and execute plan phases manually on respective nodes using "gravity install --phase=<phase-id>"
 After all phases have completed successfully, shutdown this installer process using Ctrl-C`)
@@ -358,6 +359,7 @@ func (i *Installer) send(e Event) {
 }
 
 func (i *Installer) sendMessage(format string, args ...interface{}) {
+	i.Infof(format, args...)
 	i.send(Event{Progress: &ops.ProgressEntry{Message: fmt.Sprintf(format, args...)}})
 }
 
@@ -365,35 +367,60 @@ func (i *Installer) PollProgress(agentDoneCh <-chan struct{}) {
 	PollProgress(i.Context, i.send, i.Operator, i.OperationKey, agentDoneCh)
 }
 
-func (i *Installer) canContinue(servers []checks.ServerInfo) bool {
-	profiles := make(map[string]int)
-	for _, node := range i.flavor.Nodes {
-		profiles[node.Profile] = node.Count
+// formatProfiles outputs a table with information about node profiles
+// that need to join in order for installation to proceed.
+func (i *Installer) formatProfiles(profiles map[string]int) string {
+	var buf bytes.Buffer
+	w := new(tabwriter.Writer)
+	w.Init(&buf, 0, 8, 1, '\t', 0)
+	fmt.Fprintf(w, "Role\tNodes\tCommand\n")
+	fmt.Fprintf(w, "----\t-----\t-------\n")
+	for role, nodes := range profiles {
+		fmt.Fprintf(w, "%v\t%v\t%v\n", role, nodes,
+			fmt.Sprintf("gravity join %v --token=%v --role=%v",
+				i.AdvertiseAddr, i.Token.Token, role))
 	}
-	for _, s := range servers {
-		counter := profiles[s.Role]
-		counter -= 1
-		profiles[s.Role] = counter
+	w.Flush()
+	return buf.String()
+}
+
+// canContinue returns true if the installation can commence based on the
+// provided agent report and false if not all agents have joined yet.
+func (i *Installer) canContinue(report *ops.AgentReport) bool {
+	// See if any new nodes have joined or left since previous agent report.
+	joined, left := report.Diff(i.agentReport)
+	for _, server := range joined {
+		i.sendMessage(color.GreenString("Successfully added %q node on %v",
+			server.Role, utils.ExtractHost(server.AdvertiseAddr)))
 	}
-	for role, counter := range profiles {
-		if counter > 0 {
-			i.send(Event{
-				Progress: &ops.ProgressEntry{
-					Message: fmt.Sprintf(
-						"Still waiting for %v nodes of role %q", counter, role),
-				},
-			})
-			log.Infof("Still waiting for %v nodes of role %q.", counter, role)
-			return false
-		}
+	for _, server := range left {
+		i.sendMessage(color.YellowString("Node %q on %v has left",
+			server.Role, utils.ExtractHost(server.AdvertiseAddr)))
 	}
-	i.send(Event{
-		Progress: &ops.ProgressEntry{
-			Message: "All agents have connected!",
-		},
-	})
-	log.Info("All agents have connected!")
-	return true
+	// Save the current agent report so we can compare against it on next iteration.
+	i.agentReport = report
+	// See if the current agent report satisfies the selected flavor.
+	needed, extra := report.MatchFlavor(i.flavor)
+	if len(needed) == 0 && len(extra) == 0 {
+		i.sendMessage(color.GreenString("All agents have connected!"))
+		return true
+	}
+	// If there were no changes compared to previous report, do not
+	// output anything.
+	if len(joined) == 0 && len(left) == 0 {
+		return false
+	}
+	// Dump the table with remaining nodes that need to join.
+	i.sendMessage(fmt.Sprintf("Please execute the following join commands on target nodes:\n%v",
+		i.formatProfiles(needed)))
+	// If there are any extra agents with roles we don't expect for
+	// the selected flavor, they need to leave.
+	for _, server := range extra {
+		i.sendMessage(color.RedString("Node %q on %v is not a part of the flavor, shut it down",
+			server.Role, utils.ExtractHost(server.AdvertiseAddr)))
+	}
+	// We can't proceed yet.
+	return false
 }
 
 func (i *Installer) waitForAgents() error {
@@ -418,7 +445,7 @@ func (i *Installer) waitForAgents() error {
 				log.Warningf("Failed to get agent report: %v.", err)
 				continue
 			}
-			if !i.canContinue(report.Servers) {
+			if !i.canContinue(report) {
 				continue
 			}
 			log.Infof("Installation can proceed! %v", report)
