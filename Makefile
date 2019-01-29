@@ -19,7 +19,7 @@ ASSETSDIR=$(TOP)/assets
 BINDIR ?= /usr/bin
 
 # Current Kubernetes version: 1.13.0
-K8S_VER := 11300
+K8S_VER := 11302
 GOLFLAGS ?= -w -s
 
 ETCD_VER := v2.3.7
