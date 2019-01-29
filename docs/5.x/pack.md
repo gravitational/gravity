@@ -834,7 +834,30 @@ installer:
 !!! Note:
 	Currently, only one setup endpoint per application is supported.
 
+## Excluding System Applications
 
+By default, Gravity cluster installs with a number of system applications
+that provide logging, monitoring and application catalog functionality. You
+may want to disable any of these components, for example if you prefer to
+replace them with a solution of your choice. To do that, define the following
+section in your application manifest:
+
+```yaml
+extensions:
+  # This setting will not install system logging application and hide Logs tab in the cluster UI
+  logs:
+    disabled: true
+  # This setting will not install system monitoring application and hide Monitoring tab in the cluster UI
+  monitoring:
+    disabled: true
+  # This setting will not install Tiller application
+  catalog:
+    disabled: true
+```
+
+!!! note:
+    Disabling the system logging component will result in inability
+    to view operation logs via cluster UI.
 
 ## Service User
 Gravity uses a special user for running system services inside the environment container called `planet`.
