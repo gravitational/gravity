@@ -597,3 +597,49 @@ nodeProfiles:
 		},
 	})
 }
+
+func (s *ManifestSuite) TestShouldSkipApp(c *C) {
+	bytes := []byte(`apiVersion: bundle.gravitational.io/v2
+kind: Bundle
+metadata:
+  name: myapp
+  resourceVersion: 0.0.1
+extensions:
+  logs:
+    disabled: true
+  monitoring:
+    disabled: true
+  catalog:
+    disabled: true`)
+	m, err := ParseManifestYAML(bytes)
+	c.Assert(err, IsNil)
+	testCases := []struct {
+		name string
+		skip bool
+	}{
+		{
+			name: defaults.LoggingAppName,
+			skip: true,
+		},
+		{
+			name: defaults.MonitoringAppName,
+			skip: true,
+		},
+		{
+			name: defaults.TillerAppName,
+			skip: true,
+		},
+		{
+			name: constants.DNSAppPackage,
+			skip: false,
+		},
+		{
+			name: defaults.BandwagonPackageName,
+			skip: true,
+		},
+	}
+	for _, tc := range testCases {
+		c.Assert(ShouldSkipApp(*m, loc.Locator{Name: tc.name}), Equals, tc.skip,
+			Commentf("Test case %v failed", tc))
+	}
+}
