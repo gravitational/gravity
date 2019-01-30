@@ -122,7 +122,7 @@ func GenerateSelfSignedCert(hostNames []string) (*TLSCredentials, error) {
 		NotAfter:              notAfter,
 		KeyUsage:              x509.KeyUsageKeyEncipherment | x509.KeyUsageDigitalSignature | x509.KeyUsageCertSign,
 		BasicConstraintsValid: true,
-		IsCA: true,
+		IsCA:                  true,
 	}
 
 	// collect IP addresses localhost resolves to and add them to the cert. template:
