@@ -874,6 +874,10 @@ func (p *Process) ReportHealth(w http.ResponseWriter, r *http.Request) {
 	go func() {
 		started := time.Now()
 		_, err := p.backend.GetAccounts()
+
+		// TODO(knisbet) This should really be reported through proper metrics collection
+		// for now we just log it. On a good system, worse case scenario is about 15ms
+		// so give some margin, but log if etcd is slightly on the slow side above 25ms.
 		elapsed := time.Now().Sub(started)
 		if elapsed > 25*time.Millisecond {
 			log.WithField("elapsed", elapsed).Error("Backend is slow.")
