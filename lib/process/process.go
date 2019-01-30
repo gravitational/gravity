@@ -870,37 +870,34 @@ func (p *Process) ReportHealth(w http.ResponseWriter, r *http.Request) {
 	ctx, cancel := context.WithTimeout(context.Background(), time.Second)
 	defer cancel()
 
-	health := make(chan bool)
+	healthCh := make(chan error, 1)
 	go func() {
 		started := time.Now()
 		_, err := p.backend.GetAccounts()
-		if err == nil {
-			health <- true
-		} else {
-			log.Error(trace.DebugReport(err))
-			health <- false
-		}
 		elapsed := time.Now().Sub(started)
 		if elapsed > 25*time.Millisecond {
 			log.WithField("elapsed", elapsed).Error("Backend is slow.")
 		}
+		healthCh <- err
 	}()
 
 	select {
-	case healthy := <-health:
-		if healthy {
-			roundtrip.ReplyJSON(w, http.StatusOK,
+	case err := <-healthCh:
+		if err != nil {
+			log.Error(trace.DebugReport(err))
+			roundtrip.ReplyJSON(w, http.StatusServiceUnavailable,
 				map[string]string{
-					"status": "ok",
-					"info":   "service is up and running",
+					"status": "degraded",
+					"info":   "backend is in error state",
 				})
 			return
 		}
-		roundtrip.ReplyJSON(w, http.StatusServiceUnavailable,
+		roundtrip.ReplyJSON(w, http.StatusOK,
 			map[string]string{
-				"status": "degraded",
-				"info":   "backend is in error state",
+				"status": "ok",
+				"info":   "service is up and running",
 			})
+
 	case <-ctx.Done():
 		roundtrip.ReplyJSON(w, http.StatusServiceUnavailable,
 			map[string]string{
