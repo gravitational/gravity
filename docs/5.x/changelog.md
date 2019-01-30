@@ -10,7 +10,7 @@ LTS starts with `3.51.0` with minor backwards compatible changes added over time
 | 5.5.0-alpha.7 | No  | January, 29th 2019   | -                    | 1.13.0             | 3.0.4            |
 | 5.4.4         | No  | January, 28th 2019   | -                    | 1.13.2             | 2.4.10           |
 | 5.3.8         | No  | January, 25th 2019   | -                    | 1.12.3             | 2.4.10           |
-| 5.2.5         | Yes | January, 8th 2019    | October, 15th, 2019  | 1.11.5             | 2.4.10           |
+| 5.2.6         | Yes | January, 30th 2019   | October, 15th, 2019  | 1.11.5             | 2.4.10           |
 | 5.0.28        | Yes | January, 7th 2019    | April, 13th 2019     | 1.9.12-gravitational | 2.4.10         |
 | 4.68.0        | Yes | January, 17th 2019   | November, 16th 2018  | 1.7.18-gravitational | 2.3.5          |
 | 3.64.0        | Yes | December, 21st 2017  | June, 2nd 2018       | 1.5.7              | 2.0.6            |
@@ -119,7 +119,13 @@ LTS starts with `3.51.0` with minor backwards compatible changes added over time
     Teleport 2.4.10 includes fixes for a security vulnerability. Please see
     [Teleport Announcements](https://gravitational.zendesk.com/hc/en-us/articles/360015185614-Teleport-3-1-2-3-0-3-2-7-7-2-6-10) for more information.
 
-### 5.2.5
+### 5.2.6 LTS
+
+#### Bugfixes
+
+* Fix an issue with cluster expansion when applying taints via app.yaml.
+
+### 5.2.5 LTS
 
 #### Bugfixes
 
@@ -193,7 +199,7 @@ LTS starts with `3.51.0` with minor backwards compatible changes added over time
     Kubernetes 1.12.3 includes fixes for CVE-2018-1002105. Please see
     [Issue 71411](https://github.com/kubernetes/kubernetes/issues/71411) for more information.
 
-### 5.2.4
+### 5.2.4 LTS
 
 #### Bugfixes
 
