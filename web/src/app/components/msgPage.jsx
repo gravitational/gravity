@@ -17,7 +17,7 @@ limitations under the License.
 import React from 'react';
 import { ErrorPageEnum } from 'app/services/enums';
 
-export const MSG_INFO_LOGIN_SUCCESS = 'Login was successful, you can close this window and continue using tsh.';
+export const MSG_INFO_LOGIN_SUCCESS = 'Login successful';
 export const MSG_ERROR_LOGIN_FAILED = 'Login unsuccessful. Please try again.';
 export const MSG_ERROR_DEFAULT = 'Internal Error';
 export const MSG_ERROR_NOT_FOUND = '404 Not Found';
@@ -56,7 +56,7 @@ const InfoPage = ({ params }) => {
     return <SuccessfulLogin/>
   }
 
-  return <Info/>
+  return <NotFound />
 }
 
 const Box = props => (
@@ -72,15 +72,22 @@ const Error = props => (
   <Box iconClass="fa fa-exclamation-triangle" {...props} />
 )
 
-const Info = props => (
-  <Box iconClass="fa fa-smile-o" {...props} />
+const SuccessfulLogin = () => (
+  <Box iconClass="fa fa-check-circle m-b-md" >
+    <h1>{MSG_INFO_LOGIN_SUCCESS}</h1>
+    <p className="m-t" style={successfulLoginStyles}>
+      You have successfully signed into your account.
+      You can close this window and continue using the product.
+    </p>
+  </Box>
 )
 
-const SuccessfulLogin = () => (
-  <Info>
-    <h1>{MSG_INFO_LOGIN_SUCCESS}</h1>
-  </Info>
-)
+const successfulLoginStyles = {
+  textAlign: "center",
+  maxWidth: "500px",
+  marginLeft: "auto",
+  marginRight: "auto",
+}
 
 const NotFound = () => (
   <Error>
