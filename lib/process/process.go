@@ -866,22 +866,49 @@ func (p *Process) ReportReadiness(w http.ResponseWriter, r *http.Request) {
 // ReportHealth is HTTP check that reports that the system is healthy
 // if it can successfully connect to the storage backend
 func (p *Process) ReportHealth(w http.ResponseWriter, r *http.Request) {
-	_, err := p.backend.GetAccounts()
-	var statusCode int
-	var info string
-	if err == nil {
-		statusCode = http.StatusOK
-		info = "service is up and running"
-	} else {
-		p.Errorf("Error: %v.", trace.DebugReport(err))
-		statusCode = http.StatusServiceUnavailable
-		info = err.Error()
+	log := p.WithField(trace.Component, "healthz")
+	ctx, cancel := context.WithTimeout(context.Background(), time.Second)
+	defer cancel()
+
+	healthCh := make(chan error, 1)
+	go func() {
+		started := time.Now()
+		_, err := p.backend.GetAccounts()
+
+		// TODO(knisbet) This should really be reported through proper metrics collection
+		// for now we just log it. On a good system, worse case scenario is about 15ms
+		// so give some margin, but log if etcd is slightly on the slow side above 25ms.
+		elapsed := time.Now().Sub(started)
+		if elapsed > 25*time.Millisecond {
+			log.WithField("elapsed", elapsed).Error("Backend is slow.")
+		}
+		healthCh <- err
+	}()
+
+	select {
+	case err := <-healthCh:
+		if err != nil {
+			log.Error(trace.DebugReport(err))
+			roundtrip.ReplyJSON(w, http.StatusServiceUnavailable,
+				map[string]string{
+					"status": "degraded",
+					"info":   "backend is in error state",
+				})
+			return
+		}
+		roundtrip.ReplyJSON(w, http.StatusOK,
+			map[string]string{
+				"status": "ok",
+				"info":   "service is up and running",
+			})
+
+	case <-ctx.Done():
+		roundtrip.ReplyJSON(w, http.StatusServiceUnavailable,
+			map[string]string{
+				"status": "degraded",
+				"info":   "backend timed out",
+			})
 	}
-	roundtrip.ReplyJSON(w, statusCode,
-		map[string]string{
-			"status": http.StatusText(statusCode),
-			"info":   info,
-		})
 }
 
 // initCertificateAuthority makes sure this OpsCenter has certficate authority and generates
@@ -1603,6 +1630,7 @@ func (p *Process) getTLSConfig() (*tls.Config, error) {
 	if err != nil {
 		return nil, trace.Wrap(err)
 	}
+
 	return config, nil
 }
 
@@ -1649,20 +1677,11 @@ func (p *Process) newTLSConfig(certPEM, keyPEM []byte) (*tls.Config, error) {
 		return &httpCert, nil
 	}
 
-	config.CipherSuites = []uint16{
-		tls.TLS_ECDHE_ECDSA_WITH_AES_128_GCM_SHA256,
-		tls.TLS_ECDHE_RSA_WITH_AES_128_GCM_SHA256,
+	config.CipherSuites = teleutils.DefaultCipherSuites()
 
-		tls.TLS_ECDHE_RSA_WITH_AES_256_CBC_SHA,
-		tls.TLS_ECDHE_RSA_WITH_AES_128_CBC_SHA,
-
-		tls.TLS_ECDHE_ECDSA_WITH_AES_256_CBC_SHA,
-		tls.TLS_ECDHE_ECDSA_WITH_AES_128_CBC_SHA,
-
-		tls.TLS_RSA_WITH_AES_256_CBC_SHA,
-		tls.TLS_RSA_WITH_AES_128_CBC_SHA,
-	}
-
+	// Prefer the server ciphers, as curl will use invalid h2 ciphers
+	// https://github.com/nghttp2/nghttp2/issues/140
+	config.PreferServerCipherSuites = true
 	config.MinVersion = tls.VersionTLS12
 	config.SessionTicketsDisabled = false
 	config.ClientSessionCache = tls.NewLRUClientSessionCache(
