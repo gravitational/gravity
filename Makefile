@@ -39,7 +39,8 @@ CURRENT_COMMIT := $(shell git rev-parse HEAD)
 VERSION_FLAGS := -X github.com/gravitational/gravity/vendor/github.com/gravitational/version.gitCommit=$(CURRENT_COMMIT) -X github.com/gravitational/gravity/vendor/github.com/gravitational/version.version=$(GRAVITY_VERSION)
 GRAVITY_LINKFLAGS = "$(VERSION_FLAGS) $(GOLFLAGS)"
 
-TELEPORT_TAG = 2.4.10
+#TELEPORT_TAG = 2.4.11
+TELEPORT_TAG = 2.4.10-2-g6a7d0f2c
 # TELEPORT_REPOTAG adapts TELEPORT_TAG to the teleport tagging scheme
 TELEPORT_REPOTAG := v$(TELEPORT_TAG)
 PLANET_TAG := 5.2.20-$(K8S_VER)
