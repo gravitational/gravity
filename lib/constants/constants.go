@@ -316,10 +316,6 @@ const (
 	// certificate is updated
 	ClusterCertificateUpdatedEvent = "ClusterCertificateUpdated"
 
-	// AuthGatewayConfigUpdatedEvent is broadcasted when config map with
-	// auth gateway configuration gets updated.
-	AuthGatewayConfigUpdatedEvent = "AuthGatewayConfigUpdated"
-
 	// MaxInteractiveSessionTTL is a max time for an interactive session
 	MaxInteractiveSessionTTL = 20 * time.Hour
 
@@ -543,7 +539,7 @@ const (
 	// ResourceSpecKey specifies the name of the key with raw resource specification
 	ResourceSpecKey = "spec"
 
-	// AuthGatewayConfigMaps is the name of config map with auth gateway configuration.
+	// AuthGatewayConfigMap is the name of config map with auth gateway configuration.
 	AuthGatewayConfigMap = "auth-gateway"
 
 	// LVMSystemDir specifies the default location where lvm2 keeps state and configuration data

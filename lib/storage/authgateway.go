@@ -56,10 +56,14 @@ type AuthGateway interface {
 	GetDisconnectExpiredCert() *teleservices.Bool
 	// SetDisconnectExpiredCert sets expired cert policy setting on the resource.
 	SetDisconnectExpiredCert(teleservices.Bool)
-	// GetAuthPreference returns authentication preference setting.
-	GetAuthPreference() teleservices.AuthPreference
-	// SetAuthPreference sets authentication preference setting.
-	SetAuthPreference(teleservices.AuthPreference)
+	// GetAuthentication returns authentication preference setting.
+	GetAuthentication() *teleservices.AuthPreferenceSpecV2
+	// SetAuthentication sets authentication preference setting on the resource.
+	SetAuthentication(teleservices.AuthPreferenceSpecV2)
+	// GetAuthPreference returns authentication preference resource.
+	GetAuthPreference() (teleservices.AuthPreference, error)
+	// SetAuthPreference sets authentication settings from the provided auth preference resource.
+	SetAuthPreference(teleservices.AuthPreference) error
 	// GetSSHPublicAddrs returns SSH public addresses.
 	GetSSHPublicAddrs() []string
 	// SetSSHPublicAddrs sets SSH public addresses on the resource.
@@ -80,17 +84,17 @@ type AuthGateway interface {
 	ApplyTo(AuthGateway)
 	// ApplyToTeleportConfig applies auth gateway settings to the provided Teleport config.
 	ApplyToTeleportConfig(*teleconfig.FileConfig)
-	// PrincipalsChanged returns true if list of principals is difference b/w two auth gateway configs.
+	// PrincipalsChanged returns true if list of principals is different b/w two auth gateway configs.
 	PrincipalsChanged(AuthGateway) bool
 	// SettingsChanged returns true is connection settings changed b/w two auth gateway configs.
 	SettingsChanged(AuthGateway) bool
 }
 
 // NewAuthGateway creates a new auth gateway resource for the provided spec.
-func NewAuthGateway(spec AuthGatewaySpecV2) AuthGateway {
-	return &AuthGatewayV2{
+func NewAuthGateway(spec AuthGatewaySpecV1) AuthGateway {
+	return &AuthGatewayV1{
 		Kind:    KindAuthGateway,
-		Version: teleservices.V2,
+		Version: teleservices.V1,
 		Metadata: teleservices.Metadata{
 			Name:      KindAuthGateway,
 			Namespace: teledefaults.Namespace,
@@ -105,7 +109,7 @@ func DefaultAuthGateway() AuthGateway {
 	maxUsers := teledefaults.LimiterMaxConcurrentUsers
 	clientIdleTimeout := teleservices.NewDuration(0)
 	disconnectExpiredCert := teleservices.NewBool(false)
-	return NewAuthGateway(AuthGatewaySpecV2{
+	return NewAuthGateway(AuthGatewaySpecV1{
 		ConnectionLimits: &ConnectionLimits{
 			MaxConnections: &maxConnections,
 			MaxUsers:       &maxUsers,
@@ -115,8 +119,8 @@ func DefaultAuthGateway() AuthGateway {
 	})
 }
 
-// AuthGatewayV2 defines the auth gateway resource.
-type AuthGatewayV2 struct {
+// AuthGatewayV1 defines the auth gateway resource.
+type AuthGatewayV1 struct {
 	// Kind is the resource kind.
 	Kind string `json:"kind"`
 	// Version is the resource version.
@@ -124,11 +128,11 @@ type AuthGatewayV2 struct {
 	// Metadata is the resource metadata.
 	Metadata teleservices.Metadata `json:"metadata"`
 	// Spec is the resource specification.
-	Spec AuthGatewaySpecV2 `json:"spec"`
+	Spec AuthGatewaySpecV1 `json:"spec"`
 }
 
-// AuthGatewaySpecV2 defines the auth gateway resource specification.
-type AuthGatewaySpecV2 struct {
+// AuthGatewaySpecV1 defines the auth gateway resource specification.
+type AuthGatewaySpecV1 struct {
 	// ConnectionLimits describes configured connection limits.
 	ConnectionLimits *ConnectionLimits `json:"connection_limits,omitempty"`
 	// ClientIdleTimeout is the idle session timeout.
@@ -155,6 +159,17 @@ type ConnectionLimits struct {
 	MaxUsers *int `json:"max_users,omitempty"`
 }
 
+// Check validates the limits settings.
+func (l ConnectionLimits) Check() error {
+	if l.MaxConnections != nil && *l.MaxConnections < 0 {
+		return trace.BadParameter("max connections can't be negative")
+	}
+	if l.MaxUsers != nil && *l.MaxUsers < 0 {
+		return trace.BadParameter("max users can't be negative")
+	}
+	return nil
+}
+
 // String returns the object's string representation.
 func (l ConnectionLimits) String() string {
 	var parts []string
@@ -173,7 +188,7 @@ func (l ConnectionLimits) String() string {
 // "Principals" are hostname parts of public addresses of different services
 // that get encoded as SAN extensions (Subject Alternative Names) into their
 // respective certificates.
-func (gw *AuthGatewayV2) PrincipalsChanged(other AuthGateway) bool {
+func (gw *AuthGatewayV1) PrincipalsChanged(other AuthGateway) bool {
 	if principalsChanged(gw.GetSSHPublicAddrs(), other.GetSSHPublicAddrs()) {
 		return true
 	}
@@ -194,23 +209,21 @@ func principalsChanged(old, new []string) bool {
 
 // SettingsChanged returns true if connection settings are different between
 // this and provided auth gateway configuration.
-func (gw *AuthGatewayV2) SettingsChanged(other AuthGateway) bool {
+func (gw *AuthGatewayV1) SettingsChanged(other AuthGateway) bool {
 	if gw.GetMaxConnections() != other.GetMaxConnections() {
 		return true
 	}
 	if gw.GetMaxUsers() != other.GetMaxUsers() {
 		return true
 	}
-	if gw.GetClientIdleTimeout() != nil && other.GetClientIdleTimeout() == nil ||
-		gw.GetClientIdleTimeout() == nil && other.GetClientIdleTimeout() != nil ||
-		gw.GetClientIdleTimeout() != nil && other.GetClientIdleTimeout() != nil &&
-			gw.GetClientIdleTimeout().Value() != other.GetClientIdleTimeout().Value() {
+	if gw.GetClientIdleTimeout() != other.GetClientIdleTimeout() &&
+		(gw.GetClientIdleTimeout() == nil || other.GetClientIdleTimeout() == nil ||
+			gw.GetClientIdleTimeout().Value() != other.GetClientIdleTimeout().Value()) {
 		return true
 	}
-	if gw.GetDisconnectExpiredCert() != nil && other.GetDisconnectExpiredCert() == nil ||
-		gw.GetDisconnectExpiredCert() == nil && other.GetDisconnectExpiredCert() != nil ||
-		gw.GetDisconnectExpiredCert() != nil && other.GetDisconnectExpiredCert() != nil &&
-			gw.GetDisconnectExpiredCert().Value() != other.GetDisconnectExpiredCert().Value() {
+	if gw.GetDisconnectExpiredCert() != other.GetDisconnectExpiredCert() &&
+		(gw.GetDisconnectExpiredCert() == nil || other.GetDisconnectExpiredCert() == nil ||
+			gw.GetDisconnectExpiredCert().Value() != other.GetDisconnectExpiredCert().Value()) {
 		return true
 	}
 	return false
@@ -219,7 +232,7 @@ func (gw *AuthGatewayV2) SettingsChanged(other AuthGateway) bool {
 // ApplyTo applies auth gateway settings to the provided other auth gateway.
 //
 // Only non-nil settings are applied.
-func (gw *AuthGatewayV2) ApplyTo(other AuthGateway) {
+func (gw *AuthGatewayV1) ApplyTo(other AuthGateway) {
 	if v := gw.GetConnectionLimits(); v != nil {
 		other.SetConnectionLimits(*v)
 	}
@@ -229,8 +242,8 @@ func (gw *AuthGatewayV2) ApplyTo(other AuthGateway) {
 	if v := gw.GetDisconnectExpiredCert(); v != nil {
 		other.SetDisconnectExpiredCert(*v)
 	}
-	if v := gw.GetAuthPreference(); v != nil {
-		other.SetAuthPreference(v)
+	if v := gw.GetAuthentication(); v != nil {
+		other.SetAuthentication(*v)
 	}
 	if gw.Spec.PublicAddr != nil {
 		other.SetSSHPublicAddrs(*gw.Spec.PublicAddr)
@@ -249,10 +262,14 @@ func (gw *AuthGatewayV2) ApplyTo(other AuthGateway) {
 }
 
 // Apply applies auth gateway settings to the provided config.
-func (gw *AuthGatewayV2) ApplyToTeleportConfig(config *teleconfig.FileConfig) {
+func (gw *AuthGatewayV1) ApplyToTeleportConfig(config *teleconfig.FileConfig) {
 	if gw.Spec.ConnectionLimits != nil {
-		config.Global.Limits.MaxConnections = *gw.Spec.ConnectionLimits.MaxConnections
-		config.Global.Limits.MaxUsers = *gw.Spec.ConnectionLimits.MaxUsers
+		if gw.Spec.ConnectionLimits.MaxConnections != nil {
+			config.Global.Limits.MaxConnections = *gw.Spec.ConnectionLimits.MaxConnections
+		}
+		if gw.Spec.ConnectionLimits.MaxUsers != nil {
+			config.Global.Limits.MaxUsers = *gw.Spec.ConnectionLimits.MaxUsers
+		}
 	}
 	if gw.Spec.ClientIdleTimeout != nil {
 		config.Auth.ClientIdleTimeout = *gw.Spec.ClientIdleTimeout
@@ -286,7 +303,7 @@ func (gw *AuthGatewayV2) ApplyToTeleportConfig(config *teleconfig.FileConfig) {
 }
 
 // GetMaxConnections returns max connections setting.
-func (gw *AuthGatewayV2) GetMaxConnections() int64 {
+func (gw *AuthGatewayV1) GetMaxConnections() int64 {
 	if gw.Spec.ConnectionLimits != nil {
 		if gw.Spec.ConnectionLimits.MaxConnections != nil {
 			return *gw.Spec.ConnectionLimits.MaxConnections
@@ -296,7 +313,7 @@ func (gw *AuthGatewayV2) GetMaxConnections() int64 {
 }
 
 // GetMaxUsers returns max users setting.
-func (gw *AuthGatewayV2) GetMaxUsers() int {
+func (gw *AuthGatewayV1) GetMaxUsers() int {
 	if gw.Spec.ConnectionLimits != nil {
 		if gw.Spec.ConnectionLimits.MaxUsers != nil {
 			return *gw.Spec.ConnectionLimits.MaxUsers
@@ -306,12 +323,12 @@ func (gw *AuthGatewayV2) GetMaxUsers() int {
 }
 
 // GetConnectionLimits returns connection limit settings.
-func (gw *AuthGatewayV2) GetConnectionLimits() *ConnectionLimits {
+func (gw *AuthGatewayV1) GetConnectionLimits() *ConnectionLimits {
 	return gw.Spec.ConnectionLimits
 }
 
 // SetConnectionLimits sets connection limits settings on the resource.
-func (gw *AuthGatewayV2) SetConnectionLimits(value ConnectionLimits) {
+func (gw *AuthGatewayV1) SetConnectionLimits(value ConnectionLimits) {
 	if gw.Spec.ConnectionLimits == nil {
 		gw.Spec.ConnectionLimits = &ConnectionLimits{}
 	}
@@ -324,49 +341,61 @@ func (gw *AuthGatewayV2) SetConnectionLimits(value ConnectionLimits) {
 }
 
 // GetClientIdleTimeout returns the client idle timeout setting.
-func (gw *AuthGatewayV2) GetClientIdleTimeout() *teleservices.Duration {
+func (gw *AuthGatewayV1) GetClientIdleTimeout() *teleservices.Duration {
 	return gw.Spec.ClientIdleTimeout
 }
 
 // SetClientIdleTimeout sets the client idle timeout setting on the resource.
-func (gw *AuthGatewayV2) SetClientIdleTimeout(value teleservices.Duration) {
+func (gw *AuthGatewayV1) SetClientIdleTimeout(value teleservices.Duration) {
 	gw.Spec.ClientIdleTimeout = &value
 }
 
 // GetDisconnectExpiredCert returns the expired certificate policy setting.
-func (gw *AuthGatewayV2) GetDisconnectExpiredCert() *teleservices.Bool {
+func (gw *AuthGatewayV1) GetDisconnectExpiredCert() *teleservices.Bool {
 	return gw.Spec.DisconnectExpiredCert
 }
 
 // SetDisconnectExpiredCert sets the expired certificate policy setting on the resource.
-func (gw *AuthGatewayV2) SetDisconnectExpiredCert(value teleservices.Bool) {
+func (gw *AuthGatewayV1) SetDisconnectExpiredCert(value teleservices.Bool) {
 	gw.Spec.DisconnectExpiredCert = &value
 }
 
-// GetAuthPreference returns the authentication preference settings.
-func (gw *AuthGatewayV2) GetAuthPreference() teleservices.AuthPreference {
-	if gw.Spec.Authentication != nil {
-		// It never returns an error.
-		authPreference, _ := teleservices.NewAuthPreference(*gw.Spec.Authentication)
-		return authPreference
-	}
-	return nil
+// GetAuthentication returns authentication preference setting.
+func (gw *AuthGatewayV1) GetAuthentication() *teleservices.AuthPreferenceSpecV2 {
+	return gw.Spec.Authentication
 }
 
-// SetAuthPreference sets the authentication preference settings on the resource.
-func (gw *AuthGatewayV2) SetAuthPreference(authPreference teleservices.AuthPreference) {
-	// It only returns trace.NotFound() error.
-	u2f, _ := authPreference.GetU2F()
+// SetAuthentication sets authentication preference setting on the resource.
+func (gw *AuthGatewayV1) SetAuthentication(value teleservices.AuthPreferenceSpecV2) {
+	gw.Spec.Authentication = &value
+}
+
+// GetAuthPreference returns authentication preference resource.
+func (gw *AuthGatewayV1) GetAuthPreference() (teleservices.AuthPreference, error) {
+	if gw.Spec.Authentication != nil {
+		return teleservices.NewAuthPreference(*gw.Spec.Authentication)
+	}
+	return nil, trace.NotFound("no authentication preferences set")
+}
+
+// SetAuthPreference sets the authentication settings from the provided auth
+// preference resource.
+func (gw *AuthGatewayV1) SetAuthPreference(authPreference teleservices.AuthPreference) error {
+	u2f, err := authPreference.GetU2F()
+	if err != nil && !trace.IsNotFound(err) {
+		return trace.Wrap(err)
+	}
 	gw.Spec.Authentication = &teleservices.AuthPreferenceSpecV2{
 		Type:          authPreference.GetType(),
 		SecondFactor:  authPreference.GetSecondFactor(),
 		ConnectorName: authPreference.GetConnectorName(),
 		U2F:           u2f,
 	}
+	return nil
 }
 
 // GetPublicAddrs returns public addresses for all services.
-func (gw *AuthGatewayV2) GetPublicAddrs() []string {
+func (gw *AuthGatewayV1) GetPublicAddrs() []string {
 	if gw.Spec.SSHPublicAddr != nil {
 		return *gw.Spec.SSHPublicAddr
 	}
@@ -374,12 +403,12 @@ func (gw *AuthGatewayV2) GetPublicAddrs() []string {
 }
 
 // SetPublicAddrs sets public addresses for all services.
-func (gw *AuthGatewayV2) SetPublicAddrs(value []string) {
+func (gw *AuthGatewayV1) SetPublicAddrs(value []string) {
 	gw.Spec.PublicAddr = &value
 }
 
 // GetSSHPublicAddrs returns public addresses for proxy SSH service.
-func (gw *AuthGatewayV2) GetSSHPublicAddrs() []string {
+func (gw *AuthGatewayV1) GetSSHPublicAddrs() []string {
 	if gw.Spec.SSHPublicAddr != nil {
 		return *gw.Spec.SSHPublicAddr
 	}
@@ -390,12 +419,12 @@ func (gw *AuthGatewayV2) GetSSHPublicAddrs() []string {
 }
 
 // SetSSHPublicAddrs sets proxy SSH service public addresses.
-func (gw *AuthGatewayV2) SetSSHPublicAddrs(value []string) {
+func (gw *AuthGatewayV1) SetSSHPublicAddrs(value []string) {
 	gw.Spec.SSHPublicAddr = &value
 }
 
 // GetKubernetesPublicAddrs returns public addresses for Kubernetes proxy service.
-func (gw *AuthGatewayV2) GetKubernetesPublicAddrs() []string {
+func (gw *AuthGatewayV1) GetKubernetesPublicAddrs() []string {
 	if gw.Spec.KubernetesPublicAddr != nil {
 		return *gw.Spec.KubernetesPublicAddr
 	}
@@ -406,12 +435,12 @@ func (gw *AuthGatewayV2) GetKubernetesPublicAddrs() []string {
 }
 
 // SetKubernetesPublicAddrs sets Kubernetes proxy service public addresses.
-func (gw *AuthGatewayV2) SetKubernetesPublicAddrs(value []string) {
+func (gw *AuthGatewayV1) SetKubernetesPublicAddrs(value []string) {
 	gw.Spec.KubernetesPublicAddr = &value
 }
 
 // GetWebPublicAddrs returns proxy web service public addresses.
-func (gw *AuthGatewayV2) GetWebPublicAddrs() (addrs []string) {
+func (gw *AuthGatewayV1) GetWebPublicAddrs() (addrs []string) {
 	if gw.Spec.WebPublicAddr != nil {
 		return *gw.Spec.WebPublicAddr
 	}
@@ -422,12 +451,12 @@ func (gw *AuthGatewayV2) GetWebPublicAddrs() (addrs []string) {
 }
 
 // SetWebPublicAddrs sets proxy web service public addresses.
-func (gw *AuthGatewayV2) SetWebPublicAddrs(value []string) {
+func (gw *AuthGatewayV1) SetWebPublicAddrs(value []string) {
 	gw.Spec.WebPublicAddr = &value
 }
 
 // CheckAndSetDefaults validates the resource and fills in some defaults.
-func (gw *AuthGatewayV2) CheckAndSetDefaults() error {
+func (gw *AuthGatewayV1) CheckAndSetDefaults() error {
 	if gw.Metadata.Name == "" {
 		gw.Metadata.Name = KindAuthGateway
 	}
@@ -435,67 +464,115 @@ func (gw *AuthGatewayV2) CheckAndSetDefaults() error {
 	if err != nil {
 		return trace.Wrap(err)
 	}
+	if gw.Spec.ConnectionLimits != nil {
+		err := gw.Spec.ConnectionLimits.Check()
+		if err != nil {
+			return trace.Wrap(err)
+		}
+	}
+	if gw.Spec.Authentication != nil {
+		auth, err := gw.GetAuthPreference()
+		if err != nil && !trace.IsNotFound(err) {
+			return trace.Wrap(err)
+		}
+		if auth != nil {
+			err := auth.CheckAndSetDefaults()
+			if err != nil {
+				return trace.Wrap(err)
+			}
+		}
+	}
+	var addresses []string
+	if gw.Spec.PublicAddr != nil {
+		addresses = append(addresses, *gw.Spec.PublicAddr...)
+	}
+	if gw.Spec.SSHPublicAddr != nil {
+		addresses = append(addresses, *gw.Spec.SSHPublicAddr...)
+	}
+	if gw.Spec.KubernetesPublicAddr != nil {
+		addresses = append(addresses, *gw.Spec.KubernetesPublicAddr...)
+	}
+	if gw.Spec.WebPublicAddr != nil {
+		addresses = append(addresses, *gw.Spec.WebPublicAddr...)
+	}
+	err = checkAddrs(addresses)
+	if err != nil {
+		return trace.Wrap(err)
+	}
 	return nil
 }
 
+// checkAddrs validates provided network addresses slice.
+func checkAddrs(addrs []string) error {
+	_, err := teleutils.Strings(addrs).Addrs(0)
+	return trace.Wrap(err)
+}
+
 // GetName returns the resource name.
-func (gw *AuthGatewayV2) GetName() string {
+func (gw *AuthGatewayV1) GetName() string {
 	return gw.Metadata.Name
 }
 
 // SetName sets the resource name.
-func (gw *AuthGatewayV2) SetName(name string) {
+func (gw *AuthGatewayV1) SetName(name string) {
 	gw.Metadata.Name = name
 }
 
 // GetMetadata returns the resource metadata.
-func (gw *AuthGatewayV2) GetMetadata() teleservices.Metadata {
+func (gw *AuthGatewayV1) GetMetadata() teleservices.Metadata {
 	return gw.Metadata
 }
 
 // SetExpiry sets the resource expiration time.
-func (gw *AuthGatewayV2) SetExpiry(expires time.Time) {
+func (gw *AuthGatewayV1) SetExpiry(expires time.Time) {
 	gw.Metadata.SetExpiry(expires)
 }
 
 // Expires returns the resource expiration time.
-func (gw *AuthGatewayV2) Expiry() time.Time {
+func (gw *AuthGatewayV1) Expiry() time.Time {
 	return gw.Metadata.Expiry()
 }
 
 // SetTTL sets the resource TTL.
-func (gw *AuthGatewayV2) SetTTL(clock clockwork.Clock, ttl time.Duration) {
+func (gw *AuthGatewayV1) SetTTL(clock clockwork.Clock, ttl time.Duration) {
 	gw.Metadata.SetTTL(clock, ttl)
 }
 
 // String returns the object's string representation.
-func (gw AuthGatewayV2) String() string {
+func (gw AuthGatewayV1) String() string {
 	var parts []string
 	if gw.Spec.ConnectionLimits != nil {
 		parts = append(parts, fmt.Sprintf("%s", *gw.Spec.ConnectionLimits))
 	}
 	if gw.Spec.ClientIdleTimeout != nil {
-		parts = append(parts, fmt.Sprintf("ClientIdleTimeout=%s", gw.Spec.ClientIdleTimeout.Value()))
+		parts = append(parts, fmt.Sprintf("ClientIdleTimeout=%s",
+			gw.Spec.ClientIdleTimeout.Value()))
 	}
 	if gw.Spec.DisconnectExpiredCert != nil {
-		parts = append(parts, fmt.Sprintf("DisconnectExpiredCert=%v", gw.Spec.DisconnectExpiredCert.Value()))
+		parts = append(parts, fmt.Sprintf("DisconnectExpiredCert=%v",
+			gw.Spec.DisconnectExpiredCert.Value()))
 	}
 	if gw.Spec.Authentication != nil {
-		parts = append(parts, fmt.Sprintf("%s", gw.GetAuthPreference()))
+		parts = append(parts, fmt.Sprintf("Authentication(Type=%v, SecondFactor=%v)",
+			gw.Spec.Authentication.Type, gw.Spec.Authentication.SecondFactor))
 	}
 	if gw.Spec.PublicAddr != nil {
-		parts = append(parts, fmt.Sprintf("PublicAddr=%v", strings.Join(*gw.Spec.PublicAddr, ",")))
+		parts = append(parts, fmt.Sprintf("PublicAddr=%v",
+			strings.Join(*gw.Spec.PublicAddr, ",")))
 	}
 	if gw.Spec.SSHPublicAddr != nil {
-		parts = append(parts, fmt.Sprintf("SSHPublicAddr=%v", strings.Join(*gw.Spec.SSHPublicAddr, ",")))
+		parts = append(parts, fmt.Sprintf("SSHPublicAddr=%v",
+			strings.Join(*gw.Spec.SSHPublicAddr, ",")))
 	}
 	if gw.Spec.KubernetesPublicAddr != nil {
-		parts = append(parts, fmt.Sprintf("KubernetesPublicAddr=%v", strings.Join(*gw.Spec.KubernetesPublicAddr, ",")))
+		parts = append(parts, fmt.Sprintf("KubernetesPublicAddr=%v",
+			strings.Join(*gw.Spec.KubernetesPublicAddr, ",")))
 	}
 	if gw.Spec.WebPublicAddr != nil {
-		parts = append(parts, fmt.Sprintf("WebPublicAddr=%v", strings.Join(*gw.Spec.WebPublicAddr, ",")))
+		parts = append(parts, fmt.Sprintf("WebPublicAddr=%v",
+			strings.Join(*gw.Spec.WebPublicAddr, ",")))
 	}
-	return fmt.Sprintf("AuthGatewayV2(%s)", strings.Join(parts, ","))
+	return fmt.Sprintf("AuthGatewayV1(%s)", strings.Join(parts, ","))
 }
 
 // UnmarshalAuthGateway unmarshals auth gateway resource from the provided JSON data.
@@ -510,8 +587,8 @@ func UnmarshalAuthGateway(data []byte) (AuthGateway, error) {
 		return nil, trace.Wrap(err)
 	}
 	switch header.Version {
-	case teleservices.V2:
-		var gw AuthGatewayV2
+	case teleservices.V1:
+		var gw AuthGatewayV1
 		err := teleutils.UnmarshalWithSchema(GetAuthGatewaySchema(), &gw, jsonData)
 		if err != nil {
 			return nil, trace.Wrap(err)
@@ -534,11 +611,11 @@ func MarshalAuthGateway(gw AuthGateway, opts ...teleservices.MarshalOption) ([]b
 // GetAuthGatewaySchema returns the full auth gateway resource schema.
 func GetAuthGatewaySchema() string {
 	return fmt.Sprintf(teleservices.V2SchemaTemplate, MetadataSchema,
-		AuthGatewaySpecV2Schema, "")
+		AuthGatewaySpecV1Schema, "")
 }
 
-// AuthGatewaySpecV2Schema defines the auth gateway spec schema.
-var AuthGatewaySpecV2Schema = fmt.Sprintf(`{
+// AuthGatewaySpecV1Schema defines the auth gateway spec schema.
+var AuthGatewaySpecV1Schema = fmt.Sprintf(`{
   "type": "object",
   "additionalProperties": false,
   "properties": {

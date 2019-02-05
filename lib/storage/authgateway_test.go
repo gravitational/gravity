@@ -20,9 +20,12 @@ import (
 	"time"
 
 	"github.com/gravitational/gravity/lib/compare"
+	"github.com/gravitational/gravity/lib/utils"
+
 	teleconfig "github.com/gravitational/teleport/lib/config"
 	teleservices "github.com/gravitational/teleport/lib/services"
 	teleutils "github.com/gravitational/teleport/lib/utils"
+
 	check "gopkg.in/check.v1"
 )
 
@@ -32,7 +35,7 @@ var _ = check.Suite(&AuthGatewaySuite{})
 
 func (s *AuthGatewaySuite) TestResourceParsing(c *check.C) {
 	spec := `kind: authgateway
-version: v2
+version: v1
 spec:
   connection_limits:
     max_connections: 2000
@@ -50,17 +53,17 @@ spec:
 `
 	gw, err := UnmarshalAuthGateway([]byte(spec))
 	c.Assert(err, check.IsNil)
-	c.Assert(gw, compare.DeepEquals, NewAuthGateway(AuthGatewaySpecV2{
+	c.Assert(gw, compare.DeepEquals, NewAuthGateway(AuthGatewaySpecV1{
 		ConnectionLimits: &ConnectionLimits{
-			MaxConnections: int64p(2000),
-			MaxUsers:       intp(20),
+			MaxConnections: utils.Int64Ptr(2000),
+			MaxUsers:       utils.IntPtr(20),
 		},
 		Authentication: &teleservices.AuthPreferenceSpecV2{
 			Type:          "oidc",
 			SecondFactor:  "off",
 			ConnectorName: "google",
 		},
-		ClientIdleTimeout:     durp(60 * time.Second),
+		ClientIdleTimeout:     utils.DurationPtr(60 * time.Second),
 		DisconnectExpiredCert: teleservices.NewBoolOption(true),
 		PublicAddr:            &[]string{"example.com"},
 		SSHPublicAddr:         &[]string{"ssh.example.com"},
@@ -75,26 +78,26 @@ func (s *AuthGatewaySuite) TestPrincipalsChanged(c *check.C) {
 		result   bool
 	}{
 		{
-			gw1: NewAuthGateway(AuthGatewaySpecV2{}),
-			gw2: NewAuthGateway(AuthGatewaySpecV2{
+			gw1: NewAuthGateway(AuthGatewaySpecV1{}),
+			gw2: NewAuthGateway(AuthGatewaySpecV1{
 				PublicAddr: &[]string{"example.com"},
 			}),
 			result: true,
 		},
 		{
-			gw1: NewAuthGateway(AuthGatewaySpecV2{
+			gw1: NewAuthGateway(AuthGatewaySpecV1{
 				PublicAddr: &[]string{"example.com"},
 			}),
-			gw2: NewAuthGateway(AuthGatewaySpecV2{
+			gw2: NewAuthGateway(AuthGatewaySpecV1{
 				SSHPublicAddr: &[]string{"ssh.example.com"},
 			}),
 			result: true,
 		},
 		{
-			gw1: NewAuthGateway(AuthGatewaySpecV2{
+			gw1: NewAuthGateway(AuthGatewaySpecV1{
 				PublicAddr: &[]string{"example.com"},
 			}),
-			gw2: NewAuthGateway(AuthGatewaySpecV2{
+			gw2: NewAuthGateway(AuthGatewaySpecV1{
 				SSHPublicAddr:        &[]string{"example.com"},
 				KubernetesPublicAddr: &[]string{"example.com"},
 				WebPublicAddr:        &[]string{"example.com"},
@@ -102,20 +105,20 @@ func (s *AuthGatewaySuite) TestPrincipalsChanged(c *check.C) {
 			result: false,
 		},
 		{
-			gw1: NewAuthGateway(AuthGatewaySpecV2{
+			gw1: NewAuthGateway(AuthGatewaySpecV1{
 				PublicAddr: &[]string{"example.com"},
 			}),
-			gw2: NewAuthGateway(AuthGatewaySpecV2{
+			gw2: NewAuthGateway(AuthGatewaySpecV1{
 				SSHPublicAddr:        &[]string{"example.com"},
 				KubernetesPublicAddr: &[]string{"example.com"},
 			}),
 			result: true,
 		},
 		{
-			gw1: NewAuthGateway(AuthGatewaySpecV2{
+			gw1: NewAuthGateway(AuthGatewaySpecV1{
 				KubernetesPublicAddr: &[]string{"k8s.example.com:3036"},
 			}),
-			gw2: NewAuthGateway(AuthGatewaySpecV2{
+			gw2: NewAuthGateway(AuthGatewaySpecV1{
 				KubernetesPublicAddr: &[]string{"k8s.example.com:3027"},
 			}),
 			result: false,
@@ -127,31 +130,64 @@ func (s *AuthGatewaySuite) TestPrincipalsChanged(c *check.C) {
 	}
 }
 
+func (s *AuthGatewaySuite) TestResourceValidation(c *check.C) {
+	specs := []string{
+		// Invalid connections limit.
+		`kind: authgateway
+version: v1
+spec:
+  connection_limits:
+    max_connections: -10`,
+		// Invalid users limit.
+		`kind: authgateway
+version: v1
+spec:
+  connection_limits:
+    max_users: abc`,
+		// Invalid auth preference.
+		`kind: authgateway
+version: v1
+spec:
+  authentication:
+    type: g00gle
+    second_factor: "off"`,
+		// Invalid principal (empty address).
+		`kind: authgateway
+version: v1
+spec:
+  ssh_public_addr: [""]`,
+	}
+	for _, spec := range specs {
+		_, err := UnmarshalAuthGateway([]byte(spec))
+		c.Assert(err, check.NotNil, check.Commentf("Test case %q failed.", spec))
+	}
+}
+
 func (s *AuthGatewaySuite) TestSettingsChanged(c *check.C) {
 	testCases := []struct {
 		gw1, gw2 AuthGateway
 		result   bool
 	}{
 		{
-			gw1: NewAuthGateway(AuthGatewaySpecV2{
+			gw1: NewAuthGateway(AuthGatewaySpecV1{
 				ConnectionLimits: &ConnectionLimits{
-					MaxConnections: int64p(1000),
-					MaxUsers:       intp(10),
+					MaxConnections: utils.Int64Ptr(1000),
+					MaxUsers:       utils.IntPtr(10),
 				},
 			}),
-			gw2: NewAuthGateway(AuthGatewaySpecV2{
+			gw2: NewAuthGateway(AuthGatewaySpecV1{
 				ConnectionLimits: &ConnectionLimits{
-					MaxConnections: int64p(1500),
-					MaxUsers:       intp(10),
+					MaxConnections: utils.Int64Ptr(1500),
+					MaxUsers:       utils.IntPtr(10),
 				},
 			}),
 			result: true,
 		},
 		{
-			gw1: NewAuthGateway(AuthGatewaySpecV2{
+			gw1: NewAuthGateway(AuthGatewaySpecV1{
 				SSHPublicAddr: &[]string{"example.com"},
 			}),
-			gw2: NewAuthGateway(AuthGatewaySpecV2{
+			gw2: NewAuthGateway(AuthGatewaySpecV1{
 				SSHPublicAddr: &[]string{"ssh.example.com"},
 			}),
 			result: false,
@@ -164,24 +200,24 @@ func (s *AuthGatewaySuite) TestSettingsChanged(c *check.C) {
 }
 
 func (s *AuthGatewaySuite) TestApplyTo(c *check.C) {
-	gw1 := NewAuthGateway(AuthGatewaySpecV2{
+	gw1 := NewAuthGateway(AuthGatewaySpecV1{
 		ConnectionLimits: &ConnectionLimits{
-			MaxConnections: int64p(1000),
-			MaxUsers:       intp(10),
+			MaxConnections: utils.Int64Ptr(1000),
+			MaxUsers:       utils.IntPtr(10),
 		},
 		SSHPublicAddr: &[]string{"ssh.example.com"},
 	})
-	gw2 := NewAuthGateway(AuthGatewaySpecV2{
+	gw2 := NewAuthGateway(AuthGatewaySpecV1{
 		ConnectionLimits: &ConnectionLimits{
-			MaxUsers: intp(5),
+			MaxUsers: utils.IntPtr(5),
 		},
 		PublicAddr: &[]string{"example.com"},
 	})
 	gw2.ApplyTo(gw1)
-	c.Assert(gw1, compare.DeepEquals, NewAuthGateway(AuthGatewaySpecV2{
+	c.Assert(gw1, compare.DeepEquals, NewAuthGateway(AuthGatewaySpecV1{
 		ConnectionLimits: &ConnectionLimits{
-			MaxConnections: int64p(1000),
-			MaxUsers:       intp(5),
+			MaxConnections: utils.Int64Ptr(1000),
+			MaxUsers:       utils.IntPtr(5),
 		},
 		SSHPublicAddr:        &[]string{"example.com"},
 		KubernetesPublicAddr: &[]string{"example.com"},
@@ -190,12 +226,12 @@ func (s *AuthGatewaySuite) TestApplyTo(c *check.C) {
 }
 
 func (s *AuthGatewaySuite) TestApplyToTeleportConfig(c *check.C) {
-	gw := NewAuthGateway(AuthGatewaySpecV2{
+	gw := NewAuthGateway(AuthGatewaySpecV1{
 		ConnectionLimits: &ConnectionLimits{
-			MaxConnections: int64p(1000),
-			MaxUsers:       intp(10),
+			MaxConnections: utils.Int64Ptr(1000),
+			MaxUsers:       utils.IntPtr(10),
 		},
-		ClientIdleTimeout: durp(60 * time.Second),
+		ClientIdleTimeout: utils.DurationPtr(60 * time.Second),
 		Authentication: &teleservices.AuthPreferenceSpecV2{
 			Type:         "oidc",
 			SecondFactor: "off",
@@ -228,17 +264,4 @@ func (s *AuthGatewaySuite) TestApplyToTeleportConfig(c *check.C) {
 			},
 		},
 	})
-}
-
-func int64p(i int64) *int64 {
-	return &i
-}
-
-func intp(i int) *int {
-	return &i
-}
-
-func durp(d time.Duration) *teleservices.Duration {
-	v := teleservices.NewDuration(d)
-	return &v
 }

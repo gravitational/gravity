@@ -276,7 +276,12 @@ func New(ctx context.Context, cfg processconfig.Config, tcfg telecfg.FileConfig)
 
 	process.Infof("Process ID: %v.", processID)
 
-	process.teleportConfig, err = process.buildTeleportConfig()
+	process.authGatewayConfig, err = process.getOrInitAuthGatewayConfig()
+	if err != nil {
+		return nil, trace.Wrap(err)
+	}
+
+	process.teleportConfig, err = process.buildTeleportConfig(process.authGatewayConfig)
 	if err != nil {
 		return nil, trace.Wrap(err)
 	}
@@ -1258,10 +1263,6 @@ func (p *Process) initService(ctx context.Context) (err error) {
 		}
 
 		if err := p.startAuthGatewayWatch(p.context, client); err != nil {
-			return trace.Wrap(err)
-		}
-
-		if err := p.startWatchingAuthGatewayEvents(p.context, client); err != nil {
 			return trace.Wrap(err)
 		}
 

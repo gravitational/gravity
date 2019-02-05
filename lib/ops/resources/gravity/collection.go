@@ -518,13 +518,12 @@ type authGatewayCollection struct {
 }
 
 // Resources returns the resources collection in the generic format
-func (c *authGatewayCollection) Resources() (resources []teleservices.UnknownResource, err error) {
+func (c *authGatewayCollection) Resources() ([]teleservices.UnknownResource, error) {
 	resource, err := utils.ToUnknownResource(c.item)
 	if err != nil {
 		return nil, trace.Wrap(err)
 	}
-	resources = append(resources, *resource)
-	return resources, nil
+	return []teleservices.UnknownResource{*resource}, nil
 }
 
 // WriteText serializes auth gateway config in human-friendly text format
@@ -543,8 +542,8 @@ func (c *authGatewayCollection) WriteText(w io.Writer) error {
 	} else {
 		fmt.Fprintf(t, "Disconnect Expired Cert:\tno\n")
 	}
-	if ap := c.item.GetAuthPreference(); ap != nil {
-		fmt.Fprintf(t, "Authentication:\ttype: %v, second factor: %v\n", ap.GetType(), ap.GetSecondFactor())
+	if auth := c.item.GetAuthentication(); auth != nil {
+		fmt.Fprintf(t, "Authentication:\ttype: %v, second factor: %v\n", auth.Type, auth.SecondFactor)
 	}
 	fmt.Fprintf(t, "SSH Public Addrs:\t%v\n", formatList(c.item.GetSSHPublicAddrs()))
 	fmt.Fprintf(t, "Kubernetes Public Addrs:\t%v\n", formatList(c.item.GetKubernetesPublicAddrs()))

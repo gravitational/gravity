@@ -29,9 +29,9 @@ import (
 	"github.com/sirupsen/logrus"
 )
 
-// buildTeleportConfig build configuration object that will be used to
+// buildTeleportConfig builds configuration object that will be used to
 // start embedded Teleport services.
-func (p *Process) buildTeleportConfig() (*service.Config, error) {
+func (p *Process) buildTeleportConfig(authGatewayConfig storage.AuthGateway) (*service.Config, error) {
 	configFromImport, err := p.getTeleportConfigFromImportState()
 	if err != nil {
 		return nil, trace.Wrap(err)
@@ -48,12 +48,8 @@ func (p *Process) buildTeleportConfig() (*service.Config, error) {
 	}
 	// Apply user-defined configuration on top of the file config. This is
 	// what users configure via AuthGateway resource.
-	p.authGatewayConfig, err = p.getOrInitAuthGatewayConfig()
-	if err != nil && !trace.IsNotFound(err) {
-		return nil, trace.Wrap(err)
-	}
-	if p.authGatewayConfig != nil {
-		p.authGatewayConfig.ApplyToTeleportConfig(&fileConfig)
+	if authGatewayConfig != nil {
+		authGatewayConfig.ApplyToTeleportConfig(&fileConfig)
 	}
 	fileConfig.Auth.ReverseTunnels, err = reverseTunnelsFromTrustedClusters(p.backend)
 	if err != nil && !trace.IsNotFound(err) {
@@ -86,8 +82,22 @@ func (p *Process) buildTeleportConfig() (*service.Config, error) {
 // If it's not found, it's first initialized with default values.
 func (p *Process) getOrInitAuthGatewayConfig() (storage.AuthGateway, error) {
 	if !p.inKubernetes() {
+		// We're not running inside Kubernetes, so this is likely an installer
+		// process which doesn't support auth gateway reconfiguration.
 		return nil, nil
 	}
+	cluster, err := p.backend.GetLocalSite(defaults.SystemAccountID)
+	if err != nil {
+		if trace.IsNotFound(err) {
+			// There's no local cluster which likely means that process is
+			// started in "init" mode (which imports cluster packages and
+			// backend data from the "import" state) so auth gateway will
+			// be initialized during the actual process startup.
+			return nil, nil
+		}
+		return nil, trace.Wrap(err)
+	}
+
 	client, err := tryGetPrivilegedKubeClient()
 	if err != nil {
 		return nil, trace.Wrap(err)
@@ -108,12 +118,11 @@ func (p *Process) getOrInitAuthGatewayConfig() (storage.AuthGateway, error) {
 		return nil, trace.Wrap(err)
 	}
 	authGateway = storage.DefaultAuthGateway()
-	authGateway.SetAuthPreference(authPreference)
-	// Initially the local cluster name is set as a principal.
-	cluster, err := p.backend.GetLocalSite(defaults.SystemAccountID)
+	err = authGateway.SetAuthPreference(authPreference)
 	if err != nil {
 		return nil, trace.Wrap(err)
 	}
+	// Initially the local cluster name is set as a principal.
 	authGateway.SetPublicAddrs([]string{cluster.Domain})
 	err = opsservice.UpsertAuthGateway(client, p.identity, authGateway)
 	if err != nil {

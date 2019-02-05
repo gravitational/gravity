@@ -94,7 +94,7 @@ const MetadataSchema = `{
   "default": {},
   "properties": {
     "name": {"type": "string"},
-    "namespace": {"type": "string", "default": "default"},
+    "namespace": {"type": "string"},
     "description": {"type": "string"},
     "expires": {"type": "string"},
     "id": {"type": "integer"},

@@ -163,7 +163,7 @@ func (r *Resources) Create(req resources.CreateRequest) error {
 	case teleservices.KindClusterAuthPreference:
 		r.Println(color.YellowString("Cluster auth preference resource is " +
 			"obsolete and will be removed in a future release. Please use " +
-			"auth gateway resource instead."))
+			"auth gateway resource instead: https://gravitational.com/gravity/docs/cluster/#configuring-cluster-authentication-gateway."))
 		cap, err := teleservices.GetAuthPreferenceMarshaler().Unmarshal(req.Resource.Raw)
 		if err != nil {
 			return trace.Wrap(err)
@@ -212,8 +212,6 @@ func (r *Resources) Create(req resources.CreateRequest) error {
 		}
 		r.Printf("Updated monitoring alert target %q\n", target.GetName())
 	case storage.KindAuthGateway:
-		r.Println(color.YellowString("Note: gravity-site pods may restart " +
-			"in order for the changes to take effect."))
 		gw, err := storage.UnmarshalAuthGateway(req.Resource.Raw)
 		if err != nil {
 			return trace.Wrap(err)
@@ -316,7 +314,7 @@ func (r *Resources) GetCollection(req resources.ListRequest) (resources.Collecti
 	case teleservices.KindClusterAuthPreference, "authpreference", "cap":
 		r.Println(color.YellowString("Cluster auth preference resource is " +
 			"obsolete and will be removed in a future release. Please use " +
-			"auth gateway resource instead."))
+			"auth gateway resource instead: https://gravitational.com/gravity/docs/cluster/#configuring-cluster-authentication-gateway."))
 		authPreference, err := r.Operator.GetClusterAuthPreference(r.cluster.Key())
 		if err != nil {
 			return nil, trace.Wrap(err)

@@ -22,6 +22,7 @@ import (
 	"github.com/gravitational/gravity/lib/ops"
 	"github.com/gravitational/gravity/lib/storage"
 	"github.com/gravitational/gravity/lib/users"
+	teleservices "github.com/gravitational/teleport/lib/services"
 
 	"github.com/gravitational/trace"
 	"k8s.io/client-go/kubernetes"
@@ -49,8 +50,12 @@ func (o *Operator) UpsertAuthGateway(key ops.SiteKey, gw storage.AuthGateway) er
 
 // UpsertAuthGateway updates auth gateway configuration.
 func UpsertAuthGateway(client *kubernetes.Clientset, identity users.Identity, gw storage.AuthGateway) error {
-	if authPreference := gw.GetAuthPreference(); authPreference != nil {
-		err := identity.SetAuthPreference(authPreference)
+	if auth := gw.GetAuthentication(); auth != nil {
+		authPreference, err := teleservices.NewAuthPreference(*auth)
+		if err != nil {
+			return trace.Wrap(err)
+		}
+		err = identity.SetAuthPreference(authPreference)
 		if err != nil {
 			return trace.Wrap(err)
 		}
@@ -103,6 +108,9 @@ func GetAuthGateway(client *kubernetes.Clientset, identity users.Identity) (stor
 	if err != nil {
 		return nil, trace.Wrap(err)
 	}
-	gw.SetAuthPreference(authPreference)
+	err = gw.SetAuthPreference(authPreference)
+	if err != nil {
+		return nil, trace.Wrap(err)
+	}
 	return gw, nil
 }

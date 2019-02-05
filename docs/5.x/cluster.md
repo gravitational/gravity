@@ -1230,6 +1230,7 @@ Resource Name             | Resource Description
 `logforwarder`            | forwarding logs to a remote rsyslog server
 `trusted_cluster`         | managing access to remote Ops Centers
 `endpoints`               | Ops Center endpoints for user and cluster traffic
+`cluster_auth_preference` | cluster authentication settings such as second-factor
 `alert`                   | cluster monitoring alert
 `alerttarget`             | cluster monitoring alert target
 `smtp`                    | cluster monitoring SMTP configuration
@@ -1904,6 +1905,9 @@ gravity-agents   LoadBalancer   10.100.91.204   <pending>     4443:30873/TCP,302
 
 ### Configuring Cluster Authentication Gateway
 
+!!! note:
+    Authentication gateway resource is supported starting Gravity version `5.5.0`.
+
 Cluster authentication gateway handles authentication/authorization and allows
 users to remotely access the cluster nodes via SSH or Kubernetes API.
 
@@ -1911,7 +1915,7 @@ To tweak authentication gateway configuration use the following resource:
 
 ```yaml
 kind: authgateway
-version: v2
+version: v1
 spec:
   # Connection throttling settings
   connection_limits:
@@ -1932,7 +1936,7 @@ spec:
   client_idle_timeout: never
   # Determines if the clients will be forcefully disconnected when their
   # certificates expire in the middle of an active SSH session
-  disconnect_expired_cert: no
+  disconnect_expired_cert: false
   # DNS name that applies to all SSH, Kubernetes and web proxy endpoints
   public_addr:
     - example.com
@@ -1960,12 +1964,12 @@ $ gravity resource create gateway.yaml
 
 When authentication gateway resource is created, only settings that were
 explicitly set are applied to the current configuration. For example, to
-update only the maximum connections limit, you can create the following
+only limit the maximum number of connections, you can create the following
 resource:
 
 ```yaml
 kind: authgateway
-version: v2
+version: v1
 spec:
   connection_limits:
     max_conections: 1500
@@ -1975,6 +1979,71 @@ The following command will display current authentication gateway configuration:
 
 ```bash
 $ gravity resource get authgateway
+```
+
+### Configuring Cluster Authentication Preference
+
+!!! warning "Deprecation warning":
+    Cluster authentication preference resource is obsolete starting Gravity
+    version `5.5.0` and will be removed in a future version. Please use
+    [Authentication Gateway](/cluster/#configuring-cluster-authentication-gateway)
+    resource instead.
+
+Cluster authentication preference resource allows to configure method of
+authentication users will use when logging into a Gravity cluster.
+
+The resource has the following format:
+
+```yaml
+kind: cluster_auth_preference
+version: v2
+metadata:
+  name: auth-oidc
+spec:
+  # preferred auth type, can be "local" (to authenticate against
+  # local users database) or "oidc"
+  type: oidc
+  # second-factor auth type, can be "off" or "otp"
+  second_factor: otp
+  # default authentication connector to use for tele login
+  connector_name: google
+```
+
+By default the following authentication method is configured:
+
+* For Ops Centers: OIDC or local with second-factor authentication.
+* For regular clusters: local without second-factor authentication.
+
+To update authentication preference, for example to allow local users to log
+into an Ops Center without second-factor, define the following resource:
+
+```yaml
+kind: cluster_auth_preference
+version: v2
+metadata:
+  name: auth-local
+spec:
+  type: local
+  second_factor: "off"
+```
+
+Create it:
+
+```bsh
+$ gravity resource create auth.yaml
+```
+
+!!! note:
+    Make sure to configure a proper [OIDC connector](/cluster/#configuring-openid-connect)
+    when using "oidc" authentication type.
+
+To view the currently configured authentication preference:
+
+```bsh
+$ gravity resource get cluster_auth_preference
+Type      ConnectorName     SecondFactor
+----      -------------     ------------
+local                       off
 ```
 
 ### Configuring Monitoring
