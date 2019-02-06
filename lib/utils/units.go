@@ -20,8 +20,10 @@ import (
 	"encoding/json"
 	"fmt"
 	"strings"
+	"time"
 
 	"github.com/dustin/go-humanize"
+	teleservices "github.com/gravitational/teleport/lib/services"
 	"github.com/gravitational/trace"
 )
 
@@ -142,4 +144,10 @@ func BoolValue(v *bool) bool {
 // BoolPtr returns a pointer to a bool with value v
 func BoolPtr(v bool) *bool {
 	return &v
+}
+
+// DurationPtr returns a pointer to the provided duration value
+func DurationPtr(v time.Duration) *teleservices.Duration {
+	d := teleservices.NewDuration(v)
+	return &d
 }

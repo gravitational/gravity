@@ -104,6 +104,7 @@ type Process struct {
 	leader         storage.Leader
 	packages       pack.PackageService
 	cfg            processconfig.Config
+	tcfg           telecfg.FileConfig
 	identity       users.Identity
 	mode           string
 	teleportConfig *service.Config
@@ -129,6 +130,10 @@ type Process struct {
 	handlers Handlers
 	// rpcCreds holds generated RPC agents credentials
 	rpcCreds rpcCredentials
+	// authGatewayConfig is the current auth gateway configuration (basically,
+	// a config that gets applied on top of teleport's config the process
+	// was started with)
+	authGatewayConfig storage.AuthGateway
 }
 
 // Handlers combines all the process' web and API Handlers
@@ -253,6 +258,7 @@ func New(ctx context.Context, cfg processconfig.Config, tcfg telecfg.FileConfig)
 		packages:       packages,
 		backend:        backend,
 		cfg:            cfg,
+		tcfg:           tcfg,
 		mode:           cfg.Mode,
 		identity:       identity,
 		clusterObjects: clusterObjects,
@@ -270,43 +276,12 @@ func New(ctx context.Context, cfg processconfig.Config, tcfg telecfg.FileConfig)
 
 	process.Infof("Process ID: %v.", processID)
 
-	telecfgFromImport, err := process.getTeleportConfigFromImportState()
+	process.authGatewayConfig, err = process.getOrInitAuthGatewayConfig()
 	if err != nil {
-		return nil, trace.Wrap(err, "failed to query teleport config from import")
-	}
-
-	if telecfgFromImport != nil {
-		// Reset reverse tunnel from import configuration.
-		// See https://github.com/gravitational/gravity/issues/2927
-		telecfgFromImport.Auth.ReverseTunnels = nil
-
-		tcfg = *telecfgFromImport
-	}
-	if err := processconfig.MergeTeleConfigFromEnv(&tcfg); err != nil {
 		return nil, trace.Wrap(err)
 	}
 
-	// bootstrap reverse tunnels to Ops Centers from enabled trusted clusters
-	tunnels, err := reverseTunnelsFromTrustedClusters(backend)
-	if err != nil && !trace.IsNotFound(err) {
-		return nil, trace.Wrap(err)
-	}
-
-	tcfg.Auth.ReverseTunnels = append(tcfg.Auth.ReverseTunnels, tunnels...)
-
-	process.teleportConfig = service.MakeDefaultConfig()
-	process.teleportConfig.DataDir = tcfg.DataDir
-
-	if err := telecfg.ApplyFileConfig(&tcfg, process.teleportConfig); err != nil {
-		return nil, trace.Wrap(err)
-	}
-
-	process.teleportConfig.Auth.StorageConfig.Params["path"] = tcfg.DataDir
-	if len(process.teleportConfig.AuthServers) == 0 && process.teleportConfig.Auth.Enabled {
-		process.teleportConfig.AuthServers = append(process.teleportConfig.AuthServers, process.teleportConfig.Auth.SSHAddr)
-	}
-
-	process.teleportConfig.Auth.Preference, err = process.getAuthPreference()
+	process.teleportConfig, err = process.buildTeleportConfig(process.authGatewayConfig)
 	if err != nil {
 		return nil, trace.Wrap(err)
 	}
@@ -315,17 +290,6 @@ func New(ctx context.Context, cfg processconfig.Config, tcfg telecfg.FileConfig)
 		process.Warn("Enabling Teleport insecure dev mode!")
 		telelib.SetInsecureDevMode(true)
 	}
-
-	// Teleport will be using Gravity backend implementation
-	process.teleportConfig.Identity = process.identity
-	process.teleportConfig.Trust = process.identity
-	process.teleportConfig.Presence = process.backend
-	process.teleportConfig.Provisioner = process.identity
-	process.teleportConfig.Proxy.DisableWebInterface = true
-	process.teleportConfig.Proxy.DisableWebService = true
-	process.teleportConfig.Access = process.identity
-	process.teleportConfig.Console = logrus.StandardLogger().Writer()
-	process.teleportConfig.ClusterConfiguration = process.identity
 
 	process.Infof("Teleport config: %#v.", process.teleportConfig)
 	process.Infof("Gravity config: %#v.", cfg)
@@ -1295,6 +1259,14 @@ func (p *Process) initService(ctx context.Context) (err error) {
 		}
 
 		if err := p.startCertificateWatch(p.context, client); err != nil {
+			return trace.Wrap(err)
+		}
+
+		if err := p.startAuthGatewayWatch(p.context, client); err != nil {
+			return trace.Wrap(err)
+		}
+
+		if err := p.startWatchingReloadEvents(p.context, client); err != nil {
 			return trace.Wrap(err)
 		}
 

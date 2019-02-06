@@ -101,6 +101,15 @@ func SplitHostPort(in, defaultPort string) (host string, port string) {
 	return parts[0], defaultPort
 }
 
+// Hosts returns a list of hosts from the provided host:port addresses
+func Hosts(addrs []string) (hosts []string) {
+	for _, addr := range addrs {
+		host, _ := SplitHostPort(addr, "")
+		hosts = append(hosts, host)
+	}
+	return hosts
+}
+
 // ParseHostPort parses the provided address as host:port
 func ParseHostPort(in string) (host string, port int32, err error) {
 	host, portS, err := net.SplitHostPort(in)

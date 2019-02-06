@@ -1234,7 +1234,8 @@ Resource Name             | Resource Description
 `alert`                   | cluster monitoring alert
 `alerttarget`             | cluster monitoring alert target
 `smtp`                    | cluster monitoring SMTP configuration
-`runtimeenvironment`     | cluster runtime environment variables
+`runtimeenvironment`      | cluster runtime environment variables
+`authgateway`             | authentication gateway configuration
 
 ### Configuring OpenID Connect
 
@@ -1902,7 +1903,91 @@ gravity-public   LoadBalancer   10.100.20.71    <pending>     443:31792/TCP,3023
 gravity-agents   LoadBalancer   10.100.91.204   <pending>     4443:30873/TCP,3024:30185/TCP   8s
 ```
 
+### Configuring Cluster Authentication Gateway
+
+!!! note:
+    Authentication gateway resource is supported starting Gravity version `5.5.0`.
+
+Cluster authentication gateway handles authentication/authorization and allows
+users to remotely access the cluster nodes via SSH or Kubernetes API.
+
+To tweak authentication gateway configuration use the following resource:
+
+```yaml
+kind: authgateway
+version: v1
+spec:
+  # Connection throttling settings
+  connection_limits:
+    # Max number of simultaneous connections
+    max_connections: 1000
+    # Max number of simultaneously connected users
+    max_users: 250
+  # Cluster authentication preferences
+  authentication:
+    # Auth type, can be "local", "oidc", "saml" or "github"
+    type: oidc
+    # Second factor auth type, can be "off", "otp" or "u2f"
+    second_factor: otp
+    # Default auth connector name
+    connector_name: google
+  # Determines if SSH sessions to cluster nodes are forcefully terminated
+  # after no activity from a client, for example "30m", "1h", "1h30m"
+  client_idle_timeout: never
+  # Determines if the clients will be forcefully disconnected when their
+  # certificates expire in the middle of an active SSH session
+  disconnect_expired_cert: false
+  # DNS name that applies to all SSH, Kubernetes and web proxy endpoints
+  public_addr:
+    - example.com
+  # DNS name of the gateway SSH proxy endpoint, overrides "public_addr"
+  ssh_public_addr:
+    - ssh.example.com
+  # DNS name of the gateway Kubernetes proxy endpoint, overrides "public_addr"
+  kubernetes_public_addr:
+    - k8s.example.com
+  # DNS name of the gateway web proxy endpoint, overrides "public_addr"
+  web_public_addr:
+    - web.example.com
+```
+
+To update authentication gateway configuration, run:
+
+```bash
+$ gravity resource create gateway.yaml
+```
+
+!!! note:
+    The `gravity-site` pods will be restarted upon resource creation in order
+    for the new settings to take effect, so the cluster management UI / API
+    will become briefly unavailable.
+
+When authentication gateway resource is created, only settings that were
+explicitly set are applied to the current configuration. For example, to
+only limit the maximum number of connections, you can create the following
+resource:
+
+```yaml
+kind: authgateway
+version: v1
+spec:
+  connection_limits:
+    max_conections: 1500
+```
+
+The following command will display current authentication gateway configuration:
+
+```bash
+$ gravity resource get authgateway
+```
+
 ### Configuring Cluster Authentication Preference
+
+!!! warning "Deprecation warning":
+    Cluster authentication preference resource is obsolete starting Gravity
+    version `5.5.0` and will be removed in a future version. Please use
+    [Authentication Gateway](/cluster/#configuring-cluster-authentication-gateway)
+    resource instead.
 
 Cluster authentication preference resource allows to configure method of
 authentication users will use when logging into a Gravity cluster.
@@ -1961,15 +2046,10 @@ Type      ConnectorName     SecondFactor
 local                       off
 ```
 
-!!! note:
-    Currently authentication preference only affects login via web UI,
-    `tele login` will add support for it in the future.
-
-
 ### Configuring Monitoring
 
-See (Kapacitor Integration)[/monitoring/#kapacitor-integration] about details on how to configure monitoring alerts.
-
+See [Kapacitor Integration](/monitoring/#kapacitor-integration) about details
+on how to configure monitoring alerts.
 
 ### Configuring Runtime Environment Variables
 

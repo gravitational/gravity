@@ -24,15 +24,83 @@ import (
 	"github.com/gravitational/gravity/lib/constants"
 	"github.com/gravitational/gravity/lib/storage"
 	"github.com/gravitational/gravity/lib/storage/keyval"
+	"github.com/gravitational/gravity/lib/utils"
 
 	telecfg "github.com/gravitational/teleport/lib/config"
+	"github.com/gravitational/teleport/lib/service"
 	teleservices "github.com/gravitational/teleport/lib/services"
+	teleutils "github.com/gravitational/teleport/lib/utils"
+
+	"github.com/gravitational/trace"
+	"github.com/sirupsen/logrus"
 	"gopkg.in/check.v1"
 )
 
 type ProcessSuite struct{}
 
 var _ = check.Suite(&ProcessSuite{})
+
+func (s *ProcessSuite) TestAuthGatewayConfigReload(c *check.C) {
+	// Initialize process with some default configuration.
+	teleportConfig := telecfg.MakeSampleFileConfig()
+	teleportConfig.DataDir = c.MkDir()
+	teleportConfig.Proxy.CertFile = ""
+	teleportConfig.Proxy.KeyFile = ""
+	backend, err := keyval.NewBolt(keyval.BoltConfig{
+		Path: filepath.Join(c.MkDir(), "test.db"),
+	})
+	c.Assert(err, check.IsNil)
+	process := &Process{
+		FieldLogger:       logrus.WithField(trace.Component, "process"),
+		backend:           backend,
+		tcfg:              *teleportConfig,
+		authGatewayConfig: storage.DefaultAuthGateway(),
+	}
+	serviceConfig, err := process.buildTeleportConfig(process.authGatewayConfig)
+	c.Assert(err, check.IsNil)
+	process.Supervisor = &service.TeleportProcess{
+		Supervisor: service.NewSupervisor("test"),
+		Config:     serviceConfig,
+	}
+
+	// Update auth gateway setting that should trigger reload.
+	process.reloadAuthGatewayConfig(storage.NewAuthGateway(
+		storage.AuthGatewaySpecV1{
+			ConnectionLimits: &storage.ConnectionLimits{
+				MaxConnections: utils.Int64Ptr(50),
+			},
+		}))
+	// Make sure reload event was broadcast.
+	ch := make(chan service.Event)
+	ctx, cancel := context.WithTimeout(context.Background(), time.Second)
+	defer cancel()
+	process.WaitForEvent(ctx, service.TeleportReloadEvent, ch)
+	select {
+	case <-ch:
+	case <-ctx.Done():
+		c.Fatal("didn't receive reload event")
+	}
+
+	// Now update principals.
+	process.reloadAuthGatewayConfig(storage.NewAuthGateway(
+		storage.AuthGatewaySpecV1{
+			PublicAddr: &[]string{"example.com"},
+		}))
+	// Make sure process config is updated.
+	config := process.teleportProcess().Config
+	comparePrincipals(c, config.Auth.PublicAddrs, []string{"example.com"})
+	comparePrincipals(c, config.Proxy.SSHPublicAddrs, []string{"example.com"})
+	comparePrincipals(c, config.Proxy.PublicAddrs, []string{"example.com"})
+	comparePrincipals(c, config.Proxy.Kube.PublicAddrs, []string{"example.com"})
+}
+
+func comparePrincipals(c *check.C, addrs []teleutils.NetAddr, principals []string) {
+	var hosts []string
+	for _, addr := range addrs {
+		hosts = append(hosts, addr.Host())
+	}
+	c.Assert(hosts, check.DeepEquals, principals)
+}
 
 func (s *ProcessSuite) TestClusterServices(c *check.C) {
 	p := Process{

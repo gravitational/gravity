@@ -1388,6 +1388,32 @@ func (c *Client) DeleteGithubConnector(key ops.SiteKey, name string) error {
 	return trace.Wrap(err)
 }
 
+// UpsertAuthGateway updates auth gateway configuration.
+func (c *Client) UpsertAuthGateway(key ops.SiteKey, gw storage.AuthGateway) error {
+	bytes, err := storage.MarshalAuthGateway(gw)
+	if err != nil {
+		return trace.Wrap(err)
+	}
+	_, err = c.PostJSON(c.Endpoint("accounts", key.AccountID, "sites", key.SiteDomain, "authgateway"),
+		&UpsertResourceRawReq{
+			Resource: bytes,
+		})
+	if err != nil {
+		return trace.Wrap(err)
+	}
+	return nil
+}
+
+// GetAuthGateway returns auth gateway configuration.
+func (c *Client) GetAuthGateway(key ops.SiteKey) (storage.AuthGateway, error) {
+	response, err := c.Get(c.Endpoint("accounts", key.AccountID, "sites", key.SiteDomain, "authgateway"),
+		url.Values{})
+	if err != nil {
+		return nil, trace.Wrap(err)
+	}
+	return storage.UnmarshalAuthGateway(response.Bytes())
+}
+
 // PostJSON issues HTTP POST request to the server with the provided JSON data
 func (c *Client) PostJSON(endpoint string, data interface{}) (*roundtrip.Response, error) {
 	return telehttplib.ConvertResponse(c.Client.PostJSON(endpoint, data))
