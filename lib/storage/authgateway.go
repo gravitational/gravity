@@ -160,7 +160,10 @@ type ConnectionLimits struct {
 }
 
 // Check validates the limits settings.
-func (l ConnectionLimits) Check() error {
+func (l *ConnectionLimits) Check() error {
+	if l == nil {
+		return nil
+	}
 	if l.MaxConnections != nil && *l.MaxConnections < 0 {
 		return trace.BadParameter("max connections can't be negative")
 	}
@@ -464,11 +467,9 @@ func (gw *AuthGatewayV1) CheckAndSetDefaults() error {
 	if err != nil {
 		return trace.Wrap(err)
 	}
-	if gw.Spec.ConnectionLimits != nil {
-		err := gw.Spec.ConnectionLimits.Check()
-		if err != nil {
-			return trace.Wrap(err)
-		}
+	err = gw.Spec.ConnectionLimits.Check()
+	if err != nil {
+		return trace.Wrap(err)
 	}
 	if gw.Spec.Authentication != nil {
 		auth, err := gw.GetAuthPreference()

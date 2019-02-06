@@ -131,35 +131,46 @@ func (s *AuthGatewaySuite) TestPrincipalsChanged(c *check.C) {
 }
 
 func (s *AuthGatewaySuite) TestResourceValidation(c *check.C) {
-	specs := []string{
-		// Invalid connections limit.
-		`kind: authgateway
+	tests := []struct {
+		desc string
+		spec string
+	}{
+		{
+			desc: "Invalid connections limit",
+			spec: `kind: authgateway
 version: v1
 spec:
   connection_limits:
     max_connections: -10`,
-		// Invalid users limit.
-		`kind: authgateway
+		},
+		{
+			desc: "Invalid users limit",
+			spec: `kind: authgateway
 version: v1
 spec:
   connection_limits:
     max_users: abc`,
-		// Invalid auth preference.
-		`kind: authgateway
+		},
+		{
+			desc: "Invalid auth preference",
+			spec: `kind: authgateway
 version: v1
 spec:
   authentication:
     type: g00gle
     second_factor: "off"`,
-		// Invalid principal (empty address).
-		`kind: authgateway
+		},
+		{
+			desc: "Invalid principal (empty address)",
+			spec: `kind: authgateway
 version: v1
 spec:
   ssh_public_addr: [""]`,
+		},
 	}
-	for _, spec := range specs {
-		_, err := UnmarshalAuthGateway([]byte(spec))
-		c.Assert(err, check.NotNil, check.Commentf("Test case %q failed.", spec))
+	for _, t := range tests {
+		_, err := UnmarshalAuthGateway([]byte(t.spec))
+		c.Assert(err, check.NotNil, check.Commentf("Test case %q failed.", t.desc))
 	}
 }
 
