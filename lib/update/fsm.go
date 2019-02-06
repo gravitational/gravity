@@ -55,6 +55,8 @@ type FSMConfig struct {
 	Client *kubernetes.Clientset
 	// Operator is the local cluster operator
 	Operator ops.Operator
+	// Operation specifies the upgrade operation to work with
+	Operation *ops.SiteOperation
 	// Users is the cluster identity service
 	Users users.Identity
 	// Spec is used to retrieve a phase executor, allows
@@ -95,6 +97,9 @@ func NewFSM(ctx context.Context, c FSMConfig) (*fsm.FSM, error) {
 func (c *FSMConfig) checkAndSetDefaults() error {
 	if c.Backend == nil {
 		return trace.BadParameter("parameter Backend must be set")
+	}
+	if c.Operation == nil {
+		return trace.BadParameter("parameter Operation must be set")
 	}
 	if c.Spec == nil {
 		c.Spec = fsmSpec(*c)

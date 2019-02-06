@@ -125,6 +125,14 @@ func FromPlanetAgent(ctx context.Context, servers []storage.Server) (*Agent, err
 	}, nil
 }
 
+// IsDegraded returns whether the cluster is in degraded state
+func (r Status) IsDegraded() bool {
+	return (r.Cluster == nil ||
+		r.Cluster.State == ops.SiteStateDegraded ||
+		r.Agent == nil ||
+		r.Agent.GetSystemStatus() != pb.SystemStatus_Running)
+}
+
 // Status describes the status of the cluster as a whole
 type Status struct {
 	// Cluster describes the operational status of the cluster

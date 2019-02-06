@@ -140,20 +140,20 @@ func (g *Application) isJoinCommand(cmd string) bool {
 func (g *Application) isUpdateCommand(cmd string) bool {
 	switch cmd {
 	case g.PlanCmd.FullCommand(),
-		g.PlanInitCmd.FullCommand(),
-		g.PlanSyncCmd.FullCommand(),
 		g.PlanDisplayCmd.FullCommand(),
 		g.PlanExecuteCmd.FullCommand(),
 		g.PlanRollbackCmd.FullCommand(),
 		g.PlanResumeCmd.FullCommand(),
 		g.PlanCompleteCmd.FullCommand(),
+		g.UpdatePlanInitCmd.FullCommand(),
 		g.UpdateTriggerCmd.FullCommand(),
 		g.UpgradeCmd.FullCommand():
 		return true
 	case g.RPCAgentRunCmd.FullCommand():
 		return len(*g.RPCAgentRunCmd.Args) > 0
 	case g.RPCAgentDeployCmd.FullCommand():
-		return len(*g.RPCAgentDeployCmd.Args) > 0
+		return len(*g.RPCAgentDeployCmd.LeaderArgs) > 0 ||
+			len(*g.RPCAgentDeployCmd.NodeArgs) > 0
 	}
 	return false
 }
@@ -164,8 +164,6 @@ func (g *Application) isExpandCommand(cmd string) bool {
 	switch cmd {
 	case g.JoinCmd.FullCommand(), g.AutoJoinCmd.FullCommand(),
 		g.PlanCmd.FullCommand(),
-		g.PlanInitCmd.FullCommand(),
-		g.PlanSyncCmd.FullCommand(),
 		g.PlanDisplayCmd.FullCommand(),
 		g.PlanExecuteCmd.FullCommand(),
 		g.PlanRollbackCmd.FullCommand(),

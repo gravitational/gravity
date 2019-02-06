@@ -139,6 +139,7 @@ func UnmarshalEnvironmentVariables(data []byte) (EnvironmentVariables, error) {
 		// Set namespace explicitly - schema default is ignored in json.Unmarshal
 		// as teleservices.Metadata.Namespace is missing the json serialization tag
 		env.Metadata.Namespace = defaults.KubeSystemNamespace
+		env.Metadata.Name = constants.ClusterEnvironmentMap
 		if env.Metadata.Expires != nil {
 			teleutils.UTC(env.Metadata.Expires)
 		}
@@ -168,6 +169,7 @@ const EnvironmentSpecSchema = `{
     "kind": {"type": "string"},
     "version": {"type": "string", "default": "v1"},
     "metadata": {
+      "default": {},
       "type": "object",
       "additionalProperties": false,
       "properties": {

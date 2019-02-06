@@ -18,7 +18,6 @@ package cli
 
 import (
 	"context"
-	"fmt"
 
 	appservice "github.com/gravitational/gravity/lib/app"
 	"github.com/gravitational/gravity/lib/constants"
@@ -29,6 +28,7 @@ import (
 	"github.com/gravitational/gravity/lib/ops"
 	"github.com/gravitational/gravity/lib/pack"
 	"github.com/gravitational/gravity/lib/schema"
+	"github.com/gravitational/gravity/lib/update"
 
 	"github.com/gravitational/trace"
 )
@@ -117,38 +117,23 @@ func updateTrigger(
 		clusterName:  cluster.Domain,
 		clusterEnv:   clusterEnv,
 		proxy:        proxy,
-		nodeParams:   []string{constants.RPCAgentSyncPlanFunction},
-	}
-
-	if !manual {
-		req.leaderParams = []string{constants.RPCAgentUpgradeFunction}
-		// Force this node to be the operation leader
-		req.leader, err = findLocalServer(*cluster)
-		if err != nil {
-			log.Warnf("Failed to find local node in cluster state: %v.",
-				trace.DebugReport(err))
-			return trace.Wrap(err, "failed to find local node in cluster state.\n"+
-				"Make sure you start the operation from one of the cluster master nodes.")
-		}
+		nodeParams:   constants.RPCAgentSyncPlanFunction,
 	}
 
 	ctx, cancel := context.WithTimeout(context.Background(), defaults.AgentDeployTimeout)
 	defer cancel()
-	err = deployUpdateAgents(ctx, localEnv, updateEnv, req)
+
+	_, err = update.InitOperationPlan(ctx, localEnv, updateEnv, clusterEnv, *opKey)
+	if err != nil {
+		return trace.Wrap(err)
+	}
+	_, err = deployAgents(ctx, req)
 	if err != nil {
 		return trace.Wrap(err)
 	}
 
-	if localEnv.Silent {
-		fmt.Printf("%v", opKey.OperationID)
-		return nil
-	}
-
-	localEnv.Printf("update operation (%v) has been started\n", opKey.OperationID)
-
 	if !manual {
-		localEnv.Println("the cluster is updating in background")
-		return nil
+		return trace.Wrap(update.AutomaticUpgrade(context.Background(), localEnv, updateEnv))
 	}
 
 	localEnv.Println(`

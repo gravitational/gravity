@@ -68,10 +68,8 @@ type Application struct {
 	RemoveCmd RemoveCmd
 	// PlanCmd manages an operation plan
 	PlanCmd PlanCmd
-	// PlanInitCmd creates a new update operation plan
-	PlanInitCmd PlanInitCmd
-	// PlanSyncCmd synchronizes operation plan between local and cluster backends
-	PlanSyncCmd PlanSyncCmd
+	// UpdatePlanInitCmd creates a new update operation plan
+	UpdatePlanInitCmd UpdatePlanInitCmd
 	// PlanDisplayCmd displays plan of an operation
 	PlanDisplayCmd PlanDisplayCmd
 	// PlanExecuteCmd executes a phase of an active operation
@@ -457,16 +455,6 @@ type PlanCmd struct {
 	SkipVersionCheck *bool
 }
 
-// PlanInitCmd creates a new update operation plan
-type PlanInitCmd struct {
-	*kingpin.CmdClause
-}
-
-// PlanSyncCmd synchronizes operation plan between local and cluster backends
-type PlanSyncCmd struct {
-	*kingpin.CmdClause
-}
-
 // PlanDisplayCmd displays plan of a specific operation
 type PlanDisplayCmd struct {
 	*kingpin.CmdClause
@@ -580,6 +568,11 @@ type UpdateSystemCmd struct {
 	WithStatus *bool
 	// RuntimePackage specifies the runtime package to update to
 	RuntimePackage *loc.Locator
+}
+
+// UpdatePlanInitCmd creates a new update operation plan
+type UpdatePlanInitCmd struct {
+	*kingpin.CmdClause
 }
 
 // UpgradeCmd launches app upgrade
@@ -1143,8 +1136,10 @@ type RPCAgentCmd struct {
 // RPCAgentDeployCmd deploys RPC agents on cluster nodes
 type RPCAgentDeployCmd struct {
 	*kingpin.CmdClause
-	// Args is additional arguments to the agent
-	Args *[]string
+	// LeaderArgs is additional arguments to the leader agent
+	LeaderArgs *string
+	// NodeArgs is additional arguments to the regular agent
+	NodeArgs *string
 }
 
 // RPCAgentShutdownCmd requests RPC agents to shut down
@@ -1411,6 +1406,8 @@ type GarbageCollectCmd struct {
 	Phase *string
 	// PhaseTimeout is the phase execution timeout
 	PhaseTimeout *time.Duration
+	// OperationID specifies the ID of the operation to work with
+	OperationID *string
 	// Resume is whether to resume a failed garbage collection
 	Resume *bool
 	// Manual is whether the operation is not executed automatically

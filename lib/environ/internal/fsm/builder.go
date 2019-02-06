@@ -210,8 +210,8 @@ func (r phaseBuilder) node(server storage.Server, id, format string) phase {
 // enable - the list of servers to enable election on
 // disable - the list of servers to disable election on
 // server - The server the phase should be executed on, and used to name the phase
-// key - is the identifier of the phase (combined with server.Hostname)
-// msg - is a format string used to describe the phase
+// id - is the identifier of the phase (combined with server.Hostname)
+// format - is a format string used to describe the phase
 func setLeaderElection(enable, disable []storage.Server, server storage.Server, id, format string) phase {
 	return phase{
 		ID:          id,

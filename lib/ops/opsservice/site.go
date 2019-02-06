@@ -326,6 +326,10 @@ func (s *site) packages() pack.PackageService {
 	return s.service.cfg.Packages
 }
 
+func (s *site) apps() appservice.Applications {
+	return s.service.cfg.Apps
+}
+
 func (s *site) clock() timetools.TimeProvider {
 	return s.service.cfg.Clock
 }

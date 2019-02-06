@@ -21,7 +21,9 @@ import (
 
 	"github.com/gravitational/gravity/lib/fsm"
 	"github.com/gravitational/gravity/lib/localenv"
+	"github.com/gravitational/gravity/lib/ops"
 	"github.com/gravitational/gravity/lib/rpc"
+	"github.com/gravitational/gravity/lib/storage"
 	"github.com/gravitational/gravity/lib/utils"
 	"github.com/gravitational/gravity/lib/utils/kubectl"
 
@@ -35,7 +37,10 @@ func AutomaticUpgrade(ctx context.Context, localEnv, updateEnv *localenv.LocalEn
 	if err != nil {
 		return trace.Wrap(err)
 	}
-
+	operation, err := storage.GetLastOperation(updateEnv.Backend)
+	if err != nil {
+		return trace.Wrap(err)
+	}
 	creds, err := fsm.GetClientCredentials()
 	if err != nil {
 		return trace.Wrap(err)
@@ -52,6 +57,7 @@ func AutomaticUpgrade(ctx context.Context, localEnv, updateEnv *localenv.LocalEn
 		Apps:              clusterEnv.Apps,
 		Client:            clusterEnv.Client,
 		Operator:          clusterEnv.Operator,
+		Operation:         (*ops.SiteOperation)(operation),
 		Users:             clusterEnv.Users,
 		Remote:            runner,
 	}

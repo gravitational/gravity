@@ -20,7 +20,6 @@ import (
 	"bytes"
 	"context"
 	"fmt"
-	"os"
 	"time"
 
 	"github.com/gravitational/gravity/lib/app"
@@ -51,7 +50,7 @@ type fsmUpdateEngine struct {
 
 // newUpdateEngine returns a new instance of FSM engine for update
 func newUpdateEngine(ctx context.Context, config FSMConfig, logger logrus.FieldLogger) (*fsmUpdateEngine, error) {
-	plan, err := loadPlan(config.LocalBackend, logger)
+	plan, err := loadPlan(config.LocalBackend, config.Operation.Key(), logger)
 	if err != nil {
 		return nil, trace.Wrap(err)
 	}
@@ -114,17 +113,18 @@ func (f *fsmUpdateEngine) Complete(fsmErr error) error {
 		return trace.Wrap(err)
 	}
 
-	opKey := clusterOperationKey(*plan)
+	opKey := fsm.OperationKey(*plan)
 	op, err := f.Operator.GetSiteOperation(opKey)
 	if err != nil {
 		return trace.Wrap(err)
 	}
 
+	stateSetter := fsm.SetOperationState(opKey, f.Operator, f.LocalBackend)
 	completed := fsm.IsCompleted(plan)
 	if completed {
-		err = ops.CompleteOperation(opKey, f.Operator)
+		err = ops.CompleteOperation(opKey, stateSetter)
 	} else {
-		err = ops.FailOperation(opKey, f.Operator, trace.Unwrap(fsmErr).Error())
+		err = ops.FailOperation(opKey, stateSetter, trace.Unwrap(fsmErr).Error())
 	}
 	if err != nil {
 		return trace.Wrap(err)
@@ -234,32 +234,14 @@ func (f *fsmUpdateEngine) reconcilePlan(ctx context.Context) error {
 	return nil
 }
 
-func loadPlan(backend storage.Backend, logger logrus.FieldLogger) (*storage.OperationPlan, error) {
-	op, err := storage.GetLastOperation(backend)
-	if err != nil {
-		if !trace.IsNotFound(err) {
-			return nil, trace.Wrap(err)
-		}
-
-		logger.Error(trace.DebugReport(err))
-		execPath, err := os.Executable()
-		if err != nil {
-			return nil, trace.Wrap(err)
-		}
-
-		return nil, trace.NotFound("Please run `sudo %[1]v upgrade` or `sudo %[1]v upgrade --manual` first", execPath)
-	}
-
-	plan, err := backend.GetOperationPlan(op.SiteDomain, op.ID)
+func loadPlan(backend storage.Backend, opKey ops.SiteOperationKey, logger logrus.FieldLogger) (*storage.OperationPlan, error) {
+	plan, err := backend.GetOperationPlan(opKey.SiteDomain, opKey.OperationID)
 	if err != nil && !trace.IsNotFound(err) {
 		return nil, trace.Wrap(err)
 	}
-
 	if plan == nil {
-		return nil, trace.NotFound("operation %v (%v) doesn't have a plan",
-			op.Type, op.ID)
+		return nil, trace.NotFound("operation %v doesn't have a plan", opKey.OperationID)
 	}
-
 	return plan, nil
 }
 
@@ -292,19 +274,4 @@ Please use the gravity binary from the upgrade installer tarball to execute the 
 	}
 
 	return nil
-}
-
-func clusterOperationKey(plan storage.OperationPlan) ops.SiteOperationKey {
-	return ops.SiteOperationKey{
-		SiteDomain:  plan.ClusterName,
-		AccountID:   plan.AccountID,
-		OperationID: plan.OperationID,
-	}
-}
-
-func clusterKey(plan storage.OperationPlan) ops.SiteKey {
-	return ops.SiteKey{
-		SiteDomain: plan.ClusterName,
-		AccountID:  plan.AccountID,
-	}
 }

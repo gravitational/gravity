@@ -223,7 +223,7 @@ func (c *Config) CheckAndSetDefaults() (err error) {
 		return trace.BadParameter("missing AdvertiseAddr")
 	}
 	if c.LocalClusterClient == nil {
-		return trace.BadParameter("missing LocalClient")
+		return trace.BadParameter("missing LocalClusterClient")
 	}
 	if !utils.StringInSlice(modules.Get().InstallModes(), c.Mode) {
 		return trace.BadParameter("invalid Mode %q", c.Mode)
