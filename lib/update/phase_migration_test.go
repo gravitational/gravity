@@ -25,6 +25,7 @@ import (
 	"github.com/gravitational/gravity/lib/storage"
 
 	"github.com/pborman/uuid"
+	"github.com/sirupsen/logrus"
 	"gopkg.in/check.v1"
 )
 
@@ -50,7 +51,7 @@ func (s *PhaseMigrationSuite) TestMigrateLinks(c *check.C) {
 	phase, err := NewPhaseMigrateLinks(
 		FSMConfig{Backend: s.backend},
 		storage.OperationPlan{ClusterName: cluster.Domain},
-		storage.OperationPhase{})
+		storage.OperationPhase{}, logrus.StandardLogger())
 	c.Assert(err, check.IsNil)
 
 	// insert a few links

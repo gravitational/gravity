@@ -227,11 +227,9 @@ type PhaseUpgradeEtcdBackup struct {
 	log.FieldLogger
 }
 
-func NewPhaseUpgradeEtcdBackup(c FSMConfig, plan storage.OperationPlan, phase storage.OperationPhase) (fsm.PhaseExecutor, error) {
+func NewPhaseUpgradeEtcdBackup(c FSMConfig, plan storage.OperationPlan, phase storage.OperationPhase, logger log.FieldLogger) (fsm.PhaseExecutor, error) {
 	return &PhaseUpgradeEtcdBackup{
-		FieldLogger: log.WithFields(log.Fields{
-			trace.Component: "etcd:backup",
-		}),
+		FieldLogger: logger,
 	}, nil
 }
 
@@ -244,6 +242,7 @@ func backupFile() (string, error) {
 }
 
 func (p *PhaseUpgradeEtcdBackup) Execute(ctx context.Context) error {
+	p.Info("Backup etcd.")
 	backupFile, err := backupFile()
 	if err != nil {
 		return trace.Wrap(err)
@@ -279,17 +278,16 @@ type PhaseUpgradeEtcdShutdown struct {
 
 // NewPhaseUpgradeEtcdShutdown creates a phase for shutting down etcd across the cluster
 // 4. Shutdown etcd (all servers) // API outage starts
-func NewPhaseUpgradeEtcdShutdown(c FSMConfig, plan storage.OperationPlan, phase storage.OperationPhase) (fsm.PhaseExecutor, error) {
+func NewPhaseUpgradeEtcdShutdown(c FSMConfig, plan storage.OperationPlan, phase storage.OperationPhase, logger log.FieldLogger) (fsm.PhaseExecutor, error) {
 	return &PhaseUpgradeEtcdShutdown{
-		FieldLogger: log.WithFields(log.Fields{
-			trace.Component: "etcd:shutdown",
-		}),
-		Client:   c.Client,
-		isLeader: phase.Data.Data == "true",
+		FieldLogger: logger,
+		Client:      c.Client,
+		isLeader:    phase.Data.Data == "true",
 	}, nil
 }
 
 func (p *PhaseUpgradeEtcdShutdown) Execute(ctx context.Context) error {
+	p.Info("Shutdown etcd.")
 	out, err := utils.RunPlanetCommand(ctx, p.FieldLogger, "etcd", "disable")
 	if err != nil {
 		return trace.Wrap(err)
@@ -299,6 +297,7 @@ func (p *PhaseUpgradeEtcdShutdown) Execute(ctx context.Context) error {
 }
 
 func (p *PhaseUpgradeEtcdShutdown) Rollback(ctx context.Context) error {
+	p.Info("Enable etcd.")
 	out, err := utils.RunPlanetCommand(ctx, p.FieldLogger, "etcd", "enable")
 	if err != nil {
 		return trace.Wrap(err)
@@ -325,12 +324,10 @@ type PhaseUpgradeEtcd struct {
 	Server storage.Server
 }
 
-func NewPhaseUpgradeEtcd(c FSMConfig, plan storage.OperationPlan, phase storage.OperationPhase) (fsm.PhaseExecutor, error) {
+func NewPhaseUpgradeEtcd(c FSMConfig, plan storage.OperationPlan, phase storage.OperationPhase, logger log.FieldLogger) (fsm.PhaseExecutor, error) {
 	return &PhaseUpgradeEtcd{
-		FieldLogger: log.WithFields(log.Fields{
-			trace.Component: "etcd:upgrade",
-		}),
-		Server: *phase.Data.Server,
+		FieldLogger: logger,
+		Server:      *phase.Data.Server,
 	}, nil
 }
 
@@ -338,6 +335,7 @@ func NewPhaseUpgradeEtcd(c FSMConfig, plan storage.OperationPlan, phase storage.
 // Upgrade etcd by changing the launch version and data directory
 // Launch the temporary etcd cluster to restore the database
 func (p *PhaseUpgradeEtcd) Execute(ctx context.Context) error {
+	p.Info("Upgrade etcd.")
 	// TODO(knisbet) only wipe the etcd database when required
 	out, err := utils.RunPlanetCommand(ctx, p.FieldLogger, "etcd", "upgrade")
 	if err != nil {
@@ -355,6 +353,7 @@ func (p *PhaseUpgradeEtcd) Execute(ctx context.Context) error {
 }
 
 func (p *PhaseUpgradeEtcd) Rollback(ctx context.Context) error {
+	p.Info("Rollback upgrade of etcd.")
 	out, err := utils.RunPlanetCommand(ctx, p.FieldLogger, "etcd", "disable", "--upgrade")
 	if err != nil {
 		return trace.Wrap(err)
@@ -384,12 +383,10 @@ type PhaseUpgradeEtcdRestore struct {
 	Server storage.Server
 }
 
-func NewPhaseUpgradeEtcdRestore(c FSMConfig, plan storage.OperationPlan, phase storage.OperationPhase) (fsm.PhaseExecutor, error) {
+func NewPhaseUpgradeEtcdRestore(c FSMConfig, plan storage.OperationPlan, phase storage.OperationPhase, logger log.FieldLogger) (fsm.PhaseExecutor, error) {
 	return &PhaseUpgradeEtcdRestore{
-		FieldLogger: log.WithFields(log.Fields{
-			trace.Component: "etcd:restore",
-		}),
-		Server: *phase.Data.Server,
+		FieldLogger: logger,
+		Server:      *phase.Data.Server,
 	}, nil
 }
 
@@ -397,6 +394,7 @@ func NewPhaseUpgradeEtcdRestore(c FSMConfig, plan storage.OperationPlan, phase s
 // 7. Restore the /registry (kubernetes) data to etcd, including automatic migration to v3 datastore for kubernetes
 // 10. Restart etcd on the correct ports on first node // API outage ends
 func (p *PhaseUpgradeEtcdRestore) Execute(ctx context.Context) error {
+	p.Info("Restore etcd data from backup.")
 	backupFile, err := backupFile()
 	if err != nil {
 		return trace.Wrap(err)
@@ -434,16 +432,15 @@ type PhaseUpgradeEtcdRestart struct {
 	Server storage.Server
 }
 
-func NewPhaseUpgradeEtcdRestart(c FSMConfig, plan storage.OperationPlan, phase storage.OperationPhase) (fsm.PhaseExecutor, error) {
+func NewPhaseUpgradeEtcdRestart(c FSMConfig, plan storage.OperationPlan, phase storage.OperationPhase, logger log.FieldLogger) (fsm.PhaseExecutor, error) {
 	return &PhaseUpgradeEtcdRestart{
-		FieldLogger: log.WithFields(log.Fields{
-			trace.Component: "etcd:restart",
-		}),
-		Server: *phase.Data.Server,
+		FieldLogger: logger,
+		Server:      *phase.Data.Server,
 	}, nil
 }
 
 func (p *PhaseUpgradeEtcdRestart) Execute(ctx context.Context) error {
+	p.Info("Restart etcd after upgrade.")
 	out, err := utils.RunPlanetCommand(ctx, p.FieldLogger, "etcd", "disable", "--upgrade")
 	if err != nil {
 		return trace.Wrap(err)
@@ -459,6 +456,7 @@ func (p *PhaseUpgradeEtcdRestart) Execute(ctx context.Context) error {
 }
 
 func (p *PhaseUpgradeEtcdRestart) Rollback(ctx context.Context) error {
+	p.Info("Reenable etcd upgrade service.")
 	out, err := utils.RunPlanetCommand(ctx, p.FieldLogger, "etcd", "disable")
 	if err != nil {
 		return trace.Wrap(err)
@@ -488,16 +486,14 @@ type PhaseUpgradeGravitySiteRestart struct {
 	Client *kubeapi.Clientset
 }
 
-func NewPhaseUpgradeGravitySiteRestart(c FSMConfig, plan storage.OperationPlan, phase storage.OperationPhase) (fsm.PhaseExecutor, error) {
+func NewPhaseUpgradeGravitySiteRestart(c FSMConfig, plan storage.OperationPlan, phase storage.OperationPhase, logger log.FieldLogger) (fsm.PhaseExecutor, error) {
 	if c.Client == nil {
 		return nil, trace.BadParameter("phase %q must be run from a master node (requires kubernetes client)", phase.ID)
 	}
 
 	return &PhaseUpgradeGravitySiteRestart{
-		FieldLogger: log.WithFields(log.Fields{
-			trace.Component: "etcd:restart",
-		}),
-		Client: c.Client,
+		FieldLogger: logger,
+		Client:      c.Client,
 	}, nil
 }
 
@@ -518,6 +514,7 @@ func (*PhaseUpgradeGravitySiteRestart) PostCheck(context.Context) error {
 }
 
 func restartGravitySite(ctx context.Context, client *kubeapi.Clientset, l log.FieldLogger) error {
+	l.Info("Restart cluster controller.")
 	// wait for etcd to form a cluster
 	out, err := utils.RunCommand(ctx, l, utils.PlanetCommandArgs(defaults.WaitForEtcdScript)...)
 	if err != nil {

@@ -63,7 +63,7 @@ func FSMSpec(config FSMConfig) fsm.FSMSpecFunc {
 				config.Operator)
 
 		case p.Phase.ID == phases.RBACPhase:
-			client, err := httplib.GetClusterKubeClient(config.DNSConfig.Addr())
+			client, err := httplib.GetClusterKubeClient(p.Plan.DNSConfig.Addr())
 			if err != nil {
 				return nil, trace.Wrap(err)
 			}
@@ -89,6 +89,13 @@ func FSMSpec(config FSMConfig) fsm.FSMSpecFunc {
 
 		case strings.HasPrefix(p.Phase.ID, phases.EnableElectionPhase):
 			return phases.NewEnableElectionPhase(p, config.Operator)
+
+		case strings.HasPrefix(p.Phase.ID, phases.GravityResourcesPhase):
+			operator, err := config.LocalClusterClient()
+			if err != nil {
+				return nil, trace.Wrap(err)
+			}
+			return phases.NewGravityResourcesPhase(p, operator)
 
 		default:
 			return nil, trace.BadParameter("unknown phase %q", p.Phase.ID)

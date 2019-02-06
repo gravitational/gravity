@@ -959,6 +959,10 @@ const (
 	// ElectionWaitTimeout specifies the maximum amount of time to wait to resume elections
 	// on a master node
 	ElectionWaitTimeout = 1 * time.Minute
+
+	// AgentDeployTimeout specifies the maximum amount of time to wait to deploy agents
+	// for an operation that spans multiple nodes
+	AgentDeployTimeout = 5 * time.Minute
 )
 
 var (

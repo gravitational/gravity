@@ -81,7 +81,7 @@ type updatePhaseBootstrap struct {
 }
 
 // NewUpdatePhaseBootstrap creates a new bootstrap phase executor
-func NewUpdatePhaseBootstrap(c FSMConfig, plan storage.OperationPlan, phase storage.OperationPhase, remote fsm.Remote) (fsm.PhaseExecutor, error) {
+func NewUpdatePhaseBootstrap(c FSMConfig, plan storage.OperationPlan, phase storage.OperationPhase, remote fsm.Remote, logger log.FieldLogger) (fsm.PhaseExecutor, error) {
 	if phase.Data == nil || phase.Data.Package == nil {
 		return nil, trace.NotFound("no application package specified for phase %v", phase)
 	}
@@ -127,7 +127,7 @@ func NewUpdatePhaseBootstrap(c FSMConfig, plan storage.OperationPlan, phase stor
 		Operation:        *operation,
 		GravityPath:      gravityPath,
 		ServiceUser:      cluster.ServiceUser,
-		FieldLogger:      log.NewEntry(log.New()),
+		FieldLogger:      logger,
 		remote:           remote,
 		runtimePackage:   *runtimePackage,
 		installedRuntime: *installedRuntime,
@@ -166,7 +166,7 @@ func (p *updatePhaseBootstrap) Execute(ctx context.Context) error {
 	if err != nil {
 		return trace.Wrap(err)
 	}
-	err = p.updateExistingRuntimePackageLabels()
+	err = p.updateExistingPackageLabels()
 	if err != nil {
 		return trace.Wrap(err)
 	}
@@ -201,6 +201,7 @@ func (p *updatePhaseBootstrap) configureNode() error {
 }
 
 func (p *updatePhaseBootstrap) exportGravity(ctx context.Context) error {
+	p.Infof("Export gravity binary to %v.", p.GravityPath)
 	err := utils.CopyWithRetries(ctx, p.GravityPath, func() (io.ReadCloser, error) {
 		_, rc, err := p.Packages.ReadPackage(p.GravityPackage)
 		return rc, trace.Wrap(err)
@@ -221,6 +222,7 @@ func (p *updatePhaseBootstrap) updateDNSConfig() error {
 	}
 
 	err = p.HostLocalBackend.SetDNSConfig(dnsConfig)
+	p.Infof("Update cluster DNS configuration as %v.", dnsConfig)
 	if err != nil {
 		return trace.Wrap(err)
 	}
@@ -228,6 +230,7 @@ func (p *updatePhaseBootstrap) updateDNSConfig() error {
 }
 
 func (p *updatePhaseBootstrap) pullSystemUpdates() error {
+	p.Info("Pull system updates.")
 	out, err := fsm.RunCommand(utils.PlanetCommandArgs(
 		filepath.Join(defaults.GravityUpdateDir, constants.GravityBin),
 		"--quiet", "--insecure", "system", "pull-updates",
@@ -238,11 +241,12 @@ func (p *updatePhaseBootstrap) pullSystemUpdates() error {
 	if err != nil {
 		return trace.Wrap(err, "failed to pull system updates: %s", out)
 	}
-	log.Debugf("Pulled system updates: %s.", out)
+	p.Debugf("Pulled system updates: %s.", out)
 	return nil
 }
 
 func (p *updatePhaseBootstrap) syncPlan() error {
+	p.Info("Sync operation plan.")
 	site, err := p.Backend.GetSite(p.Operation.SiteDomain)
 	if err != nil {
 		return trace.Wrap(err)
@@ -266,26 +270,28 @@ func (p *updatePhaseBootstrap) syncPlan() error {
 	return nil
 }
 
-// updateExistingRuntimePackageLabels updates labels on the runtime packages
-// from the previous installation so the system package pull
-// step can find and pull the correct package update.
+// updateExistingPackageLabels updates labels on existing packages
+// so the system package pull step can find and pull correct package updates.
 //
-// To do this, it will update the labels on the installed runtime package
-// to mark it as such.
 // For legacy runtime packages ('planet-master' and 'planet-node')
 // the sibling runtime package (i.e. 'planet-master' on a regular node
 // and vice versa), will be updated to _not_ include the installed label
 // to simplify the search
-func (p *updatePhaseBootstrap) updateExistingRuntimePackageLabels() error {
-	type updateLabels struct {
-		loc.Locator
-		add    map[string]string
-		remove []string
+func (p *updatePhaseBootstrap) updateExistingPackageLabels() error {
+	configLabels, err := updateRuntimeConfigLabels(p.LocalPackages, p.installedRuntime)
+	if err != nil {
+		return trace.Wrap(err)
 	}
-	var runtimePackages []updateLabels
-	runtimePackages = append(runtimePackages, updateLabels{
+
+	secretLabels, err := updateRuntimeSecretLabels(p.LocalPackages)
+	if err != nil {
+		return trace.Wrap(err)
+	}
+
+	updates := append(configLabels, secretLabels...)
+	updates = append(updates, pack.LabelUpdate{
 		Locator: p.installedRuntime,
-		add:     utils.CombineLabels(pack.RuntimePackageLabels, pack.InstalledLabels),
+		Add:     utils.CombineLabels(pack.RuntimePackageLabels, pack.InstalledLabels),
 	})
 	if loc.IsLegacyRuntimePackage(p.installedRuntime) {
 		var runtimePackageToClear loc.Locator
@@ -295,16 +301,16 @@ func (p *updatePhaseBootstrap) updateExistingRuntimePackageLabels() error {
 		case loc.LegacyPlanetNode.Name:
 			runtimePackageToClear = withVersion(loc.LegacyPlanetMaster, p.installedRuntime.Version)
 		}
-		runtimePackages = append(runtimePackages, updateLabels{
+		updates = append(updates, pack.LabelUpdate{
 			Locator: runtimePackageToClear,
-			add:     pack.RuntimePackageLabels,
-			remove:  []string{pack.InstalledLabel},
+			Add:     pack.RuntimePackageLabels,
+			Remove:  []string{pack.InstalledLabel},
 		})
 	}
 
-	for _, update := range runtimePackages {
-		p.Infof("Update package labels %v (+%v -%v).", update.Locator, update.add, update.remove)
-		err := p.LocalPackages.UpdatePackageLabels(update.Locator, update.add, update.remove)
+	for _, update := range updates {
+		p.Info(update.String())
+		err := p.LocalPackages.UpdatePackageLabels(update.Locator, update.Add, update.Remove)
 		if err != nil && !trace.IsNotFound(err) {
 			return trace.Wrap(err)
 		}
@@ -357,4 +363,45 @@ func withVersion(filter loc.Locator, version string) loc.Locator {
 		Name:       filter.Name,
 		Version:    version,
 	}
+}
+
+func updateRuntimeConfigLabels(packages pack.PackageService, installedRuntime loc.Locator) ([]pack.LabelUpdate, error) {
+	runtimeConfig, err := pack.FindInstalledConfigPackage(packages, installedRuntime)
+	if err != nil && !trace.IsNotFound(err) {
+		return nil, trace.Wrap(err)
+	}
+	if runtimeConfig != nil {
+		// No update necessary
+		return nil, nil
+	}
+	// Fall back to first configuration package
+	runtimeConfig, err = pack.FindConfigPackage(packages, installedRuntime)
+	if err != nil {
+		return nil, trace.Wrap(err)
+	}
+	// Mark this configuration package as installed
+	return []pack.LabelUpdate{{
+		Locator: *runtimeConfig,
+		Add:     pack.InstalledLabels,
+	}}, nil
+}
+
+func updateRuntimeSecretLabels(packages pack.PackageService) ([]pack.LabelUpdate, error) {
+	secretsPackage, err := pack.FindSecretsPackage(packages)
+	if err != nil {
+		return nil, trace.Wrap(err)
+	}
+	_, err = pack.FindInstalledPackage(packages, *secretsPackage)
+	if err != nil && !trace.IsNotFound(err) {
+		return nil, trace.Wrap(err)
+	}
+	if err == nil {
+		// No update necessary
+		return nil, nil
+	}
+	// Mark this secrets package as installed
+	return []pack.LabelUpdate{{
+		Locator: *secretsPackage,
+		Add:     pack.InstalledLabels,
+	}}, nil
 }

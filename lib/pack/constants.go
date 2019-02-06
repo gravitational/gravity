@@ -60,6 +60,11 @@ var RuntimePackageLabels = map[string]string{
 	PurposeLabel: PurposeRuntime,
 }
 
+// RuntimeSecretsPackageLabels identifies the runtime secrets package
+var RuntimeSecretsPackageLabels = map[string]string{
+	PurposeLabel: PurposePlanetSecrets,
+}
+
 // InstalledLabels defines a label set for an installed package
 var InstalledLabels = map[string]string{
 	InstalledLabel: InstalledLabel,

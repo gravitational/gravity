@@ -50,7 +50,7 @@ func updateCheck(env *localenv.LocalEnvironment, appPackage string) error {
 
 func updateTrigger(
 	localEnv *localenv.LocalEnvironment,
-	upgradeEnv *localenv.LocalEnvironment,
+	updateEnv *localenv.LocalEnvironment,
 	appPackage string,
 	manual bool,
 ) error {
@@ -117,21 +117,24 @@ func updateTrigger(
 		clusterName:  cluster.Domain,
 		clusterEnv:   clusterEnv,
 		proxy:        proxy,
+		nodeParams:   []string{constants.RPCAgentSyncPlanFunction},
 	}
 
 	if !manual {
-		req.leaderParams = []string{constants.RpcAgentUpgradeFunction}
-		// attempt to schedule the master agent on this node but do not
-		// treat the failure to do so as critical
+		req.leaderParams = []string{constants.RPCAgentUpgradeFunction}
+		// Force this node to be the operation leader
 		req.leader, err = findLocalServer(*cluster)
 		if err != nil {
-			log.Warnf("Failed to determine local node: %v.",
+			log.Warnf("Failed to find local node in cluster state: %v.",
 				trace.DebugReport(err))
+			return trace.Wrap(err, "failed to find local node in cluster state.\n"+
+				"Make sure you start the operation from one of the cluster master nodes.")
 		}
 	}
 
-	ctx := context.TODO()
-	err = deployUpdateAgents(ctx, localEnv, upgradeEnv, req)
+	ctx, cancel := context.WithTimeout(context.Background(), defaults.AgentDeployTimeout)
+	defer cancel()
+	err = deployUpdateAgents(ctx, localEnv, updateEnv, req)
 	if err != nil {
 		return trace.Wrap(err)
 	}

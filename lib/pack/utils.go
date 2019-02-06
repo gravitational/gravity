@@ -24,12 +24,15 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"strings"
 
 	"github.com/gravitational/gravity/lib/archive"
+	"github.com/gravitational/gravity/lib/constants"
 	"github.com/gravitational/gravity/lib/defaults"
 	"github.com/gravitational/gravity/lib/loc"
 	"github.com/gravitational/gravity/lib/state"
 	"github.com/gravitational/gravity/lib/storage"
+	"github.com/gravitational/gravity/lib/utils"
 
 	"github.com/coreos/go-semver/semver"
 	dockerarchive "github.com/docker/docker/pkg/archive"
@@ -329,6 +332,24 @@ func FindConfigPackage(packages PackageService, filter loc.Locator) (*loc.Locato
 	return &configPkg.Locator, nil
 }
 
+// FindInstalledConfigPackage returns an installed configuration package for given package
+func FindInstalledConfigPackage(packages PackageService, filter loc.Locator) (*loc.Locator, error) {
+	configPkg, err := FindPackage(packages, func(e PackageEnvelope) bool {
+		return e.HasLabels(Labels{
+			ConfigLabel:    filter.ZeroVersion().String(),
+			InstalledLabel: InstalledLabel,
+		})
+	})
+	if err != nil {
+		if trace.IsNotFound(err) {
+			return nil, trace.NotFound("no configuration package for %v found",
+				filter)
+		}
+		return nil, trace.Wrap(err)
+	}
+	return &configPkg.Locator, nil
+}
+
 // FindInstalledPackageWithConfig finds installed package and associated configuration package
 func FindInstalledPackageWithConfig(packages PackageService, filter loc.Locator) (*loc.Locator, *loc.Locator, error) {
 	locator, err := FindInstalledPackage(packages, filter)
@@ -392,6 +413,12 @@ func FindLatestCompatiblePackage(packages PackageService, filter loc.Locator, ve
 
 // FindLatestPackage returns package with the latest possible version
 func FindLatestPackage(packages PackageService, filter loc.Locator) (*loc.Locator, error) {
+	return FindLatestPackageCustom(packages, filter, Less)
+}
+
+// FindLatestPackageCustom searches for the latest version of the package given with filter
+// using the specified comparator
+func FindLatestPackageCustom(packages PackageService, filter loc.Locator, compare LessFunc) (*loc.Locator, error) {
 	var max *loc.Locator
 	err := ForeachPackageInRepo(packages, filter.Repository, func(e PackageEnvelope) error {
 		if e.Locator.Repository != filter.Repository || e.Locator.Name != filter.Name {
@@ -409,7 +436,7 @@ func FindLatestPackage(packages PackageService, filter loc.Locator) (*loc.Locato
 		if err != nil {
 			return nil
 		}
-		if verb.Compare(*vera) > 0 {
+		if compare(vera, verb) {
 			max = &e.Locator
 		}
 		return nil
@@ -501,4 +528,195 @@ func ConfigLabels(loc loc.Locator, purpose string) map[string]string {
 		ConfigLabel:  loc.ZeroVersion().String(),
 		PurposeLabel: purpose,
 	}
+}
+
+// Labels is a set of labels
+type Labels map[string]string
+
+// HasPurpose returns true if these labels contain the purpose label for any of the given values
+func (r Labels) HasPurpose(values ...string) bool {
+	for _, value := range values {
+		purpose, ok := r[PurposeLabel]
+		if ok && purpose == value {
+			return true
+		}
+	}
+	return false
+}
+
+// FindAnyRuntimePackageWithConfig searches for the runtime package and the corresponding
+// configuration package in the specified package service.
+// It looks up both legacy packages and packages marked as runtime
+func FindAnyRuntimePackageWithConfig(packages PackageService) (runtimePackage *loc.Locator, runtimeConfig *loc.Locator, err error) {
+	runtimePackage, err = FindAnyRuntimePackage(packages)
+	if err != nil {
+		return nil, nil, trace.Wrap(err)
+	}
+
+	runtimeConfig, err = FindConfigPackage(packages, *runtimePackage)
+	if trace.IsNotFound(err) {
+		runtimeConfig, err = FindLegacyRuntimeConfigPackage(packages)
+		if err != nil {
+			return nil, nil, trace.Wrap(err)
+		}
+	}
+
+	return runtimePackage, runtimeConfig, nil
+}
+
+// FindAnyRuntimePackage searches for the runtime package in the specified package service.
+// It looks up both legacy packages and packages marked as runtime
+func FindAnyRuntimePackage(packages PackageService) (runtimePackage *loc.Locator, err error) {
+	runtimePackage, err = FindRuntimePackage(packages)
+	if err != nil && !trace.IsNotFound(err) {
+		return nil, trace.Wrap(err)
+	}
+	if trace.IsNotFound(err) {
+		runtimePackage, err = FindLegacyRuntimePackage(packages)
+		if err != nil {
+			return nil, trace.Wrap(err)
+		}
+	}
+	return runtimePackage, nil
+}
+
+// FindRuntimePackageWithConfig locates the planet package using the purpose label.
+// Returns a pair - planet package with the corresponding configuration package.
+func FindRuntimePackageWithConfig(packages PackageService) (runtimePackage *loc.Locator, runtimeConfig *loc.Locator, err error) {
+	runtimePackage, err = FindRuntimePackage(packages)
+	if err != nil {
+		return nil, nil, trace.Wrap(err)
+	}
+
+	runtimeConfig, err = FindInstalledConfigPackage(packages, *runtimePackage)
+	if err != nil {
+		return nil, nil, trace.Wrap(err)
+	}
+
+	return runtimePackage, runtimeConfig, nil
+}
+
+// FindRuntimePackage locates the installed runtime package
+func FindRuntimePackage(packages PackageService) (runtimePackage *loc.Locator, err error) {
+	labels := map[string]string{
+		PurposeLabel:   PurposeRuntime,
+		InstalledLabel: InstalledLabel,
+	}
+	err = ForeachPackage(packages, func(env PackageEnvelope) error {
+		if env.HasLabels(labels) {
+			runtimePackage = &env.Locator
+			return utils.Abort(nil)
+		}
+		return nil
+	})
+	if err != nil && !utils.IsAbortError(err) {
+		return nil, trace.Wrap(err)
+	}
+	if runtimePackage == nil {
+		return nil, trace.NotFound("no runtime package found")
+	}
+
+	return runtimePackage, nil
+}
+
+// FindLegacyRuntimePackage locates the planet package using the obsolete master/node
+// flavors.
+func FindLegacyRuntimePackage(packages PackageService) (runtimePackage *loc.Locator, err error) {
+	err = ForeachPackage(packages, func(env PackageEnvelope) error {
+		if loc.IsLegacyRuntimePackage(env.Locator) &&
+			env.HasLabel(InstalledLabel, InstalledLabel) {
+			runtimePackage = &env.Locator
+			return utils.Abort(nil)
+		}
+		return nil
+	})
+	if err != nil && !utils.IsAbortError(err) {
+		return nil, trace.Wrap(err)
+	}
+	if runtimePackage == nil {
+		return nil, trace.NotFound("no runtime package found")
+	}
+
+	return runtimePackage, nil
+}
+
+// FindLegacyRuntimeConfigPackage locates the configuration package for the legacy
+// runtime package in the specified package service
+func FindLegacyRuntimeConfigPackage(packages PackageService) (configPackage *loc.Locator, err error) {
+	err = ForeachPackage(packages, func(env PackageEnvelope) error {
+		if env.Locator.Name == constants.PlanetConfigPackage {
+			configPackage = &env.Locator
+			return utils.Abort(nil)
+		}
+		return nil
+	})
+	if err != nil && !utils.IsAbortError(err) {
+		return nil, trace.Wrap(err)
+	}
+	if configPackage == nil {
+		return nil, trace.NotFound("no runtime configuration package found")
+	}
+	return configPackage, nil
+}
+
+// FindSecretsPackage returns the first secrets package from the given package service
+func FindSecretsPackage(packages PackageService) (*loc.Locator, error) {
+	env, err := FindPackage(packages, func(env PackageEnvelope) bool {
+		return IsSecretsPackage(env.Locator, env.RuntimeLabels)
+	})
+	if err != nil {
+		return nil, trace.Wrap(err)
+	}
+	return &env.Locator, nil
+}
+
+// IsSecretsPackage returns true if the specified package is a runtime secrets package
+func IsSecretsPackage(loc loc.Locator, labels map[string]string) bool {
+	if Labels(labels).HasPurpose(PurposePlanetSecrets) {
+		return true
+	}
+	return strings.Contains(loc.Name, "secrets") && loc.Repository != defaults.SystemAccountOrg
+}
+
+// IsPlanetPackage returns true if the specified package is a runtime package
+func IsPlanetPackage(packageLoc loc.Locator, labels map[string]string) bool {
+	if Labels(labels).HasPurpose(PurposeRuntime) {
+		return true
+	}
+	return (packageLoc.Name == loc.LegacyPlanetMaster.Name ||
+		packageLoc.Name == loc.LegacyPlanetNode.Name)
+}
+
+// IsPlanetConfigPackage returns true if the specified package is a runtime configuration package
+func IsPlanetConfigPackage(loc loc.Locator, labels map[string]string) bool {
+	if Labels(labels).HasPurpose(PurposePlanetConfig) {
+		return true
+	}
+	return strings.Contains(loc.Name, constants.PlanetConfigPackage) &&
+		loc.Repository != defaults.SystemAccountOrg
+}
+
+// LessFunc defines a version comparator
+type LessFunc func(a, b *semver.Version) bool
+
+// Less is the standard version comparator that
+// returns a < b
+func Less(a, b *semver.Version) bool {
+	return a.Compare(*b) < 0
+}
+
+// String formats this update as readable text
+func (r LabelUpdate) String() string {
+	return fmt.Sprintf("update package labels %v (+%v -%v)",
+		r.Locator, r.Add, r.Remove)
+}
+
+// LabelUpdate defines an intent to update package's labels
+type LabelUpdate struct {
+	// Locator identifies the package
+	loc.Locator
+	// Remove is the list of labels to remove
+	Remove []string
+	// Add is the map of labels to add
+	Add Labels
 }

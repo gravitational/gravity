@@ -17,19 +17,27 @@ limitations under the License.
 package cli
 
 import (
+	"bytes"
 	"os"
 
 	"github.com/gravitational/gravity/lib/constants"
 	"github.com/gravitational/gravity/lib/localenv"
+	"github.com/gravitational/gravity/lib/modules"
 	"github.com/gravitational/gravity/lib/ops/resources"
 	"github.com/gravitational/gravity/lib/ops/resources/gravity"
+	"github.com/gravitational/gravity/lib/storage"
 	"github.com/gravitational/gravity/tool/common"
 
+	teleservices "github.com/gravitational/teleport/lib/services"
 	"github.com/gravitational/trace"
 )
 
-// createResource updates or inserts one or many resources
-func createResource(env *localenv.LocalEnvironment, filename string, upsert bool, user string) error {
+// createResource updates or inserts one or many resources from the specified filename.
+// upsert controls whether the resource is expected to exist.
+// manual controls whether the operation is created in manual mode if resource creation is implemented
+// as a cluster operation.
+// confirmed specifies if the user has explicitly approved the operation
+func createResource(env *localenv.LocalEnvironment, factory LocalEnvironmentFactory, filename string, upsert bool, user string, manual, confirmed bool) error {
 	operator, err := env.SiteOperator()
 	if err != nil {
 		return trace.Wrap(err)
@@ -47,15 +55,53 @@ func createResource(env *localenv.LocalEnvironment, filename string, upsert bool
 		return trace.Wrap(err)
 	}
 	defer reader.Close()
-	err = resources.NewControl(gravityResources).Create(reader, upsert, user)
+	control := resources.NewControl(gravityResources)
+	err = resources.ForEach(reader, func(resource storage.UnknownResource) error {
+		res := teleservices.UnknownResource{ResourceHeader: resource.ResourceHeader, Raw: resource.Raw}
+		return trace.Wrap(CreateResource(env, factory, control, res, upsert, user, manual, confirmed))
+	})
+	return trace.Wrap(err)
+}
+
+// CreateResource updates or inserts a single resource
+func CreateResource(
+	env *localenv.LocalEnvironment,
+	factory LocalEnvironmentFactory,
+	control *resources.ResourceControl,
+	resource teleservices.UnknownResource,
+	upsert bool,
+	user string,
+	manual, confirmed bool,
+) error {
+	if resource.Kind != storage.KindRuntimeEnvironment {
+		return trace.Wrap(control.Create(bytes.NewReader(resource.Raw), upsert, user))
+	}
+	if checkRunningAsRoot() != nil {
+		return trace.BadParameter("updating cluster runtime environment variables requires root privileges.\n" +
+			"Please run this command as root")
+	}
+	updateEnv, err := factory.UpdateEnv()
 	if err != nil {
 		return trace.Wrap(err)
 	}
-	return nil
+	defer updateEnv.Close()
+	return trace.Wrap(UpdateEnvars(env, updateEnv, resource.Raw, manual, confirmed))
 }
 
-// removeResource deletes resource by name
-func removeResource(env *localenv.LocalEnvironment, kind string, name string, force bool, user string) error {
+// RemoveResource deletes resource by name
+func RemoveResource(env *localenv.LocalEnvironment, factory LocalEnvironmentFactory, kind string, name string, force bool, user string, manual, confirmed bool) error {
+	if modules.Get().CanonicalKind(kind) == storage.KindRuntimeEnvironment {
+		if checkRunningAsRoot() != nil {
+			return trace.BadParameter("updating cluster runtime environment variables requires root privileges.\n" +
+				"Please run this command as root")
+		}
+		updateEnv, err := factory.UpdateEnv()
+		if err != nil {
+			return trace.Wrap(err)
+		}
+		defer updateEnv.Close()
+		return trace.Wrap(RemoveEnvars(env, updateEnv, manual, confirmed))
+	}
 	operator, err := env.SiteOperator()
 	if err != nil {
 		return trace.Wrap(err)

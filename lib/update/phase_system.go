@@ -45,7 +45,7 @@ type updatePhaseSystem struct {
 }
 
 // NewUpdatePhaseNode returns a new node update phase executor
-func NewUpdatePhaseSystem(c FSMConfig, plan storage.OperationPlan, phase storage.OperationPhase, remote fsm.Remote) (*updatePhaseSystem, error) {
+func NewUpdatePhaseSystem(c FSMConfig, plan storage.OperationPlan, phase storage.OperationPhase, remote fsm.Remote, logger log.FieldLogger) (*updatePhaseSystem, error) {
 	if phase.Data == nil || phase.Data.Server == nil {
 		return nil, trace.NotFound("no server specified for phase %q", phase.ID)
 	}
@@ -60,7 +60,7 @@ func NewUpdatePhaseSystem(c FSMConfig, plan storage.OperationPlan, phase storage
 		OperationID:    plan.OperationID,
 		Server:         *phase.Data.Server,
 		GravityPath:    gravityPath,
-		FieldLogger:    log.NewEntry(log.New()),
+		FieldLogger:    logger,
 		remote:         remote,
 		runtimePackage: *phase.Data.RuntimePackage,
 	}, nil
@@ -91,9 +91,10 @@ func (p *updatePhaseSystem) Execute(context.Context) error {
 				"Restart this node to clean up and retry %q.",
 				errUninstall.Package, updateSystem)
 		}
+		p.Warnf("Failed to update system: %s (%v).", out, err)
 		return trace.Wrap(err, message)
 	}
-	log.Infof("System updated: %s.", out)
+	p.Infof("System updated: %s.", out)
 	return nil
 }
 
@@ -102,8 +103,9 @@ func (p *updatePhaseSystem) Rollback(context.Context) error {
 	out, err := fsm.RunCommand([]string{p.GravityPath, "--insecure", "system", "rollback",
 		"--changeset-id", p.OperationID, "--with-status"})
 	if err != nil {
+		p.Warnf("Failed to rollback system: %s (%v).", out, err)
 		return trace.Wrap(err, "failed to rollback system: %s", out)
 	}
-	log.Infof("System rolled back: %s.", out)
+	p.Infof("System rolled back: %s.", out)
 	return nil
 }

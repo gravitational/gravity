@@ -17,6 +17,8 @@ limitations under the License.
 package localenv
 
 import (
+	"time"
+
 	"github.com/gravitational/gravity/lib/app"
 	"github.com/gravitational/gravity/lib/app/service"
 	"github.com/gravitational/gravity/lib/blob/fs"
@@ -36,6 +38,12 @@ import (
 // NewClusterEnvironment returns a new instance of ClusterEnvironment
 // with all services initialized
 func (r *LocalEnvironment) NewClusterEnvironment() (*ClusterEnvironment, error) {
+	return r.NewClusterEnvironmentWithTimeout(0)
+}
+
+// NewClusterEnvironmentWithTimeout returns a new instance of ClusterEnvironment
+// with the specified etcd timeout
+func (r *LocalEnvironment) NewClusterEnvironmentWithTimeout(etcdTimeout time.Duration) (*ClusterEnvironment, error) {
 	client, err := httplib.GetClusterKubeClient(r.DNS.Addr())
 	if err != nil {
 		log.Errorf("Failed to create Kubernetes client: %v.",
@@ -43,7 +51,8 @@ func (r *LocalEnvironment) NewClusterEnvironment() (*ClusterEnvironment, error) 
 	}
 
 	return newClusterEnvironment(clusterEnvironmentArgs{
-		client: client,
+		client:      client,
+		etcdTimeout: etcdTimeout,
 	})
 }
 
@@ -73,7 +82,7 @@ func NewClusterEnvironment() (*ClusterEnvironment, error) {
 }
 
 func newClusterEnvironment(args clusterEnvironmentArgs) (*ClusterEnvironment, error) {
-	etcdConfig, err := keyval.LocalEtcdConfig(0)
+	etcdConfig, err := keyval.LocalEtcdConfig(args.etcdTimeout)
 	if err != nil {
 		return nil, trace.Wrap(err)
 	}
@@ -135,6 +144,8 @@ func newClusterEnvironment(args clusterEnvironmentArgs) (*ClusterEnvironment, er
 		Apps:     apps,
 		Users:    users,
 		StateDir: siteDir,
+		Local:    true,
+		Client:   args.client,
 	})
 	if err != nil {
 		return nil, trace.Wrap(err)
@@ -157,5 +168,6 @@ func newClusterEnvironment(args clusterEnvironmentArgs) (*ClusterEnvironment, er
 }
 
 type clusterEnvironmentArgs struct {
-	client *kubernetes.Clientset
+	client      *kubernetes.Clientset
+	etcdTimeout time.Duration
 }

@@ -22,6 +22,7 @@ import (
 	"time"
 
 	"github.com/gravitational/gravity/lib/app"
+	"github.com/gravitational/gravity/lib/constants"
 	libfsm "github.com/gravitational/gravity/lib/fsm"
 	"github.com/gravitational/gravity/lib/localenv"
 	"github.com/gravitational/gravity/lib/ops"
@@ -29,7 +30,6 @@ import (
 	"github.com/gravitational/gravity/lib/storage"
 	"github.com/gravitational/gravity/lib/utils"
 	libphase "github.com/gravitational/gravity/lib/vacuum/internal/phases"
-	"github.com/gravitational/gravity/lib/vacuum/prune/pack"
 
 	"github.com/gravitational/trace"
 	"github.com/pborman/uuid"
@@ -78,6 +78,13 @@ func (r *Config) checkAndSetDefaults() (err error) {
 	if r.Spec == nil {
 		r.Spec = configToExecutor(*r)
 	}
+	if r.FieldLogger == nil {
+		r.FieldLogger = &libfsm.Logger{
+			FieldLogger: log.WithField(trace.Component, "gc"),
+			Key:         r.Operation.Key(),
+			Operator:    r.Operator,
+		}
+	}
 	return nil
 }
 
@@ -88,9 +95,9 @@ type Config struct {
 	// Packages is the cluster package service
 	Packages libpack.PackageService
 	// App references the cluster application
-	App *pack.Application
+	App *storage.Application
 	// RemoteApps lists optional applications from remote clusters
-	RemoteApps []pack.Application
+	RemoteApps []storage.Application
 	// Apps is the cluster application service
 	Apps app.Applications
 	// Operator is the cluster operator service
@@ -107,8 +114,6 @@ type Config struct {
 	Runner libfsm.RemoteRunner
 	// Silent controls whether the process outputs messages to stdout
 	localenv.Silent
-	// Emitter outputs progress messages to stdout
-	utils.Emitter
 }
 
 // UpdateProgress creates an appropriate progress entry in the operator
@@ -152,7 +157,11 @@ func (r *engine) Complete(fsmErr error) error {
 	if libfsm.IsCompleted(plan) {
 		err = ops.CompleteOperation(r.Operation.Key(), r.Operator)
 	} else {
-		err = ops.FailOperation(r.Operation.Key(), r.Operator, trace.Unwrap(fsmErr).Error())
+		var msg string
+		if fsmErr != nil {
+			msg = trace.Unwrap(fsmErr).Error()
+		}
+		err = ops.FailOperation(r.Operation.Key(), r.Operator, msg)
 	}
 	if err != nil {
 		return trace.Wrap(err)
@@ -218,25 +227,30 @@ type engine struct {
 // to a phase executor
 func configToExecutor(config Config) libfsm.FSMSpecFunc {
 	return func(params libfsm.ExecutorParams, remote libfsm.Remote) (libfsm.PhaseExecutor, error) {
+		logger := &libfsm.Logger{
+			FieldLogger: log.WithFields(log.Fields{
+				constants.FieldPhase: params.Phase.ID,
+			}),
+			Key:      params.Key(),
+			Operator: config.Operator,
+		}
 		switch {
 		case strings.HasPrefix(params.Phase.ID, libphase.Journal):
-			return libphase.NewJournal(params, config.RuntimePath, config.Emitter)
+			return libphase.NewJournal(params, config.RuntimePath, config.Silent, logger)
 
 		case params.Phase.ID == libphase.ClusterPackages:
 			return libphase.NewPackages(
 				params,
 				*config.App,
-				config.RemoteApps,
 				config.Packages,
-				config.Emitter)
+				config.Silent, logger)
 
 		case strings.HasPrefix(params.Phase.ID, libphase.Packages):
 			return libphase.NewPackages(
 				params,
 				*config.App,
-				config.RemoteApps,
 				config.LocalPackages,
-				config.Emitter)
+				config.Silent, logger)
 
 		case strings.HasPrefix(params.Phase.ID, libphase.Registry):
 			return libphase.NewRegistry(
@@ -244,7 +258,7 @@ func configToExecutor(config Config) libfsm.FSMSpecFunc {
 				config.App.Locator,
 				config.Apps,
 				config.Packages,
-				config.Emitter)
+				config.Silent, logger)
 
 		default:
 			return nil, trace.BadParameter("unknown phase %q", params.Phase.ID)

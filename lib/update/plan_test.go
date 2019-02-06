@@ -106,14 +106,14 @@ func (s *PlanSuite) TestPlanWithRuntimeUpdate(c *check.C) {
 		app,
 		cleanup,
 	}.asPhases()
-	resolve(&plan)
+	ResolvePlan(&plan)
 
 	// exercise
-	obtainedPlan, err := newOperationPlan(params)
+	obtainedPlan, err := newOperationPlanFromParams(params)
 	c.Assert(err, check.IsNil)
 	// Reset the capacity so the plans can be compared
 	obtainedPlan.Phases = resetCap(obtainedPlan.Phases)
-	resolve(obtainedPlan)
+	ResolvePlan(obtainedPlan)
 
 	// verify
 	compare.DeepCompare(c, *obtainedPlan, plan)
@@ -145,14 +145,14 @@ func (s *PlanSuite) TestPlanWithoutRuntimeUpdate(c *check.C) {
 	cleanup := *builder.cleanup(params.servers).Require(app)
 
 	plan.Phases = phases{init, checks, preUpdate, app, cleanup}.asPhases()
-	resolve(&plan)
+	ResolvePlan(&plan)
 
 	// exercise
-	obtainedPlan, err := newOperationPlan(params)
+	obtainedPlan, err := newOperationPlanFromParams(params)
 	c.Assert(err, check.IsNil)
 	// Reset the capacity so the plans can be compared
 	obtainedPlan.Phases = resetCap(obtainedPlan.Phases)
-	resolve(obtainedPlan)
+	ResolvePlan(obtainedPlan)
 
 	// verify
 	compare.DeepCompare(c, *obtainedPlan, plan)

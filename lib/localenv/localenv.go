@@ -136,6 +136,7 @@ func New(stateDir string) (*LocalEnvironment, error) {
 
 // NewLocalEnvironment creates a new LocalEnvironment given the specified configuration
 // arguments.
+// It is caller's responsibility to close the environment with Close after use
 func NewLocalEnvironment(args LocalEnvironmentArgs) (*LocalEnvironment, error) {
 	if args.StateDir == "" {
 		return nil, trace.BadParameter("missing parameter StateDir")
