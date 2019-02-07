@@ -2,15 +2,15 @@
 
 ## Current Releases
 
-Every major gravity version `x.0.0` has it's long term support release, e.g. for `3.0.0` version
+Every major Gravity version `x.0.0` has it's long term support release, e.g. for `3.0.0` version
 LTS starts with `3.51.0` with minor backwards compatible changes added over time until the end of support cycle.
 
 | Release       | LTS | Release Date         | Supported Until      | Kubernetes Version | Teleport Version |
 | --------------|-----| -------------------- | -------------------- | ------------------ |------------------|
-| 5.5.0-alpha.6 | No  | January, 15th 2019   | -                    | 1.12.3             | 3.0.1            |
-| 5.4.2         | No  | January, 8th 2019    | -                    | 1.13.0             | 2.4.10           |
-| 5.3.6         | No  | January, 8th 2019    | -                    | 1.12.3             | 2.4.10           |
-| 5.2.5         | Yes | January, 8th 2019    | October, 15th, 2019  | 1.11.5             | 2.4.10           |
+| 5.5.0-alpha.7 | No  | January, 29th 2019   | -                    | 1.13.0             | 3.0.4            |
+| 5.4.4         | No  | January, 28th 2019   | -                    | 1.13.2             | 2.4.10           |
+| 5.3.8         | No  | January, 25th 2019   | -                    | 1.12.3             | 2.4.10           |
+| 5.2.6         | Yes | January, 30th 2019   | October, 15th, 2019  | 1.11.5             | 2.4.10           |
 | 5.0.28        | Yes | January, 7th 2019    | April, 13th 2019     | 1.9.12-gravitational | 2.4.10         |
 | 4.68.0        | Yes | January, 17th 2019   | November, 16th 2018  | 1.7.18-gravitational | 2.3.5          |
 | 3.64.0        | Yes | December, 21st 2017  | June, 2nd 2018       | 1.5.7              | 2.0.6            |
@@ -24,6 +24,46 @@ LTS starts with `3.51.0` with minor backwards compatible changes added over time
     article in our Help Center.
 
 ## 5.x Releases
+
+### 5.5.0-alpha.7
+
+#### Improvements
+
+* Restrict Teleport cipher suites.
+* Use `overlay2` storage driver by default.
+* Add Helm chart repository and Docker registry support to clusters.
+* Update Teleport to `v3.0.4`.
+* Enable Teleport's Kubernetes proxy integration.
+* Multiple installer UX enhancements.
+* Add ability to exclude certain applications from installation. See [Excluding System Applications](/pack/#excluding-system-applications) for details.
+
+#### Bugfixes
+
+* Update `gravity leave` command to clean up CNI interface.
+* Fix an issue with vendoring unrecognized resources.
+* Fix a potential connection leak.
+* Fix a potential panic in `gravity join` command.
+
+### 5.4.4
+
+#### Bugfixes
+
+* Adjust system resources limits for CoreDNS.
+* Fix an issue with propagation of kubectl command line options from wrapper script to kubectl.
+* Set overlay2 as default docker graph driver.
+
+### 5.4.3
+
+#### Bugfixes
+
+* Fixes a connection leak when fetching agent reports.
+* Don't copy rotate option to resolv.conf used inside planet container.
+* Updates kubernetes to 1.13.2.
+* Updates etcd to 3.3.11
+
+!!! warning
+    Kubernetes 1.13.2 and etcd 3.3.11 fix a denial of service vulnerability. Please see
+    [National Vulnerability Database](https://nvd.nist.gov/vuln/detail/CVE-2018-16875) for more information.
 
 ### 5.5.0-alpha.6
 
@@ -57,6 +97,18 @@ LTS starts with `3.51.0` with minor backwards compatible changes added over time
     Teleport 2.4.10 includes fixes for a security vulnerability. Please see
     [Teleport Announcements](https://gravitational.zendesk.com/hc/en-us/articles/360015185614-Teleport-3-1-2-3-0-3-2-7-7-2-6-10) for more information.
 
+### 5.3.8
+
+#### Improvements
+
+* Add support for creating Gravity resources during install.
+
+### 5.3.7
+
+#### Improvements
+
+* New resource type `runtimeenvironment`. See [Configuring Runtime Environment Variables](/cluster#configuring-runtime-environment-variables) for details.
+
 ### 5.3.6
 
 #### Bugfixes
@@ -67,7 +119,13 @@ LTS starts with `3.51.0` with minor backwards compatible changes added over time
     Teleport 2.4.10 includes fixes for a security vulnerability. Please see
     [Teleport Announcements](https://gravitational.zendesk.com/hc/en-us/articles/360015185614-Teleport-3-1-2-3-0-3-2-7-7-2-6-10) for more information.
 
-### 5.2.5
+### 5.2.6 LTS
+
+#### Bugfixes
+
+* Fix an issue with cluster expansion when applying taints via app.yaml.
+
+### 5.2.5 LTS
 
 #### Bugfixes
 
@@ -141,7 +199,7 @@ LTS starts with `3.51.0` with minor backwards compatible changes added over time
     Kubernetes 1.12.3 includes fixes for CVE-2018-1002105. Please see
     [Issue 71411](https://github.com/kubernetes/kubernetes/issues/71411) for more information.
 
-### 5.2.4
+### 5.2.4 LTS
 
 #### Bugfixes
 

@@ -67,3 +67,19 @@ func (s StringSet) Has(item string) (exists bool) {
 	_, exists = s[item]
 	return exists
 }
+
+// Diff returns difference between this and provided set.
+func (s StringSet) Diff(another StringSet) StringSet {
+	diff := NewStringSet()
+	for item := range s {
+		if !another.Has(item) {
+			diff.Add(item)
+		}
+	}
+	for item := range another {
+		if !s.Has(item) {
+			diff.Add(item)
+		}
+	}
+	return diff
+}

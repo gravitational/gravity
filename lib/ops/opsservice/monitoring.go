@@ -104,7 +104,7 @@ func (o *Operator) UpdateAlert(key ops.SiteKey, alert storage.Alert) error {
 		constants.MonitoringType: constants.MonitoringTypeAlert,
 	}
 	return updateConfigMap(client.Core().ConfigMaps(defaults.MonitoringNamespace),
-		alert.GetName(), string(data), labels)
+		alert.GetName(), defaults.MonitoringNamespace, string(data), labels)
 }
 
 // DeleteAlert deletes the specified monitoring alert
@@ -180,7 +180,7 @@ func (o *Operator) UpdateAlertTarget(key ops.SiteKey, target storage.AlertTarget
 		constants.MonitoringType: constants.MonitoringTypeAlertTarget,
 	}
 	return updateConfigMap(client.Core().ConfigMaps(defaults.MonitoringNamespace),
-		constants.AlertTargetConfigMap, string(data), labels)
+		constants.AlertTargetConfigMap, defaults.MonitoringNamespace, string(data), labels)
 }
 
 // DeleteAlertTarget deletes the cluster monitoring alert target
@@ -211,11 +211,11 @@ func getConfigMap(client corev1.ConfigMapInterface, name string) (string, error)
 	return data, nil
 }
 
-func updateConfigMap(client corev1.ConfigMapInterface, name, data string, labels map[string]string) error {
+func updateConfigMap(client corev1.ConfigMapInterface, name, namespace, data string, labels map[string]string) error {
 	config := &v1.ConfigMap{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      name,
-			Namespace: defaults.MonitoringNamespace,
+			Namespace: namespace,
 			Labels:    labels,
 		},
 		Data: map[string]string{

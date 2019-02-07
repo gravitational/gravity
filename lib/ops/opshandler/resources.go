@@ -23,6 +23,7 @@ import (
 
 	"github.com/gravitational/gravity/lib/constants"
 	"github.com/gravitational/gravity/lib/ops/opsclient"
+	"github.com/gravitational/gravity/lib/storage"
 
 	"github.com/gravitational/roundtrip"
 	telehttplib "github.com/gravitational/teleport/lib/httplib"
@@ -89,6 +90,48 @@ func (h *WebHandler) upsertClusterAuthPreference(w http.ResponseWriter, r *http.
 
 	roundtrip.ReplyJSON(w, http.StatusOK, message("cluster authentication preference upserted"))
 	return nil
+}
+
+/* upsertAuthGateway updates auth gateway settings.
+
+     POST /portal/v1/accounts/:account_id/sites/:site_domain/authgateway
+
+   Success response:
+
+     { "message": "auth gateway preferences updated" }
+*/
+func (h *WebHandler) upsertAuthGateway(w http.ResponseWriter, r *http.Request, p httprouter.Params, ctx *HandlerContext) error {
+	var req opsclient.UpsertResourceRawReq
+	if err := telehttplib.ReadJSON(r, &req); err != nil {
+		return trace.Wrap(err)
+	}
+	gw, err := storage.UnmarshalAuthGateway(req.Resource)
+	if err != nil {
+		return trace.Wrap(err)
+	}
+	err = ctx.Operator.UpsertAuthGateway(siteKey(p), gw)
+	if err != nil {
+		return trace.Wrap(err)
+	}
+	roundtrip.ReplyJSON(w, http.StatusOK, message("auth gateway preferences updated"))
+	return nil
+}
+
+/* getAuthGateway returns the cluster auth gateway settings.
+
+     GET /portal/v1/accounts/:account_id/sites/:site_domain/authgateway
+
+   Success response:
+
+     storage.AuthGateway
+*/
+func (h *WebHandler) getAuthGateway(w http.ResponseWriter, r *http.Request, p httprouter.Params, ctx *HandlerContext) error {
+	gw, err := ctx.Operator.GetAuthGateway(siteKey(p))
+	if err != nil {
+		return trace.Wrap(err)
+	}
+	bytes, err := storage.MarshalAuthGateway(gw)
+	return rawMessage(w, bytes, err)
 }
 
 /* getUser returns user by name

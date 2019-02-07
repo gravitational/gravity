@@ -21,6 +21,7 @@ import (
 	"strings"
 
 	"github.com/gravitational/gravity/lib/constants"
+	"github.com/gravitational/teleport/lib/service"
 
 	"github.com/gravitational/configure"
 	telecfg "github.com/gravitational/teleport/lib/config"
@@ -99,4 +100,13 @@ func MergeTeleConfig(into, from *telecfg.FileConfig) error {
 		into.Proxy.CertFile = from.Proxy.CertFile
 	}
 	return nil
+}
+
+// ReplacePublicAddrs replaces public addresses of all services in the
+// specified config from the provided config.
+func ReplacePublicAddrs(into, from *service.Config) {
+	into.Auth.PublicAddrs = from.Auth.PublicAddrs
+	into.Proxy.SSHPublicAddrs = from.Proxy.SSHPublicAddrs
+	into.Proxy.PublicAddrs = from.Proxy.PublicAddrs
+	into.Proxy.Kube.PublicAddrs = from.Proxy.Kube.PublicAddrs
 }

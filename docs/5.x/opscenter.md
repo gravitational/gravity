@@ -1,6 +1,6 @@
 # Introduction
 
-The Gravity Ops Center is a multi-cluster control plane available in the Enterprise version of Gravity. It reduces the operational overhead of managing multiple Gravity Clusters and Applications Bundles by allowing users to:
+The Gravity Ops Center is a multi-cluster control plane available in the Enterprise version of Gravity. It reduces the operational overhead of managing multiple Gravity Clusters and Application Bundles by allowing users to:
 
 * Publish Application Bundles and manage their versions.
 * Download and install Application Bundles, i.e. quickly creating Kubernetes clusters.
@@ -73,9 +73,9 @@ for information on how to configure Ops Center management endpoints.
 
 ## Upgrading Ops Center
 
-Log into a root terminal on the OpsCenter server.
+Log into a root terminal on the Ops Center server.
 
-Update the tele binary:
+Update the `tele` binary:
 
 ```bsh
 $ curl -LO https://get.gravitational.io/telekube/bin/{VERSION}/linux/x86_64/tele

@@ -23,6 +23,7 @@ import (
 	"github.com/gravitational/gravity/lib/ops/resources"
 	"github.com/gravitational/gravity/lib/storage"
 
+	"github.com/fatih/color"
 	teleservices "github.com/gravitational/teleport/lib/services"
 	"github.com/gravitational/trace"
 )
@@ -160,6 +161,9 @@ func (r *Resources) Create(req resources.CreateRequest) error {
 		}
 		r.Println("Updated TLS keypair")
 	case teleservices.KindClusterAuthPreference:
+		r.Println(color.YellowString("Cluster auth preference resource is " +
+			"obsolete and will be removed in a future release. Please use " +
+			"auth gateway resource instead: https://gravitational.com/gravity/docs/cluster/#configuring-cluster-authentication-gateway."))
 		cap, err := teleservices.GetAuthPreferenceMarshaler().Unmarshal(req.Resource.Raw)
 		if err != nil {
 			return trace.Wrap(err)
@@ -207,6 +211,16 @@ func (r *Resources) Create(req resources.CreateRequest) error {
 			return trace.Wrap(err)
 		}
 		r.Printf("Updated monitoring alert target %q\n", target.GetName())
+	case storage.KindAuthGateway:
+		gw, err := storage.UnmarshalAuthGateway(req.Resource.Raw)
+		if err != nil {
+			return trace.Wrap(err)
+		}
+		err = r.Operator.UpsertAuthGateway(r.cluster.Key(), gw)
+		if err != nil {
+			return trace.Wrap(err)
+		}
+		r.Println("Updated auth gateway configuration")
 	case "":
 		return trace.BadParameter("missing resource kind")
 	default:
@@ -298,11 +312,23 @@ func (r *Resources) GetCollection(req resources.ListRequest) (resources.Collecti
 		keyPair := storage.NewTLSKeyPair(cert.Certificate, cert.PrivateKey)
 		return &tlsKeyPairCollection{keyPairs: []storage.TLSKeyPair{keyPair}}, nil
 	case teleservices.KindClusterAuthPreference, "authpreference", "cap":
+		r.Println(color.YellowString("Cluster auth preference resource is " +
+			"obsolete and will be removed in a future release. Please use " +
+			"auth gateway resource instead: https://gravitational.com/gravity/docs/cluster/#configuring-cluster-authentication-gateway."))
 		authPreference, err := r.Operator.GetClusterAuthPreference(r.cluster.Key())
 		if err != nil {
 			return nil, trace.Wrap(err)
 		}
 		return clusterAuthPreferenceCollection{authPreference}, nil
+	case storage.KindAuthGateway:
+		gw, err := r.Operator.GetAuthGateway(r.cluster.Key())
+		if err != nil {
+			if trace.IsNotFound(err) {
+				return nil, trace.NotFound("auth gateway resource not found")
+			}
+			return nil, trace.Wrap(err)
+		}
+		return &authGatewayCollection{gw}, nil
 	case storage.KindSMTPConfig, "smtps":
 		config, err := r.Operator.GetSMTPConfig(r.cluster.Key())
 		if err != nil {

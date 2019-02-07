@@ -104,6 +104,7 @@ type Process struct {
 	leader         storage.Leader
 	packages       pack.PackageService
 	cfg            processconfig.Config
+	tcfg           telecfg.FileConfig
 	identity       users.Identity
 	mode           string
 	teleportConfig *service.Config
@@ -129,6 +130,10 @@ type Process struct {
 	handlers Handlers
 	// rpcCreds holds generated RPC agents credentials
 	rpcCreds rpcCredentials
+	// authGatewayConfig is the current auth gateway configuration (basically,
+	// a config that gets applied on top of teleport's config the process
+	// was started with)
+	authGatewayConfig storage.AuthGateway
 }
 
 // Handlers combines all the process' web and API Handlers
@@ -253,6 +258,7 @@ func New(ctx context.Context, cfg processconfig.Config, tcfg telecfg.FileConfig)
 		packages:       packages,
 		backend:        backend,
 		cfg:            cfg,
+		tcfg:           tcfg,
 		mode:           cfg.Mode,
 		identity:       identity,
 		clusterObjects: clusterObjects,
@@ -270,43 +276,12 @@ func New(ctx context.Context, cfg processconfig.Config, tcfg telecfg.FileConfig)
 
 	process.Infof("Process ID: %v.", processID)
 
-	telecfgFromImport, err := process.getTeleportConfigFromImportState()
+	process.authGatewayConfig, err = process.getOrInitAuthGatewayConfig()
 	if err != nil {
-		return nil, trace.Wrap(err, "failed to query teleport config from import")
-	}
-
-	if telecfgFromImport != nil {
-		// Reset reverse tunnel from import configuration.
-		// See https://github.com/gravitational/gravity/issues/2927
-		telecfgFromImport.Auth.ReverseTunnels = nil
-
-		tcfg = *telecfgFromImport
-	}
-	if err := processconfig.MergeTeleConfigFromEnv(&tcfg); err != nil {
 		return nil, trace.Wrap(err)
 	}
 
-	// bootstrap reverse tunnels to Ops Centers from enabled trusted clusters
-	tunnels, err := reverseTunnelsFromTrustedClusters(backend)
-	if err != nil && !trace.IsNotFound(err) {
-		return nil, trace.Wrap(err)
-	}
-
-	tcfg.Auth.ReverseTunnels = append(tcfg.Auth.ReverseTunnels, tunnels...)
-
-	process.teleportConfig = service.MakeDefaultConfig()
-	process.teleportConfig.DataDir = tcfg.DataDir
-
-	if err := telecfg.ApplyFileConfig(&tcfg, process.teleportConfig); err != nil {
-		return nil, trace.Wrap(err)
-	}
-
-	process.teleportConfig.Auth.StorageConfig.Params["path"] = tcfg.DataDir
-	if len(process.teleportConfig.AuthServers) == 0 && process.teleportConfig.Auth.Enabled {
-		process.teleportConfig.AuthServers = append(process.teleportConfig.AuthServers, process.teleportConfig.Auth.SSHAddr)
-	}
-
-	process.teleportConfig.Auth.Preference, err = process.getAuthPreference()
+	process.teleportConfig, err = process.buildTeleportConfig(process.authGatewayConfig)
 	if err != nil {
 		return nil, trace.Wrap(err)
 	}
@@ -315,17 +290,6 @@ func New(ctx context.Context, cfg processconfig.Config, tcfg telecfg.FileConfig)
 		process.Warn("Enabling Teleport insecure dev mode!")
 		telelib.SetInsecureDevMode(true)
 	}
-
-	// Teleport will be using Gravity backend implementation
-	process.teleportConfig.Identity = process.identity
-	process.teleportConfig.Trust = process.identity
-	process.teleportConfig.Presence = process.backend
-	process.teleportConfig.Provisioner = process.identity
-	process.teleportConfig.Proxy.DisableWebInterface = true
-	process.teleportConfig.Proxy.DisableWebService = true
-	process.teleportConfig.Access = process.identity
-	process.teleportConfig.Console = logrus.StandardLogger().Writer()
-	process.teleportConfig.ClusterConfiguration = process.identity
 
 	process.Infof("Teleport config: %#v.", process.teleportConfig)
 	process.Infof("Gravity config: %#v.", cfg)
@@ -866,22 +830,49 @@ func (p *Process) ReportReadiness(w http.ResponseWriter, r *http.Request) {
 // ReportHealth is HTTP check that reports that the system is healthy
 // if it can successfully connect to the storage backend
 func (p *Process) ReportHealth(w http.ResponseWriter, r *http.Request) {
-	_, err := p.backend.GetAccounts()
-	var statusCode int
-	var info string
-	if err == nil {
-		statusCode = http.StatusOK
-		info = "service is up and running"
-	} else {
-		p.Errorf("Error: %v.", trace.DebugReport(err))
-		statusCode = http.StatusServiceUnavailable
-		info = err.Error()
+	log := p.WithField(trace.Component, "healthz")
+	ctx, cancel := context.WithTimeout(context.Background(), time.Second)
+	defer cancel()
+
+	healthCh := make(chan error, 1)
+	go func() {
+		started := time.Now()
+		_, err := p.backend.GetAccounts()
+
+		// TODO(knisbet) This should really be reported through proper metrics collection
+		// for now we just log it. On a good system, worse case scenario is about 15ms
+		// so give some margin, but log if etcd is slightly on the slow side above 25ms.
+		elapsed := time.Now().Sub(started)
+		if elapsed > 25*time.Millisecond {
+			log.WithField("elapsed", elapsed).Error("Backend is slow.")
+		}
+		healthCh <- err
+	}()
+
+	select {
+	case err := <-healthCh:
+		if err != nil {
+			log.Error(trace.DebugReport(err))
+			roundtrip.ReplyJSON(w, http.StatusServiceUnavailable,
+				map[string]string{
+					"status": "degraded",
+					"info":   "backend is in error state",
+				})
+			return
+		}
+		roundtrip.ReplyJSON(w, http.StatusOK,
+			map[string]string{
+				"status": "ok",
+				"info":   "service is up and running",
+			})
+
+	case <-ctx.Done():
+		roundtrip.ReplyJSON(w, http.StatusServiceUnavailable,
+			map[string]string{
+				"status": "degraded",
+				"info":   "backend timed out",
+			})
 	}
-	roundtrip.ReplyJSON(w, statusCode,
-		map[string]string{
-			"status": http.StatusText(statusCode),
-			"info":   info,
-		})
 }
 
 // initCertificateAuthority makes sure this OpsCenter has certficate authority and generates
@@ -1271,6 +1262,14 @@ func (p *Process) initService(ctx context.Context) (err error) {
 			return trace.Wrap(err)
 		}
 
+		if err := p.startAuthGatewayWatch(p.context, client); err != nil {
+			return trace.Wrap(err)
+		}
+
+		if err := p.startWatchingReloadEvents(p.context, client); err != nil {
+			return trace.Wrap(err)
+		}
+
 		if err := p.startRegistrySynchronizer(p.context); err != nil {
 			return trace.Wrap(err)
 		}
@@ -1603,6 +1602,7 @@ func (p *Process) getTLSConfig() (*tls.Config, error) {
 	if err != nil {
 		return nil, trace.Wrap(err)
 	}
+
 	return config, nil
 }
 
@@ -1649,20 +1649,11 @@ func (p *Process) newTLSConfig(certPEM, keyPEM []byte) (*tls.Config, error) {
 		return &httpCert, nil
 	}
 
-	config.CipherSuites = []uint16{
-		tls.TLS_ECDHE_ECDSA_WITH_AES_128_GCM_SHA256,
-		tls.TLS_ECDHE_RSA_WITH_AES_128_GCM_SHA256,
+	config.CipherSuites = teleutils.DefaultCipherSuites()
 
-		tls.TLS_ECDHE_RSA_WITH_AES_256_CBC_SHA,
-		tls.TLS_ECDHE_RSA_WITH_AES_128_CBC_SHA,
-
-		tls.TLS_ECDHE_ECDSA_WITH_AES_256_CBC_SHA,
-		tls.TLS_ECDHE_ECDSA_WITH_AES_128_CBC_SHA,
-
-		tls.TLS_RSA_WITH_AES_256_CBC_SHA,
-		tls.TLS_RSA_WITH_AES_128_CBC_SHA,
-	}
-
+	// Prefer the server ciphers, as curl will use invalid h2 ciphers
+	// https://github.com/nghttp2/nghttp2/issues/140
+	config.PreferServerCipherSuites = true
 	config.MinVersion = tls.VersionTLS12
 	config.SessionTicketsDisabled = false
 	config.ClientSessionCache = tls.NewLRUClientSessionCache(

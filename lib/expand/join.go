@@ -143,7 +143,7 @@ type Peer struct {
 	// Only set after the agent has been started
 	agentDoneCh <-chan struct{}
 	// agent is this peer's RPC agent
-	agent rpcserver.Server
+	agent *rpcserver.PeerServer
 }
 
 // NewPeer returns new cluster peer client
@@ -324,7 +324,8 @@ func (p *Peer) checkAndSetServerProfile(app ops.Application) error {
 			return nil
 		}
 	}
-	return trace.NotFound("server role %q is not found", p.Role)
+	return utils.Abort(trace.BadParameter(
+		"specified node role %q is not defined in the application manifest", p.Role))
 }
 
 // runLocalChecks makes sure node satisfies system requirements

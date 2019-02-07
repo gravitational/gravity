@@ -1,11 +1,11 @@
 # Terraform Provider (OSS)
 
-The gravity terraform provider is used to support terraform management of opensource gravity clusters. The provider needs to be configured with a valid token in order to manage a cluster.
+The Gravity terraform provider is used to support terraform management of open-source Gravity clusters. The provider needs to be configured with a valid token in order to manage a cluster.
 
 ## Getting Started
 
 ### Install the Gravity provider
-The terraform provider will be automatically installed when getting the gravity tools.
+The terraform provider will be automatically installed when getting the Gravity tools.
 
 ```bsh
 curl https://get.gravitational.io/telekube/install/5.2.5 | bash
@@ -52,7 +52,7 @@ The following arguments are supported:
     - local: Use local database for users / accounts.
     - oidc: Use OpenID Connect service as an identity provider.
     - saml: Use SAML service as an identity provider.
-    - github: Use github as an identity provider.
+    - github: Use GitHub as an identity provider.
 * `second_factor` - Whether to enable second factor authentication when using local identity provider.
     - off: Second factor authentication is disabled on the cluster.
     - otp: Use TOTP based second factor authentication.
@@ -62,7 +62,7 @@ The following arguments are supported:
 * `u2f_facets` - (Optional) A list of facets for U2F authentication. See [the teleport documents](https://gravitational.com/teleport/docs/admin-guide/#fido-u2f) for more information.
 
 ## gravity_github
-Configures the cluster to allow authentication using github as an identity provider.
+Configures the cluster to allow authentication using GitHub as an identity provider.
 
 ### Example Usage
 ```bsh
@@ -85,12 +85,12 @@ resource "gravity_github" "test" {
 The following arguments are supported:
 
 * `name` - The name of the connector. This name must be unique.
-* `client_id` - Github OAuth app client ID to use.
-* `client_secret` - Github OAuth app client secret.
+* `client_id` - GitHub OAuth app client ID to use.
+* `client_secret` - GitHub OAuth app client secret.
 * `redirect_url` - URL that the cluster can be reached at for OAuth callback.
 * `display` - Human readable display name that will be presented to users on the web interface when logging in.
 * `teams_to_logins` - One or more maps of organization/team/logins to allow on the cluster.
-    - organization - The github organization a user belongs to.
+    - organization - The GitHub organization a user belongs to.
     - team - The team within the organization that the user belongs to.
     - logins - A list of allowed logins for this organization/team on the cluster.
 
@@ -111,7 +111,7 @@ The following arguments are supported:
 
 * `name` - A name to use for the forwarder.
 * `address` - The IP address or hostname and port to send logs to in the format `<host>:<port>`.
-* `protocol` - Which transpor protocol to use for log forwarding.
+* `protocol` - Which transport protocol to use for log forwarding.
     - tcp - Use TCP transport.
     - udp - Use UDP transport.
 
@@ -141,8 +141,8 @@ EOF
 ### Argument Reference
 The following arguments are supported:
 
-* `cert` - The certificate chain in pem format, with the full trust chain.
-* `private_key` - The private key which matches the certificate in pem format.
+* `cert` - The certificate chain in PEM format, with the full trust chain.
+* `private_key` - The private key which matches the certificate in PEM format.
 
 ## gravity_token
 A token is a static secret that can be used to login to a cluster as a user.
@@ -193,12 +193,12 @@ The following arguments are supported:
 
 
 # Terraform Provider (Enterprise)
-The gravity enterprise terraform provider is used to support terraform management of resources only available in the enterprise version of gravity. This provider should be used in conjunction with the opensource gravity provider to manage a gravity cluster.
+The Gravity enterprise terraform provider is used to support terraform management of resources only available in the enterprise version of Gravity. This provider should be used in conjunction with the open-source Gravity provider to manage a Gravity cluster.
 
 ## Getting Started
 
 ### Install the Gravity Enterprise provider
-The terraform provider will be automatically installed when getting the gravity tools.
+The terraform provider will be automatically installed when getting the Gravity tools.
 
 ```bsh
 curl https://get.gravitational.io/telekube/install/5.2.5 | bash
@@ -256,7 +256,7 @@ The following arguments are supported:
 * `agents_advertise_addr` - (Optional) Endpoint used by remote clusters to connect to Ops Center as a trusted cluster.
 
 ## gravityenterprise_oidc
-A gravity enterprise cluster can be configured to use Open ID connect as an identity provider and authenticate users.
+A Gravity enterprise cluster can be configured to use Open ID connect as an identity provider and authenticate users.
 
 ### Example Usage
 ```bsh
@@ -281,12 +281,12 @@ The following arguments are supported:
 
 * `name` - The name of the connector.
 * `display` - (Optional) The display name of the connector as shown in the UI.
-* `redirect_url` - The url on the gravity cluster that will process the OpenID callback. Should be in the format https://<cluster-hostname>/portalapi/v1/oidc/callback.
+* `redirect_url` - The URL on the Gravity cluster that will process the OpenID callback. Should be in the format https://<cluster-hostname>/portalapi/v1/oidc/callback.
 * `acr` - Authentication Context Class Reference value. The meaning of the ACR value is context-specific and varies for identity providers.
 * `identity_provider` - (Optional)
 * `client_id` - Is the client-id used by the identity provider.
 * `client_secret` - Is the secret used to authenticate with the identity provider.
-* `issuer_url` - Is the url of the identity provider to direct users to.
+* `issuer_url` - Is the URL of the identity provider to direct users to.
 * `scope` - Is a list of additional scopes set by the provider.
 * `claims_to_roles` - Is a dictionary of claim to role mappings. Can be passed multiple times.
     - `claim` - OIDC claim name.
@@ -323,11 +323,11 @@ The following arguments are supported:
 
 * `name` - The name of the role.
 * `max_ttl` - The maximum TTL of a login session through this role. See https://golang.org/pkg/time/#ParseDuration for the format. Default: "24h0m0s".
-* `port_forwarding` - Enable port forwarding for tsh sessions. Default: false
-* `forward_agent` - Enable ssh agent forwarding for tsh sessions. Default: false
+* `port_forwarding` - Enable port forwarding for `tsh` sessions. Default: false
+* `forward_agent` - Enable ssh agent forwarding for `tsh` sessions. Default: false
 * `allow` - Map of allowed conditions for this role.
     - `logins` - List of logins that the user can login as.
-    - `node_labels` - Map of key=value pairs that identify nodes user is able to access via tsh.
+    - `node_labels` - Map of key=value pairs that identify nodes user is able to access via `tsh`.
     - `rule` - A map of rules to apply to the condition. Multiple rules can be created.
         - `resources` - A list of resources that this rule applies to:
             - cluster_auth_preference - type of authentication for this cluster.
@@ -359,7 +359,7 @@ The following arguments are supported:
             - assignKubernetesGroups - assigns specified kubernetes groups to the role.
 * `deny` - Map of deny conditions for this role.
     - `logins` - List of logins that the user can login as.
-    - `node_labels` - Map of key=value pairs that identify nodes user is able to access via tsh.
+    - `node_labels` - Map of key=value pairs that identify nodes user is able to access via `tsh`.
     - `rule` - A map of rules to apply to the condition. Multiple rules can be created.
         - `resources` - A list of resources that this rule applies to:
             - cluster_auth_preference - type of authentication for this cluster.
@@ -416,11 +416,11 @@ The following arguments are supported:
 * `issuer` - A unique name (usually a URL) that the identity provider uses for SAML 2.0
 * `sso` - URL of the identity provider SSO service.
 * `cert` - The identity provider certificate.
-* `acs` - The callback url on the gravity cluster. Format https://<host>/portalapi/v1/saml/callback.
+* `acs` - The callback URL on the Gravity cluster. Format https://<host>/portalapi/v1/saml/callback.
 * `audience` - (Optional) Uniquely identifies our service provider.
 * `service_provider_issuer` - (Optional) is the issuer of the service provider
-* `entity_descriptor` - (Optional) - Inline entity descriptor xml configuration.
-* `entity_descriptor_url` - (Optional) Fetch entity descriptor XML from the provided url.
+* `entity_descriptor` - (Optional) - Inline entity descriptor XML configuration.
+* `entity_descriptor_url` - (Optional) Fetch entity descriptor XML from the provided URL.
 * `atributes_to_roles` -  Is a dictionary of claim to role mappings. Can be passed multiple times.
     - `name` - claim name.
     - `value` - claim value to match.
@@ -430,7 +430,7 @@ The following arguments are supported:
 * `identity_provider` - (Optional) is the external identity provider.
 
 ## gravityenterprise_trusted_cluster
-Trusted clusters allows connecting a standalone gravity enterprise cluster to an Ops Center.
+Trusted clusters allows connecting a standalone Gravity enterprise cluster to an Ops Center.
 
 ### Example Usage
 ```bsh

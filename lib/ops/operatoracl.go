@@ -971,3 +971,19 @@ func (o *OperatorACL) DeleteGithubConnector(key SiteKey, name string) error {
 	}
 	return o.operator.DeleteGithubConnector(key, name)
 }
+
+// UpsertAuthGateway updates auth gateway configuration.
+func (o *OperatorACL) UpsertAuthGateway(key SiteKey, gw storage.AuthGateway) error {
+	if err := o.ClusterAction(key.SiteDomain, storage.KindCluster, teleservices.VerbUpdate); err != nil {
+		return trace.Wrap(err)
+	}
+	return o.operator.UpsertAuthGateway(key, gw)
+}
+
+// GetAuthGateway returns auth gateway configuration.
+func (o *OperatorACL) GetAuthGateway(key SiteKey) (storage.AuthGateway, error) {
+	if err := o.ClusterAction(key.SiteDomain, storage.KindCluster, teleservices.VerbRead); err != nil {
+		return nil, trace.Wrap(err)
+	}
+	return o.operator.GetAuthGateway(key)
+}

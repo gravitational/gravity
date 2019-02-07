@@ -331,9 +331,17 @@ func newOperationPlan(p newPlanParams) (*storage.OperationPlan, error) {
 	nodesPhase := *builder.nodes(leadMaster.Server, nodes, supportsTaints).
 		Require(mastersPhase)
 
-	runtimeUpdates, err := app.GetUpdatedDependencies(p.installedRuntime, p.updateRuntime)
+	allRuntimeUpdates, err := app.GetUpdatedDependencies(p.installedRuntime, p.updateRuntime)
 	if err != nil && !trace.IsNotFound(err) {
 		return nil, trace.Wrap(err)
+	}
+
+	// some system apps may need to be skipped depending on the manifest settings
+	var runtimeUpdates []loc.Locator
+	for _, locator := range allRuntimeUpdates {
+		if !schema.ShouldSkipApp(p.updateApp.Manifest, locator) {
+			runtimeUpdates = append(runtimeUpdates, locator)
+		}
 	}
 
 	// this flag indicates whether rbac-app has been updated or not, because if it has

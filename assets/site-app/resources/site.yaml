@@ -51,47 +51,6 @@ subjects:
   name: gravity-site
 ---
 apiVersion: rbac.authorization.k8s.io/v1
-kind: Role
-metadata:
-  name: gravity-site
-  namespace: monitoring
-rules:
-- apiGroups:
-  - ""
-  resources:
-  - secrets
-  verbs:
-  - get
-- apiGroups:
-  - ""
-  resources:
-  - configmaps
-  verbs:
-  - get
-  - list
-- apiGroups:
-  - ""
-  resources:
-  - services
-  verbs:
-  - get
-  - list
----
-apiVersion: rbac.authorization.k8s.io/v1
-kind: RoleBinding
-metadata:
-  name: gravity-site
-  namespace: monitoring
-roleRef:
-  apiGroup: rbac.authorization.k8s.io
-  kind: Role
-  name: gravity-site
-subjects:
-- kind: ServiceAccount
-  name: gravity-site
-  namespace: kube-system
----
-apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRole
 metadata:
   name: gravity-site
@@ -106,6 +65,22 @@ rules:
   - get
   - list
   - watch
+# The following permissions are required for Teleport's Kubernetes proxy
+# functionality which uses Kubernetes CSR API for signing client certs.
+- apiGroups:
+  - certificates.k8s.io
+  resources:
+  - certificatesigningrequests
+  verbs:
+  - create
+  - watch
+  - delete
+- apiGroups:
+  - certificates.k8s.io
+  resources:
+  - certificatesigningrequests/approval
+  verbs:
+  - update
 ---
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRoleBinding
@@ -165,6 +140,14 @@ spec:
             valueFrom:
               fieldRef:
                 fieldPath: status.podIP
+          - name: POD_NAME
+            valueFrom:
+              fieldRef:
+                fieldPath: metadata.name
+          - name: POD_NAMESPACE
+            valueFrom:
+              fieldRef:
+                fieldPath: metadata.namespace
           - name: GRAVITY_CONFIG
             valueFrom:
               configMapKeyRef:

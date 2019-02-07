@@ -4,7 +4,7 @@
 
 ### Create instance
 
-Choose debian image from community images:
+Choose a debian image from community images:
 
 ![deploy](images/instance.png)
 
@@ -37,7 +37,7 @@ Create DNS entry and set it up to the elastic IP
 
 ### Manual prep
 
-If everythign is OK, you should be able to log in:
+If everything is OK, you should be able to log in:
 
 ssh -i ~/.ssh/ops.pem admin@<instance-ip>
 
@@ -104,7 +104,7 @@ git clone git@github.com:gravitational/ops.git
 * Launch provisioning script:
 
 You will be asked to enter GPG password to decrypt secrets in github.
-The password to decrypt GPG keys is in lastpass ("GPG Provisioning Key)", so get it before launching provisioning script.
+The password to decrypt GPG keys is in LastPass ("GPG Provisioning Key)", so get it before launching provisioning script.
 
 ```bsh
 cd $GOPATH/src/github.com/gravitational/gravity/deploy
@@ -118,7 +118,7 @@ Open:
 
 https://console.developers.google.com/apis/credentials?project=teleport-1263&authuser=1
 
-Add a new OIDC hook for new opscenter
+Add a new OIDC hook for the new Ops Center
 
 ![deploy](images/oidc.png)
 
