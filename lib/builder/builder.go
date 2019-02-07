@@ -229,6 +229,10 @@ func (b *Builder) SelectRuntime() (*semver.Version, error) {
 	if runtime == nil {
 		return nil, trace.NotFound("failed to determine application runtime")
 	}
+	if runtime.Name != constants.BaseImageName {
+		return nil, trace.BadParameter("unsupported base image %q, only "+
+			"\"gravity\" is supported as a base image at the moment", runtime.Name)
+	}
 	if runtime.Version != loc.LatestVersion {
 		b.Infof("Using pinned runtime version: %s.", runtime.Version)
 		b.PrintSubStep("Will use runtime version %s from manifest", runtime.Version)

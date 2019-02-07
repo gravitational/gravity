@@ -100,9 +100,8 @@ func Run(tele Application) error {
 			*tele.Quiet)
 	case tele.ListCmd.FullCommand():
 		return list(*env,
-			*tele.ListCmd.Runtimes,
-			*tele.ListCmd.Format,
-			*tele.ListCmd.WithPrereleases)
+			*tele.ListCmd.All,
+			*tele.ListCmd.Format)
 	}
 
 	return trace.NotFound("unknown command %v", cmd)

@@ -56,9 +56,10 @@ func RegisterCommands(app *kingpin.Application) Application {
 	tele.BuildCmd.Parallel = tele.BuildCmd.Flag("parallel", "Specifies the number of concurrent tasks. If < 0, the number of tasks is not restricted, if unspecified, then tasks are capped at the number of logical CPU cores").Int()
 
 	tele.ListCmd.CmdClause = app.Command("ls", "Display a list of user applications published in remote Ops Center")
-	tele.ListCmd.Runtimes = tele.ListCmd.Flag("runtimes", "Show only runtimes").Short('r').Bool()
+	tele.ListCmd.Runtimes = tele.ListCmd.Flag("runtimes", "Show only runtimes").Short('r').Hidden().Bool()
 	tele.ListCmd.Format = common.Format(tele.ListCmd.Flag("format", fmt.Sprintf("Output format, one of: %v", constants.OutputFormats)).Default(string(constants.EncodingText)))
-	tele.ListCmd.WithPrereleases = tele.ListCmd.Flag("with-prereleases", "Include pre-releases (alpha, beta, rc) in the output too").Bool()
+	tele.ListCmd.WithPrereleases = tele.ListCmd.Flag("with-prereleases", "Include pre-releases (alpha, beta, rc) in the output too").Hidden().Bool()
+	tele.ListCmd.All = tele.ListCmd.Flag("all", "Display all available versions").Bool()
 
 	tele.PullCmd.CmdClause = app.Command("pull", "Pull an application from remote Ops Center")
 	tele.PullCmd.App = tele.PullCmd.Arg("app", "Name of application to download: <name>:<version> or just <name> to download the latest").Required().String()

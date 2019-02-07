@@ -432,7 +432,7 @@ const (
 	HumanDateFormatMilli = "Mon Jan _2 15:04:05.000 UTC"
 
 	// ShortDateFormat is the short version of human readable timestamp format
-	ShortDateFormat = "01/02/06 15:04"
+	ShortDateFormat = "2006-01-02 15:04"
 
 	// LatestVersion is the shortcut for the latest Telekube version
 	LatestVersion = "latest"
@@ -710,6 +710,11 @@ var (
 		"kubernetes.default.svc.cluster",
 		"kubernetes.default.svc.cluster.local",
 	}
+
+	// LegacyBaseImageName is the legacy base cluster image name
+	LegacyBaseImageName = "telekube"
+	// BaseImageName is the current base cluster image name
+	BaseImageName = "gravity"
 )
 
 // Format is the type for supported output formats

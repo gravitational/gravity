@@ -69,7 +69,8 @@ const manifestSchema = `
             "labels": {"type": "object"}
           }
         },
-	"logo": {"type": "string"},
+        "baseImage": {"type": "string", "default": "gravity:0.0.0+stable"},
+        "logo": {"type": "string"},
         "releaseNotes": {"type": "string"},
         "endpoints": {
           "type": "array",

@@ -89,6 +89,8 @@ type ListCmd struct {
 	Format *constants.Format
 	// WithPrereleases shows pre-releases too
 	WithPrereleases *bool
+	// All displays all available versions
+	All *bool
 }
 
 // PullCmd downloads app installer from Ops Center

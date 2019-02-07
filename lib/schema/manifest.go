@@ -44,6 +44,8 @@ import (
 type Manifest struct {
 	// Header provides basic information about application
 	Header
+	// BaseImage specifies the cluster image that's used as a base image
+	BaseImage *BaseImage `json:"baseImage,omitempty"`
 	// Logo is the application logo; can be either a filename (file://) or
 	// an HTTP address (http://) or base64 encoded image data in the format
 	// that can be used in a web page
@@ -73,6 +75,34 @@ type Manifest struct {
 	WebConfig string `json:"webConfig,omitempty"`
 }
 
+// BaseImage defines a base image type which is basically a locator with
+// custom marshal/unmarshal.
+type BaseImage struct {
+	Locator loc.Locator
+}
+
+// MarshalJSON marshals base image into a JSON string.
+func (b *BaseImage) MarshalJSON() ([]byte, error) {
+	if b == nil {
+		return nil, nil
+	}
+	return json.Marshal(b.Locator.String())
+}
+
+// UnmarshalJSON unmarshals base image from a JSON string.
+func (b *BaseImage) UnmarshalJSON(data []byte) error {
+	var locator string
+	if err := json.Unmarshal(data, &locator); err != nil {
+		return trace.Wrap(err)
+	}
+	parsed, err := loc.MakeLocator(locator)
+	if err != nil {
+		return trace.Wrap(err)
+	}
+	*b = BaseImage{Locator: *parsed}
+	return nil
+}
+
 // GetObjectKind returns the manifest header
 func (m Manifest) GetObjectKind() kubeschema.ObjectKind {
 	return &m.Header.TypeMeta
@@ -87,6 +117,9 @@ func (m Manifest) Base() *loc.Locator {
 	case KindBundle, KindCluster:
 	default:
 		return nil
+	}
+	if m.BaseImage != nil {
+		return &m.BaseImage.Locator
 	}
 	if m.SystemOptions == nil || m.SystemOptions.Runtime == nil {
 		return &loc.Runtime
@@ -109,6 +142,9 @@ func (m *Manifest) SetBase(locator loc.Locator) {
 		m.SystemOptions = &SystemOptions{}
 	}
 	m.SystemOptions.Runtime = &Runtime{
+		Locator: locator,
+	}
+	m.BaseImage = &BaseImage{
 		Locator: locator,
 	}
 }
@@ -186,13 +222,13 @@ func (m Manifest) SystemDocker() Docker {
 func (m Manifest) DescribeKind() string {
 	switch m.Kind {
 	case KindBundle, KindCluster:
-		return "Cluster image"
+		return "Cluster"
 	case KindApplication:
-		return "App image"
+		return "Application"
 	case KindSystemApplication:
-		return "System app"
+		return "System application"
 	case KindRuntime:
-		return "Runtime app"
+		return "Runtime"
 	default:
 		return m.Kind
 	}
@@ -1069,6 +1105,8 @@ func addKnownTypes(scheme *runtime.Scheme) error {
 	scheme.AddKnownTypeWithName(SchemeGroupVersion.WithKind(KindRuntime), &Manifest{})
 	scheme.AddKnownTypeWithName(SchemeGroupVersion.WithKind(KindCluster), &Manifest{})
 	scheme.AddKnownTypeWithName(SchemeGroupVersion.WithKind(KindApplication), &Manifest{})
+	scheme.AddKnownTypeWithName(ClusterGroupVersion.WithKind(KindCluster), &Manifest{})
+	scheme.AddKnownTypeWithName(AppGroupVersion.WithKind(KindApplication), &Manifest{})
 	return nil
 }
 
@@ -1076,6 +1114,10 @@ var (
 	// SchemeGroupVersion defines group and version for the application manifest type in the kubernetes
 	// resource scheme
 	SchemeGroupVersion = kubeschema.GroupVersion{Group: GroupName, Version: Version}
+	// ClusterGroupVersion defines group/version for the cluster image manifest
+	ClusterGroupVersion = kubeschema.GroupVersion{Group: ClusterGroupName, Version: Version}
+	// AppGroupVersion defines group/version for the app image manifest
+	AppGroupVersion = kubeschema.GroupVersion{Group: AppGroupName, Version: Version}
 
 	// defaultDockerCapacity is the default capacity for a docker device
 	defaultDockerCapacity = utils.MustParseCapacity(defaults.DockerDeviceCapacity)

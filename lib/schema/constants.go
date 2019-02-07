@@ -84,6 +84,10 @@ const (
 
 	// GroupName specifies the name of the group for application manifest package
 	GroupName = "bundle.gravitational.io"
+	// ClusterGroupName is the API group for cluster image manifest
+	ClusterGroupName = "cluster.gravitational.io"
+	// AppGroupName is the API group for app image manifest
+	AppGroupName = "app.gravitational.io"
 	// Version specifies the current package version
 	Version = "v2"
 
@@ -117,8 +121,14 @@ const (
 	ApplicationDefaultNamespace = "default"
 )
 
-// APIVersionV2 specifies the current API version
-var APIVersionV2 = fmt.Sprintf("%v/%v", GroupName, Version)
+var (
+	// APIVersionV2 specifies the current API version
+	APIVersionV2 = fmt.Sprintf("%v/%v", GroupName, Version)
+	// APIVersionV2Cluster is the apiVersion for cluster images
+	APIVersionV2Cluster = fmt.Sprintf("%v/%v", ClusterGroupName, Version)
+	// APIVersionV2App is the apiVersion for app images
+	APIVersionV2App = fmt.Sprintf("%v/%v", AppGroupName, Version)
+)
 
 // SupportedProvider is a list of currently supported providers
 var SupportedProviders = []string{
