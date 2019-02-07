@@ -385,12 +385,6 @@ type Application struct {
 	Manifest schema.Manifest `json:"manifest"`
 }
 
-func (a Application) GetName() string        { return a.Manifest.Metadata.Name }
-func (a Application) GetVersion() string     { return a.Manifest.Metadata.ResourceVersion }
-func (a Application) GetType() string        { return a.Manifest.DescribeKind() }
-func (a Application) GetCreated() time.Time  { return a.PackageEnvelope.Created }
-func (a Application) GetDescription() string { return a.Manifest.Metadata.Description }
-
 // String formats the specified application for output
 func (a Application) String() string {
 	return fmt.Sprintf("%v:%v", a.Name(), a.Package.Version)

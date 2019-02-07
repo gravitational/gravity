@@ -84,17 +84,7 @@ type App struct {
 	Created time.Time `json:"created"`
 	// SizeBytes is the application size in bytes
 	SizeBytes int64 `json:"sizeBytes"`
-	// Type is the image type, application or cluster
-	Type string `json:"type"`
-	// Description is the image description
-	Description string `json:"description"`
 }
-
-func (a App) GetName() string        { return a.Name }
-func (a App) GetVersion() string     { return a.Version }
-func (a App) GetType() string        { return "Cluster" }
-func (a App) GetCreated() time.Time  { return a.Created }
-func (a App) GetDescription() string { return a.Description }
 
 // s3Hub is the S3-backed hub implementation
 type s3Hub struct {

@@ -20,63 +20,202 @@ import (
 	"encoding/json"
 	"fmt"
 	"os"
+	"sort"
 	"text/tabwriter"
 	"time"
 
-	"github.com/ghodss/yaml"
+	"github.com/gravitational/gravity/lib/app"
 	"github.com/gravitational/gravity/lib/constants"
 	"github.com/gravitational/gravity/lib/hub"
 
+	"github.com/coreos/go-semver/semver"
+	"github.com/ghodss/yaml"
 	"github.com/gravitational/trace"
 )
 
 // Lister defines common interface for listing application and cluster images.
 type Lister interface {
-	//
-	List(all bool) ([]ListItem, error)
+	// List retrieves application and cluster images.
+	List(all bool) (ListItems, error)
 }
 
 // ListItem defines interface for a single list item.
 type ListItem interface {
+	// GetName returns the image name.
 	GetName() string
-	GetVersion() string
+	// GetVersion returns the image version.
+	GetVersion() semver.Version
+	// GetType returns the image type (application or cluster).
 	GetType() string
+	// GetCreated returns the image creation time.
 	GetCreated() time.Time
+	// GetDescription returns the image description.
 	GetDescription() string
 }
 
-type hubLister struct{}
-
-func NewLister() (*hubLister, error) {
-	return &hubLister{}, nil
+// listItem implements ListItem interface.
+type listItem struct {
+	// Name is the image name.
+	Name string `json:"name"`
+	// Version is the image version.
+	Version semver.Version `json:"version"`
+	// Created is the image creation timestamp.
+	Created time.Time `json:"created"`
+	// Type is the image type, application or cluster.
+	Type string `json:"type"`
+	// Description is the image description.
+	Description string `json:"description"`
 }
 
-func (l *hubLister) List(all bool) (result []ListItem, err error) {
-	hub, err := hub.New(hub.Config{})
+// NewListItemFromHubApp makes a list item from the hub application item.
+func NewListItemFromHubApp(app hub.App) (*listItem, error) {
+	semver, err := semver.NewVersion(app.Version)
 	if err != nil {
 		return nil, trace.Wrap(err)
 	}
-	items, err := hub.List(all)
+	return &listItem{
+		Name:    app.Name,
+		Version: *semver,
+		Created: app.Created,
+		Type:    "Cluster", // We currently publish only cluster images to the hub.
+	}, nil
+}
+
+// NewListItemFromApp makes a list item from the app service application.
+func NewListItemFromApp(app app.Application) (*listItem, error) {
+	semver, err := semver.NewVersion(app.Manifest.Metadata.ResourceVersion)
 	if err != nil {
 		return nil, trace.Wrap(err)
 	}
-	for _, item := range items {
+	return &listItem{
+		Name:        app.Manifest.Metadata.Name,
+		Version:     *semver,
+		Created:     app.PackageEnvelope.Created,
+		Type:        app.Manifest.DescribeKind(),
+		Description: app.Manifest.Metadata.Description,
+	}, nil
+}
+
+// GetName returns the image name.
+func (i listItem) GetName() string { return i.Name }
+
+// GetVersion returns the image version.
+func (i listItem) GetVersion() semver.Version { return i.Version }
+
+// GetType returns the image type, application or cluster.
+func (i listItem) GetType() string { return i.Type }
+
+// GetCreated returns the image creation time.
+func (i listItem) GetCreated() time.Time { return i.Created }
+
+// GetDescription returns the image description.
+func (i listItem) GetDescription() string { return i.Description }
+
+// ListItems is a collection of application and cluster images.
+type ListItems []ListItem
+
+// Latest returns a list of items containing latest stable versions of
+// application and cluster images from this list.
+func (l ListItems) Latest() (result ListItems, err error) {
+	m := make(map[string]ListItem)
+	for _, item := range l {
+		// Skip pre-releases.
+		if item.GetVersion().PreRelease != "" {
+			continue
+		}
+		if _, ok := m[item.GetName()]; !ok {
+			m[item.GetName()] = item
+		} else {
+			if m[item.GetName()].GetVersion().LessThan(item.GetVersion()) {
+				m[item.GetName()] = item
+			}
+		}
+	}
+	for _, item := range m {
 		result = append(result, item)
 	}
 	return result, nil
 }
 
+// Len implements sort.Interface.
+func (l ListItems) Len() int {
+	return len(l)
+}
+
+// Swap implements sort.Interface.
+func (l ListItems) Swap(i, j int) {
+	l[i], l[j] = l[j], l[i]
+}
+
+// Less implements sort.Interace.
+//
+// The items are sorted first by type (cluster images appear before application
+// images), then by name (lexicographically) and finally by semantic version.
+func (l ListItems) Less(i, j int) bool {
+	if l[i].GetType() == "Cluster" && l[j].GetType() != "Cluster" {
+		return true
+	}
+	if l[i].GetName() < l[j].GetName() {
+		return true
+	}
+	if (l[i].GetName() == l[j].GetName()) && l[i].GetVersion().LessThan(l[j].GetVersion()) {
+		return true
+	}
+	return false
+}
+
+type hubLister struct {
+	hub hub.Hub
+}
+
+// NewLister returns a lister with S3 hub backend.
+func NewLister() (*hubLister, error) {
+	hub, err := hub.New(hub.Config{})
+	if err != nil {
+		return nil, trace.Wrap(err)
+	}
+	return &hubLister{hub: hub}, nil
+}
+
+// List returns application and cluster images from the hub.
+func (l *hubLister) List(all bool) (result ListItems, err error) {
+	items, err := l.hub.List(all)
+	if err != nil {
+		return nil, trace.Wrap(err)
+	}
+	for _, item := range items {
+		i, err := NewListItemFromHubApp(item)
+		if err != nil {
+			return nil, trace.Wrap(err)
+		}
+		result = append(result, i)
+	}
+	return result, nil
+}
+
+// List uses the provided lister to obtain a list of application and
+// cluster images and displays them in the specified format.
 func List(lister Lister, all bool, format constants.Format) error {
 	items, err := lister.List(all)
 	if err != nil {
 		return trace.Wrap(err)
 	}
+	if !all {
+		items, err = items.Latest()
+		if err != nil {
+			return trace.Wrap(err)
+		}
+	}
+	sort.Sort(sort.Reverse(items))
 	switch format {
 	case constants.EncodingText:
 		w := new(tabwriter.Writer)
 		w.Init(os.Stdout, 0, 8, 1, '\t', 0)
-		fmt.Fprintf(w, "Name:Version\tType\tCreated (UTC)\tDescription\n")
-		fmt.Fprintf(w, "------------\t----\t-------------\t-----------\n")
+		if !all {
+			fmt.Printf("Displaying latest stable versions of images. Use --all flag to show all.\n\n")
+		}
+		fmt.Fprintf(w, "Name:Version\tImage Type\tCreated (UTC)\tDescription\n")
+		fmt.Fprintf(w, "------------\t----------\t-------------\t-----------\n")
 		for _, item := range items {
 			fmt.Fprintf(w, "%v\t%v\t%v\t%v\n",
 				formatName(item.GetName(), item.GetVersion()),
@@ -104,11 +243,11 @@ func List(lister Lister, all bool, format constants.Format) error {
 	return nil
 }
 
-func formatName(name, version string) string {
+func formatName(name string, version semver.Version) string {
 	if name == constants.LegacyBaseImageName {
 		name = constants.BaseImageName
 	}
-	return fmt.Sprintf("%v:%v", name, version)
+	return fmt.Sprintf("%v:%v", name, version.String())
 }
 
 func formatDescription(description string) string {

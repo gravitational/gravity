@@ -78,12 +78,13 @@ type Manifest struct {
 // BaseImage defines a base image type which is basically a locator with
 // custom marshal/unmarshal.
 type BaseImage struct {
+	// Locator is the base image locator.
 	Locator loc.Locator
 }
 
 // MarshalJSON marshals base image into a JSON string.
 func (b *BaseImage) MarshalJSON() ([]byte, error) {
-	if b == nil {
+	if b == nil || b.Locator.IsEmpty() {
 		return nil, nil
 	}
 	return json.Marshal(b.Locator.String())
@@ -91,15 +92,19 @@ func (b *BaseImage) MarshalJSON() ([]byte, error) {
 
 // UnmarshalJSON unmarshals base image from a JSON string.
 func (b *BaseImage) UnmarshalJSON(data []byte) error {
-	var locator string
-	if err := json.Unmarshal(data, &locator); err != nil {
-		return trace.Wrap(err)
+	if len(data) == 0 {
+		return nil
 	}
-	parsed, err := loc.MakeLocator(locator)
+	var str string
+	err := json.Unmarshal(data, &str)
 	if err != nil {
 		return trace.Wrap(err)
 	}
-	*b = BaseImage{Locator: *parsed}
+	locator, err := loc.MakeLocator(str)
+	if err != nil {
+		return trace.Wrap(err)
+	}
+	*b = BaseImage{Locator: *locator}
 	return nil
 }
 
@@ -109,17 +114,24 @@ func (m Manifest) GetObjectKind() kubeschema.ObjectKind {
 }
 
 // Base returns a locator of a base application (runtime) the application
-// depends on
+// depends on.
 //
-// Only user applications (bundles) can have runtimes
+// Only cluster images can have runtimes.
 func (m Manifest) Base() *loc.Locator {
 	switch m.Kind {
 	case KindBundle, KindCluster:
 	default:
 		return nil
 	}
-	if m.BaseImage != nil {
-		return &m.BaseImage.Locator
+	if m.BaseImage != nil && !m.BaseImage.Locator.IsEmpty() {
+		locator := m.BaseImage.Locator
+		// When specifying base image in manifest, users use "gravity" but
+		// the actual runtime app is called "kubernetes" so translate the
+		// name here.
+		if locator.Name == constants.BaseImageName {
+			locator.Name = defaults.Runtime
+		}
+		return &locator
 	}
 	if m.SystemOptions == nil || m.SystemOptions.Runtime == nil {
 		return &loc.Runtime

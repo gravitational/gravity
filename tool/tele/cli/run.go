@@ -57,7 +57,7 @@ func Run(tele Application) error {
 			Overwrite:        *tele.BuildCmd.Overwrite,
 			Repository:       *tele.BuildCmd.Repository,
 			SkipVersionCheck: *tele.BuildCmd.SkipVersionCheck,
-			Silent:           *tele.Quiet,
+			Silent:           *tele.BuildCmd.Quiet,
 			Insecure:         *tele.Insecure,
 		}, service.VendorRequest{
 			PackageName:            *tele.BuildCmd.Name,
@@ -97,7 +97,7 @@ func Run(tele Application) error {
 			*tele.PullCmd.App,
 			*tele.PullCmd.OutFile,
 			*tele.PullCmd.Force,
-			*tele.Quiet)
+			*tele.PullCmd.Quiet)
 	case tele.ListCmd.FullCommand():
 		return list(*env,
 			*tele.ListCmd.All,
