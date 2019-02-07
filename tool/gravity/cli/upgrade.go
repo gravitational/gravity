@@ -24,13 +24,14 @@ import (
 	"github.com/gravitational/gravity/lib/fsm"
 	"github.com/gravitational/gravity/lib/localenv"
 	"github.com/gravitational/gravity/lib/ops"
+	"github.com/gravitational/gravity/lib/storage"
 	"github.com/gravitational/gravity/lib/update"
 	"github.com/gravitational/gravity/lib/utils"
 
 	"github.com/gravitational/trace"
 )
 
-func executeUpgradePhase(localEnv, upgradeEnv *localenv.LocalEnvironment, p PhaseParams, operation *ops.SiteOperation) error {
+func executeUpgradePhase(localEnv, updateEnv *localenv.LocalEnvironment, p PhaseParams, operation *ops.SiteOperation) error {
 	clusterEnv, err := localEnv.NewClusterEnvironment()
 	if err != nil {
 		return trace.Wrap(err)
@@ -42,6 +43,14 @@ func executeUpgradePhase(localEnv, upgradeEnv *localenv.LocalEnvironment, p Phas
 	progress := utils.NewProgress(ctx, fmt.Sprintf("phase %q execution", p.PhaseID), -1, false)
 	defer progress.Stop()
 
+	if operation == nil {
+		storageOperation, err := storage.GetLastOperation(updateEnv.Backend)
+		if err != nil {
+			return trace.Wrap(err)
+		}
+		operation = (*ops.SiteOperation)(storageOperation)
+	}
+
 	creds, err := fsm.GetClientCredentials()
 	if err != nil {
 		return trace.Wrap(err)
@@ -50,7 +59,7 @@ func executeUpgradePhase(localEnv, upgradeEnv *localenv.LocalEnvironment, p Phas
 
 	err = update.ExecutePhase(ctx, update.FSMConfig{
 		Backend:           clusterEnv.Backend,
-		LocalBackend:      upgradeEnv.Backend,
+		LocalBackend:      updateEnv.Backend,
 		HostLocalBackend:  localEnv.Backend,
 		HostLocalPackages: localEnv.Packages,
 		Packages:          clusterEnv.Packages,

@@ -19,7 +19,6 @@ package update
 import (
 	"bytes"
 	"context"
-	"fmt"
 	"time"
 
 	"github.com/gravitational/gravity/lib/app"
@@ -44,7 +43,7 @@ type fsmUpdateEngine struct {
 	// FieldLogger is used for logging
 	logrus.FieldLogger
 	// plan is the update operation plan
-	plan       *storage.OperationPlan
+	plan       storage.OperationPlan
 	reconciler Reconciler
 }
 
@@ -71,7 +70,7 @@ func newUpdateEngine(ctx context.Context, config FSMConfig, logger logrus.FieldL
 			Key:         fsm.OperationKey(*plan),
 			FieldLogger: logger,
 		},
-		plan:       reconciledPlan,
+		plan:       *reconciledPlan,
 		reconciler: reconciler,
 	}
 	return engine, nil
@@ -86,7 +85,13 @@ func (f *fsmUpdateEngine) GetExecutor(p fsm.ExecutorParams, remote fsm.Remote) (
 // RunCommand executes the phase specified by params on the specified server
 // using the provided runner
 func (f *fsmUpdateEngine) RunCommand(ctx context.Context, runner fsm.RemoteRunner, server storage.Server, p fsm.Params) error {
-	args := []string{"upgrade", "--phase", p.PhaseID, fmt.Sprintf("--force=%v", p.Force)}
+	args := []string{"plan", "execute",
+		"--phase", p.PhaseID,
+		"--operation-id", f.plan.OperationID,
+	}
+	if p.Force {
+		args = append(args, "--force")
+	}
 	return runner.Run(ctx, server, args...)
 }
 
@@ -150,7 +155,7 @@ func (f *fsmUpdateEngine) Complete(fsmErr error) error {
 
 // GetPlan returns an up-to-date plan
 func (f *fsmUpdateEngine) GetPlan() (*storage.OperationPlan, error) {
-	return f.plan, nil
+	return &f.plan, nil
 }
 
 func (f *fsmUpdateEngine) commitClusterChanges(cluster *storage.Site, op ops.SiteOperation) error {
@@ -223,13 +228,13 @@ func (f *fsmUpdateEngine) ChangePhaseState(ctx context.Context, change fsm.State
 }
 
 func (f *fsmUpdateEngine) reconcilePlan(ctx context.Context) error {
-	plan, err := f.reconciler.ReconcilePlan(ctx, *f.plan)
+	plan, err := f.reconciler.ReconcilePlan(ctx, f.plan)
 	if err != nil {
 		return trace.Wrap(err)
 	}
-	*f.plan = *plan
+	f.plan = *plan
 	var buf bytes.Buffer
-	fsm.FormatOperationPlanText(&buf, *f.plan)
+	fsm.FormatOperationPlanText(&buf, f.plan)
 	f.Debugf("Reconciled plan: %v.", buf.String())
 	return nil
 }
