@@ -28,7 +28,6 @@ import (
 	"github.com/gravitational/gravity/lib/install"
 	"github.com/gravitational/gravity/lib/loc"
 	"github.com/gravitational/gravity/lib/localenv"
-	"github.com/gravitational/gravity/lib/pack"
 	"github.com/gravitational/gravity/lib/process"
 	"github.com/gravitational/gravity/lib/rpc/proto"
 	rpcserver "github.com/gravitational/gravity/lib/rpc/server"
@@ -230,7 +229,7 @@ func (i *InstallConfig) GetAdvertiseAddr() (string, error) {
 // GetAppPackage returns the application package for this installer
 func (i *InstallConfig) GetAppPackage() (*loc.Locator, error) {
 	if i.AppPackage != "" {
-		return pack.MakeLocator(i.AppPackage)
+		return loc.MakeLocator(i.AppPackage)
 	}
 	env, err := localenv.New(i.ReadStateDir)
 	if err != nil {

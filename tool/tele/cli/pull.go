@@ -24,14 +24,13 @@ import (
 	"github.com/gravitational/gravity/lib/hub"
 	"github.com/gravitational/gravity/lib/loc"
 	"github.com/gravitational/gravity/lib/localenv"
-	"github.com/gravitational/gravity/lib/pack"
 	"github.com/gravitational/gravity/lib/utils"
 
 	"github.com/gravitational/trace"
 )
 
 func pull(env localenv.LocalEnvironment, app, outFile string, force, quiet bool) error {
-	locator, err := pack.MakeLocator(app)
+	locator, err := loc.MakeLocator(app)
 	if err != nil {
 		return trace.Wrap(err)
 	}
