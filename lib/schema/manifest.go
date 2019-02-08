@@ -156,8 +156,11 @@ func (m *Manifest) SetBase(locator loc.Locator) {
 	m.SystemOptions.Runtime = &Runtime{
 		Locator: locator,
 	}
-	m.BaseImage = &BaseImage{
-		Locator: locator,
+	// Only update baseImage property if it was originally set to preserve
+	// backward compatibility - otherwise older clusters will reject the
+	// manifest due to additional property restriction.
+	if m.BaseImage != nil {
+		m.BaseImage.Locator = locator
 	}
 }
 
