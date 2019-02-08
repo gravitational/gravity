@@ -644,7 +644,7 @@
   version = "0.0.2"
 
 [[projects]]
-  digest = "1:a3ce7bfd2f75fd271ee155405a14a77771aa30d990d589f808b5a927a80420f0"
+  digest = "1:f01b1009f6ab14bbd9257884dc63897eaf59cd7e7cdd59b1dae4bebad7cea154"
   name = "github.com/gravitational/satellite"
   packages = [
     "agent/health",
@@ -654,8 +654,8 @@
     "utils",
   ]
   pruneopts = "UT"
-  revision = "1b6124cabf17a3d3e16c96c895fe8daf09792fc2"
-  version = "5.4.0"
+  revision = "e9247fba75a62afddf4d2a8c1bd7015476a422cd"
+  version = "5.5.1"
 
 [[projects]]
   digest = "1:49f6abbce9ade5f43508429e4af1adcce55d27adcd62719fea049decc766a7c9"
