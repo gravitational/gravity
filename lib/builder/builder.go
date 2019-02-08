@@ -232,8 +232,8 @@ func (b *Builder) SelectRuntime() (*semver.Version, error) {
 	switch runtime.Name {
 	case constants.BaseImageName, defaults.Runtime:
 	default:
-		return nil, trace.BadParameter("unsupported base image %q, only "+
-			"\"gravity\" is supported as a base image at the moment", runtime.Name)
+		return nil, trace.BadParameter("unsupported base image %q, only %q is "+
+			"supported as a base image", runtime.Name, constants.BaseImageName)
 	}
 	if runtime.Version != loc.LatestVersion {
 		b.Infof("Using pinned runtime version: %s.", runtime.Version)

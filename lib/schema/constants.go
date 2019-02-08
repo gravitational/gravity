@@ -124,9 +124,9 @@ const (
 var (
 	// APIVersionV2 specifies the current API version
 	APIVersionV2 = fmt.Sprintf("%v/%v", GroupName, Version)
-	// APIVersionV2Cluster is the apiVersion for cluster images
+	// APIVersionV2Cluster is the API version for cluster images
 	APIVersionV2Cluster = fmt.Sprintf("%v/%v", ClusterGroupName, Version)
-	// APIVersionV2App is the apiVersion for app images
+	// APIVersionV2App is the API version for app images
 	APIVersionV2App = fmt.Sprintf("%v/%v", AppGroupName, Version)
 )
 

@@ -711,7 +711,7 @@ var (
 		"kubernetes.default.svc.cluster.local",
 	}
 
-	// LegacyBaseImageName is the legacy base cluster image name
+	// LegacyBaseImageName is the name of the base cluster image used in earlier versions
 	LegacyBaseImageName = "telekube"
 	// BaseImageName is the current base cluster image name
 	BaseImageName = "gravity"

@@ -27,6 +27,7 @@ import (
 	"github.com/gravitational/gravity/lib/app"
 	"github.com/gravitational/gravity/lib/constants"
 	"github.com/gravitational/gravity/lib/hub"
+	"github.com/gravitational/gravity/lib/schema"
 
 	"github.com/coreos/go-semver/semver"
 	"github.com/ghodss/yaml"
@@ -77,7 +78,7 @@ func NewListItemFromHubApp(app hub.App) (*listItem, error) {
 		Name:    app.Name,
 		Version: *semver,
 		Created: app.Created,
-		Type:    "Cluster", // We currently publish only cluster images to the hub.
+		Type:    schema.KindCluster,
 	}, nil
 }
 
@@ -123,10 +124,10 @@ func (l ListItems) Latest() (result ListItems, err error) {
 		if item.GetVersion().PreRelease != "" {
 			continue
 		}
-		if _, ok := m[item.GetName()]; !ok {
+		if existing, ok := m[item.GetName()]; !ok {
 			m[item.GetName()] = item
 		} else {
-			if m[item.GetName()].GetVersion().LessThan(item.GetVersion()) {
+			if existing.GetVersion().LessThan(item.GetVersion()) {
 				m[item.GetName()] = item
 			}
 		}
@@ -152,7 +153,7 @@ func (l ListItems) Swap(i, j int) {
 // The items are sorted first by type (cluster images appear before application
 // images), then by name (lexicographically) and finally by semantic version.
 func (l ListItems) Less(i, j int) bool {
-	if l[i].GetType() == "Cluster" && l[j].GetType() != "Cluster" {
+	if l[i].GetType() == schema.KindCluster && l[j].GetType() != schema.KindCluster {
 		return true
 	}
 	if l[i].GetName() < l[j].GetName() {
