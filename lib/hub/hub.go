@@ -23,8 +23,7 @@ import (
 	"io"
 	"io/ioutil"
 	"os"
-	"regexp"
-	"sort"
+	"path/filepath"
 	"strings"
 	"time"
 
@@ -35,8 +34,10 @@ import (
 
 	"github.com/coreos/go-semver/semver"
 	"github.com/dustin/go-humanize"
+	"github.com/ghodss/yaml"
 	"github.com/gravitational/trace"
 	"github.com/sirupsen/logrus"
+	"k8s.io/helm/pkg/repo"
 
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/aws/credentials"
@@ -52,8 +53,9 @@ import (
 // are stored in the bucket of the following structure:
 //
 // hub.gravitational.io
-// ∟ telekube
+// ∟ gravity
 //   ∟ oss
+//     ∟ index.yaml
 //     ∟ app
 //       ∟ telekube
 //         ∟ 5.2.0
@@ -63,6 +65,10 @@ import (
 //               ∟ telekube-5.2.0-linux-x86_64.tar.sha256
 //         ∟ latest: // same as versioned sub-bucket
 //         ∟ stable: // same as versioned sub-bucket
+//
+// The index file, index.yaml, provides information about installers stored
+// in the bucket and is updated every time a new version is published. The
+// index file format is the same as Helm's chart repository index file.
 type Hub interface {
 	// List returns a list of applications in the hub
 	List(withPrereleases bool) ([]App, error)
@@ -84,6 +90,10 @@ type App struct {
 	Created time.Time `json:"created"`
 	// SizeBytes is the application size in bytes
 	SizeBytes int64 `json:"sizeBytes"`
+	// Description is the image description
+	Description string `json:"description"`
+	// Type is the image type, application or cluster
+	Type string `json:"type"`
 }
 
 // s3Hub is the S3-backed hub implementation
@@ -92,8 +102,6 @@ type s3Hub struct {
 	Config
 	// downloader is the S3 download manager
 	downloader *s3manager.Downloader
-	// appRegex is used to parse app information from S3 key
-	appRegex *regexp.Regexp
 }
 
 // Config is the S3-backed hub configuration
@@ -143,60 +151,29 @@ func New(config Config) (*s3Hub, error) {
 	if err != nil {
 		return nil, trace.Wrap(err)
 	}
-	appRegex, err := regexp.Compile(fmt.Sprintf(appPathRe, config.Prefix))
-	if err != nil {
-		return nil, trace.Wrap(err)
-	}
 	return &s3Hub{
 		Config:     config,
 		downloader: s3manager.NewDownloaderWithClient(config.S3),
-		appRegex:   appRegex,
 	}, nil
 }
 
 // List returns a list of applications in the hub
-func (h *s3Hub) List(withPrereleases bool) ([]App, error) {
-	objects, err := h.S3.ListObjectsV2(&s3.ListObjectsV2Input{
-		Bucket:  aws.String(h.Bucket),
-		Prefix:  aws.String(h.appsBucket()),
-		MaxKeys: aws.Int64(1000),
-	})
+func (h *s3Hub) List(withPrereleases bool) (items []App, err error) {
+	indexFile, err := h.getIndexFile()
 	if err != nil {
-		return nil, utils.ConvertS3Error(err)
+		return nil, trace.Wrap(err)
 	}
-	var items []App
-	for _, object := range objects.Contents {
-		key := aws.StringValue(object.Key)
-		if !strings.HasSuffix(key, constants.TarExtension) {
-			continue
+	for _, entryVersions := range indexFile.Entries {
+		for _, entry := range entryVersions {
+			items = append(items, App{
+				Name:        entry.Name,
+				Version:     entry.Version,
+				Created:     entry.Created,
+				Description: strings.TrimSpace(entry.Description),
+				Type:        entry.Annotations[constants.AnnotationKind],
+			})
 		}
-		match := h.appRegex.FindStringSubmatch(key)
-		if match == nil || len(match) < 3 {
-			h.Warnf("Failed to parse the key: %q.", key)
-			continue
-		}
-		switch match[2] {
-		case constants.LatestVersion, constants.StableVersion:
-			continue
-		}
-		version, err := semver.NewVersion(match[2])
-		if err != nil {
-			h.Warnf("Failed to parse version: %v: %v.", match[2], trace.Wrap(err))
-			continue
-		}
-		if version.PreRelease != "" && !withPrereleases {
-			continue
-		}
-		items = append(items, App{
-			Name:      match[1],
-			Version:   match[2],
-			Created:   aws.TimeValue(object.LastModified),
-			SizeBytes: aws.Int64Value(object.Size),
-		})
 	}
-	sort.Slice(items, func(i, j int) bool {
-		return items[i].Created.Before(items[j].Created)
-	})
 	return items, nil
 }
 
@@ -257,6 +234,28 @@ func (h *s3Hub) Get(locator loc.Locator) (io.ReadCloser, error) {
 	return readCloser, nil
 }
 
+// getIndexFile returns the hub's index file.
+func (h *s3Hub) getIndexFile() (*repo.IndexFile, error) {
+	object, err := h.S3.GetObject(&s3.GetObjectInput{
+		Bucket: aws.String(h.Bucket),
+		Key:    aws.String(filepath.Join(h.Prefix, indexFileName)),
+	})
+	if err != nil {
+		return nil, trace.Wrap(err)
+	}
+	defer object.Body.Close()
+	bytes, err := ioutil.ReadAll(object.Body)
+	if err != nil {
+		return nil, trace.Wrap(err)
+	}
+	var indexFile repo.IndexFile
+	err = yaml.Unmarshal(bytes, &indexFile)
+	if err != nil {
+		return nil, trace.Wrap(err)
+	}
+	return &indexFile, nil
+}
+
 // appsBucket returns sub-bucket where all applications are stored
 func (h *s3Hub) appsBucket() string {
 	return fmt.Sprintf("%v/app", h.Prefix)
@@ -279,37 +278,57 @@ func (h *s3Hub) shaPath(name, version string) string {
 
 // GetLatestVersion returns the latest version of the specified application in the hub
 func (h *s3Hub) GetLatestVersion(name string) (string, error) {
-	apps, err := h.List(true)
+	indexFile, err := h.getIndexFile()
 	if err != nil {
 		return "", trace.Wrap(err)
 	}
-	var latest *semver.Version
-	for _, app := range apps {
-		if app.Name != name {
-			continue
-		}
-		ver, err := semver.NewVersion(app.Version)
+	versions, ok := indexFile.Entries[name]
+	if !ok || len(versions) == 0 {
+		return "", trace.NotFound("image %q not found", name)
+	}
+	latestVersion, err := semver.NewVersion(versions[0].Version)
+	if err != nil {
+		return "", trace.Wrap(err)
+	}
+	for _, version := range versions {
+		nextVersion, err := semver.NewVersion(version.Version)
 		if err != nil {
-			h.Warnf("Invalid semver: %#v %v.", app, err)
-			continue
+			return "", trace.Wrap(err)
 		}
-		if latest == nil || latest.LessThan(*ver) {
-			latest = ver
+		if latestVersion.LessThan(*nextVersion) {
+			latestVersion = nextVersion
 		}
 	}
-	if latest == nil {
-		return "", trace.NotFound("could not find latest version of app %v", name)
-	}
-	return latest.String(), nil
+	return latestVersion.String(), nil
 }
 
 // getStableVersion returns the stable version of the specified application in the hub
 func (h *s3Hub) getStableVersion(name string) (string, error) {
-	filename, err := h.getFilename(name, constants.StableVersion)
+	indexFile, err := h.getIndexFile()
 	if err != nil {
 		return "", trace.Wrap(err)
 	}
-	return parseVersion(name, filename)
+	versions, ok := indexFile.Entries[name]
+	if !ok || len(versions) == 0 {
+		return "", trace.NotFound("image %q not found", name)
+	}
+	var stableVersion *semver.Version
+	for _, version := range versions {
+		nextVersion, err := semver.NewVersion(version.Version)
+		if err != nil {
+			return "", trace.Wrap(err)
+		}
+		if nextVersion.PreRelease != "" {
+			continue
+		}
+		if stableVersion == nil || stableVersion.LessThan(*nextVersion) {
+			stableVersion = nextVersion
+		}
+	}
+	if stableVersion == nil {
+		return "", trace.NotFound("no stable version of image %q found", name)
+	}
+	return stableVersion.String(), nil
 }
 
 // verifyChecksum verifies the checksum of the downloaded installer file
@@ -360,59 +379,13 @@ func (h *s3Hub) getChecksum(name, version string) (string, error) {
 	return string(checksum), nil
 }
 
-// getFilename returns the name of the file of the application installer tarball
-// which is stored in the hub under specified name / version sub-bucket
-func (h *s3Hub) getFilename(name, version string) (filename string, err error) {
-	objects, err := h.S3.ListObjectsV2(&s3.ListObjectsV2Input{
-		Bucket: aws.String(h.Bucket),
-		Prefix: aws.String(h.appBucket(name, version)),
-	})
-	if err != nil {
-		return "", trace.Wrap(err)
-	}
-	// in this sub-bucket there should be the installer tarball and
-	// its checksum, so let's find the installer filename
-	for _, object := range objects.Contents {
-		key := aws.StringValue(object.Key)
-		if strings.HasSuffix(key, constants.TarExtension) {
-			// key contains full path to the object so we need to trim
-			// the prefix to get only the filename
-			filename = strings.TrimPrefix(key, h.appBucket(name, version)+"/")
-			break
-		}
-	}
-	if filename == "" {
-		return "", trace.NotFound("application %v:%v not found", name, version)
-	}
-	return filename, nil
-}
-
 // makeFilename returns the name of the file under which the application
 // specified by the provided locator is stored in the hub
 func makeFilename(name, version string) string {
 	return fmt.Sprintf("%v-%v-linux-x86_64.tar", name, version)
 }
 
-// parseVersion extracts version from the provided filename for the specified
-// application
-func parseVersion(name, filename string) (string, error) {
-	re, err := regexp.Compile(fmt.Sprintf(appFilenameRe, name))
-	if err != nil {
-		return "", trace.Wrap(err)
-	}
-	match := re.FindStringSubmatch(filename)
-	if match == nil || len(match) < 2 {
-		return "", trace.BadParameter("failed to parse version from %v for %q",
-			filename, name)
-	}
-	return match[1], nil
-}
-
 const (
-	// appFilenameRe is a regular expression template for an
-	// application installer filename as stored in the hub
-	appFilenameRe = "^%v-(.+)-linux-x86_64.tar$"
-	// appPathRe is a regular expression template for a full
-	// path to an application installer tarball in the hub
-	appPathRe = "^%v/app/(.+)/(.+)/linux/x86_64/.+$"
+	// indexFileName is the repository index file name.
+	indexFileName = "index.yaml"
 )

@@ -357,7 +357,7 @@ TELEKUBE_IMPORT_OPTIONS := \
 telekube-app: k8s-app
 	@echo -e "\n----> Building telekube-app...\n"
 	- $(GRAVITY) app delete $(TELEKUBE_APP_PKG) $(DELETE_OPTS) && \
-	  $(GRAVITY) app import $(ASSETSDIR)/telekube $(VENDOR_OPTS) $(TELEKUBE_IMPORT_OPTIONS) && \
+	  GRAVITY_K8S_VERSION=$(K8S_VER) $(GRAVITY) app import $(ASSETSDIR)/telekube $(VENDOR_OPTS) $(TELEKUBE_IMPORT_OPTIONS) && \
 	  $(GRAVITY) package export $(TELEKUBE_APP_PKG) $(TELEKUBE_APP_OUT)
 
 .PHONY: dns-app

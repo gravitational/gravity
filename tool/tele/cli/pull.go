@@ -21,6 +21,7 @@ import (
 	"fmt"
 	"os"
 
+	"github.com/gravitational/gravity/lib/constants"
 	"github.com/gravitational/gravity/lib/hub"
 	"github.com/gravitational/gravity/lib/loc"
 	"github.com/gravitational/gravity/lib/localenv"
@@ -33,6 +34,12 @@ func pull(env localenv.LocalEnvironment, app, outFile string, force, quiet bool)
 	locator, err := loc.MakeLocator(app)
 	if err != nil {
 		return trace.Wrap(err)
+	}
+
+	// tele ls displays base images as "gravity" while the actual image
+	// name is "telekube" (for legacy reasons).
+	if locator.Name == constants.BaseImageName {
+		locator.Name = constants.LegacyBaseImageName
 	}
 
 	hub, err := hub.New(hub.Config{})

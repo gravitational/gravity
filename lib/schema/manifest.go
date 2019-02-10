@@ -249,6 +249,18 @@ func (m Manifest) DescribeKind() string {
 	}
 }
 
+// ImageType returns the image type this manifest represents, cluster or application.
+func (m Manifest) ImageType() string {
+	switch m.Kind {
+	case KindBundle, KindCluster:
+		return ImageTypeCluster
+	case KindApplication:
+		return ImageTypeApplication
+	default:
+		return ""
+	}
+}
+
 func dockerConfigWithDefaults(config *Docker) Docker {
 	if config == nil {
 		return defaultDocker

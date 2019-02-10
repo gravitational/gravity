@@ -24,6 +24,7 @@ import (
 	"strings"
 	"text/tabwriter"
 
+	"github.com/gravitational/gravity/lib/app"
 	"github.com/gravitational/gravity/lib/catalog"
 	"github.com/gravitational/gravity/lib/constants"
 	"github.com/gravitational/gravity/lib/defaults"
@@ -34,7 +35,9 @@ import (
 	"github.com/gravitational/gravity/lib/schema"
 	helmutils "github.com/gravitational/gravity/lib/utils/helm"
 
+	"github.com/ghodss/yaml"
 	"github.com/gravitational/trace"
+	"k8s.io/helm/pkg/repo"
 )
 
 type releaseInstallConfig struct {
@@ -382,6 +385,34 @@ func appRebuildIndex(env *localenv.LocalEnvironment) error {
 		return trace.Wrap(err)
 	}
 	env.PrintStep("Index rebuild finished")
+	return nil
+}
+
+func appIndex(env *localenv.LocalEnvironment, mergeInto string) error {
+	apps, err := env.Apps.ListApps(app.ListAppsRequest{
+		Repository: defaults.SystemAccountOrg,
+	})
+	if err != nil {
+		return trace.Wrap(err)
+	}
+	indexFile, err := helm.GenerateIndexFile(apps)
+	if err != nil {
+		return trace.Wrap(err)
+	}
+	if mergeInto != "" {
+		mergeIndexFile, err := repo.LoadIndexFile(mergeInto)
+		if err != nil {
+			return trace.ConvertSystemError(err)
+		}
+		mergeIndexFile.Merge(indexFile)
+		mergeIndexFile.SortEntries()
+		indexFile = mergeIndexFile
+	}
+	bytes, err := yaml.Marshal(indexFile)
+	if err != nil {
+		return trace.Wrap(err)
+	}
+	env.Printf(string(bytes))
 	return nil
 }
 
