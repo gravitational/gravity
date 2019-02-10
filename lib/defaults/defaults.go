@@ -519,7 +519,7 @@ const (
 	GrafanaServicePort = 3000
 
 	// InfluxDBServiceAddr is the address of InfluxDB service
-	InfluxDBServiceAddr = "influxdb.monitoring.svc.cluster.local"
+	InfluxDBServiceAddr = "influxdb.monitoring.svc.cluster.local."
 	// InfluxDBServicePort is the API port of InfluxDB service
 	InfluxDBServicePort = 8086
 	// InfluxDBAdminUser is the InfluxDB admin user name
@@ -583,7 +583,7 @@ const (
 	SystemdTasksMinVersion = 227
 
 	// GravityServiceHost defines the address internal gravity site is located at
-	GravityServiceHost = "gravity-site.kube-system.svc.cluster.local"
+	GravityServiceHost = "gravity-site.kube-system.svc.cluster.local."
 
 	// GravityServicePort defines the address internal gravity site is located at
 	GravityServicePort = 3009
@@ -595,7 +595,7 @@ const (
 	GravityPublicListenPort = 3007
 
 	// ServiceAddrSuffix is the DNS name suffix appended to service addresses
-	ServiceAddrSuffix = ".svc.cluster.local"
+	ServiceAddrSuffix = ".svc.cluster.local."
 
 	// KubeletURL defines the default address of the local instance of the k8s kubelet
 	KubeletURL = "https://localhost:10250"
@@ -980,7 +980,7 @@ var (
 	GravityServiceURL = fmt.Sprintf("https://%s:%d", GravityServiceHost, GravityServicePort)
 
 	// KubernetesAPIAddress is the Kubernetes API address
-	KubernetesAPIAddress = fmt.Sprintf("%s:%d", constants.APIServerDomainName, APIServerSecurePort)
+	KubernetesAPIAddress = fmt.Sprintf("%s.:%d", constants.APIServerDomainName, APIServerSecurePort)
 	// KubernetesAPIURL is the Kubernetes API URL
 	KubernetesAPIURL = fmt.Sprintf("https://%s", KubernetesAPIAddress)
 

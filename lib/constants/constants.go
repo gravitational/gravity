@@ -284,9 +284,6 @@ const (
 	// ClusterKubeProxyUser specifies the name of the user used by kube-proxy
 	ClusterKubeProxyUser = "system:kube-proxy"
 
-	// LocalClusterCommonName is a default Common Name of the local K8s cluster
-	LocalClusterCommonName = "cluster.local"
-
 	// APIServerDomainName is a domain name set by planet active master
 	APIServerDomainName = "leader.telekube.local"
 	// APIServerDomainNameGravity is the leader node FQDN.
