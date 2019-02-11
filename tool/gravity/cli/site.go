@@ -47,7 +47,7 @@ func statusSite() error {
 			TLSClientConfig: &tls.Config{
 				InsecureSkipVerify: true,
 			}}}
-	targetURL := defaults.GravityServiceURL + "/healthz"
+	targetURL := defaults.GravityServiceAbsoluteURL + "/healthz"
 	re, err := client.Get(targetURL)
 	if err != nil {
 		return trace.Wrap(err, "failed connecting to %v", targetURL)

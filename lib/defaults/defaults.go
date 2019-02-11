@@ -583,7 +583,7 @@ const (
 	SystemdTasksMinVersion = 227
 
 	// GravityServiceHost defines the address internal gravity site is located at
-	GravityServiceHost = "gravity-site.kube-system.svc.cluster.local."
+	GravityServiceHost = "gravity-site.kube-system.svc.cluster.local"
 
 	// GravityServicePort defines the address internal gravity site is located at
 	GravityServicePort = 3009
@@ -978,6 +978,9 @@ const (
 var (
 	// GravityServiceURL defines the address the internal gravity site is located
 	GravityServiceURL = fmt.Sprintf("https://%s:%d", GravityServiceHost, GravityServicePort)
+
+	// GravityServiceAbsoluteURL defines the address the internal gravity site is located
+	GravityServiceAbsoluteURL = fmt.Sprintf("https://%s.:%d", GravityServiceHost, GravityServicePort)
 
 	// KubernetesAPIAddress is the Kubernetes API address
 	KubernetesAPIAddress = fmt.Sprintf("%s.:%d", constants.APIServerDomainName, APIServerSecurePort)
