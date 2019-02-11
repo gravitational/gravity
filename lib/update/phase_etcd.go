@@ -101,18 +101,20 @@ func (r phaseBuilder) etcdPlan(
 		ID:          root.ChildLiteral("shutdown"),
 		Description: "Shutdown etcd cluster",
 	}
-	shutdownEtcd.AddParallel(r.etcdShutdownNode(leadMaster, shutdownEtcd, true))
+	shutdownEtcd.AddWithDependency(
+		dependencyForServer(backupEtcd, leadMaster),
+		r.etcdShutdownNode(leadMaster, shutdownEtcd, true))
 
 	for _, server := range otherMasters {
 		p := r.etcdShutdownNode(server, shutdownEtcd, false)
-		shutdownEtcd.AddParallel(p)
+		shutdownEtcd.AddWithDependency(dependencyForServer(backupEtcd, server), p)
 	}
 	for _, server := range workers {
 		p := r.etcdShutdownNode(server, shutdownEtcd, false)
-		shutdownEtcd.AddParallel(p)
+		shutdownEtcd.Add(p)
 	}
 
-	root.AddSequential(shutdownEtcd)
+	root.Add(shutdownEtcd)
 
 	// Upgrade servers
 	// Replace configuration and data directories, for new version of etcd
@@ -121,17 +123,19 @@ func (r phaseBuilder) etcdPlan(
 		ID:          root.ChildLiteral("upgrade"),
 		Description: "Upgrade etcd servers",
 	}
-	upgradeServers.AddParallel(r.etcdUpgrade(leadMaster, upgradeServers))
+	upgradeServers.AddWithDependency(
+		dependencyForServer(shutdownEtcd, leadMaster),
+		r.etcdUpgrade(leadMaster, upgradeServers))
 
 	for _, server := range otherMasters {
 		p := r.etcdUpgrade(server, upgradeServers)
-		upgradeServers.AddParallel(p)
+		upgradeServers.AddWithDependency(dependencyForServer(shutdownEtcd, server), p)
 	}
 	for _, server := range workers {
 		p := r.etcdUpgrade(server, upgradeServers)
-		upgradeServers.AddParallel(p)
+		upgradeServers.AddWithDependency(dependencyForServer(shutdownEtcd, server), p)
 	}
-	root.AddSequential(upgradeServers)
+	root.Add(upgradeServers)
 
 	// Restore kubernetes data
 	// migrate to etcd3 store
@@ -152,15 +156,17 @@ func (r phaseBuilder) etcdPlan(
 		ID:          root.ChildLiteral("restart"),
 		Description: "Restart etcd servers",
 	}
-	restartMasters.AddSequential(r.etcdRestart(leadMaster, restartMasters))
+	restartMasters.AddWithDependency(
+		dependencyForServer(restoreData, leadMaster),
+		r.etcdRestart(leadMaster, restartMasters))
 
 	for _, server := range otherMasters {
 		p := r.etcdRestart(server, restartMasters)
-		restartMasters.AddSequential(p)
+		restartMasters.AddWithDependency(dependencyForServer(upgradeServers, server), p)
 	}
 	for _, server := range workers {
 		p := r.etcdRestart(server, restartMasters)
-		restartMasters.AddParallel(p)
+		restartMasters.AddWithDependency(dependencyForServer(upgradeServers, server), p)
 	}
 
 	// also restart gravity-site, so that elections get unbroken
@@ -172,7 +178,7 @@ func (r phaseBuilder) etcdPlan(
 			Server: &leadMaster,
 		},
 	})
-	root.AddSequential(restartMasters)
+	root.Add(restartMasters)
 
 	return &root
 }

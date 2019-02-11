@@ -311,28 +311,9 @@ func newOperationPlanFromParams(p newPlanParams) (*storage.OperationPlan, error)
 		return nil, trace.Wrap(err)
 	}
 
-	// this flag indicates whether rbac-app has been updated or not, because if it has
-	// then its k8s resources should be created before all other hooks run
-	rbacAppUpdated := false
-	for _, update := range runtimeUpdates {
-		if update.Name == constants.BootstrapConfigPackage {
-			rbacAppUpdated = true
-		}
-	}
-
-	runtimePhase := *builder.runtime(runtimeUpdates, rbacAppUpdated).Require(mastersPhase)
-
 	appUpdates, err := app.GetUpdatedDependencies(p.installedApp, p.updateApp)
 	if err != nil {
 		return nil, trace.Wrap(err)
-	}
-
-	appPhase := *builder.app(appUpdates)
-	if len(runtimeUpdates) != 0 {
-		appPhase.Require(mastersPhase)
-	}
-	if rbacAppUpdated {
-		appPhase.RequireLiteral(runtimePhase.ChildLiteral(constants.BootstrapConfigPackage))
 	}
 
 	// check if etcd upgrade is required or not
@@ -341,37 +322,40 @@ func newOperationPlanFromParams(p newPlanParams) (*storage.OperationPlan, error)
 		return nil, trace.Wrap(err)
 	}
 
-	cleanupPhase := *builder.cleanup(p.servers).Require(appPhase)
-
-	// Order the phases
-	phases := phases{initPhase, checksPhase, preUpdatePhase}
+	var root phase
+	root.Add(initPhase, checksPhase, preUpdatePhase)
 	if len(runtimeUpdates) > 0 {
 		// if there are no runtime updates, then these phases are not needed
 		// as we're not going to update system software
 		if p.updateCoreDNS {
 			corednsPhase := *builder.corednsPhase(leadMaster.Server)
 			mastersPhase = *mastersPhase.Require(corednsPhase)
-			phases = append(phases, corednsPhase)
+			root.Add(corednsPhase)
 		}
 
-		phases = append(phases, bootstrapPhase, mastersPhase)
+		root.Add(bootstrapPhase, mastersPhase)
 		if len(nodesPhase.Phases) > 0 {
-			phases = append(phases, nodesPhase)
+			root.Add(nodesPhase)
 		}
 
 		if updateEtcd {
 			etcdPhase := *builder.etcdPlan(leadMaster.Server, masters[1:].asServers(), nodes.asServers(),
 				currentVersion, desiredVersion)
-			phases = append(phases, etcdPhase)
+			// This does not depened on previous on purposes - when the etcd block is executed,
+			// remote agents might be able to sync the plan before the shutdown of etcd instances
+			// has begun
+			root.Add(etcdPhase)
 		}
 
 		if migrationPhase := builder.migration(p); migrationPhase != nil {
-			phases = append(phases, *migrationPhase)
+			root.AddSequential(*migrationPhase)
 		}
-		phases = append(phases, runtimePhase)
+
+		root.AddSequential(*builder.runtime(runtimeUpdates))
 	}
-	phases = append(phases, appPhase, cleanupPhase)
-	plan.Phases = phases.asPhases()
+
+	root.AddSequential(*builder.app(appUpdates), *builder.cleanup(p.servers))
+	plan.Phases = root.Phases
 	ResolvePlan(&plan)
 
 	return &plan, nil

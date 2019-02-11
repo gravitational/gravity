@@ -80,7 +80,7 @@ func (s *FSMSuite) TestFSMBasic(c *check.C) {
 		"/phase2": storage.OperationPhaseStateUnstarted,
 	})
 
-	s.engine.plan = &plan
+	s.engine.plan = plan
 	ctx := context.TODO()
 
 	// phase2 requires phase1 to be completed first
@@ -123,7 +123,7 @@ func (s *FSMSuite) TestFSMExecuteSubphase(c *check.C) {
 		},
 	}
 
-	s.engine.plan = &plan
+	s.engine.plan = plan
 
 	err := s.fsm.ExecutePhase(context.TODO(), fsm.Params{
 		PhaseID: "/phase1/sub1",
@@ -150,7 +150,7 @@ func (s *FSMSuite) TestFSMExecutePhaseWithSubphases(c *check.C) {
 		},
 	}
 
-	s.engine.plan = &plan
+	s.engine.plan = plan
 
 	err := s.fsm.ExecutePhase(context.TODO(), fsm.Params{
 		PhaseID: "/phase1",

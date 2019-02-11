@@ -257,7 +257,7 @@ func (b *planBuilder) AddPostHookPhase(plan *storage.OperationPlan) {
 
 // AddElectPhase appends phase that enables leader election to the plan
 func (b *planBuilder) AddElectPhase(plan *storage.OperationPlan) {
-	plan.Phases = append(plan.Phases, storage.OperationPhase{
+	phase := storage.OperationPhase{
 		ID:          ElectPhase,
 		Description: "Enable leader election on the joined node",
 		Data: &storage.OperationPhaseData{
@@ -265,7 +265,11 @@ func (b *planBuilder) AddElectPhase(plan *storage.OperationPlan) {
 			ExecServer: &b.JoiningNode,
 		},
 		Requires: []string{installphases.WaitPhase},
-	})
+	}
+	if !b.JoiningNode.IsMaster() {
+		phase.Description = "Disable leader election on the joined node"
+	}
+	plan.Phases = append(plan.Phases, phase)
 }
 
 func (p *Peer) getPlanBuilder(ctx operationContext) (*planBuilder, error) {
