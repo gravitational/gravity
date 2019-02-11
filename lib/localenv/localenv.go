@@ -238,9 +238,6 @@ func (env *LocalEnvironment) GetLoginEntry(opsCenterURL string) (*users.LoginEnt
 		}
 	}
 	entry, err := env.Creds.GetLoginEntry(opsCenterURL)
-	if trace.IsNotFound(err) && opsCenterURL == defaults.GravityServiceURL {
-		entry, err = env.Creds.GetLoginEntry(defaults.GravityServiceLegacyURL)
-	}
 	if err != nil {
 		if !trace.IsNotFound(err) {
 			return nil, trace.Wrap(err)
@@ -368,7 +365,7 @@ func (env *LocalEnvironment) PackageService(opsCenterURL string, options ...http
 		return env.Packages, nil
 	}
 
-	if opsCenterURL == defaults.GravityServiceURL || opsCenterURL == defaults.GravityServiceLegacyURL {
+	if opsCenterURL == defaults.GravityServiceURL {
 		options = append(options, httplib.WithLocalResolver(env.DNS.Addr()))
 	}
 
