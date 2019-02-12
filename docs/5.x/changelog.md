@@ -64,12 +64,11 @@ LTS starts with `3.51.0` with minor backwards compatible changes added over time
 
 ### 5.0.29
 
-* Update docker-runc to avoid security vulnerability (cve-2019-5736).
-* Update xterm.js to avoid security vulnerability (CVE-2019-0542d).
-* Restrict Teleport cipher suites.
-
-
 #### Bugfixes
+
+* Update docker-runc to avoid security vulnerability (cve-2019-5736).
+* Update xterm.js to avoid security vulnerability (CVE-2019-0542).
+* Restrict Teleport cipher suites.
 
 !!! warning
     This release fixes a security vulnerability in runc. Please see
