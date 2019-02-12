@@ -55,6 +55,9 @@ func Build(ctx context.Context, builder *Builder) error {
 	case schema.KindApplication:
 		builder.Config.Progress = utils.NewProgress(ctx, "Build",
 			appBuildSteps, builder.Config.Silent)
+	default:
+		return trace.BadParameter("unknown manifest kind %q",
+			builder.Manifest.Kind)
 	}
 
 	switch builder.Manifest.Kind {

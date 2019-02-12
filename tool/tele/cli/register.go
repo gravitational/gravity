@@ -36,7 +36,6 @@ func RegisterCommands(app *kingpin.Application) Application {
 	tele.Debug = app.Flag("debug", "Enable debug mode").Bool()
 	tele.Insecure = app.Flag("insecure", "Skip TLS verification when making HTTP requests").Default("false").Bool()
 	tele.StateDir = app.Flag("state-dir", "Directory for temporary local state").Hidden().String()
-	tele.Quiet = app.Flag("quiet", "Suppress any extra output to stdout").Short('q').Bool()
 
 	tele.VersionCmd.CmdClause = app.Command("version", "Print version and exit")
 	tele.VersionCmd.Output = common.Format(tele.VersionCmd.Flag("output", "Output format, text or json").Short('o').Default(string(constants.EncodingText)))
@@ -54,16 +53,18 @@ func RegisterCommands(app *kingpin.Application) Application {
 	tele.BuildCmd.SetDeps = loc.LocatorSlice(tele.BuildCmd.Flag("set-dep", "Rewrite dependencies section in the application manifest file during vendoring, e.g. 'gravitational.io/site-app:0.0.39' will overwrite dependency to 'gravitational.io/site-app:0.0.39'").Hidden())
 	tele.BuildCmd.SkipVersionCheck = tele.BuildCmd.Flag("skip-version-check", "Skip version compatibility check").Hidden().Bool()
 	tele.BuildCmd.Parallel = tele.BuildCmd.Flag("parallel", "Specifies the number of concurrent tasks. If < 0, the number of tasks is not restricted, if unspecified, then tasks are capped at the number of logical CPU cores").Int()
+	tele.BuildCmd.Quiet = tele.BuildCmd.Flag("quiet", "Suppress any extra output to stdout").Short('q').Bool()
 
 	tele.ListCmd.CmdClause = app.Command("ls", "Display a list of user applications published in remote Ops Center")
-	tele.ListCmd.Runtimes = tele.ListCmd.Flag("runtimes", "Show only runtimes").Short('r').Bool()
+	tele.ListCmd.Runtimes = tele.ListCmd.Flag("runtimes", "Show only runtimes").Short('r').Hidden().Bool()
 	tele.ListCmd.Format = common.Format(tele.ListCmd.Flag("format", fmt.Sprintf("Output format, one of: %v", constants.OutputFormats)).Default(string(constants.EncodingText)))
-	tele.ListCmd.WithPrereleases = tele.ListCmd.Flag("with-prereleases", "Include pre-releases (alpha, beta, rc) in the output too").Bool()
+	tele.ListCmd.All = tele.ListCmd.Flag("all", "Display all available versions").Bool()
 
 	tele.PullCmd.CmdClause = app.Command("pull", "Pull an application from remote Ops Center")
 	tele.PullCmd.App = tele.PullCmd.Arg("app", "Name of application to download: <name>:<version> or just <name> to download the latest").Required().String()
 	tele.PullCmd.OutFile = tele.PullCmd.Flag("output", "Name of downloaded tarball, defaults to <name>-<version>.tar").Short('o').String()
 	tele.PullCmd.Force = tele.PullCmd.Flag("force", "Overwrite existing tarball").Short('f').Bool()
+	tele.PullCmd.Quiet = tele.PullCmd.Flag("quiet", "Suppress any extra output to stdout").Short('q').Bool()
 
 	return tele
 }
