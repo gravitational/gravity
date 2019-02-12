@@ -8,7 +8,7 @@ LTS starts with `3.51.0` with minor backwards compatible changes added over time
 | Release       | LTS | Release Date         | Supported Until      | Kubernetes Version | Teleport Version |
 | --------------|-----| -------------------- | -------------------- | ------------------ |------------------|
 | 5.5.0-alpha.7 | No  | January, 29th 2019   | -                    | 1.13.0             | 3.0.4            |
-| 5.4.4         | No  | January, 28th 2019   | -                    | 1.13.2             | 2.4.10           |
+| 5.4.5         | No  | February, 8th 2019   | -                    | 1.13.2             | 2.4.10           |
 | 5.3.8         | No  | January, 25th 2019   | -                    | 1.12.3             | 2.4.10           |
 | 5.2.7         | Yes | February, 7th 2019   | October, 15th, 2019  | 1.11.5             | 2.4.10           |
 | 5.0.28        | Yes | January, 7th 2019    | April, 13th 2019     | 1.9.12-gravitational | 2.4.10         |
@@ -50,6 +50,12 @@ LTS starts with `3.51.0` with minor backwards compatible changes added over time
 * Fix an issue with vendoring unrecognized resources.
 * Fix a potential connection leak.
 * Fix a potential panic in `gravity join` command.
+
+### 5.4.5
+
+#### Bugfixes
+
+* Backport support for builtin kernel modules in preflight checks.
 
 ### 5.4.4
 
