@@ -204,6 +204,9 @@ const (
 	// If not empty, turns the preflight checks off
 	PreflightChecksOffEnvVar = "GRAVITY_CHECKS_OFF"
 
+	// BlockingOperationEnvVar specifies whether to execute an operation in foreground
+	BlockingOperationEnvVar = "GRAVITY_BLOCKING_OPERATION"
+
 	// DockerRegistry is a default name for private docker registry
 	DockerRegistry = "leader.telekube.local:5000"
 

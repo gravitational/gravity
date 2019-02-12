@@ -325,7 +325,9 @@ func Execute(g *Application, cmd string, extraArgs []string) error {
 		return updateTrigger(localEnv,
 			updateEnv,
 			*g.UpdateTriggerCmd.App,
-			*g.UpdateTriggerCmd.Manual)
+			*g.UpdateTriggerCmd.Manual,
+			*g.UpdateTriggerCmd.Block,
+		)
 	case g.UpdatePlanInitCmd.FullCommand():
 		return initUpdateOperationPlan(localEnv, updateEnv)
 	case g.UpgradeCmd.FullCommand():
@@ -344,7 +346,9 @@ func Execute(g *Application, cmd string, extraArgs []string) error {
 		return updateTrigger(localEnv,
 			updateEnv,
 			*g.UpgradeCmd.App,
-			*g.UpgradeCmd.Manual)
+			*g.UpgradeCmd.Manual,
+			*g.UpgradeCmd.Block,
+		)
 	case g.PlanExecuteCmd.FullCommand():
 		return executePhase(localEnv, updateEnv, joinEnv,
 			PhaseParams{

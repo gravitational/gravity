@@ -18,6 +18,7 @@ package cli
 
 import (
 	"context"
+	"fmt"
 
 	appservice "github.com/gravitational/gravity/lib/app"
 	"github.com/gravitational/gravity/lib/constants"
@@ -52,7 +53,7 @@ func updateTrigger(
 	localEnv *localenv.LocalEnvironment,
 	updateEnv *localenv.LocalEnvironment,
 	appPackage string,
-	manual bool,
+	manual, block bool,
 ) error {
 	clusterEnv, err := localEnv.NewClusterEnvironment()
 	if err != nil {
@@ -119,6 +120,10 @@ func updateTrigger(
 		proxy:        proxy,
 		nodeParams:   constants.RPCAgentSyncPlanFunction,
 	}
+	unattended := !block && !manual
+	if unattended {
+		req.leaderParams = constants.RPCAgentUpgradeFunction
+	}
 
 	ctx, cancel := context.WithTimeout(context.Background(), defaults.AgentDeployTimeout)
 	defer cancel()
@@ -130,6 +135,17 @@ func updateTrigger(
 	_, err = deployAgents(ctx, req)
 	if err != nil {
 		return trace.Wrap(err)
+	}
+
+	if unattended {
+		if localEnv.Silent {
+			// FIXME: keep the legacy behavior of reporting the operation ID in quiet mode.
+			// This is still used by robotest to fetch the operation ID
+			fmt.Println(opKey.OperationID)
+		}
+		localEnv.Printf("update operation (%v) has been started.\nCluster is updating in background.\n",
+			opKey.OperationID)
+		return nil
 	}
 
 	if !manual {
@@ -160,7 +176,6 @@ $ gravity upgrade --complete
 To abort an unsuccessful operation, rollback all completed/failed phases and
 run the same command. The operation will be marked as "failed" and the cluster
 will be returned to the "active" state.`)
-
 	return nil
 }
 
