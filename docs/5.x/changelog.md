@@ -7,11 +7,10 @@ LTS starts with `3.51.0` with minor backwards compatible changes added over time
 
 | Release       | LTS | Release Date         | Supported Until      | Kubernetes Version | Teleport Version |
 | --------------|-----| -------------------- | -------------------- | ------------------ |------------------|
-| 5.5.0-alpha.7 | No  | January, 29th 2019   | -                    | 1.13.0             | 3.0.4            |
-| 5.4.5         | No  | February, 8th 2019   | -                    | 1.13.2             | 2.4.10           |
-| 5.3.8         | No  | January, 25th 2019   | -                    | 1.12.3             | 2.4.10           |
-| 5.2.7         | Yes | February, 7th 2019   | October, 15th, 2019  | 1.11.5             | 2.4.10           |
-| 5.0.28        | Yes | January, 7th 2019    | April, 13th 2019     | 1.9.12-gravitational | 2.4.10         |
+| 5.5.0-alpha.8 | No  | February, 12th 2019  | -                    | 1.13.0             | 3.0.4            |
+| 5.4.6         | No  | February, 12th 2019  | -                    | 1.13.2             | 2.4.10           |
+| 5.2.8         | Yes | February, 12th 2019  | October, 15th, 2019  | 1.11.5             | 2.4.10           |
+| 5.0.29        | Yes | February, 12th 2019  | April, 13th 2019     | 1.9.12-gravitational | 2.4.10         |
 | 4.68.0        | Yes | January, 17th 2019   | November, 16th 2018  | 1.7.18-gravitational | 2.3.5          |
 | 3.64.0        | Yes | December, 21st 2017  | June, 2nd 2018       | 1.5.7              | 2.0.6            |
 | 1.30.0        | Yes | March, 21st 2017     | March, 21st 2018     | 1.3.8              | 1.2.0            |
@@ -24,6 +23,57 @@ LTS starts with `3.51.0` with minor backwards compatible changes added over time
     article in our Help Center.
 
 ## 5.x Releases
+
+### 5.5.0-alpha.8
+
+#### Improvements
+
+* Introduce AuthGateway resource.
+* UX improvements to `tele` CLI.
+
+#### Bugfixes
+
+* Update to Docker 18.06.2 (cve-2019-5736).
+* Update gravity-site healthz endpoint to more reliably indicate failures.
+* Use xdg-open to launch default browser.
+* Fix an issue with `tele logout` when no helm and docker executable are present.
+
+!!! warning
+    This release fixes a security vulnerability in runc. Please see
+    [Kubnernetes Blog](https://kubernetes.io/blog/2019/02/11/runc-and-cve-2019-5736/) for more information.
+
+### 5.4.6
+
+#### Bugfixes
+
+* Update to Docker 18.06.2 (cve-2019-5736).
+
+!!! warning
+    This release fixes a security vulnerability in runc. Please see
+    [Kubnernetes Blog](https://kubernetes.io/blog/2019/02/11/runc-and-cve-2019-5736/) for more information.
+
+### 5.2.8
+
+#### Bugfixes
+
+* Update docker-runc to avoid security vulnerability (cve-2019-5736).
+
+!!! warning
+    This release fixes a security vulnerability in runc. Please see
+    [Kubnernetes Blog](https://kubernetes.io/blog/2019/02/11/runc-and-cve-2019-5736/) for more information.
+
+### 5.0.29
+
+* Update docker-runc to avoid security vulnerability (cve-2019-5736).
+* Update xterm.js to avoid security vulnerability (CVE-2019-0542d).
+* Restrict Teleport cipher suites.
+
+
+#### Bugfixes
+
+!!! warning
+    This release fixes a security vulnerability in runc. Please see
+    [Kubnernetes Blog](https://kubernetes.io/blog/2019/02/11/runc-and-cve-2019-5736/) for more information.
 
 ### 5.2.7
 
