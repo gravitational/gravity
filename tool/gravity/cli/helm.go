@@ -388,6 +388,12 @@ func appRebuildIndex(env *localenv.LocalEnvironment) error {
 	return nil
 }
 
+// appIndex generates a Helm chart repository index file for all applications
+// found in the app service of the provided environment. The generated index
+// file is displayed in the terminal.
+//
+// If mergeInto index file is provided, then the generated index file gets
+// merged into it, and the resulting index file is shown in the terminal.
 func appIndex(env *localenv.LocalEnvironment, mergeInto string) error {
 	apps, err := env.Apps.ListApps(app.ListAppsRequest{
 		Repository: defaults.SystemAccountOrg,
