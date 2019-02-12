@@ -124,7 +124,7 @@ func (f *fsmUpdateEngine) Complete(fsmErr error) error {
 		return trace.Wrap(err)
 	}
 
-	stateSetter := fsm.SetOperationState(opKey, f.Operator, f.LocalBackend)
+	stateSetter := fsm.OperationStateSetter(opKey, f.Operator, f.LocalBackend)
 	completed := fsm.IsCompleted(plan)
 	if completed {
 		err = ops.CompleteOperation(opKey, stateSetter)

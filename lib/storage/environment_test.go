@@ -1,5 +1,5 @@
 /*
-Copyright 2018 Gravitational, Inc.
+Copyright 2019 Gravitational, Inc.
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -40,7 +40,7 @@ func (*EnvS) TestParsesEnvironment(c *C) {
 		{
 			in:      `{}`,
 			error:   trace.BadParameter("failed to validate: name: name is required"),
-			comment: "chokes on empty json",
+			comment: "fails for empty json",
 		},
 		{
 			in:      `{"kind": "runtimeenvironment"}`,

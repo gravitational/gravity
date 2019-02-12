@@ -124,7 +124,7 @@ func GetOperations(backend Backend) ([]SiteOperation, error) {
 	return operations, nil
 }
 
-// GetOperationByID returns the last operation for the local cluster
+// GetOperationByID returns the operation with the given ID for the local cluster
 func GetOperationByID(backend Backend, operationID string) (*SiteOperation, error) {
 	cluster, err := backend.GetLocalSite(defaults.SystemAccountID)
 	if err != nil {

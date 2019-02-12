@@ -118,7 +118,7 @@ func getLastOperation(localEnv, updateEnv, joinEnv *localenv.LocalEnvironment, o
 		return nil, trace.NotFound("no operation found")
 	}
 	if len(operations) == 1 && operationID != "" {
-		log.WithField("operation", operations[0]).Info("Fetched an operation by ID.")
+		log.WithField("operation", operations[0]).Debug("Fetched operation by ID.")
 		return &operations[0], nil
 	}
 	log.Infof("Multiple operations found: \n%v\n, please specify operation with --operation-id.\n"+
@@ -132,7 +132,7 @@ func getActiveOperation(localEnv, updateEnv, joinEnv *localenv.LocalEnvironment,
 	if err != nil {
 		return nil, trace.Wrap(err)
 	}
-	log.WithField("operations", oplist(operations).String()).Info("Fetched backend operations.")
+	log.WithField("operations", oplist(operations).String()).Debug("Fetched backend operations.")
 	if len(operations) == 0 {
 		if operationID != "" {
 			return nil, trace.NotFound("no operation with ID %v found", operationID)
@@ -140,7 +140,7 @@ func getActiveOperation(localEnv, updateEnv, joinEnv *localenv.LocalEnvironment,
 		return nil, trace.NotFound("no operation found")
 	}
 	if len(operations) == 1 && operationID != "" {
-		log.WithField("operation", operations[0]).Info("Fetched an operation by ID.")
+		log.WithField("operation", operations[0]).Debug("Fetched an operation by ID.")
 		return &operations[0], nil
 	}
 	op, err := getActiveOperationFromList(operations)
@@ -202,7 +202,7 @@ func (r *backendOperations) List(localEnv, updateEnv, joinEnv *localenv.LocalEnv
 		if wizardEnv != nil && wizardEnv.Operator != nil {
 			op, err := ops.GetWizardOperation(wizardEnv.Operator)
 			if err == nil {
-				log.Info("Fetched install operation from wizard environment.")
+				log.Debug("Fetched install operation from wizard environment.")
 				r.operations[op.ID] = (ops.SiteOperation)(*op)
 			} else {
 				log.WithError(err).Warn("Failed to query install operation.")
