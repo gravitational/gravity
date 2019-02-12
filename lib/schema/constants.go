@@ -77,11 +77,6 @@ const (
 	// KindRuntime defines a runtime application type
 	KindRuntime = "Runtime"
 
-	// ImageTypeCluster represents a cluster image type.
-	ImageTypeCluster = "cluster"
-	// ImageTypeApplication represents an application image type.
-	ImageTypeApplication = "application"
-
 	// APIVersionV1 specifies the previous API version
 	APIVersionV1 = "v1"
 	// APIVersionLegacyV2 specifies legacy v2 version

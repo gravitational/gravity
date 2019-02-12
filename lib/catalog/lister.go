@@ -79,7 +79,7 @@ func NewListItemFromHubApp(app hub.App) (*listItem, error) {
 		Name:        app.Name,
 		Version:     *semver,
 		Created:     app.Created,
-		Type:        schema.KindCluster,
+		Type:        app.Type,
 		Description: app.Description,
 	}, nil
 }

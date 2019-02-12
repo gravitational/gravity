@@ -253,9 +253,9 @@ func (m Manifest) DescribeKind() string {
 func (m Manifest) ImageType() string {
 	switch m.Kind {
 	case KindBundle, KindCluster:
-		return ImageTypeCluster
+		return KindCluster
 	case KindApplication:
-		return ImageTypeApplication
+		return KindApplication
 	default:
 		return ""
 	}

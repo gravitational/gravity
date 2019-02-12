@@ -69,7 +69,7 @@ func (s *HelmSuite) TestGenerateIndexFile(c *check.C) {
 				Version:     "0.0.1",
 				Description: "Alpine Linux 3.3",
 				Annotations: map[string]string{
-					constants.AnnotationKind: "application",
+					constants.AnnotationKind: schema.KindApplication,
 					constants.AnnotationLogo: "",
 					constants.AnnotationSize: "2",
 				},
@@ -85,7 +85,7 @@ func (s *HelmSuite) TestGenerateIndexFile(c *check.C) {
 				Version:     "3.0.0",
 				Description: "Nginx 1.10",
 				Annotations: map[string]string{
-					constants.AnnotationKind: "application",
+					constants.AnnotationKind: schema.KindApplication,
 					constants.AnnotationLogo: "",
 					constants.AnnotationSize: "5",
 				},
@@ -101,7 +101,7 @@ func (s *HelmSuite) TestGenerateIndexFile(c *check.C) {
 				Version:     "2.0.0",
 				Description: "Base image with Kubernetes v1.13",
 				Annotations: map[string]string{
-					constants.AnnotationKind: "cluster",
+					constants.AnnotationKind: schema.KindCluster,
 					constants.AnnotationLogo: "",
 					constants.AnnotationSize: "1",
 				},
@@ -115,7 +115,7 @@ func (s *HelmSuite) TestGenerateIndexFile(c *check.C) {
 				Version:     "1.0.0",
 				Description: "Base image with Kubernetes v1.10",
 				Annotations: map[string]string{
-					constants.AnnotationKind: "cluster",
+					constants.AnnotationKind: schema.KindCluster,
 					constants.AnnotationLogo: "",
 					constants.AnnotationSize: "3",
 				},
