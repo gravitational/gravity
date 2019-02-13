@@ -27,6 +27,7 @@ import (
 	"github.com/gravitational/gravity/lib/ops/monitoring"
 	"github.com/gravitational/gravity/lib/ops/opsservice"
 	"github.com/gravitational/gravity/lib/storage"
+	"github.com/gravitational/gravity/lib/storage/clusterconfig"
 
 	teleservices "github.com/gravitational/teleport/lib/services"
 	"github.com/gravitational/trace"
@@ -341,6 +342,11 @@ func (r *Router) CreateClusterGarbageCollectOperation(req ops.CreateClusterGarba
 // CreateUpdateEnvarsOperation creates a new operation to update cluster runtime environment variables
 func (r *Router) CreateUpdateEnvarsOperation(req ops.CreateUpdateEnvarsOperationRequest) (*ops.SiteOperationKey, error) {
 	return r.Local.CreateUpdateEnvarsOperation(req)
+}
+
+// CreateUpdateConfigOperation creates a new operation to update cluster configuration
+func (r *Router) CreateUpdateConfigOperation(req ops.CreateUpdateConfigOperationRequest) (*ops.SiteOperationKey, error) {
+	return r.Local.CreateUpdateConfigOperation(req)
 }
 
 func (r *Router) GetSiteOperationLogs(key ops.SiteOperationKey) (io.ReadCloser, error) {
@@ -662,6 +668,15 @@ func (r *Router) GetClusterEnvironmentVariables(key ops.SiteKey) (storage.Enviro
 		return nil, trace.Wrap(err)
 	}
 	return client.GetClusterEnvironmentVariables(key)
+}
+
+// GetClusterConfiguration retrieves the cluster configuration
+func (r *Router) GetClusterConfiguration(key ops.SiteKey) (clusterconfig.Interface, error) {
+	client, err := r.RemoteClient(key.SiteDomain)
+	if err != nil {
+		return nil, trace.Wrap(err)
+	}
+	return client.GetClusterConfiguration(key)
 }
 
 func (r *Router) GetApplicationEndpoints(key ops.SiteKey) ([]ops.Endpoint, error) {

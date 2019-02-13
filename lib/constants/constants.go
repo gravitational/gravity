@@ -520,6 +520,9 @@ const (
 	// environment variables after the update
 	PreviousKeyValuesAnnotationKey = "previous-values"
 
+	// ClusterConfigurationMap is the name of the ConfigMap that hosts cluster configuration resource
+	ClusterConfigurationMap = "cluster-configuration"
+
 	// SMTPSecret specifies the name of the Secret with cluster SMTP configuration
 	SMTPSecret = "smtp-configuration-update"
 

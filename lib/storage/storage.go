@@ -432,8 +432,10 @@ type SiteOperation struct {
 	Uninstall *UninstallOperationState `json:"uninstall,omitempty"`
 	// Update is for updating application on the gravity site
 	Update *UpdateOperationState `json:"update,omitempty"`
-	// UpdateEnvars defines the environment state
-	UpdateEnvars *UpdateEnvarsOperationState `json:"update_envars,omitempty"`
+	// UpdateEnviron defines the runtime environment update state
+	UpdateEnviron *UpdateEnvarsOperationState `json:"update_environ,omitempty"`
+	// UpdateConfig defines the state of the cluster configuration update operation
+	UpdateConfig *UpdateConfigOperationState `json:"update_config,omitempty"`
 }
 
 func (s *SiteOperation) Check() error {
@@ -1971,7 +1973,7 @@ type ShrinkOperationState struct {
 	// NodeRemoved indicates whether the node has already been removed from the cluster
 	// Used in cases where we recieve an event where the node is being terminated, but may
 	// not have disconnected from the cluster yet.
-	NodeRemoved bool `json:node_removed`
+	NodeRemoved bool `json:"node_removed"`
 }
 
 // UpdateOperationState describes the state of the update operation.
@@ -2003,6 +2005,12 @@ func (s UpdateOperationState) Package() (*loc.Locator, error) {
 		return nil, trace.Wrap(err)
 	}
 	return locator, nil
+}
+
+// UpdateConfigOperationState describes the state of the operation to update cluster configuration
+type UpdateConfigOperationState struct {
+	// Config specifies the raw configuration resource
+	Config []byte `json:"config"`
 }
 
 // ServerUpdate represents server that is being updated

@@ -145,6 +145,8 @@ type GarbageCollectOperationData struct {
 type InstallOperationData struct {
 	// Env specifies optional cluster environment variables to add
 	Env map[string]string `json:"env,omitempty"`
+	// Config specifies optional cluster configuration resource
+	Config []byte `json:"config,omitempty"`
 	// Resources specifies optional Kubernetes resources to create
 	Resources []byte `json:"resources,omitempty" yaml:"resources,omitempty"`
 	// GravityResourcesResources specifies optional Gravity resources to create upon successful installation

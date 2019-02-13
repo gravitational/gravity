@@ -81,17 +81,6 @@ func hasEndpoints(client corev1.CoreV1Interface, labels labels.Set, fn endpointM
 	return trace.NotFound("no active endpoints found for query %q", labels)
 }
 
-// matchesNode is a predicate that matches an endpoint address to the specified
-// node name
-func matchesNode(node string) endpointMatchFn {
-	return func(addr v1.EndpointAddress) bool {
-		// Abort if the node name is not populated.
-		// There is no need to wait for endpoints we cannot
-		// match to a node.
-		return addr.NodeName == nil || *addr.NodeName == node
-	}
-}
-
 // existingEndpoint is a trivial predicate that matches for any endpoint.
 func existingEndpoint(v1.EndpointAddress) bool {
 	return true

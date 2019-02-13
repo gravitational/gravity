@@ -89,11 +89,15 @@ func (i *Installer) GetOperationPlan(cluster ops.Site, op ops.SiteOperation) (*s
 	builder.AddPullPhase(plan)
 
 	// install system software on master nodes
-	builder.AddMastersPhase(plan)
+	if err := builder.AddMastersPhase(plan); err != nil {
+		return nil, trace.Wrap(err)
+	}
 
 	// (optional) install system software on regular nodes
 	if len(builder.Nodes) > 0 {
-		builder.AddNodesPhase(plan)
+		if err := builder.AddNodesPhase(plan); err != nil {
+			return nil, trace.Wrap(err)
+		}
 	}
 
 	// perform post system install tasks such as waiting for planet

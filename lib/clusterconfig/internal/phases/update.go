@@ -73,7 +73,7 @@ func (r *updateConfig) Execute(ctx context.Context) error {
 			OperationID: r.operation.ID,
 			Server:      server,
 			Manifest:    r.manifest,
-			Env:         r.operation.UpdateEnviron.Env,
+			Config:      r.operation.UpdateConfig.Config,
 			Package:     *runtimePackage,
 		})
 		if err != nil {

@@ -1021,13 +1021,6 @@ var (
 	// BandwagonServiceName is the name of the default setup endpoint service
 	BandwagonServiceName = "bandwagon"
 
-	// KubeletArgs is a list of default command line options for kubelet
-	KubeletArgs = []string{
-		`--eviction-hard="nodefs.available<5%,imagefs.available<5%,nodefs.inodesFree<5%,imagefs.inodesFree<5%"`,
-		`--eviction-soft="nodefs.available<10%,imagefs.available<10%,nodefs.inodesFree<10%,imagefs.inodesFree<10%"`,
-		`--eviction-soft-grace-period="nodefs.available=1h,imagefs.available=1h,nodefs.inodesFree=1h,imagefs.inodesFree=1h"`,
-	}
-
 	// InstallGroupTTL is for how long installer IP is kept in a TTL map in
 	// an install group
 	InstallGroupTTL = 10 * time.Second

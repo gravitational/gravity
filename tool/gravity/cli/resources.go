@@ -73,50 +73,70 @@ func CreateResource(
 	user string,
 	manual, confirmed bool,
 ) error {
-	if resource.Kind != storage.KindRuntimeEnvironment {
+	switch resource.Kind {
+	case storage.KindRuntimeEnvironment, storage.KindClusterConfiguration:
+	default:
 		return trace.Wrap(control.Create(bytes.NewReader(resource.Raw), upsert, user))
 	}
 	if checkRunningAsRoot() != nil {
-		return trace.BadParameter("updating cluster runtime environment variables requires root privileges.\n" +
-			"Please run this command as root")
+		return trace.BadParameter("creating resource %q requires root privileges.\n"+
+			"Please run this command as root", resource.Kind)
 	}
 	updateEnv, err := factory.UpdateEnv()
 	if err != nil {
 		return trace.Wrap(err)
 	}
 	defer updateEnv.Close()
-	return trace.Wrap(UpdateEnvars(env, updateEnv, resource.Raw, manual, confirmed))
+	switch resource.Kind {
+	case storage.KindRuntimeEnvironment:
+		return trace.Wrap(UpdateEnviron(env, updateEnv, resource.Raw, manual, confirmed))
+	case storage.KindClusterConfiguration:
+		return trace.Wrap(UpdateConfig(env, updateEnv, resource.Raw, manual, confirmed))
+	}
+	// unreachable
+	return trace.BadParameter("unkown resource kind %q", resource.Kind)
 }
 
 // RemoveResource deletes resource by name
 func RemoveResource(env *localenv.LocalEnvironment, factory LocalEnvironmentFactory, kind string, name string, force bool, user string, manual, confirmed bool) error {
-	if modules.Get().CanonicalKind(kind) == storage.KindRuntimeEnvironment {
-		if checkRunningAsRoot() != nil {
-			return trace.BadParameter("updating cluster runtime environment variables requires root privileges.\n" +
-				"Please run this command as root")
-		}
-		updateEnv, err := factory.UpdateEnv()
+	kind = modules.Get().CanonicalKind(kind)
+	switch kind {
+	case storage.KindRuntimeEnvironment, storage.KindClusterConfiguration:
+	default:
+		operator, err := env.SiteOperator()
 		if err != nil {
 			return trace.Wrap(err)
 		}
-		defer updateEnv.Close()
+		gravityResources, err := gravity.New(gravity.Config{
+			Operator:    operator,
+			CurrentUser: env.CurrentUser(),
+			Silent:      env.Silent,
+		})
+		if err != nil {
+			return trace.Wrap(err)
+		}
+		err = resources.NewControl(gravityResources).Remove(kind, name, force, user)
+		if err != nil {
+			return trace.Wrap(err)
+		}
+	}
+
+	if checkRunningAsRoot() != nil {
+		// FIXME: fix message for both kinds
+		return trace.BadParameter("removing resource %q requires root privileges.\n"+
+			"Please run this command as root", kind)
+	}
+	updateEnv, err := factory.UpdateEnv()
+	if err != nil {
+		return trace.Wrap(err)
+	}
+	defer updateEnv.Close()
+
+	switch kind {
+	case storage.KindRuntimeEnvironment:
 		return trace.Wrap(RemoveEnvars(env, updateEnv, manual, confirmed))
-	}
-	operator, err := env.SiteOperator()
-	if err != nil {
-		return trace.Wrap(err)
-	}
-	gravityResources, err := gravity.New(gravity.Config{
-		Operator:    operator,
-		CurrentUser: env.CurrentUser(),
-		Silent:      env.Silent,
-	})
-	if err != nil {
-		return trace.Wrap(err)
-	}
-	err = resources.NewControl(gravityResources).Remove(kind, name, force, user)
-	if err != nil {
-		return trace.Wrap(err)
+	case storage.KindClusterConfiguration:
+		return trace.Wrap(ResetConfig(env, updateEnv, manual, confirmed))
 	}
 	return nil
 }

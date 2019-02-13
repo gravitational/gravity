@@ -19,9 +19,9 @@ package cli
 import (
 	"context"
 
+	"github.com/gravitational/gravity/lib/clusterconfig"
 	"github.com/gravitational/gravity/lib/constants"
 	"github.com/gravitational/gravity/lib/defaults"
-	"github.com/gravitational/gravity/lib/environ"
 	libfsm "github.com/gravitational/gravity/lib/fsm"
 	"github.com/gravitational/gravity/lib/localenv"
 	"github.com/gravitational/gravity/lib/ops"
@@ -31,30 +31,26 @@ import (
 	"github.com/sirupsen/logrus"
 )
 
-// RemoveEnvars executes the loop to clear cluster environment variables.
-func RemoveEnvars(localEnv, updateEnv *localenv.LocalEnvironment, manual, confirmed bool) error {
-	env := storage.NewEnvironment(nil)
-	ctx := context.TODO()
-	return trace.Wrap(updateEnvars(ctx, localEnv, updateEnv, env, manual, confirmed))
+// ResetConfig executes the loop to reset cluster configuration to defaults
+func ResetConfig(localEnv, updateEnv *localenv.LocalEnvironment, manual, confirmed bool) error {
+	// FIXME
+	// return trace.Wrap(updateConfig(ctx, localEnv, updateEnv, env, manual, confirmed))
+	return trace.NotImplemented("")
 }
 
-// UpdateEnviron executes the loop to update cluster environment variables.
-// resource specifies the new environment variables to apply.
-func UpdateEnviron(localEnv, updateEnv *localenv.LocalEnvironment, resource []byte, manual, confirmed bool) error {
-	env, err := storage.UnmarshalEnvironmentVariables(resource)
-	if err != nil {
-		return trace.Wrap(err)
-	}
+// UpdateConfig executes the loop to update cluster configuration.
+// resource specifies the new configuration to apply.
+func UpdateConfig(localEnv, updateEnv *localenv.LocalEnvironment, resource []byte, manual, confirmed bool) error {
 	ctx := context.TODO()
-	return trace.Wrap(updateEnvars(ctx, localEnv, updateEnv, env, manual, confirmed))
+	return trace.Wrap(updateConfig(ctx, localEnv, updateEnv, resource, manual, confirmed))
 }
 
-func updateEnvars(ctx context.Context, localEnv, updateEnv *localenv.LocalEnvironment, env storage.EnvironmentVariables, manual, confirmed bool) error {
+func updateConfig(ctx context.Context, localEnv, updateEnv *localenv.LocalEnvironment, resource []byte, manual, confirmed bool) error {
 	if !confirmed {
 		if manual {
-			localEnv.Println(updateEnvarsBannerManual)
+			localEnv.Println(updateConfigBannerManual)
 		} else {
-			localEnv.Println(updateEnvarsBanner)
+			localEnv.Println(updateConfigBanner)
 		}
 		resp, err := confirm()
 		if err != nil {
@@ -65,7 +61,7 @@ func updateEnvars(ctx context.Context, localEnv, updateEnv *localenv.LocalEnviro
 			return nil
 		}
 	}
-	updater, err := newUpdater(ctx, localEnv, updateEnv, env)
+	updater, err := newConfigUpdater(ctx, localEnv, updateEnv, resource)
 	if err != nil {
 		return trace.Wrap(err)
 	}
@@ -73,11 +69,11 @@ func updateEnvars(ctx context.Context, localEnv, updateEnv *localenv.LocalEnviro
 		err = updater.Run(ctx, false)
 		return trace.Wrap(err)
 	}
-	localEnv.Println(updateEnvarsManualOperationBanner)
+	localEnv.Println(updateConfigManualOperationBanner)
 	return nil
 }
 
-func newUpdater(ctx context.Context, localEnv, updateEnv *localenv.LocalEnvironment, env storage.EnvironmentVariables) (*environ.Updater, error) {
+func newConfigUpdater(ctx context.Context, localEnv, updateEnv *localenv.LocalEnvironment, resource []byte) (*clusterconfig.Updater, error) {
 	teleportClient, err := localEnv.TeleportClient(constants.Localhost)
 	if err != nil {
 		return nil, trace.Wrap(err, "failed to create a teleport client")
@@ -98,16 +94,16 @@ func newUpdater(ctx context.Context, localEnv, updateEnv *localenv.LocalEnvironm
 	if err != nil {
 		return nil, trace.Wrap(err)
 	}
-	key, err := operator.CreateUpdateEnvarsOperation(
-		ops.CreateUpdateEnvarsOperationRequest{
+	key, err := operator.CreateUpdateConfigOperation(
+		ops.CreateUpdateConfigOperationRequest{
 			ClusterKey: cluster.Key(),
-			Env:        env.GetKeyValues(),
+			Config:     resource,
 		},
 	)
 	if err != nil {
 		if trace.IsNotFound(err) {
 			return nil, trace.NotImplemented(
-				"cluster operator does not implement the API required for updating cluster runtime environment variables. " +
+				"cluster operator does not implement the API required for updating configuration. " +
 					"Please make sure you're running the command on a compatible cluster.")
 		}
 		return nil, trace.Wrap(err)
@@ -116,29 +112,26 @@ func newUpdater(ctx context.Context, localEnv, updateEnv *localenv.LocalEnvironm
 		r := recover()
 		panicked := r != nil
 		if err != nil || panicked {
-			logrus.WithError(err).Warn("Operation failed.")
+			logger := logrus.WithField("operation", key)
+			logger.WithError(err).Warn("Operation failed.")
 			var msg string
 			if err != nil {
 				msg = err.Error()
 			}
 			if errMark := ops.FailOperation(*key, operator, msg); errMark != nil {
-				logrus.WithFields(logrus.Fields{
-					logrus.ErrorKey: errMark,
-					"operation":     key,
-				}).Warn("Failed to mark operation as failed.")
+				logger.WithError(errMark).Warn("Failed to mark operation as failed.")
 			}
 		}
 		if r != nil {
 			panic(r)
 		}
 	}()
-
 	operation, err := operator.GetSiteOperation(*key)
 	if err != nil {
 		return nil, trace.Wrap(err)
 	}
 	// Create the operation plan so it can be replicated on remote nodes
-	_, err = environ.NewOperationPlan(operator, *operation, cluster.ClusterState.Servers)
+	_, err = clusterconfig.NewOperationPlan(operator, *operation, cluster.ClusterState.Servers)
 	if err != nil {
 		return nil, trace.Wrap(err)
 	}
@@ -157,7 +150,7 @@ func newUpdater(ctx context.Context, localEnv, updateEnv *localenv.LocalEnvironm
 		return nil, trace.Wrap(err)
 	}
 	runner := libfsm.NewAgentRunner(creds)
-	config := environ.Config{
+	config := clusterconfig.Config{
 		Operator:        operator,
 		Operation:       operation,
 		Apps:            clusterEnv.Apps,
@@ -170,15 +163,15 @@ func newUpdater(ctx context.Context, localEnv, updateEnv *localenv.LocalEnvironm
 		Silent:          localEnv.Silent,
 		Runner:          runner,
 	}
-	updater, err := environ.New(ctx, config)
+	updater, err := clusterconfig.New(ctx, config)
 	if err != nil {
 		return nil, trace.Wrap(err)
 	}
 	return updater, nil
 }
 
-func executeEnvarsPhase(env, updateEnv *localenv.LocalEnvironment, params PhaseParams, operation ops.SiteOperation) error {
-	updater, err := getUpdater(env, updateEnv, operation)
+func executeConfigPhase(env, updateEnv *localenv.LocalEnvironment, params PhaseParams, operation ops.SiteOperation) error {
+	updater, err := getConfigUpdater(env, updateEnv, operation)
 	if err != nil {
 		return trace.Wrap(err)
 	}
@@ -187,8 +180,8 @@ func executeEnvarsPhase(env, updateEnv *localenv.LocalEnvironment, params PhaseP
 	return trace.Wrap(err)
 }
 
-func rollbackEnvarsPhase(env, updateEnv *localenv.LocalEnvironment, params PhaseParams, operation ops.SiteOperation) error {
-	updater, err := getUpdater(env, updateEnv, operation)
+func rollbackConfigPhase(env, updateEnv *localenv.LocalEnvironment, params PhaseParams, operation ops.SiteOperation) error {
+	updater, err := getConfigUpdater(env, updateEnv, operation)
 	if err != nil {
 		return trace.Wrap(err)
 	}
@@ -196,16 +189,16 @@ func rollbackEnvarsPhase(env, updateEnv *localenv.LocalEnvironment, params Phase
 	return trace.Wrap(err)
 }
 
-func completeEnvironPlan(env, updateEnv *localenv.LocalEnvironment, operation ops.SiteOperation) error {
-	updater, err := getUpdater(env, updateEnv, operation)
+func completeConfigPlan(env, updateEnv *localenv.LocalEnvironment, operation ops.SiteOperation) error {
+	updater, err := getConfigUpdater(env, updateEnv, operation)
 	if err != nil {
 		return trace.Wrap(err)
 	}
 	return trace.Wrap(updater.Complete())
 }
 
-func getUpdateEnvarsOperationPlan(env, updateEnv *localenv.LocalEnvironment, operation ops.SiteOperation) (*storage.OperationPlan, error) {
-	updater, err := getUpdater(env, updateEnv, operation)
+func getUpdateConfigOperationPlan(env, updateEnv *localenv.LocalEnvironment, operation ops.SiteOperation) (*storage.OperationPlan, error) {
+	updater, err := getConfigUpdater(env, updateEnv, operation)
 	if err != nil {
 		return nil, trace.Wrap(err)
 	}
@@ -216,7 +209,7 @@ func getUpdateEnvarsOperationPlan(env, updateEnv *localenv.LocalEnvironment, ope
 	return plan, nil
 }
 
-func getUpdater(env, updateEnv *localenv.LocalEnvironment, operation ops.SiteOperation) (*environ.Updater, error) {
+func getConfigUpdater(env, updateEnv *localenv.LocalEnvironment, operation ops.SiteOperation) (*clusterconfig.Updater, error) {
 	clusterEnv, err := env.NewClusterEnvironment()
 	if err != nil {
 		return nil, trace.Wrap(err)
@@ -234,7 +227,7 @@ func getUpdater(env, updateEnv *localenv.LocalEnvironment, operation ops.SiteOpe
 	}
 	runner := libfsm.NewAgentRunner(creds)
 
-	updater, err := environ.New(context.TODO(), environ.Config{
+	updater, err := clusterconfig.New(context.TODO(), clusterconfig.Config{
 		Operator:        operator,
 		Operation:       &operation,
 		Apps:            clusterEnv.Apps,
@@ -254,19 +247,19 @@ func getUpdater(env, updateEnv *localenv.LocalEnvironment, operation ops.SiteOpe
 }
 
 const (
-	updateEnvarsBanner = `Updating cluster runtime environment requires restart of runtime containers on all nodes.
-The operation might take several minutes to complete depending on the cluster size.
+	updateConfigBanner = `Updating cluster configuration might require restart of runtime containers on master nodes.
+The operation might take a few minutes to complete.
 
 The operation will start automatically once you approve it.
 If you want to review the operation plan first or execute it manually step by step,
 run the operation in manual mode by specifying '--manual' flag.
 
 Are you sure?`
-	updateEnvarsBannerManual = `Updating cluster runtime environment requires restart of runtime containers on all nodes.
-The operation might take several minutes to complete depending on the cluster size.
+	updateConfigBannerManual = `Updating cluster configuration might require restart of runtime containers on master nodes.
+The operation might take a few minutes to complete.
 
 "Are you sure?`
-	updateEnvarsManualOperationBanner = `The operation has been created in manual mode.
+	updateConfigManualOperationBanner = `The operation has been created in manual mode.
 
 See https://gravitational.com/gravity/docs/cluster/#managing-an-ongoing-operation for details.`
 )

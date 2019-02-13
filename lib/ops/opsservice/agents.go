@@ -519,6 +519,7 @@ func (r *AgentPeerStore) addGroup(key ops.SiteOperationKey) (*agentGroup, error)
 		hostnames:  make(map[string]string),
 	}
 	r.WithField("key", key).Debug("Added group.")
+	// FIXME: assignment copies lock value
 	r.groups[key] = agentGroup
 	return &agentGroup, nil
 }

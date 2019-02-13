@@ -67,6 +67,8 @@ type PlanBuilder struct {
 	ServiceUser storage.OSUser
 	// env specifies optional cluster environment variables to add during install
 	env map[string]string
+	// config specifies the optional cluster configuration
+	config []byte
 	// resources specifies the optional Kubernetes resources to create
 	resources []byte
 	// gravityResources specifies the optional Gravity resources to create upon successful install
@@ -87,20 +89,18 @@ func (b *PlanBuilder) AddChecksPhase(plan *storage.OperationPlan) {
 
 // AddConfigurePhase appends package configuration phase to the provided plan
 func (b *PlanBuilder) AddConfigurePhase(plan *storage.OperationPlan) {
-	phase := storage.OperationPhase{
+	plan.Phases = append(plan.Phases, storage.OperationPhase{
 		ID:          phases.ConfigurePhase,
 		Description: "Configure packages for all nodes",
 		Requires:    fsm.RequireIfPresent(plan, phases.InstallerPhase, phases.DecryptPhase),
-		Step:        3,
-	}
-	if len(b.env) != 0 {
-		phase.Data = &storage.OperationPhaseData{
+		Data: &storage.OperationPhaseData{
 			Install: &storage.InstallOperationData{
-				Env: b.env,
+				Env:    b.env,
+				Config: b.config,
 			},
-		}
-	}
-	plan.Phases = append(plan.Phases, phase)
+		},
+		Step: 3,
+	})
 }
 
 // AddBootstrapPhase appends nodes bootstrap phase to the provided plan
@@ -594,23 +594,27 @@ func addResources(builder *PlanBuilder, resourceBytes []byte, runtimeResources [
 	if err != nil {
 		return trace.Wrap(err)
 	}
-	for i, res := range gravityResources {
-		if res.Kind != storage.KindRuntimeEnvironment {
-			// Look for runtime environment resource if available
-			continue
+	rs := gravityResources[:0]
+	for _, res := range gravityResources {
+		switch res.Kind {
+		case storage.KindRuntimeEnvironment:
+			env, err := storage.UnmarshalEnvironmentVariables(res.Raw)
+			if err != nil {
+				return trace.Wrap(err)
+			}
+			builder.env = env.GetKeyValues()
+			configmap := opsservice.NewEnvironmentConfigMap(env.GetKeyValues())
+			kubernetesResources = append(kubernetesResources, configmap)
+		case storage.KindClusterConfiguration:
+			builder.config = res.Raw
+			configmap := opsservice.NewConfigurationConfigMap(res.Raw)
+			kubernetesResources = append(kubernetesResources, configmap)
+		default:
+			// Filter out resources that are created using the regular workflow
+			rs = append(rs, res)
 		}
-		env, err := storage.UnmarshalEnvironmentVariables(res.Raw)
-		if err != nil {
-			return trace.Wrap(err)
-		}
-		builder.env = env.GetKeyValues()
-		configmap := opsservice.NewEnvironmentConfigMap(env.GetKeyValues())
-		kubernetesResources = append(kubernetesResources, configmap)
-		// Strip the runtime environment resource as it is handled implicitly
-		gravityResources = append(gravityResources[:i], gravityResources[i+1:]...)
-		break
 	}
-	builder.gravityResources = gravityResources
+	builder.gravityResources = rs
 	kubernetesResources = append(kubernetesResources, runtimeResources...)
 	if len(kubernetesResources) != 0 {
 		var buf bytes.Buffer

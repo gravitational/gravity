@@ -28,6 +28,7 @@ import (
 	"github.com/gravitational/gravity/lib/modules"
 	"github.com/gravitational/gravity/lib/ops/monitoring"
 	"github.com/gravitational/gravity/lib/storage"
+	"github.com/gravitational/gravity/lib/storage/clusterconfig"
 	"github.com/gravitational/gravity/lib/users"
 	"github.com/gravitational/gravity/lib/utils"
 
@@ -502,6 +503,14 @@ func (o *OperatorACL) CreateUpdateEnvarsOperation(req CreateUpdateEnvarsOperatio
 	return o.operator.CreateUpdateEnvarsOperation(req)
 }
 
+// CreateUpdateConfigOperation creates a new operation to update cluster configuration
+func (o *OperatorACL) CreateUpdateConfigOperation(req CreateUpdateConfigOperationRequest) (*SiteOperationKey, error) {
+	if err := o.ClusterAction(req.ClusterKey.SiteDomain, storage.KindCluster, teleservices.VerbUpdate); err != nil {
+		return nil, trace.Wrap(err)
+	}
+	return o.operator.CreateUpdateConfigOperation(req)
+}
+
 func (o *OperatorACL) GetSiteOperationLogs(key SiteOperationKey) (io.ReadCloser, error) {
 	if err := o.ClusterAction(key.SiteDomain, storage.KindCluster, teleservices.VerbRead); err != nil {
 		return nil, trace.Wrap(err)
@@ -782,6 +791,14 @@ func (o *OperatorACL) GetClusterEnvironmentVariables(key SiteKey) (storage.Envir
 		return nil, trace.Wrap(err)
 	}
 	return o.operator.GetClusterEnvironmentVariables(key)
+}
+
+// GetClusterConfiguration retrieves the cluster configuration
+func (o *OperatorACL) GetClusterConfiguration(key SiteKey) (clusterconfig.Interface, error) {
+	if err := o.ClusterAction(key.SiteDomain, storage.KindClusterConfiguration, teleservices.VerbList); err != nil {
+		return nil, trace.Wrap(err)
+	}
+	return o.operator.GetClusterConfiguration(key)
 }
 
 func (o *OperatorACL) GetApplicationEndpoints(key SiteKey) ([]Endpoint, error) {
