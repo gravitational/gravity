@@ -60,67 +60,68 @@ func (s *HelmSuite) TestGenerateIndexFile(c *check.C) {
 			version.Created = time.Time{}
 		}
 	}
-	c.Assert(len(indexFile.Entries), check.Equals, 3)
-	c.Assert(indexFile.Entries["alpine"], compare.DeepEquals, repo.ChartVersions{
-		{
-			Metadata: &chart.Metadata{
-				Name:        "alpine",
-				Version:     "0.0.1",
-				Description: "Alpine Linux 3.3",
-				Annotations: map[string]string{
-					constants.AnnotationKind: schema.KindApplication,
-					constants.AnnotationLogo: "",
-					constants.AnnotationSize: "2",
+	c.Assert(indexFile.Entries, compare.DeepEquals, map[string]repo.ChartVersions{
+		"alpine": repo.ChartVersions{
+			{
+				Metadata: &chart.Metadata{
+					Name:        "alpine",
+					Version:     "0.0.1",
+					Description: "Alpine Linux 3.3",
+					Annotations: map[string]string{
+						constants.AnnotationKind: schema.KindApplication,
+						constants.AnnotationLogo: "",
+						constants.AnnotationSize: "2",
+					},
 				},
+				Digest: "sha512:222",
+				URLs:   []string{baseURL("alpine", "0.0.1") + "/alpine-0.0.1-linux-x86_64.tar"},
 			},
-			Digest: "sha512:222",
-			URLs:   []string{baseURL("alpine", "0.0.1") + "/alpine-0.0.1-linux-x86_64.tar"},
 		},
-	})
-	c.Assert(indexFile.Entries["nginx"], compare.DeepEquals, repo.ChartVersions{
-		{
-			Metadata: &chart.Metadata{
-				Name:        "nginx",
-				Version:     "3.0.0",
-				Description: "Nginx 1.10",
-				Annotations: map[string]string{
-					constants.AnnotationKind: schema.KindApplication,
-					constants.AnnotationLogo: "",
-					constants.AnnotationSize: "5",
+		"nginx": repo.ChartVersions{
+			{
+				Metadata: &chart.Metadata{
+					Name:        "nginx",
+					Version:     "3.0.0",
+					Description: "Nginx 1.10",
+					Annotations: map[string]string{
+						constants.AnnotationKind: schema.KindApplication,
+						constants.AnnotationLogo: "",
+						constants.AnnotationSize: "5",
+					},
 				},
+				Digest: "sha512:555",
+				URLs:   []string{baseURL("nginx", "3.0.0") + "/nginx-3.0.0-linux-x86_64.tar"},
 			},
-			Digest: "sha512:555",
-			URLs:   []string{baseURL("nginx", "3.0.0") + "/nginx-3.0.0-linux-x86_64.tar"},
 		},
-	})
-	c.Assert(indexFile.Entries["telekube"], compare.DeepEquals, repo.ChartVersions{
-		{
-			Metadata: &chart.Metadata{
-				Name:        "telekube",
-				Version:     "2.0.0",
-				Description: "Base image with Kubernetes v1.13",
-				Annotations: map[string]string{
-					constants.AnnotationKind: schema.KindCluster,
-					constants.AnnotationLogo: "",
-					constants.AnnotationSize: "1",
+		"telekube": repo.ChartVersions{
+			{
+				Metadata: &chart.Metadata{
+					Name:        "telekube",
+					Version:     "2.0.0",
+					Description: "Base image with Kubernetes v1.13",
+					Annotations: map[string]string{
+						constants.AnnotationKind: schema.KindCluster,
+						constants.AnnotationLogo: "",
+						constants.AnnotationSize: "1",
+					},
 				},
+				Digest: "sha512:111",
+				URLs:   []string{baseURL("telekube", "2.0.0") + "/telekube-2.0.0-linux-x86_64.tar"},
 			},
-			Digest: "sha512:111",
-			URLs:   []string{baseURL("telekube", "2.0.0") + "/telekube-2.0.0-linux-x86_64.tar"},
-		},
-		{
-			Metadata: &chart.Metadata{
-				Name:        "telekube",
-				Version:     "1.0.0",
-				Description: "Base image with Kubernetes v1.10",
-				Annotations: map[string]string{
-					constants.AnnotationKind: schema.KindCluster,
-					constants.AnnotationLogo: "",
-					constants.AnnotationSize: "3",
+			{
+				Metadata: &chart.Metadata{
+					Name:        "telekube",
+					Version:     "1.0.0",
+					Description: "Base image with Kubernetes v1.10",
+					Annotations: map[string]string{
+						constants.AnnotationKind: schema.KindCluster,
+						constants.AnnotationLogo: "",
+						constants.AnnotationSize: "3",
+					},
 				},
+				Digest: "sha512:333",
+				URLs:   []string{baseURL("telekube", "1.0.0") + "/telekube-1.0.0-linux-x86_64.tar"},
 			},
-			Digest: "sha512:333",
-			URLs:   []string{baseURL("telekube", "1.0.0") + "/telekube-1.0.0-linux-x86_64.tar"},
 		},
 	})
 }
