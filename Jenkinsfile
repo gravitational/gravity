@@ -37,7 +37,7 @@ properties([
            defaultValue: '1',
            description: 'How many times to repeat each test.'),
     string(name: 'ROBOTEST_VERSION',
-           defaultValue: 'dima',
+           defaultValue: 'stable-gce',
            description: 'Robotest tag to use.'),
     choice(choices: ["true", "false"].join("\n"),
            defaultValue: 'true',
