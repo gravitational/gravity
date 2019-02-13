@@ -22,7 +22,7 @@ import (
 	"github.com/gravitational/gravity/lib/cloudprovider/aws"
 	"github.com/gravitational/gravity/lib/constants"
 	"github.com/gravitational/gravity/lib/defaults"
-	"github.com/gravitational/gravity/lib/pack"
+	"github.com/gravitational/gravity/lib/loc"
 	"github.com/gravitational/gravity/lib/storage"
 
 	"github.com/aws/aws-sdk-go/aws/credentials"
@@ -111,7 +111,7 @@ func CreateCluster(operator Operator, clusterI storage.Cluster) (*SiteOperationK
 			Count:        nodeSpec.Count,
 		}
 	}
-	appPackage, err := pack.MakeLocator(cluster.Spec.App)
+	appPackage, err := loc.MakeLocator(cluster.Spec.App)
 	if err != nil {
 		return nil, trace.Wrap(err)
 	}

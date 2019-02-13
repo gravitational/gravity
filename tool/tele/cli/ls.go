@@ -17,61 +17,21 @@ limitations under the License.
 package cli
 
 import (
-	"encoding/json"
-	"fmt"
-	"os"
-	"text/tabwriter"
-
+	"github.com/gravitational/gravity/lib/catalog"
 	"github.com/gravitational/gravity/lib/constants"
-	"github.com/gravitational/gravity/lib/hub"
 	"github.com/gravitational/gravity/lib/localenv"
 
-	"github.com/dustin/go-humanize"
-	"github.com/ghodss/yaml"
 	"github.com/gravitational/trace"
 )
 
-func list(env localenv.LocalEnvironment, runtimes bool, format constants.Format, withPrereleases bool) error {
-	hub, err := hub.New(hub.Config{})
+func list(env localenv.LocalEnvironment, all bool, format constants.Format) error {
+	lister, err := catalog.NewLister()
 	if err != nil {
 		return trace.Wrap(err)
 	}
-
-	items, err := hub.List(withPrereleases)
+	err = catalog.List(lister, all, format)
 	if err != nil {
 		return trace.Wrap(err)
 	}
-
-	switch format {
-	case constants.EncodingText:
-		w := new(tabwriter.Writer)
-		w.Init(os.Stdout, 0, 8, 1, '\t', 0)
-		fmt.Fprintf(w, "Name:Version\tCreated (UTC)\tSize\n")
-		fmt.Fprintf(w, "------------\t-------------\t----\n")
-		for _, item := range items {
-			fmt.Fprintf(w, "%v:%v\t%v\t%v\n",
-				item.Name,
-				item.Version,
-				item.Created.Format(constants.ShortDateFormat),
-				humanize.Bytes(uint64(item.SizeBytes)))
-		}
-		w.Flush()
-	case constants.EncodingJSON:
-		bytes, err := json.MarshalIndent(items, "", "    ")
-		if err != nil {
-			return trace.Wrap(err)
-		}
-		fmt.Println(string(bytes))
-	case constants.EncodingYAML:
-		bytes, err := yaml.Marshal(items)
-		if err != nil {
-			return trace.Wrap(err)
-		}
-		fmt.Println(string(bytes))
-	default:
-		return trace.BadParameter("unknown output format %q, supported are: %v",
-			format, constants.OutputFormats)
-	}
-
 	return nil
 }

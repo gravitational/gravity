@@ -433,8 +433,10 @@ func (o *Operator) validateNewSiteRequest(req *ops.NewSiteRequest) error {
 		return trace.Wrap(err)
 	}
 
-	if app.Manifest.Kind != schema.KindBundle {
-		return trace.BadParameter("cannot create site with app of type %q", app.Manifest.Kind)
+	switch app.Manifest.Kind {
+	case schema.KindBundle, schema.KindCluster:
+	default:
+		return trace.BadParameter("cannot create cluster with app of type %q", app.Manifest.Kind)
 	}
 
 	err = validateLabels(req.Labels)
