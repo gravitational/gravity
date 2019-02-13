@@ -432,7 +432,7 @@ const (
 	HumanDateFormatMilli = "Mon Jan _2 15:04:05.000 UTC"
 
 	// ShortDateFormat is the short version of human readable timestamp format
-	ShortDateFormat = "01/02/06 15:04"
+	ShortDateFormat = "2006-01-02 15:04"
 
 	// LatestVersion is the shortcut for the latest Telekube version
 	LatestVersion = "latest"
@@ -658,6 +658,13 @@ const (
 	HelmLabel = "helm"
 	// AppVersionLabel specifies version of an application in a Helm chart.
 	AppVersionLabel = "app-version"
+
+	// AnnotationKind contains image type, cluster or application.
+	AnnotationKind = "gravitational.io/kind"
+	// AnnotationLogo contains base64-encoded image logo.
+	AnnotationLogo = "gravitational.io/logo"
+	// AnnotationSize contains image size in bytes.
+	AnnotationSize = "gravitational.io/size"
 )
 
 var (
@@ -710,6 +717,11 @@ var (
 		"kubernetes.default.svc.cluster",
 		"kubernetes.default.svc.cluster.local",
 	}
+
+	// LegacyBaseImageName is the name of the base cluster image used in earlier versions
+	LegacyBaseImageName = "telekube"
+	// BaseImageName is the current base cluster image name
+	BaseImageName = "gravity"
 )
 
 // Format is the type for supported output formats

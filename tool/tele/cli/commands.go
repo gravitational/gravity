@@ -33,8 +33,6 @@ type Application struct {
 	Insecure *bool
 	// StateDir is the local state directory
 	StateDir *string
-	// Quiet allows to suppress console output
-	Quiet *bool
 	// VersionCmd outputs the binary version
 	VersionCmd VersionCmd
 	// BuildCmd builds app installer tarball
@@ -79,6 +77,8 @@ type BuildCmd struct {
 	SkipVersionCheck *bool
 	// Parallel defines the number of tasks to execute concurrently
 	Parallel *int
+	// Quiet allows to suppress console output
+	Quiet *bool
 }
 
 type ListCmd struct {
@@ -87,8 +87,8 @@ type ListCmd struct {
 	Runtimes *bool
 	// Format is the output format
 	Format *constants.Format
-	// WithPrereleases shows pre-releases too
-	WithPrereleases *bool
+	// All displays all available versions
+	All *bool
 }
 
 // PullCmd downloads app installer from Ops Center
@@ -100,4 +100,6 @@ type PullCmd struct {
 	OutFile *string
 	// Force overwrites existing tarball
 	Force *bool
+	// Quiet allows to suppress console output
+	Quiet *bool
 }

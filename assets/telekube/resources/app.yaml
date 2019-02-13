@@ -3,6 +3,8 @@ kind: Bundle
 metadata:
   name: telekube
   resourceVersion: "0.0.0"
+  description: |
+    Base cluster image with Kubernetes v${GRAVITY_K8S_VERSION}
 logo: file://logo.svg
 endpoints:
   - name: "Gravity Control Panel"

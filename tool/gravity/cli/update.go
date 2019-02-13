@@ -207,7 +207,7 @@ func checkForUpdate(env *localenv.LocalEnvironment, operator ops.Operator, site 
 		updatePackage = site.App.Package.Name
 	}
 
-	updateLoc, err := pack.MakeLocator(updatePackage)
+	updateLoc, err := loc.MakeLocator(updatePackage)
 	if err != nil {
 		return nil, trace.Wrap(err)
 	}

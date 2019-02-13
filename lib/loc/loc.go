@@ -155,8 +155,16 @@ func (l *Locator) Set(v string) error {
 	return nil
 }
 
+// String returns the locator's string representation.
 func (l Locator) String() string {
-	return fmt.Sprintf("%v/%v:%v", l.Repository, l.Name, l.Version)
+	str := l.Name
+	if l.Repository != "" {
+		str = fmt.Sprintf("%v/%v", l.Repository, str)
+	}
+	if l.Version != "" {
+		str = fmt.Sprintf("%v:%v", str, l.Version)
+	}
+	return str
 }
 
 // WithVersion returns a copy of this locator with version set to the specified one

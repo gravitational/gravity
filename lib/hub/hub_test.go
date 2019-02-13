@@ -38,8 +38,8 @@ var _ = check.Suite(&HubSuite{})
 
 func (s *HubSuite) SetUpSuite(c *check.C) {
 	s3 := testutils.NewS3()
-	s3.Add(app1, testutils.WithStable())
-	s3.Add(app2, testutils.WithLatest())
+	s3.Add(c, app1, testutils.WithStable())
+	s3.Add(c, app2, testutils.WithLatest())
 	hub, err := New(Config{
 		Bucket: defaults.HubBucket,
 		Prefix: defaults.HubTelekubePrefix,
@@ -53,6 +53,10 @@ func (s *HubSuite) SetUpSuite(c *check.C) {
 func (s *HubSuite) TestList(c *check.C) {
 	apps, err := s.hub.List(true)
 	c.Assert(err, check.IsNil)
+	// Nullify timestamps so we can deep compare.
+	for i := range apps {
+		apps[i].Created = time.Time{}
+	}
 	c.Assert(apps, check.DeepEquals, []App{toHubApp(app1), toHubApp(app2)})
 }
 
@@ -97,10 +101,8 @@ func (s *HubSuite) TestDownloadLatest(c *check.C) {
 
 func toHubApp(s3App testutils.S3App) App {
 	return App{
-		Name:      s3App.Name,
-		Version:   s3App.Version,
-		Created:   s3App.Created,
-		SizeBytes: int64(len(s3App.Data)),
+		Name:    s3App.Name,
+		Version: s3App.Version,
 	}
 }
 
@@ -114,7 +116,7 @@ var (
 	}
 	app2 = testutils.S3App{
 		Name:     defaults.TelekubePackage,
-		Version:  "2.0.0",
+		Version:  "2.0.0-alpha.1",
 		Created:  time.Now(),
 		Data:     []byte("version 2 (latest)"),
 		Checksum: "5c99c4996ac2f6d7eb12420f908fc0897360de6011f458716f36e3f14898777e",

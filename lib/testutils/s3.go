@@ -24,7 +24,12 @@ import (
 	"strings"
 	"time"
 
+	"github.com/ghodss/yaml"
+	"github.com/gravitational/gravity/lib/constants"
 	"github.com/gravitational/gravity/lib/defaults"
+	check "gopkg.in/check.v1"
+	"k8s.io/helm/pkg/proto/hapi/chart"
+	"k8s.io/helm/pkg/repo"
 
 	"github.com/gravitational/trace"
 
@@ -71,7 +76,7 @@ func NewS3() *S3 {
 }
 
 // Add adds the provided application to the hub
-func (s *S3) Add(app S3App, options ...AddOption) {
+func (s *S3) Add(c *check.C, app S3App, options ...AddOption) {
 	key := fmt.Sprintf("%v/app/%v/%v/linux/x86_64/%v-%v-linux-x86_64.tar",
 		defaults.HubTelekubePrefix, app.Name, app.Version, app.Name, app.Version)
 	s.Objects[key] = S3Object{Data: app.Data, Created: app.Created}
@@ -79,6 +84,26 @@ func (s *S3) Add(app S3App, options ...AddOption) {
 	for _, option := range options {
 		option(s, app)
 	}
+	s.addToIndex(c, app)
+}
+
+func (s *S3) addToIndex(c *check.C, app S3App) {
+	indexFile := repo.NewIndexFile()
+	key := fmt.Sprintf("%v/index.yaml", defaults.HubTelekubePrefix)
+	if o, ok := s.Objects[key]; ok {
+		err := yaml.Unmarshal(o.Data, indexFile)
+		c.Assert(err, check.IsNil)
+	}
+	indexFile.Add(&chart.Metadata{
+		Name:    app.Name,
+		Version: app.Version,
+		Annotations: map[string]string{
+			constants.AnnotationSize: fmt.Sprintf("%v", len(app.Data)),
+		},
+	}, "", "", app.Checksum)
+	bytes, err := yaml.Marshal(indexFile)
+	c.Assert(err, check.IsNil)
+	s.Objects[key] = S3Object{Data: bytes}
 }
 
 // AddOption represents an object add option
