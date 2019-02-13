@@ -35,6 +35,7 @@ import (
 	"github.com/gravitational/gravity/lib/ops/monitoring"
 	"github.com/gravitational/gravity/lib/pack"
 	"github.com/gravitational/gravity/lib/storage"
+	"github.com/gravitational/gravity/lib/storage/clusterconfig"
 
 	"github.com/gravitational/roundtrip"
 	telehttplib "github.com/gravitational/teleport/lib/httplib"
@@ -554,6 +555,20 @@ func (c *Client) CreateClusterGarbageCollectOperation(req ops.CreateClusterGarba
 // CreateUpdateEnvarsOperation creates a new operation to update cluster runtime environment variables
 func (c *Client) CreateUpdateEnvarsOperation(req ops.CreateUpdateEnvarsOperationRequest) (*ops.SiteOperationKey, error) {
 	out, err := c.PostJSON(c.Endpoint("accounts", req.ClusterKey.AccountID, "sites", req.ClusterKey.SiteDomain, "operations", "envars"), req)
+	if err != nil {
+		return nil, trace.Wrap(err)
+	}
+
+	var key ops.SiteOperationKey
+	if err := json.Unmarshal(out.Bytes(), &key); err != nil {
+		return nil, trace.Wrap(err)
+	}
+	return &key, nil
+}
+
+// CreateUpdateConfigOperation creates a new operation to update cluster configuration
+func (c *Client) CreateUpdateConfigOperation(req ops.CreateUpdateConfigOperationRequest) (*ops.SiteOperationKey, error) {
+	out, err := c.PostJSON(c.Endpoint("accounts", req.ClusterKey.AccountID, "sites", req.ClusterKey.SiteDomain, "operations", "config"), req)
 	if err != nil {
 		return nil, trace.Wrap(err)
 	}
@@ -1118,6 +1133,24 @@ func (c *Client) GetClusterEnvironmentVariables(key ops.SiteKey) (storage.Enviro
 		return nil, trace.Wrap(err)
 	}
 	return env, nil
+}
+
+// GetClusterConfiguration retrieves the cluster configuration
+func (c *Client) GetClusterConfiguration(key ops.SiteKey) (clusterconfig.Interface, error) {
+	response, err := c.Get(c.Endpoint(
+		"accounts", key.AccountID, "sites", key.SiteDomain, "config"), url.Values{})
+	if err != nil {
+		return nil, trace.Wrap(err)
+	}
+	var msg json.RawMessage
+	if err = json.Unmarshal(response.Bytes(), &msg); err != nil {
+		return nil, trace.Wrap(err)
+	}
+	config, err := clusterconfig.Unmarshal(msg)
+	if err != nil {
+		return nil, trace.Wrap(err)
+	}
+	return config, nil
 }
 
 func (c *Client) GetApplicationEndpoints(key ops.SiteKey) ([]ops.Endpoint, error) {

@@ -27,6 +27,7 @@ import (
 	"github.com/gravitational/gravity/lib/constants"
 	"github.com/gravitational/gravity/lib/defaults"
 	"github.com/gravitational/gravity/lib/storage"
+	"github.com/gravitational/gravity/lib/storage/clusterconfig"
 	"github.com/gravitational/gravity/lib/utils"
 	"github.com/gravitational/gravity/tool/common"
 
@@ -554,4 +555,49 @@ func (r envCollection) Resources() (resources []teleservices.UnknownResource, er
 
 type envCollection struct {
 	env storage.EnvironmentVariables
+}
+
+// WriteText serializes collection in human-friendly text format
+func (r configCollection) WriteText(w io.Writer) error {
+	t := goterm.NewTable(0, 10, 5, ' ', 0)
+	common.PrintTableHeader(t, []string{"Configuration"})
+	if r.Interface == nil {
+		// Empty
+		return nil
+	}
+	if config := r.GetGlobalConfig(); config != nil {
+		fmt.Fprintf(t, "Cloud provider\t%v\n", config.CloudProvider)
+		fmt.Fprintf(t, "Configuration\t%v\n", config.CloudConfig)
+	}
+	// TODO: the rest of fields
+	_, err := io.WriteString(w, t.String())
+	return trace.Wrap(err)
+}
+
+// WriteJSON serializes collection into JSON format
+func (r configCollection) WriteJSON(w io.Writer) error {
+	return utils.WriteJSON(r, w)
+}
+
+// WriteYAML serializes collection into YAML format
+func (r configCollection) WriteYAML(w io.Writer) error {
+	return utils.WriteYAML(r, w)
+}
+
+func (r configCollection) ToMarshal() interface{} {
+	return r.Interface
+}
+
+// Resources returns the resources collection in the generic format
+func (r configCollection) Resources() (resources []teleservices.UnknownResource, err error) {
+	resource, err := utils.ToUnknownResource(r.Interface)
+	if err != nil {
+		return nil, trace.Wrap(err)
+	}
+	resources = append(resources, *resource)
+	return resources, nil
+}
+
+type configCollection struct {
+	clusterconfig.Interface
 }

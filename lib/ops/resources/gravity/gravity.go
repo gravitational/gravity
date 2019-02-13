@@ -337,12 +337,17 @@ func (r *Resources) GetCollection(req resources.ListRequest) (resources.Collecti
 		}
 		return alertTargetCollection(alertTargets), nil
 	case storage.KindRuntimeEnvironment:
-		// always ignore name parameter for environment variables, because there is only one
 		env, err := r.Operator.GetClusterEnvironmentVariables(r.cluster.Key())
 		if err != nil {
 			return nil, trace.Wrap(err)
 		}
 		return envCollection{env: env}, nil
+	case storage.KindClusterConfiguration:
+		config, err := r.Operator.GetClusterConfiguration(r.cluster.Key())
+		if err != nil {
+			return nil, trace.Wrap(err)
+		}
+		return configCollection{Interface: config}, nil
 	}
 	return nil, trace.NotImplemented("unsupported resource %q, supported are: %v",
 		req.Kind, modules.Get().SupportedResources())

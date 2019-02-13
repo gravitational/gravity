@@ -37,6 +37,7 @@ import (
 	"github.com/gravitational/gravity/lib/pack"
 	"github.com/gravitational/gravity/lib/schema"
 	"github.com/gravitational/gravity/lib/storage"
+	"github.com/gravitational/gravity/lib/storage/clusterconfig"
 	"github.com/gravitational/gravity/lib/transfer"
 	"github.com/gravitational/gravity/lib/utils"
 
@@ -192,6 +193,10 @@ func (s *site) configureExpandPackages(ctx context.Context, opCtx *operationCont
 	if err != nil {
 		return trace.Wrap(err)
 	}
+	config, err := s.service.GetClusterConfiguration(s.key)
+	if err != nil {
+		return trace.Wrap(err)
+	}
 	planetConfig := planetConfig{
 		server:        *provisionedServer,
 		installExpand: opCtx.operation,
@@ -201,6 +206,7 @@ func (s *site) configureExpandPackages(ctx context.Context, opCtx *operationCont
 		configPackage: *configPackage,
 		manifest:      s.app.Manifest,
 		env:           env.GetKeyValues(),
+		config:        config,
 	}
 	if provisionedServer.IsMaster() {
 		err := s.configureTeleportMaster(opCtx, teleportCA, provisionedServer)
@@ -339,6 +345,10 @@ func (s *site) configurePackages(ctx *operationContext, req ops.ConfigurePackage
 				master, etcdConfig)
 		}
 
+		clusterConfig, err := clusterconfig.Unmarshal(req.Config)
+		if err != nil {
+			return trace.Wrap(err)
+		}
 		config := planetConfig{
 			server:        *master,
 			installExpand: ctx.operation,
@@ -349,6 +359,7 @@ func (s *site) configurePackages(ctx *operationContext, req ops.ConfigurePackage
 			configPackage: *configPackage,
 			manifest:      s.app.Manifest,
 			env:           req.Env,
+			config:        clusterConfig,
 		}
 		err = s.configurePlanetMaster(config, *secretsPackage, *configPackage)
 		if err != nil {
@@ -848,6 +859,27 @@ func (s *site) getPlanetConfigPackage(config planetConfig) (*ops.RotatePackageRe
 		args = append(args, fmt.Sprintf("--env=%v=%v", k, v))
 	}
 
+	if config.config != nil {
+		if config := config.config.GetKubeletConfig(); config != nil {
+			args = append(args, fmt.Sprintf("--kubelet-config=%v",
+				base64.StdEncoding.EncodeToString([]byte(config.Config))))
+		}
+	}
+
+	if s.cloudProviderName() != "" {
+		args = append(args, fmt.Sprintf("--cloud-provider=%v", s.cloudProviderName()))
+		if s.cloudProviderName() == schema.ProviderGCE {
+			args = append(args, fmt.Sprintf("--gce-node-tags=%v", s.gceNodeTags()))
+		}
+		if config.config != nil {
+			if config := config.config.GetGlobalConfig(); config != nil && config.CloudProvider == s.cloudProviderName() {
+				args = append(args,
+					fmt.Sprintf("--cloud-config=%v", string(config.CloudConfig.Config)),
+				)
+			}
+		}
+	}
+
 	if node.IsMaster() {
 		args = append(args, "--role=master")
 	} else {
@@ -857,13 +889,6 @@ func (s *site) getPlanetConfigPackage(config planetConfig) (*ops.RotatePackageRe
 
 	if manifest.HairpinMode(*profile) == constants.HairpinModePromiscuousBridge {
 		args = append(args, "--docker-promiscuous-mode=true")
-	}
-
-	if s.cloudProviderName() != "" {
-		args = append(args, fmt.Sprintf("--cloud-provider=%v", s.cloudProviderName()))
-		if s.cloudProviderName() == schema.ProviderGCE {
-			args = append(args, fmt.Sprintf("--gce-node-tags=%v", s.gceNodeTags()))
-		}
 	}
 
 	if len(s.backendSite.DNSOverrides.Hosts) > 0 {
@@ -899,7 +924,7 @@ func (s *site) getPlanetConfigPackage(config planetConfig) (*ops.RotatePackageRe
 		args = append(args, fmt.Sprintf("--etcd-options=%v", strings.Join(etcdArgs, " ")))
 	}
 
-	kubeletArgs := defaults.KubeletArgs
+	var kubeletArgs []string
 	if len(manifest.KubeletArgs(*profile)) != 0 {
 		kubeletArgs = append(kubeletArgs, manifest.KubeletArgs(*profile)...)
 	}
@@ -1003,7 +1028,10 @@ type planetConfig struct {
 	dockerRuntime storage.Docker
 	planetPackage loc.Locator
 	configPackage loc.Locator
-	env           map[string]string
+	// env specifies additional environment variables to pass to runtime container
+	env map[string]string
+	// config specifies optional cluster configuration
+	config clusterconfig.Interface
 }
 
 func (s *site) configureTeleportMaster(ctx *operationContext, secrets *teleportSecrets, master *ProvisionedServer) error {

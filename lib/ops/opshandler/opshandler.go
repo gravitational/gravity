@@ -238,6 +238,10 @@ func NewWebHandler(cfg WebHandlerConfig) (*WebHandler, error) {
 	h.GET("/portal/v1/accounts/:account_id/sites/:site_domain/envars", h.needsAuth(h.getEnvironmentVariables))
 	h.POST("/portal/v1/accounts/:account_id/sites/:site_domain/operations/envars", h.needsAuth(h.createUpdateEnvarsOperation))
 
+	// cluster configuration
+	h.GET("/portal/v1/accounts/:account_id/sites/:site_domain/config", h.needsAuth(h.getClusterConfiguration))
+	h.POST("/portal/v1/accounts/:account_id/sites/:site_domain/operations/config", h.needsAuth(h.createUpdateConfigOperation))
+
 	// validation
 	h.POST("/portal/v1/accounts/:account_id/sites/:site_domain/validation/remoteaccess", h.needsAuth(h.validateRemoteAccess))
 
