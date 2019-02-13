@@ -121,10 +121,8 @@ ignored = [
 
 [[override]]
   name = "github.com/docker/distribution"
-  # use our fork until the following upstream PR gets merged:
-  # https://github.com/docker/distribution/pull/2825
-  branch = "release/2.6-g"
-  source = "github.com/gravitational/distribution"
+  # take dependency on the same version helm/kubernetes depend on
+  revision = "edc3ab29cdff8694dd6feb85cfeb4b5f1b38ed9c"
 
 [[constraint]]
   name = "github.com/opencontainers/go-digest"
@@ -261,3 +259,7 @@ ignored = [
 [[override]]
   name = "gopkg.in/yaml.v2"
   version = "=v2.2.2"
+
+[[override]]
+  name = "github.com/gorilla/mux"
+  version = "=v1.7.0"

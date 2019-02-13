@@ -467,6 +467,9 @@ func Execute(g *Application, cmd string, extraArgs []string) error {
 			*g.AppSearchCmd.All)
 	case g.AppRebuildIndexCmd.FullCommand():
 		return appRebuildIndex(localEnv)
+	case g.AppIndexCmd.FullCommand():
+		return appIndex(localEnv,
+			*g.AppIndexCmd.MergeInto)
 		// internal (hidden) app commands
 	case g.AppImportCmd.FullCommand():
 		if len(*g.AppImportCmd.SetImages) != 0 || len(*g.AppImportCmd.SetDeps) != 0 || *g.AppImportCmd.Version != "" {

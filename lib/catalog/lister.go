@@ -21,6 +21,7 @@ import (
 	"fmt"
 	"os"
 	"sort"
+	"strings"
 	"text/tabwriter"
 	"time"
 
@@ -75,10 +76,11 @@ func NewListItemFromHubApp(app hub.App) (*listItem, error) {
 		return nil, trace.Wrap(err)
 	}
 	return &listItem{
-		Name:    app.Name,
-		Version: *semver,
-		Created: app.Created,
-		Type:    schema.KindCluster,
+		Name:        app.Name,
+		Version:     *semver,
+		Created:     app.Created,
+		Type:        app.Type,
+		Description: app.Description,
 	}, nil
 }
 
@@ -255,5 +257,5 @@ func formatDescription(description string) string {
 	if description == "" {
 		return "-"
 	}
-	return description
+	return strings.TrimSpace(description)
 }

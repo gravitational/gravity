@@ -257,6 +257,9 @@ func RegisterCommands(app *kingpin.Application) *Application {
 
 	g.AppRebuildIndexCmd.CmdClause = g.AppCmd.Command("rebuild-index", "Rebuild Helm chart repository index.").Hidden()
 
+	g.AppIndexCmd.CmdClause = g.AppCmd.Command("index", "Generate an index file for application/cluster images.").Hidden()
+	g.AppIndexCmd.MergeInto = g.AppIndexCmd.Flag("merge-into", "Merge generated index file into specified index file.").String()
+
 	// import gravity application
 	g.AppImportCmd.CmdClause = g.AppCmd.Command("import", "Import application into gravity").Hidden()
 	g.AppImportCmd.Source = g.AppImportCmd.Arg("src", "path to application resources (directory / file)").Required().String()
