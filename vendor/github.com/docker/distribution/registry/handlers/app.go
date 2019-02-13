@@ -644,17 +644,10 @@ func (app *App) dispatcher(dispatch dispatchFunc) http.Handler {
 		// Add username to request logging
 		context.Context = ctxu.WithLogger(context.Context, ctxu.GetLogger(context.Context, auth.UserNameKey))
 
-		// Determine whether the handler requires repository name *before*
-		// r.WithContext(context) call below which will create a copy of
-		// the original request thus resulting into app.nameRequired(r)
-		// always returning true (b/c mux.CurrentRoute(r) for the request
-		// copy will be nil).
-		nameRequired := app.nameRequired(r)
-
 		// sync up context on the request.
 		r = r.WithContext(context)
 
-		if nameRequired {
+		if app.nameRequired(r) {
 			nameRef, err := reference.WithName(getName(context))
 			if err != nil {
 				ctxu.GetLogger(context).Errorf("error parsing reference from context: %v", err)
