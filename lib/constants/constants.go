@@ -658,6 +658,13 @@ const (
 	HelmLabel = "helm"
 	// AppVersionLabel specifies version of an application in a Helm chart.
 	AppVersionLabel = "app-version"
+
+	// AnnotationKind contains image type, cluster or application.
+	AnnotationKind = "gravitational.io/kind"
+	// AnnotationLogo contains base64-encoded image logo.
+	AnnotationLogo = "gravitational.io/logo"
+	// AnnotationSize contains image size in bytes.
+	AnnotationSize = "gravitational.io/size"
 )
 
 var (
