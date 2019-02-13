@@ -110,7 +110,7 @@ func getLastOperation(localEnv, updateEnv, joinEnv *localenv.LocalEnvironment, o
 	if err != nil {
 		return nil, trace.Wrap(err)
 	}
-	log.WithField("operations", oplist(operations).String()).Info("Fetched backend operations.")
+	log.WithField("operations", oplist(operations).String()).Debug("Fetched backend operations.")
 	if len(operations) == 0 {
 		if operationID != "" {
 			return nil, trace.NotFound("no operation with ID %v found", operationID)
@@ -140,7 +140,7 @@ func getActiveOperation(localEnv, updateEnv, joinEnv *localenv.LocalEnvironment,
 		return nil, trace.NotFound("no operation found")
 	}
 	if len(operations) == 1 && operationID != "" {
-		log.WithField("operation", operations[0]).Debug("Fetched an operation by ID.")
+		log.WithField("operation", operations[0]).Debug("Fetched operation by ID.")
 		return &operations[0], nil
 	}
 	op, err := getActiveOperationFromList(operations)
