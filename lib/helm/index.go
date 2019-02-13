@@ -29,7 +29,7 @@ import (
 )
 
 // GenerateIndexFile generates a Helm repository index file for the provided apps.
-func GenerateIndexFile(apps []app.Application) (*repo.IndexFile, error) {
+func GenerateIndexFile(apps []app.Application) *repo.IndexFile {
 	indexFile := repo.NewIndexFile()
 	for _, item := range apps {
 		switch item.Manifest.Kind {
@@ -40,11 +40,11 @@ func GenerateIndexFile(apps []app.Application) (*repo.IndexFile, error) {
 		indexFile.Add(
 			generateChartMetadata(item),
 			fmt.Sprintf("%v-%v-linux-x86_64.tar", item.Manifest.Metadata.Name, item.Manifest.Metadata.ResourceVersion),
-			fmt.Sprintf(baseURL, item.Manifest.Metadata.Name, item.Manifest.Metadata.ResourceVersion),
+			baseURL(item.Manifest.Metadata.Name, item.Manifest.Metadata.ResourceVersion),
 			fmt.Sprintf("sha512:%v", item.PackageEnvelope.SHA512))
 	}
 	indexFile.SortEntries()
-	return indexFile, nil
+	return indexFile
 }
 
 // generateChartMetadata generates chart metadata for the provided application.
@@ -61,6 +61,8 @@ func generateChartMetadata(item app.Application) *chart.Metadata {
 	}
 }
 
-// baseURL is the base URL of S3 bucket where application/cluster image is kept.
-var baseURL = "https://s3.amazonaws.com/" + defaults.HubBucket + "/" +
-	defaults.HubTelekubePrefix + "/app/%v/%v/linux/x86_64"
+// baseURL returns the base URL of S3 bucket for the specified image.
+func baseURL(name, version string) string {
+	return fmt.Sprintf("https://s3.amazonaws.com/%v/%v/app/%v/%v/linux/x86_64",
+		defaults.HubBucket, defaults.HubTelekubePrefix, name, version)
+}

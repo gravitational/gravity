@@ -51,11 +51,10 @@ func (s *HelmSuite) TestGenerateIndexFile(c *check.C) {
 		"Runtime application", "444", 4)
 	app2 := makeApp(c, schema.KindApplication, "nginx", "3.0.0",
 		"Nginx 1.10", "555", 5)
-	indexFile, err := GenerateIndexFile([]app.Application{
+	indexFile := GenerateIndexFile([]app.Application{
 		cluster1, app1, cluster2, runtime1, app2,
 	})
-	c.Assert(err, check.IsNil)
-	// Nullify timestampts so we can deep compare.
+	// Nullify timestamps so we can deep compare.
 	for _, versions := range indexFile.Entries {
 		for _, version := range versions {
 			version.Created = time.Time{}
@@ -75,7 +74,7 @@ func (s *HelmSuite) TestGenerateIndexFile(c *check.C) {
 				},
 			},
 			Digest: "sha512:222",
-			URLs:   []string{fmt.Sprintf(baseURL, "alpine", "0.0.1") + "/alpine-0.0.1-linux-x86_64.tar"},
+			URLs:   []string{baseURL("alpine", "0.0.1") + "/alpine-0.0.1-linux-x86_64.tar"},
 		},
 	})
 	c.Assert(indexFile.Entries["nginx"], compare.DeepEquals, repo.ChartVersions{
@@ -91,7 +90,7 @@ func (s *HelmSuite) TestGenerateIndexFile(c *check.C) {
 				},
 			},
 			Digest: "sha512:555",
-			URLs:   []string{fmt.Sprintf(baseURL, "nginx", "3.0.0") + "/nginx-3.0.0-linux-x86_64.tar"},
+			URLs:   []string{baseURL("nginx", "3.0.0") + "/nginx-3.0.0-linux-x86_64.tar"},
 		},
 	})
 	c.Assert(indexFile.Entries["telekube"], compare.DeepEquals, repo.ChartVersions{
@@ -107,7 +106,7 @@ func (s *HelmSuite) TestGenerateIndexFile(c *check.C) {
 				},
 			},
 			Digest: "sha512:111",
-			URLs:   []string{fmt.Sprintf(baseURL, "telekube", "2.0.0") + "/telekube-2.0.0-linux-x86_64.tar"},
+			URLs:   []string{baseURL("telekube", "2.0.0") + "/telekube-2.0.0-linux-x86_64.tar"},
 		},
 		{
 			Metadata: &chart.Metadata{
@@ -121,7 +120,7 @@ func (s *HelmSuite) TestGenerateIndexFile(c *check.C) {
 				},
 			},
 			Digest: "sha512:333",
-			URLs:   []string{fmt.Sprintf(baseURL, "telekube", "1.0.0") + "/telekube-1.0.0-linux-x86_64.tar"},
+			URLs:   []string{baseURL("telekube", "1.0.0") + "/telekube-1.0.0-linux-x86_64.tar"},
 		},
 	})
 }

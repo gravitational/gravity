@@ -92,7 +92,7 @@ type App struct {
 	SizeBytes int64 `json:"sizeBytes"`
 	// Description is the image description
 	Description string `json:"description"`
-	// Type is the image type, application or cluster
+	// Type is the image type, for example application or cluster
 	Type string `json:"type"`
 }
 
@@ -282,8 +282,8 @@ func (h *s3Hub) GetLatestVersion(name string) (string, error) {
 	if err != nil {
 		return "", trace.Wrap(err)
 	}
-	versions, ok := indexFile.Entries[name]
-	if !ok || len(versions) == 0 {
+	versions := indexFile.Entries[name]
+	if len(versions) == 0 {
 		return "", trace.NotFound("image %q not found", name)
 	}
 	latestVersion, err := semver.NewVersion(versions[0].Version)
