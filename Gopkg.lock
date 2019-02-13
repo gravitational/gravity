@@ -401,8 +401,7 @@
   version = "v3.2.0"
 
 [[projects]]
-  branch = "release/2.6-g"
-  digest = "1:274bde53857a0b36f5e1c47fabaf5a8f514677e18fcd9864cd10c47cb14ae573"
+  digest = "1:943b6a9b255018a51bfaf2e53153fcc86ce5e55ab49f7d23c11aaee9970a7d52"
   name = "github.com/docker/distribution"
   packages = [
     ".",
@@ -443,8 +442,7 @@
     "version",
   ]
   pruneopts = "UT"
-  revision = "c4f583a8ce2d86c1d512b2c4fd315ac7cf6819b8"
-  source = "github.com/gravitational/distribution"
+  revision = "edc3ab29cdff8694dd6feb85cfeb4b5f1b38ed9c"
 
 [[projects]]
   digest = "1:c945991632e3246dc4d9409a265c4be8ee12d0abcc7b3e72abd4e79be5a1048e"
@@ -756,13 +754,6 @@
   revision = "d3bcea3cf97e0f06b9e272e9c4a1b5909e7db216"
 
 [[projects]]
-  digest = "1:e76c0a53389bf29d116440dc97c44fa59796dda4a79aeca1eb8113150dd1db50"
-  name = "github.com/gorilla/context"
-  packages = ["."]
-  pruneopts = "UT"
-  revision = "1c83b3eabd45b6d76072b66b746c20815fb2872d"
-
-[[projects]]
   digest = "1:9a39f07f2139f85ae905ab16e4042a996932f7504905e88d5e479b306dc06e85"
   name = "github.com/gorilla/handlers"
   packages = ["."]
@@ -770,11 +761,12 @@
   revision = "e96366d97736da3bdec18b7fbaedd37c6fc97fb9"
 
 [[projects]]
-  digest = "1:9629a32225f0c888bc93d92548ffaadb6273a95e76d04b17fa7061f5f7992a53"
+  digest = "1:ca59b1175189b3f0e9f1793d2c350114be36eaabbe5b9f554b35edee1de50aea"
   name = "github.com/gorilla/mux"
   packages = ["."]
   pruneopts = "UT"
-  revision = "9c068cf16d982f8bd444b8c352acbeec34c4fe5b"
+  revision = "a7962380ca08b5a188038c69871b8d3fbdf31e89"
+  version = "v1.7.0"
 
 [[projects]]
   branch = "master"
