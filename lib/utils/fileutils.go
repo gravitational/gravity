@@ -163,6 +163,7 @@ func CopyDirContents(fromDir, toDir string) error {
 	if err != nil {
 		return trace.Wrap(err)
 	}
+	fromDir = filepath.Clean(fromDir)
 	err = filepath.Walk(fromDir, func(path string, fi os.FileInfo, err error) error {
 		if err != nil {
 			return trace.Wrap(err)
