@@ -299,7 +299,7 @@ func (s *site) createUpdateOperation(req ops.CreateSiteAppUpdateOperationRequest
 	if err != nil {
 		return nil, trace.Wrap(err)
 	}
-	updateApp, err := s.service.cfg.Apps.GetApp(*updatePackage)
+	updateApp, err := s.apps().GetApp(*updatePackage)
 	if err != nil {
 		return nil, trace.Wrap(err)
 	}
@@ -375,8 +375,9 @@ func (s *site) startUpdateAgent(ctx context.Context, opCtx *operationContext, up
 		C("%s package export --file-mask=%o %s %s --ops-url=%s --insecure --quiet",
 			constants.GravityBin, defaults.SharedExecutableMask,
 			gravityPackage.String(), agentExecPath, defaults.GravityServiceURL).
+		C("%s update init-plan", agentExecPath).
 		// distribute agents and upgrade process
-		C("%s agent deploy upgrade", agentExecPath).
+		C("%s agent deploy --leader=upgrade --node=sync-plan", agentExecPath).
 		WithLogger(s.WithField("node", master.HostName())).
 		WithOutput(opCtx.recorder).
 		Run(ctx)

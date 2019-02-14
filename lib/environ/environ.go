@@ -132,7 +132,7 @@ func (r *Updater) GetPlan() (*storage.OperationPlan, error) {
 }
 
 func (r *Updater) executePlan(ctx context.Context, machine *libfsm.FSM, force bool) error {
-	progress := utils.NewProgress(ctx, "Updating envars", -1, false)
+	progress := utils.NewProgress(ctx, "Updating cluster runtime environment variables", -1, false)
 	defer progress.Stop()
 
 	planErr := machine.ExecutePlan(ctx, progress, force)
@@ -193,7 +193,7 @@ func (r *Config) checkAndSetDefaults() error {
 		return trace.BadParameter("cluster package service is required")
 	}
 	if r.FieldLogger == nil {
-		r.FieldLogger = log.WithField(trace.Component, "envars:updater")
+		r.FieldLogger = log.WithField(trace.Component, "environ:updater")
 	}
 	return nil
 }

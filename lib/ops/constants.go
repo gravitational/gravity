@@ -127,8 +127,8 @@ const (
 	OperationGarbageCollectInProgress = "gc_in_progress"
 
 	// environment variables update operation
-	OperationUpdateEnvars           = "operation_update_envars"
-	OperationUpdateEnvarsInProgress = "update_envars_in_progress"
+	OperationUpdateEnvars           = "operation_update_runtime_environ"
+	OperationUpdateEnvarsInProgress = "update_runtime_environ_in_progress"
 
 	// common operation states
 	OperationStateCompleted = "completed"

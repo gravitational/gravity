@@ -117,7 +117,7 @@ type Operator interface {
 	Install
 	Updates
 	Identity
-	EnvironmentVariables
+	RuntimeEnvironment
 }
 
 // Accounts represents a collection of accounts in the portal
@@ -456,8 +456,8 @@ type Certificates interface {
 	DeleteClusterCertificate(SiteKey) error
 }
 
-// EnvironmentVariables manages runtime environment variables in cluster
-type EnvironmentVariables interface {
+// RuntimeEnvironment manages runtime environment variables in cluster
+type RuntimeEnvironment interface {
 	// CreateUpdateEnvarsOperation creates a new operation to update cluster runtime environment variables
 	CreateUpdateEnvarsOperation(CreateUpdateEnvarsOperationRequest) (*SiteOperationKey, error)
 	// GetClusterEnvironmentVariables retrieves the cluster runtime environment variables
@@ -953,9 +953,10 @@ func (s *SiteOperation) String() string {
 	case OperationGarbageCollect:
 		typeS = "garbage collect"
 	case OperationUpdateEnvars:
-		typeS = "update cluster envars"
+		typeS = "update runtime cluster environment variables"
 	}
-	return fmt.Sprintf("operation(%v, cluster=%v, state=%s)", typeS, s.SiteDomain, s.State)
+	return fmt.Sprintf("operation(%v(%v), cluster=%v, state=%s, created=%v)",
+		typeS, s.ID, s.SiteDomain, s.State, s.Created.Format(constants.HumanDateFormat))
 }
 
 // SiteOperationKey identifies key to retrieve an opertaion

@@ -253,7 +253,7 @@ func printStatusText(cluster clusterStatus) {
 	w.Init(os.Stdout, 0, 8, 1, '\t', 0)
 
 	if cluster.Cluster != nil {
-		if isClusterDegrated(cluster) {
+		if cluster.Status.IsDegraded() {
 			fmt.Fprintf(w, "Cluster status:\t%v\n", color.RedString("degraded"))
 		} else {
 			fmt.Fprintf(w, "Cluster status:\t%v\n", color.GreenString(cluster.State))
@@ -366,13 +366,6 @@ func printNodeStatus(node statusapi.ClusterServer, w io.Writer) {
 			fmt.Fprintf(w, "            [%v]\t%v\n", constants.FailureMark, color.New(color.FgRed).SprintFunc()(probe))
 		}
 	}
-}
-
-func isClusterDegrated(status clusterStatus) bool {
-	return (status.Cluster == nil ||
-		status.Cluster.State == ops.SiteStateDegraded ||
-		status.Agent == nil ||
-		status.Agent.GetSystemStatus() != pb.SystemStatus_Running)
 }
 
 func unknownFallback(text string) string {

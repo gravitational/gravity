@@ -170,6 +170,31 @@ func GetOperationPlan(b storage.Backend, clusterName, operationID string) (*stor
 	return ResolvePlan(*plan, ch), nil
 }
 
+// OperationStateSetter returns the handler to set operation state both in the given operator
+// as well as the specified backend
+func OperationStateSetter(key ops.SiteOperationKey, operator ops.Operator, backend storage.Backend) ops.OperationStateFunc {
+	return func(key ops.SiteOperationKey, req ops.SetOperationStateRequest) error {
+		err := operator.SetOperationState(key, req)
+		if err != nil {
+			return trace.Wrap(err)
+		}
+		op, err := operator.GetSiteOperation(key)
+		if err != nil {
+			return trace.Wrap(err)
+		}
+		backendOp, err := backend.GetSiteOperation(key.SiteDomain, key.OperationID)
+		if err != nil {
+			return trace.Wrap(err)
+		}
+		backendOp.State = op.State
+		_, err = backend.UpdateSiteOperation(*backendOp)
+		if err != nil {
+			return trace.Wrap(err)
+		}
+		return nil
+	}
+}
+
 func addPhases(phase *storage.OperationPhase, result *[]*storage.OperationPhase) {
 	// add the phase itself
 	*result = append(*result, phase)

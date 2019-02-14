@@ -147,7 +147,7 @@ func newUpdater(ctx context.Context, localEnv, updateEnv *localenv.LocalEnvironm
 		clusterName:  cluster.Domain,
 		clusterEnv:   clusterEnv,
 		proxy:        proxy,
-		nodeParams:   []string{constants.RPCAgentSyncPlanFunction},
+		nodeParams:   constants.RPCAgentSyncPlanFunction,
 	}
 	deployCtx, cancel := context.WithTimeout(ctx, defaults.AgentDeployTimeout)
 	defer cancel()
@@ -177,8 +177,8 @@ func newUpdater(ctx context.Context, localEnv, updateEnv *localenv.LocalEnvironm
 	return updater, nil
 }
 
-func executeEnvarsPhase(env, updateEnv *localenv.LocalEnvironment, params PhaseParams) error {
-	updater, err := getUpdater(env, updateEnv)
+func executeEnvarsPhase(env, updateEnv *localenv.LocalEnvironment, params PhaseParams, operation ops.SiteOperation) error {
+	updater, err := getUpdater(env, updateEnv, operation)
 	if err != nil {
 		return trace.Wrap(err)
 	}
@@ -187,8 +187,8 @@ func executeEnvarsPhase(env, updateEnv *localenv.LocalEnvironment, params PhaseP
 	return trace.Wrap(err)
 }
 
-func rollbackEnvarsPhase(env, updateEnv *localenv.LocalEnvironment, params PhaseParams) error {
-	updater, err := getUpdater(env, updateEnv)
+func rollbackEnvarsPhase(env, updateEnv *localenv.LocalEnvironment, params PhaseParams, operation ops.SiteOperation) error {
+	updater, err := getUpdater(env, updateEnv, operation)
 	if err != nil {
 		return trace.Wrap(err)
 	}
@@ -196,16 +196,16 @@ func rollbackEnvarsPhase(env, updateEnv *localenv.LocalEnvironment, params Phase
 	return trace.Wrap(err)
 }
 
-func completeEnvarsPlan(env, updateEnv *localenv.LocalEnvironment) error {
-	updater, err := getUpdater(env, updateEnv)
+func completeEnvarsPlan(env, updateEnv *localenv.LocalEnvironment, operation ops.SiteOperation) error {
+	updater, err := getUpdater(env, updateEnv, operation)
 	if err != nil {
 		return trace.Wrap(err)
 	}
 	return trace.Wrap(updater.Complete())
 }
 
-func getUpdateEnvarsOperationPlan(env, updateEnv *localenv.LocalEnvironment) (*storage.OperationPlan, error) {
-	updater, err := getUpdater(env, updateEnv)
+func getUpdateEnvarsOperationPlan(env, updateEnv *localenv.LocalEnvironment, operation ops.SiteOperation) (*storage.OperationPlan, error) {
+	updater, err := getUpdater(env, updateEnv, operation)
 	if err != nil {
 		return nil, trace.Wrap(err)
 	}
@@ -216,7 +216,7 @@ func getUpdateEnvarsOperationPlan(env, updateEnv *localenv.LocalEnvironment) (*s
 	return plan, nil
 }
 
-func getUpdater(env, updateEnv *localenv.LocalEnvironment) (*environ.Updater, error) {
+func getUpdater(env, updateEnv *localenv.LocalEnvironment, operation ops.SiteOperation) (*environ.Updater, error) {
 	clusterEnv, err := env.NewClusterEnvironment()
 	if err != nil {
 		return nil, trace.Wrap(err)
@@ -224,11 +224,6 @@ func getUpdater(env, updateEnv *localenv.LocalEnvironment) (*environ.Updater, er
 	operator := clusterEnv.Operator
 
 	cluster, err := operator.GetLocalSite()
-	if err != nil {
-		return nil, trace.Wrap(err)
-	}
-
-	operation, _, err := ops.GetLastOperation(cluster.Key(), operator)
 	if err != nil {
 		return nil, trace.Wrap(err)
 	}
@@ -241,7 +236,7 @@ func getUpdater(env, updateEnv *localenv.LocalEnvironment) (*environ.Updater, er
 
 	updater, err := environ.New(context.TODO(), environ.Config{
 		Operator:        operator,
-		Operation:       operation,
+		Operation:       &operation,
 		Apps:            clusterEnv.Apps,
 		Backend:         clusterEnv.Backend,
 		Client:          clusterEnv.Client,

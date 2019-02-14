@@ -28,7 +28,6 @@ import (
 	appservice "github.com/gravitational/gravity/lib/app"
 	"github.com/gravitational/gravity/lib/archive"
 	"github.com/gravitational/gravity/lib/defaults"
-	"github.com/gravitational/gravity/lib/fsm"
 	"github.com/gravitational/gravity/lib/loc"
 	"github.com/gravitational/gravity/lib/pack"
 	"github.com/gravitational/gravity/lib/schema"
@@ -46,42 +45,11 @@ import (
 	corev1 "k8s.io/client-go/kubernetes/typed/core/v1"
 )
 
-// GetOperationPlan returns an up-to-date operation plan
-func GetOperationPlan(b storage.Backend) (*storage.OperationPlan, error) {
-	op, err := storage.GetLastOperation(b)
-	if err != nil {
-		return nil, trace.Wrap(err)
-	}
-
-	plan, err := b.GetOperationPlan(op.SiteDomain, op.ID)
-	if err != nil && !trace.IsNotFound(err) {
-		return nil, trace.Wrap(err)
-	}
-
-	if plan == nil {
-		return nil, trace.NotFound(
-			"%q does not have a plan, use 'gravity plan --init' to initialize it", op.Type)
-	}
-
-	changelog, err := b.GetOperationPlanChangelog(op.SiteDomain, op.ID)
-	if err != nil {
-		return nil, trace.Wrap(err)
-	}
-
-	plan = fsm.ResolvePlan(*plan, changelog)
-	return plan, nil
-}
-
 // WaitForEndpoints waits for cluster/DNS endpoints to become active for the given server
 func WaitForEndpoints(ctx context.Context, client corev1.CoreV1Interface, nodeID string) error {
 	clusterLabels := labels.Set{"app": defaults.GravityClusterLabel}
-	kubednsLegacyLabels := labels.Set{"k8s-app": "kube-dns"}
-	kubednsLabels := labels.Set{"k8s-app": defaults.KubeDNSLabel}
-	matchesNode := matchesNode(nodeID)
 	err := retry(ctx, func() error {
-		if (hasEndpoints(client, clusterLabels, existingEndpoint) == nil) &&
-			(hasEndpoints(client, kubednsLabels, matchesNode) == nil ||
-				hasEndpoints(client, kubednsLegacyLabels, matchesNode) == nil) {
+		if hasEndpoints(client, clusterLabels, existingEndpoint) == nil {
 			return nil
 		}
 		return trace.NotFound("endpoints not ready")

@@ -100,20 +100,41 @@ func GetClusterLoginEntry(backend Backend) (*LoginEntry, error) {
 
 // GetLastOperation returns the last operation for the local cluster
 func GetLastOperation(backend Backend) (*SiteOperation, error) {
-	cluster, err := backend.GetLocalSite(defaults.SystemAccountID)
-	if err != nil {
-		return nil, trace.Wrap(err)
-	}
-
-	operations, err := backend.GetSiteOperations(cluster.Domain)
+	operations, err := GetOperations(backend)
 	if err != nil {
 		return nil, trace.Wrap(err)
 	}
 	if len(operations) == 0 {
 		return nil, trace.NotFound("no operations found")
 	}
-
 	return &(operations[0]), nil
+}
+
+// GetOperations returns all operations for the local cluster
+// sorted by time in descending order (with most recent operation first)
+func GetOperations(backend Backend) ([]SiteOperation, error) {
+	cluster, err := backend.GetLocalSite(defaults.SystemAccountID)
+	if err != nil {
+		return nil, trace.Wrap(err)
+	}
+	operations, err := backend.GetSiteOperations(cluster.Domain)
+	if err != nil {
+		return nil, trace.Wrap(err)
+	}
+	return operations, nil
+}
+
+// GetOperationByID returns the operation with the given ID for the local cluster
+func GetOperationByID(backend Backend, operationID string) (*SiteOperation, error) {
+	cluster, err := backend.GetLocalSite(defaults.SystemAccountID)
+	if err != nil {
+		return nil, trace.Wrap(err)
+	}
+	operation, err := backend.GetSiteOperation(cluster.Domain, operationID)
+	if err != nil {
+		return nil, trace.Wrap(err)
+	}
+	return operation, nil
 }
 
 // GetLocalServers returns local cluster state servers

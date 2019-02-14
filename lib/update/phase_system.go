@@ -29,7 +29,7 @@ import (
 	log "github.com/sirupsen/logrus"
 )
 
-// updatePhaseNode is the executor for the update master/node update phase
+// updatePhaseSystem is the executor for the update master/node update phase
 type updatePhaseSystem struct {
 	// OperationID is the id of the current update operation
 	OperationID string

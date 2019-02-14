@@ -23,6 +23,7 @@ import (
 	"github.com/gravitational/gravity/lib/defaults"
 	"github.com/gravitational/gravity/lib/fsm"
 	"github.com/gravitational/gravity/lib/localenv"
+	"github.com/gravitational/gravity/lib/ops"
 	"github.com/gravitational/gravity/lib/storage"
 	"github.com/gravitational/gravity/lib/update"
 	"github.com/gravitational/gravity/lib/utils"
@@ -30,19 +31,7 @@ import (
 	"github.com/gravitational/trace"
 )
 
-func executeAutomaticUpgrade(ctx context.Context, localEnv, upgradeEnv *localenv.LocalEnvironment, args []string) error {
-	return trace.Wrap(update.AutomaticUpgrade(ctx, localEnv, upgradeEnv))
-}
-
-// upgradePhaseParams combines parameters for an upgrade phase execution/rollback
-type upgradePhaseParams struct {
-	// PhaseParams specifies generic phase execution configuration
-	PhaseParams
-	// skipVersionCheck allows to override gravity version compatibility check
-	skipVersionCheck bool
-}
-
-func executeUpgradePhase(localEnv, upgradeEnv *localenv.LocalEnvironment, p PhaseParams) error {
+func executeUpgradePhase(localEnv, updateEnv *localenv.LocalEnvironment, p PhaseParams, operation *ops.SiteOperation) error {
 	clusterEnv, err := localEnv.NewClusterEnvironment()
 	if err != nil {
 		return trace.Wrap(err)
@@ -54,6 +43,14 @@ func executeUpgradePhase(localEnv, upgradeEnv *localenv.LocalEnvironment, p Phas
 	progress := utils.NewProgress(ctx, fmt.Sprintf("phase %q execution", p.PhaseID), -1, false)
 	defer progress.Stop()
 
+	if operation == nil {
+		storageOperation, err := storage.GetLastOperation(updateEnv.Backend)
+		if err != nil {
+			return trace.Wrap(err)
+		}
+		operation = (*ops.SiteOperation)(storageOperation)
+	}
+
 	creds, err := fsm.GetClientCredentials()
 	if err != nil {
 		return trace.Wrap(err)
@@ -62,7 +59,7 @@ func executeUpgradePhase(localEnv, upgradeEnv *localenv.LocalEnvironment, p Phas
 
 	err = update.ExecutePhase(ctx, update.FSMConfig{
 		Backend:           clusterEnv.Backend,
-		LocalBackend:      upgradeEnv.Backend,
+		LocalBackend:      updateEnv.Backend,
 		HostLocalBackend:  localEnv.Backend,
 		HostLocalPackages: localEnv.Packages,
 		Packages:          clusterEnv.Packages,
@@ -70,6 +67,7 @@ func executeUpgradePhase(localEnv, upgradeEnv *localenv.LocalEnvironment, p Phas
 		Apps:              clusterEnv.Apps,
 		Client:            clusterEnv.Client,
 		Operator:          clusterEnv.Operator,
+		Operation:         operation,
 		Users:             clusterEnv.Users,
 		Remote:            runner,
 	}, fsm.Params{
@@ -81,7 +79,7 @@ func executeUpgradePhase(localEnv, upgradeEnv *localenv.LocalEnvironment, p Phas
 	return trace.Wrap(err)
 }
 
-func rollbackUpgradePhase(localEnv, updateEnv *localenv.LocalEnvironment, p PhaseParams) error {
+func rollbackUpgradePhase(localEnv, updateEnv *localenv.LocalEnvironment, p PhaseParams, operation ops.SiteOperation) error {
 	clusterEnv, err := localEnv.NewClusterEnvironment()
 	if err != nil {
 		return trace.Wrap(err)
@@ -109,6 +107,7 @@ func rollbackUpgradePhase(localEnv, updateEnv *localenv.LocalEnvironment, p Phas
 		Apps:              clusterEnv.Apps,
 		Client:            clusterEnv.Client,
 		Operator:          clusterEnv.Operator,
+		Operation:         &operation,
 		Users:             clusterEnv.Users,
 		Remote:            runner,
 	}, fsm.Params{
@@ -120,7 +119,7 @@ func rollbackUpgradePhase(localEnv, updateEnv *localenv.LocalEnvironment, p Phas
 	return trace.Wrap(err)
 }
 
-func completeUpdatePlan(localEnv, updateEnv *localenv.LocalEnvironment) error {
+func completeUpdatePlan(localEnv, updateEnv *localenv.LocalEnvironment, operation ops.SiteOperation) error {
 	clusterEnv, err := localEnv.NewClusterEnvironment()
 	if err != nil {
 		return trace.Wrap(err)
@@ -140,6 +139,7 @@ func completeUpdatePlan(localEnv, updateEnv *localenv.LocalEnvironment) error {
 			Apps:            clusterEnv.Apps,
 			Client:          clusterEnv.Client,
 			Operator:        clusterEnv.Operator,
+			Operation:       &operation,
 			Users:           clusterEnv.Users,
 			LocalBackend:    updateEnv.Backend,
 			Remote:          runner,
@@ -161,24 +161,4 @@ func completeUpdatePlan(localEnv, updateEnv *localenv.LocalEnvironment) error {
 
 	localEnv.Println("cluster has been activated")
 	return nil
-}
-
-func getUpdateOperationPlan(localEnv, updateEnv *localenv.LocalEnvironment) (*storage.OperationPlan, error) {
-	clusterEnv, err := localEnv.NewClusterEnvironment()
-	if err != nil {
-		return nil, trace.Wrap(err)
-	}
-	fsm, err := update.NewFSM(context.TODO(),
-		update.FSMConfig{
-			Backend:      clusterEnv.Backend,
-			LocalBackend: updateEnv.Backend,
-		})
-	if err != nil {
-		return nil, trace.Wrap(err)
-	}
-	plan, err := fsm.GetPlan()
-	if err != nil {
-		return nil, trace.Wrap(err)
-	}
-	return plan, nil
 }

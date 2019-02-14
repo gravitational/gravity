@@ -19,8 +19,6 @@ package update
 import (
 	"bytes"
 	"context"
-	"fmt"
-	"os"
 	"time"
 
 	"github.com/gravitational/gravity/lib/app"
@@ -45,13 +43,13 @@ type fsmUpdateEngine struct {
 	// FieldLogger is used for logging
 	logrus.FieldLogger
 	// plan is the update operation plan
-	plan       *storage.OperationPlan
+	plan       storage.OperationPlan
 	reconciler Reconciler
 }
 
 // newUpdateEngine returns a new instance of FSM engine for update
 func newUpdateEngine(ctx context.Context, config FSMConfig, logger logrus.FieldLogger) (*fsmUpdateEngine, error) {
-	plan, err := loadPlan(config.LocalBackend, logger)
+	plan, err := loadPlan(config.LocalBackend, config.Operation.Key(), logger)
 	if err != nil {
 		return nil, trace.Wrap(err)
 	}
@@ -72,7 +70,7 @@ func newUpdateEngine(ctx context.Context, config FSMConfig, logger logrus.FieldL
 			Key:         fsm.OperationKey(*plan),
 			FieldLogger: logger,
 		},
-		plan:       reconciledPlan,
+		plan:       *reconciledPlan,
 		reconciler: reconciler,
 	}
 	return engine, nil
@@ -87,7 +85,13 @@ func (f *fsmUpdateEngine) GetExecutor(p fsm.ExecutorParams, remote fsm.Remote) (
 // RunCommand executes the phase specified by params on the specified server
 // using the provided runner
 func (f *fsmUpdateEngine) RunCommand(ctx context.Context, runner fsm.RemoteRunner, server storage.Server, p fsm.Params) error {
-	args := []string{"upgrade", "--phase", p.PhaseID, fmt.Sprintf("--force=%v", p.Force)}
+	args := []string{"plan", "execute",
+		"--phase", p.PhaseID,
+		"--operation-id", f.plan.OperationID,
+	}
+	if p.Force {
+		args = append(args, "--force")
+	}
 	return runner.Run(ctx, server, args...)
 }
 
@@ -114,17 +118,18 @@ func (f *fsmUpdateEngine) Complete(fsmErr error) error {
 		return trace.Wrap(err)
 	}
 
-	opKey := clusterOperationKey(*plan)
+	opKey := fsm.OperationKey(*plan)
 	op, err := f.Operator.GetSiteOperation(opKey)
 	if err != nil {
 		return trace.Wrap(err)
 	}
 
+	stateSetter := fsm.OperationStateSetter(opKey, f.Operator, f.LocalBackend)
 	completed := fsm.IsCompleted(plan)
 	if completed {
-		err = ops.CompleteOperation(opKey, f.Operator)
+		err = ops.CompleteOperation(opKey, stateSetter)
 	} else {
-		err = ops.FailOperation(opKey, f.Operator, trace.Unwrap(fsmErr).Error())
+		err = ops.FailOperation(opKey, stateSetter, trace.Unwrap(fsmErr).Error())
 	}
 	if err != nil {
 		return trace.Wrap(err)
@@ -150,7 +155,7 @@ func (f *fsmUpdateEngine) Complete(fsmErr error) error {
 
 // GetPlan returns an up-to-date plan
 func (f *fsmUpdateEngine) GetPlan() (*storage.OperationPlan, error) {
-	return f.plan, nil
+	return &f.plan, nil
 }
 
 func (f *fsmUpdateEngine) commitClusterChanges(cluster *storage.Site, op ops.SiteOperation) error {
@@ -223,43 +228,25 @@ func (f *fsmUpdateEngine) ChangePhaseState(ctx context.Context, change fsm.State
 }
 
 func (f *fsmUpdateEngine) reconcilePlan(ctx context.Context) error {
-	plan, err := f.reconciler.ReconcilePlan(ctx, *f.plan)
+	plan, err := f.reconciler.ReconcilePlan(ctx, f.plan)
 	if err != nil {
 		return trace.Wrap(err)
 	}
-	*f.plan = *plan
+	f.plan = *plan
 	var buf bytes.Buffer
-	fsm.FormatOperationPlanText(&buf, *f.plan)
+	fsm.FormatOperationPlanText(&buf, f.plan)
 	f.Debugf("Reconciled plan: %v.", buf.String())
 	return nil
 }
 
-func loadPlan(backend storage.Backend, logger logrus.FieldLogger) (*storage.OperationPlan, error) {
-	op, err := storage.GetLastOperation(backend)
-	if err != nil {
-		if !trace.IsNotFound(err) {
-			return nil, trace.Wrap(err)
-		}
-
-		logger.Error(trace.DebugReport(err))
-		execPath, err := os.Executable()
-		if err != nil {
-			return nil, trace.Wrap(err)
-		}
-
-		return nil, trace.NotFound("Please run `sudo %[1]v upgrade` or `sudo %[1]v upgrade --manual` first", execPath)
-	}
-
-	plan, err := backend.GetOperationPlan(op.SiteDomain, op.ID)
+func loadPlan(backend storage.Backend, opKey ops.SiteOperationKey, logger logrus.FieldLogger) (*storage.OperationPlan, error) {
+	plan, err := backend.GetOperationPlan(opKey.SiteDomain, opKey.OperationID)
 	if err != nil && !trace.IsNotFound(err) {
 		return nil, trace.Wrap(err)
 	}
-
 	if plan == nil {
-		return nil, trace.NotFound("operation %v (%v) doesn't have a plan",
-			op.Type, op.ID)
+		return nil, trace.NotFound("operation %v doesn't have a plan", opKey.OperationID)
 	}
-
 	return plan, nil
 }
 
@@ -292,19 +279,4 @@ Please use the gravity binary from the upgrade installer tarball to execute the 
 	}
 
 	return nil
-}
-
-func clusterOperationKey(plan storage.OperationPlan) ops.SiteOperationKey {
-	return ops.SiteOperationKey{
-		SiteDomain:  plan.ClusterName,
-		AccountID:   plan.AccountID,
-		OperationID: plan.OperationID,
-	}
-}
-
-func clusterKey(plan storage.OperationPlan) ops.SiteKey {
-	return ops.SiteKey{
-		SiteDomain: plan.ClusterName,
-		AccountID:  plan.AccountID,
-	}
 }

@@ -20,7 +20,6 @@ import (
 	"context"
 	"fmt"
 	"path/filepath"
-	"strings"
 
 	"github.com/gravitational/gravity/lib/constants"
 	"github.com/gravitational/gravity/lib/defaults"
@@ -60,7 +59,7 @@ type DeployAgentsRequest struct {
 
 	// LeaderParams defines which parameters to pass to the leader agent process.
 	// The leader agent would be driving the update in case of the automatic update operation.
-	LeaderParams []string
+	LeaderParams string
 
 	// Leader is the node where the leader agent should be launched
 	//
@@ -68,7 +67,7 @@ type DeployAgentsRequest struct {
 	Leader *storage.Server
 
 	// NodeParams defines which parameters to pass to the regular agent process.
-	NodeParams []string
+	NodeParams string
 }
 
 // Check validates the request to deploy agents
@@ -216,12 +215,10 @@ func deployAgentOnNode(ctx context.Context, req DeployAgentsRequest, node, nodeS
 	var runCmd string
 	if leader {
 		runCmd = fmt.Sprintf("%s agent --debug install %s",
-			gravityHostPath,
-			strings.Join(req.LeaderParams, " "))
+			gravityHostPath, req.LeaderParams)
 	} else {
 		runCmd = fmt.Sprintf("%s agent --debug install %s",
-			gravityHostPath,
-			strings.Join(req.NodeParams, " "))
+			gravityHostPath, req.NodeParams)
 	}
 
 	err = utils.NewSSHCommands(nodeClient.Client).

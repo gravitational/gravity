@@ -78,7 +78,7 @@ func (s *PlanSuite) TestPlanWithRuntimeUpdate(c *check.C) {
 	masters := *builder.masters(leadMaster, servers[1:2], false).Require(checks, bootstrap, preUpdate, coreDNS)
 	nodes := *builder.nodes(leadMaster.Server, servers[2:], false).Require(masters)
 	etcd := *builder.etcdPlan(leadMaster.Server, params.servers[1:2], params.servers[2:], "1.0.0", "2.0.0")
-	migration := builder.migration(params)
+	migration := builder.migration(params).Require(etcd)
 	c.Assert(migration, check.NotNil)
 
 	runtimeLocs := []loc.Locator{
@@ -86,10 +86,10 @@ func (s *PlanSuite) TestPlanWithRuntimeUpdate(c *check.C) {
 		loc.MustParseLocator("gravitational.io/rbac-app:2.0.0"),
 		runtimeLoc2,
 	}
-	runtime := *builder.runtime(runtimeLocs, true).Require(masters)
+	runtime := *builder.runtime(runtimeLocs).Require(*migration)
 
 	appLocs := []loc.Locator{loc.MustParseLocator("gravitational.io/app-dep-2:2.0.0"), appLoc2}
-	app := *builder.app(appLocs).Require(masters).RequireLiteral(runtime.ChildLiteral(constants.BootstrapConfigPackage))
+	app := *builder.app(appLocs).Require(runtime)
 	cleanup := *builder.cleanup(params.servers).Require(app)
 
 	plan.Phases = phases{
@@ -116,7 +116,7 @@ func (s *PlanSuite) TestPlanWithRuntimeUpdate(c *check.C) {
 	ResolvePlan(obtainedPlan)
 
 	// verify
-	compare.DeepCompare(c, *obtainedPlan, plan)
+	c.Assert(*obtainedPlan, compare.DeepEquals, plan)
 }
 
 func (s *PlanSuite) TestPlanWithoutRuntimeUpdate(c *check.C) {
@@ -141,7 +141,7 @@ func (s *PlanSuite) TestPlanWithoutRuntimeUpdate(c *check.C) {
 	checks := *builder.checks(appLoc1, appLoc2).Require(init)
 	preUpdate := *builder.preUpdate(appLoc2).Require(init)
 	appLocs := []loc.Locator{loc.MustParseLocator("gravitational.io/app-dep-2:2.0.0"), appLoc2}
-	app := *builder.app(appLocs)
+	app := *builder.app(appLocs).Require(preUpdate)
 	cleanup := *builder.cleanup(params.servers).Require(app)
 
 	plan.Phases = phases{init, checks, preUpdate, app, cleanup}.asPhases()
@@ -155,7 +155,7 @@ func (s *PlanSuite) TestPlanWithoutRuntimeUpdate(c *check.C) {
 	ResolvePlan(obtainedPlan)
 
 	// verify
-	compare.DeepCompare(c, *obtainedPlan, plan)
+	c.Assert(*obtainedPlan, compare.DeepEquals, plan)
 }
 
 func newTestPlan(c *check.C, p params) (storage.OperationPlan, newPlanParams) {

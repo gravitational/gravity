@@ -29,16 +29,13 @@ import (
 	"github.com/gravitational/gravity/lib/localenv"
 	"github.com/gravitational/gravity/lib/ops"
 	"github.com/gravitational/gravity/lib/pack"
-	rpcclient "github.com/gravitational/gravity/lib/rpc/client"
 	"github.com/gravitational/gravity/lib/schema"
 	"github.com/gravitational/gravity/lib/storage"
-	"github.com/gravitational/gravity/lib/systeminfo"
 	"github.com/gravitational/gravity/lib/utils"
 
 	teleservices "github.com/gravitational/teleport/lib/services"
 	"github.com/gravitational/trace"
 	log "github.com/sirupsen/logrus"
-	"google.golang.org/grpc/credentials"
 	corev1 "k8s.io/client-go/kubernetes/typed/core/v1"
 )
 
@@ -46,14 +43,16 @@ import (
 func InitOperationPlan(
 	ctx context.Context,
 	localEnv, updateEnv *localenv.LocalEnvironment,
-	clusterEnv *localenv.ClusterEnvironment) (*storage.OperationPlan, error) {
-	operation, err := storage.GetLastOperation(clusterEnv.Backend)
+	clusterEnv *localenv.ClusterEnvironment,
+	opKey ops.SiteOperationKey,
+) (*storage.OperationPlan, error) {
+	operation, err := storage.GetOperationByID(clusterEnv.Backend, opKey.OperationID)
 	if err != nil {
 		return nil, trace.Wrap(err)
 	}
 
 	if operation.Type != ops.OperationUpdate {
-		return nil, trace.BadParameter("%q does not support plans", operation.Type)
+		return nil, trace.BadParameter("expected update operation but got %q", operation.Type)
 	}
 
 	plan, err := clusterEnv.Backend.GetOperationPlan(operation.SiteDomain, operation.ID)
@@ -135,38 +134,12 @@ func SyncOperationPlan(src storage.Backend, dst storage.Backend) error {
 	return trace.Wrap(syncChangelog(src, dst, plan.ClusterName, plan.OperationID))
 }
 
-// SyncOperationPlanToCluster runs gravity plan --sync on each cluster member, to force syncronization from etcd
-// to the local store
-func SyncOperationPlanToCluster(ctx context.Context, plan storage.OperationPlan, clientCreds credentials.TransportCredentials) error {
-	ctx, cancel := context.WithTimeout(ctx, defaults.AgentRequestTimeout)
-	defer cancel()
-
-	logger := log.WithFields(log.Fields{
-		trace.Component: "fsm:sync",
-	})
-
-	for _, server := range plan.Servers {
-		err := systeminfo.HasInterface(server.AdvertiseIP)
-		if err == nil {
-			continue
-		}
-		addr := defaults.GravityRPCAgentAddr(server.AdvertiseIP)
-		clt, err := rpcclient.New(ctx, rpcclient.Config{ServerAddr: addr, Credentials: clientCreds})
-		if err != nil {
-			return trace.Wrap(err)
-		}
-
-		err = clt.GravityCommand(ctx, logger, nil, "plan", "--sync")
-		if err != nil {
-			return trace.Wrap(err)
-		}
-	}
-
-	return nil
-}
-
 // newOperationPlan generates a new plan for the provided operation
-func newOperationPlan(env *localenv.ClusterEnvironment, dnsConfig storage.DNSConfig, op storage.SiteOperation) (*storage.OperationPlan, error) {
+func newOperationPlan(
+	env *localenv.ClusterEnvironment,
+	dnsConfig storage.DNSConfig,
+	operation storage.SiteOperation,
+) (*storage.OperationPlan, error) {
 	if env.Client == nil {
 		return nil, trace.BadParameter("Kubernetes client is required")
 	}
@@ -199,7 +172,7 @@ func newOperationPlan(env *localenv.ClusterEnvironment, dnsConfig storage.DNSCon
 		return nil, trace.Wrap(err)
 	}
 
-	updatePackage, err := op.Update.Package()
+	updatePackage, err := operation.Update.Package()
 	if err != nil {
 		return nil, trace.Wrap(err)
 	}
@@ -212,7 +185,7 @@ func newOperationPlan(env *localenv.ClusterEnvironment, dnsConfig storage.DNSCon
 		return nil, trace.Wrap(err)
 	}
 
-	links, err := env.Backend.GetOpsCenterLinks(op.SiteDomain)
+	links, err := env.Backend.GetOpsCenterLinks(operation.SiteDomain)
 	if err != nil {
 		return nil, trace.Wrap(err)
 	}
@@ -222,7 +195,7 @@ func newOperationPlan(env *localenv.ClusterEnvironment, dnsConfig storage.DNSCon
 	}
 
 	plan, err := newOperationPlanFromParams(newPlanParams{
-		operation:        op,
+		operation:        operation,
 		servers:          servers,
 		installedRuntime: *installedRuntime,
 		installedApp:     *installedApp,
@@ -338,28 +311,9 @@ func newOperationPlanFromParams(p newPlanParams) (*storage.OperationPlan, error)
 		return nil, trace.Wrap(err)
 	}
 
-	// this flag indicates whether rbac-app has been updated or not, because if it has
-	// then its k8s resources should be created before all other hooks run
-	rbacAppUpdated := false
-	for _, update := range runtimeUpdates {
-		if update.Name == constants.BootstrapConfigPackage {
-			rbacAppUpdated = true
-		}
-	}
-
-	runtimePhase := *builder.runtime(runtimeUpdates, rbacAppUpdated).Require(mastersPhase)
-
 	appUpdates, err := app.GetUpdatedDependencies(p.installedApp, p.updateApp)
 	if err != nil {
 		return nil, trace.Wrap(err)
-	}
-
-	appPhase := *builder.app(appUpdates)
-	if len(runtimeUpdates) != 0 {
-		appPhase.Require(mastersPhase)
-	}
-	if rbacAppUpdated {
-		appPhase.RequireLiteral(runtimePhase.ChildLiteral(constants.BootstrapConfigPackage))
 	}
 
 	// check if etcd upgrade is required or not
@@ -368,37 +322,40 @@ func newOperationPlanFromParams(p newPlanParams) (*storage.OperationPlan, error)
 		return nil, trace.Wrap(err)
 	}
 
-	cleanupPhase := *builder.cleanup(p.servers).Require(appPhase)
-
-	// Order the phases
-	phases := phases{initPhase, checksPhase, preUpdatePhase}
+	var root phase
+	root.Add(initPhase, checksPhase, preUpdatePhase)
 	if len(runtimeUpdates) > 0 {
 		// if there are no runtime updates, then these phases are not needed
 		// as we're not going to update system software
 		if p.updateCoreDNS {
 			corednsPhase := *builder.corednsPhase(leadMaster.Server)
 			mastersPhase = *mastersPhase.Require(corednsPhase)
-			phases = append(phases, corednsPhase)
+			root.Add(corednsPhase)
 		}
 
-		phases = append(phases, bootstrapPhase, mastersPhase)
+		root.Add(bootstrapPhase, mastersPhase)
 		if len(nodesPhase.Phases) > 0 {
-			phases = append(phases, nodesPhase)
+			root.Add(nodesPhase)
 		}
 
 		if updateEtcd {
 			etcdPhase := *builder.etcdPlan(leadMaster.Server, masters[1:].asServers(), nodes.asServers(),
 				currentVersion, desiredVersion)
-			phases = append(phases, etcdPhase)
+			// This does not depend on previous on purposes - when the etcd block is executed,
+			// remote agents might be able to sync the plan before the shutdown of etcd instances
+			// has begun
+			root.Add(etcdPhase)
 		}
 
 		if migrationPhase := builder.migration(p); migrationPhase != nil {
-			phases = append(phases, *migrationPhase)
+			root.AddSequential(*migrationPhase)
 		}
-		phases = append(phases, runtimePhase)
+
+		root.AddSequential(*builder.runtime(runtimeUpdates))
 	}
-	phases = append(phases, appPhase, cleanupPhase)
-	plan.Phases = phases.asPhases()
+
+	root.AddSequential(*builder.app(appUpdates), *builder.cleanup(p.servers))
+	plan.Phases = root.Phases
 	ResolvePlan(&plan)
 
 	return &plan, nil

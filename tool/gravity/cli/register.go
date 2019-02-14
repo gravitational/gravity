@@ -136,9 +136,6 @@ func RegisterCommands(app *kingpin.Application) *Application {
 	g.PlanCmd.OperationID = g.PlanCmd.Flag("operation-id", "ID of the active operation. It not specified, the last operation will be used").Hidden().String()
 	g.PlanCmd.SkipVersionCheck = g.PlanCmd.Flag("skip-version-check", "Bypass version compatibility check").Hidden().Bool()
 
-	g.PlanInitCmd.CmdClause = g.PlanCmd.Command("init", "Initialize operation plan")
-	g.PlanSyncCmd.CmdClause = g.PlanCmd.Command("sync", "Sync the operation plan from etcd to local store")
-
 	g.PlanDisplayCmd.CmdClause = g.PlanCmd.Command("display", "Display a plan for an ongoing operation").Default()
 	g.PlanDisplayCmd.Output = common.Format(g.PlanDisplayCmd.Flag("output", "Output format for the plan, text, json or yaml").Short('o').Default(string(constants.EncodingText)))
 
@@ -166,11 +163,21 @@ func RegisterCommands(app *kingpin.Application) *Application {
 	g.UpdateTriggerCmd.CmdClause = g.UpdateCmd.Command("trigger", "Trigger an update operation for given application").Hidden()
 	g.UpdateTriggerCmd.App = g.UpdateTriggerCmd.Arg("app", "Application version to update to, in the 'name:version' or 'name' (for latest version) format. If unspecified, currently installed application is updated").String()
 	g.UpdateTriggerCmd.Manual = g.UpdateTriggerCmd.Flag("manual", "Manual operation. Do not trigger automatic update").Short('m').Bool()
+	g.UpdateTriggerCmd.Block = g.UpdateTriggerCmd.Flag("block", "Wait for operation to finish (default). Use --no-block to run the operation unattended instead").
+		OverrideDefaultFromEnvar(constants.BlockingOperationEnvVar).
+		Default("true").
+		Bool()
+
+	g.UpdatePlanInitCmd.CmdClause = g.UpdateCmd.Command("init-plan", "Initialize operation plan").Hidden()
 
 	// upgrade is aliased to "update trigger"
 	g.UpgradeCmd.CmdClause = g.Command("upgrade", "Trigger an update operation for given application").Hidden()
 	g.UpgradeCmd.App = g.UpgradeCmd.Arg("app", "Application version to update to, in the 'name:version' or 'name' (for latest version) format. If unspecified, currently installed application is updated").String()
 	g.UpgradeCmd.Manual = g.UpgradeCmd.Flag("manual", "Manual upgrade mode").Short('m').Bool()
+	g.UpgradeCmd.Block = g.UpgradeCmd.Flag("block", "Wait for operation to finish (default). Use --no-block to run the operation unattended instead").
+		OverrideDefaultFromEnvar(constants.BlockingOperationEnvVar).
+		Default("true").
+		Bool()
 	g.UpgradeCmd.Phase = g.UpgradeCmd.Flag("phase", "Operation phase to execute").String()
 	g.UpgradeCmd.Timeout = g.UpgradeCmd.Flag("timeout", "Phase execution timeout").Default(defaults.PhaseTimeout).Hidden().Duration()
 	g.UpgradeCmd.Force = g.UpgradeCmd.Flag("force", "Force phase execution even if pre-conditions are not satisfied").Bool()
@@ -488,7 +495,8 @@ func RegisterCommands(app *kingpin.Application) *Application {
 	g.RPCAgentCmd.CmdClause = g.Command("agent", "RPC agent")
 
 	g.RPCAgentDeployCmd.CmdClause = g.RPCAgentCmd.Command("deploy", "deploy RPC agents across cluster nodes, and run specified execution function").Hidden()
-	g.RPCAgentDeployCmd.Args = g.RPCAgentDeployCmd.Arg("arg", "additional arguments").Strings()
+	g.RPCAgentDeployCmd.LeaderArgs = g.RPCAgentDeployCmd.Flag("leader", "additional arguments to leader node agent").String()
+	g.RPCAgentDeployCmd.NodeArgs = g.RPCAgentDeployCmd.Flag("node", "additional arguments to regular node agent").String()
 
 	g.RPCAgentShutdownCmd.CmdClause = g.RPCAgentCmd.Command("shutdown", "request agents to shut down").Hidden()
 

@@ -192,6 +192,9 @@ func (r *Config) checkAndSetDefaults() error {
 	if r.Operator == nil {
 		return trace.BadParameter("cluster operator service is required")
 	}
+	if r.Operation == nil {
+		return trace.BadParameter("cluster operation is required")
+	}
 	if len(r.Servers) == 0 {
 		return trace.BadParameter("at least a single server is required")
 	}
@@ -217,7 +220,7 @@ type Config struct {
 	LocalPackages libpack.PackageService
 	// Operator is the cluster operator service
 	Operator ops.Operator
-	// Operation references a potentially active garbage collection operation
+	// Operation references the garbage collection operation to work with
 	Operation *ops.SiteOperation
 	// Servers is the list of cluster servers
 	Servers []storage.Server

@@ -105,10 +105,9 @@ func (p *Peer) getOperationPlan(ctx operationContext) (*storage.OperationPlan, e
 		builder.AddPostHookPhase(plan)
 	}
 
-	// if added a master node, make sure it participates in leader election
-	if builder.JoiningNode.IsMaster() {
-		builder.AddElectPhase(plan)
-	}
+	// Enabele/disable leader election depending on the cluster role
+	// of the joining node
+	builder.AddElectPhase(plan)
 
 	fillSteps(plan)
 	return plan, nil
