@@ -7,7 +7,7 @@ LTS starts with `3.51.0` with minor backwards compatible changes added over time
 
 | Release       | LTS | Release Date         | Supported Until      | Kubernetes Version | Teleport Version |
 | --------------|-----| -------------------- | -------------------- | ------------------ |------------------|
-| 5.5.0-alpha.8 | No  | February, 12th 2019  | -                    | 1.13.0             | 3.0.4            |
+| 5.5.0-alpha.9 | No  | February, 14th 2019  | -                    | 1.13.0             | 3.0.4            |
 | 5.4.6         | No  | February, 12th 2019  | -                    | 1.13.2             | 2.4.10           |
 | 5.2.8         | Yes | February, 12th 2019  | October, 15th, 2019  | 1.11.5             | 2.4.10           |
 | 5.0.29        | Yes | February, 12th 2019  | April, 13th 2019     | 1.9.12-gravitational | 2.4.10         |
@@ -24,11 +24,22 @@ LTS starts with `3.51.0` with minor backwards compatible changes added over time
 
 ## 5.x Releases
 
+### 5.5.0-alpha.9
+
+#### Improvements
+
+* UX improvements to `tele ls` command.
+
+#### Bugfixes
+
+* Fix an issue with pulling base cluster image with `tele pull`.
+
 ### 5.5.0-alpha.8
 
 #### Improvements
 
-* Introduce AuthGateway resource.
+* Introduce `AuthGateway` resource. See [Configuring Authentication Gateway](/cluster/#configuring-cluster-authentication-gateway)
+for details.
 * UX improvements to `tele` CLI.
 
 #### Bugfixes
