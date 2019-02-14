@@ -862,7 +862,7 @@ func (s *site) getPlanetConfigPackage(config planetConfig) (*ops.RotatePackageRe
 	if config.config != nil {
 		if config := config.config.GetKubeletConfig(); config != nil {
 			args = append(args, fmt.Sprintf("--kubelet-config=%v",
-				base64.StdEncoding.EncodeToString([]byte(config.Config))))
+				base64.StdEncoding.EncodeToString(config.Config)))
 		}
 	}
 

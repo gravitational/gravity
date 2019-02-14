@@ -55,9 +55,9 @@ func Empty() *Resource {
 
 // Resource describes the cluster configuration resource
 type Resource struct {
-	// Kind is a resource kind
+	// Kind is the resource kind
 	Kind string `json:"kind"`
-	// Version is a resource version
+	// Version is the resource version
 	Version string `json:"version"`
 	// Metadata specifies resource metadata
 	Metadata teleservices.Metadata `json:"metadata"`
@@ -107,7 +107,7 @@ func (r *Resource) GetGlobalConfig() *Global {
 }
 
 // Unmarshal unmarshals the resource from either YAML- or JSON-encoded data
-func Unmarshal(data []byte) (Interface, error) {
+func Unmarshal(data []byte) (*Resource, error) {
 	if len(data) == 0 {
 		return nil, trace.BadParameter("empty input")
 	}
@@ -166,7 +166,7 @@ type Kubelet struct {
 	ExtraArgs []string `json:"extraArgs,omitempty"`
 	// Config defines the kubelet configuration as either YAML or JSON-formatted
 	// payload
-	Config string `json:"config,omitempty"`
+	Config json.RawMessage `json:"config,omitempty"`
 }
 
 // ControlPlaneComponent defines configuration of a control plane component
@@ -237,16 +237,114 @@ const specSchemaTemplate = `{
       "properties": {
         "global": {
           "type": "object",
-          "required": ["cloudProvider", "cloudConfig"],
+          "additionalProperties": false,
           "properties": {
             "cloudProvider": {"type": "string"},
-            "cloudConfig": {"type": "string"}
+            "cloudConfig": {"type": "string"},
+            "serviceClusterIpRange": {"type": "string"},
+            "serviceNodePortRange": {"type": "string"},
+            "proxyPortRange": {"type": "string"},
+            "clusterCidr": {"type": "string"},
+            "featureGates": {
+              "type": "object",
+              "patternProperties": {
+                 "^[a-zA-Z]+[a-zA-Z0-9]*$": {"type": "string", "enum": ["true", "false"]}
+              }
+            }
           }
         },
         "kubelet": {
           "type": "object",
           "properties": {
-            "config": {"type": "string"},
+            "config": {
+              "type": "object",
+              "properties": {
+                "kind": {"type": "string"},
+                "apiVersion": {"type": "string"},
+                "staticPodPath": {"type": "string"},
+                "syncFrequency": {"type": "string"},
+                "fileCheckFrequency": {"type": "string"},
+                "httpCheckFrequency": {"type": "string"},
+                "address": {"type": "string"},
+                "port": {"type": "number"},
+                "readOnlyPort": {"type": "number"},
+                "tlsCertFile": {"type": "string"},
+                "tlsPrivateKeyFile": {"type": "string"},
+                "tlsCipherSuites": {"type": "array", "items": {"type": "string"}},
+                "tlsMinVersion": {"type": "string"},
+                "rotateCertificates": {"type": ["string", "boolean"]},
+                "serverTLSBootstrap": {"type": ["string", "boolean"]},
+                "authentication": {"type": "object"},
+                "authorization": {"type": "object"},
+                "registryPullQPS": {"type": ["null", "number"]},
+                "registryBurst": {"type": "number"},
+                "eventRecordQPS": {"type": ["null", "number"]},
+                "eventBurst": {"type": "number"},
+                "enableDebuggingHandlers": {"type": ["string", "boolean"]},
+                "enableContentionProfiling": {"type": ["string", "boolean"]},
+                "healthzPort": {"type": ["null", "number"]},
+                "healthzBindAddress": {"type": "string"},
+                "oomScoreAdj": {"type": ["null", "number"]},
+                "clusterDomain": {"type": "string"},
+                "clusterDNS": {"type": "array", "items": {"type": "string"}},
+                "streamingConnectionIdleTimeout": {"type": "string"},
+                "nodeStatusUpdateFrequency": {"type": "string"},
+                "nodeStatusReportFrequency": {"type": "string"},
+                "nodeLeaseDurationSeconds": {"type": "number"},
+                "imageMinimumGCAge": {"type": "string"},
+                "imageGCHighThresholdPercent": {"type": ["null", "number"]},
+                "imageGCLowThresholdPercent": {"type": ["null", "number"]},
+                "volumeStatsAggPeriod": {"type": "string"},
+                "kubeletCgroups": {"type": "string"},
+                "systemCgroups": {"type": "string"},
+                "cgroupRoot": {"type": "string"},
+                "cgroupsPerQOS": {"type": ["string", "boolean"]},
+                "cgroupDriver": {"type": "string"},
+                "cpuManagerPolicy": {"type": "string"},
+                "cpuManagerReconcilePeriod": {"type": "string"},
+                "qosReserved": {"type": "object"},
+                "runtimeRequestTimeout": {"type": "string"},
+                "hairpinMode": {"type": "string"},
+                "maxPods": {"type": "number"},
+                "podCIDR": {"type": "string"},
+                "podPidsLimit": {"type": ["null", "number"]},
+                "resolvConf": {"type": "string"},
+                "cpuCFSQuota": {"type": ["string", "boolean"]},
+                "cpuCFSQuotaPeriod": {"type": "string"},
+                "maxOpenFiles": {"type": "number"},
+                "contentType": {"type": "string"},
+                "kubeAPIQPS": {"type": ["null", "number"]},
+                "kubeAPIBurst": {"type": "number"},
+                "serializeImagePulls": {"type": ["string", "boolean"]},
+                "evictionHard": {"type": "object"},
+                "evictionSoft": {"type": "object"},
+                "evictionSoftGracePeriod": {"type": "object"},
+                "evictionPressureTransitionPeriod": {"type": "string"},
+                "evictionMaxPodGracePeriod": {"type": "number"},
+                "evictionMinimumReclaim": {"type": "object"},
+                "podsPerCore": {"type": "number"},
+                "enableControllerAttachDetach": {"type": "boolean"},
+                "protectKernelDefaults": {"type": "boolean"},
+                "makeIPTablesUtilChains": {"type": "boolean"},
+                "iptablesMasqueradeBit": {"type": ["null", "number"]},
+                "iptablesDropBit": {"type": ["null", "number"]},
+                "featureGates": {
+                  "type": "object",
+                  "patternProperties": {
+                     "^[a-zA-Z]+[a-zA-Z0-9]*$": {"type": "string", "enum": ["true", "false"]}
+                  }
+                },
+                "failSwapOn": {"type": "boolean"},
+                "containerLogMaxSize": {"type": "string"},
+                "containerLogMaxFiles": {"type": ["null", "number"]},
+                "configMapAndSecretChangeDetectionStrategy": {"type": "object"},
+                "systemReserved": {"type": "object"},
+                "kubeReserved": {"type": "object"},
+                "systemReservedCgroup": {"type": "string"},
+                "kubeReservedCgroup": {"type": "string"},
+                "enforceNodeAllocatable": {"type": "array", "items": {"type": "string"}}
+              }
+            },
             "extraArgs": {"type": "array", "items": {"type": "string"}}
           }
         }

@@ -46,6 +46,23 @@ type Resources interface {
 	Remove(RemoveRequest) error
 }
 
+// Validator is a service to validate resources
+type Validator interface {
+	// Validate checks whether the specified resource
+	// represents a valid resource.
+	Validate(storage.UnknownResource) error
+}
+
+// Validate checks whether the specified resource
+// represents a valid resource.
+// Implements Validator
+func (r ValidateFunc) Validate(res storage.UnknownResource) error {
+	return r(res)
+}
+
+// ValidateFunc is a resource validtor implemented as a single function
+type ValidateFunc func(storage.UnknownResource) error
+
 // ResourceControl allows to create/list/remove resources
 //
 // A list of supported resources is determined by the specific controller

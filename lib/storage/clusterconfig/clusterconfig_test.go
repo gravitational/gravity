@@ -17,16 +17,19 @@ limitations under the License.
 package clusterconfig
 
 import (
+	"encoding/json"
 	"testing"
 
 	"github.com/gravitational/gravity/lib/compare"
 	"github.com/gravitational/gravity/lib/constants"
 	"github.com/gravitational/gravity/lib/defaults"
 	"github.com/gravitational/gravity/lib/storage"
+	"github.com/gravitational/gravity/lib/storage/clusterconfig/component"
 
 	teleservices "github.com/gravitational/teleport/lib/services"
 	"github.com/gravitational/trace"
 	. "gopkg.in/check.v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
 func Test(t *testing.T) { TestingT(t) }
@@ -40,16 +43,17 @@ func (*S) TestParsesClusterConfiguration(c *C) {
 		in       string
 		resource *Resource
 		error    error
+		validate func(obtained, expected *Resource, c *C)
 		comment  string
 	}{
 		{
 			in:      `{}`,
-			error:   trace.BadParameter("failed to validate: name: name is required"),
-			comment: "chokes on empty json",
+			error:   trace.BadParameter(`clusterconfiguration resource version "" is not supported`),
+			comment: "fails on empty json",
 		},
 		{
 			in:      `{"kind": "ClusterConfiguration"}`,
-			error:   trace.BadParameter("failed to validate: name: name is required"),
+			error:   trace.BadParameter(`clusterconfiguration resource version "" is not supported`),
 			comment: "invalid with missing required fields",
 		},
 		{
@@ -105,7 +109,7 @@ version: v1
 spec:
   kubelet:
     extraArgs: ['--foo', '--bar=baz']
-    config: |
+    config:
       kind: KubeletConfiguration
       apiVersion: kubelet.config.k8s.io/v1beta1
       address: "0.0.0.0"`,
@@ -120,14 +124,45 @@ spec:
 					ComponentConfigs: ComponentConfigs{
 						Kubelet: &Kubelet{
 							ExtraArgs: []string{"--foo", "--bar=baz"},
-							Config: `kind: KubeletConfiguration
-apiVersion: kubelet.config.k8s.io/v1beta1
-address: "0.0.0.0"`,
 						},
 					},
 				},
 			},
+			validate: validate(component.KubeletConfiguration{
+				TypeMeta: metav1.TypeMeta{
+					Kind:       "KubeletConfiguration",
+					APIVersion: "kubelet.config.k8s.io/v1beta1",
+				},
+				Address: "0.0.0.0",
+			}),
 			comment: "can specify CLI args",
+		},
+		{
+			in: `kind: clusterconfiguration
+version: v1
+spec:
+  kubelet:
+    config:
+      kind: KubeletConfiguration
+      apiVersion: kubelet.config.k8s.io/v1beta1
+      address: 12`,
+			resource: &Resource{
+				Kind:    storage.KindClusterConfiguration,
+				Version: "v1",
+				Metadata: teleservices.Metadata{
+					Name:      constants.ClusterConfigurationMap,
+					Namespace: defaults.KubeSystemNamespace,
+				},
+				Spec: Spec{
+					ComponentConfigs: ComponentConfigs{
+						Kubelet: &Kubelet{
+							ExtraArgs: []string{"--foo", "--bar=baz"},
+						},
+					},
+				},
+			},
+			error:   trace.BadParameter("failed to validate: spec.kubelet.config.address: Invalid type. Expected: string, given: integer"),
+			comment: "validates kubelet configuration",
 		},
 	}
 	for _, tc := range testCases {
@@ -135,16 +170,38 @@ address: "0.0.0.0"`,
 		resource, err := Unmarshal([]byte(tc.in))
 		if tc.error != nil {
 			c.Assert(err, FitsTypeOf, tc.error, comment)
+			c.Assert(err, ErrorMatches, tc.error.Error(), comment)
 			continue
 		}
 		c.Assert(err, IsNil, comment)
-		c.Assert(resource, compare.DeepEquals, tc.resource, comment)
+		if tc.validate != nil {
+			tc.validate(resource, tc.resource, c)
+		} else {
+			c.Assert(resource, compare.DeepEquals, tc.resource, comment)
+		}
 
 		bytes, err := Marshal(resource)
 		c.Assert(err, IsNil, comment)
 
 		resource2, err := Unmarshal(bytes)
 		c.Assert(err, IsNil, comment)
-		c.Assert(resource2, compare.DeepEquals, resource, comment)
+		if tc.validate != nil {
+			tc.validate(resource2, tc.resource, c)
+		} else {
+			c.Assert(resource2, compare.DeepEquals, tc.resource, comment)
+		}
+	}
+}
+
+func validate(expectedKonfig component.KubeletConfiguration) func(obtained, expected *Resource, c *C) {
+	return func(obtained, expected *Resource, c *C) {
+		konfigBytes := obtained.Spec.ComponentConfigs.Kubelet.Config
+		var konfig component.KubeletConfiguration
+		err := json.Unmarshal(konfigBytes, &konfig)
+		c.Assert(err, IsNil)
+		obtained.Spec.ComponentConfigs.Kubelet.Config = nil
+		c.Assert(obtained, compare.DeepEquals, expected)
+		obtained.Spec.ComponentConfigs.Kubelet.Config = konfigBytes
+		c.Assert(konfig, compare.DeepEquals, expectedKonfig)
 	}
 }

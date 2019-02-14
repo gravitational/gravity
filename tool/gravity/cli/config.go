@@ -28,6 +28,7 @@ import (
 	"github.com/gravitational/gravity/lib/install"
 	"github.com/gravitational/gravity/lib/loc"
 	"github.com/gravitational/gravity/lib/localenv"
+	"github.com/gravitational/gravity/lib/ops/resources"
 	"github.com/gravitational/gravity/lib/pack"
 	"github.com/gravitational/gravity/lib/process"
 	"github.com/gravitational/gravity/lib/rpc/proto"
@@ -356,6 +357,30 @@ func (i *InstallConfig) validateDNSConfig() error {
 		if !validateIP(blocks, ip) {
 			return trace.BadParameter(
 				"IP address %v does not belong to any local IP network", addr)
+		}
+	}
+	return nil
+}
+
+// ValidateResources validates the resources specified in ResourcePath
+// using the given validator
+func (i *InstallConfig) ValidateResources(validator resources.Validator) error {
+	if i.ResourcesPath == "" {
+		return trace.NotFound("no resources provided")
+	}
+	rc, err := utils.ReaderForPath(i.ResourcesPath)
+	if err != nil {
+		return trace.Wrap(err, "failed to read resources")
+	}
+	defer rc.Close()
+	_, gravityResources, err := resources.Split(rc)
+	if err != nil {
+		return trace.BadParameter("failed to validate %q: %v", i.ResourcesPath, err)
+	}
+	for _, res := range gravityResources {
+		log.WithField("resource", res).Info("Validating.")
+		if err := validator.Validate(res); err != nil {
+			return trace.Wrap(err, "resource %q is invalid", res.Kind)
 		}
 	}
 	return nil
