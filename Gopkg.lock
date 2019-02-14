@@ -841,12 +841,12 @@
   version = "1.0.2"
 
 [[projects]]
-  digest = "1:bbecd3d75e28b2b2bd07ea2f751fa84b262819c4196602cc7beec3d4b41b156a"
+  digest = "1:b129e8451d629dde6552dff2c4925c6480ba0887e5eaf896efd14ea962f13e7a"
   name = "github.com/gravitational/rigging"
   packages = ["."]
   pruneopts = "UT"
-  revision = "53e094c60ddc5ac94cebb8301e03660db3996227"
-  version = "5.5.0"
+  revision = "309c75abe239523836b95285c37c0aace1d05998"
+  version = "5.5.1"
 
 [[projects]]
   digest = "1:27daf346b94c013dcec722a9e596d5bff92d7559ab37f787fd71b128bc31066a"
@@ -866,8 +866,8 @@
     "utils",
   ]
   pruneopts = "UT"
-  revision = "e9247fba75a62afddf4d2a8c1bd7015476a422cd"
-  version = "5.5.1"
+  revision = "57869406f0ebe0d80989e632df28052a7a252ed9"
+  version = "5.5.2"
 
 [[projects]]
   digest = "1:49f6abbce9ade5f43508429e4af1adcce55d27adcd62719fea049decc766a7c9"
@@ -2029,8 +2029,8 @@
     "storage/v1beta1",
   ]
   pruneopts = "UT"
-  revision = "89a74a8d264df0e993299876a8cde88379b940ee"
-  version = "kubernetes-1.13.0"
+  revision = "74b699b93c15473932b89e3d1818ba8282f3b5ab"
+  version = "kubernetes-1.13.3"
 
 [[projects]]
   digest = "1:ace21b4261a9bc8d06b188f03ce48d1bed92ccba4890fad616cf283939f723c6"
@@ -2044,11 +2044,11 @@
     "pkg/features",
   ]
   pruneopts = "UT"
-  revision = "20c909e7c8c3fec1a0e345b1d4e57f1c1623c368"
-  version = "kubernetes-1.13.0"
+  revision = "d4288ab6494571219e781fa423db363247635942"
+  version = "kubernetes-1.13.3"
 
 [[projects]]
-  digest = "1:6489d76eab90e477f61eb30186098b5d2e45acd08cefdfdc4988e30c3752ff30"
+  digest = "1:399edd281c273951fe8b05681b5e4e27d37105f41cc9b25fe3aa4c6e4b09dcff"
   name = "k8s.io/apimachinery"
   packages = [
     "pkg/api/equality",
@@ -2105,8 +2105,8 @@
     "third_party/forked/golang/reflect",
   ]
   pruneopts = "UT"
-  revision = "2b1284ed4c93a43499e781493253e2ac5959c4fd"
-  version = "kubernetes-1.13.0"
+  revision = "572dfc7bdfcb4531361a17d27b92851f59acf0dc"
+  version = "kubernetes-1.13.3"
 
 [[projects]]
   digest = "1:138928c37ee6ec1be14aec46c97dab5f110ffa7e81828b9d27919df371fd8f62"
@@ -2119,8 +2119,8 @@
     "pkg/util/feature",
   ]
   pruneopts = "UT"
-  revision = "9caa0299108fbdf51d3d9b8e8956834ae84dac75"
-  version = "kubernetes-1.13.0"
+  revision = "26bc712632e1faf9efc6b63f712325c760ad1ebe"
+  version = "kubernetes-1.13.3"
 
 [[projects]]
   digest = "1:63793246976569a95e534c731e79cc555dabee6f8efa29a0b28ca33f23b7e28b"
@@ -2131,8 +2131,8 @@
     "pkg/genericclioptions/resource",
   ]
   pruneopts = "UT"
-  revision = "a04da5c88c0796c1dc5ff976a9c91999779ac0e4"
-  version = "kubernetes-1.13.0"
+  revision = "491c94071cfae3b539753adf65705d8a333fb92b"
+  version = "kubernetes-1.13.3"
 
 [[projects]]
   digest = "1:c5909e901e79a59cd2f4cf435fc3e2438e48b38f9309fa6adbdc7a52b8b44b7a"

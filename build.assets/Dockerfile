@@ -1,4 +1,4 @@
-FROM quay.io/gravitational/debian-venti:go1.10.3-stretch
+FROM quay.io/gravitational/debian-venti:go1.11.5-stretch
 
 ARG PROTOC_VER
 ARG PROTOC_PLATFORM
@@ -14,7 +14,8 @@ RUN adduser jenkins --uid=995 --disabled-password --system
 RUN (mkdir -p /gopath/src/github.com/gravitational/gravity && \
      chown -R jenkins /gopath && \
      mkdir -p /.cache && \
-     chmod 777 /.cache)
+     chmod 777 /.cache && \
+     chmod 777 /tmp)
 
 ENV LANGUAGE="en_US.UTF-8" \
     LANG="en_US.UTF-8" \
