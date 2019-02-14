@@ -22,6 +22,7 @@ import (
 	"github.com/gravitational/gravity/lib/fsm"
 	"github.com/gravitational/gravity/lib/httplib"
 	"github.com/gravitational/gravity/lib/install/phases"
+	"github.com/gravitational/gravity/lib/ops/resources/gravity"
 
 	"github.com/gravitational/trace"
 )
@@ -95,7 +96,13 @@ func FSMSpec(config FSMConfig) fsm.FSMSpecFunc {
 			if err != nil {
 				return nil, trace.Wrap(err)
 			}
-			return phases.NewGravityResourcesPhase(p, operator)
+			factory, err := gravity.New(gravity.Config{
+				Operator: operator,
+			})
+			if err != nil {
+				return nil, trace.Wrap(err)
+			}
+			return phases.NewGravityResourcesPhase(p, operator, factory)
 
 		default:
 			return nil, trace.BadParameter("unknown phase %q", p.Phase.ID)
