@@ -122,7 +122,6 @@ func RemoveResource(env *localenv.LocalEnvironment, factory LocalEnvironmentFact
 	}
 
 	if checkRunningAsRoot() != nil {
-		// FIXME: fix message for both kinds
 		return trace.BadParameter("removing resource %q requires root privileges.\n"+
 			"Please run this command as root", kind)
 	}
