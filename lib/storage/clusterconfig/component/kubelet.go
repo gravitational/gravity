@@ -18,6 +18,7 @@ package component
 
 import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/runtime/schema"
 )
 
 // HairpinMode denotes how the kubelet should configure networking to handle
@@ -37,6 +38,19 @@ const (
 	// dropped by the container bridge.
 	HairpinNone = "none"
 )
+
+// KubeletVersion defines the version tuple of the kubelet configuration resource
+var KubeletVersion = schema.GroupVersionKind{
+	Group:   "kubelet.config.k8s.io",
+	Version: "v1beta1",
+	Kind:    "KubeletConfiguration",
+}
+
+// KubeletTypeMeta defines the type meta block of the kubelet configuration resource
+var KubeletTypeMeta = metav1.TypeMeta{
+	Kind:       KubeletVersion.Kind,
+	APIVersion: KubeletVersion.GroupVersion().String(),
+}
 
 // ResourceChangeDetectionStrategy denotes a mode in which internal
 // managers (secret, configmap) are discovering object changes.

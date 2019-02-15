@@ -164,6 +164,32 @@ spec:
 			error:   trace.BadParameter("failed to validate: spec.kubelet.config.address: Invalid type. Expected: string, given: integer"),
 			comment: "validates kubelet configuration",
 		},
+		{
+			in: `kind: clusterconfiguration
+version: v1
+spec:
+  global:
+    featureGates:
+      FeatureA: true
+      FeatureB: false`,
+			resource: &Resource{
+				Kind:    storage.KindClusterConfiguration,
+				Version: "v1",
+				Metadata: teleservices.Metadata{
+					Name:      constants.ClusterConfigurationMap,
+					Namespace: defaults.KubeSystemNamespace,
+				},
+				Spec: Spec{
+					Global: &Global{
+						FeatureGates: map[string]bool{
+							"FeatureA": true,
+							"FeatureB": false,
+						},
+					},
+				},
+			},
+			comment: "consumes global configuration",
+		},
 	}
 	for _, tc := range testCases {
 		comment := Commentf(tc.comment)

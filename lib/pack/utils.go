@@ -137,13 +137,17 @@ func GetConfigPackage(p PackageService, loc loc.Locator, confLoc loc.Locator, ar
 		return nil, trace.Wrap(err)
 	}
 
-	log.Infof("got manifest: %#v", manifest)
+	logger := log.WithFields(log.Fields{
+		"package":  loc.String(),
+		"manifest": fmt.Sprintf("%#v", manifest),
+	})
+	logger.Info("Generate configuration package.")
 	if manifest.Config == nil {
 		return nil, trace.BadParameter("manifest does not have configuration parameters")
 	}
 
 	if err := manifest.Config.ParseArgs(args); err != nil {
-		log.Warnf("Failed to parse arguments: %v.", err)
+		logger.WithError(err).Warn("Failed to parse arguments.")
 		return nil, trace.Wrap(err)
 	}
 

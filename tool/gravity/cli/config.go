@@ -1,5 +1,5 @@
 /*
-Copyright 2018 Gravitational, Inc.
+Copyright 2019 Gravitational, Inc.
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -373,6 +373,7 @@ func (i *InstallConfig) ValidateResources(validator resources.Validator) error {
 		return trace.Wrap(err, "failed to read resources")
 	}
 	defer rc.Close()
+	// TODO(dmitri): validate kubernetes resources as well
 	_, gravityResources, err := resources.Split(rc)
 	if err != nil {
 		return trace.BadParameter("failed to validate %q: %v", i.ResourcesPath, err)
