@@ -164,7 +164,7 @@ type ComponentConfigs struct {
 type Kubelet struct {
 	// ExtraArgs lists additional command line arguments
 	ExtraArgs []string `json:"extraArgs,omitempty"`
-	// Config defines the kubelet configuration as either YAML or JSON-formatted
+	// Config defines the kubelet configuration as a JSON-formatted
 	// payload
 	Config json.RawMessage `json:"config,omitempty"`
 }
@@ -177,10 +177,29 @@ type ControlPlaneComponent struct {
 // Global describes global configuration
 type Global struct {
 	// CloudProvider specifies the cloud provider
-	CloudProvider string `json:"cloudProvider"`
+	CloudProvider string `json:"cloudProvider,omitempty"`
 	// CloudConfig describes the cloud configuration.
 	// The configuration is provider-specific
 	CloudConfig CloudConfig `json:"cloudConfig"`
+	// ServiceCIDR represents the IP range from which to assign service cluster IPs.
+	// This must not overlap with any IP ranges assigned to nodes for pods.
+	// Targets: api server, controller manager
+	ServiceCIDR string `json:"serviceCIDR,omitempty"`
+	// ServiceNodePortRange defines the range of ports to reserve for services with NodePort visibility.
+	// Inclusive at both ends of the range.
+	// Targets: api server
+	ServiceNodePortRange string `json:"serviceNodePortRange,omitempty"`
+	// PodCIDR defines the CIDR Range for Pods in cluster.
+	// Targets: controller manager, kubelet
+	PodCIDR string `json:"podCIDR,omitempty"`
+	// ProxyPortRange specifies the range of host ports (beginPort-endPort, single port or beginPort+offset, inclusive)
+	// that may be consumed in order to proxy service traffic.
+	// If (unspecified, 0, or 0-0) then ports will be randomly chosen.
+	// Targets: kube-proxy
+	ProxyPortRange string `json:"proxyPortRange,omitempty"`
+	// FeatureGates defines the set of key=value pairs that describe feature gates for alpha/experimental features.
+	// Targets: all components
+	FeatureGates map[string]bool `json:"featureGates,omitempty"`
 }
 
 func (r CloudConfig) MarshalJSON() ([]byte, error) {
@@ -241,14 +260,14 @@ const specSchemaTemplate = `{
           "properties": {
             "cloudProvider": {"type": "string"},
             "cloudConfig": {"type": "string"},
-            "serviceClusterIpRange": {"type": "string"},
+            "serviceCIDR": {"type": "string"},
             "serviceNodePortRange": {"type": "string"},
-            "proxyPortRange": {"type": "string"},
-            "clusterCidr": {"type": "string"},
+            "poxyPortRange": {"type": "string"},
+            "podCIDR": {"type": "string"},
             "featureGates": {
               "type": "object",
               "patternProperties": {
-                 "^[a-zA-Z]+[a-zA-Z0-9]*$": {"type": "string", "enum": ["true", "false"]}
+                 "^[a-zA-Z]+[a-zA-Z0-9]*$": {"type": "boolean"}
               }
             }
           }
@@ -331,7 +350,7 @@ const specSchemaTemplate = `{
                 "featureGates": {
                   "type": "object",
                   "patternProperties": {
-                     "^[a-zA-Z]+[a-zA-Z0-9]*$": {"type": "string", "enum": ["true", "false"]}
+                     "^[a-zA-Z]+[a-zA-Z0-9]*$": {"type": "boolean"}
                   }
                 },
                 "failSwapOn": {"type": "boolean"},
