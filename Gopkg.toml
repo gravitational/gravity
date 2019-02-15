@@ -65,7 +65,7 @@ ignored = [
 
 [[constraint]]
   name = "github.com/gravitational/satellite"
-  version = "=5.5.1"
+  version = "=5.5.2"
 
 [[constraint]]
   name = "github.com/xtgo/set"
@@ -89,15 +89,15 @@ ignored = [
 
 [[override]]
   name = "k8s.io/apimachinery"
-  version = "kubernetes-1.13.0"
+  version = "kubernetes-1.13.3"
 
 [[override]]
   name = "k8s.io/api"
-  version = "kubernetes-1.13.0"
+  version = "kubernetes-1.13.3"
 
 [[override]]
   name = "k8s.io/apiserver"
-  version = "kubernetes-1.13.0"
+  version = "kubernetes-1.13.3"
 
 [[override]]
   name = "k8s.io/kubernetes"
@@ -105,11 +105,11 @@ ignored = [
 
 [[override]]
   name = "k8s.io/cli-runtime"
-  version = "kubernetes-1.13.0"
+  version = "kubernetes-1.13.3"
 
 [[override]]
   name = "k8s.io/apiextensions-apiserver"
-  version = "kubernetes-1.13.0"
+  version = "kubernetes-1.13.3"
 
 [[override]]
   name = "k8s.io/kube-aggregator"
@@ -117,7 +117,7 @@ ignored = [
 
 [[constraint]]
   name = "github.com/gravitational/rigging"
-  version = "=5.5.0"
+  version = "=5.5.1"
 
 [[override]]
   name = "github.com/docker/distribution"
