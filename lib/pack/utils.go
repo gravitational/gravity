@@ -31,7 +31,6 @@ import (
 	"github.com/gravitational/gravity/lib/state"
 	"github.com/gravitational/gravity/lib/storage"
 
-	"github.com/coreos/go-semver/semver"
 	dockerarchive "github.com/docker/docker/pkg/archive"
 	"github.com/gravitational/trace"
 	log "github.com/sirupsen/logrus"
@@ -354,40 +353,6 @@ func ProcessMetadata(packages PackageService, loc *loc.Locator) (*loc.Locator, e
 		return FindLatestPackage(packages, *loc)
 	}
 	return loc, nil
-}
-
-// FindLatestCompatiblePackage returns the latest compatible package for
-// the provided filter and version
-//
-// Two packages are deemed compatible when major and minor components
-// of their semvers are the same.
-func FindLatestCompatiblePackage(packages PackageService, filter loc.Locator, version semver.Version) (*loc.Locator, error) {
-	var latest *semver.Version
-	err := ForeachPackageInRepo(packages, filter.Repository, func(e PackageEnvelope) error {
-		if e.Locator.Name != filter.Name {
-			return nil // not same package
-		}
-		ver, err := e.Locator.SemVer()
-		if err != nil {
-			return trace.Wrap(err)
-		}
-		if ver.Major != version.Major || ver.Minor != version.Minor {
-			return nil // not compatible
-		}
-		if latest == nil || latest.LessThan(*ver) {
-			latest = ver
-		}
-		return nil
-	})
-	if err != nil {
-		return nil, trace.Wrap(err)
-	}
-	if latest == nil {
-		return nil, trace.NotFound("latest compatible package for %v not found",
-			filter.String())
-	}
-	loc := filter.WithVersion(latest)
-	return &loc, nil
 }
 
 // FindLatestPackageWithLabels returns the latest package matching the provided
