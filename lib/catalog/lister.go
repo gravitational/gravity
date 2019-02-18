@@ -155,8 +155,8 @@ func (l ListItems) Swap(i, j int) {
 // The items are sorted first by type (cluster images appear before application
 // images), then by name (lexicographically) and finally by semantic version.
 func (l ListItems) Less(i, j int) bool {
-	if l[i].GetType() == schema.KindCluster && l[j].GetType() != schema.KindCluster {
-		return true
+	if l[i].GetType() != l[j].GetType() {
+		return l[i].GetType() == schema.KindCluster
 	}
 	if l[i].GetName() < l[j].GetName() {
 		return true

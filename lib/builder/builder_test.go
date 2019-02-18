@@ -93,7 +93,8 @@ func (s *BuilderSuite) TestSelectRuntimeVersion(c *check.C) {
 
 	b.Manifest = schema.MustParseManifestYAML([]byte(manifestInvalidBase))
 	ver, err = b.SelectRuntime()
-	c.Assert(err, check.NotNil)
+	c.Assert(err, check.FitsTypeOf, trace.BadParameter(""))
+	c.Assert(err, check.ErrorMatches, "unsupported base image .*")
 }
 
 const (
