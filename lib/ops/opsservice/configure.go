@@ -341,9 +341,12 @@ func (s *site) configurePackages(ctx *operationContext, req ops.ConfigurePackage
 
 	etcdConfig := s.prepareEtcdConfig(ctx)
 
-	clusterConfig, err := clusterconfig.Unmarshal(req.Config)
-	if err != nil {
-		return trace.Wrap(err)
+	var clusterConfig clusterconfig.Interface
+	if len(req.Config) != 0 {
+		clusterConfig, err = clusterconfig.Unmarshal(req.Config)
+		if err != nil {
+			return trace.Wrap(err)
+		}
 	}
 
 	for i, master := range masters {

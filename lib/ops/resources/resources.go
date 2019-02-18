@@ -260,7 +260,7 @@ func Split(r io.Reader) (kubernetesResources []runtime.Object, gravityResources 
 // Returns the first encountered error
 func ForEach(r io.Reader, handler ResourceFunc) (err error) {
 	decoder := yaml.NewYAMLOrJSONDecoder(r, defaults.DecoderBufferSize)
-	for err == nil {
+	for err == nil || utils.IsAbortError(err) {
 		var resource storage.UnknownResource
 		err = decoder.Decode(&resource)
 		if err != nil {
@@ -271,6 +271,9 @@ func ForEach(r io.Reader, handler ResourceFunc) (err error) {
 	}
 	if err == io.EOF {
 		err = nil
+	}
+	if origErr, ok := trace.Unwrap(err).(*utils.AbortRetry); ok {
+		err = origErr.Err
 	}
 	return trace.Wrap(err)
 }

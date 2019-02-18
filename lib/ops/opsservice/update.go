@@ -150,11 +150,6 @@ func (o *Operator) RotatePlanetConfig(req ops.RotatePlanetConfigRequest) (*ops.R
 		return nil, trace.Wrap(err)
 	}
 
-	clusterConfig, err := clusterconfig.Unmarshal(req.Config)
-	if err != nil {
-		return nil, trace.Wrap(err)
-	}
-
 	config := planetConfig{
 		master: masterConfig{
 			addr:            master.AdvertiseIP,
@@ -169,7 +164,14 @@ func (o *Operator) RotatePlanetConfig(req ops.RotatePlanetConfigRequest) (*ops.R
 		planetPackage: req.Package,
 		configPackage: *configPackage,
 		env:           req.Env,
-		config:        clusterConfig,
+	}
+
+	if len(req.Config) != 0 {
+		clusterConfig, err := clusterconfig.Unmarshal(req.Config)
+		if err != nil {
+			return nil, trace.Wrap(err)
+		}
+		config.config = clusterConfig
 	}
 
 	resp, err := cluster.getPlanetConfigPackage(config)
