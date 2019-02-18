@@ -304,6 +304,11 @@ func (s *site) configurePackages(ctx *operationContext, req ops.ConfigurePackage
 
 	etcdConfig := s.prepareEtcdConfig(ctx)
 
+	clusterConfig, err := clusterconfig.Unmarshal(req.Config)
+	if err != nil {
+		return trace.Wrap(err)
+	}
+
 	for i, master := range masters {
 		secretsPackage, err := s.planetSecretsPackage(master)
 		if err != nil {
@@ -345,10 +350,6 @@ func (s *site) configurePackages(ctx *operationContext, req ops.ConfigurePackage
 				master, etcdConfig)
 		}
 
-		clusterConfig, err := clusterconfig.Unmarshal(req.Config)
-		if err != nil {
-			return trace.Wrap(err)
-		}
 		config := planetConfig{
 			server:        *master,
 			installExpand: ctx.operation,
@@ -415,6 +416,7 @@ func (s *site) configurePackages(ctx *operationContext, req ops.ConfigurePackage
 			configPackage: *configPackage,
 			manifest:      s.app.Manifest,
 			env:           req.Env,
+			config:        clusterConfig,
 		}
 
 		err = s.configurePlanetNode(config, *secretsPackage, *configPackage)
@@ -1500,16 +1502,15 @@ func (s *site) addClusterConfig(planetConfig planetConfig, overrideArgs map[stri
 		cloudProvider = config.CloudProvider
 	}
 
-	if cloudProvider == "" {
-		return nil
+	if cloudProvider != "" {
+		args = append(args, fmt.Sprintf("--cloud-provider=%v", cloudProvider))
+		if cloudProvider == schema.ProviderGCE {
+			args = append(args, fmt.Sprintf("--gce-node-tags=%v", s.gceNodeTags()))
+		}
+		args = append(args,
+			fmt.Sprintf("--cloud-config=%v", string(config.CloudConfig.Config)))
 	}
 
-	args = append(args, fmt.Sprintf("--cloud-provider=%v", cloudProvider))
-	if cloudProvider == schema.ProviderGCE {
-		args = append(args, fmt.Sprintf("--gce-node-tags=%v", s.gceNodeTags()))
-	}
-	args = append(args,
-		fmt.Sprintf("--cloud-config=%v", string(config.CloudConfig.Config)))
 	if config.ServiceCIDR != "" {
 		overrideArgs["service-subnet"] = config.ServiceCIDR
 	}
