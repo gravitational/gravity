@@ -118,8 +118,11 @@ func newConfigUpdater(ctx context.Context, localEnv, updateEnv *localenv.LocalEn
 			if err != nil {
 				msg = err.Error()
 			}
-			if errMark := ops.FailOperation(*key, operator, msg); errMark != nil {
-				logger.WithError(errMark).Warn("Failed to mark operation as failed.")
+			if errMark := ops.FailOperationAndResetCluster(*key, operator, msg); err != nil {
+				logrus.WithFields(logrus.Fields{
+					logrus.ErrorKey: errMark,
+					"operation":     key,
+				}).Warn("Failed to mark operation as failed.")
 			}
 		}
 		if r != nil {

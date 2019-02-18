@@ -247,6 +247,23 @@ func GetWizardCluster(operator Operator) (*Site, error) {
 	return &clusters[0], nil
 }
 
+// FailOperationAndResetCluster completes the specified operation and resets
+// cluster state to active
+func FailOperationAndResetCluster(key SiteOperationKey, operator Operator, message string) error {
+	err := FailOperation(key, operator, message)
+	if err != nil {
+		return trace.Wrap(err)
+	}
+	err = operator.ActivateSite(ActivateSiteRequest{
+		AccountID:  key.AccountID,
+		SiteDomain: key.SiteDomain,
+	})
+	if err != nil {
+		return trace.Wrap(err)
+	}
+	return nil
+}
+
 // CompleteOperation marks the specified operation as completed
 func CompleteOperation(key SiteOperationKey, operator OperationStateSetter) error {
 	return operator.SetOperationState(key, SetOperationStateRequest{
