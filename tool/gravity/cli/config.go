@@ -379,7 +379,7 @@ func (i *InstallConfig) ValidateResources(validator resources.Validator) error {
 		return trace.BadParameter("failed to validate %q: %v", i.ResourcesPath, err)
 	}
 	for _, res := range gravityResources {
-		log.WithField("resource", res).Info("Validating.")
+		log.WithField("resource", res.ResourceHeader).Info("Validating.")
 		if err := validator.Validate(res); err != nil {
 			return trace.Wrap(err, "resource %q is invalid", res.Kind)
 		}
