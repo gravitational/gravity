@@ -119,10 +119,6 @@ func (r *Updater) Complete() error {
 	if err != nil {
 		return trace.Wrap(err)
 	}
-	err = r.Operator.ActivateSite(ops.ActivateSiteRequest{
-		AccountID:  r.ClusterKey.AccountID,
-		SiteDomain: r.ClusterKey.SiteDomain,
-	})
 	return trace.Wrap(err)
 }
 

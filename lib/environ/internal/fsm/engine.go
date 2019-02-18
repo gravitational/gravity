@@ -168,7 +168,6 @@ func (r *engine) Complete(fsmErr error) error {
 	if err != nil {
 		return trace.Wrap(err)
 	}
-
 	if libfsm.IsCompleted(plan) {
 		err = ops.CompleteOperation(r.Operation.Key(), r.operator)
 	} else {
@@ -181,8 +180,15 @@ func (r *engine) Complete(fsmErr error) error {
 	if err != nil {
 		return trace.Wrap(err)
 	}
+	err = r.operator.ActivateSite(ops.ActivateSiteRequest{
+		AccountID:  r.Operation.AccountID,
+		SiteDomain: r.Operation.SiteDomain,
+	})
+	if err != nil {
+		return trace.Wrap(err)
+	}
 
-	r.Debug("Marked operation complete.")
+	r.WithField("operation", r.Operation).Debug("Marked operation complete.")
 	return nil
 }
 
@@ -295,4 +301,5 @@ type operator interface {
 	CreateOperationPlanChange(ops.SiteOperationKey, storage.PlanChange) error
 	GetOperationPlan(ops.SiteOperationKey) (*storage.OperationPlan, error)
 	SetOperationState(ops.SiteOperationKey, ops.SetOperationStateRequest) error
+	ActivateSite(ops.ActivateSiteRequest) error
 }

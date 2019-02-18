@@ -161,6 +161,10 @@ func RequireIfPresent(plan *storage.OperationPlan, phaseIDs ...string) []string 
 func GetOperationPlan(b storage.Backend, clusterName, operationID string) (*storage.OperationPlan, error) {
 	plan, err := b.GetOperationPlan(clusterName, operationID)
 	if err != nil {
+		if trace.IsNotFound(err) {
+			return nil, trace.NotFound("no operation plan for operation %v found",
+				operationID)
+		}
 		return nil, trace.Wrap(err)
 	}
 	ch, err := b.GetOperationPlanChangelog(clusterName, operationID)
