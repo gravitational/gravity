@@ -116,9 +116,7 @@ func RemoveResource(env *localenv.LocalEnvironment, factory LocalEnvironmentFact
 			return trace.Wrap(err)
 		}
 		err = resources.NewControl(gravityResources).Remove(kind, name, force, user)
-		if err != nil {
-			return trace.Wrap(err)
-		}
+		return trace.Wrap(err)
 	}
 
 	if checkRunningAsRoot() != nil {

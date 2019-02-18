@@ -17,6 +17,7 @@ limitations under the License.
 package cli
 
 import (
+	"bytes"
 	"context"
 	"io/ioutil"
 	"net"
@@ -34,6 +35,7 @@ import (
 	"github.com/gravitational/gravity/lib/rpc/proto"
 	rpcserver "github.com/gravitational/gravity/lib/rpc/server"
 	"github.com/gravitational/gravity/lib/storage"
+	"github.com/gravitational/gravity/lib/storage/clusterconfig"
 	"github.com/gravitational/gravity/lib/systeminfo"
 	"github.com/gravitational/gravity/lib/utils"
 
@@ -307,6 +309,10 @@ func (i *InstallConfig) ToInstallerConfig(env *localenv.LocalEnvironment) (*inst
 	if err != nil {
 		return nil, trace.Wrap(err)
 	}
+	err = i.fetchClusterConfig(resources)
+	if err != nil {
+		return nil, trace.Wrap(err)
+	}
 	ctx, cancel := context.WithCancel(context.Background())
 	return &install.Config{
 		Context:            ctx,
@@ -347,21 +353,6 @@ func (i *InstallConfig) ToInstallerConfig(env *localenv.LocalEnvironment) (*inst
 	}, nil
 }
 
-func (i *InstallConfig) validateDNSConfig() error {
-	blocks, err := utils.LocalIPNetworks()
-	if err != nil {
-		return trace.Wrap(err)
-	}
-	for _, addr := range i.DNSConfig.Addrs {
-		ip := net.ParseIP(addr)
-		if !validateIP(blocks, ip) {
-			return trace.BadParameter(
-				"IP address %v does not belong to any local IP network", addr)
-		}
-	}
-	return nil
-}
-
 // ValidateResources validates the resources specified in ResourcePath
 // using the given validator
 func (i *InstallConfig) ValidateResources(validator resources.Validator) error {
@@ -382,6 +373,42 @@ func (i *InstallConfig) ValidateResources(validator resources.Validator) error {
 		log.WithField("resource", res.ResourceHeader).Info("Validating.")
 		if err := validator.Validate(res); err != nil {
 			return trace.Wrap(err, "resource %q is invalid", res.Kind)
+		}
+	}
+	return nil
+}
+
+func (i *InstallConfig) fetchClusterConfig(resourceBytes []byte) error {
+	if len(resourceBytes) == 0 {
+		return nil
+	}
+	err := resources.ForEach(bytes.NewReader(resourceBytes), func(res storage.UnknownResource) error {
+		if res.Kind != storage.KindClusterConfiguration {
+			return nil
+		}
+		config, err := clusterconfig.Unmarshal(res.Raw)
+		if err != nil {
+			return trace.Wrap(err)
+		}
+		if config := config.GetGlobalConfig(); config != nil && config.CloudProvider != "" {
+			i.CloudProvider = config.CloudProvider
+			return utils.Abort(nil)
+		}
+		return nil
+	})
+	return trace.Wrap(err)
+}
+
+func (i *InstallConfig) validateDNSConfig() error {
+	blocks, err := utils.LocalIPNetworks()
+	if err != nil {
+		return trace.Wrap(err)
+	}
+	for _, addr := range i.DNSConfig.Addrs {
+		ip := net.ParseIP(addr)
+		if !validateIP(blocks, ip) {
+			return trace.BadParameter(
+				"IP address %v does not belong to any local IP network", addr)
 		}
 	}
 	return nil
