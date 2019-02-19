@@ -1544,8 +1544,8 @@ func (s *site) addClusterConfig(planetConfig planetConfig, overrideArgs map[stri
 		if cloudProvider == schema.ProviderGCE {
 			args = append(args, fmt.Sprintf("--gce-node-tags=%v", s.gceNodeTags()))
 		}
-		args = append(args,
-			fmt.Sprintf("--cloud-config=%v", string(config.CloudConfig.Config)))
+		args = append(args, fmt.Sprintf("--cloud-config=%v",
+			base64.StdEncoding.EncodeToString([]byte(config.CloudConfig.Config))))
 	}
 
 	if config.ServiceCIDR != "" {

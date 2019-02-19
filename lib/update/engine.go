@@ -203,7 +203,7 @@ func (f *fsmUpdateEngine) activateCluster(cluster storage.Site) error {
 }
 
 func (f *fsmUpdateEngine) ChangePhaseState(ctx context.Context, change fsm.StateChange) error {
-	f.Debugf("%s.", change)
+	f.WithField("change", change).Debug("Apply.")
 
 	_, err := f.LocalBackend.CreateOperationPlanChange(storage.PlanChange{
 		ID:          uuid.New(),

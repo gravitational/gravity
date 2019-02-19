@@ -309,7 +309,7 @@ func (i *InstallConfig) ToInstallerConfig(env *localenv.LocalEnvironment) (*inst
 	if err != nil {
 		return nil, trace.Wrap(err)
 	}
-	err = i.fetchClusterConfig(resources)
+	err = i.updateFromClusterConfig(resources)
 	if err != nil {
 		return nil, trace.Wrap(err)
 	}
@@ -378,7 +378,7 @@ func (i *InstallConfig) ValidateResources(validator resources.Validator) error {
 	return nil
 }
 
-func (i *InstallConfig) fetchClusterConfig(resourceBytes []byte) error {
+func (i *InstallConfig) updateFromClusterConfig(resourceBytes []byte) error {
 	if len(resourceBytes) == 0 {
 		return nil
 	}

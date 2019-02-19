@@ -679,6 +679,15 @@ func (r *Router) GetClusterConfiguration(key ops.SiteKey) (clusterconfig.Interfa
 	return client.GetClusterConfiguration(key)
 }
 
+// UpdateClusterConfiguration updates the cluster configuration from the specified request
+func (r *Router) UpdateClusterConfiguration(req ops.UpdateClusterConfigRequest) error {
+	client, err := r.RemoteClient(req.ClusterKey.SiteDomain)
+	if err != nil {
+		return trace.Wrap(err)
+	}
+	return client.UpdateClusterConfiguration(req)
+}
+
 func (r *Router) GetApplicationEndpoints(key ops.SiteKey) ([]ops.Endpoint, error) {
 	client, err := r.RemoteClient(key.SiteDomain)
 	if err != nil {

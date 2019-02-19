@@ -1153,6 +1153,17 @@ func (c *Client) GetClusterConfiguration(key ops.SiteKey) (clusterconfig.Interfa
 	return config, nil
 }
 
+// UpdateClusterConfiguration updates the cluster configuration from the specified request
+func (c *Client) UpdateClusterConfiguration(req ops.UpdateClusterConfigRequest) error {
+	_, err := c.PutJSON(c.Endpoint(
+		"accounts", req.ClusterKey.AccountID, "sites", req.ClusterKey.SiteDomain, "config"),
+		&UpsertResourceRawReq{Resource: req.Config})
+	if err != nil {
+		return trace.Wrap(err)
+	}
+	return nil
+}
+
 func (c *Client) GetApplicationEndpoints(key ops.SiteKey) ([]ops.Endpoint, error) {
 	out, err := c.Get(c.Endpoint("accounts", key.AccountID, "sites", key.SiteDomain, "endpoints"), url.Values{})
 	if err != nil {

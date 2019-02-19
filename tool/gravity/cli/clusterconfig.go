@@ -237,7 +237,7 @@ func getConfigUpdater(env, updateEnv *localenv.LocalEnvironment, operation ops.S
 		Backend:         clusterEnv.Backend,
 		Client:          clusterEnv.Client,
 		ClusterPackages: clusterEnv.ClusterPackages,
-		LocalBackend:    env.Backend,
+		LocalBackend:    updateEnv.Backend,
 		Servers:         cluster.ClusterState.Servers,
 		ClusterKey:      cluster.Key(),
 		Silent:          env.Silent,
@@ -264,5 +264,5 @@ The operation might take a few minutes to complete.
 "Are you sure?`
 	updateConfigManualOperationBanner = `The operation has been created in manual mode.
 
-See https://gravitational.com/gravity/docs/cluster/#managing-an-ongoing-operation for details.`
+See https://gravitational.com/gravity/docs/cluster/#managing-an-ongoing-operation for details on working with operation plan.`
 )

@@ -198,27 +198,24 @@ func (r *engine) Complete(fsmErr error) error {
 
 // ChangePhaseState creates a new changelog entry
 func (r *engine) ChangePhaseState(ctx context.Context, change libfsm.StateChange) error {
-	err := r.operator.CreateOperationPlanChange(r.Operation.Key(),
-		storage.PlanChange{
-			ID:          uuid.New(),
-			ClusterName: r.Operation.SiteDomain,
-			OperationID: r.Operation.ID,
-			PhaseID:     change.Phase,
-			NewState:    change.State,
-			Error:       utils.ToRawTrace(change.Error),
-			Created:     time.Now().UTC(),
-		})
+	r.WithField("change", change).Debug("Apply.")
+	_, err := r.LocalBackend.CreateOperationPlanChange(storage.PlanChange{
+		ID:          uuid.New(),
+		ClusterName: r.Operation.SiteDomain,
+		OperationID: r.Operation.ID,
+		PhaseID:     change.Phase,
+		NewState:    change.State,
+		Error:       utils.ToRawTrace(change.Error),
+		Created:     time.Now().UTC(),
+	})
 	if err != nil {
 		return trace.Wrap(err)
 	}
-
 	plan, err := r.reconciler.ReconcilePlan(ctx, r.plan)
 	if err != nil {
 		return trace.Wrap(err)
 	}
 	r.plan = *plan
-
-	r.Debugf("Applied %v.", change)
 	return nil
 }
 

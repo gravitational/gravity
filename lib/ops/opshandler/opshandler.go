@@ -240,6 +240,7 @@ func NewWebHandler(cfg WebHandlerConfig) (*WebHandler, error) {
 
 	// cluster configuration
 	h.GET("/portal/v1/accounts/:account_id/sites/:site_domain/config", h.needsAuth(h.getClusterConfiguration))
+	h.PUT("/portal/v1/accounts/:account_id/sites/:site_domain/config", h.needsAuth(h.updateClusterConfig))
 	h.POST("/portal/v1/accounts/:account_id/sites/:site_domain/operations/config", h.needsAuth(h.createUpdateConfigOperation))
 
 	// validation
