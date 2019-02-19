@@ -801,6 +801,14 @@ func (o *OperatorACL) GetClusterConfiguration(key SiteKey) (clusterconfig.Interf
 	return o.operator.GetClusterConfiguration(key)
 }
 
+// UpdateClusterConfiguration updates the cluster configuration from the specified request
+func (o *OperatorACL) UpdateClusterConfiguration(req UpdateClusterConfigRequest) error {
+	if err := o.ClusterAction(req.ClusterKey.SiteDomain, storage.KindClusterConfiguration, teleservices.VerbUpdate); err != nil {
+		return trace.Wrap(err)
+	}
+	return o.operator.UpdateClusterConfiguration(req)
+}
+
 func (o *OperatorACL) GetApplicationEndpoints(key SiteKey) ([]Endpoint, error) {
 	if err := o.ClusterAction(key.SiteDomain, storage.KindCluster, teleservices.VerbRead); err != nil {
 		return nil, trace.Wrap(err)

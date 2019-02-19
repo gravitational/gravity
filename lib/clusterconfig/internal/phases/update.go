@@ -35,7 +35,7 @@ import (
 // NewUpdateConfig returns a new executor to update runtime configuration on the specified node
 func NewUpdateConfig(
 	params libfsm.ExecutorParams,
-	operator runtimePackageRotator,
+	operator operator,
 	operation ops.SiteOperation,
 	apps appGetter,
 	packages packageService,
@@ -85,12 +85,20 @@ func (r *updateConfig) Execute(ctx context.Context) error {
 			return trace.Wrap(err)
 		}
 	}
-	return nil
+	err := r.operator.UpdateClusterConfiguration(ops.UpdateClusterConfigRequest{
+		ClusterKey: r.operation.ClusterKey(),
+		Config:     r.operation.UpdateConfig.Config,
+	})
+	return trace.Wrap(err)
 }
 
-// Rollback is a no-op for this phase
+// Rollback resets the cluster configuration to the previous value
 func (r *updateConfig) Rollback(context.Context) error {
-	return nil
+	err := r.operator.UpdateClusterConfiguration(ops.UpdateClusterConfigRequest{
+		ClusterKey: r.operation.ClusterKey(),
+		Config:     r.operation.UpdateConfig.PrevConfig,
+	})
+	return trace.Wrap(err)
 }
 
 // PreCheck is a no-op
@@ -106,15 +114,16 @@ func (r *updateConfig) PostCheck(context.Context) error {
 type updateConfig struct {
 	// FieldLogger specifies the logger for the phase
 	log.FieldLogger
-	operator  runtimePackageRotator
+	operator  operator
 	operation ops.SiteOperation
 	packages  packageService
 	servers   []storage.Server
 	manifest  schema.Manifest
 }
 
-type runtimePackageRotator interface {
+type operator interface {
 	RotatePlanetConfig(ops.RotatePlanetConfigRequest) (*ops.RotatePackageResponse, error)
+	UpdateClusterConfiguration(ops.UpdateClusterConfigRequest) error
 }
 
 type appGetter interface {

@@ -28,6 +28,38 @@ import (
 	"github.com/julienschmidt/httprouter"
 )
 
+/* updateClusterConfig updates the cluster configuration
+
+   PUT /portal/v1/accounts/:account_id/sites/:site_domain/config
+
+   {
+      "account_id": "account id",
+      "site_id": "site_id",
+      "config": "<new configuration>"
+   }
+
+
+Success response:
+
+   {
+      "message": "cluster configuration updated",
+   }
+*/
+func (h *WebHandler) updateClusterConfig(w http.ResponseWriter, r *http.Request, p httprouter.Params, context *HandlerContext) error {
+	d := json.NewDecoder(r.Body)
+	var req ops.UpdateClusterConfigRequest
+	if err := d.Decode(&req); err != nil {
+		return trace.BadParameter(err.Error())
+	}
+	req.ClusterKey = siteKey(p)
+	err := context.Operator.UpdateClusterConfiguration(req)
+	if err != nil {
+		return trace.Wrap(err)
+	}
+	roundtrip.ReplyJSON(w, http.StatusOK, statusOK("cluster configuration updated"))
+	return nil
+}
+
 /* createUpdateConfigOperation initiates the operatation of updating cluster configuration
 
    POST /portal/v1/accounts/:account_id/sites/:site_domain/operations/config

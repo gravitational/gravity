@@ -36,16 +36,20 @@ import (
 )
 
 // CreateUpdateConfigOperation creates a new operation to update cluster configuration
-func (o *Operator) CreateUpdateConfigOperation(r ops.CreateUpdateConfigOperationRequest) (*ops.SiteOperationKey, error) {
-	err := r.ClusterKey.Check()
+func (o *Operator) CreateUpdateConfigOperation(req ops.CreateUpdateConfigOperationRequest) (*ops.SiteOperationKey, error) {
+	err := req.ClusterKey.Check()
 	if err != nil {
 		return nil, trace.Wrap(err)
 	}
-	cluster, err := o.openSite(r.ClusterKey)
+	cluster, err := o.openSite(req.ClusterKey)
 	if err != nil {
 		return nil, trace.Wrap(err)
 	}
-	key, err := cluster.createUpdateConfigOperation(r)
+	config, err := o.getClusterConfiguration()
+	if err != nil {
+		return nil, trace.Wrap(err)
+	}
+	key, err := cluster.createUpdateConfigOperation(req, []byte(config))
 	if err != nil {
 		return nil, trace.Wrap(err)
 	}
@@ -53,18 +57,8 @@ func (o *Operator) CreateUpdateConfigOperation(r ops.CreateUpdateConfigOperation
 }
 
 // GetClusterConfiguration retrieves the cluster configuration
-func (o *Operator) GetClusterConfiguration(key ops.SiteKey) (config clusterconfig.Interface, err error) {
-	client, err := o.GetKubeClient()
-	if err != nil {
-		return nil, trace.Wrap(err)
-	}
-	configmap, err := client.CoreV1().ConfigMaps(defaults.KubeSystemNamespace).
-		Get(constants.ClusterConfigurationMap, metav1.GetOptions{})
-	err = rigging.ConvertError(err)
-	if err != nil && !trace.IsNotFound(err) {
-		return nil, trace.Wrap(err)
-	}
-	spec := configmap.Data["spec"]
+func (o *Operator) GetClusterConfiguration(ops.SiteKey) (config clusterconfig.Interface, err error) {
+	spec, err := o.getClusterConfiguration()
 	if len(spec) != 0 {
 		config, err = clusterconfig.Unmarshal([]byte(spec))
 		if err != nil {
@@ -74,6 +68,55 @@ func (o *Operator) GetClusterConfiguration(key ops.SiteKey) (config clusterconfi
 		config = clusterconfig.Empty()
 	}
 	return config, nil
+}
+
+func (o *Operator) getClusterConfiguration() (config string, err error) {
+	client, err := o.GetKubeClient()
+	if err != nil {
+		return "", trace.Wrap(err)
+	}
+	configmap, err := client.CoreV1().ConfigMaps(defaults.KubeSystemNamespace).
+		Get(constants.ClusterConfigurationMap, metav1.GetOptions{})
+	err = rigging.ConvertError(err)
+	if err != nil && !trace.IsNotFound(err) {
+		return "", trace.Wrap(err)
+	}
+	config = configmap.Data["spec"]
+	return config, nil
+}
+
+// UpdateClusterConfiguration updates the cluster configuration to the value given
+// in the specified request
+func (o *Operator) UpdateClusterConfiguration(req ops.UpdateClusterConfigRequest) error {
+	client, err := o.GetKubeClient()
+	if err != nil {
+		return trace.Wrap(err)
+	}
+	configmaps := client.CoreV1().ConfigMaps(defaults.KubeSystemNamespace)
+	configmap, err := getOrCreateClusterConfigMap(configmaps)
+	if err != nil {
+		return trace.Wrap(err)
+	}
+	var previousKeyValues []byte
+	if len(configmap.Data) != 0 {
+		var err error
+		previousKeyValues, err = json.Marshal(configmap.Data)
+		if err != nil {
+			return trace.Wrap(err, "failed to marshal previous key/values")
+		}
+		if configmap.Annotations == nil {
+			configmap.Annotations = make(map[string]string)
+		}
+		configmap.Annotations[constants.PreviousKeyValuesAnnotationKey] = string(previousKeyValues)
+	}
+	configmap.Data = map[string]string{
+		"spec": string(req.Config),
+	}
+	err = kubernetes.Retry(context.TODO(), func() error {
+		_, err := configmaps.Update(configmap)
+		return trace.Wrap(err)
+	})
+	return trace.Wrap(err)
 }
 
 // NewConfigurationConfigMap creates the backing ConfigMap to host cluster configuration
@@ -94,49 +137,21 @@ func NewConfigurationConfigMap(config []byte) *v1.ConfigMap {
 }
 
 // createUpdateConfigOperation creates a new operation to update cluster configuration
-func (s *site) createUpdateConfigOperation(req ops.CreateUpdateConfigOperationRequest) (*ops.SiteOperationKey, error) {
-	client, err := s.service.GetKubeClient()
-	if err != nil {
-		return nil, trace.Wrap(err)
-	}
-	configmaps := client.CoreV1().ConfigMaps(defaults.KubeSystemNamespace)
-	configmap, err := getOrCreateClusterConfigMap(configmaps)
-	if err != nil {
-		return nil, trace.Wrap(err)
-	}
-	var previousKeyValues []byte
-	if len(configmap.Data) != 0 {
-		var err error
-		previousKeyValues, err = json.Marshal(configmap.Data)
-		if err != nil {
-			return nil, trace.Wrap(err, "failed to marshal previous key/values")
-		}
-		if configmap.Annotations == nil {
-			configmap.Annotations = make(map[string]string)
-		}
-		configmap.Annotations[constants.PreviousKeyValuesAnnotationKey] = string(previousKeyValues)
-	}
+func (s *site) createUpdateConfigOperation(req ops.CreateUpdateConfigOperationRequest, prevConfig []byte) (*ops.SiteOperationKey, error) {
 	op := ops.SiteOperation{
-		ID:           uuid.New(),
-		AccountID:    s.key.AccountID,
-		SiteDomain:   s.key.SiteDomain,
-		Type:         ops.OperationUpdateConfig,
-		Created:      s.clock().UtcNow(),
-		Updated:      s.clock().UtcNow(),
-		State:        ops.OperationUpdateConfigInProgress,
-		UpdateConfig: &storage.UpdateConfigOperationState{Config: req.Config},
+		ID:         uuid.New(),
+		AccountID:  s.key.AccountID,
+		SiteDomain: s.key.SiteDomain,
+		Type:       ops.OperationUpdateConfig,
+		Created:    s.clock().UtcNow(),
+		Updated:    s.clock().UtcNow(),
+		State:      ops.OperationUpdateConfigInProgress,
+		UpdateConfig: &storage.UpdateConfigOperationState{
+			PrevConfig: prevConfig,
+			Config:     req.Config,
+		},
 	}
 	key, err := s.getOperationGroup().createSiteOperation(op)
-	if err != nil {
-		return nil, trace.Wrap(err)
-	}
-	configmap.Data = map[string]string{
-		"spec": string(req.Config),
-	}
-	err = kubernetes.Retry(context.TODO(), func() error {
-		_, err := configmaps.Update(configmap)
-		return trace.Wrap(err)
-	})
 	if err != nil {
 		return nil, trace.Wrap(err)
 	}

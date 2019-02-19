@@ -472,6 +472,8 @@ type ClusterConfiguration interface {
 	CreateUpdateConfigOperation(CreateUpdateConfigOperationRequest) (*SiteOperationKey, error)
 	// GetClusterConfiguration retrieves the cluster configuration
 	GetClusterConfiguration(SiteKey) (clusterconfig.Interface, error)
+	// UpdateClusterConfiguration updates the cluster configuration from the specified request
+	UpdateClusterConfiguration(UpdateClusterConfigRequest) error
 }
 
 // ClusterCertificate represents the cluster certificate
@@ -1176,8 +1178,17 @@ type CreateUpdateEnvarsOperationRequest struct {
 }
 
 // CreateUpdateConfigOperationRequest is a request
-// to update cluster configuration
+// to create an operation to update cluster configuration
 type CreateUpdateConfigOperationRequest struct {
+	// ClusterKey identifies the cluster
+	ClusterKey SiteKey `json:"cluster_key"`
+	// Config specifies the new configuration as JSON-encoded payload
+	Config []byte `json:"config"`
+}
+
+// UpdateClusterConfigRequest is a request
+// to update cluster configuration
+type UpdateClusterConfigRequest struct {
 	// ClusterKey identifies the cluster
 	ClusterKey SiteKey `json:"cluster_key"`
 	// Config specifies the new configuration as JSON-encoded payload

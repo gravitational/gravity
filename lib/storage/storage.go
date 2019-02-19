@@ -2001,6 +2001,8 @@ func (s UpdateOperationState) Package() (*loc.Locator, error) {
 
 // UpdateConfigOperationState describes the state of the operation to update cluster configuration
 type UpdateConfigOperationState struct {
+	// PrevConfig specifies the previous configuration state
+	PrevConfig []byte `json:"prev_config"`
 	// Config specifies the raw configuration resource
 	Config []byte `json:"config"`
 }
