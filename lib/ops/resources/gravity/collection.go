@@ -560,16 +560,21 @@ type envCollection struct {
 // WriteText serializes collection in human-friendly text format
 func (r configCollection) WriteText(w io.Writer) error {
 	t := goterm.NewTable(0, 10, 5, ' ', 0)
-	common.PrintTableHeader(t, []string{"Configuration"})
+	common.PrintCustomTableHeader(t, []string{"Configuration"}, "=")
 	if r.Interface == nil {
 		// Empty
 		return nil
 	}
-	if config := r.GetGlobalConfig(); config != nil {
-		fmt.Fprintf(t, "Cloud provider\t%v\n", config.CloudProvider)
-		fmt.Fprintf(t, "Configuration\t%v\n", config.CloudConfig)
+	if config := r.GetKubeletConfig(); config != nil {
+		common.PrintCustomTableHeader(t, []string{"Kubelet"}, "-")
+		fmt.Fprintf(t, "%v\n", string(config.Config))
 	}
-	// TODO: the rest of fields
+	if config := r.GetGlobalConfig(); config != nil {
+		common.PrintCustomTableHeader(t, []string{"Cloud"}, "-")
+		fmt.Fprintf(t, "Provider:\t%v\n", config.CloudProvider)
+		fmt.Fprintf(t, "Configuration:\n")
+		fmt.Fprintf(t, "%v\n", config.CloudConfig.Config)
+	}
 	_, err := io.WriteString(w, t.String())
 	return trace.Wrap(err)
 }
