@@ -62,7 +62,7 @@ func Build(ctx context.Context, builder *Builder) error {
 
 	switch builder.Manifest.Kind {
 	case schema.KindBundle, schema.KindCluster:
-		builder.NextStep("Selecting application runtime")
+		builder.NextStep("Selecting base image version")
 		runtimeVersion, err := builder.SelectRuntime()
 		if err != nil {
 			return trace.Wrap(err)
@@ -73,6 +73,9 @@ func Build(ctx context.Context, builder *Builder) error {
 		}
 		err = builder.SyncPackageCache(runtimeVersion)
 		if err != nil {
+			if trace.IsNotFound(err) {
+				return trace.NotFound("base image version %v not found", runtimeVersion)
+			}
 			return trace.Wrap(err)
 		}
 	}

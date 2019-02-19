@@ -224,7 +224,6 @@ func (b *Builder) Locator() loc.Locator {
 // SelectRuntime picks an appropriate runtime for the application that's
 // being built
 func (b *Builder) SelectRuntime() (*semver.Version, error) {
-	// first see if runtime is pinned to specific version in manifest
 	runtime := b.Manifest.Base()
 	if runtime == nil {
 		return nil, trace.NotFound("failed to determine application runtime")
@@ -235,19 +234,21 @@ func (b *Builder) SelectRuntime() (*semver.Version, error) {
 		return nil, trace.BadParameter("unsupported base image %q, only %q is "+
 			"supported as a base image", runtime.Name, constants.BaseImageName)
 	}
+	// If runtime version is explicitly set in the manifest, use it.
 	if runtime.Version != loc.LatestVersion {
 		b.Infof("Using pinned runtime version: %s.", runtime.Version)
-		b.PrintSubStep("Will use runtime version %s from manifest", runtime.Version)
+		b.PrintSubStep("Will use base image version %s set in manifest", runtime.Version)
 		return semver.NewVersion(runtime.Version)
 	}
-	// latest is specified, find the latest compatible in repository
-	version, err := b.syncer.SelectRuntime(b)
+	// Otherwise, default to the version of this tele binary to ensure
+	// compatibility.
+	teleVersion, err := semver.NewVersion(version.Get().Version)
 	if err != nil {
 		return nil, trace.Wrap(err)
 	}
-	b.Infof("Selected runtime version: %s.", version)
-	b.PrintSubStep("Will use latest runtime version %s", version)
-	return version, nil
+	b.Infof("Selected runtime version based on tele version: %s.", teleVersion)
+	b.PrintSubStep("Will use base image version %s", teleVersion)
+	return teleVersion, nil
 }
 
 // SyncPackageCache ensures that all system dependencies are present in
@@ -258,11 +259,10 @@ func (b *Builder) SyncPackageCache(runtimeVersion *semver.Version) error {
 		return trace.Wrap(err)
 	}
 	// see if all required packages/apps are already present in the local cache
-	manifest := b.Manifest
-	manifest.SetBase(loc.Runtime.WithVersion(runtimeVersion))
+	b.Manifest.SetBase(loc.Runtime.WithVersion(runtimeVersion))
 	err = app.VerifyDependencies(&app.Application{
-		Manifest: manifest,
-		Package:  manifest.Locator(),
+		Manifest: b.Manifest,
+		Package:  b.Manifest.Locator(),
 	}, apps, b.Env.Packages)
 	if err != nil && !trace.IsNotFound(err) {
 		return trace.Wrap(err)
@@ -449,9 +449,7 @@ func (b *Builder) getSyncer() (Syncer, error) {
 }
 
 // checkVersion makes sure that the tele version is compatible with the selected
-// runtime version
-//
-// Versions are compatible when they have equal major and minor components.
+// runtime version.
 func (b *Builder) checkVersion(runtimeVersion *semver.Version) error {
 	if b.SkipVersionCheck {
 		return nil
@@ -460,22 +458,34 @@ func (b *Builder) checkVersion(runtimeVersion *semver.Version) error {
 	if err != nil {
 		return trace.Wrap(err, "failed to determine tele version")
 	}
-	if teleVersion.Major != runtimeVersion.Major || teleVersion.Minor != runtimeVersion.Minor {
+	if !versionsCompatible(*teleVersion, *runtimeVersion) {
 		return trace.BadParameter(
-			`Version of this tele binary (%v) is not compatible with the selected runtime (%v).
+			`Version of this tele binary (%[1]v) is not compatible with the base image version specified in the manifest (%[2]v).
 
-To remedy the issue you can do one of the following:
+There are a few ways to resolve the issue:
 
- * Use the latest %v.%v.x version of tele to make sure it is compatible with your selected runtime.
- * Specify %v.%v.x runtime version in application manifest explicitly to make sure it is compatible with your tele version.
- * Do not specify runtime version in application manifest to let tele automatically select the latest compatible runtime.
+ * Download tele binary of the same version as the specified base image (%[2]v) and use it to build the image.
 
-See https://gravitational.com/telekube/docs/pack/#sample-application-manifest for details on how to specify runtime in manifest.
-`, teleVersion, runtimeVersion, runtimeVersion.Major, runtimeVersion.Minor, teleVersion.Major, teleVersion.Minor)
+ * Specify base image version compatible with this tele in the manifest file: "baseImage: gravity:%[1]v".
+
+ * Do not specify "baseImage" in the manifest file, in which case tele will automatically pick compatible version.
+`, teleVersion, runtimeVersion)
 	}
 	b.Debugf("Version check passed; tele version: %v, runtime version: %v.",
 		teleVersion, runtimeVersion)
 	return nil
+}
+
+// versionsCompatible returns true if the provided tele and runtime versions
+// are compatible.
+//
+// Compatibility is defined as follows:
+//   1. Major and minor semver components of both versions are equal.
+//   2. Runtime version is not greater than tele version.
+func versionsCompatible(teleVer, runtimeVer semver.Version) bool {
+	return teleVer.Major == runtimeVer.Major &&
+		teleVer.Minor == runtimeVer.Minor &&
+		!teleVer.LessThan(runtimeVer)
 }
 
 // Close cleans up build environment
