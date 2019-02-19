@@ -50,6 +50,19 @@ func (s *listerSuite) TestLatestAndSorting(c *check.C) {
 		listItem{Name: "kafka", Version: v("1.0.1"), Type: "Application"},
 		listItem{Name: "nginx", Version: v("1.2.3"), Type: "Application"},
 	})
+	// Verify sort order of all items.
+	sort.Sort(items)
+	c.Assert(items, compare.DeepEquals, ListItems{
+		listItem{Name: "kubernetes", Version: v("14.0.0-beta.1"), Type: "Cluster"},
+		listItem{Name: "kubernetes", Version: v("13.0.0"), Type: "Cluster"},
+		listItem{Name: "alpine", Version: v("1.0.0"), Type: "Application"},
+		listItem{Name: "alpine", Version: v("1.0.0-rc.3"), Type: "Application"},
+		listItem{Name: "kafka", Version: v("1.0.1"), Type: "Application"},
+		listItem{Name: "nginx", Version: v("2.0.0-alpha.1"), Type: "Application"},
+		listItem{Name: "nginx", Version: v("1.2.3"), Type: "Application"},
+		listItem{Name: "nginx", Version: v("0.0.1"), Type: "Application"},
+		listItem{Name: "zookeeper", Version: v("1.0.0-beta.2"), Type: "Application"},
+	})
 }
 
 func v(ver string) semver.Version {
