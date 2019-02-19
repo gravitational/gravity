@@ -76,7 +76,7 @@ func NewListItemFromHubApp(app hub.App) (*listItem, error) {
 		return nil, trace.Wrap(err)
 	}
 	return &listItem{
-		Name:        app.Name,
+		Name:        convertName(app.Name),
 		Version:     *semver,
 		Created:     app.Created,
 		Type:        app.Type,
@@ -91,7 +91,7 @@ func NewListItemFromApp(app app.Application) (*listItem, error) {
 		return nil, trace.Wrap(err)
 	}
 	return &listItem{
-		Name:        app.Manifest.Metadata.Name,
+		Name:        convertName(app.Manifest.Metadata.Name),
 		Version:     *semver,
 		Created:     app.PackageEnvelope.Created,
 		Type:        app.Manifest.DescribeKind(),
@@ -161,7 +161,9 @@ func (l ListItems) Less(i, j int) bool {
 	if l[i].GetName() < l[j].GetName() {
 		return true
 	}
-	if (l[i].GetName() == l[j].GetName()) && l[i].GetVersion().LessThan(l[j].GetVersion()) {
+	// More recent versions should appear before older ones, so the "less"
+	// logic is inverted here.
+	if (l[i].GetName() == l[j].GetName()) && l[j].GetVersion().LessThan(l[i].GetVersion()) {
 		return true
 	}
 	return false
@@ -209,7 +211,7 @@ func List(lister Lister, all bool, format constants.Format) error {
 			return trace.Wrap(err)
 		}
 	}
-	sort.Sort(sort.Reverse(items))
+	sort.Sort(items)
 	switch format {
 	case constants.EncodingText:
 		w := new(tabwriter.Writer)
@@ -220,8 +222,8 @@ func List(lister Lister, all bool, format constants.Format) error {
 		fmt.Fprintf(w, "Name:Version\tImage Type\tCreated (UTC)\tDescription\n")
 		fmt.Fprintf(w, "------------\t----------\t-------------\t-----------\n")
 		for _, item := range items {
-			fmt.Fprintf(w, "%v\t%v\t%v\t%v\n",
-				formatName(item.GetName(), item.GetVersion()),
+			fmt.Fprintf(w, "%v:%v\t%v\t%v\t%v\n",
+				item.GetName(), item.GetVersion().String(),
 				item.GetType(),
 				item.GetCreated().Format(constants.ShortDateFormat),
 				formatDescription(item.GetDescription()))
@@ -246,11 +248,11 @@ func List(lister Lister, all bool, format constants.Format) error {
 	return nil
 }
 
-func formatName(name string, version semver.Version) string {
+func convertName(name string) string {
 	if name == constants.LegacyBaseImageName {
 		name = constants.BaseImageName
 	}
-	return fmt.Sprintf("%v:%v", name, version.String())
+	return name
 }
 
 func formatDescription(description string) string {
