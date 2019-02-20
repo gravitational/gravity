@@ -21,7 +21,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"sort"
-	"strings"
 
 	"github.com/gravitational/gravity/lib/compare"
 	"github.com/gravitational/gravity/lib/constants"
@@ -31,10 +30,10 @@ import (
 	"github.com/gravitational/gravity/lib/schema"
 	"github.com/gravitational/gravity/lib/storage"
 	"github.com/gravitational/gravity/lib/storage/clusterconfig"
-	"github.com/gravitational/gravity/lib/storage/clusterconfig/component"
 
 	teleservices "github.com/gravitational/teleport/lib/services"
 	"gopkg.in/check.v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
 type ConfigureSuite struct {
@@ -47,8 +46,6 @@ func (s *ConfigureSuite) SetUpTest(c *check.C) {
 	s.cluster = &site{
 		domainName: "example.com",
 		backendSite: &storage.Site{
-			// FIXME: make sure that specifying cloud provider in cluster configuration
-			// also generates the node tag for the cluster on GCE
 			CloudConfig: storage.CloudConfig{
 				GCENodeTags: []string{"example-com"},
 			},
@@ -87,10 +84,18 @@ func (s *ConfigureSuite) TestGeneratesPlanetConfigPackage(c *check.C) {
 		Role:        "node",
 		AdvertiseIP: "172.12.13.0",
 	}
-	kubeletConfig := component.KubeletConfiguration{
-		TypeMeta: component.KubeletTypeMeta,
-		Address:  "0.0.0.0",
-		Port:     10250,
+	// Dummy kubelet configuration to capture a subset of values
+	var kubeletConfig = struct {
+		TypeMeta metav1.TypeMeta
+		Address  string
+		Port     int64
+	}{
+		TypeMeta: metav1.TypeMeta{
+			Kind:       "KubeletConfiguration",
+			APIVersion: "kubelet.config.k8s.io/v1beta1",
+		},
+		Address: "0.0.0.0",
+		Port:    10250,
 	}
 	configBytes, err := json.Marshal(kubeletConfig)
 	c.Assert(err, check.IsNil)
@@ -161,18 +166,7 @@ password=pass`,
 	}
 	args, err := s.cluster.getPlanetConfig(config)
 	c.Assert(err, check.IsNil)
-	obtained := argsToMap(args, c)
-	configs := obtained["kubelet-config"]
-	c.Assert(len(configs), check.Equals, 1)
-	obtainedConfigBytes := configs[0]
-	delete(obtained, "kubelet-config")
-	decoded, err := base64.StdEncoding.DecodeString(obtainedConfigBytes)
-	c.Assert(err, check.IsNil)
-	var obtainedConfig component.KubeletConfiguration
-	err = json.Unmarshal(decoded, &obtainedConfig)
-	c.Assert(err, check.IsNil)
-	c.Assert(obtainedConfig, compare.DeepEquals, kubeletConfig)
-	c.Assert(obtained, compare.DeepEquals, map[string][]string{
+	c.Assert(sort.StringSlice(args), compare.SortedSliceEquals, mapToArgs(map[string][]string{
 		"node-name":                  []string{"172.12.13.0"},
 		"hostname":                   []string{"node-1"},
 		"master-ip":                  []string{"172.12.13.0"},
@@ -186,7 +180,7 @@ password=pass`,
 		"election-enabled":           []string{"true"},
 		"service-uid":                []string{"1000"},
 		"env":                        []string{"VAR=value"},
-		"volume": sorted(
+		"volume": []string{
 			"/var/lib/gravity/planet/etcd:/ext/etcd",
 			"/var/lib/gravity/planet/docker:/ext/docker",
 			"/var/lib/gravity/planet/registry:/ext/registry",
@@ -194,7 +188,7 @@ password=pass`,
 			"/var/lib/gravity/planet/state:/ext/state",
 			"/var/lib/gravity/planet/log:/var/log",
 			"/var/lib/gravity:/var/lib/gravity",
-		),
+		},
 		"cloud-provider":          []string{"gce"},
 		"cloud-config":            []string{base64.StdEncoding.EncodeToString([]byte("\n[global]\nusername=user\npassword=pass"))},
 		"gce-node-tags":           []string{"example-com"},
@@ -205,39 +199,22 @@ password=pass`,
 		"docker-backend":          []string{"overlay2"},
 		"docker-options":          []string{"--storage-opt=overlay2.override_kernel_check=1"},
 		"kubelet-options":         []string{"--hairpin-mode=none"},
+		"kubelet-config":          []string{base64.StdEncoding.EncodeToString(configBytes)},
 		"node-label":              []string{"gravitational.io/advertise-ip=172.12.13.0"},
 		"service-subnet":          []string{"10.0.0.1/8"},
 		"pod-subnet":              []string{"10.0.1.1/8"},
 		"feature-gates":           []string{"FeatureA=true,FeatureB=false"},
-	})
+	}))
 }
 
-func argsToMap(args []string, c *check.C) (result map[string][]string) {
-	name := func(s string) string {
-		return s[2:]
-	}
-	result = make(map[string][]string)
-	for _, arg := range args {
-		sep := strings.Index(arg, "=")
-		if sep == -1 {
-			result[name(arg)] = []string(nil)
-			continue
-		}
-		key, value := name(arg[:sep]), arg[sep+1:]
-		result[key] = append(result[key], value)
-	}
-	for key, values := range result {
-		if len(values) != 0 {
-			sort.Strings(values)
-			result[key] = values
+func mapToArgs(args map[string][]string) sort.Interface {
+	var result []string
+	for k, v := range args {
+		for _, arg := range v {
+			result = append(result, fmt.Sprintf("--%v=%v", k, arg))
 		}
 	}
-	return result
-}
-
-func sorted(ss ...string) []string {
-	sort.Strings(ss)
-	return ss
+	return sort.StringSlice(result)
 }
 
 func makeServers(masters int, total int) provisionedServers {

@@ -38,7 +38,6 @@ import (
       "config": "<new configuration>"
    }
 
-
 Success response:
 
    {
@@ -69,7 +68,6 @@ func (h *WebHandler) updateClusterConfig(w http.ResponseWriter, r *http.Request,
       "site_id": "site_id",
       "config": "<new configuration>"
    }
-
 
 Success response:
 

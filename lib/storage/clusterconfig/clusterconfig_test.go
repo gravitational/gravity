@@ -24,7 +24,6 @@ import (
 	"github.com/gravitational/gravity/lib/constants"
 	"github.com/gravitational/gravity/lib/defaults"
 	"github.com/gravitational/gravity/lib/storage"
-	"github.com/gravitational/gravity/lib/storage/clusterconfig/component"
 
 	teleservices "github.com/gravitational/teleport/lib/services"
 	"github.com/gravitational/trace"
@@ -128,7 +127,7 @@ spec:
 					},
 				},
 			},
-			validate: validate(component.KubeletConfiguration{
+			validate: validate(kubeletConfiguration{
 				TypeMeta: metav1.TypeMeta{
 					Kind:       "KubeletConfiguration",
 					APIVersion: "kubelet.config.k8s.io/v1beta1",
@@ -219,15 +218,20 @@ spec:
 	}
 }
 
-func validate(expectedKonfig component.KubeletConfiguration) func(obtained, expected *Resource, c *C) {
+func validate(expectedConfig kubeletConfiguration) func(obtained, expected *Resource, c *C) {
 	return func(obtained, expected *Resource, c *C) {
-		konfigBytes := obtained.Spec.ComponentConfigs.Kubelet.Config
-		var konfig component.KubeletConfiguration
-		err := json.Unmarshal(konfigBytes, &konfig)
+		configBytes := obtained.Spec.ComponentConfigs.Kubelet.Config
+		var config kubeletConfiguration
+		err := json.Unmarshal(configBytes, &config)
 		c.Assert(err, IsNil)
 		obtained.Spec.ComponentConfigs.Kubelet.Config = nil
 		c.Assert(obtained, compare.DeepEquals, expected)
-		obtained.Spec.ComponentConfigs.Kubelet.Config = konfigBytes
-		c.Assert(konfig, compare.DeepEquals, expectedKonfig)
+		obtained.Spec.ComponentConfigs.Kubelet.Config = configBytes
+		c.Assert(config, compare.DeepEquals, expectedConfig)
 	}
+}
+
+type kubeletConfiguration struct {
+	metav1.TypeMeta `json:",inline"`
+	Address         string `json:"address"`
 }
