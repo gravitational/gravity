@@ -31,6 +31,7 @@ import (
 	"github.com/gravitational/gravity/lib/pack"
 	"github.com/gravitational/gravity/lib/rpc"
 	"github.com/gravitational/gravity/lib/storage"
+	"github.com/gravitational/gravity/lib/storage/clusterconfig"
 	"github.com/gravitational/gravity/lib/users"
 
 	"github.com/gravitational/trace"
@@ -69,7 +70,9 @@ type updatePhaseInit struct {
 	// existingDocker describes the existing Docker configuration
 	existingDocker storage.DockerConfig
 	// existingDNS describes the existing DNS configuration
-	existingDNS storage.DNSConfig
+	existingDNS           storage.DNSConfig
+	existingEnviron       map[string]string
+	existingClusterConfig []byte
 }
 
 // NewUpdatePhaseInit creates a new update init phase executor
@@ -100,6 +103,18 @@ func NewUpdatePhaseInit(c FSMConfig, plan storage.OperationPlan, phase storage.O
 	if err != nil {
 		return nil, trace.Wrap(err, "failed to query installed application")
 	}
+	env, err := c.Operator.GetClusterEnvironmentVariables(operation.ClusterKey())
+	if err != nil {
+		return nil, trace.Wrap(err)
+	}
+	clusterConfig, err := c.Operator.GetClusterConfiguration(operation.ClusterKey())
+	if err != nil {
+		return nil, trace.Wrap(err)
+	}
+	configBytes, err := clusterconfig.Marshal(clusterConfig)
+	if err != nil {
+		return nil, trace.Wrap(err)
+	}
 
 	logger.Infof("Existing DNS configuration: %v.", plan.DNSConfig)
 
@@ -107,19 +122,21 @@ func NewUpdatePhaseInit(c FSMConfig, plan storage.OperationPlan, phase storage.O
 	checks.OverrideDockerConfig(&existingDocker, installOperation.InstallExpand.Vars.System.Docker)
 
 	return &updatePhaseInit{
-		Backend:        c.Backend,
-		LocalBackend:   c.LocalBackend,
-		Operator:       c.Operator,
-		Packages:       c.ClusterPackages,
-		Users:          c.Users,
-		Cluster:        *cluster,
-		Operation:      *operation,
-		Servers:        plan.Servers,
-		FieldLogger:    logger,
-		app:            *app,
-		installedApp:   *installedApp,
-		existingDocker: existingDocker,
-		existingDNS:    plan.DNSConfig,
+		Backend:               c.Backend,
+		LocalBackend:          c.LocalBackend,
+		Operator:              c.Operator,
+		Packages:              c.ClusterPackages,
+		Users:                 c.Users,
+		Cluster:               *cluster,
+		Operation:             *operation,
+		Servers:               plan.Servers,
+		FieldLogger:           logger,
+		app:                   *app,
+		installedApp:          *installedApp,
+		existingDocker:        existingDocker,
+		existingDNS:           plan.DNSConfig,
+		existingClusterConfig: configBytes,
+		existingEnviron:       env.GetKeyValues(),
 	}, nil
 }
 
@@ -347,6 +364,8 @@ func (p *updatePhaseInit) rotatePlanetConfig(server storage.Server, runtimePacka
 		Server:      server,
 		Manifest:    p.app.Manifest,
 		Package:     runtimePackage,
+		Config:      p.existingClusterConfig,
+		Env:         p.existingEnviron,
 	})
 	if err != nil {
 		return trace.Wrap(err)
