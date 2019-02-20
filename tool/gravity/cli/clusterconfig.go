@@ -97,6 +97,10 @@ func newConfigUpdater(ctx context.Context, localEnv, updateEnv *localenv.LocalEn
 	if err != nil {
 		return nil, trace.Wrap(err)
 	}
+	clusterConfig, err := libclusterconfig.Unmarshal(resource)
+	if err != nil {
+		return nil, trace.Wrap(err)
+	}
 	key, err := operator.CreateUpdateConfigOperation(
 		ops.CreateUpdateConfigOperationRequest{
 			ClusterKey: cluster.Key(),
@@ -137,7 +141,7 @@ func newConfigUpdater(ctx context.Context, localEnv, updateEnv *localenv.LocalEn
 		return nil, trace.Wrap(err)
 	}
 	// Create the operation plan so it can be replicated on remote nodes
-	_, err = clusterconfig.NewOperationPlan(operator, *operation, cluster.ClusterState.Servers)
+	_, err = clusterconfig.NewOperationPlan(operator, *operation, clusterConfig, cluster.ClusterState.Servers)
 	if err != nil {
 		return nil, trace.Wrap(err)
 	}

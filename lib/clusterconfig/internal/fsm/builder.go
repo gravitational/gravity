@@ -25,14 +25,22 @@ import (
 	"github.com/gravitational/gravity/lib/loc"
 	"github.com/gravitational/gravity/lib/ops"
 	"github.com/gravitational/gravity/lib/storage"
+	"github.com/gravitational/gravity/lib/storage/clusterconfig"
 	"github.com/gravitational/gravity/lib/update"
+
 	"github.com/gravitational/trace"
 )
 
 // NewOperationPlan returns a new plan for the specified operation
 // and the given set of servers
-func NewOperationPlan(app loc.Locator, dnsConfig storage.DNSConfig, operation ops.SiteOperation, servers []storage.Server) (*storage.OperationPlan, error) {
-	masters, _ := libfsm.SplitServers(servers)
+func NewOperationPlan(
+	app loc.Locator,
+	dnsConfig storage.DNSConfig,
+	operation ops.SiteOperation,
+	clusterConfig clusterconfig.Interface,
+	servers []storage.Server,
+) (*storage.OperationPlan, error) {
+	masters, nodes := libfsm.SplitServers(servers)
 	if len(masters) == 0 {
 		return nil, trace.NotFound("no master servers found in cluster state")
 	}
@@ -40,6 +48,11 @@ func NewOperationPlan(app loc.Locator, dnsConfig storage.DNSConfig, operation op
 	config := *builder.config()
 	updateMasters := *builder.masters(masters).Require(config)
 	phases := phases{config, updateMasters}
+
+	if shouldUpdateNodes(clusterConfig, len(nodes)) {
+		updateNodes := *builder.nodes(nodes, &masters[0]).Require(config, updateMasters)
+		phases = append(phases, updateNodes)
+	}
 
 	plan := &storage.OperationPlan{
 		OperationID:   operation.ID,
@@ -53,6 +66,14 @@ func NewOperationPlan(app loc.Locator, dnsConfig storage.DNSConfig, operation op
 	update.ResolvePlan(plan)
 
 	return plan, nil
+}
+
+func shouldUpdateNodes(clusterConfig clusterconfig.Interface, numNodes int) bool {
+	var hasComponentUpdate bool
+	if config := clusterConfig.GetGlobalConfig(); config != nil && len(config.FeatureGates) != 0 {
+		hasComponentUpdate = true
+	}
+	return (clusterConfig.GetKubeletConfig() != nil || hasComponentUpdate) && numNodes != 0
 }
 
 func (r phaseBuilder) config() *phase {
@@ -95,6 +116,19 @@ func (r phaseBuilder) masters(servers []storage.Server) *phase {
 		node.AddSequential(r.common(&others[i], nil)...)
 		node.AddSequential(setLeaderElection(enable(server), disable(), server,
 			"enable-elections", "Enable leader election on node %q"))
+		root.AddSequential(node)
+	}
+	return &root
+}
+
+func (r phaseBuilder) nodes(servers []storage.Server, master *storage.Server) *phase {
+	root := root(phase{
+		ID:          "nodes",
+		Description: "Update cluster configuration",
+	})
+	for i, server := range servers {
+		node := r.node(server, server.Hostname, "Update configuration on node %q")
+		node.AddSequential(r.common(&servers[i], master)...)
 		root.AddSequential(node)
 	}
 	return &root

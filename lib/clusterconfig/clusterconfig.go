@@ -234,11 +234,10 @@ type Updater struct {
 }
 
 func newMachine(ctx context.Context, config Config) (*libfsm.FSM, error) {
-	plan, err := getOrCreateOperationPlan(config.Operator, *config.Operation, config.Servers)
+	plan, err := config.Operator.GetOperationPlan(config.Operation.Key())
 	if err != nil {
 		return nil, trace.Wrap(err)
 	}
-
 	machine, err := fsm.New(ctx, fsm.Config{
 		Operation:       config.Operation,
 		Operator:        config.Operator,
@@ -254,6 +253,5 @@ func newMachine(ctx context.Context, config Config) (*libfsm.FSM, error) {
 	if err != nil {
 		return nil, trace.Wrap(err)
 	}
-
 	return machine, nil
 }

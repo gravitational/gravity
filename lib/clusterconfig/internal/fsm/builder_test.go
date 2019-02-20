@@ -25,6 +25,7 @@ import (
 	"github.com/gravitational/gravity/lib/ops"
 	"github.com/gravitational/gravity/lib/schema"
 	"github.com/gravitational/gravity/lib/storage"
+	"github.com/gravitational/gravity/lib/storage/clusterconfig"
 
 	. "gopkg.in/check.v1"
 )
@@ -46,8 +47,9 @@ func (S) TestSingleNodePlan(c *C) {
 		{Hostname: "node-1", ClusterRole: string(schema.ServiceRoleMaster)},
 	}
 	app := loc.MustParseLocator("gravitational.io/app:0.0.1")
+	clusterConfig := clusterconfig.NewEmpty()
 
-	plan, err := NewOperationPlan(app, storage.DefaultDNSConfig, operation, servers)
+	plan, err := NewOperationPlan(app, storage.DefaultDNSConfig, operation, clusterConfig, servers)
 	c.Assert(err, IsNil)
 	c.Assert(plan, compare.DeepEquals, &storage.OperationPlan{
 		OperationID:   operation.ID,
@@ -144,8 +146,9 @@ func (S) TestMultiNodePlan(c *C) {
 		{Hostname: "node-3", ClusterRole: string(schema.ServiceRoleMaster)},
 	}
 	app := loc.MustParseLocator("gravitational.io/app:0.0.1")
+	clusterConfig := clusterconfig.NewEmpty()
 
-	plan, err := NewOperationPlan(app, storage.DefaultDNSConfig, operation, servers)
+	plan, err := NewOperationPlan(app, storage.DefaultDNSConfig, operation, clusterConfig, servers)
 	c.Assert(err, IsNil)
 	c.Assert(plan, compare.DeepEquals, &storage.OperationPlan{
 		OperationID:   operation.ID,
@@ -327,6 +330,180 @@ func (S) TestMultiNodePlan(c *C) {
 					},
 				},
 				Requires: []string{"/update-config"},
+			},
+		},
+	})
+}
+
+func (S) TestBuildsPlanWithNodes(c *C) {
+	operation := ops.SiteOperation{
+		ID:         "1",
+		AccountID:  "0",
+		Type:       ops.OperationUpdateConfig,
+		SiteDomain: "cluster",
+	}
+	servers := []storage.Server{
+		{Hostname: "node-1", ClusterRole: string(schema.ServiceRoleMaster)},
+		{Hostname: "node-2", ClusterRole: string(schema.ServiceRoleNode)},
+	}
+	app := loc.MustParseLocator("gravitational.io/app:0.0.1")
+	clusterConfig := clusterconfig.NewEmpty()
+	clusterConfig.Spec.ComponentConfigs.Kubelet = &clusterconfig.Kubelet{
+		Config: []byte(`apiVersion: v1
+kind: KubeletConfiguration
+address: "0.0.0.0"`),
+	}
+
+	plan, err := NewOperationPlan(app, storage.DefaultDNSConfig, operation, clusterConfig, servers)
+	c.Assert(err, IsNil)
+	c.Assert(plan, compare.DeepEquals, &storage.OperationPlan{
+		OperationID:   operation.ID,
+		OperationType: operation.Type,
+		AccountID:     operation.AccountID,
+		ClusterName:   operation.SiteDomain,
+		Servers:       servers,
+		DNSConfig:     storage.DefaultDNSConfig,
+		Phases: []storage.OperationPhase{
+			{
+				ID:          "/update-config",
+				Executor:    libphase.UpdateConfig,
+				Description: `Update runtime configuration`,
+				Data: &storage.OperationPhaseData{
+					Package: &app,
+				},
+			},
+			{
+				ID:          "/masters",
+				Description: "Update cluster configuration",
+				Phases: []storage.OperationPhase{
+					{
+						ID:          "/masters/drain",
+						Executor:    libphase.Drain,
+						Description: `Drain node "node-1"`,
+						Data: &storage.OperationPhaseData{
+							Server: &servers[0],
+						},
+					},
+					{
+						ID:          "/masters/restart",
+						Executor:    libphase.RestartContainer,
+						Description: `Restart container on node "node-1"`,
+						Data: &storage.OperationPhaseData{
+							Server:  &servers[0],
+							Package: &app,
+						},
+						Requires: []string{"/masters/drain"},
+					},
+					{
+						ID:          "/masters/taint",
+						Executor:    libphase.Taint,
+						Description: `Taint node "node-1"`,
+						Data: &storage.OperationPhaseData{
+							Server: &servers[0],
+						},
+						Requires: []string{"/masters/restart"},
+					},
+					{
+						ID:          "/masters/uncordon",
+						Executor:    libphase.Uncordon,
+						Description: `Uncordon node "node-1"`,
+						Data: &storage.OperationPhaseData{
+							Server: &servers[0],
+						},
+						Requires: []string{"/masters/taint"},
+					},
+					{
+						ID:          "/masters/endpoints",
+						Executor:    libphase.Endpoints,
+						Description: `Wait for endpoints on node "node-1"`,
+						Data: &storage.OperationPhaseData{
+							Server: &servers[0],
+						},
+						Requires: []string{"/masters/uncordon"},
+					},
+					{
+						ID:          "/masters/untaint",
+						Executor:    libphase.Untaint,
+						Description: `Remove taint from node "node-1"`,
+						Data: &storage.OperationPhaseData{
+							Server: &servers[0],
+						},
+						Requires: []string{"/masters/endpoints"},
+					},
+				},
+				Requires: []string{"/update-config"},
+			},
+			{
+				ID:          "/nodes",
+				Description: "Update cluster configuration",
+				Phases: []storage.OperationPhase{
+					{
+						ID:          "/nodes/node-2",
+						Description: `Update configuration on node "node-2"`,
+						Phases: []storage.OperationPhase{
+							{
+								ID:          "/nodes/node-2/drain",
+								Executor:    libphase.Drain,
+								Description: `Drain node "node-2"`,
+								Data: &storage.OperationPhaseData{
+									Server:     &servers[1],
+									ExecServer: &servers[0],
+								},
+							},
+							{
+								ID:          "/nodes/node-2/restart",
+								Executor:    libphase.RestartContainer,
+								Description: `Restart container on node "node-2"`,
+								Data: &storage.OperationPhaseData{
+									Server:  &servers[1],
+									Package: &app,
+								},
+								Requires: []string{"/nodes/node-2/drain"},
+							},
+							{
+								ID:          "/nodes/node-2/taint",
+								Executor:    libphase.Taint,
+								Description: `Taint node "node-2"`,
+								Data: &storage.OperationPhaseData{
+									Server:     &servers[1],
+									ExecServer: &servers[0],
+								},
+								Requires: []string{"/nodes/node-2/restart"},
+							},
+							{
+								ID:          "/nodes/node-2/uncordon",
+								Executor:    libphase.Uncordon,
+								Description: `Uncordon node "node-2"`,
+								Data: &storage.OperationPhaseData{
+									Server:     &servers[1],
+									ExecServer: &servers[0],
+								},
+								Requires: []string{"/nodes/node-2/taint"},
+							},
+							{
+								ID:          "/nodes/node-2/endpoints",
+								Executor:    libphase.Endpoints,
+								Description: `Wait for endpoints on node "node-2"`,
+								Data: &storage.OperationPhaseData{
+									Server:     &servers[1],
+									ExecServer: &servers[0],
+								},
+								Requires: []string{"/nodes/node-2/uncordon"},
+							},
+							{
+								ID:          "/nodes/node-2/untaint",
+								Executor:    libphase.Untaint,
+								Description: `Remove taint from node "node-2"`,
+								Data: &storage.OperationPhaseData{
+									Server:     &servers[1],
+									ExecServer: &servers[0],
+								},
+								Requires: []string{"/nodes/node-2/endpoints"},
+							},
+						},
+					},
+				},
+				Requires: []string{"/update-config", "/masters"},
 			},
 		},
 	})
