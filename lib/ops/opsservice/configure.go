@@ -148,21 +148,47 @@ func (s *site) getEtcdConfig(ctx context.Context, opCtx *operationContext, serve
 	}, nil
 }
 
-func (s *site) getTeleportMaster(ctx context.Context) (*teleportServer, error) {
+func (s *site) getTeleportMasterIPs(ctx context.Context) (ips []string, err error) {
+	masters, err := s.getTeleportMasters(ctx)
+	if err != nil {
+		return nil, trace.Wrap(err)
+	}
+	for _, master := range masters {
+		ips = append(ips, master.IP)
+	}
+	return ips, nil
+}
+
+func (s *site) getTeleportMasters(ctx context.Context) (servers []teleportServer, err error) {
 	masters, err := s.teleport().GetServers(ctx, s.domainName, map[string]string{
 		schema.ServiceLabelRole: string(schema.ServiceRoleMaster),
 	})
 	if err != nil {
 		return nil, trace.Wrap(err)
 	}
-	if len(masters) == 0 {
-		return nil, trace.NotFound("no master server found")
+	for _, master := range masters {
+		server, err := newTeleportServer(master)
+		if err != nil {
+			return nil, trace.Wrap(err)
+		}
+		servers = append(servers, *server)
 	}
-	return newTeleportServer(masters[0])
+	return servers, nil
+}
+
+func (s *site) getTeleportMaster(ctx context.Context) (*teleportServer, error) {
+	masters, err := s.getTeleportMasters(ctx)
+	if err != nil {
+		return nil, trace.Wrap(err)
+	}
+	if len(masters) == 0 {
+		return nil, trace.NotFound("no master servers found")
+	}
+	return &masters[0], nil
 }
 
 func (s *site) configureExpandPackages(ctx context.Context, opCtx *operationContext) error {
-	teleportMaster, err := s.getTeleportMaster(ctx)
+	teleportMasterIPs, err := s.getTeleportMasterIPs(ctx)
 	if err != nil {
 		return trace.Wrap(err)
 	}
@@ -218,8 +244,15 @@ func (s *site) configureExpandPackages(ctx context.Context, opCtx *operationCont
 		if err != nil {
 			return trace.Wrap(err)
 		}
+		// Teleport nodes on masters prefer their local auth server
+		// but will try all other masters if the local gravity-site
+		// isn't running.
+		err = s.configureTeleportNode(opCtx, append([]string{constants.Localhost}, teleportMasterIPs...), provisionedServer)
+		if err != nil {
+			return trace.Wrap(err)
+		}
 	} else {
-		err := s.configurePlanetNodeSecrets(opCtx, provisionedServer, secretsPackage)
+		err = s.configurePlanetNodeSecrets(opCtx, provisionedServer, secretsPackage)
 		if err != nil {
 			return trace.Wrap(err)
 		}
@@ -228,10 +261,10 @@ func (s *site) configureExpandPackages(ctx context.Context, opCtx *operationCont
 		if err != nil {
 			return trace.Wrap(err)
 		}
-	}
-	err = s.configureTeleportNode(opCtx, teleportMaster.IP, provisionedServer)
-	if err != nil {
-		return trace.Wrap(err)
+		err = s.configureTeleportNode(opCtx, teleportMasterIPs, provisionedServer)
+		if err != nil {
+			return trace.Wrap(err)
+		}
 	}
 	return nil
 }
@@ -341,13 +374,16 @@ func (s *site) configurePackages(ctx *operationContext) error {
 			return trace.Wrap(err)
 		}
 
-		if err := s.configureTeleportNode(ctx, activeMaster.AdvertiseIP, master); err != nil {
+		// Teleport nodes on masters prefer their local auth server
+		// but will try all other masters if the local gravity-site
+		// isn't running.
+		if err := s.configureTeleportNode(ctx, append([]string{constants.Localhost}, p.MasterIPs()...), master); err != nil {
 			return trace.Wrap(err)
 		}
 	}
 
 	for _, node := range p.Nodes() {
-		if err := s.configureTeleportNode(ctx, p.FirstMaster().AdvertiseIP, node); err != nil {
+		if err := s.configureTeleportNode(ctx, p.MasterIPs(), node); err != nil {
 			return trace.Wrap(err)
 		}
 
@@ -1143,7 +1179,7 @@ func (s *site) teleportMasterConfigPackage(master remoteServer) (*loc.Locator, e
 	return configPackage, trace.Wrap(err)
 }
 
-func (s *site) getTeleportNodeConfig(ctx *operationContext, masterIP string, node *ProvisionedServer) (*ops.RotatePackageResponse, error) {
+func (s *site) getTeleportNodeConfig(ctx *operationContext, masterIPs []string, node *ProvisionedServer) (*ops.RotatePackageResponse, error) {
 	configPackage, err := s.teleportNodeConfigPackage(node)
 	if err != nil {
 		return nil, trace.Wrap(err)
@@ -1170,7 +1206,9 @@ func (s *site) getTeleportNodeConfig(ctx *operationContext, masterIP string, nod
 		fileConf.Logger.Severity = "info"
 	}
 
-	fileConf.AuthServers = []string{fmt.Sprintf("%v:3025", masterIP)}
+	for _, masterIP := range masterIPs {
+		fileConf.AuthServers = append(fileConf.AuthServers, fmt.Sprintf("%v:3025", masterIP))
+	}
 	fileConf.AuthToken = joinToken.Token
 
 	fileConf.SSH.Labels = map[string]string{}
@@ -1238,8 +1276,8 @@ func (s *site) getTeleportNodeConfig(ctx *operationContext, masterIP string, nod
 	}, nil
 }
 
-func (s *site) configureTeleportNode(ctx *operationContext, masterIP string, node *ProvisionedServer) error {
-	resp, err := s.getTeleportNodeConfig(ctx, masterIP, node)
+func (s *site) configureTeleportNode(ctx *operationContext, masterIPs []string, node *ProvisionedServer) error {
+	resp, err := s.getTeleportNodeConfig(ctx, masterIPs, node)
 	if err != nil {
 		return trace.Wrap(err)
 	}

@@ -64,6 +64,14 @@ func (p provisionedServers) Masters() []*ProvisionedServer {
 	return servers
 }
 
+// MasterIPs returns a list of advertise IPs of master nodes.
+func (p provisionedServers) MasterIPs() (ips []string) {
+	for _, master := range p.Masters() {
+		ips = append(ips, master.AdvertiseIP)
+	}
+	return ips
+}
+
 // Nodes returns a sub-list of this server list that contains only nodes
 func (p provisionedServers) Nodes() []*ProvisionedServer {
 	nodes := make([]*ProvisionedServer, 0)
