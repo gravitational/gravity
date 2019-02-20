@@ -288,7 +288,6 @@ func configToExecutor(config Config) libfsm.FSMSpecFunc {
 			return libphase.NewUncordon(params, config.Client, logger)
 		case libphase.Endpoints:
 			return libphase.NewEndpoints(params, config.Client, logger)
-
 		default:
 			return nil, trace.BadParameter("unknown executor %v for phase %q",
 				params.Phase.Executor, params.Phase.ID)

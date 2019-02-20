@@ -1499,10 +1499,10 @@ func (s *site) addClusterConfig(planetConfig planetConfig, overrideArgs map[stri
 			base64.StdEncoding.EncodeToString(config.Config)))
 	}
 
-	config := planetConfig.config.GetGlobalConfig()
+	globalConfig := planetConfig.config.GetGlobalConfig()
 	cloudProvider := s.cloudProviderName()
-	if config != nil {
-		cloudProvider = config.CloudProvider
+	if globalConfig != nil {
+		cloudProvider = globalConfig.CloudProvider
 	}
 
 	if cloudProvider != "" {
@@ -1511,32 +1511,32 @@ func (s *site) addClusterConfig(planetConfig planetConfig, overrideArgs map[stri
 			args = append(args, fmt.Sprintf("--gce-node-tags=%v", s.gceNodeTags()))
 		}
 		args = append(args, fmt.Sprintf("--cloud-config=%v",
-			base64.StdEncoding.EncodeToString([]byte(config.CloudConfig.Config))))
+			base64.StdEncoding.EncodeToString([]byte(globalConfig.CloudConfig.Config))))
 	}
 
-	if config == nil {
+	if globalConfig == nil {
 		return args
 	}
 
-	if config.ServiceCIDR != "" {
-		overrideArgs["service-subnet"] = config.ServiceCIDR
+	if globalConfig.ServiceCIDR != "" {
+		overrideArgs["service-subnet"] = globalConfig.ServiceCIDR
 	}
-	if config.PodCIDR != "" {
-		overrideArgs["pod-subnet"] = config.PodCIDR
+	if globalConfig.PodCIDR != "" {
+		overrideArgs["pod-subnet"] = globalConfig.PodCIDR
 	}
-	if config.ServiceNodePortRange != "" {
+	if globalConfig.ServiceNodePortRange != "" {
 		args = append(args,
-			fmt.Sprintf("--service-node-portrange=%v", config.ServiceNodePortRange),
+			fmt.Sprintf("--service-node-portrange=%v", globalConfig.ServiceNodePortRange),
 		)
 	}
-	if config.ProxyPortRange != "" {
+	if globalConfig.ProxyPortRange != "" {
 		args = append(args,
-			fmt.Sprintf("--proxy-portrange=%v", config.ProxyPortRange),
+			fmt.Sprintf("--proxy-portrange=%v", globalConfig.ProxyPortRange),
 		)
 	}
-	if len(config.FeatureGates) != 0 {
-		features := make([]string, 0, len(config.FeatureGates))
-		for k, v := range config.FeatureGates {
+	if len(globalConfig.FeatureGates) != 0 {
+		features := make([]string, 0, len(globalConfig.FeatureGates))
+		for k, v := range globalConfig.FeatureGates {
 			features = append(features, fmt.Sprintf("%v=%v", k, v))
 		}
 		args = append(args,

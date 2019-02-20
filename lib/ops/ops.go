@@ -466,7 +466,7 @@ type RuntimeEnvironment interface {
 	GetClusterEnvironmentVariables(SiteKey) (storage.EnvironmentVariables, error)
 }
 
-// EnvironmentVariables manages runtime environment variables in cluster
+// ClusterConfiguration manages configuration in cluster
 type ClusterConfiguration interface {
 	// CreateUpdateConfigOperation creates a new operation to update cluster configuration
 	CreateUpdateConfigOperation(CreateUpdateConfigOperationRequest) (*SiteOperationKey, error)
