@@ -41,8 +41,8 @@ type Interface interface {
 	GetGlobalConfig() *Global
 }
 
-// Empty returns a new instance of the resource initialized to defaults
-func Empty() *Resource {
+// NewEmpty returns a new instance of the resource initialized to defaults
+func NewEmpty() *Resource {
 	return &Resource{
 		Kind:    storage.KindClusterConfiguration,
 		Version: "v1",
