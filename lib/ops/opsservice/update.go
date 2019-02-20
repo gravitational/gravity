@@ -83,8 +83,8 @@ func (o *Operator) RotateTeleportConfig(req ops.RotateConfigPackageRequest) (mas
 		return nil, nil, trace.Wrap(err)
 	}
 
-	masters := req.Servers.Masters()
-	if len(masters) == 0 {
+	masterIPs := req.Servers.MasterIPs()
+	if len(masterIPs) == 0 {
 		return nil, nil, trace.NotFound("no masters in the request: %#v", req)
 	}
 
@@ -103,11 +103,18 @@ func (o *Operator) RotateTeleportConfig(req ops.RotateConfigPackageRequest) (mas
 		if err != nil {
 			return nil, nil, trace.Wrap(err)
 		}
-	}
-
-	nodeConfig, err = cluster.getTeleportNodeConfig(ctx, masters[0].AdvertiseIP, node)
-	if err != nil {
-		return nil, nil, trace.Wrap(err)
+		// Teleport nodes on masters prefer their local auth server
+		// but will try all other masters if the local gravity-site
+		// isn't running.
+		nodeConfig, err = cluster.getTeleportNodeConfig(ctx, append([]string{constants.Localhost}, masterIPs...), node)
+		if err != nil {
+			return nil, nil, trace.Wrap(err)
+		}
+	} else {
+		nodeConfig, err = cluster.getTeleportNodeConfig(ctx, masterIPs, node)
+		if err != nil {
+			return nil, nil, trace.Wrap(err)
+		}
 	}
 
 	return masterConfig, nodeConfig, nil
