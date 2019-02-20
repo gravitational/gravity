@@ -20,17 +20,23 @@ import (
 	"github.com/gravitational/gravity/lib/clusterconfig/internal/fsm"
 	"github.com/gravitational/gravity/lib/ops"
 	"github.com/gravitational/gravity/lib/storage"
+	"github.com/gravitational/gravity/lib/storage/clusterconfig"
 
 	"github.com/gravitational/trace"
 )
 
 // NewOperationPlan creates a new operation plan for the specified operation
-func NewOperationPlan(operator ops.Operator, operation ops.SiteOperation, servers []storage.Server) (plan *storage.OperationPlan, err error) {
+func NewOperationPlan(
+	operator ops.Operator,
+	operation ops.SiteOperation,
+	clusterConfig clusterconfig.Interface,
+	servers []storage.Server,
+) (plan *storage.OperationPlan, err error) {
 	cluster, err := operator.GetLocalSite()
 	if err != nil {
 		return nil, trace.Wrap(err)
 	}
-	plan, err = fsm.NewOperationPlan(cluster.App.Package, cluster.DNSConfig, operation, servers)
+	plan, err = fsm.NewOperationPlan(cluster.App.Package, cluster.DNSConfig, operation, clusterConfig, servers)
 	if err != nil {
 		return nil, trace.Wrap(err)
 	}
@@ -42,20 +48,6 @@ func NewOperationPlan(operator ops.Operator, operation ops.SiteOperation, server
 					"Please make sure you're running the command on a compatible cluster.")
 		}
 		return nil, trace.Wrap(err)
-	}
-	return plan, nil
-}
-
-func getOrCreateOperationPlan(operator ops.Operator, operation ops.SiteOperation, servers []storage.Server) (plan *storage.OperationPlan, err error) {
-	plan, err = operator.GetOperationPlan(operation.Key())
-	if err != nil && !trace.IsNotFound(err) {
-		return nil, trace.Wrap(err)
-	}
-	if trace.IsNotFound(err) {
-		plan, err = NewOperationPlan(operator, operation, servers)
-		if err != nil {
-			return nil, trace.Wrap(err)
-		}
 	}
 	return plan, nil
 }

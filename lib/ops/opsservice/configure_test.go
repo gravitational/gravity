@@ -87,12 +87,12 @@ func (s *ConfigureSuite) TestGeneratesPlanetConfigPackage(c *check.C) {
 		Role:        "node",
 		AdvertiseIP: "172.12.13.0",
 	}
-	konfig := component.KubeletConfiguration{
+	kubeletConfig := component.KubeletConfiguration{
 		TypeMeta: component.KubeletTypeMeta,
 		Address:  "0.0.0.0",
 		Port:     10250,
 	}
-	konfigBytes, err := json.Marshal(konfig)
+	configBytes, err := json.Marshal(kubeletConfig)
 	c.Assert(err, check.IsNil)
 	config := planetConfig{
 		master: masterConfig{
@@ -141,7 +141,7 @@ func (s *ConfigureSuite) TestGeneratesPlanetConfigPackage(c *check.C) {
 			},
 			Spec: clusterconfig.Spec{
 				ComponentConfigs: clusterconfig.ComponentConfigs{
-					Kubelet: &clusterconfig.Kubelet{Config: konfigBytes},
+					Kubelet: &clusterconfig.Kubelet{Config: configBytes},
 				},
 				Global: &clusterconfig.Global{
 					CloudProvider: "gce",
@@ -164,14 +164,14 @@ password=pass`,
 	obtained := argsToMap(args, c)
 	configs := obtained["kubelet-config"]
 	c.Assert(len(configs), check.Equals, 1)
-	obtainedKonfigBytes := configs[0]
+	obtainedConfigBytes := configs[0]
 	delete(obtained, "kubelet-config")
-	decoded, err := base64.StdEncoding.DecodeString(obtainedKonfigBytes)
+	decoded, err := base64.StdEncoding.DecodeString(obtainedConfigBytes)
 	c.Assert(err, check.IsNil)
-	var obtainedKonfig component.KubeletConfiguration
-	err = json.Unmarshal(decoded, &obtainedKonfig)
+	var obtainedConfig component.KubeletConfiguration
+	err = json.Unmarshal(decoded, &obtainedConfig)
 	c.Assert(err, check.IsNil)
-	c.Assert(obtainedKonfig, compare.DeepEquals, konfig)
+	c.Assert(obtainedConfig, compare.DeepEquals, kubeletConfig)
 	c.Assert(obtained, compare.DeepEquals, map[string][]string{
 		"node-name":                  []string{"172.12.13.0"},
 		"hostname":                   []string{"node-1"},
@@ -196,7 +196,7 @@ password=pass`,
 			"/var/lib/gravity:/var/lib/gravity",
 		),
 		"cloud-provider":          []string{"gce"},
-		"cloud-config":            []string{"\n[global]\nusername=user\npassword=pass"},
+		"cloud-config":            []string{base64.StdEncoding.EncodeToString([]byte("\n[global]\nusername=user\npassword=pass"))},
 		"gce-node-tags":           []string{"example-com"},
 		"role":                    []string{"node"},
 		"docker-promiscuous-mode": []string{"true"},
