@@ -1514,6 +1514,10 @@ func (s *site) addClusterConfig(planetConfig planetConfig, overrideArgs map[stri
 			base64.StdEncoding.EncodeToString([]byte(config.CloudConfig.Config))))
 	}
 
+	if config == nil {
+		return args
+	}
+
 	if config.ServiceCIDR != "" {
 		overrideArgs["service-subnet"] = config.ServiceCIDR
 	}
