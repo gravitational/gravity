@@ -319,8 +319,8 @@ $ openssl req -newkey rsa:2048 -nodes -keyout domain.key -x509 -days 365 -out do
 
 - [ ] Create test app manifest that requires license (`app.yaml`):
 ```yaml
-apiVersion: bundle.gravitational.io/v2
-kind: Bundle
+apiVersion: cluster.gravitational.io/v2
+kind: Cluster
 metadata:
     name: test
     resourceVersion: 1.0.0
