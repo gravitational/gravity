@@ -104,7 +104,7 @@ func ReadPath(path string) ([]byte, error) {
 	return bytes, nil
 }
 
-// ReaderAtPath returns a reader for file at given path
+// ReaderForPath returns a reader for file at given path
 func ReaderForPath(path string) (io.ReadCloser, error) {
 	abs, err := NormalizePath(path)
 	if err != nil {
