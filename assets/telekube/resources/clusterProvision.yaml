@@ -2,7 +2,6 @@ apiVersion: batch/v1
 kind: Job
 metadata:
   name: cluster-provision
-  namespace: default
 spec:
   activeDeadlineSeconds: 240
   template:
