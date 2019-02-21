@@ -158,31 +158,39 @@ spec:
 
 #### Open-Source Edition
 
-- [ ] Create minimal app manifest (`app.yaml`):
+- [ ] Create a minimal cluster image manifest (`app.yaml`):
 ```yaml
-apiVersion: bundle.gravitational.io/v2
-kind: Bundle
+apiVersion: cluster.gravitational.io/v2
+kind: Cluster
 metadata:
     name: test
     resourceVersion: 1.0.0
 ```
 
-- [ ] Verify can build installer:
+- [ ] Verify `tele` selects base image matching its own version:
 ```bash
 $ tele build app.yaml
 ```
-  - [ ] Verify the latest compatible runtime from `hub.gravitational.io` was selected:
-  ```bash
-  $ tele ls --with-prereleases
-  ```
 
-- [ ] Pin runtime in the manifest to some version compatible with tele (same major/minor version components):
-```yaml
-systemOptions:
-    runtime:
-        version: 5.2.0
+- [ ] Pick base image version from the hub compatible with `tele` (same major/minor version components):
+```bash
+$ tele ls --all
 ```
+
+- [ ] Pin base image in the manifest to the selected version:
+```yaml
+apiVersion: cluster.gravitational.io/v2
+kind: Cluster
+baseImage: gravity:5.5.0
+metadata:
+    name: test
+    resourceVersion: 1.0.0
+```
+
   - [ ] Verify can build the installer.
+```bash
+$ tele build app.yaml
+```
 
 #### Enterprise Edition
 
@@ -194,8 +202,8 @@ systemOptions:
 $ tele login -o example.gravitational.io
 ```
 
-- [ ] Unpin runtime from manifest and run tele build.
-  - [ ] Verify latest compatible runtime from active Ops Center was selected.
+- [ ] Unpin runtime from manifest and run `tele build`.
+  - [ ] Verify `tele` selects base image matching its own version.
 
 ### Application Catalog
 
