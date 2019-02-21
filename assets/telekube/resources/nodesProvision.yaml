@@ -2,6 +2,7 @@ apiVersion: batch/v1
 kind: Job
 metadata:
   name: nodes-provision
+  namespace: kube-system
 spec:
   activeDeadlineSeconds: 240
   template:
