@@ -1086,14 +1086,6 @@ func (s *site) getTeleportMasterConfig(ctx *operationContext, master *Provisione
 	}
 	fileConf.Storage.Params = params
 
-	fileConf.SSH.Labels = map[string]string{}
-
-	configureTeleportLabels(master, fileConf.SSH.Labels, s.domainName)
-
-	for key, val := range master.Profile.Labels {
-		fileConf.SSH.Labels[key] = val
-	}
-
 	advertiseIP := net.ParseIP(master.AdvertiseIP)
 	if advertiseIP == nil {
 		return nil, trace.BadParameter("failed to parse master advertise IP: %v",
@@ -1223,10 +1215,6 @@ func (s *site) getTeleportNodeConfig(ctx *operationContext, masterIPs []string, 
 			Command: defaults.AWSPublicIPv4Command,
 			Period:  defaults.TeleportCommandLabelInterval,
 		})
-	}
-
-	for key, val := range node.Profile.Labels {
-		fileConf.SSH.Labels[key] = val
 	}
 
 	// never expire cache
@@ -1383,10 +1371,13 @@ func configureTeleportLabels(node *ProvisionedServer, labels map[string]string, 
 	labels[ops.AppRole] = node.Role
 	labels[ops.Hostname] = node.Hostname
 	labels[ops.InstanceType] = node.InstanceType
-	labels[schema.DisplayRole] = node.Profile.Labels[schema.DisplayRole]
+	for k, v := range node.Profile.Labels {
+		labels[k] = v
+	}
 	if labels[schema.DisplayRole] == "" {
 		labels[schema.DisplayRole] = node.Profile.Description
 	}
+	labels[schema.ServiceLabelRole] = node.ClusterRole
 }
 
 // PlanetCertAuthorityPackage returns the name of the planet CA package
