@@ -25,7 +25,6 @@ import (
 	libfsm "github.com/gravitational/gravity/lib/fsm"
 	"github.com/gravitational/gravity/lib/localenv"
 	"github.com/gravitational/gravity/lib/ops"
-	"github.com/gravitational/gravity/lib/storage"
 	libclusterconfig "github.com/gravitational/gravity/lib/storage/clusterconfig"
 
 	"github.com/gravitational/trace"
@@ -205,18 +204,6 @@ func completeConfigPlan(env, updateEnv *localenv.LocalEnvironment, operation ops
 		return trace.Wrap(err)
 	}
 	return trace.Wrap(updater.Complete())
-}
-
-func getUpdateConfigOperationPlan(env, updateEnv *localenv.LocalEnvironment, operation ops.SiteOperation) (*storage.OperationPlan, error) {
-	updater, err := getConfigUpdater(env, updateEnv, operation)
-	if err != nil {
-		return nil, trace.Wrap(err)
-	}
-	plan, err := updater.GetPlan()
-	if err != nil {
-		return nil, trace.Wrap(err)
-	}
-	return plan, nil
 }
 
 func getConfigUpdater(env, updateEnv *localenv.LocalEnvironment, operation ops.SiteOperation) (*clusterconfig.Updater, error) {

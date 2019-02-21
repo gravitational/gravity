@@ -59,6 +59,9 @@ func (o *Operator) CreateUpdateConfigOperation(req ops.CreateUpdateConfigOperati
 // GetClusterConfiguration retrieves the cluster configuration
 func (o *Operator) GetClusterConfiguration(ops.SiteKey) (config clusterconfig.Interface, err error) {
 	spec, err := o.getClusterConfiguration()
+	if err != nil {
+		return nil, trace.Wrap(err)
+	}
 	if len(spec) != 0 {
 		config, err = clusterconfig.Unmarshal([]byte(spec))
 		if err != nil {
