@@ -7,7 +7,7 @@ LTS starts with `3.51.0` with minor backwards compatible changes added over time
 
 | Release       | LTS | Release Date         | Supported Until      | Kubernetes Version | Teleport Version |
 | --------------|-----| -------------------- | -------------------- | ------------------ |------------------|
-| 5.5.0-alpha.9 | No  | February, 14th 2019  | -                    | 1.13.0             | 3.0.4            |
+| 5.5.0-beta.1  | No  | February, 21st 2019  | -                    | 1.13.3             | 3.0.4            |
 | 5.4.6         | No  | February, 12th 2019  | -                    | 1.13.2             | 2.4.10           |
 | 5.2.8         | Yes | February, 12th 2019  | October, 15th, 2019  | 1.11.5             | 2.4.10           |
 | 5.0.29        | Yes | February, 12th 2019  | April, 13th 2019     | 1.9.12-gravitational | 2.4.10         |
@@ -23,6 +23,19 @@ LTS starts with `3.51.0` with minor backwards compatible changes added over time
     article in our Help Center.
 
 ## 5.x Releases
+
+### 5.5.0-beta.1
+
+#### Improvements
+
+* Upgrade Kubernetes to `v1.13.3`.
+* Default to `tele` version when selecting base image during `tele build`.
+* Improve Teleport nodes resiliency.
+
+#### Bugfixes
+
+* Fix an issue with `tele login` when Docker/Helm are not available.
+* Fix an issue with Teleport nodes missing some labels after upgrade.
 
 ### 5.5.0-alpha.9
 
