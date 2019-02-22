@@ -65,6 +65,10 @@ func updateTrigger(
 		return trace.Wrap(err)
 	}
 	defer updater.Close()
+	unattended := !manual && !block
+	if unattended {
+		return nil
+	}
 	if !manual {
 		err = updater.Run(ctx, false)
 		return trace.Wrap(err)
@@ -84,7 +88,7 @@ func newClusterUpdater(
 		updatePackage: updatePackage,
 		unattended:    unattended,
 	}
-	updater, err := newUpdater(ctx, localEnv, updateEnv, init, unattended)
+	updater, err := newUpdater(ctx, localEnv, updateEnv, init)
 	if err != nil {
 		return nil, trace.Wrap(err)
 	}

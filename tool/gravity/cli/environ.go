@@ -82,7 +82,7 @@ func newEnvironUpdater(ctx context.Context, localEnv, updateEnv *localenv.LocalE
 	init := environInitializer{
 		environ: environ,
 	}
-	return newUpdater(ctx, localEnv, updateEnv, init, false)
+	return newUpdater(ctx, localEnv, updateEnv, init)
 }
 
 func executeEnvironPhase(env, updateEnv *localenv.LocalEnvironment, params PhaseParams, operation ops.SiteOperation) error {

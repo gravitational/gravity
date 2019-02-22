@@ -85,7 +85,7 @@ func newConfigUpdater(ctx context.Context, localEnv, updateEnv *localenv.LocalEn
 		resource: resource,
 		config:   clusterConfig,
 	}
-	return newUpdater(ctx, localEnv, updateEnv, init, false)
+	return newUpdater(ctx, localEnv, updateEnv, init)
 }
 
 func executeConfigPhase(env, updateEnv *localenv.LocalEnvironment, params PhaseParams, operation ops.SiteOperation) error {

@@ -25,6 +25,7 @@ import (
 	"github.com/gravitational/gravity/lib/pack"
 	"github.com/gravitational/gravity/lib/schema"
 	"github.com/gravitational/gravity/lib/storage"
+	"github.com/gravitational/gravity/lib/update"
 
 	teleservices "github.com/gravitational/teleport/lib/services"
 	"gopkg.in/check.v1"
@@ -92,7 +93,7 @@ func (s *PlanSuite) TestPlanWithRuntimeUpdate(c *check.C) {
 	app := *builder.app(appLocs).Require(runtime)
 	cleanup := *builder.cleanup(params.servers).Require(app)
 
-	plan.Phases = phases{
+	plan.Phases = update.Phases{
 		init,
 		checks,
 		preUpdate,
@@ -105,15 +106,15 @@ func (s *PlanSuite) TestPlanWithRuntimeUpdate(c *check.C) {
 		runtime,
 		app,
 		cleanup,
-	}.asPhases()
-	ResolvePlan(&plan)
+	}.AsPhases()
+	update.ResolvePlan(&plan)
 
 	// exercise
-	obtainedPlan, err := newOperationPlanFromParams(params)
+	obtainedPlan, err := newOperationPlan(params)
 	c.Assert(err, check.IsNil)
 	// Reset the capacity so the plans can be compared
 	obtainedPlan.Phases = resetCap(obtainedPlan.Phases)
-	ResolvePlan(obtainedPlan)
+	update.ResolvePlan(obtainedPlan)
 
 	// verify
 	c.Assert(*obtainedPlan, compare.DeepEquals, plan)
@@ -144,15 +145,15 @@ func (s *PlanSuite) TestPlanWithoutRuntimeUpdate(c *check.C) {
 	app := *builder.app(appLocs).Require(preUpdate)
 	cleanup := *builder.cleanup(params.servers).Require(app)
 
-	plan.Phases = phases{init, checks, preUpdate, app, cleanup}.asPhases()
-	ResolvePlan(&plan)
+	plan.Phases = update.Phases{init, checks, preUpdate, app, cleanup}.AsPhases()
+	update.ResolvePlan(&plan)
 
 	// exercise
-	obtainedPlan, err := newOperationPlanFromParams(params)
+	obtainedPlan, err := newOperationPlan(params)
 	c.Assert(err, check.IsNil)
 	// Reset the capacity so the plans can be compared
 	obtainedPlan.Phases = resetCap(obtainedPlan.Phases)
-	ResolvePlan(obtainedPlan)
+	update.ResolvePlan(obtainedPlan)
 
 	// verify
 	c.Assert(*obtainedPlan, compare.DeepEquals, plan)

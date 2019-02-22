@@ -24,6 +24,7 @@ import (
 	"github.com/gravitational/gravity/lib/fsm"
 	"github.com/gravitational/gravity/lib/ops/opsservice"
 	"github.com/gravitational/gravity/lib/storage"
+	"github.com/gravitational/gravity/lib/update"
 
 	"github.com/gravitational/trace"
 	"github.com/sirupsen/logrus"
@@ -33,7 +34,7 @@ import (
 func TestUpdate(t *testing.T) { check.TestingT(t) }
 
 type FSMSuite struct {
-	engine *fsmUpdateEngine
+	engine *engine
 	fsm    *fsm.FSM
 }
 
@@ -47,13 +48,15 @@ const (
 func (s *FSMSuite) SetUpTest(c *check.C) {
 	services := opsservice.SetupTestServices(c)
 	logger := logrus.WithField(trace.Component, "fsm-suite")
-	s.engine = &fsmUpdateEngine{
-		FSMConfig: FSMConfig{
-			LocalBackend: services.Backend,
-			Packages:     services.Packages,
-			Apps:         services.Apps,
-			Operator:     services.Operator,
-			Spec:         getTestExecutor(),
+	s.engine = &engine{
+		Config: Config{
+			Config: update.Config{
+				LocalBackend: services.Backend,
+				Operator:     services.Operator,
+			},
+			Packages: services.Packages,
+			Apps:     services.Apps,
+			Spec:     getTestExecutor(),
 		},
 		FieldLogger: logger,
 		reconciler:  &testReconciler{},

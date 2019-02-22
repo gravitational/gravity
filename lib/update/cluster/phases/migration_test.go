@@ -49,9 +49,9 @@ func (s *PhaseMigrationSuite) TestMigrateLinks(c *check.C) {
 	c.Assert(err, check.IsNil)
 
 	phase, err := NewPhaseMigrateLinks(
-		FSMConfig{Backend: s.backend},
 		storage.OperationPlan{ClusterName: cluster.Domain},
-		storage.OperationPhase{}, logrus.StandardLogger())
+		s.backend,
+		logrus.StandardLogger())
 	c.Assert(err, check.IsNil)
 
 	// insert a few links

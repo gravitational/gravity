@@ -25,7 +25,7 @@ import (
 	"github.com/gravitational/gravity/lib/schema"
 	"github.com/gravitational/gravity/lib/storage"
 	"github.com/gravitational/gravity/lib/storage/clusterconfig"
-	libphase "github.com/gravitational/gravity/lib/update/rollingupdate/internal/phases"
+	libphase "github.com/gravitational/gravity/lib/update/internal/rollingupdate/phases"
 
 	. "gopkg.in/check.v1"
 )
@@ -49,7 +49,7 @@ func (S) TestSingleNodePlan(c *C) {
 	app := loc.MustParseLocator("gravitational.io/app:0.0.1")
 	clusterConfig := clusterconfig.NewEmpty()
 
-	plan, err := NewOperationPlan(app, storage.DefaultDNSConfig, operation, clusterConfig, servers)
+	plan, err := newOperationPlan(app, storage.DefaultDNSConfig, operation, clusterConfig, servers)
 	c.Assert(err, IsNil)
 	c.Assert(plan, compare.DeepEquals, &storage.OperationPlan{
 		OperationID:   operation.ID,
@@ -148,7 +148,7 @@ func (S) TestMultiNodePlan(c *C) {
 	app := loc.MustParseLocator("gravitational.io/app:0.0.1")
 	clusterConfig := clusterconfig.NewEmpty()
 
-	plan, err := NewOperationPlan(app, storage.DefaultDNSConfig, operation, clusterConfig, servers)
+	plan, err := newOperationPlan(app, storage.DefaultDNSConfig, operation, clusterConfig, servers)
 	c.Assert(err, IsNil)
 	c.Assert(plan, compare.DeepEquals, &storage.OperationPlan{
 		OperationID:   operation.ID,
@@ -354,7 +354,7 @@ kind: KubeletConfiguration
 address: "0.0.0.0"`),
 	}
 
-	plan, err := NewOperationPlan(app, storage.DefaultDNSConfig, operation, clusterConfig, servers)
+	plan, err := newOperationPlan(app, storage.DefaultDNSConfig, operation, clusterConfig, servers)
 	c.Assert(err, IsNil)
 	c.Assert(plan, compare.DeepEquals, &storage.OperationPlan{
 		OperationID:   operation.ID,

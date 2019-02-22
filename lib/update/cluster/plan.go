@@ -408,6 +408,7 @@ func checkAndSetServerDefaults(servers []storage.Server, client corev1.NodeInter
 
 	masterIPs := utils.GetMasters(nodes)
 	// set cluster role that might have not have been set
+L:
 	for i, server := range servers {
 		if utils.StringInSlice(masterIPs, server.AdvertiseIP) {
 			servers[i].ClusterRole = string(schema.ServiceRoleMaster)
@@ -423,7 +424,7 @@ func checkAndSetServerDefaults(servers []storage.Server, client corev1.NodeInter
 			// and we can continue without trying to repair the Nodename
 			for _, node := range nodes {
 				if node.Name == server.Nodename {
-					continue
+					continue L
 				}
 			}
 

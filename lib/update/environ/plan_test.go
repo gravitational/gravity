@@ -24,7 +24,7 @@ import (
 	"github.com/gravitational/gravity/lib/ops"
 	"github.com/gravitational/gravity/lib/schema"
 	"github.com/gravitational/gravity/lib/storage"
-	libphase "github.com/gravitational/gravity/lib/update/rollingupdate/internal/phases"
+	libphase "github.com/gravitational/gravity/lib/update/internal/rollingupdate/phases"
 
 	. "gopkg.in/check.v1"
 )
@@ -47,7 +47,7 @@ func (S) TestSingleNodePlan(c *C) {
 	}
 	app := loc.MustParseLocator("gravitational.io/app:0.0.1")
 
-	plan, err := NewOperationPlan(app, storage.DefaultDNSConfig, operation, servers)
+	plan, err := newOperationPlan(app, storage.DefaultDNSConfig, operation, servers)
 	c.Assert(err, IsNil)
 	c.Assert(plan, compare.DeepEquals, &storage.OperationPlan{
 		OperationID:   operation.ID,
@@ -60,14 +60,14 @@ func (S) TestSingleNodePlan(c *C) {
 			{
 				ID:          "/update-config",
 				Executor:    libphase.UpdateConfig,
-				Description: `Update runtime configuration`,
+				Description: `Update cluster environment`,
 				Data: &storage.OperationPhaseData{
 					Package: &app,
 				},
 			},
 			{
 				ID:          "/masters",
-				Description: "Update cluster environment variables",
+				Description: "Update cluster environment",
 				Phases: []storage.OperationPhase{
 					{
 						ID:          "/masters/drain",
@@ -146,7 +146,7 @@ func (S) TestMultiNodePlan(c *C) {
 	}
 	app := loc.MustParseLocator("gravitational.io/app:0.0.1")
 
-	plan, err := NewOperationPlan(app, storage.DefaultDNSConfig, operation, servers)
+	plan, err := newOperationPlan(app, storage.DefaultDNSConfig, operation, servers)
 	c.Assert(err, IsNil)
 	c.Assert(plan, compare.DeepEquals, &storage.OperationPlan{
 		OperationID:   operation.ID,
@@ -159,18 +159,18 @@ func (S) TestMultiNodePlan(c *C) {
 			{
 				ID:          "/update-config",
 				Executor:    libphase.UpdateConfig,
-				Description: `Update runtime configuration`,
+				Description: `Update cluster environment`,
 				Data: &storage.OperationPhaseData{
 					Package: &app,
 				},
 			},
 			{
 				ID:          "/masters",
-				Description: "Update cluster environment variables",
+				Description: "Update cluster environment",
 				Phases: []storage.OperationPhase{
 					{
 						ID:          "/masters/node-1",
-						Description: `Update environment variables on node "node-1"`,
+						Description: `Update runtime environment on node "node-1"`,
 						Phases: []storage.OperationPhase{
 							{
 								ID:          "/masters/node-1/stepdown",
@@ -256,7 +256,7 @@ func (S) TestMultiNodePlan(c *C) {
 					},
 					{
 						ID:          "/masters/node-3",
-						Description: `Update environment variables on node "node-3"`,
+						Description: `Update runtime environment on node "node-3"`,
 						Phases: []storage.OperationPhase{
 							{
 								ID:          "/masters/node-3/drain",
@@ -332,11 +332,11 @@ func (S) TestMultiNodePlan(c *C) {
 			},
 			{
 				ID:          "/nodes",
-				Description: "Update cluster environment variables",
+				Description: "Update cluster environment",
 				Phases: []storage.OperationPhase{
 					{
 						ID:          "/nodes/node-2",
-						Description: `Update environment variables on node "node-2"`,
+						Description: `Update runtime environment on node "node-2"`,
 						Phases: []storage.OperationPhase{
 							{
 								ID:          "/nodes/node-2/drain",
@@ -401,7 +401,7 @@ func (S) TestMultiNodePlan(c *C) {
 					},
 					{
 						ID:          "/nodes/node-4",
-						Description: `Update environment variables on node "node-4"`,
+						Description: `Update runtime environment on node "node-4"`,
 						Phases: []storage.OperationPhase{
 							{
 								ID:          "/nodes/node-4/drain",

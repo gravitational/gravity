@@ -34,7 +34,7 @@ import (
 	"github.com/sirupsen/logrus"
 )
 
-func newUpdater(ctx context.Context, localEnv, updateEnv *localenv.LocalEnvironment, init updateInitializer, unattended bool) (*update.Updater, error) {
+func newUpdater(ctx context.Context, localEnv, updateEnv *localenv.LocalEnvironment, init updateInitializer) (*update.Updater, error) {
 	teleportClient, err := localEnv.TeleportClient(constants.Localhost)
 	if err != nil {
 		return nil, trace.Wrap(err, "failed to create a teleport client")
@@ -102,12 +102,13 @@ func newUpdater(ctx context.Context, localEnv, updateEnv *localenv.LocalEnvironm
 	})
 	deployCtx, cancel := context.WithTimeout(ctx, defaults.AgentDeployTimeout)
 	defer cancel()
+	logrus.WithField("request", req).Debug("Deploying agents on nodes.")
 	localEnv.Println("Deploying agents on nodes")
 	creds, err := deployAgents(deployCtx, req)
 	if err != nil {
 		return nil, trace.Wrap(err)
 	}
-	if unattended && bool(localEnv.Silent) {
+	if bool(localEnv.Silent) {
 		// FIXME: keep the legacy behavior of reporting the operation ID in quiet mode.
 		// This is still used by robotest to fetch the operation ID
 		fmt.Println(key.OperationID)
