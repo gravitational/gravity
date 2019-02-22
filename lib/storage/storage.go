@@ -1930,6 +1930,14 @@ func (r Servers) Masters() (masters []Server) {
 	return
 }
 
+// MasterIPs returns a list of advertise IPs of master nodes.
+func (r Servers) MasterIPs() (ips []string) {
+	for _, master := range r.Masters() {
+		ips = append(ips, master.AdvertiseIP)
+	}
+	return ips
+}
+
 // String formats this list of servers as text
 func (r Servers) String() string {
 	var formats []string

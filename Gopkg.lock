@@ -636,12 +636,12 @@
   version = "5.4.0"
 
 [[projects]]
-  digest = "1:fc7f5af08c8908dab9b24f2f45f3fe1b55269991ca3e8ede485f432dd08f6915"
+  digest = "1:e025b0f4997273273c5dc46a17caddb27ab7dc8b8aa9ffb50d326e7aeb4059c7"
   name = "github.com/gravitational/roundtrip"
   packages = ["."]
   pruneopts = "UT"
-  revision = "ad87871f2c4d31b9bef3f3c6224c3f5e50d0bac1"
-  version = "0.0.2"
+  revision = "e1e0cd6b05a6bb1791b262e63160038828fd7b3a"
+  version = "v1.0.0"
 
 [[projects]]
   digest = "1:f01b1009f6ab14bbd9257884dc63897eaf59cd7e7cdd59b1dae4bebad7cea154"
@@ -672,7 +672,7 @@
   version = "v1.0.1"
 
 [[projects]]
-  digest = "1:a10fd3a73305c096aaedea3f09e4fe37ee06221a2c4936a9d343677427b30cdf"
+  digest = "1:c97a2f86cec26c48b28cebc7f60ed8da0331bf886a05ab18dd35e0eb75f5fb6f"
   name = "github.com/gravitational/teleport"
   packages = [
     ".",
@@ -715,8 +715,8 @@
     "lib/web/ui",
   ]
   pruneopts = "UT"
-  revision = "874bbe7ab1ca7d11cd741a5cde0c35a4040c27b7"
-  version = "v2.4.10"
+  revision = "f15ac376ac8624c039a5142d78342b4f9ea62f8d"
+  version = "v2.4.12"
 
 [[projects]]
   digest = "1:22c8951489f0e27ec3b2d50d9f74086ff3f08554ce5965d418d6a10296b9ea04"
