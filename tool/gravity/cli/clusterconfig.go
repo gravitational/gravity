@@ -19,13 +19,13 @@ package cli
 import (
 	"context"
 
-	"github.com/gravitational/gravity/lib/clusterconfig"
-	"github.com/gravitational/gravity/lib/constants"
-	"github.com/gravitational/gravity/lib/defaults"
+	"github.com/gravitational/gravity/lib/fsm"
 	libfsm "github.com/gravitational/gravity/lib/fsm"
 	"github.com/gravitational/gravity/lib/localenv"
 	"github.com/gravitational/gravity/lib/ops"
 	libclusterconfig "github.com/gravitational/gravity/lib/storage/clusterconfig"
+	"github.com/gravitational/gravity/lib/update"
+	"github.com/gravitational/gravity/lib/update/clusterconfig"
 
 	"github.com/gravitational/trace"
 	"github.com/sirupsen/logrus"
@@ -67,6 +67,7 @@ func updateConfig(ctx context.Context, localEnv, updateEnv *localenv.LocalEnviro
 	if err != nil {
 		return trace.Wrap(err)
 	}
+	defer updater.Close()
 	if !manual {
 		err = updater.Run(ctx, false)
 		return trace.Wrap(err)
@@ -75,108 +76,16 @@ func updateConfig(ctx context.Context, localEnv, updateEnv *localenv.LocalEnviro
 	return nil
 }
 
-func newConfigUpdater(ctx context.Context, localEnv, updateEnv *localenv.LocalEnvironment, resource []byte) (*clusterconfig.Updater, error) {
-	teleportClient, err := localEnv.TeleportClient(constants.Localhost)
-	if err != nil {
-		return nil, trace.Wrap(err, "failed to create a teleport client")
-	}
-	proxy, err := teleportClient.ConnectToProxy()
-	if err != nil {
-		return nil, trace.Wrap(err, "failed to connect to teleport proxy")
-	}
-	clusterEnv, err := localEnv.NewClusterEnvironment()
-	if err != nil {
-		return nil, trace.Wrap(err)
-	}
-	if clusterEnv.Client == nil {
-		return nil, trace.BadParameter("this operation can only be executed on one of the master nodes")
-	}
-	operator := clusterEnv.Operator
-	cluster, err := operator.GetLocalSite()
-	if err != nil {
-		return nil, trace.Wrap(err)
-	}
+func newConfigUpdater(ctx context.Context, localEnv, updateEnv *localenv.LocalEnvironment, resource []byte) (updater, error) {
 	clusterConfig, err := libclusterconfig.Unmarshal(resource)
 	if err != nil {
 		return nil, trace.Wrap(err)
 	}
-	key, err := operator.CreateUpdateConfigOperation(
-		ops.CreateUpdateConfigOperationRequest{
-			ClusterKey: cluster.Key(),
-			Config:     resource,
-		},
-	)
-	if err != nil {
-		if trace.IsNotFound(err) {
-			return nil, trace.NotImplemented(
-				"cluster operator does not implement the API required for updating configuration. " +
-					"Please make sure you're running the command on a compatible cluster.")
-		}
-		return nil, trace.Wrap(err)
+	init := configInitializer{
+		resource: resource,
+		config:   clusterConfig,
 	}
-	defer func() {
-		r := recover()
-		panicked := r != nil
-		if err != nil || panicked {
-			logger := logrus.WithField("operation", key)
-			logger.WithError(err).Warn("Operation failed.")
-			var msg string
-			if err != nil {
-				msg = err.Error()
-			}
-			if errMark := ops.FailOperationAndResetCluster(*key, operator, msg); err != nil {
-				logrus.WithFields(logrus.Fields{
-					logrus.ErrorKey: errMark,
-					"operation":     key,
-				}).Warn("Failed to mark operation as failed.")
-			}
-		}
-		if r != nil {
-			panic(r)
-		}
-	}()
-	operation, err := operator.GetSiteOperation(*key)
-	if err != nil {
-		return nil, trace.Wrap(err)
-	}
-	// Create the operation plan so it can be replicated on remote nodes
-	_, err = clusterconfig.NewOperationPlan(operator, *operation, clusterConfig, cluster.ClusterState.Servers)
-	if err != nil {
-		return nil, trace.Wrap(err)
-	}
-	req := deployAgentsRequest{
-		clusterState: cluster.ClusterState,
-		clusterName:  cluster.Domain,
-		clusterEnv:   clusterEnv,
-		proxy:        proxy,
-		nodeParams:   constants.RPCAgentSyncPlanFunction,
-	}
-	deployCtx, cancel := context.WithTimeout(ctx, defaults.AgentDeployTimeout)
-	defer cancel()
-	localEnv.Println("Deploying agents on nodes")
-	creds, err := deployAgents(deployCtx, req)
-	if err != nil {
-		return nil, trace.Wrap(err)
-	}
-	runner := libfsm.NewAgentRunner(creds)
-	config := clusterconfig.Config{
-		Operator:        operator,
-		Operation:       operation,
-		Apps:            clusterEnv.Apps,
-		Backend:         clusterEnv.Backend,
-		LocalBackend:    updateEnv.Backend,
-		ClusterPackages: clusterEnv.ClusterPackages,
-		Client:          clusterEnv.Client,
-		Servers:         cluster.ClusterState.Servers,
-		ClusterKey:      cluster.Key(),
-		Silent:          localEnv.Silent,
-		Runner:          runner,
-	}
-	updater, err := clusterconfig.New(ctx, config)
-	if err != nil {
-		return nil, trace.Wrap(err)
-	}
-	return updater, nil
+	return newUpdater(ctx, localEnv, updateEnv, init, false)
 }
 
 func executeConfigPhase(env, updateEnv *localenv.LocalEnvironment, params PhaseParams, operation ops.SiteOperation) error {
@@ -184,7 +93,7 @@ func executeConfigPhase(env, updateEnv *localenv.LocalEnvironment, params PhaseP
 	if err != nil {
 		return trace.Wrap(err)
 	}
-
+	defer updater.Close()
 	err = updater.RunPhase(context.TODO(), params.PhaseID, params.Timeout, params.Force)
 	return trace.Wrap(err)
 }
@@ -194,6 +103,7 @@ func rollbackConfigPhase(env, updateEnv *localenv.LocalEnvironment, params Phase
 	if err != nil {
 		return trace.Wrap(err)
 	}
+	defer updater.Close()
 	err = updater.RollbackPhase(context.TODO(), params.PhaseID, params.Timeout, params.Force)
 	return trace.Wrap(err)
 }
@@ -203,20 +113,16 @@ func completeConfigPlan(env, updateEnv *localenv.LocalEnvironment, operation ops
 	if err != nil {
 		return trace.Wrap(err)
 	}
-	return trace.Wrap(updater.Complete())
+	defer updater.Close()
+	return trace.Wrap(updater.Complete(nil))
 }
 
-func getConfigUpdater(env, updateEnv *localenv.LocalEnvironment, operation ops.SiteOperation) (*clusterconfig.Updater, error) {
+func getConfigUpdater(env, updateEnv *localenv.LocalEnvironment, operation ops.SiteOperation) (*update.Updater, error) {
 	clusterEnv, err := env.NewClusterEnvironment()
 	if err != nil {
 		return nil, trace.Wrap(err)
 	}
 	operator := clusterEnv.Operator
-
-	cluster, err := operator.GetLocalSite()
-	if err != nil {
-		return nil, trace.Wrap(err)
-	}
 
 	creds, err := libfsm.GetClientCredentials()
 	if err != nil {
@@ -225,22 +131,88 @@ func getConfigUpdater(env, updateEnv *localenv.LocalEnvironment, operation ops.S
 	runner := libfsm.NewAgentRunner(creds)
 
 	updater, err := clusterconfig.New(context.TODO(), clusterconfig.Config{
-		Operator:        operator,
-		Operation:       &operation,
+		Config: update.Config{
+			Operation:    &operation,
+			Operator:     operator,
+			Backend:      clusterEnv.Backend,
+			LocalBackend: updateEnv.Backend,
+			Runner:       runner,
+			Silent:       env.Silent,
+			FieldLogger: logrus.WithFields(logrus.Fields{
+				trace.Component: "update:clusterconfig",
+				"operation":     operation,
+			}),
+		},
 		Apps:            clusterEnv.Apps,
-		Backend:         clusterEnv.Backend,
 		Client:          clusterEnv.Client,
 		ClusterPackages: clusterEnv.ClusterPackages,
-		LocalBackend:    updateEnv.Backend,
-		Servers:         cluster.ClusterState.Servers,
-		ClusterKey:      cluster.Key(),
-		Silent:          env.Silent,
-		Runner:          runner,
 	})
 	if err != nil {
 		return nil, trace.Wrap(err)
 	}
 	return updater, nil
+}
+
+func (r configInitializer) validatePreconditions(*localenv.LocalEnvironment, ops.Operator, ops.Site) error {
+	return nil
+}
+
+func (r configInitializer) newOperation(operator ops.Operator, cluster ops.Site) (*ops.SiteOperationKey, error) {
+	return operator.CreateUpdateConfigOperation(
+		ops.CreateUpdateConfigOperationRequest{
+			ClusterKey: cluster.Key(),
+			Config:     r.resource,
+		},
+	)
+}
+
+func (r configInitializer) newOperationPlan(
+	ctx context.Context,
+	operator ops.Operator,
+	cluster ops.Site,
+	operation ops.SiteOperation,
+	localEnv, updateEnv *localenv.LocalEnvironment,
+	clusterEnv *localenv.ClusterEnvironment,
+) error {
+	_, err := clusterconfig.NewOperationPlan(operator, operation, r.config, cluster.ClusterState.Servers)
+	return trace.Wrap(err)
+}
+
+func (configInitializer) newUpdater(
+	ctx context.Context,
+	operator ops.Operator,
+	operation ops.SiteOperation,
+	localEnv, updateEnv *localenv.LocalEnvironment,
+	clusterEnv *localenv.ClusterEnvironment,
+	runner fsm.AgentRepository,
+) (updater, error) {
+	config := clusterconfig.Config{
+		Config: update.Config{
+			Operation:    &operation,
+			Operator:     operator,
+			Backend:      clusterEnv.Backend,
+			LocalBackend: updateEnv.Backend,
+			Runner:       runner,
+			Silent:       localEnv.Silent,
+			FieldLogger: logrus.WithFields(logrus.Fields{
+				trace.Component: "update:clusterconfig",
+				"operation":     operation,
+			}),
+		},
+		Apps:            clusterEnv.Apps,
+		Client:          clusterEnv.Client,
+		ClusterPackages: clusterEnv.ClusterPackages,
+	}
+	return clusterconfig.New(ctx, config)
+}
+
+func (configInitializer) updateDeployRequest(req deployAgentsRequest) deployAgentsRequest {
+	return req
+}
+
+type configInitializer struct {
+	resource []byte
+	config   libclusterconfig.Interface
 }
 
 const (

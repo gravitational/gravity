@@ -35,7 +35,7 @@ import (
 	pb "github.com/gravitational/gravity/lib/rpc/proto"
 	rpcserver "github.com/gravitational/gravity/lib/rpc/server"
 	"github.com/gravitational/gravity/lib/storage"
-	"github.com/gravitational/gravity/lib/update"
+	update "github.com/gravitational/gravity/lib/update/cluster"
 	"github.com/gravitational/gravity/lib/utils"
 
 	"github.com/cenkalti/backoff"

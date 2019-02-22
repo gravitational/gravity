@@ -26,7 +26,7 @@ import (
 	"github.com/gravitational/gravity/lib/localenv"
 	"github.com/gravitational/gravity/lib/ops"
 	"github.com/gravitational/gravity/lib/storage"
-	"github.com/gravitational/gravity/lib/update"
+	update "github.com/gravitational/gravity/lib/update/cluster"
 	"github.com/gravitational/gravity/lib/utils"
 
 	"github.com/fatih/color"

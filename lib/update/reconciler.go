@@ -92,7 +92,7 @@ func (r *reconciler) trySyncChangelogFromEtcd(ctx context.Context) error {
 
 // syncChangelog will sync changelog entries from src to dst storage
 func (r *reconciler) syncChangelog(src storage.Backend, dst storage.Backend) error {
-	return trace.Wrap(syncChangelog(src, dst, r.cluster, r.operationID))
+	return trace.Wrap(SyncChangelog(src, dst, r.cluster, r.operationID))
 }
 
 type reconciler struct {
@@ -102,8 +102,8 @@ type reconciler struct {
 	operationID           string
 }
 
-// syncChangelog will sync changelog entries from src to dst storage
-func syncChangelog(src storage.Backend, dst storage.Backend, clusterName string, operationID string) error {
+// SyncChangelog will sync changelog entries from src to dst storage
+func SyncChangelog(src storage.Backend, dst storage.Backend, clusterName string, operationID string) error {
 	srcChangeLog, err := src.GetOperationPlanChangelog(clusterName, operationID)
 	if err != nil {
 		return trace.Wrap(err)

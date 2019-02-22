@@ -56,9 +56,9 @@ func executePhase(localEnv, updateEnv, joinEnv *localenv.LocalEnvironment, param
 	case ops.OperationExpand:
 		return executeJoinPhase(localEnv, joinEnv, params, op)
 	case ops.OperationUpdate:
-		return executeUpgradePhase(localEnv, updateEnv, params, op)
+		return executeUpdatePhase(localEnv, updateEnv, params, *op)
 	case ops.OperationUpdateRuntimeEnviron:
-		return executeEnvarsPhase(localEnv, updateEnv, params, *op)
+		return executeEnvironPhase(localEnv, updateEnv, params, *op)
 	case ops.OperationUpdateConfig:
 		return executeConfigPhase(localEnv, updateEnv, params, *op)
 	case ops.OperationGarbageCollect:
@@ -79,9 +79,9 @@ func rollbackPhase(localEnv, updateEnv, joinEnv *localenv.LocalEnvironment, para
 	case ops.OperationExpand:
 		return rollbackJoinPhase(localEnv, joinEnv, params, op)
 	case ops.OperationUpdate:
-		return rollbackUpgradePhase(localEnv, updateEnv, params, *op)
+		return rollbackUpdatePhase(localEnv, updateEnv, params, *op)
 	case ops.OperationUpdateRuntimeEnviron:
-		return rollbackEnvarsPhase(localEnv, updateEnv, params, *op)
+		return rollbackEnvironPhase(localEnv, updateEnv, params, *op)
 	case ops.OperationUpdateConfig:
 		return rollbackConfigPhase(localEnv, updateEnv, params, *op)
 	default:

@@ -131,7 +131,7 @@ func RemoveResource(env *localenv.LocalEnvironment, factory LocalEnvironmentFact
 
 	switch kind {
 	case storage.KindRuntimeEnvironment:
-		return trace.Wrap(RemoveEnvars(env, updateEnv, manual, confirmed))
+		return trace.Wrap(RemoveEnviron(env, updateEnv, manual, confirmed))
 	case storage.KindClusterConfiguration:
 		return trace.Wrap(ResetConfig(env, updateEnv, manual, confirmed))
 	}

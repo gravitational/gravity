@@ -1,5 +1,5 @@
 /*
-Copyright 2018 Gravitational, Inc.
+Copyright 2019 Gravitational, Inc.
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -14,269 +14,196 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
+// This file implements a generic FSM update engine
 package update
 
 import (
-	"bytes"
 	"context"
 	"time"
 
-	"github.com/gravitational/gravity/lib/app"
-	"github.com/gravitational/gravity/lib/checks"
-	"github.com/gravitational/gravity/lib/defaults"
 	"github.com/gravitational/gravity/lib/fsm"
+	"github.com/gravitational/gravity/lib/localenv"
 	"github.com/gravitational/gravity/lib/ops"
 	"github.com/gravitational/gravity/lib/storage"
 	"github.com/gravitational/gravity/lib/utils"
 
-	"github.com/coreos/go-semver/semver"
 	"github.com/gravitational/trace"
-	"github.com/gravitational/version"
 	"github.com/pborman/uuid"
-	"github.com/sirupsen/logrus"
+	log "github.com/sirupsen/logrus"
 )
 
-// fsmUpdateEngine is the update FSM engine
-type fsmUpdateEngine struct {
-	// FSMConfig is the state machine configuration
-	FSMConfig
-	// FieldLogger is used for logging
-	logrus.FieldLogger
-	// plan is the update operation plan
-	plan       storage.OperationPlan
-	reconciler Reconciler
+// NewMachine returns a new state machine for an update operation.
+func NewMachine(ctx context.Context, config Config, engine *Engine) (*fsm.FSM, error) {
+	err := config.CheckAndSetDefaults()
+	if err != nil {
+		return nil, trace.Wrap(err)
+	}
+	machine, err := fsm.New(fsm.Config{
+		Engine: engine,
+		Runner: config.Runner,
+	})
+	if err != nil {
+		return nil, trace.Wrap(err)
+	}
+	machine.SetPreExec(engine.UpdateProgress)
+	return machine, nil
 }
 
-// newUpdateEngine returns a new instance of FSM engine for update
-func newUpdateEngine(ctx context.Context, config FSMConfig, logger logrus.FieldLogger) (*fsmUpdateEngine, error) {
-	plan, err := loadPlan(config.LocalBackend, config.Operation.Key(), logger)
+// NewEngine returns a new update engine using the given dispatcher to dispatch phases
+func NewEngine(ctx context.Context, config Config, dispatcher Dispatcher) (*Engine, error) {
+	plan, err := config.Operator.GetOperationPlan(config.Operation.Key())
 	if err != nil {
 		return nil, trace.Wrap(err)
 	}
 	reconciler := NewDefaultReconciler(
 		config.Backend, config.LocalBackend,
-		plan.ClusterName, plan.OperationID,
-		logger)
-	reconciledPlan, err := reconciler.ReconcilePlan(ctx, *plan)
+		config.Operation.SiteDomain,
+		config.Operation.ID,
+		config.FieldLogger)
+	p, err := reconciler.ReconcilePlan(ctx, *plan)
 	if err != nil {
 		// This is not critical and will be retried during the operation
-		logger.WithError(err).Warn("Failed to reconcile operation plan.")
-		reconciledPlan = plan
+		config.WithError(err).Warn("Failed to reconcile operation plan.")
+		p = plan
 	}
-	engine := &fsmUpdateEngine{
-		FSMConfig: config,
-		FieldLogger: &fsm.Logger{
-			Operator:    config.Operator,
-			Key:         fsm.OperationKey(*plan),
-			FieldLogger: logger,
-		},
-		plan:       *reconciledPlan,
+	return &Engine{
+		Config:     config,
+		operator:   config.Operator,
 		reconciler: reconciler,
-	}
-	return engine, nil
+		plan:       *p,
+		dispatcher: dispatcher,
+	}, nil
 }
 
-// GetExecutor returns the appropriate update phase executor based on the
-// provided parameters
-func (f *fsmUpdateEngine) GetExecutor(p fsm.ExecutorParams, remote fsm.Remote) (fsm.PhaseExecutor, error) {
-	return f.Spec(p, remote)
-}
-
-// RunCommand executes the phase specified by params on the specified server
-// using the provided runner
-func (f *fsmUpdateEngine) RunCommand(ctx context.Context, runner fsm.RemoteRunner, server storage.Server, p fsm.Params) error {
-	args := []string{"plan", "execute",
-		"--phase", p.PhaseID,
-		"--operation-id", f.plan.OperationID,
-	}
-	if p.Force {
-		args = append(args, "--force")
-	}
-	return runner.Run(ctx, server, args...)
-}
-
-// PreExecute is no-op for the update engine
-func (f *fsmUpdateEngine) PreExecute(ctx context.Context, p fsm.Params) error {
-	return nil
-}
-
-// PostExecute is no-op for the update engine
-func (f *fsmUpdateEngine) PostExecute(ctx context.Context, p fsm.Params) error {
-	return nil
-}
-
-// PreRollback is no-op for the update engine
-func (f *fsmUpdateEngine) PreRollback(ctx context.Context, p fsm.Params) error {
-	return nil
-}
-
-// Complete marks the provided update operation as completed or failed
-// and moves the cluster into active state
-func (f *fsmUpdateEngine) Complete(fsmErr error) error {
-	plan, err := f.GetPlan()
+// UpdateProgress creates an appropriate progress entry in the operator
+func (r *Engine) UpdateProgress(ctx context.Context, params fsm.Params) error {
+	plan, err := r.GetPlan()
 	if err != nil {
 		return trace.Wrap(err)
 	}
 
-	opKey := fsm.OperationKey(*plan)
-	op, err := f.Operator.GetSiteOperation(opKey)
+	phase, err := fsm.FindPhase(plan, params.PhaseID)
 	if err != nil {
 		return trace.Wrap(err)
 	}
 
-	stateSetter := fsm.OperationStateSetter(opKey, f.Operator, f.LocalBackend)
-	completed := fsm.IsCompleted(plan)
-	if completed {
-		err = ops.CompleteOperation(opKey, stateSetter)
+	key := r.Operation.Key()
+	entry := ops.ProgressEntry{
+		SiteDomain:  key.SiteDomain,
+		OperationID: key.OperationID,
+		Completion:  100 / utils.Max(len(plan.Phases), 1) * phase.Step,
+		Step:        phase.Step,
+		State:       ops.ProgressStateInProgress,
+		Message:     phase.Description,
+		Created:     time.Now().UTC(),
+	}
+	err = r.operator.CreateProgressEntry(key, entry)
+	if err != nil {
+		r.WithFields(log.Fields{
+			log.ErrorKey: err,
+			"entry":      entry,
+		}).Warn("Failed to create progress entry.")
+	}
+	return nil
+}
+
+// Complete marks the operation as either completed or failed based
+// on the state of the operation plan
+func (r *Engine) Complete(fsmErr error) error {
+	plan, err := r.GetPlan()
+	if err != nil {
+		return trace.Wrap(err)
+	}
+	if fsm.IsCompleted(plan) {
+		err = ops.CompleteOperation(r.Operation.Key(), r.operator)
 	} else {
-		err = ops.FailOperation(opKey, stateSetter, trace.Unwrap(fsmErr).Error())
-	}
-	if err != nil {
-		return trace.Wrap(err)
-	}
-
-	if !completed {
-		return nil
-	}
-
-	cluster, err := f.Backend.GetLocalSite(defaults.SystemAccountID)
-	if err != nil {
-		return trace.Wrap(err)
-	}
-
-	err = f.commitClusterChanges(cluster, *op)
-	if err != nil {
-		return trace.Wrap(err)
-	}
-
-	err = f.activateCluster(*cluster)
-	return trace.Wrap(err)
-}
-
-// GetPlan returns an up-to-date plan
-func (f *fsmUpdateEngine) GetPlan() (*storage.OperationPlan, error) {
-	return &f.plan, nil
-}
-
-func (f *fsmUpdateEngine) commitClusterChanges(cluster *storage.Site, op ops.SiteOperation) error {
-	updateAppLoc, err := op.Update.Package()
-	if err != nil {
-		return trace.Wrap(err)
-	}
-
-	updateApp, err := f.Apps.GetApp(*updateAppLoc)
-	if err != nil {
-		return trace.Wrap(err)
-	}
-
-	var updateBaseApp *app.Application
-	if updateApp.Manifest.Base() != nil {
-		updateBaseApp, err = f.Apps.GetApp(*updateApp.Manifest.Base())
-		if err != nil {
-			return trace.Wrap(err)
+		var msg string
+		if fsmErr != nil {
+			msg = trace.Unwrap(fsmErr).Error()
 		}
+		err = ops.FailOperation(r.Operation.Key(), r.operator, msg)
 	}
-
-	cluster.App = updateApp.PackageEnvelope.ToPackage()
-	if updateBaseApp != nil {
-		cluster.App.Base = updateBaseApp.PackageEnvelope.ToPackagePtr()
-	}
-
-	checks.OverrideDockerConfig(&cluster.ClusterState.Docker,
-		checks.DockerConfigFromSchema(updateApp.Manifest.SystemOptions.DockerConfig()))
-
-	return nil
-}
-
-func (f *fsmUpdateEngine) activateCluster(cluster storage.Site) error {
-	cluster.State = ops.SiteStateActive
-	_, err := f.Backend.UpdateSite(cluster)
 	if err != nil {
 		return trace.Wrap(err)
 	}
-
-	_, err = f.LocalBackend.UpdateSite(cluster)
+	err = r.operator.ActivateSite(ops.ActivateSiteRequest{
+		AccountID:  r.Operation.AccountID,
+		SiteDomain: r.Operation.SiteDomain,
+	})
 	if err != nil {
 		return trace.Wrap(err)
 	}
+	r.WithField("operation", r.Operation).Debug("Marked operation complete.")
 	return nil
 }
 
-func (f *fsmUpdateEngine) ChangePhaseState(ctx context.Context, change fsm.StateChange) error {
-	f.WithField("change", change).Debug("Apply.")
-
-	_, err := f.LocalBackend.CreateOperationPlanChange(storage.PlanChange{
+// ChangePhaseState creates a new changelog entry
+func (r *Engine) ChangePhaseState(ctx context.Context, change fsm.StateChange) error {
+	r.WithField("change", change).Debug("Apply.")
+	_, err := r.LocalBackend.CreateOperationPlanChange(storage.PlanChange{
 		ID:          uuid.New(),
-		ClusterName: f.plan.ClusterName,
-		OperationID: f.plan.OperationID,
+		ClusterName: r.Operation.SiteDomain,
+		OperationID: r.Operation.ID,
 		PhaseID:     change.Phase,
 		NewState:    change.State,
 		Error:       utils.ToRawTrace(change.Error),
 		Created:     time.Now().UTC(),
 	})
 	if err != nil {
-		f.WithError(err).Warnf("Error recording phase state change %+v.", change)
 		return trace.Wrap(err)
 	}
-
-	err = f.reconcilePlan(ctx)
-	if err != nil {
-		return trace.Wrap(err)
-	}
-
-	return nil
-}
-
-func (f *fsmUpdateEngine) reconcilePlan(ctx context.Context) error {
-	plan, err := f.reconciler.ReconcilePlan(ctx, f.plan)
+	plan, err := r.reconciler.ReconcilePlan(ctx, r.plan)
 	if err != nil {
 		return trace.Wrap(err)
 	}
-	f.plan = *plan
-	var buf bytes.Buffer
-	fsm.FormatOperationPlanText(&buf, f.plan)
-	f.Debugf("Reconciled plan: %v.", buf.String())
+	r.plan = *plan
 	return nil
 }
 
-func loadPlan(backend storage.Backend, opKey ops.SiteOperationKey, logger logrus.FieldLogger) (*storage.OperationPlan, error) {
-	plan, err := backend.GetOperationPlan(opKey.SiteDomain, opKey.OperationID)
-	if err != nil && !trace.IsNotFound(err) {
-		return nil, trace.Wrap(err)
+// RunCommand executes the phase specified by params on the specified server
+// using the provided runner
+func (r *Engine) RunCommand(ctx context.Context, runner fsm.RemoteRunner, server storage.Server, params fsm.Params) error {
+	args := []string{"plan", "execute",
+		"--phase", params.PhaseID,
+		"--operation-id", r.Operation.ID,
 	}
-	if plan == nil {
-		return nil, trace.NotFound("operation %v doesn't have a plan", opKey.OperationID)
+	if params.Force {
+		args = append(args, "--force")
 	}
-	return plan, nil
+	return runner.Run(ctx, server, args...)
 }
 
-// checkBinaryVersion makes sure that the plan phase is being executed with
-// the proper gravity binary
-func checkBinaryVersion(fsm *fsm.FSM) error {
-	ourVersion, err := semver.NewVersion(version.Get().Version)
-	if err != nil {
-		return trace.Wrap(err, "failed to parse this binary version: %v",
-			version.Get().Version)
-	}
+// GetPlan returns the most up-to-date operation plan
+func (r *Engine) GetPlan() (*storage.OperationPlan, error) {
+	return &r.plan, nil
+}
 
-	plan, err := fsm.GetPlan()
-	if err != nil {
-		return trace.Wrap(err, "failed to obtain operation plan")
-	}
+// GetExecutor returns a new executor based on the provided parameters
+func (r *Engine) GetExecutor(params fsm.ExecutorParams, remote fsm.Remote) (fsm.PhaseExecutor, error) {
+	return r.dispatcher.Dispatch(params, remote)
+}
 
-	requiredVersion, err := plan.GravityPackage.SemVer()
-	if err != nil {
-		return trace.Wrap(err, "failed to parse required binary version: %v",
-			plan.GravityPackage)
-	}
+// Engine is the updater engine
+type Engine struct {
+	// Config specifies engine configuration
+	Config
+	// Silent controls whether the log output is verbose
+	localenv.Silent
+	reconciler Reconciler
+	operator
+	plan       storage.OperationPlan
+	dispatcher Dispatcher
+}
 
-	if !ourVersion.Equal(*requiredVersion) {
-		return trace.BadParameter(
-			`Current operation plan should be executed with the gravity binary of version %q while this binary is of version %q.
+// Dispatcher routes the set of execution parameters to a specific operation phase
+type Dispatcher interface {
+	// Dispatch returns an executor for the given parameters and the specified remote
+	Dispatch(fsm.ExecutorParams, fsm.Remote) (fsm.PhaseExecutor, error)
+}
 
-Please use the gravity binary from the upgrade installer tarball to execute the plan, or download appropriate version from the Ops Center (curl https://get.gravitational.io/telekube/install/%v | bash).
-`, requiredVersion, ourVersion, plan.GravityPackage.Version)
-	}
-
-	return nil
+// operator describes the subset of ops.Operator required for the FSM engine
+type operator interface {
+	CreateProgressEntry(ops.SiteOperationKey, ops.ProgressEntry) error
+	SetOperationState(ops.SiteOperationKey, ops.SetOperationStateRequest) error
+	ActivateSite(ops.ActivateSiteRequest) error
 }
