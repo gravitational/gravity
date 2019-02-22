@@ -31,7 +31,7 @@ spec:
           image: gcr.io/kubernetes-helm/tiller:canary
           imagePullPolicy: IfNotPresent
           command: ["/tiller"]
-          args: ["--listen=localhost:44134"]
+          args: ["--listen=localhost.:44134"]
           securityContext:
             runAsUser: -1
           env:
