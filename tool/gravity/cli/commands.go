@@ -544,6 +544,8 @@ type UpdateTriggerCmd struct {
 	// Block controls whether to wait for the operation to finish.
 	// If false, this enables to run the operation unattended
 	Block *bool
+	// SkipVersionCheck suppresses version mismatch errors
+	SkipVersionCheck *bool
 }
 
 // UpdateUploadCmd uploads new app version to local cluster

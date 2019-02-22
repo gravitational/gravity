@@ -78,7 +78,7 @@ func updateEnviron(ctx context.Context, localEnv, updateEnv *localenv.LocalEnvir
 	return nil
 }
 
-func newEnvironUpdater(ctx context.Context, localEnv, updateEnv *localenv.LocalEnvironment, environ storage.EnvironmentVariables) (updater, error) {
+func newEnvironUpdater(ctx context.Context, localEnv, updateEnv *localenv.LocalEnvironment, environ storage.EnvironmentVariables) (*update.Updater, error) {
 	init := environInitializer{
 		environ: environ,
 	}
@@ -167,12 +167,21 @@ func (r environInitializer) validatePreconditions(*localenv.LocalEnvironment, op
 }
 
 func (r environInitializer) newOperation(operator ops.Operator, cluster ops.Site) (*ops.SiteOperationKey, error) {
-	return operator.CreateUpdateEnvarsOperation(
+	key, err := operator.CreateUpdateEnvarsOperation(
 		ops.CreateUpdateEnvarsOperationRequest{
 			ClusterKey: cluster.Key(),
 			Env:        r.environ.GetKeyValues(),
 		},
 	)
+	if err != nil {
+		if trace.IsNotFound(err) {
+			return nil, trace.NotImplemented(
+				"cluster operator does not implement the API required for updating runtime environment. " +
+					"Please make sure you're running the command on a compatible cluster.")
+		}
+		return nil, trace.Wrap(err)
+	}
+	return key, nil
 }
 
 func (environInitializer) newOperationPlan(
@@ -194,7 +203,7 @@ func (environInitializer) newUpdater(
 	localEnv, updateEnv *localenv.LocalEnvironment,
 	clusterEnv *localenv.ClusterEnvironment,
 	runner fsm.AgentRepository,
-) (updater, error) {
+) (*update.Updater, error) {
 	config := environ.Config{
 		Config: update.Config{
 			Operation:    &operation,

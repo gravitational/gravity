@@ -28,12 +28,13 @@ import (
 	libfsm "github.com/gravitational/gravity/lib/fsm"
 	"github.com/gravitational/gravity/lib/localenv"
 	"github.com/gravitational/gravity/lib/ops"
+	"github.com/gravitational/gravity/lib/update"
 
 	"github.com/gravitational/trace"
 	"github.com/sirupsen/logrus"
 )
 
-func newUpdater(ctx context.Context, localEnv, updateEnv *localenv.LocalEnvironment, init updateInitializer, unattended bool) (updater, error) {
+func newUpdater(ctx context.Context, localEnv, updateEnv *localenv.LocalEnvironment, init updateInitializer, unattended bool) (*update.Updater, error) {
 	teleportClient, err := localEnv.TeleportClient(constants.Localhost)
 	if err != nil {
 		return nil, trace.Wrap(err, "failed to create a teleport client")
@@ -60,11 +61,6 @@ func newUpdater(ctx context.Context, localEnv, updateEnv *localenv.LocalEnvironm
 	}
 	key, err := init.newOperation(operator, *cluster)
 	if err != nil {
-		if trace.IsNotFound(err) {
-			return nil, trace.NotImplemented(
-				"cluster operator does not implement the API required for updating configuration. " +
-					"Please make sure you're running the command on a compatible cluster.")
-		}
 		return nil, trace.Wrap(err)
 	}
 	defer func() {
@@ -139,7 +135,7 @@ type updateInitializer interface {
 		localEnv, updateEnv *localenv.LocalEnvironment,
 		clusterEnv *localenv.ClusterEnvironment,
 		runner fsm.AgentRepository,
-	) (updater, error)
+	) (*update.Updater, error)
 	updateDeployRequest(deployAgentsRequest) deployAgentsRequest
 }
 

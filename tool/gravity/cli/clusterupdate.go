@@ -57,10 +57,10 @@ func updateTrigger(
 	localEnv *localenv.LocalEnvironment,
 	updateEnv *localenv.LocalEnvironment,
 	updatePackage string,
-	manual, block bool,
+	manual, block, noValidateVersion bool,
 ) error {
 	ctx := context.TODO()
-	updater, err := newClusterUpdater(ctx, localEnv, updateEnv, updatePackage, manual, block)
+	updater, err := newClusterUpdater(ctx, localEnv, updateEnv, updatePackage, manual, block, noValidateVersion)
 	if err != nil {
 		return trace.Wrap(err)
 	}
@@ -73,18 +73,32 @@ func updateTrigger(
 	return nil
 }
 
-func newClusterUpdater(ctx context.Context, localEnv, updateEnv *localenv.LocalEnvironment, updatePackage string, manual, block bool) (updater, error) {
+func newClusterUpdater(
+	ctx context.Context,
+	localEnv, updateEnv *localenv.LocalEnvironment,
+	updatePackage string,
+	manual, block, noValidateVersion bool,
+) (updater, error) {
 	unattended := !manual && !block
 	init := &clusterInitializer{
 		updatePackage: updatePackage,
 		unattended:    unattended,
 	}
-	// TODO: wrap updater into binary version checker
-	return newUpdater(ctx, localEnv, updateEnv, init, unattended)
+	updater, err := newUpdater(ctx, localEnv, updateEnv, init, unattended)
+	if err != nil {
+		return nil, trace.Wrap(err)
+	}
+	if noValidateVersion {
+		return updater, nil
+	}
+	if err := validateBinaryVersion(updater); err != nil {
+		return nil, trace.Wrap(err)
+	}
+	return updater, nil
 }
 
 func executeUpdatePhase(env, updateEnv *localenv.LocalEnvironment, params PhaseParams, operation ops.SiteOperation) error {
-	updater, err := getClusterUpdater(env, updateEnv, operation)
+	updater, err := getClusterUpdater(env, updateEnv, operation, params.SkipVersionCheck)
 	if err != nil {
 		return trace.Wrap(err)
 	}
@@ -94,7 +108,7 @@ func executeUpdatePhase(env, updateEnv *localenv.LocalEnvironment, params PhaseP
 }
 
 func rollbackUpdatePhase(env, updateEnv *localenv.LocalEnvironment, params PhaseParams, operation ops.SiteOperation) error {
-	updater, err := getClusterUpdater(env, updateEnv, operation)
+	updater, err := getClusterUpdater(env, updateEnv, operation, params.SkipVersionCheck)
 	if err != nil {
 		return trace.Wrap(err)
 	}
@@ -104,7 +118,7 @@ func rollbackUpdatePhase(env, updateEnv *localenv.LocalEnvironment, params Phase
 }
 
 func completeUpdatePlan(env, updateEnv *localenv.LocalEnvironment, operation ops.SiteOperation) error {
-	updater, err := getClusterUpdater(env, updateEnv, operation)
+	updater, err := getClusterUpdater(env, updateEnv, operation, true)
 	if err != nil {
 		return trace.Wrap(err)
 	}
@@ -112,7 +126,7 @@ func completeUpdatePlan(env, updateEnv *localenv.LocalEnvironment, operation ops
 	return trace.Wrap(updater.Complete(nil))
 }
 
-func getClusterUpdater(localEnv, updateEnv *localenv.LocalEnvironment, operation ops.SiteOperation) (*update.Updater, error) {
+func getClusterUpdater(localEnv, updateEnv *localenv.LocalEnvironment, operation ops.SiteOperation, noValidateVersion bool) (*update.Updater, error) {
 	clusterEnv, err := localEnv.NewClusterEnvironment()
 	if err != nil {
 		return nil, trace.Wrap(err)
@@ -143,6 +157,12 @@ func getClusterUpdater(localEnv, updateEnv *localenv.LocalEnvironment, operation
 		Users:             clusterEnv.Users,
 	})
 	if err != nil {
+		return nil, trace.Wrap(err)
+	}
+	if noValidateVersion {
+		return updater, nil
+	}
+	if err := validateBinaryVersion(updater); err != nil {
 		return nil, trace.Wrap(err)
 	}
 	return updater, nil
@@ -190,7 +210,7 @@ func (clusterInitializer) newUpdater(
 	localEnv, updateEnv *localenv.LocalEnvironment,
 	clusterEnv *localenv.ClusterEnvironment,
 	runner fsm.AgentRepository,
-) (updater, error) {
+) (*update.Updater, error) {
 	config := clusterupdate.Config{
 		Config: update.Config{
 			Operation:    &operation,
@@ -298,24 +318,30 @@ func supportsUpdate(gravityPackage loc.Locator) (supports bool, err error) {
 	return defaults.BaseUpdateVersion.Compare(*ver) <= 0, nil
 }
 
+func validateBinaryVersion(updater *update.Updater) error {
+	plan, err := updater.GetPlan()
+	if err != nil {
+		return trace.Wrap(err)
+	}
+	if err := checkBinaryVersion(plan.GravityPackage); err != nil {
+		return trace.Wrap(err)
+	}
+	return nil
+}
+
 // checkBinaryVersion makes sure that the plan phase is being executed with
 // the proper gravity binary
-func checkBinaryVersion(fsm *fsm.FSM) error {
+func checkBinaryVersion(gravityPackage loc.Locator) error {
 	ourVersion, err := semver.NewVersion(version.Get().Version)
 	if err != nil {
 		return trace.Wrap(err, "failed to parse this binary version: %v",
 			version.Get().Version)
 	}
 
-	plan, err := fsm.GetPlan()
-	if err != nil {
-		return trace.Wrap(err, "failed to obtain operation plan")
-	}
-
-	requiredVersion, err := plan.GravityPackage.SemVer()
+	requiredVersion, err := gravityPackage.SemVer()
 	if err != nil {
 		return trace.Wrap(err, "failed to parse required binary version: %v",
-			plan.GravityPackage)
+			gravityPackage)
 	}
 
 	if !ourVersion.Equal(*requiredVersion) {
@@ -323,7 +349,7 @@ func checkBinaryVersion(fsm *fsm.FSM) error {
 			`Current operation plan should be executed with the gravity binary of version %q while this binary is of version %q.
 
 Please use the gravity binary from the upgrade installer tarball to execute the plan, or download appropriate version from the Ops Center (curl https://get.gravitational.io/telekube/install/%v | bash).
-`, requiredVersion, ourVersion, plan.GravityPackage.Version)
+`, requiredVersion, ourVersion, gravityPackage.Version)
 	}
 
 	return nil

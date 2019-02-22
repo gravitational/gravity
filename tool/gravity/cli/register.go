@@ -167,6 +167,7 @@ func RegisterCommands(app *kingpin.Application) *Application {
 		OverrideDefaultFromEnvar(constants.BlockingOperationEnvVar).
 		Default("true").
 		Bool()
+	g.UpdateTriggerCmd.SkipVersionCheck = g.UpdateTriggerCmd.Flag("skip-version-check", "Bypass version compatibility check").Hidden().Bool()
 
 	g.UpdatePlanInitCmd.CmdClause = g.UpdateCmd.Command("init-plan", "Initialize operation plan").Hidden()
 

@@ -76,7 +76,7 @@ func updateConfig(ctx context.Context, localEnv, updateEnv *localenv.LocalEnviro
 	return nil
 }
 
-func newConfigUpdater(ctx context.Context, localEnv, updateEnv *localenv.LocalEnvironment, resource []byte) (updater, error) {
+func newConfigUpdater(ctx context.Context, localEnv, updateEnv *localenv.LocalEnvironment, resource []byte) (*update.Updater, error) {
 	clusterConfig, err := libclusterconfig.Unmarshal(resource)
 	if err != nil {
 		return nil, trace.Wrap(err)
@@ -158,12 +158,21 @@ func (r configInitializer) validatePreconditions(*localenv.LocalEnvironment, ops
 }
 
 func (r configInitializer) newOperation(operator ops.Operator, cluster ops.Site) (*ops.SiteOperationKey, error) {
-	return operator.CreateUpdateConfigOperation(
+	key, err := operator.CreateUpdateConfigOperation(
 		ops.CreateUpdateConfigOperationRequest{
 			ClusterKey: cluster.Key(),
 			Config:     r.resource,
 		},
 	)
+	if err != nil {
+		if trace.IsNotFound(err) {
+			return nil, trace.NotImplemented(
+				"cluster operator does not implement the API required for updating configuration. " +
+					"Please make sure you're running the command on a compatible cluster.")
+		}
+		return nil, trace.Wrap(err)
+	}
+	return key, nil
 }
 
 func (r configInitializer) newOperationPlan(
@@ -185,7 +194,7 @@ func (configInitializer) newUpdater(
 	localEnv, updateEnv *localenv.LocalEnvironment,
 	clusterEnv *localenv.ClusterEnvironment,
 	runner fsm.AgentRepository,
-) (updater, error) {
+) (*update.Updater, error) {
 	config := clusterconfig.Config{
 		Config: update.Config{
 			Operation:    &operation,
