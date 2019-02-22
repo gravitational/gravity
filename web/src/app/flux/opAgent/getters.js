@@ -92,7 +92,7 @@ const serverVarsByRole = (opId, role) => [ ['opAgent', opId], reportMap => {
 
   let serverList = reportMap.get('servers')
   let hasDocker = reportMap.getIn(['docker', 'storageDriver']) === NEEDS_DOCKER_DISK;
-  
+
   return serverList
     .filter(itemMap => itemMap.get('role') === role)
     .map(itemMap => {
@@ -151,7 +151,7 @@ function createDockerVars(serverMap){
     value: DISK_OPTION_AUTOMATIC,
     label: DISK_OPTION_AUTOMATIC
   })
-  
+
   vars.push({
     options,
     // default value is automatic
@@ -165,17 +165,19 @@ function createDockerVars(serverMap){
 function createInterfaceVars(serverMap){
   let options = serverMap.get('interfaces')
     .valueSeq()
-    .map(intrMap=> {
-      let addr = intrMap.get('ipv4_addr');
-
-      return addr;
+    .map(intrMap => {
+      return intrMap.get('ipv4_addr');
     })
     .toJS();
+
   let defaultValue = serverMap.getIn(['advertise_addr']);
-  
+  if(!defaultValue && options.length === 1){
+    defaultValue = options[0];
+  }
+
   return [{
     type: ServerVarEnums.INTERFACE,
-    value: defaultValue,  
+    value: defaultValue,
     options
   }]
 }
@@ -185,8 +187,8 @@ function createMountVars(serverMap){
 
   return mounts.map(itemMap=>{
       let options = [];
-      let name = itemMap.get('name');      
-      return {        
+      let name = itemMap.get('name');
+      return {
         name,
         type: ServerVarEnums.MOUNT,
         value: itemMap.get('source'),
