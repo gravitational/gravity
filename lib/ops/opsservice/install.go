@@ -228,7 +228,7 @@ func (s *site) selectSubnets(operation ops.SiteOperation) (*storage.Subnets, err
 	}
 
 	// machines on AWS will receive IPs from this subnet
-	subnet := operation.GetVars().AWS.SubnetCIDR
+	subnet := operation.GetVars().AWS.VPCCIDR
 	if subnet == "" {
 		return nil, trace.BadParameter("no subnet CIDR in operation vars: %v", operation)
 	}
