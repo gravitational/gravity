@@ -20,9 +20,12 @@ import cfg from 'app/config';
 import { APPS_INIT, APPS_ADD } from './actionTypes';
 import { RepositoryEnum } from 'app/services/enums';
 
-function handleServerResponse(json){
+function handleAppsResponse(json){
   json = json || [];
   json = Array.isArray(json) ? json : [json];
+
+  // quick fix: filter out application bundles
+  json = json.filter(item => item.manifest.kind !== "Application");
   reactor.dispatch(APPS_INIT, json);
 }
 
@@ -37,10 +40,10 @@ export function deleteApp(appId){
 }
 
 export function fetchAppsBySite(siteId){
-  return api.get(cfg.getSiteAppsUrl(siteId)).done(handleServerResponse);
+  return api.get(cfg.getSiteAppsUrl(siteId)).done(handleAppsResponse);
 }
 
 export function fetchApps(name, repository=RepositoryEnum.SYSTEM, version){
   return api.get(cfg.getAppsUrl(name, repository, version))
-    .done(handleServerResponse);
+    .done(handleAppsResponse);
 }
