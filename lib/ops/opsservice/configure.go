@@ -1027,6 +1027,7 @@ func (s *site) getPlanetConfig(config planetConfig) (args []string, err error) {
 		args = append(args, fmt.Sprintf("--%v=%v", k, v))
 	}
 
+	log.WithField("args", args).Debug("Runtime configuration.")
 	return args, nil
 }
 

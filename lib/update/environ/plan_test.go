@@ -70,59 +70,65 @@ func (S) TestSingleNodePlan(c *C) {
 				Description: "Update cluster environment",
 				Phases: []storage.OperationPhase{
 					{
-						ID:          "/masters/drain",
-						Executor:    libphase.Drain,
-						Description: `Drain node "node-1"`,
-						Data: &storage.OperationPhaseData{
-							Server: &servers[0],
-						},
-					},
+						ID:          "/masters/node-1",
+						Description: `Update runtime environment on node "node-1"`,
+						Phases: []storage.OperationPhase{
+							{
+								ID:          "/masters/node-1/drain",
+								Executor:    libphase.Drain,
+								Description: `Drain node "node-1"`,
+								Data: &storage.OperationPhaseData{
+									Server: &servers[0],
+								},
+							},
 
-					{
-						ID:          "/masters/restart",
-						Executor:    libphase.RestartContainer,
-						Description: `Restart container on node "node-1"`,
-						Data: &storage.OperationPhaseData{
-							Server:  &servers[0],
-							Package: &app,
+							{
+								ID:          "/masters/node-1/restart",
+								Executor:    libphase.RestartContainer,
+								Description: `Restart container on node "node-1"`,
+								Data: &storage.OperationPhaseData{
+									Server:  &servers[0],
+									Package: &app,
+								},
+								Requires: []string{"/masters/node-1/drain"},
+							},
+							{
+								ID:          "/masters/node-1/taint",
+								Executor:    libphase.Taint,
+								Description: `Taint node "node-1"`,
+								Data: &storage.OperationPhaseData{
+									Server: &servers[0],
+								},
+								Requires: []string{"/masters/node-1/restart"},
+							},
+							{
+								ID:          "/masters/node-1/uncordon",
+								Executor:    libphase.Uncordon,
+								Description: `Uncordon node "node-1"`,
+								Data: &storage.OperationPhaseData{
+									Server: &servers[0],
+								},
+								Requires: []string{"/masters/node-1/taint"},
+							},
+							{
+								ID:          "/masters/node-1/endpoints",
+								Executor:    libphase.Endpoints,
+								Description: `Wait for endpoints on node "node-1"`,
+								Data: &storage.OperationPhaseData{
+									Server: &servers[0],
+								},
+								Requires: []string{"/masters/node-1/uncordon"},
+							},
+							{
+								ID:          "/masters/node-1/untaint",
+								Executor:    libphase.Untaint,
+								Description: `Remove taint from node "node-1"`,
+								Data: &storage.OperationPhaseData{
+									Server: &servers[0],
+								},
+								Requires: []string{"/masters/node-1/endpoints"},
+							},
 						},
-						Requires: []string{"/masters/drain"},
-					},
-					{
-						ID:          "/masters/taint",
-						Executor:    libphase.Taint,
-						Description: `Taint node "node-1"`,
-						Data: &storage.OperationPhaseData{
-							Server: &servers[0],
-						},
-						Requires: []string{"/masters/restart"},
-					},
-					{
-						ID:          "/masters/uncordon",
-						Executor:    libphase.Uncordon,
-						Description: `Uncordon node "node-1"`,
-						Data: &storage.OperationPhaseData{
-							Server: &servers[0],
-						},
-						Requires: []string{"/masters/taint"},
-					},
-					{
-						ID:          "/masters/endpoints",
-						Executor:    libphase.Endpoints,
-						Description: `Wait for endpoints on node "node-1"`,
-						Data: &storage.OperationPhaseData{
-							Server: &servers[0],
-						},
-						Requires: []string{"/masters/uncordon"},
-					},
-					{
-						ID:          "/masters/untaint",
-						Executor:    libphase.Untaint,
-						Description: `Remove taint from node "node-1"`,
-						Data: &storage.OperationPhaseData{
-							Server: &servers[0],
-						},
-						Requires: []string{"/masters/endpoints"},
 					},
 				},
 				Requires: []string{"/update-config"},

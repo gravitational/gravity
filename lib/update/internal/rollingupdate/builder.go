@@ -30,11 +30,6 @@ func (r Builder) Masters(servers []storage.Server, rootText, nodeTextFormat stri
 	})
 	first, others := servers[0], servers[1:]
 
-	if len(others) == 0 {
-		root.AddSequential(r.common(&first, nil)...)
-		return &root
-	}
-
 	node := r.node(first, first.Hostname, nodeTextFormat)
 	if len(others) != 0 {
 		node.AddSequential(setLeaderElection(enable(), disable(first), first,
