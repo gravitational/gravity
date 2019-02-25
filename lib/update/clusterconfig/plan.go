@@ -69,7 +69,12 @@ func newOperationPlan(
 		return nil, trace.NotFound("no master servers found in cluster state")
 	}
 	builder := rollingupdate.Builder{App: app}
-	config := *builder.Config("Update runtime configuration")
+	shouldUpdateNodes := shouldUpdateNodes(clusterConfig, len(nodes))
+	var updateServers []storage.Server
+	if !shouldUpdateNodes {
+		updateServers = masters
+	}
+	config := *builder.Config("Update runtime configuration", updateServers)
 	updateMasters := *builder.Masters(
 		masters,
 		"Update cluster configuration",
@@ -77,7 +82,7 @@ func newOperationPlan(
 	).Require(config)
 	phases := update.Phases{config, updateMasters}
 
-	if shouldUpdateNodes(clusterConfig, len(nodes)) {
+	if shouldUpdateNodes {
 		updateNodes := *builder.Nodes(
 			nodes, &masters[0],
 			"Update cluster configuration",

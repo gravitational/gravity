@@ -65,6 +65,9 @@ func (S) TestSingleNodePlan(c *C) {
 				Description: `Update runtime configuration`,
 				Data: &storage.OperationPhaseData{
 					Package: &app,
+					Update: &storage.UpdateOperationData{
+						Servers: []storage.Server{servers[0]},
+					},
 				},
 			},
 			{
@@ -169,6 +172,9 @@ func (S) TestMultiNodePlan(c *C) {
 				Description: `Update runtime configuration`,
 				Data: &storage.OperationPhaseData{
 					Package: &app,
+					Update: &storage.UpdateOperationData{
+						Servers: []storage.Server{servers[0], servers[2]},
+					},
 				},
 			},
 			{

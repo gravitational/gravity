@@ -57,7 +57,7 @@ func newOperationPlan(app loc.Locator, dnsConfig storage.DNSConfig, operation op
 		return nil, trace.NotFound("no master servers found in cluster state")
 	}
 	builder := rollingupdate.Builder{App: app}
-	config := *builder.Config("Update cluster environment")
+	config := *builder.Config("Update cluster environment", nil)
 	updateMasters := *builder.Masters(
 		masters,
 		"Update cluster environment",

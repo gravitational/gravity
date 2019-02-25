@@ -10,7 +10,7 @@ import (
 )
 
 // Config creates a new phase to update runtime container configuration
-func (r Builder) Config(rootText string) *update.Phase {
+func (r Builder) Config(rootText string, servers []storage.Server) *update.Phase {
 	phase := update.RootPhase(update.Phase{
 		ID:          "update-config",
 		Executor:    libphase.UpdateConfig,
@@ -19,6 +19,11 @@ func (r Builder) Config(rootText string) *update.Phase {
 			Package: &r.App,
 		},
 	})
+	if len(servers) != 0 {
+		phase.Data.Update = &storage.UpdateOperationData{
+			Servers: servers,
+		}
+	}
 	return &phase
 }
 

@@ -71,8 +71,6 @@ func (r *dispatcher) Dispatch(config rollingupdate.Config, params fsm.ExecutorPa
 	case libphase.UpdateConfig:
 		return phases.NewUpdateConfig(params,
 			config.Operator, *config.Operation, config.Apps, config.ClusterPackages,
-			// FIXME: restrict to the nodes that need update
-			params.Plan.Servers,
 			logger)
 	default:
 		return r.Dispatcher.Dispatch(config, params, remote, logger)

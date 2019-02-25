@@ -79,7 +79,11 @@ func NewUntaint(params libfsm.ExecutorParams, client *kubeapi.Clientset, logger 
 func (p *untainter) Execute(ctx context.Context) error {
 	p.Infof("Remove taint from %v.", p.Server)
 	err := taint(ctx, p.Client.CoreV1().Nodes(), p.Server.KubeNodeID(), addTaint(false))
-	return trace.Wrap(err)
+	// If the remove step has partially run, the taint might have also been removed
+	if err != nil && !trace.IsNotFound(err) {
+		return trace.Wrap(err)
+	}
+	return nil
 }
 
 // Rollback is a no-op for this phase

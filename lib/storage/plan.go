@@ -123,6 +123,8 @@ type OperationPhaseData struct {
 	Data string `json:"data,omitempty" yaml:"data,omitempty"`
 	// GarbageCollect specifies configuration specific to garbage collect operation
 	GarbageCollect *GarbageCollectOperationData `json:"garbage_collect,omitempty" yaml:"garbage_collect,omitempty"`
+	// Update specifies configuration specific to update operations
+	Update *UpdateOperationData `json:"update,omitempty" yaml:"garbage_collect,omitempty"`
 	// Install specifies configuration specific to install operation
 	Install *InstallOperationData `json:"install,omitempty" yaml:"install,omitempty"`
 }
@@ -139,6 +141,13 @@ type ElectionChange struct {
 type GarbageCollectOperationData struct {
 	// RemoteApps lists remote applications known to cluster
 	RemoteApps []Application `json:"remote_apps,omitempty" yaml:"remote_apps,omitempty"`
+}
+
+// UpdateOperationData describes configuration for update operations
+type UpdateOperationData struct {
+	// Servers lists the subset of cluster servers to use for the step in case
+	// the operation needs to operate not on the whole cluster
+	Servers []Server `json:"servers,omitempty" yaml:"servers,omitempty"`
 }
 
 // InstallOperationData describes configuration for the install operation

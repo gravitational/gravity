@@ -39,7 +39,6 @@ func NewUpdateConfig(
 	operation ops.SiteOperation,
 	apps appGetter,
 	packages packageService,
-	servers []storage.Server,
 	logger log.FieldLogger,
 ) (*updateConfig, error) {
 	if params.Phase.Data == nil || params.Phase.Data.Package == nil {
@@ -49,6 +48,10 @@ func NewUpdateConfig(
 	app, err := apps.GetApp(*params.Phase.Data.Package)
 	if err != nil {
 		return nil, trace.Wrap(err, "failed to query installed application")
+	}
+	servers := params.Plan.Servers
+	if params.Phase.Data.Update != nil && len(params.Phase.Data.Update.Servers) != 0 {
+		servers = params.Phase.Data.Update.Servers
 	}
 	return &updateConfig{
 		FieldLogger: logger,

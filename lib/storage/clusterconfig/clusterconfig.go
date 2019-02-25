@@ -251,6 +251,8 @@ const specSchemaTemplate = `{
         },
         "kubelet": {
           "type": "object",
+          "additionalProperties": false,
+          "required": ["config"],
           "properties": {
             "config": {
               "type": "object",

@@ -21,6 +21,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"sort"
+	"strings"
 
 	"github.com/gravitational/gravity/lib/compare"
 	"github.com/gravitational/gravity/lib/constants"
@@ -135,7 +136,8 @@ func (s *ConfigureSuite) TestGeneratesPlanetConfigPackage(c *check.C) {
 		planetPackage: loc.MustParseLocator("gravitational.io/planet:0.0.1"),
 		configPackage: loc.MustParseLocator("gravitational.io/planet-config:0.0.1"),
 		env: map[string]string{
-			"VAR": "value",
+			"VAR":  "value",
+			"VAR2": "value2",
 		},
 		config: &clusterconfig.Resource{
 			Kind:    storage.KindClusterConfiguration,
@@ -164,6 +166,7 @@ password=pass`,
 	}
 	args, err := s.cluster.getPlanetConfig(config)
 	c.Assert(err, check.IsNil)
+	features, args := stripItem(args, "--feature-gates")
 	c.Assert(sort.StringSlice(args), compare.SortedSliceEquals, mapToArgs(map[string][]string{
 		"node-name":                  []string{"172.12.13.0"},
 		"hostname":                   []string{"node-1"},
@@ -177,7 +180,7 @@ password=pass`,
 		"secrets-dir":                []string{"/var/lib/gravity/secrets"},
 		"election-enabled":           []string{"true"},
 		"service-uid":                []string{"1000"},
-		"env":                        []string{"VAR=value"},
+		"env":                        []string{"VAR=value", "VAR2=value2"},
 		"volume": []string{
 			"/var/lib/gravity/planet/etcd:/ext/etcd",
 			"/var/lib/gravity/planet/docker:/ext/docker",
@@ -201,8 +204,8 @@ password=pass`,
 		"node-label":              []string{"gravitational.io/advertise-ip=172.12.13.0"},
 		"service-subnet":          []string{"10.0.0.1/8"},
 		"pod-subnet":              []string{"10.0.1.1/8"},
-		"feature-gates":           []string{"FeatureA=true,FeatureB=false"},
 	}))
+	assertFeatures(features, []string{"FeatureA=true", "FeatureB=false"}, c)
 }
 
 func (s *ConfigureSuite) TestCanSetCloudProviderWithoutCloudConfig(c *check.C) {
@@ -305,6 +308,26 @@ func mapToArgs(args map[string][]string) sort.Interface {
 		}
 	}
 	return sort.StringSlice(result)
+}
+
+func stripItem(args []string, name string) (item string, rest []string) {
+	for i, arg := range args {
+		if strings.HasPrefix(arg, name) {
+			item = arg
+			args = append(args[:i], args[i+1:]...)
+			return item, args
+		}
+	}
+	return "", args
+}
+
+// assertFeatures validates that features in the form of "--feature-gates=FeatureA=true,FeatureB=false"
+// is equal to expected []string{"FeatureA=true", "FeatrueB=false"}
+func assertFeatures(features string, expected []string, c *check.C) {
+	parts := strings.SplitN(features, "=", 2)
+	c.Assert(parts, check.HasLen, 2)
+	items := strings.Split(parts[1], ",")
+	c.Assert(sort.StringSlice(items), compare.SortedSliceEquals, sort.StringSlice(expected))
 }
 
 func makeServers(masters int, total int) provisionedServers {
