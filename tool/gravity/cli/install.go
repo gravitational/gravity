@@ -700,7 +700,7 @@ func CheckLocalState(env *localenv.LocalEnvironment) error {
 	if len(packages) != 0 {
 		return trace.BadParameter("detected previous installation state in %v, "+
 			"please clean it up using `gravity leave --force` before proceeding "+
-			"(see https://gravitational.com/telekube/docs/cluster/#deleting-a-cluster for more details)",
+			"(see https://gravitational.com/gravity/docs/cluster/#deleting-a-cluster for more details)",
 			env.StateDir)
 	}
 	return nil
