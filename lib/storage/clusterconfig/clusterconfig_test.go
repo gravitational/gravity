@@ -92,11 +92,9 @@ spec:
 				Spec: Spec{
 					Global: &Global{
 						CloudProvider: "aws",
-						CloudConfig: CloudConfig{
-							Config: `[Global]
+						CloudConfig: `[Global]
 username=user
 password=pass`,
-						},
 					},
 				},
 			},

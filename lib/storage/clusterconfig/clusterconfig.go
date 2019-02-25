@@ -180,7 +180,7 @@ type Global struct {
 	CloudProvider string `json:"cloudProvider,omitempty"`
 	// CloudConfig describes the cloud configuration.
 	// The configuration is provider-specific
-	CloudConfig CloudConfig `json:"cloudConfig"`
+	CloudConfig string `json:"cloudConfig"`
 	// ServiceCIDR represents the IP range from which to assign service cluster IPs.
 	// This must not overlap with any IP ranges assigned to nodes for pods.
 	// Targets: api server, controller manager
@@ -200,29 +200,6 @@ type Global struct {
 	// FeatureGates defines the set of key=value pairs that describe feature gates for alpha/experimental features.
 	// Targets: all components
 	FeatureGates map[string]bool `json:"featureGates,omitempty"`
-}
-
-func (r CloudConfig) MarshalJSON() ([]byte, error) {
-	bytes, err := json.Marshal(r.Config)
-	if err != nil {
-		return nil, trace.Wrap(err)
-	}
-	return bytes, nil
-}
-
-func (r *CloudConfig) UnmarshalJSON(data []byte) error {
-	var config string
-	if err := json.Unmarshal(data, &config); err != nil {
-		return trace.Wrap(err)
-	}
-	r.Config = config
-	return nil
-}
-
-// CloudConfig describes cluster cloud configuration
-type CloudConfig struct {
-	// Config specifies cloud configuration verbatim
-	Config string
 }
 
 // specSchemaTemplate is JSON schema for the cluster configuration resource

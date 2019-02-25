@@ -150,12 +150,10 @@ func (s *ConfigureSuite) TestGeneratesPlanetConfigPackage(c *check.C) {
 				},
 				Global: &clusterconfig.Global{
 					CloudProvider: "gce",
-					CloudConfig: clusterconfig.CloudConfig{
-						Config: `
+					CloudConfig: `
 [global]
 username=user
 password=pass`,
-					},
 					FeatureGates: map[string]bool{
 						"FeatureA": true,
 						"FeatureB": false,
@@ -204,6 +202,98 @@ password=pass`,
 		"service-subnet":          []string{"10.0.0.1/8"},
 		"pod-subnet":              []string{"10.0.1.1/8"},
 		"feature-gates":           []string{"FeatureA=true,FeatureB=false"},
+	}))
+}
+
+func (s *ConfigureSuite) TestCanSetCloudProviderWithoutCloudConfig(c *check.C) {
+	s.cluster.provider = schema.ProviderGCE
+	server := storage.Server{
+		Hostname:    "node-1",
+		ClusterRole: "master",
+		Role:        "node",
+		AdvertiseIP: "172.12.13.0",
+	}
+	config := planetConfig{
+		master: masterConfig{
+			addr:            server.AdvertiseIP,
+			electionEnabled: true,
+		},
+		manifest: schema.Manifest{
+			NodeProfiles: schema.NodeProfiles{
+				{
+					Name: "node",
+				},
+			},
+		},
+		installExpand: ops.SiteOperation{
+			ID:         "operation-id",
+			AccountID:  "local",
+			SiteDomain: s.cluster.domainName,
+			InstallExpand: &storage.InstallExpandOperationState{
+				Servers: []storage.Server{server},
+				Subnets: storage.Subnets{
+					Service: "10.0.0.1/8",
+					Overlay: "10.0.1.1/8",
+				},
+			},
+		},
+		server: ProvisionedServer{
+			Server: server,
+		},
+		etcd: etcdConfig{
+			initialCluster:      fmt.Sprintf("172.12.13.0.%v", s.cluster.domainName),
+			initialClusterState: "new",
+			proxyMode:           etcdProxyOff,
+		},
+		docker:        storage.DockerConfig{StorageDriver: "overlay2"},
+		planetPackage: loc.MustParseLocator("gravitational.io/planet:0.0.1"),
+		configPackage: loc.MustParseLocator("gravitational.io/planet-config:0.0.1"),
+		config: &clusterconfig.Resource{
+			Kind:    storage.KindClusterConfiguration,
+			Version: "v1",
+			Metadata: teleservices.Metadata{
+				Name:      constants.ClusterConfigurationMap,
+				Namespace: defaults.KubeSystemNamespace,
+			},
+			Spec: clusterconfig.Spec{},
+		},
+	}
+	args, err := s.cluster.getPlanetConfig(config)
+	c.Assert(err, check.IsNil)
+	c.Assert(sort.StringSlice(args), compare.SortedSliceEquals, mapToArgs(map[string][]string{
+		"node-name":                  []string{"172.12.13.0"},
+		"hostname":                   []string{"node-1"},
+		"master-ip":                  []string{"172.12.13.0"},
+		"public-ip":                  []string{"172.12.13.0"},
+		"cluster-id":                 []string{"example.com"},
+		"etcd-proxy":                 []string{"off"},
+		"etcd-member-name":           []string{"172_12_13_0.example.com"},
+		"initial-cluster":            []string{"172.12.13.0.example.com"},
+		"etcd-initial-cluster-state": []string{"new"},
+		"secrets-dir":                []string{"/var/lib/gravity/secrets"},
+		"election-enabled":           []string{"true"},
+		"service-uid":                []string{"1000"},
+		"volume": []string{
+			"/var/lib/gravity/planet/etcd:/ext/etcd",
+			"/var/lib/gravity/planet/docker:/ext/docker",
+			"/var/lib/gravity/planet/registry:/ext/registry",
+			"/var/lib/gravity/planet/share:/ext/share",
+			"/var/lib/gravity/planet/state:/ext/state",
+			"/var/lib/gravity/planet/log:/var/log",
+			"/var/lib/gravity:/var/lib/gravity",
+		},
+		"cloud-provider":          []string{"gce"},
+		"gce-node-tags":           []string{"example-com"},
+		"role":                    []string{"node"},
+		"docker-promiscuous-mode": []string{"true"},
+		"dns-listen-addr":         []string{"127.0.0.2"},
+		"dns-port":                []string{"53"},
+		"docker-backend":          []string{"overlay2"},
+		"docker-options":          []string{"--storage-opt=overlay2.override_kernel_check=1"},
+		"kubelet-options":         []string{"--hairpin-mode=none"},
+		"node-label":              []string{"gravitational.io/advertise-ip=172.12.13.0"},
+		"service-subnet":          []string{"10.0.0.1/8"},
+		"pod-subnet":              []string{"10.0.1.1/8"},
 	}))
 }
 

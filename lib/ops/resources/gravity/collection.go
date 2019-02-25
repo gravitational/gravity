@@ -571,9 +571,19 @@ func (r configCollection) WriteText(w io.Writer) error {
 	}
 	if config := r.GetGlobalConfig(); config != nil {
 		common.PrintCustomTableHeader(t, []string{"Cloud"}, "-")
-		fmt.Fprintf(t, "Provider:\t%v\n", config.CloudProvider)
-		fmt.Fprintf(t, "Configuration:\n")
-		fmt.Fprintf(t, "%v\n", config.CloudConfig.Config)
+		if len(config.CloudProvider) != 0 {
+			fmt.Fprintf(t, "Provider:\t%v\n", config.CloudProvider)
+		}
+		formatCloudConfig(t, config.CloudConfig)
+		if len(config.ServiceNodePortRange) != 0 {
+			fmt.Fprintf(t, "Service Node Port Range:\t%v\n", config.ServiceNodePortRange)
+		}
+		if len(config.ProxyPortRange) != 0 {
+			fmt.Fprintf(t, "Proxy Port Range:\t%v\n", config.ProxyPortRange)
+		}
+		if len(config.FeatureGates) != 0 {
+			fmt.Fprintf(t, "FeatureGates:\t%v\n", formatFeatureGates(config.FeatureGates))
+		}
 	}
 	_, err := io.WriteString(w, t.String())
 	return trace.Wrap(err)
@@ -605,4 +615,20 @@ func (r configCollection) Resources() (resources []teleservices.UnknownResource,
 
 type configCollection struct {
 	clusterconfig.Interface
+}
+
+func formatCloudConfig(w io.Writer, config string) {
+	if config == "" {
+		return
+	}
+	fmt.Fprintf(w, "Configuration:\n")
+	fmt.Fprintf(w, "%v\n", config)
+}
+
+func formatFeatureGates(features map[string]bool) string {
+	result := make([]string, 0, len(features))
+	for feature, enabled := range features {
+		result = append(result, fmt.Sprintf("%v=%v", feature, enabled))
+	}
+	return strings.Join(result, ",")
 }
