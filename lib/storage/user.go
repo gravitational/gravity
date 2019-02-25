@@ -721,12 +721,14 @@ func (*userMarshaler) UnmarshalUser(bytes []byte) (teleservices.User, error) {
 
 // GenerateUser generates new user
 func (*userMarshaler) GenerateUser(in teleservices.User) (teleservices.User, error) {
+	expires := in.Expiry()
 	return &UserV2{
 		Kind:    teleservices.KindUser,
 		Version: teleservices.V2,
 		Metadata: teleservices.Metadata{
 			Name:      in.GetName(),
 			Namespace: teledefaults.Namespace,
+			Expires:   &expires,
 		},
 		Spec: UserSpecV2{
 			// always generate password, even though it won't be used
@@ -739,6 +741,7 @@ func (*userMarshaler) GenerateUser(in teleservices.User) (teleservices.User, err
 			SAMLIdentities:   in.GetSAMLIdentities(),
 			GithubIdentities: in.GetGithubIdentities(),
 			Roles:            in.GetRoles(),
+			Expires:          expires,
 		},
 	}, nil
 }

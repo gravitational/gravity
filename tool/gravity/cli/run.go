@@ -125,8 +125,8 @@ func InitAndCheck(g *Application, cmd string) error {
 		// own location
 		switch cmd {
 		case g.InstallCmd.FullCommand(), g.JoinCmd.FullCommand():
-			if *g.SystemLogFile == defaults.TelekubeSystemLog {
-				install.InitLogging(defaults.TelekubeSystemLogFile)
+			if *g.SystemLogFile == defaults.GravitySystemLog {
+				install.InitLogging(defaults.GravitySystemLogFile)
 			}
 		}
 	}

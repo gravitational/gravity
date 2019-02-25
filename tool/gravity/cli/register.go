@@ -48,8 +48,8 @@ func RegisterCommands(app *kingpin.Application) *Application {
 	g.GID = g.Flag("gid", "effective group ID for this operation. Must be >= 0").Default(strconv.Itoa(defaults.PlaceholderGroupID)).Hidden().Int()
 	g.ProfileEndpoint = g.Flag("httpprofile", "enable profiling endpoint on specified host/port i.e. localhost:6060").Default("").Hidden().String()
 	g.ProfileTo = g.Flag("profile-dir", "store periodic state snapshots in the specified directory").Default("").Hidden().String()
-	g.UserLogFile = g.Flag("log-file", "log file with diagnostic information").Default(defaults.TelekubeUserLog).String()
-	g.SystemLogFile = g.Flag("system-log-file", "log file with system level logs").Default(defaults.TelekubeSystemLog).Hidden().String()
+	g.UserLogFile = g.Flag("log-file", "log file with diagnostic information").Default(defaults.GravityUserLog).String()
+	g.SystemLogFile = g.Flag("system-log-file", "log file with system level logs").Default(defaults.GravitySystemLog).Hidden().String()
 
 	g.VersionCmd.CmdClause = g.Command("version", "Print gravity version")
 	g.VersionCmd.Output = common.Format(g.VersionCmd.Flag("output", "Output format, text or json").Short('o').Default(string(constants.EncodingText)))
