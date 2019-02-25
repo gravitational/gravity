@@ -25,7 +25,7 @@ import (
 	"github.com/gravitational/gravity/lib/constants"
 
 	"github.com/coreos/go-semver/semver"
-	"k8s.io/api/core/v1"
+	v1 "k8s.io/api/core/v1"
 )
 
 const (
@@ -780,9 +780,9 @@ const (
 	// AWSRegion is the default AWS region
 	AWSRegion = "us-east-1"
 	// AWSVPCCIDR is the default AWS VPC CIDR
-	AWSVPCCIDR = "10.100.0.0/16"
+	AWSVPCCIDR = "10.1.0.0/16"
 	// AWSSubnetCIDR is the default AWS subnet CIDR
-	AWSSubnetCIDR = "10.100.0.0/24"
+	AWSSubnetCIDR = "10.1.0.0/24"
 
 	// ApplicationLabel defines the label used to annotate kubernetes resources
 	// to group them together

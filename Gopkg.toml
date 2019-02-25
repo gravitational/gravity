@@ -176,11 +176,11 @@ ignored = [
 
 [[override]]
   name = "github.com/gravitational/roundtrip"
-  version = "0.0.2"
+  version = "=v1.0.0"
 
 [[constraint]]
   name = "github.com/gravitational/teleport"
-  version = "=v2.4.10"
+  version = "=v2.4.12"
 
 [[constraint]]
   version = "0.0.1"

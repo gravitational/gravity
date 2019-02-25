@@ -300,7 +300,7 @@ func planetAgentStatus(ctx context.Context) (*pb.SystemStatus, error) {
 		return nil, trace.Wrap(err)
 	}
 
-	resp, err := client.Get(addr, url.Values{})
+	resp, err := client.Get(context.TODO(), addr, url.Values{})
 	if err != nil {
 		return nil, trace.Wrap(err)
 	}

@@ -149,17 +149,43 @@ func (s *site) getEtcdConfig(ctx context.Context, opCtx *operationContext, serve
 	}, nil
 }
 
-func (s *site) getTeleportMaster(ctx context.Context) (*teleportServer, error) {
+func (s *site) getTeleportMasterIPs(ctx context.Context) (ips []string, err error) {
+	masters, err := s.getTeleportMasters(ctx)
+	if err != nil {
+		return nil, trace.Wrap(err)
+	}
+	for _, master := range masters {
+		ips = append(ips, master.IP)
+	}
+	return ips, nil
+}
+
+func (s *site) getTeleportMasters(ctx context.Context) (servers []teleportServer, err error) {
 	masters, err := s.teleport().GetServers(ctx, s.domainName, map[string]string{
 		schema.ServiceLabelRole: string(schema.ServiceRoleMaster),
 	})
 	if err != nil {
 		return nil, trace.Wrap(err)
 	}
-	if len(masters) == 0 {
-		return nil, trace.NotFound("no master server found")
+	for _, master := range masters {
+		server, err := newTeleportServer(master)
+		if err != nil {
+			return nil, trace.Wrap(err)
+		}
+		servers = append(servers, *server)
 	}
-	return newTeleportServer(masters[0])
+	return servers, nil
+}
+
+func (s *site) getTeleportMaster(ctx context.Context) (*teleportServer, error) {
+	masters, err := s.getTeleportMasters(ctx)
+	if err != nil {
+		return nil, trace.Wrap(err)
+	}
+	if len(masters) == 0 {
+		return nil, trace.NotFound("no master servers found")
+	}
+	return &masters[0], nil
 }
 
 func (s *site) configureExpandPackages(ctx context.Context, opCtx *operationContext) error {
@@ -167,7 +193,7 @@ func (s *site) configureExpandPackages(ctx context.Context, opCtx *operationCont
 	if err != nil {
 		return trace.Wrap(err)
 	}
-	teleportMaster, err := s.getTeleportMaster(ctx)
+	teleportMasterIPs, err := s.getTeleportMasterIPs(ctx)
 	if err != nil {
 		return trace.Wrap(err)
 	}
@@ -230,6 +256,17 @@ func (s *site) configureExpandPackages(ctx context.Context, opCtx *operationCont
 		if err != nil {
 			return trace.Wrap(err)
 		}
+		err = s.configureTeleportKeyPair(teleportCA, provisionedServer, teleport.RoleNode)
+		if err != nil {
+			return trace.Wrap(err)
+		}
+		// Teleport nodes on masters prefer their local auth server
+		// but will try all other masters if the local gravity-site
+		// isn't running.
+		err = s.configureTeleportNode(opCtx, append([]string{constants.Localhost}, teleportMasterIPs...), provisionedServer)
+		if err != nil {
+			return trace.Wrap(err)
+		}
 	} else {
 		err := s.configurePlanetNodeSecrets(opCtx, provisionedServer, secretsPackage)
 		if err != nil {
@@ -239,14 +276,14 @@ func (s *site) configureExpandPackages(ctx context.Context, opCtx *operationCont
 		if err != nil {
 			return trace.Wrap(err)
 		}
-	}
-	err = s.configureTeleportKeyPair(teleportCA, provisionedServer, teleport.RoleNode)
-	if err != nil {
-		return trace.Wrap(err)
-	}
-	err = s.configureTeleportNode(opCtx, teleportMaster.IP, provisionedServer)
-	if err != nil {
-		return trace.Wrap(err)
+		err = s.configureTeleportKeyPair(teleportCA, provisionedServer, teleport.RoleNode)
+		if err != nil {
+			return trace.Wrap(err)
+		}
+		err = s.configureTeleportNode(opCtx, teleportMasterIPs, provisionedServer)
+		if err != nil {
+			return trace.Wrap(err)
+		}
 	}
 	return nil
 }
@@ -359,13 +396,16 @@ func (s *site) configurePackages(ctx *operationContext, req ops.ConfigurePackage
 			return trace.Wrap(err)
 		}
 
-		if err := s.configureTeleportNode(ctx, activeMaster.AdvertiseIP, master); err != nil {
+		// Teleport nodes on masters prefer their local auth server
+		// but will try all other masters if the local gravity-site
+		// isn't running.
+		if err := s.configureTeleportNode(ctx, append([]string{constants.Localhost}, p.MasterIPs()...), master); err != nil {
 			return trace.Wrap(err)
 		}
 	}
 
 	for _, node := range p.Nodes() {
-		if err := s.configureTeleportNode(ctx, p.FirstMaster().AdvertiseIP, node); err != nil {
+		if err := s.configureTeleportNode(ctx, p.MasterIPs(), node); err != nil {
 			return trace.Wrap(err)
 		}
 
@@ -1079,14 +1119,6 @@ func (s *site) configureTeleportMaster(ctx *operationContext, secrets *teleportS
 	}
 	fileConf.Storage.Params = params
 
-	fileConf.SSH.Labels = map[string]string{}
-
-	configureTeleportLabels(master, &ctx.operation, fileConf.SSH.Labels, s.domainName)
-
-	for key, val := range master.Profile.Labels {
-		fileConf.SSH.Labels[key] = val
-	}
-
 	fileConf.AdvertiseIP = net.ParseIP(master.AdvertiseIP)
 	fileConf.Global.NodeName = master.FQDN(s.domainName)
 
@@ -1141,7 +1173,7 @@ func (s *site) teleportMasterConfigPackage(master remoteServer) (*loc.Locator, e
 	return configPackage, trace.Wrap(err)
 }
 
-func (s *site) configureTeleportNode(ctx *operationContext, masterIP string, node *ProvisionedServer) error {
+func (s *site) configureTeleportNode(ctx *operationContext, masterIPs []string, node *ProvisionedServer) error {
 	configPackage, err := s.teleportNodeConfigPackage(node)
 	if err != nil {
 		return trace.Wrap(err)
@@ -1151,7 +1183,9 @@ func (s *site) configureTeleportNode(ctx *operationContext, masterIP string, nod
 
 	fileConf.DataDir = node.InGravity("teleport")
 
-	fileConf.AuthServers = []string{fmt.Sprintf("%v:3025", masterIP)}
+	for _, masterIP := range masterIPs {
+		fileConf.AuthServers = append(fileConf.AuthServers, fmt.Sprintf("%v:3025", masterIP))
+	}
 
 	fileConf.SSH.Labels = map[string]string{}
 
@@ -1165,10 +1199,6 @@ func (s *site) configureTeleportNode(ctx *operationContext, masterIP string, nod
 			Command: defaults.AWSPublicIPv4Command,
 			Period:  defaults.TeleportCommandLabelInterval,
 		})
-	}
-
-	for key, val := range node.Profile.Labels {
-		fileConf.SSH.Labels[key] = val
 	}
 
 	// never expire cache
@@ -1290,6 +1320,10 @@ func configureTeleportLabels(node *ProvisionedServer, operation *ops.SiteOperati
 	labels[ops.ServerFQDN] = node.FQDN(domainName)
 	labels[ops.AppRole] = node.Role
 	labels[ops.Hostname] = node.Hostname
+	for k, v := range node.Profile.Labels {
+		labels[k] = v
+	}
+	labels[schema.ServiceLabelRole] = node.ClusterRole
 
 	state := operation.InstallExpand
 	if state == nil {
