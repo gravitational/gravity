@@ -327,6 +327,7 @@ func Execute(g *Application, cmd string, extraArgs []string) error {
 			*g.UpdateTriggerCmd.App,
 			*g.UpdateTriggerCmd.Manual,
 			*g.UpdateTriggerCmd.Block,
+			*g.UpdateTriggerCmd.SkipVersionCheck,
 		)
 	case g.UpdatePlanInitCmd.FullCommand():
 		return initUpdateOperationPlan(localEnv, updateEnv)
@@ -335,19 +336,20 @@ func Execute(g *Application, cmd string, extraArgs []string) error {
 			*g.UpgradeCmd.Phase = fsm.RootPhase
 		}
 		if *g.UpgradeCmd.Phase != "" {
-			return executeUpgradePhase(localEnv, updateEnv,
+			return executePhase(localEnv, updateEnv, joinEnv,
 				PhaseParams{
 					PhaseID:          *g.UpgradeCmd.Phase,
 					Force:            *g.UpgradeCmd.Force,
 					Timeout:          *g.UpgradeCmd.Timeout,
 					SkipVersionCheck: *g.UpgradeCmd.SkipVersionCheck,
-				}, nil)
+				})
 		}
 		return updateTrigger(localEnv,
 			updateEnv,
 			*g.UpgradeCmd.App,
 			*g.UpgradeCmd.Manual,
 			*g.UpgradeCmd.Block,
+			*g.UpgradeCmd.SkipVersionCheck,
 		)
 	case g.PlanExecuteCmd.FullCommand():
 		return executePhase(localEnv, updateEnv, joinEnv,

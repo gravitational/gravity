@@ -65,6 +65,8 @@ const (
 	KindEndpoints = "endpoints"
 	// KindRuntimeEnvironment defines the resource that manages cluster environment variables
 	KindRuntimeEnvironment = "runtimeenvironment"
+	// KindClusterConfiguration defines the resource that manages cluster configuration
+	KindClusterConfiguration = "clusterconfiguration"
 )
 
 // CanonicalKind translates the specified kind to canonical form.
@@ -93,6 +95,8 @@ func CanonicalKind(kind string) string {
 		return KindAlertTarget
 	case KindRuntimeEnvironment, "environment", "env":
 		return KindRuntimeEnvironment
+	case KindClusterConfiguration, "config":
+		return KindClusterConfiguration
 	}
 	return ""
 }
@@ -157,6 +161,7 @@ var SupportedGravityResources = []string{
 	KindAlertTarget,
 	KindTLSKeyPair,
 	KindRuntimeEnvironment,
+	KindClusterConfiguration,
 }
 
 // SupportedGravityResourcesToRemove is a list of resources supported by
@@ -171,4 +176,5 @@ var SupportedGravityResourcesToRemove = []string{
 	KindAlertTarget,
 	KindTLSKeyPair,
 	KindRuntimeEnvironment,
+	KindClusterConfiguration,
 }

@@ -56,9 +56,11 @@ func executePhase(localEnv, updateEnv, joinEnv *localenv.LocalEnvironment, param
 	case ops.OperationExpand:
 		return executeJoinPhase(localEnv, joinEnv, params, op)
 	case ops.OperationUpdate:
-		return executeUpgradePhase(localEnv, updateEnv, params, op)
-	case ops.OperationUpdateEnvars:
-		return executeEnvarsPhase(localEnv, updateEnv, params, *op)
+		return executeUpdatePhase(localEnv, updateEnv, params, *op)
+	case ops.OperationUpdateRuntimeEnviron:
+		return executeEnvironPhase(localEnv, updateEnv, params, *op)
+	case ops.OperationUpdateConfig:
+		return executeConfigPhase(localEnv, updateEnv, params, *op)
 	case ops.OperationGarbageCollect:
 		return executeGarbageCollectPhase(localEnv, params, op)
 	default:
@@ -77,9 +79,11 @@ func rollbackPhase(localEnv, updateEnv, joinEnv *localenv.LocalEnvironment, para
 	case ops.OperationExpand:
 		return rollbackJoinPhase(localEnv, joinEnv, params, op)
 	case ops.OperationUpdate:
-		return rollbackUpgradePhase(localEnv, updateEnv, params, *op)
-	case ops.OperationUpdateEnvars:
-		return rollbackEnvarsPhase(localEnv, updateEnv, params, *op)
+		return rollbackUpdatePhase(localEnv, updateEnv, params, *op)
+	case ops.OperationUpdateRuntimeEnviron:
+		return rollbackEnvironPhase(localEnv, updateEnv, params, *op)
+	case ops.OperationUpdateConfig:
+		return rollbackConfigPhase(localEnv, updateEnv, params, *op)
 	default:
 		return trace.BadParameter("operation type %q does not support plan rollback", op.Type)
 	}
@@ -98,8 +102,10 @@ func completeOperationPlan(localEnv, updateEnv, joinEnv *localenv.LocalEnvironme
 		return completeJoinPlan(localEnv, joinEnv, op)
 	case ops.OperationUpdate:
 		return completeUpdatePlan(localEnv, updateEnv, *op)
-	case ops.OperationUpdateEnvars:
-		return completeEnvarsPlan(localEnv, updateEnv, *op)
+	case ops.OperationUpdateRuntimeEnviron:
+		return completeEnvironPlan(localEnv, updateEnv, *op)
+	case ops.OperationUpdateConfig:
+		return completeConfigPlan(localEnv, updateEnv, *op)
 	default:
 		return trace.BadParameter("operation type %q does not support plan completion", op.Type)
 	}

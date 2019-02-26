@@ -48,8 +48,6 @@ type operationContext struct {
 	recorder io.WriteCloser
 	// provisionedServers is used in all operations
 	provisionedServers provisionedServers
-	// variables is a map of opaque data for operations
-	variables map[string]interface{}
 	// serversToRemove is a list of servers to remove
 	// in shrink operation
 	serversToRemove []storage.Server
@@ -111,12 +109,6 @@ func (c *operationContext) getNumServers() (servers int) {
 		}
 		return servers
 	}
-}
-
-// serverWithRole augments server profile with its role name
-type serverWithRole struct {
-	storage.ServerProfile
-	role string
 }
 
 // key returns SiteOperationKey generated from the operation

@@ -26,7 +26,7 @@ import (
 	"github.com/gravitational/gravity/lib/localenv"
 	"github.com/gravitational/gravity/lib/ops"
 	"github.com/gravitational/gravity/lib/storage"
-	"github.com/gravitational/gravity/lib/update"
+	update "github.com/gravitational/gravity/lib/update/cluster"
 	"github.com/gravitational/gravity/lib/utils"
 
 	"github.com/fatih/color"
@@ -72,10 +72,12 @@ func displayOperationPlan(localEnv, updateEnv, joinEnv *localenv.LocalEnvironmen
 		return displayExpandOperationPlan(joinEnv, op.Key(), format)
 	case ops.OperationUpdate:
 		return displayUpdateOperationPlan(updateEnv, op.Key(), format)
+	case ops.OperationUpdateRuntimeEnviron:
+		return displayUpdateOperationPlan(updateEnv, op.Key(), format)
+	case ops.OperationUpdateConfig:
+		return displayUpdateOperationPlan(updateEnv, op.Key(), format)
 	case ops.OperationGarbageCollect:
 		return displayClusterOperationPlan(localEnv, op.Key(), format)
-	case ops.OperationUpdateEnvars:
-		return displayUpdateEnvarsOperationPlan(updateEnv, op.Key(), format)
 	default:
 		return trace.BadParameter("unknown operation type %q", op.Type)
 	}
@@ -95,18 +97,6 @@ func displayClusterOperationPlan(env *localenv.LocalEnvironment, opKey ops.SiteO
 }
 
 func displayUpdateOperationPlan(updateEnv *localenv.LocalEnvironment, opKey ops.SiteOperationKey, format constants.Format) error {
-	plan, err := fsm.GetOperationPlan(updateEnv.Backend, opKey.SiteDomain, opKey.OperationID)
-	if err != nil {
-		return trace.Wrap(err)
-	}
-	err = outputPlan(*plan, format)
-	if err != nil {
-		return trace.Wrap(err)
-	}
-	return nil
-}
-
-func displayUpdateEnvarsOperationPlan(updateEnv *localenv.LocalEnvironment, opKey ops.SiteOperationKey, format constants.Format) error {
 	plan, err := fsm.GetOperationPlan(updateEnv.Backend, opKey.SiteDomain, opKey.OperationID)
 	if err != nil {
 		return trace.Wrap(err)

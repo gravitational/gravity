@@ -26,7 +26,6 @@ import (
 	"github.com/gravitational/gravity/lib/fsm"
 	"github.com/gravitational/gravity/lib/ops"
 	"github.com/gravitational/gravity/lib/ops/resources"
-	"github.com/gravitational/gravity/lib/ops/resources/gravity"
 	"github.com/gravitational/gravity/lib/state"
 	"github.com/gravitational/gravity/lib/storage"
 	"github.com/gravitational/gravity/lib/utils"
@@ -114,7 +113,7 @@ func (*resourcesExecutor) PostCheck(ctx context.Context) error {
 }
 
 // NewGravityResourcesPhase returns executor that creates Gravity resources after a successful install
-func NewGravityResourcesPhase(p fsm.ExecutorParams, operator ops.Operator) (*gravityExecutor, error) {
+func NewGravityResourcesPhase(p fsm.ExecutorParams, operator ops.Operator, factory resources.Resources) (*gravityExecutor, error) {
 	if p.Phase.Data == nil || p.Phase.Data.Install == nil {
 		return nil, trace.BadParameter("phase data is mandatory")
 	}
@@ -125,12 +124,6 @@ func NewGravityResourcesPhase(p fsm.ExecutorParams, operator ops.Operator) (*gra
 		Key:      opKey(p.Plan),
 		Operator: operator,
 		Server:   p.Phase.Data.Server,
-	}
-	factory, err := gravity.New(gravity.Config{
-		Operator: operator,
-	})
-	if err != nil {
-		return nil, trace.Wrap(err)
 	}
 	return &gravityExecutor{
 		FieldLogger: logger,

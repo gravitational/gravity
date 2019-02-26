@@ -58,7 +58,6 @@ type PlanSuite struct {
 	regularAgent       *storage.LoginEntry
 	teleportPackage    *loc.Locator
 	runtimePackage     loc.Locator
-	planetNodePackage  *loc.Locator
 	rbacPackage        *loc.Locator
 	runtimeApplication *loc.Locator
 	dnsPackage         *loc.Locator

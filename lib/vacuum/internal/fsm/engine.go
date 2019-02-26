@@ -167,7 +167,7 @@ func (r *engine) Complete(fsmErr error) error {
 		return trace.Wrap(err)
 	}
 
-	r.Debug("Marked operation complete.")
+	r.WithField("operation", r.Operation).Debug("Marked operation complete.")
 	return nil
 }
 

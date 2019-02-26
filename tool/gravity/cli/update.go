@@ -19,231 +19,131 @@ package cli
 import (
 	"context"
 	"fmt"
+	"io"
+	"time"
 
-	appservice "github.com/gravitational/gravity/lib/app"
 	"github.com/gravitational/gravity/lib/constants"
 	"github.com/gravitational/gravity/lib/defaults"
-	"github.com/gravitational/gravity/lib/httplib"
-	"github.com/gravitational/gravity/lib/loc"
+	"github.com/gravitational/gravity/lib/fsm"
+	libfsm "github.com/gravitational/gravity/lib/fsm"
 	"github.com/gravitational/gravity/lib/localenv"
 	"github.com/gravitational/gravity/lib/ops"
-	"github.com/gravitational/gravity/lib/pack"
-	"github.com/gravitational/gravity/lib/schema"
 	"github.com/gravitational/gravity/lib/update"
 
 	"github.com/gravitational/trace"
+	"github.com/sirupsen/logrus"
 )
 
-func updateCheck(env *localenv.LocalEnvironment, appPackage string) error {
-	operator, err := env.SiteOperator()
-	if err != nil {
-		return trace.Wrap(err)
-	}
-
-	site, err := operator.GetLocalSite()
-	if err != nil {
-		return trace.Wrap(err)
-	}
-
-	_, err = checkForUpdate(env, operator, site, appPackage)
-	return trace.Wrap(err)
-}
-
-func updateTrigger(
-	localEnv *localenv.LocalEnvironment,
-	updateEnv *localenv.LocalEnvironment,
-	appPackage string,
-	manual, block bool,
-) error {
-	clusterEnv, err := localEnv.NewClusterEnvironment()
-	if err != nil {
-		return trace.Wrap(err)
-	}
-
-	if clusterEnv.Client == nil {
-		return trace.BadParameter("this operation can only be executed on one of the master nodes")
-	}
-	operator := clusterEnv.Operator
-
-	cluster, err := operator.GetLocalSite()
-	if err != nil {
-		return trace.Wrap(err)
-	}
-
+func newUpdater(ctx context.Context, localEnv, updateEnv *localenv.LocalEnvironment, init updateInitializer) (*update.Updater, error) {
 	teleportClient, err := localEnv.TeleportClient(constants.Localhost)
 	if err != nil {
-		return trace.Wrap(err, "failed to create a teleport client")
+		return nil, trace.Wrap(err, "failed to create a teleport client")
 	}
-
 	proxy, err := teleportClient.ConnectToProxy()
 	if err != nil {
-		return trace.Wrap(err, "failed to connect to teleport proxy")
+		return nil, trace.Wrap(err, "failed to connect to teleport proxy")
 	}
-
-	app, err := checkForUpdate(localEnv, operator, cluster, appPackage)
+	clusterEnv, err := localEnv.NewClusterEnvironment()
 	if err != nil {
-		return trace.Wrap(err)
+		return nil, trace.Wrap(err)
 	}
-
-	err = checkCanUpdate(*cluster, operator, app.Manifest)
+	if clusterEnv.Client == nil {
+		return nil, trace.BadParameter("this operation can only be executed on one of the master nodes")
+	}
+	operator := clusterEnv.Operator
+	cluster, err := operator.GetLocalSite()
 	if err != nil {
-		return trace.Wrap(err)
+		return nil, trace.Wrap(err)
 	}
-
-	opKey, err := operator.CreateSiteAppUpdateOperation(ops.CreateSiteAppUpdateOperationRequest{
-		AccountID:  cluster.AccountID,
-		SiteDomain: cluster.Domain,
-		App:        app.Package.String(),
-	})
+	err = init.validatePreconditions(localEnv, operator, *cluster)
 	if err != nil {
-		return trace.Wrap(err)
+		return nil, trace.Wrap(err)
 	}
-
+	key, err := init.newOperation(operator, *cluster)
+	if err != nil {
+		return nil, trace.Wrap(err)
+	}
 	defer func() {
 		r := recover()
-		triggered := err == nil && r == nil
-		if !triggered {
-			if errDelete := operator.DeleteSiteOperation(*opKey); errDelete != nil {
-				log.Warnf("Failed to clean up update operation %v: %v.",
-					opKey, trace.DebugReport(errDelete))
+		panicked := r != nil
+		if err != nil || panicked {
+			logger := logrus.WithField("operation", key)
+			logger.WithError(err).Warn("Operation failed.")
+			var msg string
+			if err != nil {
+				msg = err.Error()
+			}
+			if errMark := ops.FailOperationAndResetCluster(*key, operator, msg); err != nil {
+				logrus.WithFields(logrus.Fields{
+					logrus.ErrorKey: errMark,
+					"operation":     key,
+				}).Warn("Failed to mark operation as failed.")
 			}
 		}
 		if r != nil {
 			panic(r)
 		}
 	}()
-
-	req := deployAgentsRequest{
+	operation, err := operator.GetSiteOperation(*key)
+	if err != nil {
+		return nil, trace.Wrap(err)
+	}
+	// Create the operation plan so it can be replicated on remote nodes
+	err = init.newOperationPlan(ctx, operator, *cluster, *operation, localEnv, updateEnv, clusterEnv)
+	if err != nil {
+		return nil, trace.Wrap(err)
+	}
+	req := init.updateDeployRequest(deployAgentsRequest{
 		clusterState: cluster.ClusterState,
 		clusterName:  cluster.Domain,
 		clusterEnv:   clusterEnv,
 		proxy:        proxy,
 		nodeParams:   constants.RPCAgentSyncPlanFunction,
-	}
-	unattended := !block && !manual
-	if unattended {
-		req.leaderParams = constants.RPCAgentUpgradeFunction
-	}
-
-	ctx, cancel := context.WithTimeout(context.Background(), defaults.AgentDeployTimeout)
+	})
+	deployCtx, cancel := context.WithTimeout(ctx, defaults.AgentDeployTimeout)
 	defer cancel()
-
-	_, err = update.InitOperationPlan(ctx, localEnv, updateEnv, clusterEnv, *opKey)
+	logrus.WithField("request", req).Debug("Deploying agents on nodes.")
+	localEnv.Println("Deploying agents on nodes")
+	creds, err := deployAgents(deployCtx, req)
 	if err != nil {
-		return trace.Wrap(err)
+		return nil, trace.Wrap(err)
 	}
-	_, err = deployAgents(ctx, req)
+	if bool(localEnv.Silent) {
+		// FIXME: keep the legacy behavior of reporting the operation ID in quiet mode.
+		// This is still used by robotest to fetch the operation ID
+		fmt.Println(key.OperationID)
+	}
+	runner := libfsm.NewAgentRunner(creds)
+	updater, err := init.newUpdater(ctx, operator, *operation, localEnv, updateEnv, clusterEnv, runner)
 	if err != nil {
-		return trace.Wrap(err)
+		return nil, trace.Wrap(err)
 	}
-
-	if unattended {
-		if localEnv.Silent {
-			// FIXME: keep the legacy behavior of reporting the operation ID in quiet mode.
-			// This is still used by robotest to fetch the operation ID
-			fmt.Println(opKey.OperationID)
-		}
-		localEnv.Printf("update operation (%v) has been started.\nCluster is updating in background.\n",
-			opKey.OperationID)
-		return nil
-	}
-
-	if !manual {
-		return trace.Wrap(update.AutomaticUpgrade(context.Background(), localEnv, updateEnv))
-	}
-
-	localEnv.Println(`
-The update operation has been created in manual mode.
-
-To view the operation plan, run:
-
-$ gravity plan
-
-To perform the upgrade, execute all upgrade phases in the order they appear in
-the plan by running:
-
-$ sudo gravity upgrade --phase=<phase-id>
-
-To rollback an unsuccessful phase, you can run:
-
-$ sudo gravity rollback --phase=<phase-id>
-
-Once all phases have been successfully completed, run the following command to
-mark the operation as "completed" and return the cluster to the "active" state:
-
-$ gravity upgrade --complete
-
-To abort an unsuccessful operation, rollback all completed/failed phases and
-run the same command. The operation will be marked as "failed" and the cluster
-will be returned to the "active" state.`)
-	return nil
+	return updater, nil
 }
 
-func checkCanUpdate(cluster ops.Site, operator ops.Operator, manifest schema.Manifest) error {
-	existingGravityPackage, err := cluster.App.Manifest.Dependencies.ByName(constants.GravityPackage)
-	if err != nil {
-		return trace.Wrap(err)
-	}
-
-	supportsUpdate, err := supportsUpdate(*existingGravityPackage)
-	if err != nil {
-		return trace.Wrap(err)
-	}
-	if !supportsUpdate {
-		return trace.BadParameter(`
-Installed runtime version (%q) is too old and cannot be updated by this package.
-Please update this installation to a minimum required runtime version (%q) before using this update.`,
-			existingGravityPackage.Version, defaults.BaseUpdateVersion)
-	}
-
-	return nil
+type updateInitializer interface {
+	validatePreconditions(localEnv *localenv.LocalEnvironment, operator ops.Operator, cluster ops.Site) error
+	newOperation(ops.Operator, ops.Site) (*ops.SiteOperationKey, error)
+	newOperationPlan(ctx context.Context,
+		operator ops.Operator,
+		cluster ops.Site,
+		operation ops.SiteOperation,
+		localEnv, updateEnv *localenv.LocalEnvironment,
+		clusterEnv *localenv.ClusterEnvironment) error
+	newUpdater(ctx context.Context,
+		operator ops.Operator,
+		operation ops.SiteOperation,
+		localEnv, updateEnv *localenv.LocalEnvironment,
+		clusterEnv *localenv.ClusterEnvironment,
+		runner fsm.AgentRepository,
+	) (*update.Updater, error)
+	updateDeployRequest(deployAgentsRequest) deployAgentsRequest
 }
 
-// checkForUpdate determines if there is an updatePackage for the cluster's application
-// and returns a reference to it if available.
-// updatePackage specifies an optional (potentially incomplete) package name of the update package.
-// If unspecified, the currently installed application package is used.
-func checkForUpdate(env *localenv.LocalEnvironment, operator ops.Operator, site *ops.Site, updatePackage string) (*appservice.Application, error) {
-	// if app package was not provided, default to the latest version of
-	// the currently installed app
-	if updatePackage == "" {
-		updatePackage = site.App.Package.Name
-	}
-
-	updateLoc, err := pack.MakeLocator(updatePackage)
-	if err != nil {
-		return nil, trace.Wrap(err)
-	}
-
-	apps, err := env.AppService(
-		defaults.GravityServiceURL,
-		localenv.AppConfig{},
-		httplib.WithLocalResolver(env.DNS.Addr()),
-		httplib.WithInsecure())
-	if err != nil {
-		return nil, trace.Wrap(err)
-	}
-
-	update, err := apps.GetApp(*updateLoc)
-	if err != nil {
-		return nil, trace.Wrap(err)
-	}
-
-	err = pack.CheckUpdatePackage(site.App.Package, update.Package)
-	if err != nil {
-		return nil, trace.Wrap(err)
-	}
-
-	env.Printf("updating %v from %v to %v\n",
-		update.Package.Name, site.App.Package.Version, update.Package.Version)
-
-	return update, nil
-}
-
-func supportsUpdate(gravityPackage loc.Locator) (supports bool, err error) {
-	ver, err := gravityPackage.SemVer()
-	if err != nil {
-		return false, trace.Wrap(err)
-	}
-	return defaults.BaseUpdateVersion.Compare(*ver) <= 0, nil
+type updater interface {
+	io.Closer
+	Run(ctx context.Context, force bool) error
+	RunPhase(ctx context.Context, phase string, phaseTimeout time.Duration, force bool) error
+	RollbackPhase(ctx context.Context, phase string, phaseTimeout time.Duration, force bool) error
+	Complete(error) error
 }

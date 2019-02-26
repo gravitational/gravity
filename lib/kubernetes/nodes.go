@@ -143,7 +143,7 @@ func setUnschedulable(client corev1.NodeInterface, nodeName string, unschedulabl
 	node.Spec.Unschedulable = unschedulable
 
 	_, err = client.Update(node)
-	return trace.Wrap(err)
+	return rigging.ConvertError(err)
 }
 
 // updateTaints updates taints on the node given with nodeName from newTaints
@@ -156,7 +156,7 @@ func updateTaints(client corev1.NodeInterface, nodeName string, newTaints []v1.T
 	node.Spec.Taints = newTaints
 
 	_, err = client.Update(node)
-	return trace.Wrap(err)
+	return rigging.ConvertError(err)
 }
 
 // updateLabels updates labels on the node specified with nodeName
@@ -171,7 +171,7 @@ func updateLabels(client corev1.NodeInterface, nodeName string, labels map[strin
 	}
 
 	_, err = client.Update(node)
-	return trace.Wrap(err)
+	return rigging.ConvertError(err)
 }
 
 // deleteTaints deletes the given taints from the node's list of taints

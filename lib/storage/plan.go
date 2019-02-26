@@ -123,6 +123,8 @@ type OperationPhaseData struct {
 	Data string `json:"data,omitempty" yaml:"data,omitempty"`
 	// GarbageCollect specifies configuration specific to garbage collect operation
 	GarbageCollect *GarbageCollectOperationData `json:"garbage_collect,omitempty" yaml:"garbage_collect,omitempty"`
+	// Update specifies configuration specific to update operations
+	Update *UpdateOperationData `json:"update,omitempty" yaml:"garbage_collect,omitempty"`
 	// Install specifies configuration specific to install operation
 	Install *InstallOperationData `json:"install,omitempty" yaml:"install,omitempty"`
 }
@@ -141,10 +143,19 @@ type GarbageCollectOperationData struct {
 	RemoteApps []Application `json:"remote_apps,omitempty" yaml:"remote_apps,omitempty"`
 }
 
+// UpdateOperationData describes configuration for update operations
+type UpdateOperationData struct {
+	// Servers lists the subset of cluster servers to use for the step in case
+	// the operation needs to operate not on the whole cluster
+	Servers []Server `json:"servers,omitempty" yaml:"servers,omitempty"`
+}
+
 // InstallOperationData describes configuration for the install operation
 type InstallOperationData struct {
 	// Env specifies optional cluster environment variables to add
 	Env map[string]string `json:"env,omitempty"`
+	// Config specifies optional cluster configuration resource
+	Config []byte `json:"config,omitempty"`
 	// Resources specifies optional Kubernetes resources to create
 	Resources []byte `json:"resources,omitempty" yaml:"resources,omitempty"`
 	// GravityResourcesResources specifies optional Gravity resources to create upon successful installation

@@ -17,6 +17,7 @@ limitations under the License.
 package cli
 
 import (
+	"bytes"
 	"context"
 	"io/ioutil"
 	"net"
@@ -28,11 +29,13 @@ import (
 	"github.com/gravitational/gravity/lib/install"
 	"github.com/gravitational/gravity/lib/loc"
 	"github.com/gravitational/gravity/lib/localenv"
+	"github.com/gravitational/gravity/lib/ops/resources"
 	"github.com/gravitational/gravity/lib/pack"
 	"github.com/gravitational/gravity/lib/process"
 	"github.com/gravitational/gravity/lib/rpc/proto"
 	rpcserver "github.com/gravitational/gravity/lib/rpc/server"
 	"github.com/gravitational/gravity/lib/storage"
+	"github.com/gravitational/gravity/lib/storage/clusterconfig"
 	"github.com/gravitational/gravity/lib/systeminfo"
 	"github.com/gravitational/gravity/lib/utils"
 
@@ -306,6 +309,10 @@ func (i *InstallConfig) ToInstallerConfig(env *localenv.LocalEnvironment) (*inst
 	if err != nil {
 		return nil, trace.Wrap(err)
 	}
+	err = i.updateFromClusterConfig(resources)
+	if err != nil {
+		return nil, trace.Wrap(err)
+	}
 	ctx, cancel := context.WithCancel(context.Background())
 	return &install.Config{
 		Context:            ctx,
@@ -344,6 +351,52 @@ func (i *InstallConfig) ToInstallerConfig(env *localenv.LocalEnvironment) (*inst
 		NewProcess:         i.NewProcess,
 		LocalClusterClient: env.SiteOperator,
 	}, nil
+}
+
+// ValidateResources validates the resources specified in ResourcePath
+// using the given validator
+func (i *InstallConfig) ValidateResources(validator resources.Validator) error {
+	if i.ResourcesPath == "" {
+		return trace.NotFound("no resources provided")
+	}
+	rc, err := utils.ReaderForPath(i.ResourcesPath)
+	if err != nil {
+		return trace.Wrap(err, "failed to read resources")
+	}
+	defer rc.Close()
+	// TODO(dmitri): validate kubernetes resources as well
+	_, gravityResources, err := resources.Split(rc)
+	if err != nil {
+		return trace.BadParameter("failed to validate %q: %v", i.ResourcesPath, err)
+	}
+	for _, res := range gravityResources {
+		log.WithField("resource", res.ResourceHeader).Info("Validating.")
+		if err := validator.Validate(res); err != nil {
+			return trace.Wrap(err, "resource %q is invalid", res.Kind)
+		}
+	}
+	return nil
+}
+
+func (i *InstallConfig) updateFromClusterConfig(resourceBytes []byte) error {
+	if len(resourceBytes) == 0 {
+		return nil
+	}
+	err := resources.ForEach(bytes.NewReader(resourceBytes), func(res storage.UnknownResource) error {
+		if res.Kind != storage.KindClusterConfiguration {
+			return nil
+		}
+		config, err := clusterconfig.Unmarshal(res.Raw)
+		if err != nil {
+			return trace.Wrap(err)
+		}
+		if config := config.GetGlobalConfig(); config != nil && config.CloudProvider != "" {
+			i.CloudProvider = config.CloudProvider
+			return utils.Abort(nil)
+		}
+		return nil
+	})
+	return trace.Wrap(err)
 }
 
 func (i *InstallConfig) validateDNSConfig() error {

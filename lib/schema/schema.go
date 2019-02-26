@@ -68,7 +68,7 @@ const manifestSchema = `
             "hidden": {"type": "boolean"}
           }
         },
-	"logo": {"type": "string"},
+        "logo": {"type": "string"},
         "releaseNotes": {"type": "string"},
         "endpoints": {
           "type": "array",

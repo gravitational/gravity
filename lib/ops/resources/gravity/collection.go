@@ -27,6 +27,7 @@ import (
 	"github.com/gravitational/gravity/lib/constants"
 	"github.com/gravitational/gravity/lib/defaults"
 	"github.com/gravitational/gravity/lib/storage"
+	"github.com/gravitational/gravity/lib/storage/clusterconfig"
 	"github.com/gravitational/gravity/lib/utils"
 	"github.com/gravitational/gravity/tool/common"
 
@@ -554,4 +555,80 @@ func (r envCollection) Resources() (resources []teleservices.UnknownResource, er
 
 type envCollection struct {
 	env storage.EnvironmentVariables
+}
+
+// WriteText serializes collection in human-friendly text format
+func (r configCollection) WriteText(w io.Writer) error {
+	t := goterm.NewTable(0, 10, 5, ' ', 0)
+	common.PrintCustomTableHeader(t, []string{"Configuration"}, "=")
+	if r.Interface == nil {
+		// Empty
+		return nil
+	}
+	if config := r.GetKubeletConfig(); config != nil {
+		common.PrintCustomTableHeader(t, []string{"Kubelet"}, "-")
+		fmt.Fprintf(t, "%v\n", string(config.Config))
+	}
+	if config := r.GetGlobalConfig(); config != nil {
+		common.PrintCustomTableHeader(t, []string{"Cloud"}, "-")
+		if len(config.CloudProvider) != 0 {
+			fmt.Fprintf(t, "Provider:\t%v\n", config.CloudProvider)
+		}
+		formatCloudConfig(t, config.CloudConfig)
+		if len(config.ServiceNodePortRange) != 0 {
+			fmt.Fprintf(t, "Service Node Port Range:\t%v\n", config.ServiceNodePortRange)
+		}
+		if len(config.ProxyPortRange) != 0 {
+			fmt.Fprintf(t, "Proxy Port Range:\t%v\n", config.ProxyPortRange)
+		}
+		if len(config.FeatureGates) != 0 {
+			fmt.Fprintf(t, "FeatureGates:\t%v\n", formatFeatureGates(config.FeatureGates))
+		}
+	}
+	_, err := io.WriteString(w, t.String())
+	return trace.Wrap(err)
+}
+
+// WriteJSON serializes collection into JSON format
+func (r configCollection) WriteJSON(w io.Writer) error {
+	return utils.WriteJSON(r, w)
+}
+
+// WriteYAML serializes collection into YAML format
+func (r configCollection) WriteYAML(w io.Writer) error {
+	return utils.WriteYAML(r, w)
+}
+
+func (r configCollection) ToMarshal() interface{} {
+	return r.Interface
+}
+
+// Resources returns the resources collection in the generic format
+func (r configCollection) Resources() (resources []teleservices.UnknownResource, err error) {
+	resource, err := utils.ToUnknownResource(r.Interface)
+	if err != nil {
+		return nil, trace.Wrap(err)
+	}
+	resources = append(resources, *resource)
+	return resources, nil
+}
+
+type configCollection struct {
+	clusterconfig.Interface
+}
+
+func formatCloudConfig(w io.Writer, config string) {
+	if config == "" {
+		return
+	}
+	fmt.Fprintf(w, "Configuration:\n")
+	fmt.Fprintf(w, "%v\n", config)
+}
+
+func formatFeatureGates(features map[string]bool) string {
+	result := make([]string, 0, len(features))
+	for feature, enabled := range features {
+		result = append(result, fmt.Sprintf("%v=%v", feature, enabled))
+	}
+	return strings.Join(result, ",")
 }

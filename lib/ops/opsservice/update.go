@@ -32,6 +32,7 @@ import (
 	"github.com/gravitational/gravity/lib/schema"
 	"github.com/gravitational/gravity/lib/state"
 	"github.com/gravitational/gravity/lib/storage"
+	"github.com/gravitational/gravity/lib/storage/clusterconfig"
 	"github.com/gravitational/gravity/lib/utils"
 
 	"github.com/gravitational/trace"
@@ -163,6 +164,14 @@ func (o *Operator) RotatePlanetConfig(req ops.RotatePlanetConfigRequest) (*ops.R
 		planetPackage: req.Package,
 		configPackage: *configPackage,
 		env:           req.Env,
+	}
+
+	if len(req.Config) != 0 {
+		clusterConfig, err := clusterconfig.Unmarshal(req.Config)
+		if err != nil {
+			return nil, trace.Wrap(err)
+		}
+		config.config = clusterConfig
 	}
 
 	resp, err := cluster.getPlanetConfigPackage(config)

@@ -138,8 +138,6 @@ func NewFSM(config FSMConfig) (*fsm.FSM, error) {
 type fsmEngine struct {
 	// FSMConfig is the expand FSM configuration
 	FSMConfig
-	// operation is the ongoing expand operation
-	operation ops.SiteOperation
 	// FieldLogger is used for logging
 	logrus.FieldLogger
 }

@@ -32,6 +32,8 @@ import (
 	"github.com/gravitational/gravity/lib/install"
 	"github.com/gravitational/gravity/lib/localenv"
 	"github.com/gravitational/gravity/lib/ops"
+	"github.com/gravitational/gravity/lib/ops/resources"
+	"github.com/gravitational/gravity/lib/ops/resources/gravity"
 	pb "github.com/gravitational/gravity/lib/rpc/proto"
 	rpcserver "github.com/gravitational/gravity/lib/rpc/server"
 	"github.com/gravitational/gravity/lib/storage"
@@ -55,6 +57,13 @@ func startInstall(env *localenv.LocalEnvironment, i InstallConfig) error {
 	err = i.CheckAndSetDefaults()
 	if err != nil {
 		return trace.Wrap(err)
+	}
+
+	if i.ResourcesPath != "" {
+		err = i.ValidateResources(resources.ValidateFunc(gravity.Validate))
+		if err != nil {
+			return trace.Wrap(err)
+		}
 	}
 
 	installerConfig, err := i.ToInstallerConfig(env)

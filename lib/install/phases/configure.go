@@ -37,14 +37,17 @@ func NewConfigure(p fsm.ExecutorParams, operator ops.Operator) (*configureExecut
 		Operator: operator,
 	}
 	var env map[string]string
+	var config []byte
 	if p.Phase.Data != nil && p.Phase.Data.Install != nil {
 		env = p.Phase.Data.Install.Env
+		config = p.Phase.Data.Install.Config
 	}
 	return &configureExecutor{
 		FieldLogger:    logger,
 		Operator:       operator,
 		ExecutorParams: p,
 		env:            env,
+		config:         config,
 	}, nil
 }
 
@@ -55,7 +58,8 @@ type configureExecutor struct {
 	Operator ops.Operator
 	// ExecutorParams is common executor params
 	fsm.ExecutorParams
-	env map[string]string
+	env    map[string]string
+	config []byte
 }
 
 // Execute executes the configure phase
@@ -68,7 +72,8 @@ func (p *configureExecutor) Execute(ctx context.Context) error {
 			SiteDomain:  p.Plan.ClusterName,
 			OperationID: p.Plan.OperationID,
 		},
-		Env: p.env,
+		Env:    p.env,
+		Config: p.config,
 	})
 	if err != nil {
 		return trace.Wrap(err)

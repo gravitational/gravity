@@ -22,6 +22,7 @@ import (
 	"github.com/gravitational/gravity/lib/ops"
 	"github.com/gravitational/gravity/lib/ops/resources"
 	"github.com/gravitational/gravity/lib/storage"
+	"github.com/gravitational/gravity/lib/storage/clusterconfig"
 
 	teleservices "github.com/gravitational/teleport/lib/services"
 	"github.com/gravitational/trace"
@@ -337,12 +338,17 @@ func (r *Resources) GetCollection(req resources.ListRequest) (resources.Collecti
 		}
 		return alertTargetCollection(alertTargets), nil
 	case storage.KindRuntimeEnvironment:
-		// always ignore name parameter for environment variables, because there is only one
 		env, err := r.Operator.GetClusterEnvironmentVariables(r.cluster.Key())
 		if err != nil {
 			return nil, trace.Wrap(err)
 		}
 		return envCollection{env: env}, nil
+	case storage.KindClusterConfiguration:
+		config, err := r.Operator.GetClusterConfiguration(r.cluster.Key())
+		if err != nil {
+			return nil, trace.Wrap(err)
+		}
+		return configCollection{Interface: config}, nil
 	}
 	return nil, trace.NotImplemented("unsupported resource %q, supported are: %v",
 		req.Kind, modules.Get().SupportedResources())
@@ -427,6 +433,42 @@ func (r *Resources) Remove(req resources.RemoveRequest) error {
 	default:
 		return trace.NotImplemented("unsupported resource %q, supported are: %v",
 			req.Kind, modules.Get().SupportedResourcesToRemove())
+	}
+	return nil
+}
+
+// Validate checks whether the specified resource
+// represents a valid resource.
+func Validate(resource storage.UnknownResource) (err error) {
+	switch resource.Kind {
+	case teleservices.KindGithubConnector:
+		_, err = teleservices.GetGithubConnectorMarshaler().Unmarshal(resource.Raw)
+	case teleservices.KindUser:
+		_, err = teleservices.GetUserMarshaler().UnmarshalUser(resource.Raw)
+	case storage.KindToken:
+		_, err = storage.GetTokenMarshaler().UnmarshalToken(resource.Raw)
+	case storage.KindLogForwarder:
+		_, err = storage.GetLogForwarderMarshaler().Unmarshal(resource.Raw)
+	case storage.KindTLSKeyPair:
+		_, err = storage.UnmarshalTLSKeyPair(resource.Raw)
+	case teleservices.KindClusterAuthPreference:
+		_, err = teleservices.GetAuthPreferenceMarshaler().Unmarshal(resource.Raw)
+	case storage.KindSMTPConfig:
+		_, err = storage.UnmarshalSMTPConfig(resource.Raw)
+	case storage.KindAlert:
+		_, err = storage.UnmarshalAlert(resource.Raw)
+	case storage.KindAlertTarget:
+		_, err = storage.UnmarshalAlertTarget(resource.Raw)
+	case storage.KindRuntimeEnvironment:
+		_, err = storage.UnmarshalEnvironmentVariables(resource.Raw)
+	case storage.KindClusterConfiguration:
+		_, err = clusterconfig.Unmarshal(resource.Raw)
+	default:
+		return trace.NotImplemented("unsupported resource %q, supported are: %v",
+			resource.Kind, modules.Get().SupportedResources())
+	}
+	if err != nil {
+		return trace.Wrap(err)
 	}
 	return nil
 }

@@ -37,6 +37,7 @@ import (
 	"github.com/gravitational/gravity/lib/pack"
 	"github.com/gravitational/gravity/lib/schema"
 	"github.com/gravitational/gravity/lib/storage"
+	"github.com/gravitational/gravity/lib/storage/clusterconfig"
 	"github.com/gravitational/gravity/lib/transfer"
 	"github.com/gravitational/gravity/lib/utils"
 
@@ -218,6 +219,10 @@ func (s *site) configureExpandPackages(ctx context.Context, opCtx *operationCont
 	if err != nil {
 		return trace.Wrap(err)
 	}
+	config, err := s.service.GetClusterConfiguration(s.key)
+	if err != nil {
+		return trace.Wrap(err)
+	}
 	planetConfig := planetConfig{
 		server:        *provisionedServer,
 		installExpand: opCtx.operation,
@@ -227,6 +232,7 @@ func (s *site) configureExpandPackages(ctx context.Context, opCtx *operationCont
 		configPackage: *configPackage,
 		manifest:      s.app.Manifest,
 		env:           env.GetKeyValues(),
+		config:        config,
 	}
 	if provisionedServer.IsMaster() {
 		err := s.configureTeleportMaster(opCtx, teleportCA, provisionedServer)
@@ -335,6 +341,14 @@ func (s *site) configurePackages(ctx *operationContext, req ops.ConfigurePackage
 
 	etcdConfig := s.prepareEtcdConfig(ctx)
 
+	var clusterConfig clusterconfig.Interface
+	if len(req.Config) != 0 {
+		clusterConfig, err = clusterconfig.Unmarshal(req.Config)
+		if err != nil {
+			return trace.Wrap(err)
+		}
+	}
+
 	for i, master := range masters {
 		secretsPackage, err := s.planetSecretsPackage(master)
 		if err != nil {
@@ -386,6 +400,7 @@ func (s *site) configurePackages(ctx *operationContext, req ops.ConfigurePackage
 			configPackage: *configPackage,
 			manifest:      s.app.Manifest,
 			env:           req.Env,
+			config:        clusterConfig,
 		}
 		err = s.configurePlanetMaster(config, *secretsPackage, *configPackage)
 		if err != nil {
@@ -444,6 +459,7 @@ func (s *site) configurePackages(ctx *operationContext, req ops.ConfigurePackage
 			configPackage: *configPackage,
 			manifest:      s.app.Manifest,
 			env:           req.Env,
+			config:        clusterConfig,
 		}
 
 		err = s.configurePlanetNode(config, *secretsPackage, *configPackage)
@@ -854,19 +870,39 @@ func (s *site) configurePlanetNode(
 }
 
 func (s *site) getPlanetConfigPackage(config planetConfig) (*ops.RotatePackageResponse, error) {
+	args, err := s.getPlanetConfig(config)
+	if err != nil {
+		return nil, trace.Wrap(err)
+	}
+	reader, err := pack.GetConfigPackage(s.packages(), config.planetPackage, config.configPackage, args)
+	if err != nil {
+		return nil, trace.Wrap(err)
+	}
+	labels := map[string]string{
+		pack.PurposeLabel:     pack.PurposePlanetConfig,
+		pack.ConfigLabel:      config.planetPackage.ZeroVersion().String(),
+		pack.AdvertiseIPLabel: config.server.AdvertiseIP,
+		pack.OperationIDLabel: config.installExpand.ID,
+	}
+	return &ops.RotatePackageResponse{
+		Locator: config.configPackage,
+		Reader:  reader,
+		Labels:  labels,
+	}, nil
+}
+
+func (s *site) getPlanetConfig(config planetConfig) (args []string, err error) {
 	node := config.server
 	manifest := config.manifest
 	profile, err := manifest.NodeProfiles.ByName(node.Role)
 	if err != nil {
 		return nil, trace.Wrap(err)
 	}
-	args := []string{
+	args = []string{
 		fmt.Sprintf("--node-name=%v", node.KubeNodeID()),
 		fmt.Sprintf("--hostname=%v", node.Hostname),
 		fmt.Sprintf("--master-ip=%v", config.master.addr),
 		fmt.Sprintf("--public-ip=%v", node.AdvertiseIP),
-		fmt.Sprintf("--service-subnet=%v", config.installExpand.InstallExpand.Subnets.Service),
-		fmt.Sprintf("--pod-subnet=%v", config.installExpand.InstallExpand.Subnets.Overlay),
 		fmt.Sprintf("--cluster-id=%v", s.domainName),
 		fmt.Sprintf("--etcd-proxy=%v", config.etcd.proxyMode),
 		fmt.Sprintf("--etcd-member-name=%v", node.EtcdMemberName(s.domainName)),
@@ -883,10 +919,16 @@ func (s *site) getPlanetConfigPackage(config planetConfig) (*ops.RotatePackageRe
 		fmt.Sprintf("--volume=%v:%v", node.StateDir(), defaults.GravityDir),
 		fmt.Sprintf("--service-uid=%v", s.uid()),
 	}
+	overrideArgs := map[string]string{
+		"service-subnet": config.installExpand.InstallExpand.Subnets.Service,
+		"pod-subnet":     config.installExpand.InstallExpand.Subnets.Overlay,
+	}
 
 	for k, v := range config.env {
 		args = append(args, fmt.Sprintf("--env=%v=%v", k, v))
 	}
+
+	args = append(args, s.addClusterConfig(config, overrideArgs)...)
 
 	if node.IsMaster() {
 		args = append(args, "--role=master")
@@ -897,13 +939,6 @@ func (s *site) getPlanetConfigPackage(config planetConfig) (*ops.RotatePackageRe
 
 	if manifest.HairpinMode(*profile) == constants.HairpinModePromiscuousBridge {
 		args = append(args, "--docker-promiscuous-mode=true")
-	}
-
-	if s.cloudProviderName() != "" {
-		args = append(args, fmt.Sprintf("--cloud-provider=%v", s.cloudProviderName()))
-		if s.cloudProviderName() == schema.ProviderGCE {
-			args = append(args, fmt.Sprintf("--gce-node-tags=%v", s.gceNodeTags()))
-		}
 	}
 
 	if len(s.backendSite.DNSOverrides.Hosts) > 0 {
@@ -939,7 +974,7 @@ func (s *site) getPlanetConfigPackage(config planetConfig) (*ops.RotatePackageRe
 		args = append(args, fmt.Sprintf("--etcd-options=%v", strings.Join(etcdArgs, " ")))
 	}
 
-	kubeletArgs := defaults.KubeletArgs
+	var kubeletArgs []string
 	if len(manifest.KubeletArgs(*profile)) != 0 {
 		kubeletArgs = append(kubeletArgs, manifest.KubeletArgs(*profile)...)
 	}
@@ -988,23 +1023,12 @@ func (s *site) getPlanetConfigPackage(config planetConfig) (*ops.RotatePackageRe
 		args = append(args, fmt.Sprintf("--node-label=%v=%v", k, v))
 	}
 
-	reader, err := pack.GetConfigPackage(s.packages(), config.planetPackage, config.configPackage, args)
-	if err != nil {
-		return nil, trace.Wrap(err)
+	for k, v := range overrideArgs {
+		args = append(args, fmt.Sprintf("--%v=%v", k, v))
 	}
 
-	labels := map[string]string{
-		pack.PurposeLabel:     pack.PurposePlanetConfig,
-		pack.ConfigLabel:      config.planetPackage.ZeroVersion().String(),
-		pack.AdvertiseIPLabel: node.AdvertiseIP,
-		pack.OperationIDLabel: config.installExpand.ID,
-	}
-
-	return &ops.RotatePackageResponse{
-		Locator: config.configPackage,
-		Reader:  reader,
-		Labels:  labels,
-	}, nil
+	log.WithField("args", args).Debug("Runtime configuration.")
+	return args, nil
 }
 
 // getNodeLabels returns labels a Kubernetes node should register with
@@ -1043,7 +1067,10 @@ type planetConfig struct {
 	dockerRuntime storage.Docker
 	planetPackage loc.Locator
 	configPackage loc.Locator
-	env           map[string]string
+	// env specifies additional environment variables to pass to runtime container
+	env map[string]string
+	// config specifies optional cluster configuration
+	config clusterconfig.Interface
 }
 
 func (s *site) configureTeleportMaster(ctx *operationContext, secrets *teleportSecrets, master *ProvisionedServer) error {
@@ -1488,6 +1515,71 @@ func (s *site) serverPackages(server *ProvisionedServer) ([]loc.Locator, error) 
 		*planetSecretsPackage,
 		*planetConfigPackage,
 	}, nil
+}
+
+func (s *site) addClusterConfig(planetConfig planetConfig, overrideArgs map[string]string) (args []string) {
+	if planetConfig.config == nil {
+		if s.cloudProviderName() != "" {
+			args = append(args, fmt.Sprintf("--cloud-provider=%v", s.cloudProviderName()))
+			if s.cloudProviderName() == schema.ProviderGCE {
+				args = append(args, fmt.Sprintf("--gce-node-tags=%v", s.gceNodeTags()))
+			}
+			return args
+		}
+		return nil
+	}
+
+	if config := planetConfig.config.GetKubeletConfig(); config != nil {
+		args = append(args, fmt.Sprintf("--kubelet-config=%v",
+			base64.StdEncoding.EncodeToString(config.Config)))
+	}
+
+	globalConfig := planetConfig.config.GetGlobalConfig()
+	cloudProvider := s.cloudProviderName()
+	if globalConfig != nil {
+		cloudProvider = globalConfig.CloudProvider
+	}
+
+	if cloudProvider != "" {
+		args = append(args, fmt.Sprintf("--cloud-provider=%v", cloudProvider))
+		if cloudProvider == schema.ProviderGCE {
+			args = append(args, fmt.Sprintf("--gce-node-tags=%v", s.gceNodeTags()))
+		}
+		if globalConfig != nil {
+			args = append(args, fmt.Sprintf("--cloud-config=%v",
+				base64.StdEncoding.EncodeToString([]byte(globalConfig.CloudConfig))))
+		}
+	}
+
+	if globalConfig == nil {
+		return args
+	}
+
+	if globalConfig.ServiceCIDR != "" {
+		overrideArgs["service-subnet"] = globalConfig.ServiceCIDR
+	}
+	if globalConfig.PodCIDR != "" {
+		overrideArgs["pod-subnet"] = globalConfig.PodCIDR
+	}
+	if globalConfig.ServiceNodePortRange != "" {
+		args = append(args,
+			fmt.Sprintf("--service-node-portrange=%v", globalConfig.ServiceNodePortRange),
+		)
+	}
+	if globalConfig.ProxyPortRange != "" {
+		args = append(args,
+			fmt.Sprintf("--proxy-portrange=%v", globalConfig.ProxyPortRange),
+		)
+	}
+	if len(globalConfig.FeatureGates) != 0 {
+		features := make([]string, 0, len(globalConfig.FeatureGates))
+		for k, v := range globalConfig.FeatureGates {
+			features = append(features, fmt.Sprintf("%v=%v", k, v))
+		}
+		args = append(args,
+			fmt.Sprintf("--feature-gates=%v", strings.Join(features, ",")))
+	}
+	return args
 }
 
 // configureDockerOptions creates a set of Docker-specific command line arguments to Planet on the specified node

@@ -115,11 +115,11 @@ func (s *site) createUpdateEnvarsOperation(req ops.CreateUpdateEnvarsOperationRe
 		ID:         uuid.New(),
 		AccountID:  s.key.AccountID,
 		SiteDomain: s.key.SiteDomain,
-		Type:       ops.OperationUpdateEnvars,
+		Type:       ops.OperationUpdateRuntimeEnviron,
 		Created:    s.clock().UtcNow(),
 		Updated:    s.clock().UtcNow(),
-		State:      ops.OperationUpdateEnvarsInProgress,
-		UpdateEnvars: &storage.UpdateEnvarsOperationState{
+		State:      ops.OperationUpdateRuntimeEnvironInProgress,
+		UpdateEnviron: &storage.UpdateEnvarsOperationState{
 			Env: req.Env,
 		},
 	}

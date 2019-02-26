@@ -114,7 +114,7 @@ func (g *operationGroup) canCreateOperation(operation ops.SiteOperation) error {
 		if err != nil {
 			return trace.Wrap(err)
 		}
-	case ops.OperationShrink, ops.OperationGarbageCollect, ops.OperationUpdateEnvars:
+	case ops.OperationShrink, ops.OperationGarbageCollect, ops.OperationUpdateRuntimeEnviron:
 		// shrink, gc and updating environment are allowed for degraded clusters
 		switch cluster.State {
 		case ops.SiteStateActive, ops.SiteStateDegraded:
