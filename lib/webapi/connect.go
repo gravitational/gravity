@@ -102,7 +102,7 @@ func (m *Handler) clusterContainerConnect(w http.ResponseWriter, r *http.Request
 	}
 
 	if node == nil {
-		return nil, trace.NotFound("no telekube master servers found")
+		return nil, trace.NotFound("no master servers found")
 	}
 
 	// find the node's state dir to determine where its kubeconfig is

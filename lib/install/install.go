@@ -722,9 +722,9 @@ func FetchCloudMetadata(cloudProvider string, config *pb.RuntimeConfig) error {
 	var docLink string
 	switch cloudProvider {
 	case schema.ProviderAWS:
-		docLink = "https://gravitational.com/telekube/docs/installation/#aws-credentials-iam-policy"
+		docLink = "https://gravitational.com/gravity/docs/requirements/#aws-iam-policy"
 	case schema.ProviderGCE:
-		docLink = "https://gravitational.com/telekube/docs/installation/#installing-on-google-compute-engine"
+		docLink = "https://gravitational.com/gravity/docs/installation/#installing-on-google-compute-engine"
 	default:
 		return nil
 	}

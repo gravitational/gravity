@@ -49,9 +49,9 @@ type InstallConfig struct {
 	ReadStateDir string
 	// WriteStateDir is the directory where installer writes its state
 	WriteStateDir string
-	// SystemLogFile is the telekube-system.log file
+	// SystemLogFile is the gravity-system.log file
 	SystemLogFile string
-	// UserLogFile is the telekube-install.log file
+	// UserLogFile is the gravity-install.log file
 	UserLogFile string
 	// AdvertiseAddr is the advertise IP for this node
 	AdvertiseAddr string
@@ -367,9 +367,9 @@ func validateIP(blocks []net.IPNet, ip net.IP) bool {
 
 // JoinConfig is the configuration object built from gravity join command args and flags
 type JoinConfig struct {
-	// SystemLogFile is telekube-system log file path
+	// SystemLogFile is gravity-system log file path
 	SystemLogFile string
-	// UserLogFile is telekube-install log file path
+	// UserLogFile is gravity-install log file path
 	UserLogFile string
 	// AdvertiseAddr is the advertise IP for the joining node
 	AdvertiseAddr string

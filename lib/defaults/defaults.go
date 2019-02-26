@@ -216,11 +216,11 @@ const (
 	// GravityPackagePrefix defines base prefix of gravity package
 	GravityPackagePrefix = "gravitational.io/gravity"
 
-	// TelekubeSystemLogFile is the system log file name
-	TelekubeSystemLogFile = "telekube-system.log"
+	// GravitySystemLogFile is the system log file name
+	GravitySystemLogFile = "gravity-system.log"
 
-	// TelekubeUserLogFile is the user log file name
-	TelekubeUserLogFile = "telekube-install.log"
+	// GravityUserLogFile is the user log file name
+	GravityUserLogFile = "gravity-install.log"
 
 	// SystemLogDir is the directory where gravity logs go
 	SystemLogDir = "/var/log"
@@ -1076,11 +1076,11 @@ var (
 	// during cluster installation (such as apiserver, etcd, kubelet, etc.)
 	CertificateExpiry = 10 * 365 * 24 * time.Hour // 10 years
 
-	// TelekubeSystemLog defines the default location for the system log
-	TelekubeSystemLog = filepath.Join(SystemLogDir, TelekubeSystemLogFile)
+	// GravitySystemLog defines the default location for the system log
+	GravitySystemLog = filepath.Join(SystemLogDir, GravitySystemLogFile)
 
-	// TelekubeUserLog the default location for user-facing log file
-	TelekubeUserLog = filepath.Join(SystemLogDir, TelekubeUserLogFile)
+	// GravityUserLog the default location for user-facing log file
+	GravityUserLog = filepath.Join(SystemLogDir, GravityUserLogFile)
 
 	// TransientErrorTimeout specifies the maximum amount of time to attempt
 	// an operation experiencing transient errors
