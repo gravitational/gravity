@@ -13,22 +13,56 @@ This chapter will guide you through the process of downloading and installing yo
 
 ## Installing Ops Center
 
-The Ops Center only works with the Gravity Enterprise Edition license key and the Application Bundle for the Ops Center. You can [contact us](https://gravitational.com/gravity/demo/) to get a trial license key and the Ops Center Application Bundle.
+The Ops Center only works with the Gravity Enterprise Edition license key and
+the Application Bundle for the Ops Center. You can [contact us](https://gravitational.com/gravity/demo/) 
+to get a trial license key and the Ops Center Application Bundle.
 
 As with any Gravity application, you will also need a Linux server to install the Ops Center.
 
+### Downloading Ops Center 
+
+The Ops Center itself is packaged as a Gravity application bundle, i.e. it's a
+tarball which contains a fully functional K8s cluster. To download the Ops Center,
+run the following command:
+
+```bash
+# This command only works with the enterprise edition of 'tele' command.
+# It may take 1-2 minutes to download the bundle, depending on the 
+# quality of your Internet connection:
+$ tele pull opscenter
+
+# output:
+* [1/3] Requesting application installer from https://get.gravitational.io
+* [2/3] Downloading opscenter:5.5.0
+	Still downloading opscenter:5.5.0 (10 seconds elapsed)
+	Still downloading opscenter:5.5.0 (20 seconds elapsed)
+	Still downloading opscenter:5.5.0 (30 seconds elapsed)
+	Still downloading opscenter:5.5.0 (40 seconds elapsed)
+	Still downloading opscenter:5.5.0 (50 seconds elapsed)
+	Still downloading opscenter:5.5.0 (1 minute elapsed)
+* [3/3] Application opscenter downloaded
+* [3/3] Download completed in 1 minute 
+
+# See the result:
+$ ls -lh
+-rw-r--r-- 1 user user 1.3G Feb 20 13:02 opscenter-5.5.0.tar
+```
+
+The name of the tarball will vary based on the version of `tele` you're using,
+so we'll refer to it simply as `ops-center.tar` below.
+
 ### Generating a Token
 
-To establish trust between an Ops Center and multiple K8s clusters, a common shared
+To establish trust between the Ops Center and multiple K8s clusters, a common shared
 hard-to-guess secret (token) must be generated first. Therefore, before
-installing an Ops Center, a shared token needs to be generated and stored in an
-environment variable named `TOKEN`:
+installing the Ops Center, a shared token needs to be generated and stored in
+an environment variable named `TOKEN`:
 
 ```bsh
 $ export TOKEN="$(uuidgen)"
 ```
 
-Next expand the Ops Center Application Bundle `ops-center.tar` and launch the installer:
+Next, expand the Ops Center Application Bundle `ops-center.tar` and launch the installer:
 
 ```bsh
 $ tar xvf ./ops-center.tar
