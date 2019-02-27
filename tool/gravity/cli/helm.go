@@ -249,6 +249,9 @@ func releaseUpgrade(env *localenv.LocalEnvironment, conf releaseUpgradeConfig) e
 		Image:          conf.Image,
 		registryConfig: conf.registryConfig,
 	})
+	if err != nil {
+		return trace.Wrap(err)
+	}
 	env.PrintStep("Upgrading release %v (%v) to version %v",
 		release.Name, release.Chart,
 		imageEnv.Manifest.Metadata.ResourceVersion)

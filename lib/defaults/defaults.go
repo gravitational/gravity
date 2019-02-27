@@ -973,6 +973,10 @@ const (
 	// ImageRegistryVar is a local cluster registry variable that gets
 	// substituted in Helm templates.
 	ImageRegistryVar = "image.registry"
+
+	// AgentDeployTimeout specifies the maximum amount of time to wait to deploy agents
+	// for an operation that spans multiple nodes
+	AgentDeployTimeout = 5 * time.Minute
 )
 
 var (

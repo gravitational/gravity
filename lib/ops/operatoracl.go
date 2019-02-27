@@ -28,6 +28,7 @@ import (
 	"github.com/gravitational/gravity/lib/modules"
 	"github.com/gravitational/gravity/lib/ops/monitoring"
 	"github.com/gravitational/gravity/lib/storage"
+	"github.com/gravitational/gravity/lib/storage/clusterconfig"
 	"github.com/gravitational/gravity/lib/users"
 	"github.com/gravitational/gravity/lib/utils"
 
@@ -495,6 +496,22 @@ func (o *OperatorACL) CreateClusterGarbageCollectOperation(req CreateClusterGarb
 	return o.operator.CreateClusterGarbageCollectOperation(req)
 }
 
+// CreateUpdateEnvarsOperation creates a new operation to update cluster environment variables
+func (o *OperatorACL) CreateUpdateEnvarsOperation(req CreateUpdateEnvarsOperationRequest) (*SiteOperationKey, error) {
+	if err := o.ClusterAction(req.ClusterKey.SiteDomain, storage.KindCluster, teleservices.VerbUpdate); err != nil {
+		return nil, trace.Wrap(err)
+	}
+	return o.operator.CreateUpdateEnvarsOperation(req)
+}
+
+// CreateUpdateConfigOperation creates a new operation to update cluster configuration
+func (o *OperatorACL) CreateUpdateConfigOperation(req CreateUpdateConfigOperationRequest) (*SiteOperationKey, error) {
+	if err := o.ClusterAction(req.ClusterKey.SiteDomain, storage.KindCluster, teleservices.VerbUpdate); err != nil {
+		return nil, trace.Wrap(err)
+	}
+	return o.operator.CreateUpdateConfigOperation(req)
+}
+
 func (o *OperatorACL) GetSiteOperationLogs(key SiteOperationKey) (io.ReadCloser, error) {
 	if err := o.ClusterAction(key.SiteDomain, storage.KindCluster, teleservices.VerbRead); err != nil {
 		return nil, trace.Wrap(err)
@@ -632,11 +649,11 @@ func (o *OperatorACL) GetOperationPlan(key SiteOperationKey) (*storage.Operation
 }
 
 // Configure packages configures packages for the specified operation
-func (o *OperatorACL) ConfigurePackages(key SiteOperationKey) error {
-	if err := o.ClusterAction(key.SiteDomain, storage.KindCluster, teleservices.VerbUpdate); err != nil {
+func (o *OperatorACL) ConfigurePackages(req ConfigurePackagesRequest) error {
+	if err := o.ClusterAction(req.SiteDomain, storage.KindCluster, teleservices.VerbUpdate); err != nil {
 		return trace.Wrap(err)
 	}
-	return o.operator.ConfigurePackages(key)
+	return o.operator.ConfigurePackages(req)
 }
 
 func (o *OperatorACL) RotateSecrets(req RotateSecretsRequest) (*RotatePackageResponse, error) {
@@ -774,6 +791,30 @@ func (o *OperatorACL) DeleteAlertTarget(key SiteKey) error {
 		return trace.Wrap(err)
 	}
 	return o.operator.DeleteAlertTarget(key)
+}
+
+// GetClusterEnvironmentVariables retrieves the cluster runtime environment variables
+func (o *OperatorACL) GetClusterEnvironmentVariables(key SiteKey) (storage.EnvironmentVariables, error) {
+	if err := o.ClusterAction(key.SiteDomain, storage.KindRuntimeEnvironment, teleservices.VerbList); err != nil {
+		return nil, trace.Wrap(err)
+	}
+	return o.operator.GetClusterEnvironmentVariables(key)
+}
+
+// GetClusterConfiguration retrieves the cluster configuration
+func (o *OperatorACL) GetClusterConfiguration(key SiteKey) (clusterconfig.Interface, error) {
+	if err := o.ClusterAction(key.SiteDomain, storage.KindClusterConfiguration, teleservices.VerbList); err != nil {
+		return nil, trace.Wrap(err)
+	}
+	return o.operator.GetClusterConfiguration(key)
+}
+
+// UpdateClusterConfiguration updates the cluster configuration from the specified request
+func (o *OperatorACL) UpdateClusterConfiguration(req UpdateClusterConfigRequest) error {
+	if err := o.ClusterAction(req.ClusterKey.SiteDomain, storage.KindClusterConfiguration, teleservices.VerbUpdate); err != nil {
+		return trace.Wrap(err)
+	}
+	return o.operator.UpdateClusterConfiguration(req)
 }
 
 func (o *OperatorACL) GetApplicationEndpoints(key SiteKey) ([]Endpoint, error) {

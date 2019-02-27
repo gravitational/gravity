@@ -22,6 +22,7 @@ import (
 	"github.com/gravitational/gravity/lib/ops"
 	"github.com/gravitational/gravity/lib/ops/resources"
 	"github.com/gravitational/gravity/lib/storage"
+	"github.com/gravitational/gravity/lib/storage/clusterconfig"
 
 	"github.com/fatih/color"
 	teleservices "github.com/gravitational/teleport/lib/services"
@@ -72,6 +73,9 @@ func New(config Config) (*Resources, error) {
 
 // Create creates the provided resource
 func (r *Resources) Create(req resources.CreateRequest) error {
+	if err := req.Check(); err != nil {
+		return trace.Wrap(err)
+	}
 	switch req.Resource.Kind {
 	case teleservices.KindGithubConnector:
 		conn, err := teleservices.GetGithubConnectorMarshaler().Unmarshal(req.Resource.Raw)
@@ -224,7 +228,7 @@ func (r *Resources) Create(req resources.CreateRequest) error {
 	case "":
 		return trace.BadParameter("missing resource kind")
 	default:
-		return trace.BadParameter("unsupported resource %q, supported are: %v",
+		return trace.NotImplemented("unsupported resource %q, supported are: %v",
 			req.Resource.Kind, modules.Get().SupportedResources())
 	}
 	return nil
@@ -236,7 +240,7 @@ func (r *Resources) GetCollection(req resources.ListRequest) (resources.Collecti
 		return nil, trace.Wrap(err)
 	}
 	switch req.Kind {
-	case teleservices.KindGithubConnector, teleservices.KindAuthConnector, "auth":
+	case teleservices.KindGithubConnector, teleservices.KindAuthConnector:
 		if req.Name != "" {
 			connector, err := r.Operator.GetGithubConnector(r.cluster.Key(), req.Name, req.WithSecrets)
 			if err != nil {
@@ -249,7 +253,7 @@ func (r *Resources) GetCollection(req resources.ListRequest) (resources.Collecti
 			return nil, trace.Wrap(err)
 		}
 		return &githubCollection{connectors: connectors}, nil
-	case teleservices.KindUser, "users":
+	case teleservices.KindUser:
 		if req.Name != "" {
 			user, err := r.Operator.GetUser(r.cluster.Key(), req.Name)
 			if err != nil {
@@ -262,7 +266,7 @@ func (r *Resources) GetCollection(req resources.ListRequest) (resources.Collecti
 			return nil, trace.Wrap(err)
 		}
 		return &userCollection{users: users}, nil
-	case storage.KindToken, "tokens":
+	case storage.KindToken:
 		if req.User == "" {
 			return nil, trace.BadParameter("please specify user via --user flag")
 		}
@@ -283,7 +287,7 @@ func (r *Resources) GetCollection(req resources.ListRequest) (resources.Collecti
 			return nil, trace.NotFound("token not found")
 		}
 		return &tokenCollection{tokens: tokens}, nil
-	case storage.KindLogForwarder, "logforwarders":
+	case storage.KindLogForwarder:
 		forwarders, err := r.Operator.GetLogForwarders(r.cluster.Key())
 		if err != nil {
 			return nil, trace.Wrap(err)
@@ -303,7 +307,7 @@ func (r *Resources) GetCollection(req resources.ListRequest) (resources.Collecti
 			filtered = forwarders
 		}
 		return &logForwardersCollection{logForwarders: filtered}, nil
-	case storage.KindTLSKeyPair, "tlskeypairs", "tls":
+	case storage.KindTLSKeyPair:
 		// always ignore name parameter for tls key pairs, because there is only one
 		cert, err := r.Operator.GetClusterCertificate(r.cluster.Key(), req.WithSecrets)
 		if err != nil {
@@ -311,7 +315,7 @@ func (r *Resources) GetCollection(req resources.ListRequest) (resources.Collecti
 		}
 		keyPair := storage.NewTLSKeyPair(cert.Certificate, cert.PrivateKey)
 		return &tlsKeyPairCollection{keyPairs: []storage.TLSKeyPair{keyPair}}, nil
-	case teleservices.KindClusterAuthPreference, "authpreference", "cap":
+	case teleservices.KindClusterAuthPreference:
 		r.Println(color.YellowString("Cluster auth preference resource is " +
 			"obsolete and will be removed in a future release. Please use " +
 			"auth gateway resource instead: https://gravitational.com/gravity/docs/cluster/#configuring-cluster-authentication-gateway."))
@@ -329,13 +333,13 @@ func (r *Resources) GetCollection(req resources.ListRequest) (resources.Collecti
 			return nil, trace.Wrap(err)
 		}
 		return &authGatewayCollection{gw}, nil
-	case storage.KindSMTPConfig, "smtps":
+	case storage.KindSMTPConfig:
 		config, err := r.Operator.GetSMTPConfig(r.cluster.Key())
 		if err != nil {
 			return nil, trace.Wrap(err)
 		}
 		return smtpConfigCollection{config}, nil
-	case storage.KindAlert, "alerts":
+	case storage.KindAlert:
 		alerts, err := r.Operator.GetAlerts(r.cluster.Key())
 		if err != nil {
 			return nil, trace.Wrap(err)
@@ -355,14 +359,26 @@ func (r *Resources) GetCollection(req resources.ListRequest) (resources.Collecti
 			filtered = alerts
 		}
 		return alertCollection(filtered), nil
-	case storage.KindAlertTarget, "alerttargets":
+	case storage.KindAlertTarget:
 		alertTargets, err := r.Operator.GetAlertTargets(r.cluster.Key())
 		if err != nil {
 			return nil, trace.Wrap(err)
 		}
 		return alertTargetCollection(alertTargets), nil
+	case storage.KindRuntimeEnvironment:
+		env, err := r.Operator.GetClusterEnvironmentVariables(r.cluster.Key())
+		if err != nil {
+			return nil, trace.Wrap(err)
+		}
+		return envCollection{env: env}, nil
+	case storage.KindClusterConfiguration:
+		config, err := r.Operator.GetClusterConfiguration(r.cluster.Key())
+		if err != nil {
+			return nil, trace.Wrap(err)
+		}
+		return configCollection{Interface: config}, nil
 	}
-	return nil, trace.BadParameter("unsupported resource %q, supported are: %v",
+	return nil, trace.NotImplemented("unsupported resource %q, supported are: %v",
 		req.Kind, modules.Get().SupportedResources())
 }
 
@@ -380,7 +396,7 @@ func (r *Resources) Remove(req resources.RemoveRequest) error {
 			return trace.Wrap(err)
 		}
 		r.Printf("Github connector %q has been deleted\n", req.Name)
-	case teleservices.KindUser, "users":
+	case teleservices.KindUser:
 		if err := r.Operator.DeleteUser(r.cluster.Key(), req.Name); err != nil {
 			if trace.IsNotFound(err) && req.Force {
 				return nil
@@ -388,7 +404,7 @@ func (r *Resources) Remove(req resources.RemoveRequest) error {
 			return trace.Wrap(err)
 		}
 		r.Printf("User %q has been deleted\n", req.Name)
-	case storage.KindToken, "tokens":
+	case storage.KindToken:
 		user := req.User
 		if user == "" {
 			user = r.CurrentUser
@@ -402,7 +418,7 @@ func (r *Resources) Remove(req resources.RemoveRequest) error {
 			return trace.Wrap(err)
 		}
 		r.Printf("Token %q has been deleted for user %q\n", req.Name, user)
-	case storage.KindLogForwarder, "logforwarders":
+	case storage.KindLogForwarder:
 		if err := r.Operator.DeleteLogForwarder(r.cluster.Key(), req.Name); err != nil {
 			if trace.IsNotFound(err) && req.Force {
 				return nil
@@ -410,7 +426,7 @@ func (r *Resources) Remove(req resources.RemoveRequest) error {
 			return trace.Wrap(err)
 		}
 		r.Printf("Log forwarder %q has been deleted\n", req.Name)
-	case storage.KindTLSKeyPair, "tlskeypairs", "tls":
+	case storage.KindTLSKeyPair:
 		if err := r.Operator.DeleteClusterCertificate(r.cluster.Key()); err != nil {
 			if trace.IsNotFound(err) && req.Force {
 				return nil
@@ -418,7 +434,7 @@ func (r *Resources) Remove(req resources.RemoveRequest) error {
 			return trace.Wrap(err)
 		}
 		r.Printf("TLS key pair %q has been deleted\n", req.Name)
-	case storage.KindSMTPConfig, "smtps":
+	case storage.KindSMTPConfig:
 		if err := r.Operator.DeleteSMTPConfig(r.cluster.Key()); err != nil {
 			if trace.IsNotFound(err) && req.Force {
 				return nil
@@ -426,7 +442,7 @@ func (r *Resources) Remove(req resources.RemoveRequest) error {
 			return trace.Wrap(err)
 		}
 		r.Println("SMTP configuration has been deleted")
-	case storage.KindAlert, "alerts":
+	case storage.KindAlert:
 		if err := r.Operator.DeleteAlert(r.cluster.Key(), req.Name); err != nil {
 			if trace.IsNotFound(err) && req.Force {
 				return nil
@@ -434,7 +450,7 @@ func (r *Resources) Remove(req resources.RemoveRequest) error {
 			return trace.Wrap(err)
 		}
 		r.Printf("Alert %q has been deleted\n", req.Name)
-	case storage.KindAlertTarget, "alerttargets":
+	case storage.KindAlertTarget:
 		if err := r.Operator.DeleteAlertTarget(r.cluster.Key()); err != nil {
 			if trace.IsNotFound(err) && req.Force {
 				return nil
@@ -443,8 +459,46 @@ func (r *Resources) Remove(req resources.RemoveRequest) error {
 		}
 		r.Println("Alert target has been deleted")
 	default:
-		return trace.BadParameter("unsupported resource %q, supported are: %v",
+		return trace.NotImplemented("unsupported resource %q, supported are: %v",
 			req.Kind, modules.Get().SupportedResourcesToRemove())
+	}
+	return nil
+}
+
+// Validate checks whether the specified resource
+// represents a valid resource.
+func Validate(resource storage.UnknownResource) (err error) {
+	switch resource.Kind {
+	case teleservices.KindGithubConnector:
+		_, err = teleservices.GetGithubConnectorMarshaler().Unmarshal(resource.Raw)
+	case teleservices.KindUser:
+		_, err = teleservices.GetUserMarshaler().UnmarshalUser(resource.Raw)
+	case storage.KindToken:
+		_, err = storage.GetTokenMarshaler().UnmarshalToken(resource.Raw)
+	case storage.KindLogForwarder:
+		_, err = storage.GetLogForwarderMarshaler().Unmarshal(resource.Raw)
+	case storage.KindTLSKeyPair:
+		_, err = storage.UnmarshalTLSKeyPair(resource.Raw)
+	case teleservices.KindClusterAuthPreference:
+		_, err = teleservices.GetAuthPreferenceMarshaler().Unmarshal(resource.Raw)
+	case storage.KindSMTPConfig:
+		_, err = storage.UnmarshalSMTPConfig(resource.Raw)
+	case storage.KindAlert:
+		_, err = storage.UnmarshalAlert(resource.Raw)
+	case storage.KindAlertTarget:
+		_, err = storage.UnmarshalAlertTarget(resource.Raw)
+	case storage.KindAuthGateway:
+		_, err = storage.UnmarshalAuthGateway(resource.Raw)
+	case storage.KindRuntimeEnvironment:
+		_, err = storage.UnmarshalEnvironmentVariables(resource.Raw)
+	case storage.KindClusterConfiguration:
+		_, err = clusterconfig.Unmarshal(resource.Raw)
+	default:
+		return trace.NotImplemented("unsupported resource %q, supported are: %v",
+			resource.Kind, modules.Get().SupportedResources())
+	}
+	if err != nil {
+		return trace.Wrap(err)
 	}
 	return nil
 }

@@ -17,21 +17,26 @@ limitations under the License.
 package install
 
 import (
+	"bytes"
 	"fmt"
 	"strconv"
 
 	"github.com/gravitational/gravity/lib/app"
+	"github.com/gravitational/gravity/lib/app/resources"
 	"github.com/gravitational/gravity/lib/constants"
 	"github.com/gravitational/gravity/lib/defaults"
 	"github.com/gravitational/gravity/lib/fsm"
 	"github.com/gravitational/gravity/lib/install/phases"
 	"github.com/gravitational/gravity/lib/loc"
 	"github.com/gravitational/gravity/lib/ops"
+	"github.com/gravitational/gravity/lib/ops/opsservice"
+	resourceutil "github.com/gravitational/gravity/lib/ops/resources"
 	"github.com/gravitational/gravity/lib/pack"
 	"github.com/gravitational/gravity/lib/schema"
 	"github.com/gravitational/gravity/lib/storage"
 
 	"github.com/gravitational/trace"
+	"k8s.io/apimachinery/pkg/runtime"
 )
 
 // PlanBuilder builds operation plan phases
@@ -60,8 +65,14 @@ type PlanBuilder struct {
 	RegularAgent storage.LoginEntry
 	// ServiceUser is the cluster system user
 	ServiceUser storage.OSUser
-	// DNSConfig specifies the custom cluster DNS configuration
-	DNSConfig storage.DNSConfig
+	// env specifies optional cluster environment variables to add during install
+	env map[string]string
+	// config specifies the optional cluster configuration
+	config []byte
+	// resources specifies the optional Kubernetes resources to create
+	resources []byte
+	// gravityResources specifies the optional Gravity resources to create upon successful install
+	gravityResources []storage.UnknownResource
 	// InstallerTrustedCluster represents the trusted cluster for installer process
 	InstallerTrustedCluster storage.TrustedCluster
 }
@@ -84,7 +95,13 @@ func (b *PlanBuilder) AddConfigurePhase(plan *storage.OperationPlan) {
 		ID:          phases.ConfigurePhase,
 		Description: "Configure packages for all nodes",
 		Requires:    fsm.RequireIfPresent(plan, phases.InstallerPhase, phases.DecryptPhase),
-		Step:        3,
+		Data: &storage.OperationPhaseData{
+			Install: &storage.InstallOperationData{
+				Env:    b.env,
+				Config: b.config,
+			},
+		},
+		Step: 3,
 	})
 }
 
@@ -111,7 +128,6 @@ func (b *PlanBuilder) AddBootstrapPhase(plan *storage.OperationPlan) {
 				Package:     &b.Application.Package,
 				Agent:       agent,
 				ServiceUser: &b.ServiceUser,
-				DNSConfig:   &b.DNSConfig,
 			},
 			Step: 3,
 		})
@@ -307,6 +323,46 @@ func (b *PlanBuilder) AddRBACPhase(plan *storage.OperationPlan) {
 	})
 }
 
+// AddResourcesPhase appends K8s resources initialization phase to the provided plan
+func (b *PlanBuilder) AddResourcesPhase(plan *storage.OperationPlan) {
+	if len(b.resources) == 0 {
+		// Nothing to add
+		return
+	}
+	plan.Phases = append(plan.Phases, storage.OperationPhase{
+		ID:          phases.ResourcesPhase,
+		Description: "Create user-supplied Kubernetes resources",
+		Data: &storage.OperationPhaseData{
+			Server: &b.Master,
+			Install: &storage.InstallOperationData{
+				Resources: b.resources,
+			},
+		},
+		Requires: []string{phases.RBACPhase},
+		Step:     4,
+	})
+}
+
+// AddGravityResourcesPhase appends Gravity resources initialization phase to the provided plan
+func (b *PlanBuilder) AddGravityResourcesPhase(plan *storage.OperationPlan) {
+	if len(b.gravityResources) == 0 {
+		// Nothing to add
+		return
+	}
+	plan.Phases = append(plan.Phases, storage.OperationPhase{
+		ID:          phases.GravityResourcesPhase,
+		Description: "Create user-supplied Gravity resources",
+		Data: &storage.OperationPhaseData{
+			Server: &b.Master,
+			Install: &storage.InstallOperationData{
+				GravityResources: b.gravityResources,
+			},
+		},
+		Requires: []string{phases.EnableElectionPhase},
+		Step:     10,
+	})
+}
+
 // AddInstallOverlayPhase appends a phase to install a non-flannel overlay network
 func (b *PlanBuilder) AddInstallOverlayPhase(plan *storage.OperationPlan, locator *loc.Locator) {
 	plan.Phases = append(plan.Phases, storage.OperationPhase{
@@ -331,20 +387,6 @@ func (b *PlanBuilder) AddCorednsPhase(plan *storage.OperationPlan) {
 			Server: &b.Master,
 		},
 		Requires: []string{phases.WaitPhase},
-		Step:     4,
-	})
-}
-
-// AddResourcesPhase appends K8s resources initialization phase to the provided plan
-func (b *PlanBuilder) AddResourcesPhase(plan *storage.OperationPlan, resources []byte) {
-	plan.Phases = append(plan.Phases, storage.OperationPhase{
-		ID:          phases.ResourcesPhase,
-		Description: "Create user-supplied Kubernetes resources",
-		Data: &storage.OperationPhaseData{
-			Server:    &b.Master,
-			Resources: resources,
-		},
-		Requires: []string{phases.RBACPhase},
 		Step:     4,
 	})
 }
@@ -541,7 +583,7 @@ func (i *Installer) GetPlanBuilder(cluster ops.Site, op ops.SiteOperation) (*Pla
 	if err != nil {
 		return nil, trace.Wrap(err)
 	}
-	return &PlanBuilder{
+	builder := &PlanBuilder{
 		Application:        *application,
 		Runtime:            *runtime,
 		TeleportPackage:    *teleportPackage,
@@ -558,9 +600,13 @@ func (i *Installer) GetPlanBuilder(cluster ops.Site, op ops.SiteOperation) (*Pla
 			UID:  strconv.Itoa(i.Config.ServiceUser.UID),
 			GID:  strconv.Itoa(i.Config.ServiceUser.GID),
 		},
-		DNSConfig:               cluster.DNSConfig,
 		InstallerTrustedCluster: trustedCluster,
-	}, nil
+	}
+	err = addResources(builder, cluster.Resources, i.Config.RuntimeResources)
+	if err != nil {
+		return nil, trace.Wrap(err)
+	}
+	return builder, nil
 }
 
 // getInstallerTrustedCluster returns trusted cluster representing installer process
@@ -616,4 +662,42 @@ func (b *PlanBuilder) skipDependency(dep loc.Locator) bool {
 		return true // rbac-app is installed separately
 	}
 	return schema.ShouldSkipApp(b.Application.Manifest, dep)
+}
+
+func addResources(builder *PlanBuilder, resourceBytes []byte, runtimeResources []runtime.Object) error {
+	kubernetesResources, gravityResources, err := resourceutil.Split(bytes.NewReader(resourceBytes))
+	if err != nil {
+		return trace.Wrap(err)
+	}
+	rs := gravityResources[:0]
+	for _, res := range gravityResources {
+		switch res.Kind {
+		case storage.KindRuntimeEnvironment:
+			env, err := storage.UnmarshalEnvironmentVariables(res.Raw)
+			if err != nil {
+				return trace.Wrap(err)
+			}
+			builder.env = env.GetKeyValues()
+			configmap := opsservice.NewEnvironmentConfigMap(env.GetKeyValues())
+			kubernetesResources = append(kubernetesResources, configmap)
+		case storage.KindClusterConfiguration:
+			builder.config = res.Raw
+			configmap := opsservice.NewConfigurationConfigMap(res.Raw)
+			kubernetesResources = append(kubernetesResources, configmap)
+		default:
+			// Filter out resources that are created using the regular workflow
+			rs = append(rs, res)
+		}
+	}
+	builder.gravityResources = rs
+	kubernetesResources = append(kubernetesResources, runtimeResources...)
+	if len(kubernetesResources) != 0 {
+		var buf bytes.Buffer
+		err = resources.NewResource(kubernetesResources...).Encode(&buf)
+		if err != nil {
+			return trace.Wrap(err)
+		}
+		builder.resources = buf.Bytes()
+	}
+	return nil
 }

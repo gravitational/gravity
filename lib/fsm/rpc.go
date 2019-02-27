@@ -193,19 +193,6 @@ const (
 	ExecutionCheckUndefined
 )
 
-// findLocalServer finds the server that has the address from a local interface
-// among the specified servers. Returns nil if no server matches any local interface.
-func findLocalServer(servers []storage.Server, localIfaces []storage.NetworkInterface) *storage.Server {
-	for _, iface := range localIfaces {
-		for _, server := range servers {
-			if server.AdvertiseIP == iface.IPv4 {
-				return &server
-			}
-		}
-	}
-	return nil
-}
-
 // Close closes this cache by closing all existing clients
 func (r *agentCache) Close() error {
 	for _, clt := range r.clients {

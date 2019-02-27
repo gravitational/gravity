@@ -33,6 +33,6 @@ func RetryOnUpdateConflict(err error) error {
 	case errors.IsConflict(origErr):
 		return rigging.ConvertError(origErr)
 	default:
-		return &backoff.PermanentError{Err: origErr}
+		return &backoff.PermanentError{Err: err}
 	}
 }

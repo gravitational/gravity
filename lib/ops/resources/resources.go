@@ -17,13 +17,19 @@ limitations under the License.
 package resources
 
 import (
+	"encoding/json"
 	"io"
 
+	"github.com/gravitational/gravity/lib/app/resources"
 	"github.com/gravitational/gravity/lib/constants"
 	"github.com/gravitational/gravity/lib/defaults"
+	"github.com/gravitational/gravity/lib/modules"
+	"github.com/gravitational/gravity/lib/storage"
+	"github.com/gravitational/gravity/lib/utils"
 
 	teleservices "github.com/gravitational/teleport/lib/services"
 	"github.com/gravitational/trace"
+	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/util/yaml"
 )
 
@@ -39,6 +45,23 @@ type Resources interface {
 	// Remove removes the specified resource
 	Remove(RemoveRequest) error
 }
+
+// Validator is a service to validate resources
+type Validator interface {
+	// Validate checks whether the specified resource
+	// represents a valid resource.
+	Validate(storage.UnknownResource) error
+}
+
+// Validate checks whether the specified resource
+// represents a valid resource.
+// Implements Validator
+func (r ValidateFunc) Validate(res storage.UnknownResource) error {
+	return r(res)
+}
+
+// ValidateFunc is a resource validtor implemented as a single function
+type ValidateFunc func(storage.UnknownResource) error
 
 // ResourceControl allows to create/list/remove resources
 //
@@ -59,6 +82,14 @@ type CreateRequest struct {
 	User string
 }
 
+// Check validates the request
+func (r CreateRequest) Check() error {
+	if r.Resource.Kind == "" {
+		return trace.BadParameter("resource kind is mandatory")
+	}
+	return nil
+}
+
 // ListRequest describes a request to list resources
 type ListRequest struct {
 	// Kind is kind of the resource
@@ -72,10 +103,16 @@ type ListRequest struct {
 }
 
 // Check validates the request
-func (r ListRequest) Check() error {
+func (r *ListRequest) Check() error {
 	if r.Kind == "" {
 		return trace.BadParameter("resource kind is mandatory")
 	}
+	kind := modules.Get().CanonicalKind(r.Kind)
+	resources := modules.Get().SupportedResources()
+	if !utils.StringInSlice(resources, kind) {
+		return trace.BadParameter("unknown resource kind %q", r.Kind)
+	}
+	r.Kind = kind
 	return nil
 }
 
@@ -92,13 +129,24 @@ type RemoveRequest struct {
 }
 
 // Check validates the request
-func (r RemoveRequest) Check() error {
+func (r *RemoveRequest) Check() error {
 	if r.Kind == "" {
 		return trace.BadParameter("resource kind is mandatory")
 	}
-	if r.Name == "" {
-		return trace.BadParameter("resource name is mandatory")
+	kind := modules.Get().CanonicalKind(r.Kind)
+	resources := modules.Get().SupportedResourcesToRemove()
+	if !utils.StringInSlice(resources, kind) {
+		return trace.BadParameter("unknown resource kind %q", r.Kind)
 	}
+	switch kind {
+	case storage.KindAlertTarget:
+	case storage.KindSMTPConfig:
+	default:
+		if r.Name == "" {
+			return trace.BadParameter("resource name is mandatory")
+		}
+	}
+	r.Kind = kind
 	return nil
 }
 
@@ -126,7 +174,7 @@ func NewControl(resources Resources) *ResourceControl {
 func (r *ResourceControl) Create(reader io.Reader, upsert bool, user string) (err error) {
 	decoder := yaml.NewYAMLOrJSONDecoder(reader, defaults.DecoderBufferSize)
 	empty := true
-	for {
+	for err == nil {
 		var raw teleservices.UnknownResource
 		err = decoder.Decode(&raw)
 		if err != nil {
@@ -138,9 +186,6 @@ func (r *ResourceControl) Create(reader io.Reader, upsert bool, user string) (er
 			Upsert:   upsert,
 			User:     user,
 		})
-		if err != nil {
-			break
-		}
 	}
 	if err != io.EOF {
 		return trace.Wrap(err)
@@ -186,4 +231,56 @@ func (r *ResourceControl) Remove(kind, name string, force bool, user string) err
 		return trace.Wrap(err)
 	}
 	return nil
+}
+
+// Split interprets the given reader r as a list of resources and splits
+// them in two groups: Kubernetes and Gravity resources
+func Split(r io.Reader) (kubernetesResources []runtime.Object, gravityResources []storage.UnknownResource, err error) {
+	err = ForEach(r, func(resource storage.UnknownResource) error {
+		if isKubernetesResource(resource) {
+			// reinterpret as a Kubernetes resource
+			var kResource resources.Unknown
+			if err := json.Unmarshal(resource.Raw, &kResource); err != nil {
+				return trace.Wrap(err)
+			}
+			kubernetesResources = append(kubernetesResources, &kResource)
+		} else {
+			gravityResources = append(gravityResources, resource)
+		}
+		return nil
+	})
+	if err != nil {
+		return nil, nil, trace.Wrap(err)
+	}
+	return kubernetesResources, gravityResources, nil
+}
+
+// ForEach interprets the given reader r as a collection of Gravity resources
+// and invokes the specified handler for each resource in the list.
+// Returns the first encountered error
+func ForEach(r io.Reader, handler ResourceFunc) (err error) {
+	decoder := yaml.NewYAMLOrJSONDecoder(r, defaults.DecoderBufferSize)
+	for err == nil || utils.IsAbortError(err) {
+		var resource storage.UnknownResource
+		err = decoder.Decode(&resource)
+		if err != nil {
+			break
+		}
+		resource.Kind = modules.Get().CanonicalKind(resource.Kind)
+		err = handler(resource)
+	}
+	if err == io.EOF {
+		err = nil
+	}
+	if origErr, ok := trace.Unwrap(err).(*utils.AbortRetry); ok {
+		err = origErr.Err
+	}
+	return trace.Wrap(err)
+}
+
+// ResourceFunc is a callback that operates on a Gravity resource
+type ResourceFunc func(storage.UnknownResource) error
+
+func isKubernetesResource(resource storage.UnknownResource) bool {
+	return resource.Version == "" && resource.Kind == ""
 }

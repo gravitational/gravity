@@ -85,6 +85,10 @@ const (
 	SiteStateUninstalling = "uninstalling"
 	// SiteStateGarbageCollecting is the state of the cluster when it's removing unused resources
 	SiteStateGarbageCollecting = "collecting_garbage"
+	// SiteStateUpdatingEnviron is the state of the cluster when it's updating runtime environment variables on nodes
+	SiteStateUpdatingEnviron = "updating_cluster_environ"
+	// SiteStateUpdatingConfig is the state of the cluster when it's updating configuration
+	SiteStateUpdatingConfig = "updating_cluster_config"
 	// SiteStateDegraded means that the application installed on a deployed site is failing its health check
 	SiteStateDegraded = "degraded"
 	// SiteStateOffline means that OpsCenter cannot connect to remote site
@@ -123,6 +127,14 @@ const (
 	// garbage collection operation
 	OperationGarbageCollect           = "operation_gc"
 	OperationGarbageCollectInProgress = "gc_in_progress"
+
+	// runtime environment variables update operation
+	OperationUpdateRuntimeEnviron           = "operation_update_environ"
+	OperationUpdateRuntimeEnvironInProgress = "update_environ_in_progress"
+
+	// configuration update operation
+	OperationUpdateConfig           = "operation_update_config"
+	OperationUpdateConfigInProgress = "update_config_in_progress"
 
 	// common operation states
 	OperationStateCompleted = "completed"
@@ -208,23 +220,27 @@ var (
 	// OperationStartedToClusterState defines states the cluster transitions
 	// into when a certain operation starts
 	OperationStartedToClusterState = map[string]string{
-		OperationInstall:        SiteStateInstalling,
-		OperationExpand:         SiteStateExpanding,
-		OperationUpdate:         SiteStateUpdating,
-		OperationShrink:         SiteStateShrinking,
-		OperationUninstall:      SiteStateUninstalling,
-		OperationGarbageCollect: SiteStateGarbageCollecting,
+		OperationInstall:              SiteStateInstalling,
+		OperationExpand:               SiteStateExpanding,
+		OperationUpdate:               SiteStateUpdating,
+		OperationShrink:               SiteStateShrinking,
+		OperationUninstall:            SiteStateUninstalling,
+		OperationGarbageCollect:       SiteStateGarbageCollecting,
+		OperationUpdateRuntimeEnviron: SiteStateUpdatingEnviron,
+		OperationUpdateConfig:         SiteStateUpdatingConfig,
 	}
 
 	// OperationSucceededToClusterState defines states the cluster transitions
 	// into when a certain operation completes successfully
 	OperationSucceededToClusterState = map[string]string{
-		OperationInstall:        SiteStateActive,
-		OperationExpand:         SiteStateActive,
-		OperationUpdate:         SiteStateActive,
-		OperationShrink:         SiteStateActive,
-		OperationUninstall:      SiteStateNotInstalled,
-		OperationGarbageCollect: SiteStateActive,
+		OperationInstall:              SiteStateActive,
+		OperationExpand:               SiteStateActive,
+		OperationUpdate:               SiteStateActive,
+		OperationShrink:               SiteStateActive,
+		OperationUninstall:            SiteStateNotInstalled,
+		OperationGarbageCollect:       SiteStateActive,
+		OperationUpdateRuntimeEnviron: SiteStateActive,
+		OperationUpdateConfig:         SiteStateActive,
 	}
 
 	// OperationFailedToClusterState defines states the cluster transitions
@@ -232,11 +248,13 @@ var (
 	// If an state transition for a specific operation is missing, the cluster
 	// state is left unchanged
 	OperationFailedToClusterState = map[string]string{
-		OperationInstall:        SiteStateFailed,
-		OperationExpand:         SiteStateActive,
-		OperationUpdate:         SiteStateUpdating,
-		OperationShrink:         SiteStateActive,
-		OperationUninstall:      SiteStateFailed,
-		OperationGarbageCollect: SiteStateActive,
+		OperationInstall:              SiteStateFailed,
+		OperationExpand:               SiteStateActive,
+		OperationUpdate:               SiteStateUpdating,
+		OperationShrink:               SiteStateActive,
+		OperationUninstall:            SiteStateFailed,
+		OperationGarbageCollect:       SiteStateActive,
+		OperationUpdateRuntimeEnviron: SiteStateUpdatingEnviron,
+		OperationUpdateConfig:         SiteStateUpdatingConfig,
 	}
 )
