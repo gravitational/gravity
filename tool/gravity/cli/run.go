@@ -674,7 +674,7 @@ func Execute(g *Application, cmd string, extraArgs []string) error {
 			phase = fsm.RootPhase
 		}
 		if phase != "" {
-			return garbageCollectPhase(localEnv, phase, *g.GarbageCollectCmd.PhaseTimeout,
+			return executeGarbageCollectPhase(localEnv, phase, *g.GarbageCollectCmd.PhaseTimeout,
 				*g.GarbageCollectCmd.Force)
 		}
 		return garbageCollect(localEnv, *g.GarbageCollectCmd.Manual, *g.GarbageCollectCmd.Confirmed)
