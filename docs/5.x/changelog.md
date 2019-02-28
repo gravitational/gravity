@@ -9,7 +9,7 @@ LTS starts with `3.51.0` with minor backwards compatible changes added over time
 | --------------|-----| -------------------- | -------------------- | ------------------ |------------------|
 | 5.5.0-beta.1  | No  | February, 21st 2019  | -                    | 1.13.3             | 3.0.4            |
 | 5.4.6         | No  | February, 12th 2019  | -                    | 1.13.2             | 2.4.10           |
-| 5.2.8         | Yes | February, 12th 2019  | October, 15th, 2019  | 1.11.5             | 2.4.10           |
+| 5.2.9         | Yes | February, 27th 2019  | October, 15th, 2019  | 1.11.5             | 2.4.10           |
 | 5.0.29        | Yes | February, 12th 2019  | April, 13th 2019     | 1.9.12-gravitational | 2.4.10         |
 | 4.68.0        | Yes | January, 17th 2019   | November, 16th 2018  | 1.7.18-gravitational | 2.3.5          |
 | 3.64.0        | Yes | December, 21st 2017  | June, 2nd 2018       | 1.5.7              | 2.0.6            |
@@ -76,7 +76,14 @@ for details.
     This release fixes a security vulnerability in runc. Please see
     [Kubnernetes Blog](https://kubernetes.io/blog/2019/02/11/runc-and-cve-2019-5736/) for more information.
 
-### 5.2.8
+### 5.2.9 LTS
+
+#### Bugfixes
+
+* Fix the issue with "gravity gc" failing to collect packages on regular nodes.
+
+
+### 5.2.8 LTS
 
 #### Bugfixes
 
@@ -98,7 +105,7 @@ for details.
     This release fixes a security vulnerability in runc. Please see
     [Kubnernetes Blog](https://kubernetes.io/blog/2019/02/11/runc-and-cve-2019-5736/) for more information.
 
-### 5.2.7
+### 5.2.7 LTS
 
 #### Bugfixes
 
