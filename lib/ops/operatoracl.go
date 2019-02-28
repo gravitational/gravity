@@ -663,15 +663,15 @@ func (o *OperatorACL) RotateSecrets(req RotateSecretsRequest) (*RotatePackageRes
 	return o.operator.RotateSecrets(req)
 }
 
-func (o *OperatorACL) RotatePlanetConfig(req RotateConfigPackageRequest) (*RotatePackageResponse, error) {
-	if err := o.ClusterAction(req.ClusterName, storage.KindCluster, teleservices.VerbUpdate); err != nil {
+func (o *OperatorACL) RotatePlanetConfig(req RotatePlanetConfigRequest) (*RotatePackageResponse, error) {
+	if err := o.ClusterAction(req.Key.SiteDomain, storage.KindCluster, teleservices.VerbUpdate); err != nil {
 		return nil, trace.Wrap(err)
 	}
 	return o.operator.RotatePlanetConfig(req)
 }
 
-func (o *OperatorACL) RotateTeleportConfig(req RotateConfigPackageRequest) (*RotatePackageResponse, *RotatePackageResponse, error) {
-	if err := o.ClusterAction(req.ClusterName, storage.KindCluster, teleservices.VerbUpdate); err != nil {
+func (o *OperatorACL) RotateTeleportConfig(req RotateTeleportConfigRequest) (*RotatePackageResponse, *RotatePackageResponse, error) {
+	if err := o.ClusterAction(req.Key.SiteDomain, storage.KindCluster, teleservices.VerbUpdate); err != nil {
 		return nil, nil, trace.Wrap(err)
 	}
 	return o.operator.RotateTeleportConfig(req)

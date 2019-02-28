@@ -518,11 +518,11 @@ func (r *Router) RotateSecrets(req ops.RotateSecretsRequest) (*ops.RotatePackage
 	return r.Local.RotateSecrets(req)
 }
 
-func (r *Router) RotatePlanetConfig(req ops.RotateConfigPackageRequest) (*ops.RotatePackageResponse, error) {
+func (r *Router) RotatePlanetConfig(req ops.RotatePlanetConfigRequest) (*ops.RotatePackageResponse, error) {
 	return r.Local.RotatePlanetConfig(req)
 }
 
-func (r *Router) RotateTeleportConfig(req ops.RotateConfigPackageRequest) (*ops.RotatePackageResponse, *ops.RotatePackageResponse, error) {
+func (r *Router) RotateTeleportConfig(req ops.RotateTeleportConfigRequest) (*ops.RotatePackageResponse, *ops.RotatePackageResponse, error) {
 	return r.Local.RotateTeleportConfig(req)
 }
 

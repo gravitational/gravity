@@ -363,15 +363,13 @@ func (p *updatePhaseInit) rotatePlanetConfig(server storage.Server) error {
 	if err != nil {
 		return trace.Wrap(err)
 	}
-	resp, err := p.Operator.RotatePlanetConfig(ops.RotateConfigPackageRequest{
-		AccountID:   p.Operation.AccountID,
-		ClusterName: p.Operation.SiteDomain,
-		OperationID: p.Operation.ID,
-		Server:      server,
-		Manifest:    p.app.Manifest,
-		Package:     *runtimePackage,
-		Config:      p.existingClusterConfig,
-		Env:         p.existingEnviron,
+	resp, err := p.Operator.RotatePlanetConfig(ops.RotatePlanetConfigRequest{
+		Key:      p.Operation.Key(),
+		Server:   server,
+		Manifest: p.app.Manifest,
+		Package:  *runtimePackage,
+		Config:   p.existingClusterConfig,
+		Env:      p.existingEnviron,
 	})
 	if err != nil {
 		return trace.Wrap(err)
@@ -386,12 +384,10 @@ func (p *updatePhaseInit) rotatePlanetConfig(server storage.Server) error {
 }
 
 func (p *updatePhaseInit) rotateTeleportConfig(server storage.Server) error {
-	masterConf, nodeConf, err := p.Operator.RotateTeleportConfig(ops.RotateConfigPackageRequest{
-		AccountID:   p.Operation.AccountID,
-		ClusterName: p.Operation.SiteDomain,
-		OperationID: p.Operation.ID,
-		Server:      server,
-		Servers:     p.Servers,
+	masterConf, nodeConf, err := p.Operator.RotateTeleportConfig(ops.RotateTeleportConfigRequest{
+		Key:     p.Operation.Key(),
+		Server:  server,
+		Servers: p.Servers,
 	})
 	if err != nil {
 		return trace.Wrap(err)

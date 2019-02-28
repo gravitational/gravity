@@ -69,14 +69,11 @@ func (r *updateConfig) Execute(ctx context.Context) error {
 		if err != nil {
 			return trace.Wrap(err)
 		}
-		// FIXME: verify all uses of RotateConfigPackageRequest!!!
-		req := r.adaptor.UpdateRequest(ops.RotateConfigPackageRequest{
-			AccountID:   r.operation.AccountID,
-			ClusterName: r.operation.SiteDomain,
-			OperationID: r.operation.ID,
-			Server:      server,
-			Manifest:    r.manifest,
-			Package:     *runtimePackage,
+		req := r.adaptor.UpdateRequest(ops.RotatePlanetConfigRequest{
+			Key:      r.operation.Key(),
+			Server:   server,
+			Manifest: r.manifest,
+			Package:  *runtimePackage,
 		}, r.operation)
 		resp, err := r.operator.RotatePlanetConfig(req)
 		if err != nil {
@@ -108,7 +105,7 @@ func (r *updateConfig) PostCheck(context.Context) error {
 
 // requestAdaptor allows to augment configuration update request
 type requestAdaptor interface {
-	UpdateRequest(ops.RotateConfigPackageRequest, ops.SiteOperation) ops.RotateConfigPackageRequest
+	UpdateRequest(ops.RotatePlanetConfigRequest, ops.SiteOperation) ops.RotatePlanetConfigRequest
 }
 
 type updateConfig struct {
@@ -123,7 +120,7 @@ type updateConfig struct {
 }
 
 type operator interface {
-	RotatePlanetConfig(ops.RotateConfigPackageRequest) (*ops.RotatePackageResponse, error)
+	RotatePlanetConfig(ops.RotatePlanetConfigRequest) (*ops.RotatePackageResponse, error)
 }
 
 type appGetter interface {

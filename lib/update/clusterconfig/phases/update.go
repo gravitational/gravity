@@ -71,15 +71,12 @@ func (r *updateConfig) Execute(ctx context.Context) error {
 		if err != nil {
 			return trace.Wrap(err)
 		}
-		// FIXME: validate that all fields still reflect the truth
-		req := ops.RotateConfigPackageRequest{
-			AccountID:   r.operation.AccountID,
-			ClusterName: r.operation.SiteDomain,
-			OperationID: r.operation.ID,
-			Server:      server,
-			Manifest:    r.manifest,
-			Package:     *runtimePackage,
-			Config:      r.operation.UpdateConfig.Config,
+		req := ops.RotatePlanetConfigRequest{
+			Key:      r.operation.Key(),
+			Server:   server,
+			Manifest: r.manifest,
+			Package:  *runtimePackage,
+			Config:   r.operation.UpdateConfig.Config,
 		}
 		resp, err := r.operator.RotatePlanetConfig(req)
 		if err != nil {
@@ -128,7 +125,7 @@ type updateConfig struct {
 }
 
 type operator interface {
-	RotatePlanetConfig(ops.RotateConfigPackageRequest) (*ops.RotatePackageResponse, error)
+	RotatePlanetConfig(ops.RotatePlanetConfigRequest) (*ops.RotatePackageResponse, error)
 	UpdateClusterConfiguration(ops.UpdateClusterConfigRequest) error
 }
 

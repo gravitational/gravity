@@ -65,17 +65,17 @@ type RequestAdaptor interface {
 	// UpdateRequest augments the specified request.
 	// Implementations can use this to update (or set additional) fields on the request
 	// before dispatching
-	UpdateRequest(ops.RotateConfigPackageRequest, ops.SiteOperation) ops.RotateConfigPackageRequest
+	UpdateRequest(ops.RotatePlanetConfigRequest, ops.SiteOperation) ops.RotatePlanetConfigRequest
 }
 
 // UpdateRequest updates the specified request by invoking itself.
 // Implements RequestAdaptor
-func (r RequestAdaptorFunc) UpdateRequest(req ops.RotateConfigPackageRequest, operation ops.SiteOperation) ops.RotateConfigPackageRequest {
+func (r RequestAdaptorFunc) UpdateRequest(req ops.RotatePlanetConfigRequest, operation ops.SiteOperation) ops.RotatePlanetConfigRequest {
 	return r(req, operation)
 }
 
 // RequestAdaptorFunc enables a function as a RequestAdaptor
-type RequestAdaptorFunc func(ops.RotateConfigPackageRequest, ops.SiteOperation) ops.RotateConfigPackageRequest
+type RequestAdaptorFunc func(ops.RotatePlanetConfigRequest, ops.SiteOperation) ops.RotatePlanetConfigRequest
 
 // Dispatcher routes the set of execution parameters to a specific operation phase
 type Dispatcher interface {
@@ -84,7 +84,7 @@ type Dispatcher interface {
 }
 
 // idRequest passes the specified request unmodified
-func idRequest(req ops.RotateConfigPackageRequest, operation ops.SiteOperation) ops.RotateConfigPackageRequest {
+func idRequest(req ops.RotatePlanetConfigRequest, operation ops.SiteOperation) ops.RotatePlanetConfigRequest {
 	return req
 }
 

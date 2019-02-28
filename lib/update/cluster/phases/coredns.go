@@ -76,7 +76,7 @@ func (p *updatePhaseCoreDNS) Execute(ctx context.Context) error {
 			{
 				APIGroups: []string{""},
 				Verbs:     []string{"list", "watch"},
-				Resources: []string{"endpoints", "services", "namespaces"},
+				Resources: []string{"endpoints", "services", "namespaces", "pods"},
 			},
 		},
 	})

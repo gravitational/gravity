@@ -751,10 +751,10 @@ type Updates interface {
 	RotateSecrets(RotateSecretsRequest) (*RotatePackageResponse, error)
 
 	// RotatePlanetConfig rotates planet configuration package for the server specified in the request
-	RotatePlanetConfig(RotateConfigPackageRequest) (*RotatePackageResponse, error)
+	RotatePlanetConfig(RotatePlanetConfigRequest) (*RotatePackageResponse, error)
 
 	// RotateTeleportConfig rotates teleport configuration package for the server specified in the request
-	RotateTeleportConfig(RotateConfigPackageRequest) (masterConfig *RotatePackageResponse, nodeConfig *RotatePackageResponse, err error)
+	RotateTeleportConfig(RotateTeleportConfigRequest) (masterConfig *RotatePackageResponse, nodeConfig *RotatePackageResponse, err error)
 
 	// ConfigureNode prepares the node for the upgrade
 	ConfigureNode(ConfigureNodeRequest) error
@@ -817,18 +817,22 @@ func (r RotateSecretsRequest) SiteKey() SiteKey {
 	}
 }
 
-// RotateConfigPackageRequest is a request to rotate server's configuration package
-type RotateConfigPackageRequest struct {
-	// AccountID is the account id of the local cluster
-	AccountID string `json:"account_id"`
-	// ClusterName is the local cluster name
-	ClusterName string `json:"cluster_name"`
-	// OperationID is the id of the operation
-	OperationID string `json:"operation_id"`
+// RotateTeleportConfigRequest is a request to rotate teleport server's configuration package
+type RotateTeleportConfigRequest struct {
+	// Key identifies the cluster operation
+	Key SiteOperationKey `json:"key"`
 	// Server is the server to rotate configuration for
 	Server storage.Server `json:"server"`
 	// Servers is all cluster servers
 	Servers storage.Servers `json:"servers"`
+}
+
+// RotatePlanetConfigRequest is a request to rotate planet server's configuration package
+type RotatePlanetConfigRequest struct {
+	// Key identifies the cluster operation
+	Key SiteOperationKey `json:"key"`
+	// Server is the server to rotate configuration for
+	Server storage.Server `json:"server"`
 	// Manifest specifies the manifest to generate configuration with
 	Manifest schema.Manifest `json:"manifest"`
 	// Env specifies optional environment variables to set
@@ -836,9 +840,6 @@ type RotateConfigPackageRequest struct {
 	// Config specifies optional cluster configuration resource
 	Config []byte `json:"cluster_config,omitempty"`
 	// Package specifies the runtime package locator
-	// FIXME: since this is used for teleport as well - verify
-	// that this attribute is validly used throughout!!!
-	// FIXME: rename to RuntimePackage
 	Package loc.Locator `json:"package"`
 }
 
@@ -863,23 +864,6 @@ type ConfigurePackagesRequest struct {
 	Env map[string]string `json:"env,omitempty"`
 	// Config specifies optional cluster configuration resource in raw form
 	Config []byte `json:"config,omitempty"`
-}
-
-// SiteKey returns a cluster key from this request
-func (r RotateConfigPackageRequest) SiteKey() SiteKey {
-	return SiteKey{
-		AccountID:  r.AccountID,
-		SiteDomain: r.ClusterName,
-	}
-}
-
-// SiteOperationKey returns an operation key from this request
-func (r RotateConfigPackageRequest) SiteOperationKey() SiteOperationKey {
-	return SiteOperationKey{
-		AccountID:   r.AccountID,
-		SiteDomain:  r.ClusterName,
-		OperationID: r.OperationID,
-	}
 }
 
 // Proxy helps to manage connections and clients to remote ops centers

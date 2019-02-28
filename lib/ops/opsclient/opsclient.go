@@ -902,12 +902,12 @@ func (c *Client) RotateSecrets(req ops.RotateSecretsRequest) (*ops.RotatePackage
 }
 
 // RotatePlanetConfig rotates planet configuration package for the server specified in the request
-func (c *Client) RotatePlanetConfig(req ops.RotateConfigPackageRequest) (*ops.RotatePackageResponse, error) {
+func (c *Client) RotatePlanetConfig(req ops.RotatePlanetConfigRequest) (*ops.RotatePackageResponse, error) {
 	return nil, trace.NotImplemented("this method is only supported by local operator")
 }
 
 // RotateTeleportConfig rotates teleport configuration package for the server specified in the request
-func (c *Client) RotateTeleportConfig(req ops.RotateConfigPackageRequest) (*ops.RotatePackageResponse, *ops.RotatePackageResponse, error) {
+func (c *Client) RotateTeleportConfig(req ops.RotateTeleportConfigRequest) (*ops.RotatePackageResponse, *ops.RotatePackageResponse, error) {
 	return nil, nil, trace.NotImplemented("this method is only supported by local operator")
 }
 

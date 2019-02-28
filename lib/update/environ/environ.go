@@ -59,7 +59,7 @@ type Config struct {
 	Client *kubernetes.Clientset
 }
 
-func updateRequest(req ops.RotateConfigPackageRequest, operation ops.SiteOperation) ops.RotateConfigPackageRequest {
+func updateRequest(req ops.RotatePlanetConfigRequest, operation ops.SiteOperation) ops.RotatePlanetConfigRequest {
 	result := req
 	result.Env = operation.UpdateEnviron.Env
 	return result
