@@ -403,7 +403,7 @@ func findPackages(packages pack.PackageService, runtimePackageUpdate loc.Locator
 		"config":  existingRuntimeConfig,
 	}).Info("Found existing runtime and configuration packages.")
 
-	runtimeConfigUpdate, err := maybeConvertLegacyPlanetConfigPackage(*existingRuntimeConfig)
+	runtimeConfigUpdate, err := maybeConvertLegacyPlanetConfigPackage(existingRuntimeConfig.Locator)
 	if err != nil {
 		return nil, trace.Wrap(err)
 	}
@@ -423,6 +423,16 @@ func findPackages(packages pack.PackageService, runtimePackageUpdate loc.Locator
 		"config":        existingTeleportConfig,
 	}).Info("Found existing teleport and configuration packages.")
 
+	runtimeConfigLabels := map[string]string{
+		pack.PurposeLabel:     pack.PurposePlanetConfig,
+		pack.ConfigLabel:      existingRuntime.Locator.ZeroVersion().String(),
+		pack.AdvertiseIPLabel: existingRuntimeConfig.RuntimeLabels[pack.AdvertiseIPLabel],
+	}
+	teleportConfigLabels := map[string]string{
+		pack.PurposeLabel:     pack.PurposeTeleportNodeConfig,
+		pack.ConfigLabel:      existingTeleport.Locator.ZeroVersion().String(),
+		pack.AdvertiseIPLabel: existingTeleportConfig.RuntimeLabels[pack.AdvertiseIPLabel],
+	}
 	reqs = append(reqs,
 		*updateGravityPackage,
 		packageRequest{
@@ -430,27 +440,21 @@ func findPackages(packages pack.PackageService, runtimePackageUpdate loc.Locator
 			labels:           pack.RuntimeSecretsPackageLabels,
 		},
 		packageRequest{
-			installedPackage: *existingRuntime,
+			installedPackage: existingRuntime.Locator,
 			updatePackage:    &runtimePackageUpdate,
 			labels:           pack.RuntimePackageLabels,
 			configPackage: &packageRequest{
-				installedPackage: *existingRuntimeConfig,
+				installedPackage: existingRuntimeConfig.Locator,
 				updateFilter:     runtimeConfigUpdate,
-				labels: pack.ConfigLabels(
-					*existingRuntimeConfig,
-					pack.PurposePlanetConfig,
-				),
-				less: configPackageLess,
+				labels:           runtimeConfigLabels,
+				less:             configPackageLess,
 			},
 		},
 		packageRequest{
-			installedPackage: *existingTeleport,
+			installedPackage: existingTeleport.Locator,
 			configPackage: &packageRequest{
-				installedPackage: *existingTeleportConfig,
-				labels: pack.ConfigLabels(
-					*existingTeleportConfig,
-					pack.PurposeTeleportNodeConfig,
-				),
+				installedPackage: existingTeleportConfig.Locator,
+				labels:           teleportConfigLabels,
 			},
 		},
 	)
@@ -1149,10 +1153,12 @@ func findPackageUpdateHelper(packages pack.PackageService, req packageRequest) (
 	}
 	latestPackage := req.updatePackage
 	if latestPackage == nil {
+		filter := req.updateSearchFilter()
 		latestPackage, err = pack.FindLatestPackageCustom(pack.FindLatestPackageRequest{
-			Packages: packages,
-			Match:    pack.PackageMatch(req.updateSearchFilter()),
-			Less:     req.less,
+			Packages:   packages,
+			Repository: filter.Repository,
+			Match:      req.match,
+			Less:       req.less,
 		})
 		if err != nil {
 			return nil, trace.Wrap(err)
@@ -1174,20 +1180,6 @@ func findPackageUpdateHelper(packages pack.PackageService, req packageRequest) (
 		}, nil
 	}
 	return nil, trace.NotFound("%v is already at the latest version", req.installedPackage)
-}
-
-func findLatestTeleportConfigPackage(localPackages pack.PackageService) (*loc.Locator, error) {
-	// use generic FindPackage function instead of FindConfigPackage because
-	// for some reason both teleport-master-config and teleport-node-config
-	// have a config-package-for label while we're looking specifically for
-	// a node config
-	pkg, err := pack.FindPackage(localPackages, func(e pack.PackageEnvelope) bool {
-		return e.Locator.Name == constants.TeleportNodeConfigPackage
-	})
-	if err != nil {
-		return nil, trace.Wrap(err)
-	}
-	return pack.FindLatestPackage(localPackages, pkg.Locator)
 }
 
 func ensureServiceRunning(servicePackage loc.Locator) error {
@@ -1281,6 +1273,16 @@ func (r packageRequest) String() string {
 	}
 	return fmt.Sprintf("packageRequest(installed=%v, updatePackage=%v, labels=%v, config=%v)",
 		r.installedPackage, maybe(r.updatePackage), r.labels, r.configPackage)
+}
+
+func (r packageRequest) match(env pack.PackageEnvelope) bool {
+	filter := r.updateSearchFilter()
+	matched := env.Locator.Repository == filter.Repository &&
+		env.Locator.Name == filter.Name
+	if len(r.labels) != 0 {
+		matched = matched && env.HasLabels(r.labels)
+	}
+	return matched
 }
 
 func (r packageRequest) updateSearchFilter() loc.Locator {

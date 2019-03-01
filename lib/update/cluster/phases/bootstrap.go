@@ -64,16 +64,14 @@ type updatePhaseBootstrap struct {
 	HostLocalBackend storage.Backend
 	// GravityPath is the path to the new gravity binary
 	GravityPath string
-	// GravityPackage specifies the package with the gravity binary
-	GravityPackage loc.Locator
 	// Server specifies the bootstrap target
 	Server storage.Server
-	// Servers is the list of local cluster servers
-	Servers []storage.Server
 	// ServiceUser is the user used for services and system storage
 	ServiceUser storage.OSUser
 	// FieldLogger is used for logging
 	log.FieldLogger
+	// ExecutorParams stores the phase parameters
+	fsm.ExecutorParams
 	remote fsm.Remote
 	// runtimePackage specifies the runtime package to update to
 	runtimePackage loc.Locator
@@ -130,13 +128,12 @@ func NewUpdatePhaseBootstrap(
 		HostLocalBackend: hostLocalBackend,
 		LocalPackages:    localPackages,
 		Packages:         packages,
-		GravityPackage:   p.Plan.GravityPackage,
 		Server:           *p.Phase.Data.Server,
-		Servers:          p.Plan.Servers,
 		Operation:        *operation,
 		GravityPath:      gravityPath,
 		ServiceUser:      cluster.ServiceUser,
 		FieldLogger:      logger,
+		ExecutorParams:   p,
 		remote:           remote,
 		runtimePackage:   *runtimePackage,
 		installedRuntime: *installedRuntime,
@@ -212,7 +209,7 @@ func (p *updatePhaseBootstrap) configureNode() error {
 func (p *updatePhaseBootstrap) exportGravity(ctx context.Context) error {
 	p.Infof("Export gravity binary to %v.", p.GravityPath)
 	err := utils.CopyWithRetries(ctx, p.GravityPath, func() (io.ReadCloser, error) {
-		_, rc, err := p.Packages.ReadPackage(p.GravityPackage)
+		_, rc, err := p.Packages.ReadPackage(p.Plan.GravityPackage)
 		return rc, trace.Wrap(err)
 	}, defaults.SharedExecutableMask)
 	return trace.Wrap(err)
@@ -336,7 +333,7 @@ func (p *updatePhaseBootstrap) updateExistingPackageLabels() error {
 	if err != nil {
 		return trace.Wrap(err)
 	}
-	teleportConfigLabels, err := updateTeleportConfigLabels(p.LocalPackages)
+	teleportConfigLabels, err := updateTeleportConfigLabels(p.LocalPackages, p.Plan.ClusterName)
 	if err != nil {
 		return trace.Wrap(err)
 	}
@@ -462,7 +459,7 @@ func updateRuntimeSecretLabels(packages pack.PackageService) ([]pack.LabelUpdate
 	}}, nil
 }
 
-func updateTeleportConfigLabels(packages pack.PackageService) ([]pack.LabelUpdate, error) {
+func updateTeleportConfigLabels(packages pack.PackageService, clusterName string) ([]pack.LabelUpdate, error) {
 	labels := map[string]string{
 		pack.PurposeLabel:   pack.PurposeTeleportNodeConfig,
 		pack.InstalledLabel: pack.InstalledLabel,
@@ -478,7 +475,10 @@ func updateTeleportConfigLabels(packages pack.PackageService) ([]pack.LabelUpdat
 		return nil, nil
 	}
 	// Fall back to latest available package
-	configPackage, err := pack.FindLatestPackageByName(packages, constants.TeleportNodeConfigPackage)
+	configPackage, err := pack.FindLatestPackage(packages, loc.Locator{
+		Repository: clusterName,
+		Name:       constants.TeleportNodeConfigPackage,
+	})
 	if err != nil {
 		return nil, trace.Wrap(err)
 	}
