@@ -103,7 +103,7 @@ func (c *FSMConfig) CheckAndSetDefaults() (err error) {
 		return trace.BadParameter("missing LocalPackages")
 	}
 	if c.LocalClusterClient == nil {
-		return trace.BadParameter("missing LocalClient")
+		return trace.BadParameter("missing LocalClusterClient")
 	}
 	if c.LocalApps == nil {
 		return trace.BadParameter("missing LocalApps")

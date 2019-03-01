@@ -1430,6 +1430,13 @@ func (s *site) planetSecretsNextPackage(node *ProvisionedServer) (*loc.Locator, 
 		fmt.Sprintf("%v/planet-%v-secrets:0.0.%v", s.siteRepoName(), node.AdvertiseIP, time.Now().UTC().Unix()))
 }
 
+// planetNextConfigPackage generates a new planet configuration package
+// locator guaranteed to be greater than version
+func (s *site) planetNextConfigPackage(node remoteServer, version string) (*loc.Locator, error) {
+	version = fmt.Sprintf("%v+%v", version, time.Now().UTC().Unix())
+	return s.planetConfigPackage(node, version)
+}
+
 // planetConfigPackage creates a planet configuration package reference
 // using the specified version as a package version and the given node to add unique
 // suffix to the name.

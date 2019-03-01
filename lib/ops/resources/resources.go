@@ -60,7 +60,7 @@ func (r ValidateFunc) Validate(res storage.UnknownResource) error {
 	return r(res)
 }
 
-// ValidateFunc is a resource validtor implemented as a single function
+// ValidateFunc is a resource validator implemented as a single function
 type ValidateFunc func(storage.UnknownResource) error
 
 // ResourceControl allows to create/list/remove resources
@@ -277,5 +277,5 @@ func ForEach(r io.Reader, handler ResourceFunc) (err error) {
 type ResourceFunc func(storage.UnknownResource) error
 
 func isKubernetesResource(resource storage.UnknownResource) bool {
-	return resource.Version == "" && resource.Kind == ""
+	return resource.Version == ""
 }

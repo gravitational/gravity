@@ -1,5 +1,5 @@
 /*
-Copyright 2018 Gravitational, Inc.
+Copyright 2019 Gravitational, Inc.
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -35,7 +35,7 @@ import (
 	"github.com/sirupsen/logrus"
 )
 
-// NewResources returns a new "resources" phase executor
+// NewResources returns an executor that creates user-supplied Kubernetes resources
 func NewResources(p fsm.ExecutorParams, operator ops.Operator) (*resourcesExecutor, error) {
 	if p.Phase.Data == nil || p.Phase.Data.Install == nil {
 		return nil, trace.BadParameter("phase data is mandatory")
@@ -112,7 +112,7 @@ func (*resourcesExecutor) PostCheck(ctx context.Context) error {
 	return nil
 }
 
-// NewGravityResourcesPhase returns executor that creates Gravity resources after a successful install
+// NewGravityResourcesPhase returns executor that creates Gravity resources
 func NewGravityResourcesPhase(p fsm.ExecutorParams, operator ops.Operator, factory resources.Resources) (*gravityExecutor, error) {
 	if p.Phase.Data == nil || p.Phase.Data.Install == nil {
 		return nil, trace.BadParameter("phase data is mandatory")
@@ -135,7 +135,7 @@ func NewGravityResourcesPhase(p fsm.ExecutorParams, operator ops.Operator, facto
 
 // Execute creates the Gravity resources from the configured list
 func (r *gravityExecutor) Execute(context.Context) (err error) {
-	r.progress.NextStep("Creating user-supplied Gravity resources")
+	r.progress.NextStep("Creating user-supplied cluster resources")
 	for _, resource := range r.resources {
 		r.Infof("Creating resource %q", resource.Kind)
 		err := r.factory.Create(resources.CreateRequest{

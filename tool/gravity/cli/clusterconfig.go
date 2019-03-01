@@ -33,7 +33,7 @@ import (
 
 // resetConfig executes the loop to reset cluster configuration to defaults
 func resetConfig(ctx context.Context, localEnv, updateEnv *localenv.LocalEnvironment, manual, confirmed bool) error {
-	config := libclusterconfig.NewEmpty()
+	config := libclusterconfig.New()
 	return trace.Wrap(updateConfig(ctx, localEnv, updateEnv, config, manual, confirmed))
 }
 

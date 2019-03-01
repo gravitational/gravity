@@ -726,7 +726,8 @@ func decode(c *check.C, resources []storage.UnknownResource) (result []resource)
 		result = append(result, resource)
 	}
 	sort.Slice(result, func(i, j int) bool {
-		return result[i].Kind < result[j].Kind
+		return result[i].Kind < result[j].Kind &&
+			result[i].Metadata.Name < result[j].Metadata.Name
 	})
 	return result
 }

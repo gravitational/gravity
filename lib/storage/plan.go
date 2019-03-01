@@ -157,9 +157,9 @@ type InstallOperationData struct {
 	// Config specifies optional cluster configuration resource
 	Config []byte `json:"config,omitempty"`
 	// Resources specifies optional Kubernetes resources to create
-	Resources []byte `json:"resources,omitempty" yaml:"resources,omitempty"`
-	// GravityResourcesResources specifies optional Gravity resources to create upon successful installation
-	GravityResources []UnknownResource `json:"gravity_resources,omitempty" yaml:"gravity_resources,omitempty"`
+	Resources []byte `json:"resources,omitempty"`
+	// GravityResources specifies optional Gravity resources to create upon successful installation
+	GravityResources []UnknownResource `json:"gravity_resources,omitempty"`
 }
 
 // Application describes an application for the package cleaner

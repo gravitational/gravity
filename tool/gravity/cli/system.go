@@ -188,7 +188,6 @@ func systemRollback(env *localenv.LocalEnvironment, changesetID, serviceName str
 
 	err = applyUpdates(env, changes)
 	if err != nil {
-		log.Error(trace.DebugReport(err))
 		return trace.Wrap(err)
 	}
 

@@ -415,7 +415,7 @@ func newOperationPlan(p planConfig) (*storage.OperationPlan, error) {
 		if updateEtcd {
 			etcdPhase := *builder.etcdPlan(leadMaster.Server, masters[1:].asServers(), nodes.asServers(),
 				currentVersion, desiredVersion)
-			// This does not depend on previous on purposes - when the etcd block is executed,
+			// This does not depend on previous on purpose - when the etcd block is executed,
 			// remote agents might be able to sync the plan before the shutdown of etcd instances
 			// has begun
 			root.Add(etcdPhase)

@@ -18,9 +18,7 @@ package opsservice
 
 import (
 	"context"
-	"fmt"
 	"path/filepath"
-	"time"
 
 	"github.com/gravitational/gravity/lib/app"
 	"github.com/gravitational/gravity/lib/checks"
@@ -219,8 +217,7 @@ func (o *Operator) RotatePlanetConfig(req ops.RotatePlanetConfigRequest) (*ops.R
 	checks.OverrideDockerConfig(&dockerConfig,
 		checks.DockerConfigFromSchema(req.Manifest.SystemOptions.DockerConfig()))
 
-	configVersion := fmt.Sprintf("%v+%v", req.Package.Version, time.Now().UTC().Unix())
-	configPackage, err := cluster.planetConfigPackage(&node, configVersion)
+	configPackage, err := cluster.planetNextConfigPackage(&node, req.Package.Version)
 	if err != nil {
 		return nil, trace.Wrap(err)
 	}
