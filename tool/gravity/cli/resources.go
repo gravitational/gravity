@@ -26,6 +26,7 @@ import (
 	"github.com/gravitational/gravity/lib/ops/resources"
 	"github.com/gravitational/gravity/lib/ops/resources/gravity"
 	"github.com/gravitational/gravity/lib/storage"
+	"github.com/gravitational/gravity/lib/storage/clusterconfig"
 	"github.com/gravitational/gravity/tool/common"
 
 	"github.com/gravitational/trace"
@@ -195,8 +196,12 @@ func (r clusterOperationHandler) UpdateResource(req resources.CreateRequest) err
 		return trace.Wrap(updateEnviron(context.TODO(), localEnv, updateEnv,
 			env, req.Manual, req.Confirmed))
 	case storage.KindClusterConfiguration:
+		config, err := clusterconfig.Unmarshal(req.Resource.Raw)
+		if err != nil {
+			return trace.Wrap(err)
+		}
 		return trace.Wrap(updateConfig(context.TODO(), localEnv, updateEnv,
-			req.Resource.Raw, req.Manual, req.Confirmed))
+			config, req.Manual, req.Confirmed))
 	}
 	// unreachable
 	return trace.BadParameter("unknown resource kind %q", req.Resource.Kind)
