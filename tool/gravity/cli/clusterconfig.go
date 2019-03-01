@@ -31,20 +31,14 @@ import (
 	"github.com/sirupsen/logrus"
 )
 
-// ResetConfig executes the loop to reset cluster configuration to defaults
-func ResetConfig(localEnv, updateEnv *localenv.LocalEnvironment, manual, confirmed bool) error {
+// resetConfig executes the loop to reset cluster configuration to defaults
+func resetConfig(ctx context.Context, localEnv, updateEnv *localenv.LocalEnvironment, manual, confirmed bool) error {
 	config := libclusterconfig.NewEmpty()
 	bytes, err := libclusterconfig.Marshal(config)
 	if err != nil {
 		return trace.Wrap(err)
 	}
-	return trace.Wrap(updateConfig(context.TODO(), localEnv, updateEnv, bytes, manual, confirmed))
-}
-
-// UpdateConfig executes the loop to update cluster configuration.
-// resource specifies the new configuration to apply.
-func UpdateConfig(localEnv, updateEnv *localenv.LocalEnvironment, resource []byte, manual, confirmed bool) error {
-	return trace.Wrap(updateConfig(context.TODO(), localEnv, updateEnv, resource, manual, confirmed))
+	return trace.Wrap(updateConfig(ctx, localEnv, updateEnv, bytes, manual, confirmed))
 }
 
 func updateConfig(ctx context.Context, localEnv, updateEnv *localenv.LocalEnvironment, resource []byte, manual, confirmed bool) error {

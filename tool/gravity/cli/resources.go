@@ -18,19 +18,28 @@ package cli
 
 import (
 	"bytes"
+	"context"
 	"os"
 
 	"github.com/gravitational/gravity/lib/constants"
 	"github.com/gravitational/gravity/lib/localenv"
-	"github.com/gravitational/gravity/lib/modules"
 	"github.com/gravitational/gravity/lib/ops/resources"
 	"github.com/gravitational/gravity/lib/ops/resources/gravity"
 	"github.com/gravitational/gravity/lib/storage"
 	"github.com/gravitational/gravity/tool/common"
 
-	teleservices "github.com/gravitational/teleport/lib/services"
 	"github.com/gravitational/trace"
 )
+
+// LocalEnvironmentFactory defines an interface for creating operation-specific environments
+type LocalEnvironmentFactory interface {
+	// NewLocalEnv creates a new default environment
+	NewLocalEnv() (*localenv.LocalEnvironment, error)
+	// NewUpdateEnv creates a new environment for update operations
+	NewUpdateEnv() (*localenv.LocalEnvironment, error)
+	// NewJoinEnv creates a new environment for join operations
+	NewJoinEnv() (*localenv.LocalEnvironment, error)
+}
 
 // createResource updates or inserts one or many resources from the specified filename.
 // upsert controls whether the resource is expected to exist.
@@ -42,10 +51,12 @@ func createResource(env *localenv.LocalEnvironment, factory LocalEnvironmentFact
 	if err != nil {
 		return trace.Wrap(err)
 	}
+	clusterHandler := NewDefaultClusterOperationHandler(factory)
 	gravityResources, err := gravity.New(gravity.Config{
-		Operator:    operator,
-		CurrentUser: env.CurrentUser(),
-		Silent:      env.Silent,
+		Operator:                operator,
+		CurrentUser:             env.CurrentUser(),
+		Silent:                  env.Silent,
+		ClusterOperationHandler: clusterHandler,
 	})
 	if err != nil {
 		return trace.Wrap(err)
@@ -57,85 +68,51 @@ func createResource(env *localenv.LocalEnvironment, factory LocalEnvironmentFact
 	defer reader.Close()
 	control := resources.NewControl(gravityResources)
 	err = resources.ForEach(reader, func(resource storage.UnknownResource) error {
-		res := teleservices.UnknownResource{ResourceHeader: resource.ResourceHeader, Raw: resource.Raw}
-		return trace.Wrap(CreateResource(env, factory, control, res, upsert, user, manual, confirmed))
+		req := resources.CreateRequest{
+			Upsert:    upsert,
+			User:      user,
+			Manual:    manual,
+			Confirmed: confirmed,
+		}
+		return trace.Wrap(control.Create(bytes.NewReader(resource.Raw), req))
 	})
 	return trace.Wrap(err)
 }
 
-// CreateResource updates or inserts a single resource
-func CreateResource(
+// removeResource deletes resource by name
+func removeResource(
 	env *localenv.LocalEnvironment,
 	factory LocalEnvironmentFactory,
-	control *resources.ResourceControl,
-	resource teleservices.UnknownResource,
-	upsert bool,
+	kind, name string,
+	force bool,
 	user string,
 	manual, confirmed bool,
 ) error {
-	switch resource.Kind {
-	case storage.KindRuntimeEnvironment, storage.KindClusterConfiguration:
-	default:
-		return trace.Wrap(control.Create(bytes.NewReader(resource.Raw), upsert, user))
-	}
-	if checkRunningAsRoot() != nil {
-		return trace.BadParameter("creating resource %q requires root privileges.\n"+
-			"Please run this command as root", resource.Kind)
-	}
-	updateEnv, err := factory.UpdateEnv()
+	operator, err := env.SiteOperator()
 	if err != nil {
 		return trace.Wrap(err)
 	}
-	defer updateEnv.Close()
-	switch resource.Kind {
-	case storage.KindRuntimeEnvironment:
-		return trace.Wrap(UpdateEnviron(env, updateEnv, resource.Raw, manual, confirmed))
-	case storage.KindClusterConfiguration:
-		return trace.Wrap(UpdateConfig(env, updateEnv, resource.Raw, manual, confirmed))
-	}
-	// unreachable
-	return trace.BadParameter("unknown resource kind %q", resource.Kind)
-}
-
-// RemoveResource deletes resource by name
-func RemoveResource(env *localenv.LocalEnvironment, factory LocalEnvironmentFactory, kind string, name string, force bool, user string, manual, confirmed bool) error {
-	kind = modules.Get().CanonicalKind(kind)
-	switch kind {
-	case storage.KindRuntimeEnvironment, storage.KindClusterConfiguration:
-	default:
-		operator, err := env.SiteOperator()
-		if err != nil {
-			return trace.Wrap(err)
-		}
-		gravityResources, err := gravity.New(gravity.Config{
-			Operator:    operator,
-			CurrentUser: env.CurrentUser(),
-			Silent:      env.Silent,
-		})
-		if err != nil {
-			return trace.Wrap(err)
-		}
-		err = resources.NewControl(gravityResources).Remove(kind, name, force, user)
-		return trace.Wrap(err)
-	}
-
-	if checkRunningAsRoot() != nil {
-		return trace.BadParameter("removing resource %q requires root privileges.\n"+
-			"Please run this command as root", kind)
-	}
-	updateEnv, err := factory.UpdateEnv()
+	clusterHandler := NewDefaultClusterOperationHandler(factory)
+	gravityResources, err := gravity.New(gravity.Config{
+		Operator:                operator,
+		CurrentUser:             env.CurrentUser(),
+		Silent:                  env.Silent,
+		ClusterOperationHandler: clusterHandler,
+	})
 	if err != nil {
 		return trace.Wrap(err)
 	}
-	defer updateEnv.Close()
-
-	switch kind {
-	case storage.KindRuntimeEnvironment:
-		return trace.Wrap(RemoveEnviron(env, updateEnv, manual, confirmed))
-	case storage.KindClusterConfiguration:
-		return trace.Wrap(ResetConfig(env, updateEnv, manual, confirmed))
+	req := resources.RemoveRequest{
+		Kind:      kind,
+		Name:      name,
+		Force:     force,
+		User:      user,
+		Manual:    manual,
+		Confirmed: confirmed,
 	}
-	return nil
+	err = resources.NewControl(gravityResources).Remove(req)
+	return trace.Wrap(err)
+
 }
 
 func getResources(env *localenv.LocalEnvironment, kind string, name string, withSecrets bool, format constants.Format, user string) error {
@@ -156,4 +133,75 @@ func getResources(env *localenv.LocalEnvironment, kind string, name string, with
 		return trace.Wrap(err)
 	}
 	return nil
+}
+
+// NewDefaultClusterOperationHandler creates an instance of the default cluster operation
+// handler
+func NewDefaultClusterOperationHandler(factory LocalEnvironmentFactory) clusterOperationHandler {
+	return clusterOperationHandler{
+		LocalEnvironmentFactory: factory,
+	}
+}
+
+// RemoveResource removes the resource specified with req
+func (r clusterOperationHandler) RemoveResource(req resources.RemoveRequest) error {
+	if checkRunningAsRoot() != nil {
+		return trace.BadParameter("removing resource %q requires root privileges.\n"+
+			"Please run this command as root", req.Kind)
+	}
+	localEnv, err := r.NewLocalEnv()
+	if err != nil {
+		return trace.Wrap(err)
+	}
+	defer localEnv.Close()
+	updateEnv, err := r.NewUpdateEnv()
+	if err != nil {
+		return trace.Wrap(err)
+	}
+	defer updateEnv.Close()
+	switch req.Kind {
+	case storage.KindRuntimeEnvironment:
+		env := storage.NewEnvironment(nil)
+		return trace.Wrap(updateEnviron(context.TODO(), localEnv, updateEnv, env, req.Manual, req.Confirmed))
+	case storage.KindClusterConfiguration:
+		return trace.Wrap(resetConfig(context.TODO(), localEnv, updateEnv, req.Manual, req.Confirmed))
+	}
+	// unreachable
+	return trace.BadParameter("unknown resource kind %q", req.Kind)
+}
+
+// UpdateResource creates or updates the resource specified with req
+func (r clusterOperationHandler) UpdateResource(req resources.CreateRequest) error {
+	if checkRunningAsRoot() != nil {
+		return trace.BadParameter("creating resource %q requires root privileges.\n"+
+			"Please run this command as root", req.Resource.Kind)
+	}
+	localEnv, err := r.NewLocalEnv()
+	if err != nil {
+		return trace.Wrap(err)
+	}
+	defer localEnv.Close()
+	updateEnv, err := r.NewUpdateEnv()
+	if err != nil {
+		return trace.Wrap(err)
+	}
+	defer updateEnv.Close()
+	switch req.Resource.Kind {
+	case storage.KindRuntimeEnvironment:
+		env, err := storage.UnmarshalEnvironmentVariables(req.Resource.Raw)
+		if err != nil {
+			return trace.Wrap(err)
+		}
+		return trace.Wrap(updateEnviron(context.TODO(), localEnv, updateEnv,
+			env, req.Manual, req.Confirmed))
+	case storage.KindClusterConfiguration:
+		return trace.Wrap(updateConfig(context.TODO(), localEnv, updateEnv,
+			req.Resource.Raw, req.Manual, req.Confirmed))
+	}
+	// unreachable
+	return trace.BadParameter("unknown resource kind %q", req.Resource.Kind)
+}
+
+type clusterOperationHandler struct {
+	LocalEnvironmentFactory
 }

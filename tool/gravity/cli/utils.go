@@ -29,14 +29,6 @@ import (
 	"github.com/gravitational/trace"
 )
 
-// LocalEnvironmentFactory defines an interface for creating operation-specific environments
-type LocalEnvironmentFactory interface {
-	// UpdateEnv creates a new operational environment for updates
-	UpdateEnv() (*localenv.LocalEnvironment, error)
-	// JoinEnv creates a new operational environment for join operation
-	JoinEnv() (*localenv.LocalEnvironment, error)
-}
-
 // LocalEnv returns an instance of a local environment for the specified
 // command
 func (g *Application) LocalEnv(cmd string) (*localenv.LocalEnvironment, error) {
@@ -47,9 +39,25 @@ func (g *Application) LocalEnv(cmd string) (*localenv.LocalEnvironment, error) {
 	return g.getEnv(stateDir)
 }
 
-// UpdateEnv returns an instance of the local environment that is used
+// NewLocalEnv returns an instance of a local environment.
+func (g *Application) NewLocalEnv() (*localenv.LocalEnvironment, error) {
+	stateDir := *g.StateDir
+	// most commands (with the exception of update or join/expand)
+	// use the state directory set by original install/join command,
+	// unless it was specified explicitly
+	if stateDir == "" {
+		dir, err := state.GetStateDir()
+		if err != nil {
+			return nil, trace.Wrap(err)
+		}
+		stateDir = filepath.Join(dir, defaults.LocalDir)
+	}
+	return g.getEnv(stateDir)
+}
+
+// NewUpdateEnv returns an instance of the local environment that is used
 // only for updates
-func (g *Application) UpdateEnv() (*localenv.LocalEnvironment, error) {
+func (g *Application) NewUpdateEnv() (*localenv.LocalEnvironment, error) {
 	dir, err := state.GetStateDir()
 	if err != nil {
 		return nil, trace.Wrap(err)
@@ -57,8 +65,8 @@ func (g *Application) UpdateEnv() (*localenv.LocalEnvironment, error) {
 	return g.getEnv(state.GravityUpdateDir(dir))
 }
 
-// JoinEnv returns an instance of local environment where join-specific data is stored
-func (g *Application) JoinEnv() (*localenv.LocalEnvironment, error) {
+// NewJoinEnv returns an instance of local environment where join-specific data is stored
+func (g *Application) NewJoinEnv() (*localenv.LocalEnvironment, error) {
 	err := os.MkdirAll(defaults.GravityJoinDir, defaults.SharedDirMask)
 	if err != nil {
 		return nil, trace.ConvertSystemError(err)
