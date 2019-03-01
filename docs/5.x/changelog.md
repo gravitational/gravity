@@ -7,8 +7,8 @@ LTS starts with `3.51.0` with minor backwards compatible changes added over time
 
 | Release       | LTS | Release Date         | Supported Until      | Kubernetes Version | Teleport Version |
 | --------------|-----| -------------------- | -------------------- | ------------------ |------------------|
-| 5.5.0-beta.1  | No  | February, 21st 2019  | -                    | 1.13.3             | 3.0.4            |
-| 5.4.6         | No  | February, 12th 2019  | -                    | 1.13.2             | 2.4.10           |
+| 5.5.0-beta.2  | No  | March 1st, 2019      | -                    | 1.13.4             | 3.0.4            |
+| 5.4.7         | No  | March 1st, 2019      | -                    | 1.13.4             | 2.4.10           |
 | 5.2.9         | Yes | February, 27th 2019  | October, 15th, 2019  | 1.11.5             | 2.4.10           |
 | 5.0.29        | Yes | February, 12th 2019  | April, 13th 2019     | 1.9.12-gravitational | 2.4.10         |
 | 4.68.0        | Yes | January, 17th 2019   | November, 16th 2018  | 1.7.18-gravitational | 2.3.5          |
@@ -23,6 +23,26 @@ LTS starts with `3.51.0` with minor backwards compatible changes added over time
     article in our Help Center.
 
 ## 5.x Releases
+
+### 5.5.0-beta.2
+
+#### Bugfixes
+
+* Update to Kubernetes 1.13.4 (CVE-2019-1002100).
+
+!!! warning
+    This release fixes a security vulnerability in kubernetes. Please see
+    [Kubernetes Announcement](https://discuss.kubernetes.io/t/kubernetes-security-announcement-v1-11-8-1-12-6-1-13-4-released-to-address-medium-severity-cve-2019-1002100/5147) for more information.
+
+### 5.4.7
+
+#### Bugfixes
+
+* Update to Kubernetes 1.13.4 (CVE-2019-1002100).
+
+!!! warning
+    This release fixes a security vulnerability in kubernetes. Please see
+    [Kubernetes Announcement](https://discuss.kubernetes.io/t/kubernetes-security-announcement-v1-11-8-1-12-6-1-13-4-released-to-address-medium-severity-cve-2019-1002100/5147) for more information.
 
 ### 5.5.0-beta.1
 
