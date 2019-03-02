@@ -43,6 +43,7 @@ import (
 	"github.com/gravitational/satellite/agent/proto/agentpb"
 	teleauth "github.com/gravitational/teleport/lib/auth"
 	teleclient "github.com/gravitational/teleport/lib/client"
+	"github.com/gravitational/teleport/lib/events"
 	teleservices "github.com/gravitational/teleport/lib/services"
 	"github.com/gravitational/trace"
 )
@@ -124,6 +125,7 @@ type Operator interface {
 	Install
 	Updates
 	Identity
+	Audit
 }
 
 // Accounts represents a collection of accounts in the portal
@@ -371,7 +373,7 @@ type SSHSignResponse struct {
 // that does not uses any interfaces
 func (s *SSHSignResponse) ToRaw() (*SSHSignResponseRaw, error) {
 	raw := SSHSignResponseRaw{
-		Cert: s.Cert,
+		Cert:                   s.Cert,
 		TrustedHostAuthorities: make([]json.RawMessage, 0, len(s.TrustedHostAuthorities)),
 		TLSCert:                s.TLSCert,
 		CACert:                 s.CACert,
@@ -403,7 +405,7 @@ type SSHSignResponseRaw struct {
 // ToNative converts back to request that has all interfaces inside
 func (s *SSHSignResponseRaw) ToNative() (*SSHSignResponse, error) {
 	native := SSHSignResponse{
-		Cert: s.Cert,
+		Cert:                   s.Cert,
 		TrustedHostAuthorities: make([]teleservices.CertAuthority, 0, len(s.TrustedHostAuthorities)),
 		TLSCert:                s.TLSCert,
 		CACert:                 s.CACert,
@@ -1729,4 +1731,36 @@ type Identity interface {
 	UpsertAuthGateway(SiteKey, storage.AuthGateway) error
 	// GetAuthGateway returns auth gateway configuration
 	GetAuthGateway(SiteKey) (storage.AuthGateway, error)
+}
+
+// AuditEventRequest describes an audit log event.
+type AuditEventRequest struct {
+	// SiteKey is the ID of the cluster the request is for.
+	SiteKey
+	// Type is the audit event type.
+	Type string `json:"type"`
+	// Fields is the audit event fields.
+	Fields events.EventFields `json:"fields"`
+}
+
+// Check validates the audit log event request.
+func (r *AuditEventRequest) Check() error {
+	if err := r.SiteKey.Check(); err != nil {
+		return trace.Wrap(err)
+	}
+	if r.Type == "" {
+		return trace.BadParameter("missing audit log event type")
+	}
+	return nil
+}
+
+// String returns the event's string representation.
+func (r AuditEventRequest) String() string {
+	return fmt.Sprintf("AuditEvent(Type=%v, Fields=%v)", r.Type, r.Fields)
+}
+
+// Audit provides interface for emitting audit log events.
+type Audit interface {
+	// EmitAuditEvent saves the provided event in the audit log.
+	EmitAuditEvent(AuditEventRequest) error
 }

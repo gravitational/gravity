@@ -20,6 +20,7 @@ import (
 	"github.com/gravitational/gravity/lib/localenv"
 	"github.com/gravitational/gravity/lib/modules"
 	"github.com/gravitational/gravity/lib/ops"
+	"github.com/gravitational/gravity/lib/ops/events"
 	"github.com/gravitational/gravity/lib/ops/resources"
 	"github.com/gravitational/gravity/lib/storage"
 
@@ -96,12 +97,10 @@ func (r *Resources) Create(req resources.CreateRequest) error {
 		if err != nil {
 			return trace.Wrap(err)
 		}
-		user := req.User
-		if user == "" {
-			user = r.CurrentUser
-		}
-		if token.GetUser() == "" {
-			token.SetUser(user)
+		if req.User != "" {
+			token.SetUser(req.User)
+		} else if token.GetUser() == "" {
+			token.SetUser(r.CurrentUser)
 		}
 		if err := token.CheckAndSetDefaults(); err != nil {
 			return trace.Wrap(err)
@@ -117,6 +116,7 @@ func (r *Resources) Create(req resources.CreateRequest) error {
 		if err != nil {
 			return trace.Wrap(err)
 		}
+		req.User = token.GetUser()
 		// do not print token here as a security precaution
 		r.Printf("Created token for user %q\n", token.GetUser())
 	case storage.KindLogForwarder:
@@ -227,6 +227,11 @@ func (r *Resources) Create(req resources.CreateRequest) error {
 		return trace.BadParameter("unsupported resource %q, supported are: %v",
 			req.Resource.Kind, modules.Get().SupportedResources())
 	}
+	events.Emit(r.Operator, events.ResourceCreated, events.Fields{
+		events.FieldKind: req.Resource.Kind,
+		events.FieldName: req.Resource.Metadata.Name,
+		events.FieldUser: req.User,
+	})
 	return nil
 }
 
@@ -446,5 +451,10 @@ func (r *Resources) Remove(req resources.RemoveRequest) error {
 		return trace.BadParameter("unsupported resource %q, supported are: %v",
 			req.Kind, modules.Get().SupportedResourcesToRemove())
 	}
+	events.Emit(r.Operator, events.ResourceDeleted, events.Fields{
+		events.FieldKind: req.Kind,
+		events.FieldName: req.Name,
+		events.FieldUser: req.User,
+	})
 	return nil
 }

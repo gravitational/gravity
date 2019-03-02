@@ -270,6 +270,9 @@ func NewWebHandler(cfg WebHandlerConfig) (*WebHandler, error) {
 	h.POST("/portal/v1/accounts/:account_id/sites/:site_domain/authgateway", h.needsAuth(h.upsertAuthGateway))
 	h.GET("/portal/v1/accounts/:account_id/sites/:site_domain/authgateway", h.needsAuth(h.getAuthGateway))
 
+	// audit log events
+	h.POST("/portal/v1/accounts/:account_id/sites/:site_domain/events", h.needsAuth(h.emitAuditEvent))
+
 	return h, nil
 }
 
@@ -2179,6 +2182,28 @@ func (h *WebHandler) deleteClusterCert(w http.ResponseWriter, r *http.Request, p
 		return trace.Wrap(err)
 	}
 	roundtrip.ReplyJSON(w, http.StatusOK, message("certificate deleted"))
+	return nil
+}
+
+/* emitAuditEvent saves the provided event in the audit log.
+
+     POST /portal/v1/accounts/:account_id/sites/:site_domain/events
+
+   Success response:
+
+     { "message": "audit log event saved" }
+*/
+func (h *WebHandler) emitAuditEvent(w http.ResponseWriter, r *http.Request, p httprouter.Params, ctx *HandlerContext) error {
+	var req ops.AuditEventRequest
+	err := telehttplib.ReadJSON(r, &req)
+	if err != nil {
+		return trace.Wrap(err)
+	}
+	err = ctx.Operator.EmitAuditEvent(req)
+	if err != nil {
+		return trace.Wrap(err)
+	}
+	roundtrip.ReplyJSON(w, http.StatusOK, message("audit log event saved"))
 	return nil
 }
 

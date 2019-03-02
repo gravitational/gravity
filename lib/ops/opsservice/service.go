@@ -46,6 +46,7 @@ import (
 	"github.com/docker/docker/pkg/archive"
 	"github.com/gravitational/configure/cstrings"
 	"github.com/gravitational/license/authority"
+	"github.com/gravitational/teleport/lib/events"
 	"github.com/gravitational/teleport/lib/reversetunnel"
 	teleservices "github.com/gravitational/teleport/lib/services"
 	"github.com/gravitational/trace"
@@ -120,6 +121,9 @@ type Config struct {
 
 	// LogForwarders allows to manage log forwarders via Kubernetes config maps
 	LogForwarders LogForwardersControl
+
+	// AuditLog is used to submit events to the audit log
+	AuditLog events.IAuditLog
 }
 
 // Operator implements Operator interface
@@ -204,6 +208,9 @@ func (cfg *Config) CheckAndSetDefaults() error {
 	if cfg.Clock == nil {
 		cfg.Clock = &timetools.RealTime{}
 	}
+	if cfg.AuditLog == nil {
+		cfg.AuditLog = events.NewDiscardAuditLog()
+	}
 	return nil
 }
 
@@ -225,6 +232,9 @@ func (cfg *Config) CheckRelaxed() error {
 	}
 	if cfg.Clock == nil {
 		cfg.Clock = &timetools.RealTime{}
+	}
+	if cfg.AuditLog == nil {
+		cfg.AuditLog = events.NewDiscardAuditLog()
 	}
 	return nil
 }
@@ -769,7 +779,7 @@ func (o *Operator) SignSSHKey(req ops.SSHSignRequest) (*ops.SSHSignResponse, err
 		return nil, trace.Wrap(err)
 	}
 	return &ops.SSHSignResponse{
-		Cert: cert,
+		Cert:                   cert,
 		TrustedHostAuthorities: authorities,
 		TLSCert:                tlsCert,
 		CACert:                 ca.CertPEM,
@@ -1345,6 +1355,20 @@ func (o *Operator) GetClusterNodes(key ops.SiteKey) ([]ops.Node, error) {
 		})
 	}
 	return result, nil
+}
+
+// EmitAuditEvent saves the provided event in the audit log.
+func (o *Operator) EmitAuditEvent(req ops.AuditEventRequest) error {
+	err := req.Check()
+	if err != nil {
+		return trace.Wrap(err)
+	}
+	o.Infof("%s", req)
+	err = o.cfg.AuditLog.EmitAuditEvent(req.Type, req.Fields)
+	if err != nil {
+		return trace.Wrap(err)
+	}
+	return nil
 }
 
 func (o *Operator) openSite(key ops.SiteKey) (*site, error) {

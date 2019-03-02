@@ -17,6 +17,8 @@ limitations under the License.
 package localenv
 
 import (
+	"context"
+
 	"github.com/gravitational/gravity/lib/app"
 	"github.com/gravitational/gravity/lib/app/service"
 	"github.com/gravitational/gravity/lib/blob/fs"
@@ -28,6 +30,7 @@ import (
 	"github.com/gravitational/gravity/lib/storage/keyval"
 	"github.com/gravitational/gravity/lib/users"
 	"github.com/gravitational/gravity/lib/users/usersservice"
+	"github.com/gravitational/teleport/lib/events"
 
 	"github.com/gravitational/trace"
 	"k8s.io/client-go/kubernetes"
@@ -41,9 +44,14 @@ func (r *LocalEnvironment) NewClusterEnvironment() (*ClusterEnvironment, error) 
 		log.Errorf("Failed to create Kubernetes client: %v.",
 			trace.DebugReport(err))
 	}
-
+	auditLog, err := r.AuditLog(context.TODO())
+	if err != nil {
+		log.Errorf("Failed to create audit log: %v.",
+			trace.DebugReport(err))
+	}
 	return newClusterEnvironment(clusterEnvironmentArgs{
-		client: client,
+		client:   client,
+		auditLog: auditLog,
 	})
 }
 
@@ -135,6 +143,7 @@ func newClusterEnvironment(args clusterEnvironmentArgs) (*ClusterEnvironment, er
 		Apps:     apps,
 		Users:    users,
 		StateDir: siteDir,
+		AuditLog: args.auditLog,
 	})
 	if err != nil {
 		return nil, trace.Wrap(err)
@@ -158,5 +167,6 @@ func newClusterEnvironment(args clusterEnvironmentArgs) (*ClusterEnvironment, er
 }
 
 type clusterEnvironmentArgs struct {
-	client *kubernetes.Clientset
+	client   *kubernetes.Clientset
+	auditLog events.IAuditLog
 }

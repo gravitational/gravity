@@ -31,6 +31,10 @@ type Release struct {
 	Status string
 	// Chart is a deployed chart name and version.
 	Chart string
+	// ChartName is a chart name.
+	ChartName string
+	// ChartVersion is a chart version.
+	ChartVersion string
 	// Namespace is a namespace where release is deployed.
 	Namespace string
 	// Updated is when a release was last updated.
@@ -47,12 +51,14 @@ type Release struct {
 func fromHelm(release *release.Release) *Release {
 	md := release.GetChart().GetMetadata()
 	return &Release{
-		Name:        release.GetName(),
-		Status:      release.GetInfo().GetStatus().GetCode().String(),
-		Chart:       fmt.Sprintf("%s-%s", md.GetName(), md.GetVersion()),
-		Namespace:   release.GetNamespace(),
-		Updated:     time.Unix(release.GetInfo().GetLastDeployed().Seconds, 0),
-		Revision:    int(release.GetVersion()),
-		Description: release.GetInfo().GetDescription(),
+		Name:         release.GetName(),
+		Status:       release.GetInfo().GetStatus().GetCode().String(),
+		Chart:        fmt.Sprintf("%s-%s", md.GetName(), md.GetVersion()),
+		ChartName:    md.GetName(),
+		ChartVersion: md.GetVersion(),
+		Namespace:    release.GetNamespace(),
+		Updated:      time.Unix(release.GetInfo().GetLastDeployed().Seconds, 0),
+		Revision:     int(release.GetVersion()),
+		Description:  release.GetInfo().GetDescription(),
 	}
 }

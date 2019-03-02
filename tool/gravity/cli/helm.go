@@ -31,6 +31,7 @@ import (
 	"github.com/gravitational/gravity/lib/helm"
 	"github.com/gravitational/gravity/lib/loc"
 	"github.com/gravitational/gravity/lib/localenv"
+	"github.com/gravitational/gravity/lib/ops/events"
 	"github.com/gravitational/gravity/lib/pack"
 	"github.com/gravitational/gravity/lib/schema"
 	helmutils "github.com/gravitational/gravity/lib/utils/helm"
@@ -180,6 +181,7 @@ func releaseInstall(env *localenv.LocalEnvironment, conf releaseInstallConfig) e
 	if err != nil {
 		return trace.Wrap(err)
 	}
+	env.EmitAuditEvent(events.AppInstalled, events.FieldsForRelease(*release))
 	env.PrintStep("Installed release %v", release.Name)
 	return nil
 }
@@ -270,6 +272,7 @@ func releaseUpgrade(env *localenv.LocalEnvironment, conf releaseUpgradeConfig) e
 	if err != nil {
 		return trace.Wrap(err)
 	}
+	env.EmitAuditEvent(events.AppUpgraded, events.FieldsForRelease(*release))
 	env.PrintStep("Upgraded release %v to version %v", release.Name,
 		imageEnv.Manifest.Metadata.ResourceVersion)
 	return nil
@@ -290,6 +293,7 @@ func releaseRollback(env *localenv.LocalEnvironment, conf releaseRollbackConfig)
 	if err != nil {
 		return trace.Wrap(err)
 	}
+	env.EmitAuditEvent(events.AppRolledBack, events.FieldsForRelease(*release))
 	env.PrintStep("Rolled back release %v to %v", release.Name, release.Chart)
 	return nil
 }
@@ -306,6 +310,7 @@ func releaseUninstall(env *localenv.LocalEnvironment, conf releaseUninstallConfi
 	if err != nil {
 		return trace.Wrap(err)
 	}
+	env.EmitAuditEvent(events.AppUninstalled, events.FieldsForRelease(*release))
 	env.PrintStep("Uninstalled release %v", release.Name)
 	return nil
 }
