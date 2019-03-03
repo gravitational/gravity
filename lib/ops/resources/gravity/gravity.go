@@ -468,9 +468,7 @@ func (r *Resources) Remove(req resources.RemoveRequest) error {
 		r.Println("Alert target has been deleted")
 	case storage.KindRuntimeEnvironment, storage.KindClusterConfiguration:
 		err := r.ClusterOperationHandler.RemoveResource(req)
-		if trace.IsNotFound(err) && req.Force {
-			return nil
-		}
+		return trace.Wrap(err)
 	case "":
 		return trace.BadParameter("missing resource kind")
 	default:
