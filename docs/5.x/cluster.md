@@ -2028,7 +2028,7 @@ $ gravity resource rm runtimeenvironment
 
 ### Configuring Cluster
 
-It is possible to perform last-minute configuration before the installation or update some aspects of the cluster
+It is possible to customize the cluster per environment before the installation or update some aspects of the cluster
 using the `ClusterConfiguration` resource:
 
 [cluster-config.yaml]
