@@ -1,5 +1,5 @@
 /*
-Copyright 2018 Gravitational, Inc.
+Copyright 2019 Gravitational, Inc.
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -17,129 +17,105 @@ limitations under the License.
 package update
 
 import (
-	appservice "github.com/gravitational/gravity/lib/app"
-	"github.com/gravitational/gravity/lib/constants"
-	"github.com/gravitational/gravity/lib/fsm"
-	"github.com/gravitational/gravity/lib/loc"
-	"github.com/gravitational/gravity/lib/schema"
-	"github.com/gravitational/gravity/lib/storage"
+	"context"
+	"time"
 
+	"github.com/gravitational/gravity/lib/defaults"
+	"github.com/gravitational/gravity/lib/storage"
+	"github.com/gravitational/gravity/lib/utils"
+
+	"github.com/cenkalti/backoff"
+	"github.com/gravitational/rigging"
 	"github.com/gravitational/trace"
-	"github.com/sirupsen/logrus"
+	log "github.com/sirupsen/logrus"
+	v1 "k8s.io/api/core/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/labels"
+	corev1 "k8s.io/client-go/kubernetes/typed/core/v1"
 )
 
-// GetOperationPlan returns an up-to-date operation plan
-func GetOperationPlan(b storage.Backend) (*storage.OperationPlan, error) {
-	op, err := storage.GetLastOperation(b)
-	if err != nil {
-		return nil, trace.Wrap(err)
-	}
+// WaitForEndpoints waits for service endpoints to become active for the server specified with nodeID.
+// nodeID is assumed to be the name of the node as accepted by Kubernetes
+func WaitForEndpoints(ctx context.Context, client corev1.CoreV1Interface, server storage.Server) error {
+	clusterLabels := labels.Set{"app": defaults.GravityClusterLabel}
+	kubednsLegacyLabels := labels.Set{"k8s-app": "kubedns"}
+	kubednsLabels := labels.Set{"k8s-app": defaults.KubeDNSLabel}
+	kubednsWorkerLabels := labels.Set{"k8s-app": defaults.KubeDNSWorkerLabel}
 
-	plan, err := b.GetOperationPlan(op.SiteDomain, op.ID)
-	if err != nil && !trace.IsNotFound(err) {
-		return nil, trace.Wrap(err)
-	}
-
-	if plan == nil {
-		return nil, trace.NotFound(
-			"%q does not have a plan, use 'gravity plan --init' to initialize it", op.Type)
-	}
-
-	changelog, err := b.GetOperationPlanChangelog(op.SiteDomain, op.ID)
-	if err != nil {
-		return nil, trace.Wrap(err)
-	}
-
-	plan = fsm.ResolvePlan(*plan, changelog)
-	return plan, nil
+	// Due to https://github.com/gravitational/gravity.e/issues/3808 the node name we need to match may be inconsistent
+	// so try to match either possible node name
+	matchesNode := matchesNode([]string{
+		server.AdvertiseIP,
+		server.Nodename,
+	})
+	err := Retry(ctx, func() error {
+		if (hasEndpoints(client, clusterLabels, existingEndpoint) == nil) &&
+			(hasEndpoints(client, kubednsLabels, matchesNode) == nil ||
+				hasEndpoints(client, kubednsLegacyLabels, matchesNode) == nil ||
+				hasEndpoints(client, kubednsWorkerLabels, matchesNode) == nil) {
+			return nil
+		}
+		return trace.NotFound("endpoints not ready")
+	}, defaults.EndpointsWaitTimeout)
+	return trace.Wrap(err)
 }
 
-// systemNeedsUpdate determines whether planet or teleport services need
-// to be updated by comparing versions of respective packages in the
-// installed and update application manifest
-func systemNeedsUpdate(profile string, installed, update appservice.Application) (planetNeedsUpdate, teleportNeedsUpdate bool, err error) {
-	installedProfile, err := installed.Manifest.NodeProfiles.ByName(profile)
-	if err != nil {
-		return false, false, trace.Wrap(err)
-	}
-
-	updateProfile, err := update.Manifest.NodeProfiles.ByName(profile)
-	if err != nil {
-		return false, false, trace.Wrap(err)
-	}
-
-	updateRuntimePackage, err := update.Manifest.RuntimePackage(*updateProfile)
-	if err != nil {
-		return false, false, trace.Wrap(err)
-	}
-
-	updateRuntimeVersion, err := updateRuntimePackage.SemVer()
-	if err != nil {
-		return false, false, trace.Wrap(err)
-	}
-
-	installedRuntimePackage, err := getRuntimePackage(installed.Manifest, *installedProfile, schema.ServiceRoleMaster)
-	if err != nil {
-		return false, false, trace.Wrap(err)
-	}
-
-	installedRuntimeVersion, err := installedRuntimePackage.SemVer()
-	if err != nil {
-		return false, false, trace.Wrap(err)
-	}
-
-	logrus.Debugf("Runtime installed: %v, runtime to update to: %v.",
-		installedRuntimePackage, updateRuntimePackage)
-
-	installedTeleportPackage, err := installed.Manifest.Dependencies.ByName(
-		constants.TeleportPackage)
-	if err != nil {
-		return false, false, trace.Wrap(err)
-	}
-
-	installedTeleportVersion, err := installedTeleportPackage.SemVer()
-	if err != nil {
-		return false, false, trace.Wrap(err)
-	}
-
-	updateTeleportPackage, err := update.Manifest.Dependencies.ByName(
-		constants.TeleportPackage)
-	if err != nil {
-		return false, false, trace.Wrap(err)
-	}
-
-	updateTeleportVersion, err := updateTeleportPackage.SemVer()
-	if err != nil {
-		return false, false, trace.Wrap(err)
-	}
-
-	logrus.Debugf("Teleport installed: %v, teleport update: %v.",
-		installedTeleportPackage, updateTeleportPackage)
-
-	return installedRuntimeVersion.LessThan(*updateRuntimeVersion),
-		installedTeleportVersion.LessThan(*updateTeleportVersion), nil
+// Retry runs the specified function fn.
+// If the function fails, it is retried for the given timeout using exponential backoff
+func Retry(ctx context.Context, fn func() error, timeout time.Duration) error {
+	b := backoff.NewExponentialBackOff()
+	b.MaxElapsedTime = timeout
+	return trace.Wrap(utils.RetryWithInterval(ctx, b, fn))
 }
 
-func getRuntimePackage(manifest schema.Manifest, profile schema.NodeProfile, clusterRole schema.ServiceRole) (*loc.Locator, error) {
-	runtimePackage, err := manifest.RuntimePackage(profile)
-	if err != nil && !trace.IsNotFound(err) {
-		return nil, trace.Wrap(err)
-	}
-	if err == nil {
-		return runtimePackage, nil
-	}
-	// Look for legacy package
-	packageName := loc.LegacyPlanetMaster.Name
-	if clusterRole == schema.ServiceRoleNode {
-		packageName = loc.LegacyPlanetNode.Name
-	}
-	runtimePackage, err = manifest.Dependencies.ByName(packageName)
+func hasEndpoints(client corev1.CoreV1Interface, labels labels.Set, fn endpointMatchFn) error {
+	list, err := client.Endpoints(metav1.NamespaceSystem).List(
+		metav1.ListOptions{
+			LabelSelector: labels.String(),
+		},
+	)
 	if err != nil {
-		logrus.Warnf("Failed to find the legacy runtime package in manifest "+
-			"for profile %v and cluster role %v: %v.", profile.Name, clusterRole, err)
-		return nil, trace.NotFound("runtime package for profile %v "+
-			"(cluster role %v) not found in manifest",
-			profile.Name, clusterRole)
+		log.WithError(err).Warn("Failed to query endpoints.")
+		return trace.Wrap(rigging.ConvertError(err), "failed to query endpoints")
 	}
-	return runtimePackage, nil
+	for _, endpoint := range list.Items {
+		for _, subset := range endpoint.Subsets {
+			for _, addr := range subset.Addresses {
+				log.WithField("addr", addr).Debug("Trying endpoint.")
+				if fn(addr) {
+					return nil
+				}
+			}
+		}
+	}
+	log.WithField("query", labels).Warn("No active endpoints found.")
+	return trace.NotFound("no active endpoints found for query %q", labels)
 }
+
+// matchesNode is a predicate that matches an endpoint address to the specified
+// node name
+func matchesNode(nodes []string) endpointMatchFn {
+	return func(addr v1.EndpointAddress) bool {
+		// Abort if the node name is not populated.
+		// There is no need to wait for endpoints we cannot
+		// match to a node.
+		if addr.NodeName == nil {
+			return false
+		}
+
+		for _, node := range nodes {
+			if *addr.NodeName == node {
+				return true
+			}
+		}
+		return false
+	}
+}
+
+// existingEndpoint is a trivial predicate that matches for any endpoint.
+func existingEndpoint(v1.EndpointAddress) bool {
+	return true
+}
+
+// endpointMatchFn matches an endpoint address using custom criteria.
+type endpointMatchFn func(addr v1.EndpointAddress) bool

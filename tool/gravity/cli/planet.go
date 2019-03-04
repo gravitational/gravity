@@ -23,6 +23,7 @@ import (
 	"github.com/gravitational/gravity/lib/constants"
 	"github.com/gravitational/gravity/lib/defaults"
 	"github.com/gravitational/gravity/lib/localenv"
+	"github.com/gravitational/gravity/lib/pack"
 	"github.com/gravitational/gravity/lib/schema"
 	libstatus "github.com/gravitational/gravity/lib/status"
 	"github.com/gravitational/gravity/lib/storage"
@@ -36,7 +37,7 @@ import (
 // planetEnter is a shortcut that finds installed planet in this cluster
 // and enters it
 func planetEnter(env *localenv.LocalEnvironment, args []string) error {
-	planetPackage, planetConfigPackage, err := findAnyRuntimePackageWithConfig(env.Packages)
+	planetPackage, planetConfigPackage, err := pack.FindAnyRuntimePackageWithConfig(env.Packages)
 	if err != nil {
 		return trace.Wrap(err)
 	}
@@ -52,7 +53,7 @@ func planetShell(env *localenv.LocalEnvironment) error {
 
 // planetExec executes a command within a namespace of a planet container
 func planetExec(env *localenv.LocalEnvironment, tty bool, stdin bool, cmd string, extraArgs []string) error {
-	planetPackage, planetConfigPackage, err := findAnyRuntimePackageWithConfig(env.Packages)
+	planetPackage, planetConfigPackage, err := pack.FindAnyRuntimePackageWithConfig(env.Packages)
 	if err != nil {
 		return trace.Wrap(err)
 	}
@@ -70,7 +71,7 @@ func planetExec(env *localenv.LocalEnvironment, tty bool, stdin bool, cmd string
 }
 
 func getPlanetStatus(env *localenv.LocalEnvironment, args []string) error {
-	planetPackage, planetConfigPackage, err := findAnyRuntimePackageWithConfig(env.Packages)
+	planetPackage, planetConfigPackage, err := pack.FindAnyRuntimePackageWithConfig(env.Packages)
 	if err != nil {
 		return trace.Wrap(err)
 	}
@@ -97,7 +98,7 @@ func getPlanetStatus(env *localenv.LocalEnvironment, args []string) error {
 
 // planetVersion returns version of the currently installed planet
 func planetVersion(env *localenv.LocalEnvironment) (*semver.Version, error) {
-	locator, err := findAnyRuntimePackage(env.Packages)
+	locator, err := pack.FindAnyRuntimePackage(env.Packages)
 	if err != nil {
 		return nil, trace.Wrap(err)
 	}

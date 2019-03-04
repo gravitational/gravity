@@ -17,6 +17,7 @@ limitations under the License.
 package fsm
 
 import (
+	"github.com/gravitational/gravity/lib/ops"
 	"github.com/gravitational/gravity/lib/schema"
 	"github.com/gravitational/gravity/lib/storage"
 
@@ -156,19 +157,14 @@ func RequireIfPresent(plan *storage.OperationPlan, phaseIDs ...string) []string 
 	return present
 }
 
-func addPhases(phase *storage.OperationPhase, result *[]*storage.OperationPhase) {
-	// add the phase itself
-	*result = append(*result, phase)
-	// as well as all its subphases and their subphases recursively
-	for i := range phase.Phases {
-		addPhases(&phase.Phases[i], result)
-	}
-}
-
 // GetOperationPlan returns resolved operation plan for the specified operation
 func GetOperationPlan(b storage.Backend, clusterName, operationID string) (*storage.OperationPlan, error) {
 	plan, err := b.GetOperationPlan(clusterName, operationID)
 	if err != nil {
+		if trace.IsNotFound(err) {
+			return nil, trace.NotFound("no operation plan for operation %v found",
+				operationID)
+		}
 		return nil, trace.Wrap(err)
 	}
 	ch, err := b.GetOperationPlanChangelog(clusterName, operationID)
@@ -176,4 +172,47 @@ func GetOperationPlan(b storage.Backend, clusterName, operationID string) (*stor
 		return nil, trace.Wrap(err)
 	}
 	return ResolvePlan(*plan, ch), nil
+}
+
+// OperationStateSetter returns the handler to set operation state both in the given operator
+// as well as the specified backend
+func OperationStateSetter(key ops.SiteOperationKey, operator ops.Operator, backend storage.Backend) ops.OperationStateFunc {
+	return func(key ops.SiteOperationKey, req ops.SetOperationStateRequest) error {
+		err := operator.SetOperationState(key, req)
+		if err != nil {
+			return trace.Wrap(err)
+		}
+		op, err := operator.GetSiteOperation(key)
+		if err != nil {
+			return trace.Wrap(err)
+		}
+		backendOp, err := backend.GetSiteOperation(key.SiteDomain, key.OperationID)
+		if err != nil {
+			return trace.Wrap(err)
+		}
+		backendOp.State = op.State
+		_, err = backend.UpdateSiteOperation(*backendOp)
+		if err != nil {
+			return trace.Wrap(err)
+		}
+		return nil
+	}
+}
+
+// OperationKey returns the operation key for the specified operation plan
+func OperationKey(plan storage.OperationPlan) ops.SiteOperationKey {
+	return ops.SiteOperationKey{
+		AccountID:   plan.AccountID,
+		SiteDomain:  plan.ClusterName,
+		OperationID: plan.OperationID,
+	}
+}
+
+func addPhases(phase *storage.OperationPhase, result *[]*storage.OperationPhase) {
+	// add the phase itself
+	*result = append(*result, phase)
+	// as well as all its subphases and their subphases recursively
+	for i := range phase.Phases {
+		addPhases(&phase.Phases[i], result)
+	}
 }

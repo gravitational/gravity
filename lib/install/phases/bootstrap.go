@@ -50,9 +50,6 @@ func NewBootstrap(p fsm.ExecutorParams, operator ops.Operator, apps app.Applicat
 	if p.Phase.Data.Package == nil {
 		return nil, trace.BadParameter("application package is required: %#v", p.Phase.Data)
 	}
-	if p.Phase.Data.DNSConfig == nil {
-		return nil, trace.BadParameter("DNS configuration is required: %#v", p.Phase.Data)
-	}
 
 	serviceUser, err := userFromOSUser(*p.Phase.Data.ServiceUser)
 	if err != nil {
@@ -94,7 +91,7 @@ func NewBootstrap(p fsm.ExecutorParams, operator ops.Operator, apps app.Applicat
 		ExecutorParams:   p,
 		ServiceUser:      *serviceUser,
 		remote:           remote,
-		dnsConfig:        *p.Phase.Data.DNSConfig,
+		dnsConfig:        p.Plan.DNSConfig,
 	}, nil
 }
 

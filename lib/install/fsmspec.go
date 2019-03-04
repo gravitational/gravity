@@ -22,9 +22,11 @@ import (
 	"github.com/gravitational/gravity/lib/fsm"
 	"github.com/gravitational/gravity/lib/httplib"
 	"github.com/gravitational/gravity/lib/install/phases"
+	"github.com/gravitational/gravity/lib/ops/resources/gravity"
 	"github.com/gravitational/gravity/lib/schema"
 
 	"github.com/gravitational/trace"
+	"k8s.io/client-go/kubernetes"
 )
 
 // FSMSpec returns a function that returns an appropriate phase executor
@@ -60,7 +62,7 @@ func FSMSpec(config FSMConfig) fsm.FSMSpecFunc {
 				config.Operator, remote)
 
 		case p.Phase.ID == phases.WaitPhase:
-			client, _, err := httplib.GetClusterKubeClient(config.DNSConfig.Addr())
+			client, err := getKubeClient(p)
 			if err != nil {
 				return nil, trace.Wrap(err)
 			}
@@ -73,7 +75,7 @@ func FSMSpec(config FSMConfig) fsm.FSMSpecFunc {
 				config.Operator)
 
 		case p.Phase.ID == phases.RBACPhase:
-			client, _, err := httplib.GetClusterKubeClient(config.DNSConfig.Addr())
+			client, err := getKubeClient(p)
 			if err != nil {
 				return nil, trace.Wrap(err)
 			}
@@ -83,7 +85,7 @@ func FSMSpec(config FSMConfig) fsm.FSMSpecFunc {
 				client)
 
 		case p.Phase.ID == phases.CorednsPhase:
-			client, _, err := httplib.GetClusterKubeClient(config.DNSConfig.Addr())
+			client, err := getKubeClient(p)
 			if err != nil {
 				return nil, trace.Wrap(err)
 			}
@@ -119,8 +121,26 @@ func FSMSpec(config FSMConfig) fsm.FSMSpecFunc {
 				config.LocalApps,
 				schema.HookNetworkInstall)
 
+		case strings.HasPrefix(p.Phase.ID, phases.GravityResourcesPhase):
+			operator, err := config.LocalClusterClient()
+			if err != nil {
+				return nil, trace.Wrap(err)
+			}
+			factory, err := gravity.New(gravity.Config{
+				Operator: operator,
+			})
+			if err != nil {
+				return nil, trace.Wrap(err)
+			}
+			return phases.NewGravityResourcesPhase(p, operator, factory)
+
 		default:
 			return nil, trace.BadParameter("unknown phase %q", p.Phase.ID)
 		}
 	}
+}
+
+func getKubeClient(p fsm.ExecutorParams) (*kubernetes.Clientset, error) {
+	client, _, err := httplib.GetClusterKubeClient(p.Plan.DNSConfig.Addr())
+	return client, trace.Wrap(err)
 }

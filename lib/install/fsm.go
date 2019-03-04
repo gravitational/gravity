@@ -26,6 +26,7 @@ import (
 	"github.com/gravitational/gravity/lib/defaults"
 	"github.com/gravitational/gravity/lib/fsm"
 	"github.com/gravitational/gravity/lib/ops"
+	"github.com/gravitational/gravity/lib/ops/opsclient"
 	"github.com/gravitational/gravity/lib/pack"
 	"github.com/gravitational/gravity/lib/rpc"
 	"github.com/gravitational/gravity/lib/storage"
@@ -57,6 +58,8 @@ type FSMConfig struct {
 	Apps app.Applications
 	// Operator is authenticated installer ops client
 	Operator ops.Operator
+	// LocalClusterClient is a factory for creating a client to the installed cluster.
+	LocalClusterClient func() (*opsclient.Client, error)
 	// LocalPackages is the machine-local pack service
 	LocalPackages pack.PackageService
 	// LocalApps is the machine-local apps service
@@ -98,6 +101,9 @@ func (c *FSMConfig) CheckAndSetDefaults() (err error) {
 	}
 	if c.LocalPackages == nil {
 		return trace.BadParameter("missing LocalPackages")
+	}
+	if c.LocalClusterClient == nil {
+		return trace.BadParameter("missing LocalClusterClient")
 	}
 	if c.LocalApps == nil {
 		return trace.BadParameter("missing LocalApps")

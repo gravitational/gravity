@@ -34,6 +34,7 @@ import (
 	"github.com/gravitational/gravity/lib/pack"
 	"github.com/gravitational/gravity/lib/schema"
 	"github.com/gravitational/gravity/lib/storage"
+	"github.com/gravitational/gravity/lib/storage/clusterconfig"
 	"github.com/gravitational/gravity/lib/utils"
 
 	"github.com/cloudflare/cfssl/csr"
@@ -124,6 +125,8 @@ type Operator interface {
 	Install
 	Updates
 	Identity
+	RuntimeEnvironment
+	ClusterConfiguration
 }
 
 // Accounts represents a collection of accounts in the portal
@@ -371,7 +374,7 @@ type SSHSignResponse struct {
 // that does not uses any interfaces
 func (s *SSHSignResponse) ToRaw() (*SSHSignResponseRaw, error) {
 	raw := SSHSignResponseRaw{
-		Cert: s.Cert,
+		Cert:                   s.Cert,
 		TrustedHostAuthorities: make([]json.RawMessage, 0, len(s.TrustedHostAuthorities)),
 		TLSCert:                s.TLSCert,
 		CACert:                 s.CACert,
@@ -403,7 +406,7 @@ type SSHSignResponseRaw struct {
 // ToNative converts back to request that has all interfaces inside
 func (s *SSHSignResponseRaw) ToNative() (*SSHSignResponse, error) {
 	native := SSHSignResponse{
-		Cert: s.Cert,
+		Cert:                   s.Cert,
 		TrustedHostAuthorities: make([]teleservices.CertAuthority, 0, len(s.TrustedHostAuthorities)),
 		TLSCert:                s.TLSCert,
 		CACert:                 s.CACert,
@@ -476,6 +479,24 @@ type Certificates interface {
 	DeleteClusterCertificate(SiteKey) error
 }
 
+// RuntimeEnvironment manages runtime environment variables in cluster
+type RuntimeEnvironment interface {
+	// CreateUpdateEnvarsOperation creates a new operation to update cluster runtime environment variables
+	CreateUpdateEnvarsOperation(CreateUpdateEnvarsOperationRequest) (*SiteOperationKey, error)
+	// GetClusterEnvironmentVariables retrieves the cluster runtime environment variables
+	GetClusterEnvironmentVariables(SiteKey) (storage.EnvironmentVariables, error)
+}
+
+// ClusterConfiguration manages configuration in cluster
+type ClusterConfiguration interface {
+	// CreateUpdateConfigOperation creates a new operation to update cluster configuration
+	CreateUpdateConfigOperation(CreateUpdateConfigOperationRequest) (*SiteOperationKey, error)
+	// GetClusterConfiguration retrieves the cluster configuration
+	GetClusterConfiguration(SiteKey) (clusterconfig.Interface, error)
+	// UpdateClusterConfiguration updates the cluster configuration from the specified request
+	UpdateClusterConfiguration(UpdateClusterConfigRequest) error
+}
+
 // ClusterCertificate represents the cluster certificate
 type ClusterCertificate struct {
 	// Certificate is the cluster certificate
@@ -518,6 +539,19 @@ func (r UpdateCertificateRequest) Check() error {
 		return trace.Wrap(err, "failed to parse certificate / key pair")
 	}
 	return nil
+}
+
+// Check validates this request
+func (r UpdateClusterEnvironmentVariablesRequest) Check() error {
+	return r.Key.Check()
+}
+
+// UpdateClusterEnvironmentVariablesRequest describes the request to update cluster runtime environment variables
+type UpdateClusterEnvironmentVariablesRequest struct {
+	// Key identifies the cluster
+	Key SiteKey
+	// Env specifies the new environment
+	Env storage.EnvironmentVariables `json:"env"`
 }
 
 // Leader defines leadership-related operations
@@ -705,7 +739,7 @@ func (l LogEntry) String() string {
 // Install provides install-specific methods
 type Install interface {
 	// ConfigurePackages configures packages for the specified operation
-	ConfigurePackages(SiteOperationKey) error
+	ConfigurePackages(ConfigurePackagesRequest) error
 	// StreamOperationLogs appends the logs from the provided reader to the
 	// specified operation (user-facing) log file
 	StreamOperationLogs(SiteOperationKey, io.Reader) error
@@ -717,10 +751,10 @@ type Updates interface {
 	RotateSecrets(RotateSecretsRequest) (*RotatePackageResponse, error)
 
 	// RotatePlanetConfig rotates planet configuration package for the server specified in the request
-	RotatePlanetConfig(RotateConfigPackageRequest) (*RotatePackageResponse, error)
+	RotatePlanetConfig(RotatePlanetConfigRequest) (*RotatePackageResponse, error)
 
 	// RotateTeleportConfig rotates teleport configuration package for the server specified in the request
-	RotateTeleportConfig(RotateConfigPackageRequest) (masterConfig *RotatePackageResponse, nodeConfig *RotatePackageResponse, err error)
+	RotateTeleportConfig(RotateTeleportConfigRequest) (masterConfig *RotatePackageResponse, nodeConfig *RotatePackageResponse, err error)
 
 	// ConfigureNode prepares the node for the upgrade
 	ConfigureNode(ConfigureNodeRequest) error
@@ -783,35 +817,53 @@ func (r RotateSecretsRequest) SiteKey() SiteKey {
 	}
 }
 
-// RotateConfigPackageRequest is a request to rotate server's configuration package
-type RotateConfigPackageRequest struct {
-	// AccountID is the account id of the local cluster
-	AccountID string `json:"account_id"`
-	// ClusterName is the local cluster name
-	ClusterName string `json:"cluster_name"`
-	// OperationID is the id of the operation
-	OperationID string `json:"operation_id"`
+// RotateTeleportConfigRequest is a request to rotate teleport server's configuration package
+type RotateTeleportConfigRequest struct {
+	// Key identifies the cluster operation
+	Key SiteOperationKey `json:"key"`
 	// Server is the server to rotate configuration for
 	Server storage.Server `json:"server"`
 	// Servers is all cluster servers
 	Servers storage.Servers `json:"servers"`
 }
 
-// SiteKey returns a cluster key from this request
-func (r RotateConfigPackageRequest) SiteKey() SiteKey {
+// RotatePlanetConfigRequest is a request to rotate planet server's configuration package
+type RotatePlanetConfigRequest struct {
+	// Key identifies the cluster operation
+	Key SiteOperationKey `json:"key"`
+	// Server is the server to rotate configuration for
+	Server storage.Server `json:"server"`
+	// Manifest specifies the manifest to generate configuration with
+	Manifest schema.Manifest `json:"manifest"`
+	// Env specifies optional environment variables to set
+	Env map[string]string `json:"env,omitempty"`
+	// Config specifies optional cluster configuration resource
+	Config []byte `json:"cluster_config,omitempty"`
+	// Package specifies the runtime package locator
+	Package loc.Locator `json:"package"`
+}
+
+// Check validates this request
+func (r ConfigurePackagesRequest) Check() error {
+	return r.SiteOperationKey.Check()
+}
+
+// ClusterKey returns a cluster key from this request
+func (r ConfigurePackagesRequest) ClusterKey() SiteKey {
 	return SiteKey{
 		AccountID:  r.AccountID,
-		SiteDomain: r.ClusterName,
+		SiteDomain: r.SiteDomain,
 	}
 }
 
-// SiteOperationKey returns an operation key from this request
-func (r RotateConfigPackageRequest) SiteOperationKey() SiteOperationKey {
-	return SiteOperationKey{
-		AccountID:   r.AccountID,
-		SiteDomain:  r.ClusterName,
-		OperationID: r.OperationID,
-	}
+// ConfigurePackagesConfigRequest is a request to create configuration packages
+type ConfigurePackagesRequest struct {
+	// OperationKey identifies the operation
+	SiteOperationKey `json:"operation_key"`
+	// Env specifies optional cluster environment variables to set
+	Env map[string]string `json:"env,omitempty"`
+	// Config specifies optional cluster configuration resource in raw form
+	Config []byte `json:"config,omitempty"`
 }
 
 // Proxy helps to manage connections and clients to remote ops centers
@@ -929,8 +981,13 @@ func (s *SiteOperation) String() string {
 		typeS = "uninstall"
 	case OperationGarbageCollect:
 		typeS = "garbage collect"
+	case OperationUpdateRuntimeEnviron:
+		typeS = "update runtime environment"
+	case OperationUpdateConfig:
+		typeS = "update configuration"
 	}
-	return fmt.Sprintf("operation(%v, cluster=%v, state=%s)", typeS, s.SiteDomain, s.State)
+	return fmt.Sprintf("operation(%v(%v), cluster=%v, state=%s, created=%v)",
+		typeS, s.ID, s.SiteDomain, s.State, s.Created.Format(constants.HumanDateFormat))
 }
 
 // SiteOperationKey identifies key to retrieve an opertaion
@@ -1070,7 +1127,7 @@ type CreateSiteShrinkOperationRequest struct {
 	// NodeRemoved indicates whether the node has already been removed from the cluster
 	// Used in cases where we recieve an event where the node is being terminated, but may
 	// not have disconnected from the cluster yet.
-	NodeRemoved bool `json:node_removed`
+	NodeRemoved bool `json:"node_removed"`
 }
 
 // CheckAndSetDefaults makes sure the request is correct and fills in some unset
@@ -1100,9 +1157,8 @@ type CreateSiteAppUpdateOperationRequest struct {
 	SiteDomain string `json:"site_domain"`
 	// App specifies a new application package in the "locator" form, e.g. gravitational.io/mattermost:1.2.3
 	App string `json:"package"`
-	// Manual specifies whether a manual update mode is requested.
-	// Deprecated.
-	Manual bool `json:"manual"`
+	// StartAgents specifies whether the operation will automatically start the update agents
+	StartAgents bool `json:"start_agents"`
 }
 
 // Check validates this request
@@ -1123,6 +1179,33 @@ type CreateClusterGarbageCollectOperationRequest struct {
 	AccountID string `json:"account_id"`
 	// ClusterName is the name of the cluster
 	ClusterName string `json:"cluster_name"`
+}
+
+// CreateUpdateEnvarsOperationRequest is a request
+// to update cluster environment variables
+type CreateUpdateEnvarsOperationRequest struct {
+	// ClusterKey identifies the cluster
+	ClusterKey SiteKey `json:"cluster_key"`
+	// Env specifies the new cluster environment variables
+	Env map[string]string `json:"env"`
+}
+
+// CreateUpdateConfigOperationRequest is a request
+// to create an operation to update cluster configuration
+type CreateUpdateConfigOperationRequest struct {
+	// ClusterKey identifies the cluster
+	ClusterKey SiteKey `json:"cluster_key"`
+	// Config specifies the new configuration as JSON-encoded payload
+	Config []byte `json:"config"`
+}
+
+// UpdateClusterConfigRequest is a request
+// to update cluster configuration
+type UpdateClusterConfigRequest struct {
+	// ClusterKey identifies the cluster
+	ClusterKey SiteKey `json:"cluster_key"`
+	// Config specifies the new configuration as JSON-encoded payload
+	Config []byte `json:"config"`
 }
 
 // AgentService coordinates install agents that are started on every server

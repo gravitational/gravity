@@ -17,16 +17,20 @@ limitations under the License.
 package opsservice
 
 import (
+	"context"
 	"path/filepath"
 
+	"github.com/gravitational/gravity/lib/app"
 	"github.com/gravitational/gravity/lib/checks"
 	"github.com/gravitational/gravity/lib/constants"
+	"github.com/gravitational/gravity/lib/defaults"
 	"github.com/gravitational/gravity/lib/loc"
 	"github.com/gravitational/gravity/lib/ops"
 	"github.com/gravitational/gravity/lib/pack"
 	"github.com/gravitational/gravity/lib/schema"
 	"github.com/gravitational/gravity/lib/state"
 	"github.com/gravitational/gravity/lib/storage"
+	"github.com/gravitational/gravity/lib/storage/clusterconfig"
 	"github.com/gravitational/gravity/lib/utils"
 
 	"github.com/gravitational/trace"
@@ -67,13 +71,13 @@ func (o *Operator) RotateSecrets(req ops.RotateSecretsRequest) (*ops.RotatePacka
 }
 
 // RotateTeleportConfig generates teleport configuration for the server specified in the provided request
-func (o *Operator) RotateTeleportConfig(req ops.RotateConfigPackageRequest) (masterConfig *ops.RotatePackageResponse, nodeConfig *ops.RotatePackageResponse, err error) {
-	operation, err := o.GetSiteOperation(req.SiteOperationKey())
+func (o *Operator) RotateTeleportConfig(req ops.RotateTeleportConfigRequest) (masterConfig *ops.RotatePackageResponse, nodeConfig *ops.RotatePackageResponse, err error) {
+	operation, err := o.GetSiteOperation(req.Key)
 	if err != nil {
 		return nil, nil, trace.Wrap(err)
 	}
 
-	cluster, err := o.openSite(req.SiteKey())
+	cluster, err := o.openSite(req.Key.SiteKey())
 	if err != nil {
 		return nil, nil, trace.Wrap(err)
 	}
@@ -142,35 +146,23 @@ func (o *Operator) getNodeProfile(operation ops.SiteOperation, node storage.Serv
 }
 
 // RotatePlanetConfig rotates planet configuration package for the server specified in the request
-func (o *Operator) RotatePlanetConfig(req ops.RotateConfigPackageRequest) (*ops.RotatePackageResponse, error) {
-	operation, err := o.GetSiteOperation(req.SiteOperationKey())
+func (o *Operator) RotatePlanetConfig(req ops.RotatePlanetConfigRequest) (*ops.RotatePackageResponse, error) {
+	nodeProfile, err := req.Manifest.NodeProfiles.ByName(req.Server.Role)
 	if err != nil {
 		return nil, trace.Wrap(err)
 	}
+	// Keep the service role
+	nodeProfile.ServiceRole = schema.ServiceRole(req.Server.ClusterRole)
 
-	updatePackage, err := operation.Update.Package()
-	if err != nil {
-		return nil, trace.Wrap(err)
-	}
-
-	updateApp, err := o.cfg.Apps.GetApp(*updatePackage)
-	if err != nil {
-		return nil, trace.Wrap(err)
-	}
-
-	nodeProfile, err := o.getNodeProfile(*operation, req.Server)
-	if err != nil {
-		return nil, trace.Wrap(err)
-	}
-
-	node := &ProvisionedServer{
+	node := ProvisionedServer{
 		Server:  req.Server,
 		Profile: *nodeProfile,
 	}
 
 	runner := &localRunner{}
 
-	cluster, err := o.openSite(req.SiteKey())
+	clusterKey := req.Key.SiteKey()
+	cluster, err := o.openSite(clusterKey)
 	if err != nil {
 		return nil, trace.Wrap(err)
 	}
@@ -205,19 +197,14 @@ func (o *Operator) RotatePlanetConfig(req ops.RotateConfigPackageRequest) (*ops.
 		}
 	}
 
-	ctx, err := cluster.newOperationContext(*operation)
-	if err != nil {
-		return nil, trace.Wrap(err)
-	}
-
-	installOperation, err := ops.GetCompletedInstallOperation(req.SiteKey(), o)
+	installOperation, err := ops.GetCompletedInstallOperation(clusterKey, o)
 	if err != nil {
 		return nil, trace.Wrap(err)
 	}
 
 	var master *storage.Server
-	for _, server := range req.Servers {
-		if server.ClusterRole == string(schema.ServiceRoleMaster) {
+	for _, server := range cluster.servers() {
+		if server.IsMaster() {
 			master = &server
 			break
 		}
@@ -226,20 +213,48 @@ func (o *Operator) RotatePlanetConfig(req ops.RotateConfigPackageRequest) (*ops.
 		return nil, trace.NotFound("couldn't find master server: %v", req)
 	}
 
-	ctx.update = updateContext{
-		masterIP:  master.AdvertiseIP,
-		installOp: *installOperation,
-		app:       *updateApp,
-		gravityPath: filepath.Join(
-			state.GravityUpdateDir(node.StateDir()), constants.GravityBin),
-	}
+	dockerConfig := cluster.dockerConfig()
+	checks.OverrideDockerConfig(&dockerConfig,
+		checks.DockerConfigFromSchema(req.Manifest.SystemOptions.DockerConfig()))
 
-	resp, err := cluster.configurePlanetOnNode(
-		ctx, runner, node, etcd, updateApp.Manifest)
+	configPackage, err := cluster.planetNextConfigPackage(&node, req.Package.Version)
 	if err != nil {
 		return nil, trace.Wrap(err)
 	}
 
+	config := planetConfig{
+		master: masterConfig{
+			addr:            master.AdvertiseIP,
+			electionEnabled: node.IsMaster(),
+		},
+		manifest:      req.Manifest,
+		server:        node,
+		installExpand: *installOperation,
+		etcd:          etcd,
+		docker:        dockerConfig,
+		dockerRuntime: node.Docker,
+		planetPackage: req.Package,
+		configPackage: *configPackage,
+		env:           req.Env,
+	}
+
+	if len(req.Config) != 0 {
+		clusterConfig, err := clusterconfig.Unmarshal(req.Config)
+		if err != nil {
+			return nil, trace.Wrap(err)
+		}
+		config.config = clusterConfig
+	}
+
+	resp, err := cluster.getPlanetConfigPackage(config)
+	if err != nil && !trace.IsAlreadyExists(err) {
+		return nil, trace.Wrap(err)
+	}
+
+	log.WithFields(log.Fields{
+		"server":  node.String(),
+		"package": configPackage.String(),
+	}).Info("Created new planet configuration.")
 	return resp, nil
 }
 
@@ -330,22 +345,46 @@ func (s *site) createUpdateOperation(req ops.CreateSiteAppUpdateOperationRequest
 		return nil, trace.Wrap(err, "failed to create update operation")
 	}
 
-	resetSiteState := func() {
+	resetClusterState := func() {
 		if err == nil {
 			return
 		}
-		errReset := s.setSiteState(ops.SiteStateActive)
-		if errReset != nil {
-			log.Warningf("failed to reset site state: %v", trace.DebugReport(errReset))
+		logger := log.WithField("operation", op.Key())
+		// Fail the operation and reset cluster state.
+		// It is important to complete the operation as subsequent same type operations
+		// will not be able to complete if there's an existing incomplete one
+		if errReset := ops.FailOperationAndResetCluster(*key, s.service, err.Error()); errReset != nil {
+			logger.WithFields(log.Fields{
+				log.ErrorKey: errReset,
+				"operation":  key,
+			}).Warn("Failed to mark operation as failed.")
 		}
 	}
-	defer resetSiteState()
+	defer resetClusterState()
 
 	s.reportProgress(ctx, ops.ProgressEntry{
 		State:      ops.ProgressStateInProgress,
 		Completion: 0,
 		Message:    "initializing the operation",
 	})
+
+	if !req.StartAgents {
+		return key, nil
+	}
+
+	updatePackage, err := loc.ParseLocator(req.App)
+	if err != nil {
+		return nil, trace.Wrap(err)
+	}
+	updateApp, err := s.apps().GetApp(*updatePackage)
+	if err != nil {
+		return nil, trace.Wrap(err)
+	}
+	err = s.startUpdateAgent(context.TODO(), ctx, updateApp)
+	if err != nil {
+		return key, trace.Wrap(err,
+			"update operation was created but the automatic update agent failed to start. Refer to the documentation on how to proceed with manual update")
+	}
 
 	return key, nil
 }
@@ -369,6 +408,57 @@ func (s *site) validateUpdateOperationRequest(req ops.CreateSiteAppUpdateOperati
 		return trace.Wrap(err)
 	}
 	return s.checkUpdateParameters(newEnvelope, provisioner)
+}
+
+// startUpdateAgent runs deploy procedure on one of the leader nodes
+func (s *site) startUpdateAgent(ctx context.Context, opCtx *operationContext, updateApp *app.Application) error {
+	master, err := s.getTeleportServer(schema.ServiceLabelRole, string(schema.ServiceRoleMaster))
+	if err != nil {
+		return trace.Wrap(err)
+	}
+	proxy, err := s.teleport().GetProxyClient(ctx, s.key.SiteDomain, nil)
+	if err != nil {
+		return trace.Wrap(err)
+	}
+	nodeClient, err := proxy.ConnectToNode(ctx, master.Addr, defaults.SSHUser, false)
+	if err != nil {
+		return trace.Wrap(err)
+	}
+	defer nodeClient.Close()
+	gravityPackage, err := updateApp.Manifest.Dependencies.ByName(constants.GravityPackage)
+	if err != nil {
+		return trace.Wrap(err)
+	}
+	// determine the server's state dir location
+	site, err := s.service.GetSite(s.key)
+	if err != nil {
+		return trace.Wrap(err)
+	}
+	advertiseIP, ok := master.Labels[ops.AdvertiseIP]
+	if !ok {
+		return trace.NotFound("server %v is missing %s label", master, ops.AdvertiseIP)
+	}
+	stateServer, err := site.ClusterState.FindServerByIP(advertiseIP)
+	if err != nil {
+		return trace.Wrap(err)
+	}
+	serverStateDir := stateServer.StateDir()
+	agentExecPath := filepath.Join(state.GravityRPCAgentDir(serverStateDir), constants.GravityBin)
+	secretsHostDir := filepath.Join(state.GravityRPCAgentDir(serverStateDir), defaults.SecretsDir)
+	err = utils.NewSSHCommands(nodeClient.Client).
+		// extract new gravity version
+		C("rm -rf %s", secretsHostDir).
+		C("mkdir -p %s", secretsHostDir).
+		C("%s package export --file-mask=%o %s %s --ops-url=%s --insecure --quiet",
+			constants.GravityBin, defaults.SharedExecutableMask,
+			gravityPackage.String(), agentExecPath, defaults.GravityServiceURL).
+		C("%s update init-plan", agentExecPath).
+		// distribute agents and upgrade process
+		C("%s agent deploy --leader=upgrade --node=sync-plan", agentExecPath).
+		WithLogger(s.WithField("node", master.HostName())).
+		WithOutput(opCtx.recorder).
+		Run(ctx)
+	return trace.Wrap(err)
 }
 
 // checkUpdateParameters checks if update parameters match

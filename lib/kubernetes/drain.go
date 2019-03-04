@@ -296,5 +296,3 @@ const (
 )
 
 type usingEviction bool
-
-type podGetter func(namespace, name string) (*v1.Pod, error)

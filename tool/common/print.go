@@ -37,10 +37,15 @@ func PrintHeader(val string) {
 
 // PrintTableHeader prints header of a table
 func PrintTableHeader(w io.Writer, cols []string) {
-	dots := make([]string, len(cols))
+	PrintCustomTableHeader(w, cols, "-")
+}
+
+// PrintCustomTableHeader outputs headers using split as a separator
+func PrintCustomTableHeader(w io.Writer, headers []string, split string) {
+	dots := make([]string, len(headers))
 	for i := range dots {
-		dots[i] = strings.Repeat("-", len(cols[i]))
+		dots[i] = strings.Repeat(split, len(headers[i]))
 	}
-	fmt.Fprint(w, strings.Join(cols, "\t")+"\n")
+	fmt.Fprint(w, strings.Join(headers, "\t")+"\n")
 	fmt.Fprint(w, strings.Join(dots, "\t")+"\n")
 }

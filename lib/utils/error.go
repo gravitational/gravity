@@ -111,6 +111,8 @@ func IsTransientClusterError(err error) bool {
 		return true
 	case IsConnectionResetError(err):
 		return true
+	case IsConnectionRefusedError(err):
+		return true
 	case IsClusterUnavailableError(err) || isEtcdClusterError(err):
 		return true
 	case isKubernetesEtcdClusterError(err):
@@ -290,6 +292,14 @@ func IsContextCancelledError(err error) bool {
 func IsConnectionResetError(err error) bool {
 	return strings.Contains(trace.Unwrap(err).Error(),
 		"connection reset by peer")
+}
+
+// IsConnectionRefusedError determines whether err is a
+// 'connection refused' error.
+// err is expected to be non-nil
+func IsConnectionRefusedError(err error) bool {
+	return strings.Contains(trace.Unwrap(err).Error(),
+		"connection refused")
 }
 
 // ShouldReconnectPeer implements the error classification for peer connection errors

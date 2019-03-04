@@ -204,6 +204,9 @@ const (
 	// If not empty, turns the preflight checks off
 	PreflightChecksOffEnvVar = "GRAVITY_CHECKS_OFF"
 
+	// BlockingOperationEnvVar specifies whether to wait for operation to complete
+	BlockingOperationEnvVar = "GRAVITY_BLOCKING_OPERATION"
+
 	// DockerRegistry is a default name for private docker registry
 	DockerRegistry = "leader.telekube.local:5000"
 
@@ -518,6 +521,16 @@ const (
 	// kubernetes, use a lowercase notation instead to make it backwards-compatible
 	ClusterPrivateKeyMapKey = "privatekey"
 
+	// ClusterEnvironmentMap is the name of the ConfigMap that contains cluster environment
+	ClusterEnvironmentMap = "runtimeenvironment"
+
+	// PreviousKeyValuesAnnotationKey defines the annotation field that keeps the old
+	// environment variables after the update
+	PreviousKeyValuesAnnotationKey = "previous-values"
+
+	// ClusterConfigurationMap is the name of the ConfigMap that hosts cluster configuration resource
+	ClusterConfigurationMap = "cluster-configuration"
+
 	// SMTPSecret specifies the name of the Secret with cluster SMTP configuration
 	SMTPSecret = "smtp-configuration-update"
 
@@ -554,8 +567,11 @@ const (
 	// ReportFilterKubernetes defines a report filter to fetch kubernetes diagnostics
 	ReportFilterKubernetes = "kubernetes"
 
-	// RpcAgentUpgradeFunction requests deployed agents to run automatic upgrade operation on leader node
-	RpcAgentUpgradeFunction = "upgrade"
+	// RPCAgentUpgradeFunction requests deployed agents to run automatic upgrade operation on leader node
+	RPCAgentUpgradeFunction = "upgrade"
+
+	// RPCAgentSyncPlanFunction requests deployed agents to synchronize local backend with cluster
+	RPCAgentSyncPlanFunction = "sync-plan"
 
 	// TelekubeMountDir is a directory where telekube mounts specific secrets
 	// and other configuration parameters
@@ -647,9 +663,6 @@ const (
 	FailureMark = "×"
 	// InProgressMark is used in CLI to visually indicate progress
 	InProgressMark = "→"
-
-	// MasterRole is the name of the master node role
-	MasterRole = "master"
 
 	// WireguardNetworkType is a network type that is used for wireguard/wormhole support
 	WireguardNetworkType = "wireguard"

@@ -81,16 +81,17 @@ func (d Digest) String() string {
 func NewLocator(repository, name, ver string) (*Locator, error) {
 	if !cstrings.IsValidDomainName(repository) {
 		return nil, trace.BadParameter(
-			"repository '%v' has invalid format, should be valid domain name, e.g. example.com", repository)
+			"repository %q has invalid format, should be valid domain name, e.g. example.com", repository)
 	}
 	if name == "" {
 		return nil, trace.BadParameter(
-			"package name '%v' has invalid format, should be valid identifier e.g. package-name", name)
+			"package name %q has invalid format, should be valid identifier e.g. package-name", name)
 	}
 	_, err := semver.NewVersion(ver)
 	if err != nil {
 		return nil, trace.BadParameter(
-			"unsupported version format, need semver format: %v, e.g 1.0.0", err)
+			"unsupported version format %q, need semver format e.g 1.0.0: %v",
+			ver, err)
 	}
 	return &Locator{Repository: repository, Name: name, Version: ver}, nil
 }
