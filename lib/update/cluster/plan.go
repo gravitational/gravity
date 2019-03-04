@@ -216,19 +216,18 @@ func NewOperationPlan(config PlanConfig) (*storage.OperationPlan, error) {
 	}
 
 	plan, err := newOperationPlan(planConfig{
-		operation:        *config.Operation,
-		servers:          servers,
-		installedRuntime: *installedRuntime,
-		installedApp:     *installedApp,
-		updateRuntime:    *updateRuntime,
-		updateApp:        *updateApp,
-		links:            links,
-		trustedClusters:  trustedClusters,
-		packageService:   config.Packages,
-		shouldUpdateEtcd: shouldUpdateEtcd,
-		updateCoreDNS:    updateCoreDNS,
-		dnsConfig:        config.DNSConfig,
-
+		operation:         *config.Operation,
+		servers:           servers,
+		installedRuntime:  *installedRuntime,
+		installedApp:      *installedApp,
+		updateRuntime:     *updateRuntime,
+		updateApp:         *updateApp,
+		links:             links,
+		trustedClusters:   trustedClusters,
+		packageService:    config.Packages,
+		shouldUpdateEtcd:  shouldUpdateEtcd,
+		updateCoreDNS:     updateCoreDNS,
+		dnsConfig:         config.DNSConfig,
 		updateDNSAppEarly: updateDNSAppEarly,
 		roles:             roles,
 	})

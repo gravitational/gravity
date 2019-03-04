@@ -30,12 +30,17 @@ import (
 	. "gopkg.in/check.v1"
 )
 
-// CreaeDummyPackage creates package with fake contents
+// CreateDummyPackage creates package with fake contents
 func CreateDummyPackage(locator loc.Locator, packages pack.PackageService, c *C) {
 	files := []*archive.Item{
 		archive.ItemFromString("manifest.json", "{}"),
 	}
-	data := CreatePackageData(files, c)
+	CreateDummyPackageWithContents(locator, files, packages, c)
+}
+
+// CreateDummyPackageWithContents creates package with specified contents
+func CreateDummyPackageWithContents(locator loc.Locator, items []*archive.Item, packages pack.PackageService, c *C) {
+	data := CreatePackageData(items, c)
 	err := packages.UpsertRepository(locator.Repository, time.Time{})
 	c.Assert(err, IsNil)
 	_, err = packages.CreatePackage(locator, data)

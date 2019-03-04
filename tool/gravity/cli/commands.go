@@ -1540,21 +1540,11 @@ type SystemGCRegistryCmd struct {
 // GarbageCollectCmd prunes unused cluster resources
 type GarbageCollectCmd struct {
 	*kingpin.CmdClause
-	// Phase is the specific phase to run
-	Phase *string
-	// PhaseTimeout is the phase execution timeout
-	PhaseTimeout *time.Duration
-	// OperationID specifies the ID of the operation to work with
-	OperationID *string
-	// Resume is whether to resume a failed garbage collection
-	Resume *bool
 	// Manual is whether the operation is not executed automatically
 	Manual *bool
 	// Confirmed is whether the user has confirmed the removal of custom docker
 	// images
 	Confirmed *bool
-	// Force forces phase execution
-	Force *bool
 }
 
 // GarbageCollectPlanCmd displays the plan of the garbage collection operation

@@ -655,15 +655,8 @@ func RegisterCommands(app *kingpin.Application) *Application {
 
 	// pruning cluster resources
 	g.GarbageCollectCmd.CmdClause = g.Command("gc", "Prune cluster resources")
-	g.GarbageCollectCmd.Phase = g.GarbageCollectCmd.Flag("phase", "Specific phase to execute").String()
-	g.GarbageCollectCmd.PhaseTimeout = g.GarbageCollectCmd.Flag("timeout", "Phase execution timeout").
-		Default(defaults.PhaseTimeout).
-		Hidden().
-		Duration()
-	g.GarbageCollectCmd.Resume = g.GarbageCollectCmd.Flag("resume", "Resume aborted operation").Bool()
 	g.GarbageCollectCmd.Manual = g.GarbageCollectCmd.Flag("manual", "Do not start the operation automatically").Short('m').Bool()
 	g.GarbageCollectCmd.Confirmed = g.GarbageCollectCmd.Flag("confirm", "Confirm to remove unrelated docker images").Short('c').Bool()
-	g.GarbageCollectCmd.Force = g.GarbageCollectCmd.Flag("force", "Force phase execution").Bool()
 
 	// system clean up tasks
 	systemGCCmd := g.SystemCmd.Command("gc", "Run system clean up tasks")

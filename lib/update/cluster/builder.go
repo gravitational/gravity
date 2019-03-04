@@ -20,6 +20,7 @@ import (
 	"fmt"
 	"sort"
 	"strconv"
+	"strings"
 
 	"github.com/gravitational/gravity/lib/constants"
 	"github.com/gravitational/gravity/lib/defaults"
@@ -29,6 +30,7 @@ import (
 	"github.com/gravitational/gravity/lib/update"
 	libphase "github.com/gravitational/gravity/lib/update/cluster/phases"
 
+	"github.com/coreos/go-semver/semver"
 	"github.com/gravitational/rigging"
 	"github.com/gravitational/trace"
 	log "github.com/sirupsen/logrus"
@@ -313,6 +315,9 @@ func (r phaseBuilder) etcdPlan(
 		ID:          etcdPhaseName,
 		Description: fmt.Sprintf("Upgrade etcd %v to %v", currentVersion, desiredVersion),
 	})
+	if currentVersion == "" {
+		root.Description = fmt.Sprintf("Upgrade etcd to %v", desiredVersion)
+	}
 
 	// Backup etcd on each master server
 	// Do each master, just in case
@@ -569,6 +574,15 @@ func shouldUpdateCoreDNS(client *kubernetes.Clientset) (bool, error) {
 		return false, trace.Wrap(err)
 	}
 
+	_, err = client.CoreV1().ConfigMaps(constants.KubeSystemNamespace).Get("coredns", metav1.GetOptions{})
+	err = rigging.ConvertError(err)
+	if err != nil {
+		if trace.IsNotFound(err) {
+			return true, nil
+		}
+		return false, trace.Wrap(err)
+	}
+
 	return false, nil
 }
 
@@ -595,41 +609,52 @@ func shouldUpdateEtcd(p planConfig) (updateEtcd bool, installedEtcdVersion strin
 			return false, "", "", trace.NotFound("runtime package not found")
 		}
 	}
-	installedEtcdVersion, err = getPackageLabel("version-etcd", *runtimePackage, p.packageService)
+	installedVersion, err := getEtcdVersion("version-etcd", *runtimePackage, p.packageService)
 	if err != nil {
 		if !trace.IsNotFound(err) {
 			return false, "", "", trace.Wrap(err)
 		}
 		// if the currently installed version doesn't have etcd version information, it needs to be upgraded
 		updateEtcd = true
-
 	}
 	runtimePackage, err = p.updateRuntime.Manifest.DefaultRuntimePackage()
 	if err != nil {
 		return false, "", "", trace.Wrap(err)
 	}
-	updateEtcdVersion, err = getPackageLabel("version-etcd", *runtimePackage, p.packageService)
+	updateVersion, err := getEtcdVersion("version-etcd", *runtimePackage, p.packageService)
 	if err != nil {
 		return false, "", "", trace.Wrap(err)
 	}
-	if installedEtcdVersion != updateEtcdVersion {
+	if installedVersion == nil || installedVersion.Compare(*updateVersion) < 0 {
 		updateEtcd = true
 	}
-
+	if installedVersion != nil {
+		installedEtcdVersion = installedVersion.String()
+	}
+	updateEtcdVersion = updateVersion.String()
 	return updateEtcd, installedEtcdVersion, updateEtcdVersion, nil
 }
 
-func getPackageLabel(searchLabel string, locator loc.Locator, packageService pack.PackageService) (string, error) {
+func getEtcdVersion(searchLabel string, locator loc.Locator, packageService pack.PackageService) (*semver.Version, error) {
 	manifest, err := pack.GetPackageManifest(packageService, locator)
 	if err != nil {
-		return "", trace.Wrap(err)
+		return nil, trace.Wrap(err)
 	}
 	for _, label := range manifest.Labels {
 		if label.Name == searchLabel {
-			return label.Value, nil
+			versionS := label.Value
+			if strings.HasPrefix(versionS, "v") {
+				versionS = versionS[1:]
+			}
+			version, err := semver.NewVersion(versionS)
+			if err != nil {
+				return nil, trace.Wrap(err)
+			}
+			return version, nil
 		}
 	}
-	return "", trace.NotFound("label %v not found on package %v", searchLabel, locator)
+	return nil, trace.NotFound("package manifest for %q does not have label %v",
+		locator, searchLabel)
 }
 
 // setLeaderElection creates a phase that will change the leader election state in the cluster

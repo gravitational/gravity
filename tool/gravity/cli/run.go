@@ -785,18 +785,6 @@ func Execute(g *Application, cmd string, extraArgs []string) error {
 	case g.SystemStreamRuntimeJournalCmd.FullCommand():
 		return streamRuntimeJournal(localEnv)
 	case g.GarbageCollectCmd.FullCommand():
-		phase := *g.GarbageCollectCmd.Phase
-		if *g.GarbageCollectCmd.Resume {
-			phase = fsm.RootPhase
-		}
-		if phase != "" {
-			return executeGarbageCollectPhase(localEnv, PhaseParams{
-				PhaseID:     phase,
-				Timeout:     *g.GarbageCollectCmd.PhaseTimeout,
-				Force:       *g.GarbageCollectCmd.Force,
-				OperationID: *g.GarbageCollectCmd.OperationID,
-			}, nil)
-		}
 		return garbageCollect(localEnv, *g.GarbageCollectCmd.Manual, *g.GarbageCollectCmd.Confirmed)
 	case g.SystemGCJournalCmd.FullCommand():
 		return removeUnusedJournalFiles(localEnv,

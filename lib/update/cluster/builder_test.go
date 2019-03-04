@@ -18,10 +18,13 @@ package cluster
 
 import (
 	"github.com/gravitational/gravity/lib/app"
+	apptest "github.com/gravitational/gravity/lib/app/service/test"
+	"github.com/gravitational/gravity/lib/archive"
 	"github.com/gravitational/gravity/lib/compare"
 	"github.com/gravitational/gravity/lib/constants"
 	"github.com/gravitational/gravity/lib/loc"
 	"github.com/gravitational/gravity/lib/ops"
+	"github.com/gravitational/gravity/lib/ops/opsservice"
 	"github.com/gravitational/gravity/lib/pack"
 	"github.com/gravitational/gravity/lib/schema"
 	"github.com/gravitational/gravity/lib/storage"
@@ -161,6 +164,114 @@ func (s *PlanSuite) TestPlanWithoutRuntimeUpdate(c *check.C) {
 	c.Assert(*obtainedPlan, compare.DeepEquals, plan)
 }
 
+func (s *PlanSuite) TestUpdatesEtcdFromManifestWithoutLabels(c *check.C) {
+	services := opsservice.SetupTestServices(c)
+	files := []*archive.Item{
+		archive.ItemFromString("orbit.manifest.json", `{"version": "0.0.1"}`),
+	}
+	runtimePackage := loc.MustParseLocator("example.com/runtime:1.0.0")
+	apptest.CreateDummyPackageWithContents(
+		runtimePackage,
+		files,
+		services.Packages, c)
+	files = []*archive.Item{
+		archive.ItemFromString("orbit.manifest.json", `{
+	"version": "0.0.1",
+	"labels": [
+		{
+			"name": "version-etcd",
+			"value": "v3.3.3"
+		}
+	]
+}`),
+	}
+	updateRuntimePackage := loc.MustParseLocator("example.com/runtime:1.0.1")
+	apptest.CreateDummyPackageWithContents(
+		updateRuntimePackage,
+		files,
+		services.Packages, c)
+	p := planConfig{
+		packageService: services.Packages,
+		installedRuntime: app.Application{Manifest: schema.Manifest{
+			SystemOptions: &schema.SystemOptions{
+				Dependencies: schema.SystemDependencies{
+					Runtime: &schema.Dependency{Locator: runtimePackage},
+				},
+			},
+		}},
+		updateRuntime: app.Application{Manifest: schema.Manifest{
+			SystemOptions: &schema.SystemOptions{
+				Dependencies: schema.SystemDependencies{
+					Runtime: &schema.Dependency{Locator: updateRuntimePackage},
+				},
+			},
+		}},
+	}
+	update, installedVersion, updateVersion, err := shouldUpdateEtcd(p)
+	c.Assert(err, check.IsNil)
+	c.Assert(update, check.Equals, true)
+	c.Assert(installedVersion, check.Equals, "")
+	c.Assert(updateVersion, check.Equals, "3.3.3")
+}
+
+func (s *PlanSuite) TestCorrectlyDeterminesWhetherToUpdateEtcd(c *check.C) {
+	services := opsservice.SetupTestServices(c)
+	files := []*archive.Item{
+		archive.ItemFromString("orbit.manifest.json", `{
+	"version": "0.0.1",
+	"labels": [
+		{
+			"name": "version-etcd",
+			"value": "v3.3.2"
+		}
+	]
+}`),
+	}
+	runtimePackage := loc.MustParseLocator("example.com/runtime:1.0.0")
+	apptest.CreateDummyPackageWithContents(
+		runtimePackage,
+		files,
+		services.Packages, c)
+	files = []*archive.Item{
+		archive.ItemFromString("orbit.manifest.json", `{
+	"version": "0.0.1",
+	"labels": [
+		{
+			"name": "version-etcd",
+			"value": "v3.3.3"
+		}
+	]
+}`),
+	}
+	updateRuntimePackage := loc.MustParseLocator("example.com/runtime:1.0.1")
+	apptest.CreateDummyPackageWithContents(
+		updateRuntimePackage,
+		files,
+		services.Packages, c)
+	p := planConfig{
+		packageService: services.Packages,
+		installedRuntime: app.Application{Manifest: schema.Manifest{
+			SystemOptions: &schema.SystemOptions{
+				Dependencies: schema.SystemDependencies{
+					Runtime: &schema.Dependency{Locator: runtimePackage},
+				},
+			},
+		}},
+		updateRuntime: app.Application{Manifest: schema.Manifest{
+			SystemOptions: &schema.SystemOptions{
+				Dependencies: schema.SystemDependencies{
+					Runtime: &schema.Dependency{Locator: updateRuntimePackage},
+				},
+			},
+		}},
+	}
+	update, installedVersion, updateVersion, err := shouldUpdateEtcd(p)
+	c.Assert(err, check.IsNil)
+	c.Assert(update, check.Equals, true)
+	c.Assert(installedVersion, check.Equals, "3.3.2")
+	c.Assert(updateVersion, check.Equals, "3.3.3")
+}
+
 func newTestPlan(c *check.C, p params) (storage.OperationPlan, planConfig) {
 	servers := []storage.Server{
 		{
@@ -254,7 +365,7 @@ func resetCap(phases []storage.OperationPhase) []storage.OperationPhase {
 	return phases[:len(phases):len(phases)]
 }
 
-func shouldUpdateEtcdTest(p planConfig) (bool, string, string, error) {
+func shouldUpdateEtcdTest(planConfig) (bool, string, string, error) {
 	return true, "1.0.0", "2.0.0", nil
 }
 
