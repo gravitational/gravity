@@ -27,6 +27,7 @@ import (
 	"github.com/gravitational/gravity/lib/ops/monitoring"
 	"github.com/gravitational/gravity/lib/ops/opsservice"
 	"github.com/gravitational/gravity/lib/storage"
+	"github.com/gravitational/gravity/lib/storage/clusterconfig"
 
 	teleservices "github.com/gravitational/teleport/lib/services"
 	"github.com/gravitational/trace"
@@ -338,6 +339,16 @@ func (r *Router) CreateClusterGarbageCollectOperation(req ops.CreateClusterGarba
 	return r.Local.CreateClusterGarbageCollectOperation(req)
 }
 
+// CreateUpdateEnvarsOperation creates a new operation to update cluster runtime environment variables
+func (r *Router) CreateUpdateEnvarsOperation(req ops.CreateUpdateEnvarsOperationRequest) (*ops.SiteOperationKey, error) {
+	return r.Local.CreateUpdateEnvarsOperation(req)
+}
+
+// CreateUpdateConfigOperation creates a new operation to update cluster configuration
+func (r *Router) CreateUpdateConfigOperation(req ops.CreateUpdateConfigOperationRequest) (*ops.SiteOperationKey, error) {
+	return r.Local.CreateUpdateConfigOperation(req)
+}
+
 func (r *Router) GetSiteOperationLogs(key ops.SiteOperationKey) (io.ReadCloser, error) {
 	client, err := r.PickOperationClient(key.SiteDomain)
 	if err != nil {
@@ -495,23 +506,23 @@ func (r *Router) GetOperationPlan(key ops.SiteOperationKey) (*storage.OperationP
 }
 
 // Configure packages configures packages for the specified install operation
-func (r *Router) ConfigurePackages(key ops.SiteOperationKey) error {
-	client, err := r.PickOperationClient(key.SiteDomain)
+func (r *Router) ConfigurePackages(req ops.ConfigurePackagesRequest) error {
+	client, err := r.PickOperationClient(req.SiteDomain)
 	if err != nil {
 		return trace.Wrap(err)
 	}
-	return client.ConfigurePackages(key)
+	return client.ConfigurePackages(req)
 }
 
 func (r *Router) RotateSecrets(req ops.RotateSecretsRequest) (*ops.RotatePackageResponse, error) {
 	return r.Local.RotateSecrets(req)
 }
 
-func (r *Router) RotatePlanetConfig(req ops.RotateConfigPackageRequest) (*ops.RotatePackageResponse, error) {
+func (r *Router) RotatePlanetConfig(req ops.RotatePlanetConfigRequest) (*ops.RotatePackageResponse, error) {
 	return r.Local.RotatePlanetConfig(req)
 }
 
-func (r *Router) RotateTeleportConfig(req ops.RotateConfigPackageRequest) (*ops.RotatePackageResponse, *ops.RotatePackageResponse, error) {
+func (r *Router) RotateTeleportConfig(req ops.RotateTeleportConfigRequest) (*ops.RotatePackageResponse, *ops.RotatePackageResponse, error) {
 	return r.Local.RotateTeleportConfig(req)
 }
 
@@ -652,6 +663,33 @@ func (r *Router) DeleteAlertTarget(key ops.SiteKey) error {
 		return trace.Wrap(err)
 	}
 	return client.DeleteAlertTarget(key)
+}
+
+// GetClusterEnvironmentVariables retrieves the cluster runtime environment variables
+func (r *Router) GetClusterEnvironmentVariables(key ops.SiteKey) (storage.EnvironmentVariables, error) {
+	client, err := r.RemoteClient(key.SiteDomain)
+	if err != nil {
+		return nil, trace.Wrap(err)
+	}
+	return client.GetClusterEnvironmentVariables(key)
+}
+
+// GetClusterConfiguration retrieves the cluster configuration
+func (r *Router) GetClusterConfiguration(key ops.SiteKey) (clusterconfig.Interface, error) {
+	client, err := r.RemoteClient(key.SiteDomain)
+	if err != nil {
+		return nil, trace.Wrap(err)
+	}
+	return client.GetClusterConfiguration(key)
+}
+
+// UpdateClusterConfiguration updates the cluster configuration from the specified request
+func (r *Router) UpdateClusterConfiguration(req ops.UpdateClusterConfigRequest) error {
+	client, err := r.RemoteClient(req.ClusterKey.SiteDomain)
+	if err != nil {
+		return trace.Wrap(err)
+	}
+	return client.UpdateClusterConfiguration(req)
 }
 
 func (r *Router) GetApplicationEndpoints(key ops.SiteKey) ([]ops.Endpoint, error) {

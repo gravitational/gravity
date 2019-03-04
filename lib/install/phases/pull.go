@@ -111,11 +111,11 @@ func (p *pullExecutor) Execute(ctx context.Context) error {
 	if err != nil {
 		return trace.Wrap(err)
 	}
-	err = p.applyPackageLabels()
+	err = p.pullConfiguredPackages()
 	if err != nil {
 		return trace.Wrap(err)
 	}
-	err = p.pullConfiguredPackages()
+	err = p.applyPackageLabels()
 	if err != nil {
 		return trace.Wrap(err)
 	}
@@ -161,12 +161,19 @@ func (p *pullExecutor) pullUserApplication() error {
 func (p *pullExecutor) applyPackageLabels() error {
 	packages := []string{
 		constants.TeleportPackage,
+		constants.TeleportNodeConfigPackage,
 		constants.GravityPackage,
 	}
+	purposeLabels := []string{
+		pack.PurposePlanetConfig,
+		pack.PurposePlanetSecrets,
+		pack.PurposeTeleportNodeConfig,
+	}
 	var locators []loc.Locator
-	err := pack.ForeachPackageInRepo(p.LocalPackages, defaults.SystemAccountOrg,
+	err := pack.ForeachPackage(p.LocalPackages,
 		func(e pack.PackageEnvelope) error {
-			if utils.StringInSlice(packages, e.Locator.Name) {
+			if utils.StringInSlice(packages, e.Locator.Name) ||
+				pack.Labels(e.RuntimeLabels).HasPurpose(purposeLabels...) {
 				locators = append(locators, e.Locator)
 			}
 			return nil

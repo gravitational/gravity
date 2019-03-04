@@ -40,8 +40,11 @@ type Modules interface {
 	DefaultAuthPreference(processMode string) (teleservices.AuthPreference, error)
 	// SupportedResources returns a list of resources that can be created/viewed
 	SupportedResources() []string
-	// SupportedResourcesToRemoves returns a list of resources that can be removed
+	// SupportedResourcesToRemove returns a list of resources that can be removed
 	SupportedResourcesToRemove() []string
+	// CanonicalKind translates the specified kind to canonical form.
+	// Returns an empty string if no canonical form exists
+	CanonicalKind(kind string) string
 	// SupportedConnectors returns a list of supported auth connector kinds
 	SupportedConnectors() []string
 	// Version returns the gravity version
@@ -113,6 +116,12 @@ func (m *defaultModules) SupportedConnectors() []string {
 		teleservices.KindOIDCConnector,
 		teleservices.KindGithubConnector,
 	}
+}
+
+// CanonicalKind translates the specified kind to canonical form.
+// Returns an empty string if no canonical form exists
+func (m *defaultModules) CanonicalKind(kind string) string {
+	return storage.CanonicalKind(kind)
 }
 
 // Version returns the gravity version

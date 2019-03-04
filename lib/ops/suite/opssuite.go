@@ -114,6 +114,7 @@ func (s *OpsSuite) SitesCRUD(c *C) {
 		AccountID:  a.ID,
 	}
 	out, err := s.O.GetSite(siteKey)
+	c.Assert(err, IsNil)
 	c.Assert(out, DeepEquals, site)
 
 	sites, err = s.O.GetSites(a.ID)

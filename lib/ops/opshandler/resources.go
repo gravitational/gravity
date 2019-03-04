@@ -266,8 +266,12 @@ func (h *WebHandler) getGithubConnectors(w http.ResponseWriter, r *http.Request,
    DELETE /portal/v1/accounts/:account_id/sites/:site_domain/github/connectors/:id
 */
 func (h *WebHandler) deleteGithubConnector(w http.ResponseWriter, r *http.Request, p httprouter.Params, ctx *HandlerContext) error {
-	err := ctx.Identity.DeleteGithubConnector(p.ByName("id"))
+	name := p.ByName("id")
+	err := ctx.Identity.DeleteGithubConnector(name)
 	if err != nil {
+		if trace.IsNotFound(err) {
+			return trace.NotFound("GitHub connector %q not found", name)
+		}
 		return trace.Wrap(err)
 	}
 	roundtrip.ReplyJSON(w, http.StatusOK, message("Github connector deleted"))

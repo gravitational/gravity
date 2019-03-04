@@ -124,8 +124,7 @@ func newUniversalDecoder(r io.Reader) *universalDecoder {
 // universalDecoder is a decoder for resources in either JSON or YAML format
 type universalDecoder struct {
 	runtime.Decoder
-	streamDecoder    *yaml.YAMLOrJSONDecoder
-	skipUnrecognized bool
+	streamDecoder *yaml.YAMLOrJSONDecoder
 }
 
 // Decode obtains the next object from the stream.

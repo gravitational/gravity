@@ -799,7 +799,6 @@ func (p *Peer) getFSM(ctx operationContext) (*fsm.FSM, error) {
 		Credentials:   ctx.Creds.Client,
 		DebugMode:     p.DebugMode,
 		Insecure:      p.Insecure,
-		DNSConfig:     ctx.Cluster.DNSConfig,
 	})
 }
 

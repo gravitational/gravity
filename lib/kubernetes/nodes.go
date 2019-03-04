@@ -68,7 +68,7 @@ func SetUnschedulable(ctx context.Context, client corev1.NodeInterface, nodeName
 		return nil
 	}
 
-	err = retry(ctx, func() error {
+	err = Retry(ctx, func() error {
 		return trace.Wrap(setUnschedulable(client, nodeName, unschedulable))
 	})
 
@@ -95,7 +95,7 @@ func UpdateTaints(ctx context.Context, client corev1.NodeInterface, nodeName str
 		return nil
 	}
 
-	err = retry(ctx, func() error {
+	err = Retry(ctx, func() error {
 		return trace.Wrap(updateTaints(client, nodeName, newTaints))
 	})
 
@@ -104,7 +104,7 @@ func UpdateTaints(ctx context.Context, client corev1.NodeInterface, nodeName str
 
 // UpdateLabels adds labels on the node specified with nodeName
 func UpdateLabels(ctx context.Context, client corev1.NodeInterface, nodeName string, labels map[string]string) error {
-	err := retry(ctx, func() error {
+	err := Retry(ctx, func() error {
 		return trace.Wrap(updateLabels(client, nodeName, labels))
 	})
 
@@ -143,7 +143,7 @@ func setUnschedulable(client corev1.NodeInterface, nodeName string, unschedulabl
 	node.Spec.Unschedulable = unschedulable
 
 	_, err = client.Update(node)
-	return trace.Wrap(err)
+	return rigging.ConvertError(err)
 }
 
 // updateTaints updates taints on the node given with nodeName from newTaints
@@ -156,7 +156,7 @@ func updateTaints(client corev1.NodeInterface, nodeName string, newTaints []v1.T
 	node.Spec.Taints = newTaints
 
 	_, err = client.Update(node)
-	return trace.Wrap(err)
+	return rigging.ConvertError(err)
 }
 
 // updateLabels updates labels on the node specified with nodeName
@@ -171,7 +171,7 @@ func updateLabels(client corev1.NodeInterface, nodeName string, labels map[strin
 	}
 
 	_, err = client.Update(node)
-	return trace.Wrap(err)
+	return rigging.ConvertError(err)
 }
 
 // deleteTaints deletes the given taints from the node's list of taints
@@ -239,14 +239,13 @@ func addTaints(oldTaints []v1.Taint, newTaints *[]v1.Taint) bool {
 	return len(oldTaints) != len(*newTaints)
 }
 
-// retry retries the specified function fn using classify to determine
-// whether to retry a particular error.
+// Retry retries the specified function fn using classify to determine
+// whether to Retry a particular error.
 // Returns the first permanent error
-func retry(ctx context.Context, fn func() error) error {
+func Retry(ctx context.Context, fn func() error) error {
 	interval := backoff.NewExponentialBackOff()
 	err := utils.RetryWithInterval(ctx, interval, func() error {
-		err := RetryOnUpdateConflict(fn())
-		return trace.Wrap(err)
+		return RetryOnUpdateConflict(fn())
 	})
 	return trace.Wrap(err)
 }

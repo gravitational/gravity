@@ -40,7 +40,11 @@ type Engine interface {
 	// RunCommand executes the phase specified by params on the specified
 	// server using the provided runner
 	RunCommand(context.Context, RemoteRunner, storage.Server, Params) error
-	// Complete is called to mark operation complete
+	// Complete transitions the operation to a completed state.
+	// Completed state is either successful or failed depending on the state of
+	// the operation plan.
+	// The optional error can be used to specify the reason for failure and
+	// defines the final operation failure
 	Complete(error) error
 }
 

@@ -39,9 +39,9 @@ var _ = check.Suite(&ResourceControlSuite{})
 func (s *ResourceControlSuite) TestResourceControl(c *check.C) {
 	control := NewControl(&testResources{})
 
-	reader := strings.NewReader(resources)
+	reader := strings.NewReader(resourceBytes)
 
-	err := control.Create(reader, false, "")
+	err := control.Create(reader, CreateRequest{})
 	c.Assert(err, check.IsNil)
 
 	w := &bytes.Buffer{}
@@ -52,7 +52,11 @@ kind2/resource2
 kind1/resource3
 `)
 
-	err = control.Remove("kind2", "resource2", false, "")
+	req := RemoveRequest{
+		Kind: "kind2",
+		Name: "resource2",
+	}
+	err = control.Remove(req)
 	c.Assert(err, check.IsNil)
 
 	w.Reset()
@@ -124,7 +128,7 @@ func (c testCollection) WriteJSON(w io.Writer) error {
 	return trace.Wrap(err)
 }
 
-const resources = `
+const resourceBytes = `
 kind: kind1
 metadata:
   name: resource1

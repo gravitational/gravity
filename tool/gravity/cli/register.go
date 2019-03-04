@@ -113,7 +113,6 @@ func RegisterCommands(app *kingpin.Application) *Application {
 	g.JoinCmd.PhaseTimeout = g.JoinCmd.Flag("timeout", "Phase execution timeout").Default(defaults.PhaseTimeout).Hidden().Duration()
 	g.JoinCmd.Resume = g.JoinCmd.Flag("resume", "Resume joining from last failed step").Bool()
 	g.JoinCmd.Force = g.JoinCmd.Flag("force", "Force phase execution").Bool()
-	g.JoinCmd.Complete = g.JoinCmd.Flag("complete", "Complete join operation").Bool()
 	g.JoinCmd.OperationID = g.JoinCmd.Flag("operation-id", "ID of the operation that was created via UI").Hidden().String()
 
 	g.AutoJoinCmd.CmdClause = g.Command("autojoin", "Use cloud provider data to join a node to existing cluster")
@@ -133,17 +132,28 @@ func RegisterCommands(app *kingpin.Application) *Application {
 	g.RemoveCmd.Force = g.RemoveCmd.Flag("force", "Force removal of offline node").Bool()
 	g.RemoveCmd.Confirm = g.RemoveCmd.Flag("confirm", "Do not ask for confirmation").Bool()
 
-	g.PlanCmd.CmdClause = g.Command("plan", "Display a plan for an ongoing operation")
-	g.PlanCmd.Init = g.PlanCmd.Flag("init", "Initialize operation plan").Bool()
-	g.PlanCmd.Sync = g.PlanCmd.Flag("sync", "Sync the operation plan from etcd to local store").Hidden().Bool()
-	g.PlanCmd.Output = common.Format(g.PlanCmd.Flag("output", "Output format for the plan, text, json or yaml").Short('o').Default(string(constants.EncodingText)))
-	g.PlanCmd.OperationID = g.PlanCmd.Flag("operation-id", "ID of the operation to display the plan for. It not specified, the last operation plan will be displayed").String()
+	g.PlanCmd.CmdClause = g.Command("plan", "Manage operation plan")
+	g.PlanCmd.OperationID = g.PlanCmd.Flag("operation-id", "ID of the active operation. It not specified, the last operation will be used").Hidden().String()
+	g.PlanCmd.SkipVersionCheck = g.PlanCmd.Flag("skip-version-check", "Bypass version compatibility check").Hidden().Bool()
 
-	g.RollbackCmd.CmdClause = g.Command("rollback", "Rollback actions")
-	g.RollbackCmd.Phase = g.RollbackCmd.Flag("phase", "Operation phase to rollback").Required().String()
-	g.RollbackCmd.PhaseTimeout = g.RollbackCmd.Flag("timeout", "Phase rollback timeout").Default(defaults.PhaseTimeout).Hidden().Duration()
-	g.RollbackCmd.Force = g.RollbackCmd.Flag("force", "Force phase rollback").Bool()
-	g.RollbackCmd.SkipVersionCheck = g.RollbackCmd.Flag("skip-version-check", "Bypass version compatibility check").Hidden().Bool()
+	g.PlanDisplayCmd.CmdClause = g.PlanCmd.Command("display", "Display a plan for an ongoing operation").Default()
+	g.PlanDisplayCmd.Output = common.Format(g.PlanDisplayCmd.Flag("output", "Output format for the plan, text, json or yaml").Short('o').Default(string(constants.EncodingText)))
+
+	g.PlanExecuteCmd.CmdClause = g.PlanCmd.Command("execute", "Execute specified operation phase")
+	g.PlanExecuteCmd.Phase = g.PlanExecuteCmd.Flag("phase", "Phase ID to execute").String()
+	g.PlanExecuteCmd.Force = g.PlanExecuteCmd.Flag("force", "Force execution of specified phase").Bool()
+	g.PlanExecuteCmd.PhaseTimeout = g.PlanExecuteCmd.Flag("timeout", "Phase timeout").Default(defaults.PhaseTimeout).Hidden().Duration()
+
+	g.PlanRollbackCmd.CmdClause = g.PlanCmd.Command("rollback", "Rollback specified operation phase")
+	g.PlanRollbackCmd.Phase = g.PlanRollbackCmd.Flag("phase", "Phase ID to execute").String()
+	g.PlanRollbackCmd.Force = g.PlanRollbackCmd.Flag("force", "Force rollback of specified phase").Bool()
+	g.PlanRollbackCmd.PhaseTimeout = g.PlanRollbackCmd.Flag("timeout", "Phase timeout").Default(defaults.PhaseTimeout).Hidden().Duration()
+
+	g.PlanResumeCmd.CmdClause = g.PlanCmd.Command("resume", "Resume last aborted operation")
+	g.PlanResumeCmd.Force = g.PlanResumeCmd.Flag("force", "Force execution of specified phase").Bool()
+	g.PlanResumeCmd.PhaseTimeout = g.PlanResumeCmd.Flag("timeout", "Phase timeout").Default(defaults.PhaseTimeout).Hidden().Duration()
+
+	g.PlanCompleteCmd.CmdClause = g.PlanCmd.Command("complete", "Mark operation as completed")
 
 	g.UpdateCmd.CmdClause = g.Command("update", "Update actions on cluster")
 
@@ -153,15 +163,25 @@ func RegisterCommands(app *kingpin.Application) *Application {
 	g.UpdateTriggerCmd.CmdClause = g.UpdateCmd.Command("trigger", "Trigger an update operation for given application").Hidden()
 	g.UpdateTriggerCmd.App = g.UpdateTriggerCmd.Arg("app", "Application version to update to, in the 'name:version' or 'name' (for latest version) format. If unspecified, currently installed application is updated").String()
 	g.UpdateTriggerCmd.Manual = g.UpdateTriggerCmd.Flag("manual", "Manual operation. Do not trigger automatic update").Short('m').Bool()
+	g.UpdateTriggerCmd.Block = g.UpdateTriggerCmd.Flag("block", "Wait for operation to finish (default). Use --no-block to run the operation unattended instead").
+		OverrideDefaultFromEnvar(constants.BlockingOperationEnvVar).
+		Default("true").
+		Bool()
+	g.UpdateTriggerCmd.SkipVersionCheck = g.UpdateTriggerCmd.Flag("skip-version-check", "Bypass version compatibility check").Hidden().Bool()
+
+	g.UpdatePlanInitCmd.CmdClause = g.UpdateCmd.Command("init-plan", "Initialize operation plan").Hidden()
 
 	// upgrade is aliased to "update trigger"
 	g.UpgradeCmd.CmdClause = g.Command("upgrade", "Trigger an update operation for given application").Hidden()
 	g.UpgradeCmd.App = g.UpgradeCmd.Arg("app", "Application version to update to, in the 'name:version' or 'name' (for latest version) format. If unspecified, currently installed application is updated").String()
 	g.UpgradeCmd.Manual = g.UpgradeCmd.Flag("manual", "Manual upgrade mode").Short('m').Bool()
+	g.UpgradeCmd.Block = g.UpgradeCmd.Flag("block", "Wait for operation to finish (default). Use --no-block to run the operation unattended instead").
+		OverrideDefaultFromEnvar(constants.BlockingOperationEnvVar).
+		Default("true").
+		Bool()
 	g.UpgradeCmd.Phase = g.UpgradeCmd.Flag("phase", "Operation phase to execute").String()
 	g.UpgradeCmd.Timeout = g.UpgradeCmd.Flag("timeout", "Phase execution timeout").Default(defaults.PhaseTimeout).Hidden().Duration()
 	g.UpgradeCmd.Force = g.UpgradeCmd.Flag("force", "Force phase execution even if pre-conditions are not satisfied").Bool()
-	g.UpgradeCmd.Complete = g.UpgradeCmd.Flag("complete", "Complete update operation").Bool()
 	g.UpgradeCmd.Resume = g.UpgradeCmd.Flag("resume", "Resume upgrade from the last failed step").Bool()
 	g.UpgradeCmd.SkipVersionCheck = g.UpgradeCmd.Flag("skip-version-check", "Bypass version compatibility check").Hidden().Bool()
 
@@ -527,7 +547,8 @@ func RegisterCommands(app *kingpin.Application) *Application {
 	g.RPCAgentCmd.CmdClause = g.Command("agent", "RPC agent")
 
 	g.RPCAgentDeployCmd.CmdClause = g.RPCAgentCmd.Command("deploy", "deploy RPC agents across cluster nodes, and run specified execution function").Hidden()
-	g.RPCAgentDeployCmd.Args = g.RPCAgentDeployCmd.Arg("arg", "additional arguments").Strings()
+	g.RPCAgentDeployCmd.LeaderArgs = g.RPCAgentDeployCmd.Flag("leader", "additional arguments to leader node agent").String()
+	g.RPCAgentDeployCmd.NodeArgs = g.RPCAgentDeployCmd.Flag("node", "additional arguments to regular node agent").String()
 
 	g.RPCAgentShutdownCmd.CmdClause = g.RPCAgentCmd.Command("shutdown", "request agents to shut down").Hidden()
 
@@ -634,15 +655,8 @@ func RegisterCommands(app *kingpin.Application) *Application {
 
 	// pruning cluster resources
 	g.GarbageCollectCmd.CmdClause = g.Command("gc", "Prune cluster resources")
-	g.GarbageCollectCmd.Phase = g.GarbageCollectCmd.Flag("phase", "Specific phase to execute").String()
-	g.GarbageCollectCmd.PhaseTimeout = g.GarbageCollectCmd.Flag("timeout", "Phase execution timeout").
-		Default(defaults.PhaseTimeout).
-		Hidden().
-		Duration()
-	g.GarbageCollectCmd.Resume = g.GarbageCollectCmd.Flag("resume", "Resume aborted operation").Bool()
 	g.GarbageCollectCmd.Manual = g.GarbageCollectCmd.Flag("manual", "Do not start the operation automatically").Short('m').Bool()
 	g.GarbageCollectCmd.Confirmed = g.GarbageCollectCmd.Flag("confirm", "Confirm to remove unrelated docker images").Short('c').Bool()
-	g.GarbageCollectCmd.Force = g.GarbageCollectCmd.Flag("force", "Force phase execution").Bool()
 
 	// system clean up tasks
 	systemGCCmd := g.SystemCmd.Command("gc", "Run system clean up tasks")
@@ -691,13 +705,17 @@ func RegisterCommands(app *kingpin.Application) *Application {
 	g.ResourceCreateCmd.Filename = g.ResourceCreateCmd.Arg("filename", "resource definition file").String()
 	g.ResourceCreateCmd.Upsert = g.ResourceCreateCmd.Flag("force", "Overwrites a resource if it already exists. (update)").Short('f').Bool()
 	g.ResourceCreateCmd.User = g.ResourceCreateCmd.Flag("user", "user to create resource for, defaults to currently logged in user").String()
+	g.ResourceCreateCmd.Manual = g.ResourceCreateCmd.Flag("manual", "manually execute operation phases").Short('m').Bool()
+	g.ResourceCreateCmd.Confirmed = g.ResourceCreateCmd.Flag("confirm", "do not ask for confirmation").Bool()
 
 	// remove one or many resources
 	g.ResourceRemoveCmd.CmdClause = g.ResourceCmd.Command("rm", fmt.Sprintf("Remove a configuration resource, e.g. gravity resource rm oidc google. Supported resources are: %v", modules.Get().SupportedResourcesToRemove()))
 	g.ResourceRemoveCmd.Kind = g.ResourceRemoveCmd.Arg("kind", fmt.Sprintf("resource kind, one of %v", modules.Get().SupportedResourcesToRemove())).Required().String()
-	g.ResourceRemoveCmd.Name = g.ResourceRemoveCmd.Arg("name", "resource name, e.g. github").Required().String()
+	g.ResourceRemoveCmd.Name = g.ResourceRemoveCmd.Arg("name", "resource name, e.g. github").String()
 	g.ResourceRemoveCmd.Force = g.ResourceRemoveCmd.Flag("force", "Do not return errors if a resource is not found").Short('f').Bool()
 	g.ResourceRemoveCmd.User = g.ResourceRemoveCmd.Flag("user", "user to remove resource for, defaults to currently logged in user").String()
+	g.ResourceRemoveCmd.Manual = g.ResourceRemoveCmd.Flag("manual", "manually execute operation phases").Short('m').Bool()
+	g.ResourceRemoveCmd.Confirmed = g.ResourceRemoveCmd.Flag("confirm", "do not ask for confirmation").Bool()
 
 	// get resources returns resources
 	g.ResourceGetCmd.CmdClause = g.ResourceCmd.Command("get", fmt.Sprintf("Get configuration resources, e.g. gravity get oidc. Supported resources are: %v", modules.Get().SupportedResources()))
