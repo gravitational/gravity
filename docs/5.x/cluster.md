@@ -1137,6 +1137,7 @@ Resource Name             | Resource Description
 `alerttarget`             | cluster monitoring alert target
 `smtp`                    | cluster monitoring SMTP configuration
 `runtimeenvironment`      | cluster runtime environment variables
+`clusterconfiguration`    | cluster configuration
 `authgateway`             | authentication gateway configuration
 
 ### Configuring OpenID Connect
@@ -2026,7 +2027,7 @@ $ gravity resource rm runtimeenvironment
     of runtime containers on each cluster node. Take this into account and plan each update accordingly.
 
 
-### Configuring Cluster
+### Cluster Configuration
 
 It is possible to customize the cluster per environment before the installation or update some aspects of the cluster
 using the `ClusterConfiguration` resource:
@@ -2037,22 +2038,31 @@ kind: ClusterConfiguration
 version: v1
 spec:
   global:
-    cloudProvider: gce    # configures the cloud provider
-    cloudConfig: |        # free-form cloud configuration
+    # configures the cloud provider
+    cloudProvider: gce
+    # free-form cloud configuration
+    cloudConfig: |
       multizone=true
       gce-node-tags=demo-cluster
-    serviceCIDR:  "10.0.0.0/24"          # represents the IP range from which to assign service cluster IPs
-    serviceNodePortRange: "30000-32767"  # port range to reserve for services with NodePort visibility
-    proxyPortRange: "0-0"                # host port range (begin-end, single port or begin+offset, inclusive) that
-                                         # may be consumed in order to proxy service traffic
-    podCIDR: "10.0.0.0/24"               # CIDR Range for Pods in cluster
-    featureGates:                        # A set of key=value pairs that describe feature gates for alpha/experimental features
+    # represents the IP range from which to assign service cluster IPs
+    serviceCIDR:  "10.0.0.0/24"
+    # port range to reserve for services with NodePort visibility
+    serviceNodePortRange: "30000-32767"
+    # host port range (begin-end, single port or begin+offset, inclusive) that
+    # may be consumed in order to proxy service traffic
+    proxyPortRange: "0-0"
+    # CIDR range for Pods in cluster
+    podCIDR: "10.0.0.0/24"
+    # A set of key=value pairs that describe feature gates for alpha/experimental features
+    featureGates:
       AllAlpha: true
       APIResponseCompression: false
       BoundServiceAccountTokenVolume: false
       ExperimentalHostUserNamespaceDefaulting: true
-  kubelet:                               # kubelet configuration as described here: https://kubernetes.io/docs/tasks/administer-cluster/kubelet-config-file/
-    config:                              # and here: https://github.com/kubernetes/kubelet/blob/release-1.13/config/v1beta1/types.go#L62 
+  # kubelet configuration as described here: https://kubernetes.io/docs/tasks/administer-cluster/kubelet-config-file/
+  # and here: https://github.com/kubernetes/kubelet/blob/release-1.13/config/v1beta1/types.go#L62
+  kubelet:
+    config:
       kind: KubeletConfiguration
       apiVersion: kubelet.config.k8s.io/v1beta1
       nodeLeaseDurationSeconds: 50
