@@ -1323,26 +1323,24 @@ as OIDC connectors, and belongs to a privileged Kubernetes group:
 
 ```yaml
 kind: role
-version: v2
+version: v3
 metadata:
   name: administrator
 spec:
-  resources:
-    "*":
-      - read
-      - write
-  clusters:
-    - "*"
-  generate_licenses: true
-  kubernetes_groups:
+  allow:
+    kubernetes_groups:
     - admin
-  logins:
+    logins:
     - root
-  max_session_ttl: "30h0m0s"
-  namespaces:
-    - "*"
-  repositories:
-    - "*"
+    node_labels:
+      '*': '*'
+    rules:
+    - resources:
+      - '*'
+      verbs:
+      - '*'
+  options:
+    max_session_ttl: 30h0m0s
 ```
 
 Below is an example of a non-admin role spec providing access to a particular
@@ -1350,28 +1348,34 @@ cluster `example.com` and its applications:
 
 ```yaml
 kind: role
-version: v2
+version: v3
 metadata:
   name: developer
 spec:
-  resources:
-    cluster:
-      - read
-      - write
-    app:
-      - read
-      - write
-  clusters:
-    - example.com
-  kubernetes_groups:
-    - admin
-  logins:
+  allow:
+    logins:
     - root
-  max_session_ttl: "10h0m0s"
-  namespaces:
-    - default
-  repositories:
-    - "*"
+    node_labels:
+      '*': '*'
+    kubernetes_groups:
+    - admin
+    rules:
+    - resources:
+      - role
+      verbs:
+      - read
+    - resources:
+      - app
+      verbs:
+      - list
+    - resources:
+      - cluster
+      verbs:
+      - read
+      - update
+      where: equals(resource.metadata.name, "example.com")
+  options:
+    max_session_ttl: 10h0m0s
 ```
 
 To create these two roles you can execute:
@@ -1464,8 +1468,18 @@ spec:
     namespaces:
     - default
     rules:
-      - resources: [app]
-        verbs: [read, create, update, delete, list]
+    - resources:
+      - repository
+      verbs:
+      - read
+      - list
+    - resources:
+      - app
+      verbs:
+      - read
+      - list
+      - create
+      - update
 ---
 kind: user
 version: v2
