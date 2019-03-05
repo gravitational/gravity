@@ -149,7 +149,7 @@ func InitAndCheck(g *Application, cmd string) error {
 	case g.UpdateCompleteCmd.FullCommand(),
 		g.UpdateTriggerCmd.FullCommand(),
 		g.RemoveCmd.FullCommand():
-		localEnv, err := g.LocalEnv(cmd)
+		localEnv, err := g.NewLocalEnv()
 		if err != nil {
 			return trace.Wrap(err)
 		}
@@ -243,7 +243,7 @@ func Execute(g *Application, cmd string, extraArgs []string) error {
 	// create an environment used during upgrades
 	var updateEnv *localenv.LocalEnvironment
 	if g.isUpdateCommand(cmd) {
-		updateEnv, err = g.UpdateEnv()
+		updateEnv, err = g.NewUpdateEnv()
 		if err != nil {
 			return trace.Wrap(err)
 		}
@@ -253,7 +253,7 @@ func Execute(g *Application, cmd string, extraArgs []string) error {
 	// create an environment where join-specific data is stored
 	var joinEnv *localenv.LocalEnvironment
 	if g.isExpandCommand(cmd) {
-		joinEnv, err = g.JoinEnv()
+		joinEnv, err = g.NewJoinEnv()
 		if err != nil {
 			return trace.Wrap(err)
 		}
@@ -700,18 +700,6 @@ func Execute(g *Application, cmd string, extraArgs []string) error {
 	case g.SystemStreamRuntimeJournalCmd.FullCommand():
 		return streamRuntimeJournal(localEnv)
 	case g.GarbageCollectCmd.FullCommand():
-		phase := *g.GarbageCollectCmd.Phase
-		if *g.GarbageCollectCmd.Resume {
-			phase = fsm.RootPhase
-		}
-		if phase != "" {
-			return executeGarbageCollectPhase(localEnv, PhaseParams{
-				PhaseID:     phase,
-				Timeout:     *g.GarbageCollectCmd.PhaseTimeout,
-				Force:       *g.GarbageCollectCmd.Force,
-				OperationID: *g.GarbageCollectCmd.OperationID,
-			}, nil)
-		}
 		return garbageCollect(localEnv, *g.GarbageCollectCmd.Manual, *g.GarbageCollectCmd.Confirmed)
 	case g.SystemGCJournalCmd.FullCommand():
 		return removeUnusedJournalFiles(localEnv,
@@ -760,7 +748,7 @@ func Execute(g *Application, cmd string, extraArgs []string) error {
 			*g.ResourceCreateCmd.Manual,
 			*g.ResourceCreateCmd.Confirmed)
 	case g.ResourceRemoveCmd.FullCommand():
-		return RemoveResource(localEnv, g,
+		return removeResource(localEnv, g,
 			*g.ResourceRemoveCmd.Kind,
 			*g.ResourceRemoveCmd.Name,
 			*g.ResourceRemoveCmd.Force,

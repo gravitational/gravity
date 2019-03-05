@@ -1584,7 +1584,7 @@ func (s *Server) IsMaster() bool {
 	return s.ClusterRole == string(schema.ServiceRoleMaster)
 }
 
-// Strings formats this server as readable text
+// String formats this server as readable text
 func (s Server) String() string {
 	return fmt.Sprintf("node(addr=%v, hostname=%v, role=%v, cluster_role=%v)",
 		s.AdvertiseIP,

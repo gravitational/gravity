@@ -87,7 +87,7 @@ func (s *PlanSuite) TestPlanWithRuntimeUpdate(c *check.C) {
 		loc.MustParseLocator("gravitational.io/rbac-app:2.0.0"),
 		runtimeLoc2,
 	}
-	runtime := *builder.runtime(runtimeLocs).Require(*migration)
+	runtime := *builder.runtime(runtimeLocs).Require(masters)
 
 	appLocs := []loc.Locator{loc.MustParseLocator("gravitational.io/app-dep-2:2.0.0"), appLoc2}
 	app := *builder.app(appLocs).Require(runtime)
@@ -159,7 +159,7 @@ func (s *PlanSuite) TestPlanWithoutRuntimeUpdate(c *check.C) {
 	c.Assert(*obtainedPlan, compare.DeepEquals, plan)
 }
 
-func newTestPlan(c *check.C, p params) (storage.OperationPlan, newPlanParams) {
+func newTestPlan(c *check.C, p params) (storage.OperationPlan, planConfig) {
 	servers := []storage.Server{
 		{
 			AdvertiseIP: "192.168.0.1",
@@ -180,7 +180,7 @@ func newTestPlan(c *check.C, p params) (storage.OperationPlan, newPlanParams) {
 			ClusterRole: string(schema.ServiceRoleNode),
 		},
 	}
-	params := newPlanParams{
+	params := planConfig{
 		operation: storage.SiteOperation{
 			ID:         "123",
 			Type:       ops.OperationUpdate,
@@ -252,7 +252,7 @@ func resetCap(phases []storage.OperationPhase) []storage.OperationPhase {
 	return phases[:len(phases):len(phases)]
 }
 
-func shouldUpdateEtcdTest(p newPlanParams) (bool, string, string, error) {
+func shouldUpdateEtcdTest(planConfig) (bool, string, string, error) {
 	return true, "1.0.0", "2.0.0", nil
 }
 

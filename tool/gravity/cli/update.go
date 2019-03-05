@@ -73,9 +73,9 @@ func newUpdater(ctx context.Context, localEnv, updateEnv *localenv.LocalEnvironm
 			if err != nil {
 				msg = err.Error()
 			}
-			if errMark := ops.FailOperationAndResetCluster(*key, operator, msg); err != nil {
+			if errReset := ops.FailOperationAndResetCluster(*key, operator, msg); errReset != nil {
 				logrus.WithFields(logrus.Fields{
-					logrus.ErrorKey: errMark,
+					logrus.ErrorKey: errReset,
 					"operation":     key,
 				}).Warn("Failed to mark operation as failed.")
 			}

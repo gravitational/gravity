@@ -60,7 +60,7 @@ func (r ValidateFunc) Validate(res storage.UnknownResource) error {
 	return r(res)
 }
 
-// ValidateFunc is a resource validtor implemented as a single function
+// ValidateFunc is a resource validator implemented as a single function
 type ValidateFunc func(storage.UnknownResource) error
 
 // ResourceControl allows to create/list/remove resources
@@ -80,6 +80,13 @@ type CreateRequest struct {
 	Upsert bool
 	// User is the user to create resource for
 	User string
+	// Manual defines whether the operation should operate
+	// in manual mode.
+	// This attribute is operation-specific
+	Manual bool
+	// Confirmed defines whether the operation has been explicitly approved.
+	// This attribute is operation-specific
+	Confirmed bool
 }
 
 // Check validates the request
@@ -126,6 +133,13 @@ type RemoveRequest struct {
 	Force bool
 	// User is the resource owner
 	User string
+	// Manual defines whether the operation should operate
+	// in manual mode.
+	// This attribute is operation-specific
+	Manual bool
+	// Confirmed defines whether the operation has been explicitly approved.
+	// This attribute is operation-specific
+	Confirmed bool
 }
 
 // Check validates the request
@@ -171,29 +185,15 @@ func NewControl(resources Resources) *ResourceControl {
 }
 
 // Create creates all resources found in the provided data
-func (r *ResourceControl) Create(reader io.Reader, upsert bool, user string) (err error) {
-	decoder := yaml.NewYAMLOrJSONDecoder(reader, defaults.DecoderBufferSize)
-	empty := true
-	for err == nil {
-		var raw teleservices.UnknownResource
-		err = decoder.Decode(&raw)
-		if err != nil {
-			break
+func (r *ResourceControl) Create(reader io.Reader, req CreateRequest) (err error) {
+	err = ForEach(reader, func(res storage.UnknownResource) error {
+		req.Resource = teleservices.UnknownResource{
+			ResourceHeader: res.ResourceHeader,
+			Raw:            res.Raw,
 		}
-		empty = false
-		err = r.Resources.Create(CreateRequest{
-			Resource: raw,
-			Upsert:   upsert,
-			User:     user,
-		})
-	}
-	if err != io.EOF {
-		return trace.Wrap(err)
-	}
-	if empty {
-		return trace.BadParameter("no resources found, empty input?")
-	}
-	return nil
+		return trace.Wrap(r.Resources.Create(req))
+	})
+	return trace.Wrap(err)
 }
 
 // Get retrieves the specified resource collection and outputs it
@@ -220,13 +220,8 @@ func (r *ResourceControl) Get(w io.Writer, kind, name string, withSecrets bool, 
 }
 
 // Remove removes the specified resource
-func (r *ResourceControl) Remove(kind, name string, force bool, user string) error {
-	err := r.Resources.Remove(RemoveRequest{
-		Kind:  kind,
-		Name:  name,
-		Force: force,
-		User:  user,
-	})
+func (r *ResourceControl) Remove(req RemoveRequest) error {
+	err := r.Resources.Remove(req)
 	if err != nil {
 		return trace.Wrap(err)
 	}
@@ -282,5 +277,5 @@ func ForEach(r io.Reader, handler ResourceFunc) (err error) {
 type ResourceFunc func(storage.UnknownResource) error
 
 func isKubernetesResource(resource storage.UnknownResource) bool {
-	return resource.Version == "" && resource.Kind == ""
+	return resource.Version == ""
 }

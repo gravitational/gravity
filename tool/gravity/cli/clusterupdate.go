@@ -173,15 +173,15 @@ func getClusterUpdater(localEnv, updateEnv *localenv.LocalEnvironment, operation
 }
 
 func (r *clusterInitializer) validatePreconditions(localEnv *localenv.LocalEnvironment, operator ops.Operator, cluster ops.Site) error {
-	app, err := checkForUpdate(localEnv, operator, cluster.App.Package, r.updatePackage)
+	updateApp, err := checkForUpdate(localEnv, operator, cluster.App.Package, r.updatePackage)
 	if err != nil {
 		return trace.Wrap(err)
 	}
-	err = checkCanUpdate(cluster, operator, app.Manifest)
+	err = checkCanUpdate(cluster, operator, updateApp.Manifest)
 	if err != nil {
 		return trace.Wrap(err)
 	}
-	r.updateLoc = app.Package
+	r.updateLoc = updateApp.Package
 	return nil
 }
 
@@ -258,7 +258,6 @@ func checkCanUpdate(cluster ops.Site, operator ops.Operator, manifest schema.Man
 	if err != nil {
 		return trace.Wrap(err)
 	}
-
 	supportsUpdate, err := supportsUpdate(*existingGravityPackage)
 	if err != nil {
 		return trace.Wrap(err)
@@ -269,7 +268,6 @@ Installed runtime version (%q) is too old and cannot be updated by this package.
 Please update this installation to a minimum required runtime version (%q) before using this update.`,
 			existingGravityPackage.Version, defaults.BaseUpdateVersion)
 	}
-
 	return nil
 }
 
@@ -277,7 +275,13 @@ Please update this installation to a minimum required runtime version (%q) befor
 // and returns a reference to it if available.
 // updatePackage specifies an optional (potentially incomplete) package name of the update package.
 // If unspecified, the currently installed application package is used.
-func checkForUpdate(env *localenv.LocalEnvironment, operator ops.Operator, installedPackage loc.Locator, updatePackage string) (*app.Application, error) {
+// Returns the reference to the update application
+func checkForUpdate(
+	env *localenv.LocalEnvironment,
+	operator ops.Operator,
+	installedPackage loc.Locator,
+	updatePackage string,
+) (updateApp *app.Application, err error) {
 	// if app package was not provided, default to the latest version of
 	// the currently installed app
 	if updatePackage == "" {
@@ -298,20 +302,20 @@ func checkForUpdate(env *localenv.LocalEnvironment, operator ops.Operator, insta
 		return nil, trace.Wrap(err)
 	}
 
-	update, err := apps.GetApp(*updateLoc)
+	updateApp, err = apps.GetApp(*updateLoc)
 	if err != nil {
 		return nil, trace.Wrap(err)
 	}
 
-	err = pack.CheckUpdatePackage(installedPackage, update.Package)
+	err = pack.CheckUpdatePackage(installedPackage, updateApp.Package)
 	if err != nil {
 		return nil, trace.Wrap(err)
 	}
 
 	env.Printf("updating %v from %v to %v\n",
-		update.Package.Name, installedPackage.Version, update.Package.Version)
+		updateApp.Package.Name, installedPackage.Version, updateApp.Package.Version)
 
-	return update, nil
+	return updateApp, nil
 }
 
 func supportsUpdate(gravityPackage loc.Locator) (supports bool, err error) {
