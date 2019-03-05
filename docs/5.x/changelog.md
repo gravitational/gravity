@@ -7,7 +7,7 @@ LTS starts with `3.51.0` with minor backwards compatible changes added over time
 
 | Release       | LTS | Release Date         | Supported Until      | Kubernetes Version | Teleport Version |
 | --------------|-----| -------------------- | -------------------- | ------------------ |------------------|
-| 5.5.0-beta.2  | No  | March 1st, 2019      | -                    | 1.13.4             | 3.0.4            |
+| 5.5.0-rc.1    | No  | March 4th, 2019      | -                    | 1.13.4             | 3.0.4            |
 | 5.4.7         | No  | March 1st, 2019      | -                    | 1.13.4             | 2.4.10           |
 | 5.2.10        | Yes | March 1st, 2019      | October, 15th, 2019  | 1.11.8             | 2.4.10           |
 | 5.0.29        | Yes | February, 12th 2019  | April, 13th 2019     | 1.9.12-gravitational | 2.4.10         |
@@ -23,6 +23,13 @@ LTS starts with `3.51.0` with minor backwards compatible changes added over time
     article in our Help Center.
 
 ## 5.x Releases
+
+### 5.5.0-rc.1
+
+#### Improvements
+
+* Introduce `ClusterConfiguration` resource, see [Configuring Cluster](/cluster/#cluster-configuration) for details.
+* Update 'gravity plan' to support all cluster operations.
 
 ### 5.5.0-beta.2
 
