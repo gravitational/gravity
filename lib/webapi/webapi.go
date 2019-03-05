@@ -1385,6 +1385,9 @@ func (m *Handler) uploadApp(w http.ResponseWriter, r *http.Request, p httprouter
 		ErrorC:    errorC,
 	}
 	op, err := context.Applications.CreateImportOperation(req)
+	if err != nil {
+		return nil, trace.Wrap(err)
+	}
 
 	for _ = range progressC {
 	}

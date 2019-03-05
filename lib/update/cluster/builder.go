@@ -130,7 +130,7 @@ func (r phaseBuilder) app(updates []loc.Locator) *update.Phase {
 // migration constructs a migration phase based on the plan params.
 //
 // If there are no migrations to perform, returns nil.
-func (r phaseBuilder) migration(p newPlanParams) *update.Phase {
+func (r phaseBuilder) migration(p planConfig) *update.Phase {
 	root := update.RootPhase(update.Phase{
 		ID:          "migration",
 		Description: "Perform system database migration",
@@ -264,6 +264,9 @@ func (r phaseBuilder) etcdPlan(
 		ID:          etcdPhaseName,
 		Description: fmt.Sprintf("Upgrade etcd %v to %v", currentVersion, desiredVersion),
 	})
+	if currentVersion == "" {
+		root.Description = fmt.Sprintf("Upgrade etcd to %v", desiredVersion)
+	}
 
 	// Backup etcd on each master server
 	// Do each master, just in case
@@ -520,6 +523,15 @@ func shouldUpdateCoreDNS(client *kubernetes.Clientset) (bool, error) {
 		return false, trace.Wrap(err)
 	}
 
+	_, err = client.CoreV1().ConfigMaps(constants.KubeSystemNamespace).Get("coredns", metav1.GetOptions{})
+	err = rigging.ConvertError(err)
+	if err != nil {
+		if trace.IsNotFound(err) {
+			return true, nil
+		}
+		return false, trace.Wrap(err)
+	}
+
 	return false, nil
 }
 
@@ -533,7 +545,7 @@ func supportsTaints(gravityPackage loc.Locator) (supports bool, err error) {
 	return defaults.BaseTaintsVersion.Compare(*ver) <= 0, nil
 }
 
-func shouldUpdateEtcd(p newPlanParams) (updateEtcd bool, installedEtcdVersion string, updateEtcdVersion string, err error) {
+func shouldUpdateEtcd(p planConfig) (updateEtcd bool, installedEtcdVersion string, updateEtcdVersion string, err error) {
 	// TODO: should somehow maintain etcd version invariant across runtime packages
 	runtimePackage, err := p.installedRuntime.Manifest.DefaultRuntimePackage()
 	if err != nil && !trace.IsNotFound(err) {

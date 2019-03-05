@@ -18,9 +18,7 @@ package opsservice
 
 import (
 	"context"
-	"fmt"
 	"path/filepath"
-	"time"
 
 	"github.com/gravitational/gravity/lib/app"
 	"github.com/gravitational/gravity/lib/checks"
@@ -144,8 +142,7 @@ func (o *Operator) RotatePlanetConfig(req ops.RotatePlanetConfigRequest) (*ops.R
 	checks.OverrideDockerConfig(&dockerConfig,
 		checks.DockerConfigFromSchema(req.Manifest.SystemOptions.DockerConfig()))
 
-	configVersion := fmt.Sprintf("%v+%v", req.Package.Version, time.Now().UTC().Unix())
-	configPackage, err := cluster.planetConfigPackage(&node, configVersion)
+	configPackage, err := cluster.planetNextConfigPackage(&node, req.Package.Version)
 	if err != nil {
 		return nil, trace.Wrap(err)
 	}
@@ -277,19 +274,15 @@ func (s *site) createUpdateOperation(req ops.CreateSiteAppUpdateOperationRequest
 		if err == nil {
 			return
 		}
-
-		log := log.WithField("operation", op.Key())
+		logger := log.WithField("operation", op.Key())
 		// Fail the operation and reset cluster state.
 		// It is important to complete the operation as subsequent same type operations
 		// will not be able to complete if there's an existing incomplete one
-		errReset := ops.FailOperation(op.Key(), s.service, trace.Unwrap(err).Error())
-		if errReset != nil {
-			log.WithError(errReset).Warn("Failed to mark operation as failed.")
-		}
-
-		errReset = s.setSiteState(ops.SiteStateActive)
-		if errReset != nil {
-			log.WithError(errReset).Warn("Failed to reset cluster state.")
+		if errReset := ops.FailOperationAndResetCluster(*key, s.service, err.Error()); errReset != nil {
+			logger.WithFields(log.Fields{
+				log.ErrorKey: errReset,
+				"operation":  key,
+			}).Warn("Failed to mark operation as failed.")
 		}
 	}
 	defer resetClusterState()

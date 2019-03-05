@@ -44,6 +44,9 @@ type Config struct {
 	CurrentUser string
 	// Silent provides methods for printing
 	localenv.Silent
+	// ClusterOperationHandler specifies the optional handler
+	// for resources that require special handling
+	ClusterOperationHandler
 }
 
 // Check makes sure the config is valid
@@ -211,8 +214,13 @@ func (r *Resources) Create(req resources.CreateRequest) error {
 			return trace.Wrap(err)
 		}
 		r.Printf("Updated monitoring alert target %q\n", target.GetName())
+	case storage.KindRuntimeEnvironment, storage.KindClusterConfiguration:
+		err := r.ClusterOperationHandler.UpdateResource(req)
+		return trace.Wrap(err)
+	case "":
+		return trace.BadParameter("missing resource kind")
 	default:
-		return trace.NotImplemented("unsupported resource %q, supported are: %v",
+		return trace.BadParameter("unsupported resource %q, supported are: %v",
 			req.Resource.Kind, modules.Get().SupportedResources())
 	}
 	return nil
@@ -349,8 +357,10 @@ func (r *Resources) GetCollection(req resources.ListRequest) (resources.Collecti
 			return nil, trace.Wrap(err)
 		}
 		return configCollection{Interface: config}, nil
+	case "":
+		return nil, trace.BadParameter("missing resource kind")
 	}
-	return nil, trace.NotImplemented("unsupported resource %q, supported are: %v",
+	return nil, trace.BadParameter("unsupported resource %q, supported are: %v",
 		req.Kind, modules.Get().SupportedResources())
 }
 
@@ -430,11 +440,24 @@ func (r *Resources) Remove(req resources.RemoveRequest) error {
 			return trace.Wrap(err)
 		}
 		r.Println("Alert target has been deleted")
+	case storage.KindRuntimeEnvironment, storage.KindClusterConfiguration:
+		err := r.ClusterOperationHandler.RemoveResource(req)
+		return trace.Wrap(err)
+	case "":
+		return trace.BadParameter("missing resource kind")
 	default:
-		return trace.NotImplemented("unsupported resource %q, supported are: %v",
+		return trace.BadParameter("unsupported resource %q, supported are: %v",
 			req.Kind, modules.Get().SupportedResourcesToRemove())
 	}
 	return nil
+}
+
+// ClusterOperationHandler defines a service to manage resources based on cluster operations
+type ClusterOperationHandler interface {
+	// RemoveResource removes the specified resource
+	RemoveResource(resources.RemoveRequest) error
+	// UpdateResource creates or updates the specified resource
+	UpdateResource(resources.CreateRequest) error
 }
 
 // Validate checks whether the specified resource

@@ -38,7 +38,7 @@ type EnvironmentVariables interface {
 	teleservices.Resource
 	// CheckAndSetDefaults validates this resource and sets defaults
 	CheckAndSetDefaults() error
-	SetKeyValues(map[string]string)
+	// GetKeyValues returns the values of environment variables from this resource
 	GetKeyValues() map[string]string
 }
 
@@ -103,11 +103,6 @@ func (r *EnvironmentV1) SetTTL(clock clockwork.Clock, ttl time.Duration) {
 // GetKeyValues returns the values of environment variables from this resource
 func (r *EnvironmentV1) GetKeyValues() map[string]string {
 	return r.Spec.KeyValues
-}
-
-// SetKeyValues sets the environment variables to values from the specified map kvs
-func (r *EnvironmentV1) SetKeyValues(kvs map[string]string) {
-	r.Spec.KeyValues = kvs
 }
 
 // CheckAndSetDefaults validates this resource and sets defaults

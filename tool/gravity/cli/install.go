@@ -405,6 +405,7 @@ func agent(env *localenv.LocalEnvironment, config agentConfig, serviceName strin
 	}
 
 	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
 	watchCh := make(chan rpcserver.WatchEvent, 1)
 	agent, err := install.NewAgent(ctx, install.AgentConfig{
 		PackageAddr:   config.packageAddr,
@@ -550,7 +551,6 @@ func executeJoinPhase(localEnv, joinEnv *localenv.LocalEnvironment, p PhaseParam
 		JoinBackend:   joinEnv.Backend,
 		DebugMode:     localEnv.Debug,
 		Insecure:      localEnv.Insecure,
-		DNSConfig:     storage.DNSConfig(localEnv.DNS),
 	})
 	if err != nil {
 		return trace.Wrap(err)
@@ -601,7 +601,6 @@ func rollbackJoinPhase(localEnv, joinEnv *localenv.LocalEnvironment, p PhasePara
 		JoinBackend:   joinEnv.Backend,
 		DebugMode:     localEnv.Debug,
 		Insecure:      localEnv.Insecure,
-		DNSConfig:     storage.DNSConfig(localEnv.DNS),
 	})
 	if err != nil {
 		return trace.Wrap(err)
@@ -744,7 +743,6 @@ func completeJoinPlan(localEnv, joinEnv *localenv.LocalEnvironment, operation *o
 		JoinBackend:   joinEnv.Backend,
 		DebugMode:     localEnv.Debug,
 		Insecure:      localEnv.Insecure,
-		DNSConfig:     storage.DNSConfig(localEnv.DNS),
 	})
 	if err != nil {
 		return trace.Wrap(err)
@@ -771,7 +769,7 @@ func CheckLocalState(env *localenv.LocalEnvironment) error {
 	if len(packages) != 0 {
 		return trace.BadParameter("detected previous installation state in %v, "+
 			"please clean it up using `gravity leave --force` before proceeding "+
-			"(see https://gravitational.com/telekube/docs/cluster/#deleting-a-cluster for more details)",
+			"(see https://gravitational.com/gravity/docs/cluster/#deleting-a-cluster for more details)",
 			env.StateDir)
 	}
 	return nil

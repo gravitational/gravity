@@ -65,8 +65,6 @@ type FSMConfig struct {
 	DebugMode bool
 	// Insecure turns on FSM insecure mode
 	Insecure bool
-	// DNSConfig is the node DNS configuration
-	DNSConfig storage.DNSConfig
 }
 
 // CheckAndSetDefaults validates expand FSM configuration and sets defaults
@@ -92,9 +90,6 @@ func (c *FSMConfig) CheckAndSetDefaults() error {
 	}
 	if c.LocalPackages == nil {
 		return trace.BadParameter("missing LocalPackages")
-	}
-	if c.DNSConfig.IsEmpty() {
-		return trace.BadParameter("missing DNSConfig")
 	}
 	if c.Credentials == nil {
 		c.Credentials, err = rpc.ClientCredentials(defaults.RPCAgentSecretsDir)

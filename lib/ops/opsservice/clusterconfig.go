@@ -68,7 +68,7 @@ func (o *Operator) GetClusterConfiguration(ops.SiteKey) (config clusterconfig.In
 			return nil, trace.Wrap(err)
 		}
 	} else {
-		config = clusterconfig.NewEmpty()
+		config = clusterconfig.New()
 	}
 	return config, nil
 }

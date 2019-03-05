@@ -70,7 +70,7 @@ const (
 )
 
 // CanonicalKind translates the specified kind to canonical form.
-// Returns an empty string if no canonical form exists
+// Returns the kind unmodified if it did not match any known resource
 func CanonicalKind(kind string) string {
 	switch strings.ToLower(kind) {
 	case teleservices.KindGithubConnector:
@@ -98,7 +98,7 @@ func CanonicalKind(kind string) string {
 	case KindClusterConfiguration, "config":
 		return KindClusterConfiguration
 	}
-	return ""
+	return kind
 }
 
 // UnknownResource represents an unparsed resource with an interpreted ResourceHeader.

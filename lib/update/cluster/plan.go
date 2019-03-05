@@ -203,7 +203,7 @@ func NewOperationPlan(config PlanConfig) (*storage.OperationPlan, error) {
 		return nil, trace.Wrap(err)
 	}
 
-	plan, err := newOperationPlan(newPlanParams{
+	plan, err := newOperationPlan(planConfig{
 		operation:        *config.Operation,
 		servers:          servers,
 		installedRuntime: *installedRuntime,
@@ -253,9 +253,8 @@ type PlanConfig struct {
 	Client    *kubernetes.Clientset
 }
 
-// FIXME: rename to planConfig
-// newPlanParams collects parameters needed to generate an update operation plan
-type newPlanParams struct {
+// planConfig collects parameters needed to generate an update operation plan
+type planConfig struct {
 	// operation is the operation to generate the plan for
 	operation storage.SiteOperation
 	// servers is a list of servers from cluster state
@@ -275,14 +274,14 @@ type newPlanParams struct {
 	// packageService is a reference to the clusters package service
 	packageService pack.PackageService
 	// shouldUpdateEtcd returns whether we should update etcd and the versions of etcd in use
-	shouldUpdateEtcd func(newPlanParams) (bool, string, string, error)
+	shouldUpdateEtcd func(planConfig) (bool, string, string, error)
 	// updateCoreDNS indicates whether we need to run coreDNS phase
 	updateCoreDNS bool
 	// dnsConfig defines the existing DNS configuration
 	dnsConfig storage.DNSConfig
 }
 
-func newOperationPlan(p newPlanParams) (*storage.OperationPlan, error) {
+func newOperationPlan(p planConfig) (*storage.OperationPlan, error) {
 	gravityPackage, err := p.updateRuntime.Manifest.Dependencies.ByName(constants.GravityPackage)
 	if err != nil {
 		return nil, trace.Wrap(err)
@@ -364,8 +363,6 @@ func newOperationPlan(p newPlanParams) (*storage.OperationPlan, error) {
 	var root update.Phase
 	root.Add(initPhase, checksPhase, preUpdatePhase)
 	if len(runtimeUpdates) > 0 {
-		// if there are no runtime updates, then these phases are not needed
-		// as we're not going to update system software
 		if p.updateCoreDNS {
 			corednsPhase := *builder.corednsPhase(leadMaster.Server)
 			mastersPhase = *mastersPhase.Require(corednsPhase)
@@ -390,7 +387,8 @@ func newOperationPlan(p newPlanParams) (*storage.OperationPlan, error) {
 			root.AddSequential(*migrationPhase)
 		}
 
-		root.AddSequential(*builder.runtime(runtimeUpdates))
+		runtimePhase := *builder.runtime(runtimeUpdates).Require(mastersPhase)
+		root.Add(runtimePhase)
 	}
 
 	root.AddSequential(*builder.app(appUpdates), *builder.cleanup(p.servers))

@@ -31,25 +31,19 @@ import (
 	"github.com/sirupsen/logrus"
 )
 
-// RemoveEnviron executes the loop to clear cluster environment variables.
-func RemoveEnviron(localEnv, updateEnv *localenv.LocalEnvironment, manual, confirmed bool) error {
+// removeEnviron executes the loop to clear cluster environment variables.
+func removeEnviron(localEnv, updateEnv *localenv.LocalEnvironment, manual, confirmed bool) error {
 	env := storage.NewEnvironment(nil)
 	ctx := context.TODO()
 	return trace.Wrap(updateEnviron(ctx, localEnv, updateEnv, env, manual, confirmed))
 }
 
-// UpdateEnviron executes the loop to update cluster environment variables.
-// resource specifies the new environment variables to apply.
-func UpdateEnviron(localEnv, updateEnv *localenv.LocalEnvironment, resource []byte, manual, confirmed bool) error {
-	env, err := storage.UnmarshalEnvironmentVariables(resource)
-	if err != nil {
-		return trace.Wrap(err)
-	}
-	ctx := context.TODO()
-	return trace.Wrap(updateEnviron(ctx, localEnv, updateEnv, env, manual, confirmed))
-}
-
-func updateEnviron(ctx context.Context, localEnv, updateEnv *localenv.LocalEnvironment, env storage.EnvironmentVariables, manual, confirmed bool) error {
+func updateEnviron(
+	ctx context.Context,
+	localEnv, updateEnv *localenv.LocalEnvironment,
+	env storage.EnvironmentVariables,
+	manual, confirmed bool,
+) error {
 	if !confirmed {
 		if manual {
 			localEnv.Println(updateEnvironBannerManual)

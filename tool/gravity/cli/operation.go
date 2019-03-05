@@ -182,7 +182,7 @@ func newBackendOperations() backendOperations {
 }
 
 func (r *backendOperations) List(localEnv, updateEnv, joinEnv *localenv.LocalEnvironment) error {
-	clusterEnv, err := localEnv.NewClusterEnvironmentWithTimeout(1 * time.Second)
+	clusterEnv, err := localEnv.NewClusterEnvironment(localenv.WithEtcdTimeout(1 * time.Second))
 	if err != nil {
 		log.WithError(err).Debug("Failed to create cluster environment.")
 	}
