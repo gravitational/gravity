@@ -449,7 +449,8 @@ func Execute(g *Application, cmd string, extraArgs []string) error {
 			},
 		})
 	case g.AppListCmd.FullCommand():
-		return releaseList(localEnv)
+		return releaseList(localEnv,
+			*g.AppListCmd.All)
 	case g.AppUpgradeCmd.FullCommand():
 		return releaseUpgrade(localEnv, releaseUpgradeConfig{
 			Release: *g.AppUpgradeCmd.Release,
