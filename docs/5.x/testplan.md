@@ -352,3 +352,84 @@ $ sudo ./gravity install # should return a license error
 ```bash
 $ sudo ./gravity install --license="$(cat /tmp/license)"
 ```
+
+### Runtime Environment update
+
+This scenario updates the runtime environment of the planet container with new environment variables. Prerequisites: multi-node cluster with at least 1 regular node.
+
+[environ.yaml]
+```yaml
+kind: RuntimeEnvironment
+version: v1
+spec:
+  data:
+    "FOO": "qux"
+    "BAR": "foobar"
+```
+
+```bash
+root$ gravity resource create environ.yaml --confirm
+```
+
+- [ ] Verify the operation completes.
+  - [ ] Verify the environment inside the container has been updated on each node (the environment variables have been added to the /etc/container-environment).
+  - [ ] Verify that services have the environment applied. (Can be verified by checking that a process's environment contains the variables - `/proc/<pid>/environ`)
+
+### Cluster Configuration update
+
+This scenario updates the cluster configuration/ Prerequisites: multi-node cluster with at least 1 regular node.
+
+[config.yaml]
+```yaml
+kind: ClusterConfiguration
+version: v1
+spec:
+  kubelet:
+    config:
+      kind: KubeletConfiguration
+      apiVersion: kubelet.config.k8s.io/v1beta1
+      # Update kubelet configuration
+      nodeLeaseDurationSeconds: 50
+      # Cannot update certain fields
+      healthzBindAddress: "127.0.0.2"
+      healthzPort: 11248
+  global:
+    cloudConfig: |
+      [global]
+      # Update node tags
+      node-tags=test-cluster
+    featureGates:
+      AllAlpha: true
+      APIResponseCompression: false
+      BoundServiceAccountTokenVolume: false
+      # Update feature gates
+      ExperimentalHostUserNamespaceDefaulting: true
+```
+
+```bash
+root$ gravity resource create config.yaml --confirm
+```
+
+- [ ] Verify the operation completes.
+  - [ ] Verify the feature gates parameter of all kubernetes components has been updated to the configured set (`KUBE_COMPONENT_FLAGS` in /etc/container-environment inside the container).
+  - [ ] Verify kubelet configuration (`/etc/kubernetes/kubelet.yaml`) reflects the configuration (`nodeLeaseDurationSeconds` is set to `50`)
+  - [ ] Verify kubelet configuration has not been changed for fields `healthzBindAddress` (should still be "0.0.0.0") and `healthzPort` (should still be `10248`)
+  - [ ] Verify cloud configuration file has been written in `/etc/kubernetes/cloud-config.conf` with the following contents:
+  ```
+  [global]
+  node-tags=test-cluster
+  ```
+
+### Collecting garbage
+
+This scenario tests garbage collection on a cluster. Prerequisites: multi-node cluster with at least 1 regular node.
+
+Install a previous LTS version, upgrade to the latest version.
+
+After upgrade execute `gravity gc` on the cluster.
+
+- [ ] Verify the operation completes.
+ - [ ] Verify that packages from the previous installation have been removed locally.
+ - [ ] Verify that packages from the previous installation have been removed from cluster package storage.
+ - [ ] Verify that packages from the current installation are still present.
+ - [ ] Tentative: Verify that application packages from remote clusters are still present.
