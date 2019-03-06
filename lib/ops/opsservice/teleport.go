@@ -124,7 +124,7 @@ func (s *site) getTeleportServerNoRetry(labelName, labelValue string) (server *t
 	return newTeleportServer(servers[0])
 }
 
-// getAllTeleportServer queries all teleport servers in a retry loop
+// getAllTeleportServers queries all teleport servers in a retry loop
 func (s *site) getAllTeleportServers() (teleservers, error) {
 	anyServers := func(string, []teleservices.Server) error {
 		return nil

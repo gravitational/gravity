@@ -423,8 +423,8 @@ func (s *site) pickShrinkMasterRunner(ctx *operationContext, removedServer stora
 			}, nil
 		}
 	}
-	return nil, trace.NotFound("could not find appropriate master server among %v",
-		masters)
+	return nil, trace.NotFound("%v is being removed and no more master nodes are available to execute the operation",
+		removedServer)
 }
 
 func (s *site) waitForServerToDisappear(hostname string) error {
