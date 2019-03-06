@@ -2091,7 +2091,15 @@ func (p *Process) loginWithToken(tokenID string, w http.ResponseWriter, r *http.
 	}
 }
 
-func (p *Process) loadRPCCredentials() (*rpcserver.Credentials, utils.TLSArchive, error) {
+func (p *Process) loadRPCCredentials() (creds *rpcserver.Credentials, archive utils.TLSArchive, err error) {
+	err = utils.Retry(defaults.RetryInterval, defaults.RetryAttempts, func() error {
+		creds, archive, err = p.tryLoadRPCCredentials()
+		return trace.Wrap(err)
+	})
+	return creds, archive, trace.Wrap(err)
+}
+
+func (p *Process) tryLoadRPCCredentials() (*rpcserver.Credentials, utils.TLSArchive, error) {
 	_, r, err := p.packages.ReadPackage(loc.RPCSecrets)
 	if err != nil {
 		return nil, nil, trace.Wrap(err)
