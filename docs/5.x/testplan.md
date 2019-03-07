@@ -356,6 +356,7 @@ $ sudo ./gravity install --license="$(cat /tmp/license)"
 ### Runtime Environment update
 
 This scenario updates the runtime environment of the planet container with new environment variables. Prerequisites: multi-node cluster with at least 1 regular node.
+Regular node is necessary to test both master and regular node update paths.
 
 [environ.yaml]
 ```yaml
@@ -371,13 +372,14 @@ spec:
 root$ gravity resource create environ.yaml --confirm
 ```
 
-- [ ] Verify the operation completes.
+- [ ] Verify the operation completes successfully.
   - [ ] Verify the environment inside the container has been updated on each node (the environment variables have been added to the /etc/container-environment).
-  - [ ] Verify that services have the environment applied. (Can be verified by checking that a process's environment contains the variables - `/proc/<pid>/environ`)
+  - [ ] Verify that services have the environment applied. Choose `dockerd` process for verification and check that `/proc/$(pidof dockerd)/environ` contains the configured environment variables.
 
 ### Cluster Configuration update
 
-This scenario updates the cluster configuration/ Prerequisites: multi-node cluster with at least 1 regular node.
+This scenario updates the cluster configuration. Prerequisites: multi-node cluster with at least 1 regular node.
+Regular node is necessary to test both master and regular node update paths.
 
 [config.yaml]
 ```yaml
@@ -394,10 +396,6 @@ spec:
       healthzBindAddress: "127.0.0.2"
       healthzPort: 11248
   global:
-    cloudConfig: |
-      [global]
-      # Update node tags
-      node-tags=test-cluster
     featureGates:
       AllAlpha: true
       APIResponseCompression: false
@@ -406,29 +404,55 @@ spec:
       ExperimentalHostUserNamespaceDefaulting: true
 ```
 
+
 ```bash
 root$ gravity resource create config.yaml --confirm
 ```
 
-- [ ] Verify the operation completes.
+- [ ] Verify the operation completes successfully.
   - [ ] Verify the feature gates parameter of all kubernetes components has been updated to the configured set (`KUBE_COMPONENT_FLAGS` in /etc/container-environment inside the container).
   - [ ] Verify kubelet configuration (`/etc/kubernetes/kubelet.yaml`) reflects the configuration (`nodeLeaseDurationSeconds` is set to `50`)
   - [ ] Verify kubelet configuration has not been changed for fields `healthzBindAddress` (should still be "0.0.0.0") and `healthzPort` (should still be `10248`)
+
+[cloud-config.yaml]
+```yaml
+kind: ClusterConfiguration
+version: v1
+spec:
+  global:
+    cloudConfig: |
+      [global]
+      # Update node tags
+      # Should only work if installed with a cloud-provider
+      node-tags=test-cluster
+```
+
+
+Now, create the operation in manual mode:
+
+```bash
+root$ gravity resource create cloud-config.yaml --confirm -m
+```
+
+- [ ] Verify that the operation plan only contains update steps for master nodes as only cloud configuration is being updated.
+- [ ] Verify can complete the operation successfully with `gravity plan resume`.
   - [ ] Verify cloud configuration file has been written in `/etc/kubernetes/cloud-config.conf` with the following contents:
   ```
   [global]
   node-tags=test-cluster
   ```
 
+
 ### Collecting garbage
 
 This scenario tests garbage collection on a cluster. Prerequisites: multi-node cluster with at least 1 regular node.
+Regular node is necessary to test both master and regular node update paths.
 
 Install a previous LTS version, upgrade to the latest version.
 
 After upgrade execute `gravity gc` on the cluster.
 
-- [ ] Verify the operation completes.
+- [ ] Verify the operation completes successfully.
  - [ ] Verify that packages from the previous installation have been removed locally.
  - [ ] Verify that packages from the previous installation have been removed from cluster package storage.
  - [ ] Verify that packages from the current installation are still present.
