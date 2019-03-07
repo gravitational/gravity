@@ -105,6 +105,9 @@ func (a *Autoscaler) processEvent(ctx context.Context, operator Operator, event 
 			return trace.Wrap(err)
 		}
 	case InstanceTerminating:
+		if err := a.WaitUntilInstanceTerminated(ctx, event.InstanceID); err != nil {
+			return trace.Wrap(err, "failed to wait for instance to terminate: %v", event)
+		}
 		if err := a.removeInstance(ctx, operator, event); err != nil && !trace.IsNotFound(err) {
 			return trace.Wrap(err)
 		}

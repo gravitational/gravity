@@ -235,6 +235,19 @@ type message struct {
 	Message string `json:"message"`
 }
 
+func ConvertEC2Error(err error) error {
+	if err == nil {
+		return nil
+	}
+	awsErr, ok := err.(awserr.Error)
+	if !ok {
+		return err
+	}
+	switch awsErr.Code() {
+	}
+	return err
+}
+
 // ConvertS3Error converts an error from AWS S3 API to an appropriate trace error
 func ConvertS3Error(err error) error {
 	if err == nil {

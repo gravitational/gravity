@@ -21,6 +21,7 @@ import (
 	"fmt"
 
 	gaws "github.com/gravitational/gravity/lib/cloudprovider/aws"
+	"github.com/gravitational/gravity/lib/defaults"
 
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/aws/awserr"
@@ -135,6 +136,16 @@ func (a *Autoscaler) TurnOffSourceDestinationCheck(ctx context.Context, instance
 	_, err := a.Cloud.ModifyInstanceAttributeWithContext(ctx, &ec2.ModifyInstanceAttributeInput{
 		InstanceId:      aws.String(instanceID),
 		SourceDestCheck: &ec2.AttributeBooleanValue{Value: aws.Bool(false)},
+	})
+	return trace.Wrap(err)
+}
+
+func (a *Autoscaler) WaitUntilInstanceTerminated(ctx context.Context, instanceID string) error {
+	a.Debugf("WaitUntilInstanceTerminated(%v)", instanceID)
+	localCtx, cancel := context.WithTimeout(ctx, defaults.InstanceTerminationTimeout)
+	defer cancel()
+	err := a.Cloud.WaitUntilInstanceTerminatedWithContext(localCtx, &ec2.DescribeInstancesInput{
+		InstanceIds: aws.StringSlice([]string{instanceID}),
 	})
 	return trace.Wrap(err)
 }

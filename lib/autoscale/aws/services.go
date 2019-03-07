@@ -43,6 +43,7 @@ type SQS interface {
 // EC2 is an interface representing AWS Elastic Compute cloud
 type EC2 interface {
 	ModifyInstanceAttributeWithContext(aws.Context, *ec2.ModifyInstanceAttributeInput, ...request.Option) (*ec2.ModifyInstanceAttributeOutput, error)
+	WaitUntilInstanceTerminatedWithContext(aws.Context, *ec2.DescribeInstancesInput, ...request.WaiterOption) error
 }
 
 // Operator is a simplified operator interface to mock in tests
