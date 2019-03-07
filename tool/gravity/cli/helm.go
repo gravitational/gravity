@@ -184,7 +184,7 @@ func releaseInstall(env *localenv.LocalEnvironment, conf releaseInstallConfig) e
 	return nil
 }
 
-func releaseList(env *localenv.LocalEnvironment) error {
+func releaseList(env *localenv.LocalEnvironment, all bool) error {
 	helmClient, err := helm.NewClient(helm.ClientConfig{
 		DNSAddress: env.DNS.Addr(),
 	})
@@ -192,7 +192,9 @@ func releaseList(env *localenv.LocalEnvironment) error {
 		return trace.Wrap(err)
 	}
 	defer helmClient.Close()
-	releases, err := helmClient.List(helm.ListParameters{})
+	releases, err := helmClient.List(helm.ListParameters{
+		All: all,
+	})
 	if err != nil {
 		return trace.Wrap(err)
 	}

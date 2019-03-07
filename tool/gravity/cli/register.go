@@ -241,7 +241,8 @@ func RegisterCommands(app *kingpin.Application) *Application {
 	g.AppInstallCmd.RegistryCert = g.AppInstallCmd.Flag("registry-cert", "Docker registry client certificate path.").String()
 	g.AppInstallCmd.RegistryKey = g.AppInstallCmd.Flag("registry-key", "Docker registry client private key path.").String()
 
-	g.AppListCmd.CmdClause = g.AppCmd.Command("ls", "Show all application releases.")
+	g.AppListCmd.CmdClause = g.AppCmd.Command("ls", "Show all application releases.").Alias("list")
+	g.AppListCmd.All = g.AppListCmd.Flag("all", "Do not filter releases by status.").Short('a').Bool()
 
 	g.AppUpgradeCmd.CmdClause = g.AppCmd.Command("upgrade", "Upgrade a release using the specified application image.")
 	g.AppUpgradeCmd.Release = g.AppUpgradeCmd.Arg("release", "Release name to upgrade.").Required().String()

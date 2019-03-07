@@ -65,15 +65,18 @@ func FromCluster(ctx context.Context, operator ops.Operator, cluster ops.Site, o
 	// Collect application endpoints.
 	endpoints, err := operator.GetApplicationEndpoints(cluster.Key())
 	if err != nil {
-		return status, trace.Wrap(err)
+		logrus.WithError(err).Warn("Failed to fetch application endpoints.")
+		status.Endpoints.Applications.Error = err
 	}
-	// Right now only 1 application is supported, in the future there
-	// will be many applications each with its own endpoints.
-	status.Endpoints.Applications = append(status.Endpoints.Applications,
-		ApplicationEndpoints{
-			Application: cluster.App.Package,
-			Endpoints:   endpoints,
-		})
+	if len(endpoints) != 0 {
+		// Right now only 1 application is supported, in the future there
+		// will be many applications each with its own endpoints.
+		status.Endpoints.Applications.Endpoints = append(status.Endpoints.Applications.Endpoints,
+			ApplicationEndpoints{
+				Application: cluster.App.Package,
+				Endpoints:   endpoints,
+			})
+	}
 
 	// For cluster endpoints, they point to gravity-site service on master nodes.
 	masters := cluster.ClusterState.Servers.Masters()
@@ -220,7 +223,12 @@ func (e ClusterEndpoints) WriteTo(w io.Writer) (n int64, err error) {
 }
 
 // ApplicationsEndpoints contains endpoints for multiple applications.
-type ApplicationsEndpoints []ApplicationEndpoints
+type ApplicationsEndpoints struct {
+	// Endpoints lists the endpoints of all applications
+	Endpoints []ApplicationEndpoints
+	// Error indicates whether there was an error fetching endpoints
+	Error error `json:"-"`
+}
 
 // ApplicationEndpoints contains endpoints for a single application.
 type ApplicationEndpoints struct {
@@ -232,12 +240,16 @@ type ApplicationEndpoints struct {
 
 // WriteTo writes all application endpoints to the provided writer.
 func (e ApplicationsEndpoints) WriteTo(w io.Writer) (n int64, err error) {
-	if len(e) == 0 {
+	if len(e.Endpoints) == 0 {
+		if e.Error != nil {
+			err := fprintf(&n, w, "Application endpoints: <unable to fetch>")
+			return n, trace.Wrap(err)
+		}
 		return 0, nil
 	}
 	var errors []error
 	errors = append(errors, fprintf(&n, w, "Application endpoints:\n"))
-	for _, app := range e {
+	for _, app := range e.Endpoints {
 		errors = append(errors, fprintf(&n, w, "    * %v:%v:\n",
 			app.Application.Name, app.Application.Version))
 		for _, ep := range app.Endpoints {

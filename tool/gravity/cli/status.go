@@ -40,11 +40,18 @@ import (
 )
 
 func status(env *localenv.LocalEnvironment, printOptions printOptions) error {
+	clusterOperator, err := env.SiteOperator()
+	if err != nil {
+		log.WithError(err).Warn("Failed to create cluster operator.")
+	}
 	clusterEnv, err := env.NewClusterEnvironment()
 	if err != nil {
 		return trace.Wrap(err)
 	}
-	operator := clusterEnv.Operator
+	operator := statusOperator{
+		Operator:        clusterEnv.Operator,
+		clusterOperator: clusterOperator,
+	}
 
 	status, err := statusOnce(context.TODO(), operator, printOptions.operationID)
 	if err == nil {
@@ -395,4 +402,20 @@ type clusterStatus struct {
 	statusapi.Status `json:"cluster"`
 	// FailedLocalProbes lists all failed local checks
 	FailedLocalProbes []*pb.Probe `json:"local_checks,omitempty"`
+}
+
+// GetApplicationEndpoints returns the list of application endpoints
+func (r statusOperator) GetApplicationEndpoints(clusterKey ops.SiteKey) ([]ops.Endpoint, error) {
+	// Prefer the cluster operator for fetching application endpoints
+	if r.clusterOperator != nil {
+		return r.clusterOperator.GetApplicationEndpoints(clusterKey)
+	}
+	return r.Operator.GetApplicationEndpoints(clusterKey)
+}
+
+// statusOperator is a thin-wrapper around operator that uses
+// etcd directly but falls back the cluster controller if available for certain APIs
+type statusOperator struct {
+	ops.Operator
+	clusterOperator ops.Operator
 }
