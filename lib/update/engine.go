@@ -124,7 +124,11 @@ func (f *fsmUpdateEngine) Complete(fsmErr error) error {
 	if completed {
 		err = ops.CompleteOperation(opKey, f.Operator)
 	} else {
-		err = ops.FailOperation(opKey, f.Operator, trace.Unwrap(fsmErr).Error())
+		var msg string
+		if fsmErr != nil {
+			msg = trace.Unwrap(fsmErr).Error()
+		}
+		err = ops.FailOperation(opKey, f.Operator, msg)
 	}
 	if err != nil {
 		return trace.Wrap(err)
