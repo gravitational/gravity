@@ -15,7 +15,7 @@ that takes the drama out of on-premises deployments.
 
 ## Introduction
 
-Gravity is an open source tooklit for creating "images" of Kubernetes
+Gravity is an open source toolkit for creating "images" of Kubernetes
 clusters and the applications running inside the clusters. The resulting
 images are called *application bundles* and they are just `.tar` files.
 
