@@ -18,9 +18,12 @@ package update
 
 import (
 	"context"
+	"fmt"
 	"time"
 
+	"github.com/gravitational/gravity/lib/constants"
 	"github.com/gravitational/gravity/lib/defaults"
+	"github.com/gravitational/gravity/lib/ops"
 	"github.com/gravitational/gravity/lib/storage"
 	"github.com/gravitational/gravity/lib/utils"
 
@@ -33,6 +36,27 @@ import (
 	"k8s.io/apimachinery/pkg/labels"
 	corev1 "k8s.io/client-go/kubernetes/typed/core/v1"
 )
+
+// SyncOperationPlan will synchronize the specified operation and its plan from source to destination backend
+func SyncOperationPlan(src storage.Backend, dst storage.Backend, plan storage.OperationPlan, operation storage.SiteOperation) error {
+	cluster, err := src.GetSite(plan.ClusterName)
+	if err != nil {
+		return trace.Wrap(err)
+	}
+	_, err = dst.CreateSite(*cluster)
+	if err != nil && !trace.IsAlreadyExists(err) {
+		return trace.Wrap(err)
+	}
+	_, err = dst.CreateSiteOperation(operation)
+	if err != nil && !trace.IsAlreadyExists(err) {
+		return trace.Wrap(err)
+	}
+	_, err = dst.CreateOperationPlan(plan)
+	if err != nil && !trace.IsAlreadyExists(err) {
+		return trace.Wrap(err)
+	}
+	return trace.Wrap(SyncChangelog(src, dst, plan.ClusterName, plan.OperationID))
+}
 
 // WaitForEndpoints waits for service endpoints to become active for the server specified with nodeID.
 // nodeID is assumed to be the name of the node as accepted by Kubernetes
@@ -119,3 +143,8 @@ func existingEndpoint(v1.EndpointAddress) bool {
 
 // endpointMatchFn matches an endpoint address using custom criteria.
 type endpointMatchFn func(addr v1.EndpointAddress) bool
+
+func formatOperation(op ops.SiteOperation) string {
+	return fmt.Sprintf("operation(%v(%v), cluster=%v, created=%v)",
+		op.TypeString(), op.ID, op.SiteDomain, op.Created.Format(constants.ShortDateFormat))
+}

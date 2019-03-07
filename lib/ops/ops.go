@@ -967,27 +967,32 @@ func (s *SiteOperation) ClusterState() (string, error) {
 
 // String returns the textual representation of this operation
 func (s *SiteOperation) String() string {
-	var typeS string
+	return fmt.Sprintf("operation(%v(%v), cluster=%v, state=%s, created=%v)",
+		s.TypeString(), s.ID, s.SiteDomain, s.State, s.Created.Format(constants.HumanDateFormat))
+}
+
+// TypeString returns the textual representation of the operation's type
+func (s *SiteOperation) TypeString() string {
 	switch s.Type {
 	case OperationInstall:
-		typeS = "install"
+		return "install"
 	case OperationExpand:
-		typeS = "expand"
+		return "expand"
 	case OperationUpdate:
-		typeS = "update"
+		return "update"
 	case OperationShrink:
-		typeS = "shrink"
+		return "shrink"
 	case OperationUninstall:
-		typeS = "uninstall"
+		return "uninstall"
 	case OperationGarbageCollect:
-		typeS = "garbage collect"
+		return "garbage collect"
 	case OperationUpdateRuntimeEnviron:
-		typeS = "update runtime environment"
+		return "update runtime environment"
 	case OperationUpdateConfig:
-		typeS = "update configuration"
+		return "update configuration"
+	default:
+		return s.Type
 	}
-	return fmt.Sprintf("operation(%v(%v), cluster=%v, state=%s, created=%v)",
-		typeS, s.ID, s.SiteDomain, s.State, s.Created.Format(constants.HumanDateFormat))
 }
 
 // SiteOperationKey identifies key to retrieve an opertaion

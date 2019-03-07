@@ -20,17 +20,20 @@ import (
 	"context"
 	"fmt"
 	"os"
+	"time"
 
 	"github.com/gravitational/gravity/lib/constants"
 	"github.com/gravitational/gravity/lib/fsm"
 	"github.com/gravitational/gravity/lib/localenv"
 	"github.com/gravitational/gravity/lib/ops"
 	"github.com/gravitational/gravity/lib/storage"
-	update "github.com/gravitational/gravity/lib/update/cluster"
+	"github.com/gravitational/gravity/lib/update"
+	clusterupdate "github.com/gravitational/gravity/lib/update/cluster"
 	"github.com/gravitational/gravity/lib/utils"
 
 	"github.com/fatih/color"
 	"github.com/gravitational/trace"
+	"github.com/sirupsen/logrus"
 )
 
 func initUpdateOperationPlan(localEnv, updateEnv *localenv.LocalEnvironment) error {
@@ -50,7 +53,7 @@ func initUpdateOperationPlan(localEnv, updateEnv *localenv.LocalEnvironment) err
 	if err != nil {
 		return trace.Wrap(err)
 	}
-	_, err = update.InitOperationPlan(ctx, localEnv, updateEnv, clusterEnv, operation.Key())
+	_, err = clusterupdate.InitOperationPlan(ctx, localEnv, updateEnv, clusterEnv, operation.Key())
 	if err != nil {
 		return trace.Wrap(err)
 	}
@@ -71,11 +74,11 @@ func displayOperationPlan(localEnv, updateEnv, joinEnv *localenv.LocalEnvironmen
 	case ops.OperationExpand:
 		return displayExpandOperationPlan(joinEnv, op.Key(), format)
 	case ops.OperationUpdate:
-		return displayUpdateOperationPlan(updateEnv, op.Key(), format)
+		return displayUpdateOperationPlan(localEnv, updateEnv, op.Key(), format)
 	case ops.OperationUpdateRuntimeEnviron:
-		return displayUpdateOperationPlan(updateEnv, op.Key(), format)
+		return displayUpdateOperationPlan(localEnv, updateEnv, op.Key(), format)
 	case ops.OperationUpdateConfig:
-		return displayUpdateOperationPlan(updateEnv, op.Key(), format)
+		return displayUpdateOperationPlan(localEnv, updateEnv, op.Key(), format)
 	case ops.OperationGarbageCollect:
 		return displayClusterOperationPlan(localEnv, op.Key(), format)
 	default:
@@ -96,10 +99,16 @@ func displayClusterOperationPlan(env *localenv.LocalEnvironment, opKey ops.SiteO
 	return trace.Wrap(err)
 }
 
-func displayUpdateOperationPlan(updateEnv *localenv.LocalEnvironment, opKey ops.SiteOperationKey, format constants.Format) error {
+func displayUpdateOperationPlan(localEnv, updateEnv *localenv.LocalEnvironment, opKey ops.SiteOperationKey, format constants.Format) error {
 	plan, err := fsm.GetOperationPlan(updateEnv.Backend, opKey.SiteDomain, opKey.OperationID)
 	if err != nil {
 		return trace.Wrap(err)
+	}
+	reconciledPlan, err := tryReconcilePlan(context.TODO(), localEnv, updateEnv, *plan)
+	if err != nil {
+		logrus.WithError(err).Warn("Failed to reconcile plan.")
+	} else {
+		plan = reconciledPlan
 	}
 	err = outputPlan(*plan, format)
 	if err != nil {
@@ -193,6 +202,20 @@ func outputPhaseError(phase storage.OperationPhase) error {
 		fmt.Printf(color.RedString("\n\t%v\n", phaseErr.Err))
 	}
 	return nil
+}
+
+func tryReconcilePlan(ctx context.Context, localEnv, updateEnv *localenv.LocalEnvironment, plan storage.OperationPlan) (*storage.OperationPlan, error) {
+	clusterEnv, err := localEnv.NewClusterEnvironment(localenv.WithEtcdTimeout(1 * time.Second))
+	if err != nil {
+		return nil, trace.Wrap(err)
+	}
+	reconciler := update.NewDefaultReconciler(clusterEnv.Backend, updateEnv.Backend,
+		plan.ClusterName, plan.OperationID, logrus.WithField("operation-id", plan.OperationID))
+	reconciledPlan, err := reconciler.ReconcilePlan(ctx, plan)
+	if err != nil {
+		return nil, trace.Wrap(err)
+	}
+	return reconciledPlan, nil
 }
 
 const recoveryModeWarning = "Failed to retrieve plan from etcd, showing cached plan. If etcd went down as a result of a system upgrade, you can perform a rollback phase. Run 'gravity plan --repair' when etcd connection is restored.\n"
