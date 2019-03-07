@@ -59,14 +59,7 @@ func startInstall(env *localenv.LocalEnvironment, i InstallConfig) error {
 		return trace.Wrap(err)
 	}
 
-	if i.ResourcesPath != "" {
-		err = i.ValidateResources(resources.ValidateFunc(gravity.Validate))
-		if err != nil {
-			return trace.Wrap(err)
-		}
-	}
-
-	installerConfig, err := i.ToInstallerConfig(env)
+	installerConfig, err := i.ToInstallerConfig(env, resources.ValidateFunc(gravity.Validate))
 	if err != nil {
 		return trace.Wrap(err)
 	}

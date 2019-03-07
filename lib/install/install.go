@@ -162,12 +162,13 @@ type Config struct {
 	Role string
 	// AppPackage is the application being installed
 	AppPackage *loc.Locator
-	// Resources specifies optional resources to create.
-	// This is assumed to be either JSON- or YAML-encoded list of resources
-	Resources []byte
 	// RuntimeResources specifies optional Kubernetes resources to create
 	// If specified, will be combined with Resources
 	RuntimeResources []runtime.Object
+	// ClusterResources specifies optional cluster resources to create
+	// If specified, will be combined with Resources
+	// TODO(dmitri): externalize the ClusterConfiguration resource
+	ClusterResources []storage.UnknownResource
 	// EventsC is channel with events indicating install progress
 	EventsC chan Event
 	// SystemDevice is a device for gravity data
@@ -283,6 +284,7 @@ func (c *Config) validateCloudConfig() error {
 	if c.CloudProvider != schema.ProviderGCE {
 		return nil
 	}
+	// TODO(dmitri): skip validations if user provided custom cloud configuration
 	if err := cloudgce.ValidateTag(c.SiteDomain); err != nil {
 		log.WithError(err).Warnf("Failed to validate cluster name %v as node tag on GCE.", c.SiteDomain)
 		if len(c.GCENodeTags) == 0 {

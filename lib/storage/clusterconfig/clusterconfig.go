@@ -41,16 +41,17 @@ type Interface interface {
 	GetGlobalConfig() *Global
 }
 
-// New returns a new instance of the resource initialized to defaults
-func New() *Resource {
-	return &Resource{
-		Kind:    storage.KindClusterConfiguration,
-		Version: "v1",
-		Metadata: teleservices.Metadata{
-			Name:      constants.ClusterConfigurationMap,
-			Namespace: defaults.KubeSystemNamespace,
-		},
-	}
+// New returns a new instance of the resource initialized to specified spec
+func New(spec Spec) *Resource {
+	res := newEmpty()
+	res.Spec = spec
+	return res
+}
+
+// NewEmpty returns a new instance of the resource initialized to defaults
+func NewEmpty() *Resource {
+	res := newEmpty()
+	return res
 }
 
 // Resource describes the cluster configuration resource
@@ -143,6 +144,23 @@ func Unmarshal(data []byte) (*Resource, error) {
 // Marshal marshals this resource as JSON
 func Marshal(config Interface, opts ...teleservices.MarshalOption) ([]byte, error) {
 	return json.Marshal(config)
+}
+
+// ToUnknown returns this resource as a storage.UnknownResource
+func ToUnknown(config Interface) (*storage.UnknownResource, error) {
+	bytes, err := Marshal(config)
+	if err != nil {
+		return nil, trace.Wrap(err)
+	}
+	res := newEmpty()
+	return &storage.UnknownResource{
+		ResourceHeader: teleservices.ResourceHeader{
+			Kind:     res.Kind,
+			Version:  res.Version,
+			Metadata: res.Metadata,
+		},
+		Raw: bytes,
+	}, nil
 }
 
 // Spec defines the cluster configuration resource
@@ -355,4 +373,15 @@ const specSchemaTemplate = `{
 func getSpecSchema() string {
 	return fmt.Sprintf(specSchemaTemplate,
 		constants.ClusterConfigurationMap, defaults.KubeSystemNamespace)
+}
+
+func newEmpty() *Resource {
+	return &Resource{
+		Kind:    storage.KindClusterConfiguration,
+		Version: "v1",
+		Metadata: teleservices.Metadata{
+			Name:      constants.ClusterConfigurationMap,
+			Namespace: defaults.KubeSystemNamespace,
+		},
+	}
 }
