@@ -141,7 +141,7 @@ func (a *Autoscaler) TurnOffSourceDestinationCheck(ctx context.Context, instance
 }
 
 func (a *Autoscaler) WaitUntilInstanceTerminated(ctx context.Context, instanceID string) error {
-	a.Debugf("WaitUntilInstanceTerminated(%v)", instanceID)
+	a.Infof("WaitUntilInstanceTerminated(%v)", instanceID)
 	localCtx, cancel := context.WithTimeout(ctx, defaults.InstanceTerminationTimeout)
 	defer cancel()
 	err := a.Cloud.WaitUntilInstanceTerminatedWithContext(localCtx, &ec2.DescribeInstancesInput{

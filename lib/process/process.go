@@ -20,6 +20,7 @@ import (
 	"context"
 	"crypto/tls"
 	"fmt"
+	"io"
 	"io/ioutil"
 	"net"
 	"net/http"
@@ -1968,13 +1969,24 @@ func (p *Process) loginWithToken(tokenID string, w http.ResponseWriter, r *http.
 }
 
 func (p *Process) loadRPCCredentials() (*rpcserver.Credentials, utils.TLSArchive, error) {
-	_, r, err := p.packages.ReadPackage(loc.RPCSecrets)
+	// In case of multi-node install, a gravity-site process may need to
+	// fetch a package blob from the leader which may not be fully
+	// initialized yet so retry a few times.
+	var reader io.ReadCloser
+	err := utils.Retry(defaults.RetryInterval, defaults.RetryAttempts, func() (err error) {
+		_, reader, err = p.packages.ReadPackage(loc.RPCSecrets)
+		if err != nil {
+			p.Warnf("Failed to read package %v: %v.", loc.RPCSecrets, trace.Wrap(err))
+			return trace.Wrap(err)
+		}
+		return nil
+	})
 	if err != nil {
 		return nil, nil, trace.Wrap(err)
 	}
-	defer r.Close()
+	defer reader.Close()
 
-	tlsArchive, err := utils.ReadTLSArchive(r)
+	tlsArchive, err := utils.ReadTLSArchive(reader)
 	if err != nil {
 		return nil, nil, trace.Wrap(err)
 	}
