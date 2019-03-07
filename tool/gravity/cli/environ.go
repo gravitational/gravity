@@ -31,13 +31,6 @@ import (
 	"github.com/sirupsen/logrus"
 )
 
-// removeEnviron executes the loop to clear cluster environment variables.
-func removeEnviron(localEnv, updateEnv *localenv.LocalEnvironment, manual, confirmed bool) error {
-	env := storage.NewEnvironment(nil)
-	ctx := context.TODO()
-	return trace.Wrap(updateEnviron(ctx, localEnv, updateEnv, env, manual, confirmed))
-}
-
 func updateEnviron(
 	ctx context.Context,
 	localEnv, updateEnv *localenv.LocalEnvironment,
@@ -108,18 +101,6 @@ func completeEnvironPlan(env, updateEnv *localenv.LocalEnvironment, operation op
 	return trace.Wrap(updater.Complete(nil))
 }
 
-func getEnvironOperationPlan(env, updateEnv *localenv.LocalEnvironment, operation ops.SiteOperation) (*storage.OperationPlan, error) {
-	updater, err := getEnvironUpdater(env, updateEnv, operation)
-	if err != nil {
-		return nil, trace.Wrap(err)
-	}
-	plan, err := updater.GetPlan()
-	if err != nil {
-		return nil, trace.Wrap(err)
-	}
-	return plan, nil
-}
-
 func getEnvironUpdater(env, updateEnv *localenv.LocalEnvironment, operation ops.SiteOperation) (*update.Updater, error) {
 	clusterEnv, err := env.NewClusterEnvironment()
 	if err != nil {
@@ -185,9 +166,12 @@ func (environInitializer) newOperationPlan(
 	operation ops.SiteOperation,
 	localEnv, updateEnv *localenv.LocalEnvironment,
 	clusterEnv *localenv.ClusterEnvironment,
-) error {
-	_, err := environ.NewOperationPlan(operator, operation, cluster.ClusterState.Servers)
-	return trace.Wrap(err)
+) (*storage.OperationPlan, error) {
+	plan, err := environ.NewOperationPlan(operator, operation, cluster.ClusterState.Servers)
+	if err != nil {
+		return nil, trace.Wrap(err)
+	}
+	return plan, nil
 }
 
 func (environInitializer) newUpdater(

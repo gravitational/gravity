@@ -28,6 +28,7 @@ import (
 	libfsm "github.com/gravitational/gravity/lib/fsm"
 	"github.com/gravitational/gravity/lib/localenv"
 	"github.com/gravitational/gravity/lib/ops"
+	"github.com/gravitational/gravity/lib/storage"
 	"github.com/gravitational/gravity/lib/update"
 
 	"github.com/gravitational/trace"
@@ -63,11 +64,11 @@ func newUpdater(ctx context.Context, localEnv, updateEnv *localenv.LocalEnvironm
 	if err != nil {
 		return nil, trace.Wrap(err)
 	}
+	logger := logrus.WithField("operation", key)
 	defer func() {
 		r := recover()
 		panicked := r != nil
 		if err != nil || panicked {
-			logger := logrus.WithField("operation", key)
 			logger.WithError(err).Warn("Operation failed.")
 			var msg string
 			if err != nil {
@@ -89,7 +90,12 @@ func newUpdater(ctx context.Context, localEnv, updateEnv *localenv.LocalEnvironm
 		return nil, trace.Wrap(err)
 	}
 	// Create the operation plan so it can be replicated on remote nodes
-	err = init.newOperationPlan(ctx, operator, *cluster, *operation, localEnv, updateEnv, clusterEnv)
+	plan, err := init.newOperationPlan(ctx, operator, *cluster, *operation, localEnv, updateEnv, clusterEnv)
+	if err != nil {
+		return nil, trace.Wrap(err)
+	}
+	err = update.SyncOperationPlan(clusterEnv.Backend, updateEnv.Backend, *plan,
+		(storage.SiteOperation)(*operation))
 	if err != nil {
 		return nil, trace.Wrap(err)
 	}
@@ -102,7 +108,7 @@ func newUpdater(ctx context.Context, localEnv, updateEnv *localenv.LocalEnvironm
 	})
 	deployCtx, cancel := context.WithTimeout(ctx, defaults.AgentDeployTimeout)
 	defer cancel()
-	logrus.WithField("request", req).Debug("Deploying agents on nodes.")
+	logger.WithField("request", req).Debug("Deploying agents on nodes.")
 	localEnv.Println("Deploying agents on nodes")
 	creds, err := deployAgents(deployCtx, req)
 	if err != nil {
@@ -129,7 +135,7 @@ type updateInitializer interface {
 		cluster ops.Site,
 		operation ops.SiteOperation,
 		localEnv, updateEnv *localenv.LocalEnvironment,
-		clusterEnv *localenv.ClusterEnvironment) error
+		clusterEnv *localenv.ClusterEnvironment) (*storage.OperationPlan, error)
 	newUpdater(ctx context.Context,
 		operator ops.Operator,
 		operation ops.SiteOperation,

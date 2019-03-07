@@ -23,6 +23,7 @@ import (
 	libfsm "github.com/gravitational/gravity/lib/fsm"
 	"github.com/gravitational/gravity/lib/localenv"
 	"github.com/gravitational/gravity/lib/ops"
+	"github.com/gravitational/gravity/lib/storage"
 	libclusterconfig "github.com/gravitational/gravity/lib/storage/clusterconfig"
 	"github.com/gravitational/gravity/lib/update"
 	"github.com/gravitational/gravity/lib/update/clusterconfig"
@@ -172,9 +173,12 @@ func (r configInitializer) newOperationPlan(
 	operation ops.SiteOperation,
 	localEnv, updateEnv *localenv.LocalEnvironment,
 	clusterEnv *localenv.ClusterEnvironment,
-) error {
-	_, err := clusterconfig.NewOperationPlan(operator, operation, r.config, cluster.ClusterState.Servers)
-	return trace.Wrap(err)
+) (*storage.OperationPlan, error) {
+	plan, err := clusterconfig.NewOperationPlan(operator, operation, r.config, cluster.ClusterState.Servers)
+	if err != nil {
+		return nil, trace.Wrap(err)
+	}
+	return plan, nil
 }
 
 func (configInitializer) newUpdater(

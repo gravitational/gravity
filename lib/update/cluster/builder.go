@@ -478,7 +478,7 @@ func (r phaseBuilder) node(server storage.Server, parent update.ParentPhase, for
 func (r phaseBuilder) commonNode(server storage.Server, runtimePackage loc.Locator, leadMaster storage.Server, supportsTaints bool,
 	waitsForEndpoints waitsForEndpoints) []update.Phase {
 	phases := []update.Phase{
-		update.Phase{
+		{
 			ID:          "drain",
 			Executor:    drainNode,
 			Description: fmt.Sprintf("Drain node %q", server.Hostname),
@@ -486,7 +486,7 @@ func (r phaseBuilder) commonNode(server storage.Server, runtimePackage loc.Locat
 				Server:     &server,
 				ExecServer: &leadMaster,
 			}},
-		update.Phase{
+		{
 			ID:          "system-upgrade",
 			Executor:    updateSystem,
 			Description: fmt.Sprintf("Update system software on node %q", server.Hostname),
@@ -642,10 +642,7 @@ func getEtcdVersion(searchLabel string, locator loc.Locator, packageService pack
 	}
 	for _, label := range manifest.Labels {
 		if label.Name == searchLabel {
-			versionS := label.Value
-			if strings.HasPrefix(versionS, "v") {
-				versionS = versionS[1:]
-			}
+			versionS := strings.TrimPrefix(label.Value, "v")
 			version, err := semver.NewVersion(versionS)
 			if err != nil {
 				return nil, trace.Wrap(err)
