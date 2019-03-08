@@ -485,6 +485,9 @@ type RuntimeEnvironment interface {
 	CreateUpdateEnvarsOperation(CreateUpdateEnvarsOperationRequest) (*SiteOperationKey, error)
 	// GetClusterEnvironmentVariables retrieves the cluster runtime environment variables
 	GetClusterEnvironmentVariables(SiteKey) (storage.EnvironmentVariables, error)
+	// UpdateClusterEnvironmentVariables updates the cluster runtime environment variables
+	// from the specified request
+	UpdateClusterEnvironmentVariables(UpdateClusterEnvironRequest) error
 }
 
 // ClusterConfiguration manages configuration in cluster
@@ -1204,13 +1207,22 @@ type CreateUpdateConfigOperationRequest struct {
 	Config []byte `json:"config"`
 }
 
+// UpdateClusterEnvironRequest is a request
+// to update cluster runtime environment
+type UpdateClusterEnvironRequest struct {
+	// ClusterKey identifies the cluster
+	ClusterKey SiteKey `json:"cluster_key"`
+	// Env specifies the new runtime environment
+	Env map[string]string `json:"env,omitempty"`
+}
+
 // UpdateClusterConfigRequest is a request
 // to update cluster configuration
 type UpdateClusterConfigRequest struct {
 	// ClusterKey identifies the cluster
 	ClusterKey SiteKey `json:"cluster_key"`
 	// Config specifies the new configuration as JSON-encoded payload
-	Config []byte `json:"config"`
+	Config []byte `json:"config,omitempty"`
 }
 
 // AgentService coordinates install agents that are started on every server

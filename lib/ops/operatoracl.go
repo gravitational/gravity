@@ -801,6 +801,15 @@ func (o *OperatorACL) GetClusterEnvironmentVariables(key SiteKey) (storage.Envir
 	return o.operator.GetClusterEnvironmentVariables(key)
 }
 
+// UpdateClusterEnvironmentVariables updates the cluster runtime environment variables
+// from the specified request
+func (o *OperatorACL) UpdateClusterEnvironmentVariables(req UpdateClusterEnvironRequest) error {
+	if err := o.ClusterAction(req.ClusterKey.SiteDomain, storage.KindClusterConfiguration, teleservices.VerbUpdate); err != nil {
+		return trace.Wrap(err)
+	}
+	return o.operator.UpdateClusterEnvironmentVariables(req)
+}
+
 // GetClusterConfiguration retrieves the cluster configuration
 func (o *OperatorACL) GetClusterConfiguration(key SiteKey) (clusterconfig.Interface, error) {
 	if err := o.ClusterAction(key.SiteDomain, storage.KindClusterConfiguration, teleservices.VerbList); err != nil {
