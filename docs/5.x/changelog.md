@@ -7,14 +7,14 @@ LTS starts with `3.51.0` with minor backwards compatible changes added over time
 
 | Release       | LTS | Release Date         | Supported Until      | Kubernetes Version | Teleport Version |
 | --------------|-----| -------------------- | -------------------- | ------------------ |------------------|
-| 5.5.0-rc.1    | No  | March 4th, 2019      | -                    | 1.13.4             | 3.0.4            |
+| 5.5.0         | Yes | March 8th, 2019      | March 7th, 2020      | 1.13.4             | 3.0.4            |
 | 5.4.7         | No  | March 1st, 2019      | -                    | 1.13.4             | 2.4.10           |
-| 5.3.9         | No  | March 7th, 2019      | -                    | 1.12.3             | 2.4.7
+| 5.3.9*        | No  | March 7th, 2019      | -                    | 1.12.3             | 2.4.7
 | 5.2.11        | Yes | March 7th, 2019      | October, 15th, 2019  | 1.11.8             | 2.4.10           |
 | 5.0.29        | Yes | February, 12th 2019  | April, 13th 2019     | 1.9.12-gravitational | 2.4.10         |
-| 4.68.0        | Yes | January, 17th 2019   | November, 16th 2018  | 1.7.18-gravitational | 2.3.5          |
-| 3.64.0        | Yes | December, 21st 2017  | June, 2nd 2018       | 1.5.7              | 2.0.6            |
-| 1.30.0        | Yes | March, 21st 2017     | March, 21st 2018     | 1.3.8              | 1.2.0            |
+| 4.68.0*       | Yes | January, 17th 2019   | November, 16th 2018  | 1.7.18-gravitational | 2.3.5          |
+| 3.64.0*       | Yes | December, 21st 2017  | June, 2nd 2018       | 1.5.7              | 2.0.6            |
+| 1.30.0*       | Yes | March, 21st 2017     | March, 21st 2018     | 1.3.8              | 1.2.0            |
 
 !!! tip "Cluster certificates expiration"
     If you have a Gravity cluster of version before `5.0.0-alpha.12` that
@@ -23,7 +23,24 @@ LTS starts with `3.51.0` with minor backwards compatible changes added over time
     expired, please refer to the [Gravity Manual Certificates Renewal](https://gravitational.zendesk.com/hc/en-us/articles/360000755967-Telekube-Manual-Certificates-Renewal)
     article in our Help Center.
 
+!!! note "Unsupported releases"
+    Releases marked with `*` in the table above are no longer supported and
+    do not receive updates and bugfixes.
+
 ## 5.x Releases
+
+### 5.5.0 LTS
+
+#### Improvements
+
+* Multiple UX tweaks for `gravity app list` command.
+* Better validation for the cloud configuration resource.
+
+#### Bugfixes
+
+* Fix an issue with `kubectl` not working on host when using custom state directory.
+* Fix an issue with `gravity status` always displaying degraded status on regular nodes.
+* Fix an issue with shrink operation sometimes spawning on the leaving node.
 
 ### 5.2.11 LTS
 
