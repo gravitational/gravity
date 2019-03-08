@@ -965,7 +965,7 @@ const (
 	AgentDeployTimeout = 5 * time.Minute
 
 	// InstanceTerminationTimeout is the maximum amount of time to wait
-	// for AWS EC2 to terminate
+	// for AWS EC2 instance to terminate
 	InstanceTerminationTimeout = 20 * time.Minute
 )
 

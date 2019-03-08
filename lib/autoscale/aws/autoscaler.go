@@ -150,7 +150,7 @@ func (a *Autoscaler) DescribeInstance(ctx context.Context, instanceID string) (*
 	if err != nil {
 		return nil, utils.ConvertEC2Error(err)
 	}
-	if len(resp.Reservations) != 1 && len(resp.Reservations[0].Instances) != 1 {
+	if len(resp.Reservations) != 1 || len(resp.Reservations[0].Instances) != 1 {
 		return nil, trace.BadParameter("expected 1 instance with ID %v, got: %s", resp)
 	}
 	return resp.Reservations[0].Instances[0], nil
