@@ -150,6 +150,9 @@ func (a *Autoscaler) DescribeInstance(ctx context.Context, instanceID string) (*
 	if err != nil {
 		return nil, utils.ConvertEC2Error(err)
 	}
+	if len(resp.Reservations) == 0 || len(resp.Reservations[0].Instances) == 0 {
+		return nil, trace.NotFound("instance %v not found", instanceID)
+	}
 	if len(resp.Reservations) != 1 || len(resp.Reservations[0].Instances) != 1 {
 		return nil, trace.BadParameter("expected 1 instance with ID %v, got: %s", resp)
 	}
@@ -253,4 +256,14 @@ func ConvertError(err error, args ...interface{}) error {
 		}
 	}
 	return err
+}
+
+func instanceState(instance ec2.Instance) string {
+	// All fields on the ec2.Instance object are pointers so while
+	// mandatory fields like state likely can't be nil, be on the
+	// safe side and make sure.
+	if instance.State != nil {
+		return aws.StringValue(instance.State.Name)
+	}
+	return ""
 }

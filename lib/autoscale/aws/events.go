@@ -24,6 +24,7 @@ import (
 	"github.com/gravitational/gravity/lib/ops"
 
 	"github.com/aws/aws-sdk-go/aws"
+	"github.com/aws/aws-sdk-go/service/ec2"
 	"github.com/aws/aws-sdk-go/service/sqs"
 
 	"github.com/gravitational/trace"
@@ -125,19 +126,23 @@ func (a *Autoscaler) processEvent(ctx context.Context, operator Operator, event 
 }
 
 func (a *Autoscaler) ensureInstanceTerminated(ctx context.Context, event HookEvent) error {
-	_, err := a.DescribeInstance(ctx, event.InstanceID)
+	instance, err := a.DescribeInstance(ctx, event.InstanceID)
 	if err != nil && !trace.IsNotFound(err) {
 		return trace.Wrap(err)
 	}
 	if trace.IsNotFound(err) {
-		a.Infof("Instance %v not found.", event.InstanceID)
+		a.Infof("Instance %v is not found.", event.InstanceID)
+		return nil
+	}
+	if instanceState(*instance) == ec2.InstanceStateNameTerminated {
+		a.Infof("Instance %v is already terminated.", event.InstanceID)
 		return nil
 	}
 	a.Infof("Waiting for instance %v to terminate.", event.InstanceID)
 	if err = a.WaitUntilInstanceTerminated(ctx, event.InstanceID); err != nil {
 		return trace.Wrap(err)
 	}
-	a.Infof("Instance %v terminated.", event.InstanceID)
+	a.Infof("Instance %v has been terminated.", event.InstanceID)
 	return nil
 }
 
