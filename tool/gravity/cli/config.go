@@ -356,7 +356,7 @@ func (i *InstallConfig) ToInstallerConfig(env *localenv.LocalEnvironment, valida
 
 // splitResources validates the resources specified in ResourcePath
 // using the given validator and splits them into Kubernetes and Gravity-specific
-func (i *InstallConfig) splitResources(validator resources.Validator) ([]runtime.Object, []storage.UnknownResource, error) {
+func (i *InstallConfig) splitResources(validator resources.Validator) (runtimeResources []runtime.Object, clusterResources []storage.UnknownResource, err error) {
 	if i.ResourcesPath == "" {
 		return nil, nil, trace.NotFound("no resources provided")
 	}
@@ -366,17 +366,17 @@ func (i *InstallConfig) splitResources(validator resources.Validator) ([]runtime
 	}
 	defer rc.Close()
 	// TODO(dmitri): validate kubernetes resources as well
-	kubernetesResources, gravityResources, err := resources.Split(rc)
+	runtimeResources, clusterResources, err = resources.Split(rc)
 	if err != nil {
 		return nil, nil, trace.BadParameter("failed to validate %q: %v", i.ResourcesPath, err)
 	}
-	for _, res := range gravityResources {
+	for _, res := range clusterResources {
 		log.WithField("resource", res.ResourceHeader).Info("Validating.")
 		if err := validator.Validate(res); err != nil {
 			return nil, nil, trace.Wrap(err, "resource %q is invalid", res.Kind)
 		}
 	}
-	return kubernetesResources, gravityResources, nil
+	return runtimeResources, clusterResources, nil
 }
 
 func (i *InstallConfig) updateClusterConfig(resources []storage.UnknownResource) (updated []storage.UnknownResource, err error) {

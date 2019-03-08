@@ -325,6 +325,9 @@ func (s *site) configurePackages(ctx *operationContext, req ops.ConfigurePackage
 		if err != nil {
 			return trace.Wrap(err)
 		}
+		if s.cloudProviderName() != "" {
+			clusterConfig.SetCloudProvider(s.cloudProviderName())
+		}
 	}
 
 	for i, master := range masters {

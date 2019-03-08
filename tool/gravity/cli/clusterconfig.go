@@ -39,7 +39,7 @@ func resetConfig(ctx context.Context, localEnv, updateEnv *localenv.LocalEnviron
 }
 
 func updateConfig(ctx context.Context, localEnv, updateEnv *localenv.LocalEnvironment, config libclusterconfig.Interface, manual, confirmed bool) error {
-	if err := validateUpdateConfig(localEnv, config); err != nil {
+	if err := validateCloudConfig(localEnv, config); err != nil {
 		return trace.Wrap(err)
 	}
 	if !confirmed {
@@ -221,7 +221,7 @@ type configInitializer struct {
 	config   libclusterconfig.Interface
 }
 
-func validateUpdateConfig(localEnv *localenv.LocalEnvironment, config libclusterconfig.Interface) error {
+func validateCloudConfig(localEnv *localenv.LocalEnvironment, config libclusterconfig.Interface) error {
 	operator, err := localEnv.SiteOperator()
 	if err != nil {
 		return trace.Wrap(err)
@@ -254,7 +254,7 @@ func validateUpdateConfig(localEnv *localenv.LocalEnvironment, config libcluster
 }
 
 func isCloudConfigEmpty(global *libclusterconfig.Global) bool {
-	return global.CloudProvider == "" && global.CloudConfig != ""
+	return global.CloudProvider == "" && global.CloudConfig == ""
 }
 
 const (

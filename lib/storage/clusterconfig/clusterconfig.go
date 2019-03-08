@@ -39,6 +39,8 @@ type Interface interface {
 	GetKubeletConfig() *Kubelet
 	// GetGlobalConfig returns the global configuration
 	GetGlobalConfig() *Global
+	// SetCloudProvider sets the cloud provider for this configuration
+	SetCloudProvider(provider string)
 }
 
 // New returns a new instance of the resource initialized to specified spec
@@ -105,6 +107,14 @@ func (r *Resource) GetKubeletConfig() *Kubelet {
 // GetGlobalConfig returns the global configuration
 func (r *Resource) GetGlobalConfig() *Global {
 	return r.Spec.Global
+}
+
+// SetCloudProvider sets the cloud provider for this configuration
+func (r *Resource) SetCloudProvider(provider string) {
+	if r.Spec.Global == nil {
+		r.Spec.Global = &Global{}
+	}
+	r.Spec.Global.CloudProvider = provider
 }
 
 // Unmarshal unmarshals the resource from either YAML- or JSON-encoded data
