@@ -111,7 +111,6 @@ func (i *Installer) NewClusterRequest() ops.NewSiteRequest {
 		Email:        fmt.Sprintf("installer@%v", i.SiteDomain),
 		Provider:     i.CloudProvider,
 		DomainName:   i.SiteDomain,
-		Resources:    i.Resources,
 		InstallToken: i.Config.Token,
 		ServiceUser: storage.OSUser{
 			Name: i.Config.ServiceUser.Name,

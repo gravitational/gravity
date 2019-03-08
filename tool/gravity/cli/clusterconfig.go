@@ -34,11 +34,14 @@ import (
 
 // resetConfig executes the loop to reset cluster configuration to defaults
 func resetConfig(ctx context.Context, localEnv, updateEnv *localenv.LocalEnvironment, manual, confirmed bool) error {
-	config := libclusterconfig.New()
+	config := libclusterconfig.NewEmpty()
 	return trace.Wrap(updateConfig(ctx, localEnv, updateEnv, config, manual, confirmed))
 }
 
 func updateConfig(ctx context.Context, localEnv, updateEnv *localenv.LocalEnvironment, config libclusterconfig.Interface, manual, confirmed bool) error {
+	if err := validateCloudConfig(localEnv, config); err != nil {
+		return trace.Wrap(err)
+	}
 	if !confirmed {
 		if manual {
 			localEnv.Println(updateConfigBannerManual)
@@ -216,6 +219,51 @@ func (configInitializer) updateDeployRequest(req deployAgentsRequest) deployAgen
 type configInitializer struct {
 	resource []byte
 	config   libclusterconfig.Interface
+}
+
+func validateCloudConfig(localEnv *localenv.LocalEnvironment, config libclusterconfig.Interface) error {
+	if newGlobalConfig := config.GetGlobalConfig(); !isCloudConfigEmpty(newGlobalConfig) {
+		// TODO(dmitri): require cloud provider if cloud-config is being updated
+		// This is more a sanity check than a hard requirement so users are explicit about changes
+		// in the cloud configuration
+		if newGlobalConfig.CloudConfig != "" && newGlobalConfig.CloudProvider == "" {
+			return trace.BadParameter("cloud provider is required when updating cloud configuration")
+		}
+	}
+	operator, err := localEnv.SiteOperator()
+	if err != nil {
+		return trace.Wrap(err)
+	}
+	cluster, err := operator.GetLocalSite()
+	if err != nil {
+		return trace.Wrap(err)
+	}
+	clusterConfig, err := operator.GetClusterConfiguration(cluster.Key())
+	if err != nil {
+		return trace.Wrap(err)
+	}
+	globalConfig := clusterConfig.GetGlobalConfig()
+	if isCloudConfigEmpty(globalConfig) {
+		if newGlobalConfig := config.GetGlobalConfig(); !isCloudConfigEmpty(newGlobalConfig) {
+			return trace.BadParameter("cannot change cloud configuration: cluster does not have cloud provider configured")
+		}
+	}
+	if globalConfig != nil {
+		if newGlobalConfig := config.GetGlobalConfig(); newGlobalConfig != nil {
+			if newGlobalConfig.CloudProvider != "" && globalConfig.CloudProvider != newGlobalConfig.CloudProvider {
+				return trace.BadParameter("changing cloud provider is not supported (%q -> %q)",
+					newGlobalConfig.CloudProvider, globalConfig.CloudProvider)
+			}
+			if globalConfig.CloudProvider == "" && newGlobalConfig.CloudConfig != "" {
+				return trace.BadParameter("cannot set cloud configuration: cluster does not have cloud provider configured")
+			}
+		}
+	}
+	return nil
+}
+
+func isCloudConfigEmpty(global *libclusterconfig.Global) bool {
+	return global == nil || (global.CloudProvider == "" && global.CloudConfig == "")
 }
 
 const (

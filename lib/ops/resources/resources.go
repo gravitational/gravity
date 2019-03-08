@@ -155,6 +155,8 @@ func (r *RemoveRequest) Check() error {
 	switch kind {
 	case storage.KindAlertTarget:
 	case storage.KindSMTPConfig:
+	case storage.KindRuntimeEnvironment:
+	case storage.KindClusterConfiguration:
 	default:
 		if r.Name == "" {
 			return trace.BadParameter("resource name is mandatory")

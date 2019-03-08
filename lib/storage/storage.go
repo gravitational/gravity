@@ -1996,8 +1996,10 @@ type UpdateOperationState struct {
 
 // UpdateEnvarsOperationState describes the state of the operation to update cluster environment variables.
 type UpdateEnvarsOperationState struct {
+	// PrevEnv specifies the previous environment state
+	PrevEnv map[string]string `json:"prev_env,omitempty"`
 	// Env defines new cluster environment variables
-	Env map[string]string `json:"env"`
+	Env map[string]string `json:"env,omitempty"`
 }
 
 // Package returns the update package locator
@@ -2012,9 +2014,9 @@ func (s UpdateOperationState) Package() (*loc.Locator, error) {
 // UpdateConfigOperationState describes the state of the operation to update cluster configuration
 type UpdateConfigOperationState struct {
 	// PrevConfig specifies the previous configuration state
-	PrevConfig []byte `json:"prev_config"`
+	PrevConfig []byte `json:"prev_config,omitempty"`
 	// Config specifies the raw configuration resource
-	Config []byte `json:"config"`
+	Config []byte `json:"config,omitempty"`
 }
 
 // ServerUpdate represents server that is being updated
