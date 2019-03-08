@@ -105,8 +105,8 @@ func (a *Autoscaler) processEvent(ctx context.Context, operator Operator, event 
 			return trace.Wrap(err)
 		}
 	case InstanceTerminating:
-		if err := a.WaitUntilInstanceTerminated(ctx, event.InstanceID); err != nil {
-			return trace.Wrap(err, "failed to wait for instance to terminate: %v", event)
+		if err := a.ensureInstanceTerminated(ctx, event); err != nil {
+			return trace.Wrap(err)
 		}
 		if err := a.removeInstance(ctx, operator, event); err != nil && !trace.IsNotFound(err) {
 			return trace.Wrap(err)
@@ -121,6 +121,23 @@ func (a *Autoscaler) processEvent(ctx context.Context, operator Operator, event 
 		}
 		return trace.BadParameter("unsupported event: %v", event.Type)
 	}
+	return nil
+}
+
+func (a *Autoscaler) ensureInstanceTerminated(ctx context.Context, event HookEvent) error {
+	_, err := a.DescribeInstance(ctx, event.InstanceID)
+	if err != nil && !trace.IsNotFound(err) {
+		return trace.Wrap(err)
+	}
+	if trace.IsNotFound(err) {
+		a.Infof("Instance %v not found.", event.InstanceID)
+		return nil
+	}
+	a.Infof("Waiting for instance %v to terminate.", event.InstanceID)
+	if err = a.WaitUntilInstanceTerminated(ctx, event.InstanceID); err != nil {
+		return trace.Wrap(err)
+	}
+	a.Infof("Instance %v terminated.", event.InstanceID)
 	return nil
 }
 
