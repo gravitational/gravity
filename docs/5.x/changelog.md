@@ -40,7 +40,7 @@ LTS starts with `3.51.0` with minor backwards compatible changes added over time
 
 * Fix an issue with `kubectl` not working on host when using custom state directory.
 * Fix an issue with `gravity status` always displaying degraded status on regular nodes.
-* Fix an issue with shrink operation sometimes running commands on the leaving node.
+* Fix an issue with shrink operation sometimes spawning on the leaving node.
 
 ### 5.2.11 LTS
 
