@@ -167,7 +167,8 @@ type Config struct {
 	RuntimeResources []runtime.Object
 	// ClusterResources specifies optional cluster resources to create
 	// If specified, will be combined with Resources
-	// TODO(dmitri): externalize the ClusterConfiguration resource
+	// TODO(dmitri): externalize the ClusterConfiguration resource and create
+	// default provider-specific cloud-config on Gravity side
 	ClusterResources []storage.UnknownResource
 	// EventsC is channel with events indicating install progress
 	EventsC chan Event

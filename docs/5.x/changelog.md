@@ -47,6 +47,7 @@ LTS starts with `3.51.0` with minor backwards compatible changes added over time
 #### Improvements
 
 * Introduce `ClusterConfiguration` resource, see [Configuring Cluster](/cluster/#cluster-configuration) for details.
+* Introduce `RuntimeEnvironment` resource, see [Configuring Runtime Environment Variables](/cluster/#configuring-runtime-environment-variables) for details.
 * Update 'gravity plan' to support all cluster operations.
 
 ### 5.5.0-beta.2
