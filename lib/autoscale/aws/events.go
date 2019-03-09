@@ -63,6 +63,7 @@ func (a *Autoscaler) GetQueueURL(ctx context.Context) (string, error) {
 // ProcessEvents listens for events on SQS queue that are sent by the auto scaling
 // group lifecycle hooks.
 func (a *Autoscaler) ProcessEvents(ctx context.Context, queueURL string, operator Operator) {
+	a.WithField("queue", queueURL).Info("Start processing events.")
 	for {
 		out, err := a.Queue.ReceiveMessageWithContext(ctx, &sqs.ReceiveMessageInput{
 			QueueUrl:            aws.String(queueURL),
@@ -73,7 +74,7 @@ func (a *Autoscaler) ProcessEvents(ctx context.Context, queueURL string, operato
 		if err != nil {
 			select {
 			case <-ctx.Done():
-				a.Debugf("context has terminated, stop ProcessEvents")
+				a.WithField("queue", queueURL).Info("Stop processing events.")
 				return
 			default:
 			}
@@ -96,7 +97,7 @@ func (a *Autoscaler) ProcessEvents(ctx context.Context, queueURL string, operato
 }
 
 func (a *Autoscaler) processEvent(ctx context.Context, operator Operator, event HookEvent) error {
-	a.Debugf("got event: %v", event)
+	a.WithField("event", event).Info("Received autoscale event.")
 	switch event.Type {
 	case InstanceLaunching:
 		if err := a.TurnOffSourceDestinationCheck(ctx, event.InstanceID); err != nil {
@@ -126,23 +127,24 @@ func (a *Autoscaler) processEvent(ctx context.Context, operator Operator, event 
 }
 
 func (a *Autoscaler) ensureInstanceTerminated(ctx context.Context, event HookEvent) error {
+	log := a.WithField("instance", event.InstanceID)
 	instance, err := a.DescribeInstance(ctx, event.InstanceID)
 	if err != nil && !trace.IsNotFound(err) {
 		return trace.Wrap(err)
 	}
 	if trace.IsNotFound(err) {
-		a.Infof("Instance %v is not found.", event.InstanceID)
+		log.Info("Instance is not found.")
 		return nil
 	}
 	if instanceState(*instance) == ec2.InstanceStateNameTerminated {
-		a.Infof("Instance %v is already terminated.", event.InstanceID)
+		log.Info("Instance is already terminated.")
 		return nil
 	}
-	a.Infof("Waiting for instance %v to terminate.", event.InstanceID)
+	log.Info("Waiting for instance to terminate.")
 	if err = a.WaitUntilInstanceTerminated(ctx, event.InstanceID); err != nil {
 		return trace.Wrap(err)
 	}
-	a.Infof("Instance %v has been terminated.", event.InstanceID)
+	log.Info("Instance has been terminated.")
 	return nil
 }
 

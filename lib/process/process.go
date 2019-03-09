@@ -501,7 +501,6 @@ func (p *Process) startAutoscale(ctx context.Context) error {
 		p.Info("Not on AWS, skip autoscaler start.")
 		return nil
 	}
-	p.Info("Starting AWS autoscaler.")
 	site, err := p.operator.GetLocalSite()
 	if err != nil {
 		return trace.Wrap(err)
@@ -522,11 +521,16 @@ func (p *Process) startAutoscale(ctx context.Context) error {
 		p.Warningf("Failed to get Autoscale Queue URL: %v. Cluster will continue without autoscaling support. Fix the problem and restart the process.", trace.DebugReport(err))
 		return nil
 	}
-
 	// receive and process events from SQS notification service
-	go autoscaler.ProcessEvents(ctx, queueURL, p.operator)
+	p.RegisterClusterService(func(ctx context.Context) error {
+		autoscaler.ProcessEvents(ctx, queueURL, p.operator)
+		return nil
+	})
 	// publish discovery information about this cluster
-	go autoscaler.PublishDiscovery(ctx, p.operator)
+	p.RegisterClusterService(func(ctx context.Context) error {
+		autoscaler.PublishDiscovery(ctx, p.operator)
+		return nil
+	})
 	return nil
 }
 
