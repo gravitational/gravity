@@ -1152,10 +1152,6 @@ func (p *Process) initService() (err error) {
 		}
 
 		p.Info("Running inside Kubernetes: starting leader election.")
-		// gravity site leader election
-		if err := p.startElection(); err != nil {
-			return trace.Wrap(err)
-		}
 
 		if err := p.initClusterCertificate(client); err != nil {
 			return trace.Wrap(err)
@@ -1173,6 +1169,9 @@ func (p *Process) initService() (err error) {
 			return trace.Wrap(err)
 		}
 
+		if err := p.startElection(); err != nil {
+			return trace.Wrap(err)
+		}
 	} else {
 		p.Debug("Not running inside Kubernetes.")
 	}
