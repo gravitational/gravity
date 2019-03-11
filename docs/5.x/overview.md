@@ -48,7 +48,7 @@ public or private infrastructure.
 Gravity consists of these major components:
 
 
-* [gravity](./cluster/#gravity-tool): the CLI tool used to manage the cluster.
+* [gravity](/cluster/#gravity-tool): the CLI tool used to manage the cluster.
 Gravity is only available inside the cluster so you have to either `tsh ssh` into the cluster or use web UI to execute `gravity` commands.
 * **`tele`**: the CLI tool which is used for packaging and publishing applications.
 * **`tsh`**: the SSH client for establishing secure SSH connections between the
@@ -64,10 +64,6 @@ Gravity is only available inside the cluster so you have to either `tsh ssh` int
 Application Bundles may contain "empty", pre-packaged Kubernetes for
 centralized management of Kubernetes resources within an organization or may
 also contain other applications running on Kubernetes. 
-
-
-
-## Workflow
 
 The typical cluster lifecycle consists of the following:
 
