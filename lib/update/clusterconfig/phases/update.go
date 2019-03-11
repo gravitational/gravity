@@ -72,11 +72,12 @@ func (r *updateConfig) Execute(ctx context.Context) error {
 			return trace.Wrap(err)
 		}
 		req := ops.RotatePlanetConfigRequest{
-			Key:      r.operation.Key(),
-			Server:   server,
-			Manifest: r.manifest,
-			Package:  *runtimePackage,
-			Config:   r.operation.UpdateConfig.Config,
+			Key:            r.operation.Key(),
+			Server:         server,
+			Manifest:       r.manifest,
+			RuntimePackage: *runtimePackage,
+			//ConfigPackageVersion: r.configPackageVersionFor(server),
+			Config: r.operation.UpdateConfig.Config,
 		}
 		resp, err := r.operator.RotatePlanetConfig(req)
 		if err != nil {
@@ -97,11 +98,22 @@ func (r *updateConfig) Execute(ctx context.Context) error {
 
 // Rollback resets the cluster configuration to the previous value
 func (r *updateConfig) Rollback(context.Context) error {
+	var errors []error
+	for _, server := range r.servers {
+		// loc := r.configPackageVersionFor(server)
+		_, err = r.packages.DeletePackage(loc)
+		if err != nil {
+			errors = append(errors, err)
+		}
+	}
 	err := r.operator.UpdateClusterConfiguration(ops.UpdateClusterConfigRequest{
 		ClusterKey: r.operation.ClusterKey(),
 		Config:     r.operation.UpdateConfig.PrevConfig,
 	})
-	return trace.Wrap(err)
+	if err != nil {
+		errors = append(errors, err)
+	}
+	return trace.NewAggregate(errors...)
 }
 
 // PreCheck is a no-op

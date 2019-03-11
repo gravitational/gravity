@@ -1201,7 +1201,7 @@ func toObject(in interface{}) (map[string]interface{}, error) {
 func (s *site) teleportMasterConfigPackage(master remoteServer) (*loc.Locator, error) {
 	configPackage, err := loc.ParseLocator(
 		fmt.Sprintf("%v/%v:0.0.%v-%v", s.siteRepoName(), constants.TeleportMasterConfigPackage,
-			time.Now().UTC().Unix(), PackageSuffix(master, s.domainName)))
+			time.Now().UTC().Unix(), PackageSuffix(master.Address(), s.domainName)))
 	return configPackage, trace.Wrap(err)
 }
 
@@ -1313,7 +1313,7 @@ func (s *site) configureTeleportNode(ctx *operationContext, masterIPs []string, 
 func (s *site) teleportNodeConfigPackage(node remoteServer) (*loc.Locator, error) {
 	configPackage, err := loc.ParseLocator(
 		fmt.Sprintf("%v/%v:0.0.%v-%v", s.siteRepoName(), constants.TeleportNodeConfigPackage,
-			time.Now().UTC().Unix(), PackageSuffix(node, s.domainName)))
+			time.Now().UTC().Unix(), PackageSuffix(node.Address(), s.domainName)))
 	return configPackage, trace.Wrap(err)
 }
 
@@ -1434,22 +1434,13 @@ func (s *site) planetSecretsNextPackage(node *ProvisionedServer) (*loc.Locator, 
 		fmt.Sprintf("%v/planet-%v-secrets:0.0.%v", s.siteRepoName(), node.AdvertiseIP, time.Now().UTC().Unix()))
 }
 
-// planetNextConfigPackage generates a new planet configuration package
-// locator guaranteed to be greater than version
-func (s *site) planetNextConfigPackage(node remoteServer, version string) (*loc.Locator, error) {
-	version = fmt.Sprintf("%v+%v", version, time.Now().UTC().Unix())
-	return s.planetConfigPackage(node, version)
-}
-
 // planetConfigPackage creates a planet configuration package reference
 // using the specified version as a package version and the given node to add unique
 // suffix to the name.
 // This is in contrast to the old naming with PackageSuffix used as a prerelease part
 // of the version which made them hard to match when looking for an update.
-func (s *site) planetConfigPackage(node remoteServer, version string) (*loc.Locator, error) {
-	return loc.ParseLocator(
-		fmt.Sprintf("%v/%v-%v:%v", s.siteRepoName(), constants.PlanetConfigPackage,
-			PackageSuffix(node, s.domainName), version))
+func (s *site) planetConfigPackage(node remoteServer, runtimeVersion string) (*loc.Locator, error) {
+	return RuntimeConfigurationPackage(s.domainName, node.Address(), runtimeVersion)
 }
 
 // serverPackages returns a list of package locators specific to the provided server

@@ -72,11 +72,11 @@ func (r *updateConfig) Execute(ctx context.Context) error {
 			return trace.Wrap(err)
 		}
 		req := ops.RotatePlanetConfigRequest{
-			Key:      r.operation.Key(),
-			Server:   server,
-			Manifest: r.manifest,
-			Package:  *runtimePackage,
-			Env:      r.operation.UpdateEnviron.Env,
+			Key:            r.operation.Key(),
+			Server:         server,
+			Manifest:       r.manifest,
+			RuntimePackage: *runtimePackage,
+			Env:            r.operation.UpdateEnviron.Env,
 		}
 		resp, err := r.operator.RotatePlanetConfig(req)
 		if err != nil {

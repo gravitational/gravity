@@ -217,7 +217,7 @@ func (o *Operator) RotatePlanetConfig(req ops.RotatePlanetConfigRequest) (*ops.R
 	checks.OverrideDockerConfig(&dockerConfig,
 		checks.DockerConfigFromSchema(req.Manifest.SystemOptions.DockerConfig()))
 
-	configPackage, err := cluster.planetNextConfigPackage(&node, req.Package.Version)
+	configPackage, err := cluster.planetNextConfigPackage(&node, req.RuntimePackage.Version)
 	if err != nil {
 		return nil, trace.Wrap(err)
 	}
@@ -233,7 +233,7 @@ func (o *Operator) RotatePlanetConfig(req ops.RotatePlanetConfigRequest) (*ops.R
 		etcd:          etcd,
 		docker:        dockerConfig,
 		dockerRuntime: node.Docker,
-		planetPackage: req.Package,
+		planetPackage: req.RuntimePackage,
 		configPackage: *configPackage,
 		env:           req.Env,
 	}

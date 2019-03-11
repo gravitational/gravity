@@ -41,9 +41,6 @@ func (r *Config) checkAndSetDefaults() error {
 	if r.ClusterPackages == nil {
 		return trace.BadParameter("cluster package service is required")
 	}
-	if r.RequestAdaptor == nil {
-		r.RequestAdaptor = RequestAdaptorFunc(idRequest)
-	}
 	if r.Dispatcher == nil {
 		r.Dispatcher = NewDefaultDispatcher()
 	}
@@ -53,10 +50,6 @@ func (r *Config) checkAndSetDefaults() error {
 // Config describes configuration for executing a rolling update operation
 type Config struct {
 	update.Config
-	// RequestAdaptor specifies the adaptor for configuration update requests.
-	// It is used by the configuration update phase to augment the request before
-	// executing the RotatePlanetConfig API
-	RequestAdaptor
 	// Dispatcher specifies optional phase dispatcher.
 	// If unspecified, default dispatcher is used.
 	//

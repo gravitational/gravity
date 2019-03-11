@@ -20,7 +20,6 @@ package rollingupdate
 import (
 	"github.com/gravitational/gravity/lib/constants"
 	"github.com/gravitational/gravity/lib/fsm"
-	"github.com/gravitational/gravity/lib/ops"
 	libphase "github.com/gravitational/gravity/lib/update/internal/rollingupdate/phases"
 
 	"github.com/gravitational/trace"
@@ -35,10 +34,6 @@ func NewDefaultDispatcher() Dispatcher {
 // Dispatch returns the appropriate phase executor based on the provided parameters
 func (r *dispatcher) Dispatch(config Config, params fsm.ExecutorParams, remote fsm.Remote, logger log.FieldLogger) (fsm.PhaseExecutor, error) {
 	switch params.Phase.Executor {
-	case libphase.UpdateConfig:
-		return libphase.NewUpdateConfig(params,
-			config.Operator, *config.Operation, config.Apps, config.ClusterPackages,
-			config.RequestAdaptor, logger)
 	case libphase.RestartContainer:
 		return libphase.NewRestart(params, config.Operator, config.Apps, config.Operation.ID,
 			logger)
@@ -60,32 +55,10 @@ func (r *dispatcher) Dispatch(config Config, params fsm.ExecutorParams, remote f
 	}
 }
 
-// RequestAdaptor allows to augment configuration update request
-type RequestAdaptor interface {
-	// UpdateRequest augments the specified request.
-	// Implementations can use this to update (or set additional) fields on the request
-	// before dispatching
-	UpdateRequest(ops.RotatePlanetConfigRequest, ops.SiteOperation) ops.RotatePlanetConfigRequest
-}
-
-// UpdateRequest updates the specified request by invoking itself.
-// Implements RequestAdaptor
-func (r RequestAdaptorFunc) UpdateRequest(req ops.RotatePlanetConfigRequest, operation ops.SiteOperation) ops.RotatePlanetConfigRequest {
-	return r(req, operation)
-}
-
-// RequestAdaptorFunc enables a function as a RequestAdaptor
-type RequestAdaptorFunc func(ops.RotatePlanetConfigRequest, ops.SiteOperation) ops.RotatePlanetConfigRequest
-
 // Dispatcher routes the set of execution parameters to a specific operation phase
 type Dispatcher interface {
 	// Dispatch returns an executor for the given parameters and the specified remote
 	Dispatch(Config, fsm.ExecutorParams, fsm.Remote, log.FieldLogger) (fsm.PhaseExecutor, error)
-}
-
-// idRequest passes the specified request unmodified
-func idRequest(req ops.RotatePlanetConfigRequest, operation ops.SiteOperation) ops.RotatePlanetConfigRequest {
-	return req
 }
 
 // Dispatch returns the appropriate phase executor based on the provided parameters

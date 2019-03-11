@@ -364,12 +364,12 @@ func (p *updatePhaseInit) rotatePlanetConfig(server storage.Server) error {
 		return trace.Wrap(err)
 	}
 	resp, err := p.Operator.RotatePlanetConfig(ops.RotatePlanetConfigRequest{
-		Key:      p.Operation.Key(),
-		Server:   server,
-		Manifest: p.app.Manifest,
-		Package:  *runtimePackage,
-		Config:   p.existingClusterConfig,
-		Env:      p.existingEnviron,
+		Key:            p.Operation.Key(),
+		Server:         server,
+		Manifest:       p.app.Manifest,
+		RuntimePackage: *runtimePackage,
+		Config:         p.existingClusterConfig,
+		Env:            p.existingEnviron,
 	})
 	if err != nil {
 		return trace.Wrap(err)

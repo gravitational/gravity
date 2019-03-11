@@ -145,8 +145,9 @@ type GarbageCollectOperationData struct {
 
 // UpdateOperationData describes configuration for update operations
 type UpdateOperationData struct {
-	// Servers lists the subset of cluster servers to use for the step in case
-	// the operation needs to operate not on the whole cluster
+	// Servers lists the cluster servers to use for the configuration update step.
+	// The list might be a subset of all cluster servers in case
+	// the operation only operates on a specific part
 	Servers []Server `json:"servers,omitempty" yaml:"servers,omitempty"`
 }
 
