@@ -602,7 +602,7 @@ func (i *Installer) GetPlanBuilder(cluster ops.Site, op ops.SiteOperation) (*Pla
 		},
 		InstallerTrustedCluster: trustedCluster,
 	}
-	err = addResources(builder, cluster.Resources, i.Config.RuntimeResources)
+	err = addResources(builder, cluster.Resources, i.Config.RuntimeResources, i.Config.ClusterResources)
 	if err != nil {
 		return nil, trace.Wrap(err)
 	}
@@ -664,12 +664,13 @@ func (b *PlanBuilder) skipDependency(dep loc.Locator) bool {
 	return schema.ShouldSkipApp(b.Application.Manifest, dep)
 }
 
-func addResources(builder *PlanBuilder, resourceBytes []byte, runtimeResources []runtime.Object) error {
+func addResources(builder *PlanBuilder, resourceBytes []byte, runtimeResources []runtime.Object, clusterResources []storage.UnknownResource) error {
 	kubernetesResources, gravityResources, err := resourceutil.Split(bytes.NewReader(resourceBytes))
 	if err != nil {
 		return trace.Wrap(err)
 	}
-	rs := gravityResources[:0]
+	gravityResources = append(gravityResources, clusterResources...)
+	rest := gravityResources[:0]
 	for _, res := range gravityResources {
 		switch res.Kind {
 		case storage.KindRuntimeEnvironment:
@@ -686,10 +687,10 @@ func addResources(builder *PlanBuilder, resourceBytes []byte, runtimeResources [
 			kubernetesResources = append(kubernetesResources, configmap)
 		default:
 			// Filter out resources that are created using the regular workflow
-			rs = append(rs, res)
+			rest = append(rest, res)
 		}
 	}
-	builder.gravityResources = rs
+	builder.gravityResources = rest
 	kubernetesResources = append(kubernetesResources, runtimeResources...)
 	if len(kubernetesResources) != 0 {
 		var buf bytes.Buffer

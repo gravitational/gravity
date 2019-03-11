@@ -47,7 +47,7 @@ func (S) TestSingleNodePlan(c *C) {
 		{Hostname: "node-1", ClusterRole: string(schema.ServiceRoleMaster)},
 	}
 	app := loc.MustParseLocator("gravitational.io/app:0.0.1")
-	clusterConfig := clusterconfig.New()
+	clusterConfig := clusterconfig.NewEmpty()
 
 	plan, err := newOperationPlan(app, storage.DefaultDNSConfig, operation, clusterConfig, servers)
 	c.Assert(err, IsNil)
@@ -154,7 +154,7 @@ func (S) TestMultiNodePlan(c *C) {
 		{Hostname: "node-3", ClusterRole: string(schema.ServiceRoleMaster)},
 	}
 	app := loc.MustParseLocator("gravitational.io/app:0.0.1")
-	clusterConfig := clusterconfig.New()
+	clusterConfig := clusterconfig.NewEmpty()
 
 	plan, err := newOperationPlan(app, storage.DefaultDNSConfig, operation, clusterConfig, servers)
 	c.Assert(err, IsNil)
@@ -358,7 +358,7 @@ func (S) TestBuildsPlanWithNodes(c *C) {
 		{Hostname: "node-2", ClusterRole: string(schema.ServiceRoleNode)},
 	}
 	app := loc.MustParseLocator("gravitational.io/app:0.0.1")
-	clusterConfig := clusterconfig.New()
+	clusterConfig := clusterconfig.NewEmpty()
 	clusterConfig.Spec.ComponentConfigs.Kubelet = &clusterconfig.Kubelet{
 		Config: []byte(`apiVersion: v1
 kind: KubeletConfiguration

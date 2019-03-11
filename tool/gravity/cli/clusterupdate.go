@@ -30,6 +30,7 @@ import (
 	"github.com/gravitational/gravity/lib/ops"
 	"github.com/gravitational/gravity/lib/pack"
 	"github.com/gravitational/gravity/lib/schema"
+	"github.com/gravitational/gravity/lib/storage"
 	"github.com/gravitational/gravity/lib/update"
 	clusterupdate "github.com/gravitational/gravity/lib/update/cluster"
 	"github.com/gravitational/version"
@@ -200,11 +201,14 @@ func (r clusterInitializer) newOperationPlan(
 	operation ops.SiteOperation,
 	localEnv, updateEnv *localenv.LocalEnvironment,
 	clusterEnv *localenv.ClusterEnvironment,
-) error {
-	_, err := clusterupdate.InitOperationPlan(
+) (*storage.OperationPlan, error) {
+	plan, err := clusterupdate.InitOperationPlan(
 		ctx, localEnv, updateEnv, clusterEnv, operation.Key(),
 	)
-	return trace.Wrap(err)
+	if err != nil {
+		return nil, trace.Wrap(err)
+	}
+	return plan, nil
 }
 
 func (clusterInitializer) newUpdater(

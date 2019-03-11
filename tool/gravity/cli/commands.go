@@ -706,6 +706,8 @@ type AppInstallCmd struct {
 // AppListCmd shows all application releases.
 type AppListCmd struct {
 	*kingpin.CmdClause
+	// All displays releases with all possible statuses.
+	All *bool
 }
 
 // AppUpgradeCmd upgrades a release.

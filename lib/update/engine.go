@@ -51,7 +51,7 @@ func NewMachine(ctx context.Context, config Config, engine *Engine) (*fsm.FSM, e
 
 // NewEngine returns a new update engine using the given dispatcher to dispatch phases
 func NewEngine(ctx context.Context, config Config, dispatcher Dispatcher) (*Engine, error) {
-	plan, err := config.Operator.GetOperationPlan(config.Operation.Key())
+	plan, err := config.LocalBackend.GetOperationPlan(config.Operation.SiteDomain, config.Operation.ID)
 	if err != nil {
 		return nil, trace.Wrap(err)
 	}

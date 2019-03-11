@@ -487,6 +487,9 @@ type RuntimeEnvironment interface {
 	CreateUpdateEnvarsOperation(CreateUpdateEnvarsOperationRequest) (*SiteOperationKey, error)
 	// GetClusterEnvironmentVariables retrieves the cluster runtime environment variables
 	GetClusterEnvironmentVariables(SiteKey) (storage.EnvironmentVariables, error)
+	// UpdateClusterEnvironmentVariables updates the cluster runtime environment variables
+	// from the specified request
+	UpdateClusterEnvironmentVariables(UpdateClusterEnvironRequest) error
 }
 
 // ClusterConfiguration manages configuration in cluster
@@ -969,27 +972,32 @@ func (s *SiteOperation) ClusterState() (string, error) {
 
 // String returns the textual representation of this operation
 func (s *SiteOperation) String() string {
-	var typeS string
+	return fmt.Sprintf("operation(%v(%v), cluster=%v, state=%s, created=%v)",
+		s.TypeString(), s.ID, s.SiteDomain, s.State, s.Created.Format(constants.HumanDateFormat))
+}
+
+// TypeString returns the textual representation of the operation's type
+func (s *SiteOperation) TypeString() string {
 	switch s.Type {
 	case OperationInstall:
-		typeS = "install"
+		return "install"
 	case OperationExpand:
-		typeS = "expand"
+		return "expand"
 	case OperationUpdate:
-		typeS = "update"
+		return "update"
 	case OperationShrink:
-		typeS = "shrink"
+		return "shrink"
 	case OperationUninstall:
-		typeS = "uninstall"
+		return "uninstall"
 	case OperationGarbageCollect:
-		typeS = "garbage collect"
+		return "garbage collect"
 	case OperationUpdateRuntimeEnviron:
-		typeS = "update runtime environment"
+		return "update runtime environment"
 	case OperationUpdateConfig:
-		typeS = "update configuration"
+		return "update configuration"
+	default:
+		return s.Type
 	}
-	return fmt.Sprintf("operation(%v(%v), cluster=%v, state=%s, created=%v)",
-		typeS, s.ID, s.SiteDomain, s.State, s.Created.Format(constants.HumanDateFormat))
 }
 
 // SiteOperationKey identifies key to retrieve an opertaion
@@ -1201,13 +1209,22 @@ type CreateUpdateConfigOperationRequest struct {
 	Config []byte `json:"config"`
 }
 
+// UpdateClusterEnvironRequest is a request
+// to update cluster runtime environment
+type UpdateClusterEnvironRequest struct {
+	// ClusterKey identifies the cluster
+	ClusterKey SiteKey `json:"cluster_key"`
+	// Env specifies the new runtime environment
+	Env map[string]string `json:"env,omitempty"`
+}
+
 // UpdateClusterConfigRequest is a request
 // to update cluster configuration
 type UpdateClusterConfigRequest struct {
 	// ClusterKey identifies the cluster
 	ClusterKey SiteKey `json:"cluster_key"`
 	// Config specifies the new configuration as JSON-encoded payload
-	Config []byte `json:"config"`
+	Config []byte `json:"config,omitempty"`
 }
 
 // AgentService coordinates install agents that are started on every server

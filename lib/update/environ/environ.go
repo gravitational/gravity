@@ -20,23 +20,29 @@ import (
 	"context"
 
 	"github.com/gravitational/gravity/lib/app"
-	"github.com/gravitational/gravity/lib/ops"
+	"github.com/gravitational/gravity/lib/fsm"
 	"github.com/gravitational/gravity/lib/pack"
 	"github.com/gravitational/gravity/lib/update"
+	"github.com/gravitational/gravity/lib/update/environ/phases"
 	"github.com/gravitational/gravity/lib/update/internal/rollingupdate"
+	libphase "github.com/gravitational/gravity/lib/update/internal/rollingupdate/phases"
 
 	"github.com/gravitational/trace"
+	log "github.com/sirupsen/logrus"
 	"k8s.io/client-go/kubernetes"
 )
 
 // New returns new cluster runtime environment updater for the specified configuration
 func New(ctx context.Context, config Config) (*update.Updater, error) {
+	dispatcher := &dispatcher{
+		Dispatcher: rollingupdate.NewDefaultDispatcher(),
+	}
 	machine, err := rollingupdate.NewMachine(ctx, rollingupdate.Config{
 		Config:          config.Config,
 		Apps:            config.Apps,
 		ClusterPackages: config.ClusterPackages,
 		Client:          config.Client,
-		RequestAdaptor:  rollingupdate.RequestAdaptorFunc(updateRequest),
+		Dispatcher:      dispatcher,
 	})
 	if err != nil {
 		return nil, trace.Wrap(err)
@@ -59,8 +65,18 @@ type Config struct {
 	Client *kubernetes.Clientset
 }
 
-func updateRequest(req ops.RotatePlanetConfigRequest, operation ops.SiteOperation) ops.RotatePlanetConfigRequest {
-	result := req
-	result.Env = operation.UpdateEnviron.Env
-	return result
+// Dispatch returns the appropriate phase executor based on the provided parameters
+func (r *dispatcher) Dispatch(config rollingupdate.Config, params fsm.ExecutorParams, remote fsm.Remote, logger log.FieldLogger) (fsm.PhaseExecutor, error) {
+	switch params.Phase.Executor {
+	case libphase.UpdateConfig:
+		return phases.NewUpdateConfig(params,
+			config.Operator, *config.Operation, config.Apps, config.ClusterPackages,
+			logger)
+	default:
+		return r.Dispatcher.Dispatch(config, params, remote, logger)
+	}
+}
+
+type dispatcher struct {
+	rollingupdate.Dispatcher
 }

@@ -631,11 +631,14 @@ func (r configCollection) WriteText(w io.Writer) error {
 		fmt.Fprintf(t, "%v\n", string(config.Config))
 	}
 	if config := r.GetGlobalConfig(); config != nil {
-		common.PrintCustomTableHeader(t, []string{"Cloud"}, "-")
-		if len(config.CloudProvider) != 0 {
-			fmt.Fprintf(t, "Provider:\t%v\n", config.CloudProvider)
+		displayCloudConfig := config.CloudProvider != "" || config.CloudConfig != ""
+		if displayCloudConfig {
+			common.PrintCustomTableHeader(t, []string{"Cloud"}, "-")
+			if len(config.CloudProvider) != 0 {
+				fmt.Fprintf(t, "Provider:\t%v\n", config.CloudProvider)
+			}
+			formatCloudConfig(t, config.CloudConfig)
 		}
-		formatCloudConfig(t, config.CloudConfig)
 		if len(config.ServiceNodePortRange) != 0 {
 			fmt.Fprintf(t, "Service Node Port Range:\t%v\n", config.ServiceNodePortRange)
 		}

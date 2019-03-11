@@ -39,18 +39,21 @@ type Interface interface {
 	GetKubeletConfig() *Kubelet
 	// GetGlobalConfig returns the global configuration
 	GetGlobalConfig() *Global
+	// SetCloudProvider sets the cloud provider for this configuration
+	SetCloudProvider(provider string)
 }
 
-// New returns a new instance of the resource initialized to defaults
-func New() *Resource {
-	return &Resource{
-		Kind:    storage.KindClusterConfiguration,
-		Version: "v1",
-		Metadata: teleservices.Metadata{
-			Name:      constants.ClusterConfigurationMap,
-			Namespace: defaults.KubeSystemNamespace,
-		},
-	}
+// New returns a new instance of the resource initialized to specified spec
+func New(spec Spec) *Resource {
+	res := newEmpty()
+	res.Spec = spec
+	return res
+}
+
+// NewEmpty returns a new instance of the resource initialized to defaults
+func NewEmpty() *Resource {
+	res := newEmpty()
+	return res
 }
 
 // Resource describes the cluster configuration resource
@@ -106,6 +109,14 @@ func (r *Resource) GetGlobalConfig() *Global {
 	return r.Spec.Global
 }
 
+// SetCloudProvider sets the cloud provider for this configuration
+func (r *Resource) SetCloudProvider(provider string) {
+	if r.Spec.Global == nil {
+		r.Spec.Global = &Global{}
+	}
+	r.Spec.Global.CloudProvider = provider
+}
+
 // Unmarshal unmarshals the resource from either YAML- or JSON-encoded data
 func Unmarshal(data []byte) (*Resource, error) {
 	if len(data) == 0 {
@@ -143,6 +154,23 @@ func Unmarshal(data []byte) (*Resource, error) {
 // Marshal marshals this resource as JSON
 func Marshal(config Interface, opts ...teleservices.MarshalOption) ([]byte, error) {
 	return json.Marshal(config)
+}
+
+// ToUnknown returns this resource as a storage.UnknownResource
+func ToUnknown(config Interface) (*storage.UnknownResource, error) {
+	bytes, err := Marshal(config)
+	if err != nil {
+		return nil, trace.Wrap(err)
+	}
+	res := newEmpty()
+	return &storage.UnknownResource{
+		ResourceHeader: teleservices.ResourceHeader{
+			Kind:     res.Kind,
+			Version:  res.Version,
+			Metadata: res.Metadata,
+		},
+		Raw: bytes,
+	}, nil
 }
 
 // Spec defines the cluster configuration resource
@@ -264,8 +292,8 @@ const specSchemaTemplate = `{
                 "fileCheckFrequency": {"type": "string"},
                 "httpCheckFrequency": {"type": "string"},
                 "address": {"type": "string"},
-                "port": {"type": "number"},
-                "readOnlyPort": {"type": "number"},
+                "port": {"type": "integer"},
+                "readOnlyPort": {"type": "integer"},
                 "tlsCertFile": {"type": "string"},
                 "tlsPrivateKeyFile": {"type": "string"},
                 "tlsCipherSuites": {"type": "array", "items": {"type": "string"}},
@@ -274,24 +302,24 @@ const specSchemaTemplate = `{
                 "serverTLSBootstrap": {"type": ["string", "boolean"]},
                 "authentication": {"type": "object"},
                 "authorization": {"type": "object"},
-                "registryPullQPS": {"type": ["null", "number"]},
-                "registryBurst": {"type": "number"},
-                "eventRecordQPS": {"type": ["null", "number"]},
-                "eventBurst": {"type": "number"},
+                "registryPullQPS": {"type": ["null", "integer"]},
+                "registryBurst": {"type": "integer"},
+                "eventRecordQPS": {"type": ["null", "integer"]},
+                "eventBurst": {"type": "integer"},
                 "enableDebuggingHandlers": {"type": ["string", "boolean"]},
                 "enableContentionProfiling": {"type": ["string", "boolean"]},
-                "healthzPort": {"type": ["null", "number"]},
+                "healthzPort": {"type": ["null", "integer"]},
                 "healthzBindAddress": {"type": "string"},
-                "oomScoreAdj": {"type": ["null", "number"]},
+                "oomScoreAdj": {"type": ["null", "integer"]},
                 "clusterDomain": {"type": "string"},
                 "clusterDNS": {"type": "array", "items": {"type": "string"}},
                 "streamingConnectionIdleTimeout": {"type": "string"},
                 "nodeStatusUpdateFrequency": {"type": "string"},
                 "nodeStatusReportFrequency": {"type": "string"},
-                "nodeLeaseDurationSeconds": {"type": "number"},
+                "nodeLeaseDurationSeconds": {"type": "integer"},
                 "imageMinimumGCAge": {"type": "string"},
-                "imageGCHighThresholdPercent": {"type": ["null", "number"]},
-                "imageGCLowThresholdPercent": {"type": ["null", "number"]},
+                "imageGCHighThresholdPercent": {"type": ["null", "integer"]},
+                "imageGCLowThresholdPercent": {"type": ["null", "integer"]},
                 "volumeStatsAggPeriod": {"type": "string"},
                 "kubeletCgroups": {"type": "string"},
                 "systemCgroups": {"type": "string"},
@@ -303,29 +331,29 @@ const specSchemaTemplate = `{
                 "qosReserved": {"type": "object"},
                 "runtimeRequestTimeout": {"type": "string"},
                 "hairpinMode": {"type": "string"},
-                "maxPods": {"type": "number"},
+                "maxPods": {"type": "integer"},
                 "podCIDR": {"type": "string"},
-                "podPidsLimit": {"type": ["null", "number"]},
+                "podPidsLimit": {"type": ["null", "integer"]},
                 "resolvConf": {"type": "string"},
                 "cpuCFSQuota": {"type": ["string", "boolean"]},
                 "cpuCFSQuotaPeriod": {"type": "string"},
-                "maxOpenFiles": {"type": "number"},
+                "maxOpenFiles": {"type": "integer"},
                 "contentType": {"type": "string"},
-                "kubeAPIQPS": {"type": ["null", "number"]},
-                "kubeAPIBurst": {"type": "number"},
+                "kubeAPIQPS": {"type": ["null", "integer"]},
+                "kubeAPIBurst": {"type": "integer"},
                 "serializeImagePulls": {"type": ["string", "boolean"]},
                 "evictionHard": {"type": "object"},
                 "evictionSoft": {"type": "object"},
                 "evictionSoftGracePeriod": {"type": "object"},
                 "evictionPressureTransitionPeriod": {"type": "string"},
-                "evictionMaxPodGracePeriod": {"type": "number"},
+                "evictionMaxPodGracePeriod": {"type": "integer"},
                 "evictionMinimumReclaim": {"type": "object"},
-                "podsPerCore": {"type": "number"},
+                "podsPerCore": {"type": "integer"},
                 "enableControllerAttachDetach": {"type": "boolean"},
                 "protectKernelDefaults": {"type": "boolean"},
                 "makeIPTablesUtilChains": {"type": "boolean"},
-                "iptablesMasqueradeBit": {"type": ["null", "number"]},
-                "iptablesDropBit": {"type": ["null", "number"]},
+                "iptablesMasqueradeBit": {"type": ["null", "integer"]},
+                "iptablesDropBit": {"type": ["null", "integer"]},
                 "featureGates": {
                   "type": "object",
                   "patternProperties": {
@@ -334,7 +362,7 @@ const specSchemaTemplate = `{
                 },
                 "failSwapOn": {"type": "boolean"},
                 "containerLogMaxSize": {"type": "string"},
-                "containerLogMaxFiles": {"type": ["null", "number"]},
+                "containerLogMaxFiles": {"type": ["null", "integer"]},
                 "configMapAndSecretChangeDetectionStrategy": {"type": "object"},
                 "systemReserved": {"type": "object"},
                 "kubeReserved": {"type": "object"},
@@ -355,4 +383,15 @@ const specSchemaTemplate = `{
 func getSpecSchema() string {
 	return fmt.Sprintf(specSchemaTemplate,
 		constants.ClusterConfigurationMap, defaults.KubeSystemNamespace)
+}
+
+func newEmpty() *Resource {
+	return &Resource{
+		Kind:    storage.KindClusterConfiguration,
+		Version: "v1",
+		Metadata: teleservices.Metadata{
+			Name:      constants.ClusterConfigurationMap,
+			Namespace: defaults.KubeSystemNamespace,
+		},
+	}
 }

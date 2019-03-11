@@ -139,7 +139,7 @@ func (r *Updater) Close() error {
 }
 
 func (r *Updater) executePlan(ctx context.Context, force bool) error {
-	progress := utils.NewProgress(ctx, fmt.Sprintf("Updating %v", r.Operation.String()), -1, false)
+	progress := utils.NewProgress(ctx, formatOperation(*r.Operation), -1, false)
 	defer progress.Stop()
 
 	planErr := r.machine.ExecutePlan(ctx, progress, force)

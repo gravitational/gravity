@@ -107,13 +107,26 @@ func (c *Client) Install(p InstallParameters) (*Release, error) {
 type ListParameters struct {
 	// Filter is an optional release name filter as a perl regex.
 	Filter string
+	// All returns releases with all possible statuses.
+	All bool
+}
+
+// Options returns Helm list options for these parameters.
+func (p ListParameters) Options() (options []helm.ReleaseListOption) {
+	if p.Filter != "" {
+		options = append(options, helm.ReleaseListFilter(p.Filter))
+	}
+	if p.All {
+		options = append(options, helm.ReleaseListStatuses(allStatuses))
+	} else {
+		options = append(options, helm.ReleaseListStatuses(statuses))
+	}
+	return options
 }
 
 // List returns list of releases matching provided parameters.
 func (c *Client) List(p ListParameters) ([]Release, error) {
-	response, err := c.client.ListReleases( // TODO Paging.
-		helm.ReleaseListFilter(p.Filter),
-		helm.ReleaseListStatuses(statuses))
+	response, err := c.client.ListReleases(p.Options()...) // TODO Paging.
 	if err != nil {
 		return nil, trace.Wrap(err)
 	}
@@ -251,6 +264,23 @@ func getKubeClient(dnsAddress string) (*kubernetes.Clientset, *rest.Config, erro
 var statuses = []release.Status_Code{
 	release.Status_DEPLOYED,
 	release.Status_FAILED,
+	release.Status_DELETING,
+	release.Status_PENDING_INSTALL,
+	release.Status_PENDING_UPGRADE,
+	release.Status_PENDING_ROLLBACK,
+}
+
+// allStatuses enumerates all possible Helm release status codes.
+var allStatuses = []release.Status_Code{
+	release.Status_UNKNOWN,
+	release.Status_DEPLOYED,
+	release.Status_DELETED,
+	release.Status_SUPERSEDED,
+	release.Status_FAILED,
+	release.Status_DELETING,
+	release.Status_PENDING_INSTALL,
+	release.Status_PENDING_UPGRADE,
+	release.Status_PENDING_ROLLBACK,
 }
 
 // maxHistory is how many history revisions are returned.

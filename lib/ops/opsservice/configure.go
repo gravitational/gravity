@@ -325,6 +325,9 @@ func (s *site) configurePackages(ctx *operationContext, req ops.ConfigurePackage
 		if err != nil {
 			return trace.Wrap(err)
 		}
+		if s.cloudProviderName() != "" {
+			clusterConfig.SetCloudProvider(s.cloudProviderName())
+		}
 	}
 
 	for i, master := range masters {
@@ -923,7 +926,8 @@ func (s *site) getPlanetConfig(config planetConfig) (args []string, err error) {
 		args = append(args, fmt.Sprintf("--env=%v=%v", k, v))
 	}
 
-	args = append(args, s.addClusterConfig(config, overrideArgs)...)
+	args = append(args, s.addCloudConfig(config.config)...)
+	args = append(args, s.addClusterConfig(config.config, overrideArgs)...)
 
 	if node.IsMaster() {
 		args = append(args, "--role=master")
@@ -1027,7 +1031,7 @@ func (s *site) getPlanetConfig(config planetConfig) (args []string, err error) {
 		args = append(args, fmt.Sprintf("--%v=%v", k, v))
 	}
 
-	log.WithField("args", args).Debug("Runtime configuration.")
+	log.WithField("args", args).Info("Runtime configuration.")
 	return args, nil
 }
 
@@ -1478,44 +1482,40 @@ func (s *site) serverPackages(server *ProvisionedServer) ([]loc.Locator, error) 
 	}, nil
 }
 
-func (s *site) addClusterConfig(planetConfig planetConfig, overrideArgs map[string]string) (args []string) {
-	if planetConfig.config == nil {
-		if s.cloudProviderName() != "" {
-			args = append(args, fmt.Sprintf("--cloud-provider=%v", s.cloudProviderName()))
-			if s.cloudProviderName() == schema.ProviderGCE {
-				args = append(args, fmt.Sprintf("--gce-node-tags=%v", s.gceNodeTags()))
-			}
-			return args
+func (s *site) addCloudConfig(config clusterconfig.Interface) (args []string) {
+	if s.cloudProviderName() == "" {
+		return nil
+	}
+	args = append(args, fmt.Sprintf("--cloud-provider=%v", s.cloudProviderName()))
+	var cloudConfig string
+	if config != nil {
+		if globalConfig := config.GetGlobalConfig(); globalConfig != nil {
+			cloudConfig = globalConfig.CloudConfig
 		}
+	}
+	if cloudConfig != "" {
+		args = append(args, fmt.Sprintf("--cloud-config=%v",
+			base64.StdEncoding.EncodeToString([]byte(cloudConfig))))
+	} else if s.cloudProviderName() == schema.ProviderGCE {
+		args = append(args, fmt.Sprintf("--gce-node-tags=%v", s.gceNodeTags()))
+	}
+	return args
+}
+
+func (s *site) addClusterConfig(config clusterconfig.Interface, overrideArgs map[string]string) (args []string) {
+	if config == nil {
 		return nil
 	}
 
-	if config := planetConfig.config.GetKubeletConfig(); config != nil {
+	if config := config.GetKubeletConfig(); config != nil {
 		args = append(args, fmt.Sprintf("--kubelet-config=%v",
 			base64.StdEncoding.EncodeToString(config.Config)))
 	}
 
-	globalConfig := planetConfig.config.GetGlobalConfig()
-	cloudProvider := s.cloudProviderName()
-	if globalConfig != nil {
-		cloudProvider = globalConfig.CloudProvider
-	}
-
-	if cloudProvider != "" {
-		args = append(args, fmt.Sprintf("--cloud-provider=%v", cloudProvider))
-		if cloudProvider == schema.ProviderGCE {
-			args = append(args, fmt.Sprintf("--gce-node-tags=%v", s.gceNodeTags()))
-		}
-		if globalConfig != nil {
-			args = append(args, fmt.Sprintf("--cloud-config=%v",
-				base64.StdEncoding.EncodeToString([]byte(globalConfig.CloudConfig))))
-		}
-	}
-
+	globalConfig := config.GetGlobalConfig()
 	if globalConfig == nil {
 		return args
 	}
-
 	if globalConfig.ServiceCIDR != "" {
 		overrideArgs["service-subnet"] = globalConfig.ServiceCIDR
 	}

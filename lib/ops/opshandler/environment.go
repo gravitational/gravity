@@ -78,3 +78,34 @@ func (h *WebHandler) getEnvironmentVariables(w http.ResponseWriter, r *http.Requ
 	bytes, err := storage.MarshalEnvironment(env)
 	return trace.Wrap(rawMessage(w, bytes, err))
 }
+
+/* updateEnvironmentVariables updates the cluster runtime environment
+
+   PUT /portal/v1/accounts/:account_id/sites/:site_domain/envars
+
+   {
+      "account_id": "account id",
+      "site_id": "site_id",
+      "env": "<new environ>"
+   }
+
+Success response:
+
+   {
+      "message": "cluster runtime environment updated",
+   }
+*/
+func (h *WebHandler) updateEnvironmentVariables(w http.ResponseWriter, r *http.Request, p httprouter.Params, context *HandlerContext) error {
+	d := json.NewDecoder(r.Body)
+	var req ops.UpdateClusterEnvironRequest
+	if err := d.Decode(&req); err != nil {
+		return trace.BadParameter(err.Error())
+	}
+	req.ClusterKey = siteKey(p)
+	err := context.Operator.UpdateClusterEnvironmentVariables(req)
+	if err != nil {
+		return trace.Wrap(err)
+	}
+	roundtrip.ReplyJSON(w, http.StatusOK, statusOK("cluster runtime environment updated"))
+	return nil
+}

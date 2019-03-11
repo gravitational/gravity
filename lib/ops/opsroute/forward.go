@@ -674,6 +674,16 @@ func (r *Router) GetClusterEnvironmentVariables(key ops.SiteKey) (storage.Enviro
 	return client.GetClusterEnvironmentVariables(key)
 }
 
+// UpdateClusterEnvironmentVariables updates the cluster runtime environment variables
+// from the specified request
+func (r *Router) UpdateClusterEnvironmentVariables(req ops.UpdateClusterEnvironRequest) error {
+	client, err := r.RemoteClient(req.ClusterKey.SiteDomain)
+	if err != nil {
+		return trace.Wrap(err)
+	}
+	return client.UpdateClusterEnvironmentVariables(req)
+}
+
 // GetClusterConfiguration retrieves the cluster configuration
 func (r *Router) GetClusterConfiguration(key ops.SiteKey) (clusterconfig.Interface, error) {
 	client, err := r.RemoteClient(key.SiteDomain)

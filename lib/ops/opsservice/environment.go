@@ -40,13 +40,15 @@ func (o *Operator) CreateUpdateEnvarsOperation(r ops.CreateUpdateEnvarsOperation
 	if err != nil {
 		return nil, trace.Wrap(err)
 	}
-
 	cluster, err := o.openSite(r.ClusterKey)
 	if err != nil {
 		return nil, trace.Wrap(err)
 	}
-
-	key, err := cluster.createUpdateEnvarsOperation(r)
+	env, err := o.getClusterEnvironment()
+	if err != nil {
+		return nil, trace.Wrap(err)
+	}
+	key, err := cluster.createUpdateEnvarsOperation(r, env)
 	if err != nil {
 		return nil, trace.Wrap(err)
 	}
@@ -73,6 +75,52 @@ func (o *Operator) GetClusterEnvironmentVariables(key ops.SiteKey) (env storage.
 	return env, nil
 }
 
+func (o *Operator) getClusterEnvironment() (env map[string]string, err error) {
+	client, err := o.GetKubeClient()
+	if err != nil {
+		return nil, trace.Wrap(err)
+	}
+	configmap, err := client.CoreV1().ConfigMaps(defaults.KubeSystemNamespace).
+		Get(constants.ClusterEnvironmentMap, metav1.GetOptions{})
+	err = rigging.ConvertError(err)
+	if err != nil && !trace.IsNotFound(err) {
+		return nil, trace.Wrap(err)
+	}
+	return configmap.Data, nil
+}
+
+// UpdateClusterEnvironmentVariables updates the cluster runtime environment variables
+// from the specified request
+func (o *Operator) UpdateClusterEnvironmentVariables(req ops.UpdateClusterEnvironRequest) error {
+	client, err := o.GetKubeClient()
+	if err != nil {
+		return trace.Wrap(err)
+	}
+	configmaps := client.CoreV1().ConfigMaps(defaults.KubeSystemNamespace)
+	configmap, err := getOrCreateEnvironmentConfigMap(configmaps)
+	if err != nil {
+		return trace.Wrap(err)
+	}
+	var previousKeyValues []byte
+	if len(configmap.Data) != 0 {
+		var err error
+		previousKeyValues, err = json.Marshal(configmap.Data)
+		if err != nil {
+			return trace.Wrap(err, "failed to marshal previous key/values")
+		}
+		if configmap.Annotations == nil {
+			configmap.Annotations = make(map[string]string)
+		}
+		configmap.Annotations[constants.PreviousKeyValuesAnnotationKey] = string(previousKeyValues)
+	}
+	configmap.Data = req.Env
+	err = kubernetes.Retry(context.TODO(), func() error {
+		_, err := configmaps.Update(configmap)
+		return trace.Wrap(err)
+	})
+	return trace.Wrap(err)
+}
+
 // NewEnvironmentConfigMap creates the backing ConfigMap to host cluster runtime environment variables
 func NewEnvironmentConfigMap(data map[string]string) *v1.ConfigMap {
 	return &v1.ConfigMap{
@@ -89,28 +137,7 @@ func NewEnvironmentConfigMap(data map[string]string) *v1.ConfigMap {
 }
 
 // createUpdateEnvarsOperation creates a new operation to update cluster environment variables
-func (s *site) createUpdateEnvarsOperation(req ops.CreateUpdateEnvarsOperationRequest) (*ops.SiteOperationKey, error) {
-	client, err := s.service.GetKubeClient()
-	if err != nil {
-		return nil, trace.Wrap(err)
-	}
-	configmaps := client.CoreV1().ConfigMaps(defaults.KubeSystemNamespace)
-	configmap, err := getOrCreateEnvironmentConfigMap(configmaps)
-	if err != nil {
-		return nil, trace.Wrap(err)
-	}
-	var previousKeyValues []byte
-	if len(configmap.Data) != 0 {
-		var err error
-		previousKeyValues, err = json.Marshal(configmap.Data)
-		if err != nil {
-			return nil, trace.Wrap(err, "failed to marshal previous key/values")
-		}
-		if configmap.Annotations == nil {
-			configmap.Annotations = make(map[string]string)
-		}
-		configmap.Annotations[constants.PreviousKeyValuesAnnotationKey] = string(previousKeyValues)
-	}
+func (s *site) createUpdateEnvarsOperation(req ops.CreateUpdateEnvarsOperationRequest, prevEnv map[string]string) (*ops.SiteOperationKey, error) {
 	op := ops.SiteOperation{
 		ID:         uuid.New(),
 		AccountID:  s.key.AccountID,
@@ -120,18 +147,11 @@ func (s *site) createUpdateEnvarsOperation(req ops.CreateUpdateEnvarsOperationRe
 		Updated:    s.clock().UtcNow(),
 		State:      ops.OperationUpdateRuntimeEnvironInProgress,
 		UpdateEnviron: &storage.UpdateEnvarsOperationState{
-			Env: req.Env,
+			PrevEnv: prevEnv,
+			Env:     req.Env,
 		},
 	}
 	key, err := s.getOperationGroup().createSiteOperation(op)
-	if err != nil {
-		return nil, trace.Wrap(err)
-	}
-	configmap.Data = req.Env
-	err = kubernetes.Retry(context.TODO(), func() error {
-		_, err := configmaps.Update(configmap)
-		return trace.Wrap(err)
-	})
 	if err != nil {
 		return nil, trace.Wrap(err)
 	}

@@ -35,7 +35,8 @@ import (
 	pb "github.com/gravitational/gravity/lib/rpc/proto"
 	rpcserver "github.com/gravitational/gravity/lib/rpc/server"
 	"github.com/gravitational/gravity/lib/storage"
-	update "github.com/gravitational/gravity/lib/update/cluster"
+	"github.com/gravitational/gravity/lib/update"
+	clusterupdate "github.com/gravitational/gravity/lib/update/cluster"
 	"github.com/gravitational/gravity/lib/utils"
 
 	"github.com/cenkalti/backoff"
@@ -324,12 +325,12 @@ func rpcAgentShutdown(env *localenv.LocalEnvironment) error {
 		return trace.Wrap(err)
 	}
 	runner := fsm.NewAgentRunner(creds)
-	err = update.ShutdownClusterAgents(context.TODO(), runner)
+	err = clusterupdate.ShutdownClusterAgents(context.TODO(), runner)
 	return trace.Wrap(err)
 }
 
 func executeAutomaticUpgrade(ctx context.Context, localEnv, upgradeEnv *localenv.LocalEnvironment, args []string) error {
-	return trace.Wrap(update.AutomaticUpgrade(ctx, localEnv, upgradeEnv))
+	return trace.Wrap(clusterupdate.AutomaticUpgrade(ctx, localEnv, upgradeEnv))
 }
 
 func executeSyncOperationPlan(ctx context.Context, localEnv, updateEnv *localenv.LocalEnvironment, args []string) error {
@@ -337,7 +338,15 @@ func executeSyncOperationPlan(ctx context.Context, localEnv, updateEnv *localenv
 	if err != nil {
 		return trace.Wrap(err)
 	}
-	return trace.Wrap(update.SyncOperationPlan(clusterEnv.Backend, updateEnv.Backend))
+	operation, err := storage.GetLastOperation(clusterEnv.Backend)
+	if err != nil {
+		return trace.Wrap(err)
+	}
+	plan, err := clusterEnv.Backend.GetOperationPlan(operation.SiteDomain, operation.ID)
+	if err != nil {
+		return trace.Wrap(err)
+	}
+	return trace.Wrap(update.SyncOperationPlan(clusterEnv.Backend, updateEnv.Backend, *plan, *operation))
 }
 
 func getGravityPackage() loc.Locator {

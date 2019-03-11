@@ -125,7 +125,6 @@ func (s *PlanSuite) SetUpSuite(c *check.C) {
 			DomainName: "example.com",
 			AppPackage: appPackage.String(),
 			Provider:   schema.ProviderAWS,
-			Resources:  []byte(resourceBytes),
 			DNSConfig:  s.dnsConfig,
 		})
 	_, err = s.services.Users.CreateClusterAdminAgent(s.cluster.Domain,
@@ -178,13 +177,16 @@ func (s *PlanSuite) SetUpSuite(c *check.C) {
 		UID:  999,
 		GID:  999,
 	}
+	runtimeResources, clusterResources, err := resources.Split(bytes.NewReader(resourceBytes))
+	c.Assert(err, check.IsNil)
 	s.installer = &Installer{
 		Config: Config{
-			Resources:   resourceBytes,
-			ServiceUser: s.serviceUser,
-			Mode:        constants.InstallModeCLI,
-			DNSConfig:   s.dnsConfig,
-			Process:     &mockProcess{},
+			RuntimeResources: runtimeResources,
+			ClusterResources: clusterResources,
+			ServiceUser:      s.serviceUser,
+			Mode:             constants.InstallModeCLI,
+			DNSConfig:        s.dnsConfig,
+			Process:          &mockProcess{},
 		},
 		FieldLogger: logrus.WithField(trace.Component, "plan-suite"),
 		AppPackage:  appPackage,
@@ -452,12 +454,12 @@ func (s *PlanSuite) verifyResourcesPhase(c *check.C, phase storage.OperationPhas
 	expected := []byte(`
 {
   "apiVersion": "v1",
-  "data": {
-    "test-key": "test-value"
-  },
   "kind": "ConfigMap",
   "metadata": {
     "name": "test-config"
+  },
+  "data": {
+    "test-key": "test-value"
   }
 }
 {
@@ -726,8 +728,7 @@ func decode(c *check.C, resources []storage.UnknownResource) (result []resource)
 		result = append(result, resource)
 	}
 	sort.Slice(result, func(i, j int) bool {
-		return result[i].Kind < result[j].Kind &&
-			result[i].Metadata.Name < result[j].Metadata.Name
+		return result[i].Metadata.Name < result[j].Metadata.Name
 	})
 	return result
 }

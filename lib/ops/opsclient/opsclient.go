@@ -1140,6 +1140,18 @@ func (c *Client) GetClusterEnvironmentVariables(key ops.SiteKey) (storage.Enviro
 	return env, nil
 }
 
+// UpdateClusterEnvironmentVariables updates the cluster runtime environment variables
+// from the specified request
+func (c *Client) UpdateClusterEnvironmentVariables(req ops.UpdateClusterEnvironRequest) error {
+	_, err := c.PutJSON(c.Endpoint(
+		"accounts", req.ClusterKey.AccountID, "sites", req.ClusterKey.SiteDomain, "envars"),
+		&req)
+	if err != nil {
+		return trace.Wrap(err)
+	}
+	return nil
+}
+
 // GetClusterConfiguration retrieves the cluster configuration
 func (c *Client) GetClusterConfiguration(key ops.SiteKey) (clusterconfig.Interface, error) {
 	response, err := c.Get(c.Endpoint(
@@ -1162,7 +1174,7 @@ func (c *Client) GetClusterConfiguration(key ops.SiteKey) (clusterconfig.Interfa
 func (c *Client) UpdateClusterConfiguration(req ops.UpdateClusterConfigRequest) error {
 	_, err := c.PutJSON(c.Endpoint(
 		"accounts", req.ClusterKey.AccountID, "sites", req.ClusterKey.SiteDomain, "config"),
-		&UpsertResourceRawReq{Resource: req.Config})
+		&req)
 	if err != nil {
 		return trace.Wrap(err)
 	}

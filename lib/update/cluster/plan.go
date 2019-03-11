@@ -104,49 +104,7 @@ func InitOperationPlan(
 		return nil, trace.Wrap(err)
 	}
 
-	// all plan creation was done on the cluster, so sync it to the local backend, which will be authoritative
-	// from now on
-	err = SyncOperationPlan(clusterEnv.Backend, updateEnv.Backend)
-	if err != nil {
-		return nil, trace.Wrap(err)
-	}
-
 	return plan, nil
-}
-
-// SyncOperationPlan will synchronize the operation plan from source backend to the destination
-func SyncOperationPlan(src storage.Backend, dst storage.Backend) error {
-	operation, err := storage.GetLastOperation(src)
-	if err != nil {
-		return trace.Wrap(err)
-	}
-
-	plan, err := src.GetOperationPlan(operation.SiteDomain, operation.ID)
-	if err != nil {
-		return trace.Wrap(err)
-	}
-
-	cluster, err := src.GetSite(operation.SiteDomain)
-	if err != nil {
-		return trace.Wrap(err)
-	}
-
-	_, err = dst.CreateSite(*cluster)
-	if err != nil && !trace.IsAlreadyExists(err) {
-		return trace.Wrap(err)
-	}
-
-	_, err = dst.CreateSiteOperation(*operation)
-	if err != nil && !trace.IsAlreadyExists(err) {
-		return trace.Wrap(err)
-	}
-
-	_, err = dst.CreateOperationPlan(*plan)
-	if err != nil && !trace.IsAlreadyExists(err) {
-		return trace.Wrap(err)
-	}
-
-	return trace.Wrap(update.SyncChangelog(src, dst, plan.ClusterName, plan.OperationID))
 }
 
 // NewOperationPlan generates a new plan for the provided operation

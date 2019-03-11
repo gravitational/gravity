@@ -40,7 +40,7 @@ properties([
            defaultValue: 'stable-gce',
            description: 'Robotest tag to use.'),
     choice(choices: ["true", "false"].join("\n"),
-           defaultValue: 'true',
+           defaultValue: 'false',
            description: 'Whether to use preemptible VMs.',
            name: 'GCE_PREEMPTIBLE'),
     choice(choices: ["custom-4-8192", "custom-8-8192"].join("\n"),

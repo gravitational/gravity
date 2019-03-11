@@ -17,7 +17,6 @@ limitations under the License.
 package cli
 
 import (
-	"bytes"
 	"context"
 	"io/ioutil"
 	"net"
@@ -40,6 +39,7 @@ import (
 
 	teleutils "github.com/gravitational/teleport/lib/utils"
 	"github.com/gravitational/trace"
+	"k8s.io/apimachinery/pkg/runtime"
 )
 
 // InstallConfig is the gravity install command configuration
@@ -288,16 +288,17 @@ func (i *InstallConfig) getDNSOverrides() (*storage.DNSOverrides, error) {
 }
 
 // ToInstallerConfig converts CLI config to installer format
-func (i *InstallConfig) ToInstallerConfig(env *localenv.LocalEnvironment) (*install.Config, error) {
+func (i *InstallConfig) ToInstallerConfig(env *localenv.LocalEnvironment, validator resources.Validator) (*install.Config, error) {
 	advertiseAddr, err := i.GetAdvertiseAddr()
 	if err != nil {
 		return nil, trace.Wrap(err)
 	}
-	var resources []byte
+	var kubernetesResources []runtime.Object
+	var gravityResources []storage.UnknownResource
 	if i.ResourcesPath != "" {
-		resources, err = i.GetResources()
+		kubernetesResources, gravityResources, err = i.splitResources(validator)
 		if err != nil {
-			return nil, trace.Wrap(err, "failed to load resources file")
+			return nil, trace.Wrap(err)
 		}
 	}
 	appPackage, err := i.GetAppPackage()
@@ -308,7 +309,7 @@ func (i *InstallConfig) ToInstallerConfig(env *localenv.LocalEnvironment) (*inst
 	if err != nil {
 		return nil, trace.Wrap(err)
 	}
-	err = i.updateFromClusterConfig(resources)
+	gravityResources, err = i.updateClusterConfig(gravityResources)
 	if err != nil {
 		return nil, trace.Wrap(err)
 	}
@@ -318,7 +319,6 @@ func (i *InstallConfig) ToInstallerConfig(env *localenv.LocalEnvironment) (*inst
 		Cancel:             cancel,
 		EventsC:            make(chan install.Event, 100),
 		AdvertiseAddr:      advertiseAddr,
-		Resources:          resources,
 		AppPackage:         appPackage,
 		LocalPackages:      env.Packages,
 		LocalApps:          env.Apps,
@@ -331,6 +331,7 @@ func (i *InstallConfig) ToInstallerConfig(env *localenv.LocalEnvironment) (*inst
 		SystemLogFile:      i.SystemLogFile,
 		Token:              i.InstallToken,
 		CloudProvider:      i.CloudProvider,
+		GCENodeTags:        i.NodeTags,
 		Flavor:             i.Flavor,
 		Role:               i.Role,
 		SystemDevice:       i.SystemDevice,
@@ -346,56 +347,75 @@ func (i *InstallConfig) ToInstallerConfig(env *localenv.LocalEnvironment) (*inst
 		Insecure:           i.Insecure,
 		Manual:             i.Manual,
 		ServiceUser:        i.ServiceUser,
-		GCENodeTags:        i.NodeTags,
 		NewProcess:         i.NewProcess,
 		LocalClusterClient: env.SiteOperator,
+		RuntimeResources:   kubernetesResources,
+		ClusterResources:   gravityResources,
 	}, nil
 }
 
-// ValidateResources validates the resources specified in ResourcePath
-// using the given validator
-func (i *InstallConfig) ValidateResources(validator resources.Validator) error {
+// splitResources validates the resources specified in ResourcePath
+// using the given validator and splits them into Kubernetes and Gravity-specific
+func (i *InstallConfig) splitResources(validator resources.Validator) (runtimeResources []runtime.Object, clusterResources []storage.UnknownResource, err error) {
 	if i.ResourcesPath == "" {
-		return trace.NotFound("no resources provided")
+		return nil, nil, trace.NotFound("no resources provided")
 	}
 	rc, err := utils.ReaderForPath(i.ResourcesPath)
 	if err != nil {
-		return trace.Wrap(err, "failed to read resources")
+		return nil, nil, trace.Wrap(err, "failed to read resources")
 	}
 	defer rc.Close()
 	// TODO(dmitri): validate kubernetes resources as well
-	_, gravityResources, err := resources.Split(rc)
+	runtimeResources, clusterResources, err = resources.Split(rc)
 	if err != nil {
-		return trace.BadParameter("failed to validate %q: %v", i.ResourcesPath, err)
+		return nil, nil, trace.BadParameter("failed to validate %q: %v", i.ResourcesPath, err)
 	}
-	for _, res := range gravityResources {
+	for _, res := range clusterResources {
 		log.WithField("resource", res.ResourceHeader).Info("Validating.")
 		if err := validator.Validate(res); err != nil {
-			return trace.Wrap(err, "resource %q is invalid", res.Kind)
+			return nil, nil, trace.Wrap(err, "resource %q is invalid", res.Kind)
 		}
 	}
-	return nil
+	return runtimeResources, clusterResources, nil
 }
 
-func (i *InstallConfig) updateFromClusterConfig(resourceBytes []byte) error {
-	if len(resourceBytes) == 0 {
-		return nil
+func (i *InstallConfig) updateClusterConfig(resources []storage.UnknownResource) (updated []storage.UnknownResource, err error) {
+	var clusterConfig *storage.UnknownResource
+	updated = resources[:0]
+	for _, res := range resources {
+		if res.Kind == storage.KindClusterConfiguration {
+			clusterConfig = &res
+			continue
+		}
+		updated = append(updated, res)
 	}
-	err := resources.ForEach(bytes.NewReader(resourceBytes), func(res storage.UnknownResource) error {
-		if res.Kind != storage.KindClusterConfiguration {
-			return nil
-		}
-		config, err := clusterconfig.Unmarshal(res.Raw)
+	if clusterConfig == nil && i.CloudProvider == "" {
+		// Return the resources unchanged
+		return resources, nil
+	}
+	var config clusterconfig.Interface
+	if clusterConfig == nil {
+		config = clusterconfig.New(clusterconfig.Spec{
+			Global: &clusterconfig.Global{CloudProvider: i.CloudProvider},
+		})
+	} else {
+		config, err = clusterconfig.Unmarshal(clusterConfig.Raw)
 		if err != nil {
-			return trace.Wrap(err)
+			return nil, trace.Wrap(err)
 		}
-		if config := config.GetGlobalConfig(); config != nil && config.CloudProvider != "" {
+	}
+	if config := config.GetGlobalConfig(); config != nil {
+		if config.CloudProvider != "" {
 			i.CloudProvider = config.CloudProvider
-			return utils.Abort(nil)
 		}
-		return nil
-	})
-	return trace.Wrap(err)
+	}
+	// Serialize the cluster configuration and add to resources
+	configResource, err := clusterconfig.ToUnknown(config)
+	if err != nil {
+		return nil, trace.Wrap(err)
+	}
+	updated = append(updated, *configResource)
+	return updated, nil
 }
 
 func (i *InstallConfig) validateDNSConfig() error {
