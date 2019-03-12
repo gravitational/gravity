@@ -26,11 +26,12 @@ import (
 	"github.com/gravitational/gravity/lib/ops"
 
 	"github.com/gravitational/trace"
-	"k8s.io/apimachinery/pkg/apis/meta/v1"
+	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
 // PublishDiscovery periodically updates discovery information
 func (a *Autoscaler) PublishDiscovery(ctx context.Context, operator ops.Operator) {
+	a.Info("Start publishing discovery info.")
 	err := a.syncDiscovery(ctx, operator, true)
 	if err != nil {
 		a.Errorf("Failed to publish discovery: %v.", trace.DebugReport(err))
@@ -40,6 +41,7 @@ func (a *Autoscaler) PublishDiscovery(ctx context.Context, operator ops.Operator
 	for {
 		select {
 		case <-ctx.Done():
+			a.Info("Stop publishing discovery info.")
 			return
 		case <-publishTicker.C:
 			err = a.syncDiscovery(ctx, operator, false)
