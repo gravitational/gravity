@@ -21,6 +21,8 @@ import (
 	"fmt"
 
 	gaws "github.com/gravitational/gravity/lib/cloudprovider/aws"
+	"github.com/gravitational/gravity/lib/defaults"
+	"github.com/gravitational/gravity/lib/utils"
 
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/aws/awserr"
@@ -139,6 +141,40 @@ func (a *Autoscaler) TurnOffSourceDestinationCheck(ctx context.Context, instance
 	return trace.Wrap(err)
 }
 
+// DescribeInstance returns information about instance with the specified ID.
+func (a *Autoscaler) DescribeInstance(ctx context.Context, instanceID string) (*ec2.Instance, error) {
+	a.Debugf("DescribeInstance(%v)", instanceID)
+	resp, err := a.Cloud.DescribeInstancesWithContext(ctx, &ec2.DescribeInstancesInput{
+		InstanceIds: aws.StringSlice([]string{instanceID}),
+	})
+	if err != nil {
+		return nil, utils.ConvertEC2Error(err)
+	}
+	if len(resp.Reservations) == 0 || len(resp.Reservations[0].Instances) == 0 {
+		return nil, trace.NotFound("instance %v not found", instanceID)
+	}
+	if len(resp.Reservations) != 1 || len(resp.Reservations[0].Instances) != 1 {
+		return nil, trace.BadParameter("expected 1 instance with ID %v, got: %s", instanceID, resp)
+	}
+	return resp.Reservations[0].Instances[0], nil
+}
+
+// WaitUntilInstanceTerminated blocks until the instance with the specified ID
+// is terminated.
+//
+// Note: If an incorrect or non-existent ID is provided, the method will block
+// indefinitely (or until timeout has been reached) so it is advised to query
+// the instance using DescribeInstance method prior to calling it.
+func (a *Autoscaler) WaitUntilInstanceTerminated(ctx context.Context, instanceID string) error {
+	a.Debugf("WaitUntilInstanceTerminated(%v)", instanceID)
+	localCtx, cancel := context.WithTimeout(ctx, defaults.InstanceTerminationTimeout)
+	defer cancel()
+	err := a.Cloud.WaitUntilInstanceTerminatedWithContext(localCtx, &ec2.DescribeInstancesInput{
+		InstanceIds: aws.StringSlice([]string{instanceID}),
+	})
+	return trace.Wrap(err)
+}
+
 // GetJoinToken fetches and decrypts cluster join token from SSM parameter
 func (a *Autoscaler) GetJoinToken(ctx context.Context) (string, error) {
 	name := a.tokenParam()
@@ -220,4 +256,14 @@ func ConvertError(err error, args ...interface{}) error {
 		}
 	}
 	return err
+}
+
+func instanceState(instance ec2.Instance) string {
+	// All fields on the ec2.Instance object are pointers so while
+	// mandatory fields like state likely can't be nil, be on the
+	// safe side and make sure.
+	if instance.State != nil {
+		return aws.StringValue(instance.State.Name)
+	}
+	return ""
 }

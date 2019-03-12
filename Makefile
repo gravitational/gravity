@@ -648,7 +648,7 @@ sloccount:
 
 .PHONY: test-package
 test-package: remove-temp-files
-	TEST_ETCD=$(TEST_ETCD) TEST_ETCD_CONFIG=$(TEST_ETCD_CONFIG) TEST_K8S=$(TEST_K8S) go test -v -test.parallel=0 ./$(p)
+	TEST_ETCD=$(TEST_ETCD) TEST_ETCD_CONFIG=$(TEST_ETCD_CONFIG) TEST_K8S=$(TEST_K8S) go test -v ./$(p)
 
 .PHONY: test-grep-package
 test-grep-package: remove-temp-files

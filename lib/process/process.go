@@ -20,6 +20,7 @@ import (
 	"context"
 	"crypto/tls"
 	"fmt"
+	"io"
 	"io/ioutil"
 	"net"
 	"net/http"
@@ -500,7 +501,6 @@ func (p *Process) startAutoscale(ctx context.Context) error {
 		p.Info("Not on AWS, skip autoscaler start.")
 		return nil
 	}
-	p.Info("Starting AWS autoscaler.")
 	site, err := p.operator.GetLocalSite()
 	if err != nil {
 		return trace.Wrap(err)
@@ -521,11 +521,16 @@ func (p *Process) startAutoscale(ctx context.Context) error {
 		p.Warningf("Failed to get Autoscale Queue URL: %v. Cluster will continue without autoscaling support. Fix the problem and restart the process.", trace.DebugReport(err))
 		return nil
 	}
-
 	// receive and process events from SQS notification service
-	go autoscaler.ProcessEvents(ctx, queueURL, p.operator)
+	p.RegisterClusterService(func(ctx context.Context) error {
+		autoscaler.ProcessEvents(ctx, queueURL, p.operator)
+		return nil
+	})
 	// publish discovery information about this cluster
-	go autoscaler.PublishDiscovery(ctx, p.operator)
+	p.RegisterClusterService(func(ctx context.Context) error {
+		autoscaler.PublishDiscovery(ctx, p.operator)
+		return nil
+	})
 	return nil
 }
 
@@ -1147,10 +1152,6 @@ func (p *Process) initService() (err error) {
 		}
 
 		p.Info("Running inside Kubernetes: starting leader election.")
-		// gravity site leader election
-		if err := p.startElection(); err != nil {
-			return trace.Wrap(err)
-		}
 
 		if err := p.initClusterCertificate(client); err != nil {
 			return trace.Wrap(err)
@@ -1168,6 +1169,9 @@ func (p *Process) initService() (err error) {
 			return trace.Wrap(err)
 		}
 
+		if err := p.startElection(); err != nil {
+			return trace.Wrap(err)
+		}
 	} else {
 		p.Debug("Not running inside Kubernetes.")
 	}
@@ -1968,13 +1972,24 @@ func (p *Process) loginWithToken(tokenID string, w http.ResponseWriter, r *http.
 }
 
 func (p *Process) loadRPCCredentials() (*rpcserver.Credentials, utils.TLSArchive, error) {
-	_, r, err := p.packages.ReadPackage(loc.RPCSecrets)
+	// In case of multi-node install, a gravity-site process may need to
+	// fetch a package blob from the leader which may not be fully
+	// initialized yet so retry a few times.
+	var reader io.ReadCloser
+	err := utils.Retry(defaults.RetryInterval, defaults.RetryAttempts, func() (err error) {
+		_, reader, err = p.packages.ReadPackage(loc.RPCSecrets)
+		if err != nil {
+			p.Warnf("Failed to read package %v: %v.", loc.RPCSecrets, trace.Wrap(err))
+			return trace.Wrap(err)
+		}
+		return nil
+	})
 	if err != nil {
 		return nil, nil, trace.Wrap(err)
 	}
-	defer r.Close()
+	defer reader.Close()
 
-	tlsArchive, err := utils.ReadTLSArchive(r)
+	tlsArchive, err := utils.ReadTLSArchive(reader)
 	if err != nil {
 		return nil, nil, trace.Wrap(err)
 	}

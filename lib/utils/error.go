@@ -235,6 +235,26 @@ type message struct {
 	Message string `json:"message"`
 }
 
+// ConvertEC2Error converts error from AWS EC2 API to appropriate trace error.
+func ConvertEC2Error(err error) error {
+	if err == nil {
+		return nil
+	}
+	awsErr, ok := err.(awserr.Error)
+	if !ok {
+		return err
+	}
+	// For some reason, AWS Go SDK does not define constants for EC2 error
+	// codes so we're using strings here.
+	switch awsErr.Code() {
+	case "InvalidInstanceID.NotFound":
+		return trace.NotFound(awsErr.Message())
+	case "InvalidInstanceID.Malformed":
+		return trace.BadParameter(awsErr.Message())
+	}
+	return err
+}
+
 // ConvertS3Error converts an error from AWS S3 API to an appropriate trace error
 func ConvertS3Error(err error) error {
 	if err == nil {
