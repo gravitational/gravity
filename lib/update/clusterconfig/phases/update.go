@@ -24,6 +24,7 @@ import (
 	libfsm "github.com/gravitational/gravity/lib/fsm"
 	"github.com/gravitational/gravity/lib/loc"
 	"github.com/gravitational/gravity/lib/ops"
+	opsutils "github.com/gravitational/gravity/lib/ops/opsservice"
 	"github.com/gravitational/gravity/lib/pack"
 	"github.com/gravitational/gravity/lib/schema"
 	"github.com/gravitational/gravity/lib/storage"
@@ -71,13 +72,14 @@ func (r *updateConfig) Execute(ctx context.Context) error {
 		if err != nil {
 			return trace.Wrap(err)
 		}
+		configPackage := r.configPackage(server, runtimePackage)
 		req := ops.RotatePlanetConfigRequest{
 			Key:            r.operation.Key(),
 			Server:         server,
 			Manifest:       r.manifest,
 			RuntimePackage: *runtimePackage,
-			//ConfigPackageVersion: r.configPackageVersionFor(server),
-			Config: r.operation.UpdateConfig.Config,
+			ConfigPackage:  configPackage,
+			Config:         r.operation.UpdateConfig.Config,
 		}
 		resp, err := r.operator.RotatePlanetConfig(req)
 		if err != nil {
@@ -98,22 +100,22 @@ func (r *updateConfig) Execute(ctx context.Context) error {
 
 // Rollback resets the cluster configuration to the previous value
 func (r *updateConfig) Rollback(context.Context) error {
-	var errors []error
 	for _, server := range r.servers {
-		// loc := r.configPackageVersionFor(server)
-		_, err = r.packages.DeletePackage(loc)
+		runtimePackage, err := r.manifest.RuntimePackageForProfile(server.Role)
 		if err != nil {
-			errors = append(errors, err)
+			return trace.Wrap(err)
+		}
+		configPackage := r.configPackage(server, runtimePackage)
+		_, err = r.packages.DeletePackage(configPackage)
+		if err != nil && !trace.IsNotFound(err) {
+			return trace.Wrap(err)
 		}
 	}
 	err := r.operator.UpdateClusterConfiguration(ops.UpdateClusterConfigRequest{
 		ClusterKey: r.operation.ClusterKey(),
 		Config:     r.operation.UpdateConfig.PrevConfig,
 	})
-	if err != nil {
-		errors = append(errors, err)
-	}
-	return trace.NewAggregate(errors...)
+	return trace.Wrap(err)
 }
 
 // PreCheck is a no-op
@@ -124,6 +126,14 @@ func (r *updateConfig) PreCheck(context.Context) error {
 // PostCheck is a no-op
 func (r *updateConfig) PostCheck(context.Context) error {
 	return nil
+}
+
+// configPackage generates the locator for the configuration package for the specified
+// runtime package and given server
+func (r *updateConfig) configPackage(server storage.Server, runtimePackage loc.Locator) loc.Locator {
+	anchor := r.Plan.CreatedAt.UTC().Unix()
+	return opsutils.NextRuntimeConfigurationPackage(
+		r.Plan.ClusterName, server.AdvertiseIP, runtimePackage.Version, anchor)
 }
 
 type updateConfig struct {

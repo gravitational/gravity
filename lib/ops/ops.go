@@ -846,9 +846,9 @@ type RotatePlanetConfigRequest struct {
 	Config []byte `json:"cluster_config,omitempty"`
 	// RuntimePackage specifies the runtime package locator
 	RuntimePackage loc.Locator `json:"runtime_package"`
-	// ConfigPackageVersion specifies the resulting configuration
-	// package version.
-	ConfigPackageVersion string `json:"config_package_version,omitempty"`
+	// ConfigPackage specifies the resulting configuration
+	// package locator
+	ConfigPackage loc.Locator `json:"config_package"`
 }
 
 // Check validates this request

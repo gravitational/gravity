@@ -69,9 +69,12 @@ func NextRuntimeConfigurationPackage(clusterName, advertiseIP, runtimeVersion st
 // using the specified cluster name, advertiseIP of the node, runtime package locator and
 // the time anchor.
 func RuntimeConfigurationPackage(clusterName, advertiseIP string, runtimeVersion string) loc.Loctor {
-	return loc.ParseLocator(
-		fmt.Sprintf("%v/%v-%v:%v", clusterName, constants.PlanetConfigPackage,
-			PackageSuffix(node, clusterName), runtimeVersion))
+	return loc.Locator{
+		Repository: clusterName,
+		Version:    runtimeVersion,
+		Name: fmt.Sprintf("%v-%v", constants.PlanetConfigPackage,
+			PackageSuffix(node, clusterName)),
+	}
 }
 
 // runPackageHook invokes the specified hook for the application identified by the provided locator.
