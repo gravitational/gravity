@@ -44,14 +44,18 @@ func FieldsForOperation(operation ops.SiteOperation) Fields {
 			fields[FieldNodeRole] = servers[0].Role
 		}
 	case ops.OperationShrink:
-		servers := operation.Shrink.Servers
-		if len(servers) > 0 {
-			fields[FieldNodeIP] = servers[0].AdvertiseIP
-			fields[FieldNodeHostname] = servers[0].Hostname
-			fields[FieldNodeRole] = servers[0].Role
+		if operation.Shrink != nil {
+			servers := operation.Shrink.Servers
+			if len(servers) > 0 {
+				fields[FieldNodeIP] = servers[0].AdvertiseIP
+				fields[FieldNodeHostname] = servers[0].Hostname
+				fields[FieldNodeRole] = servers[0].Role
+			}
 		}
 	case ops.OperationUpdate:
-		fields[FieldUpdate] = operation.Update.UpdatePackage
+		if operation.Update != nil {
+			fields[FieldUpdate] = operation.Update.UpdatePackage
+		}
 	}
 	return fields
 }

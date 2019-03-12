@@ -47,7 +47,7 @@ func (r *LocalEnvironment) NewClusterEnvironment(opts ...ClusterEnvironmentOptio
 	}
 	auditLog, err := r.AuditLog(context.TODO())
 	if err != nil {
-		log.Errorf("Failed to create audit log: %v.",
+		log.Warnf("Failed to create audit log: %v.",
 			trace.DebugReport(err))
 	}
 	config := clusterEnvironmentConfig{

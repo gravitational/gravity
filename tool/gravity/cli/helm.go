@@ -208,7 +208,7 @@ func releaseList(env *localenv.LocalEnvironment, all bool) error {
 		fmt.Fprintf(w, "%v\t%v\t%v\t%v\t%v\t%v\n",
 			r.Name,
 			r.Status,
-			r.Chart,
+			r.GetChart(),
 			r.Revision,
 			r.Namespace,
 			r.Updated.Format(constants.HumanDateFormatSeconds))
@@ -257,7 +257,7 @@ func releaseUpgrade(env *localenv.LocalEnvironment, conf releaseUpgradeConfig) e
 		return trace.Wrap(err)
 	}
 	env.PrintStep("Upgrading release %v (%v) to version %v",
-		release.Name, release.Chart,
+		release.Name, release.GetChart(),
 		imageEnv.Manifest.Metadata.ResourceVersion)
 	tmp, err := ioutil.TempDir("", "")
 	if err != nil {
@@ -299,7 +299,7 @@ func releaseRollback(env *localenv.LocalEnvironment, conf releaseRollbackConfig)
 		return trace.Wrap(err)
 	}
 	env.EmitAuditEvent(events.AppRolledBack, events.FieldsForRelease(*release))
-	env.PrintStep("Rolled back release %v to %v", release.Name, release.Chart)
+	env.PrintStep("Rolled back release %v to %v", release.Name, release.GetChart())
 	return nil
 }
 
@@ -339,7 +339,7 @@ func releaseHistory(env *localenv.LocalEnvironment, conf releaseHistoryConfig) e
 	for _, r := range releases {
 		fmt.Fprintf(w, "%v\t%v\t%v\t%v\t%v\n",
 			r.Revision,
-			r.Chart,
+			r.GetChart(),
 			r.Status,
 			r.Updated.Format(constants.HumanDateFormatSeconds),
 			r.Description)

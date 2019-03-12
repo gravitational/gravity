@@ -129,7 +129,7 @@ func (i *Installer) uploadInstallLog() error {
 	return nil
 }
 
-// emitAuditEvents "rectoactively" sends the install operation's start/finish
+// emitAuditEvents sends the install operation's start/finish
 // events to the installed cluster's audit log.
 func (i *Installer) emitAuditEvents() error {
 	operation, err := i.Operator.GetSiteOperation(i.OperationKey)

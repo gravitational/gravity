@@ -87,7 +87,7 @@ const (
 	// ClusterActivated is emitted when cluster becomes healthy again.
 	ClusterActivated = "cluster.activated"
 
-	// LicenseExpiref is emitted when cluster license expires.
+	// LicenseExpired is emitted when cluster license expires.
 	LicenseExpired = "license.expired"
 	// LicenseUpdated is emitted when cluster license is updated.
 	LicenseUpdated = "license.updated"
