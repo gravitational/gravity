@@ -8,7 +8,7 @@ LTS starts with `3.51.0` with minor backwards compatible changes added over time
 | Release       | LTS | Release Date         | Supported Until      | Kubernetes Version | Teleport Version |
 | --------------|-----| -------------------- | -------------------- | ------------------ |------------------|
 | 5.5.0         | Yes | March 8th, 2019      | March 7th, 2020      | 1.13.4             | 3.0.4            |
-| 5.4.7         | No  | March 1st, 2019      | -                    | 1.13.4             | 2.4.10           |
+| 5.4.9         | No  | March 12th, 2019     | -                    | 1.13.4             | 2.4.10           |
 | 5.3.9*        | No  | March 7th, 2019      | -                    | 1.12.3             | 2.4.7
 | 5.2.11        | Yes | March 7th, 2019      | October, 15th, 2019  | 1.11.8             | 2.4.10           |
 | 5.0.29        | Yes | February, 12th 2019  | April, 13th 2019     | 1.9.12-gravitational | 2.4.10         |
@@ -28,6 +28,12 @@ LTS starts with `3.51.0` with minor backwards compatible changes added over time
     do not receive updates and bugfixes.
 
 ## 5.x Releases
+
+### 5.4.9
+
+#### Improvements
+
+* Improve shrink operation behavior when using Auto-Scaling Groups on AWS.
 
 ### 5.5.0 LTS
 
