@@ -87,61 +87,45 @@ func RunInPlanetCommand(ctx context.Context, log log.FieldLogger, args ...string
 
 // RunCommand executes the command specified with args
 func RunCommand(ctx context.Context, log log.FieldLogger, args ...string) ([]byte, error) {
-	r := NewRunnerWithContext(ctx, log)
 	var out bytes.Buffer
-	if err := r.RunStream(&out, args...); err != nil {
+	if err := RunStream(ctx, &out, args...); err != nil {
 		return out.Bytes(), trace.Wrap(err)
 	}
 	return out.Bytes(), nil
 }
 
-// NewRunnerWithContext creates a new CommandRunner using the specified context
-func NewRunnerWithContext(ctx context.Context, log log.FieldLogger, setters ...CommandOptionSetter) *runner {
-	runner := NewRunner(log, setters...)
-	runner.ctx = ctx
-	return runner
-}
-
-// NewRunner creates a new CommandRunner using ExecX APIs
-func NewRunner(logger log.FieldLogger, setters ...CommandOptionSetter) *runner {
-	if logger == nil {
-		logger = log.StandardLogger()
-	}
-	return &runner{
-		setters:     setters,
-		FieldLogger: logger,
-	}
-}
+// Runner is the default CommandRunner
+var Runner CommandRunner = CommandRunnerFunc(RunStream)
 
 // CommandRunner abstracts command execution.
 // w specifies the sink for command's output.
 // The command is given with args
 type CommandRunner interface {
 	// RunStream executes a command specified with args and streams
-	// output to w
-	RunStream(w io.Writer, args ...string) error
+	// output to w using ctx for cancellation
+	RunStream(ctx context.Context, w io.Writer, args ...string) error
 }
 
-// RunStream executes a command specified with args and streams
-// output to w
+// RunStream invokes r with the specified arguments.
 // Implements CommandRunner
-func (r *runner) RunStream(w io.Writer, args ...string) error {
+func (r CommandRunnerFunc) RunStream(ctx context.Context, w io.Writer, args ...string) error {
+	return r(ctx, w, args...)
+}
+
+// CommandRunnerFunc is the wrapper that allows standalone functions
+// to act as CommandRunners
+type CommandRunnerFunc func(ctx context.Context, w io.Writer, args ...string) error
+
+// RunStream executes a command specified with args and streams output to w
+func RunStream(ctx context.Context, w io.Writer, args ...string) error {
 	name := args[0]
 	args = args[1:]
-
-	var cmd *exec.Cmd
-	if r.ctx != nil {
-		cmd = exec.CommandContext(r.ctx, name, args...)
-	} else {
-		cmd = exec.Command(name, args...)
+	cmd := exec.CommandContext(ctx, name, args...)
+	cmd.Stdout = w
+	if err := cmd.Start(); err != nil {
+		return trace.Wrap(err)
 	}
-	return ExecL(cmd, w, r.FieldLogger, r.setters...)
-}
-
-type runner struct {
-	setters []CommandOptionSetter
-	ctx     context.Context
-	log.FieldLogger
+	return trace.Wrap(cmd.Wait())
 }
 
 // ExecL executes the specified cmd and logs the command line to the specified entry

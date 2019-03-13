@@ -17,6 +17,7 @@ limitations under the License.
 package report
 
 import (
+	"context"
 	"fmt"
 	"io"
 	"os"
@@ -86,17 +87,17 @@ type Writer func(name string) (io.WriteCloser, error)
 type Collector interface {
 	// Collect collects diagnostics using CommandRunner and serializes
 	// them using specified Writer
-	Collect(Writer, utils.CommandRunner) error
+	Collect(context.Context, Writer, utils.CommandRunner) error
 }
 
 // Collectors is a list of Collectors
 type Collectors []Collector
 
 // Collect implements Collector for a list of Collectors
-func (r Collectors) Collect(reportWriter Writer, runner utils.CommandRunner) error {
+func (r Collectors) Collect(ctx context.Context, reportWriter Writer, runner utils.CommandRunner) error {
 	var errors []error
 	for _, collector := range r {
-		err := collector.Collect(reportWriter, runner)
+		err := collector.Collect(ctx, reportWriter, runner)
 		if err != nil {
 			errors = append(errors, err)
 		}
@@ -126,7 +127,7 @@ type Command struct {
 }
 
 // Collect implements Collector for this Command
-func (r Command) Collect(reportWriter Writer, runner utils.CommandRunner) error {
+func (r Command) Collect(ctx context.Context, reportWriter Writer, runner utils.CommandRunner) error {
 	w, err := reportWriter(r.name)
 	if err != nil {
 		return trace.Wrap(err)
@@ -135,7 +136,7 @@ func (r Command) Collect(reportWriter Writer, runner utils.CommandRunner) error 
 
 	args := []string{r.cmd}
 	args = append(args, r.args...)
-	return runner.RunStream(w, args...)
+	return runner.RunStream(ctx, w, args...)
 }
 
 // Script creates a new script collector
@@ -144,7 +145,7 @@ func Script(name, script string) ScriptCollector {
 }
 
 // Collect implements Collector using a bash script
-func (r ScriptCollector) Collect(reportWriter Writer, runner utils.CommandRunner) error {
+func (r ScriptCollector) Collect(ctx context.Context, reportWriter Writer, runner utils.CommandRunner) error {
 	args := []string{"/bin/bash", "-c", r.script}
 	w, err := reportWriter(r.name)
 	if err != nil {
@@ -152,7 +153,7 @@ func (r ScriptCollector) Collect(reportWriter Writer, runner utils.CommandRunner
 	}
 	defer w.Close()
 
-	return runner.RunStream(w, args...)
+	return runner.RunStream(ctx, w, args...)
 }
 
 // ScriptCollector is a convenience Collector to execute bash scripts
