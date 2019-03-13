@@ -18,9 +18,11 @@ package events
 
 import (
 	"github.com/gravitational/gravity/lib/helm"
+	"github.com/gravitational/gravity/lib/loc"
 	"github.com/gravitational/gravity/lib/ops"
 
 	"github.com/gravitational/teleport/lib/events"
+	"github.com/gravitational/trace"
 )
 
 // Fields defines event fields.
@@ -31,6 +33,14 @@ type Fields events.EventFields
 
 // FieldsForOperation returns event fields for the provided operation.
 func FieldsForOperation(operation ops.SiteOperation) Fields {
+	fields, err := fieldsForOperation(operation)
+	if err != nil {
+		log.Errorf(trace.DebugReport(err))
+	}
+	return fields
+}
+
+func fieldsForOperation(operation ops.SiteOperation) (Fields, error) {
 	fields := Fields{
 		FieldOperationID:   operation.ID,
 		FieldOperationType: operation.Type,
@@ -54,10 +64,15 @@ func FieldsForOperation(operation ops.SiteOperation) Fields {
 		}
 	case ops.OperationUpdate:
 		if operation.Update != nil {
-			fields[FieldUpdate] = operation.Update.UpdatePackage
+			locator, err := loc.ParseLocator(operation.Update.UpdatePackage)
+			if err != nil {
+				return fields, trace.Wrap(err)
+			}
+			fields[FieldName] = locator.Name
+			fields[FieldVersion] = locator.Version
 		}
 	}
-	return fields
+	return fields, nil
 }
 
 // FieldsForRelease returns event fields for the provided application release.
@@ -80,18 +95,16 @@ const (
 	FieldNodeHostname = "hostname"
 	// FieldNodeRole contains role of the joining/leaving node.
 	FieldNodeRole = "role"
-	// FieldUpdate contains the update package.
-	FieldUpdate = "update"
 	// FieldName contains name, e.g. resource name, application name, etc.
 	FieldName = "name"
+	// FieldOpsCenter contains Ops Center name.
+	FieldOpsCenter = "opsCenter"
 	// FieldKind contains resource kind.
 	FieldKind = "kind"
 	// FieldUser contains resource user.
 	FieldUser = "user"
 	// FieldReleaseName contains application release name.
 	FieldReleaseName = "releaseName"
-	// FieldPackage contains application package name.
-	FieldPackage = "package"
 	// FieldVersion contains application package version.
 	FieldVersion = "version"
 	// FieldInterval contains time interval, e.g. for periodic updates.

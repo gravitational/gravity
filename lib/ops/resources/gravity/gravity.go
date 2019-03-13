@@ -237,11 +237,10 @@ func (r *Resources) Create(req resources.CreateRequest) error {
 		return trace.BadParameter("unsupported resource %q, supported are: %v",
 			req.Resource.Kind, modules.Get().SupportedResources())
 	}
-	events.Emit(r.Operator, events.ResourceCreated, events.Fields{
-		events.FieldKind: req.Resource.Kind,
-		events.FieldName: req.Resource.Metadata.Name,
-		events.FieldUser: req.User,
-	})
+	r.EmitAuditEvent(events.ResourceCreated,
+		req.Resource.Kind,
+		req.Resource.Metadata.Name,
+		req.User)
 	return nil
 }
 
@@ -480,12 +479,17 @@ func (r *Resources) Remove(req resources.RemoveRequest) error {
 		return trace.BadParameter("unsupported resource %q, supported are: %v",
 			req.Kind, modules.Get().SupportedResourcesToRemove())
 	}
-	events.Emit(r.Operator, events.ResourceDeleted, events.Fields{
-		events.FieldKind: req.Kind,
-		events.FieldName: req.Name,
-		events.FieldUser: req.User,
-	})
+	r.EmitAuditEvent(events.ResourceDeleted, req.Kind, req.Name, req.User)
 	return nil
+}
+
+// EmitAuditEvent emits the specified audit log event for the specified resource.
+func (r *Resources) EmitAuditEvent(event, kind, name, user string) {
+	fields := events.Fields{events.FieldKind: kind, events.FieldName: name}
+	if user != "" {
+		fields[events.FieldUser] = user
+	}
+	events.Emit(r.Operator, event, fields)
 }
 
 // ClusterOperationHandler defines a service to manage resources based on cluster operations
