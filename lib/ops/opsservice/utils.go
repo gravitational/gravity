@@ -21,7 +21,6 @@ import (
 	"fmt"
 
 	"github.com/gravitational/gravity/lib/app"
-	"github.com/gravitational/gravity/lib/constants"
 	"github.com/gravitational/gravity/lib/loc"
 	"github.com/gravitational/gravity/lib/ops"
 	"github.com/gravitational/gravity/lib/schema"
@@ -56,25 +55,6 @@ func GetMounts(m schema.Manifest, server storage.Server) ([]storage.Mount, error
 	}
 
 	return mounts, nil
-}
-
-// NextRuntimeConfigurationPackage generates the next unique runtime configuration
-// package locator using the specified anchor.
-func NextRuntimeConfigurationPackage(clusterName, advertiseIP, runtimeVersion string, anchor int64) string {
-	version := fmt.Sprintf("%v+%v", runtimeVersion, anchor)
-	return RuntimeConfigurationPackage(clusterName, advertiseIP, version)
-}
-
-// RuntimeConfigurationPackage generates a new runtime configuration package locator
-// using the specified cluster name, advertiseIP of the node, runtime package locator and
-// the time anchor.
-func RuntimeConfigurationPackage(clusterName, advertiseIP string, runtimeVersion string) loc.Loctor {
-	return loc.Locator{
-		Repository: clusterName,
-		Version:    runtimeVersion,
-		Name: fmt.Sprintf("%v-%v", constants.PlanetConfigPackage,
-			PackageSuffix(node, clusterName)),
-	}
 }
 
 // runPackageHook invokes the specified hook for the application identified by the provided locator.

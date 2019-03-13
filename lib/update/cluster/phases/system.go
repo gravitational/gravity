@@ -86,10 +86,16 @@ func (p *updatePhaseSystem) PostCheck(context.Context) error {
 // Execute runs system update on the node
 func (p *updatePhaseSystem) Execute(context.Context) error {
 	out, err := fsm.RunCommand([]string{p.GravityPath,
-		"--insecure", "--debug", "system", "update",
+		"--insecure", "--debug",
+		"system", "update",
 		"--changeset-id", p.OperationID,
-		"--runtime-package", p.runtimePackage.String(),
 		"--with-status",
+		"--runtime-package", p.runtimePackage.String(),
+		// FIXME
+		// "--runtime-config-package", p.runtimeConfigPackage.String(),
+		// "--runtime-secrets-package", p.runtimeSecretsPackage.String(),
+		// "--teleport-package", p.teleportPackage.String(),
+		// "--teleport-config-package", p.teleportConfigPackage.String(),
 	})
 	if err != nil {
 		message := "failed to update system"
@@ -107,8 +113,12 @@ func (p *updatePhaseSystem) Execute(context.Context) error {
 
 // Rollback runs rolls back the system upgrade on the node
 func (p *updatePhaseSystem) Rollback(context.Context) error {
-	out, err := fsm.RunCommand([]string{p.GravityPath, "--insecure", "system", "rollback",
-		"--changeset-id", p.OperationID, "--with-status"})
+	out, err := fsm.RunCommand([]string{p.GravityPath,
+		"--insecure", "--debug",
+		"system", "rollback",
+		"--changeset-id", p.OperationID,
+		"--with-status",
+	})
 	if err != nil {
 		p.Warnf("Failed to rollback system: %s (%v).", out, err)
 		return trace.Wrap(err, "failed to rollback system: %s", out)

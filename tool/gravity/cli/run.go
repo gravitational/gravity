@@ -711,11 +711,27 @@ func Execute(g *Application, cmd string, extraArgs []string) error {
 			*g.SystemPullUpdatesCmd.OpsCenterURL,
 			*g.SystemPullUpdatesCmd.RuntimePackage)
 	case g.SystemUpdateCmd.FullCommand():
-		return systemUpdate(localEnv,
-			*g.SystemUpdateCmd.ChangesetID,
-			*g.SystemUpdateCmd.ServiceName,
-			*g.SystemUpdateCmd.WithStatus,
-			*g.SystemUpdateCmd.RuntimePackage)
+		config := systemUpdateConfig{
+			runtime: packageUpdate{
+				locator: *g.SystemUpdateCmd.RuntimePackage,
+				configPackage: packageUpdate{
+					locator: *g.SystemUpdateCmd.RuntimeConfigPackage,
+				},
+				secretsPackage: &packageUpdate{
+					locator: *g.SystemUpdateCmd.RuntimeSectetsPackage,
+				},
+			},
+			teleport: packageUpdate{
+				locator: *g.SystemUpdateCmd.TeleportePackage,
+				configPackage: packageUpdate{
+					locator: *g.SystemUpdateCmd.TeleporteConfigPackage,
+				},
+			},
+			changesetID: *g.SystemUpdateCmd.ChangesetID,
+			withStatus:  *g.SystemUpdateCmd.WithStatus,
+			serviceName: *g.SystemUpdateCmd.ServiceName,
+		}
+		return systemUpdate(localEnv, config)
 	case g.UpdateSystemCmd.FullCommand():
 		return systemUpdate(localEnv,
 			*g.UpdateSystemCmd.ChangesetID,

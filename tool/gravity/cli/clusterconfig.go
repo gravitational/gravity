@@ -137,9 +137,10 @@ func getConfigUpdater(env, updateEnv *localenv.LocalEnvironment, operation ops.S
 				"operation":     operation,
 			}),
 		},
-		Apps:            clusterEnv.Apps,
-		Client:          clusterEnv.Client,
-		ClusterPackages: clusterEnv.ClusterPackages,
+		Apps:              clusterEnv.Apps,
+		Client:            clusterEnv.Client,
+		ClusterPackages:   clusterEnv.ClusterPackages,
+		HostLocalPackages: env.Packages,
 	})
 	if err != nil {
 		return nil, trace.Wrap(err)
@@ -177,7 +178,7 @@ func (r configInitializer) newOperationPlan(
 	localEnv, updateEnv *localenv.LocalEnvironment,
 	clusterEnv *localenv.ClusterEnvironment,
 ) (*storage.OperationPlan, error) {
-	plan, err := clusterconfig.NewOperationPlan(operator, operation, r.config, cluster.ClusterState.Servers)
+	plan, err := clusterconfig.NewOperationPlan(operator, clusterEnv.Apps, operation, r.config, cluster.ClusterState.Servers)
 	if err != nil {
 		return nil, trace.Wrap(err)
 	}

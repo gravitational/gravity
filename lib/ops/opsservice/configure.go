@@ -264,7 +264,7 @@ func (s *site) configureExpandPackages(ctx context.Context, opCtx *operationCont
 			return trace.Wrap(err)
 		}
 	} else {
-		err = s.configurePlanetNodeSecrets(opCtx, provisionedServer, secretsPackage)
+		err = s.configurePlanetNodeSecrets(opCtx, provisionedServer, *secretsPackage)
 		if err != nil {
 			return trace.Wrap(err)
 		}
@@ -410,7 +410,7 @@ func (s *site) configurePackages(ctx *operationContext, req ops.ConfigurePackage
 			return trace.Wrap(err)
 		}
 
-		if err := s.configurePlanetNodeSecrets(ctx, node, secretsPackage); err != nil {
+		if err := s.configurePlanetNodeSecrets(ctx, node, *secretsPackage); err != nil {
 			return trace.Wrap(err)
 		}
 
@@ -715,7 +715,7 @@ func (s *site) configurePlanetMasterSecrets(ctx *operationContext, p planetMaste
 	return trace.Wrap(err)
 }
 
-func (s *site) getPlanetNodeSecretsPackage(ctx *operationContext, node *ProvisionedServer, secretsPackage *loc.Locator) (*ops.RotatePackageResponse, error) {
+func (s *site) getPlanetNodeSecretsPackage(ctx *operationContext, node *ProvisionedServer, secretsPackage loc.Locator) (*ops.RotatePackageResponse, error) {
 	archive, err := s.readCertAuthorityPackage()
 	if err != nil {
 		return nil, trace.Wrap(err)
@@ -792,13 +792,13 @@ func (s *site) getPlanetNodeSecretsPackage(ctx *operationContext, node *Provisio
 	}
 
 	return &ops.RotatePackageResponse{
-		Locator: *secretsPackage,
+		Locator: secretsPackage,
 		Reader:  reader,
 		Labels:  labels,
 	}, nil
 }
 
-func (s *site) configurePlanetNodeSecrets(ctx *operationContext, node *ProvisionedServer, secretsPackage *loc.Locator) error {
+func (s *site) configurePlanetNodeSecrets(ctx *operationContext, node *ProvisionedServer, secretsPackage loc.Locator) error {
 	resp, err := s.getPlanetNodeSecretsPackage(ctx, node, secretsPackage)
 	if err != nil {
 		return trace.Wrap(err)
@@ -1090,12 +1090,7 @@ func (s *site) getPrincipals(node *ProvisionedServer) []string {
 	return principals
 }
 
-func (s *site) getTeleportMasterConfig(ctx *operationContext, master *ProvisionedServer) (*ops.RotatePackageResponse, error) {
-	configPackage, err := s.teleportMasterConfigPackage(master)
-	if err != nil {
-		return nil, trace.Wrap(err)
-	}
-
+func (s *site) getTeleportMasterConfig(ctx *operationContext, configPackage loc.Locator, master *ProvisionedServer) (*ops.RotatePackageResponse, error) {
 	fileConf := &telecfg.FileConfig{
 		Global: telecfg.Global{
 			Ciphers:       defaults.TeleportCiphers,
@@ -1157,13 +1152,13 @@ func (s *site) getTeleportMasterConfig(ctx *operationContext, master *Provisione
 		fmt.Sprintf("--config-string=%v", base64.StdEncoding.EncodeToString(bytes)),
 	}
 
-	reader, err := pack.GetConfigPackage(s.packages(), s.teleportPackage, *configPackage, args)
+	reader, err := pack.GetConfigPackage(s.packages(), s.teleportPackage, configPackage, args)
 	if err != nil {
 		return nil, trace.Wrap(err)
 	}
 
 	return &ops.RotatePackageResponse{
-		Locator: *configPackage,
+		Locator: configPackage,
 		Reader:  reader,
 		Labels: map[string]string{
 			pack.PurposeLabel:     pack.PurposeTeleportMasterConfig,
@@ -1174,7 +1169,11 @@ func (s *site) getTeleportMasterConfig(ctx *operationContext, master *Provisione
 }
 
 func (s *site) configureTeleportMaster(ctx *operationContext, master *ProvisionedServer) error {
-	resp, err := s.getTeleportMasterConfig(ctx, master)
+	configPackage, err := s.teleportMasterConfigPackage(master)
+	if err != nil {
+		return trace.Wrap(err)
+	}
+	resp, err := s.getTeleportMasterConfig(ctx, *configPackage, master)
 	if err != nil {
 		return trace.Wrap(err)
 	}
@@ -1201,16 +1200,11 @@ func toObject(in interface{}) (map[string]interface{}, error) {
 func (s *site) teleportMasterConfigPackage(master remoteServer) (*loc.Locator, error) {
 	configPackage, err := loc.ParseLocator(
 		fmt.Sprintf("%v/%v:0.0.%v-%v", s.siteRepoName(), constants.TeleportMasterConfigPackage,
-			time.Now().UTC().Unix(), PackageSuffix(master.Address(), s.domainName)))
+			time.Now().UTC().Unix(), PackageSuffix(master, s.domainName)))
 	return configPackage, trace.Wrap(err)
 }
 
-func (s *site) getTeleportNodeConfig(ctx *operationContext, masterIPs []string, node *ProvisionedServer) (*ops.RotatePackageResponse, error) {
-	configPackage, err := s.teleportNodeConfigPackage(node)
-	if err != nil {
-		return nil, trace.Wrap(err)
-	}
-
+func (s *site) getTeleportNodeConfig(ctx *operationContext, masterIPs []string, configPackage loc.Locator, node *ProvisionedServer) (*ops.RotatePackageResponse, error) {
 	joinToken, err := s.service.GetExpandToken(s.key)
 	if err != nil {
 		return nil, trace.Wrap(err)
@@ -1281,13 +1275,13 @@ func (s *site) getTeleportNodeConfig(ctx *operationContext, masterIPs []string, 
 		fmt.Sprintf("--config-string=%v", base64.StdEncoding.EncodeToString(bytes)),
 	}
 
-	reader, err := pack.GetConfigPackage(s.packages(), s.teleportPackage, *configPackage, args)
+	reader, err := pack.GetConfigPackage(s.packages(), s.teleportPackage, configPackage, args)
 	if err != nil {
 		return nil, trace.Wrap(err)
 	}
 
 	return &ops.RotatePackageResponse{
-		Locator: *configPackage,
+		Locator: configPackage,
 		Reader:  reader,
 		Labels: map[string]string{
 			pack.PurposeLabel:     pack.PurposeTeleportNodeConfig,
@@ -1299,7 +1293,11 @@ func (s *site) getTeleportNodeConfig(ctx *operationContext, masterIPs []string, 
 }
 
 func (s *site) configureTeleportNode(ctx *operationContext, masterIPs []string, node *ProvisionedServer) error {
-	resp, err := s.getTeleportNodeConfig(ctx, masterIPs, node)
+	configPackage, err := s.teleportNodeConfigPackage(node)
+	if err != nil {
+		return trace.Wrap(err)
+	}
+	resp, err := s.getTeleportNodeConfig(ctx, masterIPs, *configPackage, node)
 	if err != nil {
 		return trace.Wrap(err)
 	}
@@ -1313,7 +1311,7 @@ func (s *site) configureTeleportNode(ctx *operationContext, masterIPs []string, 
 func (s *site) teleportNodeConfigPackage(node remoteServer) (*loc.Locator, error) {
 	configPackage, err := loc.ParseLocator(
 		fmt.Sprintf("%v/%v:0.0.%v-%v", s.siteRepoName(), constants.TeleportNodeConfigPackage,
-			time.Now().UTC().Unix(), PackageSuffix(node.Address(), s.domainName)))
+			time.Now().UTC().Unix(), PackageSuffix(node, s.domainName)))
 	return configPackage, trace.Wrap(err)
 }
 
@@ -1434,13 +1432,22 @@ func (s *site) planetSecretsNextPackage(node *ProvisionedServer) (*loc.Locator, 
 		fmt.Sprintf("%v/planet-%v-secrets:0.0.%v", s.siteRepoName(), node.AdvertiseIP, time.Now().UTC().Unix()))
 }
 
+// planetNextConfigPackage generates a new planet configuration package
+// locator guaranteed to be greater than version
+func (s *site) planetNextConfigPackage(node remoteServer, version string) (*loc.Locator, error) {
+	version = fmt.Sprintf("%v+%v", version, time.Now().UTC().Unix())
+	return s.planetConfigPackage(node, version)
+}
+
 // planetConfigPackage creates a planet configuration package reference
 // using the specified version as a package version and the given node to add unique
 // suffix to the name.
 // This is in contrast to the old naming with PackageSuffix used as a prerelease part
 // of the version which made them hard to match when looking for an update.
-func (s *site) planetConfigPackage(node remoteServer, runtimeVersion string) (*loc.Locator, error) {
-	return RuntimeConfigurationPackage(s.domainName, node.Address(), runtimeVersion)
+func (s *site) planetConfigPackage(node remoteServer, version string) (*loc.Locator, error) {
+	return loc.ParseLocator(
+		fmt.Sprintf("%v/%v-%v:%v", s.siteRepoName(), constants.PlanetConfigPackage,
+			PackageSuffix(node, s.domainName), version))
 }
 
 // serverPackages returns a list of package locators specific to the provided server

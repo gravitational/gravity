@@ -242,7 +242,7 @@ func (r phaseBuilder) runtime(updates []loc.Locator) *update.Phase {
 // masters returns a new phase for upgrading master servers.
 // leadMaster is the master node that is upgraded first and gets to be the leader during the operation.
 // otherMasters lists the rest of the master nodes (can be empty)
-func (r phaseBuilder) masters(leadMaster runtimeServer, otherMasters runtimeServers,
+func (r phaseBuilder) masters(leadMaster storage.ServerConfigUpdate, otherMasters []storage.ServerConfigUpdate,
 	supportsTaints bool) *update.Phase {
 	root := update.RootPhase(update.Phase{
 		ID:          "masters",
@@ -260,36 +260,30 @@ func (r phaseBuilder) masters(leadMaster runtimeServer, otherMasters runtimeServ
 			}})
 
 		// election - stepdown first node we will upgrade
-		enable := []storage.Server{}
-		disable := []storage.Server{leadMaster.Server}
-		node.AddSequential(setLeaderElection(enable, disable, leadMaster.Server, "stepdown", "Step down %q as Kubernetes leader"))
+		node.AddSequential(setLeaderElection(enable(), disable(leadMaster), leadMaster.Server, "stepdown", "Step down %q as Kubernetes leader"))
 	}
 
-	node.AddSequential(r.commonNode(leadMaster.Server, leadMaster.runtime, leadMaster.Server, supportsTaints,
+	node.AddSequential(r.commonNode(leadMaster.Server, leadMaster.Runtime.Package, leadMaster.Server, supportsTaints,
 		waitsForEndpoints(len(otherMasters) == 0))...)
 	root.AddSequential(node)
 
 	if len(otherMasters) != 0 {
 		// election - force election to first upgraded node
-		enable := []storage.Server{leadMaster.Server}
-		disable := otherMasters.asServers()
-		root.AddSequential(setLeaderElection(enable, disable, leadMaster.Server, "elect", "Make node %q Kubernetes leader"))
+		root.AddSequential(setLeaderElection(enable(leadMaster), disable(otherMasters...), leadMaster.Server, "elect", "Make node %q Kubernetes leader"))
 	}
 
 	for _, server := range otherMasters {
 		node = r.node(server.Server, &root, "Update system software on master node %q")
-		node.AddSequential(r.commonNode(server.Server, server.runtime, leadMaster.Server, supportsTaints,
+		node.AddSequential(r.commonNode(server.Server, server.Runtime.Package, leadMaster.Server, supportsTaints,
 			waitsForEndpoints(true))...)
 		// election - enable election on the upgraded node
-		enable := []storage.Server{server.Server}
-		disable := []storage.Server{}
-		node.AddSequential(setLeaderElection(enable, disable, server.Server, "enable", "Enable leader election on node %q"))
+		node.AddSequential(setLeaderElection(enable(server), disable(), server.Server, "enable", "Enable leader election on node %q"))
 		root.AddSequential(node)
 	}
 	return &root
 }
 
-func (r phaseBuilder) nodes(leadMaster storage.Server, nodes []runtimeServer, supportsTaints bool) *update.Phase {
+func (r phaseBuilder) nodes(leadMaster storage.Server, nodes []storage.ServerConfigUpdate, supportsTaints bool) *update.Phase {
 	root := update.RootPhase(update.Phase{
 		ID:          "nodes",
 		Description: "Update regular nodes",
@@ -297,7 +291,7 @@ func (r phaseBuilder) nodes(leadMaster storage.Server, nodes []runtimeServer, su
 
 	for _, server := range nodes {
 		node := r.node(server.Server, &root, "Update system software on node %q")
-		node.AddSequential(r.commonNode(server.Server, server.runtime, leadMaster, supportsTaints,
+		node.AddSequential(r.commonNode(server.Server, server.Runtime.Package, leadMaster, supportsTaints,
 			waitsForEndpoints(true))...)
 		root.AddParallel(node)
 	}
@@ -674,21 +668,16 @@ func setLeaderElection(enable, disable []storage.Server, server storage.Server, 
 	}
 }
 
-type waitsForEndpoints bool
-
-func (r runtimeServers) asServers() (result []storage.Server) {
-	result = make([]storage.Server, 0, len(r))
-	for _, server := range r {
-		result = append(result, server.Server)
+func servers(updates ...storage.ServerConfigUpdate) (result []storage.Server) {
+	for _, update := range updates {
+		result = append(result, update.Server)
 	}
 	return result
 }
 
-type runtimeServers []runtimeServer
+var disable = servers
+var enable = servers
 
-type runtimeServer struct {
-	storage.Server
-	runtime loc.Locator
-}
+type waitsForEndpoints bool
 
 const etcdPhaseName = "etcd"

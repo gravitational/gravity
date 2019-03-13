@@ -127,9 +127,10 @@ func getEnvironUpdater(env, updateEnv *localenv.LocalEnvironment, operation ops.
 				"operation":     operation,
 			}),
 		},
-		Apps:            clusterEnv.Apps,
-		Client:          clusterEnv.Client,
-		ClusterPackages: clusterEnv.ClusterPackages,
+		Apps:              clusterEnv.Apps,
+		Client:            clusterEnv.Client,
+		ClusterPackages:   clusterEnv.ClusterPackages,
+		HostLocalPackages: env.Packages,
 	})
 	if err != nil {
 		return nil, trace.Wrap(err)
@@ -167,7 +168,7 @@ func (environInitializer) newOperationPlan(
 	localEnv, updateEnv *localenv.LocalEnvironment,
 	clusterEnv *localenv.ClusterEnvironment,
 ) (*storage.OperationPlan, error) {
-	plan, err := environ.NewOperationPlan(operator, operation, cluster.ClusterState.Servers)
+	plan, err := environ.NewOperationPlan(operator, clusterEnv.Apps, operation, cluster.ClusterState.Servers)
 	if err != nil {
 		return nil, trace.Wrap(err)
 	}

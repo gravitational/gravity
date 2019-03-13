@@ -4,13 +4,51 @@ import (
 	"fmt"
 
 	"github.com/gravitational/gravity/lib/loc"
+	"github.com/gravitational/gravity/lib/ops"
+	"github.com/gravitational/gravity/lib/schema"
 	"github.com/gravitational/gravity/lib/storage"
 	"github.com/gravitational/gravity/lib/update"
 	libphase "github.com/gravitational/gravity/lib/update/internal/rollingupdate/phases"
+
+	"github.com/gravitational/trace"
 )
 
+// RuntimeConfigUpdates computes the runtime configuration updates for the specified list of servers
+func RuntimeConfigUpdates(
+	manifest schema.Manifest,
+	operator ops.Operator,
+	operationKey ops.SiteOperationKey,
+	servers []storage.Server,
+) (updates []storage.ServerConfigUpdate, err error) {
+	updates = make([]storage.ServerConfigUpdate, 0, len(servers))
+	for _, server := range servers {
+		runtimePackage, err := manifest.RuntimePackageForProfile(server.Role)
+		if err != nil {
+			return nil, trace.Wrap(err)
+		}
+		configUpdate, err := operator.RotatePlanetConfig(ops.RotatePlanetConfigRequest{
+			Key:            operationKey,
+			Server:         server,
+			Manifest:       manifest,
+			RuntimePackage: *runtimePackage,
+			DryRun:         true,
+		})
+		if err != nil {
+			return nil, trace.Wrap(err)
+		}
+		updates = append(updates, storage.ServerConfigUpdate{
+			Server: server,
+			Runtime: storage.RuntimeConfigUpdate{
+				Package:       *runtimePackage,
+				ConfigPackage: configUpdate.Locator,
+			},
+		})
+	}
+	return updates, nil
+}
+
 // Config creates a new phase to update runtime container configuration
-func (r Builder) Config(rootText string, servers []storage.Server) *update.Phase {
+func (r Builder) Config(rootText string, updates []storage.ServerConfigUpdate) *update.Phase {
 	phase := update.RootPhase(update.Phase{
 		ID:          "update-config",
 		Executor:    libphase.UpdateConfig,
@@ -19,15 +57,15 @@ func (r Builder) Config(rootText string, servers []storage.Server) *update.Phase
 			Package: &r.App,
 		},
 	})
-	if len(servers) != 0 {
+	if len(updates) != 0 {
 		phase.Data.Update = &storage.UpdateOperationData{
-			Servers: servers,
+			ConfigUpdates: updates,
 		}
 	}
 	return &phase
 }
 
-// Masters returns a new phase to rolling update the specified list of master servers
+// Masters returns a new phase to execute a rolling update of the specified list of master servers
 func (r Builder) Masters(servers []storage.Server, rootText, nodeTextFormat string) *update.Phase {
 	root := update.RootPhase(update.Phase{
 		ID:          "masters",
@@ -56,7 +94,7 @@ func (r Builder) Masters(servers []storage.Server, rootText, nodeTextFormat stri
 	return &root
 }
 
-// Nodes returns a new phase to rolling update the specified list of regular servers
+// Nodes returns a new phase to execute a rolling update of the specified list of regular servers
 func (r Builder) Nodes(servers []storage.Server, master *storage.Server, rootText, nodeTextFormat string) *update.Phase {
 	root := update.RootPhase(update.Phase{
 		ID:          "nodes",

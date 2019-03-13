@@ -39,7 +39,7 @@ import (
 )
 
 // RotateSecrets rotates secrets package for the server specified in the request
-func (o *Operator) RotateSecrets(req ops.RotateSecretsRequest) (*ops.RotatePackageResponse, error) {
+func (o *Operator) RotateSecrets(req ops.RotateSecretsRequest) (resp *ops.RotatePackageResponse, err error) {
 	node := &ProvisionedServer{
 		Server: req.Server,
 		Profile: schema.NodeProfile{
@@ -47,12 +47,24 @@ func (o *Operator) RotateSecrets(req ops.RotateSecretsRequest) (*ops.RotatePacka
 		},
 	}
 
-	op, err := ops.GetCompletedInstallOperation(req.SiteKey(), o)
+	cluster, err := o.openSite(req.SiteKey())
 	if err != nil {
 		return nil, trace.Wrap(err)
 	}
 
-	cluster, err := o.openSite(req.SiteKey())
+	secretsPackage := req.Locator
+	if secretsPackage == nil {
+		secretsPackage, err = cluster.planetSecretsNextPackage(node)
+		if err != nil {
+			return nil, trace.Wrap(err)
+		}
+	}
+
+	if req.DryRun {
+		return &ops.RotatePackageResponse{Locator: *secretsPackage}, nil
+	}
+
+	op, err := ops.GetCompletedInstallOperation(req.SiteKey(), o)
 	if err != nil {
 		return nil, trace.Wrap(err)
 	}
@@ -62,7 +74,7 @@ func (o *Operator) RotateSecrets(req ops.RotateSecretsRequest) (*ops.RotatePacka
 		return nil, trace.Wrap(err)
 	}
 
-	resp, err := cluster.rotateSecrets(ctx, node, *op)
+	resp, err = cluster.rotateSecrets(ctx, *secretsPackage, node, *op)
 	if err != nil {
 		return nil, trace.Wrap(err)
 	}
@@ -72,24 +84,13 @@ func (o *Operator) RotateSecrets(req ops.RotateSecretsRequest) (*ops.RotatePacka
 
 // RotateTeleportConfig generates teleport configuration for the server specified in the provided request
 func (o *Operator) RotateTeleportConfig(req ops.RotateTeleportConfigRequest) (masterConfig *ops.RotatePackageResponse, nodeConfig *ops.RotatePackageResponse, err error) {
+	if err := req.Check(); err != nil {
+		return nil, nil, trace.Wrap(err)
+	}
+
 	operation, err := o.GetSiteOperation(req.Key)
 	if err != nil {
 		return nil, nil, trace.Wrap(err)
-	}
-
-	cluster, err := o.openSite(req.Key.SiteKey())
-	if err != nil {
-		return nil, nil, trace.Wrap(err)
-	}
-
-	ctx, err := cluster.newOperationContext(*operation)
-	if err != nil {
-		return nil, nil, trace.Wrap(err)
-	}
-
-	masterIPs := req.Servers.MasterIPs()
-	if len(masterIPs) == 0 {
-		return nil, nil, trace.NotFound("no masters in the request: %#v", req)
 	}
 
 	nodeProfile, err := o.getNodeProfile(*operation, req.Server)
@@ -102,20 +103,49 @@ func (o *Operator) RotateTeleportConfig(req ops.RotateTeleportConfigRequest) (ma
 		Profile: *nodeProfile,
 	}
 
+	cluster, err := o.openSite(req.Key.SiteKey())
+	if err != nil {
+		return nil, nil, trace.Wrap(err)
+	}
+
+	masterConfigPackage := req.Master
+	if masterConfigPackage == nil {
+		masterConfigPackage, err = cluster.teleportMasterConfigPackage(node)
+		if err != nil {
+			return nil, nil, trace.Wrap(err)
+		}
+	}
+
+	nodeConfigPackage := req.Node
+	if nodeConfigPackage == nil {
+		nodeConfigPackage, err = cluster.teleportNodeConfigPackage(node)
+		if err != nil {
+			return nil, nil, trace.Wrap(err)
+		}
+	}
+
+	ctx, err := cluster.newOperationContext(*operation)
+	if err != nil {
+		return nil, nil, trace.Wrap(err)
+	}
+
 	if node.ClusterRole == string(schema.ServiceRoleMaster) {
-		masterConfig, err = cluster.getTeleportMasterConfig(ctx, node)
+		masterConfig, err = cluster.getTeleportMasterConfig(ctx, *masterConfigPackage, node)
 		if err != nil {
 			return nil, nil, trace.Wrap(err)
 		}
 		// Teleport nodes on masters prefer their local auth server
 		// but will try all other masters if the local gravity-site
 		// isn't running.
-		nodeConfig, err = cluster.getTeleportNodeConfig(ctx, append([]string{constants.Localhost}, masterIPs...), node)
+		nodeConfig, err = cluster.getTeleportNodeConfig(ctx,
+			append(req.MasterIPs, constants.Localhost),
+			*nodeConfigPackage,
+			node)
 		if err != nil {
 			return nil, nil, trace.Wrap(err)
 		}
 	} else {
-		nodeConfig, err = cluster.getTeleportNodeConfig(ctx, masterIPs, node)
+		nodeConfig, err = cluster.getTeleportNodeConfig(ctx, req.MasterIPs, *nodeConfigPackage, node)
 		if err != nil {
 			return nil, nil, trace.Wrap(err)
 		}
@@ -147,6 +177,11 @@ func (o *Operator) getNodeProfile(operation ops.SiteOperation, node storage.Serv
 
 // RotatePlanetConfig rotates planet configuration package for the server specified in the request
 func (o *Operator) RotatePlanetConfig(req ops.RotatePlanetConfigRequest) (*ops.RotatePackageResponse, error) {
+	clusterKey := req.Key.SiteKey()
+	cluster, err := o.openSite(clusterKey)
+	if err != nil {
+		return nil, trace.Wrap(err)
+	}
 	nodeProfile, err := req.Manifest.NodeProfiles.ByName(req.Server.Role)
 	if err != nil {
 		return nil, trace.Wrap(err)
@@ -159,13 +194,19 @@ func (o *Operator) RotatePlanetConfig(req ops.RotatePlanetConfigRequest) (*ops.R
 		Profile: *nodeProfile,
 	}
 
-	runner := &localRunner{}
-
-	clusterKey := req.Key.SiteKey()
-	cluster, err := o.openSite(clusterKey)
-	if err != nil {
-		return nil, trace.Wrap(err)
+	configPackage := req.Locator
+	if configPackage == nil {
+		configPackage, err = cluster.planetNextConfigPackage(&node, req.RuntimePackage.Version)
+		if err != nil {
+			return nil, trace.Wrap(err)
+		}
 	}
+
+	if req.DryRun {
+		return &ops.RotatePackageResponse{Locator: *configPackage}, nil
+	}
+
+	runner := &localRunner{}
 
 	memberListOutput, err := runner.Run(cluster.etcdctlCommand("member", "list")...)
 	if err != nil {
@@ -216,11 +257,6 @@ func (o *Operator) RotatePlanetConfig(req ops.RotatePlanetConfigRequest) (*ops.R
 	dockerConfig := cluster.dockerConfig()
 	checks.OverrideDockerConfig(&dockerConfig,
 		checks.DockerConfigFromSchema(req.Manifest.SystemOptions.DockerConfig()))
-
-	configPackage, err := cluster.planetNextConfigPackage(&node, req.RuntimePackage.Version)
-	if err != nil {
-		return nil, trace.Wrap(err)
-	}
 
 	config := planetConfig{
 		master: masterConfig{

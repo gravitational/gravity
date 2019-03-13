@@ -93,6 +93,7 @@ func InitOperationPlan(
 		Packages:  clusterEnv.ClusterPackages,
 		Client:    clusterEnv.Client,
 		DNSConfig: dnsConfig,
+		Operator:  clusterEnv.Operator,
 		Operation: operation,
 	})
 	if err != nil {
@@ -174,6 +175,7 @@ func NewOperationPlan(config PlanConfig) (*storage.OperationPlan, error) {
 	}
 
 	plan, err := newOperationPlan(planConfig{
+		operator:          config.Operator,
 		operation:         *config.Operation,
 		servers:           servers,
 		installedRuntime:  *installedRuntime,
@@ -209,6 +211,9 @@ func (r *PlanConfig) checkAndSetDefaults() error {
 	if r.Backend == nil {
 		return trace.BadParameter("backend is required")
 	}
+	if r.Operator == nil {
+		return trace.BadParameter("cluster operator is required")
+	}
 	if r.Operation == nil {
 		return trace.BadParameter("cluster operation is required")
 	}
@@ -221,12 +226,14 @@ type PlanConfig struct {
 	Packages  pack.PackageService
 	Apps      app.Applications
 	DNSConfig storage.DNSConfig
+	Operator  ops.Operator
 	Operation *storage.SiteOperation
 	Client    *kubernetes.Clientset
 }
 
 // planConfig collects parameters needed to generate an update operation plan
 type planConfig struct {
+	operator ops.Operator
 	// operation is the operation to generate the plan for
 	operation storage.SiteOperation
 	// servers is a list of servers from cluster state
@@ -281,18 +288,9 @@ func newOperationPlan(p planConfig) (*storage.OperationPlan, error) {
 	bootstrapPhase := *builder.bootstrap(p.servers,
 		p.installedApp.Package, p.updateApp.Package).Require(initPhase)
 
-	var masters, nodes runtimeServers
-	for _, server := range p.servers {
-		runtimePackage, err := p.updateApp.Manifest.RuntimePackageForProfile(server.Role)
-		if err != nil {
-			return nil, trace.Wrap(err)
-		}
-
-		if fsm.IsMasterServer(server) {
-			masters = append(masters, runtimeServer{Server: server, runtime: *runtimePackage})
-		} else {
-			nodes = append(nodes, runtimeServer{Server: server, runtime: *runtimePackage})
-		}
+	masters, nodes, err := configUpdates(p.updateApp.Manifest, p.operator, fsm.OperationKey(plan), p.servers)
+	if err != nil {
+		return nil, trace.Wrap(err)
 	}
 
 	if len(masters) == 0 {
@@ -370,7 +368,7 @@ func newOperationPlan(p planConfig) (*storage.OperationPlan, error) {
 		}
 
 		if updateEtcd {
-			etcdPhase := *builder.etcdPlan(leadMaster.Server, masters[1:].asServers(), nodes.asServers(),
+			etcdPhase := *builder.etcdPlan(leadMaster.Server, servers(masters[1:]...), servers(nodes...),
 				currentVersion, desiredVersion)
 			// This does not depend on previous on purpose - when the etcd block is executed,
 			// remote agents might be able to sync the plan before the shutdown of etcd instances
@@ -387,7 +385,7 @@ func newOperationPlan(p planConfig) (*storage.OperationPlan, error) {
 		// upgrade phase to make sure that old gravity-sites start up fine
 		// in case new configuration is incompatible, but *before* runtime
 		// phase so new gravity-sites can find it after they start
-		configPhase := *builder.config(masters.asServers()).Require(mastersPhase)
+		configPhase := *builder.config(servers(masters...)).Require(mastersPhase)
 		runtimePhase := *builder.runtime(runtimeUpdates).Require(mastersPhase)
 		root.Add(configPhase, runtimePhase)
 	}
@@ -397,6 +395,68 @@ func newOperationPlan(p planConfig) (*storage.OperationPlan, error) {
 	update.ResolvePlan(&plan)
 
 	return &plan, nil
+}
+
+// configUpdates computes the configuration updates for the specified list of servers
+func configUpdates(
+	manifest schema.Manifest,
+	operator ops.Operator,
+	operation ops.SiteOperationKey,
+	servers []storage.Server,
+) (masters, nodes []storage.ServerConfigUpdate, err error) {
+	for _, server := range servers {
+		runtimePackage, err := manifest.RuntimePackageForProfile(server.Role)
+		if err != nil {
+			return nil, nil, trace.Wrap(err)
+		}
+		configUpdate, err := operator.RotatePlanetConfig(ops.RotatePlanetConfigRequest{
+			Key:            operation,
+			Server:         server,
+			Manifest:       manifest,
+			RuntimePackage: *runtimePackage,
+			DryRun:         true,
+		})
+		if err != nil {
+			return nil, nil, trace.Wrap(err)
+		}
+		secretsUpdate, err := operator.RotateSecrets(ops.RotateSecretsRequest{
+			AccountID:   operation.AccountID,
+			ClusterName: operation.SiteDomain,
+			Server:      server,
+			DryRun:      true,
+		})
+		if err != nil {
+			return nil, nil, trace.Wrap(err)
+		}
+		masterConfig, nodeConfig, err := operator.RotateTeleportConfig(ops.RotateTeleportConfigRequest{
+			Key:    operation,
+			Server: server,
+			DryRun: true,
+		})
+		if err != nil {
+			return nil, nil, trace.Wrap(err)
+		}
+		update := storage.ServerConfigUpdate{
+			Server: server,
+			Runtime: storage.RuntimeConfigUpdate{
+				Package:        *runtimePackage,
+				ConfigPackage:  configUpdate.Locator,
+				SecretsPackage: &secretsUpdate.Locator,
+			},
+			Teleport: &storage.TeleportConfigUpdate{
+				// FIXME
+				// Package:      teleportPackage,
+				MasterConfig: masterConfig.Locator,
+				NodeConfig:   nodeConfig.Locator,
+			},
+		}
+		if server.IsMaster() {
+			masters = append(masters, update)
+			continue
+		}
+		nodes = append(nodes, update)
+	}
+	return masters, nodes, nil
 }
 
 func checkAndSetServerDefaults(servers []storage.Server, client corev1.NodeInterface) ([]storage.Server, error) {

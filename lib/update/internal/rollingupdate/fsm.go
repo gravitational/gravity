@@ -41,6 +41,9 @@ func (r *Config) checkAndSetDefaults() error {
 	if r.ClusterPackages == nil {
 		return trace.BadParameter("cluster package service is required")
 	}
+	if r.HostLocalPackages == nil {
+		return trace.BadParameter("host-local package service is required")
+	}
 	if r.Dispatcher == nil {
 		r.Dispatcher = NewDefaultDispatcher()
 	}
@@ -56,6 +59,8 @@ type Config struct {
 	// Implementations that reimplement certain steps or implement new steps
 	// can set this field and use an instance of the default dispatcher as a fallback
 	Dispatcher
+	// HostLocalPackages specifies the package service on local host
+	HostLocalPackages pack.PackageService
 	// Apps is the cluster application service
 	Apps app.Applications
 	// ClusterPackages specifies the cluster package service

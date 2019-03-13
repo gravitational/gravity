@@ -209,7 +209,7 @@ type Config struct {
 	Operation *ops.SiteOperation
 	// Operator is the cluster operator service
 	Operator ops.Operator
-	// When available, used to sync state between nodes
+	// Backend specifies the cluster backend
 	Backend storage.Backend
 	// LocalBackend specifies the authoritative source for operation state
 	LocalBackend storage.Backend

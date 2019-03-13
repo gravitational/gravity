@@ -1349,10 +1349,18 @@ type SystemUpdateCmd struct {
 	ChangesetID *string
 	// ServiceName is systemd service name to launch
 	ServiceName *string
-	// WithStatus waits for operation to finish
+	// WithStatus blocks until the runtime container has reported success or wait has timed out
 	WithStatus *bool
 	// RuntimePackage specifies the runtime package to update to
 	RuntimePackage *loc.Locator
+	// RuntimeConfigPackage specifies the runtime package to update to
+	RuntimeConfigPackage *loc.Locator
+	// RuntimeSecretsPackage specifies the runtime package to update to
+	RuntimeSecretsPackage *loc.Locator
+	// TeleportPackage specifies the runtime package to update to
+	TeleportPackage *loc.Locator
+	// TeleportConfigPackage specifies the runtime package to update to
+	TeleportConfigPackage *loc.Locator
 }
 
 // SystemReinstallCmd reinstalls specified system package

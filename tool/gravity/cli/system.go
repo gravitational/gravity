@@ -96,29 +96,32 @@ func systemPullUpdates(env *localenv.LocalEnvironment, opsCenterURL string, runt
 }
 
 // systemUpdate searches and applies package updates if any
-func systemUpdate(env *localenv.LocalEnvironment, changesetID string, serviceName string, withStatus bool,
-	runtimePackage loc.Locator) error {
-	if serviceName != "" {
+func systemUpdate(env *localenv.LocalEnvironment, config systemUpdateConfig) error {
+	if config.serviceName != "" {
 		args := []string{"system", "update",
-			"--changeset-id", changesetID,
-			"--runtime-package", runtimePackage.String(),
-			"--debug"}
-		if withStatus {
+			"--changeset-id", config.changesetID,
+			"--runtime-package", config.runtime.locator.String(),
+			"--runtime-config-package", config.runtime.config.locator.String(),
+			"--runtime-secrets-package", config.runtime.secrets.locator.String(),
+			"--teleport-package", config.teleport.locator.String(),
+			"--teleport-config-package", config.teleport.config.locator.String(),
+		}
+		if config.withStatus {
 			args = append(args, "--with-status")
 		}
-		return trace.Wrap(installOneshotService(env.Silent, serviceName, args))
+		return trace.Wrap(installOneshotService(env.Silent, config.serviceName, args))
 	}
 
-	reqs, err := findPackages(env.Packages, runtimePackage)
-	if err != nil {
-		return trace.Wrap(err)
+	config.runtime.configPackage.less = configPackageLess
+	packageUpdates := []packageUpdate{
+		config.runtime,
+		config.teleport,
 	}
-
 	var changes []storage.PackageUpdate
-	for _, req := range reqs {
-		log := log.WithField("package", req)
+	for _, u := range packageUpdates {
+		log := log.WithField("package", u)
 		log.Info("Checking for update.")
-		update, err := findPackageUpdate(env.Packages, env.Packages, req)
+		update, err := findPackageUpdate(env.Packages, env.Packages, u)
 		if err != nil {
 			if trace.IsNotFound(err) {
 				log.Info("No update found.")
@@ -126,7 +129,7 @@ func systemUpdate(env *localenv.LocalEnvironment, changesetID string, serviceNam
 			}
 			return trace.Wrap(err)
 		}
-		update.Labels = req.labels
+		// update.Labels = req.labels
 		log.WithField("package", update).Info("Found update.")
 		changes = append(changes, *update)
 	}
@@ -145,12 +148,12 @@ func systemUpdate(env *localenv.LocalEnvironment, changesetID string, serviceNam
 		return trace.Wrap(err)
 	}
 
-	if !withStatus {
+	if !config.withStatus {
 		env.Printf("System successfully updated: %v\n", changeset)
 		return nil
 	}
 
-	err = ensureServiceRunning(runtimePackage)
+	err = ensureServiceRunning(config.runtimePackage)
 	if err != nil {
 		return trace.Wrap(err)
 	}
@@ -1111,7 +1114,7 @@ func removeInterfaces(env *localenv.LocalEnvironment) error {
 }
 
 // findPackageUpdate searches for remote update for the local package specified with req
-func findPackageUpdate(localPackages, remotePackages pack.PackageService, req packageRequest) (*storage.PackageUpdate, error) {
+func findPackageUpdate(localPackages, remotePackages pack.PackageService, update packageUpdate) (*storage.PackageUpdate, error) {
 	if req.configPackage == nil {
 		update, err := findPackageUpdateHelper(remotePackages, req)
 		return update, trace.Wrap(err)
@@ -1222,7 +1225,7 @@ func maybeConvertLegacyPlanetConfigPackage(configPackage loc.Locator) (*loc.Loca
 		return nil, trace.Wrap(err)
 	}
 
-	// Format the new package name as <planet-config-prefix>-<prerelease>
+	// Format the new package name as <planet-config-suffix>-<prerelease>
 	name := fmt.Sprintf("%v-%v", constants.PlanetConfigPackage, ver.PreRelease)
 	convertedConfigPackage, err := loc.NewLocator(configPackage.Repository, name, configPackage.Version)
 	if err != nil {
@@ -1236,6 +1239,33 @@ func configPackageLess(a, b *semver.Version) bool {
 		return true
 	}
 	return a.Metadata < b.Metadata
+}
+
+type systemUpdateConfig struct {
+	updatePackages
+	withStatus  bool
+	serviceName string
+	changesetID string
+}
+
+type updatePackages struct {
+	runtime  packageUpdate
+	teleport packageUpdate
+}
+
+type packageUpdate struct {
+	// locator specifies the update for a package.
+	// It might be the same as the currently installed package, in which
+	// case the update is idempotent
+	locator loc.Locator
+	// less specifies optional less comparator to use when looking for latest
+	// installed version.
+	// If unspecified, default comparator is used
+	less pack.LessFunc
+	// configPackage specifies the configuration package update
+	config packageUpdate
+	// secretsPackage specifies an optional secrets package update
+	secrets *packageUpdate
 }
 
 func newPackageRequest(packages pack.PackageService, filter loc.Locator) (*packageRequest, error) {

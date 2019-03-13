@@ -24,7 +24,6 @@ import (
 	libfsm "github.com/gravitational/gravity/lib/fsm"
 	"github.com/gravitational/gravity/lib/loc"
 	"github.com/gravitational/gravity/lib/ops"
-	opsutils "github.com/gravitational/gravity/lib/ops/opsservice"
 	"github.com/gravitational/gravity/lib/pack"
 	"github.com/gravitational/gravity/lib/schema"
 	"github.com/gravitational/gravity/lib/storage"
@@ -39,46 +38,41 @@ func NewUpdateConfig(
 	operator operator,
 	operation ops.SiteOperation,
 	apps appGetter,
-	packages packageService,
+	packages, hostPackages packageService,
 	logger log.FieldLogger,
 ) (*updateConfig, error) {
 	if params.Phase.Data == nil || params.Phase.Data.Package == nil {
 		return nil, trace.NotFound("no installed application package specified for phase %q",
 			params.Phase.ID)
 	}
+	if params.Phase.Data.Update == nil || len(params.Phase.Data.Update.ConfigUpdates) == 0 {
+		return nil, trace.BadParameter("expected at least one server update")
+	}
 	app, err := apps.GetApp(*params.Phase.Data.Package)
 	if err != nil {
 		return nil, trace.Wrap(err, "failed to query installed application")
 	}
-	servers := params.Plan.Servers
-	if params.Phase.Data.Update != nil && len(params.Phase.Data.Update.Servers) != 0 {
-		servers = params.Phase.Data.Update.Servers
-	}
 	return &updateConfig{
-		FieldLogger: logger,
-		operator:    operator,
-		operation:   operation,
-		packages:    packages,
-		servers:     servers,
-		manifest:    app.Manifest,
+		FieldLogger:  logger,
+		operator:     operator,
+		operation:    operation,
+		packages:     packages,
+		hostPackages: hostPackages,
+		updates:      params.Phase.Data.Update.ConfigUpdates,
+		manifest:     app.Manifest,
 	}, nil
 }
 
 // Execute generates new runtime configuration with the specified environment
 func (r *updateConfig) Execute(ctx context.Context) error {
-	for _, server := range r.servers {
-		r.Infof("Generate new runtime configuration package for %v.", server)
-		runtimePackage, err := r.manifest.RuntimePackageForProfile(server.Role)
-		if err != nil {
-			return trace.Wrap(err)
-		}
-		configPackage := r.configPackage(server, runtimePackage)
+	for _, update := range r.updates {
+		r.Infof("Generate new runtime configuration package for %v.", update.Server)
 		req := ops.RotatePlanetConfigRequest{
 			Key:            r.operation.Key(),
-			Server:         server,
+			Server:         update.Server,
 			Manifest:       r.manifest,
-			RuntimePackage: *runtimePackage,
-			ConfigPackage:  configPackage,
+			RuntimePackage: update.Runtime.Package,
+			Locator:        &update.Runtime.ConfigPackage,
 			Config:         r.operation.UpdateConfig.Config,
 		}
 		resp, err := r.operator.RotatePlanetConfig(req)
@@ -100,15 +94,12 @@ func (r *updateConfig) Execute(ctx context.Context) error {
 
 // Rollback resets the cluster configuration to the previous value
 func (r *updateConfig) Rollback(context.Context) error {
-	for _, server := range r.servers {
-		runtimePackage, err := r.manifest.RuntimePackageForProfile(server.Role)
-		if err != nil {
-			return trace.Wrap(err)
-		}
-		configPackage := r.configPackage(server, runtimePackage)
-		_, err = r.packages.DeletePackage(configPackage)
-		if err != nil && !trace.IsNotFound(err) {
-			return trace.Wrap(err)
+	for _, update := range r.updates {
+		for _, packages := range []packageService{r.packages, r.hostPackages} {
+			err := packages.DeletePackage(update.Runtime.ConfigPackage)
+			if err != nil && !trace.IsNotFound(err) {
+				return trace.Wrap(err)
+			}
 		}
 	}
 	err := r.operator.UpdateClusterConfiguration(ops.UpdateClusterConfigRequest{
@@ -128,22 +119,15 @@ func (r *updateConfig) PostCheck(context.Context) error {
 	return nil
 }
 
-// configPackage generates the locator for the configuration package for the specified
-// runtime package and given server
-func (r *updateConfig) configPackage(server storage.Server, runtimePackage loc.Locator) loc.Locator {
-	anchor := r.Plan.CreatedAt.UTC().Unix()
-	return opsutils.NextRuntimeConfigurationPackage(
-		r.Plan.ClusterName, server.AdvertiseIP, runtimePackage.Version, anchor)
-}
-
 type updateConfig struct {
 	// FieldLogger specifies the logger for the phase
 	log.FieldLogger
-	operator  operator
-	operation ops.SiteOperation
-	packages  packageService
-	servers   []storage.Server
-	manifest  schema.Manifest
+	operator     operator
+	operation    ops.SiteOperation
+	packages     packageService
+	hostPackages packageService
+	updates      []storage.ServerConfigUpdate
+	manifest     schema.Manifest
 }
 
 type operator interface {

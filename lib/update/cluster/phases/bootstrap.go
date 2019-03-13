@@ -120,7 +120,6 @@ func NewUpdatePhaseBootstrap(
 	if err != nil {
 		return nil, trace.Wrap(err)
 	}
-
 	return &updatePhaseBootstrap{
 		Operator:         operator,
 		Backend:          backend,
@@ -136,6 +135,11 @@ func NewUpdatePhaseBootstrap(
 		ExecutorParams:   p,
 		remote:           remote,
 		runtimePackage:   *runtimePackage,
+		// FIXME
+		// runtimeConfigPackage:  *runtimeConfigPackage,
+		// runtimeSecretsPackage: *runtimeSecretsPackage,
+		// teleportPackage:       *teleportPackage,
+		// teleportConfigPackage: *teleportConfigPackage,
 		installedRuntime: *installedRuntime,
 	}, nil
 }
@@ -239,11 +243,18 @@ func (p *updatePhaseBootstrap) pullSystemUpdates() error {
 	p.Info("Pull system updates.")
 	out, err := fsm.RunCommand(utils.PlanetCommandArgs(
 		filepath.Join(defaults.GravityUpdateDir, constants.GravityBin),
-		"--quiet", "--insecure", "system", "pull-updates",
+		"--quiet", "--insecure",
+		"system", "pull-updates",
 		"--uid", p.ServiceUser.UID,
 		"--gid", p.ServiceUser.GID,
+		"--ops-url", defaults.GravityServiceURL,
 		"--runtime-package", p.runtimePackage.String(),
-		"--ops-url", defaults.GravityServiceURL))
+		// FIXME
+		// "--runtime-config-package", p.runtimeConfigPackage.String(),
+		// "--runtime-secrets-package", p.runtimeSecretsPackage.String(),
+		// "--teleport-package", p.teleportPackage.String(),
+		// "--teleport-config-package", p.teleportConfigPackage.String(),
+	))
 	if err != nil {
 		return trace.Wrap(err, "failed to pull system updates: %s", out)
 	}
@@ -297,7 +308,7 @@ func (p *updatePhaseBootstrap) collectTeleportUpdates() (updates []loc.Locator, 
 }
 
 func (p *updatePhaseBootstrap) syncPlan() error {
-	p.Info("Sync operation plan.")
+	p.Info("Synchronize operation plan from cluster.")
 	site, err := p.Backend.GetSite(p.Operation.SiteDomain)
 	if err != nil {
 		return trace.Wrap(err)

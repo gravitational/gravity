@@ -385,9 +385,9 @@ func (p *updatePhaseInit) rotatePlanetConfig(server storage.Server) error {
 
 func (p *updatePhaseInit) rotateTeleportConfig(server storage.Server) error {
 	masterConf, nodeConf, err := p.Operator.RotateTeleportConfig(ops.RotateTeleportConfigRequest{
-		Key:     p.Operation.Key(),
-		Server:  server,
-		Servers: p.Servers,
+		Key:       p.Operation.Key(),
+		Server:    server,
+		MasterIPs: storage.Servers(p.Servers).MasterIPs(),
 	})
 	if err != nil {
 		return trace.Wrap(err)
