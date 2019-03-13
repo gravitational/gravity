@@ -1505,6 +1505,15 @@ func (c *Client) GetAuthGateway(key ops.SiteKey) (storage.AuthGateway, error) {
 	return storage.UnmarshalAuthGateway(response.Bytes())
 }
 
+// EmitAuditEvent saves the provided event in the audit log.
+func (c *Client) EmitAuditEvent(req ops.AuditEventRequest) error {
+	_, err := c.PostJSON(c.Endpoint("accounts", req.AccountID, "sites", req.SiteDomain, "events"), req)
+	if err != nil {
+		return trace.Wrap(err)
+	}
+	return nil
+}
+
 // PostJSON issues HTTP POST request to the server with the provided JSON data
 func (c *Client) PostJSON(endpoint string, data interface{}) (*roundtrip.Response, error) {
 	return telehttplib.ConvertResponse(c.Client.PostJSON(endpoint, data))

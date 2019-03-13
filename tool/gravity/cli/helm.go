@@ -31,6 +31,7 @@ import (
 	"github.com/gravitational/gravity/lib/helm"
 	"github.com/gravitational/gravity/lib/loc"
 	"github.com/gravitational/gravity/lib/localenv"
+	"github.com/gravitational/gravity/lib/ops/events"
 	"github.com/gravitational/gravity/lib/pack"
 	"github.com/gravitational/gravity/lib/schema"
 	helmutils "github.com/gravitational/gravity/lib/utils/helm"
@@ -180,6 +181,7 @@ func releaseInstall(env *localenv.LocalEnvironment, conf releaseInstallConfig) e
 	if err != nil {
 		return trace.Wrap(err)
 	}
+	env.EmitAuditEvent(events.AppInstalled, events.FieldsForRelease(*release))
 	env.PrintStep("Installed release %v", release.Name)
 	return nil
 }
@@ -206,7 +208,7 @@ func releaseList(env *localenv.LocalEnvironment, all bool) error {
 		fmt.Fprintf(w, "%v\t%v\t%v\t%v\t%v\t%v\n",
 			r.Name,
 			r.Status,
-			r.Chart,
+			r.GetChart(),
 			r.Revision,
 			r.Namespace,
 			r.Updated.Format(constants.HumanDateFormatSeconds))
@@ -255,7 +257,7 @@ func releaseUpgrade(env *localenv.LocalEnvironment, conf releaseUpgradeConfig) e
 		return trace.Wrap(err)
 	}
 	env.PrintStep("Upgrading release %v (%v) to version %v",
-		release.Name, release.Chart,
+		release.Name, release.GetChart(),
 		imageEnv.Manifest.Metadata.ResourceVersion)
 	tmp, err := ioutil.TempDir("", "")
 	if err != nil {
@@ -275,6 +277,7 @@ func releaseUpgrade(env *localenv.LocalEnvironment, conf releaseUpgradeConfig) e
 	if err != nil {
 		return trace.Wrap(err)
 	}
+	env.EmitAuditEvent(events.AppUpgraded, events.FieldsForRelease(*release))
 	env.PrintStep("Upgraded release %v to version %v", release.Name,
 		imageEnv.Manifest.Metadata.ResourceVersion)
 	return nil
@@ -295,7 +298,8 @@ func releaseRollback(env *localenv.LocalEnvironment, conf releaseRollbackConfig)
 	if err != nil {
 		return trace.Wrap(err)
 	}
-	env.PrintStep("Rolled back release %v to %v", release.Name, release.Chart)
+	env.EmitAuditEvent(events.AppRolledBack, events.FieldsForRelease(*release))
+	env.PrintStep("Rolled back release %v to %v", release.Name, release.GetChart())
 	return nil
 }
 
@@ -311,6 +315,7 @@ func releaseUninstall(env *localenv.LocalEnvironment, conf releaseUninstallConfi
 	if err != nil {
 		return trace.Wrap(err)
 	}
+	env.EmitAuditEvent(events.AppUninstalled, events.FieldsForRelease(*release))
 	env.PrintStep("Uninstalled release %v", release.Name)
 	return nil
 }
@@ -334,7 +339,7 @@ func releaseHistory(env *localenv.LocalEnvironment, conf releaseHistoryConfig) e
 	for _, r := range releases {
 		fmt.Fprintf(w, "%v\t%v\t%v\t%v\t%v\n",
 			r.Revision,
-			r.Chart,
+			r.GetChart(),
 			r.Status,
 			r.Updated.Format(constants.HumanDateFormatSeconds),
 			r.Description)

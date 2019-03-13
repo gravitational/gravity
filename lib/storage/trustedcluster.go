@@ -53,6 +53,8 @@ type TrustedCluster interface {
 	GetSystem() bool
 	// SetSystem marks the trusted cluster as a system
 	SetSystem(bool)
+	// GetRegular returns true if this is a regular Ops Center.
+	GetRegular() bool
 }
 
 // NewTrustedCluster returns a new trusted cluster from the provided name and spec
@@ -300,6 +302,11 @@ func (c *TrustedClusterV2) SetSystem(system bool) {
 	} else {
 		delete(c.Metadata.Labels, constants.SystemLabel)
 	}
+}
+
+// GetRegular returns true if this is a regular Ops Center.
+func (c *TrustedClusterV2) GetRegular() bool {
+	return !c.GetWizard() && !c.GetSystem()
 }
 
 // CheckAndSetDefaults checks the cluster resource and sets some defaults

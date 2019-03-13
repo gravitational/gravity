@@ -20,6 +20,7 @@ import (
 	"github.com/gravitational/gravity/lib/localenv"
 	"github.com/gravitational/gravity/lib/modules"
 	"github.com/gravitational/gravity/lib/ops"
+	"github.com/gravitational/gravity/lib/ops/events"
 	"github.com/gravitational/gravity/lib/ops/resources"
 	"github.com/gravitational/gravity/lib/storage"
 	"github.com/gravitational/gravity/lib/storage/clusterconfig"
@@ -103,12 +104,10 @@ func (r *Resources) Create(req resources.CreateRequest) error {
 		if err != nil {
 			return trace.Wrap(err)
 		}
-		user := req.User
-		if user == "" {
-			user = r.CurrentUser
-		}
-		if token.GetUser() == "" {
-			token.SetUser(user)
+		if req.User != "" {
+			token.SetUser(req.User)
+		} else if token.GetUser() == "" {
+			token.SetUser(r.CurrentUser)
 		}
 		if err := token.CheckAndSetDefaults(); err != nil {
 			return trace.Wrap(err)
@@ -124,6 +123,7 @@ func (r *Resources) Create(req resources.CreateRequest) error {
 		if err != nil {
 			return trace.Wrap(err)
 		}
+		req.User = token.GetUser()
 		// do not print token here as a security precaution
 		r.Printf("Created token for user %q\n", token.GetUser())
 	case storage.KindLogForwarder:
@@ -237,6 +237,10 @@ func (r *Resources) Create(req resources.CreateRequest) error {
 		return trace.BadParameter("unsupported resource %q, supported are: %v",
 			req.Resource.Kind, modules.Get().SupportedResources())
 	}
+	r.EmitAuditEvent(events.ResourceCreated,
+		req.Resource.Kind,
+		req.Resource.Metadata.Name,
+		req.User)
 	return nil
 }
 
@@ -475,7 +479,17 @@ func (r *Resources) Remove(req resources.RemoveRequest) error {
 		return trace.BadParameter("unsupported resource %q, supported are: %v",
 			req.Kind, modules.Get().SupportedResourcesToRemove())
 	}
+	r.EmitAuditEvent(events.ResourceDeleted, req.Kind, req.Name, req.User)
 	return nil
+}
+
+// EmitAuditEvent emits the specified audit log event for the specified resource.
+func (r *Resources) EmitAuditEvent(event, kind, name, user string) {
+	fields := events.Fields{events.FieldKind: kind, events.FieldName: name}
+	if user != "" {
+		fields[events.FieldUser] = user
+	}
+	events.Emit(r.Operator, event, fields)
 }
 
 // ClusterOperationHandler defines a service to manage resources based on cluster operations

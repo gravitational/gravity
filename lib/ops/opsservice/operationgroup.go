@@ -21,6 +21,7 @@ import (
 
 	"github.com/gravitational/gravity/lib/defaults"
 	"github.com/gravitational/gravity/lib/ops"
+	"github.com/gravitational/gravity/lib/ops/events"
 	"github.com/gravitational/gravity/lib/schema"
 	"github.com/gravitational/gravity/lib/storage"
 	"github.com/gravitational/gravity/lib/utils"
@@ -91,8 +92,33 @@ func (g *operationGroup) createSiteOperation(operation ops.SiteOperation) (*ops.
 		return nil, trace.Wrap(err)
 	}
 
+	err = g.emitAuditEvent(*op)
+	if err != nil {
+		return nil, trace.Wrap(err)
+	}
+
 	key := op.Key()
 	return &key, nil
+}
+
+func (g *operationGroup) emitAuditEvent(operation ops.SiteOperation) error {
+	// Install operation audit events are emitted by the installer.
+	if operation.Type == ops.OperationInstall {
+		return nil
+	}
+	fields := events.FieldsForOperation(operation)
+	switch {
+	case operation.IsCompleted():
+		events.Emit(g.operator, events.OperationCompleted, fields)
+	case operation.IsFailed():
+		events.Emit(g.operator, events.OperationFailed, fields)
+	default:
+		// Expand operation start event is emitted by the joining agent.
+		if operation.Type != ops.OperationExpand {
+			events.Emit(g.operator, events.OperationStarted, fields)
+		}
+	}
+	return nil
 }
 
 // canCreateOperation checks if the provided operation is allowed to be created
@@ -229,6 +255,10 @@ func (g *operationGroup) compareAndSwapOperationState(swap swap) (*ops.SiteOpera
 	// if we've just moved the operation to one of the final states (completed/failed),
 	// see if we also need to update the site state
 	if operation.IsFinished() {
+		err = g.emitAuditEvent(*operation)
+		if err != nil {
+			return nil, trace.Wrap(err)
+		}
 		err = g.onSiteOperationComplete(swap.key)
 		if err != nil {
 			return nil, trace.Wrap(err)

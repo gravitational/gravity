@@ -21,6 +21,7 @@ import (
 
 	"github.com/gravitational/gravity/lib/app"
 	"github.com/gravitational/gravity/lib/ops"
+	"github.com/gravitational/gravity/lib/ops/events"
 	"github.com/gravitational/gravity/lib/schema"
 	"github.com/gravitational/gravity/lib/status"
 	"github.com/gravitational/gravity/lib/storage"
@@ -61,6 +62,9 @@ func (o *Operator) CheckSiteStatus(key ops.SiteKey) error {
 		if err != nil {
 			return trace.Wrap(err)
 		}
+		events.Emit(o, events.ClusterDegraded, events.Fields{
+			events.FieldReason: reason,
+		})
 		return trace.Wrap(statusErr)
 	}
 
@@ -74,6 +78,7 @@ func (o *Operator) CheckSiteStatus(key ops.SiteKey) error {
 		if err != nil {
 			return trace.Wrap(err)
 		}
+		events.Emit(o, events.ClusterActivated, events.Fields{})
 	}
 
 	return nil

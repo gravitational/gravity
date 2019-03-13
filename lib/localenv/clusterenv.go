@@ -17,6 +17,7 @@ limitations under the License.
 package localenv
 
 import (
+	"context"
 	"time"
 
 	"github.com/gravitational/gravity/lib/app"
@@ -30,6 +31,7 @@ import (
 	"github.com/gravitational/gravity/lib/storage/keyval"
 	"github.com/gravitational/gravity/lib/users"
 	"github.com/gravitational/gravity/lib/users/usersservice"
+	"github.com/gravitational/teleport/lib/events"
 
 	"github.com/gravitational/trace"
 	"k8s.io/client-go/kubernetes"
@@ -43,8 +45,14 @@ func (r *LocalEnvironment) NewClusterEnvironment(opts ...ClusterEnvironmentOptio
 		log.Errorf("Failed to create Kubernetes client: %v.",
 			trace.DebugReport(err))
 	}
+	auditLog, err := r.AuditLog(context.TODO())
+	if err != nil {
+		log.Warnf("Failed to create audit log: %v.",
+			trace.DebugReport(err))
+	}
 	config := clusterEnvironmentConfig{
-		client: client,
+		client:   client,
+		auditLog: auditLog,
 	}
 	for _, opt := range opts {
 		opt(&config)
@@ -161,6 +169,7 @@ func newClusterEnvironment(config clusterEnvironmentConfig) (*ClusterEnvironment
 		StateDir: siteDir,
 		Local:    true,
 		Client:   config.client,
+		AuditLog: config.auditLog,
 	})
 	if err != nil {
 		return nil, trace.Wrap(err)
@@ -187,4 +196,6 @@ type clusterEnvironmentConfig struct {
 	// etcdTimeout specifies the timeout for etcd queries.
 	// Falls back to defaults.EtcdRetryInterval if unspecified
 	etcdTimeout time.Duration
+	// auditLog provides API to the cluster audit log
+	auditLog events.IAuditLog
 }

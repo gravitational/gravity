@@ -1205,6 +1205,7 @@ func (p *Process) initService(ctx context.Context) (err error) {
 		ProcessID:       p.id,
 		InstallLogFiles: p.cfg.InstallLogFiles,
 		LogForwarders:   logs,
+		AuditLog:        authClient,
 	})
 	if err != nil {
 		return trace.Wrap(err)

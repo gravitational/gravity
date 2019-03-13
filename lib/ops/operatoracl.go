@@ -1037,3 +1037,11 @@ func (o *OperatorACL) GetAuthGateway(key SiteKey) (storage.AuthGateway, error) {
 	}
 	return o.operator.GetAuthGateway(key)
 }
+
+// EmitAuditEvent saves the provided event in the audit log.
+func (o *OperatorACL) EmitAuditEvent(req AuditEventRequest) error {
+	if err := o.ClusterAction(req.SiteDomain, storage.KindCluster, teleservices.VerbUpdate); err != nil {
+		return trace.Wrap(err)
+	}
+	return o.operator.EmitAuditEvent(req)
+}
