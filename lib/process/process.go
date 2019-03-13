@@ -504,9 +504,15 @@ func (p *Process) startAutoscale(ctx context.Context) error {
 	}
 
 	// receive and process events from SQS notification service
-	go autoscaler.ProcessEvents(ctx, queueURL, p.operator)
+	p.RegisterClusterService(func(ctx context.Context) error {
+		autoscaler.ProcessEvents(ctx, queueURL, p.operator)
+		return nil
+	})
 	// publish discovery information about this cluster
-	go autoscaler.PublishDiscovery(ctx, p.operator)
+	p.RegisterClusterService(func(ctx context.Context) error {
+		autoscaler.PublishDiscovery(ctx, p.operator)
+		return nil
+	})
 	return nil
 }
 
@@ -1251,10 +1257,6 @@ func (p *Process) initService(ctx context.Context) (err error) {
 		}
 
 		p.Info("Running inside Kubernetes: starting leader election.")
-		// gravity site leader election
-		if err := p.startElection(); err != nil {
-			return trace.Wrap(err)
-		}
 
 		if err := p.initClusterCertificate(client); err != nil {
 			return trace.Wrap(err)
@@ -1284,6 +1286,9 @@ func (p *Process) initService(ctx context.Context) (err error) {
 			return trace.Wrap(err)
 		}
 
+		if err := p.startElection(); err != nil {
+			return trace.Wrap(err)
+		}
 	} else {
 		p.Debug("Not running inside Kubernetes.")
 	}
