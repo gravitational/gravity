@@ -17,9 +17,9 @@ limitations under the License.
 package events
 
 import (
-	"github.com/gravitational/gravity/lib/helm"
 	"github.com/gravitational/gravity/lib/loc"
 	"github.com/gravitational/gravity/lib/ops"
+	"github.com/gravitational/gravity/lib/storage"
 
 	"github.com/gravitational/teleport/lib/events"
 	"github.com/gravitational/trace"
@@ -88,11 +88,11 @@ func fieldsForOperation(operation ops.SiteOperation) (Fields, error) {
 }
 
 // FieldsForRelease returns event fields for the provided application release.
-func FieldsForRelease(release helm.Release) Fields {
+func FieldsForRelease(release storage.Release) Fields {
 	return Fields{
-		FieldName:        release.ChartName,
-		FieldVersion:     release.ChartVersion,
-		FieldReleaseName: release.Name,
+		FieldName:        release.GetChartName(),
+		FieldVersion:     release.GetChartVersion(),
+		FieldReleaseName: release.GetName(),
 	}
 }
 

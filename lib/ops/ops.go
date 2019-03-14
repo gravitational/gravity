@@ -910,13 +910,19 @@ type Applications interface {
 	// GetAppInstaller generates an application installer tarball and returns
 	// a binary data stream
 	GetAppInstaller(AppInstallerRequest) (io.ReadCloser, error)
+	// ListReleases returns all currently installed application releases in a cluster.
+	ListReleases(SiteKey) ([]storage.Release, error)
 }
 
-//
+// AppInstallerRequest is a request to generate installer tarball.
 type AppInstallerRequest struct {
-	AccountID     string
-	Application   loc.Locator
-	CACert        string
+	// AccountID is the cluster account ID.
+	AccountID string
+	// Application is the application package to generate installer for.
+	Application loc.Locator
+	// CACert is the CA certificate to include in the installer.
+	CACert string
+	// EncryptionKey can be used to encrypt installer packages.
 	EncryptionKey string
 }
 

@@ -1505,6 +1505,28 @@ func (c *Client) GetAuthGateway(key ops.SiteKey) (storage.AuthGateway, error) {
 	return storage.UnmarshalAuthGateway(response.Bytes())
 }
 
+// ListReleases returns all currently installed application releases in a cluster.
+func (c *Client) ListReleases(key ops.SiteKey) ([]storage.Release, error) {
+	response, err := c.Get(c.Endpoint("accounts", key.AccountID, "sites", key.SiteDomain, "releases"),
+		url.Values{})
+	if err != nil {
+		return nil, trace.Wrap(err)
+	}
+	var items []json.RawMessage
+	if err := json.Unmarshal(response.Bytes(), &items); err != nil {
+		return nil, trace.Wrap(err)
+	}
+	releases := make([]storage.Release, 0, len(items))
+	for _, item := range items {
+		release, err := storage.UnmarshalRelease(item)
+		if err != nil {
+			return nil, trace.Wrap(err)
+		}
+		releases = append(releases, release)
+	}
+	return releases, nil
+}
+
 // EmitAuditEvent saves the provided event in the audit log.
 func (c *Client) EmitAuditEvent(ctx context.Context, req ops.AuditEventRequest) error {
 	_, err := c.PostJSON(c.Endpoint("accounts", req.AccountID, "sites", req.SiteDomain, "events"), req)

@@ -69,6 +69,8 @@ const (
 	KindRuntimeEnvironment = "runtimeenvironment"
 	// KindClusterConfiguration defines the resource that manages cluster configuration
 	KindClusterConfiguration = "clusterconfiguration"
+	// KindRelease defines the application release resource type
+	KindRelease = "release"
 )
 
 // CanonicalKind translates the specified kind to canonical form.

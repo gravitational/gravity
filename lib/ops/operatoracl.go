@@ -77,6 +77,16 @@ func (o *OperatorACL) context() *users.Context {
 	return &users.Context{Context: teleservices.Context{User: o.user}}
 }
 
+// resourceContext returns context for the provided resource.
+func (o *OperatorACL) resourceContext(resource teleservices.Resource) *users.Context {
+	return &users.Context{
+		Context: teleservices.Context{
+			User:     o.user,
+			Resource: resource,
+		},
+	}
+}
+
 func (o *OperatorACL) clusterContext(clusterName string) (*users.Context, storage.Cluster, error) {
 	site, err := o.operator.GetSiteByDomain(clusterName)
 	if err != nil {
@@ -91,12 +101,7 @@ func (o *OperatorACL) clusterContext(clusterName string) (*users.Context, storag
 		}
 	}
 	cluster := NewClusterFromSite(*site)
-	return &users.Context{
-		Context: teleservices.Context{
-			User:     o.user,
-			Resource: cluster,
-		},
-	}, cluster, nil
+	return o.resourceContext(cluster), cluster, nil
 }
 
 // Action checks access to the specified action on the specified resource kind
@@ -114,12 +119,18 @@ func (o *OperatorACL) ClusterAction(clusterName, resourceKind, action string) er
 }
 
 func (o *OperatorACL) repoContext(repoName string) *users.Context {
-	return &users.Context{
-		Context: teleservices.Context{
-			User:     o.user,
-			Resource: storage.NewRepository(repoName),
-		},
+	return o.resourceContext(storage.NewRepository(repoName))
+}
+
+func (o *OperatorACL) resourceActions(resource teleservices.Resource, kind string, actions ...string) error {
+	ctx := o.resourceContext(resource)
+	for _, action := range actions {
+		err := o.checker.CheckAccessToRule(ctx, resource.GetMetadata().Namespace, kind, action, false)
+		if err != nil {
+			return trace.Wrap(err)
+		}
 	}
+	return nil
 }
 
 // currentUserAction is a special checker that allows certain actions for users
@@ -1037,6 +1048,23 @@ func (o *OperatorACL) GetAuthGateway(key SiteKey) (storage.AuthGateway, error) {
 		return nil, trace.Wrap(err)
 	}
 	return o.operator.GetAuthGateway(key)
+}
+
+// ListReleases returns all currently installed application releases in a cluster.
+func (o *OperatorACL) ListReleases(key SiteKey) ([]storage.Release, error) {
+	// TODO: Ideally this method would filter out releases a user does not
+	// have access to, however Teleport's resources support only a single
+	// namespace (default) for now so it is impossible to, for example,
+	// create a resource in a different namespace and configure a role
+	// to allow/deny access to everything in a certain namespace.
+	//
+	// So we're returning all releases based on the broader "cluster"
+	// permission here but in the future, when Teleport starts respecting
+	// resource namespaces, it might be worth revisiting this.
+	if err := o.ClusterAction(key.SiteDomain, storage.KindCluster, teleservices.VerbRead); err != nil {
+		return nil, trace.Wrap(err)
+	}
+	return o.operator.ListReleases(key)
 }
 
 // EmitAuditEvent saves the provided event in the audit log.

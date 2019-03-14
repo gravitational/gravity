@@ -882,6 +882,15 @@ func (r *Router) GetAuthGateway(key ops.SiteKey) (storage.AuthGateway, error) {
 	return r.Local.GetAuthGateway(key)
 }
 
+// ListReleases returns all currently installed application releases in a cluster.
+func (r *Router) ListReleases(key ops.SiteKey) ([]storage.Release, error) {
+	client, err := r.PickClient(key.SiteDomain)
+	if err != nil {
+		return nil, trace.Wrap(err)
+	}
+	return client.ListReleases(key)
+}
+
 // EmitAuditEvent saves the provided event in the audit log.
 func (r *Router) EmitAuditEvent(ctx context.Context, req ops.AuditEventRequest) error {
 	return r.Local.EmitAuditEvent(ctx, req)

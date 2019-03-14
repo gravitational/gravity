@@ -268,21 +268,34 @@ func NewWebHandler(cfg WebHandlerConfig) (*WebHandler, error) {
 		h.needsAuth(h.deleteGithubConnector))
 
 	// user handlers
-	h.POST("/portal/v1/accounts/:account_id/sites/:site_domain/users", h.needsAuth(h.upsertUser))
-	h.GET("/portal/v1/accounts/:account_id/sites/:site_domain/users/:name", h.needsAuth(h.getUser))
-	h.GET("/portal/v1/accounts/:account_id/sites/:site_domain/users", h.needsAuth(h.getUsers))
-	h.DELETE("/portal/v1/accounts/:account_id/sites/:site_domain/users/:name", h.needsAuth(h.deleteUser))
+	h.POST("/portal/v1/accounts/:account_id/sites/:site_domain/users",
+		h.needsAuth(h.upsertUser))
+	h.GET("/portal/v1/accounts/:account_id/sites/:site_domain/users/:name",
+		h.needsAuth(h.getUser))
+	h.GET("/portal/v1/accounts/:account_id/sites/:site_domain/users",
+		h.needsAuth(h.getUsers))
+	h.DELETE("/portal/v1/accounts/:account_id/sites/:site_domain/users/:name",
+		h.needsAuth(h.deleteUser))
 
 	// cluster configuration
-	h.POST("/portal/v1/accounts/:account_id/sites/:site_domain/authentication/preference", h.needsAuth(h.upsertClusterAuthPreference))
-	h.GET("/portal/v1/accounts/:account_id/sites/:site_domain/authentication/preference", h.needsAuth(h.getClusterAuthPreference))
+	h.POST("/portal/v1/accounts/:account_id/sites/:site_domain/authentication/preference",
+		h.needsAuth(h.upsertClusterAuthPreference))
+	h.GET("/portal/v1/accounts/:account_id/sites/:site_domain/authentication/preference",
+		h.needsAuth(h.getClusterAuthPreference))
 
 	// auth gateway settings
-	h.POST("/portal/v1/accounts/:account_id/sites/:site_domain/authgateway", h.needsAuth(h.upsertAuthGateway))
-	h.GET("/portal/v1/accounts/:account_id/sites/:site_domain/authgateway", h.needsAuth(h.getAuthGateway))
+	h.POST("/portal/v1/accounts/:account_id/sites/:site_domain/authgateway",
+		h.needsAuth(h.upsertAuthGateway))
+	h.GET("/portal/v1/accounts/:account_id/sites/:site_domain/authgateway",
+		h.needsAuth(h.getAuthGateway))
+
+	// application releases
+	h.GET("/portal/v1/accounts/:account_id/sites/:site_domain/releases",
+		h.needsAuth(h.getReleases))
 
 	// audit log events
-	h.POST("/portal/v1/accounts/:account_id/sites/:site_domain/events", h.needsAuth(h.emitAuditEvent))
+	h.POST("/portal/v1/accounts/:account_id/sites/:site_domain/events",
+		h.needsAuth(h.emitAuditEvent))
 
 	return h, nil
 }

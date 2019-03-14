@@ -22,6 +22,7 @@ import (
 	"github.com/gravitational/gravity/lib/constants"
 	"github.com/gravitational/gravity/lib/defaults"
 	"github.com/gravitational/gravity/lib/httplib"
+	"github.com/gravitational/gravity/lib/storage"
 	"github.com/gravitational/gravity/lib/utils"
 	helmutils "github.com/gravitational/gravity/lib/utils/helm"
 
@@ -84,7 +85,7 @@ type InstallParameters struct {
 }
 
 // Install installs a Helm chart and returns release information.
-func (c *Client) Install(p InstallParameters) (*Release, error) {
+func (c *Client) Install(p InstallParameters) (storage.Release, error) {
 	rawVals, err := helmutils.Vals(p.Values, p.Set, nil, nil, "", "", "")
 	if err != nil {
 		return nil, trace.Wrap(err)
@@ -100,7 +101,11 @@ func (c *Client) Install(p InstallParameters) (*Release, error) {
 	if err != nil {
 		return nil, trace.Wrap(err)
 	}
-	return fromHelm(response.GetRelease()), nil
+	release, err := storage.NewRelease(response.GetRelease())
+	if err != nil {
+		return nil, trace.Wrap(err)
+	}
+	return release, nil
 }
 
 // ListParameters defines parameters for listing releases.
@@ -125,29 +130,33 @@ func (p ListParameters) Options() (options []helm.ReleaseListOption) {
 }
 
 // List returns list of releases matching provided parameters.
-func (c *Client) List(p ListParameters) ([]Release, error) {
+func (c *Client) List(p ListParameters) ([]storage.Release, error) {
 	response, err := c.client.ListReleases(p.Options()...) // TODO Paging.
 	if err != nil {
 		return nil, trace.Wrap(err)
 	}
-	var releases []Release
+	var releases []storage.Release
 	if response != nil && response.Releases != nil {
 		for _, item := range response.Releases {
-			releases = append(releases, *(fromHelm(item)))
+			release, err := storage.NewRelease(item)
+			if err != nil {
+				return nil, trace.Wrap(err)
+			}
+			releases = append(releases, release)
 		}
 	}
 	return releases, nil
 }
 
 // Get returns a single release with the specified name.
-func (c *Client) Get(name string) (*Release, error) {
+func (c *Client) Get(name string) (storage.Release, error) {
 	releases, err := c.List(ListParameters{Filter: name})
 	if err != nil {
 		return nil, trace.Wrap(err)
 	}
 	for _, release := range releases {
-		if release.Name == name {
-			return &release, nil
+		if release.GetName() == name {
+			return release, nil
 		}
 	}
 	return nil, trace.NotFound("release %v not found", name)
@@ -166,7 +175,7 @@ type UpgradeParameters struct {
 }
 
 // Upgrade upgrades a release.
-func (c *Client) Upgrade(p UpgradeParameters) (*Release, error) {
+func (c *Client) Upgrade(p UpgradeParameters) (storage.Release, error) {
 	rawVals, err := helmutils.Vals(p.Values, p.Set, nil, nil, "", "", "")
 	if err != nil {
 		return nil, trace.Wrap(err)
@@ -181,7 +190,11 @@ func (c *Client) Upgrade(p UpgradeParameters) (*Release, error) {
 	if err != nil {
 		return nil, trace.Wrap(err)
 	}
-	return fromHelm(response.GetRelease()), nil
+	release, err := storage.NewRelease(response.GetRelease())
+	if err != nil {
+		return nil, trace.Wrap(err)
+	}
+	return release, nil
 }
 
 // RollbackParameters defines release rollback parameters.
@@ -193,36 +206,48 @@ type RollbackParameters struct {
 }
 
 // Rollback rolls back a release to the specified version.
-func (c *Client) Rollback(p RollbackParameters) (*Release, error) {
+func (c *Client) Rollback(p RollbackParameters) (storage.Release, error) {
 	response, err := c.client.RollbackRelease(
 		p.Release,
 		helm.RollbackVersion(int32(p.Revision)))
 	if err != nil {
 		return nil, trace.Wrap(err)
 	}
-	return fromHelm(response.Release), nil
+	release, err := storage.NewRelease(response.Release)
+	if err != nil {
+		return nil, trace.Wrap(err)
+	}
+	return release, nil
 }
 
 // Uninstall uninstalls a release with the provided name.
-func (c *Client) Uninstall(name string) (*Release, error) {
+func (c *Client) Uninstall(name string) (storage.Release, error) {
 	response, err := c.client.DeleteRelease(name)
 	if err != nil {
 		return nil, trace.Wrap(err)
 	}
-	return fromHelm(response.GetRelease()), nil
+	release, err := storage.NewRelease(response.GetRelease())
+	if err != nil {
+		return nil, trace.Wrap(err)
+	}
+	return release, nil
 }
 
 // Revisions returns revision history for a release with the provided name.
-func (c *Client) Revisions(name string) ([]Release, error) {
+func (c *Client) Revisions(name string) ([]storage.Release, error) {
 	response, err := c.client.ReleaseHistory(name,
 		helm.WithMaxHistory(maxHistory))
 	if err != nil {
 		return nil, trace.Wrap(err)
 	}
-	var releases []Release
+	var releases []storage.Release
 	if response != nil && response.Releases != nil {
 		for _, item := range response.Releases {
-			releases = append(releases, *(fromHelm(item)))
+			release, err := storage.NewRelease(item)
+			if err != nil {
+				return nil, trace.Wrap(err)
+			}
+			releases = append(releases, release)
 		}
 	}
 	return releases, nil
