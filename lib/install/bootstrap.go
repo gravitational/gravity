@@ -24,7 +24,9 @@ import (
 	"github.com/gravitational/gravity/lib/constants"
 	"github.com/gravitational/gravity/lib/defaults"
 	"github.com/gravitational/gravity/lib/fsm"
+	"github.com/gravitational/gravity/lib/localenv"
 	"github.com/gravitational/gravity/lib/ops"
+	"github.com/gravitational/gravity/lib/ops/events"
 	"github.com/gravitational/gravity/lib/state"
 	systemstate "github.com/gravitational/gravity/lib/system/state"
 	"github.com/gravitational/gravity/lib/utils"
@@ -64,6 +66,9 @@ func (i *Installer) Cleanup(progress ops.ProgressEntry) error {
 		errors = append(errors, err)
 	}
 	if err := i.completeFinalInstallStep(); err != nil {
+		errors = append(errors, err)
+	}
+	if err := i.emitAuditEvents(); err != nil {
 		errors = append(errors, err)
 	}
 	return trace.NewAggregate(errors...)
@@ -121,6 +126,29 @@ func (i *Installer) uploadInstallLog() error {
 		return trace.Wrap(err, "failed to upload install log")
 	}
 	i.Debug("Uploaded install log to the cluster.")
+	return nil
+}
+
+// emitAuditEvents sends the install operation's start/finish
+// events to the installed cluster's audit log.
+func (i *Installer) emitAuditEvents() error {
+	operation, err := i.Operator.GetSiteOperation(i.OperationKey)
+	if err != nil {
+		return trace.Wrap(err)
+	}
+	operator, err := localenv.ClusterOperator()
+	if err != nil {
+		return trace.Wrap(err)
+	}
+	events.Emit(operator, events.OperationStarted, events.Fields{
+		events.FieldOperationID:   operation.ID,
+		events.FieldOperationType: operation.Type,
+		events.FieldTime:          operation.Created,
+	})
+	events.Emit(operator, events.OperationCompleted, events.Fields{
+		events.FieldOperationID:   operation.ID,
+		events.FieldOperationType: operation.Type,
+	})
 	return nil
 }
 

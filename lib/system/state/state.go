@@ -96,8 +96,7 @@ func formatDevice(path string) (filesystem string, err error) {
 		{"ext4", []string{"mkfs.ext4", "-F"}},
 	}
 
-	runner := utils.NewRunner(nil)
-	filesystem, err = system.GetFilesystem(context.TODO(), path, runner)
+	filesystem, err = system.GetFilesystem(context.TODO(), path, utils.Runner)
 	if err != nil {
 		return "", trace.Wrap(err)
 	}

@@ -35,6 +35,7 @@ import (
 	"github.com/gravitational/gravity/lib/localenv"
 	validationpb "github.com/gravitational/gravity/lib/network/validation/proto"
 	"github.com/gravitational/gravity/lib/ops"
+	"github.com/gravitational/gravity/lib/ops/events"
 	"github.com/gravitational/gravity/lib/ops/opsclient"
 	"github.com/gravitational/gravity/lib/pack"
 	"github.com/gravitational/gravity/lib/pack/webpack"
@@ -745,6 +746,10 @@ func (p *Peer) startExpandOperation(ctx operationContext) error {
 	if err != nil {
 		return trace.Wrap(err)
 	}
+	err = p.emitAuditEvent(ctx)
+	if err != nil {
+		return trace.Wrap(err)
+	}
 	if p.Manual {
 		p.Silent.Println(`Operation was started in manual mode
 Inspect the operation plan using "gravity plan" and execute plan phases manually on this node using "gravity join --phase=<phase-id>"
@@ -767,6 +772,17 @@ After all phases have completed successfully, complete the operation using "grav
 				trace.DebugReport(err))
 		}
 	}()
+	return nil
+}
+
+// emitAuditEvent sends expand operation start event to the cluster audit log.
+func (p *Peer) emitAuditEvent(ctx operationContext) error {
+	operation, err := ctx.Operator.GetSiteOperation(ctx.Operation.Key())
+	if err != nil {
+		return trace.Wrap(err)
+	}
+	events.Emit(ctx.Operator, events.OperationStarted,
+		events.FieldsForOperation(*operation))
 	return nil
 }
 

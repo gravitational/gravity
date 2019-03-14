@@ -880,3 +880,8 @@ func (r *Router) UpsertAuthGateway(key ops.SiteKey, gw storage.AuthGateway) erro
 func (r *Router) GetAuthGateway(key ops.SiteKey) (storage.AuthGateway, error) {
 	return r.Local.GetAuthGateway(key)
 }
+
+// EmitAuditEvent saves the provided event in the audit log.
+func (r *Router) EmitAuditEvent(req ops.AuditEventRequest) error {
+	return r.Local.EmitAuditEvent(req)
+}
