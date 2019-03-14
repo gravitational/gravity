@@ -80,7 +80,17 @@ func TeleportProxy(ctx context.Context, operator ops.Operator, proxyHost, cluste
 
 // TeleportAuth returns a new teleport auth server client
 func TeleportAuth(ctx context.Context, operator ops.Operator, proxyHost, clusterName string) (auth.ClientI, error) {
-	proxyClient, err := TeleportProxy(ctx, operator, proxyHost, clusterName)
+	teleport, err := Teleport(operator, proxyHost, clusterName)
+	if err != nil {
+		return nil, trace.Wrap(err)
+	}
+	// Teleport auth server prior to version 3.0 didn't support TLS so
+	// do not attempt to connect if there's no TLS information, otherwise
+	// we'll get panic.
+	if teleport.TLS == nil {
+		return nil, trace.BadParameter("auth server %v does not support TLS", proxyHost)
+	}
+	proxyClient, err := teleport.ConnectToProxy(ctx)
 	if err != nil {
 		return nil, trace.Wrap(err)
 	}
