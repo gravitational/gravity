@@ -111,8 +111,8 @@ func completeConfigPlan(env, updateEnv *localenv.LocalEnvironment, operation ops
 	return trace.Wrap(updater.Complete(nil))
 }
 
-func getConfigUpdater(env, updateEnv *localenv.LocalEnvironment, operation ops.SiteOperation) (*update.Updater, error) {
-	clusterEnv, err := env.NewClusterEnvironment()
+func getConfigUpdater(localEnv, updateEnv *localenv.LocalEnvironment, operation ops.SiteOperation) (*update.Updater, error) {
+	clusterEnv, err := localEnv.NewClusterEnvironment()
 	if err != nil {
 		return nil, trace.Wrap(err)
 	}
@@ -131,7 +131,7 @@ func getConfigUpdater(env, updateEnv *localenv.LocalEnvironment, operation ops.S
 			Backend:      clusterEnv.Backend,
 			LocalBackend: updateEnv.Backend,
 			Runner:       runner,
-			Silent:       env.Silent,
+			Silent:       localEnv.Silent,
 			FieldLogger: logrus.WithFields(logrus.Fields{
 				trace.Component: "update:clusterconfig",
 				"operation":     operation,
@@ -140,7 +140,7 @@ func getConfigUpdater(env, updateEnv *localenv.LocalEnvironment, operation ops.S
 		Apps:              clusterEnv.Apps,
 		Client:            clusterEnv.Client,
 		ClusterPackages:   clusterEnv.ClusterPackages,
-		HostLocalPackages: env.Packages,
+		HostLocalPackages: localEnv.Packages,
 	})
 	if err != nil {
 		return nil, trace.Wrap(err)
@@ -206,9 +206,10 @@ func (configInitializer) newUpdater(
 				"operation":     operation,
 			}),
 		},
-		Apps:            clusterEnv.Apps,
-		Client:          clusterEnv.Client,
-		ClusterPackages: clusterEnv.ClusterPackages,
+		Apps:              clusterEnv.Apps,
+		Client:            clusterEnv.Client,
+		ClusterPackages:   clusterEnv.ClusterPackages,
+		HostLocalPackages: localEnv.Packages,
 	}
 	return clusterconfig.New(ctx, config)
 }

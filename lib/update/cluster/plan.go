@@ -28,7 +28,6 @@ import (
 	"github.com/gravitational/gravity/lib/archive"
 	"github.com/gravitational/gravity/lib/constants"
 	"github.com/gravitational/gravity/lib/defaults"
-	"github.com/gravitational/gravity/lib/fsm"
 	"github.com/gravitational/gravity/lib/localenv"
 	"github.com/gravitational/gravity/lib/ops"
 	"github.com/gravitational/gravity/lib/pack"
@@ -174,10 +173,30 @@ func NewOperationPlan(config PlanConfig) (*storage.OperationPlan, error) {
 		return nil, trace.Wrap(err)
 	}
 
+	updates, err := configUpdates(updateApp.Manifest, config.Operator,
+		(*ops.SiteOperation)(config.Operation).Key(), servers)
+	if err != nil {
+		return nil, trace.Wrap(err)
+	}
+
+	gravityPackage, err := updateRuntime.Manifest.Dependencies.ByName(constants.GravityPackage)
+	if err != nil {
+		return nil, trace.Wrap(err)
+	}
+
 	plan, err := newOperationPlan(planConfig{
+		plan: storage.OperationPlan{
+			OperationID:    config.Operation.ID,
+			OperationType:  config.Operation.Type,
+			AccountID:      config.Operation.AccountID,
+			ClusterName:    config.Operation.SiteDomain,
+			Servers:        servers,
+			DNSConfig:      config.DNSConfig,
+			GravityPackage: *gravityPackage,
+		},
 		operator:          config.Operator,
 		operation:         *config.Operation,
-		servers:           servers,
+		servers:           updates,
 		installedRuntime:  *installedRuntime,
 		installedApp:      *installedApp,
 		updateRuntime:     *updateRuntime,
@@ -233,11 +252,12 @@ type PlanConfig struct {
 
 // planConfig collects parameters needed to generate an update operation plan
 type planConfig struct {
-	operator ops.Operator
+	plan     storage.OperationPlan
+	operator packageRotator
 	// operation is the operation to generate the plan for
 	operation storage.SiteOperation
 	// servers is a list of servers from cluster state
-	servers []storage.Server
+	servers []storage.ServerConfigUpdate
 	// installedRuntime is the runtime of the installed app
 	installedRuntime app.Application
 	// installedApp is the installed app
@@ -266,36 +286,17 @@ type planConfig struct {
 }
 
 func newOperationPlan(p planConfig) (*storage.OperationPlan, error) {
-	gravityPackage, err := p.updateRuntime.Manifest.Dependencies.ByName(constants.GravityPackage)
-	if err != nil {
-		return nil, trace.Wrap(err)
-	}
-
-	plan := storage.OperationPlan{
-		OperationID:    p.operation.ID,
-		OperationType:  p.operation.Type,
-		AccountID:      p.operation.AccountID,
-		ClusterName:    p.operation.SiteDomain,
-		Servers:        p.servers,
-		DNSConfig:      p.dnsConfig,
-		GravityPackage: *gravityPackage,
+	masters, nodes := update.SplitServers(p.servers)
+	if len(masters) == 0 {
+		return nil, trace.NotFound("no master servers found")
 	}
 
 	builder := phaseBuilder{}
-	initPhase := *builder.init(p.installedApp.Package, p.updateApp.Package)
+	initPhase := *builder.init(p.installedApp.Package, p.updateApp.Package, p.servers)
 	checksPhase := *builder.checks(p.installedApp.Package, p.updateApp.Package).Require(initPhase)
 	preUpdatePhase := *builder.preUpdate(p.updateApp.Package).Require(initPhase)
 	bootstrapPhase := *builder.bootstrap(p.servers,
 		p.installedApp.Package, p.updateApp.Package).Require(initPhase)
-
-	masters, nodes, err := configUpdates(p.updateApp.Manifest, p.operator, fsm.OperationKey(plan), p.servers)
-	if err != nil {
-		return nil, trace.Wrap(err)
-	}
-
-	if len(masters) == 0 {
-		return nil, trace.NotFound("no master servers found")
-	}
 
 	installedGravityPackage, err := p.installedRuntime.Manifest.Dependencies.ByName(
 		constants.GravityPackage)
@@ -316,7 +317,7 @@ func newOperationPlan(p planConfig) (*storage.OperationPlan, error) {
 
 	mastersPhase := *builder.masters(leadMaster, masters[1:], supportsTaints).
 		Require(checksPhase, bootstrapPhase, preUpdatePhase)
-	nodesPhase := *builder.nodes(leadMaster.Server, nodes, supportsTaints).
+	nodesPhase := *builder.nodes(leadMaster, nodes, supportsTaints).
 		Require(mastersPhase)
 
 	allRuntimeUpdates, err := app.GetUpdatedDependencies(p.installedRuntime, p.updateRuntime)
@@ -391,8 +392,9 @@ func newOperationPlan(p planConfig) (*storage.OperationPlan, error) {
 	}
 
 	root.AddSequential(*builder.app(appUpdates), *builder.cleanup(p.servers))
+	plan := p.plan
 	plan.Phases = root.Phases
-	update.ResolvePlan(&plan)
+	update.ResolvePlan(&p.plan)
 
 	return &plan, nil
 }
@@ -400,14 +402,18 @@ func newOperationPlan(p planConfig) (*storage.OperationPlan, error) {
 // configUpdates computes the configuration updates for the specified list of servers
 func configUpdates(
 	manifest schema.Manifest,
-	operator ops.Operator,
+	operator packageRotator,
 	operation ops.SiteOperationKey,
 	servers []storage.Server,
-) (masters, nodes []storage.ServerConfigUpdate, err error) {
+) (updates []storage.ServerConfigUpdate, err error) {
+	teleportPackage, err := manifest.Dependencies.ByName(constants.TeleportPackage)
+	if err != nil {
+		return nil, trace.Wrap(err)
+	}
 	for _, server := range servers {
 		runtimePackage, err := manifest.RuntimePackageForProfile(server.Role)
 		if err != nil {
-			return nil, nil, trace.Wrap(err)
+			return nil, trace.Wrap(err)
 		}
 		configUpdate, err := operator.RotatePlanetConfig(ops.RotatePlanetConfigRequest{
 			Key:            operation,
@@ -417,7 +423,7 @@ func configUpdates(
 			DryRun:         true,
 		})
 		if err != nil {
-			return nil, nil, trace.Wrap(err)
+			return nil, trace.Wrap(err)
 		}
 		secretsUpdate, err := operator.RotateSecrets(ops.RotateSecretsRequest{
 			AccountID:   operation.AccountID,
@@ -426,7 +432,7 @@ func configUpdates(
 			DryRun:      true,
 		})
 		if err != nil {
-			return nil, nil, trace.Wrap(err)
+			return nil, trace.Wrap(err)
 		}
 		masterConfig, nodeConfig, err := operator.RotateTeleportConfig(ops.RotateTeleportConfigRequest{
 			Key:    operation,
@@ -434,9 +440,9 @@ func configUpdates(
 			DryRun: true,
 		})
 		if err != nil {
-			return nil, nil, trace.Wrap(err)
+			return nil, trace.Wrap(err)
 		}
-		update := storage.ServerConfigUpdate{
+		updates = append(updates, storage.ServerConfigUpdate{
 			Server: server,
 			Runtime: storage.RuntimeConfigUpdate{
 				Package:        *runtimePackage,
@@ -444,19 +450,13 @@ func configUpdates(
 				SecretsPackage: &secretsUpdate.Locator,
 			},
 			Teleport: &storage.TeleportConfigUpdate{
-				// FIXME
-				// Package:      teleportPackage,
+				Package:      *teleportPackage,
 				MasterConfig: masterConfig.Locator,
 				NodeConfig:   nodeConfig.Locator,
 			},
-		}
-		if server.IsMaster() {
-			masters = append(masters, update)
-			continue
-		}
-		nodes = append(nodes, update)
+		})
 	}
-	return masters, nodes, nil
+	return updates, nil
 }
 
 func checkAndSetServerDefaults(servers []storage.Server, client corev1.NodeInterface) ([]storage.Server, error) {
@@ -572,4 +572,10 @@ type runtimeConfig struct {
 	DNSListenAddr string `json:"PLANET_DNS_LISTEN_ADDR"`
 	// DNSPort specifies the configured DNS port
 	DNSPort string `json:"PLANET_DNS_PORT"`
+}
+
+type packageRotator interface {
+	RotateSecrets(ops.RotateSecretsRequest) (*ops.RotatePackageResponse, error)
+	RotatePlanetConfig(ops.RotatePlanetConfigRequest) (*ops.RotatePackageResponse, error)
+	RotateTeleportConfig(ops.RotateTeleportConfigRequest) (*ops.RotatePackageResponse, *ops.RotatePackageResponse, error)
 }

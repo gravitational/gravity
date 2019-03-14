@@ -166,7 +166,6 @@ func InitAndCheck(g *Application, cmd string) error {
 		g.UpgradeCmd.FullCommand(),
 		g.SystemRollbackCmd.FullCommand(),
 		g.SystemUninstallCmd.FullCommand(),
-		g.UpdateSystemCmd.FullCommand(),
 		g.RPCAgentShutdownCmd.FullCommand(),
 		g.RPCAgentInstallCmd.FullCommand(),
 		g.RPCAgentRunCmd.FullCommand(),
@@ -199,7 +198,6 @@ func InitAndCheck(g *Application, cmd string) error {
 	// following commands must be run outside the planet container
 	switch cmd {
 	case g.SystemUpdateCmd.FullCommand(),
-		g.UpdateSystemCmd.FullCommand(),
 		g.UpgradeCmd.FullCommand(),
 		g.SystemGCRegistryCmd.FullCommand(),
 		g.PlanetEnterCmd.FullCommand(),
@@ -707,37 +705,21 @@ func Execute(g *Application, cmd string, extraArgs []string) error {
 	case g.SystemHistoryCmd.FullCommand():
 		return systemHistory(localEnv)
 	case g.SystemPullUpdatesCmd.FullCommand():
+		config, err := updateConfigCLI(g.SystemPullUpdatesCmd.PackageUpdates)
+		if err != nil {
+			return trace.Wrap(err)
+		}
 		return systemPullUpdates(localEnv,
 			*g.SystemPullUpdatesCmd.OpsCenterURL,
-			*g.SystemPullUpdatesCmd.RuntimePackage)
+			*config)
 	case g.SystemUpdateCmd.FullCommand():
-		config := systemUpdateConfig{
-			runtime: packageUpdate{
-				locator: *g.SystemUpdateCmd.RuntimePackage,
-				configPackage: packageUpdate{
-					locator: *g.SystemUpdateCmd.RuntimeConfigPackage,
-				},
-				secretsPackage: &packageUpdate{
-					locator: *g.SystemUpdateCmd.RuntimeSectetsPackage,
-				},
-			},
-			teleport: packageUpdate{
-				locator: *g.SystemUpdateCmd.TeleportePackage,
-				configPackage: packageUpdate{
-					locator: *g.SystemUpdateCmd.TeleporteConfigPackage,
-				},
-			},
-			changesetID: *g.SystemUpdateCmd.ChangesetID,
-			withStatus:  *g.SystemUpdateCmd.WithStatus,
-			serviceName: *g.SystemUpdateCmd.ServiceName,
+		config, err := updateConfigCLI(g.SystemUpdateCmd.PackageUpdates)
+		if err != nil {
+			return trace.Wrap(err)
 		}
-		return systemUpdate(localEnv, config)
-	case g.UpdateSystemCmd.FullCommand():
-		return systemUpdate(localEnv,
-			*g.UpdateSystemCmd.ChangesetID,
-			*g.UpdateSystemCmd.ServiceName,
-			*g.UpdateSystemCmd.WithStatus,
-			*g.UpdateSystemCmd.RuntimePackage)
+		config.changesetID = *g.SystemUpdateCmd.ChangesetID
+		config.withStatus = *g.SystemUpdateCmd.WithStatus
+		return systemUpdate(localEnv, *config)
 	case g.SystemRollbackCmd.FullCommand():
 		return systemRollback(localEnv,
 			*g.SystemRollbackCmd.ChangesetID,

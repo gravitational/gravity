@@ -18,7 +18,6 @@ package clusterconfig
 
 import (
 	"github.com/gravitational/gravity/lib/app"
-	libfsm "github.com/gravitational/gravity/lib/fsm"
 	"github.com/gravitational/gravity/lib/ops"
 	"github.com/gravitational/gravity/lib/storage"
 	"github.com/gravitational/gravity/lib/storage/clusterconfig"
@@ -65,26 +64,26 @@ func NewOperationPlan(
 func newOperationPlan(
 	app app.Application,
 	dnsConfig storage.DNSConfig,
-	operator ops.Operator,
+	operator rollingupdate.ConfigPackageRotator,
 	operation ops.SiteOperation,
 	clusterConfig clusterconfig.Interface,
 	servers []storage.Server,
 ) (*storage.OperationPlan, error) {
-	masters, nodes := libfsm.SplitServers(servers)
-	if len(masters) == 0 {
-		return nil, trace.NotFound("no master servers found in cluster state")
-	}
 	builder := rollingupdate.Builder{App: app.Package}
-	shouldUpdateNodes := shouldUpdateNodes(clusterConfig, len(nodes))
-	var updateServers []storage.Server
-	if !shouldUpdateNodes {
-		updateServers = masters
-	}
-	configUpdates, err := rollingupdate.RuntimeConfigUpdates(app.Manifest, operator, operation.Key(), updateServers)
+	updates, err := rollingupdate.RuntimeConfigUpdates(app.Manifest, operator, operation.Key(), servers)
 	if err != nil {
 		return nil, trace.Wrap(err)
 	}
-	config := *builder.Config("Update runtime configuration", configUpdates)
+	masters, nodes := update.SplitServers(updates)
+	if len(masters) == 0 {
+		return nil, trace.NotFound("no master servers found in cluster state")
+	}
+	shouldUpdateNodes := shouldUpdateNodes(clusterConfig, len(nodes))
+	updateServers := updates
+	if !shouldUpdateNodes {
+		updateServers = masters
+	}
+	config := *builder.Config("Update runtime configuration", updateServers)
 	updateMasters := *builder.Masters(
 		masters,
 		"Update cluster configuration",
@@ -94,7 +93,7 @@ func newOperationPlan(
 
 	if shouldUpdateNodes {
 		updateNodes := *builder.Nodes(
-			nodes, &masters[0],
+			nodes, masters[0].Server,
 			"Update cluster configuration",
 			"Update configuration on node %q",
 		).Require(config, updateMasters)

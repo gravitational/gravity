@@ -35,7 +35,8 @@ func NewDefaultDispatcher() Dispatcher {
 func (r *dispatcher) Dispatch(config Config, params fsm.ExecutorParams, remote fsm.Remote, logger log.FieldLogger) (fsm.PhaseExecutor, error) {
 	switch params.Phase.Executor {
 	case libphase.RestartContainer:
-		return libphase.NewRestart(params, config.Operator, config.Apps, config.Operation.ID,
+		return libphase.NewRestart(params, config.Operator, config.Operation.ID,
+			config.Apps, config.ClusterPackages, config.HostLocalPackages,
 			logger)
 	case libphase.Elections:
 		return libphase.NewElections(params, config.Operator, logger)

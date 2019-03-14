@@ -41,7 +41,7 @@ type updatePhaseSystem struct {
 	// OperationID is the id of the current update operation
 	OperationID string
 	// Server is the server currently being updated
-	Server storage.Server
+	Server storage.ServerConfigUpdate
 	// GravityPath is the path to the new gravity binary
 	GravityPath string
 	// FieldLogger is used for logging
@@ -53,11 +53,8 @@ type updatePhaseSystem struct {
 
 // NewUpdatePhaseNode returns a new node update phase executor
 func NewUpdatePhaseSystem(p fsm.ExecutorParams, remote fsm.Remote, logger log.FieldLogger) (*updatePhaseSystem, error) {
-	if p.Phase.Data == nil || p.Phase.Data.Server == nil {
+	if p.Phase.Data.Update == nil || len(p.Phase.Data.Update.Servers) != 1 {
 		return nil, trace.NotFound("no server specified for phase %q", p.Phase.ID)
-	}
-	if p.Phase.Data.RuntimePackage == nil {
-		return nil, trace.NotFound("no runtime package specified for phase %q", p.Phase.ID)
 	}
 	gravityPath, err := getGravityPath()
 	if err != nil {
@@ -65,7 +62,7 @@ func NewUpdatePhaseSystem(p fsm.ExecutorParams, remote fsm.Remote, logger log.Fi
 	}
 	return &updatePhaseSystem{
 		OperationID:    p.Plan.OperationID,
-		Server:         *p.Phase.Data.Server,
+		Server:         p.Phase.Data.Update.Servers[0],
 		GravityPath:    gravityPath,
 		FieldLogger:    logger,
 		remote:         remote,
@@ -75,7 +72,7 @@ func NewUpdatePhaseSystem(p fsm.ExecutorParams, remote fsm.Remote, logger log.Fi
 
 // PreCheck makes sure the phase is being executed on the correct server
 func (p *updatePhaseSystem) PreCheck(ctx context.Context) error {
-	return trace.Wrap(p.remote.CheckServer(ctx, p.Server))
+	return trace.Wrap(p.remote.CheckServer(ctx, p.Server.Server))
 }
 
 // PostCheck is no-op for this phase
@@ -90,12 +87,11 @@ func (p *updatePhaseSystem) Execute(context.Context) error {
 		"system", "update",
 		"--changeset-id", p.OperationID,
 		"--with-status",
-		"--runtime-package", p.runtimePackage.String(),
-		// FIXME
-		// "--runtime-config-package", p.runtimeConfigPackage.String(),
-		// "--runtime-secrets-package", p.runtimeSecretsPackage.String(),
-		// "--teleport-package", p.teleportPackage.String(),
-		// "--teleport-config-package", p.teleportConfigPackage.String(),
+		"--runtime-package", p.Server.Runtime.Package.String(),
+		"--runtime-config-package", p.Server.Runtime.ConfigPackage.String(),
+		"--runtime-secrets-package", p.Server.Runtime.SecretsPackage.String(),
+		"--teleport-package", p.Server.Teleport.Package.String(),
+		"--teleport-config-package", p.Server.Teleport.NodeConfig.String(),
 	})
 	if err != nil {
 		message := "failed to update system"

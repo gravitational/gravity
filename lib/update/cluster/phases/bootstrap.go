@@ -65,7 +65,7 @@ type updatePhaseBootstrap struct {
 	// GravityPath is the path to the new gravity binary
 	GravityPath string
 	// Server specifies the bootstrap target
-	Server storage.Server
+	Server storage.ServerConfigUpdate
 	// ServiceUser is the user used for services and system storage
 	ServiceUser storage.OSUser
 	// FieldLogger is used for logging
@@ -92,7 +92,7 @@ func NewUpdatePhaseBootstrap(
 	if p.Phase.Data == nil || p.Phase.Data.Package == nil {
 		return nil, trace.NotFound("no application package specified for phase %v", p.Phase.ID)
 	}
-	if p.Phase.Data.Server == nil {
+	if p.Phase.Data.Update == nil || len(p.Phase.Data.Update.Servers) != 1 {
 		return nil, trace.NotFound("no server specified for phase %q", p.Phase.ID)
 	}
 	cluster, err := operator.GetLocalSite()
@@ -107,16 +107,8 @@ func NewUpdatePhaseBootstrap(
 	if err != nil {
 		return nil, trace.Wrap(err)
 	}
-	app, err := apps.GetApp(*p.Phase.Data.Package)
-	if err != nil {
-		return nil, trace.Wrap(err, "failed to query application")
-	}
 	installedRuntime, err := getInstalledRuntime(apps, *p.Phase.Data.InstalledPackage,
 		p.Phase.Data.Server.Role, p.Phase.Data.Server.ClusterRole)
-	if err != nil {
-		return nil, trace.Wrap(err)
-	}
-	runtimePackage, err := app.Manifest.RuntimePackageForProfile(p.Phase.Data.Server.Role)
 	if err != nil {
 		return nil, trace.Wrap(err)
 	}
@@ -127,26 +119,20 @@ func NewUpdatePhaseBootstrap(
 		HostLocalBackend: hostLocalBackend,
 		LocalPackages:    localPackages,
 		Packages:         packages,
-		Server:           *p.Phase.Data.Server,
+		Server:           p.Phase.Data.Update.Servers[0],
 		Operation:        *operation,
 		GravityPath:      gravityPath,
 		ServiceUser:      cluster.ServiceUser,
 		FieldLogger:      logger,
 		ExecutorParams:   p,
 		remote:           remote,
-		runtimePackage:   *runtimePackage,
-		// FIXME
-		// runtimeConfigPackage:  *runtimeConfigPackage,
-		// runtimeSecretsPackage: *runtimeSecretsPackage,
-		// teleportPackage:       *teleportPackage,
-		// teleportConfigPackage: *teleportConfigPackage,
 		installedRuntime: *installedRuntime,
 	}, nil
 }
 
 // PreCheck makes sure that bootstrap phase is executed on the correct node
 func (p *updatePhaseBootstrap) PreCheck(ctx context.Context) error {
-	return trace.Wrap(p.remote.CheckServer(ctx, p.Server))
+	return trace.Wrap(p.remote.CheckServer(ctx, p.Server.Server))
 }
 
 // PostCheck is no-op for bootstrap phase
@@ -201,7 +187,7 @@ func (p *updatePhaseBootstrap) configureNode() error {
 		AccountID:   p.Operation.AccountID,
 		ClusterName: p.Operation.SiteDomain,
 		OperationID: p.Operation.ID,
-		Server:      p.Server,
+		Server:      p.Server.Server,
 	})
 	if err != nil {
 		return trace.Wrap(err)
@@ -241,30 +227,18 @@ func (p *updatePhaseBootstrap) updateDNSConfig() error {
 
 func (p *updatePhaseBootstrap) pullSystemUpdates() error {
 	p.Info("Pull system updates.")
-	out, err := fsm.RunCommand(utils.PlanetCommandArgs(
-		filepath.Join(defaults.GravityUpdateDir, constants.GravityBin),
-		"--quiet", "--insecure",
-		"system", "pull-updates",
-		"--uid", p.ServiceUser.UID,
-		"--gid", p.ServiceUser.GID,
-		"--ops-url", defaults.GravityServiceURL,
-		"--runtime-package", p.runtimePackage.String(),
-		// FIXME
-		// "--runtime-config-package", p.runtimeConfigPackage.String(),
-		// "--runtime-secrets-package", p.runtimeSecretsPackage.String(),
-		// "--teleport-package", p.teleportPackage.String(),
-		// "--teleport-config-package", p.teleportConfigPackage.String(),
-	))
-	if err != nil {
-		return trace.Wrap(err, "failed to pull system updates: %s", out)
-	}
-	p.Debugf("Pulled system updates: %s.", out)
 	// the low-level pull-updates call above does not pull teleport config
 	// package updates, so do it here: it's easier since we have access to
 	// plan, cluster state, etc.
-	updates, err := p.collectTeleportUpdates()
-	if err != nil {
-		return trace.Wrap(err)
+	updates := []loc.Locator{p.Server.Runtime.Package, p.Server.Runtime.ConfigPackage}
+	if p.Server.Runtime.SecretsPackage != nil {
+		updates = append(updates, *p.Server.Runtime.SecretsPackage)
+	}
+	if p.Server.Teleport != nil {
+		updates = append(updates,
+			p.Server.Teleport.Package,
+			p.Server.Teleport.NodeConfig,
+		)
 	}
 	for _, update := range updates {
 		p.Infof("Pulling package update: %v.", update)
@@ -272,9 +246,8 @@ func (p *updatePhaseBootstrap) pullSystemUpdates() error {
 			SrcPack: p.Packages,
 			DstPack: p.LocalPackages,
 			Package: update,
-			Upsert:  true,
 		})
-		if err != nil {
+		if err != nil && !trace.IsAlreadyExists(err) {
 			return trace.Wrap(err)
 		}
 	}
@@ -289,22 +262,6 @@ func (p *updatePhaseBootstrap) pullSystemUpdates() error {
 		return trace.Wrap(err)
 	}
 	return nil
-}
-
-func (p *updatePhaseBootstrap) collectTeleportUpdates() (updates []loc.Locator, err error) {
-	teleportNodeConfigUpdate, err := pack.FindLatestPackageWithLabels(
-		p.Packages, p.Operation.SiteDomain, map[string]string{
-			pack.AdvertiseIPLabel: p.Server.AdvertiseIP,
-			pack.OperationIDLabel: p.Operation.ID,
-			pack.PurposeLabel:     pack.PurposeTeleportNodeConfig,
-		})
-	if err != nil && !trace.IsNotFound(err) {
-		return nil, trace.Wrap(err)
-	}
-	if teleportNodeConfigUpdate != nil {
-		updates = append(updates, *teleportNodeConfigUpdate)
-	}
-	return updates, nil
 }
 
 func (p *updatePhaseBootstrap) syncPlan() error {

@@ -19,6 +19,7 @@ package environ
 import (
 	"testing"
 
+	"github.com/gravitational/gravity/lib/app"
 	"github.com/gravitational/gravity/lib/compare"
 	"github.com/gravitational/gravity/lib/loc"
 	"github.com/gravitational/gravity/lib/ops"
@@ -43,11 +44,27 @@ func (S) TestSingleNodePlan(c *C) {
 		SiteDomain: "cluster",
 	}
 	servers := []storage.Server{
-		{Hostname: "node-1", ClusterRole: string(schema.ServiceRoleMaster)},
+		{Hostname: "node-1", Role: "node", ClusterRole: string(schema.ServiceRoleMaster)},
 	}
-	app := loc.MustParseLocator("gravitational.io/app:0.0.1")
+	runtimeLoc := loc.Locator{Repository: "foo", Name: "runtime", Version: "0.0.1"}
+	app := app.Application{
+		Package: loc.MustParseLocator("gravitational.io/app:0.0.1"),
+		Manifest: schema.Manifest{
+			NodeProfiles: schema.NodeProfiles{
+				{
+					Name:        "node",
+					ServiceRole: "master",
+				},
+			},
+			SystemOptions: &schema.SystemOptions{
+				Dependencies: schema.SystemDependencies{
+					Runtime: &schema.Dependency{Locator: runtimeLoc},
+				},
+			},
+		},
+	}
 
-	plan, err := newOperationPlan(app, storage.DefaultDNSConfig, operation, servers)
+	plan, err := newOperationPlan(app, storage.DefaultDNSConfig, testOperator, operation, servers)
 	c.Assert(err, IsNil)
 	c.Assert(plan, compare.DeepEquals, &storage.OperationPlan{
 		OperationID:   operation.ID,
@@ -62,7 +79,18 @@ func (S) TestSingleNodePlan(c *C) {
 				Executor:    libphase.UpdateConfig,
 				Description: `Update cluster environment`,
 				Data: &storage.OperationPhaseData{
-					Package: &app,
+					Package: &app.Package,
+					Update: &storage.UpdateOperationData{
+						Servers: []storage.ServerConfigUpdate{
+							{
+								Server: servers[0],
+								Runtime: storage.RuntimeConfigUpdate{
+									Package:       runtimeLoc,
+									ConfigPackage: testOperator.runtimeConfigPackage,
+								},
+							},
+						},
+					},
 				},
 			},
 			{
@@ -87,8 +115,18 @@ func (S) TestSingleNodePlan(c *C) {
 								Executor:    libphase.RestartContainer,
 								Description: `Restart container on node "node-1"`,
 								Data: &storage.OperationPhaseData{
-									Server:  &servers[0],
-									Package: &app,
+									Package: &app.Package,
+									Update: &storage.UpdateOperationData{
+										Servers: []storage.ServerConfigUpdate{
+											{
+												Server: servers[0],
+												Runtime: storage.RuntimeConfigUpdate{
+													Package:       runtimeLoc,
+													ConfigPackage: testOperator.runtimeConfigPackage,
+												},
+											},
+										},
+									},
 								},
 								Requires: []string{"/masters/node-1/drain"},
 							},
@@ -145,14 +183,34 @@ func (S) TestMultiNodePlan(c *C) {
 		SiteDomain: "cluster",
 	}
 	servers := []storage.Server{
-		{Hostname: "node-1", ClusterRole: string(schema.ServiceRoleMaster)},
-		{Hostname: "node-2", ClusterRole: string(schema.ServiceRoleNode)},
-		{Hostname: "node-3", ClusterRole: string(schema.ServiceRoleMaster)},
-		{Hostname: "node-4", ClusterRole: string(schema.ServiceRoleNode)},
+		{Hostname: "node-1", Role: "node", ClusterRole: string(schema.ServiceRoleMaster)},
+		{Hostname: "node-2", Role: "knode", ClusterRole: string(schema.ServiceRoleNode)},
+		{Hostname: "node-3", Role: "node", ClusterRole: string(schema.ServiceRoleMaster)},
+		{Hostname: "node-4", Role: "knode", ClusterRole: string(schema.ServiceRoleNode)},
 	}
-	app := loc.MustParseLocator("gravitational.io/app:0.0.1")
+	runtimeLoc := loc.Locator{Repository: "foo", Name: "runtime", Version: "0.0.1"}
+	app := app.Application{
+		Package: loc.MustParseLocator("gravitational.io/app:0.0.1"),
+		Manifest: schema.Manifest{
+			NodeProfiles: schema.NodeProfiles{
+				{
+					Name:        "node",
+					ServiceRole: "master",
+				},
+				{
+					Name:        "knode",
+					ServiceRole: "node",
+				},
+			},
+			SystemOptions: &schema.SystemOptions{
+				Dependencies: schema.SystemDependencies{
+					Runtime: &schema.Dependency{Locator: runtimeLoc},
+				},
+			},
+		},
+	}
 
-	plan, err := newOperationPlan(app, storage.DefaultDNSConfig, operation, servers)
+	plan, err := newOperationPlan(app, storage.DefaultDNSConfig, testOperator, operation, servers)
 	c.Assert(err, IsNil)
 	c.Assert(plan, compare.DeepEquals, &storage.OperationPlan{
 		OperationID:   operation.ID,
@@ -167,7 +225,39 @@ func (S) TestMultiNodePlan(c *C) {
 				Executor:    libphase.UpdateConfig,
 				Description: `Update cluster environment`,
 				Data: &storage.OperationPhaseData{
-					Package: &app,
+					Package: &app.Package,
+					Update: &storage.UpdateOperationData{
+						Servers: []storage.ServerConfigUpdate{
+							{
+								Server: servers[0],
+								Runtime: storage.RuntimeConfigUpdate{
+									Package:       runtimeLoc,
+									ConfigPackage: testOperator.runtimeConfigPackage,
+								},
+							},
+							{
+								Server: servers[1],
+								Runtime: storage.RuntimeConfigUpdate{
+									Package:       runtimeLoc,
+									ConfigPackage: testOperator.runtimeConfigPackage,
+								},
+							},
+							{
+								Server: servers[2],
+								Runtime: storage.RuntimeConfigUpdate{
+									Package:       runtimeLoc,
+									ConfigPackage: testOperator.runtimeConfigPackage,
+								},
+							},
+							{
+								Server: servers[3],
+								Runtime: storage.RuntimeConfigUpdate{
+									Package:       runtimeLoc,
+									ConfigPackage: testOperator.runtimeConfigPackage,
+								},
+							},
+						},
+					},
 				},
 			},
 			{
@@ -203,8 +293,18 @@ func (S) TestMultiNodePlan(c *C) {
 								Executor:    libphase.RestartContainer,
 								Description: `Restart container on node "node-1"`,
 								Data: &storage.OperationPhaseData{
-									Server:  &servers[0],
-									Package: &app,
+									Package: &app.Package,
+									Update: &storage.UpdateOperationData{
+										Servers: []storage.ServerConfigUpdate{
+											{
+												Server: servers[0],
+												Runtime: storage.RuntimeConfigUpdate{
+													Package:       runtimeLoc,
+													ConfigPackage: testOperator.runtimeConfigPackage,
+												},
+											},
+										},
+									},
 								},
 								Requires: []string{"/masters/node-1/drain"},
 							},
@@ -277,8 +377,18 @@ func (S) TestMultiNodePlan(c *C) {
 								Executor:    libphase.RestartContainer,
 								Description: `Restart container on node "node-3"`,
 								Data: &storage.OperationPhaseData{
-									Server:  &servers[2],
-									Package: &app,
+									Package: &app.Package,
+									Update: &storage.UpdateOperationData{
+										Servers: []storage.ServerConfigUpdate{
+											{
+												Server: servers[2],
+												Runtime: storage.RuntimeConfigUpdate{
+													Package:       runtimeLoc,
+													ConfigPackage: testOperator.runtimeConfigPackage,
+												},
+											},
+										},
+									},
 								},
 								Requires: []string{"/masters/node-3/drain"},
 							},
@@ -358,8 +468,18 @@ func (S) TestMultiNodePlan(c *C) {
 								Executor:    libphase.RestartContainer,
 								Description: `Restart container on node "node-2"`,
 								Data: &storage.OperationPhaseData{
-									Server:  &servers[1],
-									Package: &app,
+									Package: &app.Package,
+									Update: &storage.UpdateOperationData{
+										Servers: []storage.ServerConfigUpdate{
+											{
+												Server: servers[1],
+												Runtime: storage.RuntimeConfigUpdate{
+													Package:       runtimeLoc,
+													ConfigPackage: testOperator.runtimeConfigPackage,
+												},
+											},
+										},
+									},
 								},
 								Requires: []string{"/nodes/node-2/drain"},
 							},
@@ -423,8 +543,18 @@ func (S) TestMultiNodePlan(c *C) {
 								Executor:    libphase.RestartContainer,
 								Description: `Restart container on node "node-4"`,
 								Data: &storage.OperationPhaseData{
-									Server:  &servers[3],
-									Package: &app,
+									Package: &app.Package,
+									Update: &storage.UpdateOperationData{
+										Servers: []storage.ServerConfigUpdate{
+											{
+												Server: servers[3],
+												Runtime: storage.RuntimeConfigUpdate{
+													Package:       runtimeLoc,
+													ConfigPackage: testOperator.runtimeConfigPackage,
+												},
+											},
+										},
+									},
 								},
 								Requires: []string{"/nodes/node-4/drain"},
 							},
@@ -476,4 +606,16 @@ func (S) TestMultiNodePlan(c *C) {
 			},
 		},
 	})
+}
+
+func (r testRotator) RotatePlanetConfig(ops.RotatePlanetConfigRequest) (*ops.RotatePackageResponse, error) {
+	return &ops.RotatePackageResponse{Locator: r.runtimeConfigPackage}, nil
+}
+
+var testOperator = testRotator{
+	runtimeConfigPackage: loc.Locator{Repository: "gravitational.io", Name: "planet-config", Version: "0.0.1"},
+}
+
+type testRotator struct {
+	runtimeConfigPackage loc.Locator
 }

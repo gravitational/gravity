@@ -772,7 +772,7 @@ func findInstalledPackage(packages PackageService, filter loc.Locator) (env *Pac
 	})
 	if err != nil {
 		if trace.IsNotFound(err) {
-			return nil, trace.NotFound("no installed package for %v not found",
+			return nil, trace.NotFound("no installed package for %v found",
 				filter)
 		}
 		return nil, trace.Wrap(err)

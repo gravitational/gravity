@@ -145,10 +145,10 @@ type GarbageCollectOperationData struct {
 
 // UpdateOperationData describes configuration for update operations
 type UpdateOperationData struct {
-	// ConfigUpdates lists the cluster servers to use for the configuration update step.
+	// Servers lists the cluster servers to use for the configuration update step.
 	// The list might be a subset of all cluster servers in case
 	// the operation only operates on a specific part
-	ConfigUpdates []ServerConfigUpdate `json:"updates,omitempty"`
+	Servers []ServerConfigUpdate `json:"updates,omitempty"`
 }
 
 // ServerConfigUpdate describes an intent to update runtime/teleport configuration
@@ -157,9 +157,9 @@ type ServerConfigUpdate struct {
 	// Server identifies the server for the configuration package update
 	Server `json:"server"`
 	// Runtime defines runtime update for the server
-	Runtime RuntimeConfigUpdate
+	Runtime RuntimeConfigUpdate `json:"runtime"`
 	// Teleport defines the optional teleport update for the server
-	Teleport *TeleportConfigUpdate
+	Teleport *TeleportConfigUpdate `json:"teleport,omitempty"`
 }
 
 // RuntimeConfigUpdate describes an update to the runtime package

@@ -196,9 +196,10 @@ func (environInitializer) newUpdater(
 				"operation":     operation,
 			}),
 		},
-		Apps:            clusterEnv.Apps,
-		Client:          clusterEnv.Client,
-		ClusterPackages: clusterEnv.ClusterPackages,
+		Apps:              clusterEnv.Apps,
+		Client:            clusterEnv.Client,
+		ClusterPackages:   clusterEnv.ClusterPackages,
+		HostLocalPackages: localEnv.Packages,
 	}
 	return environ.New(ctx, config)
 }

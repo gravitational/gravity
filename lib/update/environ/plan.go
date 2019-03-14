@@ -18,7 +18,6 @@ package environ
 
 import (
 	"github.com/gravitational/gravity/lib/app"
-	libfsm "github.com/gravitational/gravity/lib/fsm"
 	"github.com/gravitational/gravity/lib/ops"
 	"github.com/gravitational/gravity/lib/storage"
 	"github.com/gravitational/gravity/lib/update"
@@ -63,18 +62,18 @@ func NewOperationPlan(
 func newOperationPlan(
 	app app.Application,
 	dnsConfig storage.DNSConfig,
-	operator ops.Operator,
+	operator rollingupdate.ConfigPackageRotator,
 	operation ops.SiteOperation,
 	servers []storage.Server,
 ) (*storage.OperationPlan, error) {
-	masters, nodes := libfsm.SplitServers(servers)
-	if len(masters) == 0 {
-		return nil, trace.NotFound("no master servers found in cluster state")
-	}
 	builder := rollingupdate.Builder{App: app.Package}
 	configUpdates, err := rollingupdate.RuntimeConfigUpdates(app.Manifest, operator, operation.Key(), servers)
 	if err != nil {
 		return nil, trace.Wrap(err)
+	}
+	masters, nodes := update.SplitServers(configUpdates)
+	if len(masters) == 0 {
+		return nil, trace.NotFound("no master servers found in cluster state")
 	}
 	config := *builder.Config("Update cluster environment", configUpdates)
 	updateMasters := *builder.Masters(
@@ -85,7 +84,7 @@ func newOperationPlan(
 	phases := update.Phases{config, updateMasters}
 	if len(nodes) != 0 {
 		updateNodes := *builder.Nodes(
-			nodes, &masters[0],
+			nodes, masters[0].Server,
 			"Update cluster environment",
 			"Update runtime environment on node %q",
 		).Require(config, updateMasters)

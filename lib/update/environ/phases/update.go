@@ -45,7 +45,7 @@ func NewUpdateConfig(
 		return nil, trace.NotFound("no installed application package specified for phase %q",
 			params.Phase.ID)
 	}
-	if params.Phase.Data.Update == nil || len(params.Phase.Data.Update.ConfigUpdates) == 0 {
+	if params.Phase.Data.Update == nil || len(params.Phase.Data.Update.Servers) == 0 {
 		return nil, trace.BadParameter("expected at least one server update")
 	}
 	app, err := apps.GetApp(*params.Phase.Data.Package)
@@ -58,7 +58,7 @@ func NewUpdateConfig(
 		operation:    operation,
 		packages:     packages,
 		hostPackages: hostPackages,
-		updates:      params.Phase.Data.Update.ConfigUpdates,
+		updates:      params.Phase.Data.Update.Servers,
 		manifest:     app.Manifest,
 	}, nil
 }

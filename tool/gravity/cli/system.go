@@ -43,7 +43,6 @@ import (
 	"github.com/gravitational/gravity/lib/utils"
 	"github.com/gravitational/gravity/tool/common"
 
-	"github.com/coreos/go-semver/semver"
 	"github.com/docker/docker/pkg/archive"
 	"github.com/gravitational/configure"
 	"github.com/gravitational/trace"
@@ -51,7 +50,7 @@ import (
 )
 
 // systemPullUpdates pulls new packages from remote Ops Center
-func systemPullUpdates(env *localenv.LocalEnvironment, opsCenterURL string, runtimePackage loc.Locator) error {
+func systemPullUpdates(env *localenv.LocalEnvironment, opsCenterURL string, config systemUpdateConfig) error {
 	targetURL, err := env.SelectOpsCenter(opsCenterURL)
 	if err != nil {
 		return trace.Wrap(err)
@@ -62,15 +61,17 @@ func systemPullUpdates(env *localenv.LocalEnvironment, opsCenterURL string, runt
 		return trace.Wrap(err)
 	}
 
-	reqs, err := findPackages(env.Packages, runtimePackage)
-	if err != nil {
-		return trace.Wrap(err)
+	packageUpdates := []storage.PackageUpdate{config.runtime}
+	if config.runtimeSecrets != nil {
+		packageUpdates = append(packageUpdates, *config.runtimeSecrets)
 	}
-
-	for _, req := range reqs {
-		log := log.WithField("package", req.installedPackage)
+	if config.teleport != nil {
+		packageUpdates = append(packageUpdates, *config.teleport)
+	}
+	for _, u := range packageUpdates {
+		log := log.WithField("package", u)
 		log.Info("Checking for update.")
-		update, err := findPackageUpdate(env.Packages, remotePackages, req)
+		update, err := needsPackageUpdate(env.Packages, u)
 		if err != nil {
 			if trace.IsNotFound(err) {
 				log.Info("No update found.")
@@ -100,11 +101,11 @@ func systemUpdate(env *localenv.LocalEnvironment, config systemUpdateConfig) err
 	if config.serviceName != "" {
 		args := []string{"system", "update",
 			"--changeset-id", config.changesetID,
-			"--runtime-package", config.runtime.locator.String(),
-			"--runtime-config-package", config.runtime.config.locator.String(),
-			"--runtime-secrets-package", config.runtime.secrets.locator.String(),
-			"--teleport-package", config.teleport.locator.String(),
-			"--teleport-config-package", config.teleport.config.locator.String(),
+			"--runtime-package", config.runtime.To.String(),
+			"--runtime-config-package", config.runtime.ConfigPackage.To.String(),
+			"--runtime-secrets-package", config.runtimeSecrets.To.String(),
+			"--teleport-package", config.teleport.To.String(),
+			"--teleport-config-package", config.teleport.ConfigPackage.To.String(),
 		}
 		if config.withStatus {
 			args = append(args, "--with-status")
@@ -112,16 +113,18 @@ func systemUpdate(env *localenv.LocalEnvironment, config systemUpdateConfig) err
 		return trace.Wrap(installOneshotService(env.Silent, config.serviceName, args))
 	}
 
-	config.runtime.configPackage.less = configPackageLess
-	packageUpdates := []packageUpdate{
-		config.runtime,
-		config.teleport,
+	packageUpdates := []storage.PackageUpdate{config.runtime}
+	if config.runtimeSecrets != nil {
+		packageUpdates = append(packageUpdates, *config.runtimeSecrets)
+	}
+	if config.teleport != nil {
+		packageUpdates = append(packageUpdates, *config.teleport)
 	}
 	var changes []storage.PackageUpdate
 	for _, u := range packageUpdates {
 		log := log.WithField("package", u)
 		log.Info("Checking for update.")
-		update, err := findPackageUpdate(env.Packages, env.Packages, u)
+		update, err := needsPackageUpdate(env.Packages, u)
 		if err != nil {
 			if trace.IsNotFound(err) {
 				log.Info("No update found.")
@@ -138,7 +141,7 @@ func systemUpdate(env *localenv.LocalEnvironment, config systemUpdateConfig) err
 		return nil
 	}
 
-	changeset, err := env.Backend.CreatePackageChangeset(storage.PackageChangeset{ID: changesetID, Changes: changes})
+	changeset, err := env.Backend.CreatePackageChangeset(storage.PackageChangeset{ID: config.changesetID, Changes: changes})
 	if err != nil && !trace.IsAlreadyExists(err) {
 		return trace.Wrap(err)
 	}
@@ -153,7 +156,7 @@ func systemUpdate(env *localenv.LocalEnvironment, config systemUpdateConfig) err
 		return nil
 	}
 
-	err = ensureServiceRunning(config.runtimePackage)
+	err = ensureServiceRunning(config.runtime.To)
 	if err != nil {
 		return trace.Wrap(err)
 	}
@@ -384,86 +387,6 @@ func pullUpdate(localPackages, remotePackages pack.PackageService, reporter pack
 	return nil
 }
 
-// findPackages returns a list of additional packages to pull during update.
-func findPackages(packages pack.PackageService, runtimePackageUpdate loc.Locator) (reqs []packageRequest, err error) {
-	secretsPackage, err := pack.FindSecretsPackage(packages)
-	if err != nil {
-		return nil, trace.Wrap(err, "failed to find installed secrets package")
-	}
-
-	installedSecretsPackage, err := pack.FindInstalledPackage(packages, *secretsPackage)
-	if err != nil {
-		return nil, trace.Wrap(err, "failed to find installed secrets package")
-	}
-
-	existingRuntime, existingRuntimeConfig, err := pack.FindRuntimePackageWithConfig(packages)
-	if err != nil {
-		return nil, trace.Wrap(err, "failed to find runtime package")
-	}
-	log.WithFields(logrus.Fields{
-		"runtime": existingRuntime,
-		"config":  existingRuntimeConfig,
-	}).Info("Found existing runtime and configuration packages.")
-
-	runtimeConfigUpdate, err := maybeConvertLegacyPlanetConfigPackage(existingRuntimeConfig.Locator)
-	if err != nil {
-		return nil, trace.Wrap(err)
-	}
-
-	updateGravityPackage, err := newPackageRequest(packages, gravityPackageFilter)
-	if err != nil {
-		return nil, trace.Wrap(err, "failed to find installed gravity binary package")
-	}
-
-	existingTeleport, existingTeleportConfig, err := pack.FindTeleportPackageWithConfig(packages)
-	if err != nil {
-		return nil, trace.Wrap(err)
-	}
-	log.WithFields(logrus.Fields{
-		logrus.ErrorKey: err,
-		"package":       existingTeleport,
-		"config":        existingTeleportConfig,
-	}).Info("Found existing teleport and configuration packages.")
-
-	runtimeConfigLabels := map[string]string{
-		pack.PurposeLabel:     pack.PurposePlanetConfig,
-		pack.ConfigLabel:      existingRuntime.Locator.ZeroVersion().String(),
-		pack.AdvertiseIPLabel: existingRuntimeConfig.RuntimeLabels[pack.AdvertiseIPLabel],
-	}
-	teleportConfigLabels := map[string]string{
-		pack.PurposeLabel:     pack.PurposeTeleportNodeConfig,
-		pack.ConfigLabel:      existingTeleport.Locator.ZeroVersion().String(),
-		pack.AdvertiseIPLabel: existingTeleportConfig.RuntimeLabels[pack.AdvertiseIPLabel],
-	}
-	reqs = append(reqs,
-		*updateGravityPackage,
-		packageRequest{
-			installedPackage: *installedSecretsPackage,
-			labels:           pack.RuntimeSecretsPackageLabels,
-		},
-		packageRequest{
-			installedPackage: existingRuntime.Locator,
-			updatePackage:    &runtimePackageUpdate,
-			labels:           pack.RuntimePackageLabels,
-			configPackage: &packageRequest{
-				installedPackage: existingRuntimeConfig.Locator,
-				updateFilter:     runtimeConfigUpdate,
-				labels:           runtimeConfigLabels,
-				less:             configPackageLess,
-			},
-		},
-		packageRequest{
-			installedPackage: existingTeleport.Locator,
-			configPackage: &packageRequest{
-				installedPackage: existingTeleportConfig.Locator,
-				labels:           teleportConfigLabels,
-			},
-		},
-	)
-	log.WithField("requests", packageRequests(reqs)).Debug("Find package updates.")
-	return reqs, nil
-}
-
 func getChangesetByID(env *localenv.LocalEnvironment, changesetID string) (*storage.PackageChangeset, error) {
 	if changesetID != "" {
 		changeset, err := env.Backend.GetPackageChangeset(changesetID)
@@ -565,8 +488,9 @@ func updatePlanetPackage(env *localenv.LocalEnvironment, update storage.PackageU
 		return nil, trace.Wrap(err)
 	}
 
-	configLabelUpdates := updateRuntimeConfigPackageLabels(env.Packages, update)
-	labelUpdates = append(labelUpdates, configLabelUpdates...)
+	if update.ConfigPackage != nil {
+		labelUpdates = append(labelUpdates, labelsForPackageUpdate(env.Packages, *update.ConfigPackage)...)
+	}
 
 	return labelUpdates, nil
 }
@@ -679,22 +603,19 @@ func reinstallSecretsPackage(env *localenv.LocalEnvironment, newPackage loc.Loca
 	return labelUpdates, nil
 }
 
-func updateRuntimeConfigPackageLabels(
+func labelsForPackageUpdate(
 	packages pack.PackageService,
 	update storage.PackageUpdate,
 ) (labelUpdates []pack.LabelUpdate) {
-	if update.ConfigPackage == nil {
-		return nil
-	}
 	return append(labelUpdates,
 		pack.LabelUpdate{
-			Locator: update.ConfigPackage.From,
+			Locator: update.From,
 			Remove:  []string{pack.InstalledLabel},
 		},
 		pack.LabelUpdate{
-			Locator: update.ConfigPackage.To,
+			Locator: update.To,
 			Add: utils.CombineLabels(
-				pack.ConfigLabels(update.To, pack.PurposePlanetConfig),
+				update.Labels,
 				pack.InstalledLabels,
 			),
 		})
@@ -766,7 +687,9 @@ func applyLabelUpdates(packages pack.PackageService, labelUpdates []pack.LabelUp
 	var errors []error
 	for _, update := range labelUpdates {
 		err := packages.UpdatePackageLabels(update.Locator, update.Add, update.Remove)
-		errors = append(errors, trace.Wrap(err, "error applying %v", update))
+		if err != nil && !trace.IsNotFound(err) {
+			errors = append(errors, trace.Wrap(err, "error applying %v", update))
+		}
 	}
 	return trace.NewAggregate(errors...)
 }
@@ -1113,75 +1036,24 @@ func removeInterfaces(env *localenv.LocalEnvironment) error {
 	return nil
 }
 
-// findPackageUpdate searches for remote update for the local package specified with req
-func findPackageUpdate(localPackages, remotePackages pack.PackageService, update packageUpdate) (*storage.PackageUpdate, error) {
-	if req.configPackage == nil {
-		update, err := findPackageUpdateHelper(remotePackages, req)
-		return update, trace.Wrap(err)
-	}
-
-	packageUpdate, err := findPackageUpdateHelper(remotePackages, req)
-	if err != nil && !trace.IsNotFound(err) {
-		return nil, trace.Wrap(err)
-	}
-
-	configUpdate, err := findPackageUpdateHelper(remotePackages, *req.configPackage)
-	if err != nil && !trace.IsNotFound(err) {
-		return nil, trace.Wrap(err)
-	}
-
-	if packageUpdate == nil && configUpdate == nil {
-		return nil, trace.NotFound("%v/%v is already at the latest version",
-			req.installedPackage, req.configPackage.installedPackage)
-	}
-
-	update := storage.PackageUpdate{
-		From:   req.installedPackage,
-		To:     req.installedPackage,
-		Labels: req.labels,
-	}
-	if packageUpdate != nil {
-		update = *packageUpdate
-	}
-	if configUpdate != nil {
-		update.ConfigPackage = configUpdate
-	}
-	return &update, nil
-}
-
-func findPackageUpdateHelper(packages pack.PackageService, req packageRequest) (update *storage.PackageUpdate, err error) {
-	if req.less == nil {
-		req.less = pack.Less
-	}
-	latestPackage := req.updatePackage
-	if latestPackage == nil {
-		filter := req.updateSearchFilter()
-		latestPackage, err = pack.FindLatestPackageCustom(pack.FindLatestPackageRequest{
-			Packages:   packages,
-			Repository: filter.Repository,
-			Match:      req.match,
-			Less:       req.less,
-		})
-		if err != nil {
-			return nil, trace.Wrap(err)
-		}
-	}
-	currentVersion, err := req.installedPackage.SemVer()
+// needsPackageUpdate determines whether the package specified with u needs to be updated on local host.
+// Returns a storage.PackageUpdate if either the package or its configuration package needs an update
+func needsPackageUpdate(localPackages pack.PackageService, u storage.PackageUpdate) (update *storage.PackageUpdate, err error) {
+	installed, err := pack.FindInstalledPackage(localPackages, u.To)
 	if err != nil {
 		return nil, trace.Wrap(err)
 	}
-	latestVersion, err := latestPackage.SemVer()
+	installedConfig, err := pack.FindInstalledPackage(localPackages, u.ConfigPackage.To)
 	if err != nil {
 		return nil, trace.Wrap(err)
 	}
-	if req.less(currentVersion, latestVersion) {
-		return &storage.PackageUpdate{
-			From:   req.installedPackage,
-			To:     *latestPackage,
-			Labels: req.labels,
-		}, nil
+	if installed.IsEqualTo(u.To) && installedConfig.IsEqualTo(u.ConfigPackage.To) {
+		return nil, trace.NotFound("package %v (configuration %v) is already the latest version",
+			u.To, u.ConfigPackage.To)
 	}
-	return nil, trace.NotFound("%v is already at the latest version", req.installedPackage)
+	u.From = *installed
+	u.ConfigPackage.From = *installedConfig
+	return &u, nil
 }
 
 func ensureServiceRunning(servicePackage loc.Locator) error {
@@ -1234,11 +1106,38 @@ func maybeConvertLegacyPlanetConfigPackage(configPackage loc.Locator) (*loc.Loca
 	return convertedConfigPackage, nil
 }
 
-func configPackageLess(a, b *semver.Version) bool {
-	if pack.Less(a, b) {
-		return true
+func updateConfigCLI(updates PackageUpdates) (*systemUpdateConfig, error) {
+	if updates.TeleportPackage.Locator != nil && updates.TeleportConfigPackage.Locator != updates.TeleportPackage.Locator {
+		return nil, trace.BadParameter("teleport configuration package is required")
 	}
-	return a.Metadata < b.Metadata
+	config := &systemUpdateConfig{
+		updatePackages: updatePackages{
+			runtime: storage.PackageUpdate{
+				To:     *updates.RuntimePackage,
+				Labels: pack.RuntimePackageLabels,
+				ConfigPackage: &storage.PackageUpdate{
+					To:     *updates.RuntimeConfigPackage,
+					Labels: pack.RuntimeConfigPackageLabels,
+				},
+			},
+		},
+	}
+	if updates.RuntimeSecretsPackage.Locator != nil {
+		config.runtimeSecrets = &storage.PackageUpdate{
+			To:     *updates.RuntimeSecretsPackage.Locator,
+			Labels: pack.RuntimeSecretsPackageLabels,
+		}
+	}
+	if updates.TeleportPackage.Locator != nil {
+		config.teleport = &storage.PackageUpdate{
+			To: *updates.TeleportPackage.Locator,
+			ConfigPackage: &storage.PackageUpdate{
+				To:     *updates.TeleportConfigPackage.Locator,
+				Labels: pack.TeleportNodeConfigPackageLabels,
+			},
+		}
+	}
+	return config, nil
 }
 
 type systemUpdateConfig struct {
@@ -1249,99 +1148,13 @@ type systemUpdateConfig struct {
 }
 
 type updatePackages struct {
-	runtime  packageUpdate
-	teleport packageUpdate
+	runtime        storage.PackageUpdate
+	runtimeSecrets *storage.PackageUpdate
+	teleport       *storage.PackageUpdate
 }
 
-type packageUpdate struct {
-	// locator specifies the update for a package.
-	// It might be the same as the currently installed package, in which
-	// case the update is idempotent
-	locator loc.Locator
-	// less specifies optional less comparator to use when looking for latest
-	// installed version.
-	// If unspecified, default comparator is used
-	less pack.LessFunc
-	// configPackage specifies the configuration package update
-	config packageUpdate
-	// secretsPackage specifies an optional secrets package update
-	secrets *packageUpdate
-}
-
-func newPackageRequest(packages pack.PackageService, filter loc.Locator) (*packageRequest, error) {
-	installed, err := pack.FindInstalledPackage(packages, filter)
-	if err != nil {
-		return nil, trace.Wrap(err)
-	}
-	return &packageRequest{installedPackage: *installed}, nil
-}
-
-// String formats this list of requests as readable text
-func (r packageRequests) String() string {
-	var buf bytes.Buffer
-	for _, req := range r {
-		buf.WriteString(req.String())
-		buf.WriteString(",")
-	}
-	return buf.String()
-}
-
-type packageRequests []packageRequest
-
-// String formats this request as readable text
-func (r packageRequest) String() string {
-	maybe := func(loc *loc.Locator) string {
-		if loc != nil {
-			return loc.String()
-		}
-		return "<none>"
-	}
-	if r.configPackage == nil {
-		return fmt.Sprintf("packageRequest(installed=%v, updatePackage=%v, labels=%v)",
-			r.installedPackage, maybe(r.updatePackage), r.labels)
-	}
-	return fmt.Sprintf("packageRequest(installed=%v, updatePackage=%v, labels=%v, config=%v)",
-		r.installedPackage, maybe(r.updatePackage), r.labels, r.configPackage)
-}
-
-func (r packageRequest) match(env pack.PackageEnvelope) bool {
-	filter := r.updateSearchFilter()
-	matched := env.Locator.Repository == filter.Repository &&
-		env.Locator.Name == filter.Name
-	if len(r.labels) != 0 {
-		matched = matched && env.HasLabels(r.labels)
-	}
-	return matched
-}
-
-func (r packageRequest) updateSearchFilter() loc.Locator {
-	if r.updateFilter != nil {
-		return *r.updateFilter
-	}
-	return r.installedPackage
-}
-
-type packageRequest struct {
-	installedPackage loc.Locator
-	// updatePackage specifies the locator of the update package if known
-	updatePackage *loc.Locator
-	// updateFilter specifies an alternative locator for the upstream package
-	// if it was renamed
-	updateFilter *loc.Locator
-	// labels defines labels to assign to the update package
-	labels map[string]string
-	// less specifies optional version comparator to use when searching
-	// for an update
-	less          pack.LessFunc
-	configPackage *packageRequest
-}
-
-var (
-	gravityPackageFilter = loc.MustCreateLocator(
-		defaults.SystemAccountOrg, constants.GravityPackage, loc.ZeroVersion)
-	teleportPackageFilter = loc.MustCreateLocator(
-		defaults.SystemAccountOrg, constants.TeleportPackage, loc.ZeroVersion)
-)
+var gravityPackageFilter = loc.MustCreateLocator(
+	defaults.SystemAccountOrg, constants.GravityPackage, loc.ZeroVersion)
 
 // printStateDir outputs directory where all gravity data is stored on the node
 func printStateDir() error {
