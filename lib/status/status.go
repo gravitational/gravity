@@ -22,6 +22,7 @@ import (
 	"fmt"
 	"io"
 	"net/url"
+	"path"
 	"time"
 
 	"github.com/gravitational/gravity/lib/constants"
@@ -131,9 +132,18 @@ func FromCluster(ctx context.Context, operator ops.Operator, cluster ops.Site, o
 	return status, nil
 }
 
-// FromPlanetAgent collects cluster status from the planet agent
+// FromPlanetAgent collects the cluster status from the planet agent
 func FromPlanetAgent(ctx context.Context, servers []storage.Server) (*Agent, error) {
-	status, err := planetAgentStatus(ctx)
+	return fromPlanetAgent(ctx, false, servers)
+}
+
+// FromLocalPlanetAgent collects the node status from the local planet agent
+func FromLocalPlanetAgent(ctx context.Context) (*Agent, error) {
+	return fromPlanetAgent(ctx, true, nil)
+}
+
+func fromPlanetAgent(ctx context.Context, local bool, servers []storage.Server) (*Agent, error) {
+	status, err := planetAgentStatus(ctx, local)
 	if err != nil {
 		return nil, trace.Wrap(err, "failed to query cluster status from agent")
 	}
@@ -397,13 +407,16 @@ func fromClusterState(systemStatus pb.SystemStatus, cluster []storage.Server) (o
 	return out
 }
 
-func planetAgentStatus(ctx context.Context) (*pb.SystemStatus, error) {
+func planetAgentStatus(ctx context.Context, local bool) (*pb.SystemStatus, error) {
 	planetClient, err := httplib.GetPlanetClient()
 	if err != nil {
 		return nil, trace.Wrap(err)
 	}
 	httpClient := roundtrip.HTTPClient(planetClient)
 	addr := fmt.Sprintf("https://%v:%v", constants.Localhost, defaults.SatelliteRPCAgentPort)
+	if local {
+		addr = path.Join(addr, "local")
+	}
 	client, err := roundtrip.NewClient(addr, "", httpClient)
 	if err != nil {
 		return nil, trace.Wrap(err)

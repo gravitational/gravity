@@ -36,7 +36,8 @@ func (r *dispatcher) Dispatch(config Config, params fsm.ExecutorParams, remote f
 	switch params.Phase.Executor {
 	case libphase.RestartContainer:
 		return libphase.NewRestart(params, config.Operator, config.Operation.ID,
-			config.Apps, config.ClusterPackages, config.HostLocalPackages,
+			config.Apps, config.LocalBackend,
+			config.ClusterPackages, config.HostLocalPackages,
 			logger)
 	case libphase.Elections:
 		return libphase.NewElections(params, config.Operator, logger)

@@ -60,7 +60,7 @@ type Config struct {
 	// can set this field and use an instance of the default dispatcher as a fallback
 	Dispatcher
 	// HostLocalPackages specifies the package service on local host
-	HostLocalPackages pack.PackageService
+	HostLocalPackages update.LocalPackageService
 	// Apps is the cluster application service
 	Apps app.Applications
 	// ClusterPackages specifies the cluster package service

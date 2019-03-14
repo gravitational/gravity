@@ -59,7 +59,7 @@ func New(ctx context.Context, config Config) (*update.Updater, error) {
 type Config struct {
 	update.Config
 	// HostLocalPackages specifies the package service on local host
-	HostLocalPackages pack.PackageService
+	HostLocalPackages update.LocalPackageService
 	// Apps is the cluster application service
 	Apps app.Applications
 	// ClusterPackages specifies the cluster package service

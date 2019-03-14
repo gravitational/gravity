@@ -18,7 +18,6 @@ package phases
 
 import (
 	"context"
-	"fmt"
 	"path/filepath"
 	"time"
 
@@ -30,6 +29,8 @@ import (
 	"github.com/gravitational/gravity/lib/pack"
 	"github.com/gravitational/gravity/lib/state"
 	"github.com/gravitational/gravity/lib/storage"
+	"github.com/gravitational/gravity/lib/update"
+	"github.com/gravitational/gravity/lib/update/system"
 	"github.com/gravitational/gravity/lib/utils"
 
 	"github.com/gravitational/trace"
@@ -44,6 +45,12 @@ type updatePhaseSystem struct {
 	Server storage.ServerConfigUpdate
 	// GravityPath is the path to the new gravity binary
 	GravityPath string
+	// LocalBackend specifies the local backend
+	LocalBackend storage.Backend
+	// Packages specifies the cluster package service
+	Packages pack.PackageService
+	// HostLocalPackages specifies the package service on local host
+	HostLocalPackages update.LocalPackageService
 	// FieldLogger is used for logging
 	log.FieldLogger
 	remote fsm.Remote
@@ -52,7 +59,14 @@ type updatePhaseSystem struct {
 }
 
 // NewUpdatePhaseNode returns a new node update phase executor
-func NewUpdatePhaseSystem(p fsm.ExecutorParams, remote fsm.Remote, logger log.FieldLogger) (*updatePhaseSystem, error) {
+func NewUpdatePhaseSystem(
+	p fsm.ExecutorParams,
+	remote fsm.Remote,
+	backend storage.Backend,
+	packages pack.PackageService,
+	localPackages update.LocalPackageService,
+	logger log.FieldLogger,
+) (*updatePhaseSystem, error) {
 	if p.Phase.Data.Update == nil || len(p.Phase.Data.Update.Servers) != 1 {
 		return nil, trace.NotFound("no server specified for phase %q", p.Phase.ID)
 	}
@@ -61,12 +75,15 @@ func NewUpdatePhaseSystem(p fsm.ExecutorParams, remote fsm.Remote, logger log.Fi
 		return nil, trace.Wrap(err)
 	}
 	return &updatePhaseSystem{
-		OperationID:    p.Plan.OperationID,
-		Server:         p.Phase.Data.Update.Servers[0],
-		GravityPath:    gravityPath,
-		FieldLogger:    logger,
-		remote:         remote,
-		runtimePackage: *p.Phase.Data.RuntimePackage,
+		OperationID:       p.Plan.OperationID,
+		Server:            p.Phase.Data.Update.Servers[0],
+		GravityPath:       gravityPath,
+		LocalBackend:      backend,
+		Packages:          packages,
+		HostLocalPackages: localPackages,
+		FieldLogger:       logger,
+		remote:            remote,
+		runtimePackage:    *p.Phase.Data.RuntimePackage,
 	}, nil
 }
 
@@ -81,45 +98,74 @@ func (p *updatePhaseSystem) PostCheck(context.Context) error {
 }
 
 // Execute runs system update on the node
-func (p *updatePhaseSystem) Execute(context.Context) error {
-	out, err := fsm.RunCommand([]string{p.GravityPath,
-		"--insecure", "--debug",
-		"system", "update",
-		"--changeset-id", p.OperationID,
-		"--with-status",
-		"--runtime-package", p.Server.Runtime.Package.String(),
-		"--runtime-config-package", p.Server.Runtime.ConfigPackage.String(),
-		"--runtime-secrets-package", p.Server.Runtime.SecretsPackage.String(),
-		"--teleport-package", p.Server.Teleport.Package.String(),
-		"--teleport-config-package", p.Server.Teleport.NodeConfig.String(),
+func (p *updatePhaseSystem) Execute(ctx context.Context) error {
+	err := p.pullUpdates()
+	if err != nil {
+		return trace.Wrap(err)
+	}
+	updater, err := system.New(system.Config{
+		ChangesetID: p.OperationID,
+		Backend:     p.LocalBackend,
+		Packages:    p.HostLocalPackages,
+		PackageUpdates: system.PackageUpdates{
+			Runtime: storage.PackageUpdate{
+				To: p.Server.Runtime.Package,
+				ConfigPackage: &storage.PackageUpdate{
+					To: p.Server.Runtime.ConfigPackage,
+				},
+			},
+			RuntimeSecrets: &storage.PackageUpdate{
+				// FIXME(dmitri): validate
+				To: *p.Server.Runtime.SecretsPackage,
+			},
+			Teleport: &storage.PackageUpdate{
+				To: p.Server.Teleport.Package,
+				ConfigPackage: &storage.PackageUpdate{
+					To: p.Server.Teleport.NodeConfig,
+				},
+			},
+		},
 	})
 	if err != nil {
-		message := "failed to update system"
-		if errUninstall, ok := trace.Unwrap(err).(*utils.ErrorUninstallService); ok {
-			message = fmt.Sprintf("The %q service failed to stop."+
-				"Restart this node to clean up and retry.",
-				errUninstall.Package)
-		}
-		p.Warnf("Failed to update system: %s (%v).", out, err)
-		return trace.Wrap(err, message)
+		return trace.Wrap(err)
 	}
-	p.Infof("System updated: %s.", out)
-	return nil
+	err = updater.Update(ctx, true)
+	return trace.Wrap(err)
 }
 
 // Rollback runs rolls back the system upgrade on the node
-func (p *updatePhaseSystem) Rollback(context.Context) error {
-	out, err := fsm.RunCommand([]string{p.GravityPath,
-		"--insecure", "--debug",
-		"system", "rollback",
-		"--changeset-id", p.OperationID,
-		"--with-status",
+func (p *updatePhaseSystem) Rollback(ctx context.Context) error {
+	updater, err := system.New(system.Config{
+		ChangesetID: p.OperationID,
+		Backend:     p.LocalBackend,
+		Packages:    p.HostLocalPackages,
 	})
 	if err != nil {
-		p.Warnf("Failed to rollback system: %s (%v).", out, err)
-		return trace.Wrap(err, "failed to rollback system: %s", out)
+		return trace.Wrap(err)
 	}
-	p.Infof("System rolled back: %s.", out)
+	err = updater.Rollback(ctx, true)
+	return trace.Wrap(err)
+}
+
+func (p *updatePhaseSystem) pullUpdates() error {
+	updates := []loc.Locator{
+		p.Server.Runtime.Package,
+		p.Server.Runtime.ConfigPackage,
+		*p.Server.Runtime.SecretsPackage,
+		p.Server.Teleport.Package,
+		p.Server.Teleport.NodeConfig,
+	}
+	for _, update := range updates {
+		p.Infof("Pulling package update: %v.", update)
+		_, err := service.PullPackage(service.PackagePullRequest{
+			SrcPack: p.Packages,
+			DstPack: p.HostLocalPackages,
+			Package: update,
+		})
+		if err != nil && !trace.IsAlreadyExists(err) {
+			return trace.Wrap(err)
+		}
+	}
 	return nil
 }
 
