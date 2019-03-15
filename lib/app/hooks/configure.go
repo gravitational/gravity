@@ -67,7 +67,7 @@ func configureJob(job *batchv1.Job, p Params) error {
 func configureMetadata(job *batchv1.Job, p Params) error {
 	job.Kind = rigging.KindJob
 	if job.APIVersion == "" {
-		job.APIVersion = rigging.BatchAPIVersion
+		job.APIVersion = batchv1.SchemeGroupVersion.String()
 	}
 
 	// create the hook job in the system namespace unless specified otherwise
