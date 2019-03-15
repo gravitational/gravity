@@ -42,7 +42,7 @@ func (s *ConfigureSuite) TestConfigureMetadata(c *check.C) {
 	})
 	c.Assert(err, check.IsNil)
 
-	c.Assert(job.TypeMeta, check.DeepEquals, metav1.TypeMeta{Kind: rigging.KindJob, APIVersion: rigging.BatchAPIVersion})
+	c.Assert(job.TypeMeta, check.DeepEquals, metav1.TypeMeta{Kind: rigging.KindJob, APIVersion: batchv1.SchemeGroupVersion.String()})
 	c.Assert(job.ObjectMeta.Namespace, check.Equals, defaults.KubeSystemNamespace)
 	c.Assert(job.Spec.Template.Spec.NodeSelector, check.DeepEquals, nodeSelector)
 	c.Assert(*job.Spec.ActiveDeadlineSeconds, check.Equals, int64(deadline.Seconds()))
