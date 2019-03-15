@@ -33,13 +33,13 @@ import (
 
 	"github.com/gravitational/teleport"
 	"github.com/gravitational/teleport/lib/auth"
+	"github.com/gravitational/teleport/lib/defaults"
 
 	"github.com/gravitational/roundtrip"
 	"github.com/gravitational/trace"
 
 	"github.com/mailgun/lemma/secret"
 	"github.com/pborman/uuid"
-	log "github.com/sirupsen/logrus"
 	"github.com/tstranex/u2f"
 )
 
@@ -209,7 +209,7 @@ func SSHAgentSSOLogin(ctx context.Context, proxyAddr, connectorID string, pubKey
 	query.Set("secret", secret.KeyToEncodedString(keyBytes))
 	u.RawQuery = query.Encode()
 
-	out, err := clt.PostJSON(clt.Endpoint("webapi", protocol, "login", "console"), SSOLoginConsoleReq{
+	out, err := clt.PostJSON(ctx, clt.Endpoint("webapi", protocol, "login", "console"), SSOLoginConsoleReq{
 		RedirectURL:   u.String(),
 		PublicKey:     pubKey,
 		CertTTL:       ttl,
@@ -253,7 +253,7 @@ func SSHAgentSSOLogin(ctx context.Context, proxyAddr, connectorID string, pubKey
 		if err == nil {
 			execCmd = exec.Command(path, "url.dll,FileProtocolHandler", redirURL)
 		}
-	// Linux or any other operating sytem.
+	// Linux or any other operating system.
 	default:
 		path, err := exec.LookPath(teleport.OpenBrowserLinux)
 		if err == nil {
@@ -277,8 +277,8 @@ func SSHAgentSSOLogin(ctx context.Context, proxyAddr, connectorID string, pubKey
 	case response := <-waitC:
 		log.Debugf("Got response from browser.")
 		return response, nil
-	case <-time.After(60 * time.Second):
-		log.Debugf("Timed out waiting for callback.")
+	case <-time.After(defaults.CallbackTimeout):
+		log.Debugf("Timed out waiting for callback after %v.", defaults.CallbackTimeout)
 		return nil, trace.Wrap(trace.Errorf("timed out waiting for callback"))
 	case <-ctx.Done():
 		log.Debugf("Canceled by user.")
@@ -379,7 +379,7 @@ type GithubSettings struct {
 // to better user experience: users get connection errors before being asked for passwords. The second
 // is to return the form of authentication that the server supports. This also leads to better user
 // experience: users only get prompted for the type of authentication the server supports.
-func Ping(proxyAddr string, insecure bool, pool *x509.CertPool, connectorName string) (*PingResponse, error) {
+func Ping(ctx context.Context, proxyAddr string, insecure bool, pool *x509.CertPool, connectorName string) (*PingResponse, error) {
 	clt, _, err := initClient(proxyAddr, insecure, pool)
 	if err != nil {
 		return nil, trace.Wrap(err)
@@ -390,7 +390,7 @@ func Ping(proxyAddr string, insecure bool, pool *x509.CertPool, connectorName st
 		endpoint = clt.Endpoint("webapi", "ping", connectorName)
 	}
 
-	response, err := clt.Get(endpoint, url.Values{})
+	response, err := clt.Get(ctx, endpoint, url.Values{})
 	if err != nil {
 		return nil, trace.Wrap(err)
 	}
@@ -408,12 +408,12 @@ func Ping(proxyAddr string, insecure bool, pool *x509.CertPool, connectorName st
 // if credentials are valid
 //
 // proxyAddr must be specified as host:port
-func SSHAgentLogin(proxyAddr, user, password, otpToken string, pubKey []byte, ttl time.Duration, insecure bool, pool *x509.CertPool, compatibility string) (*auth.SSHLoginResponse, error) {
+func SSHAgentLogin(ctx context.Context, proxyAddr, user, password, otpToken string, pubKey []byte, ttl time.Duration, insecure bool, pool *x509.CertPool, compatibility string) (*auth.SSHLoginResponse, error) {
 	clt, _, err := initClient(proxyAddr, insecure, pool)
 	if err != nil {
 		return nil, trace.Wrap(err)
 	}
-	re, err := clt.PostJSON(clt.Endpoint("webapi", "ssh", "certs"), CreateSSHCertReq{
+	re, err := clt.PostJSON(ctx, clt.Endpoint("webapi", "ssh", "certs"), CreateSSHCertReq{
 		User:          user,
 		Password:      password,
 		OTPToken:      otpToken,
@@ -438,13 +438,13 @@ func SSHAgentLogin(proxyAddr, user, password, otpToken string, pubKey []byte, tt
 // If the credentials are valid, the proxy wiil return a challenge.
 // We then call the official u2f-host binary to perform the signing and pass the signature to the proxy.
 // If the authentication succeeds, we will get a temporary certificate back
-func SSHAgentU2FLogin(proxyAddr, user, password string, pubKey []byte, ttl time.Duration, insecure bool, pool *x509.CertPool, compatibility string) (*auth.SSHLoginResponse, error) {
+func SSHAgentU2FLogin(ctx context.Context, proxyAddr, user, password string, pubKey []byte, ttl time.Duration, insecure bool, pool *x509.CertPool, compatibility string) (*auth.SSHLoginResponse, error) {
 	clt, _, err := initClient(proxyAddr, insecure, pool)
 	if err != nil {
 		return nil, trace.Wrap(err)
 	}
 
-	u2fSignRequest, err := clt.PostJSON(clt.Endpoint("webapi", "u2f", "signrequest"), U2fSignRequestReq{
+	u2fSignRequest, err := clt.PostJSON(ctx, clt.Endpoint("webapi", "u2f", "signrequest"), U2fSignRequestReq{
 		User: user,
 		Pass: password,
 	})
@@ -503,7 +503,7 @@ func SSHAgentU2FLogin(proxyAddr, user, password string, pubKey []byte, ttl time.
 		return nil, trace.Wrap(err)
 	}
 
-	re, err := clt.PostJSON(clt.Endpoint("webapi", "u2f", "certs"), CreateSSHCertWithU2FReq{
+	re, err := clt.PostJSON(ctx, clt.Endpoint("webapi", "u2f", "certs"), CreateSSHCertWithU2FReq{
 		User:            user,
 		U2FSignResponse: *u2fSignResponse,
 		PubKey:          pubKey,

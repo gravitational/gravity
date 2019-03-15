@@ -52,6 +52,8 @@ type TestAuthServerConfig struct {
 	AcceptedUsage []string
 	// CipherSuites is the list of ciphers that the server supports.
 	CipherSuites []uint16
+	// Clock is used to control time in tests.
+	Clock clockwork.FakeClock
 }
 
 // CheckAndSetDefaults checks and sets defaults
@@ -62,6 +64,9 @@ func (cfg *TestAuthServerConfig) CheckAndSetDefaults() error {
 	if cfg.Dir == "" {
 		return trace.BadParameter("missing parameter Dir")
 	}
+	if cfg.Clock == nil {
+		cfg.Clock = clockwork.NewFakeClockAt(time.Now())
+	}
 	if len(cfg.CipherSuites) == 0 {
 		cfg.CipherSuites = utils.DefaultCipherSuites()
 	}
@@ -70,8 +75,13 @@ func (cfg *TestAuthServerConfig) CheckAndSetDefaults() error {
 
 // CreateUploaderDir creates directory for file uploader service
 func CreateUploaderDir(dir string) error {
-	return os.MkdirAll(filepath.Join(dir, teleport.LogsDir, teleport.ComponentUpload,
+	err := os.MkdirAll(filepath.Join(dir, teleport.LogsDir, teleport.ComponentUpload,
 		events.SessionLogsDir, defaults.Namespace), teleport.SharedDirMode)
+	if err != nil {
+		return trace.ConvertSystemError(err)
+	}
+
+	return nil
 }
 
 // TestAuthServer is auth server using local filesystem backend

@@ -89,7 +89,7 @@ func NewTLSServer(cfg TLSServerConfig) (*TLSServer, error) {
 		return nil, trace.Wrap(err)
 	}
 	// authMiddleware authenticates request assuming TLS client authentication
-	// adds authentication infromation to the context
+	// adds authentication information to the context
 	// and passes it to the API server
 	authMiddleware := &AuthMiddleware{
 		AccessPoint:   cfg.AccessPoint,
@@ -120,13 +120,25 @@ func (t *TLSServer) Serve(listener net.Listener) error {
 // and server's GetConfigForClient reloads the list of trusted
 // local and remote certificate authorities
 func (t *TLSServer) GetConfigForClient(info *tls.ClientHelloInfo) (*tls.Config, error) {
+	var clusterName string
+	var err error
+	if info.ServerName != "" {
+		clusterName, err = DecodeClusterName(info.ServerName)
+		if err != nil {
+			if !trace.IsNotFound(err) {
+				log.Warningf("Client sent unsupported cluster name %q, what resulted in error %v.", info.ServerName, err)
+				return nil, trace.AccessDenied("access is denied")
+			}
+		}
+	}
+
 	// update client certificate pool based on currently trusted TLS
 	// certificate authorities.
 	// TODO(klizhentas) drop connections of the TLS cert authorities
 	// that are not trusted
 	// TODO(klizhentas) what are performance implications of returning new config
 	// per connections? E.g. what happens to session tickets. Benchmark this.
-	pool, err := t.AuthServer.ClientCertPool()
+	pool, err := t.AuthServer.ClientCertPool(clusterName)
 	if err != nil {
 		log.Errorf("failed to retrieve client pool: %v", trace.DebugReport(err))
 		// this falls back to the default config
@@ -225,15 +237,16 @@ func (a *AuthMiddleware) GetUser(r *http.Request) (interface{}, error) {
 			}, nil
 		}
 		return RemoteUser{
-			ClusterName: certClusterName,
-			Username:    identity.Username,
-			Principals:  identity.Principals,
-			RemoteRoles: identity.Groups,
+			ClusterName:      certClusterName,
+			Username:         identity.Username,
+			Principals:       identity.Principals,
+			KubernetesGroups: identity.KubernetesGroups,
+			RemoteRoles:      identity.Groups,
 		}, nil
 	}
 	// code below expects user or service from local cluster, to distinguish between
 	// interactive users and services (e.g. proxies), the code below
-	// checks for presense of system roles issued in certificate identity
+	// checks for presence of system roles issued in certificate identity
 	systemRole := findSystemRole(identity.Groups)
 	// in case if the system role is present, assume this is a service
 	// agent, e.g. Proxy, connecting to the cluster

@@ -61,21 +61,21 @@ func (s *Sanitizer) Backend() Backend {
 }
 
 // GetKeys returns a list of keys for a given path.
-func (s *Sanitizer) GetKeys(bucket []string) ([]string, error) {
+func (s *Sanitizer) GetKeys(bucket []string, opts ...OpOption) ([]string, error) {
 	if !isSliceSafe(bucket) {
 		return nil, trace.BadParameter(errorMessage)
 	}
 
-	return s.backend.GetKeys(bucket)
+	return s.backend.GetKeys(bucket, opts...)
 }
 
 // GetItems returns a list of items (key value pairs) for a bucket.
-func (s *Sanitizer) GetItems(bucket []string) ([]Item, error) {
+func (s *Sanitizer) GetItems(bucket []string, opts ...OpOption) ([]Item, error) {
 	if !isSliceSafe(bucket) {
 		return nil, trace.BadParameter(errorMessage)
 	}
 
-	return s.backend.GetItems(bucket)
+	return s.backend.GetItems(bucket, opts...)
 }
 
 // CreateVal creates value with a given TTL and key in the bucket. If the

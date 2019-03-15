@@ -684,7 +684,7 @@ func (c *Client) GetSiteReport(key ops.SiteKey) (io.ReadCloser, error) {
 }
 
 func (c *Client) UpsertRepository(repository string) error {
-	_, err := c.PostForm(c.Endpoint("repositories"), url.Values{
+	_, err := c.PostForm(context.TODO(), c.Endpoint("repositories"), url.Values{
 		"name": []string{repository},
 	})
 	if err != nil {
@@ -742,7 +742,7 @@ func (c *Client) CreatePackage(loc loc.Locator, data io.Reader) (*pack.PackageEn
 		Filename: loc.String(),
 		Reader:   data,
 	}
-	out, err := c.PostForm(c.Endpoint("repositories", loc.Repository, "packages"), url.Values{}, file)
+	out, err := c.PostForm(context.TODO(), c.Endpoint("repositories", loc.Repository, "packages"), url.Values{}, file)
 	if err != nil {
 		return nil, trace.Wrap(err)
 	}
@@ -768,7 +768,7 @@ func (c *Client) ReadPackage(loc loc.Locator) (*pack.PackageEnvelope, io.ReadClo
 	if err != nil {
 		return nil, nil, trace.Wrap(err)
 	}
-	re, err := c.Client.GetFile(c.Endpoint("repositories", loc.Repository,
+	re, err := c.Client.GetFile(context.TODO(), c.Endpoint("repositories", loc.Repository,
 		"packages", loc.Name, loc.Version, "file"), url.Values{})
 	if err != nil {
 		return nil, nil, trace.Wrap(err)
@@ -1516,22 +1516,22 @@ func (c *Client) EmitAuditEvent(req ops.AuditEventRequest) error {
 
 // PostJSON issues HTTP POST request to the server with the provided JSON data
 func (c *Client) PostJSON(endpoint string, data interface{}) (*roundtrip.Response, error) {
-	return telehttplib.ConvertResponse(c.Client.PostJSON(endpoint, data))
+	return telehttplib.ConvertResponse(c.Client.PostJSON(context.TODO(), endpoint, data))
 }
 
 // PutJSON issues HTTP PUT request to the server with the provided JSON data
 func (c *Client) PutJSON(endpoint string, data interface{}) (*roundtrip.Response, error) {
-	return telehttplib.ConvertResponse(c.Client.PutJSON(endpoint, data))
+	return telehttplib.ConvertResponse(c.Client.PutJSON(context.TODO(), endpoint, data))
 }
 
 // Get issues HTTP GET request to the server
 func (c *Client) Get(endpoint string, params url.Values) (*roundtrip.Response, error) {
-	return telehttplib.ConvertResponse(c.Client.Get(endpoint, params))
+	return telehttplib.ConvertResponse(c.Client.Get(context.TODO(), endpoint, params))
 }
 
 // GetFile issues HTTP GET request to the server to download a file
 func (c *Client) GetFile(endpoint string, params url.Values) (*roundtrip.FileResponse, error) {
-	re, err := c.Client.GetFile(endpoint, params)
+	re, err := c.Client.GetFile(context.TODO(), endpoint, params)
 	if err != nil {
 		if uerr, ok := err.(*url.Error); ok && uerr != nil && uerr.Err != nil {
 			return nil, trace.Wrap(uerr.Err)
@@ -1550,12 +1550,12 @@ func (c *Client) GetFile(endpoint string, params url.Values) (*roundtrip.FileRes
 
 // Delete issues HTTP DELETE request to the server
 func (c *Client) Delete(endpoint string) (*roundtrip.Response, error) {
-	return telehttplib.ConvertResponse(c.Client.Delete(endpoint))
+	return telehttplib.ConvertResponse(c.Client.Delete(context.TODO(), endpoint))
 }
 
 // DeleteWithParams issues HTTP DELETE request to the server
 func (c *Client) DeleteWithParams(endpoint string, params url.Values) (*roundtrip.Response, error) {
-	return telehttplib.ConvertResponse(c.Client.DeleteWithParams(
+	return telehttplib.ConvertResponse(c.Client.DeleteWithParams(context.TODO(),
 		endpoint, params))
 }
 

@@ -225,6 +225,38 @@ func (a *AuthServer) GetDomainName() (string, error) {
 	return a.clusterName.GetClusterName(), nil
 }
 
+// LocalCAResponse contains PEM-encoded local CAs.
+type LocalCAResponse struct {
+	// TLSCA is the PEM-encoded TLS certificate authority.
+	TLSCA []byte `json:"tls_ca"`
+}
+
+// GetClusterCACert returns the CAs for the local cluster without signing keys.
+func (a *AuthServer) GetClusterCACert() (*LocalCAResponse, error) {
+	// Extract the TLS CA for this cluster.
+	hostCA, err := a.Trust.GetCertAuthority(services.CertAuthID{
+		Type:       services.HostCA,
+		DomainName: a.clusterName.GetClusterName(),
+	}, false)
+	if err != nil {
+		return nil, trace.Wrap(err)
+	}
+	tlsCA, err := hostCA.TLSCA()
+	if err != nil {
+		return nil, trace.Wrap(err)
+	}
+
+	// Marshal to PEM bytes to send the CA over the wire.
+	pemBytes, err := tlsca.MarshalCertificatePEM(tlsCA.Cert)
+	if err != nil {
+		return nil, trace.Wrap(err)
+	}
+
+	return &LocalCAResponse{
+		TLSCA: pemBytes,
+	}, nil
+}
+
 // GenerateHostCert uses the private key of the CA to sign the public key of the host
 // (along with meta data like host ID, node name, roles, and ttl) to generate a host certificate.
 func (s *AuthServer) GenerateHostCert(hostPublicKey []byte, hostID, nodeName string, principals []string, clusterName string, roles teleport.Roles, ttl time.Duration) ([]byte, error) {
@@ -660,19 +692,36 @@ func (s *AuthServer) GenerateToken(req GenerateTokenRequest) (string, error) {
 }
 
 // ClientCertPool returns trusted x509 cerificate authority pool
-func (s *AuthServer) ClientCertPool() (*x509.CertPool, error) {
+func (s *AuthServer) ClientCertPool(clusterName string) (*x509.CertPool, error) {
 	pool := x509.NewCertPool()
 	var authorities []services.CertAuthority
-	hostCAs, err := s.GetCertAuthorities(services.HostCA, false, services.SkipValidation())
-	if err != nil {
-		return nil, trace.Wrap(err)
+	if clusterName == "" {
+		hostCAs, err := s.GetCertAuthorities(services.HostCA, false, services.SkipValidation())
+		if err != nil {
+			return nil, trace.Wrap(err)
+		}
+		userCAs, err := s.GetCertAuthorities(services.UserCA, false, services.SkipValidation())
+		if err != nil {
+			return nil, trace.Wrap(err)
+		}
+		authorities = append(authorities, hostCAs...)
+		authorities = append(authorities, userCAs...)
+	} else {
+		hostCA, err := s.GetCertAuthority(
+			services.CertAuthID{Type: services.HostCA, DomainName: clusterName},
+			false, services.SkipValidation())
+		if err != nil {
+			return nil, trace.Wrap(err)
+		}
+		userCA, err := s.GetCertAuthority(
+			services.CertAuthID{Type: services.UserCA, DomainName: clusterName},
+			false, services.SkipValidation())
+		if err != nil {
+			return nil, trace.Wrap(err)
+		}
+		authorities = append(authorities, hostCA)
+		authorities = append(authorities, userCA)
 	}
-	userCAs, err := s.GetCertAuthorities(services.UserCA, false, services.SkipValidation())
-	if err != nil {
-		return nil, trace.Wrap(err)
-	}
-	authorities = append(authorities, hostCAs...)
-	authorities = append(authorities, userCAs...)
 
 	for _, auth := range authorities {
 		for _, keyPair := range auth.GetTLSKeyPairs() {
@@ -805,7 +854,7 @@ func (s *AuthServer) GenerateServerKeys(req GenerateServerKeysRequest) (*PackedK
 	// certificate as one of the DNS Names. It is not known in advance,
 	// that is why there is a default one for all certificates
 	if req.Roles.Include(teleport.RoleAuth) || req.Roles.Include(teleport.RoleAdmin) {
-		certRequest.DNSNames = append(certRequest.DNSNames, teleport.APIDomain)
+		certRequest.DNSNames = append(certRequest.DNSNames, "*."+teleport.APIDomain, teleport.APIDomain)
 	}
 	hostTLSCert, err := tlsAuthority.GenerateCertificate(certRequest)
 	if err != nil {
