@@ -101,8 +101,10 @@ const (
 	FieldOpsCenter = "opsCenter"
 	// FieldKind contains resource kind.
 	FieldKind = "kind"
-	// FieldUser contains resource user.
+	// FieldUser contains name of the user who triggered an event.
 	FieldUser = "user"
+	// FieldOwner contains name of the user a resource belongs to.
+	FieldOwner = "owner"
 	// FieldReleaseName contains application release name.
 	FieldReleaseName = "releaseName"
 	// FieldVersion contains application package version.
@@ -115,4 +117,6 @@ const (
 	FieldTime = "time"
 	// FieldExpires contains expiration time, e.g. for license.
 	FieldExpires = "expires"
+	// FieldMaxNodes contains license nodes limit.
+	FieldMaxNodes = "maxNodes"
 )

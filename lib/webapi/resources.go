@@ -95,6 +95,7 @@ func (m *Handler) deleteResource(resourceKind string, resourceName string, ctx *
 	return controller.Remove(resources.RemoveRequest{
 		Kind: resourceKind,
 		Name: resourceName,
+		User: ctx.User.GetName(),
 	})
 }
 
@@ -150,6 +151,7 @@ func (m *Handler) upsertResource(isNew bool, rawRes teleservices.UnknownResource
 	err = controller.Create(resources.CreateRequest{
 		Resource: rawRes,
 		Upsert:   true,
+		User:     ctx.User.GetName(),
 	})
 	if err != nil {
 		return nil, trace.Wrap(err)

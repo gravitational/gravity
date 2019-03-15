@@ -113,7 +113,7 @@ func (s *GravityResourcesSuite) TestToken(c *check.C) {
 	c.Assert(err, check.IsNil)
 	compare.DeepCompare(c, collection, &tokenCollection{[]storage.Token{token}})
 
-	err = s.r.Remove(resources.RemoveRequest{Kind: "token", Name: "test", User: s.s.Creds.Email})
+	err = s.r.Remove(resources.RemoveRequest{Kind: "token", Name: "test", Owner: s.s.Creds.Email})
 	c.Assert(err, check.IsNil)
 
 	collection, err = s.r.GetCollection(resources.ListRequest{Kind: "token", Name: "test", User: s.s.Creds.Email})

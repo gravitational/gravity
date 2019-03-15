@@ -78,8 +78,8 @@ type CreateRequest struct {
 	Resource teleservices.UnknownResource
 	// Upsert is whether to update a resource
 	Upsert bool
-	// User is the user to create resource for
-	User string
+	// Owner is the user to create resource for
+	Owner string
 	// Manual defines whether the operation should operate
 	// in manual mode.
 	// This attribute is operation-specific
@@ -87,6 +87,8 @@ type CreateRequest struct {
 	// Confirmed defines whether the operation has been explicitly approved.
 	// This attribute is operation-specific
 	Confirmed bool
+	// User is the user creating resource
+	User string
 }
 
 // Check validates the request
@@ -131,8 +133,8 @@ type RemoveRequest struct {
 	Name string
 	// Force is whether to suppress not found errors
 	Force bool
-	// User is the resource owner
-	User string
+	// Owner is the resource owner
+	Owner string
 	// Manual defines whether the operation should operate
 	// in manual mode.
 	// This attribute is operation-specific
@@ -140,6 +142,8 @@ type RemoveRequest struct {
 	// Confirmed defines whether the operation has been explicitly approved.
 	// This attribute is operation-specific
 	Confirmed bool
+	// User is the user removing resource
+	User string
 }
 
 // Check validates the request

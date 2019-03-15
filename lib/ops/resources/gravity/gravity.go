@@ -104,8 +104,8 @@ func (r *Resources) Create(req resources.CreateRequest) error {
 		if err != nil {
 			return trace.Wrap(err)
 		}
-		if req.User != "" {
-			token.SetUser(req.User)
+		if req.Owner != "" {
+			token.SetUser(req.Owner)
 		} else if token.GetUser() == "" {
 			token.SetUser(r.CurrentUser)
 		}
@@ -123,7 +123,7 @@ func (r *Resources) Create(req resources.CreateRequest) error {
 		if err != nil {
 			return trace.Wrap(err)
 		}
-		req.User = token.GetUser()
+		req.Owner = token.GetUser()
 		// do not print token here as a security precaution
 		r.Printf("Created token for user %q\n", token.GetUser())
 	case storage.KindLogForwarder:
@@ -240,6 +240,7 @@ func (r *Resources) Create(req resources.CreateRequest) error {
 	r.EmitAuditEvent(events.ResourceCreated,
 		req.Resource.Kind,
 		req.Resource.Metadata.Name,
+		req.Owner,
 		req.User)
 	return nil
 }
@@ -417,7 +418,7 @@ func (r *Resources) Remove(req resources.RemoveRequest) error {
 		}
 		r.Printf("User %q has been deleted\n", req.Name)
 	case storage.KindToken:
-		user := req.User
+		user := req.Owner
 		if user == "" {
 			user = r.CurrentUser
 		}
@@ -479,13 +480,16 @@ func (r *Resources) Remove(req resources.RemoveRequest) error {
 		return trace.BadParameter("unsupported resource %q, supported are: %v",
 			req.Kind, modules.Get().SupportedResourcesToRemove())
 	}
-	r.EmitAuditEvent(events.ResourceDeleted, req.Kind, req.Name, req.User)
+	r.EmitAuditEvent(events.ResourceDeleted, req.Kind, req.Name, req.Owner, req.User)
 	return nil
 }
 
 // EmitAuditEvent emits the specified audit log event for the specified resource.
-func (r *Resources) EmitAuditEvent(event, kind, name, user string) {
+func (r *Resources) EmitAuditEvent(event, kind, name, owner, user string) {
 	fields := events.Fields{events.FieldKind: kind, events.FieldName: name}
+	if owner != "" {
+		fields[events.FieldOwner] = owner
+	}
 	if user != "" {
 		fields[events.FieldUser] = user
 	}

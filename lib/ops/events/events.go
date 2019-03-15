@@ -91,4 +91,6 @@ const (
 	LicenseExpired = "license.expired"
 	// LicenseUpdated is emitted when cluster license is updated.
 	LicenseUpdated = "license.updated"
+	// LicenseGenerated is emitted when a license is generated on Ops Center.
+	LicenseGenerated = "license.generated"
 )
