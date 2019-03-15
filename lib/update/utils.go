@@ -95,7 +95,7 @@ func Retry(ctx context.Context, fn func() error, timeout time.Duration) error {
 
 // SplitServers splits the specified server list into servers with master cluster role
 // and regular nodes.
-func SplitServers(servers []storage.ServerConfigUpdate) (masters, nodes []storage.ServerConfigUpdate) {
+func SplitServers(servers []storage.UpdateServer) (masters, nodes []storage.UpdateServer) {
 	for _, server := range servers {
 		switch server.ClusterRole {
 		case string(schema.ServiceRoleMaster):

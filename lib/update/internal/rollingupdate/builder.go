@@ -19,8 +19,8 @@ func RuntimeConfigUpdates(
 	operator ConfigPackageRotator,
 	operationKey ops.SiteOperationKey,
 	servers []storage.Server,
-) (updates []storage.ServerConfigUpdate, err error) {
-	updates = make([]storage.ServerConfigUpdate, 0, len(servers))
+) (updates []storage.UpdateServer, err error) {
+	updates = make([]storage.UpdateServer, 0, len(servers))
 	for _, server := range servers {
 		runtimePackage, err := manifest.RuntimePackageForProfile(server.Role)
 		if err != nil {
@@ -36,9 +36,9 @@ func RuntimeConfigUpdates(
 		if err != nil {
 			return nil, trace.Wrap(err)
 		}
-		updates = append(updates, storage.ServerConfigUpdate{
+		updates = append(updates, storage.UpdateServer{
 			Server: server,
-			Runtime: storage.RuntimeConfigUpdate{
+			Runtime: &storage.RuntimeConfigUpdate{
 				Package:       *runtimePackage,
 				ConfigPackage: configUpdate.Locator,
 			},
@@ -47,13 +47,13 @@ func RuntimeConfigUpdates(
 	return updates, nil
 }
 
-// ConfigPackageRotator defines the subset of Operator for update package configuration
+// ConfigPackageRotator defines the subset of Operator for updating package configuration
 type ConfigPackageRotator interface {
 	RotatePlanetConfig(ops.RotatePlanetConfigRequest) (*ops.RotatePackageResponse, error)
 }
 
 // Config creates a new phase to update runtime container configuration
-func (r Builder) Config(rootText string, updates []storage.ServerConfigUpdate) *update.Phase {
+func (r Builder) Config(rootText string, updates []storage.UpdateServer) *update.Phase {
 	phase := update.RootPhase(update.Phase{
 		ID:          "update-config",
 		Executor:    libphase.UpdateConfig,
@@ -71,7 +71,7 @@ func (r Builder) Config(rootText string, updates []storage.ServerConfigUpdate) *
 }
 
 // Masters returns a new phase to execute a rolling update of the specified list of master servers
-func (r Builder) Masters(servers []storage.ServerConfigUpdate, rootText, nodeTextFormat string) *update.Phase {
+func (r Builder) Masters(servers []storage.UpdateServer, rootText, nodeTextFormat string) *update.Phase {
 	root := update.RootPhase(update.Phase{
 		ID:          "masters",
 		Description: rootText,
@@ -100,7 +100,7 @@ func (r Builder) Masters(servers []storage.ServerConfigUpdate, rootText, nodeTex
 }
 
 // Nodes returns a new phase to execute a rolling update of the specified list of regular servers
-func (r Builder) Nodes(servers []storage.ServerConfigUpdate, master storage.Server, rootText, nodeTextFormat string) *update.Phase {
+func (r Builder) Nodes(servers []storage.UpdateServer, master storage.Server, rootText, nodeTextFormat string) *update.Phase {
 	root := update.RootPhase(update.Phase{
 		ID:          "nodes",
 		Description: rootText,
@@ -113,7 +113,7 @@ func (r Builder) Nodes(servers []storage.ServerConfigUpdate, master storage.Serv
 	return &root
 }
 
-func (r Builder) common(server storage.ServerConfigUpdate, master *storage.Server) (phases []update.Phase) {
+func (r Builder) common(server storage.UpdateServer, master *storage.Server) (phases []update.Phase) {
 	phases = append(phases,
 		r.drain(&server.Server, master),
 		r.restart(server),
@@ -125,13 +125,13 @@ func (r Builder) common(server storage.ServerConfigUpdate, master *storage.Serve
 	return phases
 }
 
-func (r Builder) restart(server storage.ServerConfigUpdate) update.Phase {
+func (r Builder) restart(server storage.UpdateServer) update.Phase {
 	node := r.node("restart", "Restart container on node %q", server.Hostname)
 	node.Executor = libphase.RestartContainer
 	node.Data = &storage.OperationPhaseData{
 		Package: &r.App,
 		Update: &storage.UpdateOperationData{
-			Servers: []storage.ServerConfigUpdate{server},
+			Servers: []storage.UpdateServer{server},
 		},
 	}
 	return node
@@ -216,7 +216,7 @@ type Builder struct {
 // server - The server the phase should be executed on, and used to name the phase
 // key - is the identifier of the phase (combined with server.Hostname)
 // msg - is a format string used to describe the phase
-func setLeaderElection(enable, disable []storage.Server, server storage.ServerConfigUpdate, id, format string) update.Phase {
+func setLeaderElection(enable, disable []storage.Server, server storage.UpdateServer, id, format string) update.Phase {
 	return update.Phase{
 		ID:          id,
 		Executor:    libphase.Elections,
@@ -231,7 +231,7 @@ func setLeaderElection(enable, disable []storage.Server, server storage.ServerCo
 	}
 }
 
-func servers(updates ...storage.ServerConfigUpdate) (result []storage.Server) {
+func servers(updates ...storage.UpdateServer) (result []storage.Server) {
 	for _, update := range updates {
 		result = append(result, update.Server)
 	}

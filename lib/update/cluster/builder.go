@@ -38,52 +38,54 @@ import (
 	"k8s.io/client-go/kubernetes"
 )
 
-func (r phaseBuilder) init(installed, updatePackage loc.Locator, servers []storage.ServerConfigUpdate) *update.Phase {
+func (r phaseBuilder) init(leadMaster storage.Server) *update.Phase {
 	phase := update.RootPhase(update.Phase{
 		ID:          "init",
 		Executor:    updateInit,
 		Description: "Initialize update operation",
 		Data: &storage.OperationPhaseData{
-			Package:          &updatePackage,
-			InstalledPackage: &installed,
+			Package:          &r.updateApp.Package,
+			ExecServer:       &leadMaster,
+			InstalledPackage: &r.installedApp.Package,
 			Update: &storage.UpdateOperationData{
-				Servers: servers,
+				Servers: r.servers,
 			},
 		},
 	})
 	return &phase
 }
 
-func (r phaseBuilder) checks(installed, updatePackage loc.Locator) *update.Phase {
+func (r phaseBuilder) checks() *update.Phase {
 	phase := update.RootPhase(update.Phase{
 		ID:          "checks",
 		Executor:    updateChecks,
 		Description: "Run preflight checks",
 		Data: &storage.OperationPhaseData{
-			Package:          &updatePackage,
-			InstalledPackage: &installed,
+			Package:          &r.updateApp.Package,
+			InstalledPackage: &r.installedApp.Package,
 		},
 	})
 
 	return &phase
 }
 
-func (r phaseBuilder) bootstrap(servers []storage.ServerConfigUpdate, installed, updatePackage loc.Locator) *update.Phase {
+func (r phaseBuilder) bootstrap() *update.Phase {
 	root := update.RootPhase(update.Phase{
 		ID:          "bootstrap",
 		Description: "Bootstrap update operation on nodes",
 	})
 
-	for _, server := range servers {
+	for _, server := range r.servers {
 		root.AddParallel(update.Phase{
 			ID:          root.ChildLiteral(server.Hostname),
 			Executor:    updateBootstrap,
 			Description: fmt.Sprintf("Bootstrap node %q", server.Hostname),
 			Data: &storage.OperationPhaseData{
-				Package:          &updatePackage,
-				InstalledPackage: &installed,
+				Package:          &r.updateApp.Package,
+				InstalledPackage: &r.installedApp.Package,
 				Update: &storage.UpdateOperationData{
-					Servers: []storage.ServerConfigUpdate{server},
+					Servers:                 []storage.UpdateServer{server},
+					InstalledRuntimePackage: &r.installedRuntime.Package,
 				},
 			},
 		})
@@ -91,13 +93,13 @@ func (r phaseBuilder) bootstrap(servers []storage.ServerConfigUpdate, installed,
 	return &root
 }
 
-func (r phaseBuilder) preUpdate(appPackage loc.Locator) *update.Phase {
+func (r phaseBuilder) preUpdate() *update.Phase {
 	phase := update.RootPhase(update.Phase{
 		ID:          "pre-update",
 		Description: "Run pre-update application hook",
 		Executor:    preUpdate,
 		Data: &storage.OperationPhaseData{
-			Package: &appPackage,
+			Package: &r.updateApp.Package,
 		},
 	})
 	return &phase
@@ -137,7 +139,7 @@ func (r phaseBuilder) app(updates []loc.Locator) *update.Phase {
 // migration constructs a migration phase based on the plan params.
 //
 // If there are no migrations to perform, returns nil.
-func (r phaseBuilder) migration(leadMaster storage.Server, p planConfig) *update.Phase {
+func (r phaseBuilder) migration(leadMaster storage.Server) *update.Phase {
 	root := update.RootPhase(update.Phase{
 		ID:          "migration",
 		Description: "Perform system database migration",
@@ -146,7 +148,7 @@ func (r phaseBuilder) migration(leadMaster storage.Server, p planConfig) *update
 	var subphases []update.Phase
 
 	// do we need to migrate links to trusted clusters?
-	if len(p.links) != 0 && len(p.trustedClusters) == 0 {
+	if len(r.links) != 0 && len(r.trustedClusters) == 0 {
 		subphases = append(subphases, update.Phase{
 			ID:          root.ChildLiteral("links"),
 			Description: "Migrate remote Ops Center links to trusted clusters",
@@ -162,7 +164,7 @@ func (r phaseBuilder) migration(leadMaster storage.Server, p planConfig) *update
 	})
 
 	// migrate roles
-	if libphase.NeedMigrateRoles(p.roles) {
+	if libphase.NeedMigrateRoles(r.roles) {
 		subphases = append(subphases, update.Phase{
 			ID:          root.ChildLiteral("roles"),
 			Description: "Migrate cluster roles to a new format",
@@ -247,7 +249,7 @@ func (r phaseBuilder) runtime(updates []loc.Locator) *update.Phase {
 // masters returns a new phase for upgrading master servers.
 // leadMaster is the master node that is upgraded first and gets to be the leader during the operation.
 // otherMasters lists the rest of the master nodes (can be empty)
-func (r phaseBuilder) masters(leadMaster storage.ServerConfigUpdate, otherMasters []storage.ServerConfigUpdate,
+func (r phaseBuilder) masters(leadMaster storage.UpdateServer, otherMasters []storage.UpdateServer,
 	supportsTaints bool) *update.Phase {
 	root := update.RootPhase(update.Phase{
 		ID:          "masters",
@@ -288,7 +290,7 @@ func (r phaseBuilder) masters(leadMaster storage.ServerConfigUpdate, otherMaster
 	return &root
 }
 
-func (r phaseBuilder) nodes(leadMaster storage.ServerConfigUpdate, nodes []storage.ServerConfigUpdate, supportsTaints bool) *update.Phase {
+func (r phaseBuilder) nodes(leadMaster storage.UpdateServer, nodes []storage.UpdateServer, supportsTaints bool) *update.Phase {
 	root := update.RootPhase(update.Phase{
 		ID:          "nodes",
 		Description: "Update regular nodes",
@@ -474,7 +476,7 @@ func (r phaseBuilder) node(server storage.Server, parent update.ParentPhase, for
 }
 
 // commonNode returns a list of operations required for any node role to upgrade its system software
-func (r phaseBuilder) commonNode(server storage.ServerConfigUpdate, runtimePackage loc.Locator, leadMaster storage.ServerConfigUpdate, supportsTaints bool,
+func (r phaseBuilder) commonNode(server storage.UpdateServer, runtimePackage loc.Locator, leadMaster storage.UpdateServer, supportsTaints bool,
 	waitsForEndpoints waitsForEndpoints) []update.Phase {
 	phases := []update.Phase{
 		{
@@ -491,7 +493,7 @@ func (r phaseBuilder) commonNode(server storage.ServerConfigUpdate, runtimePacka
 			Description: fmt.Sprintf("Update system software on node %q", server.Hostname),
 			Data: &storage.OperationPhaseData{
 				Update: &storage.UpdateOperationData{
-					Servers: []storage.ServerConfigUpdate{server},
+					Servers: []storage.UpdateServer{server},
 				},
 			}},
 	}
@@ -536,13 +538,13 @@ func (r phaseBuilder) commonNode(server storage.ServerConfigUpdate, runtimePacka
 	return phases
 }
 
-func (r phaseBuilder) cleanup(nodes []storage.ServerConfigUpdate) *update.Phase {
+func (r phaseBuilder) cleanup() *update.Phase {
 	root := update.RootPhase(update.Phase{
 		ID:          "gc",
 		Description: "Run cleanup tasks",
 	})
 
-	for _, server := range nodes {
+	for _, server := range r.servers {
 		node := r.node(server.Server, &root, "Clean up node %q")
 		node.Executor = cleanupNode
 		node.Data = &storage.OperationPhaseData{
@@ -553,7 +555,9 @@ func (r phaseBuilder) cleanup(nodes []storage.ServerConfigUpdate) *update.Phase 
 	return &root
 }
 
-type phaseBuilder struct{}
+type phaseBuilder struct {
+	planConfig
+}
 
 func shouldUpdateCoreDNS(client *kubernetes.Clientset) (bool, error) {
 	_, err := client.RbacV1().ClusterRoles().Get(libphase.CoreDNSResourceName, metav1.GetOptions{})
@@ -660,7 +664,7 @@ func getEtcdVersion(searchLabel string, locator loc.Locator, packageService pack
 // server - The server the phase should be executed on, and used to name the phase
 // key - is the identifier of the phase (combined with server.Hostname)
 // msg - is a format string used to describe the phase
-func setLeaderElection(enable, disable []storage.Server, server storage.ServerConfigUpdate, key, msg string) update.Phase {
+func setLeaderElection(enable, disable []storage.Server, server storage.UpdateServer, key, msg string) update.Phase {
 	return update.Phase{
 		ID:          fmt.Sprintf("%s-%s", key, server.Hostname),
 		Executor:    electionStatus,
@@ -674,7 +678,7 @@ func setLeaderElection(enable, disable []storage.Server, server storage.ServerCo
 	}
 }
 
-func servers(updates ...storage.ServerConfigUpdate) (result []storage.Server) {
+func servers(updates ...storage.UpdateServer) (result []storage.Server) {
 	for _, update := range updates {
 		result = append(result, update.Server)
 	}

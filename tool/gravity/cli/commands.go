@@ -90,6 +90,8 @@ type Application struct {
 	UpdateUploadCmd UpdateUploadCmd
 	// UpdateCompleteCmd marks update operation as complete
 	UpdateCompleteCmd UpdateCompleteCmd
+	// UpdateSystemCmd updates system packages
+	UpdateSystemCmd UpdateSystemCmd
 	// UpgradeCmd launches app upgrade
 	UpgradeCmd UpgradeCmd
 	// StatusCmd displays cluster status
@@ -578,6 +580,19 @@ type UpdateCompleteCmd struct {
 	*kingpin.CmdClause
 	// Failed marks operation as failed
 	Failed *bool
+}
+
+// UpdateSystemCmd updates system packages
+type UpdateSystemCmd struct {
+	*kingpin.CmdClause
+	// ChangesetID is current changeset ID
+	ChangesetID *string
+	// ServiceName is systemd service name to launch
+	ServiceName *string
+	// WithStatus is whether to wait for service to complete
+	WithStatus *bool
+	// RuntimePackage specifies the runtime package to update to
+	RuntimePackage *loc.Locator
 }
 
 // UpdatePlanInitCmd creates a new update operation plan
@@ -1323,8 +1338,8 @@ type SystemPullUpdatesCmd struct {
 	*kingpin.CmdClause
 	// OpsCenterURL is cluster URL
 	OpsCenterURL *string
-	// PackageUpdates groups command line flags to specify package updates
-	PackageUpdates
+	// RuntimePackage specifies the runtime package to update to
+	RuntimePackage *loc.Locator
 }
 
 // SystemUpdateCmd updates system packages
@@ -1334,24 +1349,10 @@ type SystemUpdateCmd struct {
 	ChangesetID *string
 	// ServiceName is systemd service name to launch
 	ServiceName *string
-	// WithStatus blocks until the runtime container has reported success or wait has timed out
+	// WithStatus waits for operation to finish
 	WithStatus *bool
-	// PackageUpdates groups command line flags to specify package updates
-	PackageUpdates
-}
-
-// PackageUpdates groups command line flags to specify package updates
-type PackageUpdates struct {
 	// RuntimePackage specifies the runtime package to update to
 	RuntimePackage *loc.Locator
-	// RuntimeConfigPackage specifies the runtime configuration package to update to
-	RuntimeConfigPackage *loc.Locator
-	// RuntimeSecretsPackage specifies the runtime secrets package to update to
-	RuntimeSecretsPackage *MaybeLocator
-	// TeleportPackage specifies the teleport package to update to
-	TeleportPackage *MaybeLocator
-	// TeleportConfigPackage specifies the teleport configuration package to update to
-	TeleportConfigPackage *MaybeLocator
 }
 
 // SystemReinstallCmd reinstalls specified system package

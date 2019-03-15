@@ -148,16 +148,20 @@ type UpdateOperationData struct {
 	// Servers lists the cluster servers to use for the configuration update step.
 	// The list might be a subset of all cluster servers in case
 	// the operation only operates on a specific part
-	Servers []ServerConfigUpdate `json:"updates,omitempty"`
+	Servers []UpdateServer `json:"updates,omitempty"`
+	// InstalledRuntimePackage references the installed runtime package
+	InstalledRuntimePackage *loc.Locator `json:"installed_runtime_package,omitempty"`
 }
 
-// ServerConfigUpdate describes an intent to update runtime/teleport configuration
+// UpdateServer describes an intent to update runtime/teleport configuration
 // packages on a specific cluster node
-type ServerConfigUpdate struct {
+type UpdateServer struct {
 	// Server identifies the server for the configuration package update
 	Server `json:"server"`
-	// Runtime defines runtime update for the server
-	Runtime RuntimeConfigUpdate `json:"runtime"`
+	// RuntimeSecretsPackage identifies the new secrets package
+	RuntimeSecretsPackage *loc.Locator `json:"runtime_secrets_package,omitempty"`
+	// Runtime defines the optional runtime update for the server
+	Runtime *RuntimeConfigUpdate `json:"runtime,omitempty"`
 	// Teleport defines the optional teleport update for the server
 	Teleport *TeleportConfigUpdate `json:"teleport,omitempty"`
 }
@@ -168,18 +172,16 @@ type RuntimeConfigUpdate struct {
 	Package loc.Locator `json:"package"`
 	// ConfigPackage identifies the new configuration package
 	ConfigPackage loc.Locator `json:"config_package"`
-	// SecretsPackage identifies the new secrets package
-	SecretsPackage *loc.Locator `json:"secrets_package,omitempty"`
 }
 
 // TeleportConfigUpdate describes an update to the teleport package
 type TeleportConfigUpdate struct {
 	// Package identifies the package on the server the updates are applied to
 	Package loc.Locator `json:"package"`
-	// MasterConfig identifies the new cluster teleport configuration package
-	MasterConfig loc.Locator `json:"config_package"`
-	// NodeConfig identifies the new host teleport configuration package
-	NodeConfig loc.Locator `json:"secrets_package,omitempty"`
+	// MasterConfigPackage identifies the new cluster teleport configuration package
+	MasterConfigPackage loc.Locator `json:"master_config_package"`
+	// NodeConfigPackage identifies the new host teleport configuration package
+	NodeConfigPackage loc.Locator `json:"node_config_package"`
 }
 
 // InstallOperationData describes configuration for the install operation

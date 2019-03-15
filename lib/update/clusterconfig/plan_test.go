@@ -83,7 +83,7 @@ func (S) TestSingleNodePlan(c *C) {
 				Data: &storage.OperationPhaseData{
 					Package: &app.Package,
 					Update: &storage.UpdateOperationData{
-						Servers: []storage.ServerConfigUpdate{
+						Servers: []storage.UpdateServer{
 							{
 								Server: servers[0],
 								Runtime: storage.RuntimeConfigUpdate{
@@ -118,7 +118,7 @@ func (S) TestSingleNodePlan(c *C) {
 								Data: &storage.OperationPhaseData{
 									Package: &app.Package,
 									Update: &storage.UpdateOperationData{
-										Servers: []storage.ServerConfigUpdate{
+										Servers: []storage.UpdateServer{
 											{
 												Server: servers[0],
 												Runtime: storage.RuntimeConfigUpdate{
@@ -228,7 +228,7 @@ func (S) TestMultiNodePlan(c *C) {
 				Data: &storage.OperationPhaseData{
 					Package: &app.Package,
 					Update: &storage.UpdateOperationData{
-						Servers: []storage.ServerConfigUpdate{
+						Servers: []storage.UpdateServer{
 							{
 								Server: servers[0],
 								Runtime: storage.RuntimeConfigUpdate{
@@ -282,7 +282,7 @@ func (S) TestMultiNodePlan(c *C) {
 								Data: &storage.OperationPhaseData{
 									Package: &app.Package,
 									Update: &storage.UpdateOperationData{
-										Servers: []storage.ServerConfigUpdate{
+										Servers: []storage.UpdateServer{
 											{
 												Server: servers[0],
 												Runtime: storage.RuntimeConfigUpdate{
@@ -365,7 +365,7 @@ func (S) TestMultiNodePlan(c *C) {
 								Data: &storage.OperationPhaseData{
 									Package: &app.Package,
 									Update: &storage.UpdateOperationData{
-										Servers: []storage.ServerConfigUpdate{
+										Servers: []storage.UpdateServer{
 											{
 												Server: servers[2],
 												Runtime: storage.RuntimeConfigUpdate{
@@ -492,7 +492,7 @@ address: "0.0.0.0"`),
 				Data: &storage.OperationPhaseData{
 					Package: &app.Package,
 					Update: &storage.UpdateOperationData{
-						Servers: []storage.ServerConfigUpdate{
+						Servers: []storage.UpdateServer{
 							{
 								Server: servers[0],
 								Runtime: storage.RuntimeConfigUpdate{
@@ -534,7 +534,7 @@ address: "0.0.0.0"`),
 								Data: &storage.OperationPhaseData{
 									Package: &app.Package,
 									Update: &storage.UpdateOperationData{
-										Servers: []storage.ServerConfigUpdate{
+										Servers: []storage.UpdateServer{
 											{
 												Server: servers[0],
 												Runtime: storage.RuntimeConfigUpdate{
@@ -612,7 +612,7 @@ address: "0.0.0.0"`),
 								Data: &storage.OperationPhaseData{
 									Package: &app.Package,
 									Update: &storage.UpdateOperationData{
-										Servers: []storage.ServerConfigUpdate{
+										Servers: []storage.UpdateServer{
 											{
 												Server: servers[1],
 												Runtime: storage.RuntimeConfigUpdate{

@@ -23,21 +23,17 @@ import (
 
 	"github.com/gravitational/gravity/lib/app"
 	"github.com/gravitational/gravity/lib/checks"
-	"github.com/gravitational/gravity/lib/constants"
 	"github.com/gravitational/gravity/lib/defaults"
 	"github.com/gravitational/gravity/lib/fsm"
 	"github.com/gravitational/gravity/lib/install"
-	"github.com/gravitational/gravity/lib/loc"
 	"github.com/gravitational/gravity/lib/ops"
 	"github.com/gravitational/gravity/lib/pack"
 	"github.com/gravitational/gravity/lib/rpc"
-	"github.com/gravitational/gravity/lib/schema"
 	"github.com/gravitational/gravity/lib/storage"
 	"github.com/gravitational/gravity/lib/storage/clusterconfig"
 	"github.com/gravitational/gravity/lib/users"
 
 	"github.com/gravitational/trace"
-	"github.com/sirupsen/logrus"
 	log "github.com/sirupsen/logrus"
 )
 
@@ -63,7 +59,7 @@ type updatePhaseInit struct {
 	// Operation is the current update operation
 	Operation ops.SiteOperation
 	// Servers is the list of local cluster servers
-	Servers []storage.Server
+	Servers []storage.UpdateServer
 	// FieldLogger is used for logging
 	log.FieldLogger
 	// app references the update application
@@ -88,10 +84,13 @@ func NewUpdatePhaseInit(
 	logger log.FieldLogger,
 ) (*updatePhaseInit, error) {
 	if p.Phase.Data == nil || p.Phase.Data.Package == nil {
-		return nil, trace.NotFound("no application package specified for phase %v", p.Phase)
+		return nil, trace.BadParameter("no application package specified for phase %v", p.Phase)
 	}
 	if p.Phase.Data.InstalledPackage == nil {
-		return nil, trace.NotFound("no installed application package specified for phase %v", p.Phase)
+		return nil, trace.BadParameter("no installed application package specified for phase %v", p.Phase)
+	}
+	if p.Phase.Data.Update == nil || len(p.Phase.Data.Update.Servers) != 1 {
+		return nil, trace.BadParameter("no servers specified for phase %q", p.Phase.ID)
 	}
 	cluster, err := operator.GetLocalSite()
 	if err != nil {
@@ -137,7 +136,7 @@ func NewUpdatePhaseInit(
 		Users:                 users,
 		Cluster:               *cluster,
 		Operation:             *operation,
-		Servers:               p.Plan.Servers,
+		Servers:               p.Phase.Data.Update.Servers,
 		FieldLogger:           logger,
 		app:                   *app,
 		installedApp:          *installedApp,
@@ -148,9 +147,9 @@ func NewUpdatePhaseInit(
 	}, nil
 }
 
-// PreCheck makes sure that init phase is being executed from one of master nodes
+// PreCheck is a no-op for this phase
 func (p *updatePhaseInit) PreCheck(context.Context) error {
-	return trace.Wrap(fsm.CheckMasterServer(p.Servers))
+	return nil
 }
 
 // PostCheck is no-op for the init phase
@@ -186,16 +185,12 @@ func (p *updatePhaseInit) Execute(context.Context) error {
 		if err := p.rotateSecrets(server); err != nil {
 			return trace.Wrap(err, "failed to rotate secrets for %v", server)
 		}
-		updatePlanet, updateTeleport, err := systemNeedsUpdate(server.Role, p.installedApp, p.app)
-		if err != nil {
-			return trace.Wrap(err)
-		}
-		if updatePlanet {
+		if server.Runtime != nil {
 			if err := p.rotatePlanetConfig(server); err != nil {
 				return trace.Wrap(err, "failed to rotate planet configuration for %v", server)
 			}
 		}
-		if updateTeleport {
+		if server.Teleport != nil {
 			if err := p.rotateTeleportConfig(server); err != nil {
 				return trace.Wrap(err, "failed to rotate teleport configuration for %v", server)
 			}
@@ -238,7 +233,7 @@ func (p *updatePhaseInit) updateClusterRoles() error {
 
 	state := make(map[string]storage.Server, len(p.Servers))
 	for _, server := range p.Servers {
-		state[server.AdvertiseIP] = server
+		state[server.AdvertiseIP] = server.Server
 	}
 
 	for i, server := range cluster.ClusterState.Servers {
@@ -339,12 +334,13 @@ func (p *updatePhaseInit) createAdminAgent() error {
 	return nil
 }
 
-func (p *updatePhaseInit) rotateSecrets(server storage.Server) error {
+func (p *updatePhaseInit) rotateSecrets(server storage.UpdateServer) error {
 	p.Infof("Generate new secrets configuration package for %v.", server)
 	resp, err := p.Operator.RotateSecrets(ops.RotateSecretsRequest{
 		AccountID:   p.Operation.AccountID,
 		ClusterName: p.Operation.SiteDomain,
-		Server:      server,
+		Locator:     server.RuntimeSecretsPackage,
+		Server:      server.Server,
 	})
 	if err != nil {
 		return trace.Wrap(err)
@@ -357,7 +353,7 @@ func (p *updatePhaseInit) rotateSecrets(server storage.Server) error {
 	return nil
 }
 
-func (p *updatePhaseInit) rotatePlanetConfig(server storage.Server) error {
+func (p *updatePhaseInit) rotatePlanetConfig(server storage.UpdateServer) error {
 	p.Infof("Generate new runtime configuration package for %v.", server)
 	runtimePackage, err := p.app.Manifest.RuntimePackageForProfile(server.Role)
 	if err != nil {
@@ -365,9 +361,10 @@ func (p *updatePhaseInit) rotatePlanetConfig(server storage.Server) error {
 	}
 	resp, err := p.Operator.RotatePlanetConfig(ops.RotatePlanetConfigRequest{
 		Key:            p.Operation.Key(),
-		Server:         server,
+		Server:         server.Server,
 		Manifest:       p.app.Manifest,
 		RuntimePackage: *runtimePackage,
+		Locator:        &server.Runtime.ConfigPackage,
 		Config:         p.existingClusterConfig,
 		Env:            p.existingEnviron,
 	})
@@ -383,11 +380,12 @@ func (p *updatePhaseInit) rotatePlanetConfig(server storage.Server) error {
 	return nil
 }
 
-func (p *updatePhaseInit) rotateTeleportConfig(server storage.Server) error {
+func (p *updatePhaseInit) rotateTeleportConfig(server storage.UpdateServer) error {
 	masterConf, nodeConf, err := p.Operator.RotateTeleportConfig(ops.RotateTeleportConfigRequest{
 		Key:       p.Operation.Key(),
-		Server:    server,
-		MasterIPs: storage.Servers(p.Servers).MasterIPs(),
+		Server:    server.Server,
+		Node:      &server.Teleport.NodeConfigPackage,
+		MasterIPs: masterIPs(p.Servers),
 	})
 	if err != nil {
 		return trace.Wrap(err)
@@ -405,6 +403,15 @@ func (p *updatePhaseInit) rotateTeleportConfig(server storage.Server) error {
 	}
 	p.Debugf("Rotated teleport node config package for %v: %v.", server, nodeConf.Locator)
 	return nil
+}
+
+func masterIPs(servers []storage.UpdateServer) (addrs []string) {
+	for _, server := range servers {
+		if server.IsMaster() {
+			addrs = append(addrs, server.AdvertiseIP)
+		}
+	}
+	return addrs
 }
 
 func removeLegacyUpdateDirectory(log log.FieldLogger) error {
@@ -450,94 +457,4 @@ func (p *updatePhaseInit) removeConfiguredPackages() error {
 			}
 			return nil
 		})
-}
-
-// systemNeedsUpdate determines whether planet or teleport services need
-// to be updated by comparing versions of respective packages in the
-// installed and update application manifest
-func systemNeedsUpdate(profile string, installed, update app.Application) (planetNeedsUpdate, teleportNeedsUpdate bool, err error) {
-	installedProfile, err := installed.Manifest.NodeProfiles.ByName(profile)
-	if err != nil {
-		return false, false, trace.Wrap(err)
-	}
-
-	updateProfile, err := update.Manifest.NodeProfiles.ByName(profile)
-	if err != nil {
-		return false, false, trace.Wrap(err)
-	}
-
-	updateRuntimePackage, err := update.Manifest.RuntimePackage(*updateProfile)
-	if err != nil {
-		return false, false, trace.Wrap(err)
-	}
-
-	updateRuntimeVersion, err := updateRuntimePackage.SemVer()
-	if err != nil {
-		return false, false, trace.Wrap(err)
-	}
-
-	installedRuntimePackage, err := getRuntimePackage(installed.Manifest, *installedProfile, schema.ServiceRoleMaster)
-	if err != nil {
-		return false, false, trace.Wrap(err)
-	}
-
-	installedRuntimeVersion, err := installedRuntimePackage.SemVer()
-	if err != nil {
-		return false, false, trace.Wrap(err)
-	}
-
-	logrus.Debugf("Runtime installed: %v, runtime to update to: %v.",
-		installedRuntimePackage, updateRuntimePackage)
-
-	installedTeleportPackage, err := installed.Manifest.Dependencies.ByName(
-		constants.TeleportPackage)
-	if err != nil {
-		return false, false, trace.Wrap(err)
-	}
-
-	installedTeleportVersion, err := installedTeleportPackage.SemVer()
-	if err != nil {
-		return false, false, trace.Wrap(err)
-	}
-
-	updateTeleportPackage, err := update.Manifest.Dependencies.ByName(
-		constants.TeleportPackage)
-	if err != nil {
-		return false, false, trace.Wrap(err)
-	}
-
-	updateTeleportVersion, err := updateTeleportPackage.SemVer()
-	if err != nil {
-		return false, false, trace.Wrap(err)
-	}
-
-	logrus.Debugf("Teleport installed: %v, teleport update: %v.",
-		installedTeleportPackage, updateTeleportPackage)
-
-	return installedRuntimeVersion.LessThan(*updateRuntimeVersion),
-		installedTeleportVersion.LessThan(*updateTeleportVersion), nil
-}
-
-func getRuntimePackage(manifest schema.Manifest, profile schema.NodeProfile, clusterRole schema.ServiceRole) (*loc.Locator, error) {
-	runtimePackage, err := manifest.RuntimePackage(profile)
-	if err != nil && !trace.IsNotFound(err) {
-		return nil, trace.Wrap(err)
-	}
-	if err == nil {
-		return runtimePackage, nil
-	}
-	// Look for legacy package
-	packageName := loc.LegacyPlanetMaster.Name
-	if clusterRole == schema.ServiceRoleNode {
-		packageName = loc.LegacyPlanetNode.Name
-	}
-	runtimePackage, err = manifest.Dependencies.ByName(packageName)
-	if err != nil {
-		logrus.Warnf("Failed to find the legacy runtime package in manifest "+
-			"for profile %v and cluster role %v: %v.", profile.Name, clusterRole, err)
-		return nil, trace.NotFound("runtime package for profile %v "+
-			"(cluster role %v) not found in manifest",
-			profile.Name, clusterRole)
-	}
-	return runtimePackage, nil
 }

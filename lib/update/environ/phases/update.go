@@ -126,7 +126,7 @@ type updateConfig struct {
 	operation    ops.SiteOperation
 	packages     packageService
 	hostPackages packageService
-	updates      []storage.ServerConfigUpdate
+	updates      []storage.UpdateServer
 	manifest     schema.Manifest
 }
 

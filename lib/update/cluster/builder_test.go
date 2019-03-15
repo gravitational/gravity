@@ -290,7 +290,7 @@ func newTestPlan(c *check.C, p params) planConfig {
 			ClusterRole: string(schema.ServiceRoleNode),
 		},
 	}
-	updates := []storage.ServerConfigUpdate{
+	updates := []storage.UpdateServer{
 		{
 			Server:  servers[0],
 			Runtime: storage.RuntimeConfigUpdate{Package: runtimeLoc},

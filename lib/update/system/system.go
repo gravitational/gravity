@@ -56,15 +56,8 @@ func (r *System) Update(ctx context.Context, withStatus bool) error {
 	if err := r.Config.PackageUpdates.checkAndSetDefaults(); err != nil {
 		return trace.Wrap(err)
 	}
-	packageUpdates := []storage.PackageUpdate{r.Runtime}
-	if r.RuntimeSecrets != nil {
-		packageUpdates = append(packageUpdates, *r.RuntimeSecrets)
-	}
-	if r.Teleport != nil {
-		packageUpdates = append(packageUpdates, *r.Teleport)
-	}
 	var changes []storage.PackageUpdate
-	for _, u := range packageUpdates {
+	for _, u := range r.updates() {
 		logger := r.WithField("package", u)
 		logger.Info("Checking for update.")
 		update, err := needsPackageUpdate(r.Packages, u)
@@ -75,7 +68,6 @@ func (r *System) Update(ctx context.Context, withStatus bool) error {
 			}
 			return trace.Wrap(err)
 		}
-		// update.Labels = req.labels
 		logger.WithField("package", update).Info("Found update.")
 		changes = append(changes, *update)
 	}
@@ -210,10 +202,23 @@ func (r *PackageUpdates) checkAndSetDefaults() error {
 	return nil
 }
 
+func (r *PackageUpdates) updates() (result []storage.PackageUpdate) {
+	if r.Runtime != nil {
+		result = append(result, *r.Runtime)
+	}
+	if r.RuntimeSecrets != nil {
+		result = append(result, *r.RuntimeSecrets)
+	}
+	if r.Teleport != nil {
+		result = append(result, *r.Teleport)
+	}
+	return result
+}
+
 // PackageUpdates describes the packages to update
 type PackageUpdates struct {
 	// Runtime specifies the runtime package updates
-	Runtime storage.PackageUpdate
+	Runtime *storage.PackageUpdate
 	// RuntimeSecrets specifies the update for the runtime secrets package
 	RuntimeSecrets *storage.PackageUpdate
 	// Teleport specifies the teleport package updates
@@ -653,7 +658,7 @@ func getLocalNodeStatus(ctx context.Context) error {
 		return trace.Wrap(err)
 	}
 	if status.GetSystemStatus() != agentpb.SystemStatus_Running {
-		return trace.BadParameter("cluster is degraded")
+		return trace.BadParameter("node is degraded")
 	}
 	return nil
 }

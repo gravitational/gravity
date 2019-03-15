@@ -42,11 +42,11 @@ type updatePhaseSystem struct {
 	// OperationID is the id of the current update operation
 	OperationID string
 	// Server is the server currently being updated
-	Server storage.ServerConfigUpdate
+	Server storage.UpdateServer
 	// GravityPath is the path to the new gravity binary
 	GravityPath string
-	// LocalBackend specifies the local backend
-	LocalBackend storage.Backend
+	// Backend specifies the backend used for the update operation
+	Backend storage.Backend
 	// Packages specifies the cluster package service
 	Packages pack.PackageService
 	// HostLocalPackages specifies the package service on local host
@@ -78,7 +78,7 @@ func NewUpdatePhaseSystem(
 		OperationID:       p.Plan.OperationID,
 		Server:            p.Phase.Data.Update.Servers[0],
 		GravityPath:       gravityPath,
-		LocalBackend:      backend,
+		Backend:           backend,
 		Packages:          packages,
 		HostLocalPackages: localPackages,
 		FieldLogger:       logger,
@@ -103,29 +103,33 @@ func (p *updatePhaseSystem) Execute(ctx context.Context) error {
 	if err != nil {
 		return trace.Wrap(err)
 	}
-	updater, err := system.New(system.Config{
+	config := system.Config{
 		ChangesetID: p.OperationID,
-		Backend:     p.LocalBackend,
+		Backend:     p.Backend,
 		Packages:    p.HostLocalPackages,
-		PackageUpdates: system.PackageUpdates{
-			Runtime: storage.PackageUpdate{
-				To: p.Server.Runtime.Package,
-				ConfigPackage: &storage.PackageUpdate{
-					To: p.Server.Runtime.ConfigPackage,
-				},
+	}
+	if p.Server.Runtime != nil {
+		config.Runtime = &storage.PackageUpdate{
+			To: p.Server.Runtime.Package,
+			ConfigPackage: &storage.PackageUpdate{
+				To: p.Server.Runtime.ConfigPackage,
 			},
-			RuntimeSecrets: &storage.PackageUpdate{
-				// FIXME(dmitri): validate
-				To: *p.Server.Runtime.SecretsPackage,
+		}
+	}
+	if p.Server.Teleport != nil {
+		config.Teleport = &storage.PackageUpdate{
+			To: p.Server.Teleport.Package,
+			ConfigPackage: &storage.PackageUpdate{
+				To: p.Server.Teleport.NodeConfigPackage,
 			},
-			Teleport: &storage.PackageUpdate{
-				To: p.Server.Teleport.Package,
-				ConfigPackage: &storage.PackageUpdate{
-					To: p.Server.Teleport.NodeConfig,
-				},
-			},
-		},
-	})
+		}
+	}
+	if p.Server.RuntimeSecretsPackage != nil {
+		config.RuntimeSecrets = &storage.PackageUpdate{
+			To: *p.Server.RuntimeSecretsPackage,
+		}
+	}
+	updater, err := system.New(config)
 	if err != nil {
 		return trace.Wrap(err)
 	}
@@ -137,7 +141,7 @@ func (p *updatePhaseSystem) Execute(ctx context.Context) error {
 func (p *updatePhaseSystem) Rollback(ctx context.Context) error {
 	updater, err := system.New(system.Config{
 		ChangesetID: p.OperationID,
-		Backend:     p.LocalBackend,
+		Backend:     p.Backend,
 		Packages:    p.HostLocalPackages,
 	})
 	if err != nil {
@@ -148,12 +152,21 @@ func (p *updatePhaseSystem) Rollback(ctx context.Context) error {
 }
 
 func (p *updatePhaseSystem) pullUpdates() error {
-	updates := []loc.Locator{
-		p.Server.Runtime.Package,
-		p.Server.Runtime.ConfigPackage,
-		*p.Server.Runtime.SecretsPackage,
-		p.Server.Teleport.Package,
-		p.Server.Teleport.NodeConfig,
+	var updates []loc.Locator
+	if p.Server.Runtime != nil {
+		updates = append(updates,
+			p.Server.Runtime.Package,
+			p.Server.Runtime.ConfigPackage,
+		)
+	}
+	if p.Server.RuntimeSecretsPackage != nil {
+		updates = append(updates, *p.Server.RuntimeSecretsPackage)
+	}
+	if p.Server.Teleport != nil {
+		updates = append(updates,
+			p.Server.Teleport.Package,
+			p.Server.Teleport.NodeConfigPackage,
+		)
 	}
 	for _, update := range updates {
 		p.Infof("Pulling package update: %v.", update)

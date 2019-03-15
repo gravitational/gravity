@@ -77,7 +77,7 @@ func (r *restart) Execute(ctx context.Context) error {
 		Backend:     r.backend,
 		Packages:    r.localPackages,
 		PackageUpdates: system.PackageUpdates{
-			Runtime: storage.PackageUpdate{
+			Runtime: &storage.PackageUpdate{
 				To: r.update.Runtime.Package,
 				ConfigPackage: &storage.PackageUpdate{
 					To: r.update.Runtime.ConfigPackage,
@@ -139,7 +139,7 @@ type restart struct {
 	backend       storage.Backend
 	packages      pack.PackageService
 	localPackages update.LocalPackageService
-	update        storage.ServerConfigUpdate
+	update        storage.UpdateServer
 	serviceUser   storage.OSUser
 	operationID   string
 }
