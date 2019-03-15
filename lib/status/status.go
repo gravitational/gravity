@@ -22,7 +22,6 @@ import (
 	"fmt"
 	"io"
 	"net/url"
-	"path"
 	"time"
 
 	"github.com/gravitational/gravity/lib/constants"
@@ -408,15 +407,16 @@ func fromClusterState(systemStatus pb.SystemStatus, cluster []storage.Server) (o
 }
 
 func planetAgentStatus(ctx context.Context, local bool) (*pb.SystemStatus, error) {
+	urlFormat := "https://%v:%v"
+	if local {
+		urlFormat = "https://%v:%v/local"
+	}
 	planetClient, err := httplib.GetPlanetClient()
 	if err != nil {
 		return nil, trace.Wrap(err)
 	}
 	httpClient := roundtrip.HTTPClient(planetClient)
-	addr := fmt.Sprintf("https://%v:%v", constants.Localhost, defaults.SatelliteRPCAgentPort)
-	if local {
-		addr = path.Join(addr, "local")
-	}
+	addr := fmt.Sprintf(urlFormat, constants.Localhost, defaults.SatelliteRPCAgentPort)
 	client, err := roundtrip.NewClient(addr, "", httpClient)
 	if err != nil {
 		return nil, trace.Wrap(err)

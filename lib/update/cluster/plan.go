@@ -176,7 +176,6 @@ func NewOperationPlan(config PlanConfig) (*storage.OperationPlan, error) {
 
 	updates, err := configUpdates(
 		installedApp.Manifest, updateApp.Manifest,
-		installedRuntime.Package, updateRuntime.Package,
 		config.Operator, (*ops.SiteOperation)(config.Operation).Key(), servers)
 	if err != nil {
 		return nil, trace.Wrap(err)
@@ -394,7 +393,7 @@ func newOperationPlan(p planConfig) (*storage.OperationPlan, error) {
 	root.AddSequential(*builder.app(appUpdates), *builder.cleanup())
 	plan := p.plan
 	plan.Phases = root.Phases
-	update.ResolvePlan(&p.plan)
+	update.ResolvePlan(&plan)
 
 	return &plan, nil
 }
@@ -402,7 +401,6 @@ func newOperationPlan(p planConfig) (*storage.OperationPlan, error) {
 // configUpdates computes the configuration updates for the specified list of servers
 func configUpdates(
 	installed, update schema.Manifest,
-	installedRuntime, updateRuntime loc.Locator,
 	operator packageRotator,
 	operation ops.SiteOperationKey,
 	servers []storage.Server,
@@ -425,17 +423,28 @@ func configUpdates(
 		if err != nil {
 			return nil, trace.Wrap(err)
 		}
-		updateServer := storage.UpdateServer{
-			Server:                server,
-			RuntimeSecretsPackage: &secretsUpdate.Locator,
+		installedRuntime, err := getRuntimePackage(installed, server.Role, schema.ServiceRole(server.ClusterRole))
+		if err != nil {
+			return nil, trace.Wrap(err)
 		}
-		needsPlanetUpdate, needsTeleportUpdate, err := systemNeedsUpdate(server.Role,
-			installedRuntime, updateRuntime, *installedTeleport, *updateTeleport)
+		updateServer := storage.UpdateServer{
+			Server: server,
+			Runtime: storage.RuntimePackage{
+				Installed:      *installedRuntime,
+				SecretsPackage: &secretsUpdate.Locator,
+			},
+			Teleport: storage.TeleportPackage{
+				Installed: *installedTeleport,
+			},
+		}
+		needsPlanetUpdate, needsTeleportUpdate, err := systemNeedsUpdate(
+			server.Role, server.ClusterRole,
+			installed, update, *installedTeleport, *updateTeleport)
 		if err != nil {
 			return nil, trace.Wrap(err)
 		}
 		if needsPlanetUpdate {
-			runtimePackage, err := update.RuntimePackageForProfile(server.Role)
+			updateRuntime, err := update.RuntimePackageForProfile(server.Role)
 			if err != nil {
 				return nil, trace.Wrap(err)
 			}
@@ -443,14 +452,14 @@ func configUpdates(
 				Key:            operation,
 				Server:         server,
 				Manifest:       update,
-				RuntimePackage: *runtimePackage,
+				RuntimePackage: *updateRuntime,
 				DryRun:         true,
 			})
 			if err != nil {
 				return nil, trace.Wrap(err)
 			}
-			updateServer.Runtime = &storage.RuntimeConfigUpdate{
-				Package:       *runtimePackage,
+			updateServer.Runtime.Update = &storage.RuntimeUpdate{
+				Package:       *updateRuntime,
 				ConfigPackage: configUpdate.Locator,
 			}
 		}
@@ -463,7 +472,7 @@ func configUpdates(
 			if err != nil {
 				return nil, trace.Wrap(err)
 			}
-			updateServer.Teleport = &storage.TeleportConfigUpdate{
+			updateServer.Teleport.Update = &storage.TeleportUpdate{
 				Package:             *updateTeleport,
 				MasterConfigPackage: masterConfig.Locator,
 				NodeConfigPackage:   nodeConfig.Locator,
@@ -585,35 +594,57 @@ func shouldUpdateDNSAppEarly(client *kubernetes.Clientset) (bool, error) {
 // systemNeedsUpdate determines whether planet or teleport services need
 // to be updated by comparing versions of respective packages in the
 // installed and update application manifest
-func systemNeedsUpdate(profile string, installedRuntime, updateRuntime, installedTeleport, updateTeleport loc.Locator) (planetNeedsUpdate, teleportNeedsUpdate bool, err error) {
-	updateRuntimeVersion, err := updateRuntime.SemVer()
+// FIXME(dmitri): should consider runtime update if runtime applications have changed
+// between versions
+func systemNeedsUpdate(
+	profile, clusterRole string,
+	installed, update schema.Manifest,
+	installedTeleportPackage, updateTeleportPackage loc.Locator,
+) (planetNeedsUpdate, teleportNeedsUpdate bool, err error) {
+	updateProfile, err := update.NodeProfiles.ByName(profile)
 	if err != nil {
 		return false, false, trace.Wrap(err)
 	}
-	installedRuntimeVersion, err := installedRuntime.SemVer()
+	updateRuntimePackage, err := update.RuntimePackage(*updateProfile)
 	if err != nil {
 		return false, false, trace.Wrap(err)
 	}
-	installedTeleportVersion, err := installedTeleport.SemVer()
+	updateRuntimeVersion, err := updateRuntimePackage.SemVer()
 	if err != nil {
 		return false, false, trace.Wrap(err)
 	}
-	updateTeleportVersion, err := updateTeleport.SemVer()
+	installedRuntimePackage, err := getRuntimePackage(installed, profile, schema.ServiceRole(clusterRole))
+	if err != nil {
+		return false, false, trace.Wrap(err)
+	}
+	installedRuntimeVersion, err := installedRuntimePackage.SemVer()
+	if err != nil {
+		return false, false, trace.Wrap(err)
+	}
+	installedTeleportVersion, err := installedTeleportPackage.SemVer()
+	if err != nil {
+		return false, false, trace.Wrap(err)
+	}
+	updateTeleportVersion, err := updateTeleportPackage.SemVer()
 	if err != nil {
 		return false, false, trace.Wrap(err)
 	}
 	logrus.WithFields(logrus.Fields{
-		"installed-runtime":  installedRuntime,
-		"update-runtime":     updateRuntime,
-		"installed-teleport": installedTeleport,
-		"update-teleport":    updateTeleport,
-	}).Debug("Check if needs to update system packages.")
+		"installed-runtime":  installedRuntimePackage,
+		"update-runtime":     updateRuntimePackage,
+		"installed-teleport": installedTeleportPackage,
+		"update-teleport":    updateTeleportPackage,
+	}).Debug("Check if system packages need to be updated.")
 	return installedRuntimeVersion.LessThan(*updateRuntimeVersion),
 		installedTeleportVersion.LessThan(*updateTeleportVersion), nil
 }
 
-func getRuntimePackage(manifest schema.Manifest, profile schema.NodeProfile, clusterRole schema.ServiceRole) (*loc.Locator, error) {
-	runtimePackage, err := manifest.RuntimePackage(profile)
+func getRuntimePackage(manifest schema.Manifest, profileName string, clusterRole schema.ServiceRole) (*loc.Locator, error) {
+	profile, err := manifest.NodeProfiles.ByName(profileName)
+	if err != nil {
+		return nil, trace.Wrap(err)
+	}
+	runtimePackage, err := manifest.RuntimePackage(*profile)
 	if err != nil && !trace.IsNotFound(err) {
 		return nil, trace.Wrap(err)
 	}

@@ -71,8 +71,8 @@ func (r *updateConfig) Execute(ctx context.Context) error {
 			Key:            r.operation.Key(),
 			Server:         update.Server,
 			Manifest:       r.manifest,
-			RuntimePackage: update.Runtime.Package,
-			Locator:        &update.Runtime.ConfigPackage,
+			RuntimePackage: update.Runtime.Update.Package,
+			Locator:        &update.Runtime.Update.ConfigPackage,
 			Env:            r.operation.UpdateEnviron.Env,
 		}
 		resp, err := r.operator.RotatePlanetConfig(req)
@@ -96,7 +96,7 @@ func (r *updateConfig) Execute(ctx context.Context) error {
 func (r *updateConfig) Rollback(context.Context) error {
 	for _, update := range r.updates {
 		for _, packages := range []packageService{r.packages, r.hostPackages} {
-			err := packages.DeletePackage(update.Runtime.ConfigPackage)
+			err := packages.DeletePackage(update.Runtime.Update.ConfigPackage)
 			if err != nil && !trace.IsNotFound(err) {
 				return trace.Wrap(err)
 			}

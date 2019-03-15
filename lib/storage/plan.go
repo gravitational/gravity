@@ -86,7 +86,7 @@ type OperationPhase struct {
 	// Data is optional phase-specific data attached to the phase
 	Data *OperationPhaseData `json:"data,omitempty" yaml:"data,omitempty"`
 	// Error is the error that happened during phase execution
-	Error *trace.RawTrace `json:"error"`
+	Error *trace.RawTrace `json:"error,omitempty"`
 }
 
 // OperationPhaseData represents data attached to an operation phase
@@ -106,8 +106,6 @@ type OperationPhaseData struct {
 	InstalledPackage *loc.Locator `json:"installed_package,omitempty" yaml:"installed_package,omitempty"`
 	// RuntimePackage references the update runtime package
 	RuntimePackage *loc.Locator `json:"runtime_package,omitempty" yaml:"runtime_package,omitempty"`
-	// UpdatePlanet indicates whether the planet needs to be updated during bootstrap
-	UpdatePlanet bool `json:"update_planet" yaml:"update_planet"`
 	// ElectionChange describes changes to make to cluster elections
 	ElectionChange *ElectionChange `json:"election_status,omitempty" yaml:"election_status,omitempty"`
 	// Agent is the credentials of the agent that should be logged in
@@ -149,8 +147,6 @@ type UpdateOperationData struct {
 	// The list might be a subset of all cluster servers in case
 	// the operation only operates on a specific part
 	Servers []UpdateServer `json:"updates,omitempty"`
-	// InstalledRuntimePackage references the installed runtime package
-	InstalledRuntimePackage *loc.Locator `json:"installed_runtime_package,omitempty"`
 }
 
 // UpdateServer describes an intent to update runtime/teleport configuration
@@ -158,25 +154,43 @@ type UpdateOperationData struct {
 type UpdateServer struct {
 	// Server identifies the server for the configuration package update
 	Server `json:"server"`
-	// RuntimeSecretsPackage identifies the new secrets package
-	RuntimeSecretsPackage *loc.Locator `json:"runtime_secrets_package,omitempty"`
 	// Runtime defines the optional runtime update for the server
-	Runtime *RuntimeConfigUpdate `json:"runtime,omitempty"`
+	Runtime RuntimePackage `json:"runtime,omitempty"`
 	// Teleport defines the optional teleport update for the server
-	Teleport *TeleportConfigUpdate `json:"teleport,omitempty"`
+	Teleport TeleportPackage `json:"teleport,omitempty"`
 }
 
-// RuntimeConfigUpdate describes an update to the runtime package
-type RuntimeConfigUpdate struct {
-	// Package identifies the package on the server the updates are applied to
+// RuntimePackage describes the state of the runtime package during update
+type RuntimePackage struct {
+	// Installed identifies the installed version of the runtime package
+	Installed loc.Locator `json:"installed"`
+	// RuntimeSecretsPackage specifies the new secrets package
+	SecretsPackage *loc.Locator `json:"runtime_secrets_package,omitempty"`
+	// Update describes an update to the runtime package
+	Update *RuntimeUpdate `json:"update,omitempty"`
+}
+
+// RuntimeUpdate describes an update to the runtime package
+type RuntimeUpdate struct {
+	// Package identifies the package to update to.
+	// This can be the same as Installed in which case no update is performed
 	Package loc.Locator `json:"package"`
 	// ConfigPackage identifies the new configuration package
 	ConfigPackage loc.Locator `json:"config_package"`
 }
 
-// TeleportConfigUpdate describes an update to the teleport package
-type TeleportConfigUpdate struct {
-	// Package identifies the package on the server the updates are applied to
+// TeleportPackage describes the state of the teleport package during update
+type TeleportPackage struct {
+	// Installed identifies the installed version of the teleport package
+	Installed loc.Locator `json:"installed"`
+	// Update describes an update to the runtime package
+	Update *TeleportUpdate `json:"update,omitempty"`
+}
+
+// TeleportUpdate describes an update to the teleport package
+type TeleportUpdate struct {
+	// Package identifies the package to update to.
+	// This can be the same as Installed in which case no update is performed
 	Package loc.Locator `json:"package"`
 	// MasterConfigPackage identifies the new cluster teleport configuration package
 	MasterConfigPackage loc.Locator `json:"master_config_package"`

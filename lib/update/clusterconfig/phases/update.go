@@ -58,21 +58,21 @@ func NewUpdateConfig(
 		operation:    operation,
 		packages:     packages,
 		hostPackages: hostPackages,
-		updates:      params.Phase.Data.Update.Servers,
+		servers:      params.Phase.Data.Update.Servers,
 		manifest:     app.Manifest,
 	}, nil
 }
 
 // Execute generates new runtime configuration with the specified environment
 func (r *updateConfig) Execute(ctx context.Context) error {
-	for _, update := range r.updates {
+	for _, update := range r.servers {
 		r.Infof("Generate new runtime configuration package for %v.", update.Server)
 		req := ops.RotatePlanetConfigRequest{
 			Key:            r.operation.Key(),
 			Server:         update.Server,
 			Manifest:       r.manifest,
-			RuntimePackage: update.Runtime.Package,
-			Locator:        &update.Runtime.ConfigPackage,
+			RuntimePackage: update.Runtime.Update.Package,
+			Locator:        &update.Runtime.Update.ConfigPackage,
 			Config:         r.operation.UpdateConfig.Config,
 		}
 		resp, err := r.operator.RotatePlanetConfig(req)
@@ -94,9 +94,9 @@ func (r *updateConfig) Execute(ctx context.Context) error {
 
 // Rollback resets the cluster configuration to the previous value
 func (r *updateConfig) Rollback(context.Context) error {
-	for _, update := range r.updates {
+	for _, update := range r.servers {
 		for _, packages := range []packageService{r.packages, r.hostPackages} {
-			err := packages.DeletePackage(update.Runtime.ConfigPackage)
+			err := packages.DeletePackage(update.Runtime.Update.ConfigPackage)
 			if err != nil && !trace.IsNotFound(err) {
 				return trace.Wrap(err)
 			}
@@ -126,7 +126,7 @@ type updateConfig struct {
 	operation    ops.SiteOperation
 	packages     packageService
 	hostPackages packageService
-	updates      []storage.UpdateServer
+	servers      []storage.UpdateServer
 	manifest     schema.Manifest
 }
 

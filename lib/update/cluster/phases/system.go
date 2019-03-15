@@ -43,19 +43,17 @@ type updatePhaseSystem struct {
 	OperationID string
 	// Server is the server currently being updated
 	Server storage.UpdateServer
-	// GravityPath is the path to the new gravity binary
-	GravityPath string
 	// Backend specifies the backend used for the update operation
 	Backend storage.Backend
 	// Packages specifies the cluster package service
 	Packages pack.PackageService
 	// HostLocalPackages specifies the package service on local host
 	HostLocalPackages update.LocalPackageService
+	// GravityPackage specifies the new gravity package
+	GravityPackage loc.Locator
 	// FieldLogger is used for logging
 	log.FieldLogger
 	remote fsm.Remote
-	// runtimePackage specifies the runtime package to update to
-	runtimePackage loc.Locator
 }
 
 // NewUpdatePhaseNode returns a new node update phase executor
@@ -70,20 +68,15 @@ func NewUpdatePhaseSystem(
 	if p.Phase.Data.Update == nil || len(p.Phase.Data.Update.Servers) != 1 {
 		return nil, trace.NotFound("no server specified for phase %q", p.Phase.ID)
 	}
-	gravityPath, err := getGravityPath()
-	if err != nil {
-		return nil, trace.Wrap(err)
-	}
 	return &updatePhaseSystem{
 		OperationID:       p.Plan.OperationID,
 		Server:            p.Phase.Data.Update.Servers[0],
-		GravityPath:       gravityPath,
+		GravityPackage:    p.Plan.GravityPackage,
 		Backend:           backend,
 		Packages:          packages,
 		HostLocalPackages: localPackages,
 		FieldLogger:       logger,
 		remote:            remote,
-		runtimePackage:    *p.Phase.Data.RuntimePackage,
 	}, nil
 }
 
@@ -99,34 +92,42 @@ func (p *updatePhaseSystem) PostCheck(context.Context) error {
 
 // Execute runs system update on the node
 func (p *updatePhaseSystem) Execute(ctx context.Context) error {
-	err := p.pullUpdates()
-	if err != nil {
-		return trace.Wrap(err)
-	}
 	config := system.Config{
 		ChangesetID: p.OperationID,
 		Backend:     p.Backend,
 		Packages:    p.HostLocalPackages,
-	}
-	if p.Server.Runtime != nil {
-		config.Runtime = &storage.PackageUpdate{
-			To: p.Server.Runtime.Package,
-			ConfigPackage: &storage.PackageUpdate{
-				To: p.Server.Runtime.ConfigPackage,
+		PackageUpdates: system.PackageUpdates{
+			Gravity: &storage.PackageUpdate{
+				To: p.GravityPackage,
 			},
+			Runtime: storage.PackageUpdate{
+				From: p.Server.Runtime.Installed,
+				// Overwritten below if an update exists
+				To: p.Server.Runtime.Installed,
+			},
+		},
+	}
+	if p.Server.Runtime.Update != nil {
+		config.Runtime.To = p.Server.Runtime.Update.Package
+		config.Runtime.ConfigPackage = &storage.PackageUpdate{
+			To: p.Server.Runtime.Update.ConfigPackage,
 		}
 	}
-	if p.Server.Teleport != nil {
+	if p.Server.Teleport.Update != nil {
+		// Consider teleport update only in effect when the update package
+		// has been specified. This is in contrast to runtime update, when
+		// we expect to update the configuration more often
 		config.Teleport = &storage.PackageUpdate{
-			To: p.Server.Teleport.Package,
+			From: p.Server.Teleport.Installed,
+			To:   p.Server.Teleport.Update.Package,
 			ConfigPackage: &storage.PackageUpdate{
-				To: p.Server.Teleport.NodeConfigPackage,
+				To: p.Server.Teleport.Update.NodeConfigPackage,
 			},
 		}
 	}
-	if p.Server.RuntimeSecretsPackage != nil {
+	if p.Server.Runtime.SecretsPackage != nil {
 		config.RuntimeSecrets = &storage.PackageUpdate{
-			To: *p.Server.RuntimeSecretsPackage,
+			To: *p.Server.Runtime.SecretsPackage,
 		}
 	}
 	updater, err := system.New(config)
@@ -149,37 +150,6 @@ func (p *updatePhaseSystem) Rollback(ctx context.Context) error {
 	}
 	err = updater.Rollback(ctx, true)
 	return trace.Wrap(err)
-}
-
-func (p *updatePhaseSystem) pullUpdates() error {
-	var updates []loc.Locator
-	if p.Server.Runtime != nil {
-		updates = append(updates,
-			p.Server.Runtime.Package,
-			p.Server.Runtime.ConfigPackage,
-		)
-	}
-	if p.Server.RuntimeSecretsPackage != nil {
-		updates = append(updates, *p.Server.RuntimeSecretsPackage)
-	}
-	if p.Server.Teleport != nil {
-		updates = append(updates,
-			p.Server.Teleport.Package,
-			p.Server.Teleport.NodeConfigPackage,
-		)
-	}
-	for _, update := range updates {
-		p.Infof("Pulling package update: %v.", update)
-		_, err := service.PullPackage(service.PackagePullRequest{
-			SrcPack: p.Packages,
-			DstPack: p.HostLocalPackages,
-			Package: update,
-		})
-		if err != nil && !trace.IsAlreadyExists(err) {
-			return trace.Wrap(err)
-		}
-	}
-	return nil
 }
 
 type updatePhaseConfig struct {

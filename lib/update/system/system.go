@@ -95,7 +95,6 @@ func (r *System) Update(ctx context.Context, withStatus bool) error {
 	if err != nil {
 		return trace.Wrap(err)
 	}
-
 	err = getLocalNodeStatus(ctx)
 	if err != nil {
 		return trace.Wrap(err)
@@ -179,22 +178,21 @@ type Config struct {
 }
 
 func (r *PackageUpdates) checkAndSetDefaults() error {
-	if r.Runtime.ConfigPackage == nil {
-		return trace.BadParameter("Runtime configuration package is required")
-	}
-	if r.Teleport != nil && r.Teleport.ConfigPackage == nil {
-		return trace.BadParameter("Teleport configuration package is required for teleport update")
-	}
 	if len(r.Runtime.Labels) == 0 {
 		r.Runtime.Labels = pack.RuntimePackageLabels
 	}
-	if len(r.Runtime.ConfigPackage.Labels) == 0 {
-		r.Runtime.ConfigPackage.Labels = pack.RuntimeConfigPackageLabels
+	if r.Runtime.ConfigPackage != nil {
+		if len(r.Runtime.ConfigPackage.Labels) == 0 {
+			r.Runtime.ConfigPackage.Labels = pack.RuntimeConfigPackageLabels
+		}
 	}
 	if r.RuntimeSecrets != nil && len(r.RuntimeSecrets.Labels) == 0 {
 		r.RuntimeSecrets.Labels = pack.RuntimeSecretsPackageLabels
 	}
 	if r.Teleport != nil {
+		if r.Teleport.ConfigPackage == nil {
+			return trace.BadParameter("Teleport configuration package is required")
+		}
 		if len(r.Teleport.ConfigPackage.Labels) == 0 {
 			r.Teleport.ConfigPackage.Labels = pack.TeleportNodeConfigPackageLabels
 		}
@@ -203,8 +201,9 @@ func (r *PackageUpdates) checkAndSetDefaults() error {
 }
 
 func (r *PackageUpdates) updates() (result []storage.PackageUpdate) {
-	if r.Runtime != nil {
-		result = append(result, *r.Runtime)
+	result = append(result, r.Runtime)
+	if r.Gravity != nil {
+		result = append(result, *r.Gravity)
 	}
 	if r.RuntimeSecrets != nil {
 		result = append(result, *r.RuntimeSecrets)
@@ -217,11 +216,13 @@ func (r *PackageUpdates) updates() (result []storage.PackageUpdate) {
 
 // PackageUpdates describes the packages to update
 type PackageUpdates struct {
-	// Runtime specifies the runtime package updates
-	Runtime *storage.PackageUpdate
+	// Gravity specifies the gravity package update
+	Gravity *storage.PackageUpdate
+	// Runtime specifies the runtime package update
+	Runtime storage.PackageUpdate
 	// RuntimeSecrets specifies the update for the runtime secrets package
 	RuntimeSecrets *storage.PackageUpdate
-	// Teleport specifies the teleport package updates
+	// Teleport specifies the teleport package update
 	Teleport *storage.PackageUpdate
 }
 
@@ -623,22 +624,45 @@ func uninstallPackage(
 
 // needsPackageUpdate determines whether the package specified with u needs to be updated on local host.
 // Returns a storage.PackageUpdate if either the package or its configuration package needs an update
-func needsPackageUpdate(localPackages pack.PackageService, u storage.PackageUpdate) (update *storage.PackageUpdate, err error) {
-	installed, err := pack.FindInstalledPackage(localPackages, u.To)
-	if err != nil {
+func needsPackageUpdate(packages pack.PackageService, u storage.PackageUpdate) (update *storage.PackageUpdate, err error) {
+	format := func(u storage.PackageUpdate) string {
+		if u.ConfigPackage == nil {
+			return u.To.String()
+		}
+		return fmt.Sprintf("%v (configuration %v)", u.To, u.ConfigPackage.To)
+	}
+	err = updateFromInstalled(packages, &u)
+	if err != nil && !trace.IsNotFound(err) {
 		return nil, trace.Wrap(err)
 	}
-	installedConfig, err := pack.FindInstalledPackage(localPackages, u.ConfigPackage.To)
-	if err != nil {
-		return nil, trace.Wrap(err)
+	packageUpdate := err == nil
+	var configPackageUpdate bool
+	if u.ConfigPackage != nil {
+		err = updateFromInstalled(packages, u.ConfigPackage)
+		if err != nil && !trace.IsNotFound(err) {
+			return nil, trace.Wrap(err)
+		}
+		configPackageUpdate = err == nil
 	}
-	if installed.IsEqualTo(u.To) && installedConfig.IsEqualTo(u.ConfigPackage.To) {
-		return nil, trace.NotFound("package %v (configuration %v) is already the latest version",
-			u.To, u.ConfigPackage.To)
+	if !packageUpdate && !configPackageUpdate {
+		return nil, trace.NotFound("package %v is already the latest version", format(u))
 	}
-	u.From = *installed
-	u.ConfigPackage.From = *installedConfig
 	return &u, nil
+}
+
+func updateFromInstalled(localPackages pack.PackageService, update *storage.PackageUpdate) (err error) {
+	installed := &update.From
+	if installed.IsEmpty() {
+		installed, err = pack.FindInstalledPackage(localPackages, update.To)
+		if err != nil {
+			return trace.Wrap(err)
+		}
+		update.From = *installed
+	}
+	if installed.IsEqualTo(update.To) {
+		return trace.NotFound("package %v is already the latest version", update.To)
+	}
+	return nil
 }
 
 func ensureServiceRunning(servicePackage loc.Locator) error {
@@ -653,6 +677,7 @@ func ensureServiceRunning(servicePackage loc.Locator) error {
 }
 
 func getLocalNodeStatus(ctx context.Context) error {
+	// FIXME(dmitri): retry on `connection refused`
 	status, err := status.FromLocalPlanetAgent(ctx)
 	if err != nil {
 		return trace.Wrap(err)

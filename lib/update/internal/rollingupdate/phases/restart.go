@@ -77,10 +77,11 @@ func (r *restart) Execute(ctx context.Context) error {
 		Backend:     r.backend,
 		Packages:    r.localPackages,
 		PackageUpdates: system.PackageUpdates{
-			Runtime: &storage.PackageUpdate{
-				To: r.update.Runtime.Package,
+			Runtime: storage.PackageUpdate{
+				From: r.update.Runtime.Installed,
+				To:   r.update.Runtime.Update.Package,
 				ConfigPackage: &storage.PackageUpdate{
-					To: r.update.Runtime.ConfigPackage,
+					To: r.update.Runtime.Update.ConfigPackage,
 				},
 			},
 		},
@@ -118,7 +119,7 @@ func (*restart) PostCheck(context.Context) error {
 }
 
 func (r *restart) pullUpdates() error {
-	updates := []loc.Locator{r.update.Runtime.Package, r.update.Runtime.ConfigPackage}
+	updates := []loc.Locator{r.update.Runtime.Update.Package, r.update.Runtime.Update.ConfigPackage}
 	for _, update := range updates {
 		r.Infof("Pulling package update: %v.", update)
 		_, err := libapp.PullPackage(libapp.PackagePullRequest{

@@ -1161,8 +1161,11 @@ type PackageUpdate struct {
 
 // String formats this update as human-readable text
 func (u *PackageUpdate) String() string {
-	return fmt.Sprintf("update(%v -> %v, labels:%v, config:%v)",
-		u.From, u.To, u.Labels, u.ConfigPackage)
+	if u.ConfigPackage == nil {
+		return fmt.Sprintf("update(%v -> %v)", u.From, u.To)
+	}
+	return fmt.Sprintf("update(%v -> %v, config:%v)",
+		u.From, u.To, *u.ConfigPackage)
 }
 
 // PackageChangesets tracks server local package changes - updates and downgrades

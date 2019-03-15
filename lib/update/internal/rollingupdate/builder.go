@@ -38,9 +38,12 @@ func RuntimeConfigUpdates(
 		}
 		updates = append(updates, storage.UpdateServer{
 			Server: server,
-			Runtime: &storage.RuntimeConfigUpdate{
-				Package:       *runtimePackage,
-				ConfigPackage: configUpdate.Locator,
+			Runtime: storage.RuntimePackage{
+				Installed: *runtimePackage,
+				Update: &storage.RuntimeUpdate{
+					Package:       *runtimePackage,
+					ConfigPackage: configUpdate.Locator,
+				},
 			},
 		})
 	}
@@ -53,7 +56,7 @@ type ConfigPackageRotator interface {
 }
 
 // Config creates a new phase to update runtime container configuration
-func (r Builder) Config(rootText string, updates []storage.UpdateServer) *update.Phase {
+func (r Builder) Config(rootText string, servers []storage.UpdateServer) *update.Phase {
 	phase := update.RootPhase(update.Phase{
 		ID:          "update-config",
 		Executor:    libphase.UpdateConfig,
@@ -62,9 +65,9 @@ func (r Builder) Config(rootText string, updates []storage.UpdateServer) *update
 			Package: &r.App,
 		},
 	})
-	if len(updates) != 0 {
+	if len(servers) != 0 {
 		phase.Data.Update = &storage.UpdateOperationData{
-			Servers: updates,
+			Servers: servers,
 		}
 	}
 	return &phase

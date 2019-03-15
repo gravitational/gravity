@@ -67,17 +67,17 @@ func (s *PlanSuite) TestPlanWithRuntimeUpdate(c *check.C) {
 	})
 	plan := params.plan
 
-	builder := phaseBuilder{}
-	init := *builder.init(appLoc1, appLoc2, params.servers)
-	checks := *builder.checks(appLoc1, appLoc2).Require(init)
-	preUpdate := *builder.preUpdate(appLoc2).Require(init)
-	bootstrap := *builder.bootstrap(params.servers, appLoc1, appLoc2).Require(init)
 	leadMaster := params.servers[0]
+	builder := phaseBuilder{planConfig: params}
+	init := *builder.init(leadMaster.Server)
+	checks := *builder.checks().Require(init)
+	preUpdate := *builder.preUpdate().Require(init)
+	bootstrap := *builder.bootstrap().Require(init)
 	coreDNS := *builder.corednsPhase(leadMaster.Server)
 	masters := *builder.masters(leadMaster, params.servers[1:2], false).Require(checks, bootstrap, preUpdate, coreDNS)
 	nodes := *builder.nodes(leadMaster, params.servers[2:], false).Require(masters)
 	etcd := *builder.etcdPlan(leadMaster.Server, plan.Servers[1:2], plan.Servers[2:], "1.0.0", "2.0.0")
-	migration := builder.migration(leadMaster.Server, params).Require(etcd)
+	migration := builder.migration(leadMaster.Server).Require(etcd)
 	c.Assert(migration, check.NotNil)
 	config := *builder.config(servers(params.servers[:2]...)).Require(masters)
 
@@ -90,7 +90,7 @@ func (s *PlanSuite) TestPlanWithRuntimeUpdate(c *check.C) {
 
 	appLocs := []loc.Locator{loc.MustParseLocator("gravitational.io/app-dep-2:2.0.0"), appLoc2}
 	app := *builder.app(appLocs).Require(runtime)
-	cleanup := *builder.cleanup(params.servers).Require(app)
+	cleanup := *builder.cleanup().Require(app)
 
 	plan.Phases = update.Phases{
 		init,
@@ -138,13 +138,14 @@ func (s *PlanSuite) TestPlanWithoutRuntimeUpdate(c *check.C) {
 	})
 	plan := params.plan
 
-	builder := phaseBuilder{}
-	init := *builder.init(appLoc1, appLoc2, params.servers)
-	checks := *builder.checks(appLoc1, appLoc2).Require(init)
-	preUpdate := *builder.preUpdate(appLoc2).Require(init)
+	leadMaster := params.servers[0]
+	builder := phaseBuilder{planConfig: params}
+	init := *builder.init(leadMaster.Server)
+	checks := *builder.checks().Require(init)
+	preUpdate := *builder.preUpdate().Require(init)
 	appLocs := []loc.Locator{loc.MustParseLocator("gravitational.io/app-dep-2:2.0.0"), appLoc2}
 	app := *builder.app(appLocs).Require(preUpdate)
-	cleanup := *builder.cleanup(params.servers).Require(app)
+	cleanup := *builder.cleanup().Require(app)
 
 	plan.Phases = update.Phases{init, checks, preUpdate, app, cleanup}.AsPhases()
 	update.ResolvePlan(&plan)
@@ -293,15 +294,15 @@ func newTestPlan(c *check.C, p params) planConfig {
 	updates := []storage.UpdateServer{
 		{
 			Server:  servers[0],
-			Runtime: storage.RuntimeConfigUpdate{Package: runtimeLoc},
+			Runtime: &storage.RuntimeUpdate{Package: runtimeLoc},
 		},
 		{
 			Server:  servers[1],
-			Runtime: storage.RuntimeConfigUpdate{Package: runtimeLoc},
+			Runtime: &storage.RuntimeUpdate{Package: runtimeLoc},
 		},
 		{
 			Server:  servers[2],
-			Runtime: storage.RuntimeConfigUpdate{Package: runtimeLoc},
+			Runtime: &storage.RuntimeUpdate{Package: runtimeLoc},
 		},
 	}
 	operation := storage.SiteOperation{

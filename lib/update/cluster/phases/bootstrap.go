@@ -62,6 +62,8 @@ type updatePhaseBootstrap struct {
 	HostLocalBackend storage.Backend
 	// GravityPath is the path to the new gravity binary
 	GravityPath string
+	// GravityPackage specifies the new gravity package
+	GravityPackage loc.Locator
 	// Server specifies the bootstrap target
 	Server storage.UpdateServer
 	// ServiceUser is the user used for services and system storage
@@ -71,10 +73,6 @@ type updatePhaseBootstrap struct {
 	// ExecutorParams stores the phase parameters
 	fsm.ExecutorParams
 	remote fsm.Remote
-	// runtimePackage specifies the runtime package to update to
-	runtimePackage loc.Locator
-	// installedRuntime specifies the installed runtime package
-	installedRuntime loc.Locator
 }
 
 // NewUpdatePhaseBootstrap creates a new bootstrap phase executor
@@ -91,9 +89,6 @@ func NewUpdatePhaseBootstrap(
 	}
 	if p.Phase.Data.Update == nil || len(p.Phase.Data.Update.Servers) != 1 {
 		return nil, trace.BadParameter("no server specified for phase %q", p.Phase.ID)
-	}
-	if p.Phase.Data.Update.InstalledRuntimePackage == nil {
-		return nil, trace.BadParameter("installed runtime package is required for phase %q", p.Phase.ID)
 	}
 	server := p.Phase.Data.Update.Servers[0]
 	cluster, err := operator.GetLocalSite()
@@ -118,11 +113,11 @@ func NewUpdatePhaseBootstrap(
 		Server:           server,
 		Operation:        *operation,
 		GravityPath:      gravityPath,
+		GravityPackage:   p.Plan.GravityPackage,
 		ServiceUser:      cluster.ServiceUser,
 		FieldLogger:      logger,
 		ExecutorParams:   p,
 		remote:           remote,
-		installedRuntime: *p.Phase.Data.Update.InstalledRuntimePackage,
 	}, nil
 }
 
@@ -223,20 +218,20 @@ func (p *updatePhaseBootstrap) updateDNSConfig() error {
 
 func (p *updatePhaseBootstrap) pullSystemUpdates() error {
 	p.Info("Pull system updates.")
-	// the low-level pull-updates call above does not pull teleport config
-	// package updates, so do it here: it's easier since we have access to
-	// plan, cluster state, etc.
-	var updates []loc.Locator
-	if p.Server.RuntimeSecretsPackage != nil {
-		updates = append(updates, *p.Server.RuntimeSecretsPackage)
+	updates := []loc.Locator{p.GravityPackage}
+	if p.Server.Runtime.SecretsPackage != nil {
+		updates = append(updates, *p.Server.Runtime.SecretsPackage)
 	}
-	if p.Server.Runtime != nil {
-		updates = append(updates, p.Server.Runtime.Package, p.Server.Runtime.ConfigPackage)
-	}
-	if p.Server.Teleport != nil {
+	if p.Server.Runtime.Update != nil {
 		updates = append(updates,
-			p.Server.Teleport.Package,
-			p.Server.Teleport.NodeConfigPackage,
+			p.Server.Runtime.Update.Package,
+			p.Server.Runtime.Update.ConfigPackage,
+		)
+	}
+	if p.Server.Teleport.Update != nil {
+		updates = append(updates,
+			p.Server.Teleport.Update.Package,
+			p.Server.Teleport.Update.NodeConfigPackage,
 		)
 	}
 	for _, update := range updates {
@@ -252,6 +247,7 @@ func (p *updatePhaseBootstrap) pullSystemUpdates() error {
 	}
 	// after having pulled packages as root we need to set proper ownership
 	// on the blobs dir
+	// FIXME(dmitri): PullPackage API needs to accept uid/gid sp this is unnecessary
 	stateDir, err := state.GetStateDir()
 	if err != nil {
 		return trace.Wrap(err)
@@ -296,7 +292,8 @@ func (p *updatePhaseBootstrap) syncPlan() error {
 // and vice versa), will be updated to _not_ include the installed label
 // to simplify the search
 func (p *updatePhaseBootstrap) updateExistingPackageLabels() error {
-	runtimeConfigLabels, err := updateRuntimeConfigLabels(p.LocalPackages, p.installedRuntime)
+	installedRuntime := p.Server.Runtime.Installed
+	runtimeConfigLabels, err := updateRuntimeConfigLabels(p.LocalPackages, installedRuntime)
 	if err != nil {
 		return trace.Wrap(err)
 	}
@@ -311,16 +308,16 @@ func (p *updatePhaseBootstrap) updateExistingPackageLabels() error {
 	updates := append(runtimeConfigLabels, secretLabels...)
 	updates = append(updates, teleportConfigLabels...)
 	updates = append(updates, pack.LabelUpdate{
-		Locator: p.installedRuntime,
+		Locator: installedRuntime,
 		Add:     utils.CombineLabels(pack.RuntimePackageLabels, pack.InstalledLabels),
 	})
-	if loc.IsLegacyRuntimePackage(p.installedRuntime) {
+	if loc.IsLegacyRuntimePackage(installedRuntime) {
 		var runtimePackageToClear loc.Locator
-		switch p.installedRuntime.Name {
+		switch installedRuntime.Name {
 		case loc.LegacyPlanetMaster.Name:
-			runtimePackageToClear = withVersion(loc.LegacyPlanetNode, p.installedRuntime.Version)
+			runtimePackageToClear = withVersion(loc.LegacyPlanetNode, installedRuntime.Version)
 		case loc.LegacyPlanetNode.Name:
-			runtimePackageToClear = withVersion(loc.LegacyPlanetMaster, p.installedRuntime.Version)
+			runtimePackageToClear = withVersion(loc.LegacyPlanetMaster, installedRuntime.Version)
 		}
 		updates = append(updates, pack.LabelUpdate{
 			Locator: runtimePackageToClear,
@@ -343,7 +340,10 @@ func (p *updatePhaseBootstrap) updateExistingPackageLabels() error {
 // package labels.
 // See: https://github.com/gravitational/gravity.e/issues/3768
 func (p *updatePhaseBootstrap) addUpdateRuntimePackageLabel() error {
-	err := p.LocalPackages.UpdatePackageLabels(p.runtimePackage, pack.RuntimePackageLabels, nil)
+	if p.Server.Runtime.Update == nil {
+		return nil
+	}
+	err := p.LocalPackages.UpdatePackageLabels(p.Server.Runtime.Update.Package, pack.RuntimePackageLabels, nil)
 	if err != nil {
 		return trace.Wrap(err)
 	}

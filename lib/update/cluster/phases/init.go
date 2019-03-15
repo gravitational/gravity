@@ -29,6 +29,7 @@ import (
 	"github.com/gravitational/gravity/lib/ops"
 	"github.com/gravitational/gravity/lib/pack"
 	"github.com/gravitational/gravity/lib/rpc"
+	"github.com/gravitational/gravity/lib/schema"
 	"github.com/gravitational/gravity/lib/storage"
 	"github.com/gravitational/gravity/lib/storage/clusterconfig"
 	"github.com/gravitational/gravity/lib/users"
@@ -62,8 +63,8 @@ type updatePhaseInit struct {
 	Servers []storage.UpdateServer
 	// FieldLogger is used for logging
 	log.FieldLogger
-	// app references the update application
-	app app.Application
+	// updateManifest specifies the manifest of the update application
+	updateManifest schema.Manifest
 	// installedApp references the installed application instance
 	installedApp app.Application
 	// existingDocker describes the existing Docker configuration
@@ -138,7 +139,7 @@ func NewUpdatePhaseInit(
 		Operation:             *operation,
 		Servers:               p.Phase.Data.Update.Servers,
 		FieldLogger:           logger,
-		app:                   *app,
+		updateManifest:        app.Manifest,
 		installedApp:          *installedApp,
 		existingDocker:        existingDocker,
 		existingDNS:           p.Plan.DNSConfig,
@@ -185,12 +186,12 @@ func (p *updatePhaseInit) Execute(context.Context) error {
 		if err := p.rotateSecrets(server); err != nil {
 			return trace.Wrap(err, "failed to rotate secrets for %v", server)
 		}
-		if server.Runtime != nil {
+		if server.Runtime.Update != nil {
 			if err := p.rotatePlanetConfig(server); err != nil {
 				return trace.Wrap(err, "failed to rotate planet configuration for %v", server)
 			}
 		}
-		if server.Teleport != nil {
+		if server.Teleport.Update != nil {
 			if err := p.rotateTeleportConfig(server); err != nil {
 				return trace.Wrap(err, "failed to rotate teleport configuration for %v", server)
 			}
@@ -339,7 +340,7 @@ func (p *updatePhaseInit) rotateSecrets(server storage.UpdateServer) error {
 	resp, err := p.Operator.RotateSecrets(ops.RotateSecretsRequest{
 		AccountID:   p.Operation.AccountID,
 		ClusterName: p.Operation.SiteDomain,
-		Locator:     server.RuntimeSecretsPackage,
+		Locator:     server.Runtime.SecretsPackage,
 		Server:      server.Server,
 	})
 	if err != nil {
@@ -355,16 +356,12 @@ func (p *updatePhaseInit) rotateSecrets(server storage.UpdateServer) error {
 
 func (p *updatePhaseInit) rotatePlanetConfig(server storage.UpdateServer) error {
 	p.Infof("Generate new runtime configuration package for %v.", server)
-	runtimePackage, err := p.app.Manifest.RuntimePackageForProfile(server.Role)
-	if err != nil {
-		return trace.Wrap(err)
-	}
 	resp, err := p.Operator.RotatePlanetConfig(ops.RotatePlanetConfigRequest{
 		Key:            p.Operation.Key(),
 		Server:         server.Server,
-		Manifest:       p.app.Manifest,
-		RuntimePackage: *runtimePackage,
-		Locator:        &server.Runtime.ConfigPackage,
+		Manifest:       p.updateManifest,
+		RuntimePackage: server.Runtime.Update.Package,
+		Locator:        &server.Runtime.Update.ConfigPackage,
 		Config:         p.existingClusterConfig,
 		Env:            p.existingEnviron,
 	})
@@ -384,7 +381,7 @@ func (p *updatePhaseInit) rotateTeleportConfig(server storage.UpdateServer) erro
 	masterConf, nodeConf, err := p.Operator.RotateTeleportConfig(ops.RotateTeleportConfigRequest{
 		Key:       p.Operation.Key(),
 		Server:    server.Server,
-		Node:      &server.Teleport.NodeConfigPackage,
+		Node:      &server.Teleport.Update.NodeConfigPackage,
 		MasterIPs: masterIPs(p.Servers),
 	})
 	if err != nil {

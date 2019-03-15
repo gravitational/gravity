@@ -84,7 +84,7 @@ func (S) TestSingleNodePlan(c *C) {
 						Servers: []storage.UpdateServer{
 							{
 								Server: servers[0],
-								Runtime: storage.RuntimeConfigUpdate{
+								Runtime: &storage.RuntimeUpdate{
 									Package:       runtimeLoc,
 									ConfigPackage: testOperator.runtimeConfigPackage,
 								},
@@ -120,7 +120,7 @@ func (S) TestSingleNodePlan(c *C) {
 										Servers: []storage.UpdateServer{
 											{
 												Server: servers[0],
-												Runtime: storage.RuntimeConfigUpdate{
+												Runtime: &storage.RuntimeUpdate{
 													Package:       runtimeLoc,
 													ConfigPackage: testOperator.runtimeConfigPackage,
 												},
@@ -230,28 +230,28 @@ func (S) TestMultiNodePlan(c *C) {
 						Servers: []storage.UpdateServer{
 							{
 								Server: servers[0],
-								Runtime: storage.RuntimeConfigUpdate{
+								Runtime: &storage.RuntimeUpdate{
 									Package:       runtimeLoc,
 									ConfigPackage: testOperator.runtimeConfigPackage,
 								},
 							},
 							{
 								Server: servers[1],
-								Runtime: storage.RuntimeConfigUpdate{
+								Runtime: &storage.RuntimeUpdate{
 									Package:       runtimeLoc,
 									ConfigPackage: testOperator.runtimeConfigPackage,
 								},
 							},
 							{
 								Server: servers[2],
-								Runtime: storage.RuntimeConfigUpdate{
+								Runtime: &storage.RuntimeUpdate{
 									Package:       runtimeLoc,
 									ConfigPackage: testOperator.runtimeConfigPackage,
 								},
 							},
 							{
 								Server: servers[3],
-								Runtime: storage.RuntimeConfigUpdate{
+								Runtime: &storage.RuntimeUpdate{
 									Package:       runtimeLoc,
 									ConfigPackage: testOperator.runtimeConfigPackage,
 								},
@@ -298,7 +298,7 @@ func (S) TestMultiNodePlan(c *C) {
 										Servers: []storage.UpdateServer{
 											{
 												Server: servers[0],
-												Runtime: storage.RuntimeConfigUpdate{
+												Runtime: &storage.RuntimeUpdate{
 													Package:       runtimeLoc,
 													ConfigPackage: testOperator.runtimeConfigPackage,
 												},
@@ -382,7 +382,7 @@ func (S) TestMultiNodePlan(c *C) {
 										Servers: []storage.UpdateServer{
 											{
 												Server: servers[2],
-												Runtime: storage.RuntimeConfigUpdate{
+												Runtime: &storage.RuntimeUpdate{
 													Package:       runtimeLoc,
 													ConfigPackage: testOperator.runtimeConfigPackage,
 												},
@@ -473,7 +473,7 @@ func (S) TestMultiNodePlan(c *C) {
 										Servers: []storage.UpdateServer{
 											{
 												Server: servers[1],
-												Runtime: storage.RuntimeConfigUpdate{
+												Runtime: &storage.RuntimeUpdate{
 													Package:       runtimeLoc,
 													ConfigPackage: testOperator.runtimeConfigPackage,
 												},
@@ -548,7 +548,7 @@ func (S) TestMultiNodePlan(c *C) {
 										Servers: []storage.UpdateServer{
 											{
 												Server: servers[3],
-												Runtime: storage.RuntimeConfigUpdate{
+												Runtime: &storage.RuntimeUpdate{
 													Package:       runtimeLoc,
 													ConfigPackage: testOperator.runtimeConfigPackage,
 												},
