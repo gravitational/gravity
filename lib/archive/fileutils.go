@@ -211,7 +211,7 @@ func PathMatch(pattern PathPattern, path string) (bool, error) {
 }
 
 // GetChownOptionsForDir returns the ownership options for the specified directory dir.
-// It will use the same options if dir already exists, and will fall back to current
+// It will use the same options if directory already exists, and will fall back to current
 // user otherwise
 func GetChownOptionsForDir(dir string) (*dockerarchive.TarChownOptions, error) {
 	var uid, gid int

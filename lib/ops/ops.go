@@ -833,7 +833,7 @@ func (r RotateTeleportConfigRequest) Check() error {
 		return trace.Wrap(err)
 	}
 	if !r.DryRun && len(r.MasterIPs) == 0 {
-		return trace.BadParameter("list of master IPs is mandatory")
+		return trace.BadParameter("list of master IPs is required")
 	}
 	return nil
 }

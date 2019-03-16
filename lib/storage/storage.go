@@ -642,10 +642,10 @@ func (s sortedNodeSpec) Len() int {
 
 // Less stacks latest attempts to the end of the list
 func (s sortedNodeSpec) Less(i, j int) bool {
-	if s[i].Profile == s[i].Profile {
+	if s[i].Profile == s[j].Profile {
 		return s[i].Count < s[j].Count
 	}
-	return s[i].Profile <= s[i].Profile
+	return s[i].Profile <= s[j].Profile
 }
 
 // Swap swaps two attempts

@@ -293,16 +293,22 @@ func newTestPlan(c *check.C, p params) planConfig {
 	}
 	updates := []storage.UpdateServer{
 		{
-			Server:  servers[0],
-			Runtime: &storage.RuntimeUpdate{Package: runtimeLoc},
+			Server: servers[0],
+			Runtime: storage.RuntimePackage{
+				Update: &storage.RuntimeUpdate{Package: runtimeLoc},
+			},
 		},
 		{
-			Server:  servers[1],
-			Runtime: &storage.RuntimeUpdate{Package: runtimeLoc},
+			Server: servers[1],
+			Runtime: storage.RuntimePackage{
+				Update: &storage.RuntimeUpdate{Package: runtimeLoc},
+			},
 		},
 		{
-			Server:  servers[2],
-			Runtime: &storage.RuntimeUpdate{Package: runtimeLoc},
+			Server: servers[2],
+			Runtime: storage.RuntimePackage{
+				Update: &storage.RuntimeUpdate{Package: runtimeLoc},
+			},
 		},
 	}
 	operation := storage.SiteOperation{
