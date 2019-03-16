@@ -254,6 +254,8 @@ type PlanConfig struct {
 
 // planConfig collects parameters needed to generate an update operation plan
 type planConfig struct {
+	// plan specifies the initial plan configuration
+	// this will be updated with the list of operational phase
 	plan     storage.OperationPlan
 	operator packageRotator
 	// operation is the operation to generate the plan for

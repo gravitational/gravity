@@ -154,9 +154,9 @@ type UpdateOperationData struct {
 type UpdateServer struct {
 	// Server identifies the server for the configuration package update
 	Server `json:"server"`
-	// Runtime defines the optional runtime update for the server
+	// Runtime defines the runtime update
 	Runtime RuntimePackage `json:"runtime,omitempty"`
-	// Teleport defines the optional teleport update for the server
+	// Teleport defines the optional teleport update
 	Teleport TeleportPackage `json:"teleport,omitempty"`
 }
 

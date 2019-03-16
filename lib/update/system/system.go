@@ -29,7 +29,7 @@ import (
 	"github.com/gravitational/gravity/lib/localenv"
 	"github.com/gravitational/gravity/lib/pack"
 	"github.com/gravitational/gravity/lib/state"
-	"github.com/gravitational/gravity/lib/status"
+	libstatus "github.com/gravitational/gravity/lib/status"
 	"github.com/gravitational/gravity/lib/storage"
 	"github.com/gravitational/gravity/lib/systemservice"
 	"github.com/gravitational/gravity/lib/update"
@@ -95,7 +95,8 @@ func (r *System) Update(ctx context.Context, withStatus bool) error {
 	if err != nil {
 		return trace.Wrap(err)
 	}
-	err = getLocalNodeStatus(ctx)
+
+	err = waitNodeStatus(ctx)
 	if err != nil {
 		return trace.Wrap(err)
 	}
@@ -130,7 +131,7 @@ func (r *System) Rollback(ctx context.Context, withStatus bool) (err error) {
 		return nil
 	}
 
-	err = getLocalNodeStatus(ctx)
+	err = waitNodeStatus(ctx)
 	if err != nil {
 		return trace.Wrap(err)
 	}
@@ -676,9 +677,24 @@ func ensureServiceRunning(servicePackage loc.Locator) error {
 	return trace.Wrap(err)
 }
 
-func getLocalNodeStatus(ctx context.Context) error {
-	// FIXME(dmitri): retry on `connection refused`
-	status, err := status.FromLocalPlanetAgent(ctx)
+func waitNodeStatus(ctx context.Context) (err error) {
+	b := utils.NewExponentialBackOff(defaults.NodeStatusTimeout)
+	err = utils.RetryWithInterval(ctx, b, func() error {
+		return trace.Wrap(getLocalNodeStatus(ctx))
+	})
+	return trace.Wrap(err)
+}
+
+func getLocalNodeStatus(ctx context.Context) (err error) {
+	var status *libstatus.Agent
+	b := utils.NewExponentialBackOff(defaults.NodeStatusTimeout)
+	err = utils.RetryTransient(ctx, b, func() error {
+		status, err = libstatus.FromLocalPlanetAgent(ctx)
+		if err != nil {
+			return trace.Wrap(err)
+		}
+		return nil
+	})
 	if err != nil {
 		return trace.Wrap(err)
 	}
