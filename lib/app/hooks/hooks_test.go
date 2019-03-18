@@ -109,7 +109,7 @@ func (s *HooksSuite) TestHookSuccess(c *check.C) {
 			},
 		},
 	}
-	job.APIVersion = rigging.BatchAPIVersion
+	job.APIVersion = batchv1.SchemeGroupVersion.String()
 	job.Kind = rigging.KindJob
 
 	jobBytes, err := yaml.Marshal(job)
@@ -180,7 +180,7 @@ func (s *HooksSuite) TestHookFailNewPods(c *check.C) {
 			},
 		},
 	}
-	job.APIVersion = rigging.BatchAPIVersion
+	job.APIVersion = batchv1.SchemeGroupVersion.String()
 	job.Kind = rigging.KindJob
 
 	jobBytes, err := yaml.Marshal(job)
@@ -253,7 +253,7 @@ func (s *HooksSuite) TestHookFailPodRestart(c *check.C) {
 			},
 		},
 	}
-	job.APIVersion = rigging.BatchAPIVersion
+	job.APIVersion = batchv1.SchemeGroupVersion.String()
 	job.Kind = rigging.KindJob
 
 	jobBytes, err := yaml.Marshal(job)
