@@ -466,7 +466,7 @@ func configUpdates(
 			}
 		}
 		if needsTeleportUpdate {
-			masterConfig, nodeConfig, err := operator.RotateTeleportConfig(ops.RotateTeleportConfigRequest{
+			_, nodeConfig, err := operator.RotateTeleportConfig(ops.RotateTeleportConfigRequest{
 				Key:    operation,
 				Server: server,
 				DryRun: true,
@@ -475,9 +475,8 @@ func configUpdates(
 				return nil, trace.Wrap(err)
 			}
 			updateServer.Teleport.Update = &storage.TeleportUpdate{
-				Package:             *updateTeleport,
-				MasterConfigPackage: masterConfig.Locator,
-				NodeConfigPackage:   nodeConfig.Locator,
+				Package:           *updateTeleport,
+				NodeConfigPackage: nodeConfig.Locator,
 			}
 		}
 		updates = append(updates, updateServer)

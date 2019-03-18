@@ -731,9 +731,13 @@ type LessFunc func(a, b *semver.Version) bool
 type MatchFunc func(PackageEnvelope) bool
 
 // Less is the standard version comparator that
-// returns a < b
+// returns whether a < b.
+// If versions are equal, it compares their metadata
 func Less(a, b *semver.Version) bool {
-	return a.Compare(*b) < 0
+	if a.Compare(*b) < 0 {
+		return true
+	}
+	return a.Metadata < b.Metadata
 }
 
 // PackageMatch returns a matcher for the specified package filter

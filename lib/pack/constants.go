@@ -48,6 +48,9 @@ const (
 	PurposeTeleportMasterConfig = "teleport-master-config"
 	// PurposeTeleportNodeConfig marks package with teleport node config
 	PurposeTeleportNodeConfig = "teleport-node-config"
+	// PurposeLegacyTeleportNodeConfig specifies how the teleport node configuration packages
+	// were marked in previous version
+	PurposeLegacyTeleportNodeConfig = "teleport-config"
 	// PurposeMetadata defines a label to use for application packages
 	// that represent another package on a remote cluster.
 	// A metadata package only contains a metadata block w/o actual contents of the
@@ -76,6 +79,12 @@ var (
 	// TeleportNodeConfigPackageLabels identifies the teleport node configuration package
 	TeleportNodeConfigPackageLabels = map[string]string{
 		PurposeLabel: PurposeTeleportNodeConfig,
+	}
+
+	// TeleportLegacyNodeConfigPackageLabels identifies the teleport node configuration package in previous versions.
+	// TODO(dmitri): remove when no longer supported
+	TeleportLegacyNodeConfigPackageLabels = map[string]string{
+		PurposeLabel: PurposeLegacyTeleportNodeConfig,
 	}
 
 	// TeleportMasterConfigPackageLabels identifies the teleport master configuration package

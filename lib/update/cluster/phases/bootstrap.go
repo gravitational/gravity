@@ -425,9 +425,14 @@ func updateTeleportConfigLabels(packages pack.PackageService, clusterName string
 		return nil, nil
 	}
 	// Fall back to latest available package
-	configPackage, err := pack.FindLatestPackage(packages, loc.Locator{
+	configPackage, err := pack.FindLatestPackageCustom(pack.FindLatestPackageRequest{
+		Packages:   packages,
 		Repository: clusterName,
-		Name:       constants.TeleportNodeConfigPackage,
+		Match: func(e pack.PackageEnvelope) bool {
+			return e.Locator.Name == constants.TeleportNodeConfigPackage &&
+				(e.HasLabels(pack.TeleportNodeConfigPackageLabels) ||
+					e.HasLabels(pack.TeleportLegacyNodeConfigPackageLabels))
+		},
 	})
 	if err != nil {
 		return nil, trace.Wrap(err)

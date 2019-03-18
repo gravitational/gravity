@@ -192,8 +192,6 @@ type TeleportUpdate struct {
 	// Package identifies the package to update to.
 	// This can be the same as Installed in which case no update is performed
 	Package loc.Locator `json:"package"`
-	// MasterConfigPackage identifies the new cluster teleport configuration package
-	MasterConfigPackage loc.Locator `json:"master_config_package"`
 	// NodeConfigPackage identifies the new host teleport configuration package
 	NodeConfigPackage loc.Locator `json:"node_config_package"`
 }
