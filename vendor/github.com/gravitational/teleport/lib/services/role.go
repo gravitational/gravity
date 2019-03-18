@@ -1269,7 +1269,7 @@ type AccessChecker interface {
 	AdjustSessionTTL(ttl time.Duration) time.Duration
 
 	// AdjustClientIdleTimeout adjusts requested idle timeout
-	// to the lowest max allowed timeout, the most restricive
+	// to the lowest max allowed timeout, the most restrictive
 	// option will be picked
 	AdjustClientIdleTimeout(ttl time.Duration) time.Duration
 
@@ -1395,30 +1395,37 @@ func MatchLogin(selectors []string, login string) (bool, string) {
 
 // MatchLabels matches selector against target. Empty selector matches
 // nothing, wildcard matches everything.
-func MatchLabels(selector Labels, target map[string]string) (bool, string) {
+func MatchLabels(selector Labels, target map[string]string) (bool, string, error) {
 	// Empty selector matches nothing.
 	if len(selector) == 0 {
-		return false, "no match, empty selector"
+		return false, "no match, empty selector", nil
 	}
 
 	// *: * matches everything even empty target set.
 	selectorValues := selector[Wildcard]
 	if len(selectorValues) == 1 && selectorValues[0] == Wildcard {
-		return true, "matched"
+		return true, "matched", nil
 	}
 
 	// Perform full match.
 	for key, selectorValues := range selector {
 		targetVal, hasKey := target[key]
+
 		if !hasKey {
-			return false, fmt.Sprintf("no key match: '%v'", key)
+			return false, fmt.Sprintf("no key match: '%v'", key), nil
 		}
-		if !utils.SliceContainsStr(selectorValues, Wildcard) && !utils.SliceContainsStr(selectorValues, targetVal) {
-			return false, fmt.Sprintf("no value match: got '%v' want: '%v'", targetVal, selectorValues)
+
+		if !utils.SliceContainsStr(selectorValues, Wildcard) {
+			result, err := utils.SliceMatchesRegex(targetVal, selectorValues)
+			if err != nil {
+				return false, "", trace.Wrap(err)
+			} else if !result {
+				return false, fmt.Sprintf("no value match: got '%v' want: '%v'", targetVal, selectorValues), nil
+			}
 		}
 	}
 
-	return true, "matched"
+	return true, "matched", nil
 }
 
 // RoleNames returns a slice with role names
@@ -1558,7 +1565,10 @@ func (set RoleSet) CheckAccessToServer(login string, s Server) error {
 	// the deny role set prohibits access.
 	for _, role := range set {
 		matchNamespace, namespaceMessage := MatchNamespace(role.GetNamespaces(Deny), s.GetNamespace())
-		matchLabels, labelsMessage := MatchLabels(role.GetNodeLabels(Deny), s.GetAllLabels())
+		matchLabels, labelsMessage, err := MatchLabels(role.GetNodeLabels(Deny), s.GetAllLabels())
+		if err != nil {
+			return trace.Wrap(err)
+		}
 		matchLogin, loginMessage := MatchLogin(role.GetLogins(Deny), login)
 		if matchNamespace && (matchLabels || matchLogin) {
 			if log.GetLevel() == log.DebugLevel {
@@ -1575,7 +1585,10 @@ func (set RoleSet) CheckAccessToServer(login string, s Server) error {
 	// one role in the role set to be granted access.
 	for _, role := range set {
 		matchNamespace, namespaceMessage := MatchNamespace(role.GetNamespaces(Allow), s.GetNamespace())
-		matchLabels, labelsMessage := MatchLabels(role.GetNodeLabels(Allow), s.GetAllLabels())
+		matchLabels, labelsMessage, err := MatchLabels(role.GetNodeLabels(Allow), s.GetAllLabels())
+		if err != nil {
+			return trace.Wrap(err)
+		}
 		matchLogin, loginMessage := MatchLogin(role.GetLogins(Allow), login)
 		if matchNamespace && matchLabels && matchLogin {
 			return nil

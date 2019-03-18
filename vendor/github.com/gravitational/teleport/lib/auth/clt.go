@@ -20,6 +20,7 @@ import (
 	"bytes"
 	"context"
 	"crypto/tls"
+	"encoding/hex"
 	"encoding/json"
 	"fmt"
 	"io/ioutil"
@@ -75,6 +76,33 @@ func (c *Client) TLSConfig() *tls.Config {
 // DialContext is a function that dials to the specified address
 type DialContext func(in context.Context, network, addr string) (net.Conn, error)
 
+// EncodeClusterName encodes cluster name in the SNI hostname
+func EncodeClusterName(clusterName string) string {
+	// hex is used to hide "." that will prevent wildcard *. entry to match
+	return fmt.Sprintf("%v.%v", hex.EncodeToString([]byte(clusterName)), teleport.APIDomain)
+}
+
+// DecodeClusterName decodes cluster name, returns NotFound
+// if no cluster name is encoded (empty subdomain),
+// so servers can detect cases when no server name passed
+// returns BadParameter if encoding does not match
+func DecodeClusterName(serverName string) (string, error) {
+	if serverName == teleport.APIDomain {
+		return "", trace.NotFound("no cluster name is encoded")
+	}
+	const suffix = "." + teleport.APIDomain
+	if !strings.HasSuffix(serverName, suffix) {
+		return "", trace.BadParameter("unrecognized name, expected suffix %v, got %q", teleport.APIDomain, serverName)
+	}
+	clusterName := strings.TrimSuffix(serverName, suffix)
+
+	decoded, err := hex.DecodeString(clusterName)
+	if err != nil {
+		return "", trace.BadParameter("failed to decode cluster name: %v", err)
+	}
+	return string(decoded), nil
+}
+
 // NewAddrDialer returns new dialer from a list of addresses
 func NewAddrDialer(addrs []utils.NetAddr) DialContext {
 	dialer := net.Dialer{
@@ -113,7 +141,9 @@ func ClientTimeout(timeout time.Duration) roundtrip.ClientParam {
 // NewTLSClientWithDialer returns new TLS client that uses mutual TLS authenticate
 // and dials the remote server using dialer
 func NewTLSClientWithDialer(dialContext DialContext, cfg *tls.Config, params ...roundtrip.ClientParam) (*Client, error) {
-	cfg.ServerName = teleport.APIDomain
+	if cfg.ServerName == "" {
+		cfg.ServerName = teleport.APIDomain
+	}
 	transport := &http.Transport{
 		// notice that below roundtrip.Client is passed
 		// teleport.APIEndpoint as an address for the API server, this is
@@ -208,13 +238,13 @@ func (c *Client) GetTransport() *http.Transport {
 // PostJSON is a generic method that issues http POST request to the server
 func (c *Client) PostJSON(
 	endpoint string, val interface{}) (*roundtrip.Response, error) {
-	return httplib.ConvertResponse(c.Client.PostJSON(endpoint, val))
+	return httplib.ConvertResponse(c.Client.PostJSON(context.TODO(), endpoint, val))
 }
 
 // PutJSON is a generic method that issues http PUT request to the server
 func (c *Client) PutJSON(
 	endpoint string, val interface{}) (*roundtrip.Response, error) {
-	return httplib.ConvertResponse(c.Client.PutJSON(endpoint, val))
+	return httplib.ConvertResponse(c.Client.PutJSON(context.TODO(), endpoint, val))
 }
 
 // PostForm is a generic method that issues http POST request to the server
@@ -223,21 +253,21 @@ func (c *Client) PostForm(
 	vals url.Values,
 	files ...roundtrip.File) (*roundtrip.Response, error) {
 
-	return httplib.ConvertResponse(c.Client.PostForm(endpoint, vals, files...))
+	return httplib.ConvertResponse(c.Client.PostForm(context.TODO(), endpoint, vals, files...))
 }
 
 // Get issues http GET request to the server
 func (c *Client) Get(u string, params url.Values) (*roundtrip.Response, error) {
-	return httplib.ConvertResponse(c.Client.Get(u, params))
+	return httplib.ConvertResponse(c.Client.Get(context.TODO(), u, params))
 }
 
 // Delete issues http Delete Request to the server
 func (c *Client) Delete(u string) (*roundtrip.Response, error) {
-	return httplib.ConvertResponse(c.Client.Delete(u))
+	return httplib.ConvertResponse(c.Client.Delete(context.TODO(), u))
 }
 
 // ProcessKubeCSR processes CSR request against Kubernetes CA, returns
-// signed certificate if sucessfull.
+// signed certificate if sucessful.
 func (c *Client) ProcessKubeCSR(req KubeCSR) (*KubeCSRResponse, error) {
 	if err := req.CheckAndSetDefaults(); err != nil {
 		return nil, trace.Wrap(err)
@@ -330,6 +360,19 @@ func (c *Client) GetDomainName() (string, error) {
 	return domain, nil
 }
 
+// GetClusterCACert returns the CAs for the local cluster without signing keys.
+func (c *Client) GetClusterCACert() (*LocalCAResponse, error) {
+	out, err := c.Get(c.Endpoint("cacert"), url.Values{})
+	if err != nil {
+		return nil, trace.Wrap(err)
+	}
+	var localCA LocalCAResponse
+	if err := json.Unmarshal(out.Bytes(), &localCA); err != nil {
+		return nil, trace.Wrap(err)
+	}
+	return &localCA, nil
+}
+
 func (c *Client) Close() error {
 	return nil
 }
@@ -417,7 +460,7 @@ func (c *Client) GetCertAuthorities(caType services.CertAuthType, loadKeys bool,
 
 // GetCertAuthority returns certificate authority by given id. Parameter loadSigningKeys
 // controls if signing keys are loaded
-func (c *Client) GetCertAuthority(id services.CertAuthID, loadSigningKeys bool) (services.CertAuthority, error) {
+func (c *Client) GetCertAuthority(id services.CertAuthID, loadSigningKeys bool, opts ...services.MarshalOption) (services.CertAuthority, error) {
 	if err := id.Check(); err != nil {
 		return nil, trace.Wrap(err)
 	}
@@ -683,7 +726,7 @@ func (c *Client) UpsertTunnelConnection(conn services.TunnelConnection) error {
 }
 
 // GetTunnelConnections returns tunnel connections for a given cluster
-func (c *Client) GetTunnelConnections(clusterName string) ([]services.TunnelConnection, error) {
+func (c *Client) GetTunnelConnections(clusterName string, opts ...services.MarshalOption) ([]services.TunnelConnection, error) {
 	if clusterName == "" {
 		return nil, trace.BadParameter("missing cluster name parameter")
 	}
@@ -707,7 +750,7 @@ func (c *Client) GetTunnelConnections(clusterName string) ([]services.TunnelConn
 }
 
 // GetAllTunnelConnections returns all tunnel connections
-func (c *Client) GetAllTunnelConnections() ([]services.TunnelConnection, error) {
+func (c *Client) GetAllTunnelConnections(opts ...services.MarshalOption) ([]services.TunnelConnection, error) {
 	out, err := c.Get(c.Endpoint("tunnelconnections"), url.Values{})
 	if err != nil {
 		return nil, trace.Wrap(err)
@@ -765,7 +808,7 @@ func (c *Client) GetUserLoginAttempts(user string) ([]services.LoginAttempt, err
 }
 
 // GetRemoteClusters returns a list of remote clusters
-func (c *Client) GetRemoteClusters() ([]services.RemoteCluster, error) {
+func (c *Client) GetRemoteClusters(opts ...services.MarshalOption) ([]services.RemoteCluster, error) {
 	out, err := c.Get(c.Endpoint("remoteclusters"), url.Values{})
 	if err != nil {
 		return nil, trace.Wrap(err)
@@ -995,7 +1038,7 @@ func (c *Client) CreateWebSession(user string) (services.WebSession, error) {
 }
 
 // AuthenticateWebUser authenticates web user, creates and  returns web session
-// in case if authentication is successfull
+// in case if authentication is successful
 func (c *Client) AuthenticateWebUser(req AuthenticateUserRequest) (services.WebSession, error) {
 	out, err := c.PostJSON(
 		c.Endpoint("users", req.Username, "web", "authenticate"),
@@ -2266,24 +2309,27 @@ type ClientI interface {
 	RotateExternalCertAuthority(ca services.CertAuthority) error
 
 	// ValidateTrustedCluster validates trusted cluster token with
-	// main cluster, in case if validation is successfull, main cluster
+	// main cluster, in case if validation is successful, main cluster
 	// adds remote cluster
 	ValidateTrustedCluster(*ValidateTrustedClusterRequest) (*ValidateTrustedClusterResponse, error)
 
 	// GetDomainName returns auth server cluster name
 	GetDomainName() (string, error)
 
+	// GetClusterCACert returns the CAs for the local cluster without signing keys.
+	GetClusterCACert() (*LocalCAResponse, error)
+
 	// GenerateServerKeys generates new host private keys and certificates (signed
 	// by the host certificate authority) for a node
 	GenerateServerKeys(GenerateServerKeysRequest) (*PackedKeys, error)
 	// AuthenticateWebUser authenticates web user, creates and  returns web session
-	// in case if authentication is successfull
+	// in case if authentication is successful
 	AuthenticateWebUser(req AuthenticateUserRequest) (services.WebSession, error)
 	// AuthenticateSSHUser authenticates SSH console user, creates and  returns a pair of signed TLS and SSH
 	// short lived certificates as a result
 	AuthenticateSSHUser(req AuthenticateSSHRequest) (*SSHLoginResponse, error)
 
 	// ProcessKubeCSR processes CSR request against Kubernetes CA, returns
-	// signed certificate if sucessfull.
+	// signed certificate if sucessful.
 	ProcessKubeCSR(req KubeCSR) (*KubeCSRResponse, error)
 }

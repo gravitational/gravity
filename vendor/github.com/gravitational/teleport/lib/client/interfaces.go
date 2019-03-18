@@ -52,6 +52,9 @@ type Key struct {
 
 	// TrustedCA is a list of trusted certificate authorities
 	TrustedCA []auth.TrustedCerts
+
+	// ClusterName is a cluster name this key is associated with
+	ClusterName string
 }
 
 // TLSConfig returns client TLS configuration used
@@ -78,7 +81,7 @@ func (k *Key) ClientTLSConfig() (*tls.Config, error) {
 	return tlsConfig, nil
 }
 
-// CertUsername returns the name of the teleport user encoded in the certificate
+// CertUsername returns the name of the Teleport user encoded in the SSH certificate.
 func (k *Key) CertUsername() (string, error) {
 	pubKey, _, _, _, err := ssh.ParseAuthorizedKey(k.Cert)
 	if err != nil {
@@ -89,6 +92,19 @@ func (k *Key) CertUsername() (string, error) {
 		return "", trace.BadParameter("expected SSH certificate, got public key")
 	}
 	return cert.KeyId, nil
+}
+
+// CertPrincipals returns the principals listed on the SSH certificate.
+func (k *Key) CertPrincipals() ([]string, error) {
+	publicKey, _, _, _, err := ssh.ParseAuthorizedKey(k.Cert)
+	if err != nil {
+		return nil, trace.Wrap(err)
+	}
+	cert, ok := publicKey.(*ssh.Certificate)
+	if !ok {
+		return nil, trace.BadParameter("no certificate found")
+	}
+	return cert.ValidPrincipals, nil
 }
 
 // AsAgentKeys converts client.Key struct to a []*agent.AddedKey. All elements

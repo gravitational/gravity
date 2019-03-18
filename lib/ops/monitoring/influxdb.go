@@ -17,6 +17,7 @@ limitations under the License.
 package monitoring
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"net/url"
@@ -107,12 +108,12 @@ func (i *influxDB) UpdateRetentionPolicy(policy RetentionPolicy) error {
 
 // Get is like roundtrip.Client.Get but converts returned HTTP errors into trace errors
 func (i *influxDB) Get(endpoint string, params url.Values) (*roundtrip.Response, error) {
-	return httplib.ConvertResponse(i.Client.Get(endpoint, params))
+	return httplib.ConvertResponse(i.Client.Get(context.TODO(), endpoint, params))
 }
 
 // PostForm is like roundtrip.Client.PostForm but converts returned HTTP errors into trace errors
 func (i *influxDB) PostForm(endpoint string, params url.Values) (*roundtrip.Response, error) {
-	return httplib.ConvertResponse(i.Client.PostForm(endpoint, params))
+	return httplib.ConvertResponse(i.Client.PostForm(context.TODO(), endpoint, params))
 }
 
 // influxDBResponse represents a response from InfluxDB API

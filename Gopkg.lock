@@ -849,11 +849,12 @@
   version = "5.5.1"
 
 [[projects]]
-  digest = "1:27daf346b94c013dcec722a9e596d5bff92d7559ab37f787fd71b128bc31066a"
+  digest = "1:e025b0f4997273273c5dc46a17caddb27ab7dc8b8aa9ffb50d326e7aeb4059c7"
   name = "github.com/gravitational/roundtrip"
   packages = ["."]
   pruneopts = "UT"
-  revision = "6a87d116a90b9c4e73bedc19ebc9c17f1b43d826"
+  revision = "e1e0cd6b05a6bb1791b262e63160038828fd7b3a"
+  version = "v1.0.0"
 
 [[projects]]
   digest = "1:f01b1009f6ab14bbd9257884dc63897eaf59cd7e7cdd59b1dae4bebad7cea154"
@@ -884,8 +885,8 @@
   version = "v1.0.1"
 
 [[projects]]
-  branch = "branch/3.0-g"
-  digest = "1:bf5e14e016e5cceb1b2f7eda1f1a455021c333becd28dd986764cf9bbc7659bb"
+  branch = "roman/3.1/k8s113"
+  digest = "1:d80b383d896a94d72f3910aef18d361e136650a415fcfd57c60bd58517d89c46"
   name = "github.com/gravitational/teleport"
   packages = [
     ".",
@@ -936,11 +937,12 @@
     "lib/utils/agentconn",
     "lib/utils/parse",
     "lib/utils/proxy",
+    "lib/utils/socks",
     "lib/web",
     "lib/web/ui",
   ]
   pruneopts = "UT"
-  revision = "8d626fcff656a0fca570e9b0dd919b8e4e4709eb"
+  revision = "72147df1c82cadaa69b4e222248c1c1d1208c409"
 
 [[projects]]
   digest = "1:22c8951489f0e27ec3b2d50d9f74086ff3f08554ce5965d418d6a10296b9ea04"
