@@ -94,7 +94,7 @@ func TeleportAuth(ctx context.Context, operator ops.Operator, proxyHost, cluster
 	if err != nil {
 		return nil, trace.Wrap(err)
 	}
-	authClient, err := proxyClient.ConnectToSite(ctx, false)
+	authClient, err := proxyClient.ConnectToCurrentCluster(ctx, false)
 	if err != nil {
 		return nil, trace.Wrap(err)
 	}

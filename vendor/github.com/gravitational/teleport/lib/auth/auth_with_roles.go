@@ -101,7 +101,7 @@ func (a *AuthWithRoles) hasRemoteBuiltinRole(name string) bool {
 }
 
 // AuthenticateWebUser authenticates web user, creates and  returns web session
-// in case if authentication is successfull
+// in case if authentication is successful
 func (a *AuthWithRoles) AuthenticateWebUser(req AuthenticateUserRequest) (services.WebSession, error) {
 	// authentication request has it's own authentication, however this limits the requests
 	// types to proxies to make it harder to break
@@ -225,7 +225,7 @@ func (a *AuthWithRoles) GetCertAuthorities(caType services.CertAuthType, loadKey
 	return a.authServer.GetCertAuthorities(caType, loadKeys, opts...)
 }
 
-func (a *AuthWithRoles) GetCertAuthority(id services.CertAuthID, loadKeys bool) (services.CertAuthority, error) {
+func (a *AuthWithRoles) GetCertAuthority(id services.CertAuthID, loadKeys bool, opts ...services.MarshalOption) (services.CertAuthority, error) {
 	if err := a.action(defaults.Namespace, services.KindCertAuthority, services.VerbReadNoSecrets); err != nil {
 		return nil, trace.Wrap(err)
 	}
@@ -234,7 +234,7 @@ func (a *AuthWithRoles) GetCertAuthority(id services.CertAuthID, loadKeys bool) 
 			return nil, trace.Wrap(err)
 		}
 	}
-	return a.authServer.GetCertAuthority(id, loadKeys)
+	return a.authServer.GetCertAuthority(id, loadKeys, opts...)
 }
 
 func (a *AuthWithRoles) GetDomainName() (string, error) {
@@ -245,6 +245,12 @@ func (a *AuthWithRoles) GetDomainName() (string, error) {
 func (a *AuthWithRoles) GetLocalClusterName() (string, error) {
 	// anyone can read it, no harm in that
 	return a.authServer.GetLocalClusterName()
+}
+
+// GetClusterCACert returns the CAs for the local cluster without signing keys.
+func (a *AuthWithRoles) GetClusterCACert() (*LocalCAResponse, error) {
+	// Allow all roles to get the local CA.
+	return a.authServer.GetClusterCACert()
 }
 
 func (a *AuthWithRoles) UpsertLocalClusterName(clusterName string) error {
@@ -1213,18 +1219,18 @@ func (a *AuthWithRoles) UpsertTunnelConnection(conn services.TunnelConnection) e
 	return a.authServer.UpsertTunnelConnection(conn)
 }
 
-func (a *AuthWithRoles) GetTunnelConnections(clusterName string) ([]services.TunnelConnection, error) {
+func (a *AuthWithRoles) GetTunnelConnections(clusterName string, opts ...services.MarshalOption) ([]services.TunnelConnection, error) {
 	if err := a.action(defaults.Namespace, services.KindTunnelConnection, services.VerbList); err != nil {
 		return nil, trace.Wrap(err)
 	}
-	return a.authServer.GetTunnelConnections(clusterName)
+	return a.authServer.GetTunnelConnections(clusterName, opts...)
 }
 
-func (a *AuthWithRoles) GetAllTunnelConnections() ([]services.TunnelConnection, error) {
+func (a *AuthWithRoles) GetAllTunnelConnections(opts ...services.MarshalOption) ([]services.TunnelConnection, error) {
 	if err := a.action(defaults.Namespace, services.KindTunnelConnection, services.VerbList); err != nil {
 		return nil, trace.Wrap(err)
 	}
-	return a.authServer.GetAllTunnelConnections()
+	return a.authServer.GetAllTunnelConnections(opts...)
 }
 
 func (a *AuthWithRoles) DeleteTunnelConnection(clusterName string, connName string) error {
@@ -1268,11 +1274,11 @@ func (a *AuthWithRoles) GetRemoteCluster(clusterName string) (services.RemoteClu
 	return a.authServer.GetRemoteCluster(clusterName)
 }
 
-func (a *AuthWithRoles) GetRemoteClusters() ([]services.RemoteCluster, error) {
+func (a *AuthWithRoles) GetRemoteClusters(opts ...services.MarshalOption) ([]services.RemoteCluster, error) {
 	if err := a.action(defaults.Namespace, services.KindRemoteCluster, services.VerbList); err != nil {
 		return nil, trace.Wrap(err)
 	}
-	return a.authServer.GetRemoteClusters()
+	return a.authServer.GetRemoteClusters(opts...)
 }
 
 func (a *AuthWithRoles) DeleteRemoteCluster(clusterName string) error {
@@ -1293,7 +1299,7 @@ func (a *AuthWithRoles) DeleteAllRemoteClusters() error {
 }
 
 // ProcessKubeCSR processes CSR request against Kubernetes CA, returns
-// signed certificate if sucessfull.
+// signed certificate if sucessful.
 func (a *AuthWithRoles) ProcessKubeCSR(req KubeCSR) (*KubeCSRResponse, error) {
 	// limits the requests types to proxies to make it harder to break
 	if !a.hasBuiltinRole(string(teleport.RoleProxy)) {
