@@ -65,7 +65,7 @@ func NewUpdatePhaseSystem(
 	localPackages update.LocalPackageService,
 	logger log.FieldLogger,
 ) (*updatePhaseSystem, error) {
-	if p.Phase.Data.Update == nil || len(p.Phase.Data.Update.Servers) != 1 {
+	if p.Phase.Data.Update == nil || len(p.Phase.Data.Update.Servers) == 0 {
 		return nil, trace.NotFound("no server specified for phase %q", p.Phase.ID)
 	}
 	return &updatePhaseSystem{

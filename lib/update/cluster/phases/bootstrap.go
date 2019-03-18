@@ -87,7 +87,7 @@ func NewUpdatePhaseBootstrap(
 	if p.Phase.Data == nil || p.Phase.Data.Package == nil {
 		return nil, trace.BadParameter("no application package specified for phase %v", p.Phase.ID)
 	}
-	if p.Phase.Data.Update == nil || len(p.Phase.Data.Update.Servers) != 1 {
+	if p.Phase.Data.Update == nil || len(p.Phase.Data.Update.Servers) == 0 {
 		return nil, trace.BadParameter("no server specified for phase %q", p.Phase.ID)
 	}
 	server := p.Phase.Data.Update.Servers[0]

@@ -90,7 +90,7 @@ func NewUpdatePhaseInit(
 	if p.Phase.Data.InstalledPackage == nil {
 		return nil, trace.BadParameter("no installed application package specified for phase %v", p.Phase)
 	}
-	if p.Phase.Data.Update == nil || len(p.Phase.Data.Update.Servers) != 1 {
+	if p.Phase.Data.Update == nil || len(p.Phase.Data.Update.Servers) == 0 {
 		return nil, trace.BadParameter("no servers specified for phase %q", p.Phase.ID)
 	}
 	cluster, err := operator.GetLocalSite()
