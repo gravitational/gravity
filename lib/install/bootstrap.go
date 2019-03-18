@@ -144,10 +144,12 @@ func (i *Installer) emitAuditEvents() error {
 		events.FieldOperationID:   operation.ID,
 		events.FieldOperationType: operation.Type,
 		events.FieldTime:          operation.Created,
+		events.FieldUser:          operation.CreatedBy,
 	})
 	events.Emit(operator, events.OperationCompleted, events.Fields{
 		events.FieldOperationID:   operation.ID,
 		events.FieldOperationType: operation.Type,
+		events.FieldUser:          operation.CreatedBy,
 	})
 	return nil
 }

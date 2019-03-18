@@ -173,6 +173,11 @@ func (o *OperatorACL) AuthConnectorActions(connectorKind string, actions ...stri
 	return nil
 }
 
+// User returns the logged in user.
+func (o *OperatorACL) User() storage.User {
+	return o.user
+}
+
 func (o *OperatorACL) GetAccount(accountID string) (*Account, error) {
 	if err := o.Action(storage.KindCluster, teleservices.VerbRead); err != nil {
 		return nil, trace.Wrap(err)
@@ -436,6 +441,7 @@ func (o *OperatorACL) CreateSiteInstallOperation(req CreateSiteInstallOperationR
 	if err := o.ClusterAction(req.SiteDomain, storage.KindCluster, teleservices.VerbUpdate); err != nil {
 		return nil, trace.Wrap(err)
 	}
+	req.User = o.user.GetName()
 	return o.operator.CreateSiteInstallOperation(req)
 }
 
@@ -450,6 +456,7 @@ func (o *OperatorACL) CreateSiteExpandOperation(req CreateSiteExpandOperationReq
 	if err := o.ClusterAction(req.SiteDomain, storage.KindCluster, teleservices.VerbUpdate); err != nil {
 		return nil, trace.Wrap(err)
 	}
+	req.User = o.user.GetName()
 	return o.operator.CreateSiteExpandOperation(req)
 }
 
@@ -457,6 +464,7 @@ func (o *OperatorACL) CreateSiteShrinkOperation(req CreateSiteShrinkOperationReq
 	if err := o.ClusterAction(req.SiteDomain, storage.KindCluster, teleservices.VerbUpdate); err != nil {
 		return nil, trace.Wrap(err)
 	}
+	req.User = o.user.GetName()
 	return o.operator.CreateSiteShrinkOperation(req)
 }
 
@@ -464,6 +472,7 @@ func (o *OperatorACL) CreateSiteAppUpdateOperation(req CreateSiteAppUpdateOperat
 	if err := o.ClusterAction(req.SiteDomain, storage.KindCluster, teleservices.VerbUpdate); err != nil {
 		return nil, trace.Wrap(err)
 	}
+	req.User = o.user.GetName()
 	return o.operator.CreateSiteAppUpdateOperation(req)
 }
 
@@ -485,6 +494,7 @@ func (o *OperatorACL) CreateSiteUninstallOperation(req CreateSiteUninstallOperat
 	if err := o.ClusterAction(req.SiteDomain, storage.KindCluster, teleservices.VerbUpdate); err != nil {
 		return nil, trace.Wrap(err)
 	}
+	req.User = o.user.GetName()
 	return o.operator.CreateSiteUninstallOperation(req)
 }
 

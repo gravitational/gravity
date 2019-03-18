@@ -1047,6 +1047,8 @@ type CreateSiteInstallOperationRequest struct {
 	Provisioner string `json:"provisioner"`
 	// Profiles specifies server (role -> server profile) requirements
 	Profiles map[string]storage.ServerProfileRequest `json:"profiles"`
+	// User is the user created the operation
+	User string `json:"-"`
 }
 
 // CheckAndSetDefaults validates the request and provides defaults to unset fields
@@ -1083,6 +1085,8 @@ type CreateSiteUninstallOperationRequest struct {
 	// Variables are used to set up operation specific parameters,
 	// e.g. AWS image flavor for AWS install
 	Variables storage.OperationVariables `json:"variables"`
+	// User is the user created the operation
+	User string `json:"-"`
 }
 
 // CreateSiteExpandOperationRequest is a request to add new nodes
@@ -1100,6 +1104,8 @@ type CreateSiteExpandOperationRequest struct {
 	Servers map[string]int `json:"servers"`
 	// Provisioner to use for this operation
 	Provisioner string `json:"provisioner"`
+	// User is the user created the operation
+	User string `json:"-"`
 }
 
 // CheckAndSetDefaults makes sure the request is correct and fills in some unset
@@ -1138,6 +1144,8 @@ type CreateSiteShrinkOperationRequest struct {
 	// Used in cases where we recieve an event where the node is being terminated, but may
 	// not have disconnected from the cluster yet.
 	NodeRemoved bool `json:"node_removed"`
+	// User is the user created the operation
+	User string `json:"-"`
 }
 
 // CheckAndSetDefaults makes sure the request is correct and fills in some unset
@@ -1169,6 +1177,8 @@ type CreateSiteAppUpdateOperationRequest struct {
 	App string `json:"package"`
 	// StartAgents specifies whether the operation will automatically start the update agents
 	StartAgents bool `json:"start_agents"`
+	// User is the user created the operation
+	User string `json:"-"`
 }
 
 // Check validates this request

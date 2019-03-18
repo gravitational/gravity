@@ -44,6 +44,7 @@ func fieldsForOperation(operation ops.SiteOperation) (Fields, error) {
 	fields := Fields{
 		FieldOperationID:   operation.ID,
 		FieldOperationType: operation.Type,
+		FieldUser:          operation.CreatedBy,
 	}
 	switch operation.Type {
 	case ops.OperationExpand:
