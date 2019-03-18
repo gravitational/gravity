@@ -38,11 +38,12 @@ func New(ctx context.Context, config Config) (*update.Updater, error) {
 		Dispatcher: rollingupdate.NewDefaultDispatcher(),
 	}
 	machine, err := rollingupdate.NewMachine(ctx, rollingupdate.Config{
-		Config:          config.Config,
-		Apps:            config.Apps,
-		ClusterPackages: config.ClusterPackages,
-		Client:          config.Client,
-		Dispatcher:      dispatcher,
+		Config:            config.Config,
+		Apps:              config.Apps,
+		ClusterPackages:   config.ClusterPackages,
+		HostLocalPackages: config.HostLocalPackages,
+		Client:            config.Client,
+		Dispatcher:        dispatcher,
 	})
 	if err != nil {
 		return nil, trace.Wrap(err)
@@ -57,6 +58,8 @@ func New(ctx context.Context, config Config) (*update.Updater, error) {
 // Config describes configuration for updating cluster configuration
 type Config struct {
 	update.Config
+	// HostLocalPackages specifies the package service on local host
+	HostLocalPackages update.LocalPackageService
 	// Apps is the cluster application service
 	Apps app.Applications
 	// ClusterPackages specifies the cluster package service
@@ -70,7 +73,8 @@ func (r *dispatcher) Dispatch(config rollingupdate.Config, params fsm.ExecutorPa
 	switch params.Phase.Executor {
 	case libphase.UpdateConfig:
 		return phases.NewUpdateConfig(params,
-			config.Operator, *config.Operation, config.Apps, config.ClusterPackages,
+			config.Operator, *config.Operation, config.Apps,
+			config.ClusterPackages, config.HostLocalPackages,
 			logger)
 	default:
 		return r.Dispatcher.Dispatch(config, params, remote, logger)

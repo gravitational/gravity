@@ -1094,6 +1094,10 @@ var (
 	// an operation experiencing transient errors
 	TransientErrorTimeout = 15 * time.Minute
 
+	// NodeStatusTimeout specifies the maximum amount of time to wait for
+	// healthy node status
+	NodeStatusTimeout = 5 * time.Minute
+
 	// WormholeImg is the docker image reference to use when embedding wormhole
 	// Note: This is a build parameter, and the build scripts will replace this with an image reference
 	WormholeImg = "<build param>"

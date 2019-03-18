@@ -41,8 +41,8 @@ func (r *Config) checkAndSetDefaults() error {
 	if r.ClusterPackages == nil {
 		return trace.BadParameter("cluster package service is required")
 	}
-	if r.RequestAdaptor == nil {
-		r.RequestAdaptor = RequestAdaptorFunc(idRequest)
+	if r.HostLocalPackages == nil {
+		return trace.BadParameter("host-local package service is required")
 	}
 	if r.Dispatcher == nil {
 		r.Dispatcher = NewDefaultDispatcher()
@@ -53,16 +53,14 @@ func (r *Config) checkAndSetDefaults() error {
 // Config describes configuration for executing a rolling update operation
 type Config struct {
 	update.Config
-	// RequestAdaptor specifies the adaptor for configuration update requests.
-	// It is used by the configuration update phase to augment the request before
-	// executing the RotatePlanetConfig API
-	RequestAdaptor
 	// Dispatcher specifies optional phase dispatcher.
 	// If unspecified, default dispatcher is used.
 	//
 	// Implementations that reimplement certain steps or implement new steps
 	// can set this field and use an instance of the default dispatcher as a fallback
 	Dispatcher
+	// HostLocalPackages specifies the package service on local host
+	HostLocalPackages update.LocalPackageService
 	// Apps is the cluster application service
 	Apps app.Applications
 	// ClusterPackages specifies the cluster package service

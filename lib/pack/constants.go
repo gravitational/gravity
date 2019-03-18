@@ -57,17 +57,34 @@ const (
 	PurposeRPCCredentials = "rpc-secrets"
 )
 
-// RuntimePackageLabels identifies the runtime package
-var RuntimePackageLabels = map[string]string{
-	PurposeLabel: PurposeRuntime,
-}
+var (
+	// RuntimePackageLabels identifies the runtime package
+	RuntimePackageLabels = map[string]string{
+		PurposeLabel: PurposeRuntime,
+	}
 
-// RuntimeSecretsPackageLabels identifies the runtime secrets package
-var RuntimeSecretsPackageLabels = map[string]string{
-	PurposeLabel: PurposePlanetSecrets,
-}
+	// RuntimeSecretsPackageLabels identifies the runtime secrets package
+	RuntimeSecretsPackageLabels = map[string]string{
+		PurposeLabel: PurposePlanetSecrets,
+	}
 
-// InstalledLabels defines a label set for an installed package
-var InstalledLabels = map[string]string{
-	InstalledLabel: InstalledLabel,
-}
+	// RuntimeConfigPackageLabels identifies the runtime configuration package
+	RuntimeConfigPackageLabels = map[string]string{
+		PurposeLabel: PurposePlanetConfig,
+	}
+
+	// TeleportNodeConfigPackageLabels identifies the teleport node configuration package
+	TeleportNodeConfigPackageLabels = map[string]string{
+		PurposeLabel: PurposeTeleportNodeConfig,
+	}
+
+	// TeleportMasterConfigPackageLabels identifies the teleport master configuration package
+	TeleportMasterConfigPackageLabels = map[string]string{
+		PurposeLabel: PurposeTeleportMasterConfig,
+	}
+
+	// InstalledLabels defines a label set for an installed package
+	InstalledLabels = map[string]string{
+		InstalledLabel: InstalledLabel,
+	}
+)

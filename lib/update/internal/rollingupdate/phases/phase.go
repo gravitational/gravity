@@ -16,6 +16,11 @@ limitations under the License.
 
 package phases
 
+import (
+	"github.com/gravitational/gravity/lib/app"
+	"github.com/gravitational/gravity/lib/loc"
+)
+
 const (
 	// UpdateConfig defines the phase to update runtime configuration package
 	UpdateConfig = "update-config"
@@ -36,3 +41,7 @@ const (
 	// Endpoints defines the phase to wait for endpoints on a node to be become active
 	Endpoints = "endpoints"
 )
+
+type appGetter interface {
+	GetApp(loc.Locator) (*app.Application, error)
+}

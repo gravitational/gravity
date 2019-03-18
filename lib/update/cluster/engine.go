@@ -74,7 +74,7 @@ type Config struct {
 	ClusterPackages pack.PackageService
 	// HostLocalPackages is the host-local package service that contains package
 	// metadata used for updates
-	HostLocalPackages pack.PackageService
+	HostLocalPackages update.LocalPackageService
 	// Apps is the cluster apps service
 	Apps app.Applications
 	// Client is the cluster Kubernetes client

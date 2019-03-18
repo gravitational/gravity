@@ -17,15 +17,15 @@ limitations under the License.
 package phases
 
 import (
-	"bytes"
 	"context"
-	"os/exec"
 
-	"github.com/gravitational/gravity/lib/defaults"
+	libapp "github.com/gravitational/gravity/lib/app/service"
 	libfsm "github.com/gravitational/gravity/lib/fsm"
 	"github.com/gravitational/gravity/lib/loc"
+	"github.com/gravitational/gravity/lib/pack"
 	"github.com/gravitational/gravity/lib/storage"
-	"github.com/gravitational/gravity/lib/utils"
+	"github.com/gravitational/gravity/lib/update"
+	"github.com/gravitational/gravity/lib/update/system"
 
 	"github.com/gravitational/trace"
 	log "github.com/sirupsen/logrus"
@@ -33,75 +33,79 @@ import (
 
 // NewRestart returns a new executor to restart the runtime container to apply
 // the environment variables update
-func NewRestart(params libfsm.ExecutorParams, operator localClusterGetter, apps appGetter, operationID string, logger log.FieldLogger) (*restart, error) {
+func NewRestart(
+	params libfsm.ExecutorParams,
+	operator localClusterGetter,
+	operationID string,
+	apps appGetter,
+	backend storage.Backend,
+	packages pack.PackageService,
+	localPackages update.LocalPackageService,
+	logger log.FieldLogger,
+) (*restart, error) {
 	if params.Phase.Data == nil || params.Phase.Data.Package == nil {
 		return nil, trace.NotFound("no installed application package specified for phase %q",
 			params.Phase.ID)
 	}
-	// TODO: move these to OperationPhase.Data (i.e. to plan init phase) to avoid
-	// failing operation if a cluster is degraded
-	app, err := apps.GetApp(*params.Phase.Data.Package)
-	if err != nil {
-		return nil, trace.Wrap(err, "failed to query installed application")
-	}
-	runtimePackage, err := app.Manifest.RuntimePackageForProfile(params.Phase.Data.Server.Role)
-	if err != nil {
-		return nil, trace.Wrap(err)
+	if params.Phase.Data.Update == nil || len(params.Phase.Data.Update.Servers) != 1 {
+		return nil, trace.NotFound("no server specified for phase %q",
+			params.Phase.ID)
 	}
 	cluster, err := operator.GetLocalSite()
 	if err != nil {
 		return nil, trace.Wrap(err)
 	}
 	return &restart{
-		FieldLogger:    logger,
-		runtimePackage: *runtimePackage,
-		operationID:    operationID,
-		serviceUser:    cluster.ServiceUser,
+		FieldLogger:   logger,
+		operationID:   operationID,
+		backend:       backend,
+		packages:      packages,
+		localPackages: localPackages,
+		serviceUser:   cluster.ServiceUser,
+		update:        params.Phase.Data.Update.Servers[0],
 	}, nil
 }
 
 // Execute restarts the runtime container with the new configuration package
 func (r *restart) Execute(ctx context.Context) error {
-	commands := [][]string{
-		{"system", "pull-updates",
-			"--uid", r.serviceUser.UID,
-			"--gid", r.serviceUser.GID,
-			"--runtime-package", r.runtimePackage.String(),
-			"--ops-url", defaults.GravityServiceURL,
-			"--insecure", "--quiet"},
-		{"system", "update",
-			"--changeset-id", r.operationID,
-			"--runtime-package", r.runtimePackage.String(),
-			"--with-status",
-			"--insecure", "--debug"},
+	err := r.pullUpdates()
+	if err != nil {
+		return trace.Wrap(err)
 	}
-	for _, command := range commands {
-		args := utils.Self(command...)
-		cmd := exec.Command(args[0], args[1:]...)
-		var buf bytes.Buffer
-		err := utils.ExecL(cmd, &buf, r.FieldLogger)
-		if err != nil {
-			r.WithField("output", buf.String()).
-				Warn("Failed to execute.")
-			return trace.Wrap(err)
-		}
+	updater, err := system.New(system.Config{
+		ChangesetID: r.operationID,
+		Backend:     r.backend,
+		Packages:    r.localPackages,
+		PackageUpdates: system.PackageUpdates{
+			Runtime: storage.PackageUpdate{
+				From: r.update.Runtime.Installed,
+				To:   r.update.Runtime.Update.Package,
+				ConfigPackage: &storage.PackageUpdate{
+					To: r.update.Runtime.Update.ConfigPackage,
+				},
+			},
+		},
+	})
+	if err != nil {
+		return trace.Wrap(err)
 	}
-	return nil
+	err = updater.Update(ctx, true)
+	return trace.Wrap(err)
 }
 
 // Rollback reverses the update and restarts the container with the old
 // configuration package
-func (r *restart) Rollback(context.Context) error {
-	args := utils.Self("system", "rollback", "--changeset-id", r.operationID)
-	cmd := exec.Command(args[0], args[1:]...)
-	var buf bytes.Buffer
-	err := utils.ExecL(cmd, &buf, r.FieldLogger)
+func (r *restart) Rollback(ctx context.Context) error {
+	updater, err := system.New(system.Config{
+		ChangesetID: r.operationID,
+		Backend:     r.backend,
+		Packages:    r.localPackages,
+	})
 	if err != nil {
-		r.WithField("output", buf.String()).
-			Warn("Failed to rollback.")
 		return trace.Wrap(err)
 	}
-	return nil
+	err = updater.Rollback(ctx, true)
+	return trace.Wrap(err)
 }
 
 // PreCheck is a no-op
@@ -114,10 +118,29 @@ func (*restart) PostCheck(context.Context) error {
 	return nil
 }
 
+func (r *restart) pullUpdates() error {
+	updates := []loc.Locator{r.update.Runtime.Update.Package, r.update.Runtime.Update.ConfigPackage}
+	for _, update := range updates {
+		r.Infof("Pulling package update: %v.", update)
+		_, err := libapp.PullPackage(libapp.PackagePullRequest{
+			SrcPack: r.packages,
+			DstPack: r.localPackages,
+			Package: update,
+		})
+		if err != nil && !trace.IsAlreadyExists(err) {
+			return trace.Wrap(err)
+		}
+	}
+	return nil
+}
+
 type restart struct {
 	// FieldLogger specifies the logger for the phase
 	log.FieldLogger
-	runtimePackage loc.Locator
-	serviceUser    storage.OSUser
-	operationID    string
+	backend       storage.Backend
+	packages      pack.PackageService
+	localPackages update.LocalPackageService
+	update        storage.UpdateServer
+	serviceUser   storage.OSUser
+	operationID   string
 }

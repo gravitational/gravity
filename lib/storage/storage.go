@@ -642,10 +642,10 @@ func (s sortedNodeSpec) Len() int {
 
 // Less stacks latest attempts to the end of the list
 func (s sortedNodeSpec) Less(i, j int) bool {
-	if s[i].Profile == s[i].Profile {
+	if s[i].Profile == s[j].Profile {
 		return s[i].Count < s[j].Count
 	}
-	return s[i].Profile <= s[i].Profile
+	return s[i].Profile <= s[j].Profile
 }
 
 // Swap swaps two attempts
@@ -1161,8 +1161,11 @@ type PackageUpdate struct {
 
 // String formats this update as human-readable text
 func (u *PackageUpdate) String() string {
-	return fmt.Sprintf("update(%v -> %v, labels:%v, config:%v)",
-		u.From, u.To, u.Labels, u.ConfigPackage)
+	if u.ConfigPackage == nil {
+		return fmt.Sprintf("update(%v -> %v)", u.From, u.To)
+	}
+	return fmt.Sprintf("update(%v -> %v, config:%v)",
+		u.From, u.To, *u.ConfigPackage)
 }
 
 // PackageChangesets tracks server local package changes - updates and downgrades
