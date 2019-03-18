@@ -75,12 +75,13 @@ func (r phaseBuilder) bootstrap() *update.Phase {
 		Description: "Bootstrap update operation on nodes",
 	})
 
-	for _, server := range r.servers {
+	for i, server := range r.servers {
 		root.AddParallel(update.Phase{
 			ID:          root.ChildLiteral(server.Hostname),
 			Executor:    updateBootstrap,
 			Description: fmt.Sprintf("Bootstrap node %q", server.Hostname),
 			Data: &storage.OperationPhaseData{
+				ExecServer:       &r.servers[i].Server,
 				Package:          &r.updateApp.Package,
 				InstalledPackage: &r.installedApp.Package,
 				Update: &storage.UpdateOperationData{
@@ -278,9 +279,9 @@ func (r phaseBuilder) masters(leadMaster storage.UpdateServer, otherMasters []st
 		root.AddSequential(setLeaderElection(enable(leadMaster), disable(otherMasters...), leadMaster, "elect", "Make node %q Kubernetes leader"))
 	}
 
-	for _, server := range otherMasters {
+	for i, server := range otherMasters {
 		node = r.node(server.Server, &root, "Update system software on master node %q")
-		node.AddSequential(r.commonNode(server, leadMaster, supportsTaints,
+		node.AddSequential(r.commonNode(otherMasters[i], leadMaster, supportsTaints,
 			waitsForEndpoints(true))...)
 		// election - enable election on the upgraded node
 		node.AddSequential(setLeaderElection(enable(server), disable(), server, "enable", "Enable leader election on node %q"))
@@ -295,9 +296,9 @@ func (r phaseBuilder) nodes(leadMaster storage.UpdateServer, nodes []storage.Upd
 		Description: "Update regular nodes",
 	})
 
-	for _, server := range nodes {
+	for i, server := range nodes {
 		node := r.node(server.Server, &root, "Update system software on node %q")
-		node.AddSequential(r.commonNode(server, leadMaster, supportsTaints,
+		node.AddSequential(r.commonNode(nodes[i], leadMaster, supportsTaints,
 			waitsForEndpoints(true))...)
 		root.AddParallel(node)
 	}
@@ -475,7 +476,7 @@ func (r phaseBuilder) node(server storage.Server, parent update.ParentPhase, for
 }
 
 // commonNode returns a list of operations required for any node role to upgrade its system software
-func (r phaseBuilder) commonNode(server storage.UpdateServer, leadMaster storage.UpdateServer, supportsTaints bool,
+func (r phaseBuilder) commonNode(server, leadMaster storage.UpdateServer, supportsTaints bool,
 	waitsForEndpoints waitsForEndpoints) []update.Phase {
 	phases := []update.Phase{
 		{
@@ -491,6 +492,7 @@ func (r phaseBuilder) commonNode(server storage.UpdateServer, leadMaster storage
 			Executor:    updateSystem,
 			Description: fmt.Sprintf("Update system software on node %q", server.Hostname),
 			Data: &storage.OperationPhaseData{
+				ExecServer: &server.Server,
 				Update: &storage.UpdateOperationData{
 					Servers: []storage.UpdateServer{server},
 				},

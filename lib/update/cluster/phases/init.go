@@ -347,7 +347,7 @@ func (p *updatePhaseInit) rotateSecrets(server storage.UpdateServer) error {
 		return trace.Wrap(err)
 	}
 	_, err = p.Packages.CreatePackage(resp.Locator, resp.Reader, pack.WithLabels(resp.Labels))
-	if err != nil {
+	if err != nil && !trace.IsAlreadyExists(err) {
 		return trace.Wrap(err)
 	}
 	p.Debugf("Rotated secrets package for %v: %v.", server, resp.Locator)
