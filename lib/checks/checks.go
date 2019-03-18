@@ -885,21 +885,21 @@ func defaultPortChecker(options *validationpb.ValidateOptions) health.Checker {
 	}
 
 	var portRanges = []monitoring.PortRange{
-		monitoring.PortRange{Protocol: "tcp", From: 7496, To: 7496, Description: "serf (health check agents) peer to peer"},
-		monitoring.PortRange{Protocol: "tcp", From: 7373, To: 7373, Description: "serf (health check agents) peer to peer"},
-		monitoring.PortRange{Protocol: "tcp", From: 2379, To: 2380, Description: "etcd"},
-		monitoring.PortRange{Protocol: "tcp", From: 4001, To: 4001, Description: "etcd"},
-		monitoring.PortRange{Protocol: "tcp", From: 7001, To: 7001, Description: "etcd"},
-		monitoring.PortRange{Protocol: "tcp", From: 6443, To: 6443, Description: "kubernetes API server"},
-		monitoring.PortRange{Protocol: "tcp", From: 30000, To: 32767, Description: "kubernetes internal services range"},
-		monitoring.PortRange{Protocol: "tcp", From: 10248, To: 10255, Description: "kubernetes internal services range"},
-		monitoring.PortRange{Protocol: "tcp", From: 5000, To: 5000, Description: "docker registry"},
-		monitoring.PortRange{Protocol: "tcp", From: 3022, To: 3025, Description: "teleport internal SSH control panel"},
-		monitoring.PortRange{Protocol: "tcp", From: 3080, To: 3080, Description: "teleport Web UI"},
-		monitoring.PortRange{Protocol: "tcp", From: 3008, To: 3011, Description: "internal Gravity services"},
-		monitoring.PortRange{Protocol: "tcp", From: 32009, To: 32009, Description: "Gravity OpsCenter control panel"},
-		monitoring.PortRange{Protocol: "tcp", From: 7575, To: 7575, Description: "Gravity RPC agent"},
-		monitoring.PortRange{Protocol: "udp", From: vxlanPort, To: vxlanPort, Description: "overlay network"},
+		{Protocol: "tcp", From: 7496, To: 7496, Description: "serf (health check agents) peer to peer"},
+		{Protocol: "tcp", From: 7373, To: 7373, Description: "serf (health check agents) peer to peer"},
+		{Protocol: "tcp", From: 2379, To: 2380, Description: "etcd"},
+		{Protocol: "tcp", From: 4001, To: 4001, Description: "etcd"},
+		{Protocol: "tcp", From: 7001, To: 7001, Description: "etcd"},
+		{Protocol: "tcp", From: 6443, To: 6443, Description: "kubernetes API server"},
+		{Protocol: "tcp", From: 30000, To: 32767, Description: "kubernetes internal services range"},
+		{Protocol: "tcp", From: 10248, To: 10255, Description: "kubernetes internal services range"},
+		{Protocol: "tcp", From: 5000, To: 5000, Description: "docker registry"},
+		{Protocol: "tcp", From: 3022, To: 3025, Description: "teleport internal SSH control panel"},
+		{Protocol: "tcp", From: 3080, To: 3080, Description: "teleport Web UI"},
+		{Protocol: "tcp", From: 3008, To: 3011, Description: "internal Gravity services"},
+		{Protocol: "tcp", From: 32009, To: 32009, Description: "Gravity OpsCenter control panel"},
+		{Protocol: "tcp", From: 7575, To: 7575, Description: "Gravity RPC agent"},
+		{Protocol: "udp", From: vxlanPort, To: vxlanPort, Description: "overlay network"},
 	}
 
 	dnsConfig := storage.DefaultDNSConfig
@@ -984,7 +984,7 @@ func constructBandwidthRequest(servers []Server) (PingPongGame, error) {
 		}
 		game[server.AdvertiseIP] = PingPongRequest{
 			Duration: defaults.BandwidthTestDuration,
-			Listen: []validationpb.Addr{validationpb.Addr{
+			Listen: []validationpb.Addr{{
 				Addr: server.AdvertiseIP,
 			}},
 			Ping: remote,
@@ -1026,8 +1026,8 @@ func ifTestsDisabled() bool {
 
 // RunStream executes the specified command on r.server.
 // Implements utils.CommandRunner
-func (r *serverRemote) RunStream(w io.Writer, args ...string) error {
-	return trace.Wrap(r.remote.Exec(context.TODO(), r.server.AdvertiseIP, args, w))
+func (r *serverRemote) RunStream(ctx context.Context, w io.Writer, args ...string) error {
+	return trace.Wrap(r.remote.Exec(ctx, r.server.AdvertiseIP, args, w))
 }
 
 type serverRemote struct {

@@ -18,6 +18,7 @@ package cli
 
 import (
 	"compress/gzip"
+	"context"
 	"io"
 	"io/ioutil"
 	"os"
@@ -44,20 +45,20 @@ import (
 // filters define the specific diagnostics to collect ('system', 'kubernetes'),
 // if empty all diagnostics are collected.
 func systemReport(env *localenv.LocalEnvironment, filters []string, compressed bool) error {
-	runner := utils.NewRunner(nil)
 	var collectors report.Collectors
+	ctx := context.Background()
 	for _, filter := range teleutils.Deduplicate(filters) {
 		switch filter {
 		case constants.ReportFilterSystem:
 			collectors = append(collectors, report.SystemInfo()...)
 			collectors = append(collectors, packageCollector{env})
 		case constants.ReportFilterKubernetes:
-			collectors = append(collectors, report.KubernetesInfo(runner)...)
+			collectors = append(collectors, report.KubernetesInfo(ctx, utils.Runner)...)
 		}
 	}
 	if len(filters) == 0 {
 		collectors = append(collectors, report.SystemInfo()...)
-		collectors = append(collectors, report.KubernetesInfo(runner)...)
+		collectors = append(collectors, report.KubernetesInfo(ctx, utils.Runner)...)
 		collectors = append(collectors, packageCollector{env})
 	}
 
@@ -68,7 +69,7 @@ func systemReport(env *localenv.LocalEnvironment, filters []string, compressed b
 	defer os.RemoveAll(dir)
 
 	rw := report.NewFileWriter(dir)
-	err = collectors.Collect(rw, runner)
+	err = collectors.Collect(ctx, rw, utils.Runner)
 	if err != nil {
 		log.Errorf("failed to collect some diagnostics: %v", trace.DebugReport(err))
 	}
@@ -89,12 +90,12 @@ func systemReport(env *localenv.LocalEnvironment, filters []string, compressed b
 
 	_, err = io.Copy(os.Stdout, reader)
 
-	return trace.Wrap(err)
+	return trace.ConvertSystemError(err)
 }
 
 // Collect iterates through the system packages and outputs them
 // using the specified reportWriter.
-func (r packageCollector) Collect(reportWriter report.Writer, runner utils.CommandRunner) error {
+func (r packageCollector) Collect(ctx context.Context, reportWriter report.Writer, runner utils.CommandRunner) error {
 	w, err := reportWriter("gravity-packages.yaml")
 	if err != nil {
 		return trace.Wrap(err)

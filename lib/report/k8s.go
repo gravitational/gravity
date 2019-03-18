@@ -17,6 +17,7 @@ limitations under the License.
 package report
 
 import (
+	"context"
 	"fmt"
 	"io"
 
@@ -30,7 +31,7 @@ import (
 
 // KubernetesInfo returns a list of collectors to fetch kubernetes-related
 // diagnostics.
-func KubernetesInfo(runner utils.CommandRunner) Collectors {
+func KubernetesInfo(ctx context.Context, runner utils.CommandRunner) Collectors {
 	runner = planetContextRunner{runner}
 	// general kubernetes info
 	commands := Collectors{
@@ -44,7 +45,7 @@ func KubernetesInfo(runner utils.CommandRunner) Collectors {
 			"get", "events", "--all-namespaces"))...),
 	}
 
-	namespaces, err := kubectl.GetNamespaces(runner)
+	namespaces, err := kubectl.GetNamespaces(ctx, runner)
 	if err != nil || len(namespaces) == 0 {
 		namespaces = defaults.UsedNamespaces
 	}
@@ -58,13 +59,13 @@ func KubernetesInfo(runner utils.CommandRunner) Collectors {
 		}
 
 		// fetch pod logs
-		pods, err := kubectl.GetPods(namespace, runner)
+		pods, err := kubectl.GetPods(ctx, namespace, runner)
 		if err != nil {
 			log.Errorf("failed to query pods in namespace %v: %v", namespace, trace.DebugReport(err))
 			continue
 		}
 		for _, pod := range pods {
-			containers, err := kubectl.GetPodContainers(namespace, pod, runner)
+			containers, err := kubectl.GetPodContainers(ctx, namespace, pod, runner)
 			if err != nil {
 				log.Errorf("failed to query container in pod %v in namespace %v: %v",
 					pod, namespace, trace.DebugReport(err))
@@ -85,8 +86,8 @@ func KubernetesInfo(runner utils.CommandRunner) Collectors {
 
 // RunStream executes the command specified with args in the context of the planet container
 // Implements utils.CommandRunner
-func (r planetContextRunner) RunStream(w io.Writer, args ...string) error {
-	return r.CommandRunner.RunStream(w, utils.PlanetCommandSlice(args)...)
+func (r planetContextRunner) RunStream(ctx context.Context, w io.Writer, args ...string) error {
+	return r.CommandRunner.RunStream(ctx, w, utils.PlanetCommandSlice(args)...)
 }
 
 type planetContextRunner struct {
