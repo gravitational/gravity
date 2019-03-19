@@ -66,7 +66,7 @@ func (o *Operator) StreamOperationLogs(key ops.SiteOperationKey, reader io.Reade
 
 // createInstallOperation initiates install operation for a given site
 // it makes sure that install operation is the first operation too
-func (s *site) createInstallOperation(req ops.CreateSiteInstallOperationRequest) (*ops.SiteOperationKey, error) {
+func (s *site) createInstallOperation(ctx context.Context, req ops.CreateSiteInstallOperationRequest) (*ops.SiteOperationKey, error) {
 	profiles := make(map[string]storage.ServerProfile)
 	for _, profile := range s.app.Manifest.NodeProfiles {
 		profiles[profile.Name] = storage.ServerProfile{
@@ -76,13 +76,12 @@ func (s *site) createInstallOperation(req ops.CreateSiteInstallOperationRequest)
 			Request:     req.Profiles[profile.Name],
 		}
 	}
-	return s.createInstallExpandOperation(createInstallExpandOperationRequest{
+	return s.createInstallExpandOperation(ctx, createInstallExpandOperationRequest{
 		Type:        ops.OperationInstall,
 		State:       ops.OperationStateInstallInitiated,
 		Provisioner: req.Provisioner,
 		Vars:        req.Variables,
 		Profiles:    profiles,
-		User:        req.User,
 	})
 }
 
@@ -92,10 +91,9 @@ type createInstallExpandOperationRequest struct {
 	Provisioner string
 	Vars        storage.OperationVariables
 	Profiles    map[string]storage.ServerProfile
-	User        string
 }
 
-func (s *site) createInstallExpandOperation(req createInstallExpandOperationRequest) (*ops.SiteOperationKey, error) {
+func (s *site) createInstallExpandOperation(context context.Context, req createInstallExpandOperationRequest) (*ops.SiteOperationKey, error) {
 	operationType := req.Type
 	operationInitialState := req.State
 	provisioner := req.Provisioner
@@ -118,7 +116,7 @@ func (s *site) createInstallExpandOperation(req createInstallExpandOperationRequ
 		SiteDomain:  s.key.SiteDomain,
 		Type:        operationType,
 		Created:     s.clock().UtcNow(),
-		CreatedBy:   req.User,
+		CreatedBy:   storage.UserFromContext(context),
 		Updated:     s.clock().UtcNow(),
 		State:       operationInitialState,
 		Provisioner: provisioner,

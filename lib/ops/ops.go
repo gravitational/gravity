@@ -569,7 +569,7 @@ type Leader interface {
 // Status defines operations with site status
 type Status interface {
 	// CheckSiteStatus runs app status hook and updates site status appropriately
-	CheckSiteStatus(key SiteKey) error
+	CheckSiteStatus(ctx context.Context, key SiteKey) error
 	// GetClusterNodes returns a real-time information about cluster nodes
 	GetClusterNodes(SiteKey) ([]Node, error)
 }
@@ -1047,8 +1047,6 @@ type CreateSiteInstallOperationRequest struct {
 	Provisioner string `json:"provisioner"`
 	// Profiles specifies server (role -> server profile) requirements
 	Profiles map[string]storage.ServerProfileRequest `json:"profiles"`
-	// User is the user created the operation
-	User string `json:"-"`
 }
 
 // CheckAndSetDefaults validates the request and provides defaults to unset fields
@@ -1085,8 +1083,6 @@ type CreateSiteUninstallOperationRequest struct {
 	// Variables are used to set up operation specific parameters,
 	// e.g. AWS image flavor for AWS install
 	Variables storage.OperationVariables `json:"variables"`
-	// User is the user created the operation
-	User string `json:"-"`
 }
 
 // CreateSiteExpandOperationRequest is a request to add new nodes
@@ -1104,8 +1100,6 @@ type CreateSiteExpandOperationRequest struct {
 	Servers map[string]int `json:"servers"`
 	// Provisioner to use for this operation
 	Provisioner string `json:"provisioner"`
-	// User is the user created the operation
-	User string `json:"-"`
 }
 
 // CheckAndSetDefaults makes sure the request is correct and fills in some unset
@@ -1144,8 +1138,6 @@ type CreateSiteShrinkOperationRequest struct {
 	// Used in cases where we recieve an event where the node is being terminated, but may
 	// not have disconnected from the cluster yet.
 	NodeRemoved bool `json:"node_removed"`
-	// User is the user created the operation
-	User string `json:"-"`
 }
 
 // CheckAndSetDefaults makes sure the request is correct and fills in some unset
@@ -1177,8 +1169,6 @@ type CreateSiteAppUpdateOperationRequest struct {
 	App string `json:"package"`
 	// StartAgents specifies whether the operation will automatically start the update agents
 	StartAgents bool `json:"start_agents"`
-	// User is the user created the operation
-	User string `json:"-"`
 }
 
 // Check validates this request
@@ -1199,8 +1189,6 @@ type CreateClusterGarbageCollectOperationRequest struct {
 	AccountID string `json:"account_id"`
 	// ClusterName is the name of the cluster
 	ClusterName string `json:"cluster_name"`
-	// User is the user created the operation
-	User string `json:"-"`
 }
 
 // CreateUpdateEnvarsOperationRequest is a request
@@ -1210,8 +1198,6 @@ type CreateUpdateEnvarsOperationRequest struct {
 	ClusterKey SiteKey `json:"cluster_key"`
 	// Env specifies the new cluster environment variables
 	Env map[string]string `json:"env"`
-	// User is the user created the operation
-	User string `json:"-"`
 }
 
 // CreateUpdateConfigOperationRequest is a request
@@ -1221,8 +1207,6 @@ type CreateUpdateConfigOperationRequest struct {
 	ClusterKey SiteKey `json:"cluster_key"`
 	// Config specifies the new configuration as JSON-encoded payload
 	Config []byte `json:"config"`
-	// User is the user created the operation
-	User string `json:"-"`
 }
 
 // UpdateClusterEnvironRequest is a request

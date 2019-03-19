@@ -395,14 +395,14 @@ func (o *OperatorACL) CompleteFinalInstallStep(req CompleteFinalInstallStepReque
 	return o.operator.CompleteFinalInstallStep(req)
 }
 
-func (o *OperatorACL) CheckSiteStatus(key SiteKey) error {
+func (o *OperatorACL) CheckSiteStatus(ctx context.Context, key SiteKey) error {
 	// TODO(klizhentas) introduce more fine grained RBAC, right now
 	// we use this Update requirement to limit access to admin only users
 	// as this can modify cluster state
 	if err := o.ClusterAction(key.SiteDomain, storage.KindCluster, teleservices.VerbUpdate); err != nil {
 		return trace.Wrap(err)
 	}
-	return o.operator.CheckSiteStatus(key)
+	return o.operator.CheckSiteStatus(ctx, key)
 }
 
 // ValidateServers runs pre-installation checks

@@ -35,7 +35,7 @@ import (
 )
 
 // CreateUpdateEnvarsOperation creates a new operation to update cluster environment variables
-func (o *Operator) CreateUpdateEnvarsOperation(r ops.CreateUpdateEnvarsOperationRequest) (*ops.SiteOperationKey, error) {
+func (o *Operator) CreateUpdateEnvarsOperation(ctx context.Context, r ops.CreateUpdateEnvarsOperationRequest) (*ops.SiteOperationKey, error) {
 	err := r.ClusterKey.Check()
 	if err != nil {
 		return nil, trace.Wrap(err)
@@ -48,7 +48,7 @@ func (o *Operator) CreateUpdateEnvarsOperation(r ops.CreateUpdateEnvarsOperation
 	if err != nil {
 		return nil, trace.Wrap(err)
 	}
-	key, err := cluster.createUpdateEnvarsOperation(r, env)
+	key, err := cluster.createUpdateEnvarsOperation(ctx, r, env)
 	if err != nil {
 		return nil, trace.Wrap(err)
 	}
@@ -137,14 +137,14 @@ func NewEnvironmentConfigMap(data map[string]string) *v1.ConfigMap {
 }
 
 // createUpdateEnvarsOperation creates a new operation to update cluster environment variables
-func (s *site) createUpdateEnvarsOperation(req ops.CreateUpdateEnvarsOperationRequest, prevEnv map[string]string) (*ops.SiteOperationKey, error) {
+func (s *site) createUpdateEnvarsOperation(ctx context.Context, req ops.CreateUpdateEnvarsOperationRequest, prevEnv map[string]string) (*ops.SiteOperationKey, error) {
 	op := ops.SiteOperation{
 		ID:         uuid.New(),
 		AccountID:  s.key.AccountID,
 		SiteDomain: s.key.SiteDomain,
 		Type:       ops.OperationUpdateRuntimeEnviron,
 		Created:    s.clock().UtcNow(),
-		CreatedBy:  req.User,
+		CreatedBy:  storage.UserFromContext(ctx),
 		Updated:    s.clock().UtcNow(),
 		State:      ops.OperationUpdateRuntimeEnvironInProgress,
 		UpdateEnviron: &storage.UpdateEnvarsOperationState{

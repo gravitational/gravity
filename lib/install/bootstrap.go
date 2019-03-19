@@ -140,13 +140,13 @@ func (i *Installer) emitAuditEvents() error {
 	if err != nil {
 		return trace.Wrap(err)
 	}
-	events.Emit(operator, events.OperationStarted, events.Fields{
+	events.Emit(i.Context, operator, events.OperationStarted, events.Fields{
 		events.FieldOperationID:   operation.ID,
 		events.FieldOperationType: operation.Type,
 		events.FieldTime:          operation.Created,
 		events.FieldUser:          operation.CreatedBy,
 	})
-	events.Emit(operator, events.OperationCompleted, events.Fields{
+	events.Emit(i.Context, operator, events.OperationCompleted, events.Fields{
 		events.FieldOperationID:   operation.ID,
 		events.FieldOperationType: operation.Type,
 		events.FieldUser:          operation.CreatedBy,

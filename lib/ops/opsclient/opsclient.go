@@ -418,7 +418,7 @@ func (c *Client) CompleteFinalInstallStep(req ops.CompleteFinalInstallStepReques
 }
 
 // CheckSiteStatus runs app status hook and updates site status appropriately.
-func (c *Client) CheckSiteStatus(key ops.SiteKey) error {
+func (c *Client) CheckSiteStatus(ctx context.Context, key ops.SiteKey) error {
 	_, err := c.Get(c.Endpoint("accounts", key.AccountID, "sites", key.SiteDomain, "status"), url.Values{})
 	return trace.Wrap(err)
 }
@@ -1506,7 +1506,7 @@ func (c *Client) GetAuthGateway(key ops.SiteKey) (storage.AuthGateway, error) {
 }
 
 // EmitAuditEvent saves the provided event in the audit log.
-func (c *Client) EmitAuditEvent(req ops.AuditEventRequest) error {
+func (c *Client) EmitAuditEvent(ctx context.Context, req ops.AuditEventRequest) error {
 	_, err := c.PostJSON(c.Endpoint("accounts", req.AccountID, "sites", req.SiteDomain, "events"), req)
 	if err != nil {
 		return trace.Wrap(err)

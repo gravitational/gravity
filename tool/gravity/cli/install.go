@@ -247,7 +247,7 @@ func remove(env *localenv.LocalEnvironment, c removeConfig) error {
 		}
 	}
 
-	key, err := operator.CreateSiteShrinkOperation(
+	key, err := operator.CreateSiteShrinkOperation(context.TODO(),
 		ops.CreateSiteShrinkOperationRequest{
 			AccountID:  site.AccountID,
 			SiteDomain: site.Domain,

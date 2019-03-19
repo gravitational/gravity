@@ -52,10 +52,6 @@ func createResource(env *localenv.LocalEnvironment, factory LocalEnvironmentFact
 	if err != nil {
 		return trace.Wrap(err)
 	}
-	login, err := env.ClusterLogin()
-	if err != nil {
-		return trace.Wrap(err)
-	}
 	clusterHandler := NewDefaultClusterOperationHandler(factory)
 	gravityResources, err := gravity.New(gravity.Config{
 		Operator:                operator,
@@ -78,9 +74,8 @@ func createResource(env *localenv.LocalEnvironment, factory LocalEnvironmentFact
 			Owner:     user,
 			Manual:    manual,
 			Confirmed: confirmed,
-			User:      login.Email,
 		}
-		return trace.Wrap(control.Create(bytes.NewReader(resource.Raw), req))
+		return trace.Wrap(control.Create(context.TODO(), bytes.NewReader(resource.Raw), req))
 	})
 	return trace.Wrap(err)
 }
@@ -95,10 +90,6 @@ func removeResource(
 	manual, confirmed bool,
 ) error {
 	operator, err := env.SiteOperator()
-	if err != nil {
-		return trace.Wrap(err)
-	}
-	login, err := env.ClusterLogin()
 	if err != nil {
 		return trace.Wrap(err)
 	}
@@ -119,9 +110,8 @@ func removeResource(
 		Owner:     user,
 		Manual:    manual,
 		Confirmed: confirmed,
-		User:      login.Email,
 	}
-	err = resources.NewControl(gravityResources).Remove(req)
+	err = resources.NewControl(gravityResources).Remove(context.TODO(), req)
 	return trace.Wrap(err)
 
 }

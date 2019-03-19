@@ -17,6 +17,7 @@ limitations under the License.
 package opsroute
 
 import (
+	"context"
 	"fmt"
 	"io"
 	"net/url"
@@ -250,12 +251,12 @@ func (r *Router) CompleteFinalInstallStep(req ops.CompleteFinalInstallStepReques
 }
 
 // CheckSiteStatus runs app status hook and updates site status appropriately
-func (r *Router) CheckSiteStatus(key ops.SiteKey) error {
+func (r *Router) CheckSiteStatus(ctx context.Context, key ops.SiteKey) error {
 	client, err := r.RemoteClient(key.SiteDomain)
 	if err != nil {
 		return trace.Wrap(err)
 	}
-	return client.CheckSiteStatus(key)
+	return client.CheckSiteStatus(ctx, key)
 }
 
 func (r *Router) GetSiteInstructions(tokenID string, serverProfile string, params url.Values) (string, error) {
@@ -286,36 +287,36 @@ func (r *Router) GetSiteOperation(key ops.SiteOperationKey) (*ops.SiteOperation,
 	return client.GetSiteOperation(key)
 }
 
-func (r *Router) CreateSiteInstallOperation(req ops.CreateSiteInstallOperationRequest) (*ops.SiteOperationKey, error) {
-	return r.Local.CreateSiteInstallOperation(req)
+func (r *Router) CreateSiteInstallOperation(ctx context.Context, req ops.CreateSiteInstallOperationRequest) (*ops.SiteOperationKey, error) {
+	return r.Local.CreateSiteInstallOperation(ctx, req)
 }
 
 func (r *Router) ResumeShrink(key ops.SiteKey) (*ops.SiteOperationKey, error) {
 	return r.Local.ResumeShrink(key)
 }
 
-func (r *Router) CreateSiteExpandOperation(req ops.CreateSiteExpandOperationRequest) (*ops.SiteOperationKey, error) {
+func (r *Router) CreateSiteExpandOperation(ctx context.Context, req ops.CreateSiteExpandOperationRequest) (*ops.SiteOperationKey, error) {
 	client, err := r.PickOperationClient(req.SiteDomain)
 	if err != nil {
 		return nil, trace.Wrap(err)
 	}
-	return client.CreateSiteExpandOperation(req)
+	return client.CreateSiteExpandOperation(ctx, req)
 }
 
-func (r *Router) CreateSiteShrinkOperation(req ops.CreateSiteShrinkOperationRequest) (*ops.SiteOperationKey, error) {
+func (r *Router) CreateSiteShrinkOperation(ctx context.Context, req ops.CreateSiteShrinkOperationRequest) (*ops.SiteOperationKey, error) {
 	client, err := r.PickOperationClient(req.SiteDomain)
 	if err != nil {
 		return nil, trace.Wrap(err)
 	}
-	return client.CreateSiteShrinkOperation(req)
+	return client.CreateSiteShrinkOperation(ctx, req)
 }
 
-func (r *Router) CreateSiteAppUpdateOperation(req ops.CreateSiteAppUpdateOperationRequest) (*ops.SiteOperationKey, error) {
+func (r *Router) CreateSiteAppUpdateOperation(ctx context.Context, req ops.CreateSiteAppUpdateOperationRequest) (*ops.SiteOperationKey, error) {
 	client, err := r.RemoteClient(req.SiteDomain)
 	if err != nil {
 		return nil, trace.Wrap(err)
 	}
-	return client.CreateSiteAppUpdateOperation(req)
+	return client.CreateSiteAppUpdateOperation(ctx, req)
 }
 
 func (r *Router) GetSiteInstallOperationAgentReport(key ops.SiteOperationKey) (*ops.AgentReport, error) {
@@ -330,23 +331,23 @@ func (r *Router) SiteInstallOperationStart(key ops.SiteOperationKey) error {
 	return r.Local.SiteInstallOperationStart(key)
 }
 
-func (r *Router) CreateSiteUninstallOperation(req ops.CreateSiteUninstallOperationRequest) (*ops.SiteOperationKey, error) {
-	return r.Local.CreateSiteUninstallOperation(req)
+func (r *Router) CreateSiteUninstallOperation(ctx context.Context, req ops.CreateSiteUninstallOperationRequest) (*ops.SiteOperationKey, error) {
+	return r.Local.CreateSiteUninstallOperation(ctx, req)
 }
 
 // CreateClusterGarbageCollectOperation creates a new garbage collection operation in the cluster
-func (r *Router) CreateClusterGarbageCollectOperation(req ops.CreateClusterGarbageCollectOperationRequest) (*ops.SiteOperationKey, error) {
-	return r.Local.CreateClusterGarbageCollectOperation(req)
+func (r *Router) CreateClusterGarbageCollectOperation(ctx context.Context, req ops.CreateClusterGarbageCollectOperationRequest) (*ops.SiteOperationKey, error) {
+	return r.Local.CreateClusterGarbageCollectOperation(ctx, req)
 }
 
 // CreateUpdateEnvarsOperation creates a new operation to update cluster runtime environment variables
-func (r *Router) CreateUpdateEnvarsOperation(req ops.CreateUpdateEnvarsOperationRequest) (*ops.SiteOperationKey, error) {
-	return r.Local.CreateUpdateEnvarsOperation(req)
+func (r *Router) CreateUpdateEnvarsOperation(ctx context.Context, req ops.CreateUpdateEnvarsOperationRequest) (*ops.SiteOperationKey, error) {
+	return r.Local.CreateUpdateEnvarsOperation(ctx, req)
 }
 
 // CreateUpdateConfigOperation creates a new operation to update cluster configuration
-func (r *Router) CreateUpdateConfigOperation(req ops.CreateUpdateConfigOperationRequest) (*ops.SiteOperationKey, error) {
-	return r.Local.CreateUpdateConfigOperation(req)
+func (r *Router) CreateUpdateConfigOperation(ctx context.Context, req ops.CreateUpdateConfigOperationRequest) (*ops.SiteOperationKey, error) {
+	return r.Local.CreateUpdateConfigOperation(ctx, req)
 }
 
 func (r *Router) GetSiteOperationLogs(key ops.SiteOperationKey) (io.ReadCloser, error) {
@@ -882,6 +883,6 @@ func (r *Router) GetAuthGateway(key ops.SiteKey) (storage.AuthGateway, error) {
 }
 
 // EmitAuditEvent saves the provided event in the audit log.
-func (r *Router) EmitAuditEvent(req ops.AuditEventRequest) error {
-	return r.Local.EmitAuditEvent(req)
+func (r *Router) EmitAuditEvent(ctx context.Context, req ops.AuditEventRequest) error {
+	return r.Local.EmitAuditEvent(ctx, req)
 }

@@ -681,6 +681,13 @@ const (
 	AnnotationLogo = "gravitational.io/logo"
 	// AnnotationSize contains image size in bytes.
 	AnnotationSize = "gravitational.io/size"
+
+	// ServiceAutoscaler is the name of the service that monitors autoscaling
+	// events and launches appropriate operations.
+	ServiceAutoscaler = "@autoscaler"
+	// ServiceStatusChecker is the name of the service that periodically
+	// checks cluster health status and activates/deactivates it.
+	ServiceStatusChecker = "@statuschecker"
 )
 
 var (

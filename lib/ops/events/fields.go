@@ -44,6 +44,7 @@ func fieldsForOperation(operation ops.SiteOperation) (Fields, error) {
 	fields := Fields{
 		FieldOperationID:   operation.ID,
 		FieldOperationType: operation.Type,
+		FieldCluster:       operation.SiteDomain,
 		FieldUser:          operation.CreatedBy,
 	}
 	switch operation.Type {
@@ -98,6 +99,8 @@ const (
 	FieldNodeRole = "role"
 	// FieldName contains name, e.g. resource name, application name, etc.
 	FieldName = "name"
+	// FieldCluster contains name of the cluster that generated an event.
+	FieldCluster = "cluster"
 	// FieldOpsCenter contains Ops Center name.
 	FieldOpsCenter = "opsCenter"
 	// FieldKind contains resource kind.
@@ -120,4 +123,6 @@ const (
 	FieldExpires = "expires"
 	// FieldMaxNodes contains license nodes limit.
 	FieldMaxNodes = "maxNodes"
+	// FieldRoles contains roles of a new user.
+	FieldRoles = "roles"
 )

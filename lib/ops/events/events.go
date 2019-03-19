@@ -17,7 +17,10 @@ limitations under the License.
 package events
 
 import (
+	"context"
+
 	"github.com/gravitational/gravity/lib/ops"
+	"github.com/gravitational/gravity/lib/storage"
 
 	"github.com/gravitational/teleport/lib/events"
 	"github.com/gravitational/trace"
@@ -28,20 +31,23 @@ var log = logrus.WithField(trace.Component, "events")
 
 // Emit saves the provided event to the audit log of the local cluster of the
 // provided operator.
-func Emit(operator ops.Operator, event string, fields Fields) {
-	err := emit(operator, event, fields)
+func Emit(ctx context.Context, operator ops.Operator, event string, fields Fields) {
+	err := emit(ctx, operator, event, fields)
 	if err != nil {
 		log.Errorf("Failed to emit audit event %v %v: %v.",
 			event, fields, trace.DebugReport(err))
 	}
 }
 
-func emit(operator ops.Operator, event string, fields Fields) error {
+func emit(ctx context.Context, operator ops.Operator, event string, fields Fields) error {
 	cluster, err := operator.GetLocalSite()
 	if err != nil {
 		return trace.Wrap(err)
 	}
-	return operator.EmitAuditEvent(ops.AuditEventRequest{
+	if storage.UserFromContext(ctx) != "" {
+		fields[FieldUser] = storage.UserFromContext(ctx)
+	}
+	return operator.EmitAuditEvent(ctx, ops.AuditEventRequest{
 		SiteKey: cluster.Key(),
 		Type:    event,
 		Fields:  events.EventFields(fields),
@@ -49,48 +55,51 @@ func emit(operator ops.Operator, event string, fields Fields) error {
 }
 
 const (
-	// OperationStarted is emitted when an operation starts.
+	// OperationStarted fires when an operation starts.
 	OperationStarted = "operation.started"
-	// OperationCompleted is emitted when an operation completes successfully.
+	// OperationCompleted fires when an operation completes successfully.
 	OperationCompleted = "operation.completed"
-	// OperationFailed is emitted when an operation completes with error.
+	// OperationFailed fires when an operation completes with error.
 	OperationFailed = "operation.failed"
 
-	// AppInstalled is emitted when an application image is installed.
+	// AppInstalled fires when an application image is installed.
 	AppInstalled = "application.installed"
-	// AppUpgraded is emitted when an application release is upgraded.
+	// AppUpgraded fires when an application release is upgraded.
 	AppUpgraded = "application.upgraded"
-	// AppRolledBack is emitted when an application release is rolled back.
+	// AppRolledBack fires when an application release is rolled back.
 	AppRolledBack = "application.rolledback"
-	// AppUninstalled is emitted when an application release is uninstalled.
+	// AppUninstalled fires when an application release is uninstalled.
 	AppUninstalled = "application.uninstalled"
 
-	// ResourceCreated is emitted when a Gravity resource is created or updated.
+	// ResourceCreated fires when a Gravity resource is created or updated.
 	ResourceCreated = "resource.created"
-	// ResourceDeleted is emitted when a Gravity resource is deleted.
+	// ResourceDeleted fires when a Gravity resource is deleted.
 	ResourceDeleted = "resource.deleted"
 
-	// RemoteSupportEnabled is emitted when cluster enables remote support with an Ops Center.
+	// UserInvited fires when a new user invitation is generated.
+	UserInvited = "user.invited"
+
+	// RemoteSupportEnabled fires when cluster enables remote support with an Ops Center.
 	RemoteSupportEnabled = "remotesupport.enabled"
-	// RemoteSupportDisabled is emitted when cluster disables Ops Center remote support.
+	// RemoteSupportDisabled fires when cluster disables Ops Center remote support.
 	RemoteSupportDisabled = "remotesupport.disabled"
 
-	// UpdatesEnabled is emitted when periodic updates are turned on.
+	// UpdatesEnabled fires when periodic updates are turned on.
 	UpdatesEnabled = "periodicupdates.enabled"
-	// UpdatesDisabled is emitted when periodic updates are turned off.
+	// UpdatesDisabled fires when periodic updates are turned off.
 	UpdatesDisabled = "periodicupdates.disabled"
-	// UpdatesDownloaded is emitted when periodic updates download an update package.
+	// UpdatesDownloaded fires when periodic updates download an update package.
 	UpdatesDownloaded = "periodicupdates.downloaded"
 
-	// ClusterDegraded is emitted when cluster health check fails.
+	// ClusterDegraded fires when cluster health check fails.
 	ClusterDegraded = "cluster.degraded"
-	// ClusterActivated is emitted when cluster becomes healthy again.
+	// ClusterActivated fires when cluster becomes healthy again.
 	ClusterActivated = "cluster.activated"
 
-	// LicenseExpired is emitted when cluster license expires.
+	// LicenseExpired fires when cluster license expires.
 	LicenseExpired = "license.expired"
-	// LicenseUpdated is emitted when cluster license is updated.
+	// LicenseUpdated fires when cluster license is updated.
 	LicenseUpdated = "license.updated"
-	// LicenseGenerated is emitted when a license is generated on Ops Center.
+	// LicenseGenerated fires when a license is generated on Ops Center.
 	LicenseGenerated = "license.generated"
 )

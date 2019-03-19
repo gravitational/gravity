@@ -159,7 +159,7 @@ func (a *Autoscaler) removeInstance(ctx context.Context, operator Operator, even
 		return trace.Wrap(err)
 	}
 
-	_, err = operator.CreateSiteShrinkOperation(
+	_, err = operator.CreateSiteShrinkOperation(ctx,
 		ops.CreateSiteShrinkOperationRequest{
 			AccountID:   cluster.AccountID,
 			SiteDomain:  cluster.Domain,

@@ -397,11 +397,6 @@ func (env *LocalEnvironment) CurrentLogin() (*users.LoginEntry, error) {
 	return env.GetLoginEntry(opsCenterURL)
 }
 
-// ClusterLogin returns the login entry for the local cluster controller
-func (env *LocalEnvironment) ClusterLogin() (*users.LoginEntry, error) {
-	return env.GetLoginEntry(defaults.GravityServiceURL)
-}
-
 // CurrentOperator returns operator for the current login entry
 func (env *LocalEnvironment) CurrentOperator(options ...httplib.ClientOption) (*opsclient.Client, error) {
 	entry, err := env.CurrentLogin()

@@ -17,6 +17,7 @@ limitations under the License.
 package resources
 
 import (
+	"context"
 	"encoding/json"
 	"io"
 
@@ -39,11 +40,11 @@ import (
 // their own set of resources.
 type Resources interface {
 	// Create creates the provided resource
-	Create(CreateRequest) error
+	Create(context.Context, CreateRequest) error
 	// GetCollection retrieves a collection of specified resources
 	GetCollection(ListRequest) (Collection, error)
 	// Remove removes the specified resource
-	Remove(RemoveRequest) error
+	Remove(context.Context, RemoveRequest) error
 }
 
 // Validator is a service to validate resources
@@ -87,8 +88,6 @@ type CreateRequest struct {
 	// Confirmed defines whether the operation has been explicitly approved.
 	// This attribute is operation-specific
 	Confirmed bool
-	// User is the user creating resource
-	User string
 }
 
 // Check validates the request
@@ -142,8 +141,6 @@ type RemoveRequest struct {
 	// Confirmed defines whether the operation has been explicitly approved.
 	// This attribute is operation-specific
 	Confirmed bool
-	// User is the user removing resource
-	User string
 }
 
 // Check validates the request
@@ -191,13 +188,13 @@ func NewControl(resources Resources) *ResourceControl {
 }
 
 // Create creates all resources found in the provided data
-func (r *ResourceControl) Create(reader io.Reader, req CreateRequest) (err error) {
+func (r *ResourceControl) Create(ctx context.Context, reader io.Reader, req CreateRequest) (err error) {
 	err = ForEach(reader, func(res storage.UnknownResource) error {
 		req.Resource = teleservices.UnknownResource{
 			ResourceHeader: res.ResourceHeader,
 			Raw:            res.Raw,
 		}
-		return trace.Wrap(r.Resources.Create(req))
+		return trace.Wrap(r.Resources.Create(ctx, req))
 	})
 	return trace.Wrap(err)
 }
@@ -226,8 +223,8 @@ func (r *ResourceControl) Get(w io.Writer, kind, name string, withSecrets bool, 
 }
 
 // Remove removes the specified resource
-func (r *ResourceControl) Remove(req RemoveRequest) error {
-	err := r.Resources.Remove(req)
+func (r *ResourceControl) Remove(ctx context.Context, req RemoveRequest) error {
+	err := r.Resources.Remove(ctx, req)
 	if err != nil {
 		return trace.Wrap(err)
 	}

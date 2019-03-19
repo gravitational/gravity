@@ -32,6 +32,7 @@ import (
 	"github.com/gravitational/gravity/lib/httplib"
 	"github.com/gravitational/gravity/lib/loc"
 	"github.com/gravitational/gravity/lib/ops"
+	"github.com/gravitational/gravity/lib/ops/events"
 	"github.com/gravitational/gravity/lib/ops/opsclient"
 	"github.com/gravitational/gravity/lib/pack"
 	"github.com/gravitational/gravity/lib/schema"
@@ -407,6 +408,11 @@ func (h *WebHandler) inviteUser(w http.ResponseWriter, r *http.Request, p httpro
 		log.Debugf("User invite error: %v.", err)
 		return trace.Wrap(err)
 	}
+
+	events.Emit(r.Context(), ctx.Operator, events.UserInvited, events.Fields{
+		events.FieldName:  req.Name,
+		events.FieldRoles: req.Roles,
+	})
 
 	roundtrip.ReplyJSON(w, http.StatusOK, userToken)
 	return nil
@@ -1148,7 +1154,7 @@ func (h *WebHandler) stepDown(w http.ResponseWriter, r *http.Request, p httprout
     }
 */
 func (h *WebHandler) checkSiteStatus(w http.ResponseWriter, r *http.Request, p httprouter.Params, context *HandlerContext) error {
-	if err := context.Operator.CheckSiteStatus(siteKey(p)); err != nil {
+	if err := context.Operator.CheckSiteStatus(r.Context(), siteKey(p)); err != nil {
 		return trace.Wrap(err)
 	}
 	roundtrip.ReplyJSON(w, http.StatusOK, statusOK("ok"))
@@ -2215,10 +2221,11 @@ func (h *WebHandler) emitAuditEvent(w http.ResponseWriter, r *http.Request, p ht
 	if err != nil {
 		return trace.Wrap(err)
 	}
-	err = ctx.Operator.EmitAuditEvent(r.Context(), req)
-	if err != nil {
-		return trace.Wrap(err)
-	}
+	events.Emit(r.Context(), ctx.Operator, req.Type, events.Fields(req.Fields))
+	// err = ctx.Operator.EmitAuditEvent(r.Context(), req)
+	// if err != nil {
+	// 	return trace.Wrap(err)
+	// }
 	roundtrip.ReplyJSON(w, http.StatusOK, message("audit log event saved"))
 	return nil
 }
@@ -2286,7 +2293,7 @@ func GetHandlerContext(w http.ResponseWriter, r *http.Request, backend storage.B
 	}
 
 	// enrich context with authenticated user information
-	ctx = context.WithValue(ctx, constants.UserContext, user)
+	ctx = context.WithValue(ctx, constants.UserContext, user.GetName())
 
 	// create a permission aware wrapper packages service
 	// and pass it to the handlers, so every action will be automatically

@@ -31,7 +31,7 @@ import (
 )
 
 // CheckSiteStatus runs application status hook and updates cluster status appropriately
-func (o *Operator) CheckSiteStatus(key ops.SiteKey) error {
+func (o *Operator) CheckSiteStatus(ctx context.Context, key ops.SiteKey) error {
 	cluster, err := o.openSite(key)
 	if err != nil {
 		return trace.Wrap(err)
@@ -62,7 +62,7 @@ func (o *Operator) CheckSiteStatus(key ops.SiteKey) error {
 		if err != nil {
 			return trace.Wrap(err)
 		}
-		events.Emit(o, events.ClusterDegraded, events.Fields{
+		events.Emit(ctx, o, events.ClusterDegraded, events.Fields{
 			events.FieldReason: reason,
 		})
 		return trace.Wrap(statusErr)
@@ -78,7 +78,7 @@ func (o *Operator) CheckSiteStatus(key ops.SiteKey) error {
 		if err != nil {
 			return trace.Wrap(err)
 		}
-		events.Emit(o, events.ClusterActivated, events.Fields{})
+		events.Emit(ctx, o, events.ClusterActivated, events.Fields{})
 	}
 
 	return nil

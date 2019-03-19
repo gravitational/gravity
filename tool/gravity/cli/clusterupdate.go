@@ -187,7 +187,7 @@ func (r *clusterInitializer) validatePreconditions(localEnv *localenv.LocalEnvir
 }
 
 func (r clusterInitializer) newOperation(operator ops.Operator, cluster ops.Site) (*ops.SiteOperationKey, error) {
-	return operator.CreateSiteAppUpdateOperation(ops.CreateSiteAppUpdateOperationRequest{
+	return operator.CreateSiteAppUpdateOperation(context.TODO(), ops.CreateSiteAppUpdateOperationRequest{
 		AccountID:  cluster.AccountID,
 		SiteDomain: cluster.Domain,
 		App:        r.updateLoc.String(),

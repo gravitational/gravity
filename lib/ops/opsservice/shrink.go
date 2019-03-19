@@ -36,7 +36,7 @@ import (
 )
 
 // createShrinkOperation initiates shrink operation and starts it immediately
-func (s *site) createShrinkOperation(req ops.CreateSiteShrinkOperationRequest) (*ops.SiteOperationKey, error) {
+func (s *site) createShrinkOperation(context context.Context, req ops.CreateSiteShrinkOperationRequest) (*ops.SiteOperationKey, error) {
 	log.Infof("createShrinkOperation: req=%#v", req)
 
 	cluster, err := s.service.GetSite(s.key)
@@ -55,7 +55,7 @@ func (s *site) createShrinkOperation(req ops.CreateSiteShrinkOperationRequest) (
 		SiteDomain:  s.key.SiteDomain,
 		Type:        ops.OperationShrink,
 		Created:     s.clock().UtcNow(),
-		CreatedBy:   req.User,
+		CreatedBy:   storage.UserFromContext(context),
 		Updated:     s.clock().UtcNow(),
 		State:       ops.OperationStateShrinkInProgress,
 		Provisioner: server.Provisioner,

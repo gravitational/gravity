@@ -618,6 +618,8 @@ type authenticatedHandler func(
 	http.ResponseWriter, *http.Request, httprouter.Params, *AuthContext) (interface{}, error)
 
 type AuthContext struct {
+	// Context is the request context
+	Context context.Context
 	// User is a current user
 	User storage.User
 	// Checkers is access checker
@@ -657,6 +659,8 @@ func (m *Handler) GetHandlerContext(w http.ResponseWriter, r *http.Request) (*Au
 		return nil, trace.Wrap(err)
 	}
 	return &AuthContext{
+		// Enrich request context with authenticated user information.
+		Context:        context.WithValue(r.Context(), constants.UserContext, user.GetName()),
 		User:           user,
 		Operator:       ops.OperatorWithACL(m.cfg.Operator, m.cfg.Identity, user, checker),
 		Applications:   app.ApplicationsWithACL(m.cfg.Applications, m.cfg.Identity, user, checker),
@@ -673,7 +677,7 @@ func (m *Handler) needsAuth(fn authenticatedHandler) httprouter.Handle {
 		if err != nil {
 			return nil, trace.Wrap(err)
 		}
-		result, err := fn(w, r, params, context)
+		result, err := fn(w, r.WithContext(context.Context), params, context)
 		log.Debugf("%v %v %v", r.Method, r.URL.String(), err)
 		return result, trace.Wrap(err)
 	})
@@ -1119,7 +1123,7 @@ func (m *Handler) createSite(w http.ResponseWriter, r *http.Request, p httproute
 		Provisioner: provisioner,
 		Variables:   vars,
 	}
-	key, err := context.Operator.CreateSiteInstallOperation(opReq)
+	key, err := context.Operator.CreateSiteInstallOperation(r.Context(), opReq)
 	if err != nil {
 		siteKey := site.Key()
 		errDelete := context.Operator.DeleteSite(siteKey)
@@ -1207,7 +1211,7 @@ func (m *Handler) expandSite(w http.ResponseWriter, r *http.Request, p httproute
 		opReq.Servers = map[string]int{input.ServerProfile: 1}
 	}
 	var operationKey *ops.SiteOperationKey
-	if operationKey, err = context.Operator.CreateSiteExpandOperation(opReq); err != nil {
+	if operationKey, err = context.Operator.CreateSiteExpandOperation(r.Context(), opReq); err != nil {
 		return nil, trace.Wrap(err)
 	}
 	var operation *ops.SiteOperation
@@ -1261,7 +1265,7 @@ func (m *Handler) shrinkSite(w http.ResponseWriter, r *http.Request, p httproute
 		vars.AWS.SecretKey = input.Provider.AWS.SecretKey
 	}
 
-	key, err := context.Operator.CreateSiteShrinkOperation(ops.CreateSiteShrinkOperationRequest{
+	key, err := context.Operator.CreateSiteShrinkOperation(r.Context(), ops.CreateSiteShrinkOperationRequest{
 		AccountID:   context.User.GetAccountID(),
 		SiteDomain:  p.ByName("domain"),
 		Variables:   vars,
@@ -1557,7 +1561,7 @@ func (m *Handler) updateSiteApp(w http.ResponseWriter, r *http.Request, p httpro
 		StartAgents: true,
 	}
 	log.Infof("got site update operation request: %v", req)
-	op, err := context.Operator.CreateSiteAppUpdateOperation(req)
+	op, err := context.Operator.CreateSiteAppUpdateOperation(r.Context(), req)
 	if err != nil {
 		return nil, trace.Wrap(err)
 	}
@@ -1614,7 +1618,7 @@ func (m *Handler) uninstallSite(w http.ResponseWriter, r *http.Request, p httpro
 		return httplib.OK(), nil
 	}
 
-	opKey, err := context.Operator.CreateSiteUninstallOperation(ops.CreateSiteUninstallOperationRequest{
+	opKey, err := context.Operator.CreateSiteUninstallOperation(r.Context(), ops.CreateSiteUninstallOperationRequest{
 		AccountID:  context.User.GetAccountID(),
 		SiteDomain: p.ByName("domain"),
 		Force:      input.Force,

@@ -115,7 +115,7 @@ func newCollector(env *localenv.LocalEnvironment) (*vacuum.Collector, error) {
 		return nil, trace.Wrap(err, "failed to connect to teleport proxy")
 	}
 
-	key, err := operator.CreateClusterGarbageCollectOperation(
+	key, err := operator.CreateClusterGarbageCollectOperation(context.TODO(),
 		ops.CreateClusterGarbageCollectOperationRequest{
 			AccountID:   cluster.AccountID,
 			ClusterName: cluster.Domain,

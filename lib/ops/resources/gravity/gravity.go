@@ -17,6 +17,8 @@ limitations under the License.
 package gravity
 
 import (
+	"context"
+
 	"github.com/gravitational/gravity/lib/localenv"
 	"github.com/gravitational/gravity/lib/modules"
 	"github.com/gravitational/gravity/lib/ops"
@@ -76,7 +78,7 @@ func New(config Config) (*Resources, error) {
 }
 
 // Create creates the provided resource
-func (r *Resources) Create(req resources.CreateRequest) error {
+func (r *Resources) Create(ctx context.Context, req resources.CreateRequest) error {
 	if err := req.Check(); err != nil {
 		return trace.Wrap(err)
 	}
@@ -237,11 +239,10 @@ func (r *Resources) Create(req resources.CreateRequest) error {
 		return trace.BadParameter("unsupported resource %q, supported are: %v",
 			req.Resource.Kind, modules.Get().SupportedResources())
 	}
-	r.EmitAuditEvent(events.ResourceCreated,
+	r.EmitAuditEvent(ctx, events.ResourceCreated,
 		req.Resource.Kind,
 		req.Resource.Metadata.Name,
-		req.Owner,
-		req.User)
+		req.Owner)
 	return nil
 }
 
@@ -396,7 +397,7 @@ func (r *Resources) GetCollection(req resources.ListRequest) (resources.Collecti
 }
 
 // Remove removes the specified resource
-func (r *Resources) Remove(req resources.RemoveRequest) error {
+func (r *Resources) Remove(ctx context.Context, req resources.RemoveRequest) error {
 	if err := req.Check(); err != nil {
 		return trace.Wrap(err)
 	}
@@ -480,20 +481,17 @@ func (r *Resources) Remove(req resources.RemoveRequest) error {
 		return trace.BadParameter("unsupported resource %q, supported are: %v",
 			req.Kind, modules.Get().SupportedResourcesToRemove())
 	}
-	r.EmitAuditEvent(events.ResourceDeleted, req.Kind, req.Name, req.Owner, req.User)
+	r.EmitAuditEvent(ctx, events.ResourceDeleted, req.Kind, req.Name, req.Owner)
 	return nil
 }
 
 // EmitAuditEvent emits the specified audit log event for the specified resource.
-func (r *Resources) EmitAuditEvent(event, kind, name, owner, user string) {
+func (r *Resources) EmitAuditEvent(ctx context.Context, event, kind, name, owner string) {
 	fields := events.Fields{events.FieldKind: kind, events.FieldName: name}
 	if owner != "" {
 		fields[events.FieldOwner] = owner
 	}
-	if user != "" {
-		fields[events.FieldUser] = user
-	}
-	events.Emit(r.Operator, event, fields)
+	events.Emit(ctx, r.Operator, event, fields)
 }
 
 // ClusterOperationHandler defines a service to manage resources based on cluster operations
