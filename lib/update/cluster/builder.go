@@ -38,61 +38,68 @@ import (
 	"k8s.io/client-go/kubernetes"
 )
 
-func (r phaseBuilder) init(installed, updatePackage loc.Locator) *update.Phase {
+func (r phaseBuilder) init(leadMaster storage.Server) *update.Phase {
 	phase := update.RootPhase(update.Phase{
 		ID:          "init",
 		Executor:    updateInit,
 		Description: "Initialize update operation",
 		Data: &storage.OperationPhaseData{
-			Package:          &updatePackage,
-			InstalledPackage: &installed,
+			Package:          &r.updateApp.Package,
+			ExecServer:       &leadMaster,
+			InstalledPackage: &r.installedApp.Package,
+			Update: &storage.UpdateOperationData{
+				Servers: r.servers,
+			},
 		},
 	})
 	return &phase
 }
 
-func (r phaseBuilder) checks(installed, updatePackage loc.Locator) *update.Phase {
+func (r phaseBuilder) checks() *update.Phase {
 	phase := update.RootPhase(update.Phase{
 		ID:          "checks",
 		Executor:    updateChecks,
 		Description: "Run preflight checks",
 		Data: &storage.OperationPhaseData{
-			Package:          &updatePackage,
-			InstalledPackage: &installed,
+			Package:          &r.updateApp.Package,
+			InstalledPackage: &r.installedApp.Package,
 		},
 	})
 
 	return &phase
 }
 
-func (r phaseBuilder) bootstrap(servers []storage.Server, installed, updatePackage loc.Locator) *update.Phase {
+func (r phaseBuilder) bootstrap() *update.Phase {
 	root := update.RootPhase(update.Phase{
 		ID:          "bootstrap",
 		Description: "Bootstrap update operation on nodes",
 	})
 
-	for i, server := range servers {
+	for i, server := range r.servers {
 		root.AddParallel(update.Phase{
 			ID:          root.ChildLiteral(server.Hostname),
 			Executor:    updateBootstrap,
 			Description: fmt.Sprintf("Bootstrap node %q", server.Hostname),
 			Data: &storage.OperationPhaseData{
-				Server:           &servers[i],
-				Package:          &updatePackage,
-				InstalledPackage: &installed,
+				ExecServer:       &r.servers[i].Server,
+				Package:          &r.updateApp.Package,
+				InstalledPackage: &r.installedApp.Package,
+				Update: &storage.UpdateOperationData{
+					Servers: []storage.UpdateServer{server},
+				},
 			},
 		})
 	}
 	return &root
 }
 
-func (r phaseBuilder) preUpdate(appPackage loc.Locator) *update.Phase {
+func (r phaseBuilder) preUpdate() *update.Phase {
 	phase := update.RootPhase(update.Phase{
 		ID:          "pre-update",
 		Description: "Run pre-update application hook",
 		Executor:    preUpdate,
 		Data: &storage.OperationPhaseData{
-			Package: &appPackage,
+			Package: &r.updateApp.Package,
 		},
 	})
 	return &phase
@@ -132,7 +139,7 @@ func (r phaseBuilder) app(updates []loc.Locator) *update.Phase {
 // migration constructs a migration phase based on the plan params.
 //
 // If there are no migrations to perform, returns nil.
-func (r phaseBuilder) migration(leadMaster storage.Server, p planConfig) *update.Phase {
+func (r phaseBuilder) migration(leadMaster storage.Server) *update.Phase {
 	root := update.RootPhase(update.Phase{
 		ID:          "migration",
 		Description: "Perform system database migration",
@@ -141,7 +148,7 @@ func (r phaseBuilder) migration(leadMaster storage.Server, p planConfig) *update
 	var subphases []update.Phase
 
 	// do we need to migrate links to trusted clusters?
-	if len(p.links) != 0 && len(p.trustedClusters) == 0 {
+	if len(r.links) != 0 && len(r.trustedClusters) == 0 {
 		subphases = append(subphases, update.Phase{
 			ID:          root.ChildLiteral("links"),
 			Description: "Migrate remote Ops Center links to trusted clusters",
@@ -157,7 +164,7 @@ func (r phaseBuilder) migration(leadMaster storage.Server, p planConfig) *update
 	})
 
 	// migrate roles
-	if libphase.NeedMigrateRoles(p.roles) {
+	if libphase.NeedMigrateRoles(r.roles) {
 		subphases = append(subphases, update.Phase{
 			ID:          root.ChildLiteral("roles"),
 			Description: "Migrate cluster roles to a new format",
@@ -242,7 +249,7 @@ func (r phaseBuilder) runtime(updates []loc.Locator) *update.Phase {
 // masters returns a new phase for upgrading master servers.
 // leadMaster is the master node that is upgraded first and gets to be the leader during the operation.
 // otherMasters lists the rest of the master nodes (can be empty)
-func (r phaseBuilder) masters(leadMaster runtimeServer, otherMasters runtimeServers,
+func (r phaseBuilder) masters(leadMaster storage.UpdateServer, otherMasters []storage.UpdateServer,
 	supportsTaints bool) *update.Phase {
 	root := update.RootPhase(update.Phase{
 		ID:          "masters",
@@ -260,44 +267,38 @@ func (r phaseBuilder) masters(leadMaster runtimeServer, otherMasters runtimeServ
 			}})
 
 		// election - stepdown first node we will upgrade
-		enable := []storage.Server{}
-		disable := []storage.Server{leadMaster.Server}
-		node.AddSequential(setLeaderElection(enable, disable, leadMaster.Server, "stepdown", "Step down %q as Kubernetes leader"))
+		node.AddSequential(setLeaderElection(enable(), disable(leadMaster), leadMaster, "stepdown", "Step down %q as Kubernetes leader"))
 	}
 
-	node.AddSequential(r.commonNode(leadMaster.Server, leadMaster.runtime, leadMaster.Server, supportsTaints,
+	node.AddSequential(r.commonNode(leadMaster, leadMaster, supportsTaints,
 		waitsForEndpoints(len(otherMasters) == 0))...)
 	root.AddSequential(node)
 
 	if len(otherMasters) != 0 {
 		// election - force election to first upgraded node
-		enable := []storage.Server{leadMaster.Server}
-		disable := otherMasters.asServers()
-		root.AddSequential(setLeaderElection(enable, disable, leadMaster.Server, "elect", "Make node %q Kubernetes leader"))
+		root.AddSequential(setLeaderElection(enable(leadMaster), disable(otherMasters...), leadMaster, "elect", "Make node %q Kubernetes leader"))
 	}
 
-	for _, server := range otherMasters {
+	for i, server := range otherMasters {
 		node = r.node(server.Server, &root, "Update system software on master node %q")
-		node.AddSequential(r.commonNode(server.Server, server.runtime, leadMaster.Server, supportsTaints,
+		node.AddSequential(r.commonNode(otherMasters[i], leadMaster, supportsTaints,
 			waitsForEndpoints(true))...)
 		// election - enable election on the upgraded node
-		enable := []storage.Server{server.Server}
-		disable := []storage.Server{}
-		node.AddSequential(setLeaderElection(enable, disable, server.Server, "enable", "Enable leader election on node %q"))
+		node.AddSequential(setLeaderElection(enable(server), disable(), server, "enable", "Enable leader election on node %q"))
 		root.AddSequential(node)
 	}
 	return &root
 }
 
-func (r phaseBuilder) nodes(leadMaster storage.Server, nodes []runtimeServer, supportsTaints bool) *update.Phase {
+func (r phaseBuilder) nodes(leadMaster storage.UpdateServer, nodes []storage.UpdateServer, supportsTaints bool) *update.Phase {
 	root := update.RootPhase(update.Phase{
 		ID:          "nodes",
 		Description: "Update regular nodes",
 	})
 
-	for _, server := range nodes {
+	for i, server := range nodes {
 		node := r.node(server.Server, &root, "Update system software on node %q")
-		node.AddSequential(r.commonNode(server.Server, server.runtime, leadMaster, supportsTaints,
+		node.AddSequential(r.commonNode(nodes[i], leadMaster, supportsTaints,
 			waitsForEndpoints(true))...)
 		root.AddParallel(node)
 	}
@@ -475,7 +476,7 @@ func (r phaseBuilder) node(server storage.Server, parent update.ParentPhase, for
 }
 
 // commonNode returns a list of operations required for any node role to upgrade its system software
-func (r phaseBuilder) commonNode(server storage.Server, runtimePackage loc.Locator, leadMaster storage.Server, supportsTaints bool,
+func (r phaseBuilder) commonNode(server, leadMaster storage.UpdateServer, supportsTaints bool,
 	waitsForEndpoints waitsForEndpoints) []update.Phase {
 	phases := []update.Phase{
 		{
@@ -483,16 +484,18 @@ func (r phaseBuilder) commonNode(server storage.Server, runtimePackage loc.Locat
 			Executor:    drainNode,
 			Description: fmt.Sprintf("Drain node %q", server.Hostname),
 			Data: &storage.OperationPhaseData{
-				Server:     &server,
-				ExecServer: &leadMaster,
+				Server:     &server.Server,
+				ExecServer: &leadMaster.Server,
 			}},
 		{
 			ID:          "system-upgrade",
 			Executor:    updateSystem,
 			Description: fmt.Sprintf("Update system software on node %q", server.Hostname),
 			Data: &storage.OperationPhaseData{
-				Server:         &server,
-				RuntimePackage: &runtimePackage,
+				ExecServer: &server.Server,
+				Update: &storage.UpdateOperationData{
+					Servers: []storage.UpdateServer{server},
+				},
 			}},
 	}
 	if supportsTaints {
@@ -501,8 +504,8 @@ func (r phaseBuilder) commonNode(server storage.Server, runtimePackage loc.Locat
 			Executor:    taintNode,
 			Description: fmt.Sprintf("Taint node %q", server.Hostname),
 			Data: &storage.OperationPhaseData{
-				Server:     &server,
-				ExecServer: &leadMaster,
+				Server:     &server.Server,
+				ExecServer: &leadMaster.Server,
 			}})
 	}
 	phases = append(phases, update.Phase{
@@ -510,8 +513,8 @@ func (r phaseBuilder) commonNode(server storage.Server, runtimePackage loc.Locat
 		Executor:    uncordonNode,
 		Description: fmt.Sprintf("Uncordon node %q", server.Hostname),
 		Data: &storage.OperationPhaseData{
-			Server:     &server,
-			ExecServer: &leadMaster,
+			Server:     &server.Server,
+			ExecServer: &leadMaster.Server,
 		}})
 	if waitsForEndpoints {
 		phases = append(phases, update.Phase{
@@ -519,8 +522,8 @@ func (r phaseBuilder) commonNode(server storage.Server, runtimePackage loc.Locat
 			Executor:    endpoints,
 			Description: fmt.Sprintf("Wait for DNS/cluster endpoints on %q", server.Hostname),
 			Data: &storage.OperationPhaseData{
-				Server:     &server,
-				ExecServer: &leadMaster,
+				Server:     &server.Server,
+				ExecServer: &leadMaster.Server,
 			}})
 	}
 	if supportsTaints {
@@ -529,31 +532,33 @@ func (r phaseBuilder) commonNode(server storage.Server, runtimePackage loc.Locat
 			Executor:    untaintNode,
 			Description: fmt.Sprintf("Remove taint from node %q", server.Hostname),
 			Data: &storage.OperationPhaseData{
-				Server:     &server,
-				ExecServer: &leadMaster,
+				Server:     &server.Server,
+				ExecServer: &leadMaster.Server,
 			}})
 	}
 	return phases
 }
 
-func (r phaseBuilder) cleanup(nodes []storage.Server) *update.Phase {
+func (r phaseBuilder) cleanup() *update.Phase {
 	root := update.RootPhase(update.Phase{
 		ID:          "gc",
 		Description: "Run cleanup tasks",
 	})
 
-	for _, server := range nodes {
-		node := r.node(server, &root, "Clean up node %q")
+	for _, server := range r.servers {
+		node := r.node(server.Server, &root, "Clean up node %q")
 		node.Executor = cleanupNode
 		node.Data = &storage.OperationPhaseData{
-			Server: &server,
+			Server: &server.Server,
 		}
 		root.AddParallel(node)
 	}
 	return &root
 }
 
-type phaseBuilder struct{}
+type phaseBuilder struct {
+	planConfig
+}
 
 func shouldUpdateCoreDNS(client *kubernetes.Clientset) (bool, error) {
 	_, err := client.RbacV1().ClusterRoles().Get(libphase.CoreDNSResourceName, metav1.GetOptions{})
@@ -660,13 +665,13 @@ func getEtcdVersion(searchLabel string, locator loc.Locator, packageService pack
 // server - The server the phase should be executed on, and used to name the phase
 // key - is the identifier of the phase (combined with server.Hostname)
 // msg - is a format string used to describe the phase
-func setLeaderElection(enable, disable []storage.Server, server storage.Server, key, msg string) update.Phase {
+func setLeaderElection(enable, disable []storage.Server, server storage.UpdateServer, key, msg string) update.Phase {
 	return update.Phase{
 		ID:          fmt.Sprintf("%s-%s", key, server.Hostname),
 		Executor:    electionStatus,
 		Description: fmt.Sprintf(msg, server.Hostname),
 		Data: &storage.OperationPhaseData{
-			Server: &server,
+			Server: &server.Server,
 			ElectionChange: &storage.ElectionChange{
 				EnableServers:  enable,
 				DisableServers: disable,
@@ -674,21 +679,16 @@ func setLeaderElection(enable, disable []storage.Server, server storage.Server, 
 	}
 }
 
-type waitsForEndpoints bool
-
-func (r runtimeServers) asServers() (result []storage.Server) {
-	result = make([]storage.Server, 0, len(r))
-	for _, server := range r {
-		result = append(result, server.Server)
+func servers(updates ...storage.UpdateServer) (result []storage.Server) {
+	for _, update := range updates {
+		result = append(result, update.Server)
 	}
 	return result
 }
 
-type runtimeServers []runtimeServer
+var disable = servers
+var enable = servers
 
-type runtimeServer struct {
-	storage.Server
-	runtime loc.Locator
-}
+type waitsForEndpoints bool
 
 const etcdPhaseName = "etcd"

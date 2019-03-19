@@ -17,8 +17,7 @@ limitations under the License.
 package clusterconfig
 
 import (
-	libfsm "github.com/gravitational/gravity/lib/fsm"
-	"github.com/gravitational/gravity/lib/loc"
+	"github.com/gravitational/gravity/lib/app"
 	"github.com/gravitational/gravity/lib/ops"
 	"github.com/gravitational/gravity/lib/storage"
 	"github.com/gravitational/gravity/lib/storage/clusterconfig"
@@ -31,6 +30,7 @@ import (
 // NewOperationPlan creates a new operation plan for the specified operation
 func NewOperationPlan(
 	operator ops.Operator,
+	apps app.Applications,
 	operation ops.SiteOperation,
 	clusterConfig clusterconfig.Interface,
 	servers []storage.Server,
@@ -39,7 +39,11 @@ func NewOperationPlan(
 	if err != nil {
 		return nil, trace.Wrap(err)
 	}
-	plan, err = newOperationPlan(cluster.App.Package, cluster.DNSConfig, operation, clusterConfig, servers)
+	app, err := apps.GetApp(cluster.App.Package)
+	if err != nil {
+		return nil, trace.Wrap(err, "failed to query installed application")
+	}
+	plan, err = newOperationPlan(*app, cluster.DNSConfig, operator, operation, clusterConfig, servers)
 	if err != nil {
 		return nil, trace.Wrap(err)
 	}
@@ -58,19 +62,24 @@ func NewOperationPlan(
 // newOperationPlan returns a new plan for the specified operation
 // and the given set of servers
 func newOperationPlan(
-	app loc.Locator,
+	app app.Application,
 	dnsConfig storage.DNSConfig,
+	operator rollingupdate.ConfigPackageRotator,
 	operation ops.SiteOperation,
 	clusterConfig clusterconfig.Interface,
 	servers []storage.Server,
 ) (*storage.OperationPlan, error) {
-	masters, nodes := libfsm.SplitServers(servers)
+	builder := rollingupdate.Builder{App: app.Package}
+	updates, err := rollingupdate.RuntimeConfigUpdates(app.Manifest, operator, operation.Key(), servers)
+	if err != nil {
+		return nil, trace.Wrap(err)
+	}
+	masters, nodes := update.SplitServers(updates)
 	if len(masters) == 0 {
 		return nil, trace.NotFound("no master servers found in cluster state")
 	}
-	builder := rollingupdate.Builder{App: app}
 	shouldUpdateNodes := shouldUpdateNodes(clusterConfig, len(nodes))
-	var updateServers []storage.Server
+	updateServers := updates
 	if !shouldUpdateNodes {
 		updateServers = masters
 	}
@@ -84,7 +93,7 @@ func newOperationPlan(
 
 	if shouldUpdateNodes {
 		updateNodes := *builder.Nodes(
-			nodes, &masters[0],
+			nodes, masters[0].Server,
 			"Update cluster configuration",
 			"Update configuration on node %q",
 		).Require(config, updateMasters)

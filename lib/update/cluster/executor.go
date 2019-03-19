@@ -108,15 +108,16 @@ func fsmSpec(c Config) fsm.FSMSpecFunc {
 		case updateChecks:
 			return libphase.NewUpdatePhaseChecks(p, c.Operator, c.Apps, c.Runner, logger)
 		case updateBootstrap:
-			return libphase.NewUpdatePhaseBootstrap(p,
-				c.Operator, c.Apps,
+			return libphase.NewUpdatePhaseBootstrap(p, c.Operator,
 				c.Backend, c.LocalBackend, c.HostLocalBackend,
 				c.HostLocalPackages, c.ClusterPackages,
 				remote, logger)
 		case coredns:
 			return libphase.NewPhaseCoreDNS(p, c.Operator, c.Client, logger)
 		case updateSystem:
-			return libphase.NewUpdatePhaseSystem(p, remote, logger)
+			return libphase.NewUpdatePhaseSystem(p, remote,
+				c.LocalBackend, c.ClusterPackages, c.HostLocalPackages,
+				logger)
 		case preUpdate:
 			return libphase.NewUpdatePhaseBeforeApp(p, c.Apps, c.Client, logger)
 		case updateApp:

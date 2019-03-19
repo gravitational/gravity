@@ -18,12 +18,16 @@ package archive
 
 import (
 	"os"
+	"os/user"
 	"path"
 	"path/filepath"
 	"regexp"
+	"strconv"
 	"strings"
+	"syscall"
 	"text/scanner"
 
+	dockerarchive "github.com/docker/docker/pkg/archive"
 	"github.com/gravitational/trace"
 )
 
@@ -204,4 +208,40 @@ func PathMatch(pattern PathPattern, path string) (bool, error) {
 	matches, err := regexp.MatchString(expr, path)
 
 	return matches, trace.Wrap(err)
+}
+
+// GetChownOptionsForDir returns the ownership options for the specified directory dir.
+// It will use the same options if directory already exists, and will fall back to current
+// user otherwise
+func GetChownOptionsForDir(dir string) (*dockerarchive.TarChownOptions, error) {
+	var uid, gid int
+	// preserve owner/group when unpacking, otherwise use current process user
+	fi, err := os.Stat(dir)
+	if err == nil && fi.Sys() != nil {
+		switch stat := fi.Sys().(type) {
+		case *syscall.Stat_t:
+			uid = int(stat.Uid)
+			gid = int(stat.Gid)
+			return &dockerarchive.TarChownOptions{
+				UID: uid,
+				GID: gid,
+			}, nil
+		}
+	}
+	user, err := user.Current()
+	if err != nil {
+		return nil, trace.Wrap(err, "failed to query current user")
+	}
+	uid, err = strconv.Atoi(user.Uid)
+	if err != nil {
+		return nil, trace.BadParameter("UID is not a number: %q", user.Uid)
+	}
+	gid, err = strconv.Atoi(user.Gid)
+	if err != nil {
+		return nil, trace.BadParameter("GID is not a number: %q", user.Gid)
+	}
+	return &dockerarchive.TarChownOptions{
+		UID: uid,
+		GID: gid,
+	}, nil
 }

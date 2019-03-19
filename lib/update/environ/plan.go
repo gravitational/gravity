@@ -17,8 +17,7 @@ limitations under the License.
 package environ
 
 import (
-	libfsm "github.com/gravitational/gravity/lib/fsm"
-	"github.com/gravitational/gravity/lib/loc"
+	"github.com/gravitational/gravity/lib/app"
 	"github.com/gravitational/gravity/lib/ops"
 	"github.com/gravitational/gravity/lib/storage"
 	"github.com/gravitational/gravity/lib/update"
@@ -28,12 +27,21 @@ import (
 )
 
 // NewOperationPlan creates a new operation plan for the specified operation
-func NewOperationPlan(operator ops.Operator, operation ops.SiteOperation, servers []storage.Server) (plan *storage.OperationPlan, err error) {
+func NewOperationPlan(
+	operator ops.Operator,
+	apps app.Applications,
+	operation ops.SiteOperation,
+	servers []storage.Server,
+) (plan *storage.OperationPlan, err error) {
 	cluster, err := operator.GetLocalSite()
 	if err != nil {
 		return nil, trace.Wrap(err)
 	}
-	plan, err = newOperationPlan(cluster.App.Package, cluster.DNSConfig, operation, servers)
+	app, err := apps.GetApp(cluster.App.Package)
+	if err != nil {
+		return nil, trace.Wrap(err, "failed to query installed application")
+	}
+	plan, err = newOperationPlan(*app, cluster.DNSConfig, operator, operation, servers)
 	if err != nil {
 		return nil, trace.Wrap(err)
 	}
@@ -51,13 +59,23 @@ func NewOperationPlan(operator ops.Operator, operation ops.SiteOperation, server
 
 // newOperationPlan returns a new plan for the specified operation
 // and the given set of servers
-func newOperationPlan(app loc.Locator, dnsConfig storage.DNSConfig, operation ops.SiteOperation, servers []storage.Server) (*storage.OperationPlan, error) {
-	masters, nodes := libfsm.SplitServers(servers)
+func newOperationPlan(
+	app app.Application,
+	dnsConfig storage.DNSConfig,
+	operator rollingupdate.ConfigPackageRotator,
+	operation ops.SiteOperation,
+	servers []storage.Server,
+) (*storage.OperationPlan, error) {
+	builder := rollingupdate.Builder{App: app.Package}
+	configUpdates, err := rollingupdate.RuntimeConfigUpdates(app.Manifest, operator, operation.Key(), servers)
+	if err != nil {
+		return nil, trace.Wrap(err)
+	}
+	masters, nodes := update.SplitServers(configUpdates)
 	if len(masters) == 0 {
 		return nil, trace.NotFound("no master servers found in cluster state")
 	}
-	builder := rollingupdate.Builder{App: app}
-	config := *builder.Config("Update cluster environment", nil)
+	config := *builder.Config("Update cluster environment", configUpdates)
 	updateMasters := *builder.Masters(
 		masters,
 		"Update cluster environment",
@@ -66,7 +84,7 @@ func newOperationPlan(app loc.Locator, dnsConfig storage.DNSConfig, operation op
 	phases := update.Phases{config, updateMasters}
 	if len(nodes) != 0 {
 		updateNodes := *builder.Nodes(
-			nodes, &masters[0],
+			nodes, masters[0].Server,
 			"Update cluster environment",
 			"Update runtime environment on node %q",
 		).Require(config, updateMasters)
