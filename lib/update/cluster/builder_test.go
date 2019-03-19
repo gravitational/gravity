@@ -45,7 +45,7 @@ func (s *PlanSuite) TestPlanWithRuntimeUpdate(c *check.C) {
 	runtimeLoc2 := loc.MustParseLocator("gravitational.io/runtime:2.0.0")
 	appLoc2 := loc.MustParseLocator("gravitational.io/app:2.0.0")
 
-	plan, params := newTestPlan(c, params{
+	params := newTestPlan(c, params{
 		installedRuntime:         runtimeLoc1,
 		installedApp:             appLoc1,
 		updateRuntime:            runtimeLoc2,
@@ -65,26 +65,21 @@ func (s *PlanSuite) TestPlanWithRuntimeUpdate(c *check.C) {
 			},
 		},
 	})
+	plan := params.plan
 
-	runtimeLoc := loc.MustParseLocator("gravitational.io/planet:2.0.0")
-	var servers runtimeServers
-	for _, server := range params.servers {
-		servers = append(servers, runtimeServer{server, runtimeLoc})
-	}
-
-	builder := phaseBuilder{}
-	init := *builder.init(appLoc1, appLoc2)
-	checks := *builder.checks(appLoc1, appLoc2).Require(init)
-	preUpdate := *builder.preUpdate(appLoc2).Require(init)
-	bootstrap := *builder.bootstrap(params.servers, appLoc1, appLoc2).Require(init)
-	leadMaster := runtimeServer{params.servers[0], runtimeLoc}
+	leadMaster := params.servers[0]
+	builder := phaseBuilder{planConfig: params}
+	init := *builder.init(leadMaster.Server)
+	checks := *builder.checks().Require(init)
+	preUpdate := *builder.preUpdate().Require(init)
+	bootstrap := *builder.bootstrap().Require(init)
 	coreDNS := *builder.corednsPhase(leadMaster.Server)
-	masters := *builder.masters(leadMaster, servers[1:2], false).Require(checks, bootstrap, preUpdate, coreDNS)
-	nodes := *builder.nodes(leadMaster.Server, servers[2:], false).Require(masters)
-	etcd := *builder.etcdPlan(leadMaster.Server, params.servers[1:2], params.servers[2:], "1.0.0", "2.0.0")
-	migration := builder.migration(leadMaster.Server, params).Require(etcd)
+	masters := *builder.masters(leadMaster, params.servers[1:2], false).Require(checks, bootstrap, preUpdate, coreDNS)
+	nodes := *builder.nodes(leadMaster, params.servers[2:], false).Require(masters)
+	etcd := *builder.etcdPlan(leadMaster.Server, plan.Servers[1:2], plan.Servers[2:], "1.0.0", "2.0.0")
+	migration := builder.migration(leadMaster.Server).Require(etcd)
 	c.Assert(migration, check.NotNil)
-	config := *builder.config(servers[:2].asServers()).Require(masters)
+	config := *builder.config(servers(params.servers[:2]...)).Require(masters)
 
 	runtimeLocs := []loc.Locator{
 		loc.MustParseLocator("gravitational.io/runtime-dep-2:2.0.0"),
@@ -95,7 +90,7 @@ func (s *PlanSuite) TestPlanWithRuntimeUpdate(c *check.C) {
 
 	appLocs := []loc.Locator{loc.MustParseLocator("gravitational.io/app-dep-2:2.0.0"), appLoc2}
 	app := *builder.app(appLocs).Require(runtime)
-	cleanup := *builder.cleanup(params.servers).Require(app)
+	cleanup := *builder.cleanup().Require(app)
 
 	plan.Phases = update.Phases{
 		init,
@@ -131,7 +126,7 @@ func (s *PlanSuite) TestPlanWithoutRuntimeUpdate(c *check.C) {
 	appLoc1 := loc.MustParseLocator("gravitational.io/app:1.0.0")
 	appLoc2 := loc.MustParseLocator("gravitational.io/app:2.0.0")
 
-	plan, params := newTestPlan(c, params{
+	params := newTestPlan(c, params{
 		installedRuntime:         runtimeLoc1,
 		installedApp:             appLoc1,
 		updateRuntime:            runtimeLoc1, // same runtime on purpose
@@ -141,14 +136,16 @@ func (s *PlanSuite) TestPlanWithoutRuntimeUpdate(c *check.C) {
 		updateRuntimeManifest:    installedRuntimeManifest, // same manifest on purpose
 		updateAppManifest:        updateAppManifest,
 	})
+	plan := params.plan
 
-	builder := phaseBuilder{}
-	init := *builder.init(appLoc1, appLoc2)
-	checks := *builder.checks(appLoc1, appLoc2).Require(init)
-	preUpdate := *builder.preUpdate(appLoc2).Require(init)
+	leadMaster := params.servers[0]
+	builder := phaseBuilder{planConfig: params}
+	init := *builder.init(leadMaster.Server)
+	checks := *builder.checks().Require(init)
+	preUpdate := *builder.preUpdate().Require(init)
 	appLocs := []loc.Locator{loc.MustParseLocator("gravitational.io/app-dep-2:2.0.0"), appLoc2}
 	app := *builder.app(appLocs).Require(preUpdate)
-	cleanup := *builder.cleanup(params.servers).Require(app)
+	cleanup := *builder.cleanup().Require(app)
 
 	plan.Phases = update.Phases{init, checks, preUpdate, app, cleanup}.AsPhases()
 	update.ResolvePlan(&plan)
@@ -272,7 +269,8 @@ func (s *PlanSuite) TestCorrectlyDeterminesWhetherToUpdateEtcd(c *check.C) {
 	c.Assert(updateVersion, check.Equals, "3.3.3")
 }
 
-func newTestPlan(c *check.C, p params) (storage.OperationPlan, planConfig) {
+func newTestPlan(c *check.C, p params) planConfig {
+	runtimeLoc := loc.MustParseLocator("gravitational.io/planet:2.0.0")
 	servers := []storage.Server{
 		{
 			AdvertiseIP: "192.168.0.1",
@@ -293,13 +291,36 @@ func newTestPlan(c *check.C, p params) (storage.OperationPlan, planConfig) {
 			ClusterRole: string(schema.ServiceRoleNode),
 		},
 	}
-	params := planConfig{
-		operation: storage.SiteOperation{
-			ID:         "123",
-			Type:       ops.OperationUpdate,
-			SiteDomain: "test",
+	updates := []storage.UpdateServer{
+		{
+			Server: servers[0],
+			Runtime: storage.RuntimePackage{
+				Update: &storage.RuntimeUpdate{Package: runtimeLoc},
+			},
 		},
-		servers: servers,
+		{
+			Server: servers[1],
+			Runtime: storage.RuntimePackage{
+				Update: &storage.RuntimeUpdate{Package: runtimeLoc},
+			},
+		},
+		{
+			Server: servers[2],
+			Runtime: storage.RuntimePackage{
+				Update: &storage.RuntimeUpdate{Package: runtimeLoc},
+			},
+		},
+	}
+	operation := storage.SiteOperation{
+		AccountID:  "000",
+		SiteDomain: "test",
+		ID:         "123",
+		Type:       ops.OperationUpdate,
+	}
+	params := planConfig{
+		operator:  testOperator,
+		operation: operation,
+		servers:   updates,
 		installedRuntime: app.Application{
 			Package:  p.installedRuntime,
 			Manifest: schema.MustParseManifestYAML([]byte(p.installedRuntimeManifest)),
@@ -333,18 +354,17 @@ func newTestPlan(c *check.C, p params) (storage.OperationPlan, planConfig) {
 		shouldUpdateEtcd: shouldUpdateEtcdTest,
 		updateCoreDNS:    p.updateCoreDNS,
 	}
-
 	gravityPackage, err := params.updateRuntime.Manifest.Dependencies.ByName(
 		constants.GravityPackage)
 	c.Assert(err, check.IsNil)
-
-	return storage.OperationPlan{
-		OperationID:    params.operation.ID,
-		OperationType:  params.operation.Type,
-		ClusterName:    params.operation.SiteDomain,
-		Servers:        params.servers,
+	params.plan = storage.OperationPlan{
+		OperationID:    operation.ID,
+		OperationType:  operation.Type,
+		ClusterName:    operation.SiteDomain,
+		Servers:        servers,
 		GravityPackage: *gravityPackage,
-	}, params
+	}
+	return params
 }
 
 type params struct {
@@ -367,6 +387,34 @@ func resetCap(phases []storage.OperationPhase) []storage.OperationPhase {
 
 func shouldUpdateEtcdTest(planConfig) (bool, string, string, error) {
 	return true, "1.0.0", "2.0.0", nil
+}
+
+func (r testRotator) RotateSecrets(ops.RotateSecretsRequest) (*ops.RotatePackageResponse, error) {
+	return &ops.RotatePackageResponse{Locator: r.secretsPackage}, nil
+}
+
+func (r testRotator) RotatePlanetConfig(ops.RotatePlanetConfigRequest) (*ops.RotatePackageResponse, error) {
+	return &ops.RotatePackageResponse{Locator: r.runtimeConfigPackage}, nil
+}
+
+func (r testRotator) RotateTeleportConfig(ops.RotateTeleportConfigRequest) (*ops.RotatePackageResponse, *ops.RotatePackageResponse, error) {
+	return &ops.RotatePackageResponse{Locator: r.teleportMasterPackage},
+		&ops.RotatePackageResponse{Locator: r.teleportNodePackage},
+		nil
+}
+
+var testOperator = testRotator{
+	secretsPackage:        loc.Locator{Repository: "gravitational.io", Name: "secrets", Version: "0.0.1"},
+	runtimeConfigPackage:  loc.Locator{Repository: "gravitational.io", Name: "planet-config", Version: "0.0.1"},
+	teleportMasterPackage: loc.Locator{Repository: "gravitational.io", Name: "teleport-master-config", Version: "0.0.1"},
+	teleportNodePackage:   loc.Locator{Repository: "gravitational.io", Name: "teleport-node-config", Version: "0.0.1"},
+}
+
+type testRotator struct {
+	secretsPackage        loc.Locator
+	runtimeConfigPackage  loc.Locator
+	teleportMasterPackage loc.Locator
+	teleportNodePackage   loc.Locator
 }
 
 const installedRuntimeManifest = `apiVersion: bundle.gravitational.io/v2

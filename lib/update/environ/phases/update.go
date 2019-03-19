@@ -32,51 +32,48 @@ import (
 	log "github.com/sirupsen/logrus"
 )
 
-// NewUpdateConfig returns a new executor to update runtime configuration on the specified node
+// NewUpdateConfig returns a new executor to update runtime environment on the specified node
 func NewUpdateConfig(
 	params libfsm.ExecutorParams,
 	operator operator,
 	operation ops.SiteOperation,
 	apps appGetter,
-	packages packageService,
+	packages, hostPackages packageService,
 	logger log.FieldLogger,
 ) (*updateConfig, error) {
 	if params.Phase.Data == nil || params.Phase.Data.Package == nil {
 		return nil, trace.NotFound("no installed application package specified for phase %q",
 			params.Phase.ID)
 	}
+	if params.Phase.Data.Update == nil || len(params.Phase.Data.Update.Servers) == 0 {
+		return nil, trace.BadParameter("expected at least one server update")
+	}
 	app, err := apps.GetApp(*params.Phase.Data.Package)
 	if err != nil {
 		return nil, trace.Wrap(err, "failed to query installed application")
 	}
-	servers := params.Plan.Servers
-	if params.Phase.Data.Update != nil && len(params.Phase.Data.Update.Servers) != 0 {
-		servers = params.Phase.Data.Update.Servers
-	}
 	return &updateConfig{
-		FieldLogger: logger,
-		operator:    operator,
-		operation:   operation,
-		packages:    packages,
-		servers:     servers,
-		manifest:    app.Manifest,
+		FieldLogger:  logger,
+		operator:     operator,
+		operation:    operation,
+		packages:     packages,
+		hostPackages: hostPackages,
+		updates:      params.Phase.Data.Update.Servers,
+		manifest:     app.Manifest,
 	}, nil
 }
 
 // Execute generates new runtime configuration with the specified environment
 func (r *updateConfig) Execute(ctx context.Context) error {
-	for _, server := range r.servers {
-		r.Infof("Generate new runtime configuration package for %v.", server)
-		runtimePackage, err := r.manifest.RuntimePackageForProfile(server.Role)
-		if err != nil {
-			return trace.Wrap(err)
-		}
+	for _, update := range r.updates {
+		r.Infof("Generate new runtime configuration package for %v.", update.Server)
 		req := ops.RotatePlanetConfigRequest{
-			Key:      r.operation.Key(),
-			Server:   server,
-			Manifest: r.manifest,
-			Package:  *runtimePackage,
-			Env:      r.operation.UpdateEnviron.Env,
+			Key:            r.operation.Key(),
+			Server:         update.Server,
+			Manifest:       r.manifest,
+			RuntimePackage: update.Runtime.Update.Package,
+			Locator:        &update.Runtime.Update.ConfigPackage,
+			Env:            r.operation.UpdateEnviron.Env,
 		}
 		resp, err := r.operator.RotatePlanetConfig(req)
 		if err != nil {
@@ -97,6 +94,14 @@ func (r *updateConfig) Execute(ctx context.Context) error {
 
 // Rollback resets the cluster configuration to the previous value
 func (r *updateConfig) Rollback(context.Context) error {
+	for _, update := range r.updates {
+		for _, packages := range []packageService{r.packages, r.hostPackages} {
+			err := packages.DeletePackage(update.Runtime.Update.ConfigPackage)
+			if err != nil && !trace.IsNotFound(err) {
+				return trace.Wrap(err)
+			}
+		}
+	}
 	err := r.operator.UpdateClusterEnvironmentVariables(ops.UpdateClusterEnvironRequest{
 		ClusterKey: r.operation.ClusterKey(),
 		Env:        r.operation.UpdateEnviron.PrevEnv,
@@ -117,11 +122,12 @@ func (r *updateConfig) PostCheck(context.Context) error {
 type updateConfig struct {
 	// FieldLogger specifies the logger for the phase
 	log.FieldLogger
-	operator  operator
-	operation ops.SiteOperation
-	packages  packageService
-	servers   []storage.Server
-	manifest  schema.Manifest
+	operator     operator
+	operation    ops.SiteOperation
+	packages     packageService
+	hostPackages packageService
+	updates      []storage.UpdateServer
+	manifest     schema.Manifest
 }
 
 type operator interface {

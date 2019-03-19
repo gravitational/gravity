@@ -21,7 +21,6 @@ import (
 	"io"
 	"path/filepath"
 
-	"github.com/gravitational/gravity/lib/app"
 	appservice "github.com/gravitational/gravity/lib/app/service"
 	"github.com/gravitational/gravity/lib/constants"
 	"github.com/gravitational/gravity/lib/defaults"
@@ -29,7 +28,6 @@ import (
 	"github.com/gravitational/gravity/lib/loc"
 	"github.com/gravitational/gravity/lib/ops"
 	"github.com/gravitational/gravity/lib/pack"
-	"github.com/gravitational/gravity/lib/schema"
 	"github.com/gravitational/gravity/lib/state"
 	"github.com/gravitational/gravity/lib/storage"
 	"github.com/gravitational/gravity/lib/utils"
@@ -64,8 +62,10 @@ type updatePhaseBootstrap struct {
 	HostLocalBackend storage.Backend
 	// GravityPath is the path to the new gravity binary
 	GravityPath string
+	// GravityPackage specifies the new gravity package
+	GravityPackage loc.Locator
 	// Server specifies the bootstrap target
-	Server storage.Server
+	Server storage.UpdateServer
 	// ServiceUser is the user used for services and system storage
 	ServiceUser storage.OSUser
 	// FieldLogger is used for logging
@@ -73,28 +73,24 @@ type updatePhaseBootstrap struct {
 	// ExecutorParams stores the phase parameters
 	fsm.ExecutorParams
 	remote fsm.Remote
-	// runtimePackage specifies the runtime package to update to
-	runtimePackage loc.Locator
-	// installedRuntime specifies the installed runtime package
-	installedRuntime loc.Locator
 }
 
 // NewUpdatePhaseBootstrap creates a new bootstrap phase executor
 func NewUpdatePhaseBootstrap(
 	p fsm.ExecutorParams,
 	operator ops.Operator,
-	apps app.Applications,
 	backend, localBackend, hostLocalBackend storage.Backend,
 	localPackages, packages pack.PackageService,
 	remote fsm.Remote,
 	logger log.FieldLogger,
 ) (fsm.PhaseExecutor, error) {
 	if p.Phase.Data == nil || p.Phase.Data.Package == nil {
-		return nil, trace.NotFound("no application package specified for phase %v", p.Phase.ID)
+		return nil, trace.BadParameter("no application package specified for phase %v", p.Phase.ID)
 	}
-	if p.Phase.Data.Server == nil {
-		return nil, trace.NotFound("no server specified for phase %q", p.Phase.ID)
+	if p.Phase.Data.Update == nil || len(p.Phase.Data.Update.Servers) == 0 {
+		return nil, trace.BadParameter("no server specified for phase %q", p.Phase.ID)
 	}
+	server := p.Phase.Data.Update.Servers[0]
 	cluster, err := operator.GetLocalSite()
 	if err != nil {
 		return nil, trace.Wrap(err)
@@ -107,20 +103,6 @@ func NewUpdatePhaseBootstrap(
 	if err != nil {
 		return nil, trace.Wrap(err)
 	}
-	app, err := apps.GetApp(*p.Phase.Data.Package)
-	if err != nil {
-		return nil, trace.Wrap(err, "failed to query application")
-	}
-	installedRuntime, err := getInstalledRuntime(apps, *p.Phase.Data.InstalledPackage,
-		p.Phase.Data.Server.Role, p.Phase.Data.Server.ClusterRole)
-	if err != nil {
-		return nil, trace.Wrap(err)
-	}
-	runtimePackage, err := app.Manifest.RuntimePackageForProfile(p.Phase.Data.Server.Role)
-	if err != nil {
-		return nil, trace.Wrap(err)
-	}
-
 	return &updatePhaseBootstrap{
 		Operator:         operator,
 		Backend:          backend,
@@ -128,21 +110,20 @@ func NewUpdatePhaseBootstrap(
 		HostLocalBackend: hostLocalBackend,
 		LocalPackages:    localPackages,
 		Packages:         packages,
-		Server:           *p.Phase.Data.Server,
+		Server:           server,
 		Operation:        *operation,
 		GravityPath:      gravityPath,
+		GravityPackage:   p.Plan.GravityPackage,
 		ServiceUser:      cluster.ServiceUser,
 		FieldLogger:      logger,
 		ExecutorParams:   p,
 		remote:           remote,
-		runtimePackage:   *runtimePackage,
-		installedRuntime: *installedRuntime,
 	}, nil
 }
 
 // PreCheck makes sure that bootstrap phase is executed on the correct node
 func (p *updatePhaseBootstrap) PreCheck(ctx context.Context) error {
-	return trace.Wrap(p.remote.CheckServer(ctx, p.Server))
+	return trace.Wrap(p.remote.CheckServer(ctx, p.Server.Server))
 }
 
 // PostCheck is no-op for bootstrap phase
@@ -197,7 +178,7 @@ func (p *updatePhaseBootstrap) configureNode() error {
 		AccountID:   p.Operation.AccountID,
 		ClusterName: p.Operation.SiteDomain,
 		OperationID: p.Operation.ID,
-		Server:      p.Server,
+		Server:      p.Server.Server,
 	})
 	if err != nil {
 		return trace.Wrap(err)
@@ -237,23 +218,21 @@ func (p *updatePhaseBootstrap) updateDNSConfig() error {
 
 func (p *updatePhaseBootstrap) pullSystemUpdates() error {
 	p.Info("Pull system updates.")
-	out, err := fsm.RunCommand(utils.PlanetCommandArgs(
-		filepath.Join(defaults.GravityUpdateDir, constants.GravityBin),
-		"--quiet", "--insecure", "system", "pull-updates",
-		"--uid", p.ServiceUser.UID,
-		"--gid", p.ServiceUser.GID,
-		"--runtime-package", p.runtimePackage.String(),
-		"--ops-url", defaults.GravityServiceURL))
-	if err != nil {
-		return trace.Wrap(err, "failed to pull system updates: %s", out)
+	updates := []loc.Locator{p.GravityPackage}
+	if p.Server.Runtime.SecretsPackage != nil {
+		updates = append(updates, *p.Server.Runtime.SecretsPackage)
 	}
-	p.Debugf("Pulled system updates: %s.", out)
-	// the low-level pull-updates call above does not pull teleport config
-	// package updates, so do it here: it's easier since we have access to
-	// plan, cluster state, etc.
-	updates, err := p.collectTeleportUpdates()
-	if err != nil {
-		return trace.Wrap(err)
+	if p.Server.Runtime.Update != nil {
+		updates = append(updates,
+			p.Server.Runtime.Update.Package,
+			p.Server.Runtime.Update.ConfigPackage,
+		)
+	}
+	if p.Server.Teleport.Update != nil {
+		updates = append(updates,
+			p.Server.Teleport.Update.Package,
+			p.Server.Teleport.Update.NodeConfigPackage,
+		)
 	}
 	for _, update := range updates {
 		p.Infof("Pulling package update: %v.", update)
@@ -261,14 +240,14 @@ func (p *updatePhaseBootstrap) pullSystemUpdates() error {
 			SrcPack: p.Packages,
 			DstPack: p.LocalPackages,
 			Package: update,
-			Upsert:  true,
 		})
-		if err != nil {
+		if err != nil && !trace.IsAlreadyExists(err) {
 			return trace.Wrap(err)
 		}
 	}
 	// after having pulled packages as root we need to set proper ownership
 	// on the blobs dir
+	// FIXME(dmitri): PullPackage API needs to accept uid/gid sp this is unnecessary
 	stateDir, err := state.GetStateDir()
 	if err != nil {
 		return trace.Wrap(err)
@@ -280,24 +259,8 @@ func (p *updatePhaseBootstrap) pullSystemUpdates() error {
 	return nil
 }
 
-func (p *updatePhaseBootstrap) collectTeleportUpdates() (updates []loc.Locator, err error) {
-	teleportNodeConfigUpdate, err := pack.FindLatestPackageWithLabels(
-		p.Packages, p.Operation.SiteDomain, map[string]string{
-			pack.AdvertiseIPLabel: p.Server.AdvertiseIP,
-			pack.OperationIDLabel: p.Operation.ID,
-			pack.PurposeLabel:     pack.PurposeTeleportNodeConfig,
-		})
-	if err != nil && !trace.IsNotFound(err) {
-		return nil, trace.Wrap(err)
-	}
-	if teleportNodeConfigUpdate != nil {
-		updates = append(updates, *teleportNodeConfigUpdate)
-	}
-	return updates, nil
-}
-
 func (p *updatePhaseBootstrap) syncPlan() error {
-	p.Info("Sync operation plan.")
+	p.Info("Synchronize operation plan from cluster.")
 	site, err := p.Backend.GetSite(p.Operation.SiteDomain)
 	if err != nil {
 		return trace.Wrap(err)
@@ -329,7 +292,8 @@ func (p *updatePhaseBootstrap) syncPlan() error {
 // and vice versa), will be updated to _not_ include the installed label
 // to simplify the search
 func (p *updatePhaseBootstrap) updateExistingPackageLabels() error {
-	runtimeConfigLabels, err := updateRuntimeConfigLabels(p.LocalPackages, p.installedRuntime)
+	installedRuntime := p.Server.Runtime.Installed
+	runtimeConfigLabels, err := updateRuntimeConfigLabels(p.LocalPackages, installedRuntime)
 	if err != nil {
 		return trace.Wrap(err)
 	}
@@ -344,16 +308,16 @@ func (p *updatePhaseBootstrap) updateExistingPackageLabels() error {
 	updates := append(runtimeConfigLabels, secretLabels...)
 	updates = append(updates, teleportConfigLabels...)
 	updates = append(updates, pack.LabelUpdate{
-		Locator: p.installedRuntime,
+		Locator: installedRuntime,
 		Add:     utils.CombineLabels(pack.RuntimePackageLabels, pack.InstalledLabels),
 	})
-	if loc.IsLegacyRuntimePackage(p.installedRuntime) {
+	if loc.IsLegacyRuntimePackage(installedRuntime) {
 		var runtimePackageToClear loc.Locator
-		switch p.installedRuntime.Name {
+		switch installedRuntime.Name {
 		case loc.LegacyPlanetMaster.Name:
-			runtimePackageToClear = withVersion(loc.LegacyPlanetNode, p.installedRuntime.Version)
+			runtimePackageToClear = withVersion(loc.LegacyPlanetNode, installedRuntime.Version)
 		case loc.LegacyPlanetNode.Name:
-			runtimePackageToClear = withVersion(loc.LegacyPlanetMaster, p.installedRuntime.Version)
+			runtimePackageToClear = withVersion(loc.LegacyPlanetMaster, installedRuntime.Version)
 		}
 		updates = append(updates, pack.LabelUpdate{
 			Locator: runtimePackageToClear,
@@ -376,28 +340,14 @@ func (p *updatePhaseBootstrap) updateExistingPackageLabels() error {
 // package labels.
 // See: https://github.com/gravitational/gravity.e/issues/3768
 func (p *updatePhaseBootstrap) addUpdateRuntimePackageLabel() error {
-	err := p.LocalPackages.UpdatePackageLabels(p.runtimePackage, pack.RuntimePackageLabels, nil)
+	if p.Server.Runtime.Update == nil {
+		return nil
+	}
+	err := p.LocalPackages.UpdatePackageLabels(p.Server.Runtime.Update.Package, pack.RuntimePackageLabels, nil)
 	if err != nil {
 		return trace.Wrap(err)
 	}
 	return nil
-}
-
-func getInstalledRuntime(apps app.Applications, installedApp loc.Locator, profileName, clusterRole string) (*loc.Locator, error) {
-	installed, err := apps.GetApp(installedApp)
-	if err != nil {
-		return nil, trace.Wrap(err, "failed to query installed application")
-	}
-	installedProfile, err := installed.Manifest.NodeProfiles.ByName(profileName)
-	if err != nil {
-		return nil, trace.Wrap(err, "failed to find node profile %q", profileName)
-	}
-	installedRuntime, err := getRuntimePackage(installed.Manifest, *installedProfile,
-		schema.ServiceRole(clusterRole))
-	if err != nil {
-		return nil, trace.Wrap(err)
-	}
-	return installedRuntime, nil
 }
 
 // getGravityPath returns path to the new gravity binary
@@ -475,9 +425,14 @@ func updateTeleportConfigLabels(packages pack.PackageService, clusterName string
 		return nil, nil
 	}
 	// Fall back to latest available package
-	configPackage, err := pack.FindLatestPackage(packages, loc.Locator{
+	configPackage, err := pack.FindLatestPackageCustom(pack.FindLatestPackageRequest{
+		Packages:   packages,
 		Repository: clusterName,
-		Name:       constants.TeleportNodeConfigPackage,
+		Match: func(e pack.PackageEnvelope) bool {
+			return e.Locator.Name == constants.TeleportNodeConfigPackage &&
+				(e.HasLabels(pack.TeleportNodeConfigPackageLabels) ||
+					e.HasLabels(pack.TeleportLegacyNodeConfigPackageLabels))
+		},
 	})
 	if err != nil {
 		return nil, trace.Wrap(err)

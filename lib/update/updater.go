@@ -24,8 +24,10 @@ import (
 
 	"github.com/gravitational/gravity/lib/constants"
 	"github.com/gravitational/gravity/lib/fsm"
+	"github.com/gravitational/gravity/lib/loc"
 	"github.com/gravitational/gravity/lib/localenv"
 	"github.com/gravitational/gravity/lib/ops"
+	"github.com/gravitational/gravity/lib/pack"
 	"github.com/gravitational/gravity/lib/rpc"
 	"github.com/gravitational/gravity/lib/storage"
 	"github.com/gravitational/gravity/lib/utils"
@@ -209,7 +211,7 @@ type Config struct {
 	Operation *ops.SiteOperation
 	// Operator is the cluster operator service
 	Operator ops.Operator
-	// When available, used to sync state between nodes
+	// Backend specifies the cluster backend
 	Backend storage.Backend
 	// LocalBackend specifies the authoritative source for operation state
 	LocalBackend storage.Backend
@@ -227,4 +229,12 @@ type Updater struct {
 	Config
 	machine *fsm.FSM
 	servers []storage.Server
+}
+
+// LocalPackageService defines a package service on local host
+type LocalPackageService interface {
+	pack.PackageService
+	UnpackedPath(loc.Locator) (path string, err error)
+	Unpack(loc loc.Locator, targetDir string) error
+	GetPackageManifest(loc loc.Locator) (*pack.Manifest, error)
 }

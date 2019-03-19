@@ -17,6 +17,7 @@ limitations under the License.
 package opsservice
 
 import (
+	"github.com/gravitational/gravity/lib/loc"
 	"github.com/gravitational/gravity/lib/ops"
 	"github.com/gravitational/gravity/lib/storage"
 
@@ -25,12 +26,7 @@ import (
 
 // rotateSecrets generates a new set of TLS keys for the given node
 // as a package that will be automatically downloaded during upgrade
-func (s *site) rotateSecrets(ctx *operationContext, node *ProvisionedServer, installOp ops.SiteOperation) (*ops.RotatePackageResponse, error) {
-	secretsPackage, err := s.planetSecretsNextPackage(node)
-	if err != nil {
-		return nil, trace.Wrap(err)
-	}
-
+func (s *site) rotateSecrets(ctx *operationContext, secretsPackage loc.Locator, node *ProvisionedServer, installOp ops.SiteOperation) (*ops.RotatePackageResponse, error) {
 	subnets := installOp.InstallExpand.Subnets
 	if subnets.IsEmpty() {
 		// Subnets are empty when updating an older installation
@@ -47,7 +43,7 @@ func (s *site) rotateSecrets(ctx *operationContext, node *ProvisionedServer, ins
 
 	masterParams := planetMasterParams{
 		master:            node,
-		secretsPackage:    secretsPackage,
+		secretsPackage:    &secretsPackage,
 		serviceSubnetCIDR: subnets.Service,
 	}
 	// if we have a connection to Ops Center set up, configure

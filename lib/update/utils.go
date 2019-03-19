@@ -24,6 +24,7 @@ import (
 	"github.com/gravitational/gravity/lib/constants"
 	"github.com/gravitational/gravity/lib/defaults"
 	"github.com/gravitational/gravity/lib/ops"
+	"github.com/gravitational/gravity/lib/schema"
 	"github.com/gravitational/gravity/lib/storage"
 	"github.com/gravitational/gravity/lib/utils"
 
@@ -90,6 +91,20 @@ func Retry(ctx context.Context, fn func() error, timeout time.Duration) error {
 	b := backoff.NewExponentialBackOff()
 	b.MaxElapsedTime = timeout
 	return trace.Wrap(utils.RetryWithInterval(ctx, b, fn))
+}
+
+// SplitServers splits the specified server list into servers with master cluster role
+// and regular nodes.
+func SplitServers(servers []storage.UpdateServer) (masters, nodes []storage.UpdateServer) {
+	for _, server := range servers {
+		switch server.ClusterRole {
+		case string(schema.ServiceRoleMaster):
+			masters = append(masters, server)
+		case string(schema.ServiceRoleNode):
+			nodes = append(nodes, server)
+		}
+	}
+	return masters, nodes
 }
 
 func hasEndpoints(client corev1.CoreV1Interface, labels labels.Set, fn endpointMatchFn) error {
