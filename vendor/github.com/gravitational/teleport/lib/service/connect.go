@@ -1,11 +1,30 @@
+/*
+Copyright 2018 Gravitational, Inc.
+
+Licensed under the Apache License, Version 2.0 (the "License");
+you may not use this file except in compliance with the License.
+You may obtain a copy of the License at
+
+    http://www.apache.org/licenses/LICENSE-2.0
+
+Unless required by applicable law or agreed to in writing, software
+distributed under the License is distributed on an "AS IS" BASIS,
+WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+See the License for the specific language governing permissions and
+limitations under the License.
+*/
+
 package service
 
 import (
-	"golang.org/x/crypto/ssh"
+	"path/filepath"
 	"time"
+
+	"golang.org/x/crypto/ssh"
 
 	"github.com/gravitational/teleport"
 	"github.com/gravitational/teleport/lib/auth"
+	"github.com/gravitational/teleport/lib/defaults"
 	"github.com/gravitational/teleport/lib/services"
 	"github.com/gravitational/teleport/lib/tlsca"
 	"github.com/gravitational/teleport/lib/utils"
@@ -42,13 +61,26 @@ func (process *TeleportProcess) connect(role teleport.Role) (conn *Connector, er
 	if err != nil {
 		return nil, trace.Wrap(err)
 	}
+	// TODO(klizhentas): REMOVE IN 3.1
+	// this is a migration clutch, used to re-register
+	// in case if identity of the auth server does not have the wildcard cert
+	if role == teleport.RoleAdmin || role == teleport.RoleAuth {
+		hasNames, err := identity.HasDNSNames([]string{"*." + teleport.APIDomain})
+		if err != nil {
+			return nil, trace.Wrap(err)
+		}
+		if !hasNames {
+			process.Debugf("Detected Auth server certificate without wildcard principals: %v, regenerating.", identity.Cert.ValidPrincipals)
+			return process.firstTimeConnect(role)
+		}
+	}
 
 	rotation := state.Spec.Rotation
 
 	switch rotation.State {
 	// rotation is on standby, so just use whatever is current
 	case "", services.RotationStateStandby:
-		// The roles of admin and auth are treaded in a special way, as in this case
+		// The roles of admin and auth are treated in a special way, as in this case
 		// the process does not need TLS clients and can use local auth directly.
 		if role == teleport.RoleAdmin || role == teleport.RoleAuth {
 			return &Connector{
@@ -278,6 +310,8 @@ func (process *TeleportProcess) firstTimeConnect(role teleport.Role) (*Connector
 			PublicTLSKey:         keyPair.PublicTLSKey,
 			PublicSSHKey:         keyPair.PublicSSHKey,
 			CipherSuites:         process.Config.CipherSuites,
+			CAPin:                process.Config.CAPin,
+			CAPath:               filepath.Join(defaults.DataDir, defaults.CACertFile),
 		})
 		if err != nil {
 			return nil, trace.Wrap(err)
@@ -351,12 +385,16 @@ func (process *TeleportProcess) periodicSyncRotationState() error {
 		case <-t.C:
 			status, err := process.syncRotationState()
 			if err != nil {
+				process.BroadcastEvent(Event{Name: TeleportDegradedEvent, Payload: nil})
+
 				if trace.IsConnectionProblem(err) {
 					process.Warningf("Connection problem: sync rotation state: %v.", err)
 				} else {
 					process.Warningf("Failed to sync rotation state: %v.", err)
 				}
 			} else {
+				process.BroadcastEvent(Event{Name: TeleportOKEvent, Payload: nil})
+
 				if status.phaseChanged || status.needsReload {
 					process.Debugf("Sync rotation state detected cert authority reload phase update.")
 				}

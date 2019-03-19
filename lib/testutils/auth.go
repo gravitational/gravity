@@ -399,3 +399,6 @@ func (s *AuthClient) RotateExternalCertAuthority(ca services.CertAuthority) erro
 func (c *AuthClient) UploadSessionRecording(r events.SessionRecording) error {
 	return nil
 }
+func (c *AuthClient) GetClusterCACert() (*auth.LocalCAResponse, error) {
+	return nil, nil
+}

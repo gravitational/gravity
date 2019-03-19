@@ -1,5 +1,100 @@
 # Changelog
 
+## 3.1.8
+
+This release of Teleport contains a bug fix.
+
+#### Changes
+
+* Fixed issue where SSO users TTL was set incorrectly. [#2564](https://github.com/gravitational/teleport/pull/2564)
+
+## 3.1.7
+
+This release of Teleport contains a bug fix.
+
+#### Changes
+
+* Fixed issue where `tctl users ls` output contained duplicates. [#2569](https://github.com/gravitational/teleport/issues/2569) [#2107](https://github.com/gravitational/teleport/issues/2107)
+
+## 3.1.6
+
+This release of Teleport contains bug fixes, security fixes, and user experience improvements.
+
+#### Changes
+
+* Use `xdg-open` instead of `sensible-browser` to open links on Linux. [#2454](https://github.com/gravitational/teleport/issues/2454)
+* Increased SSO callback timeout to 180 seconds. [#2483](https://github.com/gravitational/teleport/issues/2483)
+* Improved Teleport error messages when it fails to start. [#2525](https://github.com/gravitational/teleport/issues/2525)
+* Sort `tsh ls` output by node name. [#2511](https://github.com/gravitational/teleport/issues/2511)
+* Support different regions for S3 (sessions) and DynamoDB (audit log). [#2007](https://github.com/gravitational/teleport/issues/2007)
+* Fixed syslog output even when Teleport is in debug mode. [#2550](https://github.com/gravitational/teleport/issues/2550)
+* Fixed audit log naming conventions. [#2388](https://github.com/gravitational/teleport/issues/2388)
+* Fixed issue where `~/.tsh/profile` was deleted upon logout. [#2546](https://github.com/gravitational/teleport/issues/2546)
+* Fixed output of `tctl get` to be compatible with `tctl create`. [#2479](https://github.com/gravitational/teleport/issues/2479)
+* Fixed issue where multiple file upload with `scp` did not work correctly. [#2094](https://github.com/gravitational/teleport/issues/2094)
+* Correctly set permissions TTY. [#2540](https://github.com/gravitational/teleport/issues/2540)
+* Mitigated scp issues when connected to malicious server [#2539](https://github.com/gravitational/teleport/issues/2539)
+
+## 3.1.5
+
+Teleport 3.1.5 contains a bug fix and security fix.
+
+#### Bug fixes
+
+* Fixed issue where certificate authorities were not fetched during every login. [#2526](https://github.com/gravitational/teleport/pull/2526)
+* Upgraded Go to 1.11.5 to mitigate [CVE-2019-6486](https://groups.google.com/forum/#!topic/golang-announce/mVeX35iXuSw): CPU denial of service in P-521 and P-384 elliptic curve implementation.
+
+## 3.1.4
+
+Teleport 3.1.4 contains one new feature and two bug fixes.
+
+#### New Feature
+
+* Added support for GSuite as a SSO provider. [#2455](https://github.com/gravitational/teleport/issues/2455)
+
+#### Bug fixes
+
+* Fixed issue where Kubernetes groups were not being passed to remote clusters. [#2484](https://github.com/gravitational/teleport/pull/2484)
+* Fixed issue where the client was pulling incorrect CA for trusted clusters. [#2487](https://github.com/gravitational/teleport/pull/2487)
+
+## 3.1.3
+
+Teleport 3.1.3 contains two security fixs.
+
+#### Bugfixes
+
+* Updated xterm.js to mitigate a [RCE in xterm.js](https://github.com/xtermjs/xterm.js/releases/tag/3.10.1).
+* Mitigate potential timing attacks during bearer token authentication. [#2482](https://github.com/gravitational/teleport/pull/2482)
+* Fixed `x509: certificate signed by unknown authority` error when connecting to DynamoDB within Gravitational publish Docker image. [#2473](https://github.com/gravitational/teleport/pull/2473)
+
+## 3.1.2
+
+Teleport 3.1.2 contains a security fix. We strongly encourage anyone running Teleport 3.1.1 to upgrade.
+
+#### Bugfixes
+
+* Due to the flaw in internal RBAC verification logic, a compromised node, trusted cluster or authenticated non-privileged user can craft special request to Teleport's internal auth server API to gain access to the private key material of the cluster's internal certificate authorities and elevate their privileges to gain full administrative access to the Teleport cluster. This vulnerability only affects authenticated clients, there is no known way to exploit this vulnerability outside the cluster for unauthenticated clients.
+
+## 3.1.1
+
+Teleport 3.1.1 contains a security fix. We strongly encourage anyone running Teleport 3.1.0 to upgrade.
+
+* Upgraded Go to 1.11.4 to mitigate CVE-2018-16875: [CPU denial of service in chain validation](https://golang.org/issue/29233) Go. For customers using the RHEL5.x compatible release of Teleport, we've backported this fix to Go 1.9.7, before releasing RHEL 5.x compatible binaries.
+
+## 3.1
+
+This is a major Teleport release with a focus on backwards compatibility, stability, and bug fixes. Some of the improvements:
+
+* Added support for regular expressions in RBAC label keys and values. [#2161](https://github.com/gravitational/teleport/issues/2161)
+* Added support for configurable server side keep-alives. [#2334](https://github.com/gravitational/teleport/issues/2334)
+* Added support for some `-o` to improve OpenSSH interoperability. [#2330](https://github.com/gravitational/teleport/issues/2330)
+* Added i386 binaries as well as binaries built with older version of Go to support legacy systems. [#2277](https://github.com/gravitational/teleport/issues/2277)
+* Added SOCKS5 support to `tsh`. [#1693](https://github.com/gravitational/teleport/issues/1693)
+* Improved UX and security for nodes joining a cluster. [#2294](https://github.com/gravitational/teleport/issues/2294)
+* Improved Kubernetes UX. [#2291](https://github.com/gravitational/teleport/issues/2291) [#2258](https://github.com/gravitational/teleport/issues/2258) [#2304](https://github.com/gravitational/teleport/issues/2304)
+* Fixed bug that did not allow copy and paste of texts over 128 in the Web UI. [#2313](https://github.com/gravitational/teleport/issues/2313)
+* Fixes issues with `scp` when using the Web UI. [#2300](https://github.com/gravitational/teleport/issues/2300)
+
 ## 3.0.5
 
 Teleport 3.0.5 contains a security fix.
