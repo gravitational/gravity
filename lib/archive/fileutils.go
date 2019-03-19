@@ -217,14 +217,16 @@ func GetChownOptionsForDir(dir string) (*dockerarchive.TarChownOptions, error) {
 	var uid, gid int
 	// preserve owner/group when unpacking, otherwise use current process user
 	fi, err := os.Stat(dir)
-	if err == nil {
-		stat := fi.Sys().(*syscall.Stat_t)
-		uid = int(stat.Uid)
-		gid = int(stat.Gid)
-		return &dockerarchive.TarChownOptions{
-			UID: uid,
-			GID: gid,
-		}, nil
+	if err == nil && fi.Sys() != nil {
+		switch stat := fi.Sys().(type) {
+		case *syscall.Stat_t:
+			uid = int(stat.Uid)
+			gid = int(stat.Gid)
+			return &dockerarchive.TarChownOptions{
+				UID: uid,
+				GID: gid,
+			}, nil
+		}
 	}
 	user, err := user.Current()
 	if err != nil {
