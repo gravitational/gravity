@@ -155,9 +155,9 @@ type UpdateServer struct {
 	// Server identifies the server for the configuration package update
 	Server `json:"server"`
 	// Runtime defines the runtime update
-	Runtime RuntimePackage `json:"runtime,omitempty"`
+	Runtime RuntimePackage `json:"runtime"`
 	// Teleport defines the optional teleport update
-	Teleport TeleportPackage `json:"teleport,omitempty"`
+	Teleport TeleportPackage `json:"teleport"`
 }
 
 // RuntimePackage describes the state of the runtime package during update
