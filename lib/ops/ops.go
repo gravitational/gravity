@@ -484,7 +484,7 @@ type Certificates interface {
 // RuntimeEnvironment manages runtime environment variables in cluster
 type RuntimeEnvironment interface {
 	// CreateUpdateEnvarsOperation creates a new operation to update cluster runtime environment variables
-	CreateUpdateEnvarsOperation(CreateUpdateEnvarsOperationRequest) (*SiteOperationKey, error)
+	CreateUpdateEnvarsOperation(context.Context, CreateUpdateEnvarsOperationRequest) (*SiteOperationKey, error)
 	// GetClusterEnvironmentVariables retrieves the cluster runtime environment variables
 	GetClusterEnvironmentVariables(SiteKey) (storage.EnvironmentVariables, error)
 	// UpdateClusterEnvironmentVariables updates the cluster runtime environment variables
@@ -495,7 +495,7 @@ type RuntimeEnvironment interface {
 // ClusterConfiguration manages configuration in cluster
 type ClusterConfiguration interface {
 	// CreateUpdateConfigOperation creates a new operation to update cluster configuration
-	CreateUpdateConfigOperation(CreateUpdateConfigOperationRequest) (*SiteOperationKey, error)
+	CreateUpdateConfigOperation(context.Context, CreateUpdateConfigOperationRequest) (*SiteOperationKey, error)
 	// GetClusterConfiguration retrieves the cluster configuration
 	GetClusterConfiguration(SiteKey) (clusterconfig.Interface, error)
 	// UpdateClusterConfiguration updates the cluster configuration from the specified request
@@ -605,7 +605,7 @@ type Operations interface {
 	// this operation can be currently run only once
 	//
 	// 1. This method is called as a first step to initiate install operation.
-	CreateSiteInstallOperation(CreateSiteInstallOperationRequest) (*SiteOperationKey, error)
+	CreateSiteInstallOperation(context.Context, CreateSiteInstallOperationRequest) (*SiteOperationKey, error)
 
 	// GetSiteInstallOperationAgentReport returns runtime information
 	// about servers as reported by remote install agents
@@ -623,11 +623,11 @@ type Operations interface {
 	// CreateSiteUninstallOperation initiates uninstall operation
 	// for this site that will delete all machines and state inlcuding
 	// it kicks off uninstall of the site immediatelly
-	CreateSiteUninstallOperation(CreateSiteUninstallOperationRequest) (*SiteOperationKey, error)
+	CreateSiteUninstallOperation(context.Context, CreateSiteUninstallOperationRequest) (*SiteOperationKey, error)
 
 	// CreateClusterGarbageCollectOperation creates a new garbage collection operation
 	// in the cluster
-	CreateClusterGarbageCollectOperation(CreateClusterGarbageCollectOperationRequest) (*SiteOperationKey, error)
+	CreateClusterGarbageCollectOperation(context.Context, CreateClusterGarbageCollectOperationRequest) (*SiteOperationKey, error)
 
 	// GetsiteOperation returns the operation information based on it's key
 	GetSiteOperation(SiteOperationKey) (*SiteOperation, error)
@@ -663,7 +663,7 @@ type Operations interface {
 	// to the cluster
 	//
 	// 1. This method is called as a first step to initiate expand operation
-	CreateSiteExpandOperation(CreateSiteExpandOperationRequest) (*SiteOperationKey, error)
+	CreateSiteExpandOperation(context.Context, CreateSiteExpandOperationRequest) (*SiteOperationKey, error)
 
 	// GetSiteExpandOperationAgentReport returns runtime information
 	// about servers as reported by remote install agents
@@ -680,11 +680,11 @@ type Operations interface {
 
 	// CreateSiteShrinkOperation initiates an operation that removes nodes
 	// from the cluster
-	CreateSiteShrinkOperation(CreateSiteShrinkOperationRequest) (*SiteOperationKey, error)
+	CreateSiteShrinkOperation(context.Context, CreateSiteShrinkOperationRequest) (*SiteOperationKey, error)
 
 	// CreateSiteAppUpdateOpeation initiates an operation that updates an application
 	// installed on a site to a new version
-	CreateSiteAppUpdateOperation(CreateSiteAppUpdateOperationRequest) (*SiteOperationKey, error)
+	CreateSiteAppUpdateOperation(context.Context, CreateSiteAppUpdateOperationRequest) (*SiteOperationKey, error)
 
 	// ResumeShrink resumes the started shrink operation if the node being shrunk gave up
 	// its leadership
@@ -1878,5 +1878,5 @@ func (r AuditEventRequest) String() string {
 // Audit provides interface for emitting audit log events.
 type Audit interface {
 	// EmitAuditEvent saves the provided event in the audit log.
-	EmitAuditEvent(AuditEventRequest) error
+	EmitAuditEvent(context.Context, AuditEventRequest) error
 }

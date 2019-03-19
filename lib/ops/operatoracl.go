@@ -17,6 +17,7 @@ limitations under the License.
 package ops
 
 import (
+	"context"
 	"crypto/x509"
 	"encoding/pem"
 	"io"
@@ -171,11 +172,6 @@ func (o *OperatorACL) AuthConnectorActions(connectorKind string, actions ...stri
 		}
 	}
 	return nil
-}
-
-// User returns the logged in user.
-func (o *OperatorACL) User() storage.User {
-	return o.user
 }
 
 func (o *OperatorACL) GetAccount(accountID string) (*Account, error) {
@@ -437,12 +433,11 @@ func (o *OperatorACL) GetSiteOperation(key SiteOperationKey) (*SiteOperation, er
 	return o.operator.GetSiteOperation(key)
 }
 
-func (o *OperatorACL) CreateSiteInstallOperation(req CreateSiteInstallOperationRequest) (*SiteOperationKey, error) {
+func (o *OperatorACL) CreateSiteInstallOperation(ctx context.Context, req CreateSiteInstallOperationRequest) (*SiteOperationKey, error) {
 	if err := o.ClusterAction(req.SiteDomain, storage.KindCluster, teleservices.VerbUpdate); err != nil {
 		return nil, trace.Wrap(err)
 	}
-	req.User = o.user.GetName()
-	return o.operator.CreateSiteInstallOperation(req)
+	return o.operator.CreateSiteInstallOperation(ctx, req)
 }
 
 func (o *OperatorACL) ResumeShrink(key SiteKey) (*SiteOperationKey, error) {
@@ -452,28 +447,25 @@ func (o *OperatorACL) ResumeShrink(key SiteKey) (*SiteOperationKey, error) {
 	return o.operator.ResumeShrink(key)
 }
 
-func (o *OperatorACL) CreateSiteExpandOperation(req CreateSiteExpandOperationRequest) (*SiteOperationKey, error) {
+func (o *OperatorACL) CreateSiteExpandOperation(ctx context.Context, req CreateSiteExpandOperationRequest) (*SiteOperationKey, error) {
 	if err := o.ClusterAction(req.SiteDomain, storage.KindCluster, teleservices.VerbUpdate); err != nil {
 		return nil, trace.Wrap(err)
 	}
-	req.User = o.user.GetName()
-	return o.operator.CreateSiteExpandOperation(req)
+	return o.operator.CreateSiteExpandOperation(ctx, req)
 }
 
-func (o *OperatorACL) CreateSiteShrinkOperation(req CreateSiteShrinkOperationRequest) (*SiteOperationKey, error) {
+func (o *OperatorACL) CreateSiteShrinkOperation(ctx context.Context, req CreateSiteShrinkOperationRequest) (*SiteOperationKey, error) {
 	if err := o.ClusterAction(req.SiteDomain, storage.KindCluster, teleservices.VerbUpdate); err != nil {
 		return nil, trace.Wrap(err)
 	}
-	req.User = o.user.GetName()
-	return o.operator.CreateSiteShrinkOperation(req)
+	return o.operator.CreateSiteShrinkOperation(ctx, req)
 }
 
-func (o *OperatorACL) CreateSiteAppUpdateOperation(req CreateSiteAppUpdateOperationRequest) (*SiteOperationKey, error) {
+func (o *OperatorACL) CreateSiteAppUpdateOperation(ctx context.Context, req CreateSiteAppUpdateOperationRequest) (*SiteOperationKey, error) {
 	if err := o.ClusterAction(req.SiteDomain, storage.KindCluster, teleservices.VerbUpdate); err != nil {
 		return nil, trace.Wrap(err)
 	}
-	req.User = o.user.GetName()
-	return o.operator.CreateSiteAppUpdateOperation(req)
+	return o.operator.CreateSiteAppUpdateOperation(ctx, req)
 }
 
 func (o *OperatorACL) GetSiteInstallOperationAgentReport(key SiteOperationKey) (*AgentReport, error) {
@@ -490,39 +482,35 @@ func (o *OperatorACL) SiteInstallOperationStart(key SiteOperationKey) error {
 	return o.operator.SiteInstallOperationStart(key)
 }
 
-func (o *OperatorACL) CreateSiteUninstallOperation(req CreateSiteUninstallOperationRequest) (*SiteOperationKey, error) {
+func (o *OperatorACL) CreateSiteUninstallOperation(ctx context.Context, req CreateSiteUninstallOperationRequest) (*SiteOperationKey, error) {
 	if err := o.ClusterAction(req.SiteDomain, storage.KindCluster, teleservices.VerbUpdate); err != nil {
 		return nil, trace.Wrap(err)
 	}
-	req.User = o.user.GetName()
-	return o.operator.CreateSiteUninstallOperation(req)
+	return o.operator.CreateSiteUninstallOperation(ctx, req)
 }
 
 // CreateClusterGarbageCollectOperation creates a new garbage collection operation in the cluster
-func (o *OperatorACL) CreateClusterGarbageCollectOperation(req CreateClusterGarbageCollectOperationRequest) (*SiteOperationKey, error) {
+func (o *OperatorACL) CreateClusterGarbageCollectOperation(ctx context.Context, req CreateClusterGarbageCollectOperationRequest) (*SiteOperationKey, error) {
 	if err := o.ClusterAction(req.ClusterName, storage.KindCluster, teleservices.VerbUpdate); err != nil {
 		return nil, trace.Wrap(err)
 	}
-	req.User = o.user.GetName()
-	return o.operator.CreateClusterGarbageCollectOperation(req)
+	return o.operator.CreateClusterGarbageCollectOperation(ctx, req)
 }
 
 // CreateUpdateEnvarsOperation creates a new operation to update cluster environment variables
-func (o *OperatorACL) CreateUpdateEnvarsOperation(req CreateUpdateEnvarsOperationRequest) (*SiteOperationKey, error) {
+func (o *OperatorACL) CreateUpdateEnvarsOperation(ctx context.Context, req CreateUpdateEnvarsOperationRequest) (*SiteOperationKey, error) {
 	if err := o.ClusterAction(req.ClusterKey.SiteDomain, storage.KindCluster, teleservices.VerbUpdate); err != nil {
 		return nil, trace.Wrap(err)
 	}
-	req.User = o.user.GetName()
-	return o.operator.CreateUpdateEnvarsOperation(req)
+	return o.operator.CreateUpdateEnvarsOperation(ctx, req)
 }
 
 // CreateUpdateConfigOperation creates a new operation to update cluster configuration
-func (o *OperatorACL) CreateUpdateConfigOperation(req CreateUpdateConfigOperationRequest) (*SiteOperationKey, error) {
+func (o *OperatorACL) CreateUpdateConfigOperation(ctx context.Context, req CreateUpdateConfigOperationRequest) (*SiteOperationKey, error) {
 	if err := o.ClusterAction(req.ClusterKey.SiteDomain, storage.KindCluster, teleservices.VerbUpdate); err != nil {
 		return nil, trace.Wrap(err)
 	}
-	req.User = o.user.GetName()
-	return o.operator.CreateUpdateConfigOperation(req)
+	return o.operator.CreateUpdateConfigOperation(ctx, req)
 }
 
 func (o *OperatorACL) GetSiteOperationLogs(key SiteOperationKey) (io.ReadCloser, error) {
@@ -1052,10 +1040,9 @@ func (o *OperatorACL) GetAuthGateway(key SiteKey) (storage.AuthGateway, error) {
 }
 
 // EmitAuditEvent saves the provided event in the audit log.
-func (o *OperatorACL) EmitAuditEvent(req AuditEventRequest) error {
+func (o *OperatorACL) EmitAuditEvent(ctx context.Context, req AuditEventRequest) error {
 	if err := o.ClusterAction(req.SiteDomain, storage.KindCluster, teleservices.VerbUpdate); err != nil {
 		return trace.Wrap(err)
 	}
-	req.User = o.user.GetName()
-	return o.operator.EmitAuditEvent(req)
+	return o.operator.EmitAuditEvent(ctx, req)
 }

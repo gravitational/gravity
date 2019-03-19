@@ -487,6 +487,9 @@ const (
 	// OperatorContext is for operator associated with User ACL context
 	OperatorContext = "telekube.operator.context"
 
+	// UserContext is a context field that contains authenticated user
+	UserContext = "user.context"
+
 	// PrivilegedKubeconfig is a path to privileged kube config
 	// that is stored on K8s master node
 	PrivilegedKubeconfig = "/etc/kubernetes/scheduler.kubeconfig"
