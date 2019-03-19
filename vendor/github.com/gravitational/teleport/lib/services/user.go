@@ -333,7 +333,7 @@ const UserSpecV2SchemaTemplate = `{
       "type": "object",
       "additionalProperties": false,
       "patternProperties": {
-        "^[a-zA-Z/.0-9_:]+$": {
+        "^[a-zA-Z/.0-9-_:]+$": {
           "type": ["array", "null"],
           "items": {
             "type": "string"

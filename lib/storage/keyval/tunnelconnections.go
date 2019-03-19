@@ -53,7 +53,7 @@ func (b *backend) GetTunnelConnection(clusterName, connName string) (teleservice
 }
 
 // GetTunnelConnections returns tunnel connections for a given cluster
-func (b *backend) GetTunnelConnections(clusterName string) ([]teleservices.TunnelConnection, error) {
+func (b *backend) GetTunnelConnections(clusterName string, opts ...teleservices.MarshalOption) ([]teleservices.TunnelConnection, error) {
 	names, err := b.getKeys(b.key(tunnelConnectionsP, clusterName))
 	if err != nil {
 		return nil, trace.Wrap(err)
@@ -70,7 +70,7 @@ func (b *backend) GetTunnelConnections(clusterName string) ([]teleservices.Tunne
 }
 
 // GetAllTunnelConnections returns all tunnel connections
-func (b *backend) GetAllTunnelConnections() ([]teleservices.TunnelConnection, error) {
+func (b *backend) GetAllTunnelConnections(opts ...teleservices.MarshalOption) ([]teleservices.TunnelConnection, error) {
 	names, err := b.getKeys(b.key(tunnelConnectionsP))
 	if err != nil {
 		return nil, trace.Wrap(err)

@@ -117,7 +117,7 @@ ignored = [
 
 [[constraint]]
   name = "github.com/gravitational/rigging"
-  version = "=5.5.1"
+  version = "=5.5.2"
 
 [[override]]
   name = "github.com/docker/distribution"
@@ -197,14 +197,14 @@ ignored = [
 
 [[override]]
   name = "github.com/gravitational/roundtrip"
-  revision = "6a87d116a90b9c4e73bedc19ebc9c17f1b43d826"
+  version = "=v1.0.0"
 
 [[constraint]]
   name = "github.com/gravitational/teleport"
-  # use gravity-specific 3.0 branch of teleport which includes
+  # use gravity-specific 3.1 branch of teleport which includes
   # new Kubernetes because it can't be revendored in regular
-  # 3.0 branch due to some compability issues
-  branch = "branch/3.0-g"
+  # 3.1 branch due to some compability issues
+  branch = "branch/3.1-g"
 
 [[constraint]]
   version = "0.0.1"

@@ -1,3 +1,19 @@
+/*
+Copyright 2018 Gravitational, Inc.
+
+Licensed under the Apache License, Version 2.0 (the "License");
+you may not use this file except in compliance with the License.
+You may obtain a copy of the License at
+
+    http://www.apache.org/licenses/LICENSE-2.0
+
+Unless required by applicable law or agreed to in writing, software
+distributed under the License is distributed on an "AS IS" BASIS,
+WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+See the License for the specific language governing permissions and
+limitations under the License.
+*/
+
 package teleport
 
 import (
@@ -125,6 +141,9 @@ const (
 	// ComponentConnectProxy is the HTTP CONNECT proxy used to tunnel connection.
 	ComponentConnectProxy = "http:proxy"
 
+	// ComponentSOCKS is a SOCKS5 proxy.
+	ComponentSOCKS = "socks"
+
 	// ComponentKeyGen is the public/private keypair generator.
 	ComponentKeyGen = "keygen"
 
@@ -148,6 +167,16 @@ const (
 
 	// ComponentRBAC is role-based access control.
 	ComponentRBAC = "rbac"
+
+	// ComponentKeepAlive is keep-alive messages sent from clients to servers
+	// and vice versa.
+	ComponentKeepAlive = "keepalive"
+
+	// ComponentTSH is the "tsh" binary.
+	ComponentTSH = "tsh"
+
+	// ComponentKubeClient is the Kubernetes client.
+	ComponentKubeClient = "client:kube"
 
 	// DebugEnvVar tells tests to use verbose debug output
 	DebugEnvVar = "DEBUG"
@@ -248,6 +277,9 @@ const (
 	// storage
 	SchemeS3 = "s3"
 
+	// Region is AWS region parameter
+	Region = "region"
+
 	// SchemeFile is a local disk file storage
 	SchemeFile = "file"
 
@@ -265,6 +297,9 @@ const (
 
 	// HumanDateFormatMilli is a human readable date formatting with milliseconds
 	HumanDateFormatMilli = "Jan _2 15:04:05.000 UTC"
+
+	// DebugLevel is a debug logging level name
+	DebugLevel = "debug"
 )
 
 // Component generates "component:subcomponent1:subcomponent2" strings used
@@ -346,6 +381,15 @@ const (
 	// TraitInternalKubeGroupsVariable is the variable used to store allowed
 	// kubernetes groups for local accounts.
 	TraitInternalKubeGroupsVariable = "{{internal.kubernetes_groups}}"
+)
+
+const (
+	// GSuiteIssuerURL is issuer URL used for GSuite provider
+	GSuiteIssuerURL = "https://accounts.google.com"
+	// GSuiteGroupsEndpoint is gsuite API endpoint
+	GSuiteGroupsEndpoint = "https://www.googleapis.com/admin/directory/v1/groups"
+	// GSuiteGroupsScope is a scope to get access to admin groups API
+	GSuiteGroupsScope = "https://www.googleapis.com/auth/admin.directory.group.readonly"
 )
 
 // SCP is Secure Copy.
@@ -444,7 +488,7 @@ const (
 
 const (
 	// OpenBrowserLinux is the command used to open a web browser on Linux.
-	OpenBrowserLinux = "sensible-browser"
+	OpenBrowserLinux = "xdg-open"
 
 	// OpenBrowserDarwin is the command used to open a web browser on macOS/Darwin.
 	OpenBrowserDarwin = "open"

@@ -184,7 +184,7 @@ func (i *IdentityACL) GetRemoteCluster(clusterName string) (teleservices.RemoteC
 }
 
 // GetRemoteClusters returns a list of remote clusters
-func (i *IdentityACL) GetRemoteClusters() ([]teleservices.RemoteCluster, error) {
+func (i *IdentityACL) GetRemoteClusters(opts ...teleservices.MarshalOption) ([]teleservices.RemoteCluster, error) {
 	if err := i.checker.CheckAccessToRule(i.context(), defaults.Namespace, teleservices.KindRemoteCluster, teleservices.VerbList, false); err != nil {
 		return nil, trace.Wrap(err)
 	}
@@ -222,7 +222,7 @@ func (i *IdentityACL) UpsertTunnelConnection(conn teleservices.TunnelConnection)
 }
 
 // GetTunnelConnections returns tunnel connections for a given cluster
-func (i *IdentityACL) GetTunnelConnections(clusterName string) ([]teleservices.TunnelConnection, error) {
+func (i *IdentityACL) GetTunnelConnections(clusterName string, opts ...teleservices.MarshalOption) ([]teleservices.TunnelConnection, error) {
 	if err := i.checker.CheckAccessToRule(i.context(), defaults.Namespace, teleservices.KindTunnelConnection, teleservices.VerbList, false); err != nil {
 		return nil, trace.Wrap(err)
 	}
@@ -230,7 +230,7 @@ func (i *IdentityACL) GetTunnelConnections(clusterName string) ([]teleservices.T
 }
 
 // GetAllTunnelConnections returns all tunnel connections
-func (i *IdentityACL) GetAllTunnelConnections() ([]teleservices.TunnelConnection, error) {
+func (i *IdentityACL) GetAllTunnelConnections(opts ...teleservices.MarshalOption) ([]teleservices.TunnelConnection, error) {
 	if err := i.checker.CheckAccessToRule(i.context(), defaults.Namespace, teleservices.KindTunnelConnection, teleservices.VerbList, false); err != nil {
 		return nil, trace.Wrap(err)
 	}
@@ -1266,7 +1266,7 @@ func (i *IdentityACL) DeleteAllCertAuthorities(certAuthType teleservices.CertAut
 
 // GetCertAuthority returns certificate authority by given id. Parameter loadSigningKeys
 // controls if signing keys are loaded
-func (i *IdentityACL) GetCertAuthority(id teleservices.CertAuthID, loadSigningKeys bool) (teleservices.CertAuthority, error) {
+func (i *IdentityACL) GetCertAuthority(id teleservices.CertAuthID, loadSigningKeys bool, opts ...teleservices.MarshalOption) (teleservices.CertAuthority, error) {
 	if err := i.checker.CheckAccessToRule(i.context(), teledefaults.Namespace, teleservices.KindCertAuthority, teleservices.VerbRead, false); err != nil {
 		return nil, trace.Wrap(err)
 	}

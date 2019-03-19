@@ -7,8 +7,8 @@ that takes the drama out of on-premises deployments.
 
 |Project Links| Description
 |---|----
-| [Gravity Website](https://gravitational.com/gravity/)  | The official website of the enterprise version of Gravity called Telekube |
-| [Gravity Documentation](https://gravitational.com/gravity/docs/)  | Gravity Documentation (aka, Telekube)  |
+| [Gravity Website](https://gravitational.com/gravity/)  | The official website of the enterprise edition of Gravity |
+| [Gravity Documentation](https://gravitational.com/gravity/docs/)  | Gravity Documentation |
 | [Blog](http://blog.gravitational.com) | Our blog, where we publish Gravity news |
 | [Security Updates](https://groups.google.com/forum/#!forum/gravity-community-security) | Gravity Community Security Updates |
 | [Community Forum](https://community.gravitational.com) | Gravity Community Forum|
@@ -163,7 +163,11 @@ documentation to reflect the differences between the proprietary and
 community/OSS editions of the software. We are also working on providing open
 source users with pre-built binaries on a regular basis.
 
+## Talk to us
 
-## Questions?
+* Want to join our team to hack on Gravity? [We are always hiring!](https://gravitational.com/careers/systems-engineer/)
+* Want to stop managing Kubernetes and have autonomous appliance-like clusters?
+* Want to take your complex SaaS application and convert it into a downloadable
+  appliance so your customers can run it on their own AWS account or in a colo?
 
-For more information reach out to `info@gravitational.com`
+Reach out to `info@gravitational.com`
