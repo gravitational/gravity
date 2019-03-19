@@ -841,12 +841,12 @@
   version = "1.0.2"
 
 [[projects]]
-  digest = "1:b129e8451d629dde6552dff2c4925c6480ba0887e5eaf896efd14ea962f13e7a"
+  digest = "1:964497d169725d0bd4385940a674d388e01c3965161b2a371efe674cf970abb6"
   name = "github.com/gravitational/rigging"
   packages = ["."]
   pruneopts = "UT"
-  revision = "309c75abe239523836b95285c37c0aace1d05998"
-  version = "5.5.1"
+  revision = "cac1123f3e01da3505c4ae11c55f820e6be71d21"
+  version = "5.5.2"
 
 [[projects]]
   digest = "1:e025b0f4997273273c5dc46a17caddb27ab7dc8b8aa9ffb50d326e7aeb4059c7"

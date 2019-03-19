@@ -17,8 +17,8 @@ package rigging
 import (
 	"context"
 
-	log "github.com/sirupsen/logrus"
 	"github.com/gravitational/trace"
+	log "github.com/sirupsen/logrus"
 	"k8s.io/api/extensions/v1beta1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes"
@@ -32,27 +32,28 @@ func NewPodSecurityPolicyControl(config PodSecurityPolicyConfig) (*PodSecurityPo
 	}
 	return &PodSecurityPolicyControl{
 		PodSecurityPolicyConfig: config,
-		PodSecurityPolicy:       config.Policy,
-		Entry: log.WithFields(log.Fields{
-			"pod_security_policy": formatMeta(config.Policy.ObjectMeta),
+		FieldLogger: log.WithFields(log.Fields{
+			"podsecuritypolicy": formatMeta(config.ObjectMeta),
 		}),
 	}, nil
 }
 
 // PodSecurityPolicyConfig defines controller configuration
 type PodSecurityPolicyConfig struct {
-	// Policy is the existing pod security policy
-	Policy v1beta1.PodSecurityPolicy
+	// PodSecurityPolicy is the existing pod security policy
+	*v1beta1.PodSecurityPolicy
 	// Client is k8s client
 	Client *kubernetes.Clientset
 }
 
 func (c *PodSecurityPolicyConfig) CheckAndSetDefaults() error {
+	if c.PodSecurityPolicy == nil {
+		return trace.BadParameter("missing parameter PodSecurityPolicy")
+	}
 	if c.Client == nil {
 		return trace.BadParameter("missing parameter Client")
 	}
-	c.Policy.Kind = KindPodSecurityPolicy
-	c.Policy.APIVersion = ExtensionsAPIVersion
+	updateTypeMetaPodSecurityPolicy(c.PodSecurityPolicy)
 	return nil
 }
 
@@ -60,8 +61,7 @@ func (c *PodSecurityPolicyConfig) CheckAndSetDefaults() error {
 // adds various operations, like delete, status check and update
 type PodSecurityPolicyControl struct {
 	PodSecurityPolicyConfig
-	v1beta1.PodSecurityPolicy
-	*log.Entry
+	log.FieldLogger
 }
 
 func (c *PodSecurityPolicyControl) Delete(ctx context.Context, cascade bool) error {
@@ -84,10 +84,10 @@ func (c *PodSecurityPolicyControl) Upsert(ctx context.Context) error {
 		if !trace.IsNotFound(err) {
 			return trace.Wrap(err)
 		}
-		_, err = policies.Create(&c.Policy)
+		_, err = policies.Create(c.PodSecurityPolicy)
 		return ConvertErrorWithContext(err, "cannot create pod security policy %q", formatMeta(c.ObjectMeta))
 	}
-	_, err = policies.Update(&c.Policy)
+	_, err = policies.Update(c.PodSecurityPolicy)
 	return ConvertError(err)
 }
 
@@ -95,4 +95,11 @@ func (c *PodSecurityPolicyControl) Status() error {
 	policies := c.Client.ExtensionsV1beta1().PodSecurityPolicies()
 	_, err := policies.Get(c.Name, metav1.GetOptions{})
 	return ConvertError(err)
+}
+
+func updateTypeMetaPodSecurityPolicy(r *v1beta1.PodSecurityPolicy) {
+	r.Kind = KindPodSecurityPolicy
+	if r.APIVersion == "" {
+		r.APIVersion = v1beta1.SchemeGroupVersion.String()
+	}
 }

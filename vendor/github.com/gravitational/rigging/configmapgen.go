@@ -34,7 +34,7 @@ func GenerateConfigMap(name string, namespace string, fromFile []string, fromLit
 	configMap := &v1.ConfigMap{}
 	configMap.Name = name
 	configMap.Kind = KindConfigMap
-	configMap.APIVersion = V1
+	configMap.APIVersion = v1.SchemeGroupVersion.String()
 	configMap.Namespace = namespace
 	configMap.Data = map[string]string{}
 	if err := handleConfigMapFromFileSources(configMap, fromFile); err != nil {
