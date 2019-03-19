@@ -55,6 +55,7 @@ func (s *site) createShrinkOperation(req ops.CreateSiteShrinkOperationRequest) (
 		SiteDomain:  s.key.SiteDomain,
 		Type:        ops.OperationShrink,
 		Created:     s.clock().UtcNow(),
+		CreatedBy:   req.User,
 		Updated:     s.clock().UtcNow(),
 		State:       ops.OperationStateShrinkInProgress,
 		Provisioner: server.Provisioner,

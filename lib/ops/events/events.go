@@ -70,10 +70,10 @@ const (
 	// ResourceDeleted is emitted when a Gravity resource is deleted.
 	ResourceDeleted = "resource.deleted"
 
-	// TunnelConnected is emitted when cluster connects to an Ops Center.
-	TunnelConnected = "tunnel.connected"
-	// TunnelDisconnected is emitted when cluster disconnects from an Ops Center.
-	TunnelDisconnected = "tunnel.disconnected"
+	// RemoteSupportEnabled is emitted when cluster enables remote support with an Ops Center.
+	RemoteSupportEnabled = "remotesupport.enabled"
+	// RemoteSupportDisabled is emitted when cluster disables Ops Center remote support.
+	RemoteSupportDisabled = "remotesupport.disabled"
 
 	// UpdatesEnabled is emitted when periodic updates are turned on.
 	UpdatesEnabled = "periodicupdates.enabled"

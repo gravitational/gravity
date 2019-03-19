@@ -36,6 +36,7 @@ func (s *site) createGarbageCollectOperation(req ops.CreateClusterGarbageCollect
 		SiteDomain: s.key.SiteDomain,
 		Type:       ops.OperationGarbageCollect,
 		Created:    s.clock().UtcNow(),
+		CreatedBy:  req.User,
 		Updated:    s.clock().UtcNow(),
 		State:      ops.OperationGarbageCollectInProgress,
 	}

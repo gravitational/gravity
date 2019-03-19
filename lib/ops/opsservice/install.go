@@ -76,12 +76,32 @@ func (s *site) createInstallOperation(req ops.CreateSiteInstallOperationRequest)
 			Request:     req.Profiles[profile.Name],
 		}
 	}
-	return s.createInstallExpandOperation(
-		ops.OperationInstall, ops.OperationStateInstallInitiated, req.Provisioner, req.Variables, profiles)
+	return s.createInstallExpandOperation(createInstallExpandOperationRequest{
+		Type:        ops.OperationInstall,
+		State:       ops.OperationStateInstallInitiated,
+		Provisioner: req.Provisioner,
+		Vars:        req.Variables,
+		Profiles:    profiles,
+		User:        req.User,
+	})
 }
 
-func (s *site) createInstallExpandOperation(operationType, operationInitialState, provisioner string,
-	variables storage.OperationVariables, profiles map[string]storage.ServerProfile) (*ops.SiteOperationKey, error) {
+type createInstallExpandOperationRequest struct {
+	Type        string
+	State       string
+	Provisioner string
+	Vars        storage.OperationVariables
+	Profiles    map[string]storage.ServerProfile
+	User        string
+}
+
+func (s *site) createInstallExpandOperation(req createInstallExpandOperationRequest) (*ops.SiteOperationKey, error) {
+	operationType := req.Type
+	operationInitialState := req.State
+	provisioner := req.Provisioner
+	variables := req.Vars
+	profiles := req.Profiles
+
 	agentUser, err := s.agentUser()
 	if err != nil {
 		return nil, trace.Wrap(err)
@@ -98,6 +118,7 @@ func (s *site) createInstallExpandOperation(operationType, operationInitialState
 		SiteDomain:  s.key.SiteDomain,
 		Type:        operationType,
 		Created:     s.clock().UtcNow(),
+		CreatedBy:   req.User,
 		Updated:     s.clock().UtcNow(),
 		State:       operationInitialState,
 		Provisioner: provisioner,

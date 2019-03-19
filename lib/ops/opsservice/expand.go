@@ -46,9 +46,14 @@ func (s *site) createExpandOperation(req ops.CreateSiteExpandOperationRequest) (
 			},
 		}
 	}
-	return s.createInstallExpandOperation(
-		ops.OperationExpand, ops.OperationStateExpandInitiated, req.Provisioner,
-		req.Variables, profiles)
+	return s.createInstallExpandOperation(createInstallExpandOperationRequest{
+		Type:        ops.OperationExpand,
+		State:       ops.OperationStateExpandInitiated,
+		Provisioner: req.Provisioner,
+		Vars:        req.Variables,
+		Profiles:    profiles,
+		User:        req.User,
+	})
 }
 
 func (s *site) getSiteOperation(operationID string) (*ops.SiteOperation, error) {

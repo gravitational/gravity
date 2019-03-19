@@ -83,6 +83,7 @@ func (s *site) createUninstallOperation(req ops.CreateSiteUninstallOperationRequ
 		SiteDomain:  s.key.SiteDomain,
 		Type:        ops.OperationUninstall,
 		Created:     s.clock().UtcNow(),
+		CreatedBy:   req.User,
 		Updated:     s.clock().UtcNow(),
 		State:       ops.OperationStateUninstallInProgress,
 		Provisioner: opInstall.Provisioner,

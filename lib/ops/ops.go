@@ -1199,6 +1199,8 @@ type CreateClusterGarbageCollectOperationRequest struct {
 	AccountID string `json:"account_id"`
 	// ClusterName is the name of the cluster
 	ClusterName string `json:"cluster_name"`
+	// User is the user created the operation
+	User string `json:"-"`
 }
 
 // CreateUpdateEnvarsOperationRequest is a request
@@ -1208,6 +1210,8 @@ type CreateUpdateEnvarsOperationRequest struct {
 	ClusterKey SiteKey `json:"cluster_key"`
 	// Env specifies the new cluster environment variables
 	Env map[string]string `json:"env"`
+	// User is the user created the operation
+	User string `json:"-"`
 }
 
 // CreateUpdateConfigOperationRequest is a request
@@ -1217,6 +1221,8 @@ type CreateUpdateConfigOperationRequest struct {
 	ClusterKey SiteKey `json:"cluster_key"`
 	// Config specifies the new configuration as JSON-encoded payload
 	Config []byte `json:"config"`
+	// User is the user created the operation
+	User string `json:"-"`
 }
 
 // UpdateClusterEnvironRequest is a request

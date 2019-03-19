@@ -503,6 +503,7 @@ func (o *OperatorACL) CreateClusterGarbageCollectOperation(req CreateClusterGarb
 	if err := o.ClusterAction(req.ClusterName, storage.KindCluster, teleservices.VerbUpdate); err != nil {
 		return nil, trace.Wrap(err)
 	}
+	req.User = o.user.GetName()
 	return o.operator.CreateClusterGarbageCollectOperation(req)
 }
 
@@ -511,6 +512,7 @@ func (o *OperatorACL) CreateUpdateEnvarsOperation(req CreateUpdateEnvarsOperatio
 	if err := o.ClusterAction(req.ClusterKey.SiteDomain, storage.KindCluster, teleservices.VerbUpdate); err != nil {
 		return nil, trace.Wrap(err)
 	}
+	req.User = o.user.GetName()
 	return o.operator.CreateUpdateEnvarsOperation(req)
 }
 
@@ -519,6 +521,7 @@ func (o *OperatorACL) CreateUpdateConfigOperation(req CreateUpdateConfigOperatio
 	if err := o.ClusterAction(req.ClusterKey.SiteDomain, storage.KindCluster, teleservices.VerbUpdate); err != nil {
 		return nil, trace.Wrap(err)
 	}
+	req.User = o.user.GetName()
 	return o.operator.CreateUpdateConfigOperation(req)
 }
 
@@ -1053,5 +1056,6 @@ func (o *OperatorACL) EmitAuditEvent(req AuditEventRequest) error {
 	if err := o.ClusterAction(req.SiteDomain, storage.KindCluster, teleservices.VerbUpdate); err != nil {
 		return trace.Wrap(err)
 	}
+	req.User = o.user.GetName()
 	return o.operator.EmitAuditEvent(req)
 }
