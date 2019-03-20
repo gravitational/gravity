@@ -422,7 +422,7 @@ func (m *Handler) createUserInviteHandle(w http.ResponseWriter, r *http.Request,
 		return nil, trace.Wrap(err)
 	}
 
-	events.Emit(r.Context(), ctx.Operator, events.UserInvited, events.Fields{
+	events.Emit(r.Context(), ctx.Operator, events.InviteCreated, events.Fields{
 		events.FieldName:  req.Name,
 		events.FieldRoles: req.Roles,
 	})

@@ -17,6 +17,7 @@ limitations under the License.
 package expand
 
 import (
+	"context"
 	"fmt"
 	"testing"
 	"time"
@@ -122,7 +123,7 @@ func (s *PlanSuite) SetUpSuite(c *check.C) {
 		ClusterName: s.cluster.Domain,
 	})
 	c.Assert(err, check.IsNil)
-	s.installOpKey, err = s.services.Operator.CreateSiteInstallOperation(
+	s.installOpKey, err = s.services.Operator.CreateSiteInstallOperation(context.TODO(),
 		ops.CreateSiteInstallOperationRequest{
 			AccountID:   account.ID,
 			SiteDomain:  s.cluster.Domain,
@@ -150,7 +151,7 @@ func (s *PlanSuite) SetUpSuite(c *check.C) {
 			},
 		})
 	c.Assert(err, check.IsNil)
-	s.joinOpKey, err = s.services.Operator.CreateSiteExpandOperation(
+	s.joinOpKey, err = s.services.Operator.CreateSiteExpandOperation(context.TODO(),
 		ops.CreateSiteExpandOperationRequest{
 			AccountID:   account.ID,
 			SiteDomain:  s.cluster.Domain,

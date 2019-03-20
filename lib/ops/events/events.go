@@ -76,8 +76,8 @@ const (
 	// ResourceDeleted fires when a Gravity resource is deleted.
 	ResourceDeleted = "resource.deleted"
 
-	// UserInvited fires when a new user invitation is generated.
-	UserInvited = "user.invited"
+	// InviteCreated fires when a new user invitation is generated.
+	InviteCreated = "invite.created"
 
 	// ClusterDegraded fires when cluster health check fails.
 	ClusterDegraded = "cluster.degraded"

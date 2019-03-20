@@ -276,7 +276,7 @@ func (o *mockOperator) GetLocalSite() (*ops.Site, error) {
 	return &o.site, nil
 }
 
-func (o *mockOperator) CreateSiteShrinkOperation(req ops.CreateSiteShrinkOperationRequest) (*ops.SiteOperationKey, error) {
+func (o *mockOperator) CreateSiteShrinkOperation(ctx context.Context, req ops.CreateSiteShrinkOperationRequest) (*ops.SiteOperationKey, error) {
 	select {
 	case o.shrinksC <- &req:
 	default:
