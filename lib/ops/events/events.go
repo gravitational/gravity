@@ -79,27 +79,8 @@ const (
 	// UserInvited fires when a new user invitation is generated.
 	UserInvited = "user.invited"
 
-	// RemoteSupportEnabled fires when cluster enables remote support with an Ops Center.
-	RemoteSupportEnabled = "remotesupport.enabled"
-	// RemoteSupportDisabled fires when cluster disables Ops Center remote support.
-	RemoteSupportDisabled = "remotesupport.disabled"
-
-	// UpdatesEnabled fires when periodic updates are turned on.
-	UpdatesEnabled = "periodicupdates.enabled"
-	// UpdatesDisabled fires when periodic updates are turned off.
-	UpdatesDisabled = "periodicupdates.disabled"
-	// UpdatesDownloaded fires when periodic updates download an update package.
-	UpdatesDownloaded = "periodicupdates.downloaded"
-
 	// ClusterDegraded fires when cluster health check fails.
 	ClusterDegraded = "cluster.degraded"
 	// ClusterActivated fires when cluster becomes healthy again.
 	ClusterActivated = "cluster.activated"
-
-	// LicenseExpired fires when cluster license expires.
-	LicenseExpired = "license.expired"
-	// LicenseUpdated fires when cluster license is updated.
-	LicenseUpdated = "license.updated"
-	// LicenseGenerated fires when a license is generated on Ops Center.
-	LicenseGenerated = "license.generated"
 )

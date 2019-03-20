@@ -786,7 +786,7 @@ func ClusterAdminAgent(clusterName string) string {
 
 // UserFromContext extracts name of the user attached to the provided context.
 //
-// Returns an empty string if not user is attached.
+// Returns an empty string if no user is attached.
 func UserFromContext(ctx context.Context) string {
 	userI := ctx.Value(constants.UserContext)
 	if userI == nil {

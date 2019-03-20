@@ -111,8 +111,6 @@ const (
 	FieldName = "name"
 	// FieldCluster contains name of the cluster that generated an event.
 	FieldCluster = "cluster"
-	// FieldOpsCenter contains Ops Center name.
-	FieldOpsCenter = "opsCenter"
 	// FieldKind contains resource kind.
 	FieldKind = "kind"
 	// FieldUser contains name of the user who triggered an event.
@@ -123,16 +121,10 @@ const (
 	FieldReleaseName = "releaseName"
 	// FieldVersion contains application package version.
 	FieldVersion = "version"
-	// FieldInterval contains time interval, e.g. for periodic updates.
-	FieldInterval = "interval"
 	// FieldReason contains cluster deactivation reason.
 	FieldReason = "reason"
 	// FieldTime contains event time.
 	FieldTime = "time"
-	// FieldExpires contains expiration time, e.g. for license.
-	FieldExpires = "expires"
-	// FieldMaxNodes contains license nodes limit.
-	FieldMaxNodes = "maxNodes"
 	// FieldRoles contains roles of a new user.
 	FieldRoles = "roles"
 )
