@@ -1,0 +1,83 @@
+@startuml
+skinparam BackgroundColor #EEEBDC
+skinparam RoundCorner 20
+skinparam note {
+  BackgroundColor #yellow
+}
+skinparam sequence {
+	ArrowColor DeepSkyBlue
+	ActorBorderColor DeepSkyBlue
+	LifeLineBorderColor blue
+	LifeLineBackgroundColor #A9DCDF
+
+	ParticipantBorderColor DeepSkyBlue
+	ParticipantBackgroundColor DodgerBlue
+	ParticipantFontName Consolas
+	ParticipantFontSize 17
+	ParticipantFontColor #A9DCDF
+
+	ActorBackgroundColor aqua
+	ActorFontColor DeepSkyBlue
+	ActorFontSize 17
+	ActorFontName Aapex
+}
+
+actor user
+database "state database" as db order 100
+
+title Wizard-driven installation
+
+create "process" as P
+user -> P : start
+activate P
+P -> P : prerequisites
+note left
+  # ensure no local state
+  # validate configuration
+end note
+
+== Initialization ==
+
+P -> db : create state\nin /tmp/gravity-wizard
+
+create "wizard process" as W
+P -> W : init
+activate W
+
+W -> W : prerequisites
+note right
+ # init RPC creds
+ # start internal processes
+ # wait for started ack
+end note
+
+create "installer" as I
+P -> I : init
+activate I
+I -> W : log into wizard
+note right: connect to wizard's API endpoint
+I -> I : generate install token
+P -> I : start
+
+user -> W : create cluster
+note right : create cluster in UI
+
+loop
+I -> W : fetch cluster
+I <- W : cluster response
+end
+== Execute Operation ==
+
+I -> I : start
+note right
+    # create admin user
+    # initialize operation plan
+end note
+
+I -> I : execute plan
+
+return done
+return done
+return done
+
+@enduml
