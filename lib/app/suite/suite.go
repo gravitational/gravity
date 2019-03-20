@@ -540,7 +540,7 @@ metadata:
 			},
 		},
 	}
-	job.APIVersion = rigging.BatchAPIVersion
+	job.APIVersion = batchv1.SchemeGroupVersion.String()
 	job.Kind = rigging.KindJob
 
 	jobBytes, err := yaml.Marshal(job)
