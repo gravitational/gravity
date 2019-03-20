@@ -39,6 +39,7 @@ import (
 	"github.com/gravitational/gravity/lib/httplib"
 	"github.com/gravitational/gravity/lib/loc"
 	"github.com/gravitational/gravity/lib/ops"
+	"github.com/gravitational/gravity/lib/ops/events"
 	"github.com/gravitational/gravity/lib/ops/resources"
 	"github.com/gravitational/gravity/lib/pack"
 	"github.com/gravitational/gravity/lib/schema"
@@ -420,6 +421,11 @@ func (m *Handler) createUserInviteHandle(w http.ResponseWriter, r *http.Request,
 	if err != nil {
 		return nil, trace.Wrap(err)
 	}
+
+	events.Emit(r.Context(), ctx.Operator, events.UserInvited, events.Fields{
+		events.FieldName:  req.Name,
+		events.FieldRoles: req.Roles,
+	})
 
 	return userToken, nil
 }

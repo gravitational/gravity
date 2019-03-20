@@ -1366,10 +1366,6 @@ func (o *Operator) EmitAuditEvent(ctx context.Context, req ops.AuditEventRequest
 		return trace.Wrap(err)
 	}
 	o.Infof("%s.", req)
-	// fields := req.Fields
-	// if fields[events.EventUser] == "" {
-	// 	fields[events.EventUser] = storage.UserFromContext(ctx)
-	// }
 	err = o.cfg.AuditLog.EmitAuditEvent(req.Type, req.Fields)
 	if err != nil {
 		return trace.Wrap(err)

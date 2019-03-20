@@ -2222,10 +2222,6 @@ func (h *WebHandler) emitAuditEvent(w http.ResponseWriter, r *http.Request, p ht
 		return trace.Wrap(err)
 	}
 	events.Emit(r.Context(), ctx.Operator, req.Type, events.Fields(req.Fields))
-	// err = ctx.Operator.EmitAuditEvent(r.Context(), req)
-	// if err != nil {
-	// 	return trace.Wrap(err)
-	// }
 	roundtrip.ReplyJSON(w, http.StatusOK, message("audit log event saved"))
 	return nil
 }

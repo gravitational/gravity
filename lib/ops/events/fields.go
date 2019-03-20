@@ -31,6 +31,16 @@ import (
 // do not have to import two packages.
 type Fields events.EventFields
 
+// WithField returns a copy of these fields with an additional provided field.
+func (f Fields) WithField(field string, value interface{}) Fields {
+	copy := make(map[string]interface{})
+	for k, v := range f {
+		copy[k] = v
+	}
+	copy[field] = value
+	return Fields(copy)
+}
+
 // FieldsForOperation returns event fields for the provided operation.
 func FieldsForOperation(operation ops.SiteOperation) Fields {
 	fields, err := fieldsForOperation(operation)
