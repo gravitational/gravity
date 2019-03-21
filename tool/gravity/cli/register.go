@@ -65,7 +65,8 @@ func RegisterCommands(app *kingpin.Application) *Application {
 	g.InstallCmd.Role = g.InstallCmd.Flag("role", "Role of this node, optional").String()
 	g.InstallCmd.ResourcesPath = g.InstallCmd.Flag("config", "Kubernetes configuration resources, will be injected at cluster creation time").String()
 	g.InstallCmd.Wizard = g.InstallCmd.Flag("wizard", "(Obsolete, superseded by 'mode') Start installer with web wizard interface").Bool()
-	g.InstallCmd.Mode = g.InstallCmd.Flag("mode", fmt.Sprintf("Install mode, one of %v", modules.Get().InstallModes())).Default(constants.InstallModeCLI).Hidden().String()
+	g.InstallCmd.Mode = g.InstallCmd.Flag("mode", fmt.Sprintf("Install mode, one of %v",
+		modules.Get().InstallModes())).Default(constants.InstallModeCLI).Hidden().String()
 	g.InstallCmd.DockerDevice = g.InstallCmd.Flag("docker-device", "Device to use for docker storage").Hidden().String()
 	g.InstallCmd.SystemDevice = g.InstallCmd.Flag("system-device", "Device to use for system data directory").Hidden().String()
 	g.InstallCmd.Mounts = configure.KeyValParam(g.InstallCmd.Flag("mount", "One or several mounts in form <mount-name>:<path>, e.g. data:/var/lib/data"))
@@ -702,7 +703,7 @@ func RegisterCommands(app *kingpin.Application) *Application {
 	g.ResourceCmd.CmdClause = g.Command("resource", "Management of configuration resources")
 
 	// create one or many resources
-	g.ResourceCreateCmd.CmdClause = g.ResourceCmd.Command("create", fmt.Sprintf("Create or update a configuration resource, e.g. gravity resource create oidc.yaml. Supported resources are: %v", modules.Get().SupportedResources()))
+	g.ResourceCreateCmd.CmdClause = g.ResourceCmd.Command("create", fmt.Sprintf("Create or update a configuration resource, e.g. gravity resource create oidc.yaml. Supported resources are: %v", modules.GetResources().SupportedResources()))
 	g.ResourceCreateCmd.Filename = g.ResourceCreateCmd.Arg("filename", "resource definition file").String()
 	g.ResourceCreateCmd.Upsert = g.ResourceCreateCmd.Flag("force", "Overwrites a resource if it already exists. (update)").Short('f').Bool()
 	g.ResourceCreateCmd.User = g.ResourceCreateCmd.Flag("user", "user to create resource for, defaults to currently logged in user").String()
@@ -710,8 +711,9 @@ func RegisterCommands(app *kingpin.Application) *Application {
 	g.ResourceCreateCmd.Confirmed = g.ResourceCreateCmd.Flag("confirm", "do not ask for confirmation").Bool()
 
 	// remove one or many resources
-	g.ResourceRemoveCmd.CmdClause = g.ResourceCmd.Command("rm", fmt.Sprintf("Remove a configuration resource, e.g. gravity resource rm oidc google. Supported resources are: %v", modules.Get().SupportedResourcesToRemove()))
-	g.ResourceRemoveCmd.Kind = g.ResourceRemoveCmd.Arg("kind", fmt.Sprintf("resource kind, one of %v", modules.Get().SupportedResourcesToRemove())).Required().String()
+	g.ResourceRemoveCmd.CmdClause = g.ResourceCmd.Command("rm", fmt.Sprintf("Remove a configuration resource, e.g. gravity resource rm oidc google. Supported resources are: %v", modules.GetResources().SupportedResourcesToRemove()))
+	g.ResourceRemoveCmd.Kind = g.ResourceRemoveCmd.Arg("kind", fmt.Sprintf("resource kind, one of %v",
+		modules.GetResources().SupportedResourcesToRemove())).Required().String()
 	g.ResourceRemoveCmd.Name = g.ResourceRemoveCmd.Arg("name", "resource name, e.g. github").String()
 	g.ResourceRemoveCmd.Force = g.ResourceRemoveCmd.Flag("force", "Do not return errors if a resource is not found").Short('f').Bool()
 	g.ResourceRemoveCmd.User = g.ResourceRemoveCmd.Flag("user", "user to remove resource for, defaults to currently logged in user").String()
@@ -719,8 +721,10 @@ func RegisterCommands(app *kingpin.Application) *Application {
 	g.ResourceRemoveCmd.Confirmed = g.ResourceRemoveCmd.Flag("confirm", "do not ask for confirmation").Bool()
 
 	// get resources returns resources
-	g.ResourceGetCmd.CmdClause = g.ResourceCmd.Command("get", fmt.Sprintf("Get configuration resources, e.g. gravity get oidc. Supported resources are: %v", modules.Get().SupportedResources()))
-	g.ResourceGetCmd.Kind = g.ResourceGetCmd.Arg("kind", fmt.Sprintf("resource kind, one of %v", modules.Get().SupportedResources())).Required().String()
+	g.ResourceGetCmd.CmdClause = g.ResourceCmd.Command("get", fmt.Sprintf("Get configuration resources, e.g. gravity get oidc. Supported resources are: %v",
+		modules.GetResources().SupportedResources()))
+	g.ResourceGetCmd.Kind = g.ResourceGetCmd.Arg("kind", fmt.Sprintf("resource kind, one of %v",
+		modules.GetResources().SupportedResources())).Required().String()
 	g.ResourceGetCmd.Name = g.ResourceGetCmd.Arg("name", fmt.Sprintf("optional resource name, lists all resources if omitted")).String()
 	g.ResourceGetCmd.Format = common.Format(g.ResourceGetCmd.Flag("format", "resource format, e.g. 'text', 'json' or 'yaml'").Default(string(constants.EncodingText)))
 	g.ResourceGetCmd.WithSecrets = g.ResourceGetCmd.Flag("with-secrets", "include secret properties like private keys").Default("false").Bool()

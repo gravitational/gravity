@@ -235,7 +235,7 @@ func (r *Resources) Create(req resources.CreateRequest) error {
 		return trace.BadParameter("missing resource kind")
 	default:
 		return trace.BadParameter("unsupported resource %q, supported are: %v",
-			req.Resource.Kind, modules.Get().SupportedResources())
+			req.Resource.Kind, modules.GetResources().SupportedResources())
 	}
 	return nil
 }
@@ -387,7 +387,7 @@ func (r *Resources) GetCollection(req resources.ListRequest) (resources.Collecti
 		return nil, trace.BadParameter("missing resource kind")
 	}
 	return nil, trace.BadParameter("unsupported resource %q, supported are: %v",
-		req.Kind, modules.Get().SupportedResources())
+		req.Kind, modules.GetResources().SupportedResources())
 }
 
 // Remove removes the specified resource
@@ -473,7 +473,7 @@ func (r *Resources) Remove(req resources.RemoveRequest) error {
 		return trace.BadParameter("missing resource kind")
 	default:
 		return trace.BadParameter("unsupported resource %q, supported are: %v",
-			req.Kind, modules.Get().SupportedResourcesToRemove())
+			req.Kind, modules.GetResources().SupportedResourcesToRemove())
 	}
 	return nil
 }
@@ -516,7 +516,7 @@ func Validate(resource storage.UnknownResource) (err error) {
 		_, err = clusterconfig.Unmarshal(resource.Raw)
 	default:
 		return trace.NotImplemented("unsupported resource %q, supported are: %v",
-			resource.Kind, modules.Get().SupportedResources())
+			resource.Kind, modules.GetResources().SupportedResources())
 	}
 	if err != nil {
 		return trace.Wrap(err)
