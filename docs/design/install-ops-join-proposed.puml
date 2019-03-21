@@ -26,14 +26,15 @@ actor user
 participant process as P
 box systemd unit
 participant driver as DP
-participant "installer" as I
+participant "peer" as PP
 participant "agent" as A
 participant "register agent" as RA
 end box
 participant "Ops Center" as W
+participant "installer agent" as IA
 database "state database" as db order 100
 
-title Installing from Ops Center (installer agent)
+title Installing from Ops Center (joining agent)
 
 user -> P : start from agent URL
 activate P
@@ -54,8 +55,8 @@ activate RA
 RA -> W : <<register agent>>
 RA <- W : <<register agent response>>
 note right
-Ops Center chooses an agent to be
-installer, other agents will join it
+join the installer agent chosen
+by the Ops Center
 end note
 
 == Execute Operation ==
@@ -69,27 +70,34 @@ RA -> W : fetch operation
 end loop
 deactivate RA
 
-DP -> I : init
-activate I
+DP -> db : create/read state\nfrom /usr/local/share/gravity/join
+DP -> PP : init
+activate PP
 note right
- * validate configuration
- * upsert install token
- * export RPC creds
+  # reset logins
+  # log into peer
+  # setup state directory
 end note
-DP -> I : start
+
+DP -> PP : start
+PP -> A : start
+activate A
+A -> IA : connect
+A -> A : prerequisites
+note right
+  # init service user/export binary
+  # validate server profile
+end note
 
 loop until operation has completed
 P -> db : poll progress
 end loop
 
-I -> A : start
-activate A
-A -> A : wait for other agents
-A -> A : execute/resume plan
-DP -> I : wait
+A <- IA : accept remote commands
+return done
+
 return shut down agent
 return exit wait
-return done
 return done
 
 @enduml
