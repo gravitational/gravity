@@ -1,5 +1,5 @@
 @startuml
-skinparam BackgroundColor #EEEBDC
+skinparam BackgroundColor #white
 skinparam RoundCorner 20
 skinparam note {
   BackgroundColor #yellow
@@ -33,14 +33,12 @@ title Joining a node (existing cluster or installation)
 create "process" as P
 user -> P : start
 activate P
-P -> P : ensure no local state
-note left #yellow
-this verifies
-that the node does not have
-any cluster state
+P -> P : prerequisites
+note left
+  # ensure no local state
+  # validate configuration
+  # execute local preflight checks
 end note
-
-P -> P : validate configuration
 
 == Initialization ==
 
@@ -60,10 +58,7 @@ P -> PP : start
 create "install agent" as A
 PP-> A : start
 activate A
-A -> W : connect
-note right : if this is an installation
 A -> C : connect
-note right : if this is joining\na node in existing cluster
 A -> A : prerequisites
 note right
   # init service user/export binary
@@ -72,16 +67,11 @@ end note
 
 == Execute Operation ==
 
-alt if installing
-A <-> W : accept remote commands
-else if expanding
 A -> C : wait for operation
 A <- A : wait for other agents
 A -> C : create operation plan
 db <-> C : sync operation plan
-
 A -> A : execute plan
-end
 return done
 
 P -> PP : wait

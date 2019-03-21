@@ -18,9 +18,9 @@ package cli
 
 import (
 	"context"
-	"io/ioutil"
 	"net"
 	"os"
+	"path/filepath"
 
 	"github.com/gravitational/gravity/lib/constants"
 	"github.com/gravitational/gravity/lib/defaults"
@@ -164,7 +164,8 @@ func (i *InstallConfig) CheckAndSetDefaults() (err error) {
 		log.Infof("Set installer state directory: %v.", i.ReadStateDir)
 	}
 	if i.WriteStateDir == "" {
-		if i.WriteStateDir, err = ioutil.TempDir("", "gravity-wizard"); err != nil {
+		i.WriteStateDir = filepath.Join(os.TempDir(), defaults.WizardStateDir)
+		if err := os.MkdirAll(i.WriteStateDir); err != nil {
 			return trace.ConvertSystemError(err)
 		}
 		log.Infof("Installer write layer: %v.", i.WriteStateDir)
@@ -177,10 +178,10 @@ func (i *InstallConfig) CheckAndSetDefaults() (err error) {
 	if err != nil {
 		if trace.IsAccessDenied(err) {
 			return trace.Wrap(err, "access denied to the specified state "+
-				"dir %v", i.ReadStateDir)
+				"directory %v", i.ReadStateDir)
 		}
 		if trace.IsNotFound(err) {
-			return trace.Wrap(err, "the specified state dir %v is not "+
+			return trace.Wrap(err, "the specified state directory %v is not "+
 				"found", i.ReadStateDir)
 		}
 		return trace.Wrap(err)

@@ -1,0 +1,113 @@
+@startuml
+skinparam BackgroundColor #white
+skinparam RoundCorner 20
+skinparam note {
+  BackgroundColor #yellow
+}
+skinparam sequence {
+	ArrowColor DeepSkyBlue
+	ActorBorderColor DeepSkyBlue
+	LifeLineBorderColor blue
+	LifeLineBackgroundColor #A9DCDF
+
+	ParticipantBorderColor DeepSkyBlue
+	ParticipantBackgroundColor DodgerBlue
+	ParticipantFontName Consolas
+	ParticipantFontSize 17
+	ParticipantFontColor #A9DCDF
+
+	ActorBackgroundColor aqua
+	ActorFontColor DeepSkyBlue
+	ActorFontSize 17
+	ActorFontName Aapex
+}
+
+actor user
+participant process as P
+box systemd unit
+participant driver as DP
+participant "wizard process" as W
+participant "installer" as I
+end box
+database "state database" as db order 100
+
+title Wizard-driven installation
+
+user -> P : start
+activate P
+P -> P : prerequisites
+note left
+  # ensure no local state
+  # validate configuration
+end note
+
+== Initialization ==
+
+P -> DP : start (if not yet running)
+activate DP
+
+loop
+P -> db : poll progress
+note right
+  # poll cluster
+  # then poll operation
+end note
+end loop
+
+
+DP -> db : create/read state\nfrom /tmp/gravity-wizard
+note right
+  # create install token (if necessary)
+  # TODO
+end note
+
+DP -> W : init
+activate W
+
+W -> W : prerequisites
+note right
+ # init RPC creds
+ # start internal processes
+ # wait for started ack
+end note
+
+DP -> I : init
+activate I
+I -> W : log into wizard
+note right: connect to wizard's API endpoint
+DP -> I : start
+
+user -> W : create cluster (UI)
+note left
+wizard routes the user to page
+most applicable to current state
+end note
+
+loop
+I -> W : fetch cluster
+I <- W : cluster response
+end
+
+== Execute Operation ==
+
+user -> W : create/start operation (if necessary)
+note right
+wizard skips this step if it has
+determined it has enough state to
+resume the operation
+end note
+I -> I : start
+note right
+    * upsert admin user
+    * read operation (if available)
+    * create/read operation plan
+end note
+
+I -> I : execute plan
+
+return done
+return done
+return done
+return done
+
+@enduml

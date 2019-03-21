@@ -1019,6 +1019,10 @@ var (
 	// WizardDir is where wizard login information is stored during install
 	WizardDir = filepath.Join(GravityEphemeralDir, "wizard")
 
+	// WizardStateDir is the location of the wizard state for the duration of the install
+	// operation
+	WizardStateDir = "gravity-wizard"
+
 	// LocalCacheDir is the location where gravity stores downloaded packages
 	LocalCacheDir = filepath.Join(LocalDataDir, "cache")
 

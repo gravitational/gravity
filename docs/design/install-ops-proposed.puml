@@ -1,0 +1,91 @@
+@startuml
+skinparam BackgroundColor #white
+skinparam RoundCorner 20
+skinparam note {
+  BackgroundColor #yellow
+}
+skinparam sequence {
+	ArrowColor DeepSkyBlue
+	ActorBorderColor DeepSkyBlue
+	LifeLineBorderColor blue
+	LifeLineBackgroundColor #A9DCDF
+
+	ParticipantBorderColor DeepSkyBlue
+	ParticipantBackgroundColor DodgerBlue
+	ParticipantFontName Consolas
+	ParticipantFontSize 17
+	ParticipantFontColor #A9DCDF
+
+	ActorBackgroundColor aqua
+	ActorFontColor DeepSkyBlue
+	ActorFontSize 17
+	ActorFontName Aapex
+}
+
+actor user
+participant process as P
+box systemd unit
+participant driver as DP
+participant "installer" as I
+participant "agent" as A
+end box
+participant "Ops Center" as W
+database "state database" as db order 100
+
+title Installing from Ops Center
+
+user -> P : start from agent URL
+activate P
+P -> P : prerequisites
+note left
+  # ensure no local state
+  # validate configuration
+  # execute local preflight checks
+  # pick advertise IP
+end note
+
+== Initialization ==
+
+P -> db : create/read state\nfrom /tmp/gravity-wizard
+note right
+  # create cluster (if necessary)
+  # create operation (plan) (if necessary)
+  # create install token (if necessary)
+end note
+
+P -> DP : start (if not yet running)
+activate DP
+DP -> db : read state\nfrom /tmp/gravity-wizard
+note right
+  # fetch cluster/operation records
+end note
+
+DP -> I : init
+activate I
+I -> I : validate configuration
+I -> W : log into wizard
+note right: connect to wizard's API endpoint
+I -> I : bootstrap
+note right
+  # (CLI) export binary / set up state directory
+  # export RPC creds
+end note
+DP -> I : start
+
+== Execute Operation ==
+
+loop
+P -> db : poll progress
+end loop
+
+I -> A : start
+activate A
+A -> A : wait for other agents
+A -> A : execute/resume plan
+DP -> I : wait
+return shut down agent
+return exit wait
+return done
+return done
+
+@enduml
