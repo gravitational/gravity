@@ -157,7 +157,7 @@ func (*defaultResources) SupportedResources() []string {
 	return storage.SupportedGravityResources
 }
 
-// SupportedResourcesToRemoves returns a list of resources that can be removed
+// SupportedResourcesToRemove returns a list of resources that can be removed
 func (*defaultResources) SupportedResourcesToRemove() []string {
 	return storage.SupportedGravityResourcesToRemove
 }
