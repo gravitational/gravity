@@ -204,8 +204,6 @@ type Builder struct {
 	Packages pack.PackageService
 	// Apps is the application service based on the layered package service
 	Apps app.Applications
-	// syncer is used to sync local package cache with repository
-	syncer Syncer
 }
 
 // Locator returns locator of the application that's being built
@@ -278,7 +276,11 @@ func (b *Builder) SyncPackageCache(runtimeVersion *semver.Version) error {
 	}
 	b.Infof("Synchronizing package cache with %v.", repository)
 	b.NextStep("Downloading dependencies from %v", repository)
-	return b.syncer.Sync(b, runtimeVersion)
+	syncer, err := b.NewSyncer(b)
+	if err != nil {
+		return trace.Wrap(err)
+	}
+	return syncer.Sync(b, runtimeVersion)
 }
 
 // Vendor vendors the application images in the provided directory and
@@ -398,10 +400,6 @@ func (b *Builder) initServices() (err error) {
 	if err != nil {
 		return trace.Wrap(err)
 	}
-	b.syncer, err = b.getSyncer()
-	if err != nil {
-		return trace.Wrap(err)
-	}
 	return nil
 }
 
@@ -411,6 +409,7 @@ func (b *Builder) makeBuildEnv() (*localenv.LocalEnvironment, error) {
 	// both cache directory and config directory as it's used as
 	// a special case only for building from local packages
 	if b.StateDir != "" {
+		b.Infof("Using package cache from %v.", b.StateDir)
 		return localenv.NewLocalEnvironment(localenv.LocalEnvironmentArgs{
 			StateDir:         b.StateDir,
 			LocalKeyStoreDir: b.StateDir,
@@ -426,26 +425,11 @@ func (b *Builder) makeBuildEnv() (*localenv.LocalEnvironment, error) {
 	if err != nil {
 		return nil, trace.Wrap(err)
 	}
+	b.Infof("Using package cache from %v.", cacheDir)
 	return localenv.NewLocalEnvironment(localenv.LocalEnvironmentArgs{
 		StateDir: cacheDir,
 		Insecure: b.Insecure,
 	})
-}
-
-// getSyncer returns a new syncer instance for this builder
-func (b *Builder) getSyncer() (Syncer, error) {
-	// to ensure backward-compatible behavior: if the --state-dir was
-	// provided to the tele build command, the specified directory is
-	// used as a package source - unless the repository was specified
-	// explicitly via --repository flag
-	if b.StateDir != "" && b.Repository == "" {
-		apps, err := b.Env.AppServiceLocal(localenv.AppConfig{})
-		if err != nil {
-			return nil, trace.Wrap(err)
-		}
-		return NewPackSyncer(b.Env.Packages, apps, b.StateDir), nil
-	}
-	return b.NewSyncer(b)
 }
 
 // checkVersion makes sure that the tele version is compatible with the selected

@@ -29,7 +29,7 @@ LTS starts with `3.51.0` with minor backwards compatible changes added over time
 
 ## 5.x Releases
 
-### 5.1.1 LTS
+### 5.5.1 LTS
 
 #### Improvements
 
