@@ -922,7 +922,7 @@ type AppInstallerRequest struct {
 	Application loc.Locator
 	// CACert is the CA certificate to include in the installer.
 	CACert string
-	// EncryptionKey can be used to encrypt installer packages.
+	// EncryptionKey is an optional key to GPG-encrypt installer packages with.
 	EncryptionKey string
 }
 

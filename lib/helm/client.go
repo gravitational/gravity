@@ -18,6 +18,7 @@ package helm
 
 import (
 	"fmt"
+	"io"
 
 	"github.com/gravitational/gravity/lib/constants"
 	"github.com/gravitational/gravity/lib/defaults"
@@ -38,8 +39,31 @@ import (
 	"github.com/sirupsen/logrus"
 )
 
-// Client is the Helm client.
-type Client struct {
+// Client defines an interface for a Helm client.
+type Client interface {
+	// Install installs a Helm chart and returns release information.
+	Install(InstallParameters) (storage.Release, error)
+	// List returns list of releases matching provided parameters.
+	List(ListParameters) ([]storage.Release, error)
+	// Get returns a single release with the specified name.
+	Get(name string) (storage.Release, error)
+	// Upgrade upgrades a release.
+	Upgrade(UpgradeParameters) (storage.Release, error)
+	// Rollback rolls back a release to the specified version.
+	Rollback(RollbackParameters) (storage.Release, error)
+	// Revisions returns revision history for a release with the provided name.
+	Revisions(name string) ([]storage.Release, error)
+	// Uninstall uninstalls a release with the provided name.
+	Uninstall(name string) (storage.Release, error)
+	// Closer allows to cleanup the client.
+	io.Closer
+}
+
+// GetClientFunc defines a Helm client factory function.
+type GetClientFunc func(ClientConfig) (Client, error)
+
+// client is the Helm client implementation.
+type client struct {
 	client helm.Interface
 	tunnel *kube.Tunnel
 }
@@ -52,7 +76,7 @@ type ClientConfig struct {
 }
 
 // NewClient returns a new Helm client instance.
-func NewClient(conf ClientConfig) (*Client, error) {
+func NewClient(conf ClientConfig) (Client, error) {
 	kubeClient, kubeConfig, err := getKubeClient(conf.DNSAddress)
 	if err != nil {
 		return nil, trace.Wrap(err)
@@ -64,7 +88,7 @@ func NewClient(conf ClientConfig) (*Client, error) {
 	options := []helm.Option{
 		helm.Host(fmt.Sprintf("127.0.0.1:%d", tunnel.Local)),
 	}
-	return &Client{
+	return &client{
 		client: helm.NewClient(options...),
 		tunnel: tunnel,
 	}, nil
@@ -85,7 +109,7 @@ type InstallParameters struct {
 }
 
 // Install installs a Helm chart and returns release information.
-func (c *Client) Install(p InstallParameters) (storage.Release, error) {
+func (c *client) Install(p InstallParameters) (storage.Release, error) {
 	rawVals, err := helmutils.Vals(p.Values, p.Set, nil, nil, "", "", "")
 	if err != nil {
 		return nil, trace.Wrap(err)
@@ -130,7 +154,7 @@ func (p ListParameters) Options() (options []helm.ReleaseListOption) {
 }
 
 // List returns list of releases matching provided parameters.
-func (c *Client) List(p ListParameters) ([]storage.Release, error) {
+func (c *client) List(p ListParameters) ([]storage.Release, error) {
 	response, err := c.client.ListReleases(p.Options()...) // TODO Paging.
 	if err != nil {
 		return nil, trace.Wrap(err)
@@ -149,7 +173,7 @@ func (c *Client) List(p ListParameters) ([]storage.Release, error) {
 }
 
 // Get returns a single release with the specified name.
-func (c *Client) Get(name string) (storage.Release, error) {
+func (c *client) Get(name string) (storage.Release, error) {
 	releases, err := c.List(ListParameters{Filter: name})
 	if err != nil {
 		return nil, trace.Wrap(err)
@@ -175,7 +199,7 @@ type UpgradeParameters struct {
 }
 
 // Upgrade upgrades a release.
-func (c *Client) Upgrade(p UpgradeParameters) (storage.Release, error) {
+func (c *client) Upgrade(p UpgradeParameters) (storage.Release, error) {
 	rawVals, err := helmutils.Vals(p.Values, p.Set, nil, nil, "", "", "")
 	if err != nil {
 		return nil, trace.Wrap(err)
@@ -206,7 +230,7 @@ type RollbackParameters struct {
 }
 
 // Rollback rolls back a release to the specified version.
-func (c *Client) Rollback(p RollbackParameters) (storage.Release, error) {
+func (c *client) Rollback(p RollbackParameters) (storage.Release, error) {
 	response, err := c.client.RollbackRelease(
 		p.Release,
 		helm.RollbackVersion(int32(p.Revision)))
@@ -221,7 +245,7 @@ func (c *Client) Rollback(p RollbackParameters) (storage.Release, error) {
 }
 
 // Uninstall uninstalls a release with the provided name.
-func (c *Client) Uninstall(name string) (storage.Release, error) {
+func (c *client) Uninstall(name string) (storage.Release, error) {
 	response, err := c.client.DeleteRelease(name)
 	if err != nil {
 		return nil, trace.Wrap(err)
@@ -234,7 +258,7 @@ func (c *Client) Uninstall(name string) (storage.Release, error) {
 }
 
 // Revisions returns revision history for a release with the provided name.
-func (c *Client) Revisions(name string) ([]storage.Release, error) {
+func (c *client) Revisions(name string) ([]storage.Release, error) {
 	response, err := c.client.ReleaseHistory(name,
 		helm.WithMaxHistory(maxHistory))
 	if err != nil {
@@ -254,7 +278,7 @@ func (c *Client) Revisions(name string) ([]storage.Release, error) {
 }
 
 // Close closes the Helm client.
-func (c *Client) Close() error {
+func (c *client) Close() error {
 	c.tunnel.Close()
 	return nil
 }

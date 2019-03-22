@@ -32,7 +32,7 @@ func (o *Operator) ListReleases(key ops.SiteKey) ([]storage.Release, error) {
 	}
 	// Create connection to tiller on demand to avoid keeping tunnel
 	// open all the time.
-	client, err := helm.NewClient(helm.ClientConfig{
+	client, err := o.cfg.GetHelmClient(helm.ClientConfig{
 		DNSAddress: cluster.DNSConfig.Addr(),
 	})
 	if err != nil {

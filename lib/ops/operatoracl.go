@@ -1058,9 +1058,9 @@ func (o *OperatorACL) ListReleases(key SiteKey) ([]storage.Release, error) {
 	// create a resource in a different namespace and configure a role
 	// to allow/deny access to everything in a certain namespace.
 	//
-	// So we're returning all releases based on the broader "cluster"
+	// Hence, we're returning all releases based on the broader "cluster"
 	// permission here but in the future, when Teleport starts respecting
-	// resource namespaces, it might be worth revisiting this.
+	// namespaces, it might be worth implementing a more granular ACL.
 	if err := o.ClusterAction(key.SiteDomain, storage.KindCluster, teleservices.VerbRead); err != nil {
 		return nil, trace.Wrap(err)
 	}
