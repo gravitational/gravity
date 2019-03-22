@@ -871,7 +871,7 @@ func (o *Operator) DeleteSiteOperation(key ops.SiteOperationKey) (err error) {
 	return trace.Wrap(err)
 }
 
-func (o *Operator) CreateSiteInstallOperation(r ops.CreateSiteInstallOperationRequest) (*ops.SiteOperationKey, error) {
+func (o *Operator) CreateSiteInstallOperation(ctx context.Context, r ops.CreateSiteInstallOperationRequest) (*ops.SiteOperationKey, error) {
 	err := r.CheckAndSetDefaults()
 	if err != nil {
 		return nil, trace.Wrap(err)
@@ -880,14 +880,14 @@ func (o *Operator) CreateSiteInstallOperation(r ops.CreateSiteInstallOperationRe
 	if err != nil {
 		return nil, trace.Wrap(err)
 	}
-	key, err := site.createInstallOperation(r)
+	key, err := site.createInstallOperation(ctx, r)
 	if err != nil {
 		return nil, trace.Wrap(err)
 	}
 	return key, nil
 }
 
-func (o *Operator) CreateSiteExpandOperation(r ops.CreateSiteExpandOperationRequest) (*ops.SiteOperationKey, error) {
+func (o *Operator) CreateSiteExpandOperation(ctx context.Context, r ops.CreateSiteExpandOperationRequest) (*ops.SiteOperationKey, error) {
 	err := r.CheckAndSetDefaults()
 	if err != nil {
 		return nil, trace.Wrap(err)
@@ -896,14 +896,14 @@ func (o *Operator) CreateSiteExpandOperation(r ops.CreateSiteExpandOperationRequ
 	if err != nil {
 		return nil, trace.Wrap(err)
 	}
-	key, err := site.createExpandOperation(r)
+	key, err := site.createExpandOperation(ctx, r)
 	if err != nil {
 		return nil, trace.Wrap(err)
 	}
 	return key, nil
 }
 
-func (o *Operator) CreateSiteShrinkOperation(r ops.CreateSiteShrinkOperationRequest) (*ops.SiteOperationKey, error) {
+func (o *Operator) CreateSiteShrinkOperation(ctx context.Context, r ops.CreateSiteShrinkOperationRequest) (*ops.SiteOperationKey, error) {
 	err := r.CheckAndSetDefaults()
 	if err != nil {
 		return nil, trace.Wrap(err)
@@ -912,35 +912,35 @@ func (o *Operator) CreateSiteShrinkOperation(r ops.CreateSiteShrinkOperationRequ
 	if err != nil {
 		return nil, trace.Wrap(err)
 	}
-	key, err := site.createShrinkOperation(r)
+	key, err := site.createShrinkOperation(ctx, r)
 	if err != nil {
 		return nil, trace.Wrap(err)
 	}
 	return key, nil
 }
 
-func (o *Operator) CreateSiteAppUpdateOperation(r ops.CreateSiteAppUpdateOperationRequest) (*ops.SiteOperationKey, error) {
+func (o *Operator) CreateSiteAppUpdateOperation(ctx context.Context, r ops.CreateSiteAppUpdateOperationRequest) (*ops.SiteOperationKey, error) {
 	site, err := o.openSite(ops.SiteKey{AccountID: r.AccountID, SiteDomain: r.SiteDomain})
 	if err != nil {
 		return nil, trace.Wrap(err)
 	}
-	key, err := site.createUpdateOperation(r)
+	key, err := site.createUpdateOperation(ctx, r)
 	if err != nil {
 		return nil, trace.Wrap(err)
 	}
 	return key, nil
 }
 
-func (o *Operator) CreateSiteUninstallOperation(r ops.CreateSiteUninstallOperationRequest) (*ops.SiteOperationKey, error) {
+func (o *Operator) CreateSiteUninstallOperation(ctx context.Context, r ops.CreateSiteUninstallOperationRequest) (*ops.SiteOperationKey, error) {
 	site, err := o.openSite(ops.SiteKey{AccountID: r.AccountID, SiteDomain: r.SiteDomain})
 	if err != nil {
 		return nil, trace.Wrap(err)
 	}
 	if o.cfg.Local {
 		// if we're a cluster, create uninstall operation in the Ops Center we're connected to
-		return site.requestUninstall(r)
+		return site.requestUninstall(ctx, r)
 	}
-	key, err := site.createUninstallOperation(r)
+	key, err := site.createUninstallOperation(ctx, r)
 	if err != nil {
 		return nil, trace.Wrap(err)
 	}
@@ -948,7 +948,7 @@ func (o *Operator) CreateSiteUninstallOperation(r ops.CreateSiteUninstallOperati
 }
 
 // CreateClusterGarbageCollectOperation creates a new garbage collection operation in the cluster
-func (o *Operator) CreateClusterGarbageCollectOperation(r ops.CreateClusterGarbageCollectOperationRequest) (*ops.SiteOperationKey, error) {
+func (o *Operator) CreateClusterGarbageCollectOperation(ctx context.Context, r ops.CreateClusterGarbageCollectOperationRequest) (*ops.SiteOperationKey, error) {
 	err := r.Check()
 	if err != nil {
 		return nil, trace.Wrap(err)
@@ -959,7 +959,7 @@ func (o *Operator) CreateClusterGarbageCollectOperation(r ops.CreateClusterGarba
 		return nil, trace.Wrap(err)
 	}
 
-	key, err := cluster.createGarbageCollectOperation(r)
+	key, err := cluster.createGarbageCollectOperation(ctx, r)
 	if err != nil {
 		return nil, trace.Wrap(err)
 	}
@@ -1360,12 +1360,12 @@ func (o *Operator) GetClusterNodes(key ops.SiteKey) ([]ops.Node, error) {
 }
 
 // EmitAuditEvent saves the provided event in the audit log.
-func (o *Operator) EmitAuditEvent(req ops.AuditEventRequest) error {
+func (o *Operator) EmitAuditEvent(ctx context.Context, req ops.AuditEventRequest) error {
 	err := req.Check()
 	if err != nil {
 		return trace.Wrap(err)
 	}
-	o.Infof("%s", req)
+	o.Infof("%s.", req)
 	err = o.cfg.AuditLog.EmitAuditEvent(req.Type, req.Fields)
 	if err != nil {
 		return trace.Wrap(err)

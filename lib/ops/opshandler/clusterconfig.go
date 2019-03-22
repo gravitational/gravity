@@ -84,7 +84,7 @@ func (h *WebHandler) createUpdateConfigOperation(w http.ResponseWriter, r *http.
 		return trace.BadParameter(err.Error())
 	}
 	req.ClusterKey = siteKey(p)
-	op, err := context.Operator.CreateUpdateConfigOperation(req)
+	op, err := context.Operator.CreateUpdateConfigOperation(r.Context(), req)
 	if err != nil {
 		return trace.Wrap(err)
 	}

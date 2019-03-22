@@ -885,8 +885,8 @@
   version = "v1.0.1"
 
 [[projects]]
-  branch = "roman/3.1/k8s113"
-  digest = "1:d80b383d896a94d72f3910aef18d361e136650a415fcfd57c60bd58517d89c46"
+  branch = "branch/3.1-g"
+  digest = "1:396ba9a929b4815908eebac658a1b664c9b5df51bd125457463da92392fcaa49"
   name = "github.com/gravitational/teleport"
   packages = [
     ".",
@@ -942,7 +942,7 @@
     "lib/web/ui",
   ]
   pruneopts = "UT"
-  revision = "72147df1c82cadaa69b4e222248c1c1d1208c409"
+  revision = "90cc9daaee0584f9a4480a0474e302b0e2e52cb5"
 
 [[projects]]
   digest = "1:22c8951489f0e27ec3b2d50d9f74086ff3f08554ce5965d418d6a10296b9ea04"

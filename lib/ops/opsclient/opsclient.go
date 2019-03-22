@@ -418,7 +418,7 @@ func (c *Client) CompleteFinalInstallStep(req ops.CompleteFinalInstallStepReques
 }
 
 // CheckSiteStatus runs app status hook and updates site status appropriately.
-func (c *Client) CheckSiteStatus(key ops.SiteKey) error {
+func (c *Client) CheckSiteStatus(ctx context.Context, key ops.SiteKey) error {
 	_, err := c.Get(c.Endpoint("accounts", key.AccountID, "sites", key.SiteDomain, "status"), url.Values{})
 	return trace.Wrap(err)
 }
@@ -449,7 +449,7 @@ func (c *Client) GetSiteOperation(key ops.SiteOperationKey) (*ops.SiteOperation,
 	return op, nil
 }
 
-func (c *Client) CreateSiteInstallOperation(req ops.CreateSiteInstallOperationRequest) (*ops.SiteOperationKey, error) {
+func (c *Client) CreateSiteInstallOperation(ctx context.Context, req ops.CreateSiteInstallOperationRequest) (*ops.SiteOperationKey, error) {
 	out, err := c.PostJSON(c.Endpoint("accounts", req.AccountID, "sites", req.SiteDomain, "operations", "install"), req)
 	if err != nil {
 		return nil, trace.Wrap(err)
@@ -526,7 +526,7 @@ func (c *Client) SiteExpandOperationStart(key ops.SiteOperationKey) error {
 	return nil
 }
 
-func (c *Client) CreateSiteUninstallOperation(req ops.CreateSiteUninstallOperationRequest) (*ops.SiteOperationKey, error) {
+func (c *Client) CreateSiteUninstallOperation(ctx context.Context, req ops.CreateSiteUninstallOperationRequest) (*ops.SiteOperationKey, error) {
 	out, err := c.PostJSON(c.Endpoint("accounts", req.AccountID, "sites", req.SiteDomain, "operations", "uninstall"), req)
 	if err != nil {
 		return nil, trace.Wrap(err)
@@ -539,7 +539,7 @@ func (c *Client) CreateSiteUninstallOperation(req ops.CreateSiteUninstallOperati
 }
 
 // CreateClusterGarbageCollectOperation creates a new garbage collection operation in the cluster
-func (c *Client) CreateClusterGarbageCollectOperation(req ops.CreateClusterGarbageCollectOperationRequest) (*ops.SiteOperationKey, error) {
+func (c *Client) CreateClusterGarbageCollectOperation(ctx context.Context, req ops.CreateClusterGarbageCollectOperationRequest) (*ops.SiteOperationKey, error) {
 	out, err := c.PostJSON(c.Endpoint("accounts", req.AccountID, "sites", req.ClusterName, "operations", "gc"), req)
 	if err != nil {
 		return nil, trace.Wrap(err)
@@ -553,7 +553,7 @@ func (c *Client) CreateClusterGarbageCollectOperation(req ops.CreateClusterGarba
 }
 
 // CreateUpdateEnvarsOperation creates a new operation to update cluster runtime environment variables
-func (c *Client) CreateUpdateEnvarsOperation(req ops.CreateUpdateEnvarsOperationRequest) (*ops.SiteOperationKey, error) {
+func (c *Client) CreateUpdateEnvarsOperation(ctx context.Context, req ops.CreateUpdateEnvarsOperationRequest) (*ops.SiteOperationKey, error) {
 	out, err := c.PostJSON(c.Endpoint("accounts", req.ClusterKey.AccountID, "sites", req.ClusterKey.SiteDomain, "operations", "envars"), req)
 	if err != nil {
 		return nil, trace.Wrap(err)
@@ -567,7 +567,7 @@ func (c *Client) CreateUpdateEnvarsOperation(req ops.CreateUpdateEnvarsOperation
 }
 
 // CreateUpdateConfigOperation creates a new operation to update cluster configuration
-func (c *Client) CreateUpdateConfigOperation(req ops.CreateUpdateConfigOperationRequest) (*ops.SiteOperationKey, error) {
+func (c *Client) CreateUpdateConfigOperation(ctx context.Context, req ops.CreateUpdateConfigOperationRequest) (*ops.SiteOperationKey, error) {
 	out, err := c.PostJSON(c.Endpoint("accounts", req.ClusterKey.AccountID, "sites", req.ClusterKey.SiteDomain, "operations", "config"), req)
 	if err != nil {
 		return nil, trace.Wrap(err)
@@ -588,7 +588,7 @@ func (c *Client) SiteUninstallOperationStart(req ops.SiteOperationKey) error {
 	return nil
 }
 
-func (c *Client) CreateSiteExpandOperation(req ops.CreateSiteExpandOperationRequest) (*ops.SiteOperationKey, error) {
+func (c *Client) CreateSiteExpandOperation(ctx context.Context, req ops.CreateSiteExpandOperationRequest) (*ops.SiteOperationKey, error) {
 	out, err := c.PostJSON(c.Endpoint("accounts", req.AccountID, "sites", req.SiteDomain, "operations", "expand"), req)
 	if err != nil {
 		return nil, trace.Wrap(err)
@@ -600,7 +600,7 @@ func (c *Client) CreateSiteExpandOperation(req ops.CreateSiteExpandOperationRequ
 	return &siteOperationKey, nil
 }
 
-func (c *Client) CreateSiteShrinkOperation(req ops.CreateSiteShrinkOperationRequest) (*ops.SiteOperationKey, error) {
+func (c *Client) CreateSiteShrinkOperation(ctx context.Context, req ops.CreateSiteShrinkOperationRequest) (*ops.SiteOperationKey, error) {
 	out, err := c.PostJSON(c.Endpoint("accounts", req.AccountID, "sites", req.SiteDomain, "operations", "shrink"), req)
 	if err != nil {
 		return nil, trace.Wrap(err)
@@ -612,7 +612,7 @@ func (c *Client) CreateSiteShrinkOperation(req ops.CreateSiteShrinkOperationRequ
 	return &siteOperationKey, nil
 }
 
-func (c *Client) CreateSiteAppUpdateOperation(req ops.CreateSiteAppUpdateOperationRequest) (*ops.SiteOperationKey, error) {
+func (c *Client) CreateSiteAppUpdateOperation(ctx context.Context, req ops.CreateSiteAppUpdateOperationRequest) (*ops.SiteOperationKey, error) {
 	out, err := c.PostJSON(c.Endpoint("accounts", req.AccountID, "sites", req.SiteDomain, "operations", "update"), req)
 	if err != nil {
 		return nil, trace.Wrap(err)
@@ -1506,7 +1506,7 @@ func (c *Client) GetAuthGateway(key ops.SiteKey) (storage.AuthGateway, error) {
 }
 
 // EmitAuditEvent saves the provided event in the audit log.
-func (c *Client) EmitAuditEvent(req ops.AuditEventRequest) error {
+func (c *Client) EmitAuditEvent(ctx context.Context, req ops.AuditEventRequest) error {
 	_, err := c.PostJSON(c.Endpoint("accounts", req.AccountID, "sites", req.SiteDomain, "events"), req)
 	if err != nil {
 		return trace.Wrap(err)

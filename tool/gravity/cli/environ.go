@@ -143,7 +143,7 @@ func (r environInitializer) validatePreconditions(*localenv.LocalEnvironment, op
 }
 
 func (r environInitializer) newOperation(operator ops.Operator, cluster ops.Site) (*ops.SiteOperationKey, error) {
-	key, err := operator.CreateUpdateEnvarsOperation(
+	key, err := operator.CreateUpdateEnvarsOperation(context.TODO(),
 		ops.CreateUpdateEnvarsOperationRequest{
 			ClusterKey: cluster.Key(),
 			Env:        r.environ.GetKeyValues(),

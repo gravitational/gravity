@@ -18,6 +18,7 @@ package resources
 
 import (
 	"bytes"
+	"context"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -41,7 +42,7 @@ func (s *ResourceControlSuite) TestResourceControl(c *check.C) {
 
 	reader := strings.NewReader(resourceBytes)
 
-	err := control.Create(reader, CreateRequest{})
+	err := control.Create(context.TODO(), reader, CreateRequest{})
 	c.Assert(err, check.IsNil)
 
 	w := &bytes.Buffer{}
@@ -56,7 +57,7 @@ kind1/resource3
 		Kind: "kind2",
 		Name: "resource2",
 	}
-	err = control.Remove(req)
+	err = control.Remove(context.TODO(), req)
 	c.Assert(err, check.IsNil)
 
 	w.Reset()
@@ -72,7 +73,7 @@ type testResources struct {
 	resources []teleservices.UnknownResource
 }
 
-func (r *testResources) Create(req CreateRequest) error {
+func (r *testResources) Create(ctx context.Context, req CreateRequest) error {
 	r.resources = append(r.resources, req.Resource)
 	return nil
 }
@@ -81,7 +82,7 @@ func (r *testResources) GetCollection(req ListRequest) (Collection, error) {
 	return testCollection(r.resources), nil
 }
 
-func (r *testResources) Remove(req RemoveRequest) error {
+func (r *testResources) Remove(ctx context.Context, req RemoveRequest) error {
 	for i, resource := range r.resources {
 		if resource.Kind == req.Kind && resource.Metadata.Name == req.Name {
 			r.resources = append(r.resources[:i], r.resources[i+1:]...)

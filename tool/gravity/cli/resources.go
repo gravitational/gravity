@@ -71,11 +71,11 @@ func createResource(env *localenv.LocalEnvironment, factory LocalEnvironmentFact
 	err = resources.ForEach(reader, func(resource storage.UnknownResource) error {
 		req := resources.CreateRequest{
 			Upsert:    upsert,
-			User:      user,
+			Owner:     user,
 			Manual:    manual,
 			Confirmed: confirmed,
 		}
-		return trace.Wrap(control.Create(bytes.NewReader(resource.Raw), req))
+		return trace.Wrap(control.Create(context.TODO(), bytes.NewReader(resource.Raw), req))
 	})
 	return trace.Wrap(err)
 }
@@ -107,11 +107,11 @@ func removeResource(
 		Kind:      kind,
 		Name:      name,
 		Force:     force,
-		User:      user,
+		Owner:     user,
 		Manual:    manual,
 		Confirmed: confirmed,
 	}
-	err = resources.NewControl(gravityResources).Remove(req)
+	err = resources.NewControl(gravityResources).Remove(context.TODO(), req)
 	return trace.Wrap(err)
 
 }

@@ -140,15 +140,10 @@ func (i *Installer) emitAuditEvents() error {
 	if err != nil {
 		return trace.Wrap(err)
 	}
-	events.Emit(operator, events.OperationStarted, events.Fields{
-		events.FieldOperationID:   operation.ID,
-		events.FieldOperationType: operation.Type,
-		events.FieldTime:          operation.Created,
-	})
-	events.Emit(operator, events.OperationCompleted, events.Fields{
-		events.FieldOperationID:   operation.ID,
-		events.FieldOperationType: operation.Type,
-	})
+	fields := events.FieldsForOperation(*operation)
+	events.Emit(i.Context, operator, events.OperationStarted, fields.WithField(
+		events.FieldTime, operation.Created))
+	events.Emit(i.Context, operator, events.OperationCompleted, fields)
 	return nil
 }
 

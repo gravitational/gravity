@@ -17,6 +17,7 @@ limitations under the License.
 package webapi
 
 import (
+	"context"
 	"net/http"
 	"strings"
 
@@ -67,7 +68,7 @@ func (m *Handler) upsertResourceHandler(w http.ResponseWriter, r *http.Request, 
 	}
 
 	isNew := r.Method == http.MethodPost
-	items, err := m.upsertResource(isNew, *rawRes, ctx)
+	items, err := m.upsertResource(r.Context(), isNew, *rawRes, ctx)
 	if err != nil {
 		return nil, trace.Wrap(err)
 	}
@@ -79,7 +80,7 @@ func (m *Handler) upsertResourceHandler(w http.ResponseWriter, r *http.Request, 
 func (m *Handler) deleteResourceHandler(w http.ResponseWriter, r *http.Request, p httprouter.Params, ctx *AuthContext) (interface{}, error) {
 	resourceKind := p.ByName("kind")
 	resourceName := p.ByName("name")
-	if err := m.deleteResource(resourceKind, resourceName, ctx); err != nil {
+	if err := m.deleteResource(r.Context(), resourceKind, resourceName, ctx); err != nil {
 		return nil, trace.Wrap(err)
 	}
 
@@ -87,12 +88,12 @@ func (m *Handler) deleteResourceHandler(w http.ResponseWriter, r *http.Request, 
 }
 
 // deleteResource deletes a resource
-func (m *Handler) deleteResource(resourceKind string, resourceName string, ctx *AuthContext) error {
-	controller, err := m.plugin.Resources(ctx)
+func (m *Handler) deleteResource(ctx context.Context, resourceKind string, resourceName string, authCtx *AuthContext) error {
+	controller, err := m.plugin.Resources(authCtx)
 	if err != nil {
 		return trace.Wrap(err)
 	}
-	return controller.Remove(resources.RemoveRequest{
+	return controller.Remove(ctx, resources.RemoveRequest{
 		Kind: resourceKind,
 		Name: resourceName,
 	})
@@ -130,8 +131,8 @@ func (m *Handler) getResources(kind string, ctx *AuthContext) ([]ui.ConfigItem, 
 }
 
 // upsertResource updates a resource and returns ConfigItem wrapper with the updated resource
-func (m *Handler) upsertResource(isNew bool, rawRes teleservices.UnknownResource, ctx *AuthContext) (interface{}, error) {
-	exists, err := m.checkIfResourceExists(rawRes, ctx)
+func (m *Handler) upsertResource(ctx context.Context, isNew bool, rawRes teleservices.UnknownResource, authCtx *AuthContext) (interface{}, error) {
+	exists, err := m.checkIfResourceExists(rawRes, authCtx)
 	if err != nil {
 		return nil, trace.Wrap(err)
 	}
@@ -143,11 +144,11 @@ func (m *Handler) upsertResource(isNew bool, rawRes teleservices.UnknownResource
 		return nil, trace.NotFound("cannot find resource with a name %q",
 			rawRes.Metadata.Name)
 	}
-	controller, err := m.plugin.Resources(ctx)
+	controller, err := m.plugin.Resources(authCtx)
 	if err != nil {
 		return nil, trace.Wrap(err)
 	}
-	err = controller.Create(resources.CreateRequest{
+	err = controller.Create(ctx, resources.CreateRequest{
 		Resource: rawRes,
 		Upsert:   true,
 	})

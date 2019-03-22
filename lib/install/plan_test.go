@@ -18,6 +18,7 @@ package install
 
 import (
 	"bytes"
+	"context"
 	"encoding/json"
 	"fmt"
 	"sort"
@@ -142,7 +143,7 @@ func (s *PlanSuite) SetUpSuite(c *check.C) {
 		ClusterName: s.cluster.Domain,
 	})
 	c.Assert(err, check.IsNil)
-	s.operationKey, err = s.services.Operator.CreateSiteInstallOperation(
+	s.operationKey, err = s.services.Operator.CreateSiteInstallOperation(context.TODO(),
 		ops.CreateSiteInstallOperationRequest{
 			AccountID:   account.ID,
 			SiteDomain:  s.cluster.Domain,

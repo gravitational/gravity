@@ -505,12 +505,16 @@ func (p *Process) startAutoscale(ctx context.Context) error {
 
 	// receive and process events from SQS notification service
 	p.RegisterClusterService(func(ctx context.Context) error {
-		autoscaler.ProcessEvents(ctx, queueURL, p.operator)
+		localCtx := context.WithValue(ctx, constants.UserContext,
+			constants.ServiceAutoscaler)
+		autoscaler.ProcessEvents(localCtx, queueURL, p.operator)
 		return nil
 	})
 	// publish discovery information about this cluster
 	p.RegisterClusterService(func(ctx context.Context) error {
-		autoscaler.PublishDiscovery(ctx, p.operator)
+		localCtx := context.WithValue(ctx, constants.UserContext,
+			constants.ServiceAutoscaler)
+		autoscaler.PublishDiscovery(localCtx, p.operator)
 		return nil
 	})
 	return nil
@@ -600,9 +604,10 @@ func (p *Process) startSiteStatusChecker(ctx context.Context) error {
 	if err != nil {
 		return trace.Wrap(err)
 	}
-
 	p.Info("Starting cluster status checker.")
 	ticker := time.NewTicker(defaults.SiteStatusCheckInterval)
+	localCtx := context.WithValue(ctx, constants.UserContext,
+		constants.ServiceStatusChecker)
 	for {
 		select {
 		case <-ticker.C:
@@ -610,7 +615,7 @@ func (p *Process) startSiteStatusChecker(ctx context.Context) error {
 				AccountID:  site.AccountID,
 				SiteDomain: site.Domain,
 			}
-			if err := p.operator.CheckSiteStatus(key); err != nil {
+			if err := p.operator.CheckSiteStatus(localCtx, key); err != nil {
 				p.Errorf("Cluster status check failed: %v.",
 					trace.DebugReport(err))
 			}

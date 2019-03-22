@@ -236,7 +236,7 @@ func (p *Peer) dialSite(addr string) (*operationContext, error) {
 
 // createExpandOperation creates a new expand operation
 func (p *Peer) createExpandOperation(operator ops.Operator, cluster ops.Site) (*ops.SiteOperation, error) {
-	key, err := operator.CreateSiteExpandOperation(ops.CreateSiteExpandOperationRequest{
+	key, err := operator.CreateSiteExpandOperation(p.Context, ops.CreateSiteExpandOperationRequest{
 		AccountID:   cluster.AccountID,
 		SiteDomain:  cluster.Domain,
 		Provisioner: schema.ProvisionerOnPrem,
@@ -781,7 +781,7 @@ func (p *Peer) emitAuditEvent(ctx operationContext) error {
 	if err != nil {
 		return trace.Wrap(err)
 	}
-	events.Emit(ctx.Operator, events.OperationStarted,
+	events.Emit(p.Context, ctx.Operator, events.OperationStarted,
 		events.FieldsForOperation(*operation))
 	return nil
 }

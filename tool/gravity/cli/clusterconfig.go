@@ -153,7 +153,7 @@ func (r configInitializer) validatePreconditions(*localenv.LocalEnvironment, ops
 }
 
 func (r configInitializer) newOperation(operator ops.Operator, cluster ops.Site) (*ops.SiteOperationKey, error) {
-	key, err := operator.CreateUpdateConfigOperation(
+	key, err := operator.CreateUpdateConfigOperation(context.TODO(),
 		ops.CreateUpdateConfigOperationRequest{
 			ClusterKey: cluster.Key(),
 			Config:     r.resource,

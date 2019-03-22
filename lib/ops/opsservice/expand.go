@@ -28,7 +28,7 @@ import (
 )
 
 // createExpandOperation initiates expand operation
-func (s *site) createExpandOperation(req ops.CreateSiteExpandOperationRequest) (*ops.SiteOperationKey, error) {
+func (s *site) createExpandOperation(ctx context.Context, req ops.CreateSiteExpandOperationRequest) (*ops.SiteOperationKey, error) {
 	log.Debugf("createExpandOperation(%#v)", req)
 
 	profiles := make(map[string]storage.ServerProfile)
@@ -46,9 +46,13 @@ func (s *site) createExpandOperation(req ops.CreateSiteExpandOperationRequest) (
 			},
 		}
 	}
-	return s.createInstallExpandOperation(
-		ops.OperationExpand, ops.OperationStateExpandInitiated, req.Provisioner,
-		req.Variables, profiles)
+	return s.createInstallExpandOperation(ctx, createInstallExpandOperationRequest{
+		Type:        ops.OperationExpand,
+		State:       ops.OperationStateExpandInitiated,
+		Provisioner: req.Provisioner,
+		Vars:        req.Variables,
+		Profiles:    profiles,
+	})
 }
 
 func (s *site) getSiteOperation(operationID string) (*ops.SiteOperation, error) {

@@ -30,13 +30,13 @@ import (
 	"github.com/gravitational/rigging"
 	"github.com/gravitational/trace"
 	"github.com/pborman/uuid"
-	"k8s.io/api/core/v1"
+	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	corev1 "k8s.io/client-go/kubernetes/typed/core/v1"
 )
 
 // CreateUpdateConfigOperation creates a new operation to update cluster configuration
-func (o *Operator) CreateUpdateConfigOperation(req ops.CreateUpdateConfigOperationRequest) (*ops.SiteOperationKey, error) {
+func (o *Operator) CreateUpdateConfigOperation(ctx context.Context, req ops.CreateUpdateConfigOperationRequest) (*ops.SiteOperationKey, error) {
 	err := req.ClusterKey.Check()
 	if err != nil {
 		return nil, trace.Wrap(err)
@@ -49,7 +49,7 @@ func (o *Operator) CreateUpdateConfigOperation(req ops.CreateUpdateConfigOperati
 	if err != nil {
 		return nil, trace.Wrap(err)
 	}
-	key, err := cluster.createUpdateConfigOperation(req, []byte(config))
+	key, err := cluster.createUpdateConfigOperation(ctx, req, []byte(config))
 	if err != nil {
 		return nil, trace.Wrap(err)
 	}
@@ -140,13 +140,14 @@ func NewConfigurationConfigMap(config []byte) *v1.ConfigMap {
 }
 
 // createUpdateConfigOperation creates a new operation to update cluster configuration
-func (s *site) createUpdateConfigOperation(req ops.CreateUpdateConfigOperationRequest, prevConfig []byte) (*ops.SiteOperationKey, error) {
+func (s *site) createUpdateConfigOperation(ctx context.Context, req ops.CreateUpdateConfigOperationRequest, prevConfig []byte) (*ops.SiteOperationKey, error) {
 	op := ops.SiteOperation{
 		ID:         uuid.New(),
 		AccountID:  s.key.AccountID,
 		SiteDomain: s.key.SiteDomain,
 		Type:       ops.OperationUpdateConfig,
 		Created:    s.clock().UtcNow(),
+		CreatedBy:  storage.UserFromContext(ctx),
 		Updated:    s.clock().UtcNow(),
 		State:      ops.OperationUpdateConfigInProgress,
 		UpdateConfig: &storage.UpdateConfigOperationState{

@@ -17,6 +17,8 @@ limitations under the License.
 package aws
 
 import (
+	"context"
+
 	gaws "github.com/gravitational/gravity/lib/cloudprovider/aws"
 	"github.com/gravitational/gravity/lib/ops"
 
@@ -50,7 +52,7 @@ type EC2 interface {
 // Operator is a simplified operator interface to mock in tests
 type Operator interface {
 	GetLocalSite() (*ops.Site, error)
-	CreateSiteShrinkOperation(ops.CreateSiteShrinkOperationRequest) (*ops.SiteOperationKey, error)
+	CreateSiteShrinkOperation(context.Context, ops.CreateSiteShrinkOperationRequest) (*ops.SiteOperationKey, error)
 }
 
 type NewLocalInstance func() (*gaws.Instance, error)

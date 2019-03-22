@@ -177,7 +177,7 @@ func (i *Installer) StartCLIInstall() (err error) {
 // LaunchOperation creates the install operation according the provided
 // request and launches an install agent
 func (i *Installer) LaunchOperation(req ops.CreateSiteInstallOperationRequest) error {
-	key, err := i.Operator.CreateSiteInstallOperation(req)
+	key, err := i.Operator.CreateSiteInstallOperation(i.Context, req)
 	if err != nil {
 		return trace.Wrap(err)
 	}

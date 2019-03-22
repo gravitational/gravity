@@ -344,7 +344,7 @@ func (o *Operator) ConfigureNode(req ops.ConfigureNodeRequest) error {
 // createUpdateOperation defines the entry-point for the system/application update.
 // It is responsible for creating the update operation, downloading the new version of the gravity
 // binary and spawning an update controller to supervise the process.
-func (s *site) createUpdateOperation(req ops.CreateSiteAppUpdateOperationRequest) (*ops.SiteOperationKey, error) {
+func (s *site) createUpdateOperation(context context.Context, req ops.CreateSiteAppUpdateOperationRequest) (*ops.SiteOperationKey, error) {
 	s.Infof("createUpdateOperation(%#v)", req)
 
 	installOperation, err := ops.GetCompletedInstallOperation(s.key, s.service)
@@ -362,6 +362,7 @@ func (s *site) createUpdateOperation(req ops.CreateSiteAppUpdateOperationRequest
 		SiteDomain:  s.key.SiteDomain,
 		Type:        ops.OperationUpdate,
 		Created:     s.clock().UtcNow(),
+		CreatedBy:   storage.UserFromContext(context),
 		Updated:     s.clock().UtcNow(),
 		State:       ops.OperationStateUpdateInProgress,
 		Provisioner: installOperation.Provisioner,
@@ -416,7 +417,7 @@ func (s *site) createUpdateOperation(req ops.CreateSiteAppUpdateOperationRequest
 	if err != nil {
 		return nil, trace.Wrap(err)
 	}
-	err = s.startUpdateAgent(context.TODO(), ctx, updateApp)
+	err = s.startUpdateAgent(context, ctx, updateApp)
 	if err != nil {
 		return key, trace.Wrap(err,
 			"update operation was created but the automatic update agent failed to start. Refer to the documentation on how to proceed with manual update")

@@ -414,6 +414,8 @@ type SiteOperation struct {
 	Type string `json:"type"`
 	// Created is a time when this operation was created
 	Created time.Time `json:"created"`
+	// CreatedBy specifies the user who created the operation
+	CreatedBy string `json:"created_by,omitempty"`
 	// Updated is a time when this operation was last updated
 	Updated time.Time `json:"updated"`
 	// State represents current operation state

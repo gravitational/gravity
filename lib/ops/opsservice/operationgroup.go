@@ -17,6 +17,7 @@ limitations under the License.
 package opsservice
 
 import (
+	"context"
 	"sync"
 
 	"github.com/gravitational/gravity/lib/defaults"
@@ -92,7 +93,7 @@ func (g *operationGroup) createSiteOperation(operation ops.SiteOperation) (*ops.
 		return nil, trace.Wrap(err)
 	}
 
-	err = g.emitAuditEvent(*op)
+	err = g.emitAuditEvent(context.TODO(), *op)
 	if err != nil {
 		return nil, trace.Wrap(err)
 	}
@@ -101,7 +102,7 @@ func (g *operationGroup) createSiteOperation(operation ops.SiteOperation) (*ops.
 	return &key, nil
 }
 
-func (g *operationGroup) emitAuditEvent(operation ops.SiteOperation) error {
+func (g *operationGroup) emitAuditEvent(ctx context.Context, operation ops.SiteOperation) error {
 	// Install operation audit events are emitted by the installer.
 	if operation.Type == ops.OperationInstall {
 		return nil
@@ -109,13 +110,13 @@ func (g *operationGroup) emitAuditEvent(operation ops.SiteOperation) error {
 	fields := events.FieldsForOperation(operation)
 	switch {
 	case operation.IsCompleted():
-		events.Emit(g.operator, events.OperationCompleted, fields)
+		events.Emit(ctx, g.operator, events.OperationCompleted, fields)
 	case operation.IsFailed():
-		events.Emit(g.operator, events.OperationFailed, fields)
+		events.Emit(ctx, g.operator, events.OperationFailed, fields)
 	default:
 		// Expand operation start event is emitted by the joining agent.
 		if operation.Type != ops.OperationExpand {
-			events.Emit(g.operator, events.OperationStarted, fields)
+			events.Emit(ctx, g.operator, events.OperationStarted, fields)
 		}
 	}
 	return nil
@@ -255,7 +256,7 @@ func (g *operationGroup) compareAndSwapOperationState(swap swap) (*ops.SiteOpera
 	// if we've just moved the operation to one of the final states (completed/failed),
 	// see if we also need to update the site state
 	if operation.IsFinished() {
-		err = g.emitAuditEvent(*operation)
+		err = g.emitAuditEvent(context.TODO(), *operation)
 		if err != nil {
 			return nil, trace.Wrap(err)
 		}

@@ -32,6 +32,7 @@ import (
 	"github.com/gravitational/gravity/lib/httplib"
 	"github.com/gravitational/gravity/lib/loc"
 	"github.com/gravitational/gravity/lib/ops"
+	"github.com/gravitational/gravity/lib/ops/events"
 	"github.com/gravitational/gravity/lib/ops/opsclient"
 	"github.com/gravitational/gravity/lib/pack"
 	"github.com/gravitational/gravity/lib/schema"
@@ -407,6 +408,11 @@ func (h *WebHandler) inviteUser(w http.ResponseWriter, r *http.Request, p httpro
 		log.Debugf("User invite error: %v.", err)
 		return trace.Wrap(err)
 	}
+
+	events.Emit(r.Context(), ctx.Operator, events.InviteCreated, events.Fields{
+		events.FieldName:  req.Name,
+		events.FieldRoles: req.Roles,
+	})
 
 	roundtrip.ReplyJSON(w, http.StatusOK, userToken)
 	return nil
@@ -1148,7 +1154,7 @@ func (h *WebHandler) stepDown(w http.ResponseWriter, r *http.Request, p httprout
     }
 */
 func (h *WebHandler) checkSiteStatus(w http.ResponseWriter, r *http.Request, p httprouter.Params, context *HandlerContext) error {
-	if err := context.Operator.CheckSiteStatus(siteKey(p)); err != nil {
+	if err := context.Operator.CheckSiteStatus(r.Context(), siteKey(p)); err != nil {
 		return trace.Wrap(err)
 	}
 	roundtrip.ReplyJSON(w, http.StatusOK, statusOK("ok"))
@@ -1327,7 +1333,7 @@ func (h *WebHandler) createSiteInstallOperation(w http.ResponseWriter, r *http.R
 		}
 		req.Provisioner = provisioner
 	}
-	op, err := context.Operator.CreateSiteInstallOperation(req)
+	op, err := context.Operator.CreateSiteInstallOperation(r.Context(), req)
 	if err != nil {
 		return trace.Wrap(err)
 	}
@@ -1585,7 +1591,7 @@ func (h *WebHandler) createSiteExpandOperation(w http.ResponseWriter, r *http.Re
 		req.Provisioner = installOp.Provisioner
 	}
 
-	op, err := context.Operator.CreateSiteExpandOperation(req)
+	op, err := context.Operator.CreateSiteExpandOperation(r.Context(), req)
 	if err != nil {
 		return trace.Wrap(err)
 	}
@@ -1683,7 +1689,7 @@ func (h *WebHandler) createSiteUninstallOperation(w http.ResponseWriter, r *http
 	key := siteKey(p)
 	req.AccountID = key.AccountID
 	req.SiteDomain = key.SiteDomain
-	op, err := context.Operator.CreateSiteUninstallOperation(req)
+	op, err := context.Operator.CreateSiteUninstallOperation(r.Context(), req)
 	if err != nil {
 		return trace.Wrap(err)
 	}
@@ -1840,7 +1846,7 @@ func (h *WebHandler) createSiteShrinkOperation(w http.ResponseWriter, r *http.Re
 	key := siteKey(p)
 	req.AccountID = key.AccountID
 	req.SiteDomain = key.SiteDomain
-	op, err := context.Operator.CreateSiteShrinkOperation(req)
+	op, err := context.Operator.CreateSiteShrinkOperation(r.Context(), req)
 	if err != nil {
 		return trace.Wrap(err)
 	}
@@ -1877,7 +1883,7 @@ func (h *WebHandler) createSiteUpdateOperation(w http.ResponseWriter, r *http.Re
 	key := siteKey(p)
 	req.AccountID = key.AccountID
 	req.SiteDomain = key.SiteDomain
-	op, err := context.Operator.CreateSiteAppUpdateOperation(req)
+	op, err := context.Operator.CreateSiteAppUpdateOperation(r.Context(), req)
 	if err != nil {
 		return trace.Wrap(err)
 	}
@@ -1914,7 +1920,7 @@ func (h *WebHandler) createClusterGarbageCollectOperation(w http.ResponseWriter,
 	key := siteKey(p)
 	req.AccountID = key.AccountID
 	req.ClusterName = key.SiteDomain
-	op, err := context.Operator.CreateClusterGarbageCollectOperation(req)
+	op, err := context.Operator.CreateClusterGarbageCollectOperation(r.Context(), req)
 	if err != nil {
 		return trace.Wrap(err)
 	}
@@ -2215,10 +2221,7 @@ func (h *WebHandler) emitAuditEvent(w http.ResponseWriter, r *http.Request, p ht
 	if err != nil {
 		return trace.Wrap(err)
 	}
-	err = ctx.Operator.EmitAuditEvent(req)
-	if err != nil {
-		return trace.Wrap(err)
-	}
+	events.Emit(r.Context(), ctx.Operator, req.Type, events.Fields(req.Fields))
 	roundtrip.ReplyJSON(w, http.StatusOK, message("audit log event saved"))
 	return nil
 }
@@ -2247,7 +2250,7 @@ func GetHandlerContext(w http.ResponseWriter, r *http.Request, backend storage.B
 
 	var user storage.User
 	var checker teleservices.AccessChecker
-	ctx := context.TODO()
+	ctx := r.Context()
 	// this authentication is for robots like install and update agents
 	if !hasCookie {
 		user, checker, err = usersService.AuthenticateUser(*authCreds)
@@ -2284,6 +2287,9 @@ func GetHandlerContext(w http.ResponseWriter, r *http.Request, backend storage.B
 		ctx = context.WithValue(
 			ctx, constants.WebSessionContext, session.GetWebSession())
 	}
+
+	// enrich context with authenticated user information
+	ctx = context.WithValue(ctx, constants.UserContext, user.GetName())
 
 	// create a permission aware wrapper packages service
 	// and pass it to the handlers, so every action will be automatically

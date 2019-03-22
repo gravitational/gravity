@@ -487,6 +487,9 @@ const (
 	// OperatorContext is for operator associated with User ACL context
 	OperatorContext = "telekube.operator.context"
 
+	// UserContext is a context field that contains authenticated user name
+	UserContext = "user.context"
+
 	// PrivilegedKubeconfig is a path to privileged kube config
 	// that is stored on K8s master node
 	PrivilegedKubeconfig = "/etc/kubernetes/scheduler.kubeconfig"
@@ -678,6 +681,17 @@ const (
 	AnnotationLogo = "gravitational.io/logo"
 	// AnnotationSize contains image size in bytes.
 	AnnotationSize = "gravitational.io/size"
+
+	// ServiceAutoscaler is the name of the service that monitors autoscaling
+	// events and launches appropriate operations.
+	//
+	// Used in audit events.
+	ServiceAutoscaler = "@autoscaler"
+	// ServiceStatusChecker is the name of the service that periodically
+	// checks cluster health status and activates/deactivates it.
+	//
+	// Used in audit events.
+	ServiceStatusChecker = "@statuschecker"
 )
 
 var (

@@ -31,6 +31,16 @@ import (
 // do not have to import two packages.
 type Fields events.EventFields
 
+// WithField returns a copy of these fields with an additional provided field.
+func (f Fields) WithField(field string, value interface{}) Fields {
+	copy := make(map[string]interface{})
+	for k, v := range f {
+		copy[k] = v
+	}
+	copy[field] = value
+	return Fields(copy)
+}
+
 // FieldsForOperation returns event fields for the provided operation.
 func FieldsForOperation(operation ops.SiteOperation) Fields {
 	fields, err := fieldsForOperation(operation)
@@ -44,6 +54,8 @@ func fieldsForOperation(operation ops.SiteOperation) (Fields, error) {
 	fields := Fields{
 		FieldOperationID:   operation.ID,
 		FieldOperationType: operation.Type,
+		FieldCluster:       operation.SiteDomain,
+		FieldUser:          operation.CreatedBy,
 	}
 	switch operation.Type {
 	case ops.OperationExpand:
@@ -97,22 +109,22 @@ const (
 	FieldNodeRole = "role"
 	// FieldName contains name, e.g. resource name, application name, etc.
 	FieldName = "name"
-	// FieldOpsCenter contains Ops Center name.
-	FieldOpsCenter = "opsCenter"
+	// FieldCluster contains name of the cluster that generated an event.
+	FieldCluster = "cluster"
 	// FieldKind contains resource kind.
 	FieldKind = "kind"
-	// FieldUser contains resource user.
+	// FieldUser contains name of the user who triggered an event.
 	FieldUser = "user"
+	// FieldOwner contains name of the user a resource belongs to.
+	FieldOwner = "owner"
 	// FieldReleaseName contains application release name.
 	FieldReleaseName = "releaseName"
 	// FieldVersion contains application package version.
 	FieldVersion = "version"
-	// FieldInterval contains time interval, e.g. for periodic updates.
-	FieldInterval = "interval"
 	// FieldReason contains cluster deactivation reason.
 	FieldReason = "reason"
 	// FieldTime contains event time.
 	FieldTime = "time"
-	// FieldExpires contains expiration time, e.g. for license.
-	FieldExpires = "expires"
+	// FieldRoles contains roles of a new user.
+	FieldRoles = "roles"
 )
