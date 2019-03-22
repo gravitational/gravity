@@ -1,5 +1,5 @@
 @startuml
-skinparam BackgroundColor #EEEBDC
+skinparam BackgroundColor #white
 skinparam RoundCorner 20
 skinparam note {
   BackgroundColor #yellow

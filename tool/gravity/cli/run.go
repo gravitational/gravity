@@ -294,13 +294,15 @@ func Execute(g *Application, cmd string, extraArgs []string) error {
 		}, *g.OpsAgentCmd.ServiceName)
 	case g.WizardCmd.FullCommand():
 		return startInstall(localEnv, InstallConfig{
-			Mode:          constants.InstallModeInteractive,
-			Insecure:      *g.Insecure,
-			ReadStateDir:  *g.InstallCmd.Path,
-			UserLogFile:   *g.UserLogFile,
-			SystemLogFile: *g.SystemLogFile,
-			ServiceUID:    *g.WizardCmd.ServiceUID,
-			ServiceGID:    *g.WizardCmd.ServiceGID,
+			Config: install.Config{
+				Mode:          constants.InstallModeInteractive,
+				Insecure:      *g.Insecure,
+				StateDir:      *g.InstallCmd.Path,
+				UserLogFile:   *g.UserLogFile,
+				SystemLogFile: *g.SystemLogFile,
+			},
+			ServiceUID: *g.WizardCmd.ServiceUID,
+			ServiceGID: *g.WizardCmd.ServiceGID,
 		})
 	case g.InstallCmd.FullCommand():
 		if *g.InstallCmd.Resume {

@@ -1994,6 +1994,8 @@ type AgentProfile struct {
 	AgentURL string `json:"agent_url"`
 	// Token is the token used to connect to the agent server
 	Token string `json:"token"`
+	// Installer specifies whether this agent has been picked as installer
+	Installer bool `json:"installer,omitempty"`
 }
 
 // ShrinkOperationState contains information about shrink operation

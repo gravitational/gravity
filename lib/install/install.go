@@ -219,12 +219,7 @@ type Config struct {
 
 // CheckAndSetDefaults checks the parameters and autodetects some defaults
 func (c *Config) CheckAndSetDefaults() (err error) {
-	if c.Context == nil {
-		return trace.BadParameter("missing Context")
-	}
-	if c.EventsC == nil {
-		return trace.BadParameter("missing EventsC")
-	}
+
 	if c.AdvertiseAddr == "" {
 		return trace.BadParameter("missing AdvertiseAddr")
 	}
@@ -271,6 +266,12 @@ func (c *Config) CheckAndSetDefaults() (err error) {
 	}
 	if err := c.validateCloudConfig(); err != nil {
 		return trace.Wrap(err)
+	}
+	if c.Context == nil {
+		c.Context, c.Cancel = context.WithCancel(context.Background())
+	}
+	if c.EventsC == nil {
+		c.EventsC = make(chan Event, 100)
 	}
 	if c.NewProcess == nil {
 		c.NewProcess = process.NewProcess

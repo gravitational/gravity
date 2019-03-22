@@ -17,7 +17,6 @@ limitations under the License.
 package cli
 
 import (
-	"context"
 	"net"
 	"os"
 	"path/filepath"
@@ -29,12 +28,9 @@ import (
 	"github.com/gravitational/gravity/lib/loc"
 	"github.com/gravitational/gravity/lib/localenv"
 	"github.com/gravitational/gravity/lib/ops/resources"
-	"github.com/gravitational/gravity/lib/process"
 	"github.com/gravitational/gravity/lib/rpc/proto"
-	rpcserver "github.com/gravitational/gravity/lib/rpc/server"
 	"github.com/gravitational/gravity/lib/storage"
 	"github.com/gravitational/gravity/lib/storage/clusterconfig"
-	"github.com/gravitational/gravity/lib/systeminfo"
 	"github.com/gravitational/gravity/lib/utils"
 
 	teleutils "github.com/gravitational/teleport/lib/utils"
@@ -44,72 +40,23 @@ import (
 
 // InstallConfig is the gravity install command configuration
 type InstallConfig struct {
-	// Mode is the install mode
-	Mode string
-	// Insecure allows to turn on certificate validation
-	Insecure bool
-	// ReadStateDir is the installer state dir
-	ReadStateDir string
-	// WriteStateDir is the directory where installer writes its state
-	WriteStateDir string
-	// SystemLogFile is the gravity-system.log file
-	SystemLogFile string
-	// UserLogFile is the gravity-install.log file
-	UserLogFile string
-	// AdvertiseAddr is the advertise IP for this node
-	AdvertiseAddr string
-	// InstallToken is the unique install token
-	InstallToken string
-	// CloudProvider is the cloud provider
-	CloudProvider string
-	// License is the cluster License
-	License string
-	// SiteDomain is the cluster domain name
-	SiteDomain string
-	// Flavor is the Flavor name to install
-	Flavor string
-	// Role is this node Role
-	Role string
-	// ResourcesPath is the additional Kubernetes resources to create
-	ResourcesPath string
-	// SystemDevice is the block device to use for gravity data
-	SystemDevice string
-	// DockerDevice is the block device to use for Docker data
-	DockerDevice string
-	// Mounts is a list of additional app Mounts
-	Mounts map[string]string
+	install.Config
 	// DNSHosts is a list of DNS host overrides
 	DNSHosts []string
 	// DNSZones is a list of DNS zone overrides
 	DNSZones []string
-	// DNSConfig is the DNS configuration for planet container DNS.
-	DNSConfig storage.DNSConfig
-	// PodCIDR is the pod network subnet
-	PodCIDR string
-	// ServiceCIDR is the service network subnet
-	ServiceCIDR string
-	// VxlanPort is the overlay network port
-	VxlanPort int
-	// Docker is the Docker configuration
-	Docker storage.DockerConfig
-	// Manual allows to execute install plan phases manually
-	Manual bool
 	// AppPackage is the application package to install
 	AppPackage string
-	// ServiceUser is the service user configuration
-	ServiceUser systeminfo.User
+	// ResourcesPath is the additional Kubernetes resources to create
+	ResourcesPath string
 	// ServiceUID is the ID of the service user as configured externally
 	ServiceUID string
 	// ServiceGID is the ID of the service group as configured externally
 	ServiceGID string
-	// NodeTags specifies VM instance tags on GCE.
-	// Kubernetes uses tags to match instances for load balancing support.
-	// By default, the tag is generated based on the cluster name.
-	// It can be overridden with this value (i.e. when cluster name does not
-	// conform to the GCE tag requirements)
-	NodeTags []string
-	// NewProcess is used to launch gravity API server process
-	NewProcess process.NewGravityProcess
+
+	// FIXME: unused?
+	// License is the cluster License
+	// License string
 }
 
 // NewInstallConfig creates install config from the passed CLI args and flags
@@ -122,75 +69,77 @@ func NewInstallConfig(g *Application) InstallConfig {
 	}
 
 	return InstallConfig{
-		Mode:          mode,
-		Insecure:      *g.Insecure,
-		ReadStateDir:  *g.InstallCmd.Path,
-		UserLogFile:   *g.UserLogFile,
-		SystemLogFile: *g.SystemLogFile,
-		AdvertiseAddr: *g.InstallCmd.AdvertiseAddr,
-		InstallToken:  *g.InstallCmd.Token,
-		CloudProvider: *g.InstallCmd.CloudProvider,
-		SiteDomain:    *g.InstallCmd.Cluster,
+		Config: install.Config{
+			Mode:          mode,
+			Insecure:      *g.Insecure,
+			StateDir:      *g.InstallCmd.Path,
+			UserLogFile:   *g.UserLogFile,
+			SystemLogFile: *g.SystemLogFile,
+			AdvertiseAddr: *g.InstallCmd.AdvertiseAddr,
+			Token:         *g.InstallCmd.Token,
+			CloudProvider: *g.InstallCmd.CloudProvider,
+			SiteDomain:    *g.InstallCmd.Cluster,
+			Flavor:        *g.InstallCmd.Flavor,
+			Role:          *g.InstallCmd.Role,
+			SystemDevice:  *g.InstallCmd.SystemDevice,
+			DockerDevice:  *g.InstallCmd.DockerDevice,
+			Mounts:        *g.InstallCmd.Mounts,
+			PodCIDR:       *g.InstallCmd.PodCIDR,
+			ServiceCIDR:   *g.InstallCmd.ServiceCIDR,
+			VxlanPort:     *g.InstallCmd.VxlanPort,
+			Docker: storage.DockerConfig{
+				StorageDriver: g.InstallCmd.DockerStorageDriver.value,
+				Args:          *g.InstallCmd.DockerArgs,
+			},
+			DNSConfig:   g.InstallCmd.DNSConfig(),
+			Manual:      *g.InstallCmd.Manual,
+			GCENodeTags: *g.InstallCmd.GCENodeTags,
+		},
+		ServiceUID:    *g.InstallCmd.ServiceUID,
+		ServiceGID:    *g.InstallCmd.ServiceGID,
 		AppPackage:    *g.InstallCmd.App,
-		Flavor:        *g.InstallCmd.Flavor,
-		Role:          *g.InstallCmd.Role,
 		ResourcesPath: *g.InstallCmd.ResourcesPath,
-		SystemDevice:  *g.InstallCmd.SystemDevice,
-		DockerDevice:  *g.InstallCmd.DockerDevice,
-		Mounts:        *g.InstallCmd.Mounts,
 		DNSHosts:      *g.InstallCmd.DNSHosts,
 		DNSZones:      *g.InstallCmd.DNSZones,
-		PodCIDR:       *g.InstallCmd.PodCIDR,
-		ServiceCIDR:   *g.InstallCmd.ServiceCIDR,
-		VxlanPort:     *g.InstallCmd.VxlanPort,
-		Docker: storage.DockerConfig{
-			StorageDriver: g.InstallCmd.DockerStorageDriver.value,
-			Args:          *g.InstallCmd.DockerArgs,
-		},
-		DNSConfig:  g.InstallCmd.DNSConfig(),
-		Manual:     *g.InstallCmd.Manual,
-		ServiceUID: *g.InstallCmd.ServiceUID,
-		ServiceGID: *g.InstallCmd.ServiceGID,
-		NodeTags:   *g.InstallCmd.GCENodeTags,
 	}
 }
 
 // CheckAndSetDefaults validates the configuration object and populates default values
 func (i *InstallConfig) CheckAndSetDefaults() (err error) {
-	if i.ReadStateDir == "" {
-		if i.ReadStateDir, err = os.Getwd(); err != nil {
+	if i.Config.StateDir == "" {
+		if i.Config.StateDir, err = os.Getwd(); err != nil {
 			return trace.ConvertSystemError(err)
 		}
-		log.Infof("Set installer state directory: %v.", i.ReadStateDir)
+		log.Infof("Set installer state directory: %v.", i.Config.StateDir)
 	}
-	if i.WriteStateDir == "" {
-		i.WriteStateDir = filepath.Join(os.TempDir(), defaults.WizardStateDir)
-		if err := os.MkdirAll(i.WriteStateDir); err != nil {
+	if i.Config.WriteStateDir == "" {
+		i.Config.WriteStateDir = filepath.Join(os.TempDir(), defaults.WizardStateDir)
+		if err := os.MkdirAll(i.Config.WriteStateDir, defaults.SharedDirMask); err != nil {
 			return trace.ConvertSystemError(err)
 		}
-		log.Infof("Installer write layer: %v.", i.WriteStateDir)
+		log.Infof("Installer write layer: %v.", i.Config.WriteStateDir)
 	}
-	isDir, err := utils.IsDirectory(i.ReadStateDir)
+	isDir, err := utils.IsDirectory(i.Config.StateDir)
 	if !isDir {
 		return trace.BadParameter("the specified state path %v is not "+
-			"a directory", i.ReadStateDir)
+			"a directory", i.Config.StateDir)
 	}
 	if err != nil {
 		if trace.IsAccessDenied(err) {
 			return trace.Wrap(err, "access denied to the specified state "+
-				"directory %v", i.ReadStateDir)
+				"directory %v", i.Config.StateDir)
 		}
 		if trace.IsNotFound(err) {
 			return trace.Wrap(err, "the specified state directory %v is not "+
-				"found", i.ReadStateDir)
+				"found", i.Config.StateDir)
 		}
 		return trace.Wrap(err)
 	}
-	if i.InstallToken == "" {
-		if i.InstallToken, err = teleutils.CryptoRandomHex(6); err != nil {
+	if i.Config.Token == "" {
+		if i.Config.Token, err = teleutils.CryptoRandomHex(6); err != nil {
 			return trace.Wrap(err)
 		}
-		log.Infof("Generated install token: %v.", i.InstallToken)
+		log.Infof("Generated install token: %v.", i.Token)
 	}
 	serviceUser, err := install.GetOrCreateServiceUser(i.ServiceUID, i.ServiceGID)
 	if err != nil {
@@ -202,10 +151,7 @@ func (i *InstallConfig) CheckAndSetDefaults() (err error) {
 	if err := i.validateDNSConfig(); err != nil {
 		return trace.Wrap(err)
 	}
-	i.ServiceUser = *serviceUser
-	if i.NewProcess == nil {
-		i.NewProcess = process.NewProcess
-	}
+	i.Config.ServiceUser = *serviceUser
 	return nil
 }
 
@@ -235,7 +181,7 @@ func (i *InstallConfig) GetAppPackage() (*loc.Locator, error) {
 	if i.AppPackage != "" {
 		return loc.MakeLocator(i.AppPackage)
 	}
-	env, err := localenv.New(i.ReadStateDir)
+	env, err := localenv.New(i.StateDir)
 	if err != nil {
 		return nil, trace.Wrap(err)
 	}
@@ -246,7 +192,7 @@ func (i *InstallConfig) GetAppPackage() (*loc.Locator, error) {
 			return nil, trace.NotFound("the specified state dir %v does not "+
 				"contain application data, please provide a path to the "+
 				"unpacked installer tarball or specify an application "+
-				"package via --app flag", i.ReadStateDir)
+				"package via --app flag", i.StateDir)
 		}
 		return nil, trace.Wrap(err)
 	}
@@ -314,45 +260,18 @@ func (i *InstallConfig) ToInstallerConfig(env *localenv.LocalEnvironment, valida
 	if err != nil {
 		return nil, trace.Wrap(err)
 	}
-	ctx, cancel := context.WithCancel(context.Background())
-	return &install.Config{
-		Context:            ctx,
-		Cancel:             cancel,
-		EventsC:            make(chan install.Event, 100),
-		AdvertiseAddr:      advertiseAddr,
-		AppPackage:         appPackage,
-		LocalPackages:      env.Packages,
-		LocalApps:          env.Apps,
-		LocalBackend:       env.Backend,
-		Silent:             env.Silent,
-		SiteDomain:         i.SiteDomain,
-		StateDir:           i.ReadStateDir,
-		WriteStateDir:      i.WriteStateDir,
-		UserLogFile:        i.UserLogFile,
-		SystemLogFile:      i.SystemLogFile,
-		Token:              i.InstallToken,
-		CloudProvider:      i.CloudProvider,
-		GCENodeTags:        i.NodeTags,
-		Flavor:             i.Flavor,
-		Role:               i.Role,
-		SystemDevice:       i.SystemDevice,
-		DockerDevice:       i.DockerDevice,
-		Mounts:             i.Mounts,
-		DNSOverrides:       *dnsOverrides,
-		DNSConfig:          i.DNSConfig,
-		Mode:               i.Mode,
-		PodCIDR:            i.PodCIDR,
-		ServiceCIDR:        i.ServiceCIDR,
-		VxlanPort:          i.VxlanPort,
-		Docker:             i.Docker,
-		Insecure:           i.Insecure,
-		Manual:             i.Manual,
-		ServiceUser:        i.ServiceUser,
-		NewProcess:         i.NewProcess,
-		LocalClusterClient: env.SiteOperator,
-		RuntimeResources:   kubernetesResources,
-		ClusterResources:   gravityResources,
-	}, nil
+	config := i.Config
+	config.AdvertiseAddr = advertiseAddr
+	config.AppPackage = appPackage
+	config.LocalPackages = env.Packages
+	config.LocalApps = env.Apps
+	config.LocalBackend = env.Backend
+	config.Silent = env.Silent
+	config.DNSOverrides = *dnsOverrides
+	config.LocalClusterClient = env.SiteOperator
+	config.RuntimeResources = kubernetesResources
+	config.ClusterResources = gravityResources
+	return &config, nil
 }
 
 // splitResources validates the resources specified in ResourcePath
@@ -563,16 +482,11 @@ func (j *JoinConfig) ToPeerConfig(env, joinEnv *localenv.LocalEnvironment) (*exp
 	if err != nil {
 		return nil, trace.Wrap(err)
 	}
-	ctx, cancel := context.WithCancel(context.Background())
 	return &expand.PeerConfig{
-		Context:       ctx,
-		Cancel:        cancel,
 		Peers:         peers,
 		AdvertiseAddr: advertiseAddr,
 		ServerAddr:    j.ServerAddr,
 		CloudProvider: j.CloudProvider,
-		EventsC:       make(chan install.Event, 100),
-		WatchCh:       make(chan rpcserver.WatchEvent, 1),
 		RuntimeConfig: *runtimeConfig,
 		Silent:        env.Silent,
 		DebugMode:     env.Debug,

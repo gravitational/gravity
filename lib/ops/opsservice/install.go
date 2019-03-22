@@ -171,7 +171,7 @@ func (s *site) createInstallExpandOperation(context context.Context, req createI
 
 	variables.System = *systemVars
 	agents := make(map[string]storage.AgentProfile, len(profiles))
-	for role, _ := range profiles {
+	for role := range profiles {
 		instructions, err := s.getDownloadInstructions(token, role)
 		if err != nil {
 			return nil, trace.Wrap(err)
@@ -190,6 +190,8 @@ func (s *site) createInstallExpandOperation(context context.Context, req createI
 			Instructions: instructions,
 			AgentURL:     u.String(),
 			Token:        token,
+			// TODO: assign installer role (i.e. first come?)
+			// Installer: i,
 		}
 	}
 

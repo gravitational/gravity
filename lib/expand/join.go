@@ -97,7 +97,7 @@ type PeerConfig struct {
 }
 
 // CheckAndSetDefaults checks the parameters and autodetects some defaults
-func (c *PeerConfig) CheckAndSetDefaults() error {
+func (c *PeerConfig) CheckAndSetDefaults() (err error) {
 	if c.Context == nil {
 		return trace.BadParameter("missing Context")
 	}
@@ -119,9 +119,6 @@ func (c *PeerConfig) CheckAndSetDefaults() error {
 	if c.EventsC == nil {
 		return trace.BadParameter("missing EventsC")
 	}
-	if c.FieldLogger == nil {
-		c.FieldLogger = log.WithField(trace.Component, "peer")
-	}
 	if c.LocalBackend == nil {
 		return trace.BadParameter("missing LocalBackned")
 	}
@@ -133,6 +130,22 @@ func (c *PeerConfig) CheckAndSetDefaults() error {
 	}
 	if c.JoinBackend == nil {
 		return trace.BadParameter("missing JoinBackend")
+	}
+	c.CloudProvider, err = install.ValidateCloudProvider(c.CloudProvider)
+	if err != nil {
+		return trace.Wrap(err)
+	}
+	if c.FieldLogger == nil {
+		c.FieldLogger = log.WithField(trace.Component, "peer")
+	}
+	if c.Context == nil {
+		c.Context, c.Cancel = context.WithCancel(context.Background())
+	}
+	if c.EventsC == nil {
+		c.EventsC = make(chan install.Event, 100)
+	}
+	if c.WatchCh == nil {
+		c.WatchCh = make(chan rpcserver.WatchEvent, 1)
 	}
 	return nil
 }
