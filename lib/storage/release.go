@@ -103,9 +103,9 @@ type ReleaseSpecV1 struct {
 	AppVersion string `json:"app_version"`
 	// Namespace is the namespace where release is deployed.
 	//
-	// It is a part of spec rather than metadata because Teleport resources
-	// are single-namespace at the moment and namespace field from metadata
-	// is never exposed.
+	// TODO: This field is a part of spec rather than metadata because
+	// Teleport resources are single-namespace at the moment and namespace
+	// field from metadata is never exposed.
 	Namespace string `json:"namespace"`
 }
 
@@ -203,7 +203,7 @@ func MarshalRelease(release Release, opts ...services.MarshalOption) ([]byte, er
 	return json.Marshal(release)
 }
 
-// UnmarshalRelease unmarshals release resource from the provided JSON data.
+// UnmarshalRelease unmarshals release resource from the provided data.
 func UnmarshalRelease(data []byte) (Release, error) {
 	jsonData, err := utils.ToJSON(data)
 	if err != nil {

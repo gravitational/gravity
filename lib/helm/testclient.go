@@ -26,8 +26,6 @@ import (
 type testClient struct {
 	// releases keeps track of the installed releases.
 	releases map[string]storage.Release
-	// closed indicates whether the client is closed.
-	closed bool
 	// ClientConfig is the test client configuration.
 	ClientConfig
 }
@@ -101,7 +99,6 @@ func (c *testClient) Uninstall(name string) (storage.Release, error) {
 
 // Closer allows to cleanup the client.
 func (c *testClient) Close() error {
-	c.closed = true
 	return nil
 }
 

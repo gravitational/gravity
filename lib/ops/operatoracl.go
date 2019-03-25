@@ -122,17 +122,6 @@ func (o *OperatorACL) repoContext(repoName string) *users.Context {
 	return o.resourceContext(storage.NewRepository(repoName))
 }
 
-func (o *OperatorACL) resourceActions(resource teleservices.Resource, kind string, actions ...string) error {
-	ctx := o.resourceContext(resource)
-	for _, action := range actions {
-		err := o.checker.CheckAccessToRule(ctx, resource.GetMetadata().Namespace, kind, action, false)
-		if err != nil {
-			return trace.Wrap(err)
-		}
-	}
-	return nil
-}
-
 // currentUserAction is a special checker that allows certain actions for users
 // even if they are not admins, e.g. update their own passwords,
 // or generate certificates, otherwise it will require admin privileges
