@@ -277,6 +277,9 @@ func NewAPI(cfg Config) (*Handler, error) {
 	h.GET("/apps/:repository/:package/:version", h.needsAuth(h.getAppPackage))
 	h.GET("/apps/:repository/:package/:version/installer", h.needsAuth(h.getAppInstaller))
 
+	// Releases
+	h.GET("/sites/:domain/releases", h.needsAuth(h.getReleases))
+
 	// User
 	h.GET("/user/context", h.needsAuth(h.getWebContext))
 	h.GET("/user/status", h.needsAuth(h.getUserStatus))
@@ -2040,6 +2043,65 @@ func (m *Handler) updateRetentionPolicy(w http.ResponseWriter, r *http.Request, 
 		}
 	}
 	return httplib.OK(), nil
+}
+
+/* getReleases returns all application releases currently deployed in a cluster.
+
+     GET /portalapi/v1/sites/:domain/releases
+
+   Success response:
+
+     []webRelease
+*/
+func (m *Handler) getReleases(w http.ResponseWriter, r *http.Request, p httprouter.Params, context *AuthContext) (interface{}, error) {
+	releases, err := context.Operator.ListReleases(ops.SiteKey{
+		SiteDomain: p[0].Value,
+		AccountID:  context.User.GetAccountID(),
+	})
+	if err != nil {
+		return nil, trace.Wrap(err)
+	}
+	result := make([]webRelease, 0, len(releases))
+	for _, release := range releases {
+		app, err := context.Applications.GetApp(release.GetLocator())
+		if err != nil {
+			return nil, trace.Wrap(err)
+		}
+		result = append(result, webRelease{
+			Name:         release.GetName(),
+			Namespace:    release.GetNamespace(),
+			Description:  release.GetMetadata().Description,
+			ChartName:    release.GetChartName(),
+			ChartVersion: release.GetChartVersion(),
+			AppVersion:   release.GetAppVersion(),
+			Status:       release.GetStatus(),
+			Updated:      release.GetUpdated(),
+			Icon:         app.Manifest.Logo,
+		})
+	}
+	return result, nil
+}
+
+// webRelease is an application release object for web app.
+type webRelease struct {
+	// Name is the release name.
+	Name string `json:"name"`
+	// Namespace is the namespace where release is deployed.
+	Namespace string `json:"namespace"`
+	// Description is the application description.
+	Description string `json:"description"`
+	// ChartName is the name of the release chart.
+	ChartName string `json:"chartName"`
+	// ChartVersion is the version of the release chart.
+	ChartVersion string `json:"chartVersion"`
+	// AppVersion is the optional application version.
+	AppVersion string `json:"appVersion"`
+	// Status is the release status.
+	Status string `json:"status"`
+	// Updated is when the release was last updated.
+	Updated time.Time `json:"updated"`
+	// Icon is base64-encoded application icon.
+	Icon string `json:"icon,omitempty"`
 }
 
 // updateRetentionInput is the input for "update retention policy" API call

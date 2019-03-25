@@ -31,6 +31,7 @@ import (
 	"github.com/gravitational/gravity/lib/clients"
 	"github.com/gravitational/gravity/lib/constants"
 	"github.com/gravitational/gravity/lib/defaults"
+	"github.com/gravitational/gravity/lib/helm"
 	"github.com/gravitational/gravity/lib/httplib"
 	"github.com/gravitational/gravity/lib/loc"
 	"github.com/gravitational/gravity/lib/ops"
@@ -127,6 +128,9 @@ type Config struct {
 
 	// AuditLog is used to submit events to the audit log
 	AuditLog events.IAuditLog
+
+	// GetHelmClient is a factory method for creating a Helm client.
+	GetHelmClient helm.GetClientFunc
 }
 
 // Operator implements Operator interface
@@ -214,6 +218,9 @@ func (cfg *Config) CheckAndSetDefaults() error {
 	if cfg.AuditLog == nil {
 		cfg.AuditLog = events.NewDiscardAuditLog()
 	}
+	if cfg.GetHelmClient == nil {
+		cfg.GetHelmClient = helm.NewClient
+	}
 	return nil
 }
 
@@ -238,6 +245,9 @@ func (cfg *Config) CheckRelaxed() error {
 	}
 	if cfg.AuditLog == nil {
 		cfg.AuditLog = events.NewDiscardAuditLog()
+	}
+	if cfg.GetHelmClient == nil {
+		cfg.GetHelmClient = helm.NewClient
 	}
 	return nil
 }

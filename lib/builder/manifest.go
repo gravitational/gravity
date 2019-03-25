@@ -46,5 +46,6 @@ func generateManifest(chart *chart.Chart) (*schema.Manifest, error) {
 				},
 			},
 		},
+		Logo: chart.Metadata.Icon,
 	}, nil
 }

@@ -134,6 +134,31 @@ func (h *WebHandler) getAuthGateway(w http.ResponseWriter, r *http.Request, p ht
 	return rawMessage(w, bytes, err)
 }
 
+/* getReleases returns all currently installed application releases in a cluster.
+
+     GET /portal/v1/accounts/:account_id/sites/:site_domain/releases
+
+   Success response:
+
+     []storage.Release
+*/
+func (h *WebHandler) getReleases(w http.ResponseWriter, r *http.Request, p httprouter.Params, ctx *HandlerContext) error {
+	releases, err := ctx.Operator.ListReleases(siteKey(p))
+	if err != nil {
+		return trace.Wrap(err)
+	}
+	items := make([]json.RawMessage, 0, len(releases))
+	for _, release := range releases {
+		bytes, err := storage.MarshalRelease(release)
+		if err != nil {
+			return trace.Wrap(err)
+		}
+		items = append(items, bytes)
+	}
+	roundtrip.ReplyJSON(w, http.StatusOK, items)
+	return nil
+}
+
 /* getUser returns user by name
 
      GET /portal/v1/accounts/:account_id/sites/:site_domain/users/:name

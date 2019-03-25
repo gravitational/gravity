@@ -5,3 +5,4 @@ home: https://github.com/helm/helm
 sources:
   - https://github.com/helm/helm
 appVersion: 3.4
+icon: file://alpine.png
