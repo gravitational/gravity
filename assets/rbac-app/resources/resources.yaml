@@ -152,6 +152,8 @@ spec:
   seLinux:
     rule: RunAsAny
   hostNetwork: true
+  hostPID: true
+  hostIPC: true
   volumes:
   - '*'
 ---
