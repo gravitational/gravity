@@ -10,11 +10,11 @@ LTS starts with `3.51.0` with minor backwards compatible changes added over time
 | 5.5.2         | Yes | March 22nd, 2019     | March 7th, 2020      | 1.13.4             | 3.0.4            |
 | 5.4.9         | No  | March 12th, 2019     | -                    | 1.13.4             | 2.4.10           |
 | 5.3.9*        | No  | March 7th, 2019      | -                    | 1.12.3             | 2.4.7
-| 5.2.11        | Yes | March 7th, 2019      | October, 15th, 2019  | 1.11.8             | 2.4.10           |
-| 5.0.29        | Yes | February, 12th 2019  | April, 13th 2019     | 1.9.12-gravitational | 2.4.10         |
-| 4.68.0*       | Yes | January, 17th 2019   | November, 16th 2018  | 1.7.18-gravitational | 2.3.5          |
-| 3.64.0*       | Yes | December, 21st 2017  | June, 2nd 2018       | 1.5.7              | 2.0.6            |
-| 1.30.0*       | Yes | March, 21st 2017     | March, 21st 2018     | 1.3.8              | 1.2.0            |
+| 5.2.11        | Yes | March 7th, 2019      | October 15th, 2019   | 1.11.8             | 2.4.10           |
+| 5.0.30        | Yes | March 25th, 2019     | April 13th, 2019     | 1.9.12-gravitational | 2.4.10         |
+| 4.68.0*       | Yes | January 17th, 2019   | November 16th, 2018  | 1.7.18-gravitational | 2.3.5          |
+| 3.64.0*       | Yes | December 21st, 2017  | June 2nd, 2018       | 1.5.7              | 2.0.6            |
+| 1.30.0*       | Yes | March 21st, 2017     | March 21st, 2018     | 1.3.8              | 1.2.0            |
 
 !!! tip "Cluster certificates expiration"
     If you have a Gravity cluster of version before `5.0.0-alpha.12` that
@@ -28,6 +28,12 @@ LTS starts with `3.51.0` with minor backwards compatible changes added over time
     do not receive updates and bugfixes.
 
 ## 5.x Releases
+
+### 5.0.30 LTS
+
+#### Improvements
+
+* Improve resiliency of the election install phase.
 
 ### 5.5.2 LTS
 
