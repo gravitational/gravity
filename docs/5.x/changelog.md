@@ -7,10 +7,10 @@ LTS starts with `3.51.0` with minor backwards compatible changes added over time
 
 | Release       | LTS | Release Date         | Supported Until      | Kubernetes Version | Teleport Version |
 | --------------|-----| -------------------- | -------------------- | ------------------ |------------------|
-| 5.5.2         | Yes | March 22nd, 2019     | September 7th, 2020  | 1.13.4             | 3.0.4            |
-| 5.4.9         | No  | March 12th, 2019     | -                    | 1.13.4             | 2.4.10           |
+| 5.5.3         | Yes | March 26th, 2019     | September 7th, 2020  | 1.13.5             | 3.0.4            |
+| 5.4.10        | No  | March 26th, 2019     | -                    | 1.13.5             | 2.4.10           |
 | 5.3.9*        | No  | March 7th, 2019      | -                    | 1.12.3             | 2.4.7
-| 5.2.11        | Yes | March 7th, 2019      | October 15th, 2019   | 1.11.8             | 2.4.10           |
+| 5.2.12        | Yes | March 26th, 2019     | October 15th, 2019   | 1.11.9             | 2.4.10           |
 | 5.0.30        | Yes | March 25th, 2019     | April 13th, 2019     | 1.9.12-gravitational | 2.4.10         |
 | 4.68.0*       | Yes | January 17th, 2019   | November 16th, 2018  | 1.7.18-gravitational | 2.3.5          |
 | 3.64.0*       | Yes | December 21st, 2017  | June 2nd, 2018       | 1.5.7              | 2.0.6            |
@@ -28,6 +28,28 @@ LTS starts with `3.51.0` with minor backwards compatible changes added over time
     do not receive updates and bugfixes.
 
 ## 5.x Releases
+
+### 5.5.3 LTS
+
+#### Improvements
+
+* Upgrade Kubernetes to `v1.13.5`.
+
+#### Bugfixes
+
+* Fix an issue with CoreDNS crash when local nameserver is present in host's `/etc/resolv.conf`.
+
+### 5.4.10
+
+#### Improvements
+
+* Upgrade Kubernetes to `v1.13.5`.
+
+### 5.2.12 LTS
+
+#### Improvements
+
+* Upgrade Kubernetes to `v1.11.9`.
 
 ### 5.0.30 LTS
 
