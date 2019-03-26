@@ -7,7 +7,7 @@ LTS starts with `3.51.0` with minor backwards compatible changes added over time
 
 | Release       | LTS | Release Date         | Supported Until      | Kubernetes Version | Teleport Version |
 | --------------|-----| -------------------- | -------------------- | ------------------ |------------------|
-| 5.5.2         | Yes | March 22nd, 2019     | March 7th, 2020      | 1.13.4             | 3.0.4            |
+| 5.5.2         | Yes | March 22nd, 2019     | September 7th, 2020  | 1.13.4             | 3.0.4            |
 | 5.4.9         | No  | March 12th, 2019     | -                    | 1.13.4             | 2.4.10           |
 | 5.3.9*        | No  | March 7th, 2019      | -                    | 1.12.3             | 2.4.7
 | 5.2.11        | Yes | March 7th, 2019      | October 15th, 2019   | 1.11.8             | 2.4.10           |
