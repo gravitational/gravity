@@ -51,25 +51,25 @@ func InitProcess(ctx context.Context, installerConfig Config, gravityConfig proc
 	return p, nil
 }
 
-// MakeProcessConfig creates a gravity process config from installer config
-func MakeProcessConfig(i Config) (*processconfig.Config, error) {
-	cfg, err := process.WizardProcessConfig(i.AdvertiseAddr, i.StateDir, i.WriteStateDir)
+// NewProcessConfig creates a gravity process config from installer config
+func NewProcessConfig(config Config) (*processconfig.Config, error) {
+	wizardConfig, err := process.WizardProcessConfig(config.AdvertiseAddr, config.StateDir, config.WriteStateDir)
 	if err != nil {
 		return nil, trace.Wrap(err)
 	}
-	cfg.ServiceUser = &i.ServiceUser
-	seedConfig, err := process.RemoteAccessConfig(i.StateDir)
+	wizardConfig.ServiceUser = &config.ServiceUser
+	seedConfig, err := process.RemoteAccessConfig(config.StateDir)
 	if err != nil && !trace.IsNotFound(err) {
 		return nil, trace.Wrap(err)
 	}
 	if seedConfig != nil {
-		cfg.OpsCenter.SeedConfig = seedConfig
+		wizardConfig.OpsCenter.SeedConfig = seedConfig
 	} else {
-		cfg.OpsCenter.SeedConfig = &ops.SeedConfig{}
+		wizardConfig.OpsCenter.SeedConfig = &ops.SeedConfig{}
 	}
-	cfg.Mode = constants.ComponentInstaller
-	cfg.ClusterName = i.SiteDomain
-	cfg.Devmode = i.Insecure
-	cfg.InstallLogFiles = append(cfg.InstallLogFiles, i.UserLogFile)
-	return cfg, nil
+	wizardConfig.Mode = constants.ComponentInstaller
+	wizardConfig.ClusterName = config.SiteDomain
+	wizardConfig.Devmode = config.Insecure
+	wizardConfig.InstallLogFiles = append(wizardConfig.InstallLogFiles, config.UserLogFile)
+	return wizardConfig, nil
 }

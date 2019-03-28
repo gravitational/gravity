@@ -168,11 +168,16 @@ func (u *UsersService) DeleteUserLoginAttempts(user string) error {
 }
 
 // CreateInstallToken creates a new one-time installation token
-func (u *UsersService) CreateInstallToken(t storage.InstallToken) (*storage.InstallToken, error) {
-	// generate a token for a one-time installation for the specifed account
-	data, err := users.CryptoRandomToken(defaults.InstallTokenBytes)
-	if err != nil {
-		return nil, trace.Wrap(err)
+func (u *UsersService) CreateInstallToken(t storage.InstallToken) (token *storage.InstallToken, err error) {
+	// In case token was supplied externally, use the provided value
+	data := t.Token
+	if data == "" {
+		// generate a token for a one-time installation for the specifed account
+		data, err = users.CryptoRandomToken(defaults.InstallTokenBytes)
+		if err != nil {
+			return nil, trace.Wrap(err)
+		}
+		t.Token = data
 	}
 	email := fmt.Sprintf("install@%v", data)
 
@@ -196,11 +201,6 @@ func (u *UsersService) CreateInstallToken(t storage.InstallToken) (*storage.Inst
 		if err != nil {
 			return nil, trace.Wrap(err)
 		}
-	}
-
-	// In case if token supplied externally, use its original value
-	if t.Token == "" {
-		t.Token = data
 	}
 
 	t.UserEmail = user.GetName()

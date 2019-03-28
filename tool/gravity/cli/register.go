@@ -98,6 +98,7 @@ func RegisterCommands(app *kingpin.Application) *Application {
 	g.InstallCmd.GCENodeTags = g.InstallCmd.Flag("gce-node-tag", "Override node tag on the instance in GCE required for load balanacing. Defaults to cluster name.").Strings()
 	g.InstallCmd.DNSHosts = g.InstallCmd.Flag("dns-host", "Specify an IP address that will be returned for the given domain within the cluster. Accepts <domain>/<ip> format. Can be specified multiple times.").Hidden().Strings()
 	g.InstallCmd.DNSZones = g.InstallCmd.Flag("dns-zone", "Specify an upstream server for the given zone within the cluster. Accepts <zone>/<nameserver> format where <nameserver> can be either <ip> or <ip>:<port>. Can be specified multiple times.").Strings()
+	g.InstallCmd.ExcludeHostFromCluster = g.InstallCmd.Flag("exclude-from-cluster", "Do not use this node in the cluster").Bool()
 
 	g.JoinCmd.CmdClause = g.Command("join", "Join existing cluster or on-going install operation")
 	g.JoinCmd.PeerAddr = g.JoinCmd.Arg("peer-addrs", "One or several IP addresses of cluster node to join, as comma-separated values").String()

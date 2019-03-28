@@ -109,8 +109,6 @@ func RunBasicChecks(ctx context.Context, options *validationpb.ValidateOptions) 
 
 // LocalChecksRequest describes a request to run local pre-flight checks
 type LocalChecksRequest struct {
-	// Context is used for canceling operation
-	Context context.Context
 	// Manifest is the application manifest to check against
 	Manifest schema.Manifest
 	// Role is the node profile name to check
@@ -155,7 +153,7 @@ func (r *LocalChecksResult) GetFailed() []*agentpb.Probe {
 }
 
 // ValidateLocal runs checks on the local node and returns their outcome
-func ValidateLocal(req LocalChecksRequest) (*LocalChecksResult, error) {
+func ValidateLocal(ctx context.Context, req LocalChecksRequest) (*LocalChecksResult, error) {
 	if ifTestsDisabled() {
 		log.Infof("Skipping local checks due to %v set.", constants.PreflightChecksOffEnvVar)
 		return &LocalChecksResult{}, nil
@@ -185,7 +183,7 @@ func ValidateLocal(req LocalChecksRequest) (*LocalChecksResult, error) {
 		return nil, trace.Wrap(err)
 	}
 
-	failedProbes = append(failedProbes, RunBasicChecks(req.Context, req.Options)...)
+	failedProbes = append(failedProbes, RunBasicChecks(ctx, req.Options)...)
 	if len(failedProbes) == 0 {
 		return &LocalChecksResult{}, nil
 	}
@@ -199,7 +197,7 @@ func ValidateLocal(req LocalChecksRequest) (*LocalChecksResult, error) {
 	}
 
 	// try to auto-fix some of the issues
-	fixed, unfixed := autofix.Fix(req.Context, failedProbes, req.Progress)
+	fixed, unfixed := autofix.Fix(ctx, failedProbes, req.Progress)
 	return &LocalChecksResult{
 		Failed: unfixed,
 		Fixed:  fixed,
@@ -208,12 +206,12 @@ func ValidateLocal(req LocalChecksRequest) (*LocalChecksResult, error) {
 
 // RunLocalChecks performs all preflight checks for an application that can
 // be run locally on the node
-func RunLocalChecks(req LocalChecksRequest) error {
+func RunLocalChecks(ctx context.Context, req LocalChecksRequest) error {
 	err := req.CheckAndSetDefaults()
 	if err != nil {
 		return trace.Wrap(err)
 	}
-	result, err := ValidateLocal(req)
+	result, err := ValidateLocal(ctx, req)
 	if err != nil {
 		return trace.Wrap(err)
 	}

@@ -18,7 +18,6 @@ package localenv
 
 import (
 	"fmt"
-	"io"
 	"net/http"
 	"os"
 	"path"
@@ -788,13 +787,5 @@ func (r Silent) Write(p []byte) (n int, err error) {
 }
 
 // Silent implements a silent flag and controls console output.
-// Implements Printer
+// Implements utils.Printer
 type Silent bool
-
-// Printer describes a capability to output to standard output
-type Printer interface {
-	io.Writer
-	Printf(format string, args ...interface{}) (int, error)
-	Print(args ...interface{}) (int, error)
-	Println(args ...interface{}) (int, error)
-}

@@ -25,15 +25,17 @@ import (
 
 	autoscaleaws "github.com/gravitational/gravity/lib/autoscale/aws"
 	cloudaws "github.com/gravitational/gravity/lib/cloudprovider/aws"
+	"github.com/gravitational/gravity/lib/constants"
 	"github.com/gravitational/gravity/lib/defaults"
 	"github.com/gravitational/gravity/lib/expand"
 	"github.com/gravitational/gravity/lib/fsm"
 	"github.com/gravitational/gravity/lib/httplib"
 	"github.com/gravitational/gravity/lib/install"
+	clinstall "github.com/gravitational/gravity/lib/install/engine/cli"
+	"github.com/gravitational/gravity/lib/install/engine/interactive"
 	"github.com/gravitational/gravity/lib/localenv"
 	"github.com/gravitational/gravity/lib/ops"
-	"github.com/gravitational/gravity/lib/ops/resources"
-	"github.com/gravitational/gravity/lib/ops/resources/gravity"
+	"github.com/gravitational/gravity/lib/processconfig"
 	pb "github.com/gravitational/gravity/lib/rpc/proto"
 	rpcserver "github.com/gravitational/gravity/lib/rpc/server"
 	"github.com/gravitational/gravity/lib/storage"
@@ -46,66 +48,18 @@ import (
 	"github.com/sirupsen/logrus"
 )
 
-func startInstall(env *localenv.LocalEnvironment, i InstallConfig) error {
-	env.PrintStep("Starting installer")
-
+func Join(env, joinEnv *localenv.LocalEnvironment, config JoinConfig) error {
 	err := CheckLocalState(env)
 	if err != nil {
 		return trace.Wrap(err)
 	}
 
-	err = i.CheckAndSetDefaults()
+	err = config.CheckAndSetDefaults()
 	if err != nil {
 		return trace.Wrap(err)
 	}
 
-	installerConfig, err := i.ToInstallerConfig(env, resources.ValidateFunc(gravity.Validate))
-	if err != nil {
-		return trace.Wrap(err)
-	}
-
-	processConfig, err := install.MakeProcessConfig(*installerConfig)
-	if err != nil {
-		return trace.Wrap(err)
-	}
-
-	env.PrintStep("Preparing for installation...")
-
-	installerConfig.Process, err = install.InitProcess(context.TODO(),
-		*installerConfig, *processConfig)
-	if err != nil {
-		return trace.Wrap(err)
-	}
-
-	installer, err := install.Init(context.TODO(), *installerConfig)
-	if err != nil {
-		return trace.Wrap(err)
-	}
-
-	err = installer.Start()
-	if err != nil {
-		return trace.Wrap(err)
-	}
-
-	err = installer.Wait()
-	if utils.IsContextCancelledError(err) {
-		return nil
-	}
-	return trace.Wrap(err)
-}
-
-func Join(env, joinEnv *localenv.LocalEnvironment, j JoinConfig) error {
-	err := CheckLocalState(env)
-	if err != nil {
-		return trace.Wrap(err)
-	}
-
-	err = j.CheckAndSetDefaults()
-	if err != nil {
-		return trace.Wrap(err)
-	}
-
-	peerConfig, err := j.ToPeerConfig(env, joinEnv)
+	peerConfig, err := config.ToPeerConfig(env, joinEnv)
 	if err != nil {
 		return trace.Wrap(err)
 	}
@@ -130,7 +84,109 @@ func Join(env, joinEnv *localenv.LocalEnvironment, j JoinConfig) error {
 		return nil
 	}
 	return trace.Wrap(err)
+}
 
+func install(env *localenv.LocalEnvironment, config InstallConfig) error {
+	env.PrintStep("Starting installer")
+
+	err := CheckLocalState(env)
+	if err != nil {
+		return trace.Wrap(err)
+	}
+
+	if err := config.CheckAndSetDefaults(); err != nil {
+		return trace.Wrap(err)
+	}
+
+	installerConfig, err := config.ToInstallerConfig(env)
+	if err != nil {
+		return trace.Wrap(err)
+	}
+
+	processConfig, err := install.NewProcessConfig(*installerConfig)
+	if err != nil {
+		return trace.Wrap(err)
+	}
+
+	var cancel context.CancelFunc
+	ctx, cancel = context.WithCancel(ctx)
+	defer cancel()
+	watcherCh := utils.WatchTerminationSignalsWithChannel(ctx, cancel)
+
+	err = runLocalChecks(ctx, installerConfig)
+	if err != nil {
+		return trace.Wrap(err)
+	}
+
+	installerConfig.Process, err = install.InitProcess(ctx, config, processConfig)
+	if err != nil {
+		return trace.Wrap(err)
+	}
+
+	installer, err = install.New(installerConfig)
+	if err != nil {
+		return trace.Wrap(err)
+	}
+
+	select {
+	case watcherCh <- installer:
+		// Add installer to termination signal loop
+	case <-ctx.Done():
+		log.WithError(ctx.Err()).Warn("Installer interrupted.")
+		return nil
+	}
+
+	var engine install.Engine
+	switch config.Mode {
+	case constants.InstallModeCLI:
+		engine = newCLInstaller(installerConfig, config.ExcludeHostFromCluster, installer.Operator)
+	case constants.InstallModeInteractive:
+		engine = newWizardInstaller(installerConfig, installer.Operator)
+	default:
+		return trace.BadParamater("unknown mode %q", config.Mode)
+	}
+
+	err = installer.Execute(ctx, engine)
+	if utils.IsContextCancelledError(err) {
+		return trace.Wrap(err, "installer interrupted")
+	}
+	return trace.Wrap(err)
+}
+
+func RunLocalChecks(ctx context.Context, config install.Config) error {
+	return trace.Wrap(checks.RunLocalChecks(ctx, checks.LocalChecksRequest{
+		Manifest: config.App.Manifest,
+		Role:     config.Role,
+		Docker:   config.Docker,
+		Options: &validationpb.ValidateOptions{
+			VxlanPort: int32(config.VxlanPort),
+			DnsAddrs:  config.DNSConfig.Addrs,
+			DnsPort:   int32(config.DNSConfig.Port),
+		},
+		AutoFix: true,
+	}))
+}
+
+func newCLInstaller(config install.Config, excludeHostFromCluster bool, operator ops.Client) *clinstall.Engine {
+	enablePreflightChecks := true
+	return clinstall.New(clinstall.Config{
+		FieldLogger:           config.WithField("mode", "cli"),
+		StateMachineFactory:   &config,
+		ClusterFactory:        &config,
+		Planner:               install.NewPlanner(enablePreflightChecks),
+		Operator:              operator,
+		ExludeHostFromCluster: excludeHostFromCluster,
+	})
+}
+
+func newWizardInstaller(config install.Config, operator ops.Client) *interactive.Engine {
+	disablePreflightChecks := false
+	return interactive.New(interactive.Config{
+		FieldLogger:         config.WithField("mode", "wizard"),
+		StateMachineFactory: &config,
+		Planner:             install.NewPlanner(disablePreflightChecks),
+		Operator:            operator,
+	})
 }
 
 type leaveConfig struct {

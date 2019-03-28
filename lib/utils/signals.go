@@ -18,7 +18,6 @@ package utils
 
 import (
 	"context"
-	"fmt"
 	"os"
 	"os/signal"
 	"syscall"
@@ -28,7 +27,18 @@ import (
 )
 
 // WatchTerminationSignals stops the provided stopper when it gets one of monitored signals
-func WatchTerminationSignals(ctx context.Context, cancel context.CancelFunc, stopper Stopper, log logrus.FieldLogger) {
+func WatchTerminationSignals(ctx context.Context, cancel context.CancelFunc, stopper Stopper) {
+	updateCh := WatchTerminationSignalsWithChannel(ctx, cancel)
+	select {
+	case updateCh <- stopper:
+	case <-ctx.Done():
+	}
+}
+
+// WatchTerminationSignalsWithChannel invokes the specified cancel when it receives an interrupt
+// signal.
+// Returns a channel to update the list of stoppers to stop upon termination
+func WatchTerminationSignalsWithChannel(ctx context.Context, cancel context.CancelFunc) chan<- Stopper {
 	signalC := make(chan os.Signal, 1)
 	signals := []os.Signal{
 		syscall.SIGINT,
@@ -36,11 +46,17 @@ func WatchTerminationSignals(ctx context.Context, cancel context.CancelFunc, sto
 		syscall.SIGQUIT,
 	}
 	signal.Notify(signalC, signals...)
-	log.Debugf("Installed signal handler: %v.", signals)
+	var stoppers []Stopper
+	updateCh := make(chan Stopper, 1)
 	go func() {
 		defer func() {
+			if len(stoppers) == 0 {
+				return
+			}
 			localCtx, localCancel := context.WithTimeout(ctx, 5*time.Second)
-			stopper.Stop(localCtx)
+			for _, stopper := range stoppers {
+				stopper.Stop(localCtx)
+			}
 			localCancel()
 			cancel()
 		}()
@@ -49,14 +65,17 @@ func WatchTerminationSignals(ctx context.Context, cancel context.CancelFunc, sto
 			case <-ctx.Done():
 				signal.Reset(signals...)
 				return
+			case stopper := <-updateCh:
+				stoppers = append(stoppers, stopper)
 			case sig := <-signalC:
 				signal.Reset(signals...)
-				fmt.Printf("Received %q signal, shutting down...\n", sig)
-				log.Infof("Received %q signal.", sig)
+				// FIXME: need this output to stdout??
+				logrus.WithField("signal", sig).Info("Received signal, shutting down...")
 				return
 			}
 		}
 	}()
+	return updateCh
 }
 
 // Stopper is a common interface for everything that can be stopped with a context

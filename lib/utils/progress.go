@@ -20,6 +20,7 @@ import (
 	"bytes"
 	"context"
 	"fmt"
+	"io"
 	"os"
 	"strings"
 	"sync"
@@ -31,6 +32,15 @@ import (
 	"github.com/fatih/color"
 	"github.com/sirupsen/logrus"
 )
+
+// Printer describes a capability to output to standard output
+type Printer interface {
+	io.Writer
+	Printf(format string, args ...interface{}) (int, error)
+	Print(args ...interface{}) (int, error)
+	Println(args ...interface{}) (int, error)
+	PrintStep(format string, args ...interface{}) (int, error)
+}
 
 // PrintProgress prints generic progress with stages
 func PrintProgress(current, target int, message string) {
