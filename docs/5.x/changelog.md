@@ -7,7 +7,7 @@ LTS starts with `3.51.0` with minor backwards compatible changes added over time
 
 | Release       | LTS | Release Date         | Supported Until      | Kubernetes Version | Teleport Version |
 | --------------|-----| -------------------- | -------------------- | ------------------ |------------------|
-| 5.5.3         | Yes | March 26th, 2019     | September 7th, 2020  | 1.13.5             | 3.0.4            |
+| 5.5.4         | Yes | March 28th, 2019     | September 7th, 2020  | 1.13.5             | 3.0.4            |
 | 5.4.10        | No  | March 26th, 2019     | -                    | 1.13.5             | 2.4.10           |
 | 5.3.9*        | No  | March 7th, 2019      | -                    | 1.12.3             | 2.4.7
 | 5.2.12        | Yes | March 26th, 2019     | October 15th, 2019   | 1.11.9             | 2.4.10           |
@@ -29,27 +29,50 @@ LTS starts with `3.51.0` with minor backwards compatible changes added over time
 
 ## 5.x Releases
 
+### 5.5.4 LTS
+
+#### Improvements
+
+* Upgrade CNI plugins to 0.7.5 (CVE-2019-9946).
+
+!!! warning
+    This release fixes a security vulnerability in kubernetes. Please see
+    [Kubernetes Announcement](https://discuss.kubernetes.io/t/announce-security-release-of-kubernetes-affecting-certain-network-configurations-with-cni-releases-1-11-9-1-12-7-1-13-5-and-1-14-0-cve-2019-9946/5713) for more information.
+
 ### 5.5.3 LTS
 
 #### Improvements
 
-* Upgrade Kubernetes to `v1.13.5`.
+* Upgrade Kubernetes to `v1.13.5` (CVE-2019-1002101).
 
 #### Bugfixes
 
 * Fix an issue with CoreDNS crash when local nameserver is present in host's `/etc/resolv.conf`.
 
+!!! warning
+    This release fixes a security vulnerability in kubernetes. Please see
+    [Kubernetes Announcement](https://discuss.kubernetes.io/t/announce-security-release-of-kubernetes-kubectl-potential-directory-traversal-releases-1-11-9-1-12-7-1-13-5-and-1-14-0-cve-2019-1002101/5712) for more information.
+
+
 ### 5.4.10
 
 #### Improvements
 
-* Upgrade Kubernetes to `v1.13.5`.
+* Upgrade Kubernetes to `v1.13.5` (CVE-2019-1002101).
+
+!!! warning
+    This release fixes a security vulnerability in kubernetes. Please see
+    [Kubernetes Announcement](https://discuss.kubernetes.io/t/announce-security-release-of-kubernetes-kubectl-potential-directory-traversal-releases-1-11-9-1-12-7-1-13-5-and-1-14-0-cve-2019-1002101/5712) for more information.
 
 ### 5.2.12 LTS
 
 #### Improvements
 
-* Upgrade Kubernetes to `v1.11.9`.
+* Upgrade Kubernetes to `v1.11.9` (CVE-2019-1002101).
+
+!!! warning
+    This release fixes a security vulnerability in kubernetes. Please see
+    [Kubernetes Announcement](https://discuss.kubernetes.io/t/announce-security-release-of-kubernetes-kubectl-potential-directory-traversal-releases-1-11-9-1-12-7-1-13-5-and-1-14-0-cve-2019-1002101/5712) for more information.
 
 ### 5.0.30 LTS
 
