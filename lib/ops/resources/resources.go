@@ -114,8 +114,8 @@ func (r *ListRequest) Check() error {
 	if r.Kind == "" {
 		return trace.BadParameter("resource kind is mandatory")
 	}
-	kind := modules.Get().CanonicalKind(r.Kind)
-	resources := modules.Get().SupportedResources()
+	kind := modules.GetResources().CanonicalKind(r.Kind)
+	resources := modules.GetResources().SupportedResources()
 	if !utils.StringInSlice(resources, kind) {
 		return trace.BadParameter("unknown resource kind %q", r.Kind)
 	}
@@ -147,8 +147,8 @@ func (r *RemoveRequest) Check() error {
 	if r.Kind == "" {
 		return trace.BadParameter("resource kind is mandatory")
 	}
-	kind := modules.Get().CanonicalKind(r.Kind)
-	resources := modules.Get().SupportedResourcesToRemove()
+	kind := modules.GetResources().CanonicalKind(r.Kind)
+	resources := modules.GetResources().SupportedResourcesToRemove()
 	if !utils.StringInSlice(resources, kind) {
 		return trace.BadParameter("unknown resource kind %q", r.Kind)
 	}
@@ -263,7 +263,7 @@ func ForEach(r io.Reader, handler ResourceFunc) (err error) {
 		if err != nil {
 			break
 		}
-		resource.Kind = modules.Get().CanonicalKind(resource.Kind)
+		resource.Kind = modules.GetResources().CanonicalKind(resource.Kind)
 		err = handler(resource)
 	}
 	if err == io.EOF {
