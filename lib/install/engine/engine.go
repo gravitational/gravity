@@ -1,10 +1,14 @@
 package engine
 
 import (
+	"context"
+
+	"github.com/gravitational/gravity/lib/defaults"
 	"github.com/gravitational/gravity/lib/fsm"
-	"github.com/gravitational/gravity/lib/install"
 	"github.com/gravitational/gravity/lib/ops"
+	"github.com/gravitational/gravity/lib/storage"
 	"github.com/gravitational/gravity/lib/utils"
+	"github.com/gravitational/trace"
 
 	log "github.com/sirupsen/logrus"
 )
@@ -13,19 +17,20 @@ import (
 type StateMachineFactory interface {
 	// NewStateMachine creates a new instance of installer state machine
 	// using the specified operation key
-	NewStateMachine(ops.SiteOperationKey) (*fsm.FSM, error)
+	NewStateMachine(ops.Operator, ops.SiteOperationKey) (*fsm.FSM, error)
 }
 
 // ClusterFactory creates clusters
 type ClusterFactory interface {
-	// NewCluster creates a cluster in the specified operator
-	NewCluster(operator ops.Operator) (*ops.Site, error)
+	// CreateCluster creates a cluster in the specified operator.
+	// Returns the created cluster record
+	CreateCluster(operator ops.Operator) (*ops.Site, error)
 }
 
 // Planer constructs a plan for the install operation
 type Planner interface {
 	// GetOperationPlan returns a new plan for the install operation
-	GetOperationPlan(install.Installer, ops.Site, ops.SiteOperation) (*storage.OperationPlan, error)
+	GetOperationPlan(ops.Site, ops.SiteOperation) (*storage.OperationPlan, error)
 }
 
 // ExecuteOperation executes the operation specified with the given key.
@@ -38,7 +43,7 @@ func ExecuteOperation(
 	operationKey ops.SiteOperationKey,
 	logger log.FieldLogger,
 ) error {
-	err = InitOperationPlan(operator, planner)
+	err := InitOperationPlan(operator, planner)
 	if err != nil && !trace.IsAlreadyExists(err) {
 		return trace.Wrap(err)
 	}
@@ -46,7 +51,7 @@ func ExecuteOperation(
 	if err != nil {
 		return trace.Wrap(err)
 	}
-	planErr := machine.ExecutePlan(ctx, utils.NopProgress{}, false)
+	planErr := machine.ExecutePlan(ctx, utils.DiscardProgress, false)
 	if planErr != nil {
 		logger.WithError(planErr).Warn("Failed to execute operation plan.")
 	}

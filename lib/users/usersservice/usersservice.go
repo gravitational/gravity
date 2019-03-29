@@ -204,7 +204,7 @@ func (u *UsersService) CreateInstallToken(t storage.InstallToken) (token *storag
 	}
 
 	t.UserEmail = user.GetName()
-	token, err := u.backend.CreateInstallToken(t)
+	token, err = u.backend.CreateInstallToken(t)
 	if err != nil {
 		return nil, trace.Wrap(err)
 	}

@@ -251,7 +251,7 @@ func RetryWithInterval(ctx context.Context, interval backoff.BackOff, fn func() 
 }
 
 // NewUnlimitedExponentialBackOff returns a backoff interval without time restriction
-func NewUnlimitedExponentialBackOff() backoff.BackOff {
+func NewUnlimitedExponentialBackOff() *backoff.ExponentialBackOff {
 	b := backoff.NewExponentialBackOff()
 	b.MaxElapsedTime = 0
 	return b

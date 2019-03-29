@@ -352,6 +352,25 @@ func GetExpandOperation(backend storage.Backend) (*SiteOperation, error) {
 	return nil, trace.NotFound("expand operation not found")
 }
 
+// UpsertSystemAccount creates a new system account if one has not been created.
+// Returns the system account
+func UpsertSystemAccount(operator Operator) (*Account, error) {
+	accounts, err := operator.GetAccounts()
+	if err != nil {
+		return nil, trace.Wrap(err)
+	}
+	for i := range accounts {
+		if accounts[i].Org == defaults.SystemAccountOrg {
+			return &accounts[i], nil
+		}
+	}
+	account, err := operator.CreateAccount(NewAccountRequest{
+		ID:  defaults.SystemAccountID,
+		Org: defaults.SystemAccountOrg,
+	})
+	return account, trace.Wrap(err)
+}
+
 // MatchByType returns an OperationMatcher to match operations by type
 func MatchByType(opType string) OperationMatcher {
 	return func(op SiteOperation) bool {

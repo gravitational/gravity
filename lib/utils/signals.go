@@ -27,8 +27,8 @@ import (
 )
 
 // WatchTerminationSignals stops the provided stopper when it gets one of monitored signals
-func WatchTerminationSignals(ctx context.Context, cancel context.CancelFunc, stopper Stopper) {
-	updateCh := WatchTerminationSignalsWithChannel(ctx, cancel)
+func WatchTerminationSignals(ctx context.Context, cancel context.CancelFunc, stopper Stopper, logger logrus.FieldLogger) {
+	updateCh := WatchTerminationSignalsWithChannel(ctx, cancel, logger)
 	select {
 	case updateCh <- stopper:
 	case <-ctx.Done():
@@ -38,7 +38,7 @@ func WatchTerminationSignals(ctx context.Context, cancel context.CancelFunc, sto
 // WatchTerminationSignalsWithChannel invokes the specified cancel when it receives an interrupt
 // signal.
 // Returns a channel to update the list of stoppers to stop upon termination
-func WatchTerminationSignalsWithChannel(ctx context.Context, cancel context.CancelFunc) chan<- Stopper {
+func WatchTerminationSignalsWithChannel(ctx context.Context, cancel context.CancelFunc, logger logrus.FieldLogger) chan<- Stopper {
 	signalC := make(chan os.Signal, 1)
 	signals := []os.Signal{
 		syscall.SIGINT,
@@ -69,8 +69,7 @@ func WatchTerminationSignalsWithChannel(ctx context.Context, cancel context.Canc
 				stoppers = append(stoppers, stopper)
 			case sig := <-signalC:
 				signal.Reset(signals...)
-				// FIXME: need this output to stdout??
-				logrus.WithField("signal", sig).Info("Received signal, shutting down...")
+				logger.WithField("signal", sig).Info("Received signal, shutting down...")
 				return
 			}
 		}

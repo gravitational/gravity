@@ -20,6 +20,7 @@ import (
 	"context"
 	"fmt"
 	"net"
+	"net/url"
 	"strconv"
 	"strings"
 
@@ -31,6 +32,7 @@ import (
 	"github.com/gravitational/gravity/lib/utils"
 
 	"github.com/gravitational/roundtrip"
+	teleutils "github.com/gravitational/teleport/lib/utils"
 	"github.com/gravitational/trace"
 	log "github.com/sirupsen/logrus"
 )
@@ -113,4 +115,24 @@ type AgentConfig struct {
 	ServerAddr string
 	// RuntimeConfig specifies runtime configuration
 	pb.RuntimeConfig
+}
+
+// NewAgentFromURL creates a new agent from the specified URL and peer configuration.
+// Returns an unstarted agent instance
+func NewAgentFromURL(agentURL string, config rpcserver.PeerConfig, log log.FieldLogger) (*rpcserver.PeerServer, error) {
+	log.WithField("url", agentURL).Debug("Starting agent.")
+	u, err := url.ParseRequestURI(agentURL)
+	if err != nil {
+		return nil, trace.Wrap(err)
+	}
+	serverAddr, err := teleutils.ParseAddr("tcp://" + u.Host)
+	if err != nil {
+		return nil, trace.Wrap(err)
+	}
+	config.RuntimeConfig.Token = u.Query().Get(httplib.AccessTokenQueryParam)
+	agent, err := rpcserver.NewPeer(config, serverAddr.Addr, log)
+	if err != nil {
+		return nil, trace.Wrap(err)
+	}
+	return agent, nil
 }

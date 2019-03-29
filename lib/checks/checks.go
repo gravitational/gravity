@@ -125,14 +125,11 @@ type LocalChecksRequest struct {
 
 // CheckAndSetDefaults checks the request and sets some defaults
 func (r *LocalChecksRequest) CheckAndSetDefaults() error {
-	if r.Context == nil {
-		r.Context = context.Background()
-	}
 	if r.Role == "" {
 		return trace.BadParameter("role name is required")
 	}
 	if r.Progress == nil {
-		r.Progress = utils.NewConsoleProgress(r.Context, "", 0)
+		r.Progress = utils.DiscardProgress
 	}
 	return nil
 }

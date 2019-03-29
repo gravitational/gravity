@@ -273,6 +273,9 @@ func (p *ConsoleProgress) Stop() {
 	p.currentEntry = nil
 }
 
+// DiscardProgress is a progress reporter that discards all progress output
+var DiscardProgress Progress = &NopProgress{}
+
 // NewNopProgress returns an instance of discarding output progress reporter
 func NewNopProgress() *NopProgress {
 	return &NopProgress{}

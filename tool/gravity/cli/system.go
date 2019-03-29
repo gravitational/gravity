@@ -106,7 +106,7 @@ func systemUpdate(env *localenv.LocalEnvironment, changesetID string, serviceNam
 		if withStatus {
 			args = append(args, "--with-status")
 		}
-		return trace.Wrap(installOneshotService(env.Silent, serviceName, args))
+		return trace.Wrap(installOneshotService(env, serviceName, args))
 	}
 
 	reqs, err := findPackages(env.Packages, runtimePackage)
@@ -177,7 +177,7 @@ func systemRollback(env *localenv.LocalEnvironment, changesetID, serviceName str
 		if withStatus {
 			args = append(args, "--with-status")
 		}
-		return trace.Wrap(installOneshotService(env.Silent, serviceName, args))
+		return trace.Wrap(installOneshotService(env, serviceName, args))
 	}
 
 	changes := changeset.ReversedChanges()
@@ -236,7 +236,7 @@ func systemReinstall(env *localenv.LocalEnvironment, newPackage loc.Locator, ser
 		kvs := configure.KeyVal(labels)
 		args = append(args, "--labels", kvs.String())
 	}
-	err := installOneshotService(env.Silent, serviceName, args)
+	err := installOneshotService(env, serviceName, args)
 	if err != nil {
 		return trace.Wrap(err)
 	}
@@ -301,7 +301,7 @@ func reinstallOneshotService(env *localenv.LocalEnvironment, serviceName string,
 // using args as arguments to the gravity command on host.
 // args should only list secondary arguments w/o specifying the binary.
 // The operation is non-blocking - e.g. it does not block waiting for service to complete.
-func installOneshotService(printer localenv.Printer, serviceName string, args []string) error {
+func installOneshotService(printer utils.Printer, serviceName string, args []string) error {
 	gravityPath, err := exec.LookPath(constants.GravityBin)
 	if err != nil {
 		return trace.Wrap(err, "failed to find %v binary in PATH",
@@ -321,7 +321,7 @@ func installOneshotService(printer localenv.Printer, serviceName string, args []
 // using args as the ExecStartPre command and spec as the service specification.
 // The operation is non-blocking - e.g. it does not block waiting for service to complete.
 // The spec will have fields responsible for making a oneshot service automatically populated.
-func installOneshotServiceFromSpec(printer localenv.Printer, serviceName string, args []string, spec systemservice.ServiceSpec) error {
+func installOneshotServiceFromSpec(printer utils.Printer, serviceName string, args []string, spec systemservice.ServiceSpec) error {
 	printer.Printf("launching oneshot system service %v\n", serviceName)
 
 	services, err := systemservice.New()
@@ -848,7 +848,7 @@ func reinstallSystemService(env *localenv.LocalEnvironment, update storage.Packa
 }
 
 func uninstallPackage(
-	printer localenv.Printer,
+	printer utils.Printer,
 	services systemservice.ServiceManager,
 	servicePackage loc.Locator,
 ) (updates []pack.LabelUpdate, err error) {

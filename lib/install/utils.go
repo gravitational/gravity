@@ -4,24 +4,37 @@ import (
 	"context"
 	"fmt"
 	"math/rand"
-	"net/url"
 	"os"
 	"path/filepath"
 	"strconv"
 	"strings"
 	"time"
 
+	gcemeta "cloud.google.com/go/compute/metadata"
+	"github.com/gravitational/gravity/lib/app"
+	"github.com/gravitational/gravity/lib/checks"
+	awscloud "github.com/gravitational/gravity/lib/cloudprovider/aws"
 	"github.com/gravitational/gravity/lib/defaults"
 	"github.com/gravitational/gravity/lib/loc"
+	"github.com/gravitational/gravity/lib/ops"
+	"github.com/gravitational/gravity/lib/pack"
 	"github.com/gravitational/gravity/lib/process"
 	"github.com/gravitational/gravity/lib/rpc"
 	pb "github.com/gravitational/gravity/lib/rpc/proto"
-	"github.com/kardianos/osext"
+	rpcserver "github.com/gravitational/gravity/lib/rpc/server"
+	"github.com/gravitational/gravity/lib/schema"
+	"github.com/gravitational/gravity/lib/state"
+	"github.com/gravitational/gravity/lib/storage"
+	"github.com/gravitational/gravity/lib/systeminfo"
+	"github.com/gravitational/gravity/lib/utils"
 
+	"github.com/docker/docker/pkg/namesgenerator"
 	"github.com/gravitational/trace"
+	"github.com/kardianos/osext"
 	log "github.com/sirupsen/logrus"
 )
 
+// CheckAddr verifies that addr specifies one of the local interfaces
 func CheckAddr(addr string) error {
 	ifaces, err := systeminfo.NetworkInterfaces()
 	if err != nil {
@@ -43,7 +56,7 @@ func CheckAddr(addr string) error {
 }
 
 // GetAppPackage finds the user app in the provided service and returns its locator
-func GetAppPackage(service appservice.Applications) (*loc.Locator, error) {
+func GetAppPackage(service app.Applications) (*loc.Locator, error) {
 	app, err := GetApp(service)
 	if err != nil {
 		return nil, trace.Wrap(err)
@@ -52,8 +65,8 @@ func GetAppPackage(service appservice.Applications) (*loc.Locator, error) {
 }
 
 // GetApp finds the user app in the provided service and returns it
-func GetApp(service appservice.Applications) (*appservice.Application, error) {
-	apps, err := service.ListApps(appservice.ListAppsRequest{
+func GetApp(service app.Applications) (*app.Application, error) {
+	apps, err := service.ListApps(app.ListAppsRequest{
 		Repository: defaults.SystemAccountOrg,
 	})
 	if err != nil {
@@ -158,7 +171,7 @@ func EnsureServiceUserAndBinary(userID, groupID string) (*systeminfo.User, error
 		return nil, trace.Wrap(err)
 	}
 
-	err = installBinary(uid, gid)
+	err = InstallBinary(uid, gid, log.StandardLogger())
 	if err != nil {
 		return nil, trace.Wrap(err)
 	}
@@ -171,7 +184,7 @@ func EnsureServiceUserAndBinary(userID, groupID string) (*systeminfo.User, error
 func ValidateCloudProvider(cloudProvider string) (provider string, err error) {
 	switch cloudProvider {
 	case schema.ProviderAWS, schema.ProvisionerAWSTerraform:
-		if !cloudaws.IsRunningOnAWS() {
+		if !awscloud.IsRunningOnAWS() {
 			return "", trace.BadParameter("cloud provider %q was specified "+
 				"but the process does not appear to be running on an AWS "+
 				"instance", cloudProvider)
@@ -188,7 +201,7 @@ func ValidateCloudProvider(cloudProvider string) (provider string, err error) {
 		return schema.ProviderOnPrem, nil
 	case "":
 		// Detect cloud provider
-		if cloudaws.IsRunningOnAWS() {
+		if awscloud.IsRunningOnAWS() {
 			log.Info("Detected AWS cloud provider.")
 			return schema.ProviderAWS, nil
 		}
@@ -228,8 +241,9 @@ func FetchCloudMetadata(cloudProvider string, config *pb.RuntimeConfig) error {
 	return nil
 }
 
+// LoadRPCCredentials returns the contents of the default RPC credentials package
 func LoadRPCCredentials(ctx context.Context, packages pack.PackageService, log log.FieldLogger) (*rpcserver.Credentials, error) {
-	err := exportRPCCredentials(ctx, packages, log)
+	err := ExportRPCCredentials(ctx, packages, log)
 	if err != nil {
 		return nil, trace.Wrap(err)
 	}
@@ -243,31 +257,13 @@ func LoadRPCCredentials(ctx context.Context, packages pack.PackageService, log l
 	}, nil
 }
 
-func NewAgent(agentURL string, config rpcserver.PeerConfig, log log.FieldLogger) (*rpcserver.PeerServer, error) {
-	log.WithField("url", agentURL).Debug("Starting agent.")
-	u, err := url.ParseRequestURI(agentURL)
-	if err != nil {
-		return nil, trace.Wrap(err)
-	}
-	serverAddr, err := teleutils.ParseAddr("tcp://" + u.Host)
-	if err != nil {
-		return nil, trace.Wrap(err)
-	}
-	config.RuntimeConfig.Token = u.Query().Get(httplib.AccessTokenQueryParam)
-	agent, err := rpcserver.NewPeer(config, serverAddr.Addr, log)
-	if err != nil {
-		return nil, trace.Wrap(err)
-	}
-	return agent, nil
-}
-
 // UpdateOperationState updates the operation data according to the agent report
 func UpdateOperationState(operator ops.Operator, operation ops.SiteOperation, report ops.AgentReport) error {
-	request, err := GetServerUpdateRequest(*operation, report.Servers)
+	request, err := GetServerUpdateRequest(operation, report.Servers)
 	if err != nil {
 		return trace.Wrap(err, "failed to parse report: %#v", report)
 	}
-	err = operator.UpdateInstallOperationState(opKey, *request)
+	err = operator.UpdateInstallOperationState(operation.Key(), *request)
 	return trace.Wrap(err)
 }
 
@@ -336,7 +332,8 @@ func ExportRPCCredentials(ctx context.Context, packages pack.PackageService, log
 	// issues, etc.) and will keep the command blocked for the whole interval.
 	// Get rid of retry or use a better error classification.
 	b := utils.NewUnlimitedExponentialBackOff()
-	ctx = defaults.WithTimeout(ctx)
+	ctx, cancel := defaults.WithTimeout(ctx)
+	defer cancel()
 	err := utils.RetryWithInterval(ctx, b, func() error {
 		err := pack.Unpack(packages, loc.RPCSecrets, defaults.RPCAgentSecretsDir, nil)
 		return trace.Wrap(err)
@@ -347,6 +344,33 @@ func ExportRPCCredentials(ctx context.Context, packages pack.PackageService, log
 	logger.Info("RPC credentials unpacked.")
 	return nil
 }
+
+// InstallBinary places the system binary into the proper binary directory
+// depending on the distribution.
+// The specified uid/gid pair is used to set user/group permissions on the
+// resulting binary
+func InstallBinary(uid, gid int, logger log.FieldLogger) (err error) {
+	for _, targetPath := range state.GravityBinPaths {
+		err = tryInstallBinary(targetPath, uid, gid, logger)
+		if err == nil {
+			break
+		}
+	}
+	if err != nil {
+		return trace.Wrap(err, "failed to install gravity binary in any of %v",
+			state.GravityBinPaths)
+	}
+	return nil
+}
+
+// Closes invokes this function
+// Implements io.Closer
+func (r CloserFunc) Close() error {
+	return r()
+}
+
+// CloserFunc is a functional wrapper that allows a function as an io.Closer
+type CloserFunc func() error
 
 func generateInstallToken(service ops.Operator, installToken string) (*storage.InstallToken, error) {
 	token, err := service.CreateInstallToken(
@@ -378,23 +402,58 @@ func wait(ctx context.Context, cancel context.CancelFunc, p process.GravityProce
 	}
 }
 
-// FIXME: move these to top-level
-func newCompletedProgressEntry() *ops.ProgressEntry {
-	return &ops.ProgressEntry{
-		Completion: constants.Completed,
-		State:      ops.ProgressStateCompleted,
+func upsertSystemAccount(ctx context.Context, operator ops.Operator) error {
+	b := utils.NewUnlimitedExponentialBackOff()
+	ctx, cancel := defaults.WithTimeout(ctx)
+	defer cancel()
+	if err := utils.RetryTransient(ctx, b, func() (err error) {
+		_, err = ops.UpsertSystemAccount(operator)
+		return trace.Wrap(err)
+	}); err != nil {
+		return trace.Wrap(err)
 	}
+	return nil
 }
 
-func updateProgress(progress ops.ProgressEntry, send func(Event)) {
-	send(Event{Progress: &progress})
-	if progress.State == ops.ProgressStateCompleted {
-		log.Info("Operation completed.")
+func tryInstallBinary(targetPath string, uid, gid int, logger log.FieldLogger) error {
+	path, err := osext.Executable()
+	if err != nil {
+		return trace.Wrap(err, "failed to determine path to binary")
 	}
-	if progress.State == ops.ProgressStateFailed {
-		log.Info("Operation failed.")
+	err = os.MkdirAll(filepath.Dir(targetPath), defaults.SharedDirMask)
+	if err != nil {
+		return trace.Wrap(err)
 	}
+	err = utils.CopyFileWithPerms(targetPath, path, defaults.SharedExecutableMask)
+	if err != nil {
+		return trace.Wrap(err)
+	}
+	err = os.Chown(targetPath, uid, gid)
+	if err != nil {
+		return trace.Wrap(trace.ConvertSystemError(err),
+			"failed to change ownership on %v", targetPath)
+	}
+	logger.WithField("path", targetPath).Info("Installed gravity binary.")
+	return nil
 }
+
+// FIXME: move these to top-level
+// func newCompletedProgressEntry() *ops.ProgressEntry {
+// 	return &ops.ProgressEntry{
+// 		Completion: constants.Completed,
+// 		State:      ops.ProgressStateCompleted,
+// 	}
+// }
+//
+// func updateProgress(progress ops.ProgressEntry, send func(Event)) {
+// 	send(Event{Progress: &progress})
+// 	if progress.State == ops.ProgressStateCompleted {
+// 		log.Info("Operation completed.")
+// 	}
+// 	if progress.State == ops.ProgressStateFailed {
+// 		log.Info("Operation failed.")
+// 	}
+// }
 
 func generateClusterName() string {
 	rand.Seed(time.Now().UnixNano())

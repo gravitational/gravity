@@ -17,8 +17,6 @@ limitations under the License.
 package install
 
 import (
-	"github.com/gravitational/gravity/lib/constants"
-	"github.com/gravitational/gravity/lib/defaults"
 	"github.com/gravitational/gravity/lib/ops"
 	"github.com/gravitational/gravity/lib/schema"
 	"github.com/gravitational/gravity/lib/storage"
@@ -26,15 +24,16 @@ import (
 	"github.com/gravitational/trace"
 )
 
-func NewPlanner(preflightChecks bool) PlanGetter {
-	return PlanGetter{
-		preflightChecks: preflightChecks,
+func NewPlanner(preflightChecks bool, planBuilder PlanBuilderGetter) *PlanGetter {
+	return &PlanGetter{
+		PlanBuilderGetter: planBuilder,
+		preflightChecks:   preflightChecks,
 	}
 }
 
 // GetOperationPlan builds a plan for the provided operation
-func (r *PlanGetter) GetOperationPlan(installer Installer, cluster ops.Site, operation ops.SiteOperation) (*storage.OperationPlan, error) {
-	builder, err := installer.GetPlanBuilder(cluster, operation)
+func (r *PlanGetter) GetOperationPlan(cluster ops.Site, operation ops.SiteOperation) (*storage.OperationPlan, error) {
+	builder, err := r.GetPlanBuilder(cluster, operation)
 	if err != nil {
 		return nil, trace.Wrap(err)
 	}
@@ -118,6 +117,11 @@ func (r *PlanGetter) GetOperationPlan(installer Installer, cluster ops.Site, ope
 	return plan, nil
 }
 
+type PlanBuilderGetter interface {
+	GetPlanBuilder(cluster ops.Site, operation ops.SiteOperation) (*PlanBuilder, error)
+}
+
 type PlanGetter struct {
-	prefligtChecks bool
+	PlanBuilderGetter
+	preflightChecks bool
 }

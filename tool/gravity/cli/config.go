@@ -22,22 +22,24 @@ import (
 	"net"
 	"os"
 	"path/filepath"
-	"strconv"
 
 	appservice "github.com/gravitational/gravity/lib/app"
 	"github.com/gravitational/gravity/lib/constants"
 	"github.com/gravitational/gravity/lib/defaults"
 	"github.com/gravitational/gravity/lib/expand"
-	"github.com/gravitational/gravity/lib/fsm"
 	"github.com/gravitational/gravity/lib/install"
+	"github.com/gravitational/gravity/lib/loc"
 	"github.com/gravitational/gravity/lib/localenv"
-	"github.com/gravitational/gravity/lib/ops"
+	"github.com/gravitational/gravity/lib/modules"
+	"github.com/gravitational/gravity/lib/ops/opsclient"
 	"github.com/gravitational/gravity/lib/ops/resources"
+	"github.com/gravitational/gravity/lib/pack"
 	"github.com/gravitational/gravity/lib/processconfig"
 	"github.com/gravitational/gravity/lib/rpc/proto"
 	"github.com/gravitational/gravity/lib/schema"
 	"github.com/gravitational/gravity/lib/storage"
 	"github.com/gravitational/gravity/lib/storage/clusterconfig"
+	"github.com/gravitational/gravity/lib/systeminfo"
 	"github.com/gravitational/gravity/lib/utils"
 
 	teleutils "github.com/gravitational/teleport/lib/utils"
@@ -70,7 +72,7 @@ type InstallConfig struct {
 	// Role is server role
 	Role string
 	// AppPackage is the application being installed
-	AppPackage *loc.Locator
+	AppPackage string
 	// RuntimeResources specifies optional Kubernetes resources to create
 	// If specified, will be combined with Resources
 	RuntimeResources []runtime.Object
@@ -115,22 +117,20 @@ type InstallConfig struct {
 	DNSHosts []string
 	// DNSZones is a list of DNS zone overrides
 	DNSZones []string
-	// AppPackage is the application package to install
-	AppPackage string
 	// ResourcesPath is the additional Kubernetes resources to create
 	ResourcesPath string
 	// ServiceUID is the ID of the service user as configured externally
 	ServiceUID string
 	// ServiceGID is the ID of the service group as configured externally
 	ServiceGID string
-	// Flavor specifies the installation flavor to use
-	Flavor string
 	// ExcludeHostFromCluster specifies whether the host should not be part of the cluster
 	ExcludeHostFromCluster bool
 	// Printer specifies the output for progress messages
 	utils.Printer
 	// ProcessConfig specifies the Gravity process configuration
 	ProcessConfig *processconfig.Config
+	// ServiceUser is the computed service user
+	ServiceUser *systeminfo.User
 }
 
 // NewInstallConfig creates install config from the passed CLI args and flags
@@ -178,7 +178,7 @@ func NewInstallConfig(env *localenv.LocalEnvironment, g *Application) InstallCon
 		DNSHosts:      *g.InstallCmd.DNSHosts,
 		DNSZones:      *g.InstallCmd.DNSZones,
 		Flavor:        *g.InstallCmd.Flavor,
-		Printer:       env.Silent,
+		Printer:       env,
 	}
 }
 
@@ -230,22 +230,22 @@ func (i *InstallConfig) CheckAndSetDefaults() (err error) {
 	}
 	advertiseAddr, err := i.getAdvertiseAddr()
 	if err != nil {
-		return nil, trace.Wrap(err)
+		return trace.Wrap(err)
 	}
-	r.AdvertiseAddr = advertiseAddr
-	dnsOverrides, err := i.getDNSOverrides()
+	i.AdvertiseAddr = advertiseAddr
+	if !utils.StringInSlice(modules.Get().InstallModes(), i.Mode) {
+		return trace.BadParameter("invalid mode %q", i.Mode)
+	}
+	serviceUser, err := install.GetOrCreateServiceUser(i.ServiceUID, i.ServiceGID)
 	if err != nil {
-		return nil, trace.Wrap(err)
+		return trace.Wrap(err)
 	}
-	i.Config.DNSOverrides = *dnsOverrides
-	if err != nil {
-		return nil, trace.Wrap(err)
-	}
+	i.ServiceUser = serviceUser
 	return nil
 }
 
 // ToInstallerConfig returns this configuration as install.Config
-func (i *InstallConfig) ToInstallerConfig(validator resources.Validator) (*install.Config, error) {
+func (i *InstallConfig) ToInstallerConfig(ctx context.Context, processConfig processconfig.Config, validator resources.Validator) (config *install.Config, err error) {
 	var kubernetesResources []runtime.Object
 	var gravityResources []storage.UnknownResource
 	if i.ResourcesPath != "" {
@@ -266,53 +266,61 @@ func (i *InstallConfig) ToInstallerConfig(validator resources.Validator) (*insta
 	if err != nil {
 		return nil, trace.Wrap(err)
 	}
-	serviceUser, err := install.GetOrCreateServiceUser(i.ServiceUID, i.ServiceGID)
-	if err != nil {
-		return trace.Wrap(err)
-	}
 	flavor, err := getFlavor(i.Flavor, app.Manifest, i.FieldLogger)
 	if err != nil {
 		return nil, trace.Wrap(err)
 	}
-	role, err := getRole(i.Role, *flavor, app.Manifest.Installer.NodeProfiles)
+	err = validateRole(&i.Role, *flavor, app.Manifest.NodeProfiles, i.FieldLogger)
 	if err != nil {
 		return nil, trace.Wrap(err)
 	}
-	return &install.Config{
+	wizard, err := localenv.LoginWizard(fmt.Sprintf("https://%v",
+		processConfig.Pack.GetAddr().Addr))
+	if err != nil {
+		return nil, trace.Wrap(err)
+	}
+	config = &install.Config{
 		FieldLogger:        i.FieldLogger,
 		AdvertiseAddr:      i.AdvertiseAddr,
-		App:                *app,
-		LocalPackages:      i.Packages,
-		LocalApps:          i.Apps,
-		LocalBackend:       i.Backend,
+		LocalPackages:      i.LocalPackages,
+		LocalApps:          i.LocalApps,
+		LocalBackend:       i.LocalBackend,
 		Printer:            i.Printer,
 		SiteDomain:         i.SiteDomain,
-		StateDir:           i.ReadStateDir,
+		StateDir:           i.StateDir,
 		WriteStateDir:      i.WriteStateDir,
 		UserLogFile:        i.UserLogFile,
 		SystemLogFile:      i.SystemLogFile,
-		Token:              i.InstallToken,
+		Token:              i.Token,
 		CloudProvider:      i.CloudProvider,
-		GCENodeTags:        i.NodeTags,
+		GCENodeTags:        i.GCENodeTags,
 		SystemDevice:       i.SystemDevice,
 		DockerDevice:       i.DockerDevice,
 		Mounts:             i.Mounts,
 		DNSConfig:          i.DNSConfig,
-		Mode:               i.Mode,
 		PodCIDR:            i.PodCIDR,
 		ServiceCIDR:        i.ServiceCIDR,
 		VxlanPort:          i.VxlanPort,
 		Docker:             i.Docker,
 		Insecure:           i.Insecure,
 		LocalClusterClient: i.LocalClusterClient,
+		Role:               i.Role,
+		ServiceUser:        *i.ServiceUser,
 		// Manual:             i.Manual,
+		App:              app,
 		Flavor:           flavor,
-		Role:             role,
 		DNSOverrides:     *dnsOverrides,
-		ServiceUser:      *serviceUser,
 		RuntimeResources: kubernetesResources,
 		ClusterResources: gravityResources,
-	}, nil
+		Operator:         wizard.Operator,
+		Apps:             wizard.Apps,
+		Packages:         wizard.Packages,
+	}
+	config.Process, err = install.InitProcess(ctx, *config, processConfig)
+	if err != nil {
+		return nil, trace.Wrap(err)
+	}
+	return config, nil
 }
 
 // getAdvertiseAddr return the advertise address provided in the config, or
@@ -344,7 +352,11 @@ func (i *InstallConfig) getApp() (app *appservice.Application, err error) {
 	}
 	defer env.Close()
 	if i.AppPackage != "" {
-		app, err = env.Apps.GetApp(i.AppPackage)
+		loc, err := loc.MakeLocator(i.AppPackage)
+		if err != nil {
+			return nil, trace.Wrap(err)
+		}
+		app, err = env.Apps.GetApp(*loc)
 		if err != nil {
 			return nil, trace.Wrap(err)
 		}
@@ -611,40 +623,41 @@ func convertMounts(mounts map[string]string) (result []*proto.Mount) {
 	return result
 }
 
-func getFlavor(name string, manifest schema.Manifest, logger logrus.FieldLogger) (*schema.Flavor, error) {
-	if len(manifest.Flavors.Items) == 0 {
+func getFlavor(name string, manifest schema.Manifest, logger logrus.FieldLogger) (flavor *schema.Flavor, err error) {
+	flavors := manifest.Installer.Flavors
+	if len(flavors.Items) == 0 {
 		return nil, trace.NotFound("no install flavors defined in manifest")
 	}
 	if name == "" {
-		if manifest.Installer.Flavors.Default != "" {
+		if flavors.Default != "" {
 			name = flavors.Default
 			logger.WithField("flavor", name).Info("Flavor is not set, picking default flavor.")
 		} else {
-			name = manifest.Flavors.Items[0].Name
+			name = flavors.Items[0].Name
 			logger.WithField("flavor", name).Info("Flavor is not set, picking first flavor.")
 		}
 	}
-	flavor := manifest.FindFlavor(name)
+	flavor = manifest.FindFlavor(name)
 	if flavor == nil {
 		return nil, trace.NotFound("install flavor %q not found", name)
 	}
 	return flavor, nil
 }
 
-func getRole(role string, flavor schema.Flavor, profiles schema.NodeProfiles) (role string, err error) {
-	if role == "" {
+func validateRole(role *string, flavor schema.Flavor, profiles schema.NodeProfiles, logger logrus.FieldLogger) error {
+	if *role == "" {
 		for _, node := range flavor.Nodes {
-			role = node.Profile
+			*role = node.Profile
 			logger.WithField("role", role).Info("No server profile specified, picking the first.")
 			break
 		}
 	}
-	for _, profile := range nodeProfiles {
-		if profile.Name == role {
-			return role, nil
+	for _, profile := range profiles {
+		if profile.Name == *role {
+			return nil
 		}
 	}
-	return "", trace.NotFound("server role %q is not found", role)
+	return trace.NotFound("server role %q not found", *role)
 }
 
 func validateIP(blocks []net.IPNet, ip net.IP) bool {
@@ -654,29 +667,4 @@ func validateIP(blocks []net.IPNet, ip net.IP) bool {
 		}
 	}
 	return false
-}
-
-func upsertSystemAccount(operator ops.Operator) error {
-	b := utils.NewUnlimitedExponentialBackOff()
-	ctx = defaults.WithTimeout(context.Background())
-	if err := utils.RetryTransient(ctx, b, func() (err error) {
-		accounts, err := operator.GetAccounts()
-		if err != nil {
-			return nil, trace.Wrap(err)
-		}
-		for i := range accounts {
-			if accounts[i].Org == defaults.SystemAccountOrg {
-				return &accounts[i], nil
-			}
-		}
-		_, err := operator.CreateAccount(ops.NewAccountRequest{
-			ID:  defaults.SystemAccountID,
-			Org: defaults.SystemAccountOrg,
-		})
-		return trace.Wrap(err)
-		}
-	}); err != nil {
-		return trace.Wrap(err)
-	}
-	return nil
 }

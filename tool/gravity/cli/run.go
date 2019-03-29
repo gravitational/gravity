@@ -293,15 +293,13 @@ func Execute(g *Application, cmd string, extraArgs []string) error {
 			cloudProvider: *g.OpsAgentCmd.CloudProvider,
 		}, *g.OpsAgentCmd.ServiceName)
 	case g.WizardCmd.FullCommand():
-		return install(localEnv, InstallConfig{
-			Config: install.Config{
-				Mode:          constants.InstallModeInteractive,
-				Insecure:      *g.Insecure,
-				UserLogFile:   *g.UserLogFile,
-				SystemLogFile: *g.SystemLogFile,
-			},
-			ServiceUID: *g.WizardCmd.ServiceUID,
-			ServiceGID: *g.WizardCmd.ServiceGID,
+		return startInstall(localEnv, InstallConfig{
+			Mode:          constants.InstallModeInteractive,
+			Insecure:      *g.Insecure,
+			UserLogFile:   *g.UserLogFile,
+			SystemLogFile: *g.SystemLogFile,
+			ServiceUID:    *g.WizardCmd.ServiceUID,
+			ServiceGID:    *g.WizardCmd.ServiceGID,
 		})
 	case g.InstallCmd.FullCommand():
 		if *g.InstallCmd.Resume {
@@ -314,7 +312,7 @@ func Execute(g *Application, cmd string, extraArgs []string) error {
 				Timeout: *g.InstallCmd.PhaseTimeout,
 			}, nil)
 		}
-		return install(localEnv, NewInstallConfig(localEnv, g))
+		return startInstall(localEnv, NewInstallConfig(localEnv, g))
 	case g.JoinCmd.FullCommand():
 		if *g.JoinCmd.Resume {
 			*g.JoinCmd.Phase = fsm.RootPhase

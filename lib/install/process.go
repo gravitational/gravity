@@ -23,6 +23,7 @@ import (
 	"github.com/gravitational/gravity/lib/ops"
 	"github.com/gravitational/gravity/lib/process"
 	"github.com/gravitational/gravity/lib/processconfig"
+	"github.com/gravitational/gravity/lib/systeminfo"
 
 	"github.com/gravitational/trace"
 )
@@ -31,7 +32,7 @@ import (
 func InitProcess(ctx context.Context, installerConfig Config, gravityConfig processconfig.Config) (process.GravityProcess, error) {
 	teleportConfig := process.WizardTeleportConfig(installerConfig.SiteDomain,
 		installerConfig.WriteStateDir)
-	p, err := installerConfig.NewProcess(ctx, gravityConfig, *teleportConfig)
+	p, err := process.NewProcess(ctx, gravityConfig, *teleportConfig)
 	if err != nil {
 		return nil, trace.Wrap(err)
 	}
@@ -52,7 +53,7 @@ func InitProcess(ctx context.Context, installerConfig Config, gravityConfig proc
 }
 
 // NewProcessConfig creates a gravity process config from installer config
-func NewProcessConfig(config Config) (*processconfig.Config, error) {
+func NewProcessConfig(config ProcessConfig) (*processconfig.Config, error) {
 	wizardConfig, err := process.WizardProcessConfig(config.AdvertiseAddr, config.StateDir, config.WriteStateDir)
 	if err != nil {
 		return nil, trace.Wrap(err)
@@ -68,8 +69,19 @@ func NewProcessConfig(config Config) (*processconfig.Config, error) {
 		wizardConfig.OpsCenter.SeedConfig = &ops.SeedConfig{}
 	}
 	wizardConfig.Mode = constants.ComponentInstaller
-	wizardConfig.ClusterName = config.SiteDomain
-	wizardConfig.Devmode = config.Insecure
-	wizardConfig.InstallLogFiles = append(wizardConfig.InstallLogFiles, config.UserLogFile)
+	wizardConfig.ClusterName = config.ClusterName
+	wizardConfig.Devmode = config.Devmode
+	wizardConfig.InstallLogFiles = append(wizardConfig.InstallLogFiles, config.LogFile)
 	return wizardConfig, nil
+}
+
+// ProcessConfig defines the configuration for generating process configuration
+type ProcessConfig struct {
+	AdvertiseAddr string
+	StateDir      string
+	WriteStateDir string
+	ServiceUser   systeminfo.User
+	ClusterName   string
+	Devmode       bool
+	LogFile       string
 }

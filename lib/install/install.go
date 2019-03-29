@@ -20,12 +20,12 @@ import (
 	"bytes"
 	"context"
 	"fmt"
+	"io"
 	"net"
+	"os"
 	"strconv"
-	"strings"
 	"time"
 
-	"github.com/fatih/color"
 	appservice "github.com/gravitational/gravity/lib/app"
 	cloudgce "github.com/gravitational/gravity/lib/cloudprovider/gce"
 	"github.com/gravitational/gravity/lib/constants"
@@ -34,10 +34,12 @@ import (
 	"github.com/gravitational/gravity/lib/localenv"
 	"github.com/gravitational/gravity/lib/modules"
 	"github.com/gravitational/gravity/lib/ops"
+	"github.com/gravitational/gravity/lib/ops/events"
 	"github.com/gravitational/gravity/lib/ops/opsclient"
 	"github.com/gravitational/gravity/lib/pack"
 	"github.com/gravitational/gravity/lib/process"
 	"github.com/gravitational/gravity/lib/rpc"
+	pb "github.com/gravitational/gravity/lib/rpc/proto"
 	rpcserver "github.com/gravitational/gravity/lib/rpc/server"
 	"github.com/gravitational/gravity/lib/schema"
 	"github.com/gravitational/gravity/lib/status"
@@ -53,53 +55,53 @@ import (
 // New creates a new installer and initializes various services it will
 // need based on the provided config
 func New(ctx context.Context, config Config) (*Installer, error) {
-	err := config.CheckAndSetDefaults()
+	err := upsertSystemAccount(ctx, config.Operator)
 	if err != nil {
 		return nil, trace.Wrap(err)
 	}
-	wizard, err := localenv.LoginWizard(fmt.Sprintf("https://%v",
-		config.Process.Config().Pack.GetAddr().Addr))
-	if err != nil {
-		return trace.Wrap(err)
-	}
-	err = upsertSystemAccount(ctx, wizard.Operator)
-	if err != nil {
-		return trace.Wrap(err)
-	}
-	token, err := generateInstallToken(wizard.Operator, config.Token)
+	token, err := generateInstallToken(config.Operator, config.Token)
 	if err != nil && !trace.IsAlreadyExists(err) {
 		return nil, trace.Wrap(err)
 	}
 	return &Installer{
-		Config:   config,
-		Token:    *token,
-		Operator: wizard.Operator,
-		App:      wizard.Apps,
-		Packages: wizard.Packages,
+		Config: config,
+		Token:  *token,
 	}, nil
 }
 
 // Execute executes the installation using the specified engine
 func (i *Installer) Execute(ctx context.Context, engine Engine) error {
-	if err := i.upsertAdminUser(); err != nil {
+	if err := i.upsertAdminAgent(); err != nil {
 		return trace.Wrap(err)
 	}
-	if err := engine.Execute(ctx, *i); err != nil {
+	err := engine.Execute(ctx, *i)
+	if err != nil {
 		return trace.Wrap(err)
 	}
-	if err := i.finalize(); err != nil {
-		i.WithError(err).Warn("Failed to finalize the install.")
-	}
+	i.PrintPostInstallBanner(ctx)
+	// FIXME: finalize here or engine-specific?
 	return nil
 }
 
 // Stop releases resources allocated by the installer
-// and shuts down the agent cluster.
 func (i *Installer) Stop(ctx context.Context) error {
-	if err := i.Process.AgentService().StopAgents(ctx, i.OperationKey); err != nil {
-		return trace.Wrap(err, "failed to stop agents")
+	var errors []error
+	for _, c := range i.closers {
+		if err := c.Close(); err != nil {
+			errors = append(errors, err)
+		}
 	}
-	return nil
+	return trace.NewAggregate(errors...)
+}
+
+// AddAgentServiceCloser adds a clean up handler for the agent service
+// once the operation key is known.
+// The clean up handler will be invoked when the context is cancelled
+// or expires
+func (i *Installer) AddAgentServiceCloser(ctx context.Context, operationKey ops.SiteOperationKey) {
+	i.addCloser(CloserFunc(func() error {
+		return trace.Wrap(i.Process.AgentService().StopAgents(ctx, operationKey))
+	}))
 }
 
 // NewAgent creates a new installer agent
@@ -136,7 +138,7 @@ func (i *Installer) NewAgent(agentURL string) (rpcserver.Server, error) {
 			RuntimeConfig: runtimeConfig,
 		},
 	}
-	agent, err := NewAgent(agentURL, config, i)
+	agent, err := NewAgentFromURL(agentURL, config, i.FieldLogger)
 	if err != nil {
 		listener.Close()
 		return nil, trace.Wrap(err)
@@ -144,17 +146,19 @@ func (i *Installer) NewAgent(agentURL string) (rpcserver.Server, error) {
 	return agent, nil
 }
 
-func (i *Installer) PrintPostInstallBanner() {
+func (i *Installer) PrintPostInstallBanner(ctx context.Context) {
 	var buf bytes.Buffer
-	i.printEndpoints(&buf)
+	i.printEndpoints(ctx, &buf)
 	if m, ok := modules.Get().(modules.Messager); ok {
-		fmt.Fprintf("\n%v\n", m.PostInstallMessage())
+		fmt.Fprintf(&buf, "\n%v\n", m.PostInstallMessage())
 	}
-	i.Printer.PrintProgress(buf.String())
+	// FIXME
+	// i.Printer.PrintProgress(buf.String())
+	i.Printer.Print(buf.String())
 }
 
-func (i *Installer) printEndpoints(w io.Writer) {
-	status, err := i.getClusterStatus()
+func (i *Installer) printEndpoints(ctx context.Context, w io.Writer) {
+	status, err := i.getClusterStatus(ctx)
 	if err != nil {
 		i.WithError(err).Error("Failed to collect cluster status.")
 		return
@@ -166,7 +170,7 @@ func (i *Installer) printEndpoints(w io.Writer) {
 }
 
 // getClusterStatus collects status of the installer cluster.
-func (i *Installer) getClusterStatus() (*status.Status, error) {
+func (i *Installer) getClusterStatus(ctx context.Context) (*status.Status, error) {
 	clusterOperator, err := localenv.ClusterOperator()
 	if err != nil {
 		return nil, trace.Wrap(err)
@@ -175,7 +179,7 @@ func (i *Installer) getClusterStatus() (*status.Status, error) {
 	if err != nil {
 		return nil, trace.Wrap(err)
 	}
-	status, err := status.FromCluster(i.Context, clusterOperator, *cluster, "")
+	status, err := status.FromCluster(ctx, clusterOperator, *cluster, "")
 	if err != nil {
 		return nil, trace.Wrap(err)
 	}
@@ -195,14 +199,15 @@ func (i *Installer) upsertAdminAgent() error {
 	return nil
 }
 
-func (i *Installer) finalize() error {
-	if err := i.uploadInstallLog(); err != nil {
+func (i *Installer) finalize(ctx context.Context, operation ops.SiteOperation) error {
+	var errors []error
+	if err := i.uploadInstallLog(operation.Key()); err != nil {
 		errors = append(errors, err)
 	}
 	if err := i.completeFinalInstallStep(); err != nil {
 		errors = append(errors, err)
 	}
-	if err := i.emitAuditEvents(); err != nil {
+	if err := i.emitAuditEvents(ctx, operation); err != nil {
 		errors = append(errors, err)
 	}
 	return trace.NewAggregate(errors...)
@@ -212,28 +217,25 @@ func (i *Installer) finalize() error {
 // the application has a custom install step - in which case it does nothing
 // because it will be completed by user later
 func (i *Installer) completeFinalInstallStep() error {
-	// see if the app defines custom install step
-	application, err := i.Apps.GetApp(i.AppPackage)
-	if err != nil {
-		return trace.Wrap(err)
-	}
-	// if app has a custom setup endpoint, user will complete it
-	if application.Manifest.SetupEndpoint() != nil {
+	// see if the application defines custom install step
+	// if it has a custom setup endpoint, user needs to complete it
+	if i.App.Manifest.SetupEndpoint() != nil {
 		return nil
 	}
 	// determine delay for removing connection from installed cluster to this
 	// installer process - in case of interactive installs, we can not remove
 	// the link right away because it is used to tunnel final install step
 	var delay time.Duration
-	if i.Mode == constants.InstallModeInteractive {
-		delay = defaults.WizardLinkTTL
-	}
+	// FIXME: determine the delay
+	// if i.Mode == constants.InstallModeInteractive {
+	// 	delay = defaults.WizardLinkTTL
+	// }
 	req := ops.CompleteFinalInstallStepRequest{
 		AccountID:           defaults.SystemAccountID,
 		SiteDomain:          i.SiteDomain,
 		WizardConnectionTTL: delay,
 	}
-	i.Debugf("Completing final install step: %s.", req)
+	i.WithField("req", req).Debug("Completing final install step.")
 	if err := i.Operator.CompleteFinalInstallStep(req); err != nil {
 		return trace.Wrap(err, "failed to complete final install step")
 	}
@@ -241,13 +243,13 @@ func (i *Installer) completeFinalInstallStep() error {
 }
 
 // uploadInstallLog uploads user-facing operation log to the installed cluster
-func (i *Installer) uploadInstallLog() error {
+func (i *Installer) uploadInstallLog(operationKey ops.SiteOperationKey) error {
 	file, err := os.Open(i.UserLogFile)
 	if err != nil {
 		return trace.Wrap(err)
 	}
 	defer file.Close()
-	err = i.Operator.StreamOperationLogs(i.OperationKey, file)
+	err = i.Operator.StreamOperationLogs(operationKey, file)
 	if err != nil {
 		return trace.Wrap(err, "failed to upload install log")
 	}
@@ -257,32 +259,29 @@ func (i *Installer) uploadInstallLog() error {
 
 // emitAuditEvents sends the install operation's start/finish
 // events to the installed cluster's audit log.
-func (i *Installer) emitAuditEvents() error {
-	operation, err := i.Operator.GetSiteOperation(i.OperationKey)
-	if err != nil {
-		return trace.Wrap(err)
-	}
+func (i *Installer) emitAuditEvents(ctx context.Context, operation ops.SiteOperation) error {
 	operator, err := localenv.ClusterOperator()
 	if err != nil {
 		return trace.Wrap(err)
 	}
-	fields := events.FieldsForOperation(*operation)
-	events.Emit(i.Context, operator, events.OperationStarted, fields.WithField(
+	fields := events.FieldsForOperation(operation)
+	events.Emit(ctx, operator, events.OperationStarted, fields.WithField(
 		events.FieldTime, operation.Created))
-	events.Emit(i.Context, operator, events.OperationCompleted, fields)
+	events.Emit(ctx, operator, events.OperationCompleted, fields)
 	return nil
+}
+
+func (i *Installer) addCloser(closer io.Closer) {
+	i.closers = append(i.closers, closer)
 }
 
 // Installer manages the installation process
 type Installer struct {
 	// Config specifies the configuration for the install operation
 	Config
-	// Operator specifies the wizard's operator service
-	Operator *opsclient.Client
-	// Apps specifies the wizard's application service
-	Apps appservice.Applications
-	// Packages specifies the wizard's packageservice
-	Packages pack.PackageService
+	// Token is the generated unique install token
+	Token   storage.InstallToken
+	closers []io.Closer
 }
 
 // Engine implements the process of cluster installation
@@ -293,16 +292,14 @@ type Engine interface {
 }
 
 // CheckAndSetDefaults checks the parameters and autodetects some defaults
-func (c *Config) CheckAndSetDefaults() (err error) {
+func (c *Config) CheckAndSetDefaults(ctx context.Context) (err error) {
 	if c.AdvertiseAddr == "" {
 		return trace.BadParameter("missing AdvertiseAddr")
 	}
 	if c.LocalClusterClient == nil {
 		return trace.BadParameter("missing LocalClusterClient")
 	}
-	if !utils.StringInSlice(modules.Get().InstallModes(), c.Mode) {
-		return trace.BadParameter("invalid Mode %q", c.Mode)
-	}
+
 	if err := CheckAddr(c.AdvertiseAddr); err != nil {
 		return trace.Wrap(err)
 	}
@@ -324,9 +321,6 @@ func (c *Config) CheckAndSetDefaults() (err error) {
 	if c.App == nil {
 		return trace.BadParameter("missing App")
 	}
-	if c.Engine == nil {
-		return trace.BadParameter("missing Engine")
-	}
 	if c.VxlanPort < 1 || c.VxlanPort > 65535 {
 		return trace.BadParameter("invalid vxlan port: must be in range 1-65535")
 	}
@@ -345,7 +339,7 @@ func (c *Config) CheckAndSetDefaults() (err error) {
 // NewStateMachine returns a new instance of the installer state machine.
 // Implements engine.StateMachineFactory
 func (c *Config) NewStateMachine(operator ops.Operator, operationKey ops.SiteOperationKey) (fsm *fsm.FSM, err error) {
-	config := install.FSMConfig{
+	config := FSMConfig{
 		Operator:           operator,
 		OperationKey:       operationKey,
 		Packages:           c.Packages,
@@ -358,17 +352,17 @@ func (c *Config) NewStateMachine(operator ops.Operator, operationKey ops.SiteOpe
 		UserLogFile:        c.UserLogFile,
 		ReportProgress:     true,
 	}
-	config.FSMSpec = FSMSpec(config)
-	return install.NewFSM(config)
+	config.Spec = FSMSpec(config)
+	return NewFSM(config)
 }
 
-// NewCluster creates the cluster with the specified operator
+// CreateCluster creates the cluster with the specified operator
 // Implements engine.ClusterFactory
-func (c *Config) CreateCluster(operator ops.Operator) (fsm *fsm.FSM, err error) {
-	req := ossops.NewSiteRequest{
+func (c *Config) CreateCluster(operator ops.Operator) (cluster *ops.Site, err error) {
+	req := ops.NewSiteRequest{
 		AppPackage:   c.App.Package.String(),
-		AccountID:    c.AccountID,
-		Email:        fmt.Sprintf("installer@%v", i.SiteDomain),
+		AccountID:    defaults.SystemAccountID,
+		Email:        fmt.Sprintf("installer@%v", c.SiteDomain),
 		Provider:     c.CloudProvider,
 		DomainName:   c.SiteDomain,
 		InstallToken: c.Token,
@@ -421,8 +415,6 @@ type Config struct {
 	// TODO(dmitri): externalize the ClusterConfiguration resource and create
 	// default provider-specific cloud-config on Gravity side
 	ClusterResources []storage.UnknownResource
-	// EventsC is channel with events indicating install progress
-	EventsC chan Event
 	// SystemDevice is a device for gravity data
 	SystemDevice string
 	// DockerDevice is a device for docker
@@ -461,6 +453,12 @@ type Config struct {
 	GCENodeTags []string
 	// LocalClusterClient is a factory for creating client to the installed cluster
 	LocalClusterClient func() (*opsclient.Client, error)
+	// Operator specifies the wizard's operator service
+	Operator *opsclient.Client
+	// Apps specifies the wizard's application service
+	Apps appservice.Applications
+	// Packages specifies the wizard's packageservice
+	Packages pack.PackageService
 }
 
 func (c *Config) validateCloudConfig() (err error) {

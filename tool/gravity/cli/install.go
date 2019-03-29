@@ -24,6 +24,7 @@ import (
 	"time"
 
 	autoscaleaws "github.com/gravitational/gravity/lib/autoscale/aws"
+	"github.com/gravitational/gravity/lib/checks"
 	cloudaws "github.com/gravitational/gravity/lib/cloudprovider/aws"
 	"github.com/gravitational/gravity/lib/constants"
 	"github.com/gravitational/gravity/lib/defaults"
@@ -34,8 +35,10 @@ import (
 	clinstall "github.com/gravitational/gravity/lib/install/engine/cli"
 	"github.com/gravitational/gravity/lib/install/engine/interactive"
 	"github.com/gravitational/gravity/lib/localenv"
+	validationpb "github.com/gravitational/gravity/lib/network/validation/proto"
 	"github.com/gravitational/gravity/lib/ops"
-	"github.com/gravitational/gravity/lib/processconfig"
+	"github.com/gravitational/gravity/lib/ops/resources"
+	"github.com/gravitational/gravity/lib/ops/resources/gravity"
 	pb "github.com/gravitational/gravity/lib/rpc/proto"
 	rpcserver "github.com/gravitational/gravity/lib/rpc/server"
 	"github.com/gravitational/gravity/lib/storage"
@@ -86,7 +89,7 @@ func Join(env, joinEnv *localenv.LocalEnvironment, config JoinConfig) error {
 	return trace.Wrap(err)
 }
 
-func install(env *localenv.LocalEnvironment, config InstallConfig) error {
+func startInstall(env *localenv.LocalEnvironment, config InstallConfig) error {
 	env.PrintStep("Starting installer")
 
 	err := CheckLocalState(env)
@@ -98,32 +101,35 @@ func install(env *localenv.LocalEnvironment, config InstallConfig) error {
 		return trace.Wrap(err)
 	}
 
-	installerConfig, err := config.ToInstallerConfig(env)
-	if err != nil {
-		return trace.Wrap(err)
-	}
-
-	processConfig, err := install.NewProcessConfig(*installerConfig)
-	if err != nil {
-		return trace.Wrap(err)
-	}
-
 	var cancel context.CancelFunc
-	ctx, cancel = context.WithCancel(ctx)
+	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
-	watcherCh := utils.WatchTerminationSignalsWithChannel(ctx, cancel)
+	watcherCh := utils.WatchTerminationSignalsWithChannel(ctx, cancel, config.FieldLogger)
 
-	err = runLocalChecks(ctx, installerConfig)
+	processConfig, err := install.NewProcessConfig(install.ProcessConfig{
+		AdvertiseAddr: config.AdvertiseAddr,
+		StateDir:      config.StateDir,
+		WriteStateDir: config.WriteStateDir,
+		LogFile:       config.UserLogFile,
+		ServiceUser:   *config.ServiceUser,
+		ClusterName:   config.SiteDomain,
+		Devmode:       config.Insecure,
+	})
 	if err != nil {
 		return trace.Wrap(err)
 	}
 
-	installerConfig.Process, err = install.InitProcess(ctx, config, processConfig)
+	installerConfig, err := config.ToInstallerConfig(ctx, *processConfig, resources.ValidateFunc(gravity.Validate))
 	if err != nil {
 		return trace.Wrap(err)
 	}
 
-	installer, err = install.New(installerConfig)
+	err = RunLocalChecks(ctx, *installerConfig)
+	if err != nil {
+		return trace.Wrap(err)
+	}
+
+	installer, err := install.New(ctx, *installerConfig)
 	if err != nil {
 		return trace.Wrap(err)
 	}
@@ -139,11 +145,14 @@ func install(env *localenv.LocalEnvironment, config InstallConfig) error {
 	var engine install.Engine
 	switch config.Mode {
 	case constants.InstallModeCLI:
-		engine = newCLInstaller(installerConfig, config.ExcludeHostFromCluster, installer.Operator)
+		engine, err = newCLInstaller(*installer, config.ExcludeHostFromCluster)
 	case constants.InstallModeInteractive:
-		engine = newWizardInstaller(installerConfig, installer.Operator)
+		engine, err = newWizardInstaller(*installer)
 	default:
-		return trace.BadParamater("unknown mode %q", config.Mode)
+		return trace.BadParameter("unknown mode %q", config.Mode)
+	}
+	if err != nil {
+		return trace.Wrap(err)
 	}
 
 	err = installer.Execute(ctx, engine)
@@ -167,25 +176,25 @@ func RunLocalChecks(ctx context.Context, config install.Config) error {
 	}))
 }
 
-func newCLInstaller(config install.Config, excludeHostFromCluster bool, operator ops.Client) *clinstall.Engine {
+func newCLInstaller(installer install.Installer, excludeHostFromCluster bool) (*clinstall.Engine, error) {
 	enablePreflightChecks := true
 	return clinstall.New(clinstall.Config{
-		FieldLogger:           config.WithField("mode", "cli"),
-		StateMachineFactory:   &config,
-		ClusterFactory:        &config,
-		Planner:               install.NewPlanner(enablePreflightChecks),
-		Operator:              operator,
-		ExludeHostFromCluster: excludeHostFromCluster,
+		FieldLogger:            installer.WithField("mode", "cli"),
+		StateMachineFactory:    &installer.Config,
+		ClusterFactory:         &installer.Config,
+		Planner:                install.NewPlanner(enablePreflightChecks, &installer),
+		Operator:               installer.Operator,
+		ExcludeHostFromCluster: excludeHostFromCluster,
 	})
 }
 
-func newWizardInstaller(config install.Config, operator ops.Client) *interactive.Engine {
+func newWizardInstaller(installer install.Installer) (*interactive.Engine, error) {
 	disablePreflightChecks := false
 	return interactive.New(interactive.Config{
-		FieldLogger:         config.WithField("mode", "wizard"),
-		StateMachineFactory: &config,
-		Planner:             install.NewPlanner(disablePreflightChecks),
-		Operator:            operator,
+		FieldLogger:         installer.WithField("mode", "wizard"),
+		StateMachineFactory: &installer.Config,
+		Planner:             install.NewPlanner(disablePreflightChecks, &installer),
+		Operator:            installer.Operator,
 	})
 }
 

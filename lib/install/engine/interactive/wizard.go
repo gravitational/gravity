@@ -9,9 +9,14 @@ import (
 	"github.com/gravitational/gravity/lib/defaults"
 	"github.com/gravitational/gravity/lib/install"
 	"github.com/gravitational/gravity/lib/install/engine"
+	"github.com/gravitational/gravity/lib/loc"
 	"github.com/gravitational/gravity/lib/ops"
+	"github.com/gravitational/gravity/lib/process"
+	"github.com/gravitational/gravity/lib/utils"
 
+	"github.com/fatih/color"
 	"github.com/gravitational/trace"
+	log "github.com/sirupsen/logrus"
 )
 
 // New returns a new installer that implements interactive installation
@@ -48,13 +53,13 @@ type Config struct {
 	// StateMachineFactory is a factory for creating installer state machines
 	engine.StateMachineFactory
 	// Planner creates a plan for the operation
-	install.Planner
+	engine.Planner
 	// Operator specifies the service operator
 	ops.Operator
 }
 
 func (r *Engine) Execute(ctx context.Context, installer install.Installer) error {
-	r.printURL(installer.AdvertiseAddr, installer.Printer)
+	r.printURL(installer.AdvertiseAddr, installer.App.Package, installer.Token.Token, installer.Printer)
 	err := install.ExportRPCCredentials(ctx, installer.Packages, r.FieldLogger)
 	if err != nil {
 		return trace.Wrap(err, "failed to export RPC credentials")
@@ -64,22 +69,23 @@ func (r *Engine) Execute(ctx context.Context, installer install.Installer) error
 	if err != nil {
 		return trace.Wrap(err, "failed to wait for operation to become ready")
 	}
-	if err := engine.ExecuteOperation(r.Planner, r.StateMachineFactory, r.Operator, operation.Key()); err != nil {
+	installer.AddAgentServiceCloser(ctx, operation.Key())
+	if err := engine.ExecuteOperation(ctx, r.Planner, r.StateMachineFactory,
+		r.Operator, operation.Key(), r.FieldLogger); err != nil {
 		return trace.Wrap(err)
 	}
-	installer.PrintPostInstallBanner()
 	return wait(ctx, installer.Process, installer.Printer)
 }
 
 func (r *Engine) waitForOperation(ctx context.Context, operator ops.Operator) (operation *ops.SiteOperation, err error) {
 	b := utils.NewUnlimitedExponentialBackOff()
-	err := utils.RetryInterval(ctx, b, func() error {
-		clusters, err := Operator.GetSites(defaults.SystemAccountID)
+	err = utils.RetryWithInterval(ctx, b, func() error {
+		clusters, err := r.Operator.GetSites(defaults.SystemAccountID)
 		if err != nil {
 			return trace.Wrap(err, "failed to fetch clusters")
 		}
 		if len(clusters) == 0 {
-			return trace.NotFound(err, "no clusters created yet")
+			return trace.NotFound("no clusters created yet")
 		}
 		cluster := clusters[0]
 		operations, err := operator.GetSiteOperations(cluster.Key())
@@ -87,9 +93,9 @@ func (r *Engine) waitForOperation(ctx context.Context, operator ops.Operator) (o
 			return trace.Wrap(err, "failed to fetch operations")
 		}
 		if len(operations) == 0 {
-			return trace.NotFound(err, "no operations created yet")
+			return trace.NotFound("no operations created yet")
 		}
-		operation = operations[0]
+		operation = (*ops.SiteOperation)(&operations[0])
 		r.WithField("operation", operation.Key()).Info("Fetched operation.")
 		if operation.State != ops.OperationStateReady {
 			return trace.BadParameter("operation is not ready")
@@ -104,14 +110,14 @@ func (r *Engine) waitForOperation(ctx context.Context, operator ops.Operator) (o
 
 // printURL prints the URL that installer can be reached at via browser
 // in interactive mode to stdout
-func (r *Engine) printURL(advertiseAddr string, printer utils.Printer) {
+func (r *Engine) printURL(advertiseAddr string, app loc.Locator, token string, printer utils.Printer) {
 	printer.PrintStep("Starting web UI install wizard")
 	url := fmt.Sprintf("https://%v/web/installer/new/%v/%v/%v?install_token=%v",
 		advertiseAddr,
-		r.App.Package.Repository,
-		r.App.Package.Name,
-		r.App.Package.Version,
-		r.Token.Token)
+		app.Repository,
+		app.Name,
+		app.Version,
+		token)
 	r.WithField("installer-url", url).Info("Generated installer URL.")
 	rule := strings.Repeat("-", 100)
 	var buf bytes.Buffer
@@ -121,6 +127,10 @@ func (r *Engine) printURL(advertiseAddr string, printer utils.Printer) {
 	fmt.Fprintf(&buf, "%v\n", rule)
 	fmt.Fprintf(&buf, "%v\n", rule)
 	printer.PrintStep(buf.String())
+}
+
+type Engine struct {
+	Config
 }
 
 func wait(ctx context.Context, p process.GravityProcess, printer utils.Printer) error {

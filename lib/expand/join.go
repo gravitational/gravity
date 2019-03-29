@@ -46,7 +46,7 @@ import (
 	"github.com/gravitational/gravity/lib/utils"
 
 	"github.com/cenkalti/backoff"
-	"github.com/fatih/color"
+	// "github.com/fatih/color"
 	"github.com/gravitational/coordinate/leader"
 	"github.com/gravitational/roundtrip"
 	"github.com/gravitational/trace"
@@ -69,7 +69,7 @@ type PeerConfig struct {
 	// CloudProvider is the node cloud provider
 	CloudProvider string
 	// EventsC is channel with events indicating install progress
-	EventsC chan install.Event
+	// EventsC chan install.Event
 	// WatchCh is channel that relays peer reconnect events
 	WatchCh chan rpcserver.WatchEvent
 	// RuntimeConfig is peer's runtime configuration
@@ -116,9 +116,6 @@ func (c *PeerConfig) CheckAndSetDefaults() (err error) {
 	if c.Token == "" {
 		return trace.BadParameter("missing Token")
 	}
-	if c.EventsC == nil {
-		return trace.BadParameter("missing EventsC")
-	}
 	if c.LocalBackend == nil {
 		return trace.BadParameter("missing LocalBackned")
 	}
@@ -141,9 +138,9 @@ func (c *PeerConfig) CheckAndSetDefaults() (err error) {
 	if c.Context == nil {
 		c.Context, c.Cancel = context.WithCancel(context.Background())
 	}
-	if c.EventsC == nil {
-		c.EventsC = make(chan install.Event, 100)
-	}
+	// if c.EventsC == nil {
+	// 	c.EventsC = make(chan install.Event, 100)
+	// }
 	if c.WatchCh == nil {
 		c.WatchCh = make(chan rpcserver.WatchEvent, 1)
 	}
@@ -344,8 +341,7 @@ func (p *Peer) checkAndSetServerProfile(app ops.Application) error {
 
 // runLocalChecks makes sure node satisfies system requirements
 func (p *Peer) runLocalChecks(cluster ops.Site, installOperation ops.SiteOperation) error {
-	return checks.RunLocalChecks(checks.LocalChecksRequest{
-		Context:  p.Context,
+	return checks.RunLocalChecks(p.Context, checks.LocalChecksRequest{
 		Manifest: cluster.App.Manifest,
 		Role:     p.Role,
 		Docker:   cluster.ClusterState.Docker,
@@ -494,7 +490,7 @@ func (p *Peer) getAgent(opCtx operationContext) (*rpcserver.PeerServer, error) {
 			listener.Close()
 		}
 	}()
-	agent, err := install.StartAgent(agentURL, rpcserver.PeerConfig{
+	agent, err := install.NewAgentFromURL(agentURL, rpcserver.PeerConfig{
 		Config: rpcserver.Config{
 			Listener:      listener,
 			Credentials:   opCtx.Creds,
@@ -578,7 +574,8 @@ func (p *Peer) run() error {
 		}
 	}
 
-	install.PollProgress(p.Context, p.send, ctx.Operator, ctx.Operation.Key(), p.agent.Done())
+	// FIXME
+	// install.PollProgress(p.Context, p.send, ctx.Operator, ctx.Operation.Key(), p.agent.Done())
 	return nil
 }
 
@@ -652,7 +649,7 @@ func (p *Peer) waitForAgents(ctx operationContext) error {
 				log.Warningf("%v", err)
 				continue
 			}
-			req, err := install.GetServers(*op, report.Servers)
+			req, err := install.GetServerUpdateRequest(*op, report.Servers)
 			if err != nil {
 				log.Warningf("%v", err)
 				continue
@@ -667,21 +664,23 @@ func (p *Peer) waitForAgents(ctx operationContext) error {
 	}
 }
 
-func (p *Peer) send(e install.Event) {
-	select {
-	case p.EventsC <- e:
-	case <-p.Context.Done():
-	default:
-		p.Warnf("Failed to send event, events channel is blocked.")
-	}
-}
+// FIXME
+// func (p *Peer) send(e install.Event) {
+// 	select {
+// 	case p.EventsC <- e:
+// 	case <-p.Context.Done():
+// 	default:
+// 		p.Warnf("Failed to send event, events channel is blocked.")
+// 	}
+// }
 
 // sendMessage sends an event with just a progress message
 func (p *Peer) sendMessage(format string, args ...interface{}) {
-	p.send(install.Event{
-		Progress: &ops.ProgressEntry{
-			Message: fmt.Sprintf(format, args...)},
-	})
+	// FIXME
+	// 	p.send(install.Event{
+	// 		Progress: &ops.ProgressEntry{
+	// 			Message: fmt.Sprintf(format, args...)},
+	// 	})
 }
 
 // PrintStep outputs a message to the console
@@ -699,7 +698,8 @@ func (p *Peer) Start() (err error) {
 	go func() {
 		err := p.run()
 		if err != nil {
-			p.send(install.Event{Error: err})
+			// FIXME:
+			//p.send(install.Event{Error: err})
 		}
 	}()
 	return nil
@@ -713,7 +713,8 @@ func (p *Peer) Done() <-chan struct{} {
 
 // Wait waits for the expand operation to complete
 func (p *Peer) Wait() error {
-	start := time.Now()
+	// FIXME
+	// start := time.Now()
 	for {
 		select {
 		case <-p.Done():
@@ -721,23 +722,24 @@ func (p *Peer) Wait() error {
 			return nil
 		case <-p.Context.Done():
 			return trace.Wrap(p.Context.Err())
-		case event := <-p.EventsC:
-			if event.Error != nil {
-				return trace.Wrap(event.Error)
-			}
-			progress := event.Progress
-			if progress.Message != "" {
-				p.PrintStep(progress.Message)
-			}
-			if progress.State == ops.ProgressStateCompleted {
-				p.PrintStep(color.GreenString("Joined cluster in %v", time.Now().Sub(start)))
-				return nil
-			}
-			if progress.State == ops.ProgressStateFailed {
-				p.Silent.Println(color.RedString("Failed to join the cluster"))
-				p.Silent.Printf("---\nAgent process will keep running so you can re-run certain steps.\n" +
-					"Once no longer needed, this process can be shutdown using Ctrl-C.\n")
-			}
+			// FIXME
+			// case event := <-p.EventsC:
+			// 	if event.Error != nil {
+			// 		return trace.Wrap(event.Error)
+			// 	}
+			// 	progress := event.Progress
+			// 	if progress.Message != "" {
+			// 		p.PrintStep(progress.Message)
+			// 	}
+			// 	if progress.State == ops.ProgressStateCompleted {
+			// 		p.PrintStep(color.GreenString("Joined cluster in %v", time.Now().Sub(start)))
+			// 		return nil
+			// 	}
+			// 	if progress.State == ops.ProgressStateFailed {
+			// 		p.Silent.Println(color.RedString("Failed to join the cluster"))
+			// 		p.Silent.Printf("---\nAgent process will keep running so you can re-run certain steps.\n" +
+			// 			"Once no longer needed, this process can be shutdown using Ctrl-C.\n")
+			// 	}
 		}
 	}
 }
