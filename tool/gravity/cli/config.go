@@ -162,7 +162,7 @@ func NewInstallConfig(env *localenv.LocalEnvironment, g *Application) InstallCon
 			Args:          *g.InstallCmd.DockerArgs,
 		},
 		DNSConfig: g.InstallCmd.DNSConfig(),
-		// FIXME
+		// FIXME: manual operation only makes sense for CLI installation
 		// Manual:             *g.InstallCmd.Manual,
 		GCENodeTags:        *g.InstallCmd.GCENodeTags,
 		LocalPackages:      env.Packages,

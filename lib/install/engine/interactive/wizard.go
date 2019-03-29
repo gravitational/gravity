@@ -11,10 +11,8 @@ import (
 	"github.com/gravitational/gravity/lib/install/engine"
 	"github.com/gravitational/gravity/lib/loc"
 	"github.com/gravitational/gravity/lib/ops"
-	"github.com/gravitational/gravity/lib/process"
 	"github.com/gravitational/gravity/lib/utils"
 
-	"github.com/fatih/color"
 	"github.com/gravitational/trace"
 	log "github.com/sirupsen/logrus"
 )
@@ -74,7 +72,15 @@ func (r *Engine) Execute(ctx context.Context, installer install.Installer) error
 		r.Operator, operation.Key(), r.FieldLogger); err != nil {
 		return trace.Wrap(err)
 	}
-	return wait(ctx, installer.Process, installer.Printer)
+	// With an interactive installation, the link to remote Ops Center cannot be removed
+	// immediately as it is used to tunnel final install step
+	if err := installer.CompleteFinalInstallStep(defaults.WizardLinkTTL); err != nil {
+		r.WithError(err).Warn("Failed to complete final install step.")
+	}
+	if err := installer.Finalize(ctx, *operation); err != nil {
+		r.WithError(err).Warn("Failed to finalize install.")
+	}
+	return nil
 }
 
 func (r *Engine) waitForOperation(ctx context.Context, operator ops.Operator) (operation *ops.SiteOperation, err error) {
@@ -131,22 +137,4 @@ func (r *Engine) printURL(advertiseAddr string, app loc.Locator, token string, p
 
 type Engine struct {
 	Config
-}
-
-func wait(ctx context.Context, p process.GravityProcess, printer utils.Printer) error {
-	printer.Print("\nInstaller process will keep running so the installation can be finished by\n" +
-		"completing necessary post-install actions in the installer UI if the installed\n" +
-		"application requires it.\n" +
-		color.YellowString("\nOnce no longer needed, press Ctrl-C to shutdown this process.\n"),
-	)
-	errC := make(chan error, 1)
-	go func() {
-		errC <- p.Wait()
-	}()
-	select {
-	case err := <-errC:
-		return trace.Wrap(err)
-	case <-ctx.Done():
-		return trace.Wrap(ctx.Err())
-	}
 }

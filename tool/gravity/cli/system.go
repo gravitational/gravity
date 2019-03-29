@@ -106,7 +106,7 @@ func systemUpdate(env *localenv.LocalEnvironment, changesetID string, serviceNam
 		if withStatus {
 			args = append(args, "--with-status")
 		}
-		return trace.Wrap(installOneshotService(env, serviceName, args))
+		return trace.Wrap(systemservice.InstallOneshotService(env, serviceName, args...))
 	}
 
 	reqs, err := findPackages(env.Packages, runtimePackage)
@@ -177,7 +177,7 @@ func systemRollback(env *localenv.LocalEnvironment, changesetID, serviceName str
 		if withStatus {
 			args = append(args, "--with-status")
 		}
-		return trace.Wrap(installOneshotService(env, serviceName, args))
+		return trace.Wrap(systemservice.InstallOneshotService(serviceName, args...))
 	}
 
 	changes := changeset.ReversedChanges()
@@ -236,7 +236,7 @@ func systemReinstall(env *localenv.LocalEnvironment, newPackage loc.Locator, ser
 		kvs := configure.KeyVal(labels)
 		args = append(args, "--labels", kvs.String())
 	}
-	err := installOneshotService(env, serviceName, args)
+	err := systemservice.InstallOneshotService(serviceName, args...)
 	if err != nil {
 		return trace.Wrap(err)
 	}
@@ -293,60 +293,6 @@ func reinstallOneshotService(env *localenv.LocalEnvironment, serviceName string,
 			StartCommand:    strings.Join(cmd, " "),
 			RemainAfterExit: true,
 		},
-	})
-	return trace.Wrap(err)
-}
-
-// installOneshotService installs a systemd service named serviceName of type=oneshot
-// using args as arguments to the gravity command on host.
-// args should only list secondary arguments w/o specifying the binary.
-// The operation is non-blocking - e.g. it does not block waiting for service to complete.
-func installOneshotService(printer utils.Printer, serviceName string, args []string) error {
-	gravityPath, err := exec.LookPath(constants.GravityBin)
-	if err != nil {
-		return trace.Wrap(err, "failed to find %v binary in PATH",
-			constants.GravityBin)
-	}
-
-	args = append([]string{gravityPath}, args...)
-	err = installOneshotServiceFromSpec(printer, serviceName, args,
-		systemservice.ServiceSpec{
-			// Dump the gravity binary version as a start command
-			StartCommand: fmt.Sprintf("%v version", gravityPath),
-		})
-	return trace.Wrap(err)
-}
-
-// installOneshotServiceFromSpec installs a systemd service named serviceName of type=oneshot
-// using args as the ExecStartPre command and spec as the service specification.
-// The operation is non-blocking - e.g. it does not block waiting for service to complete.
-// The spec will have fields responsible for making a oneshot service automatically populated.
-func installOneshotServiceFromSpec(printer utils.Printer, serviceName string, args []string, spec systemservice.ServiceSpec) error {
-	printer.Printf("launching oneshot system service %v\n", serviceName)
-
-	services, err := systemservice.New()
-	if err != nil {
-		return trace.Wrap(err)
-	}
-
-	if len(args) != 0 {
-		command := strings.Join(args, " ")
-		// We do actual job as a command executed before the service entrypoint
-		// to distinguish between completed job (status active) and in-progress job
-		// (status activating)
-		spec.StartPreCommand = command
-	}
-
-	if spec.User == "" {
-		spec.User = constants.RootUIDString
-	}
-	spec.Type = constants.OneshotService
-	spec.RemainAfterExit = true
-
-	err = services.InstallService(systemservice.NewServiceRequest{
-		Name:        serviceName,
-		NoBlock:     true,
-		ServiceSpec: spec,
 	})
 	return trace.Wrap(err)
 }

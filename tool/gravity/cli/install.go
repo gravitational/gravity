@@ -446,11 +446,11 @@ func agent(env *localenv.LocalEnvironment, config agentConfig, serviceName strin
 			StartCommand: strings.Join(command, " "),
 		}
 		log.Infof("Installing service with spec %+v.", spec)
-		err := installOneshotServiceFromSpec(env, serviceName, nil, spec)
+		err := systemservice.InstallOneshotServiceFromSpec(serviceName, spec)
 		if err != nil {
 			return trace.Wrap(err)
 		}
-		fmt.Printf("Agent service %v started.\n", serviceName)
+		env.Printf("Agent service %v started.\n", serviceName)
 		return nil
 	}
 

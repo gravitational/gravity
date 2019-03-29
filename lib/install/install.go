@@ -47,6 +47,7 @@ import (
 	"github.com/gravitational/gravity/lib/systeminfo"
 	"github.com/gravitational/gravity/lib/utils"
 
+	"github.com/fatih/color"
 	"github.com/gravitational/trace"
 	log "github.com/sirupsen/logrus"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -71,15 +72,14 @@ func New(ctx context.Context, config Config) (*Installer, error) {
 
 // Execute executes the installation using the specified engine
 func (i *Installer) Execute(ctx context.Context, engine Engine) error {
-	if err := i.upsertAdminAgent(); err != nil {
+	if err := i.bootstrap(); err != nil {
 		return trace.Wrap(err)
 	}
 	err := engine.Execute(ctx, *i)
 	if err != nil {
-		return trace.Wrap(err)
+		return trace.Wrap(i.wait(ctx))
 	}
-	i.PrintPostInstallBanner(ctx)
-	// FIXME: finalize here or engine-specific?
+	i.printPostInstallBanner(ctx)
 	return nil
 }
 
@@ -146,13 +146,77 @@ func (i *Installer) NewAgent(agentURL string) (rpcserver.Server, error) {
 	return agent, nil
 }
 
-func (i *Installer) PrintPostInstallBanner(ctx context.Context) {
+// Finalize executes additional steps after the installation has completed
+func (i *Installer) Finalize(ctx context.Context, operation ops.SiteOperation) error {
+	var errors []error
+	if err := i.uploadInstallLog(operation.Key()); err != nil {
+		errors = append(errors, err)
+	}
+	if err := i.emitAuditEvents(ctx, operation); err != nil {
+		errors = append(errors, err)
+	}
+	return trace.NewAggregate(errors...)
+}
+
+// CompleteFinalInstallStep marks the final install step as completed unless
+// the application has a custom install step - in which case it does nothing
+// because it will be completed by user later
+func (i *Installer) CompleteFinalInstallStep(delay time.Duration) error {
+	// see if the application defines custom install step
+	// if it has a custom setup endpoint, user needs to complete it
+	if i.App.Manifest.SetupEndpoint() != nil {
+		return nil
+	}
+	// determine delay for removing connection from installed cluster to this
+	// installer process - in case of interactive installs, we can not remove
+	// the link right away because it is used to tunnel final install step
+	req := ops.CompleteFinalInstallStepRequest{
+		AccountID:           defaults.SystemAccountID,
+		SiteDomain:          i.SiteDomain,
+		WizardConnectionTTL: delay,
+	}
+	i.WithField("req", req).Debug("Completing final install step.")
+	if err := i.Operator.CompleteFinalInstallStep(req); err != nil {
+		return trace.Wrap(err, "failed to complete final install step")
+	}
+	return nil
+}
+
+func (i *Installer) bootstrap() error {
+	if err := i.upsertAdminAgent(); err != nil {
+		return trace.Wrap(err)
+	}
+	return nil
+}
+
+// wait blocks until either the context has been cancelled or the wizard process
+// exits with an error
+func (i *Installer) wait(ctx context.Context) error {
+	i.Printer.Print("\nInstaller process will keep running so the installation can be finished by\n" +
+		"completing necessary post-install actions in the installer UI if the installed\n" +
+		"application requires it.\n" +
+		color.YellowString("\nOnce no longer needed, press Ctrl-C to shutdown this process.\n"),
+	)
+	errC := make(chan error, 1)
+	go func() {
+		errC <- i.Process.Wait()
+	}()
+	select {
+	case err := <-errC:
+		return trace.Wrap(err)
+	case <-ctx.Done():
+		return trace.Wrap(ctx.Err())
+	}
+}
+
+func (i *Installer) printPostInstallBanner(ctx context.Context) {
 	var buf bytes.Buffer
 	i.printEndpoints(ctx, &buf)
 	if m, ok := modules.Get().(modules.Messager); ok {
 		fmt.Fprintf(&buf, "\n%v\n", m.PostInstallMessage())
 	}
-	// FIXME
+	// FIXME: this needs to be set as progressEntry.Message
+	// for the final progress entry
 	// i.Printer.PrintProgress(buf.String())
 	i.Printer.Print(buf.String())
 }
@@ -196,49 +260,6 @@ func (i *Installer) upsertAdminAgent() error {
 		return trace.Wrap(err)
 	}
 	i.WithField("agent", agent).Info("Created cluster agent.")
-	return nil
-}
-
-func (i *Installer) finalize(ctx context.Context, operation ops.SiteOperation) error {
-	var errors []error
-	if err := i.uploadInstallLog(operation.Key()); err != nil {
-		errors = append(errors, err)
-	}
-	if err := i.completeFinalInstallStep(); err != nil {
-		errors = append(errors, err)
-	}
-	if err := i.emitAuditEvents(ctx, operation); err != nil {
-		errors = append(errors, err)
-	}
-	return trace.NewAggregate(errors...)
-}
-
-// completeFinalInstallStep marks the final install step as completed unless
-// the application has a custom install step - in which case it does nothing
-// because it will be completed by user later
-func (i *Installer) completeFinalInstallStep() error {
-	// see if the application defines custom install step
-	// if it has a custom setup endpoint, user needs to complete it
-	if i.App.Manifest.SetupEndpoint() != nil {
-		return nil
-	}
-	// determine delay for removing connection from installed cluster to this
-	// installer process - in case of interactive installs, we can not remove
-	// the link right away because it is used to tunnel final install step
-	var delay time.Duration
-	// FIXME: determine the delay
-	// if i.Mode == constants.InstallModeInteractive {
-	// 	delay = defaults.WizardLinkTTL
-	// }
-	req := ops.CompleteFinalInstallStepRequest{
-		AccountID:           defaults.SystemAccountID,
-		SiteDomain:          i.SiteDomain,
-		WizardConnectionTTL: delay,
-	}
-	i.WithField("req", req).Debug("Completing final install step.")
-	if err := i.Operator.CompleteFinalInstallStep(req); err != nil {
-		return trace.Wrap(err, "failed to complete final install step")
-	}
 	return nil
 }
 
@@ -287,6 +308,11 @@ type Installer struct {
 // Engine implements the process of cluster installation
 type Engine interface {
 	// Execute executes the steps to install a cluster.
+	// If the method returns with an error, the installer will continue
+	// running until it receives a shutdown signal (FIXME: how to relay this
+	// to a systemd unit? It needs to run some sort of RPC server or a handle
+	// a specific signal like SIGHUP)
+	//
 	// Config specifies the configuration from command line parameters
 	Execute(context.Context, Installer) error
 }

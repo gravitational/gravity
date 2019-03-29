@@ -71,21 +71,15 @@ type Config struct {
 	ops.Operator
 	// ExcludeHostFromCluster specifies whether the host should not be part of the cluster
 	ExcludeHostFromCluster bool
+	// Manual specifies whether the operation should be automatically executed.
+	// If false, only the cluster/operation/plan are created
+	Manual bool
 }
 
 // Execute executes the installer steps
 func (r *Engine) Execute(ctx context.Context, installer install.Installer) (err error) {
-	err = install.InstallBinary(installer.ServiceUser.UID, installer.ServiceUser.GID, r.FieldLogger)
-	if err != nil {
-		return trace.Wrap(err, "failed to install binary")
-	}
-	err = configureStateDirectory(installer.SystemDevice)
-	if err != nil {
-		return trace.Wrap(err, "failed to configure state directory")
-	}
-	err = install.ExportRPCCredentials(ctx, installer.Packages, r.FieldLogger)
-	if err != nil {
-		return trace.Wrap(err, "failed to export RPC credentials")
+	if err := r.bootstrap(ctx, installer.Config); err != nil {
+		return trace.Wrap(err)
 	}
 	operation, err := r.upsertClusterAndOperation(ctx, r.Operator, installer.Config)
 	if err != nil {
@@ -110,6 +104,29 @@ func (r *Engine) Execute(ctx context.Context, installer install.Installer) (err 
 	if err := engine.ExecuteOperation(ctx, r.Planner, r.StateMachineFactory,
 		r.Operator, operation.Key(), r.FieldLogger); err != nil {
 		return trace.Wrap(err)
+	}
+	if err := installer.CompleteFinalInstallStep(0); err != nil {
+		r.WithError(err).Warn("Failed to complete final install step.")
+	}
+	if err := installer.Finalize(ctx, *operation); err != nil {
+		r.WithError(err).Warn("Failed to finalize install.")
+	}
+	return nil
+}
+
+// bootstrap prepares for the installation
+func (r *Engine) bootstrap(ctx context.Context, config install.Config) error {
+	err := install.InstallBinary(config.ServiceUser.UID, config.ServiceUser.GID, r.FieldLogger)
+	if err != nil {
+		return trace.Wrap(err, "failed to install binary")
+	}
+	err = configureStateDirectory(config.SystemDevice)
+	if err != nil {
+		return trace.Wrap(err, "failed to configure state directory")
+	}
+	err = install.ExportRPCCredentials(ctx, config.Packages, r.FieldLogger)
+	if err != nil {
+		return trace.Wrap(err, "failed to export RPC credentials")
 	}
 	return nil
 }
