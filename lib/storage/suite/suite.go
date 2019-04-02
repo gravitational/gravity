@@ -267,8 +267,8 @@ func (s *StorageSuite) SAMLCRUD(c *C) {
 			Namespace: defaults.Namespace,
 		},
 		Spec: teleservices.SAMLConnectorSpecV2{
-			Issuer: "http://example.com",
-			SSO:    "https://example.com/saml/sso",
+			Issuer:                   "http://example.com",
+			SSO:                      "https://example.com/saml/sso",
 			AssertionConsumerService: "https://localhost/acs",
 			Audience:                 "https://localhost/aud",
 			ServiceProviderIssuer:    "https://localhost/iss",
@@ -357,11 +357,11 @@ func (s *StorageSuite) WebSessionsCRUD(c *C) {
 	authority := testauthority.New()
 	privateKey, publicKey, err := authority.GenerateKeyPair("")
 	cert, err := authority.GenerateUserCert(teleservices.UserCertParams{
-		PrivateCASigningKey: privateKey,
-		PublicUserKey:       publicKey,
-		Username:            "user",
-		AllowedLogins:       []string{"admin", "cenots"},
-		TTL:                 time.Hour,
+		PrivateCASigningKey:   privateKey,
+		PublicUserKey:         publicKey,
+		Username:              "user",
+		AllowedLogins:         []string{"admin", "cenots"},
+		TTL:                   time.Hour,
 		PermitAgentForwarding: true,
 	})
 	c.Assert(err, IsNil)
@@ -485,7 +485,10 @@ func (s *StorageSuite) UserInvitesCRUD(c *C) {
 		CreatedBy: "alice@example.com",
 	}
 
-	u.CheckAndSetDefaults()
+	err = u.CheckAndSetDefaults()
+	c.Assert(err, FitsTypeOf, trace.BadParameter(""), Commentf("Should fail on empty roles"))
+
+	u.Roles = []string{"admin"}
 
 	// create
 	out, err := s.Backend.UpsertUserInvite(u)
