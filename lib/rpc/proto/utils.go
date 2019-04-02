@@ -69,7 +69,7 @@ func EncodeError(err error) *Error {
 }
 
 func ErrorToMessage(err error) *Message {
-	return &Message{&Message_Error{EncodeError(err)}}
+	return &Message{Element: &Message_Error{EncodeError(err)}}
 }
 
 func DecodeError(err *Error) error {

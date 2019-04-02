@@ -1,0 +1,37 @@
+syntax = "proto3";
+
+package proto;
+
+service Installer {
+    // Shutdown requests that the installer exit
+    rpc Shutdown(ShutdownRequest) returns (ShutdownResponse);
+
+    // GetProgress polls the server for operation progress
+    rpc GetProgress(ProgressRequest) returns (stream ProgressResponse);
+}
+
+// ShutdownRequest describes a request to shut down the process
+message ShutdownRequest {
+}
+
+// ShutdownResponse describes the server response to the shut down request
+message ShutdownResponse {
+}
+
+// ProgressRequest is a request for stream of progress messages
+message ProgressRequest {
+}
+
+// ProgressResponse describes a single progress step
+message ProgressResponse {
+    // Message specifies the progress message
+    string message = 1;
+    // Errors lists errors for this progress step
+    repeated Error errors = 2;
+}
+
+// Error represents an error in the operation
+message Error {
+    // Messages specifies the error message
+    string message = 1;
+}

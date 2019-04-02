@@ -51,6 +51,7 @@ func WatchTerminationSignalsWithChannel(ctx context.Context, cancel context.Canc
 	go func() {
 		defer func() {
 			if len(stoppers) == 0 {
+				cancel()
 				return
 			}
 			localCtx, localCancel := context.WithTimeout(ctx, 5*time.Second)
@@ -58,7 +59,6 @@ func WatchTerminationSignalsWithChannel(ctx context.Context, cancel context.Canc
 				stopper.Stop(localCtx)
 			}
 			localCancel()
-			cancel()
 		}()
 		for {
 			select {

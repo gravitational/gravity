@@ -78,7 +78,7 @@ type Config struct {
 
 // Execute executes the installer steps
 func (r *Engine) Execute(ctx context.Context, installer install.Installer) (err error) {
-	if err := r.bootstrap(ctx, installer.Config); err != nil {
+	if err := r.bootstrap(ctx, installer); err != nil {
 		return trace.Wrap(err)
 	}
 	operation, err := r.upsertClusterAndOperation(ctx, r.Operator, installer.Config)
@@ -115,16 +115,16 @@ func (r *Engine) Execute(ctx context.Context, installer install.Installer) (err 
 }
 
 // bootstrap prepares for the installation
-func (r *Engine) bootstrap(ctx context.Context, config install.Config) error {
-	err := install.InstallBinary(config.ServiceUser.UID, config.ServiceUser.GID, r.FieldLogger)
+func (r *Engine) bootstrap(ctx context.Context, installer install.Installer) error {
+	err := install.InstallBinary(installer.ServiceUser.UID, installer.ServiceUser.GID, r.FieldLogger)
 	if err != nil {
 		return trace.Wrap(err, "failed to install binary")
 	}
-	err = configureStateDirectory(config.SystemDevice)
+	err = configureStateDirectory(installer.SystemDevice)
 	if err != nil {
 		return trace.Wrap(err, "failed to configure state directory")
 	}
-	err = install.ExportRPCCredentials(ctx, config.Packages, r.FieldLogger)
+	err = install.ExportRPCCredentials(ctx, installer.Packages, r.FieldLogger)
 	if err != nil {
 		return trace.Wrap(err, "failed to export RPC credentials")
 	}
@@ -138,7 +138,7 @@ func (r *Engine) upsertClusterAndOperation(ctx context.Context, operator ops.Ope
 	}
 	var cluster *ops.Site
 	if len(clusters) == 0 {
-		cluster, err = r.CreateCluster(operator)
+		_, err := operator.CreateSite(r.NewCluster())
 		if err != nil {
 			return nil, trace.Wrap(err)
 		}

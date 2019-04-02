@@ -22,9 +22,9 @@ type StateMachineFactory interface {
 
 // ClusterFactory creates clusters
 type ClusterFactory interface {
-	// CreateCluster creates a cluster in the specified operator.
+	// NewCluster returns a new request to create a cluster.
 	// Returns the created cluster record
-	CreateCluster(operator ops.Operator) (*ops.Site, error)
+	NewCluster() ops.NewSiteRequest
 }
 
 // Planer constructs a plan for the install operation

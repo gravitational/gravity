@@ -106,7 +106,7 @@ func systemUpdate(env *localenv.LocalEnvironment, changesetID string, serviceNam
 		if withStatus {
 			args = append(args, "--with-status")
 		}
-		return trace.Wrap(systemservice.InstallOneshotService(env, serviceName, args...))
+		return trace.Wrap(systemservice.InstallOneshotService(serviceName, args...))
 	}
 
 	reqs, err := findPackages(env.Packages, runtimePackage)

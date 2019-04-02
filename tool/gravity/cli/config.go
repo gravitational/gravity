@@ -17,8 +17,6 @@ limitations under the License.
 package cli
 
 import (
-	"context"
-	"fmt"
 	"net"
 	"os"
 	"path/filepath"
@@ -131,6 +129,8 @@ type InstallConfig struct {
 	ProcessConfig *processconfig.Config
 	// ServiceUser is the computed service user
 	ServiceUser *systeminfo.User
+	// FromService specifies whether the process runs in service mode
+	FromService bool
 }
 
 // NewInstallConfig creates install config from the passed CLI args and flags
@@ -178,6 +178,7 @@ func NewInstallConfig(env *localenv.LocalEnvironment, g *Application) InstallCon
 		DNSHosts:      *g.InstallCmd.DNSHosts,
 		DNSZones:      *g.InstallCmd.DNSZones,
 		Flavor:        *g.InstallCmd.Flavor,
+		FromService:   *g.InstallCmd.FromService,
 		Printer:       env,
 	}
 }
@@ -245,7 +246,7 @@ func (i *InstallConfig) CheckAndSetDefaults() (err error) {
 }
 
 // ToInstallerConfig returns this configuration as install.Config
-func (i *InstallConfig) ToInstallerConfig(ctx context.Context, processConfig processconfig.Config, validator resources.Validator) (config *install.Config, err error) {
+func (i *InstallConfig) ToInstallerConfig(validator resources.Validator) (config *install.Config, err error) {
 	var kubernetesResources []runtime.Object
 	var gravityResources []storage.UnknownResource
 	if i.ResourcesPath != "" {
@@ -271,11 +272,6 @@ func (i *InstallConfig) ToInstallerConfig(ctx context.Context, processConfig pro
 		return nil, trace.Wrap(err)
 	}
 	err = validateRole(&i.Role, *flavor, app.Manifest.NodeProfiles, i.FieldLogger)
-	if err != nil {
-		return nil, trace.Wrap(err)
-	}
-	wizard, err := localenv.LoginWizard(fmt.Sprintf("https://%v",
-		processConfig.Pack.GetAddr().Addr))
 	if err != nil {
 		return nil, trace.Wrap(err)
 	}
@@ -312,13 +308,6 @@ func (i *InstallConfig) ToInstallerConfig(ctx context.Context, processConfig pro
 		DNSOverrides:     *dnsOverrides,
 		RuntimeResources: kubernetesResources,
 		ClusterResources: gravityResources,
-		Operator:         wizard.Operator,
-		Apps:             wizard.Apps,
-		Packages:         wizard.Packages,
-	}
-	config.Process, err = install.InitProcess(ctx, *config, processConfig)
-	if err != nil {
-		return nil, trace.Wrap(err)
 	}
 	return config, nil
 }

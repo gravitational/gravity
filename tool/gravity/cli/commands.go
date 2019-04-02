@@ -398,6 +398,12 @@ type InstallCmd struct {
 	DNSZones *[]string
 	// ExcludeHostFromCluster specifies whether the host should not be part of the cluster
 	ExcludeHostFromCluster *bool
+	// FromService specifies whether this process runs in service mode.
+	//
+	// The installer runs the main installer code in service mode, while
+	// the client will simply connect to the service and stream its output and errors
+	// and control whether it should stop
+	FromService *bool
 }
 
 // JoinCmd joins to the installer or existing cluster
@@ -931,6 +937,12 @@ type WizardCmd struct {
 	ServiceUID *string
 	// ServiceGID is system user group ID
 	ServiceGID *string
+	// FromService specifies whether this process runs in service mode.
+	//
+	// The installer runs the main installer code in service mode, while
+	// the client will simply connect to the service and stream its output and errors
+	// and control whether it should stop
+	FromService *bool
 }
 
 // AppPackageCmd displays the name of app in installer tarball

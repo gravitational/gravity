@@ -51,13 +51,13 @@ func (c *osCommand) exec(ctx context.Context, stream pb.OutgoingMessageStream, a
 		return trace.Wrap(err, "failed to start %v", cmd.Path)
 	}
 
-	stream.Send(&pb.Message{&pb.Message_ExecStarted{&pb.ExecStarted{
+	stream.Send(&pb.Message{Element: &pb.Message_ExecStarted{&pb.ExecStarted{
 		Args: args,
 		Seq:  seq,
 	}}})
 	err = cmd.Wait()
 	if err == nil {
-		err = stream.Send(&pb.Message{&pb.Message_ExecCompleted{&pb.ExecCompleted{Seq: seq}}})
+		err = stream.Send(&pb.Message{Element: &pb.Message_ExecCompleted{&pb.ExecCompleted{Seq: seq}}})
 		return trace.Wrap(err)
 	}
 
@@ -68,7 +68,7 @@ func (c *osCommand) exec(ctx context.Context, stream pb.OutgoingMessageStream, a
 		}
 	}
 
-	errWrite := stream.Send(&pb.Message{&pb.Message_ExecCompleted{&pb.ExecCompleted{
+	errWrite := stream.Send(&pb.Message{Element: &pb.Message_ExecCompleted{&pb.ExecCompleted{
 		Seq:      seq,
 		ExitCode: int32(exitCode),
 		Error:    pb.EncodeError(trace.Wrap(err)),
@@ -97,7 +97,7 @@ func (s *streamWriter) Write(p []byte) (n int, err error) {
 		Seq:  s.seq,
 	}
 
-	err = s.stream.Send(&pb.Message{&pb.Message_ExecOutput{data}})
+	err = s.stream.Send(&pb.Message{Element: &pb.Message_ExecOutput{data}})
 	if err != nil {
 		return 0, err
 	}

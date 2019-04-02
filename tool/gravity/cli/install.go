@@ -19,12 +19,13 @@ package cli
 import (
 	"context"
 	"fmt"
+	"net"
+	"os"
 	"os/exec"
 	"strings"
 	"time"
 
 	autoscaleaws "github.com/gravitational/gravity/lib/autoscale/aws"
-	"github.com/gravitational/gravity/lib/checks"
 	cloudaws "github.com/gravitational/gravity/lib/cloudprovider/aws"
 	"github.com/gravitational/gravity/lib/constants"
 	"github.com/gravitational/gravity/lib/defaults"
@@ -34,8 +35,8 @@ import (
 	"github.com/gravitational/gravity/lib/install"
 	clinstall "github.com/gravitational/gravity/lib/install/engine/cli"
 	"github.com/gravitational/gravity/lib/install/engine/interactive"
+	installpb "github.com/gravitational/gravity/lib/install/proto"
 	"github.com/gravitational/gravity/lib/localenv"
-	validationpb "github.com/gravitational/gravity/lib/network/validation/proto"
 	"github.com/gravitational/gravity/lib/ops"
 	"github.com/gravitational/gravity/lib/ops/resources"
 	"github.com/gravitational/gravity/lib/ops/resources/gravity"
@@ -45,6 +46,7 @@ import (
 	"github.com/gravitational/gravity/lib/systeminfo"
 	"github.com/gravitational/gravity/lib/systemservice"
 	"github.com/gravitational/gravity/lib/utils"
+	"google.golang.org/grpc"
 
 	"github.com/gravitational/configure"
 	"github.com/gravitational/trace"
@@ -97,7 +99,63 @@ func startInstall(env *localenv.LocalEnvironment, config InstallConfig) error {
 		return trace.Wrap(err)
 	}
 
+	installerConfig, err := config.ToInstallerConfig(resources.ValidateFunc(gravity.Validate))
+	if err != nil {
+		return trace.Wrap(err)
+	}
+
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+	updateC := utils.WatchTerminationSignalsWithChannel(ctx, cancel, log)
+
+	err = installerConfig.RunLocalChecks(ctx)
+	if err != nil {
+		return trace.Wrap(err)
+	}
+
+	if config.FromService {
+		return trace.Wrap(startInstallFromService(env, config))
+	}
+
+	if err := InstallService(config); err != nil {
+		return trace.Wrap(err, "failed to setup installer service")
+	}
+
+	client, err := newClient(ctx)
+	if err != nil {
+		return trace.Wrap(err)
+	}
+	select {
+	case updateC <- utils.StopperFunc(func(ctx context.Context) error {
+		_, err := client.Shutdown(ctx, &installpb.ShutdownRequest{})
+		return trace.Wrap(err)
+	}):
+	case <-ctx.Done():
+		return trace.Wrap(ctx.Err())
+	}
+
+	// TODO: combine progress poll loop with state database as well
+	stream, err := client.GetProgress(ctx, &installpb.ProgressRequest{})
+	for {
+		progress, err := stream.Recv()
+		if err != nil {
+			// FIXME: shutdown the service on client exiting with error?
+			return trace.Wrap(err)
+		}
+		// TODO: handle errors
+		env.Println(progress.GetMessage())
+	}
+
+	return nil
+}
+
+func startInstallFromService(env *localenv.LocalEnvironment, config InstallConfig) error {
 	if err := config.CheckAndSetDefaults(); err != nil {
+		return trace.Wrap(err)
+	}
+
+	installerConfig, err := config.ToInstallerConfig(resources.ValidateFunc(gravity.Validate))
+	if err != nil {
 		return trace.Wrap(err)
 	}
 
@@ -119,17 +177,12 @@ func startInstall(env *localenv.LocalEnvironment, config InstallConfig) error {
 		return trace.Wrap(err)
 	}
 
-	installerConfig, err := config.ToInstallerConfig(ctx, *processConfig, resources.ValidateFunc(gravity.Validate))
+	installerConfig.Process, err = install.InitProcess(ctx, *installerConfig, *processConfig)
 	if err != nil {
 		return trace.Wrap(err)
 	}
 
-	err = RunLocalChecks(ctx, *installerConfig)
-	if err != nil {
-		return trace.Wrap(err)
-	}
-
-	installer, err := install.New(ctx, *installerConfig)
+	installer, err := install.New(ctx, cancel, *installerConfig)
 	if err != nil {
 		return trace.Wrap(err)
 	}
@@ -145,9 +198,9 @@ func startInstall(env *localenv.LocalEnvironment, config InstallConfig) error {
 	var engine install.Engine
 	switch config.Mode {
 	case constants.InstallModeCLI:
-		engine, err = newCLInstaller(*installer, config.ExcludeHostFromCluster)
+		engine, err = newCLInstaller(installer, config.ExcludeHostFromCluster)
 	case constants.InstallModeInteractive:
-		engine, err = newWizardInstaller(*installer)
+		engine, err = newWizardInstaller(installer)
 	default:
 		return trace.BadParameter("unknown mode %q", config.Mode)
 	}
@@ -162,38 +215,69 @@ func startInstall(env *localenv.LocalEnvironment, config InstallConfig) error {
 	return trace.Wrap(err)
 }
 
-func RunLocalChecks(ctx context.Context, config install.Config) error {
-	return trace.Wrap(checks.RunLocalChecks(ctx, checks.LocalChecksRequest{
-		Manifest: config.App.Manifest,
-		Role:     config.Role,
-		Docker:   config.Docker,
-		Options: &validationpb.ValidateOptions{
-			VxlanPort: int32(config.VxlanPort),
-			DnsAddrs:  config.DNSConfig.Addrs,
-			DnsPort:   int32(config.DNSConfig.Port),
-		},
-		AutoFix: true,
-	}))
+func InstallService(config InstallConfig) error {
+	args := os.Args[1:]
+	args = append(args, "--from-service")
+	return trace.Wrap(systemservice.InstallOneshotService("gravity-agent", args...))
 }
 
-func newCLInstaller(installer install.Installer, excludeHostFromCluster bool) (*clinstall.Engine, error) {
+func newClient(ctx context.Context) (installpb.InstallerClient, error) {
+	type result struct {
+		*grpc.ClientConn
+		error
+	}
+	resultC := make(chan result, 1)
+	go func() {
+		dialOptions := []grpc.DialOption{
+			// Don't use TLS, as we communicate over domain sockers
+			grpc.WithInsecure(),
+			// Retry every second after failure
+			grpc.WithBackoffMaxDelay(time.Second),
+			grpc.WithBlock(),
+			grpc.WithDialer(func(addr string, timeout time.Duration) (net.Conn, error) {
+				// FIXME: socket path in ephemeral directory
+				conn, err := net.DialTimeout("unix", "./installer.sock", timeout)
+				if err != nil {
+					return nil, trace.Wrap(err)
+				}
+				return conn, nil
+			}),
+		}
+		conn, err := grpc.Dial("unix:///installer.sock", dialOptions...)
+		resultC <- result{ClientConn: conn, error: err}
+	}()
+	for {
+		select {
+		case <-ctx.Done():
+			return nil, trace.Wrap(ctx.Err())
+		case result := <-resultC:
+			if result.error != nil {
+				return nil, trace.Wrap(result.error)
+			}
+			client := installpb.NewInstallerClient(result.ClientConn)
+			return client, nil
+		}
+	}
+}
+
+func newCLInstaller(installer *install.Installer, excludeHostFromCluster bool) (*clinstall.Engine, error) {
 	enablePreflightChecks := true
 	return clinstall.New(clinstall.Config{
 		FieldLogger:            installer.WithField("mode", "cli"),
-		StateMachineFactory:    &installer.Config,
-		ClusterFactory:         &installer.Config,
-		Planner:                install.NewPlanner(enablePreflightChecks, &installer),
+		StateMachineFactory:    installer,
+		ClusterFactory:         installer,
+		Planner:                install.NewPlanner(enablePreflightChecks, installer),
 		Operator:               installer.Operator,
 		ExcludeHostFromCluster: excludeHostFromCluster,
 	})
 }
 
-func newWizardInstaller(installer install.Installer) (*interactive.Engine, error) {
+func newWizardInstaller(installer *install.Installer) (*interactive.Engine, error) {
 	disablePreflightChecks := false
 	return interactive.New(interactive.Config{
 		FieldLogger:         installer.WithField("mode", "wizard"),
-		StateMachineFactory: &installer.Config,
-		Planner:             install.NewPlanner(disablePreflightChecks, &installer),
+		StateMachineFactory: installer,
+		Planner:             install.NewPlanner(disablePreflightChecks, installer),
 		Operator:            installer.Operator,
 	})
 }

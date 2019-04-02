@@ -2,9 +2,9 @@ package systemservice
 
 import (
 	"fmt"
-	"os/exec"
 	"strings"
 
+	"github.com/gravitational/gravity/lib/constants"
 	"github.com/gravitational/gravity/lib/utils"
 
 	"github.com/gravitational/trace"
@@ -22,14 +22,14 @@ func InstallOneshotService(serviceName string, args ...string) error {
 	args = append([]string{utils.Exe.Path}, args...)
 	spec := ServiceSpec{
 		// Output the gravity binary version as a start command
-		StartCommand: fmt.Sprintf("%v version", gravityPath),
+		StartCommand: fmt.Sprintf("%v version", utils.Exe.Path),
 		// We do actual job as a command executed before the service entrypoint
 		// to distinguish between completed job (status active) and in-progress job
 		// (status activating)
 		StartPreCommand: strings.Join(args, " "),
 		User:            "planet",
 	}
-	return trace.Wrap(installOneshotServiceFromSpec(service, serviceName, spec, args...))
+	return trace.Wrap(installOneshotServiceFromSpec(services, serviceName, spec, args...))
 }
 
 // InstallOneshotServiceFromSpec installs a systemd service named serviceName of type=oneshot
@@ -40,10 +40,10 @@ func InstallOneshotServiceFromSpec(serviceName string, spec ServiceSpec, args ..
 	if err != nil {
 		return trace.Wrap(err)
 	}
-	return trace.Wrap(installOneshotServiceFromSpec(service, serviceName, spec, args...))
+	return trace.Wrap(installOneshotServiceFromSpec(services, serviceName, spec, args...))
 }
 
-func installOneshotServiceFromSpec(service ServiceManager, serviceName string, spec ServiceSpec, args ...string) error {
+func installOneshotServiceFromSpec(services ServiceManager, serviceName string, spec ServiceSpec, args ...string) error {
 	spec.Type = constants.OneshotService
 	spec.RemainAfterExit = true
 	if spec.User == "" {

@@ -300,6 +300,7 @@ func Execute(g *Application, cmd string, extraArgs []string) error {
 			SystemLogFile: *g.SystemLogFile,
 			ServiceUID:    *g.WizardCmd.ServiceUID,
 			ServiceGID:    *g.WizardCmd.ServiceGID,
+			FromService:   *g.WizardCmd.FromService,
 		})
 	case g.InstallCmd.FullCommand():
 		if *g.InstallCmd.Resume {
