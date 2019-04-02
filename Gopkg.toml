@@ -81,7 +81,7 @@ ignored = [
 
 [[constraint]]
   name = "google.golang.org/grpc"
-  version = ">=v1.8.2"
+  version = "=v1.19.1"
 
 [[constraint]]
   name = "k8s.io/helm"
