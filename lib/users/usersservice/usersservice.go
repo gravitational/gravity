@@ -1288,6 +1288,13 @@ func (c *UsersService) CreateInviteToken(advertiseURL string, userInvite storage
 		userInvite.ExpiresIn = defaults.SignupTokenTTL
 	}
 
+	// Validate that requested roles exist.
+	for _, role := range userInvite.Roles {
+		if _, err := c.GetRole(role); err != nil {
+			return nil, trace.Wrap(err)
+		}
+	}
+
 	userToken, err := c.createUserToken(storage.UserTokenTypeInvite, userInvite.Name, userInvite.ExpiresIn)
 	if err != nil {
 		return nil, trace.Wrap(err)
