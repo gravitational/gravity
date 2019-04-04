@@ -17,6 +17,8 @@ limitations under the License.
 package helm
 
 import (
+	"sort"
+
 	"github.com/gravitational/gravity/lib/storage"
 	"github.com/gravitational/teleport/lib/services"
 	"github.com/gravitational/trace"
@@ -46,9 +48,16 @@ func (c *testClient) Install(p InstallParameters) (storage.Release, error) {
 
 // List returns list of releases matching provided parameters.
 func (c *testClient) List(p ListParameters) ([]storage.Release, error) {
+	// Return with keys (release names) sorted alphabetically to have
+	// a stable order.
+	var keys []string
+	for k := range c.releases {
+		keys = append(keys, k)
+	}
+	sort.Strings(keys)
 	var releases []storage.Release
-	for _, v := range c.releases {
-		releases = append(releases, v)
+	for _, k := range keys {
+		releases = append(releases, c.releases[k])
 	}
 	return releases, nil
 }

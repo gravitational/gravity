@@ -7,7 +7,7 @@ LTS starts with `3.51.0` with minor backwards compatible changes added over time
 
 | Release       | LTS | Release Date         | Supported Until      | Kubernetes Version | Teleport Version |
 | --------------|-----| -------------------- | -------------------- | ------------------ |------------------|
-| 5.5.4         | Yes | March 28th, 2019     | September 7th, 2020  | 1.13.5             | 3.0.4            |
+| 5.5.5         | Yes | April 2nd, 2019      | September 7th, 2020  | 1.13.5             | 3.0.4            |
 | 5.4.10        | No  | March 26th, 2019     | -                    | 1.13.5             | 2.4.10           |
 | 5.3.9*        | No  | March 7th, 2019      | -                    | 1.12.3             | 2.4.7
 | 5.2.12        | Yes | March 26th, 2019     | October 15th, 2019   | 1.11.9             | 2.4.10           |
@@ -28,6 +28,12 @@ LTS starts with `3.51.0` with minor backwards compatible changes added over time
     do not receive updates and bugfixes.
 
 ## 5.x Releases
+
+### 5.5.5 LTS
+
+#### Improvements
+
+* Upgrade helm and tiller to `v2.12.3`.
 
 ### 5.5.4 LTS
 

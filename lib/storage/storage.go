@@ -298,7 +298,7 @@ type UserInvite struct {
 	CreatedBy string `json:"created_by"`
 	// Created is a time this user invite has been created
 	Created time.Time `json:"created"`
-	// Roles are the roles that will be assgined to invited user
+	// Roles are the roles that will be assigned to invited user
 	Roles []string `json:"roles"`
 	// ExpiresIn sets the token expiry time
 	ExpiresIn time.Duration `json:"expires_in"`
@@ -309,15 +309,15 @@ func (u *UserInvite) CheckAndSetDefaults() error {
 	if err := utils.CheckUserName(u.Name); err != nil {
 		return trace.Wrap(err)
 	}
-
 	if u.CreatedBy == "" {
 		return trace.BadParameter("missing CreatedBy")
 	}
-
 	if u.Created.IsZero() {
 		u.Created = time.Now().UTC()
 	}
-
+	if len(u.Roles) == 0 {
+		return trace.BadParameter("roles can't be empty")
+	}
 	return nil
 }
 
