@@ -37,6 +37,8 @@ spec:
           env:
             - name: TILLER_NAMESPACE
               value: kube-system
+            - name: TILLER_HISTORY_MAX
+              value: "100"
           livenessProbe:
             httpGet:
               path: /liveness
@@ -49,4 +51,3 @@ spec:
               port: 44135
             initialDelaySeconds: 1
             timeoutSeconds: 1
-
