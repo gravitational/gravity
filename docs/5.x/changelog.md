@@ -29,6 +29,12 @@ LTS starts with `3.51.0` with minor backwards compatible changes added over time
 
 ## 5.x Releases
 
+### 5.0.32 LTS
+
+#### Bugfixes
+
+* Fix an issue with upgrades for applications that were packaged with multiple versions of planet.
+
 ### 5.5.5 LTS
 
 #### Improvements
