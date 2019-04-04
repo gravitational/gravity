@@ -42,6 +42,7 @@ import (
 	rpcserver "github.com/gravitational/gravity/lib/rpc/server"
 	"github.com/gravitational/gravity/lib/status"
 	"github.com/gravitational/gravity/lib/storage"
+	log "github.com/sirupsen/logrus"
 
 	"github.com/fatih/color"
 	"github.com/gravitational/trace"
@@ -82,7 +83,7 @@ func New(ctx context.Context, cancel context.CancelFunc, config Config) (*Instal
 		// time
 		eventsC: make(chan Event, 1),
 	}
-	installpb.RegisterInstallerServer(grpcServer, installer)
+	installpb.RegisterAgentServer(grpcServer, installer)
 	return installer, nil
 }
 
@@ -93,6 +94,7 @@ func (i *Installer) Execute(ctx context.Context, engine Engine) error {
 	}
 	err := engine.Execute(ctx, *i)
 	if err != nil {
+		i.sendError(ctx, err)
 		return trace.Wrap(i.wait(ctx))
 	}
 	i.printPostInstallBanner(ctx)
@@ -198,7 +200,7 @@ func (i *Installer) CompleteFinalInstallStep(delay time.Duration) error {
 	return nil
 }
 
-// Send streams the specified progress event to the client
+// Send streams the specified progress event to the client.
 func (i *Installer) Send(ctx context.Context, event Event) error {
 	select {
 	case <-ctx.Done():
@@ -206,7 +208,18 @@ func (i *Installer) Send(ctx context.Context, event Event) error {
 	case i.eventsC <- event:
 		// Pushed the progress event
 		return nil
+	default:
+		log.WithField("event", event).Warn("Failed to publish event.")
+		return nil
 	}
+}
+
+// PrintStep sends a progress step described with (format, args) tuple
+func (i *Installer) PrintStep(ctx context.Context, format string, args ...interface{}) error {
+	message := fmt.Sprintf("%v\t%v\n", time.Now().UTC().Format(constants.HumanDateFormatSeconds),
+		fmt.Sprintf(format, args...))
+	event := Event{Progress: &ops.ProgressEntry{Message: message}}
+	return i.Send(ctx, event)
 }
 
 // Shutdown shuts down the installer.
@@ -218,7 +231,7 @@ func (i *Installer) Shutdown(ctx context.Context, req *installpb.ShutdownRequest
 
 // GetProgress streams installer progress to the client.
 // Implements installpb.Installer
-func (i *Installer) GetProgress(req *installpb.ProgressRequest, server installpb.Installer_GetProgressServer) error {
+func (i *Installer) GetProgress(req *installpb.ProgressRequest, server installpb.Agent_GetProgressServer) error {
 	select {
 	case event := <-i.eventsC:
 		resp := &installpb.ProgressResponse{}
@@ -313,10 +326,12 @@ func (i *Installer) printPostInstallBanner(ctx context.Context) {
 	if m, ok := modules.Get().(modules.Messager); ok {
 		fmt.Fprintf(&buf, "\n%v\n", m.PostInstallMessage())
 	}
-	// FIXME: this needs to be set as progressEntry.Message
-	// for the final progress entry
-	// i.Printer.PrintProgress(buf.String())
 	i.Printer.Print(buf.String())
+	event := Event{Progress: &ops.ProgressEntry{
+		Message:    buf.String(),
+		Completion: constants.Completed,
+	}}
+	i.Send(ctx, event)
 }
 
 func (i *Installer) printEndpoints(ctx context.Context, w io.Writer) {
@@ -394,6 +409,10 @@ func (i *Installer) addCloser(closer io.Closer) {
 	i.closers = append(i.closers, closer)
 }
 
+func (i *Installer) sendError(ctx context.Context, err error) error {
+	return trace.Wrap(i.Send(ctx, Event{Error: err}))
+}
+
 // Installer manages the installation process
 type Installer struct {
 	// Config specifies the configuration for the install operation
@@ -424,20 +443,30 @@ type Engine interface {
 	Execute(context.Context, Installer) error
 }
 
-func (i *Installer) PrintStep(format string, args ...interface{}) {
-	i.Printer.Printf("%v\t%v\n", time.Now().UTC().Format(constants.HumanDateFormatSeconds),
-		fmt.Sprintf(format, args...))
+// String formats this event for readability
+func (r Event) String() string {
+	var buf bytes.Buffer
+	fmt.Print(&buf, "event(")
+	if r.Progress != nil {
+		fmt.Fprintf(&buf, "progress(completed=%v, message=%v),",
+			r.Progress.Completion, r.Progress.Message)
+	}
+	if r.Error != nil {
+		fmt.Fprintf(&buf, "error(%v)", r.Error.Error())
+	}
+	fmt.Print(&buf, ")")
+	return buf.String()
 }
 
-// timeSinceBeginning returns formatted operation duration
-func (i *Installer) timeSinceBeginning(key ops.SiteOperationKey) string {
-	operation, err := i.Operator.GetSiteOperation(key)
-	if err != nil {
-		i.Errorf("Failed to retrieve operation: %v.", trace.DebugReport(err))
-		return "<unknown>"
-	}
-	return time.Since(operation.Created).String()
-}
+// // timeSinceBeginning returns formatted operation duration
+// func (i *Installer) timeSinceBeginning(key ops.SiteOperationKey) string {
+// 	operation, err := i.Operator.GetSiteOperation(key)
+// 	if err != nil {
+// 		i.Errorf("Failed to retrieve operation: %v.", trace.DebugReport(err))
+// 		return "<unknown>"
+// 	}
+// 	return time.Since(operation.Created).String()
+// }
 
 // Event describes the installer progress step
 type Event struct {

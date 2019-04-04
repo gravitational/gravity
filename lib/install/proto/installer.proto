@@ -1,8 +1,8 @@
 syntax = "proto3";
 
-package proto;
+package installer;
 
-service Installer {
+service Agent {
     // Shutdown requests that the installer exit
     rpc Shutdown(ShutdownRequest) returns (ShutdownResponse);
 

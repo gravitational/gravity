@@ -18,6 +18,8 @@ package proto
 
 import (
 	"errors"
+	fmt "fmt"
+	"strings"
 
 	"github.com/gravitational/trace"
 	"golang.org/x/net/context"
@@ -74,4 +76,46 @@ func ErrorToMessage(err error) *Message {
 
 func DecodeError(err *Error) error {
 	return errors.New(err.Message)
+}
+
+func FormatPeerJoinRequest(req *PeerJoinRequest) string {
+	return fmt.Sprintf("PeerJoinRequest(addr=%v, config=%v)",
+		req.Addr, FormatRuntimeConfig(req.Config))
+}
+
+func FormatPeerLeaveRequest(req *PeerLeaveRequest) string {
+	return fmt.Sprintf("PeerLeaveRequest(addr=%v, config=%v)",
+		req.Addr, FormatRuntimeConfig(req.Config))
+}
+
+func FormatRuntimeConfig(config *RuntimeConfig) string {
+	var mounts []string
+	for _, m := range config.Mounts {
+		mounts = append(mounts, FormatMount(*m))
+	}
+	return fmt.Sprintf("RuntimeConfig(role=%v, addr=%v, docker-dev=%q, system-dev=%q, "+
+		"state-dir=%v, temp-dir=%v, token=%v, key-values=%v, mounts=%v, cloud=%v)",
+		config.Role,
+		config.AdvertiseAddr,
+		config.DockerDevice,
+		config.SystemDevice,
+		config.StateDir,
+		config.TempDir,
+		config.Token,
+		config.KeyValues,
+		strings.Join(mounts, ","),
+		FormatCloudMetadata(config.CloudMetadata),
+	)
+}
+
+func FormatMount(m Mount) string {
+	return fmt.Sprintf("Mount(name=%v, source=%v)", m.Name, m.Source)
+}
+
+func FormatCloudMetadata(m *CloudMetadata) string {
+	if m == nil {
+		return "CloudMetadata(<empty>)"
+	}
+	return fmt.Sprintf("CloudMetadata(node=%v, type=%v, id=%v)",
+		m.NodeName, m.InstanceType, m.InstanceId)
 }

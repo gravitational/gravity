@@ -46,12 +46,64 @@ import (
 	"github.com/gravitational/gravity/lib/systeminfo"
 	"github.com/gravitational/gravity/lib/systemservice"
 	"github.com/gravitational/gravity/lib/utils"
-	"google.golang.org/grpc"
 
 	"github.com/gravitational/configure"
 	"github.com/gravitational/trace"
 	"github.com/sirupsen/logrus"
+	"google.golang.org/grpc"
 )
+
+func InstallerClient(env *localenv.LocalEnvironment, installerConfig install.Config) error {
+	err := CheckLocalState(env)
+	if err != nil {
+		return trace.Wrap(err)
+	}
+
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+	updateC := utils.WatchTerminationSignalsWithChannel(ctx, cancel, log)
+
+	err = installerConfig.RunLocalChecks(ctx)
+	if err != nil {
+		return trace.Wrap(err)
+	}
+
+	if err := installSelfAsService(); err != nil {
+		return trace.Wrap(err, "failed to set up installer service")
+	}
+
+	env.PrintStep("Connecting to installer")
+	client, err := newClient(ctx)
+	if err != nil {
+		return trace.Wrap(err)
+	}
+
+	select {
+	case updateC <- utils.StopperFunc(func(ctx context.Context) error {
+		_, err := client.Shutdown(ctx, &installpb.ShutdownRequest{})
+		return trace.Wrap(err)
+	}):
+	case <-ctx.Done():
+		return trace.Wrap(ctx.Err())
+	}
+
+	// TODO: combine progress poll loop with state database as well
+	stream, err := client.GetProgress(ctx, &installpb.ProgressRequest{})
+	for {
+		progress, err := stream.Recv()
+		if err != nil {
+			return trace.Wrap(err)
+		}
+		errors := progress.GetErrors()
+		if len(errors) != 0 {
+			// FIXME
+			return trace.BadParameter(errors[0].GetMessage())
+		}
+		env.Println(progress.GetMessage())
+	}
+
+	return nil
+}
 
 func Join(env, joinEnv *localenv.LocalEnvironment, config JoinConfig) error {
 	err := CheckLocalState(env)
@@ -86,7 +138,7 @@ func Join(env, joinEnv *localenv.LocalEnvironment, config JoinConfig) error {
 
 	err = peer.Wait()
 	if utils.IsContextCancelledError(err) {
-		return nil
+		return trace.Wrap(err, "installer interrupted")
 	}
 	return trace.Wrap(err)
 }
@@ -94,66 +146,25 @@ func Join(env, joinEnv *localenv.LocalEnvironment, config JoinConfig) error {
 func startInstall(env *localenv.LocalEnvironment, config InstallConfig) error {
 	env.PrintStep("Starting installer")
 
-	err := CheckLocalState(env)
-	if err != nil {
+	if err := config.CheckAndSetDefaults(); err != nil {
 		return trace.Wrap(err)
 	}
-
+	if config.FromService {
+		return trace.Wrap(startInstallFromService(env, config))
+	}
 	installerConfig, err := config.ToInstallerConfig(resources.ValidateFunc(gravity.Validate))
 	if err != nil {
 		return trace.Wrap(err)
 	}
 
-	ctx, cancel := context.WithCancel(context.Background())
-	defer cancel()
-	updateC := utils.WatchTerminationSignalsWithChannel(ctx, cancel, log)
-
-	err = installerConfig.RunLocalChecks(ctx)
-	if err != nil {
-		return trace.Wrap(err)
+	err = InstallerClient(env, *installerConfig)
+	if utils.IsContextCancelledError(err) {
+		return trace.Wrap(err, "installer interrupted")
 	}
-
-	if config.FromService {
-		return trace.Wrap(startInstallFromService(env, config))
-	}
-
-	if err := InstallService(config); err != nil {
-		return trace.Wrap(err, "failed to setup installer service")
-	}
-
-	client, err := newClient(ctx)
-	if err != nil {
-		return trace.Wrap(err)
-	}
-	select {
-	case updateC <- utils.StopperFunc(func(ctx context.Context) error {
-		_, err := client.Shutdown(ctx, &installpb.ShutdownRequest{})
-		return trace.Wrap(err)
-	}):
-	case <-ctx.Done():
-		return trace.Wrap(ctx.Err())
-	}
-
-	// TODO: combine progress poll loop with state database as well
-	stream, err := client.GetProgress(ctx, &installpb.ProgressRequest{})
-	for {
-		progress, err := stream.Recv()
-		if err != nil {
-			// FIXME: shutdown the service on client exiting with error?
-			return trace.Wrap(err)
-		}
-		// TODO: handle errors
-		env.Println(progress.GetMessage())
-	}
-
 	return nil
 }
 
 func startInstallFromService(env *localenv.LocalEnvironment, config InstallConfig) error {
-	if err := config.CheckAndSetDefaults(); err != nil {
-		return trace.Wrap(err)
-	}
-
 	installerConfig, err := config.ToInstallerConfig(resources.ValidateFunc(gravity.Validate))
 	if err != nil {
 		return trace.Wrap(err)
@@ -215,13 +226,15 @@ func startInstallFromService(env *localenv.LocalEnvironment, config InstallConfi
 	return trace.Wrap(err)
 }
 
-func InstallService(config InstallConfig) error {
+// installSelfAsService installs a systemd unit using the current process's command line
+// but turns on service mode so it executes the appropriate operation
+func installSelfAsService() error {
 	args := os.Args[1:]
 	args = append(args, "--from-service")
-	return trace.Wrap(systemservice.InstallOneshotService("gravity-agent", args...))
+	return trace.Wrap(systemservice.InstallOneshotService("gravity-agent.service", args...))
 }
 
-func newClient(ctx context.Context) (installpb.InstallerClient, error) {
+func newClient(ctx context.Context) (installpb.AgentClient, error) {
 	type result struct {
 		*grpc.ClientConn
 		error
@@ -254,7 +267,7 @@ func newClient(ctx context.Context) (installpb.InstallerClient, error) {
 			if result.error != nil {
 				return nil, trace.Wrap(result.error)
 			}
-			client := installpb.NewInstallerClient(result.ClientConn)
+			client := installpb.NewAgentClient(result.ClientConn)
 			return client, nil
 		}
 	}

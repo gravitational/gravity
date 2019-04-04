@@ -9,7 +9,6 @@ import (
 	"github.com/gravitational/gravity/lib/defaults"
 	"github.com/gravitational/gravity/lib/install"
 	"github.com/gravitational/gravity/lib/install/engine"
-	"github.com/gravitational/gravity/lib/loc"
 	"github.com/gravitational/gravity/lib/ops"
 	"github.com/gravitational/gravity/lib/utils"
 
@@ -57,12 +56,12 @@ type Config struct {
 }
 
 func (r *Engine) Execute(ctx context.Context, installer install.Installer) error {
-	r.printURL(installer.AdvertiseAddr, installer.App.Package, installer.Token.Token, installer.Printer)
+	r.printURL(ctx, installer)
 	err := install.ExportRPCCredentials(ctx, installer.Packages, r.FieldLogger)
 	if err != nil {
 		return trace.Wrap(err, "failed to export RPC credentials")
 	}
-	installer.PrintStep("Waiting for the operation to start")
+	installer.PrintStep(ctx, "Waiting for the operation to start")
 	operation, err := r.waitForOperation(ctx, r.Operator)
 	if err != nil {
 		return trace.Wrap(err, "failed to wait for operation to become ready")
@@ -116,23 +115,21 @@ func (r *Engine) waitForOperation(ctx context.Context, operator ops.Operator) (o
 
 // printURL prints the URL that installer can be reached at via browser
 // in interactive mode to stdout
-func (r *Engine) printURL(advertiseAddr string, app loc.Locator, token string, printer utils.Printer) {
-	printer.PrintStep("Starting web UI install wizard")
+func (r *Engine) printURL(ctx context.Context, installer install.Installer) {
+	installer.PrintStep(ctx, "Starting web UI install wizard")
 	url := fmt.Sprintf("https://%v/web/installer/new/%v/%v/%v?install_token=%v",
-		advertiseAddr,
-		app.Repository,
-		app.Name,
-		app.Version,
-		token)
+		installer.Config.AdvertiseAddr,
+		installer.Config.App.Package.Repository,
+		installer.Config.App.Package.Name,
+		installer.Config.App.Package.Version,
+		installer.Config.Token)
 	r.WithField("installer-url", url).Info("Generated installer URL.")
-	rule := strings.Repeat("-", 100)
+	ruler := strings.Repeat("-", 100)
 	var buf bytes.Buffer
-	fmt.Fprintf(&buf, "%v\n", rule)
-	fmt.Fprintf(&buf, "%v\n", rule)
-	fmt.Fprintf(&buf, "OPEN THIS IN BROWSER: %v\n", url)
-	fmt.Fprintf(&buf, "%v\n", rule)
-	fmt.Fprintf(&buf, "%v\n", rule)
-	printer.PrintStep(buf.String())
+	fmt.Fprintln(&buf, ruler, "\n", ruler)
+	fmt.Fprintln(&buf, "OPEN THIS IN BROWSER:", url)
+	fmt.Fprintln(&buf, ruler, "\n", ruler)
+	installer.PrintStep(ctx, buf.String())
 }
 
 type Engine struct {

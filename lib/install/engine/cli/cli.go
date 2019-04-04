@@ -138,7 +138,7 @@ func (r *Engine) upsertClusterAndOperation(ctx context.Context, operator ops.Ope
 	}
 	var cluster *ops.Site
 	if len(clusters) == 0 {
-		_, err := operator.CreateSite(r.NewCluster())
+		cluster, err = operator.CreateSite(r.NewCluster())
 		if err != nil {
 			return nil, trace.Wrap(err)
 		}
@@ -151,32 +151,40 @@ func (r *Engine) upsertClusterAndOperation(ctx context.Context, operator ops.Ope
 	}
 	var operation *ops.SiteOperation
 	if len(operations) == 0 {
-		key, err := operator.CreateSiteInstallOperation(ctx, ops.CreateSiteInstallOperationRequest{
-			SiteDomain: cluster.Domain,
-			AccountID:  cluster.AccountID,
-			// With CLI install flow we always rely on external provisioner
-			Provisioner: schema.ProvisionerOnPrem,
-			Variables: storage.OperationVariables{
-				System: storage.SystemVariables{
-					Docker: config.Docker,
-				},
-				OnPrem: storage.OnPremVariables{
-					PodCIDR:     config.PodCIDR,
-					ServiceCIDR: config.ServiceCIDR,
-					VxlanPort:   config.VxlanPort,
-				},
-			},
-			Profiles: install.ServerRequirements(*config.Flavor),
-		})
-		if err != nil {
-			return nil, trace.Wrap(err)
-		}
-		operation, err = operator.GetSiteOperation(*key)
+		operation, err = r.createOperation(ctx, operator, config)
 		if err != nil {
 			return nil, trace.Wrap(err)
 		}
 	} else {
 		operation = (*ops.SiteOperation)(&operations[0])
+	}
+	return operation, nil
+}
+
+func (r *Engine) createOperation(ctx context.Context, operator ops.Operator, config install.Config) (*ops.SiteOperation, error) {
+	key, err := operator.CreateSiteInstallOperation(ctx, ops.CreateSiteInstallOperationRequest{
+		SiteDomain: config.SiteDomain,
+		AccountID:  defaults.SystemAccountID,
+		// With CLI install flow we always rely on external provisioner
+		Provisioner: schema.ProvisionerOnPrem,
+		Variables: storage.OperationVariables{
+			System: storage.SystemVariables{
+				Docker: config.Docker,
+			},
+			OnPrem: storage.OnPremVariables{
+				PodCIDR:     config.PodCIDR,
+				ServiceCIDR: config.ServiceCIDR,
+				VxlanPort:   config.VxlanPort,
+			},
+		},
+		Profiles: install.ServerRequirements(*config.Flavor),
+	})
+	if err != nil {
+		return nil, trace.Wrap(err)
+	}
+	operation, err := operator.GetSiteOperation(*key)
+	if err != nil {
+		return nil, trace.Wrap(err)
 	}
 	return operation, nil
 }
@@ -194,7 +202,7 @@ func (r *Engine) waitForAgents(ctx context.Context, installer install.Installer,
 		}
 		old := oldReport
 		oldReport = report
-		if !r.canContinue(old, report, installer.Config) {
+		if !r.canContinue(ctx, old, report, installer) {
 			return trace.BadParameter("cannot continue")
 		}
 		r.WithField("report", report).Info("Installation can proceed.")
@@ -206,23 +214,23 @@ func (r *Engine) waitForAgents(ctx context.Context, installer install.Installer,
 
 // canContinue returns true if the installation can commence based on the
 // provided agent report and false if not all agents have joined yet.
-func (r *Engine) canContinue(old, new *ops.AgentReport, config install.Config) bool {
+func (r *Engine) canContinue(ctx context.Context, old, new *ops.AgentReport, installer install.Installer) bool {
 	// See if any new nodes have joined or left since previous agent report.
 	joined, left := new.Diff(old)
 	for _, server := range joined {
-		config.PrintStep(color.GreenString("Successfully added %q node on %v",
+		installer.PrintStep(ctx, color.GreenString("Successfully added %q node on %v",
 			server.Role, utils.ExtractHost(server.AdvertiseAddr)))
 	}
 	for _, server := range left {
-		config.PrintStep(color.YellowString("Node %q on %v has left",
+		installer.PrintStep(ctx, color.YellowString("Node %q on %v has left",
 			server.Role, utils.ExtractHost(server.AdvertiseAddr)))
 	}
 	// Save the current agent report so we can compare against it on next iteration.
 	// i.agentReport = report
 	// See if the current agent report satisfies the selected flavor.
-	needed, extra := new.MatchFlavor(config.Flavor)
+	needed, extra := new.MatchFlavor(installer.Config.Flavor)
 	if len(needed) == 0 && len(extra) == 0 {
-		config.PrintStep(color.GreenString("All agents have connected!"))
+		installer.PrintStep(ctx, color.GreenString("All agents have connected!"))
 		return true
 	}
 	// If there were no changes compared to previous report, do not
@@ -231,12 +239,12 @@ func (r *Engine) canContinue(old, new *ops.AgentReport, config install.Config) b
 		return false
 	}
 	// Dump the table with remaining nodes that need to join.
-	config.PrintStep(fmt.Sprintf("Please execute the following join commands on target nodes:\n%v",
-		formatProfiles(needed, config.AdvertiseAddr, config.Token)))
+	installer.PrintStep(ctx, "Please execute the following join commands on target nodes:\n%v",
+		formatProfiles(needed, installer.Config.AdvertiseAddr, installer.Config.Token))
 	// If there are any extra agents with roles we don't expect for
 	// the selected flavor, they need to leave.
 	for _, server := range extra {
-		config.PrintStep(color.RedString("Node %q on %v is not a part of the flavor, shut it down",
+		installer.PrintStep(ctx, color.RedString("Node %q on %v is not a part of the flavor, shut it down",
 			server.Role, utils.ExtractHost(server.AdvertiseAddr)))
 	}
 	return false

@@ -271,7 +271,7 @@ func (i *InstallConfig) ToInstallerConfig(validator resources.Validator) (config
 	if err != nil {
 		return nil, trace.Wrap(err)
 	}
-	err = validateRole(&i.Role, *flavor, app.Manifest.NodeProfiles, i.FieldLogger)
+	i.Role, err = validateRole(i.Role, *flavor, app.Manifest.NodeProfiles, i.FieldLogger)
 	if err != nil {
 		return nil, trace.Wrap(err)
 	}
@@ -633,20 +633,20 @@ func getFlavor(name string, manifest schema.Manifest, logger logrus.FieldLogger)
 	return flavor, nil
 }
 
-func validateRole(role *string, flavor schema.Flavor, profiles schema.NodeProfiles, logger logrus.FieldLogger) error {
-	if *role == "" {
+func validateRole(role string, flavor schema.Flavor, profiles schema.NodeProfiles, logger logrus.FieldLogger) (string, error) {
+	if role == "" {
 		for _, node := range flavor.Nodes {
-			*role = node.Profile
+			role = node.Profile
 			logger.WithField("role", role).Info("No server profile specified, picking the first.")
 			break
 		}
 	}
 	for _, profile := range profiles {
-		if profile.Name == *role {
-			return nil
+		if profile.Name == role {
+			return role, nil
 		}
 	}
-	return trace.NotFound("server role %q not found", *role)
+	return "", trace.NotFound("server role %q not found", role)
 }
 
 func validateIP(blocks []net.IPNet, ip net.IP) bool {

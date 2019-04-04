@@ -24,7 +24,6 @@ import (
 	"github.com/gravitational/gravity/lib/state"
 	"github.com/gravitational/gravity/lib/storage"
 
-	"github.com/davecgh/go-spew/spew"
 	"github.com/gogo/protobuf/types"
 	"github.com/gravitational/trace"
 	log "github.com/sirupsen/logrus"
@@ -56,8 +55,7 @@ func (srv *agentServer) Command(req *pb.CommandArgs, stream pb.Agent_CommandServ
 
 // PeerJoin accepts a new peer
 func (srv *agentServer) PeerJoin(ctx context.Context, req *pb.PeerJoinRequest) (*types.Empty, error) {
-	fmt := spew.ConfigState{Indent: "  ", DisableCapacities: true, DisablePointerAddresses: true}
-	srv.Debugf("PeerJoin(%v).", fmt.Sdump(req))
+	srv.WithField("req", pb.FormatPeerJoinRequest(req)).Debug("PeerJoin.")
 	err := srv.PeerStore.NewPeer(ctx, *req, &remotePeer{
 		addr:             req.Addr,
 		creds:            srv.Config.Client,
@@ -71,8 +69,7 @@ func (srv *agentServer) PeerJoin(ctx context.Context, req *pb.PeerJoinRequest) (
 
 // PeerLeave receives a "leave" request from a peer and initiates its shutdown
 func (srv *agentServer) PeerLeave(ctx context.Context, req *pb.PeerLeaveRequest) (*types.Empty, error) {
-	fmt := spew.ConfigState{Indent: "  ", DisableCapacities: true, DisablePointerAddresses: true}
-	srv.Debugf("PeerLeave(%v).", fmt.Sdump(req))
+	srv.WithField("req", pb.FormatPeerLeaveRequest(req)).Debug("PeerLeave.")
 	err := srv.PeerStore.RemovePeer(ctx, *req, &remotePeer{
 		addr:             req.Addr,
 		creds:            srv.Config.Client,
