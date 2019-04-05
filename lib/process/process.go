@@ -79,7 +79,6 @@ import (
 	telemodules "github.com/gravitational/teleport/lib/modules"
 	"github.com/gravitational/teleport/lib/reversetunnel"
 	"github.com/gravitational/teleport/lib/service"
-	teleservice "github.com/gravitational/teleport/lib/service"
 	teleservices "github.com/gravitational/teleport/lib/services"
 	teleutils "github.com/gravitational/teleport/lib/utils"
 	teleweb "github.com/gravitational/teleport/lib/web"
@@ -98,7 +97,7 @@ import (
 type Process struct {
 	sync.Once
 	sync.Mutex
-	service.Supervisor
+	*service.TeleportProcess
 	logrus.FieldLogger
 	context        context.Context
 	backend        storage.Backend
@@ -312,12 +311,12 @@ func (p *Process) Init(ctx context.Context) error {
 
 // Start initializes the process and starts all services
 func (p *Process) Start() (err error) {
-	p.Supervisor, err = service.NewTeleport(p.teleportConfig)
+	p.TeleportProcess, err = service.NewTeleport(p.teleportConfig)
 	if err != nil {
 		return trace.Wrap(err)
 	}
-	p.Supervisor.RegisterFunc("gravity.service", func() (err error) {
-		defer p.Supervisor.BroadcastEvent(service.Event{
+	p.RegisterFunc("gravity.service", func() (err error) {
+		defer p.BroadcastEvent(service.Event{
 			Name:    constants.ServiceStartedEvent,
 			Payload: &ServiceStartedEvent{Error: err},
 		})
@@ -329,7 +328,7 @@ func (p *Process) Start() (err error) {
 		}
 		return nil
 	})
-	return p.Supervisor.Start()
+	return p.TeleportProcess.Start()
 }
 
 // TeleportConfig returns the process teleport config
@@ -668,7 +667,7 @@ func (p *Process) onSiteLeader(oldLeaderID string) {
 	}
 
 	// Notify that the service became the leader
-	p.Supervisor.BroadcastEvent(service.Event{Name: constants.ServiceSelfLeaderEvent})
+	p.BroadcastEvent(service.Event{Name: constants.ServiceSelfLeaderEvent})
 
 	// attempt to resume last operation
 	select {
@@ -946,18 +945,14 @@ func (p *Process) APIAdvertiseHost() string {
 	return host
 }
 
-func (p *Process) teleportProcess() *teleservice.TeleportProcess {
-	return p.Supervisor.(*teleservice.TeleportProcess)
-}
-
 func (p *Process) newAuthClient(authServers []teleutils.NetAddr, identity *teleauth.Identity) (*teleauth.Client, error) {
-	tlsConfig, err := identity.TLSConfig(p.teleportProcess().Config.CipherSuites)
+	tlsConfig, err := identity.TLSConfig(p.TeleportProcess.Config.CipherSuites)
 	if err != nil {
 		return nil, trace.Wrap(err)
 	}
-	if p.teleportProcess().Config.ClientTimeout != 0 {
+	if p.TeleportProcess.Config.ClientTimeout != 0 {
 		return teleauth.NewTLSClient(authServers, tlsConfig,
-			teleauth.ClientTimeout(p.teleportProcess().Config.ClientTimeout))
+			teleauth.ClientTimeout(p.TeleportProcess.Config.ClientTimeout))
 	}
 	return teleauth.NewTLSClient(authServers, tlsConfig)
 }

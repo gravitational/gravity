@@ -194,7 +194,7 @@ func (p *Process) reloadAuthGatewayConfig(authGatewayConfig storage.AuthGateway)
 		// Replacing principals in config will result in Teleport
 		// regenerating identities (asynchonously) and then
 		// sending reload event which will be caught below.
-		processconfig.ReplacePublicAddrs(p.teleportProcess().Config, config)
+		processconfig.ReplacePublicAddrs(p.TeleportProcess.Config, config)
 	} else if authGatewayConfig.SettingsChanged(p.authGatewayConfig) {
 		// Principals didn't change but some of the Teleport
 		// settings changed so we can reload right away.

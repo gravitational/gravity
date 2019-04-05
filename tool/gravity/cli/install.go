@@ -22,6 +22,7 @@ import (
 	"net"
 	"os"
 	"os/exec"
+	"path/filepath"
 	"strings"
 	"time"
 
@@ -63,46 +64,27 @@ func InstallerClient(env *localenv.LocalEnvironment, installerConfig install.Con
 	defer cancel()
 	updateC := utils.WatchTerminationSignalsWithChannel(ctx, cancel, log)
 
-	err = installerConfig.RunLocalChecks(ctx)
-	if err != nil {
-		return trace.Wrap(err)
+	env.PrintStep("Connecting to installer")
+	client, err := tryClient(installerConfig.StateDir)
+	if err == nil {
+		addClientTerminationHandler(ctx, client, updateC)
+		return trace.Wrap(installerClient(ctx, installerConfig, client, updateC, env))
 	}
+	log.WithError(err).Warn("Failed initial installer service connect, will attempt to install.")
 
-	if err := installSelfAsService(); err != nil {
+	if err := installSelfAsService(installerConfig.StateDir); err != nil {
 		return trace.Wrap(err, "failed to set up installer service")
 	}
 
-	env.PrintStep("Connecting to installer")
-	client, err := newClient(ctx)
+	connectCtx, connectCancel := context.WithTimeout(ctx, 30*time.Second)
+	defer connectCancel()
+	client, err = newClient(connectCtx, installerConfig.StateDir)
 	if err != nil {
 		return trace.Wrap(err)
 	}
 
-	select {
-	case updateC <- utils.StopperFunc(func(ctx context.Context) error {
-		_, err := client.Shutdown(ctx, &installpb.ShutdownRequest{})
-		return trace.Wrap(err)
-	}):
-	case <-ctx.Done():
-		return trace.Wrap(ctx.Err())
-	}
-
-	// TODO: combine progress poll loop with state database as well
-	stream, err := client.GetProgress(ctx, &installpb.ProgressRequest{})
-	for {
-		progress, err := stream.Recv()
-		if err != nil {
-			return trace.Wrap(err)
-		}
-		errors := progress.GetErrors()
-		if len(errors) != 0 {
-			// FIXME
-			return trace.BadParameter(errors[0].GetMessage())
-		}
-		env.Println(progress.GetMessage())
-	}
-
-	return nil
+	addClientTerminationHandler(ctx, client, updateC)
+	return trace.Wrap(installerClient(ctx, installerConfig, client, updateC, env))
 }
 
 func Join(env, joinEnv *localenv.LocalEnvironment, config JoinConfig) error {
@@ -175,6 +157,11 @@ func startInstallFromService(env *localenv.LocalEnvironment, config InstallConfi
 	defer cancel()
 	watcherCh := utils.WatchTerminationSignalsWithChannel(ctx, cancel, config.FieldLogger)
 
+	err = installerConfig.RunLocalChecks(ctx)
+	if err != nil {
+		return trace.Wrap(err)
+	}
+
 	processConfig, err := install.NewProcessConfig(install.ProcessConfig{
 		AdvertiseAddr: config.AdvertiseAddr,
 		StateDir:      config.StateDir,
@@ -227,14 +214,66 @@ func startInstallFromService(env *localenv.LocalEnvironment, config InstallConfi
 }
 
 // installSelfAsService installs a systemd unit using the current process's command line
-// but turns on service mode so it executes the appropriate operation
-func installSelfAsService() error {
+// and turns on service mode
+func installSelfAsService(stateDir string) error {
 	args := os.Args[1:]
-	args = append(args, "--from-service")
-	return trace.Wrap(systemservice.InstallOneshotService("gravity-agent.service", args...))
+	args = append(args,
+		"--from-service",
+		stateDir,
+	)
+	return trace.Wrap(systemservice.ReinstallOneshotService("gravity-agent.service", args...))
 }
 
-func newClient(ctx context.Context) (installpb.AgentClient, error) {
+func addClientTerminationHandler(ctx context.Context, client installpb.AgentClient, updateC chan<- utils.Stopper) {
+	select {
+	case updateC <- utils.StopperFunc(func(ctx context.Context) error {
+		_, err := client.Shutdown(ctx, &installpb.ShutdownRequest{})
+		return trace.Wrap(err)
+	}):
+	case <-ctx.Done():
+	}
+}
+
+func installerClient(ctx context.Context, installerConfig install.Config, client installpb.AgentClient, updateC chan<- utils.Stopper,
+	printer utils.Printer) error {
+
+	// FIXME: have client trigger the operation in service after obtaining
+	// the progress stream handle?
+
+	stream, err := client.GetProgress(ctx, &installpb.ProgressRequest{})
+	if err != nil {
+		return trace.Wrap(err)
+	}
+	for {
+		progress, err := stream.Recv()
+		if err != nil {
+			return trace.Wrap(err)
+		}
+		errors := progress.GetErrors()
+		if len(errors) != 0 {
+			// FIXME: limit to a single error?
+			return trace.BadParameter(errors[0].GetMessage())
+		}
+		printer.Println(progress.GetMessage())
+		if progress.GetComplete() {
+			break
+		}
+	}
+	return nil
+}
+
+// tryClient attempts to connect to the existing installer service
+func tryClient(stateDir string) (installpb.AgentClient, error) {
+	ctx, cancel := context.WithTimeout(context.Background(), 1*time.Second)
+	defer cancel()
+	client, err := newClient(ctx, stateDir)
+	if err != nil {
+		return nil, trace.Wrap(err)
+	}
+	return client, nil
+}
+
+func newClient(ctx context.Context, stateDir string) (installpb.AgentClient, error) {
 	type result struct {
 		*grpc.ClientConn
 		error
@@ -249,7 +288,7 @@ func newClient(ctx context.Context) (installpb.AgentClient, error) {
 			grpc.WithBlock(),
 			grpc.WithDialer(func(addr string, timeout time.Duration) (net.Conn, error) {
 				// FIXME: socket path in ephemeral directory
-				conn, err := net.DialTimeout("unix", "./installer.sock", timeout)
+				conn, err := net.DialTimeout("unix", filepath.Join(stateDir, "installer.sock"), timeout)
 				if err != nil {
 					return nil, trace.Wrap(err)
 				}
@@ -261,14 +300,16 @@ func newClient(ctx context.Context) (installpb.AgentClient, error) {
 	}()
 	for {
 		select {
-		case <-ctx.Done():
-			return nil, trace.Wrap(ctx.Err())
 		case result := <-resultC:
 			if result.error != nil {
 				return nil, trace.Wrap(result.error)
 			}
 			client := installpb.NewAgentClient(result.ClientConn)
 			return client, nil
+		case <-ctx.Done():
+			log.WithError(ctx.Err()).Warn("Failed to connect.")
+			fmt.Println("Failed to connect.")
+			return nil, trace.Wrap(ctx.Err())
 		}
 	}
 }
@@ -543,7 +584,7 @@ func agent(env *localenv.LocalEnvironment, config agentConfig, serviceName strin
 			StartCommand: strings.Join(command, " "),
 		}
 		log.Infof("Installing service with spec %+v.", spec)
-		err := systemservice.InstallOneshotServiceFromSpec(serviceName, spec)
+		err := systemservice.ReinstallOneshotServiceFromSpec(serviceName, spec)
 		if err != nil {
 			return trace.Wrap(err)
 		}

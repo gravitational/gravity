@@ -106,7 +106,7 @@ func systemUpdate(env *localenv.LocalEnvironment, changesetID string, serviceNam
 		if withStatus {
 			args = append(args, "--with-status")
 		}
-		return trace.Wrap(systemservice.InstallOneshotService(serviceName, args...))
+		return trace.Wrap(systemservice.ReinstallOneshotService(serviceName, args...))
 	}
 
 	reqs, err := findPackages(env.Packages, runtimePackage)
@@ -177,7 +177,7 @@ func systemRollback(env *localenv.LocalEnvironment, changesetID, serviceName str
 		if withStatus {
 			args = append(args, "--with-status")
 		}
-		return trace.Wrap(systemservice.InstallOneshotService(serviceName, args...))
+		return trace.Wrap(systemservice.ReinstallOneshotService(serviceName, args...))
 	}
 
 	changes := changeset.ReversedChanges()
@@ -236,7 +236,7 @@ func systemReinstall(env *localenv.LocalEnvironment, newPackage loc.Locator, ser
 		kvs := configure.KeyVal(labels)
 		args = append(args, "--labels", kvs.String())
 	}
-	err := systemservice.InstallOneshotService(serviceName, args...)
+	err := systemservice.ReinstallOneshotService(serviceName, args...)
 	if err != nil {
 		return trace.Wrap(err)
 	}

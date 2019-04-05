@@ -55,9 +55,9 @@ type Config struct {
 	ops.Operator
 }
 
-func (r *Engine) Execute(ctx context.Context, installer install.Installer) error {
-	r.printURL(ctx, installer)
-	err := install.ExportRPCCredentials(ctx, installer.Packages, r.FieldLogger)
+func (r *Engine) Execute(ctx context.Context, installer install.Interface, config install.RuntimeConfig) error {
+	r.printURL(ctx, installer, config)
+	err := install.ExportRPCCredentials(ctx, config.Packages, r.FieldLogger)
 	if err != nil {
 		return trace.Wrap(err, "failed to export RPC credentials")
 	}
@@ -115,14 +115,14 @@ func (r *Engine) waitForOperation(ctx context.Context, operator ops.Operator) (o
 
 // printURL prints the URL that installer can be reached at via browser
 // in interactive mode to stdout
-func (r *Engine) printURL(ctx context.Context, installer install.Installer) {
+func (r *Engine) printURL(ctx context.Context, installer install.Interface, config install.RuntimeConfig) {
 	installer.PrintStep(ctx, "Starting web UI install wizard")
 	url := fmt.Sprintf("https://%v/web/installer/new/%v/%v/%v?install_token=%v",
-		installer.Config.AdvertiseAddr,
-		installer.Config.App.Package.Repository,
-		installer.Config.App.Package.Name,
-		installer.Config.App.Package.Version,
-		installer.Config.Token)
+		config.AdvertiseAddr,
+		config.App.Package.Repository,
+		config.App.Package.Name,
+		config.App.Package.Version,
+		config.Token)
 	r.WithField("installer-url", url).Info("Generated installer URL.")
 	ruler := strings.Repeat("-", 100)
 	var buf bytes.Buffer

@@ -3,11 +3,22 @@ syntax = "proto3";
 package installer;
 
 service Agent {
+    // ExecuteOperation runs installer operation to completion
+    rpc ExecuteOperation(ExecuteRequest) returns (ExecuteResponse);
+
     // Shutdown requests that the installer exit
     rpc Shutdown(ShutdownRequest) returns (ShutdownResponse);
 
     // GetProgress polls the server for operation progress
     rpc GetProgress(ProgressRequest) returns (stream ProgressResponse);
+}
+
+// ExecuteRequest describes a request to execute install operation
+message ExecuteRequest {
+}
+
+// ExecuteResponse describes the server response to execute request
+message ExecuteResponse {
 }
 
 // ShutdownRequest describes a request to shut down the process
@@ -26,8 +37,11 @@ message ProgressRequest {
 message ProgressResponse {
     // Message specifies the progress message
     string message = 1;
+    // FIXME: necessary?
+    // Complete determines whether the operation is complete
+    bool complete = 2;
     // Errors lists errors for this progress step
-    repeated Error errors = 2;
+    repeated Error errors = 3;
 }
 
 // Error represents an error in the operation
