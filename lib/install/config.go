@@ -3,10 +3,12 @@ package install
 import (
 	"context"
 
-	appservice "github.com/gravitational/gravity/lib/app"
+	"github.com/gravitational/gravity/lib/app"
 	"github.com/gravitational/gravity/lib/checks"
 	cloudgce "github.com/gravitational/gravity/lib/cloudprovider/gce"
+	"github.com/gravitational/gravity/lib/loc"
 	validationpb "github.com/gravitational/gravity/lib/network/validation/proto"
+	"github.com/gravitational/gravity/lib/ops"
 	"github.com/gravitational/gravity/lib/ops/opsclient"
 	"github.com/gravitational/gravity/lib/pack"
 	"github.com/gravitational/gravity/lib/process"
@@ -20,55 +22,13 @@ import (
 	"k8s.io/apimachinery/pkg/runtime"
 )
 
-// CheckAndSetDefaults checks the parameters and autodetects some defaults
-func (c *Config) CheckAndSetDefaults(ctx context.Context) (err error) {
-	if c.AdvertiseAddr == "" {
-		return trace.BadParameter("missing AdvertiseAddr")
-	}
-	if c.LocalClusterClient == nil {
-		return trace.BadParameter("missing LocalClusterClient")
-	}
-
-	if err := CheckAddr(c.AdvertiseAddr); err != nil {
-		return trace.Wrap(err)
-	}
-	if err := c.Docker.Check(); err != nil {
-		return trace.Wrap(err)
-	}
-	if c.Process == nil {
-		return trace.BadParameter("missing Process")
-	}
-	if c.LocalPackages == nil {
-		return trace.BadParameter("missing LocalPackages")
-	}
-	if c.LocalApps == nil {
-		return trace.BadParameter("missing LocalApps")
-	}
-	if c.LocalBackend == nil {
-		return trace.BadParameter("missing LocalBackend")
-	}
-	if c.App == nil {
-		return trace.BadParameter("missing App")
-	}
-	if c.VxlanPort < 1 || c.VxlanPort > 65535 {
-		return trace.BadParameter("invalid vxlan port: must be in range 1-65535")
-	}
-	if err := c.validateCloudConfig(); err != nil {
-		return trace.Wrap(err)
-	}
-	if c.SiteDomain == "" {
-		c.SiteDomain = generateClusterName()
-	}
-	if c.DNSConfig.IsEmpty() {
-		c.DNSConfig = storage.DefaultDNSConfig
-	}
-	return nil
-}
-
-// RunLocalChecks executes perflight checks on local host
 func (c *Config) RunLocalChecks(ctx context.Context) error {
+	app, err := c.GetApp()
+	if err != nil {
+		return trace.Wrap(err)
+	}
 	return trace.Wrap(checks.RunLocalChecks(ctx, checks.LocalChecksRequest{
-		Manifest: c.App.Manifest,
+		Manifest: app.Manifest,
 		Role:     c.Role,
 		Docker:   c.Docker,
 		Options: &validationpb.ValidateOptions{
@@ -80,6 +40,15 @@ func (c *Config) RunLocalChecks(ctx context.Context) error {
 	}))
 }
 
+// GetApp returns the application for this configuration
+func (c *Config) GetApp() (*app.Application, error) {
+	app, err := c.Apps.GetApp(*c.AppPackage)
+	if err != nil {
+		return nil, trace.Wrap(err)
+	}
+	return app, nil
+}
+
 // Config is installer configuration
 type Config struct {
 	// FieldLogger is used for logging
@@ -88,8 +57,8 @@ type Config struct {
 	utils.Printer
 	// AdvertiseAddr is advertise address of this server
 	AdvertiseAddr string
-	// Token is install token
-	Token string
+	// Token is the install token
+	Token storage.InstallToken
 	// CloudProvider is optional cloud provider
 	CloudProvider string
 	// StateDir is directory with local installer state
@@ -106,8 +75,8 @@ type Config struct {
 	Flavor *schema.Flavor
 	// Role is server role
 	Role string
-	// App is the application being installed
-	App *appservice.Application
+	// AppPackage is the application being installed
+	AppPackage *loc.Locator
 	// RuntimeResources specifies optional Kubernetes resources to create
 	RuntimeResources []runtime.Object
 	// ClusterResources specifies optional cluster resources to create
@@ -139,7 +108,7 @@ type Config struct {
 	// LocalPackages is the machine-local package service
 	LocalPackages pack.PackageService
 	// LocalApps is the machine-local application service
-	LocalApps appservice.Applications
+	LocalApps app.Applications
 	// LocalBackend is the machine-local backend
 	LocalBackend storage.Backend
 	// Manual disables automatic phase execution
@@ -152,6 +121,65 @@ type Config struct {
 	GCENodeTags []string
 	// LocalClusterClient is a factory for creating client to the installed cluster
 	LocalClusterClient func() (*opsclient.Client, error)
+	// Operator specifies the wizard's operator service
+	Operator ops.Operator
+	// Apps specifies the wizard's application service
+	Apps app.Applications
+	// Packages specifies the wizard's package service
+	Packages pack.PackageService
+}
+
+// checkAndSetDefaults checks the parameters and autodetects some defaults
+func (c *Config) checkAndSetDefaults(ctx context.Context) (err error) {
+	if c.AdvertiseAddr == "" {
+		return trace.BadParameter("missing AdvertiseAddr")
+	}
+	if c.LocalClusterClient == nil {
+		return trace.BadParameter("missing LocalClusterClient")
+	}
+	if c.Apps == nil {
+		return trace.BadParameter("missing Apps")
+	}
+	if c.Packages == nil {
+		return trace.BadParameter("missing Packages")
+	}
+	if c.Operator == nil {
+		return trace.BadParameter("missing Operator")
+	}
+	if err := CheckAddr(c.AdvertiseAddr); err != nil {
+		return trace.Wrap(err)
+	}
+	if err := c.Docker.Check(); err != nil {
+		return trace.Wrap(err)
+	}
+	if c.Process == nil {
+		return trace.BadParameter("missing Process")
+	}
+	if c.LocalPackages == nil {
+		return trace.BadParameter("missing LocalPackages")
+	}
+	if c.LocalApps == nil {
+		return trace.BadParameter("missing LocalApps")
+	}
+	if c.LocalBackend == nil {
+		return trace.BadParameter("missing LocalBackend")
+	}
+	if c.AppPackage == nil {
+		return trace.BadParameter("missing AppPackage")
+	}
+	if c.VxlanPort < 1 || c.VxlanPort > 65535 {
+		return trace.BadParameter("invalid vxlan port: must be in range 1-65535")
+	}
+	if err := c.validateCloudConfig(); err != nil {
+		return trace.Wrap(err)
+	}
+	if c.SiteDomain == "" {
+		c.SiteDomain = generateClusterName()
+	}
+	if c.DNSConfig.IsEmpty() {
+		c.DNSConfig = storage.DefaultDNSConfig
+	}
+	return nil
 }
 
 func (c *Config) validateCloudConfig() (err error) {

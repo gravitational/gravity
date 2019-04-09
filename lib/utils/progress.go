@@ -42,6 +42,17 @@ type Printer interface {
 	PrintStep(format string, args ...interface{}) (int, error)
 }
 
+var DiscardPrinter = nopPrinter{}
+
+func (nopPrinter) Write(p []byte) (int, error)                               { return 0, nil }
+func (nopPrinter) Printf(format string, args ...interface{}) (int, error)    { return 0, nil }
+func (nopPrinter) Print(args ...interface{}) (int, error)                    { return 0, nil }
+func (nopPrinter) Println(args ...interface{}) (int, error)                  { return 0, nil }
+func (nopPrinter) PrintStep(format string, args ...interface{}) (int, error) { return 0, nil }
+
+type nopPrinter struct {
+}
+
 // PrintProgress prints generic progress with stages
 func PrintProgress(current, target int, message string) {
 	fmt.Fprintf(os.Stdout, "\r%v %v%% (%v)      ",
@@ -114,7 +125,7 @@ type Progress interface {
 // beforehand and the step numbers will not be printed.
 func NewProgress(ctx context.Context, title string, steps int, silent bool) Progress {
 	if silent {
-		return NewNopProgress()
+		return DiscardProgress
 	}
 	return NewConsoleProgress(ctx, title, steps)
 }
@@ -274,55 +285,32 @@ func (p *ConsoleProgress) Stop() {
 }
 
 // DiscardProgress is a progress reporter that discards all progress output
-var DiscardProgress Progress = &NopProgress{}
+var DiscardProgress Progress = &nopProgress{}
 
-// NewNopProgress returns an instance of discarding output progress reporter
-func NewNopProgress() *NopProgress {
-	return &NopProgress{}
-}
-
-// NopProgress is a progress printer that reports nothing
-type NopProgress struct{}
+// nopProgress is a progress printer that reports nothing
+type nopProgress struct{}
 
 // UpdateCurrentStep updates message printed for current step that is in progress
-func (*NopProgress) UpdateCurrentStep(message string, args ...interface{}) {}
+func (*nopProgress) UpdateCurrentStep(message string, args ...interface{}) {}
 
 // NextStep prints information about next step. It also prints
 // updates on the current step if it takes longer than default timeout
-func (*NopProgress) NextStep(message string, args ...interface{}) {}
+func (*nopProgress) NextStep(message string, args ...interface{}) {}
 
 // Stop stops printing all updates
-func (*NopProgress) Stop() {}
+func (*nopProgress) Stop() {}
 
 // PrintCurrentStep updates and prints current step
-func (*NopProgress) PrintCurrentStep(message string, args ...interface{}) {}
+func (*nopProgress) PrintCurrentStep(message string, args ...interface{}) {}
 
 // PrintSubStep outputs the message as a sub-step of the current step
-func (*NopProgress) PrintSubStep(message string, args ...interface{}) {}
+func (*nopProgress) PrintSubStep(message string, args ...interface{}) {}
 
 // Print outputs the specified message in regular color
-func (*NopProgress) Print(message string, args ...interface{}) {}
+func (*nopProgress) Print(message string, args ...interface{}) {}
 
 // PrintInfo outputs the specified info message in color
-func (*NopProgress) PrintInfo(message string, args ...interface{}) {}
+func (*nopProgress) PrintInfo(message string, args ...interface{}) {}
 
 // PrintWarn outputs the specified warning message in color and logs the error
-func (*NopProgress) PrintWarn(err error, message string, args ...interface{}) {}
-
-// Emitter abstracts a way to emit progess messages within an operation
-type Emitter interface {
-	// PrintStep formats the specified message string to stdout
-	PrintStep(format string, args ...interface{}) (n int, err error)
-}
-
-// NopEmitter returns an emitter that does nothing
-func NopEmitter() Emitter {
-	return nilEmitter{}
-}
-
-// PrintStep is a noop
-func (nilEmitter) PrintStep(format string, args ...interface{}) (n int, err error) {
-	return 0, nil
-}
-
-type nilEmitter struct{}
+func (*nopProgress) PrintWarn(err error, message string, args ...interface{}) {}

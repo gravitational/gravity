@@ -76,8 +76,12 @@ type Config struct {
 	Manual bool
 }
 
+func (r *Engine) Validate(ctx context.Context, config install.Config) (err error) {
+	return trace.Wrap(config.RunLocalChecks(ctx))
+}
+
 // Execute executes the installer steps
-func (r *Engine) Execute(ctx context.Context, installer install.Interface, config install.RuntimeConfig) (err error) {
+func (r *Engine) Execute(ctx context.Context, installer install.Interface, config install.Config) (err error) {
 	if err := r.bootstrap(ctx, config); err != nil {
 		return trace.Wrap(err)
 	}
@@ -85,7 +89,7 @@ func (r *Engine) Execute(ctx context.Context, installer install.Interface, confi
 	if err != nil {
 		return trace.Wrap(err, "failed to create cluster/operation")
 	}
-	installer.AddAgentServiceCloser(ctx, operation.Key())
+	installer.NotifyOperationAvailable(ctx, operation.Key())
 	if !r.ExcludeHostFromCluster {
 		profile, ok := operation.InstallExpand.Agents[config.Role]
 		if !ok {
@@ -115,7 +119,7 @@ func (r *Engine) Execute(ctx context.Context, installer install.Interface, confi
 }
 
 // bootstrap prepares for the installation
-func (r *Engine) bootstrap(ctx context.Context, config install.RuntimeConfig) error {
+func (r *Engine) bootstrap(ctx context.Context, config install.Config) error {
 	err := install.InstallBinary(config.ServiceUser.UID, config.ServiceUser.GID, r.FieldLogger)
 	if err != nil {
 		return trace.Wrap(err, "failed to install binary")
@@ -131,7 +135,7 @@ func (r *Engine) bootstrap(ctx context.Context, config install.RuntimeConfig) er
 	return nil
 }
 
-func (r *Engine) upsertClusterAndOperation(ctx context.Context, operator ops.Operator, config install.RuntimeConfig) (*ops.SiteOperation, error) {
+func (r *Engine) upsertClusterAndOperation(ctx context.Context, operator ops.Operator, config install.Config) (*ops.SiteOperation, error) {
 	clusters, err := operator.GetSites(defaults.SystemAccountID)
 	if err != nil {
 		return nil, trace.Wrap(err)
@@ -161,7 +165,7 @@ func (r *Engine) upsertClusterAndOperation(ctx context.Context, operator ops.Ope
 	return operation, nil
 }
 
-func (r *Engine) createOperation(ctx context.Context, operator ops.Operator, config install.RuntimeConfig) (*ops.SiteOperation, error) {
+func (r *Engine) createOperation(ctx context.Context, operator ops.Operator, config install.Config) (*ops.SiteOperation, error) {
 	key, err := operator.CreateSiteInstallOperation(ctx, ops.CreateSiteInstallOperationRequest{
 		SiteDomain: config.SiteDomain,
 		AccountID:  defaults.SystemAccountID,
@@ -189,7 +193,7 @@ func (r *Engine) createOperation(ctx context.Context, operator ops.Operator, con
 	return operation, nil
 }
 
-func (r *Engine) waitForAgents(ctx context.Context, installer install.Interface, config install.RuntimeConfig, operation ops.SiteOperation) error {
+func (r *Engine) waitForAgents(ctx context.Context, installer install.Interface, config install.Config, operation ops.SiteOperation) error {
 	ctx, cancel := context.WithTimeout(ctx, 5*time.Minute)
 	defer cancel()
 	b := utils.NewUnlimitedExponentialBackOff()
@@ -214,7 +218,7 @@ func (r *Engine) waitForAgents(ctx context.Context, installer install.Interface,
 
 // canContinue returns true if the installation can commence based on the
 // provided agent report and false if not all agents have joined yet.
-func (r *Engine) canContinue(ctx context.Context, old, new *ops.AgentReport, installer install.Interface, config install.RuntimeConfig) bool {
+func (r *Engine) canContinue(ctx context.Context, old, new *ops.AgentReport, installer install.Interface, config install.Config) bool {
 	// See if any new nodes have joined or left since previous agent report.
 	joined, left := new.Diff(old)
 	for _, server := range joined {

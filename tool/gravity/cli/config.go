@@ -19,8 +19,8 @@ package cli
 import (
 	"net"
 	"os"
-	"path/filepath"
 
+	"github.com/gravitational/gravity/lib/app"
 	appservice "github.com/gravitational/gravity/lib/app"
 	"github.com/gravitational/gravity/lib/constants"
 	"github.com/gravitational/gravity/lib/defaults"
@@ -29,6 +29,7 @@ import (
 	"github.com/gravitational/gravity/lib/loc"
 	"github.com/gravitational/gravity/lib/localenv"
 	"github.com/gravitational/gravity/lib/modules"
+	"github.com/gravitational/gravity/lib/ops"
 	"github.com/gravitational/gravity/lib/ops/opsclient"
 	"github.com/gravitational/gravity/lib/ops/resources"
 	"github.com/gravitational/gravity/lib/pack"
@@ -57,7 +58,8 @@ type InstallConfig struct {
 	CloudProvider string
 	// StateDir is directory with local installer state
 	StateDir string
-	// WriteStateDir is installer write layer
+	// WriteStateDir is the directory where installer stores state for the duration
+	// of the operation
 	WriteStateDir string
 	// UserLogFile is the log file where user-facing operation logs go
 	UserLogFile string
@@ -161,9 +163,7 @@ func NewInstallConfig(env *localenv.LocalEnvironment, g *Application) InstallCon
 			StorageDriver: g.InstallCmd.DockerStorageDriver.value,
 			Args:          *g.InstallCmd.DockerArgs,
 		},
-		DNSConfig: g.InstallCmd.DNSConfig(),
-		// FIXME: manual operation only makes sense for CLI installation
-		// Manual:             *g.InstallCmd.Manual,
+		DNSConfig:          g.InstallCmd.DNSConfig(),
 		GCENodeTags:        *g.InstallCmd.GCENodeTags,
 		LocalPackages:      env.Packages,
 		LocalApps:          env.Apps,
@@ -194,13 +194,11 @@ func (i *InstallConfig) CheckAndSetDefaults() (err error) {
 		}
 		i.WithField("dir", i.StateDir).Info("Set installer read state directory.")
 	}
-	if i.WriteStateDir == "" {
-		i.WriteStateDir = filepath.Join(os.TempDir(), defaults.WizardStateDir)
-		if err := os.MkdirAll(i.WriteStateDir, defaults.SharedDirMask); err != nil {
-			return trace.ConvertSystemError(err)
-		}
-		i.WithField("dir", i.WriteStateDir).Info("Set installer write state directory.")
+	i.WriteStateDir = defaults.GravityInstallDir
+	if err := os.MkdirAll(i.WriteStateDir, defaults.SharedDirMask); err != nil {
+		return trace.ConvertSystemError(err)
 	}
+	i.WithField("dir", i.WriteStateDir).Info("Set installer write state directory.")
 	isDir, err := utils.IsDirectory(i.StateDir)
 	if !isDir {
 		return trace.BadParameter("the specified state path %v is not "+
@@ -237,16 +235,32 @@ func (i *InstallConfig) CheckAndSetDefaults() (err error) {
 	if !utils.StringInSlice(modules.Get().InstallModes(), i.Mode) {
 		return trace.BadParameter("invalid mode %q", i.Mode)
 	}
-	serviceUser, err := install.GetOrCreateServiceUser(i.ServiceUID, i.ServiceGID)
+	i.ServiceUser, err = install.GetOrCreateServiceUser(i.ServiceUID, i.ServiceGID)
 	if err != nil {
 		return trace.Wrap(err)
 	}
-	i.ServiceUser = serviceUser
 	return nil
 }
 
-// ToInstallerConfig returns this configuration as install.Config
-func (i *InstallConfig) ToInstallerConfig(validator resources.Validator) (config *install.Config, err error) {
+// NewProcessConfig returns new gravity process configuration for this configuration object
+func (i *InstallConfig) NewProcessConfig() (*processconfig.Config, error) {
+	config, err := install.NewProcessConfig(install.ProcessConfig{
+		AdvertiseAddr: i.AdvertiseAddr,
+		StateDir:      i.StateDir,
+		WriteStateDir: i.WriteStateDir,
+		LogFile:       i.UserLogFile,
+		ServiceUser:   *i.ServiceUser,
+		ClusterName:   i.SiteDomain,
+		Devmode:       i.Insecure,
+	})
+	if err != nil {
+		return nil, trace.Wrap(err)
+	}
+	return config, nil
+}
+
+// NewInstallerConfig returns new installer configuration for this configuration object
+func (i *InstallConfig) NewInstallerConfig(wizard *localenv.RemoteEnvironment, validator resources.Validator) (config *install.Config, err error) {
 	var kubernetesResources []runtime.Object
 	var gravityResources []storage.UnknownResource
 	if i.ResourcesPath != "" {
@@ -275,6 +289,10 @@ func (i *InstallConfig) ToInstallerConfig(validator resources.Validator) (config
 	if err != nil {
 		return nil, trace.Wrap(err)
 	}
+	token, err := generateInstallToken(config.Operator, i.Token)
+	if err != nil && !trace.IsAlreadyExists(err) {
+		return nil, trace.Wrap(err)
+	}
 	config = &install.Config{
 		FieldLogger:        i.FieldLogger,
 		AdvertiseAddr:      i.AdvertiseAddr,
@@ -287,7 +305,6 @@ func (i *InstallConfig) ToInstallerConfig(validator resources.Validator) (config
 		WriteStateDir:      i.WriteStateDir,
 		UserLogFile:        i.UserLogFile,
 		SystemLogFile:      i.SystemLogFile,
-		Token:              i.Token,
 		CloudProvider:      i.CloudProvider,
 		GCENodeTags:        i.GCENodeTags,
 		SystemDevice:       i.SystemDevice,
@@ -302,12 +319,15 @@ func (i *InstallConfig) ToInstallerConfig(validator resources.Validator) (config
 		LocalClusterClient: i.LocalClusterClient,
 		Role:               i.Role,
 		ServiceUser:        *i.ServiceUser,
-		// Manual:             i.Manual,
-		App:              app,
-		Flavor:           flavor,
-		DNSOverrides:     *dnsOverrides,
-		RuntimeResources: kubernetesResources,
-		ClusterResources: gravityResources,
+		Token:              *token,
+		AppPackage:         &app.Package,
+		Flavor:             flavor,
+		DNSOverrides:       *dnsOverrides,
+		RuntimeResources:   kubernetesResources,
+		ClusterResources:   gravityResources,
+		Apps:               wizard.Apps,
+		Packages:           wizard.Packages,
+		Operator:           wizard.Operator,
 	}
 	return config, nil
 }
@@ -320,6 +340,7 @@ func (i *InstallConfig) getAdvertiseAddr() (string, error) {
 		return i.AdvertiseAddr, nil
 	}
 	// in interactive install mode ask user to choose among host's interfaces
+	// FIXME: listen on all interfaces
 	if i.Mode == constants.InstallModeInteractive {
 		return selectNetworkInterface()
 	}
@@ -333,8 +354,8 @@ func (i *InstallConfig) getAdvertiseAddr() (string, error) {
 	return addr, nil
 }
 
-// getApp returns the application for this installer
-func (i *InstallConfig) getApp() (app *appservice.Application, err error) {
+// getAppreturns the application package for this installer
+func (i *InstallConfig) getApp() (app *app.Application, err error) {
 	env, err := localenv.New(i.StateDir)
 	if err != nil {
 		return nil, trace.Wrap(err)
@@ -656,4 +677,19 @@ func validateIP(blocks []net.IPNet, ip net.IP) bool {
 		}
 	}
 	return false
+}
+
+func generateInstallToken(service ops.Operator, installToken string) (*storage.InstallToken, error) {
+	token, err := service.CreateInstallToken(
+		ops.NewInstallTokenRequest{
+			AccountID: defaults.SystemAccountID,
+			UserType:  storage.AdminUser,
+			UserEmail: defaults.WizardUser,
+			Token:     installToken,
+		},
+	)
+	if err != nil {
+		return nil, trace.Wrap(err)
+	}
+	return token, nil
 }

@@ -83,7 +83,7 @@ func (p *Params) CheckAndSetDefaults() error {
 		return trace.BadParameter("missing PhaseID")
 	}
 	if p.Progress == nil {
-		p.Progress = utils.NewNopProgress()
+		p.Progress = utils.DiscardProgress
 	}
 	return nil
 }

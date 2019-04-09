@@ -167,7 +167,7 @@ func (v *vendorer) VendorTarball(ctx context.Context, tarball io.ReadCloser, req
 // to point to a fixed docker registry address.
 func (v *vendorer) VendorDir(ctx context.Context, unpackedDir string, req VendorRequest) error {
 	if req.ProgressReporter == nil {
-		req.ProgressReporter = utils.NewNopProgress()
+		req.ProgressReporter = utils.DiscardProgress
 	}
 	// before parsing resources apply basic transformations on manifest, e.g. environment
 	// variables interpolation

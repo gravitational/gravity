@@ -952,11 +952,11 @@
   revision = "d88eaecef78779b0211cbe458230fd3ce0989bde"
 
 [[projects]]
-  digest = "1:22c8951489f0e27ec3b2d50d9f74086ff3f08554ce5965d418d6a10296b9ea04"
+  digest = "1:e7b0a0dbe99acba8701c62b2eb190d8baff71e2fc25acb534dc5b47499e04187"
   name = "github.com/gravitational/trace"
   packages = ["."]
   pruneopts = "UT"
-  revision = "4a5e142f3251b3a98e8fd71c2a32eb225af06b6d"
+  revision = "f30095ced5ff011085d26f160468dcc477607730"
 
 [[projects]]
   digest = "1:841d5835e94129658adabece66a4cc54d2cec9a40fa8b51743ea35d0519dd6c2"

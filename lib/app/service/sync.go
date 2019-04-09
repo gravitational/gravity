@@ -40,13 +40,13 @@ type SyncRequest struct {
 	AppService   app.Applications
 	ImageService docker.ImageService
 	Package      loc.Locator
-	Progress     utils.Emitter
+	Progress     utils.Printer
 }
 
 // CheckAndSetDefaults validates the request and sets some defaults.
 func (r *SyncRequest) CheckAndSetDefaults() error {
 	if r.Progress == nil {
-		r.Progress = utils.NopEmitter()
+		r.Progress = utils.DiscardPrinter
 	}
 	return nil
 }

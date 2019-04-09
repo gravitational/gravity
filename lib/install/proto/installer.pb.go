@@ -103,6 +103,86 @@ func (m *ExecuteResponse) XXX_DiscardUnknown() {
 
 var xxx_messageInfo_ExecuteResponse proto.InternalMessageInfo
 
+// ValidateRequest describes a request to validate environment before the operation
+type ValidateRequest struct {
+	XXX_NoUnkeyedLiteral struct{} `json:"-"`
+	XXX_unrecognized     []byte   `json:"-"`
+	XXX_sizecache        int32    `json:"-"`
+}
+
+func (m *ValidateRequest) Reset()         { *m = ValidateRequest{} }
+func (m *ValidateRequest) String() string { return proto.CompactTextString(m) }
+func (*ValidateRequest) ProtoMessage()    {}
+func (*ValidateRequest) Descriptor() ([]byte, []int) {
+	return fileDescriptor_675879a591bd3155, []int{2}
+}
+func (m *ValidateRequest) XXX_Unmarshal(b []byte) error {
+	return m.Unmarshal(b)
+}
+func (m *ValidateRequest) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
+	if deterministic {
+		return xxx_messageInfo_ValidateRequest.Marshal(b, m, deterministic)
+	} else {
+		b = b[:cap(b)]
+		n, err := m.MarshalTo(b)
+		if err != nil {
+			return nil, err
+		}
+		return b[:n], nil
+	}
+}
+func (m *ValidateRequest) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_ValidateRequest.Merge(m, src)
+}
+func (m *ValidateRequest) XXX_Size() int {
+	return m.Size()
+}
+func (m *ValidateRequest) XXX_DiscardUnknown() {
+	xxx_messageInfo_ValidateRequest.DiscardUnknown(m)
+}
+
+var xxx_messageInfo_ValidateRequest proto.InternalMessageInfo
+
+// ValidateResponse describes the server response after validation
+type ValidateResponse struct {
+	XXX_NoUnkeyedLiteral struct{} `json:"-"`
+	XXX_unrecognized     []byte   `json:"-"`
+	XXX_sizecache        int32    `json:"-"`
+}
+
+func (m *ValidateResponse) Reset()         { *m = ValidateResponse{} }
+func (m *ValidateResponse) String() string { return proto.CompactTextString(m) }
+func (*ValidateResponse) ProtoMessage()    {}
+func (*ValidateResponse) Descriptor() ([]byte, []int) {
+	return fileDescriptor_675879a591bd3155, []int{3}
+}
+func (m *ValidateResponse) XXX_Unmarshal(b []byte) error {
+	return m.Unmarshal(b)
+}
+func (m *ValidateResponse) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
+	if deterministic {
+		return xxx_messageInfo_ValidateResponse.Marshal(b, m, deterministic)
+	} else {
+		b = b[:cap(b)]
+		n, err := m.MarshalTo(b)
+		if err != nil {
+			return nil, err
+		}
+		return b[:n], nil
+	}
+}
+func (m *ValidateResponse) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_ValidateResponse.Merge(m, src)
+}
+func (m *ValidateResponse) XXX_Size() int {
+	return m.Size()
+}
+func (m *ValidateResponse) XXX_DiscardUnknown() {
+	xxx_messageInfo_ValidateResponse.DiscardUnknown(m)
+}
+
+var xxx_messageInfo_ValidateResponse proto.InternalMessageInfo
+
 // ShutdownRequest describes a request to shut down the process
 type ShutdownRequest struct {
 	XXX_NoUnkeyedLiteral struct{} `json:"-"`
@@ -114,7 +194,7 @@ func (m *ShutdownRequest) Reset()         { *m = ShutdownRequest{} }
 func (m *ShutdownRequest) String() string { return proto.CompactTextString(m) }
 func (*ShutdownRequest) ProtoMessage()    {}
 func (*ShutdownRequest) Descriptor() ([]byte, []int) {
-	return fileDescriptor_675879a591bd3155, []int{2}
+	return fileDescriptor_675879a591bd3155, []int{4}
 }
 func (m *ShutdownRequest) XXX_Unmarshal(b []byte) error {
 	return m.Unmarshal(b)
@@ -154,7 +234,7 @@ func (m *ShutdownResponse) Reset()         { *m = ShutdownResponse{} }
 func (m *ShutdownResponse) String() string { return proto.CompactTextString(m) }
 func (*ShutdownResponse) ProtoMessage()    {}
 func (*ShutdownResponse) Descriptor() ([]byte, []int) {
-	return fileDescriptor_675879a591bd3155, []int{3}
+	return fileDescriptor_675879a591bd3155, []int{5}
 }
 func (m *ShutdownResponse) XXX_Unmarshal(b []byte) error {
 	return m.Unmarshal(b)
@@ -194,7 +274,7 @@ func (m *ProgressRequest) Reset()         { *m = ProgressRequest{} }
 func (m *ProgressRequest) String() string { return proto.CompactTextString(m) }
 func (*ProgressRequest) ProtoMessage()    {}
 func (*ProgressRequest) Descriptor() ([]byte, []int) {
-	return fileDescriptor_675879a591bd3155, []int{4}
+	return fileDescriptor_675879a591bd3155, []int{6}
 }
 func (m *ProgressRequest) XXX_Unmarshal(b []byte) error {
 	return m.Unmarshal(b)
@@ -241,7 +321,7 @@ func (m *ProgressResponse) Reset()         { *m = ProgressResponse{} }
 func (m *ProgressResponse) String() string { return proto.CompactTextString(m) }
 func (*ProgressResponse) ProtoMessage()    {}
 func (*ProgressResponse) Descriptor() ([]byte, []int) {
-	return fileDescriptor_675879a591bd3155, []int{5}
+	return fileDescriptor_675879a591bd3155, []int{7}
 }
 func (m *ProgressResponse) XXX_Unmarshal(b []byte) error {
 	return m.Unmarshal(b)
@@ -293,7 +373,7 @@ func (m *ProgressResponse) GetErrors() []*Error {
 
 // Error represents an error in the operation
 type Error struct {
-	// Messages specifies the error message
+	// Message specifies the error message
 	Message              string   `protobuf:"bytes,1,opt,name=message,proto3" json:"message,omitempty"`
 	XXX_NoUnkeyedLiteral struct{} `json:"-"`
 	XXX_unrecognized     []byte   `json:"-"`
@@ -304,7 +384,7 @@ func (m *Error) Reset()         { *m = Error{} }
 func (m *Error) String() string { return proto.CompactTextString(m) }
 func (*Error) ProtoMessage()    {}
 func (*Error) Descriptor() ([]byte, []int) {
-	return fileDescriptor_675879a591bd3155, []int{6}
+	return fileDescriptor_675879a591bd3155, []int{8}
 }
 func (m *Error) XXX_Unmarshal(b []byte) error {
 	return m.Unmarshal(b)
@@ -343,6 +423,8 @@ func (m *Error) GetMessage() string {
 func init() {
 	proto.RegisterType((*ExecuteRequest)(nil), "installer.ExecuteRequest")
 	proto.RegisterType((*ExecuteResponse)(nil), "installer.ExecuteResponse")
+	proto.RegisterType((*ValidateRequest)(nil), "installer.ValidateRequest")
+	proto.RegisterType((*ValidateResponse)(nil), "installer.ValidateResponse")
 	proto.RegisterType((*ShutdownRequest)(nil), "installer.ShutdownRequest")
 	proto.RegisterType((*ShutdownResponse)(nil), "installer.ShutdownResponse")
 	proto.RegisterType((*ProgressRequest)(nil), "installer.ProgressRequest")
@@ -353,25 +435,26 @@ func init() {
 func init() { proto.RegisterFile("installer.proto", fileDescriptor_675879a591bd3155) }
 
 var fileDescriptor_675879a591bd3155 = []byte{
-	// 280 bytes of a gzipped FileDescriptorProto
-	0x1f, 0x8b, 0x08, 0x00, 0x00, 0x00, 0x00, 0x00, 0x02, 0xff, 0x74, 0x91, 0x41, 0x4e, 0x83, 0x40,
-	0x18, 0x85, 0x1d, 0x9b, 0x56, 0xfa, 0x37, 0xb1, 0xe3, 0xac, 0x10, 0x13, 0x82, 0xac, 0x58, 0x35,
-	0xa6, 0x9e, 0x40, 0x4d, 0xa3, 0xae, 0x34, 0x78, 0x02, 0xac, 0x7f, 0xb0, 0x09, 0x9d, 0xc1, 0x99,
-	0x9f, 0xe8, 0x51, 0x3c, 0x92, 0x4b, 0x8f, 0xa0, 0x78, 0x11, 0xd3, 0xca, 0x40, 0x21, 0xb8, 0xfc,
-	0xdf, 0x7b, 0x79, 0x93, 0xf7, 0x0d, 0x4c, 0x57, 0xd2, 0x50, 0x92, 0x65, 0xa8, 0x67, 0xb9, 0x56,
-	0xa4, 0xc4, 0xb8, 0x16, 0x42, 0x0e, 0x87, 0x8b, 0x37, 0x5c, 0x16, 0x84, 0x31, 0xbe, 0x14, 0x68,
-	0x28, 0x3c, 0x82, 0x69, 0xad, 0x98, 0x5c, 0x49, 0x83, 0x1b, 0xe9, 0xe1, 0xb9, 0xa0, 0x27, 0xf5,
-	0x2a, 0x6d, 0x4a, 0x00, 0x6f, 0xa4, 0x26, 0x76, 0xaf, 0x55, 0xaa, 0xd1, 0x18, 0x1b, 0xd3, 0xc0,
-	0x1b, 0xe9, 0x2f, 0x26, 0x5c, 0x38, 0x58, 0xa3, 0x31, 0x49, 0x8a, 0x2e, 0x0b, 0x58, 0x34, 0x8e,
-	0xed, 0x29, 0x3c, 0x70, 0x96, 0x6a, 0x9d, 0x67, 0x48, 0xe8, 0xee, 0x07, 0x2c, 0x72, 0xe2, 0xfa,
-	0x16, 0x11, 0x8c, 0x50, 0x6b, 0xa5, 0x8d, 0x3b, 0x08, 0x06, 0xd1, 0x64, 0xce, 0x67, 0xcd, 0xaa,
-	0xc5, 0xc6, 0x88, 0x2b, 0x3f, 0x3c, 0x85, 0xe1, 0x56, 0xf8, 0xff, 0xa1, 0xf9, 0x37, 0x83, 0xe1,
-	0x45, 0x8a, 0x92, 0xc4, 0x2d, 0xf0, 0x6a, 0xed, 0x5d, 0x8e, 0x3a, 0xa1, 0x95, 0x92, 0xe2, 0x78,
-	0xb7, 0xba, 0x05, 0xc7, 0xf3, 0xfa, 0xac, 0x6a, 0xd7, 0x15, 0x38, 0x16, 0x89, 0xd8, 0xcd, 0x75,
-	0xd0, 0x79, 0x27, 0xbd, 0x5e, 0x55, 0x72, 0x03, 0x93, 0x6b, 0x24, 0xcb, 0xac, 0xd5, 0xd3, 0x61,
-	0xdb, 0xea, 0xe9, 0x42, 0x3e, 0x63, 0x97, 0xfc, 0xa3, 0xf4, 0xd9, 0x67, 0xe9, 0xb3, 0xaf, 0xd2,
-	0x67, 0xef, 0x3f, 0xfe, 0xde, 0xe3, 0x68, 0xfb, 0xfb, 0xe7, 0xbf, 0x01, 0x00, 0x00, 0xff, 0xff,
-	0x4e, 0x32, 0xeb, 0x1d, 0x10, 0x02, 0x00, 0x00,
+	// 295 bytes of a gzipped FileDescriptorProto
+	0x1f, 0x8b, 0x08, 0x00, 0x00, 0x00, 0x00, 0x00, 0x02, 0xff, 0x8c, 0x92, 0x41, 0x4a, 0xc3, 0x40,
+	0x14, 0x86, 0x9d, 0x96, 0xb6, 0xe9, 0x2b, 0xd8, 0xf8, 0x56, 0x31, 0x42, 0x88, 0x59, 0x65, 0x55,
+	0xa4, 0x9e, 0x40, 0x4b, 0xd1, 0xa5, 0x44, 0x70, 0x1f, 0xdb, 0x47, 0x2c, 0xa4, 0x99, 0x38, 0x33,
+	0x41, 0x8f, 0xe2, 0xd2, 0xe3, 0xb8, 0xf4, 0x08, 0x12, 0x2f, 0x22, 0xad, 0x4d, 0x26, 0x33, 0x20,
+	0xb8, 0x9c, 0xef, 0x7d, 0xfc, 0xc9, 0xfc, 0x6f, 0x60, 0xba, 0x29, 0xa4, 0x4a, 0xf3, 0x9c, 0xc4,
+	0xac, 0x14, 0x5c, 0x71, 0x1c, 0xb7, 0x20, 0x72, 0xe1, 0x78, 0xf9, 0x4a, 0xab, 0x4a, 0x51, 0x42,
+	0xcf, 0x15, 0x49, 0x15, 0x9d, 0xc0, 0xb4, 0x25, 0xb2, 0xe4, 0x85, 0xa4, 0x1d, 0x7a, 0x48, 0xf3,
+	0xcd, 0x3a, 0xd5, 0x16, 0x82, 0xab, 0x91, 0xd6, 0xee, 0x9f, 0x2a, 0xb5, 0xe6, 0x2f, 0x45, 0x47,
+	0xd3, 0x48, 0x6b, 0x77, 0x82, 0x67, 0x82, 0xa4, 0x6c, 0x34, 0x01, 0xae, 0x46, 0xbf, 0x1a, 0x7a,
+	0x30, 0xda, 0x92, 0x94, 0x69, 0x46, 0x1e, 0x0b, 0x59, 0x3c, 0x4e, 0x9a, 0x23, 0xfa, 0xe0, 0xac,
+	0xf8, 0xb6, 0xcc, 0x49, 0x91, 0xd7, 0x0b, 0x59, 0xec, 0x24, 0xed, 0x19, 0x63, 0x18, 0x92, 0x10,
+	0x5c, 0x48, 0xaf, 0x1f, 0xf6, 0xe3, 0xc9, 0xdc, 0x9d, 0xe9, 0xcb, 0x2f, 0x77, 0x83, 0xe4, 0x30,
+	0x8f, 0xce, 0x61, 0xb0, 0x07, 0x7f, 0x7f, 0x68, 0xfe, 0xde, 0x83, 0xc1, 0x55, 0x46, 0x85, 0xc2,
+	0x05, 0x8c, 0x0e, 0xa5, 0xe0, 0x69, 0x37, 0xd1, 0xa8, 0xce, 0x3f, 0xeb, 0x8c, 0xec, 0xfb, 0x5c,
+	0x30, 0x5c, 0x80, 0xd3, 0x94, 0x81, 0x7e, 0x47, 0xb5, 0x4a, 0x33, 0x62, 0xec, 0xf6, 0xf0, 0x16,
+	0x26, 0x37, 0xa4, 0x9a, 0x74, 0x23, 0xc7, 0x6a, 0xf5, 0x1f, 0xbf, 0xd3, 0xac, 0xd0, 0x88, 0xb1,
+	0x56, 0x6d, 0xc4, 0xd8, 0x3b, 0xbf, 0x76, 0x3f, 0xea, 0x80, 0x7d, 0xd6, 0x01, 0xfb, 0xaa, 0x03,
+	0xf6, 0xf6, 0x1d, 0x1c, 0x3d, 0x0e, 0xf7, 0x6f, 0xec, 0xf2, 0x27, 0x00, 0x00, 0xff, 0xff, 0xb2,
+	0xba, 0x5f, 0x1f, 0x76, 0x02, 0x00, 0x00,
 }
 
 // Reference imports to suppress errors if they are not otherwise used.
@@ -386,12 +469,15 @@ const _ = grpc.SupportPackageIsVersion4
 //
 // For semantics around ctx use and closing/ending streaming RPCs, please refer to https://godoc.org/google.golang.org/grpc#ClientConn.NewStream.
 type AgentClient interface {
-	// ExecuteOperation runs installer operation to completion
-	ExecuteOperation(ctx context.Context, in *ExecuteRequest, opts ...grpc.CallOption) (*ExecuteResponse, error)
+	// Execute runs installer operation to completion
+	Execute(ctx context.Context, in *ExecuteRequest, opts ...grpc.CallOption) (Agent_ExecuteClient, error)
 	// Shutdown requests that the installer exit
 	Shutdown(ctx context.Context, in *ShutdownRequest, opts ...grpc.CallOption) (*ShutdownResponse, error)
 	// GetProgress polls the server for operation progress
 	GetProgress(ctx context.Context, in *ProgressRequest, opts ...grpc.CallOption) (Agent_GetProgressClient, error)
+	// Validate allows the engine to prepare for the installation
+	// and validate the environment before the operation is executed
+	Validate(ctx context.Context, in *ValidateRequest, opts ...grpc.CallOption) (*ValidateResponse, error)
 }
 
 type agentClient struct {
@@ -402,13 +488,36 @@ func NewAgentClient(cc *grpc.ClientConn) AgentClient {
 	return &agentClient{cc}
 }
 
-func (c *agentClient) ExecuteOperation(ctx context.Context, in *ExecuteRequest, opts ...grpc.CallOption) (*ExecuteResponse, error) {
-	out := new(ExecuteResponse)
-	err := c.cc.Invoke(ctx, "/installer.Agent/ExecuteOperation", in, out, opts...)
+func (c *agentClient) Execute(ctx context.Context, in *ExecuteRequest, opts ...grpc.CallOption) (Agent_ExecuteClient, error) {
+	stream, err := c.cc.NewStream(ctx, &_Agent_serviceDesc.Streams[0], "/installer.Agent/Execute", opts...)
 	if err != nil {
 		return nil, err
 	}
-	return out, nil
+	x := &agentExecuteClient{stream}
+	if err := x.ClientStream.SendMsg(in); err != nil {
+		return nil, err
+	}
+	if err := x.ClientStream.CloseSend(); err != nil {
+		return nil, err
+	}
+	return x, nil
+}
+
+type Agent_ExecuteClient interface {
+	Recv() (*ProgressResponse, error)
+	grpc.ClientStream
+}
+
+type agentExecuteClient struct {
+	grpc.ClientStream
+}
+
+func (x *agentExecuteClient) Recv() (*ProgressResponse, error) {
+	m := new(ProgressResponse)
+	if err := x.ClientStream.RecvMsg(m); err != nil {
+		return nil, err
+	}
+	return m, nil
 }
 
 func (c *agentClient) Shutdown(ctx context.Context, in *ShutdownRequest, opts ...grpc.CallOption) (*ShutdownResponse, error) {
@@ -421,7 +530,7 @@ func (c *agentClient) Shutdown(ctx context.Context, in *ShutdownRequest, opts ..
 }
 
 func (c *agentClient) GetProgress(ctx context.Context, in *ProgressRequest, opts ...grpc.CallOption) (Agent_GetProgressClient, error) {
-	stream, err := c.cc.NewStream(ctx, &_Agent_serviceDesc.Streams[0], "/installer.Agent/GetProgress", opts...)
+	stream, err := c.cc.NewStream(ctx, &_Agent_serviceDesc.Streams[1], "/installer.Agent/GetProgress", opts...)
 	if err != nil {
 		return nil, err
 	}
@@ -452,36 +561,51 @@ func (x *agentGetProgressClient) Recv() (*ProgressResponse, error) {
 	return m, nil
 }
 
+func (c *agentClient) Validate(ctx context.Context, in *ValidateRequest, opts ...grpc.CallOption) (*ValidateResponse, error) {
+	out := new(ValidateResponse)
+	err := c.cc.Invoke(ctx, "/installer.Agent/Validate", in, out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
 // AgentServer is the server API for Agent service.
 type AgentServer interface {
-	// ExecuteOperation runs installer operation to completion
-	ExecuteOperation(context.Context, *ExecuteRequest) (*ExecuteResponse, error)
+	// Execute runs installer operation to completion
+	Execute(*ExecuteRequest, Agent_ExecuteServer) error
 	// Shutdown requests that the installer exit
 	Shutdown(context.Context, *ShutdownRequest) (*ShutdownResponse, error)
 	// GetProgress polls the server for operation progress
 	GetProgress(*ProgressRequest, Agent_GetProgressServer) error
+	// Validate allows the engine to prepare for the installation
+	// and validate the environment before the operation is executed
+	Validate(context.Context, *ValidateRequest) (*ValidateResponse, error)
 }
 
 func RegisterAgentServer(s *grpc.Server, srv AgentServer) {
 	s.RegisterService(&_Agent_serviceDesc, srv)
 }
 
-func _Agent_ExecuteOperation_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
-	in := new(ExecuteRequest)
-	if err := dec(in); err != nil {
-		return nil, err
+func _Agent_Execute_Handler(srv interface{}, stream grpc.ServerStream) error {
+	m := new(ExecuteRequest)
+	if err := stream.RecvMsg(m); err != nil {
+		return err
 	}
-	if interceptor == nil {
-		return srv.(AgentServer).ExecuteOperation(ctx, in)
-	}
-	info := &grpc.UnaryServerInfo{
-		Server:     srv,
-		FullMethod: "/installer.Agent/ExecuteOperation",
-	}
-	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		return srv.(AgentServer).ExecuteOperation(ctx, req.(*ExecuteRequest))
-	}
-	return interceptor(ctx, in, info, handler)
+	return srv.(AgentServer).Execute(m, &agentExecuteServer{stream})
+}
+
+type Agent_ExecuteServer interface {
+	Send(*ProgressResponse) error
+	grpc.ServerStream
+}
+
+type agentExecuteServer struct {
+	grpc.ServerStream
+}
+
+func (x *agentExecuteServer) Send(m *ProgressResponse) error {
+	return x.ServerStream.SendMsg(m)
 }
 
 func _Agent_Shutdown_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
@@ -523,20 +647,43 @@ func (x *agentGetProgressServer) Send(m *ProgressResponse) error {
 	return x.ServerStream.SendMsg(m)
 }
 
+func _Agent_Validate_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(ValidateRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(AgentServer).Validate(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: "/installer.Agent/Validate",
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(AgentServer).Validate(ctx, req.(*ValidateRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
 var _Agent_serviceDesc = grpc.ServiceDesc{
 	ServiceName: "installer.Agent",
 	HandlerType: (*AgentServer)(nil),
 	Methods: []grpc.MethodDesc{
 		{
-			MethodName: "ExecuteOperation",
-			Handler:    _Agent_ExecuteOperation_Handler,
-		},
-		{
 			MethodName: "Shutdown",
 			Handler:    _Agent_Shutdown_Handler,
 		},
+		{
+			MethodName: "Validate",
+			Handler:    _Agent_Validate_Handler,
+		},
 	},
 	Streams: []grpc.StreamDesc{
+		{
+			StreamName:    "Execute",
+			Handler:       _Agent_Execute_Handler,
+			ServerStreams: true,
+		},
 		{
 			StreamName:    "GetProgress",
 			Handler:       _Agent_GetProgress_Handler,
@@ -578,6 +725,48 @@ func (m *ExecuteResponse) Marshal() (dAtA []byte, err error) {
 }
 
 func (m *ExecuteResponse) MarshalTo(dAtA []byte) (int, error) {
+	var i int
+	_ = i
+	var l int
+	_ = l
+	if m.XXX_unrecognized != nil {
+		i += copy(dAtA[i:], m.XXX_unrecognized)
+	}
+	return i, nil
+}
+
+func (m *ValidateRequest) Marshal() (dAtA []byte, err error) {
+	size := m.Size()
+	dAtA = make([]byte, size)
+	n, err := m.MarshalTo(dAtA)
+	if err != nil {
+		return nil, err
+	}
+	return dAtA[:n], nil
+}
+
+func (m *ValidateRequest) MarshalTo(dAtA []byte) (int, error) {
+	var i int
+	_ = i
+	var l int
+	_ = l
+	if m.XXX_unrecognized != nil {
+		i += copy(dAtA[i:], m.XXX_unrecognized)
+	}
+	return i, nil
+}
+
+func (m *ValidateResponse) Marshal() (dAtA []byte, err error) {
+	size := m.Size()
+	dAtA = make([]byte, size)
+	n, err := m.MarshalTo(dAtA)
+	if err != nil {
+		return nil, err
+	}
+	return dAtA[:n], nil
+}
+
+func (m *ValidateResponse) MarshalTo(dAtA []byte) (int, error) {
 	var i int
 	_ = i
 	var l int
@@ -760,6 +949,30 @@ func (m *ExecuteResponse) Size() (n int) {
 	return n
 }
 
+func (m *ValidateRequest) Size() (n int) {
+	if m == nil {
+		return 0
+	}
+	var l int
+	_ = l
+	if m.XXX_unrecognized != nil {
+		n += len(m.XXX_unrecognized)
+	}
+	return n
+}
+
+func (m *ValidateResponse) Size() (n int) {
+	if m == nil {
+		return 0
+	}
+	var l int
+	_ = l
+	if m.XXX_unrecognized != nil {
+		n += len(m.XXX_unrecognized)
+	}
+	return n
+}
+
 func (m *ShutdownRequest) Size() (n int) {
 	if m == nil {
 		return 0
@@ -931,6 +1144,114 @@ func (m *ExecuteResponse) Unmarshal(dAtA []byte) error {
 		}
 		if fieldNum <= 0 {
 			return fmt.Errorf("proto: ExecuteResponse: illegal tag %d (wire type %d)", fieldNum, wire)
+		}
+		switch fieldNum {
+		default:
+			iNdEx = preIndex
+			skippy, err := skipInstaller(dAtA[iNdEx:])
+			if err != nil {
+				return err
+			}
+			if skippy < 0 {
+				return ErrInvalidLengthInstaller
+			}
+			if (iNdEx + skippy) < 0 {
+				return ErrInvalidLengthInstaller
+			}
+			if (iNdEx + skippy) > l {
+				return io.ErrUnexpectedEOF
+			}
+			m.XXX_unrecognized = append(m.XXX_unrecognized, dAtA[iNdEx:iNdEx+skippy]...)
+			iNdEx += skippy
+		}
+	}
+
+	if iNdEx > l {
+		return io.ErrUnexpectedEOF
+	}
+	return nil
+}
+func (m *ValidateRequest) Unmarshal(dAtA []byte) error {
+	l := len(dAtA)
+	iNdEx := 0
+	for iNdEx < l {
+		preIndex := iNdEx
+		var wire uint64
+		for shift := uint(0); ; shift += 7 {
+			if shift >= 64 {
+				return ErrIntOverflowInstaller
+			}
+			if iNdEx >= l {
+				return io.ErrUnexpectedEOF
+			}
+			b := dAtA[iNdEx]
+			iNdEx++
+			wire |= uint64(b&0x7F) << shift
+			if b < 0x80 {
+				break
+			}
+		}
+		fieldNum := int32(wire >> 3)
+		wireType := int(wire & 0x7)
+		if wireType == 4 {
+			return fmt.Errorf("proto: ValidateRequest: wiretype end group for non-group")
+		}
+		if fieldNum <= 0 {
+			return fmt.Errorf("proto: ValidateRequest: illegal tag %d (wire type %d)", fieldNum, wire)
+		}
+		switch fieldNum {
+		default:
+			iNdEx = preIndex
+			skippy, err := skipInstaller(dAtA[iNdEx:])
+			if err != nil {
+				return err
+			}
+			if skippy < 0 {
+				return ErrInvalidLengthInstaller
+			}
+			if (iNdEx + skippy) < 0 {
+				return ErrInvalidLengthInstaller
+			}
+			if (iNdEx + skippy) > l {
+				return io.ErrUnexpectedEOF
+			}
+			m.XXX_unrecognized = append(m.XXX_unrecognized, dAtA[iNdEx:iNdEx+skippy]...)
+			iNdEx += skippy
+		}
+	}
+
+	if iNdEx > l {
+		return io.ErrUnexpectedEOF
+	}
+	return nil
+}
+func (m *ValidateResponse) Unmarshal(dAtA []byte) error {
+	l := len(dAtA)
+	iNdEx := 0
+	for iNdEx < l {
+		preIndex := iNdEx
+		var wire uint64
+		for shift := uint(0); ; shift += 7 {
+			if shift >= 64 {
+				return ErrIntOverflowInstaller
+			}
+			if iNdEx >= l {
+				return io.ErrUnexpectedEOF
+			}
+			b := dAtA[iNdEx]
+			iNdEx++
+			wire |= uint64(b&0x7F) << shift
+			if b < 0x80 {
+				break
+			}
+		}
+		fieldNum := int32(wire >> 3)
+		wireType := int(wire & 0x7)
+		if wireType == 4 {
+			return fmt.Errorf("proto: ValidateResponse: wiretype end group for non-group")
+		}
+		if fieldNum <= 0 {
+			return fmt.Errorf("proto: ValidateResponse: illegal tag %d (wire type %d)", fieldNum, wire)
 		}
 		switch fieldNum {
 		default:

@@ -323,6 +323,9 @@ const (
 	// ServiceSelfLeaderEvent defines an event sent when the gravity service becomes the leader
 	ServiceSelfLeaderEvent = "ServiceElected"
 
+	// FinalInstallStepCompletedEvent defines an event sent when the user completes final install step
+	FinalInstallStepCompletedEvent = "FinalInstallStepCompleted"
+
 	// ClusterCertificateUpdatedEvent is an event broadcast when cluster
 	// certificate is updated
 	ClusterCertificateUpdatedEvent = "ClusterCertificateUpdated"

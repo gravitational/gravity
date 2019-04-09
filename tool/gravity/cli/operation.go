@@ -189,7 +189,7 @@ func (r *backendOperations) List(localEnv, updateEnv, joinEnv *localenv.LocalEnv
 	if clusterEnv != nil {
 		err = r.init(clusterEnv.Backend)
 		if err != nil {
-			log.WithError(err).Warn("Failed to query cluster operations.")
+			log.WithError(err).Debug("Failed to query cluster operations.")
 		}
 	}
 	if updateEnv != nil {
@@ -201,18 +201,11 @@ func (r *backendOperations) List(localEnv, updateEnv, joinEnv *localenv.LocalEnv
 	// Only fetch operation from remote (install) environment if the install operation is ongoing
 	// or we failed to fetch the operation details from the cluster
 	if r.isActiveInstallOperation() {
-		wizardEnv, err := localenv.NewRemoteEnvironment()
-		if err != nil {
+		wizardEnv, err := localenv.NewLocalWizardEnvironment()
+		if err == nil {
+			r.getOperationAndUpdateCache(wizardEnv.Backend, log.WithField("context", "install"))
+		} else {
 			log.WithError(err).Warn("Failed to create wizard environment.")
-		}
-		if wizardEnv != nil && wizardEnv.Operator != nil {
-			op, err := ops.GetWizardOperation(wizardEnv.Operator)
-			if err == nil {
-				log.Debug("Fetched install operation from wizard environment.")
-				r.operations[op.ID] = (ops.SiteOperation)(*op)
-			} else {
-				log.WithError(err).Warn("Failed to query install operation.")
-			}
 		}
 	}
 	return nil

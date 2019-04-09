@@ -372,21 +372,6 @@ func (r CloserFunc) Close() error {
 // CloserFunc is a functional wrapper that allows a function as an io.Closer
 type CloserFunc func() error
 
-func generateInstallToken(service ops.Operator, installToken string) (*storage.InstallToken, error) {
-	token, err := service.CreateInstallToken(
-		ops.NewInstallTokenRequest{
-			AccountID: defaults.SystemAccountID,
-			UserType:  storage.AdminUser,
-			UserEmail: defaults.WizardUser,
-			Token:     installToken,
-		},
-	)
-	if err != nil {
-		return nil, trace.Wrap(err)
-	}
-	return token, nil
-}
-
 func wait(ctx context.Context, cancel context.CancelFunc, p process.GravityProcess) error {
 	errC := make(chan error, 1)
 	go func() {

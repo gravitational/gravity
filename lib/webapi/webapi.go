@@ -1414,7 +1414,7 @@ func (m *Handler) uploadApp(w http.ResponseWriter, r *http.Request, p httprouter
 		return nil, trace.Wrap(err)
 	}
 
-	for _ = range progressC {
+	for range progressC {
 	}
 
 	if err = <-errorC; err != nil {

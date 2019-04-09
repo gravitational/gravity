@@ -519,10 +519,10 @@ func (b *PlanBuilder) AddEnableElectionPhase(plan *storage.OperationPlan) {
 // operation that can be used to build operation plan phases
 func (i *Installer) GetPlanBuilder(cluster ops.Site, op ops.SiteOperation) (*PlanBuilder, error) {
 	// determine which app and runtime are being installed
-	base := i.App.Manifest.Base()
+	base := cluster.App.Manifest.Base()
 	if base == nil {
 		return nil, trace.BadParameter("application %v does not have a runtime",
-			i.App.Package)
+			cluster.App.Package)
 	}
 	runtime, err := i.Apps.GetApp(*base)
 	if err != nil {
@@ -539,22 +539,22 @@ func (i *Installer) GetPlanBuilder(cluster ops.Site, op ops.SiteOperation) (*Pla
 	master := masters[0]
 	// prepare information about application packages that will be required
 	// during plan generation
-	teleportPackage, err := i.App.Manifest.Dependencies.ByName(
+	teleportPackage, err := cluster.App.Manifest.Dependencies.ByName(
 		constants.TeleportPackage)
 	if err != nil {
 		return nil, trace.Wrap(err)
 	}
-	rbacPackage, err := i.App.Manifest.Dependencies.ByName(
+	rbacPackage, err := cluster.App.Manifest.Dependencies.ByName(
 		constants.BootstrapConfigPackage)
 	if err != nil {
 		return nil, trace.Wrap(err)
 	}
-	gravitySitePackage, err := i.App.Manifest.Dependencies.ByName(
+	gravitySitePackage, err := cluster.App.Manifest.Dependencies.ByName(
 		constants.GravitySitePackage)
 	if err != nil {
 		return nil, trace.Wrap(err)
 	}
-	dnsAppPackage, err := i.App.Manifest.Dependencies.ByName(
+	dnsAppPackage, err := cluster.App.Manifest.Dependencies.ByName(
 		constants.DNSAppPackage)
 	if err != nil {
 		return nil, trace.Wrap(err)
@@ -580,7 +580,11 @@ func (i *Installer) GetPlanBuilder(cluster ops.Site, op ops.SiteOperation) (*Pla
 		return nil, trace.Wrap(err)
 	}
 	builder := &PlanBuilder{
-		Application:        *i.App,
+		Application: app.Application{
+			Package:         cluster.App.Package,
+			PackageEnvelope: cluster.App.PackageEnvelope,
+			Manifest:        cluster.App.Manifest,
+		},
 		Runtime:            *runtime,
 		TeleportPackage:    *teleportPackage,
 		RBACPackage:        *rbacPackage,

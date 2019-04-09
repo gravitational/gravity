@@ -2,15 +2,20 @@ syntax = "proto3";
 
 package installer;
 
+// Agent defines a service to install a cluster
 service Agent {
-    // ExecuteOperation runs installer operation to completion
-    rpc ExecuteOperation(ExecuteRequest) returns (ExecuteResponse);
+    // Execute runs installer operation to completion
+    rpc Execute(ExecuteRequest) returns (stream ProgressResponse);
 
     // Shutdown requests that the installer exit
     rpc Shutdown(ShutdownRequest) returns (ShutdownResponse);
 
     // GetProgress polls the server for operation progress
     rpc GetProgress(ProgressRequest) returns (stream ProgressResponse);
+
+    // Validate allows the engine to prepare for the installation
+    // and validate the environment before the operation is executed
+    rpc Validate(ValidateRequest) returns (ValidateResponse);
 }
 
 // ExecuteRequest describes a request to execute install operation
@@ -19,6 +24,14 @@ message ExecuteRequest {
 
 // ExecuteResponse describes the server response to execute request
 message ExecuteResponse {
+}
+
+// ValidateRequest describes a request to validate environment before the operation
+message ValidateRequest {
+}
+
+// ValidateResponse describes the server response after validation
+message ValidateResponse {
 }
 
 // ShutdownRequest describes a request to shut down the process
@@ -46,6 +59,6 @@ message ProgressResponse {
 
 // Error represents an error in the operation
 message Error {
-    // Messages specifies the error message
+    // Message specifies the error message
     string message = 1;
 }

@@ -46,6 +46,24 @@ func ReinstallOneshotServiceFromSpec(serviceName string, spec ServiceSpec, args 
 	return trace.Wrap(installOneshotServiceFromSpec(services, serviceName, spec, args...))
 }
 
+// UninstallService uninstalls service with the specified name
+func UninstallService(serviceName string) error {
+	services, err := New()
+	if err != nil {
+		return trace.Wrap(err)
+	}
+	return trace.Wrap(services.UninstallService(serviceName))
+}
+
+// RestartService restarts service with the specified name
+func RestartService(serviceName string) error {
+	services, err := New()
+	if err != nil {
+		return trace.Wrap(err)
+	}
+	return trace.Wrap(services.RestartService(serviceName))
+}
+
 func installOneshotServiceFromSpec(services ServiceManager, serviceName string, spec ServiceSpec, args ...string) error {
 	spec.Type = constants.OneshotService
 	spec.RemainAfterExit = true

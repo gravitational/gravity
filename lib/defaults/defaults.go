@@ -1010,6 +1010,9 @@ var (
 	// GravityConfigDirs specify default locations for gravity configuration search
 	GravityConfigDirs = []string{GravityDir, "assets/local"}
 
+	// GravityInstallDir is where install FSM stores its information during install operation
+	GravityInstallDir = filepath.Join(GravityEphemeralDir, WizardStateDir)
+
 	// GravityJoinDir is where join FSM stores its information on the joining node
 	GravityJoinDir = filepath.Join(GravityEphemeralDir, "join")
 

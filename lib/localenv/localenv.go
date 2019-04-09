@@ -142,7 +142,7 @@ func NewLocalEnvironment(args LocalEnvironmentArgs) (*LocalEnvironment, error) {
 		return nil, trace.BadParameter("missing parameter StateDir")
 	}
 
-	log.Debugf("Creating local env: %#v.", args)
+	log.WithField("args", args).Debug("Creating local environment.")
 
 	var err error
 	args.StateDir, err = filepath.Abs(args.StateDir)

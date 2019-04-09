@@ -8,10 +8,11 @@ import (
 
 	"github.com/gravitational/gravity/lib/defaults"
 	"github.com/gravitational/gravity/lib/install"
-	"github.com/gravitational/gravity/lib/install/engine"
+	libengine "github.com/gravitational/gravity/lib/install/engine"
 	"github.com/gravitational/gravity/lib/ops"
 	"github.com/gravitational/gravity/lib/utils"
 
+	"github.com/fatih/color"
 	"github.com/gravitational/trace"
 	log "github.com/sirupsen/logrus"
 )
@@ -48,16 +49,25 @@ type Config struct {
 	// FieldLogger is the logger for the installer
 	log.FieldLogger
 	// StateMachineFactory is a factory for creating installer state machines
-	engine.StateMachineFactory
+	libengine.StateMachineFactory
 	// Planner creates a plan for the operation
-	engine.Planner
+	libengine.Planner
 	// Operator specifies the service operator
 	ops.Operator
 }
 
-func (r *Engine) Execute(ctx context.Context, installer install.Interface, config install.RuntimeConfig) error {
+func (r *Engine) Validate(ctx context.Context, config install.Config) (err error) {
+	return trace.Wrap(config.RunLocalChecks(ctx))
+}
+
+func (r *Engine) Execute(ctx context.Context, installer install.Interface, config install.Config) error {
+	// FIXME: should this run in a preparation step?
+	app, err := config.GetApp()
+	if err != nil {
+		return trace.Wrap(err, "failed to query application")
+	}
 	r.printURL(ctx, installer, config)
-	err := install.ExportRPCCredentials(ctx, config.Packages, r.FieldLogger)
+	err = install.ExportRPCCredentials(ctx, config.Packages, r.FieldLogger)
 	if err != nil {
 		return trace.Wrap(err, "failed to export RPC credentials")
 	}
@@ -66,20 +76,27 @@ func (r *Engine) Execute(ctx context.Context, installer install.Interface, confi
 	if err != nil {
 		return trace.Wrap(err, "failed to wait for operation to become ready")
 	}
-	installer.AddAgentServiceCloser(ctx, operation.Key())
-	if err := engine.ExecuteOperation(ctx, r.Planner, r.StateMachineFactory,
+	installer.NotifyOperationAvailable(ctx, operation.Key())
+	if err := libengine.ExecuteOperation(ctx, r.Planner, r.StateMachineFactory,
 		r.Operator, operation.Key(), r.FieldLogger); err != nil {
 		return trace.Wrap(err)
 	}
 	// With an interactive installation, the link to remote Ops Center cannot be removed
 	// immediately as it is used to tunnel final install step
-	if err := installer.CompleteFinalInstallStep(defaults.WizardLinkTTL); err != nil {
-		r.WithError(err).Warn("Failed to complete final install step.")
+	if app.Manifest.SetupEndpoint() == nil {
+		if err := installer.CompleteFinalInstallStep(defaults.WizardLinkTTL); err != nil {
+			r.WithError(err).Warn("Failed to complete final install step.")
+		}
 	}
 	if err := installer.Finalize(ctx, *operation); err != nil {
 		r.WithError(err).Warn("Failed to finalize install.")
 	}
-	return nil
+	installer.PrintStep(ctx, "\nInstaller process will keep running so the installation can be finished by\n"+
+		"completing necessary post-install actions in the installer UI if the installed\n"+
+		"application requires it.\n"+
+		color.YellowString("\nOnce no longer needed, press Ctrl-C to shutdown this process.\n"),
+	)
+	return trace.Wrap(installer.Wait(ctx))
 }
 
 func (r *Engine) waitForOperation(ctx context.Context, operator ops.Operator) (operation *ops.SiteOperation, err error) {
@@ -115,13 +132,13 @@ func (r *Engine) waitForOperation(ctx context.Context, operator ops.Operator) (o
 
 // printURL prints the URL that installer can be reached at via browser
 // in interactive mode to stdout
-func (r *Engine) printURL(ctx context.Context, installer install.Interface, config install.RuntimeConfig) {
+func (r *Engine) printURL(ctx context.Context, installer install.Interface, config install.Config) {
 	installer.PrintStep(ctx, "Starting web UI install wizard")
 	url := fmt.Sprintf("https://%v/web/installer/new/%v/%v/%v?install_token=%v",
 		config.AdvertiseAddr,
-		config.App.Package.Repository,
-		config.App.Package.Name,
-		config.App.Package.Version,
+		config.AppPackage.Repository,
+		config.AppPackage.Name,
+		config.AppPackage.Version,
 		config.Token)
 	r.WithField("installer-url", url).Info("Generated installer URL.")
 	ruler := strings.Repeat("-", 100)
