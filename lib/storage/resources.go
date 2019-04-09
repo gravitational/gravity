@@ -71,6 +71,8 @@ const (
 	KindClusterConfiguration = "clusterconfiguration"
 	// KindRelease defines the application release resource type
 	KindRelease = "release"
+	// KindInvite defines the user invite token.
+	KindInvite = "invite"
 )
 
 // CanonicalKind translates the specified kind to canonical form.

@@ -47,6 +47,7 @@ import (
 	"github.com/gravitational/teleport/lib/events"
 	teleservices "github.com/gravitational/teleport/lib/services"
 	"github.com/gravitational/trace"
+	"k8s.io/helm/pkg/proto/hapi/release"
 )
 
 // TeleportProxyService is SSH proxy access portal - gives
@@ -220,6 +221,115 @@ type Users interface {
 
 	// GetClusterAgent returns the specified cluster agent
 	GetClusterAgent(ClusterAgentRequest) (*storage.LoginEntry, error)
+
+	// UpdateUser updates the specified user information.
+	UpdateUser(context.Context, UpdateUserRequest) error
+	// CreateUserInvite creates a new invite token for a user.
+	CreateUserInvite(context.Context, CreateUserInviteRequest) (*storage.UserToken, error)
+	// CreateUserReset creates a new reset token for a user.
+	CreateUserReset(context.Context, CreateUserResetRequest) (*storage.UserToken, error)
+	// GetUserInvites returns all active user invites.
+	GetUserInvites(context.Context, SiteKey) ([]storage.UserInvite, error)
+	// DeleteUserInvite deletes the specified user invite.
+	DeleteUserInvite(context.Context, DeleteUserInviteRequest) error
+}
+
+// UpdateUserRequest is a request to update existing user information.
+type UpdateUserRequest struct {
+	// SiteKey is the key of the cluster to route request to.
+	SiteKey
+	// Name is the name of the user to update.
+	Name string `json:"name"`
+	// FullName is the full user name.
+	FullName string `json:"full_name"`
+	// Roles is a new list of user roles.
+	Roles []string `json:"roles"`
+}
+
+// Check validates the request.
+func (r *UpdateUserRequest) Check() error {
+	if err := r.SiteKey.Check(); err != nil {
+		return trace.Wrap(err)
+	}
+	if r.Name == "" {
+		return trace.BadParameter("user name can't be empty")
+	}
+	if len(r.Roles) == 0 {
+		return trace.BadParameter("role list can't be empty")
+	}
+	return nil
+}
+
+// CreateUserInviteRequest is a request to generate a new user invite token.
+type CreateUserInviteRequest struct {
+	// SiteKey is the key of the cluster to route request to.
+	SiteKey
+	// Name is the new user name.
+	Name string `json:"name"`
+	// Roles is the new user roles.
+	Roles []string `json:"roles"`
+	// TTL specifies how long the generated invite token is valid for.
+	TTL time.Duration `json:"ttl"`
+}
+
+// Check validates the request.
+func (r *CreateUserInviteRequest) Check() error {
+	if err := r.SiteKey.Check(); err != nil {
+		return trace.Wrap(err)
+	}
+	if r.Name == "" {
+		return trace.BadParameter("user name can't be empty")
+	}
+	if len(r.Roles) == 0 {
+		return trace.BadParameter("role list can't be empty")
+	}
+	if r.TTL < 0 {
+		return trace.BadParameter("ttl can't be negative")
+	}
+	return nil
+}
+
+// CreateUserResetRequest is a request to generate a new user reset token.
+type CreateUserResetRequest struct {
+	// SiteKey is the key of the cluster to route request to.
+	SiteKey
+	// Name is the user name to reset.
+	Name string `json:"name"`
+	// TTL specifies how long the generated reset token is valid for.
+	TTL time.Duration `json:"ttl"`
+}
+
+// Check validates the request.
+func (r *CreateUserResetRequest) Check() error {
+	if err := r.SiteKey.Check(); err != nil {
+		return trace.Wrap(err)
+	}
+	if r.Name == "" {
+		return trace.BadParameter("user name can't be empty")
+	}
+	if r.TTL < 0 {
+		return trace.BadParameter("ttl can't be negative")
+	}
+	return nil
+}
+
+// DeleteUserInviteRequest is a request to delete a user invite token.
+type DeleteUserInviteRequest struct {
+	// SiteKey is the key of the cluster to route request to.
+	SiteKey
+	// Name is the invited user name.
+	Name string `json:"name"`
+}
+
+// Check validates the request.
+func (r *DeleteUserInviteRequest) Check() error {
+	if err := r.SiteKey.Check(); err != nil {
+		return trace.Wrap(err)
+	}
+	if r.Name == "" {
+		return trace.BadParameter("user name can't be empty")
+	}
+	return nil
 }
 
 // ResetUserPasswordRequest is a request to reset gravity site user password
@@ -574,7 +684,7 @@ type Status interface {
 	GetClusterNodes(SiteKey) ([]Node, error)
 }
 
-// Node represents a cluster node information
+// Node represents a cluster node information based on Teleport node
 type Node struct {
 	// Hostname is the node hostname
 	Hostname string `json:"hostname"`
@@ -1380,24 +1490,6 @@ func (k AccountKey) String() string {
 		"account(account_id=%v)", k.AccountID)
 }
 
-// UserInviteRequest is a request to create a user invite
-type UserInviteRequest struct {
-	// Name is the new user name
-	Name string `json:"name"`
-	// Roles is the new user roles
-	Roles []string `json:"roles"`
-	// TTL is this request TTL
-	TTL time.Duration `json:"ttl"`
-}
-
-// UserResetRequest is a request to reset user credentials
-type UserResetRequest struct {
-	// Name is a user name
-	Name string `json:"name"`
-	// TTL is this request TTL
-	TTL time.Duration `json:"ttl"`
-}
-
 // NewSiteRequest is a request to create a new site entry
 type NewSiteRequest struct {
 	// AppPackage is application package, e.g. `gravitaional.io/mattermost:1.2.1`
@@ -1538,6 +1630,35 @@ func (s *Site) IsAWS() bool {
 	}, s.Provider)
 }
 
+// IsGravity returns true if the cluster is running bare Gravity image.
+func (s *Site) IsGravity() bool {
+	return s.App.Package.Name == defaults.TelekubePackage
+}
+
+// IsOpsCenter returns true if the cluster is running Ops Center image.
+func (s *Site) IsOpsCenter() bool {
+	return s.App.Package.Name == defaults.OpsCenterPackage
+}
+
+// ReleaseStatus converts the cluster state to an appropriate Helm release status.
+//
+// This is needed to represent the "application bundle" deployed on a cluster
+// as an application catalog app.
+func (s *Site) ReleaseStatus() string {
+	switch s.State {
+	case SiteStateInstalling:
+		return release.Status_PENDING_INSTALL.String()
+	case SiteStateFailed:
+		return release.Status_FAILED.String()
+	case SiteStateUpdating:
+		return release.Status_PENDING_UPGRADE.String()
+	case SiteStateUninstalling:
+		return release.Status_DELETING.String()
+	default:
+		return release.Status_DEPLOYED.String()
+	}
+}
+
 // Masters returns a list of master nodes from the cluster's state
 func (s *Site) Masters() (masters []storage.Server) {
 	for _, node := range s.ClusterState.Servers {
@@ -1546,6 +1667,15 @@ func (s *Site) Masters() (masters []storage.Server) {
 		}
 	}
 	return masters
+}
+
+// FirstMaster returns the first cluster master node.
+func (s *Site) FirstMaster() (*storage.Server, error) {
+	masters := s.Masters()
+	if len(masters) == 0 {
+		return nil, trace.NotFound("no master server found in cluster state")
+	}
+	return &masters[0], nil
 }
 
 // Application holds information about application, such

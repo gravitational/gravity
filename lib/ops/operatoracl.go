@@ -202,6 +202,14 @@ func (o *OperatorACL) CreateUser(req NewUserRequest) error {
 	return o.operator.CreateUser(req)
 }
 
+// UpdateUser updates the specified user information.
+func (o *OperatorACL) UpdateUser(ctx context.Context, req UpdateUserRequest) error {
+	if err := o.Action(teleservices.KindUser, teleservices.VerbUpdate); err != nil {
+		return trace.Wrap(err)
+	}
+	return o.operator.UpdateUser(ctx, req)
+}
+
 func (o *OperatorACL) DeleteLocalUser(name string) error {
 	if err := o.Action(teleservices.KindUser, teleservices.VerbDelete); err != nil {
 		return trace.Wrap(err)
@@ -1062,4 +1070,36 @@ func (o *OperatorACL) EmitAuditEvent(ctx context.Context, req AuditEventRequest)
 		return trace.Wrap(err)
 	}
 	return o.operator.EmitAuditEvent(ctx, req)
+}
+
+// CreateUserInvite creates a new invite token for a user.
+func (o *OperatorACL) CreateUserInvite(ctx context.Context, req CreateUserInviteRequest) (*storage.UserToken, error) {
+	if err := o.ClusterAction(req.SiteDomain, storage.KindInvite, teleservices.VerbCreate); err != nil {
+		return nil, trace.Wrap(err)
+	}
+	return o.operator.CreateUserInvite(ctx, req)
+}
+
+// GetUserInvites returns all active user invites.
+func (o *OperatorACL) GetUserInvites(ctx context.Context, key SiteKey) ([]storage.UserInvite, error) {
+	if err := o.ClusterAction(key.SiteDomain, storage.KindInvite, teleservices.VerbList); err != nil {
+		return nil, trace.Wrap(err)
+	}
+	return o.operator.GetUserInvites(ctx, key)
+}
+
+// DeleteUserInvite deletes the specified user invite.
+func (o *OperatorACL) DeleteUserInvite(ctx context.Context, req DeleteUserInviteRequest) error {
+	if err := o.ClusterAction(req.SiteDomain, storage.KindInvite, teleservices.VerbDelete); err != nil {
+		return trace.Wrap(err)
+	}
+	return o.operator.DeleteUserInvite(ctx, req)
+}
+
+// CreateUserReset creates a new reset token for a user.
+func (o *OperatorACL) CreateUserReset(ctx context.Context, req CreateUserResetRequest) (*storage.UserToken, error) {
+	if err := o.Action(teleservices.KindUser, teleservices.VerbUpdate); err != nil {
+		return nil, trace.Wrap(err)
+	}
+	return o.operator.CreateUserReset(ctx, req)
 }

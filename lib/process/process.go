@@ -1208,6 +1208,7 @@ func (p *Process) initService(ctx context.Context) (err error) {
 		SNIHost:         seedConfig.SNIHost,
 		SeedConfig:      *seedConfig,
 		ProcessID:       p.id,
+		PublicAddr:      p.cfg.Pack.GetPublicAddr(),
 		InstallLogFiles: p.cfg.InstallLogFiles,
 		LogForwarders:   logs,
 		AuditLog:        authClient,
@@ -1238,13 +1239,12 @@ func (p *Process) initService(ctx context.Context) (err error) {
 	}
 
 	p.handlers.Operator, err = opshandler.NewWebHandler(opshandler.WebHandlerConfig{
-		Users:               p.identity,
-		Operator:            p.operator,
-		Applications:        applications,
-		Packages:            p.packages,
-		Authenticator:       p.handlers.WebProxy.GetHandler().AuthenticateRequest,
-		Backend:             p.backend,
-		PublicAdvertiseAddr: p.cfg.Pack.GetPublicAddr(),
+		Users:         p.identity,
+		Operator:      p.operator,
+		Applications:  applications,
+		Packages:      p.packages,
+		Authenticator: p.handlers.WebProxy.GetHandler().AuthenticateRequest,
+		Backend:       p.backend,
 	})
 	if err != nil {
 		return trace.Wrap(err)
