@@ -232,6 +232,24 @@ Gravity requires that these modules are loaded prior to installation.
 | Ubuntu-Core | 16.04 | br_netfilter, ebtable_filter, iptables, overlay |
 | Suse Linux (openSUSE and Enterprise) | 12 SP2, 12 SP3 | br_netfilter, ebtable_filter, iptables, overlay |
 
+### Inotify watches
+
+Kubelet configures multiple inotify watches per container so it's recommended
+to increase the `max_user_watches` kernel parameter to avoid running out of
+limits. The actual number is application-specific, but we recommended setting
+it to some large value:
+
+```bsh
+$ sysctl -w fs.inotify.max_user_watches=1048576
+```
+
+To make the change persistent so it survives the node reboots, set the setting
+in a file inside `/etc/sysctl.d` directory, for example:
+
+```bsh
+$ cat /etc/sysctl.d/42-inotify.conf
+fs.inotify.max_user_watches=1048576
+```
 
 
 ## AWS IAM Policy
