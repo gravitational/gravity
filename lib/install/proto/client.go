@@ -2,7 +2,6 @@ package installer
 
 import (
 	"context"
-	"fmt"
 	"net"
 	"path/filepath"
 	"time"
@@ -25,10 +24,10 @@ func NewClient(ctx context.Context, stateDir string, logger log.FieldLogger) (Ag
 			// Don't use TLS, as we communicate over domain sockers
 			grpc.WithInsecure(),
 			// Retry every second after failure
-			grpc.WithBackoffMaxDelay(time.Second),
+			grpc.WithBackoffMaxDelay(1 * time.Second),
 			grpc.WithBlock(),
-			grpc.WithDialer(func(addr string, timeout time.Duration) (net.Conn, error) {
-				conn, err := net.DialTimeout("unix", socketPath(stateDir), timeout)
+			grpc.WithContextDialer(func(ctx context.Context, addr string) (net.Conn, error) {
+				conn, err := (&net.Dialer{}).DialContext(ctx, "unix", socketPath(stateDir))
 				if err != nil {
 					return nil, trace.Wrap(err)
 				}
@@ -48,8 +47,6 @@ func NewClient(ctx context.Context, stateDir string, logger log.FieldLogger) (Ag
 			return client, nil
 		case <-ctx.Done():
 			logger.WithError(ctx.Err()).Warn("Failed to connect.")
-			// FIXME: debug logging
-			fmt.Println("Failed to connect.")
 			return nil, trace.Wrap(ctx.Err())
 		}
 	}

@@ -18,7 +18,7 @@ package process
 
 import (
 	"fmt"
-	"io/ioutil"
+	"os"
 	"path/filepath"
 
 	"github.com/gravitational/gravity/lib/constants"
@@ -38,9 +38,10 @@ import (
 
 // WizardProcessConfig returns new process config in wizard mode
 func WizardProcessConfig(hostname, readStateDir, stateDir string) (*processconfig.Config, error) {
-	assetsDir, err := ioutil.TempDir("", "assets")
-	if err != nil {
-		return nil, trace.Wrap(err, "failed to create temporary directory for assets")
+	assetsDir := filepath.Join(stateDir, "assets")
+	if err := os.MkdirAll(assetsDir, defaults.SharedDirMask); err != nil {
+		return nil, trace.Wrap(trace.ConvertSystemError(err),
+			"failed to create directory for assets")
 	}
 	healthAddr, _ := teleutils.ParseAddr(fmt.Sprintf(":%v", defaults.WizardHealthPort))
 	adminRole, err := users.NewAdminRole()

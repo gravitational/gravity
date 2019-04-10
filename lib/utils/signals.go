@@ -22,13 +22,11 @@ import (
 	"os/signal"
 	"syscall"
 	"time"
-
-	"github.com/sirupsen/logrus"
 )
 
 // WatchTerminationSignals stops the provided stopper when it gets one of monitored signals
-func WatchTerminationSignals(ctx context.Context, cancel context.CancelFunc, stopper Stopper, logger logrus.FieldLogger) {
-	updateCh := WatchTerminationSignalsWithChannel(ctx, cancel, logger)
+func WatchTerminationSignals(ctx context.Context, cancel context.CancelFunc, stopper Stopper, printer Printer) {
+	updateCh := WatchTerminationSignalsWithChannel(ctx, cancel, printer)
 	select {
 	case updateCh <- stopper:
 	case <-ctx.Done():
@@ -38,7 +36,7 @@ func WatchTerminationSignals(ctx context.Context, cancel context.CancelFunc, sto
 // WatchTerminationSignalsWithChannel invokes the specified cancel when it receives an interrupt
 // signal.
 // Returns a channel to update the list of stoppers to stop upon termination
-func WatchTerminationSignalsWithChannel(ctx context.Context, cancel context.CancelFunc, logger logrus.FieldLogger) chan<- Stopper {
+func WatchTerminationSignalsWithChannel(ctx context.Context, cancel context.CancelFunc, printer Printer) chan<- Stopper {
 	signalC := make(chan os.Signal, 1)
 	signals := []os.Signal{
 		syscall.SIGINT,
@@ -54,11 +52,12 @@ func WatchTerminationSignalsWithChannel(ctx context.Context, cancel context.Canc
 				cancel()
 				return
 			}
-			localCtx, localCancel := context.WithTimeout(ctx, 5*time.Second)
+			localCtx, localCancel := context.WithTimeout(ctx, 15*time.Second)
 			for _, stopper := range stoppers {
 				stopper.Stop(localCtx)
 			}
 			localCancel()
+			cancel()
 		}()
 		for {
 			select {
@@ -69,7 +68,7 @@ func WatchTerminationSignalsWithChannel(ctx context.Context, cancel context.Canc
 				stoppers = append(stoppers, stopper)
 			case sig := <-signalC:
 				signal.Reset(signals...)
-				logger.WithField("signal", sig).Info("Received signal, shutting down...")
+				printer.Println("Received", sig, "signal, shutting down gracefully, please wait.")
 				return
 			}
 		}

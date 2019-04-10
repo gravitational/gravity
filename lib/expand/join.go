@@ -170,7 +170,7 @@ func (p *Peer) Init() error {
 	if err := p.bootstrap(); err != nil {
 		return trace.Wrap(err)
 	}
-	utils.WatchTerminationSignals(p.Context, p.Cancel, p, p.FieldLogger)
+	utils.WatchTerminationSignals(p.Context, p.Cancel, p, p.Silent)
 	watchReconnects(p.Context, p.Cancel, p.WatchCh)
 	return nil
 }

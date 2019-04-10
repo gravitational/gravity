@@ -91,6 +91,8 @@ func (r *Engine) Execute(ctx context.Context, installer install.Interface, confi
 	if err := installer.Finalize(ctx, *operation); err != nil {
 		r.WithError(err).Warn("Failed to finalize install.")
 	}
+	// FIXME: this should not be necessary with final install step handler sending an event
+	// Trap that event
 	installer.PrintStep(ctx, "\nInstaller process will keep running so the installation can be finished by\n"+
 		"completing necessary post-install actions in the installer UI if the installed\n"+
 		"application requires it.\n"+

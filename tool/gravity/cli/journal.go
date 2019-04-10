@@ -74,7 +74,7 @@ func exportRuntimeJournal(env *localenv.LocalEnvironment, outputFile string) err
 	})
 	ctx, cancel := context.WithCancel(context.TODO())
 	defer cancel()
-	go utils.WatchTerminationSignals(ctx, cancel, utils.StopperFunc(cleanup), logger)
+	go utils.WatchTerminationSignals(ctx, cancel, utils.StopperFunc(cleanup), env)
 
 	var w io.Writer = os.Stdout
 	if outputFile != "" {

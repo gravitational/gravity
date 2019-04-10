@@ -74,6 +74,9 @@ type LocalEnvironmentArgs struct {
 	Reporter pack.ProgressReporter
 	// DNS is the local cluster DNS server configuration
 	DNS DNSConfig
+	// ReadonlyBackend specifies if the backend should be opened
+	// read-only.
+	ReadonlyBackend bool
 }
 
 // Addr returns the first listen address of the DNS server
@@ -165,8 +168,9 @@ func (env *LocalEnvironment) init() error {
 	}
 
 	env.Backend, err = keyval.NewBolt(keyval.BoltConfig{
-		Path:  filepath.Join(env.StateDir, defaults.GravityDBFile),
-		Multi: true,
+		Path:     filepath.Join(env.StateDir, defaults.GravityDBFile),
+		Multi:    true,
+		Readonly: env.ReadonlyBackend,
 	})
 	if err != nil {
 		return trace.Wrap(err)
@@ -313,40 +317,6 @@ func (env *LocalEnvironment) SelectOpsCenterWithDefault(opsURL, defaultURL strin
 			opsURL)
 	}
 	return url, nil
-}
-
-// Printf outputs specified arguments to stdout if the silent mode is not on.
-func (env *LocalEnvironment) Printf(format string, args ...interface{}) (n int, err error) {
-	log.Debugf(format, args...)
-	if !env.Silent {
-		return fmt.Printf(format, args...)
-	}
-	return 0, nil
-}
-
-// Println outputs specified arguments to stdout if the silent mode is not on.
-func (env *LocalEnvironment) Println(args ...interface{}) (n int, err error) {
-	log.Debugln(args...)
-	if !env.Silent {
-		return fmt.Println(args...)
-	}
-	return 0, nil
-}
-
-// PrintStep outputs the message with timestamp to stdout
-func (env *LocalEnvironment) PrintStep(format string, args ...interface{}) (n int, err error) {
-	log.Debugf(format, args...)
-	if !env.Silent {
-		return fmt.Printf("%v\t%v\n", time.Now().UTC().Format(
-			constants.HumanDateFormatSeconds), fmt.Sprintf(format, args...))
-	}
-	return 0, nil
-}
-
-// Write outputs specified arguments to stdout if the silent mode is not on.
-// Write implements io.Writer
-func (env *LocalEnvironment) Write(p []byte) (n int, err error) {
-	return env.Printf(string(p))
 }
 
 func (env *LocalEnvironment) HTTPClient(options ...httplib.ClientOption) *http.Client {
@@ -776,6 +746,15 @@ func (r Silent) Print(args ...interface{}) (n int, err error) {
 func (r Silent) Println(args ...interface{}) (n int, err error) {
 	if !r {
 		return fmt.Println(args...)
+	}
+	return 0, nil
+}
+
+// PrintStep outputs the message with timestamp to stdout
+func (r Silent) PrintStep(format string, args ...interface{}) (n int, err error) {
+	if !r {
+		return fmt.Printf("%v\t%v\n", time.Now().UTC().Format(
+			constants.HumanDateFormatSeconds), fmt.Sprintf(format, args...))
 	}
 	return 0, nil
 }

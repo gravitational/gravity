@@ -48,13 +48,12 @@ import (
 
 	"github.com/gravitational/configure"
 	"github.com/gravitational/trace"
-	"github.com/sirupsen/logrus"
 )
 
 func InstallerClient(env *localenv.LocalEnvironment, config InstallConfig) error {
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
-	termC := utils.WatchTerminationSignalsWithChannel(ctx, cancel, config.FieldLogger)
+	termC := utils.WatchTerminationSignalsWithChannel(ctx, cancel, env)
 
 	env.PrintStep("Connecting to installer")
 	client, err := installerclient.New(ctx, installerclient.Config{
@@ -63,6 +62,7 @@ func InstallerClient(env *localenv.LocalEnvironment, config InstallConfig) error
 		Packages:       env.Packages,
 		TermC:          termC,
 		Printer:        env,
+		ConnectTimeout: 10 * time.Minute,
 	})
 	if err != nil {
 		return trace.Wrap(err)
@@ -71,7 +71,6 @@ func InstallerClient(env *localenv.LocalEnvironment, config InstallConfig) error
 }
 
 func Join(env, joinEnv *localenv.LocalEnvironment, config JoinConfig) error {
-
 	err := config.CheckAndSetDefaults()
 	if err != nil {
 		return trace.Wrap(err)
@@ -121,7 +120,16 @@ func startInstall(env *localenv.LocalEnvironment, config InstallConfig) error {
 }
 
 func startInstallFromService(env *localenv.LocalEnvironment, config InstallConfig) error {
+	var cancel context.CancelFunc
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+	termC := utils.WatchTerminationSignalsWithChannel(ctx, cancel, env)
+
 	processConfig, err := config.NewProcessConfig()
+	if err != nil {
+		return trace.Wrap(err)
+	}
+	process, err := install.InitProcess(ctx, *processConfig)
 	if err != nil {
 		return trace.Wrap(err)
 	}
@@ -130,16 +138,7 @@ func startInstallFromService(env *localenv.LocalEnvironment, config InstallConfi
 	if err != nil {
 		return trace.Wrap(err)
 	}
-	installerConfig, err := config.NewInstallerConfig(wizard, resources.ValidateFunc(gravity.Validate))
-	if err != nil {
-		return trace.Wrap(err)
-	}
-	var cancel context.CancelFunc
-	ctx, cancel := context.WithCancel(context.Background())
-	defer cancel()
-	termC := utils.WatchTerminationSignalsWithChannel(ctx, cancel, config.FieldLogger)
-
-	installerConfig.Process, err = install.InitProcess(ctx, *installerConfig, *processConfig)
+	installerConfig, err := config.NewInstallerConfig(wizard, process, resources.ValidateFunc(gravity.Validate))
 	if err != nil {
 		return trace.Wrap(err)
 	}
@@ -173,17 +172,6 @@ func startInstallFromService(env *localenv.LocalEnvironment, config InstallConfi
 	}
 	return nil
 }
-
-// // tryClient attempts to connect to the existing installer service
-// func tryClient(stateDir string) (installpb.AgentClient, error) {
-// 	ctx, cancel := context.WithTimeout(context.Background(), 1*time.Second)
-// 	defer cancel()
-// 	client, err := newClient(ctx, stateDir)
-// 	if err != nil {
-// 		return nil, trace.Wrap(err)
-// 	}
-// 	return client, nil
-// }
 
 func newCLInstaller(installer *install.Installer, excludeHostFromCluster bool) (*clinstall.Engine, error) {
 	enablePreflightChecks := true
@@ -485,7 +473,7 @@ func agent(env *localenv.LocalEnvironment, config agentConfig, serviceName strin
 	}
 
 	watchReconnects(ctx, cancel, watchCh)
-	utils.WatchTerminationSignals(ctx, cancel, agent, logrus.StandardLogger())
+	utils.WatchTerminationSignals(ctx, cancel, agent, env)
 
 	return trace.Wrap(agent.Serve())
 }

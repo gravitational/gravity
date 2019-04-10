@@ -44,7 +44,7 @@ func New(ctx context.Context, config Config) (*client, error) {
 		ctx, cancel = context.WithTimeout(ctx, config.ConnectTimeout)
 		defer cancel()
 	}
-	cc, err := installpb.NewClient(ctx, config.StateDir, config.FieldLogger)
+	cc, err := installpb.NewClient(ctx, config.ApplicationDir, config.FieldLogger)
 	if err != nil {
 		return nil, trace.Wrap(err)
 	}

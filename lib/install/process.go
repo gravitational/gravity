@@ -29,9 +29,8 @@ import (
 )
 
 // InitProcess initializes and starts a gravity process
-func InitProcess(ctx context.Context, installerConfig Config, gravityConfig processconfig.Config) (process.GravityProcess, error) {
-	teleportConfig := process.WizardTeleportConfig(installerConfig.SiteDomain,
-		installerConfig.WriteStateDir)
+func InitProcess(ctx context.Context, gravityConfig processconfig.Config) (process.GravityProcess, error) {
+	teleportConfig := process.WizardTeleportConfig(gravityConfig.ClusterName, gravityConfig.DataDir)
 	p, err := process.NewProcess(ctx, gravityConfig, *teleportConfig)
 	if err != nil {
 		return nil, trace.Wrap(err)

@@ -195,7 +195,7 @@ func (i *Installer) CompleteFinalInstallStep(delay time.Duration) error {
 
 // PrintStep publishes a progress entry described with (format, args) tuple to the client
 func (i *Installer) PrintStep(ctx context.Context, format string, args ...interface{}) error {
-	message := fmt.Sprintf("%v\t%v\n", time.Now().UTC().Format(constants.HumanDateFormatSeconds),
+	message := fmt.Sprintf("%v\t%v", time.Now().UTC().Format(constants.HumanDateFormatSeconds),
 		fmt.Sprintf(format, args...))
 	event := Event{Progress: &ops.ProgressEntry{Message: message}}
 	return i.send(ctx, event)

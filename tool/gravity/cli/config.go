@@ -33,6 +33,7 @@ import (
 	"github.com/gravitational/gravity/lib/ops/opsclient"
 	"github.com/gravitational/gravity/lib/ops/resources"
 	"github.com/gravitational/gravity/lib/pack"
+	"github.com/gravitational/gravity/lib/process"
 	"github.com/gravitational/gravity/lib/processconfig"
 	"github.com/gravitational/gravity/lib/rpc/proto"
 	"github.com/gravitational/gravity/lib/schema"
@@ -260,10 +261,11 @@ func (i *InstallConfig) NewProcessConfig() (*processconfig.Config, error) {
 }
 
 // NewInstallerConfig returns new installer configuration for this configuration object
-func (i *InstallConfig) NewInstallerConfig(wizard *localenv.RemoteEnvironment, validator resources.Validator) (config *install.Config, err error) {
+func (i *InstallConfig) NewInstallerConfig(wizard *localenv.RemoteEnvironment, process process.GravityProcess, validator resources.Validator) (*install.Config, error) {
 	var kubernetesResources []runtime.Object
 	var gravityResources []storage.UnknownResource
 	if i.ResourcesPath != "" {
+		var err error
 		kubernetesResources, gravityResources, err = i.splitResources(validator)
 		if err != nil {
 			return nil, trace.Wrap(err)
@@ -289,11 +291,11 @@ func (i *InstallConfig) NewInstallerConfig(wizard *localenv.RemoteEnvironment, v
 	if err != nil {
 		return nil, trace.Wrap(err)
 	}
-	token, err := generateInstallToken(config.Operator, i.Token)
+	token, err := generateInstallToken(wizard.Operator, i.Token)
 	if err != nil && !trace.IsAlreadyExists(err) {
 		return nil, trace.Wrap(err)
 	}
-	config = &install.Config{
+	return &install.Config{
 		FieldLogger:        i.FieldLogger,
 		AdvertiseAddr:      i.AdvertiseAddr,
 		LocalPackages:      i.LocalPackages,
@@ -325,11 +327,11 @@ func (i *InstallConfig) NewInstallerConfig(wizard *localenv.RemoteEnvironment, v
 		DNSOverrides:       *dnsOverrides,
 		RuntimeResources:   kubernetesResources,
 		ClusterResources:   gravityResources,
+		Process:            process,
 		Apps:               wizard.Apps,
 		Packages:           wizard.Packages,
 		Operator:           wizard.Operator,
-	}
-	return config, nil
+	}, nil
 }
 
 // getAdvertiseAddr return the advertise address provided in the config, or
@@ -356,7 +358,10 @@ func (i *InstallConfig) getAdvertiseAddr() (string, error) {
 
 // getAppreturns the application package for this installer
 func (i *InstallConfig) getApp() (app *app.Application, err error) {
-	env, err := localenv.New(i.StateDir)
+	env, err := localenv.NewLocalEnvironment(localenv.LocalEnvironmentArgs{
+		StateDir:        i.StateDir,
+		ReadonlyBackend: true,
+	})
 	if err != nil {
 		return nil, trace.Wrap(err)
 	}

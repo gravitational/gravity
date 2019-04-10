@@ -1059,7 +1059,8 @@ func (p *Process) initService(ctx context.Context) (err error) {
 	if p.cfg.Pack.ReadDir != "" {
 		p.Debugf("Activating read layer: %v.", p.cfg.Pack.ReadDir)
 		readBackend, err := keyval.NewBolt(keyval.BoltConfig{
-			Path: filepath.Join(p.cfg.Pack.ReadDir, defaults.GravityDBFile),
+			Path:     filepath.Join(p.cfg.Pack.ReadDir, defaults.GravityDBFile),
+			Readonly: true,
 		})
 		if err != nil {
 			return trace.Wrap(err)
