@@ -58,7 +58,7 @@ func updateEnviron(
 	}
 	defer updater.Close()
 	if !manual {
-		err = updater.Run(ctx, false)
+		err = updater.Run(ctx)
 		return trace.Wrap(err)
 	}
 	localEnv.Println(updateEnvironManualOperationBanner)

@@ -55,13 +55,15 @@ func UninstallService(serviceName string) error {
 	return trace.Wrap(services.UninstallService(serviceName))
 }
 
-// RestartService restarts service with the specified name
-func RestartService(serviceName string) error {
+// StartOneshotService starts service with the specified name if it's not already running.
+// The service is started in non-blocking mode
+func StartOneshotService(serviceName string) error {
 	services, err := New()
 	if err != nil {
 		return trace.Wrap(err)
 	}
-	return trace.Wrap(services.RestartService(serviceName))
+	noBlock := true
+	return trace.Wrap(services.StartService(serviceName, noBlock))
 }
 
 func installOneshotServiceFromSpec(services ServiceManager, serviceName string, spec ServiceSpec, args ...string) error {

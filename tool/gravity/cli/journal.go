@@ -66,15 +66,18 @@ func exportRuntimeJournal(env *localenv.LocalEnvironment, outputFile string) err
 		}
 		return nil
 	}
-	defer cleanup(context.TODO())
 
 	logger := log.WithFields(logrus.Fields{
 		"runtime-package": runtimePackage.String(),
 		"rootfs":          rootDir,
 	})
-	ctx, cancel := context.WithCancel(context.TODO())
-	defer cancel()
-	go utils.WatchTerminationSignals(ctx, cancel, utils.StopperFunc(cleanup), env)
+	doneC := make(chan struct{})
+	ctx, cancel := context.WithCancel(context.Background())
+	utils.WatchTerminationSignals(ctx, cancel, utils.StopperFunc(cleanup), doneC, env)
+	defer func() {
+		cancel()
+		<-doneC
+	}()
 
 	var w io.Writer = os.Stdout
 	if outputFile != "" {
@@ -93,11 +96,7 @@ func exportRuntimeJournal(env *localenv.LocalEnvironment, outputFile string) err
 	cmd := exec.CommandContext(ctx, utils.Exe.Path, "system", "stream-runtime-journal")
 	cmd.Stdout = zip
 	cmd.Stderr = zip
-	if err = cmd.Run(); err != nil {
-		return trace.Wrap(err)
-	}
-
-	return nil
+	return trace.Wrap(cmd.Run())
 }
 
 func streamRuntimeJournal(env *localenv.LocalEnvironment) error {

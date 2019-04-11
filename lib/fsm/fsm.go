@@ -73,6 +73,8 @@ type Params struct {
 	PhaseID string
 	// Force is whether to force execution/rollback
 	Force bool
+	// Resume determines whether a failed/in-progress phase is rerun
+	Resume bool
 	// Progress is optional progress reporter
 	Progress utils.Progress
 }
@@ -140,7 +142,7 @@ func New(config Config) (*FSM, error) {
 }
 
 // ExecutePlan iterates over all phases of the plan and executes them in order
-func (f *FSM) ExecutePlan(ctx context.Context, progress utils.Progress, force bool) error {
+func (f *FSM) ExecutePlan(ctx context.Context, progress utils.Progress) error {
 	plan, err := f.GetPlan()
 	if err != nil {
 		return trace.Wrap(err)
@@ -150,7 +152,7 @@ func (f *FSM) ExecutePlan(ctx context.Context, progress utils.Progress, force bo
 		err := f.ExecutePhase(ctx, Params{
 			PhaseID:  phase.ID,
 			Progress: progress,
-			Force:    force,
+			Resume:   true,
 		})
 		if err != nil {
 			return trace.Wrap(err, "failed to execute phase %q", phase.ID)
@@ -176,7 +178,7 @@ func (f *FSM) ExecutePhase(ctx context.Context, p Params) error {
 	if phase.IsCompleted() && !p.Force {
 		return nil
 	}
-	if phase.IsInProgress() && !(p.Force || phase.HasSubphases()) {
+	if phase.IsInProgress() && !(p.Force || p.Resume || phase.HasSubphases()) {
 		return trace.BadParameter(
 			"phase %q is in progress, use --force flag to force execution", phase.ID)
 	}

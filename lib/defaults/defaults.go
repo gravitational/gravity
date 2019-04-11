@@ -870,12 +870,11 @@ const (
 	// RPCAgentBackoffThreshold defines max communication delay before retrying connection to remote agent node
 	RPCAgentBackoffThreshold = 1 * time.Minute
 
-	// RPCAgentShutdownTimeout defines the timeout to wait for agents to shutdown
-	// upon completing an operation
-	RPCAgentShutdownTimeout = 1 * time.Minute
-
 	// RPCAgentSecretsPackage specifies the name of the RPC credentials package
 	RPCAgentSecretsPackage = "rpcagent-secrets"
+
+	// ShutdownTimeout defines the maximum amout of time to wait for an operation to complete
+	ShutdownTimeout = 1 * time.Minute
 
 	// ArchiveUID specifies the user ID to use for tarball items that do not exist on disk
 	ArchiveUID = 1000

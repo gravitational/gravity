@@ -178,8 +178,7 @@ func (e *fsmEngine) ChangePhaseState(ctx context.Context, change fsm.StateChange
 
 // GetPlan returns the up-to-date operation plan
 func (e *fsmEngine) GetPlan() (*storage.OperationPlan, error) {
-	return fsm.GetOperationPlan(e.JoinBackend, e.OperationKey.SiteDomain,
-		e.OperationKey.OperationID)
+	return fsm.GetOperationPlan(e.JoinBackend, e.OperationKey)
 }
 
 // RunCommand executes the phase specified by params on the specified

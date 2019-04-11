@@ -127,9 +127,11 @@ func getLastOperation(localEnv, updateEnv, joinEnv *localenv.LocalEnvironment, o
 		log.WithField("operation", operations[0]).Debug("Fetched operation by ID.")
 		return &operations[0], nil
 	}
-	log.Infof("Multiple operations found: \n%v\n, please specify operation with --operation-id.\n"+
-		"Displaying the most recent operation.",
-		oplist(operations))
+	if len(operations) != 1 {
+		log.Infof("Multiple operations found: \n%v\n, please specify operation with --operation-id.\n"+
+			"Displaying the most recent operation.",
+			oplist(operations))
+	}
 	return &operations[0], nil
 }
 
@@ -144,10 +146,6 @@ func getActiveOperation(localEnv, updateEnv, joinEnv *localenv.LocalEnvironment,
 			return nil, trace.NotFound("no operation with ID %v found", operationID)
 		}
 		return nil, trace.NotFound("no operation found")
-	}
-	if len(operations) == 1 && operationID != "" {
-		log.WithField("operation", operations[0]).Debug("Fetched operation by ID.")
-		return &operations[0], nil
 	}
 	op, err := getActiveOperationFromList(operations)
 	if err != nil {
@@ -193,20 +191,33 @@ func (r *backendOperations) List(localEnv, updateEnv, joinEnv *localenv.LocalEnv
 		}
 	}
 	if updateEnv != nil {
-		r.getOperationAndUpdateCache(updateEnv.Backend, log.WithField("context", "update"))
+		r.getOperationAndUpdateCache(getOperationFromBackend(updateEnv.Backend),
+			log.WithField("context", "update"))
 	}
 	if joinEnv != nil {
-		r.getOperationAndUpdateCache(joinEnv.Backend, log.WithField("context", "expand"))
+		r.getOperationAndUpdateCache(getOperationFromBackend(joinEnv.Backend),
+			log.WithField("context", "expand"))
 	}
 	// Only fetch operation from remote (install) environment if the install operation is ongoing
 	// or we failed to fetch the operation details from the cluster
 	if r.isActiveInstallOperation() {
-		wizardEnv, err := localenv.NewLocalWizardEnvironment()
-		if err == nil {
-			r.getOperationAndUpdateCache(wizardEnv.Backend, log.WithField("context", "install"))
-		} else {
-			log.WithError(err).Warn("Failed to create wizard environment.")
+		wizardEnv, err := localenv.NewRemoteEnvironment()
+		if err == nil && wizardEnv.Operator != nil {
+			cluster, err := wizardEnv.Operator.GetLocalSite()
+			if err == nil {
+				r.getOperationAndUpdateCache(getOperationFromOperator(wizardEnv.Operator, cluster.Key()),
+					log.WithField("context", "install"))
+				return nil
+			}
 		}
+		log.WithError(err).Warn("Failed to comnect to wizard.")
+		wizardLocalEnv, err := localenv.NewLocalWizardEnvironment()
+		if err != nil {
+			return trace.Wrap(err, "failed to read local wizard environment")
+		}
+		r.getOperationAndUpdateCache(getOperationFromBackend(wizardLocalEnv.Backend),
+			log.WithField("context", "install"))
+
 	}
 	return nil
 }
@@ -228,8 +239,8 @@ func (r *backendOperations) init(clusterBackend storage.Backend) error {
 	return nil
 }
 
-func (r *backendOperations) getOperationAndUpdateCache(backend storage.Backend, logger logrus.FieldLogger) *ops.SiteOperation {
-	op, err := storage.GetLastOperation(backend)
+func (r *backendOperations) getOperationAndUpdateCache(getter operationGetter, logger logrus.FieldLogger) *ops.SiteOperation {
+	op, err := getter.getOperation()
 	if err == nil {
 		// Operation from the backend takes precedence over the existing operation (from cluster state)
 		r.operations[op.ID] = (ops.SiteOperation)(*op)
@@ -259,6 +270,10 @@ func getActiveOperationFromList(operations []ops.SiteOperation) (*ops.SiteOperat
 	return nil, trace.NotFound("no active operations found")
 }
 
+func isActiveOperation(op ops.SiteOperation) bool {
+	return op.IsFailed() || !op.IsCompleted()
+}
+
 func (r oplist) String() string {
 	var ops []string
 	for _, op := range r {
@@ -268,3 +283,33 @@ func (r oplist) String() string {
 }
 
 type oplist []ops.SiteOperation
+
+func getOperationFromOperator(operator ops.Operator, clusterKey ops.SiteKey) operationGetter {
+	return operationGetterFunc(func() (*ops.SiteOperation, error) {
+		op, _, err := ops.GetLastOperation(clusterKey, operator)
+		if err != nil {
+			return nil, trace.Wrap(err)
+		}
+		return op, nil
+	})
+}
+
+func getOperationFromBackend(backend storage.Backend) operationGetter {
+	return operationGetterFunc(func() (*ops.SiteOperation, error) {
+		op, err := storage.GetLastOperation(backend)
+		if err != nil {
+			return nil, trace.Wrap(err)
+		}
+		return (*ops.SiteOperation)(op), nil
+	})
+}
+
+func (r operationGetterFunc) getOperation() (*ops.SiteOperation, error) {
+	return r()
+}
+
+type operationGetterFunc func() (*ops.SiteOperation, error)
+
+type operationGetter interface {
+	getOperation() (*ops.SiteOperation, error)
+}

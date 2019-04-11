@@ -51,7 +51,7 @@ func ExecuteOperation(
 	if err != nil {
 		return trace.Wrap(err)
 	}
-	planErr := machine.ExecutePlan(ctx, utils.DiscardProgress, false)
+	planErr := machine.ExecutePlan(ctx, utils.DiscardProgress)
 	if planErr != nil {
 		logger.WithError(planErr).Warn("Failed to execute operation plan.")
 	}

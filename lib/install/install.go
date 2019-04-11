@@ -69,18 +69,16 @@ func New(ctx context.Context, cancel context.CancelFunc, config Config) (*Instal
 	return installer, nil
 }
 
-// Start starts the server using the specified engine
-func (i *Installer) Start(engine Engine) {
+// Serve starts the server using the specified engine
+func (i *Installer) Serve(engine Engine) error {
 	i.engine = engine
-	go i.rpc.Serve(i.listener)
+	return trace.Wrap(i.rpc.Serve(i.listener))
 }
 
 // Stop releases resources allocated by the installer
 func (i *Installer) Stop(ctx context.Context) error {
-	if err := i.listener.Close(); err != nil {
-		i.WithError(err).Warn("Failed to close listener.")
-	}
 	var errors []error
+	i.rpc.GracefulStop()
 	for _, c := range i.closers {
 		if err := c.Close(); err != nil {
 			errors = append(errors, err)
@@ -91,7 +89,7 @@ func (i *Installer) Stop(ctx context.Context) error {
 }
 
 // Interface defines the interface of the installer as presented
-// to an engine
+// to engine
 type Interface interface {
 	PlanBuilderGetter
 	// NotifyOperationAvailable is invoked by the engine to notify the server
@@ -317,6 +315,7 @@ func (i *Installer) NewCluster() ops.NewSiteRequest {
 		DNSOverrides: i.DNSOverrides,
 		DNSConfig:    i.DNSConfig,
 		Docker:       i.Docker,
+		Local:        true,
 	}
 }
 

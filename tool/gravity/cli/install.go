@@ -19,6 +19,7 @@ package cli
 import (
 	"context"
 	"fmt"
+	"os"
 	"os/exec"
 	"strings"
 	"time"
@@ -51,9 +52,13 @@ import (
 )
 
 func InstallerClient(env *localenv.LocalEnvironment, config InstallConfig) error {
+	doneC := make(chan struct{})
 	ctx, cancel := context.WithCancel(context.Background())
-	defer cancel()
-	termC := utils.WatchTerminationSignalsWithChannel(ctx, cancel, env)
+	termC := utils.WatchTerminationSignalsWithChannel(ctx, cancel, doneC, env)
+	defer func() {
+		cancel()
+		<-doneC
+	}()
 
 	env.PrintStep("Connecting to installer")
 	client, err := installerclient.New(ctx, installerclient.Config{
@@ -120,10 +125,13 @@ func startInstall(env *localenv.LocalEnvironment, config InstallConfig) error {
 }
 
 func startInstallFromService(env *localenv.LocalEnvironment, config InstallConfig) error {
-	var cancel context.CancelFunc
+	doneC := make(chan struct{})
 	ctx, cancel := context.WithCancel(context.Background())
-	defer cancel()
-	termC := utils.WatchTerminationSignalsWithChannel(ctx, cancel, env)
+	termC := utils.WatchTerminationSignalsWithChannel(ctx, cancel, doneC, env)
+	defer func() {
+		cancel()
+		<-doneC
+	}()
 
 	processConfig, err := config.NewProcessConfig()
 	if err != nil {
@@ -165,12 +173,7 @@ func startInstallFromService(env *localenv.LocalEnvironment, config InstallConfi
 	if err != nil {
 		return trace.Wrap(err)
 	}
-	installer.Start(engine)
-	<-ctx.Done()
-	if utils.IsContextCancelledError(ctx.Err()) {
-		return trace.Wrap(ctx.Err(), "installer interrupted")
-	}
-	return nil
+	return trace.Wrap(installer.Serve(engine))
 }
 
 func newCLInstaller(installer *install.Installer, excludeHostFromCluster bool) (*clinstall.Engine, error) {
@@ -459,8 +462,14 @@ func agent(env *localenv.LocalEnvironment, config agentConfig, serviceName strin
 		return trace.Wrap(err)
 	}
 
+	doneC := make(chan struct{})
 	ctx, cancel := context.WithCancel(context.Background())
-	defer cancel()
+	termC := utils.WatchTerminationSignalsWithChannel(ctx, cancel, doneC, env)
+	defer func() {
+		cancel()
+		<-doneC
+	}()
+
 	watchCh := make(chan rpcserver.WatchEvent, 1)
 	agent, err := install.NewAgent(ctx, install.AgentConfig{
 		PackageAddr:   config.packageAddr,
@@ -472,8 +481,13 @@ func agent(env *localenv.LocalEnvironment, config agentConfig, serviceName strin
 		return trace.Wrap(err)
 	}
 
+	select {
+	case termC <- agent:
+	case <-ctx.Done():
+		return trace.Wrap(ctx.Err())
+	}
+
 	watchReconnects(ctx, cancel, watchCh)
-	utils.WatchTerminationSignals(ctx, cancel, agent, env)
 
 	return trace.Wrap(agent.Serve())
 }
@@ -522,6 +536,28 @@ func findLocalServer(site ops.Site) (*storage.Server, error) {
 }
 
 func executeInstallPhase(localEnv *localenv.LocalEnvironment, p PhaseParams, operation *ops.SiteOperation) error {
+	stateDir, err := os.Getwd()
+	if err != nil {
+		return trace.Wrap(err)
+	}
+
+	doneC := make(chan struct{})
+	ctx, cancel := context.WithTimeout(context.Background(), p.Timeout)
+	termC := utils.WatchTerminationSignalsWithChannel(ctx, cancel, doneC, localEnv)
+	defer func() {
+		cancel()
+		<-doneC
+	}()
+
+	client, err := planclient.New(ctx, planclient.Config{
+		StateDir: stateDir,
+		TermC:    termC,
+		Printer:  localEnv,
+	})
+	if err != nil {
+		return trace.Wrap(err)
+	}
+
 	localApps, err := localEnv.AppServiceLocal(localenv.AppConfig{})
 	if err != nil {
 		return trace.Wrap(err)
@@ -553,17 +589,7 @@ func executeInstallPhase(localEnv *localenv.LocalEnvironment, p PhaseParams, ope
 	if err != nil {
 		return trace.Wrap(err)
 	}
-
-	ctx, cancel := context.WithTimeout(context.Background(), p.Timeout)
-	defer cancel()
-	client, err := planclient.New(ctx, planclient.Config{
-		Machine: machine,
-	})
-	if err != nil {
-		return trace.Wrap(err)
-	}
-
-	return trace.Wrap(client.ExecutePhase(ctx, fsm.Params{
+	return trace.Wrap(client.ExecutePhase(ctx, machine, fsm.Params{
 		PhaseID: p.PhaseID,
 		Force:   p.Force,
 	}))

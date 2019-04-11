@@ -16,7 +16,7 @@ import (
 )
 
 // New returns a new client to handle the installer case.
-// See docs/design/client/install.puml for details
+// See docs/design/client/plan.puml for details
 func New(ctx context.Context, config Config) (*client, error) {
 	err := config.checkAndSetDefaults()
 	if err != nil {
@@ -42,19 +42,20 @@ func New(ctx context.Context, config Config) (*client, error) {
 }
 
 // ExecutePhase executes the operation phase specified with phase
-func (r *client) ExecutePhase(ctx context.Context, config fsm.Params) error {
-	progress := utils.NewProgress(ctx, fmt.Sprintf("Executing install phase %q", config.PhaseID), -1, false)
-	defer progress.Stop()
-
+func (r *client) ExecutePhase(ctx context.Context, machine *fsm.FSM, config fsm.Params) error {
 	if config.PhaseID == fsm.RootPhase {
-		err := r.Machine.ExecutePlan(ctx, progress, false)
+		progress := utils.NewProgress(ctx, "Resuming install operation", -1, false)
+		defer progress.Stop()
+
+		err := machine.ExecutePlan(ctx, progress)
 		if err != nil {
 			r.WithError(err).Warn("Failed to execute plan.")
 		}
-		return trace.Wrap(r.Machine.Complete(err))
+		return trace.Wrap(machine.Complete(err))
 	}
-
-	err := r.Machine.ExecutePhase(ctx, fsm.Params{
+	progress := utils.NewProgress(ctx, fmt.Sprintf("Executing install phase %q", config.PhaseID), -1, false)
+	defer progress.Stop()
+	err := machine.ExecutePhase(ctx, fsm.Params{
 		PhaseID:  config.PhaseID,
 		Force:    config.Force,
 		Progress: progress,
@@ -68,9 +69,6 @@ func (r *Config) checkAndSetDefaults() error {
 	}
 	if r.TermC == nil {
 		return trace.BadParameter("TermC is required")
-	}
-	if r.Machine == nil {
-		return trace.BadParameter("Machine is required")
 	}
 	if r.Printer == nil {
 		r.Printer = utils.DiscardPrinter
@@ -86,8 +84,6 @@ type Config struct {
 	utils.Printer
 	// StateDir specifies the install state directory on local host
 	StateDir string
-	// Machine is the state machine for the operation
-	Machine *fsm.FSM
 	// TermC specifies the termination handler registration channel
 	TermC chan<- utils.Stopper
 	// ConnectTimeout specifies the maximum amount of time to wait for
@@ -112,7 +108,7 @@ type client struct {
 
 // restartService restarts the installer's systemd unit
 func restartService() error {
-	return trace.Wrap(systemservice.RestartService(libclient.ServiceName))
+	return trace.Wrap(systemservice.StartOneshotService(libclient.ServiceName))
 }
 
 func isDone(doneC <-chan struct{}) bool {

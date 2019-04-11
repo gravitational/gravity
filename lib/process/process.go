@@ -100,6 +100,7 @@ type Process struct {
 	*service.TeleportProcess
 	logrus.FieldLogger
 	context        context.Context
+	cancel         context.CancelFunc
 	backend        storage.Backend
 	leader         storage.Leader
 	packages       pack.PackageService
@@ -134,6 +135,8 @@ type Process struct {
 	// a config that gets applied on top of teleport's config the process
 	// was started with)
 	authGatewayConfig storage.AuthGateway
+	// healthServer serves controller's health API
+	healthServer *http.Server
 }
 
 // Handlers combines all the process' web and API Handlers
@@ -177,6 +180,8 @@ type ServiceStartedEvent struct {
 func New(ctx context.Context, cfg processconfig.Config, tcfg telecfg.FileConfig) (*Process, error) {
 	// enable Enterprise version modules
 	telemodules.SetModules(&enterpriseModules{})
+
+	ctx, cancel := context.WithCancel(ctx)
 
 	err := cfg.CheckAndSetDefaults()
 	if err != nil {
@@ -255,6 +260,7 @@ func New(ctx context.Context, cfg processconfig.Config, tcfg telecfg.FileConfig)
 
 	process := &Process{
 		context:        ctx,
+		cancel:         cancel,
 		packages:       packages,
 		backend:        backend,
 		cfg:            cfg,
@@ -329,6 +335,17 @@ func (p *Process) Start() (err error) {
 		return nil
 	})
 	return p.TeleportProcess.Start()
+}
+
+// Shutdown initiates graceful shutdown of this process
+func (p *Process) Shutdown(ctx context.Context) {
+	p.cancel()
+	p.stopClusterServices()
+	p.clusterObjects.Close()
+	if p.healthServer != nil {
+		p.healthServer.Shutdown(ctx)
+	}
+	p.TeleportProcess.Shutdown(ctx)
 }
 
 // TeleportConfig returns the process teleport config
@@ -1048,7 +1065,7 @@ func (p *Process) initService(ctx context.Context) (err error) {
 	p.agentServer, err = rpcserver.New(rpcserver.Config{
 		Credentials: *creds,
 		PeerStore:   peerStore,
-	}, logrus.StandardLogger())
+	}, p.WithField(trace.Component, "agent-server"))
 	if err != nil {
 		return trace.Wrap(err)
 	}
@@ -1436,9 +1453,13 @@ func (p *Process) ServeHealth() error {
 	healthMux := &httprouter.Router{}
 	healthMux.HandlerFunc("GET", "/readyz", p.ReportReadiness)
 	healthMux.HandlerFunc("GET", "/healthz", p.ReportHealth)
+	p.healthServer = &http.Server{
+		Addr:    p.cfg.HealthAddr.Addr,
+		Handler: healthMux,
+	}
 	p.RegisterFunc("gravity.healthz", func() error {
 		p.Infof("Start healthcheck server on %v.", p.cfg.HealthAddr)
-		return trace.Wrap(http.ListenAndServe(p.cfg.HealthAddr.Addr, healthMux))
+		return trace.Wrap(p.healthServer.ListenAndServe())
 	})
 	return nil
 }

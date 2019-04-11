@@ -104,7 +104,7 @@ func displayClusterOperationPlan(env *localenv.LocalEnvironment, opKey ops.SiteO
 }
 
 func displayUpdateOperationPlan(localEnv, updateEnv *localenv.LocalEnvironment, opKey ops.SiteOperationKey, format constants.Format) error {
-	plan, err := fsm.GetOperationPlan(updateEnv.Backend, opKey.SiteDomain, opKey.OperationID)
+	plan, err := fsm.GetOperationPlan(updateEnv.Backend, opKey)
 	if err != nil {
 		return trace.Wrap(err)
 	}
@@ -122,39 +122,22 @@ func displayUpdateOperationPlan(localEnv, updateEnv *localenv.LocalEnvironment, 
 }
 
 func displayInstallOperationPlan(opKey ops.SiteOperationKey, format constants.Format) error {
-	wizardEnv, err := localenv.NewRemoteEnvironment()
+	plan, err := getPlanFromWizard(opKey)
+	if err == nil {
+		log.Debug("Showing install operation plan retrieved from wizard process.")
+		return trace.Wrap(outputPlan(*plan, format))
+	}
+	plan, err = getPlanFromWizardBackend(opKey)
 	if err != nil {
-		return trace.Wrap(err)
+		return trace.Wrap(err, "failed to get plan for the install operation.\n"+
+			"Make suer you are running 'gravity plan' from the installer node.")
 	}
-	if wizardEnv.Operator == nil {
-		return trace.NotFound(`could not retrieve install operation plan.
-
-If you have not launched the installation, or it has been started moments ago,
-the plan may not be initialized yet.
-
-If the install operation is in progress, please make sure you're invoking
-"gravity plan" command from the same directory where "gravity install"
-was run.`)
-	}
-	plan, err := wizardEnv.Operator.GetOperationPlan(opKey)
-	if err != nil {
-		if trace.IsNotFound(err) {
-			return trace.NotFound(
-				"Install operation plan hasn't been initialized yet.")
-		}
-		return trace.Wrap(err)
-	}
-	log.Debug("Showing install operation plan retrieved from wizard process.")
-	err = outputPlan(*plan, format)
-	if err != nil {
-		return trace.Wrap(err)
-	}
-	return nil
+	return trace.Wrap(outputPlan(*plan, format))
 }
 
 // displayExpandOperationPlan shows plan of the join operation from the local join backend
 func displayExpandOperationPlan(joinEnv *localenv.LocalEnvironment, opKey ops.SiteOperationKey, format constants.Format) error {
-	plan, err := fsm.GetOperationPlan(joinEnv.Backend, opKey.SiteDomain, opKey.OperationID)
+	plan, err := fsm.GetOperationPlan(joinEnv.Backend, opKey)
 	if err != nil {
 		return trace.Wrap(err)
 	}
@@ -222,4 +205,46 @@ func tryReconcilePlan(ctx context.Context, localEnv, updateEnv *localenv.LocalEn
 	return reconciledPlan, nil
 }
 
-const recoveryModeWarning = "Failed to retrieve plan from etcd, showing cached plan. If etcd went down as a result of a system upgrade, you can perform a rollback phase. Run 'gravity plan --repair' when etcd connection is restored.\n"
+func getPlanFromWizardBackend(opKey ops.SiteOperationKey) (*storage.OperationPlan, error) {
+	wizardEnv, err := localenv.NewLocalWizardEnvironment()
+	if err != nil {
+		return nil, trace.Wrap(err)
+	}
+	plan, err := fsm.GetOperationPlan(wizardEnv.Backend, opKey)
+	if err != nil {
+		return nil, trace.Wrap(err)
+	}
+	return plan, nil
+}
+
+func getPlanFromWizard(opKey ops.SiteOperationKey) (*storage.OperationPlan, error) {
+	wizardEnv, err := localenv.NewRemoteEnvironment()
+	if err != nil {
+		return nil, trace.Wrap(err)
+	}
+	if wizardEnv.Operator == nil {
+		return nil, trace.NotFound("no operation plan")
+	}
+	plan, err := wizardEnv.Operator.GetOperationPlan(opKey)
+	if err != nil {
+		if trace.IsNotFound(err) {
+			return nil, trace.NotFound(
+				"install operation plan hasn't been initialized yet.")
+		}
+		return nil, trace.Wrap(err)
+	}
+	return plan, nil
+}
+
+const (
+	recoveryModeWarning = "Failed to retrieve plan from etcd, showing cached plan. If etcd went down as a result of a system upgrade, you can perform a rollback phase. Run 'gravity plan --repair' when etcd connection is restored.\n"
+
+	noInstallPlanWarning = `Could not retrieve install operation plan.
+
+If you have not launched the installation, or it has been started moments ago,
+the plan may not be initialized yet.
+
+If the install operation is in progress, please make sure you're invoking
+"gravity plan" command from the same directory where "gravity install"
+was run.`
+)

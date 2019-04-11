@@ -113,6 +113,23 @@ func SplitServers(servers []storage.Server) (masters, nodes []storage.Server) {
 	return masters, nodes
 }
 
+// GetOperationPlan returns plan for the specified operation
+func GetOperationPlan(backend storage.Backend, opKey ops.SiteOperationKey) (*storage.OperationPlan, error) {
+	plan, err := backend.GetOperationPlan(opKey.SiteDomain, opKey.OperationID)
+	if err != nil {
+		if trace.IsNotFound(err) {
+			return nil, trace.NotFound("no operation plan for operation %v found",
+				opKey.OperationID)
+		}
+		return nil, trace.Wrap(err)
+	}
+	changelog, err := backend.GetOperationPlanChangelog(opKey.SiteDomain, opKey.OperationID)
+	if err != nil {
+		return nil, trace.Wrap(err)
+	}
+	return ResolvePlan(*plan, changelog), nil
+}
+
 // ResolvePlan applies changelog to the provided plan and returns the resulting plan
 func ResolvePlan(plan storage.OperationPlan, changelog storage.PlanChangelog) *storage.OperationPlan {
 	allPhases := FlattenPlan(&plan)
@@ -155,23 +172,6 @@ func RequireIfPresent(plan *storage.OperationPlan, phaseIDs ...string) []string 
 		present = append(present, id)
 	}
 	return present
-}
-
-// GetOperationPlan returns resolved operation plan for the specified operation
-func GetOperationPlan(b storage.Backend, clusterName, operationID string) (*storage.OperationPlan, error) {
-	plan, err := b.GetOperationPlan(clusterName, operationID)
-	if err != nil {
-		if trace.IsNotFound(err) {
-			return nil, trace.NotFound("no operation plan for operation %v found",
-				operationID)
-		}
-		return nil, trace.Wrap(err)
-	}
-	ch, err := b.GetOperationPlanChangelog(clusterName, operationID)
-	if err != nil {
-		return nil, trace.Wrap(err)
-	}
-	return ResolvePlan(*plan, ch), nil
 }
 
 // OperationStateSetter returns the handler to set operation state both in the given operator

@@ -170,7 +170,9 @@ func (p *Peer) Init() error {
 	if err := p.bootstrap(); err != nil {
 		return trace.Wrap(err)
 	}
-	utils.WatchTerminationSignals(p.Context, p.Cancel, p, p.Silent)
+	// TODO: keep doneC
+	doneC := make(chan struct{})
+	utils.WatchTerminationSignals(p.Context, p.Cancel, p, doneC, p.Silent)
 	watchReconnects(p.Context, p.Cancel, p.WatchCh)
 	return nil
 }
@@ -776,15 +778,13 @@ After all phases have completed successfully, complete the operation using "grav
 		return trace.Wrap(err)
 	}
 	go func() {
-		fsmErr := fsm.ExecutePlan(p.Context, utils.DiscardProgress, false)
+		fsmErr := fsm.ExecutePlan(p.Context, utils.DiscardProgress)
 		if err != nil {
-			p.Errorf("Failed to execute plan: %v.",
-				trace.DebugReport(err))
+			p.WithError(err).Warn("Failed to execute plan.")
 		}
 		err := fsm.Complete(fsmErr)
 		if err != nil {
-			p.Errorf("Failed to complete operation: %v.",
-				trace.DebugReport(err))
+			p.WithError(err).Warn("Failed to complete operation.")
 		}
 	}()
 	return nil

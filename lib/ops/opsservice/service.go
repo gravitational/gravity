@@ -608,6 +608,7 @@ func (o *Operator) CreateSite(r ops.NewSiteRequest) (*ops.Site, error) {
 		CloudConfig:  r.CloudConfig,
 		DNSOverrides: r.DNSOverrides,
 		DNSConfig:    r.DNSConfig,
+		Local:        r.Local,
 		ClusterState: storage.ClusterState{
 			Docker: dockerConfig,
 		},

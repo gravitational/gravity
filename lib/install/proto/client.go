@@ -47,7 +47,7 @@ func NewClient(ctx context.Context, stateDir string, logger log.FieldLogger) (Ag
 			return client, nil
 		case <-ctx.Done():
 			logger.WithError(ctx.Err()).Warn("Failed to connect.")
-			return nil, trace.Wrap(ctx.Err())
+			return nil, trace.Wrap(ctx.Err(), "interrupted")
 		}
 	}
 }

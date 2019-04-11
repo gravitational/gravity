@@ -21,14 +21,15 @@ import (
 	"os"
 	"os/signal"
 	"syscall"
-	"time"
+
+	"github.com/gravitational/gravity/lib/defaults"
 )
 
 // WatchTerminationSignals stops the provided stopper when it gets one of monitored signals
-func WatchTerminationSignals(ctx context.Context, cancel context.CancelFunc, stopper Stopper, printer Printer) {
-	updateCh := WatchTerminationSignalsWithChannel(ctx, cancel, printer)
+func WatchTerminationSignals(ctx context.Context, cancel context.CancelFunc, stopper Stopper, doneC chan struct{}, printer Printer) {
+	termC := WatchTerminationSignalsWithChannel(ctx, cancel, doneC, printer)
 	select {
-	case updateCh <- stopper:
+	case termC <- stopper:
 	case <-ctx.Done():
 	}
 }
@@ -36,7 +37,7 @@ func WatchTerminationSignals(ctx context.Context, cancel context.CancelFunc, sto
 // WatchTerminationSignalsWithChannel invokes the specified cancel when it receives an interrupt
 // signal.
 // Returns a channel to update the list of stoppers to stop upon termination
-func WatchTerminationSignalsWithChannel(ctx context.Context, cancel context.CancelFunc, printer Printer) chan<- Stopper {
+func WatchTerminationSignalsWithChannel(ctx context.Context, cancel context.CancelFunc, doneC chan struct{}, printer Printer) chan<- Stopper {
 	signalC := make(chan os.Signal, 1)
 	signals := []os.Signal{
 		syscall.SIGINT,
@@ -45,35 +46,42 @@ func WatchTerminationSignalsWithChannel(ctx context.Context, cancel context.Canc
 	}
 	signal.Notify(signalC, signals...)
 	var stoppers []Stopper
-	updateCh := make(chan Stopper, 1)
+	termC := make(chan Stopper, 1)
 	go func() {
 		defer func() {
 			if len(stoppers) == 0 {
 				cancel()
+				close(doneC)
 				return
 			}
-			localCtx, localCancel := context.WithTimeout(ctx, 15*time.Second)
+			// Cannot use the context from parameters since it might have already been cancelled
+			localCtx, localCancel := context.WithTimeout(context.Background(), defaults.ShutdownTimeout)
 			for _, stopper := range stoppers {
 				stopper.Stop(localCtx)
 			}
 			localCancel()
 			cancel()
+			close(doneC)
 		}()
 		for {
 			select {
 			case <-ctx.Done():
+				// Reset the signal handler so the next signal is handled
+				// directly by the runtime
 				signal.Reset(signals...)
 				return
-			case stopper := <-updateCh:
+			case stopper := <-termC:
 				stoppers = append(stoppers, stopper)
 			case sig := <-signalC:
+				// Reset the signal handler so the next signal is handled
+				// directly by the runtime
 				signal.Reset(signals...)
 				printer.Println("Received", sig, "signal, shutting down gracefully, please wait.")
 				return
 			}
 		}
 	}()
-	return updateCh
+	return termC
 }
 
 // Stopper is a common interface for everything that can be stopped with a context

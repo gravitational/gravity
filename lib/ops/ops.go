@@ -1532,6 +1532,8 @@ type NewSiteRequest struct {
 	DNSConfig storage.DNSConfig `json:"dns_config"`
 	// Docker specifies the cluster Docker configuration
 	Docker storage.DockerConfig `json:"docker"`
+	// Local specifies whether the new cluster will be local to the process
+	Local bool `json:"local"`
 }
 
 // SiteKey is a key used to identify site

@@ -63,7 +63,7 @@ func updateConfig(ctx context.Context, localEnv, updateEnv *localenv.LocalEnviro
 	}
 	defer updater.Close()
 	if !manual {
-		err = updater.Run(ctx, false)
+		err = updater.Run(ctx)
 		return trace.Wrap(err)
 	}
 	localEnv.Println(updateConfigManualOperationBanner)
