@@ -235,9 +235,9 @@ Gravity requires that these modules are loaded prior to installation.
 ### Inotify watches
 
 Kubelet configures multiple inotify watches per container so it's recommended
-to increase the `max_user_watches` kernel parameter to avoid running out of
-limits. The actual number is application-specific, but we recommended setting
-it to some large value:
+to increase the `max_user_watches` kernel parameter. Gravity's built-in
+monitoring system checks for inotify watches exhaustion but we recommended setting
+it to some large value to avoid running out of limits:
 
 ```bsh
 $ sysctl -w fs.inotify.max_user_watches=1048576
@@ -247,10 +247,12 @@ To make the change persistent so it survives the node reboots, set the setting
 in a file inside `/etc/sysctl.d` directory, for example:
 
 ```bsh
-$ cat /etc/sysctl.d/42-inotify.conf
+$ cat /etc/sysctl.d/inotify.conf
 fs.inotify.max_user_watches=1048576
 ```
 
+See the [sysctl.d man page](https://www.freedesktop.org/software/systemd/man/sysctl.d.html)
+for more information about applying the settings.
 
 ## AWS IAM Policy
 
