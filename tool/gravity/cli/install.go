@@ -21,6 +21,7 @@ import (
 	"fmt"
 	"os"
 	"os/exec"
+	"strconv"
 	"strings"
 	"time"
 
@@ -33,7 +34,7 @@ import (
 	"github.com/gravitational/gravity/lib/httplib"
 	"github.com/gravitational/gravity/lib/install"
 	installerclient "github.com/gravitational/gravity/lib/install/client/installer"
-	planclient "github.com/gravitational/gravity/lib/install/client/plan"
+	observerclient "github.com/gravitational/gravity/lib/install/client/observer"
 	clinstall "github.com/gravitational/gravity/lib/install/engine/cli"
 	"github.com/gravitational/gravity/lib/install/engine/interactive"
 	"github.com/gravitational/gravity/lib/localenv"
@@ -46,11 +47,15 @@ import (
 	"github.com/gravitational/gravity/lib/systeminfo"
 	"github.com/gravitational/gravity/lib/systemservice"
 	"github.com/gravitational/gravity/lib/utils"
+	"github.com/gravitational/roundtrip"
 
 	"github.com/gravitational/configure"
 	"github.com/gravitational/trace"
 )
 
+// InstallerClient runs the client for the installer service.
+// The client is responsible for triggering the install operation and observing
+// operation progress
 func InstallerClient(env *localenv.LocalEnvironment, config InstallConfig) error {
 	doneC := make(chan struct{})
 	ctx, cancel := context.WithCancel(context.Background())
@@ -75,13 +80,56 @@ func InstallerClient(env *localenv.LocalEnvironment, config InstallConfig) error
 	return trace.Wrap(client.Run(ctx))
 }
 
+// JoinClient runs the client for the agent service.
+// The client is responsible for triggering the install operation and observing
+// operation progress
+func JoinClient(env *localenv.LocalEnvironment, config JoinConfig) error {
+	doneC := make(chan struct{})
+	ctx, cancel := context.WithCancel(context.Background())
+	termC := utils.WatchTerminationSignalsWithChannel(ctx, cancel, doneC, env)
+	defer func() {
+		cancel()
+		<-doneC
+	}()
+
+	env.PrintStep("Connecting to agent")
+	client, err := installerclient.New(ctx, installerclient.Config{
+		StateDir:       env.StateDir,
+		ApplicationDir: config.StateDir,
+		TermC:          termC,
+		Printer:        env,
+		ConnectTimeout: 10 * time.Minute,
+	})
+	if err != nil {
+		return trace.Wrap(err)
+	}
+	return trace.Wrap(client.Run(ctx))
+}
+
+func join(env *localenv.LocalEnvironment, config JoinConfig) error {
+	env.PrintStep("Starting agent")
+
+	if err := config.CheckAndSetDefaults(); err != nil {
+		return trace.Wrap(err)
+	}
+	if config.FromService {
+		return trace.Wrap(Join(env, config))
+	}
+	err := JoinClient(env, config)
+	if utils.IsContextCancelledError(err) {
+		return trace.Wrap(err, "agent interrupted")
+	}
+	return nil
+}
+
+// TODO: auto mode can be implemented in such a way that the server also runs a client
 func Join(env, joinEnv *localenv.LocalEnvironment, config JoinConfig) error {
 	err := config.CheckAndSetDefaults()
 	if err != nil {
 		return trace.Wrap(err)
 	}
 
-	peerConfig, err := config.ToPeerConfig(env, joinEnv)
+	peerConfig, err := config.NewPeerConfig(env, joinEnv)
 	if err != nil {
 		return trace.Wrap(err)
 	}
@@ -141,8 +189,7 @@ func startInstallFromService(env *localenv.LocalEnvironment, config InstallConfi
 	if err != nil {
 		return trace.Wrap(err)
 	}
-	wizard, err := localenv.LoginWizard(fmt.Sprintf("https://%v",
-		processConfig.Pack.GetAddr().Addr))
+	wizard, err := localenv.LoginWizard(processConfig.WizardAddr())
 	if err != nil {
 		return trace.Wrap(err)
 	}
@@ -344,6 +391,7 @@ func autojoin(env, joinEnv *localenv.LocalEnvironment, d autojoinConfig) error {
 
 	instance, err := cloudaws.NewLocalInstance()
 	if err != nil {
+		log.WithError(err).Warn("Failed to fetch instance metadata on AWS.")
 		return trace.BadParameter("autojoin only supports AWS")
 	}
 
@@ -364,7 +412,7 @@ func autojoin(env, joinEnv *localenv.LocalEnvironment, d autojoinConfig) error {
 		return trace.Wrap(err)
 	}
 
-	fmt.Printf("auto joining to cluster %q via %v\n", d.clusterName, serviceURL)
+	env.Printf("auto joining to cluster %q via %v\n", d.clusterName, serviceURL)
 
 	return Join(env, joinEnv, JoinConfig{
 		SystemLogFile: d.systemLogFile,
@@ -376,6 +424,7 @@ func autojoin(env, joinEnv *localenv.LocalEnvironment, d autojoinConfig) error {
 		SystemDevice:  d.systemDevice,
 		DockerDevice:  d.dockerDevice,
 		Mounts:        d.mounts,
+		Auto:          true,
 	})
 }
 
@@ -454,14 +503,6 @@ func agent(env *localenv.LocalEnvironment, config agentConfig, serviceName strin
 		return nil
 	}
 
-	runtimeConfig := pb.RuntimeConfig{
-		Token:     config.token,
-		KeyValues: config.vars,
-	}
-	if err = install.FetchCloudMetadata(config.cloudProvider, &runtimeConfig); err != nil {
-		return trace.Wrap(err)
-	}
-
 	doneC := make(chan struct{})
 	ctx, cancel := context.WithCancel(context.Background())
 	termC := utils.WatchTerminationSignalsWithChannel(ctx, cancel, doneC, env)
@@ -470,13 +511,23 @@ func agent(env *localenv.LocalEnvironment, config agentConfig, serviceName strin
 		<-doneC
 	}()
 
+	creds, err := loadRPCCredentials(context.TODO(), config.packageAddr, config.token)
+	if err != nil {
+		return trace.Wrap(err)
+	}
+
+	runtimeConfig := pb.RuntimeConfig{
+		Token:     config.token,
+		KeyValues: config.vars,
+	}
 	watchCh := make(chan rpcserver.WatchEvent, 1)
-	agent, err := install.NewAgent(ctx, install.AgentConfig{
-		PackageAddr:   config.packageAddr,
+	agent, err := install.NewAgent(install.AgentConfig{
+		FieldLogger:   log.WithField("addr", config.advertiseAddr),
 		AdvertiseAddr: config.advertiseAddr,
 		ServerAddr:    config.serverAddr,
 		RuntimeConfig: runtimeConfig,
-	}, log.WithField("addr", config.advertiseAddr), watchCh)
+		WatchCh:       watchCh,
+	})
 	if err != nil {
 		return trace.Wrap(err)
 	}
@@ -549,7 +600,7 @@ func executeInstallPhase(localEnv *localenv.LocalEnvironment, p PhaseParams, ope
 		<-doneC
 	}()
 
-	client, err := planclient.New(ctx, planclient.Config{
+	client, err := observerclient.New(ctx, observerclient.Config{
 		StateDir: stateDir,
 		TermC:    termC,
 		Printer:  localEnv,
@@ -832,4 +883,22 @@ func watchReconnects(ctx context.Context, cancel context.CancelFunc, watchCh <-c
 			return
 		}
 	}()
+}
+
+func loadRPCCredentials(ctx context.Context, addr, token string, logger log.FieldLogger) error {
+	// Assume addr to be a complete address if it's prefixed with `http`
+	if !strings.Contains(addr, "http") {
+		host, port := utils.SplitHostPort(addr, strconv.Itoa(defaults.GravitySiteNodePort))
+		addr = fmt.Sprintf("https://%v:%v", host, port)
+	}
+	httpClient := roundtrip.HTTPClient(httplib.GetClient(true))
+	packages, err := webpack.NewBearerClient(addr, token, httpClient)
+	if err != nil {
+		return nil, trace.Wrap(err)
+	}
+	creds, err := LoadRPCCredentials(ctx, packages, logger)
+	if err != nil {
+		return nil, trace.Wrap(err)
+	}
+	return creds, nil
 }

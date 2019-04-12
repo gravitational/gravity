@@ -123,7 +123,7 @@ func (i *Installer) NotifyOperationAvailable(ctx context.Context, operationKey o
 
 // NewAgent creates a new installer agent
 func (i *Installer) NewAgent(agentURL string) (rpcserver.Server, error) {
-	listener, err := net.Listen("tcp", defaults.GravityRPCAgentAddr(i.AdvertiseAddr))
+	serverAddr, token, err := SplitAgentURL(agentURL)
 	if err != nil {
 		return nil, trace.Wrap(err)
 	}
@@ -141,26 +141,18 @@ func (i *Installer) NewAgent(agentURL string) (rpcserver.Server, error) {
 		DockerDevice: i.DockerDevice,
 		Role:         i.Role,
 		Mounts:       mounts,
+		Token:        token,
 	}
-	if err = FetchCloudMetadata(i.CloudProvider, &runtimeConfig); err != nil {
-		return nil, trace.Wrap(err)
-	}
-	config := rpcserver.PeerConfig{
-		Config: rpcserver.Config{
-			Listener: listener,
-			Credentials: rpcserver.Credentials{
-				Server: serverCreds,
-				Client: clientCreds,
-			},
-			RuntimeConfig: runtimeConfig,
+	return NewAgent(AgentConfig{
+		FieldLogger:   i.FieldLogger,
+		AdvertiseAddr: i.AdvertiseAddr,
+		ServerAddr:    serverAddr,
+		Credentials: rpcserver.Credentials{
+			Server: serverCreds,
+			Client: clientCreds,
 		},
-	}
-	agent, err := NewAgentFromURL(agentURL, config, i.FieldLogger)
-	if err != nil {
-		listener.Close()
-		return nil, trace.Wrap(err)
-	}
-	return agent, nil
+		RuntimeConfig: runtimeConfig,
+	})
 }
 
 // Finalize executes additional steps after the installation has completed

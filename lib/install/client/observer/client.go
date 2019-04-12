@@ -1,4 +1,4 @@
-package plan
+package observer
 
 import (
 	"context"
@@ -15,8 +15,11 @@ import (
 	log "github.com/sirupsen/logrus"
 )
 
-// New returns a new client to handle the installer case.
-// See docs/design/client/plan.puml for details
+// New returns a new client to handle the observer case.
+// The observer client starts the installer service if necessary
+// and shuts it down when done.
+//
+// See docs/design/client/install-observer.puml for details
 func New(ctx context.Context, config Config) (*client, error) {
 	err := config.checkAndSetDefaults()
 	if err != nil {
@@ -44,7 +47,7 @@ func New(ctx context.Context, config Config) (*client, error) {
 // ExecutePhase executes the operation phase specified with phase
 func (r *client) ExecutePhase(ctx context.Context, machine *fsm.FSM, config fsm.Params) error {
 	if config.PhaseID == fsm.RootPhase {
-		progress := utils.NewProgress(ctx, "Resuming install operation", -1, false)
+		progress := utils.NewProgress(ctx, "Resuming operation", -1, false)
 		defer progress.Stop()
 
 		err := machine.ExecutePlan(ctx, progress)
@@ -53,7 +56,7 @@ func (r *client) ExecutePhase(ctx context.Context, machine *fsm.FSM, config fsm.
 		}
 		return trace.Wrap(machine.Complete(err))
 	}
-	progress := utils.NewProgress(ctx, fmt.Sprintf("Executing install phase %q", config.PhaseID), -1, false)
+	progress := utils.NewProgress(ctx, fmt.Sprintf("Executing phase %q", config.PhaseID), -1, false)
 	defer progress.Stop()
 	err := machine.ExecutePhase(ctx, fsm.Params{
 		PhaseID:  config.PhaseID,
@@ -74,11 +77,12 @@ func (r *Config) checkAndSetDefaults() error {
 		r.Printer = utils.DiscardPrinter
 	}
 	if r.FieldLogger == nil {
-		r.FieldLogger = log.WithField(trace.Component, "client:plan")
+		r.FieldLogger = log.WithField(trace.Component, "client:observer")
 	}
 	return nil
 }
 
+// Config specifies the configuration for the client
 type Config struct {
 	log.FieldLogger
 	utils.Printer

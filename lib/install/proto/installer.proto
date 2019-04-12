@@ -11,11 +11,11 @@ service Agent {
     rpc Shutdown(ShutdownRequest) returns (ShutdownResponse);
 
     // GetProgress polls the server for operation progress
-    rpc GetProgress(ProgressRequest) returns (stream ProgressResponse);
+    // rpc GetProgress(ProgressRequest) returns (stream ProgressResponse);
 
     // Validate allows the engine to prepare for the installation
     // and validate the environment before the operation is executed
-    rpc Validate(ValidateRequest) returns (ValidateResponse);
+    // rpc Validate(ValidateRequest) returns (ValidateResponse);
 }
 
 // ExecuteRequest describes a request to execute install operation
@@ -26,13 +26,16 @@ message ExecuteRequest {
 message ExecuteResponse {
 }
 
-// ValidateRequest describes a request to validate environment before the operation
-message ValidateRequest {
-}
-
-// ValidateResponse describes the server response after validation
-message ValidateResponse {
-}
+// // ValidateRequest describes a request to validate environment before the operation
+// message ValidateRequest {
+// }
+//
+// // ValidateResponse describes the server response after validation
+// message ValidateResponse {
+// }
+// // ProgressRequest is a request for stream of progress messages
+// message ProgressRequest {
+// }
 
 // ShutdownRequest describes a request to shut down the process
 message ShutdownRequest {
@@ -40,10 +43,6 @@ message ShutdownRequest {
 
 // ShutdownResponse describes the server response to the shut down request
 message ShutdownResponse {
-}
-
-// ProgressRequest is a request for stream of progress messages
-message ProgressRequest {
 }
 
 // ProgressResponse describes a single progress step

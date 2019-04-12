@@ -18,72 +18,60 @@ package install
 
 import (
 	"context"
-	"fmt"
 	"net"
 	"net/url"
-	"strconv"
-	"strings"
 
 	"github.com/gravitational/gravity/lib/defaults"
 	"github.com/gravitational/gravity/lib/httplib"
-	"github.com/gravitational/gravity/lib/pack/webpack"
 	pb "github.com/gravitational/gravity/lib/rpc/proto"
 	rpcserver "github.com/gravitational/gravity/lib/rpc/server"
 	"github.com/gravitational/gravity/lib/utils"
 
-	"github.com/gravitational/roundtrip"
 	teleutils "github.com/gravitational/teleport/lib/utils"
 	"github.com/gravitational/trace"
 	log "github.com/sirupsen/logrus"
 )
 
 // NewAgent returns a new unstarted agent instance
-func NewAgent(ctx context.Context, config AgentConfig, log log.FieldLogger, watchCh chan rpcserver.WatchEvent) (rpcserver.Server, error) {
+func NewAgent(ctx context.Context, config AgentConfig) (rpcserver.Server, error) {
 	if err := config.CheckAndSetDefaults(); err != nil {
 		return nil, trace.Wrap(err)
 	}
-
-	addr := config.PackageAddr
-	// Assume addr to be a complete address if it's prefixed with `http`
-	if !strings.Contains(addr, "http") {
-		host, port := utils.SplitHostPort(addr, strconv.Itoa(defaults.GravitySiteNodePort))
-		addr = fmt.Sprintf("https://%v:%v", host, port)
-	}
-
-	httpClient := roundtrip.HTTPClient(httplib.GetClient(true))
-	packages, err := webpack.NewBearerClient(addr, config.Token, httpClient)
-	if err != nil {
+	if err = FetchCloudMetadata(config.CloudProvider, &config.RuntimeConfig); err != nil {
 		return nil, trace.Wrap(err)
 	}
-
-	creds, err := LoadRPCCredentials(ctx, packages, log)
-	if err != nil {
-		return nil, trace.Wrap(err)
-	}
-
 	listener, err := net.Listen("tcp", defaults.GravityRPCAgentAddr(config.AdvertiseAddr))
 	if err != nil {
 		return nil, trace.Wrap(err)
 	}
-
-	peerConfig := rpcserver.PeerConfig{
+	defer func() {
+		if err != nil {
+			listener.Close()
+		}
+	}()
+	config := rpcserver.PeerConfig{
 		Config: rpcserver.Config{
 			Listener:      listener,
-			Credentials:   *creds,
+			Credentials:   config.Credentials,
 			RuntimeConfig: config.RuntimeConfig,
 		},
-		WatchCh: watchCh,
+		WatchCh: config.WatchCh,
 		ReconnectStrategy: rpcserver.ReconnectStrategy{
 			ShouldReconnect: utils.ShouldReconnectPeer,
 		},
 	}
-
-	agent, err := rpcserver.NewPeer(peerConfig, config.ServerAddr, log)
+	agent, err := rpcserver.NewPeer(peerConfig, config.ServerAddr, config.FieldLogger)
 	if err != nil {
 		listener.Close()
 		return nil, trace.Wrap(err)
 	}
-
+	// make sure that connection to the RPC server can be established
+	ctx, cancel := context.WithTimeout(ctx, defaults.PeerConnectTimeout)
+	defer cancel()
+	if err := agent.ValidateConnection(ctx); err != nil {
+		// Returning agent as it needs to be Closed by the client
+		return agent, trace.Wrap(err)
+	}
 	return agent, nil
 }
 
@@ -92,7 +80,7 @@ func (r *AgentConfig) CheckAndSetDefaults() (err error) {
 	if r.PackageAddr == "" {
 		return trace.BadParameter("package service address is required")
 	}
-	if r.Token == "" {
+	if r.RuntimeConfig.Token == "" {
 		return trace.BadParameter("access token is required")
 	}
 	if r.AdvertiseAddr == "" {
@@ -107,8 +95,9 @@ func (r *AgentConfig) CheckAndSetDefaults() (err error) {
 
 // AgentConfig describes configuration for a stateless agent
 type AgentConfig struct {
-	// PackageAddr references the endpoint to bootstrap credentials from
-	PackageAddr string
+	log.FieldLogger
+	rpcserver.Credentials
+	CloudProvider string
 	// AdvertiseAddr is the IP address to advertise
 	AdvertiseAddr string
 	// ServerAddr specifies the address of the agent server
@@ -117,22 +106,16 @@ type AgentConfig struct {
 	pb.RuntimeConfig
 }
 
-// NewAgentFromURL creates a new agent from the specified URL and peer configuration.
-// Returns an unstarted agent instance
-func NewAgentFromURL(agentURL string, config rpcserver.PeerConfig, log log.FieldLogger) (*rpcserver.PeerServer, error) {
-	log.WithField("url", agentURL).Debug("Starting agent.")
-	u, err := url.ParseRequestURI(agentURL)
+// SplitAgentURL splits agentURL into server address and token
+func SplitAgentURL(agentURL string) (serverAddr, token string, err error) {
+	addr, err := teleutils.ParseAddr("tcp://" + u.Host)
 	if err != nil {
-		return nil, trace.Wrap(err)
+		return "", "", trace.Wrap(err)
 	}
-	serverAddr, err := teleutils.ParseAddr("tcp://" + u.Host)
+	url, err := url.ParseRequestURI(agentURL)
 	if err != nil {
-		return nil, trace.Wrap(err)
+		return "", "", trace.Wrap(err)
 	}
-	config.RuntimeConfig.Token = u.Query().Get(httplib.AccessTokenQueryParam)
-	agent, err := rpcserver.NewPeer(config, serverAddr.Addr, log)
-	if err != nil {
-		return nil, trace.Wrap(err)
-	}
-	return agent, nil
+	token = url.Query().Get(httplib.AccessTokenQueryParam)
+	return addr.Addr, token, nil
 }

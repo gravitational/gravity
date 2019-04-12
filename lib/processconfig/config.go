@@ -246,6 +246,11 @@ func (cfg Config) ProcessID() string {
 	return id
 }
 
+// WizardAddr returns the address of the wizard endpoint
+func (cfg Config) WizardAddr() (addr string) {
+	return fmt.Sprintf("https://%v", cfg.Pack.GetAddr().Addr)
+}
+
 // ProfileConfig is a profile configuration
 type ProfileConfig struct {
 	// HTTPEndpoint is HTTP profile endpoint

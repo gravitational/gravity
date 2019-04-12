@@ -303,29 +303,19 @@ func Execute(g *Application, cmd string, extraArgs []string) error {
 			FromService:   *g.WizardCmd.FromService,
 		})
 	case g.InstallCmd.FullCommand():
-		if *g.InstallCmd.Resume {
-			*g.InstallCmd.Phase = fsm.RootPhase
-		}
-		if *g.InstallCmd.Phase != "" {
-			return executeInstallPhase(localEnv, PhaseParams{
-				PhaseID: *g.InstallCmd.Phase,
-				Force:   *g.InstallCmd.Force,
-				Timeout: *g.InstallCmd.PhaseTimeout,
-			}, nil)
-		}
 		return startInstall(localEnv, NewInstallConfig(localEnv, g))
 	case g.JoinCmd.FullCommand():
-		if *g.JoinCmd.Resume {
-			*g.JoinCmd.Phase = fsm.RootPhase
-		}
-		if *g.JoinCmd.Phase != "" {
-			return executeJoinPhase(localEnv, joinEnv, PhaseParams{
-				PhaseID:     *g.JoinCmd.Phase,
-				Force:       *g.JoinCmd.Force,
-				Timeout:     *g.JoinCmd.PhaseTimeout,
-				OperationID: *g.JoinCmd.OperationID,
-			}, nil)
-		}
+		// if *g.JoinCmd.Resume {
+		// 	*g.JoinCmd.Phase = fsm.RootPhase
+		// }
+		// if *g.JoinCmd.Phase != "" {
+		// 	return executeJoinPhase(localEnv, joinEnv, PhaseParams{
+		// 		PhaseID:     *g.JoinCmd.Phase,
+		// 		Force:       *g.JoinCmd.Force,
+		// 		Timeout:     *g.JoinCmd.PhaseTimeout,
+		// 		OperationID: *g.JoinCmd.OperationID,
+		// 	}, nil)
+		// }
 		return Join(localEnv, joinEnv, NewJoinConfig(g))
 	case g.AutoJoinCmd.FullCommand():
 		return autojoin(localEnv, joinEnv, autojoinConfig{

@@ -492,7 +492,7 @@ func (i *InstallConfig) validateDNSConfig() error {
 	return nil
 }
 
-// JoinConfig is the configuration object built from gravity join command args and flags
+// JoinConfig describes command line configuration of the join command
 type JoinConfig struct {
 	// SystemLogFile is gravity-system log file path
 	SystemLogFile string
@@ -500,7 +500,7 @@ type JoinConfig struct {
 	UserLogFile string
 	// AdvertiseAddr is the advertise IP for the joining node
 	AdvertiseAddr string
-	// ServerAddr is the RPC server address
+	// ServerAddr is the installer RPC server address as host:port
 	ServerAddr string
 	// PeerAddrs is the list of peers to try connecting to
 	PeerAddrs string
@@ -522,6 +522,14 @@ type JoinConfig struct {
 	Phase string
 	// OperationID is ID of existing join operation
 	OperationID string
+	// Server specifies whether the process runs in server mode
+	Server bool
+	// Auto specifies whether the server runs autonomously.
+	// This implies Server == true.
+	// With user interaction, the server would wait for the client to trigger
+	// the operation. With Auto == true, the server will execute the operation
+	// automatically
+	Auto bool
 }
 
 // NewJoinConfig populates join configuration from the provided CLI application
@@ -541,6 +549,7 @@ func NewJoinConfig(g *Application) JoinConfig {
 		Manual:        *g.JoinCmd.Manual,
 		Phase:         *g.JoinCmd.Phase,
 		OperationID:   *g.JoinCmd.OperationID,
+		Server:        *g.JoinCmd.Server,
 	}
 }
 
@@ -598,8 +607,8 @@ func (j *JoinConfig) GetRuntimeConfig() (*proto.RuntimeConfig, error) {
 	return config, nil
 }
 
-// ToPeerConfig converts the CLI join configuration to a peer configuration
-func (j *JoinConfig) ToPeerConfig(env, joinEnv *localenv.LocalEnvironment) (*expand.PeerConfig, error) {
+// NewPeerConfig converts the CLI join configuration to peer configuration
+func (j *JoinConfig) NewPeerConfig(env, joinEnv *localenv.LocalEnvironment) (*expand.PeerConfig, error) {
 	advertiseAddr, err := j.GetAdvertiseAddr()
 	if err != nil {
 		return nil, trace.Wrap(err)
@@ -627,6 +636,7 @@ func (j *JoinConfig) ToPeerConfig(env, joinEnv *localenv.LocalEnvironment) (*exp
 		JoinBackend:   joinEnv.Backend,
 		Manual:        j.Manual,
 		OperationID:   j.OperationID,
+		Auto:          j.Auto,
 	}, nil
 }
 

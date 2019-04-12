@@ -95,10 +95,10 @@ import (
 )
 
 type Process struct {
-	sync.Once
 	sync.Mutex
 	*service.TeleportProcess
 	logrus.FieldLogger
+	shutdownOnce   sync.Once
 	context        context.Context
 	cancel         context.CancelFunc
 	backend        storage.Backend
@@ -339,12 +339,14 @@ func (p *Process) Start() (err error) {
 
 // Shutdown initiates graceful shutdown of this process
 func (p *Process) Shutdown(ctx context.Context) {
-	p.cancel()
-	p.stopClusterServices()
-	p.clusterObjects.Close()
-	if p.healthServer != nil {
-		p.healthServer.Shutdown(ctx)
-	}
+	p.shutdownOnce.Do(func() {
+		p.cancel()
+		p.stopClusterServices()
+		p.clusterObjects.Close()
+		if p.healthServer != nil {
+			p.healthServer.Shutdown(ctx)
+		}
+	})
 	p.TeleportProcess.Shutdown(ctx)
 }
 

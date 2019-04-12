@@ -184,12 +184,18 @@ func (e *fsmEngine) GetPlan() (*storage.OperationPlan, error) {
 // RunCommand executes the phase specified by params on the specified
 // server using the provided runner
 func (e *fsmEngine) RunCommand(ctx context.Context, runner fsm.RemoteRunner, node storage.Server, p fsm.Params) error {
-	args := []string{"join", "--phase", p.PhaseID, fmt.Sprintf("--force=%v", p.Force)}
+	args := []string{"plan", "execute",
+		"--phase", p.PhaseID,
+		"--operation-id", p.OperationID,
+	}
 	if e.DebugMode {
 		args = append([]string{"--debug"}, args...)
 	}
 	if e.Insecure {
 		args = append([]string{"--insecure"}, args...)
+	}
+	if p.Force {
+		args = append(args, "--force")
 	}
 	return runner.Run(ctx, node, args...)
 }

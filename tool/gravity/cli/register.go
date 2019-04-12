@@ -80,11 +80,6 @@ func RegisterCommands(app *kingpin.Application) *Application {
 	g.InstallCmd.DockerStorageDriver = DockerStorageDriver(g.InstallCmd.Flag("storage-driver",
 		fmt.Sprintf("Docker storage driver, overrides the one from app manifest. Recognized are: %v", strings.Join(constants.DockerSupportedDrivers, ", "))), constants.DockerSupportedDrivers)
 	g.InstallCmd.DockerArgs = g.InstallCmd.Flag("docker-opt", "Additional arguments to docker. Can be specified multiple times").Strings()
-	g.InstallCmd.Phase = g.InstallCmd.Flag("phase", "Execute an install plan phase").String()
-	g.InstallCmd.PhaseTimeout = g.InstallCmd.Flag("timeout", "Phase execution timeout").Default(defaults.PhaseTimeout).Hidden().Duration()
-	g.InstallCmd.Force = g.InstallCmd.Flag("force", "Force phase execution").Bool()
-	g.InstallCmd.Resume = g.InstallCmd.Flag("resume", "Resume installation from last failed step").Bool()
-	g.InstallCmd.Manual = g.InstallCmd.Flag("manual", "Manually execute install operation phases").Bool()
 	g.InstallCmd.ServiceUID = g.InstallCmd.Flag("service-uid",
 		fmt.Sprintf("Service user ID for planet. %q user will created and used if none specified", defaults.ServiceUser)).
 		Default(defaults.ServiceUserID).
@@ -111,12 +106,13 @@ func RegisterCommands(app *kingpin.Application) *Application {
 	g.JoinCmd.ServerAddr = g.JoinCmd.Flag("server-addr", "Address of the agent server").Hidden().String()
 	g.JoinCmd.Mounts = configure.KeyValParam(g.JoinCmd.Flag("mount", "One or several mounts in form <mount-name>:<path>, e.g. data:/var/lib/data"))
 	g.JoinCmd.CloudProvider = g.JoinCmd.Flag("cloud-provider", "Cloud provider integration e.g. 'generic', 'aws'. If not set, autodetect environment").String()
-	g.JoinCmd.Manual = g.JoinCmd.Flag("manual", "Manually execute join operation phases").Bool()
-	g.JoinCmd.Phase = g.JoinCmd.Flag("phase", "Execute specific operation phase").String()
-	g.JoinCmd.PhaseTimeout = g.JoinCmd.Flag("timeout", "Phase execution timeout").Default(defaults.PhaseTimeout).Hidden().Duration()
-	g.JoinCmd.Resume = g.JoinCmd.Flag("resume", "Resume joining from last failed step").Bool()
-	g.JoinCmd.Force = g.JoinCmd.Flag("force", "Force phase execution").Bool()
+	// g.JoinCmd.Manual = g.JoinCmd.Flag("manual", "Manually execute join operation phases").Bool()
+	// g.JoinCmd.Phase = g.JoinCmd.Flag("phase", "Execute specific operation phase").String()
+	// g.JoinCmd.PhaseTimeout = g.JoinCmd.Flag("timeout", "Phase execution timeout").Default(defaults.PhaseTimeout).Hidden().Duration()
+	// g.JoinCmd.Resume = g.JoinCmd.Flag("resume", "Resume joining from last failed step").Bool()
+	// g.JoinCmd.Force = g.JoinCmd.Flag("force", "Force phase execution").Bool()
 	g.JoinCmd.OperationID = g.JoinCmd.Flag("operation-id", "ID of the operation that was created via UI").Hidden().String()
+	g.JoinCmd.FromService = g.JoinCmd.Flag("from-service", "Run in service mode").Hidden().Bool()
 
 	g.AutoJoinCmd.CmdClause = g.Command("autojoin", "Use cloud provider data to join a node to existing cluster")
 	g.AutoJoinCmd.ClusterName = g.AutoJoinCmd.Arg("cluster-name", "Cluster name used for discovery").Required().String()

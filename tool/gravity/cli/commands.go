@@ -376,16 +376,6 @@ type InstallCmd struct {
 	DockerStorageDriver *dockerStorageDriver
 	// DockerArgs specifies additional Docker arguments
 	DockerArgs *[]string
-	// Phase specifies the install phase ID to execute
-	Phase *string
-	// PhaseTimeout is phase execution timeout
-	PhaseTimeout *time.Duration
-	// Force forces phase execution
-	Force *bool
-	// Resume resumes failed install operation
-	Resume *bool
-	// Manual puts install operation in manual mode
-	Manual *bool
 	// ServiceUID is system user ID
 	ServiceUID *string
 	// ServiceGID is system user group ID
@@ -427,18 +417,24 @@ type JoinCmd struct {
 	Mounts *configure.KeyVal
 	// CloudProvider turns on cloud provider integration
 	CloudProvider *string
-	// Manual turns on manual phases execution mode
-	Manual *bool
-	// Phase specifies the operation phase to execute
-	Phase *string
-	// PhaseTimeout is phase execution timeout
-	PhaseTimeout *time.Duration
-	// Resume resumes failed join operation
-	Resume *bool
-	// Force forces phase execution
-	Force *bool
+	// // Manual turns on manual phases execution mode
+	// Manual *bool
+	// // Phase specifies the operation phase to execute
+	// Phase *string
+	// // PhaseTimeout is phase execution timeout
+	// PhaseTimeout *time.Duration
+	// // Resume resumes failed join operation
+	// Resume *bool
+	// // Force forces phase execution
+	// Force *bool
 	// OperationID is the ID of the operation created via UI
 	OperationID *string
+	// FromService specifies whether this process runs in service mode.
+	//
+	// The installer runs the main installer code in service mode, while
+	// the client will simply connect to the service and stream its output and errors
+	// and control whether it should stop
+	FromService *bool
 }
 
 // AutoJoinCmd uses cloud provider info to join existing cluster

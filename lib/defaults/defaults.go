@@ -1215,3 +1215,8 @@ func GravityRPCAgentAddr(host string) string {
 func WithTimeout(ctx context.Context) (context.Context, context.CancelFunc) {
 	return context.WithTimeout(ctx, RetryAttempts*RetryInterval)
 }
+
+// InstallerAddr returns the complete address of the installer given its IP
+func InstallerAddr(installerIP string) (addr string) {
+	return fmt.Sprintf("%v:%v", installerIP, defaults.WizardPackServerPort)
+}

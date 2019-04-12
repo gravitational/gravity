@@ -71,6 +71,8 @@ func (p ExecutorParams) Key() ops.SiteOperationKey {
 type Params struct {
 	// PhaseID is the id of the phase to execute/rollback
 	PhaseID string
+	// OperationID is the operation ID this phase is executed for
+	OperationID string
 	// Force is whether to force execution/rollback
 	Force bool
 	// Resume determines whether a failed/in-progress phase is rerun
@@ -171,6 +173,7 @@ func (f *FSM) ExecutePhase(ctx context.Context, p Params) error {
 	if err != nil {
 		return trace.Wrap(err)
 	}
+	p.OperationID = plan.OperationID
 	phase, err := FindPhase(plan, p.PhaseID)
 	if err != nil {
 		return trace.Wrap(err)
