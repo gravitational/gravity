@@ -177,7 +177,7 @@ func remoteDirectories(operation ops.SiteOperation, server *ProvisionedServer, m
 	for _, dir := range chownList {
 		commands = append(commands,
 			Cmd(
-				[]string{"chown", "-R", fmt.Sprintf("%v:%v", uid, gid), dir},
+				[]string{"chown", fmt.Sprintf("%v:%v", uid, gid), dir},
 				"setting ownership of %v to %v:%v", dir, uid, gid,
 			),
 		)
