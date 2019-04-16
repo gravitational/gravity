@@ -42,6 +42,7 @@ import (
 	"github.com/coreos/go-semver/semver"
 	"github.com/gravitational/form"
 	"github.com/gravitational/roundtrip"
+	telehttplib "github.com/gravitational/teleport/lib/httplib"
 	teleservices "github.com/gravitational/teleport/lib/services"
 	"github.com/gravitational/trace"
 	"github.com/julienschmidt/httprouter"
@@ -744,7 +745,14 @@ func (h *WebHandler) deleteAppHookJob(w http.ResponseWriter,
 		Name:        params.ByName("name"),
 		Namespace:   params.ByName("namespace"),
 	}
-	err = context.applications.DeleteAppHookJob(req.Context(), hookRef)
+	cascade, _, err := telehttplib.ParseBool(req.URL.Query(), "cascade")
+	if err != nil {
+		return trace.Wrap(err)
+	}
+	err = context.applications.DeleteAppHookJob(req.Context(), app.DeleteAppHookJobRequest{
+		HookRef: hookRef,
+		Cascade: cascade,
+	})
 	if err != nil {
 		return trace.Wrap(err)
 	}

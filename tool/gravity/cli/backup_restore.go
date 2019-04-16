@@ -35,7 +35,7 @@ import (
 	dockerarchive "github.com/docker/docker/pkg/archive"
 	teleutils "github.com/gravitational/teleport/lib/utils"
 	"github.com/gravitational/trace"
-	"k8s.io/api/core/v1"
+	v1 "k8s.io/api/core/v1"
 )
 
 func backup(env *localenv.LocalEnvironment, tarball string, timeout time.Duration, follow, silent bool) (err error) {
@@ -61,7 +61,9 @@ func backup(env *localenv.LocalEnvironment, tarball string, timeout time.Duratio
 				return trace.Wrap(err)
 			}
 			defer func() {
-				err := apps.DeleteAppHookJob(ctx, *ref)
+				err := apps.DeleteAppHookJob(ctx, app.DeleteAppHookJobRequest{
+					HookRef: *ref,
+				})
 				if err != nil {
 					log.Warningf("failed to delete hook %v: %v",
 						ref, trace.DebugReport(err))
