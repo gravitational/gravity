@@ -82,26 +82,31 @@ func (r *Engine) Validate(ctx context.Context, config install.Config) (err error
 
 // Execute executes the installer steps
 func (r *Engine) Execute(ctx context.Context, installer install.Interface, config install.Config) (err error) {
-	if err := r.bootstrap(ctx, config); err != nil {
+	r.ctx = ctx
+	r.config = config
+	r.Interface = installer
+	if err := r.bootstrap(); err != nil {
 		return trace.Wrap(err)
 	}
-	operation, err := r.upsertClusterAndOperation(ctx, r.Operator, config)
+	operation, err := r.upsertClusterAndOperation()
 	if err != nil {
 		return trace.Wrap(err, "failed to create cluster/operation")
 	}
-	installer.NotifyOperationAvailable(ctx, operation.Key())
+	if err := installer.NotifyOperationAvailable(operation.Key()); err != nil {
+		return trace.Wrap(err)
+	}
 	if !r.ExcludeHostFromCluster {
 		profile, ok := operation.InstallExpand.Agents[config.Role]
 		if !ok {
 			return trace.NotFound("agent profile not found for %v", config.Role)
 		}
-		agent, err := r.startAgent(profile, installer)
+		agent, err := r.startAgent(profile)
 		if err != nil {
 			return trace.Wrap(err, "failed to start installer agent")
 		}
 		defer agent.Stop(ctx)
 	}
-	err = r.waitForAgents(ctx, installer, config, *operation)
+	err = r.waitForAgents(*operation)
 	if err != nil {
 		return trace.Wrap(err)
 	}
@@ -112,50 +117,50 @@ func (r *Engine) Execute(ctx context.Context, installer install.Interface, confi
 	if err := installer.CompleteFinalInstallStep(0); err != nil {
 		r.WithError(err).Warn("Failed to complete final install step.")
 	}
-	if err := installer.Finalize(ctx, *operation); err != nil {
+	if err := installer.Finalize(*operation); err != nil {
 		r.WithError(err).Warn("Failed to finalize install.")
 	}
 	return nil
 }
 
 // bootstrap prepares for the installation
-func (r *Engine) bootstrap(ctx context.Context, config install.Config) error {
-	err := install.InstallBinary(config.ServiceUser.UID, config.ServiceUser.GID, r.FieldLogger)
+func (r *Engine) bootstrap() error {
+	err := install.InstallBinary(r.config.ServiceUser.UID, r.config.ServiceUser.GID, r.FieldLogger)
 	if err != nil {
 		return trace.Wrap(err, "failed to install binary")
 	}
-	err = configureStateDirectory(config.SystemDevice)
+	err = configureStateDirectory(r.config.SystemDevice)
 	if err != nil {
 		return trace.Wrap(err, "failed to configure state directory")
 	}
-	err = install.ExportRPCCredentials(ctx, config.Packages, r.FieldLogger)
+	err = install.ExportRPCCredentials(r.ctx, r.config.Packages, r.FieldLogger)
 	if err != nil {
 		return trace.Wrap(err, "failed to export RPC credentials")
 	}
 	return nil
 }
 
-func (r *Engine) upsertClusterAndOperation(ctx context.Context, operator ops.Operator, config install.Config) (*ops.SiteOperation, error) {
-	clusters, err := operator.GetSites(defaults.SystemAccountID)
+func (r *Engine) upsertClusterAndOperation() (*ops.SiteOperation, error) {
+	clusters, err := r.Operator.GetSites(defaults.SystemAccountID)
 	if err != nil {
 		return nil, trace.Wrap(err)
 	}
 	var cluster *ops.Site
 	if len(clusters) == 0 {
-		cluster, err = operator.CreateSite(r.NewCluster())
+		cluster, err = r.Operator.CreateSite(r.NewCluster())
 		if err != nil {
 			return nil, trace.Wrap(err)
 		}
 	} else {
 		cluster = &clusters[0]
 	}
-	operations, err := operator.GetSiteOperations(cluster.Key())
+	operations, err := r.Operator.GetSiteOperations(cluster.Key())
 	if err != nil {
 		return nil, trace.Wrap(err)
 	}
 	var operation *ops.SiteOperation
 	if len(operations) == 0 {
-		operation, err = r.createOperation(ctx, operator, config)
+		operation, err = r.createOperation()
 		if err != nil {
 			return nil, trace.Wrap(err)
 		}
@@ -165,36 +170,36 @@ func (r *Engine) upsertClusterAndOperation(ctx context.Context, operator ops.Ope
 	return operation, nil
 }
 
-func (r *Engine) createOperation(ctx context.Context, operator ops.Operator, config install.Config) (*ops.SiteOperation, error) {
-	key, err := operator.CreateSiteInstallOperation(ctx, ops.CreateSiteInstallOperationRequest{
-		SiteDomain: config.SiteDomain,
+func (r *Engine) createOperation() (*ops.SiteOperation, error) {
+	key, err := r.Operator.CreateSiteInstallOperation(r.ctx, ops.CreateSiteInstallOperationRequest{
+		SiteDomain: r.config.SiteDomain,
 		AccountID:  defaults.SystemAccountID,
 		// With CLI install flow we always rely on external provisioner
 		Provisioner: schema.ProvisionerOnPrem,
 		Variables: storage.OperationVariables{
 			System: storage.SystemVariables{
-				Docker: config.Docker,
+				Docker: r.config.Docker,
 			},
 			OnPrem: storage.OnPremVariables{
-				PodCIDR:     config.PodCIDR,
-				ServiceCIDR: config.ServiceCIDR,
-				VxlanPort:   config.VxlanPort,
+				PodCIDR:     r.config.PodCIDR,
+				ServiceCIDR: r.config.ServiceCIDR,
+				VxlanPort:   r.config.VxlanPort,
 			},
 		},
-		Profiles: install.ServerRequirements(*config.Flavor),
+		Profiles: install.ServerRequirements(*r.config.Flavor),
 	})
 	if err != nil {
 		return nil, trace.Wrap(err)
 	}
-	operation, err := operator.GetSiteOperation(*key)
+	operation, err := r.Operator.GetSiteOperation(*key)
 	if err != nil {
 		return nil, trace.Wrap(err)
 	}
 	return operation, nil
 }
 
-func (r *Engine) waitForAgents(ctx context.Context, installer install.Interface, config install.Config, operation ops.SiteOperation) error {
-	ctx, cancel := context.WithTimeout(ctx, 5*time.Minute)
+func (r *Engine) waitForAgents(operation ops.SiteOperation) error {
+	ctx, cancel := context.WithTimeout(r.ctx, 5*time.Minute)
 	defer cancel()
 	b := utils.NewUnlimitedExponentialBackOff()
 	b.MaxInterval = 5 * time.Second
@@ -206,7 +211,7 @@ func (r *Engine) waitForAgents(ctx context.Context, installer install.Interface,
 		}
 		old := oldReport
 		oldReport = report
-		if !r.canContinue(ctx, old, report, installer, config) {
+		if !r.canContinue(old, report) {
 			return trace.BadParameter("cannot continue")
 		}
 		r.WithField("report", report).Info("Installation can proceed.")
@@ -218,23 +223,23 @@ func (r *Engine) waitForAgents(ctx context.Context, installer install.Interface,
 
 // canContinue returns true if the installation can commence based on the
 // provided agent report and false if not all agents have joined yet.
-func (r *Engine) canContinue(ctx context.Context, old, new *ops.AgentReport, installer install.Interface, config install.Config) bool {
+func (r *Engine) canContinue(old, new *ops.AgentReport) bool {
 	// See if any new nodes have joined or left since previous agent report.
 	joined, left := new.Diff(old)
 	for _, server := range joined {
-		installer.PrintStep(ctx, color.GreenString("Successfully added %q node on %v",
+		r.PrintStep(color.GreenString("Successfully added %q node on %v",
 			server.Role, utils.ExtractHost(server.AdvertiseAddr)))
 	}
 	for _, server := range left {
-		installer.PrintStep(ctx, color.YellowString("Node %q on %v has left",
+		r.PrintStep(color.YellowString("Node %q on %v has left",
 			server.Role, utils.ExtractHost(server.AdvertiseAddr)))
 	}
 	// Save the current agent report so we can compare against it on next iteration.
 	// i.agentReport = report
 	// See if the current agent report satisfies the selected flavor.
-	needed, extra := new.MatchFlavor(config.Flavor)
+	needed, extra := new.MatchFlavor(r.config.Flavor)
 	if len(needed) == 0 && len(extra) == 0 {
-		installer.PrintStep(ctx, color.GreenString("All agents have connected!"))
+		r.PrintStep(color.GreenString("All agents have connected!"))
 		return true
 	}
 	// If there were no changes compared to previous report, do not
@@ -243,19 +248,19 @@ func (r *Engine) canContinue(ctx context.Context, old, new *ops.AgentReport, ins
 		return false
 	}
 	// Dump the table with remaining nodes that need to join.
-	installer.PrintStep(ctx, "Please execute the following join commands on target nodes:\n%v",
-		formatProfiles(needed, config.AdvertiseAddr, config.Token.Token))
+	r.PrintStep("Please execute the following join commands on target nodes:\n%v",
+		formatProfiles(needed, r.config.AdvertiseAddr, r.config.Token.Token))
 	// If there are any extra agents with roles we don't expect for
 	// the selected flavor, they need to leave.
 	for _, server := range extra {
-		installer.PrintStep(ctx, color.RedString("Node %q on %v is not a part of the flavor, shut it down",
+		r.PrintStep(color.RedString("Node %q on %v is not a part of the flavor, shut it down",
 			server.Role, utils.ExtractHost(server.AdvertiseAddr)))
 	}
 	return false
 }
 
-func (r *Engine) startAgent(profile storage.AgentProfile, installer install.Interface) (rpcserver.Server, error) {
-	agent, err := installer.NewAgent(profile.AgentURL)
+func (r *Engine) startAgent(profile storage.AgentProfile) (rpcserver.Server, error) {
+	agent, err := r.NewAgent(profile.AgentURL)
 	if err != nil {
 		return nil, trace.Wrap(err)
 	}
@@ -265,6 +270,9 @@ func (r *Engine) startAgent(profile storage.AgentProfile, installer install.Inte
 
 type Engine struct {
 	Config
+	install.Interface
+	config install.Config
+	ctx    context.Context
 }
 
 // formatProfiles outputs a table with information about node profiles

@@ -128,16 +128,17 @@ func (u *systemdUnit) servicePath() string {
 	return filepath.Join(systemdUnitFileDir, u.serviceName())
 }
 
-func (s *systemdManager) installService(service serviceTemplate, noBlock bool) error {
+func (s *systemdManager) installService(service serviceTemplate, noBlock bool, unitPath string) error {
 	service.Environment = map[string]string{
 		defaults.PathEnv: defaults.PathEnvVal,
 	}
-
-	servicePath := filepath.Join(systemdUnitFileDir, SystemdNameEscape(service.Name))
-	f, err := os.Create(servicePath)
+	if unitPath == "" {
+		unitPath = filepath.Join(systemdUnitFileDir, SystemdNameEscape(service.Name))
+	}
+	f, err := os.Create(unitPath)
 	if err != nil {
 		return trace.Wrap(err,
-			"error creating systemd unit file at %v", servicePath)
+			"error creating systemd unit file at %v", unitPath)
 	}
 	defer f.Close()
 
@@ -209,7 +210,8 @@ func (s *systemdManager) InstallPackageService(req NewPackageServiceRequest) err
 		Description: fmt.Sprintf("Auto-generated service for the %v package", req.Package),
 	}
 
-	return trace.Wrap(s.installService(template, req.NoBlock))
+	var defaultUnitPath string
+	return trace.Wrap(s.installService(template, req.NoBlock, defaultUnitPath))
 }
 
 // UninstallPackageService uninstalls gravity service implemented as a gravity package command
@@ -304,7 +306,7 @@ func (s *systemdManager) InstallService(req NewServiceRequest) error {
 		ServiceSpec: req.ServiceSpec,
 		Description: fmt.Sprintf("Auto-generated service for the %v", req.Name),
 	}
-	return trace.Wrap(s.installService(template, req.NoBlock))
+	return trace.Wrap(s.installService(template, req.NoBlock, req.UnitPath))
 }
 
 // InstalMountService installs a new mount service with the system service manager
@@ -345,8 +347,11 @@ func (s *systemdManager) UninstallService(name string) error {
 		if err != nil {
 			// Results of `systemctl is-failed` are purely informational
 			// beyond the state values we already check above
-			log.Warnf("service %v status: %s", name, out)
-			log.Debug(trace.DebugReport(err))
+			log.WithFields(log.Fields{
+				log.ErrorKey: err,
+				"name":       name,
+				"output":     out,
+			}).Debug("UninstallService.")
 		}
 	}
 

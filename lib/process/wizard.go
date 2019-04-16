@@ -37,7 +37,7 @@ import (
 )
 
 // WizardProcessConfig returns new process config in wizard mode
-func WizardProcessConfig(hostname, readStateDir, stateDir string) (*processconfig.Config, error) {
+func WizardProcessConfig(hostname, advertiseAddr, readStateDir, stateDir string) (*processconfig.Config, error) {
 	assetsDir := filepath.Join(stateDir, "assets")
 	if err := os.MkdirAll(assetsDir, defaults.SharedDirMask); err != nil {
 		return nil, trace.Wrap(trace.ConvertSystemError(err),
@@ -63,7 +63,7 @@ func WizardProcessConfig(hostname, readStateDir, stateDir string) (*processconfi
 			},
 			AdvertiseAddr: teleutils.NetAddr{
 				AddrNetwork: "tcp",
-				Addr:        fmt.Sprintf("%v:%v", hostname, defaults.WizardPackServerPort),
+				Addr:        fmt.Sprintf("%v:%v", advertiseAddr, defaults.WizardPackServerPort),
 			},
 			ReadDir: readStateDir,
 		},

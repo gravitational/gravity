@@ -76,7 +76,7 @@ echo "$(date) [INFO] Install agent will be using ${TMPDIR:-/tmp} for temporary f
 %v
 {{.service_user_env}}={{.service_uid}} \
 {{.service_group_env}}={{.service_gid}} \
-{{.gravity_bin_path}} {{if .devmode}}--insecure{{end}} --debug join {{.ops_url}} \
+{{.gravity_bin_path}} {{if .devmode}}--insecure{{end}} --debug --httpprofile=localhost:0 join {{.ops_url}} \
     --token={{.install_token}} \
     --advertise-addr={{.advertise_addr}} \
     --server-addr={{.agent_server_addr}} \

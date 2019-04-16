@@ -929,6 +929,8 @@ type AppUnpackCmd struct {
 // WizardCmd starts installer in UI mode
 type WizardCmd struct {
 	*kingpin.CmdClause
+	// Path is the state directory path
+	Path *string
 	// ServiceUID is system user ID
 	ServiceUID *string
 	// ServiceGID is system user group ID

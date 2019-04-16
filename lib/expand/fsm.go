@@ -18,7 +18,6 @@ package expand
 
 import (
 	"context"
-	"fmt"
 	"time"
 
 	"github.com/gravitational/gravity/lib/app"

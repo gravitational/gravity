@@ -51,7 +51,8 @@ import (
 // InstallConfig defines the configuration for the install command
 type InstallConfig struct {
 	logrus.FieldLogger
-	// AdvertiseAddr is advertise address of this server
+	// AdvertiseAddr is advertise address of this server.
+	// Also specifies the address advertised as wizard service endpoint
 	AdvertiseAddr string
 	// Token is install token
 	Token string
@@ -59,9 +60,9 @@ type InstallConfig struct {
 	CloudProvider string
 	// StateDir is directory with local installer state
 	StateDir string
-	// WriteStateDir is the directory where installer stores state for the duration
+	// writeStateDir is the directory where installer stores state for the duration
 	// of the operation
-	WriteStateDir string
+	writeStateDir string
 	// UserLogFile is the log file where user-facing operation logs go
 	UserLogFile string
 	// SystemLogFile is the log file for system logs
@@ -134,6 +135,9 @@ type InstallConfig struct {
 	ServiceUser *systeminfo.User
 	// FromService specifies whether the process runs in service mode
 	FromService bool
+	// wizardAdvertiseAddr is advertise address of the wizard service endpoint.
+	// If empty, the server will listen on all interfaces
+	wizardAdvertiseAddr string
 }
 
 // NewInstallConfig creates install config from the passed CLI args and flags
@@ -195,11 +199,11 @@ func (i *InstallConfig) CheckAndSetDefaults() (err error) {
 		}
 		i.WithField("dir", i.StateDir).Info("Set installer read state directory.")
 	}
-	i.WriteStateDir = defaults.GravityInstallDir
-	if err := os.MkdirAll(i.WriteStateDir, defaults.SharedDirMask); err != nil {
+	i.writeStateDir = defaults.GravityInstallDir()
+	if err := os.MkdirAll(i.writeStateDir, defaults.SharedDirMask); err != nil {
 		return trace.ConvertSystemError(err)
 	}
-	i.WithField("dir", i.WriteStateDir).Info("Set installer write state directory.")
+	i.WithField("dir", i.writeStateDir).Info("Set installer write state directory.")
 	isDir, err := utils.IsDirectory(i.StateDir)
 	if !isDir {
 		return trace.BadParameter("the specified state path %v is not "+
@@ -240,15 +244,18 @@ func (i *InstallConfig) CheckAndSetDefaults() (err error) {
 	if err != nil {
 		return trace.Wrap(err)
 	}
+	// FIXME: listen on all interfaces by default
+	i.wizardAdvertiseAddr = "0.0.0.0"
 	return nil
 }
 
 // NewProcessConfig returns new gravity process configuration for this configuration object
 func (i *InstallConfig) NewProcessConfig() (*processconfig.Config, error) {
 	config, err := install.NewProcessConfig(install.ProcessConfig{
-		AdvertiseAddr: i.AdvertiseAddr,
+		Hostname:      i.AdvertiseAddr,
+		AdvertiseAddr: i.wizardAdvertiseAddr,
 		StateDir:      i.StateDir,
-		WriteStateDir: i.WriteStateDir,
+		WriteStateDir: i.writeStateDir,
 		LogFile:       i.UserLogFile,
 		ServiceUser:   *i.ServiceUser,
 		ClusterName:   i.SiteDomain,
@@ -304,7 +311,7 @@ func (i *InstallConfig) NewInstallerConfig(wizard *localenv.RemoteEnvironment, p
 		Printer:            i.Printer,
 		SiteDomain:         i.SiteDomain,
 		StateDir:           i.StateDir,
-		WriteStateDir:      i.WriteStateDir,
+		WriteStateDir:      i.writeStateDir,
 		UserLogFile:        i.UserLogFile,
 		SystemLogFile:      i.SystemLogFile,
 		CloudProvider:      i.CloudProvider,
@@ -334,17 +341,12 @@ func (i *InstallConfig) NewInstallerConfig(wizard *localenv.RemoteEnvironment, p
 	}, nil
 }
 
-// getAdvertiseAddr return the advertise address provided in the config, or
+// getAdvertiseAddr returns the advertise address to use for the ???
 // asks the user to choose it among the host's interfaces
 func (i *InstallConfig) getAdvertiseAddr() (string, error) {
 	// if it was set explicitly with --advertise-addr flag, use it
 	if i.AdvertiseAddr != "" {
 		return i.AdvertiseAddr, nil
-	}
-	// in interactive install mode ask user to choose among host's interfaces
-	// FIXME: listen on all interfaces
-	if i.Mode == constants.InstallModeInteractive {
-		return selectNetworkInterface()
 	}
 	// otherwise, try to pick an address among machine's interfaces
 	addr, err := utils.PickAdvertiseIP()
@@ -356,7 +358,7 @@ func (i *InstallConfig) getAdvertiseAddr() (string, error) {
 	return addr, nil
 }
 
-// getAppreturns the application package for this installer
+// getApp returns the application package for this installer
 func (i *InstallConfig) getApp() (app *app.Application, err error) {
 	env, err := localenv.NewLocalEnvironment(localenv.LocalEnvironmentArgs{
 		StateDir:        i.StateDir,
@@ -522,8 +524,8 @@ type JoinConfig struct {
 	Phase string
 	// OperationID is ID of existing join operation
 	OperationID string
-	// Server specifies whether the process runs in server mode
-	Server bool
+	// FromService specifies whether the process runs in service mode
+	FromService bool
 	// Auto specifies whether the server runs autonomously.
 	// This implies Server == true.
 	// With user interaction, the server would wait for the client to trigger
@@ -546,10 +548,10 @@ func NewJoinConfig(g *Application) JoinConfig {
 		DockerDevice:  *g.JoinCmd.DockerDevice,
 		Mounts:        *g.JoinCmd.Mounts,
 		CloudProvider: *g.JoinCmd.CloudProvider,
-		Manual:        *g.JoinCmd.Manual,
-		Phase:         *g.JoinCmd.Phase,
-		OperationID:   *g.JoinCmd.OperationID,
-		Server:        *g.JoinCmd.Server,
+		// Manual:        *g.JoinCmd.Manual,
+		// Phase:       *g.JoinCmd.Phase,
+		OperationID: *g.JoinCmd.OperationID,
+		FromService: *g.JoinCmd.FromService,
 	}
 }
 
@@ -627,16 +629,17 @@ func (j *JoinConfig) NewPeerConfig(env, joinEnv *localenv.LocalEnvironment) (*ex
 		ServerAddr:    j.ServerAddr,
 		CloudProvider: j.CloudProvider,
 		RuntimeConfig: *runtimeConfig,
-		Silent:        env.Silent,
 		DebugMode:     env.Debug,
 		Insecure:      env.Insecure,
 		LocalBackend:  env.Backend,
 		LocalApps:     env.Apps,
 		LocalPackages: env.Packages,
 		JoinBackend:   joinEnv.Backend,
-		Manual:        j.Manual,
-		OperationID:   j.OperationID,
-		Auto:          j.Auto,
+		StateDir:      joinEnv.StateDir,
+		// Manual:        j.Manual,
+		OperationID: j.OperationID,
+		// FIXME
+		// Auto:        j.Auto,
 	}, nil
 }
 

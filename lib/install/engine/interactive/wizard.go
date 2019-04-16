@@ -54,6 +54,8 @@ type Config struct {
 	libengine.Planner
 	// Operator specifies the service operator
 	ops.Operator
+	// AdvertiseAddr specifies the advertise address of the wizard
+	AdvertiseAddr string
 }
 
 func (r *Engine) Validate(ctx context.Context, config install.Config) (err error) {
@@ -61,22 +63,26 @@ func (r *Engine) Validate(ctx context.Context, config install.Config) (err error
 }
 
 func (r *Engine) Execute(ctx context.Context, installer install.Interface, config install.Config) error {
-	// FIXME: should this run in a preparation step?
+	r.ctx = ctx
+	r.Interface = installer
+	r.config = config
 	app, err := config.GetApp()
 	if err != nil {
 		return trace.Wrap(err, "failed to query application")
 	}
-	r.printURL(ctx, installer, config)
+	r.printURL()
 	err = install.ExportRPCCredentials(ctx, config.Packages, r.FieldLogger)
 	if err != nil {
 		return trace.Wrap(err, "failed to export RPC credentials")
 	}
-	installer.PrintStep(ctx, "Waiting for the operation to start")
-	operation, err := r.waitForOperation(ctx, r.Operator)
+	installer.PrintStep("Waiting for the operation to start")
+	operation, err := r.waitForOperation()
 	if err != nil {
 		return trace.Wrap(err, "failed to wait for operation to become ready")
 	}
-	installer.NotifyOperationAvailable(ctx, operation.Key())
+	if err := installer.NotifyOperationAvailable(operation.Key()); err != nil {
+		return trace.Wrap(err)
+	}
 	if err := libengine.ExecuteOperation(ctx, r.Planner, r.StateMachineFactory,
 		r.Operator, operation.Key(), r.FieldLogger); err != nil {
 		return trace.Wrap(err)
@@ -88,22 +94,22 @@ func (r *Engine) Execute(ctx context.Context, installer install.Interface, confi
 			r.WithError(err).Warn("Failed to complete final install step.")
 		}
 	}
-	if err := installer.Finalize(ctx, *operation); err != nil {
+	if err := installer.Finalize(*operation); err != nil {
 		r.WithError(err).Warn("Failed to finalize install.")
 	}
 	// FIXME: this should not be necessary with final install step handler sending an event
 	// Trap that event
-	installer.PrintStep(ctx, "\nInstaller process will keep running so the installation can be finished by\n"+
-		"completing necessary post-install actions in the installer UI if the installed\n"+
-		"application requires it.\n"+
+	installer.PrintStep("\nInstaller process will keep running so the installation can be finished by\n" +
+		"completing necessary post-install actions in the installer UI if the installed\n" +
+		"application requires it.\n" +
 		color.YellowString("\nOnce no longer needed, press Ctrl-C to shutdown this process.\n"),
 	)
-	return trace.Wrap(installer.Wait(ctx))
+	return trace.Wrap(installer.Wait())
 }
 
-func (r *Engine) waitForOperation(ctx context.Context, operator ops.Operator) (operation *ops.SiteOperation, err error) {
+func (r *Engine) waitForOperation() (operation *ops.SiteOperation, err error) {
 	b := utils.NewUnlimitedExponentialBackOff()
-	err = utils.RetryWithInterval(ctx, b, func() error {
+	err = utils.RetryWithInterval(r.ctx, b, func() error {
 		clusters, err := r.Operator.GetSites(defaults.SystemAccountID)
 		if err != nil {
 			return trace.Wrap(err, "failed to fetch clusters")
@@ -112,7 +118,7 @@ func (r *Engine) waitForOperation(ctx context.Context, operator ops.Operator) (o
 			return trace.NotFound("no clusters created yet")
 		}
 		cluster := clusters[0]
-		operations, err := operator.GetSiteOperations(cluster.Key())
+		operations, err := r.Operator.GetSiteOperations(cluster.Key())
 		if err != nil {
 			return trace.Wrap(err, "failed to fetch operations")
 		}
@@ -134,23 +140,26 @@ func (r *Engine) waitForOperation(ctx context.Context, operator ops.Operator) (o
 
 // printURL prints the URL that installer can be reached at via browser
 // in interactive mode to stdout
-func (r *Engine) printURL(ctx context.Context, installer install.Interface, config install.Config) {
-	installer.PrintStep(ctx, "Starting web UI install wizard")
+func (r *Engine) printURL() {
+	r.PrintStep("Starting web UI install wizard")
 	url := fmt.Sprintf("https://%v/web/installer/new/%v/%v/%v?install_token=%v",
-		config.AdvertiseAddr,
-		config.AppPackage.Repository,
-		config.AppPackage.Name,
-		config.AppPackage.Version,
-		config.Token)
+		r.AdvertiseAddr,
+		r.config.AppPackage.Repository,
+		r.config.AppPackage.Name,
+		r.config.AppPackage.Version,
+		r.config.Token.Token)
 	r.WithField("installer-url", url).Info("Generated installer URL.")
 	ruler := strings.Repeat("-", 100)
 	var buf bytes.Buffer
 	fmt.Fprintln(&buf, ruler, "\n", ruler)
 	fmt.Fprintln(&buf, "OPEN THIS IN BROWSER:", url)
 	fmt.Fprintln(&buf, ruler, "\n", ruler)
-	installer.PrintStep(ctx, buf.String())
+	r.PrintStep(buf.String())
 }
 
 type Engine struct {
 	Config
+	install.Interface
+	config install.Config
+	ctx    context.Context
 }

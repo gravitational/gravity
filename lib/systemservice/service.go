@@ -18,6 +18,8 @@ package systemservice
 
 import (
 	"os/exec"
+	"path/filepath"
+	"strings"
 
 	"github.com/gravitational/gravity/lib/defaults"
 	"github.com/gravitational/gravity/lib/loc"
@@ -57,6 +59,9 @@ type NewServiceRequest struct {
 	Name string `json:"Name"`
 	// NoBlock means we won't block and wait until service starts
 	NoBlock bool `json:"-"`
+	// UnitPath specifies the path for the unit file.
+	// If unspecified, defaults to filepath.Join(systemdUnitPath, Name)
+	UnitPath string `json:"unit_path"`
 }
 
 // NewMountServiceRequest describes a request to create a new systemd mount service
@@ -291,8 +296,12 @@ func (r *NewMountServiceRequest) CheckAndSetDefaults() error {
 
 // CheckAndSetDefaults verifies that this request object is valid
 func (r *NewServiceRequest) CheckAndSetDefaults() error {
-	if r.Name == "" {
-		return trace.BadParameter("Name is required")
+	if r.Name == "" && r.UnitPath == "" {
+		return trace.BadParameter("Name or UnitPath is required")
+	}
+	if r.UnitPath != "" {
+		name := filepath.Base(r.UnitPath)
+		r.Name = strings.TrimSuffix(name, filepath.Ext(name))
 	}
 	if r.RestartSec == 0 {
 		r.RestartSec = defaults.SystemServiceRestartSec

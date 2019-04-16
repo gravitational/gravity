@@ -6,7 +6,6 @@ import (
 	"time"
 
 	"github.com/gravitational/gravity/lib/fsm"
-	libclient "github.com/gravitational/gravity/lib/install/client"
 	installpb "github.com/gravitational/gravity/lib/install/proto"
 	"github.com/gravitational/gravity/lib/systemservice"
 	"github.com/gravitational/gravity/lib/utils"
@@ -26,7 +25,7 @@ func New(ctx context.Context, config Config) (*client, error) {
 		return nil, trace.Wrap(err)
 	}
 	c := &client{Config: config}
-	err = restartService()
+	err = restartService(config.ServiceName)
 	if err != nil {
 		return nil, trace.Wrap(err)
 	}
@@ -93,6 +92,8 @@ type Config struct {
 	// ConnectTimeout specifies the maximum amount of time to wait for
 	// installer service connection. Wait forever, if unspecified
 	ConnectTimeout time.Duration
+	// ServiceName specifies the name of the service unit
+	ServiceName string
 }
 
 func (r *client) addTerminationHandler(ctx context.Context) {
@@ -111,8 +112,8 @@ type client struct {
 }
 
 // restartService restarts the installer's systemd unit
-func restartService() error {
-	return trace.Wrap(systemservice.StartOneshotService(libclient.ServiceName))
+func restartService(name string) error {
+	return trace.Wrap(systemservice.StartOneshotService(name))
 }
 
 func isDone(doneC <-chan struct{}) bool {

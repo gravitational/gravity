@@ -13,37 +13,43 @@ import (
 	log "github.com/sirupsen/logrus"
 )
 
-// ReinstallOneshotService installs a systemd service named serviceName of type=oneshot
+// ReinstallOneshotServiceSimple installs a systemd service named serviceName of type=oneshot
 // using args as arguments to the gravity binary.
-// The service will use the same binary running this process.
+// The service will use the same binary as running this process.
+// The service will also be configured to appear running after exit
+// (https://www.freedesktop.org/software/systemd/man/systemd.service.html#RemainAfterExit=).
 // The operation is non-blocking and returns without waiting for service to start
-func ReinstallOneshotService(serviceName string, args ...string) error {
+func ReinstallOneshotServiceSimple(serviceName string, args ...string) error {
 	services, err := New()
 	if err != nil {
 		return trace.Wrap(err)
 	}
 	args = append([]string{utils.Exe.Path}, args...)
-	spec := ServiceSpec{
-		// Output the gravity binary version as a start command
-		StartCommand: fmt.Sprintf("%v version", utils.Exe.Path),
-		// We do the actual job as a command executed before the service entrypoint
-		// to distinguish between completed job (status active) and in-progress job
-		// (status activating)
-		StartPreCommand: strings.Join(args, " "),
-		User:            constants.RootUIDString,
+	req := NewServiceRequest{
+		ServiceSpec: ServiceSpec{
+			// Output the gravity binary version as a start command
+			StartCommand: fmt.Sprintf("%v version", utils.Exe.Path),
+			// We do the actual job as a command executed before the service entrypoint
+			// to distinguish between completed job (status active) and in-progress job
+			// (status activating)
+			StartPreCommand: strings.Join(args, " "),
+			User:            constants.RootUIDString,
+			RemainAfterExit: true,
+		},
+		NoBlock: true,
+		Name:    serviceName,
 	}
-	return trace.Wrap(installOneshotServiceFromSpec(services, serviceName, spec, args...))
+	return trace.Wrap(installOneshotService(services, req))
 }
 
-// ReinstallOneshotServiceFromSpec installs a systemd service named serviceName of type=oneshot
-// using args as the service command.
+// ReinstallOneshotService installs a systemd service specified with req.
 // The operation is non-blocking and returns without waiting for service to start
-func ReinstallOneshotServiceFromSpec(serviceName string, spec ServiceSpec, args ...string) error {
+func ReinstallOneshotService(req NewServiceRequest) error {
 	services, err := New()
 	if err != nil {
 		return trace.Wrap(err)
 	}
-	return trace.Wrap(installOneshotServiceFromSpec(services, serviceName, spec, args...))
+	return trace.Wrap(installOneshotService(services, req))
 }
 
 // UninstallService uninstalls service with the specified name
@@ -66,24 +72,19 @@ func StartOneshotService(serviceName string) error {
 	return trace.Wrap(services.StartService(serviceName, noBlock))
 }
 
-func installOneshotServiceFromSpec(services ServiceManager, serviceName string, spec ServiceSpec, args ...string) error {
-	spec.Type = constants.OneshotService
-	spec.RemainAfterExit = true
-	if spec.User == "" {
-		spec.User = constants.RootUIDString
+func installOneshotService(services ServiceManager, req NewServiceRequest) error {
+	if err := req.CheckAndSetDefaults(); err != nil {
+		return trace.Wrap(err)
 	}
-
-	err := services.StopService(serviceName)
+	req.ServiceSpec.Type = constants.OneshotService
+	if req.ServiceSpec.User == "" {
+		req.ServiceSpec.User = constants.RootUIDString
+	}
+	err := services.StopService(req.Name)
 	if err != nil && !isUnknownServiceError(err) {
-		log.WithField("service", serviceName).Warn("Failed to stop.")
+		log.WithField("service", req.Name).Warn("Failed to stop.")
 	}
-
-	err = services.InstallService(NewServiceRequest{
-		Name:        serviceName,
-		NoBlock:     true,
-		ServiceSpec: spec,
-	})
-	return trace.Wrap(err)
+	return trace.Wrap(services.InstallService(req))
 }
 
 func isUnknownServiceError(err error) bool {

@@ -106,7 +106,7 @@ func systemUpdate(env *localenv.LocalEnvironment, changesetID string, serviceNam
 		if withStatus {
 			args = append(args, "--with-status")
 		}
-		return trace.Wrap(systemservice.ReinstallOneshotService(serviceName, args...))
+		return trace.Wrap(systemservice.ReinstallOneshotServiceSimple(serviceName, args...))
 	}
 
 	reqs, err := findPackages(env.Packages, runtimePackage)
@@ -177,7 +177,7 @@ func systemRollback(env *localenv.LocalEnvironment, changesetID, serviceName str
 		if withStatus {
 			args = append(args, "--with-status")
 		}
-		return trace.Wrap(systemservice.ReinstallOneshotService(serviceName, args...))
+		return trace.Wrap(systemservice.ReinstallOneshotServiceSimple(serviceName, args...))
 	}
 
 	changes := changeset.ReversedChanges()
@@ -236,7 +236,7 @@ func systemReinstall(env *localenv.LocalEnvironment, newPackage loc.Locator, ser
 		kvs := configure.KeyVal(labels)
 		args = append(args, "--labels", kvs.String())
 	}
-	err := systemservice.ReinstallOneshotService(serviceName, args...)
+	err := systemservice.ReinstallOneshotServiceSimple(serviceName, args...)
 	if err != nil {
 		return trace.Wrap(err)
 	}
@@ -1028,11 +1028,21 @@ func systemUninstall(env *localenv.LocalEnvironment, confirmed bool) error {
 	}
 
 	// remove all files and directories gravity might have created on the system
-	for _, path := range append(state.StateLocatorPaths, defaults.ModulesPath, defaults.SysctlPath, defaults.GravityEphemeralDir) {
+	for _, path := range append(state.StateLocatorPaths,
+		defaults.ModulesPath,
+		defaults.SysctlPath,
+		defaults.GravityEphemeralDir,
+		defaults.GravityInstallDir(),
+	) {
 		// errors are expected since some of them may not exist
-		if err := os.Remove(path); err == nil {
+		if err := os.RemoveAll(path); err == nil {
 			env.PrintStep("Removed %v", path)
+			continue
 		}
+		log.WithFields(logrus.Fields{
+			logrus.ErrorKey: err,
+			"path":          path,
+		}).Warn("Failed to remove.")
 	}
 
 	env.PrintStep("Gravity has been successfully uninstalled")

@@ -345,7 +345,7 @@ func WithTempDir(fn func(dir string) error, prefix string) error {
 // RemoveContents removes any children of dir.
 // It removes everything it can but returns the first error
 // it encounters. If the dir does not exist, RemoveContents
-// returns nil (no error).
+// returns nil.
 func RemoveContents(dir string) error {
 	fd, err := os.Open(dir)
 	if err != nil {

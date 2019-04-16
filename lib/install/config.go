@@ -22,6 +22,7 @@ import (
 	"k8s.io/apimachinery/pkg/runtime"
 )
 
+// RunLocalChecks executes host-local preflight checks for this configuration
 func (c *Config) RunLocalChecks(ctx context.Context) error {
 	app, err := c.GetApp()
 	if err != nil {

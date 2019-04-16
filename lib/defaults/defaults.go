@@ -19,6 +19,7 @@ package defaults
 import (
 	"context"
 	"fmt"
+	"os"
 	"path/filepath"
 	"time"
 
@@ -193,6 +194,9 @@ const (
 
 	// GravityRPCAgentServiceName defines systemd unit service name
 	GravityRPCAgentServiceName = "gravity-agent.service"
+
+	// GravityRPCInstallerServiceName defines systemd unit service name for the installer
+	GravityRPCInstallerServiceName = "gravity-installer.service"
 
 	// AgentValidationTimeout specifies the maximum amount of time for a remote validation
 	// request during the preflight test
@@ -1009,9 +1013,6 @@ var (
 	// GravityConfigDirs specify default locations for gravity configuration search
 	GravityConfigDirs = []string{GravityDir, "assets/local"}
 
-	// GravityInstallDir is where install FSM stores its information during install operation
-	GravityInstallDir = filepath.Join(GravityEphemeralDir, WizardStateDir)
-
 	// GravityJoinDir is where join FSM stores its information on the joining node
 	GravityJoinDir = filepath.Join(GravityEphemeralDir, "join")
 
@@ -1218,5 +1219,12 @@ func WithTimeout(ctx context.Context) (context.Context, context.CancelFunc) {
 
 // InstallerAddr returns the complete address of the installer given its IP
 func InstallerAddr(installerIP string) (addr string) {
-	return fmt.Sprintf("%v:%v", installerIP, defaults.WizardPackServerPort)
+	return fmt.Sprintf("%v:%v", installerIP, WizardPackServerPort)
+}
+
+// GravityInstallDir is where install FSM stores its information during install operation.
+// elems are appended to resulting path if not empty
+func GravityInstallDir(elems ...string) (path string) {
+	parts := []string{os.TempDir(), WizardStateDir}
+	return filepath.Join(append(parts, elems...)...)
 }

@@ -363,14 +363,19 @@ func InstallBinary(uid, gid int, logger log.FieldLogger) (err error) {
 	return nil
 }
 
+// Closer wraps a Close method bounded by a context.
+type Closer interface {
+	Close(context.Context) error
+}
+
 // Closes invokes this function
-// Implements io.Closer
-func (r CloserFunc) Close() error {
-	return r()
+// Implements Closer
+func (r CloserFunc) Close(ctx context.Context) error {
+	return r(ctx)
 }
 
 // CloserFunc is a functional wrapper that allows a function as an io.Closer
-type CloserFunc func() error
+type CloserFunc func(context.Context) error
 
 func wait(ctx context.Context, cancel context.CancelFunc, p process.GravityProcess) error {
 	errC := make(chan error, 1)

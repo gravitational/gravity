@@ -181,11 +181,8 @@ func (r *PeerServer) ValidateConnection(ctx context.Context) error {
 // Stop stops this server and its internal goroutines
 func (r *PeerServer) Stop(ctx context.Context) error {
 	err := r.peers.close(ctx)
-	if err != nil {
-		return trace.Wrap(err)
-	}
 	r.agentServer.Stop(ctx)
-	return nil
+	return trace.Wrap(err)
 }
 
 // PeerServer represents a peer connected to a control server

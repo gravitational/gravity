@@ -30,6 +30,7 @@ import (
 	"github.com/gravitational/gravity/lib/update"
 	clusterupdate "github.com/gravitational/gravity/lib/update/cluster"
 	"github.com/gravitational/gravity/lib/utils"
+	"github.com/gravitational/gravity/tool/common"
 
 	"github.com/fatih/color"
 	"github.com/gravitational/trace"
@@ -206,7 +207,7 @@ func tryReconcilePlan(ctx context.Context, localEnv, updateEnv *localenv.LocalEn
 }
 
 func getPlanFromWizardBackend(opKey ops.SiteOperationKey) (*storage.OperationPlan, error) {
-	wizardEnv, err := localenv.NewLocalWizardEnvironment()
+	wizardEnv, err := localenv.NewLocalWizardEnvironment(common.ProgressReporter(false))
 	if err != nil {
 		return nil, trace.Wrap(err)
 	}

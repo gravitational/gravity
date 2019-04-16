@@ -33,11 +33,11 @@ import (
 )
 
 // NewAgent returns a new unstarted agent instance
-func NewAgent(ctx context.Context, config AgentConfig) (rpcserver.Server, error) {
+func NewAgent(ctx context.Context, config AgentConfig) (*rpcserver.PeerServer, error) {
 	if err := config.CheckAndSetDefaults(); err != nil {
 		return nil, trace.Wrap(err)
 	}
-	if err = FetchCloudMetadata(config.CloudProvider, &config.RuntimeConfig); err != nil {
+	if err := FetchCloudMetadata(config.CloudProvider, &config.RuntimeConfig); err != nil {
 		return nil, trace.Wrap(err)
 	}
 	listener, err := net.Listen("tcp", defaults.GravityRPCAgentAddr(config.AdvertiseAddr))
@@ -49,7 +49,7 @@ func NewAgent(ctx context.Context, config AgentConfig) (rpcserver.Server, error)
 			listener.Close()
 		}
 	}()
-	config := rpcserver.PeerConfig{
+	peerConfig := rpcserver.PeerConfig{
 		Config: rpcserver.Config{
 			Listener:      listener,
 			Credentials:   config.Credentials,
@@ -68,6 +68,7 @@ func NewAgent(ctx context.Context, config AgentConfig) (rpcserver.Server, error)
 	// make sure that connection to the RPC server can be established
 	ctx, cancel := context.WithTimeout(ctx, defaults.PeerConnectTimeout)
 	defer cancel()
+	// FIXME: does the agent need to be serving here?
 	if err := agent.ValidateConnection(ctx); err != nil {
 		// Returning agent as it needs to be Closed by the client
 		return agent, trace.Wrap(err)
@@ -77,9 +78,6 @@ func NewAgent(ctx context.Context, config AgentConfig) (rpcserver.Server, error)
 
 // CheckAndSetDefaults validates this config object and sets defaults
 func (r *AgentConfig) CheckAndSetDefaults() (err error) {
-	if r.PackageAddr == "" {
-		return trace.BadParameter("package service address is required")
-	}
 	if r.RuntimeConfig.Token == "" {
 		return trace.BadParameter("access token is required")
 	}
@@ -104,10 +102,15 @@ type AgentConfig struct {
 	ServerAddr string
 	// RuntimeConfig specifies runtime configuration
 	pb.RuntimeConfig
+	WatchCh chan rpcserver.WatchEvent
 }
 
 // SplitAgentURL splits agentURL into server address and token
 func SplitAgentURL(agentURL string) (serverAddr, token string, err error) {
+	u, err := url.ParseRequestURI(agentURL)
+	if err != nil {
+		return "", "", trace.Wrap(err)
+	}
 	addr, err := teleutils.ParseAddr("tcp://" + u.Host)
 	if err != nil {
 		return "", "", trace.Wrap(err)

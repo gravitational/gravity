@@ -23,8 +23,8 @@ import (
 	"io"
 	"net"
 	"os"
-	"path/filepath"
 	"strconv"
+	"sync"
 	"time"
 
 	"github.com/gravitational/gravity/lib/constants"
@@ -47,44 +47,44 @@ import (
 )
 
 // New returns a new instance of the unstarted installer server
-func New(ctx context.Context, cancel context.CancelFunc, config Config) (*Installer, error) {
+func New(ctx context.Context, config Config) (*Installer, error) {
 	err := upsertSystemAccount(ctx, config.Operator)
 	if err != nil {
 		return nil, trace.Wrap(err)
 	}
-	listener, err := net.Listen("unix", filepath.Join(config.StateDir, "installer.sock"))
-	if err != nil {
-		return nil, trace.Wrap(err)
-	}
+	localCtx, cancel := context.WithCancel(ctx)
 	grpcServer := grpc.NewServer()
 	installer := &Installer{
-		Config: config,
-		cancel: cancel,
-		rpc:    grpcServer,
+		Config:    config,
+		parentCtx: ctx,
+		ctx:       localCtx,
+		cancel:    cancel,
+		rpc:       grpcServer,
 		// TODO(dmitri): arbitrary channel buffer size
-		eventsC:  make(chan Event, 100),
-		listener: listener,
+		eventsC: make(chan Event, 100),
 	}
 	installpb.RegisterAgentServer(grpcServer, installer)
 	return installer, nil
 }
 
 // Serve starts the server using the specified engine
-func (i *Installer) Serve(engine Engine) error {
+func (i *Installer) Serve(engine Engine, listener net.Listener) error {
 	i.engine = engine
-	return trace.Wrap(i.rpc.Serve(i.listener))
+	return trace.Wrap(i.rpc.Serve(listener))
 }
 
 // Stop releases resources allocated by the installer
 func (i *Installer) Stop(ctx context.Context) error {
-	var errors []error
+	i.cancel()
+	i.Config.Process.Shutdown(ctx)
 	i.rpc.GracefulStop()
+	var errors []error
 	for _, c := range i.closers {
-		if err := c.Close(); err != nil {
+		if err := c.Close(ctx); err != nil {
 			errors = append(errors, err)
 		}
 	}
-	i.Config.Process.Shutdown(ctx)
+	i.serveWG.Wait()
 	return trace.NewAggregate(errors...)
 }
 
@@ -94,34 +94,44 @@ type Interface interface {
 	PlanBuilderGetter
 	// NotifyOperationAvailable is invoked by the engine to notify the server
 	// that the operation has been created
-	NotifyOperationAvailable(context.Context, ops.SiteOperationKey)
+	NotifyOperationAvailable(ops.SiteOperationKey) error
 	// NewAgent returns a new unstarted installer agent.
 	// Call agent.Serve() on the resulting instance to start agent's service loop
 	NewAgent(url string) (rpcserver.Server, error)
 	// Finalize executes additional steps common to all workflows after the
 	// installation has completed
-	Finalize(ctx context.Context, operation ops.SiteOperation) error
+	Finalize(operation ops.SiteOperation) error
 	// CompleteFinalInstallStep marks the final install step as completed unless
 	// the application has a custom install step. In case of the custom step,
 	// the user completes the final installer step
 	CompleteFinalInstallStep(delay time.Duration) error
 	// Wait blocks the installer until the wizard process has been explicitly shut down
 	// or specified context has expired
-	Wait(context.Context) error
+	Wait() error
 	// PrintStep publishes a progress entry described with (format, args)
-	PrintStep(ctx context.Context, format string, args ...interface{}) error
+	PrintStep(format string, args ...interface{}) error
 }
 
 // NotifyOperationAvailable is invoked by the engine to notify the server
 // that the operation has been created
-func (i *Installer) NotifyOperationAvailable(ctx context.Context, operationKey ops.SiteOperationKey) {
-	i.addCloser(CloserFunc(func() error {
+func (i *Installer) NotifyOperationAvailable(operationKey ops.SiteOperationKey) error {
+	i.addCloser(CloserFunc(func(ctx context.Context) error {
+		i.WithField("operation", operationKey.OperationID).Info("Stopping agent service.")
 		return trace.Wrap(i.Process.AgentService().StopAgents(ctx, operationKey))
 	}))
-	go i.runProgressLoop(ctx, operationKey)
+	if err := i.upsertAdminAgent(operationKey.SiteDomain); err != nil {
+		return trace.Wrap(err)
+	}
+	i.serveWG.Add(1)
+	go func() {
+		i.progressLoop(operationKey)
+		i.serveWG.Done()
+	}()
+	return nil
 }
 
 // NewAgent creates a new installer agent
+// FIXME: accept (serverAddr,token) tuple instead of agentURL
 func (i *Installer) NewAgent(agentURL string) (rpcserver.Server, error) {
 	serverAddr, token, err := SplitAgentURL(agentURL)
 	if err != nil {
@@ -129,7 +139,6 @@ func (i *Installer) NewAgent(agentURL string) (rpcserver.Server, error) {
 	}
 	serverCreds, clientCreds, err := rpc.Credentials(defaults.RPCAgentSecretsDir)
 	if err != nil {
-		listener.Close()
 		return nil, trace.Wrap(err)
 	}
 	var mounts []*pb.Mount
@@ -143,7 +152,7 @@ func (i *Installer) NewAgent(agentURL string) (rpcserver.Server, error) {
 		Mounts:       mounts,
 		Token:        token,
 	}
-	return NewAgent(AgentConfig{
+	return NewAgent(i.ctx, AgentConfig{
 		FieldLogger:   i.FieldLogger,
 		AdvertiseAddr: i.AdvertiseAddr,
 		ServerAddr:    serverAddr,
@@ -156,12 +165,12 @@ func (i *Installer) NewAgent(agentURL string) (rpcserver.Server, error) {
 }
 
 // Finalize executes additional steps after the installation has completed
-func (i *Installer) Finalize(ctx context.Context, operation ops.SiteOperation) error {
+func (i *Installer) Finalize(operation ops.SiteOperation) error {
 	var errors []error
 	if err := i.uploadInstallLog(operation.Key()); err != nil {
 		errors = append(errors, err)
 	}
-	if err := i.emitAuditEvents(ctx, operation); err != nil {
+	if err := i.emitAuditEvents(i.ctx, operation); err != nil {
 		errors = append(errors, err)
 	}
 	return trace.NewAggregate(errors...)
@@ -184,25 +193,25 @@ func (i *Installer) CompleteFinalInstallStep(delay time.Duration) error {
 }
 
 // PrintStep publishes a progress entry described with (format, args) tuple to the client
-func (i *Installer) PrintStep(ctx context.Context, format string, args ...interface{}) error {
-	message := fmt.Sprintf("%v\t%v", time.Now().UTC().Format(constants.HumanDateFormatSeconds),
-		fmt.Sprintf(format, args...))
-	event := Event{Progress: &ops.ProgressEntry{Message: message}}
-	return i.send(ctx, event)
-}
-
-func (i *Installer) Validate(ctx context.Context, req *installpb.ValidateRequest) (*installpb.ValidateResponse, error) {
-	// TODO
-	return &installpb.ValidateResponse{}, nil
+func (i *Installer) PrintStep(format string, args ...interface{}) error {
+	event := Event{Progress: &ops.ProgressEntry{Message: fmt.Sprintf(format, args...)}}
+	return i.send(event)
 }
 
 // Execute executes the installation using the specified engine
 // Implements installpb.AgentServer
 func (i *Installer) Execute(req *installpb.ExecuteRequest, stream installpb.Agent_ExecuteServer) error {
-	if err := i.engine.Validate(stream.Context(), i.Config); err != nil {
-		return trace.Wrap(err)
-	}
-	go i.execute(stream.Context())
+	i.executeOnce.Do(func() {
+		i.serveWG.Add(1)
+		go func() {
+			if err := i.execute(); err != nil {
+				i.WithError(err).Info("Failed to execute.")
+				i.sendError(err)
+			}
+			i.serveWG.Done()
+			i.Stop(i.parentCtx)
+		}()
+	})
 	for {
 		select {
 		case event := <-i.eventsC:
@@ -216,8 +225,16 @@ func (i *Installer) Execute(req *installpb.ExecuteRequest, stream installpb.Agen
 			if err != nil {
 				return trace.Wrap(err)
 			}
+			if resp.Complete {
+				return nil
+			}
 		case <-stream.Context().Done():
 			return trace.Wrap(stream.Context().Err())
+		case <-i.parentCtx.Done():
+			return trace.Wrap(i.parentCtx.Err())
+		case <-i.ctx.Done():
+			// Clean exit
+			return nil
 		}
 	}
 	return nil
@@ -226,44 +243,14 @@ func (i *Installer) Execute(req *installpb.ExecuteRequest, stream installpb.Agen
 // Shutdown shuts down the installer.
 // Implements installpb.AgentServer
 func (i *Installer) Shutdown(ctx context.Context, req *installpb.ShutdownRequest) (*installpb.ShutdownResponse, error) {
-	i.cancel()
+	go i.Stop(ctx)
 	return &installpb.ShutdownResponse{}, nil
-}
-
-// GetProgress streams installer progress to the client.
-// Implements installpb.AgentServer
-func (i *Installer) GetProgress(req *installpb.ProgressRequest, stream installpb.Agent_GetProgressServer) error {
-	select {
-	case event := <-i.eventsC:
-		resp := &installpb.ProgressResponse{}
-		if event.Progress != nil {
-			resp.Message = event.Progress.Message
-		} else if event.Error != nil {
-			resp.Errors = append(resp.Errors, &installpb.Error{Message: event.Error.Error()})
-		}
-		err := stream.Send(resp)
-		if err != nil {
-			return trace.Wrap(err)
-		}
-	case <-stream.Context().Done():
-		return trace.Wrap(stream.Context().Err())
-	}
-	return nil
 }
 
 // Wait blocks until either the context has been cancelled or the wizard process
 // exits with an error
-func (i *Installer) Wait(ctx context.Context) error {
-	errC := make(chan error, 1)
-	go func() {
-		errC <- i.Process.Wait()
-	}()
-	select {
-	case err := <-errC:
-		return trace.Wrap(err)
-	case <-ctx.Done():
-		return trace.Wrap(ctx.Err())
-	}
+func (i *Installer) Wait() error {
+	return trace.Wrap(i.Process.Wait())
 }
 
 // NewStateMachine returns a new instance of the installer state machine.
@@ -311,43 +298,42 @@ func (i *Installer) NewCluster() ops.NewSiteRequest {
 	}
 }
 
-func (i *Installer) execute(ctx context.Context) error {
-	if err := i.bootstrap(); err != nil {
-		return trace.Wrap(err)
-	}
-	err := i.engine.Execute(ctx, i, i.Config)
+func (i *Installer) execute() (err error) {
+	err = i.engine.Validate(i.ctx, i.Config)
 	if err != nil {
-		i.sendError(ctx, err)
 		return trace.Wrap(err)
 	}
-	i.printPostInstallBanner(ctx)
+	err = i.engine.Execute(i.ctx, i, i.Config)
+	if err != nil {
+		return trace.Wrap(err)
+	}
+	i.printPostInstallBanner()
 	return nil
 }
 
-func (i *Installer) bootstrap() error {
-	if err := i.upsertAdminAgent(); err != nil {
-		return trace.Wrap(err)
-	}
-	return nil
-}
-
-func (i *Installer) runProgressLoop(ctx context.Context, operationKey ops.SiteOperationKey) {
+func (i *Installer) progressLoop(operationKey ops.SiteOperationKey) {
+	i.WithField("operation", operationKey.OperationID).Info("Start progress feedback loop.")
 	ticker := time.NewTicker(1 * time.Second)
 	defer ticker.Stop()
 	var lastProgress *ops.ProgressEntry
 	for {
 		select {
 		case <-ticker.C:
-			if progress := i.updateProgress(ctx, operationKey, lastProgress); progress != nil {
+			if progress := i.updateProgress(operationKey, lastProgress); progress != nil {
 				lastProgress = progress
+				if progress.IsCompleted() {
+					return
+				}
 			}
-		case <-ctx.Done():
+		case <-i.parentCtx.Done():
+			return
+		case <-i.ctx.Done():
 			return
 		}
 	}
 }
 
-func (i *Installer) updateProgress(ctx context.Context, operationKey ops.SiteOperationKey, lastProgress *ops.ProgressEntry) *ops.ProgressEntry {
+func (i *Installer) updateProgress(operationKey ops.SiteOperationKey, lastProgress *ops.ProgressEntry) *ops.ProgressEntry {
 	progress, err := i.Operator.GetSiteOperationProgress(operationKey)
 	if err != nil {
 		i.WithError(err).Warn("Failed to query operation progress.")
@@ -356,49 +342,50 @@ func (i *Installer) updateProgress(ctx context.Context, operationKey ops.SiteOpe
 	if lastProgress != nil && lastProgress.IsEqual(*progress) {
 		return nil
 	}
-	message := fmt.Sprintf("%v\t%v\n", time.Now().UTC().Format(constants.HumanDateFormatSeconds),
-		progress.Message)
-	event := Event{Progress: &ops.ProgressEntry{Message: message}}
-	i.send(ctx, event)
+	i.send(Event{Progress: progress})
 	return progress
 }
 
-func (i *Installer) printPostInstallBanner(ctx context.Context) {
+// FIXME(dmitri): this information should also be displayed when working with the operation
+// manually
+func (i *Installer) printPostInstallBanner() {
 	var buf bytes.Buffer
-	i.printEndpoints(ctx, &buf)
+	i.printEndpoints(&buf)
 	if m, ok := modules.Get().(modules.Messager); ok {
-		fmt.Fprintf(&buf, "\n%v\n", m.PostInstallMessage())
+		fmt.Fprintf(&buf, "\n%v", m.PostInstallMessage())
 	}
 	i.Printer.Print(buf.String())
 	event := Event{Progress: &ops.ProgressEntry{
 		Message:    buf.String(),
 		Completion: constants.Completed,
 	}}
-	i.send(ctx, event)
+	i.send(event)
 }
 
-func (i *Installer) sendError(ctx context.Context, err error) error {
-	return trace.Wrap(i.send(ctx, Event{Error: err}))
+func (i *Installer) sendError(err error) error {
+	return trace.Wrap(i.send(Event{Error: err}))
 }
 
 // send streams the specified progress event to the client.
 // The method will not block - event will be dropped if it cannot be published
 // (subject to internal channel buffer capacity)
-func (i *Installer) send(ctx context.Context, event Event) error {
+func (i *Installer) send(event Event) error {
 	select {
 	case i.eventsC <- event:
 		// Pushed the progress event
 		return nil
-	case <-ctx.Done():
-		return trace.Wrap(ctx.Err())
+	case <-i.parentCtx.Done():
+		return trace.Wrap(i.parentCtx.Err())
+	case <-i.ctx.Done():
+		return nil
 	default:
 		log.WithField("event", event).Warn("Failed to publish event.")
 		return nil
 	}
 }
 
-func (i *Installer) printEndpoints(ctx context.Context, w io.Writer) {
-	status, err := i.getClusterStatus(ctx)
+func (i *Installer) printEndpoints(w io.Writer) {
+	status, err := i.getClusterStatus()
 	if err != nil {
 		i.WithError(err).Error("Failed to collect cluster status.")
 		return
@@ -410,7 +397,7 @@ func (i *Installer) printEndpoints(ctx context.Context, w io.Writer) {
 }
 
 // getClusterStatus collects status of the installer cluster.
-func (i *Installer) getClusterStatus(ctx context.Context) (*status.Status, error) {
+func (i *Installer) getClusterStatus() (*status.Status, error) {
 	clusterOperator, err := localenv.ClusterOperator()
 	if err != nil {
 		return nil, trace.Wrap(err)
@@ -419,7 +406,7 @@ func (i *Installer) getClusterStatus(ctx context.Context) (*status.Status, error
 	if err != nil {
 		return nil, trace.Wrap(err)
 	}
-	status, err := status.FromCluster(ctx, clusterOperator, *cluster, "")
+	status, err := status.FromCluster(i.ctx, clusterOperator, *cluster, "")
 	if err != nil {
 		return nil, trace.Wrap(err)
 	}
@@ -427,9 +414,9 @@ func (i *Installer) getClusterStatus(ctx context.Context) (*status.Status, error
 }
 
 // upsertAdminAgent creates an admin agent for the cluster being installed
-func (i *Installer) upsertAdminAgent() error {
-	agent, err := i.Process.UsersService().CreateClusterAdminAgent(i.SiteDomain,
-		storage.NewUser(storage.ClusterAdminAgent(i.SiteDomain), storage.UserSpecV2{
+func (i *Installer) upsertAdminAgent(clusterName string) error {
+	agent, err := i.Process.UsersService().CreateClusterAdminAgent(clusterName,
+		storage.NewUser(storage.ClusterAdminAgent(clusterName), storage.UserSpecV2{
 			AccountID: defaults.SystemAccountID,
 		}))
 	if err != nil && !trace.IsAlreadyExists(err) {
@@ -468,7 +455,7 @@ func (i *Installer) emitAuditEvents(ctx context.Context, operation ops.SiteOpera
 	return nil
 }
 
-func (i *Installer) addCloser(closer io.Closer) {
+func (i *Installer) addCloser(closer Closer) {
 	i.closers = append(i.closers, closer)
 }
 
@@ -476,12 +463,17 @@ func (i *Installer) addCloser(closer io.Closer) {
 type Installer struct {
 	// Config specifies the configuration for the install operation
 	Config
-	closers  []io.Closer
-	cancel   context.CancelFunc
-	eventsC  chan Event
-	listener net.Listener
-	rpc      *grpc.Server
-	engine   Engine
+	closers []Closer
+	// parentCtx specifies the external context.
+	// If cancelled, all operations abort with the corresponding error
+	parentCtx   context.Context
+	ctx         context.Context
+	cancel      context.CancelFunc
+	eventsC     chan Event
+	rpc         *grpc.Server
+	engine      Engine
+	executeOnce sync.Once
+	serveWG     sync.WaitGroup
 }
 
 // Engine implements the process of cluster installation

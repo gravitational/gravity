@@ -2,12 +2,16 @@ package installer
 
 import (
 	"context"
+	"fmt"
+	"io"
 	"os"
+	"os/user"
+	"path/filepath"
+	"strings"
 	"time"
 
 	"github.com/fatih/color"
 	"github.com/gravitational/gravity/lib/defaults"
-	libclient "github.com/gravitational/gravity/lib/install/client"
 	installpb "github.com/gravitational/gravity/lib/install/proto"
 	"github.com/gravitational/gravity/lib/pack"
 	"github.com/gravitational/gravity/lib/systemservice"
@@ -15,6 +19,9 @@ import (
 
 	"github.com/gravitational/trace"
 	log "github.com/sirupsen/logrus"
+	"google.golang.org/grpc"
+	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/status"
 )
 
 // New returns a new client to handle the installer case.
@@ -25,31 +32,17 @@ func New(ctx context.Context, config Config) (*client, error) {
 		return nil, trace.Wrap(err)
 	}
 	c := &client{Config: config}
-	err = c.checkLocalState()
+	c.WithField("config", fmt.Sprintf("%+v", config)).Info("Starting installer client.")
+	c.Info("Connecting to running instance.")
+	err = c.connectRunning(ctx)
+	if err == nil {
+		return c, nil
+	}
+	c.Info("Creating and connecting to new instance.")
+	err = c.connectNew(ctx)
 	if err != nil {
 		return nil, trace.Wrap(err)
 	}
-	err = c.installSelfAsService()
-	if err != nil {
-		return nil, trace.Wrap(err)
-	}
-	defer func() {
-		if err == nil {
-			return
-		}
-		uninstallService()
-	}()
-	if config.ConnectTimeout != 0 {
-		var cancel context.CancelFunc
-		ctx, cancel = context.WithTimeout(ctx, config.ConnectTimeout)
-		defer cancel()
-	}
-	cc, err := installpb.NewClient(ctx, config.ApplicationDir, config.FieldLogger)
-	if err != nil {
-		return nil, trace.Wrap(err)
-	}
-	c.client = cc
-	c.addTerminationHandler(ctx)
 	return c, nil
 }
 
@@ -60,15 +53,15 @@ func (r *client) Run(ctx context.Context) error {
 	if err != nil {
 		return trace.Wrap(err)
 	}
-	return trace.Wrap(r.runProgressLoop(ctx, stream))
+	return trace.Wrap(r.progressLoop(ctx, stream))
 }
 
 func (r *Config) checkAndSetDefaults() error {
+	if len(r.Args) == 0 {
+		return trace.BadParameter("Args is required")
+	}
 	if r.StateDir == "" {
 		return trace.BadParameter("StateDir is required")
-	}
-	if r.ApplicationDir == "" {
-		return trace.BadParameter("ApplicationDir is required")
 	}
 	if r.Packages == nil {
 		return trace.BadParameter("Packages is required")
@@ -88,10 +81,12 @@ func (r *Config) checkAndSetDefaults() error {
 type Config struct {
 	log.FieldLogger
 	utils.Printer
+	// Args specifies the service command line including the executable
+	Args []string
 	// StateDir specifies the install state directory on local host
 	StateDir string
-	// ApplicationDir specifies the read-only installer state directory
-	ApplicationDir string
+	// OperationStateDir specifies the ephemeral state directory used during the oepration
+	OperationStateDir string
 	// Packages specifies the host-local package service
 	Packages pack.PackageService
 	// TermC specifies the termination handler registration channel
@@ -99,17 +94,77 @@ type Config struct {
 	// ConnectTimeout specifies the maximum amount of time to wait for
 	// installer service connection. Wait forever, if unspecified
 	ConnectTimeout time.Duration
+	// ServiceName specifies the name of the service unit
+	ServiceName string
+}
+
+func (r *client) connectRunning(ctx context.Context) error {
+	if _, err := os.Stat(installpb.SocketPath(r.OperationStateDir)); err != nil && os.IsNotExist(err) {
+		// Fail fast when the socket file has not been created
+		return trace.ConvertSystemError(err)
+	}
+	ctx, cancel := context.WithTimeout(ctx, 10*time.Second)
+	defer cancel()
+	client, err := installpb.NewClient(ctx, r.OperationStateDir, r.FieldLogger,
+		// Fail fast at first non-temporary error
+		grpc.FailOnNonTempDialError(true))
+	if err != nil {
+		return trace.Wrap(err)
+	}
+	r.client = client
+	r.addTerminationHandler(ctx)
+	return nil
+}
+
+func (r *client) connectNew(ctx context.Context) error {
+	err := r.checkLocalState()
+	if err != nil {
+		return trace.Wrap(err)
+	}
+	err = r.installSelfAsService()
+	if err != nil {
+		return trace.Wrap(err)
+	}
+	defer func() {
+		if err == nil {
+			return
+		}
+		uninstallService(r.ServiceName)
+	}()
+	if r.ConnectTimeout != 0 {
+		var cancel context.CancelFunc
+		ctx, cancel = context.WithTimeout(ctx, r.ConnectTimeout)
+		defer cancel()
+	}
+	client, err := installpb.NewClient(ctx, r.OperationStateDir, r.FieldLogger)
+	if err != nil {
+		return trace.Wrap(err)
+	}
+	r.client = client
+	r.addTerminationHandler(ctx)
+	return nil
 }
 
 // installSelfAsService installs a systemd unit using the current process's command line
 // and turns on service mode
 func (r *client) installSelfAsService() error {
-	args := os.Args[1:]
-	args = append(args,
-		"--from-service",
-		r.ApplicationDir,
-	)
-	return trace.Wrap(systemservice.ReinstallOneshotService(libclient.ServiceName, args...))
+	user, err := user.Current()
+	if err != nil {
+		return trace.Wrap(err)
+	}
+	req := systemservice.NewServiceRequest{
+		ServiceSpec: systemservice.ServiceSpec{
+			// Output the gravity binary version once started
+			StartCommand:    fmt.Sprintf("%v version", utils.Exe.Path),
+			StartPreCommand: strings.Join(r.Args, " "),
+			User:            user.Uid,
+			RemainAfterExit: false,
+		},
+		Name:    r.ServiceName,
+		NoBlock: true,
+	}
+	r.WithField("req", fmt.Sprintf("%+v", req)).Info("Install service.")
+	return trace.Wrap(systemservice.ReinstallOneshotService(req))
 }
 
 // checkLocalState performs a local environment sanity check to make sure
@@ -130,17 +185,24 @@ func (r *client) checkLocalState() error {
 	return nil
 }
 
-func (r *client) runProgressLoop(ctx context.Context, stream installpb.Agent_ExecuteClient) error {
+func (r *client) progressLoop(ctx context.Context, stream installpb.Agent_ExecuteClient) error {
 	var resp installpb.ProgressResponse
 	for !resp.Complete && !isDone(ctx.Done()) {
 		resp, err := stream.Recv()
 		if err != nil {
+			if s, ok := status.FromError(err); ok && s.Code() == codes.Canceled {
+				return nil
+			}
+			if trace.Unwrap(err) == io.EOF {
+				return nil
+			}
 			r.WithError(err).Warn("Failed to fetch progress.")
 			return trace.Wrap(err)
 		}
 		if len(resp.Errors) != 0 {
 			r.PrintStep(color.RedString(resp.Errors[0].Message))
-			continue
+			// Break the client on errors
+			return trace.BadParameter(resp.Errors[0].Message)
 		}
 		r.PrintStep(resp.Message)
 	}
@@ -162,8 +224,8 @@ type client struct {
 	client installpb.AgentClient
 }
 
-func uninstallService() error {
-	return trace.Wrap(systemservice.UninstallService(libclient.ServiceName))
+func uninstallService(name string) error {
+	return trace.Wrap(systemservice.UninstallService(name))
 }
 
 func isDone(doneC <-chan struct{}) bool {
@@ -173,4 +235,12 @@ func isDone(doneC <-chan struct{}) bool {
 	default:
 		return false
 	}
+}
+
+func userUnitPath(service string, user user.User) (path string, err error) {
+	dir := filepath.Join(user.HomeDir, ".config", "systemd", "user")
+	if err := os.MkdirAll(dir, defaults.SharedDirMask); err != nil {
+		return "", trace.ConvertSystemError(err)
+	}
+	return filepath.Join(dir, service), nil
 }

@@ -211,7 +211,7 @@ func (r *backendOperations) List(localEnv, updateEnv, joinEnv *localenv.LocalEnv
 			}
 		}
 		log.WithError(err).Warn("Failed to comnect to wizard.")
-		wizardLocalEnv, err := localenv.NewLocalWizardEnvironment()
+		wizardLocalEnv, err := localEnv.NewLocalWizardEnvironment()
 		if err != nil {
 			return trace.Wrap(err, "failed to read local wizard environment")
 		}

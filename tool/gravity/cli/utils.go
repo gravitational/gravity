@@ -127,11 +127,7 @@ func (g *Application) stateDir(cmd string) (string, error) {
 // isInstallCommand returns true if the specified command is
 // a "gravity install" command
 func (g *Application) isInstallCommand(cmd string) bool {
-	switch cmd {
-	case g.InstallCmd.FullCommand():
-		return *g.InstallCmd.Phase == ""
-	}
-	return false
+	return cmd == g.InstallCmd.FullCommand()
 }
 
 // isJoinCommand returns true if the specified command is

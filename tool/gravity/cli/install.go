@@ -19,8 +19,10 @@ package cli
 import (
 	"context"
 	"fmt"
+	"net"
 	"os"
 	"os/exec"
+	"path/filepath"
 	"strconv"
 	"strings"
 	"time"
@@ -41,6 +43,8 @@ import (
 	"github.com/gravitational/gravity/lib/ops"
 	"github.com/gravitational/gravity/lib/ops/resources"
 	"github.com/gravitational/gravity/lib/ops/resources/gravity"
+	"github.com/gravitational/gravity/lib/pack/webpack"
+	"github.com/gravitational/gravity/lib/process"
 	pb "github.com/gravitational/gravity/lib/rpc/proto"
 	rpcserver "github.com/gravitational/gravity/lib/rpc/server"
 	"github.com/gravitational/gravity/lib/storage"
@@ -66,17 +70,22 @@ func InstallerClient(env *localenv.LocalEnvironment, config InstallConfig) error
 	}()
 
 	env.PrintStep("Connecting to installer")
+	args := append([]string{utils.Exe.Path}, os.Args[1:]...)
+	args = append(args, "--from-service", config.StateDir)
 	client, err := installerclient.New(ctx, installerclient.Config{
-		StateDir:       env.StateDir,
-		ApplicationDir: config.StateDir,
-		Packages:       env.Packages,
-		TermC:          termC,
-		Printer:        env,
-		ConnectTimeout: 10 * time.Minute,
+		Args:              args,
+		StateDir:          env.StateDir,
+		OperationStateDir: config.writeStateDir,
+		Packages:          env.Packages,
+		TermC:             termC,
+		Printer:           env,
+		ConnectTimeout:    10 * time.Minute,
+		ServiceName:       defaults.GravityRPCInstallerServiceName,
 	})
 	if err != nil {
 		return trace.Wrap(err)
 	}
+	env.PrintStep("Connected to installer")
 	return trace.Wrap(client.Run(ctx))
 }
 
@@ -84,6 +93,8 @@ func InstallerClient(env *localenv.LocalEnvironment, config InstallConfig) error
 // The client is responsible for triggering the install operation and observing
 // operation progress
 func JoinClient(env *localenv.LocalEnvironment, config JoinConfig) error {
+	env.PrintStep("Connecting to agent")
+
 	doneC := make(chan struct{})
 	ctx, cancel := context.WithCancel(context.Background())
 	termC := utils.WatchTerminationSignalsWithChannel(ctx, cancel, doneC, env)
@@ -91,35 +102,23 @@ func JoinClient(env *localenv.LocalEnvironment, config JoinConfig) error {
 		cancel()
 		<-doneC
 	}()
-
-	env.PrintStep("Connecting to agent")
+	args := append([]string{utils.Exe.Path}, os.Args[1:]...)
+	args = append(args, "--from-service")
 	client, err := installerclient.New(ctx, installerclient.Config{
-		StateDir:       env.StateDir,
-		ApplicationDir: config.StateDir,
-		TermC:          termC,
-		Printer:        env,
-		ConnectTimeout: 10 * time.Minute,
+		Args:              args,
+		StateDir:          env.StateDir,
+		OperationStateDir: env.StateDir,
+		Packages:          env.Packages,
+		TermC:             termC,
+		Printer:           env,
+		ConnectTimeout:    10 * time.Minute,
+		ServiceName:       defaults.GravityRPCAgentServiceName,
 	})
 	if err != nil {
 		return trace.Wrap(err)
 	}
+	env.PrintStep("Connected to agent")
 	return trace.Wrap(client.Run(ctx))
-}
-
-func join(env *localenv.LocalEnvironment, config JoinConfig) error {
-	env.PrintStep("Starting agent")
-
-	if err := config.CheckAndSetDefaults(); err != nil {
-		return trace.Wrap(err)
-	}
-	if config.FromService {
-		return trace.Wrap(Join(env, config))
-	}
-	err := JoinClient(env, config)
-	if utils.IsContextCancelledError(err) {
-		return trace.Wrap(err, "agent interrupted")
-	}
-	return nil
 }
 
 // TODO: auto mode can be implemented in such a way that the server also runs a client
@@ -128,32 +127,38 @@ func Join(env, joinEnv *localenv.LocalEnvironment, config JoinConfig) error {
 	if err != nil {
 		return trace.Wrap(err)
 	}
-
+	log.WithField(trace.Component, "agent").Info("Running in service mode.")
+	doneC := make(chan struct{})
+	ctx, cancel := context.WithCancel(context.Background())
+	termC := utils.WatchTerminationSignalsWithChannel(ctx, cancel, doneC, env)
+	defer func() {
+		cancel()
+		<-doneC
+	}()
+	listener, err := net.Listen("unix", filepath.Join(joinEnv.StateDir, "installer.sock"))
+	if err != nil {
+		return trace.Wrap(err)
+	}
+	defer func() {
+		if err != nil {
+			listener.Close()
+		}
+	}()
 	peerConfig, err := config.NewPeerConfig(env, joinEnv)
 	if err != nil {
 		return trace.Wrap(err)
 	}
-
-	peer, err := expand.NewPeer(*peerConfig)
+	peer, err := expand.NewPeer(ctx, cancel, *peerConfig)
 	if err != nil {
 		return trace.Wrap(err)
 	}
-
-	err = peer.Init()
-	if err != nil {
-		return trace.Wrap(err)
+	select {
+	case termC <- peer:
+		// Add peer to termination signal loop
+	case <-ctx.Done():
+		return trace.Wrap(ctx.Err())
 	}
-
-	err = peer.Start()
-	if err != nil {
-		return trace.Wrap(err)
-	}
-
-	err = peer.Wait()
-	if utils.IsContextCancelledError(err) {
-		return trace.Wrap(err, "installer interrupted")
-	}
-	return trace.Wrap(err)
+	return trace.Wrap(peer.Serve(listener))
 }
 
 func startInstall(env *localenv.LocalEnvironment, config InstallConfig) error {
@@ -163,13 +168,17 @@ func startInstall(env *localenv.LocalEnvironment, config InstallConfig) error {
 		return trace.Wrap(err)
 	}
 	if config.FromService {
-		return trace.Wrap(startInstallFromService(env, config))
+		err := startInstallFromService(env, config)
+		if utils.IsContextCancelledError(err) {
+			return trace.Wrap(err, "installer interrupted")
+		}
+		return trace.Wrap(err)
 	}
 	err := InstallerClient(env, config)
 	if utils.IsContextCancelledError(err) {
 		return trace.Wrap(err, "installer interrupted")
 	}
-	return nil
+	return trace.Wrap(err)
 }
 
 func startInstallFromService(env *localenv.LocalEnvironment, config InstallConfig) error {
@@ -180,12 +189,11 @@ func startInstallFromService(env *localenv.LocalEnvironment, config InstallConfi
 		cancel()
 		<-doneC
 	}()
-
 	processConfig, err := config.NewProcessConfig()
 	if err != nil {
 		return trace.Wrap(err)
 	}
-	process, err := install.InitProcess(ctx, *processConfig)
+	process, err := install.InitProcess(ctx, *processConfig, process.NewProcess)
 	if err != nil {
 		return trace.Wrap(err)
 	}
@@ -197,7 +205,16 @@ func startInstallFromService(env *localenv.LocalEnvironment, config InstallConfi
 	if err != nil {
 		return trace.Wrap(err)
 	}
-	installer, err := install.New(ctx, cancel, *installerConfig)
+	listener, err := net.Listen("unix", filepath.Join(installerConfig.WriteStateDir, "installer.sock"))
+	if err != nil {
+		return trace.Wrap(err)
+	}
+	defer func() {
+		if err != nil {
+			listener.Close()
+		}
+	}()
+	installer, err := install.New(ctx, *installerConfig)
 	if err != nil {
 		return trace.Wrap(err)
 	}
@@ -205,8 +222,7 @@ func startInstallFromService(env *localenv.LocalEnvironment, config InstallConfi
 	case termC <- installer:
 		// Add installer to termination signal loop
 	case <-ctx.Done():
-		log.WithError(ctx.Err()).Warn("Installer interrupted.")
-		return nil
+		return trace.Wrap(ctx.Err())
 	}
 	var engine install.Engine
 	switch config.Mode {
@@ -220,7 +236,7 @@ func startInstallFromService(env *localenv.LocalEnvironment, config InstallConfi
 	if err != nil {
 		return trace.Wrap(err)
 	}
-	return trace.Wrap(installer.Serve(engine))
+	return trace.Wrap(installer.Serve(engine, listener))
 }
 
 func newCLInstaller(installer *install.Installer, excludeHostFromCluster bool) (*clinstall.Engine, error) {
@@ -242,7 +258,24 @@ func newWizardInstaller(installer *install.Installer) (*interactive.Engine, erro
 		StateMachineFactory: installer,
 		Planner:             install.NewPlanner(disablePreflightChecks, installer),
 		Operator:            installer.Operator,
+		AdvertiseAddr:       installer.Process.Config().Pack.GetAddr().Addr,
 	})
+}
+
+func join(env, joinEnv *localenv.LocalEnvironment, config JoinConfig) error {
+	env.PrintStep("Starting agent")
+
+	if err := config.CheckAndSetDefaults(); err != nil {
+		return trace.Wrap(err)
+	}
+	if config.FromService {
+		return trace.Wrap(Join(env, joinEnv, config))
+	}
+	err := JoinClient(joinEnv, config)
+	if utils.IsContextCancelledError(err) {
+		return trace.Wrap(err, "agent interrupted")
+	}
+	return nil
 }
 
 type leaveConfig struct {
@@ -491,11 +524,15 @@ func agent(env *localenv.LocalEnvironment, config agentConfig, serviceName strin
 			"--service-gid", config.serviceGID,
 			"--cloud-provider", config.cloudProvider,
 		}
-		spec := systemservice.ServiceSpec{
-			StartCommand: strings.Join(command, " "),
+		req := systemservice.NewServiceRequest{
+			ServiceSpec: systemservice.ServiceSpec{
+				StartCommand: strings.Join(command, " "),
+			},
+			NoBlock: true,
+			Name:    serviceName,
 		}
-		log.Infof("Installing service with spec %+v.", spec)
-		err := systemservice.ReinstallOneshotServiceFromSpec(serviceName, spec)
+		log.Infof("Installing service with req %+v.", req)
+		err := systemservice.ReinstallOneshotService(req)
 		if err != nil {
 			return trace.Wrap(err)
 		}
@@ -521,9 +558,10 @@ func agent(env *localenv.LocalEnvironment, config agentConfig, serviceName strin
 		KeyValues: config.vars,
 	}
 	watchCh := make(chan rpcserver.WatchEvent, 1)
-	agent, err := install.NewAgent(install.AgentConfig{
+	agent, err := install.NewAgent(ctx, install.AgentConfig{
 		FieldLogger:   log.WithField("addr", config.advertiseAddr),
 		AdvertiseAddr: config.advertiseAddr,
+		Credentials:   *creds,
 		ServerAddr:    config.serverAddr,
 		RuntimeConfig: runtimeConfig,
 		WatchCh:       watchCh,
@@ -587,11 +625,6 @@ func findLocalServer(site ops.Site) (*storage.Server, error) {
 }
 
 func executeInstallPhase(localEnv *localenv.LocalEnvironment, p PhaseParams, operation *ops.SiteOperation) error {
-	stateDir, err := os.Getwd()
-	if err != nil {
-		return trace.Wrap(err)
-	}
-
 	doneC := make(chan struct{})
 	ctx, cancel := context.WithTimeout(context.Background(), p.Timeout)
 	termC := utils.WatchTerminationSignalsWithChannel(ctx, cancel, doneC, localEnv)
@@ -601,9 +634,10 @@ func executeInstallPhase(localEnv *localenv.LocalEnvironment, p PhaseParams, ope
 	}()
 
 	client, err := observerclient.New(ctx, observerclient.Config{
-		StateDir: stateDir,
-		TermC:    termC,
-		Printer:  localEnv,
+		StateDir:    defaults.GravityInstallDir(),
+		TermC:       termC,
+		Printer:     localEnv,
+		ServiceName: defaults.GravityRPCInstallerServiceName,
 	})
 	if err != nil {
 		return trace.Wrap(err)
@@ -686,7 +720,7 @@ func executeJoinPhase(localEnv, joinEnv *localenv.LocalEnvironment, p PhaseParam
 	defer cancel()
 	progress := utils.NewProgress(ctx, fmt.Sprintf("Executing join phase %q", p.PhaseID), -1, false)
 	defer progress.Stop()
-	// FIXME
+	// FIXME: implement with the observer client
 	// if p.PhaseID == fsm.RootPhase {
 	// 	return trace.Wrap(ResumeInstall(ctx, joinFSM, progress, p.Force))
 	// }
@@ -885,7 +919,7 @@ func watchReconnects(ctx context.Context, cancel context.CancelFunc, watchCh <-c
 	}()
 }
 
-func loadRPCCredentials(ctx context.Context, addr, token string, logger log.FieldLogger) error {
+func loadRPCCredentials(ctx context.Context, addr, token string) (*rpcserver.Credentials, error) {
 	// Assume addr to be a complete address if it's prefixed with `http`
 	if !strings.Contains(addr, "http") {
 		host, port := utils.SplitHostPort(addr, strconv.Itoa(defaults.GravitySiteNodePort))
@@ -896,7 +930,7 @@ func loadRPCCredentials(ctx context.Context, addr, token string, logger log.Fiel
 	if err != nil {
 		return nil, trace.Wrap(err)
 	}
-	creds, err := LoadRPCCredentials(ctx, packages, logger)
+	creds, err := install.LoadRPCCredentials(ctx, packages, log)
 	if err != nil {
 		return nil, trace.Wrap(err)
 	}

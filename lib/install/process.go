@@ -29,9 +29,9 @@ import (
 )
 
 // InitProcess initializes and starts a gravity process
-func InitProcess(ctx context.Context, gravityConfig processconfig.Config) (process.GravityProcess, error) {
+func InitProcess(ctx context.Context, gravityConfig processconfig.Config, newProcess process.NewGravityProcess) (process.GravityProcess, error) {
 	teleportConfig := process.WizardTeleportConfig(gravityConfig.ClusterName, gravityConfig.DataDir)
-	p, err := process.NewProcess(ctx, gravityConfig, *teleportConfig)
+	p, err := newProcess(ctx, gravityConfig, *teleportConfig)
 	if err != nil {
 		return nil, trace.Wrap(err)
 	}
@@ -53,7 +53,7 @@ func InitProcess(ctx context.Context, gravityConfig processconfig.Config) (proce
 
 // NewProcessConfig creates a gravity process config from installer config
 func NewProcessConfig(config ProcessConfig) (*processconfig.Config, error) {
-	wizardConfig, err := process.WizardProcessConfig(config.AdvertiseAddr, config.StateDir, config.WriteStateDir)
+	wizardConfig, err := process.WizardProcessConfig(config.Hostname, config.AdvertiseAddr, config.StateDir, config.WriteStateDir)
 	if err != nil {
 		return nil, trace.Wrap(err)
 	}
@@ -76,6 +76,7 @@ func NewProcessConfig(config ProcessConfig) (*processconfig.Config, error) {
 
 // ProcessConfig defines the configuration for generating process configuration
 type ProcessConfig struct {
+	Hostname      string
 	AdvertiseAddr string
 	StateDir      string
 	WriteStateDir string

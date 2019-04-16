@@ -296,6 +296,7 @@ func Execute(g *Application, cmd string, extraArgs []string) error {
 		return startInstall(localEnv, InstallConfig{
 			Mode:          constants.InstallModeInteractive,
 			Insecure:      *g.Insecure,
+			StateDir:      *g.WizardCmd.Path,
 			UserLogFile:   *g.UserLogFile,
 			SystemLogFile: *g.SystemLogFile,
 			ServiceUID:    *g.WizardCmd.ServiceUID,
@@ -305,18 +306,7 @@ func Execute(g *Application, cmd string, extraArgs []string) error {
 	case g.InstallCmd.FullCommand():
 		return startInstall(localEnv, NewInstallConfig(localEnv, g))
 	case g.JoinCmd.FullCommand():
-		// if *g.JoinCmd.Resume {
-		// 	*g.JoinCmd.Phase = fsm.RootPhase
-		// }
-		// if *g.JoinCmd.Phase != "" {
-		// 	return executeJoinPhase(localEnv, joinEnv, PhaseParams{
-		// 		PhaseID:     *g.JoinCmd.Phase,
-		// 		Force:       *g.JoinCmd.Force,
-		// 		Timeout:     *g.JoinCmd.PhaseTimeout,
-		// 		OperationID: *g.JoinCmd.OperationID,
-		// 	}, nil)
-		// }
-		return Join(localEnv, joinEnv, NewJoinConfig(g))
+		return join(localEnv, joinEnv, NewJoinConfig(g))
 	case g.AutoJoinCmd.FullCommand():
 		return autojoin(localEnv, joinEnv, autojoinConfig{
 			systemLogFile: *g.SystemLogFile,

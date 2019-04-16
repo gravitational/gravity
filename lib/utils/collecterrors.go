@@ -46,8 +46,7 @@ func Collect(ctx context.Context, cancel func(), errChan chan error, valuesChan 
 	for errorsLeft > 0 || valuesLeft > 0 {
 		select {
 		case <-ctx.Done():
-			errors = append(errors, trace.Errorf("timed out"))
-			return nil, trace.NewAggregate(errors...)
+			return nil, trace.Wrap(ctx.Err())
 		case err := <-errChan:
 			errorsLeft--
 			if err != nil {
