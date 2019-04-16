@@ -51,7 +51,7 @@ import (
 	log "github.com/sirupsen/logrus"
 	. "gopkg.in/check.v1"
 	batchv1 "k8s.io/api/batch/v1"
-	"k8s.io/api/core/v1"
+	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/helm/pkg/chartutil"
 	"k8s.io/helm/pkg/repo"
@@ -596,10 +596,10 @@ metadata:
 	c.Assert(err, IsNil)
 	c.Assert(utils.RemoveNewlines(out.String()), Matches, ".*hello, world app hook.*")
 
-	err = apps.DeleteAppHookJob(ctx, *ref)
+	err = apps.DeleteAppHookJob(ctx, app.DeleteAppHookJobRequest{HookRef: *ref})
 	c.Assert(err, IsNil)
 
-	err = apps.DeleteAppHookJob(ctx, *ref)
+	err = apps.DeleteAppHookJob(ctx, app.DeleteAppHookJobRequest{HookRef: *ref})
 	c.Assert(trace.IsNotFound(err), Equals, true, Commentf("expected not found, got %T", err))
 }
 
