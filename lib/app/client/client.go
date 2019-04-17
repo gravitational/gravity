@@ -372,10 +372,10 @@ func (c *Client) StreamAppHookLogs(ctx context.Context, ref app.HookRef, out io.
 }
 
 // DELETE app/v1/applications/:repository_id/:package_id/:version/hook/:namespace/:name
-func (c *Client) DeleteAppHookJob(ctx context.Context, ref app.HookRef) error {
+func (c *Client) DeleteAppHookJob(ctx context.Context, req app.DeleteAppHookJobRequest) error {
 	_, err := c.Delete(c.Endpoint(
-		"applications", ref.Application.Repository, ref.Application.Name, ref.Application.Version, "hook", ref.Namespace, ref.Name),
-		url.Values{})
+		"applications", req.Application.Repository, req.Application.Name, req.Application.Version, "hook", req.Namespace, req.Name),
+		url.Values{"cascade": []string{strconv.FormatBool(req.Cascade)}})
 	if err != nil {
 		return trace.Wrap(err)
 	}

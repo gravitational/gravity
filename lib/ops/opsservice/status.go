@@ -114,7 +114,10 @@ func (s *site) checkStatusHook(ctx context.Context) error {
 		ServiceUser: s.serviceUser(),
 	})
 	if ref != nil {
-		err := s.service.cfg.Apps.DeleteAppHookJob(ctx, *ref)
+		err := s.service.cfg.Apps.DeleteAppHookJob(ctx, app.DeleteAppHookJobRequest{
+			HookRef: *ref,
+			Cascade: true,
+		})
 		if err != nil {
 			s.Warnf("Failed to delete status hook %v: %v.",
 				ref, trace.DebugReport(err))
