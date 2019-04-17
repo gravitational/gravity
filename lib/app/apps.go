@@ -123,12 +123,15 @@ func StreamAppHookLogs(ctx context.Context, client *kubernetes.Clientset, ref Ho
 }
 
 // DeleteAppHookJob deletes app hook job
-func DeleteAppHookJob(ctx context.Context, client *kubernetes.Clientset, ref HookRef) error {
+func DeleteAppHookJob(ctx context.Context, client *kubernetes.Clientset, req DeleteAppHookJobRequest) error {
 	runner, err := hooks.NewRunner(client)
 	if err != nil {
 		return trace.Wrap(err)
 	}
-	return runner.DeleteJob(ctx, hooks.JobRef{Name: ref.Name, Namespace: ref.Namespace})
+	return runner.DeleteJob(ctx, hooks.DeleteJobRequest{
+		JobRef:  hooks.JobRef{Name: req.Name, Namespace: req.Namespace},
+		Cascade: req.Cascade,
+	})
 }
 
 // GetUpdatedDependencies compares dependencies of the "installed" and "update" apps and
