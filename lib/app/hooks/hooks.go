@@ -126,20 +126,28 @@ func NewRunner(client *kubernetes.Clientset) (*Runner, error) {
 	return runner, nil
 }
 
+// DeleteJobRequest combines parameters for job deletion.
+type DeleteJobRequest struct {
+	// JobRef identifies the job to delete.
+	JobRef
+	// Cascade specifies whether dependent objects should be deleted.
+	Cascade bool
+}
+
 // DeleteJob deletes job by ref
-func (r *Runner) DeleteJob(ctx context.Context, ref JobRef, cascade bool) error {
+func (r *Runner) DeleteJob(ctx context.Context, req DeleteJobRequest) error {
 	var opts *metav1.DeleteOptions
-	if cascade {
+	if req.Cascade {
 		propagationPolicy := metav1.DeletePropagationForeground
 		opts = &metav1.DeleteOptions{
 			PropagationPolicy: &propagationPolicy,
 		}
 	}
-	err := r.client.Batch().Jobs(ref.Namespace).Delete(ref.Name, opts)
+	err := r.client.Batch().Jobs(req.Namespace).Delete(req.Name, opts)
 	if err = rigging.ConvertError(err); err != nil {
 		return err
 	} else {
-		r.Debugf("Deleted job %q in namespace %q.", ref.Name, ref.Namespace)
+		r.Debugf("Deleted job %q in namespace %q.", req.Name, req.Namespace)
 	}
 	return nil
 }

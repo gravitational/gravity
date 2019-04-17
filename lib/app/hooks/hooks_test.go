@@ -144,7 +144,7 @@ func (s *HooksSuite) TestHookSuccess(c *check.C) {
 	c.Assert(utils.RemoveNewlines(out.String()), check.Matches, ".*hello, world 1.*")
 	c.Assert(utils.RemoveNewlines(out.String()), check.Matches, ".*hello, world 2.*")
 
-	err = runner.DeleteJob(context.TODO(), *ref, false)
+	err = runner.DeleteJob(context.TODO(), DeleteJobRequest{JobRef: *ref})
 	c.Assert(err, check.IsNil)
 }
 
@@ -217,7 +217,7 @@ func (s *HooksSuite) TestHookFailNewPods(c *check.C) {
 	comment := check.Commentf("expected more matches in %v", output)
 	c.Assert(strings.Count(output, "hello, world") >= 2, check.Equals, true, comment)
 
-	err = runner.DeleteJob(context.TODO(), *ref, false)
+	err = runner.DeleteJob(context.TODO(), DeleteJobRequest{JobRef: *ref})
 	c.Assert(err, check.IsNil)
 }
 
@@ -289,6 +289,6 @@ func (s *HooksSuite) TestHookFailPodRestart(c *check.C) {
 	comment := check.Commentf("expected more matches in %v", output)
 	c.Assert(strings.Count(output, "hello, world") >= 2, check.Equals, true, comment)
 
-	err = runner.DeleteJob(context.TODO(), *ref, false)
+	err = runner.DeleteJob(context.TODO(), DeleteJobRequest{JobRef: *ref})
 	c.Assert(err, check.IsNil)
 }

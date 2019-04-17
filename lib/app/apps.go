@@ -128,7 +128,10 @@ func DeleteAppHookJob(ctx context.Context, client *kubernetes.Clientset, req Del
 	if err != nil {
 		return trace.Wrap(err)
 	}
-	return runner.DeleteJob(ctx, hooks.JobRef{Name: req.Name, Namespace: req.Namespace}, req.Cascade)
+	return runner.DeleteJob(ctx, hooks.DeleteJobRequest{
+		JobRef:  hooks.JobRef{Name: req.Name, Namespace: req.Namespace},
+		Cascade: req.Cascade,
+	})
 }
 
 // GetUpdatedDependencies compares dependencies of the "installed" and "update" apps and
