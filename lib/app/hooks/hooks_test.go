@@ -36,7 +36,7 @@ import (
 	log "github.com/sirupsen/logrus"
 	"gopkg.in/check.v1"
 	batchv1 "k8s.io/api/batch/v1"
-	"k8s.io/api/core/v1"
+	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
@@ -144,7 +144,7 @@ func (s *HooksSuite) TestHookSuccess(c *check.C) {
 	c.Assert(utils.RemoveNewlines(out.String()), check.Matches, ".*hello, world 1.*")
 	c.Assert(utils.RemoveNewlines(out.String()), check.Matches, ".*hello, world 2.*")
 
-	err = runner.DeleteJob(context.TODO(), *ref)
+	err = runner.DeleteJob(context.TODO(), *ref, false)
 	c.Assert(err, check.IsNil)
 }
 
@@ -217,7 +217,7 @@ func (s *HooksSuite) TestHookFailNewPods(c *check.C) {
 	comment := check.Commentf("expected more matches in %v", output)
 	c.Assert(strings.Count(output, "hello, world") >= 2, check.Equals, true, comment)
 
-	err = runner.DeleteJob(context.TODO(), *ref)
+	err = runner.DeleteJob(context.TODO(), *ref, false)
 	c.Assert(err, check.IsNil)
 }
 
@@ -289,6 +289,6 @@ func (s *HooksSuite) TestHookFailPodRestart(c *check.C) {
 	comment := check.Commentf("expected more matches in %v", output)
 	c.Assert(strings.Count(output, "hello, world") >= 2, check.Equals, true, comment)
 
-	err = runner.DeleteJob(context.TODO(), *ref)
+	err = runner.DeleteJob(context.TODO(), *ref, false)
 	c.Assert(err, check.IsNil)
 }
