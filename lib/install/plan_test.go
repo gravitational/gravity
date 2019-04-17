@@ -180,21 +180,18 @@ func (s *PlanSuite) SetUpSuite(c *check.C) {
 	}
 	runtimeResources, clusterResources, err := resources.Split(bytes.NewReader(resourceBytes))
 	c.Assert(err, check.IsNil)
-	application, err := s.services.Apps.GetApp(appPackage)
-	c.Assert(err, check.IsNil)
 	s.installer = &Installer{
-		RuntimeConfig: RuntimeConfig{
-			Config: Config{
-				FieldLogger:      logrus.WithField(trace.Component, "plan-suite"),
-				RuntimeResources: runtimeResources,
-				ClusterResources: clusterResources,
-				ServiceUser:      s.serviceUser,
-				DNSConfig:        s.dnsConfig,
-				Process:          &mockProcess{},
-				App:              application,
-			},
-			Apps:     s.services.Apps,
-			Packages: s.services.Packages,
+		Config: Config{
+			FieldLogger:      logrus.WithField(trace.Component, "plan-suite"),
+			RuntimeResources: runtimeResources,
+			ClusterResources: clusterResources,
+			ServiceUser:      s.serviceUser,
+			DNSConfig:        s.dnsConfig,
+			Process:          &mockProcess{},
+			AppPackage:       &appPackage,
+			Apps:             s.services.Apps,
+			Operator:         s.services.Operator,
+			Packages:         s.services.Packages,
 		},
 	}
 }
@@ -203,7 +200,7 @@ func (s *PlanSuite) TestPlan(c *check.C) {
 	op, err := s.services.Operator.GetSiteOperation(*s.operationKey)
 	c.Assert(err, check.IsNil)
 
-	planner := NewPlanner(false, s.installer)
+	planner := NewPlanner(true, s.installer)
 	plan, err := planner.GetOperationPlan(*s.cluster, *op)
 	c.Assert(err, check.IsNil)
 
@@ -246,7 +243,7 @@ func (s *PlanSuite) verifyChecksPhase(c *check.C, phase storage.OperationPhase) 
 	storage.DeepComparePhases(c, storage.OperationPhase{
 		ID: phases.ChecksPhase,
 		Data: &storage.OperationPhaseData{
-			Package: &s.installer.App.Package,
+			Package: s.installer.AppPackage,
 		},
 	}, phase)
 }
@@ -274,7 +271,7 @@ func (s *PlanSuite) verifyBootstrapPhase(c *check.C, phase storage.OperationPhas
 				Data: &storage.OperationPhaseData{
 					Server:      &s.masterNode,
 					ExecServer:  &s.masterNode,
-					Package:     &s.installer.App.Package,
+					Package:     s.installer.AppPackage,
 					Agent:       s.adminAgent,
 					ServiceUser: serviceUser,
 				},
@@ -284,7 +281,7 @@ func (s *PlanSuite) verifyBootstrapPhase(c *check.C, phase storage.OperationPhas
 				Data: &storage.OperationPhaseData{
 					Server:      &s.regularNode,
 					ExecServer:  &s.regularNode,
-					Package:     &s.installer.App.Package,
+					Package:     s.installer.AppPackage,
 					Agent:       s.regularAgent,
 					ServiceUser: serviceUser,
 				},
@@ -304,7 +301,7 @@ func (s *PlanSuite) verifyPullPhase(c *check.C, phase storage.OperationPhase) {
 				Data: &storage.OperationPhaseData{
 					Server:      &s.masterNode,
 					ExecServer:  &s.masterNode,
-					Package:     &s.installer.App.Package,
+					Package:     s.installer.AppPackage,
 					ServiceUser: serviceUser,
 				},
 				Requires: []string{phases.ConfigurePhase, phases.BootstrapPhase},
@@ -314,7 +311,7 @@ func (s *PlanSuite) verifyPullPhase(c *check.C, phase storage.OperationPhase) {
 				Data: &storage.OperationPhaseData{
 					Server:      &s.regularNode,
 					ExecServer:  &s.regularNode,
-					Package:     &s.installer.App.Package,
+					Package:     s.installer.AppPackage,
 					ServiceUser: serviceUser,
 				},
 				Requires: []string{phases.ConfigurePhase, phases.BootstrapPhase},
@@ -424,7 +421,7 @@ func (s *PlanSuite) verifyInstallOverlayPhase(c *check.C, phase storage.Operatio
 		Data: &storage.OperationPhaseData{
 			Server:      &s.masterNode,
 			ServiceUser: serviceUser,
-			Package:     &s.installer.App.Package,
+			Package:     s.installer.AppPackage,
 		},
 		Requires: []string{phases.ExportPhase},
 	}, phase)
@@ -523,7 +520,7 @@ func (s *PlanSuite) verifyExportPhase(c *check.C, phase storage.OperationPhase) 
 				Data: &storage.OperationPhaseData{
 					Server:     &s.masterNode,
 					ExecServer: &s.masterNode,
-					Package:    &s.installer.App.Package,
+					Package:    s.installer.AppPackage,
 				},
 				Requires: []string{phases.WaitPhase},
 			},
@@ -595,10 +592,10 @@ func (s *PlanSuite) verifyAppPhase(c *check.C, phase storage.OperationPhase) {
 			Requires: []string{phases.RuntimePhase},
 		},
 		{
-			ID: fmt.Sprintf("%v/%v", phases.AppPhase, s.installer.App.Package.Name),
+			ID: fmt.Sprintf("%v/%v", phases.AppPhase, s.installer.AppPackage.Name),
 			Data: &storage.OperationPhaseData{
 				Server:  &s.masterNode,
-				Package: &s.installer.App.Package,
+				Package: s.installer.AppPackage,
 			},
 			Requires: []string{phases.RuntimePhase},
 		},
@@ -645,7 +642,8 @@ func (s *PlanSuite) user() *storage.OSUser {
 }
 
 func (s *PlanSuite) TestSplitServers(c *check.C) {
-	application := s.installer.App
+	application, err := s.services.Apps.GetApp(*s.installer.AppPackage)
+	c.Assert(err, check.IsNil)
 
 	testCases := []struct {
 		input   []storage.Server

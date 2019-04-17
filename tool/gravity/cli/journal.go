@@ -31,6 +31,7 @@ import (
 	"github.com/gravitational/gravity/lib/state"
 	"github.com/gravitational/gravity/lib/system"
 	"github.com/gravitational/gravity/lib/system/mount"
+	"github.com/gravitational/gravity/lib/system/signals"
 	"github.com/gravitational/gravity/lib/utils"
 
 	"github.com/gravitational/trace"
@@ -71,12 +72,11 @@ func exportRuntimeJournal(env *localenv.LocalEnvironment, outputFile string) err
 		"runtime-package": runtimePackage.String(),
 		"rootfs":          rootDir,
 	})
-	doneC := make(chan struct{})
 	ctx, cancel := context.WithCancel(context.Background())
-	utils.WatchTerminationSignals(ctx, cancel, utils.StopperFunc(cleanup), doneC, env)
+	handler := signals.WatchTerminationSignals(ctx, cancel, signals.StopperFunc(cleanup), env)
 	defer func() {
 		cancel()
-		<-doneC
+		<-handler.Done()
 	}()
 
 	var w io.Writer = os.Stdout

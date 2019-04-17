@@ -25,6 +25,7 @@ import (
 	"path/filepath"
 	"strconv"
 	"strings"
+	"syscall"
 	"time"
 
 	autoscaleaws "github.com/gravitational/gravity/lib/autoscale/aws"
@@ -48,6 +49,7 @@ import (
 	pb "github.com/gravitational/gravity/lib/rpc/proto"
 	rpcserver "github.com/gravitational/gravity/lib/rpc/server"
 	"github.com/gravitational/gravity/lib/storage"
+	"github.com/gravitational/gravity/lib/system/signals"
 	"github.com/gravitational/gravity/lib/systeminfo"
 	"github.com/gravitational/gravity/lib/systemservice"
 	"github.com/gravitational/gravity/lib/utils"
@@ -61,13 +63,13 @@ import (
 // The client is responsible for triggering the install operation and observing
 // operation progress
 func InstallerClient(env *localenv.LocalEnvironment, config InstallConfig) error {
-	doneC := make(chan struct{})
 	ctx, cancel := context.WithCancel(context.Background())
-	termC := utils.WatchTerminationSignalsWithChannel(ctx, cancel, doneC, env)
+	interrupt := signals.NewInterruptHandler(ctx, cancel, InterruptSignals)
 	defer func() {
 		cancel()
-		<-doneC
+		<-interrupt.Done()
 	}()
+	go TerminationHandler(interrupt, cancel, env)
 
 	env.PrintStep("Connecting to installer")
 	args := append([]string{utils.Exe.Path}, os.Args[1:]...)
@@ -77,7 +79,7 @@ func InstallerClient(env *localenv.LocalEnvironment, config InstallConfig) error
 		StateDir:          env.StateDir,
 		OperationStateDir: config.writeStateDir,
 		Packages:          env.Packages,
-		TermC:             termC,
+		InterruptHandler:  interrupt,
 		Printer:           env,
 		ConnectTimeout:    10 * time.Minute,
 		ServiceName:       defaults.GravityRPCInstallerServiceName,
@@ -95,13 +97,13 @@ func InstallerClient(env *localenv.LocalEnvironment, config InstallConfig) error
 func JoinClient(env *localenv.LocalEnvironment, config JoinConfig) error {
 	env.PrintStep("Connecting to agent")
 
-	doneC := make(chan struct{})
 	ctx, cancel := context.WithCancel(context.Background())
-	termC := utils.WatchTerminationSignalsWithChannel(ctx, cancel, doneC, env)
+	interrupt := signals.NewInterruptHandler(ctx, cancel, InterruptSignals)
 	defer func() {
 		cancel()
-		<-doneC
+		<-interrupt.Done()
 	}()
+	go TerminationHandler(interrupt, cancel, env)
 	args := append([]string{utils.Exe.Path}, os.Args[1:]...)
 	args = append(args, "--from-service")
 	client, err := installerclient.New(ctx, installerclient.Config{
@@ -109,7 +111,7 @@ func JoinClient(env *localenv.LocalEnvironment, config JoinConfig) error {
 		StateDir:          env.StateDir,
 		OperationStateDir: env.StateDir,
 		Packages:          env.Packages,
-		TermC:             termC,
+		InterruptHandler:  interrupt,
 		Printer:           env,
 		ConnectTimeout:    10 * time.Minute,
 		ServiceName:       defaults.GravityRPCAgentServiceName,
@@ -128,13 +130,13 @@ func Join(env, joinEnv *localenv.LocalEnvironment, config JoinConfig) error {
 		return trace.Wrap(err)
 	}
 	log.WithField(trace.Component, "agent").Info("Running in service mode.")
-	doneC := make(chan struct{})
 	ctx, cancel := context.WithCancel(context.Background())
-	termC := utils.WatchTerminationSignalsWithChannel(ctx, cancel, doneC, env)
+	interrupt := signals.NewInterruptHandler(ctx, cancel, InterruptSignals)
 	defer func() {
 		cancel()
-		<-doneC
+		<-interrupt.Done()
 	}()
+	go TerminationHandler(interrupt, cancel, env)
 	listener, err := net.Listen("unix", filepath.Join(joinEnv.StateDir, "installer.sock"))
 	if err != nil {
 		return trace.Wrap(err)
@@ -148,17 +150,59 @@ func Join(env, joinEnv *localenv.LocalEnvironment, config JoinConfig) error {
 	if err != nil {
 		return trace.Wrap(err)
 	}
-	peer, err := expand.NewPeer(ctx, cancel, *peerConfig)
+	peer, err := expand.NewPeer(ctx, *peerConfig)
 	if err != nil {
 		return trace.Wrap(err)
 	}
-	select {
-	case termC <- peer:
-		// Add peer to termination signal loop
-	case <-ctx.Done():
-		return trace.Wrap(ctx.Err())
-	}
+	interrupt.Add(peer)
 	return trace.Wrap(peer.Serve(listener))
+}
+
+// InterruptSignals lists signals considered interrupt signals
+var InterruptSignals = signals.WithSignals(
+	os.Interrupt,
+	syscall.SIGTERM,
+	syscall.SIGQUIT,
+)
+
+// TerminationHandler implements the default interrupt handler for the install operation
+func TerminationHandler(interrupt *signals.InterruptHandler, cancel context.CancelFunc, printer utils.Printer) {
+	// timer defines the interrupt cancellation policy.
+	// If the interrupt signal is not re-triggered within the allotted time,
+	// the signal is dropped
+	timer := time.NewTimer(5 * time.Second)
+	var timerC <-chan time.Time
+	// number of consecutive interrupts
+	var interrupts int
+	for {
+		select {
+		case sig := <-interrupt.C:
+			if sig != os.Interrupt {
+				printer.Println("Received", sig, "signal. Terminating the installer gracefully, please wait.")
+				cancel()
+				return
+			}
+			// Interrupt signaled
+			interrupts += 1
+			if interrupts > 1 {
+				printer.Println("Received", sig, "signal. Aborting the installer gracefully, please wait.")
+				cancel()
+				return
+			}
+			printer.Println("Press Ctrl+C again to abort the installation.")
+			if !timer.Stop() {
+				<-timer.C
+			}
+			timer.Reset(5 * time.Second)
+			timerC = timer.C
+		case <-timerC:
+			// Drop this interrupt signal
+			interrupts = 0
+			timerC = nil
+		case <-interrupt.Done():
+			return
+		}
+	}
 }
 
 func startInstall(env *localenv.LocalEnvironment, config InstallConfig) error {
@@ -182,13 +226,13 @@ func startInstall(env *localenv.LocalEnvironment, config InstallConfig) error {
 }
 
 func startInstallFromService(env *localenv.LocalEnvironment, config InstallConfig) error {
-	doneC := make(chan struct{})
 	ctx, cancel := context.WithCancel(context.Background())
-	termC := utils.WatchTerminationSignalsWithChannel(ctx, cancel, doneC, env)
+	interrupt := signals.NewInterruptHandler(ctx, cancel, InterruptSignals)
 	defer func() {
 		cancel()
-		<-doneC
+		<-interrupt.Done()
 	}()
+	go TerminationHandler(interrupt, cancel, env)
 	processConfig, err := config.NewProcessConfig()
 	if err != nil {
 		return trace.Wrap(err)
@@ -218,12 +262,7 @@ func startInstallFromService(env *localenv.LocalEnvironment, config InstallConfi
 	if err != nil {
 		return trace.Wrap(err)
 	}
-	select {
-	case termC <- installer:
-		// Add installer to termination signal loop
-	case <-ctx.Done():
-		return trace.Wrap(ctx.Err())
-	}
+	interrupt.Add(installer)
 	var engine install.Engine
 	switch config.Mode {
 	case constants.InstallModeCLI:
@@ -540,13 +579,13 @@ func agent(env *localenv.LocalEnvironment, config agentConfig, serviceName strin
 		return nil
 	}
 
-	doneC := make(chan struct{})
 	ctx, cancel := context.WithCancel(context.Background())
-	termC := utils.WatchTerminationSignalsWithChannel(ctx, cancel, doneC, env)
+	interrupt := signals.NewInterruptHandler(ctx, cancel, InterruptSignals)
 	defer func() {
 		cancel()
-		<-doneC
+		<-interrupt.Done()
 	}()
+	go TerminationHandler(interrupt, cancel, env)
 
 	creds, err := loadRPCCredentials(context.TODO(), config.packageAddr, config.token)
 	if err != nil {
@@ -570,12 +609,7 @@ func agent(env *localenv.LocalEnvironment, config agentConfig, serviceName strin
 		return trace.Wrap(err)
 	}
 
-	select {
-	case termC <- agent:
-	case <-ctx.Done():
-		return trace.Wrap(ctx.Err())
-	}
-
+	interrupt.Add(agent)
 	watchReconnects(ctx, cancel, watchCh)
 
 	return trace.Wrap(agent.Serve())
@@ -625,41 +659,36 @@ func findLocalServer(site ops.Site) (*storage.Server, error) {
 }
 
 func executeInstallPhase(localEnv *localenv.LocalEnvironment, p PhaseParams, operation *ops.SiteOperation) error {
-	doneC := make(chan struct{})
 	ctx, cancel := context.WithTimeout(context.Background(), p.Timeout)
-	termC := utils.WatchTerminationSignalsWithChannel(ctx, cancel, doneC, localEnv)
+	interrupt := signals.NewInterruptHandler(ctx, cancel, InterruptSignals)
 	defer func() {
 		cancel()
-		<-doneC
+		<-interrupt.Done()
 	}()
-
+	go TerminationHandler(interrupt, cancel, localEnv)
 	client, err := observerclient.New(ctx, observerclient.Config{
-		StateDir:    defaults.GravityInstallDir(),
-		TermC:       termC,
-		Printer:     localEnv,
-		ServiceName: defaults.GravityRPCInstallerServiceName,
+		StateDir:         defaults.GravityInstallDir(),
+		InterruptHandler: interrupt,
+		Printer:          localEnv,
+		ServiceName:      defaults.GravityRPCInstallerServiceName,
 	})
 	if err != nil {
 		return trace.Wrap(err)
 	}
-
 	localApps, err := localEnv.AppServiceLocal(localenv.AppConfig{})
 	if err != nil {
 		return trace.Wrap(err)
 	}
-
 	wizardEnv, err := localenv.NewRemoteEnvironment()
 	if err != nil {
 		return trace.Wrap(err)
 	}
-
 	if operation == nil {
 		operation, err = ops.GetWizardOperation(wizardEnv.Operator)
 		if err != nil {
 			return trace.Wrap(err)
 		}
 	}
-
 	machine, err := install.NewFSM(install.FSMConfig{
 		OperationKey:       operation.Key(),
 		Packages:           wizardEnv.Packages,

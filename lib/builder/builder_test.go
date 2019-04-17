@@ -76,7 +76,7 @@ func (s *BuilderSuite) TestSelectRuntimeVersion(c *check.C) {
 	b := &Builder{
 		Config: Config{
 			FieldLogger: logrus.WithField(trace.Component, "test"),
-			Progress:    utils.NewNopProgress(),
+			Progress:    utils.DiscardProgress,
 		},
 	}
 

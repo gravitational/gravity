@@ -20,6 +20,7 @@ import (
 	"context"
 	"crypto/tls"
 	"fmt"
+	"io"
 	"net"
 	"strconv"
 
@@ -79,7 +80,7 @@ func TeleportProxy(ctx context.Context, operator ops.Operator, proxyHost, cluste
 }
 
 // TeleportAuth returns a new teleport auth server client
-func TeleportAuth(ctx context.Context, operator ops.Operator, proxyHost, clusterName string) (auth.ClientI, error) {
+func TeleportAuth(ctx context.Context, operator ops.Operator, proxyHost, clusterName string) (*AuthClient, error) {
 	teleport, err := Teleport(operator, proxyHost, clusterName)
 	if err != nil {
 		return nil, trace.Wrap(err)
@@ -98,7 +99,22 @@ func TeleportAuth(ctx context.Context, operator ops.Operator, proxyHost, cluster
 	if err != nil {
 		return nil, trace.Wrap(err)
 	}
-	return authClient, nil
+	return &AuthClient{
+		ClientI:     authClient,
+		proxyClient: proxyClient,
+	}, nil
+}
+
+// Close closes this client
+func (r *AuthClient) Close() error {
+	return r.proxyClient.Close()
+}
+
+// AuthClient represents the client to the auth server
+type AuthClient struct {
+	io.Closer
+	auth.ClientI
+	proxyClient *client.ProxyClient
 }
 
 func authenticateWithTeleport(operator ops.Operator) ([]ssh.AuthMethod, *tls.Config, error) {

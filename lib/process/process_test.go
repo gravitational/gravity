@@ -58,7 +58,7 @@ func (s *ProcessSuite) TestAuthGatewayConfigReload(c *check.C) {
 	}
 	serviceConfig, err := process.buildTeleportConfig(process.authGatewayConfig)
 	c.Assert(err, check.IsNil)
-	process.Supervisor = &service.TeleportProcess{
+	process.TeleportProcess = &service.TeleportProcess{
 		Supervisor: service.NewSupervisor("test"),
 		Config:     serviceConfig,
 	}
@@ -87,7 +87,7 @@ func (s *ProcessSuite) TestAuthGatewayConfigReload(c *check.C) {
 			PublicAddr: &[]string{"example.com"},
 		}))
 	// Make sure process config is updated.
-	config := process.teleportProcess().Config
+	config := process.TeleportProcess.Config
 	comparePrincipals(c, config.Auth.PublicAddrs, []string{"example.com"})
 	comparePrincipals(c, config.Proxy.SSHPublicAddrs, []string{"example.com"})
 	comparePrincipals(c, config.Proxy.PublicAddrs, []string{"example.com"})
@@ -216,11 +216,11 @@ func (s *ProcessSuite) TestReverseTunnelsFromTrustedClusters(c *check.C) {
 				}),
 			},
 			tunnels: []telecfg.ReverseTunnel{
-				telecfg.ReverseTunnel{
+				{
 					DomainName: "cluster1",
 					Addresses:  []string{"cluster1:3024"},
 				},
-				telecfg.ReverseTunnel{
+				{
 					DomainName: "cluster2",
 					Addresses:  []string{"cluster2:3024"},
 				},

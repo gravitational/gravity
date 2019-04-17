@@ -7,6 +7,7 @@ import (
 	"os"
 	"os/user"
 	"path/filepath"
+	"strconv"
 	"strings"
 	"time"
 
@@ -14,6 +15,7 @@ import (
 	"github.com/gravitational/gravity/lib/defaults"
 	installpb "github.com/gravitational/gravity/lib/install/proto"
 	"github.com/gravitational/gravity/lib/pack"
+	"github.com/gravitational/gravity/lib/system/signals"
 	"github.com/gravitational/gravity/lib/systemservice"
 	"github.com/gravitational/gravity/lib/utils"
 
@@ -66,8 +68,8 @@ func (r *Config) checkAndSetDefaults() error {
 	if r.Packages == nil {
 		return trace.BadParameter("Packages is required")
 	}
-	if r.TermC == nil {
-		return trace.BadParameter("TermC is required")
+	if r.InterruptHandler == nil {
+		return trace.BadParameter("InterruptHandler is required")
 	}
 	if r.Printer == nil {
 		r.Printer = utils.DiscardPrinter
@@ -81,6 +83,7 @@ func (r *Config) checkAndSetDefaults() error {
 type Config struct {
 	log.FieldLogger
 	utils.Printer
+	*signals.InterruptHandler
 	// Args specifies the service command line including the executable
 	Args []string
 	// StateDir specifies the install state directory on local host
@@ -89,8 +92,6 @@ type Config struct {
 	OperationStateDir string
 	// Packages specifies the host-local package service
 	Packages pack.PackageService
-	// TermC specifies the termination handler registration channel
-	TermC chan<- utils.Stopper
 	// ConnectTimeout specifies the maximum amount of time to wait for
 	// installer service connection. Wait forever, if unspecified
 	ConnectTimeout time.Duration
@@ -112,7 +113,7 @@ func (r *client) connectRunning(ctx context.Context) error {
 		return trace.Wrap(err)
 	}
 	r.client = client
-	r.addTerminationHandler(ctx)
+	r.addTerminationHandler()
 	return nil
 }
 
@@ -141,23 +142,25 @@ func (r *client) connectNew(ctx context.Context) error {
 		return trace.Wrap(err)
 	}
 	r.client = client
-	r.addTerminationHandler(ctx)
+	r.addTerminationHandler()
 	return nil
 }
 
 // installSelfAsService installs a systemd unit using the current process's command line
 // and turns on service mode
 func (r *client) installSelfAsService() error {
-	user, err := user.Current()
-	if err != nil {
-		return trace.Wrap(err)
-	}
+	uid := strconv.FormatInt(int64(os.Geteuid()), 32)
 	req := systemservice.NewServiceRequest{
 		ServiceSpec: systemservice.ServiceSpec{
 			// Output the gravity binary version once started
-			StartCommand:    fmt.Sprintf("%v version", utils.Exe.Path),
-			StartPreCommand: strings.Join(r.Args, " "),
-			User:            user.Uid,
+			StartCommand: fmt.Sprintf("%v version", utils.Exe.Path),
+			StartPreCommands: []string{
+				removeSocketFileCommand(installpb.SocketPath(r.OperationStateDir)),
+				strings.Join(r.Args, " "),
+			},
+			User: uid,
+			// FIXME: does not work with one-shot
+			// Restart:         "on-failure",
 			RemainAfterExit: false,
 		},
 		Name:    r.ServiceName,
@@ -209,14 +212,11 @@ func (r *client) progressLoop(ctx context.Context, stream installpb.Agent_Execut
 	return nil
 }
 
-func (r *client) addTerminationHandler(ctx context.Context) {
-	select {
-	case r.TermC <- utils.StopperFunc(func(ctx context.Context) error {
+func (r *client) addTerminationHandler() {
+	r.InterruptHandler.Add(signals.StopperFunc(func(ctx context.Context) error {
 		_, err := r.client.Shutdown(ctx, &installpb.ShutdownRequest{})
 		return trace.Wrap(err)
-	}):
-	case <-ctx.Done():
-	}
+	}))
 }
 
 type client struct {
@@ -235,6 +235,10 @@ func isDone(doneC <-chan struct{}) bool {
 	default:
 		return false
 	}
+}
+
+func removeSocketFileCommand(socketPath string) (cmd string) {
+	return fmt.Sprintf("/usr/bin/rm -f %v", socketPath)
 }
 
 func userUnitPath(service string, user user.User) (path string, err error) {

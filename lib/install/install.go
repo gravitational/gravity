@@ -195,7 +195,7 @@ func (i *Installer) CompleteFinalInstallStep(delay time.Duration) error {
 // PrintStep publishes a progress entry described with (format, args) tuple to the client
 func (i *Installer) PrintStep(format string, args ...interface{}) error {
 	event := Event{Progress: &ops.ProgressEntry{Message: fmt.Sprintf(format, args...)}}
-	return i.send(event)
+	return trace.Wrap(i.send(event))
 }
 
 // Execute executes the installation using the specified engine
@@ -206,7 +206,11 @@ func (i *Installer) Execute(req *installpb.ExecuteRequest, stream installpb.Agen
 		go func() {
 			if err := i.execute(); err != nil {
 				i.WithError(err).Info("Failed to execute.")
-				i.sendError(err)
+				if err := i.sendError(err); err != nil {
+					// TODO: only exit if unable to send the error.
+					// Otherwise, the client will shut down the server at
+					// the most appropriate time
+				}
 			}
 			i.serveWG.Done()
 			i.Stop(i.parentCtx)
@@ -243,7 +247,12 @@ func (i *Installer) Execute(req *installpb.ExecuteRequest, stream installpb.Agen
 // Shutdown shuts down the installer.
 // Implements installpb.AgentServer
 func (i *Installer) Shutdown(ctx context.Context, req *installpb.ShutdownRequest) (*installpb.ShutdownResponse, error) {
-	go i.Stop(ctx)
+	// The caller should be blocked at least as long as the wizard process is closing.
+	// TODO(dmitri): find out how this returns to the caller and whether it would make sense
+	// to split the shut down into several steps with wizard shutdown to be invoked as part of Shutdown
+	// and the rest - from a goroutine so the caller is not receiving an error when the server stops
+	// serving
+	i.Stop(ctx)
 	return &installpb.ShutdownResponse{}, nil
 }
 
@@ -375,12 +384,12 @@ func (i *Installer) send(event Event) error {
 		// Pushed the progress event
 		return nil
 	case <-i.parentCtx.Done():
-		return trace.Wrap(i.parentCtx.Err())
+		return nil
 	case <-i.ctx.Done():
 		return nil
 	default:
 		log.WithField("event", event).Warn("Failed to publish event.")
-		return nil
+		return trace.BadParameter("failed to publish event")
 	}
 }
 
@@ -466,10 +475,12 @@ type Installer struct {
 	closers []Closer
 	// parentCtx specifies the external context.
 	// If cancelled, all operations abort with the corresponding error
-	parentCtx   context.Context
-	ctx         context.Context
-	cancel      context.CancelFunc
-	eventsC     chan Event
+	parentCtx context.Context
+	// ctx defines the local server context used to cancel internal operation
+	ctx     context.Context
+	cancel  context.CancelFunc
+	eventsC chan Event
+	// rpc is the fabric to communicate to the server client prcess
 	rpc         *grpc.Server
 	engine      Engine
 	executeOnce sync.Once

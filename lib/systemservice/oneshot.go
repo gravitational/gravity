@@ -32,9 +32,9 @@ func ReinstallOneshotServiceSimple(serviceName string, args ...string) error {
 			// We do the actual job as a command executed before the service entrypoint
 			// to distinguish between completed job (status active) and in-progress job
 			// (status activating)
-			StartPreCommand: strings.Join(args, " "),
-			User:            constants.RootUIDString,
-			RemainAfterExit: true,
+			StartPreCommands: []string{strings.Join(args, " ")},
+			User:             constants.RootUIDString,
+			RemainAfterExit:  true,
 		},
 		NoBlock: true,
 		Name:    serviceName,

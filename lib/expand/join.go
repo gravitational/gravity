@@ -56,14 +56,16 @@ import (
 )
 
 // NewPeer returns new cluster peer client
-func NewPeer(ctx context.Context, cancel context.CancelFunc, config PeerConfig) (*Peer, error) {
+func NewPeer(ctx context.Context, config PeerConfig) (*Peer, error) {
 	if err := config.CheckAndSetDefaults(); err != nil {
 		return nil, trace.Wrap(err)
 	}
+	localCtx, cancel := context.WithCancel(ctx)
 	grpcServer := grpc.NewServer()
 	peer := &Peer{
 		PeerConfig: config,
-		ctx:        ctx,
+		parentCtx:  ctx,
+		ctx:        localCtx,
 		cancel:     cancel,
 		rpc:        grpcServer,
 		// FIXME(dmitri): arbitrary channel size
@@ -76,15 +78,20 @@ func NewPeer(ctx context.Context, cancel context.CancelFunc, config PeerConfig) 
 // Peer is a client that manages joining the cluster
 type Peer struct {
 	PeerConfig
+	// parentCtx specifies the external context.
+	// If cancelled, all operations abort with the corresponding error
+	parentCtx context.Context
+	// ctx defines the local peer context used to cancel internal operation
 	ctx    context.Context
 	cancel context.CancelFunc
 	// eventsC is channel with events indicating install progress
 	eventsC chan install.Event
 	// agentDoneCh is the agent's done channel.
-	// Only set after the agent has been started
+	// The channel is only set after the agent has been started
 	agentDoneCh <-chan struct{}
 	// agent is this peer's RPC agent
-	agent       *rpcserver.PeerServer
+	agent *rpcserver.PeerServer
+	// rpc is the fabric to communicate to the peer client prcess
 	rpc         *grpc.Server
 	serveWG     sync.WaitGroup
 	executeOnce sync.Once
@@ -132,7 +139,7 @@ func (p *Peer) Execute(req *installpb.ExecuteRequest, stream installpb.Agent_Exe
 				p.sendError(err)
 			}
 			p.serveWG.Done()
-			p.Stop(p.ctx)
+			p.Stop(p.parentCtx)
 		}()
 	})
 	for {
@@ -153,8 +160,11 @@ func (p *Peer) Execute(req *installpb.ExecuteRequest, stream installpb.Agent_Exe
 			}
 		case <-stream.Context().Done():
 			return trace.Wrap(stream.Context().Err())
+		case <-p.parentCtx.Done():
+			return trace.Wrap(p.parentCtx.Err())
 		case <-p.ctx.Done():
-			return trace.Wrap(p.ctx.Err())
+			// Clean exit
+			return nil
 		}
 	}
 	return nil
@@ -841,6 +851,8 @@ func (p *Peer) progressLoop(ctx operationContext) {
 					return
 				}
 			}
+		case <-p.parentCtx.Done():
+			return
 		case <-p.ctx.Done():
 			return
 		}
@@ -880,8 +892,10 @@ func (p *Peer) send(event install.Event) error {
 	case p.eventsC <- event:
 		// Pushed the progress event
 		return nil
+	case <-p.parentCtx.Done():
+		return trace.Wrap(p.parentCtx.Err())
 	case <-p.ctx.Done():
-		return trace.Wrap(p.ctx.Err())
+		return nil
 	default:
 		p.WithField("event", event).Warn("Failed to publish event.")
 		return nil

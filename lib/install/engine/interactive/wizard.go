@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"strings"
 
+	"github.com/gravitational/gravity/lib/app"
 	"github.com/gravitational/gravity/lib/defaults"
 	"github.com/gravitational/gravity/lib/install"
 	libengine "github.com/gravitational/gravity/lib/install/engine"
@@ -63,42 +64,30 @@ func (r *Engine) Validate(ctx context.Context, config install.Config) (err error
 }
 
 func (r *Engine) Execute(ctx context.Context, installer install.Interface, config install.Config) error {
-	r.ctx = ctx
-	r.Interface = installer
-	r.config = config
-	app, err := config.GetApp()
+	e, err := newExecutor(r, ctx, installer, config)
 	if err != nil {
-		return trace.Wrap(err, "failed to query application")
+		return trace.Wrap(err)
 	}
-	r.printURL()
-	err = install.ExportRPCCredentials(ctx, config.Packages, r.FieldLogger)
-	if err != nil {
-		return trace.Wrap(err, "failed to export RPC credentials")
+	if err := e.bootstrap(); err != nil {
+		return trace.Wrap(err)
 	}
+	e.printURL()
 	installer.PrintStep("Waiting for the operation to start")
-	operation, err := r.waitForOperation()
+	operation, err := e.waitForOperation()
 	if err != nil {
 		return trace.Wrap(err, "failed to wait for operation to become ready")
 	}
 	if err := installer.NotifyOperationAvailable(operation.Key()); err != nil {
 		return trace.Wrap(err)
 	}
-	if err := libengine.ExecuteOperation(ctx, r.Planner, r.StateMachineFactory,
-		r.Operator, operation.Key(), r.FieldLogger); err != nil {
+	if err := e.executeOperation(operation.Key()); err != nil {
 		return trace.Wrap(err)
 	}
-	// With an interactive installation, the link to remote Ops Center cannot be removed
-	// immediately as it is used to tunnel final install step
-	if app.Manifest.SetupEndpoint() == nil {
-		if err := installer.CompleteFinalInstallStep(defaults.WizardLinkTTL); err != nil {
-			r.WithError(err).Warn("Failed to complete final install step.")
-		}
+	if err := e.finalizeOperation(*operation); err != nil {
+		return trace.Wrap(err)
 	}
-	if err := installer.Finalize(*operation); err != nil {
-		r.WithError(err).Warn("Failed to finalize install.")
-	}
-	// FIXME: this should not be necessary with final install step handler sending an event
-	// Trap that event
+	// TODO(dmitri): this should not be necessary if there's a way to send the completion notification
+	// from bandwagon to installer
 	installer.PrintStep("\nInstaller process will keep running so the installation can be finished by\n" +
 		"completing necessary post-install actions in the installer UI if the installed\n" +
 		"application requires it.\n" +
@@ -107,7 +96,15 @@ func (r *Engine) Execute(ctx context.Context, installer install.Interface, confi
 	return trace.Wrap(installer.Wait())
 }
 
-func (r *Engine) waitForOperation() (operation *ops.SiteOperation, err error) {
+func (r *executor) bootstrap() error {
+	err := install.ExportRPCCredentials(r.ctx, r.config.Packages, r.FieldLogger)
+	if err != nil {
+		return trace.Wrap(err, "failed to export RPC credentials")
+	}
+	return nil
+}
+
+func (r *executor) waitForOperation() (operation *ops.SiteOperation, err error) {
 	b := utils.NewUnlimitedExponentialBackOff()
 	err = utils.RetryWithInterval(r.ctx, b, func() error {
 		clusters, err := r.Operator.GetSites(defaults.SystemAccountID)
@@ -138,9 +135,28 @@ func (r *Engine) waitForOperation() (operation *ops.SiteOperation, err error) {
 	return operation, nil
 }
 
+func (r *executor) executeOperation(operationKey ops.SiteOperationKey) error {
+	return trace.Wrap(libengine.ExecuteOperation(r.ctx, r.Planner, r.StateMachineFactory,
+		r.Operator, operationKey, r.FieldLogger))
+}
+
+func (r *executor) finalizeOperation(operation ops.SiteOperation) error {
+	// With an interactive installation, the link to remote Ops Center cannot be removed
+	// immediately as it is used to tunnel final install step
+	if r.app.Manifest.SetupEndpoint() == nil {
+		if err := r.CompleteFinalInstallStep(defaults.WizardLinkTTL); err != nil {
+			r.WithError(err).Warn("Failed to complete final install step.")
+		}
+	}
+	if err := r.Finalize(operation); err != nil {
+		r.WithError(err).Warn("Failed to finalize install.")
+	}
+	return nil
+}
+
 // printURL prints the URL that installer can be reached at via browser
 // in interactive mode to stdout
-func (r *Engine) printURL() {
+func (r *executor) printURL() {
 	r.PrintStep("Starting web UI install wizard")
 	url := fmt.Sprintf("https://%v/web/installer/new/%v/%v/%v?install_token=%v",
 		r.AdvertiseAddr,
@@ -159,6 +175,25 @@ func (r *Engine) printURL() {
 
 type Engine struct {
 	Config
+}
+
+func newExecutor(r *Engine, ctx context.Context, installer install.Interface, config install.Config) (*executor, error) {
+	app, err := config.GetApp()
+	if err != nil {
+		return nil, trace.Wrap(err, "failed to query application")
+	}
+	return &executor{
+		Config:    r.Config,
+		Interface: installer,
+		app:       *app,
+		ctx:       ctx,
+		config:    config,
+	}, nil
+}
+
+type executor struct {
+	Config
+	app app.Application
 	install.Interface
 	config install.Config
 	ctx    context.Context

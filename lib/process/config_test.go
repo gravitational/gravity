@@ -34,7 +34,7 @@ type ConfigSuite struct {
 var _ = check.Suite(&ConfigSuite{})
 
 func (s *ConfigSuite) TestMergeConfig(c *check.C) {
-	config, err := WizardProcessConfig("test.example.com", "readdir", "statedir")
+	config, err := WizardProcessConfig("test.example.com", "0.0.0.0", "readdir", "statedir")
 	c.Assert(err, check.IsNil)
 	c.Assert(config, check.NotNil)
 

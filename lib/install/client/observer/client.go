@@ -7,6 +7,7 @@ import (
 
 	"github.com/gravitational/gravity/lib/fsm"
 	installpb "github.com/gravitational/gravity/lib/install/proto"
+	"github.com/gravitational/gravity/lib/system/signals"
 	"github.com/gravitational/gravity/lib/systemservice"
 	"github.com/gravitational/gravity/lib/utils"
 
@@ -39,7 +40,7 @@ func New(ctx context.Context, config Config) (*client, error) {
 		return nil, trace.Wrap(err)
 	}
 	c.client = cc
-	c.addTerminationHandler(ctx)
+	c.addTerminationHandler()
 	return c, nil
 }
 
@@ -69,8 +70,8 @@ func (r *Config) checkAndSetDefaults() error {
 	if r.StateDir == "" {
 		return trace.BadParameter("StateDir is required")
 	}
-	if r.TermC == nil {
-		return trace.BadParameter("TermC is required")
+	if r.InterruptHandler == nil {
+		return trace.BadParameter("InterruptHandler is required")
 	}
 	if r.Printer == nil {
 		r.Printer = utils.DiscardPrinter
@@ -85,10 +86,9 @@ func (r *Config) checkAndSetDefaults() error {
 type Config struct {
 	log.FieldLogger
 	utils.Printer
+	*signals.InterruptHandler
 	// StateDir specifies the install state directory on local host
 	StateDir string
-	// TermC specifies the termination handler registration channel
-	TermC chan<- utils.Stopper
 	// ConnectTimeout specifies the maximum amount of time to wait for
 	// installer service connection. Wait forever, if unspecified
 	ConnectTimeout time.Duration
@@ -96,14 +96,11 @@ type Config struct {
 	ServiceName string
 }
 
-func (r *client) addTerminationHandler(ctx context.Context) {
-	select {
-	case r.TermC <- utils.StopperFunc(func(ctx context.Context) error {
+func (r *client) addTerminationHandler() {
+	r.InterruptHandler.Add(signals.StopperFunc(func(ctx context.Context) error {
 		_, err := r.client.Shutdown(ctx, &installpb.ShutdownRequest{})
 		return trace.Wrap(err)
-	}):
-	case <-ctx.Done():
-	}
+	}))
 }
 
 type client struct {

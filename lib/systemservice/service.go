@@ -94,13 +94,13 @@ type ServiceSpec struct {
 	Dependencies Dependencies `json:"Dependencies"`
 	// StartCommand defines the command to execute when the service starts
 	StartCommand string `json:"StartCommand"`
-	// StartPreCommand defines the command to execute before the service starts
-	StartPreCommand string `json:"StartPreCommand"`
-	// StartPreCommand defines the command to execute after the service starts
+	// StartPreCommand defines the commands to execute before the service starts
+	StartPreCommands []string `json:"StartPreCommands,omitempty"`
+	// StartPostCommand defines the command to execute after the service starts
 	StartPostCommand string `json:"StartPostCommand"`
 	// StopCommand defines the command to execute when the service stops
 	StopCommand string `json:"StopCommand"`
-	// StopPreCommand defines the command to execute after the service stops
+	// StopPostCommand defines the command to execute after the service stops
 	StopPostCommand string `json:"StopPostCommand"`
 	// Timeout is a timeout in seconds
 	Timeout int `json:"Timeout"`

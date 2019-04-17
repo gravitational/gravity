@@ -346,6 +346,7 @@ func (p *Process) Shutdown(ctx context.Context) {
 		if p.healthServer != nil {
 			p.healthServer.Shutdown(ctx)
 		}
+		p.proxy.Close()
 	})
 	p.TeleportProcess.Shutdown(ctx)
 }

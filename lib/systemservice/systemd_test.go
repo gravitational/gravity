@@ -55,7 +55,7 @@ func (s *SystemdSuite) TestServiceTemplate(c *C) {
 			StartCommand:     "start",
 			StopCommand:      "stop",
 			StopPostCommand:  "stop post",
-			StartPreCommand:  "start pre",
+			StartPreCommands: []string{"pre-command", "another pre-command"},
 			StartPostCommand: "start post",
 			WantedBy:         "test.target",
 			KillMode:         "cgroup",
@@ -94,7 +94,8 @@ TimeoutStartSec=4
 Type=oneshot
 User=root
 ExecStart=start
-ExecStartPre=start pre
+ExecStartPre=pre-command
+ExecStartPre=another pre-command
 ExecStartPost=start post
 ExecStop=stop
 ExecStopPost=stop post

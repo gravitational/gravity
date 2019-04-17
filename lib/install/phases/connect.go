@@ -103,6 +103,7 @@ func (p *connectExecutor) Execute(ctx context.Context) error {
 	if err != nil {
 		return trace.Wrap(err)
 	}
+	defer clusterClient.Close()
 	clusterAuthorities, err := p.getAuthorities(clusterClient, p.Plan.ClusterName)
 	if err != nil {
 		return trace.Wrap(err)
@@ -114,6 +115,7 @@ func (p *connectExecutor) Execute(ctx context.Context) error {
 	if err != nil {
 		return trace.Wrap(err)
 	}
+	defer installerClient.Close()
 	installerAuthorities, err := p.getAuthorities(installerClient, trustedCluster.GetName())
 	if err != nil {
 		return trace.Wrap(err)
@@ -146,7 +148,7 @@ func (p *connectExecutor) Execute(ctx context.Context) error {
 	return nil
 }
 
-func (p *connectExecutor) getAuthClient(ctx context.Context, operator ops.Operator, proxyHost, clusterName string) (client auth.ClientI, err error) {
+func (p *connectExecutor) getAuthClient(ctx context.Context, operator ops.Operator, proxyHost, clusterName string) (client *clients.AuthClient, err error) {
 	// Retry a few times to account for possible network errors.
 	err = utils.RetryOnNetworkError(defaults.RetryInterval, defaults.RetryLessAttempts, func() error {
 		client, err = clients.TeleportAuth(ctx, operator, proxyHost, clusterName)

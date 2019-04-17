@@ -725,7 +725,7 @@ func Execute(g *Application, cmd string, extraArgs []string) error {
 			ConfigPackage: *g.SystemServiceInstallCmd.ConfigPackage,
 			ServiceSpec: systemservice.ServiceSpec{
 				StartCommand:     *g.SystemServiceInstallCmd.StartCommand,
-				StartPreCommand:  *g.SystemServiceInstallCmd.StartPreCommand,
+				StartPreCommands: []string{*g.SystemServiceInstallCmd.StartPreCommand},
 				StartPostCommand: *g.SystemServiceInstallCmd.StartPostCommand,
 				StopCommand:      *g.SystemServiceInstallCmd.StopCommand,
 				StopPostCommand:  *g.SystemServiceInstallCmd.StopPostCommand,
