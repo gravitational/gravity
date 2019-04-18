@@ -140,6 +140,12 @@ func (srv *agentServer) Shutdown(ctx context.Context, _ *types.Empty) (*types.Em
 	return &types.Empty{}, nil
 }
 
+func (srv *agentServer) Uninstall(context.Context, *pb.UninstallRequest) (*types.Empty, error) {
+	srv.Info("Uninstall.")
+	// TODO
+	return &types.Empty{}, nil
+}
+
 func (srv *agentServer) command(req pb.CommandArgs, stream pb.Agent_CommandServer, log *log.Entry) (err error) {
 	defer func() {
 		r := recover()

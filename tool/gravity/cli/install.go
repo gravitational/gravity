@@ -49,6 +49,7 @@ import (
 	pb "github.com/gravitational/gravity/lib/rpc/proto"
 	rpcserver "github.com/gravitational/gravity/lib/rpc/server"
 	"github.com/gravitational/gravity/lib/storage"
+	"github.com/gravitational/gravity/lib/system/service"
 	"github.com/gravitational/gravity/lib/system/signals"
 	"github.com/gravitational/gravity/lib/systeminfo"
 	"github.com/gravitational/gravity/lib/systemservice"
@@ -64,18 +65,17 @@ import (
 // operation progress
 func InstallerClient(env *localenv.LocalEnvironment, config InstallConfig) error {
 	ctx, cancel := context.WithCancel(context.Background())
-	interrupt := signals.NewInterruptHandler(ctx, cancel, InterruptSignals)
+	// FIXME: cancel is probably not needed here due to inversion of control
+	interrupt := signals.NewInterruptHandler(ctx, cancel, clientInterruptSignals)
 	defer func() {
 		cancel()
 		<-interrupt.Done()
 	}()
-	go TerminationHandler(interrupt, cancel, env)
+	clientC := clientTerminationHandler(ctx, cancel, interrupt, env)
 
 	env.PrintStep("Connecting to installer")
-	args := append([]string{utils.Exe.Path}, os.Args[1:]...)
-	args = append(args, "--from-service", config.StateDir)
 	client, err := installerclient.New(ctx, installerclient.Config{
-		Args:              args,
+		Args:              installerServiceCommandline(config.StateDir),
 		StateDir:          env.StateDir,
 		OperationStateDir: config.writeStateDir,
 		Packages:          env.Packages,
@@ -87,6 +87,7 @@ func InstallerClient(env *localenv.LocalEnvironment, config InstallConfig) error
 	if err != nil {
 		return trace.Wrap(err)
 	}
+	addCancelInstallationHandler(ctx, client, clientC)
 	env.PrintStep("Connected to installer")
 	return trace.Wrap(client.Run(ctx))
 }
@@ -95,19 +96,17 @@ func InstallerClient(env *localenv.LocalEnvironment, config InstallConfig) error
 // The client is responsible for triggering the install operation and observing
 // operation progress
 func JoinClient(env *localenv.LocalEnvironment, config JoinConfig) error {
-	env.PrintStep("Connecting to agent")
-
 	ctx, cancel := context.WithCancel(context.Background())
-	interrupt := signals.NewInterruptHandler(ctx, cancel, InterruptSignals)
+	interrupt := signals.NewInterruptHandler(ctx, cancel, clientInterruptSignals)
 	defer func() {
 		cancel()
 		<-interrupt.Done()
 	}()
-	go TerminationHandler(interrupt, cancel, env)
-	args := append([]string{utils.Exe.Path}, os.Args[1:]...)
-	args = append(args, "--from-service")
+	clientC := clientTerminationHandler(ctx, cancel, interrupt, env)
+
+	env.PrintStep("Connecting to agent")
 	client, err := installerclient.New(ctx, installerclient.Config{
-		Args:              args,
+		Args:              joinServiceCommandline(),
 		StateDir:          env.StateDir,
 		OperationStateDir: env.StateDir,
 		Packages:          env.Packages,
@@ -119,6 +118,7 @@ func JoinClient(env *localenv.LocalEnvironment, config JoinConfig) error {
 	if err != nil {
 		return trace.Wrap(err)
 	}
+	addCancelInstallationHandler(ctx, client, clientC)
 	env.PrintStep("Connected to agent")
 	return trace.Wrap(client.Run(ctx))
 }
@@ -158,47 +158,75 @@ func Join(env, joinEnv *localenv.LocalEnvironment, config JoinConfig) error {
 	return trace.Wrap(peer.Serve(listener))
 }
 
-// InterruptSignals lists signals considered interrupt signals
+// InterruptSignals lists signals installer service considers interrupts
 var InterruptSignals = signals.WithSignals(
 	os.Interrupt,
 	syscall.SIGTERM,
 	syscall.SIGQUIT,
 )
 
-// TerminationHandler implements the default interrupt handler for the install operation
+// clientInterruptSignals lists signals installer client considers interrupts
+var clientInterruptSignals = signals.WithSignals(
+	os.Interrupt,
+)
+
+// clientTerminationHandler implements the default interrupt handler for the installer client
+func clientTerminationHandler(ctx context.Context, cancel context.CancelFunc, interrupt *signals.InterruptHandler, printer utils.Printer) chan<- serviceClient {
+	clientC := make(chan serviceClient, 1)
+	go func() {
+		// timer defines the interrupt cancellation policy.
+		// If the interrupt signal is not re-triggered within the allotted time,
+		// the signal is dropped
+		timer := time.NewTimer(5 * time.Second)
+		var timerC <-chan time.Time
+		// number of consecutive interrupts
+		var interrupts int
+		var client serviceClient
+		for {
+			select {
+			case sig := <-interrupt.C:
+				if client == nil || client.Completed() {
+					// Fast path
+					cancel()
+					return
+				}
+				// Interrupt signaled
+				interrupts += 1
+				if interrupts > 1 {
+					printer.Println("Received", sig, "signal. Aborting the installer gracefully, please wait.")
+					if err := client.Uninstall(ctx); err != nil {
+						log.WithError(err).Warn("Failed to uninstall service.")
+					}
+					cancel()
+					return
+				}
+				printer.Println("Press Ctrl+C again to abort the installation.")
+				if !timer.Stop() {
+					<-timer.C
+				}
+				timer.Reset(5 * time.Second)
+				timerC = timer.C
+			case <-timerC:
+				// Drop this interrupt signal
+				interrupts = 0
+				timerC = nil
+			case client = <-clientC:
+			case <-interrupt.Done():
+				return
+			}
+		}
+	}()
+	return clientC
+}
+
+// TerminationHandler implements the default interrupt handler for the installer service
 func TerminationHandler(interrupt *signals.InterruptHandler, cancel context.CancelFunc, printer utils.Printer) {
-	// timer defines the interrupt cancellation policy.
-	// If the interrupt signal is not re-triggered within the allotted time,
-	// the signal is dropped
-	timer := time.NewTimer(5 * time.Second)
-	var timerC <-chan time.Time
-	// number of consecutive interrupts
-	var interrupts int
 	for {
 		select {
 		case sig := <-interrupt.C:
-			if sig != os.Interrupt {
-				printer.Println("Received", sig, "signal. Terminating the installer gracefully, please wait.")
-				cancel()
-				return
-			}
-			// Interrupt signaled
-			interrupts += 1
-			if interrupts > 1 {
-				printer.Println("Received", sig, "signal. Aborting the installer gracefully, please wait.")
-				cancel()
-				return
-			}
-			printer.Println("Press Ctrl+C again to abort the installation.")
-			if !timer.Stop() {
-				<-timer.C
-			}
-			timer.Reset(5 * time.Second)
-			timerC = timer.C
-		case <-timerC:
-			// Drop this interrupt signal
-			interrupts = 0
-			timerC = nil
+			printer.Println("Received", sig, "signal. Terminating the installer gracefully, please wait.")
+			cancel()
+			return
 		case <-interrupt.Done():
 			return
 		}
@@ -571,7 +599,7 @@ func agent(env *localenv.LocalEnvironment, config agentConfig, serviceName strin
 			Name:    serviceName,
 		}
 		log.Infof("Installing service with req %+v.", req)
-		err := systemservice.ReinstallOneshotService(req)
+		err := service.ReinstallOneshot(req)
 		if err != nil {
 			return trace.Wrap(err)
 		}
@@ -964,4 +992,28 @@ func loadRPCCredentials(ctx context.Context, addr, token string) (*rpcserver.Cre
 		return nil, trace.Wrap(err)
 	}
 	return creds, nil
+}
+
+func installerServiceCommandline(applicationDir string) (args []string) {
+	args = append([]string{utils.Exe.Path}, os.Args[1:]...)
+	return append(args, "--from-service", applicationDir)
+}
+
+func joinServiceCommandline() (args []string) {
+	args = append([]string{utils.Exe.Path}, os.Args[1:]...)
+	return append(args, "--from-service")
+}
+
+func addCancelInstallationHandler(ctx context.Context, client serviceClient, clientC chan<- serviceClient) {
+	select {
+	case clientC <- client:
+	case <-ctx.Done():
+	}
+}
+
+type serviceClient interface {
+	// Uninstall uninstalls the installer service
+	Uninstall(context.Context) error
+	// Completed returns true if the operation has already completed
+	Completed() bool
 }

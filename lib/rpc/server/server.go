@@ -93,7 +93,7 @@ func (srv *agentServer) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 }
 
 // Stop requests the server to stop and clean up
-func (srv *agentServer) Stop(_ context.Context) error {
+func (srv *agentServer) Stop(context.Context) error {
 	select {
 	case <-srv.ctx.Done():
 		return nil

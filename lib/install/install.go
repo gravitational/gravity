@@ -24,13 +24,12 @@ import (
 	"net"
 	"os"
 	"strconv"
-	"sync"
 	"time"
 
 	"github.com/gravitational/gravity/lib/constants"
 	"github.com/gravitational/gravity/lib/defaults"
 	"github.com/gravitational/gravity/lib/fsm"
-	installpb "github.com/gravitational/gravity/lib/install/proto"
+	"github.com/gravitational/gravity/lib/install/server"
 	"github.com/gravitational/gravity/lib/localenv"
 	"github.com/gravitational/gravity/lib/modules"
 	"github.com/gravitational/gravity/lib/ops"
@@ -40,10 +39,8 @@ import (
 	rpcserver "github.com/gravitational/gravity/lib/rpc/server"
 	"github.com/gravitational/gravity/lib/status"
 	"github.com/gravitational/gravity/lib/storage"
-	log "github.com/sirupsen/logrus"
 
 	"github.com/gravitational/trace"
-	"google.golang.org/grpc"
 )
 
 // New returns a new instance of the unstarted installer server
@@ -52,39 +49,49 @@ func New(ctx context.Context, config Config) (*Installer, error) {
 	if err != nil {
 		return nil, trace.Wrap(err)
 	}
+	server := server.New(ctx)
 	localCtx, cancel := context.WithCancel(ctx)
-	grpcServer := grpc.NewServer()
 	installer := &Installer{
-		Config:    config,
-		parentCtx: ctx,
-		ctx:       localCtx,
-		cancel:    cancel,
-		rpc:       grpcServer,
-		// TODO(dmitri): arbitrary channel buffer size
-		eventsC: make(chan Event, 100),
+		Config: config,
+		server: server,
+		ctx:    localCtx,
+		cancel: cancel,
 	}
-	installpb.RegisterAgentServer(grpcServer, installer)
 	return installer, nil
 }
+
+/*
+// Top-level installer interface:
+type Installer interface {
+	Serve(Engine, net.Listener) error
+	// Stop stops the installer server and releases all resources.
+	// This does a graceful shutdown of all components
+	Stop(context.Context) error
+	// Uninstall aborts the operation in progress and cleans up the installer state
+	// on the node.
+	// It will issue the Uninstall command to all connected agents, which will execute
+	// similar clean up operations remotely
+	Uninstall(context.Context) error
+}
+*/
 
 // Serve starts the server using the specified engine
 func (i *Installer) Serve(engine Engine, listener net.Listener) error {
 	i.engine = engine
-	return trace.Wrap(i.rpc.Serve(listener))
+	return trace.Wrap(i.server.Serve(i, listener))
 }
 
 // Stop releases resources allocated by the installer
 func (i *Installer) Stop(ctx context.Context) error {
 	i.cancel()
 	i.Config.Process.Shutdown(ctx)
-	i.rpc.GracefulStop()
+	i.server.Stop()
 	var errors []error
 	for _, c := range i.closers {
 		if err := c.Close(ctx); err != nil {
 			errors = append(errors, err)
 		}
 	}
-	i.serveWG.Wait()
 	return trace.NewAggregate(errors...)
 }
 
@@ -114,6 +121,8 @@ type Interface interface {
 
 // NotifyOperationAvailable is invoked by the engine to notify the server
 // that the operation has been created
+//
+// Implements Interface
 func (i *Installer) NotifyOperationAvailable(operationKey ops.SiteOperationKey) error {
 	i.addCloser(CloserFunc(func(ctx context.Context) error {
 		i.WithField("operation", operationKey.OperationID).Info("Stopping agent service.")
@@ -122,16 +131,14 @@ func (i *Installer) NotifyOperationAvailable(operationKey ops.SiteOperationKey) 
 	if err := i.upsertAdminAgent(operationKey.SiteDomain); err != nil {
 		return trace.Wrap(err)
 	}
-	i.serveWG.Add(1)
-	go func() {
-		i.progressLoop(operationKey)
-		i.serveWG.Done()
-	}()
+	i.server.RunProgressLoop(i.Operator, operationKey)
 	return nil
 }
 
 // NewAgent creates a new installer agent
 // FIXME: accept (serverAddr,token) tuple instead of agentURL
+//
+// Implements Interface
 func (i *Installer) NewAgent(agentURL string) (rpcserver.Server, error) {
 	serverAddr, token, err := SplitAgentURL(agentURL)
 	if err != nil {
@@ -165,6 +172,8 @@ func (i *Installer) NewAgent(agentURL string) (rpcserver.Server, error) {
 }
 
 // Finalize executes additional steps after the installation has completed
+//
+// Implements Interface
 func (i *Installer) Finalize(operation ops.SiteOperation) error {
 	var errors []error
 	if err := i.uploadInstallLog(operation.Key()); err != nil {
@@ -179,6 +188,8 @@ func (i *Installer) Finalize(operation ops.SiteOperation) error {
 // CompleteFinalInstallStep marks the final install step as completed unless
 // the application has a custom install step - in which case it does nothing
 // because it will be completed by user later
+//
+// Implements Interface
 func (i *Installer) CompleteFinalInstallStep(delay time.Duration) error {
 	req := ops.CompleteFinalInstallStepRequest{
 		AccountID:           defaults.SystemAccountID,
@@ -193,67 +204,11 @@ func (i *Installer) CompleteFinalInstallStep(delay time.Duration) error {
 }
 
 // PrintStep publishes a progress entry described with (format, args) tuple to the client
+//
+// Implements Interface
 func (i *Installer) PrintStep(format string, args ...interface{}) error {
-	event := Event{Progress: &ops.ProgressEntry{Message: fmt.Sprintf(format, args...)}}
-	return trace.Wrap(i.send(event))
-}
-
-// Execute executes the installation using the specified engine
-// Implements installpb.AgentServer
-func (i *Installer) Execute(req *installpb.ExecuteRequest, stream installpb.Agent_ExecuteServer) error {
-	i.executeOnce.Do(func() {
-		i.serveWG.Add(1)
-		go func() {
-			if err := i.execute(); err != nil {
-				i.WithError(err).Info("Failed to execute.")
-				if err := i.sendError(err); err != nil {
-					// TODO: only exit if unable to send the error.
-					// Otherwise, the client will shut down the server at
-					// the most appropriate time
-				}
-			}
-			i.serveWG.Done()
-			i.Stop(i.parentCtx)
-		}()
-	})
-	for {
-		select {
-		case event := <-i.eventsC:
-			resp := &installpb.ProgressResponse{}
-			if event.Progress != nil {
-				resp.Message = event.Progress.Message
-			} else if event.Error != nil {
-				resp.Errors = append(resp.Errors, &installpb.Error{Message: event.Error.Error()})
-			}
-			err := stream.Send(resp)
-			if err != nil {
-				return trace.Wrap(err)
-			}
-			if resp.Complete {
-				return nil
-			}
-		case <-stream.Context().Done():
-			return trace.Wrap(stream.Context().Err())
-		case <-i.parentCtx.Done():
-			return trace.Wrap(i.parentCtx.Err())
-		case <-i.ctx.Done():
-			// Clean exit
-			return nil
-		}
-	}
-	return nil
-}
-
-// Shutdown shuts down the installer.
-// Implements installpb.AgentServer
-func (i *Installer) Shutdown(ctx context.Context, req *installpb.ShutdownRequest) (*installpb.ShutdownResponse, error) {
-	// The caller should be blocked at least as long as the wizard process is closing.
-	// TODO(dmitri): find out how this returns to the caller and whether it would make sense
-	// to split the shut down into several steps with wizard shutdown to be invoked as part of Shutdown
-	// and the rest - from a goroutine so the caller is not receiving an error when the server stops
-	// serving
-	i.Stop(ctx)
-	return &installpb.ShutdownResponse{}, nil
+	event := server.Event{Progress: &ops.ProgressEntry{Message: fmt.Sprintf(format, args...)}}
+	return trace.Wrap(i.server.Send(event))
 }
 
 // Wait blocks until either the context has been cancelled or the wizard process
@@ -307,7 +262,9 @@ func (i *Installer) NewCluster() ops.NewSiteRequest {
 	}
 }
 
-func (i *Installer) execute() (err error) {
+// Execute executes the install operation using the specified engine
+// Implements lib/install/server.Executor
+func (i *Installer) Execute() (err error) {
 	err = i.engine.Validate(i.ctx, i.Config)
 	if err != nil {
 		return trace.Wrap(err)
@@ -320,41 +277,6 @@ func (i *Installer) execute() (err error) {
 	return nil
 }
 
-func (i *Installer) progressLoop(operationKey ops.SiteOperationKey) {
-	i.WithField("operation", operationKey.OperationID).Info("Start progress feedback loop.")
-	ticker := time.NewTicker(1 * time.Second)
-	defer ticker.Stop()
-	var lastProgress *ops.ProgressEntry
-	for {
-		select {
-		case <-ticker.C:
-			if progress := i.updateProgress(operationKey, lastProgress); progress != nil {
-				lastProgress = progress
-				if progress.IsCompleted() {
-					return
-				}
-			}
-		case <-i.parentCtx.Done():
-			return
-		case <-i.ctx.Done():
-			return
-		}
-	}
-}
-
-func (i *Installer) updateProgress(operationKey ops.SiteOperationKey, lastProgress *ops.ProgressEntry) *ops.ProgressEntry {
-	progress, err := i.Operator.GetSiteOperationProgress(operationKey)
-	if err != nil {
-		i.WithError(err).Warn("Failed to query operation progress.")
-		return nil
-	}
-	if lastProgress != nil && lastProgress.IsEqual(*progress) {
-		return nil
-	}
-	i.send(Event{Progress: progress})
-	return progress
-}
-
 // FIXME(dmitri): this information should also be displayed when working with the operation
 // manually
 func (i *Installer) printPostInstallBanner() {
@@ -363,34 +285,11 @@ func (i *Installer) printPostInstallBanner() {
 	if m, ok := modules.Get().(modules.Messager); ok {
 		fmt.Fprintf(&buf, "\n%v", m.PostInstallMessage())
 	}
-	i.Printer.Print(buf.String())
-	event := Event{Progress: &ops.ProgressEntry{
+	event := server.Event{Progress: &ops.ProgressEntry{
 		Message:    buf.String(),
 		Completion: constants.Completed,
 	}}
-	i.send(event)
-}
-
-func (i *Installer) sendError(err error) error {
-	return trace.Wrap(i.send(Event{Error: err}))
-}
-
-// send streams the specified progress event to the client.
-// The method will not block - event will be dropped if it cannot be published
-// (subject to internal channel buffer capacity)
-func (i *Installer) send(event Event) error {
-	select {
-	case i.eventsC <- event:
-		// Pushed the progress event
-		return nil
-	case <-i.parentCtx.Done():
-		return nil
-	case <-i.ctx.Done():
-		return nil
-	default:
-		log.WithField("event", event).Warn("Failed to publish event.")
-		return trace.BadParameter("failed to publish event")
-	}
+	i.server.Send(event)
 }
 
 func (i *Installer) printEndpoints(w io.Writer) {
@@ -473,18 +372,11 @@ type Installer struct {
 	// Config specifies the configuration for the install operation
 	Config
 	closers []Closer
-	// parentCtx specifies the external context.
-	// If cancelled, all operations abort with the corresponding error
-	parentCtx context.Context
 	// ctx defines the local server context used to cancel internal operation
-	ctx     context.Context
-	cancel  context.CancelFunc
-	eventsC chan Event
-	// rpc is the fabric to communicate to the server client prcess
-	rpc         *grpc.Server
-	engine      Engine
-	executeOnce sync.Once
-	serveWG     sync.WaitGroup
+	ctx    context.Context
+	cancel context.CancelFunc
+	server *server.Server
+	engine Engine
 }
 
 // Engine implements the process of cluster installation
@@ -504,21 +396,6 @@ type Engine interface {
 	Execute(ctx context.Context, installer Interface, config Config) error
 }
 
-// String formats this event for readability
-func (r Event) String() string {
-	var buf bytes.Buffer
-	fmt.Print(&buf, "event(")
-	if r.Progress != nil {
-		fmt.Fprintf(&buf, "progress(completed=%v, message=%v),",
-			r.Progress.Completion, r.Progress.Message)
-	}
-	if r.Error != nil {
-		fmt.Fprintf(&buf, "error(%v)", r.Error.Error())
-	}
-	fmt.Print(&buf, ")")
-	return buf.String()
-}
-
 // // timeSinceBeginning returns formatted operation duration
 // func (i *Installer) timeSinceBeginning(key ops.SiteOperationKey) string {
 // 	operation, err := i.Operator.GetSiteOperation(key)
@@ -528,11 +405,3 @@ func (r Event) String() string {
 // 	}
 // 	return time.Since(operation.Created).String()
 // }
-
-// Event describes the installer progress step
-type Event struct {
-	// Progress describes the operation progress
-	Progress *ops.ProgressEntry
-	// Error specifies the error if any
-	Error error
-}

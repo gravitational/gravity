@@ -22,7 +22,6 @@ import (
 	"net"
 	"net/url"
 	"strings"
-	"sync"
 	"time"
 
 	"github.com/gravitational/gravity/lib/app"
@@ -33,7 +32,7 @@ import (
 	"github.com/gravitational/gravity/lib/fsm"
 	"github.com/gravitational/gravity/lib/httplib"
 	"github.com/gravitational/gravity/lib/install"
-	installpb "github.com/gravitational/gravity/lib/install/proto"
+	"github.com/gravitational/gravity/lib/install/server"
 	"github.com/gravitational/gravity/lib/localenv"
 	validationpb "github.com/gravitational/gravity/lib/network/validation/proto"
 	"github.com/gravitational/gravity/lib/ops"
@@ -52,7 +51,6 @@ import (
 	"github.com/gravitational/roundtrip"
 	"github.com/gravitational/trace"
 	log "github.com/sirupsen/logrus"
-	"google.golang.org/grpc"
 )
 
 // NewPeer returns new cluster peer client
@@ -61,128 +59,72 @@ func NewPeer(ctx context.Context, config PeerConfig) (*Peer, error) {
 		return nil, trace.Wrap(err)
 	}
 	localCtx, cancel := context.WithCancel(ctx)
-	grpcServer := grpc.NewServer()
+	server := server.New(ctx)
 	peer := &Peer{
 		PeerConfig: config,
-		parentCtx:  ctx,
 		ctx:        localCtx,
 		cancel:     cancel,
-		rpc:        grpcServer,
-		// FIXME(dmitri): arbitrary channel size
-		eventsC: make(chan install.Event, 100),
+		server:     server,
 	}
-	installpb.RegisterAgentServer(grpcServer, peer)
 	return peer, nil
 }
 
 // Peer is a client that manages joining the cluster
 type Peer struct {
 	PeerConfig
-	// parentCtx specifies the external context.
-	// If cancelled, all operations abort with the corresponding error
-	parentCtx context.Context
 	// ctx defines the local peer context used to cancel internal operation
 	ctx    context.Context
 	cancel context.CancelFunc
-	// eventsC is channel with events indicating install progress
-	eventsC chan install.Event
 	// agentDoneCh is the agent's done channel.
 	// The channel is only set after the agent has been started
 	agentDoneCh <-chan struct{}
 	// agent is this peer's RPC agent
 	agent *rpcserver.PeerServer
-	// rpc is the fabric to communicate to the peer client prcess
-	rpc         *grpc.Server
-	serveWG     sync.WaitGroup
-	executeOnce sync.Once
+	// server is the gRPC installer server
+	server *server.Server
 }
 
 // Serve starts the server
 func (p *Peer) Serve(listener net.Listener) error {
-	p.serveWG.Add(1)
-	go func() {
+	p.server.Run(func() {
 		watchReconnects(p.ctx, p.cancel, p.WatchCh, p.FieldLogger)
-		p.serveWG.Done()
-	}()
-	return trace.Wrap(p.rpc.Serve(listener))
+	})
+	return trace.Wrap(p.server.Serve(p, listener))
 }
 
 // Stop shuts down RPC agent
 func (p *Peer) Stop(ctx context.Context) error {
 	p.Info("Stopping peer.")
 	p.cancel()
-	p.rpc.GracefulStop()
-	var errors []error
+	p.server.Stop()
 	if p.agent != nil {
 		p.Info("Shut down agent.")
 		err := p.agent.Stop(ctx)
 		if err != nil {
-			errors = append(errors, err)
+			p.WithError(err).Warn("Failed to shut down agent.")
 		}
 	}
-	p.Info("Waiting for goroutines to exit.")
-	p.serveWG.Wait()
-	return trace.NewAggregate(errors...)
+	// p.Info("Waiting for goroutines to exit.")
+	//p.serveWG.Wait()
+	return nil
 }
 
-// Execute runs the agent main logic.
-// Implements installpb.AgentServer
-func (p *Peer) Execute(req *installpb.ExecuteRequest, stream installpb.Agent_ExecuteServer) error {
+// Execute executes the peer operation (join or just serving an agent).
+// Implements lib/install/server.Executor
+func (p *Peer) Execute() (err error) {
 	if err := p.init(); err != nil {
 		return trace.Wrap(err)
 	}
-	p.executeOnce.Do(func() {
-		p.serveWG.Add(1)
-		go func() {
-			if err := p.run(); err != nil {
-				p.WithError(err).Info("Failed to execute.")
-				p.sendError(err)
-			}
-			p.serveWG.Done()
-			p.Stop(p.parentCtx)
-		}()
-	})
-	for {
-		select {
-		case <-p.agentDoneCh:
-			p.Info("Agent shut down.")
-			return nil
-		case event := <-p.eventsC:
-			resp := &installpb.ProgressResponse{}
-			if event.Progress != nil {
-				resp.Message = event.Progress.Message
-			} else if event.Error != nil {
-				resp.Errors = append(resp.Errors, &installpb.Error{Message: event.Error.Error()})
-			}
-			err := stream.Send(resp)
-			if err != nil {
-				return trace.Wrap(err)
-			}
-		case <-stream.Context().Done():
-			return trace.Wrap(stream.Context().Err())
-		case <-p.parentCtx.Done():
-			return trace.Wrap(p.parentCtx.Err())
-		case <-p.ctx.Done():
-			// Clean exit
-			return nil
-		}
+	if err := p.run(); err != nil {
+		return trace.Wrap(err)
 	}
 	return nil
 }
 
-// Shutdown shuts down the peer.
-// Implements installpb.AgentServer
-func (p *Peer) Shutdown(ctx context.Context, req *installpb.ShutdownRequest) (*installpb.ShutdownResponse, error) {
-	p.cancel()
-	return &installpb.ShutdownResponse{}, nil
-}
-
 // printStep publishes a progress entry described with (format, args) tuple to the client
 func (p *Peer) printStep(format string, args ...interface{}) error {
-	message := fmt.Sprintf("%v\t%v", time.Now().UTC().Format(constants.HumanDateFormatSeconds),
-		fmt.Sprintf(format, args...))
-	event := install.Event{Progress: &ops.ProgressEntry{Message: message}}
-	return p.send(event)
+	event := server.Event{Progress: &ops.ProgressEntry{Message: fmt.Sprintf(format, args...)}}
+	return p.server.Send(event)
 }
 
 // PeerConfig is for peers joining the cluster
@@ -493,13 +435,13 @@ func (p *Peer) connect() (*operationContext, error) {
 }
 
 func (p *Peer) tryConnect() (op *operationContext, err error) {
-	p.sendMessage("Connecting to cluster")
+	p.printStep("Connecting to cluster")
 	for _, addr := range p.Peers {
 		p.WithField("peer", addr).Debug("Trying peer.")
 		op, err = p.dialWizard(addr)
 		if err == nil {
 			p.WithField("addr", op.Peer).Debug("Connected to wizard.")
-			p.sendMessage("Connected to installer at %v", addr)
+			p.printStep("Connected to installer at %v", addr)
 			return op, nil
 		}
 		p.WithError(err).Info("Failed connecting to wizard.")
@@ -509,14 +451,14 @@ func (p *Peer) tryConnect() (op *operationContext, err error) {
 		// already exists error is returned when there's an ongoing install
 		// operation, do not attempt to dial the cluster until it completes
 		if trace.IsAlreadyExists(err) {
-			p.sendMessage("Waiting for the install operation to finish")
+			p.printStep("Waiting for the install operation to finish")
 			return nil, trace.Wrap(err)
 		}
 
 		op, err = p.dialCluster(addr)
 		if err == nil {
 			p.WithField("addr", op.Peer).Debug("Connected to cluster.")
-			p.sendMessage("Connected to existing cluster at %v", addr)
+			p.printStep("Connected to existing cluster at %v", addr)
 			return op, nil
 		}
 		p.WithError(err).Info("Failed connecting to cluster.")
@@ -524,7 +466,7 @@ func (p *Peer) tryConnect() (op *operationContext, err error) {
 			return nil, trace.Wrap(err)
 		}
 		if trace.IsCompareFailed(err) {
-			p.sendMessage("Waiting for another operation to finish at %v", addr)
+			p.printStep("Waiting for another operation to finish at %v", addr)
 		}
 	}
 	return op, trace.Wrap(err)
@@ -561,11 +503,8 @@ func (p *Peer) run() error {
 		return trace.Wrap(err)
 	}
 	p.WithField("context", fmt.Sprintf("%+v", *ctx)).Info("Connected.")
-	p.serveWG.Add(1)
-	go func() {
-		p.progressLoop(*ctx)
-		p.serveWG.Done()
-	}()
+
+	p.server.RunProgressLoop(ctx.Operator, ctx.Operation.Key())
 
 	err = p.ensureServiceUserAndBinary(*ctx)
 	if err != nil {
@@ -615,14 +554,11 @@ func (p *Peer) run() error {
 		return trace.Wrap(p.agent.Serve())
 	}
 
-	p.serveWG.Add(1)
-	go func() {
+	p.server.Run(func() {
 		if err := p.agent.Serve(); err != nil {
 			p.WithError(err).Warn("Agent failed.")
 		}
-		p.Info("Exited agent serve loop (+done).")
-		p.serveWG.Done()
-	}()
+	})
 	return trace.Wrap(p.startExpandOperation(*ctx))
 }
 
@@ -838,70 +774,7 @@ func (p *Peer) validateWizardState(operator ops.Operator) (*ops.Site, *ops.SiteO
 	return &cluster, operation, nil
 }
 
-func (p *Peer) progressLoop(ctx operationContext) {
-	ticker := time.NewTicker(1 * time.Second)
-	defer ticker.Stop()
-	var lastProgress *ops.ProgressEntry
-	for {
-		select {
-		case <-ticker.C:
-			if progress := p.updateProgress(ctx.Operator, ctx.Operation.Key(), lastProgress); progress != nil {
-				lastProgress = progress
-				if progress.IsCompleted() {
-					return
-				}
-			}
-		case <-p.parentCtx.Done():
-			return
-		case <-p.ctx.Done():
-			return
-		}
-	}
-}
-
-func (p *Peer) updateProgress(operator ops.Operator, operationKey ops.SiteOperationKey, lastProgress *ops.ProgressEntry) *ops.ProgressEntry {
-	progress, err := operator.GetSiteOperationProgress(operationKey)
-	if err != nil {
-		p.WithError(err).Warn("Failed to query operation progress.")
-		return nil
-	}
-	if lastProgress != nil && lastProgress.IsEqual(*progress) {
-		return nil
-	}
-	p.send(install.Event{Progress: progress})
-	return progress
-}
-
-func (p *Peer) sendError(err error) error {
-	return trace.Wrap(p.send(install.Event{Error: err}))
-}
-
-// sendMessage sends an event with just a progress message
-func (p *Peer) sendMessage(format string, args ...interface{}) {
-	p.send(install.Event{
-		Progress: &ops.ProgressEntry{
-			Message: fmt.Sprintf(format, args...)},
-	})
-}
-
-// send streams the specified progress event to the client.
-// The method will not block - event will be dropped if it cannot be published
-// (subject to internal channel buffer capacity)
-func (p *Peer) send(event install.Event) error {
-	select {
-	case p.eventsC <- event:
-		// Pushed the progress event
-		return nil
-	case <-p.parentCtx.Done():
-		return trace.Wrap(p.parentCtx.Err())
-	case <-p.ctx.Done():
-		return nil
-	default:
-		p.WithField("event", event).Warn("Failed to publish event.")
-		return nil
-	}
-}
-
+// FIXME: reconnect forever
 func watchReconnects(ctx context.Context, cancel context.CancelFunc, watchCh <-chan rpcserver.WatchEvent, logger log.FieldLogger) {
 	for {
 		select {
@@ -914,8 +787,6 @@ func watchReconnects(ctx context.Context, cancel context.CancelFunc, watchCh <-c
 				"peer":       event.Peer,
 			}).Warn("Failed to reconnect, will abort.")
 			cancel()
-			return
-		case <-ctx.Done():
 			return
 		case <-ctx.Done():
 			return

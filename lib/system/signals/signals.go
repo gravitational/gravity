@@ -85,12 +85,11 @@ func NewInterruptHandler(ctx context.Context, cancel context.CancelFunc, opts ..
 				close(doneC)
 				return
 			}
-			// Cannot use the context from parameters since it might have already been cancelled
-			localCtx, localCancel := context.WithTimeout(context.Background(), defaults.ShutdownTimeout)
+			stopCtx, stopCancel := context.WithTimeout(context.Background(), defaults.ShutdownTimeout)
 			for _, stopper := range stoppers {
-				stopper.Stop(localCtx)
+				stopper.Stop(stopCtx)
 			}
-			localCancel()
+			stopCancel()
 			cancel()
 			close(doneC)
 		}()
@@ -99,7 +98,7 @@ func NewInterruptHandler(ctx context.Context, cancel context.CancelFunc, opts ..
 			case <-ctx.Done():
 				// Reset the signal handler so the next signal is handled
 				// directly by the runtime
-				signal.Reset(signals...)
+				signal.Reset(handler.signals...)
 				return
 			case stoppers := <-termC:
 				stoppers = append(stoppers, stoppers...)

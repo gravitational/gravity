@@ -7,8 +7,8 @@ import (
 
 	"github.com/gravitational/gravity/lib/fsm"
 	installpb "github.com/gravitational/gravity/lib/install/proto"
+	"github.com/gravitational/gravity/lib/system/service"
 	"github.com/gravitational/gravity/lib/system/signals"
-	"github.com/gravitational/gravity/lib/systemservice"
 	"github.com/gravitational/gravity/lib/utils"
 
 	"github.com/gravitational/trace"
@@ -110,7 +110,7 @@ type client struct {
 
 // restartService restarts the installer's systemd unit
 func restartService(name string) error {
-	return trace.Wrap(systemservice.StartOneshotService(name))
+	return trace.Wrap(service.Start(name))
 }
 
 func isDone(doneC <-chan struct{}) bool {

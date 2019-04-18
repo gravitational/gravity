@@ -9,6 +9,10 @@ service Agent {
 
     // Shutdown requests that the installer exit
     rpc Shutdown(ShutdownRequest) returns (ShutdownResponse);
+
+    // Uninstall requests that the installer service aborts and cleans up
+    // the state of the operation
+    rpc Uninstall(UninstallRequest) returns (UninstallResponse);
 }
 
 // ExecuteRequest describes a request to execute install operation
@@ -21,6 +25,14 @@ message ShutdownRequest {
 
 // ShutdownResponse describes the server response to the shut down request
 message ShutdownResponse {
+}
+
+// UninstallRequest describes a request to abort the operation and clean up
+message UninstallRequest {
+}
+
+// UninstallResponse describes the server response to the uninstall request
+message UninstallResponse {
 }
 
 // ProgressResponse describes a single progress step

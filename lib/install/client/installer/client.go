@@ -7,14 +7,16 @@ import (
 	"os"
 	"os/user"
 	"path/filepath"
-	"strconv"
 	"strings"
+	"sync/atomic"
 	"time"
 
 	"github.com/fatih/color"
+	"github.com/gravitational/gravity/lib/constants"
 	"github.com/gravitational/gravity/lib/defaults"
 	installpb "github.com/gravitational/gravity/lib/install/proto"
 	"github.com/gravitational/gravity/lib/pack"
+	"github.com/gravitational/gravity/lib/system/service"
 	"github.com/gravitational/gravity/lib/system/signals"
 	"github.com/gravitational/gravity/lib/systemservice"
 	"github.com/gravitational/gravity/lib/utils"
@@ -56,6 +58,17 @@ func (r *client) Run(ctx context.Context) error {
 		return trace.Wrap(err)
 	}
 	return trace.Wrap(r.progressLoop(ctx, stream))
+}
+
+// Uninstall invokes the Uninstall API on the service
+func (r *client) Uninstall(ctx context.Context) error {
+	_, err := r.client.Uninstall(ctx, &installpb.UninstallRequest{})
+	return trace.Wrap(err)
+}
+
+// Completed returns true if the operation has already been completed
+func (r *client) Completed() bool {
+	return atomic.LoadInt32((*int32)(&r.completed)) == 1
 }
 
 func (r *Config) checkAndSetDefaults() error {
@@ -100,11 +113,12 @@ type Config struct {
 }
 
 func (r *client) connectRunning(ctx context.Context) error {
+	const connectionTimeout = 10 * time.Second
 	if _, err := os.Stat(installpb.SocketPath(r.OperationStateDir)); err != nil && os.IsNotExist(err) {
 		// Fail fast when the socket file has not been created
 		return trace.ConvertSystemError(err)
 	}
-	ctx, cancel := context.WithTimeout(ctx, 10*time.Second)
+	ctx, cancel := context.WithTimeout(ctx, connectionTimeout)
 	defer cancel()
 	client, err := installpb.NewClient(ctx, r.OperationStateDir, r.FieldLogger,
 		// Fail fast at first non-temporary error
@@ -149,25 +163,21 @@ func (r *client) connectNew(ctx context.Context) error {
 // installSelfAsService installs a systemd unit using the current process's command line
 // and turns on service mode
 func (r *client) installSelfAsService() error {
-	uid := strconv.FormatInt(int64(os.Geteuid()), 32)
 	req := systemservice.NewServiceRequest{
 		ServiceSpec: systemservice.ServiceSpec{
-			// Output the gravity binary version once started
-			StartCommand: fmt.Sprintf("%v version", utils.Exe.Path),
+			StartCommand: strings.Join(r.Args, " "),
 			StartPreCommands: []string{
 				removeSocketFileCommand(installpb.SocketPath(r.OperationStateDir)),
-				strings.Join(r.Args, " "),
 			},
-			User: uid,
-			// FIXME: does not work with one-shot
-			// Restart:         "on-failure",
-			RemainAfterExit: false,
+			// TODO(dmitri): run as euid?
+			User:    constants.RootUIDString,
+			Restart: "on-failure",
 		},
 		Name:    r.ServiceName,
 		NoBlock: true,
 	}
 	r.WithField("req", fmt.Sprintf("%+v", req)).Info("Install service.")
-	return trace.Wrap(systemservice.ReinstallOneshotService(req))
+	return trace.Wrap(service.Reinstall(req))
 }
 
 // checkLocalState performs a local environment sanity check to make sure
@@ -209,6 +219,7 @@ func (r *client) progressLoop(ctx context.Context, stream installpb.Agent_Execut
 		}
 		r.PrintStep(resp.Message)
 	}
+	r.markCompleted()
 	return nil
 }
 
@@ -219,13 +230,19 @@ func (r *client) addTerminationHandler() {
 	}))
 }
 
+func (r *client) markCompleted() {
+	atomic.StoreInt32((*int32)(&r.completed), 1)
+}
+
 type client struct {
 	Config
 	client installpb.AgentClient
+	// completed indicates whether the operation is complete
+	completed int32
 }
 
 func uninstallService(name string) error {
-	return trace.Wrap(systemservice.UninstallService(name))
+	return trace.Wrap(service.Uninstall(name))
 }
 
 func isDone(doneC <-chan struct{}) bool {
