@@ -100,7 +100,7 @@ func NewWebHandler(cfg WebHandlerConfig) (*WebHandler, error) {
 
 	// Applications API
 	h.GET("/portal/v1/apps", h.needsAuth(h.getApps))
-	h.GET("/portal/v1/gravity", h.needsAuth(h.getGravity))
+	h.GET("/portal/v1/gravity", h.needsAuth(h.getGravityBinary))
 
 	// Accounts API
 	h.POST("/portal/v1/accounts", h.needsAuth(h.createAccount))
@@ -370,11 +370,11 @@ func (h *WebHandler) getApps(w http.ResponseWriter, r *http.Request, p httproute
 	return nil
 }
 
-/* getGravity exports the cluster's gravity binary.
+/* getGravityBinary exports the cluster's gravity binary.
 
    GET /portal/v1/gravity
 */
-func (h *WebHandler) getGravity(w http.ResponseWriter, r *http.Request, p httprouter.Params, ctx *HandlerContext) error {
+func (h *WebHandler) getGravityBinary(w http.ResponseWriter, r *http.Request, p httprouter.Params, ctx *HandlerContext) error {
 	cluster, err := ctx.Operator.GetLocalSite()
 	if err != nil {
 		return trace.Wrap(err)

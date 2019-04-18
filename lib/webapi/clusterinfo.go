@@ -39,7 +39,7 @@ type webClusterInfo struct {
 	PublicURLs []string `json:"publicURL"`
 	// InternalURLs is a list of internal cluster management URLs.
 	InternalURLs []string `json:"internalURLs"`
-	// Commans contains various commands that can be run on the cluster.
+	// Commands contains various commands that can be run on the cluster.
 	Commands webClusterCommands `json:"commands"`
 }
 

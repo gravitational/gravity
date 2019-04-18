@@ -106,9 +106,8 @@ func SplitHostPort(in, defaultPort string) (host string, port string) {
 func EnsurePort(address, defaultPort string) string {
 	if _, _, err := net.SplitHostPort(address); err == nil {
 		return address
-	} else {
-		return net.JoinHostPort(address, defaultPort)
 	}
+	return net.JoinHostPort(address, defaultPort)
 }
 
 // Hosts returns a list of hosts from the provided host:port addresses
