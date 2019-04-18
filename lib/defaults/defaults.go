@@ -225,8 +225,10 @@ const (
 	// SystemLogDir is the directory where gravity logs go
 	SystemLogDir = "/var/log"
 
-	// TelekubePackage is the Telekube application package name
+	// TelekubePackage is the Telekube cluster image name.
 	TelekubePackage = "telekube"
+	// OpsCenterPackage is the Ops Center cluster image name.
+	OpsCenterPackage = "opscenter"
 
 	// EnvironmentPath is the path to the environment file
 	EnvironmentPath = "/etc/environment"

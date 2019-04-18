@@ -153,6 +153,15 @@ func (c *Client) CreateUser(req ops.NewUserRequest) error {
 	return nil
 }
 
+// UpdateUser updates the specified user information.
+func (c *Client) UpdateUser(ctx context.Context, req ops.UpdateUserRequest) error {
+	_, err := c.PutJSON(c.Endpoint("accounts", req.AccountID, "sites", req.SiteDomain, "users", req.Name), req)
+	if err != nil {
+		return trace.Wrap(err)
+	}
+	return nil
+}
+
 func (c *Client) DeleteLocalUser(name string) error {
 	_, err := c.Delete(c.Endpoint("users", name))
 	if err != nil {
@@ -1385,34 +1394,52 @@ func (c *Client) DeleteUser(key ops.SiteKey, name string) error {
 	return trace.Wrap(err)
 }
 
-// InviteUser creates a user invite and returns a token
-func (c *Client) InviteUser(key ops.SiteKey, req ops.UserInviteRequest) (*storage.UserToken, error) {
-	out, err := c.PostJSON(c.Endpoint("accounts", key.AccountID, "sites", key.SiteDomain, "tokens", "userinvites"), req)
+// CreateUserInvite creates a new invite token for a user.
+func (c *Client) CreateUserInvite(ctx context.Context, req ops.CreateUserInviteRequest) (*storage.UserToken, error) {
+	out, err := c.PostJSON(c.Endpoint("accounts", req.AccountID, "sites", req.SiteDomain, "tokens", "userinvites"), req)
 	if err != nil {
 		return nil, trace.Wrap(err)
 	}
-
-	var res storage.UserToken
-	if err := json.Unmarshal(out.Bytes(), &res); err != nil {
+	var inviteToken storage.UserToken
+	if err := json.Unmarshal(out.Bytes(), &inviteToken); err != nil {
 		return nil, trace.Wrap(err)
 	}
-
-	return &res, nil
+	return &inviteToken, nil
 }
 
-// ResetUser creates a user reset and returns a token
-func (c *Client) ResetUser(key ops.SiteKey, req ops.UserResetRequest) (*storage.UserToken, error) {
-	out, err := c.PostJSON(c.Endpoint("accounts", key.AccountID, "sites", key.SiteDomain, "tokens", "userresets"), req)
+// GetUserInvites returns all active user invites.
+func (c *Client) GetUserInvites(ctx context.Context, key ops.SiteKey) ([]storage.UserInvite, error) {
+	out, err := c.Get(c.Endpoint("accounts", key.AccountID, "sites", key.SiteDomain, "tokens", "userinvites"), url.Values{})
 	if err != nil {
 		return nil, trace.Wrap(err)
 	}
-
-	var res storage.UserToken
-	if err := json.Unmarshal(out.Bytes(), &res); err != nil {
+	var invites []storage.UserInvite
+	if err := json.Unmarshal(out.Bytes(), &invites); err != nil {
 		return nil, trace.Wrap(err)
 	}
+	return invites, nil
+}
 
-	return &res, nil
+// DeleteUserInvite deletes the specified user invite.
+func (c *Client) DeleteUserInvite(ctx context.Context, req ops.DeleteUserInviteRequest) error {
+	_, err := c.Delete(c.Endpoint("accounts", req.AccountID, "sites", req.SiteDomain, "tokens", "userinvites", req.Name))
+	if err != nil {
+		return trace.Wrap(err)
+	}
+	return nil
+}
+
+// CreateUserReset creates a new reset token for a user.
+func (c *Client) CreateUserReset(ctx context.Context, req ops.CreateUserResetRequest) (*storage.UserToken, error) {
+	out, err := c.PostJSON(c.Endpoint("accounts", req.AccountID, "sites", req.SiteDomain, "tokens", "userresets"), req)
+	if err != nil {
+		return nil, trace.Wrap(err)
+	}
+	var resetToken storage.UserToken
+	if err := json.Unmarshal(out.Bytes(), &resetToken); err != nil {
+		return nil, trace.Wrap(err)
+	}
+	return &resetToken, nil
 }
 
 // UpsertGithubConnector creates or updates a Github connector

@@ -145,6 +145,15 @@ func (r *Router) CreateUser(req ops.NewUserRequest) error {
 	return r.Local.CreateUser(req)
 }
 
+// UpdateUser updates the specified user information.
+func (r *Router) UpdateUser(ctx context.Context, req ops.UpdateUserRequest) error {
+	client, err := r.PickClient(req.SiteDomain)
+	if err != nil {
+		return trace.Wrap(err)
+	}
+	return client.UpdateUser(ctx, req)
+}
+
 func (r *Router) DeleteLocalUser(name string) error {
 	return r.Local.DeleteLocalUser(name)
 }
@@ -894,4 +903,40 @@ func (r *Router) ListReleases(key ops.SiteKey) ([]storage.Release, error) {
 // EmitAuditEvent saves the provided event in the audit log.
 func (r *Router) EmitAuditEvent(ctx context.Context, req ops.AuditEventRequest) error {
 	return r.Local.EmitAuditEvent(ctx, req)
+}
+
+// CreateUserInvite creates a new invite token for a user.
+func (r *Router) CreateUserInvite(ctx context.Context, req ops.CreateUserInviteRequest) (*storage.UserToken, error) {
+	client, err := r.PickClient(req.SiteDomain)
+	if err != nil {
+		return nil, trace.Wrap(err)
+	}
+	return client.CreateUserInvite(ctx, req)
+}
+
+// GetUserInvites returns all active user invites.
+func (r *Router) GetUserInvites(ctx context.Context, key ops.SiteKey) ([]storage.UserInvite, error) {
+	client, err := r.PickClient(key.SiteDomain)
+	if err != nil {
+		return nil, trace.Wrap(err)
+	}
+	return client.GetUserInvites(ctx, key)
+}
+
+// DeleteUserInvite deletes the specified user invite.
+func (r *Router) DeleteUserInvite(ctx context.Context, req ops.DeleteUserInviteRequest) error {
+	client, err := r.PickClient(req.SiteDomain)
+	if err != nil {
+		return trace.Wrap(err)
+	}
+	return client.DeleteUserInvite(ctx, req)
+}
+
+// CreateUserInvite creates a new reset token for a user.
+func (r *Router) CreateUserReset(ctx context.Context, req ops.CreateUserResetRequest) (*storage.UserToken, error) {
+	client, err := r.PickClient(req.SiteDomain)
+	if err != nil {
+		return nil, trace.Wrap(err)
+	}
+	return client.CreateUserReset(ctx, req)
 }

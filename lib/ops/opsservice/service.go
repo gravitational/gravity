@@ -50,6 +50,7 @@ import (
 	"github.com/gravitational/teleport/lib/events"
 	"github.com/gravitational/teleport/lib/reversetunnel"
 	teleservices "github.com/gravitational/teleport/lib/services"
+	teleutils "github.com/gravitational/teleport/lib/utils"
 	"github.com/gravitational/trace"
 	"github.com/mailgun/timetools"
 	log "github.com/sirupsen/logrus"
@@ -115,6 +116,9 @@ type Config struct {
 
 	// ProcessID uniquely identifies gravity process
 	ProcessID string
+
+	// PublicAddr is the operator service public advertise address
+	PublicAddr teleutils.NetAddr
 
 	// InstallLogFiles is a list of additional install log files
 	// to add to install and expand operations for local troubleshooting
@@ -284,6 +288,10 @@ func (o *Operator) users() users.Identity {
 
 func (o *Operator) clock() timetools.TimeProvider {
 	return o.cfg.Clock
+}
+
+func (o *Operator) publicURL() string {
+	return fmt.Sprintf("https://" + o.cfg.PublicAddr.String())
 }
 
 func (o *Operator) GetAccount(accountID string) (*ops.Account, error) {
