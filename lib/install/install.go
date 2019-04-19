@@ -121,8 +121,6 @@ type Interface interface {
 
 // NotifyOperationAvailable is invoked by the engine to notify the server
 // that the operation has been created
-//
-// Implements Interface
 func (i *Installer) NotifyOperationAvailable(operationKey ops.SiteOperationKey) error {
 	i.addCloser(CloserFunc(func(ctx context.Context) error {
 		i.WithField("operation", operationKey.OperationID).Info("Stopping agent service.")
@@ -137,8 +135,6 @@ func (i *Installer) NotifyOperationAvailable(operationKey ops.SiteOperationKey) 
 
 // NewAgent creates a new installer agent
 // FIXME: accept (serverAddr,token) tuple instead of agentURL
-//
-// Implements Interface
 func (i *Installer) NewAgent(agentURL string) (rpcserver.Server, error) {
 	serverAddr, token, err := SplitAgentURL(agentURL)
 	if err != nil {
@@ -172,8 +168,6 @@ func (i *Installer) NewAgent(agentURL string) (rpcserver.Server, error) {
 }
 
 // Finalize executes additional steps after the installation has completed
-//
-// Implements Interface
 func (i *Installer) Finalize(operation ops.SiteOperation) error {
 	var errors []error
 	if err := i.uploadInstallLog(operation.Key()); err != nil {
@@ -188,8 +182,6 @@ func (i *Installer) Finalize(operation ops.SiteOperation) error {
 // CompleteFinalInstallStep marks the final install step as completed unless
 // the application has a custom install step - in which case it does nothing
 // because it will be completed by user later
-//
-// Implements Interface
 func (i *Installer) CompleteFinalInstallStep(delay time.Duration) error {
 	req := ops.CompleteFinalInstallStepRequest{
 		AccountID:           defaults.SystemAccountID,
@@ -204,8 +196,6 @@ func (i *Installer) CompleteFinalInstallStep(delay time.Duration) error {
 }
 
 // PrintStep publishes a progress entry described with (format, args) tuple to the client
-//
-// Implements Interface
 func (i *Installer) PrintStep(format string, args ...interface{}) error {
 	event := server.Event{Progress: &ops.ProgressEntry{Message: fmt.Sprintf(format, args...)}}
 	return trace.Wrap(i.server.Send(event))
@@ -215,6 +205,25 @@ func (i *Installer) PrintStep(format string, args ...interface{}) error {
 // exits with an error
 func (i *Installer) Wait() error {
 	return trace.Wrap(i.Process.Wait())
+}
+
+// Uninstall aborts the installation and cleans up the operation state
+func (i *Installer) Uninstall(ctx context.Context) error {
+	return trace.Wrap(i.UninstallHandler(ctx))
+}
+
+// Execute executes the install operation using the specified engine
+func (i *Installer) Execute() error {
+	err := i.engine.Validate(i.ctx, i.Config)
+	if err != nil {
+		return trace.Wrap(err)
+	}
+	err = i.engine.Execute(i.ctx, i, i.Config)
+	if err != nil {
+		return trace.Wrap(err)
+	}
+	i.printPostInstallBanner()
+	return nil
 }
 
 // NewStateMachine returns a new instance of the installer state machine.
@@ -262,22 +271,7 @@ func (i *Installer) NewCluster() ops.NewSiteRequest {
 	}
 }
 
-// Execute executes the install operation using the specified engine
-// Implements lib/install/server.Executor
-func (i *Installer) Execute() (err error) {
-	err = i.engine.Validate(i.ctx, i.Config)
-	if err != nil {
-		return trace.Wrap(err)
-	}
-	err = i.engine.Execute(i.ctx, i, i.Config)
-	if err != nil {
-		return trace.Wrap(err)
-	}
-	i.printPostInstallBanner()
-	return nil
-}
-
-// FIXME(dmitri): this information should also be displayed when working with the operation
+// TODO(dmitri): this information should also be displayed when working with the operation
 // manually
 func (i *Installer) printPostInstallBanner() {
 	var buf bytes.Buffer
@@ -372,7 +366,7 @@ type Installer struct {
 	// Config specifies the configuration for the install operation
 	Config
 	closers []Closer
-	// ctx defines the local server context used to cancel internal operation
+	// ctx controls the lifespan of internal processes
 	ctx    context.Context
 	cancel context.CancelFunc
 	server *server.Server

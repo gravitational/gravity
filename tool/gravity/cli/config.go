@@ -39,6 +39,7 @@ import (
 	"github.com/gravitational/gravity/lib/schema"
 	"github.com/gravitational/gravity/lib/storage"
 	"github.com/gravitational/gravity/lib/storage/clusterconfig"
+	"github.com/gravitational/gravity/lib/system/cleanup"
 	"github.com/gravitational/gravity/lib/systeminfo"
 	"github.com/gravitational/gravity/lib/utils"
 
@@ -710,4 +711,18 @@ func generateInstallToken(service ops.Operator, installToken string) (*storage.I
 		return nil, trace.Wrap(err)
 	}
 	return token, nil
+}
+
+// installerUninstallSystem implements the clean up phase when the installer service
+// is explicitly interrupted by user
+func installerUninstallSystem() error {
+	logger := log.WithField(trace.Component, "installer:cleanup")
+	var errors []error
+	if err := cleanup.UninstallSystem(utils.DiscardPrinter, logger); err != nil {
+		errors = append(errors, err)
+	}
+	if err := cleanup.DisableAgentServices(logger); err != nil {
+		errors = append(errors, err)
+	}
+	return trace.NewAggregate(errors...)
 }

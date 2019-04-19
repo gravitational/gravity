@@ -33,6 +33,8 @@ message UninstallRequest {
 
 // UninstallResponse describes the server response to the uninstall request
 message UninstallResponse {
+    // Error specifies the error from the uninstall handler
+    Error error = 1;
 }
 
 // ProgressResponse describes a single progress step

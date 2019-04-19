@@ -43,13 +43,17 @@ func (r *Server) Serve(executor Executor, listener net.Listener) error {
 
 // Stop stops the server gracefully
 func (r *Server) Stop() {
+	r.cancel()
 	r.rpc.GracefulStop()
+	r.serveWG.Wait()
 }
 
 // Uninstall aborts the operation and cleans up the state
 // Implements installpb.AgentServer
 func (r *Server) Uninstall(ctx context.Context, req *installpb.UninstallRequest) (*installpb.UninstallResponse, error) {
-	// TODO
+	if err := r.executor.Uninstall(ctx); err != nil {
+		return &installpb.UninstallResponse{Error: &installpb.Error{Message: err.Error()}}, nil
+	}
 	return &installpb.UninstallResponse{}, nil
 }
 
@@ -75,8 +79,8 @@ func (r *Server) Execute(req *installpb.ExecuteRequest, stream installpb.Agent_E
 				r.WithError(err).Info("Failed to execute.")
 				if err := r.sendError(err); err != nil {
 					// TODO: only exit if unable to send the error.
-					// Otherwise, the client will shut down the server at
-					// the most appropriate time
+					// Otherwise, the client will shut down the server as
+					// it sees fit
 				}
 			}
 			r.serveWG.Done()
@@ -143,6 +147,8 @@ type Executor interface {
 	Execute() error
 	// Stop signals the executor that it should abort the operation
 	Stop(context.Context) error
+	// Uninstall aborts the installation and cleans up the operation state
+	Uninstall(context.Context) error
 }
 
 // Server implements the installer gRPC server

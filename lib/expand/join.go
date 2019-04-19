@@ -110,7 +110,6 @@ func (p *Peer) Stop(ctx context.Context) error {
 }
 
 // Execute executes the peer operation (join or just serving an agent).
-// Implements lib/install/server.Executor
 func (p *Peer) Execute() (err error) {
 	if err := p.init(); err != nil {
 		return trace.Wrap(err)
@@ -119,6 +118,11 @@ func (p *Peer) Execute() (err error) {
 		return trace.Wrap(err)
 	}
 	return nil
+}
+
+// Uninstall aborts the installation and cleans up the operation state
+func (p *Peer) Uninstall(ctx context.Context) error {
+	return trace.Wrap(p.UninstallHandler(ctx))
 }
 
 // printStep publishes a progress entry described with (format, args) tuple to the client
@@ -160,6 +164,8 @@ type PeerConfig struct {
 	OperationID string
 	// StateDir defines where peer will store operation-specific data
 	StateDir string
+	// UninstallHandler specifies the handler for aborting the installation
+	UninstallHandler func(context.Context) error
 }
 
 // CheckAndSetDefaults checks the parameters and autodetects some defaults
@@ -190,6 +196,9 @@ func (c *PeerConfig) CheckAndSetDefaults() (err error) {
 	}
 	if c.StateDir == "" {
 		return trace.BadParameter("missing StateDir")
+	}
+	if c.UninstallHandler == nil {
+		return trace.BadParameter("missing UninstallHandler")
 	}
 	c.CloudProvider, err = install.ValidateCloudProvider(c.CloudProvider)
 	if err != nil {
