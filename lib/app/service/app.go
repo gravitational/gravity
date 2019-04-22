@@ -349,12 +349,12 @@ func (r *applications) StreamAppHookLogs(ctx context.Context, ref appservice.Hoo
 }
 
 // DeleteAppHookJob deletes app hook job
-func (r *applications) DeleteAppHookJob(ctx context.Context, ref appservice.HookRef) error {
+func (r *applications) DeleteAppHookJob(ctx context.Context, req appservice.DeleteAppHookJobRequest) error {
 	client, err := r.getKubeClient()
 	if err != nil {
 		return trace.Wrap(err)
 	}
-	return appservice.DeleteAppHookJob(ctx, client, ref)
+	return appservice.DeleteAppHookJob(ctx, client, req)
 }
 
 // StatusApp retrieves the status of a running application

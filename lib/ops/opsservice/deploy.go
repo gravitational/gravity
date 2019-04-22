@@ -146,12 +146,14 @@ func remoteDirectories(operation ops.SiteOperation, server *ProvisionedServer, m
 		}
 		if mount.UID != nil || mount.GID != nil {
 			expr := chownExpr(mount.UID, mount.GID)
-			commands = append(commands,
-				Cmd([]string{"chown", expr, mount.Source}, "setting ownership of %v to %v", mount.Source, expr),
-			)
+			commands = append(commands, Cmd(
+				[]string{"chown", expr, mount.Source},
+				"setting ownership of %v to %v", mount.Source, expr))
 		} else {
 			// set standard ownership
-			chownList = append(chownList, mount.Source)
+			commands = append(commands, Cmd(
+				[]string{"chown", fmt.Sprintf("%v:%v", uid, gid), mount.Source},
+				"setting ownership of %v to %v:%v", mount.Source, uid, gid))
 		}
 		if mount.Mode != "" {
 			commands = append(commands,
