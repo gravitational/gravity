@@ -95,21 +95,18 @@ func (p *Peer) Serve(listener net.Listener) error {
 // Stop shuts down RPC agent
 func (p *Peer) Stop(ctx context.Context) error {
 	p.Info("Stopping peer.")
-	p.cancel()
-	p.server.Stop()
-	if p.agent != nil {
-		p.Info("Shut down agent.")
-		err := p.agent.Stop(ctx)
-		if err != nil {
-			p.WithError(err).Warn("Failed to shut down agent.")
-		}
-	}
-	// p.Info("Waiting for goroutines to exit.")
-	//p.serveWG.Wait()
+	p.server.Stop(ctx)
 	return nil
 }
 
+// Shutdown shuts down this peer.
+// Implements server.Executor
+func (p *Peer) Shutdown(ctx context.Context) error {
+	return trace.Wrap(p.stop(ctx))
+}
+
 // Execute executes the peer operation (join or just serving an agent).
+// Implements server.Executor
 func (p *Peer) Execute() (err error) {
 	if err := p.init(); err != nil {
 		return trace.Wrap(err)
@@ -120,9 +117,17 @@ func (p *Peer) Execute() (err error) {
 	return nil
 }
 
-// Uninstall aborts the installation and cleans up the operation state
+// Uninstall aborts the installation and cleans up the operation state.
+// Implements server.Executor
 func (p *Peer) Uninstall(ctx context.Context) error {
-	return trace.Wrap(p.UninstallHandler(ctx))
+	if err := p.stop(ctx); err != nil {
+		p.WithError(err).Warn("Failed to stop peer.")
+	}
+	p.server.WaitForOperation()
+	if err := p.UninstallHandler(ctx); err != nil {
+		p.WithError(err).Warn("Failed to uninstall system.")
+	}
+	return nil
 }
 
 // printStep publishes a progress entry described with (format, args) tuple to the client
@@ -219,6 +224,20 @@ func (p *Peer) init() error {
 		return trace.Wrap(err)
 	}
 	return nil
+}
+
+// stop stops peer operation
+func (p *Peer) stop(ctx context.Context) error {
+	p.cancel()
+	var errors []error
+	if p.agent != nil {
+		p.Info("Shut down agent.")
+		err := p.agent.Stop(ctx)
+		if err != nil {
+			errors = append(errors, err)
+		}
+	}
+	return trace.NewAggregate(errors...)
 }
 
 func (p *Peer) dialCluster(addr string) (*operationContext, error) {

@@ -58,7 +58,7 @@ func ExecuteOperation(
 	if err := machine.Complete(planErr); err != nil {
 		return trace.Wrap(err)
 	}
-	return nil
+	return trace.Wrap(planErr)
 }
 
 // InitOperationPlan initializes a new operation plan for the specified install operation

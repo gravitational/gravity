@@ -21,17 +21,17 @@ import (
 	"context"
 	"os"
 	"os/signal"
+	"sync"
 	"syscall"
 
-	"github.com/gravitational/gravity/lib/defaults"
 	"github.com/gravitational/gravity/lib/utils"
 )
 
 // WatchTerminationSignals stops the provided stopper when it gets one of monitored signals.
 // It is a convenience wrapper over NewInterruptHandler
 func WatchTerminationSignals(ctx context.Context, cancel context.CancelFunc, stopper Stopper, printer utils.Printer) *InterruptHandler {
-	handler := NewInterruptHandler(ctx, cancel)
-	handler.Add(stopper)
+	handler := NewInterruptHandler(ctx)
+	handler.AddStopper(stopper)
 	for {
 		select {
 		case sig := <-handler.C:
@@ -48,7 +48,7 @@ func WatchTerminationSignals(ctx context.Context, cancel context.CancelFunc, sto
 // Use the select loop and handle the receives on the interrupt channel:
 //
 // ctx, cancel := ...
-// handler := NewInterruptHandler(ctx, cancel)
+// handler := NewInterruptHandler(ctx)
 // for {
 // 	select {
 //  	case <-handler.C:
@@ -59,16 +59,18 @@ func WatchTerminationSignals(ctx context.Context, cancel context.CancelFunc, sto
 //		// Done
 // 	}
 // }
-func NewInterruptHandler(ctx context.Context, cancel context.CancelFunc, opts ...InterruptOption) *InterruptHandler {
+func NewInterruptHandler(ctx context.Context, opts ...InterruptOption) *InterruptHandler {
 	var stoppers []Stopper
 	interruptC := make(chan os.Signal)
-	doneC := make(chan struct{})
+	quitC := make(chan struct{})
 	termC := make(chan []Stopper, 1)
+	var wg sync.WaitGroup
 	handler := &InterruptHandler{
 		C:     interruptC,
 		ctx:   ctx,
-		doneC: doneC,
+		quitC: quitC,
 		termC: termC,
+		wg:    wg,
 	}
 	for _, f := range opts {
 		f(handler)
@@ -78,47 +80,57 @@ func NewInterruptHandler(ctx context.Context, cancel context.CancelFunc, opts ..
 	}
 	signalC := make(chan os.Signal, 1)
 	signal.Notify(signalC, handler.signals...)
+	wg.Add(1)
 	go func() {
 		defer func() {
+			// Reset the signal handler so the next signal is handled
+			// directly by the runtime
+			signal.Reset(handler.signals...)
 			if len(stoppers) == 0 {
-				cancel()
-				close(doneC)
+				wg.Done()
 				return
 			}
-			stopCtx, stopCancel := context.WithTimeout(context.Background(), defaults.ShutdownTimeout)
+			localCtx := context.Background()
 			for _, stopper := range stoppers {
-				stopper.Stop(stopCtx)
+				stopper.Stop(localCtx)
 			}
-			stopCancel()
-			cancel()
-			close(doneC)
+			wg.Done()
 		}()
 		for {
 			select {
-			case <-ctx.Done():
-				// Reset the signal handler so the next signal is handled
-				// directly by the runtime
-				signal.Reset(handler.signals...)
-				return
-			case stoppers := <-termC:
-				stoppers = append(stoppers, stoppers...)
+			case handlers := <-termC:
+				stoppers = append(stoppers, handlers...)
 			case sig := <-signalC:
 				select {
 				case interruptC <- sig:
 				case <-ctx.Done():
 				}
+			case <-ctx.Done():
+				return
+			case <-quitC:
+				return
 			}
 		}
 	}()
 	return handler
 }
 
+// Close closes the loop and waits until all internal processes have stopped
+func (r *InterruptHandler) Close() {
+	r.closeOnce.Do(func() {
+		close(r.quitC)
+	})
+	r.wg.Wait()
+}
+
+// Done returns the channel that signals when this handler
+// is closed
 func (r *InterruptHandler) Done() <-chan struct{} {
-	return r.doneC
+	return r.quitC
 }
 
 // Add adds stoppers to the internal termination loop
-func (r *InterruptHandler) Add(stoppers ...Stopper) {
+func (r *InterruptHandler) AddStopper(stoppers ...Stopper) {
 	select {
 	case r.termC <- stoppers:
 		// Added new stopper
@@ -130,11 +142,13 @@ func (r *InterruptHandler) Add(stoppers ...Stopper) {
 type InterruptHandler struct {
 	// C is the channel that receives interrupt requests
 	C <-chan os.Signal
-	// doneC is signaled when the interruption loop has completed
-	doneC   <-chan struct{}
-	ctx     context.Context
-	termC   chan<- []Stopper
-	signals []os.Signal
+	// quitC is signaled to stop the loop
+	quitC     chan struct{}
+	ctx       context.Context
+	termC     chan<- []Stopper
+	signals   []os.Signal
+	wg        sync.WaitGroup
+	closeOnce sync.Once
 }
 
 // WithSignals specifies which signal to consider interrupt signals.

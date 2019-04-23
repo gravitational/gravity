@@ -17,6 +17,7 @@ limitations under the License.
 package cli
 
 import (
+	"context"
 	"net"
 	"os"
 
@@ -245,7 +246,8 @@ func (i *InstallConfig) CheckAndSetDefaults() (err error) {
 	if err != nil {
 		return trace.Wrap(err)
 	}
-	// FIXME: listen on all interfaces by default
+	// Listen on all interfaces by default
+	// FIXME: need to make the listen address configurable though
 	i.wizardAdvertiseAddr = "0.0.0.0"
 	return nil
 }
@@ -339,6 +341,7 @@ func (i *InstallConfig) NewInstallerConfig(wizard *localenv.RemoteEnvironment, p
 		Apps:               wizard.Apps,
 		Packages:           wizard.Packages,
 		Operator:           wizard.Operator,
+		UninstallHandler:   installerUninstallSystem,
 	}, nil
 }
 
@@ -625,20 +628,20 @@ func (j *JoinConfig) NewPeerConfig(env, joinEnv *localenv.LocalEnvironment) (*ex
 		return nil, trace.Wrap(err)
 	}
 	return &expand.PeerConfig{
-		Peers:         peers,
-		AdvertiseAddr: advertiseAddr,
-		ServerAddr:    j.ServerAddr,
-		CloudProvider: j.CloudProvider,
-		RuntimeConfig: *runtimeConfig,
-		DebugMode:     env.Debug,
-		Insecure:      env.Insecure,
-		LocalBackend:  env.Backend,
-		LocalApps:     env.Apps,
-		LocalPackages: env.Packages,
-		JoinBackend:   joinEnv.Backend,
-		StateDir:      joinEnv.StateDir,
-		// Manual:        j.Manual,
-		OperationID: j.OperationID,
+		Peers:            peers,
+		AdvertiseAddr:    advertiseAddr,
+		ServerAddr:       j.ServerAddr,
+		CloudProvider:    j.CloudProvider,
+		RuntimeConfig:    *runtimeConfig,
+		DebugMode:        env.Debug,
+		Insecure:         env.Insecure,
+		LocalBackend:     env.Backend,
+		LocalApps:        env.Apps,
+		LocalPackages:    env.Packages,
+		JoinBackend:      joinEnv.Backend,
+		StateDir:         joinEnv.StateDir,
+		UninstallHandler: installerUninstallSystem,
+		OperationID:      j.OperationID,
 		// FIXME
 		// Auto:        j.Auto,
 	}, nil
@@ -715,14 +718,14 @@ func generateInstallToken(service ops.Operator, installToken string) (*storage.I
 
 // installerUninstallSystem implements the clean up phase when the installer service
 // is explicitly interrupted by user
-func installerUninstallSystem() error {
+func installerUninstallSystem(context.Context) error {
 	logger := log.WithField(trace.Component, "installer:cleanup")
-	var errors []error
-	if err := cleanup.UninstallSystem(utils.DiscardPrinter, logger); err != nil {
-		errors = append(errors, err)
-	}
 	if err := cleanup.DisableAgentServices(logger); err != nil {
-		errors = append(errors, err)
+		logger.WithError(err).Warn("Failed to disable agent services.")
 	}
-	return trace.NewAggregate(errors...)
+	if err := cleanup.UninstallSystem(utils.DiscardPrinter, logger); err != nil {
+		logger.WithError(err).Warn("Failed to uninstall system.")
+	}
+	logger.Info("System uninstalled.")
+	return nil
 }

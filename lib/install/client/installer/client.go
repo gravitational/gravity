@@ -30,12 +30,16 @@ import (
 
 // New returns a new client to handle the installer case.
 // See docs/design/client/install.puml for details
-func New(ctx context.Context, config Config) (*client, error) {
+func New(ctx context.Context, config Config) (*Client, error) {
 	err := config.checkAndSetDefaults()
 	if err != nil {
 		return nil, trace.Wrap(err)
 	}
-	c := &client{Config: config}
+	c := &Client{
+		FieldLogger: config.FieldLogger,
+		Printer:     config.Printer,
+		config:      config,
+	}
 	c.WithField("config", fmt.Sprintf("%+v", config)).Info("Starting installer client.")
 	c.Info("Connecting to running instance.")
 	err = c.connectRunning(ctx)
@@ -52,22 +56,30 @@ func New(ctx context.Context, config Config) (*client, error) {
 
 // Run starts the service operation and runs the loop to fetch and display
 // operation progress
-func (r *client) Run(ctx context.Context) error {
+func (r *Client) Run(ctx context.Context) error {
 	stream, err := r.client.Execute(ctx, &installpb.ExecuteRequest{})
 	if err != nil {
 		return trace.Wrap(err)
 	}
-	return trace.Wrap(r.progressLoop(ctx, stream))
+	err = r.progressLoop(stream)
+	r.Shutdown(ctx)
+	return trace.Wrap(err)
+}
+
+// Shutdown signals the service to stop
+func (r *Client) Shutdown(ctx context.Context) error {
+	_, err := r.client.Shutdown(ctx, &installpb.ShutdownRequest{})
+	return trace.Wrap(err)
 }
 
 // Uninstall invokes the Uninstall API on the service
-func (r *client) Uninstall(ctx context.Context) error {
+func (r *Client) Uninstall(ctx context.Context) error {
 	_, err := r.client.Uninstall(ctx, &installpb.UninstallRequest{})
 	return trace.Wrap(err)
 }
 
 // Completed returns true if the operation has already been completed
-func (r *client) Completed() bool {
+func (r *Client) Completed() bool {
 	return atomic.LoadInt32((*int32)(&r.completed)) == 1
 }
 
@@ -112,15 +124,15 @@ type Config struct {
 	ServiceName string
 }
 
-func (r *client) connectRunning(ctx context.Context) error {
+func (r *Client) connectRunning(ctx context.Context) error {
 	const connectionTimeout = 10 * time.Second
-	if _, err := os.Stat(installpb.SocketPath(r.OperationStateDir)); err != nil && os.IsNotExist(err) {
+	if _, err := os.Stat(installpb.SocketPath(r.config.OperationStateDir)); err != nil && os.IsNotExist(err) {
 		// Fail fast when the socket file has not been created
 		return trace.ConvertSystemError(err)
 	}
 	ctx, cancel := context.WithTimeout(ctx, connectionTimeout)
 	defer cancel()
-	client, err := installpb.NewClient(ctx, r.OperationStateDir, r.FieldLogger,
+	client, err := installpb.NewClient(ctx, r.config.OperationStateDir, r.FieldLogger,
 		// Fail fast at first non-temporary error
 		grpc.FailOnNonTempDialError(true))
 	if err != nil {
@@ -131,7 +143,7 @@ func (r *client) connectRunning(ctx context.Context) error {
 	return nil
 }
 
-func (r *client) connectNew(ctx context.Context) error {
+func (r *Client) connectNew(ctx context.Context) error {
 	err := r.checkLocalState()
 	if err != nil {
 		return trace.Wrap(err)
@@ -144,14 +156,14 @@ func (r *client) connectNew(ctx context.Context) error {
 		if err == nil {
 			return
 		}
-		uninstallService(r.ServiceName)
+		uninstallService(r.config.ServiceName)
 	}()
-	if r.ConnectTimeout != 0 {
+	if r.config.ConnectTimeout != 0 {
 		var cancel context.CancelFunc
-		ctx, cancel = context.WithTimeout(ctx, r.ConnectTimeout)
+		ctx, cancel = context.WithTimeout(ctx, r.config.ConnectTimeout)
 		defer cancel()
 	}
-	client, err := installpb.NewClient(ctx, r.OperationStateDir, r.FieldLogger)
+	client, err := installpb.NewClient(ctx, r.config.OperationStateDir, r.FieldLogger)
 	if err != nil {
 		return trace.Wrap(err)
 	}
@@ -162,18 +174,20 @@ func (r *client) connectNew(ctx context.Context) error {
 
 // installSelfAsService installs a systemd unit using the current process's command line
 // and turns on service mode
-func (r *client) installSelfAsService() error {
+func (r *Client) installSelfAsService() error {
 	req := systemservice.NewServiceRequest{
 		ServiceSpec: systemservice.ServiceSpec{
-			StartCommand: strings.Join(r.Args, " "),
+			StartCommand: strings.Join(r.config.Args, " "),
 			StartPreCommands: []string{
-				removeSocketFileCommand(installpb.SocketPath(r.OperationStateDir)),
+				removeSocketFileCommand(installpb.SocketPath(r.config.OperationStateDir)),
 			},
+			// FIXME
+			// RestartPreventExitStatus: "",
 			// TODO(dmitri): run as euid?
 			User:    constants.RootUIDString,
 			Restart: "on-failure",
 		},
-		Name:    r.ServiceName,
+		Name:    r.config.ServiceName,
 		NoBlock: true,
 	}
 	r.WithField("req", fmt.Sprintf("%+v", req)).Info("Install service.")
@@ -182,10 +196,10 @@ func (r *client) installSelfAsService() error {
 
 // checkLocalState performs a local environment sanity check to make sure
 // that install/join on this node can proceed without issues
-func (r *client) checkLocalState() error {
+func (r *Client) checkLocalState() error {
 	// make sure that there are no packages in the local state left from
 	// some improperly cleaned up installation
-	packages, err := r.Packages.GetPackages(defaults.SystemAccountOrg)
+	packages, err := r.config.Packages.GetPackages(defaults.SystemAccountOrg)
 	if err != nil {
 		return trace.Wrap(err)
 	}
@@ -193,20 +207,20 @@ func (r *client) checkLocalState() error {
 		return trace.BadParameter("detected previous installation state in %v, "+
 			"please clean it up using `gravity leave --force` before proceeding "+
 			"(see https://gravitational.com/gravity/docs/cluster/#deleting-a-cluster for more details)",
-			r.StateDir)
+			r.config.StateDir)
 	}
 	return nil
 }
 
-func (r *client) progressLoop(ctx context.Context, stream installpb.Agent_ExecuteClient) error {
-	var resp installpb.ProgressResponse
-	for !resp.Complete && !isDone(ctx.Done()) {
+func (r *Client) progressLoop(stream installpb.Agent_ExecuteClient) (err error) {
+	for {
 		resp, err := stream.Recv()
 		if err != nil {
 			if s, ok := status.FromError(err); ok && s.Code() == codes.Canceled {
 				return nil
 			}
 			if trace.Unwrap(err) == io.EOF {
+				// Stream done
 				return nil
 			}
 			r.WithError(err).Warn("Failed to fetch progress.")
@@ -218,24 +232,30 @@ func (r *client) progressLoop(ctx context.Context, stream installpb.Agent_Execut
 			return trace.BadParameter(resp.Errors[0].Message)
 		}
 		r.PrintStep(resp.Message)
+		if resp.Complete {
+			break
+		}
 	}
 	r.markCompleted()
 	return nil
 }
 
-func (r *client) addTerminationHandler() {
-	r.InterruptHandler.Add(signals.StopperFunc(func(ctx context.Context) error {
+func (r *Client) addTerminationHandler() {
+	r.config.InterruptHandler.AddStopper(signals.StopperFunc(func(ctx context.Context) error {
 		_, err := r.client.Shutdown(ctx, &installpb.ShutdownRequest{})
 		return trace.Wrap(err)
 	}))
 }
 
-func (r *client) markCompleted() {
+func (r *Client) markCompleted() {
 	atomic.StoreInt32((*int32)(&r.completed), 1)
 }
 
-type client struct {
-	Config
+// Client implements the client to the installer service
+type Client struct {
+	log.FieldLogger
+	utils.Printer
+	config Config
 	client installpb.AgentClient
 	// completed indicates whether the operation is complete
 	completed int32
@@ -243,15 +263,6 @@ type client struct {
 
 func uninstallService(name string) error {
 	return trace.Wrap(service.Uninstall(name))
-}
-
-func isDone(doneC <-chan struct{}) bool {
-	select {
-	case <-doneC:
-		return true
-	default:
-		return false
-	}
 }
 
 func removeSocketFileCommand(socketPath string) (cmd string) {

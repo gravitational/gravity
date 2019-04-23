@@ -97,7 +97,7 @@ type Config struct {
 }
 
 func (r *client) addTerminationHandler() {
-	r.InterruptHandler.Add(signals.StopperFunc(func(ctx context.Context) error {
+	r.InterruptHandler.AddStopper(signals.StopperFunc(func(ctx context.Context) error {
 		_, err := r.client.Shutdown(ctx, &installpb.ShutdownRequest{})
 		return trace.Wrap(err)
 	}))

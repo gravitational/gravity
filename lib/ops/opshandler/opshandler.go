@@ -43,6 +43,7 @@ import (
 	telehttplib "github.com/gravitational/teleport/lib/httplib"
 	teleservice "github.com/gravitational/teleport/lib/service"
 	teleservices "github.com/gravitational/teleport/lib/services"
+	teleutils "github.com/gravitational/teleport/lib/utils"
 	"github.com/gravitational/trace"
 	"github.com/jonboulle/clockwork"
 	"github.com/julienschmidt/httprouter"
@@ -66,7 +67,7 @@ type WebHandlerConfig struct {
 	// Devmode is whether the process is started in dev mode
 	Devmode bool
 	// PublicAdvertiseAddr is the process public advertise address
-	PublicAdvertiseAddr utils.NetAddr
+	PublicAdvertiseAddr teleutils.NetAddr
 	// EventBroadcaster specifies the event broadcaster instance
 	// to dispatch events
 	EventBroadcaster

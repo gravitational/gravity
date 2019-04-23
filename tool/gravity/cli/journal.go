@@ -73,11 +73,8 @@ func exportRuntimeJournal(env *localenv.LocalEnvironment, outputFile string) err
 		"rootfs":          rootDir,
 	})
 	ctx, cancel := context.WithCancel(context.Background())
-	handler := signals.WatchTerminationSignals(ctx, cancel, signals.StopperFunc(cleanup), env)
-	defer func() {
-		cancel()
-		<-handler.Done()
-	}()
+	interrupt := signals.WatchTerminationSignals(ctx, cancel, signals.StopperFunc(cleanup), env)
+	defer interrupt.Close()
 
 	var w io.Writer = os.Stdout
 	if outputFile != "" {

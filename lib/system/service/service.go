@@ -49,13 +49,15 @@ func install(services systemservice.ServiceManager, req systemservice.NewService
 		req.ServiceSpec.User = constants.RootUIDString
 	}
 	err := services.StopService(req.Name)
-	if err != nil && !isUnknownServiceError(err) {
+	if err != nil && !IsUnknownServiceError(err) {
 		log.WithField("service", req.Name).Warn("Failed to stop.")
 	}
 	return trace.Wrap(services.InstallService(req))
 }
 
-func isUnknownServiceError(err error) bool {
+// IsUnknownServiceError determines whether the err specifies the
+// 'unknown service' error
+func IsUnknownServiceError(err error) bool {
 	const (
 		errCodeGenericFailure = 1
 		errCodeNotInstalled   = 5

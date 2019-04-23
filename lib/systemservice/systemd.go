@@ -256,8 +256,8 @@ func (s *systemdManager) ListPackageServices() ([]PackageServiceStatus, error) {
 		if pkg == nil {
 			continue
 		}
-		services = append(
-			services, PackageServiceStatus{Package: *pkg, Status: words[2]})
+		services = append(services,
+			PackageServiceStatus{Package: *pkg, Status: words[2]})
 	}
 	return services, nil
 }

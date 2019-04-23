@@ -12,6 +12,7 @@ import (
 	"github.com/gravitational/gravity/lib/defaults"
 	"github.com/gravitational/gravity/lib/devicemapper"
 	"github.com/gravitational/gravity/lib/state"
+	libservice "github.com/gravitational/gravity/lib/system/service"
 	"github.com/gravitational/gravity/lib/systemservice"
 	"github.com/gravitational/gravity/lib/utils"
 
@@ -59,7 +60,7 @@ func UninstallAgentServices(logger log.FieldLogger) error {
 		defaults.GravityRPCAgentServiceName,
 		defaults.GravityRPCInstallerServiceName,
 	} {
-		if err := svm.UninstallService(service); err != nil {
+		if err := svm.UninstallService(service); err != nil && !libservice.IsUnknownServiceError(err) {
 			logger.WithError(err).Warn("Failed to uninstall agent service.")
 			errors = append(errors, err)
 		}
@@ -79,7 +80,7 @@ func DisableAgentServices(logger log.FieldLogger) error {
 		defaults.GravityRPCAgentServiceName,
 		defaults.GravityRPCInstallerServiceName,
 	} {
-		if err := svm.DisableService(service); err != nil {
+		if err := svm.DisableService(service); err != nil && !libservice.IsUnknownServiceError(err) {
 			logger.WithError(err).Warn("Failed to disable agent service.")
 			errors = append(errors, err)
 		}
@@ -144,7 +145,10 @@ func removeStateDirectories(printer utils.Printer, logger log.FieldLogger) error
 		if err = os.RemoveAll(stateDir); err != nil {
 			// do not fail if the state directory cannot be removed, probably
 			// this means it is a mount
-			logger.WithError(err).Warn("Failed to remove %v.", stateDir)
+			logger.WithFields(log.Fields{
+				log.ErrorKey: err,
+				"dir":        stateDir,
+			}).Warn("Failed to remove state directory.")
 		}
 	} else {
 		errors = append(errors, err)
@@ -198,7 +202,7 @@ func dockerInfo() (*utils.DockerInfo, error) {
 	command := exec.Command("gravity", "enter", "--", "--notty", "/usr/bin/docker", "--", "info")
 	err := utils.Exec(command, &out)
 	if err != nil {
-		return nil, trace.Wrap(err, "failed to query docker info: %s", out)
+		return nil, trace.Wrap(err, "failed to query docker info: %s", out.String())
 	}
 	return utils.ParseDockerInfo(&out)
 }

@@ -26,8 +26,7 @@ func New(ctx context.Context) *Server {
 		parentCtx:   ctx,
 		ctx:         localCtx,
 		cancel:      cancel,
-		// operator:    config.Operator,
-		rpc: grpcServer,
+		rpc:         grpcServer,
 		// TODO(dmitri): arbitrary channel buffer size
 		eventsC: make(chan Event, 100),
 	}
@@ -42,19 +41,32 @@ func (r *Server) Serve(executor Executor, listener net.Listener) error {
 }
 
 // Stop stops the server gracefully
-func (r *Server) Stop() {
+func (r *Server) Stop(ctx context.Context) {
+	r.stop(ctx)
+	r.WaitForOperation()
 	r.cancel()
-	r.rpc.GracefulStop()
 	r.serveWG.Wait()
+	r.rpc.GracefulStop()
+}
+
+// WaitForOperation waits for executor to finish the operation
+func (r *Server) WaitForOperation() {
+	r.execWG.Wait()
 }
 
 // Uninstall aborts the operation and cleans up the state
 // Implements installpb.AgentServer
 func (r *Server) Uninstall(ctx context.Context, req *installpb.UninstallRequest) (*installpb.UninstallResponse, error) {
+	var errors []error
 	if err := r.executor.Uninstall(ctx); err != nil {
-		return &installpb.UninstallResponse{Error: &installpb.Error{Message: err.Error()}}, nil
+		errors = append(errors, err)
 	}
-	return &installpb.UninstallResponse{}, nil
+	go r.Stop(ctx)
+	resp := &installpb.UninstallResponse{}
+	if err := trace.NewAggregate(errors...); err != nil {
+		resp.Error = &installpb.Error{Message: err.Error()}
+	}
+	return resp, nil
 }
 
 // Shutdown shuts down the installer.
@@ -65,7 +77,8 @@ func (r *Server) Shutdown(ctx context.Context, req *installpb.ShutdownRequest) (
 	// to split the shut down into several steps with wizard shutdown to be invoked as part of Shutdown
 	// and the rest - from a goroutine so the caller is not receiving an error when the server stops
 	// serving
-	r.executor.Stop(ctx)
+	r.stop(ctx)
+	go r.Stop(ctx)
 	return &installpb.ShutdownResponse{}, nil
 }
 
@@ -73,18 +86,22 @@ func (r *Server) Shutdown(ctx context.Context, req *installpb.ShutdownRequest) (
 // Implements installpb.AgentServer
 func (r *Server) Execute(req *installpb.ExecuteRequest, stream installpb.Agent_ExecuteServer) error {
 	r.executeOnce.Do(func() {
-		r.serveWG.Add(1)
+		r.execWG.Add(1)
 		go func() {
 			if err := r.executor.Execute(); err != nil {
 				r.WithError(err).Info("Failed to execute.")
 				if err := r.sendError(err); err != nil {
+					r.WithError(err).Info("Failed to send error to client.")
 					// TODO: only exit if unable to send the error.
 					// Otherwise, the client will shut down the server as
 					// it sees fit
 				}
+				r.execWG.Done()
+				// No explicit stop in case of error
+				return
 			}
-			r.serveWG.Done()
-			r.executor.Stop(r.parentCtx)
+			r.execWG.Done()
+			r.stop(r.parentCtx)
 		}()
 	})
 	for {
@@ -93,15 +110,13 @@ func (r *Server) Execute(req *installpb.ExecuteRequest, stream installpb.Agent_E
 			resp := &installpb.ProgressResponse{}
 			if event.Progress != nil {
 				resp.Message = event.Progress.Message
+				resp.Complete = event.Progress.IsCompleted()
 			} else if event.Error != nil {
 				resp.Errors = append(resp.Errors, &installpb.Error{Message: event.Error.Error()})
 			}
 			err := stream.Send(resp)
 			if err != nil {
 				return trace.Wrap(err)
-			}
-			if resp.Complete {
-				return nil
 			}
 		case <-stream.Context().Done():
 			return trace.Wrap(stream.Context().Err())
@@ -117,10 +132,10 @@ func (r *Server) Execute(req *installpb.ExecuteRequest, stream installpb.Agent_E
 
 // Run schedules f to run until the server is stopped
 func (r *Server) Run(f func()) {
-	r.serveWG.Add(1)
+	r.execWG.Add(1)
 	go func() {
 		f()
-		r.serveWG.Done()
+		r.execWG.Done()
 	}()
 }
 
@@ -140,57 +155,6 @@ func (r *Server) Send(event Event) error {
 		r.WithField("event", event).Warn("Failed to publish event.")
 		return trace.BadParameter("failed to publish event")
 	}
-}
-
-// Executor wraps a potentially failing operation
-type Executor interface {
-	Execute() error
-	// Stop signals the executor that it should abort the operation
-	Stop(context.Context) error
-	// Uninstall aborts the installation and cleans up the operation state
-	Uninstall(context.Context) error
-}
-
-// Server implements the installer gRPC server
-type Server struct {
-	log.FieldLogger
-	// parentCtx specifies the external context.
-	// If cancelled, all operations abort with the corresponding error
-	parentCtx context.Context
-	// ctx defines the local server context used to cancel internal operation
-	ctx    context.Context
-	cancel context.CancelFunc
-
-	executor Executor
-	eventsC  chan Event
-	// rpc is the fabric to communicate to the server client prcess
-	rpc *grpc.Server
-
-	executeOnce sync.Once
-	serveWG     sync.WaitGroup
-}
-
-// String formats this event for readability
-func (r Event) String() string {
-	var buf bytes.Buffer
-	fmt.Print(&buf, "event(")
-	if r.Progress != nil {
-		fmt.Fprintf(&buf, "progress(completed=%v, message=%v),",
-			r.Progress.Completion, r.Progress.Message)
-	}
-	if r.Error != nil {
-		fmt.Fprintf(&buf, "error(%v)", r.Error.Error())
-	}
-	fmt.Print(&buf, ")")
-	return buf.String()
-}
-
-// Event describes the installer progress step
-type Event struct {
-	// Progress describes the operation progress
-	Progress *ops.ProgressEntry
-	// Error specifies the error if any
-	Error error
 }
 
 // RunProgressLoop starts progress loop for the specified operation
@@ -227,6 +191,69 @@ func (r *Server) RunProgressLoop(operator ops.Operator, operationKey ops.SiteOpe
 			}
 		}
 	}()
+}
+
+// Executor wraps a potentially failing operation
+type Executor interface {
+	Execute() error
+	// Shutdown gracefully aborts the operation
+	Shutdown(context.Context) error
+	// Uninstall gracefully aborts the operation and cleans up the operation state
+	Uninstall(context.Context) error
+}
+
+// Server implements the installer gRPC server
+type Server struct {
+	log.FieldLogger
+	// parentCtx specifies the external context.
+	// If cancelled, all operations abort with the corresponding error
+	parentCtx context.Context
+	// ctx defines the local server context used to cancel internal operation
+	ctx    context.Context
+	cancel context.CancelFunc
+
+	executor Executor
+	eventsC  chan Event
+	// rpc is the fabric to communicate to the server client prcess
+	rpc *grpc.Server
+
+	executeOnce sync.Once
+	stopOnce    sync.Once
+	// serveWG is a wait group for server internal processes
+	serveWG sync.WaitGroup
+	// execWG is a wait group for executor-specific workloads.
+	// When the group is signalled, all executor processes should
+	// have completed
+	execWG sync.WaitGroup
+}
+
+// String formats this event for readability
+func (r Event) String() string {
+	var buf bytes.Buffer
+	fmt.Print(&buf, "event(")
+	if r.Progress != nil {
+		fmt.Fprintf(&buf, "progress(completed=%v, message=%v),",
+			r.Progress.Completion, r.Progress.Message)
+	}
+	if r.Error != nil {
+		fmt.Fprintf(&buf, "error(%v)", r.Error.Error())
+	}
+	fmt.Print(&buf, ")")
+	return buf.String()
+}
+
+// Event describes the installer progress step
+type Event struct {
+	// Progress describes the operation progress
+	Progress *ops.ProgressEntry
+	// Error specifies the error if any
+	Error error
+}
+
+func (r *Server) stop(ctx context.Context) {
+	r.stopOnce.Do(func() {
+		r.executor.Shutdown(ctx)
+	})
 }
 
 func (r *Server) sendError(err error) error {

@@ -83,16 +83,9 @@ func (i *Installer) Serve(engine Engine, listener net.Listener) error {
 
 // Stop releases resources allocated by the installer
 func (i *Installer) Stop(ctx context.Context) error {
-	i.cancel()
-	i.Config.Process.Shutdown(ctx)
-	i.server.Stop()
-	var errors []error
-	for _, c := range i.closers {
-		if err := c.Close(ctx); err != nil {
-			errors = append(errors, err)
-		}
-	}
-	return trace.NewAggregate(errors...)
+	i.Info("Stop.")
+	i.server.Stop(ctx)
+	return nil
 }
 
 // Interface defines the interface of the installer as presented
@@ -207,12 +200,30 @@ func (i *Installer) Wait() error {
 	return trace.Wrap(i.Process.Wait())
 }
 
-// Uninstall aborts the installation and cleans up the operation state
+// Shutdown stop the active operation.
+// Implements server.Executor
+func (i *Installer) Shutdown(ctx context.Context) error {
+	err := i.stop(ctx)
+	i.server.WaitForOperation()
+	return trace.Wrap(err)
+}
+
+// Uninstall aborts the installation and cleans up the operation state.
+// Implements server.Executor
 func (i *Installer) Uninstall(ctx context.Context) error {
-	return trace.Wrap(i.UninstallHandler(ctx))
+	i.Info("Uninstall.")
+	if err := i.stop(ctx); err != nil {
+		i.WithError(err).Warn("Failed to stop operation.")
+	}
+	i.server.WaitForOperation()
+	if err := i.UninstallHandler(ctx); err != nil {
+		i.WithError(err).Warn("Failed to uninstall service.")
+	}
+	return nil
 }
 
 // Execute executes the install operation using the specified engine
+// Implements server.Executor
 func (i *Installer) Execute() error {
 	err := i.engine.Validate(i.ctx, i.Config)
 	if err != nil {
@@ -269,6 +280,19 @@ func (i *Installer) NewCluster() ops.NewSiteRequest {
 		Docker:       i.Docker,
 		Local:        true,
 	}
+}
+
+// stop stops the operation in progress
+func (i *Installer) stop(ctx context.Context) error {
+	i.cancel()
+	i.Config.Process.Shutdown(ctx)
+	var errors []error
+	for _, c := range i.closers {
+		if err := c.Close(ctx); err != nil {
+			errors = append(errors, err)
+		}
+	}
+	return trace.NewAggregate(errors...)
 }
 
 // TODO(dmitri): this information should also be displayed when working with the operation
