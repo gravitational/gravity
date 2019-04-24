@@ -597,9 +597,21 @@ func updateKubectl(planetPath string) (err error) {
 	for _, path := range []string{defaults.KubectlBin, defaults.KubectlBinAlternate} {
 		out, err = exec.Command("ln", "-sfT", kubectlPath, path).CombinedOutput()
 		if err == nil {
+			log.Infof("Updated kubectl symlink: %v -> %v.", path, kubectlPath)
 			break
 		}
 		log.Warnf("Failed to update kubectl symlink: %s (%v).", out, err)
+	}
+
+	// update helm symlink
+	helmPath := filepath.Join(planetPath, constants.PlanetRootfs, defaults.HelmScript)
+	for _, path := range []string{defaults.HelmBin, defaults.HelmBinAlternate} {
+		out, err = exec.Command("ln", "-sfT", helmPath, path).CombinedOutput()
+		if err == nil {
+			log.Infof("Updated helm symlink: %v -> %v.", path, helmPath)
+			break
+		}
+		log.Warnf("Failed to update helm symlink: %s (%v).", out, err)
 	}
 
 	// update kube config environment variable
