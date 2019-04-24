@@ -125,7 +125,7 @@ func (u *systemdUnit) serviceName() string {
 }
 
 func (u *systemdUnit) servicePath() string {
-	return filepath.Join(systemdUnitFileDir, u.serviceName())
+	return unitPath(u.serviceName())
 }
 
 func (s *systemdManager) installService(service serviceTemplate, noBlock bool, unitPath string) error {
@@ -216,7 +216,9 @@ func (s *systemdManager) InstallPackageService(req NewPackageServiceRequest) err
 
 // UninstallPackageService uninstalls gravity service implemented as a gravity package command
 func (s *systemdManager) UninstallPackageService(pkg loc.Locator) error {
-	return trace.Wrap(s.UninstallService(newSystemdUnit(pkg).serviceName()))
+	return trace.Wrap(s.UninstallService(UninstallServiceRequest{
+		Name: newSystemdUnit(pkg).serviceName(),
+	}))
 
 }
 
@@ -323,33 +325,42 @@ func (s *systemdManager) InstallMountService(req NewMountServiceRequest) error {
 }
 
 // UninstallService uninstalls service
-func (s *systemdManager) UninstallService(name string) error {
-	out, err := invokeSystemctl("disable", name)
+func (s *systemdManager) UninstallService(req UninstallServiceRequest) error {
+	out, err := invokeSystemctl("disable", req.Name)
 	if err != nil {
-		return trace.Wrap(err, "error disabling service %v: %v", name, out)
+		return trace.Wrap(err, "error disabling service %v: %v", req.Name, out)
 	}
 
-	out, err = invokeSystemctl("stop", name)
+	out, err = invokeSystemctl("stop", req.Name)
 	if err != nil {
-		return trace.Wrap(err, "error stopping service %v: %s", name, out)
+		return trace.Wrap(err, "error stopping service %v: %s", req.Name, out)
 	}
 
-	out, err = invokeSystemctl("is-failed", name)
+	out, err = invokeSystemctl("is-failed", req.Name)
 	status := strings.TrimSpace(out)
+
+	if req.RemoveFile {
+		if errRemove := os.Remove(unitPath(req.Name)); errRemove != nil && !os.IsNotExist(err) {
+			log.WithFields(log.Fields{
+				log.ErrorKey: errRemove,
+				"path":       unitPath(req.Name),
+			}).Warn("Failed to remove service file.")
+		}
+	}
 
 	switch status {
 	case ServiceStatusInactive:
 		// Ignore the inactive state
 		return nil
 	case ServiceStatusFailed:
-		return trace.CompareFailed("error stopping service %v: %s", name, out)
+		return trace.CompareFailed("error stopping service %q: %s", req.Name, out)
 	default:
 		if err != nil {
 			// Results of `systemctl is-failed` are purely informational
 			// beyond the state values we already check above
 			log.WithFields(log.Fields{
 				log.ErrorKey: err,
-				"name":       name,
+				"name":       req.Name,
 				"output":     out,
 			}).Debug("UninstallService.")
 		}
@@ -439,4 +450,9 @@ func invokeSystemctl(args ...string) (string, error) {
 	out := &bytes.Buffer{}
 	err := utils.ExecL(cmd, out, log.WithField(trace.Component, constants.ComponentSystem))
 	return out.String(), trace.Wrap(err)
+}
+
+// unitPath returns the default path for the systemd unit with the given name
+func unitPath(name string) (path string) {
+	return filepath.Join(systemdUnitFileDir, SystemdNameEscape(name))
 }

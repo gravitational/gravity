@@ -24,6 +24,7 @@ import (
 	"sync"
 	"syscall"
 
+	"github.com/gravitational/gravity/lib/defaults"
 	"github.com/gravitational/gravity/lib/utils"
 )
 
@@ -62,13 +63,11 @@ func WatchTerminationSignals(ctx context.Context, cancel context.CancelFunc, sto
 func NewInterruptHandler(ctx context.Context, opts ...InterruptOption) *InterruptHandler {
 	var stoppers []Stopper
 	interruptC := make(chan os.Signal)
-	quitC := make(chan struct{})
 	termC := make(chan []Stopper, 1)
 	var wg sync.WaitGroup
 	handler := &InterruptHandler{
 		C:     interruptC,
 		ctx:   ctx,
-		quitC: quitC,
 		termC: termC,
 		wg:    wg,
 	}
@@ -90,10 +89,11 @@ func NewInterruptHandler(ctx context.Context, opts ...InterruptOption) *Interrup
 				wg.Done()
 				return
 			}
-			localCtx := context.Background()
+			localCtx, cancel := context.WithTimeout(context.Background(), defaults.ShutdownTimeout)
 			for _, stopper := range stoppers {
 				stopper.Stop(localCtx)
 			}
+			cancel()
 			wg.Done()
 		}()
 		for {
@@ -107,8 +107,6 @@ func NewInterruptHandler(ctx context.Context, opts ...InterruptOption) *Interrup
 				}
 			case <-ctx.Done():
 				return
-			case <-quitC:
-				return
 			}
 		}
 	}()
@@ -117,16 +115,13 @@ func NewInterruptHandler(ctx context.Context, opts ...InterruptOption) *Interrup
 
 // Close closes the loop and waits until all internal processes have stopped
 func (r *InterruptHandler) Close() {
-	r.closeOnce.Do(func() {
-		close(r.quitC)
-	})
 	r.wg.Wait()
 }
 
 // Done returns the channel that signals when this handler
 // is closed
 func (r *InterruptHandler) Done() <-chan struct{} {
-	return r.quitC
+	return r.ctx.Done()
 }
 
 // Add adds stoppers to the internal termination loop
@@ -141,14 +136,11 @@ func (r *InterruptHandler) AddStopper(stoppers ...Stopper) {
 // InterruptHandler defines an interruption signal handler
 type InterruptHandler struct {
 	// C is the channel that receives interrupt requests
-	C <-chan os.Signal
-	// quitC is signaled to stop the loop
-	quitC     chan struct{}
-	ctx       context.Context
-	termC     chan<- []Stopper
-	signals   []os.Signal
-	wg        sync.WaitGroup
-	closeOnce sync.Once
+	C       <-chan os.Signal
+	ctx     context.Context
+	termC   chan<- []Stopper
+	signals []os.Signal
+	wg      sync.WaitGroup
 }
 
 // WithSignals specifies which signal to consider interrupt signals.

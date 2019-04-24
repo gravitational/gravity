@@ -74,6 +74,14 @@ type NewMountServiceRequest struct {
 	NoBlock bool `json:"-"`
 }
 
+// UninstallServiceRequest describes a request to uninstall a service
+type UninstallServiceRequest struct {
+	// Name identifies the service
+	Name string
+	// RemoveFile also removes the unit file
+	RemoveFile bool
+}
+
 // NewPackageServiceRequest specifies parameters needed to create a new service
 // that is using gravity package manager
 type NewPackageServiceRequest struct {
@@ -238,7 +246,7 @@ type ServiceManager interface {
 	InstallMountService(NewMountServiceRequest) error
 
 	// UninstallService uninstalls service
-	UninstallService(name string) error
+	UninstallService(UninstallServiceRequest) error
 
 	// DisableService disables service without stopping it
 	DisableService(name string) error

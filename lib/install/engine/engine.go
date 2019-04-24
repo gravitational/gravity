@@ -10,6 +10,7 @@ import (
 	"github.com/gravitational/gravity/lib/utils"
 	"github.com/gravitational/trace"
 
+	"github.com/fatih/color"
 	log "github.com/sirupsen/logrus"
 )
 
@@ -91,4 +92,9 @@ func InitOperationPlan(operator ops.Operator, planner Planner) error {
 		return trace.Wrap(err)
 	}
 	return nil
+}
+
+func init() {
+	// Enable color in progress step messages
+	color.NoColor = false
 }

@@ -64,8 +64,8 @@ import (
 // The client is responsible for triggering the install operation and observing
 // operation progress
 func InstallerClient(env *localenv.LocalEnvironment, config InstallConfig) error {
+	printInstructionsBanner(env)
 	ctx, cancel := context.WithCancel(context.Background())
-	// FIXME: cancel is probably not needed here due to inversion of control
 	interrupt := signals.NewInterruptHandler(ctx, clientInterruptSignals)
 	defer interrupt.Close()
 	clientC := clientTerminationHandler(ctx, cancel, interrupt, env)
@@ -93,6 +93,7 @@ func InstallerClient(env *localenv.LocalEnvironment, config InstallConfig) error
 // The client is responsible for triggering the install operation and observing
 // operation progress
 func JoinClient(env *localenv.LocalEnvironment, config JoinConfig) error {
+	printInstructionsBanner(env)
 	ctx, cancel := context.WithCancel(context.Background())
 	interrupt := signals.NewInterruptHandler(ctx, clientInterruptSignals)
 	defer interrupt.Close()
@@ -189,9 +190,6 @@ func clientTerminationHandler(ctx context.Context, cancel context.CancelFunc, in
 					if err := client.Uninstall(ctx); err != nil {
 						log.WithError(err).Warn("Failed to uninstall service.")
 					}
-					if err := client.Shutdown(ctx); err != nil {
-						log.WithError(err).Warn("Failed to shutdown service.")
-					}
 					cancel()
 					return
 				}
@@ -222,6 +220,8 @@ func TerminationHandler(interrupt *signals.InterruptHandler, cancel context.Canc
 			log.Info("Received ", sig, " signal. Terminating the installer gracefully, please wait.")
 			printer.Println("Received", sig, "signal. Terminating the installer gracefully, please wait.")
 			cancel()
+			return
+		case <-interrupt.Done():
 			return
 		}
 	}
@@ -716,7 +716,7 @@ func executeInstallPhase(localEnv *localenv.LocalEnvironment, p PhaseParams, ope
 	if err != nil {
 		return trace.Wrap(err)
 	}
-	return trace.Wrap(client.ExecutePhase(ctx, machine, fsm.Params{
+	return trace.Wrap(client.Execute(ctx, machine, fsm.Params{
 		PhaseID: p.PhaseID,
 		Force:   p.Force,
 	}))
@@ -994,4 +994,15 @@ func addCancelInstallationHandler(ctx context.Context, client *installerclient.C
 	case clientC <- client:
 	case <-ctx.Done():
 	}
+}
+
+func printInstructionsBanner(printer utils.Printer) {
+	printer.Println(`
+To abort the installation and clean up the system,
+press Ctrl+C two times in a row.
+
+If the installation fails, use 'gravity plan' to inspect the state and
+'gravity plan resume' to continue the operation.
+See https://gravitational.com/gravity/docs/cluster/#managing-an-ongoing-operation for details.
+`)
 }

@@ -60,7 +60,11 @@ func UninstallAgentServices(logger log.FieldLogger) error {
 		defaults.GravityRPCAgentServiceName,
 		defaults.GravityRPCInstallerServiceName,
 	} {
-		if err := svm.UninstallService(service); err != nil && !libservice.IsUnknownServiceError(err) {
+		req := systemservice.UninstallServiceRequest{
+			Name:       service,
+			RemoveFile: true,
+		}
+		if err := svm.UninstallService(req); err != nil && !libservice.IsUnknownServiceError(err) {
 			logger.WithError(err).Warn("Failed to uninstall agent service.")
 			errors = append(errors, err)
 		}

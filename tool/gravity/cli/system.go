@@ -869,7 +869,9 @@ func systemServiceUninstall(env *localenv.LocalEnvironment, pkg loc.Locator, ser
 	}
 	switch {
 	case serviceName != "":
-		err = services.UninstallService(serviceName)
+		err = services.UninstallService(systemservice.UninstallServiceRequest{
+			Name: serviceName,
+		})
 	case !pkg.IsEmpty():
 		if pkg.Version == loc.ZeroVersion {
 			statuses, err := services.ListPackageServices()

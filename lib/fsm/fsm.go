@@ -92,6 +92,11 @@ func (p *Params) CheckAndSetDefaults() error {
 	return nil
 }
 
+// IsResume returns true if parameters describe a resume command
+func (p Params) IsResume() bool {
+	return p.PhaseID == RootPhase
+}
+
 // FSM is the generic FSM implementation that provides methods for phases
 // execution and rollback, state transitioning and command execution
 type FSM struct {

@@ -333,7 +333,7 @@ func Execute(g *Application, cmd string, extraArgs []string) error {
 			*g.UpgradeCmd.Phase = fsm.RootPhase
 		}
 		if *g.UpgradeCmd.Phase != "" {
-			return executePhase(localEnv, updateEnv, joinEnv,
+			return ExecutePhase(localEnv, updateEnv, joinEnv,
 				PhaseParams{
 					PhaseID:          *g.UpgradeCmd.Phase,
 					Force:            *g.UpgradeCmd.Force,
@@ -348,7 +348,7 @@ func Execute(g *Application, cmd string, extraArgs []string) error {
 			*g.UpgradeCmd.SkipVersionCheck,
 		)
 	case g.PlanExecuteCmd.FullCommand():
-		return executePhase(localEnv, updateEnv, joinEnv,
+		return ExecutePhase(localEnv, updateEnv, joinEnv,
 			PhaseParams{
 				PhaseID:          *g.PlanExecuteCmd.Phase,
 				Force:            *g.PlanExecuteCmd.Force,
@@ -357,16 +357,16 @@ func Execute(g *Application, cmd string, extraArgs []string) error {
 				OperationID:      *g.PlanCmd.OperationID,
 			})
 	case g.PlanResumeCmd.FullCommand():
-		return executePhase(localEnv, updateEnv, joinEnv,
+		return ResumeOperation(localEnv, updateEnv, joinEnv,
 			PhaseParams{
-				PhaseID:          fsm.RootPhase,
 				Force:            *g.PlanResumeCmd.Force,
 				Timeout:          *g.PlanResumeCmd.PhaseTimeout,
 				SkipVersionCheck: *g.PlanCmd.SkipVersionCheck,
 				OperationID:      *g.PlanCmd.OperationID,
 			})
+
 	case g.PlanRollbackCmd.FullCommand():
-		return rollbackPhase(localEnv, updateEnv, joinEnv,
+		return RollbackPhase(localEnv, updateEnv, joinEnv,
 			PhaseParams{
 				PhaseID:          *g.PlanRollbackCmd.Phase,
 				Force:            *g.PlanRollbackCmd.Force,

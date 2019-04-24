@@ -21,6 +21,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/gravitational/gravity/lib/fsm"
 	"github.com/gravitational/gravity/lib/localenv"
 	"github.com/gravitational/gravity/lib/ops"
 	"github.com/gravitational/gravity/lib/storage"
@@ -43,16 +44,40 @@ type PhaseParams struct {
 	Timeout time.Duration
 	// SkipVersionCheck overrides the verification of binary version compatibility
 	SkipVersionCheck bool
+	// Installer specifies the installer to manage installation-specific phases.
+	// If unspecified defaults to an instance of installer
+	Installer Installer
 }
 
-func executePhase(localEnv, updateEnv, joinEnv *localenv.LocalEnvironment, params PhaseParams) error {
+func ResumeOperation(localEnv, updateEnv, joinEnv *localenv.LocalEnvironment, params PhaseParams) error {
+	if params.Installer == nil {
+		params.Installer = defaultInstaller{}
+	}
+	params.PhaseID = fsm.RootPhase
+	err := ExecutePhase(localEnv, updateEnv, joinEnv, params)
+	if err == nil {
+		return nil
+	}
+	if err != nil && !trace.IsNotFound(err) {
+		return trace.Wrap(err)
+	}
+	// No operation found.
+	// Attempt to restart the installation
+	return trace.Wrap(params.Installer.Restart(localEnv))
+}
+
+func ExecutePhase(localEnv, updateEnv, joinEnv *localenv.LocalEnvironment, params PhaseParams) error {
 	op, err := getActiveOperation(localEnv, updateEnv, joinEnv, params.OperationID)
 	if err != nil {
 		return trace.Wrap(err)
 	}
 	switch op.Type {
 	case ops.OperationInstall:
-		return executeInstallPhase(localEnv, params, op)
+		installer := params.Installer
+		if params.Installer == nil {
+			installer = defaultInstaller{}
+		}
+		return installer.ExecutePhase(localEnv, params, op)
 	case ops.OperationExpand:
 		return executeJoinPhase(localEnv, joinEnv, params, op)
 	case ops.OperationUpdate:
@@ -68,14 +93,18 @@ func executePhase(localEnv, updateEnv, joinEnv *localenv.LocalEnvironment, param
 	}
 }
 
-func rollbackPhase(localEnv, updateEnv, joinEnv *localenv.LocalEnvironment, params PhaseParams) error {
+func RollbackPhase(localEnv, updateEnv, joinEnv *localenv.LocalEnvironment, params PhaseParams) error {
 	op, err := getActiveOperation(localEnv, updateEnv, joinEnv, params.OperationID)
 	if err != nil {
 		return trace.Wrap(err)
 	}
 	switch op.Type {
 	case ops.OperationInstall:
-		return rollbackInstallPhase(localEnv, params, op)
+		installer := params.Installer
+		if params.Installer == nil {
+			installer = defaultInstaller{}
+		}
+		return installer.RollbackPhase(localEnv, params, op)
 	case ops.OperationExpand:
 		return rollbackJoinPhase(localEnv, joinEnv, params, op)
 	case ops.OperationUpdate:
@@ -312,4 +341,28 @@ type operationGetterFunc func() (*ops.SiteOperation, error)
 
 type operationGetter interface {
 	getOperation() (*ops.SiteOperation, error)
+}
+
+func (defaultInstaller) ExecutePhase(localEnv *localenv.LocalEnvironment, p PhaseParams, operation *ops.SiteOperation) error {
+	return trace.Wrap(executeInstallPhase(localEnv, p, operation))
+}
+
+func (defaultInstaller) RollbackPhase(localEnv *localenv.LocalEnvironment, p PhaseParams, operation *ops.SiteOperation) error {
+	return trace.Wrap(rollbackInstallPhase(localEnv, p, operation))
+}
+
+func (defaultInstaller) Restart(localEnv *localenv.LocalEnvironment) error {
+	return trace.Wrap(startInstall(localEnv, NewDefaultInstallConfig()))
+}
+
+type defaultInstaller struct{}
+
+// Installer manages installation-specific tasks
+type Installer interface {
+	// ExecutePhase executes an installation phase specified with params
+	ExecutePhase(*localenv.LocalEnvironment, PhaseParams, *ops.SiteOperation) error
+	// RollbackPhase rolls back an installation phase specified with params
+	RollbackPhase(*localenv.LocalEnvironment, PhaseParams, *ops.SiteOperation) error
+	// Restart restarts the installation with default parameters
+	Restart(*localenv.LocalEnvironment) error
 }

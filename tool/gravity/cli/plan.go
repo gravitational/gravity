@@ -68,6 +68,13 @@ func initUpdateOperationPlan(localEnv, updateEnv *localenv.LocalEnvironment) err
 func displayOperationPlan(localEnv, updateEnv, joinEnv *localenv.LocalEnvironment, operationID string, format constants.Format) error {
 	op, err := getLastOperation(localEnv, updateEnv, joinEnv, operationID)
 	if err != nil {
+		if trace.IsNotFound(err) {
+			// FIXME(dmitri): better phrasing
+			return trace.NotFound(`no operation found.
+This usually means that the installation has failed to start.
+To restart the installation, use 'gravity plan resume' after fixing the issues.
+`)
+		}
 		return trace.Wrap(err)
 	}
 	if op.IsCompleted() {

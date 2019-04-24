@@ -34,7 +34,7 @@ func New(ctx context.Context) *Server {
 	return server
 }
 
-// Serve starts the server using the specified engine
+// Serve starts the server using the specified executor
 func (r *Server) Serve(executor Executor, listener net.Listener) error {
 	r.executor = executor
 	return trace.Wrap(r.rpc.Serve(listener))
@@ -214,12 +214,12 @@ type Server struct {
 
 	executor Executor
 	eventsC  chan Event
-	// rpc is the fabric to communicate to the server client prcess
+	// rpc is the fabric to communicate to the server client process
 	rpc *grpc.Server
 
 	executeOnce sync.Once
 	stopOnce    sync.Once
-	// serveWG is a wait group for server internal processes
+	// serveWG is a wait group for internal processes
 	serveWG sync.WaitGroup
 	// execWG is a wait group for executor-specific workloads.
 	// When the group is signalled, all executor processes should

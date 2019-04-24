@@ -190,6 +190,26 @@ func NewInstallConfig(env *localenv.LocalEnvironment, g *Application) InstallCon
 	}
 }
 
+// NewDefaultInstallConfig creates install configuration with defaults
+func NewDefaultInstallConfig() InstallConfig {
+	uid := os.Getenv(constants.ServiceUserEnvVar)
+	if uid == "" {
+		uid = defaults.ServiceUserID
+	}
+	gid := os.Getenv(constants.ServiceGroupEnvVar)
+	if gid == "" {
+		gid = defaults.ServiceGroupID
+	}
+	return InstallConfig{
+		Mode:        constants.InstallModeCLI,
+		ServiceCIDR: defaults.ServiceSubnet,
+		VxlanPort:   defaults.VxlanPort,
+		DNSConfig:   storage.DefaultDNSConfig,
+		ServiceUID:  uid,
+		ServiceGID:  gid,
+	}
+}
+
 // CheckAndSetDefaults validates the configuration object and populates default values
 func (i *InstallConfig) CheckAndSetDefaults() (err error) {
 	if i.FieldLogger == nil {

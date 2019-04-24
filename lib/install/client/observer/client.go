@@ -20,12 +20,12 @@ import (
 // and shuts it down when done.
 //
 // See docs/design/client/install-observer.puml for details
-func New(ctx context.Context, config Config) (*client, error) {
+func New(ctx context.Context, config Config) (*Client, error) {
 	err := config.checkAndSetDefaults()
 	if err != nil {
 		return nil, trace.Wrap(err)
 	}
-	c := &client{Config: config}
+	c := &Client{Config: config}
 	err = restartService(config.ServiceName)
 	if err != nil {
 		return nil, trace.Wrap(err)
@@ -44,9 +44,9 @@ func New(ctx context.Context, config Config) (*client, error) {
 	return c, nil
 }
 
-// ExecutePhase executes the operation phase specified with phase
-func (r *client) ExecutePhase(ctx context.Context, machine *fsm.FSM, config fsm.Params) error {
-	if config.PhaseID == fsm.RootPhase {
+// Execute executes the operation phase specified with phase
+func (r *Client) Execute(ctx context.Context, machine *fsm.FSM, params fsm.Params) error {
+	if params.IsResume() {
 		progress := utils.NewProgress(ctx, "Resuming operation", -1, false)
 		defer progress.Stop()
 
@@ -56,13 +56,28 @@ func (r *client) ExecutePhase(ctx context.Context, machine *fsm.FSM, config fsm.
 		}
 		return trace.Wrap(machine.Complete(err))
 	}
-	progress := utils.NewProgress(ctx, fmt.Sprintf("Executing phase %q", config.PhaseID), -1, false)
+	progress := utils.NewProgress(ctx, fmt.Sprintf("Executing phase %q", params.PhaseID), -1, false)
 	defer progress.Stop()
 	err := machine.ExecutePhase(ctx, fsm.Params{
-		PhaseID:  config.PhaseID,
-		Force:    config.Force,
+		PhaseID:  params.PhaseID,
+		Force:    params.Force,
 		Progress: progress,
 	})
+	// TODO(dmitri): shut down installer for each phase?
+	// r.shutdown(ctx)
+	return trace.Wrap(err)
+}
+
+// Rollback rolls back the operation phase specified with phase
+func (r *Client) Rollback(ctx context.Context, machine *fsm.FSM, params fsm.Params) error {
+	progress := utils.NewProgress(ctx, fmt.Sprintf("Rolling back phase %q", params.PhaseID), -1, false)
+	defer progress.Stop()
+	err := machine.RollbackPhase(ctx, fsm.Params{
+		PhaseID:  params.PhaseID,
+		Force:    params.Force,
+		Progress: progress,
+	})
+	// r.shutdown(ctx)
 	return trace.Wrap(err)
 }
 
@@ -96,14 +111,20 @@ type Config struct {
 	ServiceName string
 }
 
-func (r *client) addTerminationHandler() {
+func (r *Client) addTerminationHandler() {
 	r.InterruptHandler.AddStopper(signals.StopperFunc(func(ctx context.Context) error {
 		_, err := r.client.Shutdown(ctx, &installpb.ShutdownRequest{})
 		return trace.Wrap(err)
 	}))
 }
 
-type client struct {
+// shutdown signals the service to stop
+func (r *Client) shutdown(ctx context.Context) error {
+	_, err := r.client.Shutdown(ctx, &installpb.ShutdownRequest{})
+	return trace.Wrap(err)
+}
+
+type Client struct {
 	Config
 	client installpb.AgentClient
 }
@@ -111,13 +132,4 @@ type client struct {
 // restartService restarts the installer's systemd unit
 func restartService(name string) error {
 	return trace.Wrap(service.Start(name))
-}
-
-func isDone(doneC <-chan struct{}) bool {
-	select {
-	case <-doneC:
-		return true
-	default:
-		return false
-	}
 }

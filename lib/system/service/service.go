@@ -17,7 +17,9 @@ func Uninstall(serviceName string) error {
 	if err != nil {
 		return trace.Wrap(err)
 	}
-	return trace.Wrap(services.UninstallService(serviceName))
+	return trace.Wrap(services.UninstallService(systemservice.UninstallServiceRequest{
+		Name: serviceName,
+	}))
 }
 
 // Start starts service with the specified name if it's not already running.

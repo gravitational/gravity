@@ -11,7 +11,6 @@ import (
 	"sync/atomic"
 	"time"
 
-	"github.com/fatih/color"
 	"github.com/gravitational/gravity/lib/constants"
 	"github.com/gravitational/gravity/lib/defaults"
 	installpb "github.com/gravitational/gravity/lib/install/proto"
@@ -40,7 +39,6 @@ func New(ctx context.Context, config Config) (*Client, error) {
 		Printer:     config.Printer,
 		config:      config,
 	}
-	c.WithField("config", fmt.Sprintf("%+v", config)).Info("Starting installer client.")
 	c.Info("Connecting to running instance.")
 	err = c.connectRunning(ctx)
 	if err == nil {
@@ -72,9 +70,10 @@ func (r *Client) Shutdown(ctx context.Context) error {
 	return trace.Wrap(err)
 }
 
-// Uninstall invokes the Uninstall API on the service
+// Uninstall signals that the server clean up the state and shut down
 func (r *Client) Uninstall(ctx context.Context) error {
 	_, err := r.client.Uninstall(ctx, &installpb.UninstallRequest{})
+	r.Shutdown(ctx)
 	return trace.Wrap(err)
 }
 
@@ -125,11 +124,12 @@ type Config struct {
 }
 
 func (r *Client) connectRunning(ctx context.Context) error {
-	const connectionTimeout = 10 * time.Second
-	if _, err := os.Stat(installpb.SocketPath(r.config.OperationStateDir)); err != nil && os.IsNotExist(err) {
-		// Fail fast when the socket file has not been created
-		return trace.ConvertSystemError(err)
+	r.Info("Restart service.")
+	if err := restartService(r.config.ServiceName); err != nil {
+		return trace.Wrap(err)
 	}
+	r.Info("Connect to running service.")
+	const connectionTimeout = 10 * time.Second
 	ctx, cancel := context.WithTimeout(ctx, connectionTimeout)
 	defer cancel()
 	client, err := installpb.NewClient(ctx, r.config.OperationStateDir, r.FieldLogger,
@@ -181,8 +181,6 @@ func (r *Client) installSelfAsService() error {
 			StartPreCommands: []string{
 				removeSocketFileCommand(installpb.SocketPath(r.config.OperationStateDir)),
 			},
-			// FIXME
-			// RestartPreventExitStatus: "",
 			// TODO(dmitri): run as euid?
 			User:    constants.RootUIDString,
 			Restart: "on-failure",
@@ -227,8 +225,7 @@ func (r *Client) progressLoop(stream installpb.Agent_ExecuteClient) (err error) 
 			return trace.Wrap(err)
 		}
 		if len(resp.Errors) != 0 {
-			r.PrintStep(color.RedString(resp.Errors[0].Message))
-			// Break the client on errors
+			// Exit upon first error
 			return trace.BadParameter(resp.Errors[0].Message)
 		}
 		r.PrintStep(resp.Message)
@@ -259,6 +256,11 @@ type Client struct {
 	client installpb.AgentClient
 	// completed indicates whether the operation is complete
 	completed int32
+}
+
+// restartService restarts the installer's systemd unit
+func restartService(name string) error {
+	return trace.Wrap(service.Start(name))
 }
 
 func uninstallService(name string) error {
