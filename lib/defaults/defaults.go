@@ -292,6 +292,14 @@ const (
 	// HelmBin is the location of helm binary inside planet
 	HelmBin = "/usr/bin/helm"
 
+	// HelmScript is the location of the helm script, which the host's helm
+	// is symlinked to, inside the planet
+	HelmScript = "/usr/local/bin/helm"
+
+	// HelmBinAlternate is the alternative location of helm symlink on
+	// systems where /usr/bin is not writable
+	HelmBinAlternate = "/writable/bin/helm"
+
 	// PlanetBin is the default location of planet binary
 	PlanetBin = "/usr/bin/planet"
 
