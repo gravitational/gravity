@@ -191,16 +191,16 @@ func (r *Router) ResetUserPassword(req ops.ResetUserPasswordRequest) (string, er
 	return client.ResetUserPassword(req)
 }
 
-func (r *Router) CreateAPIKey(req ops.NewAPIKeyRequest) (*storage.APIKey, error) {
-	return r.Local.CreateAPIKey(req)
+func (r *Router) CreateAPIKey(ctx context.Context, req ops.NewAPIKeyRequest) (*storage.APIKey, error) {
+	return r.Local.CreateAPIKey(ctx, req)
 }
 
 func (r *Router) GetAPIKeys(userEmail string) ([]storage.APIKey, error) {
 	return r.Local.GetAPIKeys(userEmail)
 }
 
-func (r *Router) DeleteAPIKey(userEmail, token string) error {
-	return r.Local.DeleteAPIKey(userEmail, token)
+func (r *Router) DeleteAPIKey(ctx context.Context, userEmail, token string) error {
+	return r.Local.DeleteAPIKey(ctx, userEmail, token)
 }
 
 func (r *Router) CreateSite(req ops.NewSiteRequest) (*ops.Site, error) {
@@ -550,30 +550,30 @@ func (r *Router) GetLogForwarders(key ops.SiteKey) ([]storage.LogForwarder, erro
 }
 
 // CreateLogForwarder creates a new log forwarder
-func (r *Router) CreateLogForwarder(key ops.SiteKey, forwarder storage.LogForwarder) error {
+func (r *Router) CreateLogForwarder(ctx context.Context, key ops.SiteKey, forwarder storage.LogForwarder) error {
 	client, err := r.RemoteClient(key.SiteDomain)
 	if err != nil {
 		return trace.Wrap(err)
 	}
-	return client.CreateLogForwarder(key, forwarder)
+	return client.CreateLogForwarder(ctx, key, forwarder)
 }
 
 // UpdateLogForwarder updates an existing log forwarder
-func (r *Router) UpdateLogForwarder(key ops.SiteKey, forwarder storage.LogForwarder) error {
+func (r *Router) UpdateLogForwarder(ctx context.Context, key ops.SiteKey, forwarder storage.LogForwarder) error {
 	client, err := r.RemoteClient(key.SiteDomain)
 	if err != nil {
 		return trace.Wrap(err)
 	}
-	return client.UpdateLogForwarder(key, forwarder)
+	return client.UpdateLogForwarder(ctx, key, forwarder)
 }
 
 // DeleteLogForwarder deletes a log forwarder
-func (r *Router) DeleteLogForwarder(key ops.SiteKey, forwarderName string) error {
+func (r *Router) DeleteLogForwarder(ctx context.Context, key ops.SiteKey, forwarderName string) error {
 	client, err := r.RemoteClient(key.SiteDomain)
 	if err != nil {
 		return trace.Wrap(err)
 	}
-	return client.DeleteLogForwarder(key, forwarderName)
+	return client.DeleteLogForwarder(ctx, key, forwarderName)
 }
 
 // GetRetentionPolicies returns a list of retention policies for the site
@@ -604,21 +604,21 @@ func (r *Router) GetSMTPConfig(key ops.SiteKey) (storage.SMTPConfig, error) {
 }
 
 // UpdateSMTPConfig updates the cluster SMTP configuration
-func (r *Router) UpdateSMTPConfig(key ops.SiteKey, config storage.SMTPConfig) error {
+func (r *Router) UpdateSMTPConfig(ctx context.Context, key ops.SiteKey, config storage.SMTPConfig) error {
 	client, err := r.RemoteClient(key.SiteDomain)
 	if err != nil {
 		return trace.Wrap(err)
 	}
-	return client.UpdateSMTPConfig(key, config)
+	return client.UpdateSMTPConfig(ctx, key, config)
 }
 
 // DeleteSMTPConfig deletes the cluster SMTP configuration
-func (r *Router) DeleteSMTPConfig(key ops.SiteKey) error {
+func (r *Router) DeleteSMTPConfig(ctx context.Context, key ops.SiteKey) error {
 	client, err := r.RemoteClient(key.SiteDomain)
 	if err != nil {
 		return trace.Wrap(err)
 	}
-	return client.DeleteSMTPConfig(key)
+	return client.DeleteSMTPConfig(ctx, key)
 }
 
 // GetAlerts returns a list of monitoring alerts
@@ -631,21 +631,21 @@ func (r *Router) GetAlerts(key ops.SiteKey) ([]storage.Alert, error) {
 }
 
 // UpdateAlert updates the specified monitoring alert
-func (r *Router) UpdateAlert(key ops.SiteKey, alert storage.Alert) error {
+func (r *Router) UpdateAlert(ctx context.Context, key ops.SiteKey, alert storage.Alert) error {
 	client, err := r.RemoteClient(key.SiteDomain)
 	if err != nil {
 		return trace.Wrap(err)
 	}
-	return client.UpdateAlert(key, alert)
+	return client.UpdateAlert(ctx, key, alert)
 }
 
 // DeleteAlert deletes the monitoring alert specified with name
-func (r *Router) DeleteAlert(key ops.SiteKey, name string) error {
+func (r *Router) DeleteAlert(ctx context.Context, key ops.SiteKey, name string) error {
 	client, err := r.RemoteClient(key.SiteDomain)
 	if err != nil {
 		return trace.Wrap(err)
 	}
-	return client.DeleteAlert(key, name)
+	return client.DeleteAlert(ctx, key, name)
 }
 
 // GetAlertTargets returns a list of monitoring alert targets
@@ -658,21 +658,21 @@ func (r *Router) GetAlertTargets(key ops.SiteKey) ([]storage.AlertTarget, error)
 }
 
 // UpdateAlertTarget updates the cluster monitoring alert target
-func (r *Router) UpdateAlertTarget(key ops.SiteKey, target storage.AlertTarget) error {
+func (r *Router) UpdateAlertTarget(ctx context.Context, key ops.SiteKey, target storage.AlertTarget) error {
 	client, err := r.RemoteClient(key.SiteDomain)
 	if err != nil {
 		return trace.Wrap(err)
 	}
-	return client.UpdateAlertTarget(key, target)
+	return client.UpdateAlertTarget(ctx, key, target)
 }
 
 // DeleteAlertTarget deletes the cluster monitoring alert target
-func (r *Router) DeleteAlertTarget(key ops.SiteKey) error {
+func (r *Router) DeleteAlertTarget(ctx context.Context, key ops.SiteKey) error {
 	client, err := r.RemoteClient(key.SiteDomain)
 	if err != nil {
 		return trace.Wrap(err)
 	}
-	return client.DeleteAlertTarget(key)
+	return client.DeleteAlertTarget(ctx, key)
 }
 
 // GetClusterEnvironmentVariables retrieves the cluster runtime environment variables
@@ -764,21 +764,21 @@ func (r *Router) GetClusterCertificate(key ops.SiteKey, withSecrets bool) (*ops.
 }
 
 // UpdateClusterCertificate updates the cluster certificate
-func (r *Router) UpdateClusterCertificate(req ops.UpdateCertificateRequest) (*ops.ClusterCertificate, error) {
+func (r *Router) UpdateClusterCertificate(ctx context.Context, req ops.UpdateCertificateRequest) (*ops.ClusterCertificate, error) {
 	client, err := r.RemoteClient(req.SiteDomain)
 	if err != nil {
 		return nil, trace.Wrap(err)
 	}
-	return client.UpdateClusterCertificate(req)
+	return client.UpdateClusterCertificate(ctx, req)
 }
 
 // DeleteClusterCertificate deletes the cluster certificate
-func (r *Router) DeleteClusterCertificate(key ops.SiteKey) error {
+func (r *Router) DeleteClusterCertificate(ctx context.Context, key ops.SiteKey) error {
 	client, err := r.RemoteClient(key.SiteDomain)
 	if err != nil {
 		return trace.Wrap(err)
 	}
-	return client.DeleteClusterCertificate(key)
+	return client.DeleteClusterCertificate(ctx, key)
 }
 
 // StepDown asks the process to pause its leader election heartbeat so it can
@@ -788,12 +788,12 @@ func (r *Router) StepDown(key ops.SiteKey) error {
 }
 
 // UpsertUser creates or updates a user
-func (r *Router) UpsertUser(key ops.SiteKey, user teleservices.User) error {
+func (r *Router) UpsertUser(ctx context.Context, key ops.SiteKey, user teleservices.User) error {
 	client, err := r.PickClient(key.SiteDomain)
 	if err != nil {
 		return trace.Wrap(err)
 	}
-	return client.UpsertUser(key, user)
+	return client.UpsertUser(ctx, key, user)
 }
 
 // GetUser returns a user by name
@@ -815,21 +815,21 @@ func (r *Router) GetUsers(key ops.SiteKey) ([]teleservices.User, error) {
 }
 
 // DeleteUser deletes a user by name
-func (r *Router) DeleteUser(key ops.SiteKey, name string) error {
+func (r *Router) DeleteUser(ctx context.Context, key ops.SiteKey, name string) error {
 	client, err := r.PickClient(key.SiteDomain)
 	if err != nil {
 		return trace.Wrap(err)
 	}
-	return client.DeleteUser(key, name)
+	return client.DeleteUser(ctx, key, name)
 }
 
 // UpsertClusterAuthPreference updates cluster authentication preference
-func (r *Router) UpsertClusterAuthPreference(key ops.SiteKey, auth teleservices.AuthPreference) error {
+func (r *Router) UpsertClusterAuthPreference(ctx context.Context, key ops.SiteKey, auth teleservices.AuthPreference) error {
 	client, err := r.PickClient(key.SiteDomain)
 	if err != nil {
 		return trace.Wrap(err)
 	}
-	return client.UpsertClusterAuthPreference(key, auth)
+	return client.UpsertClusterAuthPreference(ctx, key, auth)
 }
 
 // GetClusterAuthPreference returns cluster authentication preference
@@ -842,12 +842,12 @@ func (r *Router) GetClusterAuthPreference(key ops.SiteKey) (teleservices.AuthPre
 }
 
 // UpsertGithubConnector creates or updates a Github connector
-func (r *Router) UpsertGithubConnector(key ops.SiteKey, connector teleservices.GithubConnector) error {
+func (r *Router) UpsertGithubConnector(ctx context.Context, key ops.SiteKey, connector teleservices.GithubConnector) error {
 	client, err := r.PickClient(key.SiteDomain)
 	if err != nil {
 		return trace.Wrap(err)
 	}
-	return client.UpsertGithubConnector(key, connector)
+	return client.UpsertGithubConnector(ctx, key, connector)
 }
 
 // GetGithubConnector returns a Github connector by name
@@ -873,17 +873,17 @@ func (r *Router) GetGithubConnectors(key ops.SiteKey, withSecrets bool) ([]teles
 }
 
 // DeleteGithubConnector deletes a Github connector by name
-func (r *Router) DeleteGithubConnector(key ops.SiteKey, name string) error {
+func (r *Router) DeleteGithubConnector(ctx context.Context, key ops.SiteKey, name string) error {
 	client, err := r.PickClient(key.SiteDomain)
 	if err != nil {
 		return trace.Wrap(err)
 	}
-	return client.DeleteGithubConnector(key, name)
+	return client.DeleteGithubConnector(ctx, key, name)
 }
 
 // UpsertAuthGateway updates auth gateway configuration.
-func (r *Router) UpsertAuthGateway(key ops.SiteKey, gw storage.AuthGateway) error {
-	return r.Local.UpsertAuthGateway(key, gw)
+func (r *Router) UpsertAuthGateway(ctx context.Context, key ops.SiteKey, gw storage.AuthGateway) error {
+	return r.Local.UpsertAuthGateway(ctx, key, gw)
 }
 
 // GetAuthGateway returns auth gateway configuration.

@@ -17,9 +17,12 @@ limitations under the License.
 package opsservice
 
 import (
+	"context"
+
 	"github.com/gravitational/gravity/lib/constants"
 	"github.com/gravitational/gravity/lib/defaults"
 	"github.com/gravitational/gravity/lib/ops"
+	"github.com/gravitational/gravity/lib/ops/events"
 	"github.com/gravitational/gravity/lib/storage"
 	"github.com/gravitational/gravity/lib/users"
 	teleservices "github.com/gravitational/teleport/lib/services"
@@ -29,7 +32,7 @@ import (
 )
 
 // UpsertAuthGateway updates auth gateway configuration.
-func (o *Operator) UpsertAuthGateway(key ops.SiteKey, gw storage.AuthGateway) error {
+func (o *Operator) UpsertAuthGateway(ctx context.Context, key ops.SiteKey, gw storage.AuthGateway) error {
 	// Updating auth gateway configuration may trigger gravity-site
 	// restart so allow to create it only on active clusters (to avoid
 	// interrupting an operation for example).
@@ -45,7 +48,12 @@ func (o *Operator) UpsertAuthGateway(key ops.SiteKey, gw storage.AuthGateway) er
 	if err != nil {
 		return trace.Wrap(err)
 	}
-	return UpsertAuthGateway(client, o.users(), gw)
+	err = UpsertAuthGateway(client, o.users(), gw)
+	if err != nil {
+		return trace.Wrap(err)
+	}
+	events.Emit(ctx, o, events.AuthGatewayUpdated)
+	return nil
 }
 
 // UpsertAuthGateway updates auth gateway configuration.

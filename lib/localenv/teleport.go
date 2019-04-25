@@ -56,7 +56,7 @@ func (env *LocalEnvironment) AuditLog(ctx context.Context) (teleevents.IAuditLog
 }
 
 // EmitAuditEvent saves the specified event in the audit log of the local cluster.
-func (env *LocalEnvironment) EmitAuditEvent(ctx context.Context, event string, fields events.Fields) {
+func (env *LocalEnvironment) EmitAuditEvent(ctx context.Context, event teleevents.Event, fields events.Fields) {
 	if err := httplib.InGravity(env.DNS.Addr()); err != nil {
 		return // Not inside Gravity cluster.
 	}

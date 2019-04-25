@@ -1263,7 +1263,7 @@ func (p *Process) initService(ctx context.Context) (err error) {
 
 		p.Info("Running inside Kubernetes: starting leader election.")
 
-		if err := p.initClusterCertificate(client); err != nil {
+		if err := p.initClusterCertificate(p.context, client); err != nil {
 			return trace.Wrap(err)
 		}
 
@@ -1624,7 +1624,7 @@ func (p *Process) tryGetTLSConfig() (*tls.Config, error) {
 	if err != nil {
 		return nil, trace.Wrap(err)
 	}
-	err = p.initClusterCertificate(client)
+	err = p.initClusterCertificate(p.context, client)
 	if err != nil {
 		return nil, trace.Wrap(err)
 	}
@@ -1679,7 +1679,7 @@ func (p *Process) newTLSConfig(certPEM, keyPEM []byte) (*tls.Config, error) {
 // and private key
 //
 // It is a no-op if the secret already exists.
-func (p *Process) initClusterCertificate(client *kubernetes.Clientset) error {
+func (p *Process) initClusterCertificate(ctx context.Context, client *kubernetes.Clientset) error {
 	site, err := p.operator.GetLocalSite()
 	if err != nil {
 		return trace.Wrap(err)
@@ -1706,7 +1706,10 @@ func (p *Process) initClusterCertificate(client *kubernetes.Clientset) error {
 		return trace.Wrap(err)
 	}
 
-	_, err = p.operator.UpdateClusterCertificate(ops.UpdateCertificateRequest{
+	localCtx := context.WithValue(ctx, constants.UserContext,
+		constants.ServiceSystem)
+
+	_, err = p.operator.UpdateClusterCertificate(localCtx, ops.UpdateCertificateRequest{
 		AccountID:   site.AccountID,
 		SiteDomain:  site.Domain,
 		Certificate: certificateData,

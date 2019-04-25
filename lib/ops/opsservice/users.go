@@ -57,7 +57,7 @@ func (o *Operator) CreateUserInvite(ctx context.Context, req ops.CreateUserInvit
 	if err != nil {
 		return nil, trace.Wrap(err)
 	}
-	events.Emit(ctx, o, events.InviteCreated, events.Fields{
+	events.Emit(ctx, o, events.UserInviteCreated, events.Fields{
 		events.FieldName:  req.Name,
 		events.FieldRoles: req.Roles,
 	})

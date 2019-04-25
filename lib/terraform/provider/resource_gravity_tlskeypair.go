@@ -1,6 +1,7 @@
 package provider
 
 import (
+	"context"
 	"time"
 
 	"github.com/gravitational/gravity/lib/ops"
@@ -48,7 +49,7 @@ func resourceGravityTLSKeyPairCreate(d *schema.ResourceData, m interface{}) erro
 	privateKey := d.Get("private_key").(string)
 	cert := d.Get("certificate").(string)
 
-	_, err = client.UpdateClusterCertificate(ops.UpdateCertificateRequest{
+	_, err = client.UpdateClusterCertificate(context.TODO(), ops.UpdateCertificateRequest{
 		AccountID:   clusterKey.AccountID,
 		SiteDomain:  clusterKey.SiteDomain,
 		Certificate: []byte(cert),
@@ -87,7 +88,7 @@ func resourceGravityTLSKeyPairDelete(d *schema.ResourceData, m interface{}) erro
 		return trace.Wrap(err)
 	}
 
-	err = client.DeleteClusterCertificate(clusterKey)
+	err = client.DeleteClusterCertificate(context.TODO(), clusterKey)
 	return trace.Wrap(err)
 }
 

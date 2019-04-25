@@ -658,7 +658,7 @@ func (h *WebHandler) createAPIKey(w http.ResponseWriter, r *http.Request, p http
 	if err := d.Decode(&req); err != nil {
 		return trace.BadParameter(err.Error())
 	}
-	key, err := h.cfg.Operator.CreateAPIKey(req)
+	key, err := h.cfg.Operator.CreateAPIKey(r.Context(), req)
 	if err != nil {
 		return trace.Wrap(err)
 	}
@@ -701,7 +701,7 @@ func (h *WebHandler) getAPIKeys(w http.ResponseWriter, r *http.Request, p httpro
    }
 */
 func (h *WebHandler) deleteAPIKey(w http.ResponseWriter, r *http.Request, p httprouter.Params, ctx *HandlerContext) error {
-	err := h.cfg.Operator.DeleteAPIKey(p[0].Value, p[1].Value)
+	err := h.cfg.Operator.DeleteAPIKey(r.Context(), p[0].Value, p[1].Value)
 	if err != nil {
 		return trace.Wrap(err)
 	}
@@ -2034,7 +2034,7 @@ func (h *WebHandler) createLogForwarder(w http.ResponseWriter, r *http.Request, 
 	if req.TTL != 0 {
 		forwarder.SetTTL(clockwork.NewRealClock(), req.TTL)
 	}
-	err = context.Operator.CreateLogForwarder(siteKey(p), forwarder)
+	err = context.Operator.CreateLogForwarder(r.Context(), siteKey(p), forwarder)
 	if err != nil {
 		return trace.Wrap(err)
 	}
@@ -2058,7 +2058,7 @@ func (h *WebHandler) updateLogForwarder(w http.ResponseWriter, r *http.Request, 
 	if req.TTL != 0 {
 		forwarder.SetTTL(clockwork.NewRealClock(), req.TTL)
 	}
-	err = context.Operator.UpdateLogForwarder(siteKey(p), forwarder)
+	err = context.Operator.UpdateLogForwarder(r.Context(), siteKey(p), forwarder)
 	if err != nil {
 		return trace.Wrap(err)
 	}
@@ -2071,7 +2071,7 @@ func (h *WebHandler) updateLogForwarder(w http.ResponseWriter, r *http.Request, 
    DELETE /portal/v1/accounts/:account_id/sites/:site_domain/logs/forwarders/:name
 */
 func (h *WebHandler) deleteLogForwarder(w http.ResponseWriter, r *http.Request, p httprouter.Params, context *HandlerContext) error {
-	err := context.Operator.DeleteLogForwarder(siteKey(p), p.ByName("name"))
+	err := context.Operator.DeleteLogForwarder(r.Context(), siteKey(p), p.ByName("name"))
 	if err != nil {
 		return trace.Wrap(err)
 	}
@@ -2120,7 +2120,7 @@ func (h *WebHandler) updateSMTPConfig(w http.ResponseWriter, r *http.Request, p 
 		config.SetTTL(clockwork.NewRealClock(), req.TTL)
 	}
 
-	err = context.Operator.UpdateSMTPConfig(siteKey(p), config)
+	err = context.Operator.UpdateSMTPConfig(r.Context(), siteKey(p), config)
 	if err != nil {
 		return trace.Wrap(err)
 	}
@@ -2139,7 +2139,7 @@ func (h *WebHandler) updateSMTPConfig(w http.ResponseWriter, r *http.Request, p 
      }
 */
 func (h *WebHandler) deleteSMTPConfig(w http.ResponseWriter, r *http.Request, p httprouter.Params, context *HandlerContext) error {
-	err := context.Operator.DeleteSMTPConfig(siteKey(p))
+	err := context.Operator.DeleteSMTPConfig(r.Context(), siteKey(p))
 	if err != nil {
 		return trace.Wrap(err)
 	}
@@ -2245,7 +2245,7 @@ func (h *WebHandler) updateClusterCert(w http.ResponseWriter, r *http.Request, p
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 		return trace.BadParameter(err.Error())
 	}
-	cert, err := context.Operator.UpdateClusterCertificate(req)
+	cert, err := context.Operator.UpdateClusterCertificate(r.Context(), req)
 	if err != nil {
 		return trace.Wrap(err)
 	}
@@ -2262,7 +2262,7 @@ func (h *WebHandler) updateClusterCert(w http.ResponseWriter, r *http.Request, p
     200 certificate deleted
 */
 func (h *WebHandler) deleteClusterCert(w http.ResponseWriter, r *http.Request, p httprouter.Params, context *HandlerContext) error {
-	err := context.Operator.DeleteClusterCertificate(siteKey(p))
+	err := context.Operator.DeleteClusterCertificate(r.Context(), siteKey(p))
 	if err != nil {
 		return trace.Wrap(err)
 	}
@@ -2284,7 +2284,7 @@ func (h *WebHandler) emitAuditEvent(w http.ResponseWriter, r *http.Request, p ht
 	if err != nil {
 		return trace.Wrap(err)
 	}
-	events.Emit(r.Context(), ctx.Operator, req.Type, events.Fields(req.Fields))
+	events.Emit(r.Context(), ctx.Operator, req.Event, events.Fields(req.Fields))
 	roundtrip.ReplyJSON(w, http.StatusOK, message("audit log event saved"))
 	return nil
 }

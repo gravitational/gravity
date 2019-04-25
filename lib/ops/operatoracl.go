@@ -246,11 +246,11 @@ func (o *OperatorACL) ResetUserPassword(req ResetUserPasswordRequest) (string, e
 	return o.operator.ResetUserPassword(req)
 }
 
-func (o *OperatorACL) CreateAPIKey(req NewAPIKeyRequest) (*storage.APIKey, error) {
+func (o *OperatorACL) CreateAPIKey(ctx context.Context, req NewAPIKeyRequest) (*storage.APIKey, error) {
 	if err := o.currentUserActions(req.UserEmail, teleservices.VerbCreate); err != nil {
 		return nil, trace.Wrap(err)
 	}
-	return o.operator.CreateAPIKey(req)
+	return o.operator.CreateAPIKey(ctx, req)
 }
 
 func (o *OperatorACL) GetAPIKeys(userEmail string) ([]storage.APIKey, error) {
@@ -260,11 +260,11 @@ func (o *OperatorACL) GetAPIKeys(userEmail string) ([]storage.APIKey, error) {
 	return o.operator.GetAPIKeys(userEmail)
 }
 
-func (o *OperatorACL) DeleteAPIKey(userEmail, token string) error {
+func (o *OperatorACL) DeleteAPIKey(ctx context.Context, userEmail, token string) error {
 	if err := o.currentUserActions(userEmail, teleservices.VerbUpdate); err != nil {
 		return trace.Wrap(err)
 	}
-	return o.operator.DeleteAPIKey(o.username, token)
+	return o.operator.DeleteAPIKey(ctx, o.username, token)
 }
 
 func (o *OperatorACL) CreateInstallToken(req NewInstallTokenRequest) (*storage.InstallToken, error) {
@@ -702,27 +702,27 @@ func (o *OperatorACL) GetLogForwarders(key SiteKey) ([]storage.LogForwarder, err
 }
 
 // CreateLogForwarder creates a new log forwarder
-func (o *OperatorACL) CreateLogForwarder(key SiteKey, forwarder storage.LogForwarder) error {
+func (o *OperatorACL) CreateLogForwarder(ctx context.Context, key SiteKey, forwarder storage.LogForwarder) error {
 	if err := o.ClusterAction(key.SiteDomain, storage.KindLogForwarder, teleservices.VerbCreate); err != nil {
 		return trace.Wrap(err)
 	}
-	return o.operator.CreateLogForwarder(key, forwarder)
+	return o.operator.CreateLogForwarder(ctx, key, forwarder)
 }
 
 // UpdateLogForwarder updates an existing log forwarder
-func (o *OperatorACL) UpdateLogForwarder(key SiteKey, forwarder storage.LogForwarder) error {
+func (o *OperatorACL) UpdateLogForwarder(ctx context.Context, key SiteKey, forwarder storage.LogForwarder) error {
 	if err := o.ClusterAction(key.SiteDomain, storage.KindLogForwarder, teleservices.VerbUpdate); err != nil {
 		return trace.Wrap(err)
 	}
-	return o.operator.UpdateLogForwarder(key, forwarder)
+	return o.operator.UpdateLogForwarder(ctx, key, forwarder)
 }
 
 // DeleteLogForwarder deletes a log forwarder
-func (o *OperatorACL) DeleteLogForwarder(key SiteKey, forwarderName string) error {
+func (o *OperatorACL) DeleteLogForwarder(ctx context.Context, key SiteKey, forwarderName string) error {
 	if err := o.ClusterAction(key.SiteDomain, storage.KindLogForwarder, teleservices.VerbDelete); err != nil {
 		return trace.Wrap(err)
 	}
-	return o.operator.DeleteLogForwarder(key, forwarderName)
+	return o.operator.DeleteLogForwarder(ctx, key, forwarderName)
 }
 
 func (o *OperatorACL) GetRetentionPolicies(key SiteKey) ([]monitoring.RetentionPolicy, error) {
@@ -746,18 +746,18 @@ func (o *OperatorACL) GetSMTPConfig(key SiteKey) (storage.SMTPConfig, error) {
 	return o.operator.GetSMTPConfig(key)
 }
 
-func (o *OperatorACL) UpdateSMTPConfig(key SiteKey, config storage.SMTPConfig) error {
+func (o *OperatorACL) UpdateSMTPConfig(ctx context.Context, key SiteKey, config storage.SMTPConfig) error {
 	if err := o.ClusterAction(key.SiteDomain, storage.KindSMTPConfig, teleservices.VerbUpdate); err != nil {
 		return trace.Wrap(err)
 	}
-	return o.operator.UpdateSMTPConfig(key, config)
+	return o.operator.UpdateSMTPConfig(ctx, key, config)
 }
 
-func (o *OperatorACL) DeleteSMTPConfig(key SiteKey) error {
+func (o *OperatorACL) DeleteSMTPConfig(ctx context.Context, key SiteKey) error {
 	if err := o.ClusterAction(key.SiteDomain, storage.KindSMTPConfig, teleservices.VerbUpdate); err != nil {
 		return trace.Wrap(err)
 	}
-	return o.operator.DeleteSMTPConfig(key)
+	return o.operator.DeleteSMTPConfig(ctx, key)
 }
 
 func (o *OperatorACL) GetAlerts(key SiteKey) ([]storage.Alert, error) {
@@ -767,18 +767,18 @@ func (o *OperatorACL) GetAlerts(key SiteKey) ([]storage.Alert, error) {
 	return o.operator.GetAlerts(key)
 }
 
-func (o *OperatorACL) UpdateAlert(key SiteKey, alert storage.Alert) error {
+func (o *OperatorACL) UpdateAlert(ctx context.Context, key SiteKey, alert storage.Alert) error {
 	if err := o.ClusterAction(key.SiteDomain, storage.KindAlert, teleservices.VerbUpdate); err != nil {
 		return trace.Wrap(err)
 	}
-	return o.operator.UpdateAlert(key, alert)
+	return o.operator.UpdateAlert(ctx, key, alert)
 }
 
-func (o *OperatorACL) DeleteAlert(key SiteKey, name string) error {
+func (o *OperatorACL) DeleteAlert(ctx context.Context, key SiteKey, name string) error {
 	if err := o.ClusterAction(key.SiteDomain, storage.KindAlert, teleservices.VerbUpdate); err != nil {
 		return trace.Wrap(err)
 	}
-	return o.operator.DeleteAlert(key, name)
+	return o.operator.DeleteAlert(ctx, key, name)
 }
 
 func (o *OperatorACL) GetAlertTargets(key SiteKey) ([]storage.AlertTarget, error) {
@@ -788,18 +788,18 @@ func (o *OperatorACL) GetAlertTargets(key SiteKey) ([]storage.AlertTarget, error
 	return o.operator.GetAlertTargets(key)
 }
 
-func (o *OperatorACL) UpdateAlertTarget(key SiteKey, target storage.AlertTarget) error {
+func (o *OperatorACL) UpdateAlertTarget(ctx context.Context, key SiteKey, target storage.AlertTarget) error {
 	if err := o.ClusterAction(key.SiteDomain, storage.KindAlertTarget, teleservices.VerbUpdate); err != nil {
 		return trace.Wrap(err)
 	}
-	return o.operator.UpdateAlertTarget(key, target)
+	return o.operator.UpdateAlertTarget(ctx, key, target)
 }
 
-func (o *OperatorACL) DeleteAlertTarget(key SiteKey) error {
+func (o *OperatorACL) DeleteAlertTarget(ctx context.Context, key SiteKey) error {
 	if err := o.ClusterAction(key.SiteDomain, storage.KindAlertTarget, teleservices.VerbUpdate); err != nil {
 		return trace.Wrap(err)
 	}
-	return o.operator.DeleteAlertTarget(key)
+	return o.operator.DeleteAlertTarget(ctx, key)
 }
 
 // GetClusterEnvironmentVariables retrieves the cluster runtime environment variables
@@ -925,20 +925,20 @@ func (o *OperatorACL) GetClusterCertificate(key SiteKey, withSecrets bool) (*Clu
 	return o.operator.GetClusterCertificate(key, withSecrets)
 }
 
-func (o *OperatorACL) UpdateClusterCertificate(req UpdateCertificateRequest) (*ClusterCertificate, error) {
+func (o *OperatorACL) UpdateClusterCertificate(ctx context.Context, req UpdateCertificateRequest) (*ClusterCertificate, error) {
 	if err := o.ClusterAction(req.SiteDomain, storage.KindCluster, teleservices.VerbUpdate); err != nil {
 		return nil, trace.Wrap(err)
 	}
-	return o.operator.UpdateClusterCertificate(req)
+	return o.operator.UpdateClusterCertificate(ctx, req)
 }
 
-func (o *OperatorACL) DeleteClusterCertificate(key SiteKey) error {
+func (o *OperatorACL) DeleteClusterCertificate(ctx context.Context, key SiteKey) error {
 	if err := o.ClusterAction(key.SiteDomain, storage.KindCluster, teleservices.VerbUpdate); err != nil {
 		if err := o.ClusterAction(key.SiteDomain, storage.KindTLSKeyPair, teleservices.VerbDelete); err != nil {
 			return trace.Wrap(err)
 		}
 	}
-	return o.operator.DeleteClusterCertificate(key)
+	return o.operator.DeleteClusterCertificate(ctx, key)
 }
 
 // StepDown asks the process to pause its leader election heartbeat so it can
@@ -948,11 +948,11 @@ func (o *OperatorACL) StepDown(key SiteKey) error {
 }
 
 // UpsertUser creates or updates a user
-func (o *OperatorACL) UpsertUser(key SiteKey, user teleservices.User) error {
+func (o *OperatorACL) UpsertUser(ctx context.Context, key SiteKey, user teleservices.User) error {
 	if err := o.currentUserActions(user.GetName(), teleservices.VerbCreate, teleservices.VerbUpdate); err != nil {
 		return trace.Wrap(err)
 	}
-	return o.operator.UpsertUser(key, user)
+	return o.operator.UpsertUser(ctx, key, user)
 }
 
 // GetUser returns a user by name
@@ -972,19 +972,19 @@ func (o *OperatorACL) GetUsers(key SiteKey) ([]teleservices.User, error) {
 }
 
 // DeleteUser deletes a user by name
-func (o *OperatorACL) DeleteUser(key SiteKey, name string) error {
+func (o *OperatorACL) DeleteUser(ctx context.Context, key SiteKey, name string) error {
 	if err := o.userActions(teleservices.VerbDelete); err != nil {
 		return trace.Wrap(err)
 	}
-	return o.operator.DeleteUser(key, name)
+	return o.operator.DeleteUser(ctx, key, name)
 }
 
 // UpsertClusterAuthPreference updates cluster authentication preference
-func (o *OperatorACL) UpsertClusterAuthPreference(key SiteKey, auth teleservices.AuthPreference) error {
+func (o *OperatorACL) UpsertClusterAuthPreference(ctx context.Context, key SiteKey, auth teleservices.AuthPreference) error {
 	if err := o.authPreferenceActions(teleservices.VerbCreate, teleservices.VerbUpdate); err != nil {
 		return trace.Wrap(err)
 	}
-	return o.operator.UpsertClusterAuthPreference(key, auth)
+	return o.operator.UpsertClusterAuthPreference(ctx, key, auth)
 }
 
 // GetClusterAuthPreference returns cluster authentication preference
@@ -996,11 +996,11 @@ func (o *OperatorACL) GetClusterAuthPreference(key SiteKey) (teleservices.AuthPr
 }
 
 // UpsertGithubConnector creates or updates a Github connector
-func (o *OperatorACL) UpsertGithubConnector(key SiteKey, connector teleservices.GithubConnector) error {
+func (o *OperatorACL) UpsertGithubConnector(ctx context.Context, key SiteKey, connector teleservices.GithubConnector) error {
 	if err := o.AuthConnectorActions(teleservices.KindGithubConnector, teleservices.VerbCreate, teleservices.VerbUpdate); err != nil {
 		return trace.Wrap(err)
 	}
-	return o.operator.UpsertGithubConnector(key, connector)
+	return o.operator.UpsertGithubConnector(ctx, key, connector)
 }
 
 // GetGithubConnector returns a Github connector by name
@@ -1024,19 +1024,19 @@ func (o *OperatorACL) GetGithubConnectors(key SiteKey, withSecrets bool) ([]tele
 }
 
 // DeleteGithubConnector deletes a Github connector by name
-func (o *OperatorACL) DeleteGithubConnector(key SiteKey, name string) error {
+func (o *OperatorACL) DeleteGithubConnector(ctx context.Context, key SiteKey, name string) error {
 	if err := o.AuthConnectorActions(teleservices.KindGithubConnector, teleservices.VerbDelete); err != nil {
 		return trace.Wrap(err)
 	}
-	return o.operator.DeleteGithubConnector(key, name)
+	return o.operator.DeleteGithubConnector(ctx, key, name)
 }
 
 // UpsertAuthGateway updates auth gateway configuration.
-func (o *OperatorACL) UpsertAuthGateway(key SiteKey, gw storage.AuthGateway) error {
+func (o *OperatorACL) UpsertAuthGateway(ctx context.Context, key SiteKey, gw storage.AuthGateway) error {
 	if err := o.ClusterAction(key.SiteDomain, storage.KindCluster, teleservices.VerbUpdate); err != nil {
 		return trace.Wrap(err)
 	}
-	return o.operator.UpsertAuthGateway(key, gw)
+	return o.operator.UpsertAuthGateway(ctx, key, gw)
 }
 
 // GetAuthGateway returns auth gateway configuration.

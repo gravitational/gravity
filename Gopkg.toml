@@ -201,10 +201,10 @@ ignored = [
 
 [[constraint]]
   name = "github.com/gravitational/teleport"
-  # use gravity-specific 3.1 branch of teleport which includes
+  # use Gravity-specific 3.2 branch of teleport which includes
   # new Kubernetes because it can't be revendored in regular
-  # 3.1 branch due to some compability issues
-  branch = "branch/3.1-g"
+  # 3.2 branch due to some compability issues
+  branch = "branch/3.2-g"
 
 [[constraint]]
   version = "0.0.1"

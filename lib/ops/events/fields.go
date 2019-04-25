@@ -41,6 +41,75 @@ func (f Fields) WithField(field string, value interface{}) Fields {
 	return Fields(copy)
 }
 
+// GetString returns the specified event field as a string.
+func (f Fields) GetString(key string) string {
+	return events.EventFields(f).GetString(key)
+}
+
+// EventForOperation returns an appropriate event for the provided operation.
+func EventForOperation(operation ops.SiteOperation) (events.Event, error) {
+	switch operation.Type {
+	case ops.OperationInstall:
+		if operation.IsCompleted() {
+			return OperationInstallComplete, nil
+		} else if operation.IsFailed() {
+			return OperationInstallFailure, nil
+		}
+		return OperationInstallStart, nil
+	case ops.OperationExpand:
+		if operation.IsCompleted() {
+			return OperationExpandComplete, nil
+		} else if operation.IsFailed() {
+			return OperationExpandFailure, nil
+		}
+		return OperationExpandStart, nil
+	case ops.OperationShrink:
+		if operation.IsCompleted() {
+			return OperationShrinkComplete, nil
+		} else if operation.IsFailed() {
+			return OperationShrinkFailure, nil
+		}
+		return OperationShrinkStart, nil
+	case ops.OperationUpdate:
+		if operation.IsCompleted() {
+			return OperationUpdateComplete, nil
+		} else if operation.IsFailed() {
+			return OperationUpdateFailure, nil
+		}
+		return OperationUpdateStart, nil
+	case ops.OperationUninstall:
+		if operation.IsCompleted() {
+			return OperationUninstallComplete, nil
+		} else if operation.IsFailed() {
+			return OperationUninstallFailure, nil
+		}
+		return OperationUninstallStart, nil
+	case ops.OperationGarbageCollect:
+		if operation.IsCompleted() {
+			return OperationGCComplete, nil
+		} else if operation.IsFailed() {
+			return OperationGCFailure, nil
+		}
+		return OperationGCStart, nil
+	case ops.OperationUpdateRuntimeEnviron:
+		if operation.IsCompleted() {
+			return OperationEnvComplete, nil
+		} else if operation.IsFailed() {
+			return OperationEnvFailure, nil
+		}
+		return OperationEnvStart, nil
+	case ops.OperationUpdateConfig:
+		if operation.IsCompleted() {
+			return OperationConfigComplete, nil
+		} else if operation.IsFailed() {
+			return OperationConfigFailure, nil
+		}
+		return OperationConfigStart, nil
+	}
+	return events.Event{}, trace.NotFound(
+		"operation does not have corresponding event: %v", operation)
+}
+
 // FieldsForOperation returns event fields for the provided operation.
 func FieldsForOperation(operation ops.SiteOperation) Fields {
 	fields, err := fieldsForOperation(operation)

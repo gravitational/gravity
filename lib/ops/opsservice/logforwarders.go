@@ -17,8 +17,11 @@ limitations under the License.
 package opsservice
 
 import (
+	"context"
+
 	"github.com/gravitational/gravity/lib/defaults"
 	"github.com/gravitational/gravity/lib/ops"
+	"github.com/gravitational/gravity/lib/ops/events"
 	"github.com/gravitational/gravity/lib/storage"
 	"github.com/gravitational/gravity/lib/utils"
 
@@ -71,7 +74,7 @@ func (o *Operator) UpdateLogForwarders(key ops.SiteKey, forwarders []storage.Log
 }
 
 // CreateLogForwarder creates a new log forwarder
-func (o *Operator) CreateLogForwarder(key ops.SiteKey, forwarder storage.LogForwarder) error {
+func (o *Operator) CreateLogForwarder(ctx context.Context, key ops.SiteKey, forwarder storage.LogForwarder) error {
 	if o.cfg.LogForwarders == nil {
 		return trace.BadParameter(
 			"this operator does not support log forwarders management")
@@ -82,6 +85,10 @@ func (o *Operator) CreateLogForwarder(key ops.SiteKey, forwarder storage.LogForw
 		return trace.Wrap(err)
 	}
 
+	events.Emit(ctx, o, events.LogForwarderCreated, events.Fields{
+		events.FieldName: forwarder.GetName(),
+	})
+
 	err = o.cfg.LogForwarders.Reload()
 	if err != nil {
 		return trace.Wrap(err)
@@ -91,7 +98,7 @@ func (o *Operator) CreateLogForwarder(key ops.SiteKey, forwarder storage.LogForw
 }
 
 // UpdateLogForwarder updates an existing log forwarder
-func (o *Operator) UpdateLogForwarder(key ops.SiteKey, forwarder storage.LogForwarder) error {
+func (o *Operator) UpdateLogForwarder(ctx context.Context, key ops.SiteKey, forwarder storage.LogForwarder) error {
 	if o.cfg.LogForwarders == nil {
 		return trace.BadParameter(
 			"this operator does not support log forwarders management")
@@ -102,6 +109,10 @@ func (o *Operator) UpdateLogForwarder(key ops.SiteKey, forwarder storage.LogForw
 		return trace.Wrap(err)
 	}
 
+	events.Emit(ctx, o, events.LogForwarderCreated, events.Fields{
+		events.FieldName: forwarder.GetName(),
+	})
+
 	err = o.cfg.LogForwarders.Reload()
 	if err != nil {
 		return trace.Wrap(err)
@@ -111,7 +122,7 @@ func (o *Operator) UpdateLogForwarder(key ops.SiteKey, forwarder storage.LogForw
 }
 
 // DeleteLogForwarder deletes a log forwarder
-func (o *Operator) DeleteLogForwarder(key ops.SiteKey, name string) error {
+func (o *Operator) DeleteLogForwarder(ctx context.Context, key ops.SiteKey, name string) error {
 	if o.cfg.LogForwarders == nil {
 		return trace.BadParameter(
 			"this operator does not support log forwarders management")
@@ -121,6 +132,10 @@ func (o *Operator) DeleteLogForwarder(key ops.SiteKey, name string) error {
 	if err != nil {
 		return trace.Wrap(err)
 	}
+
+	events.Emit(ctx, o, events.LogForwarderDeleted, events.Fields{
+		events.FieldName: name,
+	})
 
 	err = o.cfg.LogForwarders.Reload()
 	if err != nil {

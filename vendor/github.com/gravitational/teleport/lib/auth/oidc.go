@@ -128,13 +128,14 @@ func (s *AuthServer) CreateOIDCAuthRequest(req services.OIDCAuthRequest) (*servi
 func (a *AuthServer) ValidateOIDCAuthCallback(q url.Values) (*OIDCAuthResponse, error) {
 	re, err := a.validateOIDCAuthCallback(q)
 	if err != nil {
-		a.EmitAuditEvent(events.UserLoginEvent, events.EventFields{
+		a.EmitAuditEvent(events.UserSSOLoginFailure, events.EventFields{
 			events.LoginMethod:        events.LoginMethodOIDC,
 			events.AuthAttemptSuccess: false,
-			events.AuthAttemptErr:     err.Error(),
+			// log the original internal error in audit log
+			events.AuthAttemptErr: trace.Unwrap(err).Error(),
 		})
 	} else {
-		a.EmitAuditEvent(events.UserLoginEvent, events.EventFields{
+		a.EmitAuditEvent(events.UserSSOLogin, events.EventFields{
 			events.EventUser:          re.Username,
 			events.AuthAttemptSuccess: true,
 			events.LoginMethod:        events.LoginMethodOIDC,
@@ -178,8 +179,14 @@ func (a *AuthServer) validateOIDCAuthCallback(q url.Values) (*OIDCAuthResponse, 
 	// extract claims from both the id token and the userinfo endpoint and merge them
 	claims, err := a.getClaims(oidcClient, connector.GetIssuerURL(), connector.GetScope(), code)
 	if err != nil {
-		return nil, trace.OAuth2(
-			oauth2.ErrorUnsupportedResponseType, "unable to construct claims", q)
+		return nil, trace.WrapWithMessage(
+			// preserve the original error message, to avoid leaking
+			// server errors to the user in the UI, but override
+			// user message to the high level instruction to check audit log for details
+			trace.OAuth2(
+				oauth2.ErrorUnsupportedResponseType, err.Error(), q),
+			"unable to construct claims, check audit log for details",
+		)
 	}
 
 	log.Debugf("OIDC claims: %v.", claims)
@@ -542,7 +549,7 @@ collect:
 
 			// Print warning to Teleport logs as well as the Audit Log.
 			log.Warnf(warningMessage)
-			g.auditLog.EmitAuditEvent(events.UserLoginEvent, events.EventFields{
+			g.auditLog.EmitAuditEvent(events.UserSSOLoginFailure, events.EventFields{
 				events.LoginMethod:        events.LoginMethodOIDC,
 				events.AuthAttemptMessage: warningMessage,
 			})

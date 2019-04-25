@@ -10,7 +10,7 @@
 # Naming convention:
 #	for stable releases we use "1.0.0" format
 #   for pre-releases, we use   "1.0.0-beta.2" format
-VERSION=3.1.8
+VERSION=3.2.4
 
 # These are standard autotools variables, don't change them please
 BUILDDIR ?= build
@@ -218,7 +218,7 @@ endif
 
 .PHONY: test-package
 test-package: remove-temp-files
-	go test -v -test.parallel=0 ./$(p)
+	go test -v ./$(p)
 
 .PHONY: test-grep-package
 test-grep-package: remove-temp-files
