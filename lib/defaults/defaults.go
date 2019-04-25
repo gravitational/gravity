@@ -1013,9 +1013,6 @@ var (
 	// GravityConfigDirs specify default locations for gravity configuration search
 	GravityConfigDirs = []string{GravityDir, "assets/local"}
 
-	// GravityJoinDir is where join FSM stores its information on the joining node
-	GravityJoinDir = filepath.Join(GravityEphemeralDir, "join")
-
 	// RPCAgentSecretsDir specifies the location of the unpacked credentials
 	RPCAgentSecretsDir = filepath.Join(GravityEphemeralDir, "rpcsecrets")
 
@@ -1222,7 +1219,7 @@ func InstallerAddr(installerIP string) (addr string) {
 	return fmt.Sprintf("%v:%v", installerIP, WizardPackServerPort)
 }
 
-// GravityInstallDir is where install FSM stores its information during install operation.
+// GravityInstallDir is where install FSM stores its information during install/join operation.
 // elems are appended to resulting path if not empty
 func GravityInstallDir(elems ...string) (path string) {
 	parts := []string{os.TempDir(), WizardStateDir}

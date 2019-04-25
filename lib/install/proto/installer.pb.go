@@ -143,25 +143,25 @@ func (m *ShutdownResponse) XXX_DiscardUnknown() {
 
 var xxx_messageInfo_ShutdownResponse proto.InternalMessageInfo
 
-// UninstallRequest describes a request to abort the operation and clean up
-type UninstallRequest struct {
+// AbortRequest describes a request to abort the operation and clean up
+type AbortRequest struct {
 	XXX_NoUnkeyedLiteral struct{} `json:"-"`
 	XXX_unrecognized     []byte   `json:"-"`
 	XXX_sizecache        int32    `json:"-"`
 }
 
-func (m *UninstallRequest) Reset()         { *m = UninstallRequest{} }
-func (m *UninstallRequest) String() string { return proto.CompactTextString(m) }
-func (*UninstallRequest) ProtoMessage()    {}
-func (*UninstallRequest) Descriptor() ([]byte, []int) {
+func (m *AbortRequest) Reset()         { *m = AbortRequest{} }
+func (m *AbortRequest) String() string { return proto.CompactTextString(m) }
+func (*AbortRequest) ProtoMessage()    {}
+func (*AbortRequest) Descriptor() ([]byte, []int) {
 	return fileDescriptor_675879a591bd3155, []int{3}
 }
-func (m *UninstallRequest) XXX_Unmarshal(b []byte) error {
+func (m *AbortRequest) XXX_Unmarshal(b []byte) error {
 	return m.Unmarshal(b)
 }
-func (m *UninstallRequest) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
+func (m *AbortRequest) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
 	if deterministic {
-		return xxx_messageInfo_UninstallRequest.Marshal(b, m, deterministic)
+		return xxx_messageInfo_AbortRequest.Marshal(b, m, deterministic)
 	} else {
 		b = b[:cap(b)]
 		n, err := m.MarshalTo(b)
@@ -171,39 +171,39 @@ func (m *UninstallRequest) XXX_Marshal(b []byte, deterministic bool) ([]byte, er
 		return b[:n], nil
 	}
 }
-func (m *UninstallRequest) XXX_Merge(src proto.Message) {
-	xxx_messageInfo_UninstallRequest.Merge(m, src)
+func (m *AbortRequest) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_AbortRequest.Merge(m, src)
 }
-func (m *UninstallRequest) XXX_Size() int {
+func (m *AbortRequest) XXX_Size() int {
 	return m.Size()
 }
-func (m *UninstallRequest) XXX_DiscardUnknown() {
-	xxx_messageInfo_UninstallRequest.DiscardUnknown(m)
+func (m *AbortRequest) XXX_DiscardUnknown() {
+	xxx_messageInfo_AbortRequest.DiscardUnknown(m)
 }
 
-var xxx_messageInfo_UninstallRequest proto.InternalMessageInfo
+var xxx_messageInfo_AbortRequest proto.InternalMessageInfo
 
-// UninstallResponse describes the server response to the uninstall request
-type UninstallResponse struct {
-	// Error specifies the error from the uninstall handler
+// AbortResponse describes the server response to the abort request
+type AbortResponse struct {
+	// Error specifies the error from the abort handler
 	Error                *Error   `protobuf:"bytes,1,opt,name=error,proto3" json:"error,omitempty"`
 	XXX_NoUnkeyedLiteral struct{} `json:"-"`
 	XXX_unrecognized     []byte   `json:"-"`
 	XXX_sizecache        int32    `json:"-"`
 }
 
-func (m *UninstallResponse) Reset()         { *m = UninstallResponse{} }
-func (m *UninstallResponse) String() string { return proto.CompactTextString(m) }
-func (*UninstallResponse) ProtoMessage()    {}
-func (*UninstallResponse) Descriptor() ([]byte, []int) {
+func (m *AbortResponse) Reset()         { *m = AbortResponse{} }
+func (m *AbortResponse) String() string { return proto.CompactTextString(m) }
+func (*AbortResponse) ProtoMessage()    {}
+func (*AbortResponse) Descriptor() ([]byte, []int) {
 	return fileDescriptor_675879a591bd3155, []int{4}
 }
-func (m *UninstallResponse) XXX_Unmarshal(b []byte) error {
+func (m *AbortResponse) XXX_Unmarshal(b []byte) error {
 	return m.Unmarshal(b)
 }
-func (m *UninstallResponse) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
+func (m *AbortResponse) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
 	if deterministic {
-		return xxx_messageInfo_UninstallResponse.Marshal(b, m, deterministic)
+		return xxx_messageInfo_AbortResponse.Marshal(b, m, deterministic)
 	} else {
 		b = b[:cap(b)]
 		n, err := m.MarshalTo(b)
@@ -213,19 +213,19 @@ func (m *UninstallResponse) XXX_Marshal(b []byte, deterministic bool) ([]byte, e
 		return b[:n], nil
 	}
 }
-func (m *UninstallResponse) XXX_Merge(src proto.Message) {
-	xxx_messageInfo_UninstallResponse.Merge(m, src)
+func (m *AbortResponse) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_AbortResponse.Merge(m, src)
 }
-func (m *UninstallResponse) XXX_Size() int {
+func (m *AbortResponse) XXX_Size() int {
 	return m.Size()
 }
-func (m *UninstallResponse) XXX_DiscardUnknown() {
-	xxx_messageInfo_UninstallResponse.DiscardUnknown(m)
+func (m *AbortResponse) XXX_DiscardUnknown() {
+	xxx_messageInfo_AbortResponse.DiscardUnknown(m)
 }
 
-var xxx_messageInfo_UninstallResponse proto.InternalMessageInfo
+var xxx_messageInfo_AbortResponse proto.InternalMessageInfo
 
-func (m *UninstallResponse) GetError() *Error {
+func (m *AbortResponse) GetError() *Error {
 	if m != nil {
 		return m.Error
 	}
@@ -352,8 +352,8 @@ func init() {
 	proto.RegisterType((*ExecuteRequest)(nil), "installer.ExecuteRequest")
 	proto.RegisterType((*ShutdownRequest)(nil), "installer.ShutdownRequest")
 	proto.RegisterType((*ShutdownResponse)(nil), "installer.ShutdownResponse")
-	proto.RegisterType((*UninstallRequest)(nil), "installer.UninstallRequest")
-	proto.RegisterType((*UninstallResponse)(nil), "installer.UninstallResponse")
+	proto.RegisterType((*AbortRequest)(nil), "installer.AbortRequest")
+	proto.RegisterType((*AbortResponse)(nil), "installer.AbortResponse")
 	proto.RegisterType((*ProgressResponse)(nil), "installer.ProgressResponse")
 	proto.RegisterType((*Error)(nil), "installer.Error")
 }
@@ -361,26 +361,26 @@ func init() {
 func init() { proto.RegisterFile("installer.proto", fileDescriptor_675879a591bd3155) }
 
 var fileDescriptor_675879a591bd3155 = []byte{
-	// 292 bytes of a gzipped FileDescriptorProto
-	0x1f, 0x8b, 0x08, 0x00, 0x00, 0x00, 0x00, 0x00, 0x02, 0xff, 0x74, 0x92, 0xcf, 0x4e, 0xb3, 0x40,
-	0x14, 0xc5, 0xbf, 0xf9, 0x1a, 0x5a, 0xb8, 0x26, 0x96, 0xde, 0x15, 0xa2, 0x21, 0xc8, 0xc2, 0xb0,
-	0x6a, 0x4c, 0x5d, 0xba, 0xd2, 0xa6, 0xae, 0x0d, 0xc6, 0x07, 0xa8, 0xf5, 0x06, 0x4d, 0xe8, 0x0c,
-	0xce, 0x0c, 0xd1, 0x47, 0xf1, 0x91, 0x5c, 0xba, 0x75, 0x67, 0xf0, 0x45, 0x4c, 0xf9, 0xd7, 0x29,
-	0xa9, 0xcb, 0xfb, 0x3b, 0xe7, 0x9e, 0x0b, 0x07, 0x60, 0xfc, 0xcc, 0x95, 0x5e, 0x66, 0x19, 0xc9,
-	0x69, 0x2e, 0x85, 0x16, 0xe8, 0x74, 0x20, 0x72, 0xe1, 0x70, 0xf1, 0x46, 0xab, 0x42, 0x53, 0x42,
-	0x2f, 0x05, 0x29, 0x1d, 0x4d, 0x60, 0x7c, 0xf7, 0x54, 0xe8, 0x47, 0xf1, 0xca, 0x5b, 0x84, 0xe0,
-	0x6e, 0x91, 0xca, 0x05, 0x57, 0xb4, 0x61, 0xf7, 0xbc, 0xc9, 0x69, 0x7d, 0x97, 0x30, 0x31, 0x58,
-	0x6d, 0xc4, 0x33, 0xb0, 0x48, 0x4a, 0x21, 0x3d, 0x16, 0xb2, 0xf8, 0x60, 0xe6, 0x4e, 0xb7, 0x4f,
-	0xb3, 0xd8, 0xf0, 0xa4, 0x96, 0x23, 0x09, 0xee, 0xad, 0x14, 0xa9, 0x24, 0xa5, 0xba, 0x5d, 0x0f,
-	0x46, 0x6b, 0x52, 0x6a, 0x99, 0x52, 0xb5, 0xed, 0x24, 0xed, 0x88, 0x3e, 0xd8, 0x2b, 0xb1, 0xce,
-	0x33, 0xd2, 0xe4, 0xfd, 0x0f, 0x59, 0x6c, 0x27, 0xdd, 0x8c, 0x31, 0x0c, 0xab, 0x48, 0xe5, 0x0d,
-	0xc2, 0xc1, 0xde, 0x93, 0x8d, 0x1e, 0x9d, 0x82, 0x55, 0x81, 0xbf, 0x0f, 0xcd, 0xbe, 0x18, 0x58,
-	0x57, 0x29, 0x71, 0x8d, 0x73, 0x18, 0x35, 0x55, 0xe1, 0x91, 0x99, 0xb8, 0x53, 0x9f, 0x7f, 0x6c,
-	0x48, 0xfd, 0xf7, 0x39, 0x67, 0x38, 0x07, 0xbb, 0xad, 0x12, 0x7d, 0xc3, 0xda, 0xab, 0x7c, 0x27,
-	0xa6, 0xdf, 0x3d, 0xde, 0x80, 0xd3, 0xf5, 0x8c, 0xa6, 0xb3, 0xff, 0x45, 0xfc, 0x93, 0xfd, 0x62,
-	0x9d, 0x73, 0xed, 0x7e, 0x94, 0x01, 0xfb, 0x2c, 0x03, 0xf6, 0x5d, 0x06, 0xec, 0xfd, 0x27, 0xf8,
-	0xf7, 0x30, 0xac, 0x7e, 0x90, 0x8b, 0xdf, 0x00, 0x00, 0x00, 0xff, 0xff, 0xea, 0x98, 0x0e, 0x1d,
-	0x33, 0x02, 0x00, 0x00,
+	// 296 bytes of a gzipped FileDescriptorProto
+	0x1f, 0x8b, 0x08, 0x00, 0x00, 0x00, 0x00, 0x00, 0x02, 0xff, 0x74, 0x92, 0x4f, 0x4e, 0xf3, 0x30,
+	0x10, 0xc5, 0x3f, 0x7f, 0x55, 0xda, 0x74, 0x80, 0x36, 0xcc, 0x86, 0x10, 0xa4, 0x28, 0x64, 0x81,
+	0xb2, 0xaa, 0x50, 0x59, 0x20, 0xb1, 0x2b, 0x55, 0xf7, 0x28, 0x9c, 0xa0, 0x2d, 0xa3, 0x80, 0x94,
+	0xc6, 0xc1, 0x76, 0x04, 0x47, 0xe1, 0x48, 0x6c, 0x90, 0x38, 0x02, 0x0a, 0x17, 0x41, 0x38, 0x7f,
+	0xea, 0x06, 0x58, 0xce, 0x7b, 0x6f, 0x66, 0xec, 0x9f, 0x0d, 0xe3, 0x87, 0x4c, 0xaa, 0x65, 0x9a,
+	0x92, 0x98, 0xe4, 0x82, 0x2b, 0x8e, 0xc3, 0x56, 0x08, 0x1d, 0x18, 0x2d, 0x9e, 0x69, 0x5d, 0x28,
+	0x8a, 0xe9, 0xb1, 0x20, 0xa9, 0xc2, 0x43, 0x18, 0xdf, 0xde, 0x17, 0xea, 0x8e, 0x3f, 0x65, 0x8d,
+	0x84, 0xe0, 0x6c, 0x25, 0x99, 0xf3, 0x4c, 0x52, 0x38, 0x82, 0xfd, 0xd9, 0x8a, 0x0b, 0xd5, 0x64,
+	0x2e, 0xe1, 0xa0, 0xae, 0xab, 0x00, 0x9e, 0x81, 0x45, 0x42, 0x70, 0xe1, 0xb2, 0x80, 0x45, 0x7b,
+	0x53, 0x67, 0xb2, 0x3d, 0xc5, 0xe2, 0x5b, 0x8f, 0x2b, 0x3b, 0x14, 0xe0, 0xdc, 0x08, 0x9e, 0x08,
+	0x92, 0xb2, 0xed, 0x75, 0x61, 0xb0, 0x21, 0x29, 0x97, 0x09, 0xe9, 0xee, 0x61, 0xdc, 0x94, 0xe8,
+	0x81, 0xbd, 0xe6, 0x9b, 0x3c, 0x25, 0x45, 0xee, 0xff, 0x80, 0x45, 0x76, 0xdc, 0xd6, 0x18, 0x41,
+	0x5f, 0x8f, 0x94, 0x6e, 0x2f, 0xe8, 0xfd, 0xba, 0xb2, 0xf6, 0xc3, 0x53, 0xb0, 0xb4, 0xf0, 0xf7,
+	0xa2, 0xe9, 0x1b, 0x03, 0x6b, 0x96, 0x50, 0xa6, 0x70, 0x0e, 0x83, 0x1a, 0x11, 0x1e, 0x9b, 0x13,
+	0x77, 0xb0, 0x79, 0x27, 0x86, 0xd5, 0xbd, 0xcf, 0x39, 0xc3, 0x39, 0xd8, 0x0d, 0x42, 0xf4, 0x8c,
+	0x68, 0x07, 0xf5, 0xce, 0x98, 0x2e, 0x73, 0xbc, 0x02, 0x4b, 0x33, 0xc6, 0x23, 0x23, 0x65, 0xbe,
+	0x82, 0xe7, 0xfe, 0x34, 0xaa, 0xde, 0x6b, 0xe7, 0xb5, 0xf4, 0xd9, 0x7b, 0xe9, 0xb3, 0x8f, 0xd2,
+	0x67, 0x2f, 0x9f, 0xfe, 0xbf, 0x55, 0x5f, 0x7f, 0x86, 0x8b, 0xaf, 0x00, 0x00, 0x00, 0xff, 0xff,
+	0x2f, 0x7f, 0x07, 0x38, 0x1f, 0x02, 0x00, 0x00,
 }
 
 // Reference imports to suppress errors if they are not otherwise used.
@@ -399,9 +399,9 @@ type AgentClient interface {
 	Execute(ctx context.Context, in *ExecuteRequest, opts ...grpc.CallOption) (Agent_ExecuteClient, error)
 	// Shutdown requests that the installer exit
 	Shutdown(ctx context.Context, in *ShutdownRequest, opts ...grpc.CallOption) (*ShutdownResponse, error)
-	// Uninstall requests that the installer service aborts and cleans up
+	// Abort requests that the installer service aborts and cleans up
 	// the state of the operation
-	Uninstall(ctx context.Context, in *UninstallRequest, opts ...grpc.CallOption) (*UninstallResponse, error)
+	Abort(ctx context.Context, in *AbortRequest, opts ...grpc.CallOption) (*AbortResponse, error)
 }
 
 type agentClient struct {
@@ -453,9 +453,9 @@ func (c *agentClient) Shutdown(ctx context.Context, in *ShutdownRequest, opts ..
 	return out, nil
 }
 
-func (c *agentClient) Uninstall(ctx context.Context, in *UninstallRequest, opts ...grpc.CallOption) (*UninstallResponse, error) {
-	out := new(UninstallResponse)
-	err := c.cc.Invoke(ctx, "/installer.Agent/Uninstall", in, out, opts...)
+func (c *agentClient) Abort(ctx context.Context, in *AbortRequest, opts ...grpc.CallOption) (*AbortResponse, error) {
+	out := new(AbortResponse)
+	err := c.cc.Invoke(ctx, "/installer.Agent/Abort", in, out, opts...)
 	if err != nil {
 		return nil, err
 	}
@@ -468,9 +468,9 @@ type AgentServer interface {
 	Execute(*ExecuteRequest, Agent_ExecuteServer) error
 	// Shutdown requests that the installer exit
 	Shutdown(context.Context, *ShutdownRequest) (*ShutdownResponse, error)
-	// Uninstall requests that the installer service aborts and cleans up
+	// Abort requests that the installer service aborts and cleans up
 	// the state of the operation
-	Uninstall(context.Context, *UninstallRequest) (*UninstallResponse, error)
+	Abort(context.Context, *AbortRequest) (*AbortResponse, error)
 }
 
 func RegisterAgentServer(s *grpc.Server, srv AgentServer) {
@@ -516,20 +516,20 @@ func _Agent_Shutdown_Handler(srv interface{}, ctx context.Context, dec func(inte
 	return interceptor(ctx, in, info, handler)
 }
 
-func _Agent_Uninstall_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
-	in := new(UninstallRequest)
+func _Agent_Abort_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(AbortRequest)
 	if err := dec(in); err != nil {
 		return nil, err
 	}
 	if interceptor == nil {
-		return srv.(AgentServer).Uninstall(ctx, in)
+		return srv.(AgentServer).Abort(ctx, in)
 	}
 	info := &grpc.UnaryServerInfo{
 		Server:     srv,
-		FullMethod: "/installer.Agent/Uninstall",
+		FullMethod: "/installer.Agent/Abort",
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		return srv.(AgentServer).Uninstall(ctx, req.(*UninstallRequest))
+		return srv.(AgentServer).Abort(ctx, req.(*AbortRequest))
 	}
 	return interceptor(ctx, in, info, handler)
 }
@@ -543,8 +543,8 @@ var _Agent_serviceDesc = grpc.ServiceDesc{
 			Handler:    _Agent_Shutdown_Handler,
 		},
 		{
-			MethodName: "Uninstall",
-			Handler:    _Agent_Uninstall_Handler,
+			MethodName: "Abort",
+			Handler:    _Agent_Abort_Handler,
 		},
 	},
 	Streams: []grpc.StreamDesc{
@@ -620,7 +620,7 @@ func (m *ShutdownResponse) MarshalTo(dAtA []byte) (int, error) {
 	return i, nil
 }
 
-func (m *UninstallRequest) Marshal() (dAtA []byte, err error) {
+func (m *AbortRequest) Marshal() (dAtA []byte, err error) {
 	size := m.Size()
 	dAtA = make([]byte, size)
 	n, err := m.MarshalTo(dAtA)
@@ -630,7 +630,7 @@ func (m *UninstallRequest) Marshal() (dAtA []byte, err error) {
 	return dAtA[:n], nil
 }
 
-func (m *UninstallRequest) MarshalTo(dAtA []byte) (int, error) {
+func (m *AbortRequest) MarshalTo(dAtA []byte) (int, error) {
 	var i int
 	_ = i
 	var l int
@@ -641,7 +641,7 @@ func (m *UninstallRequest) MarshalTo(dAtA []byte) (int, error) {
 	return i, nil
 }
 
-func (m *UninstallResponse) Marshal() (dAtA []byte, err error) {
+func (m *AbortResponse) Marshal() (dAtA []byte, err error) {
 	size := m.Size()
 	dAtA = make([]byte, size)
 	n, err := m.MarshalTo(dAtA)
@@ -651,7 +651,7 @@ func (m *UninstallResponse) Marshal() (dAtA []byte, err error) {
 	return dAtA[:n], nil
 }
 
-func (m *UninstallResponse) MarshalTo(dAtA []byte) (int, error) {
+func (m *AbortResponse) MarshalTo(dAtA []byte) (int, error) {
 	var i int
 	_ = i
 	var l int
@@ -793,7 +793,7 @@ func (m *ShutdownResponse) Size() (n int) {
 	return n
 }
 
-func (m *UninstallRequest) Size() (n int) {
+func (m *AbortRequest) Size() (n int) {
 	if m == nil {
 		return 0
 	}
@@ -805,7 +805,7 @@ func (m *UninstallRequest) Size() (n int) {
 	return n
 }
 
-func (m *UninstallResponse) Size() (n int) {
+func (m *AbortResponse) Size() (n int) {
 	if m == nil {
 		return 0
 	}
@@ -1037,7 +1037,7 @@ func (m *ShutdownResponse) Unmarshal(dAtA []byte) error {
 	}
 	return nil
 }
-func (m *UninstallRequest) Unmarshal(dAtA []byte) error {
+func (m *AbortRequest) Unmarshal(dAtA []byte) error {
 	l := len(dAtA)
 	iNdEx := 0
 	for iNdEx < l {
@@ -1060,10 +1060,10 @@ func (m *UninstallRequest) Unmarshal(dAtA []byte) error {
 		fieldNum := int32(wire >> 3)
 		wireType := int(wire & 0x7)
 		if wireType == 4 {
-			return fmt.Errorf("proto: UninstallRequest: wiretype end group for non-group")
+			return fmt.Errorf("proto: AbortRequest: wiretype end group for non-group")
 		}
 		if fieldNum <= 0 {
-			return fmt.Errorf("proto: UninstallRequest: illegal tag %d (wire type %d)", fieldNum, wire)
+			return fmt.Errorf("proto: AbortRequest: illegal tag %d (wire type %d)", fieldNum, wire)
 		}
 		switch fieldNum {
 		default:
@@ -1091,7 +1091,7 @@ func (m *UninstallRequest) Unmarshal(dAtA []byte) error {
 	}
 	return nil
 }
-func (m *UninstallResponse) Unmarshal(dAtA []byte) error {
+func (m *AbortResponse) Unmarshal(dAtA []byte) error {
 	l := len(dAtA)
 	iNdEx := 0
 	for iNdEx < l {
@@ -1114,10 +1114,10 @@ func (m *UninstallResponse) Unmarshal(dAtA []byte) error {
 		fieldNum := int32(wire >> 3)
 		wireType := int(wire & 0x7)
 		if wireType == 4 {
-			return fmt.Errorf("proto: UninstallResponse: wiretype end group for non-group")
+			return fmt.Errorf("proto: AbortResponse: wiretype end group for non-group")
 		}
 		if fieldNum <= 0 {
-			return fmt.Errorf("proto: UninstallResponse: illegal tag %d (wire type %d)", fieldNum, wire)
+			return fmt.Errorf("proto: AbortResponse: illegal tag %d (wire type %d)", fieldNum, wire)
 		}
 		switch fieldNum {
 		case 1:

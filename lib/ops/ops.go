@@ -1414,6 +1414,10 @@ type AgentService interface {
 	// and rejects all consequitive requests to connect for any agent
 	// for this site
 	StopAgents(context.Context, SiteOperationKey) error
+
+	// AbortAgents instructs all remote agents to abort operation
+	// and uninstall state
+	AbortAgents(context.Context, SiteOperationKey) error
 }
 
 // NewAccountRequest is a request to create a new account

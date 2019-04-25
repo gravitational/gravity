@@ -144,6 +144,9 @@ type Config struct {
 	// ReconnectTimeout specifies the maximum timeout used to reconnect to a peer.
 	// Defaults to defaults.RPCAgentBackoffThreshold
 	ReconnectTimeout time.Duration
+	// AbortHandler specifies an optional handler for aborting the operation.
+	// The handler is invoked when serving the Abort API
+	AbortHandler func(context.Context) error
 	// systemInfo queries system information
 	systemInfo
 	// commandExecutor is a system command executor.

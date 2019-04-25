@@ -43,9 +43,12 @@ func (r *Server) Serve(executor Executor, listener net.Listener) error {
 // Stop stops the server gracefully
 func (r *Server) Stop(ctx context.Context) {
 	r.stop(ctx)
-	r.WaitForOperation()
-	r.cancel()
-	r.serveWG.Wait()
+	r.rpc.GracefulStop()
+}
+
+// Interrupt aborts the server
+func (r *Server) Interrupt(ctx context.Context) {
+	r.abort(ctx)
 	r.rpc.GracefulStop()
 }
 
@@ -54,19 +57,14 @@ func (r *Server) WaitForOperation() {
 	r.execWG.Wait()
 }
 
-// Uninstall aborts the operation and cleans up the state
+// Abort aborts the operation and cleans up the state
 // Implements installpb.AgentServer
-func (r *Server) Uninstall(ctx context.Context, req *installpb.UninstallRequest) (*installpb.UninstallResponse, error) {
-	var errors []error
-	if err := r.executor.Uninstall(ctx); err != nil {
-		errors = append(errors, err)
-	}
-	go r.Stop(ctx)
-	resp := &installpb.UninstallResponse{}
-	if err := trace.NewAggregate(errors...); err != nil {
-		resp.Error = &installpb.Error{Message: err.Error()}
-	}
-	return resp, nil
+func (r *Server) Abort(ctx context.Context, req *installpb.AbortRequest) (*installpb.AbortResponse, error) {
+	r.abort(ctx)
+	// Do not block Stop from the server's connection as it waits for all connections
+	// to complete
+	go r.rpc.GracefulStop()
+	return &installpb.AbortResponse{}, nil
 }
 
 // Shutdown shuts down the installer.
@@ -88,7 +86,7 @@ func (r *Server) Execute(req *installpb.ExecuteRequest, stream installpb.Agent_E
 	r.executeOnce.Do(func() {
 		r.execWG.Add(1)
 		go func() {
-			if err := r.executor.Execute(); err != nil {
+			if err := r.executor.ExecuteOperation(); err != nil {
 				r.WithError(err).Info("Failed to execute.")
 				if err := r.sendError(err); err != nil {
 					r.WithError(err).Info("Failed to send error to client.")
@@ -195,11 +193,12 @@ func (r *Server) RunProgressLoop(operator ops.Operator, operationKey ops.SiteOpe
 
 // Executor wraps a potentially failing operation
 type Executor interface {
-	Execute() error
+	// ExecuteOperation executes the install operation
+	ExecuteOperation() error
+	// AbortOperation gracefully aborts the operation and cleans up the operation state
+	AbortOperation(context.Context) error
 	// Shutdown gracefully aborts the operation
 	Shutdown(context.Context) error
-	// Uninstall gracefully aborts the operation and cleans up the operation state
-	Uninstall(context.Context) error
 }
 
 // Server implements the installer gRPC server
@@ -254,6 +253,16 @@ func (r *Server) stop(ctx context.Context) {
 	r.stopOnce.Do(func() {
 		r.executor.Shutdown(ctx)
 	})
+	r.cancel()
+	r.serveWG.Wait()
+}
+
+func (r *Server) abort(ctx context.Context) {
+	r.stopOnce.Do(func() {
+		r.executor.AbortOperation(ctx)
+	})
+	r.cancel()
+	r.serveWG.Wait()
 }
 
 func (r *Server) sendError(err error) error {

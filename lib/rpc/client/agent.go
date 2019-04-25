@@ -70,6 +70,16 @@ func (c *client) Shutdown(ctx context.Context) error {
 	return trace.Wrap(c.Close())
 }
 
+// Abort requests remote agent to abort operation
+func (c *client) Abort(ctx context.Context) error {
+	_, err := c.agent.Abort(ctx, &types.Empty{})
+	if err != nil {
+		return trace.Wrap(err)
+	}
+
+	return trace.Wrap(c.Close())
+}
+
 func (c *client) command(ctx context.Context, log logrus.FieldLogger, w io.Writer, args *pb.CommandArgs) error {
 	if len(args.Args) < 1 {
 		return trace.BadParameter("at least one argument is required")

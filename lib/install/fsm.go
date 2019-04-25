@@ -18,7 +18,6 @@ package install
 
 import (
 	"context"
-	"fmt"
 	"time"
 
 	"github.com/gravitational/gravity/lib/app"
@@ -249,14 +248,15 @@ func (f *fsmEngine) GetExecutor(p fsm.ExecutorParams, remote fsm.Remote) (fsm.Ph
 // RunCommand executes the phase specified by params on the specified server
 // using the provided runner
 func (f *fsmEngine) RunCommand(ctx context.Context, runner fsm.RemoteRunner, server storage.Server, p fsm.Params) error {
-	args := []string{"install", "--phase", p.PhaseID, fmt.Sprintf("--force=%v", p.Force)}
-	if f.RemoteOpsURL != "" && f.RemoteOpsToken != "" {
-		args = append(args,
-			fmt.Sprintf("--ops-url=%v", f.RemoteOpsURL),
-			fmt.Sprintf("--ops-token=%v", f.RemoteOpsToken))
+	args := []string{"plan", "execute",
+		"--phase", p.PhaseID,
+		"--operation-id", p.OperationID,
+	}
+	if p.Force {
+		args = append(args, "--force")
 	}
 	if f.Insecure {
-		args = append([]string{"--debug", "--insecure"}, args...)
+		args = append(args, "--debug", "--insecure")
 	}
 	return runner.Run(ctx, server, args...)
 }

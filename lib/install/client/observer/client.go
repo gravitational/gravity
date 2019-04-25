@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/gravitational/gravity/lib/defaults"
 	"github.com/gravitational/gravity/lib/fsm"
 	installpb "github.com/gravitational/gravity/lib/install/proto"
 	"github.com/gravitational/gravity/lib/system/service"
@@ -82,8 +83,8 @@ func (r *Client) Rollback(ctx context.Context, machine *fsm.FSM, params fsm.Para
 }
 
 func (r *Config) checkAndSetDefaults() error {
-	if r.StateDir == "" {
-		return trace.BadParameter("StateDir is required")
+	if r.ServiceName == "" {
+		return trace.BadParameter("ServiceName is required")
 	}
 	if r.InterruptHandler == nil {
 		return trace.BadParameter("InterruptHandler is required")
@@ -93,6 +94,12 @@ func (r *Config) checkAndSetDefaults() error {
 	}
 	if r.FieldLogger == nil {
 		r.FieldLogger = log.WithField(trace.Component, "client:observer")
+	}
+	if r.StateDir == "" {
+		r.StateDir = defaults.GravityInstallDir()
+	}
+	if r.ServiceName == "" {
+		r.ServiceName = defaults.GravityRPCInstallerServiceName
 	}
 	return nil
 }
@@ -112,7 +119,8 @@ type Config struct {
 }
 
 func (r *Client) addTerminationHandler() {
-	r.InterruptHandler.AddStopper(signals.StopperFunc(func(ctx context.Context) error {
+	r.InterruptHandler.AddStopper(signals.AborterFunc(func(ctx context.Context, interrupted bool) error {
+		// FIXME: Uninstall if interrupted?
 		_, err := r.client.Shutdown(ctx, &installpb.ShutdownRequest{})
 		return trace.Wrap(err)
 	}))

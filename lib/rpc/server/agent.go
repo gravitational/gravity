@@ -140,10 +140,12 @@ func (srv *agentServer) Shutdown(ctx context.Context, _ *types.Empty) (*types.Em
 	return &types.Empty{}, nil
 }
 
-func (srv *agentServer) Uninstall(context.Context, *pb.UninstallRequest) (*types.Empty, error) {
-	srv.Info("Uninstall.")
-	// TODO
-	return &types.Empty{}, nil
+func (srv *agentServer) Abort(ctx context.Context, req *types.Empty) (resp *types.Empty, err error) {
+	srv.Info("Abort.")
+	if srv.AbortHandler != nil {
+		err = srv.AbortHandler(ctx)
+	}
+	return &types.Empty{}, trace.Wrap(err)
 }
 
 func (srv *agentServer) command(req pb.CommandArgs, stream pb.Agent_CommandServer, log *log.Entry) (err error) {

@@ -46,8 +46,8 @@ func RegisterCommands(app *kingpin.Application) *Application {
 	g.EtcdRetryTimeout = g.Flag("etcd-retry-timeout", "Retry timeout for etcd transient errors").Hidden().Duration()
 	g.UID = app.Flag("uid", "effective user ID for this operation. Must be >= 0").Default(strconv.Itoa(defaults.PlaceholderUserID)).Hidden().Int()
 	g.GID = g.Flag("gid", "effective group ID for this operation. Must be >= 0").Default(strconv.Itoa(defaults.PlaceholderGroupID)).Hidden().Int()
-	g.ProfileEndpoint = g.Flag("httpprofile", "enable profiling endpoint on specified host/port i.e. localhost:6060").Default("").Hidden().String()
-	g.ProfileTo = g.Flag("profile-dir", "store periodic state snapshots in the specified directory").Default("").Hidden().String()
+	g.ProfileEndpoint = g.Flag("httpprofile", "enable profiling endpoint on specified host/port i.e. localhost:6060").Default("").Default("localhost:0").Hidden().String()
+	g.ProfileTo = g.Flag("profile-dir", "store periodic state snapshots in the specified directory").Hidden().String()
 	g.UserLogFile = g.Flag("log-file", "log file with diagnostic information").Default(defaults.GravityUserLog).String()
 	g.SystemLogFile = g.Flag("system-log-file", "log file with system level logs").Default(defaults.GravitySystemLog).Hidden().String()
 

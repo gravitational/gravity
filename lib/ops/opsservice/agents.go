@@ -269,6 +269,20 @@ func (r *AgentService) Wait(ctx context.Context, key ops.SiteOperationKey, numAg
 	return nil
 }
 
+// AbortAgents shuts down remote agents and cleans up state
+func (r *AgentService) AbortAgents(ctx context.Context, key ops.SiteOperationKey) error {
+	group, err := r.peerStore.getGroup(key)
+	if err != nil {
+		return trace.Wrap(err)
+	}
+	err = group.Abort(ctx)
+	if err != nil {
+		return trace.Wrap(err)
+	}
+	r.peerStore.removeGroup(ctx, key)
+	return nil
+}
+
 // StopAgents shuts down remote agents
 func (r *AgentService) StopAgents(ctx context.Context, key ops.SiteOperationKey) error {
 	group, err := r.peerStore.getGroup(key)

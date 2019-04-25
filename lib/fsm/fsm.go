@@ -388,8 +388,10 @@ func (f *FSM) executeSubphasesConcurrently(ctx context.Context, p Params, phase 
 			p.PhaseID = subphase.ID
 			err := f.ExecutePhase(ctx, p)
 			if err != nil {
-				logrus.Warnf("Failed to execute phase %q: %v.",
-					p.PhaseID, trace.DebugReport(err))
+				logrus.WithFields(logrus.Fields{
+					logrus.ErrorKey: err,
+					"phase":         p.PhaseID,
+				}).Warn("Failed to execute phase.")
 			}
 			errorsCh <- trace.Wrap(err, "failed to execute phase %q", p.PhaseID)
 		}(p, subphase)

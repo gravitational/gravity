@@ -188,10 +188,10 @@ func (e *fsmEngine) RunCommand(ctx context.Context, runner fsm.RemoteRunner, nod
 		"--operation-id", p.OperationID,
 	}
 	if e.DebugMode {
-		args = append([]string{"--debug"}, args...)
+		args = append(args, "--debug")
 	}
 	if e.Insecure {
-		args = append([]string{"--insecure"}, args...)
+		args = append(args, "--insecure")
 	}
 	if p.Force {
 		args = append(args, "--force")

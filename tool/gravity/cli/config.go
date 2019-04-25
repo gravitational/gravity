@@ -291,7 +291,12 @@ func (i *InstallConfig) NewProcessConfig() (*processconfig.Config, error) {
 }
 
 // NewInstallerConfig returns new installer configuration for this configuration object
-func (i *InstallConfig) NewInstallerConfig(wizard *localenv.RemoteEnvironment, process process.GravityProcess, validator resources.Validator) (*install.Config, error) {
+func (i *InstallConfig) NewInstallerConfig(
+	env *localenv.LocalEnvironment,
+	wizard *localenv.RemoteEnvironment,
+	process process.GravityProcess,
+	validator resources.Validator,
+) (*install.Config, error) {
 	var kubernetesResources []runtime.Object
 	var gravityResources []storage.UnknownResource
 	if i.ResourcesPath != "" {
@@ -361,7 +366,7 @@ func (i *InstallConfig) NewInstallerConfig(wizard *localenv.RemoteEnvironment, p
 		Apps:               wizard.Apps,
 		Packages:           wizard.Packages,
 		Operator:           wizard.Operator,
-		UninstallHandler:   installerUninstallSystem,
+		AbortHandler:       installerUninstallSystem(env),
 	}, nil
 }
 
@@ -648,22 +653,20 @@ func (j *JoinConfig) NewPeerConfig(env, joinEnv *localenv.LocalEnvironment) (*ex
 		return nil, trace.Wrap(err)
 	}
 	return &expand.PeerConfig{
-		Peers:            peers,
-		AdvertiseAddr:    advertiseAddr,
-		ServerAddr:       j.ServerAddr,
-		CloudProvider:    j.CloudProvider,
-		RuntimeConfig:    *runtimeConfig,
-		DebugMode:        env.Debug,
-		Insecure:         env.Insecure,
-		LocalBackend:     env.Backend,
-		LocalApps:        env.Apps,
-		LocalPackages:    env.Packages,
-		JoinBackend:      joinEnv.Backend,
-		StateDir:         joinEnv.StateDir,
-		UninstallHandler: installerUninstallSystem,
-		OperationID:      j.OperationID,
-		// FIXME
-		// Auto:        j.Auto,
+		Peers:         peers,
+		AdvertiseAddr: advertiseAddr,
+		ServerAddr:    j.ServerAddr,
+		CloudProvider: j.CloudProvider,
+		RuntimeConfig: *runtimeConfig,
+		DebugMode:     env.Debug,
+		Insecure:      env.Insecure,
+		LocalBackend:  env.Backend,
+		LocalApps:     env.Apps,
+		LocalPackages: env.Packages,
+		JoinBackend:   joinEnv.Backend,
+		StateDir:      joinEnv.StateDir,
+		AbortHandler:  installerUninstallSystem(env),
+		OperationID:   j.OperationID,
 	}, nil
 }
 
@@ -738,14 +741,22 @@ func generateInstallToken(service ops.Operator, installToken string) (*storage.I
 
 // installerUninstallSystem implements the clean up phase when the installer service
 // is explicitly interrupted by user
-func installerUninstallSystem(context.Context) error {
-	logger := log.WithField(trace.Component, "installer:cleanup")
-	if err := cleanup.DisableAgentServices(logger); err != nil {
-		logger.WithError(err).Warn("Failed to disable agent services.")
+func installerUninstallSystem(env *localenv.LocalEnvironment) func(context.Context) error {
+	return func(ctx context.Context) error {
+		logger := log.WithField(trace.Component, "installer:cleanup")
+		if err := tryLeave(env, leaveConfig{
+			confirmed: true,
+			force:     true,
+		}); err != nil {
+			logger.WithError(err).Warn("Failed to leave cluster.")
+		}
+		if err := cleanup.DisableAgentServices(logger); err != nil {
+			logger.WithError(err).Warn("Failed to disable agent services.")
+		}
+		if err := cleanup.UninstallSystem(utils.DiscardPrinter, logger); err != nil {
+			logger.WithError(err).Warn("Failed to uninstall system.")
+		}
+		logger.Info("System uninstalled.")
+		return nil
 	}
-	if err := cleanup.UninstallSystem(utils.DiscardPrinter, logger); err != nil {
-		logger.WithError(err).Warn("Failed to uninstall system.")
-	}
-	logger.Info("System uninstalled.")
-	return nil
 }

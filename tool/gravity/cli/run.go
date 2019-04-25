@@ -138,7 +138,7 @@ func InitAndCheck(g *Application, cmd string) error {
 	if *g.ProfileEndpoint != "" {
 		err := process.StartProfiling(context.TODO(), *g.ProfileEndpoint, *g.ProfileTo)
 		if err != nil {
-			log.Warningf("Failed to setup profiling: %v.", trace.DebugReport(err))
+			log.WithError(err).Warn("Failed to setup profiling.")
 		}
 	}
 

@@ -10,9 +10,9 @@ service Agent {
     // Shutdown requests that the installer exit
     rpc Shutdown(ShutdownRequest) returns (ShutdownResponse);
 
-    // Uninstall requests that the installer service aborts and cleans up
+    // Abort requests that the installer service aborts and cleans up
     // the state of the operation
-    rpc Uninstall(UninstallRequest) returns (UninstallResponse);
+    rpc Abort(AbortRequest) returns (AbortResponse);
 }
 
 // ExecuteRequest describes a request to execute install operation
@@ -27,13 +27,13 @@ message ShutdownRequest {
 message ShutdownResponse {
 }
 
-// UninstallRequest describes a request to abort the operation and clean up
-message UninstallRequest {
+// AbortRequest describes a request to abort the operation and clean up
+message AbortRequest {
 }
 
-// UninstallResponse describes the server response to the uninstall request
-message UninstallResponse {
-    // Error specifies the error from the uninstall handler
+// AbortResponse describes the server response to the abort request
+message AbortResponse {
+    // Error specifies the error from the abort handler
     Error error = 1;
 }
 

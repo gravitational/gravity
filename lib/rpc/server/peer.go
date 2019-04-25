@@ -252,7 +252,7 @@ func (r serverPeer) Disconnect(ctx context.Context) error {
 	if err != nil {
 		return trace.Wrap(err)
 	}
-	clt, err := newClient(ctx, r.creds, r.serverAddr)
+	clt, err := newClient(ctx, r.creds, r.serverAddr, grpc.FailOnNonTempDialError(true))
 	if err != nil {
 		return trace.Wrap(err)
 	}
@@ -312,12 +312,13 @@ type remotePeer struct {
 	reconnectTimeout time.Duration
 }
 
-func newClient(ctx context.Context, creds credentials.TransportCredentials, addr string) (*agentClient, error) {
+func newClient(ctx context.Context, creds credentials.TransportCredentials, addr string, dialOpts ...grpc.DialOption) (*agentClient, error) {
 	opts := []grpc.DialOption{
 		grpc.WithBackoffMaxDelay(defaults.RPCAgentBackoffThreshold),
 		grpc.WithBlock(),
 		grpc.WithTransportCredentials(creds),
 	}
+	opts = append(opts, dialOpts...)
 
 	conn, err := grpc.DialContext(ctx, addr, opts...)
 	if err != nil {
@@ -405,6 +406,14 @@ func (r *peer) Shutdown(ctx context.Context) error {
 		return nil
 	}
 	return trace.Wrap(r.Client.Client().Shutdown(ctx))
+}
+
+// Abort aborts this peer
+func (r *peer) Abort(ctx context.Context) error {
+	if r.Client == nil {
+		return nil
+	}
+	return trace.Wrap(r.Client.Client().Abort(ctx))
 }
 
 // Close closes the underlying client

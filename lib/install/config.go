@@ -128,8 +128,8 @@ type Config struct {
 	Apps app.Applications
 	// Packages specifies the wizard's package service
 	Packages pack.PackageService
-	// UninstallHandler specifies the handler for aborting the installation
-	UninstallHandler func(context.Context) error
+	// AbortHandler specifies the handler for aborting the installation
+	AbortHandler func(context.Context) error
 }
 
 // checkAndSetDefaults checks the parameters and autodetects some defaults
@@ -170,8 +170,8 @@ func (c *Config) checkAndSetDefaults(ctx context.Context) (err error) {
 	if c.AppPackage == nil {
 		return trace.BadParameter("missing AppPackage")
 	}
-	if c.UninstallHandler == nil {
-		return trace.BadParameter("missing UninstallHandler")
+	if c.AbortHandler == nil {
+		return trace.BadParameter("missing AbortHandler")
 	}
 	if c.VxlanPort < 1 || c.VxlanPort > 65535 {
 		return trace.BadParameter("invalid vxlan port: must be in range 1-65535")

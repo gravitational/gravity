@@ -92,22 +92,31 @@ func (p *Peer) Serve(listener net.Listener) error {
 	return trace.Wrap(p.server.Serve(p, listener))
 }
 
-// Stop shuts down RPC agent
+// Stop shuts down this RPC agent
 func (p *Peer) Stop(ctx context.Context) error {
-	p.Info("Stopping peer.")
+	p.Info("Stop.")
 	p.server.Stop(ctx)
+	return nil
+}
+
+// Abort aborts this RPC agent
+func (p *Peer) Abort(ctx context.Context) error {
+	p.Info("Abort.")
+	p.server.Interrupt(ctx)
 	return nil
 }
 
 // Shutdown shuts down this peer.
 // Implements server.Executor
 func (p *Peer) Shutdown(ctx context.Context) error {
+	p.Info("Shutdown.")
 	return trace.Wrap(p.stop(ctx))
 }
 
-// Execute executes the peer operation (join or just serving an agent).
+// ExecuteOperation executes the peer operation (join or just serving an agent).
 // Implements server.Executor
-func (p *Peer) Execute() (err error) {
+func (p *Peer) ExecuteOperation() (err error) {
+	p.Info("ExecuteOperation.")
 	if err := p.init(); err != nil {
 		return trace.Wrap(err)
 	}
@@ -117,17 +126,19 @@ func (p *Peer) Execute() (err error) {
 	return nil
 }
 
-// Uninstall aborts the installation and cleans up the operation state.
+// AbortOperation aborts the installation and cleans up the operation state.
 // Implements server.Executor
-func (p *Peer) Uninstall(ctx context.Context) error {
+func (p *Peer) AbortOperation(ctx context.Context) error {
+	p.Info("AbortOperation.")
+	var errors []error
 	if err := p.stop(ctx); err != nil {
-		p.WithError(err).Warn("Failed to stop peer.")
+		errors = append(errors, err)
 	}
 	p.server.WaitForOperation()
-	if err := p.UninstallHandler(ctx); err != nil {
-		p.WithError(err).Warn("Failed to uninstall system.")
+	if err := p.AbortHandler(ctx); err != nil {
+		errors = append(errors, err)
 	}
-	return nil
+	return trace.NewAggregate(errors...)
 }
 
 // printStep publishes a progress entry described with (format, args) tuple to the client
@@ -169,8 +180,8 @@ type PeerConfig struct {
 	OperationID string
 	// StateDir defines where peer will store operation-specific data
 	StateDir string
-	// UninstallHandler specifies the handler for aborting the installation
-	UninstallHandler func(context.Context) error
+	// AbortHandler specifies the handler for aborting the installation
+	AbortHandler func(context.Context) error
 }
 
 // CheckAndSetDefaults checks the parameters and autodetects some defaults
@@ -202,8 +213,8 @@ func (c *PeerConfig) CheckAndSetDefaults() (err error) {
 	if c.StateDir == "" {
 		return trace.BadParameter("missing StateDir")
 	}
-	if c.UninstallHandler == nil {
-		return trace.BadParameter("missing UninstallHandler")
+	if c.AbortHandler == nil {
+		return trace.BadParameter("missing AbortHandler")
 	}
 	c.CloudProvider, err = install.ValidateCloudProvider(c.CloudProvider)
 	if err != nil {
@@ -515,6 +526,7 @@ func (p *Peer) getAgent(opCtx operationContext) (*rpcserver.PeerServer, error) {
 		Credentials:   opCtx.Creds,
 		RuntimeConfig: p.RuntimeConfig,
 		WatchCh:       p.WatchCh,
+		AbortHandler:  p.AbortHandler,
 	})
 	if err != nil {
 		if agent != nil {
@@ -590,7 +602,7 @@ func (p *Peer) run() error {
 	return trace.Wrap(p.startExpandOperation(*ctx))
 }
 
-// waitForOperation blocks until the join operation is not ready
+// waitForOperation blocks until the join operation is ready
 func (p *Peer) waitForOperation(ctx operationContext) error {
 	ticker := backoff.NewTicker(backoff.NewConstantBackOff(1 * time.Second))
 	defer ticker.Stop()

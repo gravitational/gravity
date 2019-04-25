@@ -49,6 +49,7 @@ type PhaseParams struct {
 	Installer Installer
 }
 
+// ResumeOperation resumes the operation specified with params
 func ResumeOperation(localEnv, updateEnv, joinEnv *localenv.LocalEnvironment, params PhaseParams) error {
 	if params.Installer == nil {
 		params.Installer = defaultInstaller{}
@@ -62,10 +63,11 @@ func ResumeOperation(localEnv, updateEnv, joinEnv *localenv.LocalEnvironment, pa
 		return trace.Wrap(err)
 	}
 	// No operation found.
-	// Attempt to restart the installation
-	return trace.Wrap(params.Installer.Restart(localEnv))
+	// Attempt to resume the installation
+	return trace.Wrap(params.Installer.Resume(localEnv))
 }
 
+// ExecutePhase executes a phase for the operation specified with params
 func ExecutePhase(localEnv, updateEnv, joinEnv *localenv.LocalEnvironment, params PhaseParams) error {
 	op, err := getActiveOperation(localEnv, updateEnv, joinEnv, params.OperationID)
 	if err != nil {
@@ -93,6 +95,7 @@ func ExecutePhase(localEnv, updateEnv, joinEnv *localenv.LocalEnvironment, param
 	}
 }
 
+// RollbackPhase rolls back a phase for the operation specified with params
 func RollbackPhase(localEnv, updateEnv, joinEnv *localenv.LocalEnvironment, params PhaseParams) error {
 	op, err := getActiveOperation(localEnv, updateEnv, joinEnv, params.OperationID)
 	if err != nil {
@@ -125,7 +128,6 @@ func completeOperationPlan(localEnv, updateEnv, joinEnv *localenv.LocalEnvironme
 	}
 	switch op.Type {
 	case ops.OperationInstall:
-		// There's only one install operation
 		return completeInstallPlan(localEnv, op)
 	case ops.OperationExpand:
 		return completeJoinPlan(localEnv, joinEnv, op)
@@ -341,28 +343,4 @@ type operationGetterFunc func() (*ops.SiteOperation, error)
 
 type operationGetter interface {
 	getOperation() (*ops.SiteOperation, error)
-}
-
-func (defaultInstaller) ExecutePhase(localEnv *localenv.LocalEnvironment, p PhaseParams, operation *ops.SiteOperation) error {
-	return trace.Wrap(executeInstallPhase(localEnv, p, operation))
-}
-
-func (defaultInstaller) RollbackPhase(localEnv *localenv.LocalEnvironment, p PhaseParams, operation *ops.SiteOperation) error {
-	return trace.Wrap(rollbackInstallPhase(localEnv, p, operation))
-}
-
-func (defaultInstaller) Restart(localEnv *localenv.LocalEnvironment) error {
-	return trace.Wrap(startInstall(localEnv, NewDefaultInstallConfig()))
-}
-
-type defaultInstaller struct{}
-
-// Installer manages installation-specific tasks
-type Installer interface {
-	// ExecutePhase executes an installation phase specified with params
-	ExecutePhase(*localenv.LocalEnvironment, PhaseParams, *ops.SiteOperation) error
-	// RollbackPhase rolls back an installation phase specified with params
-	RollbackPhase(*localenv.LocalEnvironment, PhaseParams, *ops.SiteOperation) error
-	// Restart restarts the installation with default parameters
-	Restart(*localenv.LocalEnvironment) error
 }

@@ -175,6 +175,14 @@ func (r *AgentGroup) Shutdown(ctx context.Context) error {
 	return trace.Wrap(err)
 }
 
+// Abort requests agents to abort the operation and uninstall
+func (r *AgentGroup) Abort(ctx context.Context) error {
+	err := r.peers.iterate(func(p peer) error {
+		return trace.Wrap(p.Abort(ctx))
+	})
+	return trace.Wrap(err)
+}
+
 // Start starts this group's internal goroutines
 func (r *AgentGroup) Start() {
 	go r.updateLoop()
@@ -265,6 +273,10 @@ func (r errorPeer) CheckBandwidth(context.Context, *validationpb.CheckBandwidthR
 }
 
 func (r errorPeer) Shutdown(context.Context) error {
+	return trace.Wrap(r.error)
+}
+
+func (r errorPeer) Abort(context.Context) error {
 	return trace.Wrap(r.error)
 }
 

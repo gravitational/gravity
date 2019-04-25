@@ -70,9 +70,9 @@ func (r *Client) Shutdown(ctx context.Context) error {
 	return trace.Wrap(err)
 }
 
-// Uninstall signals that the server clean up the state and shut down
-func (r *Client) Uninstall(ctx context.Context) error {
-	_, err := r.client.Uninstall(ctx, &installpb.UninstallRequest{})
+// Abort signals that the server clean up the state and shut down
+func (r *Client) Abort(ctx context.Context) error {
+	_, err := r.client.Abort(ctx, &installpb.AbortRequest{})
 	r.Shutdown(ctx)
 	return trace.Wrap(err)
 }
@@ -100,6 +100,9 @@ func (r *Config) checkAndSetDefaults() error {
 	}
 	if r.FieldLogger == nil {
 		r.FieldLogger = log.WithField(trace.Component, "client:installer")
+	}
+	if r.ServiceName == "" {
+		r.ServiceName = defaults.GravityRPCInstallerServiceName
 	}
 	return nil
 }
@@ -238,8 +241,12 @@ func (r *Client) progressLoop(stream installpb.Agent_ExecuteClient) (err error) 
 }
 
 func (r *Client) addTerminationHandler() {
-	r.config.InterruptHandler.AddStopper(signals.StopperFunc(func(ctx context.Context) error {
-		_, err := r.client.Shutdown(ctx, &installpb.ShutdownRequest{})
+	r.config.InterruptHandler.AddStopper(signals.AborterFunc(func(ctx context.Context, interrupted bool) (err error) {
+		if interrupted {
+			_, err = r.client.Abort(ctx, &installpb.AbortRequest{})
+		} else {
+			_, err = r.client.Shutdown(ctx, &installpb.ShutdownRequest{})
+		}
 		return trace.Wrap(err)
 	}))
 }

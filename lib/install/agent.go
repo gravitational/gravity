@@ -54,6 +54,7 @@ func NewAgent(ctx context.Context, config AgentConfig) (*rpcserver.PeerServer, e
 			Listener:      listener,
 			Credentials:   config.Credentials,
 			RuntimeConfig: config.RuntimeConfig,
+			AbortHandler:  config.AbortHandler,
 		},
 		WatchCh: config.WatchCh,
 		ReconnectStrategy: rpcserver.ReconnectStrategy{
@@ -68,10 +69,8 @@ func NewAgent(ctx context.Context, config AgentConfig) (*rpcserver.PeerServer, e
 	// make sure that connection to the RPC server can be established
 	ctx, cancel := context.WithTimeout(ctx, defaults.PeerConnectTimeout)
 	defer cancel()
-	// FIXME: does the agent need to be serving here?
 	if err := agent.ValidateConnection(ctx); err != nil {
-		// Returning agent as it needs to be Closed by the client
-		return agent, trace.Wrap(err)
+		return nil, trace.Wrap(err)
 	}
 	return agent, nil
 }
@@ -103,6 +102,8 @@ type AgentConfig struct {
 	// RuntimeConfig specifies runtime configuration
 	pb.RuntimeConfig
 	WatchCh chan rpcserver.WatchEvent
+	// AbortHandler specifies an optional handler for abort requests
+	AbortHandler func(context.Context) error
 }
 
 // SplitAgentURL splits agentURL into server address and token

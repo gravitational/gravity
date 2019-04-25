@@ -1,5 +1,5 @@
 /*
-Copyright 2018 Gravitational, Inc.
+Copyright 2018-2019 Gravitational, Inc.
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -39,6 +39,7 @@ import (
 	rpcserver "github.com/gravitational/gravity/lib/rpc/server"
 	"github.com/gravitational/gravity/lib/status"
 	"github.com/gravitational/gravity/lib/storage"
+	"github.com/gravitational/gravity/lib/system/signals"
 
 	"github.com/gravitational/trace"
 )
@@ -60,21 +61,6 @@ func New(ctx context.Context, config Config) (*Installer, error) {
 	return installer, nil
 }
 
-/*
-// Top-level installer interface:
-type Installer interface {
-	Serve(Engine, net.Listener) error
-	// Stop stops the installer server and releases all resources.
-	// This does a graceful shutdown of all components
-	Stop(context.Context) error
-	// Uninstall aborts the operation in progress and cleans up the installer state
-	// on the node.
-	// It will issue the Uninstall command to all connected agents, which will execute
-	// similar clean up operations remotely
-	Uninstall(context.Context) error
-}
-*/
-
 // Serve starts the server using the specified engine
 func (i *Installer) Serve(engine Engine, listener net.Listener) error {
 	i.engine = engine
@@ -85,6 +71,13 @@ func (i *Installer) Serve(engine Engine, listener net.Listener) error {
 func (i *Installer) Stop(ctx context.Context) error {
 	i.Info("Stop.")
 	i.server.Stop(ctx)
+	return nil
+}
+
+// Abort releases resources allocated by the installer and cleans up state
+func (i *Installer) Abort(ctx context.Context) error {
+	i.Info("Abort.")
+	i.server.Interrupt(ctx)
 	return nil
 }
 
@@ -114,15 +107,19 @@ type Interface interface {
 
 // NotifyOperationAvailable is invoked by the engine to notify the server
 // that the operation has been created
-func (i *Installer) NotifyOperationAvailable(operationKey ops.SiteOperationKey) error {
-	i.addCloser(CloserFunc(func(ctx context.Context) error {
-		i.WithField("operation", operationKey.OperationID).Info("Stopping agent service.")
-		return trace.Wrap(i.Process.AgentService().StopAgents(ctx, operationKey))
+func (i *Installer) NotifyOperationAvailable(key ops.SiteOperationKey) error {
+	i.operationKey = key
+	i.addAborter(signals.AborterFunc(func(ctx context.Context, interrupted bool) error {
+		if interrupted {
+			i.WithField("operation", key.OperationID).Info("Aborting agent service.")
+			return trace.Wrap(i.Process.AgentService().AbortAgents(ctx, key))
+		}
+		return nil
 	}))
-	if err := i.upsertAdminAgent(operationKey.SiteDomain); err != nil {
+	if err := i.upsertAdminAgent(key.SiteDomain); err != nil {
 		return trace.Wrap(err)
 	}
-	i.server.RunProgressLoop(i.Operator, operationKey)
+	i.server.RunProgressLoop(i.Operator, key)
 	return nil
 }
 
@@ -157,6 +154,7 @@ func (i *Installer) NewAgent(agentURL string) (rpcserver.Server, error) {
 			Client: clientCreds,
 		},
 		RuntimeConfig: runtimeConfig,
+		AbortHandler:  i.AbortHandler,
 	})
 }
 
@@ -208,23 +206,9 @@ func (i *Installer) Shutdown(ctx context.Context) error {
 	return trace.Wrap(err)
 }
 
-// Uninstall aborts the installation and cleans up the operation state.
+// ExecuteOperation executes the install operation using the specified engine
 // Implements server.Executor
-func (i *Installer) Uninstall(ctx context.Context) error {
-	i.Info("Uninstall.")
-	if err := i.stop(ctx); err != nil {
-		i.WithError(err).Warn("Failed to stop operation.")
-	}
-	i.server.WaitForOperation()
-	if err := i.UninstallHandler(ctx); err != nil {
-		i.WithError(err).Warn("Failed to uninstall service.")
-	}
-	return nil
-}
-
-// Execute executes the install operation using the specified engine
-// Implements server.Executor
-func (i *Installer) Execute() error {
+func (i *Installer) ExecuteOperation() error {
 	err := i.engine.Validate(i.ctx, i.Config)
 	if err != nil {
 		return trace.Wrap(err)
@@ -233,8 +217,27 @@ func (i *Installer) Execute() error {
 	if err != nil {
 		return trace.Wrap(err)
 	}
+	i.addStopper(signals.StopperFunc(func(ctx context.Context) error {
+		i.WithField("operation", i.operationKey.OperationID).Info("Stopping agent service.")
+		return trace.Wrap(i.Process.AgentService().StopAgents(ctx, i.operationKey))
+	}))
 	i.printPostInstallBanner()
 	return nil
+}
+
+// AbortOperation aborts the installation and cleans up the operation state.
+// Implements server.Executor
+func (i *Installer) AbortOperation(ctx context.Context) error {
+	i.Info("Abort.")
+	var errors []error
+	if err := i.abort(ctx); err != nil {
+		errors = append(errors, err)
+	}
+	i.server.WaitForOperation()
+	if err := i.AbortHandler(ctx); err != nil {
+		errors = append(errors, err)
+	}
+	return trace.NewAggregate(errors...)
 }
 
 // NewStateMachine returns a new instance of the installer state machine.
@@ -285,13 +288,26 @@ func (i *Installer) NewCluster() ops.NewSiteRequest {
 // stop stops the operation in progress
 func (i *Installer) stop(ctx context.Context) error {
 	i.cancel()
-	i.Config.Process.Shutdown(ctx)
 	var errors []error
-	for _, c := range i.closers {
-		if err := c.Close(ctx); err != nil {
+	for _, c := range i.stoppers {
+		if err := c.Stop(ctx); err != nil {
 			errors = append(errors, err)
 		}
 	}
+	i.Config.Process.Shutdown(ctx)
+	return trace.NewAggregate(errors...)
+}
+
+// abort aborts the active operation
+func (i *Installer) abort(ctx context.Context) error {
+	i.cancel()
+	var errors []error
+	for _, c := range i.aborters {
+		if err := c.Abort(ctx); err != nil {
+			errors = append(errors, err)
+		}
+	}
+	i.Config.Process.Shutdown(ctx)
 	return trace.NewAggregate(errors...)
 }
 
@@ -381,20 +397,28 @@ func (i *Installer) emitAuditEvents(ctx context.Context, operation ops.SiteOpera
 	return nil
 }
 
-func (i *Installer) addCloser(closer Closer) {
-	i.closers = append(i.closers, closer)
+func (i *Installer) addStopper(stopper signals.Stopper) {
+	i.stoppers = append(i.stoppers, stopper)
+}
+
+func (i *Installer) addAborter(aborter signals.Aborter) {
+	i.aborters = append(i.aborters, aborter)
 }
 
 // Installer manages the installation process
 type Installer struct {
 	// Config specifies the configuration for the install operation
 	Config
-	closers []Closer
+	stoppers []signals.Stopper
+	aborters []signals.Aborter
 	// ctx controls the lifespan of internal processes
 	ctx    context.Context
 	cancel context.CancelFunc
 	server *server.Server
 	engine Engine
+	// operationKey references the install operation once it has been
+	// created by the engine
+	operationKey ops.SiteOperationKey
 }
 
 // Engine implements the process of cluster installation
