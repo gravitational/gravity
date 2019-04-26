@@ -12,7 +12,7 @@ spec:
     rule: RunAsAny
   fsGroup:
     rule: RunAsAny
-  allowedCapabilities: 
+  allowedCapabilities:
   - NET_BIND_SERVICE
   volumes:
   - '*'
@@ -250,6 +250,9 @@ spec:
   - name: dns-tcp
     port: 53
     protocol: TCP
+  - name: metrics
+    port: 9153
+    protocol: TCP
 ---
 apiVersion: v1
 kind: Service
@@ -272,4 +275,7 @@ spec:
     protocol: UDP
   - name: dns-tcp
     port: 53
+    protocol: TCP
+  - name: metrics
+    port: 9153
     protocol: TCP
