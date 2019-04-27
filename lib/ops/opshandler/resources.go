@@ -20,8 +20,10 @@ import (
 	"encoding/json"
 	"fmt"
 	"net/http"
+	"strconv"
 
 	"github.com/gravitational/gravity/lib/constants"
+	"github.com/gravitational/gravity/lib/ops"
 	"github.com/gravitational/gravity/lib/ops/opsclient"
 	"github.com/gravitational/gravity/lib/storage"
 
@@ -143,7 +145,20 @@ func (h *WebHandler) getAuthGateway(w http.ResponseWriter, r *http.Request, p ht
      []storage.Release
 */
 func (h *WebHandler) getReleases(w http.ResponseWriter, r *http.Request, p httprouter.Params, ctx *HandlerContext) error {
-	releases, err := ctx.Operator.ListReleases(siteKey(p))
+	err := r.ParseForm()
+	if err != nil {
+		return trace.Wrap(err)
+	}
+	var includeIcons bool
+	if i := r.Form.Get("include_icons"); i != "" {
+		if includeIcons, err = strconv.ParseBool(i); err != nil {
+			return trace.Wrap(err)
+		}
+	}
+	releases, err := ctx.Operator.ListReleases(ops.ListReleasesRequest{
+		SiteKey:      siteKey(p),
+		IncludeIcons: includeIcons,
+	})
 	if err != nil {
 		return trace.Wrap(err)
 	}

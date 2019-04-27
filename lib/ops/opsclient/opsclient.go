@@ -1533,9 +1533,9 @@ func (c *Client) GetAuthGateway(key ops.SiteKey) (storage.AuthGateway, error) {
 }
 
 // ListReleases returns all currently installed application releases in a cluster.
-func (c *Client) ListReleases(key ops.SiteKey) ([]storage.Release, error) {
-	response, err := c.Get(c.Endpoint("accounts", key.AccountID, "sites", key.SiteDomain, "releases"),
-		url.Values{})
+func (c *Client) ListReleases(req ops.ListReleasesRequest) ([]storage.Release, error) {
+	response, err := c.Get(c.Endpoint("accounts", req.AccountID, "sites", req.SiteDomain, "releases"),
+		url.Values{"include_icons": []string{strconv.FormatBool(req.IncludeIcons)}})
 	if err != nil {
 		return nil, trace.Wrap(err)
 	}
