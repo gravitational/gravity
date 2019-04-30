@@ -107,18 +107,15 @@ func (g *operationGroup) emitAuditEvent(ctx context.Context, operation ops.SiteO
 	if operation.Type == ops.OperationInstall {
 		return nil
 	}
-	fields := events.FieldsForOperation(operation)
-	switch {
-	case operation.IsCompleted():
-		events.Emit(ctx, g.operator, events.OperationCompleted, fields)
-	case operation.IsFailed():
-		events.Emit(ctx, g.operator, events.OperationFailed, fields)
-	default:
-		// Expand operation start event is emitted by the joining agent.
-		if operation.Type != ops.OperationExpand {
-			events.Emit(ctx, g.operator, events.OperationStarted, fields)
-		}
+	// Expand operation start event is emitted by the joining agent.
+	if operation.Type == ops.OperationExpand && !operation.IsFinished() {
+		return nil
 	}
+	event, err := events.EventForOperation(operation)
+	if err != nil {
+		return trace.Wrap(err)
+	}
+	events.Emit(ctx, g.operator, event, events.FieldsForOperation(operation))
 	return nil
 }
 

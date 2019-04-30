@@ -62,7 +62,7 @@ func (o *Operator) CheckSiteStatus(ctx context.Context, key ops.SiteKey) error {
 		if err != nil {
 			return trace.Wrap(err)
 		}
-		events.Emit(ctx, o, events.ClusterDegraded, events.Fields{
+		events.Emit(ctx, o, events.ClusterUnhealthy, events.Fields{
 			events.FieldReason: reason,
 		})
 		return trace.Wrap(statusErr)
@@ -78,7 +78,7 @@ func (o *Operator) CheckSiteStatus(ctx context.Context, key ops.SiteKey) error {
 		if err != nil {
 			return trace.Wrap(err)
 		}
-		events.Emit(ctx, o, events.ClusterActivated, events.Fields{})
+		events.Emit(ctx, o, events.ClusterHealthy)
 	}
 
 	return nil

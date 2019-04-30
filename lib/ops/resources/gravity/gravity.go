@@ -22,7 +22,6 @@ import (
 	"github.com/gravitational/gravity/lib/localenv"
 	"github.com/gravitational/gravity/lib/modules"
 	"github.com/gravitational/gravity/lib/ops"
-	"github.com/gravitational/gravity/lib/ops/events"
 	"github.com/gravitational/gravity/lib/ops/resources"
 	"github.com/gravitational/gravity/lib/storage"
 	"github.com/gravitational/gravity/lib/storage/clusterconfig"
@@ -88,7 +87,7 @@ func (r *Resources) Create(ctx context.Context, req resources.CreateRequest) err
 		if err != nil {
 			return trace.Wrap(err)
 		}
-		if err := r.Operator.UpsertGithubConnector(r.cluster.Key(), conn); err != nil {
+		if err := r.Operator.UpsertGithubConnector(ctx, r.cluster.Key(), conn); err != nil {
 			return trace.Wrap(err)
 		}
 		r.Printf("Created Github connector %q\n", conn.GetName())
@@ -97,7 +96,7 @@ func (r *Resources) Create(ctx context.Context, req resources.CreateRequest) err
 		if err != nil {
 			return trace.Wrap(err)
 		}
-		if err := r.Operator.UpsertUser(r.cluster.Key(), user); err != nil {
+		if err := r.Operator.UpsertUser(ctx, r.cluster.Key(), user); err != nil {
 			return trace.Wrap(err)
 		}
 		r.Printf("Created user %q\n", user.GetName())
@@ -116,7 +115,7 @@ func (r *Resources) Create(ctx context.Context, req resources.CreateRequest) err
 		}
 		// using existing keys API here which is compatible so we don't
 		// have to roll out separate tokens API for now
-		_, err = r.Operator.CreateAPIKey(ops.NewAPIKeyRequest{
+		_, err = r.Operator.CreateAPIKey(ctx, ops.NewAPIKeyRequest{
 			Token:     token.GetName(),
 			UserEmail: token.GetUser(),
 			Expires:   token.Expiry(),
@@ -137,20 +136,20 @@ func (r *Resources) Create(ctx context.Context, req resources.CreateRequest) err
 		if err != nil {
 			return trace.Wrap(err)
 		}
-		err = r.Operator.CreateLogForwarder(r.cluster.Key(), forwarder)
-		if err == nil {
-			r.Printf("Created log forwarder %q\n", forwarder.GetName())
-			return nil
+		err = r.Operator.CreateLogForwarder(ctx, r.cluster.Key(), forwarder)
+		if err != nil && !trace.IsAlreadyExists(err) {
+			return trace.Wrap(err)
 		}
-		if trace.IsAlreadyExists(err) && req.Upsert {
-			err := r.Operator.UpdateLogForwarder(r.cluster.Key(), forwarder)
+		if trace.IsAlreadyExists(err) {
+			if !req.Upsert {
+				return trace.Wrap(err)
+			}
+			err := r.Operator.UpdateLogForwarder(ctx, r.cluster.Key(), forwarder)
 			if err != nil {
 				return trace.Wrap(err)
 			}
-			r.Printf("Updated log forwarder %q\n", forwarder.GetName())
-			return nil
 		}
-		return trace.Wrap(err)
+		r.Printf("Created log forwarder %q\n", forwarder.GetName())
 	case storage.KindTLSKeyPair:
 		keyPair, err := storage.UnmarshalTLSKeyPair(req.Resource.Raw)
 		if err != nil {
@@ -159,7 +158,7 @@ func (r *Resources) Create(ctx context.Context, req resources.CreateRequest) err
 		if err := keyPair.CheckAndSetDefaults(); err != nil {
 			return trace.Wrap(err)
 		}
-		_, err = r.Operator.UpdateClusterCertificate(ops.UpdateCertificateRequest{
+		_, err = r.Operator.UpdateClusterCertificate(ctx, ops.UpdateCertificateRequest{
 			AccountID:   r.cluster.AccountID,
 			SiteDomain:  r.cluster.Domain,
 			Certificate: []byte(keyPair.GetCert()),
@@ -177,7 +176,7 @@ func (r *Resources) Create(ctx context.Context, req resources.CreateRequest) err
 		if err != nil {
 			return trace.Wrap(err)
 		}
-		if err := r.Operator.UpsertClusterAuthPreference(r.cluster.Key(), cap); err != nil {
+		if err := r.Operator.UpsertClusterAuthPreference(ctx, r.cluster.Key(), cap); err != nil {
 			return trace.Wrap(err)
 		}
 		r.Println("Updated cluster authentication preference")
@@ -189,7 +188,7 @@ func (r *Resources) Create(ctx context.Context, req resources.CreateRequest) err
 		if err := config.CheckAndSetDefaults(); err != nil {
 			return trace.Wrap(err)
 		}
-		err = r.Operator.UpdateSMTPConfig(r.cluster.Key(), config)
+		err = r.Operator.UpdateSMTPConfig(ctx, r.cluster.Key(), config)
 		if err != nil {
 			return trace.Wrap(err)
 		}
@@ -202,7 +201,7 @@ func (r *Resources) Create(ctx context.Context, req resources.CreateRequest) err
 		if err := alert.CheckAndSetDefaults(); err != nil {
 			return trace.Wrap(err)
 		}
-		err = r.Operator.UpdateAlert(r.cluster.Key(), alert)
+		err = r.Operator.UpdateAlert(ctx, r.cluster.Key(), alert)
 		if err != nil {
 			return trace.Wrap(err)
 		}
@@ -215,7 +214,7 @@ func (r *Resources) Create(ctx context.Context, req resources.CreateRequest) err
 		if err := target.CheckAndSetDefaults(); err != nil {
 			return trace.Wrap(err)
 		}
-		err = r.Operator.UpdateAlertTarget(r.cluster.Key(), target)
+		err = r.Operator.UpdateAlertTarget(ctx, r.cluster.Key(), target)
 		if err != nil {
 			return trace.Wrap(err)
 		}
@@ -225,7 +224,7 @@ func (r *Resources) Create(ctx context.Context, req resources.CreateRequest) err
 		if err != nil {
 			return trace.Wrap(err)
 		}
-		err = r.Operator.UpsertAuthGateway(r.cluster.Key(), gw)
+		err = r.Operator.UpsertAuthGateway(ctx, r.cluster.Key(), gw)
 		if err != nil {
 			return trace.Wrap(err)
 		}
@@ -239,10 +238,6 @@ func (r *Resources) Create(ctx context.Context, req resources.CreateRequest) err
 		return trace.BadParameter("unsupported resource %q, supported are: %v",
 			req.Resource.Kind, modules.GetResources().SupportedResources())
 	}
-	r.EmitAuditEvent(ctx, events.ResourceCreated,
-		req.Resource.Kind,
-		req.Resource.Metadata.Name,
-		req.Owner)
 	return nil
 }
 
@@ -403,7 +398,7 @@ func (r *Resources) Remove(ctx context.Context, req resources.RemoveRequest) err
 	}
 	switch req.Kind {
 	case teleservices.KindGithubConnector:
-		if err := r.Operator.DeleteGithubConnector(r.cluster.Key(), req.Name); err != nil {
+		if err := r.Operator.DeleteGithubConnector(ctx, r.cluster.Key(), req.Name); err != nil {
 			if trace.IsNotFound(err) && req.Force {
 				return nil
 			}
@@ -411,7 +406,7 @@ func (r *Resources) Remove(ctx context.Context, req resources.RemoveRequest) err
 		}
 		r.Printf("Github connector %q has been deleted\n", req.Name)
 	case teleservices.KindUser:
-		if err := r.Operator.DeleteUser(r.cluster.Key(), req.Name); err != nil {
+		if err := r.Operator.DeleteUser(ctx, r.cluster.Key(), req.Name); err != nil {
 			if trace.IsNotFound(err) && req.Force {
 				return nil
 			}
@@ -425,7 +420,7 @@ func (r *Resources) Remove(ctx context.Context, req resources.RemoveRequest) err
 		}
 		// using existing keys API here which is compatible so we don't
 		// have to roll out separate tokens API for now
-		if err := r.Operator.DeleteAPIKey(user, req.Name); err != nil {
+		if err := r.Operator.DeleteAPIKey(ctx, user, req.Name); err != nil {
 			if trace.IsNotFound(err) && req.Force {
 				return nil
 			}
@@ -433,7 +428,7 @@ func (r *Resources) Remove(ctx context.Context, req resources.RemoveRequest) err
 		}
 		r.Printf("Token %q has been deleted for user %q\n", req.Name, user)
 	case storage.KindLogForwarder:
-		if err := r.Operator.DeleteLogForwarder(r.cluster.Key(), req.Name); err != nil {
+		if err := r.Operator.DeleteLogForwarder(ctx, r.cluster.Key(), req.Name); err != nil {
 			if trace.IsNotFound(err) && req.Force {
 				return nil
 			}
@@ -441,7 +436,7 @@ func (r *Resources) Remove(ctx context.Context, req resources.RemoveRequest) err
 		}
 		r.Printf("Log forwarder %q has been deleted\n", req.Name)
 	case storage.KindTLSKeyPair:
-		if err := r.Operator.DeleteClusterCertificate(r.cluster.Key()); err != nil {
+		if err := r.Operator.DeleteClusterCertificate(ctx, r.cluster.Key()); err != nil {
 			if trace.IsNotFound(err) && req.Force {
 				return nil
 			}
@@ -449,7 +444,7 @@ func (r *Resources) Remove(ctx context.Context, req resources.RemoveRequest) err
 		}
 		r.Printf("TLS key pair %q has been deleted\n", req.Name)
 	case storage.KindSMTPConfig:
-		if err := r.Operator.DeleteSMTPConfig(r.cluster.Key()); err != nil {
+		if err := r.Operator.DeleteSMTPConfig(ctx, r.cluster.Key()); err != nil {
 			if trace.IsNotFound(err) && req.Force {
 				return nil
 			}
@@ -457,7 +452,7 @@ func (r *Resources) Remove(ctx context.Context, req resources.RemoveRequest) err
 		}
 		r.Println("SMTP configuration has been deleted")
 	case storage.KindAlert:
-		if err := r.Operator.DeleteAlert(r.cluster.Key(), req.Name); err != nil {
+		if err := r.Operator.DeleteAlert(ctx, r.cluster.Key(), req.Name); err != nil {
 			if trace.IsNotFound(err) && req.Force {
 				return nil
 			}
@@ -465,7 +460,7 @@ func (r *Resources) Remove(ctx context.Context, req resources.RemoveRequest) err
 		}
 		r.Printf("Alert %q has been deleted\n", req.Name)
 	case storage.KindAlertTarget:
-		if err := r.Operator.DeleteAlertTarget(r.cluster.Key()); err != nil {
+		if err := r.Operator.DeleteAlertTarget(ctx, r.cluster.Key()); err != nil {
 			if trace.IsNotFound(err) && req.Force {
 				return nil
 			}
@@ -481,17 +476,7 @@ func (r *Resources) Remove(ctx context.Context, req resources.RemoveRequest) err
 		return trace.BadParameter("unsupported resource %q, supported are: %v",
 			req.Kind, modules.GetResources().SupportedResourcesToRemove())
 	}
-	r.EmitAuditEvent(ctx, events.ResourceDeleted, req.Kind, req.Name, req.Owner)
 	return nil
-}
-
-// EmitAuditEvent emits the specified audit log event for the specified resource.
-func (r *Resources) EmitAuditEvent(ctx context.Context, event, kind, name, owner string) {
-	fields := events.Fields{events.FieldKind: kind, events.FieldName: name}
-	if owner != "" {
-		fields[events.FieldOwner] = owner
-	}
-	events.Emit(ctx, r.Operator, event, fields)
 }
 
 // ClusterOperationHandler defines a service to manage resources based on cluster operations

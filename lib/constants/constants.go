@@ -692,6 +692,11 @@ const (
 	//
 	// Used in audit events.
 	ServiceStatusChecker = "@statuschecker"
+	// ServiceSystem is the identifier used as a "user" field for events
+	// that are triggered not by a human user but by a system process.
+	//
+	// Used in audit events.
+	ServiceSystem = "@system"
 )
 
 var (

@@ -1,6 +1,7 @@
 package provider
 
 import (
+	"context"
 	"time"
 
 	"github.com/gravitational/gravity/lib/ops/opsclient"
@@ -75,7 +76,7 @@ func resourceGravityUserUpsert(d *schema.ResourceData, m interface{}) error {
 	}
 	user := storage.NewUser(name, spec)
 
-	err = client.UpsertUser(clusterKey, user)
+	err = client.UpsertUser(context.TODO(), clusterKey, user)
 	if err != nil {
 		trace.Wrap(err)
 	}
@@ -116,7 +117,7 @@ func resourceGravityUserDelete(d *schema.ResourceData, m interface{}) error {
 
 	name := d.Get("name").(string)
 
-	err = client.DeleteUser(clusterKey, name)
+	err = client.DeleteUser(context.TODO(), clusterKey, name)
 	return trace.Wrap(err)
 }
 

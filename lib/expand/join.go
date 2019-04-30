@@ -781,7 +781,7 @@ func (p *Peer) emitAuditEvent(ctx operationContext) error {
 	if err != nil {
 		return trace.Wrap(err)
 	}
-	events.Emit(p.Context, ctx.Operator, events.OperationStarted,
+	events.Emit(p.Context, ctx.Operator, events.OperationExpandStart,
 		events.FieldsForOperation(*operation))
 	return nil
 }

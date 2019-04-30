@@ -595,7 +595,7 @@ func (m *Handler) deleteUser(w http.ResponseWriter, r *http.Request, p httproute
 	if err != nil {
 		return nil, trace.Wrap(err)
 	}
-	err = ctx.Operator.DeleteUser(*clusterKey, p.ByName("username"))
+	err = ctx.Operator.DeleteUser(r.Context(), *clusterKey, p.ByName("username"))
 	if err != nil {
 		return nil, trace.Wrap(err)
 	}
@@ -1479,7 +1479,7 @@ func (m *Handler) updateCertificate(w http.ResponseWriter, r *http.Request, p ht
 		return nil, trace.Wrap(err)
 	}
 
-	cert, err := context.Operator.UpdateClusterCertificate(ops.UpdateCertificateRequest{
+	cert, err := context.Operator.UpdateClusterCertificate(r.Context(), ops.UpdateCertificateRequest{
 		AccountID:    context.User.GetAccountID(),
 		SiteDomain:   p[0].Value,
 		Certificate:  certificate,

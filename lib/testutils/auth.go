@@ -294,7 +294,7 @@ func (s *AuthClient) RegisterUsingToken(req auth.RegisterUsingTokenRequest) (*au
 func (s *AuthClient) RegisterNewAuthServer(token string) error {
 	return nil
 }
-func (s *AuthClient) EmitAuditEvent(eventType string, fields events.EventFields) error {
+func (s *AuthClient) EmitAuditEvent(event events.Event, fields events.EventFields) error {
 	return nil
 }
 func (s *AuthClient) PostSessionSlice(events.SessionSlice) error {

@@ -182,7 +182,7 @@ func releaseInstall(env *localenv.LocalEnvironment, conf releaseInstallConfig) e
 	if err != nil {
 		return trace.Wrap(err)
 	}
-	env.EmitAuditEvent(context.TODO(), events.AppInstalled, events.FieldsForRelease(release))
+	env.EmitAuditEvent(context.TODO(), events.ApplicationInstall, events.FieldsForRelease(release))
 	env.PrintStep("Installed release %v", release.GetName())
 	return nil
 }
@@ -278,7 +278,7 @@ func releaseUpgrade(env *localenv.LocalEnvironment, conf releaseUpgradeConfig) e
 	if err != nil {
 		return trace.Wrap(err)
 	}
-	env.EmitAuditEvent(context.TODO(), events.AppUpgraded, events.FieldsForRelease(release))
+	env.EmitAuditEvent(context.TODO(), events.ApplicationUpgrade, events.FieldsForRelease(release))
 	env.PrintStep("Upgraded release %v to version %v", release.GetName(),
 		imageEnv.Manifest.Metadata.ResourceVersion)
 	return nil
@@ -299,7 +299,7 @@ func releaseRollback(env *localenv.LocalEnvironment, conf releaseRollbackConfig)
 	if err != nil {
 		return trace.Wrap(err)
 	}
-	env.EmitAuditEvent(context.TODO(), events.AppRolledBack, events.FieldsForRelease(release))
+	env.EmitAuditEvent(context.TODO(), events.ApplicationRollback, events.FieldsForRelease(release))
 	env.PrintStep("Rolled back release %v to %v", release.GetName(), release.GetChart())
 	return nil
 }
@@ -316,7 +316,7 @@ func releaseUninstall(env *localenv.LocalEnvironment, conf releaseUninstallConfi
 	if err != nil {
 		return trace.Wrap(err)
 	}
-	env.EmitAuditEvent(context.TODO(), events.AppUninstalled, events.FieldsForRelease(release))
+	env.EmitAuditEvent(context.TODO(), events.ApplicationUninstall, events.FieldsForRelease(release))
 	env.PrintStep("Uninstalled release %v", release.GetName())
 	return nil
 }

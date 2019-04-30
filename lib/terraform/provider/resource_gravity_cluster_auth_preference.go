@@ -1,6 +1,7 @@
 package provider
 
 import (
+	"context"
 	"time"
 
 	"github.com/gravitational/gravity/lib/ops/opsclient"
@@ -75,7 +76,7 @@ func resourceGravityClusterAuthPreferenceCreate(d *schema.ResourceData, m interf
 		},
 	})
 
-	err = client.UpsertClusterAuthPreference(clusterKey, authPreference)
+	err = client.UpsertClusterAuthPreference(context.TODO(), clusterKey, authPreference)
 	if err != nil {
 		return trace.Wrap(err)
 	}
