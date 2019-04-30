@@ -29,14 +29,21 @@ import (
 )
 
 // Uninstall uninstalls service with the specified name
-func Uninstall(serviceName string) error {
+func Uninstall(req systemservice.UninstallServiceRequest) error {
 	services, err := systemservice.New()
 	if err != nil {
 		return trace.Wrap(err)
 	}
-	return trace.Wrap(services.UninstallService(systemservice.UninstallServiceRequest{
-		Name: serviceName,
-	}))
+	return trace.Wrap(services.UninstallService(req))
+}
+
+// Disable disables service with the specified name
+func Disable(req systemservice.DisableServiceRequest) error {
+	services, err := systemservice.New()
+	if err != nil {
+		return trace.Wrap(err)
+	}
+	return trace.Wrap(services.DisableService(req))
 }
 
 // Start starts service with the specified name if it's not already running.

@@ -145,6 +145,7 @@ func (srv *agentServer) Abort(ctx context.Context, req *types.Empty) (resp *type
 	if srv.AbortHandler != nil {
 		err = srv.AbortHandler(ctx)
 	}
+	go srv.Stop(ctx)
 	return &types.Empty{}, trace.Wrap(err)
 }
 

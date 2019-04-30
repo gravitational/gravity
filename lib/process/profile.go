@@ -51,7 +51,9 @@ func StartProfiling(ctx context.Context, httpEndpoint, profileDir string) error 
 
 	logger := log.WithFields(log.Fields{
 		trace.Component: "profiling",
+		"pid":           os.Getpid(),
 		"addr":          listener.Addr(),
+		"curl":          fmt.Sprintf("curl %v/debug/pprof/goroutine?debug=1", listener.Addr()),
 	})
 	if profileDir != "" {
 		log.WithField("profile-dir", profileDir).Info("Started.")

@@ -28,6 +28,14 @@ import (
 )
 
 // New returns a new client to handle the installer case.
+// The client installs the installer service and starts the
+// installer operation.
+// If restarted, the client will first attempt to connect to a running
+// installer service before attempting to set up a new one.
+// If no installer service is running, the client will validate that it is
+// safe to set up and execute the installer (i.e. validate that the node
+// is not already part of the cluster).
+//
 // See docs/design/client/install.puml for details
 func New(ctx context.Context, config Config) (*Client, error) {
 	err := config.checkAndSetDefaults()
@@ -104,6 +112,9 @@ func (r *Config) checkAndSetDefaults() error {
 	if r.ServiceName == "" {
 		r.ServiceName = defaults.GravityRPCInstallerServiceName
 	}
+	if r.SocketPath == "" {
+		r.SocketPath = installpb.SocketPath(defaults.GravityEphemeralDir)
+	}
 	return nil
 }
 
@@ -113,12 +124,12 @@ type Config struct {
 	*signals.InterruptHandler
 	// Args specifies the service command line including the executable
 	Args []string
-	// StateDir specifies the install state directory on local host
+	// StateDir specifies the state directory on local hos
 	StateDir string
-	// OperationStateDir specifies the ephemeral state directory used during the oepration
-	OperationStateDir string
 	// Packages specifies the host-local package service
 	Packages pack.PackageService
+	// SocketPath specifies the path to the service socket file
+	SocketPath string
 	// ConnectTimeout specifies the maximum amount of time to wait for
 	// installer service connection. Wait forever, if unspecified
 	ConnectTimeout time.Duration
@@ -128,14 +139,14 @@ type Config struct {
 
 func (r *Client) connectRunning(ctx context.Context) error {
 	r.Info("Restart service.")
-	if err := restartService(r.config.ServiceName); err != nil {
+	if err := r.restartService(); err != nil {
 		return trace.Wrap(err)
 	}
 	r.Info("Connect to running service.")
 	const connectionTimeout = 10 * time.Second
 	ctx, cancel := context.WithTimeout(ctx, connectionTimeout)
 	defer cancel()
-	client, err := installpb.NewClient(ctx, r.config.OperationStateDir, r.FieldLogger,
+	client, err := installpb.NewClient(ctx, r.config.SocketPath, r.FieldLogger,
 		// Fail fast at first non-temporary error
 		grpc.FailOnNonTempDialError(true))
 	if err != nil {
@@ -159,14 +170,14 @@ func (r *Client) connectNew(ctx context.Context) error {
 		if err == nil {
 			return
 		}
-		uninstallService(r.config.ServiceName)
+		r.uninstallService()
 	}()
 	if r.config.ConnectTimeout != 0 {
 		var cancel context.CancelFunc
 		ctx, cancel = context.WithTimeout(ctx, r.config.ConnectTimeout)
 		defer cancel()
 	}
-	client, err := installpb.NewClient(ctx, r.config.OperationStateDir, r.FieldLogger)
+	client, err := installpb.NewClient(ctx, r.config.SocketPath, r.FieldLogger)
 	if err != nil {
 		return trace.Wrap(err)
 	}
@@ -182,14 +193,16 @@ func (r *Client) installSelfAsService() error {
 		ServiceSpec: systemservice.ServiceSpec{
 			StartCommand: strings.Join(r.config.Args, " "),
 			StartPreCommands: []string{
-				removeSocketFileCommand(installpb.SocketPath(r.config.OperationStateDir)),
+				removeSocketFileCommand(r.config.SocketPath),
 			},
 			// TODO(dmitri): run as euid?
 			User:    constants.RootUIDString,
 			Restart: "on-failure",
 		},
-		Name:    r.config.ServiceName,
 		NoBlock: true,
+		Unmask:  true,
+		// Create service in alternative location to be able to mask
+		UnitPath: filepath.Join("/usr/lib/systemd/system", r.config.ServiceName),
 	}
 	r.WithField("req", fmt.Sprintf("%+v", req)).Info("Install service.")
 	return trace.Wrap(service.Reinstall(req))
@@ -237,6 +250,7 @@ func (r *Client) progressLoop(stream installpb.Agent_ExecuteClient) (err error) 
 		}
 	}
 	r.markCompleted()
+	r.maskService()
 	return nil
 }
 
@@ -255,6 +269,25 @@ func (r *Client) markCompleted() {
 	atomic.StoreInt32((*int32)(&r.completed), 1)
 }
 
+// restartService starts the installer's systemd unit unless it's already active
+func (r *Client) restartService() error {
+	return trace.Wrap(service.Start(r.config.ServiceName))
+}
+
+func (r *Client) uninstallService() error {
+	return trace.Wrap(service.Uninstall(systemservice.UninstallServiceRequest{
+		Name:       r.config.ServiceName,
+		RemoveFile: true,
+	}))
+}
+
+func (r *Client) maskService() error {
+	return trace.Wrap(service.Disable(systemservice.DisableServiceRequest{
+		Name: r.config.ServiceName,
+		Mask: true,
+	}))
+}
+
 // Client implements the client to the installer service
 type Client struct {
 	log.FieldLogger
@@ -263,15 +296,6 @@ type Client struct {
 	client installpb.AgentClient
 	// completed indicates whether the operation is complete
 	completed int32
-}
-
-// restartService restarts the installer's systemd unit
-func restartService(name string) error {
-	return trace.Wrap(service.Start(name))
-}
-
-func uninstallService(name string) error {
-	return trace.Wrap(service.Uninstall(name))
 }
 
 func removeSocketFileCommand(socketPath string) (cmd string) {

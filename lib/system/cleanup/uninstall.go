@@ -101,7 +101,11 @@ func DisableAgentServices(logger log.FieldLogger) error {
 		defaults.GravityRPCAgentServiceName,
 		defaults.GravityRPCInstallerServiceName,
 	} {
-		if err := svm.DisableService(service); err != nil && !libservice.IsUnknownServiceError(err) {
+		req := systemservice.DisableServiceRequest{
+			Name: service,
+			Mask: true,
+		}
+		if err := svm.DisableService(req); err != nil && !libservice.IsUnknownServiceError(err) {
 			logger.WithError(err).Warn("Failed to disable agent service.")
 			errors = append(errors, err)
 		}

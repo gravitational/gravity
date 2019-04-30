@@ -55,11 +55,11 @@ type RemoteEnvironment struct {
 
 // NewRemoteEnvironment creates a new remote environment
 func NewRemoteEnvironment() (*RemoteEnvironment, error) {
-	err := os.MkdirAll(defaults.WizardDir, defaults.SharedDirMask)
+	err := os.MkdirAll(defaults.GravityInstallDir("wizard"), defaults.SharedDirMask)
 	if err != nil {
 		return nil, trace.ConvertSystemError(err)
 	}
-	env, err := newRemoteEnvironment(defaults.WizardDir)
+	env, err := newRemoteEnvironment(defaults.GravityInstallDir("wizard"))
 	if err != nil {
 		return nil, trace.Wrap(err)
 	}

@@ -93,6 +93,7 @@ func (p *Peer) Serve(listener net.Listener) error {
 }
 
 // Stop shuts down this RPC agent
+// Implements signals.Stopper
 func (p *Peer) Stop(ctx context.Context) error {
 	p.Info("Stop.")
 	p.server.Stop(ctx)
@@ -100,6 +101,7 @@ func (p *Peer) Stop(ctx context.Context) error {
 }
 
 // Abort aborts this RPC agent
+// Implements signals.Aborter
 func (p *Peer) Abort(ctx context.Context) error {
 	p.Info("Abort.")
 	p.server.Interrupt(ctx)
@@ -258,7 +260,6 @@ func (p *Peer) dialCluster(addr string) (*operationContext, error) {
 	if err != nil {
 		return nil, trace.Wrap(err)
 	}
-
 	packages, err := webpack.NewBearerClient(targetURL, p.Token, roundtrip.HTTPClient(httpClient))
 	if err != nil {
 		return nil, trace.Wrap(err)
@@ -563,12 +564,6 @@ func (p *Peer) run() error {
 			return
 		}
 		p.WithError(err).Warn("Peer is exiting with error.")
-		stopCtx, cancel := context.WithTimeout(p.ctx, defaults.AgentStopTimeout)
-		defer cancel()
-		p.Warn("Stopping peer.")
-		if err := p.Stop(stopCtx); err != nil {
-			p.WithError(err).Warn("Failed to stop peer.")
-		}
 		// in case of join via CLI the operation has already been created
 		// above but the agent failed to connect so we're deleting the
 		// operation because from user's perspective it hasn't started

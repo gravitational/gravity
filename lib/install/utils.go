@@ -413,24 +413,6 @@ func tryInstallBinary(targetPath string, uid, gid int, logger log.FieldLogger) e
 	return nil
 }
 
-// FIXME: move these to top-level
-// func newCompletedProgressEntry() *ops.ProgressEntry {
-// 	return &ops.ProgressEntry{
-// 		Completion: constants.Completed,
-// 		State:      ops.ProgressStateCompleted,
-// 	}
-// }
-//
-// func updateProgress(progress ops.ProgressEntry, send func(Event)) {
-// 	send(Event{Progress: &progress})
-// 	if progress.State == ops.ProgressStateCompleted {
-// 		log.Info("Operation completed.")
-// 	}
-// 	if progress.State == ops.ProgressStateFailed {
-// 		log.Info("Operation failed.")
-// 	}
-// }
-
 func generateClusterName() string {
 	rand.Seed(time.Now().UnixNano())
 	return fmt.Sprintf(

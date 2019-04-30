@@ -34,10 +34,15 @@ import (
 
 // LocalEnvironmentFactory defines an interface for creating operation-specific environments
 type LocalEnvironmentFactory interface {
-	// NewLocalEnv creates a new default environment
+	// NewLocalEnv creates a new default environment.
+	// It will use the location pointer file to find the location of the custom state
+	// directory if available and will fall back to defaults.GravityDir otherwise.
+	// All other environments are located under this common root directory
 	NewLocalEnv() (*localenv.LocalEnvironment, error)
 	// NewUpdateEnv creates a new environment for update operations
 	NewUpdateEnv() (*localenv.LocalEnvironment, error)
+	// NewInstallEnv creates a new environment for install operations
+	// NewInstallEnv() (*localenv.LocalEnvironment, error)
 	// NewJoinEnv creates a new environment for join operations
 	NewJoinEnv() (*localenv.LocalEnvironment, error)
 }

@@ -117,7 +117,7 @@ func (r *Engine) Execute(ctx context.Context, installer install.Interface, confi
 		r.Operator, operation.Key(), r.FieldLogger); err != nil {
 		return trace.Wrap(err)
 	}
-	if err := installer.CompleteFinalInstallStep(0); err != nil {
+	if err := installer.CompleteFinalInstallStep(operation.Key(), 0); err != nil {
 		r.WithError(err).Warn("Failed to complete final install step.")
 	}
 	if err := installer.Finalize(*operation); err != nil {

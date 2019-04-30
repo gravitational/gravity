@@ -76,7 +76,7 @@ func ExecutePhase(localEnv, updateEnv, joinEnv *localenv.LocalEnvironment, param
 	switch op.Type {
 	case ops.OperationInstall:
 		installer := params.Installer
-		if params.Installer == nil {
+		if installer == nil {
 			installer = defaultInstaller{}
 		}
 		return installer.ExecutePhase(localEnv, params, op)
@@ -104,7 +104,7 @@ func RollbackPhase(localEnv, updateEnv, joinEnv *localenv.LocalEnvironment, para
 	switch op.Type {
 	case ops.OperationInstall:
 		installer := params.Installer
-		if params.Installer == nil {
+		if installer == nil {
 			installer = defaultInstaller{}
 		}
 		return installer.RollbackPhase(localEnv, params, op)
@@ -236,16 +236,18 @@ func (r *backendOperations) List(localEnv, updateEnv, joinEnv *localenv.LocalEnv
 		if err == nil && wizardEnv.Operator != nil {
 			cluster, err := wizardEnv.Operator.GetLocalSite()
 			if err == nil {
+				log.Info("Fetching operation from wizard.")
 				r.getOperationAndUpdateCache(getOperationFromOperator(wizardEnv.Operator, cluster.Key()),
 					log.WithField("context", "install"))
 				return nil
 			}
 		}
-		log.WithError(err).Warn("Failed to comnect to wizard.")
+		log.WithError(err).Warn("Failed to connect to wizard.")
 		wizardLocalEnv, err := localEnv.NewLocalWizardEnvironment()
 		if err != nil {
 			return trace.Wrap(err, "failed to read local wizard environment")
 		}
+		log.Info("Fetching operation directly from wizard backend.")
 		r.getOperationAndUpdateCache(getOperationFromBackend(wizardLocalEnv.Backend),
 			log.WithField("context", "install"))
 

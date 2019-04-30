@@ -13,7 +13,7 @@ import (
 
 // NewClient returns a new client using the specified state directory
 // to look for socket file
-func NewClient(ctx context.Context, stateDir string, logger log.FieldLogger, opts ...grpc.DialOption) (AgentClient, error) {
+func NewClient(ctx context.Context, socketPath string, logger log.FieldLogger, opts ...grpc.DialOption) (AgentClient, error) {
 	type result struct {
 		*grpc.ClientConn
 		error
@@ -27,10 +27,10 @@ func NewClient(ctx context.Context, stateDir string, logger log.FieldLogger, opt
 			grpc.WithBackoffMaxDelay(1 * time.Second),
 			grpc.WithBlock(),
 			grpc.WithContextDialer(func(ctx context.Context, addr string) (net.Conn, error) {
-				conn, err := (&net.Dialer{}).DialContext(ctx, "unix", SocketPath(stateDir))
+				conn, err := (&net.Dialer{}).DialContext(ctx, "unix", socketPath)
 				logger.WithFields(log.Fields{
 					log.ErrorKey: err,
-					"addr":       SocketPath(stateDir),
+					"addr":       socketPath,
 				}).Debug("Connect to installer service.")
 				if err != nil {
 					return nil, trace.Wrap(err)

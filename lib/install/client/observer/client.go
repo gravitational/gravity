@@ -36,7 +36,7 @@ func New(ctx context.Context, config Config) (*Client, error) {
 		ctx, cancel = context.WithTimeout(ctx, config.ConnectTimeout)
 		defer cancel()
 	}
-	cc, err := installpb.NewClient(ctx, config.StateDir, config.FieldLogger)
+	cc, err := installpb.NewClient(ctx, config.SocketPath, config.FieldLogger)
 	if err != nil {
 		return nil, trace.Wrap(err)
 	}
@@ -83,9 +83,6 @@ func (r *Client) Rollback(ctx context.Context, machine *fsm.FSM, params fsm.Para
 }
 
 func (r *Config) checkAndSetDefaults() error {
-	if r.ServiceName == "" {
-		return trace.BadParameter("ServiceName is required")
-	}
 	if r.InterruptHandler == nil {
 		return trace.BadParameter("InterruptHandler is required")
 	}
@@ -95,11 +92,11 @@ func (r *Config) checkAndSetDefaults() error {
 	if r.FieldLogger == nil {
 		r.FieldLogger = log.WithField(trace.Component, "client:observer")
 	}
-	if r.StateDir == "" {
-		r.StateDir = defaults.GravityInstallDir()
-	}
 	if r.ServiceName == "" {
 		r.ServiceName = defaults.GravityRPCInstallerServiceName
+	}
+	if r.SocketPath == "" {
+		r.SocketPath = installpb.SocketPath(defaults.GravityEphemeralDir)
 	}
 	return nil
 }
@@ -109,8 +106,8 @@ type Config struct {
 	log.FieldLogger
 	utils.Printer
 	*signals.InterruptHandler
-	// StateDir specifies the install state directory on local host
-	StateDir string
+	// SocketPath specifies the path to the service socket file
+	SocketPath string
 	// ConnectTimeout specifies the maximum amount of time to wait for
 	// installer service connection. Wait forever, if unspecified
 	ConnectTimeout time.Duration

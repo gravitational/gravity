@@ -19,7 +19,6 @@ package systemservice
 import (
 	"os/exec"
 	"path/filepath"
-	"strings"
 
 	"github.com/gravitational/gravity/lib/defaults"
 	"github.com/gravitational/gravity/lib/loc"
@@ -62,6 +61,9 @@ type NewServiceRequest struct {
 	// UnitPath specifies the path for the unit file.
 	// If unspecified, defaults to filepath.Join(systemdUnitPath, Name)
 	UnitPath string `json:"unit_path"`
+	// Unmask specifies whether the service should be unmasked.
+	// Failure to unmask is not critical
+	Unmask bool
 }
 
 // NewMountServiceRequest describes a request to create a new systemd mount service
@@ -80,6 +82,14 @@ type UninstallServiceRequest struct {
 	Name string
 	// RemoveFile also removes the unit file
 	RemoveFile bool
+}
+
+// DisableServiceRequest describes a request to disable a service
+type DisableServiceRequest struct {
+	// Name identifies the service
+	Name string
+	// Mask specifies whether the service should be masked instead
+	Mask bool
 }
 
 // NewPackageServiceRequest specifies parameters needed to create a new service
@@ -249,7 +259,7 @@ type ServiceManager interface {
 	UninstallService(UninstallServiceRequest) error
 
 	// DisableService disables service without stopping it
-	DisableService(name string) error
+	DisableService(DisableServiceRequest) error
 
 	// StartService starts service
 	StartService(name string, noBlock bool) error
@@ -307,9 +317,11 @@ func (r *NewServiceRequest) CheckAndSetDefaults() error {
 	if r.Name == "" && r.UnitPath == "" {
 		return trace.BadParameter("Name or UnitPath is required")
 	}
-	if r.UnitPath != "" {
-		name := filepath.Base(r.UnitPath)
-		r.Name = strings.TrimSuffix(name, filepath.Ext(name))
+	if r.UnitPath == "" {
+		r.UnitPath = unitPath(r.Name)
+	}
+	if r.Name == "" {
+		r.Name = filepath.Base(r.UnitPath)
 	}
 	if r.RestartSec == 0 {
 		r.RestartSec = defaults.SystemServiceRestartSec

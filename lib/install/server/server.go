@@ -83,32 +83,14 @@ func (r *Server) Shutdown(ctx context.Context, req *installpb.ShutdownRequest) (
 // Execute executes the installation using the specified engine
 // Implements installpb.AgentServer
 func (r *Server) Execute(req *installpb.ExecuteRequest, stream installpb.Agent_ExecuteServer) error {
-	r.executeOnce.Do(func() {
-		r.execWG.Add(1)
-		go func() {
-			if err := r.executor.ExecuteOperation(); err != nil {
-				r.WithError(err).Info("Failed to execute.")
-				if err := r.sendError(err); err != nil {
-					r.WithError(err).Info("Failed to send error to client.")
-					// TODO: only exit if unable to send the error.
-					// Otherwise, the client will shut down the server as
-					// it sees fit
-				}
-				r.execWG.Done()
-				// No explicit stop in case of error
-				return
-			}
-			r.execWG.Done()
-			r.stop(r.parentCtx)
-		}()
-	})
+	r.executeOnce.Do(r.execute)
 	for {
 		select {
 		case event := <-r.eventsC:
 			resp := &installpb.ProgressResponse{}
 			if event.Progress != nil {
 				resp.Message = event.Progress.Message
-				resp.Complete = event.Progress.IsCompleted()
+				resp.Complete = event.Complete
 			} else if event.Error != nil {
 				resp.Errors = append(resp.Errors, &installpb.Error{Message: event.Error.Error()})
 			}
@@ -247,6 +229,28 @@ type Event struct {
 	Progress *ops.ProgressEntry
 	// Error specifies the error if any
 	Error error
+	// Complete indicates that this is the last event sent
+	Complete bool
+}
+
+func (r *Server) execute() {
+	r.execWG.Add(1)
+	go func() {
+		if err := r.executor.ExecuteOperation(); err != nil {
+			r.WithError(err).Info("Failed to execute.")
+			if err := r.sendError(err); err != nil {
+				r.WithError(err).Info("Failed to send error to client.")
+				// TODO: only exit if unable to send the error.
+				// Otherwise, the client will shut down the server as
+				// it sees fit
+			}
+			r.execWG.Done()
+			// No explicit stop in case of error
+			return
+		}
+		r.execWG.Done()
+		r.stop(r.parentCtx)
+	}()
 }
 
 func (r *Server) stop(ctx context.Context) {

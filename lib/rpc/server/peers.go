@@ -93,6 +93,10 @@ func (r *peers) validateConnection(ctx context.Context) error {
 func (r *peers) tryPeer(ctx context.Context, peer *peer) error {
 	client, err := peer.Reconnect(ctx)
 	if err != nil {
+		r.WithFields(log.Fields{
+			log.ErrorKey: err,
+			"peer":       peer,
+		}).Warn("Failed to connect.")
 		return trace.Wrap(err, "RPC agent could not connect to %v", peer.Addr())
 	}
 	if err := client.Close(); err != nil {

@@ -20,6 +20,7 @@ import (
 	"context"
 	"net"
 	"os"
+	"path/filepath"
 
 	"github.com/gravitational/gravity/lib/app"
 	appservice "github.com/gravitational/gravity/lib/app"
@@ -62,9 +63,6 @@ type InstallConfig struct {
 	CloudProvider string
 	// StateDir is directory with local installer state
 	StateDir string
-	// writeStateDir is the directory where installer stores state for the duration
-	// of the operation
-	writeStateDir string
 	// UserLogFile is the log file where user-facing operation logs go
 	UserLogFile string
 	// SystemLogFile is the log file for system logs
@@ -140,6 +138,9 @@ type InstallConfig struct {
 	// wizardAdvertiseAddr is advertise address of the wizard service endpoint.
 	// If empty, the server will listen on all interfaces
 	wizardAdvertiseAddr string
+	// writeStateDir is the directory where installer stores state for the duration
+	// of the operation
+	writeStateDir string
 }
 
 // NewInstallConfig creates install config from the passed CLI args and flags
@@ -216,9 +217,7 @@ func (i *InstallConfig) CheckAndSetDefaults() (err error) {
 		i.FieldLogger = log.WithField(trace.Component, "installer")
 	}
 	if i.StateDir == "" {
-		if i.StateDir, err = os.Getwd(); err != nil {
-			return trace.ConvertSystemError(err)
-		}
+		i.StateDir = filepath.Dir(utils.Exe.Path)
 		i.WithField("dir", i.StateDir).Info("Set installer read state directory.")
 	}
 	i.writeStateDir = defaults.GravityInstallDir()
@@ -228,8 +227,8 @@ func (i *InstallConfig) CheckAndSetDefaults() (err error) {
 	i.WithField("dir", i.writeStateDir).Info("Set installer write state directory.")
 	isDir, err := utils.IsDirectory(i.StateDir)
 	if !isDir {
-		return trace.BadParameter("the specified state path %v is not "+
-			"a directory", i.StateDir)
+		return trace.BadParameter("specified state path %v is not a directory",
+			i.StateDir)
 	}
 	if err != nil {
 		if trace.IsAccessDenied(err) {
@@ -237,8 +236,8 @@ func (i *InstallConfig) CheckAndSetDefaults() (err error) {
 				"directory %v", i.StateDir)
 		}
 		if trace.IsNotFound(err) {
-			return trace.Wrap(err, "the specified state directory %v is not "+
-				"found", i.StateDir)
+			return trace.Wrap(err, "specified state directory %v is not found",
+				i.StateDir)
 		}
 		return trace.Wrap(err)
 	}

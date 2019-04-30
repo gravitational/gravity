@@ -144,7 +144,7 @@ func (r *executor) finalizeOperation(operation ops.SiteOperation) error {
 	// With an interactive installation, the link to remote Ops Center cannot be removed
 	// immediately as it is used to tunnel final install step
 	if r.app.Manifest.SetupEndpoint() == nil {
-		if err := r.CompleteFinalInstallStep(defaults.WizardLinkTTL); err != nil {
+		if err := r.CompleteFinalInstallStep(operation.Key(), defaults.WizardLinkTTL); err != nil {
 			r.WithError(err).Warn("Failed to complete final install step.")
 		}
 	}

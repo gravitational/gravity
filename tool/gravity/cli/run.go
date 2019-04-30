@@ -235,7 +235,13 @@ func Execute(g *Application, cmd string, extraArgs []string) error {
 		return statusSite()
 	}
 
-	localEnv, err := g.LocalEnv(cmd)
+	if *g.StateDir != "" {
+		if err := g.SetStateDirFromCommand(cmd); err != nil {
+			return trace.Wrap(err)
+		}
+	}
+
+	localEnv, err := g.NewLocalEnv()
 	if err != nil {
 		return trace.Wrap(err)
 	}

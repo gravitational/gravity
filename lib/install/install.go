@@ -68,6 +68,7 @@ func (i *Installer) Serve(engine Engine, listener net.Listener) error {
 }
 
 // Stop releases resources allocated by the installer
+// Implements signals.Stopper
 func (i *Installer) Stop(ctx context.Context) error {
 	i.Info("Stop.")
 	i.server.Stop(ctx)
@@ -75,6 +76,7 @@ func (i *Installer) Stop(ctx context.Context) error {
 }
 
 // Abort releases resources allocated by the installer and cleans up state
+// Implements signals.Aborter
 func (i *Installer) Abort(ctx context.Context) error {
 	i.Info("Abort.")
 	i.server.Interrupt(ctx)
@@ -97,7 +99,7 @@ type Interface interface {
 	// CompleteFinalInstallStep marks the final install step as completed unless
 	// the application has a custom install step. In case of the custom step,
 	// the user completes the final installer step
-	CompleteFinalInstallStep(delay time.Duration) error
+	CompleteFinalInstallStep(key ops.SiteOperationKey, delay time.Duration) error
 	// Wait blocks the installer until the wizard process has been explicitly shut down
 	// or specified context has expired
 	Wait() error
@@ -173,10 +175,10 @@ func (i *Installer) Finalize(operation ops.SiteOperation) error {
 // CompleteFinalInstallStep marks the final install step as completed unless
 // the application has a custom install step - in which case it does nothing
 // because it will be completed by user later
-func (i *Installer) CompleteFinalInstallStep(delay time.Duration) error {
+func (i *Installer) CompleteFinalInstallStep(key ops.SiteOperationKey, delay time.Duration) error {
 	req := ops.CompleteFinalInstallStepRequest{
 		AccountID:           defaults.SystemAccountID,
-		SiteDomain:          i.SiteDomain,
+		SiteDomain:          key.SiteDomain,
 		WizardConnectionTTL: delay,
 	}
 	i.WithField("req", req).Debug("Completing final install step.")
@@ -198,7 +200,7 @@ func (i *Installer) Wait() error {
 	return trace.Wrap(i.Process.Wait())
 }
 
-// Shutdown stop the active operation.
+// Shutdown stops the active operation.
 // Implements server.Executor
 func (i *Installer) Shutdown(ctx context.Context) error {
 	err := i.stop(ctx)
@@ -319,10 +321,14 @@ func (i *Installer) printPostInstallBanner() {
 	if m, ok := modules.Get().(modules.Messager); ok {
 		fmt.Fprintf(&buf, "\n%v", m.PostInstallMessage())
 	}
-	event := server.Event{Progress: &ops.ProgressEntry{
-		Message:    buf.String(),
-		Completion: constants.Completed,
-	}}
+	event := server.Event{
+		Progress: &ops.ProgressEntry{
+			Message:    buf.String(),
+			Completion: constants.Completed,
+		},
+		// Send the completion event
+		Complete: true,
+	}
 	i.server.Send(event)
 }
 
@@ -375,11 +381,15 @@ func (i *Installer) uploadInstallLog(operationKey ops.SiteOperationKey) error {
 		return trace.Wrap(err)
 	}
 	defer file.Close()
-	err = i.Operator.StreamOperationLogs(operationKey, file)
+	operator, err := i.LocalClusterClient()
+	if err != nil {
+		return trace.Wrap(err)
+	}
+	err = operator.StreamOperationLogs(operationKey, file)
 	if err != nil {
 		return trace.Wrap(err, "failed to upload install log")
 	}
-	i.Debug("Uploaded install log to the cluster.")
+	i.WithField("file", i.UserLogFile).Debug("Uploaded install log to the cluster.")
 	return nil
 }
 

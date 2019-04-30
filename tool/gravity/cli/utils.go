@@ -17,28 +17,30 @@ limitations under the License.
 package cli
 
 import (
+	"context"
+	"fmt"
 	"os"
 	"path/filepath"
+	"strconv"
 	"strings"
 
 	"github.com/gravitational/gravity/lib/defaults"
+	"github.com/gravitational/gravity/lib/httplib"
+	"github.com/gravitational/gravity/lib/install"
 	"github.com/gravitational/gravity/lib/localenv"
+	"github.com/gravitational/gravity/lib/ops"
+	"github.com/gravitational/gravity/lib/pack/webpack"
 	"github.com/gravitational/gravity/lib/processconfig"
+	rpcserver "github.com/gravitational/gravity/lib/rpc/server"
 	"github.com/gravitational/gravity/lib/state"
+	"github.com/gravitational/gravity/lib/storage"
+	"github.com/gravitational/gravity/lib/systeminfo"
+	"github.com/gravitational/gravity/lib/utils"
 	"github.com/gravitational/gravity/tool/common"
+	"github.com/gravitational/roundtrip"
 
 	"github.com/gravitational/trace"
 )
-
-// LocalEnv returns an instance of a local environment for the specified
-// command
-func (g *Application) LocalEnv(cmd string) (*localenv.LocalEnvironment, error) {
-	stateDir, err := g.stateDir(cmd)
-	if err != nil {
-		return nil, trace.Wrap(err)
-	}
-	return g.getEnv(stateDir)
-}
 
 // NewLocalEnv returns an instance of a local environment.
 func (g *Application) NewLocalEnv() (*localenv.LocalEnvironment, error) {
@@ -66,13 +68,22 @@ func (g *Application) NewUpdateEnv() (*localenv.LocalEnvironment, error) {
 	return g.getEnv(state.GravityUpdateDir(dir))
 }
 
-// NewJoinEnv returns an instance of local environment where join-specific data is stored
-func (g *Application) NewJoinEnv() (*localenv.LocalEnvironment, error) {
+// NewInstallEnv returns an instance of local environment where install-specific data is stored
+func (g *Application) NewInstallEnv() (*localenv.LocalEnvironment, error) {
 	err := os.MkdirAll(defaults.GravityInstallDir(), defaults.SharedDirMask)
 	if err != nil {
 		return nil, trace.ConvertSystemError(err)
 	}
 	return g.getEnv(defaults.GravityInstallDir())
+}
+
+// NewJoinEnv returns an instance of local environment where join-specific data is stored
+func (g *Application) NewJoinEnv() (*localenv.LocalEnvironment, error) {
+	err := os.MkdirAll(defaults.GravityJoinDir(), defaults.SharedDirMask)
+	if err != nil {
+		return nil, trace.ConvertSystemError(err)
+	}
+	return g.getEnv(defaults.GravityJoinDir())
 }
 
 func (g *Application) getEnv(stateDir string) (*localenv.LocalEnvironment, error) {
@@ -96,51 +107,20 @@ func (g *Application) getEnv(stateDir string) (*localenv.LocalEnvironment, error
 	return localenv.NewLocalEnvironment(args)
 }
 
-// stateDir returns the local state directory for the specified command
-func (g *Application) stateDir(cmd string) (string, error) {
-	if g.isInstallCommand(cmd) || g.isJoinCommand(cmd) {
-		// if a custom state directory was provided during install/join, it means
-		// that user wants all gravity data to be stored under this directory
-		if *g.StateDir != "" {
-			err := state.SetStateDir(*g.StateDir)
-			if err != nil {
-				return "", trace.Wrap(err)
-			}
-			return filepath.Join(*g.StateDir, defaults.LocalDir), nil
-		}
-		// otherwise use default state dir
-		return defaults.LocalGravityDir, nil
+// SetStateDirFromCommand sets a new state directory if it has been overridden on command line.
+// It only does this for a select subset of commands - those that install a cluster and thus need
+// to set up the state directory.
+// cmd specifies the invoked command
+func (g *Application) SetStateDirFromCommand(cmd string) error {
+	if cmd != g.InstallCmd.FullCommand() && cmd != g.JoinCmd.FullCommand() {
+		return nil
 	}
-
-	// all other commands should use the state directory that was set by original
-	// install/join command, unless it was specified explicitly
-	if *g.StateDir != "" {
-		return *g.StateDir, nil
-	}
-	dir, err := state.GetStateDir()
-	if err != nil {
-		return "", trace.Wrap(err)
-	}
-	return filepath.Join(dir, defaults.LocalDir), nil
+	// if a custom state directory was provided during install/join, it means
+	// that user wants all gravity data to be stored under this directory
+	return trace.Wrap(state.SetStateDir(*g.StateDir))
 }
 
-// isInstallCommand returns true if the specified command is
-// a "gravity install" command
-func (g *Application) isInstallCommand(cmd string) bool {
-	return cmd == g.InstallCmd.FullCommand()
-}
-
-// isJoinCommand returns true if the specified command is
-// a "gravity join" command
-func (g *Application) isJoinCommand(cmd string) bool {
-	switch cmd {
-	case g.JoinCmd.FullCommand():
-		return true
-	}
-	return false
-}
-
-// isUpdateCommand returns true if the specified commans is
+// isUpdateCommand returns true if the specified command is
 // an upgrade related command
 func (g *Application) isUpdateCommand(cmd string) bool {
 	switch cmd {
@@ -163,7 +143,7 @@ func (g *Application) isUpdateCommand(cmd string) bool {
 	return false
 }
 
-// isExpandCommand returns true if the specified commans is
+// isExpandCommand returns true if the specified command is
 // expand-related command
 func (g *Application) isExpandCommand(cmd string) bool {
 	switch cmd {
@@ -202,4 +182,85 @@ func ConfigureNoProxy() {
 	}
 
 	os.Setenv("NO_PROXY", strings.Join([]string{"0.0.0.0/0", ".local"}, ","))
+}
+
+// findServer searches the provided cluster's state for a server that matches one of the provided
+// tokens, where a token can be the server's advertise IP, hostname or AWS internal DNS name
+func findServer(site ops.Site, tokens []string) (*storage.Server, error) {
+	for _, server := range site.ClusterState.Servers {
+		for _, token := range tokens {
+			if token == "" {
+				continue
+			}
+			switch token {
+			case server.AdvertiseIP, server.Hostname, server.Nodename:
+				return &server, nil
+			}
+		}
+	}
+	return nil, trace.NotFound("could not find server matching %v among registered cluster nodes",
+		tokens)
+}
+
+// findLocalServer searches the provided cluster's state for the server that matches the one
+// the current command is being executed from
+func findLocalServer(site ops.Site) (*storage.Server, error) {
+	// collect the machines's IP addresses and search by them
+	ifaces, err := systeminfo.NetworkInterfaces()
+	if err != nil {
+		return nil, trace.Wrap(err)
+	}
+	if len(ifaces) == 0 {
+		return nil, trace.NotFound("no network interfaces found")
+	}
+
+	var ips []string
+	for _, iface := range ifaces {
+		ips = append(ips, iface.IPv4)
+	}
+
+	server, err := findServer(site, ips)
+	if err != nil {
+		return nil, trace.Wrap(err)
+	}
+
+	return server, nil
+}
+
+func isCancelledError(err error) bool {
+	if err == nil {
+		return false
+	}
+	return trace.IsCompareFailed(err) && strings.Contains(err.Error(), "cancelled")
+}
+
+func watchReconnects(ctx context.Context, cancel context.CancelFunc, watchCh <-chan rpcserver.WatchEvent) {
+	go func() {
+		for event := range watchCh {
+			if event.Error == nil {
+				continue
+			}
+			log.Warnf("Failed to reconnect to %v: %v.", event.Peer, event.Error)
+			cancel()
+			return
+		}
+	}()
+}
+
+func loadRPCCredentials(ctx context.Context, addr, token string) (*rpcserver.Credentials, error) {
+	// Assume addr to be a complete address if it's prefixed with `http`
+	if !strings.Contains(addr, "http") {
+		host, port := utils.SplitHostPort(addr, strconv.Itoa(defaults.GravitySiteNodePort))
+		addr = fmt.Sprintf("https://%v:%v", host, port)
+	}
+	httpClient := roundtrip.HTTPClient(httplib.GetClient(true))
+	packages, err := webpack.NewBearerClient(addr, token, httpClient)
+	if err != nil {
+		return nil, trace.Wrap(err)
+	}
+	creds, err := install.LoadRPCCredentials(ctx, packages, log)
+	if err != nil {
+		return nil, trace.Wrap(err)
+	}
+	return creds, nil
 }

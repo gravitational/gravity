@@ -128,17 +128,14 @@ func (u *systemdUnit) servicePath() string {
 	return unitPath(u.serviceName())
 }
 
-func (s *systemdManager) installService(service serviceTemplate, noBlock bool, unitPath string) error {
+func (s *systemdManager) installService(service serviceTemplate, req NewServiceRequest) error {
 	service.Environment = map[string]string{
 		defaults.PathEnv: defaults.PathEnvVal,
 	}
-	if unitPath == "" {
-		unitPath = filepath.Join(systemdUnitFileDir, SystemdNameEscape(service.Name))
-	}
-	f, err := os.Create(unitPath)
+	f, err := os.Create(req.UnitPath)
 	if err != nil {
 		return trace.Wrap(err,
-			"error creating systemd unit file at %v", unitPath)
+			"error creating systemd unit file at %v", req.UnitPath)
 	}
 	defer f.Close()
 
@@ -147,11 +144,21 @@ func (s *systemdManager) installService(service serviceTemplate, noBlock bool, u
 		return trace.Wrap(err, "error rendering template")
 	}
 
+	if req.Unmask {
+		err = s.UnmaskService(service.Name)
+		if err != nil {
+			log.WithFields(log.Fields{
+				log.ErrorKey: err,
+				"service":    service.Name,
+			}).Warn("Failed to unmask.")
+		}
+	}
+
 	if err := s.EnableService(service.Name); err != nil {
 		return trace.Wrap(err, "error enabling the service")
 	}
 
-	if err := s.StartService(service.Name, noBlock); err != nil {
+	if err := s.StartService(service.Name, req.NoBlock); err != nil {
 		return trace.Wrap(err, "error starting the service")
 	}
 
@@ -210,8 +217,12 @@ func (s *systemdManager) InstallPackageService(req NewPackageServiceRequest) err
 		Description: fmt.Sprintf("Auto-generated service for the %v package", req.Package),
 	}
 
-	var defaultUnitPath string
-	return trace.Wrap(s.installService(template, req.NoBlock, defaultUnitPath))
+	return trace.Wrap(s.installService(template, NewServiceRequest{
+		ServiceSpec: req.ServiceSpec,
+		Name:        unit.serviceName(),
+		UnitPath:    unitPath(unit.serviceName()),
+		NoBlock:     req.NoBlock,
+	}))
 }
 
 // UninstallPackageService uninstalls gravity service implemented as a gravity package command
@@ -224,7 +235,9 @@ func (s *systemdManager) UninstallPackageService(pkg loc.Locator) error {
 
 // DisablePackageService disables gravity service implemented as a gravity package command
 func (s *systemdManager) DisablePackageService(pkg loc.Locator) error {
-	return s.DisableService(newSystemdUnit(pkg).serviceName())
+	return s.DisableService(DisableServiceRequest{
+		Name: newSystemdUnit(pkg).serviceName(),
+	})
 }
 
 // IsPackageServiceInstalled checks if the package service is installed
@@ -308,7 +321,7 @@ func (s *systemdManager) InstallService(req NewServiceRequest) error {
 		ServiceSpec: req.ServiceSpec,
 		Description: fmt.Sprintf("Auto-generated service for the %v", req.Name),
 	}
-	return trace.Wrap(s.installService(template, req.NoBlock, req.UnitPath))
+	return trace.Wrap(s.installService(template, req))
 }
 
 // InstalMountService installs a new mount service with the system service manager
@@ -370,10 +383,14 @@ func (s *systemdManager) UninstallService(req UninstallServiceRequest) error {
 }
 
 // DisableService disables service without stopping it
-func (s *systemdManager) DisableService(name string) error {
-	out, err := invokeSystemctl("disable", name)
+func (s *systemdManager) DisableService(req DisableServiceRequest) error {
+	cmd := "disable"
+	if req.Mask {
+		cmd = "mask"
+	}
+	out, err := invokeSystemctl(cmd, req.Name)
 	if err != nil {
-		return trace.Wrap(err, "error disabling service %v: %v", name, out)
+		return trace.Wrap(err, "error disabling service %v: %s", req.Name, out)
 	}
 	return nil
 }
@@ -419,6 +436,18 @@ func (s *systemdManager) StatusService(name string) (string, error) {
 func (s *systemdManager) EnableService(name string) error {
 	out, err := invokeSystemctl("enable", name)
 	return trace.Wrap(err, "failed to enable %v: %v", name, out)
+}
+
+// MaskService masks service
+func (s *systemdManager) MaskService(name string) error {
+	out, err := invokeSystemctl("mask", name)
+	return trace.Wrap(err, "failed to mask %v: %v", name, out)
+}
+
+// UnmaskService unmasks service
+func (s *systemdManager) UnmaskService(name string) error {
+	out, err := invokeSystemctl("unmask", name)
+	return trace.Wrap(err, "failed to unmask %v: %v", name, out)
 }
 
 // Version returns systemd version
