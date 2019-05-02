@@ -112,7 +112,7 @@ func (g *Application) getEnv(stateDir string) (*localenv.LocalEnvironment, error
 // to set up the state directory.
 // cmd specifies the invoked command
 func (g *Application) SetStateDirFromCommand(cmd string) error {
-	if cmd != g.InstallCmd.FullCommand() && cmd != g.JoinCmd.FullCommand() {
+	if cmd != g.InstallCmd.FullCommand() && cmd != g.JoinExecuteCmd.FullCommand() {
 		return nil
 	}
 	// if a custom state directory was provided during install/join, it means
@@ -147,7 +147,7 @@ func (g *Application) isUpdateCommand(cmd string) bool {
 // expand-related command
 func (g *Application) isExpandCommand(cmd string) bool {
 	switch cmd {
-	case g.JoinCmd.FullCommand(), g.AutoJoinCmd.FullCommand(),
+	case g.AutoJoinCmd.FullCommand(),
 		g.PlanCmd.FullCommand(),
 		g.PlanDisplayCmd.FullCommand(),
 		g.PlanExecuteCmd.FullCommand(),

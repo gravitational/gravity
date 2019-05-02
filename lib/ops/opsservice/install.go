@@ -100,16 +100,6 @@ func (s *site) createInstallExpandOperation(context context.Context, req createI
 	variables := req.Vars
 	profiles := req.Profiles
 
-	agentUser, err := s.agentUser()
-	if err != nil {
-		return nil, trace.Wrap(err)
-	}
-
-	token, err := users.CryptoRandomToken(defaults.ProvisioningTokenBytes)
-	if err != nil {
-		return nil, trace.Wrap(err)
-	}
-
 	op := &ops.SiteOperation{
 		ID:          uuid.New(),
 		AccountID:   s.key.AccountID,
@@ -120,6 +110,11 @@ func (s *site) createInstallExpandOperation(context context.Context, req createI
 		Updated:     s.clock().UtcNow(),
 		State:       operationInitialState,
 		Provisioner: provisioner,
+	}
+
+	token, err := s.getOrCreateProvisioningToken(*op)
+	if err != nil {
+		return nil, trace.Wrap(err)
 	}
 
 	ctx, err := s.newOperationContext(*op)
@@ -144,24 +139,6 @@ func (s *site) createInstallExpandOperation(context context.Context, req createI
 		if err != nil {
 			return nil, trace.Wrap(err)
 		}
-	}
-
-	tokenType := storage.ProvisioningTokenTypeInstall
-	if op.Type == ops.OperationExpand {
-		tokenType = storage.ProvisioningTokenTypeExpand
-	}
-
-	_, err = s.users().CreateProvisioningToken(storage.ProvisioningToken{
-		Token:       token,
-		AccountID:   s.key.AccountID,
-		SiteDomain:  s.key.SiteDomain,
-		Type:        storage.ProvisioningTokenType(tokenType),
-		Expires:     s.clock().UtcNow().Add(defaults.InstallTokenTTL),
-		OperationID: op.ID,
-		UserEmail:   agentUser.GetName(),
-	})
-	if err != nil {
-		return nil, trace.Wrap(err)
 	}
 
 	systemVars, err := s.systemVars(*op, variables.System)
@@ -190,8 +167,6 @@ func (s *site) createInstallExpandOperation(context context.Context, req createI
 			Instructions: instructions,
 			AgentURL:     u.String(),
 			Token:        token,
-			// TODO: assign installer role (i.e. first come?)
-			// Installer: i,
 		}
 	}
 
@@ -874,6 +849,9 @@ func (s *site) installOperationStart(ctx *operationContext) error {
 		ops.SetOperationStateRequest{
 			State: ops.OperationStateReady,
 		})
+	if err != nil {
+		return trace.Wrap(err)
+	}
 
 	// wait for it to finish, installer will be reporting progress to us
 	err = s.waitForOperation(ctx)
@@ -882,6 +860,48 @@ func (s *site) installOperationStart(ctx *operationContext) error {
 	}
 
 	return nil
+}
+
+func (s *site) getOrCreateProvisioningToken(operation ops.SiteOperation) (token string, err error) {
+	agentUser, err := s.agentUser()
+	if err != nil {
+		return "", trace.Wrap(err)
+	}
+	if operation.Type == ops.OperationInstall {
+		installToken, err := s.users().GetInstallTokenForCluster(s.domainName)
+		if err != nil && !trace.IsNotFound(err) {
+			return "", trace.Wrap(err)
+		}
+		if installToken != nil {
+			token = installToken.Token
+		}
+	}
+	if token == "" {
+		token, err = users.CryptoRandomToken(defaults.ProvisioningTokenBytes)
+		if err != nil {
+			return "", trace.Wrap(err)
+		}
+	}
+	tokenRequest := storage.ProvisioningToken{
+		Token:      token,
+		AccountID:  s.key.AccountID,
+		SiteDomain: s.key.SiteDomain,
+		// Always create an expand token even for install as provisioning tokens are keyed by ID
+		// and there cannot be two tokens with different types and the same ID.
+		// Install operation creates a long-lived (w/o TTL) expand token
+		Type:        storage.ProvisioningTokenTypeExpand,
+		OperationID: operation.ID,
+		UserEmail:   agentUser.GetName(),
+	}
+	if operation.Type != ops.OperationInstall {
+		tokenRequest.Expires = s.clock().UtcNow().Add(defaults.InstallTokenTTL)
+	}
+	_, err = s.users().CreateProvisioningToken(tokenRequest)
+	if err != nil {
+		log.WithError(err).Warn("Failed to create provisioning token.")
+		return "", trace.Wrap(err)
+	}
+	return token, nil
 }
 
 // checkLicenseCPU checks if the license supports the provided number of CPUs.

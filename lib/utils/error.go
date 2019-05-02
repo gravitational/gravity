@@ -326,12 +326,23 @@ func IsConnectionRefusedError(err error) bool {
 //
 // It detects unrecoverable errors and aborts the reconnect attempts
 func ShouldReconnectPeer(err error) error {
-	if isPeerDeniedError(err.Error()) {
-		return &backoff.PermanentError{err}
+	switch {
+	case isPeerDeniedError(err.Error()),
+		isLicenseError(err.Error()),
+		isHostAlreadyRegisteredError(err.Error()):
+		return &backoff.PermanentError{Err: err}
 	}
 	return err
 }
 
 func isPeerDeniedError(message string) bool {
-	return strings.Contains(message, "AccessDenied")
+	return strings.Contains(message, "peer not authorized")
+}
+
+func isLicenseError(message string) bool {
+	return strings.Contains(message, "license allows maximum of")
+}
+
+func isHostAlreadyRegisteredError(message string) bool {
+	return strings.Contains(message, "One of existing peers already has hostname")
 }

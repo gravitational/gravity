@@ -156,7 +156,7 @@ func (r *AgentGroup) Add(p Peer) {
 func (r *AgentGroup) Remove(ctx context.Context, p Peer) error {
 	err := r.peers.iterate(func(peer peer) error {
 		if p.Addr() == peer.Addr() {
-			return trace.Wrap(peer.Shutdown(ctx))
+			return trace.Wrap(peer.Shutdown(ctx, &pb.ShutdownRequest{}))
 		}
 		return nil
 	})
@@ -168,9 +168,9 @@ func (r *AgentGroup) Remove(ctx context.Context, p Peer) error {
 }
 
 // Shutdown requests agents to shut down
-func (r *AgentGroup) Shutdown(ctx context.Context) error {
+func (r *AgentGroup) Shutdown(ctx context.Context, req *pb.ShutdownRequest) error {
 	err := r.peers.iterate(func(p peer) error {
-		return trace.Wrap(p.Shutdown(ctx))
+		return trace.Wrap(p.Shutdown(ctx, req))
 	})
 	return trace.Wrap(err)
 }
@@ -272,7 +272,7 @@ func (r errorPeer) CheckBandwidth(context.Context, *validationpb.CheckBandwidthR
 	return nil, trace.Wrap(r.error)
 }
 
-func (r errorPeer) Shutdown(context.Context) error {
+func (r errorPeer) Shutdown(context.Context, *pb.ShutdownRequest) error {
 	return trace.Wrap(r.error)
 }
 

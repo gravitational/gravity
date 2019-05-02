@@ -2,8 +2,6 @@ package install
 
 import (
 	"context"
-	"fmt"
-	"math/rand"
 	"os"
 	"path/filepath"
 	"strconv"
@@ -28,7 +26,6 @@ import (
 	"github.com/gravitational/gravity/lib/systeminfo"
 	"github.com/gravitational/gravity/lib/utils"
 
-	"github.com/docker/docker/pkg/namesgenerator"
 	"github.com/gravitational/trace"
 	"github.com/kardianos/osext"
 	log "github.com/sirupsen/logrus"
@@ -411,12 +408,4 @@ func tryInstallBinary(targetPath string, uid, gid int, logger log.FieldLogger) e
 	}
 	logger.WithField("path", targetPath).Info("Installed gravity binary.")
 	return nil
-}
-
-func generateClusterName() string {
-	rand.Seed(time.Now().UnixNano())
-	return fmt.Sprintf(
-		"%v%d",
-		strings.Replace(namesgenerator.GetRandomName(0), "_", "", -1),
-		rand.Intn(10000))
 }

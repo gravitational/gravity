@@ -14,11 +14,13 @@ import (
 	"github.com/gravitational/trace"
 	log "github.com/sirupsen/logrus"
 	"google.golang.org/grpc"
+	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/status"
 )
 
 // New returns a new instance of the installer server.
 // Use Serve to make server start listening
-func New(ctx context.Context) *Server {
+func New(ctx context.Context, token string) *Server {
 	localCtx, cancel := context.WithCancel(ctx)
 	grpcServer := grpc.NewServer()
 	server := &Server{
@@ -26,9 +28,11 @@ func New(ctx context.Context) *Server {
 		parentCtx:   ctx,
 		ctx:         localCtx,
 		cancel:      cancel,
+		token:       token,
 		rpc:         grpcServer,
 		// TODO(dmitri): arbitrary channel buffer size
 		eventsC: make(chan Event, 100),
+		abortC:  make(chan struct{}, 1),
 	}
 	installpb.RegisterAgentServer(grpcServer, server)
 	return server
@@ -57,9 +61,19 @@ func (r *Server) WaitForOperation() {
 	r.execWG.Wait()
 }
 
+// Handshake validates the client.
+// Implements installpb.AgentServer
+func (r *Server) Handshake(ctx context.Context, req *installpb.HandshakeRequest) (*installpb.HandshakeResponse, error) {
+	if r.token != req.Token {
+		return nil, status.Error(codes.PermissionDenied, "invalid token")
+	}
+	return &installpb.HandshakeResponse{}, nil
+}
+
 // Abort aborts the operation and cleans up the state
 // Implements installpb.AgentServer
 func (r *Server) Abort(ctx context.Context, req *installpb.AbortRequest) (*installpb.AbortResponse, error) {
+	r.Info("Abort.")
 	r.abort(ctx)
 	// Do not block Stop from the server's connection as it waits for all connections
 	// to complete
@@ -175,8 +189,8 @@ func (r *Server) RunProgressLoop(operator ops.Operator, operationKey ops.SiteOpe
 
 // Executor wraps a potentially failing operation
 type Executor interface {
-	// ExecuteOperation executes the install operation
-	ExecuteOperation() error
+	// Execute executes the install operation.
+	Execute() error
 	// AbortOperation gracefully aborts the operation and cleans up the operation state
 	AbortOperation(context.Context) error
 	// Shutdown gracefully aborts the operation
@@ -194,12 +208,14 @@ type Server struct {
 	cancel context.CancelFunc
 
 	executor Executor
+	token    string
 	eventsC  chan Event
+	// abortC is signaled when the operation is aborted
+	abortC chan struct{}
 	// rpc is the fabric to communicate to the server client process
 	rpc *grpc.Server
 
 	executeOnce sync.Once
-	stopOnce    sync.Once
 	// serveWG is a wait group for internal processes
 	serveWG sync.WaitGroup
 	// execWG is a wait group for executor-specific workloads.
@@ -234,37 +250,46 @@ type Event struct {
 }
 
 func (r *Server) execute() {
-	r.execWG.Add(1)
+	r.execWG.Add(2)
+	execC := make(chan error, 1)
 	go func() {
-		if err := r.executor.ExecuteOperation(); err != nil {
-			r.WithError(err).Info("Failed to execute.")
-			if err := r.sendError(err); err != nil {
-				r.WithError(err).Info("Failed to send error to client.")
-				// TODO: only exit if unable to send the error.
-				// Otherwise, the client will shut down the server as
-				// it sees fit
-			}
-			r.execWG.Done()
-			// No explicit stop in case of error
-			return
+		defer r.execWG.Done()
+		var err error
+		select {
+		case <-r.abortC:
+			err = trace.Errorf("operation aborted")
+		case err = <-execC:
 		}
+		if err != nil {
+			if errSend := r.sendError(err); errSend != nil {
+				r.WithError(errSend).Info("Failed to send error to client.")
+			}
+		}
+	}()
+	go func() {
+		err := r.executor.Execute()
+		execC <- err
+		// No explicit stop in case of error
 		r.execWG.Done()
-		r.stop(r.parentCtx)
+		if err == nil {
+			r.stop(r.parentCtx)
+		}
 	}()
 }
 
 func (r *Server) stop(ctx context.Context) {
-	r.stopOnce.Do(func() {
-		r.executor.Shutdown(ctx)
-	})
+	r.executor.Shutdown(ctx)
 	r.cancel()
 	r.serveWG.Wait()
 }
 
 func (r *Server) abort(ctx context.Context) {
-	r.stopOnce.Do(func() {
-		r.executor.AbortOperation(ctx)
-	})
+	select {
+	case r.abortC <- struct{}{}:
+		// Notify that the operation has been aborted
+	case <-ctx.Done():
+	}
+	r.executor.AbortOperation(ctx)
 	r.cancel()
 	r.serveWG.Wait()
 }

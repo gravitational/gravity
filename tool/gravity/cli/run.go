@@ -114,7 +114,8 @@ func InitAndCheck(g *Application, cmd string) error {
 	switch cmd {
 	case g.InstallCmd.FullCommand(),
 		g.WizardCmd.FullCommand(),
-		g.JoinCmd.FullCommand(),
+		g.JoinExecuteCmd.FullCommand(),
+		g.JoinResumeCmd.FullCommand(),
 		g.AutoJoinCmd.FullCommand(),
 		g.UpdateTriggerCmd.FullCommand(),
 		g.UpdatePlanInitCmd.FullCommand(),
@@ -128,7 +129,7 @@ func InitAndCheck(g *Application, cmd string) error {
 		// the current directory for convenience, unless the user set their
 		// own location
 		switch cmd {
-		case g.InstallCmd.FullCommand(), g.JoinCmd.FullCommand():
+		case g.InstallCmd.FullCommand(), g.JoinExecuteCmd.FullCommand():
 			if *g.SystemLogFile == defaults.GravitySystemLog {
 				install.InitLogging(defaults.GravitySystemLogFile)
 			}
@@ -182,7 +183,8 @@ func InitAndCheck(g *Application, cmd string) error {
 		g.PlanResumeCmd.FullCommand(),
 		g.PlanCompleteCmd.FullCommand(),
 		g.InstallCmd.FullCommand(),
-		g.JoinCmd.FullCommand(),
+		g.JoinExecuteCmd.FullCommand(),
+		g.JoinResumeCmd.FullCommand(),
 		g.AutoJoinCmd.FullCommand(),
 		g.SystemDevicemapperMountCmd.FullCommand(),
 		g.SystemDevicemapperUnmountCmd.FullCommand(),
@@ -300,19 +302,22 @@ func Execute(g *Application, cmd string, extraArgs []string) error {
 		}, *g.OpsAgentCmd.ServiceName)
 	case g.WizardCmd.FullCommand():
 		return startInstall(localEnv, InstallConfig{
-			Mode:          constants.InstallModeInteractive,
-			Insecure:      *g.Insecure,
-			StateDir:      *g.WizardCmd.Path,
-			UserLogFile:   *g.UserLogFile,
-			SystemLogFile: *g.SystemLogFile,
-			ServiceUID:    *g.WizardCmd.ServiceUID,
-			ServiceGID:    *g.WizardCmd.ServiceGID,
-			FromService:   *g.WizardCmd.FromService,
+			Mode:                   constants.InstallModeInteractive,
+			Insecure:               *g.Insecure,
+			StateDir:               *g.WizardCmd.Path,
+			UserLogFile:            *g.UserLogFile,
+			SystemLogFile:          *g.SystemLogFile,
+			ServiceUID:             *g.WizardCmd.ServiceUID,
+			ServiceGID:             *g.WizardCmd.ServiceGID,
+			FromService:            *g.WizardCmd.FromService,
+			ExcludeHostFromCluster: true,
 		})
 	case g.InstallCmd.FullCommand():
 		return startInstall(localEnv, NewInstallConfig(localEnv, g))
-	case g.JoinCmd.FullCommand():
-		return join(localEnv, joinEnv, NewJoinConfig(g))
+	case g.JoinExecuteCmd.FullCommand():
+		return join(localEnv, g, NewJoinConfig(g))
+	case g.JoinResumeCmd.FullCommand():
+		return resumeJoin(localEnv)
 	case g.AutoJoinCmd.FullCommand():
 		return autojoin(localEnv, joinEnv, autojoinConfig{
 			systemLogFile: *g.SystemLogFile,

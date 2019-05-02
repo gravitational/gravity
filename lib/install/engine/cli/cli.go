@@ -12,7 +12,6 @@ import (
 	libinstall "github.com/gravitational/gravity/lib/install"
 	"github.com/gravitational/gravity/lib/install/engine"
 	"github.com/gravitational/gravity/lib/ops"
-	rpcserver "github.com/gravitational/gravity/lib/rpc/server"
 	"github.com/gravitational/gravity/lib/schema"
 	"github.com/gravitational/gravity/lib/state"
 	"github.com/gravitational/gravity/lib/storage"
@@ -69,11 +68,6 @@ type Config struct {
 	engine.Planner
 	// Operator specifies the service operator
 	ops.Operator
-	// ExcludeHostFromCluster specifies whether the host should not be part of the cluster
-	ExcludeHostFromCluster bool
-	// Manual specifies whether the operation should be automatically executed.
-	// If false, only the cluster/operation/plan are created
-	Manual bool
 }
 
 func (r *Engine) Validate(ctx context.Context, config install.Config) (err error) {
@@ -97,17 +91,6 @@ func (r *Engine) Execute(ctx context.Context, installer install.Interface, confi
 	}
 	if err := installer.NotifyOperationAvailable(operation.Key()); err != nil {
 		return trace.Wrap(err)
-	}
-	if !r.ExcludeHostFromCluster {
-		profile, ok := operation.InstallExpand.Agents[config.Role]
-		if !ok {
-			return trace.NotFound("agent profile not found for %v", config.Role)
-		}
-		agent, err := e.startAgent(profile)
-		if err != nil {
-			return trace.Wrap(err, "failed to start installer agent")
-		}
-		defer agent.Stop(ctx)
 	}
 	err = e.waitForAgents(*operation)
 	if err != nil {
@@ -135,10 +118,6 @@ func (r *executor) bootstrap() error {
 	err = configureStateDirectory(r.config.SystemDevice)
 	if err != nil {
 		return trace.Wrap(err, "failed to configure state directory")
-	}
-	err = install.ExportRPCCredentials(r.ctx, r.config.Packages, r.FieldLogger)
-	if err != nil {
-		return trace.Wrap(err, "failed to export RPC credentials")
 	}
 	return nil
 }
@@ -224,8 +203,7 @@ func (r *executor) waitForAgents(operation ops.SiteOperation) error {
 	return trace.Wrap(err)
 }
 
-// canContinue returns true if the installation can commence based on the
-// provided agent report and false if not all agents have joined yet.
+// canContinue returns true if all agents have joined and the installation can start
 func (r *executor) canContinue(old, new *ops.AgentReport) bool {
 	// See if any new nodes have joined or left since previous agent report.
 	joined, left := new.Diff(old)
@@ -260,15 +238,6 @@ func (r *executor) canContinue(old, new *ops.AgentReport) bool {
 			server.Role, utils.ExtractHost(server.AdvertiseAddr)))
 	}
 	return false
-}
-
-func (r *executor) startAgent(profile storage.AgentProfile) (rpcserver.Server, error) {
-	agent, err := r.NewAgent(profile.AgentURL)
-	if err != nil {
-		return nil, trace.Wrap(err)
-	}
-	go agent.Serve()
-	return agent, nil
 }
 
 type Engine struct {

@@ -51,26 +51,28 @@ func NewAgent(ctx context.Context, config AgentConfig) (*rpcserver.PeerServer, e
 	}()
 	peerConfig := rpcserver.PeerConfig{
 		Config: rpcserver.Config{
-			Listener:      listener,
-			Credentials:   config.Credentials,
-			RuntimeConfig: config.RuntimeConfig,
-			AbortHandler:  config.AbortHandler,
+			FieldLogger:      config.FieldLogger,
+			Listener:         listener,
+			Credentials:      config.Credentials,
+			RuntimeConfig:    config.RuntimeConfig,
+			AbortHandler:     config.AbortHandler,
+			UninstallHandler: config.UninstallHandler,
 		},
-		WatchCh: config.WatchCh,
-		ReconnectStrategy: rpcserver.ReconnectStrategy{
-			ShouldReconnect: utils.ShouldReconnectPeer,
-		},
+		WatchCh:           config.WatchCh,
+		ReconnectStrategy: *config.ReconnectStrategy,
 	}
-	agent, err := rpcserver.NewPeer(peerConfig, config.ServerAddr, config.FieldLogger)
+	agent, err := rpcserver.NewPeer(peerConfig, config.ServerAddr)
 	if err != nil {
 		listener.Close()
 		return nil, trace.Wrap(err)
 	}
-	// make sure that connection to the RPC server can be established
-	ctx, cancel := context.WithTimeout(ctx, defaults.PeerConnectTimeout)
-	defer cancel()
-	if err := agent.ValidateConnection(ctx); err != nil {
-		return nil, trace.Wrap(err)
+	if !config.SkipConnectValidation {
+		// make sure that connection to the RPC server can be established
+		ctx, cancel := context.WithTimeout(ctx, defaults.PeerConnectTimeout)
+		defer cancel()
+		if err := agent.ValidateConnection(ctx); err != nil {
+			return nil, trace.Wrap(err)
+		}
 	}
 	return agent, nil
 }
@@ -87,6 +89,11 @@ func (r *AgentConfig) CheckAndSetDefaults() (err error) {
 				"failed to choose network interface on host and none was provided")
 		}
 	}
+	if r.ReconnectStrategy == nil {
+		r.ReconnectStrategy = &rpcserver.ReconnectStrategy{
+			ShouldReconnect: utils.ShouldReconnectPeer,
+		}
+	}
 	return nil
 }
 
@@ -94,6 +101,7 @@ func (r *AgentConfig) CheckAndSetDefaults() (err error) {
 type AgentConfig struct {
 	log.FieldLogger
 	rpcserver.Credentials
+	*rpcserver.ReconnectStrategy
 	CloudProvider string
 	// AdvertiseAddr is the IP address to advertise
 	AdvertiseAddr string
@@ -102,8 +110,12 @@ type AgentConfig struct {
 	// RuntimeConfig specifies runtime configuration
 	pb.RuntimeConfig
 	WatchCh chan rpcserver.WatchEvent
+	// SkipConnectValidation specifies whether to skip initial connection validation
+	SkipConnectValidation bool
 	// AbortHandler specifies an optional handler for abort requests
 	AbortHandler func(context.Context) error
+	// UninstallHandler specifies an optional handler for cleanup during shutdown
+	UninstallHandler func(context.Context) error
 }
 
 // SplitAgentURL splits agentURL into server address and token

@@ -18,9 +18,13 @@ package cli
 
 import (
 	"context"
+	"fmt"
+	"math/rand"
 	"net"
 	"os"
 	"path/filepath"
+	"strings"
+	"time"
 
 	"github.com/gravitational/gravity/lib/app"
 	appservice "github.com/gravitational/gravity/lib/app"
@@ -45,6 +49,7 @@ import (
 	"github.com/gravitational/gravity/lib/systeminfo"
 	"github.com/gravitational/gravity/lib/utils"
 
+	"github.com/docker/docker/pkg/namesgenerator"
 	teleutils "github.com/gravitational/teleport/lib/utils"
 	"github.com/gravitational/trace"
 	"github.com/sirupsen/logrus"
@@ -191,26 +196,6 @@ func NewInstallConfig(env *localenv.LocalEnvironment, g *Application) InstallCon
 	}
 }
 
-// NewDefaultInstallConfig creates install configuration with defaults
-func NewDefaultInstallConfig() InstallConfig {
-	uid := os.Getenv(constants.ServiceUserEnvVar)
-	if uid == "" {
-		uid = defaults.ServiceUserID
-	}
-	gid := os.Getenv(constants.ServiceGroupEnvVar)
-	if gid == "" {
-		gid = defaults.ServiceGroupID
-	}
-	return InstallConfig{
-		Mode:        constants.InstallModeCLI,
-		ServiceCIDR: defaults.ServiceSubnet,
-		VxlanPort:   defaults.VxlanPort,
-		DNSConfig:   storage.DefaultDNSConfig,
-		ServiceUID:  uid,
-		ServiceGID:  gid,
-	}
-}
-
 // CheckAndSetDefaults validates the configuration object and populates default values
 func (i *InstallConfig) CheckAndSetDefaults() (err error) {
 	if i.FieldLogger == nil {
@@ -325,7 +310,10 @@ func (i *InstallConfig) NewInstallerConfig(
 	if err != nil {
 		return nil, trace.Wrap(err)
 	}
-	token, err := generateInstallToken(wizard.Operator, i.Token)
+	if i.SiteDomain == "" {
+		i.SiteDomain = generateClusterName()
+	}
+	token, err := generateInstallToken(wizard.Operator, i.Token, i.SiteDomain)
 	if err != nil && !trace.IsAlreadyExists(err) {
 		return nil, trace.Wrap(err)
 	}
@@ -366,7 +354,10 @@ func (i *InstallConfig) NewInstallerConfig(
 		Packages:           wizard.Packages,
 		Operator:           wizard.Operator,
 		AbortHandler:       installerUninstallSystem(env),
+		UninstallHandler:   installerCompleteOperation(env),
+		LocalAgent:         !i.ExcludeHostFromCluster,
 	}, nil
+
 }
 
 // getAdvertiseAddr returns the advertise address to use for the ???
@@ -554,8 +545,7 @@ type JoinConfig struct {
 	OperationID string
 	// FromService specifies whether the process runs in service mode
 	FromService bool
-	// Auto specifies whether the server runs autonomously.
-	// This implies Server == true.
+	// Auto specifies whether the server runs autonomously (implies FromService).
 	// With user interaction, the server would wait for the client to trigger
 	// the operation. With Auto == true, the server will execute the operation
 	// automatically
@@ -567,19 +557,17 @@ func NewJoinConfig(g *Application) JoinConfig {
 	return JoinConfig{
 		SystemLogFile: *g.SystemLogFile,
 		UserLogFile:   *g.UserLogFile,
-		PeerAddrs:     *g.JoinCmd.PeerAddr,
-		AdvertiseAddr: *g.JoinCmd.AdvertiseAddr,
-		ServerAddr:    *g.JoinCmd.ServerAddr,
-		Token:         *g.JoinCmd.Token,
-		Role:          *g.JoinCmd.Role,
-		SystemDevice:  *g.JoinCmd.SystemDevice,
-		DockerDevice:  *g.JoinCmd.DockerDevice,
-		Mounts:        *g.JoinCmd.Mounts,
-		CloudProvider: *g.JoinCmd.CloudProvider,
-		// Manual:        *g.JoinCmd.Manual,
-		// Phase:       *g.JoinCmd.Phase,
-		OperationID: *g.JoinCmd.OperationID,
-		FromService: *g.JoinCmd.FromService,
+		PeerAddrs:     *g.JoinExecuteCmd.PeerAddr,
+		AdvertiseAddr: *g.JoinExecuteCmd.AdvertiseAddr,
+		ServerAddr:    *g.JoinExecuteCmd.ServerAddr,
+		Token:         *g.JoinExecuteCmd.Token,
+		Role:          *g.JoinExecuteCmd.Role,
+		SystemDevice:  *g.JoinExecuteCmd.SystemDevice,
+		DockerDevice:  *g.JoinExecuteCmd.DockerDevice,
+		Mounts:        *g.JoinExecuteCmd.Mounts,
+		CloudProvider: *g.JoinExecuteCmd.CloudProvider,
+		OperationID:   *g.JoinExecuteCmd.OperationID,
+		FromService:   *g.JoinExecuteCmd.FromService,
 	}
 }
 
@@ -652,20 +640,21 @@ func (j *JoinConfig) NewPeerConfig(env, joinEnv *localenv.LocalEnvironment) (*ex
 		return nil, trace.Wrap(err)
 	}
 	return &expand.PeerConfig{
-		Peers:         peers,
-		AdvertiseAddr: advertiseAddr,
-		ServerAddr:    j.ServerAddr,
-		CloudProvider: j.CloudProvider,
-		RuntimeConfig: *runtimeConfig,
-		DebugMode:     env.Debug,
-		Insecure:      env.Insecure,
-		LocalBackend:  env.Backend,
-		LocalApps:     env.Apps,
-		LocalPackages: env.Packages,
-		JoinBackend:   joinEnv.Backend,
-		StateDir:      joinEnv.StateDir,
-		AbortHandler:  installerUninstallSystem(env),
-		OperationID:   j.OperationID,
+		Peers:            peers,
+		AdvertiseAddr:    advertiseAddr,
+		ServerAddr:       j.ServerAddr,
+		CloudProvider:    j.CloudProvider,
+		RuntimeConfig:    *runtimeConfig,
+		DebugMode:        env.Debug,
+		Insecure:         env.Insecure,
+		LocalBackend:     env.Backend,
+		LocalApps:        env.Apps,
+		LocalPackages:    env.Packages,
+		JoinBackend:      joinEnv.Backend,
+		StateDir:         joinEnv.StateDir,
+		OperationID:      j.OperationID,
+		AbortHandler:     installerUninstallSystem(env),
+		UninstallHandler: installerCompleteOperation(env),
 	}, nil
 }
 
@@ -723,13 +712,14 @@ func validateIP(blocks []net.IPNet, ip net.IP) bool {
 	return false
 }
 
-func generateInstallToken(service ops.Operator, installToken string) (*storage.InstallToken, error) {
+func generateInstallToken(service ops.Operator, installToken, clusterName string) (*storage.InstallToken, error) {
 	token, err := service.CreateInstallToken(
 		ops.NewInstallTokenRequest{
-			AccountID: defaults.SystemAccountID,
-			UserType:  storage.AdminUser,
-			UserEmail: defaults.WizardUser,
-			Token:     installToken,
+			AccountID:   defaults.SystemAccountID,
+			UserType:    storage.AdminUser,
+			UserEmail:   defaults.WizardUser,
+			ClusterName: clusterName,
+			Token:       installToken,
 		},
 	)
 	if err != nil {
@@ -738,11 +728,19 @@ func generateInstallToken(service ops.Operator, installToken string) (*storage.I
 	return token, nil
 }
 
+func generateClusterName() string {
+	rand.Seed(time.Now().UnixNano())
+	return fmt.Sprintf(
+		"%v%d",
+		strings.Replace(namesgenerator.GetRandomName(0), "_", "", -1),
+		rand.Intn(10000))
+}
+
 // installerUninstallSystem implements the clean up phase when the installer service
 // is explicitly interrupted by user
 func installerUninstallSystem(env *localenv.LocalEnvironment) func(context.Context) error {
 	return func(ctx context.Context) error {
-		logger := log.WithField(trace.Component, "installer:cleanup")
+		logger := log.WithField(trace.Component, "installer:abort")
 		if err := tryLeave(env, leaveConfig{
 			confirmed: true,
 			force:     true,
@@ -756,6 +754,18 @@ func installerUninstallSystem(env *localenv.LocalEnvironment) func(context.Conte
 			logger.WithError(err).Warn("Failed to uninstall system.")
 		}
 		logger.Info("System uninstalled.")
+		return nil
+	}
+}
+
+// installerCompleteOperation implements the clean up phase when the installer service
+// shuts down after a sucessfully completed operation
+func installerCompleteOperation(env *localenv.LocalEnvironment) func(context.Context) error {
+	return func(ctx context.Context) error {
+		logger := log.WithField(trace.Component, "installer:cleanup")
+		if err := cleanup.DisableAgentServices(logger); err != nil {
+			logger.WithError(err).Warn("Failed to disable agent services.")
+		}
 		return nil
 	}
 }

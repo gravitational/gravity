@@ -54,7 +54,7 @@ type Client interface {
 	// CheckBandwidth executes a network bandwidth test
 	CheckBandwidth(context.Context, *validationpb.CheckBandwidthRequest) (*validationpb.CheckBandwidthResponse, error)
 	// Shutdown requests remote agent to shut down
-	Shutdown(context.Context) error
+	Shutdown(context.Context, *pb.ShutdownRequest) error
 	// Abort requests remote agent to uninstall
 	Abort(context.Context) error
 	// Close will close communication with remote agent

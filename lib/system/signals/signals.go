@@ -39,7 +39,7 @@ func WatchTerminationSignals(ctx context.Context, cancel context.CancelFunc, sto
 			select {
 			case sig := <-interrupt.C:
 				printer.Println("Received", sig, "signal, terminating.")
-				interrupt.Trigger()
+				interrupt.Abort()
 			case <-ctx.Done():
 				return
 			}
@@ -143,9 +143,14 @@ func (r *InterruptHandler) Done() <-chan struct{} {
 	return r.ctx.Done()
 }
 
-// Trigger sets the interrupted flag and interrupts the loop
-func (r *InterruptHandler) Trigger() {
+// Abort sets the interrupted flag and interrupts the loop
+func (r *InterruptHandler) Abort() {
 	atomic.StoreInt32((*int32)(&r.interrupted), 1)
+	r.cancel()
+}
+
+// Cancel interrupts the loop without setting the interrupted flag
+func (r *InterruptHandler) Cancel() {
 	r.cancel()
 }
 

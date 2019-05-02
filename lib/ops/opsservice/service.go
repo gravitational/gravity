@@ -401,6 +401,7 @@ func (o *Operator) CreateInstallToken(req ops.NewInstallTokenRequest) (*storage.
 			Application: application,
 			UserType:    req.UserType,
 			UserEmail:   req.UserEmail,
+			SiteDomain:  req.ClusterName,
 			Token:       req.Token,
 		},
 	)
@@ -668,20 +669,6 @@ func (o *Operator) CreateSite(r ops.NewSiteRequest) (*ops.Site, error) {
 		return nil, trace.Wrap(err)
 	}
 
-	// Create long lived provisioning token that should be used for
-	// expanding the cluster associated with site agent user
-	_, err = o.cfg.Users.CreateProvisioningToken(storage.ProvisioningToken{
-		Token:      expandToken,
-		Type:       storage.ProvisioningTokenTypeExpand,
-		AccountID:  clusterData.AccountID,
-		SiteDomain: clusterData.Domain,
-		UserEmail:  agent.GetName(),
-	})
-	if err != nil {
-		defer o.DeleteSite(siteKey)
-		return nil, trace.Wrap(err)
-	}
-
 	if r.InstallToken != "" {
 		_, err = o.cfg.Users.CreateAPIKey(storage.APIKey{
 			Token:     r.InstallToken,
@@ -764,8 +751,9 @@ func (o *Operator) GetSiteInstructions(tokenID string, serverProfile string, par
 	if err != nil {
 		return "", trace.Wrap(err)
 	}
+	isOpsCenterInstall := o.isOpsCenter() && token.Expires.IsZero()
 	var instructions string
-	if o.isOpsCenter() && token.Type == storage.ProvisioningTokenTypeInstall {
+	if isOpsCenterInstall {
 		// during Ops Center initiated installation, agents are started using
 		// an "install" command that will reach out to Ops Center to determine
 		// which agent will become installer and which will be joining it

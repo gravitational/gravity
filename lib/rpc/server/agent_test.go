@@ -26,6 +26,7 @@ import (
 	"github.com/gravitational/gravity/lib/rpc/client"
 	pb "github.com/gravitational/gravity/lib/rpc/proto"
 	"github.com/gravitational/gravity/lib/storage"
+	"github.com/gravitational/gravity/lib/utils"
 
 	"github.com/gravitational/trace"
 	log "github.com/sirupsen/logrus"
@@ -50,10 +51,11 @@ func (r *S) TestClientExecutesCommandsRemotely(c *C) {
 	log := r.WithField("test", "ClientExecutesCommandsRemotely")
 	listener := listen(c)
 	srv, err := New(Config{
+		FieldLogger:     log.WithField("server", listener.Addr()),
 		Listener:        listener,
 		Credentials:     creds,
 		commandExecutor: cmd,
-	}, log.WithField("server", listener.Addr()))
+	})
 	c.Assert(err, IsNil)
 	go srv.Serve()
 
@@ -74,10 +76,11 @@ func (r *S) TestAgentsConnectToController(c *C) {
 	log := r.WithField("test", "AgentsConnectToController")
 	listener := listen(c)
 	srv, err := New(Config{
+		FieldLogger: log.WithField("server", listener.Addr()),
 		Listener:    listener,
 		Credentials: creds,
 		PeerStore:   store,
-	}, log.WithField("server", listener.Addr()))
+	})
 	c.Assert(err, IsNil)
 
 	go srv.Serve()
@@ -107,10 +110,11 @@ func (r *S) TestPeerDisconnect(c *C) {
 	log := r.WithField("test", "PeerDisconnect")
 	listener := listen(c)
 	srv, err := New(Config{
+		FieldLogger: log.WithField("server", listener.Addr()),
 		Listener:    listener,
 		Credentials: creds,
 		PeerStore:   store,
-	}, log.WithField("server", listener.Addr()))
+	})
 	c.Assert(err, IsNil)
 	go srv.Serve()
 	defer withTestCtx(srv.Stop)
@@ -118,22 +122,24 @@ func (r *S) TestPeerDisconnect(c *C) {
 	// launch two peers
 	peer1, err := NewPeer(PeerConfig{
 		Config: Config{
+			FieldLogger: log,
 			Listener:    listen(c),
 			Credentials: creds,
 			systemInfo:  TestSystemInfo{},
 		},
-	}, srv.Addr().String(), log)
+	}, srv.Addr().String())
 	c.Assert(err, IsNil)
 	go peer1.Serve()
 	defer withTestCtx(peer1.Stop)
 
 	peer2, err := NewPeer(PeerConfig{
 		Config: Config{
+			FieldLogger: log,
 			Listener:    listen(c),
 			Credentials: creds,
 			systemInfo:  TestSystemInfo{},
 		},
-	}, srv.Addr().String(), log)
+	}, srv.Addr().String())
 	c.Assert(err, IsNil)
 	go peer2.Serve()
 	defer withTestCtx(peer2.Stop)
@@ -165,9 +171,10 @@ func (r *S) TestServerReportsHealth(c *C) {
 	log := r.WithField("test", "ServerReportsHealth")
 	listener := listen(c)
 	srv, err := New(Config{
+		FieldLogger: log.WithField("server", listener.Addr()),
 		Listener:    listener,
 		Credentials: creds,
-	}, log.WithField("server", listener.Addr()))
+	})
 	c.Assert(err, IsNil)
 
 	go srv.Serve()
@@ -191,9 +198,10 @@ func (r *S) TestWaitsUntilAgentShutsDown(c *C) {
 	log := r.WithField("test", "WaitsUntilAgentShutsDown")
 	listener := listen(c)
 	srv, err := New(Config{
+		FieldLogger: log.WithField("server", listener.Addr()),
 		Listener:    listener,
 		Credentials: creds,
-	}, log.WithField("server", listener.Addr()))
+	})
 	c.Assert(err, IsNil)
 
 	go srv.Serve()
@@ -212,10 +220,11 @@ func (r *S) TestRejectsPeer(c *C) {
 	log := r.WithField("test", "RejectsPeer")
 	listener := listen(c)
 	srv, err := New(Config{
+		FieldLogger: log.WithField("server", listener.Addr().String()),
 		Listener:    listener,
 		Credentials: creds,
 		PeerStore:   store,
-	}, log.WithField("server", listener.Addr().String()))
+	})
 	c.Assert(err, IsNil)
 
 	go srv.Serve()
@@ -224,13 +233,17 @@ func (r *S) TestRejectsPeer(c *C) {
 	watchCh := make(chan WatchEvent, 1)
 	config := PeerConfig{
 		Config: Config{
+			FieldLogger: log,
 			Listener:    listen(c),
 			Credentials: TestCredentials(c),
 			systemInfo:  TestSystemInfo{},
 		},
 		WatchCh: watchCh,
+		ReconnectStrategy: ReconnectStrategy{
+			ShouldReconnect: utils.ShouldReconnectPeer,
+		},
 	}
-	p, err := NewPeer(config, srv.Addr().String(), log)
+	p, err := NewPeer(config, srv.Addr().String())
 	c.Assert(err, IsNil)
 	go p.Serve()
 	defer withTestCtx(p.Stop)
@@ -247,19 +260,19 @@ func (r *S) TestQueriesSystemInfo(c *C) {
 	sysinfo := storage.NewSystemInfo(storage.SystemSpecV2{
 		Hostname: "foo",
 		Filesystems: []storage.Filesystem{
-			storage.Filesystem{
+			{
 				DirName: "/foo/bar",
 				Type:    "tmpfs",
 			},
 		},
 		FilesystemStats: map[string]storage.FilesystemUsage{
-			"/foo/bar": storage.FilesystemUsage{
+			"/foo/bar": {
 				TotalKB: 512,
 				FreeKB:  0,
 			},
 		},
 		NetworkInterfaces: map[string]storage.NetworkInterface{
-			"device0": storage.NetworkInterface{
+			"device0": {
 				Name: "device0",
 				IPv4: "172.168.0.1",
 			},
@@ -281,10 +294,11 @@ func (r *S) TestQueriesSystemInfo(c *C) {
 	log := r.WithField("test", "QueriesSystemInfo")
 	listener := listen(c)
 	srv, err := New(Config{
+		FieldLogger: log.WithField("server", listener.Addr()),
 		Listener:    listener,
 		Credentials: creds,
 		systemInfo:  TestSystemInfo(*sysinfo),
-	}, log.WithField("server", listener.Addr()))
+	})
 	c.Assert(err, IsNil)
 
 	go srv.Serve()
@@ -316,7 +330,7 @@ func (r *S) clientExecutesCommandsWithClient(c *C, clt client.Client, srv *agent
 	err := clt.Command(ctx, clientLog, &buf, "test")
 	c.Assert(err, IsNil)
 
-	err = clt.Shutdown(ctx)
+	err = clt.Shutdown(ctx, &pb.ShutdownRequest{})
 	clt.Close()
 
 	c.Assert(err, IsNil)
@@ -324,8 +338,8 @@ func (r *S) clientExecutesCommandsWithClient(c *C, clt client.Client, srv *agent
 }
 
 func (r *S) newPeer(c *C, config PeerConfig, serverAddr string, log log.FieldLogger) *PeerServer {
+	config.FieldLogger = log.WithField("peer", config.Listener.Addr())
 	return NewTestPeer(c, config, serverAddr,
-		log.WithField("peer", config.Listener.Addr()),
 		testCommand{"test output"}, TestSystemInfo{},
 	)
 }

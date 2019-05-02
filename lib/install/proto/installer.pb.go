@@ -23,6 +23,95 @@ var _ = math.Inf
 // proto package needs to be updated.
 const _ = proto.ProtoPackageIsVersion2 // please upgrade the proto package
 
+// HandshakeRequest describes a request for service to validate the client
+type HandshakeRequest struct {
+	// Token specifies the startup token for validation
+	Token                string   `protobuf:"bytes,1,opt,name=token,proto3" json:"token,omitempty"`
+	XXX_NoUnkeyedLiteral struct{} `json:"-"`
+	XXX_unrecognized     []byte   `json:"-"`
+	XXX_sizecache        int32    `json:"-"`
+}
+
+func (m *HandshakeRequest) Reset()         { *m = HandshakeRequest{} }
+func (m *HandshakeRequest) String() string { return proto.CompactTextString(m) }
+func (*HandshakeRequest) ProtoMessage()    {}
+func (*HandshakeRequest) Descriptor() ([]byte, []int) {
+	return fileDescriptor_675879a591bd3155, []int{0}
+}
+func (m *HandshakeRequest) XXX_Unmarshal(b []byte) error {
+	return m.Unmarshal(b)
+}
+func (m *HandshakeRequest) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
+	if deterministic {
+		return xxx_messageInfo_HandshakeRequest.Marshal(b, m, deterministic)
+	} else {
+		b = b[:cap(b)]
+		n, err := m.MarshalTo(b)
+		if err != nil {
+			return nil, err
+		}
+		return b[:n], nil
+	}
+}
+func (m *HandshakeRequest) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_HandshakeRequest.Merge(m, src)
+}
+func (m *HandshakeRequest) XXX_Size() int {
+	return m.Size()
+}
+func (m *HandshakeRequest) XXX_DiscardUnknown() {
+	xxx_messageInfo_HandshakeRequest.DiscardUnknown(m)
+}
+
+var xxx_messageInfo_HandshakeRequest proto.InternalMessageInfo
+
+func (m *HandshakeRequest) GetToken() string {
+	if m != nil {
+		return m.Token
+	}
+	return ""
+}
+
+// HandshakeResponse describes the server response to the handshake request
+type HandshakeResponse struct {
+	XXX_NoUnkeyedLiteral struct{} `json:"-"`
+	XXX_unrecognized     []byte   `json:"-"`
+	XXX_sizecache        int32    `json:"-"`
+}
+
+func (m *HandshakeResponse) Reset()         { *m = HandshakeResponse{} }
+func (m *HandshakeResponse) String() string { return proto.CompactTextString(m) }
+func (*HandshakeResponse) ProtoMessage()    {}
+func (*HandshakeResponse) Descriptor() ([]byte, []int) {
+	return fileDescriptor_675879a591bd3155, []int{1}
+}
+func (m *HandshakeResponse) XXX_Unmarshal(b []byte) error {
+	return m.Unmarshal(b)
+}
+func (m *HandshakeResponse) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
+	if deterministic {
+		return xxx_messageInfo_HandshakeResponse.Marshal(b, m, deterministic)
+	} else {
+		b = b[:cap(b)]
+		n, err := m.MarshalTo(b)
+		if err != nil {
+			return nil, err
+		}
+		return b[:n], nil
+	}
+}
+func (m *HandshakeResponse) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_HandshakeResponse.Merge(m, src)
+}
+func (m *HandshakeResponse) XXX_Size() int {
+	return m.Size()
+}
+func (m *HandshakeResponse) XXX_DiscardUnknown() {
+	xxx_messageInfo_HandshakeResponse.DiscardUnknown(m)
+}
+
+var xxx_messageInfo_HandshakeResponse proto.InternalMessageInfo
+
 // ExecuteRequest describes a request to execute install operation
 type ExecuteRequest struct {
 	XXX_NoUnkeyedLiteral struct{} `json:"-"`
@@ -34,7 +123,7 @@ func (m *ExecuteRequest) Reset()         { *m = ExecuteRequest{} }
 func (m *ExecuteRequest) String() string { return proto.CompactTextString(m) }
 func (*ExecuteRequest) ProtoMessage()    {}
 func (*ExecuteRequest) Descriptor() ([]byte, []int) {
-	return fileDescriptor_675879a591bd3155, []int{0}
+	return fileDescriptor_675879a591bd3155, []int{2}
 }
 func (m *ExecuteRequest) XXX_Unmarshal(b []byte) error {
 	return m.Unmarshal(b)
@@ -74,7 +163,7 @@ func (m *ShutdownRequest) Reset()         { *m = ShutdownRequest{} }
 func (m *ShutdownRequest) String() string { return proto.CompactTextString(m) }
 func (*ShutdownRequest) ProtoMessage()    {}
 func (*ShutdownRequest) Descriptor() ([]byte, []int) {
-	return fileDescriptor_675879a591bd3155, []int{1}
+	return fileDescriptor_675879a591bd3155, []int{3}
 }
 func (m *ShutdownRequest) XXX_Unmarshal(b []byte) error {
 	return m.Unmarshal(b)
@@ -114,7 +203,7 @@ func (m *ShutdownResponse) Reset()         { *m = ShutdownResponse{} }
 func (m *ShutdownResponse) String() string { return proto.CompactTextString(m) }
 func (*ShutdownResponse) ProtoMessage()    {}
 func (*ShutdownResponse) Descriptor() ([]byte, []int) {
-	return fileDescriptor_675879a591bd3155, []int{2}
+	return fileDescriptor_675879a591bd3155, []int{4}
 }
 func (m *ShutdownResponse) XXX_Unmarshal(b []byte) error {
 	return m.Unmarshal(b)
@@ -154,7 +243,7 @@ func (m *AbortRequest) Reset()         { *m = AbortRequest{} }
 func (m *AbortRequest) String() string { return proto.CompactTextString(m) }
 func (*AbortRequest) ProtoMessage()    {}
 func (*AbortRequest) Descriptor() ([]byte, []int) {
-	return fileDescriptor_675879a591bd3155, []int{3}
+	return fileDescriptor_675879a591bd3155, []int{5}
 }
 func (m *AbortRequest) XXX_Unmarshal(b []byte) error {
 	return m.Unmarshal(b)
@@ -196,7 +285,7 @@ func (m *AbortResponse) Reset()         { *m = AbortResponse{} }
 func (m *AbortResponse) String() string { return proto.CompactTextString(m) }
 func (*AbortResponse) ProtoMessage()    {}
 func (*AbortResponse) Descriptor() ([]byte, []int) {
-	return fileDescriptor_675879a591bd3155, []int{4}
+	return fileDescriptor_675879a591bd3155, []int{6}
 }
 func (m *AbortResponse) XXX_Unmarshal(b []byte) error {
 	return m.Unmarshal(b)
@@ -249,7 +338,7 @@ func (m *ProgressResponse) Reset()         { *m = ProgressResponse{} }
 func (m *ProgressResponse) String() string { return proto.CompactTextString(m) }
 func (*ProgressResponse) ProtoMessage()    {}
 func (*ProgressResponse) Descriptor() ([]byte, []int) {
-	return fileDescriptor_675879a591bd3155, []int{5}
+	return fileDescriptor_675879a591bd3155, []int{7}
 }
 func (m *ProgressResponse) XXX_Unmarshal(b []byte) error {
 	return m.Unmarshal(b)
@@ -312,7 +401,7 @@ func (m *Error) Reset()         { *m = Error{} }
 func (m *Error) String() string { return proto.CompactTextString(m) }
 func (*Error) ProtoMessage()    {}
 func (*Error) Descriptor() ([]byte, []int) {
-	return fileDescriptor_675879a591bd3155, []int{6}
+	return fileDescriptor_675879a591bd3155, []int{8}
 }
 func (m *Error) XXX_Unmarshal(b []byte) error {
 	return m.Unmarshal(b)
@@ -349,6 +438,8 @@ func (m *Error) GetMessage() string {
 }
 
 func init() {
+	proto.RegisterType((*HandshakeRequest)(nil), "installer.HandshakeRequest")
+	proto.RegisterType((*HandshakeResponse)(nil), "installer.HandshakeResponse")
 	proto.RegisterType((*ExecuteRequest)(nil), "installer.ExecuteRequest")
 	proto.RegisterType((*ShutdownRequest)(nil), "installer.ShutdownRequest")
 	proto.RegisterType((*ShutdownResponse)(nil), "installer.ShutdownResponse")
@@ -361,26 +452,29 @@ func init() {
 func init() { proto.RegisterFile("installer.proto", fileDescriptor_675879a591bd3155) }
 
 var fileDescriptor_675879a591bd3155 = []byte{
-	// 296 bytes of a gzipped FileDescriptorProto
-	0x1f, 0x8b, 0x08, 0x00, 0x00, 0x00, 0x00, 0x00, 0x02, 0xff, 0x74, 0x92, 0x4f, 0x4e, 0xf3, 0x30,
-	0x10, 0xc5, 0x3f, 0x7f, 0x55, 0xda, 0x74, 0x80, 0x36, 0xcc, 0x86, 0x10, 0xa4, 0x28, 0x64, 0x81,
-	0xb2, 0xaa, 0x50, 0x59, 0x20, 0xb1, 0x2b, 0x55, 0xf7, 0x28, 0x9c, 0xa0, 0x2d, 0xa3, 0x80, 0x94,
-	0xc6, 0xc1, 0x76, 0x04, 0x47, 0xe1, 0x48, 0x6c, 0x90, 0x38, 0x02, 0x0a, 0x17, 0x41, 0x38, 0x7f,
-	0xea, 0x06, 0x58, 0xce, 0x7b, 0x6f, 0x66, 0xec, 0x9f, 0x0d, 0xe3, 0x87, 0x4c, 0xaa, 0x65, 0x9a,
-	0x92, 0x98, 0xe4, 0x82, 0x2b, 0x8e, 0xc3, 0x56, 0x08, 0x1d, 0x18, 0x2d, 0x9e, 0x69, 0x5d, 0x28,
-	0x8a, 0xe9, 0xb1, 0x20, 0xa9, 0xc2, 0x43, 0x18, 0xdf, 0xde, 0x17, 0xea, 0x8e, 0x3f, 0x65, 0x8d,
-	0x84, 0xe0, 0x6c, 0x25, 0x99, 0xf3, 0x4c, 0x52, 0x38, 0x82, 0xfd, 0xd9, 0x8a, 0x0b, 0xd5, 0x64,
-	0x2e, 0xe1, 0xa0, 0xae, 0xab, 0x00, 0x9e, 0x81, 0x45, 0x42, 0x70, 0xe1, 0xb2, 0x80, 0x45, 0x7b,
-	0x53, 0x67, 0xb2, 0x3d, 0xc5, 0xe2, 0x5b, 0x8f, 0x2b, 0x3b, 0x14, 0xe0, 0xdc, 0x08, 0x9e, 0x08,
-	0x92, 0xb2, 0xed, 0x75, 0x61, 0xb0, 0x21, 0x29, 0x97, 0x09, 0xe9, 0xee, 0x61, 0xdc, 0x94, 0xe8,
-	0x81, 0xbd, 0xe6, 0x9b, 0x3c, 0x25, 0x45, 0xee, 0xff, 0x80, 0x45, 0x76, 0xdc, 0xd6, 0x18, 0x41,
-	0x5f, 0x8f, 0x94, 0x6e, 0x2f, 0xe8, 0xfd, 0xba, 0xb2, 0xf6, 0xc3, 0x53, 0xb0, 0xb4, 0xf0, 0xf7,
-	0xa2, 0xe9, 0x1b, 0x03, 0x6b, 0x96, 0x50, 0xa6, 0x70, 0x0e, 0x83, 0x1a, 0x11, 0x1e, 0x9b, 0x13,
-	0x77, 0xb0, 0x79, 0x27, 0x86, 0xd5, 0xbd, 0xcf, 0x39, 0xc3, 0x39, 0xd8, 0x0d, 0x42, 0xf4, 0x8c,
-	0x68, 0x07, 0xf5, 0xce, 0x98, 0x2e, 0x73, 0xbc, 0x02, 0x4b, 0x33, 0xc6, 0x23, 0x23, 0x65, 0xbe,
-	0x82, 0xe7, 0xfe, 0x34, 0xaa, 0xde, 0x6b, 0xe7, 0xb5, 0xf4, 0xd9, 0x7b, 0xe9, 0xb3, 0x8f, 0xd2,
-	0x67, 0x2f, 0x9f, 0xfe, 0xbf, 0x55, 0x5f, 0x7f, 0x86, 0x8b, 0xaf, 0x00, 0x00, 0x00, 0xff, 0xff,
-	0x2f, 0x7f, 0x07, 0x38, 0x1f, 0x02, 0x00, 0x00,
+	// 340 bytes of a gzipped FileDescriptorProto
+	0x1f, 0x8b, 0x08, 0x00, 0x00, 0x00, 0x00, 0x00, 0x02, 0xff, 0x74, 0x52, 0xdd, 0x4e, 0xf2, 0x40,
+	0x10, 0xfd, 0x16, 0x52, 0x7e, 0xe6, 0x53, 0x28, 0xa3, 0x89, 0xb5, 0x9a, 0x06, 0x7b, 0x61, 0x7a,
+	0x45, 0x0c, 0x5e, 0x98, 0x78, 0x87, 0x04, 0xe3, 0xa5, 0xa9, 0x4f, 0x50, 0x60, 0x02, 0x06, 0xe8,
+	0xe2, 0xee, 0x12, 0x7d, 0x11, 0x13, 0x1f, 0xc9, 0x4b, 0x1f, 0xc1, 0xe0, 0x8b, 0x18, 0xdb, 0x6d,
+	0x59, 0x2a, 0x5e, 0xce, 0x99, 0x73, 0x66, 0x76, 0xce, 0x59, 0x68, 0x3e, 0xc6, 0x52, 0x45, 0xf3,
+	0x39, 0x89, 0xce, 0x52, 0x70, 0xc5, 0xb1, 0x9e, 0x03, 0x7e, 0x00, 0xf6, 0x5d, 0x14, 0x8f, 0xe5,
+	0x34, 0x9a, 0x51, 0x48, 0x4f, 0x2b, 0x92, 0x0a, 0x0f, 0xc1, 0x52, 0x7c, 0x46, 0xb1, 0xc3, 0xda,
+	0x2c, 0xa8, 0x87, 0x69, 0xe1, 0x1f, 0x40, 0xcb, 0x60, 0xca, 0x25, 0x8f, 0x25, 0xf9, 0x36, 0x34,
+	0x06, 0x2f, 0x34, 0x5a, 0xa9, 0x4c, 0xec, 0xb7, 0xa0, 0xf9, 0x30, 0x5d, 0xa9, 0x31, 0x7f, 0x8e,
+	0x33, 0x08, 0xc1, 0xde, 0x40, 0x5a, 0xd8, 0x80, 0xbd, 0xde, 0x90, 0x0b, 0x95, 0x71, 0xae, 0x60,
+	0x5f, 0xd7, 0x29, 0x01, 0xcf, 0xc1, 0x22, 0x21, 0xb8, 0x48, 0x1e, 0xf1, 0xbf, 0x6b, 0x77, 0x36,
+	0x47, 0x0c, 0x7e, 0xf0, 0x30, 0x6d, 0xfb, 0x02, 0xec, 0x7b, 0xc1, 0x27, 0x82, 0xa4, 0xcc, 0xb5,
+	0x0e, 0x54, 0x17, 0x24, 0x65, 0x34, 0x21, 0x7d, 0x42, 0x56, 0xa2, 0x0b, 0xb5, 0x11, 0x5f, 0x2c,
+	0xe7, 0xa4, 0xc8, 0x29, 0xb5, 0x59, 0x50, 0x0b, 0xf3, 0x1a, 0x03, 0xa8, 0x24, 0x23, 0xa5, 0x53,
+	0x6e, 0x97, 0x77, 0xae, 0xd4, 0x7d, 0xff, 0x0c, 0xac, 0x04, 0xf8, 0x7b, 0x51, 0xf7, 0xb5, 0x04,
+	0x56, 0x6f, 0x42, 0xb1, 0xc2, 0x5b, 0xa8, 0xe7, 0xbe, 0xe1, 0x89, 0x31, 0xb3, 0xe8, 0xbb, 0x7b,
+	0xba, 0xbb, 0xa9, 0x8f, 0xea, 0x43, 0x55, 0x5b, 0x8d, 0xc7, 0xe6, 0xcb, 0xb6, 0xec, 0x77, 0xcd,
+	0x05, 0x45, 0x5f, 0x2e, 0x18, 0xf6, 0xa1, 0x96, 0x45, 0x81, 0xae, 0x41, 0x2d, 0x44, 0xb6, 0x35,
+	0xa6, 0x98, 0x1d, 0x5e, 0x83, 0x95, 0x64, 0x85, 0x47, 0x06, 0xcb, 0x4c, 0xd3, 0x75, 0x7e, 0x37,
+	0x52, 0xed, 0x8d, 0xfd, 0xbe, 0xf6, 0xd8, 0xc7, 0xda, 0x63, 0x9f, 0x6b, 0x8f, 0xbd, 0x7d, 0x79,
+	0xff, 0x86, 0x95, 0xe4, 0x4f, 0x5e, 0x7e, 0x07, 0x00, 0x00, 0xff, 0xff, 0x2f, 0xd2, 0x50, 0x34,
+	0xa6, 0x02, 0x00, 0x00,
 }
 
 // Reference imports to suppress errors if they are not otherwise used.
@@ -395,6 +489,10 @@ const _ = grpc.SupportPackageIsVersion4
 //
 // For semantics around ctx use and closing/ending streaming RPCs, please refer to https://godoc.org/google.golang.org/grpc#ClientConn.NewStream.
 type AgentClient interface {
+	// Handshake allows for a simple client validation.
+	// It allows the service to validate whether the client is using
+	// the configured modality.
+	Handshake(ctx context.Context, in *HandshakeRequest, opts ...grpc.CallOption) (*HandshakeResponse, error)
 	// Execute runs installer operation to completion
 	Execute(ctx context.Context, in *ExecuteRequest, opts ...grpc.CallOption) (Agent_ExecuteClient, error)
 	// Shutdown requests that the installer exit
@@ -410,6 +508,15 @@ type agentClient struct {
 
 func NewAgentClient(cc *grpc.ClientConn) AgentClient {
 	return &agentClient{cc}
+}
+
+func (c *agentClient) Handshake(ctx context.Context, in *HandshakeRequest, opts ...grpc.CallOption) (*HandshakeResponse, error) {
+	out := new(HandshakeResponse)
+	err := c.cc.Invoke(ctx, "/installer.Agent/Handshake", in, out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
 }
 
 func (c *agentClient) Execute(ctx context.Context, in *ExecuteRequest, opts ...grpc.CallOption) (Agent_ExecuteClient, error) {
@@ -464,6 +571,10 @@ func (c *agentClient) Abort(ctx context.Context, in *AbortRequest, opts ...grpc.
 
 // AgentServer is the server API for Agent service.
 type AgentServer interface {
+	// Handshake allows for a simple client validation.
+	// It allows the service to validate whether the client is using
+	// the configured modality.
+	Handshake(context.Context, *HandshakeRequest) (*HandshakeResponse, error)
 	// Execute runs installer operation to completion
 	Execute(*ExecuteRequest, Agent_ExecuteServer) error
 	// Shutdown requests that the installer exit
@@ -475,6 +586,24 @@ type AgentServer interface {
 
 func RegisterAgentServer(s *grpc.Server, srv AgentServer) {
 	s.RegisterService(&_Agent_serviceDesc, srv)
+}
+
+func _Agent_Handshake_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(HandshakeRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(AgentServer).Handshake(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: "/installer.Agent/Handshake",
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(AgentServer).Handshake(ctx, req.(*HandshakeRequest))
+	}
+	return interceptor(ctx, in, info, handler)
 }
 
 func _Agent_Execute_Handler(srv interface{}, stream grpc.ServerStream) error {
@@ -539,6 +668,10 @@ var _Agent_serviceDesc = grpc.ServiceDesc{
 	HandlerType: (*AgentServer)(nil),
 	Methods: []grpc.MethodDesc{
 		{
+			MethodName: "Handshake",
+			Handler:    _Agent_Handshake_Handler,
+		},
+		{
 			MethodName: "Shutdown",
 			Handler:    _Agent_Shutdown_Handler,
 		},
@@ -555,6 +688,54 @@ var _Agent_serviceDesc = grpc.ServiceDesc{
 		},
 	},
 	Metadata: "installer.proto",
+}
+
+func (m *HandshakeRequest) Marshal() (dAtA []byte, err error) {
+	size := m.Size()
+	dAtA = make([]byte, size)
+	n, err := m.MarshalTo(dAtA)
+	if err != nil {
+		return nil, err
+	}
+	return dAtA[:n], nil
+}
+
+func (m *HandshakeRequest) MarshalTo(dAtA []byte) (int, error) {
+	var i int
+	_ = i
+	var l int
+	_ = l
+	if len(m.Token) > 0 {
+		dAtA[i] = 0xa
+		i++
+		i = encodeVarintInstaller(dAtA, i, uint64(len(m.Token)))
+		i += copy(dAtA[i:], m.Token)
+	}
+	if m.XXX_unrecognized != nil {
+		i += copy(dAtA[i:], m.XXX_unrecognized)
+	}
+	return i, nil
+}
+
+func (m *HandshakeResponse) Marshal() (dAtA []byte, err error) {
+	size := m.Size()
+	dAtA = make([]byte, size)
+	n, err := m.MarshalTo(dAtA)
+	if err != nil {
+		return nil, err
+	}
+	return dAtA[:n], nil
+}
+
+func (m *HandshakeResponse) MarshalTo(dAtA []byte) (int, error) {
+	var i int
+	_ = i
+	var l int
+	_ = l
+	if m.XXX_unrecognized != nil {
+		i += copy(dAtA[i:], m.XXX_unrecognized)
+	}
+	return i, nil
 }
 
 func (m *ExecuteRequest) Marshal() (dAtA []byte, err error) {
@@ -757,6 +938,34 @@ func encodeVarintInstaller(dAtA []byte, offset int, v uint64) int {
 	dAtA[offset] = uint8(v)
 	return offset + 1
 }
+func (m *HandshakeRequest) Size() (n int) {
+	if m == nil {
+		return 0
+	}
+	var l int
+	_ = l
+	l = len(m.Token)
+	if l > 0 {
+		n += 1 + l + sovInstaller(uint64(l))
+	}
+	if m.XXX_unrecognized != nil {
+		n += len(m.XXX_unrecognized)
+	}
+	return n
+}
+
+func (m *HandshakeResponse) Size() (n int) {
+	if m == nil {
+		return 0
+	}
+	var l int
+	_ = l
+	if m.XXX_unrecognized != nil {
+		n += len(m.XXX_unrecognized)
+	}
+	return n
+}
+
 func (m *ExecuteRequest) Size() (n int) {
 	if m == nil {
 		return 0
@@ -874,6 +1083,146 @@ func sovInstaller(x uint64) (n int) {
 }
 func sozInstaller(x uint64) (n int) {
 	return sovInstaller(uint64((x << 1) ^ uint64((int64(x) >> 63))))
+}
+func (m *HandshakeRequest) Unmarshal(dAtA []byte) error {
+	l := len(dAtA)
+	iNdEx := 0
+	for iNdEx < l {
+		preIndex := iNdEx
+		var wire uint64
+		for shift := uint(0); ; shift += 7 {
+			if shift >= 64 {
+				return ErrIntOverflowInstaller
+			}
+			if iNdEx >= l {
+				return io.ErrUnexpectedEOF
+			}
+			b := dAtA[iNdEx]
+			iNdEx++
+			wire |= uint64(b&0x7F) << shift
+			if b < 0x80 {
+				break
+			}
+		}
+		fieldNum := int32(wire >> 3)
+		wireType := int(wire & 0x7)
+		if wireType == 4 {
+			return fmt.Errorf("proto: HandshakeRequest: wiretype end group for non-group")
+		}
+		if fieldNum <= 0 {
+			return fmt.Errorf("proto: HandshakeRequest: illegal tag %d (wire type %d)", fieldNum, wire)
+		}
+		switch fieldNum {
+		case 1:
+			if wireType != 2 {
+				return fmt.Errorf("proto: wrong wireType = %d for field Token", wireType)
+			}
+			var stringLen uint64
+			for shift := uint(0); ; shift += 7 {
+				if shift >= 64 {
+					return ErrIntOverflowInstaller
+				}
+				if iNdEx >= l {
+					return io.ErrUnexpectedEOF
+				}
+				b := dAtA[iNdEx]
+				iNdEx++
+				stringLen |= uint64(b&0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
+			intStringLen := int(stringLen)
+			if intStringLen < 0 {
+				return ErrInvalidLengthInstaller
+			}
+			postIndex := iNdEx + intStringLen
+			if postIndex < 0 {
+				return ErrInvalidLengthInstaller
+			}
+			if postIndex > l {
+				return io.ErrUnexpectedEOF
+			}
+			m.Token = string(dAtA[iNdEx:postIndex])
+			iNdEx = postIndex
+		default:
+			iNdEx = preIndex
+			skippy, err := skipInstaller(dAtA[iNdEx:])
+			if err != nil {
+				return err
+			}
+			if skippy < 0 {
+				return ErrInvalidLengthInstaller
+			}
+			if (iNdEx + skippy) < 0 {
+				return ErrInvalidLengthInstaller
+			}
+			if (iNdEx + skippy) > l {
+				return io.ErrUnexpectedEOF
+			}
+			m.XXX_unrecognized = append(m.XXX_unrecognized, dAtA[iNdEx:iNdEx+skippy]...)
+			iNdEx += skippy
+		}
+	}
+
+	if iNdEx > l {
+		return io.ErrUnexpectedEOF
+	}
+	return nil
+}
+func (m *HandshakeResponse) Unmarshal(dAtA []byte) error {
+	l := len(dAtA)
+	iNdEx := 0
+	for iNdEx < l {
+		preIndex := iNdEx
+		var wire uint64
+		for shift := uint(0); ; shift += 7 {
+			if shift >= 64 {
+				return ErrIntOverflowInstaller
+			}
+			if iNdEx >= l {
+				return io.ErrUnexpectedEOF
+			}
+			b := dAtA[iNdEx]
+			iNdEx++
+			wire |= uint64(b&0x7F) << shift
+			if b < 0x80 {
+				break
+			}
+		}
+		fieldNum := int32(wire >> 3)
+		wireType := int(wire & 0x7)
+		if wireType == 4 {
+			return fmt.Errorf("proto: HandshakeResponse: wiretype end group for non-group")
+		}
+		if fieldNum <= 0 {
+			return fmt.Errorf("proto: HandshakeResponse: illegal tag %d (wire type %d)", fieldNum, wire)
+		}
+		switch fieldNum {
+		default:
+			iNdEx = preIndex
+			skippy, err := skipInstaller(dAtA[iNdEx:])
+			if err != nil {
+				return err
+			}
+			if skippy < 0 {
+				return ErrInvalidLengthInstaller
+			}
+			if (iNdEx + skippy) < 0 {
+				return ErrInvalidLengthInstaller
+			}
+			if (iNdEx + skippy) > l {
+				return io.ErrUnexpectedEOF
+			}
+			m.XXX_unrecognized = append(m.XXX_unrecognized, dAtA[iNdEx:iNdEx+skippy]...)
+			iNdEx += skippy
+		}
+	}
+
+	if iNdEx > l {
+		return io.ErrUnexpectedEOF
+	}
+	return nil
 }
 func (m *ExecuteRequest) Unmarshal(dAtA []byte) error {
 	l := len(dAtA)

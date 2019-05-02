@@ -34,8 +34,6 @@ import (
 	"github.com/gravitational/gravity/lib/modules"
 	"github.com/gravitational/gravity/lib/ops"
 	"github.com/gravitational/gravity/lib/ops/events"
-	"github.com/gravitational/gravity/lib/rpc"
-	pb "github.com/gravitational/gravity/lib/rpc/proto"
 	rpcserver "github.com/gravitational/gravity/lib/rpc/server"
 	"github.com/gravitational/gravity/lib/status"
 	"github.com/gravitational/gravity/lib/storage"
@@ -50,13 +48,22 @@ func New(ctx context.Context, config Config) (*Installer, error) {
 	if err != nil {
 		return nil, trace.Wrap(err)
 	}
-	server := server.New(ctx)
+	var agent *rpcserver.PeerServer
+	if config.LocalAgent {
+		agent, err = config.newAgent(ctx)
+		if err != nil {
+			return nil, trace.Wrap(err)
+		}
+		go agent.Serve()
+	}
+	server := server.New(ctx, defaults.InstallerToken)
 	localCtx, cancel := context.WithCancel(ctx)
 	installer := &Installer{
 		Config: config,
 		server: server,
 		ctx:    localCtx,
 		cancel: cancel,
+		agent:  agent,
 	}
 	return installer, nil
 }
@@ -67,18 +74,26 @@ func (i *Installer) Serve(engine Engine, listener net.Listener) error {
 	return trace.Wrap(i.server.Serve(i, listener))
 }
 
-// Stop releases resources allocated by the installer
+// Stop stops the server and releases resources allocated by the installer.
+//
 // Implements signals.Stopper
 func (i *Installer) Stop(ctx context.Context) error {
 	i.Info("Stop.")
+	if err := i.stop(ctx); err != nil {
+		i.WithError(err).Warn("Failed to stop.")
+	}
 	i.server.Stop(ctx)
 	return nil
 }
 
-// Abort releases resources allocated by the installer and cleans up state
+// Abort stops the server, releases resources allocated by the installer and cleans up state.
+//
 // Implements signals.Aborter
 func (i *Installer) Abort(ctx context.Context) error {
 	i.Info("Abort.")
+	if err := i.abort(ctx); err != nil {
+		i.WithError(err).Warn("Failed to abort.")
+	}
 	i.server.Interrupt(ctx)
 	return nil
 }
@@ -90,9 +105,6 @@ type Interface interface {
 	// NotifyOperationAvailable is invoked by the engine to notify the server
 	// that the operation has been created
 	NotifyOperationAvailable(ops.SiteOperationKey) error
-	// NewAgent returns a new unstarted installer agent.
-	// Call agent.Serve() on the resulting instance to start agent's service loop
-	NewAgent(url string) (rpcserver.Server, error)
 	// Finalize executes additional steps common to all workflows after the
 	// installation has completed
 	Finalize(operation ops.SiteOperation) error
@@ -123,41 +135,6 @@ func (i *Installer) NotifyOperationAvailable(key ops.SiteOperationKey) error {
 	}
 	i.server.RunProgressLoop(i.Operator, key)
 	return nil
-}
-
-// NewAgent creates a new installer agent
-// FIXME: accept (serverAddr,token) tuple instead of agentURL
-func (i *Installer) NewAgent(agentURL string) (rpcserver.Server, error) {
-	serverAddr, token, err := SplitAgentURL(agentURL)
-	if err != nil {
-		return nil, trace.Wrap(err)
-	}
-	serverCreds, clientCreds, err := rpc.Credentials(defaults.RPCAgentSecretsDir)
-	if err != nil {
-		return nil, trace.Wrap(err)
-	}
-	var mounts []*pb.Mount
-	for name, source := range i.Mounts {
-		mounts = append(mounts, &pb.Mount{Name: name, Source: source})
-	}
-	runtimeConfig := pb.RuntimeConfig{
-		SystemDevice: i.SystemDevice,
-		DockerDevice: i.DockerDevice,
-		Role:         i.Role,
-		Mounts:       mounts,
-		Token:        token,
-	}
-	return NewAgent(i.ctx, AgentConfig{
-		FieldLogger:   i.FieldLogger,
-		AdvertiseAddr: i.AdvertiseAddr,
-		ServerAddr:    serverAddr,
-		Credentials: rpcserver.Credentials{
-			Server: serverCreds,
-			Client: clientCreds,
-		},
-		RuntimeConfig: runtimeConfig,
-		AbortHandler:  i.AbortHandler,
-	})
 }
 
 // Finalize executes additional steps after the installation has completed
@@ -203,14 +180,13 @@ func (i *Installer) Wait() error {
 // Shutdown stops the active operation.
 // Implements server.Executor
 func (i *Installer) Shutdown(ctx context.Context) error {
-	err := i.stop(ctx)
-	i.server.WaitForOperation()
-	return trace.Wrap(err)
+	i.Info("Shutdown.")
+	return trace.Wrap(i.stop(ctx))
 }
 
-// ExecuteOperation executes the install operation using the specified engine
+// Execute executes the install operation using the specified engine
 // Implements server.Executor
-func (i *Installer) ExecuteOperation() error {
+func (i *Installer) Execute() error {
 	err := i.engine.Validate(i.ctx, i.Config)
 	if err != nil {
 		return trace.Wrap(err)
@@ -219,6 +195,7 @@ func (i *Installer) ExecuteOperation() error {
 	if err != nil {
 		return trace.Wrap(err)
 	}
+	// Only explicitly stop agents after the operation has been completed
 	i.addStopper(signals.StopperFunc(func(ctx context.Context) error {
 		i.WithField("operation", i.operationKey.OperationID).Info("Stopping agent service.")
 		return trace.Wrap(i.Process.AgentService().StopAgents(ctx, i.operationKey))
@@ -231,15 +208,10 @@ func (i *Installer) ExecuteOperation() error {
 // Implements server.Executor
 func (i *Installer) AbortOperation(ctx context.Context) error {
 	i.Info("Abort.")
-	var errors []error
 	if err := i.abort(ctx); err != nil {
-		errors = append(errors, err)
+		return trace.Wrap(err)
 	}
-	i.server.WaitForOperation()
-	if err := i.AbortHandler(ctx); err != nil {
-		errors = append(errors, err)
-	}
-	return trace.NewAggregate(errors...)
+	return nil
 }
 
 // NewStateMachine returns a new instance of the installer state machine.
@@ -297,6 +269,7 @@ func (i *Installer) stop(ctx context.Context) error {
 		}
 	}
 	i.Config.Process.Shutdown(ctx)
+	i.server.WaitForOperation()
 	return trace.NewAggregate(errors...)
 }
 
@@ -310,6 +283,10 @@ func (i *Installer) abort(ctx context.Context) error {
 		}
 	}
 	i.Config.Process.Shutdown(ctx)
+	i.server.WaitForOperation()
+	if err := i.AbortHandler(ctx); err != nil {
+		errors = append(errors, err)
+	}
 	return trace.NewAggregate(errors...)
 }
 
@@ -429,6 +406,9 @@ type Installer struct {
 	// operationKey references the install operation once it has been
 	// created by the engine
 	operationKey ops.SiteOperationKey
+	// agent is an optional RPC agent if the installer
+	// has been configured to use local host as one of the cluster nodes
+	agent *rpcserver.PeerServer
 }
 
 // Engine implements the process of cluster installation

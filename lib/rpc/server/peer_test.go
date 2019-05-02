@@ -37,11 +37,12 @@ func (r *S) TestPeerReconnects(c *C) {
 	proxyLink.Start()
 
 	srv, err := New(Config{
+		FieldLogger:     log.WithField("server", upstream.Addr()),
 		Credentials:     creds,
 		PeerStore:       store,
 		Listener:        upstream,
 		commandExecutor: testCommand{"server output"},
-	}, log.WithField("server", upstream.Addr()))
+	})
 	c.Assert(err, IsNil)
 	go srv.Serve()
 	defer withTestCtx(srv.Stop)

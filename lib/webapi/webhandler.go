@@ -561,7 +561,7 @@ func (h *WebHandler) authenticate(w http.ResponseWriter, r *http.Request) (*sess
 
 // loginWithToken logs in the user linked to token specified with tokenID
 func (h *WebHandler) loginWithToken(tokenID string, w http.ResponseWriter, r *http.Request) (*storage.InstallToken, error) {
-	log.Debugf("logging in with token %v", tokenID)
+	log.WithField("token", tokenID).Info("Logging in with token.")
 	token, err := h.cfg.Identity.GetInstallToken(tokenID)
 	if err != nil {
 		return nil, trace.Wrap(err, "failed to retrieve install token")

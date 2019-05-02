@@ -30,7 +30,7 @@ import (
 )
 
 // NewTestPeer creates a new peer instance for tests
-func NewTestPeer(c *C, config PeerConfig, serverAddr string, log log.FieldLogger,
+func NewTestPeer(c *C, config PeerConfig, serverAddr string,
 	cmd commandExecutor, sysinfo TestSystemInfo) *PeerServer {
 	if config.Credentials.IsEmpty() {
 		config.Credentials = TestCredentials(c)
@@ -41,7 +41,7 @@ func NewTestPeer(c *C, config PeerConfig, serverAddr string, log log.FieldLogger
 	if config.systemInfo == nil {
 		config.systemInfo = sysinfo
 	}
-	peer, err := NewPeer(config, serverAddr, log)
+	peer, err := NewPeer(config, serverAddr)
 	c.Assert(err, IsNil)
 
 	return peer

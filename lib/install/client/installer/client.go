@@ -14,7 +14,6 @@ import (
 	"github.com/gravitational/gravity/lib/constants"
 	"github.com/gravitational/gravity/lib/defaults"
 	installpb "github.com/gravitational/gravity/lib/install/proto"
-	"github.com/gravitational/gravity/lib/pack"
 	"github.com/gravitational/gravity/lib/system/service"
 	"github.com/gravitational/gravity/lib/system/signals"
 	"github.com/gravitational/gravity/lib/systemservice"
@@ -47,10 +46,14 @@ func New(ctx context.Context, config Config) (*Client, error) {
 		Printer:     config.Printer,
 		config:      config,
 	}
-	c.Info("Connecting to running instance.")
-	err = c.connectRunning(ctx)
-	if err == nil {
-		return c, nil
+	if config.Resume {
+		c.Info("Connecting to running instance.")
+		err = c.connectRunning(ctx)
+		if err == nil {
+			return c, nil
+		}
+		return nil, trace.Wrap(err, "failed to connect to the installer service.\n"+
+			"Use 'gravity install' to start the installation.")
 	}
 	c.Info("Creating and connecting to new instance.")
 	err = c.connectNew(ctx)
@@ -91,17 +94,19 @@ func (r *Client) Completed() bool {
 }
 
 func (r *Config) checkAndSetDefaults() error {
-	if len(r.Args) == 0 {
-		return trace.BadParameter("Args is required")
-	}
-	if r.StateDir == "" {
-		return trace.BadParameter("StateDir is required")
-	}
-	if r.Packages == nil {
-		return trace.BadParameter("Packages is required")
+	if !r.Resume {
+		if len(r.Args) == 0 {
+			return trace.BadParameter("Args is required")
+		}
+		if r.StateChecker == nil {
+			return trace.BadParameter("StateChecker is required")
+		}
 	}
 	if r.InterruptHandler == nil {
 		return trace.BadParameter("InterruptHandler is required")
+	}
+	if r.Token == "" {
+		return trace.BadParameter("Token is required")
 	}
 	if r.Printer == nil {
 		r.Printer = utils.DiscardPrinter
@@ -115,6 +120,9 @@ func (r *Config) checkAndSetDefaults() error {
 	if r.SocketPath == "" {
 		r.SocketPath = installpb.SocketPath(defaults.GravityEphemeralDir)
 	}
+	if r.ConnectTimeout == 0 {
+		r.ConnectTimeout = 10 * time.Minute
+	}
 	return nil
 }
 
@@ -124,10 +132,9 @@ type Config struct {
 	*signals.InterruptHandler
 	// Args specifies the service command line including the executable
 	Args []string
-	// StateDir specifies the state directory on local hos
-	StateDir string
-	// Packages specifies the host-local package service
-	Packages pack.PackageService
+	// StateChecker specifies the local state checker function.
+	// The function is only required when not resuming the service
+	StateChecker func() error
 	// SocketPath specifies the path to the service socket file
 	SocketPath string
 	// ConnectTimeout specifies the maximum amount of time to wait for
@@ -135,6 +142,10 @@ type Config struct {
 	ConnectTimeout time.Duration
 	// ServiceName specifies the name of the service unit
 	ServiceName string
+	// Resume specifies whether the existing service should be resumed
+	Resume bool
+	// Token specifies the validation token
+	Token string
 }
 
 func (r *Client) connectRunning(ctx context.Context) error {
@@ -154,11 +165,20 @@ func (r *Client) connectRunning(ctx context.Context) error {
 	}
 	r.client = client
 	r.addTerminationHandler()
+	_, err = client.Handshake(ctx, &installpb.HandshakeRequest{Token: r.config.Token})
+	if err != nil {
+		if code := status.Code(err); code == codes.PermissionDenied {
+			return trace.AccessDenied("wrong service modality.\n" +
+				"Are you running 'gravity plan resume' from a join node? " +
+				"Try 'gravity join resume' instead.")
+		}
+		return trace.Wrap(err)
+	}
 	return nil
 }
 
 func (r *Client) connectNew(ctx context.Context) error {
-	err := r.checkLocalState()
+	err := r.config.StateChecker()
 	if err != nil {
 		return trace.Wrap(err)
 	}
@@ -196,8 +216,10 @@ func (r *Client) installSelfAsService() error {
 				removeSocketFileCommand(r.config.SocketPath),
 			},
 			// TODO(dmitri): run as euid?
-			User:    constants.RootUIDString,
-			Restart: "on-failure",
+			User: constants.RootUIDString,
+			// Enable automatic restart of the service
+			Restart:  "always",
+			WantedBy: "multi-user.target",
 		},
 		NoBlock: true,
 		Unmask:  true,
@@ -206,24 +228,6 @@ func (r *Client) installSelfAsService() error {
 	}
 	r.WithField("req", fmt.Sprintf("%+v", req)).Info("Install service.")
 	return trace.Wrap(service.Reinstall(req))
-}
-
-// checkLocalState performs a local environment sanity check to make sure
-// that install/join on this node can proceed without issues
-func (r *Client) checkLocalState() error {
-	// make sure that there are no packages in the local state left from
-	// some improperly cleaned up installation
-	packages, err := r.config.Packages.GetPackages(defaults.SystemAccountOrg)
-	if err != nil {
-		return trace.Wrap(err)
-	}
-	if len(packages) != 0 {
-		return trace.BadParameter("detected previous installation state in %v, "+
-			"please clean it up using `gravity leave --force` before proceeding "+
-			"(see https://gravitational.com/gravity/docs/cluster/#deleting-a-cluster for more details)",
-			r.config.StateDir)
-	}
-	return nil
 }
 
 func (r *Client) progressLoop(stream installpb.Agent_ExecuteClient) (err error) {

@@ -6,12 +6,16 @@ import (
 	"github.com/gravitational/gravity/lib/app"
 	"github.com/gravitational/gravity/lib/checks"
 	cloudgce "github.com/gravitational/gravity/lib/cloudprovider/gce"
+	"github.com/gravitational/gravity/lib/defaults"
 	"github.com/gravitational/gravity/lib/loc"
 	validationpb "github.com/gravitational/gravity/lib/network/validation/proto"
 	"github.com/gravitational/gravity/lib/ops"
 	"github.com/gravitational/gravity/lib/ops/opsclient"
 	"github.com/gravitational/gravity/lib/pack"
 	"github.com/gravitational/gravity/lib/process"
+	"github.com/gravitational/gravity/lib/rpc"
+	pb "github.com/gravitational/gravity/lib/rpc/proto"
+	rpcserver "github.com/gravitational/gravity/lib/rpc/server"
 	"github.com/gravitational/gravity/lib/schema"
 	"github.com/gravitational/gravity/lib/storage"
 	"github.com/gravitational/gravity/lib/systeminfo"
@@ -58,7 +62,7 @@ type Config struct {
 	utils.Printer
 	// AdvertiseAddr is advertise address of this server
 	AdvertiseAddr string
-	// Token is the install token
+	// Token specifies the agent validation token used during the operation
 	Token storage.InstallToken
 	// CloudProvider is optional cloud provider
 	CloudProvider string
@@ -112,9 +116,6 @@ type Config struct {
 	LocalApps app.Applications
 	// LocalBackend is the machine-local backend
 	LocalBackend storage.Backend
-	// Manual disables automatic phase execution
-	// FIXME: is this really necessary?
-	// Manual bool
 	// ServiceUser specifies the user to use as a service user in planet
 	// and for unprivileged kubernetes services
 	ServiceUser systeminfo.User
@@ -130,6 +131,10 @@ type Config struct {
 	Packages pack.PackageService
 	// AbortHandler specifies the handler for aborting the installation
 	AbortHandler func(context.Context) error
+	// UninstallHandler specifies the handler for cleanup during shutdown
+	UninstallHandler func(context.Context) error
+	// LocalAgent specifies whether the installer will also run an agent
+	LocalAgent bool
 }
 
 // checkAndSetDefaults checks the parameters and autodetects some defaults
@@ -173,14 +178,14 @@ func (c *Config) checkAndSetDefaults(ctx context.Context) (err error) {
 	if c.AbortHandler == nil {
 		return trace.BadParameter("missing AbortHandler")
 	}
+	if c.UninstallHandler == nil {
+		return trace.BadParameter("missing UninstallHandler")
+	}
 	if c.VxlanPort < 1 || c.VxlanPort > 65535 {
 		return trace.BadParameter("invalid vxlan port: must be in range 1-65535")
 	}
 	if err := c.validateCloudConfig(); err != nil {
 		return trace.Wrap(err)
-	}
-	if c.SiteDomain == "" {
-		c.SiteDomain = generateClusterName()
 	}
 	if c.DNSConfig.IsEmpty() {
 		c.DNSConfig = storage.DefaultDNSConfig
@@ -222,4 +227,46 @@ func (c *Config) validateCloudConfig() (err error) {
 		c.GCENodeTags = append(c.GCENodeTags, c.SiteDomain)
 	}
 	return nil
+}
+
+// newAgent creates a new installer agent
+func (c *Config) newAgent(ctx context.Context) (*rpcserver.PeerServer, error) {
+	err := ExportRPCCredentials(ctx, c.Packages, c.FieldLogger)
+	if err != nil {
+		return nil, trace.Wrap(err, "failed to export RPC credentials")
+	}
+	serverCreds, clientCreds, err := rpc.Credentials(defaults.RPCAgentSecretsDir)
+	if err != nil {
+		return nil, trace.Wrap(err)
+	}
+	var mounts []*pb.Mount
+	for name, source := range c.Mounts {
+		mounts = append(mounts, &pb.Mount{Name: name, Source: source})
+	}
+	runtimeConfig := pb.RuntimeConfig{
+		SystemDevice: c.SystemDevice,
+		DockerDevice: c.DockerDevice,
+		Role:         c.Role,
+		Mounts:       mounts,
+		Token:        c.Token.Token,
+	}
+	return NewAgent(ctx, AgentConfig{
+		FieldLogger:   c.FieldLogger,
+		AdvertiseAddr: c.AdvertiseAddr,
+		ServerAddr:    c.Process.AgentService().ServerAddr(),
+		Credentials: rpcserver.Credentials{
+			Server: serverCreds,
+			Client: clientCreds,
+		},
+		RuntimeConfig:         runtimeConfig,
+		AbortHandler:          c.AbortHandler,
+		UninstallHandler:      c.UninstallHandler,
+		SkipConnectValidation: true,
+		ReconnectStrategy: &rpcserver.ReconnectStrategy{
+			ShouldReconnect: func(err error) error {
+				// Reconnect forever
+				return err
+			},
+		},
+	})
 }

@@ -39,12 +39,12 @@ import (
 // To start the peer, invoke its Serve method.
 // Once started, the peer connects to the control server to register its identity.
 // The control server establishes reverse connection to execute remote commands.
-func NewPeer(config PeerConfig, serverAddr string, log log.FieldLogger) (*PeerServer, error) {
+func NewPeer(config PeerConfig, serverAddr string) (*PeerServer, error) {
 	if err := config.CheckAndSetDefaults(); err != nil {
 		return nil, trace.Wrap(err)
 	}
 
-	server, err := New(config.Config, log)
+	server, err := New(config.Config)
 	if err != nil {
 		return nil, trace.Wrap(err)
 	}
@@ -62,7 +62,7 @@ func NewPeer(config PeerConfig, serverAddr string, log log.FieldLogger) (*PeerSe
 		creds:      config.Client,
 	}
 	peersConfig := peersConfig{
-		FieldLogger:       log.WithField(trace.Component, "peers"),
+		FieldLogger:       config.WithField(trace.Component, "peers"),
 		watchCh:           config.WatchCh,
 		checkTimeout:      config.HealthCheckTimeout,
 		ReconnectStrategy: config.ReconnectStrategy,
@@ -78,6 +78,7 @@ func NewPeer(config PeerConfig, serverAddr string, log log.FieldLogger) (*PeerSe
 		agentServer: server,
 		peers:       checker,
 	}
+	server.closers = append(server.closers, peer)
 	return peer, nil
 }
 
@@ -119,6 +120,7 @@ type ReconnectStrategy struct {
 	// ShouldReconnect makes a decision whether to continue reconnecting
 	// or to abort based on the specified error.
 	// To signal abort, should return an instance of *backoff.PermanentError.
+	// The handler should return a valid error to continue reconnection attempts
 	ShouldReconnect func(err error) error `json:"-"`
 }
 
@@ -180,9 +182,13 @@ func (r *PeerServer) ValidateConnection(ctx context.Context) error {
 
 // Stop stops this server and its internal goroutines
 func (r *PeerServer) Stop(ctx context.Context) error {
-	err := r.peers.close(ctx)
-	r.agentServer.Stop(ctx)
+	err := r.agentServer.Stop(ctx)
 	return trace.Wrap(err)
+}
+
+// Close stops this server and its internal goroutines
+func (r *PeerServer) Close(ctx context.Context) error {
+	return trace.Wrap(r.peers.close(ctx))
 }
 
 // PeerServer represents a peer connected to a control server
@@ -235,7 +241,8 @@ func (r serverPeer) Reconnect(ctx context.Context) (Client, error) {
 
 	_, err = clt.PeerJoin(ctx, &pb.PeerJoinRequest{Addr: r.addr, Config: &r.config, SystemInfo: payload})
 	if err != nil {
-		return nil, &backoff.PermanentError{trace.Wrap(err)}
+		// Let ReconnectStrategy decide whether the peer should continue reconnecting
+		return nil, trace.Wrap(err)
 	}
 
 	return clt, nil
@@ -401,11 +408,11 @@ func (r *peer) GetCurrentTime(ctx context.Context) (*time.Time, error) {
 }
 
 // Shutdown shuts down this peer
-func (r *peer) Shutdown(ctx context.Context) error {
+func (r *peer) Shutdown(ctx context.Context, req *pb.ShutdownRequest) error {
 	if r.Client == nil {
 		return nil
 	}
-	return trace.Wrap(r.Client.Client().Shutdown(ctx))
+	return trace.Wrap(r.Client.Client().Shutdown(ctx, req))
 }
 
 // Abort aborts this peer

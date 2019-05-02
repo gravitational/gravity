@@ -290,7 +290,9 @@ func (r *AgentService) StopAgents(ctx context.Context, key ops.SiteOperationKey)
 		return trace.Wrap(err)
 	}
 
-	err = group.Shutdown(ctx)
+	err = group.Shutdown(ctx, &pb.ShutdownRequest{
+		Uninstall: true,
+	})
 	if err != nil {
 		return trace.Wrap(err)
 	}
@@ -314,7 +316,7 @@ func NewAgentPeerStore(backend storage.Backend, users users.Users,
 	return &AgentPeerStore{
 		FieldLogger: log,
 		teleport:    teleport,
-		groups:      make(map[ops.SiteOperationKey]agentGroup),
+		groups:      make(map[ops.SiteOperationKey]*agentGroup),
 		backend:     backend,
 		users:       users,
 	}
@@ -487,7 +489,7 @@ func (r *AgentPeerStore) getOrCreateGroup(key ops.SiteOperationKey) (*agentGroup
 	r.mu.Lock()
 	defer r.mu.Unlock()
 	if group, ok := r.groups[key]; ok {
-		return &group, nil
+		return group, nil
 	}
 
 	group, err := r.addGroup(key)
@@ -501,7 +503,7 @@ func (r *AgentPeerStore) getGroup(key ops.SiteOperationKey) (*agentGroup, error)
 	r.mu.Lock()
 	defer r.mu.Unlock()
 	if group, ok := r.groups[key]; ok {
-		return &group, nil
+		return group, nil
 	}
 
 	return nil, trace.NotFound("no execution group for %v", key)
@@ -527,15 +529,14 @@ func (r *AgentPeerStore) addGroup(key ops.SiteOperationKey) (*agentGroup, error)
 		return nil, trace.Wrap(err)
 	}
 	group.Start()
-	agentGroup := agentGroup{
+	agentGroup := &agentGroup{
 		AgentGroup: *group,
 		watchCh:    make(chan rpcserver.Peer),
 		hostnames:  make(map[string]string),
 	}
 	r.WithField("key", key).Debug("Added group.")
-	// FIXME: assignment copies lock value
 	r.groups[key] = agentGroup
-	return &agentGroup, nil
+	return agentGroup, nil
 }
 
 // AgentPeerStore manages groups of agents based on operation context.
@@ -546,7 +547,7 @@ type AgentPeerStore struct {
 	users    users.Users
 	teleport ops.TeleportProxyService
 	mu       sync.Mutex
-	groups   map[ops.SiteOperationKey]agentGroup
+	groups   map[ops.SiteOperationKey]*agentGroup
 }
 
 func (r *agentGroup) add(p rpcserver.Peer, hostname string) {
@@ -557,7 +558,7 @@ func (r *agentGroup) add(p rpcserver.Peer, hostname string) {
 }
 
 func (r *agentGroup) remove(ctx netcontext.Context, p rpcserver.Peer, hostname string) {
-	r.AgentGroup.Remove(ctx, p)
+	_ = r.AgentGroup.Remove(ctx, p)
 	r.mu.Lock()
 	defer r.mu.Unlock()
 	delete(r.hostnames, p.Addr())

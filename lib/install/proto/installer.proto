@@ -4,6 +4,11 @@ package installer;
 
 // Agent defines a service to install a cluster
 service Agent {
+    // Handshake allows for a simple client validation.
+    // It allows the service to validate whether the client is using
+    // the configured modality.
+    rpc Handshake(HandshakeRequest) returns (HandshakeResponse);
+
     // Execute runs installer operation to completion
     rpc Execute(ExecuteRequest) returns (stream ProgressResponse);
 
@@ -13,6 +18,16 @@ service Agent {
     // Abort requests that the installer service aborts and cleans up
     // the state of the operation
     rpc Abort(AbortRequest) returns (AbortResponse);
+}
+
+// HandshakeRequest describes a request for service to validate the client
+message HandshakeRequest {
+    // Token specifies the startup token for validation
+    string token = 1;
+}
+
+// HandshakeResponse describes the server response to the handshake request
+message HandshakeResponse {
 }
 
 // ExecuteRequest describes a request to execute install operation

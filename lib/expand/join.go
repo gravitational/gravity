@@ -59,7 +59,7 @@ func NewPeer(ctx context.Context, config PeerConfig) (*Peer, error) {
 		return nil, trace.Wrap(err)
 	}
 	localCtx, cancel := context.WithCancel(ctx)
-	server := server.New(ctx)
+	server := server.New(ctx, defaults.JoinToken)
 	peer := &Peer{
 		PeerConfig: config,
 		ctx:        localCtx,
@@ -96,6 +96,9 @@ func (p *Peer) Serve(listener net.Listener) error {
 // Implements signals.Stopper
 func (p *Peer) Stop(ctx context.Context) error {
 	p.Info("Stop.")
+	if err := p.stop(ctx); err != nil {
+		p.WithError(err).Warn("Failed to stop.")
+	}
 	p.server.Stop(ctx)
 	return nil
 }
@@ -104,6 +107,9 @@ func (p *Peer) Stop(ctx context.Context) error {
 // Implements signals.Aborter
 func (p *Peer) Abort(ctx context.Context) error {
 	p.Info("Abort.")
+	if err := p.abort(ctx); err != nil {
+		p.WithError(err).Warn("Failed to abort.")
+	}
 	p.server.Interrupt(ctx)
 	return nil
 }
@@ -115,10 +121,17 @@ func (p *Peer) Shutdown(ctx context.Context) error {
 	return trace.Wrap(p.stop(ctx))
 }
 
-// ExecuteOperation executes the peer operation (join or just serving an agent).
+// AbortOperation aborts the installation and cleans up the operation state.
 // Implements server.Executor
-func (p *Peer) ExecuteOperation() (err error) {
-	p.Info("ExecuteOperation.")
+func (p *Peer) AbortOperation(ctx context.Context) error {
+	p.Info("AbortOperation.")
+	return trace.Wrap(p.abort(ctx))
+}
+
+// Execute executes the peer operation (join or just serving an agent).
+// Implements server.Executor
+func (p *Peer) Execute() (err error) {
+	p.Info("Execute.")
 	if err := p.init(); err != nil {
 		return trace.Wrap(err)
 	}
@@ -128,28 +141,7 @@ func (p *Peer) ExecuteOperation() (err error) {
 	return nil
 }
 
-// AbortOperation aborts the installation and cleans up the operation state.
-// Implements server.Executor
-func (p *Peer) AbortOperation(ctx context.Context) error {
-	p.Info("AbortOperation.")
-	var errors []error
-	if err := p.stop(ctx); err != nil {
-		errors = append(errors, err)
-	}
-	p.server.WaitForOperation()
-	if err := p.AbortHandler(ctx); err != nil {
-		errors = append(errors, err)
-	}
-	return trace.NewAggregate(errors...)
-}
-
-// printStep publishes a progress entry described with (format, args) tuple to the client
-func (p *Peer) printStep(format string, args ...interface{}) error {
-	event := server.Event{Progress: &ops.ProgressEntry{Message: fmt.Sprintf(format, args...)}}
-	return p.server.Send(event)
-}
-
-// PeerConfig is for peers joining the cluster
+// PeerConfig defines the configuration for a peer joining the cluster
 type PeerConfig struct {
 	// Peers is a list of peer addresses
 	Peers []string
@@ -184,6 +176,8 @@ type PeerConfig struct {
 	StateDir string
 	// AbortHandler specifies the handler for aborting the installation
 	AbortHandler func(context.Context) error
+	// UninstallHandler specifies the cleanup handler for shutdown
+	UninstallHandler func(context.Context) error
 }
 
 // CheckAndSetDefaults checks the parameters and autodetects some defaults
@@ -218,6 +212,9 @@ func (c *PeerConfig) CheckAndSetDefaults() (err error) {
 	if c.AbortHandler == nil {
 		return trace.BadParameter("missing AbortHandler")
 	}
+	if c.UninstallHandler == nil {
+		return trace.BadParameter("missing UninstallHandler")
+	}
 	c.CloudProvider, err = install.ValidateCloudProvider(c.CloudProvider)
 	if err != nil {
 		return trace.Wrap(err)
@@ -239,6 +236,19 @@ func (p *Peer) init() error {
 	return nil
 }
 
+// abort aborts the installation and cleans up the operation state.
+func (p *Peer) abort(ctx context.Context) error {
+	var errors []error
+	if err := p.stop(ctx); err != nil {
+		errors = append(errors, err)
+	}
+	p.server.WaitForOperation()
+	if err := p.AbortHandler(ctx); err != nil {
+		errors = append(errors, err)
+	}
+	return trace.NewAggregate(errors...)
+}
+
 // stop stops peer operation
 func (p *Peer) stop(ctx context.Context) error {
 	p.cancel()
@@ -250,7 +260,14 @@ func (p *Peer) stop(ctx context.Context) error {
 			errors = append(errors, err)
 		}
 	}
+	p.server.WaitForOperation()
 	return trace.NewAggregate(errors...)
+}
+
+// printStep publishes a progress entry described with (format, args) tuple to the client
+func (p *Peer) printStep(format string, args ...interface{}) error {
+	event := server.Event{Progress: &ops.ProgressEntry{Message: fmt.Sprintf(format, args...)}}
+	return p.server.Send(event)
 }
 
 func (p *Peer) dialCluster(addr string) (*operationContext, error) {
@@ -521,13 +538,14 @@ func (p *Peer) getAgent(opCtx operationContext) (*rpcserver.PeerServer, error) {
 	}
 	p.RuntimeConfig.Token = token
 	agent, err := install.NewAgent(p.ctx, install.AgentConfig{
-		FieldLogger:   p.FieldLogger,
-		AdvertiseAddr: p.AdvertiseAddr,
-		ServerAddr:    peerAddr,
-		Credentials:   opCtx.Creds,
-		RuntimeConfig: p.RuntimeConfig,
-		WatchCh:       p.WatchCh,
-		AbortHandler:  p.AbortHandler,
+		FieldLogger:      p.FieldLogger,
+		AdvertiseAddr:    p.AdvertiseAddr,
+		ServerAddr:       peerAddr,
+		Credentials:      opCtx.Creds,
+		RuntimeConfig:    p.RuntimeConfig,
+		WatchCh:          p.WatchCh,
+		AbortHandler:     p.AbortHandler,
+		UninstallHandler: p.UninstallHandler,
 	})
 	if err != nil {
 		if agent != nil {

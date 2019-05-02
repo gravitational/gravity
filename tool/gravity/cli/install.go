@@ -22,6 +22,7 @@ import (
 	"net"
 	"os"
 	"os/exec"
+	"path/filepath"
 	"strings"
 	"syscall"
 	"time"
@@ -58,54 +59,49 @@ import (
 // InstallerClient runs the client for the installer service.
 // The client is responsible for triggering the install operation and observing
 // operation progress
-func InstallerClient(env *localenv.LocalEnvironment, config InstallConfig) error {
-	printInstallInstructionsBanner(env)
+func InstallerClient(printer utils.Printer, config installerclient.Config) error {
+	printInstallInstructionsBanner(printer)
 	ctx, cancel := context.WithCancel(context.Background())
 	interrupt := signals.NewInterruptHandler(ctx, cancel, clientInterruptSignals)
 	defer interrupt.Close()
-	clientC := clientTerminationHandler(ctx, interrupt, env)
+	clientC := clientTerminationHandler(ctx, interrupt, printer)
 
-	env.PrintStep("Connecting to installer")
-	client, err := installerclient.New(ctx, installerclient.Config{
-		Args:             installerServiceCommandline(config.StateDir),
-		StateDir:         env.StateDir,
-		Packages:         env.Packages,
-		InterruptHandler: interrupt,
-		Printer:          env,
-		ConnectTimeout:   10 * time.Minute,
-	})
+	config.InterruptHandler = interrupt
+	config.Token = defaults.InstallerToken
+	if len(config.Args) == 0 {
+		config.Args = installerServiceCommandline(filepath.Dir(utils.Exe.Path))
+	}
+
+	printer.PrintStep("Connecting to installer")
+	client, err := installerclient.New(ctx, config)
 	if err != nil {
 		return trace.Wrap(err)
 	}
 	addCancelInstallationHandler(ctx, client, clientC)
-	env.PrintStep("Connected to installer")
+	printer.PrintStep("Connected to installer")
 	return trace.Wrap(client.Run(ctx))
 }
 
 // JoinClient runs the client for the agent service.
 // The client is responsible for starting the RPC agent and observing
 // operation progress
-func JoinClient(env, joinEnv *localenv.LocalEnvironment, config JoinConfig) error {
-	printJoinInstructionsBanner(env)
+func JoinClient(printer utils.Printer, config installerclient.Config) error {
+	printJoinInstructionsBanner(printer)
 	ctx, cancel := context.WithCancel(context.Background())
 	interrupt := signals.NewInterruptHandler(ctx, cancel, clientInterruptSignals)
 	defer interrupt.Close()
-	clientC := clientTerminationHandler(ctx, interrupt, env)
+	clientC := clientTerminationHandler(ctx, interrupt, printer)
 
-	env.PrintStep("Connecting to agent")
-	client, err := installerclient.New(ctx, installerclient.Config{
-		Args:             joinServiceCommandline(),
-		StateDir:         env.StateDir,
-		Packages:         env.Packages,
-		InterruptHandler: interrupt,
-		Printer:          env,
-		ConnectTimeout:   10 * time.Minute,
-	})
+	config.InterruptHandler = interrupt
+	config.Token = defaults.JoinToken
+
+	printer.PrintStep("Connecting to agent")
+	client, err := installerclient.New(ctx, config)
 	if err != nil {
 		return trace.Wrap(err)
 	}
 	addCancelInstallationHandler(ctx, client, clientC)
-	env.PrintStep("Connected to agent")
+	printer.PrintStep("Connected to agent")
 	return trace.Wrap(client.Run(ctx))
 }
 
@@ -170,9 +166,9 @@ func clientTerminationHandler(ctx context.Context, interrupt *signals.InterruptH
 		for {
 			select {
 			case sig := <-interrupt.C:
-				if client == nil || client.Completed() {
+				if sig != os.Interrupt || client == nil || client.Completed() {
 					// Fast path
-					interrupt.Trigger()
+					interrupt.Cancel()
 					return
 				}
 				// Interrupt signaled
@@ -182,7 +178,7 @@ func clientTerminationHandler(ctx context.Context, interrupt *signals.InterruptH
 					if err := client.Abort(ctx); err != nil {
 						log.WithError(err).Warn("Failed to abort installer service.")
 					}
-					interrupt.Trigger()
+					interrupt.Abort()
 					return
 				}
 				printer.Println("Press Ctrl+C again to abort the installation.")
@@ -209,7 +205,12 @@ func TerminationHandler(interrupt *signals.InterruptHandler, printer utils.Print
 		case sig := <-interrupt.C:
 			log.Info("Received ", sig, " signal. Terminating the installer gracefully, please wait.")
 			printer.Println("Received", sig, "signal. Terminating the installer gracefully, please wait.")
-			interrupt.Trigger()
+			if sig == os.Interrupt {
+				// Abort for Ctrl+C
+				interrupt.Abort()
+			} else {
+				interrupt.Cancel()
+			}
 			return
 		case <-interrupt.Done():
 			return
@@ -230,7 +231,10 @@ func startInstall(env *localenv.LocalEnvironment, config InstallConfig) error {
 		}
 		return trace.Wrap(err)
 	}
-	err := InstallerClient(env, config)
+	err := InstallerClient(env, installerclient.Config{
+		StateChecker: CheckInstallerLocalState(env),
+		Printer:      env,
+	})
 	if utils.IsContextCancelledError(err) {
 		return trace.Wrap(err, "installer interrupted")
 	}
@@ -275,7 +279,7 @@ func startInstallFromService(env *localenv.LocalEnvironment, config InstallConfi
 	var engine install.Engine
 	switch config.Mode {
 	case constants.InstallModeCLI:
-		engine, err = newCLInstaller(installer, config.ExcludeHostFromCluster)
+		engine, err = newCLInstaller(installer)
 	case constants.InstallModeInteractive:
 		engine, err = newWizardInstaller(installer)
 	default:
@@ -287,15 +291,14 @@ func startInstallFromService(env *localenv.LocalEnvironment, config InstallConfi
 	return trace.Wrap(installer.Serve(engine, listener))
 }
 
-func newCLInstaller(installer *install.Installer, excludeHostFromCluster bool) (*clinstall.Engine, error) {
+func newCLInstaller(installer *install.Installer) (*clinstall.Engine, error) {
 	enablePreflightChecks := true
 	return clinstall.New(clinstall.Config{
-		FieldLogger:            installer.WithField("mode", "cli"),
-		StateMachineFactory:    installer,
-		ClusterFactory:         installer,
-		Planner:                install.NewPlanner(enablePreflightChecks, installer),
-		Operator:               installer.Operator,
-		ExcludeHostFromCluster: excludeHostFromCluster,
+		FieldLogger:         installer.WithField("mode", "cli"),
+		StateMachineFactory: installer,
+		ClusterFactory:      installer,
+		Planner:             install.NewPlanner(enablePreflightChecks, installer),
+		Operator:            installer.Operator,
 	})
 }
 
@@ -310,20 +313,57 @@ func newWizardInstaller(installer *install.Installer) (*interactive.Engine, erro
 	})
 }
 
-func join(env, joinEnv *localenv.LocalEnvironment, config JoinConfig) error {
+// ResumeInstall resumes the aborted install operation
+func ResumeInstall(env *localenv.LocalEnvironment) error {
+	env.PrintStep("Starting installer")
+
+	err := InstallerClient(env, installerclient.Config{
+		Resume:  true,
+		Printer: env,
+	})
+	if utils.IsContextCancelledError(err) {
+		return trace.Wrap(err, "installer interrupted")
+	}
+	return trace.Wrap(err)
+}
+
+func join(env *localenv.LocalEnvironment, environ LocalEnvironmentFactory, config JoinConfig) error {
 	env.PrintStep("Starting agent")
 
 	if err := config.CheckAndSetDefaults(); err != nil {
 		return trace.Wrap(err)
 	}
 	if config.FromService {
+		joinEnv, err := environ.NewJoinEnv()
+		if err != nil {
+			return trace.Wrap(err)
+		}
+		defer joinEnv.Close()
 		return trace.Wrap(Join(env, joinEnv, config))
 	}
-	err := JoinClient(env, joinEnv, config)
+	err := JoinClient(env, installerclient.Config{
+		Args:         joinServiceCommandline(),
+		StateChecker: checkAgentLocalState(env),
+		Printer:      env,
+	})
 	if utils.IsContextCancelledError(err) {
 		return trace.Wrap(err, "agent interrupted")
 	}
 	return trace.Wrap(err)
+}
+
+func resumeJoin(env *localenv.LocalEnvironment) error {
+	env.PrintStep("Starting agent")
+
+	err := JoinClient(env, installerclient.Config{
+		Printer: env,
+		Resume:  true,
+	})
+	if utils.IsContextCancelledError(err) {
+		return trace.Wrap(err, "agentinterrupted")
+	}
+	return trace.Wrap(err)
+	return nil
 }
 
 type leaveConfig struct {
@@ -778,11 +818,7 @@ func (defaultInstaller) RollbackPhase(
 // Resume resumes aborted installation.
 // Implements Installer
 func (defaultInstaller) Resume(env *localenv.LocalEnvironment) error {
-	// TODO(dmitri): make it an explicit call - 'gravity install' should
-	// be reserved for _starting_ a new installation. This will allow to
-	// validate the context and disable 'gravity join' on the same node as
-	// 'gravity install'
-	return trace.Wrap(startInstall(env, NewDefaultInstallConfig()))
+	return trace.Wrap(ResumeInstall(env))
 }
 
 type defaultInstaller struct{}
@@ -868,6 +904,70 @@ func newJoinMachine(env, joinEnv *localenv.LocalEnvironment, operation *ops.Site
 	return machine, nil
 }
 
+// CheckInstallerLocalState performs a local environment sanity check to make sure
+// that install on this node can proceed without issues
+func CheckInstallerLocalState(env *localenv.LocalEnvironment) func() error {
+	return func() error {
+		empty, err := utils.IsDirectoryEmpty(defaults.GravityInstallDir())
+		if err != nil && !trace.IsNotFound(err) {
+			return trace.Wrap(err)
+		}
+		if err == nil && !empty {
+			return trace.BadParameter("detected previous installation state in %v, "+
+				"please resume installation with `gravity plan resume` or "+
+				"clean it up using `gravity leave --force` before proceeding "+
+				"(see https://gravitational.com/gravity/docs/cluster/#deleting-a-cluster for more details)",
+				defaults.GravityInstallDir())
+
+		}
+		// make sure that there are no packages in the local state left from
+		// some improperly cleaned up installation
+		packages, err := env.Packages.GetPackages(defaults.SystemAccountOrg)
+		if err != nil {
+			return trace.Wrap(err)
+		}
+		if len(packages) != 0 {
+			return trace.BadParameter("detected previous installation state in %v, "+
+				"please clean it up using `gravity leave --force` before proceeding "+
+				"(see https://gravitational.com/gravity/docs/cluster/#deleting-a-cluster for more details)",
+				env.StateDir)
+		}
+		return nil
+	}
+}
+
+// checkAgentLocalState performs a local environment sanity check to make sure
+// that join on this node can proceed without issues
+func checkAgentLocalState(env *localenv.LocalEnvironment) func() error {
+	return func() error {
+		empty, err := utils.IsDirectoryEmpty(defaults.GravityJoinDir())
+		if err != nil && !trace.IsNotFound(err) {
+			return trace.Wrap(err)
+		}
+		if err == nil && !empty {
+			return trace.BadParameter("detected previous installation state in %v, "+
+				"please resume the agent with `gravity join resume` or "+
+				"clean it up using `gravity leave --force` before proceeding "+
+				"(see https://gravitational.com/gravity/docs/cluster/#deleting-a-cluster for more details)",
+				defaults.GravityJoinDir())
+
+		}
+		// make sure that there are no packages in the local state left from
+		// some improperly cleaned up installation
+		packages, err := env.Packages.GetPackages(defaults.SystemAccountOrg)
+		if err != nil {
+			return trace.Wrap(err)
+		}
+		if len(packages) != 0 {
+			return trace.BadParameter("detected previous installation state in %v, "+
+				"please clean it up using `gravity leave --force` before proceeding "+
+				"(see https://gravitational.com/gravity/docs/cluster/#deleting-a-cluster for more details)",
+				env.StateDir)
+		}
+		return nil
+	}
+}
+
 // TODO: different banner for the joining agent as 'gravity plan resume' is only
 // meanimgful from the installer node.
 func printInstallInstructionsBanner(printer utils.Printer) {
@@ -876,7 +976,7 @@ To abort the installation and clean up the system,
 press Ctrl+C two times in a row.
 
 If the you get disconnected from the terminal, you can reconnect to the installer
-agent by issuing 'gravity install' command without parameters.
+agent by issuing 'gravity plan resume' command.
 
 If the installation fails, use 'gravity plan' to inspect the state and
 'gravity plan resume' to continue the operation.
@@ -890,7 +990,7 @@ To abort the agent and clean up the system,
 press Ctrl+C two times in a row.
 
 If the you get disconnected from the terminal, you can reconnect to the installer
-agent by issuing 'gravity join' command without parameters.
+agent by issuing 'gravity join resume' command.
 See https://gravitational.com/gravity/docs/cluster/#managing-an-ongoing-operation for details.
 `)
 }

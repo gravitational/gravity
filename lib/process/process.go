@@ -339,16 +339,16 @@ func (p *Process) Start() (err error) {
 
 // Shutdown initiates graceful shutdown of this process
 func (p *Process) Shutdown(ctx context.Context) {
+	p.cancel()
 	p.shutdownOnce.Do(func() {
-		p.cancel()
 		p.stopClusterServices()
 		p.clusterObjects.Close()
 		if p.healthServer != nil {
 			p.healthServer.Shutdown(ctx)
 		}
 		p.proxy.Close()
+		p.TeleportProcess.Shutdown(ctx)
 	})
-	p.TeleportProcess.Shutdown(ctx)
 }
 
 // TeleportConfig returns the process teleport config
@@ -1066,9 +1066,10 @@ func (p *Process) initService(ctx context.Context) (err error) {
 
 	peerStore := opsservice.NewAgentPeerStore(p.backend, p.identity, p.proxy, p.WithField("process", p.id))
 	p.agentServer, err = rpcserver.New(rpcserver.Config{
+		FieldLogger: p.WithField(trace.Component, "agent-server"),
 		Credentials: *creds,
 		PeerStore:   peerStore,
-	}, p.WithField(trace.Component, "agent-server"))
+	})
 	if err != nil {
 		return trace.Wrap(err)
 	}

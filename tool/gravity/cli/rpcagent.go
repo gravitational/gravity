@@ -114,7 +114,7 @@ func startAgent() (rpcserver.Server, error) {
 		},
 		Listener: listener,
 	}
-	server, err := rpcserver.New(config, logrus.StandardLogger())
+	server, err := rpcserver.New(config)
 	if err != nil {
 		return nil, trace.Wrap(err)
 	}

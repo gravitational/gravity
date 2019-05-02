@@ -51,11 +51,14 @@ func (r *Client) Execute(ctx context.Context, machine *fsm.FSM, params fsm.Param
 		progress := utils.NewProgress(ctx, "Resuming operation", -1, false)
 		defer progress.Stop()
 
-		err := machine.ExecutePlan(ctx, progress)
-		if err != nil {
-			r.WithError(err).Warn("Failed to execute plan.")
+		planErr := machine.ExecutePlan(ctx, progress)
+		if planErr != nil {
+			r.WithError(planErr).Warn("Failed to execute plan.")
 		}
-		return trace.Wrap(machine.Complete(err))
+		if err := machine.Complete(planErr); err != nil {
+			r.WithError(err).Warn("Failed to complete plan.")
+		}
+		return trace.Wrap(planErr)
 	}
 	progress := utils.NewProgress(ctx, fmt.Sprintf("Executing phase %q", params.PhaseID), -1, false)
 	defer progress.Stop()

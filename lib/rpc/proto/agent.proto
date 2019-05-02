@@ -8,7 +8,7 @@ import "discovery.proto";
 // Agent is RPC agent interface
 service Agent {
     // Shutdown requests the agent to shut down
-    rpc Shutdown(google.protobuf.Empty) returns (google.protobuf.Empty);
+    rpc Shutdown(ShutdownRequest) returns (google.protobuf.Empty);
 
     // Abort requests the agent to clean up the state on this node and shut down
     rpc Abort(google.protobuf.Empty) returns (google.protobuf.Empty);
@@ -24,6 +24,12 @@ service Agent {
 
     // PeerLeave receives a "leave" request from a peer and initiates its shutdown
     rpc PeerLeave(PeerLeaveRequest) returns (google.protobuf.Empty);
+}
+
+// ShutdownRequest describes a request to shut down a report RPC agent
+message ShutdownRequest {
+    // Uninstall specifies whether this should invoke the uninstall handler
+    bool uninstall = 1;
 }
 
 message CommandArgs {

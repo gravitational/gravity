@@ -158,13 +158,13 @@ func IsDirectory(dir string) (bool, error) {
 func IsDirectoryEmpty(dir string) (bool, error) {
 	f, err := os.Open(dir)
 	if err != nil {
-		return false, trace.Wrap(err)
+		return false, trace.ConvertSystemError(err)
 	}
 	defer f.Close()
 	if _, err = f.Readdirnames(1); err == io.EOF {
 		return true, nil
 	}
-	return false, err
+	return false, trace.ConvertSystemError(err)
 }
 
 // CopyDirContents copies all contents of the source directory (including the
