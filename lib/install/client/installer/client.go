@@ -2,6 +2,7 @@ package installer
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"io"
 	"os"
@@ -71,7 +72,9 @@ func (r *Client) Run(ctx context.Context) error {
 		return trace.Wrap(err)
 	}
 	err = r.progressLoop(stream)
-	r.Shutdown(ctx)
+	if err != errAborted {
+		r.Shutdown(ctx)
+	}
 	return trace.Wrap(err)
 }
 
@@ -165,15 +168,6 @@ func (r *Client) connectRunning(ctx context.Context) error {
 	}
 	r.client = client
 	r.addTerminationHandler()
-	_, err = client.Handshake(ctx, &installpb.HandshakeRequest{Token: r.config.Token})
-	if err != nil {
-		if code := status.Code(err); code == codes.PermissionDenied {
-			return trace.AccessDenied("wrong service modality.\n" +
-				"Are you running 'gravity plan resume' from a join node? " +
-				"Try 'gravity join resume' instead.")
-		}
-		return trace.Wrap(err)
-	}
 	return nil
 }
 
@@ -244,12 +238,15 @@ func (r *Client) progressLoop(stream installpb.Agent_ExecuteClient) (err error) 
 			r.WithError(err).Warn("Failed to fetch progress.")
 			return trace.Wrap(err)
 		}
+		if resp.Status == installpb.ProgressResponse_Aborted {
+			return errAborted
+		}
+		// Exit upon first error
 		if len(resp.Errors) != 0 {
-			// Exit upon first error
 			return trace.BadParameter(resp.Errors[0].Message)
 		}
 		r.PrintStep(resp.Message)
-		if resp.Complete {
+		if resp.Status == installpb.ProgressResponse_Completed {
 			break
 		}
 	}
@@ -313,3 +310,5 @@ func userUnitPath(service string, user user.User) (path string, err error) {
 	}
 	return filepath.Join(dir, service), nil
 }
+
+var errAborted = errors.New("operation aborted")

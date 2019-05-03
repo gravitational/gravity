@@ -70,11 +70,14 @@ type Config struct {
 	ops.Operator
 }
 
+// Validate runs preflight checks on local host.
+// Implements installer.Engine
 func (r *Engine) Validate(ctx context.Context, config install.Config) (err error) {
 	return trace.Wrap(config.RunLocalChecks(ctx))
 }
 
-// Execute executes the installer steps
+// Execute executes the installer steps.
+// Implements installer.Engine
 func (r *Engine) Execute(ctx context.Context, installer install.Interface, config install.Config) (err error) {
 	e := executor{
 		Config:    r.Config,
@@ -240,7 +243,9 @@ func (r *executor) canContinue(old, new *ops.AgentReport) bool {
 	return false
 }
 
+// Engine implements command line-driven installation workflow
 type Engine struct {
+	// Config specifies the engine's configuration
 	Config
 }
 

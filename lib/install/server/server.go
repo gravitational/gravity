@@ -3,6 +3,7 @@ package server
 import (
 	"bytes"
 	"context"
+	"errors"
 	"fmt"
 	"net"
 	"sync"
@@ -104,9 +105,14 @@ func (r *Server) Execute(req *installpb.ExecuteRequest, stream installpb.Agent_E
 			resp := &installpb.ProgressResponse{}
 			if event.Progress != nil {
 				resp.Message = event.Progress.Message
-				resp.Complete = event.Complete
+				if event.Complete {
+					resp.Status = installpb.ProgressResponse_Completed
+				}
 			} else if event.Error != nil {
 				resp.Errors = append(resp.Errors, &installpb.Error{Message: event.Error.Error()})
+				if event.Error == errAborted {
+					resp.Status = installpb.ProgressResponse_Aborted
+				}
 			}
 			err := stream.Send(resp)
 			if err != nil {
@@ -124,7 +130,9 @@ func (r *Server) Execute(req *installpb.ExecuteRequest, stream installpb.Agent_E
 	return nil
 }
 
-// Run schedules f to run until the server is stopped
+// Run schedules f to run as server's internal process.
+// Use WaitForOperation to await completion of all processes
+// upon completion or abort
 func (r *Server) Run(f func()) {
 	r.execWG.Add(1)
 	go func() {
@@ -134,8 +142,7 @@ func (r *Server) Run(f func()) {
 }
 
 // Send streams the specified progress event to the client.
-// The method will not block - event will be dropped if it cannot be published
-// (subject to internal channel buffer capacity)
+// The method is not blocking - event will be dropped if it cannot be published
 func (r *Server) Send(event Event) error {
 	select {
 	case r.eventsC <- event:
@@ -189,11 +196,11 @@ func (r *Server) RunProgressLoop(operator ops.Operator, operationKey ops.SiteOpe
 
 // Executor wraps a potentially failing operation
 type Executor interface {
-	// Execute executes the install operation.
+	// Execute executes an operation.
 	Execute() error
 	// AbortOperation gracefully aborts the operation and cleans up the operation state
 	AbortOperation(context.Context) error
-	// Shutdown gracefully aborts the operation
+	// Shutdown gracefully stops the operation
 	Shutdown(context.Context) error
 }
 
@@ -201,7 +208,7 @@ type Executor interface {
 type Server struct {
 	log.FieldLogger
 	// parentCtx specifies the external context.
-	// If cancelled, all operations abort with the corresponding error
+	// If cancelled, all external operations abort with the corresponding error
 	parentCtx context.Context
 	// ctx defines the local server context used to cancel internal operation
 	ctx    context.Context
@@ -212,15 +219,15 @@ type Server struct {
 	eventsC  chan Event
 	// abortC is signaled when the operation is aborted
 	abortC chan struct{}
-	// rpc is the fabric to communicate to the server client process
+	// rpc is the internal gRPC server instance
 	rpc *grpc.Server
 
 	executeOnce sync.Once
 	// serveWG is a wait group for internal processes
 	serveWG sync.WaitGroup
 	// execWG is a wait group for executor-specific workloads.
-	// When the group is signalled, all executor processes should
-	// have completed
+	// Use WaitForOperation to await completion of scheduled processes
+	// after cancelling the operation.
 	execWG sync.WaitGroup
 }
 
@@ -253,11 +260,10 @@ func (r *Server) execute() {
 	r.execWG.Add(2)
 	execC := make(chan error, 1)
 	go func() {
-		defer r.execWG.Done()
 		var err error
 		select {
 		case <-r.abortC:
-			err = trace.Errorf("operation aborted")
+			err = errAborted
 		case err = <-execC:
 		}
 		if err != nil {
@@ -265,15 +271,15 @@ func (r *Server) execute() {
 				r.WithError(errSend).Info("Failed to send error to client.")
 			}
 		}
-	}()
-	go func() {
-		err := r.executor.Execute()
-		execC <- err
 		// No explicit stop in case of error
 		r.execWG.Done()
 		if err == nil {
 			r.stop(r.parentCtx)
 		}
+	}()
+	go func() {
+		execC <- r.executor.Execute()
+		r.execWG.Done()
 	}()
 }
 
@@ -297,3 +303,5 @@ func (r *Server) abort(ctx context.Context) {
 func (r *Server) sendError(err error) error {
 	return trace.Wrap(r.Send(Event{Error: err}))
 }
+
+var errAborted = errors.New("operation aborted")

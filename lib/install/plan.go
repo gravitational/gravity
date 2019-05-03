@@ -24,6 +24,7 @@ import (
 	"github.com/gravitational/trace"
 )
 
+// NewPlanner returns a new instance of PlanGetter with the specified builder
 func NewPlanner(preflightChecks bool, planBuilder PlanBuilderGetter) *PlanGetter {
 	return &PlanGetter{
 		PlanBuilderGetter: planBuilder,
@@ -117,10 +118,13 @@ func (r *PlanGetter) GetOperationPlan(cluster ops.Site, operation ops.SiteOperat
 	return plan, nil
 }
 
+// PlanBuilderGetter is a factory for plan builders
 type PlanBuilderGetter interface {
+	// GetPlanBuilder returns a new plan builder for the specified cluster and operation
 	GetPlanBuilder(cluster ops.Site, operation ops.SiteOperation) (*PlanBuilder, error)
 }
 
+// PlanGetter builds an install operation plan
 type PlanGetter struct {
 	PlanBuilderGetter
 	preflightChecks bool

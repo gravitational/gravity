@@ -2,6 +2,8 @@ syntax = "proto3";
 
 package installer;
 
+import "gogo.proto";
+
 // Agent defines a service to install a cluster
 service Agent {
     // Handshake allows for a simple client validation.
@@ -56,8 +58,19 @@ message AbortResponse {
 message ProgressResponse {
     // Message specifies the progress message
     string message = 1;
-    // Complete indicates whether the operation is complete
-    bool complete = 2;
+    // Status defines the status of this progress message.
+    // If the status is one of (COMPLETED, ABORTED), this response is the last response sent
+    enum Status {
+        UNKNOWN = 0 [(gogoproto.enumvalue_customname) = "Unknown"];
+        // COMPLETED status indicates that the operation has successfully completed.
+        // This status iis terminal - no more progress messages will follow
+        COMPLETED = 1 [(gogoproto.enumvalue_customname) = "Completed"];
+        // ABORTED status indicates that the operation has been aborted.
+        // This status iis terminal - no more progress messages will follow
+        ABORTED = 2 [(gogoproto.enumvalue_customname) = "Aborted"];
+    }
+    // Status describes the status of this response
+    Status status = 2;
     // Errors lists errors for this progress step
     repeated Error errors = 3;
 }

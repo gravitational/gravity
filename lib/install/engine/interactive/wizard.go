@@ -59,12 +59,14 @@ type Config struct {
 	AdvertiseAddr string
 }
 
-func (r *Engine) Validate(ctx context.Context, config install.Config) (err error) {
-	return trace.Wrap(config.RunLocalChecks(ctx))
+// Validate is a no-op for this engine
+func (r *Engine) Validate(context.Context, install.Config) (err error) {
+	return nil
 }
 
+// Execute runs the wizard operation
 func (r *Engine) Execute(ctx context.Context, installer install.Interface, config install.Config) error {
-	e, err := newExecutor(r, ctx, installer, config)
+	e, err := newExecutor(ctx, r, installer, config)
 	if err != nil {
 		return trace.Wrap(err)
 	}
@@ -97,6 +99,8 @@ func (r *Engine) Execute(ctx context.Context, installer install.Interface, confi
 }
 
 func (r *executor) bootstrap() error {
+	// Extract RPC credentials for the agent service to be able to accept
+	// and control remote agents
 	err := install.ExportRPCCredentials(r.ctx, r.config.Packages, r.FieldLogger)
 	if err != nil {
 		return trace.Wrap(err, "failed to export RPC credentials")
@@ -173,11 +177,13 @@ func (r *executor) printURL() {
 	r.PrintStep(buf.String())
 }
 
+// Engine implements interactive installation workflow
 type Engine struct {
+	// Config specifies the engine's configuration
 	Config
 }
 
-func newExecutor(r *Engine, ctx context.Context, installer install.Interface, config install.Config) (*executor, error) {
+func newExecutor(ctx context.Context, r *Engine, installer install.Interface, config install.Config) (*executor, error) {
 	app, err := config.GetApp()
 	if err != nil {
 		return nil, trace.Wrap(err, "failed to query application")

@@ -1486,9 +1486,6 @@ func (r NewInstallTokenRequest) Check() error {
 	if r.AccountID == "" {
 		return trace.BadParameter("missing parameter AccountID")
 	}
-	if r.ClusterName == "" {
-		return trace.BadParameter("missing parameter ClusterName")
-	}
 	if r.UserType == "" {
 		return trace.BadParameter("missing parameter UserType")
 	}

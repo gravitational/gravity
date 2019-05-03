@@ -99,10 +99,10 @@ func (srv *agentServer) Stop(ctx context.Context) error {
 	default:
 		srv.cancel()
 	}
-	srv.grpcServer.GracefulStop()
 	for _, c := range srv.closers {
 		c.Close(ctx)
 	}
+	srv.grpcServer.GracefulStop()
 	return nil
 }
 
@@ -148,11 +148,15 @@ type Config struct {
 	// Defaults to defaults.RPCAgentBackoffThreshold
 	ReconnectTimeout time.Duration
 	// AbortHandler specifies an optional handler for aborting the operation.
-	// The handler is invoked when serving the Abort API
+	// The handler is invoked when serving the Abort API.
+	// Note that the handler should avoid invoking blocking gRPC APIs - otherwise the
+	// service shut down might block
 	AbortHandler func(context.Context) error
-	// UninstallHandler specifies an optional handler for cleanup tasks after completing the operation.
-	// The handler is invoked when serving the Shutdown API with Uninstall set
-	UninstallHandler func(context.Context) error
+	// CompleteHandler specifies an optional handler for cleanup tasks after completing the operation.
+	// The handler is invoked when serving the Shutdown API with Cleanup set.
+	// Note that the handler should avoid invoking blocking gRPC APIs - otherwise the
+	// service shut down might block
+	CompleteHandler func(context.Context) error
 	// systemInfo queries system information
 	systemInfo
 	// commandExecutor is a system command executor.

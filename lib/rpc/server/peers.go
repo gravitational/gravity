@@ -305,11 +305,11 @@ func (r *peers) iterate(handler func(peer) error) error {
 }
 
 func (r *peers) close(ctx context.Context) error {
+	r.cancel()
 	var errors []error
 	for _, peer := range r.getPeers() {
 		errors = append(errors, peer.Disconnect(ctx))
 	}
-	r.cancel()
 	return trace.NewAggregate(errors...)
 }
 

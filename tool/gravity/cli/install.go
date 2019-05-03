@@ -317,6 +317,11 @@ func newWizardInstaller(installer *install.Installer) (*interactive.Engine, erro
 func ResumeInstall(env *localenv.LocalEnvironment) error {
 	env.PrintStep("Starting installer")
 
+	// TODO(dmitri): this needs to differentiate between running installer (use resume observer mode)
+	// and stopped installer - use manual plan execution
+	// TODO(dmitri): detect install/join modality based on ephemeral directories and have client
+	// connect with the socket from corresponding location.	This will also enable the reuse of 'plan resume'
+	// from a joining node in case of expand
 	err := InstallerClient(env, installerclient.Config{
 		Resume:  true,
 		Printer: env,
@@ -721,6 +726,7 @@ func completeInstallPlan(localEnv *localenv.LocalEnvironment, operation *ops.Sit
 		return trace.Wrap(err)
 	}
 	return machine.Complete(trace.Errorf("completed manually"))
+	// TODO(dmitri): shut down remote agents
 }
 
 func completeJoinPlan(localEnv, joinEnv *localenv.LocalEnvironment, operation *ops.SiteOperation) error {

@@ -75,9 +75,6 @@ type Peer struct {
 	// ctx defines the local peer context used to cancel internal operation
 	ctx    context.Context
 	cancel context.CancelFunc
-	// agentDoneCh is the agent's done channel.
-	// The channel is only set after the agent has been started
-	agentDoneCh <-chan struct{}
 	// agent is this peer's RPC agent
 	agent *rpcserver.PeerServer
 	// server is the gRPC installer server
@@ -96,9 +93,7 @@ func (p *Peer) Serve(listener net.Listener) error {
 // Implements signals.Stopper
 func (p *Peer) Stop(ctx context.Context) error {
 	p.Info("Stop.")
-	if err := p.stop(ctx); err != nil {
-		p.WithError(err).Warn("Failed to stop.")
-	}
+	p.cancel()
 	p.server.Stop(ctx)
 	return nil
 }
@@ -107,9 +102,10 @@ func (p *Peer) Stop(ctx context.Context) error {
 // Implements signals.Aborter
 func (p *Peer) Abort(ctx context.Context) error {
 	p.Info("Abort.")
-	if err := p.abort(ctx); err != nil {
-		p.WithError(err).Warn("Failed to abort.")
-	}
+	// if err := p.abort(ctx); err != nil {
+	// 	p.WithError(err).Warn("Failed to abort.")
+	// }
+	// p.Info("Interrupting server.")
 	p.server.Interrupt(ctx)
 	return nil
 }
@@ -118,7 +114,8 @@ func (p *Peer) Abort(ctx context.Context) error {
 // Implements server.Executor
 func (p *Peer) Shutdown(ctx context.Context) error {
 	p.Info("Shutdown.")
-	return trace.Wrap(p.stop(ctx))
+	p.cancel()
+	return nil
 }
 
 // AbortOperation aborts the installation and cleans up the operation state.
@@ -132,7 +129,7 @@ func (p *Peer) AbortOperation(ctx context.Context) error {
 // Implements server.Executor
 func (p *Peer) Execute() (err error) {
 	p.Info("Execute.")
-	if err := p.init(); err != nil {
+	if err := p.bootstrap(); err != nil {
 		return trace.Wrap(err)
 	}
 	if err := p.run(); err != nil {
@@ -176,8 +173,8 @@ type PeerConfig struct {
 	StateDir string
 	// AbortHandler specifies the handler for aborting the installation
 	AbortHandler func(context.Context) error
-	// UninstallHandler specifies the cleanup handler for shutdown
-	UninstallHandler func(context.Context) error
+	// CompleteHandler specifies the cleanup handler for shutdown
+	CompleteHandler func(context.Context) error
 }
 
 // CheckAndSetDefaults checks the parameters and autodetects some defaults
@@ -212,8 +209,8 @@ func (c *PeerConfig) CheckAndSetDefaults() (err error) {
 	if c.AbortHandler == nil {
 		return trace.BadParameter("missing AbortHandler")
 	}
-	if c.UninstallHandler == nil {
-		return trace.BadParameter("missing UninstallHandler")
+	if c.CompleteHandler == nil {
+		return trace.BadParameter("missing CompleteHandler")
 	}
 	c.CloudProvider, err = install.ValidateCloudProvider(c.CloudProvider)
 	if err != nil {
@@ -228,39 +225,14 @@ func (c *PeerConfig) CheckAndSetDefaults() (err error) {
 	return nil
 }
 
-// init initializes the peer
-func (p *Peer) init() error {
-	if err := p.bootstrap(); err != nil {
-		return trace.Wrap(err)
-	}
-	return nil
-}
-
 // abort aborts the installation and cleans up the operation state.
 func (p *Peer) abort(ctx context.Context) error {
 	var errors []error
-	if err := p.stop(ctx); err != nil {
-		errors = append(errors, err)
-	}
+	p.cancel()
 	p.server.WaitForOperation()
 	if err := p.AbortHandler(ctx); err != nil {
 		errors = append(errors, err)
 	}
-	return trace.NewAggregate(errors...)
-}
-
-// stop stops peer operation
-func (p *Peer) stop(ctx context.Context) error {
-	p.cancel()
-	var errors []error
-	if p.agent != nil {
-		p.Info("Shut down agent.")
-		err := p.agent.Stop(ctx)
-		if err != nil {
-			errors = append(errors, err)
-		}
-	}
-	p.server.WaitForOperation()
 	return trace.NewAggregate(errors...)
 }
 
@@ -538,14 +510,14 @@ func (p *Peer) getAgent(opCtx operationContext) (*rpcserver.PeerServer, error) {
 	}
 	p.RuntimeConfig.Token = token
 	agent, err := install.NewAgent(p.ctx, install.AgentConfig{
-		FieldLogger:      p.FieldLogger,
-		AdvertiseAddr:    p.AdvertiseAddr,
-		ServerAddr:       peerAddr,
-		Credentials:      opCtx.Creds,
-		RuntimeConfig:    p.RuntimeConfig,
-		WatchCh:          p.WatchCh,
-		AbortHandler:     p.AbortHandler,
-		UninstallHandler: p.UninstallHandler,
+		FieldLogger:     p.FieldLogger,
+		AdvertiseAddr:   p.AdvertiseAddr,
+		ServerAddr:      peerAddr,
+		Credentials:     opCtx.Creds,
+		RuntimeConfig:   p.RuntimeConfig,
+		WatchCh:         p.WatchCh,
+		AbortHandler:    p.Abort,
+		CompleteHandler: p.CompleteHandler,
 	})
 	if err != nil {
 		if agent != nil {
@@ -601,10 +573,14 @@ func (p *Peer) run() error {
 	if err != nil {
 		return trace.Wrap(err)
 	}
-	p.agentDoneCh = p.agent.Done()
+	go p.agent.Serve()
 
 	if ctx.Operation.Type != ops.OperationExpand {
-		return trace.Wrap(p.agent.Serve())
+		select {
+		case <-p.ctx.Done():
+		case <-p.agent.Done():
+		}
+		return nil
 	}
 
 	p.server.Run(func() {
@@ -827,7 +803,6 @@ func (p *Peer) validateWizardState(operator ops.Operator) (*ops.Site, *ops.SiteO
 	return &cluster, operation, nil
 }
 
-// FIXME: reconnect forever
 func watchReconnects(ctx context.Context, cancel context.CancelFunc, watchCh <-chan rpcserver.WatchEvent, logger log.FieldLogger) {
 	for {
 		select {

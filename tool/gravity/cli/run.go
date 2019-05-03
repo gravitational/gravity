@@ -28,7 +28,6 @@ import (
 	"syscall"
 
 	appapi "github.com/gravitational/gravity/lib/app"
-	"github.com/gravitational/gravity/lib/constants"
 	"github.com/gravitational/gravity/lib/defaults"
 	"github.com/gravitational/gravity/lib/fsm"
 	"github.com/gravitational/gravity/lib/httplib"
@@ -301,17 +300,7 @@ func Execute(g *Application, cmd string, extraArgs []string) error {
 			cloudProvider: *g.OpsAgentCmd.CloudProvider,
 		}, *g.OpsAgentCmd.ServiceName)
 	case g.WizardCmd.FullCommand():
-		return startInstall(localEnv, InstallConfig{
-			Mode:                   constants.InstallModeInteractive,
-			Insecure:               *g.Insecure,
-			StateDir:               *g.WizardCmd.Path,
-			UserLogFile:            *g.UserLogFile,
-			SystemLogFile:          *g.SystemLogFile,
-			ServiceUID:             *g.WizardCmd.ServiceUID,
-			ServiceGID:             *g.WizardCmd.ServiceGID,
-			FromService:            *g.WizardCmd.FromService,
-			ExcludeHostFromCluster: true,
-		})
+		return startInstall(localEnv, NewWizardConfig(localEnv, g))
 	case g.InstallCmd.FullCommand():
 		return startInstall(localEnv, NewInstallConfig(localEnv, g))
 	case g.JoinExecuteCmd.FullCommand():

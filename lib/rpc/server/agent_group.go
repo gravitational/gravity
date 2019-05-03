@@ -177,10 +177,15 @@ func (r *AgentGroup) Shutdown(ctx context.Context, req *pb.ShutdownRequest) erro
 
 // Abort requests agents to abort the operation and uninstall
 func (r *AgentGroup) Abort(ctx context.Context) error {
-	err := r.peers.iterate(func(p peer) error {
-		return trace.Wrap(p.Abort(ctx))
+	var errors []error
+	r.peers.iterate(func(p peer) error {
+		r.WithField("peer", p).Info("Abort peer.")
+		if err := p.Abort(ctx); err != nil {
+			errors = append(errors, err)
+		}
+		return nil
 	})
-	return trace.Wrap(err)
+	return trace.NewAggregate(errors...)
 }
 
 // Start starts this group's internal goroutines

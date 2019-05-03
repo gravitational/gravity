@@ -28,7 +28,7 @@ type ClusterFactory interface {
 	NewCluster() ops.NewSiteRequest
 }
 
-// Planer constructs a plan for the install operation
+// Planner constructs a plan for the install operation
 type Planner interface {
 	// GetOperationPlan returns a new plan for the install operation
 	GetOperationPlan(ops.Site, ops.SiteOperation) (*storage.OperationPlan, error)

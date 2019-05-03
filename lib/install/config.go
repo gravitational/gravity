@@ -131,8 +131,8 @@ type Config struct {
 	Packages pack.PackageService
 	// AbortHandler specifies the handler for aborting the installation
 	AbortHandler func(context.Context) error
-	// UninstallHandler specifies the handler for cleanup during shutdown
-	UninstallHandler func(context.Context) error
+	// CompleteHandler specifies the handler for cleanup after operation has been successfully completed
+	CompleteHandler func(context.Context) error
 	// LocalAgent specifies whether the installer will also run an agent
 	LocalAgent bool
 }
@@ -178,8 +178,8 @@ func (c *Config) checkAndSetDefaults(ctx context.Context) (err error) {
 	if c.AbortHandler == nil {
 		return trace.BadParameter("missing AbortHandler")
 	}
-	if c.UninstallHandler == nil {
-		return trace.BadParameter("missing UninstallHandler")
+	if c.CompleteHandler == nil {
+		return trace.BadParameter("missing CompleteHandler")
 	}
 	if c.VxlanPort < 1 || c.VxlanPort > 65535 {
 		return trace.BadParameter("invalid vxlan port: must be in range 1-65535")
@@ -253,14 +253,13 @@ func (c *Config) newAgent(ctx context.Context) (*rpcserver.PeerServer, error) {
 	return NewAgent(ctx, AgentConfig{
 		FieldLogger:   c.FieldLogger,
 		AdvertiseAddr: c.AdvertiseAddr,
-		ServerAddr:    c.Process.AgentService().ServerAddr(),
+		// ServerAddr:    c.Process.AgentService().ServerAddr(),
+		ServerAddr: c.Process.Config().Pack.GetAddr().Addr,
 		Credentials: rpcserver.Credentials{
 			Server: serverCreds,
 			Client: clientCreds,
 		},
-		RuntimeConfig:         runtimeConfig,
-		AbortHandler:          c.AbortHandler,
-		UninstallHandler:      c.UninstallHandler,
+		RuntimeConfig: runtimeConfig,
 		SkipConnectValidation: true,
 		ReconnectStrategy: &rpcserver.ReconnectStrategy{
 			ShouldReconnect: func(err error) error {

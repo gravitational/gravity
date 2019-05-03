@@ -291,7 +291,7 @@ func (r *AgentService) StopAgents(ctx context.Context, key ops.SiteOperationKey)
 	}
 
 	err = group.Shutdown(ctx, &pb.ShutdownRequest{
-		Uninstall: true,
+		Cleanup: true,
 	})
 	if err != nil {
 		return trace.Wrap(err)

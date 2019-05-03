@@ -42,7 +42,8 @@ import (
 	"github.com/gravitational/trace"
 )
 
-// New returns a new instance of the unstarted installer server
+// New returns a new instance of the unstarted installer server.
+// Use Serve to start server operation
 func New(ctx context.Context, config Config) (*Installer, error) {
 	err := upsertSystemAccount(ctx, config.Operator)
 	if err != nil {
@@ -75,7 +76,6 @@ func (i *Installer) Serve(engine Engine, listener net.Listener) error {
 }
 
 // Stop stops the server and releases resources allocated by the installer.
-//
 // Implements signals.Stopper
 func (i *Installer) Stop(ctx context.Context) error {
 	i.Info("Stop.")
@@ -87,7 +87,6 @@ func (i *Installer) Stop(ctx context.Context) error {
 }
 
 // Abort stops the server, releases resources allocated by the installer and cleans up state.
-//
 // Implements signals.Aborter
 func (i *Installer) Abort(ctx context.Context) error {
 	i.Info("Abort.")
@@ -121,6 +120,7 @@ type Interface interface {
 
 // NotifyOperationAvailable is invoked by the engine to notify the server
 // that the operation has been created
+// Implements Interface
 func (i *Installer) NotifyOperationAvailable(key ops.SiteOperationKey) error {
 	i.operationKey = key
 	i.addAborter(signals.AborterFunc(func(ctx context.Context, interrupted bool) error {
@@ -137,7 +137,8 @@ func (i *Installer) NotifyOperationAvailable(key ops.SiteOperationKey) error {
 	return nil
 }
 
-// Finalize executes additional steps after the installation has completed
+// Finalize executes additional steps after the installation has completed.
+// Implements Interface
 func (i *Installer) Finalize(operation ops.SiteOperation) error {
 	var errors []error
 	if err := i.uploadInstallLog(operation.Key()); err != nil {
@@ -151,7 +152,8 @@ func (i *Installer) Finalize(operation ops.SiteOperation) error {
 
 // CompleteFinalInstallStep marks the final install step as completed unless
 // the application has a custom install step - in which case it does nothing
-// because it will be completed by user later
+// because it will be completed by user later.
+// Implements Interface
 func (i *Installer) CompleteFinalInstallStep(key ops.SiteOperationKey, delay time.Duration) error {
 	req := ops.CompleteFinalInstallStepRequest{
 		AccountID:           defaults.SystemAccountID,
@@ -165,14 +167,16 @@ func (i *Installer) CompleteFinalInstallStep(key ops.SiteOperationKey, delay tim
 	return nil
 }
 
-// PrintStep publishes a progress entry described with (format, args) tuple to the client
+// PrintStep publishes a progress entry described with (format, args) tuple to the client.
+// Implements Interface
 func (i *Installer) PrintStep(format string, args ...interface{}) error {
 	event := server.Event{Progress: &ops.ProgressEntry{Message: fmt.Sprintf(format, args...)}}
 	return trace.Wrap(i.server.Send(event))
 }
 
 // Wait blocks until either the context has been cancelled or the wizard process
-// exits with an error
+// exits with an error.
+// Implements Intreface
 func (i *Installer) Wait() error {
 	return trace.Wrap(i.Process.Wait())
 }
@@ -195,7 +199,7 @@ func (i *Installer) Execute() error {
 	if err != nil {
 		return trace.Wrap(err)
 	}
-	// Only explicitly stop agents after the operation has been completed
+	// Explicitly stop agents only iff the operation has been completed successfully
 	i.addStopper(signals.StopperFunc(func(ctx context.Context) error {
 		i.WithField("operation", i.operationKey.OperationID).Info("Stopping agent service.")
 		return trace.Wrap(i.Process.AgentService().StopAgents(ctx, i.operationKey))
@@ -255,7 +259,6 @@ func (i *Installer) NewCluster() ops.NewSiteRequest {
 		DNSOverrides: i.DNSOverrides,
 		DNSConfig:    i.DNSConfig,
 		Docker:       i.Docker,
-		Local:        true,
 	}
 }
 
@@ -273,7 +276,7 @@ func (i *Installer) stop(ctx context.Context) error {
 	return trace.NewAggregate(errors...)
 }
 
-// abort aborts the active operation
+// abort aborts the active operation and invokes the abort handler
 func (i *Installer) abort(ctx context.Context) error {
 	i.cancel()
 	var errors []error

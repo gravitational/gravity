@@ -51,12 +51,12 @@ func NewAgent(ctx context.Context, config AgentConfig) (*rpcserver.PeerServer, e
 	}()
 	peerConfig := rpcserver.PeerConfig{
 		Config: rpcserver.Config{
-			FieldLogger:      config.FieldLogger,
-			Listener:         listener,
-			Credentials:      config.Credentials,
-			RuntimeConfig:    config.RuntimeConfig,
-			AbortHandler:     config.AbortHandler,
-			UninstallHandler: config.UninstallHandler,
+			FieldLogger:     config.FieldLogger,
+			Listener:        listener,
+			Credentials:     config.Credentials,
+			RuntimeConfig:   config.RuntimeConfig,
+			AbortHandler:    config.AbortHandler,
+			CompleteHandler: config.CompleteHandler,
 		},
 		WatchCh:           config.WatchCh,
 		ReconnectStrategy: *config.ReconnectStrategy,
@@ -114,8 +114,8 @@ type AgentConfig struct {
 	SkipConnectValidation bool
 	// AbortHandler specifies an optional handler for abort requests
 	AbortHandler func(context.Context) error
-	// UninstallHandler specifies an optional handler for cleanup during shutdown
-	UninstallHandler func(context.Context) error
+	// CompleteHandler specifies an optional handler for cleanup during shutdown
+	CompleteHandler func(context.Context) error
 }
 
 // SplitAgentURL splits agentURL into server address and token

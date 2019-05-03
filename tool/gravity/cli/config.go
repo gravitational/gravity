@@ -140,9 +140,6 @@ type InstallConfig struct {
 	ServiceUser *systeminfo.User
 	// FromService specifies whether the process runs in service mode
 	FromService bool
-	// wizardAdvertiseAddr is advertise address of the wizard service endpoint.
-	// If empty, the server will listen on all interfaces
-	wizardAdvertiseAddr string
 	// writeStateDir is the directory where installer stores state for the duration
 	// of the operation
 	writeStateDir string
@@ -243,6 +240,7 @@ func (i *InstallConfig) CheckAndSetDefaults() (err error) {
 		return trace.Wrap(err)
 	}
 	i.AdvertiseAddr = advertiseAddr
+	i.WithField("addr", advertiseAddr).Info("Set advertise address.")
 	if !utils.StringInSlice(modules.Get().InstallModes(), i.Mode) {
 		return trace.BadParameter("invalid mode %q", i.Mode)
 	}
@@ -250,17 +248,13 @@ func (i *InstallConfig) CheckAndSetDefaults() (err error) {
 	if err != nil {
 		return trace.Wrap(err)
 	}
-	// Listen on all interfaces by default
-	// FIXME: need to make the listen address configurable though
-	i.wizardAdvertiseAddr = "0.0.0.0"
 	return nil
 }
 
 // NewProcessConfig returns new gravity process configuration for this configuration object
 func (i *InstallConfig) NewProcessConfig() (*processconfig.Config, error) {
 	config, err := install.NewProcessConfig(install.ProcessConfig{
-		Hostname:      i.AdvertiseAddr,
-		AdvertiseAddr: i.wizardAdvertiseAddr,
+		AdvertiseAddr: i.AdvertiseAddr,
 		StateDir:      i.StateDir,
 		WriteStateDir: i.writeStateDir,
 		LogFile:       i.UserLogFile,
@@ -310,12 +304,14 @@ func (i *InstallConfig) NewInstallerConfig(
 	if err != nil {
 		return nil, trace.Wrap(err)
 	}
-	if i.SiteDomain == "" {
-		i.SiteDomain = generateClusterName()
-	}
+	// Interactive workflow relies on an install token not having the cluster name
+	// to to handle the initial installer's screen
 	token, err := generateInstallToken(wizard.Operator, i.Token, i.SiteDomain)
 	if err != nil && !trace.IsAlreadyExists(err) {
 		return nil, trace.Wrap(err)
+	}
+	if i.SiteDomain == "" {
+		i.SiteDomain = generateClusterName()
 	}
 	return &install.Config{
 		FieldLogger:        i.FieldLogger,
@@ -354,7 +350,7 @@ func (i *InstallConfig) NewInstallerConfig(
 		Packages:           wizard.Packages,
 		Operator:           wizard.Operator,
 		AbortHandler:       installerUninstallSystem(env),
-		UninstallHandler:   installerCompleteOperation(env),
+		CompleteHandler:    installerCompleteOperation(env),
 		LocalAgent:         !i.ExcludeHostFromCluster,
 	}, nil
 
@@ -513,6 +509,26 @@ func (i *InstallConfig) validateDNSConfig() error {
 	return nil
 }
 
+// NewWizardConfig returns new configuration for the interactive installer
+func NewWizardConfig(env *localenv.LocalEnvironment, g *Application) InstallConfig {
+	return InstallConfig{
+		Mode:                   constants.InstallModeInteractive,
+		Insecure:               *g.Insecure,
+		UserLogFile:            *g.UserLogFile,
+		StateDir:               *g.WizardCmd.Path,
+		SystemLogFile:          *g.SystemLogFile,
+		ServiceUID:             *g.WizardCmd.ServiceUID,
+		ServiceGID:             *g.WizardCmd.ServiceGID,
+		FromService:            *g.WizardCmd.FromService,
+		ExcludeHostFromCluster: true,
+		Printer:                env,
+		LocalPackages:          env.Packages,
+		LocalApps:              env.Apps,
+		LocalBackend:           env.Backend,
+		LocalClusterClient:     env.SiteOperator,
+	}
+}
+
 // JoinConfig describes command line configuration of the join command
 type JoinConfig struct {
 	// SystemLogFile is gravity-system log file path
@@ -640,21 +656,21 @@ func (j *JoinConfig) NewPeerConfig(env, joinEnv *localenv.LocalEnvironment) (*ex
 		return nil, trace.Wrap(err)
 	}
 	return &expand.PeerConfig{
-		Peers:            peers,
-		AdvertiseAddr:    advertiseAddr,
-		ServerAddr:       j.ServerAddr,
-		CloudProvider:    j.CloudProvider,
-		RuntimeConfig:    *runtimeConfig,
-		DebugMode:        env.Debug,
-		Insecure:         env.Insecure,
-		LocalBackend:     env.Backend,
-		LocalApps:        env.Apps,
-		LocalPackages:    env.Packages,
-		JoinBackend:      joinEnv.Backend,
-		StateDir:         joinEnv.StateDir,
-		OperationID:      j.OperationID,
-		AbortHandler:     installerUninstallSystem(env),
-		UninstallHandler: installerCompleteOperation(env),
+		Peers:           peers,
+		AdvertiseAddr:   advertiseAddr,
+		ServerAddr:      j.ServerAddr,
+		CloudProvider:   j.CloudProvider,
+		RuntimeConfig:   *runtimeConfig,
+		DebugMode:       env.Debug,
+		Insecure:        env.Insecure,
+		LocalBackend:    env.Backend,
+		LocalApps:       env.Apps,
+		LocalPackages:   env.Packages,
+		JoinBackend:     joinEnv.Backend,
+		StateDir:        joinEnv.StateDir,
+		OperationID:     j.OperationID,
+		AbortHandler:    installerUninstallSystem(env),
+		CompleteHandler: installerCompleteOperation(env),
 	}, nil
 }
 

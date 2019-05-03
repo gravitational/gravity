@@ -28,8 +28,8 @@ service Agent {
 
 // ShutdownRequest describes a request to shut down a report RPC agent
 message ShutdownRequest {
-    // Uninstall specifies whether this should invoke the uninstall handler
-    bool uninstall = 1;
+    // Cleanup specifies whether this should invoke the cleanup handler
+    bool cleanup = 1;
 }
 
 message CommandArgs {

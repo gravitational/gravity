@@ -53,7 +53,7 @@ func InitProcess(ctx context.Context, gravityConfig processconfig.Config, newPro
 
 // NewProcessConfig creates a gravity process config from installer config
 func NewProcessConfig(config ProcessConfig) (*processconfig.Config, error) {
-	wizardConfig, err := process.WizardProcessConfig(config.Hostname, config.AdvertiseAddr, config.StateDir, config.WriteStateDir)
+	wizardConfig, err := process.WizardProcessConfig(config.AdvertiseAddr, config.StateDir, config.WriteStateDir)
 	if err != nil {
 		return nil, trace.Wrap(err)
 	}

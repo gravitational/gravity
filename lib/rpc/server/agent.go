@@ -136,8 +136,8 @@ func (srv *agentServer) GetCurrentTime(ctx context.Context, _ *types.Empty) (*ty
 // Shutdown requests agent to shut down
 func (srv *agentServer) Shutdown(ctx context.Context, req *pb.ShutdownRequest) (resp *types.Empty, err error) {
 	srv.WithField("req", req).Info("Shutdown.")
-	if req.Uninstall && srv.UninstallHandler != nil {
-		err = srv.UninstallHandler(ctx)
+	if req.Cleanup && srv.CompleteHandler != nil {
+		err = srv.CompleteHandler(ctx)
 	}
 	go srv.Stop(ctx)
 	return &types.Empty{}, trace.Wrap(err)
