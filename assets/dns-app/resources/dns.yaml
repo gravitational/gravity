@@ -209,8 +209,9 @@ spec:
             drop:
             - all
           readOnlyRootFilesystem: true
-          runAsNonRoot: true
-          runAsUser: 65534
+          runAsNonRoot: false
+          # TODO(knisbet) need a build of coredns that has setcap for net_bind_service enabled
+          runAsUser: 0
         ports:
         - containerPort: 53
           name: dns
