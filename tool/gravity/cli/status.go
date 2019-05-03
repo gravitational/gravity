@@ -362,9 +362,9 @@ func printAgentStatus(status statusapi.Agent, w io.Writer) {
 func printNodeStatus(node statusapi.ClusterServer, w io.Writer) {
 	description := node.AdvertiseIP
 	if node.Profile != "" {
-		description = fmt.Sprintf("%v, %v", description, node.Profile)
+		description = fmt.Sprintf("%v / %v", description, node.Profile)
 	}
-	fmt.Fprintf(w, "        * %v (%v)\n", unknownFallback(node.Hostname), description)
+	fmt.Fprintf(w, "        * %v / %v\n", unknownFallback(node.Hostname), description)
 	switch node.Status {
 	case statusapi.NodeOffline:
 		fmt.Fprintf(w, "            Status:\t%v\n", color.YellowString("offline"))
