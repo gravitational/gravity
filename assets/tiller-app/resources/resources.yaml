@@ -33,8 +33,7 @@ spec:
         app: helm
         name: tiller
       annotations:
-        container.apparmor.security.beta.kubernetes.io/tiller: runtime/default
-        seccomp.security.alpha.kubernetes.io/pod: runtime/default
+        seccomp.security.alpha.kubernetes.io/pod: docker/default
     spec:
       serviceAccountName: tiller
       tolerations:
