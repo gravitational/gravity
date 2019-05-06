@@ -278,9 +278,6 @@ func NewAPI(cfg Config) (*Handler, error) {
 	h.GET("/apps/:repository/:package/:version", h.needsAuth(h.getAppPackage))
 	h.GET("/apps/:repository/:package/:version/installer", h.needsAuth(h.getAppInstaller))
 
-	// Releases
-	h.GET("/sites/:domain/releases", h.needsAuth(h.getReleases))
-
 	// User
 	h.GET("/user/context", h.needsAuth(h.getWebContext))
 	h.GET("/user/status", h.needsAuth(h.getUserStatus))
@@ -2125,29 +2122,6 @@ func (m *Handler) updateRetentionPolicy(w http.ResponseWriter, r *http.Request, 
 		}
 	}
 	return httplib.OK(), nil
-}
-
-/* getReleases returns all application releases currently deployed in a cluster.
-
-     GET /portalapi/v1/sites/:domain/releases
-
-   Success response:
-
-     []webRelease
-*/
-func (m *Handler) getReleases(w http.ResponseWriter, r *http.Request, p httprouter.Params, context *AuthContext) (interface{}, error) {
-	cluster, err := context.Operator.GetSite(ops.SiteKey{
-		AccountID:  context.User.GetAccountID(),
-		SiteDomain: p.ByName("domain"),
-	})
-	if err != nil {
-		return nil, trace.Wrap(err)
-	}
-	releases, err := getReleases(context.Operator, *cluster)
-	if err != nil {
-		return nil, trace.Wrap(err)
-	}
-	return releases, nil
 }
 
 func getReleases(operator ops.Operator, cluster ops.Site) ([]webRelease, error) {
