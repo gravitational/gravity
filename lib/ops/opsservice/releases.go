@@ -24,8 +24,8 @@ import (
 	"github.com/gravitational/trace"
 )
 
-// ListReleases returns all currently installed application releases
-func (o *Operator) ListReleases(key ops.SiteKey) ([]storage.Release, error) {
+// ListReleases returns all currently installed application releases.
+func (o *Operator) ListReleases(req ops.ListReleasesRequest) ([]storage.Release, error) {
 	cluster, err := o.GetLocalSite()
 	if err != nil {
 		return nil, trace.Wrap(err)
@@ -42,6 +42,18 @@ func (o *Operator) ListReleases(key ops.SiteKey) ([]storage.Release, error) {
 	releases, err := client.List(helm.ListParameters{})
 	if err != nil {
 		return nil, trace.Wrap(err)
+	}
+	if !req.IncludeIcons {
+		return releases, nil
+	}
+	for i, release := range releases {
+		app, err := o.cfg.Apps.GetApp(release.GetLocator())
+		if err != nil {
+			o.Warnf("Failed to retrieve app for release %v: %v.",
+				release, trace.Wrap(err))
+			continue
+		}
+		releases[i].SetChartIcon(app.Manifest.Logo)
 	}
 	return releases, nil
 }

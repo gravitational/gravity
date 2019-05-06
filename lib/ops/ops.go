@@ -1021,7 +1021,15 @@ type Applications interface {
 	// a binary data stream
 	GetAppInstaller(AppInstallerRequest) (io.ReadCloser, error)
 	// ListReleases returns all currently installed application releases in a cluster.
-	ListReleases(SiteKey) ([]storage.Release, error)
+	ListReleases(ListReleasesRequest) ([]storage.Release, error)
+}
+
+// ListReleasesRequest is a request to list installed application releases.
+type ListReleasesRequest struct {
+	// SiteKey is the cluster routing key.
+	SiteKey
+	// IncludeIcons is whether to retrieve application icons as well.
+	IncludeIcons bool `json:"include_icons"`
 }
 
 // AppInstallerRequest is a request to generate installer tarball.

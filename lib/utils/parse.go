@@ -23,6 +23,7 @@ import (
 	"fmt"
 	"io"
 	"net"
+	"net/http"
 	"net/url"
 	"os"
 	"regexp"
@@ -468,4 +469,18 @@ func ParseProxyAddr(proxyAddr, defaultWebPort, defaultSSHPort string) (host stri
 	}
 
 	return "", "", "", trace.BadParameter("unable to parse port: %v", port)
+}
+
+// PasseBoolFlag extracts boolean parameter of the specified name from the
+// provided request's query string, or returns default.
+func ParseBoolFlag(r *http.Request, name string, def bool) (bool, error) {
+	sValue := r.URL.Query().Get(name)
+	if sValue == "" {
+		return def, nil
+	}
+	bValue, err := strconv.ParseBool(sValue)
+	if err != nil {
+		return false, trace.Wrap(err)
+	}
+	return bValue, nil
 }

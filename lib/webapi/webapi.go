@@ -248,9 +248,9 @@ func NewAPI(cfg Config) (*Handler, error) {
 	h.POST("/sites", h.needsAuth(h.createSite))
 	h.POST("/sites/:domain/expand", h.needsAuth(h.expandSite))
 	h.POST("/sites/:domain/shrink", h.needsAuth(h.shrinkSite))
-	h.GET("/sites/:domain", h.needsAuth(h.getSite))
 	h.GET("/sites/:domain/info", h.needsAuth(h.getClusterInfo))
-	h.GET("/sites", h.needsAuth(h.getSites))
+	h.GET("/sites", h.needsAuth(h.getClusters))
+	h.GET("/sites/:domain", h.needsAuth(h.getCluster))
 	h.GET("/sites/:domain/servers", h.needsAuth(h.getServers))
 	h.GET("/sites/:domain/report", h.needsAuth(h.getSiteReport))
 	h.PUT("/sites/:domain", h.needsAuth(h.updateSiteApp))
@@ -277,9 +277,6 @@ func NewAPI(cfg Config) (*Handler, error) {
 	h.POST("/apps", h.needsAuth(h.uploadApp))
 	h.GET("/apps/:repository/:package/:version", h.needsAuth(h.getAppPackage))
 	h.GET("/apps/:repository/:package/:version/installer", h.needsAuth(h.getAppInstaller))
-
-	// Releases
-	h.GET("/sites/:domain/releases", h.needsAuth(h.getReleases))
 
 	// User
 	h.GET("/user/context", h.needsAuth(h.getWebContext))
@@ -1298,33 +1295,36 @@ func (m *Handler) shrinkSite(w http.ResponseWriter, r *http.Request, p httproute
 	return siteShrinkOutput{Operation: *operation}, nil
 }
 
-// getSite retrieves details on the specified site
+// getCluster returns the specified cluster object.
 //
-// GET /portalapi/v1/sites/:domain
-//
-// Input: site_id
+//   GET /portalapi/v1/sites/:domain?shallow=(true|false)
 //
 // Output:
-// {
-//   "id": "344238abcd7"
-//   "created": "2016-05-14 13:00:05"
-//   "domain_name": "example.com"
-//   "account_id": "1ab238a8cd5"
-//   "state": "active"
-//   "provisioner": "aws_terraform"
-//   "app": {"package": "gravitational.io/test:1.0.0", "manifest": <...application manifest...>}
-// }
-func (m *Handler) getSite(w http.ResponseWriter, r *http.Request, p httprouter.Params, context *AuthContext) (interface{}, error) {
-	siteDomain := p[0].Value
-	site, err := context.Operator.GetSite(ops.SiteKey{
-		SiteDomain: siteDomain,
-		AccountID:  context.User.GetAccountID(),
-	})
+//
+//   webCluster
+//
+// If 'shallow' flag is true, returns stripped down cluster objects that do
+// not include raw manifest data, icons and other verbose fields.
+func (m *Handler) getCluster(w http.ResponseWriter, r *http.Request, p httprouter.Params, context *AuthContext) (interface{}, error) {
+	shallow, err := utils.ParseBoolFlag(r, "shallow", false)
 	if err != nil {
 		return nil, trace.Wrap(err)
 	}
-
-	return site, nil
+	key, err := clusterKey(context, p)
+	if err != nil {
+		return nil, trace.Wrap(err)
+	}
+	cluster, err := context.Operator.GetSite(*key)
+	if err != nil {
+		return nil, trace.Wrap(err)
+	}
+	releases, err := getReleases(context.Operator, *cluster)
+	if err != nil {
+		m.Errorf("Failed to retrieve releases information for cluster %v: %v.",
+			cluster, trace.DebugReport(err))
+	}
+	webCluster := newWebCluster(*cluster, releases, shallow)
+	return &webCluster, nil
 }
 
 // getApps retrieves the list of site app's packages of all available versions
@@ -1520,29 +1520,66 @@ func readFile(r *http.Request, name string) ([]byte, error) {
 	return data, nil
 }
 
-// getSites retrieves details of all sites for the specified account
+// webCluster represents a UI cluster object.
+type webCluster struct {
+	// Site is the backend cluster object.
+	ops.Site
+	// Releases is a list of applications installed on the cluster.
+	Releases []webRelease `json:"releases"`
+}
+
+// newWebCluster makes a new web representation of a cluster.
+func newWebCluster(cluster ops.Site, releases []webRelease, shallow bool) webCluster {
+	webCluster := webCluster{Site: cluster, Releases: releases}
+	// If 'shallow' is true, return a stripped down copy of the cluster
+	// object with some of the fields set to empty values such as icons
+	// and manifest data.
+	//
+	// This significantly reduces amount of traffic b/w frontend and server and
+	// improves the web application performance.
+	if shallow {
+		webCluster.App = ops.Application{}
+		for i := range webCluster.Releases {
+			webCluster.Releases[i].ChartIcon = ""
+		}
+	}
+	return webCluster
+}
+
+// getClusters returns all registered clusters.
 //
-// GET /portalapi/v1/sites
+// TODO: This method should eventually go away as both Gravity and Teleport
+//       dashboards will be using the same Teleport's "get clusters" API that
+//       will be just returning extended objects for Gravity.
 //
-// Input: site_id
+//   GET /portalapi/v1/sites?shallow=(true|false)
 //
 // Output:
-// [{
-//   "id": "344238abcd7"
-//   "created": "2016-05-14 13:00:05"
-//   "domain_name": "example.com"
-//   "account_id": "1ab238a8cd5"
-//   "state": "active"
-//   "provisioner": "aws_terraform"
-//   "app": {"package": "gravitational.io/test:1.0.0", "manifest": <...application manifest...>}
-// }]
-func (m *Handler) getSites(w http.ResponseWriter, r *http.Request, p httprouter.Params, context *AuthContext) (interface{}, error) {
-	sites, err := context.Operator.GetSites(context.User.GetAccountID())
+//
+//   []webCluster
+//
+// If 'shallow' flag is true, returns stripped down cluster objects that do
+// not include raw manifest data, icons and other verbose fields.
+func (m *Handler) getClusters(w http.ResponseWriter, r *http.Request, p httprouter.Params, context *AuthContext) (interface{}, error) {
+	shallow, err := utils.ParseBoolFlag(r, "shallow", false)
 	if err != nil {
 		return nil, trace.Wrap(err)
 	}
-
-	return sites, nil
+	clusters, err := context.Operator.GetSites(context.User.GetAccountID())
+	if err != nil {
+		return nil, trace.Wrap(err)
+	}
+	var webClusters []webCluster
+	for _, cluster := range clusters {
+		releases, err := getReleases(context.Operator, cluster)
+		if err != nil {
+			m.Errorf("Failed to retrieve releases information for cluster %v: %v.",
+				cluster, trace.DebugReport(err))
+		}
+		webClusters = append(webClusters, newWebCluster(
+			cluster, releases, shallow))
+	}
+	return webClusters, nil
 }
 
 type siteUpdateInput struct {
@@ -2073,47 +2110,31 @@ func (m *Handler) updateRetentionPolicy(w http.ResponseWriter, r *http.Request, 
 	return httplib.OK(), nil
 }
 
-/* getReleases returns all application releases currently deployed in a cluster.
-
-     GET /portalapi/v1/sites/:domain/releases
-
-   Success response:
-
-     []webRelease
-*/
-func (m *Handler) getReleases(w http.ResponseWriter, r *http.Request, p httprouter.Params, context *AuthContext) (interface{}, error) {
-	cluster, err := context.Operator.GetSite(ops.SiteKey{
-		AccountID:  context.User.GetAccountID(),
-		SiteDomain: p.ByName("domain"),
+func getReleases(operator ops.Operator, cluster ops.Site) ([]webRelease, error) {
+	releases, err := operator.ListReleases(ops.ListReleasesRequest{
+		SiteKey:      cluster.Key(),
+		IncludeIcons: true,
 	})
-	if err != nil {
-		return nil, trace.Wrap(err)
-	}
-	releases, err := context.Operator.ListReleases(cluster.Key())
 	if err != nil {
 		return nil, trace.Wrap(err)
 	}
 	result := make([]webRelease, 0, len(releases))
 	for _, release := range releases {
-		app, err := context.Applications.GetApp(release.GetLocator())
-		if err != nil {
-			return nil, trace.Wrap(err)
-		}
 		result = append(result, webRelease{
 			Name:         release.GetName(),
 			Namespace:    release.GetNamespace(),
 			Description:  release.GetMetadata().Description,
 			ChartName:    release.GetChartName(),
 			ChartVersion: release.GetChartVersion(),
+			ChartIcon:    release.GetChartIcon(),
 			AppVersion:   release.GetAppVersion(),
 			Status:       release.GetStatus(),
 			Updated:      release.GetUpdated(),
-			Icon:         app.Manifest.Logo,
 		})
 	}
 	// Prepend the user's bundle to the list of installed apps.
 	if !cluster.IsGravity() && !cluster.IsOpsCenter() {
-		endpoints, err := context.Operator.GetApplicationEndpoints(cluster.Key())
+		endpoints, err := operator.GetApplicationEndpoints(cluster.Key())
 		if err != nil {
 			return nil, trace.Wrap(err)
 		}
@@ -2121,9 +2142,9 @@ func (m *Handler) getReleases(w http.ResponseWriter, r *http.Request, p httprout
 			Description:  cluster.App.Manifest.Metadata.Description,
 			ChartName:    cluster.App.Manifest.Metadata.Name,
 			ChartVersion: cluster.App.Manifest.Metadata.ResourceVersion,
+			ChartIcon:    cluster.App.Manifest.Logo,
 			Status:       cluster.ReleaseStatus(),
 			Updated:      cluster.App.PackageEnvelope.Created,
-			Icon:         cluster.App.Manifest.Logo,
 			Endpoints:    endpoints,
 		}}, result...)
 	}
@@ -2142,14 +2163,14 @@ type webRelease struct {
 	ChartName string `json:"chartName"`
 	// ChartVersion is the version of the release chart.
 	ChartVersion string `json:"chartVersion"`
+	// ChartIcon is base64-encoded chart application icon.
+	ChartIcon string `json:"icon,omitempty"`
 	// AppVersion is the optional application version.
 	AppVersion string `json:"appVersion"`
 	// Status is the release status.
 	Status string `json:"status"`
 	// Updated is when the release was last updated.
 	Updated time.Time `json:"updated"`
-	// Icon is base64-encoded application icon.
-	Icon string `json:"icon,omitempty"`
 	// Endpoints contains the application endpoints.
 	Endpoints []ops.Endpoint `json:"endpoints,omitempty"`
 }

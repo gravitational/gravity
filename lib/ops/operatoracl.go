@@ -1048,7 +1048,7 @@ func (o *OperatorACL) GetAuthGateway(key SiteKey) (storage.AuthGateway, error) {
 }
 
 // ListReleases returns all currently installed application releases in a cluster.
-func (o *OperatorACL) ListReleases(key SiteKey) ([]storage.Release, error) {
+func (o *OperatorACL) ListReleases(req ListReleasesRequest) ([]storage.Release, error) {
 	// TODO: Ideally this method would filter out releases a user does not
 	// have access to, however Teleport's resources support only a single
 	// namespace (default) for now so it is impossible to, for example,
@@ -1058,10 +1058,10 @@ func (o *OperatorACL) ListReleases(key SiteKey) ([]storage.Release, error) {
 	// Hence, we're returning all releases based on the broader "cluster"
 	// permission here but in the future, when Teleport starts respecting
 	// namespaces, it might be worth implementing a more granular ACL.
-	if err := o.ClusterAction(key.SiteDomain, storage.KindCluster, teleservices.VerbRead); err != nil {
+	if err := o.ClusterAction(req.SiteDomain, storage.KindCluster, teleservices.VerbRead); err != nil {
 		return nil, trace.Wrap(err)
 	}
-	return o.operator.ListReleases(key)
+	return o.operator.ListReleases(req)
 }
 
 // EmitAuditEvent saves the provided event in the audit log.
