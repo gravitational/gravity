@@ -140,7 +140,7 @@ func (r *ReleaseV1) GetChartIcon() string {
 	return r.Spec.ChartIcon
 }
 
-// SetChartIcon returns the chart application icon.
+// SetChartIcon sets the chart application icon.
 func (r *ReleaseV1) SetChartIcon(val string) {
 	r.Spec.ChartIcon = val
 }

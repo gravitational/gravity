@@ -20,12 +20,12 @@ import (
 	"encoding/json"
 	"fmt"
 	"net/http"
-	"strconv"
 
 	"github.com/gravitational/gravity/lib/constants"
 	"github.com/gravitational/gravity/lib/ops"
 	"github.com/gravitational/gravity/lib/ops/opsclient"
 	"github.com/gravitational/gravity/lib/storage"
+	"github.com/gravitational/gravity/lib/utils"
 
 	"github.com/gravitational/roundtrip"
 	telehttplib "github.com/gravitational/teleport/lib/httplib"
@@ -149,11 +149,9 @@ func (h *WebHandler) getReleases(w http.ResponseWriter, r *http.Request, p httpr
 	if err != nil {
 		return trace.Wrap(err)
 	}
-	var includeIcons bool
-	if i := r.Form.Get("include_icons"); i != "" {
-		if includeIcons, err = strconv.ParseBool(i); err != nil {
-			return trace.Wrap(err)
-		}
+	includeIcons, err := utils.ParseBoolFlag(r, "include_icons", false)
+	if err != nil {
+		return trace.Wrap(err)
 	}
 	releases, err := ctx.Operator.ListReleases(ops.ListReleasesRequest{
 		SiteKey:      siteKey(p),

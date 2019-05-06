@@ -1306,7 +1306,7 @@ func (m *Handler) shrinkSite(w http.ResponseWriter, r *http.Request, p httproute
 // If 'shallow' flag is true, returns stripped down cluster objects that do
 // not include raw manifest data, icons and other verbose fields.
 func (m *Handler) getCluster(w http.ResponseWriter, r *http.Request, p httprouter.Params, context *AuthContext) (interface{}, error) {
-	shallow, err := getBoolFlag(r, "shallow", false)
+	shallow, err := utils.ParseBoolFlag(r, "shallow", false)
 	if err != nil {
 		return nil, trace.Wrap(err)
 	}
@@ -1546,20 +1546,6 @@ func newWebCluster(cluster ops.Site, releases []webRelease, shallow bool) webClu
 	return webCluster
 }
 
-// getBoolFlag extracts boolean parameter of the specified name from the
-// provided request's query string, or returns default.
-func getBoolFlag(r *http.Request, name string, def bool) (bool, error) {
-	sValue := r.URL.Query().Get(name)
-	if sValue == "" {
-		return def, nil
-	}
-	bValue, err := strconv.ParseBool(sValue)
-	if err != nil {
-		return false, trace.Wrap(err)
-	}
-	return bValue, nil
-}
-
 // getClusters returns all registered clusters.
 //
 // TODO: This method should eventually go away as both Gravity and Teleport
@@ -1575,7 +1561,7 @@ func getBoolFlag(r *http.Request, name string, def bool) (bool, error) {
 // If 'shallow' flag is true, returns stripped down cluster objects that do
 // not include raw manifest data, icons and other verbose fields.
 func (m *Handler) getClusters(w http.ResponseWriter, r *http.Request, p httprouter.Params, context *AuthContext) (interface{}, error) {
-	shallow, err := getBoolFlag(r, "shallow", false)
+	shallow, err := utils.ParseBoolFlag(r, "shallow", false)
 	if err != nil {
 		return nil, trace.Wrap(err)
 	}
