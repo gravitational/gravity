@@ -28,6 +28,8 @@ elif [ $1 = "rollback" ]; then
 elif [ $1 = "install" ]; then
     echo "Creating new resources"
     rig upsert -f /var/lib/gravity/resources/dns.yaml
+    echo "Freezing"
+    rig freeze
 else
     echo "Missing argument, should be either 'update' or 'rollback'"
 fi
