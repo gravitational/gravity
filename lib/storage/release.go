@@ -39,6 +39,10 @@ type Release interface {
 	GetChartName() string
 	// GetChartVersion returns the deployed chart version.
 	GetChartVersion() string
+	// GetChartIcon returns the chart application icon.
+	GetChartIcon() string
+	// SetChartIcon sets the chart application icon.
+	SetChartIcon(string)
 	// GetChart returns the full chart name that includes version.
 	GetChart() string
 	// GetAppVersion returns the application version (may be empty).
@@ -99,6 +103,8 @@ type ReleaseSpecV1 struct {
 	ChartName string `json:"chart_name"`
 	// ChartVersion is the deployed chart version.
 	ChartVersion string `json:"chart_version"`
+	// ChartIcon is the chart application icon.
+	ChartIcon string `json:"chart_icon,omitempty"`
 	// AppVersion is the application version (may be empty).
 	AppVersion string `json:"app_version"`
 	// Namespace is the namespace where release is deployed.
@@ -127,6 +133,16 @@ func (r *ReleaseV1) GetChartName() string {
 // GetChartVersion returns the deployed chart version.
 func (r *ReleaseV1) GetChartVersion() string {
 	return r.Spec.ChartVersion
+}
+
+// GetChartIcon returns the chart application icon.
+func (r *ReleaseV1) GetChartIcon() string {
+	return r.Spec.ChartIcon
+}
+
+// SetChartIcon sets the chart application icon.
+func (r *ReleaseV1) SetChartIcon(val string) {
+	r.Spec.ChartIcon = val
 }
 
 // GetChart returns the full chart name that includes version.
@@ -240,6 +256,7 @@ var ReleaseV1Schema = fmt.Sprintf(`{
   "properties": {
     "chart_name": {"type": "string"},
     "chart_version": {"type": "string"},
+    "chart_icon": {"type": "string"},
     "app_version": {"type": "string"},
     "namespace": {"type": "string"}
   }
