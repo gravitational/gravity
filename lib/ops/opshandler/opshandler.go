@@ -2410,8 +2410,11 @@ func NeedsAuth(devmode bool, backend storage.Backend, operator ops.Operator, web
 		err := handler(w, r, params)
 		if err != nil {
 			if trace.IsAccessDenied(err) {
-				log.Debugf("Access denied for %v %v: %v.", r.Method, r.URL.Path,
-					trace.DebugReport(err))
+				log.WithFields(log.Fields{
+					log.ErrorKey: err,
+					"method":     r.Method,
+					"path":       r.URL.Path,
+				}).Debugf("Access denied.")
 			}
 			trace.WriteError(w, err)
 		}

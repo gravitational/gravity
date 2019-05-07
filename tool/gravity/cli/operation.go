@@ -21,6 +21,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/gravitational/gravity/lib/defaults"
 	"github.com/gravitational/gravity/lib/fsm"
 	"github.com/gravitational/gravity/lib/localenv"
 	"github.com/gravitational/gravity/lib/ops"
@@ -234,15 +235,15 @@ func (r *backendOperations) List(localEnv, updateEnv, joinEnv *localenv.LocalEnv
 	if r.isActiveInstallOperation() {
 		wizardEnv, err := localenv.NewRemoteEnvironment()
 		if err == nil && wizardEnv.Operator != nil {
-			cluster, err := wizardEnv.Operator.GetLocalSite()
+			cluster, err := getLocalClusterFromWizard(wizardEnv.Operator)
 			if err == nil {
 				log.Info("Fetching operation from wizard.")
 				r.getOperationAndUpdateCache(getOperationFromOperator(wizardEnv.Operator, cluster.Key()),
 					log.WithField("context", "install"))
 				return nil
 			}
+			log.WithError(err).Warn("Failed to connect to wizard.")
 		}
-		log.WithError(err).Warn("Failed to connect to wizard.")
 		wizardLocalEnv, err := localEnv.NewLocalWizardEnvironment()
 		if err != nil {
 			return trace.Wrap(err, "failed to read local wizard environment")
@@ -335,6 +336,22 @@ func getOperationFromBackend(backend storage.Backend) operationGetter {
 		}
 		return (*ops.SiteOperation)(op), nil
 	})
+}
+
+func getLocalClusterFromWizard(operator ops.Operator) (cluster *ops.Site, err error) {
+	// TODO(dmitri): I attempted to default to local when creating clusters with wizard
+	// but this breaks when the installer needs to tunnel APIs to the installed cluster
+	// in which case it uses the difference of local (installed cluster) vs non-local
+	// (in wizard state), so resorting to look up
+	clusters, err := operator.GetSites(defaults.SystemAccountID)
+	if err != nil {
+		return nil, trace.Wrap(err)
+	}
+	log.WithField("clusters", clusters).Info("Fetched clusters from remote wizard.")
+	if len(clusters) != 1 {
+		return nil, trace.BadParameter("expected a single cluster, but found %v", len(clusters))
+	}
+	return &clusters[0], nil
 }
 
 func (r operationGetterFunc) getOperation() (*ops.SiteOperation, error) {

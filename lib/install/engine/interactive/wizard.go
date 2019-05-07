@@ -152,7 +152,7 @@ func (r *executor) finalizeOperation(operation ops.SiteOperation) error {
 			r.WithError(err).Warn("Failed to complete final install step.")
 		}
 	}
-	if err := r.Finalize(operation); err != nil {
+	if err := r.CompleteOperation(operation); err != nil {
 		r.WithError(err).Warn("Failed to finalize install.")
 	}
 	return nil

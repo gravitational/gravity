@@ -195,13 +195,6 @@ const (
 	// GravityRPCInstallerServiceName defines systemd unit service name for the installer
 	GravityRPCInstallerServiceName = "gravity-installer.service"
 
-	// InstallerToken defines the token for the installer service client.
-	// The token is a simple means to validate that the client is running in expected modality
-	// i.e. to prevent from running 'plan resume' from a joining node, etc.
-	InstallerToken = "install"
-	// JoinToken defines the token for the joining agent service client
-	JoinToken = "join"
-
 	// AgentValidationTimeout specifies the maximum amount of time for a remote validation
 	// request during the preflight test
 	AgentValidationTimeout = 1 * time.Minute

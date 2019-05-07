@@ -59,7 +59,7 @@ func NewPeer(ctx context.Context, config PeerConfig) (*Peer, error) {
 		return nil, trace.Wrap(err)
 	}
 	localCtx, cancel := context.WithCancel(ctx)
-	server := server.New(ctx, defaults.JoinToken)
+	server := server.New(ctx)
 	peer := &Peer{
 		PeerConfig: config,
 		ctx:        localCtx,
@@ -344,7 +344,7 @@ func (p *Peer) dialWizard(addr string) (*operationContext, error) {
 	if err != nil {
 		return nil, trace.Wrap(err)
 	}
-	entry, err := env.LoginWizard(addr)
+	entry, err := env.LoginWizard(addr, p.Token)
 	if err != nil {
 		return nil, trace.Wrap(err)
 	}
@@ -533,9 +533,9 @@ func (p *Peer) run() error {
 	if err != nil {
 		return trace.Wrap(err)
 	}
-	p.WithField("context", fmt.Sprintf("%+v", *ctx)).Info("Connected.")
 
-	p.server.RunProgressLoop(ctx.Operator, ctx.Operation.Key())
+	doneC := make(chan struct{}, 1)
+	p.server.RunProgressLoop(ctx.Operator, ctx.Operation.Key(), doneC)
 
 	err = p.ensureServiceUserAndBinary(*ctx)
 	if err != nil {
@@ -579,6 +579,7 @@ func (p *Peer) run() error {
 		select {
 		case <-p.ctx.Done():
 		case <-p.agent.Done():
+		case <-doneC:
 		}
 		return nil
 	}

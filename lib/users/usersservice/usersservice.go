@@ -29,12 +29,11 @@ import (
 	"github.com/gravitational/gravity/lib/users"
 	"github.com/gravitational/gravity/lib/utils"
 
+	"github.com/gokyle/hotp"
 	"github.com/gravitational/teleport"
 	teleauth "github.com/gravitational/teleport/lib/auth"
 	teleservices "github.com/gravitational/teleport/lib/services"
 	"github.com/gravitational/trace"
-
-	"github.com/gokyle/hotp"
 	"github.com/jonboulle/clockwork"
 	log "github.com/sirupsen/logrus"
 	"github.com/tstranex/u2f"

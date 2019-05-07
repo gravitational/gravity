@@ -39,6 +39,7 @@ import (
 	"github.com/gravitational/gravity/lib/storage"
 	"github.com/gravitational/gravity/lib/system/signals"
 
+	"github.com/fatih/color"
 	"github.com/gravitational/trace"
 )
 
@@ -57,7 +58,7 @@ func New(ctx context.Context, config Config) (*Installer, error) {
 		}
 		go agent.Serve()
 	}
-	server := server.New(ctx, defaults.InstallerToken)
+	server := server.New(ctx)
 	localCtx, cancel := context.WithCancel(ctx)
 	installer := &Installer{
 		Config: config,
@@ -104,9 +105,9 @@ type Interface interface {
 	// NotifyOperationAvailable is invoked by the engine to notify the server
 	// that the operation has been created
 	NotifyOperationAvailable(ops.SiteOperationKey) error
-	// Finalize executes additional steps common to all workflows after the
+	// CompleteOperation executes additional steps common to all workflows after the
 	// installation has completed
-	Finalize(operation ops.SiteOperation) error
+	CompleteOperation(operation ops.SiteOperation) error
 	// CompleteFinalInstallStep marks the final install step as completed unless
 	// the application has a custom install step. In case of the custom step,
 	// the user completes the final installer step
@@ -119,10 +120,9 @@ type Interface interface {
 }
 
 // NotifyOperationAvailable is invoked by the engine to notify the server
-// that the operation has been created
+// that the operation has been created.
 // Implements Interface
 func (i *Installer) NotifyOperationAvailable(key ops.SiteOperationKey) error {
-	i.operationKey = key
 	i.addAborter(signals.AborterFunc(func(ctx context.Context, interrupted bool) error {
 		if interrupted {
 			i.WithField("operation", key.OperationID).Info("Aborting agent service.")
@@ -133,13 +133,14 @@ func (i *Installer) NotifyOperationAvailable(key ops.SiteOperationKey) error {
 	if err := i.upsertAdminAgent(key.SiteDomain); err != nil {
 		return trace.Wrap(err)
 	}
-	i.server.RunProgressLoop(i.Operator, key)
+	doneC := make(chan struct{}, 1)
+	i.server.RunProgressLoop(i.Operator, key, doneC)
 	return nil
 }
 
-// Finalize executes additional steps after the installation has completed.
+// CompleteOperation executes additional steps after the installation has completed.
 // Implements Interface
-func (i *Installer) Finalize(operation ops.SiteOperation) error {
+func (i *Installer) CompleteOperation(operation ops.SiteOperation) error {
 	var errors []error
 	if err := i.uploadInstallLog(operation.Key()); err != nil {
 		errors = append(errors, err)
@@ -147,6 +148,13 @@ func (i *Installer) Finalize(operation ops.SiteOperation) error {
 	if err := i.emitAuditEvents(i.ctx, operation); err != nil {
 		errors = append(errors, err)
 	}
+	// Explicitly stop agents only iff the operation has been completed successfully
+	i.addStopper(signals.StopperFunc(func(ctx context.Context) error {
+		i.WithField("operation", operation.ID).Info("Stopping agent service.")
+		return trace.Wrap(i.Process.AgentService().StopAgents(ctx, operation.Key()))
+	}))
+	i.sendElapsedTime(operation.Created)
+	i.sendPostInstallBanner()
 	return trace.NewAggregate(errors...)
 }
 
@@ -199,12 +207,7 @@ func (i *Installer) Execute() error {
 	if err != nil {
 		return trace.Wrap(err)
 	}
-	// Explicitly stop agents only iff the operation has been completed successfully
-	i.addStopper(signals.StopperFunc(func(ctx context.Context) error {
-		i.WithField("operation", i.operationKey.OperationID).Info("Stopping agent service.")
-		return trace.Wrap(i.Process.AgentService().StopAgents(ctx, i.operationKey))
-	}))
-	i.printPostInstallBanner()
+
 	return nil
 }
 
@@ -293,9 +296,18 @@ func (i *Installer) abort(ctx context.Context) error {
 	return trace.NewAggregate(errors...)
 }
 
+func (i *Installer) sendElapsedTime(timeStarted time.Time) {
+	event := server.Event{
+		Progress: &ops.ProgressEntry{
+			Message: color.GreenString("Installation succeeded in %v", time.Since(timeStarted)),
+		},
+	}
+	i.server.Send(event)
+}
+
 // TODO(dmitri): this information should also be displayed when working with the operation
 // manually
-func (i *Installer) printPostInstallBanner() {
+func (i *Installer) sendPostInstallBanner() {
 	var buf bytes.Buffer
 	i.printEndpoints(&buf)
 	if m, ok := modules.Get().(modules.Messager); ok {
@@ -361,11 +373,7 @@ func (i *Installer) uploadInstallLog(operationKey ops.SiteOperationKey) error {
 		return trace.Wrap(err)
 	}
 	defer file.Close()
-	operator, err := i.LocalClusterClient()
-	if err != nil {
-		return trace.Wrap(err)
-	}
-	err = operator.StreamOperationLogs(operationKey, file)
+	err = i.Operator.StreamOperationLogs(operationKey, file)
 	if err != nil {
 		return trace.Wrap(err, "failed to upload install log")
 	}
@@ -378,12 +386,13 @@ func (i *Installer) uploadInstallLog(operationKey ops.SiteOperationKey) error {
 func (i *Installer) emitAuditEvents(ctx context.Context, operation ops.SiteOperation) error {
 	operator, err := localenv.ClusterOperator()
 	if err != nil {
+		i.WithError(err).Warn("Failed to create cluster operator.")
 		return trace.Wrap(err)
 	}
 	fields := events.FieldsForOperation(operation)
-	events.Emit(ctx, operator, events.OperationStarted, fields.WithField(
+	events.Emit(i.ctx, operator, events.OperationInstallStart, fields.WithField(
 		events.FieldTime, operation.Created))
-	events.Emit(ctx, operator, events.OperationCompleted, fields)
+	events.Emit(i.ctx, operator, events.OperationInstallComplete, fields)
 	return nil
 }
 
@@ -406,9 +415,6 @@ type Installer struct {
 	cancel context.CancelFunc
 	server *server.Server
 	engine Engine
-	// operationKey references the install operation once it has been
-	// created by the engine
-	operationKey ops.SiteOperationKey
 	// agent is an optional RPC agent if the installer
 	// has been configured to use local host as one of the cluster nodes
 	agent *rpcserver.PeerServer
@@ -430,13 +436,3 @@ type Engine interface {
 	// config specifies the configuration for the operation
 	Execute(ctx context.Context, installer Interface, config Config) error
 }
-
-// // timeSinceBeginning returns formatted operation duration
-// func (i *Installer) timeSinceBeginning(key ops.SiteOperationKey) string {
-// 	operation, err := i.Operator.GetSiteOperation(key)
-// 	if err != nil {
-// 		i.Errorf("Failed to retrieve operation: %v.", trace.DebugReport(err))
-// 		return "<unknown>"
-// 	}
-// 	return time.Since(operation.Created).String()
-// }

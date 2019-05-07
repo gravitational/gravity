@@ -261,6 +261,7 @@ func (i *InstallConfig) NewProcessConfig() (*processconfig.Config, error) {
 		ServiceUser:   *i.ServiceUser,
 		ClusterName:   i.SiteDomain,
 		Devmode:       i.Insecure,
+		Token:         i.Token,
 	})
 	if err != nil {
 		return nil, trace.Wrap(err)

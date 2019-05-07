@@ -9,7 +9,7 @@ import (
 	"os/user"
 	"path/filepath"
 	"strings"
-	"sync/atomic"
+	"sync"
 	"time"
 
 	"github.com/gravitational/gravity/lib/constants"
@@ -93,7 +93,9 @@ func (r *Client) Abort(ctx context.Context) error {
 
 // Completed returns true if the operation has already been completed
 func (r *Client) Completed() bool {
-	return atomic.LoadInt32((*int32)(&r.completed)) == 1
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	return r.completed
 }
 
 func (r *Config) checkAndSetDefaults() error {
@@ -107,9 +109,6 @@ func (r *Config) checkAndSetDefaults() error {
 	}
 	if r.InterruptHandler == nil {
 		return trace.BadParameter("InterruptHandler is required")
-	}
-	if r.Token == "" {
-		return trace.BadParameter("Token is required")
 	}
 	if r.Printer == nil {
 		r.Printer = utils.DiscardPrinter
@@ -147,8 +146,6 @@ type Config struct {
 	ServiceName string
 	// Resume specifies whether the existing service should be resumed
 	Resume bool
-	// Token specifies the validation token
-	Token string
 }
 
 func (r *Client) connectRunning(ctx context.Context) error {
@@ -247,12 +244,11 @@ func (r *Client) progressLoop(stream installpb.Agent_ExecuteClient) (err error) 
 		}
 		r.PrintStep(resp.Message)
 		if resp.Status == installpb.ProgressResponse_Completed {
-			break
+			r.markCompleted()
+			r.maskService()
+			// Do not explicitly exit the loop - wait for service to exit
 		}
 	}
-	r.markCompleted()
-	r.maskService()
-	return nil
 }
 
 func (r *Client) addTerminationHandler() {
@@ -267,7 +263,9 @@ func (r *Client) addTerminationHandler() {
 }
 
 func (r *Client) markCompleted() {
-	atomic.StoreInt32((*int32)(&r.completed), 1)
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	r.completed = true
 }
 
 // restartService starts the installer's systemd unit unless it's already active
@@ -295,8 +293,11 @@ type Client struct {
 	utils.Printer
 	config Config
 	client installpb.AgentClient
+
+	// mu guards fields below
+	mu sync.Mutex
 	// completed indicates whether the operation is complete
-	completed int32
+	completed bool
 }
 
 func removeSocketFileCommand(socketPath string) (cmd string) {

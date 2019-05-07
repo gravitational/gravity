@@ -509,10 +509,6 @@ func (o *Operator) validateNewSiteRequest(req *ops.NewSiteRequest) error {
 		req.DNSConfig = storage.DefaultDNSConfig
 	}
 
-	if o.cfg.Wizard {
-		req.Local = true
-	}
-
 	if req.License == "" {
 		if app.RequiresLicense() {
 			return trace.BadParameter("the app requires a license")

@@ -63,6 +63,8 @@ type Application struct {
 	// JoinExecuterCmd joins to the installer or existing cluster
 	JoinExecuteCmd JoinExecuteCmd
 	// JoinResumCmd resumes an on-going install/join operation from a joining node
+	// FIXME(dmitri): this is a redundant command and will go away.
+	// 'plan resume' should be smart enough to detect the context it is running in
 	JoinResumeCmd JoinResumeCmd
 	// AutoJoinCmd uses cloud provider info to join existing cluster
 	AutoJoinCmd AutoJoinCmd

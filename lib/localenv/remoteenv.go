@@ -55,11 +55,12 @@ type RemoteEnvironment struct {
 
 // NewRemoteEnvironment creates a new remote environment
 func NewRemoteEnvironment() (*RemoteEnvironment, error) {
-	err := os.MkdirAll(defaults.GravityInstallDir("wizard"), defaults.SharedDirMask)
+	stateDir := filepath.Join(defaults.GravityEphemeralDir, "wizard")
+	err := os.MkdirAll(stateDir, defaults.SharedDirMask)
 	if err != nil {
 		return nil, trace.ConvertSystemError(err)
 	}
-	env, err := newRemoteEnvironment(defaults.GravityInstallDir("wizard"))
+	env, err := newRemoteEnvironment(stateDir)
 	if err != nil {
 		return nil, trace.Wrap(err)
 	}
@@ -67,12 +68,12 @@ func NewRemoteEnvironment() (*RemoteEnvironment, error) {
 }
 
 // LoginWizard creates remote environment and logs into it as a wizard user
-func LoginWizard(addr string) (*RemoteEnvironment, error) {
+func LoginWizard(addr, token string) (*RemoteEnvironment, error) {
 	env, err := NewRemoteEnvironment()
 	if err != nil {
 		return nil, trace.Wrap(err)
 	}
-	_, err = env.LoginWizard(addr)
+	_, err = env.LoginWizard(addr, token)
 	if err != nil {
 		return nil, trace.Wrap(err)
 	}
@@ -136,7 +137,7 @@ func (w *RemoteEnvironment) LoginCluster(url, token string) error {
 }
 
 // LoginWizard logs this environment into wizard with specified address
-func (w *RemoteEnvironment) LoginWizard(addr string) (entry *storage.LoginEntry, err error) {
+func (w *RemoteEnvironment) LoginWizard(addr, token string) (entry *storage.LoginEntry, err error) {
 	wizardPort := strconv.Itoa(defaults.WizardPackServerPort)
 	var host, port string
 	if strings.HasPrefix(addr, "https") {
@@ -155,7 +156,7 @@ func (w *RemoteEnvironment) LoginWizard(addr string) (entry *storage.LoginEntry,
 	}
 	return w.login(storage.LoginEntry{
 		Email:        defaults.WizardUser,
-		Password:     defaults.WizardPassword,
+		Password:     token,
 		OpsCenterURL: url,
 	})
 }

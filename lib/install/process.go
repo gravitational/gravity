@@ -18,13 +18,20 @@ package install
 
 import (
 	"context"
+	"fmt"
+	"os"
+	"path/filepath"
 
 	"github.com/gravitational/gravity/lib/constants"
+	"github.com/gravitational/gravity/lib/defaults"
 	"github.com/gravitational/gravity/lib/ops"
 	"github.com/gravitational/gravity/lib/process"
 	"github.com/gravitational/gravity/lib/processconfig"
+	"github.com/gravitational/gravity/lib/storage"
 	"github.com/gravitational/gravity/lib/systeminfo"
+	"github.com/gravitational/gravity/lib/users"
 
+	teleutils "github.com/gravitational/teleport/lib/utils"
 	"github.com/gravitational/trace"
 )
 
@@ -53,24 +60,56 @@ func InitProcess(ctx context.Context, gravityConfig processconfig.Config, newPro
 
 // NewProcessConfig creates a gravity process config from installer config
 func NewProcessConfig(config ProcessConfig) (*processconfig.Config, error) {
-	wizardConfig, err := process.WizardProcessConfig(config.AdvertiseAddr, config.StateDir, config.WriteStateDir)
+	assetsDir := filepath.Join(config.WriteStateDir, "assets")
+	if err := os.MkdirAll(assetsDir, defaults.SharedDirMask); err != nil {
+		return nil, trace.Wrap(trace.ConvertSystemError(err),
+			"failed to create directory for assets")
+	}
+	healthAddr, _ := teleutils.ParseAddr(fmt.Sprintf(":%v", defaults.WizardHealthPort))
+	adminRole, err := users.NewAdminRole()
 	if err != nil {
 		return nil, trace.Wrap(err)
 	}
-	wizardConfig.ServiceUser = &config.ServiceUser
-	seedConfig, err := process.RemoteAccessConfig(config.StateDir)
+	wizardConfig := &processconfig.Config{
+		Mode:         constants.ComponentInstaller,
+		WebAssetsDir: assetsDir,
+		DataDir:      config.WriteStateDir,
+		Hostname:     config.AdvertiseAddr,
+		HealthAddr:   *healthAddr,
+		BackendType:  constants.BoltBackend,
+		Pack: processconfig.PackageServiceConfig{
+			ListenAddr: teleutils.NetAddr{
+				AddrNetwork: "tcp",
+				// Listen on all interfaces
+				Addr: fmt.Sprintf("0.0.0.0:%v", defaults.WizardPackServerPort),
+			},
+			AdvertiseAddr: teleutils.NetAddr{
+				AddrNetwork: "tcp",
+				Addr:        fmt.Sprintf("%v:%v", config.AdvertiseAddr, defaults.WizardPackServerPort),
+			},
+			ReadDir: config.StateDir,
+		},
+		Users: []processconfig.User{
+			{
+				Email:    defaults.WizardUser,
+				Password: config.Token,
+				Org:      defaults.SystemAccountOrg,
+				Type:     storage.AdminUser,
+				Roles:    []string{adminRole.GetName()},
+			},
+		},
+		ServiceUser:     &config.ServiceUser,
+		ClusterName:     config.ClusterName,
+		Devmode:         config.Devmode,
+		InstallLogFiles: []string{config.LogFile},
+	}
+	wizardConfig.OpsCenter.SeedConfig, err = process.RemoteAccessConfig(config.WriteStateDir)
 	if err != nil && !trace.IsNotFound(err) {
 		return nil, trace.Wrap(err)
 	}
-	if seedConfig != nil {
-		wizardConfig.OpsCenter.SeedConfig = seedConfig
-	} else {
+	if wizardConfig.OpsCenter.SeedConfig == nil {
 		wizardConfig.OpsCenter.SeedConfig = &ops.SeedConfig{}
 	}
-	wizardConfig.Mode = constants.ComponentInstaller
-	wizardConfig.ClusterName = config.ClusterName
-	wizardConfig.Devmode = config.Devmode
-	wizardConfig.InstallLogFiles = append(wizardConfig.InstallLogFiles, config.LogFile)
 	return wizardConfig, nil
 }
 
@@ -84,4 +123,5 @@ type ProcessConfig struct {
 	ClusterName   string
 	Devmode       bool
 	LogFile       string
+	Token         string
 }

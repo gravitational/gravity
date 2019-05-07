@@ -15,13 +15,11 @@ import (
 	"github.com/gravitational/trace"
 	log "github.com/sirupsen/logrus"
 	"google.golang.org/grpc"
-	"google.golang.org/grpc/codes"
-	"google.golang.org/grpc/status"
 )
 
 // New returns a new instance of the installer server.
 // Use Serve to make server start listening
-func New(ctx context.Context, token string) *Server {
+func New(ctx context.Context) *Server {
 	localCtx, cancel := context.WithCancel(ctx)
 	grpcServer := grpc.NewServer()
 	server := &Server{
@@ -29,7 +27,6 @@ func New(ctx context.Context, token string) *Server {
 		parentCtx:   ctx,
 		ctx:         localCtx,
 		cancel:      cancel,
-		token:       token,
 		rpc:         grpcServer,
 		// TODO(dmitri): arbitrary channel buffer size
 		eventsC: make(chan Event, 100),
@@ -60,15 +57,6 @@ func (r *Server) Interrupt(ctx context.Context) {
 // WaitForOperation waits for executor to finish the operation
 func (r *Server) WaitForOperation() {
 	r.execWG.Wait()
-}
-
-// Handshake validates the client.
-// Implements installpb.AgentServer
-func (r *Server) Handshake(ctx context.Context, req *installpb.HandshakeRequest) (*installpb.HandshakeResponse, error) {
-	if r.token != req.Token {
-		return nil, status.Error(codes.PermissionDenied, "invalid token")
-	}
-	return &installpb.HandshakeResponse{}, nil
 }
 
 // Abort aborts the operation and cleans up the state
@@ -124,6 +112,7 @@ func (r *Server) Execute(req *installpb.ExecuteRequest, stream installpb.Agent_E
 			return trace.Wrap(r.parentCtx.Err())
 		case <-r.ctx.Done():
 			// Clean exit
+			r.Info("Operation loop done.")
 			return nil
 		}
 	}
@@ -159,7 +148,7 @@ func (r *Server) Send(event Event) error {
 }
 
 // RunProgressLoop starts progress loop for the specified operation
-func (r *Server) RunProgressLoop(operator ops.Operator, operationKey ops.SiteOperationKey) {
+func (r *Server) RunProgressLoop(operator ops.Operator, operationKey ops.SiteOperationKey, doneC chan struct{}) {
 	r.serveWG.Add(1)
 	go func() {
 		r.WithField("operation", operationKey.OperationID).Info("Start progress feedback loop.")
@@ -183,6 +172,13 @@ func (r *Server) RunProgressLoop(operator ops.Operator, operationKey ops.SiteOpe
 				r.Send(Event{Progress: progress})
 				lastProgress = progress
 				if progress.IsCompleted() {
+					select {
+					case doneC <- struct{}{}:
+					case <-r.parentCtx.Done():
+						return
+					case <-r.ctx.Done():
+						return
+					}
 					return
 				}
 			case <-r.parentCtx.Done():
@@ -215,7 +211,6 @@ type Server struct {
 	cancel context.CancelFunc
 
 	executor Executor
-	token    string
 	eventsC  chan Event
 	// abortC is signaled when the operation is aborted
 	abortC chan struct{}

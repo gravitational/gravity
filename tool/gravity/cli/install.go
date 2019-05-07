@@ -67,7 +67,6 @@ func InstallerClient(printer utils.Printer, config installerclient.Config) error
 	clientC := clientTerminationHandler(ctx, interrupt, printer)
 
 	config.InterruptHandler = interrupt
-	config.Token = defaults.InstallerToken
 	if len(config.Args) == 0 {
 		config.Args = installerServiceCommandline(filepath.Dir(utils.Exe.Path))
 	}
@@ -93,7 +92,6 @@ func JoinClient(printer utils.Printer, config installerclient.Config) error {
 	clientC := clientTerminationHandler(ctx, interrupt, printer)
 
 	config.InterruptHandler = interrupt
-	config.Token = defaults.JoinToken
 
 	printer.PrintStep("Connecting to agent")
 	client, err := installerclient.New(ctx, config)
@@ -254,7 +252,7 @@ func startInstallFromService(env *localenv.LocalEnvironment, config InstallConfi
 	if err != nil {
 		return trace.Wrap(err)
 	}
-	wizard, err := localenv.LoginWizard(processConfig.WizardAddr())
+	wizard, err := localenv.LoginWizard(processConfig.WizardAddr(), config.Token)
 	if err != nil {
 		return trace.Wrap(err)
 	}
@@ -365,10 +363,9 @@ func resumeJoin(env *localenv.LocalEnvironment) error {
 		Resume:  true,
 	})
 	if utils.IsContextCancelledError(err) {
-		return trace.Wrap(err, "agentinterrupted")
+		return trace.Wrap(err, "agent interrupted")
 	}
 	return trace.Wrap(err)
-	return nil
 }
 
 type leaveConfig struct {
@@ -824,6 +821,9 @@ func (defaultInstaller) RollbackPhase(
 // Resume resumes aborted installation.
 // Implements Installer
 func (defaultInstaller) Resume(env *localenv.LocalEnvironment) error {
+	if isJoinEnv() {
+		return trace.Wrap(resumeJoin(env))
+	}
 	return trace.Wrap(ResumeInstall(env))
 }
 
@@ -974,6 +974,18 @@ func checkAgentLocalState(env *localenv.LocalEnvironment) func() error {
 	}
 }
 
+// isJoinEnv implements a simple heuristic to determine if the local host
+// is a joining or installer node.
+// TODO(dmitri): there should be a better way to detect the context for the
+// 'plan resume' command
+func isJoinEnv() (ok bool) {
+	ok, err := utils.IsDirectoryEmpty(defaults.GravityJoinDir())
+	if err == nil && !ok {
+		return true
+	}
+	return false
+}
+
 // TODO: different banner for the joining agent as 'gravity plan resume' is only
 // meanimgful from the installer node.
 func printInstallInstructionsBanner(printer utils.Printer) {
@@ -996,7 +1008,7 @@ To abort the agent and clean up the system,
 press Ctrl+C two times in a row.
 
 If the you get disconnected from the terminal, you can reconnect to the installer
-agent by issuing 'gravity join resume' command.
+agent by issuing 'gravity plan resume' command.
 See https://gravitational.com/gravity/docs/cluster/#managing-an-ongoing-operation for details.
 `)
 }

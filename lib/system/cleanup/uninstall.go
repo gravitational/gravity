@@ -207,7 +207,7 @@ func removeInterfaces(printer utils.Printer) error {
 	}
 	var errors []error
 	for _, iface := range ifaces {
-		if utils.HasOneOfPrefixes(iface.Name, "docker", "flannel", "cni") {
+		if utils.HasOneOfPrefixes(iface.Name, "docker", "flannel", "cni", "wormhole") {
 			printer.PrintStep("Removing network interface %q", iface.Name)
 			var out bytes.Buffer
 			if err := utils.Exec(exec.Command("ip", "link", "del", iface.Name), &out); err != nil {
