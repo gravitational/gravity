@@ -207,6 +207,18 @@ func (r *Resources) Create(ctx context.Context, req resources.CreateRequest) err
 		}
 		r.Printf("Updated monitoring alert %q\n", alert.GetName())
 	case storage.KindAlertTarget:
+		// Alert recipient can be created only if SMTP settings
+		// are present, otherwise it will result into invalid
+		// Alertmanager configuration.
+		if _, err := r.Operator.GetSMTPConfig(r.cluster.Key()); err != nil {
+			if trace.IsNotFound(err) {
+				return trace.BadParameter("alert target can only " +
+					"be created when cluster SMTP settings " +
+					"are configured, please create SMTP " +
+					"resource first: https://gravitational.com/gravity/docs/cluster/#configuring-monitoring")
+			}
+			return trace.Wrap(err)
+		}
 		target, err := storage.UnmarshalAlertTarget(req.Resource.Raw)
 		if err != nil {
 			return trace.Wrap(err)
@@ -444,6 +456,19 @@ func (r *Resources) Remove(ctx context.Context, req resources.RemoveRequest) err
 		}
 		r.Printf("TLS key pair %q has been deleted\n", req.Name)
 	case storage.KindSMTPConfig:
+		// SMTP configuration can be deleted only if there is no
+		// alert recipient configured, otherwise it will result
+		// into invalid Alertmanager configuration.
+		alertTargets, err := r.Operator.GetAlertTargets(r.cluster.Key())
+		if err != nil && !trace.IsNotFound(err) {
+			return trace.Wrap(err)
+		}
+		if len(alertTargets) != 0 {
+			return trace.BadParameter("SMTP configuration can " +
+				"only be deleted if there is no alert target, " +
+				"please remove alert target using 'gravity " +
+				"resource rm alerttarget' first")
+		}
 		if err := r.Operator.DeleteSMTPConfig(ctx, r.cluster.Key()); err != nil {
 			if trace.IsNotFound(err) && req.Force {
 				return nil
