@@ -10,9 +10,16 @@ rules:
   - secrets
   verbs:
   - get
+- apiGroups:
+  - ""
+  resources:
+  - secrets
+  verbs:
   - create
   - update
   - delete
+  resourceNames:
+  - smtp-configuration-update
 - apiGroups:
   - ""
   resources:
