@@ -229,7 +229,8 @@ func (c *Config) validateCloudConfig() (err error) {
 	return nil
 }
 
-// newAgent creates a new installer agent
+// newAgent creates a new unstarted installer agent.
+// Agent can be started with Serve
 func (c *Config) newAgent(ctx context.Context) (*rpcserver.PeerServer, error) {
 	err := ExportRPCCredentials(ctx, c.Packages, c.FieldLogger)
 	if err != nil {
@@ -248,18 +249,16 @@ func (c *Config) newAgent(ctx context.Context) (*rpcserver.PeerServer, error) {
 		DockerDevice: c.DockerDevice,
 		Role:         c.Role,
 		Mounts:       mounts,
-		Token:        c.Token.Token,
 	}
 	return NewAgent(ctx, AgentConfig{
 		FieldLogger:   c.FieldLogger,
 		AdvertiseAddr: c.AdvertiseAddr,
-		// ServerAddr:    c.Process.AgentService().ServerAddr(),
-		ServerAddr: c.Process.Config().Pack.GetAddr().Addr,
+		ServerAddr:    c.Process.Config().Pack.GetAddr().Addr,
 		Credentials: rpcserver.Credentials{
 			Server: serverCreds,
 			Client: clientCreds,
 		},
-		RuntimeConfig: runtimeConfig,
+		RuntimeConfig:         runtimeConfig,
 		SkipConnectValidation: true,
 		ReconnectStrategy: &rpcserver.ReconnectStrategy{
 			ShouldReconnect: func(err error) error {

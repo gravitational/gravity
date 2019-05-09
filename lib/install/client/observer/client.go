@@ -119,11 +119,8 @@ type Config struct {
 }
 
 func (r *Client) addTerminationHandler() {
-	r.InterruptHandler.AddStopper(signals.AborterFunc(func(ctx context.Context, interrupted bool) error {
-		// FIXME: Uninstall if interrupted?
-		_, err := r.client.Shutdown(ctx, &installpb.ShutdownRequest{})
-		return trace.Wrap(err)
-	}))
+	// FIXME: this client is used for remote 'plan execute' calls
+	// during an operation, so it cannot shutdown the service
 }
 
 // shutdown signals the service to stop

@@ -139,16 +139,14 @@ func (srv *agentServer) Shutdown(ctx context.Context, req *pb.ShutdownRequest) (
 	if req.Cleanup && srv.CompleteHandler != nil {
 		err = srv.CompleteHandler(ctx)
 	}
-	go srv.Stop(ctx)
 	return &types.Empty{}, trace.Wrap(err)
 }
 
 func (srv *agentServer) Abort(ctx context.Context, req *types.Empty) (resp *types.Empty, err error) {
-	srv.Info("Abort.")
+	srv.Info("Aborting agent.")
 	if srv.AbortHandler != nil {
 		err = srv.AbortHandler(ctx)
 	}
-	go srv.Stop(ctx)
 	return &types.Empty{}, trace.Wrap(err)
 }
 
@@ -165,9 +163,9 @@ func (srv *agentServer) command(req pb.CommandArgs, stream pb.Agent_CommandServe
 	err = srv.commandExecutor.exec(stream.Context(), stream, req.Args, makeRemoteLogger(stream, srv.FieldLogger))
 	if err != nil {
 		stream.Send(pb.ErrorToMessage(err))
-		log.WithError(err).Error("command returned error")
+		log.WithError(err).Warn("Command completed with error.")
 	} else {
-		log.Debug("completed OK")
+		log.Debug("Command completed OK.")
 	}
 	return trace.Wrap(err)
 }

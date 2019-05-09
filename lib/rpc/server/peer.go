@@ -54,7 +54,7 @@ func NewPeer(config PeerConfig, serverAddr string) (*PeerServer, error) {
 		addr = config.proxyAddr
 	}
 
-	serverPeer := serverPeer{
+	serverPeer := &serverPeer{
 		systemInfo: config.Config.systemInfo,
 		addr:       addr,
 		serverAddr: serverAddr,
@@ -74,9 +74,10 @@ func NewPeer(config PeerConfig, serverAddr string) (*PeerServer, error) {
 	}
 
 	peer := &PeerServer{
-		PeerConfig:  config,
-		agentServer: server,
-		peers:       checker,
+		PeerConfig: config,
+		server:     server,
+		peer:       serverPeer,
+		peers:      checker,
 	}
 	server.closers = append(server.closers, peer)
 	return peer, nil
@@ -172,7 +173,14 @@ type WatchEvent struct {
 // Serve starts this peer
 func (r *PeerServer) Serve() error {
 	r.peers.start()
-	return r.agentServer.Serve()
+	return r.server.Serve()
+}
+
+// ServeWithToken starts this peer using the specified token for authorization
+func (r *PeerServer) ServeWithToken(token string) error {
+	r.peer.config.Token = token
+	r.peers.start()
+	return r.server.Serve()
 }
 
 // ValidateConnection makes sure that connection to the control server can be established
@@ -182,7 +190,7 @@ func (r *PeerServer) ValidateConnection(ctx context.Context) error {
 
 // Stop stops this server and its internal goroutines
 func (r *PeerServer) Stop(ctx context.Context) error {
-	err := r.agentServer.Stop(ctx)
+	err := r.server.Stop(ctx)
 	return trace.Wrap(err)
 }
 
@@ -191,12 +199,18 @@ func (r *PeerServer) Close(ctx context.Context) error {
 	return trace.Wrap(r.peers.close(ctx))
 }
 
+// Done returns a channel that's closed when agent shuts down
+func (r *PeerServer) Done() <-chan struct{} {
+	return r.server.Done()
+}
+
 // PeerServer represents a peer connected to a control server
 type PeerServer struct {
 	// PeerConfig is the peer configuration
 	PeerConfig
-	*agentServer
-	*peers
+	server *agentServer
+	peer   *serverPeer
+	peers  *peers
 }
 
 // NewPeer is a no-op
@@ -212,18 +226,19 @@ var discardPeers = discardStore{}
 
 // Addr returns the address of the controlling server.
 // Implements Peer
-func (r serverPeer) Addr() string {
+func (r *serverPeer) Addr() string {
 	return r.serverAddr
 }
 
 // String returns textual representation of this peer
-func (r serverPeer) String() string {
+// Implements fmt.Stringer
+func (r *serverPeer) String() string {
 	return fmt.Sprintf("peer(addr=%v->server=%v)", r.addr, r.serverAddr)
 }
 
 // Reconnect establishes a connection to the controlling server and rejoins the cluster.
 // Implements Peer
-func (r serverPeer) Reconnect(ctx context.Context) (Client, error) {
+func (r *serverPeer) Reconnect(ctx context.Context) (Client, error) {
 	info, err := r.systemInfo.getSystemInfo()
 	if err != nil {
 		return nil, trace.Wrap(err)
@@ -249,8 +264,9 @@ func (r serverPeer) Reconnect(ctx context.Context) (Client, error) {
 }
 
 // Disconnect sends a request to the controlling server to initiate this peer
-// shutdown
-func (r serverPeer) Disconnect(ctx context.Context) error {
+// shutdown.
+// Implements Peer
+func (r *serverPeer) Disconnect(ctx context.Context) error {
 	info, err := r.systemInfo.getSystemInfo()
 	if err != nil {
 		return trace.Wrap(err)

@@ -150,7 +150,7 @@ func (r *AgentService) Exec(ctx context.Context, key ops.SiteOperationKey, addr 
 	}
 
 	addr = rpc.AgentAddr(addr)
-	return trace.Wrap(group.WithContext(ctx, addr).Command(ctx, r.FieldLogger, out, args...))
+	return trace.Wrap(group.exec(ctx, addr, r.FieldLogger, out, args...))
 }
 
 // Validate executes preflight checks on the node specified with addr
@@ -276,11 +276,8 @@ func (r *AgentService) AbortAgents(ctx context.Context, key ops.SiteOperationKey
 		return trace.Wrap(err)
 	}
 	err = group.Abort(ctx)
-	if err != nil {
-		return trace.Wrap(err)
-	}
 	r.peerStore.removeGroup(ctx, key)
-	return nil
+	return trace.Wrap(err)
 }
 
 // StopAgents shuts down remote agents
@@ -577,9 +574,13 @@ func (r *agentGroup) hasPeer(addr, hostname string) bool {
 	return false
 }
 
+func (r *agentGroup) exec(ctx context.Context, addr string, logger log.FieldLogger, out io.Writer, args ...string) error {
+	return trace.Wrap(r.AgentGroup.WithContext(ctx, addr).Command(ctx, logger, out, args...))
+}
+
 type agentGroup struct {
 	rpcserver.AgentGroup
-	// watchCh receives new peers
+	// watchCh channel receives updates about new peers
 	watchCh chan rpcserver.Peer
 	mu      sync.Mutex
 	// hostnames maps peer address to a hostname

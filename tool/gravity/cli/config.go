@@ -305,9 +305,7 @@ func (i *InstallConfig) NewInstallerConfig(
 	if err != nil {
 		return nil, trace.Wrap(err)
 	}
-	// Interactive workflow relies on an install token not having the cluster name
-	// to to handle the initial installer's screen
-	token, err := generateInstallToken(wizard.Operator, i.Token, i.SiteDomain)
+	token, err := generateInstallToken(wizard.Operator, i.Token)
 	if err != nil && !trace.IsAlreadyExists(err) {
 		return nil, trace.Wrap(err)
 	}
@@ -729,14 +727,13 @@ func validateIP(blocks []net.IPNet, ip net.IP) bool {
 	return false
 }
 
-func generateInstallToken(service ops.Operator, installToken, clusterName string) (*storage.InstallToken, error) {
+func generateInstallToken(service ops.Operator, installToken string) (*storage.InstallToken, error) {
 	token, err := service.CreateInstallToken(
 		ops.NewInstallTokenRequest{
-			AccountID:   defaults.SystemAccountID,
-			UserType:    storage.AdminUser,
-			UserEmail:   defaults.WizardUser,
-			ClusterName: clusterName,
-			Token:       installToken,
+			AccountID: defaults.SystemAccountID,
+			UserType:  storage.AdminUser,
+			UserEmail: defaults.WizardUser,
+			Token:     installToken,
 		},
 	)
 	if err != nil {
@@ -758,15 +755,18 @@ func generateClusterName() string {
 func installerUninstallSystem(env *localenv.LocalEnvironment) func(context.Context) error {
 	return func(ctx context.Context) error {
 		logger := log.WithField(trace.Component, "installer:abort")
+		logger.Info("Leaving cluster.")
 		if err := tryLeave(env, leaveConfig{
 			confirmed: true,
 			force:     true,
 		}); err != nil {
 			logger.WithError(err).Warn("Failed to leave cluster.")
 		}
+		logger.Info("Disabling agents.")
 		if err := cleanup.DisableAgentServices(logger); err != nil {
 			logger.WithError(err).Warn("Failed to disable agent services.")
 		}
+		logger.Info("Uninstalling system.")
 		if err := cleanup.UninstallSystem(utils.DiscardPrinter, logger); err != nil {
 			logger.WithError(err).Warn("Failed to uninstall system.")
 		}

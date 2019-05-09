@@ -56,9 +56,10 @@ func New(ctx context.Context, config Config) (*Installer, error) {
 		if err != nil {
 			return nil, trace.Wrap(err)
 		}
-		go agent.Serve()
 	}
-	server := server.New(ctx)
+	server := server.New(ctx, server.Config{
+		AbortHandler: config.AbortHandler,
+	})
 	localCtx, cancel := context.WithCancel(ctx)
 	installer := &Installer{
 		Config: config,
@@ -70,19 +71,33 @@ func New(ctx context.Context, config Config) (*Installer, error) {
 	return installer, nil
 }
 
-// Serve starts the server using the specified engine
-func (i *Installer) Serve(engine Engine, listener net.Listener) error {
+// Run runs the server operation using the specified engine
+func (i *Installer) Run(engine Engine, listener net.Listener) error {
+	defer i.Info("Run: exited.")
 	i.engine = engine
-	return trace.Wrap(i.server.Serve(i, listener))
+	errC := make(chan error, 1)
+	go func() {
+		errC <- i.server.Serve(i, listener)
+	}()
+	defer func() {
+		ctx, cancel := context.WithTimeout(context.Background(), defaults.ShutdownTimeout)
+		i.stopRPC(ctx)
+		cancel()
+	}()
+	select {
+	case err := <-errC:
+		return trace.Wrap(err)
+	case <-i.server.Aborted():
+		return trace.Wrap(ErrAborted)
+	case <-i.server.Done():
+		return nil
+	}
 }
 
 // Stop stops the server and releases resources allocated by the installer.
 // Implements signals.Stopper
 func (i *Installer) Stop(ctx context.Context) error {
 	i.Info("Stop.")
-	if err := i.stop(ctx); err != nil {
-		i.WithError(err).Warn("Failed to stop.")
-	}
 	i.server.Stop(ctx)
 	return nil
 }
@@ -104,7 +119,7 @@ type Interface interface {
 	PlanBuilderGetter
 	// NotifyOperationAvailable is invoked by the engine to notify the server
 	// that the operation has been created
-	NotifyOperationAvailable(ops.SiteOperationKey) error
+	NotifyOperationAvailable(ops.SiteOperation) error
 	// CompleteOperation executes additional steps common to all workflows after the
 	// installation has completed
 	CompleteOperation(operation ops.SiteOperation) error
@@ -122,19 +137,22 @@ type Interface interface {
 // NotifyOperationAvailable is invoked by the engine to notify the server
 // that the operation has been created.
 // Implements Interface
-func (i *Installer) NotifyOperationAvailable(key ops.SiteOperationKey) error {
+func (i *Installer) NotifyOperationAvailable(op ops.SiteOperation) error {
+	if i.agent != nil {
+		i.startAgent(op)
+	}
 	i.addAborter(signals.AborterFunc(func(ctx context.Context, interrupted bool) error {
 		if interrupted {
-			i.WithField("operation", key.OperationID).Info("Aborting agent service.")
-			return trace.Wrap(i.Process.AgentService().AbortAgents(ctx, key))
+			i.WithField("operation", op.ID).Info("Aborting agent service.")
+			return trace.Wrap(i.Process.AgentService().AbortAgents(ctx, op.Key()))
 		}
 		return nil
 	}))
-	if err := i.upsertAdminAgent(key.SiteDomain); err != nil {
+	if err := i.upsertAdminAgent(op.SiteDomain); err != nil {
 		return trace.Wrap(err)
 	}
-	doneC := make(chan struct{}, 1)
-	i.server.RunProgressLoop(i.Operator, key, doneC)
+	go i.server.RunProgressLoop(i.Operator, op.Key())
+
 	return nil
 }
 
@@ -184,7 +202,7 @@ func (i *Installer) PrintStep(format string, args ...interface{}) error {
 
 // Wait blocks until either the context has been cancelled or the wizard process
 // exits with an error.
-// Implements Intreface
+// Implements Interface
 func (i *Installer) Wait() error {
 	return trace.Wrap(i.Process.Wait())
 }
@@ -215,10 +233,7 @@ func (i *Installer) Execute() error {
 // Implements server.Executor
 func (i *Installer) AbortOperation(ctx context.Context) error {
 	i.Info("Abort.")
-	if err := i.abort(ctx); err != nil {
-		return trace.Wrap(err)
-	}
-	return nil
+	return trace.Wrap(i.abort(ctx))
 }
 
 // NewStateMachine returns a new instance of the installer state machine.
@@ -275,7 +290,7 @@ func (i *Installer) stop(ctx context.Context) error {
 		}
 	}
 	i.Config.Process.Shutdown(ctx)
-	i.server.WaitForOperation()
+	i.server.Wait()
 	return trace.NewAggregate(errors...)
 }
 
@@ -289,7 +304,7 @@ func (i *Installer) abort(ctx context.Context) error {
 		}
 	}
 	i.Config.Process.Shutdown(ctx)
-	i.server.WaitForOperation()
+	i.server.Wait()
 	if err := i.AbortHandler(ctx); err != nil {
 		errors = append(errors, err)
 	}
@@ -402,6 +417,26 @@ func (i *Installer) addStopper(stopper signals.Stopper) {
 
 func (i *Installer) addAborter(aborter signals.Aborter) {
 	i.aborters = append(i.aborters, aborter)
+}
+
+func (i *Installer) startAgent(operation ops.SiteOperation) error {
+	profile, ok := operation.InstallExpand.Agents[i.Config.Role]
+	if !ok {
+		return trace.BadParameter("no agent profile for role %q", i.Config.Role)
+	}
+	token, err := getTokenFromURL(profile.AgentURL)
+	if err != nil {
+		return trace.Wrap(err)
+	}
+	go i.agent.ServeWithToken(token)
+	return nil
+}
+
+func (i *Installer) stopRPC(ctx context.Context) {
+	i.server.StopRPC()
+	if i.agent != nil {
+		i.agent.Stop(ctx)
+	}
 }
 
 // Installer manages the installation process

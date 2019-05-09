@@ -1138,6 +1138,9 @@ var (
 	MetricsInterval = time.Hour
 	// MetricsStep is the default interval b/w cluster metrics data points.
 	MetricsStep = 15 * time.Second
+
+	// AbortedOperationExitCode specifies the exit code for this process when an operation is aborted
+	AbortedOperationExitCode = 254
 )
 
 // HookSecurityContext returns default securityContext for hook pods

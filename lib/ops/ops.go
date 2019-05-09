@@ -1467,8 +1467,6 @@ type NewAPIKeyRequest struct {
 type NewInstallTokenRequest struct {
 	// AccountID links this token to the specified account
 	AccountID string `json:"account"`
-	// ClusterName specifies the name of the cluster this token is for
-	ClusterName string `json:"cluster_name"`
 	// Application references an optional application package to associate
 	// with the install token
 	Application string `json:"app"`
@@ -1633,6 +1631,8 @@ type Site struct {
 	DNSOverrides storage.DNSOverrides `json:"dns_overrides"`
 	// DNSConfig specifies the cluster local DNS server configuration
 	DNSConfig storage.DNSConfig `json:"dns_config"`
+	// InstallToken specifies the original token the cluster was installed with
+	InstallToken string `json:"install_token"`
 }
 
 // IsOnline returns whether this site is online

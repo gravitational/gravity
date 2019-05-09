@@ -166,6 +166,9 @@ type Config struct {
 
 	// ServiceUser specifies the service user to use for wizard-based installation.
 	ServiceUser *systeminfo.User `yaml:"-"`
+
+	// InstallToken specifies the authentication token for the install operation
+	InstallToken string `yaml:"-"`
 }
 
 func (cfg *Config) CheckAndSetDefaults() error {

@@ -74,7 +74,7 @@ func (c *osCommand) exec(ctx context.Context, stream pb.OutgoingMessageStream, a
 		Error:    pb.EncodeError(trace.Wrap(err)),
 	}}})
 	if errWrite != nil {
-		log.Warnf("failed to send exec completed message: %v", err)
+		log.WithError(errWrite).Warnf("Failed to send exec completed message: %v.", errWrite)
 	}
 	return trace.Wrap(err)
 }

@@ -153,6 +153,10 @@ type ServiceSpec struct {
 	// ConditionPathExists specifies start condition for the service based on existence
 	// of the specified file. Can be negated by prefixing the path with "!"
 	ConditionPathExists string `json:"ConditionPathExists"`
+	// RestartPreventExitStatus lists exit status definitions that, when returned by the main service
+	// process, will prevent automatic service restarts.
+	// See https://www.freedesktop.org/software/systemd/man/systemd.service.html#RestartPreventExitStatus=
+	RestartPreventExitStatus string `json:"RestartPreventExitStatus"`
 }
 
 // MountServiceSpec describes specification for a systemd mount service

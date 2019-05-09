@@ -102,6 +102,7 @@ func NewProcessConfig(config ProcessConfig) (*processconfig.Config, error) {
 		ClusterName:     config.ClusterName,
 		Devmode:         config.Devmode,
 		InstallLogFiles: []string{config.LogFile},
+		InstallToken:    config.Token,
 	}
 	wizardConfig.OpsCenter.SeedConfig, err = process.RemoteAccessConfig(config.WriteStateDir)
 	if err != nil && !trace.IsNotFound(err) {

@@ -92,7 +92,7 @@ func (r *Engine) Execute(ctx context.Context, installer install.Interface, confi
 	if err != nil {
 		return trace.Wrap(err, "failed to create cluster/operation")
 	}
-	if err := installer.NotifyOperationAvailable(operation.Key()); err != nil {
+	if err := installer.NotifyOperationAvailable(*operation); err != nil {
 		return trace.Wrap(err)
 	}
 	err = e.waitForAgents(*operation)

@@ -56,8 +56,8 @@ message ProgressResponse {
     }
     // Status describes the status of this response
     Status status = 2;
-    // Errors lists errors for this progress step
-    repeated Error errors = 3;
+    // Error specifies the error for this progress step
+    Error error = 3;
 }
 
 // Error represents an error in the operation

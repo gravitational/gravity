@@ -79,7 +79,7 @@ func (r *Engine) Execute(ctx context.Context, installer install.Interface, confi
 	if err != nil {
 		return trace.Wrap(err, "failed to wait for operation to become ready")
 	}
-	if err := installer.NotifyOperationAvailable(operation.Key()); err != nil {
+	if err := installer.NotifyOperationAvailable(*operation); err != nil {
 		return trace.Wrap(err)
 	}
 	if err := e.executeOperation(operation.Key()); err != nil {

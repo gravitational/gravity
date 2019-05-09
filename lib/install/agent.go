@@ -27,7 +27,6 @@ import (
 	rpcserver "github.com/gravitational/gravity/lib/rpc/server"
 	"github.com/gravitational/gravity/lib/utils"
 
-	teleutils "github.com/gravitational/teleport/lib/utils"
 	"github.com/gravitational/trace"
 	log "github.com/sirupsen/logrus"
 )
@@ -79,9 +78,6 @@ func NewAgent(ctx context.Context, config AgentConfig) (*rpcserver.PeerServer, e
 
 // CheckAndSetDefaults validates this config object and sets defaults
 func (r *AgentConfig) CheckAndSetDefaults() (err error) {
-	if r.RuntimeConfig.Token == "" {
-		return trace.BadParameter("access token is required")
-	}
 	if r.AdvertiseAddr == "" {
 		r.AdvertiseAddr, err = utils.PickAdvertiseIP()
 		if err != nil {
@@ -118,20 +114,11 @@ type AgentConfig struct {
 	CompleteHandler func(context.Context) error
 }
 
-// SplitAgentURL splits agentURL into server address and token
-func SplitAgentURL(agentURL string) (serverAddr, token string, err error) {
-	u, err := url.ParseRequestURI(agentURL)
-	if err != nil {
-		return "", "", trace.Wrap(err)
-	}
-	addr, err := teleutils.ParseAddr("tcp://" + u.Host)
-	if err != nil {
-		return "", "", trace.Wrap(err)
-	}
+// getTokenFromURL extracts authorization token from the specified URL
+func getTokenFromURL(agentURL string) (token string, err error) {
 	url, err := url.ParseRequestURI(agentURL)
 	if err != nil {
-		return "", "", trace.Wrap(err)
+		return "", trace.Wrap(err)
 	}
-	token = url.Query().Get(httplib.AccessTokenQueryParam)
-	return addr.Addr, token, nil
+	return url.Query().Get(httplib.AccessTokenQueryParam), nil
 }

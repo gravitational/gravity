@@ -74,9 +74,10 @@ func (s *SystemdSuite) TestServiceTemplate(c *C) {
 			Environment: map[string]string{
 				"PATH": "/usr/bin",
 			},
-			TasksMax:            "infinity",
-			TimeoutStopSec:      "5min",
-			ConditionPathExists: "/path/to/foo",
+			TasksMax:                 "infinity",
+			TimeoutStopSec:           "5min",
+			ConditionPathExists:      "/path/to/foo",
+			RestartPreventExitStatus: "1 2 3",
 		},
 	})
 	c.Assert(err, IsNil)
@@ -106,6 +107,7 @@ Restart=always
 TimeoutStopSec=5min
 RestartSec=3
 RemainAfterExit=yes
+RestartPreventExitStatus=1 2 3
 Environment=PATH=/usr/bin
 
 TasksMax=infinity

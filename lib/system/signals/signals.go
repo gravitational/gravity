@@ -22,17 +22,18 @@ import (
 	"os"
 	"os/signal"
 	"sync"
-	"sync/atomic"
 	"syscall"
 
 	"github.com/gravitational/gravity/lib/defaults"
 	"github.com/gravitational/gravity/lib/utils"
+
+	log "github.com/sirupsen/logrus"
 )
 
 // WatchTerminationSignals stops the provided stopper when it gets one of monitored signals.
 // It is a convenience wrapper over NewInterruptHandler
-func WatchTerminationSignals(ctx context.Context, cancel context.CancelFunc, stopper Stopper, printer utils.Printer) *InterruptHandler {
-	interrupt := NewInterruptHandler(ctx, cancel)
+func WatchTerminationSignals(cancel context.CancelFunc, stopper Stopper, printer utils.Printer) *InterruptHandler {
+	interrupt := NewInterruptHandler(cancel)
 	interrupt.AddStopper(stopper)
 	go func() {
 		for {
@@ -40,7 +41,7 @@ func WatchTerminationSignals(ctx context.Context, cancel context.CancelFunc, sto
 			case sig := <-interrupt.C:
 				printer.Println("Received", sig, "signal, terminating.")
 				interrupt.Abort()
-			case <-ctx.Done():
+			case <-interrupt.Done():
 				return
 			}
 		}
@@ -64,29 +65,29 @@ func WatchTerminationSignals(ctx context.Context, cancel context.CancelFunc, sto
 // Use the select loop and handle the receives on the interrupt channel:
 //
 // ctx, cancel := ...
-// interrupt := NewInterruptHandler(ctx, cancel, ...)
+// interrupt := NewInterruptHandler(cancel)
+// defer interrupt.Close()
 // for {
 // 	select {
 //  	case <-interrupt.C:
 // 		if shouldTerminate() [
-//			interrupt.Trigger()
+//			interrupt.Abort()
 // 		}
 // 	case <-interrupt.Done():
 //		// Done
 //		return
 // 	}
 // }
-func NewInterruptHandler(ctx context.Context, cancel context.CancelFunc, opts ...InterruptOption) *InterruptHandler {
+func NewInterruptHandler(cancel context.CancelFunc, opts ...InterruptOption) *InterruptHandler {
+	ctx, localCancel := context.WithCancel(context.Background())
 	var stoppers []Stopper
 	interruptC := make(chan os.Signal)
 	termC := make(chan []Stopper, 1)
-	var wg sync.WaitGroup
 	handler := &InterruptHandler{
 		C:       interruptC,
 		ctx:     ctx,
-		cancel:  cancel,
+		cancel:  localCancel,
 		termC:   termC,
-		wg:      wg,
 		signals: defaultSignals,
 	}
 	for _, opt := range opts {
@@ -94,26 +95,30 @@ func NewInterruptHandler(ctx context.Context, cancel context.CancelFunc, opts ..
 	}
 	signalC := make(chan os.Signal, 1)
 	signal.Notify(signalC, handler.signals...)
-	wg.Add(1)
+	handler.wg.Add(1)
 	go func() {
 		defer func() {
+			signal.Reset(handler.signals...)
 			// Reset the signal handler so the next signal is handled
 			// directly by the runtime
-			signal.Reset(handler.signals...)
 			if len(stoppers) == 0 {
-				wg.Done()
+				handler.wg.Done()
 				return
 			}
 			localCtx, cancel := context.WithTimeout(context.Background(), defaults.ShutdownTimeout)
 			for _, stopper := range stoppers {
 				if aborter, ok := stopper.(Aborter); ok && handler.isInterrupted() {
-					aborter.Abort(localCtx)
+					if err := aborter.Abort(localCtx); err != nil {
+						log.WithError(err).Warn("Failed to abort stopper.")
+					}
 				} else {
-					stopper.Stop(localCtx)
+					if err := stopper.Stop(localCtx); err != nil {
+						log.WithError(err).Warn("Failed to stop stopper.")
+					}
 				}
 			}
 			cancel()
-			wg.Done()
+			handler.wg.Done()
 		}()
 		for {
 			select {
@@ -134,6 +139,7 @@ func NewInterruptHandler(ctx context.Context, cancel context.CancelFunc, opts ..
 
 // Close closes the loop and waits until all internal processes have stopped
 func (r *InterruptHandler) Close() {
+	r.cancel()
 	r.wg.Wait()
 }
 
@@ -145,7 +151,9 @@ func (r *InterruptHandler) Done() <-chan struct{} {
 
 // Abort sets the interrupted flag and interrupts the loop
 func (r *InterruptHandler) Abort() {
-	atomic.StoreInt32((*int32)(&r.interrupted), 1)
+	r.mu.Lock()
+	r.interrupted = true
+	r.mu.Unlock()
 	r.cancel()
 }
 
@@ -172,13 +180,16 @@ type InterruptHandler struct {
 	termC   chan<- []Stopper
 	signals []os.Signal
 	wg      sync.WaitGroup
+	mu      sync.Mutex
 	// interrupted is set if the loop has been interrupted
-	interrupted int32
+	interrupted bool
 }
 
 // interrupted returns true if the handler was interrupted explicitly
 func (r *InterruptHandler) isInterrupted() bool {
-	return atomic.LoadInt32((*int32)(&r.interrupted)) == 1
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	return r.interrupted
 }
 
 // WithSignals specifies which signal to consider interrupt signals.

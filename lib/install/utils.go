@@ -409,3 +409,6 @@ func tryInstallBinary(targetPath string, uid, gid int, logger log.FieldLogger) e
 	logger.WithField("path", targetPath).Info("Installed gravity binary.")
 	return nil
 }
+
+// ErrAborted defines the aborted operation error
+var ErrAborted = utils.NewExitCodeErrorWithMessage(defaults.AbortedOperationExitCode, "operation aborted")

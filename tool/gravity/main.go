@@ -20,6 +20,7 @@ import (
 	stdlog "log"
 	"os"
 
+	"github.com/gravitational/gravity/lib/utils"
 	"github.com/gravitational/gravity/tool/common"
 	"github.com/gravitational/gravity/tool/gravity/cli"
 
@@ -40,6 +41,9 @@ func main() {
 	if err := run(app); err != nil {
 		log.Error(trace.DebugReport(err))
 		common.PrintError(err)
+		if errCode, ok := trace.Unwrap(err).(utils.ExitCodeError); ok {
+			os.Exit(errCode.ExitCode())
+		}
 		os.Exit(255)
 	}
 }

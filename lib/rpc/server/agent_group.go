@@ -179,8 +179,10 @@ func (r *AgentGroup) Shutdown(ctx context.Context, req *pb.ShutdownRequest) erro
 func (r *AgentGroup) Abort(ctx context.Context) error {
 	var errors []error
 	r.peers.iterate(func(p peer) error {
-		r.WithField("peer", p).Info("Abort peer.")
+		logger := r.WithField("peer", p)
+		logger.Info("Abort peer.")
 		if err := p.Abort(ctx); err != nil {
+			logger.WithError(err).Warn("Failed to abort peer.")
 			errors = append(errors, err)
 		}
 		return nil

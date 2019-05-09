@@ -62,6 +62,7 @@ ExecStartPre={{.}}{{end}}
 {{if .TimeoutStopSec}}TimeoutStopSec={{.TimeoutStopSec}}{{end}}
 {{if .RestartSec}}RestartSec={{.RestartSec}}{{end}}
 {{if .RemainAfterExit}}RemainAfterExit=yes{{end}}
+{{if .RestartPreventExitStatus}}RestartPreventExitStatus={{.RestartPreventExitStatus}}{{end}}
 {{range $k, $v := .Environment}}Environment={{$k}}={{$v}}
 {{end}}
 {{if .TasksMax}}TasksMax={{.TasksMax}}{{end}}
@@ -129,9 +130,10 @@ func (u *systemdUnit) servicePath() string {
 }
 
 func (s *systemdManager) installService(service serviceTemplate, req NewServiceRequest) error {
-	service.Environment = map[string]string{
-		defaults.PathEnv: defaults.PathEnvVal,
+	if service.Environment == nil {
+		service.Environment = make(map[string]string)
 	}
+	service.Environment[defaults.PathEnv] = defaults.PathEnvVal
 	f, err := os.Create(req.UnitPath)
 	if err != nil {
 		return trace.Wrap(err,

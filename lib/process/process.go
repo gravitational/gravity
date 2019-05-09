@@ -1397,6 +1397,7 @@ func (p *Process) initService(ctx context.Context) (err error) {
 		Mode:             p.mode,
 		ProxyHost:        sshProxyHost,
 		ServiceUser:      *p.cfg.ServiceUser,
+		InstallToken:     p.cfg.InstallToken,
 	})
 
 	if err != nil {

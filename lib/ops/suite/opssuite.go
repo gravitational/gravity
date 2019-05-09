@@ -20,7 +20,6 @@ package suite
 
 import (
 	"context"
-	"fmt"
 	"io"
 	"io/ioutil"
 	"net/url"
@@ -28,9 +27,7 @@ import (
 
 	"github.com/gravitational/gravity/lib/app"
 	apptest "github.com/gravitational/gravity/lib/app/service/test"
-	"github.com/gravitational/gravity/lib/compare"
 	"github.com/gravitational/gravity/lib/constants"
-	"github.com/gravitational/gravity/lib/defaults"
 	"github.com/gravitational/gravity/lib/loc"
 	"github.com/gravitational/gravity/lib/ops"
 	"github.com/gravitational/gravity/lib/pack"
@@ -182,14 +179,11 @@ func (s *OpsSuite) InstallInstructions(c *C) {
 	})
 	c.Assert(err, IsNil)
 
-	s.generateInstallToken(c, "install-token", "example.com")
-
 	site, err := s.O.CreateSite(ops.NewSiteRequest{
-		AppPackage:   s.testApp.String(),
-		AccountID:    a.ID,
-		Provider:     schema.ProviderOnPrem,
-		DomainName:   "example.com",
-		InstallToken: "install-token",
+		AppPackage: s.testApp.String(),
+		AccountID:  a.ID,
+		Provider:   schema.ProviderOnPrem,
+		DomainName: "example.com",
 	})
 	c.Assert(err, IsNil)
 	c.Assert(site.State, Equals, ops.SiteStateNotInstalled)
@@ -202,38 +196,27 @@ func (s *OpsSuite) InstallInstructions(c *C) {
 	c.Assert(err, IsNil)
 	c.Assert(opKey, NotNil)
 
-	token, err := s.O.GetExpandToken(site.Key())
+	tokens, err := s.U.GetSiteProvisioningTokens(site.Domain)
 	c.Assert(err, IsNil)
-	c.Assert(token, compare.DeepEquals, &storage.ProvisioningToken{
-		Token:       "install-token",
-		Type:        storage.ProvisioningTokenTypeExpand,
-		AccountID:   site.AccountID,
-		SiteDomain:  site.Domain,
-		UserEmail:   "agent@example.com",
-		OperationID: opKey.OperationID,
-	}, Commentf("expected expand token to exist, got %#v", token))
+	var installToken, expandToken *storage.ProvisioningToken
+	for i := range tokens {
+		if tokens[i].Type == storage.ProvisioningTokenTypeInstall {
+			installToken = &tokens[i]
+		} else if tokens[i].Type == storage.ProvisioningTokenTypeExpand {
+			expandToken = &tokens[i]
+		}
+	}
+
+	c.Assert(installToken, NotNil, Commentf("expected install token to exist, got %#v", tokens))
+	c.Assert(expandToken, NotNil, Commentf("expected expand token to exist, got %#v", tokens))
 
 	installInstructions, err := s.O.GetSiteInstructions(
-		token.Token, "master", url.Values{})
+		installToken.Token, "master", url.Values{})
 	c.Assert(err, IsNil)
 	c.Assert(strings.Contains(installInstructions, "install"), Equals, true)
 
-	// FIXME: there should not be any join instructions for install operation in OpsCenter case
-	// joinInstructions, err := s.O.GetSiteInstructions(
-	// 	expandToken.Token, "master", url.Values{})
-	// c.Assert(err, IsNil)
-	// c.Assert(strings.Contains(joinInstructions, "join"), Equals, true)
-}
-
-func (s *OpsSuite) generateInstallToken(c *C, token, clusterName string) {
-	_, err := s.O.CreateInstallToken(
-		ops.NewInstallTokenRequest{
-			AccountID:   defaults.SystemAccountID,
-			UserType:    storage.AdminUser,
-			UserEmail:   fmt.Sprintf("agent@%v", clusterName),
-			ClusterName: clusterName,
-			Token:       token,
-		},
-	)
+	joinInstructions, err := s.O.GetSiteInstructions(
+		expandToken.Token, "master", url.Values{})
 	c.Assert(err, IsNil)
+	c.Assert(strings.Contains(joinInstructions, "join"), Equals, true)
 }

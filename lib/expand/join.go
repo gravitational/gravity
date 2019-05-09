@@ -59,7 +59,9 @@ func NewPeer(ctx context.Context, config PeerConfig) (*Peer, error) {
 		return nil, trace.Wrap(err)
 	}
 	localCtx, cancel := context.WithCancel(ctx)
-	server := server.New(ctx)
+	server := server.New(ctx, server.Config{
+		AbortHandler: config.AbortHandler,
+	})
 	peer := &Peer{
 		PeerConfig: config,
 		ctx:        localCtx,
@@ -81,19 +83,33 @@ type Peer struct {
 	server *server.Server
 }
 
-// Serve starts the server
-func (p *Peer) Serve(listener net.Listener) error {
-	p.server.Run(func() {
-		watchReconnects(p.ctx, p.cancel, p.WatchCh, p.FieldLogger)
-	})
-	return trace.Wrap(p.server.Serve(p, listener))
+// Run runs the peer operation
+func (p *Peer) Run(listener net.Listener) error {
+	errC := make(chan error, 1)
+	go watchReconnects(p.ctx, p.cancel, p.WatchCh, p.FieldLogger)
+	go func() {
+		errC <- p.server.Serve(p, listener)
+	}()
+	defer func() {
+		ctx, cancel := context.WithTimeout(context.Background(), defaults.ShutdownTimeout)
+		p.stopRPC(ctx)
+		cancel()
+	}()
+	select {
+	case err := <-errC:
+		return trace.Wrap(err)
+	case <-p.server.Aborted():
+		return trace.Wrap(install.ErrAborted)
+	case <-p.server.Done():
+		return nil
+	}
 }
 
 // Stop shuts down this RPC agent
 // Implements signals.Stopper
 func (p *Peer) Stop(ctx context.Context) error {
 	p.Info("Stop.")
-	p.cancel()
+	// p.cancel()
 	p.server.Stop(ctx)
 	return nil
 }
@@ -102,11 +118,8 @@ func (p *Peer) Stop(ctx context.Context) error {
 // Implements signals.Aborter
 func (p *Peer) Abort(ctx context.Context) error {
 	p.Info("Abort.")
-	// if err := p.abort(ctx); err != nil {
-	// 	p.WithError(err).Warn("Failed to abort.")
-	// }
-	// p.Info("Interrupting server.")
 	p.server.Interrupt(ctx)
+	p.Info("Aborted.")
 	return nil
 }
 
@@ -227,9 +240,9 @@ func (c *PeerConfig) CheckAndSetDefaults() (err error) {
 
 // abort aborts the installation and cleans up the operation state.
 func (p *Peer) abort(ctx context.Context) error {
-	var errors []error
 	p.cancel()
-	p.server.WaitForOperation()
+	var errors []error
+	p.server.Wait()
 	if err := p.AbortHandler(ctx); err != nil {
 		errors = append(errors, err)
 	}
@@ -501,16 +514,15 @@ func (p *Peer) tryConnect() (op *operationContext, err error) {
 	return op, trace.Wrap(err)
 }
 
-// getAgent creates an RPC agent instance that, once started, will connect
-// to its peer which can be either installer process or existing cluster
-func (p *Peer) getAgent(opCtx operationContext) (*rpcserver.PeerServer, error) {
+// startAgent starts an RPC agent that handles remote RPC calls
+func (p *Peer) startAgent(opCtx operationContext) error {
 	peerAddr, token, err := getPeerAddrAndToken(opCtx, p.Role)
 	if err != nil {
-		return nil, trace.Wrap(err)
+		return trace.Wrap(err)
 	}
 	p.RuntimeConfig.Token = token
-	agent, err := install.NewAgent(p.ctx, install.AgentConfig{
-		FieldLogger:     p.FieldLogger,
+	p.agent, err = install.NewAgent(p.ctx, install.AgentConfig{
+		FieldLogger:     p.WithField(trace.Component, "rpc:peer"),
 		AdvertiseAddr:   p.AdvertiseAddr,
 		ServerAddr:      peerAddr,
 		Credentials:     opCtx.Creds,
@@ -520,12 +532,17 @@ func (p *Peer) getAgent(opCtx operationContext) (*rpcserver.PeerServer, error) {
 		CompleteHandler: p.CompleteHandler,
 	})
 	if err != nil {
-		if agent != nil {
-			agent.Stop(p.ctx)
+		if p.agent != nil {
+			p.agent.Stop(p.ctx)
 		}
-		return nil, trace.Wrap(err)
+		return trace.Wrap(err)
 	}
-	return agent, nil
+	go func() {
+		if err := p.agent.Serve(); err != nil {
+			p.WithError(err).Warn("Agent failed.")
+		}
+	}()
+	return nil
 }
 
 func (p *Peer) run() error {
@@ -533,9 +550,6 @@ func (p *Peer) run() error {
 	if err != nil {
 		return trace.Wrap(err)
 	}
-
-	doneC := make(chan struct{}, 1)
-	p.server.RunProgressLoop(ctx.Operator, ctx.Operation.Key(), doneC)
 
 	err = p.ensureServiceUserAndBinary(*ctx)
 	if err != nil {
@@ -569,27 +583,24 @@ func (p *Peer) run() error {
 		}
 	}()
 
-	p.agent, err = p.getAgent(*ctx)
+	err = p.startAgent(*ctx)
 	if err != nil {
 		return trace.Wrap(err)
 	}
-	go p.agent.Serve()
 
 	if ctx.Operation.Type != ops.OperationExpand {
-		select {
-		case <-p.ctx.Done():
-		case <-p.agent.Done():
-		case <-doneC:
-		}
-		return nil
+		return trace.Wrap(p.server.RunProgressLoop(ctx.Operator, ctx.Operation.Key()))
 	}
 
-	p.server.Run(func() {
-		if err := p.agent.Serve(); err != nil {
-			p.WithError(err).Warn("Agent failed.")
-		}
-	})
 	return trace.Wrap(p.startExpandOperation(*ctx))
+}
+
+func (p *Peer) stopRPC(ctx context.Context) {
+	p.server.StopRPC()
+	if p.agent != nil {
+		p.Info("Stopping agent RPC server.")
+		p.agent.Stop(ctx)
+	}
 }
 
 // waitForOperation blocks until the join operation is ready
@@ -686,14 +697,6 @@ func (p *Peer) startExpandOperation(ctx operationContext) error {
 	if err != nil {
 		return trace.Wrap(err)
 	}
-	/*
-		if p.Manual {
-			p.Silent.Println(`Operation was started in manual mode
-		Inspect the operation plan using "gravity plan" and execute plan phases manually on this node using "gravity join --phase=<phase-id>"
-		After all phases have completed successfully, complete the operation using "gravity join --complete" and shutdown this process using Ctrl-C`)
-			return nil
-		}
-	*/
 	fsm, err := p.getFSM(ctx)
 	if err != nil {
 		return trace.Wrap(err)

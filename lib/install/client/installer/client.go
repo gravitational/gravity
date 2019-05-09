@@ -8,6 +8,7 @@ import (
 	"os"
 	"os/user"
 	"path/filepath"
+	"strconv"
 	"strings"
 	"sync"
 	"time"
@@ -78,16 +79,23 @@ func (r *Client) Run(ctx context.Context) error {
 	return trace.Wrap(err)
 }
 
+// Stop signals the service to stop
+// Implements signals.Stopper
+func (r *Client) Stop(ctx context.Context) error {
+	return r.Shutdown(ctx)
+}
+
 // Shutdown signals the service to stop
 func (r *Client) Shutdown(ctx context.Context) error {
 	_, err := r.client.Shutdown(ctx, &installpb.ShutdownRequest{})
 	return trace.Wrap(err)
 }
 
-// Abort signals that the server clean up the state and shut down
+// Abort signals that the server clean up the state and shut down.
+// Implements signals.Aborter
 func (r *Client) Abort(ctx context.Context) error {
+	r.Info("Abort.")
 	_, err := r.client.Abort(ctx, &installpb.AbortRequest{})
-	r.Shutdown(ctx)
 	return trace.Wrap(err)
 }
 
@@ -207,7 +215,8 @@ func (r *Client) installSelfAsService() error {
 				removeSocketFileCommand(r.config.SocketPath),
 			},
 			// TODO(dmitri): run as euid?
-			User: constants.RootUIDString,
+			User:                     constants.RootUIDString,
+			RestartPreventExitStatus: strconv.Itoa(defaults.AbortedOperationExitCode),
 			// Enable automatic restart of the service
 			Restart:  "always",
 			WantedBy: "multi-user.target",
@@ -239,33 +248,26 @@ func (r *Client) progressLoop(stream installpb.Agent_ExecuteClient) (err error) 
 			return errAborted
 		}
 		// Exit upon first error
-		if len(resp.Errors) != 0 {
-			return trace.BadParameter(resp.Errors[0].Message)
+		if resp.Error != nil {
+			return trace.BadParameter(resp.Error.Message)
 		}
 		r.PrintStep(resp.Message)
 		if resp.Status == installpb.ProgressResponse_Completed {
 			r.markCompleted()
-			r.maskService()
 			// Do not explicitly exit the loop - wait for service to exit
 		}
 	}
 }
 
 func (r *Client) addTerminationHandler() {
-	r.config.InterruptHandler.AddStopper(signals.AborterFunc(func(ctx context.Context, interrupted bool) (err error) {
-		if interrupted {
-			_, err = r.client.Abort(ctx, &installpb.AbortRequest{})
-		} else {
-			_, err = r.client.Shutdown(ctx, &installpb.ShutdownRequest{})
-		}
-		return trace.Wrap(err)
-	}))
+	r.config.InterruptHandler.AddStopper(r)
 }
 
 func (r *Client) markCompleted() {
 	r.mu.Lock()
-	defer r.mu.Unlock()
 	r.completed = true
+	r.mu.Unlock()
+	r.maskService()
 }
 
 // restartService starts the installer's systemd unit unless it's already active
@@ -312,4 +314,8 @@ func userUnitPath(service string, user user.User) (path string, err error) {
 	return filepath.Join(dir, service), nil
 }
 
+var _ signals.Stopper = (*Client)(nil)
+var _ signals.Aborter = (*Client)(nil)
+
+// FIXME: use the same error as lib/install#ErrAborted
 var errAborted = errors.New("operation aborted")

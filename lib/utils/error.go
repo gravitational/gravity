@@ -335,6 +335,45 @@ func ShouldReconnectPeer(err error) error {
 	return err
 }
 
+// ExitCodeError defines an interface for exit code errors
+type ExitCodeError interface {
+	error
+	ExitCode() int
+}
+
+// NewExitCodeError returns a new error that wraps a specific exit code
+func NewExitCodeError(exitCode int) error {
+	return exitCodeError{code: exitCode}
+}
+
+// NewExitCodeError returns a new error that wraps a specific exit code and message
+func NewExitCodeErrorWithMessage(exitCode int, message string) error {
+	return exitCodeError{
+		code:    exitCode,
+		message: message,
+	}
+}
+
+// ExitCode interprets this value as exit code.
+// Implements ExitCodeError
+func (r exitCodeError) ExitCode() int {
+	return r.code
+}
+
+// Error returns this exit code as error string.
+// Implements error
+func (r exitCodeError) Error() string {
+	if r.message != "" {
+		return r.message
+	}
+	return fmt.Sprintf("exit with code %v", r.code)
+}
+
+type exitCodeError struct {
+	code    int
+	message string
+}
+
 func isPeerDeniedError(message string) bool {
 	return strings.Contains(message, "peer not authorized")
 }
