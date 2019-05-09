@@ -19,6 +19,7 @@ package opshandler
 import (
 	"encoding/json"
 	"net/http"
+	"time"
 
 	"github.com/gravitational/gravity/lib/ops"
 	"github.com/gravitational/gravity/lib/ops/opsclient"
@@ -30,6 +31,43 @@ import (
 	"github.com/jonboulle/clockwork"
 	"github.com/julienschmidt/httprouter"
 )
+
+/* getClusterMetrics returns basic CPU/RAM metrics for the cluster.
+
+     GET /portal/v1/accounts/:account_id/sites/:site_domain/monitoring/metrics
+
+   Success Response:
+
+     ops.ClusterMetricsResponse
+*/
+func (h *WebHandler) getClusterMetrics(w http.ResponseWriter, r *http.Request, p httprouter.Params, context *HandlerContext) error {
+	err := r.ParseForm()
+	if err != nil {
+		return trace.Wrap(err)
+	}
+	var interval, step time.Duration
+	if i := r.Form.Get("interval"); i != "" {
+		if interval, err = time.ParseDuration(i); err != nil {
+			return trace.Wrap(err)
+		}
+	}
+	if s := r.Form.Get("step"); s != "" {
+		if step, err = time.ParseDuration(s); err != nil {
+			return trace.Wrap(err)
+		}
+	}
+	metrics, err := context.Operator.GetClusterMetrics(r.Context(),
+		ops.ClusterMetricsRequest{
+			SiteKey:  siteKey(p),
+			Interval: interval,
+			Step:     step,
+		})
+	if err != nil {
+		return trace.Wrap(err)
+	}
+	roundtrip.ReplyJSON(w, http.StatusOK, metrics)
+	return nil
+}
 
 /* getRetentionPolicies returns a list of retention policies for a site
 

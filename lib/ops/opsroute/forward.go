@@ -576,6 +576,15 @@ func (r *Router) DeleteLogForwarder(ctx context.Context, key ops.SiteKey, forwar
 	return client.DeleteLogForwarder(ctx, key, forwarderName)
 }
 
+// GetClusterMetrics returns basic CPU/RAM metrics for the specified cluster.
+func (r *Router) GetClusterMetrics(ctx context.Context, req ops.ClusterMetricsRequest) (*ops.ClusterMetricsResponse, error) {
+	client, err := r.PickClient(req.SiteDomain)
+	if err != nil {
+		return nil, trace.Wrap(err)
+	}
+	return client.GetClusterMetrics(ctx, req)
+}
+
 // GetRetentionPolicies returns a list of retention policies for the site
 func (r *Router) GetRetentionPolicies(key ops.SiteKey) ([]monitoring.RetentionPolicy, error) {
 	client, err := r.RemoteClient(key.SiteDomain)

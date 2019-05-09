@@ -1887,6 +1887,54 @@ type Monitoring interface {
 	UpdateAlertTarget(context.Context, SiteKey, storage.AlertTarget) error
 	// DeleteAlertTarget deletes the monitoring alert target
 	DeleteAlertTarget(context.Context, SiteKey) error
+	// GetClusterMetrics returns basic CPU/RAM metrics for the specified cluster.
+	GetClusterMetrics(context.Context, ClusterMetricsRequest) (*ClusterMetricsResponse, error)
+}
+
+// ClusterMetricsRequest is a request for cluster metrics.
+type ClusterMetricsRequest struct {
+	// SiteKey is the cluster routing key.
+	SiteKey
+	// Interval is the requested metrics interval.
+	Interval time.Duration `json:"interval"`
+	// Step is the optional maximum time b/w two datapoints.
+	Step time.Duration `json:"step"`
+}
+
+// CheckAndSetDefaults validates the request and fills in defaults.
+func (r *ClusterMetricsRequest) CheckAndSetDefaults() error {
+	if err := r.SiteKey.Check(); err != nil {
+		return trace.Wrap(err)
+	}
+	if r.Interval == 0 {
+		r.Interval = defaults.MetricsInterval
+	}
+	if r.Step == 0 {
+		r.Step = defaults.MetricsStep
+	}
+	return nil
+}
+
+// ClusterMetricsResponse is the response containing cluster CPU/RAM metrics.
+type ClusterMetricsResponse struct {
+	// TotalCPUCores is the total number of CPU cores in the cluster.
+	TotalCPUCores int `json:"total_cpu_cores"`
+	// TotalMemoryBytes is the total amount of memory in the cluster.
+	TotalMemoryBytes int64 `json:"total_memory_bytes"`
+	// CPURates contains current/max/historic CPU usage rates.
+	CPURates ClusterMetricsRates `json:"cpu_rates"`
+	// MemoryRates contains current/max/historic memory usage rates.
+	MemoryRates ClusterMetricsRates `json:"memory_rates"`
+}
+
+// ClusterMetricsRates encapsulates usage rates.
+type ClusterMetricsRates struct {
+	// Current is the instantaneous usage rate.
+	Current int `json:"current"`
+	// Max is the peak usage rate on a certain interval.
+	Max int `json:"max"`
+	// Historic is a historic usage rate for a certain interval.
+	Historic monitoring.Series `json:"historic"`
 }
 
 // UpdateRetentionPolicyRequest is a request to update retention policy

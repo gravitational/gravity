@@ -94,6 +94,9 @@ type Config struct {
 	// Monitoring is the monitoring API provider
 	Monitoring monitoring.Monitoring
 
+	// Metrics provides interface for cluster metrics collection.
+	Metrics monitoring.Metrics
+
 	// Clock is used to mock time in tests
 	Clock timetools.TimeProvider
 

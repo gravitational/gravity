@@ -725,6 +725,14 @@ func (o *OperatorACL) DeleteLogForwarder(ctx context.Context, key SiteKey, forwa
 	return o.operator.DeleteLogForwarder(ctx, key, forwarderName)
 }
 
+// GetClusterMetrics returns basic CPU/RAM metrics for the specified cluster.
+func (o *OperatorACL) GetClusterMetrics(ctx context.Context, req ClusterMetricsRequest) (*ClusterMetricsResponse, error) {
+	if err := o.ClusterAction(req.SiteDomain, storage.KindCluster, teleservices.VerbRead); err != nil {
+		return nil, trace.Wrap(err)
+	}
+	return o.operator.GetClusterMetrics(ctx, req)
+}
+
 func (o *OperatorACL) GetRetentionPolicies(key SiteKey) ([]monitoring.RetentionPolicy, error) {
 	if err := o.ClusterAction(key.SiteDomain, storage.KindCluster, teleservices.VerbRead); err != nil {
 		return nil, trace.Wrap(err)

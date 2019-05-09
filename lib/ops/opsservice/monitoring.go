@@ -18,6 +18,7 @@ package opsservice
 
 import (
 	"context"
+	"time"
 
 	"github.com/gravitational/gravity/lib/constants"
 	"github.com/gravitational/gravity/lib/defaults"
@@ -33,6 +34,65 @@ import (
 	kubelabels "k8s.io/apimachinery/pkg/labels"
 	corev1 "k8s.io/client-go/kubernetes/typed/core/v1"
 )
+
+// GetClusterMetrics returns basic CPU/RAM metrics for the specified cluster.
+func (o *Operator) GetClusterMetrics(ctx context.Context, req ops.ClusterMetricsRequest) (*ops.ClusterMetricsResponse, error) {
+	return GetClusterMetrics(ctx, o.cfg.Metrics, req)
+}
+
+// GetClusterMetrics retrieves all cluster metrics from the provided client.
+func GetClusterMetrics(ctx context.Context, metrics monitoring.Metrics, req ops.ClusterMetricsRequest) (*ops.ClusterMetricsResponse, error) {
+	err := req.CheckAndSetDefaults()
+	if err != nil {
+		return nil, trace.Wrap(err)
+	}
+	totalCPUCores, err := metrics.GetTotalCPU(ctx)
+	if err != nil {
+		return nil, trace.Wrap(err)
+	}
+	currentCPURate, err := metrics.GetCurrentCPURate(ctx)
+	if err != nil {
+		return nil, trace.Wrap(err)
+	}
+	maxCPURate, err := metrics.GetMaxCPURate(ctx, req.Interval)
+	if err != nil {
+		return nil, trace.Wrap(err)
+	}
+	historicCPURate, err := metrics.GetCPURate(ctx, time.Now().Add(-req.Interval), time.Now(), req.Step)
+	if err != nil {
+		return nil, trace.Wrap(err)
+	}
+	totalRAMBytes, err := metrics.GetTotalMemory(ctx)
+	if err != nil {
+		return nil, trace.Wrap(err)
+	}
+	currentRAMRate, err := metrics.GetCurrentMemoryRate(ctx)
+	if err != nil {
+		return nil, trace.Wrap(err)
+	}
+	maxRAMRate, err := metrics.GetMaxMemoryRate(ctx, req.Interval)
+	if err != nil {
+		return nil, trace.Wrap(err)
+	}
+	historicRAMRate, err := metrics.GetMemoryRate(ctx, time.Now().Add(-req.Interval), time.Now(), req.Step)
+	if err != nil {
+		return nil, trace.Wrap(err)
+	}
+	return &ops.ClusterMetricsResponse{
+		TotalCPUCores:    totalCPUCores,
+		TotalMemoryBytes: totalRAMBytes,
+		CPURates: ops.ClusterMetricsRates{
+			Current:  currentCPURate,
+			Max:      maxCPURate,
+			Historic: historicCPURate,
+		},
+		MemoryRates: ops.ClusterMetricsRates{
+			Current:  currentRAMRate,
+			Max:      maxRAMRate,
+			Historic: historicRAMRate,
+		},
+	}, nil
+}
 
 // GetRetentionPolicies returns a list of retention policies for the site
 func (o *Operator) GetRetentionPolicies(key ops.SiteKey) ([]monitoring.RetentionPolicy, error) {

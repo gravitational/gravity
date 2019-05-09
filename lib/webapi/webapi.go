@@ -264,6 +264,7 @@ func NewAPI(cfg Config) (*Handler, error) {
 	// Monitoring
 	h.GET("/sites/:domain/monitoring/retention", h.needsAuth(h.getRetentionPolicies))
 	h.PUT("/sites/:domain/monitoring/retention", h.needsAuth(h.updateRetentionPolicy))
+	h.GET("/sites/:domain/monitoring/metrics", h.needsAuth(h.getClusterMetrics))
 
 	// Certificates
 	h.GET("/sites/:domain/certificate", h.needsAuth(h.getCertificate))
@@ -2076,6 +2077,37 @@ func (m *Handler) getRetentionPolicies(w http.ResponseWriter, r *http.Request, p
 	return context.Operator.GetRetentionPolicies(ops.SiteKey{
 		AccountID:  context.User.GetAccountID(),
 		SiteDomain: p.ByName("domain"),
+	})
+}
+
+// getClusterMetrics returns basic cluster metrics.
+//
+//   GET /sites/:domain/monitoring/metrics?interval=<duration>&step=<duration>
+//
+func (m *Handler) getClusterMetrics(w http.ResponseWriter, r *http.Request, p httprouter.Params, ctx *AuthContext) (interface{}, error) {
+	err := r.ParseForm()
+	if err != nil {
+		return nil, trace.Wrap(err)
+	}
+	var interval time.Duration
+	if i := r.Form.Get("interval"); i != "" {
+		if interval, err = time.ParseDuration(i); err != nil {
+			return nil, trace.Wrap(err)
+		}
+	}
+	var step time.Duration
+	if s := r.Form.Get("step"); s != "" {
+		if step, err = time.ParseDuration(s); err != nil {
+			return nil, trace.Wrap(err)
+		}
+	}
+	return ctx.Operator.GetClusterMetrics(r.Context(), ops.ClusterMetricsRequest{
+		SiteKey: ops.SiteKey{
+			AccountID:  ctx.User.GetAccountID(),
+			SiteDomain: p.ByName("domain"),
+		},
+		Interval: interval,
+		Step:     step,
 	})
 }
 

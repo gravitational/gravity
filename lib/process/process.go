@@ -1171,6 +1171,11 @@ func (p *Process) initService(ctx context.Context) (err error) {
 		return trace.Wrap(err)
 	}
 
+	metrics, err := monitoring.NewInClusterPrometheus()
+	if err != nil {
+		return trace.Wrap(err)
+	}
+
 	var logs opsservice.LogForwardersControl
 	if p.inKubernetes() {
 		logs = opsservice.NewLogForwardersControl(client)
@@ -1202,6 +1207,7 @@ func (p *Process) initService(ctx context.Context) (err error) {
 		TeleportProxy:   teleportProxy,
 		Tunnel:          reverseTunnel,
 		Monitoring:      mon,
+		Metrics:         metrics,
 		Local:           p.mode == constants.ComponentSite,
 		Wizard:          p.mode == constants.ComponentInstaller,
 		Proxy:           proxy,
