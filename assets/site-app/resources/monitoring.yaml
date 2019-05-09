@@ -10,12 +10,12 @@ rules:
   - secrets
   verbs:
   - get
+  - create
 - apiGroups:
   - ""
   resources:
   - secrets
   verbs:
-  - create
   - update
   - delete
   resourceNames:
