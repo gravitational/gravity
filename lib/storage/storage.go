@@ -1566,6 +1566,15 @@ type Server struct {
 	Created time.Time `json:"created"`
 }
 
+// IsEqualTo returns true if this and the provided server are the same server.
+func (s *Server) IsEqualTo(other Server) bool {
+	// Compare only a few "main" fields that should give enough confidence
+	// in deciding whether it's the same node or not.
+	return s.AdvertiseIP == other.AdvertiseIP &&
+		s.Hostname == other.Hostname &&
+		s.Role == other.Role
+}
+
 // StateDir returns directory where all gravity data is stored on this server
 func (s *Server) StateDir() string {
 	if s.SystemState.StateDir != "" {
@@ -1596,7 +1605,7 @@ func (s *Server) IsMaster() bool {
 
 // Strings formats this server as readable text
 func (s Server) String() string {
-	return fmt.Sprintf("node(addr=%v, hostname=%v, role=%v, cluster_role=%v)",
+	return fmt.Sprintf("Server(AdvertiseIP=%v, Hostname=%v, Role=%v, ClusterRole=%v)",
 		s.AdvertiseIP,
 		s.Hostname,
 		s.Role,
@@ -1922,6 +1931,24 @@ var DefaultSubnets = Subnets{
 // Servers is a list of servers
 type Servers []Server
 
+// IsEqualTo returns true if the provided list contains all the same servers
+// as this list.
+func (r Servers) IsEqualTo(other Servers) bool {
+	if len(r) != len(other) {
+		return false
+	}
+	for _, server := range r {
+		otherServer := other.FindByIP(server.AdvertiseIP)
+		if otherServer == nil {
+			return false
+		}
+		if !otherServer.IsEqualTo(server) {
+			return false
+		}
+	}
+	return true
+}
+
 // FindByIP returns a server with the specified IP
 func (r Servers) FindByIP(ip string) *Server {
 	for _, server := range r {
@@ -1956,7 +1983,7 @@ func (r Servers) String() string {
 	for _, server := range r {
 		formats = append(formats, server.String())
 	}
-	return strings.Join(formats, ",")
+	return strings.Join(formats, ", ")
 }
 
 type AgentProfile struct {
