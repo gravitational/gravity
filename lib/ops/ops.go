@@ -47,6 +47,7 @@ import (
 	"github.com/gravitational/teleport/lib/events"
 	teleservices "github.com/gravitational/teleport/lib/services"
 	"github.com/gravitational/trace"
+	"k8s.io/helm/pkg/proto/hapi/release"
 )
 
 // TeleportProxyService is SSH proxy access portal - gives
@@ -220,6 +221,115 @@ type Users interface {
 
 	// GetClusterAgent returns the specified cluster agent
 	GetClusterAgent(ClusterAgentRequest) (*storage.LoginEntry, error)
+
+	// UpdateUser updates the specified user information.
+	UpdateUser(context.Context, UpdateUserRequest) error
+	// CreateUserInvite creates a new invite token for a user.
+	CreateUserInvite(context.Context, CreateUserInviteRequest) (*storage.UserToken, error)
+	// CreateUserReset creates a new reset token for a user.
+	CreateUserReset(context.Context, CreateUserResetRequest) (*storage.UserToken, error)
+	// GetUserInvites returns all active user invites.
+	GetUserInvites(context.Context, SiteKey) ([]storage.UserInvite, error)
+	// DeleteUserInvite deletes the specified user invite.
+	DeleteUserInvite(context.Context, DeleteUserInviteRequest) error
+}
+
+// UpdateUserRequest is a request to update existing user information.
+type UpdateUserRequest struct {
+	// SiteKey is the key of the cluster to route request to.
+	SiteKey
+	// Name is the name of the user to update.
+	Name string `json:"name"`
+	// FullName is the full user name.
+	FullName string `json:"full_name"`
+	// Roles is a new list of user roles.
+	Roles []string `json:"roles"`
+}
+
+// Check validates the request.
+func (r *UpdateUserRequest) Check() error {
+	if err := r.SiteKey.Check(); err != nil {
+		return trace.Wrap(err)
+	}
+	if r.Name == "" {
+		return trace.BadParameter("user name can't be empty")
+	}
+	if len(r.Roles) == 0 {
+		return trace.BadParameter("role list can't be empty")
+	}
+	return nil
+}
+
+// CreateUserInviteRequest is a request to generate a new user invite token.
+type CreateUserInviteRequest struct {
+	// SiteKey is the key of the cluster to route request to.
+	SiteKey
+	// Name is the new user name.
+	Name string `json:"name"`
+	// Roles is the new user roles.
+	Roles []string `json:"roles"`
+	// TTL specifies how long the generated invite token is valid for.
+	TTL time.Duration `json:"ttl"`
+}
+
+// Check validates the request.
+func (r *CreateUserInviteRequest) Check() error {
+	if err := r.SiteKey.Check(); err != nil {
+		return trace.Wrap(err)
+	}
+	if r.Name == "" {
+		return trace.BadParameter("user name can't be empty")
+	}
+	if len(r.Roles) == 0 {
+		return trace.BadParameter("role list can't be empty")
+	}
+	if r.TTL < 0 {
+		return trace.BadParameter("ttl can't be negative")
+	}
+	return nil
+}
+
+// CreateUserResetRequest is a request to generate a new user reset token.
+type CreateUserResetRequest struct {
+	// SiteKey is the key of the cluster to route request to.
+	SiteKey
+	// Name is the user name to reset.
+	Name string `json:"name"`
+	// TTL specifies how long the generated reset token is valid for.
+	TTL time.Duration `json:"ttl"`
+}
+
+// Check validates the request.
+func (r *CreateUserResetRequest) Check() error {
+	if err := r.SiteKey.Check(); err != nil {
+		return trace.Wrap(err)
+	}
+	if r.Name == "" {
+		return trace.BadParameter("user name can't be empty")
+	}
+	if r.TTL < 0 {
+		return trace.BadParameter("ttl can't be negative")
+	}
+	return nil
+}
+
+// DeleteUserInviteRequest is a request to delete a user invite token.
+type DeleteUserInviteRequest struct {
+	// SiteKey is the key of the cluster to route request to.
+	SiteKey
+	// Name is the invited user name.
+	Name string `json:"name"`
+}
+
+// Check validates the request.
+func (r *DeleteUserInviteRequest) Check() error {
+	if err := r.SiteKey.Check(); err != nil {
+		return trace.Wrap(err)
+	}
+	if r.Name == "" {
+		return trace.BadParameter("user name can't be empty")
+	}
+	return nil
 }
 
 // ResetUserPasswordRequest is a request to reset gravity site user password
@@ -245,13 +355,13 @@ type ClusterAgentRequest struct {
 // APIKeys represents a collection of user API keys
 type APIKeys interface {
 	// CreateAPIKey creates a new API key for a user
-	CreateAPIKey(NewAPIKeyRequest) (*storage.APIKey, error)
+	CreateAPIKey(context.Context, NewAPIKeyRequest) (*storage.APIKey, error)
 
 	// GetAPIKeys returns API keys for the specified user
 	GetAPIKeys(userEmail string) ([]storage.APIKey, error)
 
 	// DeleteAPIKey deletes an API key
-	DeleteAPIKey(userEmail, token string) error
+	DeleteAPIKey(ctx context.Context, userEmail, token string) error
 }
 
 // Tokens represents a token management layer
@@ -476,9 +586,9 @@ type Certificates interface {
 	GetClusterCertificate(key SiteKey, withSecrets bool) (*ClusterCertificate, error)
 	// UpdateClusterCertificate updates the cluster TLS certificate that is
 	// presented by the cluster's local web endpoint
-	UpdateClusterCertificate(UpdateCertificateRequest) (*ClusterCertificate, error)
+	UpdateClusterCertificate(context.Context, UpdateCertificateRequest) (*ClusterCertificate, error)
 	// DeleteClusterCertificate deletes the cluster TLS certificate
-	DeleteClusterCertificate(SiteKey) error
+	DeleteClusterCertificate(context.Context, SiteKey) error
 }
 
 // RuntimeEnvironment manages runtime environment variables in cluster
@@ -574,7 +684,7 @@ type Status interface {
 	GetClusterNodes(SiteKey) ([]Node, error)
 }
 
-// Node represents a cluster node information
+// Node represents a cluster node information based on Teleport node
 type Node struct {
 	// Hostname is the node hostname
 	Hostname string `json:"hostname"`
@@ -911,7 +1021,15 @@ type Applications interface {
 	// a binary data stream
 	GetAppInstaller(AppInstallerRequest) (io.ReadCloser, error)
 	// ListReleases returns all currently installed application releases in a cluster.
-	ListReleases(SiteKey) ([]storage.Release, error)
+	ListReleases(ListReleasesRequest) ([]storage.Release, error)
+}
+
+// ListReleasesRequest is a request to list installed application releases.
+type ListReleasesRequest struct {
+	// SiteKey is the cluster routing key.
+	SiteKey
+	// IncludeIcons is whether to retrieve application icons as well.
+	IncludeIcons bool `json:"include_icons"`
 }
 
 // AppInstallerRequest is a request to generate installer tarball.
@@ -1380,24 +1498,6 @@ func (k AccountKey) String() string {
 		"account(account_id=%v)", k.AccountID)
 }
 
-// UserInviteRequest is a request to create a user invite
-type UserInviteRequest struct {
-	// Name is the new user name
-	Name string `json:"name"`
-	// Roles is the new user roles
-	Roles []string `json:"roles"`
-	// TTL is this request TTL
-	TTL time.Duration `json:"ttl"`
-}
-
-// UserResetRequest is a request to reset user credentials
-type UserResetRequest struct {
-	// Name is a user name
-	Name string `json:"name"`
-	// TTL is this request TTL
-	TTL time.Duration `json:"ttl"`
-}
-
 // NewSiteRequest is a request to create a new site entry
 type NewSiteRequest struct {
 	// AppPackage is application package, e.g. `gravitaional.io/mattermost:1.2.1`
@@ -1538,6 +1638,35 @@ func (s *Site) IsAWS() bool {
 	}, s.Provider)
 }
 
+// IsGravity returns true if the cluster is running bare Gravity image.
+func (s *Site) IsGravity() bool {
+	return s.App.Package.Name == defaults.TelekubePackage
+}
+
+// IsOpsCenter returns true if the cluster is running Ops Center image.
+func (s *Site) IsOpsCenter() bool {
+	return s.App.Package.Name == defaults.OpsCenterPackage
+}
+
+// ReleaseStatus converts the cluster state to an appropriate Helm release status.
+//
+// This is needed to represent the "application bundle" deployed on a cluster
+// as an application catalog app.
+func (s *Site) ReleaseStatus() string {
+	switch s.State {
+	case SiteStateInstalling:
+		return release.Status_PENDING_INSTALL.String()
+	case SiteStateFailed:
+		return release.Status_FAILED.String()
+	case SiteStateUpdating:
+		return release.Status_PENDING_UPGRADE.String()
+	case SiteStateUninstalling:
+		return release.Status_DELETING.String()
+	default:
+		return release.Status_DEPLOYED.String()
+	}
+}
+
 // Masters returns a list of master nodes from the cluster's state
 func (s *Site) Masters() (masters []storage.Server) {
 	for _, node := range s.ClusterState.Servers {
@@ -1546,6 +1675,15 @@ func (s *Site) Masters() (masters []storage.Server) {
 		}
 	}
 	return masters
+}
+
+// FirstMaster returns the first cluster master node.
+func (s *Site) FirstMaster() (*storage.Server, error) {
+	masters := s.Masters()
+	if len(masters) == 0 {
+		return nil, trace.NotFound("no master server found in cluster state")
+	}
+	return &masters[0], nil
 }
 
 // Application holds information about application, such
@@ -1714,11 +1852,11 @@ type LogForwarders interface {
 	// GetLogForwarders retrieves the list of active log forwarders
 	GetLogForwarders(key SiteKey) ([]storage.LogForwarder, error)
 	// CreateLogForwarder creates a new log forwarder
-	CreateLogForwarder(key SiteKey, forwarder storage.LogForwarder) error
+	CreateLogForwarder(ctx context.Context, key SiteKey, forwarder storage.LogForwarder) error
 	// UpsertLogForwarder updates an existing log forwarder
-	UpdateLogForwarder(key SiteKey, forwarder storage.LogForwarder) error
+	UpdateLogForwarder(ctx context.Context, key SiteKey, forwarder storage.LogForwarder) error
 	// DeleteLogForwarder deletes a log forwarder
-	DeleteLogForwarder(key SiteKey, name string) error
+	DeleteLogForwarder(ctx context.Context, key SiteKey, name string) error
 }
 
 // SMTP defines the interface to manage cluster SMTP configuration
@@ -1726,9 +1864,9 @@ type SMTP interface {
 	// GetSMTPConfig returns the cluster SMTP configuration
 	GetSMTPConfig(SiteKey) (storage.SMTPConfig, error)
 	// UpdateSMTPConfig updates the cluster SMTP configuration
-	UpdateSMTPConfig(SiteKey, storage.SMTPConfig) error
+	UpdateSMTPConfig(context.Context, SiteKey, storage.SMTPConfig) error
 	// DeleteSMTPConfig deletes the cluster STMP configuration
-	DeleteSMTPConfig(SiteKey) error
+	DeleteSMTPConfig(context.Context, SiteKey) error
 }
 
 // Monitoring defines the interface to manage monitoring and metrics
@@ -1740,15 +1878,15 @@ type Monitoring interface {
 	// GetAlerts returns the list of configured monitoring alerts
 	GetAlerts(SiteKey) ([]storage.Alert, error)
 	// UpdateAlert updates the specified monitoring alert
-	UpdateAlert(SiteKey, storage.Alert) error
+	UpdateAlert(context.Context, SiteKey, storage.Alert) error
 	// DeleteAlert deletes the monitoring alert specified with name
-	DeleteAlert(key SiteKey, name string) error
+	DeleteAlert(ctx context.Context, key SiteKey, name string) error
 	// GetAlertTargets returns the list of configured monitoring alert targets
 	GetAlertTargets(SiteKey) ([]storage.AlertTarget, error)
 	// UpdateAlertTarget updates cluster's alert target to the specified
-	UpdateAlertTarget(SiteKey, storage.AlertTarget) error
+	UpdateAlertTarget(context.Context, SiteKey, storage.AlertTarget) error
 	// DeleteAlertTarget deletes the monitoring alert target
-	DeleteAlertTarget(SiteKey) error
+	DeleteAlertTarget(context.Context, SiteKey) error
 }
 
 // UpdateRetentionPolicyRequest is a request to update retention policy
@@ -1843,27 +1981,27 @@ func FindServerByInstanceID(cluster *Site, instanceID string) (*storage.Server, 
 // Identity provides methods for managing users, roles and authentication settings
 type Identity interface {
 	// UpsertUser creates or updates a user
-	UpsertUser(key SiteKey, user teleservices.User) error
+	UpsertUser(ctx context.Context, key SiteKey, user teleservices.User) error
 	// GetUser returns a user by name
 	GetUser(key SiteKey, name string) (teleservices.User, error)
 	// GetUsers returns all users
 	GetUsers(key SiteKey) ([]teleservices.User, error)
 	// DeleteUser deletes a user by name
-	DeleteUser(key SiteKey, name string) error
+	DeleteUser(ctx context.Context, key SiteKey, name string) error
 	// UpsertClusterAuthPreference updates cluster authentication preference
-	UpsertClusterAuthPreference(key SiteKey, auth teleservices.AuthPreference) error
+	UpsertClusterAuthPreference(ctx context.Context, key SiteKey, auth teleservices.AuthPreference) error
 	// GetClusterAuthPreference returns cluster authentication preference
 	GetClusterAuthPreference(key SiteKey) (teleservices.AuthPreference, error)
 	// UpsertGithubConnector creates or updates a Github connector
-	UpsertGithubConnector(key SiteKey, conn teleservices.GithubConnector) error
+	UpsertGithubConnector(ctx context.Context, key SiteKey, conn teleservices.GithubConnector) error
 	// GetGithubConnector returns a Github connector by its name
 	GetGithubConnector(key SiteKey, name string, withSecrets bool) (teleservices.GithubConnector, error)
 	// GetGithubConnectors returns all Github connectors
 	GetGithubConnectors(key SiteKey, withSecrets bool) ([]teleservices.GithubConnector, error)
 	// DeleteGithubConnector deletes a Github connector by name
-	DeleteGithubConnector(key SiteKey, name string) error
+	DeleteGithubConnector(ctx context.Context, key SiteKey, name string) error
 	// UpsertAuthGateway updates auth gateway configuration
-	UpsertAuthGateway(SiteKey, storage.AuthGateway) error
+	UpsertAuthGateway(context.Context, SiteKey, storage.AuthGateway) error
 	// GetAuthGateway returns auth gateway configuration
 	GetAuthGateway(SiteKey) (storage.AuthGateway, error)
 }
@@ -1872,9 +2010,9 @@ type Identity interface {
 type AuditEventRequest struct {
 	// SiteKey is the ID of the cluster the request is for.
 	SiteKey
-	// Type is the audit event type.
-	Type string `json:"type"`
-	// Fields is the audit event fields.
+	// Event is the audit event to emit.
+	Event events.Event `json:"event"`
+	// Fields is the audit event additional fields.
 	Fields events.EventFields `json:"fields"`
 }
 
@@ -1883,15 +2021,15 @@ func (r *AuditEventRequest) Check() error {
 	if err := r.SiteKey.Check(); err != nil {
 		return trace.Wrap(err)
 	}
-	if r.Type == "" {
-		return trace.BadParameter("missing audit log event type")
+	if r.Event.Name == "" {
+		return trace.BadParameter("missing audit log event name")
 	}
 	return nil
 }
 
 // String returns the event's string representation.
 func (r AuditEventRequest) String() string {
-	return fmt.Sprintf("AuditEvent(Type=%v, Fields=%v)", r.Type, r.Fields)
+	return fmt.Sprintf("AuditEvent(Event=%v, Fields=%v)", r.Event, r.Fields)
 }
 
 // Audit provides interface for emitting audit log events.

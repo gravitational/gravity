@@ -666,13 +666,13 @@ func (s *Server) serveAgent(ctx *srv.ServerContext) error {
 
 // EmitAuditEvent logs a given event to the audit log attached to the
 // server who owns these sessions
-func (s *Server) EmitAuditEvent(eventType string, fields events.EventFields) {
-	log.Debugf("server.EmitAuditEvent(%v)", eventType)
+func (s *Server) EmitAuditEvent(event events.Event, fields events.EventFields) {
+	log.Debugf("server.EmitAuditEvent(%v)", event.Name)
 	alog := s.alog
 	if alog != nil {
 		// record the event time with ms precision
 		fields[events.EventTime] = s.clock.Now().In(time.UTC).Round(time.Millisecond)
-		if err := alog.EmitAuditEvent(eventType, fields); err != nil {
+		if err := alog.EmitAuditEvent(event, fields); err != nil {
 			log.Error(trace.DebugReport(err))
 		}
 	} else {
@@ -816,7 +816,7 @@ func (s *Server) handleDirectTCPIPRequest(sconn *ssh.ServerConn, identityContext
 	defer conn.Close()
 
 	// audit event:
-	s.EmitAuditEvent(events.PortForwardEvent, events.EventFields{
+	s.EmitAuditEvent(events.PortForward, events.EventFields{
 		events.PortForwardAddr:    dstAddr,
 		events.PortForwardSuccess: true,
 		events.EventLogin:         ctx.Identity.Login,
@@ -858,7 +858,7 @@ func (s *Server) handleSessionRequests(sconn *ssh.ServerConn, identityContext sr
 	// session request is complete.
 	ctx, err := srv.NewServerContext(s, sconn, identityContext)
 	if err != nil {
-		ctx.Errorf("Unable to create connection context: %v.", err)
+		log.Errorf("Unable to create connection context: %v.", err)
 		ch.Stderr().Write([]byte("Unable to create connection context."))
 		return
 	}

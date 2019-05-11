@@ -1,6 +1,7 @@
 package provider
 
 import (
+	"context"
 	"time"
 
 	"github.com/gravitational/gravity/lib/ops/opsclient"
@@ -53,7 +54,7 @@ func resourceGravityLogForwarderCreate(d *schema.ResourceData, m interface{}) er
 
 	forwarder := storage.NewLogForwarder(name, address, protocol)
 
-	err = client.CreateLogForwarder(clusterKey, forwarder)
+	err = client.CreateLogForwarder(context.TODO(), clusterKey, forwarder)
 	if err != nil {
 		return trace.Wrap(err)
 	}
@@ -100,7 +101,7 @@ func resourceGravityLogForwarderUpdate(d *schema.ResourceData, m interface{}) er
 
 	forwarder := storage.NewLogForwarder(name, address, protocol)
 
-	err = client.UpdateLogForwarder(clusterKey, forwarder)
+	err = client.UpdateLogForwarder(context.TODO(), clusterKey, forwarder)
 	return trace.Wrap(err)
 }
 
@@ -113,7 +114,7 @@ func resourceGravityLogForwarderDelete(d *schema.ResourceData, m interface{}) er
 
 	name := d.Get("name").(string)
 
-	err = client.DeleteLogForwarder(clusterKey, name)
+	err = client.DeleteLogForwarder(context.TODO(), clusterKey, name)
 	return trace.Wrap(err)
 }
 

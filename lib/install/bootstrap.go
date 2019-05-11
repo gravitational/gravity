@@ -141,9 +141,9 @@ func (i *Installer) emitAuditEvents() error {
 		return trace.Wrap(err)
 	}
 	fields := events.FieldsForOperation(*operation)
-	events.Emit(i.Context, operator, events.OperationStarted, fields.WithField(
+	events.Emit(i.Context, operator, events.OperationInstallStart, fields.WithField(
 		events.FieldTime, operation.Created))
-	events.Emit(i.Context, operator, events.OperationCompleted, fields)
+	events.Emit(i.Context, operator, events.OperationInstallComplete, fields)
 	return nil
 }
 

@@ -65,9 +65,11 @@ func (s *ReleasesSuite) TestListReleases(c *check.C) {
 	c.Assert(err, check.IsNil)
 
 	// Make sure they're returned.
-	releases, err := s.services.Operator.ListReleases(ops.SiteKey{
-		AccountID:  s.localCluster.AccountID,
-		SiteDomain: s.localCluster.Domain,
+	releases, err := s.services.Operator.ListReleases(ops.ListReleasesRequest{
+		SiteKey: ops.SiteKey{
+			AccountID:  s.localCluster.AccountID,
+			SiteDomain: s.localCluster.Domain,
+		},
 	})
 	c.Assert(err, check.IsNil)
 	c.Assert(releases, compare.DeepEquals, []storage.Release{release1, release2})

@@ -433,12 +433,44 @@ type smtpConfigCollection []storage.SMTPConfig
 // WriteText serializes collection in human-friendly text format
 func (r alertCollection) WriteText(w io.Writer) error {
 	t := goterm.NewTable(0, 10, 5, ' ', 0)
-	common.PrintTableHeader(t, []string{"Name", "Formula"})
+	common.PrintTableHeader(t, []string{"Name", "Group", "Formula", "Delay", "Labels"})
 	for _, alert := range r {
-		fmt.Fprintf(t, "%v\t%v\n", alert.GetName(), alert.GetFormula())
+		fmt.Fprintf(t, "%v\t%v\t%v\t%v\t%v\n",
+			alert.GetName(),
+			formatAlertGroup(alert),
+			strings.TrimSpace(alert.GetFormula()),
+			formatAlertDelay(alert),
+			formatAlertLabels(alert))
 	}
 	_, err := io.WriteString(w, t.String())
 	return trace.Wrap(err)
+}
+
+func formatAlertGroup(alert storage.Alert) string {
+	group := alert.GetGroupName()
+	if group != "" {
+		return group
+	}
+	return "-"
+}
+
+func formatAlertDelay(alert storage.Alert) string {
+	delay := alert.GetDelay()
+	if delay != 0 {
+		return delay.String()
+	}
+	return "-"
+}
+
+func formatAlertLabels(alert storage.Alert) (result string) {
+	if len(alert.GetLabels()) == 0 {
+		return "-"
+	}
+	var labels []string
+	for k, v := range alert.GetLabels() {
+		labels = append(labels, fmt.Sprintf("%v: %v", k, v))
+	}
+	return strings.Join(labels, ", ")
 }
 
 // WriteJSON serializes collection into JSON format

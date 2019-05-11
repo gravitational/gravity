@@ -1,5 +1,5 @@
 /*
-Copyright 2016 Gravitational, Inc.
+Copyright 2016-2019 Gravitational, Inc.
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -70,7 +70,7 @@ var log = logrus.WithFields(logrus.Fields{
 })
 
 const (
-	// Directory location where tsh profiles (and session keys) are stored
+	// ProfileDir is a directory location where tsh profiles (and session keys) are stored
 	ProfileDir = ".tsh"
 )
 
@@ -240,6 +240,9 @@ type Config struct {
 	// CheckVersions will check that client version is compatible
 	// with auth server version when connecting.
 	CheckVersions bool
+
+	// BindAddr is an optional host:port to bind to for SSO redirect flows
+	BindAddr string
 }
 
 // CachePolicy defines cache policy for local clients
@@ -443,6 +446,9 @@ func Status(profileDir string, proxyHost string) (*ProfileStatus, []*ProfileStat
 		if file.IsDir() {
 			continue
 		}
+		if file.Mode()&os.ModeSymlink != 0 {
+			continue
+		}
 		if !strings.HasSuffix(file.Name(), ".yaml") {
 			continue
 		}
@@ -522,7 +528,7 @@ func (c *Config) LoadProfile(profileDir string, proxyName string) error {
 
 // SaveProfile updates the given profiles directory with the current configuration
 // If profileDir is an empty string, the default ~/.tsh is used
-func (c *Config) SaveProfile(profileDir string, profileOptions ...ProfileOptions) error {
+func (c *Config) SaveProfile(profileAliasHost, profileDir string, profileOptions ...ProfileOptions) error {
 	if c.WebProxyAddr == "" {
 		return nil
 	}
@@ -531,6 +537,11 @@ func (c *Config) SaveProfile(profileDir string, profileOptions ...ProfileOptions
 	webProxyHost, _ := c.WebProxyHostPort()
 	profileDir = FullProfilePath(profileDir)
 	profilePath := path.Join(profileDir, webProxyHost) + ".yaml"
+
+	profileAliasPath := ""
+	if profileAliasHost != "" {
+		profileAliasPath = path.Join(profileDir, profileAliasHost) + ".yaml"
+	}
 
 	var cp ClientProfile
 	cp.Username = c.Username
@@ -550,7 +561,7 @@ func (c *Config) SaveProfile(profileDir string, profileOptions ...ProfileOptions
 			opts |= flag
 		}
 	}
-	if err := cp.SaveTo(profilePath, opts); err != nil {
+	if err := cp.SaveTo(profileAliasPath, profilePath, opts); err != nil {
 		return trace.Wrap(err)
 	}
 	return nil
@@ -559,7 +570,7 @@ func (c *Config) SaveProfile(profileDir string, profileOptions ...ProfileOptions
 // ParseProxyHost parses the proxyHost string and updates the config.
 //
 // Format of proxyHost string:
-//   proxy_web_addr:<proxy_web_port>,<proxy_ssh_portt>
+//   proxy_web_addr:<proxy_web_port>,<proxy_ssh_port>
 func (c *Config) ParseProxyHost(proxyHost string) error {
 	host, port, err := net.SplitHostPort(proxyHost)
 	if err != nil {
@@ -1405,7 +1416,6 @@ func (tc *TeleportClient) connectToProxy(ctx context.Context) (*ProxyClient, err
 	var err error
 
 	proxyPrincipal := tc.getProxySSHPrincipal()
-	proxyAddr := tc.Config.SSHProxyAddr
 	sshConfig := &ssh.ClientConfig{
 		User:            proxyPrincipal,
 		HostKeyCallback: tc.HostKeyCallback,
@@ -1416,7 +1426,7 @@ func (tc *TeleportClient) connectToProxy(ctx context.Context) (*ProxyClient, err
 		return &ProxyClient{
 			teleportClient:  tc,
 			Client:          sshClient,
-			proxyAddress:    proxyAddr,
+			proxyAddress:    tc.Config.SSHProxyAddr,
 			proxyPrincipal:  proxyPrincipal,
 			hostKeyCallback: sshConfig.HostKeyCallback,
 			authMethod:      m,
@@ -1425,14 +1435,14 @@ func (tc *TeleportClient) connectToProxy(ctx context.Context) (*ProxyClient, err
 			clientAddr:      tc.ClientAddr,
 		}
 	}
-	successMsg := fmt.Sprintf("Successful auth with proxy %v", proxyAddr)
+	successMsg := fmt.Sprintf("Successful auth with proxy %v", tc.Config.SSHProxyAddr)
 	// try to authenticate using every non interactive auth method we have:
 	for i, m := range tc.authMethods() {
-		log.Infof("Connecting proxy=%v login='%v' method=%d", proxyAddr, sshConfig.User, i)
+		log.Infof("Connecting proxy=%v login='%v' method=%d", tc.Config.SSHProxyAddr, sshConfig.User, i)
 		var sshClient *ssh.Client
 
 		sshConfig.Auth = []ssh.AuthMethod{m}
-		sshClient, err = ssh.Dial("tcp", proxyAddr, sshConfig)
+		sshClient, err = ssh.Dial("tcp", tc.Config.SSHProxyAddr, sshConfig)
 		if err != nil {
 			if utils.IsHandshakeFailedError(err) {
 				log.Warn(err)
@@ -1447,35 +1457,38 @@ func (tc *TeleportClient) connectToProxy(ctx context.Context) (*ProxyClient, err
 	// is disabled in configuration, or the user refused connecting to untrusted hosts
 	if tc.Config.SkipLocalAuth || tc.localAgent.UserRefusedHosts() {
 		if err == nil {
-			err = trace.BadParameter("failed to authenticate with proxy %v", proxyAddr)
+			err = trace.BadParameter("failed to authenticate with proxy %v", tc.Config.SSHProxyAddr)
 		}
 		return nil, trace.Wrap(err)
 	}
 	// if we get here, it means we failed to authenticate using stored keys
 	// and we need to ask for the login information
+	// Login reaches out to ping endpoint of the proxy
+	// and has a side effect of updating tc.Config.SSHProxyAddr
+	// and other parameters, that's why they are referenced directly below
 	key, err := tc.Login(ctx, true)
 	if err != nil {
 		// we need to communicate directly to user here,
 		// otherwise user will see endless loop with no explanation
 		if trace.IsTrustError(err) {
-			fmt.Printf("Refusing to connect to untrusted proxy %v without --insecure flag\n", proxyAddr)
+			fmt.Printf("Refusing to connect to untrusted proxy %v without --insecure flag\n", tc.Config.SSHProxyAddr)
 		}
 		return nil, trace.Wrap(err)
 	}
 	// Save profile to record proxy credentials
-	if err := tc.SaveProfile("", ProfileCreateNew); err != nil {
+	if err := tc.SaveProfile(key.ProxyHost, "", ProfileCreateNew|ProfileMakeCurrent); err != nil {
 		log.Warningf("Failed to save profile: %v", err)
 	}
 	authMethod, err := key.AsAuthMethod()
 	if err != nil {
 		return nil, trace.Wrap(err)
 	}
-
 	// After successful login we have local agent updated with latest
 	// and greatest auth information, try it now
 	sshConfig.Auth = []ssh.AuthMethod{authMethod}
-	sshConfig.User = proxyPrincipal
-	sshClient, err := ssh.Dial("tcp", proxyAddr, sshConfig)
+	sshConfig.User = tc.getProxySSHPrincipal()
+	log.Infof("Connecting proxy=%v login='%v' using local agent.", tc.Config.SSHProxyAddr, sshConfig.User)
+	sshClient, err := ssh.Dial("tcp", tc.Config.SSHProxyAddr, sshConfig)
 	if err != nil {
 		return nil, trace.Wrap(err)
 	}
@@ -1531,6 +1544,9 @@ func (tc *TeleportClient) Login(ctx context.Context, activateKey bool) (*Key, er
 			return nil, trace.Wrap(err)
 		}
 	}
+
+	// preserve original web proxy host that could have
+	webProxyHost, _ := tc.WebProxyHostPort()
 
 	if err := tc.applyProxySettings(pr.Proxy); err != nil {
 		return nil, trace.Wrap(err)
@@ -1589,6 +1605,7 @@ func (tc *TeleportClient) Login(ctx context.Context, activateKey bool) (*Key, er
 	// extract the new certificate out of the response
 	key.Cert = response.Cert
 	key.TLSCert = response.TLSCert
+	key.ProxyHost = webProxyHost
 
 	if len(response.HostSigners) <= 0 {
 		return nil, trace.BadParameter("bad response from the server: expected at least one certificate, got 0")
@@ -1821,16 +1838,18 @@ func (tc *TeleportClient) directLogin(ctx context.Context, secondFactorType stri
 func (tc *TeleportClient) ssoLogin(ctx context.Context, connectorID string, pub []byte, protocol string) (*auth.SSHLoginResponse, error) {
 	log.Debugf("samlLogin start")
 	// ask the CA (via proxy) to sign our public key:
-	response, err := SSHAgentSSOLogin(
-		ctx,
-		tc.Config.WebProxyAddr,
-		connectorID,
-		pub,
-		tc.KeyTTL,
-		tc.InsecureSkipVerify,
-		loopbackPool(tc.Config.WebProxyAddr),
-		protocol,
-		tc.CertificateFormat)
+	response, err := SSHAgentSSOLogin(SSHLogin{
+		Context:       ctx,
+		ProxyAddr:     tc.Config.WebProxyAddr,
+		ConnectorID:   connectorID,
+		PubKey:        pub,
+		TTL:           tc.KeyTTL,
+		Insecure:      tc.InsecureSkipVerify,
+		Pool:          loopbackPool(tc.Config.WebProxyAddr),
+		Protocol:      protocol,
+		Compatibility: tc.CertificateFormat,
+		BindAddr:      tc.BindAddr,
+	})
 	return response, trace.Wrap(err)
 }
 

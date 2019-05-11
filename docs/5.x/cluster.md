@@ -2298,15 +2298,15 @@ Kubernetes includes support for evicting pods in order to maintain node stabilit
 Gravity uses the following eviction policies by default:
 
  - Hard eviction
-    1. less than 10% of disk space is available (`nodefs.available<10%`)
+    1. less than 5% of disk space is available (`nodefs.available<5%`)
     1. less than 5% of the inodes are available (`nodefs.inodesFree<5%`)
-    1. less than 15% of the image filesystem is free (`imagefs.available<15%`)
+    1. less than 5% of the image filesystem is free (`imagefs.available<5%`)
     1. less than 5% of the inodes on the image filesystem are available (`imagefs.inodesFree<5%`)
 
  - Soft eviction
-    1. less than 20% of disk space is available (`nodefs.available<20%`)
+    1. less than 10% of disk space is available (`nodefs.available<10%`)
     1. less than 10% of the inodes are available (`nodefs.inodesFree<10%`)
-    1. less than 20% of the image filesystem is free (`imagefs.available<20%`)
+    1. less than 10% of the image filesystem is free (`imagefs.available<10%`)
     1. less than 10% of the inodes on the image filesystem are available (`imagefs.inodesFree<10%`)
 
 The default grace period for soft eviction policy is set to 1 hour.

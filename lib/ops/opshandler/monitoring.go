@@ -113,7 +113,7 @@ func (h *WebHandler) updateAlert(w http.ResponseWriter, r *http.Request, p httpr
 		alert.SetTTL(clockwork.NewRealClock(), req.TTL)
 	}
 
-	err = context.Operator.UpdateAlert(siteKey(p), alert)
+	err = context.Operator.UpdateAlert(r.Context(), siteKey(p), alert)
 	if err != nil {
 		return trace.Wrap(err)
 	}
@@ -132,7 +132,7 @@ func (h *WebHandler) updateAlert(w http.ResponseWriter, r *http.Request, p httpr
      }
 */
 func (h *WebHandler) deleteAlert(w http.ResponseWriter, r *http.Request, p httprouter.Params, context *HandlerContext) error {
-	err := context.Operator.DeleteAlert(siteKey(p), p.ByName("name"))
+	err := context.Operator.DeleteAlert(r.Context(), siteKey(p), p.ByName("name"))
 	if err != nil {
 		return trace.Wrap(err)
 	}
@@ -183,7 +183,7 @@ func (h *WebHandler) updateAlertTarget(w http.ResponseWriter, r *http.Request, p
 		target.SetTTL(clockwork.NewRealClock(), req.TTL)
 	}
 
-	err = context.Operator.UpdateAlertTarget(siteKey(p), target)
+	err = context.Operator.UpdateAlertTarget(r.Context(), siteKey(p), target)
 	if err != nil {
 		return trace.Wrap(err)
 	}
@@ -202,7 +202,7 @@ func (h *WebHandler) updateAlertTarget(w http.ResponseWriter, r *http.Request, p
      }
 */
 func (h *WebHandler) deleteAlertTarget(w http.ResponseWriter, r *http.Request, p httprouter.Params, context *HandlerContext) error {
-	err := context.Operator.DeleteAlertTarget(siteKey(p))
+	err := context.Operator.DeleteAlertTarget(r.Context(), siteKey(p))
 	if err != nil {
 		return trace.Wrap(err)
 	}

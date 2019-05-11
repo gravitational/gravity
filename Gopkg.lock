@@ -885,8 +885,8 @@
   version = "v1.0.1"
 
 [[projects]]
-  branch = "branch/3.1-g"
-  digest = "1:91032510f5e373a7b231cfb2836f14bb33e57447f215c007d79375b087acc41d"
+  branch = "branch/3.2-g"
+  digest = "1:dc70d53cfb938ba2490891306441c151e2256eb957d06a5e6dab3d4f3c7e4874"
   name = "github.com/gravitational/teleport"
   packages = [
     ".",
@@ -909,7 +909,6 @@
     "lib/fixtures",
     "lib/httplib",
     "lib/httplib/csrf",
-    "lib/kube/authority",
     "lib/kube/proxy",
     "lib/kube/utils",
     "lib/limiter",
@@ -942,7 +941,7 @@
     "lib/web/ui",
   ]
   pruneopts = "UT"
-  revision = "d5d895c26d6c9d2520d2a35bcc83f248f00a279b"
+  revision = "495a59bc1737cf62aa9850f5eed7e6fc3117c0c2"
 
 [[projects]]
   digest = "1:22c8951489f0e27ec3b2d50d9f74086ff3f08554ce5965d418d6a10296b9ea04"

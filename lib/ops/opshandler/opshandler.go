@@ -42,7 +42,6 @@ import (
 	"github.com/gravitational/roundtrip"
 	telehttplib "github.com/gravitational/teleport/lib/httplib"
 	teleservices "github.com/gravitational/teleport/lib/services"
-	"github.com/gravitational/teleport/lib/utils"
 	"github.com/gravitational/trace"
 	"github.com/jonboulle/clockwork"
 	"github.com/julienschmidt/httprouter"
@@ -65,8 +64,6 @@ type WebHandlerConfig struct {
 	Authenticator httplib.Authenticator
 	// Devmode is whether the process is started in dev mode
 	Devmode bool
-	// PublicAdvertiseAddr is the process public advertise address
-	PublicAdvertiseAddr utils.NetAddr
 }
 
 type WebHandler struct {
@@ -103,6 +100,7 @@ func NewWebHandler(cfg WebHandlerConfig) (*WebHandler, error) {
 
 	// Applications API
 	h.GET("/portal/v1/apps", h.needsAuth(h.getApps))
+	h.GET("/portal/v1/gravity", h.needsAuth(h.getGravityBinary))
 
 	// Accounts API
 	h.POST("/portal/v1/accounts", h.needsAuth(h.createAccount))
@@ -114,15 +112,20 @@ func NewWebHandler(cfg WebHandlerConfig) (*WebHandler, error) {
 	h.GET("/portal/v1/currentuserinfo", h.needsAuth(h.getCurrentUserInfo))
 	h.POST("/portal/v1/users", h.needsAuth(h.createUser))
 	h.DELETE("/portal/v1/users/:user_email", h.needsAuth(h.deleteLocalUser))
+	h.PUT("/portal/v1/accounts/:account_id/sites/:site_domain/users/:user_email", h.needsAuth(h.updateUser))
 
 	// API keys API
 	h.POST("/portal/v1/apikeys/user/:user_email", h.needsAuth(h.createAPIKey))
 	h.GET("/portal/v1/apikeys/user/:user_email", h.needsAuth(h.getAPIKeys))
 	h.DELETE("/portal/v1/apikeys/user/:user_email/:api_key", h.needsAuth(h.deleteAPIKey))
 
-	// Tokens
+	// Invites API
+	h.POST("/portal/v1/accounts/:account_id/sites/:site_domain/tokens/userinvites", h.needsAuth(h.createUserInvite))
+	h.GET("/portal/v1/accounts/:account_id/sites/:site_domain/tokens/userinvites", h.needsAuth(h.getUserInvites))
+	h.DELETE("/portal/v1/accounts/:account_id/sites/:site_domain/tokens/userinvites/:name", h.needsAuth(h.deleteUserInvite))
+
+	// Tokens API
 	h.POST("/portal/v1/tokens/install", h.needsAuth(h.createInstallToken))
-	h.POST("/portal/v1/accounts/:account_id/sites/:site_domain/tokens/userinvites", h.needsAuth(h.inviteUser))
 	h.POST("/portal/v1/accounts/:account_id/sites/:site_domain/tokens/userresets", h.needsAuth(h.resetUser))
 	h.POST("/portal/v1/accounts/:account_id/sites/:site_domain/tokens/provision", h.needsAuth(h.createProvisioningToken))
 	h.GET("/portal/v1/accounts/:account_id/sites/:site_domain/tokens/expand", h.needsAuth(h.getExpandToken))
@@ -367,6 +370,30 @@ func (h *WebHandler) getApps(w http.ResponseWriter, r *http.Request, p httproute
 	return nil
 }
 
+/* getGravityBinary exports the cluster's gravity binary.
+
+   GET /portal/v1/gravity
+*/
+func (h *WebHandler) getGravityBinary(w http.ResponseWriter, r *http.Request, p httprouter.Params, ctx *HandlerContext) error {
+	cluster, err := ctx.Operator.GetLocalSite()
+	if err != nil {
+		return trace.Wrap(err)
+	}
+	gravityPackage, err := cluster.App.Manifest.Dependencies.ByName(constants.GravityPackage)
+	if err != nil {
+		return trace.Wrap(err)
+	}
+	_, reader, err := h.cfg.Packages.ReadPackage(*gravityPackage)
+	if err != nil {
+		return trace.Wrap(err)
+	}
+	defer reader.Close()
+	w.Header().Set("Content-Type", "application/octet-stream")
+	w.Header().Set("Content-Disposition", "attachment; filename=gravity")
+	_, err = io.Copy(w, reader)
+	return trace.Wrap(err)
+}
+
 /*  inviteUser resets user credentials and returns a user token
 
     POST /portal/v1/accounts/:account_id/sites/:site_domain/usertokens/resets
@@ -376,58 +403,65 @@ func (h *WebHandler) resetUser(w http.ResponseWriter, r *http.Request, p httprou
 	if err != nil {
 		return trace.Wrap(err)
 	}
-	var req ops.UserResetRequest
+	var req ops.CreateUserResetRequest
 	if err := json.Unmarshal(data, &req); err != nil {
 		return trace.BadParameter(err.Error())
 	}
-
-	userToken, err := ctx.Identity.CreateResetToken(
-		fmt.Sprintf("https://%v", h.cfg.PublicAdvertiseAddr.String()),
-		req.Name,
-		req.TTL)
+	resetToken, err := ctx.Operator.CreateUserReset(r.Context(), req)
 	if err != nil {
-		log.Debugf("User reset error: %v.", err)
 		return trace.Wrap(err)
 	}
-
-	roundtrip.ReplyJSON(w, http.StatusOK, userToken)
+	roundtrip.ReplyJSON(w, http.StatusOK, resetToken)
 	return nil
 }
 
-/*  inviteUser creates a user invite and returns user token
+/*  createUserInvite creates a new invite token for a user.
 
     POST /portal/v1/accounts/:account_id/sites/:site_domain/usertokens/invites
 */
-func (h *WebHandler) inviteUser(w http.ResponseWriter, r *http.Request, p httprouter.Params, ctx *HandlerContext) error {
+func (h *WebHandler) createUserInvite(w http.ResponseWriter, r *http.Request, p httprouter.Params, ctx *HandlerContext) error {
 	data, err := ioutil.ReadAll(r.Body)
 	if err != nil {
 		return trace.Wrap(err)
 	}
-	var req ops.UserInviteRequest
+	var req ops.CreateUserInviteRequest
 	if err := json.Unmarshal(data, &req); err != nil {
 		return trace.BadParameter(err.Error())
 	}
-
-	invite := storage.UserInvite{
-		CreatedBy: ctx.User.GetName(),
-		Name:      req.Name,
-		Roles:     req.Roles,
-		ExpiresIn: req.TTL,
-	}
-
-	advertiseURL := fmt.Sprintf("https://%v", h.cfg.PublicAdvertiseAddr.String())
-	userToken, err := ctx.Identity.CreateInviteToken(advertiseURL, invite)
+	inviteToken, err := ctx.Operator.CreateUserInvite(r.Context(), req)
 	if err != nil {
-		log.Debugf("User invite error: %v.", err)
 		return trace.Wrap(err)
 	}
+	roundtrip.ReplyJSON(w, http.StatusOK, inviteToken)
+	return nil
+}
 
-	events.Emit(r.Context(), ctx.Operator, events.InviteCreated, events.Fields{
-		events.FieldName:  req.Name,
-		events.FieldRoles: req.Roles,
+/*  getUserInvites returns all active user invites.
+
+    GET /portal/v1/accounts/:account_id/sites/:site_domain/usertokens/invites
+*/
+func (h *WebHandler) getUserInvites(w http.ResponseWriter, r *http.Request, p httprouter.Params, ctx *HandlerContext) error {
+	invites, err := ctx.Operator.GetUserInvites(r.Context(), siteKey(p))
+	if err != nil {
+		return trace.Wrap(err)
+	}
+	roundtrip.ReplyJSON(w, http.StatusOK, invites)
+	return nil
+}
+
+/*  deleteUserInvite deletes the specified user invite.
+
+    DELETE /portal/v1/accounts/:account_id/sites/:site_domain/usertokens/invites/:name
+*/
+func (h *WebHandler) deleteUserInvite(w http.ResponseWriter, r *http.Request, p httprouter.Params, ctx *HandlerContext) error {
+	err := ctx.Operator.DeleteUserInvite(r.Context(), ops.DeleteUserInviteRequest{
+		SiteKey: siteKey(p),
+		Name:    p.ByName("name"),
 	})
-
-	roundtrip.ReplyJSON(w, http.StatusOK, userToken)
+	if err != nil {
+		return trace.Wrap(err)
+	}
+	roundtrip.ReplyJSON(w, http.StatusOK, statusOK("invite deleted"))
 	return nil
 }
 
@@ -571,6 +605,22 @@ func (h *WebHandler) createUser(w http.ResponseWriter, r *http.Request, p httpro
 	return nil
 }
 
+/* updateUser updates the specified user information.
+
+   PUT /portal/v1/accounts/:account_id/sites/:site_domain/users/:user_email
+*/
+func (h *WebHandler) updateUser(w http.ResponseWriter, r *http.Request, p httprouter.Params, context *HandlerContext) error {
+	var req ops.UpdateUserRequest
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		return trace.BadParameter(err.Error())
+	}
+	if err := context.Operator.UpdateUser(r.Context(), req); err != nil {
+		return trace.Wrap(err)
+	}
+	roundtrip.ReplyJSON(w, http.StatusOK, statusOK("user updated"))
+	return nil
+}
+
 /* deleteUser deletes a user by name
 
    DELETE /portal/v1/users/:user_name
@@ -608,7 +658,7 @@ func (h *WebHandler) createAPIKey(w http.ResponseWriter, r *http.Request, p http
 	if err := d.Decode(&req); err != nil {
 		return trace.BadParameter(err.Error())
 	}
-	key, err := h.cfg.Operator.CreateAPIKey(req)
+	key, err := h.cfg.Operator.CreateAPIKey(r.Context(), req)
 	if err != nil {
 		return trace.Wrap(err)
 	}
@@ -651,7 +701,7 @@ func (h *WebHandler) getAPIKeys(w http.ResponseWriter, r *http.Request, p httpro
    }
 */
 func (h *WebHandler) deleteAPIKey(w http.ResponseWriter, r *http.Request, p httprouter.Params, ctx *HandlerContext) error {
-	err := h.cfg.Operator.DeleteAPIKey(p[0].Value, p[1].Value)
+	err := h.cfg.Operator.DeleteAPIKey(r.Context(), p[0].Value, p[1].Value)
 	if err != nil {
 		return trace.Wrap(err)
 	}
@@ -1984,7 +2034,7 @@ func (h *WebHandler) createLogForwarder(w http.ResponseWriter, r *http.Request, 
 	if req.TTL != 0 {
 		forwarder.SetTTL(clockwork.NewRealClock(), req.TTL)
 	}
-	err = context.Operator.CreateLogForwarder(siteKey(p), forwarder)
+	err = context.Operator.CreateLogForwarder(r.Context(), siteKey(p), forwarder)
 	if err != nil {
 		return trace.Wrap(err)
 	}
@@ -2008,7 +2058,7 @@ func (h *WebHandler) updateLogForwarder(w http.ResponseWriter, r *http.Request, 
 	if req.TTL != 0 {
 		forwarder.SetTTL(clockwork.NewRealClock(), req.TTL)
 	}
-	err = context.Operator.UpdateLogForwarder(siteKey(p), forwarder)
+	err = context.Operator.UpdateLogForwarder(r.Context(), siteKey(p), forwarder)
 	if err != nil {
 		return trace.Wrap(err)
 	}
@@ -2021,7 +2071,7 @@ func (h *WebHandler) updateLogForwarder(w http.ResponseWriter, r *http.Request, 
    DELETE /portal/v1/accounts/:account_id/sites/:site_domain/logs/forwarders/:name
 */
 func (h *WebHandler) deleteLogForwarder(w http.ResponseWriter, r *http.Request, p httprouter.Params, context *HandlerContext) error {
-	err := context.Operator.DeleteLogForwarder(siteKey(p), p.ByName("name"))
+	err := context.Operator.DeleteLogForwarder(r.Context(), siteKey(p), p.ByName("name"))
 	if err != nil {
 		return trace.Wrap(err)
 	}
@@ -2070,7 +2120,7 @@ func (h *WebHandler) updateSMTPConfig(w http.ResponseWriter, r *http.Request, p 
 		config.SetTTL(clockwork.NewRealClock(), req.TTL)
 	}
 
-	err = context.Operator.UpdateSMTPConfig(siteKey(p), config)
+	err = context.Operator.UpdateSMTPConfig(r.Context(), siteKey(p), config)
 	if err != nil {
 		return trace.Wrap(err)
 	}
@@ -2089,7 +2139,7 @@ func (h *WebHandler) updateSMTPConfig(w http.ResponseWriter, r *http.Request, p 
      }
 */
 func (h *WebHandler) deleteSMTPConfig(w http.ResponseWriter, r *http.Request, p httprouter.Params, context *HandlerContext) error {
-	err := context.Operator.DeleteSMTPConfig(siteKey(p))
+	err := context.Operator.DeleteSMTPConfig(r.Context(), siteKey(p))
 	if err != nil {
 		return trace.Wrap(err)
 	}
@@ -2195,7 +2245,7 @@ func (h *WebHandler) updateClusterCert(w http.ResponseWriter, r *http.Request, p
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 		return trace.BadParameter(err.Error())
 	}
-	cert, err := context.Operator.UpdateClusterCertificate(req)
+	cert, err := context.Operator.UpdateClusterCertificate(r.Context(), req)
 	if err != nil {
 		return trace.Wrap(err)
 	}
@@ -2212,7 +2262,7 @@ func (h *WebHandler) updateClusterCert(w http.ResponseWriter, r *http.Request, p
     200 certificate deleted
 */
 func (h *WebHandler) deleteClusterCert(w http.ResponseWriter, r *http.Request, p httprouter.Params, context *HandlerContext) error {
-	err := context.Operator.DeleteClusterCertificate(siteKey(p))
+	err := context.Operator.DeleteClusterCertificate(r.Context(), siteKey(p))
 	if err != nil {
 		return trace.Wrap(err)
 	}
@@ -2234,7 +2284,7 @@ func (h *WebHandler) emitAuditEvent(w http.ResponseWriter, r *http.Request, p ht
 	if err != nil {
 		return trace.Wrap(err)
 	}
-	events.Emit(r.Context(), ctx.Operator, req.Type, events.Fields(req.Fields))
+	events.Emit(r.Context(), ctx.Operator, req.Event, events.Fields(req.Fields))
 	roundtrip.ReplyJSON(w, http.StatusOK, message("audit log event saved"))
 	return nil
 }

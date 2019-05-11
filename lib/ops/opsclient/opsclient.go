@@ -153,6 +153,15 @@ func (c *Client) CreateUser(req ops.NewUserRequest) error {
 	return nil
 }
 
+// UpdateUser updates the specified user information.
+func (c *Client) UpdateUser(ctx context.Context, req ops.UpdateUserRequest) error {
+	_, err := c.PutJSON(c.Endpoint("accounts", req.AccountID, "sites", req.SiteDomain, "users", req.Name), req)
+	if err != nil {
+		return trace.Wrap(err)
+	}
+	return nil
+}
+
 func (c *Client) DeleteLocalUser(name string) error {
 	_, err := c.Delete(c.Endpoint("users", name))
 	if err != nil {
@@ -161,7 +170,7 @@ func (c *Client) DeleteLocalUser(name string) error {
 	return nil
 }
 
-func (c *Client) CreateAPIKey(req ops.NewAPIKeyRequest) (*storage.APIKey, error) {
+func (c *Client) CreateAPIKey(ctx context.Context, req ops.NewAPIKeyRequest) (*storage.APIKey, error) {
 	out, err := c.PostJSON(c.Endpoint("apikeys", "user", req.UserEmail), req)
 	if err != nil {
 		return nil, trace.Wrap(err)
@@ -185,7 +194,7 @@ func (c *Client) GetAPIKeys(userEmail string) ([]storage.APIKey, error) {
 	return keys, nil
 }
 
-func (c *Client) DeleteAPIKey(userEmail, token string) error {
+func (c *Client) DeleteAPIKey(ctx context.Context, userEmail, token string) error {
 	_, err := c.Delete(c.Endpoint("apikeys", "user", userEmail, token))
 	if err != nil {
 		return trace.Wrap(err)
@@ -946,7 +955,7 @@ func (c *Client) UpdateLogForwarders(key ops.SiteKey, forwarders []storage.LogFo
 }
 
 // CreateLogForwarder creates a new log forwarder
-func (c *Client) CreateLogForwarder(key ops.SiteKey, forwarder storage.LogForwarder) error {
+func (c *Client) CreateLogForwarder(ctx context.Context, key ops.SiteKey, forwarder storage.LogForwarder) error {
 	bytes, err := storage.GetLogForwarderMarshaler().Marshal(forwarder)
 	if err != nil {
 		return trace.Wrap(err)
@@ -960,7 +969,7 @@ func (c *Client) CreateLogForwarder(key ops.SiteKey, forwarder storage.LogForwar
 }
 
 // UpdateLogForwarder updates an existing log forwarder
-func (c *Client) UpdateLogForwarder(key ops.SiteKey, forwarder storage.LogForwarder) error {
+func (c *Client) UpdateLogForwarder(ctx context.Context, key ops.SiteKey, forwarder storage.LogForwarder) error {
 	bytes, err := storage.GetLogForwarderMarshaler().Marshal(forwarder)
 	if err != nil {
 		return trace.Wrap(err)
@@ -974,7 +983,7 @@ func (c *Client) UpdateLogForwarder(key ops.SiteKey, forwarder storage.LogForwar
 }
 
 // DeleteLogForwarder deletes a log forwarder
-func (c *Client) DeleteLogForwarder(key ops.SiteKey, forwarderName string) error {
+func (c *Client) DeleteLogForwarder(ctx context.Context, key ops.SiteKey, forwarderName string) error {
 	_, err := c.Delete(c.Endpoint("accounts", key.AccountID, "sites", key.SiteDomain, "logs", "forwarders", forwarderName))
 	return trace.Wrap(err)
 }
@@ -1022,7 +1031,7 @@ func (c *Client) GetSMTPConfig(key ops.SiteKey) (storage.SMTPConfig, error) {
 }
 
 // UpdateSMTPConfig updates the cluster SMTP configuration
-func (c *Client) UpdateSMTPConfig(key ops.SiteKey, config storage.SMTPConfig) error {
+func (c *Client) UpdateSMTPConfig(ctx context.Context, key ops.SiteKey, config storage.SMTPConfig) error {
 	bytes, err := storage.MarshalSMTPConfig(config)
 	if err != nil {
 		return trace.Wrap(err)
@@ -1034,7 +1043,7 @@ func (c *Client) UpdateSMTPConfig(key ops.SiteKey, config storage.SMTPConfig) er
 }
 
 // DeleteSMTPConfig deletes the cluster SMTP configuration
-func (c *Client) DeleteSMTPConfig(key ops.SiteKey) error {
+func (c *Client) DeleteSMTPConfig(ctx context.Context, key ops.SiteKey) error {
 	_, err := c.Delete(c.Endpoint("accounts", key.AccountID, "sites", key.SiteDomain, "smtp"))
 	return trace.Wrap(err)
 }
@@ -1063,7 +1072,7 @@ func (c *Client) GetAlerts(key ops.SiteKey) ([]storage.Alert, error) {
 }
 
 // UpdateAlert updates the specified monitoring alert
-func (c *Client) UpdateAlert(key ops.SiteKey, alert storage.Alert) error {
+func (c *Client) UpdateAlert(ctx context.Context, key ops.SiteKey, alert storage.Alert) error {
 	bytes, err := storage.MarshalAlert(alert)
 	if err != nil {
 		return trace.Wrap(err)
@@ -1076,7 +1085,7 @@ func (c *Client) UpdateAlert(key ops.SiteKey, alert storage.Alert) error {
 }
 
 // DeleteAlert deletes a cluster monitoring alert specified with name
-func (c *Client) DeleteAlert(key ops.SiteKey, name string) error {
+func (c *Client) DeleteAlert(ctx context.Context, key ops.SiteKey, name string) error {
 	_, err := c.Delete(c.Endpoint("accounts", key.AccountID, "sites", key.SiteDomain, "monitoring", "alerts", name))
 	return trace.Wrap(err)
 }
@@ -1105,7 +1114,7 @@ func (c *Client) GetAlertTargets(key ops.SiteKey) ([]storage.AlertTarget, error)
 }
 
 // UpdateAlertTarget updates the monitoring alert target
-func (c *Client) UpdateAlertTarget(key ops.SiteKey, target storage.AlertTarget) error {
+func (c *Client) UpdateAlertTarget(ctx context.Context, key ops.SiteKey, target storage.AlertTarget) error {
 	bytes, err := storage.MarshalAlertTarget(target)
 	if err != nil {
 		return trace.Wrap(err)
@@ -1117,7 +1126,7 @@ func (c *Client) UpdateAlertTarget(key ops.SiteKey, target storage.AlertTarget) 
 }
 
 // DeleteAlertTarget deletes the cluster monitoring alert target
-func (c *Client) DeleteAlertTarget(key ops.SiteKey) error {
+func (c *Client) DeleteAlertTarget(ctx context.Context, key ops.SiteKey) error {
 	_, err := c.Delete(c.Endpoint("accounts", key.AccountID, "sites", key.SiteDomain, "monitoring", "alert-targets"))
 	return trace.Wrap(err)
 }
@@ -1258,7 +1267,7 @@ func (c *Client) GetClusterAuthPreference(key ops.SiteKey) (teleservices.AuthPre
 }
 
 // UpsertClusterAuthPreference updates cluster auth preference
-func (c *Client) UpsertClusterAuthPreference(key ops.SiteKey, authPreference teleservices.AuthPreference) error {
+func (c *Client) UpsertClusterAuthPreference(ctx context.Context, key ops.SiteKey, authPreference teleservices.AuthPreference) error {
 	data, err := teleservices.GetAuthPreferenceMarshaler().Marshal(authPreference)
 	if err != nil {
 		return trace.Wrap(err)
@@ -1289,7 +1298,7 @@ func (c *Client) GetClusterCertificate(key ops.SiteKey, withSecrets bool) (*ops.
 }
 
 // UpdateClusterCertificate updates the cluster certificate
-func (c *Client) UpdateClusterCertificate(req ops.UpdateCertificateRequest) (*ops.ClusterCertificate, error) {
+func (c *Client) UpdateClusterCertificate(ctx context.Context, req ops.UpdateCertificateRequest) (*ops.ClusterCertificate, error) {
 	out, err := c.PostJSON(c.Endpoint(
 		"accounts", req.AccountID, "sites", req.SiteDomain, "certificate"), req)
 	if err != nil {
@@ -1303,7 +1312,7 @@ func (c *Client) UpdateClusterCertificate(req ops.UpdateCertificateRequest) (*op
 }
 
 // DeleteClusterCertificate deletes the cluster certificate
-func (c *Client) DeleteClusterCertificate(key ops.SiteKey) error {
+func (c *Client) DeleteClusterCertificate(ctx context.Context, key ops.SiteKey) error {
 	_, err := c.Delete(c.Endpoint(
 		"accounts", key.AccountID, "sites", key.SiteDomain, "certificate"))
 	return trace.Wrap(err)
@@ -1329,7 +1338,7 @@ type UpsertResourceRawReq struct {
 }
 
 // UpsertUser creates or updates the user
-func (c *Client) UpsertUser(key ops.SiteKey, user teleservices.User) error {
+func (c *Client) UpsertUser(ctx context.Context, key ops.SiteKey, user teleservices.User) error {
 	data, err := teleservices.GetUserMarshaler().MarshalUser(user)
 	if err != nil {
 		return trace.Wrap(err)
@@ -1377,7 +1386,7 @@ func (c *Client) GetUsers(key ops.SiteKey) ([]teleservices.User, error) {
 }
 
 // DeleteUser deletes user by name
-func (c *Client) DeleteUser(key ops.SiteKey, name string) error {
+func (c *Client) DeleteUser(ctx context.Context, key ops.SiteKey, name string) error {
 	if name == "" {
 		return trace.BadParameter("missing user name")
 	}
@@ -1385,38 +1394,56 @@ func (c *Client) DeleteUser(key ops.SiteKey, name string) error {
 	return trace.Wrap(err)
 }
 
-// InviteUser creates a user invite and returns a token
-func (c *Client) InviteUser(key ops.SiteKey, req ops.UserInviteRequest) (*storage.UserToken, error) {
-	out, err := c.PostJSON(c.Endpoint("accounts", key.AccountID, "sites", key.SiteDomain, "tokens", "userinvites"), req)
+// CreateUserInvite creates a new invite token for a user.
+func (c *Client) CreateUserInvite(ctx context.Context, req ops.CreateUserInviteRequest) (*storage.UserToken, error) {
+	out, err := c.PostJSON(c.Endpoint("accounts", req.AccountID, "sites", req.SiteDomain, "tokens", "userinvites"), req)
 	if err != nil {
 		return nil, trace.Wrap(err)
 	}
-
-	var res storage.UserToken
-	if err := json.Unmarshal(out.Bytes(), &res); err != nil {
+	var inviteToken storage.UserToken
+	if err := json.Unmarshal(out.Bytes(), &inviteToken); err != nil {
 		return nil, trace.Wrap(err)
 	}
-
-	return &res, nil
+	return &inviteToken, nil
 }
 
-// ResetUser creates a user reset and returns a token
-func (c *Client) ResetUser(key ops.SiteKey, req ops.UserResetRequest) (*storage.UserToken, error) {
-	out, err := c.PostJSON(c.Endpoint("accounts", key.AccountID, "sites", key.SiteDomain, "tokens", "userresets"), req)
+// GetUserInvites returns all active user invites.
+func (c *Client) GetUserInvites(ctx context.Context, key ops.SiteKey) ([]storage.UserInvite, error) {
+	out, err := c.Get(c.Endpoint("accounts", key.AccountID, "sites", key.SiteDomain, "tokens", "userinvites"), url.Values{})
 	if err != nil {
 		return nil, trace.Wrap(err)
 	}
-
-	var res storage.UserToken
-	if err := json.Unmarshal(out.Bytes(), &res); err != nil {
+	var invites []storage.UserInvite
+	if err := json.Unmarshal(out.Bytes(), &invites); err != nil {
 		return nil, trace.Wrap(err)
 	}
+	return invites, nil
+}
 
-	return &res, nil
+// DeleteUserInvite deletes the specified user invite.
+func (c *Client) DeleteUserInvite(ctx context.Context, req ops.DeleteUserInviteRequest) error {
+	_, err := c.Delete(c.Endpoint("accounts", req.AccountID, "sites", req.SiteDomain, "tokens", "userinvites", req.Name))
+	if err != nil {
+		return trace.Wrap(err)
+	}
+	return nil
+}
+
+// CreateUserReset creates a new reset token for a user.
+func (c *Client) CreateUserReset(ctx context.Context, req ops.CreateUserResetRequest) (*storage.UserToken, error) {
+	out, err := c.PostJSON(c.Endpoint("accounts", req.AccountID, "sites", req.SiteDomain, "tokens", "userresets"), req)
+	if err != nil {
+		return nil, trace.Wrap(err)
+	}
+	var resetToken storage.UserToken
+	if err := json.Unmarshal(out.Bytes(), &resetToken); err != nil {
+		return nil, trace.Wrap(err)
+	}
+	return &resetToken, nil
 }
 
 // UpsertGithubConnector creates or updates a Github connector
-func (c *Client) UpsertGithubConnector(key ops.SiteKey, connector teleservices.GithubConnector) error {
+func (c *Client) UpsertGithubConnector(ctx context.Context, key ops.SiteKey, connector teleservices.GithubConnector) error {
 	data, err := teleservices.GetGithubConnectorMarshaler().Marshal(connector)
 	if err != nil {
 		return trace.Wrap(err)
@@ -1471,7 +1498,7 @@ func (c *Client) GetGithubConnectors(key ops.SiteKey, withSecrets bool) ([]teles
 }
 
 // DeleteGithubConnector deletes a Github connector by name
-func (c *Client) DeleteGithubConnector(key ops.SiteKey, name string) error {
+func (c *Client) DeleteGithubConnector(ctx context.Context, key ops.SiteKey, name string) error {
 	if name == "" {
 		return trace.BadParameter("missing connector name")
 	}
@@ -1480,7 +1507,7 @@ func (c *Client) DeleteGithubConnector(key ops.SiteKey, name string) error {
 }
 
 // UpsertAuthGateway updates auth gateway configuration.
-func (c *Client) UpsertAuthGateway(key ops.SiteKey, gw storage.AuthGateway) error {
+func (c *Client) UpsertAuthGateway(ctx context.Context, key ops.SiteKey, gw storage.AuthGateway) error {
 	bytes, err := storage.MarshalAuthGateway(gw)
 	if err != nil {
 		return trace.Wrap(err)
@@ -1506,9 +1533,9 @@ func (c *Client) GetAuthGateway(key ops.SiteKey) (storage.AuthGateway, error) {
 }
 
 // ListReleases returns all currently installed application releases in a cluster.
-func (c *Client) ListReleases(key ops.SiteKey) ([]storage.Release, error) {
-	response, err := c.Get(c.Endpoint("accounts", key.AccountID, "sites", key.SiteDomain, "releases"),
-		url.Values{})
+func (c *Client) ListReleases(req ops.ListReleasesRequest) ([]storage.Release, error) {
+	response, err := c.Get(c.Endpoint("accounts", req.AccountID, "sites", req.SiteDomain, "releases"),
+		url.Values{"include_icons": []string{strconv.FormatBool(req.IncludeIcons)}})
 	if err != nil {
 		return nil, trace.Wrap(err)
 	}

@@ -35,6 +35,7 @@ import (
 	"github.com/gravitational/gravity/lib/httplib"
 	"github.com/gravitational/gravity/lib/loc"
 	"github.com/gravitational/gravity/lib/ops"
+	"github.com/gravitational/gravity/lib/ops/events"
 	"github.com/gravitational/gravity/lib/ops/monitoring"
 	"github.com/gravitational/gravity/lib/ops/opsclient"
 	"github.com/gravitational/gravity/lib/pack"
@@ -47,9 +48,10 @@ import (
 	"github.com/docker/docker/pkg/archive"
 	"github.com/gravitational/configure/cstrings"
 	"github.com/gravitational/license/authority"
-	"github.com/gravitational/teleport/lib/events"
+	teleevents "github.com/gravitational/teleport/lib/events"
 	"github.com/gravitational/teleport/lib/reversetunnel"
 	teleservices "github.com/gravitational/teleport/lib/services"
+	teleutils "github.com/gravitational/teleport/lib/utils"
 	"github.com/gravitational/trace"
 	"github.com/mailgun/timetools"
 	log "github.com/sirupsen/logrus"
@@ -116,6 +118,9 @@ type Config struct {
 	// ProcessID uniquely identifies gravity process
 	ProcessID string
 
+	// PublicAddr is the operator service public advertise address
+	PublicAddr teleutils.NetAddr
+
 	// InstallLogFiles is a list of additional install log files
 	// to add to install and expand operations for local troubleshooting
 	InstallLogFiles []string
@@ -127,7 +132,7 @@ type Config struct {
 	Client *kubernetes.Clientset
 
 	// AuditLog is used to submit events to the audit log
-	AuditLog events.IAuditLog
+	AuditLog teleevents.IAuditLog
 
 	// GetHelmClient is a factory method for creating a Helm client.
 	GetHelmClient helm.GetClientFunc
@@ -216,7 +221,7 @@ func (cfg *Config) CheckAndSetDefaults() error {
 		cfg.Clock = &timetools.RealTime{}
 	}
 	if cfg.AuditLog == nil {
-		cfg.AuditLog = events.NewDiscardAuditLog()
+		cfg.AuditLog = teleevents.NewDiscardAuditLog()
 	}
 	if cfg.GetHelmClient == nil {
 		cfg.GetHelmClient = helm.NewClient
@@ -244,7 +249,7 @@ func (cfg *Config) CheckRelaxed() error {
 		cfg.Clock = &timetools.RealTime{}
 	}
 	if cfg.AuditLog == nil {
-		cfg.AuditLog = events.NewDiscardAuditLog()
+		cfg.AuditLog = teleevents.NewDiscardAuditLog()
 	}
 	if cfg.GetHelmClient == nil {
 		cfg.GetHelmClient = helm.NewClient
@@ -284,6 +289,10 @@ func (o *Operator) users() users.Identity {
 
 func (o *Operator) clock() timetools.TimeProvider {
 	return o.cfg.Clock
+}
+
+func (o *Operator) publicURL() string {
+	return fmt.Sprintf("https://" + o.cfg.PublicAddr.String())
 }
 
 func (o *Operator) GetAccount(accountID string) (*ops.Account, error) {
@@ -342,13 +351,19 @@ func (o *Operator) DeleteLocalUser(email string) error {
 	return nil
 }
 
-func (o *Operator) CreateAPIKey(req ops.NewAPIKeyRequest) (*storage.APIKey, error) {
+func (o *Operator) CreateAPIKey(ctx context.Context, req ops.NewAPIKeyRequest) (*storage.APIKey, error) {
 	key, err := o.cfg.Users.CreateAPIKey(storage.APIKey{
 		UserEmail: req.UserEmail,
 		Expires:   req.Expires,
 		Token:     req.Token,
 	}, req.Upsert)
-	return key, trace.Wrap(err)
+	if err != nil {
+		return nil, trace.Wrap(err)
+	}
+	events.Emit(ctx, o, events.TokenCreated, events.Fields{
+		events.FieldOwner: key.UserEmail,
+	})
+	return key, nil
 }
 
 func (o *Operator) GetAPIKeys(userEmail string) ([]storage.APIKey, error) {
@@ -356,8 +371,14 @@ func (o *Operator) GetAPIKeys(userEmail string) ([]storage.APIKey, error) {
 	return keys, trace.Wrap(err)
 }
 
-func (o *Operator) DeleteAPIKey(userEmail, token string) error {
-	return trace.Wrap(o.cfg.Users.DeleteAPIKey(userEmail, token))
+func (o *Operator) DeleteAPIKey(ctx context.Context, userEmail, token string) error {
+	if err := o.cfg.Users.DeleteAPIKey(userEmail, token); err != nil {
+		return trace.Wrap(err)
+	}
+	events.Emit(ctx, o, events.TokenDeleted, events.Fields{
+		events.FieldOwner: userEmail,
+	})
+	return nil
 }
 
 func (o *Operator) CreateInstallToken(req ops.NewInstallTokenRequest) (*storage.InstallToken, error) {
@@ -1376,7 +1397,7 @@ func (o *Operator) EmitAuditEvent(ctx context.Context, req ops.AuditEventRequest
 		return trace.Wrap(err)
 	}
 	o.Infof("%s.", req)
-	err = o.cfg.AuditLog.EmitAuditEvent(req.Type, req.Fields)
+	err = o.cfg.AuditLog.EmitAuditEvent(req.Event, req.Fields)
 	if err != nil {
 		return trace.Wrap(err)
 	}
