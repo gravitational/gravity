@@ -1,5 +1,5 @@
 #!/bin/sh
-set -e
+set -ex
 
 echo "Assuming changeset from the environment: $RIG_CHANGESET"
 if [ $1 = "update" ]; then
