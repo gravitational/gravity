@@ -1558,6 +1558,12 @@ func (k SiteKey) String() string {
 		"site(account_id=%v, site_domain=%v)", k.AccountID, k.SiteDomain)
 }
 
+// IsEqualTo returns true if the two cluster keys are equal.
+func (k SiteKey) IsEqualTo(other SiteKey) bool {
+	return k.AccountID == other.AccountID &&
+		k.SiteDomain == other.SiteDomain
+}
+
 // AgentCreds represent install agent username and password used
 // to identify install agents for the site
 type AgentCreds struct {
