@@ -19,6 +19,7 @@ package cli
 import (
 	"os"
 	"path/filepath"
+	"strings"
 
 	"github.com/gravitational/gravity/lib/defaults"
 	"github.com/gravitational/gravity/lib/localenv"
@@ -180,4 +181,33 @@ func (g *Application) isExpandCommand(cmd string) bool {
 		return true
 	}
 	return false
+}
+
+// ConfigureNoProxy configures the current process to not use any configured HTTP process when connecting to any
+// destination by IP address, or a domain with a suffix of .local. Gravity internally connects to nodes by IP address,
+// and by queries to kubernetes using the .local suffix. The side effect is, connections towards the internet by IP
+// address and not a configured domain name will not be able to invoke a proxy. This should be a reasonable tradeoff,
+// because with a cluster that changes over time, it's difficult for us to accuratly detect what IP addresses need to
+// have no_proxy set.
+func ConfigureNoProxy() {
+	// The golang HTTP proxy env variable detection only uses the first detected http proxy env variable
+	// so we need to grab both to make sure we edit the correct one.
+	// https://github.com/golang/net/blob/c21de06aaf072cea07f3a65d6970e5c7d8b6cd6d/http/httpproxy/proxy.go#L91-L107
+	proxy := map[string]string{
+		"NO_PROXY": os.Getenv("NO_PROXY"),
+		"no_proxy": os.Getenv("no_proxy"),
+	}
+
+	found := false
+	for k, v := range proxy {
+		if len(v) != 0 {
+			os.Setenv(k, strings.Join([]string{v, "0.0.0.0/0", ".local"}, ","))
+			found = true
+		}
+	}
+
+	if !found {
+		os.Setenv("NO_PROXY", strings.Join([]string{"0.0.0.0/0", ".local"}, ","))
+	}
+
 }

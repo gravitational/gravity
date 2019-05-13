@@ -19,6 +19,7 @@ package opsservice
 import (
 	"context"
 	"encoding/json"
+	"strings"
 
 	"github.com/gravitational/gravity/lib/constants"
 	"github.com/gravitational/gravity/lib/defaults"
@@ -113,12 +114,49 @@ func (o *Operator) UpdateClusterEnvironmentVariables(req ops.UpdateClusterEnviro
 		}
 		configmap.Annotations[constants.PreviousKeyValuesAnnotationKey] = string(previousKeyValues)
 	}
-	configmap.Data = req.Env
+	configmap.Data = getEnv(req)
 	err = kubernetes.Retry(context.TODO(), func() error {
 		_, err := configmaps.Update(configmap)
 		return trace.Wrap(err)
 	})
 	return trace.Wrap(err)
+}
+
+// Updates the requested environment variables to contain pre-configured exceptions needed for the local cluster
+func getEnv(req ops.UpdateClusterEnvironRequest) map[string]string {
+	env := req.Env
+	// The golang HTTP proxy env variable detection only uses the first detected http proxy env variable
+	// so we need to grab both to make sure we edit the correct one.
+	// https://github.com/golang/net/blob/c21de06aaf072cea07f3a65d6970e5c7d8b6cd6d/http/httpproxy/proxy.go#L91-L107
+	proxy := map[string]string{
+		"NO_PROXY": env["NO_PROXY"],
+		"no_proxy": env["no_proxy"],
+	}
+
+	found := false
+proxy:
+	for k, v := range proxy {
+		if len(v) != 0 {
+			found = true
+
+			// skip adding .local if the list already contains an exception for .local
+			split := strings.Split(v, ",")
+			for _, noProxy := range split {
+				if noProxy == ".local" {
+					continue proxy
+				}
+			}
+
+			env[k] = strings.Join([]string{v, ".local"}, ",")
+
+		}
+	}
+
+	if !found {
+		env["NO_PROXY"] = strings.Join([]string{".local"}, ",")
+	}
+
+	return env
 }
 
 // NewEnvironmentConfigMap creates the backing ConfigMap to host cluster runtime environment variables
