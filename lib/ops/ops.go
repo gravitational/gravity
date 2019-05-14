@@ -30,7 +30,6 @@ import (
 	"github.com/gravitational/gravity/lib/constants"
 	"github.com/gravitational/gravity/lib/defaults"
 	"github.com/gravitational/gravity/lib/loc"
-	"github.com/gravitational/gravity/lib/ops/monitoring"
 	"github.com/gravitational/gravity/lib/pack"
 	"github.com/gravitational/gravity/lib/schema"
 	"github.com/gravitational/gravity/lib/storage"
@@ -1871,10 +1870,6 @@ type SMTP interface {
 
 // Monitoring defines the interface to manage monitoring and metrics
 type Monitoring interface {
-	// GetRetentionPolicies returns a list of retention policies for the site
-	GetRetentionPolicies(SiteKey) ([]monitoring.RetentionPolicy, error)
-	// UpdateRetentionPolicy updates one of site's retention policies
-	UpdateRetentionPolicy(UpdateRetentionPolicyRequest) error
 	// GetAlerts returns the list of configured monitoring alerts
 	GetAlerts(SiteKey) ([]storage.Alert, error)
 	// UpdateAlert updates the specified monitoring alert
@@ -1887,34 +1882,6 @@ type Monitoring interface {
 	UpdateAlertTarget(context.Context, SiteKey, storage.AlertTarget) error
 	// DeleteAlertTarget deletes the monitoring alert target
 	DeleteAlertTarget(context.Context, SiteKey) error
-}
-
-// UpdateRetentionPolicyRequest is a request to update retention policy
-type UpdateRetentionPolicyRequest struct {
-	// AccountID is the site account ID
-	AccountID string `json:"account_id"`
-	// SiteDomain is the site domain name
-	SiteDomain string `json:"site_domain"`
-	// Name is the retention policy to update
-	Name string `json:"name"`
-	// Duration is the new retention duration
-	Duration time.Duration `json:"duration"`
-}
-
-// Check makes sure the request is correct
-func (r UpdateRetentionPolicyRequest) Check() error {
-	if !utils.StringInSlice(AllRetentions, r.Name) {
-		return trace.BadParameter("unsupported retention %q, supported are: %v",
-			r.Name, AllRetentions)
-	}
-	if r.Duration <= 0 {
-		return trace.BadParameter("duration must be > 0")
-	}
-	if r.Duration > RetentionLimits[r.Name] {
-		return trace.BadParameter("max allowed duration for retention %q is %v, got: %v",
-			r.Name, RetentionLimits[r.Name], r.Duration)
-	}
-	return nil
 }
 
 // Endpoints defines cluster and application endpoints management interface

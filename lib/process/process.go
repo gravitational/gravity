@@ -51,7 +51,6 @@ import (
 	"github.com/gravitational/gravity/lib/loc"
 	"github.com/gravitational/gravity/lib/modules"
 	"github.com/gravitational/gravity/lib/ops"
-	"github.com/gravitational/gravity/lib/ops/monitoring"
 	"github.com/gravitational/gravity/lib/ops/opshandler"
 	"github.com/gravitational/gravity/lib/ops/opsroute"
 	"github.com/gravitational/gravity/lib/ops/opsservice"
@@ -1166,11 +1165,6 @@ func (p *Process) initService(ctx context.Context) (err error) {
 		Backend: p.backend,
 	})
 
-	mon, err := monitoring.NewInfluxDB()
-	if err != nil {
-		return trace.Wrap(err)
-	}
-
 	var logs opsservice.LogForwardersControl
 	if p.inKubernetes() {
 		logs = opsservice.NewLogForwardersControl(client)
@@ -1201,7 +1195,6 @@ func (p *Process) initService(ctx context.Context) (err error) {
 		Users:           p.identity,
 		TeleportProxy:   teleportProxy,
 		Tunnel:          reverseTunnel,
-		Monitoring:      mon,
 		Local:           p.mode == constants.ComponentSite,
 		Wizard:          p.mode == constants.ComponentInstaller,
 		Proxy:           proxy,

@@ -36,7 +36,6 @@ import (
 	"github.com/gravitational/gravity/lib/loc"
 	"github.com/gravitational/gravity/lib/ops"
 	"github.com/gravitational/gravity/lib/ops/events"
-	"github.com/gravitational/gravity/lib/ops/monitoring"
 	"github.com/gravitational/gravity/lib/ops/opsclient"
 	"github.com/gravitational/gravity/lib/pack"
 	"github.com/gravitational/gravity/lib/schema"
@@ -90,9 +89,6 @@ type Config struct {
 
 	// Users service provides access to users
 	Users users.Identity
-
-	// Monitoring is the monitoring API provider
-	Monitoring monitoring.Monitoring
 
 	// Clock is used to mock time in tests
 	Clock timetools.TimeProvider

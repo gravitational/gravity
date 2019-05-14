@@ -27,7 +27,6 @@ import (
 	"github.com/gravitational/gravity/lib/defaults"
 	"github.com/gravitational/gravity/lib/loc"
 	"github.com/gravitational/gravity/lib/modules"
-	"github.com/gravitational/gravity/lib/ops/monitoring"
 	"github.com/gravitational/gravity/lib/storage"
 	"github.com/gravitational/gravity/lib/storage/clusterconfig"
 	"github.com/gravitational/gravity/lib/users"
@@ -723,20 +722,6 @@ func (o *OperatorACL) DeleteLogForwarder(ctx context.Context, key SiteKey, forwa
 		return trace.Wrap(err)
 	}
 	return o.operator.DeleteLogForwarder(ctx, key, forwarderName)
-}
-
-func (o *OperatorACL) GetRetentionPolicies(key SiteKey) ([]monitoring.RetentionPolicy, error) {
-	if err := o.ClusterAction(key.SiteDomain, storage.KindCluster, teleservices.VerbRead); err != nil {
-		return nil, trace.Wrap(err)
-	}
-	return o.operator.GetRetentionPolicies(key)
-}
-
-func (o *OperatorACL) UpdateRetentionPolicy(req UpdateRetentionPolicyRequest) error {
-	if err := o.ClusterAction(req.SiteDomain, storage.KindCluster, teleservices.VerbUpdate); err != nil {
-		return trace.Wrap(err)
-	}
-	return o.operator.UpdateRetentionPolicy(req)
 }
 
 func (o *OperatorACL) GetSMTPConfig(key SiteKey) (storage.SMTPConfig, error) {
