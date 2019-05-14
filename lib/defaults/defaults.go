@@ -528,20 +528,6 @@ const (
 	// GrafanaServicePort is the port Grafana service is listening on
 	GrafanaServicePort = 3000
 
-	// InfluxDBServiceAddr is the address of InfluxDB service
-	InfluxDBServiceAddr = "influxdb.monitoring.svc.cluster.local"
-	// InfluxDBServicePort is the API port of InfluxDB service
-	InfluxDBServicePort = 8086
-	// InfluxDBAdminUser is the InfluxDB admin user name
-	InfluxDBAdminUser = "root"
-	// InfluxDBAdminPassword is the InfluxDB admin user password
-	InfluxDBAdminPassword = "root"
-
-	// PrometheusServiceAddr is the Prometheus HTTP API service address.
-	PrometheusServiceAddr = "prometheus-k8s.monitoring.svc.cluster.local"
-	// PrometheusServicePort is the Prometheus HTTP API service port.
-	PrometheusServicePort = 9090
-
 	// WriteFactor is a default amount of acknowledged writes for object storage
 	// to be considered successfull
 	WriteFactor = 1

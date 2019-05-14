@@ -94,23 +94,6 @@ func GetClusterMetrics(ctx context.Context, metrics monitoring.Metrics, req ops.
 	}, nil
 }
 
-// GetRetentionPolicies returns a list of retention policies for the site
-func (o *Operator) GetRetentionPolicies(key ops.SiteKey) ([]monitoring.RetentionPolicy, error) {
-	return o.cfg.Monitoring.GetRetentionPolicies()
-}
-
-// UpdateRetentionPolicy configures metrics retention policy
-func (o *Operator) UpdateRetentionPolicy(req ops.UpdateRetentionPolicyRequest) error {
-	err := req.Check()
-	if err != nil {
-		return trace.Wrap(err)
-	}
-	return o.cfg.Monitoring.UpdateRetentionPolicy(monitoring.RetentionPolicy{
-		Name:     req.Name,
-		Duration: req.Duration,
-	})
-}
-
 // GetAlerts returns a list of configured monitoring alerts
 func (o *Operator) GetAlerts(key ops.SiteKey) (alerts []storage.Alert, err error) {
 	client, err := o.GetKubeClient()

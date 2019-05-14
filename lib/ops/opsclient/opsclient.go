@@ -32,7 +32,6 @@ import (
 	"github.com/gravitational/gravity/lib/httplib"
 	"github.com/gravitational/gravity/lib/loc"
 	"github.com/gravitational/gravity/lib/ops"
-	"github.com/gravitational/gravity/lib/ops/monitoring"
 	"github.com/gravitational/gravity/lib/pack"
 	"github.com/gravitational/gravity/lib/storage"
 	"github.com/gravitational/gravity/lib/storage/clusterconfig"
@@ -1003,27 +1002,6 @@ func (c *Client) GetClusterMetrics(ctx context.Context, req ops.ClusterMetricsRe
 		return nil, trace.Wrap(err)
 	}
 	return &metrics, nil
-}
-
-// GetRetentionPolicies returns a list of retention policies for the site
-func (c *Client) GetRetentionPolicies(key ops.SiteKey) ([]monitoring.RetentionPolicy, error) {
-	response, err := c.Get(c.Endpoint(
-		"accounts", key.AccountID, "sites", key.SiteDomain, "monitoring", "retention"), url.Values{})
-	if err != nil {
-		return nil, trace.Wrap(err)
-	}
-	var policies []monitoring.RetentionPolicy
-	err = json.Unmarshal(response.Bytes(), &policies)
-	if err != nil {
-		return nil, trace.Wrap(err)
-	}
-	return policies, nil
-}
-
-// UpdateRetentionPolicy configures metrics retention policy
-func (c *Client) UpdateRetentionPolicy(req ops.UpdateRetentionPolicyRequest) error {
-	_, err := c.PutJSON(c.Endpoint("accounts", req.AccountID, "sites", req.SiteDomain, "monitoring", "retention"), req)
-	return trace.Wrap(err)
 }
 
 // GetSMTPConfig returns the cluster SMTP configuration

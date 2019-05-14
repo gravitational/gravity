@@ -91,9 +91,6 @@ type Config struct {
 	// Users service provides access to users
 	Users users.Identity
 
-	// Monitoring is the monitoring API provider
-	Monitoring monitoring.Monitoring
-
 	// Metrics provides interface for cluster metrics collection.
 	Metrics monitoring.Metrics
 

@@ -181,7 +181,7 @@ func (h *WebHandler) getReleases(w http.ResponseWriter, r *http.Request, p httpr
      teleservices.Role
 */
 func (h *WebHandler) getUser(w http.ResponseWriter, r *http.Request, p httprouter.Params, ctx *HandlerContext) error {
-	user, err := ctx.Identity.GetUser(p.ByName("name"))
+	user, err := ctx.Operator.GetUser(siteKey(p), p.ByName("name"))
 	if err != nil {
 		return trace.Wrap(err)
 	}
@@ -198,7 +198,7 @@ func (h *WebHandler) getUser(w http.ResponseWriter, r *http.Request, p httproute
      []teleservices.User
 */
 func (h *WebHandler) getUsers(w http.ResponseWriter, r *http.Request, p httprouter.Params, ctx *HandlerContext) error {
-	users, err := ctx.Identity.GetUsers()
+	users, err := ctx.Operator.GetUsers(siteKey(p))
 	if err != nil {
 		return trace.Wrap(err)
 	}
@@ -266,7 +266,7 @@ func (h *WebHandler) getGithubConnector(w http.ResponseWriter, r *http.Request, 
 	if err != nil {
 		return trace.Wrap(err)
 	}
-	connector, err := ctx.Identity.GetGithubConnector(p.ByName("id"), withSecrets)
+	connector, err := ctx.Operator.GetGithubConnector(siteKey(p), p.ByName("id"), withSecrets)
 	if err != nil {
 		return trace.Wrap(err)
 	}
@@ -283,7 +283,7 @@ func (h *WebHandler) getGithubConnectors(w http.ResponseWriter, r *http.Request,
 	if err != nil {
 		return trace.Wrap(err)
 	}
-	connectors, err := ctx.Identity.GetGithubConnectors(withSecrets)
+	connectors, err := ctx.Operator.GetGithubConnectors(siteKey(p), withSecrets)
 	if err != nil {
 		return trace.Wrap(err)
 	}

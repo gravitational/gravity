@@ -262,8 +262,6 @@ func NewAPI(cfg Config) (*Handler, error) {
 	h.GET("/sites/:domain/flavors", h.needsAuth(h.getFlavors))
 
 	// Monitoring
-	h.GET("/sites/:domain/monitoring/retention", h.needsAuth(h.getRetentionPolicies))
-	h.PUT("/sites/:domain/monitoring/retention", h.needsAuth(h.updateRetentionPolicy))
 	h.GET("/sites/:domain/monitoring/metrics", h.needsAuth(h.getClusterMetrics))
 
 	// Certificates
@@ -2062,24 +2060,6 @@ func (m *Handler) getAppInstaller(w http.ResponseWriter, r *http.Request, p http
 	return nil, trace.Wrap(err)
 }
 
-// getRetentionPolicies returns a list of configured retention policies for a site
-//
-//   GET /sites/:domain/monitoring/retention
-//
-// Input:
-//
-//   -
-//
-// Output:
-//
-//   []ops.RetentionPolicy
-func (m *Handler) getRetentionPolicies(w http.ResponseWriter, r *http.Request, p httprouter.Params, context *AuthContext) (interface{}, error) {
-	return context.Operator.GetRetentionPolicies(ops.SiteKey{
-		AccountID:  context.User.GetAccountID(),
-		SiteDomain: p.ByName("domain"),
-	})
-}
-
 // getClusterMetrics returns basic cluster metrics.
 //
 //   GET /sites/:domain/monitoring/metrics?interval=<duration>&step=<duration>
@@ -2109,37 +2089,6 @@ func (m *Handler) getClusterMetrics(w http.ResponseWriter, r *http.Request, p ht
 		Interval: interval,
 		Step:     step,
 	})
-}
-
-// updateRetentionPolicy updates site's retention policies
-//
-//   PUT /sites/:domain/monitoring/retention
-//
-// Input:
-//
-//   []updateRetentionInput
-//
-// Output:
-//
-//   {"message": "OK"}
-func (m *Handler) updateRetentionPolicy(w http.ResponseWriter, r *http.Request, p httprouter.Params, context *AuthContext) (interface{}, error) {
-	var inputs []updateRetentionInput
-	err := telehttplib.ReadJSON(r, &inputs)
-	if err != nil {
-		return nil, trace.Wrap(err)
-	}
-	for _, input := range inputs {
-		err = context.Operator.UpdateRetentionPolicy(ops.UpdateRetentionPolicyRequest{
-			AccountID:  context.User.GetAccountID(),
-			SiteDomain: p.ByName("domain"),
-			Name:       input.Name,
-			Duration:   input.Duration,
-		})
-		if err != nil {
-			return nil, trace.Wrap(err)
-		}
-	}
-	return httplib.OK(), nil
 }
 
 func getReleases(operator ops.Operator, cluster ops.Site) ([]webRelease, error) {
@@ -2205,14 +2154,6 @@ type webRelease struct {
 	Updated time.Time `json:"updated"`
 	// Endpoints contains the application endpoints.
 	Endpoints []ops.Endpoint `json:"endpoints,omitempty"`
-}
-
-// updateRetentionInput is the input for "update retention policy" API call
-type updateRetentionInput struct {
-	// Name is the retention policy name
-	Name string `json:"name"`
-	// Duration is the new policy duration
-	Duration time.Duration `json:"duration"`
 }
 
 type webAPIResponse struct {

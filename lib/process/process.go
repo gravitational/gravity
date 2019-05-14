@@ -1166,11 +1166,6 @@ func (p *Process) initService(ctx context.Context) (err error) {
 		Backend: p.backend,
 	})
 
-	mon, err := monitoring.NewInfluxDB()
-	if err != nil {
-		return trace.Wrap(err)
-	}
-
 	metrics, err := monitoring.NewInClusterPrometheus()
 	if err != nil {
 		return trace.Wrap(err)
@@ -1206,7 +1201,6 @@ func (p *Process) initService(ctx context.Context) (err error) {
 		Users:           p.identity,
 		TeleportProxy:   teleportProxy,
 		Tunnel:          reverseTunnel,
-		Monitoring:      mon,
 		Metrics:         metrics,
 		Local:           p.mode == constants.ComponentSite,
 		Wizard:          p.mode == constants.ComponentInstaller,

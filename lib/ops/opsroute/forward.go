@@ -25,7 +25,6 @@ import (
 	"github.com/gravitational/gravity/lib/clients"
 	"github.com/gravitational/gravity/lib/constants"
 	"github.com/gravitational/gravity/lib/ops"
-	"github.com/gravitational/gravity/lib/ops/monitoring"
 	"github.com/gravitational/gravity/lib/ops/opsservice"
 	"github.com/gravitational/gravity/lib/storage"
 	"github.com/gravitational/gravity/lib/storage/clusterconfig"
@@ -583,24 +582,6 @@ func (r *Router) GetClusterMetrics(ctx context.Context, req ops.ClusterMetricsRe
 		return nil, trace.Wrap(err)
 	}
 	return client.GetClusterMetrics(ctx, req)
-}
-
-// GetRetentionPolicies returns a list of retention policies for the site
-func (r *Router) GetRetentionPolicies(key ops.SiteKey) ([]monitoring.RetentionPolicy, error) {
-	client, err := r.RemoteClient(key.SiteDomain)
-	if err != nil {
-		return nil, trace.Wrap(err)
-	}
-	return client.GetRetentionPolicies(key)
-}
-
-// UpdateRetentionPolicy configures metrics retention policy
-func (r *Router) UpdateRetentionPolicy(req ops.UpdateRetentionPolicyRequest) error {
-	client, err := r.RemoteClient(req.SiteDomain)
-	if err != nil {
-		return trace.Wrap(err)
-	}
-	return client.UpdateRetentionPolicy(req)
 }
 
 // GetSMTPConfig returns the cluster SMTP configuration
