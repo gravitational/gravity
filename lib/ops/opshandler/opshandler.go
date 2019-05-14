@@ -229,8 +229,6 @@ func NewWebHandler(cfg WebHandlerConfig) (*WebHandler, error) {
 	h.DELETE("/portal/v1/accounts/:account_id/sites/:site_domain/smtp", h.needsAuth(h.deleteSMTPConfig))
 
 	// monitoring
-	h.GET("/portal/v1/accounts/:account_id/sites/:site_domain/monitoring/retention", h.needsAuth(h.getRetentionPolicies))
-	h.PUT("/portal/v1/accounts/:account_id/sites/:site_domain/monitoring/retention", h.needsAuth(h.updateRetentionPolicy))
 	h.GET("/portal/v1/accounts/:account_id/sites/:site_domain/monitoring/alerts", h.needsAuth(h.getAlerts))
 	h.PUT("/portal/v1/accounts/:account_id/sites/:site_domain/monitoring/alerts/:name", h.needsAuth(h.updateAlert))
 	h.DELETE("/portal/v1/accounts/:account_id/sites/:site_domain/monitoring/alerts/:name", h.needsAuth(h.deleteAlert))
