@@ -36,8 +36,7 @@ import (
 )
 
 func top(env *localenv.LocalEnvironment, interval, step time.Duration) error {
-	prometheusAddr, err := utils.ResolveAddr(env.DNS.Addr(), fmt.Sprintf("%v:%v",
-		defaults.PrometheusServiceAddr, defaults.PrometheusServicePort))
+	prometheusAddr, err := utils.ResolveAddr(env.DNS.Addr(), defaults.PrometheusServiceAddr)
 	if err != nil {
 		return trace.Wrap(err)
 	}

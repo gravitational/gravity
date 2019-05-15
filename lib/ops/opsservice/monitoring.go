@@ -29,6 +29,7 @@ import (
 
 	"github.com/gravitational/rigging"
 	"github.com/gravitational/trace"
+	monitoringv1 "github.com/prometheus/client_golang/api/prometheus/v1"
 	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	kubelabels "k8s.io/apimachinery/pkg/labels"
@@ -58,7 +59,11 @@ func GetClusterMetrics(ctx context.Context, metrics monitoring.Metrics, req ops.
 	if err != nil {
 		return nil, trace.Wrap(err)
 	}
-	historicCPURate, err := metrics.GetCPURate(ctx, time.Now().Add(-req.Interval), time.Now(), req.Step)
+	historicCPURate, err := metrics.GetCPURate(ctx, monitoringv1.Range{
+		Start: time.Now().Add(-req.Interval),
+		End:   time.Now(),
+		Step:  req.Step,
+	})
 	if err != nil {
 		return nil, trace.Wrap(err)
 	}
@@ -74,7 +79,11 @@ func GetClusterMetrics(ctx context.Context, metrics monitoring.Metrics, req ops.
 	if err != nil {
 		return nil, trace.Wrap(err)
 	}
-	historicRAMRate, err := metrics.GetMemoryRate(ctx, time.Now().Add(-req.Interval), time.Now(), req.Step)
+	historicRAMRate, err := metrics.GetMemoryRate(ctx, monitoringv1.Range{
+		Start: time.Now().Add(-req.Interval),
+		End:   time.Now(),
+		Step:  req.Step,
+	})
 	if err != nil {
 		return nil, trace.Wrap(err)
 	}

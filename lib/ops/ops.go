@@ -30,6 +30,7 @@ import (
 	"github.com/gravitational/gravity/lib/constants"
 	"github.com/gravitational/gravity/lib/defaults"
 	"github.com/gravitational/gravity/lib/loc"
+	"github.com/gravitational/gravity/lib/ops/monitoring"
 	"github.com/gravitational/gravity/lib/pack"
 	"github.com/gravitational/gravity/lib/schema"
 	"github.com/gravitational/gravity/lib/storage"
@@ -1897,8 +1898,12 @@ type ClusterMetricsRequest struct {
 	// SiteKey is the cluster routing key.
 	SiteKey
 	// Interval is the requested metrics interval.
+	//
+	// If left unspecified, defaults to an hour.
 	Interval time.Duration `json:"interval"`
 	// Step is the optional maximum time b/w two datapoints.
+	//
+	// If left unspecified, defaults to 15 seconds.
 	Step time.Duration `json:"step"`
 }
 

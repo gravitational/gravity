@@ -528,6 +528,9 @@ const (
 	// GrafanaServicePort is the port Grafana service is listening on
 	GrafanaServicePort = 3000
 
+	// PrometheusServiceAddr is the Prometheus HTTP API service address.
+	PrometheusServiceAddr = "prometheus-k8s.monitoring.svc.cluster.local:9090"
+
 	// WriteFactor is a default amount of acknowledged writes for object storage
 	// to be considered successfull
 	WriteFactor = 1
