@@ -987,6 +987,23 @@ func (c *Client) DeleteLogForwarder(ctx context.Context, key ops.SiteKey, forwar
 	return trace.Wrap(err)
 }
 
+// GetClusterMetrics returns basic CPU/RAM metrics for the specified cluster.
+func (c *Client) GetClusterMetrics(ctx context.Context, req ops.ClusterMetricsRequest) (*ops.ClusterMetricsResponse, error) {
+	response, err := c.Get(c.Endpoint("accounts", req.AccountID, "sites",
+		req.SiteDomain, "monitoring", "metrics"), url.Values{
+		"interval": []string{req.Interval.String()},
+		"step":     []string{req.Step.String()},
+	})
+	if err != nil {
+		return nil, trace.Wrap(err)
+	}
+	var metrics ops.ClusterMetricsResponse
+	if err := json.Unmarshal(response.Bytes(), &metrics); err != nil {
+		return nil, trace.Wrap(err)
+	}
+	return &metrics, nil
+}
+
 // GetSMTPConfig returns the cluster SMTP configuration
 func (c *Client) GetSMTPConfig(key ops.SiteKey) (storage.SMTPConfig, error) {
 	response, err := c.Get(c.Endpoint(

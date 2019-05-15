@@ -528,6 +528,9 @@ const (
 	// GrafanaServicePort is the port Grafana service is listening on
 	GrafanaServicePort = 3000
 
+	// PrometheusServiceAddr is the Prometheus HTTP API service address.
+	PrometheusServiceAddr = "prometheus-k8s.monitoring.svc.cluster.local:9090"
+
 	// WriteFactor is a default amount of acknowledged writes for object storage
 	// to be considered successfull
 	WriteFactor = 1
@@ -1124,6 +1127,11 @@ var (
 		"hmac-sha2-256-etm@openssh.com",
 		"hmac-sha2-256",
 	}
+
+	// MetricsInterval is the default interval cluster metrics are displayed for.
+	MetricsInterval = time.Hour
+	// MetricsStep is the default interval b/w cluster metrics data points.
+	MetricsStep = 15 * time.Second
 )
 
 // HookSecurityContext returns default securityContext for hook pods

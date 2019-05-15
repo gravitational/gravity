@@ -261,6 +261,9 @@ func NewAPI(cfg Config) (*Handler, error) {
 	// Flavors for installation
 	h.GET("/sites/:domain/flavors", h.needsAuth(h.getFlavors))
 
+	// Monitoring
+	h.GET("/sites/:domain/monitoring/metrics", h.needsAuth(h.getClusterMetrics))
+
 	// Certificates
 	h.GET("/sites/:domain/certificate", h.needsAuth(h.getCertificate))
 	h.PUT("/sites/:domain/certificate", h.needsAuth(h.updateCertificate))
@@ -2055,6 +2058,37 @@ func (m *Handler) getAppInstaller(w http.ResponseWriter, r *http.Request, p http
 		`attachment; filename="%v-installer.tar.gz"`, locator.String()))
 	_, err = io.Copy(w, reader)
 	return nil, trace.Wrap(err)
+}
+
+// getClusterMetrics returns basic cluster metrics.
+//
+//   GET /sites/:domain/monitoring/metrics?interval=<duration>&step=<duration>
+//
+func (m *Handler) getClusterMetrics(w http.ResponseWriter, r *http.Request, p httprouter.Params, ctx *AuthContext) (interface{}, error) {
+	err := r.ParseForm()
+	if err != nil {
+		return nil, trace.Wrap(err)
+	}
+	var interval time.Duration
+	if i := r.Form.Get("interval"); i != "" {
+		if interval, err = time.ParseDuration(i); err != nil {
+			return nil, trace.Wrap(err)
+		}
+	}
+	var step time.Duration
+	if s := r.Form.Get("step"); s != "" {
+		if step, err = time.ParseDuration(s); err != nil {
+			return nil, trace.Wrap(err)
+		}
+	}
+	return ctx.Operator.GetClusterMetrics(r.Context(), ops.ClusterMetricsRequest{
+		SiteKey: ops.SiteKey{
+			AccountID:  ctx.User.GetAccountID(),
+			SiteDomain: p.ByName("domain"),
+		},
+		Interval: interval,
+		Step:     step,
+	})
 }
 
 func getReleases(operator ops.Operator, cluster ops.Site) ([]webRelease, error) {
