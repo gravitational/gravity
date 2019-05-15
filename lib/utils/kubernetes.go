@@ -17,6 +17,7 @@ limitations under the License.
 package utils
 
 import (
+	"fmt"
 	"os"
 	"strings"
 
@@ -25,7 +26,7 @@ import (
 
 	"github.com/gravitational/rigging"
 	"github.com/gravitational/trace"
-	"k8s.io/api/core/v1"
+	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/client-go/kubernetes"
@@ -185,6 +186,18 @@ func MakeSelector(in map[string]string) labels.Selector {
 // to make it useable as part of kubernetes resource names
 func FlattenVersion(version string) string {
 	return flattener.Replace(version)
+}
+
+// KubeServiceNames returns all possible DNS names a specified Kubernetes
+// service can be accessed by in the specified namespace.
+func KubeServiceNames(serviceName, namespace string) []string {
+	return []string{
+		serviceName,
+		fmt.Sprintf("%v.%v", serviceName, namespace),
+		fmt.Sprintf("%v.%v.svc", serviceName, namespace),
+		fmt.Sprintf("%v.%v.svc.cluster", serviceName, namespace),
+		fmt.Sprintf("%v.%v.svc.cluster.local", serviceName, namespace),
+	}
 }
 
 var flattener = strings.NewReplacer(".", "", "+", "-")
