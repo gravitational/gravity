@@ -1021,7 +1021,15 @@ type Applications interface {
 	// a binary data stream
 	GetAppInstaller(AppInstallerRequest) (io.ReadCloser, error)
 	// ListReleases returns all currently installed application releases in a cluster.
-	ListReleases(SiteKey) ([]storage.Release, error)
+	ListReleases(ListReleasesRequest) ([]storage.Release, error)
+}
+
+// ListReleasesRequest is a request to list installed application releases.
+type ListReleasesRequest struct {
+	// SiteKey is the cluster routing key.
+	SiteKey
+	// IncludeIcons is whether to retrieve application icons as well.
+	IncludeIcons bool `json:"include_icons"`
 }
 
 // AppInstallerRequest is a request to generate installer tarball.
@@ -1551,6 +1559,12 @@ func (k SiteKey) String() string {
 		"site(account_id=%v, site_domain=%v)", k.AccountID, k.SiteDomain)
 }
 
+// IsEqualTo returns true if the two cluster keys are equal.
+func (k SiteKey) IsEqualTo(other SiteKey) bool {
+	return k.AccountID == other.AccountID &&
+		k.SiteDomain == other.SiteDomain
+}
+
 // AgentCreds represent install agent username and password used
 // to identify install agents for the site
 type AgentCreds struct {
@@ -1863,10 +1877,6 @@ type SMTP interface {
 
 // Monitoring defines the interface to manage monitoring and metrics
 type Monitoring interface {
-	// GetRetentionPolicies returns a list of retention policies for the site
-	GetRetentionPolicies(SiteKey) ([]monitoring.RetentionPolicy, error)
-	// UpdateRetentionPolicy updates one of site's retention policies
-	UpdateRetentionPolicy(UpdateRetentionPolicyRequest) error
 	// GetAlerts returns the list of configured monitoring alerts
 	GetAlerts(SiteKey) ([]storage.Alert, error)
 	// UpdateAlert updates the specified monitoring alert
@@ -1879,34 +1889,58 @@ type Monitoring interface {
 	UpdateAlertTarget(context.Context, SiteKey, storage.AlertTarget) error
 	// DeleteAlertTarget deletes the monitoring alert target
 	DeleteAlertTarget(context.Context, SiteKey) error
+	// GetClusterMetrics returns basic CPU/RAM metrics for the specified cluster.
+	GetClusterMetrics(context.Context, ClusterMetricsRequest) (*ClusterMetricsResponse, error)
 }
 
-// UpdateRetentionPolicyRequest is a request to update retention policy
-type UpdateRetentionPolicyRequest struct {
-	// AccountID is the site account ID
-	AccountID string `json:"account_id"`
-	// SiteDomain is the site domain name
-	SiteDomain string `json:"site_domain"`
-	// Name is the retention policy to update
-	Name string `json:"name"`
-	// Duration is the new retention duration
-	Duration time.Duration `json:"duration"`
+// ClusterMetricsRequest is a request for cluster metrics.
+type ClusterMetricsRequest struct {
+	// SiteKey is the cluster routing key.
+	SiteKey
+	// Interval is the requested metrics interval.
+	//
+	// If left unspecified, defaults to an hour.
+	Interval time.Duration `json:"interval"`
+	// Step is the optional maximum time b/w two datapoints.
+	//
+	// If left unspecified, defaults to 15 seconds.
+	Step time.Duration `json:"step"`
 }
 
-// Check makes sure the request is correct
-func (r UpdateRetentionPolicyRequest) Check() error {
-	if !utils.StringInSlice(AllRetentions, r.Name) {
-		return trace.BadParameter("unsupported retention %q, supported are: %v",
-			r.Name, AllRetentions)
+// CheckAndSetDefaults validates the request and fills in defaults.
+func (r *ClusterMetricsRequest) CheckAndSetDefaults() error {
+	if err := r.SiteKey.Check(); err != nil {
+		return trace.Wrap(err)
 	}
-	if r.Duration <= 0 {
-		return trace.BadParameter("duration must be > 0")
+	if r.Interval == 0 {
+		r.Interval = defaults.MetricsInterval
 	}
-	if r.Duration > RetentionLimits[r.Name] {
-		return trace.BadParameter("max allowed duration for retention %q is %v, got: %v",
-			r.Name, RetentionLimits[r.Name], r.Duration)
+	if r.Step == 0 {
+		r.Step = defaults.MetricsStep
 	}
 	return nil
+}
+
+// ClusterMetricsResponse is the response containing cluster CPU/RAM metrics.
+type ClusterMetricsResponse struct {
+	// TotalCPUCores is the total number of CPU cores in the cluster.
+	TotalCPUCores int `json:"total_cpu_cores"`
+	// TotalMemoryBytes is the total amount of memory in the cluster.
+	TotalMemoryBytes int64 `json:"total_memory_bytes"`
+	// CPURates contains current/max/historic CPU usage rates.
+	CPURates ClusterMetricsRates `json:"cpu_rates"`
+	// MemoryRates contains current/max/historic memory usage rates.
+	MemoryRates ClusterMetricsRates `json:"memory_rates"`
+}
+
+// ClusterMetricsRates encapsulates usage rates.
+type ClusterMetricsRates struct {
+	// Current is the instantaneous usage rate.
+	Current int `json:"current"`
+	// Max is the peak usage rate on a certain interval.
+	Max int `json:"max"`
+	// Historic is a historic usage rate for a certain interval.
+	Historic monitoring.Series `json:"historic"`
 }
 
 // Endpoints defines cluster and application endpoints management interface

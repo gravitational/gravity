@@ -32,7 +32,6 @@ import (
 	"github.com/gravitational/gravity/lib/httplib"
 	"github.com/gravitational/gravity/lib/loc"
 	"github.com/gravitational/gravity/lib/ops"
-	"github.com/gravitational/gravity/lib/ops/monitoring"
 	"github.com/gravitational/gravity/lib/pack"
 	"github.com/gravitational/gravity/lib/storage"
 	"github.com/gravitational/gravity/lib/storage/clusterconfig"
@@ -988,25 +987,21 @@ func (c *Client) DeleteLogForwarder(ctx context.Context, key ops.SiteKey, forwar
 	return trace.Wrap(err)
 }
 
-// GetRetentionPolicies returns a list of retention policies for the site
-func (c *Client) GetRetentionPolicies(key ops.SiteKey) ([]monitoring.RetentionPolicy, error) {
-	response, err := c.Get(c.Endpoint(
-		"accounts", key.AccountID, "sites", key.SiteDomain, "monitoring", "retention"), url.Values{})
+// GetClusterMetrics returns basic CPU/RAM metrics for the specified cluster.
+func (c *Client) GetClusterMetrics(ctx context.Context, req ops.ClusterMetricsRequest) (*ops.ClusterMetricsResponse, error) {
+	response, err := c.Get(c.Endpoint("accounts", req.AccountID, "sites",
+		req.SiteDomain, "monitoring", "metrics"), url.Values{
+		"interval": []string{req.Interval.String()},
+		"step":     []string{req.Step.String()},
+	})
 	if err != nil {
 		return nil, trace.Wrap(err)
 	}
-	var policies []monitoring.RetentionPolicy
-	err = json.Unmarshal(response.Bytes(), &policies)
-	if err != nil {
+	var metrics ops.ClusterMetricsResponse
+	if err := json.Unmarshal(response.Bytes(), &metrics); err != nil {
 		return nil, trace.Wrap(err)
 	}
-	return policies, nil
-}
-
-// UpdateRetentionPolicy configures metrics retention policy
-func (c *Client) UpdateRetentionPolicy(req ops.UpdateRetentionPolicyRequest) error {
-	_, err := c.PutJSON(c.Endpoint("accounts", req.AccountID, "sites", req.SiteDomain, "monitoring", "retention"), req)
-	return trace.Wrap(err)
+	return &metrics, nil
 }
 
 // GetSMTPConfig returns the cluster SMTP configuration
@@ -1533,9 +1528,9 @@ func (c *Client) GetAuthGateway(key ops.SiteKey) (storage.AuthGateway, error) {
 }
 
 // ListReleases returns all currently installed application releases in a cluster.
-func (c *Client) ListReleases(key ops.SiteKey) ([]storage.Release, error) {
-	response, err := c.Get(c.Endpoint("accounts", key.AccountID, "sites", key.SiteDomain, "releases"),
-		url.Values{})
+func (c *Client) ListReleases(req ops.ListReleasesRequest) ([]storage.Release, error) {
+	response, err := c.Get(c.Endpoint("accounts", req.AccountID, "sites", req.SiteDomain, "releases"),
+		url.Values{"include_icons": []string{strconv.FormatBool(req.IncludeIcons)}})
 	if err != nil {
 		return nil, trace.Wrap(err)
 	}

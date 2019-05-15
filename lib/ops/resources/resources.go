@@ -19,12 +19,14 @@ package resources
 import (
 	"context"
 	"encoding/json"
+	"fmt"
 	"io"
 
 	"github.com/gravitational/gravity/lib/app/resources"
 	"github.com/gravitational/gravity/lib/constants"
 	"github.com/gravitational/gravity/lib/defaults"
 	"github.com/gravitational/gravity/lib/modules"
+	"github.com/gravitational/gravity/lib/ops"
 	"github.com/gravitational/gravity/lib/storage"
 	"github.com/gravitational/gravity/lib/utils"
 
@@ -75,6 +77,8 @@ type ResourceControl struct {
 
 // CreateRequest describes a request to create a resource
 type CreateRequest struct {
+	// SiteKey is the key of the cluster to route request to.
+	ops.SiteKey
 	// Resource is the resource to create
 	Resource teleservices.UnknownResource
 	// Upsert is whether to update a resource
@@ -90,6 +94,16 @@ type CreateRequest struct {
 	Confirmed bool
 }
 
+// String returns the request string representation.
+func (r CreateRequest) String() string {
+	if r.Resource.Kind == storage.KindToken {
+		return fmt.Sprintf("CreateResource(Cluster=%v, Kind=%v)",
+			r.SiteDomain, r.Resource.Kind)
+	}
+	return fmt.Sprintf("CreateResource(Cluster=%v, Kind=%v, Name=%v)",
+		r.SiteDomain, r.Resource.Kind, r.Resource.Metadata.Name)
+}
+
 // Check validates the request
 func (r CreateRequest) Check() error {
 	if r.Resource.Kind == "" {
@@ -100,6 +114,8 @@ func (r CreateRequest) Check() error {
 
 // ListRequest describes a request to list resources
 type ListRequest struct {
+	// SiteKey is the key of the cluster to route request to.
+	ops.SiteKey
 	// Kind is kind of the resource
 	Kind string
 	// Name is name of the resource
@@ -108,6 +124,16 @@ type ListRequest struct {
 	WithSecrets bool
 	// User is the resource owner
 	User string
+}
+
+// String returns the request string representation.
+func (r ListRequest) String() string {
+	if r.Kind == storage.KindToken {
+		return fmt.Sprintf("ListResources(Cluster=%v, Kind=%v)",
+			r.SiteDomain, r.Kind)
+	}
+	return fmt.Sprintf("ListResources(Cluster=%v, Kind=%v, Name=%v)",
+		r.SiteDomain, r.Kind, r.Name)
 }
 
 // Check validates the request
@@ -126,6 +152,8 @@ func (r *ListRequest) Check() error {
 
 // RemoveRequest describes a request to remove a resource
 type RemoveRequest struct {
+	// SiteKey is the key of the cluster to route request to.
+	ops.SiteKey
 	// Kind is kind of the resource
 	Kind string
 	// Name is name of the resource
@@ -141,6 +169,16 @@ type RemoveRequest struct {
 	// Confirmed defines whether the operation has been explicitly approved.
 	// This attribute is operation-specific
 	Confirmed bool
+}
+
+// String returns the request string representation.
+func (r RemoveRequest) String() string {
+	if r.Kind == storage.KindToken {
+		return fmt.Sprintf("RemoveResource(Cluster=%v, Kind=%v)",
+			r.SiteDomain, r.Kind)
+	}
+	return fmt.Sprintf("RemoveResource(Cluster=%v, Kind=%v, Name=%v)",
+		r.SiteDomain, r.Kind, r.Name)
 }
 
 // Check validates the request
@@ -200,13 +238,8 @@ func (r *ResourceControl) Create(ctx context.Context, reader io.Reader, req Crea
 }
 
 // Get retrieves the specified resource collection and outputs it
-func (r *ResourceControl) Get(w io.Writer, kind, name string, withSecrets bool, format constants.Format, user string) error {
-	collection, err := r.Resources.GetCollection(ListRequest{
-		Kind:        kind,
-		Name:        name,
-		WithSecrets: withSecrets,
-		User:        user,
-	})
+func (r *ResourceControl) Get(w io.Writer, req ListRequest, format constants.Format) error {
+	collection, err := r.Resources.GetCollection(req)
 	if err != nil {
 		return trace.Wrap(err)
 	}

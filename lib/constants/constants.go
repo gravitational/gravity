@@ -437,6 +437,9 @@ const (
 	// ShortDateFormat is the short version of human readable timestamp format
 	ShortDateFormat = "2006-01-02 15:04"
 
+	// TimeFormat is the time format that only displays time
+	TimeFormat = "15:04"
+
 	// LatestVersion is the shortcut for the latest Telekube version
 	LatestVersion = "latest"
 	// StableVersion is the shortcut for the latest stable Telekube version

@@ -29,14 +29,15 @@ import (
 	"github.com/fatih/color"
 	teleservices "github.com/gravitational/teleport/lib/services"
 	"github.com/gravitational/trace"
+	"github.com/sirupsen/logrus"
 )
 
 // Resources is a controller that manages cluster local resources
 type Resources struct {
 	// Config is the controller configuration
 	Config
-	// cluster is the local cluster
-	cluster *ops.Site
+	// Log is used for logging.
+	Log logrus.FieldLogger
 }
 
 // Config is gravity resource controller configuration
@@ -66,13 +67,9 @@ func New(config Config) (*Resources, error) {
 	if err != nil {
 		return nil, trace.Wrap(err)
 	}
-	localCluster, err := config.Operator.GetLocalSite()
-	if err != nil {
-		return nil, trace.Wrap(err)
-	}
 	return &Resources{
-		Config:  config,
-		cluster: localCluster,
+		Config: config,
+		Log:    logrus.WithField(trace.Component, "resources"),
 	}, nil
 }
 
@@ -81,13 +78,14 @@ func (r *Resources) Create(ctx context.Context, req resources.CreateRequest) err
 	if err := req.Check(); err != nil {
 		return trace.Wrap(err)
 	}
+	r.Log.Infof("%s.", req)
 	switch req.Resource.Kind {
 	case teleservices.KindGithubConnector:
 		conn, err := teleservices.GetGithubConnectorMarshaler().Unmarshal(req.Resource.Raw)
 		if err != nil {
 			return trace.Wrap(err)
 		}
-		if err := r.Operator.UpsertGithubConnector(ctx, r.cluster.Key(), conn); err != nil {
+		if err := r.Operator.UpsertGithubConnector(ctx, req.SiteKey, conn); err != nil {
 			return trace.Wrap(err)
 		}
 		r.Printf("Created Github connector %q\n", conn.GetName())
@@ -96,7 +94,7 @@ func (r *Resources) Create(ctx context.Context, req resources.CreateRequest) err
 		if err != nil {
 			return trace.Wrap(err)
 		}
-		if err := r.Operator.UpsertUser(ctx, r.cluster.Key(), user); err != nil {
+		if err := r.Operator.UpsertUser(ctx, req.SiteKey, user); err != nil {
 			return trace.Wrap(err)
 		}
 		r.Printf("Created user %q\n", user.GetName())
@@ -136,7 +134,7 @@ func (r *Resources) Create(ctx context.Context, req resources.CreateRequest) err
 		if err != nil {
 			return trace.Wrap(err)
 		}
-		err = r.Operator.CreateLogForwarder(ctx, r.cluster.Key(), forwarder)
+		err = r.Operator.CreateLogForwarder(ctx, req.SiteKey, forwarder)
 		if err != nil && !trace.IsAlreadyExists(err) {
 			return trace.Wrap(err)
 		}
@@ -144,7 +142,7 @@ func (r *Resources) Create(ctx context.Context, req resources.CreateRequest) err
 			if !req.Upsert {
 				return trace.Wrap(err)
 			}
-			err := r.Operator.UpdateLogForwarder(ctx, r.cluster.Key(), forwarder)
+			err := r.Operator.UpdateLogForwarder(ctx, req.SiteKey, forwarder)
 			if err != nil {
 				return trace.Wrap(err)
 			}
@@ -159,8 +157,8 @@ func (r *Resources) Create(ctx context.Context, req resources.CreateRequest) err
 			return trace.Wrap(err)
 		}
 		_, err = r.Operator.UpdateClusterCertificate(ctx, ops.UpdateCertificateRequest{
-			AccountID:   r.cluster.AccountID,
-			SiteDomain:  r.cluster.Domain,
+			AccountID:   req.AccountID,
+			SiteDomain:  req.SiteDomain,
 			Certificate: []byte(keyPair.GetCert()),
 			PrivateKey:  []byte(keyPair.GetPrivateKey()),
 		})
@@ -176,7 +174,7 @@ func (r *Resources) Create(ctx context.Context, req resources.CreateRequest) err
 		if err != nil {
 			return trace.Wrap(err)
 		}
-		if err := r.Operator.UpsertClusterAuthPreference(ctx, r.cluster.Key(), cap); err != nil {
+		if err := r.Operator.UpsertClusterAuthPreference(ctx, req.SiteKey, cap); err != nil {
 			return trace.Wrap(err)
 		}
 		r.Println("Updated cluster authentication preference")
@@ -188,7 +186,7 @@ func (r *Resources) Create(ctx context.Context, req resources.CreateRequest) err
 		if err := config.CheckAndSetDefaults(); err != nil {
 			return trace.Wrap(err)
 		}
-		err = r.Operator.UpdateSMTPConfig(ctx, r.cluster.Key(), config)
+		err = r.Operator.UpdateSMTPConfig(ctx, req.SiteKey, config)
 		if err != nil {
 			return trace.Wrap(err)
 		}
@@ -201,12 +199,24 @@ func (r *Resources) Create(ctx context.Context, req resources.CreateRequest) err
 		if err := alert.CheckAndSetDefaults(); err != nil {
 			return trace.Wrap(err)
 		}
-		err = r.Operator.UpdateAlert(ctx, r.cluster.Key(), alert)
+		err = r.Operator.UpdateAlert(ctx, req.SiteKey, alert)
 		if err != nil {
 			return trace.Wrap(err)
 		}
 		r.Printf("Updated monitoring alert %q\n", alert.GetName())
 	case storage.KindAlertTarget:
+		// Alert recipient can be created only if SMTP settings
+		// are present, otherwise it will result into invalid
+		// Alertmanager configuration.
+		if _, err := r.Operator.GetSMTPConfig(req.SiteKey); err != nil {
+			if trace.IsNotFound(err) {
+				return trace.BadParameter("alert target can only " +
+					"be created when cluster SMTP settings " +
+					"are configured, please create SMTP " +
+					"resource first: https://gravitational.com/gravity/docs/cluster/#configuring-monitoring")
+			}
+			return trace.Wrap(err)
+		}
 		target, err := storage.UnmarshalAlertTarget(req.Resource.Raw)
 		if err != nil {
 			return trace.Wrap(err)
@@ -214,7 +224,7 @@ func (r *Resources) Create(ctx context.Context, req resources.CreateRequest) err
 		if err := target.CheckAndSetDefaults(); err != nil {
 			return trace.Wrap(err)
 		}
-		err = r.Operator.UpdateAlertTarget(ctx, r.cluster.Key(), target)
+		err = r.Operator.UpdateAlertTarget(ctx, req.SiteKey, target)
 		if err != nil {
 			return trace.Wrap(err)
 		}
@@ -224,7 +234,7 @@ func (r *Resources) Create(ctx context.Context, req resources.CreateRequest) err
 		if err != nil {
 			return trace.Wrap(err)
 		}
-		err = r.Operator.UpsertAuthGateway(ctx, r.cluster.Key(), gw)
+		err = r.Operator.UpsertAuthGateway(ctx, req.SiteKey, gw)
 		if err != nil {
 			return trace.Wrap(err)
 		}
@@ -246,29 +256,30 @@ func (r *Resources) GetCollection(req resources.ListRequest) (resources.Collecti
 	if err := req.Check(); err != nil {
 		return nil, trace.Wrap(err)
 	}
+	r.Log.Debugf("%s.", req)
 	switch req.Kind {
 	case teleservices.KindGithubConnector, teleservices.KindAuthConnector:
 		if req.Name != "" {
-			connector, err := r.Operator.GetGithubConnector(r.cluster.Key(), req.Name, req.WithSecrets)
+			connector, err := r.Operator.GetGithubConnector(req.SiteKey, req.Name, req.WithSecrets)
 			if err != nil {
 				return nil, trace.Wrap(err)
 			}
 			return &githubCollection{connectors: []teleservices.GithubConnector{connector}}, nil
 		}
-		connectors, err := r.Operator.GetGithubConnectors(r.cluster.Key(), req.WithSecrets)
+		connectors, err := r.Operator.GetGithubConnectors(req.SiteKey, req.WithSecrets)
 		if err != nil {
 			return nil, trace.Wrap(err)
 		}
 		return &githubCollection{connectors: connectors}, nil
 	case teleservices.KindUser:
 		if req.Name != "" {
-			user, err := r.Operator.GetUser(r.cluster.Key(), req.Name)
+			user, err := r.Operator.GetUser(req.SiteKey, req.Name)
 			if err != nil {
 				return nil, trace.Wrap(err)
 			}
 			return &userCollection{users: []teleservices.User{user}}, nil
 		}
-		users, err := r.Operator.GetUsers(r.cluster.Key())
+		users, err := r.Operator.GetUsers(req.SiteKey)
 		if err != nil {
 			return nil, trace.Wrap(err)
 		}
@@ -295,7 +306,7 @@ func (r *Resources) GetCollection(req resources.ListRequest) (resources.Collecti
 		}
 		return &tokenCollection{tokens: tokens}, nil
 	case storage.KindLogForwarder:
-		forwarders, err := r.Operator.GetLogForwarders(r.cluster.Key())
+		forwarders, err := r.Operator.GetLogForwarders(req.SiteKey)
 		if err != nil {
 			return nil, trace.Wrap(err)
 		}
@@ -316,7 +327,7 @@ func (r *Resources) GetCollection(req resources.ListRequest) (resources.Collecti
 		return &logForwardersCollection{logForwarders: filtered}, nil
 	case storage.KindTLSKeyPair:
 		// always ignore name parameter for tls key pairs, because there is only one
-		cert, err := r.Operator.GetClusterCertificate(r.cluster.Key(), req.WithSecrets)
+		cert, err := r.Operator.GetClusterCertificate(req.SiteKey, req.WithSecrets)
 		if err != nil {
 			return nil, trace.Wrap(err)
 		}
@@ -326,13 +337,13 @@ func (r *Resources) GetCollection(req resources.ListRequest) (resources.Collecti
 		r.Println(color.YellowString("Cluster auth preference resource is " +
 			"obsolete and will be removed in a future release. Please use " +
 			"auth gateway resource instead: https://gravitational.com/gravity/docs/cluster/#configuring-cluster-authentication-gateway."))
-		authPreference, err := r.Operator.GetClusterAuthPreference(r.cluster.Key())
+		authPreference, err := r.Operator.GetClusterAuthPreference(req.SiteKey)
 		if err != nil {
 			return nil, trace.Wrap(err)
 		}
 		return clusterAuthPreferenceCollection{authPreference}, nil
 	case storage.KindAuthGateway:
-		gw, err := r.Operator.GetAuthGateway(r.cluster.Key())
+		gw, err := r.Operator.GetAuthGateway(req.SiteKey)
 		if err != nil {
 			if trace.IsNotFound(err) {
 				return nil, trace.NotFound("auth gateway resource not found")
@@ -341,13 +352,13 @@ func (r *Resources) GetCollection(req resources.ListRequest) (resources.Collecti
 		}
 		return &authGatewayCollection{gw}, nil
 	case storage.KindSMTPConfig:
-		config, err := r.Operator.GetSMTPConfig(r.cluster.Key())
+		config, err := r.Operator.GetSMTPConfig(req.SiteKey)
 		if err != nil {
 			return nil, trace.Wrap(err)
 		}
 		return smtpConfigCollection{config}, nil
 	case storage.KindAlert:
-		alerts, err := r.Operator.GetAlerts(r.cluster.Key())
+		alerts, err := r.Operator.GetAlerts(req.SiteKey)
 		if err != nil {
 			return nil, trace.Wrap(err)
 		}
@@ -367,19 +378,19 @@ func (r *Resources) GetCollection(req resources.ListRequest) (resources.Collecti
 		}
 		return alertCollection(filtered), nil
 	case storage.KindAlertTarget:
-		alertTargets, err := r.Operator.GetAlertTargets(r.cluster.Key())
+		alertTargets, err := r.Operator.GetAlertTargets(req.SiteKey)
 		if err != nil {
 			return nil, trace.Wrap(err)
 		}
 		return alertTargetCollection(alertTargets), nil
 	case storage.KindRuntimeEnvironment:
-		env, err := r.Operator.GetClusterEnvironmentVariables(r.cluster.Key())
+		env, err := r.Operator.GetClusterEnvironmentVariables(req.SiteKey)
 		if err != nil {
 			return nil, trace.Wrap(err)
 		}
 		return envCollection{env: env}, nil
 	case storage.KindClusterConfiguration:
-		config, err := r.Operator.GetClusterConfiguration(r.cluster.Key())
+		config, err := r.Operator.GetClusterConfiguration(req.SiteKey)
 		if err != nil {
 			return nil, trace.Wrap(err)
 		}
@@ -396,9 +407,10 @@ func (r *Resources) Remove(ctx context.Context, req resources.RemoveRequest) err
 	if err := req.Check(); err != nil {
 		return trace.Wrap(err)
 	}
+	r.Log.Infof("%s.", req)
 	switch req.Kind {
 	case teleservices.KindGithubConnector:
-		if err := r.Operator.DeleteGithubConnector(ctx, r.cluster.Key(), req.Name); err != nil {
+		if err := r.Operator.DeleteGithubConnector(ctx, req.SiteKey, req.Name); err != nil {
 			if trace.IsNotFound(err) && req.Force {
 				return nil
 			}
@@ -406,7 +418,7 @@ func (r *Resources) Remove(ctx context.Context, req resources.RemoveRequest) err
 		}
 		r.Printf("Github connector %q has been deleted\n", req.Name)
 	case teleservices.KindUser:
-		if err := r.Operator.DeleteUser(ctx, r.cluster.Key(), req.Name); err != nil {
+		if err := r.Operator.DeleteUser(ctx, req.SiteKey, req.Name); err != nil {
 			if trace.IsNotFound(err) && req.Force {
 				return nil
 			}
@@ -428,7 +440,7 @@ func (r *Resources) Remove(ctx context.Context, req resources.RemoveRequest) err
 		}
 		r.Printf("Token %q has been deleted for user %q\n", req.Name, user)
 	case storage.KindLogForwarder:
-		if err := r.Operator.DeleteLogForwarder(ctx, r.cluster.Key(), req.Name); err != nil {
+		if err := r.Operator.DeleteLogForwarder(ctx, req.SiteKey, req.Name); err != nil {
 			if trace.IsNotFound(err) && req.Force {
 				return nil
 			}
@@ -436,7 +448,7 @@ func (r *Resources) Remove(ctx context.Context, req resources.RemoveRequest) err
 		}
 		r.Printf("Log forwarder %q has been deleted\n", req.Name)
 	case storage.KindTLSKeyPair:
-		if err := r.Operator.DeleteClusterCertificate(ctx, r.cluster.Key()); err != nil {
+		if err := r.Operator.DeleteClusterCertificate(ctx, req.SiteKey); err != nil {
 			if trace.IsNotFound(err) && req.Force {
 				return nil
 			}
@@ -444,7 +456,20 @@ func (r *Resources) Remove(ctx context.Context, req resources.RemoveRequest) err
 		}
 		r.Printf("TLS key pair %q has been deleted\n", req.Name)
 	case storage.KindSMTPConfig:
-		if err := r.Operator.DeleteSMTPConfig(ctx, r.cluster.Key()); err != nil {
+		// SMTP configuration can be deleted only if there is no
+		// alert recipient configured, otherwise it will result
+		// into invalid Alertmanager configuration.
+		alertTargets, err := r.Operator.GetAlertTargets(req.SiteKey)
+		if err != nil && !trace.IsNotFound(err) {
+			return trace.Wrap(err)
+		}
+		if len(alertTargets) != 0 {
+			return trace.BadParameter("SMTP configuration can " +
+				"only be deleted if there is no alert target, " +
+				"please remove alert target using 'gravity " +
+				"resource rm alerttarget' first")
+		}
+		if err := r.Operator.DeleteSMTPConfig(ctx, req.SiteKey); err != nil {
 			if trace.IsNotFound(err) && req.Force {
 				return nil
 			}
@@ -452,7 +477,7 @@ func (r *Resources) Remove(ctx context.Context, req resources.RemoveRequest) err
 		}
 		r.Println("SMTP configuration has been deleted")
 	case storage.KindAlert:
-		if err := r.Operator.DeleteAlert(ctx, r.cluster.Key(), req.Name); err != nil {
+		if err := r.Operator.DeleteAlert(ctx, req.SiteKey, req.Name); err != nil {
 			if trace.IsNotFound(err) && req.Force {
 				return nil
 			}
@@ -460,7 +485,7 @@ func (r *Resources) Remove(ctx context.Context, req resources.RemoveRequest) err
 		}
 		r.Printf("Alert %q has been deleted\n", req.Name)
 	case storage.KindAlertTarget:
-		if err := r.Operator.DeleteAlertTarget(ctx, r.cluster.Key()); err != nil {
+		if err := r.Operator.DeleteAlertTarget(ctx, req.SiteKey); err != nil {
 			if trace.IsNotFound(err) && req.Force {
 				return nil
 			}

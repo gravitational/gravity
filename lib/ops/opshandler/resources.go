@@ -22,8 +22,10 @@ import (
 	"net/http"
 
 	"github.com/gravitational/gravity/lib/constants"
+	"github.com/gravitational/gravity/lib/ops"
 	"github.com/gravitational/gravity/lib/ops/opsclient"
 	"github.com/gravitational/gravity/lib/storage"
+	"github.com/gravitational/gravity/lib/utils"
 
 	"github.com/gravitational/roundtrip"
 	telehttplib "github.com/gravitational/teleport/lib/httplib"
@@ -143,7 +145,18 @@ func (h *WebHandler) getAuthGateway(w http.ResponseWriter, r *http.Request, p ht
      []storage.Release
 */
 func (h *WebHandler) getReleases(w http.ResponseWriter, r *http.Request, p httprouter.Params, ctx *HandlerContext) error {
-	releases, err := ctx.Operator.ListReleases(siteKey(p))
+	err := r.ParseForm()
+	if err != nil {
+		return trace.Wrap(err)
+	}
+	includeIcons, err := utils.ParseBoolFlag(r, "include_icons", false)
+	if err != nil {
+		return trace.Wrap(err)
+	}
+	releases, err := ctx.Operator.ListReleases(ops.ListReleasesRequest{
+		SiteKey:      siteKey(p),
+		IncludeIcons: includeIcons,
+	})
 	if err != nil {
 		return trace.Wrap(err)
 	}
@@ -168,7 +181,7 @@ func (h *WebHandler) getReleases(w http.ResponseWriter, r *http.Request, p httpr
      teleservices.Role
 */
 func (h *WebHandler) getUser(w http.ResponseWriter, r *http.Request, p httprouter.Params, ctx *HandlerContext) error {
-	user, err := ctx.Identity.GetUser(p.ByName("name"))
+	user, err := ctx.Operator.GetUser(siteKey(p), p.ByName("name"))
 	if err != nil {
 		return trace.Wrap(err)
 	}
@@ -185,7 +198,7 @@ func (h *WebHandler) getUser(w http.ResponseWriter, r *http.Request, p httproute
      []teleservices.User
 */
 func (h *WebHandler) getUsers(w http.ResponseWriter, r *http.Request, p httprouter.Params, ctx *HandlerContext) error {
-	users, err := ctx.Identity.GetUsers()
+	users, err := ctx.Operator.GetUsers(siteKey(p))
 	if err != nil {
 		return trace.Wrap(err)
 	}
@@ -253,7 +266,7 @@ func (h *WebHandler) getGithubConnector(w http.ResponseWriter, r *http.Request, 
 	if err != nil {
 		return trace.Wrap(err)
 	}
-	connector, err := ctx.Identity.GetGithubConnector(p.ByName("id"), withSecrets)
+	connector, err := ctx.Operator.GetGithubConnector(siteKey(p), p.ByName("id"), withSecrets)
 	if err != nil {
 		return trace.Wrap(err)
 	}
@@ -270,7 +283,7 @@ func (h *WebHandler) getGithubConnectors(w http.ResponseWriter, r *http.Request,
 	if err != nil {
 		return trace.Wrap(err)
 	}
-	connectors, err := ctx.Identity.GetGithubConnectors(withSecrets)
+	connectors, err := ctx.Operator.GetGithubConnectors(siteKey(p), withSecrets)
 	if err != nil {
 		return trace.Wrap(err)
 	}

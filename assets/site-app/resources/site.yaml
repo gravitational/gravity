@@ -114,7 +114,7 @@ spec:
         scheduler.alpha.kubernetes.io/critical-pod: ''
         seccomp.security.alpha.kubernetes.io/pod: docker/default
     spec:
-      serviceAccount: gravity-site
+      serviceAccountName: gravity-site
       tolerations:
       - key: "gravitational.io/runlevel"
         value: system
@@ -158,6 +158,14 @@ spec:
               configMapKeyRef:
                 name: gravity-opscenter
                 key: teleport.yaml
+        securityContext:
+          allowPrivilegeEscalation: false
+          capabilities:
+            drop:
+            - all
+          readOnlyRootFilesystem: true
+          runAsNonRoot: true
+          runAsUser: -1
         livenessProbe:
           httpGet:
             path: /healthz
