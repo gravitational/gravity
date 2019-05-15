@@ -35,6 +35,12 @@ if [ $1 = "update" ]; then
     echo "Checking status"
     rig status $RIG_CHANGESET --retry-attempts=120 --retry-period=1s --debug
 
+    while ! kubectl get pods --namespace=kube-system -l app=gravity-site | grep -q '1/1'
+    do
+        echo "waiting for gravity-site application master to start"
+        sleep 5
+    done
+
     echo "Freezing"
     rig freeze
 elif [ $1 = "rollback" ]; then
