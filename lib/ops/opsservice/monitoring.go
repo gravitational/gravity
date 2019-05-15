@@ -18,6 +18,7 @@ package opsservice
 
 import (
 	"context"
+	"time"
 
 	"github.com/gravitational/gravity/lib/constants"
 	"github.com/gravitational/gravity/lib/defaults"
@@ -28,27 +29,78 @@ import (
 
 	"github.com/gravitational/rigging"
 	"github.com/gravitational/trace"
+	monitoringv1 "github.com/prometheus/client_golang/api/prometheus/v1"
 	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	kubelabels "k8s.io/apimachinery/pkg/labels"
 	corev1 "k8s.io/client-go/kubernetes/typed/core/v1"
 )
 
-// GetRetentionPolicies returns a list of retention policies for the site
-func (o *Operator) GetRetentionPolicies(key ops.SiteKey) ([]monitoring.RetentionPolicy, error) {
-	return o.cfg.Monitoring.GetRetentionPolicies()
+// GetClusterMetrics returns basic CPU/RAM metrics for the specified cluster.
+func (o *Operator) GetClusterMetrics(ctx context.Context, req ops.ClusterMetricsRequest) (*ops.ClusterMetricsResponse, error) {
+	return GetClusterMetrics(ctx, o.cfg.Metrics, req)
 }
 
-// UpdateRetentionPolicy configures metrics retention policy
-func (o *Operator) UpdateRetentionPolicy(req ops.UpdateRetentionPolicyRequest) error {
-	err := req.Check()
+// GetClusterMetrics retrieves all cluster metrics from the provided client.
+func GetClusterMetrics(ctx context.Context, metrics monitoring.Metrics, req ops.ClusterMetricsRequest) (*ops.ClusterMetricsResponse, error) {
+	err := req.CheckAndSetDefaults()
 	if err != nil {
-		return trace.Wrap(err)
+		return nil, trace.Wrap(err)
 	}
-	return o.cfg.Monitoring.UpdateRetentionPolicy(monitoring.RetentionPolicy{
-		Name:     req.Name,
-		Duration: req.Duration,
+	totalCPUCores, err := metrics.GetTotalCPU(ctx)
+	if err != nil {
+		return nil, trace.Wrap(err)
+	}
+	currentCPURate, err := metrics.GetCurrentCPURate(ctx)
+	if err != nil {
+		return nil, trace.Wrap(err)
+	}
+	maxCPURate, err := metrics.GetMaxCPURate(ctx, req.Interval)
+	if err != nil {
+		return nil, trace.Wrap(err)
+	}
+	historicCPURate, err := metrics.GetCPURate(ctx, monitoringv1.Range{
+		Start: time.Now().Add(-req.Interval),
+		End:   time.Now(),
+		Step:  req.Step,
 	})
+	if err != nil {
+		return nil, trace.Wrap(err)
+	}
+	totalRAMBytes, err := metrics.GetTotalMemory(ctx)
+	if err != nil {
+		return nil, trace.Wrap(err)
+	}
+	currentRAMRate, err := metrics.GetCurrentMemoryRate(ctx)
+	if err != nil {
+		return nil, trace.Wrap(err)
+	}
+	maxRAMRate, err := metrics.GetMaxMemoryRate(ctx, req.Interval)
+	if err != nil {
+		return nil, trace.Wrap(err)
+	}
+	historicRAMRate, err := metrics.GetMemoryRate(ctx, monitoringv1.Range{
+		Start: time.Now().Add(-req.Interval),
+		End:   time.Now(),
+		Step:  req.Step,
+	})
+	if err != nil {
+		return nil, trace.Wrap(err)
+	}
+	return &ops.ClusterMetricsResponse{
+		TotalCPUCores:    totalCPUCores,
+		TotalMemoryBytes: totalRAMBytes,
+		CPURates: ops.ClusterMetricsRates{
+			Current:  currentCPURate,
+			Max:      maxCPURate,
+			Historic: historicCPURate,
+		},
+		MemoryRates: ops.ClusterMetricsRates{
+			Current:  currentRAMRate,
+			Max:      maxRAMRate,
+			Historic: historicRAMRate,
+		},
+	}, nil
 }
 
 // GetAlerts returns a list of configured monitoring alerts

@@ -76,11 +76,11 @@ const (
 	// VolumeStateDir is the name of the volume for temporary state
 	VolumeStateDir = "state-dir"
 
-	// ApplicationPackage specifies the name of the environment variable
+	// ApplicationPackageEnv specifies the name of the environment variable
 	// that defines the name of the application package the hook originated from.
 	// This environment variable is made available to the hook job's init container
 	ApplicationPackageEnv = "APP_PACKAGE"
 )
 
 // InitContainerImage is the image for the init container
-var InitContainerImage = fmt.Sprintf("%v/gravitational/debian-tall:0.0.1", constants.DockerRegistry)
+var InitContainerImage = fmt.Sprintf("%v/gravitational/debian-tall:stretch", constants.DockerRegistry)

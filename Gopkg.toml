@@ -263,3 +263,11 @@ ignored = [
 [[override]]
   name = "github.com/gorilla/mux"
   version = "=v1.7.0"
+
+[[override]]
+  name = "github.com/prometheus/client_golang"
+  version = "=0.9.2"
+
+[[constraint]]
+  name = "github.com/gizak/termui"
+  version = "=v2.3.0"
