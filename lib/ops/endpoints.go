@@ -20,6 +20,7 @@ import (
 	"fmt"
 
 	"github.com/gravitational/gravity/lib/defaults"
+	"github.com/gravitational/gravity/lib/storage"
 	"github.com/gravitational/gravity/lib/utils"
 
 	"github.com/gravitational/trace"
@@ -73,10 +74,14 @@ func GetClusterEndpoints(operator Operator, key SiteKey) (*ClusterEndpoints, err
 	if err != nil {
 		return nil, trace.Wrap(err)
 	}
-	authGateway, err := operator.GetAuthGateway(key)
+	gateway, err := operator.GetAuthGateway(key)
 	if err != nil {
 		return nil, trace.Wrap(err)
 	}
+	return getClusterEndpoints(cluster, gateway)
+}
+
+func getClusterEndpoints(cluster *Site, gateway storage.AuthGateway) (*ClusterEndpoints, error) {
 	// Internal endpoints point directly to master nodes.
 	var internal clusterEndpoints
 	for _, master := range cluster.Masters() {
@@ -87,7 +92,7 @@ func GetClusterEndpoints(operator Operator, key SiteKey) (*ClusterEndpoints, err
 	}
 	// Public endpoints are configured via auth gateway resource.
 	var public clusterEndpoints
-	for _, address := range authGateway.GetWebPublicAddrs() {
+	for _, address := range gateway.GetWebPublicAddrs() {
 		public.AuthGateways = append(public.AuthGateways,
 			utils.EnsurePort(address, defaults.HTTPSPort))
 		public.ManagementURLs = append(public.ManagementURLs,
