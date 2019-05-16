@@ -1,5 +1,5 @@
 #!/bin/sh
-set -e
+set -ex
 
 echo "Assuming changeset from the environment: $RIG_CHANGESET"
 # note that rig does not take explicit changeset ID
@@ -35,18 +35,18 @@ if [ $1 = "update" ]; then
     echo "Checking status"
     rig status $RIG_CHANGESET --retry-attempts=120 --retry-period=1s --debug
 
-    while ! kubectl get pods --namespace=kube-system -l app=gravity-site | grep -q '1/1'
-    do
-        echo "waiting for gravity-site application master to start"
-        sleep 5
-    done
-
     echo "Freezing"
     rig freeze
 elif [ $1 = "rollback" ]; then
     echo "Reverting changeset $RIG_CHANGESET"
     rig revert
     rig cs delete --force -c cs/$RIG_CHANGESET
+elif [ $1 = "postUpdate" ]; then
+    while gravity site status
+    do
+        echo "waiting for gravity-site application master to start"
+    done
+    exit 0
 else
     echo "Missing argument, should be either 'update' or 'rollback'"
 fi
