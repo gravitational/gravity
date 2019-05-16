@@ -18,7 +18,7 @@ package systemservice
 
 import (
 	"os/exec"
-	"path/filepath"
+	"syscall"
 
 	"github.com/gravitational/gravity/lib/defaults"
 	"github.com/gravitational/gravity/lib/loc"
@@ -54,13 +54,12 @@ func IsKnownStatus(s string) bool {
 type NewServiceRequest struct {
 	// ServiceSpec defines the service
 	ServiceSpec
-	// Name is a service name, e.g. temp.service
+	// Name is the service name.
+	// It can be the absolute path to the unit file if the file is located
+	// in a non-standard location
 	Name string `json:"Name"`
 	// NoBlock means we won't block and wait until service starts
 	NoBlock bool `json:"-"`
-	// UnitPath specifies the path for the unit file.
-	// If unspecified, defaults to filepath.Join(systemdUnitPath, Name)
-	UnitPath string `json:"unit_path"`
 	// Unmask specifies whether the service should be unmasked.
 	// Failure to unmask is not critical
 	Unmask bool
@@ -318,17 +317,30 @@ func (r *NewMountServiceRequest) CheckAndSetDefaults() error {
 
 // CheckAndSetDefaults verifies that this request object is valid
 func (r *NewServiceRequest) CheckAndSetDefaults() error {
-	if r.Name == "" && r.UnitPath == "" {
-		return trace.BadParameter("Name or UnitPath is required")
-	}
-	if r.UnitPath == "" {
-		r.UnitPath = unitPath(r.Name)
-	}
 	if r.Name == "" {
-		r.Name = filepath.Base(r.UnitPath)
+		return trace.BadParameter("Name is required")
 	}
 	if r.RestartSec == 0 {
 		r.RestartSec = defaults.SystemServiceRestartSec
 	}
 	return nil
+}
+
+// IsUnknownServiceError determines whether the err specifies the
+// 'unknown service' error
+func IsUnknownServiceError(err error) bool {
+	const (
+		errCodeGenericFailure = 1
+		errCodeNotInstalled   = 5
+	)
+	switch err := trace.Unwrap(err).(type) {
+	case *exec.ExitError:
+		if status, ok := err.Sys().(syscall.WaitStatus); ok {
+			switch status.ExitStatus() {
+			case errCodeGenericFailure, errCodeNotInstalled:
+				return true
+			}
+		}
+	}
+	return false
 }

@@ -5,25 +5,18 @@ import (
 	"errors"
 	"fmt"
 	"io"
-	"os"
-	"os/user"
 	"path/filepath"
-	"strconv"
-	"strings"
 	"sync"
-	"time"
 
-	"github.com/gravitational/gravity/lib/constants"
 	"github.com/gravitational/gravity/lib/defaults"
 	installpb "github.com/gravitational/gravity/lib/install/proto"
-	"github.com/gravitational/gravity/lib/system/service"
+	"github.com/gravitational/gravity/lib/state"
+	"github.com/gravitational/gravity/lib/system/cleanup"
 	"github.com/gravitational/gravity/lib/system/signals"
-	"github.com/gravitational/gravity/lib/systemservice"
 	"github.com/gravitational/gravity/lib/utils"
 
 	"github.com/gravitational/trace"
 	log "github.com/sirupsen/logrus"
-	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 )
@@ -36,47 +29,46 @@ import (
 // If no installer service is running, the client will validate that it is
 // safe to set up and execute the installer (i.e. validate that the node
 // is not already part of the cluster).
-//
-// See docs/design/client/install.puml for details
 func New(ctx context.Context, config Config) (*Client, error) {
 	err := config.checkAndSetDefaults()
 	if err != nil {
 		return nil, trace.Wrap(err)
 	}
-	c := &Client{
-		FieldLogger: config.FieldLogger,
-		Printer:     config.Printer,
-		config:      config,
-	}
-	if config.Resume {
-		c.Info("Connecting to running instance.")
-		err = c.connectRunning(ctx)
-		if err == nil {
-			return c, nil
-		}
-		return nil, trace.Wrap(err, "failed to connect to the installer service.\n"+
-			"Use 'gravity install' to start the installation.")
-	}
-	c.Info("Creating and connecting to new instance.")
-	err = c.connectNew(ctx)
+	c := &Client{Config: config}
+	client, err := c.connect(ctx)
 	if err != nil {
 		return nil, trace.Wrap(err)
 	}
+	c.client = client
+	c.addTerminationHandler()
 	return c, nil
 }
 
 // Run starts the service operation and runs the loop to fetch and display
 // operation progress
 func (r *Client) Run(ctx context.Context) error {
-	stream, err := r.client.Execute(ctx, &installpb.ExecuteRequest{})
-	if err != nil {
-		return trace.Wrap(err)
-	}
-	err = r.progressLoop(stream)
-	if err != errAborted {
-		r.Shutdown(ctx)
-	}
-	return trace.Wrap(err)
+	return r.execute(ctx, &installpb.ExecuteRequest{})
+}
+
+// ExecutePhase executes the specified phase
+func (r *Client) ExecutePhase(ctx context.Context, phase Phase) error {
+	return r.execute(ctx, &installpb.ExecuteRequest{
+		Phase: &installpb.ExecuteRequest_Phase{
+			ID:    phase.ID,
+			Force: phase.Force,
+		},
+	})
+}
+
+// RollbackPhase rolls back the specified phase
+func (r *Client) RollbackPhase(ctx context.Context, phase Phase) error {
+	return r.execute(ctx, &installpb.ExecuteRequest{
+		Phase: &installpb.ExecuteRequest_Phase{
+			ID:       phase.ID,
+			Force:    phase.Force,
+			Rollback: true,
+		},
+	})
 }
 
 // Stop signals the service to stop
@@ -87,6 +79,7 @@ func (r *Client) Stop(ctx context.Context) error {
 
 // Shutdown signals the service to stop
 func (r *Client) Shutdown(ctx context.Context) error {
+	r.Info("Shutdown.")
 	_, err := r.client.Shutdown(ctx, &installpb.ShutdownRequest{})
 	return trace.Wrap(err)
 }
@@ -107,16 +100,20 @@ func (r *Client) Completed() bool {
 }
 
 func (r *Config) checkAndSetDefaults() error {
-	if !r.Resume {
-		if len(r.Args) == 0 {
-			return trace.BadParameter("Args is required")
-		}
-		if r.StateChecker == nil {
-			return trace.BadParameter("StateChecker is required")
-		}
+	if r.ConnectStrategy == nil {
+		return trace.BadParameter("ConnectStrategy is required")
+	}
+	if err := r.ConnectStrategy.checkAndSetDefaults(); err != nil {
+		return trace.Wrap(err)
 	}
 	if r.InterruptHandler == nil {
 		return trace.BadParameter("InterruptHandler is required")
+	}
+	if r.ServicePath == "" {
+		r.ServicePath = state.GravityInstallDir(defaults.GravityRPCInstallerServiceName)
+	}
+	if !filepath.IsAbs(r.ServicePath) {
+		return trace.BadParameter("ServicePath needs to be absolute path")
 	}
 	if r.Printer == nil {
 		r.Printer = utils.DiscardPrinter
@@ -124,110 +121,50 @@ func (r *Config) checkAndSetDefaults() error {
 	if r.FieldLogger == nil {
 		r.FieldLogger = log.WithField(trace.Component, "client:installer")
 	}
-	if r.ServiceName == "" {
-		r.ServiceName = defaults.GravityRPCInstallerServiceName
-	}
 	if r.SocketPath == "" {
-		r.SocketPath = installpb.SocketPath(defaults.GravityEphemeralDir)
-	}
-	if r.ConnectTimeout == 0 {
-		r.ConnectTimeout = 10 * time.Minute
+		r.SocketPath = installpb.SocketPath()
 	}
 	return nil
 }
 
+// ConnectStrategy abstracts a way to connect to the installer service
+type ConnectStrategy interface {
+	// connect connects to the service and returns a client
+	connect(context.Context) (installpb.AgentClient, error)
+	checkAndSetDefaults() error
+}
+
+// Config describes the configuration of the installer client
 type Config struct {
 	log.FieldLogger
 	utils.Printer
 	*signals.InterruptHandler
-	// Args specifies the service command line including the executable
-	Args []string
-	// StateChecker specifies the local state checker function.
-	// The function is only required when not resuming the service
-	StateChecker func() error
+	ConnectStrategy
 	// SocketPath specifies the path to the service socket file
 	SocketPath string
-	// ConnectTimeout specifies the maximum amount of time to wait for
-	// installer service connection. Wait forever, if unspecified
-	ConnectTimeout time.Duration
-	// ServiceName specifies the name of the service unit
-	ServiceName string
-	// Resume specifies whether the existing service should be resumed
-	Resume bool
+	// ServicePath specifies the absolute path to the service unit
+	ServicePath string
 }
 
-func (r *Client) connectRunning(ctx context.Context) error {
-	r.Info("Restart service.")
-	if err := r.restartService(); err != nil {
-		return trace.Wrap(err)
-	}
-	r.Info("Connect to running service.")
-	const connectionTimeout = 10 * time.Second
-	ctx, cancel := context.WithTimeout(ctx, connectionTimeout)
-	defer cancel()
-	client, err := installpb.NewClient(ctx, r.config.SocketPath, r.FieldLogger,
-		// Fail fast at first non-temporary error
-		grpc.FailOnNonTempDialError(true))
-	if err != nil {
-		return trace.Wrap(err)
-	}
-	r.client = client
-	r.addTerminationHandler()
-	return nil
+// Phase groups parameters for executing/rolling back a phase
+type Phase struct {
+	// ID specifies the phase ID
+	ID string
+	// Force defines whether the phase execution is forced regardless
+	// of its state
+	Force bool
 }
 
-func (r *Client) connectNew(ctx context.Context) error {
-	err := r.config.StateChecker()
+func (r *Client) execute(ctx context.Context, req *installpb.ExecuteRequest) error {
+	stream, err := r.client.Execute(ctx, req)
 	if err != nil {
 		return trace.Wrap(err)
 	}
-	err = r.installSelfAsService()
-	if err != nil {
-		return trace.Wrap(err)
+	err = r.progressLoop(stream)
+	if err != errAborted {
+		r.Shutdown(ctx)
 	}
-	defer func() {
-		if err == nil {
-			return
-		}
-		r.uninstallService()
-	}()
-	if r.config.ConnectTimeout != 0 {
-		var cancel context.CancelFunc
-		ctx, cancel = context.WithTimeout(ctx, r.config.ConnectTimeout)
-		defer cancel()
-	}
-	client, err := installpb.NewClient(ctx, r.config.SocketPath, r.FieldLogger)
-	if err != nil {
-		return trace.Wrap(err)
-	}
-	r.client = client
-	r.addTerminationHandler()
-	return nil
-}
-
-// installSelfAsService installs a systemd unit using the current process's command line
-// and turns on service mode
-func (r *Client) installSelfAsService() error {
-	req := systemservice.NewServiceRequest{
-		ServiceSpec: systemservice.ServiceSpec{
-			StartCommand: strings.Join(r.config.Args, " "),
-			StartPreCommands: []string{
-				removeSocketFileCommand(r.config.SocketPath),
-			},
-			// TODO(dmitri): run as euid?
-			User:                     constants.RootUIDString,
-			RestartPreventExitStatus: strconv.Itoa(defaults.AbortedOperationExitCode),
-			// Enable automatic restart of the service
-			Restart:  "always",
-			WantedBy: "multi-user.target",
-		},
-		NoBlock: true,
-		Unmask:  true,
-		// Create service in alternative location to be able to mask
-		UnitPath: filepath.Join("/usr/lib/systemd/system", r.config.ServiceName),
-	}
-	r.WithField("req", fmt.Sprintf("%+v", req)).Info("Install service.")
-	return trace.Wrap(service.Reinstall(req))
+	return trace.Wrap(err)
 }
 
 func (r *Client) progressLoop(stream installpb.Agent_ExecuteClient) (err error) {
@@ -253,47 +190,30 @@ func (r *Client) progressLoop(stream installpb.Agent_ExecuteClient) (err error) 
 		}
 		r.PrintStep(resp.Message)
 		if resp.Status == installpb.ProgressResponse_Completed {
-			r.markCompleted()
+			r.complete()
 			// Do not explicitly exit the loop - wait for service to exit
 		}
 	}
 }
 
 func (r *Client) addTerminationHandler() {
-	r.config.InterruptHandler.AddStopper(r)
+	r.InterruptHandler.AddStopper(r)
 }
 
-func (r *Client) markCompleted() {
+// complete marks the operation completed in this client
+// and uninstalls the installer service.
+func (r *Client) complete() {
 	r.mu.Lock()
 	r.completed = true
 	r.mu.Unlock()
-	r.maskService()
-}
-
-// restartService starts the installer's systemd unit unless it's already active
-func (r *Client) restartService() error {
-	return trace.Wrap(service.Start(r.config.ServiceName))
-}
-
-func (r *Client) uninstallService() error {
-	return trace.Wrap(service.Uninstall(systemservice.UninstallServiceRequest{
-		Name:       r.config.ServiceName,
-		RemoveFile: true,
-	}))
-}
-
-func (r *Client) maskService() error {
-	return trace.Wrap(service.Disable(systemservice.DisableServiceRequest{
-		Name: r.config.ServiceName,
-		Mask: true,
-	}))
+	if err := cleanup.UninstallAgentServices(r.FieldLogger); err != nil {
+		r.WithError(err).Warn("Failed to uninstall installer service.")
+	}
 }
 
 // Client implements the client to the installer service
 type Client struct {
-	log.FieldLogger
-	utils.Printer
-	config Config
+	Config
 	client installpb.AgentClient
 
 	// mu guards fields below
@@ -306,16 +226,8 @@ func removeSocketFileCommand(socketPath string) (cmd string) {
 	return fmt.Sprintf("/usr/bin/rm -f %v", socketPath)
 }
 
-func userUnitPath(service string, user user.User) (path string, err error) {
-	dir := filepath.Join(user.HomeDir, ".config", "systemd", "user")
-	if err := os.MkdirAll(dir, defaults.SharedDirMask); err != nil {
-		return "", trace.ConvertSystemError(err)
-	}
-	return filepath.Join(dir, service), nil
-}
-
 var _ signals.Stopper = (*Client)(nil)
 var _ signals.Aborter = (*Client)(nil)
 
-// FIXME: use the same error as lib/install#ErrAborted
+// FIXME: use the lib/install#ErrAborted
 var errAborted = errors.New("operation aborted")

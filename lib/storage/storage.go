@@ -1777,10 +1777,6 @@ type InstallExpandOperationState struct {
 	Vars OperationVariables `json:"vars"`
 	// Package is the application being installed
 	Package loc.Locator `json:"package"`
-	// RemoteOpsURL is the optional URL of the remote Ops Center
-	RemoteOpsURL string `json:"remote_ops_url,omitempty"`
-	// RemoteOpsToken is the auth token of the remote Ops Center
-	RemoteOpsToken string `json:"remote_ops_token,omitempty"`
 }
 
 // OperationVariables is operation-specific set of variables

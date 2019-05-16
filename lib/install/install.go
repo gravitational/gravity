@@ -23,12 +23,13 @@ import (
 	"io"
 	"net"
 	"os"
-	"strconv"
 	"time"
 
 	"github.com/gravitational/gravity/lib/constants"
 	"github.com/gravitational/gravity/lib/defaults"
 	"github.com/gravitational/gravity/lib/fsm"
+	"github.com/gravitational/gravity/lib/install/engine"
+	installpb "github.com/gravitational/gravity/lib/install/proto"
 	"github.com/gravitational/gravity/lib/install/server"
 	"github.com/gravitational/gravity/lib/localenv"
 	"github.com/gravitational/gravity/lib/modules"
@@ -38,20 +39,18 @@ import (
 	"github.com/gravitational/gravity/lib/status"
 	"github.com/gravitational/gravity/lib/storage"
 	"github.com/gravitational/gravity/lib/system/signals"
+	"github.com/gravitational/gravity/lib/utils"
 
 	"github.com/fatih/color"
 	"github.com/gravitational/trace"
+	log "github.com/sirupsen/logrus"
 )
 
 // New returns a new instance of the unstarted installer server.
 // Use Serve to start server operation
-func New(ctx context.Context, config Config) (*Installer, error) {
-	err := upsertSystemAccount(ctx, config.Operator)
-	if err != nil {
-		return nil, trace.Wrap(err)
-	}
+func New(ctx context.Context, config RuntimeConfig) (installer *Installer, err error) {
 	var agent *rpcserver.PeerServer
-	if config.LocalAgent {
+	if config.Config.LocalAgent {
 		agent, err = config.newAgent(ctx)
 		if err != nil {
 			return nil, trace.Wrap(err)
@@ -61,20 +60,19 @@ func New(ctx context.Context, config Config) (*Installer, error) {
 		AbortHandler: config.AbortHandler,
 	})
 	localCtx, cancel := context.WithCancel(ctx)
-	installer := &Installer{
-		Config: config,
-		server: server,
-		ctx:    localCtx,
-		cancel: cancel,
-		agent:  agent,
-	}
-	return installer, nil
+	return &Installer{
+		FieldLogger: config.FieldLogger,
+		config:      config,
+		server:      server,
+		ctx:         localCtx,
+		cancel:      cancel,
+		agent:       agent,
+	}, nil
 }
 
 // Run runs the server operation using the specified engine
-func (i *Installer) Run(engine Engine, listener net.Listener) error {
+func (i *Installer) Run(listener net.Listener) error {
 	defer i.Info("Run: exited.")
-	i.engine = engine
 	errC := make(chan error, 1)
 	go func() {
 		errC <- i.server.Serve(i, listener)
@@ -86,6 +84,9 @@ func (i *Installer) Run(engine Engine, listener net.Listener) error {
 	}()
 	select {
 	case err := <-errC:
+		if exitErr := i.server.ExitError(); exitErr != nil {
+			err = exitErr
+		}
 		return trace.Wrap(err)
 	case <-i.server.Aborted():
 		return trace.Wrap(ErrAborted)
@@ -116,7 +117,9 @@ func (i *Installer) Abort(ctx context.Context) error {
 // Interface defines the interface of the installer as presented
 // to engine
 type Interface interface {
-	PlanBuilderGetter
+	engine.ClusterFactory
+	// ExecuteOperation executes the specified operation to completion
+	ExecuteOperation(ops.SiteOperationKey) error
 	// NotifyOperationAvailable is invoked by the engine to notify the server
 	// that the operation has been created
 	NotifyOperationAvailable(ops.SiteOperation) error
@@ -144,16 +147,50 @@ func (i *Installer) NotifyOperationAvailable(op ops.SiteOperation) error {
 	i.addAborter(signals.AborterFunc(func(ctx context.Context, interrupted bool) error {
 		if interrupted {
 			i.WithField("operation", op.ID).Info("Aborting agent service.")
-			return trace.Wrap(i.Process.AgentService().AbortAgents(ctx, op.Key()))
+			return trace.Wrap(i.config.Process.AgentService().AbortAgents(ctx, op.Key()))
 		}
 		return nil
 	}))
 	if err := i.upsertAdminAgent(op.SiteDomain); err != nil {
 		return trace.Wrap(err)
 	}
-	go i.server.RunProgressLoop(i.Operator, op.Key())
+	go ProgressLooper{
+		FieldLogger:  i.FieldLogger,
+		Operator:     i.config.Operator,
+		OperationKey: op.Key(),
+	}.Run(i.ctx, i.server)
 
 	return nil
+}
+
+// Returns a new cluster request
+// Implements engine.ClusterFactory
+func (i *Installer) NewCluster() ops.NewSiteRequest {
+	return i.config.ClusterFactory.NewCluster()
+}
+
+// ExecuteOperation executes the specified operation to completion.
+// Implements Interface
+func (i *Installer) ExecuteOperation(operationKey ops.SiteOperationKey) error {
+	err := initOperationPlan(i.config.Operator, i.config.Planner)
+	if err != nil && !trace.IsAlreadyExists(err) {
+		return trace.Wrap(err)
+	}
+	machine, err := i.config.FSMFactory.NewFSM(i.config.Operator, operationKey)
+	if err != nil {
+		return trace.Wrap(err)
+	}
+	err = machine.ExecutePlan(i.ctx, utils.DiscardProgress)
+	if err != nil {
+		i.WithError(err).Warn("Failed to execute operation plan.")
+	}
+	if completeErr := machine.Complete(err); completeErr != nil {
+		i.WithError(completeErr).Warn("Failed to complete operation.")
+		if err == nil {
+			err = completeErr
+		}
+	}
+	return trace.Wrap(err)
 }
 
 // CompleteOperation executes additional steps after the installation has completed.
@@ -169,7 +206,7 @@ func (i *Installer) CompleteOperation(operation ops.SiteOperation) error {
 	// Explicitly stop agents only iff the operation has been completed successfully
 	i.addStopper(signals.StopperFunc(func(ctx context.Context) error {
 		i.WithField("operation", operation.ID).Info("Stopping agent service.")
-		return trace.Wrap(i.Process.AgentService().StopAgents(ctx, operation.Key()))
+		return trace.Wrap(i.config.Process.AgentService().StopAgents(ctx, operation.Key()))
 	}))
 	i.sendElapsedTime(operation.Created)
 	i.sendPostInstallBanner()
@@ -187,7 +224,7 @@ func (i *Installer) CompleteFinalInstallStep(key ops.SiteOperationKey, delay tim
 		WizardConnectionTTL: delay,
 	}
 	i.WithField("req", req).Debug("Completing final install step.")
-	if err := i.Operator.CompleteFinalInstallStep(req); err != nil {
+	if err := i.config.Operator.CompleteFinalInstallStep(req); err != nil {
 		return trace.Wrap(err, "failed to complete final install step")
 	}
 	return nil
@@ -204,7 +241,7 @@ func (i *Installer) PrintStep(format string, args ...interface{}) error {
 // exits with an error.
 // Implements Interface
 func (i *Installer) Wait() error {
-	return trace.Wrap(i.Process.Wait())
+	return trace.Wrap(i.config.Process.Wait())
 }
 
 // Shutdown stops the active operation.
@@ -216,16 +253,14 @@ func (i *Installer) Shutdown(ctx context.Context) error {
 
 // Execute executes the install operation using the specified engine
 // Implements server.Executor
-func (i *Installer) Execute() error {
-	err := i.engine.Validate(i.ctx, i.Config)
+func (i *Installer) Execute(phase *installpb.ExecuteRequest_Phase) error {
+	if phase != nil {
+		return i.executePhase(*phase)
+	}
+	err := i.engine.Execute(i.ctx, i, i.config.Config)
 	if err != nil {
 		return trace.Wrap(err)
 	}
-	err = i.engine.Execute(i.ctx, i, i.Config)
-	if err != nil {
-		return trace.Wrap(err)
-	}
-
 	return nil
 }
 
@@ -236,48 +271,38 @@ func (i *Installer) AbortOperation(ctx context.Context) error {
 	return trace.Wrap(i.abort(ctx))
 }
 
-// NewStateMachine returns a new instance of the installer state machine.
-// Implements engine.StateMachineFactory
-func (i *Installer) NewStateMachine(operator ops.Operator, operationKey ops.SiteOperationKey) (fsm *fsm.FSM, err error) {
-	config := FSMConfig{
-		Operator:           operator,
-		OperationKey:       operationKey,
-		Packages:           i.Packages,
-		Apps:               i.Apps,
-		LocalPackages:      i.LocalPackages,
-		LocalApps:          i.LocalApps,
-		LocalBackend:       i.LocalBackend,
-		LocalClusterClient: i.LocalClusterClient,
-		Insecure:           i.Insecure,
-		UserLogFile:        i.UserLogFile,
-		ReportProgress:     true,
+func (i *Installer) executePhase(phase installpb.ExecuteRequest_Phase) error {
+	opKey := ops.SiteOperationKey{
+		AccountID:   phase.Key.AccountID,
+		SiteDomain:  phase.Key.ClusterName,
+		OperationID: phase.Key.ID,
 	}
-	config.Spec = FSMSpec(config)
-	return NewFSM(config)
+	machine, err := i.config.FSMFactory.NewFSM(i.config.Operator, opKey)
+	if err != nil {
+		return trace.Wrap(err)
+	}
+	if phase.ID == fsm.RootPhase {
+		return trace.Wrap(i.executeOperation(machine))
+	}
+	p := fsm.Params{PhaseID: phase.ID}
+	if phase.Rollback {
+		return trace.Wrap(machine.RollbackPhase(i.ctx, p))
+	}
+	return trace.Wrap(machine.ExecutePhase(i.ctx, p))
 }
 
-// NewCluster returns a new request to create a cluster.
-// Implements engine.ClusterFactory
-func (i *Installer) NewCluster() ops.NewSiteRequest {
-	return ops.NewSiteRequest{
-		AppPackage:   i.AppPackage.String(),
-		AccountID:    defaults.SystemAccountID,
-		Email:        fmt.Sprintf("installer@%v", i.SiteDomain),
-		Provider:     i.CloudProvider,
-		DomainName:   i.SiteDomain,
-		InstallToken: i.Token.Token,
-		ServiceUser: storage.OSUser{
-			Name: i.ServiceUser.Name,
-			UID:  strconv.Itoa(i.ServiceUser.UID),
-			GID:  strconv.Itoa(i.ServiceUser.GID),
-		},
-		CloudConfig: storage.CloudConfig{
-			GCENodeTags: i.GCENodeTags,
-		},
-		DNSOverrides: i.DNSOverrides,
-		DNSConfig:    i.DNSConfig,
-		Docker:       i.Docker,
+func (i *Installer) executeOperation(machine *fsm.FSM) error {
+	planErr := machine.ExecutePlan(i.ctx, utils.DiscardProgress)
+	if planErr != nil {
+		i.WithError(planErr).Warn("Failed to execute plan.")
 	}
+	if err := machine.Complete(planErr); err != nil {
+		i.WithError(err).Warn("Failed to complete plan.")
+	}
+	if planErr != nil {
+		return trace.Wrap(planErr)
+	}
+	return nil
 }
 
 // stop stops the operation in progress
@@ -289,7 +314,7 @@ func (i *Installer) stop(ctx context.Context) error {
 			errors = append(errors, err)
 		}
 	}
-	i.Config.Process.Shutdown(ctx)
+	i.config.Process.Shutdown(ctx)
 	i.server.Wait()
 	return trace.NewAggregate(errors...)
 }
@@ -303,9 +328,9 @@ func (i *Installer) abort(ctx context.Context) error {
 			errors = append(errors, err)
 		}
 	}
-	i.Config.Process.Shutdown(ctx)
+	i.config.Process.Shutdown(ctx)
 	i.server.Wait()
-	if err := i.AbortHandler(ctx); err != nil {
+	if err := i.config.AbortHandler(ctx); err != nil {
 		errors = append(errors, err)
 	}
 	return trace.NewAggregate(errors...)
@@ -370,7 +395,7 @@ func (i *Installer) getClusterStatus() (*status.Status, error) {
 
 // upsertAdminAgent creates an admin agent for the cluster being installed
 func (i *Installer) upsertAdminAgent(clusterName string) error {
-	agent, err := i.Process.UsersService().CreateClusterAdminAgent(clusterName,
+	agent, err := i.config.Process.UsersService().CreateClusterAdminAgent(clusterName,
 		storage.NewUser(storage.ClusterAdminAgent(clusterName), storage.UserSpecV2{
 			AccountID: defaults.SystemAccountID,
 		}))
@@ -383,16 +408,16 @@ func (i *Installer) upsertAdminAgent(clusterName string) error {
 
 // uploadInstallLog uploads user-facing operation log to the installed cluster
 func (i *Installer) uploadInstallLog(operationKey ops.SiteOperationKey) error {
-	file, err := os.Open(i.UserLogFile)
+	file, err := os.Open(i.config.UserLogFile)
 	if err != nil {
 		return trace.Wrap(err)
 	}
 	defer file.Close()
-	err = i.Operator.StreamOperationLogs(operationKey, file)
+	err = i.config.Operator.StreamOperationLogs(operationKey, file)
 	if err != nil {
 		return trace.Wrap(err, "failed to upload install log")
 	}
-	i.WithField("file", i.UserLogFile).Debug("Uploaded install log to the cluster.")
+	i.WithField("file", i.config.UserLogFile).Debug("Uploaded install log to the cluster.")
 	return nil
 }
 
@@ -420,9 +445,9 @@ func (i *Installer) addAborter(aborter signals.Aborter) {
 }
 
 func (i *Installer) startAgent(operation ops.SiteOperation) error {
-	profile, ok := operation.InstallExpand.Agents[i.Config.Role]
+	profile, ok := operation.InstallExpand.Agents[i.config.Role]
 	if !ok {
-		return trace.BadParameter("no agent profile for role %q", i.Config.Role)
+		return trace.BadParameter("no agent profile for role %q", i.config.Role)
 	}
 	token, err := getTokenFromURL(profile.AgentURL)
 	if err != nil {
@@ -441,8 +466,9 @@ func (i *Installer) stopRPC(ctx context.Context) {
 
 // Installer manages the installation process
 type Installer struct {
-	// Config specifies the configuration for the install operation
-	Config
+	// FieldLogger specifies the installer's logger
+	log.FieldLogger
+	config   RuntimeConfig
 	stoppers []signals.Stopper
 	aborters []signals.Aborter
 	// ctx controls the lifespan of internal processes
@@ -457,9 +483,6 @@ type Installer struct {
 
 // Engine implements the process of cluster installation
 type Engine interface {
-	// Validate allows the engine to prepare for the installation
-	// and validate the environment before the operation is executed.
-	Validate(context.Context, Config) error
 	// Execute executes the steps to install a cluster.
 	// If the method returns with an error, the installer will continue
 	// running until it receives a shutdown signal.

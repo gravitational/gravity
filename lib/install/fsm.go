@@ -65,10 +65,6 @@ type FSMConfig struct {
 	LocalApps app.Applications
 	// LocalBackend is the machine-local backend
 	LocalBackend storage.Backend
-	// RemoteOpsURL is an optional URL of the remote Ops Center
-	RemoteOpsURL string
-	// RemoteOpsToken is the auth token for the above Ops Center
-	RemoteOpsToken string
 	// Spec is the FSM spec
 	Spec fsm.FSMSpecFunc
 	// Credentials is the credentials for gRPC agents

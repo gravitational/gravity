@@ -35,10 +35,10 @@ import (
 	"k8s.io/client-go/kubernetes"
 )
 
-// startCertificateWatch starts watching for the changes in cluster certificate
-// and notifies the process' "certificateCh" when the change happens
-func (p *Process) startCertificateWatch(ctx context.Context, client *kubernetes.Clientset) error {
-	go func() {
+// runCertificateWatch updates process on p.certificateCh
+// when changes to cluster certificates are detected
+func (p *Process) runCertificateWatch(client *kubernetes.Clientset) clusterService {
+	return func(ctx context.Context) {
 		ticker := time.NewTicker(time.Second)
 		defer ticker.Stop()
 		for {
@@ -53,8 +53,7 @@ func (p *Process) startCertificateWatch(ctx context.Context, client *kubernetes.
 				return
 			}
 		}
-	}()
-	return nil
+	}
 }
 
 func (p *Process) watchCertificate(ctx context.Context, client *kubernetes.Clientset) error {
@@ -103,17 +102,16 @@ func (p *Process) watchCertificate(ctx context.Context, client *kubernetes.Clien
 	}
 }
 
-// startAuthGatewayWatch launches watcher that monitors config map with
-// auth gateway configuration and updates Teleport configuration
-// appropriately.
-func (p *Process) startAuthGatewayWatch(ctx context.Context, client *kubernetes.Clientset) error {
-	go func() {
+// runAuthGatewayWatch monitors config map with auth gateway configuration
+// and updates Teleport configuration appropriately.
+func (p *Process) runAuthGatewayWatch(client *kubernetes.Clientset) clusterService {
+	return func(ctx context.Context) {
 		ticker := time.NewTicker(time.Second)
 		defer ticker.Stop()
 		for {
 			err := p.watchAuthGateway(ctx, client)
 			if err != nil {
-				p.Errorf("Failed to start auth gateway config watch: %v.", trace.DebugReport(err))
+				p.WithError(err).Warn("Failed to start auth gateway config watch.")
 			}
 			select {
 			case <-ticker.C:
@@ -122,8 +120,7 @@ func (p *Process) startAuthGatewayWatch(ctx context.Context, client *kubernetes.
 				return
 			}
 		}
-	}()
-	return nil
+	}
 }
 
 // watchAuthGateway observes changes to the auth gateway config map and
@@ -214,10 +211,9 @@ func (p *Process) reloadAuthGatewayConfig(authGatewayConfig storage.AuthGateway)
 	return nil
 }
 
-// startWatchingReloadEvents launches watcher that listens for reload events
-// and restarts the process.
-func (p *Process) startWatchingReloadEvents(ctx context.Context, client *kubernetes.Clientset) error {
-	go func() {
+// runReloadEventsWatch watches reload events and restarts the process.
+func (p *Process) runReloadEventsWatch(client *kubernetes.Clientset) clusterService {
+	return func(ctx context.Context) {
 		eventsCh := make(chan service.Event)
 		p.WaitForEvent(ctx, service.TeleportReloadEvent, eventsCh)
 		p.Infof("Started watching %v events.", service.TeleportReloadEvent)
@@ -239,6 +235,5 @@ func (p *Process) startWatchingReloadEvents(ctx context.Context, client *kuberne
 				return
 			}
 		}
-	}()
-	return nil
+	}
 }

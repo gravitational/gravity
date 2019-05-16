@@ -6,6 +6,9 @@ import (
 	"path/filepath"
 	"time"
 
+	"github.com/gravitational/gravity/lib/state"
+
+	"github.com/gogo/protobuf/types"
 	"github.com/gravitational/trace"
 	log "github.com/sirupsen/logrus"
 	grpc "google.golang.org/grpc"
@@ -57,7 +60,10 @@ func NewClient(ctx context.Context, socketPath string, logger log.FieldLogger, o
 	}
 }
 
-// SocketPath returns the path to the socket for the given state directory
-func SocketPath(stateDir string) (path string) {
-	return filepath.Join(stateDir, "installer.sock")
+// SocketPath returns the default path to the installer service socket
+func SocketPath() (path string) {
+	return filepath.Join(state.GravityInstallDir(), "installer.sock")
 }
+
+// Empty defines the empty RPC message
+var Empty = &types.Empty{}

@@ -515,16 +515,25 @@ func (b *PlanBuilder) AddEnableElectionPhase(plan *storage.OperationPlan) {
 	})
 }
 
+// skipDependency returns true if the dependency package specified by dep
+// should be skipped when installing the provided application
+func (b *PlanBuilder) skipDependency(dep loc.Locator) bool {
+	if dep.Name == constants.BootstrapConfigPackage {
+		return true // rbac-app is installed separately
+	}
+	return schema.ShouldSkipApp(b.Application.Manifest, dep)
+}
+
 // GetPlanBuilder returns a new plan builder for this installer and provided
 // operation that can be used to build operation plan phases
-func (i *Installer) GetPlanBuilder(cluster ops.Site, op ops.SiteOperation) (*PlanBuilder, error) {
+func (c *Config) GetPlanBuilder(operator ops.Operator, cluster ops.Site, op ops.SiteOperation) (*PlanBuilder, error) {
 	// determine which app and runtime are being installed
 	base := cluster.App.Manifest.Base()
 	if base == nil {
 		return nil, trace.BadParameter("application %v does not have a runtime",
 			cluster.App.Package)
 	}
-	runtime, err := i.Apps.GetApp(*base)
+	runtime, err := c.Apps.GetApp(*base)
 	if err != nil {
 		return nil, trace.Wrap(err)
 	}
@@ -560,7 +569,7 @@ func (i *Installer) GetPlanBuilder(cluster ops.Site, op ops.SiteOperation) (*Pla
 		return nil, trace.Wrap(err)
 	}
 	// retrieve cluster agents
-	adminAgent, err := i.Operator.GetClusterAgent(ops.ClusterAgentRequest{
+	adminAgent, err := operator.GetClusterAgent(ops.ClusterAgentRequest{
 		AccountID:   op.AccountID,
 		ClusterName: op.SiteDomain,
 		Admin:       true,
@@ -568,14 +577,14 @@ func (i *Installer) GetPlanBuilder(cluster ops.Site, op ops.SiteOperation) (*Pla
 	if err != nil {
 		return nil, trace.Wrap(err)
 	}
-	regularAgent, err := i.Operator.GetClusterAgent(ops.ClusterAgentRequest{
+	regularAgent, err := operator.GetClusterAgent(ops.ClusterAgentRequest{
 		AccountID:   op.AccountID,
 		ClusterName: op.SiteDomain,
 	})
 	if err != nil {
 		return nil, trace.Wrap(err)
 	}
-	trustedCluster, err := i.getInstallerTrustedCluster()
+	trustedCluster, err := c.getInstallerTrustedCluster()
 	if err != nil {
 		return nil, trace.Wrap(err)
 	}
@@ -596,33 +605,17 @@ func (i *Installer) GetPlanBuilder(cluster ops.Site, op ops.SiteOperation) (*Pla
 		AdminAgent:         *adminAgent,
 		RegularAgent:       *regularAgent,
 		ServiceUser: storage.OSUser{
-			Name: i.Config.ServiceUser.Name,
-			UID:  strconv.Itoa(i.Config.ServiceUser.UID),
-			GID:  strconv.Itoa(i.Config.ServiceUser.GID),
+			Name: c.ServiceUser.Name,
+			UID:  strconv.Itoa(c.ServiceUser.UID),
+			GID:  strconv.Itoa(c.ServiceUser.GID),
 		},
 		InstallerTrustedCluster: trustedCluster,
 	}
-	err = addResources(builder, cluster.Resources, i.Config.RuntimeResources, i.Config.ClusterResources)
+	err = addResources(builder, cluster.Resources, c.RuntimeResources, c.ClusterResources)
 	if err != nil {
 		return nil, trace.Wrap(err)
 	}
 	return builder, nil
-}
-
-// getInstallerTrustedCluster returns trusted cluster representing installer process
-func (i *Installer) getInstallerTrustedCluster() (storage.TrustedCluster, error) {
-	seedConfig := i.Process.Config().OpsCenter.SeedConfig
-	if seedConfig == nil {
-		return nil, trace.NotFound("expected SeedConfig field to be present "+
-			"in the Process configuration: %#v", i.Process.Config())
-	}
-	for _, tc := range seedConfig.TrustedClusters {
-		if tc.GetWizard() {
-			return tc, nil
-		}
-	}
-	return nil, trace.NotFound("trusted cluster representing this installer "+
-		"is not found in the Process configuration: %#v", seedConfig)
 }
 
 // splitServers splits the provided servers into masters and nodes
@@ -653,15 +646,6 @@ func splitServers(servers []storage.Server, app app.Application) (masters []stor
 		}
 	}
 	return masters, nodes, nil
-}
-
-// skipDependency returns true if the dependency package specified by dep
-// should be skipped when installing the provided application
-func (b *PlanBuilder) skipDependency(dep loc.Locator) bool {
-	if dep.Name == constants.BootstrapConfigPackage {
-		return true // rbac-app is installed separately
-	}
-	return schema.ShouldSkipApp(b.Application.Manifest, dep)
 }
 
 func addResources(builder *PlanBuilder, resourceBytes []byte, runtimeResources []runtime.Object, clusterResources []storage.UnknownResource) error {

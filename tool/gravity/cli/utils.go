@@ -68,33 +68,36 @@ func (g *Application) NewUpdateEnv() (*localenv.LocalEnvironment, error) {
 	return g.getEnv(state.GravityUpdateDir(dir))
 }
 
-// NewInstallEnv returns an instance of local environment where install-specific data is stored
-func (g *Application) NewInstallEnv() (*localenv.LocalEnvironment, error) {
-	err := os.MkdirAll(defaults.GravityInstallDir(), defaults.SharedDirMask)
-	if err != nil {
-		return nil, trace.ConvertSystemError(err)
-	}
-	return g.getEnv(defaults.GravityInstallDir())
-}
-
 // NewJoinEnv returns an instance of local environment where join-specific data is stored
 func (g *Application) NewJoinEnv() (*localenv.LocalEnvironment, error) {
-	err := os.MkdirAll(defaults.GravityJoinDir(), defaults.SharedDirMask)
+	const failImmediatelyIfLocked = -1
+	err := os.MkdirAll(state.GravityInstallDir(), defaults.SharedDirMask)
 	if err != nil {
 		return nil, trace.ConvertSystemError(err)
 	}
-	return g.getEnv(defaults.GravityJoinDir())
+	return g.getEnvWithArgs(localenv.LocalEnvironmentArgs{
+		StateDir:         state.GravityInstallDir(),
+		Insecure:         *g.Insecure,
+		Silent:           localenv.Silent(*g.Silent),
+		Debug:            *g.Debug,
+		EtcdRetryTimeout: *g.EtcdRetryTimeout,
+		BoltOpenTimeout:  failImmediatelyIfLocked,
+		Reporter:         common.ProgressReporter(*g.Silent),
+	})
 }
 
 func (g *Application) getEnv(stateDir string) (*localenv.LocalEnvironment, error) {
-	args := localenv.LocalEnvironmentArgs{
+	return g.getEnvWithArgs(localenv.LocalEnvironmentArgs{
 		StateDir:         stateDir,
 		Insecure:         *g.Insecure,
 		Silent:           localenv.Silent(*g.Silent),
 		Debug:            *g.Debug,
 		EtcdRetryTimeout: *g.EtcdRetryTimeout,
 		Reporter:         common.ProgressReporter(*g.Silent),
-	}
+	})
+}
+
+func (g *Application) getEnvWithArgs(args localenv.LocalEnvironmentArgs) (*localenv.LocalEnvironment, error) {
 	if *g.StateDir != defaults.LocalGravityDir {
 		args.LocalKeyStoreDir = *g.StateDir
 	}
@@ -112,7 +115,7 @@ func (g *Application) getEnv(stateDir string) (*localenv.LocalEnvironment, error
 // to set up the state directory.
 // cmd specifies the invoked command
 func (g *Application) SetStateDirFromCommand(cmd string) error {
-	if cmd != g.InstallCmd.FullCommand() && cmd != g.JoinExecuteCmd.FullCommand() {
+	if cmd != g.InstallCmd.FullCommand() && cmd != g.JoinCmd.FullCommand() {
 		return nil
 	}
 	// if a custom state directory was provided during install/join, it means

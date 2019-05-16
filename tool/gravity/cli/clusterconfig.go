@@ -82,7 +82,12 @@ func newConfigUpdater(ctx context.Context, localEnv, updateEnv *localenv.LocalEn
 	return newUpdater(ctx, localEnv, updateEnv, init)
 }
 
-func executeConfigPhase(env, updateEnv *localenv.LocalEnvironment, params PhaseParams, operation ops.SiteOperation) error {
+func executeConfigPhase(env *localenv.LocalEnvironment, environ LocalEnvironmentFactory, params PhaseParams, operation ops.SiteOperation) error {
+	updateEnv, err := environ.NewUpdateEnv()
+	if err != nil {
+		return trace.Wrap(err)
+	}
+	defer updateEnv.Close()
 	updater, err := getConfigUpdater(env, updateEnv, operation)
 	if err != nil {
 		return trace.Wrap(err)
@@ -92,7 +97,12 @@ func executeConfigPhase(env, updateEnv *localenv.LocalEnvironment, params PhaseP
 	return trace.Wrap(err)
 }
 
-func rollbackConfigPhase(env, updateEnv *localenv.LocalEnvironment, params PhaseParams, operation ops.SiteOperation) error {
+func rollbackConfigPhase(env *localenv.LocalEnvironment, environ LocalEnvironmentFactory, params PhaseParams, operation ops.SiteOperation) error {
+	updateEnv, err := environ.NewUpdateEnv()
+	if err != nil {
+		return trace.Wrap(err)
+	}
+	defer updateEnv.Close()
 	updater, err := getConfigUpdater(env, updateEnv, operation)
 	if err != nil {
 		return trace.Wrap(err)
@@ -102,7 +112,12 @@ func rollbackConfigPhase(env, updateEnv *localenv.LocalEnvironment, params Phase
 	return trace.Wrap(err)
 }
 
-func completeConfigPlan(env, updateEnv *localenv.LocalEnvironment, operation ops.SiteOperation) error {
+func completeConfigPlan(env *localenv.LocalEnvironment, environ LocalEnvironmentFactory, operation ops.SiteOperation) error {
+	updateEnv, err := environ.NewUpdateEnv()
+	if err != nil {
+		return trace.Wrap(err)
+	}
+	defer updateEnv.Close()
 	updater, err := getConfigUpdater(env, updateEnv, operation)
 	if err != nil {
 		return trace.Wrap(err)

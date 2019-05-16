@@ -151,6 +151,8 @@ ignored = [
   version = "1.12.17"
 
 [[constraint]]
+  # FIXME: this is using a version of boltdb that was patched directly in vendor
+  # to avoid hassle with dep. Make sure to transfer changes when bumping the version
   name = "github.com/boltdb/bolt"
   version = "1.1.0-65-gee4a088"
 

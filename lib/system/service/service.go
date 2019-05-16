@@ -18,8 +18,7 @@ limitations under the License.
 package service
 
 import (
-	"os/exec"
-	"syscall"
+	"path/filepath"
 
 	"github.com/gravitational/gravity/lib/constants"
 	"github.com/gravitational/gravity/lib/systemservice"
@@ -74,28 +73,13 @@ func install(services systemservice.ServiceManager, req systemservice.NewService
 	if req.ServiceSpec.User == "" {
 		req.ServiceSpec.User = constants.RootUIDString
 	}
-	err := services.StopService(req.Name)
-	if err != nil && !IsUnknownServiceError(err) {
+	err := services.StopService(serviceName(req.Name))
+	if err != nil && !systemservice.IsUnknownServiceError(err) {
 		log.WithField("service", req.Name).Warn("Failed to stop.")
 	}
 	return trace.Wrap(services.InstallService(req))
 }
 
-// IsUnknownServiceError determines whether the err specifies the
-// 'unknown service' error
-func IsUnknownServiceError(err error) bool {
-	const (
-		errCodeGenericFailure = 1
-		errCodeNotInstalled   = 5
-	)
-	switch err := trace.Unwrap(err).(type) {
-	case *exec.ExitError:
-		if status, ok := err.Sys().(syscall.WaitStatus); ok {
-			switch status.ExitStatus() {
-			case errCodeGenericFailure, errCodeNotInstalled:
-				return true
-			}
-		}
-	}
-	return false
+func serviceName(name string) string {
+	return filepath.Base(name)
 }

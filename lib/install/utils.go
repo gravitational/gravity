@@ -13,6 +13,8 @@ import (
 	"github.com/gravitational/gravity/lib/checks"
 	awscloud "github.com/gravitational/gravity/lib/cloudprovider/aws"
 	"github.com/gravitational/gravity/lib/defaults"
+	"github.com/gravitational/gravity/lib/install/engine"
+	"github.com/gravitational/gravity/lib/install/server"
 	"github.com/gravitational/gravity/lib/loc"
 	"github.com/gravitational/gravity/lib/ops"
 	"github.com/gravitational/gravity/lib/pack"
@@ -360,6 +362,46 @@ func InstallBinary(uid, gid int, logger log.FieldLogger) (err error) {
 	return nil
 }
 
+// Run runs progress loop for the specified operation until the operation
+// is complete or context is cancelled.
+func (r ProgressLooper) Run(ctx context.Context, dispatcher eventDispatcher) error {
+	r.WithField("operation", r.OperationKey.OperationID).Info("Start progress feedback loop.")
+	ticker := time.NewTicker(1 * time.Second)
+	defer ticker.Stop()
+	var lastProgress *ops.ProgressEntry
+	for {
+		select {
+		case <-ticker.C:
+			progress, err := r.Operator.GetSiteOperationProgress(r.OperationKey)
+			if err != nil {
+				r.WithError(err).Warn("Failed to query operation progress.")
+				continue
+			}
+			if lastProgress != nil && lastProgress.IsEqual(*progress) {
+				continue
+			}
+			dispatcher.Send(server.Event{Progress: progress})
+			lastProgress = progress
+			if progress.IsCompleted() {
+				return nil
+			}
+		case <-ctx.Done():
+			return nil
+		}
+	}
+}
+
+// ProgressLooper is a progress message poller
+type ProgressLooper struct {
+	log.FieldLogger
+	Operator     ops.Operator
+	OperationKey ops.SiteOperationKey
+}
+
+type eventDispatcher interface {
+	Send(server.Event) error
+}
+
 func wait(ctx context.Context, cancel context.CancelFunc, p process.GravityProcess) error {
 	errC := make(chan error, 1)
 	go func() {
@@ -373,19 +415,6 @@ func wait(ctx context.Context, cancel context.CancelFunc, p process.GravityProce
 	case <-ctx.Done():
 		return trace.Wrap(ctx.Err())
 	}
-}
-
-func upsertSystemAccount(ctx context.Context, operator ops.Operator) error {
-	b := utils.NewUnlimitedExponentialBackOff()
-	ctx, cancel := defaults.WithTimeout(ctx)
-	defer cancel()
-	if err := utils.RetryTransient(ctx, b, func() (err error) {
-		_, err = ops.UpsertSystemAccount(operator)
-		return trace.Wrap(err)
-	}); err != nil {
-		return trace.Wrap(err)
-	}
-	return nil
 }
 
 func tryInstallBinary(targetPath string, uid, gid int, logger log.FieldLogger) error {
@@ -407,6 +436,38 @@ func tryInstallBinary(targetPath string, uid, gid int, logger log.FieldLogger) e
 			"failed to change ownership on %v", targetPath)
 	}
 	logger.WithField("path", targetPath).Info("Installed gravity binary.")
+	return nil
+}
+
+// initOperationPlan initializes a new operation plan for the specified install operation
+// in the given operator
+func initOperationPlan(operator ops.Operator, planner engine.Planner) error {
+	clusters, err := operator.GetSites(defaults.SystemAccountID)
+	if err != nil {
+		return trace.Wrap(err)
+	}
+	if len(clusters) != 1 {
+		return trace.BadParameter("expected 1 cluster, got: %v", clusters)
+	}
+	operation, _, err := ops.GetInstallOperation(clusters[0].Key(), operator)
+	if err != nil {
+		return trace.Wrap(err)
+	}
+	plan, err := operator.GetOperationPlan(operation.Key())
+	if err != nil && !trace.IsNotFound(err) {
+		return trace.Wrap(err)
+	}
+	if plan != nil {
+		return trace.AlreadyExists("plan is already initialized")
+	}
+	plan, err = planner.GetOperationPlan(operator, clusters[0], *operation)
+	if err != nil {
+		return trace.Wrap(err)
+	}
+	err = operator.CreateOperationPlan(operation.Key(), *plan)
+	if err != nil {
+		return trace.Wrap(err)
+	}
 	return nil
 }
 

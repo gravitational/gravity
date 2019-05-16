@@ -45,18 +45,12 @@ type PhaseParams struct {
 	Timeout time.Duration
 	// SkipVersionCheck overrides the verification of binary version compatibility
 	SkipVersionCheck bool
-	// Installer specifies the installer to manage installation-specific phases.
-	// If unspecified defaults to an instance of installer
-	Installer Installer
 }
 
-// ResumeOperation resumes the operation specified with params
-func ResumeOperation(localEnv, updateEnv, joinEnv *localenv.LocalEnvironment, params PhaseParams) error {
-	if params.Installer == nil {
-		params.Installer = defaultInstaller{}
-	}
+// resumeOperation resumes the operation specified with params
+func resumeOperation(localEnv *localenv.LocalEnvironment, environ LocalEnvironmentFactory, params PhaseParams) error {
 	params.PhaseID = fsm.RootPhase
-	err := ExecutePhase(localEnv, updateEnv, joinEnv, params)
+	err := executePhase(localEnv, environ, params)
 	if err == nil {
 		return nil
 	}
@@ -65,30 +59,28 @@ func ResumeOperation(localEnv, updateEnv, joinEnv *localenv.LocalEnvironment, pa
 	}
 	// No operation found.
 	// Attempt to resume the installation
-	return trace.Wrap(params.Installer.Resume(localEnv))
+	// FIXME
+	// return trace.Wrap(params.Installer.Resume(localEnv))
+	return nil
 }
 
-// ExecutePhase executes a phase for the operation specified with params
-func ExecutePhase(localEnv, updateEnv, joinEnv *localenv.LocalEnvironment, params PhaseParams) error {
-	op, err := getActiveOperation(localEnv, updateEnv, joinEnv, params.OperationID)
+// executePhase executes a phase for the operation specified with params
+func executePhase(localEnv *localenv.LocalEnvironment, environ LocalEnvironmentFactory, params PhaseParams) error {
+	op, err := getActiveOperation(localEnv, environ, params.OperationID)
 	if err != nil {
 		return trace.Wrap(err)
 	}
 	switch op.Type {
 	case ops.OperationInstall:
-		installer := params.Installer
-		if installer == nil {
-			installer = defaultInstaller{}
-		}
-		return installer.ExecutePhase(localEnv, params, op)
+		return executeInstallPhase(localEnv, params, op)
 	case ops.OperationExpand:
-		return executeJoinPhase(localEnv, joinEnv, params, op)
+		return executeJoinPhase(localEnv, environ, params, op)
 	case ops.OperationUpdate:
-		return executeUpdatePhase(localEnv, updateEnv, params, *op)
+		return executeUpdatePhase(localEnv, environ, params, *op)
 	case ops.OperationUpdateRuntimeEnviron:
-		return executeEnvironPhase(localEnv, updateEnv, params, *op)
+		return executeEnvironPhase(localEnv, environ, params, *op)
 	case ops.OperationUpdateConfig:
-		return executeConfigPhase(localEnv, updateEnv, params, *op)
+		return executeConfigPhase(localEnv, environ, params, *op)
 	case ops.OperationGarbageCollect:
 		return executeGarbageCollectPhase(localEnv, params, op)
 	default:
@@ -96,34 +88,30 @@ func ExecutePhase(localEnv, updateEnv, joinEnv *localenv.LocalEnvironment, param
 	}
 }
 
-// RollbackPhase rolls back a phase for the operation specified with params
-func RollbackPhase(localEnv, updateEnv, joinEnv *localenv.LocalEnvironment, params PhaseParams) error {
-	op, err := getActiveOperation(localEnv, updateEnv, joinEnv, params.OperationID)
+// rollbackPhase rolls back a phase for the operation specified with params
+func rollbackPhase(localEnv *localenv.LocalEnvironment, environ LocalEnvironmentFactory, params PhaseParams) error {
+	op, err := getActiveOperation(localEnv, environ, params.OperationID)
 	if err != nil {
 		return trace.Wrap(err)
 	}
 	switch op.Type {
 	case ops.OperationInstall:
-		installer := params.Installer
-		if installer == nil {
-			installer = defaultInstaller{}
-		}
-		return installer.RollbackPhase(localEnv, params, op)
+		return rollbackInstallPhase(localEnv, params, op)
 	case ops.OperationExpand:
-		return rollbackJoinPhase(localEnv, joinEnv, params, op)
+		return rollbackJoinPhase(localEnv, environ, params, op)
 	case ops.OperationUpdate:
-		return rollbackUpdatePhase(localEnv, updateEnv, params, *op)
+		return rollbackUpdatePhase(localEnv, environ, params, *op)
 	case ops.OperationUpdateRuntimeEnviron:
-		return rollbackEnvironPhase(localEnv, updateEnv, params, *op)
+		return rollbackEnvironPhase(localEnv, environ, params, *op)
 	case ops.OperationUpdateConfig:
-		return rollbackConfigPhase(localEnv, updateEnv, params, *op)
+		return rollbackConfigPhase(localEnv, environ, params, *op)
 	default:
 		return trace.BadParameter("operation type %q does not support plan rollback", op.Type)
 	}
 }
 
-func completeOperationPlan(localEnv, updateEnv, joinEnv *localenv.LocalEnvironment, operationID string) error {
-	op, err := getActiveOperation(localEnv, updateEnv, joinEnv, operationID)
+func completeOperationPlan(localEnv *localenv.LocalEnvironment, environ LocalEnvironmentFactory, operationID string) error {
+	op, err := getActiveOperation(localEnv, environ, operationID)
 	if err != nil {
 		return trace.Wrap(err)
 	}
@@ -131,20 +119,20 @@ func completeOperationPlan(localEnv, updateEnv, joinEnv *localenv.LocalEnvironme
 	case ops.OperationInstall:
 		return completeInstallPlan(localEnv, op)
 	case ops.OperationExpand:
-		return completeJoinPlan(localEnv, joinEnv, op)
+		return completeJoinPlan(localEnv, environ, op)
 	case ops.OperationUpdate:
-		return completeUpdatePlan(localEnv, updateEnv, *op)
+		return completeUpdatePlan(localEnv, environ, *op)
 	case ops.OperationUpdateRuntimeEnviron:
-		return completeEnvironPlan(localEnv, updateEnv, *op)
+		return completeEnvironPlan(localEnv, environ, *op)
 	case ops.OperationUpdateConfig:
-		return completeConfigPlan(localEnv, updateEnv, *op)
+		return completeConfigPlan(localEnv, environ, *op)
 	default:
 		return trace.BadParameter("operation type %q does not support plan completion", op.Type)
 	}
 }
 
-func getLastOperation(localEnv, updateEnv, joinEnv *localenv.LocalEnvironment, operationID string) (*ops.SiteOperation, error) {
-	operations, err := getBackendOperations(localEnv, updateEnv, joinEnv, operationID)
+func getLastOperation(localEnv *localenv.LocalEnvironment, environ LocalEnvironmentFactory, operationID string) (*ops.SiteOperation, error) {
+	operations, err := getBackendOperations(localEnv, environ, operationID)
 	if err != nil {
 		return nil, trace.Wrap(err)
 	}
@@ -167,8 +155,8 @@ func getLastOperation(localEnv, updateEnv, joinEnv *localenv.LocalEnvironment, o
 	return &operations[0], nil
 }
 
-func getActiveOperation(localEnv, updateEnv, joinEnv *localenv.LocalEnvironment, operationID string) (*ops.SiteOperation, error) {
-	operations, err := getBackendOperations(localEnv, updateEnv, joinEnv, operationID)
+func getActiveOperation(localEnv *localenv.LocalEnvironment, environ LocalEnvironmentFactory, operationID string) (*ops.SiteOperation, error) {
+	operations, err := getBackendOperations(localEnv, environ, operationID)
 	if err != nil {
 		return nil, trace.Wrap(err)
 	}
@@ -188,9 +176,9 @@ func getActiveOperation(localEnv, updateEnv, joinEnv *localenv.LocalEnvironment,
 
 // getBackendOperations returns the list of operation from the specified backends
 // in descending order (sorted by creation time)
-func getBackendOperations(localEnv, updateEnv, joinEnv *localenv.LocalEnvironment, operationID string) (result []ops.SiteOperation, err error) {
+func getBackendOperations(localEnv *localenv.LocalEnvironment, environ LocalEnvironmentFactory, operationID string) (result []ops.SiteOperation, err error) {
 	b := newBackendOperations()
-	err = b.List(localEnv, updateEnv, joinEnv)
+	err = b.List(localEnv, environ)
 	if err != nil {
 		return nil, trace.Wrap(err)
 	}
@@ -211,7 +199,7 @@ func newBackendOperations() backendOperations {
 	}
 }
 
-func (r *backendOperations) List(localEnv, updateEnv, joinEnv *localenv.LocalEnvironment) error {
+func (r *backendOperations) List(localEnv *localenv.LocalEnvironment, environ LocalEnvironmentFactory) error {
 	clusterEnv, err := localEnv.NewClusterEnvironment(localenv.WithEtcdTimeout(1 * time.Second))
 	if err != nil {
 		log.WithError(err).Debug("Failed to create cluster environment.")
@@ -222,36 +210,18 @@ func (r *backendOperations) List(localEnv, updateEnv, joinEnv *localenv.LocalEnv
 			log.WithError(err).Debug("Failed to query cluster operations.")
 		}
 	}
-	if updateEnv != nil {
-		r.getOperationAndUpdateCache(getOperationFromBackend(updateEnv.Backend),
-			log.WithField("context", "update"))
+	if err := r.listUpdateOperation(environ); err != nil {
+		log.WithError(err).Warn("Failed to list update operation.")
 	}
-	if joinEnv != nil {
-		r.getOperationAndUpdateCache(getOperationFromBackend(joinEnv.Backend),
-			log.WithField("context", "expand"))
+	if err := r.listJoinOperation(environ); err != nil {
+		log.WithError(err).Warn("Failed to list join operation.")
 	}
 	// Only fetch operation from remote (install) environment if the install operation is ongoing
 	// or we failed to fetch the operation details from the cluster
 	if r.isActiveInstallOperation() {
-		wizardEnv, err := localenv.NewRemoteEnvironment()
-		if err == nil && wizardEnv.Operator != nil {
-			cluster, err := getLocalClusterFromWizard(wizardEnv.Operator)
-			if err == nil {
-				log.Info("Fetching operation from wizard.")
-				r.getOperationAndUpdateCache(getOperationFromOperator(wizardEnv.Operator, cluster.Key()),
-					log.WithField("context", "install"))
-				return nil
-			}
-			log.WithError(err).Warn("Failed to connect to wizard.")
+		if err := r.listInstallOperation(); err != nil {
+			return trace.Wrap(err)
 		}
-		wizardLocalEnv, err := localEnv.NewLocalWizardEnvironment()
-		if err != nil {
-			return trace.Wrap(err, "failed to read local wizard environment")
-		}
-		log.Info("Fetching operation directly from wizard backend.")
-		r.getOperationAndUpdateCache(getOperationFromBackend(wizardLocalEnv.Backend),
-			log.WithField("context", "install"))
-
 	}
 	return nil
 }
@@ -282,6 +252,56 @@ func (r *backendOperations) getOperationAndUpdateCache(getter operationGetter, l
 		logger.WithError(err).Warn("Failed to query operation.")
 	}
 	return (*ops.SiteOperation)(op)
+}
+
+func (r *backendOperations) listUpdateOperation(environ LocalEnvironmentFactory) error {
+	env, err := environ.NewUpdateEnv()
+	if err != nil {
+		return trace.Wrap(err)
+	}
+	defer env.Close()
+	r.getOperationAndUpdateCache(getOperationFromBackend(env.Backend),
+		log.WithField("context", "update"))
+	return nil
+}
+
+func (r *backendOperations) listJoinOperation(environ LocalEnvironmentFactory) error {
+	env, err := environ.NewJoinEnv()
+	if err != nil && !trace.IsConnectionProblem(err) {
+		return trace.Wrap(err)
+	}
+	if env == nil {
+		// Do not fail for timeout errors.
+		// Timeout error means the directory is used by the active installer process
+		// which means, it's the installer environment, not joining node's
+		return nil
+	}
+	defer env.Close()
+	r.getOperationAndUpdateCache(getOperationFromBackend(env.Backend),
+		log.WithField("context", "expand"))
+	return nil
+}
+
+func (r *backendOperations) listInstallOperation() error {
+	wizardEnv, err := localenv.NewRemoteEnvironment()
+	if err == nil && wizardEnv.Operator != nil {
+		cluster, err := getLocalClusterFromWizard(wizardEnv.Operator)
+		if err == nil {
+			log.Info("Fetching operation from wizard.")
+			r.getOperationAndUpdateCache(getOperationFromOperator(wizardEnv.Operator, cluster.Key()),
+				log.WithField("context", "install"))
+			return nil
+		}
+		log.WithError(err).Warn("Failed to connect to wizard.")
+	}
+	wizardLocalEnv, err := localenv.NewLocalWizardEnvironment()
+	if err != nil {
+		return trace.Wrap(err, "failed to read local wizard environment")
+	}
+	log.Info("Fetching operation directly from wizard backend.")
+	r.getOperationAndUpdateCache(getOperationFromBackend(wizardLocalEnv.Backend),
+		log.WithField("context", "install"))
+	return nil
 }
 
 func (r backendOperations) isActiveInstallOperation() bool {

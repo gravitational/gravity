@@ -43,6 +43,7 @@ import (
 	"github.com/gravitational/gravity/lib/processconfig"
 	"github.com/gravitational/gravity/lib/rpc/proto"
 	"github.com/gravitational/gravity/lib/schema"
+	"github.com/gravitational/gravity/lib/state"
 	"github.com/gravitational/gravity/lib/storage"
 	"github.com/gravitational/gravity/lib/storage/clusterconfig"
 	"github.com/gravitational/gravity/lib/system/cleanup"
@@ -202,7 +203,7 @@ func (i *InstallConfig) CheckAndSetDefaults() (err error) {
 		i.StateDir = filepath.Dir(utils.Exe.Path)
 		i.WithField("dir", i.StateDir).Info("Set installer read state directory.")
 	}
-	i.writeStateDir = defaults.GravityInstallDir()
+	i.writeStateDir = state.GravityInstallDir()
 	if err := os.MkdirAll(i.writeStateDir, defaults.SharedDirMask); err != nil {
 		return trace.ConvertSystemError(err)
 	}
@@ -307,6 +308,9 @@ func (i *InstallConfig) NewInstallerConfig(
 	}
 	token, err := generateInstallToken(wizard.Operator, i.Token)
 	if err != nil && !trace.IsAlreadyExists(err) {
+		return nil, trace.Wrap(err)
+	}
+	if err := upsertSystemAccount(wizard.Operator); err != nil {
 		return nil, trace.Wrap(err)
 	}
 	if i.SiteDomain == "" {
@@ -560,11 +564,6 @@ type JoinConfig struct {
 	OperationID string
 	// FromService specifies whether the process runs in service mode
 	FromService bool
-	// Auto specifies whether the server runs autonomously (implies FromService).
-	// With user interaction, the server would wait for the client to trigger
-	// the operation. With Auto == true, the server will execute the operation
-	// automatically
-	Auto bool
 }
 
 // NewJoinConfig populates join configuration from the provided CLI application
@@ -572,17 +571,17 @@ func NewJoinConfig(g *Application) JoinConfig {
 	return JoinConfig{
 		SystemLogFile: *g.SystemLogFile,
 		UserLogFile:   *g.UserLogFile,
-		PeerAddrs:     *g.JoinExecuteCmd.PeerAddr,
-		AdvertiseAddr: *g.JoinExecuteCmd.AdvertiseAddr,
-		ServerAddr:    *g.JoinExecuteCmd.ServerAddr,
-		Token:         *g.JoinExecuteCmd.Token,
-		Role:          *g.JoinExecuteCmd.Role,
-		SystemDevice:  *g.JoinExecuteCmd.SystemDevice,
-		DockerDevice:  *g.JoinExecuteCmd.DockerDevice,
-		Mounts:        *g.JoinExecuteCmd.Mounts,
-		CloudProvider: *g.JoinExecuteCmd.CloudProvider,
-		OperationID:   *g.JoinExecuteCmd.OperationID,
-		FromService:   *g.JoinExecuteCmd.FromService,
+		PeerAddrs:     *g.JoinCmd.PeerAddr,
+		AdvertiseAddr: *g.JoinCmd.AdvertiseAddr,
+		ServerAddr:    *g.JoinCmd.ServerAddr,
+		Token:         *g.JoinCmd.Token,
+		Role:          *g.JoinCmd.Role,
+		SystemDevice:  *g.JoinCmd.SystemDevice,
+		DockerDevice:  *g.JoinCmd.DockerDevice,
+		Mounts:        *g.JoinCmd.Mounts,
+		CloudProvider: *g.JoinCmd.CloudProvider,
+		OperationID:   *g.JoinCmd.OperationID,
+		FromService:   *g.JoinCmd.FromService,
 	}
 }
 
@@ -727,8 +726,8 @@ func validateIP(blocks []net.IPNet, ip net.IP) bool {
 	return false
 }
 
-func generateInstallToken(service ops.Operator, installToken string) (*storage.InstallToken, error) {
-	token, err := service.CreateInstallToken(
+func generateInstallToken(operator ops.Operator, installToken string) (*storage.InstallToken, error) {
+	token, err := operator.CreateInstallToken(
 		ops.NewInstallTokenRequest{
 			AccountID: defaults.SystemAccountID,
 			UserType:  storage.AdminUser,
@@ -785,4 +784,9 @@ func installerCompleteOperation(env *localenv.LocalEnvironment) func(context.Con
 		}
 		return nil
 	}
+}
+
+func upsertSystemAccount(operator ops.Operator) error {
+	_, err := ops.UpsertSystemAccount(operator)
+	return trace.Wrap(err)
 }

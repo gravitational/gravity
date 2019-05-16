@@ -2,11 +2,15 @@ package install
 
 import (
 	"context"
+	"fmt"
+	"strconv"
 
 	"github.com/gravitational/gravity/lib/app"
 	"github.com/gravitational/gravity/lib/checks"
 	cloudgce "github.com/gravitational/gravity/lib/cloudprovider/gce"
 	"github.com/gravitational/gravity/lib/defaults"
+	"github.com/gravitational/gravity/lib/fsm"
+	"github.com/gravitational/gravity/lib/install/engine"
 	"github.com/gravitational/gravity/lib/loc"
 	validationpb "github.com/gravitational/gravity/lib/network/validation/proto"
 	"github.com/gravitational/gravity/lib/ops"
@@ -52,6 +56,60 @@ func (c *Config) GetApp() (*app.Application, error) {
 		return nil, trace.Wrap(err)
 	}
 	return app, nil
+}
+
+// GetWizardAddr returns the advertise address of the wizard process
+func (c *Config) GetWizardAddr() (addr string) {
+	return c.Process.Config().WizardAddr()
+}
+
+// NewStateMachine creates a new state machine for the specified operator and operation.
+// Implements engine.StateMachineFactory
+func (c *Config) NewFSM(operator ops.Operator, operationKey ops.SiteOperationKey) (fsm *fsm.FSM, err error) {
+	return NewFSM(c.NewFSMConfig(operator, operationKey))
+}
+
+// NewFSMConfig returns state machine configiration
+func (c *Config) NewFSMConfig(operator ops.Operator, operationKey ops.SiteOperationKey) (config FSMConfig) {
+	config = FSMConfig{
+		Operator:           operator,
+		OperationKey:       operationKey,
+		Packages:           c.Packages,
+		Apps:               c.Apps,
+		LocalPackages:      c.LocalPackages,
+		LocalApps:          c.LocalApps,
+		LocalBackend:       c.LocalBackend,
+		LocalClusterClient: c.LocalClusterClient,
+		Insecure:           c.Insecure,
+		UserLogFile:        c.UserLogFile,
+		ReportProgress:     true,
+	}
+	config.Spec = FSMSpec(config)
+	return config
+}
+
+// NewCluster returns a new request to create a cluster.
+// Implements engine.ClusterFactory
+func (c *Config) NewCluster() ops.NewSiteRequest {
+	return ops.NewSiteRequest{
+		AppPackage:   c.AppPackage.String(),
+		AccountID:    defaults.SystemAccountID,
+		Email:        fmt.Sprintf("installer@%v", c.SiteDomain),
+		Provider:     c.CloudProvider,
+		DomainName:   c.SiteDomain,
+		InstallToken: c.Token.Token,
+		ServiceUser: storage.OSUser{
+			Name: c.ServiceUser.Name,
+			UID:  strconv.Itoa(c.ServiceUser.UID),
+			GID:  strconv.Itoa(c.ServiceUser.GID),
+		},
+		CloudConfig: storage.CloudConfig{
+			GCENodeTags: c.GCENodeTags,
+		},
+		DNSOverrides: c.DNSOverrides,
+		DNSConfig:    c.DNSConfig,
+		Docker:       c.Docker,
+	}
 }
 
 // Config is installer configuration
@@ -124,7 +182,7 @@ type Config struct {
 	// LocalClusterClient is a factory for creating client to the installed cluster
 	LocalClusterClient func() (*opsclient.Client, error)
 	// Operator specifies the wizard's operator service
-	Operator ops.Operator
+	Operator *opsclient.Client
 	// Apps specifies the wizard's application service
 	Apps app.Applications
 	// Packages specifies the wizard's package service
@@ -191,6 +249,20 @@ func (c *Config) checkAndSetDefaults(ctx context.Context) (err error) {
 		c.DNSConfig = storage.DefaultDNSConfig
 	}
 	return nil
+}
+
+// RuntimeConfig specifies installer configuration not exposed to the engine
+type RuntimeConfig struct {
+	// Config is the main configuration for the installer
+	Config
+	// FSMFactory specifies the state machine factory to use
+	FSMFactory engine.StateMachineFactory
+	// CLusterFactory specifies the cluster request factory to use
+	ClusterFactory engine.ClusterFactory
+	// Planner specifies the plan generator
+	Planner engine.Planner
+	// Engine specifies the installer flow engine
+	Engine Engine
 }
 
 func (c *Config) validateCloudConfig() (err error) {
@@ -267,4 +339,20 @@ func (c *Config) newAgent(ctx context.Context) (*rpcserver.PeerServer, error) {
 			},
 		},
 	})
+}
+
+// getInstallerTrustedCluster returns trusted cluster representing installer process
+func (c *Config) getInstallerTrustedCluster() (storage.TrustedCluster, error) {
+	seedConfig := c.Process.Config().OpsCenter.SeedConfig
+	if seedConfig == nil {
+		return nil, trace.NotFound("expected SeedConfig field to be present "+
+			"in the Process configuration: %#v", c.Process.Config())
+	}
+	for _, tc := range seedConfig.TrustedClusters {
+		if tc.GetWizard() {
+			return tc, nil
+		}
+	}
+	return nil, trace.NotFound("trusted cluster representing this installer "+
+		"is not found in the Process configuration: %#v", seedConfig)
 }

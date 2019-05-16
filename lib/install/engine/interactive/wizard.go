@@ -9,7 +9,6 @@ import (
 	"github.com/gravitational/gravity/lib/app"
 	"github.com/gravitational/gravity/lib/defaults"
 	"github.com/gravitational/gravity/lib/install"
-	libengine "github.com/gravitational/gravity/lib/install/engine"
 	"github.com/gravitational/gravity/lib/ops"
 	"github.com/gravitational/gravity/lib/utils"
 
@@ -30,17 +29,11 @@ func New(config Config) (*Engine, error) {
 }
 
 func (r *Config) checkAndSetDefaults() error {
-	if r.FieldLogger == nil {
-		return trace.BadParameter("FieldLogger is required")
-	}
-	if r.StateMachineFactory == nil {
-		return trace.BadParameter("StateMachineFactory is required")
-	}
-	if r.Planner == nil {
-		return trace.BadParameter("Planner is required")
-	}
 	if r.Operator == nil {
 		return trace.BadParameter("Operator is required")
+	}
+	if r.FieldLogger == nil {
+		r.FieldLogger = log.WithField("mode", "cli")
 	}
 	return nil
 }
@@ -49,19 +42,10 @@ func (r *Config) checkAndSetDefaults() error {
 type Config struct {
 	// FieldLogger is the logger for the installer
 	log.FieldLogger
-	// StateMachineFactory is a factory for creating installer state machines
-	libengine.StateMachineFactory
-	// Planner creates a plan for the operation
-	libengine.Planner
 	// Operator specifies the service operator
 	ops.Operator
 	// AdvertiseAddr specifies the advertise address of the wizard
 	AdvertiseAddr string
-}
-
-// Validate is a no-op for this engine
-func (r *Engine) Validate(context.Context, install.Config) (err error) {
-	return nil
 }
 
 // Execute runs the wizard operation
@@ -82,10 +66,10 @@ func (r *Engine) Execute(ctx context.Context, installer install.Interface, confi
 	if err := installer.NotifyOperationAvailable(*operation); err != nil {
 		return trace.Wrap(err)
 	}
-	if err := e.executeOperation(operation.Key()); err != nil {
+	if err := installer.ExecuteOperation(operation.Key()); err != nil {
 		return trace.Wrap(err)
 	}
-	if err := e.finalizeOperation(*operation); err != nil {
+	if err := e.completeOperation(*operation); err != nil {
 		return trace.Wrap(err)
 	}
 	// TODO(dmitri): this should not be necessary if there's a way to send the completion notification
@@ -96,6 +80,20 @@ func (r *Engine) Execute(ctx context.Context, installer install.Interface, confi
 		color.YellowString("\nOnce no longer needed, press Ctrl-C to shutdown this process.\n"),
 	)
 	return trace.Wrap(installer.Wait())
+}
+
+func newExecutor(ctx context.Context, r *Engine, installer install.Interface, config install.Config) (*executor, error) {
+	app, err := config.GetApp()
+	if err != nil {
+		return nil, trace.Wrap(err, "failed to query application")
+	}
+	return &executor{
+		Config:    r.Config,
+		Interface: installer,
+		app:       *app,
+		ctx:       ctx,
+		config:    config,
+	}, nil
 }
 
 func (r *executor) bootstrap() error {
@@ -139,12 +137,7 @@ func (r *executor) waitForOperation() (operation *ops.SiteOperation, err error) 
 	return operation, nil
 }
 
-func (r *executor) executeOperation(operationKey ops.SiteOperationKey) error {
-	return trace.Wrap(libengine.ExecuteOperation(r.ctx, r.Planner, r.StateMachineFactory,
-		r.Operator, operationKey, r.FieldLogger))
-}
-
-func (r *executor) finalizeOperation(operation ops.SiteOperation) error {
+func (r *executor) completeOperation(operation ops.SiteOperation) error {
 	// With an interactive installation, the link to remote Ops Center cannot be removed
 	// immediately as it is used to tunnel final install step
 	if r.app.Manifest.SetupEndpoint() == nil {
@@ -153,7 +146,7 @@ func (r *executor) finalizeOperation(operation ops.SiteOperation) error {
 		}
 	}
 	if err := r.CompleteOperation(operation); err != nil {
-		r.WithError(err).Warn("Failed to finalize install.")
+		r.WithError(err).Warn("Failed to complete install.")
 	}
 	return nil
 }
@@ -183,24 +176,11 @@ type Engine struct {
 	Config
 }
 
-func newExecutor(ctx context.Context, r *Engine, installer install.Interface, config install.Config) (*executor, error) {
-	app, err := config.GetApp()
-	if err != nil {
-		return nil, trace.Wrap(err, "failed to query application")
-	}
-	return &executor{
-		Config:    r.Config,
-		Interface: installer,
-		app:       *app,
-		ctx:       ctx,
-		config:    config,
-	}, nil
-}
-
 type executor struct {
 	Config
 	app app.Application
 	install.Interface
-	config install.Config
-	ctx    context.Context
+	config   install.Config
+	ctx      context.Context
+	operator ops.Operator
 }

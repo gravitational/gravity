@@ -2,6 +2,7 @@ syntax = "proto3";
 
 package installer;
 
+import "google/protobuf/empty.proto";
 import "gogo.proto";
 
 // Agent defines a service to install a cluster
@@ -9,7 +10,10 @@ service Agent {
     // Execute runs installer operation to completion
     rpc Execute(ExecuteRequest) returns (stream ProgressResponse);
 
-    // Shutdown requests that the installer exit
+    // GetState determines the installer state
+    rpc GetState(google.protobuf.Empty) returns (StateResponse);
+
+    // Shutdown requests that the installer exits
     rpc Shutdown(ShutdownRequest) returns (ShutdownResponse);
 
     // Abort requests that the installer service aborts and cleans up
@@ -17,8 +21,36 @@ service Agent {
     rpc Abort(AbortRequest) returns (AbortResponse);
 }
 
+// StateResponse describes the response to the state query
+message StateResponse {
+    // State defines the state of the agent.
+    enum State {
+        // Idle state is the agent is not doing any work
+        IDLE = 0 [(gogoproto.enumvalue_customname) = "Idle"];
+        // Active state is when the agent is executing the operation
+        ACTIVE = 1 [(gogoproto.enumvalue_customname) = "Active"];
+    }
+    // State describes the state of the agent
+    State state = 2;
+}
+
 // ExecuteRequest describes a request to execute install operation
 message ExecuteRequest {
+    message Phase {
+        // ID specifies the phase ID
+        string id = 1 [(gogoproto.customname) = "ID"];
+        // Key identifies the operation
+        OperationKey key = 2;
+        // Rollback specifies whether this is a rollback
+        bool rollback = 3;
+        // Force specifies whether the phase execution/rollback should be rerun
+        // regardless of phase state
+        bool force = 4;
+    }
+    // Phase optionally specifies the configuration for executing or rolling
+    // back a specific phase.
+    // If unspecified, the operation is executed from the beginning
+    Phase phase = 1;
 }
 
 // ShutdownRequest describes a request to shut down the process
@@ -48,10 +80,10 @@ message ProgressResponse {
     enum Status {
         UNKNOWN = 0 [(gogoproto.enumvalue_customname) = "Unknown"];
         // COMPLETED status indicates that the operation has successfully completed.
-        // This status iis terminal - no more progress messages will follow
+        // This status is terminal - no more progress messages will follow
         COMPLETED = 1 [(gogoproto.enumvalue_customname) = "Completed"];
         // ABORTED status indicates that the operation has been aborted.
-        // This status iis terminal - no more progress messages will follow
+        // This status is terminal - no more progress messages will follow
         ABORTED = 2 [(gogoproto.enumvalue_customname) = "Aborted"];
     }
     // Status describes the status of this response
@@ -64,4 +96,14 @@ message ProgressResponse {
 message Error {
     // Message specifies the error message
     string message = 1;
+}
+
+// OperationKey describes a cluster operation
+message OperationKey {
+    // AccountID refers to the account this operation belongs to
+    string account_id = 1 [(gogoproto.customname) = "AccountID"];
+    // ClusterName identifies the cluster for the operation
+    string cluster_name = 2 [(gogoproto.customname) = "ClusterName"];
+    // ID specifies the operation ID
+    string id = 3 [(gogoproto.customname) = "ID"];
 }

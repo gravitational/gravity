@@ -70,6 +70,9 @@ type LocalEnvironmentArgs struct {
 	// EtcdRetryTimeout specifies the timeout on ETCD transient errors.
 	// Defaults to EtcdRetryInterval if unspecified
 	EtcdRetryTimeout time.Duration
+	// BoltOpenTimeout specifies the timeout on opening the local state database.
+	// Defaults to defaults.DBOpenTimeout if unspecified
+	BoltOpenTimeout time.Duration
 	// Reporter controls progress output
 	Reporter pack.ProgressReporter
 	// DNS is the local cluster DNS server configuration
@@ -171,6 +174,7 @@ func (env *LocalEnvironment) init() error {
 		Path:     filepath.Join(env.StateDir, defaults.GravityDBFile),
 		Multi:    true,
 		Readonly: env.ReadonlyBackend,
+		Timeout:  env.BoltOpenTimeout,
 	})
 	if err != nil {
 		return trace.Wrap(err)

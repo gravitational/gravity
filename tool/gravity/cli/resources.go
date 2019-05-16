@@ -41,8 +41,6 @@ type LocalEnvironmentFactory interface {
 	NewLocalEnv() (*localenv.LocalEnvironment, error)
 	// NewUpdateEnv creates a new environment for update operations
 	NewUpdateEnv() (*localenv.LocalEnvironment, error)
-	// NewInstallEnv creates a new environment for install operations
-	// NewInstallEnv() (*localenv.LocalEnvironment, error)
 	// NewJoinEnv creates a new environment for join operations
 	NewJoinEnv() (*localenv.LocalEnvironment, error)
 }

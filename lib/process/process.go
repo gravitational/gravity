@@ -137,6 +137,8 @@ type Process struct {
 	authGatewayConfig storage.AuthGateway
 	// healthServer serves controller's health API
 	healthServer *http.Server
+	// wg defines the wait group for all internal processes
+	wg sync.WaitGroup
 }
 
 // Handlers combines all the process' web and API Handlers
@@ -348,6 +350,7 @@ func (p *Process) Shutdown(ctx context.Context) {
 		}
 		p.proxy.Close()
 		p.TeleportProcess.Shutdown(ctx)
+		p.wg.Wait()
 	})
 }
 
@@ -415,7 +418,7 @@ func (p *Process) Config() *processconfig.Config {
 // pending cluster operations
 func (p *Process) StartResumeOperationLoop() {
 	p.resumeOperationCh = make(chan struct{})
-	go p.resumeLastOperationLoop()
+	p.startService(p.resumeLastOperationLoop)
 }
 
 func (p *Process) getTeleportConfigFromImportState() (*telecfg.FileConfig, error) {
@@ -523,125 +526,113 @@ func (p *Process) startAutoscale(ctx context.Context) error {
 	}
 
 	// receive and process events from SQS notification service
-	p.RegisterClusterService(func(ctx context.Context) error {
+	p.RegisterClusterService(func(ctx context.Context) {
 		localCtx := context.WithValue(ctx, constants.UserContext,
 			constants.ServiceAutoscaler)
 		autoscaler.ProcessEvents(localCtx, queueURL, p.operator)
-		return nil
 	})
 	// publish discovery information about this cluster
-	p.RegisterClusterService(func(ctx context.Context) error {
+	p.RegisterClusterService(func(ctx context.Context) {
 		localCtx := context.WithValue(ctx, constants.UserContext,
 			constants.ServiceAutoscaler)
 		autoscaler.PublishDiscovery(localCtx, p.operator)
-		return nil
 	})
 	return nil
 }
 
-// startApplicationsSynchronizer starts a service that periodically exports
+// runApplicationsSynchronizer runs a service that periodically exports
 // Docker images of the cluster's application images to the local Docker
 // registry.
 //
 // TODO There may be a lot of apps, may be worth parallelizing this.
-func (p *Process) startApplicationsSynchronizer(ctx context.Context) error {
+func (p *Process) runApplicationsSynchronizer(ctx context.Context) {
 	p.Info("Starting app images synchronizer.")
-	go func() {
-		ticker := time.NewTicker(defaults.AppSyncInterval)
-		defer ticker.Stop()
-		for {
-			select {
-			case <-ticker.C:
-				apps, err := p.applications.ListApps(app.ListAppsRequest{
-					Repository: defaults.SystemAccountOrg,
-				})
-				if err != nil {
-					p.Errorf("Failed to query applications: %v.",
-						trace.DebugReport(err))
-					continue
-				}
-				for _, a := range apps {
-					if a.Manifest.Kind == schema.KindApplication {
-						p.Infof("Exporting app image %v to registry.", a.Package)
-						err = p.applications.ExportApp(app.ExportAppRequest{
-							Package:         a.Package,
-							RegistryAddress: constants.LocalRegistryAddr,
-							CertName:        constants.DockerRegistry,
-						})
-						if err != nil {
-							p.Errorf("Failed to synchronize registry: %v.",
-								trace.DebugReport(err))
-						}
+	ticker := time.NewTicker(defaults.AppSyncInterval)
+	defer ticker.Stop()
+	for {
+		select {
+		case <-ticker.C:
+			apps, err := p.applications.ListApps(app.ListAppsRequest{
+				Repository: defaults.SystemAccountOrg,
+			})
+			if err != nil {
+				p.Errorf("Failed to query applications: %v.",
+					trace.DebugReport(err))
+				continue
+			}
+			for _, a := range apps {
+				if a.Manifest.Kind == schema.KindApplication {
+					p.Infof("Exporting app image %v to registry.", a.Package)
+					err = p.applications.ExportApp(app.ExportAppRequest{
+						Package:         a.Package,
+						RegistryAddress: constants.LocalRegistryAddr,
+						CertName:        constants.DockerRegistry,
+					})
+					if err != nil {
+						p.Errorf("Failed to synchronize registry: %v.",
+							trace.DebugReport(err))
 					}
 				}
-			case <-ctx.Done():
-				p.Info("Stopping app images synchronizer.")
-				return
 			}
+		case <-ctx.Done():
+			p.Info("Stopping app images synchronizer.")
+			return
 		}
-	}()
-	return nil
-}
-
-// startRegistrySynchronizer starts a goroutine that synchronizes the cluster app
-// with the local registry periodically
-func (p *Process) startRegistrySynchronizer(ctx context.Context) error {
-	p.Info("Starting registry synchronizer.")
-	go func() {
-		ticker := time.NewTicker(defaults.RegistrySyncInterval)
-		defer ticker.Stop()
-		for {
-			select {
-			case <-ticker.C:
-				cluster, err := p.operator.GetLocalSite()
-				if err != nil {
-					p.Errorf("Failed to query local cluster: %v.",
-						trace.DebugReport(err))
-					continue
-				}
-				err = p.applications.ExportApp(app.ExportAppRequest{
-					Package:         cluster.App.Package,
-					RegistryAddress: constants.LocalRegistryAddr,
-					CertName:        constants.DockerRegistry,
-				})
-				if err != nil {
-					p.Errorf("Failed to synchronize registry: %v.",
-						trace.DebugReport(err))
-				}
-			case <-ctx.Done():
-				p.Info("Stopping registry synchronizer.")
-				return
-			}
-		}
-	}()
-	return nil
-}
-
-// startSiteStatusChecker periodically invokes app status hook; should be run in a goroutine
-func (p *Process) startSiteStatusChecker(ctx context.Context) error {
-	site, err := p.operator.GetLocalSite()
-	if err != nil {
-		return trace.Wrap(err)
 	}
+}
+
+// runRegistrySynchronizer runs a service that periodically synchronizes the cluster app
+// with the local registry
+func (p *Process) runRegistrySynchronizer(ctx context.Context) {
+	p.Info("Starting registry synchronizer.")
+	ticker := time.NewTicker(defaults.RegistrySyncInterval)
+	defer ticker.Stop()
+	for {
+		select {
+		case <-ticker.C:
+			cluster, err := p.operator.GetLocalSite()
+			if err != nil {
+				p.Errorf("Failed to query local cluster: %v.",
+					trace.DebugReport(err))
+				continue
+			}
+			err = p.applications.ExportApp(app.ExportAppRequest{
+				Package:         cluster.App.Package,
+				RegistryAddress: constants.LocalRegistryAddr,
+				CertName:        constants.DockerRegistry,
+			})
+			if err != nil {
+				p.Errorf("Failed to synchronize registry: %v.",
+					trace.DebugReport(err))
+			}
+		case <-ctx.Done():
+			p.Info("Stopping registry synchronizer.")
+			return
+		}
+	}
+}
+
+// runSiteStatusChecker periodically invokes app status hook; should be run in a goroutine
+func (p *Process) runSiteStatusChecker(ctx context.Context) {
 	p.Info("Starting cluster status checker.")
 	ticker := time.NewTicker(defaults.SiteStatusCheckInterval)
+	defer ticker.Stop()
 	localCtx := context.WithValue(ctx, constants.UserContext,
 		constants.ServiceStatusChecker)
 	for {
 		select {
 		case <-ticker.C:
-			key := ops.SiteKey{
-				AccountID:  site.AccountID,
-				SiteDomain: site.Domain,
+			cluster, err := p.operator.GetLocalSite()
+			if err != nil {
+				p.WithError(err).Warn("Failed to get local cluster.")
+				continue
 			}
-			if err := p.operator.CheckSiteStatus(localCtx, key); err != nil {
-				p.Errorf("Cluster status check failed: %v.",
-					trace.DebugReport(err))
+			if err := p.operator.CheckSiteStatus(localCtx, cluster.Key()); err != nil {
+				p.WithError(err).Warn("Cluster status check failed.")
 			}
 		case <-ctx.Done():
 			p.Info("Stopping cluster status checker.")
-			ticker.Stop()
-			return nil
+			return
 		}
 	}
 }
@@ -698,17 +689,31 @@ func (p *Process) onSiteLeader(oldLeaderID string) {
 
 	// active master runs various services that periodically check
 	// the cluster and application status, etc.
-	p.startClusterServices(p.clusterServices)
+	p.startClusterServices()
+}
+
+func (p *Process) startService(service clusterService) {
+	p.startServiceWithContext(p.context, service)
+}
+
+func (p *Process) startServiceWithContext(ctx context.Context, service clusterService) {
+	p.wg.Add(1)
+	go func() {
+		service(ctx)
+		p.wg.Done()
+	}()
 }
 
 // clusterService represents a blocking function that performs some cluster-specific
 // periodic action (e.g. runs status hook) and can be stopped by canceling the
 // provided context
-type clusterService func(context.Context) error
+type clusterService func(context.Context)
 
 // RegisterClusterService adds the service to the list of registered cluster
-// services. Cluster services only run on the leader
+// services to run on the leader
 func (p *Process) RegisterClusterService(service clusterService) {
+	p.Lock()
+	defer p.Unlock()
 	p.clusterServices = append(p.clusterServices, service)
 }
 
@@ -716,7 +721,7 @@ func (p *Process) RegisterClusterService(service clusterService) {
 // active gravity master, like status checker
 //
 // No-op if the services are already running
-func (p *Process) startClusterServices(services []clusterService) error {
+func (p *Process) startClusterServices() error {
 	p.Lock()
 	defer p.Unlock()
 
@@ -727,8 +732,8 @@ func (p *Process) startClusterServices(services []clusterService) error {
 	ctx, cancel := context.WithCancel(p.context)
 	p.cancelServices = cancel
 
-	for _, service := range services {
-		go service(ctx)
+	for _, service := range p.clusterServices {
+		p.startServiceWithContext(ctx, service)
 	}
 
 	return nil
@@ -758,7 +763,7 @@ func (p *Process) clusterServicesRunning() bool {
 
 // resumeLastOperationLoop is a long running process that handles requests to resume
 // last active cluster operations.
-func (p *Process) resumeLastOperationLoop() {
+func (p *Process) resumeLastOperationLoop(ctx context.Context) {
 	for {
 		select {
 		case <-p.resumeOperationCh:
@@ -777,6 +782,8 @@ func (p *Process) resumeLastOperationLoop() {
 			} else {
 				p.Errorf("Failed to resume last operation: %v.", trace.DebugReport(err))
 			}
+		case <-ctx.Done():
+			return
 		}
 	}
 }
@@ -877,7 +884,10 @@ func (p *Process) ReportHealth(w http.ResponseWriter, r *http.Request) {
 		if elapsed > 25*time.Millisecond {
 			log.WithField("elapsed", elapsed).Error("Backend is slow.")
 		}
-		healthCh <- err
+		select {
+		case healthCh <- err:
+		case <-ctx.Done():
+		}
 	}()
 
 	select {
@@ -1271,7 +1281,7 @@ func (p *Process) initService(ctx context.Context) (err error) {
 	}
 
 	// site status checker executes status hook periodically
-	p.RegisterClusterService(p.startSiteStatusChecker)
+	p.RegisterClusterService(p.runSiteStatusChecker)
 
 	// a few services that are running only when gravity is started in
 	// local site mode
@@ -1287,25 +1297,11 @@ func (p *Process) initService(ctx context.Context) (err error) {
 			return trace.Wrap(err)
 		}
 
-		if err := p.startCertificateWatch(p.context, client); err != nil {
-			return trace.Wrap(err)
-		}
-
-		if err := p.startAuthGatewayWatch(p.context, client); err != nil {
-			return trace.Wrap(err)
-		}
-
-		if err := p.startWatchingReloadEvents(p.context, client); err != nil {
-			return trace.Wrap(err)
-		}
-
-		if err := p.startRegistrySynchronizer(p.context); err != nil {
-			return trace.Wrap(err)
-		}
-
-		if err := p.startApplicationsSynchronizer(p.context); err != nil {
-			return trace.Wrap(err)
-		}
+		p.startService(p.runCertificateWatch(client))
+		p.startService(p.runAuthGatewayWatch(client))
+		p.startService(p.runReloadEventsWatch(client))
+		p.startService(p.runRegistrySynchronizer)
+		p.startService(p.runApplicationsSynchronizer)
 
 		if err := p.startAutoscale(p.context); err != nil {
 			return trace.Wrap(err)
@@ -1600,9 +1596,19 @@ func (p *Process) startListening(handler http.Handler, addr string) (net.Listene
 		return nil, trace.Wrap(err)
 	}
 
+	server := &http.Server{Handler: handler}
+	p.wg.Add(2)
+	go func() {
+		defer p.wg.Done()
+		<-p.context.Done()
+		ctx, cancel := context.WithTimeout(context.Background(), defaults.ShutdownTimeout)
+		server.Shutdown(ctx)
+		cancel()
+	}()
 	go func(listener net.Listener) {
+		defer p.wg.Done()
 		p.Infof("Serving on %v.", addr)
-		err := http.Serve(listener, handler)
+		err := server.Serve(listener)
 		if err != nil && !trace.IsEOF(err) && !utils.IsClosedConnectionError(err) {
 			p.Error(trace.DebugReport(err))
 		}

@@ -1215,16 +1215,3 @@ func WithTimeout(ctx context.Context) (context.Context, context.CancelFunc) {
 func InstallerAddr(installerIP string) (addr string) {
 	return fmt.Sprintf("%v:%v", installerIP, WizardPackServerPort)
 }
-
-// GravityInstallDir is where install FSM stores its information during install/join operation.
-// elems are appended to resulting path if not empty
-func GravityInstallDir(elems ...string) (path string) {
-	parts := []string{GravityEphemeralDir, "install"}
-	return filepath.Join(append(parts, elems...)...)
-}
-
-// GravityJoinDir returns the state directory path for a join operation
-func GravityJoinDir(elems ...string) (path string) {
-	parts := []string{GravityEphemeralDir, "join"}
-	return filepath.Join(append(parts, elems...)...)
-}

@@ -10,7 +10,6 @@ import (
 	"github.com/gravitational/gravity/lib/defaults"
 	"github.com/gravitational/gravity/lib/install"
 	libinstall "github.com/gravitational/gravity/lib/install"
-	"github.com/gravitational/gravity/lib/install/engine"
 	"github.com/gravitational/gravity/lib/ops"
 	"github.com/gravitational/gravity/lib/schema"
 	"github.com/gravitational/gravity/lib/state"
@@ -41,15 +40,6 @@ func (r *Config) checkAndSetDefaults() error {
 	if r.FieldLogger == nil {
 		return trace.BadParameter("FieldLogger is required")
 	}
-	if r.StateMachineFactory == nil {
-		return trace.BadParameter("StateMachineFactory required")
-	}
-	if r.ClusterFactory == nil {
-		return trace.BadParameter("ClusterFactory is required")
-	}
-	if r.Planner == nil {
-		return trace.BadParameter("Planner is required")
-	}
 	if r.Operator == nil {
 		return trace.BadParameter("Operator is required")
 	}
@@ -60,25 +50,16 @@ func (r *Config) checkAndSetDefaults() error {
 type Config struct {
 	// FieldLogger is the logger for the installer
 	log.FieldLogger
-	// StateMachineFactory is a factory for creating installer state machines
-	engine.StateMachineFactory
-	// ClusterFactory is a factory for creating cluster records
-	engine.ClusterFactory
-	// Planner creates a plan for the operation
-	engine.Planner
 	// Operator specifies the service operator
 	ops.Operator
-}
-
-// Validate runs preflight checks on local host.
-// Implements installer.Engine
-func (r *Engine) Validate(ctx context.Context, config install.Config) (err error) {
-	return trace.Wrap(config.RunLocalChecks(ctx))
 }
 
 // Execute executes the installer steps.
 // Implements installer.Engine
 func (r *Engine) Execute(ctx context.Context, installer install.Interface, config install.Config) (err error) {
+	if err := r.validate(ctx, config); err != nil {
+		return trace.Wrap(err)
+	}
 	e := executor{
 		Config:    r.Config,
 		Interface: installer,
@@ -99,8 +80,7 @@ func (r *Engine) Execute(ctx context.Context, installer install.Interface, confi
 	if err != nil {
 		return trace.Wrap(err)
 	}
-	if err := engine.ExecuteOperation(ctx, r.Planner, r.StateMachineFactory,
-		r.Operator, operation.Key(), r.FieldLogger); err != nil {
+	if err := installer.ExecuteOperation(operation.Key()); err != nil {
 		return trace.Wrap(err)
 	}
 	if err := installer.CompleteFinalInstallStep(operation.Key(), 0); err != nil {
@@ -110,6 +90,10 @@ func (r *Engine) Execute(ctx context.Context, installer install.Interface, confi
 		r.WithError(err).Warn("Failed to finalize install.")
 	}
 	return nil
+}
+
+func (r *Engine) validate(ctx context.Context, config install.Config) (err error) {
+	return trace.Wrap(config.RunLocalChecks(ctx))
 }
 
 // bootstrap prepares for the installation

@@ -58,14 +58,8 @@ type Application struct {
 	VersionCmd VersionCmd
 	// InstallCmd launches cluster installation
 	InstallCmd InstallCmd
-	// JoinCmd groups commands for joining nodes to a cluster
+	// JoinCmd joins to the installer or existing cluster
 	JoinCmd JoinCmd
-	// JoinExecuterCmd joins to the installer or existing cluster
-	JoinExecuteCmd JoinExecuteCmd
-	// JoinResumCmd resumes an on-going install/join operation from a joining node
-	// FIXME(dmitri): this is a redundant command and will go away.
-	// 'plan resume' should be smart enough to detect the context it is running in
-	JoinResumeCmd JoinResumeCmd
 	// AutoJoinCmd uses cloud provider info to join existing cluster
 	AutoJoinCmd AutoJoinCmd
 	// LeaveCmd removes the current node from the cluster
@@ -402,13 +396,8 @@ type InstallCmd struct {
 	FromService *bool
 }
 
-// JoinCmd groups commands for joining nodes to a cluster
+// JoinCmd joins to the installer or existing cluster
 type JoinCmd struct {
-	*kingpin.CmdClause
-}
-
-// JoinExecuteCmd joins to the installer or existing cluster
-type JoinExecuteCmd struct {
 	*kingpin.CmdClause
 	// PeerAddr is installer or cluster address
 	PeerAddr *string
@@ -446,11 +435,6 @@ type JoinExecuteCmd struct {
 	// the client will simply connect to the service and stream its output and errors
 	// and control whether it should stop
 	FromService *bool
-}
-
-// JoinResumCmd resumes an on-going install/join operation from a joining node
-type JoinResumeCmd struct {
-	*kingpin.CmdClause
 }
 
 // AutoJoinCmd uses cloud provider info to join existing cluster

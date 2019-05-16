@@ -25,16 +25,16 @@ import (
 )
 
 // NewPlanner returns a new instance of PlanGetter with the specified builder
-func NewPlanner(preflightChecks bool, planBuilder PlanBuilderGetter) *PlanGetter {
+func NewPlanner(preflightChecks bool, builderGetter PlanBuilderGetter) *PlanGetter {
 	return &PlanGetter{
-		PlanBuilderGetter: planBuilder,
+		PlanBuilderGetter: builderGetter,
 		preflightChecks:   preflightChecks,
 	}
 }
 
 // GetOperationPlan builds a plan for the provided operation
-func (r *PlanGetter) GetOperationPlan(cluster ops.Site, operation ops.SiteOperation) (*storage.OperationPlan, error) {
-	builder, err := r.GetPlanBuilder(cluster, operation)
+func (r *PlanGetter) GetOperationPlan(operator ops.Operator, cluster ops.Site, operation ops.SiteOperation) (*storage.OperationPlan, error) {
+	builder, err := r.GetPlanBuilder(operator, cluster, operation)
 	if err != nil {
 		return nil, trace.Wrap(err)
 	}
@@ -121,7 +121,7 @@ func (r *PlanGetter) GetOperationPlan(cluster ops.Site, operation ops.SiteOperat
 // PlanBuilderGetter is a factory for plan builders
 type PlanBuilderGetter interface {
 	// GetPlanBuilder returns a new plan builder for the specified cluster and operation
-	GetPlanBuilder(cluster ops.Site, operation ops.SiteOperation) (*PlanBuilder, error)
+	GetPlanBuilder(operator ops.Operator, cluster ops.Site, operation ops.SiteOperation) (*PlanBuilder, error)
 }
 
 // PlanGetter builds an install operation plan

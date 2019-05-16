@@ -47,6 +47,7 @@ import (
 	"github.com/gravitational/gravity/lib/process"
 	pb "github.com/gravitational/gravity/lib/rpc/proto"
 	rpcserver "github.com/gravitational/gravity/lib/rpc/server"
+	"github.com/gravitational/gravity/lib/state"
 	"github.com/gravitational/gravity/lib/system/service"
 	"github.com/gravitational/gravity/lib/system/signals"
 	"github.com/gravitational/gravity/lib/systemservice"
@@ -68,10 +69,7 @@ func InstallerClient(printer utils.Printer, config installerclient.Config) error
 	clientC := clientTerminationHandler(interrupt, printer)
 
 	config.InterruptHandler = interrupt
-	if len(config.Args) == 0 {
-		config.Args = installerServiceCommandline(filepath.Dir(utils.Exe.Path))
-	}
-
+	config.Printer = printer
 	printer.PrintStep("Connecting to installer")
 	client, err := installerclient.New(ctx, config)
 	if err != nil {
@@ -104,8 +102,7 @@ func JoinClient(printer utils.Printer, config installerclient.Config) error {
 	return trace.Wrap(client.Run(context.Background()))
 }
 
-// TODO: auto mode can be implemented in such a way that the server also runs a client
-func Join(env, joinEnv *localenv.LocalEnvironment, config JoinConfig) error {
+func joinFromService(env, joinEnv *localenv.LocalEnvironment, config JoinConfig) error {
 	err := config.CheckAndSetDefaults()
 	if err != nil {
 		return trace.Wrap(err)
@@ -145,7 +142,7 @@ var InterruptSignals = signals.WithSignals(
 
 // NewServiceListener returns a new listener for the installer service
 func NewServiceListener() (net.Listener, error) {
-	return net.Listen("unix", installpb.SocketPath(defaults.GravityEphemeralDir))
+	return net.Listen("unix", installpb.SocketPath())
 }
 
 // clientInterruptSignals lists signals installer client considers interrupts
@@ -154,14 +151,14 @@ var clientInterruptSignals = signals.WithSignals(
 )
 
 // clientTerminationHandler implements the default interrupt handler for the installer client
-func clientTerminationHandler(interrupt *signals.InterruptHandler, printer utils.Printer) chan<- *installerclient.Client {
+func clientTerminationHandler(interrupt *signals.InterruptHandler, printer utils.Printer) chan<- installerClient {
 	const abortTimeout = 5 * time.Second
-	clientC := make(chan *installerclient.Client, 1)
+	clientC := make(chan installerClient, 1)
 	go func() {
 		var timerC <-chan time.Time
 		// number of consecutive interrupts
 		var interrupts int
-		var client *installerclient.Client
+		var client installerClient
 		for {
 			select {
 			case sig := <-interrupt.C:
@@ -178,11 +175,10 @@ func clientTerminationHandler(interrupt *signals.InterruptHandler, printer utils
 					return
 				}
 				printer.Println("Press Ctrl+C again to abort the installation.")
-				// If the interrupt signal is not re-triggered within the allotted time,
-				// the signal is dropped
 				timerC = time.After(abortTimeout)
 			case <-timerC:
-				// Drop this interrupt signal
+				// If the interrupt signal is not re-triggered within the allotted time,
+				// the signal is dropped
 				interrupts = 0
 				timerC = nil
 			case client = <-clientC:
@@ -194,6 +190,10 @@ func clientTerminationHandler(interrupt *signals.InterruptHandler, printer utils
 	return clientC
 }
 
+type installerClient interface {
+	Completed() bool
+}
+
 // TerminationHandler implements the default interrupt handler for the installer service
 func TerminationHandler(interrupt *signals.InterruptHandler, printer utils.Printer) {
 	for {
@@ -201,7 +201,6 @@ func TerminationHandler(interrupt *signals.InterruptHandler, printer utils.Print
 		case sig := <-interrupt.C:
 			log.Info("Received ", sig, " signal. Terminating the installer gracefully, please wait.")
 			if sig == os.Interrupt {
-				// Abort for Ctrl+C
 				interrupt.Abort()
 			} else {
 				interrupt.Cancel()
@@ -227,8 +226,10 @@ func startInstall(env *localenv.LocalEnvironment, config InstallConfig) error {
 		return trace.Wrap(err)
 	}
 	err := InstallerClient(env, installerclient.Config{
-		StateChecker: CheckInstallerLocalState(env),
-		Printer:      env,
+		ConnectStrategy: &installerclient.InstallerStrategy{
+			Args:         InstallerServiceCommandline(filepath.Dir(utils.Exe.Path)),
+			StateChecker: CheckInstallerLocalState(env),
+		},
 	})
 	if utils.IsContextCancelledError(err) {
 		return trace.Wrap(err, "installer interrupted")
@@ -241,22 +242,6 @@ func startInstallFromService(env *localenv.LocalEnvironment, config InstallConfi
 	interrupt := signals.NewInterruptHandler(cancel, InterruptSignals)
 	defer interrupt.Close()
 	go TerminationHandler(interrupt, env)
-	processConfig, err := config.NewProcessConfig()
-	if err != nil {
-		return trace.Wrap(err)
-	}
-	process, err := install.InitProcess(ctx, *processConfig, process.NewProcess)
-	if err != nil {
-		return trace.Wrap(err)
-	}
-	wizard, err := localenv.LoginWizard(processConfig.WizardAddr(), config.Token)
-	if err != nil {
-		return trace.Wrap(err)
-	}
-	installerConfig, err := config.NewInstallerConfig(env, wizard, process, resources.ValidateFunc(gravity.Validate))
-	if err != nil {
-		return trace.Wrap(err)
-	}
 	listener, err := NewServiceListener()
 	if err != nil {
 		return trace.Wrap(err)
@@ -266,60 +251,97 @@ func startInstallFromService(env *localenv.LocalEnvironment, config InstallConfi
 			listener.Close()
 		}
 	}()
-	installer, err := install.New(ctx, *installerConfig)
+	installerConfig, err := newInstallerConfig(ctx, env, config)
 	if err != nil {
 		return trace.Wrap(err)
 	}
-	interrupt.AddStopper(installer)
-	var engine install.Engine
+	var installer *install.Installer
 	switch config.Mode {
 	case constants.InstallModeCLI:
-		engine, err = newCLInstaller(installer)
+		installer, err = newCLInstaller(ctx, installerConfig)
 	case constants.InstallModeInteractive:
-		engine, err = newWizardInstaller(installer)
+		installer, err = newWizardInstaller(ctx, installerConfig)
 	default:
 		return trace.BadParameter("unknown mode %q", config.Mode)
 	}
 	if err != nil {
 		return trace.Wrap(err)
 	}
-	return trace.Wrap(installer.Run(engine, listener))
+	interrupt.AddStopper(installer)
+	return trace.Wrap(installer.Run(listener))
 }
 
-func newCLInstaller(installer *install.Installer) (*clinstall.Engine, error) {
+func newInstallerConfig(ctx context.Context, env *localenv.LocalEnvironment, config InstallConfig) (*install.Config, error) {
+	processConfig, err := config.NewProcessConfig()
+	if err != nil {
+		return nil, trace.Wrap(err)
+	}
+	process, err := install.InitProcess(ctx, *processConfig, process.NewProcess)
+	if err != nil {
+		return nil, trace.Wrap(err)
+	}
+	wizard, err := localenv.LoginWizard(processConfig.WizardAddr(), config.Token)
+	if err != nil {
+		return nil, trace.Wrap(err)
+	}
+	installerConfig, err := config.NewInstallerConfig(env, wizard, process, resources.ValidateFunc(gravity.Validate))
+	if err != nil {
+		return nil, trace.Wrap(err)
+	}
+	return installerConfig, nil
+}
+
+func newCLInstaller(ctx context.Context, config *install.Config) (*install.Installer, error) {
+	engine, err := clinstall.New(clinstall.Config{
+		FieldLogger: config.WithField("mode", "cli"),
+		Operator:    config.Operator,
+	})
+	if err != nil {
+		return nil, trace.Wrap(err)
+	}
 	enablePreflightChecks := true
-	return clinstall.New(clinstall.Config{
-		FieldLogger:         installer.WithField("mode", "cli"),
-		StateMachineFactory: installer,
-		ClusterFactory:      installer,
-		Planner:             install.NewPlanner(enablePreflightChecks, installer),
-		Operator:            installer.Operator,
+	installer, err := install.New(ctx, install.RuntimeConfig{
+		Config:         *config,
+		Planner:        install.NewPlanner(enablePreflightChecks, config),
+		FSMFactory:     config,
+		ClusterFactory: config,
+		Engine:         engine,
 	})
+	if err != nil {
+		return nil, trace.Wrap(err)
+	}
+	return installer, nil
 }
 
-func newWizardInstaller(installer *install.Installer) (*interactive.Engine, error) {
+func newWizardInstaller(ctx context.Context, config *install.Config) (*install.Installer, error) {
 	disablePreflightChecks := false
-	return interactive.New(interactive.Config{
-		FieldLogger:         installer.WithField("mode", "wizard"),
-		StateMachineFactory: installer,
-		Planner:             install.NewPlanner(disablePreflightChecks, installer),
-		Operator:            installer.Operator,
-		AdvertiseAddr:       installer.Process.Config().Pack.GetAddr().Addr,
+	engine, err := interactive.New(interactive.Config{
+		FieldLogger:   config.WithField("mode", "wizard"),
+		AdvertiseAddr: config.GetWizardAddr(),
+		Operator:      config.Operator,
 	})
+	if err != nil {
+		return nil, trace.Wrap(err)
+	}
+	installer, err := install.New(ctx, install.RuntimeConfig{
+		Config:         *config,
+		Planner:        install.NewPlanner(disablePreflightChecks, config),
+		FSMFactory:     config,
+		ClusterFactory: config,
+		Engine:         engine,
+	})
+	if err != nil {
+		return nil, trace.Wrap(err)
+	}
+	return installer, nil
 }
 
 // ResumeInstall resumes the aborted install operation
-func ResumeInstall(env *localenv.LocalEnvironment) error {
-	env.PrintStep("Starting installer")
+func ResumeInstall(printer utils.Printer) error {
+	printer.PrintStep("Resuming installer")
 
-	// TODO(dmitri): this needs to differentiate between running installer (use resume observer mode)
-	// and stopped installer - use manual plan execution
-	// TODO(dmitri): detect install/join modality based on ephemeral directories and have client
-	// connect with the socket from corresponding location.	This will also enable the reuse of 'plan resume'
-	// from a joining node in case of expand
-	err := InstallerClient(env, installerclient.Config{
-		Resume:  true,
-		Printer: env,
+	err := InstallerClient(printer, installerclient.Config{
+		ConnectStrategy: &installerclient.ResumeStrategy{},
 	})
 	if utils.IsContextCancelledError(err) {
 		return trace.Wrap(err, "installer interrupted")
@@ -327,24 +349,22 @@ func ResumeInstall(env *localenv.LocalEnvironment) error {
 	return trace.Wrap(err)
 }
 
-func join(env *localenv.LocalEnvironment, environ LocalEnvironmentFactory, config JoinConfig) error {
+// Join executes the join command and runs either the client or the service depending on the configuration
+func Join(env, joinEnv *localenv.LocalEnvironment, config JoinConfig) error {
 	env.PrintStep("Starting agent")
 
 	if err := config.CheckAndSetDefaults(); err != nil {
 		return trace.Wrap(err)
 	}
 	if config.FromService {
-		joinEnv, err := environ.NewJoinEnv()
-		if err != nil {
-			return trace.Wrap(err)
-		}
-		defer joinEnv.Close()
-		return trace.Wrap(Join(env, joinEnv, config))
+		return trace.Wrap(joinFromService(env, joinEnv, config))
 	}
 	err := JoinClient(env, installerclient.Config{
-		Args:         joinServiceCommandline(),
-		StateChecker: checkAgentLocalState(env),
-		Printer:      env,
+		ConnectStrategy: &installerclient.InstallerStrategy{
+			Args:         joinServiceCommandline(),
+			StateChecker: checkAgentLocalState(env),
+		},
+		Printer: env,
 	})
 	if utils.IsContextCancelledError(err) {
 		return trace.Wrap(err, "agent interrupted")
@@ -353,11 +373,10 @@ func join(env *localenv.LocalEnvironment, environ LocalEnvironmentFactory, confi
 }
 
 func resumeJoin(env *localenv.LocalEnvironment) error {
-	env.PrintStep("Starting agent")
+	env.PrintStep("Resuming agent")
 
 	err := JoinClient(env, installerclient.Config{
-		Printer: env,
-		Resume:  true,
+		ConnectStrategy: &installerclient.ResumeStrategy{},
 	})
 	if utils.IsContextCancelledError(err) {
 		return trace.Wrap(err, "agent interrupted")
@@ -543,7 +562,6 @@ func autojoin(env, joinEnv *localenv.LocalEnvironment, d autojoinConfig) error {
 		SystemDevice:  d.systemDevice,
 		DockerDevice:  d.dockerDevice,
 		Mounts:        d.mounts,
-		Auto:          true,
 	})
 }
 
@@ -659,7 +677,12 @@ func agent(env *localenv.LocalEnvironment, config agentConfig, serviceName strin
 	return trace.Wrap(agent.Serve())
 }
 
-func executeJoinPhase(localEnv, joinEnv *localenv.LocalEnvironment, params PhaseParams, operation *ops.SiteOperation) error {
+func executeJoinPhase(localEnv *localenv.LocalEnvironment, environ LocalEnvironmentFactory, params PhaseParams, operation *ops.SiteOperation) error {
+	joinEnv, err := environ.NewJoinEnv()
+	if err != nil {
+		return trace.Wrap(err)
+	}
+	defer joinEnv.Close()
 	ctx, cancel := context.WithTimeout(context.Background(), params.Timeout)
 	interrupt := signals.NewInterruptHandler(cancel, InterruptSignals)
 	defer interrupt.Close()
@@ -681,7 +704,12 @@ func executeJoinPhase(localEnv, joinEnv *localenv.LocalEnvironment, params Phase
 	}))
 }
 
-func rollbackJoinPhase(localEnv, joinEnv *localenv.LocalEnvironment, params PhaseParams, operation *ops.SiteOperation) error {
+func rollbackJoinPhase(localEnv *localenv.LocalEnvironment, environ LocalEnvironmentFactory, params PhaseParams, operation *ops.SiteOperation) error {
+	joinEnv, err := environ.NewJoinEnv()
+	if err != nil {
+		return trace.Wrap(err)
+	}
+	defer joinEnv.Close()
 	ctx, cancel := context.WithTimeout(context.Background(), params.Timeout)
 	interrupt := signals.NewInterruptHandler(cancel, InterruptSignals)
 	defer interrupt.Close()
@@ -703,32 +731,17 @@ func rollbackJoinPhase(localEnv, joinEnv *localenv.LocalEnvironment, params Phas
 	}))
 }
 
-func completeInstallPlan(localEnv *localenv.LocalEnvironment, operation *ops.SiteOperation) error {
+func completeJoinPlan(localEnv *localenv.LocalEnvironment, environ LocalEnvironmentFactory, operation *ops.SiteOperation) error {
+	joinEnv, err := environ.NewJoinEnv()
+	if err != nil {
+		return trace.Wrap(err)
+	}
+	defer joinEnv.Close()
 	ctx, cancel := context.WithCancel(context.Background())
 	interrupt := signals.NewInterruptHandler(cancel, InterruptSignals)
 	defer interrupt.Close()
 	go TerminationHandler(interrupt, localEnv)
-	_, err := observerclient.New(ctx, observerclient.Config{
-		InterruptHandler: interrupt,
-		Printer:          localEnv,
-	})
-	if err != nil {
-		return trace.Wrap(err)
-	}
-	machine, err := newInstallMachine(localEnv, operation)
-	if err != nil {
-		return trace.Wrap(err)
-	}
-	return machine.Complete(trace.Errorf("completed manually"))
-	// TODO(dmitri): shut down remote agents
-}
-
-func completeJoinPlan(localEnv, joinEnv *localenv.LocalEnvironment, operation *ops.SiteOperation) error {
-	ctx, cancel := context.WithCancel(context.Background())
-	interrupt := signals.NewInterruptHandler(cancel, InterruptSignals)
-	defer interrupt.Close()
-	go TerminationHandler(interrupt, localEnv)
-	_, err := observerclient.New(ctx, observerclient.Config{
+	_, err = observerclient.New(ctx, observerclient.Config{
 		InterruptHandler: interrupt,
 		Printer:          localEnv,
 	})
@@ -742,7 +755,9 @@ func completeJoinPlan(localEnv, joinEnv *localenv.LocalEnvironment, operation *o
 	return machine.Complete(trace.Errorf("completed manually"))
 }
 
-func installerServiceCommandline(applicationDir string) (args []string) {
+// InstallerServiceCommandline returns the command line for the installer service
+// rooted at the specified application directory
+func InstallerServiceCommandline(applicationDir string) (args []string) {
 	args = append([]string{utils.Exe.Path}, os.Args[1:]...)
 	return append(args, "--from-service", applicationDir)
 }
@@ -752,88 +767,90 @@ func joinServiceCommandline() (args []string) {
 	return append(args, "--from-service")
 }
 
-func addCancelInstallationHandler(ctx context.Context, client *installerclient.Client, clientC chan<- *installerclient.Client) {
+func addCancelInstallationHandler(ctx context.Context, client installerClient, clientC chan<- installerClient) {
 	select {
 	case clientC <- client:
 	case <-ctx.Done():
 	}
 }
 
-// ExecutePhase executes installation phase specified with params.
-// Implements Installer
-func (defaultInstaller) ExecutePhase(
-	localEnv *localenv.LocalEnvironment,
+func executeInstallPhase(
+	env *localenv.LocalEnvironment,
 	params PhaseParams,
 	operation *ops.SiteOperation,
 ) error {
-	ctx, cancel := context.WithTimeout(context.Background(), params.Timeout)
-	interrupt := signals.NewInterruptHandler(cancel, InterruptSignals)
+	ctx, cancel := context.WithCancel(context.Background())
+	interrupt := signals.NewInterruptHandler(cancel, clientInterruptSignals)
 	defer interrupt.Close()
-	go TerminationHandler(interrupt, localEnv)
-	client, err := observerclient.New(ctx, observerclient.Config{
+	clientC := clientTerminationHandler(interrupt, env)
+
+	env.PrintStep("Connecting to installer")
+	client, err := installerclient.New(ctx, installerclient.Config{
 		InterruptHandler: interrupt,
-		Printer:          localEnv,
+		Printer:          env,
+		ConnectStrategy:  &installerclient.ResumeStrategy{},
 	})
 	if err != nil {
 		return trace.Wrap(err)
 	}
-	machine, err := newInstallMachine(localEnv, operation)
-	if err != nil {
-		return trace.Wrap(err)
-	}
-	return trace.Wrap(client.Execute(ctx, machine, fsm.Params{
-		PhaseID: params.PhaseID,
-		Force:   params.Force,
+	addCancelInstallationHandler(ctx, client, clientC)
+	env.PrintStep("Connected to installer")
+	return trace.Wrap(client.ExecutePhase(context.Background(), installerclient.Phase{
+		ID:    params.PhaseID,
+		Force: params.Force,
 	}))
 }
 
-// RollbackPhase rolls back installation phase specified with params.
-// Implements Installer
-func (defaultInstaller) RollbackPhase(
-	localEnv *localenv.LocalEnvironment,
+func rollbackInstallPhase(
+	env *localenv.LocalEnvironment,
 	params PhaseParams,
 	operation *ops.SiteOperation,
 ) error {
-	ctx, cancel := context.WithTimeout(context.Background(), params.Timeout)
-	interrupt := signals.NewInterruptHandler(cancel, InterruptSignals)
+	ctx, cancel := context.WithCancel(context.Background())
+	interrupt := signals.NewInterruptHandler(cancel, clientInterruptSignals)
 	defer interrupt.Close()
-	go TerminationHandler(interrupt, localEnv)
-	client, err := observerclient.New(ctx, observerclient.Config{
+	clientC := clientTerminationHandler(interrupt, env)
+
+	env.PrintStep("Connecting to installer")
+	client, err := installerclient.New(ctx, installerclient.Config{
 		InterruptHandler: interrupt,
-		Printer:          localEnv,
+		Printer:          env,
+		ConnectStrategy:  &installerclient.ResumeStrategy{},
 	})
 	if err != nil {
 		return trace.Wrap(err)
 	}
-	machine, err := newInstallMachine(localEnv, operation)
-	if err != nil {
-		return trace.Wrap(err)
-	}
-	return trace.Wrap(client.Rollback(ctx, machine, fsm.Params{
-		PhaseID: params.PhaseID,
-		Force:   params.Force,
+	addCancelInstallationHandler(ctx, client, clientC)
+	env.PrintStep("Connected to installer")
+	return trace.Wrap(client.RollbackPhase(context.Background(), installerclient.Phase{
+		ID:    params.PhaseID,
+		Force: params.Force,
 	}))
 }
 
-// Resume resumes aborted installation.
-// Implements Installer
-func (defaultInstaller) Resume(env *localenv.LocalEnvironment) error {
-	if isJoinEnv() {
-		return trace.Wrap(resumeJoin(env))
+// FIXME: this needs to call into service
+func completeInstallPlan(env *localenv.LocalEnvironment, operation *ops.SiteOperation) error {
+	ctx, cancel := context.WithCancel(context.Background())
+	interrupt := signals.NewInterruptHandler(cancel, clientInterruptSignals)
+	defer interrupt.Close()
+	clientC := clientTerminationHandler(interrupt, env)
+
+	env.PrintStep("Connecting to installer")
+	client, err := installerclient.New(ctx, installerclient.Config{
+		InterruptHandler: interrupt,
+		ConnectStrategy:  &installerclient.ResumeStrategy{},
+	})
+	if err != nil {
+		return trace.Wrap(err)
 	}
-	return trace.Wrap(ResumeInstall(env))
-}
-
-type defaultInstaller struct{}
-
-// Installer manages installation-specific tasks
-type Installer interface {
-	// ExecutePhase executes an installation phase specified with params
-	ExecutePhase(*localenv.LocalEnvironment, PhaseParams, *ops.SiteOperation) error
-	// RollbackPhase rolls back an installation phase specified with params
-	RollbackPhase(*localenv.LocalEnvironment, PhaseParams, *ops.SiteOperation) error
-	// Resume resumes aborted installation
-	Resume(*localenv.LocalEnvironment) error
+	addCancelInstallationHandler(ctx, client, clientC)
+	env.PrintStep("Connected to installer")
+	machine, err := newInstallMachine(env, operation)
+	if err != nil {
+		return trace.Wrap(err)
+	}
+	return machine.Complete(trace.Errorf("completed manually"))
+	// TODO(dmitri): shut down remote agents
 }
 
 func newInstallMachine(env *localenv.LocalEnvironment, operation *ops.SiteOperation) (*fsm.FSM, error) {
@@ -911,7 +928,7 @@ func newJoinMachine(env, joinEnv *localenv.LocalEnvironment, operation *ops.Site
 // that install on this node can proceed without issues
 func CheckInstallerLocalState(env *localenv.LocalEnvironment) func() error {
 	return func() error {
-		empty, err := utils.IsDirectoryEmpty(defaults.GravityInstallDir())
+		empty, err := utils.IsDirectoryEmpty(state.GravityInstallDir())
 		if err != nil && !trace.IsNotFound(err) {
 			return trace.Wrap(err)
 		}
@@ -920,7 +937,7 @@ func CheckInstallerLocalState(env *localenv.LocalEnvironment) func() error {
 				"please resume installation with `gravity plan resume` or "+
 				"clean it up using `gravity leave --force` before proceeding "+
 				"(see https://gravitational.com/gravity/docs/cluster/#deleting-a-cluster for more details)",
-				defaults.GravityInstallDir())
+				state.GravityInstallDir())
 
 		}
 		// make sure that there are no packages in the local state left from
@@ -943,7 +960,7 @@ func CheckInstallerLocalState(env *localenv.LocalEnvironment) func() error {
 // that join on this node can proceed without issues
 func checkAgentLocalState(env *localenv.LocalEnvironment) func() error {
 	return func() error {
-		empty, err := utils.IsDirectoryEmpty(defaults.GravityJoinDir())
+		empty, err := utils.IsDirectoryEmpty(state.GravityInstallDir())
 		if err != nil && !trace.IsNotFound(err) {
 			return trace.Wrap(err)
 		}
@@ -952,7 +969,7 @@ func checkAgentLocalState(env *localenv.LocalEnvironment) func() error {
 				"please resume the agent with `gravity join resume` or "+
 				"clean it up using `gravity leave --force` before proceeding "+
 				"(see https://gravitational.com/gravity/docs/cluster/#deleting-a-cluster for more details)",
-				defaults.GravityJoinDir())
+				state.GravityInstallDir())
 
 		}
 		// make sure that there are no packages in the local state left from
@@ -969,18 +986,6 @@ func checkAgentLocalState(env *localenv.LocalEnvironment) func() error {
 		}
 		return nil
 	}
-}
-
-// isJoinEnv implements a simple heuristic to determine if the local host
-// is a joining or installer node.
-// TODO(dmitri): there should be a better way to detect the context for the
-// 'plan resume' command
-func isJoinEnv() (ok bool) {
-	ok, err := utils.IsDirectoryEmpty(defaults.GravityJoinDir())
-	if err == nil && !ok {
-		return true
-	}
-	return false
 }
 
 // TODO: different banner for the joining agent as 'gravity plan resume' is only

@@ -22,6 +22,7 @@ import (
 	"path/filepath"
 
 	"github.com/gravitational/gravity/lib/defaults"
+	"github.com/gravitational/gravity/lib/utils"
 
 	"github.com/gravitational/trace"
 	log "github.com/sirupsen/logrus"
@@ -107,6 +108,14 @@ func RegistryDir(baseDir string) string {
 func LogDir(baseDir string, suffixes ...string) string {
 	elems := []string{baseDir, defaults.PlanetDir, defaults.LogDir}
 	return filepath.Join(append(elems, suffixes...)...)
+}
+
+// GravityInstallDir returns the location of the temporary state directory for
+// the install/join operation.
+// elems are appended to resulting path
+func GravityInstallDir(elems ...string) (path string) {
+	parts := []string{filepath.Dir(utils.Exe.Path), ".gravity"}
+	return filepath.Join(append(parts, elems...)...)
 }
 
 var (

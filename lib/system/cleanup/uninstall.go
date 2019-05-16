@@ -29,7 +29,6 @@ import (
 	"github.com/gravitational/gravity/lib/defaults"
 	"github.com/gravitational/gravity/lib/devicemapper"
 	"github.com/gravitational/gravity/lib/state"
-	libservice "github.com/gravitational/gravity/lib/system/service"
 	"github.com/gravitational/gravity/lib/systemservice"
 	"github.com/gravitational/gravity/lib/utils"
 
@@ -81,7 +80,7 @@ func UninstallAgentServices(logger log.FieldLogger) error {
 			Name:       service,
 			RemoveFile: true,
 		}
-		if err := svm.UninstallService(req); err != nil && !libservice.IsUnknownServiceError(err) {
+		if err := svm.UninstallService(req); err != nil && !systemservice.IsUnknownServiceError(err) {
 			logger.WithError(err).Warn("Failed to uninstall agent service.")
 			errors = append(errors, err)
 		}
@@ -105,7 +104,7 @@ func DisableAgentServices(logger log.FieldLogger) error {
 			Name: service,
 			Mask: true,
 		}
-		if err := svm.DisableService(req); err != nil && !libservice.IsUnknownServiceError(err) {
+		if err := svm.DisableService(req); err != nil && !systemservice.IsUnknownServiceError(err) {
 			logger.WithError(err).Warn("Failed to disable agent service.")
 			errors = append(errors, err)
 		}
@@ -183,7 +182,7 @@ func removeStateDirectories(printer utils.Printer, logger log.FieldLogger) error
 		defaults.ModulesPath,
 		defaults.SysctlPath,
 		defaults.GravityEphemeralDir,
-		defaults.GravityInstallDir(),
+		state.GravityInstallDir(),
 	) {
 		// errors are expected since some of them may not exist
 		err := os.RemoveAll(path)
@@ -224,7 +223,8 @@ func removeInterfaces(printer utils.Printer) error {
 
 func dockerInfo() (*utils.DockerInfo, error) {
 	var out bytes.Buffer
-	command := exec.Command("gravity", "enter", "--", "--notty", "/usr/bin/docker", "--", "info")
+	args := utils.Exe.PlanetCommandArgs("/usr/bin/docker", "--", "info")
+	command := exec.Command(args[0], args[1:]...)
 	err := utils.Exec(command, &out)
 	if err != nil {
 		return nil, trace.Wrap(err, "failed to query docker info: %s", out.String())

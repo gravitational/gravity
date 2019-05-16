@@ -32,6 +32,7 @@ import (
 	"github.com/gravitational/gravity/lib/fsm"
 	"github.com/gravitational/gravity/lib/httplib"
 	"github.com/gravitational/gravity/lib/install"
+	installpb "github.com/gravitational/gravity/lib/install/proto"
 	"github.com/gravitational/gravity/lib/install/server"
 	"github.com/gravitational/gravity/lib/localenv"
 	validationpb "github.com/gravitational/gravity/lib/network/validation/proto"
@@ -58,10 +59,10 @@ func NewPeer(ctx context.Context, config PeerConfig) (*Peer, error) {
 	if err := config.CheckAndSetDefaults(); err != nil {
 		return nil, trace.Wrap(err)
 	}
-	localCtx, cancel := context.WithCancel(ctx)
 	server := server.New(ctx, server.Config{
 		AbortHandler: config.AbortHandler,
 	})
+	localCtx, cancel := context.WithCancel(ctx)
 	peer := &Peer{
 		PeerConfig: config,
 		ctx:        localCtx,
@@ -97,6 +98,9 @@ func (p *Peer) Run(listener net.Listener) error {
 	}()
 	select {
 	case err := <-errC:
+		if exitErr := p.server.ExitError(); exitErr != nil {
+			err = exitErr
+		}
 		return trace.Wrap(err)
 	case <-p.server.Aborted():
 		return trace.Wrap(install.ErrAborted)
@@ -140,7 +144,7 @@ func (p *Peer) AbortOperation(ctx context.Context) error {
 
 // Execute executes the peer operation (join or just serving an agent).
 // Implements server.Executor
-func (p *Peer) Execute() (err error) {
+func (p *Peer) Execute(*installpb.ExecuteRequest_Phase) (err error) {
 	p.Info("Execute.")
 	if err := p.bootstrap(); err != nil {
 		return trace.Wrap(err)
@@ -589,7 +593,12 @@ func (p *Peer) run() error {
 	}
 
 	if ctx.Operation.Type != ops.OperationExpand {
-		return trace.Wrap(p.server.RunProgressLoop(ctx.Operator, ctx.Operation.Key()))
+		looper := install.ProgressLooper{
+			FieldLogger:  p.FieldLogger,
+			Operator:     ctx.Operator,
+			OperationKey: ctx.Operation.Key(),
+		}
+		return trace.Wrap(looper.Run(p.ctx, p.server))
 	}
 
 	return trace.Wrap(p.startExpandOperation(*ctx))

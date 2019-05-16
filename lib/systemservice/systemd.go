@@ -134,10 +134,10 @@ func (s *systemdManager) installService(service serviceTemplate, req NewServiceR
 		service.Environment = make(map[string]string)
 	}
 	service.Environment[defaults.PathEnv] = defaults.PathEnvVal
-	f, err := os.Create(req.UnitPath)
+	f, err := os.Create(unitPath(req.Name))
 	if err != nil {
 		return trace.Wrap(err,
-			"error creating systemd unit file at %v", req.UnitPath)
+			"error creating systemd unit file at %v", unitPath(req.Name))
 	}
 	defer f.Close()
 
@@ -148,7 +148,7 @@ func (s *systemdManager) installService(service serviceTemplate, req NewServiceR
 
 	if req.Unmask {
 		err = s.UnmaskService(service.Name)
-		if err != nil {
+		if err != nil && !IsUnknownServiceError(err) {
 			log.WithFields(log.Fields{
 				log.ErrorKey: err,
 				"service":    service.Name,
@@ -156,7 +156,7 @@ func (s *systemdManager) installService(service serviceTemplate, req NewServiceR
 		}
 	}
 
-	if err := s.EnableService(service.Name); err != nil {
+	if err := s.EnableService(req.Name); err != nil {
 		return trace.Wrap(err, "error enabling the service")
 	}
 
@@ -222,7 +222,6 @@ func (s *systemdManager) InstallPackageService(req NewPackageServiceRequest) err
 	return trace.Wrap(s.installService(template, NewServiceRequest{
 		ServiceSpec: req.ServiceSpec,
 		Name:        unit.serviceName(),
-		UnitPath:    unitPath(unit.serviceName()),
 		NoBlock:     req.NoBlock,
 	}))
 }
@@ -319,7 +318,7 @@ func (s *systemdManager) InstallService(req NewServiceRequest) error {
 		return trace.Wrap(err)
 	}
 	template := serviceTemplate{
-		Name:        req.Name,
+		Name:        serviceName(req.Name),
 		ServiceSpec: req.ServiceSpec,
 		Description: fmt.Sprintf("Auto-generated service for the %v", req.Name),
 	}
@@ -386,11 +385,14 @@ func (s *systemdManager) UninstallService(req UninstallServiceRequest) error {
 
 // DisableService disables service without stopping it
 func (s *systemdManager) DisableService(req DisableServiceRequest) error {
-	cmd := "disable"
-	if req.Mask {
-		cmd = "mask"
+	out, err := invokeSystemctl("disable", serviceName(req.Name))
+	if err != nil {
+		return trace.Wrap(err, "error disabling service %v: %s", req.Name, out)
 	}
-	out, err := invokeSystemctl(cmd, req.Name)
+	if !req.Mask {
+		return nil
+	}
+	out, err = invokeSystemctl("mask", serviceName(req.Name))
 	if err != nil {
 		return trace.Wrap(err, "error disabling service %v: %s", req.Name, out)
 	}
@@ -483,7 +485,17 @@ func invokeSystemctl(args ...string) (string, error) {
 	return out.String(), trace.Wrap(err)
 }
 
-// unitPath returns the default path for the systemd unit with the given name
+// unitPath returns the default path for the systemd unit with the given name.
+// If the name is an absolute path, it is returned verbatim
 func unitPath(name string) (path string) {
+	if filepath.IsAbs(name) {
+		return name
+	}
 	return filepath.Join(systemdUnitFileDir, SystemdNameEscape(name))
+}
+
+// serviceName returns just the name portion of the unit path.
+// If the name is already a relative service name, it is returned verbatim
+func serviceName(name string) string {
+	return filepath.Base(name)
 }

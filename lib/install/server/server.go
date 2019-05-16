@@ -6,11 +6,11 @@ import (
 	"fmt"
 	"net"
 	"sync"
-	"time"
 
 	installpb "github.com/gravitational/gravity/lib/install/proto"
 	"github.com/gravitational/gravity/lib/ops"
 
+	"github.com/gogo/protobuf/types"
 	"github.com/gravitational/trace"
 	log "github.com/sirupsen/logrus"
 	"google.golang.org/grpc"
@@ -27,9 +27,9 @@ func New(ctx context.Context, config Config) *Server {
 		ctx:         localCtx,
 		cancel:      cancel,
 		rpc:         grpcServer,
-		// TODO(dmitri): arbitrary channel buffer size
-		eventsC: make(chan Event, 100),
-		abortC:  make(chan struct{}, 1),
+		eventsC:     make(chan Event),
+		abortC:      make(chan struct{}, 1),
+		execC:       make(chan *installpb.ExecuteRequest, 1),
 	}
 	installpb.RegisterAgentServer(grpcServer, server)
 	return server
@@ -38,6 +38,7 @@ func New(ctx context.Context, config Config) *Server {
 // Serve starts the server using the specified executor
 func (r *Server) Serve(executor Executor, listener net.Listener) error {
 	r.executor = executor
+	go r.executeLoop()
 	return trace.Wrap(r.rpc.Serve(listener))
 }
 
@@ -77,11 +78,7 @@ func (r *Server) Abort(ctx context.Context, req *installpb.AbortRequest) (*insta
 // Implements installpb.AgentServer
 func (r *Server) Shutdown(ctx context.Context, req *installpb.ShutdownRequest) (*installpb.ShutdownResponse, error) {
 	r.Info("Shutdown.")
-	// The caller should be blocked at least as long as the wizard process is closing.
-	// TODO(dmitri): find out how this returns to the caller and whether it would make sense
-	// to split the shut down into several steps with wizard shutdown to be invoked as part of Shutdown
-	// and the rest - from a goroutine so the caller is not receiving an error when the server stops
-	// serving
+	// Caller should be blocked at least as long as the wizard process is closing.
 	r.stop(ctx)
 	return &installpb.ShutdownResponse{}, nil
 }
@@ -89,7 +86,7 @@ func (r *Server) Shutdown(ctx context.Context, req *installpb.ShutdownRequest) (
 // Execute executes the installation using the specified engine
 // Implements installpb.AgentServer
 func (r *Server) Execute(req *installpb.ExecuteRequest, stream installpb.Agent_ExecuteServer) error {
-	r.executeOnce.Do(r.execute)
+	r.submit(req)
 	for {
 		select {
 		case event := <-r.eventsC:
@@ -113,16 +110,18 @@ func (r *Server) Execute(req *installpb.ExecuteRequest, stream installpb.Agent_E
 	return nil
 }
 
-// // Run schedules f to run as server's internal process.
-// // Use WaitForOperation to await completion of all processes
-// // upon completion or abort
-// func (r *Server) Run(f func()) {
-// 	r.wg.Add(1)
-// 	go func() {
-// 		f()
-// 		r.wg.Done()
-// 	}()
-// }
+// GetState determines the installer state
+// Implements installpb.AgentServer
+func (r *Server) GetState(context.Context, *types.Empty) (*installpb.StateResponse, error) {
+	r.mu.Lock()
+	executing := r.executing
+	r.mu.Unlock()
+	resp := installpb.StateResponse{State: installpb.StateResponse_Idle}
+	if executing {
+		resp.State = installpb.StateResponse_Active
+	}
+	return &resp, nil
+}
 
 // Send streams the specified progress event to the client.
 // The method is not blocking - event will be dropped if it cannot be published
@@ -131,46 +130,8 @@ func (r *Server) Send(event Event) error {
 	case r.eventsC <- event:
 		// Pushed the progress event
 		return nil
-	case <-r.ctx.Done():
-		return nil
 	default:
-		r.WithField("event", event).Warn("Failed to publish event.")
 		return trace.BadParameter("failed to publish event")
-	}
-}
-
-// RunProgressLoop runs progress loop for the specified operation until the operation
-// is completed.
-// If the operation is aborted, the method exits with the corresponding error
-func (r *Server) RunProgressLoop(operator ops.Operator, operationKey ops.SiteOperationKey) error {
-	r.WithField("operation", operationKey.OperationID).Info("Start progress feedback loop.")
-	ticker := time.NewTicker(1 * time.Second)
-	defer ticker.Stop()
-	var lastProgress *ops.ProgressEntry
-	for {
-		select {
-		case <-ticker.C:
-			progress, err := operator.GetSiteOperationProgress(operationKey)
-			if err != nil {
-				r.WithError(err).Warn("Failed to query operation progress.")
-				continue
-			}
-			if lastProgress != nil && lastProgress.IsEqual(*progress) {
-				continue
-			}
-			r.Send(Event{Progress: progress})
-			lastProgress = progress
-			if progress.IsCompleted() {
-				return nil
-			}
-		case <-r.abortC:
-			// Unblock the executor.Execute but do not return an error
-			// aborted exit status is handled on client when it exits from Execute
-			// and in service, when it exits Runs
-			return nil
-		case <-r.ctx.Done():
-			return nil
-		}
 	}
 }
 
@@ -184,10 +145,18 @@ func (r *Server) Aborted() <-chan struct{} {
 	return r.abortC
 }
 
+// ExitError returns the error the executor completed with.
+// It will be nil if the executor finished successfully
+func (r *Server) ExitError() error {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	return r.exitError
+}
+
 // Executor wraps a potentially failing operation
 type Executor interface {
 	// Execute executes an operation.
-	Execute() error
+	Execute(*installpb.ExecuteRequest_Phase) error
 	// AbortOperation gracefully aborts the operation and cleans up the operation state
 	AbortOperation(context.Context) error
 	// Shutdown gracefully stops the operation
@@ -198,22 +167,26 @@ type Executor interface {
 type Server struct {
 	log.FieldLogger
 	config Config
-	// ctx defines the local server context used to cancel internal operation
-	ctx    context.Context
-	cancel context.CancelFunc
-
+	// rpc is the internal gRPC server instance
+	rpc      *grpc.Server
 	executor Executor
-	eventsC  chan Event
+
+	// ctx defines the local server context used to cancel internal operation
+	ctx     context.Context
+	cancel  context.CancelFunc
+	eventsC chan Event
 	// abortC is signaled when the operation is aborted
 	abortC chan struct{}
-	// rpc is the internal gRPC server instance
-	rpc *grpc.Server
+	// execC channel accepts new execute requests
+	execC chan *installpb.ExecuteRequest
+	wg    sync.WaitGroup
 
-	executeOnce sync.Once
-	wg          sync.WaitGroup
+	mu        sync.Mutex
+	executing bool
+	exitError error
 }
 
-// String formats this event for readability
+// String formats this event as text
 func (r Event) String() string {
 	var buf bytes.Buffer
 	fmt.Print(&buf, "event(")
@@ -234,7 +207,7 @@ type Event struct {
 	Progress *ops.ProgressEntry
 	// Error specifies the error if any
 	Error error
-	// Complete indicates that this is the last event sent
+	// Complete indicates whether this event is terminal
 	Complete bool
 }
 
@@ -244,19 +217,30 @@ type Config struct {
 	AbortHandler func(context.Context) error
 }
 
-func (r *Server) execute() {
-	r.wg.Add(1)
-	go func() {
-		defer r.wg.Done()
-		if err := r.executor.Execute(); err != nil {
-			r.WithError(err).Info("Failed to executor.Execute.")
-			if errSend := r.sendError(err); errSend != nil {
-				r.WithError(errSend).Info("Failed to send error to client.")
+func (r *Server) executeLoop() {
+	for {
+		select {
+		case req := <-r.execC:
+			err := r.executor.Execute(req.Phase)
+			if err != nil {
+				r.WithError(err).Warn("Failed to Execute.")
+				if errSend := r.sendError(err); errSend != nil {
+					r.WithError(errSend).Warn("Failed to send error to client.")
+				}
 			}
+			r.Info("Cancel server.")
+			r.cancel()
+		case <-r.ctx.Done():
+			return
 		}
-		r.Info("Cancel server.")
-		r.cancel()
-	}()
+	}
+}
+
+func (r *Server) submit(req *installpb.ExecuteRequest) {
+	select {
+	case r.execC <- req:
+	default:
+	}
 }
 
 func (r *Server) stop(ctx context.Context) {

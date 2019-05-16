@@ -23,6 +23,7 @@ import (
 	"net"
 	"os"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/gravitational/gravity/lib/constants"
@@ -61,36 +62,62 @@ func rpcAgentInstall(env *localenv.LocalEnvironment, args []string) error {
 }
 
 // rpcAgentRun runs a local agent executing the function specified with optional args
-func rpcAgentRun(localEnv, upgradeEnv *localenv.LocalEnvironment, args []string) error {
-	server, err := startAgent()
+func rpcAgentRun(localEnv, updateEnv *localenv.LocalEnvironment, args []string) error {
+	agent, err := newAgent()
 	if err != nil {
 		return trace.Wrap(err)
 	}
-
 	if len(args) == 0 {
-		return trace.Wrap(server.Serve())
+		return trace.Wrap(agent.Serve())
 	}
-
-	ctx := context.TODO()
-
 	agentFunc, exists := agentFunctions[args[0]]
 	if !exists {
 		return trace.NotFound("no such function %q", args[0])
 	}
-
-	go func(handler string, args []string) {
-		log := log.WithField("handler", handler)
-		log.Info("Execute.")
-		err = agentFunc(ctx, localEnv, upgradeEnv, args)
-		if err != nil {
-			log.Warnf("Error executing handler: %v.", trace.DebugReport(err))
-		}
-	}(args[0], args[1:])
-
-	return trace.Wrap(server.Serve())
+	return trace.Wrap(runAgentFunction(localEnv, updateEnv, agent, agentFunc, args))
 }
 
-func startAgent() (rpcserver.Server, error) {
+func runAgentFunction(
+	localEnv, updateEnv *localenv.LocalEnvironment,
+	agent rpcserver.Server,
+	agentFunc agentFunc,
+	args []string,
+) error {
+	ctx, cancel := context.WithCancel(context.Background())
+	errC := make(chan error, 2)
+	f := func() error {
+		handler, args := args[0], args[1:]
+		log.WithField("handler", handler).Info("Execute.")
+		return trace.Wrap(agentFunc(ctx, localEnv, updateEnv, args))
+	}
+	defer func() {
+		ctx, cancel := context.WithTimeout(context.Background(), defaults.ShutdownTimeout)
+		defer cancel()
+		agent.Stop(ctx)
+	}()
+	var wg sync.WaitGroup
+	wg.Add(2)
+	go func() {
+		select {
+		case errC <- agent.Serve():
+		case <-ctx.Done():
+		}
+		wg.Done()
+	}()
+	go func() {
+		select {
+		case errC <- f():
+		case <-ctx.Done():
+		}
+		wg.Done()
+	}()
+	err := <-errC
+	cancel()
+	wg.Wait()
+	return trace.Wrap(err)
+}
+
+func newAgent() (rpcserver.Server, error) {
 	secretsDir, err := fsm.AgentSecretsDir()
 	if err != nil {
 		return nil, trace.Wrap(err)
