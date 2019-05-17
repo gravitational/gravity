@@ -24,16 +24,16 @@ import (
 	"github.com/gravitational/trace"
 )
 
-// NewPlanner returns a new instance of PlanGetter with the specified builder
-func NewPlanner(preflightChecks bool, builderGetter PlanBuilderGetter) *PlanGetter {
-	return &PlanGetter{
+// NewPlanner returns a new instance of Planner with the specified builder getter
+func NewPlanner(preflightChecks bool, builderGetter PlanBuilderGetter) *Planner {
+	return &Planner{
 		PlanBuilderGetter: builderGetter,
 		preflightChecks:   preflightChecks,
 	}
 }
 
 // GetOperationPlan builds a plan for the provided operation
-func (r *PlanGetter) GetOperationPlan(operator ops.Operator, cluster ops.Site, operation ops.SiteOperation) (*storage.OperationPlan, error) {
+func (r *Planner) GetOperationPlan(operator ops.Operator, cluster ops.Site, operation ops.SiteOperation) (*storage.OperationPlan, error) {
 	builder, err := r.GetPlanBuilder(operator, cluster, operation)
 	if err != nil {
 		return nil, trace.Wrap(err)
@@ -124,8 +124,8 @@ type PlanBuilderGetter interface {
 	GetPlanBuilder(operator ops.Operator, cluster ops.Site, operation ops.SiteOperation) (*PlanBuilder, error)
 }
 
-// PlanGetter builds an install operation plan
-type PlanGetter struct {
+// Planner builds an install operation plan
+type Planner struct {
 	PlanBuilderGetter
 	preflightChecks bool
 }
