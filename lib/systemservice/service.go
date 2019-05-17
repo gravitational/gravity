@@ -87,7 +87,7 @@ type UninstallServiceRequest struct {
 type DisableServiceRequest struct {
 	// Name identifies the service
 	Name string
-	// Mask specifies whether the service should be masked instead
+	// Mask specifies whether the service should also be masked
 	Mask bool
 }
 

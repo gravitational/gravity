@@ -58,7 +58,7 @@ func WatchTerminationSignals(cancel context.CancelFunc, stopper Stopper, printer
 //
 // Handler will stop all registered stoppers and exit iff:
 //  - specified context has expired
-//  - handler has been explicitly interrupted (see Trigger)
+//  - handler has been explicitly interrupted (see Abort)
 // If a stopper additionally implements Aborter and the interrupt handler has been explicitly
 // interrupted via Trigger, the handler will invoke Abort on the stopper.
 //
@@ -74,7 +74,6 @@ func WatchTerminationSignals(cancel context.CancelFunc, stopper Stopper, printer
 //			interrupt.Abort()
 // 		}
 // 	case <-interrupt.Done():
-//		// Done
 //		return
 // 	}
 // }
@@ -98,10 +97,11 @@ func NewInterruptHandler(cancel context.CancelFunc, opts ...InterruptOption) *In
 	handler.wg.Add(1)
 	go func() {
 		defer func() {
-			signal.Reset(handler.signals...)
 			// Reset the signal handler so the next signal is handled
 			// directly by the runtime
+			signal.Reset(handler.signals...)
 			if len(stoppers) == 0 {
+				// Fast path
 				handler.wg.Done()
 				return
 			}
@@ -109,11 +109,11 @@ func NewInterruptHandler(cancel context.CancelFunc, opts ...InterruptOption) *In
 			for _, stopper := range stoppers {
 				if aborter, ok := stopper.(Aborter); ok && handler.isInterrupted() {
 					if err := aborter.Abort(localCtx); err != nil {
-						log.WithError(err).Warn("Failed to abort stopper.")
+						log.WithError(err).Warn("Failed to abort.")
 					}
 				} else {
 					if err := stopper.Stop(localCtx); err != nil {
-						log.WithError(err).Warn("Failed to stop stopper.")
+						log.WithError(err).Warn("Failed to stop.")
 					}
 				}
 			}

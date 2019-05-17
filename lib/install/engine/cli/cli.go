@@ -219,8 +219,6 @@ func (r *executor) canContinue(old, new *ops.AgentReport) bool {
 		r.PrintStep(color.YellowString("Node %q on %v has left",
 			server.Role, utils.ExtractHost(server.AdvertiseAddr)))
 	}
-	// Save the current agent report so we can compare against it on next iteration.
-	// i.agentReport = report
 	// See if the current agent report satisfies the selected flavor.
 	needed, extra := new.MatchFlavor(r.config.Flavor)
 	if len(needed) == 0 && len(extra) == 0 {

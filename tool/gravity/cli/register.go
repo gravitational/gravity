@@ -54,7 +54,7 @@ func RegisterCommands(app *kingpin.Application) *Application {
 	g.VersionCmd.CmdClause = g.Command("version", "Print gravity version")
 	g.VersionCmd.Output = common.Format(g.VersionCmd.Flag("output", "Output format, text or json").Short('o').Default(string(constants.EncodingText)))
 
-	g.InstallCmd.CmdClause = g.Command("execute", "Install cluster on this node")
+	g.InstallCmd.CmdClause = g.Command("install", "Install cluster on this node")
 	g.InstallCmd.Path = g.InstallCmd.Arg("appdir", "Path to directory with application package. Uses current directory by default").String()
 	g.InstallCmd.AdvertiseAddr = g.InstallCmd.Flag("advertise-addr", "The IP address to advertise").String()
 	g.InstallCmd.Token = g.InstallCmd.Flag("token", "Unique install token to authorize other nodes to join the cluster").String()
@@ -96,7 +96,7 @@ func RegisterCommands(app *kingpin.Application) *Application {
 	g.InstallCmd.ExcludeHostFromCluster = g.InstallCmd.Flag("exclude-from-cluster", "Do not use this node in the cluster").Bool()
 	g.InstallCmd.FromService = g.InstallCmd.Flag("from-service", "Run in service mode").Hidden().Bool()
 
-	g.JoinCmd.CmdClause = g.Command("execute", "Join existing cluster or on-going install operation")
+	g.JoinCmd.CmdClause = g.Command("join", "Join existing cluster or on-going install operation")
 	g.JoinCmd.PeerAddr = g.JoinCmd.Arg("peer-addrs", "One or several IP addresses of cluster node to join, as comma-separated values").String()
 	g.JoinCmd.AdvertiseAddr = g.JoinCmd.Flag("advertise-addr", "IP address to advertise").String()
 	g.JoinCmd.Token = g.JoinCmd.Flag("token", "Unique install token to authorize this node to join the cluster").String()

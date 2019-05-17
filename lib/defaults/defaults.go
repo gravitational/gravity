@@ -1013,10 +1013,6 @@ var (
 	// WizardDir is where wizard login information is stored during install
 	WizardDir = filepath.Join(GravityEphemeralDir, "wizard")
 
-	// WizardStateDir is the location of the wizard state for the duration of the install
-	// operation
-	WizardStateDir = "gravity-wizard"
-
 	// LocalCacheDir is the location where gravity stores downloaded packages
 	LocalCacheDir = filepath.Join(LocalDataDir, "cache")
 
@@ -1139,7 +1135,9 @@ var (
 	// MetricsStep is the default interval b/w cluster metrics data points.
 	MetricsStep = 15 * time.Second
 
-	// AbortedOperationExitCode specifies the exit code for this process when an operation is aborted
+	// AbortedOperationExitCode specifies the exit code for this process when an operation is aborted.
+	// The exit code is used to prevent the installer service from restarting in case the operation
+	// is aborted
 	AbortedOperationExitCode = 254
 )
 

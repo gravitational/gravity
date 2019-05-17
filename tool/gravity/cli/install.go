@@ -672,72 +672,34 @@ func agent(env *localenv.LocalEnvironment, config agentConfig, serviceName strin
 	return trace.Wrap(agent.Serve())
 }
 
-func executeJoinPhase(env *localenv.LocalEnvironment, environ LocalEnvironmentFactory, params PhaseParams, operation *ops.SiteOperation) error {
-	ctx, cancel := context.WithCancel(context.Background())
-	interrupt := signals.NewInterruptHandler(cancel, clientInterruptSignals)
-	defer interrupt.Close()
-	clientC := clientTerminationHandler(interrupt, env)
-
-	env.PrintStep("Connecting to agent")
-	client, err := installerclient.New(ctx, installerclient.Config{
-		InterruptHandler: interrupt,
-		Printer:          env,
-		ConnectStrategy:  &installerclient.ResumeStrategy{},
-	})
-	if err != nil {
-		return trace.Wrap(err)
-	}
-	addCancelInstallationHandler(ctx, client, clientC)
-	env.PrintStep("Connected to agent")
-	return trace.Wrap(client.ExecutePhase(context.Background(), installerclient.Phase{
-		ID:    params.PhaseID,
-		Force: params.Force,
-		Key:   operation.Key(),
-	}))
+func executeInstallPhase(env *localenv.LocalEnvironment, params PhaseParams, operation *ops.SiteOperation) error {
+	return trace.Wrap(executePhaseFromService(
+		env, params, operation, "Connecting to installer", "Connected to installer"))
 }
 
-func rollbackJoinPhase(env *localenv.LocalEnvironment, environ LocalEnvironmentFactory, params PhaseParams, operation *ops.SiteOperation) error {
-	ctx, cancel := context.WithCancel(context.Background())
-	interrupt := signals.NewInterruptHandler(cancel, clientInterruptSignals)
-	defer interrupt.Close()
-	clientC := clientTerminationHandler(interrupt, env)
-
-	env.PrintStep("Connecting to agent")
-	client, err := installerclient.New(ctx, installerclient.Config{
-		InterruptHandler: interrupt,
-		Printer:          env,
-		ConnectStrategy:  &installerclient.ResumeStrategy{},
-	})
-	if err != nil {
-		return trace.Wrap(err)
-	}
-	addCancelInstallationHandler(ctx, client, clientC)
-	env.PrintStep("Connected to agent")
-	return trace.Wrap(client.RollbackPhase(context.Background(), installerclient.Phase{
-		ID:    params.PhaseID,
-		Force: params.Force,
-		Key:   operation.Key(),
-	}))
+func rollbackInstallPhase(env *localenv.LocalEnvironment, params PhaseParams, operation *ops.SiteOperation) error {
+	return trace.Wrap(rollbackPhaseFromService(
+		env, params, operation, "Connecting to installer", "Connected to installer"))
 }
 
-func completeJoinPlan(env *localenv.LocalEnvironment, environ LocalEnvironmentFactory, operation *ops.SiteOperation) error {
-	ctx, cancel := context.WithCancel(context.Background())
-	interrupt := signals.NewInterruptHandler(cancel, clientInterruptSignals)
-	defer interrupt.Close()
-	clientC := clientTerminationHandler(interrupt, env)
+func completeInstallPlan(env *localenv.LocalEnvironment, operation *ops.SiteOperation) error {
+	return trace.Wrap(completePlanFromService(
+		env, operation, "Connecting to installer", "Connected to installer"))
+}
 
-	env.PrintStep("Connecting to agent")
-	client, err := installerclient.New(ctx, installerclient.Config{
-		InterruptHandler: interrupt,
-		Printer:          env,
-		ConnectStrategy:  &installerclient.ResumeStrategy{},
-	})
-	if err != nil {
-		return trace.Wrap(err)
-	}
-	addCancelInstallationHandler(ctx, client, clientC)
-	env.PrintStep("Connected to agent")
-	return trace.Wrap(client.Complete(context.Background(), operation.Key()))
+func executeJoinPhase(env *localenv.LocalEnvironment, params PhaseParams, operation *ops.SiteOperation) error {
+	return trace.Wrap(executePhaseFromService(
+		env, params, operation, "Connecting to agent", "Connected to agent"))
+}
+
+func rollbackJoinPhase(env *localenv.LocalEnvironment, params PhaseParams, operation *ops.SiteOperation) error {
+	return trace.Wrap(rollbackPhaseFromService(
+		env, params, operation, "Connecting to agent", "Connected to agent"))
+}
+
+func completeJoinPlan(env *localenv.LocalEnvironment, operation *ops.SiteOperation) error {
+	return trace.Wrap(completePlanFromService(
+		env, operation, "Connecting to agent", "Connected to agent"))
 }
 
 func joinServiceCommandline() (args []string) {
@@ -752,17 +714,18 @@ func addCancelInstallationHandler(ctx context.Context, client serviceClient, cli
 	}
 }
 
-func executeInstallPhase(
+func executePhaseFromService(
 	env *localenv.LocalEnvironment,
 	params PhaseParams,
 	operation *ops.SiteOperation,
+	connecting, connected string,
 ) error {
 	ctx, cancel := context.WithCancel(context.Background())
 	interrupt := signals.NewInterruptHandler(cancel, clientInterruptSignals)
 	defer interrupt.Close()
 	clientC := clientTerminationHandler(interrupt, env)
 
-	env.PrintStep("Connecting to installer")
+	env.PrintStep(connecting)
 	client, err := installerclient.New(ctx, installerclient.Config{
 		InterruptHandler: interrupt,
 		Printer:          env,
@@ -772,7 +735,7 @@ func executeInstallPhase(
 		return trace.Wrap(err)
 	}
 	addCancelInstallationHandler(ctx, client, clientC)
-	env.PrintStep("Connected to installer")
+	env.PrintStep(connected)
 	return trace.Wrap(client.ExecutePhase(context.Background(), installerclient.Phase{
 		ID:    params.PhaseID,
 		Force: params.Force,
@@ -780,17 +743,18 @@ func executeInstallPhase(
 	}))
 }
 
-func rollbackInstallPhase(
+func rollbackPhaseFromService(
 	env *localenv.LocalEnvironment,
 	params PhaseParams,
 	operation *ops.SiteOperation,
+	connecting, connected string,
 ) error {
 	ctx, cancel := context.WithCancel(context.Background())
 	interrupt := signals.NewInterruptHandler(cancel, clientInterruptSignals)
 	defer interrupt.Close()
 	clientC := clientTerminationHandler(interrupt, env)
 
-	env.PrintStep("Connecting to installer")
+	env.PrintStep(connecting)
 	client, err := installerclient.New(ctx, installerclient.Config{
 		InterruptHandler: interrupt,
 		Printer:          env,
@@ -800,7 +764,7 @@ func rollbackInstallPhase(
 		return trace.Wrap(err)
 	}
 	addCancelInstallationHandler(ctx, client, clientC)
-	env.PrintStep("Connected to installer")
+	env.PrintStep(connected)
 	return trace.Wrap(client.RollbackPhase(context.Background(), installerclient.Phase{
 		ID:    params.PhaseID,
 		Force: params.Force,
@@ -808,13 +772,17 @@ func rollbackInstallPhase(
 	}))
 }
 
-func completeInstallPlan(env *localenv.LocalEnvironment, operation *ops.SiteOperation) error {
+func completePlanFromService(
+	env *localenv.LocalEnvironment,
+	operation *ops.SiteOperation,
+	connecting, connected string,
+) error {
 	ctx, cancel := context.WithCancel(context.Background())
 	interrupt := signals.NewInterruptHandler(cancel, clientInterruptSignals)
 	defer interrupt.Close()
 	clientC := clientTerminationHandler(interrupt, env)
 
-	env.PrintStep("Connecting to installer")
+	env.PrintStep(connecting)
 	client, err := installerclient.New(ctx, installerclient.Config{
 		InterruptHandler: interrupt,
 		Printer:          env,
@@ -824,7 +792,7 @@ func completeInstallPlan(env *localenv.LocalEnvironment, operation *ops.SiteOper
 		return trace.Wrap(err)
 	}
 	addCancelInstallationHandler(ctx, client, clientC)
-	env.PrintStep("Connected to installer")
+	env.PrintStep(connected)
 	return trace.Wrap(client.Complete(context.Background(), operation.Key()))
 }
 

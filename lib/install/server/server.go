@@ -201,7 +201,6 @@ type Server struct {
 	wg    sync.WaitGroup
 
 	mu        sync.Mutex
-	executing bool
 	exitError error
 }
 

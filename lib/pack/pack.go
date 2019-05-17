@@ -228,6 +228,7 @@ func (f ProgressReporterFn) Report(current, target int64) {
 	f(current, target)
 }
 
+// DiscardReporter is a ProgressReporter that discards all input
 var DiscardReporter = nopReporter{}
 
 // DiscardReporter discards report progress

@@ -37,14 +37,10 @@ import (
 	"google.golang.org/grpc/status"
 )
 
-// New returns a new client to handle the installer case.
-// The client installs the installer service and starts the
-// installer operation.
-// If restarted, the client will first attempt to connect to a running
-// installer service before attempting to set up a new one.
-// If no installer service is running, the client will validate that it is
-// safe to set up and execute the installer (i.e. validate that the node
-// is not already part of the cluster).
+// New returns a new client for the installer/agent service.
+// The client installs the service and starts the operation.
+// If restarted, the client will either attempt to connect to a running
+// installer service or set up a new one (subject to connection strategy).
 func New(ctx context.Context, config Config) (*Client, error) {
 	err := config.checkAndSetDefaults()
 	if err != nil {
@@ -113,7 +109,7 @@ func (r *Client) Shutdown(ctx context.Context) error {
 	return trace.Wrap(err)
 }
 
-// Abort signals that the server clean up the state and shut down.
+// Abort signals that the server cleans up the state and shuts down.
 // Implements signals.Aborter
 func (r *Client) Abort(ctx context.Context) error {
 	r.Info("Abort.")

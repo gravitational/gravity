@@ -419,16 +419,6 @@ type JoinCmd struct {
 	Mounts *configure.KeyVal
 	// CloudProvider turns on cloud provider integration
 	CloudProvider *string
-	// // Manual turns on manual phases execution mode
-	// Manual *bool
-	// // Phase specifies the operation phase to execute
-	// Phase *string
-	// // PhaseTimeout is phase execution timeout
-	// PhaseTimeout *time.Duration
-	// // Resume resumes failed join operation
-	// Resume *bool
-	// // Force forces phase execution
-	// Force *bool
 	// OperationID is the ID of the operation created via UI
 	OperationID *string
 	// FromService specifies whether this process runs in service mode.

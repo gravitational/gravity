@@ -167,7 +167,7 @@ type Config struct {
 	// LocalClusterClient is a factory for creating client to the installed cluster
 	LocalClusterClient func() (*opsclient.Client, error)
 	// Operator specifies the wizard's operator service
-	Operator *opsclient.Client
+	Operator ops.Operator
 	// Apps specifies the wizard's application service
 	Apps app.Applications
 	// Packages specifies the wizard's package service

@@ -72,7 +72,6 @@ func New(ctx context.Context, config RuntimeConfig) (installer *Installer, err e
 
 // Run runs the server operation using the specified engine
 func (i *Installer) Run(listener net.Listener) error {
-	defer i.Info("Run: exited.")
 	errC := make(chan error, 1)
 	go func() {
 		errC <- i.server.Serve(i, listener)

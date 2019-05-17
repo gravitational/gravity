@@ -72,7 +72,7 @@ func executePhase(localEnv *localenv.LocalEnvironment, environ LocalEnvironmentF
 	case ops.OperationInstall:
 		return executeInstallPhase(localEnv, params, op)
 	case ops.OperationExpand:
-		return executeJoinPhase(localEnv, environ, params, op)
+		return executeJoinPhase(localEnv, params, op)
 	case ops.OperationUpdate:
 		return executeUpdatePhase(localEnv, environ, params, *op)
 	case ops.OperationUpdateRuntimeEnviron:
@@ -96,7 +96,7 @@ func rollbackPhase(localEnv *localenv.LocalEnvironment, environ LocalEnvironment
 	case ops.OperationInstall:
 		return rollbackInstallPhase(localEnv, params, op)
 	case ops.OperationExpand:
-		return rollbackJoinPhase(localEnv, environ, params, op)
+		return rollbackJoinPhase(localEnv, params, op)
 	case ops.OperationUpdate:
 		return rollbackUpdatePhase(localEnv, environ, params, *op)
 	case ops.OperationUpdateRuntimeEnviron:
@@ -117,7 +117,7 @@ func completeOperationPlan(localEnv *localenv.LocalEnvironment, environ LocalEnv
 	case ops.OperationInstall:
 		return completeInstallPlan(localEnv, op)
 	case ops.OperationExpand:
-		return completeJoinPlan(localEnv, environ, op)
+		return completeJoinPlan(localEnv, op)
 	case ops.OperationUpdate:
 		return completeUpdatePlan(localEnv, environ, *op)
 	case ops.OperationUpdateRuntimeEnviron:

@@ -75,7 +75,11 @@ type Params struct {
 	OperationID string
 	// Force is whether to force execution/rollback
 	Force bool
-	// Resume determines whether a failed/in-progress phase is rerun
+	// Resume determines whether a failed/in-progress phase is rerun.
+	//
+	// It is different from Force which forces a phase in any state
+	// to be rerun - this is unexpected when the operation is resumed
+	// and only the unfinished/failed steps are re-executed
 	Resume bool
 	// Progress is optional progress reporter
 	Progress utils.Progress
