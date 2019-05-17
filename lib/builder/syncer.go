@@ -32,8 +32,6 @@ import (
 
 	"github.com/coreos/go-semver/semver"
 	"github.com/gravitational/trace"
-	"github.com/gravitational/version"
-	"github.com/sirupsen/logrus"
 )
 
 // Syncer synchronizes the local package cache from a (remote) repository
@@ -41,9 +39,6 @@ type Syncer interface {
 	// Sync makes sure that local cache has all required dependencies for the
 	// selected runtime
 	Sync(*Builder, *semver.Version) error
-	// SelectRuntime picks an appropriate runtime for the application that's
-	// being built
-	SelectRuntime(*Builder) (*semver.Version, error)
 }
 
 // NewSyncerFunc defines function that creates syncer for a builder
@@ -71,40 +66,6 @@ func newS3Syncer() (*s3Syncer, error) {
 	return &s3Syncer{
 		hub: hub,
 	}, nil
-}
-
-// SelectRuntime picks an appropriate runtime for the application that's
-// being built
-func (s *s3Syncer) SelectRuntime(builder *Builder) (*semver.Version, error) {
-	// determine version of this binary
-	teleVersion, err := semver.NewVersion(version.Get().Version)
-	if err != nil {
-		return nil, trace.Wrap(err, "failed to determine tele version")
-	}
-	// determine the latest runtime compatible with this tele
-	releases, err := s.hub.List(true)
-	if err != nil {
-		return nil, trace.Wrap(err)
-	}
-	var latest *semver.Version
-	for _, release := range releases {
-		ver, err := semver.NewVersion(release.Version)
-		if err != nil {
-			logrus.Warnf("Failed to parse release version: %v %v.", release, err)
-			continue
-		}
-		if ver.Major != teleVersion.Major || ver.Minor != teleVersion.Minor {
-			continue
-		}
-		if latest == nil || latest.LessThan(*ver) {
-			latest = ver
-		}
-	}
-	if latest == nil {
-		return nil, trace.NotFound("could not find compatible runtime for "+
-			"this tele version %v", teleVersion)
-	}
-	return latest, nil
 }
 
 // Sync makes sure that local cache has all required dependencies for the
@@ -166,22 +127,6 @@ func NewPackSyncer(pack pack.PackageService, apps app.Applications, repo string)
 		apps: apps,
 		repo: repo,
 	}
-}
-
-// SelectRuntime picks an appropriate runtime for the application that's
-// being built
-func (s *packSyncer) SelectRuntime(builder *Builder) (*semver.Version, error) {
-	// determine version of this binary
-	teleVersion, err := semver.NewVersion(version.Get().Version)
-	if err != nil {
-		return nil, trace.Wrap(err, "failed to determine tele version")
-	}
-	// determine the latest runtime compatible with this tele
-	runtime, err := pack.FindLatestCompatiblePackage(s.pack, loc.Runtime, *teleVersion)
-	if err != nil {
-		return nil, trace.Wrap(err)
-	}
-	return runtime.SemVer()
 }
 
 // Sync pulls dependencies from the package/app service not available locally

@@ -17,6 +17,7 @@ limitations under the License.
 package cli
 
 import (
+	"context"
 	"fmt"
 	"io/ioutil"
 	"os"
@@ -24,17 +25,21 @@ import (
 	"strings"
 	"text/tabwriter"
 
+	"github.com/gravitational/gravity/lib/app"
 	"github.com/gravitational/gravity/lib/catalog"
 	"github.com/gravitational/gravity/lib/constants"
 	"github.com/gravitational/gravity/lib/defaults"
 	"github.com/gravitational/gravity/lib/helm"
 	"github.com/gravitational/gravity/lib/loc"
 	"github.com/gravitational/gravity/lib/localenv"
+	"github.com/gravitational/gravity/lib/ops/events"
 	"github.com/gravitational/gravity/lib/pack"
 	"github.com/gravitational/gravity/lib/schema"
 	helmutils "github.com/gravitational/gravity/lib/utils/helm"
 
+	"github.com/ghodss/yaml"
 	"github.com/gravitational/trace"
+	"k8s.io/helm/pkg/repo"
 )
 
 type releaseInstallConfig struct {
@@ -177,11 +182,12 @@ func releaseInstall(env *localenv.LocalEnvironment, conf releaseInstallConfig) e
 	if err != nil {
 		return trace.Wrap(err)
 	}
-	env.PrintStep("Installed release %v", release.Name)
+	env.EmitAuditEvent(context.TODO(), events.ApplicationInstall, events.FieldsForRelease(release))
+	env.PrintStep("Installed release %v", release.GetName())
 	return nil
 }
 
-func releaseList(env *localenv.LocalEnvironment) error {
+func releaseList(env *localenv.LocalEnvironment, all bool) error {
 	helmClient, err := helm.NewClient(helm.ClientConfig{
 		DNSAddress: env.DNS.Addr(),
 	})
@@ -189,7 +195,9 @@ func releaseList(env *localenv.LocalEnvironment) error {
 		return trace.Wrap(err)
 	}
 	defer helmClient.Close()
-	releases, err := helmClient.List(helm.ListParameters{})
+	releases, err := helmClient.List(helm.ListParameters{
+		All: all,
+	})
 	if err != nil {
 		return trace.Wrap(err)
 	}
@@ -199,12 +207,12 @@ func releaseList(env *localenv.LocalEnvironment) error {
 	fmt.Fprintf(w, "-------\t------\t-----\t--------\t---------\t-------\n")
 	for _, r := range releases {
 		fmt.Fprintf(w, "%v\t%v\t%v\t%v\t%v\t%v\n",
-			r.Name,
-			r.Status,
-			r.Chart,
-			r.Revision,
-			r.Namespace,
-			r.Updated.Format(constants.HumanDateFormatSeconds))
+			r.GetName(),
+			r.GetStatus(),
+			r.GetChart(),
+			r.GetRevision(),
+			r.GetMetadata().Namespace,
+			r.GetUpdated().Format(constants.HumanDateFormatSeconds))
 	}
 	w.Flush()
 	return nil
@@ -246,8 +254,11 @@ func releaseUpgrade(env *localenv.LocalEnvironment, conf releaseUpgradeConfig) e
 		Image:          conf.Image,
 		registryConfig: conf.registryConfig,
 	})
+	if err != nil {
+		return trace.Wrap(err)
+	}
 	env.PrintStep("Upgrading release %v (%v) to version %v",
-		release.Name, release.Chart,
+		release.GetName(), release.GetChart(),
 		imageEnv.Manifest.Metadata.ResourceVersion)
 	tmp, err := ioutil.TempDir("", "")
 	if err != nil {
@@ -259,7 +270,7 @@ func releaseUpgrade(env *localenv.LocalEnvironment, conf releaseUpgradeConfig) e
 		return trace.Wrap(err)
 	}
 	release, err = helmClient.Upgrade(helm.UpgradeParameters{
-		Release: release.Name,
+		Release: release.GetName(),
 		Path:    filepath.Join(tmp, "resources"),
 		Values:  conf.Files,
 		Set:     conf.Values,
@@ -267,7 +278,8 @@ func releaseUpgrade(env *localenv.LocalEnvironment, conf releaseUpgradeConfig) e
 	if err != nil {
 		return trace.Wrap(err)
 	}
-	env.PrintStep("Upgraded release %v to version %v", release.Name,
+	env.EmitAuditEvent(context.TODO(), events.ApplicationUpgrade, events.FieldsForRelease(release))
+	env.PrintStep("Upgraded release %v to version %v", release.GetName(),
 		imageEnv.Manifest.Metadata.ResourceVersion)
 	return nil
 }
@@ -287,7 +299,8 @@ func releaseRollback(env *localenv.LocalEnvironment, conf releaseRollbackConfig)
 	if err != nil {
 		return trace.Wrap(err)
 	}
-	env.PrintStep("Rolled back release %v to %v", release.Name, release.Chart)
+	env.EmitAuditEvent(context.TODO(), events.ApplicationRollback, events.FieldsForRelease(release))
+	env.PrintStep("Rolled back release %v to %v", release.GetName(), release.GetChart())
 	return nil
 }
 
@@ -303,7 +316,8 @@ func releaseUninstall(env *localenv.LocalEnvironment, conf releaseUninstallConfi
 	if err != nil {
 		return trace.Wrap(err)
 	}
-	env.PrintStep("Uninstalled release %v", release.Name)
+	env.EmitAuditEvent(context.TODO(), events.ApplicationUninstall, events.FieldsForRelease(release))
+	env.PrintStep("Uninstalled release %v", release.GetName())
 	return nil
 }
 
@@ -325,11 +339,11 @@ func releaseHistory(env *localenv.LocalEnvironment, conf releaseHistoryConfig) e
 	fmt.Fprintf(w, "--------\t-----\t------\t-------\t-----------\n")
 	for _, r := range releases {
 		fmt.Fprintf(w, "%v\t%v\t%v\t%v\t%v\n",
-			r.Revision,
-			r.Chart,
-			r.Status,
-			r.Updated.Format(constants.HumanDateFormatSeconds),
-			r.Description)
+			r.GetRevision(),
+			r.GetChart(),
+			r.GetStatus(),
+			r.GetUpdated().Format(constants.HumanDateFormatSeconds),
+			r.GetMetadata().Description)
 	}
 	w.Flush()
 	return nil
@@ -382,6 +396,37 @@ func appRebuildIndex(env *localenv.LocalEnvironment) error {
 		return trace.Wrap(err)
 	}
 	env.PrintStep("Index rebuild finished")
+	return nil
+}
+
+// appIndex generates a Helm chart repository index file for all applications
+// found in the app service of the provided environment. The generated index
+// file is displayed in the terminal.
+//
+// If mergeInto index file is provided, then the generated index file gets
+// merged into it, and the resulting index file is shown in the terminal.
+func appIndex(env *localenv.LocalEnvironment, mergeInto string) error {
+	apps, err := env.Apps.ListApps(app.ListAppsRequest{
+		Repository: defaults.SystemAccountOrg,
+	})
+	if err != nil {
+		return trace.Wrap(err)
+	}
+	indexFile := helm.GenerateIndexFile(apps)
+	if mergeInto != "" {
+		mergeIndexFile, err := repo.LoadIndexFile(mergeInto)
+		if err != nil {
+			return trace.ConvertSystemError(err)
+		}
+		mergeIndexFile.Merge(indexFile)
+		mergeIndexFile.SortEntries()
+		indexFile = mergeIndexFile
+	}
+	bytes, err := yaml.Marshal(indexFile)
+	if err != nil {
+		return trace.Wrap(err)
+	}
+	env.Print(string(bytes))
 	return nil
 }
 

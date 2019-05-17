@@ -40,6 +40,7 @@ import (
 	"github.com/gravitational/gravity/lib/localenv"
 	"github.com/gravitational/gravity/lib/modules"
 	"github.com/gravitational/gravity/lib/ops"
+	"github.com/gravitational/gravity/lib/ops/opsclient"
 	"github.com/gravitational/gravity/lib/pack"
 	"github.com/gravitational/gravity/lib/process"
 	"github.com/gravitational/gravity/lib/rpc"
@@ -47,6 +48,7 @@ import (
 	rpcserver "github.com/gravitational/gravity/lib/rpc/server"
 	"github.com/gravitational/gravity/lib/schema"
 	"github.com/gravitational/gravity/lib/state"
+	"github.com/gravitational/gravity/lib/status"
 	"github.com/gravitational/gravity/lib/storage"
 	"github.com/gravitational/gravity/lib/systeminfo"
 	"github.com/gravitational/gravity/lib/utils"
@@ -57,6 +59,7 @@ import (
 	"github.com/gravitational/trace"
 	"github.com/kardianos/osext"
 	log "github.com/sirupsen/logrus"
+	"k8s.io/apimachinery/pkg/runtime"
 )
 
 // UpsertSystem account creates or updates system account used for all installs
@@ -106,7 +109,10 @@ type Installer struct {
 	Cluster *ops.Site
 	// engine allows to customize installer behavior
 	engine Engine
+	// flavor stores the selected install flavor
 	flavor *schema.Flavor
+	// agentReport stores the last agent report
+	agentReport *ops.AgentReport
 }
 
 // SetFlavor sets the flavor that will be installed
@@ -156,8 +162,14 @@ type Config struct {
 	Role string
 	// AppPackage is the application being installed
 	AppPackage *loc.Locator
-	// Resources is a file with resource specs
-	Resources []byte
+	// RuntimeResources specifies optional Kubernetes resources to create
+	// If specified, will be combined with Resources
+	RuntimeResources []runtime.Object
+	// ClusterResources specifies optional cluster resources to create
+	// If specified, will be combined with Resources
+	// TODO(dmitri): externalize the ClusterConfiguration resource and create
+	// default provider-specific cloud-config on Gravity side
+	ClusterResources []storage.UnknownResource
 	// EventsC is channel with events indicating install progress
 	EventsC chan Event
 	// SystemDevice is a device for gravity data
@@ -201,6 +213,8 @@ type Config struct {
 	NewProcess process.NewGravityProcess
 	// Silent allows installer to output its progress
 	localenv.Silent
+	// LocalClusterClient is a factory for creating client to the installed cluster
+	LocalClusterClient func() (*opsclient.Client, error)
 }
 
 // CheckAndSetDefaults checks the parameters and autodetects some defaults
@@ -213,6 +227,9 @@ func (c *Config) CheckAndSetDefaults() (err error) {
 	}
 	if c.AdvertiseAddr == "" {
 		return trace.BadParameter("missing AdvertiseAddr")
+	}
+	if c.LocalClusterClient == nil {
+		return trace.BadParameter("missing LocalClusterClient")
 	}
 	if !utils.StringInSlice(modules.Get().InstallModes(), c.Mode) {
 		return trace.BadParameter("invalid Mode %q", c.Mode)
@@ -268,6 +285,7 @@ func (c *Config) validateCloudConfig() error {
 	if c.CloudProvider != schema.ProviderGCE {
 		return nil
 	}
+	// TODO(dmitri): skip validations if user provided custom cloud configuration
 	if err := cloudgce.ValidateTag(c.SiteDomain); err != nil {
 		log.WithError(err).Warnf("Failed to validate cluster name %v as node tag on GCE.", c.SiteDomain)
 		if len(c.GCENodeTags) == 0 {
@@ -428,21 +446,23 @@ func (i *Installer) Wait() error {
 				if progress.State == ops.ProgressStateCompleted {
 					i.PrintStep(color.GreenString("Installation succeeded in %v",
 						i.timeSinceBeginning(i.OperationKey)))
+					i.printEndpoints()
+					i.printPostInstallMessage()
 					if i.Mode == constants.InstallModeInteractive {
-						i.printf("---\nInstaller process will keep running so the installation can be finished by\n" +
-							"completing necessary post install actions in the installer UI if the installed\n" +
-							"application requires it. Once no longer needed, this process can be shutdown\n" +
-							"using Ctrl-C.\n")
+						i.printf("\nInstaller process will keep running so the installation can be finished by\n" +
+							"completing necessary post-install actions in the installer UI if the installed\n" +
+							"application requires it.\n")
+						i.printf(color.YellowString("\nOnce no longer needed, press Ctrl-C to shutdown this process.\n"))
 						return wait(i.Context, i.Cancel, i.Process)
 					}
 					return nil
 				} else {
 					i.PrintStep(color.RedString("Installation failed in %v, "+
-						"check %v for details", i.timeSinceBeginning(i.OperationKey), i.UserLogFile))
-					i.printf("---\nInstaller process will keep running so you can inspect the operation plan using\n" +
+						"check %v and %v for details", i.timeSinceBeginning(i.OperationKey), i.UserLogFile, i.SystemLogFile))
+					i.printf("\nInstaller process will keep running so you can inspect the operation plan using\n" +
 						"`gravity plan` command, see what failed and continue plan execution manually\n" +
-						"using `gravity install --phase=<phase-id>` command after fixing the problem.\n" +
-						"Once no longer needed, this process can be shutdown using Ctrl-C.\n")
+						"using `gravity install --phase=<phase-id>` command after fixing the problem.\n")
+					i.printf(color.YellowString("\nOnce no longer needed, press Ctrl-C to shutdown this process.\n"))
 					return wait(i.Context, i.Cancel, i.Process)
 				}
 			}
@@ -457,6 +477,41 @@ func (i *Installer) PrintStep(format string, args ...interface{}) {
 
 func (i *Installer) printf(format string, args ...interface{}) {
 	i.Silent.Printf(format, args...)
+}
+
+func (i *Installer) printPostInstallMessage() {
+	if m, ok := modules.Get().(modules.Messager); ok {
+		i.printf("\n%v\n", m.PostInstallMessage())
+	}
+}
+
+func (i *Installer) printEndpoints() {
+	status, err := i.getClusterStatus()
+	if err != nil {
+		i.Errorf("Failed to collect cluster status: %v.", trace.DebugReport(err))
+		return
+	}
+	i.printf("\n")
+	status.Cluster.Endpoints.Cluster.WriteTo(i.Silent)
+	i.printf("\n")
+	status.Cluster.Endpoints.Applications.WriteTo(i.Silent)
+}
+
+// getClusterStatus collects status of the installer cluster.
+func (i *Installer) getClusterStatus() (*status.Status, error) {
+	clusterOperator, err := localenv.ClusterOperator()
+	if err != nil {
+		return nil, trace.Wrap(err)
+	}
+	cluster, err := clusterOperator.GetLocalSite()
+	if err != nil {
+		return nil, trace.Wrap(err)
+	}
+	status, err := status.FromCluster(i.Context, clusterOperator, *cluster, "")
+	if err != nil {
+		return nil, trace.Wrap(err)
+	}
+	return status, nil
 }
 
 // timeSinceBeginning returns formatted operation duration
@@ -681,9 +736,9 @@ func FetchCloudMetadata(cloudProvider string, config *pb.RuntimeConfig) error {
 	var docLink string
 	switch cloudProvider {
 	case schema.ProviderAWS:
-		docLink = "https://gravitational.com/telekube/docs/installation/#aws-credentials-iam-policy"
+		docLink = "https://gravitational.com/gravity/docs/requirements/#aws-iam-policy"
 	case schema.ProviderGCE:
-		docLink = "https://gravitational.com/telekube/docs/installation/#installing-on-google-compute-engine"
+		docLink = "https://gravitational.com/gravity/docs/installation/#installing-on-google-compute-engine"
 	default:
 		return nil
 	}

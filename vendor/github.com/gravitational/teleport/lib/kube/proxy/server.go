@@ -1,5 +1,5 @@
 /*
-Copyright 2018 Gravitational, Inc.
+Copyright 2018-2019 Gravitational, Inc.
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -90,7 +90,7 @@ func NewTLSServer(cfg TLSServerConfig) (*TLSServer, error) {
 		return nil, trace.Wrap(err)
 	}
 	// authMiddleware authenticates request assuming TLS client authentication
-	// adds authentication infromation to the context
+	// adds authentication information to the context
 	// and passes it to the API server
 	authMiddleware := &auth.AuthMiddleware{
 		AccessPoint:   cfg.AccessPoint,

@@ -28,16 +28,18 @@ import (
 	"github.com/gravitational/gravity/lib/install"
 	"github.com/gravitational/gravity/lib/loc"
 	"github.com/gravitational/gravity/lib/localenv"
-	"github.com/gravitational/gravity/lib/pack"
+	"github.com/gravitational/gravity/lib/ops/resources"
 	"github.com/gravitational/gravity/lib/process"
 	"github.com/gravitational/gravity/lib/rpc/proto"
 	rpcserver "github.com/gravitational/gravity/lib/rpc/server"
 	"github.com/gravitational/gravity/lib/storage"
+	"github.com/gravitational/gravity/lib/storage/clusterconfig"
 	"github.com/gravitational/gravity/lib/systeminfo"
 	"github.com/gravitational/gravity/lib/utils"
 
 	teleutils "github.com/gravitational/teleport/lib/utils"
 	"github.com/gravitational/trace"
+	"k8s.io/apimachinery/pkg/runtime"
 )
 
 // InstallConfig is the gravity install command configuration
@@ -50,9 +52,9 @@ type InstallConfig struct {
 	ReadStateDir string
 	// WriteStateDir is the directory where installer writes its state
 	WriteStateDir string
-	// SystemLogFile is the telekube-system.log file
+	// SystemLogFile is the gravity-system.log file
 	SystemLogFile string
-	// UserLogFile is the telekube-install.log file
+	// UserLogFile is the gravity-install.log file
 	UserLogFile string
 	// AdvertiseAddr is the advertise IP for this node
 	AdvertiseAddr string
@@ -230,7 +232,7 @@ func (i *InstallConfig) GetAdvertiseAddr() (string, error) {
 // GetAppPackage returns the application package for this installer
 func (i *InstallConfig) GetAppPackage() (*loc.Locator, error) {
 	if i.AppPackage != "" {
-		return pack.MakeLocator(i.AppPackage)
+		return loc.MakeLocator(i.AppPackage)
 	}
 	env, err := localenv.New(i.ReadStateDir)
 	if err != nil {
@@ -286,14 +288,18 @@ func (i *InstallConfig) getDNSOverrides() (*storage.DNSOverrides, error) {
 }
 
 // ToInstallerConfig converts CLI config to installer format
-func (i *InstallConfig) ToInstallerConfig(env *localenv.LocalEnvironment) (*install.Config, error) {
+func (i *InstallConfig) ToInstallerConfig(env *localenv.LocalEnvironment, validator resources.Validator) (*install.Config, error) {
 	advertiseAddr, err := i.GetAdvertiseAddr()
 	if err != nil {
 		return nil, trace.Wrap(err)
 	}
-	resources, err := i.GetResources()
-	if err != nil && !trace.IsNotFound(err) {
-		return nil, trace.Wrap(err)
+	var kubernetesResources []runtime.Object
+	var gravityResources []storage.UnknownResource
+	if i.ResourcesPath != "" {
+		kubernetesResources, gravityResources, err = i.splitResources(validator)
+		if err != nil {
+			return nil, trace.Wrap(err)
+		}
 	}
 	appPackage, err := i.GetAppPackage()
 	if err != nil {
@@ -303,43 +309,113 @@ func (i *InstallConfig) ToInstallerConfig(env *localenv.LocalEnvironment) (*inst
 	if err != nil {
 		return nil, trace.Wrap(err)
 	}
+	gravityResources, err = i.updateClusterConfig(gravityResources)
+	if err != nil {
+		return nil, trace.Wrap(err)
+	}
 	ctx, cancel := context.WithCancel(context.Background())
 	return &install.Config{
-		Context:       ctx,
-		Cancel:        cancel,
-		EventsC:       make(chan install.Event, 100),
-		AdvertiseAddr: advertiseAddr,
-		Resources:     resources,
-		AppPackage:    appPackage,
-		LocalPackages: env.Packages,
-		LocalApps:     env.Apps,
-		LocalBackend:  env.Backend,
-		Silent:        env.Silent,
-		SiteDomain:    i.SiteDomain,
-		StateDir:      i.ReadStateDir,
-		WriteStateDir: i.WriteStateDir,
-		UserLogFile:   i.UserLogFile,
-		SystemLogFile: i.SystemLogFile,
-		Token:         i.InstallToken,
-		CloudProvider: i.CloudProvider,
-		Flavor:        i.Flavor,
-		Role:          i.Role,
-		SystemDevice:  i.SystemDevice,
-		DockerDevice:  i.DockerDevice,
-		Mounts:        i.Mounts,
-		DNSOverrides:  *dnsOverrides,
-		DNSConfig:     i.DNSConfig,
-		Mode:          i.Mode,
-		PodCIDR:       i.PodCIDR,
-		ServiceCIDR:   i.ServiceCIDR,
-		VxlanPort:     i.VxlanPort,
-		Docker:        i.Docker,
-		Insecure:      i.Insecure,
-		Manual:        i.Manual,
-		ServiceUser:   i.ServiceUser,
-		GCENodeTags:   i.NodeTags,
-		NewProcess:    i.NewProcess,
+		Context:            ctx,
+		Cancel:             cancel,
+		EventsC:            make(chan install.Event, 100),
+		AdvertiseAddr:      advertiseAddr,
+		AppPackage:         appPackage,
+		LocalPackages:      env.Packages,
+		LocalApps:          env.Apps,
+		LocalBackend:       env.Backend,
+		Silent:             env.Silent,
+		SiteDomain:         i.SiteDomain,
+		StateDir:           i.ReadStateDir,
+		WriteStateDir:      i.WriteStateDir,
+		UserLogFile:        i.UserLogFile,
+		SystemLogFile:      i.SystemLogFile,
+		Token:              i.InstallToken,
+		CloudProvider:      i.CloudProvider,
+		GCENodeTags:        i.NodeTags,
+		Flavor:             i.Flavor,
+		Role:               i.Role,
+		SystemDevice:       i.SystemDevice,
+		DockerDevice:       i.DockerDevice,
+		Mounts:             i.Mounts,
+		DNSOverrides:       *dnsOverrides,
+		DNSConfig:          i.DNSConfig,
+		Mode:               i.Mode,
+		PodCIDR:            i.PodCIDR,
+		ServiceCIDR:        i.ServiceCIDR,
+		VxlanPort:          i.VxlanPort,
+		Docker:             i.Docker,
+		Insecure:           i.Insecure,
+		Manual:             i.Manual,
+		ServiceUser:        i.ServiceUser,
+		NewProcess:         i.NewProcess,
+		LocalClusterClient: env.SiteOperator,
+		RuntimeResources:   kubernetesResources,
+		ClusterResources:   gravityResources,
 	}, nil
+}
+
+// splitResources validates the resources specified in ResourcePath
+// using the given validator and splits them into Kubernetes and Gravity-specific
+func (i *InstallConfig) splitResources(validator resources.Validator) (runtimeResources []runtime.Object, clusterResources []storage.UnknownResource, err error) {
+	if i.ResourcesPath == "" {
+		return nil, nil, trace.NotFound("no resources provided")
+	}
+	rc, err := utils.ReaderForPath(i.ResourcesPath)
+	if err != nil {
+		return nil, nil, trace.Wrap(err, "failed to read resources")
+	}
+	defer rc.Close()
+	// TODO(dmitri): validate kubernetes resources as well
+	runtimeResources, clusterResources, err = resources.Split(rc)
+	if err != nil {
+		return nil, nil, trace.BadParameter("failed to validate %q: %v", i.ResourcesPath, err)
+	}
+	for _, res := range clusterResources {
+		log.WithField("resource", res.ResourceHeader).Info("Validating.")
+		if err := validator.Validate(res); err != nil {
+			return nil, nil, trace.Wrap(err, "resource %q is invalid", res.Kind)
+		}
+	}
+	return runtimeResources, clusterResources, nil
+}
+
+func (i *InstallConfig) updateClusterConfig(resources []storage.UnknownResource) (updated []storage.UnknownResource, err error) {
+	var clusterConfig *storage.UnknownResource
+	updated = resources[:0]
+	for _, res := range resources {
+		if res.Kind == storage.KindClusterConfiguration {
+			clusterConfig = &res
+			continue
+		}
+		updated = append(updated, res)
+	}
+	if clusterConfig == nil && i.CloudProvider == "" {
+		// Return the resources unchanged
+		return resources, nil
+	}
+	var config clusterconfig.Interface
+	if clusterConfig == nil {
+		config = clusterconfig.New(clusterconfig.Spec{
+			Global: &clusterconfig.Global{CloudProvider: i.CloudProvider},
+		})
+	} else {
+		config, err = clusterconfig.Unmarshal(clusterConfig.Raw)
+		if err != nil {
+			return nil, trace.Wrap(err)
+		}
+	}
+	if config := config.GetGlobalConfig(); config != nil {
+		if config.CloudProvider != "" {
+			i.CloudProvider = config.CloudProvider
+		}
+	}
+	// Serialize the cluster configuration and add to resources
+	configResource, err := clusterconfig.ToUnknown(config)
+	if err != nil {
+		return nil, trace.Wrap(err)
+	}
+	updated = append(updated, *configResource)
+	return updated, nil
 }
 
 func (i *InstallConfig) validateDNSConfig() error {
@@ -368,9 +444,9 @@ func validateIP(blocks []net.IPNet, ip net.IP) bool {
 
 // JoinConfig is the configuration object built from gravity join command args and flags
 type JoinConfig struct {
-	// SystemLogFile is telekube-system log file path
+	// SystemLogFile is gravity-system log file path
 	SystemLogFile string
-	// UserLogFile is telekube-install log file path
+	// UserLogFile is gravity-install log file path
 	UserLogFile string
 	// AdvertiseAddr is the advertise IP for the joining node
 	AdvertiseAddr string

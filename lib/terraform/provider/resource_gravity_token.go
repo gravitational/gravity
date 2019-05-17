@@ -1,6 +1,7 @@
 package provider
 
 import (
+	"context"
 	"time"
 
 	"github.com/gravitational/gravity/lib/ops"
@@ -78,7 +79,7 @@ func createToken(d *schema.ResourceData, m interface{}, upsert bool) error {
 	token := d.Get("token").(string)
 	user := d.Get("user").(string)
 
-	_, err := client.CreateAPIKey(ops.NewAPIKeyRequest{
+	_, err := client.CreateAPIKey(context.TODO(), ops.NewAPIKeyRequest{
 		Token:     token,
 		UserEmail: user,
 		// TODO(knisbet) expose expires??
@@ -100,7 +101,7 @@ func resourceGravityTokenDelete(d *schema.ResourceData, m interface{}) error {
 	token := d.Get("token").(string)
 	user := d.Get("user").(string)
 
-	err := client.DeleteAPIKey(user, token)
+	err := client.DeleteAPIKey(context.TODO(), user, token)
 	if err != nil {
 		return trace.Wrap(err)
 	}

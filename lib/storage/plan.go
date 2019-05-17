@@ -20,6 +20,7 @@ import (
 	"time"
 
 	"github.com/gravitational/gravity/lib/loc"
+	"github.com/gravitational/gravity/lib/schema"
 	"github.com/gravitational/gravity/lib/utils"
 
 	"github.com/gravitational/trace"
@@ -43,6 +44,8 @@ type OperationPlan struct {
 	GravityPackage loc.Locator `json:"gravity_package"`
 	// CreatedAt is the plan creation timestamp
 	CreatedAt time.Time `json:"created_at"`
+	// DNSConfig specifies cluster DNS configuration
+	DNSConfig DNSConfig `json:"dns_config"`
 }
 
 // Check makes sure operation plan is valid
@@ -83,7 +86,7 @@ type OperationPhase struct {
 	// Data is optional phase-specific data attached to the phase
 	Data *OperationPhaseData `json:"data,omitempty" yaml:"data,omitempty"`
 	// Error is the error that happened during phase execution
-	Error *trace.RawTrace `json:"error"`
+	Error *trace.RawTrace `json:"error,omitempty"`
 }
 
 // OperationPhaseData represents data attached to an operation phase
@@ -103,14 +106,10 @@ type OperationPhaseData struct {
 	InstalledPackage *loc.Locator `json:"installed_package,omitempty" yaml:"installed_package,omitempty"`
 	// RuntimePackage references the update runtime package
 	RuntimePackage *loc.Locator `json:"runtime_package,omitempty" yaml:"runtime_package,omitempty"`
-	// UpdatePlanet indicates whether the planet needs to be updated during bootstrap
-	UpdatePlanet bool `json:"update_planet" yaml:"update_planet"`
 	// ElectionChange describes changes to make to cluster elections
 	ElectionChange *ElectionChange `json:"election_status,omitempty" yaml:"election_status,omitempty"`
 	// Agent is the credentials of the agent that should be logged in
 	Agent *LoginEntry `json:"agent,omitempty" yaml:"agent,omitempty"`
-	// Resources is the Kubernetes resources to create
-	Resources []byte `json:"resources,omitempty" yaml:"resources,omitempty"`
 	// License is the cluster license
 	License []byte `json:"license,omitempty" yaml:"license,omitempty"`
 	// TrustedCluster is the resource data for a trusted cluster representing an Ops Center
@@ -120,8 +119,12 @@ type OperationPhaseData struct {
 	ServiceUser *OSUser `json:"service_user,omitempty" yaml:"service_user,omitempty"`
 	// Data is arbitrary text data to provide to a phase executor
 	Data string `json:"data,omitempty" yaml:"data,omitempty"`
-	// DNSConfig specifies custom cluster DNS configuration
-	DNSConfig *DNSConfig `json:"dns_config,omitempty" yaml:"dns_config,omitempty"`
+	// GarbageCollect specifies configuration specific to garbage collect operation
+	GarbageCollect *GarbageCollectOperationData `json:"garbage_collect,omitempty" yaml:"garbage_collect,omitempty"`
+	// Update specifies configuration specific to update operations
+	Update *UpdateOperationData `json:"update,omitempty" yaml:"garbage_collect,omitempty"`
+	// Install specifies configuration specific to install operation
+	Install *InstallOperationData `json:"install,omitempty" yaml:"install,omitempty"`
 }
 
 // ElectionChange describes changes to make to cluster elections
@@ -130,6 +133,87 @@ type ElectionChange struct {
 	EnableServers []Server `json:"enable_server,omitempty" yaml:"enable_server,omitempty"`
 	// DisableServers is a list of servers that we should disable elections on
 	DisableServers []Server `json:"disable_servers,omitempty" yaml:"disable_servers,omitempty"`
+}
+
+// GarbageCollectOperationData describes configuration for the garbage collect operation
+type GarbageCollectOperationData struct {
+	// RemoteApps lists remote applications known to cluster
+	RemoteApps []Application `json:"remote_apps,omitempty" yaml:"remote_apps,omitempty"`
+}
+
+// UpdateOperationData describes configuration for update operations
+type UpdateOperationData struct {
+	// Servers lists the cluster servers to use for the configuration update step.
+	// The list might be a subset of all cluster servers in case
+	// the operation only operates on a specific part
+	Servers []UpdateServer `json:"updates,omitempty"`
+}
+
+// UpdateServer describes an intent to update runtime/teleport configuration
+// packages on a specific cluster node
+type UpdateServer struct {
+	// Server identifies the server for the configuration package update
+	Server `json:"server"`
+	// Runtime defines the runtime update
+	Runtime RuntimePackage `json:"runtime"`
+	// Teleport defines the optional teleport update
+	Teleport TeleportPackage `json:"teleport"`
+}
+
+// RuntimePackage describes the state of the runtime package during update
+type RuntimePackage struct {
+	// Installed identifies the installed version of the runtime package
+	Installed loc.Locator `json:"installed"`
+	// RuntimeSecretsPackage specifies the new secrets package
+	SecretsPackage *loc.Locator `json:"runtime_secrets_package,omitempty"`
+	// Update describes an update to the runtime package
+	Update *RuntimeUpdate `json:"update,omitempty"`
+}
+
+// RuntimeUpdate describes an update to the runtime package
+type RuntimeUpdate struct {
+	// Package identifies the package to update to.
+	// This can be the same as Installed in which case no update is performed
+	Package loc.Locator `json:"package"`
+	// ConfigPackage identifies the new configuration package
+	ConfigPackage loc.Locator `json:"config_package"`
+}
+
+// TeleportPackage describes the state of the teleport package during update
+type TeleportPackage struct {
+	// Installed identifies the installed version of the teleport package
+	Installed loc.Locator `json:"installed"`
+	// Update describes an update to the runtime package
+	Update *TeleportUpdate `json:"update,omitempty"`
+}
+
+// TeleportUpdate describes an update to the teleport package
+type TeleportUpdate struct {
+	// Package identifies the package to update to.
+	// This can be the same as Installed in which case no update is performed
+	Package loc.Locator `json:"package"`
+	// NodeConfigPackage identifies the new host teleport configuration package
+	NodeConfigPackage loc.Locator `json:"node_config_package"`
+}
+
+// InstallOperationData describes configuration for the install operation
+type InstallOperationData struct {
+	// Env specifies optional cluster environment variables to add
+	Env map[string]string `json:"env,omitempty"`
+	// Config specifies optional cluster configuration resource
+	Config []byte `json:"config,omitempty"`
+	// Resources specifies optional Kubernetes resources to create
+	Resources []byte `json:"resources,omitempty"`
+	// GravityResources specifies optional Gravity resources to create upon successful installation
+	GravityResources []UnknownResource `json:"gravity_resources,omitempty"`
+}
+
+// Application describes an application for the package cleaner
+type Application struct {
+	// Locator references the application package
+	loc.Locator
+	// Manifest is the application's manifest
+	schema.Manifest
 }
 
 // PlanChange represents a single operation plan state change

@@ -31,3 +31,8 @@ fi
 
 # create daemon set with app
 /usr/local/bin/kubectl apply -f /var/lib/gravity/resources/site.yaml
+
+# create monitoring rbac policies if monitoring namespace exists
+if /usr/local/bin/kubectl get namespaces/monitoring > /dev/null 2>&1; then
+    /usr/local/bin/kubectl apply -f /var/lib/gravity/resources/monitoring.yaml
+fi

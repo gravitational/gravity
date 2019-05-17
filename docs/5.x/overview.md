@@ -26,7 +26,7 @@ There are two primary use cases for Gravity:
 1. **On-Premise Deployments of K8s Applications:** Software vendors (including
    SaaS applications) often need to deploy and remotely update complex
    software in private data centers or public cloud accounts, like AWS, owned
-   by their customers.  
+   by their customers.
 
 2. **Reducing Operational Overhead:** Ops teams supporting many distributed
    product teams are often tasked with providing Kubernetes-as-a-Service 
@@ -37,11 +37,27 @@ There are two primary use cases for Gravity:
 For these use cases, Gravity is used to create an Application Bundle that includes the Kubernetes binaries,
 their dependencies, a private Docker registry for autonomous operation, a
 monitoring system and an SSH bastion for remotely managing the cluster either
-via simple SSH or via Kubernetes API. These components are customizeable by the user and additional componenets may be included.
+via simple SSH or via Kubernetes API. These components are customizable by the user and additional components may be included.
 
 In other words, a Gravity Application Bundle is a _self-contained, downloadable
 Kubernetes appliance_ which enables true application portability across any
 public or private infrastructure.
+
+## Components
+
+Gravity consists of these major components:
+
+
+* [gravity](/cluster/#gravity-tool): the CLI tool used to manage the cluster.
+Gravity is only available inside the cluster so you have to either `tsh ssh` into the cluster or use web UI to execute `gravity` commands.
+* **`tele`**: the CLI tool which is used for packaging and publishing applications.
+* **`tsh`**: the SSH client for establishing secure SSH connections between the
+  Ops Center and the application instances running behind firewalls on private clouds.
+  `tsh` is a part of [Gravitational Teleport](http://gravitational.com/teleport/),
+  a free open source SSH server developed, maintained and supported by Gravitational.
+  It can be used independently from Gravity.
+* [Ops Center](/opscenter): the Web UI for managing published applications and remotely
+  accessing private cloud deployments.
 
 ## Cluster Lifecycle
 

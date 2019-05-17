@@ -39,9 +39,25 @@ func (g *Application) LocalEnv(cmd string) (*localenv.LocalEnvironment, error) {
 	return g.getEnv(stateDir)
 }
 
-// UpgradeEnv returns an instance of the local environment that is used
-// only for upgrades
-func (g *Application) UpgradeEnv() (*localenv.LocalEnvironment, error) {
+// NewLocalEnv returns an instance of a local environment.
+func (g *Application) NewLocalEnv() (*localenv.LocalEnvironment, error) {
+	stateDir := *g.StateDir
+	// most commands (with the exception of update or join/expand)
+	// use the state directory set by original install/join command,
+	// unless it was specified explicitly
+	if stateDir == "" {
+		dir, err := state.GetStateDir()
+		if err != nil {
+			return nil, trace.Wrap(err)
+		}
+		stateDir = filepath.Join(dir, defaults.LocalDir)
+	}
+	return g.getEnv(stateDir)
+}
+
+// NewUpdateEnv returns an instance of the local environment that is used
+// only for updates
+func (g *Application) NewUpdateEnv() (*localenv.LocalEnvironment, error) {
 	dir, err := state.GetStateDir()
 	if err != nil {
 		return nil, trace.Wrap(err)
@@ -49,8 +65,8 @@ func (g *Application) UpgradeEnv() (*localenv.LocalEnvironment, error) {
 	return g.getEnv(state.GravityUpdateDir(dir))
 }
 
-// JoinEnv returns an instance of local environment where join-specific data is stored
-func (g *Application) JoinEnv() (*localenv.LocalEnvironment, error) {
+// NewJoinEnv returns an instance of local environment where join-specific data is stored
+func (g *Application) NewJoinEnv() (*localenv.LocalEnvironment, error) {
 	err := os.MkdirAll(defaults.GravityJoinDir, defaults.SharedDirMask)
 	if err != nil {
 		return nil, trace.ConvertSystemError(err)
@@ -127,17 +143,41 @@ func (g *Application) isJoinCommand(cmd string) bool {
 	return false
 }
 
-// isUpgradeCommand returns true if the specified commans is
+// isUpdateCommand returns true if the specified commans is
 // an upgrade related command
-func (g *Application) isUpgradeCommand(cmd string) bool {
+func (g *Application) isUpdateCommand(cmd string) bool {
 	switch cmd {
 	case g.PlanCmd.FullCommand(),
+		g.PlanDisplayCmd.FullCommand(),
+		g.PlanExecuteCmd.FullCommand(),
+		g.PlanRollbackCmd.FullCommand(),
+		g.PlanResumeCmd.FullCommand(),
+		g.PlanCompleteCmd.FullCommand(),
+		g.UpdatePlanInitCmd.FullCommand(),
 		g.UpdateTriggerCmd.FullCommand(),
-		g.RollbackCmd.FullCommand(),
 		g.UpgradeCmd.FullCommand():
 		return true
 	case g.RPCAgentRunCmd.FullCommand():
 		return len(*g.RPCAgentRunCmd.Args) > 0
+	case g.RPCAgentDeployCmd.FullCommand():
+		return len(*g.RPCAgentDeployCmd.LeaderArgs) > 0 ||
+			len(*g.RPCAgentDeployCmd.NodeArgs) > 0
+	}
+	return false
+}
+
+// isExpandCommand returns true if the specified commans is
+// expand-related command
+func (g *Application) isExpandCommand(cmd string) bool {
+	switch cmd {
+	case g.JoinCmd.FullCommand(), g.AutoJoinCmd.FullCommand(),
+		g.PlanCmd.FullCommand(),
+		g.PlanDisplayCmd.FullCommand(),
+		g.PlanExecuteCmd.FullCommand(),
+		g.PlanRollbackCmd.FullCommand(),
+		g.PlanCompleteCmd.FullCommand(),
+		g.PlanResumeCmd.FullCommand():
+		return true
 	}
 	return false
 }

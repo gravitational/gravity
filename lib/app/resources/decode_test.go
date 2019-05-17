@@ -18,10 +18,15 @@ package resources
 
 import (
 	"bytes"
+	"fmt"
+	"sort"
 	"strings"
 	"testing"
 
+	"github.com/gravitational/gravity/lib/compare"
+
 	. "gopkg.in/check.v1"
+	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/util/yaml"
 )
 
@@ -62,11 +67,18 @@ func (_ *ResourceCodecSuite) TestDecodesAndEncodes(c *C) {
 func (*ResourceCodecSuite) TestDecodeUnrecognizedResource(c *C) {
 	r := strings.NewReader(unrecognizedResource)
 
-	_, err := Decode(r)
-	c.Assert(err, NotNil)
-
-	_, err = Decode(r, SkipUnrecognized())
+	resources, err := Decode(r)
 	c.Assert(err, IsNil)
+	c.Assert(headers(ResourceFiles{{Resource: *resources}}), compare.DeepEquals, []runtime.TypeMeta{
+		{
+			Kind:       "CronTab",
+			APIVersion: "stable.example.com/v1",
+		},
+		{
+			Kind:       "CustomResourceDefinition",
+			APIVersion: "apiextensions.k8s.io/v1beta1",
+		},
+	})
 }
 
 func (_ *ResourceCodecSuite) TestEncodesInProperFormat(c *C) {
@@ -90,6 +102,26 @@ func (_ *ResourceCodecSuite) TestEncodesInProperFormat(c *C) {
 		_, _, isJSON := yaml.GuessJSONStream(buf, bufferSize)
 		c.Assert(testCase.isJSON, Equals, isJSON)
 	}
+}
+
+func headers(files ResourceFiles) (metas []runtime.TypeMeta) {
+	for _, file := range files {
+		for _, o := range file.Objects {
+			gvk := o.GetObjectKind().GroupVersionKind()
+			meta := runtime.TypeMeta{
+				APIVersion: fmt.Sprintf("%v/%v", gvk.Group, gvk.Version),
+				Kind:       gvk.Kind,
+			}
+			if gvk.Group == "" {
+				meta.APIVersion = gvk.Version
+			}
+			metas = append(metas, meta)
+		}
+	}
+	sort.Slice(metas, func(i, j int) bool {
+		return metas[i].Kind < metas[j].Kind
+	})
+	return metas
 }
 
 const resourcesYAML = `

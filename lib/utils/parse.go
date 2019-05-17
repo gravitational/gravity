@@ -23,6 +23,7 @@ import (
 	"fmt"
 	"io"
 	"net"
+	"net/http"
 	"net/url"
 	"os"
 	"regexp"
@@ -86,6 +87,12 @@ func URLSplitHostPort(in, defaultPort string) (string, string, error) {
 	return host, port, nil
 }
 
+// ExtractHost returns only the host part from the provided address.
+func ExtractHost(addr string) string {
+	host, _ := SplitHostPort(addr, "")
+	return host
+}
+
 // SplitHostPort extracts host name without port from host
 func SplitHostPort(in, defaultPort string) (host string, port string) {
 	parts := strings.SplitN(in, ":", 2)
@@ -93,6 +100,24 @@ func SplitHostPort(in, defaultPort string) (host string, port string) {
 		return parts[0], parts[1]
 	}
 	return parts[0], defaultPort
+}
+
+// EnsurePort makes sure that the provided address includes a port and adds
+// the specified default one if it does not.
+func EnsurePort(address, defaultPort string) string {
+	if _, _, err := net.SplitHostPort(address); err == nil {
+		return address
+	}
+	return net.JoinHostPort(address, defaultPort)
+}
+
+// Hosts returns a list of hosts from the provided host:port addresses
+func Hosts(addrs []string) (hosts []string) {
+	for _, addr := range addrs {
+		host, _ := SplitHostPort(addr, "")
+		hosts = append(hosts, host)
+	}
+	return hosts
 }
 
 // ParseHostPort parses the provided address as host:port
@@ -444,4 +469,18 @@ func ParseProxyAddr(proxyAddr, defaultWebPort, defaultSSHPort string) (host stri
 	}
 
 	return "", "", "", trace.BadParameter("unable to parse port: %v", port)
+}
+
+// PasseBoolFlag extracts boolean parameter of the specified name from the
+// provided request's query string, or returns default.
+func ParseBoolFlag(r *http.Request, name string, def bool) (bool, error) {
+	sValue := r.URL.Query().Get(name)
+	if sValue == "" {
+		return def, nil
+	}
+	bValue, err := strconv.ParseBool(sValue)
+	if err != nil {
+		return false, trace.Wrap(err)
+	}
+	return bValue, nil
 }

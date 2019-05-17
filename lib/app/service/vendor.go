@@ -707,7 +707,7 @@ func resourceFromChart(path string) (*resources.Resource, error) {
 		return nil, trace.Wrap(err)
 	}
 	log.WithField("path", path).Debug(string(out))
-	return resources.Decode(bytes.NewReader(out), resources.SkipUnrecognized())
+	return resources.Decode(bytes.NewReader(out))
 }
 
 // resourcesFromPath collects resource files in root for further processing.
@@ -752,6 +752,14 @@ func resourcesFromPath(root string, includePatterns []string, ignorePatterns []s
 				return trace.Wrap(err)
 			}
 			chartResources = append(chartResources, resources.NewResourceFileObject(path, *resource))
+			// Chart dir can also contain manifest file.
+			if _, err := utils.StatFile(filepath.Join(path, defaults.ManifestFileName)); err == nil {
+				resourceFile, err := resources.NewResourceFile(filepath.Join(path, defaults.ManifestFileName))
+				if err != nil {
+					return trace.Wrap(err)
+				}
+				result = append(result, *resourceFile)
+			}
 			return filepath.SkipDir
 		}
 

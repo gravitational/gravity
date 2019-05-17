@@ -110,7 +110,7 @@ func (s *AgentSuite) SetUpTest(c *C) {
 	})
 	c.Assert(err, IsNil)
 
-	opKey, err := s.installer.CreateSiteInstallOperation(ops.CreateSiteInstallOperationRequest{
+	opKey, err := s.installer.CreateSiteInstallOperation(context.TODO(), ops.CreateSiteInstallOperationRequest{
 		AccountID:   acct.ID,
 		SiteDomain:  s.cluster.Domain,
 		Variables:   storage.OperationVariables{},

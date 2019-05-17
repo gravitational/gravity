@@ -294,7 +294,7 @@ func (s *AuthClient) RegisterUsingToken(req auth.RegisterUsingTokenRequest) (*au
 func (s *AuthClient) RegisterNewAuthServer(token string) error {
 	return nil
 }
-func (s *AuthClient) EmitAuditEvent(eventType string, fields events.EventFields) error {
+func (s *AuthClient) EmitAuditEvent(event events.Event, fields events.EventFields) error {
 	return nil
 }
 func (s *AuthClient) PostSessionSlice(events.SessionSlice) error {
@@ -398,4 +398,7 @@ func (s *AuthClient) RotateExternalCertAuthority(ca services.CertAuthority) erro
 }
 func (c *AuthClient) UploadSessionRecording(r events.SessionRecording) error {
 	return nil
+}
+func (c *AuthClient) GetClusterCACert() (*auth.LocalCAResponse, error) {
+	return nil, nil
 }

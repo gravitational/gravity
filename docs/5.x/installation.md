@@ -107,7 +107,7 @@ Flag      | Description
 `--cluster` | _(Optional)_ Name of the cluster. Auto-generated if not set.
 `--cloud-provider` | _(Optional)_ Enable cloud provider integration: `generic` (no cloud provider integration), `aws` or `gce`. Autodetected if not set.
 `--flavor` | _(Optional)_ Application flavor. See [Application Manifest](pack/#application-manifest) for details.
-`--config` | _(Optional)_ File with Kubernetes resources to create in the cluster during installation.
+`--config` | _(Optional)_ File with Kubernetes/Gravity resources to create in the cluster during installation.
 `--pod-network-cidr` | _(Optional)_ CIDR range Kubernetes will be allocating node subnets and pod IPs from. Must be a minimum of /16 so Kubernetes is able to allocate /24 to each node. Defaults to `10.244.0.0/16`.
 `--service-cidr` | _(Optional)_ CIDR range Kubernetes will be allocating service IPs from. Defaults to `10.100.0.0/16`.
 `--wizard` | _(Optional)_ Start the installation wizard.
@@ -242,7 +242,7 @@ overlay network to work properly.
 * Instances must be assigned a [network tag](https://cloud.google.com/vpc/docs/add-remove-network-tags)
 matching the name of the cluster. It is required to ensure that created load
 balancers discover proper instances.
-* Cloud API access scopes must include RW permissions for Compute Engine.
+* Cloud API access scopes must include read/write permissions for Compute Engine.
 
 Once the nodes have been properly configured, copy the installer tarball and
 launch installation as described above:

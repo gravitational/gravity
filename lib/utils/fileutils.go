@@ -105,6 +105,19 @@ func ReadPath(path string) ([]byte, error) {
 	return bytes, nil
 }
 
+// ReaderForPath returns a reader for file at given path
+func ReaderForPath(path string) (io.ReadCloser, error) {
+	abs, err := NormalizePath(path)
+	if err != nil {
+		return nil, trace.Wrap(err)
+	}
+	f, err := os.Open(abs)
+	if err != nil {
+		return nil, trace.ConvertSystemError(err)
+	}
+	return f, nil
+}
+
 // StatDir stats directory, returns error if file exists, but not a directory
 func StatDir(path string) (os.FileInfo, error) {
 	fi, err := os.Stat(path)
@@ -163,6 +176,7 @@ func CopyDirContents(fromDir, toDir string) error {
 	if err != nil {
 		return trace.Wrap(err)
 	}
+	fromDir = filepath.Clean(fromDir)
 	err = filepath.Walk(fromDir, func(path string, fi os.FileInfo, err error) error {
 		if err != nil {
 			return trace.Wrap(err)

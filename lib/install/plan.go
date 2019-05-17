@@ -72,6 +72,7 @@ func (i *Installer) GetOperationPlan(cluster ops.Site, op ops.SiteOperation) (*s
 		AccountID:     op.AccountID,
 		ClusterName:   op.SiteDomain,
 		Servers:       append(builder.Masters, builder.Nodes...),
+		DNSConfig:     cluster.DNSConfig,
 	}
 
 	switch i.Mode {
@@ -89,11 +90,15 @@ func (i *Installer) GetOperationPlan(cluster ops.Site, op ops.SiteOperation) (*s
 	builder.AddPullPhase(plan)
 
 	// install system software on master nodes
-	builder.AddMastersPhase(plan)
+	if err := builder.AddMastersPhase(plan); err != nil {
+		return nil, trace.Wrap(err)
+	}
 
 	// (optional) install system software on regular nodes
 	if len(builder.Nodes) > 0 {
-		builder.AddNodesPhase(plan)
+		if err := builder.AddNodesPhase(plan); err != nil {
+			return nil, trace.Wrap(err)
+		}
 	}
 
 	// perform post system install tasks such as waiting for planet
@@ -104,9 +109,7 @@ func (i *Installer) GetOperationPlan(cluster ops.Site, op ops.SiteOperation) (*s
 
 	// if installing a regular app, the resources might have been
 	// provided by a user
-	if len(i.Cluster.Resources) != 0 {
-		builder.AddResourcesPhase(plan, i.Cluster.Resources)
-	}
+	builder.AddResourcesPhase(plan)
 
 	// export applications to registries
 	builder.AddExportPhase(plan)
@@ -136,6 +139,9 @@ func (i *Installer) GetOperationPlan(cluster ops.Site, op ops.SiteOperation) (*s
 
 	// re-enable planet leader elections
 	builder.AddEnableElectionPhase(plan)
+
+	// Add a phase to create optional Gravity resources upon successful installation
+	builder.AddGravityResourcesPhase(plan)
 
 	return plan, nil
 }

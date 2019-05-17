@@ -66,10 +66,20 @@ type Application struct {
 	LeaveCmd LeaveCmd
 	// RemoveCmd removes the specified node from the cluster
 	RemoveCmd RemoveCmd
-	// PlanCmd displays current operation plan
+	// PlanCmd manages an operation plan
 	PlanCmd PlanCmd
-	// RollbackCmd rolls back the specified operation plan phase
-	RollbackCmd RollbackCmd
+	// UpdatePlanInitCmd creates a new update operation plan
+	UpdatePlanInitCmd UpdatePlanInitCmd
+	// PlanDisplayCmd displays plan of an operation
+	PlanDisplayCmd PlanDisplayCmd
+	// PlanExecuteCmd executes a phase of an active operation
+	PlanExecuteCmd PlanExecuteCmd
+	// PlanRollbackCmd rolls back a phase of an active operation
+	PlanRollbackCmd PlanRollbackCmd
+	// PlanResumeCmd resumes active operation
+	PlanResumeCmd PlanResumeCmd
+	// PlanCompleteCmd completes the operation plan
+	PlanCompleteCmd PlanCompleteCmd
 	// UpdateCmd combines app update related commands
 	UpdateCmd UpdateCmd
 	// UpdateCheckCmd checks if a new app version is available
@@ -114,6 +124,8 @@ type Application struct {
 	AppSearchCmd AppSearchCmd
 	// AppRebuildIndexCmd rebuilds Helm chart repository index.
 	AppRebuildIndexCmd AppRebuildIndexCmd
+	// AppIndexCmd generates Helm chart repository index file.
+	AppIndexCmd AppIndexCmd
 	// AppImportCmd imports an app into cluster
 	AppImportCmd AppImportCmd
 	// AppExportCmd exports specified app into registry
@@ -299,6 +311,8 @@ type Application struct {
 	ResourceRemoveCmd ResourceRemoveCmd
 	// ResourceGetCmd shows specified resource
 	ResourceGetCmd ResourceGetCmd
+	// TopCmd displays cluster metrics in terminal
+	TopCmd TopCmd
 }
 
 // VersionCmd displays the binary version
@@ -415,8 +429,6 @@ type JoinCmd struct {
 	Resume *bool
 	// Force forces phase execution
 	Force *bool
-	// Complete marks join operation complete
-	Complete *bool
 	// OperationID is the ID of the operation created via UI
 	OperationID *string
 }
@@ -456,17 +468,56 @@ type RemoveCmd struct {
 	Confirm *bool
 }
 
-// PlanCmd displays operation plan
+// PlanCmd manages an operation plan
 type PlanCmd struct {
 	*kingpin.CmdClause
-	// Init initializes the plan
-	Init *bool
-	// Sync the operation plan from etcd to local
-	Sync *bool
-	// Output is output format
-	Output *constants.Format
 	// OperationID is optional ID of operation to show the plan for
 	OperationID *string
+	// SkipVersionCheck suppresses version mismatch errors
+	SkipVersionCheck *bool
+}
+
+// PlanDisplayCmd displays plan of a specific operation
+type PlanDisplayCmd struct {
+	*kingpin.CmdClause
+	// Output is output format
+	Output *constants.Format
+}
+
+// PlanExecuteCmd executes a phase of an active operation
+type PlanExecuteCmd struct {
+	*kingpin.CmdClause
+	// Phase is the phase to execute
+	Phase *string
+	// Force forces execution of the given phase
+	Force *bool
+	// PhaseTimeout is the execution timeout
+	PhaseTimeout *time.Duration
+}
+
+// PlanRollbackCmd rolls back a phase of an active operation
+type PlanRollbackCmd struct {
+	*kingpin.CmdClause
+	// Phase is the phase to rollback
+	Phase *string
+	// Force forces rollback of the phase given in Phase
+	Force *bool
+	// PhaseTimeout is the rollback timeout
+	PhaseTimeout *time.Duration
+}
+
+// PlanResumeCmd resumes active operation
+type PlanResumeCmd struct {
+	*kingpin.CmdClause
+	// Force forces rollback of the phase given in Phase
+	Force *bool
+	// PhaseTimeout is the rollback timeout
+	PhaseTimeout *time.Duration
+}
+
+// PlanCompleteCmd completes the operation plan
+type PlanCompleteCmd struct {
+	*kingpin.CmdClause
 }
 
 // InstallPlanCmd combines subcommands for install plan
@@ -493,19 +544,6 @@ type UpgradePlanDisplayCmd struct {
 	Output *constants.Format
 }
 
-// RollbackCmd rolls back the specified operation plan phase
-type RollbackCmd struct {
-	*kingpin.CmdClause
-	// Phase is the phase to rollback
-	Phase *string
-	// PhaseTimeout is the rollback timeout
-	PhaseTimeout *time.Duration
-	// Force forces rollback
-	Force *bool
-	// SkipVersionCheck suppresses version mismatch errors
-	SkipVersionCheck *bool
-}
-
 // UpdateCmd combines update related subcommands
 type UpdateCmd struct {
 	*kingpin.CmdClause
@@ -525,6 +563,11 @@ type UpdateTriggerCmd struct {
 	App *string
 	// Manual starts operation in manual mode
 	Manual *bool
+	// Block controls whether to wait for the operation to finish.
+	// If false, this enables to run the operation unattended
+	Block *bool
+	// SkipVersionCheck suppresses version mismatch errors
+	SkipVersionCheck *bool
 }
 
 // UpdateUploadCmd uploads new app version to local cluster
@@ -554,6 +597,11 @@ type UpdateSystemCmd struct {
 	RuntimePackage *loc.Locator
 }
 
+// UpdatePlanInitCmd creates a new update operation plan
+type UpdatePlanInitCmd struct {
+	*kingpin.CmdClause
+}
+
 // UpgradeCmd launches app upgrade
 type UpgradeCmd struct {
 	*kingpin.CmdClause
@@ -561,14 +609,15 @@ type UpgradeCmd struct {
 	App *string
 	// Manual starts upgrade in manual mode
 	Manual *bool
+	// Block controls whether to wait for the operation to finish.
+	// If false, this enables to run the operation unattended
+	Block *bool
 	// Phase is upgrade operation phase to execute
 	Phase *string
 	// Timeout is phase execution timeout
 	Timeout *time.Duration
 	// Force forces phase execution
 	Force *bool
-	// Complete marks upgrade as complete
-	Complete *bool
 	// Resume resumes failed upgrade
 	Resume *bool
 	// SkipVersionCheck suppresses version mismatch errors
@@ -659,6 +708,8 @@ type AppInstallCmd struct {
 // AppListCmd shows all application releases.
 type AppListCmd struct {
 	*kingpin.CmdClause
+	// All displays releases with all possible statuses.
+	All *bool
 }
 
 // AppUpgradeCmd upgrades a release.
@@ -734,6 +785,13 @@ type AppSearchCmd struct {
 // AppRebuildIndexCmd rebuilds Helm chart repository index.
 type AppRebuildIndexCmd struct {
 	*kingpin.CmdClause
+}
+
+// AppIndexCmd generates Helm chart repository index file.
+type AppIndexCmd struct {
+	*kingpin.CmdClause
+	// MergeInto is the index file to merge generated index file into.
+	MergeInto *string
 }
 
 // AppImportCmd imports app into cluster
@@ -1220,8 +1278,10 @@ type RPCAgentCmd struct {
 // RPCAgentDeployCmd deploys RPC agents on cluster nodes
 type RPCAgentDeployCmd struct {
 	*kingpin.CmdClause
-	// Args is additional arguments to the agent
-	Args *[]string
+	// LeaderArgs is additional arguments to the leader agent
+	LeaderArgs *string
+	// NodeArgs is additional arguments to the regular agent
+	NodeArgs *string
 }
 
 // RPCAgentShutdownCmd requests RPC agents to shut down
@@ -1484,19 +1544,11 @@ type SystemGCRegistryCmd struct {
 // GarbageCollectCmd prunes unused cluster resources
 type GarbageCollectCmd struct {
 	*kingpin.CmdClause
-	// Phase is the specific phase to run
-	Phase *string
-	// PhaseTimeout is the phase execution timeout
-	PhaseTimeout *time.Duration
-	// Resume is whether to resume a failed garbage collection
-	Resume *bool
 	// Manual is whether the operation is not executed automatically
 	Manual *bool
 	// Confirmed is whether the user has confirmed the removal of custom docker
 	// images
 	Confirmed *bool
-	// Force forces phase execution
-	Force *bool
 }
 
 // GarbageCollectPlanCmd displays the plan of the garbage collection operation
@@ -1560,6 +1612,12 @@ type ResourceCreateCmd struct {
 	Upsert *bool
 	// User is resource owner
 	User *string
+	// Manual controls whether an operation is created in manual mode.
+	// If resource is managed with the help of a cluster operation,
+	// setting this to true will not cause the operation to start automatically
+	Manual *bool
+	// Confirmed suppresses confirmation prompt
+	Confirmed *bool
 }
 
 // ResourceRemoveCmd removes specified resource
@@ -1573,6 +1631,12 @@ type ResourceRemoveCmd struct {
 	Force *bool
 	// User is resource owner
 	User *string
+	// Manual controls whether an operation is created in manual mode.
+	// If resource is managed with the help of a cluster operation,
+	// setting this to true will not cause the operation to start automatically
+	Manual *bool
+	// Confirmed suppresses confirmation prompt
+	Confirmed *bool
 }
 
 // ResourceGetCmd shows specified resource
@@ -1588,4 +1652,13 @@ type ResourceGetCmd struct {
 	WithSecrets *bool
 	// User is resource owner
 	User *string
+}
+
+// TopCmd displays cluster metrics in terminal.
+type TopCmd struct {
+	*kingpin.CmdClause
+	// Interval is the interval to display metrics for.
+	Interval *time.Duration
+	// Step is the max time b/w two datapoints.
+	Step *time.Duration
 }

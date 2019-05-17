@@ -2,7 +2,7 @@ apiVersion: batch/v1
 kind: Job
 metadata:
   name: cluster-deprovision
-  namespace: default
+  namespace: kube-system
 spec:
   activeDeadlineSeconds: 240
   template:

@@ -17,6 +17,7 @@ limitations under the License.
 package opshandler
 
 import (
+	"context"
 	"net/http/httptest"
 	"os"
 	"strconv"
@@ -152,7 +153,7 @@ func (s *OpsHandlerSuite) TestGithubConnector(c *C) {
 	ttl := s.clock.UtcNow().Add(24 * time.Hour)
 	connector.SetExpiry(ttl)
 
-	err = s.client.UpsertGithubConnector(key, connector)
+	err = s.client.UpsertGithubConnector(context.TODO(), key, connector)
 	c.Assert(err, IsNil)
 
 	out, err := s.client.GetGithubConnector(key, connector.GetName(), withSecrets)
@@ -168,7 +169,7 @@ func (s *OpsHandlerSuite) TestGithubConnector(c *C) {
 	out, err = s.client.GetGithubConnector(key, connector.GetName(), !withSecrets)
 	compare.DeepCompare(c, out, connectorWithoutSecrets)
 
-	err = s.client.DeleteGithubConnector(key, connector.GetName())
+	err = s.client.DeleteGithubConnector(context.TODO(), key, connector.GetName())
 	c.Assert(err, IsNil)
 
 	_, err = s.client.GetGithubConnector(key, connector.GetName(), withSecrets)
@@ -185,7 +186,7 @@ func (s *OpsHandlerSuite) TestUser(c *C) {
 	ttl := time.Now().UTC().Add(24 * time.Hour)
 	user.SetExpiry(ttl)
 
-	err := s.client.UpsertUser(key, user)
+	err := s.client.UpsertUser(context.TODO(), key, user)
 	c.Assert(err, IsNil)
 
 	out, err := s.client.GetUser(key, user.GetName())
@@ -199,7 +200,7 @@ func (s *OpsHandlerSuite) TestUser(c *C) {
 
 	user.SetRoles([]string{role.GetName()})
 
-	err = s.client.UpsertUser(key, user)
+	err = s.client.UpsertUser(context.TODO(), key, user)
 	c.Assert(err, IsNil)
 
 	out, err = s.client.GetUser(key, user.GetName())
@@ -216,7 +217,7 @@ func (s *OpsHandlerSuite) TestUser(c *C) {
 	c.Assert(ok, Equals, true)
 	c.Assert(user.Equals(userout), Equals, true, Commentf(compare.Diff(user, userout)))
 
-	err = s.client.DeleteUser(key, user.GetName())
+	err = s.client.DeleteUser(context.TODO(), key, user.GetName())
 	c.Assert(err, IsNil)
 
 	_, err = s.client.GetUser(key, user.GetName())
@@ -234,7 +235,7 @@ func (s *OpsHandlerSuite) TestUserWithNonexistentRole(c *C) {
 
 	user.SetRoles([]string{"nothere"})
 
-	err := s.client.UpsertUser(key, user)
+	err := s.client.UpsertUser(context.TODO(), key, user)
 	c.Assert(trace.IsNotFound(err), Equals, true, Commentf("expected not found, got %T, %v", err, err))
 }
 
@@ -249,12 +250,12 @@ func (s *OpsHandlerSuite) TestLogForwarder(c *C) {
 	forwarder1 := storage.NewLogForwarder("f1", "127.0.0.1:7070", "tcp")
 	forwarder2 := storage.NewLogForwarder("f2", "127.0.0.1:8080", "udp")
 	for _, f := range []storage.LogForwarder{forwarder1, forwarder2} {
-		err := s.client.CreateLogForwarder(key, f)
+		err := s.client.CreateLogForwarder(context.TODO(), key, f)
 		c.Assert(err, IsNil)
 	}
 	s.checkForwarders(c, key, []storage.LogForwarder{forwarder1, forwarder2})
 
-	err := s.client.DeleteLogForwarder(key, forwarder1.GetName())
+	err := s.client.DeleteLogForwarder(context.TODO(), key, forwarder1.GetName())
 	c.Assert(err, IsNil)
 	s.checkForwarders(c, key, []storage.LogForwarder{forwarder2})
 
@@ -290,12 +291,12 @@ func (s *OpsHandlerSuite) TestToken(c *C) {
 	ttl := time.Now().UTC().Add(24 * time.Hour)
 	user.SetExpiry(ttl)
 
-	err := s.client.UpsertUser(key, user)
+	err := s.client.UpsertUser(context.TODO(), key, user)
 	c.Assert(err, IsNil)
 
 	token := storage.NewToken("secret", user.GetName())
 
-	_, err = s.client.CreateAPIKey(ops.NewAPIKeyRequest{
+	_, err = s.client.CreateAPIKey(context.TODO(), ops.NewAPIKeyRequest{
 		Token:     token.GetName(),
 		UserEmail: token.GetUser(),
 	})
@@ -314,7 +315,7 @@ func (s *OpsHandlerSuite) TestToken(c *C) {
 	}
 	c.Assert(found, Equals, true)
 
-	err = s.client.DeleteAPIKey(user.GetName(), token.GetName())
+	err = s.client.DeleteAPIKey(context.TODO(), user.GetName(), token.GetName())
 	c.Assert(err, IsNil)
 
 	keys, err = s.client.GetAPIKeys(user.GetName())
@@ -344,7 +345,7 @@ func (s *OpsHandlerSuite) TestClusterAuthConfiguration(c *C) {
 	})
 	c.Assert(err, IsNil)
 
-	err = s.client.UpsertClusterAuthPreference(key, cap)
+	err = s.client.UpsertClusterAuthPreference(context.TODO(), key, cap)
 	c.Assert(err, IsNil)
 
 	// read

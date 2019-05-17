@@ -1,5 +1,5 @@
 /*
-Copyright 2015 Gravitational, Inc.
+Copyright 2015-2019 Gravitational, Inc.
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -101,7 +101,6 @@ func NewAuthServer(cfg *InitConfig, opts ...AuthServerOption) (*AuthServer, erro
 		githubClients:        make(map[string]*githubClient),
 		cancelFunc:           cancelFunc,
 		closeCtx:             closeCtx,
-		kubeconfigPath:       cfg.KubeconfigPath,
 	}
 	for _, o := range opts {
 		o(&as)
@@ -153,9 +152,6 @@ type AuthServer struct {
 
 	// cipherSuites is a list of ciphersuites that the auth server supports.
 	cipherSuites []uint16
-
-	// kubeconfigPath is a path to PEM encoded kubernetes CA certificate
-	kubeconfigPath string
 }
 
 // runPeriodicOperations runs some periodic bookkeeping operations
@@ -223,6 +219,38 @@ func (a *AuthServer) GetClusterName() (services.ClusterName, error) {
 // Also known as "cluster name"
 func (a *AuthServer) GetDomainName() (string, error) {
 	return a.clusterName.GetClusterName(), nil
+}
+
+// LocalCAResponse contains PEM-encoded local CAs.
+type LocalCAResponse struct {
+	// TLSCA is the PEM-encoded TLS certificate authority.
+	TLSCA []byte `json:"tls_ca"`
+}
+
+// GetClusterCACert returns the CAs for the local cluster without signing keys.
+func (a *AuthServer) GetClusterCACert() (*LocalCAResponse, error) {
+	// Extract the TLS CA for this cluster.
+	hostCA, err := a.Trust.GetCertAuthority(services.CertAuthID{
+		Type:       services.HostCA,
+		DomainName: a.clusterName.GetClusterName(),
+	}, false)
+	if err != nil {
+		return nil, trace.Wrap(err)
+	}
+	tlsCA, err := hostCA.TLSCA()
+	if err != nil {
+		return nil, trace.Wrap(err)
+	}
+
+	// Marshal to PEM bytes to send the CA over the wire.
+	pemBytes, err := tlsca.MarshalCertificatePEM(tlsCA.Cert)
+	if err != nil {
+		return nil, trace.Wrap(err)
+	}
+
+	return &LocalCAResponse{
+		TLSCA: pemBytes,
+	}, nil
 }
 
 // GenerateHostCert uses the private key of the CA to sign the public key of the host
@@ -412,7 +440,7 @@ func (s *AuthServer) generateUserCert(req certRequest) (*certs, error) {
 		Clock:     s.clock,
 		PublicKey: cryptoPubKey,
 		Subject:   identity.Subject(),
-		NotAfter:  s.clock.Now().UTC().Add(req.ttl),
+		NotAfter:  s.clock.Now().UTC().Add(sessionTTL),
 	}
 	tlsCert, err := tlsAuthority.GenerateCertificate(certRequest)
 	if err != nil {
@@ -660,19 +688,36 @@ func (s *AuthServer) GenerateToken(req GenerateTokenRequest) (string, error) {
 }
 
 // ClientCertPool returns trusted x509 cerificate authority pool
-func (s *AuthServer) ClientCertPool() (*x509.CertPool, error) {
+func (s *AuthServer) ClientCertPool(clusterName string) (*x509.CertPool, error) {
 	pool := x509.NewCertPool()
 	var authorities []services.CertAuthority
-	hostCAs, err := s.GetCertAuthorities(services.HostCA, false, services.SkipValidation())
-	if err != nil {
-		return nil, trace.Wrap(err)
+	if clusterName == "" {
+		hostCAs, err := s.GetCertAuthorities(services.HostCA, false, services.SkipValidation())
+		if err != nil {
+			return nil, trace.Wrap(err)
+		}
+		userCAs, err := s.GetCertAuthorities(services.UserCA, false, services.SkipValidation())
+		if err != nil {
+			return nil, trace.Wrap(err)
+		}
+		authorities = append(authorities, hostCAs...)
+		authorities = append(authorities, userCAs...)
+	} else {
+		hostCA, err := s.GetCertAuthority(
+			services.CertAuthID{Type: services.HostCA, DomainName: clusterName},
+			false, services.SkipValidation())
+		if err != nil {
+			return nil, trace.Wrap(err)
+		}
+		userCA, err := s.GetCertAuthority(
+			services.CertAuthID{Type: services.UserCA, DomainName: clusterName},
+			false, services.SkipValidation())
+		if err != nil {
+			return nil, trace.Wrap(err)
+		}
+		authorities = append(authorities, hostCA)
+		authorities = append(authorities, userCA)
 	}
-	userCAs, err := s.GetCertAuthorities(services.UserCA, false, services.SkipValidation())
-	if err != nil {
-		return nil, trace.Wrap(err)
-	}
-	authorities = append(authorities, hostCAs...)
-	authorities = append(authorities, userCAs...)
 
 	for _, auth := range authorities {
 		for _, keyPair := range auth.GetTLSKeyPairs() {
@@ -702,6 +747,9 @@ type GenerateServerKeysRequest struct {
 	// AdditionalPrincipals is a list of additional principals
 	// to include in OpenSSH and X509 certificates
 	AdditionalPrincipals []string `json:"additional_principals"`
+	// DNSNames is a list of DNS names
+	// to include in the x509 client certificate
+	DNSNames []string `json:"dns_names"`
 	// PublicTLSKey is a PEM encoded public key
 	// used for TLS setup
 	PublicTLSKey []byte `json:"public_tls_key"`
@@ -805,13 +853,17 @@ func (s *AuthServer) GenerateServerKeys(req GenerateServerKeysRequest) (*PackedK
 	// certificate as one of the DNS Names. It is not known in advance,
 	// that is why there is a default one for all certificates
 	if req.Roles.Include(teleport.RoleAuth) || req.Roles.Include(teleport.RoleAdmin) {
-		certRequest.DNSNames = append(certRequest.DNSNames, teleport.APIDomain)
+		certRequest.DNSNames = append(certRequest.DNSNames, "*."+teleport.APIDomain, teleport.APIDomain)
+	}
+	// Unlike additional pricinpals, DNS Names is x509 specific
+	// and is limited to auth servers and proxies
+	if req.Roles.Include(teleport.RoleAuth) || req.Roles.Include(teleport.RoleAdmin) || req.Roles.Include(teleport.RoleProxy) {
+		certRequest.DNSNames = append(certRequest.DNSNames, req.DNSNames...)
 	}
 	hostTLSCert, err := tlsAuthority.GenerateCertificate(certRequest)
 	if err != nil {
 		return nil, trace.Wrap(err)
 	}
-
 	return &PackedKeys{
 		Key:        privateKeyPEM,
 		Cert:       hostSSHCert,
@@ -879,6 +931,8 @@ type RegisterUsingTokenRequest struct {
 	Token string `json:"token"`
 	// AdditionalPrincipals is a list of additional principals
 	AdditionalPrincipals []string `json:"additional_principals"`
+	// DNSNames is a list of DNS names to include in the x509 client certificate
+	DNSNames []string `json:"dns_names"`
 	// PublicTLSKey is a PEM encoded public key
 	// used for TLS setup
 	PublicTLSKey []byte `json:"public_tls_key"`
@@ -937,6 +991,7 @@ func (s *AuthServer) RegisterUsingToken(req RegisterUsingTokenRequest) (*PackedK
 		AdditionalPrincipals: req.AdditionalPrincipals,
 		PublicTLSKey:         req.PublicTLSKey,
 		PublicSSHKey:         req.PublicSSHKey,
+		DNSNames:             req.DNSNames,
 	})
 	if err != nil {
 		return nil, trace.Wrap(err)

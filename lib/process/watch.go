@@ -22,6 +22,9 @@ import (
 
 	"github.com/gravitational/gravity/lib/constants"
 	"github.com/gravitational/gravity/lib/defaults"
+	libkube "github.com/gravitational/gravity/lib/kubernetes"
+	"github.com/gravitational/gravity/lib/processconfig"
+	"github.com/gravitational/gravity/lib/storage"
 
 	"github.com/gravitational/teleport/lib/service"
 	"github.com/gravitational/trace"
@@ -36,13 +39,15 @@ import (
 // and notifies the process' "certificateCh" when the change happens
 func (p *Process) startCertificateWatch(ctx context.Context, client *kubernetes.Clientset) error {
 	go func() {
+		ticker := time.NewTicker(time.Second)
+		defer ticker.Stop()
 		for {
 			err := p.watchCertificate(ctx, client)
 			if err != nil {
 				p.Errorf("Failed to start certificate watch: %v.", trace.DebugReport(err))
 			}
 			select {
-			case <-time.After(time.Second):
+			case <-ticker.C:
 			case <-ctx.Done():
 				p.Debug("Certificate watcher stopped.")
 				return
@@ -96,4 +101,144 @@ func (p *Process) watchCertificate(ctx context.Context, client *kubernetes.Clien
 			return nil
 		}
 	}
+}
+
+// startAuthGatewayWatch launches watcher that monitors config map with
+// auth gateway configuration and updates Teleport configuration
+// appropriately.
+func (p *Process) startAuthGatewayWatch(ctx context.Context, client *kubernetes.Clientset) error {
+	go func() {
+		ticker := time.NewTicker(time.Second)
+		defer ticker.Stop()
+		for {
+			err := p.watchAuthGateway(ctx, client)
+			if err != nil {
+				p.Errorf("Failed to start auth gateway config watch: %v.", trace.DebugReport(err))
+			}
+			select {
+			case <-ticker.C:
+			case <-ctx.Done():
+				p.Debug("Auth gateway config watcher stopped.")
+				return
+			}
+		}
+	}()
+	return nil
+}
+
+// watchAuthGateway observes changes to the auth gateway config map and
+// updates Teleport configuration appropriately.
+func (p *Process) watchAuthGateway(ctx context.Context, client *kubernetes.Clientset) error {
+	p.Debug("Restarting auth gateway config watch.")
+	watcher, err := client.Core().ConfigMaps(defaults.KubeSystemNamespace).Watch(metav1.ListOptions{
+		FieldSelector: fields.OneTermEqualSelector("metadata.name", constants.AuthGatewayConfigMap).String(),
+	})
+	if err != nil {
+		return trace.Wrap(err)
+	}
+	defer watcher.Stop()
+	for {
+		select {
+		case event, ok := <-watcher.ResultChan():
+			if !ok {
+				p.Debugf("Watcher channel closed: %v.", event)
+				return nil
+			}
+			if event.Type != watch.Modified && event.Type != watch.Deleted {
+				p.Debugf("Ignoring event: %v.", event.Type)
+				continue
+			}
+			configMap, ok := event.Object.(*v1.ConfigMap)
+			if !ok {
+				p.Warningf("Expected ConfigMap, got: %[1]T %[1]v.", event.Object)
+				continue
+			}
+			if configMap.Name != constants.AuthGatewayConfigMap {
+				p.Debugf("Ignoring ConfigMap change: %v.", configMap.Name)
+				continue
+			}
+			p.Infof("Detected ConfigMap change: %v.", configMap.Name)
+			authGatewayConfig, err := p.getAuthGatewayConfig()
+			if err != nil {
+				p.Errorf("Failed to retrieve auth gateway config: %v.",
+					trace.DebugReport(err))
+				return trace.Wrap(err)
+			}
+			err = p.reloadAuthGatewayConfig(authGatewayConfig)
+			if err != nil {
+				p.Errorf("Failed to reload auth gateway config: %v.",
+					trace.DebugReport(err))
+				continue
+			}
+		case <-ctx.Done():
+			p.Debug("Stopping auth gateway config watcher.")
+			return nil
+		}
+	}
+}
+
+// reloadAuthGatewayConfig compares the provided auth gateway configuration
+// with the configuration the process is currently started with and makes a
+// decision on whether the configuration should be updated and/or the process
+// restarted in order for the changes to take effect.
+func (p *Process) reloadAuthGatewayConfig(authGatewayConfig storage.AuthGateway) error {
+	if authGatewayConfig.PrincipalsChanged(p.authGatewayConfig) {
+		// Teleport principals got updated. Don't restart right
+		// away, but update its config so it can regenerate
+		// identities for its services.
+		p.Info("Auth gateway principals changed.")
+		config, err := p.buildTeleportConfig(authGatewayConfig)
+		if err != nil {
+			return trace.Wrap(err)
+		}
+		// Replacing principals in config will result in Teleport
+		// regenerating identities (asynchonously) and then
+		// sending reload event which will be caught below.
+		processconfig.ReplacePublicAddrs(p.teleportProcess().Config, config)
+	} else if authGatewayConfig.SettingsChanged(p.authGatewayConfig) {
+		// Principals didn't change but some of the Teleport
+		// settings changed so we can reload right away.
+		p.Info("Auth gateway settings changed.")
+		p.BroadcastEvent(service.Event{
+			Name: service.TeleportReloadEvent,
+		})
+	} else {
+		// Neither principals nor other settings changed, nothing
+		// to do (maybe auth preference changed which is also a
+		// part of auth gateway resource).
+		p.Info("Auth gateway principals/settings didn't change.")
+	}
+	// Update gateway config information on the process so we can compare
+	// with it if/when next change happens.
+	p.authGatewayConfig = authGatewayConfig
+	return nil
+}
+
+// startWatchingReloadEvents launches watcher that listens for reload events
+// and restarts the process.
+func (p *Process) startWatchingReloadEvents(ctx context.Context, client *kubernetes.Clientset) error {
+	go func() {
+		eventsCh := make(chan service.Event)
+		p.WaitForEvent(ctx, service.TeleportReloadEvent, eventsCh)
+		p.Infof("Started watching %v events.", service.TeleportReloadEvent)
+		for {
+			select {
+			case event := <-eventsCh:
+				if event.Name != service.TeleportReloadEvent {
+					p.Warnf("Expected %v event, got: %#v.", service.TeleportReloadEvent, event)
+					continue
+				}
+				p.Infof("Received event: %#v.", event)
+				err := libkube.DeleteSelf(client, p.FieldLogger)
+				if err != nil {
+					p.Errorf("Failed to restart the pod: %v.", trace.DebugReport(err))
+					continue
+				}
+			case <-ctx.Done():
+				p.Infof("Stopped watching %v events.", service.TeleportReloadEvent)
+				return
+			}
+		}
+	}()
+	return nil
 }

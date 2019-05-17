@@ -47,6 +47,13 @@ func (o *Operator) GetKubeClient() (*kubernetes.Clientset, error) {
 	return o.kubeClient, nil
 }
 
+// SetKubeClient sets Kubernetes client for this operator.
+func (o *Operator) SetKubeClient(client *kubernetes.Clientset) {
+	o.kubeMutex.Lock()
+	defer o.kubeMutex.Unlock()
+	o.kubeClient = client
+}
+
 // GetApplicationEndpoints returns a list of application endpoints for a deployed site
 func (o *Operator) GetApplicationEndpoints(key ops.SiteKey) ([]ops.Endpoint, error) {
 	site, err := o.openSite(key)

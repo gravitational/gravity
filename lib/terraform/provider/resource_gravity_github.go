@@ -1,6 +1,7 @@
 package provider
 
 import (
+	"context"
 	"log"
 	"time"
 
@@ -123,7 +124,7 @@ func resourceGravityGithubCreateOrUpdate(d *schema.ResourceData, m interface{}) 
 		AccountID:  defaults.SystemAccountID,
 		SiteDomain: cluster.Domain,
 	}
-	err = client.UpsertGithubConnector(clusterKey, connector)
+	err = client.UpsertGithubConnector(context.TODO(), clusterKey, connector)
 	if err != nil {
 		return trace.Wrap(err)
 	}
@@ -186,7 +187,7 @@ func resourceGravityGithubDelete(d *schema.ResourceData, m interface{}) error {
 
 	name := d.Get("token").(string)
 
-	err = client.DeleteGithubConnector(clusterKey, name)
+	err = client.DeleteGithubConnector(context.TODO(), clusterKey, name)
 	if err != nil {
 		return trace.Wrap(err)
 	}

@@ -178,7 +178,8 @@ func (s *site) collectDebugInfo(reportWriter report.Writer, runner *serverRunner
 	defer w.Close()
 
 	err = runner.RunStream(w, s.gravityCommand("system", "report",
-		fmt.Sprintf("--filter=%v", constants.ReportFilterSystem), "--compressed")...)
+		fmt.Sprintf("--filter=%v", constants.ReportFilterSystem),
+		"--compressed")...)
 	if err != nil {
 		return trace.Wrap(err, "failed to collect diagnostics")
 	}

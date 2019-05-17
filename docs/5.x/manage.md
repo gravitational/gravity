@@ -70,7 +70,7 @@ To provision a new Gravity Cluster on AWS:
 
 1. Declare the Cluster Spec in a YAML file, for example `cluster.yaml`
 2. Execute `$ tele create cluster.yaml`
-3. Optional: provisioning of a cluster can be customzied with user-supplied
+3. Optional: provisioning of a cluster can be customized with user-supplied
    scripts based on tools like [Terraform](https://www.terraform.io/) or
    [Cloud Formation](https://aws.amazon.com/cloudformation/).
 
@@ -187,7 +187,7 @@ either in a separate YAML file as shown above, or inline.
 
 **Hook Parameters**
 
-All provisioning hooks implemented as Kubernetes jobs and their parameters are passed either as an environment
+All provisioning hooks are implemented as Kubernetes jobs and their parameters are passed either as an environment
 variables (env) or as a Kubernetes secret mounted as a file.
 
 The following parameters are common for all cloud providers:
@@ -279,7 +279,7 @@ of clusters via Ops Center. Ops Center roles make it possible using
 `where` expressions in rules:
 
 
-```bsh
+```yaml
 kind: role
 version: v3
 metadata:
@@ -290,12 +290,23 @@ spec:
     - developers
     namespaces:
     - default
+    kubernetes_groups:
+    - admin
     rules:
-      - resources: [cluster]
-        verbs: [connect, read]
-        where: contains(user.spec.traits["roles"], resource.metadata.labels["team"])
-        actions:
-          - assignKubernetesGroups("admin")
+    - resources:
+      - role
+      verbs:
+      - read
+    - resources:
+      - app
+      verbs:
+      - list
+    - resources:
+      - cluster
+      verbs:
+      - connect
+      - read
+      where: contains(user.spec.traits["roles"], resource.metadata.labels["team"])
 ```
 
 The role `developers` uses special property `user.spec.traits`
@@ -313,7 +324,7 @@ Kubernetes access to clusters marked with label `team:developers`
 
 Users can use `deny` rules to limit access to some privileged Clusters:
 
-```bsh
+```yaml
 kind: role
 version: v3
 metadata:
@@ -323,9 +334,21 @@ spec:
     namespaces:
     - default
     rules:
-      - resources: [cluster]
-        verbs: [connect, read, list]
-        where: equals(resource.metadata.labels["env"], "production")
+    - resources:
+      - role
+      verbs:
+      - read
+    - resources:
+      - app
+      verbs:
+      - list
+    - resources:
+      - cluster
+      verbs:
+      - connect
+      - read
+      - list
+      where: equals(resource.metadata.labels["env"], "production")
 ```
 
 The role `deny-production` when assigned to the user, will limit access to all clusters

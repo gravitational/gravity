@@ -17,16 +17,22 @@ limitations under the License.
 package install
 
 import (
+	"bytes"
+	"context"
+	"encoding/json"
 	"fmt"
+	"sort"
 	"strconv"
 	"testing"
 
+	"github.com/gravitational/gravity/lib/compare"
 	"github.com/gravitational/gravity/lib/constants"
 	"github.com/gravitational/gravity/lib/defaults"
 	"github.com/gravitational/gravity/lib/install/phases"
 	"github.com/gravitational/gravity/lib/loc"
 	"github.com/gravitational/gravity/lib/ops"
 	"github.com/gravitational/gravity/lib/ops/opsservice"
+	"github.com/gravitational/gravity/lib/ops/resources"
 	"github.com/gravitational/gravity/lib/ops/suite"
 	"github.com/gravitational/gravity/lib/pack"
 	"github.com/gravitational/gravity/lib/pack/encryptedpack"
@@ -38,6 +44,7 @@ import (
 
 	"github.com/cloudflare/cfssl/csr"
 	"github.com/gravitational/license/authority"
+	teleservices "github.com/gravitational/teleport/lib/services"
 	"github.com/gravitational/trace"
 	"github.com/pborman/uuid"
 	"github.com/sirupsen/logrus"
@@ -55,7 +62,6 @@ type PlanSuite struct {
 	regularAgent       *storage.LoginEntry
 	teleportPackage    *loc.Locator
 	runtimePackage     loc.Locator
-	planetNodePackage  *loc.Locator
 	rbacPackage        *loc.Locator
 	runtimeApplication *loc.Locator
 	dnsPackage         *loc.Locator
@@ -120,7 +126,6 @@ func (s *PlanSuite) SetUpSuite(c *check.C) {
 			DomainName: "example.com",
 			AppPackage: appPackage.String(),
 			Provider:   schema.ProviderAWS,
-			Resources:  configMap,
 			DNSConfig:  s.dnsConfig,
 		})
 	_, err = s.services.Users.CreateClusterAdminAgent(s.cluster.Domain,
@@ -138,7 +143,7 @@ func (s *PlanSuite) SetUpSuite(c *check.C) {
 		ClusterName: s.cluster.Domain,
 	})
 	c.Assert(err, check.IsNil)
-	s.operationKey, err = s.services.Operator.CreateSiteInstallOperation(
+	s.operationKey, err = s.services.Operator.CreateSiteInstallOperation(context.TODO(),
 		ops.CreateSiteInstallOperationRequest{
 			AccountID:   account.ID,
 			SiteDomain:  s.cluster.Domain,
@@ -173,13 +178,16 @@ func (s *PlanSuite) SetUpSuite(c *check.C) {
 		UID:  999,
 		GID:  999,
 	}
+	runtimeResources, clusterResources, err := resources.Split(bytes.NewReader(resourceBytes))
+	c.Assert(err, check.IsNil)
 	s.installer = &Installer{
 		Config: Config{
-			Resources:   configMap,
-			ServiceUser: s.serviceUser,
-			Mode:        constants.InstallModeCLI,
-			DNSConfig:   s.dnsConfig,
-			Process:     &mockProcess{},
+			RuntimeResources: runtimeResources,
+			ClusterResources: clusterResources,
+			ServiceUser:      s.serviceUser,
+			Mode:             constants.InstallModeCLI,
+			DNSConfig:        s.dnsConfig,
+			Process:          &mockProcess{},
 		},
 		FieldLogger: logrus.WithField(trace.Component, "plan-suite"),
 		AppPackage:  appPackage,
@@ -221,6 +229,7 @@ func (s *PlanSuite) TestPlan(c *check.C) {
 		{phases.AppPhase, s.verifyAppPhase},
 		{phases.ConnectInstallerPhase, s.verifyConnectInstallerPhase},
 		{phases.EnableElectionPhase, s.verifyEnableElectionPhase},
+		{phases.GravityResourcesPhase, s.verifyGravityResourcesPhase},
 	}
 
 	c.Assert(len(expected), check.Equals, len(plan.Phases))
@@ -244,6 +253,13 @@ func (s *PlanSuite) verifyChecksPhase(c *check.C, phase storage.OperationPhase) 
 func (s *PlanSuite) verifyConfigurePhase(c *check.C, phase storage.OperationPhase) {
 	storage.DeepComparePhases(c, storage.OperationPhase{
 		ID: phases.ConfigurePhase,
+		Data: &storage.OperationPhaseData{
+			Install: &storage.InstallOperationData{
+				Env: map[string]string{
+					"HTTP_PROXY": "example.com:8081",
+				},
+			},
+		},
 	}, phase)
 }
 
@@ -260,7 +276,6 @@ func (s *PlanSuite) verifyBootstrapPhase(c *check.C, phase storage.OperationPhas
 					Package:     &s.installer.AppPackage,
 					Agent:       s.adminAgent,
 					ServiceUser: serviceUser,
-					DNSConfig:   &s.dnsConfig,
 				},
 			},
 			{
@@ -271,7 +286,6 @@ func (s *PlanSuite) verifyBootstrapPhase(c *check.C, phase storage.OperationPhas
 					Package:     &s.installer.AppPackage,
 					Agent:       s.regularAgent,
 					ServiceUser: serviceUser,
-					DNSConfig:   &s.dnsConfig,
 				},
 			},
 		},
@@ -437,14 +451,66 @@ func (s *PlanSuite) verifyCorednsPhase(c *check.C, phase storage.OperationPhase)
 }
 
 func (s *PlanSuite) verifyResourcesPhase(c *check.C, phase storage.OperationPhase) {
+	obtained := phase.Data.Install.Resources
+	expected := []byte(`
+{
+  "apiVersion": "v1",
+  "kind": "ConfigMap",
+  "metadata": {
+    "name": "test-config"
+  },
+  "data": {
+    "test-key": "test-value"
+  }
+}
+{
+  "kind":"ConfigMap",
+  "apiVersion":"v1",
+  "metadata": {
+    "name": "runtimeenvironment",
+    "namespace": "kube-system",
+    "creationTimestamp": null
+  },
+  "data": {
+    "HTTP_PROXY": "example.com:8081"
+  }
+}
+	`)
+	phase.Data.Install.Resources = nil // Compare resources separately
 	storage.DeepComparePhases(c, storage.OperationPhase{
 		ID: phases.ResourcesPhase,
 		Data: &storage.OperationPhaseData{
-			Server:    &s.masterNode,
-			Resources: s.installer.Resources,
+			Server:  &s.masterNode,
+			Install: &storage.InstallOperationData{},
 		},
 		Requires: []string{phases.RBACPhase},
 	}, phase)
+	validateResources(c, obtained, expected)
+}
+
+func (s *PlanSuite) verifyGravityResourcesPhase(c *check.C, phase storage.OperationPhase) {
+	obtained := phase.Data.Install.GravityResources
+	expected := []byte(`
+{
+  "kind": "AlertTarget",
+  "metadata": {
+    "name": "foo"
+  },
+  "spec": {
+    "email": "info@example.com"
+  },
+  "version": "v1"
+}`)
+	phase.Data.Install.GravityResources = nil // Compare resources separately
+	storage.DeepComparePhases(c, storage.OperationPhase{
+		ID: phases.GravityResourcesPhase,
+		Data: &storage.OperationPhaseData{
+			Server:  &s.masterNode,
+			Install: &storage.InstallOperationData{},
+		},
+		Requires: []string{phases.EnableElectionPhase},
+	}, phase)
+	validateGravityResources(c, obtained, expected)
 }
 
 func (s *PlanSuite) verifyExportPhase(c *check.C, phase storage.OperationPhase) {
@@ -634,13 +700,77 @@ func (s *PlanSuite) TestSplitServers(c *check.C) {
 	}
 }
 
-// configMap is used as a test resource
-var configMap = []byte(`apiVersion: v1
+func validateResources(c *check.C, obtainedBytes, expectedBytes []byte) {
+	obtained := decodeBytes(c, obtainedBytes)
+	expected := decodeBytes(c, expectedBytes)
+	c.Assert(obtained, compare.DeepEquals, expected, check.Commentf("invalid resources"))
+}
+
+func validateGravityResources(c *check.C, obtained []storage.UnknownResource, expectedBytes []byte) {
+	expected := decodeBytes(c, expectedBytes)
+	c.Assert(decode(c, obtained), compare.DeepEquals, expected, check.Commentf("invalid Gravity resources"))
+}
+
+func decodeBytes(c *check.C, data []byte) (result []resource) {
+	var rs []storage.UnknownResource
+	err := resources.ForEach(bytes.NewReader(data), func(r storage.UnknownResource) error {
+		rs = append(rs, r)
+		return nil
+	})
+	c.Assert(err, check.IsNil)
+	return decode(c, rs)
+}
+
+func decode(c *check.C, resources []storage.UnknownResource) (result []resource) {
+	for _, res := range resources {
+		var resource resource
+		err := json.Unmarshal(res.Raw, &resource)
+		c.Assert(err, check.IsNil)
+		result = append(result, resource)
+	}
+	sort.Slice(result, func(i, j int) bool {
+		return result[i].Metadata.Name < result[j].Metadata.Name
+	})
+	return result
+}
+
+func (r *resource) UnmarshalJSON(data []byte) error {
+	if err := json.Unmarshal(data, &r.ResourceHeader); err != nil {
+		return nil
+	}
+	var raw map[string]interface{}
+	if err := json.Unmarshal(data, &raw); err != nil {
+		return nil
+	}
+	r.Raw = raw
+	return nil
+}
+
+type resource struct {
+	teleservices.ResourceHeader
+	Raw map[string]interface{}
+}
+
+// resourceBytes is used as a test resource
+var resourceBytes = []byte(`apiVersion: v1
 kind: ConfigMap
 metadata:
   name: test-config
 data:
   test-key: test-value
+---
+version: v1
+kind: RuntimeEnvironment
+spec:
+  data:
+    HTTP_PROXY: "example.com:8081"
+---
+version: v1
+kind: AlertTarget
+metadata:
+  name: foo
+spec:
+  email: "info@example.com"
 `)
 
 // encryptionKey is used to test encrypted installer packages

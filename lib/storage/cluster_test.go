@@ -29,10 +29,9 @@ import (
 	. "gopkg.in/check.v1"
 )
 
-func TestClusterParsing(t *testing.T) { TestingT(t) }
+func TestStorageResources(t *testing.T) { TestingT(t) }
 
-type ClusterSuite struct {
-}
+type ClusterSuite struct{}
 
 var _ = Suite(&ClusterSuite{})
 

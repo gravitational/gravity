@@ -17,12 +17,14 @@ limitations under the License.
 package gravity
 
 import (
+	"context"
 	"net/http/httptest"
 	"testing"
 
 	"github.com/gravitational/gravity/lib/compare"
 	"github.com/gravitational/gravity/lib/defaults"
 	"github.com/gravitational/gravity/lib/localenv"
+	"github.com/gravitational/gravity/lib/ops"
 	"github.com/gravitational/gravity/lib/ops/opsclient"
 	"github.com/gravitational/gravity/lib/ops/resources"
 	"github.com/gravitational/gravity/lib/storage"
@@ -36,9 +38,10 @@ import (
 func TestGravityResources(t *testing.T) { check.TestingT(t) }
 
 type GravityResourcesSuite struct {
-	s      *Suite
-	r      *Resources
-	server *httptest.Server
+	s       *Suite
+	r       *Resources
+	cluster *ops.Site
+	server  *httptest.Server
 }
 
 var _ = check.Suite(&GravityResourcesSuite{
@@ -58,6 +61,8 @@ func (s *GravityResourcesSuite) SetUpSuite(c *check.C) {
 		Silent:   localenv.Silent(false),
 	})
 	c.Assert(err, check.IsNil)
+	s.cluster, err = client.GetLocalSite()
+	c.Assert(err, check.IsNil)
 }
 
 func (s *GravityResourcesSuite) TearDownSuite(c *check.C) {
@@ -68,26 +73,26 @@ func (s *GravityResourcesSuite) TearDownSuite(c *check.C) {
 }
 
 func (s *GravityResourcesSuite) TestGithubConnectorResource(c *check.C) {
-	err := s.r.Create(resources.CreateRequest{Resource: toUnknown(c, githubConnector)})
+	err := s.r.Create(context.TODO(), resources.CreateRequest{SiteKey: s.cluster.Key(), Resource: toUnknown(c, githubConnector)})
 	c.Assert(err, check.IsNil)
 
-	collection, err := s.r.GetCollection(resources.ListRequest{Kind: teleservices.KindGithubConnector, WithSecrets: true})
+	collection, err := s.r.GetCollection(resources.ListRequest{SiteKey: s.cluster.Key(), Kind: teleservices.KindGithubConnector, WithSecrets: true})
 	c.Assert(err, check.IsNil)
 	compare.DeepCompare(c, collection, &githubCollection{[]teleservices.GithubConnector{githubConnector}})
 
-	err = s.r.Remove(resources.RemoveRequest{Kind: teleservices.KindGithubConnector, Name: "github"})
+	err = s.r.Remove(context.TODO(), resources.RemoveRequest{SiteKey: s.cluster.Key(), Kind: teleservices.KindGithubConnector, Name: "github"})
 	c.Assert(err, check.IsNil)
 
-	collection, err = s.r.GetCollection(resources.ListRequest{Kind: teleservices.KindGithubConnector})
+	collection, err = s.r.GetCollection(resources.ListRequest{SiteKey: s.cluster.Key(), Kind: teleservices.KindGithubConnector})
 	c.Assert(err, check.IsNil)
 	compare.DeepCompare(c, collection, &githubCollection{[]teleservices.GithubConnector{}})
 }
 
 func (s *GravityResourcesSuite) TestUser(c *check.C) {
-	err := s.r.Create(resources.CreateRequest{Resource: toUnknown(c, user)})
+	err := s.r.Create(context.TODO(), resources.CreateRequest{SiteKey: s.cluster.Key(), Resource: toUnknown(c, user)})
 	c.Assert(err, check.IsNil)
 
-	collectionI, err := s.r.GetCollection(resources.ListRequest{Kind: "user", Name: "test"})
+	collectionI, err := s.r.GetCollection(resources.ListRequest{SiteKey: s.cluster.Key(), Kind: "user", Name: "test"})
 	c.Assert(err, check.IsNil)
 	collection, ok := collectionI.(*userCollection)
 	c.Assert(ok, check.Equals, true)
@@ -96,27 +101,27 @@ func (s *GravityResourcesSuite) TestUser(c *check.C) {
 	user.SetRawObject(collection.users[0].GetRawObject())
 	compare.DeepCompare(c, collection, &userCollection{[]teleservices.User{user}})
 
-	err = s.r.Remove(resources.RemoveRequest{Kind: "user", Name: "test"})
+	err = s.r.Remove(context.TODO(), resources.RemoveRequest{SiteKey: s.cluster.Key(), Kind: "user", Name: "test"})
 	c.Assert(err, check.IsNil)
 
-	collectionI, err = s.r.GetCollection(resources.ListRequest{Kind: "user", Name: "test"})
+	collectionI, err = s.r.GetCollection(resources.ListRequest{SiteKey: s.cluster.Key(), Kind: "user", Name: "test"})
 	c.Assert(err, check.FitsTypeOf, trace.NotFound(""))
 }
 
 func (s *GravityResourcesSuite) TestToken(c *check.C) {
 	token := storage.NewToken("test", s.s.Creds.Email)
 
-	err := s.r.Create(resources.CreateRequest{Resource: toUnknown(c, token)})
+	err := s.r.Create(context.TODO(), resources.CreateRequest{SiteKey: s.cluster.Key(), Resource: toUnknown(c, token)})
 	c.Assert(err, check.IsNil)
 
-	collection, err := s.r.GetCollection(resources.ListRequest{Kind: "token", Name: "test", User: s.s.Creds.Email})
+	collection, err := s.r.GetCollection(resources.ListRequest{SiteKey: s.cluster.Key(), Kind: "token", Name: "test", User: s.s.Creds.Email})
 	c.Assert(err, check.IsNil)
 	compare.DeepCompare(c, collection, &tokenCollection{[]storage.Token{token}})
 
-	err = s.r.Remove(resources.RemoveRequest{Kind: "token", Name: "test", User: s.s.Creds.Email})
+	err = s.r.Remove(context.TODO(), resources.RemoveRequest{SiteKey: s.cluster.Key(), Kind: "token", Name: "test", Owner: s.s.Creds.Email})
 	c.Assert(err, check.IsNil)
 
-	collection, err = s.r.GetCollection(resources.ListRequest{Kind: "token", Name: "test", User: s.s.Creds.Email})
+	collection, err = s.r.GetCollection(resources.ListRequest{SiteKey: s.cluster.Key(), Kind: "token", Name: "test", User: s.s.Creds.Email})
 	c.Assert(err, check.FitsTypeOf, trace.NotFound(""))
 }
 

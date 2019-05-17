@@ -35,6 +35,7 @@ import (
 	"github.com/gravitational/gravity/lib/localenv"
 	validationpb "github.com/gravitational/gravity/lib/network/validation/proto"
 	"github.com/gravitational/gravity/lib/ops"
+	"github.com/gravitational/gravity/lib/ops/events"
 	"github.com/gravitational/gravity/lib/ops/opsclient"
 	"github.com/gravitational/gravity/lib/pack"
 	"github.com/gravitational/gravity/lib/pack/webpack"
@@ -143,7 +144,7 @@ type Peer struct {
 	// Only set after the agent has been started
 	agentDoneCh <-chan struct{}
 	// agent is this peer's RPC agent
-	agent rpcserver.Server
+	agent *rpcserver.PeerServer
 }
 
 // NewPeer returns new cluster peer client
@@ -235,7 +236,7 @@ func (p *Peer) dialSite(addr string) (*operationContext, error) {
 
 // createExpandOperation creates a new expand operation
 func (p *Peer) createExpandOperation(operator ops.Operator, cluster ops.Site) (*ops.SiteOperation, error) {
-	key, err := operator.CreateSiteExpandOperation(ops.CreateSiteExpandOperationRequest{
+	key, err := operator.CreateSiteExpandOperation(p.Context, ops.CreateSiteExpandOperationRequest{
 		AccountID:   cluster.AccountID,
 		SiteDomain:  cluster.Domain,
 		Provisioner: schema.ProvisionerOnPrem,
@@ -324,7 +325,8 @@ func (p *Peer) checkAndSetServerProfile(app ops.Application) error {
 			return nil
 		}
 	}
-	return trace.NotFound("server role %q is not found", p.Role)
+	return utils.Abort(trace.BadParameter(
+		"specified node role %q is not defined in the application manifest", p.Role))
 }
 
 // runLocalChecks makes sure node satisfies system requirements
@@ -744,6 +746,10 @@ func (p *Peer) startExpandOperation(ctx operationContext) error {
 	if err != nil {
 		return trace.Wrap(err)
 	}
+	err = p.emitAuditEvent(ctx)
+	if err != nil {
+		return trace.Wrap(err)
+	}
 	if p.Manual {
 		p.Silent.Println(`Operation was started in manual mode
 Inspect the operation plan using "gravity plan" and execute plan phases manually on this node using "gravity join --phase=<phase-id>"
@@ -769,6 +775,17 @@ After all phases have completed successfully, complete the operation using "grav
 	return nil
 }
 
+// emitAuditEvent sends expand operation start event to the cluster audit log.
+func (p *Peer) emitAuditEvent(ctx operationContext) error {
+	operation, err := ctx.Operator.GetSiteOperation(ctx.Operation.Key())
+	if err != nil {
+		return trace.Wrap(err)
+	}
+	events.Emit(p.Context, ctx.Operator, events.OperationExpandStart,
+		events.FieldsForOperation(*operation))
+	return nil
+}
+
 func (p *Peer) getFSM(ctx operationContext) (*fsm.FSM, error) {
 	return NewFSM(FSMConfig{
 		Operator:      ctx.Operator,
@@ -782,7 +799,6 @@ func (p *Peer) getFSM(ctx operationContext) (*fsm.FSM, error) {
 		Credentials:   ctx.Creds.Client,
 		DebugMode:     p.DebugMode,
 		Insecure:      p.Insecure,
-		DNSConfig:     ctx.Cluster.DNSConfig,
 	})
 }
 

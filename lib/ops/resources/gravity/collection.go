@@ -27,6 +27,7 @@ import (
 	"github.com/gravitational/gravity/lib/constants"
 	"github.com/gravitational/gravity/lib/defaults"
 	"github.com/gravitational/gravity/lib/storage"
+	"github.com/gravitational/gravity/lib/storage/clusterconfig"
 	"github.com/gravitational/gravity/lib/utils"
 	"github.com/gravitational/gravity/tool/common"
 
@@ -432,12 +433,44 @@ type smtpConfigCollection []storage.SMTPConfig
 // WriteText serializes collection in human-friendly text format
 func (r alertCollection) WriteText(w io.Writer) error {
 	t := goterm.NewTable(0, 10, 5, ' ', 0)
-	common.PrintTableHeader(t, []string{"Name", "Formula"})
+	common.PrintTableHeader(t, []string{"Name", "Group", "Formula", "Delay", "Labels"})
 	for _, alert := range r {
-		fmt.Fprintf(t, "%v\t%v\n", alert.GetName(), alert.GetFormula())
+		fmt.Fprintf(t, "%v\t%v\t%v\t%v\t%v\n",
+			alert.GetName(),
+			formatAlertGroup(alert),
+			strings.TrimSpace(alert.GetFormula()),
+			formatAlertDelay(alert),
+			formatAlertLabels(alert))
 	}
 	_, err := io.WriteString(w, t.String())
 	return trace.Wrap(err)
+}
+
+func formatAlertGroup(alert storage.Alert) string {
+	group := alert.GetGroupName()
+	if group != "" {
+		return group
+	}
+	return "-"
+}
+
+func formatAlertDelay(alert storage.Alert) string {
+	delay := alert.GetDelay()
+	if delay != 0 {
+		return delay.String()
+	}
+	return "-"
+}
+
+func formatAlertLabels(alert storage.Alert) (result string) {
+	if len(alert.GetLabels()) == 0 {
+		return "-"
+	}
+	var labels []string
+	for k, v := range alert.GetLabels() {
+		labels = append(labels, fmt.Sprintf("%v: %v", k, v))
+	}
+	return strings.Join(labels, ", ")
 }
 
 // WriteJSON serializes collection into JSON format
@@ -512,3 +545,186 @@ func (c alertTargetCollection) Resources() (resources []teleservices.UnknownReso
 }
 
 type alertTargetCollection []storage.AlertTarget
+
+type authGatewayCollection struct {
+	item storage.AuthGateway
+}
+
+// Resources returns the resources collection in the generic format
+func (c *authGatewayCollection) Resources() ([]teleservices.UnknownResource, error) {
+	resource, err := utils.ToUnknownResource(c.item)
+	if err != nil {
+		return nil, trace.Wrap(err)
+	}
+	return []teleservices.UnknownResource{*resource}, nil
+}
+
+// WriteText serializes auth gateway config in human-friendly text format
+func (c *authGatewayCollection) WriteText(w io.Writer) error {
+	t := goterm.NewTable(0, 10, 5, ' ', 0)
+	common.PrintTableHeader(t, []string{"Parameter", "Value"})
+	fmt.Fprintf(t, "Max Connections:\t%v\n", c.item.GetMaxConnections())
+	fmt.Fprintf(t, "Max Users:\t%v\n", c.item.GetMaxUsers())
+	if c.item.GetClientIdleTimeout() != nil {
+		fmt.Fprintf(t, "Client Idle Timeout:\t%v\n", c.item.GetClientIdleTimeout().Value())
+	} else {
+		fmt.Fprintf(t, "Client Idle Timeout:\tnever\n")
+	}
+	if c.item.GetDisconnectExpiredCert() != nil {
+		fmt.Fprintf(t, "Disconnect Expired Cert:\t%v\n", c.item.GetDisconnectExpiredCert().Value())
+	} else {
+		fmt.Fprintf(t, "Disconnect Expired Cert:\tno\n")
+	}
+	if auth := c.item.GetAuthentication(); auth != nil {
+		fmt.Fprintf(t, "Authentication:\ttype: %v, second factor: %v\n", auth.Type, auth.SecondFactor)
+	}
+	fmt.Fprintf(t, "SSH Public Addrs:\t%v\n", formatList(c.item.GetSSHPublicAddrs()))
+	fmt.Fprintf(t, "Kubernetes Public Addrs:\t%v\n", formatList(c.item.GetKubernetesPublicAddrs()))
+	fmt.Fprintf(t, "Web Public Addrs:\t%v\n", formatList(c.item.GetWebPublicAddrs()))
+	_, err := io.WriteString(w, t.String())
+	return trace.Wrap(err)
+}
+
+func formatList(list []string) string {
+	if len(list) == 0 {
+		return "-"
+	}
+	return strings.Join(list, ", ")
+}
+
+// WriteJSON serializes collection into JSON format
+func (c *authGatewayCollection) WriteJSON(w io.Writer) error {
+	return utils.WriteJSON(c, w)
+}
+
+// WriteYAML serializes collection into YAML format
+func (c *authGatewayCollection) WriteYAML(w io.Writer) error {
+	return utils.WriteYAML(c, w)
+}
+
+// ToMarshal returns object that should be marshaled.
+func (c *authGatewayCollection) ToMarshal() interface{} {
+	return c.item
+}
+
+// WriteText serializes collection in human-friendly text format
+func (r envCollection) WriteText(w io.Writer) error {
+	t := goterm.NewTable(0, 10, 5, ' ', 0)
+	common.PrintTableHeader(t, []string{"Environment"})
+	if r.env == nil {
+		// Empty
+		return nil
+	}
+	for k, v := range r.env.GetKeyValues() {
+		fmt.Fprintf(t, "%v=%v\n", k, v)
+	}
+	_, err := io.WriteString(w, t.String())
+	return trace.Wrap(err)
+}
+
+// WriteJSON serializes collection into JSON format
+func (r envCollection) WriteJSON(w io.Writer) error {
+	return utils.WriteJSON(r, w)
+}
+
+// WriteYAML serializes collection into YAML format
+func (r envCollection) WriteYAML(w io.Writer) error {
+	return utils.WriteYAML(r, w)
+}
+
+func (r envCollection) ToMarshal() interface{} {
+	return r.env
+}
+
+// Resources returns the resources collection in the generic format
+func (r envCollection) Resources() (resources []teleservices.UnknownResource, err error) {
+	resource, err := utils.ToUnknownResource(r.env)
+	if err != nil {
+		return nil, trace.Wrap(err)
+	}
+	resources = append(resources, *resource)
+	return resources, nil
+}
+
+type envCollection struct {
+	env storage.EnvironmentVariables
+}
+
+// WriteText serializes collection in human-friendly text format
+func (r configCollection) WriteText(w io.Writer) error {
+	t := goterm.NewTable(0, 10, 5, ' ', 0)
+	common.PrintCustomTableHeader(t, []string{"Configuration"}, "=")
+	if r.Interface == nil {
+		// Empty
+		return nil
+	}
+	if config := r.GetKubeletConfig(); config != nil {
+		common.PrintCustomTableHeader(t, []string{"Kubelet"}, "-")
+		fmt.Fprintf(t, "%v\n", string(config.Config))
+	}
+	if config := r.GetGlobalConfig(); config != nil {
+		displayCloudConfig := config.CloudProvider != "" || config.CloudConfig != ""
+		if displayCloudConfig {
+			common.PrintCustomTableHeader(t, []string{"Cloud"}, "-")
+			if len(config.CloudProvider) != 0 {
+				fmt.Fprintf(t, "Provider:\t%v\n", config.CloudProvider)
+			}
+			formatCloudConfig(t, config.CloudConfig)
+		}
+		if len(config.ServiceNodePortRange) != 0 {
+			fmt.Fprintf(t, "Service Node Port Range:\t%v\n", config.ServiceNodePortRange)
+		}
+		if len(config.ProxyPortRange) != 0 {
+			fmt.Fprintf(t, "Proxy Port Range:\t%v\n", config.ProxyPortRange)
+		}
+		if len(config.FeatureGates) != 0 {
+			fmt.Fprintf(t, "FeatureGates:\t%v\n", formatFeatureGates(config.FeatureGates))
+		}
+	}
+	_, err := io.WriteString(w, t.String())
+	return trace.Wrap(err)
+}
+
+// WriteJSON serializes collection into JSON format
+func (r configCollection) WriteJSON(w io.Writer) error {
+	return utils.WriteJSON(r, w)
+}
+
+// WriteYAML serializes collection into YAML format
+func (r configCollection) WriteYAML(w io.Writer) error {
+	return utils.WriteYAML(r, w)
+}
+
+func (r configCollection) ToMarshal() interface{} {
+	return r.Interface
+}
+
+// Resources returns the resources collection in the generic format
+func (r configCollection) Resources() (resources []teleservices.UnknownResource, err error) {
+	resource, err := utils.ToUnknownResource(r.Interface)
+	if err != nil {
+		return nil, trace.Wrap(err)
+	}
+	resources = append(resources, *resource)
+	return resources, nil
+}
+
+type configCollection struct {
+	clusterconfig.Interface
+}
+
+func formatCloudConfig(w io.Writer, config string) {
+	if config == "" {
+		return
+	}
+	fmt.Fprintf(w, "Configuration:\n")
+	fmt.Fprintf(w, "%v\n", config)
+}
+
+func formatFeatureGates(features map[string]bool) string {
+	result := make([]string, 0, len(features))
+	for feature, enabled := range features {
+		result = append(result, fmt.Sprintf("%v=%v", feature, enabled))
+	}
+	return strings.Join(result, ",")
+}

@@ -35,6 +35,7 @@ import (
 	"github.com/gravitational/gravity/lib/constants"
 	"github.com/gravitational/gravity/lib/defaults"
 	"github.com/gravitational/gravity/lib/loc"
+	"github.com/gravitational/gravity/lib/schema"
 	"github.com/gravitational/gravity/lib/utils"
 	"k8s.io/helm/pkg/repo"
 
@@ -297,7 +298,7 @@ type UserInvite struct {
 	CreatedBy string `json:"created_by"`
 	// Created is a time this user invite has been created
 	Created time.Time `json:"created"`
-	// Roles are the roles that will be assgined to invited user
+	// Roles are the roles that will be assigned to invited user
 	Roles []string `json:"roles"`
 	// ExpiresIn sets the token expiry time
 	ExpiresIn time.Duration `json:"expires_in"`
@@ -308,15 +309,15 @@ func (u *UserInvite) CheckAndSetDefaults() error {
 	if err := utils.CheckUserName(u.Name); err != nil {
 		return trace.Wrap(err)
 	}
-
 	if u.CreatedBy == "" {
 		return trace.BadParameter("missing CreatedBy")
 	}
-
 	if u.Created.IsZero() {
 		u.Created = time.Now().UTC()
 	}
-
+	if len(u.Roles) == 0 {
+		return trace.BadParameter("roles can't be empty")
+	}
 	return nil
 }
 
@@ -413,6 +414,8 @@ type SiteOperation struct {
 	Type string `json:"type"`
 	// Created is a time when this operation was created
 	Created time.Time `json:"created"`
+	// CreatedBy specifies the user who created the operation
+	CreatedBy string `json:"created_by,omitempty"`
 	// Updated is a time when this operation was last updated
 	Updated time.Time `json:"updated"`
 	// State represents current operation state
@@ -432,6 +435,10 @@ type SiteOperation struct {
 	Uninstall *UninstallOperationState `json:"uninstall,omitempty"`
 	// Update is for updating application on the gravity site
 	Update *UpdateOperationState `json:"update,omitempty"`
+	// UpdateEnviron defines the runtime environment update state
+	UpdateEnviron *UpdateEnvarsOperationState `json:"update_environ,omitempty"`
+	// UpdateConfig defines the state of the cluster configuration update operation
+	UpdateConfig *UpdateConfigOperationState `json:"update_config,omitempty"`
 }
 
 func (s *SiteOperation) Check() error {
@@ -637,10 +644,10 @@ func (s sortedNodeSpec) Len() int {
 
 // Less stacks latest attempts to the end of the list
 func (s sortedNodeSpec) Less(i, j int) bool {
-	if s[i].Profile == s[i].Profile {
+	if s[i].Profile == s[j].Profile {
 		return s[i].Count < s[j].Count
 	}
-	return s[i].Profile <= s[i].Profile
+	return s[i].Profile <= s[j].Profile
 }
 
 // Swap swaps two attempts
@@ -1117,7 +1124,19 @@ func (u PackageChangeset) String() string {
 func (u *PackageChangeset) ReversedChanges() []PackageUpdate {
 	changes := make([]PackageUpdate, len(u.Changes))
 	for i, c := range u.Changes {
-		changes[i] = PackageUpdate{From: c.To, To: c.From}
+		update := PackageUpdate{
+			From:   c.To,
+			To:     c.From,
+			Labels: c.Labels,
+		}
+		if c.ConfigPackage != nil {
+			update.ConfigPackage = &PackageUpdate{
+				From:   c.ConfigPackage.To,
+				To:     c.ConfigPackage.From,
+				Labels: c.ConfigPackage.Labels,
+			}
+		}
+		changes[i] = update
 	}
 	return changes
 }
@@ -1138,11 +1157,20 @@ type PackageUpdate struct {
 	To loc.Locator `json:"to"`
 	// Labels defines optional identifying set of labels
 	Labels map[string]string `json:"labels,omitempty"`
+	// ConfigPackage specifies optional configuration package dependency
+	ConfigPackage *PackageUpdate `json:"config_package,omitempty"`
 }
 
-// String returns the package update string representation
+// String formats this update as human-readable text
 func (u *PackageUpdate) String() string {
-	return fmt.Sprintf("PackageUpdate(%v -> %v)", u.From, u.To)
+	format := func(u *PackageUpdate) string {
+		return fmt.Sprintf("%v -> %v", u.From, u.To)
+	}
+	if u.ConfigPackage == nil {
+		return fmt.Sprintf("update(%v)", format(u))
+	}
+	return fmt.Sprintf("update(%v, config:%v)",
+		format(u), format(u.ConfigPackage))
 }
 
 // PackageChangesets tracks server local package changes - updates and downgrades
@@ -1538,6 +1566,15 @@ type Server struct {
 	Created time.Time `json:"created"`
 }
 
+// IsEqualTo returns true if this and the provided server are the same server.
+func (s *Server) IsEqualTo(other Server) bool {
+	// Compare only a few "main" fields that should give enough confidence
+	// in deciding whether it's the same node or not.
+	return s.AdvertiseIP == other.AdvertiseIP &&
+		s.Hostname == other.Hostname &&
+		s.Role == other.Role
+}
+
 // StateDir returns directory where all gravity data is stored on this server
 func (s *Server) StateDir() string {
 	if s.SystemState.StateDir != "" {
@@ -1563,7 +1600,16 @@ func (s *Server) KubeNodeID() string {
 
 // IsMaster returns true if the server has a master role
 func (s *Server) IsMaster() bool {
-	return s.ClusterRole == constants.MasterRole
+	return s.ClusterRole == string(schema.ServiceRoleMaster)
+}
+
+// Strings formats this server as readable text
+func (s Server) String() string {
+	return fmt.Sprintf("Server(AdvertiseIP=%v, Hostname=%v, Role=%v, ClusterRole=%v)",
+		s.AdvertiseIP,
+		s.Hostname,
+		s.Role,
+		s.ClusterRole)
 }
 
 // Hostnames returns a list of hostnames for the provided servers
@@ -1885,6 +1931,24 @@ var DefaultSubnets = Subnets{
 // Servers is a list of servers
 type Servers []Server
 
+// IsEqualTo returns true if the provided list contains all the same servers
+// as this list.
+func (r Servers) IsEqualTo(other Servers) bool {
+	if len(r) != len(other) {
+		return false
+	}
+	for _, server := range r {
+		otherServer := other.FindByIP(server.AdvertiseIP)
+		if otherServer == nil {
+			return false
+		}
+		if !otherServer.IsEqualTo(server) {
+			return false
+		}
+	}
+	return true
+}
+
 // FindByIP returns a server with the specified IP
 func (r Servers) FindByIP(ip string) *Server {
 	for _, server := range r {
@@ -1903,6 +1967,23 @@ func (r Servers) Masters() (masters []Server) {
 		}
 	}
 	return
+}
+
+// MasterIPs returns a list of advertise IPs of master nodes.
+func (r Servers) MasterIPs() (ips []string) {
+	for _, master := range r.Masters() {
+		ips = append(ips, master.AdvertiseIP)
+	}
+	return ips
+}
+
+// String formats this list of servers as text
+func (r Servers) String() string {
+	var formats []string
+	for _, server := range r {
+		formats = append(formats, server.String())
+	}
+	return strings.Join(formats, ", ")
 }
 
 type AgentProfile struct {
@@ -1929,7 +2010,7 @@ type ShrinkOperationState struct {
 	// NodeRemoved indicates whether the node has already been removed from the cluster
 	// Used in cases where we recieve an event where the node is being terminated, but may
 	// not have disconnected from the cluster yet.
-	NodeRemoved bool `json:node_removed`
+	NodeRemoved bool `json:"node_removed"`
 }
 
 // UpdateOperationState describes the state of the update operation.
@@ -1948,6 +2029,14 @@ type UpdateOperationState struct {
 	Manual bool `json:"manual"`
 }
 
+// UpdateEnvarsOperationState describes the state of the operation to update cluster environment variables.
+type UpdateEnvarsOperationState struct {
+	// PrevEnv specifies the previous environment state
+	PrevEnv map[string]string `json:"prev_env,omitempty"`
+	// Env defines new cluster environment variables
+	Env map[string]string `json:"env,omitempty"`
+}
+
 // Package returns the update package locator
 func (s UpdateOperationState) Package() (*loc.Locator, error) {
 	locator, err := loc.ParseLocator(s.UpdatePackage)
@@ -1955,6 +2044,14 @@ func (s UpdateOperationState) Package() (*loc.Locator, error) {
 		return nil, trace.Wrap(err)
 	}
 	return locator, nil
+}
+
+// UpdateConfigOperationState describes the state of the operation to update cluster configuration
+type UpdateConfigOperationState struct {
+	// PrevConfig specifies the previous configuration state
+	PrevConfig []byte `json:"prev_config,omitempty"`
+	// Config specifies the raw configuration resource
+	Config []byte `json:"config,omitempty"`
 }
 
 // ServerUpdate represents server that is being updated

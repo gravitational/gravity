@@ -69,7 +69,8 @@ const manifestSchema = `
             "labels": {"type": "object"}
           }
         },
-	"logo": {"type": "string"},
+        "baseImage": {"type": "string"},
+        "logo": {"type": "string"},
         "releaseNotes": {"type": "string"},
         "endpoints": {
           "type": "array",
@@ -572,6 +573,7 @@ const manifestSchema = `
             },
             "logs": {"$ref": "#/definitions/onOff"},
             "monitoring": {"$ref": "#/definitions/onOff"},
+            "catalog": {"$ref": "#/definitions/onOff"},
             "kubernetes": {"$ref": "#/definitions/onOff"},
             "configuration": {"$ref": "#/definitions/onOff"}
           }

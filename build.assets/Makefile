@@ -29,6 +29,7 @@ MONITORING_APP_TAG ?= 0.0.1
 MONITORING_APP_BRANCH ?= $(MONITORING_APP_TAG)
 K8S_APP_TAG ?= 0.0.1
 TILLER_APP_TAG ?= 0.0.1
+GOLFLAGS ?= -w -s
 
 # Git repositories
 TELEPORT_REPO = git@github.com:gravitational/teleport.git
@@ -357,7 +358,7 @@ TELEKUBE_IMPORT_OPTIONS := \
 telekube-app: k8s-app
 	@echo -e "\n----> Building telekube-app...\n"
 	- $(GRAVITY) app delete $(TELEKUBE_APP_PKG) $(DELETE_OPTS) && \
-	  $(GRAVITY) app import $(ASSETSDIR)/telekube $(VENDOR_OPTS) $(TELEKUBE_IMPORT_OPTIONS) && \
+	  GRAVITY_K8S_VERSION=$(K8S_VER) $(GRAVITY) app import $(ASSETSDIR)/telekube $(VENDOR_OPTS) $(TELEKUBE_IMPORT_OPTIONS) && \
 	  $(GRAVITY) package export $(TELEKUBE_APP_PKG) $(TELEKUBE_APP_OUT)
 
 .PHONY: dns-app
@@ -444,13 +445,13 @@ build-tsh-on-host:
 		cd $(BUILDDIR)/src/$(TELEPORT_PKG_PATH) && \
 		git fetch --all --tags && \
 		git checkout $(TELEPORT_REPOTAG) && \
-		GOPATH=$(BUILDDIR) go build -o $(TSH_OUT) ./tool/tsh
+		GOPATH=$(BUILDDIR) go build -ldflags "$(GOLFLAGS)" -o $(TSH_OUT) ./tool/tsh
 	@echo "Done --> $(TSH_OUT)"
 
 .PHONY: build-tsh-inside-container
 build-tsh-inside-container:
 	@echo "\n----> Building Tsh binary inside container...\n"
-	go build -o $(LOCAL_GRAVITY_BUILDDIR)/tsh $(TELEPORT_PKG_PATH)/tool/tsh
+	go build -ldflags "$(GOLFLAGS)" -o $(LOCAL_GRAVITY_BUILDDIR)/tsh $(TELEPORT_PKG_PATH)/tool/tsh
 	@echo "Done --> $(LOCAL_GRAVITY_BUILDDIR)/tsh"
 
 .PHONY: clone-teleport

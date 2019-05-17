@@ -1,5 +1,5 @@
 /*
-Copyright 2015-2017 Gravitational, Inc.
+Copyright 2015-2019 Gravitational, Inc.
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -133,6 +133,13 @@ const (
 	// ServiceExitedWithErrorEvent is emitted whenever a service
 	// has exited with an error, the payload includes the error
 	ServiceExitedWithErrorEvent = "ServiceExitedWithError"
+
+	// TeleportDegradedEvent is emitted whenever a service is operating in a
+	// degraded manner.
+	TeleportDegradedEvent = "TeleportDegraded"
+
+	// TeleportOKEvent is emitted whenever a service is operating normally.
+	TeleportOKEvent = "TeleportOKEvent"
 )
 
 // RoleConfig is a configuration for a server role (either proxy or node)
@@ -304,11 +311,11 @@ func (process *TeleportProcess) GetIdentity(role teleport.Role) (i *auth.Identit
 			// for admin identity use local auth server
 			// because admin identity is requested by auth server
 			// itself
-			principals, err := process.getAdditionalPrincipals(role)
+			principals, dnsNames, err := process.getAdditionalPrincipals(role)
 			if err != nil {
 				return nil, trace.Wrap(err)
 			}
-			i, err = auth.GenerateIdentity(process.localAuth, id, principals)
+			i, err = auth.GenerateIdentity(process.localAuth, id, principals, dnsNames)
 		} else {
 			// try to locate static identity provided in the file
 			i, err = process.findStaticIdentity(id)
@@ -477,7 +484,7 @@ func NewTeleport(cfg *Config) (*TeleportProcess, error) {
 	if os.IsNotExist(err) {
 		err := os.MkdirAll(cfg.DataDir, os.ModeDir|0700)
 		if err != nil {
-			return nil, trace.Wrap(err)
+			return nil, trace.ConvertSystemError(err)
 		}
 	}
 
@@ -528,9 +535,13 @@ func NewTeleport(cfg *Config) (*TeleportProcess, error) {
 		return nil, trace.Wrap(err)
 	}
 
+	if cfg.Clock == nil {
+		cfg.Clock = clockwork.NewRealClock()
+	}
+
 	processID := fmt.Sprintf("%v", nextProcessID())
 	process := &TeleportProcess{
-		Clock:               clockwork.NewRealClock(),
+		Clock:               cfg.Clock,
 		Supervisor:          NewSupervisor(processID),
 		Config:              cfg,
 		Identities:          make(map[teleport.Role]*auth.Identity),
@@ -719,9 +730,13 @@ func initUploadHandler(auditConfig services.AuditConfig) (events.UploadHandler, 
 
 	switch uri.Scheme {
 	case teleport.SchemeS3:
+		region := auditConfig.Region
+		if uriRegion := uri.Query().Get(teleport.Region); uriRegion != "" {
+			region = uriRegion
+		}
 		handler, err := s3sessions.NewHandler(s3sessions.Config{
 			Bucket: uri.Host,
-			Region: auditConfig.Region,
+			Region: region,
 			Path:   uri.Path,
 		})
 		if err != nil {
@@ -905,7 +920,6 @@ func (process *TeleportProcess) initAuthService() error {
 		OIDCConnectors:       cfg.OIDCConnectors,
 		AuditLog:             process.auditLog,
 		CipherSuites:         cfg.CipherSuites,
-		KubeconfigPath:       cfg.Auth.KubeconfigPath,
 	})
 	if err != nil {
 		return trace.Wrap(err)
@@ -1405,26 +1419,45 @@ func (process *TeleportProcess) initDiagnosticService() error {
 	log := logrus.WithFields(logrus.Fields{
 		trace.Component: teleport.Component(teleport.ComponentDiagnostic, process.id),
 	})
-	var ready int64
-	process.RegisterFunc("diagnostic.readyz", func() error {
-		eventC := make(chan Event, 1)
-		process.WaitForEvent(process.ExitContext(), TeleportReadyEvent, eventC)
-		select {
-		case <-eventC:
-			atomic.StoreInt64(&ready, 1)
-			log.Infof("Detected that service started and joined the cluster successfully.")
-		case <-process.ExitContext().Done():
-			log.Debugf("Teleport is exiting, returning.")
-		}
-		return nil
-	})
 
+	// Create a state machine that will process and update the internal state of
+	// Teleport based off Events. Use this state machine to return return the
+	// status from the /readyz endpoint.
+	ps := newProcessState(process)
+	process.RegisterFunc("readyz.monitor", func() error {
+		// Start loop to monitor for events that are used to update Teleport state.
+		eventCh := make(chan Event, 1024)
+		process.WaitForEvent(process.ExitContext(), TeleportReadyEvent, eventCh)
+		process.WaitForEvent(process.ExitContext(), TeleportDegradedEvent, eventCh)
+		process.WaitForEvent(process.ExitContext(), TeleportOKEvent, eventCh)
+
+		for {
+			select {
+			case e := <-eventCh:
+				ps.Process(e)
+			case <-process.ExitContext().Done():
+				log.Debugf("Teleport is exiting, returning.")
+				return nil
+			}
+		}
+	})
 	mux.HandleFunc("/readyz", func(w http.ResponseWriter, r *http.Request) {
-		isReady := atomic.LoadInt64(&ready)
-		if isReady == 1 {
-			roundtrip.ReplyJSON(w, http.StatusOK, map[string]interface{}{"status": "ok"})
-		} else {
-			roundtrip.ReplyJSON(w, http.StatusServiceUnavailable, map[string]interface{}{"status": "teleport is is not ready, check logs for details"})
+		switch ps.GetState() {
+		// 503
+		case stateDegraded:
+			roundtrip.ReplyJSON(w, http.StatusServiceUnavailable, map[string]interface{}{
+				"status": "teleport is in a degraded state, check logs for details",
+			})
+		// 400
+		case stateRecovering:
+			roundtrip.ReplyJSON(w, http.StatusBadRequest, map[string]interface{}{
+				"status": "teleport is recovering from a degraded state, check logs for details",
+			})
+		// 200
+		case stateOK:
+			roundtrip.ReplyJSON(w, http.StatusOK, map[string]interface{}{
+				"status": "ok",
+			})
 		}
 	})
 
@@ -1464,8 +1497,9 @@ func (process *TeleportProcess) initDiagnosticService() error {
 
 // getAdditionalPrincipals returns a list of additional principals to add
 // to role's service certificates.
-func (process *TeleportProcess) getAdditionalPrincipals(role teleport.Role) ([]string, error) {
+func (process *TeleportProcess) getAdditionalPrincipals(role teleport.Role) ([]string, []string, error) {
 	var principals []string
+	var dnsNames []string
 	if process.Config.Hostname != "" {
 		principals = append(principals, process.Config.Hostname)
 	}
@@ -1475,6 +1509,18 @@ func (process *TeleportProcess) getAdditionalPrincipals(role teleport.Role) ([]s
 		addrs = append(process.Config.Proxy.PublicAddrs, utils.NetAddr{Addr: reversetunnel.RemoteKubeProxy})
 		addrs = append(addrs, process.Config.Proxy.SSHPublicAddrs...)
 		addrs = append(addrs, process.Config.Proxy.Kube.PublicAddrs...)
+		// Automatically add wildcards for every proxy public address for k8s SNI routing
+		if process.Config.Proxy.Kube.Enabled {
+			for _, publicAddr := range utils.JoinAddrSlices(process.Config.Proxy.PublicAddrs, process.Config.Proxy.Kube.PublicAddrs) {
+				host, err := utils.Host(publicAddr.Addr)
+				if err != nil {
+					return nil, nil, trace.Wrap(err)
+				}
+				if ip := net.ParseIP(host); ip == nil {
+					dnsNames = append(dnsNames, "*."+host)
+				}
+			}
+		}
 	case teleport.RoleAuth, teleport.RoleAdmin:
 		addrs = process.Config.Auth.PublicAddrs
 	case teleport.RoleNode:
@@ -1483,11 +1529,11 @@ func (process *TeleportProcess) getAdditionalPrincipals(role teleport.Role) ([]s
 	for _, addr := range addrs {
 		host, err := utils.Host(addr.Addr)
 		if err != nil {
-			return nil, trace.Wrap(err)
+			return nil, nil, trace.Wrap(err)
 		}
 		principals = append(principals, host)
 	}
-	return principals, nil
+	return principals, dnsNames, nil
 }
 
 // initProxy gets called if teleport runs with 'proxy' role enabled.
@@ -1872,6 +1918,7 @@ func (process *TeleportProcess) initProxyEndpoint(conn *Connector) error {
 				AuditLog:        conn.Client,
 				ServerID:        cfg.HostUUID,
 				ClusterOverride: cfg.Proxy.Kube.ClusterOverride,
+				KubeconfigPath:  cfg.Proxy.Kube.KubeconfigPath,
 			},
 			TLS:           tlsConfig,
 			LimiterConfig: cfg.Proxy.Limiter,
@@ -2078,7 +2125,7 @@ func validateConfig(cfg *Config) error {
 	}
 
 	if cfg.PollingPeriod == 0 {
-		cfg.PollingPeriod = defaults.HighResPollingPeriod
+		cfg.PollingPeriod = defaults.LowResPollingPeriod
 	}
 
 	cfg.SSH.Namespace = services.ProcessNamespace(cfg.SSH.Namespace)

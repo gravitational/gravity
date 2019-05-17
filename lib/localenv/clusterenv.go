@@ -17,6 +17,9 @@ limitations under the License.
 package localenv
 
 import (
+	"context"
+	"time"
+
 	"github.com/gravitational/gravity/lib/app"
 	"github.com/gravitational/gravity/lib/app/service"
 	"github.com/gravitational/gravity/lib/blob/fs"
@@ -28,6 +31,7 @@ import (
 	"github.com/gravitational/gravity/lib/storage/keyval"
 	"github.com/gravitational/gravity/lib/users"
 	"github.com/gravitational/gravity/lib/users/usersservice"
+	"github.com/gravitational/teleport/lib/events"
 
 	"github.com/gravitational/trace"
 	"k8s.io/client-go/kubernetes"
@@ -35,16 +39,25 @@ import (
 
 // NewClusterEnvironment returns a new instance of ClusterEnvironment
 // with all services initialized
-func (r *LocalEnvironment) NewClusterEnvironment() (*ClusterEnvironment, error) {
+func (r *LocalEnvironment) NewClusterEnvironment(opts ...ClusterEnvironmentOption) (*ClusterEnvironment, error) {
 	client, _, err := httplib.GetClusterKubeClient(r.DNS.Addr())
 	if err != nil {
 		log.Errorf("Failed to create Kubernetes client: %v.",
 			trace.DebugReport(err))
 	}
-
-	return newClusterEnvironment(clusterEnvironmentArgs{
-		client: client,
-	})
+	auditLog, err := r.AuditLog(context.TODO())
+	if err != nil {
+		log.Warnf("Failed to create audit log: %v.",
+			trace.DebugReport(err))
+	}
+	config := clusterEnvironmentConfig{
+		client:   client,
+		auditLog: auditLog,
+	}
+	for _, opt := range opts {
+		opt(&config)
+	}
+	return newClusterEnvironment(config)
 }
 
 // ClusterEnvironment provides access to local cluster services
@@ -69,11 +82,30 @@ type ClusterEnvironment struct {
 // returns a new instance of cluster environment.
 // The resulting environment will not have a kubernetes client
 func NewClusterEnvironment() (*ClusterEnvironment, error) {
-	return newClusterEnvironment(clusterEnvironmentArgs{})
+	return newClusterEnvironment(clusterEnvironmentConfig{})
 }
 
-func newClusterEnvironment(args clusterEnvironmentArgs) (*ClusterEnvironment, error) {
-	etcdConfig, err := keyval.LocalEtcdConfig(0)
+// WithClient is an option to override the kubernetes client to use
+// in the cluster environment
+func WithClient(client *kubernetes.Clientset) ClusterEnvironmentOption {
+	return func(config *clusterEnvironmentConfig) {
+		config.client = client
+	}
+}
+
+// WithEtcdTimeout is an option to override the etcd timeout
+func WithEtcdTimeout(timeout time.Duration) ClusterEnvironmentOption {
+	return func(config *clusterEnvironmentConfig) {
+		config.etcdTimeout = timeout
+	}
+}
+
+// ClusterEnvironmentOption describes a functional option for customizing
+// a cluster environment
+type ClusterEnvironmentOption func(*clusterEnvironmentConfig)
+
+func newClusterEnvironment(config clusterEnvironmentConfig) (*ClusterEnvironment, error) {
+	etcdConfig, err := keyval.LocalEtcdConfig(config.etcdTimeout)
 	if err != nil {
 		return nil, trace.Wrap(err)
 	}
@@ -111,7 +143,7 @@ func newClusterEnvironment(args clusterEnvironmentArgs) (*ClusterEnvironment, er
 		Backend:     backend,
 		Packages:    packages,
 		UnpackedDir: unpackedDir,
-		Client:      args.client,
+		Client:      config.client,
 	})
 	if err != nil {
 		return nil, trace.Wrap(err)
@@ -135,6 +167,9 @@ func newClusterEnvironment(args clusterEnvironmentArgs) (*ClusterEnvironment, er
 		Apps:     apps,
 		Users:    users,
 		StateDir: siteDir,
+		Local:    true,
+		Client:   config.client,
+		AuditLog: config.auditLog,
 	})
 	if err != nil {
 		return nil, trace.Wrap(err)
@@ -152,10 +187,15 @@ func newClusterEnvironment(args clusterEnvironmentArgs) (*ClusterEnvironment, er
 		Apps:            apps,
 		Users:           users,
 		Operator:        operator,
-		Client:          args.client,
+		Client:          config.client,
 	}, nil
 }
 
-type clusterEnvironmentArgs struct {
+type clusterEnvironmentConfig struct {
 	client *kubernetes.Clientset
+	// etcdTimeout specifies the timeout for etcd queries.
+	// Falls back to defaults.EtcdRetryInterval if unspecified
+	etcdTimeout time.Duration
+	// auditLog provides API to the cluster audit log
+	auditLog events.IAuditLog
 }

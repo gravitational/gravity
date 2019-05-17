@@ -44,7 +44,7 @@ func Build(ctx context.Context, builder *Builder) error {
 		builder.OutPath = fmt.Sprintf("%v-%v.tar", locator.Name, locator.Version)
 		if _, err := os.Stat(builder.OutPath); err == nil && !builder.Overwrite {
 			return trace.BadParameter("tarball %v already exists, please remove "+
-				"it first or provide '--force' flag to overwrite it", builder.OutPath)
+				"it first or provide -f (--overwrite) flag to overwrite it", builder.OutPath)
 		}
 	}
 
@@ -55,11 +55,14 @@ func Build(ctx context.Context, builder *Builder) error {
 	case schema.KindApplication:
 		builder.Config.Progress = utils.NewProgress(ctx, "Build",
 			appBuildSteps, builder.Config.Silent)
+	default:
+		return trace.BadParameter("unknown manifest kind %q",
+			builder.Manifest.Kind)
 	}
 
 	switch builder.Manifest.Kind {
 	case schema.KindBundle, schema.KindCluster:
-		builder.NextStep("Selecting application runtime")
+		builder.NextStep("Selecting base image version")
 		runtimeVersion, err := builder.SelectRuntime()
 		if err != nil {
 			return trace.Wrap(err)
@@ -70,6 +73,9 @@ func Build(ctx context.Context, builder *Builder) error {
 		}
 		err = builder.SyncPackageCache(runtimeVersion)
 		if err != nil {
+			if trace.IsNotFound(err) {
+				return trace.NotFound("base image version %v not found", runtimeVersion)
+			}
 			return trace.Wrap(err)
 		}
 	}

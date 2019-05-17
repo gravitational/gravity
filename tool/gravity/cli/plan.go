@@ -20,137 +20,95 @@ import (
 	"context"
 	"fmt"
 	"os"
+	"time"
 
 	"github.com/gravitational/gravity/lib/constants"
-	"github.com/gravitational/gravity/lib/defaults"
 	"github.com/gravitational/gravity/lib/fsm"
 	"github.com/gravitational/gravity/lib/localenv"
 	"github.com/gravitational/gravity/lib/ops"
-	"github.com/gravitational/gravity/lib/rpc"
 	"github.com/gravitational/gravity/lib/storage"
 	"github.com/gravitational/gravity/lib/update"
+	clusterupdate "github.com/gravitational/gravity/lib/update/cluster"
 	"github.com/gravitational/gravity/lib/utils"
 
 	"github.com/fatih/color"
 	"github.com/gravitational/trace"
+	"github.com/sirupsen/logrus"
 )
 
-func initOperationPlan(localEnv, updateEnv *localenv.LocalEnvironment) error {
+func initUpdateOperationPlan(localEnv, updateEnv *localenv.LocalEnvironment) error {
 	ctx := context.TODO()
 	clusterEnv, err := localEnv.NewClusterEnvironment()
 	if err != nil {
 		return trace.Wrap(err)
 	}
-
 	if clusterEnv.Client == nil {
 		return trace.BadParameter("this operation can only be executed on one of the master nodes")
 	}
-
-	secretsDir, err := fsm.AgentSecretsDir()
+	cluster, err := clusterEnv.Operator.GetLocalSite()
 	if err != nil {
 		return trace.Wrap(err)
 	}
-	creds, err := rpc.ClientCredentials(secretsDir)
-	if err != nil {
-		return trace.Wrap(err, "failed to load client RPC credentials from %v."+
-			" Please make sure the upgrade operation has been started with `gravity upgrade`"+
-			" or `gravity upgrade --manual` and retry.", secretsDir)
-	}
-
-	plan, err := update.InitOperationPlan(ctx, updateEnv, clusterEnv)
+	operation, _, err := ops.GetLastOperation(cluster.Key(), clusterEnv.Operator)
 	if err != nil {
 		return trace.Wrap(err)
 	}
-
-	err = update.SyncOperationPlanToCluster(ctx, *plan, creds)
+	_, err = clusterupdate.InitOperationPlan(ctx, localEnv, updateEnv, clusterEnv, operation.Key())
 	if err != nil {
 		return trace.Wrap(err)
 	}
-
 	return trace.Wrap(err)
 }
 
-func syncOperationPlan(localEnv *localenv.LocalEnvironment, updateEnv *localenv.LocalEnvironment) error {
-	clusterEnv, err := localEnv.NewClusterEnvironment()
-	if err != nil {
-		return trace.Wrap(err)
-	}
-
-	return trace.Wrap(update.SyncOperationPlan(clusterEnv.Backend, updateEnv.Backend))
-}
-
 func displayOperationPlan(localEnv, updateEnv, joinEnv *localenv.LocalEnvironment, operationID string, format constants.Format) error {
-	err := displayClusterOperationPlan(localEnv, operationID, format)
-	if err != nil && !trace.IsNotFound(err) {
-		log.Warnf("Failed to display the cluster operation plan: %v.", trace.DebugReport(err))
-		// Fall-through to update/install operation plans
+	op, err := getLastOperation(localEnv, updateEnv, joinEnv, operationID)
+	if err != nil {
+		return trace.Wrap(err)
 	}
-	if err == nil {
-		return nil
+	if op.IsCompleted() {
+		return displayClusterOperationPlan(localEnv, op.Key(), format)
 	}
-
-	if hasUpdateOperation(updateEnv) {
-		return displayUpdateOperationPlan(localEnv, updateEnv, format)
+	switch op.Type {
+	case ops.OperationInstall:
+		return displayInstallOperationPlan(op.Key(), format)
+	case ops.OperationExpand:
+		return displayExpandOperationPlan(joinEnv, op.Key(), format)
+	case ops.OperationUpdate:
+		return displayUpdateOperationPlan(localEnv, updateEnv, op.Key(), format)
+	case ops.OperationUpdateRuntimeEnviron:
+		return displayUpdateOperationPlan(localEnv, updateEnv, op.Key(), format)
+	case ops.OperationUpdateConfig:
+		return displayUpdateOperationPlan(localEnv, updateEnv, op.Key(), format)
+	case ops.OperationGarbageCollect:
+		return displayClusterOperationPlan(localEnv, op.Key(), format)
+	default:
+		return trace.BadParameter("unknown operation type %q", op.Type)
 	}
-
-	if hasExpandOperation(joinEnv) {
-		return displayExpandOperationPlan(joinEnv, format)
-	}
-
-	return displayInstallOperationPlan(format)
 }
 
-func displayClusterOperationPlan(env *localenv.LocalEnvironment, operationID string, format constants.Format) error {
-	operator, err := env.SiteOperator()
+func displayClusterOperationPlan(env *localenv.LocalEnvironment, opKey ops.SiteOperationKey, format constants.Format) error {
+	clusterEnv, err := env.NewClusterEnvironment()
 	if err != nil {
 		return trace.Wrap(err)
 	}
-
-	cluster, err := operator.GetLocalSite()
+	plan, err := clusterEnv.Operator.GetOperationPlan(opKey)
 	if err != nil {
 		return trace.Wrap(err)
 	}
-
-	var op *ops.SiteOperation
-	if operationID != "" {
-		op, err = operator.GetSiteOperation(ops.SiteOperationKey{
-			AccountID:   cluster.AccountID,
-			SiteDomain:  cluster.Domain,
-			OperationID: operationID,
-		})
-	} else {
-		op, _, err = ops.GetLastOperation(cluster.Key(), operator)
-	}
-	if err != nil {
-		return trace.Wrap(err)
-	}
-
-	plan, err := operator.GetOperationPlan(op.Key())
-	if err != nil {
-		return trace.Wrap(err)
-	}
-
-	log.Debug("Showing operation plan retrieved from cluster controller.")
 	err = outputPlan(*plan, format)
 	return trace.Wrap(err)
 }
 
-func displayUpdateOperationPlan(localEnv, updateEnv *localenv.LocalEnvironment, format constants.Format) error {
-	clusterEnv, err := localEnv.NewClusterEnvironment()
+func displayUpdateOperationPlan(localEnv, updateEnv *localenv.LocalEnvironment, opKey ops.SiteOperationKey, format constants.Format) error {
+	plan, err := fsm.GetOperationPlan(updateEnv.Backend, opKey.SiteDomain, opKey.OperationID)
 	if err != nil {
 		return trace.Wrap(err)
 	}
-	fsm, err := update.NewFSM(context.TODO(),
-		update.FSMConfig{
-			Backend:      clusterEnv.Backend,
-			LocalBackend: updateEnv.Backend,
-		})
+	reconciledPlan, err := tryReconcilePlan(context.TODO(), localEnv, updateEnv, *plan)
 	if err != nil {
-		return trace.Wrap(err)
-	}
-	plan, err := fsm.GetPlan()
-	if err != nil {
-		return trace.Wrap(err)
+		logrus.WithError(err).Warn("Failed to reconcile plan.")
+	} else {
+		plan = reconciledPlan
 	}
 	err = outputPlan(*plan, format)
 	if err != nil {
@@ -159,7 +117,7 @@ func displayUpdateOperationPlan(localEnv, updateEnv *localenv.LocalEnvironment, 
 	return nil
 }
 
-func displayInstallOperationPlan(format constants.Format) error {
+func displayInstallOperationPlan(opKey ops.SiteOperationKey, format constants.Format) error {
 	wizardEnv, err := localenv.NewRemoteEnvironment()
 	if err != nil {
 		return trace.Wrap(err)
@@ -174,22 +132,7 @@ If the install operation is in progress, please make sure you're invoking
 "gravity plan" command from the same directory where "gravity install"
 was run.`)
 	}
-	return trace.Wrap(displayInstallPlan(wizardEnv, format))
-}
-
-func displayInstallPlan(wizardEnv *localenv.RemoteEnvironment, format constants.Format) error {
-	clusters, err := wizardEnv.Operator.GetSites(defaults.SystemAccountID)
-	if err != nil {
-		return trace.Wrap(err)
-	}
-	if len(clusters) != 1 {
-		return trace.BadParameter("expected 1 cluster, got: %v", clusters)
-	}
-	op, _, err := ops.GetInstallOperation(clusters[0].Key(), wizardEnv.Operator)
-	if err != nil {
-		return trace.Wrap(err)
-	}
-	plan, err := wizardEnv.Operator.GetOperationPlan(op.Key())
+	plan, err := wizardEnv.Operator.GetOperationPlan(opKey)
 	if err != nil {
 		if trace.IsNotFound(err) {
 			return trace.NotFound(
@@ -206,12 +149,8 @@ func displayInstallPlan(wizardEnv *localenv.RemoteEnvironment, format constants.
 }
 
 // displayExpandOperationPlan shows plan of the join operation from the local join backend
-func displayExpandOperationPlan(joinEnv *localenv.LocalEnvironment, format constants.Format) error {
-	operation, err := ops.GetExpandOperation(joinEnv.Backend)
-	if err != nil {
-		return trace.Wrap(err)
-	}
-	plan, err := fsm.GetOperationPlan(joinEnv.Backend, operation.SiteDomain, operation.ID)
+func displayExpandOperationPlan(joinEnv *localenv.LocalEnvironment, opKey ops.SiteOperationKey, format constants.Format) error {
+	plan, err := fsm.GetOperationPlan(joinEnv.Backend, opKey.SiteDomain, opKey.OperationID)
 	if err != nil {
 		return trace.Wrap(err)
 	}
@@ -265,18 +204,18 @@ func outputPhaseError(phase storage.OperationPhase) error {
 	return nil
 }
 
+func tryReconcilePlan(ctx context.Context, localEnv, updateEnv *localenv.LocalEnvironment, plan storage.OperationPlan) (*storage.OperationPlan, error) {
+	clusterEnv, err := localEnv.NewClusterEnvironment(localenv.WithEtcdTimeout(1 * time.Second))
+	if err != nil {
+		return nil, trace.Wrap(err)
+	}
+	reconciler := update.NewDefaultReconciler(clusterEnv.Backend, updateEnv.Backend,
+		plan.ClusterName, plan.OperationID, logrus.WithField("operation-id", plan.OperationID))
+	reconciledPlan, err := reconciler.ReconcilePlan(ctx, plan)
+	if err != nil {
+		return nil, trace.Wrap(err)
+	}
+	return reconciledPlan, nil
+}
+
 const recoveryModeWarning = "Failed to retrieve plan from etcd, showing cached plan. If etcd went down as a result of a system upgrade, you can perform a rollback phase. Run 'gravity plan --repair' when etcd connection is restored.\n"
-
-// hasUpdateOperation returns true if there is an upgrade operation found
-// in the backend used by the specified environment.
-// updateEnv is the boltdb used for upgrades
-func hasUpdateOperation(updateEnv *localenv.LocalEnvironment) bool {
-	_, err := storage.GetLastOperation(updateEnv.Backend)
-	return err == nil
-}
-
-// hasExpandOperation returns true if the provided backend contains an expand operation
-func hasExpandOperation(joinEnv *localenv.LocalEnvironment) bool {
-	_, err := ops.GetExpandOperation(joinEnv.Backend)
-	return err == nil
-}

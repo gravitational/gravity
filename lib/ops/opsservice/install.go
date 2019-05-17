@@ -66,7 +66,7 @@ func (o *Operator) StreamOperationLogs(key ops.SiteOperationKey, reader io.Reade
 
 // createInstallOperation initiates install operation for a given site
 // it makes sure that install operation is the first operation too
-func (s *site) createInstallOperation(req ops.CreateSiteInstallOperationRequest) (*ops.SiteOperationKey, error) {
+func (s *site) createInstallOperation(ctx context.Context, req ops.CreateSiteInstallOperationRequest) (*ops.SiteOperationKey, error) {
 	profiles := make(map[string]storage.ServerProfile)
 	for _, profile := range s.app.Manifest.NodeProfiles {
 		profiles[profile.Name] = storage.ServerProfile{
@@ -76,12 +76,30 @@ func (s *site) createInstallOperation(req ops.CreateSiteInstallOperationRequest)
 			Request:     req.Profiles[profile.Name],
 		}
 	}
-	return s.createInstallExpandOperation(
-		ops.OperationInstall, ops.OperationStateInstallInitiated, req.Provisioner, req.Variables, profiles)
+	return s.createInstallExpandOperation(ctx, createInstallExpandOperationRequest{
+		Type:        ops.OperationInstall,
+		State:       ops.OperationStateInstallInitiated,
+		Provisioner: req.Provisioner,
+		Vars:        req.Variables,
+		Profiles:    profiles,
+	})
 }
 
-func (s *site) createInstallExpandOperation(operationType, operationInitialState, provisioner string,
-	variables storage.OperationVariables, profiles map[string]storage.ServerProfile) (*ops.SiteOperationKey, error) {
+type createInstallExpandOperationRequest struct {
+	Type        string
+	State       string
+	Provisioner string
+	Vars        storage.OperationVariables
+	Profiles    map[string]storage.ServerProfile
+}
+
+func (s *site) createInstallExpandOperation(context context.Context, req createInstallExpandOperationRequest) (*ops.SiteOperationKey, error) {
+	operationType := req.Type
+	operationInitialState := req.State
+	provisioner := req.Provisioner
+	variables := req.Vars
+	profiles := req.Profiles
+
 	agentUser, err := s.agentUser()
 	if err != nil {
 		return nil, trace.Wrap(err)
@@ -98,6 +116,7 @@ func (s *site) createInstallExpandOperation(operationType, operationInitialState
 		SiteDomain:  s.key.SiteDomain,
 		Type:        operationType,
 		Created:     s.clock().UtcNow(),
+		CreatedBy:   storage.UserFromContext(context),
 		Updated:     s.clock().UtcNow(),
 		State:       operationInitialState,
 		Provisioner: provisioner,
@@ -228,7 +247,7 @@ func (s *site) selectSubnets(operation ops.SiteOperation) (*storage.Subnets, err
 	}
 
 	// machines on AWS will receive IPs from this subnet
-	subnet := operation.GetVars().AWS.SubnetCIDR
+	subnet := operation.GetVars().AWS.VPCCIDR
 	if subnet == "" {
 		return nil, trace.BadParameter("no subnet CIDR in operation vars: %v", operation)
 	}

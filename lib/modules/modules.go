@@ -30,7 +30,7 @@ import (
 	helm "k8s.io/helm/pkg/version"
 )
 
-// Modules allows to customize certain behavioral aspects of Telekube
+// Modules allows to customize certain behavioral aspects of Gravity
 type Modules interface {
 	// ProcessModes returns a list of modes gravity process can run in
 	ProcessModes() []string
@@ -38,16 +38,29 @@ type Modules interface {
 	InstallModes() []string
 	// DefaultAuthPreference returns default authentication preference based on process mode
 	DefaultAuthPreference(processMode string) (teleservices.AuthPreference, error)
-	// SupportedResources returns a list of resources that can be created/viewed
-	SupportedResources() []string
-	// SupportedResourcesToRemoves returns a list of resources that can be removed
-	SupportedResourcesToRemove() []string
 	// SupportedConnectors returns a list of supported auth connector kinds
 	SupportedConnectors() []string
-	// Version returns the gravity version
+	// Version returns the tool version
 	Version() Version
 	// TeleRepository returns the default repository for tele package cache
 	TeleRepository() string
+}
+
+// Resources defines the interface to query tool resource support
+type Resources interface {
+	// SupportedResources returns a list of resources that can be created/viewed
+	SupportedResources() []string
+	// SupportedResourcesToRemove returns a list of resources that can be removed
+	SupportedResourcesToRemove() []string
+	// CanonicalKind translates the specified kind to canonical form.
+	// Returns an empty string if no canonical form exists
+	CanonicalKind(kind string) string
+}
+
+// Messager provides methods for various informational messages
+type Messager interface {
+	// PostInstallMessage returns a message that gets printed to console after successful installation
+	PostInstallMessage() string
 }
 
 // Set sets the modules interface
@@ -62,6 +75,20 @@ func Get() Modules {
 	mutex.Lock()
 	defer mutex.Unlock()
 	return modules
+}
+
+// GetResources returns the resources interface
+func GetResources() Resources {
+	mutex.Lock()
+	defer mutex.Unlock()
+	return resources
+}
+
+// SetResources sets the resources interface
+func SetResources(r Resources) {
+	mutex.Lock()
+	defer mutex.Unlock()
+	resources = r
 }
 
 type defaultModules struct{}
@@ -91,16 +118,6 @@ func (m *defaultModules) DefaultAuthPreference(string) (teleservices.AuthPrefere
 		})
 }
 
-// SupportedResources returns a list of resources that can be created/viewed
-func (m *defaultModules) SupportedResources() []string {
-	return storage.SupportedGravityResources
-}
-
-// SupportedResourcesToRemoves returns a list of resources that can be removed
-func (m *defaultModules) SupportedResourcesToRemove() []string {
-	return storage.SupportedGravityResourcesToRemove
-}
-
 // SupportedConnectors returns a list of supported auth connector kinds
 func (m *defaultModules) SupportedConnectors() []string {
 	return []string{
@@ -125,6 +142,32 @@ func (m *defaultModules) TeleRepository() string {
 	return fmt.Sprintf("s3://%v", defaults.HubBucket)
 }
 
+// PostInstallMessage returns message that gets printed to console after
+// successful installation.
+func (m *defaultModules) PostInstallMessage() string {
+	return `Congratulations!
+The cluster is up and running. Please take a look at "cluster management" section:
+https://gravitational.com/gravity/docs/cluster/`
+}
+
+type defaultResources struct{}
+
+// SupportedResources returns a list of resources that can be created/viewed
+func (*defaultResources) SupportedResources() []string {
+	return storage.SupportedGravityResources
+}
+
+// SupportedResourcesToRemove returns a list of resources that can be removed
+func (*defaultResources) SupportedResourcesToRemove() []string {
+	return storage.SupportedGravityResourcesToRemove
+}
+
+// CanonicalKind translates the specified kind to canonical form.
+// Returns an empty string if no canonical form exists
+func (*defaultResources) CanonicalKind(kind string) string {
+	return storage.CanonicalKind(kind)
+}
+
 // Version represents gravity version
 type Version struct {
 	// Edition is the gravity edition, e.g. open-source
@@ -144,6 +187,7 @@ func (v Version) String() string {
 }
 
 var (
-	mutex           = sync.Mutex{}
-	modules Modules = &defaultModules{}
+	mutex               = sync.Mutex{}
+	modules   Modules   = &defaultModules{}
+	resources Resources = &defaultResources{}
 )

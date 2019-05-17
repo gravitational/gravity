@@ -31,9 +31,11 @@ import (
 	"github.com/gravitational/gravity/lib/clients"
 	"github.com/gravitational/gravity/lib/constants"
 	"github.com/gravitational/gravity/lib/defaults"
+	"github.com/gravitational/gravity/lib/helm"
 	"github.com/gravitational/gravity/lib/httplib"
 	"github.com/gravitational/gravity/lib/loc"
 	"github.com/gravitational/gravity/lib/ops"
+	"github.com/gravitational/gravity/lib/ops/events"
 	"github.com/gravitational/gravity/lib/ops/monitoring"
 	"github.com/gravitational/gravity/lib/ops/opsclient"
 	"github.com/gravitational/gravity/lib/pack"
@@ -46,8 +48,10 @@ import (
 	"github.com/docker/docker/pkg/archive"
 	"github.com/gravitational/configure/cstrings"
 	"github.com/gravitational/license/authority"
+	teleevents "github.com/gravitational/teleport/lib/events"
 	"github.com/gravitational/teleport/lib/reversetunnel"
 	teleservices "github.com/gravitational/teleport/lib/services"
+	teleutils "github.com/gravitational/teleport/lib/utils"
 	"github.com/gravitational/trace"
 	"github.com/mailgun/timetools"
 	log "github.com/sirupsen/logrus"
@@ -87,8 +91,8 @@ type Config struct {
 	// Users service provides access to users
 	Users users.Identity
 
-	// Monitoring is the monitoring API provider
-	Monitoring monitoring.Monitoring
+	// Metrics provides interface for cluster metrics collection.
+	Metrics monitoring.Metrics
 
 	// Clock is used to mock time in tests
 	Clock timetools.TimeProvider
@@ -114,12 +118,24 @@ type Config struct {
 	// ProcessID uniquely identifies gravity process
 	ProcessID string
 
+	// PublicAddr is the operator service public advertise address
+	PublicAddr teleutils.NetAddr
+
 	// InstallLogFiles is a list of additional install log files
 	// to add to install and expand operations for local troubleshooting
 	InstallLogFiles []string
 
 	// LogForwarders allows to manage log forwarders via Kubernetes config maps
 	LogForwarders LogForwardersControl
+
+	// Client specifies an optional kubernetes client
+	Client *kubernetes.Clientset
+
+	// AuditLog is used to submit events to the audit log
+	AuditLog teleevents.IAuditLog
+
+	// GetHelmClient is a factory method for creating a Helm client.
+	GetHelmClient helm.GetClientFunc
 }
 
 // Operator implements Operator interface
@@ -152,9 +168,9 @@ func New(cfg Config) (*Operator, error) {
 
 	operator := &Operator{
 		cfg:             cfg,
-		mu:              sync.Mutex{},
 		providers:       map[ops.SiteKey]CloudProvider{},
 		operationGroups: map[ops.SiteKey]*operationGroup{},
+		kubeClient:      cfg.Client,
 		FieldLogger:     log.WithField(trace.Component, constants.ComponentOps),
 	}
 	return operator, nil
@@ -170,8 +186,8 @@ func NewLocalOperator(cfg Config) (*Operator, error) {
 	}
 	return &Operator{
 		cfg:             cfg,
-		mu:              sync.Mutex{},
 		operationGroups: map[ops.SiteKey]*operationGroup{},
+		kubeClient:      cfg.Client,
 		FieldLogger:     log.WithField(trace.Component, constants.ComponentOps),
 	}, nil
 }
@@ -204,6 +220,12 @@ func (cfg *Config) CheckAndSetDefaults() error {
 	if cfg.Clock == nil {
 		cfg.Clock = &timetools.RealTime{}
 	}
+	if cfg.AuditLog == nil {
+		cfg.AuditLog = teleevents.NewDiscardAuditLog()
+	}
+	if cfg.GetHelmClient == nil {
+		cfg.GetHelmClient = helm.NewClient
+	}
 	return nil
 }
 
@@ -225,6 +247,12 @@ func (cfg *Config) CheckRelaxed() error {
 	}
 	if cfg.Clock == nil {
 		cfg.Clock = &timetools.RealTime{}
+	}
+	if cfg.AuditLog == nil {
+		cfg.AuditLog = teleevents.NewDiscardAuditLog()
+	}
+	if cfg.GetHelmClient == nil {
+		cfg.GetHelmClient = helm.NewClient
 	}
 	return nil
 }
@@ -261,6 +289,10 @@ func (o *Operator) users() users.Identity {
 
 func (o *Operator) clock() timetools.TimeProvider {
 	return o.cfg.Clock
+}
+
+func (o *Operator) publicURL() string {
+	return fmt.Sprintf("https://" + o.cfg.PublicAddr.String())
 }
 
 func (o *Operator) GetAccount(accountID string) (*ops.Account, error) {
@@ -319,13 +351,19 @@ func (o *Operator) DeleteLocalUser(email string) error {
 	return nil
 }
 
-func (o *Operator) CreateAPIKey(req ops.NewAPIKeyRequest) (*storage.APIKey, error) {
+func (o *Operator) CreateAPIKey(ctx context.Context, req ops.NewAPIKeyRequest) (*storage.APIKey, error) {
 	key, err := o.cfg.Users.CreateAPIKey(storage.APIKey{
 		UserEmail: req.UserEmail,
 		Expires:   req.Expires,
 		Token:     req.Token,
 	}, req.Upsert)
-	return key, trace.Wrap(err)
+	if err != nil {
+		return nil, trace.Wrap(err)
+	}
+	events.Emit(ctx, o, events.TokenCreated, events.Fields{
+		events.FieldOwner: key.UserEmail,
+	})
+	return key, nil
 }
 
 func (o *Operator) GetAPIKeys(userEmail string) ([]storage.APIKey, error) {
@@ -333,8 +371,14 @@ func (o *Operator) GetAPIKeys(userEmail string) ([]storage.APIKey, error) {
 	return keys, trace.Wrap(err)
 }
 
-func (o *Operator) DeleteAPIKey(userEmail, token string) error {
-	return trace.Wrap(o.cfg.Users.DeleteAPIKey(userEmail, token))
+func (o *Operator) DeleteAPIKey(ctx context.Context, userEmail, token string) error {
+	if err := o.cfg.Users.DeleteAPIKey(userEmail, token); err != nil {
+		return trace.Wrap(err)
+	}
+	events.Emit(ctx, o, events.TokenDeleted, events.Fields{
+		events.FieldOwner: userEmail,
+	})
+	return nil
 }
 
 func (o *Operator) CreateInstallToken(req ops.NewInstallTokenRequest) (*storage.InstallToken, error) {
@@ -433,8 +477,10 @@ func (o *Operator) validateNewSiteRequest(req *ops.NewSiteRequest) error {
 		return trace.Wrap(err)
 	}
 
-	if app.Manifest.Kind != schema.KindBundle {
-		return trace.BadParameter("cannot create site with app of type %q", app.Manifest.Kind)
+	switch app.Manifest.Kind {
+	case schema.KindBundle, schema.KindCluster:
+	default:
+		return trace.BadParameter("cannot create cluster with app of type %q", app.Manifest.Kind)
 	}
 
 	err = validateLabels(req.Labels)
@@ -522,9 +568,12 @@ func (o *Operator) CreateSite(r ops.NewSiteRequest) (*ops.Site, error) {
 	}
 
 	// expand token is used when joining nodes to the cluster
-	expandToken, err := users.CryptoRandomToken(defaults.ProvisioningTokenBytes)
-	if err != nil {
-		return nil, trace.Wrap(err)
+	expandToken := r.InstallToken
+	if expandToken == "" {
+		expandToken, err = users.CryptoRandomToken(defaults.ProvisioningTokenBytes)
+		if err != nil {
+			return nil, trace.Wrap(err)
+		}
 	}
 
 	b := o.backend()
@@ -584,7 +633,6 @@ func (o *Operator) CreateSite(r ops.NewSiteRequest) (*ops.Site, error) {
 		appService: o.cfg.Apps,
 		app:        app,
 		seedConfig: o.cfg.SeedConfig,
-		resources:  clusterData.Resources,
 	})
 	if err != nil {
 		return nil, trace.Wrap(err)
@@ -764,7 +812,7 @@ func (o *Operator) SignSSHKey(req ops.SSHSignRequest) (*ops.SSHSignResponse, err
 		return nil, trace.Wrap(err)
 	}
 	return &ops.SSHSignResponse{
-		Cert: cert,
+		Cert:                   cert,
 		TrustedHostAuthorities: authorities,
 		TLSCert:                tlsCert,
 		CACert:                 ca.CertPEM,
@@ -854,7 +902,7 @@ func (o *Operator) DeleteSiteOperation(key ops.SiteOperationKey) (err error) {
 	return trace.Wrap(err)
 }
 
-func (o *Operator) CreateSiteInstallOperation(r ops.CreateSiteInstallOperationRequest) (*ops.SiteOperationKey, error) {
+func (o *Operator) CreateSiteInstallOperation(ctx context.Context, r ops.CreateSiteInstallOperationRequest) (*ops.SiteOperationKey, error) {
 	err := r.CheckAndSetDefaults()
 	if err != nil {
 		return nil, trace.Wrap(err)
@@ -863,14 +911,14 @@ func (o *Operator) CreateSiteInstallOperation(r ops.CreateSiteInstallOperationRe
 	if err != nil {
 		return nil, trace.Wrap(err)
 	}
-	key, err := site.createInstallOperation(r)
+	key, err := site.createInstallOperation(ctx, r)
 	if err != nil {
 		return nil, trace.Wrap(err)
 	}
 	return key, nil
 }
 
-func (o *Operator) CreateSiteExpandOperation(r ops.CreateSiteExpandOperationRequest) (*ops.SiteOperationKey, error) {
+func (o *Operator) CreateSiteExpandOperation(ctx context.Context, r ops.CreateSiteExpandOperationRequest) (*ops.SiteOperationKey, error) {
 	err := r.CheckAndSetDefaults()
 	if err != nil {
 		return nil, trace.Wrap(err)
@@ -879,14 +927,14 @@ func (o *Operator) CreateSiteExpandOperation(r ops.CreateSiteExpandOperationRequ
 	if err != nil {
 		return nil, trace.Wrap(err)
 	}
-	key, err := site.createExpandOperation(r)
+	key, err := site.createExpandOperation(ctx, r)
 	if err != nil {
 		return nil, trace.Wrap(err)
 	}
 	return key, nil
 }
 
-func (o *Operator) CreateSiteShrinkOperation(r ops.CreateSiteShrinkOperationRequest) (*ops.SiteOperationKey, error) {
+func (o *Operator) CreateSiteShrinkOperation(ctx context.Context, r ops.CreateSiteShrinkOperationRequest) (*ops.SiteOperationKey, error) {
 	err := r.CheckAndSetDefaults()
 	if err != nil {
 		return nil, trace.Wrap(err)
@@ -895,35 +943,35 @@ func (o *Operator) CreateSiteShrinkOperation(r ops.CreateSiteShrinkOperationRequ
 	if err != nil {
 		return nil, trace.Wrap(err)
 	}
-	key, err := site.createShrinkOperation(r)
+	key, err := site.createShrinkOperation(ctx, r)
 	if err != nil {
 		return nil, trace.Wrap(err)
 	}
 	return key, nil
 }
 
-func (o *Operator) CreateSiteAppUpdateOperation(r ops.CreateSiteAppUpdateOperationRequest) (*ops.SiteOperationKey, error) {
+func (o *Operator) CreateSiteAppUpdateOperation(ctx context.Context, r ops.CreateSiteAppUpdateOperationRequest) (*ops.SiteOperationKey, error) {
 	site, err := o.openSite(ops.SiteKey{AccountID: r.AccountID, SiteDomain: r.SiteDomain})
 	if err != nil {
 		return nil, trace.Wrap(err)
 	}
-	key, err := site.createUpdateOperation(r)
+	key, err := site.createUpdateOperation(ctx, r)
 	if err != nil {
 		return nil, trace.Wrap(err)
 	}
 	return key, nil
 }
 
-func (o *Operator) CreateSiteUninstallOperation(r ops.CreateSiteUninstallOperationRequest) (*ops.SiteOperationKey, error) {
+func (o *Operator) CreateSiteUninstallOperation(ctx context.Context, r ops.CreateSiteUninstallOperationRequest) (*ops.SiteOperationKey, error) {
 	site, err := o.openSite(ops.SiteKey{AccountID: r.AccountID, SiteDomain: r.SiteDomain})
 	if err != nil {
 		return nil, trace.Wrap(err)
 	}
 	if o.cfg.Local {
 		// if we're a cluster, create uninstall operation in the Ops Center we're connected to
-		return site.requestUninstall(r)
+		return site.requestUninstall(ctx, r)
 	}
-	key, err := site.createUninstallOperation(r)
+	key, err := site.createUninstallOperation(ctx, r)
 	if err != nil {
 		return nil, trace.Wrap(err)
 	}
@@ -931,7 +979,7 @@ func (o *Operator) CreateSiteUninstallOperation(r ops.CreateSiteUninstallOperati
 }
 
 // CreateClusterGarbageCollectOperation creates a new garbage collection operation in the cluster
-func (o *Operator) CreateClusterGarbageCollectOperation(r ops.CreateClusterGarbageCollectOperationRequest) (*ops.SiteOperationKey, error) {
+func (o *Operator) CreateClusterGarbageCollectOperation(ctx context.Context, r ops.CreateClusterGarbageCollectOperationRequest) (*ops.SiteOperationKey, error) {
 	err := r.Check()
 	if err != nil {
 		return nil, trace.Wrap(err)
@@ -942,7 +990,7 @@ func (o *Operator) CreateClusterGarbageCollectOperation(r ops.CreateClusterGarba
 		return nil, trace.Wrap(err)
 	}
 
-	key, err := cluster.createGarbageCollectOperation(r)
+	key, err := cluster.createGarbageCollectOperation(ctx, r)
 	if err != nil {
 		return nil, trace.Wrap(err)
 	}
@@ -1342,6 +1390,20 @@ func (o *Operator) GetClusterNodes(key ops.SiteKey) ([]ops.Node, error) {
 	return result, nil
 }
 
+// EmitAuditEvent saves the provided event in the audit log.
+func (o *Operator) EmitAuditEvent(ctx context.Context, req ops.AuditEventRequest) error {
+	err := req.Check()
+	if err != nil {
+		return trace.Wrap(err)
+	}
+	o.Infof("%s.", req)
+	err = o.cfg.AuditLog.EmitAuditEvent(req.Event, req.Fields)
+	if err != nil {
+		return trace.Wrap(err)
+	}
+	return nil
+}
+
 func (o *Operator) openSite(key ops.SiteKey) (*site, error) {
 	site, err := o.backend().GetSite(key.SiteDomain)
 	if err != nil {
@@ -1376,7 +1438,6 @@ func (o *Operator) openSiteInternal(data *storage.Site) (*site, error) {
 		appService:  o.cfg.Apps,
 		seedConfig:  o.cfg.SeedConfig,
 		backendSite: data,
-		resources:   data.Resources,
 	})
 
 	return st, trace.Wrap(err)

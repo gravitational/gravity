@@ -88,7 +88,7 @@ func NewHandler(cfg Config) (*Handler, error) {
 		client:     s3.New(cfg.Session),
 	}
 	start := time.Now()
-	h.Infof("Setting up bucket %q.", h.Bucket)
+	h.Infof("Setting up bucket %q, sessions path %q in region %q.", h.Bucket, h.Path, h.Region)
 	if err := h.ensureBucket(); err != nil {
 		return nil, trace.Wrap(err)
 	}
@@ -113,7 +113,7 @@ func (l *Handler) Close() error {
 }
 
 // Upload uploads object to S3 bucket, reads the contents of the object from reader
-// and returns the target S3 bucket path in case of successfull upload.
+// and returns the target S3 bucket path in case of successful upload.
 func (l *Handler) Upload(ctx context.Context, sessionID session.ID, reader io.Reader) (string, error) {
 	path := l.path(sessionID)
 	_, err := l.uploader.UploadWithContext(ctx, &s3manager.UploadInput{

@@ -320,7 +320,7 @@ Cluster:		friendlypoincare4048
 
 If a single node cluster is not enough, you can add additional nodes to it:
 
-1. Copy `gravity` binary from the boostrapping node above to another host which
+1. Copy `gravity` binary from the bootstrapping node above to another host which
    is about to be added to the cluster.  Let's assume its IP is `10.5.5.29`.
 2. Execute `gravity join` command as shown below. Note that this command will
    "think" in silence for a few seconds before dumping any output.
@@ -357,7 +357,7 @@ Now you have a two-node Kubernetes cluster with Mattermost running inside.
 The next step is to create a new Kubernetes user:
 
 ```bash
-# execute this on the K8s master node (running on 10.5.5.28 in our example) 
+# execute this on the K8s master node (running on 10.5.5.28 in our example)
 # to create a user "ekontsevoy"
 $ gravity users add --roles=@teleadmin ekontsevoy
 
@@ -369,7 +369,7 @@ https://10.5.5.28:3009/web/newuser/e5b5422da69ff44d41f92e3ce6167659a7fee10e1023a
 Now click on the printed URL and select a password. You are now inside the K8s management UI
 for your cluster. You can bookmark the following URL to access it in the future: `https://https://10.5.5.28:32009/web/`
 
-You will also see that this cluster is running Mattermost inside, accessible as a Kubernetes service 
+You will also see that this cluster is running Mattermost inside, accessible as a Kubernetes service
 on port `32010`, i.e. it's accessible using IP addresses of both machines in the cluster:
 
 * `http://10.5.5.28:32010/`
@@ -377,15 +377,25 @@ on port `32010`, i.e. it's accessible using IP addresses of both machines in the
 
 ### Installing via Web Browser
 
-When you execute the `install` script, it launches a daemon which serves a web UI and acts as a
-bootstrapping agent to create a new Kubernetes cluster. It will print a web URL
-for you to click on.
+This method of installation is well-suited for providing web-hosted installers
+for Kubernetes clusters or as a sales demos of installing a pre-packaged SaaS
+application into a private network.
+
+To launch a web installer, you will need:
+
+* The application bundle `mattermost.tar` which we have prepared earlier.
+* A Linux computer with a graphical interface, connected to the same network
+  with the target Linux nodes.
+
+First, untar `mattermost.tar` and execute the `install` script. This command
+launches an HTTP server which serves a web UI and acts as a bootstrapping agent
+to create a new Kubernetes cluster. It will print a web URL for you to click
+on.
 
 ```bash
 $ sudo ./install
 OPEN THIS IN BROWSER: https://host:61009/web/installer/new/gravitational.io/mattermost/2.2.0?install_token=2a9de4a72ede
 ```
-
 
 The browser-based installer will ask for the following:
 
@@ -398,17 +408,12 @@ The browser-based installer will ask for the following:
 * Once all nodes report into the cluster, the installer will proceed setting up
   Kubernetes.
 
-!!! tip "Tip":
-    The installer will ask you to copy and paste a CLI command for each node to join the
-    cluster. If you select a single-node install, you have to open a second terminal session
-    into your node to paste and execute the command in.
-
 The final step is to select the user name and password for the cluster
 administrator. You will be able to change it later (or configure the SSO).
 After that you will be placed in Gravity's cluster management UI, where you
 will find the HTTP end point of Mattermost.
 
-Now you can press `Ctrl+C` in the `node`'s terminal to stop the installer.
+Now you can press `Ctrl+C` to stop the `install` script.
 
 ## Conclusion
 
@@ -418,10 +423,10 @@ approach is quite similar to how virtual machines/instances are treated by
 using disk images in virtualized environments.
 
 This dramatically lowers the operational overhead of running multiple Kubernetes
-cluters within an organization, allows complex SaaS applications to be converted
+clusters within an organization, allows complex SaaS applications to be converted
 into downloadable Kubernetes appliances and dramatically simplifies implementing
-compliance in organizations by publishing Kubernetes images pre-configured and 
+compliance in organizations by publishing Kubernetes images pre-configured and
 approved by the security and compliance teams.
 
-If you need additional guidance with packaging your Kubernetes clusters into 
+If you need additional guidance with packaging your Kubernetes clusters into
 Gravity appliances, our implementation services team can help (info@gravitational.com).

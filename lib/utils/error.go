@@ -111,6 +111,8 @@ func IsTransientClusterError(err error) bool {
 		return true
 	case IsConnectionResetError(err):
 		return true
+	case IsConnectionRefusedError(err):
+		return true
 	case IsClusterUnavailableError(err) || isEtcdClusterError(err):
 		return true
 	case isKubernetesEtcdClusterError(err):
@@ -235,6 +237,26 @@ type message struct {
 	Message string `json:"message"`
 }
 
+// ConvertEC2Error converts error from AWS EC2 API to appropriate trace error.
+func ConvertEC2Error(err error) error {
+	if err == nil {
+		return nil
+	}
+	awsErr, ok := err.(awserr.Error)
+	if !ok {
+		return err
+	}
+	// For some reason, AWS Go SDK does not define constants for EC2 error
+	// codes so we're using strings here.
+	switch awsErr.Code() {
+	case "InvalidInstanceID.NotFound":
+		return trace.NotFound(awsErr.Message())
+	case "InvalidInstanceID.Malformed":
+		return trace.BadParameter(awsErr.Message())
+	}
+	return err
+}
+
 // ConvertS3Error converts an error from AWS S3 API to an appropriate trace error
 func ConvertS3Error(err error) error {
 	if err == nil {
@@ -290,6 +312,14 @@ func IsContextCancelledError(err error) bool {
 func IsConnectionResetError(err error) bool {
 	return strings.Contains(trace.Unwrap(err).Error(),
 		"connection reset by peer")
+}
+
+// IsConnectionRefusedError determines whether err is a
+// 'connection refused' error.
+// err is expected to be non-nil
+func IsConnectionRefusedError(err error) bool {
+	return strings.Contains(trace.Unwrap(err).Error(),
+		"connection refused")
 }
 
 // ShouldReconnectPeer implements the error classification for peer connection errors

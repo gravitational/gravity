@@ -20,16 +20,18 @@ import (
 	"bytes"
 	"context"
 
-	"github.com/alecthomas/template"
 	"github.com/gravitational/gravity/lib/constants"
 	"github.com/gravitational/gravity/lib/defaults"
 	"github.com/gravitational/gravity/lib/fsm"
 	"github.com/gravitational/gravity/lib/ops"
 	"github.com/gravitational/gravity/lib/storage"
 	"github.com/gravitational/gravity/lib/systeminfo"
+	"github.com/gravitational/teleport/lib/utils"
+
+	"github.com/alecthomas/template"
 	"github.com/gravitational/trace"
 	log "github.com/sirupsen/logrus"
-	"k8s.io/api/core/v1"
+	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes"
 )
@@ -92,8 +94,18 @@ func (r *corednsExecutor) Execute(ctx context.Context) error {
 		return trace.Wrap(err)
 	}
 
+	// Filter out local nameservers to avoid CoreDNS forwarding requests
+	// to itself and triggering loop detection, see for more details:
+	// https://github.com/coredns/coredns/tree/master/plugin/loop#troubleshooting
+	var upstreams []string
+	for _, nameserver := range resolvConf.Servers {
+		if !utils.IsLocalhost(nameserver) {
+			upstreams = append(upstreams, nameserver)
+		}
+	}
+
 	conf, err := GenerateCorefile(CorednsConfig{
-		UpstreamNameservers: resolvConf.Servers,
+		UpstreamNameservers: upstreams,
 		Rotate:              resolvConf.Rotate,
 		Hosts:               r.DNSOverrides.Hosts,
 		Zones:               r.DNSOverrides.Zones,
@@ -174,9 +186,9 @@ const coreDNSTemplateText = `
   proxy {{$zone}} {{range $server := $servers}}{{$server}} {{end}}{
     policy sequential
   }{{end}}
-  forward . {{range $server := .UpstreamNameservers}}{{$server}} {{end}}{
+  {{if .UpstreamNameservers}}forward . {{range $server := .UpstreamNameservers}}{{$server}} {{end}}{
     {{if .Rotate}}policy random{{else}}policy sequential{{end}}
     health_check 0
-  }
+  }{{end}}
 }
 `

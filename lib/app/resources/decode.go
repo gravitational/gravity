@@ -56,14 +56,6 @@ L:
 // DecodeOption is a functional argument for decoding
 type DecodeOption func(*universalDecoder)
 
-// SkipUnrecognized returns "continue" error if decoding failed with
-// unrecognized object error
-func SkipUnrecognized() DecodeOption {
-	return func(d *universalDecoder) {
-		d.skipUnrecognized = true
-	}
-}
-
 type encoding int
 
 const (
@@ -132,8 +124,7 @@ func newUniversalDecoder(r io.Reader) *universalDecoder {
 // universalDecoder is a decoder for resources in either JSON or YAML format
 type universalDecoder struct {
 	runtime.Decoder
-	streamDecoder    *yaml.YAMLOrJSONDecoder
-	skipUnrecognized bool
+	streamDecoder *yaml.YAMLOrJSONDecoder
 }
 
 // Decode obtains the next object from the stream.
@@ -149,8 +140,8 @@ func (r *universalDecoder) Decode() (runtime.Object, error) {
 	}
 	object, err := runtime.Decode(r.Decoder, unk.Raw)
 	if err != nil {
-		if r.skipUnrecognized && runtime.IsNotRegisteredError(trace.Unwrap(err)) {
-			return nil, utils.Continue("skipping unrecognized object: %v", err)
+		if runtime.IsNotRegisteredError(trace.Unwrap(err)) {
+			return &unk, nil
 		}
 		return nil, trace.Wrap(err)
 	}

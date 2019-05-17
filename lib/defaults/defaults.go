@@ -25,7 +25,7 @@ import (
 	"github.com/gravitational/gravity/lib/constants"
 
 	"github.com/coreos/go-semver/semver"
-	"k8s.io/api/core/v1"
+	v1 "k8s.io/api/core/v1"
 )
 
 const (
@@ -216,17 +216,19 @@ const (
 	// GravityPackagePrefix defines base prefix of gravity package
 	GravityPackagePrefix = "gravitational.io/gravity"
 
-	// TelekubeSystemLogFile is the system log file name
-	TelekubeSystemLogFile = "telekube-system.log"
+	// GravitySystemLogFile is the system log file name
+	GravitySystemLogFile = "gravity-system.log"
 
-	// TelekubeUserLogFile is the user log file name
-	TelekubeUserLogFile = "telekube-install.log"
+	// GravityUserLogFile is the user log file name
+	GravityUserLogFile = "gravity-install.log"
 
 	// SystemLogDir is the directory where gravity logs go
 	SystemLogDir = "/var/log"
 
-	// TelekubePackage is the Telekube application package name
+	// TelekubePackage is the Telekube cluster image name.
 	TelekubePackage = "telekube"
+	// OpsCenterPackage is the Ops Center cluster image name.
+	OpsCenterPackage = "opscenter"
 
 	// EnvironmentPath is the path to the environment file
 	EnvironmentPath = "/etc/environment"
@@ -291,6 +293,14 @@ const (
 
 	// HelmBin is the location of helm binary inside planet
 	HelmBin = "/usr/bin/helm"
+
+	// HelmScript is the location of the helm script, which the host's helm
+	// is symlinked to, inside the planet
+	HelmScript = "/usr/local/bin/helm"
+
+	// HelmBinAlternate is the alternative location of helm symlink on
+	// systems where /usr/bin is not writable
+	HelmBinAlternate = "/writable/bin/helm"
 
 	// PlanetBin is the default location of planet binary
 	PlanetBin = "/usr/bin/planet"
@@ -518,14 +528,8 @@ const (
 	// GrafanaServicePort is the port Grafana service is listening on
 	GrafanaServicePort = 3000
 
-	// InfluxDBServiceAddr is the address of InfluxDB service
-	InfluxDBServiceAddr = "influxdb.monitoring.svc.cluster.local"
-	// InfluxDBServicePort is the API port of InfluxDB service
-	InfluxDBServicePort = 8086
-	// InfluxDBAdminUser is the InfluxDB admin user name
-	InfluxDBAdminUser = "root"
-	// InfluxDBAdminPassword is the InfluxDB admin user password
-	InfluxDBAdminPassword = "root"
+	// PrometheusServiceAddr is the Prometheus HTTP API service address.
+	PrometheusServiceAddr = "prometheus-k8s.monitoring.svc.cluster.local:9090"
 
 	// WriteFactor is a default amount of acknowledged writes for object storage
 	// to be considered successfull
@@ -787,9 +791,9 @@ const (
 	// AWSRegion is the default AWS region
 	AWSRegion = "us-east-1"
 	// AWSVPCCIDR is the default AWS VPC CIDR
-	AWSVPCCIDR = "10.100.0.0/16"
+	AWSVPCCIDR = "10.1.0.0/16"
 	// AWSSubnetCIDR is the default AWS subnet CIDR
-	AWSSubnetCIDR = "10.100.0.0/24"
+	AWSSubnetCIDR = "10.1.0.0/24"
 
 	// ApplicationLabel defines the label used to annotate kubernetes resources
 	// to group them together
@@ -973,6 +977,14 @@ const (
 	// ImageRegistryVar is a local cluster registry variable that gets
 	// substituted in Helm templates.
 	ImageRegistryVar = "image.registry"
+
+	// AgentDeployTimeout specifies the maximum amount of time to wait to deploy agents
+	// for an operation that spans multiple nodes
+	AgentDeployTimeout = 5 * time.Minute
+
+	// InstanceTerminationTimeout is the maximum amount of time to wait
+	// for AWS EC2 instance to terminate
+	InstanceTerminationTimeout = 20 * time.Minute
 )
 
 var (
@@ -1020,7 +1032,7 @@ var (
 	RSAPrivateKeyBits = 4096
 
 	// HookContainerNameTag identifies the container image used for application hooks
-	HookContainerNameTag = "gravitational/debian-tall:0.0.1"
+	HookContainerNameTag = "gravitational/debian-tall:stretch"
 
 	// UpdateAppSyncTimeout defines the maximum amount of time to sync application
 	// state with an updated node during update
@@ -1033,6 +1045,13 @@ var (
 	BandwagonPackageName = "bandwagon"
 	// BandwagonServiceName is the name of the default setup endpoint service
 	BandwagonServiceName = "bandwagon"
+
+	// LoggingAppName is the name of the logging application
+	LoggingAppName = "logging-app"
+	// MonitoringAppName is the name of the monitoring application
+	MonitoringAppName = "monitoring-app"
+	// TillerAppName is the name of the tiller application
+	TillerAppName = "tiller-app"
 
 	// KubeletArgs is a list of default command line options for kubelet
 	KubeletArgs = []string{
@@ -1069,15 +1088,19 @@ var (
 	// during cluster installation (such as apiserver, etcd, kubelet, etc.)
 	CertificateExpiry = 10 * 365 * 24 * time.Hour // 10 years
 
-	// TelekubeSystemLog defines the default location for the system log
-	TelekubeSystemLog = filepath.Join(SystemLogDir, TelekubeSystemLogFile)
+	// GravitySystemLog defines the default location for the system log
+	GravitySystemLog = filepath.Join(SystemLogDir, GravitySystemLogFile)
 
-	// TelekubeUserLog the default location for user-facing log file
-	TelekubeUserLog = filepath.Join(SystemLogDir, TelekubeUserLogFile)
+	// GravityUserLog the default location for user-facing log file
+	GravityUserLog = filepath.Join(SystemLogDir, GravityUserLogFile)
 
 	// TransientErrorTimeout specifies the maximum amount of time to attempt
 	// an operation experiencing transient errors
 	TransientErrorTimeout = 15 * time.Minute
+
+	// NodeStatusTimeout specifies the maximum amount of time to wait for
+	// healthy node status
+	NodeStatusTimeout = 5 * time.Minute
 
 	// WormholeImg is the docker image reference to use when embedding wormhole
 	// Note: This is a build parameter, and the build scripts will replace this with an image reference
@@ -1104,6 +1127,11 @@ var (
 		"hmac-sha2-256-etm@openssh.com",
 		"hmac-sha2-256",
 	}
+
+	// MetricsInterval is the default interval cluster metrics are displayed for.
+	MetricsInterval = time.Hour
+	// MetricsStep is the default interval b/w cluster metrics data points.
+	MetricsStep = 15 * time.Second
 )
 
 // HookSecurityContext returns default securityContext for hook pods

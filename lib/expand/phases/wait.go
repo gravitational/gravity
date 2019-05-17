@@ -26,7 +26,6 @@ import (
 	kubeutils "github.com/gravitational/gravity/lib/kubernetes"
 	"github.com/gravitational/gravity/lib/ops"
 	"github.com/gravitational/gravity/lib/status"
-	"github.com/gravitational/gravity/lib/storage"
 	"github.com/gravitational/gravity/lib/utils"
 
 	"github.com/gravitational/trace"
@@ -100,8 +99,8 @@ func (*waitPlanetExecutor) PostCheck(ctx context.Context) error {
 }
 
 // NewWaitK8s returns executor that waits for Kubernetes node to register
-func NewWaitK8s(p fsm.ExecutorParams, operator ops.Operator, dnsConfig storage.DNSConfig) (*waitK8sExecutor, error) {
-	client, _, err := httplib.GetUnprivilegedKubeClient(dnsConfig.Addr())
+func NewWaitK8s(p fsm.ExecutorParams, operator ops.Operator) (*waitK8sExecutor, error) {
+	client, _, err := httplib.GetUnprivilegedKubeClient(p.Plan.DNSConfig.Addr())
 	if err != nil {
 		return nil, trace.Wrap(err)
 	}

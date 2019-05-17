@@ -372,10 +372,10 @@ func (c *Client) StreamAppHookLogs(ctx context.Context, ref app.HookRef, out io.
 }
 
 // DELETE app/v1/applications/:repository_id/:package_id/:version/hook/:namespace/:name
-func (c *Client) DeleteAppHookJob(ctx context.Context, ref app.HookRef) error {
+func (c *Client) DeleteAppHookJob(ctx context.Context, req app.DeleteAppHookJobRequest) error {
 	_, err := c.Delete(c.Endpoint(
-		"applications", ref.Application.Repository, ref.Application.Name, ref.Application.Version, "hook", ref.Namespace, ref.Name),
-		url.Values{})
+		"applications", req.Application.Repository, req.Application.Name, req.Application.Version, "hook", req.Namespace, req.Name),
+		url.Values{"cascade": []string{strconv.FormatBool(req.Cascade)}})
 	if err != nil {
 		return trace.Wrap(err)
 	}
@@ -442,17 +442,17 @@ func (c *Client) createApp(locator loc.Locator, manifest []byte, reader io.Reade
 
 // PostJSON posts data as JSON to the server
 func (c *Client) PostJSON(endpoint string, data interface{}) (*roundtrip.Response, error) {
-	return telehttplib.ConvertResponse(c.Client.PostJSON(endpoint, data))
+	return telehttplib.ConvertResponse(c.Client.PostJSON(context.TODO(), endpoint, data))
 }
 
 // Get issues HTTP GET request to the server
 func (c *Client) Get(endpoint string, params url.Values) (*roundtrip.Response, error) {
-	return telehttplib.ConvertResponse(c.Client.Get(endpoint, params))
+	return telehttplib.ConvertResponse(c.Client.Get(context.TODO(), endpoint, params))
 }
 
 // Delete issues HTTP DELETE request to the server
 func (c *Client) Delete(endpoint string, params url.Values) (*roundtrip.Response, error) {
-	return telehttplib.ConvertResponse(c.Client.DeleteWithParams(endpoint, params))
+	return telehttplib.ConvertResponse(c.Client.DeleteWithParams(context.TODO(), endpoint, params))
 }
 
 // PostForm is a generic method that issues http POST request to the server
@@ -462,12 +462,12 @@ func (c *Client) PostForm(
 	files ...roundtrip.File) (*roundtrip.Response, error) {
 
 	return telehttplib.ConvertResponse(
-		c.Client.PostForm(endpoint, values, files...))
+		c.Client.PostForm(context.TODO(), endpoint, values, files...))
 }
 
 // getFile streams binary data from the specified endpoint
 func (c *Client) getFile(endpoint string, params url.Values) (io.ReadCloser, error) {
-	file, err := c.GetFile(endpoint, params)
+	file, err := c.GetFile(context.TODO(), endpoint, params)
 	if err != nil {
 		return nil, trace.Wrap(err)
 	}

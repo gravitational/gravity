@@ -19,6 +19,7 @@ limitations under the License.
 package suite
 
 import (
+	"context"
 	"io"
 	"io/ioutil"
 	"net/url"
@@ -114,6 +115,7 @@ func (s *OpsSuite) SitesCRUD(c *C) {
 		AccountID:  a.ID,
 	}
 	out, err := s.O.GetSite(siteKey)
+	c.Assert(err, IsNil)
 	c.Assert(out, DeepEquals, site)
 
 	sites, err = s.O.GetSites(a.ID)
@@ -124,7 +126,7 @@ func (s *OpsSuite) SitesCRUD(c *C) {
 	c.Assert(err, IsNil)
 	c.Assert(len(operations), Equals, 0)
 
-	opKey, err := s.O.CreateSiteInstallOperation(ops.CreateSiteInstallOperationRequest{
+	opKey, err := s.O.CreateSiteInstallOperation(context.TODO(), ops.CreateSiteInstallOperationRequest{
 		AccountID:  a.ID,
 		SiteDomain: site.Domain,
 		Variables:  storage.OperationVariables{},
@@ -186,7 +188,7 @@ func (s *OpsSuite) InstallInstructions(c *C) {
 	c.Assert(err, IsNil)
 	c.Assert(site.State, Equals, ops.SiteStateNotInstalled)
 
-	opKey, err := s.O.CreateSiteInstallOperation(ops.CreateSiteInstallOperationRequest{
+	opKey, err := s.O.CreateSiteInstallOperation(context.TODO(), ops.CreateSiteInstallOperationRequest{
 		AccountID:  a.ID,
 		SiteDomain: site.Domain,
 		Variables:  storage.OperationVariables{},

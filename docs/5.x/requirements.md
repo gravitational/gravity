@@ -232,7 +232,27 @@ Gravity requires that these modules are loaded prior to installation.
 | Ubuntu-Core | 16.04 | br_netfilter, ebtable_filter, iptables, overlay |
 | Suse Linux (openSUSE and Enterprise) | 12 SP2, 12 SP3 | br_netfilter, ebtable_filter, iptables, overlay |
 
+### Inotify watches
 
+Kubelet configures multiple inotify watches per container so it's recommended
+to increase the `max_user_watches` kernel parameter. Gravity's built-in
+monitoring system checks for inotify watches exhaustion but we recommended setting
+it to some large value to avoid running out of limits:
+
+```bsh
+$ sysctl -w fs.inotify.max_user_watches=1048576
+```
+
+To make the change persistent so it survives the node reboots, set the setting
+in a file inside `/etc/sysctl.d` directory, for example:
+
+```bsh
+$ cat /etc/sysctl.d/inotify.conf
+fs.inotify.max_user_watches=1048576
+```
+
+See the [sysctl.d man page](https://www.freedesktop.org/software/systemd/man/sysctl.d.html)
+for more information about applying the settings.
 
 ## AWS IAM Policy
 
@@ -309,18 +329,18 @@ to be able to provision required infrastructure on your AWS account.
 
 ## Etcd Disk
 
-Gravity Clusters make high use of etcd, both for the Kubernetes cluster and for
-the application's own bookeeping with respect to e.g. deployed clusters' health
+Gravity Clusters make high use of Etcd, both for the Kubernetes cluster and for
+the application's own bookkeeping with respect to e.g. deployed clusters' health
 and reachability. As a result, it is helpful to have a reliable, performance
 isolated disk.
 
 To achieve this, by default, Gravity looks for a disk mounted at
 `/var/lib/gravity/planet/etcd`. We recommend you mount a dedicated disk there,
-ext4 formatted with at least 50GiB of free space. A reasonably high perfomance
-SSD is prefered. On AWS, we recommend an io1 class EBS volume with at least
+`ext4` formatted with at least 50GiB of free space. A reasonably high performance
+SSD is preferred. On AWS, we recommend an `io1` class EBS volume with at least
 1500 provisioned IOPS.
 
-If your etcd disk is `xvdf`, you can have the following `/etc/fstab` entry to
+If your Etcd disk is `xvdf`, you can have the following `/etc/fstab` entry to
 make sure it's mounted upon machine startup:
 
 ```

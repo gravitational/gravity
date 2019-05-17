@@ -215,3 +215,14 @@ func (s ParseSuite) TestParseZoneOverride(c *check.C) {
 		c.Assert(ns, check.Equals, testCase.outNs, testCase.comment)
 	}
 }
+
+func (s *ParseSuite) TestExtractHost(c *check.C) {
+	c.Assert(ExtractHost("localhost:3023"), check.Equals, "localhost")
+	c.Assert(ExtractHost("127.0.0.1:8080"), check.Equals, "127.0.0.1")
+	c.Assert(ExtractHost("example.com"), check.Equals, "example.com")
+}
+
+func (s *ParseSuite) TestHosts(c *check.C) {
+	c.Assert(Hosts([]string{"example.com", "localhost:3023", "127.0.0.1:443"}),
+		check.DeepEquals, []string{"example.com", "localhost", "127.0.0.1"})
+}

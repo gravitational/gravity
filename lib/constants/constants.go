@@ -204,6 +204,9 @@ const (
 	// If not empty, turns the preflight checks off
 	PreflightChecksOffEnvVar = "GRAVITY_CHECKS_OFF"
 
+	// BlockingOperationEnvVar specifies whether to wait for operation to complete
+	BlockingOperationEnvVar = "GRAVITY_BLOCKING_OPERATION"
+
 	// DockerRegistry is a default name for private docker registry
 	DockerRegistry = "leader.telekube.local:5000"
 
@@ -339,6 +342,10 @@ const (
 
 	// EnvPodIP is environment variable that contains pod IP address
 	EnvPodIP = "POD_IP"
+	// EnvPodName is environment variable with the pod name
+	EnvPodName = "POD_NAME"
+	// EnvPodNamespace is environment variable with the pod namespace
+	EnvPodNamespace = "POD_NAMESPACE"
 
 	// EnvCloudProvider sets cloud provider name
 	EnvCloudProvider = "CLOUD_PROVIDER"
@@ -428,7 +435,10 @@ const (
 	HumanDateFormatMilli = "Mon Jan _2 15:04:05.000 UTC"
 
 	// ShortDateFormat is the short version of human readable timestamp format
-	ShortDateFormat = "01/02/06 15:04"
+	ShortDateFormat = "2006-01-02 15:04"
+
+	// TimeFormat is the time format that only displays time
+	TimeFormat = "15:04"
 
 	// LatestVersion is the shortcut for the latest Telekube version
 	LatestVersion = "latest"
@@ -480,6 +490,9 @@ const (
 	// OperatorContext is for operator associated with User ACL context
 	OperatorContext = "telekube.operator.context"
 
+	// UserContext is a context field that contains authenticated user name
+	UserContext = "user.context"
+
 	// PrivilegedKubeconfig is a path to privileged kube config
 	// that is stored on K8s master node
 	PrivilegedKubeconfig = "/etc/kubernetes/scheduler.kubeconfig"
@@ -514,6 +527,16 @@ const (
 	// kubernetes, use a lowercase notation instead to make it backwards-compatible
 	ClusterPrivateKeyMapKey = "privatekey"
 
+	// ClusterEnvironmentMap is the name of the ConfigMap that contains cluster environment
+	ClusterEnvironmentMap = "runtimeenvironment"
+
+	// PreviousKeyValuesAnnotationKey defines the annotation field that keeps the old
+	// environment variables after the update
+	PreviousKeyValuesAnnotationKey = "previous-values"
+
+	// ClusterConfigurationMap is the name of the ConfigMap that hosts cluster configuration resource
+	ClusterConfigurationMap = "cluster-configuration"
+
 	// SMTPSecret specifies the name of the Secret with cluster SMTP configuration
 	SMTPSecret = "smtp-configuration-update"
 
@@ -535,6 +558,9 @@ const (
 	// ResourceSpecKey specifies the name of the key with raw resource specification
 	ResourceSpecKey = "spec"
 
+	// AuthGatewayConfigMap is the name of config map with auth gateway configuration.
+	AuthGatewayConfigMap = "auth-gateway"
+
 	// LVMSystemDir specifies the default location where lvm2 keeps state and configuration data
 	LVMSystemDir = "/etc/lvm"
 	// LVMSystemDirEnvvar defines the name of the environment variable that overrides the
@@ -547,8 +573,11 @@ const (
 	// ReportFilterKubernetes defines a report filter to fetch kubernetes diagnostics
 	ReportFilterKubernetes = "kubernetes"
 
-	// RpcAgentUpgradeFunction requests deployed agents to run automatic upgrade operation on leader node
-	RpcAgentUpgradeFunction = "upgrade"
+	// RPCAgentUpgradeFunction requests deployed agents to run automatic upgrade operation on leader node
+	RPCAgentUpgradeFunction = "upgrade"
+
+	// RPCAgentSyncPlanFunction requests deployed agents to synchronize local backend with cluster
+	RPCAgentSyncPlanFunction = "sync-plan"
 
 	// TelekubeMountDir is a directory where telekube mounts specific secrets
 	// and other configuration parameters
@@ -641,9 +670,6 @@ const (
 	// InProgressMark is used in CLI to visually indicate progress
 	InProgressMark = "→"
 
-	// MasterRole is the name of the master node role
-	MasterRole = "master"
-
 	// WireguardNetworkType is a network type that is used for wireguard/wormhole support
 	WireguardNetworkType = "wireguard"
 
@@ -651,6 +677,29 @@ const (
 	HelmLabel = "helm"
 	// AppVersionLabel specifies version of an application in a Helm chart.
 	AppVersionLabel = "app-version"
+
+	// AnnotationKind contains image type, cluster or application.
+	AnnotationKind = "gravitational.io/kind"
+	// AnnotationLogo contains base64-encoded image logo.
+	AnnotationLogo = "gravitational.io/logo"
+	// AnnotationSize contains image size in bytes.
+	AnnotationSize = "gravitational.io/size"
+
+	// ServiceAutoscaler is the name of the service that monitors autoscaling
+	// events and launches appropriate operations.
+	//
+	// Used in audit events.
+	ServiceAutoscaler = "@autoscaler"
+	// ServiceStatusChecker is the name of the service that periodically
+	// checks cluster health status and activates/deactivates it.
+	//
+	// Used in audit events.
+	ServiceStatusChecker = "@statuschecker"
+	// ServiceSystem is the identifier used as a "user" field for events
+	// that are triggered not by a human user but by a system process.
+	//
+	// Used in audit events.
+	ServiceSystem = "@system"
 )
 
 var (
@@ -703,6 +752,11 @@ var (
 		"kubernetes.default.svc.cluster",
 		"kubernetes.default.svc.cluster.local",
 	}
+
+	// LegacyBaseImageName is the name of the base cluster image used in earlier versions
+	LegacyBaseImageName = "telekube"
+	// BaseImageName is the current base cluster image name
+	BaseImageName = "gravity"
 )
 
 // Format is the type for supported output formats
