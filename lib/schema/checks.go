@@ -42,7 +42,9 @@ var (
 		moduleName("iptable_nat"),
 		moduleName("br_netfilter"),
 		moduleName("overlay"),
-		moduleName("dummy"),
+		// TODO(knisbet) adding new modules to this list will break upgrades, so disable checking for the dummy module
+		// until upgrades will update the module list
+		//moduleName("dummy"),
 	}
 
 	// DefaultKernelModuleChecker is a satellite kernel module checker with required modules to run kubernetes
