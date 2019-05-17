@@ -1,3 +1,18 @@
+/*
+Copyright 2019 Gravitational, Inc.
+
+Licensed under the Apache License, Version 2.0 (the "License");
+you may not use this file except in compliance with the License.
+You may obtain a copy of the License at
+
+    http://www.apache.org/licenses/LICENSE-2.0
+
+Unless required by applicable law or agreed to in writing, software
+distributed under the License is distributed on an "AS IS" BASIS,
+WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+See the License for the specific language governing permissions and
+limitations under the License.
+*/
 package install
 
 import (
@@ -30,6 +45,25 @@ import (
 	"k8s.io/apimachinery/pkg/runtime"
 )
 
+// NewFSMConfig returns state machine configiration
+func NewFSMConfig(operator ops.Operator, operationKey ops.SiteOperationKey, config Config) FSMConfig {
+	fsmConfig := FSMConfig{
+		Operator:           operator,
+		OperationKey:       operationKey,
+		Packages:           config.Packages,
+		Apps:               config.Apps,
+		LocalPackages:      config.LocalPackages,
+		LocalApps:          config.LocalApps,
+		LocalBackend:       config.LocalBackend,
+		LocalClusterClient: config.LocalClusterClient,
+		Insecure:           config.Insecure,
+		UserLogFile:        config.UserLogFile,
+		ReportProgress:     true,
+	}
+	fsmConfig.Spec = FSMSpec(fsmConfig)
+	return fsmConfig
+}
+
 // RunLocalChecks executes host-local preflight checks for this configuration
 func (c *Config) RunLocalChecks(ctx context.Context) error {
 	app, err := c.GetApp()
@@ -61,55 +95,6 @@ func (c *Config) GetApp() (*app.Application, error) {
 // GetWizardAddr returns the advertise address of the wizard process
 func (c *Config) GetWizardAddr() (addr string) {
 	return c.Process.Config().WizardAddr()
-}
-
-// NewStateMachine creates a new state machine for the specified operator and operation.
-// Implements engine.StateMachineFactory
-func (c *Config) NewFSM(operator ops.Operator, operationKey ops.SiteOperationKey) (fsm *fsm.FSM, err error) {
-	return NewFSM(c.NewFSMConfig(operator, operationKey))
-}
-
-// NewFSMConfig returns state machine configiration
-func (c *Config) NewFSMConfig(operator ops.Operator, operationKey ops.SiteOperationKey) (config FSMConfig) {
-	config = FSMConfig{
-		Operator:           operator,
-		OperationKey:       operationKey,
-		Packages:           c.Packages,
-		Apps:               c.Apps,
-		LocalPackages:      c.LocalPackages,
-		LocalApps:          c.LocalApps,
-		LocalBackend:       c.LocalBackend,
-		LocalClusterClient: c.LocalClusterClient,
-		Insecure:           c.Insecure,
-		UserLogFile:        c.UserLogFile,
-		ReportProgress:     true,
-	}
-	config.Spec = FSMSpec(config)
-	return config
-}
-
-// NewCluster returns a new request to create a cluster.
-// Implements engine.ClusterFactory
-func (c *Config) NewCluster() ops.NewSiteRequest {
-	return ops.NewSiteRequest{
-		AppPackage:   c.AppPackage.String(),
-		AccountID:    defaults.SystemAccountID,
-		Email:        fmt.Sprintf("installer@%v", c.SiteDomain),
-		Provider:     c.CloudProvider,
-		DomainName:   c.SiteDomain,
-		InstallToken: c.Token.Token,
-		ServiceUser: storage.OSUser{
-			Name: c.ServiceUser.Name,
-			UID:  strconv.Itoa(c.ServiceUser.UID),
-			GID:  strconv.Itoa(c.ServiceUser.GID),
-		},
-		CloudConfig: storage.CloudConfig{
-			GCENodeTags: c.GCENodeTags,
-		},
-		DNSOverrides: c.DNSOverrides,
-		DNSConfig:    c.DNSConfig,
-		Docker:       c.Docker,
-	}
 }
 
 // Config is installer configuration
@@ -251,12 +236,60 @@ func (c *Config) checkAndSetDefaults(ctx context.Context) (err error) {
 	return nil
 }
 
+// NewFSMFactory returns a new state machine factory
+func NewFSMFactory(config Config) engine.FSMFactory {
+	return &fsmFactory{Config: config}
+}
+
+// NewStateMachine creates a new state machine for the specified operator and operation.
+// Implements engine.FSMFactory
+func (r *fsmFactory) NewFSM(operator ops.Operator, operationKey ops.SiteOperationKey) (fsm *fsm.FSM, err error) {
+	return NewFSM(NewFSMConfig(operator, operationKey, r.Config))
+}
+
+type fsmFactory struct {
+	Config
+}
+
+// NewClusterFactory returns a factory for creating cluster requests
+func NewClusterFactory(config Config) engine.ClusterFactory {
+	return &clusterFactory{Config: config}
+}
+
+// NewCluster returns a new request to create a cluster.
+// Implements engine.ClusterFactory
+func (r *clusterFactory) NewCluster() ops.NewSiteRequest {
+	return ops.NewSiteRequest{
+		AppPackage:   r.AppPackage.String(),
+		AccountID:    defaults.SystemAccountID,
+		Email:        fmt.Sprintf("installer@%v", r.SiteDomain),
+		Provider:     r.CloudProvider,
+		DomainName:   r.SiteDomain,
+		InstallToken: r.Token.Token,
+		ServiceUser: storage.OSUser{
+			Name: r.ServiceUser.Name,
+			UID:  strconv.Itoa(r.ServiceUser.UID),
+			GID:  strconv.Itoa(r.ServiceUser.GID),
+		},
+		CloudConfig: storage.CloudConfig{
+			GCENodeTags: r.GCENodeTags,
+		},
+		DNSOverrides: r.DNSOverrides,
+		DNSConfig:    r.DNSConfig,
+		Docker:       r.Docker,
+	}
+}
+
+type clusterFactory struct {
+	Config
+}
+
 // RuntimeConfig specifies installer configuration not exposed to the engine
 type RuntimeConfig struct {
 	// Config is the main configuration for the installer
 	Config
 	// FSMFactory specifies the state machine factory to use
-	FSMFactory engine.StateMachineFactory
+	FSMFactory engine.FSMFactory
 	// CLusterFactory specifies the cluster request factory to use
 	ClusterFactory engine.ClusterFactory
 	// Planner specifies the plan generator
@@ -301,46 +334,6 @@ func (c *Config) validateCloudConfig() (err error) {
 	return nil
 }
 
-// newAgent creates a new unstarted installer agent.
-// Agent can be started with Serve
-func (c *Config) newAgent(ctx context.Context) (*rpcserver.PeerServer, error) {
-	err := ExportRPCCredentials(ctx, c.Packages, c.FieldLogger)
-	if err != nil {
-		return nil, trace.Wrap(err, "failed to export RPC credentials")
-	}
-	serverCreds, clientCreds, err := rpc.Credentials(defaults.RPCAgentSecretsDir)
-	if err != nil {
-		return nil, trace.Wrap(err)
-	}
-	var mounts []*pb.Mount
-	for name, source := range c.Mounts {
-		mounts = append(mounts, &pb.Mount{Name: name, Source: source})
-	}
-	runtimeConfig := pb.RuntimeConfig{
-		SystemDevice: c.SystemDevice,
-		DockerDevice: c.DockerDevice,
-		Role:         c.Role,
-		Mounts:       mounts,
-	}
-	return NewAgent(ctx, AgentConfig{
-		FieldLogger:   c.FieldLogger,
-		AdvertiseAddr: c.AdvertiseAddr,
-		ServerAddr:    c.Process.Config().Pack.GetAddr().Addr,
-		Credentials: rpcserver.Credentials{
-			Server: serverCreds,
-			Client: clientCreds,
-		},
-		RuntimeConfig:         runtimeConfig,
-		SkipConnectValidation: true,
-		ReconnectStrategy: &rpcserver.ReconnectStrategy{
-			ShouldReconnect: func(err error) error {
-				// Reconnect forever
-				return err
-			},
-		},
-	})
-}
-
 // getInstallerTrustedCluster returns trusted cluster representing installer process
 func (c *Config) getInstallerTrustedCluster() (storage.TrustedCluster, error) {
 	seedConfig := c.Process.Config().OpsCenter.SeedConfig
@@ -355,4 +348,44 @@ func (c *Config) getInstallerTrustedCluster() (storage.TrustedCluster, error) {
 	}
 	return nil, trace.NotFound("trusted cluster representing this installer "+
 		"is not found in the Process configuration: %#v", seedConfig)
+}
+
+// newAgent creates a new unstarted installer agent.
+// Agent can be started with Serve
+func newAgent(ctx context.Context, config Config) (*rpcserver.PeerServer, error) {
+	err := ExportRPCCredentials(ctx, config.Packages, config.FieldLogger)
+	if err != nil {
+		return nil, trace.Wrap(err, "failed to export RPC credentials")
+	}
+	serverCreds, clientCreds, err := rpc.Credentials(defaults.RPCAgentSecretsDir)
+	if err != nil {
+		return nil, trace.Wrap(err)
+	}
+	var mounts []*pb.Mount
+	for name, source := range config.Mounts {
+		mounts = append(mounts, &pb.Mount{Name: name, Source: source})
+	}
+	runtimeConfig := pb.RuntimeConfig{
+		SystemDevice: config.SystemDevice,
+		DockerDevice: config.DockerDevice,
+		Role:         config.Role,
+		Mounts:       mounts,
+	}
+	return NewAgent(ctx, AgentConfig{
+		FieldLogger:   config.FieldLogger,
+		AdvertiseAddr: config.AdvertiseAddr,
+		ServerAddr:    config.Process.Config().Pack.GetAddr().Addr,
+		Credentials: rpcserver.Credentials{
+			Server: serverCreds,
+			Client: clientCreds,
+		},
+		RuntimeConfig:         runtimeConfig,
+		SkipConnectValidation: true,
+		ReconnectStrategy: &rpcserver.ReconnectStrategy{
+			ShouldReconnect: func(err error) error {
+				// Reconnect forever
+				return err
+			},
+		},
+	})
 }

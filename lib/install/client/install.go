@@ -1,4 +1,19 @@
-package installer
+/*
+Copyright 2019 Gravitational, Inc.
+
+Licensed under the Apache License, Version 2.0 (the "License");
+you may not use this file except in compliance with the License.
+You may obtain a copy of the License at
+
+    http://www.apache.org/licenses/LICENSE-2.0
+
+Unless required by applicable law or agreed to in writing, software
+distributed under the License is distributed on an "AS IS" BASIS,
+WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+See the License for the specific language governing permissions and
+limitations under the License.
+*/
+package client
 
 import (
 	"context"
@@ -23,7 +38,7 @@ import (
 // It performs host validation to assert whether the host can run the installer
 func (r *InstallerStrategy) connect(ctx context.Context) (installpb.AgentClient, error) {
 	r.Info("Creating and connecting to new instance.")
-	err := r.StateChecker()
+	err := r.Validate()
 	if err != nil {
 		return nil, trace.Wrap(err)
 	}
@@ -86,8 +101,8 @@ func (r *InstallerStrategy) checkAndSetDefaults() error {
 	if len(r.Args) == 0 {
 		return trace.BadParameter("Args is required")
 	}
-	if r.StateChecker == nil {
-		return trace.BadParameter("StateChecker is required")
+	if r.Validate == nil {
+		return trace.BadParameter("Validate is required")
 	}
 	if r.ServicePath == "" {
 		r.ServicePath = state.GravityInstallDir(defaults.GravityRPCInstallerServiceName)
@@ -101,12 +116,18 @@ func (r *InstallerStrategy) checkAndSetDefaults() error {
 	return nil
 }
 
+// InstallerStrategy implements the strategy that creates a new installer service
+// before attempting to connect.
+// This strategy also validates the environment before attempting to set up the service
+// to prevent from running the installer on a system already part of the cluster
 type InstallerStrategy struct {
+	// FieldLogger specifies the logger
 	log.FieldLogger
 	// Args specifies the service command line including the executable
 	Args []string
-	// StateChecker specifies the local state checker function.
-	StateChecker func() error
+	// Validate specifies the environment validation function.
+	// The service will only be installed when Validate returns true
+	Validate func() error
 	// SocketPath specifies the path to the service socket file
 	SocketPath string
 	// ServicePath specifies the absolute path to the service unit

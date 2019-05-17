@@ -92,6 +92,7 @@ func InitAndCheck(g *Application, cmd string) error {
 	case g.RPCAgentDeployCmd.FullCommand(),
 		g.RPCAgentInstallCmd.FullCommand(),
 		g.RPCAgentRunCmd.FullCommand(),
+		g.ResumeCmd.FullCommand(),
 		g.PlanCmd.FullCommand(),
 		g.PlanDisplayCmd.FullCommand(),
 		g.PlanExecuteCmd.FullCommand(),
@@ -173,6 +174,7 @@ func InitAndCheck(g *Application, cmd string) error {
 		g.EnterCmd.FullCommand(),
 		g.PlanetEnterCmd.FullCommand(),
 		g.UpdatePlanInitCmd.FullCommand(),
+		g.ResumeCmd.FullCommand(),
 		g.PlanCmd.FullCommand(),
 		g.PlanDisplayCmd.FullCommand(),
 		g.PlanExecuteCmd.FullCommand(),
@@ -345,6 +347,14 @@ func Execute(g *Application, cmd string, extraArgs []string) error {
 			*g.UpgradeCmd.Manual,
 			*g.UpgradeCmd.SkipVersionCheck,
 		)
+	case g.ResumeCmd.FullCommand():
+		return resumeOperation(localEnv, g,
+			PhaseParams{
+				Force:            *g.ResumeCmd.Force,
+				Timeout:          *g.ResumeCmd.PhaseTimeout,
+				SkipVersionCheck: *g.ResumeCmd.SkipVersionCheck,
+				OperationID:      *g.ResumeCmd.OperationID,
+			})
 	case g.PlanExecuteCmd.FullCommand():
 		return executePhase(localEnv, g,
 			PhaseParams{

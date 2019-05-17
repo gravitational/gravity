@@ -1,4 +1,19 @@
-package installer
+/*
+Copyright 2019 Gravitational, Inc.
+
+Licensed under the Apache License, Version 2.0 (the "License");
+you may not use this file except in compliance with the License.
+You may obtain a copy of the License at
+
+    http://www.apache.org/licenses/LICENSE-2.0
+
+Unless required by applicable law or agreed to in writing, software
+distributed under the License is distributed on an "AS IS" BASIS,
+WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+See the License for the specific language governing permissions and
+limitations under the License.
+*/
+package client
 
 import (
 	"context"
@@ -10,8 +25,9 @@ import (
 
 	"github.com/gravitational/gravity/lib/defaults"
 	installpb "github.com/gravitational/gravity/lib/install/proto"
+	"github.com/gravitational/gravity/lib/ops"
 	"github.com/gravitational/gravity/lib/state"
-	"github.com/gravitational/gravity/lib/system/cleanup"
+	"github.com/gravitational/gravity/lib/system/environ"
 	"github.com/gravitational/gravity/lib/system/signals"
 	"github.com/gravitational/gravity/lib/utils"
 
@@ -52,8 +68,10 @@ func (r *Client) Run(ctx context.Context) error {
 
 // ExecutePhase executes the specified phase
 func (r *Client) ExecutePhase(ctx context.Context, phase Phase) error {
+	r.WithField("phase", phase).Info("Execute.")
 	return r.execute(ctx, &installpb.ExecuteRequest{
 		Phase: &installpb.ExecuteRequest_Phase{
+			Key:   installpb.KeyToProto(phase.Key),
 			ID:    phase.ID,
 			Force: phase.Force,
 		},
@@ -62,13 +80,24 @@ func (r *Client) ExecutePhase(ctx context.Context, phase Phase) error {
 
 // RollbackPhase rolls back the specified phase
 func (r *Client) RollbackPhase(ctx context.Context, phase Phase) error {
+	r.WithField("phase", phase).Info("Rollback.")
 	return r.execute(ctx, &installpb.ExecuteRequest{
 		Phase: &installpb.ExecuteRequest_Phase{
+			Key:      installpb.KeyToProto(phase.Key),
 			ID:       phase.ID,
 			Force:    phase.Force,
 			Rollback: true,
 		},
 	})
+}
+
+// Complete manually completes the active operation
+func (r *Client) Complete(ctx context.Context, key ops.SiteOperationKey) error {
+	r.WithField("key", key).Info("Complete.")
+	_, err := r.client.Complete(ctx, &installpb.CompleteRequest{
+		Key: installpb.KeyToProto(key),
+	})
+	return trace.Wrap(err)
 }
 
 // Stop signals the service to stop
@@ -153,6 +182,8 @@ type Phase struct {
 	// Force defines whether the phase execution is forced regardless
 	// of its state
 	Force bool
+	// Key identifies the active operation
+	Key ops.SiteOperationKey
 }
 
 func (r *Client) execute(ctx context.Context, req *installpb.ExecuteRequest) error {
@@ -206,7 +237,7 @@ func (r *Client) complete() {
 	r.mu.Lock()
 	r.completed = true
 	r.mu.Unlock()
-	if err := cleanup.UninstallAgentServices(r.FieldLogger); err != nil {
+	if err := environ.UninstallAgentServices(r.FieldLogger); err != nil {
 		r.WithError(err).Warn("Failed to uninstall installer service.")
 	}
 }

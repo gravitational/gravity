@@ -36,7 +36,7 @@ import (
 	"github.com/gravitational/gravity/lib/pack/localpack"
 	"github.com/gravitational/gravity/lib/state"
 	"github.com/gravitational/gravity/lib/storage"
-	"github.com/gravitational/gravity/lib/system/cleanup"
+	"github.com/gravitational/gravity/lib/system/environ"
 	"github.com/gravitational/gravity/lib/system/service"
 	"github.com/gravitational/gravity/lib/systemservice"
 	"github.com/gravitational/gravity/lib/utils"
@@ -956,11 +956,11 @@ func systemUninstall(env *localenv.LocalEnvironment, confirmed bool) error {
 	env.Backend.Close()
 
 	logger := log.WithField(trace.Component, "system:uninstall")
-	if err := cleanup.UninstallSystem(env, logger); err != nil {
+	if err := environ.UninstallSystem(env, logger); err != nil {
 		log.WithError(err).Warn("Failed to uninstall system.")
 	}
 
-	if err := cleanup.UninstallAgentServices(logger); err != nil {
+	if err := environ.UninstallAgentServices(logger); err != nil {
 		log.WithError(err).Warn("Failed to uninstall agent services.")
 	}
 

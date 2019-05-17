@@ -21,7 +21,7 @@ import (
 	"github.com/gravitational/gravity/lib/ops"
 	"github.com/gravitational/gravity/lib/state"
 	"github.com/gravitational/gravity/lib/storage"
-	systemstate "github.com/gravitational/gravity/lib/system/state"
+	"github.com/gravitational/gravity/lib/system/environ"
 
 	"github.com/gravitational/trace"
 )
@@ -73,7 +73,7 @@ func (p *Peer) configureStateDirectory() error {
 	if err != nil {
 		return trace.Wrap(err)
 	}
-	err = systemstate.ConfigureStateDirectory(stateDir, p.SystemDevice)
+	err = environ.ConfigureStateDirectory(stateDir, p.SystemDevice)
 	if err != nil {
 		return trace.Wrap(err)
 	}

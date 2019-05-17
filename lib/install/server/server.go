@@ -1,3 +1,18 @@
+/*
+Copyright 2019 Gravitational, Inc.
+
+Licensed under the Apache License, Version 2.0 (the "License");
+you may not use this file except in compliance with the License.
+You may obtain a copy of the License at
+
+    http://www.apache.org/licenses/LICENSE-2.0
+
+Unless required by applicable law or agreed to in writing, software
+distributed under the License is distributed on an "AS IS" BASIS,
+WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+See the License for the specific language governing permissions and
+limitations under the License.
+*/
 package server
 
 import (
@@ -7,10 +22,10 @@ import (
 	"net"
 	"sync"
 
+	"github.com/gogo/protobuf/types"
 	installpb "github.com/gravitational/gravity/lib/install/proto"
 	"github.com/gravitational/gravity/lib/ops"
 
-	"github.com/gogo/protobuf/types"
 	"github.com/gravitational/trace"
 	log "github.com/sirupsen/logrus"
 	"google.golang.org/grpc"
@@ -110,17 +125,14 @@ func (r *Server) Execute(req *installpb.ExecuteRequest, stream installpb.Agent_E
 	return nil
 }
 
-// GetState determines the installer state
+// Complete manually completes the operation given with req.
 // Implements installpb.AgentServer
-func (r *Server) GetState(context.Context, *types.Empty) (*installpb.StateResponse, error) {
-	r.mu.Lock()
-	executing := r.executing
-	r.mu.Unlock()
-	resp := installpb.StateResponse{State: installpb.StateResponse_Idle}
-	if executing {
-		resp.State = installpb.StateResponse_Active
+func (r *Server) Complete(ctx context.Context, req *installpb.CompleteRequest) (*types.Empty, error) {
+	err := r.executor.Complete(installpb.KeyFromProto(req.Key))
+	if err != nil {
+		return nil, trace.Wrap(err)
 	}
-	return &resp, nil
+	return installpb.Empty, nil
 }
 
 // Send streams the specified progress event to the client.
@@ -131,6 +143,11 @@ func (r *Server) Send(event Event) error {
 		// Pushed the progress event
 		return nil
 	default:
+		// FIXME: push the event to the buffer to retrieve later
+		// when client reconnects. This will enable half-sync/half-async style
+		// handling.
+		// The progress messages are not high volume so the buffering should not
+		// be an issue
 		return trace.BadParameter("failed to publish event")
 	}
 }
@@ -157,6 +174,8 @@ func (r *Server) ExitError() error {
 type Executor interface {
 	// Execute executes an operation.
 	Execute(*installpb.ExecuteRequest_Phase) error
+	// Complete executes an operation.
+	Complete(operationKey ops.SiteOperationKey) error
 	// AbortOperation gracefully aborts the operation and cleans up the operation state
 	AbortOperation(context.Context) error
 	// Shutdown gracefully stops the operation

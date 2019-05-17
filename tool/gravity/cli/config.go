@@ -46,7 +46,7 @@ import (
 	"github.com/gravitational/gravity/lib/state"
 	"github.com/gravitational/gravity/lib/storage"
 	"github.com/gravitational/gravity/lib/storage/clusterconfig"
-	"github.com/gravitational/gravity/lib/system/cleanup"
+	"github.com/gravitational/gravity/lib/system/environ"
 	"github.com/gravitational/gravity/lib/systeminfo"
 	"github.com/gravitational/gravity/lib/utils"
 
@@ -560,7 +560,7 @@ type JoinConfig struct {
 	Manual bool
 	// Phase is the plan phase to execute
 	Phase string
-	// OperationID is ID of existing join operation
+	// OperationID is ID of existing expand operation
 	OperationID string
 	// FromService specifies whether the process runs in service mode
 	FromService bool
@@ -762,11 +762,11 @@ func installerUninstallSystem(env *localenv.LocalEnvironment) func(context.Conte
 			logger.WithError(err).Warn("Failed to leave cluster.")
 		}
 		logger.Info("Disabling agents.")
-		if err := cleanup.DisableAgentServices(logger); err != nil {
+		if err := environ.DisableAgentServices(logger); err != nil {
 			logger.WithError(err).Warn("Failed to disable agent services.")
 		}
 		logger.Info("Uninstalling system.")
-		if err := cleanup.UninstallSystem(utils.DiscardPrinter, logger); err != nil {
+		if err := environ.UninstallSystem(utils.DiscardPrinter, logger); err != nil {
 			logger.WithError(err).Warn("Failed to uninstall system.")
 		}
 		logger.Info("System uninstalled.")
@@ -779,7 +779,7 @@ func installerUninstallSystem(env *localenv.LocalEnvironment) func(context.Conte
 func installerCompleteOperation(env *localenv.LocalEnvironment) func(context.Context) error {
 	return func(ctx context.Context) error {
 		logger := log.WithField(trace.Component, "installer:cleanup")
-		if err := cleanup.DisableAgentServices(logger); err != nil {
+		if err := environ.DisableAgentServices(logger); err != nil {
 			logger.WithError(err).Warn("Failed to disable agent services.")
 		}
 		return nil

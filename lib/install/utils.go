@@ -1,3 +1,18 @@
+/*
+Copyright 2019 Gravitational, Inc.
+
+Licensed under the Apache License, Version 2.0 (the "License");
+you may not use this file except in compliance with the License.
+You may obtain a copy of the License at
+
+    http://www.apache.org/licenses/LICENSE-2.0
+
+Unless required by applicable law or agreed to in writing, software
+distributed under the License is distributed on an "AS IS" BASIS,
+WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+See the License for the specific language governing permissions and
+limitations under the License.
+*/
 package install
 
 import (
@@ -13,6 +28,7 @@ import (
 	"github.com/gravitational/gravity/lib/checks"
 	awscloud "github.com/gravitational/gravity/lib/cloudprovider/aws"
 	"github.com/gravitational/gravity/lib/defaults"
+	"github.com/gravitational/gravity/lib/fsm"
 	"github.com/gravitational/gravity/lib/install/engine"
 	"github.com/gravitational/gravity/lib/install/server"
 	"github.com/gravitational/gravity/lib/loc"
@@ -358,6 +374,21 @@ func InstallBinary(uid, gid int, logger log.FieldLogger) (err error) {
 	if err != nil {
 		return trace.Wrap(err, "failed to install gravity binary in any of %v",
 			state.GravityBinPaths)
+	}
+	return nil
+}
+
+// ExecuteOperation executes the operation specified with machine to completion
+func ExecuteOperation(ctx context.Context, machine *fsm.FSM, logger log.FieldLogger) error {
+	planErr := machine.ExecutePlan(ctx, utils.DiscardProgress)
+	if planErr != nil {
+		logger.WithError(planErr).Warn("Failed to execute plan.")
+	}
+	if err := machine.Complete(planErr); err != nil {
+		logger.WithError(err).Warn("Failed to complete plan.")
+	}
+	if planErr != nil {
+		return trace.Wrap(planErr)
 	}
 	return nil
 }

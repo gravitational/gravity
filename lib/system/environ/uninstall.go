@@ -14,8 +14,7 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-// package cleanup implements support for cleaning up state on host
-package cleanup
+package environ
 
 import (
 	"bytes"

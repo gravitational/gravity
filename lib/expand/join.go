@@ -144,15 +144,29 @@ func (p *Peer) AbortOperation(ctx context.Context) error {
 
 // Execute executes the peer operation (join or just serving an agent).
 // Implements server.Executor
-func (p *Peer) Execute(*installpb.ExecuteRequest_Phase) (err error) {
+func (p *Peer) Execute(phase *installpb.ExecuteRequest_Phase) (err error) {
 	p.Info("Execute.")
-	if err := p.bootstrap(); err != nil {
-		return trace.Wrap(err)
+	if phase != nil {
+		return trace.Wrap(p.executePhase(*phase))
 	}
 	if err := p.run(); err != nil {
 		return trace.Wrap(err)
 	}
 	return nil
+}
+
+// Complete manually completes the operation given with opKey.
+// Implements server.Executor
+func (p *Peer) Complete(opKey ops.SiteOperationKey) error {
+	ctx, err := p.tryConnect(opKey.OperationID)
+	if err != nil {
+		return trace.Wrap(err)
+	}
+	machine, err := p.getFSM(*ctx)
+	if err != nil {
+		return trace.Wrap(err)
+	}
+	return trace.Wrap(machine.Complete(trace.Errorf("completed manually")))
 }
 
 // PeerConfig defines the configuration for a peer joining the cluster
@@ -242,6 +256,32 @@ func (c *PeerConfig) CheckAndSetDefaults() (err error) {
 	return nil
 }
 
+func (p *Peer) executePhase(phase installpb.ExecuteRequest_Phase) error {
+	ctx, err := p.tryConnect(phase.Key.ID)
+	if err != nil {
+		return trace.Wrap(err)
+	}
+	machine, err := p.getFSM(*ctx)
+	if err != nil {
+		return trace.Wrap(err)
+	}
+	if phase.ID == fsm.RootPhase {
+		return trace.Wrap(p.executeOperation(machine))
+	}
+	params := fsm.Params{
+		PhaseID: phase.ID,
+		Force:   phase.Force,
+	}
+	if phase.Rollback {
+		return trace.Wrap(machine.RollbackPhase(p.ctx, params))
+	}
+	return trace.Wrap(machine.ExecutePhase(p.ctx, params))
+}
+
+func (p *Peer) executeOperation(machine *fsm.FSM) error {
+	return trace.Wrap(install.ExecuteOperation(p.ctx, machine, p.FieldLogger))
+}
+
 // abort aborts the installation and cleans up the operation state.
 func (p *Peer) abort(ctx context.Context) error {
 	p.cancel()
@@ -257,65 +297,6 @@ func (p *Peer) abort(ctx context.Context) error {
 func (p *Peer) printStep(format string, args ...interface{}) error {
 	event := server.Event{Progress: &ops.ProgressEntry{Message: fmt.Sprintf(format, args...)}}
 	return p.server.Send(event)
-}
-
-func (p *Peer) dialCluster(addr string) (*operationContext, error) {
-	targetURL := formatClusterURL(addr)
-	httpClient := httplib.GetClient(true)
-	operator, err := opsclient.NewBearerClient(targetURL, p.Token, opsclient.HTTPClient(httpClient))
-	if err != nil {
-		return nil, trace.Wrap(err)
-	}
-	packages, err := webpack.NewBearerClient(targetURL, p.Token, roundtrip.HTTPClient(httpClient))
-	if err != nil {
-		return nil, trace.Wrap(err)
-	}
-	apps, err := client.NewBearerClient(targetURL, p.Token, client.HTTPClient(httpClient))
-	if err != nil {
-		return nil, trace.Wrap(err)
-	}
-	cluster, err := operator.GetLocalSite()
-	if err != nil {
-		return nil, trace.Wrap(err)
-	}
-	err = p.checkAndSetServerProfile(cluster.App)
-	if err != nil {
-		return nil, trace.Wrap(err)
-	}
-	installOp, _, err := ops.GetInstallOperation(cluster.Key(), operator)
-	if err != nil {
-		return nil, trace.Wrap(err)
-	}
-	err = p.runLocalChecks(*cluster, *installOp)
-	if err != nil {
-		return nil, utils.Abort(err) // stop retrying on failed checks
-	}
-	var operation *ops.SiteOperation
-	if p.OperationID == "" {
-		operation, err = p.createExpandOperation(operator, *cluster)
-	} else {
-		operation, err = p.getExpandOperation(operator, *cluster)
-	}
-	if err != nil {
-		return nil, trace.Wrap(err)
-	}
-	creds, err := install.LoadRPCCredentials(p.ctx, packages, p.FieldLogger)
-	if err != nil {
-		return nil, trace.Wrap(err)
-	}
-	peerURL, err := url.Parse(targetURL)
-	if err != nil {
-		return nil, trace.Wrap(err)
-	}
-	return &operationContext{
-		Operator:  operator,
-		Packages:  packages,
-		Apps:      apps,
-		Peer:      peerURL.Host,
-		Operation: *operation,
-		Cluster:   *cluster,
-		Creds:     *creds,
-	}, nil
 }
 
 // createExpandOperation creates a new expand operation
@@ -343,11 +324,11 @@ func (p *Peer) createExpandOperation(operator ops.Operator, cluster ops.Site) (*
 }
 
 // getExpandOperation returns existing expand operation created via UI
-func (p *Peer) getExpandOperation(operator ops.Operator, cluster ops.Site) (*ops.SiteOperation, error) {
+func (p *Peer) getExpandOperation(operator ops.Operator, cluster ops.Site, operationID string) (*ops.SiteOperation, error) {
 	operation, err := operator.GetSiteOperation(ops.SiteOperationKey{
 		AccountID:   cluster.AccountID,
 		SiteDomain:  cluster.Domain,
-		OperationID: p.OperationID,
+		OperationID: operationID,
 	})
 	if err != nil {
 		return nil, trace.Wrap(err)
@@ -389,6 +370,65 @@ func (p *Peer) dialWizard(addr string) (*operationContext, error) {
 		Operator:  env.Operator,
 		Packages:  env.Packages,
 		Apps:      env.Apps,
+		Peer:      peerURL.Host,
+		Operation: *operation,
+		Cluster:   *cluster,
+		Creds:     *creds,
+	}, nil
+}
+
+func (p *Peer) dialCluster(addr, operationID string) (*operationContext, error) {
+	targetURL := formatClusterURL(addr)
+	httpClient := httplib.GetClient(true)
+	operator, err := opsclient.NewBearerClient(targetURL, p.Token, opsclient.HTTPClient(httpClient))
+	if err != nil {
+		return nil, trace.Wrap(err)
+	}
+	packages, err := webpack.NewBearerClient(targetURL, p.Token, roundtrip.HTTPClient(httpClient))
+	if err != nil {
+		return nil, trace.Wrap(err)
+	}
+	apps, err := client.NewBearerClient(targetURL, p.Token, client.HTTPClient(httpClient))
+	if err != nil {
+		return nil, trace.Wrap(err)
+	}
+	cluster, err := operator.GetLocalSite()
+	if err != nil {
+		return nil, trace.Wrap(err)
+	}
+	err = p.checkAndSetServerProfile(cluster.App)
+	if err != nil {
+		return nil, trace.Wrap(err)
+	}
+	installOp, _, err := ops.GetInstallOperation(cluster.Key(), operator)
+	if err != nil {
+		return nil, trace.Wrap(err)
+	}
+	err = p.runLocalChecks(*cluster, *installOp)
+	if err != nil {
+		return nil, utils.Abort(err) // stop retrying on failed checks
+	}
+	var operation *ops.SiteOperation
+	if operationID == "" {
+		operation, err = p.createExpandOperation(operator, *cluster)
+	} else {
+		operation, err = p.getExpandOperation(operator, *cluster, operationID)
+	}
+	if err != nil {
+		return nil, trace.Wrap(err)
+	}
+	creds, err := install.LoadRPCCredentials(p.ctx, packages, p.FieldLogger)
+	if err != nil {
+		return nil, trace.Wrap(err)
+	}
+	peerURL, err := url.Parse(targetURL)
+	if err != nil {
+		return nil, trace.Wrap(err)
+	}
+	return &operationContext{
+		Operator:  operator,
+		Packages:  packages,
+		Apps:      apps,
 		Peer:      peerURL.Host,
 		Operation: *operation,
 		Cluster:   *cluster,
@@ -460,7 +500,7 @@ func (p *Peer) connect() (*operationContext, error) {
 	for {
 		select {
 		case <-ticker.C:
-			ctx, err := p.tryConnect()
+			ctx, err := p.tryConnect(p.OperationID)
 			if err != nil {
 				// join token is incorrect, fail immediately and report to user
 				if trace.IsAccessDenied(err) {
@@ -480,7 +520,7 @@ func (p *Peer) connect() (*operationContext, error) {
 	}
 }
 
-func (p *Peer) tryConnect() (op *operationContext, err error) {
+func (p *Peer) tryConnect(operationID string) (op *operationContext, err error) {
 	p.printStep("Connecting to cluster")
 	for _, addr := range p.Peers {
 		p.WithField("peer", addr).Debug("Trying peer.")
@@ -500,8 +540,7 @@ func (p *Peer) tryConnect() (op *operationContext, err error) {
 			p.printStep("Waiting for the install operation to finish")
 			return nil, trace.Wrap(err)
 		}
-
-		op, err = p.dialCluster(addr)
+		op, err = p.dialCluster(addr, operationID)
 		if err == nil {
 			p.WithField("addr", op.Peer).Debug("Connected to cluster.")
 			p.printStep("Connected to existing cluster at %v", addr)
@@ -550,6 +589,10 @@ func (p *Peer) startAgent(opCtx operationContext) error {
 }
 
 func (p *Peer) run() error {
+	if err := p.bootstrap(); err != nil {
+		return trace.Wrap(err)
+	}
+
 	ctx, err := p.connect()
 	if err != nil {
 		return trace.Wrap(err)

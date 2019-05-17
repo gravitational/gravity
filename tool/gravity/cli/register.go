@@ -126,6 +126,12 @@ func RegisterCommands(app *kingpin.Application) *Application {
 	g.RemoveCmd.Force = g.RemoveCmd.Flag("force", "Force removal of offline node").Bool()
 	g.RemoveCmd.Confirm = g.RemoveCmd.Flag("confirm", "Do not ask for confirmation").Bool()
 
+	g.ResumeCmd.CmdClause = g.Command("resume", "Resume last aborted operation")
+	g.ResumeCmd.OperationID = g.ResumeCmd.Flag("operation-id", "ID of the active operation. It not specified, the last operation will be used").Hidden().String()
+	g.ResumeCmd.SkipVersionCheck = g.ResumeCmd.Flag("skip-version-check", "Bypass version compatibility check").Hidden().Bool()
+	g.ResumeCmd.Force = g.ResumeCmd.Flag("force", "Force execution of specified phase").Bool()
+	g.ResumeCmd.PhaseTimeout = g.ResumeCmd.Flag("timeout", "Phase timeout").Default(defaults.PhaseTimeout).Hidden().Duration()
+
 	g.PlanCmd.CmdClause = g.Command("plan", "Manage operation plan")
 	g.PlanCmd.OperationID = g.PlanCmd.Flag("operation-id", "ID of the active operation. It not specified, the last operation will be used").Hidden().String()
 	g.PlanCmd.SkipVersionCheck = g.PlanCmd.Flag("skip-version-check", "Bypass version compatibility check").Hidden().Bool()

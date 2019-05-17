@@ -51,7 +51,7 @@ import (
 func New(ctx context.Context, config RuntimeConfig) (installer *Installer, err error) {
 	var agent *rpcserver.PeerServer
 	if config.Config.LocalAgent {
-		agent, err = config.newAgent(ctx)
+		agent, err = newAgent(ctx, config.Config)
 		if err != nil {
 			return nil, trace.Wrap(err)
 		}
@@ -264,6 +264,16 @@ func (i *Installer) Execute(phase *installpb.ExecuteRequest_Phase) error {
 	return nil
 }
 
+// Complete manually completes the operation given with opKey.
+// Implements server.Executor
+func (i *Installer) Complete(opKey ops.SiteOperationKey) error {
+	machine, err := i.config.FSMFactory.NewFSM(i.config.Operator, opKey)
+	if err != nil {
+		return trace.Wrap(err)
+	}
+	return trace.Wrap(machine.Complete(trace.Errorf("completed manually")))
+}
+
 // AbortOperation aborts the installation and cleans up the operation state.
 // Implements server.Executor
 func (i *Installer) AbortOperation(ctx context.Context) error {
@@ -272,11 +282,7 @@ func (i *Installer) AbortOperation(ctx context.Context) error {
 }
 
 func (i *Installer) executePhase(phase installpb.ExecuteRequest_Phase) error {
-	opKey := ops.SiteOperationKey{
-		AccountID:   phase.Key.AccountID,
-		SiteDomain:  phase.Key.ClusterName,
-		OperationID: phase.Key.ID,
-	}
+	opKey := installpb.KeyFromProto(phase.Key)
 	machine, err := i.config.FSMFactory.NewFSM(i.config.Operator, opKey)
 	if err != nil {
 		return trace.Wrap(err)
@@ -284,7 +290,10 @@ func (i *Installer) executePhase(phase installpb.ExecuteRequest_Phase) error {
 	if phase.ID == fsm.RootPhase {
 		return trace.Wrap(i.executeOperation(machine))
 	}
-	p := fsm.Params{PhaseID: phase.ID}
+	p := fsm.Params{
+		PhaseID: phase.ID,
+		Force:   phase.Force,
+	}
 	if phase.Rollback {
 		return trace.Wrap(machine.RollbackPhase(i.ctx, p))
 	}
@@ -292,17 +301,7 @@ func (i *Installer) executePhase(phase installpb.ExecuteRequest_Phase) error {
 }
 
 func (i *Installer) executeOperation(machine *fsm.FSM) error {
-	planErr := machine.ExecutePlan(i.ctx, utils.DiscardProgress)
-	if planErr != nil {
-		i.WithError(planErr).Warn("Failed to execute plan.")
-	}
-	if err := machine.Complete(planErr); err != nil {
-		i.WithError(err).Warn("Failed to complete plan.")
-	}
-	if planErr != nil {
-		return trace.Wrap(planErr)
-	}
-	return nil
+	return trace.Wrap(ExecuteOperation(i.ctx, machine, i.FieldLogger))
 }
 
 // stop stops the operation in progress

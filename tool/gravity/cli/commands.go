@@ -76,6 +76,8 @@ type Application struct {
 	PlanExecuteCmd PlanExecuteCmd
 	// PlanRollbackCmd rolls back a phase of an active operation
 	PlanRollbackCmd PlanRollbackCmd
+	// ResumeCmd resumes active operation
+	ResumeCmd ResumeCmd
 	// PlanResumeCmd resumes active operation
 	PlanResumeCmd PlanResumeCmd
 	// PlanCompleteCmd completes the operation plan
@@ -470,6 +472,19 @@ type RemoveCmd struct {
 	Force *bool
 	// Confirm suppresses confirmation prompt
 	Confirm *bool
+}
+
+// ResumeCmd resumes active operation
+type ResumeCmd struct {
+	*kingpin.CmdClause
+	// OperationID is optional ID of operation to show the plan for
+	OperationID *string
+	// SkipVersionCheck suppresses version mismatch errors
+	SkipVersionCheck *bool
+	// Force forces rollback of the phase given in Phase
+	Force *bool
+	// PhaseTimeout is the rollback timeout
+	PhaseTimeout *time.Duration
 }
 
 // PlanCmd manages an operation plan
