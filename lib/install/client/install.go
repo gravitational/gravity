@@ -80,7 +80,6 @@ func (r *InstallerStrategy) installSelfAsService() error {
 			WorkingDirectory: r.ApplicationDir,
 		},
 		NoBlock: true,
-		Unmask:  true,
 		Name:    r.ServicePath,
 	}
 	r.WithField("req", fmt.Sprintf("%+v", req)).Info("Install service.")
@@ -89,8 +88,7 @@ func (r *InstallerStrategy) installSelfAsService() error {
 
 func (r *InstallerStrategy) uninstallService() error {
 	return trace.Wrap(service.Uninstall(systemservice.UninstallServiceRequest{
-		Name:       r.serviceName(),
-		RemoveFile: true,
+		Name: r.serviceName(),
 	}))
 }
 

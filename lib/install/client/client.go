@@ -93,7 +93,10 @@ func (r *Client) Complete(ctx context.Context, key ops.SiteOperationKey) error {
 	_, err := r.client.Complete(ctx, &installpb.CompleteRequest{
 		Key: installpb.KeyToProto(key),
 	})
-	return trace.Wrap(err)
+	if err != nil {
+		return trace.Wrap(err)
+	}
+	return trace.Wrap(environ.CleanupOperationState(r.Printer, r.FieldLogger))
 }
 
 // Stop signals the service to stop

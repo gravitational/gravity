@@ -147,16 +147,6 @@ func (s *systemdManager) installService(service serviceTemplate, req NewServiceR
 		return trace.Wrap(err, "error rendering template")
 	}
 
-	if req.Unmask {
-		err = s.UnmaskService(service.Name)
-		if err != nil && !IsUnknownServiceError(err) {
-			log.WithFields(log.Fields{
-				log.ErrorKey: err,
-				"service":    service.Name,
-			}).Warn("Failed to unmask.")
-		}
-	}
-
 	if err := s.EnableService(req.Name); err != nil {
 		return trace.Wrap(err, "error enabling the service")
 	}
@@ -342,31 +332,26 @@ func (s *systemdManager) InstallMountService(req NewMountServiceRequest) error {
 // UninstallService uninstalls service
 func (s *systemdManager) UninstallService(req UninstallServiceRequest) error {
 	logger := log.WithField("service", req.Name)
-	out, err := invokeSystemctl("stop", req.Name)
+	serviceName := serviceName(req.Name)
+	out, err := invokeSystemctl("stop", serviceName)
 	if err != nil && !IsUnknownServiceError(err) {
 		logger.WithError(err).Warn("Failed to stop service.")
 	}
 
-	out, err = invokeSystemctl("disable", req.Name)
+	out, err = invokeSystemctl("disable", serviceName)
 	if err != nil && !IsUnknownServiceError(err) {
 		logger.WithError(err).Warn("Failed to disable service.")
 	}
 
-	out, err = invokeSystemctl("is-failed", req.Name)
+	out, err = invokeSystemctl("is-failed", serviceName)
 	status := strings.TrimSpace(out)
-
-	if req.RemoveFile {
-		if errRemove := os.Remove(unitPath(req.Name)); errRemove != nil && !os.IsNotExist(err) {
-			logger.WithError(errRemove).Warn("Failed to remove service unit file.")
-		}
-	}
 
 	switch status {
 	case ServiceStatusInactive:
 		// Ignore the inactive state
 		return nil
 	case ServiceStatusFailed:
-		return trace.CompareFailed("error stopping service %q: %s", req.Name, out)
+		return trace.CompareFailed("error stopping service %q: %s", serviceName, out)
 	default:
 		if err != nil && !IsUnknownServiceError(err) {
 			// Results of `systemctl is-failed` are purely informational
@@ -438,18 +423,6 @@ func (s *systemdManager) StatusService(name string) (string, error) {
 func (s *systemdManager) EnableService(name string) error {
 	out, err := invokeSystemctl("enable", name)
 	return trace.Wrap(err, "failed to enable %v: %v", name, out)
-}
-
-// MaskService masks service
-func (s *systemdManager) MaskService(name string) error {
-	out, err := invokeSystemctl("mask", name)
-	return trace.Wrap(err, "failed to mask %v: %v", name, out)
-}
-
-// UnmaskService unmasks service
-func (s *systemdManager) UnmaskService(name string) error {
-	out, err := invokeSystemctl("unmask", name)
-	return trace.Wrap(err, "failed to unmask %v: %v", name, out)
 }
 
 // Version returns systemd version

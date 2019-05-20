@@ -54,7 +54,7 @@ func validateNonVolatileDirectory(stateDir string) error {
 		return trace.Wrap(err)
 	}
 	if fstype == system.FilesystemTemporary {
-		return trace.BadParameter("Installer is running from a temporary file system." +
+		return trace.BadParameter("installer is running from a temporary file system.\n" +
 			"It is required to run the installer from a non-volatile location.")
 	}
 	var volatileDirectories = []string{"/tmp", "/var/tmp"}
@@ -63,8 +63,8 @@ func validateNonVolatileDirectory(stateDir string) error {
 		// See https://www.freedesktop.org/software/systemd/man/tmpfiles.d.html
 		volatileDirectories = []string{os.Getenv("TMPDIR")}
 	}
-	if !isRootedAt(stateDir, volatileDirectories...) {
-		return trace.BadParameter("Installer is running from a temporary directory." +
+	if isRootedAt(stateDir, volatileDirectories...) {
+		return trace.BadParameter("installer is running from a temporary directory.\n" +
 			"Consider running the installer from a non-volatile location.")
 	}
 	return nil

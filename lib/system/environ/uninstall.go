@@ -47,7 +47,7 @@ func UninstallSystem(printer utils.Printer, logger log.FieldLogger) (err error) 
 	if err := removeInterfaces(printer); err != nil {
 		errors = append(errors, err)
 	}
-	if err := removeStateDirectories(printer, logger); err != nil {
+	if err := removeDirectories(printer, logger, getStateDirectories()...); err != nil {
 		errors = append(errors, err)
 	}
 	for _, targetPath := range state.GravityBinPaths {
@@ -59,6 +59,18 @@ func UninstallSystem(printer utils.Printer, logger log.FieldLogger) (err error) 
 	}
 	if err != nil {
 		log.WithError(err).Warn("Failed to delete gravity binary.")
+		errors = append(errors, err)
+	}
+	return trace.NewAggregate(errors...)
+}
+
+// CleanupOperationState removes all operation state after the operation is complete
+func CleanupOperationState(printer utils.Printer, logger log.FieldLogger) (err error) {
+	var errors []error
+	if err := UninstallAgentServices(logger); err != nil {
+		errors = append(errors, err)
+	}
+	if err := removeDirectories(printer, logger, state.GravityInstallDir()); err != nil {
 		errors = append(errors, err)
 	}
 	return trace.NewAggregate(errors...)
@@ -76,8 +88,7 @@ func UninstallAgentServices(logger log.FieldLogger) error {
 		defaults.GravityRPCInstallerServiceName,
 	} {
 		req := systemservice.UninstallServiceRequest{
-			Name:       service,
-			RemoveFile: true,
+			Name: service,
 		}
 		if err := svm.UninstallService(req); err != nil && !systemservice.IsUnknownServiceError(err) {
 			logger.WithError(err).Warn("Failed to uninstall agent service.")
@@ -161,37 +172,21 @@ func unmountDevicemapper(printer utils.Printer, logger log.FieldLogger) error {
 	return nil
 }
 
-func removeStateDirectories(printer utils.Printer, logger log.FieldLogger) error {
+func removeDirectories(printer utils.Printer, logger log.FieldLogger, dirs ...string) error {
 	var errors []error
-	if stateDir, err := state.GetStateDir(); err == nil {
-		printer.PrintStep("Deleting all local data at %v", stateDir)
-		if err = os.RemoveAll(stateDir); err != nil {
-			// do not fail if the state directory cannot be removed, probably
-			// this means it is a mount
-			logger.WithFields(log.Fields{
-				log.ErrorKey: err,
-				"dir":        stateDir,
-			}).Warn("Failed to remove state directory.")
-		}
-	} else {
-		errors = append(errors, err)
-	}
 	// remove all files and directories gravity might have created on the system
-	for _, path := range append(state.StateLocatorPaths,
-		defaults.ModulesPath,
-		defaults.SysctlPath,
-		defaults.GravityEphemeralDir,
-		state.GravityInstallDir(),
-	) {
-		// errors are expected since some of them may not exist
-		err := os.RemoveAll(path)
+	for _, dir := range dirs {
+		err := os.RemoveAll(dir)
 		if err == nil {
-			printer.PrintStep("Removed %v", path)
+			printer.PrintStep("Removed %v", dir)
+			continue
+		}
+		if os.IsNotExist(err) {
 			continue
 		}
 		logger.WithFields(log.Fields{
 			log.ErrorKey: err,
-			"path":       path,
+			"dir":        dir,
 		}).Warn("Failed to remove.")
 		errors = append(errors, err)
 	}
@@ -229,4 +224,18 @@ func dockerInfo() (*utils.DockerInfo, error) {
 		return nil, trace.Wrap(err, "failed to query docker info: %s", out.String())
 	}
 	return utils.ParseDockerInfo(&out)
+}
+
+func getStateDirectories() (dirs []string) {
+	stateDir, err := state.GetStateDir()
+	if err == nil {
+		dirs = append(dirs, stateDir)
+	}
+	dirs = append(dirs, state.StateLocatorPaths...)
+	return append(dirs,
+		defaults.ModulesPath,
+		defaults.SysctlPath,
+		defaults.GravityEphemeralDir,
+		state.GravityInstallDir(),
+	)
 }

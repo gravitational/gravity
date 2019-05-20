@@ -779,8 +779,8 @@ func installerUninstallSystem(env *localenv.LocalEnvironment) func(context.Conte
 func installerCompleteOperation(env *localenv.LocalEnvironment) func(context.Context) error {
 	return func(ctx context.Context) error {
 		logger := log.WithField(trace.Component, "installer:cleanup")
-		if err := environ.DisableAgentServices(logger); err != nil {
-			logger.WithError(err).Warn("Failed to disable agent services.")
+		if err := environ.CleanupOperationState(env, logger); err != nil {
+			logger.WithError(err).Warn("Failed to clean up operation state.")
 		}
 		return nil
 	}

@@ -60,9 +60,6 @@ type NewServiceRequest struct {
 	Name string `json:"Name"`
 	// NoBlock means we won't block and wait until service starts
 	NoBlock bool `json:"-"`
-	// Unmask specifies whether the service should be unmasked.
-	// Failure to unmask is not critical
-	Unmask bool
 }
 
 // NewMountServiceRequest describes a request to create a new systemd mount service
@@ -79,8 +76,6 @@ type NewMountServiceRequest struct {
 type UninstallServiceRequest struct {
 	// Name identifies the service
 	Name string
-	// RemoveFile also removes the unit file
-	RemoveFile bool
 }
 
 // DisableServiceRequest describes a request to disable a service
