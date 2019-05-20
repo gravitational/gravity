@@ -114,7 +114,7 @@ func LogDir(baseDir string, suffixes ...string) string {
 // the install/join operation.
 // elems are appended to resulting path
 func GravityInstallDir(elems ...string) (path string) {
-	parts := []string{filepath.Dir(utils.Exe.Path), ".gravity"}
+	parts := []string{utils.Exe.WorkingDir, ".gravity"}
 	return filepath.Join(append(parts, elems...)...)
 }
 

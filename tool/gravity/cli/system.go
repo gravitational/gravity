@@ -956,14 +956,12 @@ func systemUninstall(env *localenv.LocalEnvironment, confirmed bool) error {
 	env.Backend.Close()
 
 	logger := log.WithField(trace.Component, "system:uninstall")
-	if err := environ.UninstallSystem(env, logger); err != nil {
-		log.WithError(err).Warn("Failed to uninstall system.")
-	}
-
 	if err := environ.UninstallAgentServices(logger); err != nil {
 		log.WithError(err).Warn("Failed to uninstall agent services.")
 	}
-
+	if err := environ.UninstallSystem(env, logger); err != nil {
+		log.WithError(err).Warn("Failed to uninstall system.")
+	}
 	env.PrintStep("Gravity has been successfully uninstalled")
 	return nil
 }

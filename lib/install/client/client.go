@@ -99,6 +99,9 @@ func (r *Client) Complete(ctx context.Context, key ops.SiteOperationKey) error {
 // Stop signals the service to stop
 // Implements signals.Stopper
 func (r *Client) Stop(ctx context.Context) error {
+	if r.Completed() {
+		return nil
+	}
 	return r.Shutdown(ctx)
 }
 

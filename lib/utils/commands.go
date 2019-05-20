@@ -108,15 +108,22 @@ func NewCurrentExecutable() (*Executable, error) {
 	if err != nil {
 		return nil, trace.Wrap(err)
 	}
+	wd, err := os.Getwd()
+	if err != nil {
+		return nil, trace.ConvertSystemError(err)
+	}
 	return &Executable{
-		Path: path,
+		Path:       path,
+		WorkingDir: wd,
 	}, nil
 }
 
-// Executable abstracts the specified gravity binary
+// Executable describes a running gravity binary
 type Executable struct {
 	// Path specifies the path to the gravity binary
 	Path string
+	// WorkingDir specifies the working directory of the current process
+	WorkingDir string
 }
 
 func must(exe *Executable, err error) *Executable {

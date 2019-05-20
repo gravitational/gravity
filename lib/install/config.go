@@ -284,6 +284,22 @@ type clusterFactory struct {
 	Config
 }
 
+func (r *RuntimeConfig) checkAndSetDefaults() error {
+	if r.FSMFactory == nil {
+		return trace.BadParameter("FSMFactory is required")
+	}
+	if r.ClusterFactory == nil {
+		return trace.BadParameter("ClusterFactory is required")
+	}
+	if r.Planner == nil {
+		return trace.BadParameter("Planner is required")
+	}
+	if r.Engine == nil {
+		return trace.BadParameter("Engine is required")
+	}
+	return nil
+}
+
 // RuntimeConfig specifies installer configuration not exposed to the engine
 type RuntimeConfig struct {
 	// Config is the main configuration for the installer

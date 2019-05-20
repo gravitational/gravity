@@ -156,6 +156,9 @@ type ServiceSpec struct {
 	// process, will prevent automatic service restarts.
 	// See https://www.freedesktop.org/software/systemd/man/systemd.service.html#RestartPreventExitStatus=
 	RestartPreventExitStatus string `json:"RestartPreventExitStatus"`
+	// WorkingDirectory sets the working directory for executed processes.
+	// See https://www.freedesktop.org/software/systemd/man/systemd.exec.html#Paths
+	WorkingDirectory string `json:"WorkingDirectory"`
 }
 
 // MountServiceSpec describes specification for a systemd mount service

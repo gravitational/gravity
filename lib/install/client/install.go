@@ -75,8 +75,9 @@ func (r *InstallerStrategy) installSelfAsService() error {
 			User:                     constants.RootUIDString,
 			RestartPreventExitStatus: strconv.Itoa(defaults.AbortedOperationExitCode),
 			// Enable automatic restart of the service
-			Restart:  "always",
-			WantedBy: "multi-user.target",
+			Restart:          "always",
+			WantedBy:         "multi-user.target",
+			WorkingDirectory: r.ApplicationDir,
 		},
 		NoBlock: true,
 		Unmask:  true,
@@ -101,6 +102,9 @@ func (r *InstallerStrategy) checkAndSetDefaults() error {
 	if len(r.Args) == 0 {
 		return trace.BadParameter("Args is required")
 	}
+	if r.ApplicationDir == "" {
+		return trace.BadParameter("ApplicationDir is required")
+	}
 	if r.Validate == nil {
 		return trace.BadParameter("Validate is required")
 	}
@@ -112,6 +116,9 @@ func (r *InstallerStrategy) checkAndSetDefaults() error {
 	}
 	if r.ConnectTimeout == 0 {
 		r.ConnectTimeout = 10 * time.Minute
+	}
+	if r.FieldLogger == nil {
+		r.FieldLogger = log.WithField(trace.Component, "client:installer")
 	}
 	return nil
 }
@@ -125,6 +132,8 @@ type InstallerStrategy struct {
 	log.FieldLogger
 	// Args specifies the service command line including the executable
 	Args []string
+	// ApplicationDir specifies the directory with installer files
+	ApplicationDir string
 	// Validate specifies the environment validation function.
 	// The service will only be installed when Validate returns true
 	Validate func() error

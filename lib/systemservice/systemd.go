@@ -63,6 +63,7 @@ ExecStartPre={{.}}{{end}}
 {{if .RestartSec}}RestartSec={{.RestartSec}}{{end}}
 {{if .RemainAfterExit}}RemainAfterExit=yes{{end}}
 {{if .RestartPreventExitStatus}}RestartPreventExitStatus={{.RestartPreventExitStatus}}{{end}}
+{{if .WorkingDirectory}}WorkingDirectory={{.WorkingDirectory}}{{end}}
 {{range $k, $v := .Environment}}Environment={{$k}}={{$v}}
 {{end}}
 {{if .TasksMax}}TasksMax={{.TasksMax}}{{end}}
@@ -340,14 +341,15 @@ func (s *systemdManager) InstallMountService(req NewMountServiceRequest) error {
 
 // UninstallService uninstalls service
 func (s *systemdManager) UninstallService(req UninstallServiceRequest) error {
-	out, err := invokeSystemctl("disable", req.Name)
-	if err != nil {
-		return trace.Wrap(err, "error disabling service %v: %v", req.Name, out)
+	logger := log.WithField("service", req.Name)
+	out, err := invokeSystemctl("stop", req.Name)
+	if err != nil && !IsUnknownServiceError(err) {
+		logger.WithError(err).Warn("Failed to stop service.")
 	}
 
-	out, err = invokeSystemctl("stop", req.Name)
-	if err != nil {
-		return trace.Wrap(err, "error stopping service %v: %s", req.Name, out)
+	out, err = invokeSystemctl("disable", req.Name)
+	if err != nil && !IsUnknownServiceError(err) {
+		logger.WithError(err).Warn("Failed to disable service.")
 	}
 
 	out, err = invokeSystemctl("is-failed", req.Name)
@@ -355,10 +357,7 @@ func (s *systemdManager) UninstallService(req UninstallServiceRequest) error {
 
 	if req.RemoveFile {
 		if errRemove := os.Remove(unitPath(req.Name)); errRemove != nil && !os.IsNotExist(err) {
-			log.WithFields(log.Fields{
-				log.ErrorKey: errRemove,
-				"path":       unitPath(req.Name),
-			}).Warn("Failed to remove service file.")
+			logger.WithError(errRemove).Warn("Failed to remove service unit file.")
 		}
 	}
 
@@ -369,14 +368,13 @@ func (s *systemdManager) UninstallService(req UninstallServiceRequest) error {
 	case ServiceStatusFailed:
 		return trace.CompareFailed("error stopping service %q: %s", req.Name, out)
 	default:
-		if err != nil {
+		if err != nil && !IsUnknownServiceError(err) {
 			// Results of `systemctl is-failed` are purely informational
 			// beyond the state values we already check above
-			log.WithFields(log.Fields{
+			logger.WithFields(log.Fields{
 				log.ErrorKey: err,
-				"name":       req.Name,
 				"output":     out,
-			}).Debug("UninstallService.")
+			}).Warn("UninstallService.")
 		}
 	}
 

@@ -22,7 +22,6 @@ import (
 	"net"
 	"os"
 	"os/exec"
-	"path/filepath"
 	"strings"
 	"syscall"
 	"time"
@@ -63,19 +62,6 @@ func InstallerClient(printer utils.Printer, config installerclient.Config) error
 	return trace.Wrap(installerClient(printer, config, "Connecting to installer", "Connected to installer"))
 }
 
-// ResumeInstall resumes the aborted install operation
-func ResumeInstall(printer utils.Printer) error {
-	printer.PrintStep("Resuming installer")
-
-	err := InstallerClient(printer, installerclient.Config{
-		ConnectStrategy: &installerclient.ResumeStrategy{},
-	})
-	if utils.IsContextCancelledError(err) {
-		return trace.Wrap(err, "installer interrupted")
-	}
-	return trace.Wrap(err)
-}
-
 // Join executes the join command and runs either the client or the service depending on the configuration
 func Join(env, joinEnv *localenv.LocalEnvironment, config JoinConfig) error {
 	env.PrintStep("Starting agent")
@@ -87,11 +73,7 @@ func Join(env, joinEnv *localenv.LocalEnvironment, config JoinConfig) error {
 		return trace.Wrap(joinFromService(env, joinEnv, config))
 	}
 	err := joinClient(env, installerclient.Config{
-		ConnectStrategy: &installerclient.InstallerStrategy{
-			Args:     joinServiceCommandline(),
-			Validate: environ.ValidateInstall(env),
-		},
-		Printer: env,
+		ConnectStrategy: newAgentConnectStrategy(env),
 	})
 	if utils.IsContextCancelledError(err) {
 		return trace.Wrap(err, "agent interrupted")
@@ -129,11 +111,26 @@ var InterruptSignals = signals.WithSignals(
 	syscall.SIGQUIT,
 )
 
-// InstallerServiceCommandline returns the command line for the installer service
-// rooted at the specified application directory
-func InstallerServiceCommandline(applicationDir string) (args []string) {
-	args = append([]string{utils.Exe.Path}, os.Args[1:]...)
-	return append(args, "--from-service", applicationDir)
+// NewInstallerConnectStrategy returns default installer service connect strategy
+func NewInstallerConnectStrategy(env *localenv.LocalEnvironment) (strategy installerclient.ConnectStrategy) {
+	args := append([]string{utils.Exe.Path}, os.Args[1:]...)
+	args = append(args, "--from-service", utils.Exe.WorkingDir)
+	return &installerclient.InstallerStrategy{
+		Args:           args,
+		Validate:       environ.ValidateInstall(env),
+		ApplicationDir: utils.Exe.WorkingDir,
+	}
+}
+
+// newAgentConnectStrategy returns default service connect strategy for a joining agent
+func newAgentConnectStrategy(env *localenv.LocalEnvironment) (strategy installerclient.ConnectStrategy) {
+	args := append([]string{utils.Exe.Path}, os.Args[1:]...)
+	args = append(args, "--from-service")
+	return &installerclient.InstallerStrategy{
+		Args:           args,
+		Validate:       environ.ValidateInstall(env),
+		ApplicationDir: utils.Exe.WorkingDir,
+	}
 }
 
 // joinClient runs the client for the agent service.
@@ -175,6 +172,20 @@ func joinFromService(env, joinEnv *localenv.LocalEnvironment, config JoinConfig)
 	return trace.Wrap(peer.Run(listener))
 }
 
+// restartInstall restarts the install operation from scratch if the operation
+// has not been created yet.
+func restartInstall(printer utils.Printer) error {
+	printer.PrintStep("Resuming installer")
+
+	err := InstallerClient(printer, installerclient.Config{
+		ConnectStrategy: &installerclient.ResumeStrategy{},
+	})
+	if utils.IsContextCancelledError(err) {
+		return trace.Wrap(err, "installer interrupted")
+	}
+	return trace.Wrap(err)
+}
+
 // clientInterruptSignals lists signals installer client considers interrupts
 var clientInterruptSignals = signals.WithSignals(
 	os.Interrupt,
@@ -194,6 +205,7 @@ func clientTerminationHandler(interrupt *signals.InterruptHandler, printer utils
 			case sig := <-interrupt.C:
 				if sig != os.Interrupt || client == nil || client.Completed() {
 					// Fast path
+					printer.Println("Received", sig, "signal. Aborting the installer gracefully, please wait.")
 					interrupt.Cancel()
 					return
 				}
@@ -238,10 +250,7 @@ func startInstall(env *localenv.LocalEnvironment, config InstallConfig) error {
 		return trace.Wrap(err)
 	}
 	err := InstallerClient(env, installerclient.Config{
-		ConnectStrategy: &installerclient.InstallerStrategy{
-			Args:     InstallerServiceCommandline(filepath.Dir(utils.Exe.Path)),
-			Validate: environ.ValidateInstall(env),
-		},
+		ConnectStrategy: NewInstallerConnectStrategy(env),
 	})
 	if utils.IsContextCancelledError(err) {
 		return trace.Wrap(err, "installer interrupted")
@@ -702,11 +711,6 @@ func completeJoinPlan(env *localenv.LocalEnvironment, operation *ops.SiteOperati
 		env, operation, "Connecting to agent", "Connected to agent"))
 }
 
-func joinServiceCommandline() (args []string) {
-	args = append([]string{utils.Exe.Path}, os.Args[1:]...)
-	return append(args, "--from-service")
-}
-
 func addCancelInstallationHandler(ctx context.Context, client serviceClient, clientC chan<- serviceClient) {
 	select {
 	case clientC <- client:
@@ -736,7 +740,9 @@ func executePhaseFromService(
 	}
 	addCancelInstallationHandler(ctx, client, clientC)
 	env.PrintStep(connected)
-	return trace.Wrap(client.ExecutePhase(context.Background(), installerclient.Phase{
+	phaseCtx, phaseCancel := context.WithTimeout(context.Background(), params.Timeout)
+	defer phaseCancel()
+	return trace.Wrap(client.ExecutePhase(phaseCtx, installerclient.Phase{
 		ID:    params.PhaseID,
 		Force: params.Force,
 		Key:   operation.Key(),
@@ -765,7 +771,9 @@ func rollbackPhaseFromService(
 	}
 	addCancelInstallationHandler(ctx, client, clientC)
 	env.PrintStep(connected)
-	return trace.Wrap(client.RollbackPhase(context.Background(), installerclient.Phase{
+	phaseCtx, phaseCancel := context.WithTimeout(context.Background(), params.Timeout)
+	defer phaseCancel()
+	return trace.Wrap(client.RollbackPhase(phaseCtx, installerclient.Phase{
 		ID:    params.PhaseID,
 		Force: params.Force,
 		Key:   operation.Key(),

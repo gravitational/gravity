@@ -18,6 +18,9 @@ limitations under the License.
 package environ
 
 import (
+	"os"
+	"strings"
+
 	"github.com/gravitational/gravity/lib/defaults"
 	"github.com/gravitational/gravity/lib/localenv"
 	"github.com/gravitational/gravity/lib/pack"
@@ -54,6 +57,16 @@ func validateNonVolatileDirectory(stateDir string) error {
 		return trace.BadParameter("Installer is running from a temporary file system." +
 			"It is required to run the installer from a non-volatile location.")
 	}
+	var volatileDirectories = []string{"/tmp", "/var/tmp"}
+	if os.Getenv("TMPDIR") != "" {
+		// Non-empty $TMPDIR overrides default temporary directories
+		// See https://www.freedesktop.org/software/systemd/man/tmpfiles.d.html
+		volatileDirectories = []string{os.Getenv("TMPDIR")}
+	}
+	if !isRootedAt(stateDir, volatileDirectories...) {
+		return trace.BadParameter("Installer is running from a temporary directory." +
+			"Consider running the installer from a non-volatile location.")
+	}
 	return nil
 }
 
@@ -86,4 +99,15 @@ func validateNoPackageState(packages pack.PackageService, stateDir string) error
 			stateDir)
 	}
 	return nil
+}
+
+// isRootedAt returns true iff path is rooted at any of the directories
+// specified with dirs
+func isRootedAt(path string, dirs ...string) bool {
+	for _, dir := range dirs {
+		if strings.HasPrefix(path, dir) {
+			return true
+		}
+	}
+	return false
 }

@@ -58,8 +58,8 @@ func resumeOperation(localEnv *localenv.LocalEnvironment, environ LocalEnvironme
 		return trace.Wrap(err)
 	}
 	// No operation found.
-	// Attempt to resume the installation
-	return trace.Wrap(ResumeInstall(localEnv))
+	// Attempt to resume the installation from scratch
+	return trace.Wrap(restartInstall(localEnv))
 }
 
 // executePhase executes a phase for the operation specified with params

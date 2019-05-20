@@ -49,6 +49,9 @@ import (
 // New returns a new instance of the unstarted installer server.
 // Use Serve to start server operation
 func New(ctx context.Context, config RuntimeConfig) (installer *Installer, err error) {
+	if err := config.checkAndSetDefaults(); err != nil {
+		return nil, trace.Wrap(err)
+	}
 	var agent *rpcserver.PeerServer
 	if config.Config.LocalAgent {
 		agent, err = newAgent(ctx, config.Config)
@@ -256,7 +259,7 @@ func (i *Installer) Execute(phase *installpb.ExecuteRequest_Phase) error {
 	if phase != nil {
 		return i.executePhase(*phase)
 	}
-	err := i.engine.Execute(i.ctx, i, i.config.Config)
+	err := i.config.Engine.Execute(i.ctx, i, i.config.Config)
 	if err != nil {
 		return trace.Wrap(err)
 	}
@@ -473,7 +476,6 @@ type Installer struct {
 	ctx    context.Context
 	cancel context.CancelFunc
 	server *server.Server
-	engine Engine
 	// agent is an optional RPC agent if the installer
 	// has been configured to use local host as one of the cluster nodes
 	agent *rpcserver.PeerServer

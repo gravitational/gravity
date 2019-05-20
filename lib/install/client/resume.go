@@ -60,6 +60,9 @@ func (r *ResumeStrategy) checkAndSetDefaults() error {
 	if r.ConnectTimeout == 0 {
 		r.ConnectTimeout = 10 * time.Minute
 	}
+	if r.FieldLogger == nil {
+		r.FieldLogger = log.WithField(trace.Component, "client:installer")
+	}
 	return nil
 }
 
