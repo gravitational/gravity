@@ -42,8 +42,12 @@ on compliance and reducing the overhead of managing Kubernetes**:
   are _always identical_. There is no configuration drift over time; no
   "special snowflakes".
 * Gravity clusters are always "wrapped" with a privileged access gateway called
-  [Teleport](https://gravitational.com/teleport), which unifies k8s and SSH authentication
-  and keeps a detailed audit log for compliance purposes.
+  [Teleport](https://gravitational.com/teleport), which unifies k8s and SSH 
+  authentication, integrates with SSO and keeps a detailed audit log for compliance 
+  purposes. It even records the interactive SSH and `kubectl exec` sessions.
+* Gravity clusters deployed world-wide can be remotely managed via built-in 
+  reverse SSH tunnels, i.e. developers can have access to thousands of k8s API
+  endpoints even if they're located behind NAT/firewalls.
 * Gravity includes tools to perform _infrastructure validation_ prior to
   cluster provisioning. This allows cluster designers to prevent users from
   installing clusters on infrastructure that does not meet the system requirements.
