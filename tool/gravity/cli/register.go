@@ -164,10 +164,6 @@ func RegisterCommands(app *kingpin.Application) *Application {
 	g.UpdateTriggerCmd.CmdClause = g.UpdateCmd.Command("trigger", "Trigger an update operation for given application").Hidden()
 	g.UpdateTriggerCmd.App = g.UpdateTriggerCmd.Arg("app", "Application version to update to, in the 'name:version' or 'name' (for latest version) format. If unspecified, currently installed application is updated").String()
 	g.UpdateTriggerCmd.Manual = g.UpdateTriggerCmd.Flag("manual", "Manual operation. Do not trigger automatic update").Short('m').Bool()
-	g.UpdateTriggerCmd.Block = g.UpdateTriggerCmd.Flag("block", "Wait for operation to finish (default). Use --no-block to run the operation unattended instead").
-		OverrideDefaultFromEnvar(constants.BlockingOperationEnvVar).
-		Default("true").
-		Bool()
 	g.UpdateTriggerCmd.SkipVersionCheck = g.UpdateTriggerCmd.Flag("skip-version-check", "Bypass version compatibility check").Hidden().Bool()
 
 	g.UpdatePlanInitCmd.CmdClause = g.UpdateCmd.Command("init-plan", "Initialize operation plan").Hidden()
@@ -176,10 +172,6 @@ func RegisterCommands(app *kingpin.Application) *Application {
 	g.UpgradeCmd.CmdClause = g.Command("upgrade", "Trigger an update operation for given application").Hidden()
 	g.UpgradeCmd.App = g.UpgradeCmd.Arg("app", "Application version to update to, in the 'name:version' or 'name' (for latest version) format. If unspecified, currently installed application is updated").String()
 	g.UpgradeCmd.Manual = g.UpgradeCmd.Flag("manual", "Manual upgrade mode").Short('m').Bool()
-	g.UpgradeCmd.Block = g.UpgradeCmd.Flag("block", "Wait for operation to finish (default). Use --no-block to run the operation unattended instead").
-		OverrideDefaultFromEnvar(constants.BlockingOperationEnvVar).
-		Default("true").
-		Bool()
 	g.UpgradeCmd.Phase = g.UpgradeCmd.Flag("phase", "Operation phase to execute").String()
 	g.UpgradeCmd.Timeout = g.UpgradeCmd.Flag("timeout", "Phase execution timeout").Default(defaults.PhaseTimeout).Hidden().Duration()
 	g.UpgradeCmd.Force = g.UpgradeCmd.Flag("force", "Force phase execution even if pre-conditions are not satisfied").Bool()
