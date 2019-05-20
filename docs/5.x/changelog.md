@@ -7,10 +7,11 @@ LTS starts with `3.51.0` with minor backwards compatible changes added over time
 
 | Release       | LTS | Release Date         | Supported Until      | Kubernetes Version | Teleport Version |
 | --------------|-----| -------------------- | -------------------- | ------------------ |------------------|
+| 6.0.0-beta.1  | -   | May 20th, 2019       | -                    | 1.14.1             | 3.2.5            |
 | 5.6.1         | No  | April 17th, 2019     | -                    | 1.14.0             | 3.0.5            |
 | 5.5.8         | Yes | April 22nd, 2019     | September 7th, 2020  | 1.13.5             | 3.0.4            |
 | 5.4.10        | No  | March 26th, 2019     | -                    | 1.13.5             | 2.4.10           |
-| 5.3.9*        | No  | March 7th, 2019      | -                    | 1.12.3             | 2.4.7
+| 5.3.9*        | No  | March 7th, 2019      | -                    | 1.12.3             | 2.4.7            |
 | 5.2.12        | Yes | March 26th, 2019     | October 15th, 2019   | 1.11.9             | 2.4.10           |
 | 5.0.32        | Yes | April 4th, 2019      | April 13th, 2019     | 1.9.12-gravitational | 2.4.10         |
 | 4.68.0*       | Yes | January 17th, 2019   | November 16th, 2018  | 1.7.18-gravitational | 2.3.5          |
@@ -27,6 +28,18 @@ LTS starts with `3.51.0` with minor backwards compatible changes added over time
 !!! note "Unsupported releases"
     Releases marked with `*` in the table above are no longer supported and
     do not receive updates and bugfixes.
+
+## 6.x Releases
+
+### 6.0.0-beta.1
+
+#### Improvements
+
+* Upgrade Teleport to `2.3.5`.
+* Replace InfluxDB/Kapacitor monitoring stack with Prometheus/Alertmanager.
+* Upgrade Docker to `18.09.5`.
+* Upgrade Kubernetes to `1.14.1`.
+* Add support for using `helm` directly from host.
 
 ## 5.x Releases
 
