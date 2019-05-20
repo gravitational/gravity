@@ -17,7 +17,7 @@ limitations under the License.
 package ops
 
 import (
-	"fmt"
+	"strconv"
 
 	"github.com/gravitational/gravity/lib/defaults"
 	"github.com/gravitational/gravity/lib/storage"
@@ -43,8 +43,8 @@ func (e ClusterEndpoints) AuthGateways() []string {
 	return e.Internal.AuthGateways
 }
 
-// AuthGateway returns a single auth gateway endpoint.
-func (e ClusterEndpoints) AuthGateway() string {
+// FirstAuthGateway returns the first auth gateway endpoint.
+func (e ClusterEndpoints) FirstAuthGateway() string {
 	gateways := e.AuthGateways()
 	if len(gateways) > 0 {
 		return gateways[0]
@@ -86,9 +86,9 @@ func getClusterEndpoints(cluster *Site, gateway storage.AuthGateway) (*ClusterEn
 	var internal clusterEndpoints
 	for _, master := range cluster.Masters() {
 		internal.AuthGateways = append(internal.AuthGateways,
-			fmt.Sprintf("%v:%v", master.AdvertiseIP, defaults.GravitySiteNodePort))
+			utils.EnsurePort(master.AdvertiseIP, strconv.Itoa(defaults.GravitySiteNodePort)))
 		internal.ManagementURLs = append(internal.ManagementURLs,
-			fmt.Sprintf("https://%v:%v", master.AdvertiseIP, defaults.GravitySiteNodePort))
+			utils.EnsurePortURL(master.AdvertiseIP, strconv.Itoa(defaults.GravitySiteNodePort)))
 	}
 	// Public endpoints are configured via auth gateway resource.
 	var public clusterEndpoints
@@ -96,7 +96,7 @@ func getClusterEndpoints(cluster *Site, gateway storage.AuthGateway) (*ClusterEn
 		public.AuthGateways = append(public.AuthGateways,
 			utils.EnsurePort(address, defaults.HTTPSPort))
 		public.ManagementURLs = append(public.ManagementURLs,
-			fmt.Sprintf("https://%v", utils.EnsurePort(address, defaults.HTTPSPort)))
+			utils.EnsurePortURL(address, defaults.HTTPSPort))
 	}
 	return &ClusterEndpoints{
 		Internal: internal,

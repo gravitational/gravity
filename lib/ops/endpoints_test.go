@@ -18,10 +18,12 @@ package ops
 
 import (
 	"fmt"
+	"strconv"
 
 	"github.com/gravitational/gravity/lib/defaults"
 	"github.com/gravitational/gravity/lib/schema"
 	"github.com/gravitational/gravity/lib/storage"
+	"github.com/gravitational/gravity/lib/utils"
 
 	"gopkg.in/check.v1"
 )
@@ -57,34 +59,25 @@ func (s *EndpointsSuite) TestClusterEndpoints(c *check.C) {
 	c.Assert(endpoints, check.DeepEquals, &ClusterEndpoints{
 		Internal: clusterEndpoints{
 			AuthGateways: []string{
-				fmt.Sprintf("%v:%v", master1.AdvertiseIP,
-					defaults.GravitySiteNodePort),
-				fmt.Sprintf("%v:%v", master2.AdvertiseIP,
-					defaults.GravitySiteNodePort),
+				utils.EnsurePort(master1.AdvertiseIP, strconv.Itoa(defaults.GravitySiteNodePort)),
+				utils.EnsurePort(master2.AdvertiseIP, strconv.Itoa(defaults.GravitySiteNodePort)),
 			},
 			ManagementURLs: []string{
-				fmt.Sprintf("https://%v:%v", master1.AdvertiseIP,
-					defaults.GravitySiteNodePort),
-				fmt.Sprintf("https://%v:%v", master2.AdvertiseIP,
-					defaults.GravitySiteNodePort),
+				utils.EnsurePortURL(master1.AdvertiseIP, strconv.Itoa(defaults.GravitySiteNodePort)),
+				utils.EnsurePortURL(master2.AdvertiseIP, strconv.Itoa(defaults.GravitySiteNodePort)),
 			},
 		},
 		Public: clusterEndpoints{},
 	})
 	c.Assert(endpoints.AuthGateways(), check.DeepEquals, []string{
-		fmt.Sprintf("%v:%v", master1.AdvertiseIP,
-			defaults.GravitySiteNodePort),
-		fmt.Sprintf("%v:%v", master2.AdvertiseIP,
-			defaults.GravitySiteNodePort),
+		utils.EnsurePort(master1.AdvertiseIP, strconv.Itoa(defaults.GravitySiteNodePort)),
+		utils.EnsurePort(master2.AdvertiseIP, strconv.Itoa(defaults.GravitySiteNodePort)),
 	})
-	c.Assert(endpoints.AuthGateway(), check.Equals,
-		fmt.Sprintf("%v:%v", master1.AdvertiseIP,
-			defaults.GravitySiteNodePort))
+	c.Assert(endpoints.FirstAuthGateway(), check.Equals,
+		utils.EnsurePort(master1.AdvertiseIP, strconv.Itoa(defaults.GravitySiteNodePort)))
 	c.Assert(endpoints.ManagementURLs(), check.DeepEquals, []string{
-		fmt.Sprintf("https://%v:%v", master1.AdvertiseIP,
-			defaults.GravitySiteNodePort),
-		fmt.Sprintf("https://%v:%v", master2.AdvertiseIP,
-			defaults.GravitySiteNodePort),
+		utils.EnsurePortURL(master1.AdvertiseIP, strconv.Itoa(defaults.GravitySiteNodePort)),
+		utils.EnsurePortURL(master2.AdvertiseIP, strconv.Itoa(defaults.GravitySiteNodePort)),
 	})
 
 	publicAddr := "cluster.example.com:444"
@@ -95,16 +88,12 @@ func (s *EndpointsSuite) TestClusterEndpoints(c *check.C) {
 	c.Assert(endpoints, check.DeepEquals, &ClusterEndpoints{
 		Internal: clusterEndpoints{
 			AuthGateways: []string{
-				fmt.Sprintf("%v:%v", master1.AdvertiseIP,
-					defaults.GravitySiteNodePort),
-				fmt.Sprintf("%v:%v", master2.AdvertiseIP,
-					defaults.GravitySiteNodePort),
+				utils.EnsurePort(master1.AdvertiseIP, strconv.Itoa(defaults.GravitySiteNodePort)),
+				utils.EnsurePort(master2.AdvertiseIP, strconv.Itoa(defaults.GravitySiteNodePort)),
 			},
 			ManagementURLs: []string{
-				fmt.Sprintf("https://%v:%v", master1.AdvertiseIP,
-					defaults.GravitySiteNodePort),
-				fmt.Sprintf("https://%v:%v", master2.AdvertiseIP,
-					defaults.GravitySiteNodePort),
+				utils.EnsurePortURL(master1.AdvertiseIP, strconv.Itoa(defaults.GravitySiteNodePort)),
+				utils.EnsurePortURL(master2.AdvertiseIP, strconv.Itoa(defaults.GravitySiteNodePort)),
 			},
 		},
 		Public: clusterEndpoints{
@@ -119,7 +108,7 @@ func (s *EndpointsSuite) TestClusterEndpoints(c *check.C) {
 	c.Assert(endpoints.AuthGateways(), check.DeepEquals, []string{
 		publicAddr,
 	})
-	c.Assert(endpoints.AuthGateway(), check.Equals, publicAddr)
+	c.Assert(endpoints.FirstAuthGateway(), check.Equals, publicAddr)
 	c.Assert(endpoints.ManagementURLs(), check.DeepEquals, []string{
 		fmt.Sprintf("https://%v", publicAddr),
 	})

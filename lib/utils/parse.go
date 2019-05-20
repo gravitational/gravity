@@ -111,6 +111,11 @@ func EnsurePort(address, defaultPort string) string {
 	return net.JoinHostPort(address, defaultPort)
 }
 
+// EnsurePortURL is like EnsurePort but for URLs.
+func EnsurePortURL(url, defaultPort string) string {
+	return ParseOpsCenterAddress(url, defaultPort)
+}
+
 // Hosts returns a list of hosts from the provided host:port addresses
 func Hosts(addrs []string) (hosts []string) {
 	for _, addr := range addrs {

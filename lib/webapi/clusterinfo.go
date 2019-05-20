@@ -62,7 +62,7 @@ func getClusterInfo(operator ops.Operator, cluster ops.Site) (*webClusterInfo, e
 		return nil, trace.Wrap(err)
 	}
 	tshLoginCommand, err := renderCommand(tshLoginTpl, map[string]string{
-		"proxyAddr": endpoints.AuthGateway(),
+		"proxyAddr": endpoints.FirstAuthGateway(),
 	})
 	if err != nil {
 		return nil, trace.Wrap(err)
