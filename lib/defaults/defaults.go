@@ -531,6 +531,9 @@ const (
 	// PrometheusServiceAddr is the Prometheus HTTP API service address.
 	PrometheusServiceAddr = "prometheus-k8s.monitoring.svc.cluster.local:9090"
 
+	// LograngeAggregatorServiceName is the name of the Logrange aggregator service.
+	LograngeAggregatorServiceName = "lr-aggregator"
+
 	// WriteFactor is a default amount of acknowledged writes for object storage
 	// to be considered successfull
 	WriteFactor = 1
