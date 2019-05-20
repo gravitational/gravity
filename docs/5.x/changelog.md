@@ -77,7 +77,7 @@ LTS starts with `3.51.0` with minor backwards compatible changes added over time
 
 #### Bugfixes
 
-* Fix a regression with 'gravity upgrade --complete'
+* Fix a regression with `gravity upgrade --complete`
 
 ### 5.0.32 LTS
 
