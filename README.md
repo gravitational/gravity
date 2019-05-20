@@ -17,12 +17,12 @@ that takes the drama out of on-premises deployments.
 
 Gravity is an open source toolkit for creating "images" of Kubernetes
 clusters and the applications running inside the clusters. The resulting
-images are called *application bundles* and they are just `.tar` files.
+images are called *cluster images* and they are just `.tar` files.
 
-An application bundle can be used to re-create full replicas of the original
+A cluster image can be used to re-create full replicas of the original
 cluster in any environment where compliance and consistency matters, i.e. in 
-locked-down AWS/GCE/Azure environments or even in air-gapped server rooms. A
-bundle can run without human supervision, as a "kubernetes appliance".
+locked-down AWS/GCE/Azure environments or even in air-gapped server rooms. 
+An image can run without human supervision, as a "kubernetes appliance".
 
 Gravity has been running in production in major financial institutions,
 government data centers and enterprises. Gravitational open sourced it in the
@@ -38,7 +38,7 @@ There are plenty of Kubernetes distributions out there. Most of them aim to be
 flexible, general purpose platforms. Gravity has a more narrow **focus
 on compliance and reducing the overhead of managing Kubernetes**:
 
-* Gravity clusters are idempotent, i.e. clusters created from the same bundle
+* Gravity clusters are idempotent, i.e. clusters created from the same image
   are _always identical_. There is no configuration drift over time; no
   "special snowflakes".
 * Gravity clusters are always "wrapped" with a privileged access gateway called
@@ -70,9 +70,9 @@ Anyone who needs Kubernetes best practices out of the box, without having to
 proactively manage it can benefit from Gravity. It allows you to focus on building 
 your product instead of managing Kubernetes.
 
-## Application Bundles
+## Cluster Images
 
-An Application Bundle produced by Gravity includes:
+A Cluster Image produced by Gravity includes:
 
 * All Kubernetes binaries and their dependencies.
 * Built-in container registry.
@@ -81,7 +81,7 @@ An Application Bundle produced by Gravity includes:
   upgrades and auto-scaling.
 * Installation wizard for both CLI and web browser GUI.
 
-A bundle is all one needs to re-create the complete replica of the original
+An image is all one needs to re-create the complete replica of the original
 Kubernetes cluster, with all deployed applications inside, even in an
 air-gapped server room.
 
