@@ -353,6 +353,7 @@ func newTestPlan(c *check.C, p params) planConfig {
 		trustedClusters:  p.trustedClusters,
 		shouldUpdateEtcd: shouldUpdateEtcdTest,
 		updateCoreDNS:    p.updateCoreDNS,
+		leadMaster:       updates[0],
 	}
 	gravityPackage, err := params.updateRuntime.Manifest.Dependencies.ByName(
 		constants.GravityPackage)
