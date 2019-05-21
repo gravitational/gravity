@@ -50,10 +50,6 @@ in_progress ->
 */
 package ops
 
-import (
-	"time"
-)
-
 const (
 	SiteLabelName                 = "Name"
 	SystemRepository              = "gravitational.io"
@@ -190,33 +186,9 @@ const (
 
 	// AdvertiseAddrParam specifies the name of the agent parameter for advertise address
 	AdvertiseAddrParam = "advertise_addr"
-
-	// RetentionDefault is retention policy name for high-res metrics
-	RetentionDefault = "default"
-	// RetentionMedium is retention policy name for medium-res metrics
-	RetentionMedium = "medium"
-	// RetentionLong is retention policy name for low-res metrics
-	RetentionLong = "long"
-
-	// MaxRetentionDefault is the maximum duration for "default" retention policy
-	MaxRetentionDefault = 30 * 24 * time.Hour // ~1 month
-	// MaxRetentionMedium is the maximum duration for "medium" retention policy
-	MaxRetentionMedium = 6 * 30 * 24 * time.Hour // ~6 months
-	// MaxRetentionLong is the maximum duration for "long" retention policy
-	MaxRetentionLong = 5 * 365 * 24 * time.Hour // ~5 years
 )
 
 var (
-	// AllRetentions is a list of names of all retention policies
-	AllRetentions = []string{RetentionDefault, RetentionMedium, RetentionLong}
-
-	// RetentionLimits maps retention policy name to its maximum duration
-	RetentionLimits = map[string]time.Duration{
-		RetentionDefault: MaxRetentionDefault,
-		RetentionMedium:  MaxRetentionMedium,
-		RetentionLong:    MaxRetentionLong,
-	}
-
 	// OperationStartedToClusterState defines states the cluster transitions
 	// into when a certain operation starts
 	OperationStartedToClusterState = map[string]string{

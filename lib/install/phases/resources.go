@@ -129,6 +129,7 @@ func NewGravityResourcesPhase(p fsm.ExecutorParams, operator ops.Operator, facto
 		FieldLogger: logger,
 		progress:    p.Progress,
 		factory:     factory,
+		operator:    operator,
 		resources:   p.Phase.Data.Install.GravityResources,
 	}, nil
 }
@@ -136,9 +137,14 @@ func NewGravityResourcesPhase(p fsm.ExecutorParams, operator ops.Operator, facto
 // Execute creates the Gravity resources from the configured list
 func (r *gravityExecutor) Execute(ctx context.Context) (err error) {
 	r.progress.NextStep("Creating user-supplied cluster resources")
+	cluster, err := r.operator.GetLocalSite()
+	if err != nil {
+		return trace.Wrap(err)
+	}
 	for _, resource := range r.resources {
 		r.Infof("Creating resource %q", resource.Kind)
 		err := r.factory.Create(ctx, resources.CreateRequest{
+			SiteKey: cluster.Key(),
 			Resource: teleservices.UnknownResource{
 				ResourceHeader: resource.ResourceHeader,
 				Raw:            resource.Raw,
@@ -171,5 +177,6 @@ type gravityExecutor struct {
 	logrus.FieldLogger
 	progress  utils.Progress
 	factory   resources.Resources
+	operator  ops.Operator
 	resources []storage.UnknownResource
 }

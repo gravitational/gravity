@@ -52,6 +52,10 @@ func createResource(env *localenv.LocalEnvironment, factory LocalEnvironmentFact
 	if err != nil {
 		return trace.Wrap(err)
 	}
+	cluster, err := env.LocalCluster()
+	if err != nil {
+		return trace.Wrap(err)
+	}
 	clusterHandler := NewDefaultClusterOperationHandler(factory)
 	gravityResources, err := gravity.New(gravity.Config{
 		Operator:                operator,
@@ -70,6 +74,7 @@ func createResource(env *localenv.LocalEnvironment, factory LocalEnvironmentFact
 	control := resources.NewControl(gravityResources)
 	err = resources.ForEach(reader, func(resource storage.UnknownResource) error {
 		req := resources.CreateRequest{
+			SiteKey:   cluster.Key(),
 			Upsert:    upsert,
 			Owner:     user,
 			Manual:    manual,
@@ -93,6 +98,10 @@ func removeResource(
 	if err != nil {
 		return trace.Wrap(err)
 	}
+	cluster, err := env.LocalCluster()
+	if err != nil {
+		return trace.Wrap(err)
+	}
 	clusterHandler := NewDefaultClusterOperationHandler(factory)
 	gravityResources, err := gravity.New(gravity.Config{
 		Operator:                operator,
@@ -104,6 +113,7 @@ func removeResource(
 		return trace.Wrap(err)
 	}
 	req := resources.RemoveRequest{
+		SiteKey:   cluster.Key(),
 		Kind:      kind,
 		Name:      name,
 		Force:     force,
@@ -121,6 +131,10 @@ func getResources(env *localenv.LocalEnvironment, kind string, name string, with
 	if err != nil {
 		return trace.Wrap(err)
 	}
+	cluster, err := env.LocalCluster()
+	if err != nil {
+		return trace.Wrap(err)
+	}
 	gravityResources, err := gravity.New(gravity.Config{
 		Operator:    operator,
 		CurrentUser: env.CurrentUser(),
@@ -129,7 +143,13 @@ func getResources(env *localenv.LocalEnvironment, kind string, name string, with
 	if err != nil {
 		return trace.Wrap(err)
 	}
-	err = resources.NewControl(gravityResources).Get(os.Stdout, kind, name, withSecrets, format, user)
+	err = resources.NewControl(gravityResources).Get(os.Stdout, resources.ListRequest{
+		SiteKey:     cluster.Key(),
+		Kind:        kind,
+		Name:        name,
+		WithSecrets: withSecrets,
+		User:        user,
+	}, format)
 	if err != nil {
 		return trace.Wrap(err)
 	}

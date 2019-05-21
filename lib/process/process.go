@@ -996,13 +996,14 @@ func (p *Process) initService(ctx context.Context) (err error) {
 	}
 
 	p.handlers.WebProxy, err = teleweb.NewHandler(teleweb.Config{
-		Proxy:        reverseTunnel,
-		AuthServers:  p.teleportConfig.AuthServers[0],
-		DomainName:   p.teleportConfig.Hostname,
-		ProxyClient:  proxyConn.Client,
-		DisableUI:    true,
-		ProxySSHAddr: p.teleportConfig.Proxy.SSHAddr,
-		ProxyWebAddr: p.teleportConfig.Proxy.WebAddr,
+		Proxy:         reverseTunnel,
+		AuthServers:   p.teleportConfig.AuthServers[0],
+		DomainName:    p.teleportConfig.Hostname,
+		ProxyClient:   proxyConn.Client,
+		DisableUI:     true,
+		ProxySSHAddr:  p.teleportConfig.Proxy.SSHAddr,
+		ProxyWebAddr:  p.teleportConfig.Proxy.WebAddr,
+		ProxySettings: p.proxySettings(),
 	})
 	if err != nil {
 		return trace.Wrap(err)
@@ -1166,7 +1167,7 @@ func (p *Process) initService(ctx context.Context) (err error) {
 		Backend: p.backend,
 	})
 
-	mon, err := monitoring.NewInfluxDB()
+	metrics, err := monitoring.NewInClusterPrometheus()
 	if err != nil {
 		return trace.Wrap(err)
 	}
@@ -1201,7 +1202,7 @@ func (p *Process) initService(ctx context.Context) (err error) {
 		Users:           p.identity,
 		TeleportProxy:   teleportProxy,
 		Tunnel:          reverseTunnel,
-		Monitoring:      mon,
+		Metrics:         metrics,
 		Local:           p.mode == constants.ComponentSite,
 		Wizard:          p.mode == constants.ComponentInstaller,
 		Proxy:           proxy,

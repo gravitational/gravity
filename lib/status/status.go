@@ -63,28 +63,29 @@ func FromCluster(ctx context.Context, operator ops.Operator, cluster ops.Site, o
 	}
 
 	// Collect application endpoints.
-	endpoints, err := operator.GetApplicationEndpoints(cluster.Key())
+	appEndpoints, err := operator.GetApplicationEndpoints(cluster.Key())
 	if err != nil {
 		logrus.WithError(err).Warn("Failed to fetch application endpoints.")
 		status.Endpoints.Applications.Error = err
 	}
-	if len(endpoints) != 0 {
+	if len(appEndpoints) != 0 {
 		// Right now only 1 application is supported, in the future there
 		// will be many applications each with its own endpoints.
 		status.Endpoints.Applications.Endpoints = append(status.Endpoints.Applications.Endpoints,
 			ApplicationEndpoints{
 				Application: cluster.App.Package,
-				Endpoints:   endpoints,
+				Endpoints:   appEndpoints,
 			})
 	}
 
-	// For cluster endpoints, they point to gravity-site service on master nodes.
-	masters := cluster.ClusterState.Servers.Masters()
-	for _, master := range masters {
-		status.Endpoints.Cluster.AuthGateway = append(status.Endpoints.Cluster.AuthGateway,
-			fmt.Sprintf("%v:%v", master.AdvertiseIP, defaults.GravitySiteNodePort))
-		status.Endpoints.Cluster.UI = append(status.Endpoints.Cluster.UI,
-			fmt.Sprintf("https://%v:%v", master.AdvertiseIP, defaults.GravitySiteNodePort))
+	// Fetch cluster endpoints.
+	clusterEndpoints, err := ops.GetClusterEndpoints(operator, cluster.Key())
+	if err != nil {
+		logrus.WithError(err).Warn("Failed to fetch cluster endpoints.")
+	}
+	if clusterEndpoints != nil {
+		status.Endpoints.Cluster.AuthGateway = clusterEndpoints.AuthGateways()
+		status.Endpoints.Cluster.UI = clusterEndpoints.ManagementURLs()
 	}
 
 	// FIXME: have status extension accept the operator/environment

@@ -578,6 +578,14 @@
   revision = "73d445a93680fa1a78ae23a5839bad48f32ba1ee"
 
 [[projects]]
+  digest = "1:0b98586be892040d424cdd4fb7e047f71ddfcdbfca59f975a4b4eb14b56ae33c"
+  name = "github.com/gizak/termui"
+  packages = ["."]
+  pruneopts = "UT"
+  revision = "bf53c5cbea3f372f745e1d8e4660e29f73d41517"
+  version = "v2.3.0"
+
+[[projects]]
   digest = "1:a45a0da7e6debef32e16b9ffcf2593e980fbe8d2ee26942a806c32ffdcd45d69"
   name = "github.com/go-ini/ini"
   packages = ["."]
@@ -886,7 +894,7 @@
 
 [[projects]]
   branch = "branch/3.2-g"
-  digest = "1:dc70d53cfb938ba2490891306441c151e2256eb957d06a5e6dab3d4f3c7e4874"
+  digest = "1:2d9aec3c832481bd817f951e43ab87e03417519a086279a48767629d94f0284b"
   name = "github.com/gravitational/teleport"
   packages = [
     ".",
@@ -941,7 +949,7 @@
     "lib/web/ui",
   ]
   pruneopts = "UT"
-  revision = "495a59bc1737cf62aa9850f5eed7e6fc3117c0c2"
+  revision = "d88eaecef78779b0211cbe458230fd3ce0989bde"
 
 [[projects]]
   digest = "1:22c8951489f0e27ec3b2d50d9f74086ff3f08554ce5965d418d6a10296b9ea04"
@@ -1276,6 +1284,14 @@
   revision = "60711f1a8329503b04e1c88535f419d0bb440bff"
 
 [[projects]]
+  branch = "master"
+  digest = "1:2eeeebccad4f052e6037527e86b8114c6bfd184a97f84d4449a5ea6ad202c216"
+  name = "github.com/maruel/panicparse"
+  packages = ["stack"]
+  pruneopts = "UT"
+  revision = "f20d4c4d746f810c9110e21928d4135e1f2a3efa"
+
+[[projects]]
   digest = "1:c658e84ad3916da105a761660dcaeb01e63416c8ec7bc62256a9b411a05fcd67"
   name = "github.com/mattn/go-colorable"
   packages = ["."]
@@ -1365,12 +1381,12 @@
   version = "v1.0.0"
 
 [[projects]]
+  branch = "master"
   digest = "1:abf08734a6527df70ed361d7c369fb580e6840d8f7a6012e5f609fdfd93b4e48"
   name = "github.com/mitchellh/go-wordwrap"
   packages = ["."]
   pruneopts = "UT"
   revision = "9e67c67572bc5dd02aef930e2b0ae3c02a4b5a5c"
-  version = "v1.0.0"
 
 [[projects]]
   digest = "1:61332bb44d05257bbf0356d8400a8b30fe0b9fdc3b72b8b55661da8f0a4f39ae"
@@ -1419,6 +1435,14 @@
   packages = ["."]
   pruneopts = "UT"
   revision = "31f0106b4474f14bc441575c19d3a5fa21aa1f6c"
+
+[[projects]]
+  branch = "master"
+  digest = "1:e4f1b6b3c33388b1f6f3d630280d9b0870c1e2f80379dfd2f89dd06425e9e6b9"
+  name = "github.com/nsf/termbox-go"
+  packages = ["."]
+  pruneopts = "UT"
+  revision = "288510b9734e30e7966ec2f22b87c5f8e67345e3"
 
 [[projects]]
   digest = "1:9ec6cf1df5ad1d55cf41a43b6b1e7e118a91bade4f68ff4303379343e40c0e25"
@@ -1511,12 +1535,17 @@
   revision = "54653902c20e47f3417541d35435cb6d6162e28a"
 
 [[projects]]
-  digest = "1:b6221ec0f8903b556e127c449e7106b63e6867170c2d10a7c058623d086f2081"
+  digest = "1:b8fc32232f276bebfed92b136bce3c9efc600afbf8abb76aa6406a75ab24d9e5"
   name = "github.com/prometheus/client_golang"
-  packages = ["prometheus"]
+  packages = [
+    "api",
+    "api/prometheus/v1",
+    "prometheus",
+    "prometheus/internal",
+  ]
   pruneopts = "UT"
-  revision = "c5b7fccd204277076155f10851dad72b76a49317"
-  version = "v0.8.0"
+  revision = "505eaef017263e299324067d40ca2c48f6a2cf50"
+  version = "v0.9.2"
 
 [[projects]]
   branch = "master"
@@ -2482,6 +2511,7 @@
     "github.com/fsouza/go-dockerclient",
     "github.com/fsouza/go-dockerclient/testing",
     "github.com/ghodss/yaml",
+    "github.com/gizak/termui",
     "github.com/gogo/protobuf/types",
     "github.com/gokyle/hotp",
     "github.com/golang/protobuf/proto",
@@ -2542,6 +2572,9 @@
     "github.com/olekukonko/tablewriter",
     "github.com/opencontainers/go-digest",
     "github.com/pborman/uuid",
+    "github.com/prometheus/client_golang/api",
+    "github.com/prometheus/client_golang/api/prometheus/v1",
+    "github.com/prometheus/common/model",
     "github.com/santhosh-tekuri/jsonschema",
     "github.com/sirupsen/logrus",
     "github.com/sirupsen/logrus/hooks/syslog",

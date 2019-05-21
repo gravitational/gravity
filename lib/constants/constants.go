@@ -277,6 +277,14 @@ const (
 	CoreDNSKeyPair = "coredns"
 	// FrontProxyClientKeyPair is a cert/key used for accessing external APIs through aggregation layer
 	FrontProxyClientKeyPair = "front-proxy-client"
+	// LograngeAdaptorKeyPair is a cert/key used by logrange adaptor component
+	LograngeAdaptorKeyPair = "logrange-adaptor"
+	// LograngeAggregatorKeyPair is a cert/key used by logrange aggregator component
+	LograngeAggregatorKeyPair = "logrange-aggregator"
+	// LograngeCollectorKeyPair is a cert/key used by logrange collector component
+	LograngeCollectorKeyPair = "logrange-collector"
+	// LograngeForwarderKeyPair is a cert/key used by logrange forwarder component
+	LograngeForwarderKeyPair = "logrange-forwarder"
 
 	// ClusterAdminGroup is a group name for Kubernetes cluster amdin
 	ClusterAdminGroup = "system:masters"
@@ -436,6 +444,9 @@ const (
 
 	// ShortDateFormat is the short version of human readable timestamp format
 	ShortDateFormat = "2006-01-02 15:04"
+
+	// TimeFormat is the time format that only displays time
+	TimeFormat = "15:04"
 
 	// LatestVersion is the shortcut for the latest Telekube version
 	LatestVersion = "latest"
