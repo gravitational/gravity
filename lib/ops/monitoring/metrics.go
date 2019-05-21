@@ -177,7 +177,7 @@ func (p *prometheus) GetCurrentMemoryRate(ctx context.Context) (int, error) {
 // GetMaxCPURate returns highest CPU usage rate on the specified interval.
 func (p *prometheus) GetMaxCPURate(ctx context.Context, interval time.Duration) (int, error) {
 	var query bytes.Buffer
-	if err := queryMaxCPU.Execute(&query, map[string]string{"interval": fmt.Sprintf("%vh", interval.Hours())}); err != nil {
+	if err := queryMaxCPU.Execute(&query, map[string]string{"interval": fmt.Sprintf("%vm", interval.Minutes())}); err != nil {
 		return 0, trace.Wrap(err)
 	}
 	vector, err := p.getVector(ctx, query.String())
@@ -193,7 +193,7 @@ func (p *prometheus) GetMaxCPURate(ctx context.Context, interval time.Duration) 
 // GetMaxMemoryRate returns highest RAM usage rate on the specified interval.
 func (p *prometheus) GetMaxMemoryRate(ctx context.Context, interval time.Duration) (int, error) {
 	var query bytes.Buffer
-	if err := queryMaxMemory.Execute(&query, map[string]string{"interval": fmt.Sprintf("%vh", interval.Hours())}); err != nil {
+	if err := queryMaxMemory.Execute(&query, map[string]string{"interval": fmt.Sprintf("%vm", interval.Minutes())}); err != nil {
 		return 0, trace.Wrap(err)
 	}
 	vector, err := p.getVector(ctx, query.String())
