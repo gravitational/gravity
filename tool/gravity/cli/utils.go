@@ -183,7 +183,7 @@ func (g *Application) isExpandCommand(cmd string) bool {
 	return false
 }
 
-// ConfigureNoProxy configures the current process to not use any configured HTTP process when connecting to any
+// ConfigureNoProxy configures the current process to not use any configured HTTP proxy when connecting to any
 // destination by IP address, or a domain with a suffix of .local. Gravity internally connects to nodes by IP address,
 // and by queries to kubernetes using the .local suffix. The side effect is, connections towards the internet by IP
 // address and not a configured domain name will not be able to invoke a proxy. This should be a reasonable tradeoff,
@@ -198,16 +198,12 @@ func ConfigureNoProxy() {
 		"no_proxy": os.Getenv("no_proxy"),
 	}
 
-	found := false
 	for k, v := range proxy {
 		if len(v) != 0 {
 			os.Setenv(k, strings.Join([]string{v, "0.0.0.0/0", ".local"}, ","))
-			found = true
+			return
 		}
 	}
 
-	if !found {
-		os.Setenv("NO_PROXY", strings.Join([]string{"0.0.0.0/0", ".local"}, ","))
-	}
-
+	os.Setenv("NO_PROXY", strings.Join([]string{"0.0.0.0/0", ".local"}, ","))
 }
