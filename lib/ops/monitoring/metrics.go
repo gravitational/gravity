@@ -90,39 +90,30 @@ func NewPrometheus(address string) (*prometheus, error) {
 
 // GetTotalCPU returns total number of CPU cores in the cluster.
 func (p *prometheus) GetTotalCPU(ctx context.Context) (int, error) {
-	vector, err := p.getVector(ctx, queryTotalCPU)
+	value, err := p.getVectorValue(ctx, queryTotalCPU)
 	if err != nil {
 		return 0, trace.Wrap(err)
 	}
-	if len(vector) != 1 {
-		return 0, trace.BadParameter("expected single element: %v", vector)
-	}
-	return int(vector[0].Value), nil
+	return int(value), nil
 }
 
 // GetTotalMemory returns total amount of RAM in the cluster in bytes.
 func (p *prometheus) GetTotalMemory(ctx context.Context) (int64, error) {
-	vector, err := p.getVector(ctx, queryTotalMemory)
+	value, err := p.getVectorValue(ctx, queryTotalMemory)
 	if err != nil {
 		return 0, trace.Wrap(err)
 	}
-	if len(vector) != 1 {
-		return 0, trace.BadParameter("expected single element: %v", vector)
-	}
-	return int64(vector[0].Value), nil
+	return int64(value), nil
 }
 
 // GetCPURate returns CPU usage rate for the specified time range.
 func (p *prometheus) GetCPURate(ctx context.Context, timeRange v1.Range) (Series, error) {
-	matrix, err := p.getMatrix(ctx, queryCPURate, timeRange)
-	if err != nil {
+	values, err := p.getMatrixValues(ctx, queryCPURate, timeRange)
+	if err != nil && !trace.IsNotFound(err) {
 		return nil, trace.Wrap(err)
 	}
-	if len(matrix) != 1 {
-		return nil, trace.BadParameter("expected single element: %v", matrix)
-	}
 	var result Series
-	for _, v := range matrix[0].Values {
+	for _, v := range values {
 		result = append(result, Point{
 			Value: int(v.Value),
 			Time:  v.Timestamp.Time(),
@@ -133,15 +124,12 @@ func (p *prometheus) GetCPURate(ctx context.Context, timeRange v1.Range) (Series
 
 // GetMemoryRate returns RAM usage rate for the specified time range.
 func (p *prometheus) GetMemoryRate(ctx context.Context, timeRange v1.Range) (Series, error) {
-	matrix, err := p.getMatrix(ctx, queryMemoryRate, timeRange)
-	if err != nil {
+	values, err := p.getMatrixValues(ctx, queryMemoryRate, timeRange)
+	if err != nil && !trace.IsNotFound(err) {
 		return nil, trace.Wrap(err)
 	}
-	if len(matrix) != 1 {
-		return nil, trace.BadParameter("expected single element: %v", matrix)
-	}
 	var result Series
-	for _, v := range matrix[0].Values {
+	for _, v := range values {
 		result = append(result, Point{
 			Value: int(v.Value),
 			Time:  v.Timestamp.Time(),
@@ -152,62 +140,50 @@ func (p *prometheus) GetMemoryRate(ctx context.Context, timeRange v1.Range) (Ser
 
 // GetCurrentCPURate returns instantaneous CPU usage rate.
 func (p *prometheus) GetCurrentCPURate(ctx context.Context) (int, error) {
-	vector, err := p.getVector(ctx, queryCPURate)
+	value, err := p.getVectorValue(ctx, queryCPURate)
 	if err != nil {
 		return 0, trace.Wrap(err)
 	}
-	if len(vector) != 1 {
-		return 0, trace.BadParameter("expected single element: %v", vector)
-	}
-	return int(vector[0].Value), nil
+	return int(value), nil
 }
 
 // GetCurrentMemoryRate returns instantaneous RAM usage rate.
 func (p *prometheus) GetCurrentMemoryRate(ctx context.Context) (int, error) {
-	vector, err := p.getVector(ctx, queryMemoryRate)
+	value, err := p.getVectorValue(ctx, queryMemoryRate)
 	if err != nil {
 		return 0, trace.Wrap(err)
 	}
-	if len(vector) != 1 {
-		return 0, trace.BadParameter("expected single element: %v", vector)
-	}
-	return int(vector[0].Value), nil
+	return int(value), nil
 }
 
 // GetMaxCPURate returns highest CPU usage rate on the specified interval.
 func (p *prometheus) GetMaxCPURate(ctx context.Context, interval time.Duration) (int, error) {
 	var query bytes.Buffer
-	if err := queryMaxCPU.Execute(&query, map[string]string{"interval": fmt.Sprintf("%vh", interval.Hours())}); err != nil {
+	if err := queryMaxCPU.Execute(&query, map[string]string{"interval": fmt.Sprintf("%vm", interval.Minutes())}); err != nil {
 		return 0, trace.Wrap(err)
 	}
-	vector, err := p.getVector(ctx, query.String())
+	value, err := p.getVectorValue(ctx, query.String())
 	if err != nil {
 		return 0, trace.Wrap(err)
 	}
-	if len(vector) != 1 {
-		return 0, trace.BadParameter("expected single element: %v", vector)
-	}
-	return int(vector[0].Value), nil
+	return int(value), nil
 }
 
 // GetMaxMemoryRate returns highest RAM usage rate on the specified interval.
 func (p *prometheus) GetMaxMemoryRate(ctx context.Context, interval time.Duration) (int, error) {
 	var query bytes.Buffer
-	if err := queryMaxMemory.Execute(&query, map[string]string{"interval": fmt.Sprintf("%vh", interval.Hours())}); err != nil {
+	if err := queryMaxMemory.Execute(&query, map[string]string{"interval": fmt.Sprintf("%vm", interval.Minutes())}); err != nil {
 		return 0, trace.Wrap(err)
 	}
-	vector, err := p.getVector(ctx, query.String())
+	value, err := p.getVectorValue(ctx, query.String())
 	if err != nil {
 		return 0, trace.Wrap(err)
 	}
-	if len(vector) != 1 {
-		return 0, trace.BadParameter("expected single element: %v", vector)
-	}
-	return int(vector[0].Value), nil
+	return int(value), nil
 }
 
 // getVector executes the provided Prometheus query and returns the resulting
-// "instant vector":
+// instant vector:
 //
 // https://prometheus.io/docs/prometheus/latest/querying/basics/#instant-vector-selectors
 func (p *prometheus) getVector(ctx context.Context, query string) (model.Vector, error) {
@@ -221,8 +197,24 @@ func (p *prometheus) getVector(ctx context.Context, query string) (model.Vector,
 	return value.(model.Vector), nil
 }
 
+// getVectorValue returns the instant vector value for the provided query.
+//
+// When issuing the provided Prometheus query, it expects a 1-element vector result.
+func (p *prometheus) getVectorValue(ctx context.Context, query string) (model.SampleValue, error) {
+	vector, err := p.getVector(ctx, query)
+	if err != nil {
+		return 0, trace.Wrap(err)
+	}
+	if len(vector) == 0 {
+		return 0, trace.NotFound("no data for %q", query)
+	} else if len(vector) > 1 {
+		return 0, trace.BadParameter("expected single element vector: %v", vector)
+	}
+	return vector[0].Value, nil
+}
+
 // getMatrix issues the provided Prometheus ranged query and returns the
-// resulting "range vector":
+// resulting range vector:
 //
 // https://prometheus.io/docs/prometheus/latest/querying/basics/#range-vector-selectors
 func (p *prometheus) getMatrix(ctx context.Context, query string, timeRange v1.Range) (model.Matrix, error) {
@@ -234,6 +226,22 @@ func (p *prometheus) getMatrix(ctx context.Context, query string, timeRange v1.R
 		return nil, trace.BadParameter("expected matrix: %v %v", value.Type(), value.String())
 	}
 	return value.(model.Matrix), nil
+}
+
+// getMatrixValues returns the range vector values for the provided query.
+//
+// When issuing the provided Prometheus query, it expects a 1-element matrix result.
+func (p *prometheus) getMatrixValues(ctx context.Context, query string, timeRange v1.Range) ([]model.SamplePair, error) {
+	matrix, err := p.getMatrix(ctx, query, timeRange)
+	if err != nil {
+		return nil, trace.Wrap(err)
+	}
+	if len(matrix) == 0 {
+		return nil, trace.NotFound("no data for %q %v", query, timeRange)
+	} else if len(matrix) > 1 {
+		return nil, trace.BadParameter("expected single element matrix: %v", matrix)
+	}
+	return matrix[0].Values, nil
 }
 
 var (
