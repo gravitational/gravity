@@ -177,6 +177,7 @@ func (r configInitializer) newOperationPlan(
 	operation ops.SiteOperation,
 	localEnv, updateEnv *localenv.LocalEnvironment,
 	clusterEnv *localenv.ClusterEnvironment,
+	leader *storage.Server,
 ) (*storage.OperationPlan, error) {
 	plan, err := clusterconfig.NewOperationPlan(operator, clusterEnv.Apps, operation, r.config, cluster.ClusterState.Servers)
 	if err != nil {
