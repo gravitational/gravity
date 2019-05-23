@@ -30,6 +30,14 @@ import (
 	log "github.com/sirupsen/logrus"
 )
 
+// WaitFor blocks until any of the specified signals has been signalled
+func WaitFor(signals ...os.Signal) {
+	signalC := make(chan os.Signal, 1)
+	signal.Notify(signalC, signals...)
+	<-signalC
+	signal.Reset(signals...)
+}
+
 // WatchTerminationSignals stops the provided stopper when it gets one of monitored signals.
 // It is a convenience wrapper over NewInterruptHandler
 func WatchTerminationSignals(cancel context.CancelFunc, stopper Stopper, printer utils.Printer) *InterruptHandler {
@@ -56,11 +64,8 @@ func WatchTerminationSignals(cancel context.CancelFunc, stopper Stopper, printer
 // interrupt := NewInterruptHandler(...)
 // interrupt.AddStopper(stoppers...)
 //
-// Handler will stop all registered stoppers and exit iff:
-//  - specified context has expired
-//  - handler has been explicitly interrupted (see Abort)
-// If a stopper additionally implements Aborter and the interrupt handler has been explicitly
-// interrupted via Trigger, the handler will invoke Abort on the stopper.
+// Handler will execute all registered stoppers and exit iff it has been explicitly
+// interrupted (see Abort).
 //
 // Use the select loop and handle the receives on the interrupt channel:
 //
@@ -100,23 +105,18 @@ func NewInterruptHandler(cancel context.CancelFunc, opts ...InterruptOption) *In
 			// Reset the signal handler so the next signal is handled
 			// directly by the runtime
 			signal.Reset(handler.signals...)
-			if len(stoppers) == 0 {
+			if len(stoppers) == 0 || !handler.isInterrupted() {
 				// Fast path
 				handler.wg.Done()
 				return
 			}
 			localCtx, cancel := context.WithTimeout(context.Background(), defaults.ShutdownTimeout)
 			for _, stopper := range stoppers {
-				if aborter, ok := stopper.(Aborter); ok && handler.isInterrupted() {
-					if err := aborter.Abort(localCtx); err != nil {
-						log.WithError(err).Warn("Failed to abort.")
-					}
-				} else {
-					if err := stopper.Stop(localCtx); err != nil {
-						log.WithError(err).Warn("Failed to stop.")
-					}
+				if err := stopper.Stop(localCtx); err != nil {
+					log.WithError(err).Warn("Failed to stop.")
 				}
 			}
+		
 			cancel()
 			handler.wg.Done()
 		}()
@@ -154,11 +154,6 @@ func (r *InterruptHandler) Abort() {
 	r.mu.Lock()
 	r.interrupted = true
 	r.mu.Unlock()
-	r.cancel()
-}
-
-// Cancel interrupts the loop without setting the interrupted flag
-func (r *InterruptHandler) Cancel() {
 	r.cancel()
 }
 
@@ -207,26 +202,6 @@ type Stopper interface {
 	// Stop gracefully stops a process
 	Stop(ctx context.Context) error
 }
-
-// Aborter is an interface for processes that can be aborted
-type Aborter interface {
-	// Abort aborts a process
-	Abort(ctx context.Context) error
-}
-
-// Stop implements Stopper
-func (r AborterFunc) Stop(ctx context.Context) error {
-	return r(ctx, false)
-}
-
-// Abort implements Aborter
-func (r AborterFunc) Abort(ctx context.Context) error {
-	return r(ctx, true)
-}
-
-// AborterFunc is an adapter function that allows the use
-// of ordinary functions as both Stoppers and Aborters
-type AborterFunc func(ctx context.Context, interrupted bool) error
 
 // Stop implements Stopper
 func (r StopperFunc) Stop(ctx context.Context) error {

@@ -82,8 +82,6 @@ type UninstallServiceRequest struct {
 type DisableServiceRequest struct {
 	// Name identifies the service
 	Name string
-	// Mask specifies whether the service should also be masked
-	Mask bool
 }
 
 // NewPackageServiceRequest specifies parameters needed to create a new service
@@ -151,6 +149,9 @@ type ServiceSpec struct {
 	// process, will prevent automatic service restarts.
 	// See https://www.freedesktop.org/software/systemd/man/systemd.service.html#RestartPreventExitStatus=
 	RestartPreventExitStatus string `json:"RestartPreventExitStatus"`
+	// SuccessExitStatus lists exit codes to be considered successful termination.
+	// See https://www.freedesktop.org/software/systemd/man/systemd.service.html#SuccessExitStatus=
+	SuccessExitStatus string `json:"SuccessExitStatus"`
 	// WorkingDirectory sets the working directory for executed processes.
 	// See https://www.freedesktop.org/software/systemd/man/systemd.exec.html#Paths
 	WorkingDirectory string `json:"WorkingDirectory"`

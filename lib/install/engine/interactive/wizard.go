@@ -18,10 +18,8 @@ limitations under the License.
 package interactive
 
 import (
-	"bytes"
 	"context"
 	"fmt"
-	"strings"
 
 	"github.com/gravitational/gravity/lib/app"
 	"github.com/gravitational/gravity/lib/defaults"
@@ -89,13 +87,6 @@ func (r *Engine) Execute(ctx context.Context, installer install.Interface, confi
 	if err := e.completeOperation(*operation); err != nil {
 		return trace.Wrap(err)
 	}
-	// TODO(dmitri): this should not be necessary if there's a way to send the completion notification
-	// from bandwagon to installer
-	installer.PrintStep("\nInstaller process will keep running so the installation can be finished by\n" +
-		"completing necessary post-install actions in the installer UI if the installed\n" +
-		"application requires it.\n" +
-		color.YellowString("\nOnce no longer needed, press Ctrl-C to shutdown this process.\n"),
-	)
 	return trace.Wrap(installer.Wait())
 }
 
@@ -172,19 +163,14 @@ func (r *executor) completeOperation(operation ops.SiteOperation) error {
 // in interactive mode to stdout
 func (r *executor) printURL() {
 	r.PrintStep("Starting web UI install wizard")
-	url := fmt.Sprintf("https://%v/web/installer/new/%v/%v/%v?install_token=%v",
+	url := fmt.Sprintf("%v/web/installer/new/%v/%v/%v?install_token=%v",
 		r.AdvertiseAddr,
 		r.config.AppPackage.Repository,
 		r.config.AppPackage.Name,
 		r.config.AppPackage.Version,
 		r.config.Token.Token)
 	r.WithField("installer-url", url).Info("Generated installer URL.")
-	ruler := strings.Repeat("-", 100)
-	var buf bytes.Buffer
-	fmt.Fprintln(&buf, ruler, "\n", ruler)
-	fmt.Fprintln(&buf, "OPEN THIS IN BROWSER:", url)
-	fmt.Fprintln(&buf, ruler, "\n", ruler)
-	r.PrintStep(buf.String())
+	r.PrintStep(color.GreenString("Open this URL in browser: %s", url))
 }
 
 // Engine implements interactive installation workflow

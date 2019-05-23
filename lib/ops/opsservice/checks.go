@@ -26,7 +26,7 @@ import (
 )
 
 // ValidateServers runs preflight checks before the installation
-func (o *Operator) ValidateServers(req ops.ValidateServersRequest) error {
+func (o *Operator) ValidateServers(ctx context.Context, req ops.ValidateServersRequest) error {
 	log.Infof("Validating servers: %#v.", req)
 
 	op, err := o.GetSiteOperation(req.OperationKey())
@@ -44,7 +44,7 @@ func (o *Operator) ValidateServers(req ops.ValidateServersRequest) error {
 		return trace.Wrap(err)
 	}
 
-	err = ops.CheckServers(context.TODO(), op.Key(), infos, req.Servers,
+	err = ops.CheckServers(ctx, op.Key(), infos, req.Servers,
 		cluster.agentService(), cluster.app.Manifest)
 	if err != nil {
 		return trace.Wrap(ops.FormatValidationError(err))

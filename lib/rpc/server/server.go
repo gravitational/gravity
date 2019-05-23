@@ -152,11 +152,6 @@ type Config struct {
 	// Note that the handler should avoid invoking blocking gRPC APIs - otherwise the
 	// service shut down might block
 	AbortHandler func(context.Context) error
-	// CompleteHandler specifies an optional handler for cleanup tasks after completing the operation.
-	// The handler is invoked when serving the Shutdown API with Cleanup set.
-	// Note that the handler should avoid invoking blocking gRPC APIs - otherwise the
-	// service shut down might block
-	CompleteHandler func(context.Context) error
 	// systemInfo queries system information
 	systemInfo
 	// commandExecutor is a system command executor.

@@ -25,6 +25,7 @@ import (
 	"net/http"
 	"os"
 	"strings"
+	"syscall"
 
 	"github.com/cenkalti/backoff"
 	"github.com/gravitational/gravity/lib/loc"
@@ -154,6 +155,15 @@ func IsStreamClosedError(err error) bool {
 		return true
 	}
 	return false
+}
+
+// IsResourceBusyError determines if the specified error identifies a 'device or resource busy' error
+func IsResourceBusyError(err error) bool {
+	sysErr, ok := trace.Unwrap(err).(syscall.Errno)
+	if !ok {
+		return false
+	}
+	return sysErr == syscall.EBUSY
 }
 
 // IsClosedResponseBodyErrorMessage determines if the error message

@@ -283,19 +283,9 @@ func Execute(g *Application, cmd string, extraArgs []string) error {
 	case g.InstallCmd.FullCommand():
 		return startInstall(localEnv, NewInstallConfig(localEnv, g))
 	case g.JoinCmd.FullCommand():
-		joinEnv, err := g.NewJoinEnv()
-		if err != nil {
-			return trace.Wrap(err)
-		}
-		defer joinEnv.Close()
-		return Join(localEnv, joinEnv, NewJoinConfig(g))
+		return Join(localEnv, g, NewJoinConfig(g))
 	case g.AutoJoinCmd.FullCommand():
-		joinEnv, err := g.NewJoinEnv()
-		if err != nil {
-			return trace.Wrap(err)
-		}
-		defer joinEnv.Close()
-		return autojoin(localEnv, joinEnv, autojoinConfig{
+		return autojoin(localEnv, g, autojoinConfig{
 			systemLogFile: *g.SystemLogFile,
 			userLogFile:   *g.UserLogFile,
 			clusterName:   *g.AutoJoinCmd.ClusterName,

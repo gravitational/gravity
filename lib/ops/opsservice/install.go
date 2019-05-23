@@ -427,7 +427,7 @@ func (s *site) updateOperationState(op *ops.SiteOperation, req ops.OperationUpda
 			OperationID: op.ID,
 			Servers:     req.Servers,
 		}
-		err = s.service.ValidateServers(validateReq)
+		err = s.service.ValidateServers(context.TODO(), validateReq)
 		if err != nil {
 			return trace.Wrap(err)
 		}

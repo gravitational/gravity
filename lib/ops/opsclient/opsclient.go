@@ -1198,8 +1198,8 @@ func (c *Client) GetApplicationEndpoints(key ops.SiteKey) ([]ops.Endpoint, error
 }
 
 // ValidateServers runs pre-installation checks
-func (c *Client) ValidateServers(req ops.ValidateServersRequest) error {
-	_, err := c.PostJSON(c.Endpoint(
+func (c *Client) ValidateServers(ctx context.Context, req ops.ValidateServersRequest) error {
+	_, err := c.PostJSONWithContext(ctx, c.Endpoint(
 		"accounts", req.AccountID, "sites", req.SiteDomain, "prechecks"), req)
 	if err != nil {
 		return trace.Wrap(err)
@@ -1561,6 +1561,12 @@ func (c *Client) EmitAuditEvent(ctx context.Context, req ops.AuditEventRequest) 
 // PostJSON issues HTTP POST request to the server with the provided JSON data
 func (c *Client) PostJSON(endpoint string, data interface{}) (*roundtrip.Response, error) {
 	return telehttplib.ConvertResponse(c.Client.PostJSON(context.TODO(), endpoint, data))
+}
+
+// PostJSONWithContext issues HTTP POST request to the server with the provided JSON data
+// bounded by the specified context
+func (c *Client) PostJSONWithContext(ctx context.Context, endpoint string, data interface{}) (*roundtrip.Response, error) {
+	return telehttplib.ConvertResponse(c.Client.PostJSON(ctx, endpoint, data))
 }
 
 // PutJSON issues HTTP PUT request to the server with the provided JSON data

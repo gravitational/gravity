@@ -50,12 +50,11 @@ func NewAgent(ctx context.Context, config AgentConfig) (*rpcserver.PeerServer, e
 	}()
 	peerConfig := rpcserver.PeerConfig{
 		Config: rpcserver.Config{
-			FieldLogger:     config.FieldLogger,
-			Listener:        listener,
-			Credentials:     config.Credentials,
-			RuntimeConfig:   config.RuntimeConfig,
-			AbortHandler:    config.AbortHandler,
-			CompleteHandler: config.CompleteHandler,
+			FieldLogger:   config.FieldLogger,
+			Listener:      listener,
+			Credentials:   config.Credentials,
+			RuntimeConfig: config.RuntimeConfig,
+			AbortHandler:  config.AbortHandler,
 		},
 		WatchCh:           config.WatchCh,
 		ReconnectStrategy: *config.ReconnectStrategy,
@@ -64,14 +63,6 @@ func NewAgent(ctx context.Context, config AgentConfig) (*rpcserver.PeerServer, e
 	if err != nil {
 		listener.Close()
 		return nil, trace.Wrap(err)
-	}
-	if !config.SkipConnectValidation {
-		// make sure that connection to the RPC server can be established
-		ctx, cancel := context.WithTimeout(ctx, defaults.PeerConnectTimeout)
-		defer cancel()
-		if err := agent.ValidateConnection(ctx); err != nil {
-			return nil, trace.Wrap(err)
-		}
 	}
 	return agent, nil
 }
@@ -105,13 +96,10 @@ type AgentConfig struct {
 	ServerAddr string
 	// RuntimeConfig specifies runtime configuration
 	pb.RuntimeConfig
+	// WatchCh specifies the channel to receive peer reconnect updates
 	WatchCh chan rpcserver.WatchEvent
-	// SkipConnectValidation specifies whether to skip initial connection validation
-	SkipConnectValidation bool
 	// AbortHandler specifies an optional handler for abort requests
 	AbortHandler func(context.Context) error
-	// CompleteHandler specifies an optional handler for cleanup during shutdown
-	CompleteHandler func(context.Context) error
 }
 
 // getTokenFromURL extracts authorization token from the specified URL

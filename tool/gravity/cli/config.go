@@ -26,12 +26,14 @@ import (
 	"strings"
 	"time"
 
+	"github.com/fatih/color"
 	"github.com/gravitational/gravity/lib/app"
 	appservice "github.com/gravitational/gravity/lib/app"
 	"github.com/gravitational/gravity/lib/constants"
 	"github.com/gravitational/gravity/lib/defaults"
 	"github.com/gravitational/gravity/lib/expand"
 	"github.com/gravitational/gravity/lib/install"
+	installerclient "github.com/gravitational/gravity/lib/install/client"
 	"github.com/gravitational/gravity/lib/loc"
 	"github.com/gravitational/gravity/lib/localenv"
 	"github.com/gravitational/gravity/lib/modules"
@@ -47,6 +49,7 @@ import (
 	"github.com/gravitational/gravity/lib/storage"
 	"github.com/gravitational/gravity/lib/storage/clusterconfig"
 	"github.com/gravitational/gravity/lib/system/environ"
+	"github.com/gravitational/gravity/lib/system/signals"
 	"github.com/gravitational/gravity/lib/systeminfo"
 	"github.com/gravitational/gravity/lib/utils"
 
@@ -181,16 +184,17 @@ func NewInstallConfig(env *localenv.LocalEnvironment, g *Application) InstallCon
 		LocalBackend:       env.Backend,
 		LocalClusterClient: env.SiteOperator,
 
-		Mode:          mode,
-		ServiceUID:    *g.InstallCmd.ServiceUID,
-		ServiceGID:    *g.InstallCmd.ServiceGID,
-		AppPackage:    *g.InstallCmd.App,
-		ResourcesPath: *g.InstallCmd.ResourcesPath,
-		DNSHosts:      *g.InstallCmd.DNSHosts,
-		DNSZones:      *g.InstallCmd.DNSZones,
-		Flavor:        *g.InstallCmd.Flavor,
-		FromService:   *g.InstallCmd.FromService,
-		Printer:       env,
+		Mode:                   mode,
+		ServiceUID:             *g.InstallCmd.ServiceUID,
+		ServiceGID:             *g.InstallCmd.ServiceGID,
+		AppPackage:             *g.InstallCmd.App,
+		ResourcesPath:          *g.InstallCmd.ResourcesPath,
+		DNSHosts:               *g.InstallCmd.DNSHosts,
+		DNSZones:               *g.InstallCmd.DNSZones,
+		Flavor:                 *g.InstallCmd.Flavor,
+		ExcludeHostFromCluster: *g.InstallCmd.ExcludeHostFromCluster,
+		FromService:            *g.InstallCmd.FromService,
+		Printer:                env,
 	}
 }
 
@@ -352,9 +356,7 @@ func (i *InstallConfig) NewInstallerConfig(
 		Apps:               wizard.Apps,
 		Packages:           wizard.Packages,
 		Operator:           wizard.Operator,
-		AbortHandler:       installerUninstallSystem(env),
-		CompleteHandler:    installerCompleteOperation(env),
-		LocalAgent:         !i.ExcludeHostFromCluster,
+		LocalAgent: !i.ExcludeHostFromCluster,
 	}, nil
 
 }
@@ -654,21 +656,19 @@ func (j *JoinConfig) NewPeerConfig(env, joinEnv *localenv.LocalEnvironment) (*ex
 		return nil, trace.Wrap(err)
 	}
 	return &expand.PeerConfig{
-		Peers:           peers,
-		AdvertiseAddr:   advertiseAddr,
-		ServerAddr:      j.ServerAddr,
-		CloudProvider:   j.CloudProvider,
-		RuntimeConfig:   *runtimeConfig,
-		DebugMode:       env.Debug,
-		Insecure:        env.Insecure,
-		LocalBackend:    env.Backend,
-		LocalApps:       env.Apps,
-		LocalPackages:   env.Packages,
-		JoinBackend:     joinEnv.Backend,
-		StateDir:        joinEnv.StateDir,
-		OperationID:     j.OperationID,
-		AbortHandler:    installerUninstallSystem(env),
-		CompleteHandler: installerCompleteOperation(env),
+		Peers:         peers,
+		AdvertiseAddr: advertiseAddr,
+		ServerAddr:    j.ServerAddr,
+		CloudProvider: j.CloudProvider,
+		RuntimeConfig: *runtimeConfig,
+		DebugMode:     env.Debug,
+		Insecure:      env.Insecure,
+		LocalBackend:  env.Backend,
+		LocalApps:     env.Apps,
+		LocalPackages: env.Packages,
+		JoinBackend:   joinEnv.Backend,
+		StateDir:      joinEnv.StateDir,
+		OperationID:   j.OperationID,
 	}, nil
 }
 
@@ -761,9 +761,9 @@ func installerUninstallSystem(env *localenv.LocalEnvironment) func(context.Conte
 		}); err != nil {
 			logger.WithError(err).Warn("Failed to leave cluster.")
 		}
-		logger.Info("Disabling agents.")
-		if err := environ.DisableAgentServices(logger); err != nil {
-			logger.WithError(err).Warn("Failed to disable agent services.")
+		logger.Info("Uninstalling services.")
+		if err := environ.UninstallAgentServices(logger); err != nil {
+			logger.WithError(err).Warn("Failed to uninstall agent services.")
 		}
 		logger.Info("Uninstalling system.")
 		if err := environ.UninstallSystem(utils.DiscardPrinter, logger); err != nil {
@@ -776,10 +776,32 @@ func installerUninstallSystem(env *localenv.LocalEnvironment) func(context.Conte
 
 // installerCompleteOperation implements the clean up phase when the installer service
 // shuts down after a sucessfully completed operation
-func installerCompleteOperation(env *localenv.LocalEnvironment) func(context.Context) error {
-	return func(ctx context.Context) error {
+func installerCompleteOperation(env *localenv.LocalEnvironment) installerclient.CompletionHandler {
+	return func(ctx context.Context, interrupt *signals.InterruptHandler) error {
 		logger := log.WithField(trace.Component, "installer:cleanup")
-		if err := environ.CleanupOperationState(env, logger); err != nil {
+		if err := environ.UninstallAgentServices(logger); err != nil {
+			logger.WithError(err).Warn("Failed to uninstall agent services.")
+		}
+		if err := environ.CleanupOperationState(utils.DiscardPrinter, logger); err != nil {
+			logger.WithError(err).Warn("Failed to clean up operation state.")
+		}
+		return nil
+	}
+}
+
+// installerCompleteInteractiveOperation implements the clean up phase for the interactive installer
+// workflow.
+// It adds blocking for the interrupt signal before it shuts down the service and cleans up state.
+func installerCompleteInteractiveOperation(env *localenv.LocalEnvironment) installerclient.CompletionHandler {
+	return func(ctx context.Context, interrupt *signals.InterruptHandler) error {
+		logger := log.WithField(trace.Component, "installer:cleanup")
+		interrupt.Close()
+		env.PrintStep(postInstallInteractiveBanner)
+		signals.WaitFor(os.Interrupt)
+		if err := environ.UninstallAgentServices(logger); err != nil {
+			logger.WithError(err).Warn("Failed to uninstall agent services.")
+		}
+		if err := environ.CleanupOperationState(utils.DiscardPrinter, logger); err != nil {
 			logger.WithError(err).Warn("Failed to clean up operation state.")
 		}
 		return nil
@@ -790,3 +812,10 @@ func upsertSystemAccount(operator ops.Operator) error {
 	_, err := ops.UpsertSystemAccount(operator)
 	return trace.Wrap(err)
 }
+
+var postInstallInteractiveBanner = fmt.Sprintln(`
+Installer process will keep running so the installation can be finished by
+completing necessary post-install actions in the installer UI if the installed
+application requires it.
+`, color.YellowString("After completing the installation, press Ctrl+C to finish the operation."),
+)

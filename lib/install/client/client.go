@@ -17,11 +17,8 @@ package client
 
 import (
 	"context"
-	"errors"
 	"fmt"
-	"io"
 	"path/filepath"
-	"sync"
 
 	"github.com/gravitational/gravity/lib/defaults"
 	installpb "github.com/gravitational/gravity/lib/install/proto"
@@ -102,32 +99,9 @@ func (r *Client) Complete(ctx context.Context, key ops.SiteOperationKey) error {
 // Stop signals the service to stop
 // Implements signals.Stopper
 func (r *Client) Stop(ctx context.Context) error {
-	if r.Completed() {
-		return nil
-	}
-	return r.Shutdown(ctx)
-}
-
-// Shutdown signals the service to stop
-func (r *Client) Shutdown(ctx context.Context) error {
-	r.Info("Shutdown.")
-	_, err := r.client.Shutdown(ctx, &installpb.ShutdownRequest{})
-	return trace.Wrap(err)
-}
-
-// Abort signals that the server cleans up the state and shuts down.
-// Implements signals.Aborter
-func (r *Client) Abort(ctx context.Context) error {
 	r.Info("Abort.")
 	_, err := r.client.Abort(ctx, &installpb.AbortRequest{})
 	return trace.Wrap(err)
-}
-
-// Completed returns true if the operation has already been completed
-func (r *Client) Completed() bool {
-	r.mu.Lock()
-	defer r.mu.Unlock()
-	return r.completed
 }
 
 func (r *Config) checkAndSetDefaults() error {
@@ -145,6 +119,9 @@ func (r *Config) checkAndSetDefaults() error {
 	}
 	if !filepath.IsAbs(r.ServicePath) {
 		return trace.BadParameter("ServicePath needs to be absolute path")
+	}
+	if r.Aborter == nil {
+		return trace.BadParameter("Aborter is required")
 	}
 	if r.Printer == nil {
 		r.Printer = utils.DiscardPrinter
@@ -167,14 +144,23 @@ type ConnectStrategy interface {
 
 // Config describes the configuration of the installer client
 type Config struct {
+	// FieldLogger specifies the logger
 	log.FieldLogger
+	// Printer specifies the message output sink for progress messages
 	utils.Printer
+	// InterruptHandler specifies the interruption handler to register with
 	*signals.InterruptHandler
+	// ConnectStrategy specifies the connection to setup/connect to the service
 	ConnectStrategy
 	// SocketPath specifies the path to the service socket file
 	SocketPath string
 	// ServicePath specifies the absolute path to the service unit
 	ServicePath string
+	// Aborter specifies the completion handler for when the operation is aborted
+	Aborter func(context.Context) error
+	// Completer specifies the optional completion handler for when the operation
+	// is completed successfully
+	Completer func(context.Context, *signals.InterruptHandler) error
 }
 
 // Phase groups parameters for executing/rolling back a phase
@@ -189,42 +175,51 @@ type Phase struct {
 }
 
 func (r *Client) execute(ctx context.Context, req *installpb.ExecuteRequest) error {
+	ctx, cancel := context.WithCancel(ctx)
+	defer cancel()
 	stream, err := r.client.Execute(ctx, req)
 	if err != nil {
 		return trace.Wrap(err)
 	}
-	err = r.progressLoop(stream)
-	if err != errAborted {
-		r.Shutdown(ctx)
+	err = r.progressLoop(ctx, stream)
+	switch {
+	case trace.Unwrap(err) == installpb.ErrAborted:
+		cancel()
+		return trace.Wrap(r.abort(ctx))
+	case err == nil:
+		cancel()
+		return trace.Wrap(r.complete(ctx))
+	case trace.IsEOF(err):
+		// Stream done but no completion event
+		return nil
 	}
 	return trace.Wrap(err)
 }
 
-func (r *Client) progressLoop(stream installpb.Agent_ExecuteClient) (err error) {
+func (r *Client) progressLoop(ctx context.Context, stream installpb.Agent_ExecuteClient) (err error) {
 	for {
 		resp, err := stream.Recv()
 		if err != nil {
+			r.WithError(err).Warn("Failed to fetch progress.")
 			if s, ok := status.FromError(err); ok && s.Code() == codes.Canceled {
 				return nil
 			}
-			if trace.Unwrap(err) == io.EOF {
-				// Stream done
-				return nil
-			}
-			r.WithError(err).Warn("Failed to fetch progress.")
+			// r.WithError(err).Warn("Failed to fetch progress.")
 			return trace.Wrap(err)
 		}
 		if resp.Status == installpb.ProgressResponse_Aborted {
-			return errAborted
+			// r.WithField("resp", resp).Info("Aborted response.")
+			return installpb.ErrAborted
 		}
 		// Exit upon first error
 		if resp.Error != nil {
+			// r.WithField("resp", resp).Info("Exited with operation error.")
 			return trace.BadParameter(resp.Error.Message)
 		}
 		r.PrintStep(resp.Message)
 		if resp.Status == installpb.ProgressResponse_Completed {
-			r.complete()
-			// Do not explicitly exit the loop - wait for service to exit
+			// r.WithField("resp", resp).Info("Completed response.")
+			return nil
 		}
 	}
 }
@@ -233,34 +228,33 @@ func (r *Client) addTerminationHandler() {
 	r.InterruptHandler.AddStopper(r)
 }
 
-// complete marks the operation completed in this client
-// and uninstalls the installer service.
-func (r *Client) complete() {
-	r.mu.Lock()
-	r.completed = true
-	r.mu.Unlock()
-	if err := environ.UninstallAgentServices(r.FieldLogger); err != nil {
-		r.WithError(err).Warn("Failed to uninstall installer service.")
+func (r *Client) abort(ctx context.Context) error {
+	if err := r.Aborter(ctx); err != nil {
+		r.WithError(err).Warn("Failed to abort operation.")
 	}
+	return installpb.ErrAborted
+}
+
+func (r *Client) complete(ctx context.Context) error {
+	if r.Completer != nil {
+		// r.Info("Running completer.")
+		return trace.Wrap(r.Completer(ctx, r.InterruptHandler))
+	}
+	return nil
 }
 
 // Client implements the client to the installer service
 type Client struct {
 	Config
 	client installpb.AgentClient
-
-	// mu guards fields below
-	mu sync.Mutex
-	// completed indicates whether the operation is complete
-	completed bool
 }
+
+// CompletionHandler describes a functional handler for tasks to run after
+// operation is complete
+type CompletionHandler func(context.Context, *signals.InterruptHandler) error
 
 func removeSocketFileCommand(socketPath string) (cmd string) {
 	return fmt.Sprintf("/usr/bin/rm -f %v", socketPath)
 }
 
 var _ signals.Stopper = (*Client)(nil)
-var _ signals.Aborter = (*Client)(nil)
-
-// FIXME: use the lib/install#ErrAborted
-var errAborted = errors.New("operation aborted")

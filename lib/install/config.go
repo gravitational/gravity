@@ -306,7 +306,7 @@ type RuntimeConfig struct {
 	Config
 	// FSMFactory specifies the state machine factory to use
 	FSMFactory engine.FSMFactory
-	// CLusterFactory specifies the cluster request factory to use
+	// ClusterFactory specifies the cluster request factory to use
 	ClusterFactory engine.ClusterFactory
 	// Planner specifies the plan generator
 	Planner engine.Planner
@@ -395,8 +395,7 @@ func newAgent(ctx context.Context, config Config) (*rpcserver.PeerServer, error)
 			Server: serverCreds,
 			Client: clientCreds,
 		},
-		RuntimeConfig:         runtimeConfig,
-		SkipConnectValidation: true,
+		RuntimeConfig: runtimeConfig,
 		ReconnectStrategy: &rpcserver.ReconnectStrategy{
 			ShouldReconnect: func(err error) error {
 				// Reconnect forever

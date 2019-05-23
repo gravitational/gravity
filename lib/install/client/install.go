@@ -18,6 +18,7 @@ package client
 import (
 	"context"
 	"fmt"
+	"os"
 	"path/filepath"
 	"strconv"
 	"strings"
@@ -65,6 +66,9 @@ func (r *InstallerStrategy) connect(ctx context.Context) (installpb.AgentClient,
 // installSelfAsService installs a systemd unit using the current process's command line
 // and turns on service mode
 func (r *InstallerStrategy) installSelfAsService() error {
+	if err := os.MkdirAll(filepath.Dir(r.SocketPath), defaults.SharedDirMask); err != nil {
+		return trace.ConvertSystemError(err)
+	}
 	req := systemservice.NewServiceRequest{
 		ServiceSpec: systemservice.ServiceSpec{
 			StartCommand: strings.Join(r.Args, " "),
@@ -73,6 +77,7 @@ func (r *InstallerStrategy) installSelfAsService() error {
 			},
 			// TODO(dmitri): run as euid?
 			User:                     constants.RootUIDString,
+			SuccessExitStatus:        strconv.Itoa(defaults.AbortedOperationExitCode),
 			RestartPreventExitStatus: strconv.Itoa(defaults.AbortedOperationExitCode),
 			// Enable automatic restart of the service
 			Restart:          "always",
@@ -113,7 +118,7 @@ func (r *InstallerStrategy) checkAndSetDefaults() error {
 		r.SocketPath = installpb.SocketPath()
 	}
 	if r.ConnectTimeout == 0 {
-		r.ConnectTimeout = 10 * time.Minute
+		r.ConnectTimeout = defaults.ServiceConnectTimeout
 	}
 	if r.FieldLogger == nil {
 		r.FieldLogger = log.WithField(trace.Component, "client:installer")
@@ -133,13 +138,13 @@ type InstallerStrategy struct {
 	// ApplicationDir specifies the directory with installer files
 	ApplicationDir string
 	// Validate specifies the environment validation function.
-	// The service will only be installed when Validate returns true
+	// The service will only be installed when Validate returns nil
 	Validate func() error
 	// SocketPath specifies the path to the service socket file
 	SocketPath string
 	// ServicePath specifies the absolute path to the service unit
 	ServicePath string
 	// ConnectTimeout specifies the maximum amount of time to wait for
-	// installer service connection. Wait forever, if unspecified
+	// installer service connection.
 	ConnectTimeout time.Duration
 }

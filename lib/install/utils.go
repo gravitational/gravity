@@ -395,7 +395,7 @@ func ExecuteOperation(ctx context.Context, machine *fsm.FSM, logger log.FieldLog
 
 // Run runs progress loop for the specified operation until the operation
 // is complete or context is cancelled.
-func (r ProgressLooper) Run(ctx context.Context, dispatcher eventDispatcher) error {
+func (r ProgressLooper) Run(ctx context.Context) error {
 	r.WithField("operation", r.OperationKey.OperationID).Info("Start progress feedback loop.")
 	ticker := time.NewTicker(1 * time.Second)
 	defer ticker.Stop()
@@ -411,7 +411,7 @@ func (r ProgressLooper) Run(ctx context.Context, dispatcher eventDispatcher) err
 			if lastProgress != nil && lastProgress.IsEqual(*progress) {
 				continue
 			}
-			dispatcher.Send(server.Event{Progress: progress})
+			r.Dispatcher.Send(server.Event{Progress: progress})
 			lastProgress = progress
 			if progress.IsCompleted() {
 				return nil
@@ -427,10 +427,11 @@ type ProgressLooper struct {
 	log.FieldLogger
 	Operator     ops.Operator
 	OperationKey ops.SiteOperationKey
+	Dispatcher   eventDispatcher
 }
 
 type eventDispatcher interface {
-	Send(server.Event) error
+	Send(server.Event)
 }
 
 func wait(ctx context.Context, cancel context.CancelFunc, p process.GravityProcess) error {
@@ -501,6 +502,3 @@ func initOperationPlan(operator ops.Operator, planner engine.Planner) error {
 	}
 	return nil
 }
-
-// ErrAborted defines the aborted operation error
-var ErrAborted = utils.NewExitCodeErrorWithMessage(defaults.AbortedOperationExitCode, "operation aborted")

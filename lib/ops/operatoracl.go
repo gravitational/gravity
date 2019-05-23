@@ -413,11 +413,11 @@ func (o *OperatorACL) CheckSiteStatus(ctx context.Context, key SiteKey) error {
 }
 
 // ValidateServers runs pre-installation checks
-func (o *OperatorACL) ValidateServers(req ValidateServersRequest) error {
+func (o *OperatorACL) ValidateServers(ctx context.Context, req ValidateServersRequest) error {
 	if err := o.ClusterAction(req.SiteDomain, storage.KindCluster, teleservices.VerbRead); err != nil {
 		return trace.Wrap(err)
 	}
-	return o.operator.ValidateServers(req)
+	return o.operator.ValidateServers(ctx, req)
 }
 
 func (o *OperatorACL) GetSiteInstructions(tokenID string, serverProfile string, params url.Values) (string, error) {

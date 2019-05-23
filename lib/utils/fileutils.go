@@ -144,9 +144,18 @@ func StatFile(path string) (os.FileInfo, error) {
 	return fi, nil
 }
 
-// IsDirectory determines if dir specifies a directory
-func IsDirectory(dir string) (bool, error) {
-	fi, err := os.Stat(dir)
+// IsFile determines if path specifies a regular file
+func IsFile(path string) (bool, error) {
+	fi, err := os.Stat(path)
+	if err != nil {
+		return false, trace.ConvertSystemError(err)
+	}
+	return !fi.IsDir() && fi.Mode().IsRegular(), nil
+}
+
+// IsDirectory determines if path specifies a directory
+func IsDirectory(path string) (bool, error) {
+	fi, err := os.Stat(path)
 	if err != nil {
 		return false, trace.ConvertSystemError(err)
 	}

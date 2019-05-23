@@ -66,14 +66,7 @@ func UninstallSystem(printer utils.Printer, logger log.FieldLogger) (err error) 
 
 // CleanupOperationState removes all operation state after the operation is complete
 func CleanupOperationState(printer utils.Printer, logger log.FieldLogger) (err error) {
-	var errors []error
-	if err := UninstallAgentServices(logger); err != nil {
-		errors = append(errors, err)
-	}
-	if err := removeDirectories(printer, logger, state.GravityInstallDir()); err != nil {
-		errors = append(errors, err)
-	}
-	return trace.NewAggregate(errors...)
+	return trace.Wrap(removeDirectories(printer, logger, state.GravityInstallDir()))
 }
 
 // UninstallAgentServices stops and uninstalls agent services (installer agent and/or service)
@@ -112,7 +105,6 @@ func DisableAgentServices(logger log.FieldLogger) error {
 	} {
 		req := systemservice.DisableServiceRequest{
 			Name: service,
-			Mask: true,
 		}
 		if err := svm.DisableService(req); err != nil && !systemservice.IsUnknownServiceError(err) {
 			logger.WithError(err).Warn("Failed to disable agent service.")
@@ -181,7 +173,7 @@ func removeDirectories(printer utils.Printer, logger log.FieldLogger, dirs ...st
 			printer.PrintStep("Removed %v", dir)
 			continue
 		}
-		if os.IsNotExist(err) {
+		if os.IsNotExist(err) || utils.IsResourceBusyError(err) {
 			continue
 		}
 		logger.WithFields(log.Fields{

@@ -433,12 +433,12 @@ func (r *Router) GetSiteReport(key ops.SiteKey) (io.ReadCloser, error) {
 }
 
 // ValidateServers runs pre-installation checks
-func (r *Router) ValidateServers(req ops.ValidateServersRequest) error {
+func (r *Router) ValidateServers(ctx context.Context, req ops.ValidateServersRequest) error {
 	client, err := r.WizardClient(req.SiteDomain)
 	if err != nil {
 		return trace.Wrap(err)
 	}
-	return client.ValidateServers(req)
+	return client.ValidateServers(ctx, req)
 }
 
 func (r *Router) ValidateDomainName(domainName string) error {

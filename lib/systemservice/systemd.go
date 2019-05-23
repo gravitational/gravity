@@ -63,6 +63,7 @@ ExecStartPre={{.}}{{end}}
 {{if .RestartSec}}RestartSec={{.RestartSec}}{{end}}
 {{if .RemainAfterExit}}RemainAfterExit=yes{{end}}
 {{if .RestartPreventExitStatus}}RestartPreventExitStatus={{.RestartPreventExitStatus}}{{end}}
+{{if .SuccessExitStatus}}SuccessExitStatus={{.SuccessExitStatus}}{{end}}
 {{if .WorkingDirectory}}WorkingDirectory={{.WorkingDirectory}}{{end}}
 {{range $k, $v := .Environment}}Environment={{$k}}={{$v}}
 {{end}}
@@ -369,13 +370,6 @@ func (s *systemdManager) UninstallService(req UninstallServiceRequest) error {
 // DisableService disables service without stopping it
 func (s *systemdManager) DisableService(req DisableServiceRequest) error {
 	out, err := invokeSystemctl("disable", serviceName(req.Name))
-	if err != nil {
-		return trace.Wrap(err, "error disabling service %v: %s", req.Name, out)
-	}
-	if !req.Mask {
-		return nil
-	}
-	out, err = invokeSystemctl("mask", serviceName(req.Name))
 	if err != nil {
 		return trace.Wrap(err, "error disabling service %v: %s", req.Name, out)
 	}

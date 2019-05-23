@@ -1758,7 +1758,7 @@ type Validation interface {
 	// ValidateDomainName validates that the chosen domain name is unique
 	ValidateDomainName(domainName string) error
 	// ValidateServers runs pre-installation checks
-	ValidateServers(ValidateServersRequest) error
+	ValidateServers(context.Context, ValidateServersRequest) error
 	// ValidateRemoteAccess verifies that the cluster nodes are accessible remotely
 	ValidateRemoteAccess(ValidateRemoteAccessRequest) (*ValidateRemoteAccessResponse, error)
 }

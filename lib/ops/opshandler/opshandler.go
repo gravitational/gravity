@@ -1188,7 +1188,7 @@ func (h *WebHandler) validateServers(w http.ResponseWriter, r *http.Request, p h
 	if err := d.Decode(&req); err != nil {
 		return trace.BadParameter(err.Error())
 	}
-	err := context.Operator.ValidateServers(req)
+	err := context.Operator.ValidateServers(context.Context, req)
 	if err != nil {
 		return trace.Wrap(err)
 	}

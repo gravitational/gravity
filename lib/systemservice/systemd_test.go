@@ -78,6 +78,7 @@ func (s *SystemdSuite) TestServiceTemplate(c *C) {
 			TimeoutStopSec:           "5min",
 			ConditionPathExists:      "/path/to/foo",
 			RestartPreventExitStatus: "1 2 3",
+			SuccessExitStatus:        "254",
 			WorkingDirectory:         "/foo/bar",
 		},
 	})
@@ -109,6 +110,7 @@ TimeoutStopSec=5min
 RestartSec=3
 RemainAfterExit=yes
 RestartPreventExitStatus=1 2 3
+SuccessExitStatus=254
 WorkingDirectory=/foo/bar
 Environment=PATH=/usr/bin
 

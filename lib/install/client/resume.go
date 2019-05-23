@@ -24,6 +24,7 @@ import (
 	installpb "github.com/gravitational/gravity/lib/install/proto"
 	"github.com/gravitational/gravity/lib/state"
 	"github.com/gravitational/gravity/lib/system/service"
+	"github.com/gravitational/gravity/lib/utils"
 
 	"github.com/gravitational/trace"
 	log "github.com/sirupsen/logrus"
@@ -50,9 +51,12 @@ func (r *ResumeStrategy) connect(ctx context.Context) (installpb.AgentClient, er
 	return client, nil
 }
 
-func (r *ResumeStrategy) checkAndSetDefaults() error {
+func (r *ResumeStrategy) checkAndSetDefaults() (err error) {
 	if r.ServicePath == "" {
-		r.ServicePath = state.GravityInstallDir(defaults.GravityRPCInstallerServiceName)
+		r.ServicePath, err = getServicePath(state.GravityInstallDir())
+		if err != nil {
+			return trace.Wrap(err)
+		}
 	}
 	if r.SocketPath == "" {
 		r.SocketPath = installpb.SocketPath()
@@ -86,4 +90,16 @@ type ResumeStrategy struct {
 	// ConnectTimeout specifies the maximum amount of time to wait for
 	// installer service connection. Wait forever, if unspecified
 	ConnectTimeout time.Duration
+}
+
+func getServicePath(stateDir string) (path string, err error) {
+	for _, name := range []string{
+		defaults.GravityRPCInstallerServiceName,
+		defaults.GravityRPCAgentServiceName,
+	} {
+		if ok, _ := utils.IsFile(filepath.Join(stateDir, name)); ok {
+			return filepath.Join(stateDir, name), nil
+		}
+	}
+	return "", trace.NotFound("no service unit file in %v", stateDir)
 }

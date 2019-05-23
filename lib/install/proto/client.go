@@ -21,8 +21,10 @@ import (
 	"path/filepath"
 	"time"
 
+	"github.com/gravitational/gravity/lib/defaults"
 	"github.com/gravitational/gravity/lib/ops"
 	"github.com/gravitational/gravity/lib/state"
+	"github.com/gravitational/gravity/lib/utils"
 
 	"github.com/gogo/protobuf/types"
 	"github.com/gravitational/trace"
@@ -101,3 +103,11 @@ func KeyToProto(key ops.SiteOperationKey) *OperationKey {
 
 // Empty defines the empty RPC message
 var Empty = &types.Empty{}
+
+// IsAbortedErr returns true if the specifies error identifies the aborted operation
+func IsAbortedErr(err error) bool {
+	return trace.Unwrap(err) == ErrAborted
+}
+
+// ErrAborted defines the aborted operation error
+var ErrAborted = utils.NewExitCodeErrorWithMessage(defaults.AbortedOperationExitCode, "operation aborted")

@@ -59,9 +59,7 @@ func NewPeer(ctx context.Context, config PeerConfig) (*Peer, error) {
 	if err := config.CheckAndSetDefaults(); err != nil {
 		return nil, trace.Wrap(err)
 	}
-	server := server.New(ctx, server.Config{
-		AbortHandler: config.AbortHandler,
-	})
+	server := server.New(ctx)
 	localCtx, cancel := context.WithCancel(ctx)
 	peer := &Peer{
 		PeerConfig: config,
@@ -87,25 +85,21 @@ type Peer struct {
 // Run runs the peer operation
 func (p *Peer) Run(listener net.Listener) error {
 	errC := make(chan error, 1)
-	go watchReconnects(p.ctx, p.cancel, p.WatchCh, p.FieldLogger)
+	// go watchReconnects(p.ctx, p.cancel, p.WatchCh, p.FieldLogger)
 	go func() {
 		errC <- p.server.Serve(p, listener)
 	}()
-	defer func() {
-		ctx, cancel := context.WithTimeout(context.Background(), defaults.ShutdownTimeout)
-		p.stopRPC(ctx)
-		cancel()
-	}()
 	select {
 	case err := <-errC:
-		if exitErr := p.server.ExitError(); exitErr != nil {
-			err = exitErr
-		}
+		p.stop()
 		return trace.Wrap(err)
-	case <-p.server.Aborted():
-		return trace.Wrap(install.ErrAborted)
-	case <-p.server.Done():
-		return nil
+	case err := <-p.server.Done():
+		if installpb.IsAbortedErr(err) {
+			p.abort()
+			return trace.Wrap(err)
+		}
+		p.stop()
+		return trace.Wrap(err)
 	}
 }
 
@@ -113,33 +107,8 @@ func (p *Peer) Run(listener net.Listener) error {
 // Implements signals.Stopper
 func (p *Peer) Stop(ctx context.Context) error {
 	p.Info("Stop.")
-	// p.cancel()
-	p.server.Stop(ctx)
-	return nil
-}
-
-// Abort aborts this RPC agent
-// Implements signals.Aborter
-func (p *Peer) Abort(ctx context.Context) error {
-	p.Info("Abort.")
 	p.server.Interrupt(ctx)
-	p.Info("Aborted.")
 	return nil
-}
-
-// Shutdown shuts down this peer.
-// Implements server.Executor
-func (p *Peer) Shutdown(ctx context.Context) error {
-	p.Info("Shutdown.")
-	p.cancel()
-	return nil
-}
-
-// AbortOperation aborts the installation and cleans up the operation state.
-// Implements server.Executor
-func (p *Peer) AbortOperation(ctx context.Context) error {
-	p.Info("AbortOperation.")
-	return trace.Wrap(p.abort(ctx))
 }
 
 // Execute executes the peer operation (join or just serving an agent).
@@ -202,10 +171,6 @@ type PeerConfig struct {
 	OperationID string
 	// StateDir defines where peer will store operation-specific data
 	StateDir string
-	// AbortHandler specifies the handler for aborting the installation
-	AbortHandler func(context.Context) error
-	// CompleteHandler specifies the cleanup handler for shutdown
-	CompleteHandler func(context.Context) error
 }
 
 // CheckAndSetDefaults checks the parameters and autodetects some defaults
@@ -237,18 +202,15 @@ func (c *PeerConfig) CheckAndSetDefaults() (err error) {
 	if c.StateDir == "" {
 		return trace.BadParameter("missing StateDir")
 	}
-	if c.AbortHandler == nil {
-		return trace.BadParameter("missing AbortHandler")
-	}
-	if c.CompleteHandler == nil {
-		return trace.BadParameter("missing CompleteHandler")
-	}
 	c.CloudProvider, err = install.ValidateCloudProvider(c.CloudProvider)
 	if err != nil {
 		return trace.Wrap(err)
 	}
 	if c.FieldLogger == nil {
-		c.FieldLogger = log.WithField(trace.Component, "peer")
+		c.FieldLogger = log.WithFields(log.Fields{
+			trace.Component: "peer",
+			"addr":          c.AdvertiseAddr,
+		})
 	}
 	if c.WatchCh == nil {
 		c.WatchCh = make(chan rpcserver.WatchEvent, 1)
@@ -282,21 +244,32 @@ func (p *Peer) executeOperation(machine *fsm.FSM) error {
 	return trace.Wrap(install.ExecuteOperation(p.ctx, machine, p.FieldLogger))
 }
 
-// abort aborts the installation and cleans up the operation state.
-func (p *Peer) abort(ctx context.Context) error {
+func (p *Peer) stop() {
+	ctx, cancel := context.WithTimeout(context.Background(), defaults.ShutdownTimeout)
+	defer cancel()
 	p.cancel()
-	var errors []error
-	p.server.Wait()
-	if err := p.AbortHandler(ctx); err != nil {
-		errors = append(errors, err)
+	p.server.Stop(ctx)
+}
+
+func (p *Peer) abort() {
+	ctx, cancel := context.WithTimeout(context.Background(), defaults.ShutdownTimeout)
+	defer cancel()
+	if err := p.abortWithContext(ctx); err != nil {
+		p.WithError(err).Warn("Failed to abort.")
 	}
-	return trace.NewAggregate(errors...)
+}
+
+// abortWithContext aborts the installation and cleans up the operation state.
+func (p *Peer) abortWithContext(ctx context.Context) error {
+	p.cancel()
+	p.server.Stop(ctx)
+	return nil
 }
 
 // printStep publishes a progress entry described with (format, args) tuple to the client
-func (p *Peer) printStep(format string, args ...interface{}) error {
+func (p *Peer) printStep(format string, args ...interface{}) {
 	event := server.Event{Progress: &ops.ProgressEntry{Message: fmt.Sprintf(format, args...)}}
-	return p.server.Send(event)
+	p.server.Send(event)
 }
 
 // createExpandOperation creates a new expand operation
@@ -557,35 +530,30 @@ func (p *Peer) tryConnect(operationID string) (op *operationContext, err error) 
 	return op, trace.Wrap(err)
 }
 
-// startAgent starts an RPC agent that handles remote RPC calls
-func (p *Peer) startAgent(opCtx operationContext) error {
+// newAgent returns an instance of the RPC agent to handle remote calls
+func (p *Peer) newAgent(opCtx operationContext) (*rpcserver.PeerServer, error) {
 	peerAddr, token, err := getPeerAddrAndToken(opCtx, p.Role)
 	if err != nil {
-		return trace.Wrap(err)
+		return nil, trace.Wrap(err)
 	}
 	p.RuntimeConfig.Token = token
-	p.agent, err = install.NewAgent(p.ctx, install.AgentConfig{
-		FieldLogger:     p.WithField(trace.Component, "rpc:peer"),
-		AdvertiseAddr:   p.AdvertiseAddr,
-		ServerAddr:      peerAddr,
-		Credentials:     opCtx.Creds,
-		RuntimeConfig:   p.RuntimeConfig,
-		WatchCh:         p.WatchCh,
-		AbortHandler:    p.Abort,
-		CompleteHandler: p.CompleteHandler,
+	agent, err := install.NewAgent(p.ctx, install.AgentConfig{
+		FieldLogger: p.WithFields(log.Fields{
+			trace.Component: "rpc:peer",
+			"addr":          p.AdvertiseAddr,
+		}),
+		AdvertiseAddr: p.AdvertiseAddr,
+		ServerAddr:    peerAddr,
+		Credentials:   opCtx.Creds,
+		RuntimeConfig: p.RuntimeConfig,
+		WatchCh:       p.WatchCh,
+		AbortHandler:  p.server.Interrupt,
 	})
 	if err != nil {
-		if p.agent != nil {
-			p.agent.Stop(p.ctx)
-		}
-		return trace.Wrap(err)
+
+		return nil, trace.Wrap(err)
 	}
-	go func() {
-		if err := p.agent.Serve(); err != nil {
-			p.WithError(err).Warn("Agent failed.")
-		}
-	}()
-	return nil
+	return agent, nil
 }
 
 func (p *Peer) run() error {
@@ -630,29 +598,28 @@ func (p *Peer) run() error {
 		}
 	}()
 
-	err = p.startAgent(*ctx)
+	agent, err := p.newAgent(*ctx)
 	if err != nil {
 		return trace.Wrap(err)
 	}
 
+	go install.ProgressLooper{
+		FieldLogger:  p.FieldLogger,
+		Operator:     ctx.Operator,
+		OperationKey: ctx.Operation.Key(),
+		Dispatcher:   p.server,
+	}.Run(p.ctx)
+
 	if ctx.Operation.Type != ops.OperationExpand {
-		looper := install.ProgressLooper{
-			FieldLogger:  p.FieldLogger,
-			Operator:     ctx.Operator,
-			OperationKey: ctx.Operation.Key(),
+		return trace.Wrap(agent.Serve())
+	}
+
+	go func() {
+		if err := agent.Serve(); err != nil {
+			p.WithError(err).Warn("Failed to serve agent.")
 		}
-		return trace.Wrap(looper.Run(p.ctx, p.server))
-	}
-
+	}()
 	return trace.Wrap(p.startExpandOperation(*ctx))
-}
-
-func (p *Peer) stopRPC(ctx context.Context) {
-	p.server.StopRPC()
-	if p.agent != nil {
-		p.Info("Stopping agent RPC server.")
-		p.agent.Stop(ctx)
-	}
 }
 
 // waitForOperation blocks until the join operation is ready
@@ -837,46 +804,27 @@ func (p *Peer) validateWizardState(operator ops.Operator) (*ops.Site, *ops.SiteO
 		// that has been placed into manual mode
 		return &cluster, operation, nil
 	}
-
-	// FIXME: this is not friends with the option when the node running the installer
-	// is not to be part of the cluster
-	//
-	// // unless installing via UI, do not join until there's at least one other
-	// // agent, this way we can make sure that the agent on the installer node
-	// // (the one that runs "install") joins first
-	// // This is important to avoid the case when the joining agent joins a single
-	// // node install by mistake
-	// if p.OperationID == "" { // operation ID is given in UI usecase
-	// 	report, err := operator.GetSiteInstallOperationAgentReport(operation.Key())
-	// 	if err != nil {
-	// 		return nil, nil, trace.Wrap(err)
-	// 	}
-	// 	if len(report.Servers) == 0 {
-	// 		return nil, nil, trace.NotFound("no other agents joined yet")
-	// 	}
-	// }
-
 	return &cluster, operation, nil
 }
 
-func watchReconnects(ctx context.Context, cancel context.CancelFunc, watchCh <-chan rpcserver.WatchEvent, logger log.FieldLogger) {
-	for {
-		select {
-		case event := <-watchCh:
-			if event.Error == nil {
-				continue
-			}
-			logger.WithFields(log.Fields{
-				log.ErrorKey: event.Error,
-				"peer":       event.Peer,
-			}).Warn("Failed to reconnect, will abort.")
-			cancel()
-			return
-		case <-ctx.Done():
-			return
-		}
-	}
-}
+// func watchReconnects(ctx context.Context, cancel context.CancelFunc, watchCh <-chan rpcserver.WatchEvent, logger log.FieldLogger) {
+// 	for {
+// 		select {
+// 		case event := <-watchCh:
+// 			if event.Error == nil {
+// 				continue
+// 			}
+// 			logger.WithFields(log.Fields{
+// 				log.ErrorKey: event.Error,
+// 				"peer":       event.Peer,
+// 			}).Warn("Failed to reconnect, will abort.")
+// 			cancel()
+// 			return
+// 		case <-ctx.Done():
+// 			return
+// 		}
+// 	}
+// }
 
 // getPeerAddrAndToken returns the peer address and token for the specified role
 func getPeerAddrAndToken(ctx operationContext, role string) (peerAddr, token string, err error) {

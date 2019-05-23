@@ -29,7 +29,7 @@ service Agent {
     rpc Complete(CompleteRequest) returns (google.protobuf.Empty);
 
     // Shutdown requests that the installer exits
-    rpc Shutdown(ShutdownRequest) returns (ShutdownResponse);
+    // rpc Shutdown(ShutdownRequest) returns (ShutdownResponse);
 
     // Abort requests that the installer service aborts and cleans up
     // the state of the operation

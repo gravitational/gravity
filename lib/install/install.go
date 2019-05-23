@@ -59,9 +59,7 @@ func New(ctx context.Context, config RuntimeConfig) (installer *Installer, err e
 			return nil, trace.Wrap(err)
 		}
 	}
-	server := server.New(ctx, server.Config{
-		AbortHandler: config.AbortHandler,
-	})
+	server := server.New(ctx)
 	localCtx, cancel := context.WithCancel(ctx)
 	return &Installer{
 		FieldLogger: config.FieldLogger,
@@ -79,21 +77,19 @@ func (i *Installer) Run(listener net.Listener) error {
 	go func() {
 		errC <- i.server.Serve(i, listener)
 	}()
-	defer func() {
-		ctx, cancel := context.WithTimeout(context.Background(), defaults.ShutdownTimeout)
-		i.stopRPC(ctx)
-		cancel()
-	}()
 	select {
 	case err := <-errC:
-		if exitErr := i.server.ExitError(); exitErr != nil {
-			err = exitErr
-		}
+		i.WithError(err).Warn("Server.Serve finished.")
+		i.stop()
 		return trace.Wrap(err)
-	case <-i.server.Aborted():
-		return trace.Wrap(ErrAborted)
-	case <-i.server.Done():
-		return nil
+	case err := <-i.server.Done():
+		i.WithError(err).Warn("Server finished.")
+		if installpb.IsAbortedErr(err) {
+			i.abort()
+			return trace.Wrap(err)
+		}
+		i.stop()
+		return trace.Wrap(err)
 	}
 }
 
@@ -101,17 +97,6 @@ func (i *Installer) Run(listener net.Listener) error {
 // Implements signals.Stopper
 func (i *Installer) Stop(ctx context.Context) error {
 	i.Info("Stop.")
-	i.server.Stop(ctx)
-	return nil
-}
-
-// Abort stops the server, releases resources allocated by the installer and cleans up state.
-// Implements signals.Aborter
-func (i *Installer) Abort(ctx context.Context) error {
-	i.Info("Abort.")
-	if err := i.abort(ctx); err != nil {
-		i.WithError(err).Warn("Failed to abort.")
-	}
 	i.server.Interrupt(ctx)
 	return nil
 }
@@ -136,7 +121,7 @@ type Interface interface {
 	// or specified context has expired
 	Wait() error
 	// PrintStep publishes a progress entry described with (format, args)
-	PrintStep(format string, args ...interface{}) error
+	PrintStep(format string, args ...interface{})
 }
 
 // NotifyOperationAvailable is invoked by the engine to notify the server
@@ -146,12 +131,9 @@ func (i *Installer) NotifyOperationAvailable(op ops.SiteOperation) error {
 	if i.agent != nil {
 		i.startAgent(op)
 	}
-	i.addAborter(signals.AborterFunc(func(ctx context.Context, interrupted bool) error {
-		if interrupted {
-			i.WithField("operation", op.ID).Info("Aborting agent service.")
-			return trace.Wrap(i.config.Process.AgentService().AbortAgents(ctx, op.Key()))
-		}
-		return nil
+	i.addAborter(signals.StopperFunc(func(ctx context.Context) error {
+		i.WithField("operation", op.ID).Info("Aborting agent service.")
+		return trace.Wrap(i.config.Process.AgentService().AbortAgents(ctx, op.Key()))
 	}))
 	if err := i.upsertAdminAgent(op.SiteDomain); err != nil {
 		return trace.Wrap(err)
@@ -160,7 +142,8 @@ func (i *Installer) NotifyOperationAvailable(op ops.SiteOperation) error {
 		FieldLogger:  i.FieldLogger,
 		Operator:     i.config.Operator,
 		OperationKey: op.Key(),
-	}.Run(i.ctx, i.server)
+		Dispatcher:   i.server,
+	}.Run(i.ctx)
 
 	return nil
 }
@@ -234,15 +217,16 @@ func (i *Installer) CompleteFinalInstallStep(key ops.SiteOperationKey, delay tim
 
 // PrintStep publishes a progress entry described with (format, args) tuple to the client.
 // Implements Interface
-func (i *Installer) PrintStep(format string, args ...interface{}) error {
+func (i *Installer) PrintStep(format string, args ...interface{}) {
 	event := server.Event{Progress: &ops.ProgressEntry{Message: fmt.Sprintf(format, args...)}}
-	return trace.Wrap(i.server.Send(event))
+	i.server.Send(event)
 }
 
 // Wait blocks until either the context has been cancelled or the wizard process
 // exits with an error.
 // Implements Interface
 func (i *Installer) Wait() error {
+	i.stopStoppers(i.ctx)
 	return trace.Wrap(i.config.Process.Wait())
 }
 
@@ -250,7 +234,7 @@ func (i *Installer) Wait() error {
 // Implements server.Executor
 func (i *Installer) Shutdown(ctx context.Context) error {
 	i.Info("Shutdown.")
-	return trace.Wrap(i.stop(ctx))
+	return trace.Wrap(i.stopWithContext(ctx))
 }
 
 // Execute executes the install operation using the specified engine
@@ -276,13 +260,6 @@ func (i *Installer) Complete(opKey ops.SiteOperationKey) error {
 	return trace.Wrap(machine.Complete(trace.Errorf("completed manually")))
 }
 
-// AbortOperation aborts the installation and cleans up the operation state.
-// Implements server.Executor
-func (i *Installer) AbortOperation(ctx context.Context) error {
-	i.Info("Abort.")
-	return trace.Wrap(i.abort(ctx))
-}
-
 func (i *Installer) executePhase(phase installpb.ExecuteRequest_Phase) error {
 	opKey := installpb.KeyFromProto(phase.Key)
 	machine, err := i.config.FSMFactory.NewFSM(i.config.Operator, opKey)
@@ -306,34 +283,46 @@ func (i *Installer) executeOperation(machine *fsm.FSM) error {
 	return trace.Wrap(ExecuteOperation(i.ctx, machine, i.FieldLogger))
 }
 
+func (i *Installer) stop() {
+	ctx, cancel := context.WithTimeout(context.Background(), defaults.ShutdownTimeout)
+	defer cancel()
+	if err := i.stopWithContext(ctx); err != nil {
+		i.WithError(err).Warn("Failed to stop.")
+	}
+}
+
+func (i *Installer) abort() {
+	ctx, cancel := context.WithTimeout(context.Background(), defaults.ShutdownTimeout)
+	defer cancel()
+	if err := i.abortWithContext(ctx); err != nil {
+		i.WithError(err).Warn("Failed to abort.")
+	}
+}
+
 // stop stops the operation in progress
-func (i *Installer) stop(ctx context.Context) error {
+func (i *Installer) stopWithContext(ctx context.Context) error {
+	i.cancel()
+	if i.agent != nil {
+		i.agent.Stop(ctx)
+	}
+	err := i.stopStoppers(ctx)
+	i.config.Process.Shutdown(ctx)
+	i.server.Stop(ctx)
+	return trace.Wrap(err)
+}
+
+// abortWithContext aborts the active operation and invokes the abort handler
+func (i *Installer) abortWithContext(ctx context.Context) error {
+	i.server.SendAbort()
 	i.cancel()
 	var errors []error
-	for _, c := range i.stoppers {
+	for _, c := range i.aborters {
 		if err := c.Stop(ctx); err != nil {
 			errors = append(errors, err)
 		}
 	}
 	i.config.Process.Shutdown(ctx)
-	i.server.Wait()
-	return trace.NewAggregate(errors...)
-}
-
-// abort aborts the active operation and invokes the abort handler
-func (i *Installer) abort(ctx context.Context) error {
-	i.cancel()
-	var errors []error
-	for _, c := range i.aborters {
-		if err := c.Abort(ctx); err != nil {
-			errors = append(errors, err)
-		}
-	}
-	i.config.Process.Shutdown(ctx)
-	i.server.Wait()
-	if err := i.config.AbortHandler(ctx); err != nil {
-		errors = append(errors, err)
-	}
+	i.server.Stop(ctx)
 	return trace.NewAggregate(errors...)
 }
 
@@ -362,7 +351,19 @@ func (i *Installer) sendPostInstallBanner() {
 		// Send the completion event
 		Complete: true,
 	}
+	// FIXME: logging
+	// i.Info("Send completion event.")
 	i.server.Send(event)
+}
+
+func (i *Installer) stopStoppers(ctx context.Context) error {
+	var errors []error
+	for _, c := range i.stoppers {
+		if err := c.Stop(ctx); err != nil {
+			errors = append(errors, err)
+		}
+	}
+	return trace.NewAggregate(errors...)
 }
 
 func (i *Installer) printEndpoints(w io.Writer) {
@@ -441,7 +442,7 @@ func (i *Installer) addStopper(stopper signals.Stopper) {
 	i.stoppers = append(i.stoppers, stopper)
 }
 
-func (i *Installer) addAborter(aborter signals.Aborter) {
+func (i *Installer) addAborter(aborter signals.Stopper) {
 	i.aborters = append(i.aborters, aborter)
 }
 
@@ -458,20 +459,13 @@ func (i *Installer) startAgent(operation ops.SiteOperation) error {
 	return nil
 }
 
-func (i *Installer) stopRPC(ctx context.Context) {
-	i.server.StopRPC()
-	if i.agent != nil {
-		i.agent.Stop(ctx)
-	}
-}
-
 // Installer manages the installation process
 type Installer struct {
 	// FieldLogger specifies the installer's logger
 	log.FieldLogger
 	config   RuntimeConfig
 	stoppers []signals.Stopper
-	aborters []signals.Aborter
+	aborters []signals.Stopper
 	// ctx controls the lifespan of internal processes
 	ctx    context.Context
 	cancel context.CancelFunc
