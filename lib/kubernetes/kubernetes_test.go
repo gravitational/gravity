@@ -248,7 +248,7 @@ func newPod(name string) *v1.Pod {
 			Containers: []v1.Container{
 				{
 					Name:    name,
-					Image:   "apiserver:5000/gravitational/debian-tall:0.0.1",
+					Image:   "apiserver:5000/gravitational/debian-tall:stretch",
 					Command: []string{"/bin/sh", "-c", "sleep 3600"},
 				},
 			},

@@ -311,6 +311,8 @@ type Application struct {
 	ResourceRemoveCmd ResourceRemoveCmd
 	// ResourceGetCmd shows specified resource
 	ResourceGetCmd ResourceGetCmd
+	// TopCmd displays cluster metrics in terminal
+	TopCmd TopCmd
 }
 
 // VersionCmd displays the binary version
@@ -561,9 +563,6 @@ type UpdateTriggerCmd struct {
 	App *string
 	// Manual starts operation in manual mode
 	Manual *bool
-	// Block controls whether to wait for the operation to finish.
-	// If false, this enables to run the operation unattended
-	Block *bool
 	// SkipVersionCheck suppresses version mismatch errors
 	SkipVersionCheck *bool
 }
@@ -607,9 +606,6 @@ type UpgradeCmd struct {
 	App *string
 	// Manual starts upgrade in manual mode
 	Manual *bool
-	// Block controls whether to wait for the operation to finish.
-	// If false, this enables to run the operation unattended
-	Block *bool
 	// Phase is upgrade operation phase to execute
 	Phase *string
 	// Timeout is phase execution timeout
@@ -1650,4 +1646,13 @@ type ResourceGetCmd struct {
 	WithSecrets *bool
 	// User is resource owner
 	User *string
+}
+
+// TopCmd displays cluster metrics in terminal.
+type TopCmd struct {
+	*kingpin.CmdClause
+	// Interval is the interval to display metrics for.
+	Interval *time.Duration
+	// Step is the max time b/w two datapoints.
+	Step *time.Duration
 }

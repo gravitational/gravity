@@ -528,14 +528,11 @@ const (
 	// GrafanaServicePort is the port Grafana service is listening on
 	GrafanaServicePort = 3000
 
-	// InfluxDBServiceAddr is the address of InfluxDB service
-	InfluxDBServiceAddr = "influxdb.monitoring.svc.cluster.local"
-	// InfluxDBServicePort is the API port of InfluxDB service
-	InfluxDBServicePort = 8086
-	// InfluxDBAdminUser is the InfluxDB admin user name
-	InfluxDBAdminUser = "root"
-	// InfluxDBAdminPassword is the InfluxDB admin user password
-	InfluxDBAdminPassword = "root"
+	// PrometheusServiceAddr is the Prometheus HTTP API service address.
+	PrometheusServiceAddr = "prometheus-k8s.monitoring.svc.cluster.local:9090"
+
+	// LograngeAggregatorServiceName is the name of the Logrange aggregator service.
+	LograngeAggregatorServiceName = "lr-aggregator"
 
 	// WriteFactor is a default amount of acknowledged writes for object storage
 	// to be considered successfull
@@ -1038,7 +1035,7 @@ var (
 	RSAPrivateKeyBits = 4096
 
 	// HookContainerNameTag identifies the container image used for application hooks
-	HookContainerNameTag = "gravitational/debian-tall:0.0.1"
+	HookContainerNameTag = "gravitational/debian-tall:stretch"
 
 	// UpdateAppSyncTimeout defines the maximum amount of time to sync application
 	// state with an updated node during update
@@ -1133,6 +1130,11 @@ var (
 		"hmac-sha2-256-etm@openssh.com",
 		"hmac-sha2-256",
 	}
+
+	// MetricsInterval is the default interval cluster metrics are displayed for.
+	MetricsInterval = time.Hour
+	// MetricsStep is the default interval b/w cluster metrics data points.
+	MetricsStep = 15 * time.Second
 )
 
 // HookSecurityContext returns default securityContext for hook pods

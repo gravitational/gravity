@@ -18,14 +18,11 @@ package webapi
 
 import (
 	"bytes"
-	"fmt"
 	"strconv"
-	"strings"
 	"text/template"
 
 	"github.com/gravitational/gravity/lib/defaults"
 	"github.com/gravitational/gravity/lib/ops"
-	"github.com/gravitational/gravity/lib/utils"
 
 	"github.com/gravitational/trace"
 )
@@ -56,32 +53,16 @@ type webClusterCommands struct {
 
 // getClusterInfo collects information for the specified cluster.
 func getClusterInfo(operator ops.Operator, cluster ops.Site) (*webClusterInfo, error) {
-	authGateway, err := operator.GetAuthGateway(cluster.Key())
-	if err != nil {
-		return nil, trace.Wrap(err)
-	}
 	masterNode, err := cluster.FirstMaster()
 	if err != nil {
 		return nil, trace.Wrap(err)
 	}
-	var internalAddrs []string
-	for _, node := range cluster.Masters() {
-		internalAddrs = append(internalAddrs, fmt.Sprintf("%v:%v",
-			node.AdvertiseIP, defaults.GravitySiteNodePort))
-	}
-	var publicAddrs []string
-	for _, webAddr := range authGateway.GetWebPublicAddrs() {
-		publicAddrs = append(publicAddrs, utils.EnsurePort(
-			webAddr, defaults.HTTPSPort))
-	}
-	var proxyAddr string
-	if len(publicAddrs) != 0 {
-		proxyAddr = publicAddrs[0]
-	} else {
-		proxyAddr = internalAddrs[0]
+	endpoints, err := ops.GetClusterEndpoints(operator, cluster.Key())
+	if err != nil {
+		return nil, trace.Wrap(err)
 	}
 	tshLoginCommand, err := renderCommand(tshLoginTpl, map[string]string{
-		"proxyAddr": proxyAddr,
+		"proxyAddr": endpoints.FirstAuthGateway(),
 	})
 	if err != nil {
 		return nil, trace.Wrap(err)
@@ -111,8 +92,8 @@ func getClusterInfo(operator ops.Operator, cluster ops.Site) (*webClusterInfo, e
 	}
 	return &webClusterInfo{
 		ClusterState: cluster.State,
-		PublicURLs:   makeURLs(publicAddrs),
-		InternalURLs: makeURLs(internalAddrs),
+		PublicURLs:   endpoints.Public.ManagementURLs,
+		InternalURLs: endpoints.Internal.ManagementURLs,
 		Commands: webClusterCommands{
 			TshLogin:        tshLoginCommand,
 			GravityDownload: gravityDownloadCommand,
@@ -128,18 +109,6 @@ func renderCommand(tpl *template.Template, params map[string]string) (string, er
 		return "", trace.Wrap(err)
 	}
 	return b.String(), nil
-}
-
-// makeURLs converts provided addresses into URLs.
-func makeURLs(addrs []string) (urls []string) {
-	for _, addr := range addrs {
-		if !strings.HasPrefix(addr, "https://") {
-			urls = append(urls, fmt.Sprintf("https://%v", addr))
-		} else {
-			urls = append(urls, addr)
-		}
-	}
-	return urls
 }
 
 var (

@@ -531,7 +531,7 @@ metadata:
 					Containers: []v1.Container{
 						{
 							Name:            "hello-1",
-							Image:           "quay.io/gravitational/debian-grande:0.0.1",
+							Image:           "quay.io/gravitational/debian-grande:stretch",
 							Command:         []string{"/bin/bash", "-c", "echo 'hello, world app hook'; sleep 1;"},
 							ImagePullPolicy: v1.PullIfNotPresent,
 						},

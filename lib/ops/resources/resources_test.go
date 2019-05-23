@@ -46,7 +46,7 @@ func (s *ResourceControlSuite) TestResourceControl(c *check.C) {
 	c.Assert(err, check.IsNil)
 
 	w := &bytes.Buffer{}
-	err = control.Get(w, "", "", false, "text", "")
+	err = control.Get(w, ListRequest{}, "text")
 	c.Assert(err, check.IsNil)
 	c.Assert(w.String(), check.Equals, `kind1/resource1
 kind2/resource2
@@ -61,7 +61,7 @@ kind1/resource3
 	c.Assert(err, check.IsNil)
 
 	w.Reset()
-	err = control.Get(w, "", "", false, "text", "")
+	err = control.Get(w, ListRequest{}, "text")
 	c.Assert(err, check.IsNil)
 	c.Assert(w.String(), check.Equals, `kind1/resource1
 kind1/resource3

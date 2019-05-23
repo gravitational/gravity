@@ -23,6 +23,7 @@ import (
 
 	"github.com/gravitational/gravity/lib/defaults"
 	"github.com/gravitational/gravity/lib/httplib"
+	"github.com/gravitational/gravity/lib/ops"
 	"github.com/gravitational/gravity/lib/ops/resources"
 	"github.com/gravitational/gravity/lib/ops/resources/gravity"
 	"github.com/gravitational/gravity/lib/utils"
@@ -42,8 +43,12 @@ func (m *Handler) Resources(ctx *AuthContext) (resources.Resources, error) {
 
 // getResourceHandler is GET handler that returns ConfigItems for requested resource kind
 func (m *Handler) getResourceHandler(w http.ResponseWriter, r *http.Request, p httprouter.Params, ctx *AuthContext) (interface{}, error) {
+	key, err := clusterKey(ctx, p)
+	if err != nil {
+		return nil, trace.Wrap(err)
+	}
 	kind := p.ByName("kind")
-	data, err := m.getResources(kind, ctx)
+	data, err := m.getResources(*key, kind, ctx)
 	if err != nil {
 		return nil, trace.Wrap(err)
 	}
@@ -67,8 +72,13 @@ func (m *Handler) upsertResourceHandler(w http.ResponseWriter, r *http.Request, 
 		return nil, trace.Wrap(err)
 	}
 
+	key, err := clusterKey(ctx, p)
+	if err != nil {
+		return nil, trace.Wrap(err)
+	}
+
 	isNew := r.Method == http.MethodPost
-	items, err := m.upsertResource(r.Context(), isNew, *rawRes, ctx)
+	items, err := m.upsertResource(r.Context(), *key, isNew, *rawRes, ctx)
 	if err != nil {
 		return nil, trace.Wrap(err)
 	}
@@ -78,9 +88,13 @@ func (m *Handler) upsertResourceHandler(w http.ResponseWriter, r *http.Request, 
 
 // deleteResourceHandler is DELETE handler that removes a resource by its kind and name values
 func (m *Handler) deleteResourceHandler(w http.ResponseWriter, r *http.Request, p httprouter.Params, ctx *AuthContext) (interface{}, error) {
+	key, err := clusterKey(ctx, p)
+	if err != nil {
+		return nil, trace.Wrap(err)
+	}
 	resourceKind := p.ByName("kind")
 	resourceName := p.ByName("name")
-	if err := m.deleteResource(r.Context(), resourceKind, resourceName, ctx); err != nil {
+	if err := m.deleteResource(r.Context(), *key, resourceKind, resourceName, ctx); err != nil {
 		return nil, trace.Wrap(err)
 	}
 
@@ -88,19 +102,20 @@ func (m *Handler) deleteResourceHandler(w http.ResponseWriter, r *http.Request, 
 }
 
 // deleteResource deletes a resource
-func (m *Handler) deleteResource(ctx context.Context, resourceKind string, resourceName string, authCtx *AuthContext) error {
+func (m *Handler) deleteResource(ctx context.Context, key ops.SiteKey, resourceKind string, resourceName string, authCtx *AuthContext) error {
 	controller, err := m.plugin.Resources(authCtx)
 	if err != nil {
 		return trace.Wrap(err)
 	}
 	return controller.Remove(ctx, resources.RemoveRequest{
-		Kind: resourceKind,
-		Name: resourceName,
+		SiteKey: key,
+		Kind:    resourceKind,
+		Name:    resourceName,
 	})
 }
 
 // getResources returns a collection of ConfigItem wrappers that contains resources of requested kind
-func (m *Handler) getResources(kind string, ctx *AuthContext) ([]ui.ConfigItem, error) {
+func (m *Handler) getResources(key ops.SiteKey, kind string, ctx *AuthContext) ([]ui.ConfigItem, error) {
 	if kind == "" {
 		return nil, trace.BadParameter("missing resource kind")
 	}
@@ -113,6 +128,7 @@ func (m *Handler) getResources(kind string, ctx *AuthContext) ([]ui.ConfigItem, 
 		return nil, trace.Wrap(err)
 	}
 	collection, err := controller.GetCollection(resources.ListRequest{
+		SiteKey:     key,
 		Kind:        kind,
 		WithSecrets: webCtx.UserACL.AuthConnectors.Read,
 	})
@@ -131,8 +147,8 @@ func (m *Handler) getResources(kind string, ctx *AuthContext) ([]ui.ConfigItem, 
 }
 
 // upsertResource updates a resource and returns ConfigItem wrapper with the updated resource
-func (m *Handler) upsertResource(ctx context.Context, isNew bool, rawRes teleservices.UnknownResource, authCtx *AuthContext) (interface{}, error) {
-	exists, err := m.checkIfResourceExists(rawRes, authCtx)
+func (m *Handler) upsertResource(ctx context.Context, key ops.SiteKey, isNew bool, rawRes teleservices.UnknownResource, authCtx *AuthContext) (interface{}, error) {
+	exists, err := m.checkIfResourceExists(key, rawRes, authCtx)
 	if err != nil {
 		return nil, trace.Wrap(err)
 	}
@@ -149,6 +165,7 @@ func (m *Handler) upsertResource(ctx context.Context, isNew bool, rawRes teleser
 		return nil, trace.Wrap(err)
 	}
 	err = controller.Create(ctx, resources.CreateRequest{
+		SiteKey:  key,
 		Resource: rawRes,
 		Upsert:   true,
 	})
@@ -176,14 +193,15 @@ func extractYAMLInfo(yaml string) (*teleservices.UnknownResource, error) {
 }
 
 // checkIfResourceExists returns true if the specified resource already exists
-func (m *Handler) checkIfResourceExists(rawRes teleservices.UnknownResource, ctx *AuthContext) (bool, error) {
+func (m *Handler) checkIfResourceExists(key ops.SiteKey, rawRes teleservices.UnknownResource, ctx *AuthContext) (bool, error) {
 	resourceController, err := m.plugin.Resources(ctx)
 	if err != nil {
 		return false, trace.Wrap(err)
 	}
 	_, err = resourceController.GetCollection(resources.ListRequest{
-		Kind: rawRes.Kind,
-		Name: rawRes.Metadata.Name,
+		SiteKey: key,
+		Kind:    rawRes.Kind,
+		Name:    rawRes.Metadata.Name,
 	})
 	if err != nil && !trace.IsNotFound(err) {
 		return false, trace.Wrap(err)

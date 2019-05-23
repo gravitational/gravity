@@ -27,7 +27,6 @@ import (
 	"github.com/gravitational/gravity/lib/defaults"
 	"github.com/gravitational/gravity/lib/loc"
 	"github.com/gravitational/gravity/lib/modules"
-	"github.com/gravitational/gravity/lib/ops/monitoring"
 	"github.com/gravitational/gravity/lib/storage"
 	"github.com/gravitational/gravity/lib/storage/clusterconfig"
 	"github.com/gravitational/gravity/lib/users"
@@ -725,18 +724,12 @@ func (o *OperatorACL) DeleteLogForwarder(ctx context.Context, key SiteKey, forwa
 	return o.operator.DeleteLogForwarder(ctx, key, forwarderName)
 }
 
-func (o *OperatorACL) GetRetentionPolicies(key SiteKey) ([]monitoring.RetentionPolicy, error) {
-	if err := o.ClusterAction(key.SiteDomain, storage.KindCluster, teleservices.VerbRead); err != nil {
+// GetClusterMetrics returns basic CPU/RAM metrics for the specified cluster.
+func (o *OperatorACL) GetClusterMetrics(ctx context.Context, req ClusterMetricsRequest) (*ClusterMetricsResponse, error) {
+	if err := o.ClusterAction(req.SiteDomain, storage.KindCluster, teleservices.VerbRead); err != nil {
 		return nil, trace.Wrap(err)
 	}
-	return o.operator.GetRetentionPolicies(key)
-}
-
-func (o *OperatorACL) UpdateRetentionPolicy(req UpdateRetentionPolicyRequest) error {
-	if err := o.ClusterAction(req.SiteDomain, storage.KindCluster, teleservices.VerbUpdate); err != nil {
-		return trace.Wrap(err)
-	}
-	return o.operator.UpdateRetentionPolicy(req)
+	return o.operator.GetClusterMetrics(ctx, req)
 }
 
 func (o *OperatorACL) GetSMTPConfig(key SiteKey) (storage.SMTPConfig, error) {
@@ -957,16 +950,20 @@ func (o *OperatorACL) UpsertUser(ctx context.Context, key SiteKey, user teleserv
 
 // GetUser returns a user by name
 func (o *OperatorACL) GetUser(key SiteKey, name string) (teleservices.User, error) {
-	if err := o.currentUserActions(name, teleservices.VerbList, teleservices.VerbRead); err != nil {
-		return nil, trace.Wrap(err)
+	if err := o.ClusterAction(key.SiteDomain, storage.KindCluster, teleservices.VerbRead); err != nil {
+		if err := o.currentUserActions(name, teleservices.VerbList, teleservices.VerbRead); err != nil {
+			return nil, trace.Wrap(err)
+		}
 	}
 	return o.operator.GetUser(key, name)
 }
 
 // GetUsers returns all users
 func (o *OperatorACL) GetUsers(key SiteKey) ([]teleservices.User, error) {
-	if err := o.userActions(teleservices.VerbList, teleservices.VerbRead); err != nil {
-		return nil, trace.Wrap(err)
+	if err := o.ClusterAction(key.SiteDomain, storage.KindCluster, teleservices.VerbRead); err != nil {
+		if err := o.userActions(teleservices.VerbList, teleservices.VerbRead); err != nil {
+			return nil, trace.Wrap(err)
+		}
 	}
 	return o.operator.GetUsers(key)
 }
@@ -997,8 +994,10 @@ func (o *OperatorACL) GetClusterAuthPreference(key SiteKey) (teleservices.AuthPr
 
 // UpsertGithubConnector creates or updates a Github connector
 func (o *OperatorACL) UpsertGithubConnector(ctx context.Context, key SiteKey, connector teleservices.GithubConnector) error {
-	if err := o.AuthConnectorActions(teleservices.KindGithubConnector, teleservices.VerbCreate, teleservices.VerbUpdate); err != nil {
-		return trace.Wrap(err)
+	if err := o.ClusterAction(key.SiteDomain, storage.KindCluster, teleservices.VerbUpdate); err != nil {
+		if err := o.AuthConnectorActions(teleservices.KindGithubConnector, teleservices.VerbCreate, teleservices.VerbUpdate); err != nil {
+			return trace.Wrap(err)
+		}
 	}
 	return o.operator.UpsertGithubConnector(ctx, key, connector)
 }
@@ -1007,8 +1006,10 @@ func (o *OperatorACL) UpsertGithubConnector(ctx context.Context, key SiteKey, co
 //
 // Returned connector exclude client secret unless withSecrets is true.
 func (o *OperatorACL) GetGithubConnector(key SiteKey, name string, withSecrets bool) (teleservices.GithubConnector, error) {
-	if err := o.AuthConnectorActions(teleservices.KindGithubConnector, teleservices.VerbRead); err != nil {
-		return nil, trace.Wrap(err)
+	if err := o.ClusterAction(key.SiteDomain, storage.KindCluster, teleservices.VerbRead); err != nil {
+		if err := o.AuthConnectorActions(teleservices.KindGithubConnector, teleservices.VerbRead); err != nil {
+			return nil, trace.Wrap(err)
+		}
 	}
 	return o.operator.GetGithubConnector(key, name, withSecrets)
 }
@@ -1017,16 +1018,20 @@ func (o *OperatorACL) GetGithubConnector(key SiteKey, name string, withSecrets b
 //
 // Returned connectors exclude client secret unless withSecrets is true.
 func (o *OperatorACL) GetGithubConnectors(key SiteKey, withSecrets bool) ([]teleservices.GithubConnector, error) {
-	if err := o.AuthConnectorActions(teleservices.KindGithubConnector, teleservices.VerbList, teleservices.VerbRead); err != nil {
-		return nil, trace.Wrap(err)
+	if err := o.ClusterAction(key.SiteDomain, storage.KindCluster, teleservices.VerbRead); err != nil {
+		if err := o.AuthConnectorActions(teleservices.KindGithubConnector, teleservices.VerbList, teleservices.VerbRead); err != nil {
+			return nil, trace.Wrap(err)
+		}
 	}
 	return o.operator.GetGithubConnectors(key, withSecrets)
 }
 
 // DeleteGithubConnector deletes a Github connector by name
 func (o *OperatorACL) DeleteGithubConnector(ctx context.Context, key SiteKey, name string) error {
-	if err := o.AuthConnectorActions(teleservices.KindGithubConnector, teleservices.VerbDelete); err != nil {
-		return trace.Wrap(err)
+	if err := o.ClusterAction(key.SiteDomain, storage.KindCluster, teleservices.VerbUpdate); err != nil {
+		if err := o.AuthConnectorActions(teleservices.KindGithubConnector, teleservices.VerbDelete); err != nil {
+			return trace.Wrap(err)
+		}
 	}
 	return o.operator.DeleteGithubConnector(ctx, key, name)
 }
@@ -1074,32 +1079,40 @@ func (o *OperatorACL) EmitAuditEvent(ctx context.Context, req AuditEventRequest)
 
 // CreateUserInvite creates a new invite token for a user.
 func (o *OperatorACL) CreateUserInvite(ctx context.Context, req CreateUserInviteRequest) (*storage.UserToken, error) {
-	if err := o.ClusterAction(req.SiteDomain, storage.KindInvite, teleservices.VerbCreate); err != nil {
-		return nil, trace.Wrap(err)
+	if err := o.ClusterAction(req.SiteDomain, storage.KindCluster, teleservices.VerbUpdate); err != nil {
+		if err := o.ClusterAction(req.SiteDomain, storage.KindInvite, teleservices.VerbCreate); err != nil {
+			return nil, trace.Wrap(err)
+		}
 	}
 	return o.operator.CreateUserInvite(ctx, req)
 }
 
 // GetUserInvites returns all active user invites.
 func (o *OperatorACL) GetUserInvites(ctx context.Context, key SiteKey) ([]storage.UserInvite, error) {
-	if err := o.ClusterAction(key.SiteDomain, storage.KindInvite, teleservices.VerbList); err != nil {
-		return nil, trace.Wrap(err)
+	if err := o.ClusterAction(key.SiteDomain, storage.KindCluster, teleservices.VerbRead); err != nil {
+		if err := o.ClusterAction(key.SiteDomain, storage.KindInvite, teleservices.VerbList); err != nil {
+			return nil, trace.Wrap(err)
+		}
 	}
 	return o.operator.GetUserInvites(ctx, key)
 }
 
 // DeleteUserInvite deletes the specified user invite.
 func (o *OperatorACL) DeleteUserInvite(ctx context.Context, req DeleteUserInviteRequest) error {
-	if err := o.ClusterAction(req.SiteDomain, storage.KindInvite, teleservices.VerbDelete); err != nil {
-		return trace.Wrap(err)
+	if err := o.ClusterAction(req.SiteDomain, storage.KindCluster, teleservices.VerbUpdate); err != nil {
+		if err := o.ClusterAction(req.SiteDomain, storage.KindInvite, teleservices.VerbDelete); err != nil {
+			return trace.Wrap(err)
+		}
 	}
 	return o.operator.DeleteUserInvite(ctx, req)
 }
 
 // CreateUserReset creates a new reset token for a user.
 func (o *OperatorACL) CreateUserReset(ctx context.Context, req CreateUserResetRequest) (*storage.UserToken, error) {
-	if err := o.Action(teleservices.KindUser, teleservices.VerbUpdate); err != nil {
-		return nil, trace.Wrap(err)
+	if err := o.ClusterAction(req.SiteDomain, storage.KindCluster, teleservices.VerbUpdate); err != nil {
+		if err := o.Action(teleservices.KindUser, teleservices.VerbUpdate); err != nil {
+			return nil, trace.Wrap(err)
+		}
 	}
 	return o.operator.CreateUserReset(ctx, req)
 }
