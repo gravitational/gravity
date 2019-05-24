@@ -176,6 +176,8 @@ func ValidateLocal(req LocalChecksRequest) (*LocalChecksResult, error) {
 		return nil, trace.Wrap(err)
 	}
 
+	autofix.AutoloadModules(req.Context, schema.DefaultKernelModules, req.Progress)
+
 	dockerConfig := DockerConfigFromSchemaValue(req.Manifest.SystemDocker())
 	OverrideDockerConfig(&dockerConfig, req.Docker)
 	failedProbes, err := ValidateManifest(req.Manifest, *profile, dockerConfig, stateDir)
