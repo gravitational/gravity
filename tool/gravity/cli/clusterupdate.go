@@ -195,9 +195,10 @@ func (r clusterInitializer) newOperationPlan(
 	operation ops.SiteOperation,
 	localEnv, updateEnv *localenv.LocalEnvironment,
 	clusterEnv *localenv.ClusterEnvironment,
+	leader *storage.Server,
 ) (*storage.OperationPlan, error) {
 	plan, err := clusterupdate.InitOperationPlan(
-		ctx, localEnv, updateEnv, clusterEnv, operation.Key(),
+		ctx, localEnv, updateEnv, clusterEnv, operation.Key(), leader,
 	)
 	if err != nil {
 		return nil, trace.Wrap(err)

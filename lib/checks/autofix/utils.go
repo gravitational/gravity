@@ -26,32 +26,19 @@ import (
 	"github.com/gravitational/trace"
 )
 
-// enableKernelModule loads the specified kernel module and adds it to the
-// list of modules loaded at boot
-func enableKernelModule(ctx context.Context, name string, altNames []string, progress utils.Progress) error {
-	name, err := modprobe(ctx, name, altNames, progress)
-	if err != nil {
-		return trace.Wrap(err)
-	}
-	progress.PrintInfo("Auto-loaded kernel module: %v", name)
-	if err := utils.EnsureLineInFile(defaults.ModulesPath, name); err != nil && !trace.IsAlreadyExists(err) {
-		progress.PrintWarn(err, "Could not set up kernel module %v to load on boot", name)
-	}
-	return nil
-}
-
 // modprobe loads a kernel module by the provided name or, if that fails, by
 // trying provided alternative names
-func modprobe(ctx context.Context, name string, altNames []string, progress utils.Progress) (string, error) {
+func modprobe(ctx context.Context, name string, altNames []string, progress utils.Progress) error {
 	var errors []string
 	for _, n := range append([]string{name}, altNames...) {
 		out, err := utils.RunCommand(ctx, nil, "modprobe", n)
 		if err == nil {
-			return n, nil
+			progress.PrintInfo("Auto-loaded kernel module: %v", n)
+			return nil
 		}
 		errors = append(errors, string(out))
 	}
-	return "", trace.BadParameter("failed to enable kernel module %v(%v): %s", name, altNames, errors)
+	return trace.BadParameter("failed to enable kernel module %v(%v): %s", name, altNames, errors)
 }
 
 // setSysctlParameter sets the specified kernel parameter and makes sure it

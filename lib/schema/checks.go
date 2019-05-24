@@ -33,6 +33,24 @@ import (
 	log "github.com/sirupsen/logrus"
 )
 
+var (
+	// DefaultKernelModules is the list of kernel modules needed for gravity to function properly
+	DefaultKernelModules = []monitoring.ModuleRequest{
+		moduleName("ebtables"),
+		moduleName("ip_tables"),
+		moduleName("iptable_filter"),
+		moduleName("iptable_nat"),
+		moduleName("br_netfilter"),
+		moduleName("overlay"),
+		// TODO(knisbet) adding new modules to this list will break upgrades, so disable checking for the dummy module
+		// until upgrades will update the module list
+		//moduleName("dummy"),
+	}
+
+	// DefaultKernelModuleChecker is a satellite kernel module checker with required modules to run kubernetes
+	DefaultKernelModuleChecker = monitoring.NewKernelModuleChecker(DefaultKernelModules...)
+)
+
 // ValidateDocker validates Docker requirements.
 // The specified directory is expected to be on the same filesystem
 // as the Docker graph directory (which might not exist at this point).
@@ -66,13 +84,7 @@ func ValidateKubelet(profile NodeProfile, manifest Manifest) (failed []*pb.Probe
 	}
 
 	checkers := append([]health.Checker{},
-		monitoring.NewKernelModuleChecker(
-			moduleName("ebtables"),
-			moduleName("ip_tables"),
-			moduleName("iptable_filter"),
-			moduleName("iptable_nat"),
-			moduleName("br_netfilter", "bridge"),
-		),
+		DefaultKernelModuleChecker,
 		monitoring.NewCGroupChecker("cpu", "cpuacct", "cpuset", "memory"),
 	)
 	checker := monitoring.NewCompositeChecker("kubelet", checkers)
