@@ -53,6 +53,7 @@ func InitOperationPlan(
 	localEnv, updateEnv *localenv.LocalEnvironment,
 	clusterEnv *localenv.ClusterEnvironment,
 	opKey ops.SiteOperationKey,
+	leader *storage.Server,
 ) (*storage.OperationPlan, error) {
 	operation, err := storage.GetOperationByID(clusterEnv.Backend, opKey.OperationID)
 	if err != nil {
@@ -95,6 +96,7 @@ func InitOperationPlan(
 		DNSConfig: dnsConfig,
 		Operator:  clusterEnv.Operator,
 		Operation: operation,
+		Leader:    leader,
 	})
 	if err != nil {
 		return nil, trace.Wrap(err)
@@ -181,6 +183,11 @@ func NewOperationPlan(config PlanConfig) (*storage.OperationPlan, error) {
 		return nil, trace.Wrap(err)
 	}
 
+	leader, err := findServer(*config.Leader, updates)
+	if err != nil {
+		return nil, trace.Wrap(err)
+	}
+
 	gravityPackage, err := updateRuntime.Manifest.Dependencies.ByName(constants.GravityPackage)
 	if err != nil {
 		return nil, trace.Wrap(err)
@@ -211,6 +218,7 @@ func NewOperationPlan(config PlanConfig) (*storage.OperationPlan, error) {
 		dnsConfig:         config.DNSConfig,
 		updateDNSAppEarly: updateDNSAppEarly,
 		roles:             roles,
+		leadMaster:        *leader,
 	})
 	if err != nil {
 		return nil, trace.Wrap(err)
@@ -238,6 +246,9 @@ func (r *PlanConfig) checkAndSetDefaults() error {
 	if r.Operation == nil {
 		return trace.BadParameter("cluster operation is required")
 	}
+	if r.Leader == nil {
+		return trace.BadParameter("operation leader node is required")
+	}
 	return nil
 }
 
@@ -250,6 +261,7 @@ type PlanConfig struct {
 	Operator  ops.Operator
 	Operation *storage.SiteOperation
 	Client    *kubernetes.Clientset
+	Leader    *storage.Server
 }
 
 // planConfig collects parameters needed to generate an update operation plan
@@ -287,6 +299,8 @@ type planConfig struct {
 	updateDNSAppEarly bool
 	// roles is the existing cluster roles
 	roles []teleservices.Role
+	// leader refers to the master server running the update operation
+	leadMaster storage.UpdateServer
 }
 
 func newOperationPlan(p planConfig) (*storage.OperationPlan, error) {
@@ -294,10 +308,8 @@ func newOperationPlan(p planConfig) (*storage.OperationPlan, error) {
 	if len(masters) == 0 {
 		return nil, trace.NotFound("no master servers found")
 	}
-	// Choose the first master node for upgrade to be the leader during the operation
-	leadMaster := masters[0]
 	builder := phaseBuilder{planConfig: p}
-	initPhase := *builder.init(leadMaster.Server)
+	initPhase := *builder.init(p.leadMaster.Server)
 	checksPhase := *builder.checks().Require(initPhase)
 	preUpdatePhase := *builder.preUpdate().Require(initPhase)
 	bootstrapPhase := *builder.bootstrap().Require(initPhase)
@@ -316,9 +328,9 @@ func newOperationPlan(p planConfig) (*storage.OperationPlan, error) {
 		log.Debugf("No support for taints/tolerations for %v.", installedGravityPackage)
 	}
 
-	mastersPhase := *builder.masters(leadMaster, masters[1:], supportsTaints).
+	mastersPhase := *builder.masters(p.leadMaster, masters[1:], supportsTaints).
 		Require(checksPhase, bootstrapPhase, preUpdatePhase)
-	nodesPhase := *builder.nodes(leadMaster, nodes, supportsTaints).
+	nodesPhase := *builder.nodes(p.leadMaster, nodes, supportsTaints).
 		Require(mastersPhase)
 
 	allRuntimeUpdates, err := app.GetUpdatedDependencies(p.installedRuntime, p.updateRuntime)
@@ -349,7 +361,7 @@ func newOperationPlan(p planConfig) (*storage.OperationPlan, error) {
 	root.Add(initPhase, checksPhase, preUpdatePhase)
 	if len(runtimeUpdates) > 0 {
 		if p.updateCoreDNS {
-			corednsPhase := *builder.corednsPhase(leadMaster.Server)
+			corednsPhase := *builder.corednsPhase(p.leadMaster.Server)
 			mastersPhase = *mastersPhase.Require(corednsPhase)
 			root.Add(corednsPhase)
 		}
@@ -370,7 +382,7 @@ func newOperationPlan(p planConfig) (*storage.OperationPlan, error) {
 		}
 
 		if updateEtcd {
-			etcdPhase := *builder.etcdPlan(leadMaster.Server, servers(masters[1:]...), servers(nodes...),
+			etcdPhase := *builder.etcdPlan(p.leadMaster.Server, servers(masters[1:]...), servers(nodes...),
 				currentVersion, desiredVersion)
 			// This does not depend on previous on purpose - when the etcd block is executed,
 			// remote agents might be able to sync the plan before the shutdown of etcd instances
@@ -378,7 +390,7 @@ func newOperationPlan(p planConfig) (*storage.OperationPlan, error) {
 			root.Add(etcdPhase)
 		}
 
-		if migrationPhase := builder.migration(leadMaster.Server); migrationPhase != nil {
+		if migrationPhase := builder.migration(p.leadMaster.Server); migrationPhase != nil {
 			root.AddSequential(*migrationPhase)
 		}
 
@@ -666,6 +678,15 @@ func getRuntimePackage(manifest schema.Manifest, profileName string, clusterRole
 			profile.Name, clusterRole)
 	}
 	return runtimePackage, nil
+}
+
+func findServer(input storage.Server, servers []storage.UpdateServer) (*storage.UpdateServer, error) {
+	for _, server := range servers {
+		if server.AdvertiseIP == input.AdvertiseIP {
+			return &server, nil
+		}
+	}
+	return nil, trace.NotFound("no server found with address %v", input.AdvertiseIP)
 }
 
 type runtimeConfig struct {

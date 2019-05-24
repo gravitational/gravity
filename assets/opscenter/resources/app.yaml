@@ -6,7 +6,6 @@ metadata:
   hidden: true
   description: |
     Remote cluster management and operations center
-logo: file://logo.svg
 endpoints:
   - name: "Ops Center Control Panel"
     description: "Gravity Ops Center"

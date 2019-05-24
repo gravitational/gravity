@@ -635,6 +635,10 @@ func (s *site) getPlanetMasterSecretsPackage(ctx *operationContext, p planetMast
 		constants.PlanetRpcKeyPair:              {},
 		constants.CoreDNSKeyPair:                {},
 		constants.FrontProxyClientKeyPair:       {},
+		constants.LograngeAdaptorKeyPair:        {},
+		constants.LograngeAggregatorKeyPair:     {},
+		constants.LograngeCollectorKeyPair:      {},
+		constants.LograngeForwarderKeyPair:      {},
 	}
 
 	for name, config := range keyPairTypes {
@@ -678,6 +682,10 @@ func (s *site) getPlanetMasterSecretsPackage(ctx *operationContext, p planetMast
 			req.Hosts = append(req.Hosts,
 				constants.APIServerDomainNameGravity,
 				constants.APIServerDomainName)
+		case constants.LograngeAggregatorKeyPair:
+			req.Hosts = append(req.Hosts, utils.KubeServiceNames(
+				defaults.LograngeAggregatorServiceName,
+				defaults.KubeSystemNamespace)...)
 		}
 		keyPair, err := authority.GenerateCertificate(req, caKeyPair, baseKeyPair.KeyPEM, defaults.CertificateExpiry)
 		if err != nil {
@@ -736,13 +744,14 @@ func (s *site) getPlanetNodeSecretsPackage(ctx *operationContext, node *Provisio
 	}
 
 	keyPairTypes := map[string]rbacConfig{
-		constants.APIServerKeyPair: {},
-		constants.ETCDKeyPair:      {},
-		constants.KubectlKeyPair:   {group: constants.ClusterNodeGroup},
-		constants.ProxyKeyPair:     {userName: constants.ClusterKubeProxyUser, group: constants.ClusterNodeGroup},
-		constants.KubeletKeyPair:   {userName: constants.ClusterNodeNamePrefix + ":" + node.KubeNodeID(), group: constants.ClusterNodeGroup},
-		constants.PlanetRpcKeyPair: {},
-		constants.CoreDNSKeyPair:   {},
+		constants.APIServerKeyPair:         {},
+		constants.ETCDKeyPair:              {},
+		constants.KubectlKeyPair:           {group: constants.ClusterNodeGroup},
+		constants.ProxyKeyPair:             {userName: constants.ClusterKubeProxyUser, group: constants.ClusterNodeGroup},
+		constants.KubeletKeyPair:           {userName: constants.ClusterNodeNamePrefix + ":" + node.KubeNodeID(), group: constants.ClusterNodeGroup},
+		constants.PlanetRpcKeyPair:         {},
+		constants.CoreDNSKeyPair:           {},
+		constants.LograngeCollectorKeyPair: {},
 	}
 
 	var privateKeyPEM []byte

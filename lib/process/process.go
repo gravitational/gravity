@@ -996,13 +996,14 @@ func (p *Process) initService(ctx context.Context) (err error) {
 	}
 
 	p.handlers.WebProxy, err = teleweb.NewHandler(teleweb.Config{
-		Proxy:        reverseTunnel,
-		AuthServers:  p.teleportConfig.AuthServers[0],
-		DomainName:   p.teleportConfig.Hostname,
-		ProxyClient:  proxyConn.Client,
-		DisableUI:    true,
-		ProxySSHAddr: p.teleportConfig.Proxy.SSHAddr,
-		ProxyWebAddr: p.teleportConfig.Proxy.WebAddr,
+		Proxy:         reverseTunnel,
+		AuthServers:   p.teleportConfig.AuthServers[0],
+		DomainName:    p.teleportConfig.Hostname,
+		ProxyClient:   proxyConn.Client,
+		DisableUI:     true,
+		ProxySSHAddr:  p.teleportConfig.Proxy.SSHAddr,
+		ProxyWebAddr:  p.teleportConfig.Proxy.WebAddr,
+		ProxySettings: p.proxySettings(),
 	})
 	if err != nil {
 		return trace.Wrap(err)

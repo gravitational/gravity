@@ -42,20 +42,20 @@ RELEASE_OUT ?=
 TELEPORT_TAG = 3.2.5
 # TELEPORT_REPOTAG adapts TELEPORT_TAG to the teleport tagging scheme
 TELEPORT_REPOTAG := v$(TELEPORT_TAG)
-PLANET_TAG := 6.0.1-$(K8S_VER_SUFFIX)
+PLANET_TAG := 6.0.2-$(K8S_VER_SUFFIX)
 PLANET_BRANCH := $(PLANET_TAG)
 K8S_APP_TAG := $(GRAVITY_TAG)
 TELEKUBE_APP_TAG := $(GRAVITY_TAG)
 WORMHOLE_APP_TAG := $(GRAVITY_TAG)
-LOGGING_APP_TAG ?= 5.0.2
-MONITORING_APP_TAG ?= 6.0.1
+LOGGING_APP_TAG ?= 6.0.0
+MONITORING_APP_TAG ?= 6.0.2
 DNS_APP_TAG = 0.3.0
 BANDWAGON_TAG ?= 5.3.0
 RBAC_APP_TAG := $(GRAVITY_TAG)
 TILLER_VERSION = 2.13.1
 TILLER_APP_TAG = 6.0.0
 # URI of Wormhole container for default install
-WORMHOLE_IMG ?= quay.io/gravitational/wormhole:0.0.0-1-g6681422-dirty
+WORMHOLE_IMG ?= quay.io/gravitational/wormhole:0.2.0
 # set this to true if you want to use locally built planet packages
 DEV_PLANET ?=
 OS := $(shell uname | tr '[:upper:]' '[:lower:]')
