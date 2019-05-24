@@ -70,7 +70,8 @@ func startInstall(env *localenv.LocalEnvironment, config InstallConfig) error {
 	}
 	err := InstallerClient(env, installerclient.Config{
 		ConnectStrategy: NewInstallerConnectStrategy(env),
-		Completer:       OperationCompleterForMode(config.Mode, env),
+		Aborter:         AborterForMode(config.Mode, env),
+		Completer:       InstallerCompleteOperation(env),
 	})
 	if utils.IsContextCancelledError(err) {
 		return trace.Wrap(err, "installer interrupted")
@@ -190,7 +191,6 @@ func joinFromService(env, joinEnv *localenv.LocalEnvironment, config JoinConfig)
 	if err != nil {
 		return trace.Wrap(err)
 	}
-	log.WithField(trace.Component, "agent").Info("Running in service mode.")
 	ctx, cancel := context.WithCancel(context.Background())
 	interrupt := signals.NewInterruptHandler(cancel, InterruptSignals)
 	defer interrupt.Close()
@@ -223,6 +223,8 @@ func restartInstall(env *localenv.LocalEnvironment) error {
 
 	err := InstallerClient(env, installerclient.Config{
 		ConnectStrategy: &installerclient.ResumeStrategy{},
+		Aborter:         installerUninstallSystem(env),
+		Completer:       InstallerCompleteOperation(env),
 	})
 	if utils.IsContextCancelledError(err) {
 		return trace.Wrap(err, "installer interrupted")
@@ -264,27 +266,13 @@ func clientTerminationHandler(interrupt *signals.InterruptHandler, printer utils
 	}
 }
 
-// OperationCompleterForMode returns completion handler for the specified installer mode
-func OperationCompleterForMode(installerMode string, env *localenv.LocalEnvironment) installerclient.CompletionHandler {
-	switch installerMode {
-	case constants.InstallModeInteractive:
-		// Do not run completer for interactive installer as it has
-		// a delayed completion behavior.
-		// In general, operation completer only runs if a client follows the operation
-		// to completion on first run. Otherwise, if the client is interrupted, the operation
-		// will be explicitly completed (and state cleaned up) with either `gravity resume` or
-		// `gravity plan complete`
-		return installerCompleteInteractiveOperation(env)
-	default:
-		return installerCompleteOperation(env)
-	}
-}
-
 func resumeJoin(env *localenv.LocalEnvironment) error {
 	env.PrintStep("Resuming agent")
 
 	err := joinClient(env, installerclient.Config{
 		ConnectStrategy: &installerclient.ResumeStrategy{},
+		Aborter:         installerUninstallSystem(env),
+		Completer:       InstallerCompleteOperation(env),
 	})
 	if utils.IsContextCancelledError(err) {
 		return trace.Wrap(err, "agent interrupted")
@@ -460,7 +448,7 @@ func autojoin(env *localenv.LocalEnvironment, environ LocalEnvironmentFactory, d
 
 	env.Printf("auto joining to cluster %q via %v\n", d.clusterName, serviceURL)
 
-	return Join(env, environ, JoinConfig{
+	return join(env, environ, JoinConfig{
 		SystemLogFile: d.systemLogFile,
 		UserLogFile:   d.userLogFile,
 		AdvertiseAddr: instance.PrivateIP,
@@ -615,7 +603,6 @@ func completeJoinPlan(env *localenv.LocalEnvironment, operation *ops.SiteOperati
 		env, operation, "Connecting to agent", "Connected to agent"))
 }
 
-
 func executePhaseFromService(
 	env *localenv.LocalEnvironment,
 	params PhaseParams,
@@ -691,6 +678,7 @@ func completePlanFromService(
 		InterruptHandler: interrupt,
 		Printer:          env,
 		ConnectStrategy:  &installerclient.ResumeStrategy{},
+		Completer:        InstallerCompleteOperation(env),
 	})
 	if err != nil {
 		return trace.Wrap(err)
@@ -707,8 +695,8 @@ func InstallerClient(env *localenv.LocalEnvironment, config installerclient.Conf
 	return trace.Wrap(installerClient(env, config, "Connecting to installer", "Connected to installer"))
 }
 
-// Join executes the join command and runs either the client or the service depending on the configuration
-func Join(env *localenv.LocalEnvironment, environ LocalEnvironmentFactory, config JoinConfig) error {
+// join executes the join command and runs either the client or the service depending on the configuration
+func join(env *localenv.LocalEnvironment, environ LocalEnvironmentFactory, config JoinConfig) error {
 	env.PrintStep("Starting agent")
 
 	if err := config.CheckAndSetDefaults(); err != nil {
@@ -724,6 +712,8 @@ func Join(env *localenv.LocalEnvironment, environ LocalEnvironmentFactory, confi
 	}
 	err := joinClient(env, installerclient.Config{
 		ConnectStrategy: newAgentConnectStrategy(env),
+		Aborter:         installerUninstallSystem(env),
+		Completer:       InstallerCompleteOperation(env),
 	})
 	if utils.IsContextCancelledError(err) {
 		return trace.Wrap(err, "agent interrupted")
@@ -788,9 +778,6 @@ func installerClient(env *localenv.LocalEnvironment, config installerclient.Conf
 	defer interrupt.Close()
 	go clientTerminationHandler(interrupt, env)
 
-	if config.Aborter == nil {
-		config.Aborter = installerUninstallSystem(env)
-	}
 	config.InterruptHandler = interrupt
 	config.Printer = env
 	env.PrintStep(connecting)

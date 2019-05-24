@@ -283,7 +283,7 @@ func Execute(g *Application, cmd string, extraArgs []string) error {
 	case g.InstallCmd.FullCommand():
 		return startInstall(localEnv, NewInstallConfig(localEnv, g))
 	case g.JoinCmd.FullCommand():
-		return Join(localEnv, g, NewJoinConfig(g))
+		return join(localEnv, g, NewJoinConfig(g))
 	case g.AutoJoinCmd.FullCommand():
 		return autojoin(localEnv, g, autojoinConfig{
 			systemLogFile: *g.SystemLogFile,

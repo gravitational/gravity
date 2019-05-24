@@ -28,9 +28,6 @@ service Agent {
     // Complete marks the operation as completed
     rpc Complete(CompleteRequest) returns (google.protobuf.Empty);
 
-    // Shutdown requests that the installer exits
-    // rpc Shutdown(ShutdownRequest) returns (ShutdownResponse);
-
     // Abort requests that the installer service aborts and cleans up
     // the state of the operation
     rpc Abort(AbortRequest) returns (AbortResponse);
@@ -61,14 +58,6 @@ message CompleteRequest {
     OperationKey key = 1;
 }
 
-// ShutdownRequest describes a request to shut down the process
-message ShutdownRequest {
-}
-
-// ShutdownResponse describes the server response to the shut down request
-message ShutdownResponse {
-}
-
 // AbortRequest describes a request to abort the operation and clean up
 message AbortRequest {
 }
@@ -84,15 +73,24 @@ message ProgressResponse {
     // Message specifies the progress message
     string message = 1;
     // Status defines the status of this progress message.
-    // If the status is one of (COMPLETED, ABORTED), this response is the last response sent
+    // If the status is one of (StatusCompleted, StatusCompletedPending, StatusAborted), this response is the last response sent
     enum Status {
-        UNKNOWN = 0 [(gogoproto.enumvalue_customname) = "Unknown"];
-        // COMPLETED status indicates that the operation has successfully completed.
+        option (gogoproto.goproto_enum_prefix) = false;
+        option (gogoproto.goproto_enum_stringer) = false;
+        option (gogoproto.enum_customname) = "Status";
+
+        // StatusUnknown indicates the unknown progress
+        UNKNOWN = 0 [(gogoproto.enumvalue_customname) = "StatusUnknown"];
+        // StatusCompleted status indicates that the operation has successfully completed.
         // This status is terminal - no more progress messages will follow
-        COMPLETED = 1 [(gogoproto.enumvalue_customname) = "Completed"];
-        // ABORTED status indicates that the operation has been aborted.
+        COMPLETED = 1 [(gogoproto.enumvalue_customname) = "StatusCompleted"];
+        // StatusCompletedPending status indicates that the operation has successfully completed
+        // but the installer process will continue running to enable post-install tasks.
         // This status is terminal - no more progress messages will follow
-        ABORTED = 2 [(gogoproto.enumvalue_customname) = "Aborted"];
+        COMPLETED_PENDING = 2 [(gogoproto.enumvalue_customname) = "StatusCompletedPending"];
+        // StatusAborted status indicates that the operation has been aborted.
+        // This status is terminal - no more progress messages will follow
+        ABORTED = 3 [(gogoproto.enumvalue_customname) = "StatusAborted"];
     }
     // Status describes the status of this response
     Status status = 2;

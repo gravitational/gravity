@@ -21,12 +21,8 @@ import (
 	"path/filepath"
 	"time"
 
-	"github.com/gravitational/gravity/lib/defaults"
-	"github.com/gravitational/gravity/lib/ops"
 	"github.com/gravitational/gravity/lib/state"
-	"github.com/gravitational/gravity/lib/utils"
 
-	"github.com/gogo/protobuf/types"
 	"github.com/gravitational/trace"
 	log "github.com/sirupsen/logrus"
 	grpc "google.golang.org/grpc"
@@ -82,32 +78,3 @@ func NewClient(ctx context.Context, socketPath string, logger log.FieldLogger, o
 func SocketPath() (path string) {
 	return filepath.Join(state.GravityInstallDir(), "installer.sock")
 }
-
-// KeyFromProto converts the specified operation key to internal format
-func KeyFromProto(key *OperationKey) ops.SiteOperationKey {
-	return ops.SiteOperationKey{
-		AccountID:   key.AccountID,
-		SiteDomain:  key.ClusterName,
-		OperationID: key.ID,
-	}
-}
-
-// KeyToProto converts the specified operation key to proto format
-func KeyToProto(key ops.SiteOperationKey) *OperationKey {
-	return &OperationKey{
-		AccountID:   key.AccountID,
-		ClusterName: key.SiteDomain,
-		ID:          key.OperationID,
-	}
-}
-
-// Empty defines the empty RPC message
-var Empty = &types.Empty{}
-
-// IsAbortedErr returns true if the specifies error identifies the aborted operation
-func IsAbortedErr(err error) bool {
-	return trace.Unwrap(err) == ErrAborted
-}
-
-// ErrAborted defines the aborted operation error
-var ErrAborted = utils.NewExitCodeErrorWithMessage(defaults.AbortedOperationExitCode, "operation aborted")

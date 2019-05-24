@@ -43,8 +43,10 @@ func New(ctx context.Context) *Server {
 		rpc:         grpcServer,
 		respC:       make(chan *installpb.ProgressResponse),
 		recvC:       make(chan []*installpb.ProgressResponse),
-		// errC is the chan that receives error from either execute or
-		// the operation aborted event
+		// errC is signalled when the server is done.
+		// The server is done when either happens:
+		//  - the execute finishes successfully or with an error
+		//  - the operation is aborted (in which case the chan will return a special abort error)
 		errC:  make(chan error, 2),
 		execC: make(chan *installpb.ExecuteRequest, 1),
 	}
@@ -52,12 +54,27 @@ func New(ctx context.Context) *Server {
 	return server
 }
 
-// Serve starts the server using the specified executor
-func (r *Server) Serve(executor Executor, listener net.Listener) error {
+// Run starts the server using the specified executor and blocks until
+// either the executor completes or the operation is aborted.
+// To properly stop all server internal processes, use Stop
+func (r *Server) Run(executor Executor, listener net.Listener) error {
 	r.executor = executor
 	r.startExecuteLoop()
 	r.startMessageBufferLoop()
-	return trace.Wrap(r.rpc.Serve(listener))
+	errC := make(chan error, 1)
+	go func() {
+		errC <- r.rpc.Serve(listener)
+	}()
+	select {
+	case err := <-errC:
+		return trace.Wrap(err)
+	case err := <-r.errC:
+		if installpb.IsAbortedErr(err) {
+			r.sendAbort()
+			return trace.Wrap(err)
+		}
+		return trace.Wrap(err)
+	}
 }
 
 // Stop gracefully stops the server
@@ -124,22 +141,6 @@ func (r *Server) Send(event Event) {
 	r.send(eventToProgressResponse(event))
 }
 
-// Done is signalled when the server is done.
-// The server is done when either happens:
-//  - the execute finishes successfully or with an error
-//  - the operation is aborted (in which case the chan will return a special
-// abort error)
-func (r *Server) Done() <-chan error {
-	return r.errC
-}
-
-// SendAbort sends abort notification to client
-func (r *Server) SendAbort() {
-	r.send(&installpb.ProgressResponse{
-		Status: installpb.ProgressResponse_Aborted,
-	})
-}
-
 // Executor wraps a potentially failing operation
 type Executor interface {
 	// Execute executes an operation.
@@ -180,6 +181,12 @@ type Server struct {
 	wg    sync.WaitGroup
 }
 
+// IsCompleted determines if this event indicates a completed operation event
+func (r Event) IsCompleted() bool {
+	return r.Status == StatusCompleted ||
+		r.Status == StatusCompletedPending
+}
+
 // String formats this event as text
 func (r Event) String() string {
 	var buf bytes.Buffer
@@ -189,8 +196,9 @@ func (r Event) String() string {
 			r.Progress.Completion, r.Progress.Message)
 	}
 	if r.Error != nil {
-		fmt.Fprintf(&buf, "error(%v)", r.Error.Error())
+		fmt.Fprintf(&buf, "error(%v),", r.Error.Error())
 	}
+	fmt.Fprintf(&buf, "status(%v)", r.Status)
 	fmt.Print(&buf, ")")
 	return buf.String()
 }
@@ -201,9 +209,22 @@ type Event struct {
 	Progress *ops.ProgressEntry
 	// Error specifies the error if any
 	Error error
-	// Complete indicates whether this event is terminal
-	Complete bool
+	// Completed indicates whether this event is terminal
+	Status Status
 }
+
+// Status defines the progress status
+type Status byte
+
+const (
+	// StatusUnknown indicates an unknown progress status
+	StatusUnknown Status = 0
+	// StatusCompleted indicates a completed operation
+	StatusCompleted Status = iota
+	// StatusCompletedPending indicates a completed operation
+	// but with installer still active
+	StatusCompletedPending Status = iota
+)
 
 func (r *Server) startExecuteLoop() {
 	r.wg.Add(1)
@@ -230,8 +251,9 @@ func (r *Server) startMessageBufferLoop() {
 				case event := <-r.respC:
 					pending = append(pending, event)
 				case <-r.ctx.Done():
+					close(r.recvC)
 					r.Info("Buffer loop done.")
-					// return
+					return
 				}
 			}
 			select {
@@ -290,6 +312,12 @@ func (r *Server) signalAbort() {
 	r.errC <- installpb.ErrAborted
 }
 
+func (r *Server) sendAbort() {
+	r.send(&installpb.ProgressResponse{
+		Status: installpb.StatusAborted,
+	})
+}
+
 func (r *Server) sendError(err error) {
 	r.send(&installpb.ProgressResponse{
 		Error: &installpb.Error{Message: err.Error()},
@@ -309,8 +337,11 @@ func eventToProgressResponse(event Event) *installpb.ProgressResponse {
 	resp := &installpb.ProgressResponse{}
 	if event.Progress != nil {
 		resp.Message = event.Progress.Message
-		if event.Complete {
-			resp.Status = installpb.ProgressResponse_Completed
+		switch event.Status {
+		case StatusCompleted:
+			resp.Status = installpb.StatusCompleted
+		case StatusCompletedPending:
+			resp.Status = installpb.StatusCompletedPending
 		}
 	} else if event.Error != nil {
 		resp.Error = &installpb.Error{Message: event.Error.Error()}

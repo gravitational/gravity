@@ -34,6 +34,7 @@ import (
 	"github.com/gravitational/gravity/lib/expand"
 	"github.com/gravitational/gravity/lib/install"
 	installerclient "github.com/gravitational/gravity/lib/install/client"
+	installpb "github.com/gravitational/gravity/lib/install/proto"
 	"github.com/gravitational/gravity/lib/loc"
 	"github.com/gravitational/gravity/lib/localenv"
 	"github.com/gravitational/gravity/lib/modules"
@@ -356,7 +357,7 @@ func (i *InstallConfig) NewInstallerConfig(
 		Apps:               wizard.Apps,
 		Packages:           wizard.Packages,
 		Operator:           wizard.Operator,
-		LocalAgent: !i.ExcludeHostFromCluster,
+		LocalAgent:         !i.ExcludeHostFromCluster,
 	}, nil
 
 }
@@ -749,6 +750,16 @@ func generateClusterName() string {
 		rand.Intn(10000))
 }
 
+// AborterForMode returns the Aborter implementation specific to given installation mode
+func AborterForMode(mode string, env *localenv.LocalEnvironment) func(context.Context) error {
+	switch mode {
+	case constants.InstallModeInteractive:
+		return installerInteractiveUninstallSystem(env)
+	default:
+		return installerUninstallSystem(env)
+	}
+}
+
 // installerUninstallSystem implements the clean up phase when the installer service
 // is explicitly interrupted by user
 func installerUninstallSystem(env *localenv.LocalEnvironment) func(context.Context) error {
@@ -761,9 +772,13 @@ func installerUninstallSystem(env *localenv.LocalEnvironment) func(context.Conte
 		}); err != nil {
 			logger.WithError(err).Warn("Failed to leave cluster.")
 		}
-		logger.Info("Uninstalling services.")
-		if err := environ.UninstallAgentServices(logger); err != nil {
-			logger.WithError(err).Warn("Failed to uninstall agent services.")
+		serviceName, err := installerclient.GetServicePath(state.GravityInstallDir())
+		if err == nil {
+			logger := logger.WithField("service", serviceName)
+			logger.Info("Uninstalling service.")
+			if err := environ.UninstallService(serviceName); err != nil {
+				logger.WithError(err).Warn("Failed to uninstall service.")
+			}
 		}
 		logger.Info("Uninstalling system.")
 		if err := environ.UninstallSystem(utils.DiscardPrinter, logger); err != nil {
@@ -774,32 +789,42 @@ func installerUninstallSystem(env *localenv.LocalEnvironment) func(context.Conte
 	}
 }
 
-// installerCompleteOperation implements the clean up phase when the installer service
-// shuts down after a sucessfully completed operation
-func installerCompleteOperation(env *localenv.LocalEnvironment) installerclient.CompletionHandler {
-	return func(ctx context.Context, interrupt *signals.InterruptHandler) error {
-		logger := log.WithField(trace.Component, "installer:cleanup")
-		if err := environ.UninstallAgentServices(logger); err != nil {
-			logger.WithError(err).Warn("Failed to uninstall agent services.")
+// installerInteractiveUninstallSystem implements the clean up phase when the interactive installer service
+// is explicitly interrupted by user
+func installerInteractiveUninstallSystem(env *localenv.LocalEnvironment) func(context.Context) error {
+	return func(ctx context.Context) error {
+		logger := log.WithFields(logrus.Fields{
+			trace.Component: "installer:abort",
+			"service":       defaults.GravityRPCInstallerServiceName,
+		})
+		logger.Info("Uninstalling service.")
+		if err := environ.UninstallService(defaults.GravityRPCInstallerServiceName); err != nil {
+			logger.WithError(err).Warn("Failed to uninstall service.")
 		}
 		if err := environ.CleanupOperationState(utils.DiscardPrinter, logger); err != nil {
 			logger.WithError(err).Warn("Failed to clean up operation state.")
 		}
+		logger.Info("System uninstalled.")
 		return nil
 	}
 }
 
-// installerCompleteInteractiveOperation implements the clean up phase for the interactive installer
-// workflow.
-// It adds blocking for the interrupt signal before it shuts down the service and cleans up state.
-func installerCompleteInteractiveOperation(env *localenv.LocalEnvironment) installerclient.CompletionHandler {
-	return func(ctx context.Context, interrupt *signals.InterruptHandler) error {
+// InstallerCompleteOperation implements the clean up phase when the installer service
+// shuts down after a sucessfully completed operation
+func InstallerCompleteOperation(env *localenv.LocalEnvironment) installerclient.CompletionHandler {
+	return func(ctx context.Context, interrupt *signals.InterruptHandler, status installpb.ProgressResponse_Status) error {
 		logger := log.WithField(trace.Component, "installer:cleanup")
-		interrupt.Close()
-		env.PrintStep(postInstallInteractiveBanner)
-		signals.WaitFor(os.Interrupt)
-		if err := environ.UninstallAgentServices(logger); err != nil {
-			logger.WithError(err).Warn("Failed to uninstall agent services.")
+		if status == installpb.StatusCompletedPending {
+			// Wait for explicit interrupt signal before cleaning up
+			interrupt.Close()
+			env.PrintStep(postInstallInteractiveBanner)
+			signals.WaitFor(os.Interrupt)
+		}
+		serviceName, err := installerclient.GetServicePath(state.GravityInstallDir())
+		if err == nil {
+			if err := environ.UninstallService(serviceName); err != nil {
+				logger.WithError(err).Warn("Failed to uninstall agent services.")
+			}
 		}
 		if err := environ.CleanupOperationState(utils.DiscardPrinter, logger); err != nil {
 			logger.WithError(err).Warn("Failed to clean up operation state.")

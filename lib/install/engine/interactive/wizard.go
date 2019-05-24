@@ -87,7 +87,7 @@ func (r *Engine) Execute(ctx context.Context, installer install.Interface, confi
 	if err := e.completeOperation(*operation); err != nil {
 		return trace.Wrap(err)
 	}
-	return trace.Wrap(installer.Wait())
+	return nil
 }
 
 func newExecutor(ctx context.Context, r *Engine, installer install.Interface, config install.Config) (*executor, error) {
@@ -153,7 +153,7 @@ func (r *executor) completeOperation(operation ops.SiteOperation) error {
 			r.WithError(err).Warn("Failed to complete final install step.")
 		}
 	}
-	if err := r.CompleteOperation(operation); err != nil {
+	if err := r.CompleteOperationAndWait(operation); err != nil {
 		r.WithError(err).Warn("Failed to complete install.")
 	}
 	return nil

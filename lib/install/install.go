@@ -72,25 +72,16 @@ func New(ctx context.Context, config RuntimeConfig) (installer *Installer, err e
 }
 
 // Run runs the server operation using the specified engine
-func (i *Installer) Run(listener net.Listener) error {
-	errC := make(chan error, 1)
-	go func() {
-		errC <- i.server.Serve(i, listener)
-	}()
-	select {
-	case err := <-errC:
-		i.WithError(err).Warn("Server.Serve finished.")
-		i.stop()
-		return trace.Wrap(err)
-	case err := <-i.server.Done():
-		i.WithError(err).Warn("Server finished.")
+func (i *Installer) Run(listener net.Listener) (err error) {
+	defer func() {
 		if installpb.IsAbortedErr(err) {
 			i.abort()
-			return trace.Wrap(err)
+			return
 		}
 		i.stop()
-		return trace.Wrap(err)
-	}
+	}()
+	err = i.server.Run(i, listener)
+	return trace.Wrap(err)
 }
 
 // Stop stops the server and releases resources allocated by the installer.
@@ -113,13 +104,13 @@ type Interface interface {
 	// CompleteOperation executes additional steps common to all workflows after the
 	// installation has completed
 	CompleteOperation(operation ops.SiteOperation) error
+	// CompleteOperationAndWait executes additional steps common to all workflows after the
+	// installation has completed and blocks waiting for explicit shutdown
+	CompleteOperationAndWait(operation ops.SiteOperation) error
 	// CompleteFinalInstallStep marks the final install step as completed unless
 	// the application has a custom install step. In case of the custom step,
 	// the user completes the final installer step
 	CompleteFinalInstallStep(key ops.SiteOperationKey, delay time.Duration) error
-	// Wait blocks the installer until the wizard process has been explicitly shut down
-	// or specified context has expired
-	Wait() error
 	// PrintStep publishes a progress entry described with (format, args)
 	PrintStep(format string, args ...interface{})
 }
@@ -181,6 +172,25 @@ func (i *Installer) ExecuteOperation(operationKey ops.SiteOperationKey) error {
 // CompleteOperation executes additional steps after the installation has completed.
 // Implements Interface
 func (i *Installer) CompleteOperation(operation ops.SiteOperation) error {
+	return i.completeOperation(operation, server.StatusCompleted)
+}
+
+// CompleteOperationAndWait executes additional steps common to all workflows after the
+// installation has completed but does not exit
+func (i *Installer) CompleteOperationAndWait(operation ops.SiteOperation) error {
+	var errors []error
+	err := i.completeOperation(operation, server.StatusCompletedPending)
+	if err != nil {
+		errors = append(errors, err)
+	}
+	err = i.wait()
+	if err != nil {
+		errors = append(errors, err)
+	}
+	return trace.NewAggregate(errors...)
+}
+
+func (i *Installer) completeOperation(operation ops.SiteOperation, status server.Status) error {
 	var errors []error
 	if err := i.uploadInstallLog(operation.Key()); err != nil {
 		errors = append(errors, err)
@@ -194,7 +204,7 @@ func (i *Installer) CompleteOperation(operation ops.SiteOperation) error {
 		return trace.Wrap(i.config.Process.AgentService().StopAgents(ctx, operation.Key()))
 	}))
 	i.sendElapsedTime(operation.Created)
-	i.sendPostInstallBanner()
+	i.sendCompletionEvent(status)
 	return trace.NewAggregate(errors...)
 }
 
@@ -222,21 +232,6 @@ func (i *Installer) PrintStep(format string, args ...interface{}) {
 	i.server.Send(event)
 }
 
-// Wait blocks until either the context has been cancelled or the wizard process
-// exits with an error.
-// Implements Interface
-func (i *Installer) Wait() error {
-	i.stopStoppers(i.ctx)
-	return trace.Wrap(i.config.Process.Wait())
-}
-
-// Shutdown stops the active operation.
-// Implements server.Executor
-func (i *Installer) Shutdown(ctx context.Context) error {
-	i.Info("Shutdown.")
-	return trace.Wrap(i.stopWithContext(ctx))
-}
-
 // Execute executes the install operation using the specified engine
 // Implements server.Executor
 func (i *Installer) Execute(phase *installpb.ExecuteRequest_Phase) error {
@@ -258,6 +253,14 @@ func (i *Installer) Complete(opKey ops.SiteOperationKey) error {
 		return trace.Wrap(err)
 	}
 	return trace.Wrap(machine.Complete(trace.Errorf("completed manually")))
+}
+
+// wait blocks until either the context has been cancelled or the wizard process
+// exits with an error.
+// Implements Interface
+func (i *Installer) wait() error {
+	i.stopStoppers(i.ctx)
+	return trace.Wrap(i.config.Process.Wait())
 }
 
 func (i *Installer) executePhase(phase installpb.ExecuteRequest_Phase) error {
@@ -313,7 +316,6 @@ func (i *Installer) stopWithContext(ctx context.Context) error {
 
 // abortWithContext aborts the active operation and invokes the abort handler
 func (i *Installer) abortWithContext(ctx context.Context) error {
-	i.server.SendAbort()
 	i.cancel()
 	var errors []error
 	for _, c := range i.aborters {
@@ -337,7 +339,7 @@ func (i *Installer) sendElapsedTime(timeStarted time.Time) {
 
 // TODO(dmitri): this information should also be displayed when working with the operation
 // manually
-func (i *Installer) sendPostInstallBanner() {
+func (i *Installer) sendCompletionEvent(status server.Status) {
 	var buf bytes.Buffer
 	i.printEndpoints(&buf)
 	if m, ok := modules.Get().(modules.Messager); ok {
@@ -348,11 +350,9 @@ func (i *Installer) sendPostInstallBanner() {
 			Message:    buf.String(),
 			Completion: constants.Completed,
 		},
-		// Send the completion event
-		Complete: true,
+		// Set the completion status
+		Status: status,
 	}
-	// FIXME: logging
-	// i.Info("Send completion event.")
 	i.server.Send(event)
 }
 

@@ -53,7 +53,7 @@ func (r *ResumeStrategy) connect(ctx context.Context) (installpb.AgentClient, er
 
 func (r *ResumeStrategy) checkAndSetDefaults() (err error) {
 	if r.ServicePath == "" {
-		r.ServicePath, err = getServicePath(state.GravityInstallDir())
+		r.ServicePath, err = GetServicePath(state.GravityInstallDir())
 		if err != nil {
 			return trace.Wrap(err)
 		}
@@ -92,7 +92,8 @@ type ResumeStrategy struct {
 	ConnectTimeout time.Duration
 }
 
-func getServicePath(stateDir string) (path string, err error) {
+// GetServicePath returns the name of the service configured in the specified state directory stateDir
+func GetServicePath(stateDir string) (path string, err error) {
 	for _, name := range []string{
 		defaults.GravityRPCInstallerServiceName,
 		defaults.GravityRPCAgentServiceName,

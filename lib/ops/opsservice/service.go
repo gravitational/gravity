@@ -764,17 +764,7 @@ func (o *Operator) GetSiteInstructions(tokenID string, serverProfile string, par
 	if err != nil {
 		return "", trace.Wrap(err)
 	}
-	var instructions string
-	if o.isOpsCenter() && token.Type == storage.ProvisioningTokenTypeInstall {
-		// during Ops Center initiated installation, agents are started using
-		// an "install" command that will reach out to Ops Center to determine
-		// which agent will become installer and which will be joining it
-		instructions, err = s.getInstallInstructions(*token, serverProfile, params)
-	} else {
-		// in other cases, e.g. in install wizard case or in case of expand,
-		// agents are joining the existing operation
-		instructions, err = s.getJoinInstructions(*token, serverProfile, params)
-	}
+	instructions, err := s.getJoinInstructions(*token, serverProfile, params)
 	if err != nil {
 		return "", trace.Wrap(err)
 	}

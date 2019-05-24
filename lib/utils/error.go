@@ -159,11 +159,12 @@ func IsStreamClosedError(err error) bool {
 
 // IsResourceBusyError determines if the specified error identifies a 'device or resource busy' error
 func IsResourceBusyError(err error) bool {
-	sysErr, ok := trace.Unwrap(err).(syscall.Errno)
-	if !ok {
-		return false
+	switch err := trace.Unwrap(err).(type) {
+	case *os.PathError:
+		return isResourceBusyError(err.Err)
+	default:
+		return isResourceBusyError(err)
 	}
-	return sysErr == syscall.EBUSY
 }
 
 // IsClosedResponseBodyErrorMessage determines if the error message
@@ -182,6 +183,14 @@ type ErrorUninstallService struct {
 func IsPathError(err error) bool {
 	_, ok := trace.Unwrap(err).(*os.PathError)
 	return ok
+}
+
+func isResourceBusyError(err error) bool {
+	sysErr, ok := err.(syscall.Errno)
+	if !ok {
+		return false
+	}
+	return sysErr == syscall.EBUSY
 }
 
 func isKubernetesEtcdClusterError(err error) bool {

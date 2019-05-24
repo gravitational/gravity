@@ -655,8 +655,6 @@ const (
 	InstallModeInteractive = "interactive"
 	// InstallModeCLI means installation is running in unattended CLI mode
 	InstallModeCLI = "cli"
-	// InstallModeOpsCenter means installation was started from an Ops Center
-	InstallModeOpsCenter = "opscenter"
 
 	// HelmChartFile is a helm chart name
 	HelmChartFile = "Chart.yaml"

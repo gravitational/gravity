@@ -24,14 +24,13 @@ import (
 	installpb "github.com/gravitational/gravity/lib/install/proto"
 	"github.com/gravitational/gravity/lib/ops"
 	"github.com/gravitational/gravity/lib/state"
-	"github.com/gravitational/gravity/lib/system/environ"
 	"github.com/gravitational/gravity/lib/system/signals"
 	"github.com/gravitational/gravity/lib/utils"
 
 	"github.com/gravitational/trace"
 	log "github.com/sirupsen/logrus"
 	"google.golang.org/grpc/codes"
-	"google.golang.org/grpc/status"
+	grpcstatus "google.golang.org/grpc/status"
 )
 
 // New returns a new client for the installer/agent service.
@@ -93,7 +92,7 @@ func (r *Client) Complete(ctx context.Context, key ops.SiteOperationKey) error {
 	if err != nil {
 		return trace.Wrap(err)
 	}
-	return trace.Wrap(environ.CleanupOperationState(r.Printer, r.FieldLogger))
+	return trace.Wrap(r.complete(ctx, installpb.StatusCompleted))
 }
 
 // Stop signals the service to stop
@@ -121,7 +120,10 @@ func (r *Config) checkAndSetDefaults() error {
 		return trace.BadParameter("ServicePath needs to be absolute path")
 	}
 	if r.Aborter == nil {
-		return trace.BadParameter("Aborter is required")
+		r.Aborter = emptyAborter
+	}
+	if r.Completer == nil {
+		r.Completer = emptyCompleter
 	}
 	if r.Printer == nil {
 		r.Printer = utils.DiscardPrinter
@@ -160,7 +162,7 @@ type Config struct {
 	Aborter func(context.Context) error
 	// Completer specifies the optional completion handler for when the operation
 	// is completed successfully
-	Completer func(context.Context, *signals.InterruptHandler) error
+	Completer CompletionHandler
 }
 
 // Phase groups parameters for executing/rolling back a phase
@@ -181,14 +183,14 @@ func (r *Client) execute(ctx context.Context, req *installpb.ExecuteRequest) err
 	if err != nil {
 		return trace.Wrap(err)
 	}
-	err = r.progressLoop(ctx, stream)
+	status, err := r.progressLoop(ctx, stream)
 	switch {
 	case trace.Unwrap(err) == installpb.ErrAborted:
 		cancel()
 		return trace.Wrap(r.abort(ctx))
 	case err == nil:
 		cancel()
-		return trace.Wrap(r.complete(ctx))
+		return trace.Wrap(r.complete(ctx, status))
 	case trace.IsEOF(err):
 		// Stream done but no completion event
 		return nil
@@ -196,30 +198,26 @@ func (r *Client) execute(ctx context.Context, req *installpb.ExecuteRequest) err
 	return trace.Wrap(err)
 }
 
-func (r *Client) progressLoop(ctx context.Context, stream installpb.Agent_ExecuteClient) (err error) {
+func (r *Client) progressLoop(ctx context.Context, stream installpb.Agent_ExecuteClient) (status installpb.ProgressResponse_Status, err error) {
 	for {
 		resp, err := stream.Recv()
 		if err != nil {
 			r.WithError(err).Warn("Failed to fetch progress.")
-			if s, ok := status.FromError(err); ok && s.Code() == codes.Canceled {
-				return nil
+			if s, ok := grpcstatus.FromError(err); ok && s.Code() == codes.Canceled {
+				return installpb.StatusUnknown, nil
 			}
-			// r.WithError(err).Warn("Failed to fetch progress.")
-			return trace.Wrap(err)
+			return installpb.StatusUnknown, trace.Wrap(err)
 		}
-		if resp.Status == installpb.ProgressResponse_Aborted {
-			// r.WithField("resp", resp).Info("Aborted response.")
-			return installpb.ErrAborted
+		if resp.IsAborted() {
+			return resp.Status, installpb.ErrAborted
 		}
 		// Exit upon first error
 		if resp.Error != nil {
-			// r.WithField("resp", resp).Info("Exited with operation error.")
-			return trace.BadParameter(resp.Error.Message)
+			return resp.Status, trace.BadParameter(resp.Error.Message)
 		}
 		r.PrintStep(resp.Message)
-		if resp.Status == installpb.ProgressResponse_Completed {
-			// r.WithField("resp", resp).Info("Completed response.")
-			return nil
+		if resp.IsCompleted() {
+			return resp.Status, nil
 		}
 	}
 }
@@ -235,12 +233,8 @@ func (r *Client) abort(ctx context.Context) error {
 	return installpb.ErrAborted
 }
 
-func (r *Client) complete(ctx context.Context) error {
-	if r.Completer != nil {
-		// r.Info("Running completer.")
-		return trace.Wrap(r.Completer(ctx, r.InterruptHandler))
-	}
-	return nil
+func (r *Client) complete(ctx context.Context, status installpb.ProgressResponse_Status) error {
+	return trace.Wrap(r.Completer(ctx, r.InterruptHandler, status))
 }
 
 // Client implements the client to the installer service
@@ -251,10 +245,18 @@ type Client struct {
 
 // CompletionHandler describes a functional handler for tasks to run after
 // operation is complete
-type CompletionHandler func(context.Context, *signals.InterruptHandler) error
+type CompletionHandler func(context.Context, *signals.InterruptHandler, installpb.ProgressResponse_Status) error
 
 func removeSocketFileCommand(socketPath string) (cmd string) {
 	return fmt.Sprintf("/usr/bin/rm -f %v", socketPath)
+}
+
+func emptyAborter(context.Context) error {
+	return nil
+}
+
+func emptyCompleter(context.Context, *signals.InterruptHandler, installpb.ProgressResponse_Status) error {
+	return nil
 }
 
 var _ signals.Stopper = (*Client)(nil)

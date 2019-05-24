@@ -109,54 +109,6 @@ func (s *site) getDownloadInstructions(token, serverProfile string) (string, err
 	return out.String(), nil
 }
 
-// getInstallInstructions returns a bash script source that starts agents
-// for an Ops Center initiated installation
-func (s *site) getInstallInstructions(token storage.ProvisioningToken, serverProfile string, params url.Values) (string, error) {
-	tunnelToken, err := s.service.GetTrustedClusterToken(ops.SiteKey{
-		AccountID:  token.AccountID,
-		SiteDomain: token.SiteDomain,
-	})
-	if err != nil {
-		return "", trace.Wrap(err)
-	}
-	agentToken, err := s.service.GetClusterAgent(ops.ClusterAgentRequest{
-		AccountID:   token.AccountID,
-		ClusterName: token.SiteDomain,
-	})
-	if err != nil {
-		return "", trace.Wrap(err)
-	}
-	vars := map[string]interface{}{
-		"devmode":           s.shouldUseInsecure(),
-		"service_uid":       s.uid(),
-		"service_gid":       s.gid(),
-		"gravity_url":       s.packages().PackageDownloadURL(s.gravityPackage),
-		"advertise_addr":    params.Get(schema.AdvertiseAddr),
-		"install_token":     token.Token,
-		"cluster_name":      token.SiteDomain,
-		"app":               s.app.Package.String(),
-		"profile":           serverProfile,
-		"mode":              constants.InstallModeOpsCenter,
-		"operation_id":      token.OperationID,
-		"ops_url":           s.packages().PortalURL(),
-		"ops_token":         agentToken.Password,
-		"ops_tunnel_token":  tunnelToken.GetName(),
-		"ops_sni_host":      s.service.cfg.SNIHost,
-		"background":        params.Get("bg") == "true",
-		"service_user_env":  constants.ServiceUserEnvVar,
-		"service_group_env": constants.ServiceGroupEnvVar,
-		"gravity_bin_path":  defaults.GravityBin,
-		"gce_node_tags":     s.gceNodeTags(),
-		"cloud_provider":    s.provider,
-	}
-	var out bytes.Buffer
-	err = installTemplate.Execute(&out, vars)
-	if err != nil {
-		return "", trace.Wrap(err)
-	}
-	return out.String(), nil
-}
-
 // getJoinInstructions returns a bash script source that starts agents for
 // a wizard installation or expand
 func (s *site) getJoinInstructions(token storage.ProvisioningToken, serverProfile string, params url.Values) (string, error) {

@@ -69,26 +69,17 @@ func CleanupOperationState(printer utils.Printer, logger log.FieldLogger) (err e
 	return trace.Wrap(removeDirectories(printer, logger, state.GravityInstallDir()))
 }
 
-// UninstallAgentServices stops and uninstalls agent services (installer agent and/or service)
-func UninstallAgentServices(logger log.FieldLogger) error {
-	svm, err := systemservice.New()
-	if err != nil {
-		return trace.Wrap(err)
-	}
-	var errors []error
-	for _, service := range []string{
-		defaults.GravityRPCAgentServiceName,
+// UninstallAgentServices stops and uninstalls all operation agent services
+func UninstallAgentServices() error {
+	return trace.Wrap(uninstallService(
 		defaults.GravityRPCInstallerServiceName,
-	} {
-		req := systemservice.UninstallServiceRequest{
-			Name: service,
-		}
-		if err := svm.UninstallService(req); err != nil && !systemservice.IsUnknownServiceError(err) {
-			logger.WithError(err).Warn("Failed to uninstall agent service.")
-			errors = append(errors, err)
-		}
-	}
-	return trace.NewAggregate(errors...)
+		defaults.GravityRPCAgentServiceName,
+	))
+}
+
+// UninstallService stops and uninstalls a service with the specified name
+func UninstallService(service string) error {
+	return trace.Wrap(uninstallService(service))
 }
 
 // DisableAgentServices disables agent services (installer agent and/or service) without
@@ -230,4 +221,21 @@ func getStateDirectories() (dirs []string) {
 		defaults.GravityEphemeralDir,
 		state.GravityInstallDir(),
 	)
+}
+
+func uninstallService(services ...string) error {
+	svm, err := systemservice.New()
+	if err != nil {
+		return trace.Wrap(err)
+	}
+	var errors []error
+	for _, service := range services {
+		req := systemservice.UninstallServiceRequest{
+			Name: service,
+		}
+		if err := svm.UninstallService(req); err != nil && !systemservice.IsUnknownServiceError(err) {
+			errors = append(errors, err)
+		}
+	}
+	return trace.NewAggregate(errors...)
 }

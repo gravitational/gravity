@@ -83,24 +83,16 @@ type Peer struct {
 }
 
 // Run runs the peer operation
-func (p *Peer) Run(listener net.Listener) error {
-	errC := make(chan error, 1)
-	// go watchReconnects(p.ctx, p.cancel, p.WatchCh, p.FieldLogger)
-	go func() {
-		errC <- p.server.Serve(p, listener)
-	}()
-	select {
-	case err := <-errC:
-		p.stop()
-		return trace.Wrap(err)
-	case err := <-p.server.Done():
+func (p *Peer) Run(listener net.Listener) (err error) {
+	defer func() {
 		if installpb.IsAbortedErr(err) {
 			p.abort()
-			return trace.Wrap(err)
+			return
 		}
 		p.stop()
-		return trace.Wrap(err)
-	}
+	}()
+	err = p.server.Run(p, listener)
+	return trace.Wrap(err)
 }
 
 // Stop shuts down this RPC agent
@@ -607,7 +599,7 @@ func (p *Peer) run() error {
 		FieldLogger:  p.FieldLogger,
 		Operator:     ctx.Operator,
 		OperationKey: ctx.Operation.Key(),
-		Dispatcher:   p.server,
+		Dispatcher:   &eventDispatcher{server: p.server},
 	}.Run(p.ctx)
 
 	if ctx.Operation.Type != ops.OperationExpand {
@@ -805,6 +797,21 @@ func (p *Peer) validateWizardState(operator ops.Operator) (*ops.Site, *ops.SiteO
 		return &cluster, operation, nil
 	}
 	return &cluster, operation, nil
+}
+
+// Send dispatches the specified event to client
+func (r *eventDispatcher) Send(event server.Event) {
+	if event.Progress != nil && event.Progress.IsCompleted() {
+		// Mark event as completed
+		event.Status = server.StatusCompleted
+	}
+	r.server.Send(event)
+}
+
+// eventDispatcher implements eventDispatcher for the agent
+// and maps completed progress event to client completed event
+type eventDispatcher struct {
+	server *server.Server
 }
 
 // func watchReconnects(ctx context.Context, cancel context.CancelFunc, watchCh <-chan rpcserver.WatchEvent, logger log.FieldLogger) {

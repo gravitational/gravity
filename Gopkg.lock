@@ -236,12 +236,13 @@
   version = "v3.5.1"
 
 [[projects]]
-  digest = "1:0f98f59e9a2f4070d66f0c9c39561f68fcd1dc837b22a852d28d0003aebd1b1e"
+  digest = "1:2e33f2c281497a8a4c144d5e765e4c2d8aaf7dbd45a43c059ea84d6916701811"
   name = "github.com/boltdb/bolt"
   packages = ["."]
   pruneopts = "UT"
-  revision = "2f1ce7a837dcb8da3ec595b1dac9d0632f0f99e8"
-  version = "v1.3.1"
+  revision = "edfbf3c8bad08d02eddbdc30b797c26587c60fa6"
+  source = "github.com/gravitational/bolt"
+  version = "1.3.2-gravitational"
 
 [[projects]]
   digest = "1:7d0e3472ff040d101a84edeaefd18b27b8ad3b10e6f2b609ba0e2ffd9b12eb91"
