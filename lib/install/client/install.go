@@ -101,7 +101,7 @@ func (r *InstallerStrategy) serviceName() (name string) {
 	return filepath.Base(r.ServicePath)
 }
 
-func (r *InstallerStrategy) checkAndSetDefaults() error {
+func (r *InstallerStrategy) checkAndSetDefaults() (err error) {
 	if len(r.Args) == 0 {
 		return trace.BadParameter("Args is required")
 	}
@@ -112,10 +112,16 @@ func (r *InstallerStrategy) checkAndSetDefaults() error {
 		return trace.BadParameter("Validate is required")
 	}
 	if r.ServicePath == "" {
-		r.ServicePath = state.GravityInstallDir(defaults.GravityRPCInstallerServiceName)
+		r.ServicePath, err = state.GravityInstallDir(defaults.GravityRPCInstallerServiceName)
+		if err != nil {
+			return trace.Wrap(err)
+		}
 	}
 	if r.SocketPath == "" {
-		r.SocketPath = installpb.SocketPath()
+		r.SocketPath, err = installpb.SocketPath()
+		if err != nil {
+			return trace.Wrap(err)
+		}
 	}
 	if r.ConnectTimeout == 0 {
 		r.ConnectTimeout = defaults.ServiceConnectTimeout

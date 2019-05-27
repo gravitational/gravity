@@ -4,6 +4,7 @@ package proto;
 
 import "google/protobuf/empty.proto";
 import "google/protobuf/timestamp.proto";
+import "gogo.proto";
 
 // Discovery provides access to agent's environment and runtime configuration.
 service Discovery {
@@ -25,6 +26,7 @@ message SystemInfo {
 
 // RuntimeConfig decribes agent's runtime configuration
 message RuntimeConfig {
+    option (gogoproto.goproto_stringer) = false;
     // Role specifies the agent's role
     string role = 1;
     // AdvertiseAddr specifies the address the agent is listening on
@@ -59,6 +61,7 @@ message Device {
 
 // Mount is mount point
 message Mount {
+    option (gogoproto.goproto_stringer) = false;
     // Name identifies the mount point
     string name = 1;
     // Source specifies the source directory
@@ -67,6 +70,7 @@ message Mount {
 
 // CloudMetadata describes the instance in the cloud
 message CloudMetadata {
+    option (gogoproto.goproto_stringer) = false;
     // NodeName specifies the optional node name override.
     // Can be specified either on command line or derived from cloud environment.
     string node_name = 1;

@@ -113,9 +113,9 @@ func LogDir(baseDir string, suffixes ...string) string {
 // GravityInstallDir returns the location of the temporary state directory for
 // the install/join operation.
 // elems are appended to resulting path
-func GravityInstallDir(elems ...string) (path string) {
+func GravityInstallDir(elems ...string) (path string, err error) {
 	parts := []string{utils.Exe.WorkingDir, ".gravity"}
-	return filepath.Join(append(parts, elems...)...)
+	return filepath.Join(append(parts, elems...)...), nil
 }
 
 var (

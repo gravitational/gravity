@@ -4,6 +4,7 @@ package proto;
 
 import "google/protobuf/empty.proto";
 import "discovery.proto";
+import "gogo.proto";
 
 // Agent is RPC agent interface
 service Agent {
@@ -116,6 +117,7 @@ message UninstallRequest {
 
 // PeerJoinRequest is request to join from a remote peer.
 message PeerJoinRequest {
+    option (gogoproto.goproto_stringer) = false;
     // Addr is the peer address as host:port
     string addr = 1;
     // Config specifies the peer's runtime configuration
@@ -126,6 +128,7 @@ message PeerJoinRequest {
 
 // PeerLeaveRequest is a request a peer sends when it wants to leave the cluster
 message PeerLeaveRequest {
+    option (gogoproto.goproto_stringer) = false;
     // Addr is the peer address as host:port
     string addr = 1;
     // Config specifies the peer's runtime configuration

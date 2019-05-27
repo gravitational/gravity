@@ -65,8 +65,12 @@ func UninstallSystem(printer utils.Printer, logger log.FieldLogger) (err error) 
 }
 
 // CleanupOperationState removes all operation state after the operation is complete
-func CleanupOperationState(printer utils.Printer, logger log.FieldLogger) (err error) {
-	return trace.Wrap(removeDirectories(printer, logger, state.GravityInstallDir()))
+func CleanupOperationState(printer utils.Printer, logger log.FieldLogger) error {
+	stateDir, err := state.GravityInstallDir()
+	if err != nil {
+		return trace.Wrap(err)
+	}
+	return trace.Wrap(removeDirectories(printer, logger, stateDir))
 }
 
 // UninstallAgentServices stops and uninstalls all operation agent services
@@ -215,11 +219,13 @@ func getStateDirectories() (dirs []string) {
 		dirs = append(dirs, stateDir)
 	}
 	dirs = append(dirs, state.StateLocatorPaths...)
+	if stateDir, err := state.GravityInstallDir(); err == nil {
+		dirs = append(dirs, stateDir)
+	}
 	return append(dirs,
 		defaults.ModulesPath,
 		defaults.SysctlPath,
 		defaults.GravityEphemeralDir,
-		state.GravityInstallDir(),
 	)
 }
 

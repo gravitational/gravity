@@ -101,9 +101,6 @@ type Config struct {
 	// ServiceUser specifies the service user to use to
 	// create a cluster with for wizard-based installation
 	ServiceUser systeminfo.User
-	// InstallToken specifies the token to install cluster with.
-	// The token is used to authenticate agents during the install operation
-	InstallToken string
 }
 
 // Check validates the config
@@ -1083,13 +1080,12 @@ func (m *Handler) createSite(w http.ResponseWriter, r *http.Request, p httproute
 	}
 
 	req := ops.NewSiteRequest{
-		AppPackage:   input.AppPackage,
-		AccountID:    context.User.GetAccountID(),
-		Email:        context.User.GetName(),
-		DomainName:   input.DomainName,
-		License:      input.License,
-		Labels:       input.Labels,
-		InstallToken: m.cfg.InstallToken,
+		AppPackage: input.AppPackage,
+		AccountID:  context.User.GetAccountID(),
+		Email:      context.User.GetName(),
+		DomainName: input.DomainName,
+		License:    input.License,
+		Labels:     input.Labels,
 	}
 
 	var vars storage.OperationVariables

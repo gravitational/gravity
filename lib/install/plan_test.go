@@ -189,7 +189,7 @@ func (s *PlanSuite) SetUpSuite(c *check.C) {
 				ServiceUser:      s.serviceUser,
 				DNSConfig:        s.dnsConfig,
 				Process:          &mockProcess{},
-				AppPackage:       &appPackage,
+				App:              app,
 				Apps:             s.services.Apps,
 				Operator:         s.services.Operator,
 				Packages:         s.services.Packages,
@@ -245,7 +245,7 @@ func (s *PlanSuite) verifyChecksPhase(c *check.C, phase storage.OperationPhase) 
 	storage.DeepComparePhases(c, storage.OperationPhase{
 		ID: phases.ChecksPhase,
 		Data: &storage.OperationPhaseData{
-			Package: s.installer.config.AppPackage,
+			Package: &s.installer.config.App.Package,
 		},
 	}, phase)
 }
@@ -273,7 +273,7 @@ func (s *PlanSuite) verifyBootstrapPhase(c *check.C, phase storage.OperationPhas
 				Data: &storage.OperationPhaseData{
 					Server:      &s.masterNode,
 					ExecServer:  &s.masterNode,
-					Package:     s.installer.config.AppPackage,
+					Package:     &s.installer.config.App.Package,
 					Agent:       s.adminAgent,
 					ServiceUser: serviceUser,
 				},
@@ -283,7 +283,7 @@ func (s *PlanSuite) verifyBootstrapPhase(c *check.C, phase storage.OperationPhas
 				Data: &storage.OperationPhaseData{
 					Server:      &s.regularNode,
 					ExecServer:  &s.regularNode,
-					Package:     s.installer.config.AppPackage,
+					Package:     &s.installer.config.App.Package,
 					Agent:       s.regularAgent,
 					ServiceUser: serviceUser,
 				},
@@ -303,7 +303,7 @@ func (s *PlanSuite) verifyPullPhase(c *check.C, phase storage.OperationPhase) {
 				Data: &storage.OperationPhaseData{
 					Server:      &s.masterNode,
 					ExecServer:  &s.masterNode,
-					Package:     s.installer.config.AppPackage,
+					Package:     &s.installer.config.App.Package,
 					ServiceUser: serviceUser,
 				},
 				Requires: []string{phases.ConfigurePhase, phases.BootstrapPhase},
@@ -313,7 +313,7 @@ func (s *PlanSuite) verifyPullPhase(c *check.C, phase storage.OperationPhase) {
 				Data: &storage.OperationPhaseData{
 					Server:      &s.regularNode,
 					ExecServer:  &s.regularNode,
-					Package:     s.installer.config.AppPackage,
+					Package:     &s.installer.config.App.Package,
 					ServiceUser: serviceUser,
 				},
 				Requires: []string{phases.ConfigurePhase, phases.BootstrapPhase},
@@ -423,7 +423,7 @@ func (s *PlanSuite) verifyInstallOverlayPhase(c *check.C, phase storage.Operatio
 		Data: &storage.OperationPhaseData{
 			Server:      &s.masterNode,
 			ServiceUser: serviceUser,
-			Package:     s.installer.config.AppPackage,
+			Package:     &s.installer.config.App.Package,
 		},
 		Requires: []string{phases.ExportPhase},
 	}, phase)
@@ -522,7 +522,7 @@ func (s *PlanSuite) verifyExportPhase(c *check.C, phase storage.OperationPhase) 
 				Data: &storage.OperationPhaseData{
 					Server:     &s.masterNode,
 					ExecServer: &s.masterNode,
-					Package:    s.installer.config.AppPackage,
+					Package:    &s.installer.config.App.Package,
 				},
 				Requires: []string{phases.WaitPhase},
 			},
@@ -594,10 +594,10 @@ func (s *PlanSuite) verifyAppPhase(c *check.C, phase storage.OperationPhase) {
 			Requires: []string{phases.RuntimePhase},
 		},
 		{
-			ID: fmt.Sprintf("%v/%v", phases.AppPhase, s.installer.config.AppPackage.Name),
+			ID: fmt.Sprintf("%v/%v", phases.AppPhase, s.installer.config.App.Package.Name),
 			Data: &storage.OperationPhaseData{
 				Server:  &s.masterNode,
-				Package: s.installer.config.AppPackage,
+				Package: &s.installer.config.App.Package,
 			},
 			Requires: []string{phases.RuntimePhase},
 		},
@@ -644,7 +644,7 @@ func (s *PlanSuite) user() *storage.OSUser {
 }
 
 func (s *PlanSuite) TestSplitServers(c *check.C) {
-	application, err := s.services.Apps.GetApp(*s.installer.config.AppPackage)
+	application, err := s.services.Apps.GetApp(s.installer.config.App.Package)
 	c.Assert(err, check.IsNil)
 
 	testCases := []struct {

@@ -71,12 +71,16 @@ func (g *Application) NewUpdateEnv() (*localenv.LocalEnvironment, error) {
 // NewJoinEnv returns an instance of local environment where join-specific data is stored
 func (g *Application) NewJoinEnv() (*localenv.LocalEnvironment, error) {
 	const failImmediatelyIfLocked = -1
-	err := os.MkdirAll(state.GravityInstallDir(), defaults.SharedDirMask)
+	stateDir, err := state.GravityInstallDir()
+	if err != nil {
+		return nil, trace.Wrap(err)
+	}
+	err = os.MkdirAll(stateDir, defaults.SharedDirMask)
 	if err != nil {
 		return nil, trace.ConvertSystemError(err)
 	}
 	return g.getEnvWithArgs(localenv.LocalEnvironmentArgs{
-		StateDir:         state.GravityInstallDir(),
+		StateDir:         stateDir,
 		Insecure:         *g.Insecure,
 		Silent:           localenv.Silent(*g.Silent),
 		Debug:            *g.Debug,

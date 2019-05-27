@@ -21,7 +21,6 @@ import (
 	"context"
 	"fmt"
 
-	"github.com/gravitational/gravity/lib/app"
 	"github.com/gravitational/gravity/lib/defaults"
 	"github.com/gravitational/gravity/lib/install"
 	"github.com/gravitational/gravity/lib/ops"
@@ -91,14 +90,9 @@ func (r *Engine) Execute(ctx context.Context, installer install.Interface, confi
 }
 
 func newExecutor(ctx context.Context, r *Engine, installer install.Interface, config install.Config) (*executor, error) {
-	app, err := config.GetApp()
-	if err != nil {
-		return nil, trace.Wrap(err, "failed to query application")
-	}
 	return &executor{
 		Config:    r.Config,
 		Interface: installer,
-		app:       *app,
 		ctx:       ctx,
 		config:    config,
 	}, nil
@@ -148,10 +142,8 @@ func (r *executor) waitForOperation() (operation *ops.SiteOperation, err error) 
 func (r *executor) completeOperation(operation ops.SiteOperation) error {
 	// With an interactive installation, the link to remote Ops Center cannot be removed
 	// immediately as it is used to tunnel final install step
-	if r.app.Manifest.SetupEndpoint() == nil {
-		if err := r.CompleteFinalInstallStep(operation.Key(), defaults.WizardLinkTTL); err != nil {
-			r.WithError(err).Warn("Failed to complete final install step.")
-		}
+	if err := r.CompleteFinalInstallStep(operation.Key(), defaults.WizardLinkTTL); err != nil {
+		r.WithError(err).Warn("Failed to complete final install step.")
 	}
 	if err := r.CompleteOperationAndWait(operation); err != nil {
 		r.WithError(err).Warn("Failed to complete install.")
@@ -165,9 +157,9 @@ func (r *executor) printURL() {
 	r.PrintStep("Starting web UI install wizard")
 	url := fmt.Sprintf("%v/web/installer/new/%v/%v/%v?install_token=%v",
 		r.AdvertiseAddr,
-		r.config.AppPackage.Repository,
-		r.config.AppPackage.Name,
-		r.config.AppPackage.Version,
+		r.config.App.Package.Repository,
+		r.config.App.Package.Name,
+		r.config.App.Package.Version,
 		r.config.Token.Token)
 	r.WithField("installer-url", url).Info("Generated installer URL.")
 	r.PrintStep(color.GreenString("Open this URL in browser: %s", url))
@@ -181,7 +173,6 @@ type Engine struct {
 
 type executor struct {
 	Config
-	app app.Application
 	install.Interface
 	config   install.Config
 	ctx      context.Context

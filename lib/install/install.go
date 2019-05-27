@@ -71,7 +71,7 @@ func New(ctx context.Context, config RuntimeConfig) (installer *Installer, err e
 	}, nil
 }
 
-// Run runs the server operation using the specified engine
+// Run runs the server operation
 func (i *Installer) Run(listener net.Listener) (err error) {
 	defer func() {
 		if installpb.IsAbortedErr(err) {
@@ -80,8 +80,16 @@ func (i *Installer) Run(listener net.Listener) (err error) {
 		}
 		i.stop()
 	}()
-	err = i.server.Run(i, listener)
-	return trace.Wrap(err)
+	errC := make(chan error, 1)
+	go func() {
+		errC <- i.server.Run(i, listener)
+	}()
+	select {
+	case err := <-errC:
+		return trace.Wrap(err)
+	case err := <-i.agentErrC:
+		return trace.Wrap(err)
+	}
 }
 
 // Stop stops the server and releases resources allocated by the installer.
@@ -120,7 +128,9 @@ type Interface interface {
 // Implements Interface
 func (i *Installer) NotifyOperationAvailable(op ops.SiteOperation) error {
 	if i.agent != nil {
-		i.startAgent(op)
+		if err := i.startAgent(op); err != nil {
+			return trace.Wrap(err)
+		}
 	}
 	i.addAborter(signals.StopperFunc(func(ctx context.Context) error {
 		i.WithField("operation", op.ID).Info("Aborting agent service.")
@@ -198,7 +208,7 @@ func (i *Installer) completeOperation(operation ops.SiteOperation, status server
 	if err := i.emitAuditEvents(i.ctx, operation); err != nil {
 		errors = append(errors, err)
 	}
-	// Explicitly stop agents only iff the operation has been completed successfully
+	// Explicitly stop agents iff the operation has been completed successfully
 	i.addStopper(signals.StopperFunc(func(ctx context.Context) error {
 		i.WithField("operation", operation.ID).Info("Stopping agent service.")
 		return trace.Wrap(i.config.Process.AgentService().StopAgents(ctx, operation.Key()))
@@ -213,8 +223,11 @@ func (i *Installer) completeOperation(operation ops.SiteOperation, status server
 // because it will be completed by user later.
 // Implements Interface
 func (i *Installer) CompleteFinalInstallStep(key ops.SiteOperationKey, delay time.Duration) error {
+	if i.config.App.Manifest.SetupEndpoint() != nil {
+		return nil
+	}
 	req := ops.CompleteFinalInstallStepRequest{
-		AccountID:           defaults.SystemAccountID,
+		AccountID:           key.AccountID,
 		SiteDomain:          key.SiteDomain,
 		WizardConnectionTTL: delay,
 	}
@@ -455,7 +468,10 @@ func (i *Installer) startAgent(operation ops.SiteOperation) error {
 	if err != nil {
 		return trace.Wrap(err)
 	}
-	go i.agent.ServeWithToken(token)
+	i.agentErrC = make(chan error, 1)
+	go func() {
+		i.agentErrC <- i.agent.ServeWithToken(token)
+	}()
 	return nil
 }
 
@@ -472,7 +488,8 @@ type Installer struct {
 	server *server.Server
 	// agent is an optional RPC agent if the installer
 	// has been configured to use local host as one of the cluster nodes
-	agent *rpcserver.PeerServer
+	agent     *rpcserver.PeerServer
+	agentErrC chan error
 }
 
 // Engine implements the process of cluster installation

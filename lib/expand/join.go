@@ -66,6 +66,7 @@ func NewPeer(ctx context.Context, config PeerConfig) (*Peer, error) {
 		ctx:        localCtx,
 		cancel:     cancel,
 		server:     server,
+		agentErrC:  make(chan error, 2),
 	}
 	return peer, nil
 }
@@ -78,12 +79,16 @@ type Peer struct {
 	cancel context.CancelFunc
 	// agent is this peer's RPC agent
 	agent *rpcserver.PeerServer
+	// agentErrC is signaled when an agent either fails to serve
+	// or its reconnect loop is prematurely terminated with an error
+	agentErrC chan error
 	// server is the gRPC installer server
 	server *server.Server
 }
 
 // Run runs the peer operation
 func (p *Peer) Run(listener net.Listener) (err error) {
+	go watchReconnects(p.ctx, p.agentErrC, p.WatchCh, p.FieldLogger)
 	defer func() {
 		if installpb.IsAbortedErr(err) {
 			p.abort()
@@ -91,8 +96,16 @@ func (p *Peer) Run(listener net.Listener) (err error) {
 		}
 		p.stop()
 	}()
-	err = p.server.Run(p, listener)
-	return trace.Wrap(err)
+	errC := make(chan error, 1)
+	go func() {
+		errC <- p.server.Run(p, listener)
+	}()
+	select {
+	case err := <-errC:
+		return trace.Wrap(err)
+	case err := <-p.agentErrC:
+		return trace.Wrap(err)
+	}
 }
 
 // Stop shuts down this RPC agent
@@ -607,9 +620,7 @@ func (p *Peer) run() error {
 	}
 
 	go func() {
-		if err := agent.Serve(); err != nil {
-			p.WithError(err).Warn("Failed to serve agent.")
-		}
+		p.agentErrC <- agent.Serve()
 	}()
 	return trace.Wrap(p.startExpandOperation(*ctx))
 }
@@ -814,24 +825,24 @@ type eventDispatcher struct {
 	server *server.Server
 }
 
-// func watchReconnects(ctx context.Context, cancel context.CancelFunc, watchCh <-chan rpcserver.WatchEvent, logger log.FieldLogger) {
-// 	for {
-// 		select {
-// 		case event := <-watchCh:
-// 			if event.Error == nil {
-// 				continue
-// 			}
-// 			logger.WithFields(log.Fields{
-// 				log.ErrorKey: event.Error,
-// 				"peer":       event.Peer,
-// 			}).Warn("Failed to reconnect, will abort.")
-// 			cancel()
-// 			return
-// 		case <-ctx.Done():
-// 			return
-// 		}
-// 	}
-// }
+func watchReconnects(ctx context.Context, errC chan<- error, watchCh <-chan rpcserver.WatchEvent, logger log.FieldLogger) {
+	for {
+		select {
+		case event := <-watchCh:
+			if event.Error == nil {
+				continue
+			}
+			logger.WithFields(log.Fields{
+				log.ErrorKey: event.Error,
+				"peer":       event.Peer,
+			}).Warn("Failed to reconnect, will abort.")
+			errC <- event.Error
+			return
+		case <-ctx.Done():
+			return
+		}
+	}
+}
 
 // getPeerAddrAndToken returns the peer address and token for the specified role
 func getPeerAddrAndToken(ctx operationContext, role string) (peerAddr, token string, err error) {

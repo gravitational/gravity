@@ -26,7 +26,6 @@ import (
 	"github.com/gravitational/gravity/lib/defaults"
 	"github.com/gravitational/gravity/lib/fsm"
 	"github.com/gravitational/gravity/lib/install/engine"
-	"github.com/gravitational/gravity/lib/loc"
 	validationpb "github.com/gravitational/gravity/lib/network/validation/proto"
 	"github.com/gravitational/gravity/lib/ops"
 	"github.com/gravitational/gravity/lib/ops/opsclient"
@@ -66,12 +65,8 @@ func NewFSMConfig(operator ops.Operator, operationKey ops.SiteOperationKey, conf
 
 // RunLocalChecks executes host-local preflight checks for this configuration
 func (c *Config) RunLocalChecks(ctx context.Context) error {
-	app, err := c.GetApp()
-	if err != nil {
-		return trace.Wrap(err)
-	}
 	return trace.Wrap(checks.RunLocalChecks(ctx, checks.LocalChecksRequest{
-		Manifest: app.Manifest,
+		Manifest: c.App.Manifest,
 		Role:     c.Role,
 		Docker:   c.Docker,
 		Options: &validationpb.ValidateOptions{
@@ -81,15 +76,6 @@ func (c *Config) RunLocalChecks(ctx context.Context) error {
 		},
 		AutoFix: true,
 	}))
-}
-
-// GetApp returns the application for this configuration
-func (c *Config) GetApp() (*app.Application, error) {
-	app, err := c.Apps.GetApp(*c.AppPackage)
-	if err != nil {
-		return nil, trace.Wrap(err)
-	}
-	return app, nil
 }
 
 // GetWizardAddr returns the advertise address of the wizard process
@@ -123,8 +109,8 @@ type Config struct {
 	Flavor *schema.Flavor
 	// Role is server role
 	Role string
-	// AppPackage is the application being installed
-	AppPackage *loc.Locator
+	// App is the application being installed
+	App *app.Application
 	// RuntimeResources specifies optional Kubernetes resources to create
 	RuntimeResources []runtime.Object
 	// ClusterResources specifies optional cluster resources to create
@@ -215,8 +201,8 @@ func (c *Config) checkAndSetDefaults(ctx context.Context) (err error) {
 	if c.LocalBackend == nil {
 		return trace.BadParameter("missing LocalBackend")
 	}
-	if c.AppPackage == nil {
-		return trace.BadParameter("missing AppPackage")
+	if c.App == nil {
+		return trace.BadParameter("missing App")
 	}
 	if c.AbortHandler == nil {
 		return trace.BadParameter("missing AbortHandler")
@@ -260,7 +246,7 @@ func NewClusterFactory(config Config) engine.ClusterFactory {
 // Implements engine.ClusterFactory
 func (r *clusterFactory) NewCluster() ops.NewSiteRequest {
 	return ops.NewSiteRequest{
-		AppPackage:   r.AppPackage.String(),
+		AppPackage:   r.App.Package.String(),
 		AccountID:    defaults.SystemAccountID,
 		Email:        fmt.Sprintf("installer@%v", r.SiteDomain),
 		Provider:     r.CloudProvider,

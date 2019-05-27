@@ -53,13 +53,20 @@ func (r *ResumeStrategy) connect(ctx context.Context) (installpb.AgentClient, er
 
 func (r *ResumeStrategy) checkAndSetDefaults() (err error) {
 	if r.ServicePath == "" {
-		r.ServicePath, err = GetServicePath(state.GravityInstallDir())
+		stateDir, err := state.GravityInstallDir()
+		if err != nil {
+			return trace.Wrap(err)
+		}
+		r.ServicePath, err = GetServicePath(stateDir)
 		if err != nil {
 			return trace.Wrap(err)
 		}
 	}
 	if r.SocketPath == "" {
-		r.SocketPath = installpb.SocketPath()
+		r.SocketPath, err = installpb.SocketPath()
+		if err != nil {
+			return trace.Wrap(err)
+		}
 	}
 	if r.ConnectTimeout == 0 {
 		r.ConnectTimeout = 10 * time.Minute

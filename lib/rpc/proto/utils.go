@@ -17,7 +17,6 @@ limitations under the License.
 package proto
 
 import (
-	"errors"
 	fmt "fmt"
 	"strings"
 
@@ -70,52 +69,52 @@ func EncodeError(err error) *Error {
 	}
 }
 
+// ErrorToMessage returns a new message using the specified error
 func ErrorToMessage(err error) *Message {
 	return &Message{Element: &Message_Error{EncodeError(err)}}
 }
 
-func DecodeError(err *Error) error {
-	return errors.New(err.Message)
+// String describes this request as text
+func (r *PeerJoinRequest) String() string {
+	return fmt.Sprintf("PeerJoinRequest(addr=%v, config=%v)", r.Addr, r.Config)
 }
 
-func FormatPeerJoinRequest(req *PeerJoinRequest) string {
-	return fmt.Sprintf("PeerJoinRequest(addr=%v, config=%v)",
-		req.Addr, FormatRuntimeConfig(req.Config))
+// String describes this request as text
+func (r *PeerLeaveRequest) String() string {
+	return fmt.Sprintf("PeerLeaveRequest(addr=%v, config=%v)", r.Addr, r.Config)
 }
 
-func FormatPeerLeaveRequest(req *PeerLeaveRequest) string {
-	return fmt.Sprintf("PeerLeaveRequest(addr=%v, config=%v)",
-		req.Addr, FormatRuntimeConfig(req.Config))
-}
-
-func FormatRuntimeConfig(config *RuntimeConfig) string {
+// String describes this configuration as text
+func (r *RuntimeConfig) String() string {
 	var mounts []string
-	for _, m := range config.Mounts {
-		mounts = append(mounts, FormatMount(*m))
+	for _, m := range r.Mounts {
+		mounts = append(mounts, m.String())
 	}
 	return fmt.Sprintf("RuntimeConfig(role=%v, addr=%v, docker-dev=%q, system-dev=%q, "+
 		"state-dir=%v, temp-dir=%v, token=%v, key-values=%v, mounts=%v, cloud=%v)",
-		config.Role,
-		config.AdvertiseAddr,
-		config.DockerDevice,
-		config.SystemDevice,
-		config.StateDir,
-		config.TempDir,
-		config.Token,
-		config.KeyValues,
+		r.Role,
+		r.AdvertiseAddr,
+		r.DockerDevice,
+		r.SystemDevice,
+		r.StateDir,
+		r.TempDir,
+		r.Token,
+		r.KeyValues,
 		strings.Join(mounts, ","),
-		FormatCloudMetadata(config.CloudMetadata),
+		r.CloudMetadata,
 	)
 }
 
-func FormatMount(m Mount) string {
-	return fmt.Sprintf("Mount(name=%v, source=%v)", m.Name, m.Source)
+// String describes this mount point as text
+func (r Mount) String() string {
+	return fmt.Sprintf("Mount(name=%v, source=%v)", r.Name, r.Source)
 }
 
-func FormatCloudMetadata(m *CloudMetadata) string {
-	if m == nil {
+// String describes this metadata object as text
+func (r *CloudMetadata) String() string {
+	if r == nil {
 		return "CloudMetadata(<empty>)"
 	}
 	return fmt.Sprintf("CloudMetadata(node=%v, type=%v, id=%v)",
-		m.NodeName, m.InstanceType, m.InstanceId)
+		r.NodeName, r.InstanceType, r.InstanceId)
 }

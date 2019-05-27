@@ -103,7 +103,7 @@ func (r *Client) Stop(ctx context.Context) error {
 	return trace.Wrap(err)
 }
 
-func (r *Config) checkAndSetDefaults() error {
+func (r *Config) checkAndSetDefaults() (err error) {
 	if r.ConnectStrategy == nil {
 		return trace.BadParameter("ConnectStrategy is required")
 	}
@@ -114,7 +114,10 @@ func (r *Config) checkAndSetDefaults() error {
 		return trace.BadParameter("InterruptHandler is required")
 	}
 	if r.ServicePath == "" {
-		r.ServicePath = state.GravityInstallDir(defaults.GravityRPCInstallerServiceName)
+		r.ServicePath, err = state.GravityInstallDir(defaults.GravityRPCInstallerServiceName)
+		if err != nil {
+			return trace.Wrap(err)
+		}
 	}
 	if !filepath.IsAbs(r.ServicePath) {
 		return trace.BadParameter("ServicePath needs to be absolute path")
@@ -132,7 +135,10 @@ func (r *Config) checkAndSetDefaults() error {
 		r.FieldLogger = log.WithField(trace.Component, "client:installer")
 	}
 	if r.SocketPath == "" {
-		r.SocketPath = installpb.SocketPath()
+		r.SocketPath, err = installpb.SocketPath()
+		if err != nil {
+			return trace.Wrap(err)
+		}
 	}
 	return nil
 }

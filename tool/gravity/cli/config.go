@@ -178,13 +178,12 @@ func NewInstallConfig(env *localenv.LocalEnvironment, g *Application) InstallCon
 			StorageDriver: g.InstallCmd.DockerStorageDriver.value,
 			Args:          *g.InstallCmd.DockerArgs,
 		},
-		DNSConfig:          g.InstallCmd.DNSConfig(),
-		GCENodeTags:        *g.InstallCmd.GCENodeTags,
-		LocalPackages:      env.Packages,
-		LocalApps:          env.Apps,
-		LocalBackend:       env.Backend,
-		LocalClusterClient: env.SiteOperator,
-
+		DNSConfig:              g.InstallCmd.DNSConfig(),
+		GCENodeTags:            *g.InstallCmd.GCENodeTags,
+		LocalPackages:          env.Packages,
+		LocalApps:              env.Apps,
+		LocalBackend:           env.Backend,
+		LocalClusterClient:     env.SiteOperator,
 		Mode:                   mode,
 		ServiceUID:             *g.InstallCmd.ServiceUID,
 		ServiceGID:             *g.InstallCmd.ServiceGID,
@@ -208,7 +207,10 @@ func (i *InstallConfig) CheckAndSetDefaults() (err error) {
 		i.StateDir = filepath.Dir(utils.Exe.Path)
 		i.WithField("dir", i.StateDir).Info("Set installer read state directory.")
 	}
-	i.writeStateDir = state.GravityInstallDir()
+	i.writeStateDir, err = state.GravityInstallDir()
+	if err != nil {
+		return trace.Wrap(err)
+	}
 	if err := os.MkdirAll(i.writeStateDir, defaults.SharedDirMask); err != nil {
 		return trace.ConvertSystemError(err)
 	}
@@ -348,7 +350,7 @@ func (i *InstallConfig) NewInstallerConfig(
 		Role:               i.Role,
 		ServiceUser:        *i.ServiceUser,
 		Token:              *token,
-		AppPackage:         &app.Package,
+		App:                app,
 		Flavor:             flavor,
 		DNSOverrides:       *dnsOverrides,
 		RuntimeResources:   kubernetesResources,
@@ -756,13 +758,13 @@ func AborterForMode(mode string, env *localenv.LocalEnvironment) func(context.Co
 	case constants.InstallModeInteractive:
 		return installerInteractiveUninstallSystem(env)
 	default:
-		return installerUninstallSystem(env)
+		return installerAbortOperation(env)
 	}
 }
 
-// installerUninstallSystem implements the clean up phase when the installer service
+// installerAbortOperation implements the clean up phase when the installer service
 // is explicitly interrupted by user
-func installerUninstallSystem(env *localenv.LocalEnvironment) func(context.Context) error {
+func installerAbortOperation(env *localenv.LocalEnvironment) func(context.Context) error {
 	return func(ctx context.Context) error {
 		logger := log.WithField(trace.Component, "installer:abort")
 		logger.Info("Leaving cluster.")
@@ -772,7 +774,11 @@ func installerUninstallSystem(env *localenv.LocalEnvironment) func(context.Conte
 		}); err != nil {
 			logger.WithError(err).Warn("Failed to leave cluster.")
 		}
-		serviceName, err := installerclient.GetServicePath(state.GravityInstallDir())
+		stateDir, err := state.GravityInstallDir()
+		if err != nil {
+			return trace.Wrap(err)
+		}
+		serviceName, err := installerclient.GetServicePath(stateDir)
 		if err == nil {
 			logger := logger.WithField("service", serviceName)
 			logger.Info("Uninstalling service.")
@@ -820,7 +826,11 @@ func InstallerCompleteOperation(env *localenv.LocalEnvironment) installerclient.
 			env.PrintStep(postInstallInteractiveBanner)
 			signals.WaitFor(os.Interrupt)
 		}
-		serviceName, err := installerclient.GetServicePath(state.GravityInstallDir())
+		stateDir, err := state.GravityInstallDir()
+		if err != nil {
+			return trace.Wrap(err)
+		}
+		serviceName, err := installerclient.GetServicePath(stateDir)
 		if err == nil {
 			if err := environ.UninstallService(serviceName); err != nil {
 				logger.WithError(err).Warn("Failed to uninstall agent services.")

@@ -18,7 +18,6 @@ package installer
 import (
 	"context"
 	"net"
-	"path/filepath"
 	"time"
 
 	"github.com/gravitational/gravity/lib/state"
@@ -31,50 +30,34 @@ import (
 // NewClient returns a new client using the specified state directory
 // to look for socket file
 func NewClient(ctx context.Context, socketPath string, logger log.FieldLogger, opts ...grpc.DialOption) (AgentClient, error) {
-	type result struct {
-		*grpc.ClientConn
-		error
-	}
-	resultC := make(chan result, 1)
-	go func() {
-		dialOptions := []grpc.DialOption{
-			// Don't use TLS, as we communicate over domain sockets
-			grpc.WithInsecure(),
-			// Retry every second after failure
-			grpc.WithBackoffMaxDelay(1 * time.Second),
-			grpc.WithBlock(),
-			grpc.WithContextDialer(func(ctx context.Context, addr string) (net.Conn, error) {
-				conn, err := (&net.Dialer{}).DialContext(ctx, "unix", socketPath)
-				logger.WithFields(log.Fields{
-					log.ErrorKey: err,
-					"addr":       socketPath,
-				}).Debug("Connect to installer service.")
-				if err != nil {
-					return nil, trace.Wrap(err)
-				}
-				return conn, nil
-			}),
-		}
-		dialOptions = append(dialOptions, opts...)
-		conn, err := grpc.Dial("unix:///installer.sock", dialOptions...)
-		resultC <- result{ClientConn: conn, error: err}
-	}()
-	for {
-		select {
-		case result := <-resultC:
-			if result.error != nil {
-				return nil, trace.Wrap(result.error)
+	dialOptions := []grpc.DialOption{
+		// Don't use TLS, as we communicate over domain sockets
+		grpc.WithInsecure(),
+		// Retry every second after failure
+		grpc.WithBackoffMaxDelay(1 * time.Second),
+		grpc.WithBlock(),
+		grpc.WithContextDialer(func(ctx context.Context, addr string) (net.Conn, error) {
+			conn, err := (&net.Dialer{}).DialContext(ctx, "unix", socketPath)
+			logger.WithFields(log.Fields{
+				log.ErrorKey: err,
+				"addr":       socketPath,
+			}).Debug("Connect to installer service.")
+			if err != nil {
+				return nil, trace.Wrap(err)
 			}
-			client := NewAgentClient(result.ClientConn)
-			return client, nil
-		case <-ctx.Done():
-			logger.WithError(ctx.Err()).Warn("Failed to connect.")
-			return nil, trace.Wrap(ctx.Err())
-		}
+			return conn, nil
+		}),
 	}
+	dialOptions = append(dialOptions, opts...)
+	conn, err := grpc.DialContext(ctx, "unix:///installer.sock", dialOptions...)
+	if err != nil {
+		return nil, trace.Wrap(err)
+	}
+	client := NewAgentClient(conn)
+	return client, nil
 }
 
 // SocketPath returns the default path to the installer service socket
-func SocketPath() (path string) {
-	return filepath.Join(state.GravityInstallDir(), "installer.sock")
+func SocketPath() (path string, err error) {
+	return state.GravityInstallDir("installer.sock")
 }

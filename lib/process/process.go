@@ -1245,6 +1245,10 @@ func (p *Process) initService(ctx context.Context) (err error) {
 		return trace.Wrap(err)
 	}
 
+	if p.mode == constants.ComponentInstaller {
+		p.operator = newWizardOperator(operator, p.cfg.InstallToken)
+	}
+
 	if p.mode != constants.ComponentSite {
 		// in case of ops center, wrap operator in a special router
 		// that will route ops requests either to remote site via API
@@ -1392,7 +1396,6 @@ func (p *Process) initService(ctx context.Context) (err error) {
 		Mode:             p.mode,
 		ProxyHost:        sshProxyHost,
 		ServiceUser:      *p.cfg.ServiceUser,
-		InstallToken:     p.cfg.InstallToken,
 	})
 
 	if err != nil {

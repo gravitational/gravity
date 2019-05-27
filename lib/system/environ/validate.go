@@ -28,17 +28,25 @@ import (
 	"github.com/gravitational/gravity/lib/system"
 	"github.com/gravitational/gravity/lib/utils"
 
+	"github.com/fatih/color"
 	"github.com/gravitational/trace"
+	log "github.com/sirupsen/logrus"
 )
 
 // ValidateInstall performs a local environment sanity check to make sure
 // that install on this node can proceed without issues
 func ValidateInstall(env *localenv.LocalEnvironment) func() error {
 	return func() error {
-		if err := validateNonVolatileDirectory(state.GravityInstallDir()); err != nil {
+		stateDir, err := state.GravityInstallDir()
+		if err != nil {
 			return trace.Wrap(err)
 		}
-		if err := validateDirectoryEmpty(state.GravityInstallDir()); err != nil {
+		if err := validateNonVolatileDirectory(stateDir, env); err != nil {
+			// Operational state directory requirements are advisory
+			log.WithError(err).Warn("Failed to validate state directory requirements.")
+		}
+		// FIXME: validate enough of directory contents to make an educated decision automatically
+		if err := validateDirectoryEmpty(stateDir); err != nil {
 			return trace.Wrap(err)
 		}
 		if err := validateNoPackageState(env.Packages, env.StateDir); err != nil {
@@ -48,14 +56,15 @@ func ValidateInstall(env *localenv.LocalEnvironment) func() error {
 	}
 }
 
-func validateNonVolatileDirectory(stateDir string) error {
+func validateNonVolatileDirectory(stateDir string, printer utils.Printer) error {
 	fstype, err := system.GetFilesystemForPath(stateDir)
 	if err != nil {
 		return trace.Wrap(err)
 	}
 	if fstype == system.FilesystemTemporary {
-		return trace.BadParameter("installer is running from a temporary file system.\n" +
-			"It is required to run the installer from a non-volatile location.")
+		printer.Print(color.YellowString("installer is running from a temporary file system.\n" +
+			"It is recommended to run the installer from a non-volatile location to support " +
+			"operation resumption after a node is rebooted."))
 	}
 	var volatileDirectories = []string{"/tmp", "/var/tmp"}
 	if os.Getenv("TMPDIR") != "" {
@@ -64,8 +73,9 @@ func validateNonVolatileDirectory(stateDir string) error {
 		volatileDirectories = []string{os.Getenv("TMPDIR")}
 	}
 	if isRootedAt(stateDir, volatileDirectories...) {
-		return trace.BadParameter("installer is running from a temporary directory.\n" +
-			"Consider running the installer from a non-volatile location.")
+		printer.Print(color.YellowString("installer is running from a temporary directory.\n" +
+			"It is recommended to run the installer from a non-volatile location to support " +
+			"operation resumption after a node is rebooted."))
 	}
 	return nil
 }

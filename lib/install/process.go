@@ -116,13 +116,20 @@ func NewProcessConfig(config ProcessConfig) (*processconfig.Config, error) {
 
 // ProcessConfig defines the configuration for generating process configuration
 type ProcessConfig struct {
-	Hostname      string
+	// AdvertiseAddr specifies the advertise address for the wizard process
 	AdvertiseAddr string
-	StateDir      string
+	// StateDir specifies the read-only state directory for the wizard process
+	StateDir string
+	// WriteStateDir specifies the state directory for the wizard process
 	WriteStateDir string
-	ServiceUser   systeminfo.User
-	ClusterName   string
-	Devmode       bool
-	LogFile       string
-	Token         string
+	// ServiceUser specifies the service user selected for the operation
+	ServiceUser systeminfo.User
+	// ClusterName specifies the name of the cluster to create
+	ClusterName string
+	// Devmode specifies whether the development mode is on
+	Devmode bool
+	// LogFile specifies the path to the operation log file
+	LogFile string
+	// Token specifies the token the wizard will use to authenticate joining agents.
+	Token string
 }
