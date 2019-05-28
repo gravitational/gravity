@@ -51,6 +51,7 @@ import (
 	"github.com/gravitational/gravity/lib/systemservice"
 	"github.com/gravitational/gravity/lib/utils"
 
+	"github.com/fatih/color"
 	"github.com/gravitational/configure"
 	"github.com/gravitational/trace"
 )
@@ -85,7 +86,7 @@ func startInstall(env *localenv.LocalEnvironment, config InstallConfig) error {
 
 func startInstallFromService(env *localenv.LocalEnvironment, config InstallConfig) error {
 	ctx, cancel := context.WithCancel(context.Background())
-	interrupt := signals.NewInterruptHandler(cancel, InterruptSignals)
+	interrupt := signals.NewInterruptHandler(ctx, cancel, InterruptSignals)
 	defer interrupt.Close()
 	go TerminationHandler(interrupt, env)
 	listener, err := NewServiceListener()
@@ -196,7 +197,7 @@ func joinFromService(env, joinEnv *localenv.LocalEnvironment, config JoinConfig)
 		return trace.Wrap(err)
 	}
 	ctx, cancel := context.WithCancel(context.Background())
-	interrupt := signals.NewInterruptHandler(cancel, InterruptSignals)
+	interrupt := signals.NewInterruptHandler(ctx, cancel, InterruptSignals)
 	defer interrupt.Close()
 	go TerminationHandler(interrupt, env)
 	listener, err := NewServiceListener()
@@ -475,7 +476,7 @@ func (r *agentConfig) checkAndSetDefaults() (err error) {
 	if r.packageAddr == "" {
 		return trace.BadParameter("package service address is required")
 	}
-	r.cloudProvider, err = install.ValidateCloudProvider(r.cloudProvider)
+	r.cloudProvider, err = validateOrDetectCloudProvider(r.cloudProvider)
 	if err != nil {
 		return trace.Wrap(err)
 	}
@@ -545,7 +546,7 @@ func agent(env *localenv.LocalEnvironment, config agentConfig, serviceName strin
 	}
 
 	ctx, cancel := context.WithCancel(context.Background())
-	interrupt := signals.NewInterruptHandler(cancel, InterruptSignals)
+	interrupt := signals.NewInterruptHandler(ctx, cancel, InterruptSignals)
 	defer interrupt.Close()
 	go TerminationHandler(interrupt, env)
 
@@ -614,7 +615,7 @@ func executePhaseFromService(
 	connecting, connected string,
 ) error {
 	ctx, cancel := context.WithCancel(context.Background())
-	interrupt := signals.NewInterruptHandler(cancel, clientInterruptSignals)
+	interrupt := signals.NewInterruptHandler(ctx, cancel, clientInterruptSignals)
 	defer interrupt.Close()
 	go clientTerminationHandler(interrupt, env)
 
@@ -644,7 +645,7 @@ func rollbackPhaseFromService(
 	connecting, connected string,
 ) error {
 	ctx, cancel := context.WithCancel(context.Background())
-	interrupt := signals.NewInterruptHandler(cancel, clientInterruptSignals)
+	interrupt := signals.NewInterruptHandler(ctx, cancel, clientInterruptSignals)
 	defer interrupt.Close()
 	go clientTerminationHandler(interrupt, env)
 
@@ -673,7 +674,7 @@ func completePlanFromService(
 	connecting, connected string,
 ) error {
 	ctx, cancel := context.WithCancel(context.Background())
-	interrupt := signals.NewInterruptHandler(cancel, clientInterruptSignals)
+	interrupt := signals.NewInterruptHandler(ctx, cancel, clientInterruptSignals)
 	defer interrupt.Close()
 	go clientTerminationHandler(interrupt, env)
 
@@ -794,7 +795,7 @@ func newAgentConnectStrategy(env *localenv.LocalEnvironment) (strategy installer
 func installerClient(env *localenv.LocalEnvironment, config installerclient.Config, connecting, connected string) error {
 	// Context to use for cancelling tasks before initialization is complete
 	ctx, cancel := context.WithCancel(context.Background())
-	interrupt := signals.NewInterruptHandler(cancel, clientInterruptSignals)
+	interrupt := signals.NewInterruptHandler(ctx, cancel, clientInterruptSignals)
 	defer interrupt.Close()
 	go clientTerminationHandler(interrupt, env)
 
@@ -810,7 +811,7 @@ func installerClient(env *localenv.LocalEnvironment, config installerclient.Conf
 }
 
 func printInstallInstructionsBanner(printer utils.Printer) {
-	printer.Println(`
+	printer.Println(color.YellowString(`
 To abort the installation and clean up the system,
 press Ctrl+C two times in a row.
 
@@ -820,16 +821,16 @@ agent by issuing 'gravity resume' command.
 If the installation fails, use 'gravity plan' to inspect the state and
 'gravity resume' to continue the operation.
 See https://gravitational.com/gravity/docs/cluster/#managing-an-ongoing-operation for details.
-`)
+`))
 }
 
 func printJoinInstructionsBanner(printer utils.Printer) {
-	printer.Println(`
+	printer.Println(color.YellowString(`
 To abort the agent and clean up the system,
 press Ctrl+C two times in a row.
 
 If the you get disconnected from the terminal, you can reconnect to the installer
 agent by issuing 'gravity resume' command.
 See https://gravitational.com/gravity/docs/cluster/#managing-an-ongoing-operation for details.
-`)
+`))
 }

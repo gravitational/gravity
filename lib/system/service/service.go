@@ -18,6 +18,7 @@ limitations under the License.
 package service
 
 import (
+	"os"
 	"path/filepath"
 
 	"github.com/gravitational/gravity/lib/constants"
@@ -73,11 +74,34 @@ func install(services systemservice.ServiceManager, req systemservice.NewService
 	if req.ServiceSpec.User == "" {
 		req.ServiceSpec.User = constants.RootUIDString
 	}
-	err := services.StopService(serviceName(req.Name))
+	logger := log.WithField("service", req.Name)
+	err := services.DisableService(systemservice.DisableServiceRequest{
+		Name: serviceName(req.Name),
+	})
 	if err != nil && !systemservice.IsUnknownServiceError(err) {
-		log.WithField("service", req.Name).Warn("Failed to stop.")
+		logger.WithError(err).Warn("Failed to disable.")
+	}
+	err = services.StopService(serviceName(req.Name))
+	if err != nil && !systemservice.IsUnknownServiceError(err) {
+		logger.WithError(err).Warn("Failed to stop.")
+	}
+	err = removeLingeringUnitFile(req.Name)
+	if err != nil && !systemservice.IsUnknownServiceError(err) {
+		logger.WithError(err).Warn("Failed to remove lingering unit files.")
 	}
 	return trace.Wrap(services.InstallService(req))
+}
+
+func removeLingeringUnitFile(servicePath string) error {
+	defaultPath := systemservice.DefaultUnitPath(serviceName(servicePath))
+	if defaultPath == servicePath {
+		return nil
+	}
+	if err := os.Remove(defaultPath); err != nil && !os.IsNotExist(err) {
+		return trace.ConvertSystemError(err)
+	}
+	log.WithField("unit-file", defaultPath).Info("Removed lingering unit file.")
+	return nil
 }
 
 func serviceName(name string) string {

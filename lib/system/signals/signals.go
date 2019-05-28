@@ -40,8 +40,8 @@ func WaitFor(signals ...os.Signal) {
 
 // WatchTerminationSignals stops the provided stopper when it gets one of monitored signals.
 // It is a convenience wrapper over NewInterruptHandler
-func WatchTerminationSignals(cancel context.CancelFunc, stopper Stopper, printer utils.Printer) *InterruptHandler {
-	interrupt := NewInterruptHandler(cancel)
+func WatchTerminationSignals(ctx context.Context, cancel context.CancelFunc, stopper Stopper, printer utils.Printer) *InterruptHandler {
+	interrupt := NewInterruptHandler(ctx, cancel)
 	interrupt.AddStopper(stopper)
 	go func() {
 		for {
@@ -70,7 +70,7 @@ func WatchTerminationSignals(cancel context.CancelFunc, stopper Stopper, printer
 // Use the select loop and handle the receives on the interrupt channel:
 //
 // ctx, cancel := ...
-// interrupt := NewInterruptHandler(cancel)
+// interrupt := NewInterruptHandler(ctx, cancel)
 // defer interrupt.Close()
 // for {
 // 	select {
@@ -82,15 +82,14 @@ func WatchTerminationSignals(cancel context.CancelFunc, stopper Stopper, printer
 //		return
 // 	}
 // }
-func NewInterruptHandler(cancel context.CancelFunc, opts ...InterruptOption) *InterruptHandler {
-	ctx, localCancel := context.WithCancel(context.Background())
+func NewInterruptHandler(ctx context.Context, cancel context.CancelFunc, opts ...InterruptOption) *InterruptHandler {
 	var stoppers []Stopper
 	interruptC := make(chan os.Signal)
 	termC := make(chan []Stopper, 1)
 	handler := &InterruptHandler{
 		C:       interruptC,
 		ctx:     ctx,
-		cancel:  localCancel,
+		cancel:  cancel,
 		termC:   termC,
 		signals: defaultSignals,
 	}
@@ -116,7 +115,6 @@ func NewInterruptHandler(cancel context.CancelFunc, opts ...InterruptOption) *In
 					log.WithError(err).Warn("Failed to stop.")
 				}
 			}
-		
 			cancel()
 			handler.wg.Done()
 		}()

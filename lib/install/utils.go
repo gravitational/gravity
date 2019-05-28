@@ -23,10 +23,8 @@ import (
 	"strings"
 	"time"
 
-	gcemeta "cloud.google.com/go/compute/metadata"
 	"github.com/gravitational/gravity/lib/app"
 	"github.com/gravitational/gravity/lib/checks"
-	awscloud "github.com/gravitational/gravity/lib/cloudprovider/aws"
 	"github.com/gravitational/gravity/lib/defaults"
 	"github.com/gravitational/gravity/lib/fsm"
 	"github.com/gravitational/gravity/lib/install/engine"
@@ -48,27 +46,6 @@ import (
 	"github.com/kardianos/osext"
 	log "github.com/sirupsen/logrus"
 )
-
-// CheckAddr verifies that addr specifies one of the local interfaces
-func CheckAddr(addr string) error {
-	ifaces, err := systeminfo.NetworkInterfaces()
-	if err != nil {
-		return trace.Wrap(err)
-	}
-	if len(ifaces) == 0 {
-		return trace.NotFound("no network interfaces detected")
-	}
-	availableAddrs := make([]string, 0, len(ifaces))
-	for _, iface := range ifaces {
-		if iface.IPv4 == addr {
-			return nil
-		}
-		availableAddrs = append(availableAddrs, iface.IPv4)
-	}
-	return trace.BadParameter(
-		"%v matches none of the available addresses %v",
-		addr, strings.Join(availableAddrs, ", "))
-}
 
 // GetAppPackage finds the user app in the provided service and returns its locator
 func GetAppPackage(service app.Applications) (*loc.Locator, error) {
@@ -192,44 +169,6 @@ func EnsureServiceUserAndBinary(userID, groupID string) (*systeminfo.User, error
 	}
 
 	return user, nil
-}
-
-// ValidateCloudProvider validates the value of the specified cloud provider.
-// If no cloud provider has been specified, the provider is autodetected.
-func ValidateCloudProvider(cloudProvider string) (provider string, err error) {
-	switch cloudProvider {
-	case schema.ProviderAWS, schema.ProvisionerAWSTerraform:
-		if !awscloud.IsRunningOnAWS() {
-			return "", trace.BadParameter("cloud provider %q was specified "+
-				"but the process does not appear to be running on an AWS "+
-				"instance", cloudProvider)
-		}
-		return schema.ProviderAWS, nil
-	case schema.ProviderGCE:
-		if !gcemeta.OnGCE() {
-			return "", trace.BadParameter("cloud provider %q was specified "+
-				"but the process does not appear to be running on a GCE "+
-				"instance", cloudProvider)
-		}
-		return schema.ProviderGCE, nil
-	case ops.ProviderGeneric, schema.ProvisionerOnPrem:
-		return schema.ProviderOnPrem, nil
-	case "":
-		// Detect cloud provider
-		if awscloud.IsRunningOnAWS() {
-			log.Info("Detected AWS cloud provider.")
-			return schema.ProviderAWS, nil
-		}
-		if gcemeta.OnGCE() {
-			log.Info("Detected GCE cloud provider.")
-			return schema.ProviderGCE, nil
-		}
-		log.Info("Detected onprem installation.")
-		return schema.ProviderOnPrem, nil
-	default:
-		return "", trace.BadParameter("unsupported cloud provider %q, "+
-			"supported are: %v", cloudProvider, schema.SupportedProviders)
-	}
 }
 
 // FetchCloudMetadata fetches the metadata for the specified cloud provider

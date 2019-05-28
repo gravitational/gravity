@@ -208,10 +208,14 @@ func (r *Client) progressLoop(ctx context.Context, stream installpb.Agent_Execut
 	for {
 		resp, err := stream.Recv()
 		if err != nil {
-			r.WithError(err).Warn("Failed to fetch progress.")
 			if s, ok := grpcstatus.FromError(err); ok && s.Code() == codes.Canceled {
 				return installpb.StatusUnknown, nil
 			}
+			if trace.IsEOF(err) {
+				// Stream closed by the server
+				return installpb.StatusUnknown, nil
+			}
+			r.WithError(err).Warn("Failed to fetch progress.")
 			return installpb.StatusUnknown, trace.Wrap(err)
 		}
 		if resp.IsAborted() {
@@ -254,7 +258,7 @@ type Client struct {
 type CompletionHandler func(context.Context, *signals.InterruptHandler, installpb.ProgressResponse_Status) error
 
 func removeSocketFileCommand(socketPath string) (cmd string) {
-	return fmt.Sprintf("/usr/bin/rm -f %v", socketPath)
+	return fmt.Sprintf("-/usr/bin/rm -f %v", socketPath)
 }
 
 func emptyAborter(context.Context) error {

@@ -187,9 +187,6 @@ func (c *PeerConfig) CheckAndSetDefaults() (err error) {
 	if c.AdvertiseAddr == "" {
 		return trace.BadParameter("missing AdvertiseAddr")
 	}
-	if err := install.CheckAddr(c.AdvertiseAddr); err != nil {
-		return trace.Wrap(err)
-	}
 	if c.Token == "" {
 		return trace.BadParameter("missing Token")
 	}
@@ -207,10 +204,6 @@ func (c *PeerConfig) CheckAndSetDefaults() (err error) {
 	}
 	if c.StateDir == "" {
 		return trace.BadParameter("missing StateDir")
-	}
-	c.CloudProvider, err = install.ValidateCloudProvider(c.CloudProvider)
-	if err != nil {
-		return trace.Wrap(err)
 	}
 	if c.FieldLogger == nil {
 		c.FieldLogger = log.WithFields(log.Fields{
@@ -724,8 +717,10 @@ func (p *Peer) startExpandOperation(ctx operationContext) error {
 	if err != nil {
 		return trace.Wrap(err)
 	}
-	// FIXME: DiscardProgress -> send to client
-	fsmErr := fsm.ExecutePlan(p.ctx, utils.DiscardProgress)
+	w := &eventDispatcher{server: p.server}
+	progress := utils.NewProgressWithOptions(p.ctx, "Executing expand operation",
+		utils.WithProgressOutput(w))
+	fsmErr := fsm.ExecutePlan(p.ctx, progress)
 	if fsmErr != nil {
 		p.WithError(fsmErr).Warn("Failed to execute plan.")
 	}
@@ -733,6 +728,7 @@ func (p *Peer) startExpandOperation(ctx operationContext) error {
 	if err != nil {
 		return trace.Wrap(err, "failed to complete operation")
 	}
+	p.sendCompletionEvent()
 	return nil
 }
 
@@ -811,6 +807,17 @@ func (p *Peer) validateWizardState(operator ops.Operator) (*ops.Site, *ops.SiteO
 	return &cluster, operation, nil
 }
 
+func (p *Peer) sendCompletionEvent() {
+	event := server.Event{
+		Progress: &ops.ProgressEntry{
+			Completion: constants.Completed,
+		},
+		// Set the completion status
+		Status: server.StatusCompleted,
+	}
+	p.server.Send(event)
+}
+
 // Send dispatches the specified event to client
 func (r *eventDispatcher) Send(event server.Event) {
 	if event.Progress != nil && event.Progress.IsCompleted() {
@@ -818,6 +825,15 @@ func (r *eventDispatcher) Send(event server.Event) {
 		event.Status = server.StatusCompleted
 	}
 	r.server.Send(event)
+}
+
+// Write sends p as progress event to the server.
+// Implements io.Writer
+func (r *eventDispatcher) Write(p []byte) (n int, err error) {
+	r.Send(server.Event{
+		Progress: &ops.ProgressEntry{Message: string(p)},
+	})
+	return len(p), nil
 }
 
 // eventDispatcher implements eventDispatcher for the agent

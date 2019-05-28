@@ -26,9 +26,12 @@ import (
 	"strings"
 	"time"
 
+	gcemeta "cloud.google.com/go/compute/metadata"
 	"github.com/fatih/color"
 	"github.com/gravitational/gravity/lib/app"
 	appservice "github.com/gravitational/gravity/lib/app"
+	awscloud "github.com/gravitational/gravity/lib/cloudprovider/aws"
+	cloudgce "github.com/gravitational/gravity/lib/cloudprovider/gce"
 	"github.com/gravitational/gravity/lib/constants"
 	"github.com/gravitational/gravity/lib/defaults"
 	"github.com/gravitational/gravity/lib/expand"
@@ -243,18 +246,34 @@ func (i *InstallConfig) CheckAndSetDefaults() (err error) {
 	if err := i.validateDNSConfig(); err != nil {
 		return trace.Wrap(err)
 	}
-	advertiseAddr, err := i.getAdvertiseAddr()
-	if err != nil {
+	if i.AdvertiseAddr == "" {
+		i.AdvertiseAddr, err = selectAdvertiseAddr()
+		if err != nil {
+			return trace.Wrap(err)
+		}
+	}
+	if err := checkLocalAddr(i.AdvertiseAddr); err != nil {
 		return trace.Wrap(err)
 	}
-	i.AdvertiseAddr = advertiseAddr
-	i.WithField("addr", advertiseAddr).Info("Set advertise address.")
+	i.WithField("addr", i.AdvertiseAddr).Info("Set advertise address.")
+	if err := i.Docker.Check(); err != nil {
+		return trace.Wrap(err)
+	}
+	if i.VxlanPort < 1 || i.VxlanPort > 65535 {
+		return trace.BadParameter("invalid vxlan port: must be in range 1-65535")
+	}
+	if err := i.validateCloudConfig(); err != nil {
+		return trace.Wrap(err)
+	}
 	if !utils.StringInSlice(modules.Get().InstallModes(), i.Mode) {
 		return trace.BadParameter("invalid mode %q", i.Mode)
 	}
 	i.ServiceUser, err = install.GetOrCreateServiceUser(i.ServiceUID, i.ServiceGID)
 	if err != nil {
 		return trace.Wrap(err)
+	}
+	if i.DNSConfig.IsEmpty() {
+		i.DNSConfig = storage.DefaultDNSConfig
 	}
 	return nil
 }
@@ -517,6 +536,45 @@ func (i *InstallConfig) validateDNSConfig() error {
 	return nil
 }
 
+func (i *InstallConfig) validateCloudConfig() (err error) {
+	i.CloudProvider, err = validateOrDetectCloudProvider(i.CloudProvider)
+	if err != nil {
+		return trace.Wrap(err)
+	}
+	if i.CloudProvider != schema.ProviderGCE {
+		return nil
+	}
+	if i.SiteDomain == "" {
+		return nil
+	}
+	// TODO(dmitri): skip validations if user provided custom cloud configuration
+	if err := cloudgce.ValidateTag(i.SiteDomain); err != nil {
+		log.WithError(err).Warnf("Failed to validate cluster name %v as node tag on GCE.", i.SiteDomain)
+		if len(i.GCENodeTags) == 0 {
+			return trace.BadParameter("specified cluster name %q does "+
+				"not conform to GCE tag value specification "+
+				"and no node tags have been specified.\n"+
+				"Either provide a conforming cluster name or use --gce-node-tag "+
+				"to specify the node tag explicitly.\n"+
+				"See https://cloud.google.com/vpc/docs/add-remove-network-tags for details.", i.SiteDomain)
+		}
+	}
+	var errors []error
+	for _, tag := range i.GCENodeTags {
+		if err := cloudgce.ValidateTag(tag); err != nil {
+			errors = append(errors, trace.Wrap(err, "failed to validate tag %q", tag))
+		}
+	}
+	if len(errors) != 0 {
+		return trace.NewAggregate(errors...)
+	}
+	// Use cluster name as node tag
+	if len(i.GCENodeTags) == 0 {
+		i.GCENodeTags = append(i.GCENodeTags, i.SiteDomain)
+	}
+	return nil
+}
+
 // NewWizardConfig returns new configuration for the interactive installer
 func NewWizardConfig(env *localenv.LocalEnvironment, g *Application) InstallConfig {
 	return InstallConfig{
@@ -593,28 +651,11 @@ func NewJoinConfig(g *Application) JoinConfig {
 
 // CheckAndSetDefaults validates the configuration and sets default values
 func (j *JoinConfig) CheckAndSetDefaults() (err error) {
-	j.CloudProvider, err = install.ValidateCloudProvider(j.CloudProvider)
+	j.CloudProvider, err = validateOrDetectCloudProvider(j.CloudProvider)
 	if err != nil {
 		return trace.Wrap(err)
 	}
 	return nil
-}
-
-// GetAdvertiseAddr return the advertise address provided in the config, or
-// picks one among the host's interfaces
-func (j *JoinConfig) GetAdvertiseAddr() (string, error) {
-	// if it was set explicitly with --advertise-addr flag, use it
-	if j.AdvertiseAddr != "" {
-		return j.AdvertiseAddr, nil
-	}
-	// otherwise, try to pick an address among machine's interfaces
-	addr, err := utils.PickAdvertiseIP()
-	if err != nil {
-		return "", trace.Wrap(err, "could not pick advertise address among "+
-			"the host's network interfaces, please set the advertise address "+
-			"via --advertise-addr flag")
-	}
-	return addr, nil
 }
 
 // GetPeers returns a list of peers parsed from the peers CLI argument
@@ -646,8 +687,17 @@ func (j *JoinConfig) GetRuntimeConfig() (*proto.RuntimeConfig, error) {
 }
 
 // NewPeerConfig converts the CLI join configuration to peer configuration
-func (j *JoinConfig) NewPeerConfig(env, joinEnv *localenv.LocalEnvironment) (*expand.PeerConfig, error) {
-	advertiseAddr, err := j.GetAdvertiseAddr()
+func (j *JoinConfig) NewPeerConfig(env, joinEnv *localenv.LocalEnvironment) (config *expand.PeerConfig, err error) {
+	if j.AdvertiseAddr == "" {
+		j.AdvertiseAddr, err = selectAdvertiseAddr()
+		if err != nil {
+			return nil, trace.Wrap(err)
+		}
+	}
+	if err := checkLocalAddr(j.AdvertiseAddr); err != nil {
+		return nil, trace.Wrap(err)
+	}
+	j.CloudProvider, err = validateOrDetectCloudProvider(j.CloudProvider)
 	if err != nil {
 		return nil, trace.Wrap(err)
 	}
@@ -661,7 +711,7 @@ func (j *JoinConfig) NewPeerConfig(env, joinEnv *localenv.LocalEnvironment) (*ex
 	}
 	return &expand.PeerConfig{
 		Peers:         peers,
-		AdvertiseAddr: advertiseAddr,
+		AdvertiseAddr: j.AdvertiseAddr,
 		ServerAddr:    j.ServerAddr,
 		CloudProvider: j.CloudProvider,
 		RuntimeConfig: *runtimeConfig,
@@ -841,6 +891,77 @@ func InstallerCompleteOperation(env *localenv.LocalEnvironment) installerclient.
 			logger.WithError(err).Warn("Failed to clean up operation state.")
 		}
 		return nil
+	}
+}
+
+// checkLocalAddr verifies that addr specifies one of the local interfaces
+func checkLocalAddr(addr string) error {
+	ifaces, err := systeminfo.NetworkInterfaces()
+	if err != nil {
+		return trace.Wrap(err)
+	}
+	if len(ifaces) == 0 {
+		return trace.NotFound("no network interfaces detected")
+	}
+	availableAddrs := make([]string, 0, len(ifaces))
+	for _, iface := range ifaces {
+		if iface.IPv4 == addr {
+			return nil
+		}
+		availableAddrs = append(availableAddrs, iface.IPv4)
+	}
+	return trace.BadParameter(
+		"%v matches none of the available addresses %v",
+		addr, strings.Join(availableAddrs, ", "))
+}
+
+// selectAdvertiseAddr selects an advertise address from one of the host's interfaces
+func selectAdvertiseAddr() (string, error) {
+	// otherwise, try to pick an address among machine's interfaces
+	addr, err := utils.PickAdvertiseIP()
+	if err != nil {
+		return "", trace.Wrap(err, "could not pick advertise address among "+
+			"the host's network interfaces, please set the advertise address "+
+			"via --advertise-addr flag")
+	}
+	return addr, nil
+}
+
+// validateOrDetectCloudProvider validates the value of the specified cloud provider.
+// If no cloud provider has been specified, the provider is autodetected.
+func validateOrDetectCloudProvider(cloudProvider string) (provider string, err error) {
+	switch cloudProvider {
+	case schema.ProviderAWS, schema.ProvisionerAWSTerraform:
+		if !awscloud.IsRunningOnAWS() {
+			return "", trace.BadParameter("cloud provider %q was specified "+
+				"but the process does not appear to be running on an AWS "+
+				"instance", cloudProvider)
+		}
+		return schema.ProviderAWS, nil
+	case schema.ProviderGCE:
+		if !gcemeta.OnGCE() {
+			return "", trace.BadParameter("cloud provider %q was specified "+
+				"but the process does not appear to be running on a GCE "+
+				"instance", cloudProvider)
+		}
+		return schema.ProviderGCE, nil
+	case ops.ProviderGeneric, schema.ProvisionerOnPrem:
+		return schema.ProviderOnPrem, nil
+	case "":
+		// Detect cloud provider
+		if awscloud.IsRunningOnAWS() {
+			log.Info("Detected AWS cloud provider.")
+			return schema.ProviderAWS, nil
+		}
+		if gcemeta.OnGCE() {
+			log.Info("Detected GCE cloud provider.")
+			return schema.ProviderGCE, nil
+		}
+		log.Info("Detected onprem installation.")
+		return schema.ProviderOnPrem, nil
+	default:
+		return "", trace.BadParameter("unsupported cloud provider %q, "+
+			"supported are: %v", cloudProvider, schema.SupportedProviders)
 	}
 }
 

@@ -245,7 +245,7 @@ func (i *Installer) PrintStep(format string, args ...interface{}) {
 	i.server.Send(event)
 }
 
-// Execute executes the install operation using the specified engine
+// Execute executes the install operation using the configured engine.
 // Implements server.Executor
 func (i *Installer) Execute(phase *installpb.ExecuteRequest_Phase) error {
 	i.WithField("phase", phase).Info("Execute.")

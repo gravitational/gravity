@@ -38,27 +38,14 @@ import (
 // UninstallSystem removes all state from the system on best-effort basis
 func UninstallSystem(printer utils.Printer, logger log.FieldLogger) (err error) {
 	var errors []error
-	if err := uninstallPackageServices(printer, logger); err != nil {
-		errors = append(errors, err)
-	}
 	if err := unmountDevicemapper(printer, logger); err != nil {
 		errors = append(errors, err)
 	}
 	if err := removeInterfaces(printer); err != nil {
 		errors = append(errors, err)
 	}
-	if err := removeDirectories(printer, logger, getStateDirectories()...); err != nil {
-		errors = append(errors, err)
-	}
-	for _, targetPath := range state.GravityBinPaths {
-		err = os.Remove(targetPath)
-		if err == nil {
-			printer.PrintStep("Removed gravity binary %v", targetPath)
-			break
-		}
-	}
-	if err != nil {
-		log.WithError(err).Warn("Failed to delete gravity binary.")
+	pathsToRemove := append(getStateDirectories(), state.GravityBinPaths...)
+	if err := removePaths(printer, logger, pathsToRemove...); err != nil {
 		errors = append(errors, err)
 	}
 	return trace.NewAggregate(errors...)
@@ -70,20 +57,34 @@ func CleanupOperationState(printer utils.Printer, logger log.FieldLogger) error 
 	if err != nil {
 		return trace.Wrap(err)
 	}
-	return trace.Wrap(removeDirectories(printer, logger, stateDir))
+	return trace.Wrap(removePaths(printer, logger, stateDir))
 }
 
-// UninstallAgentServices stops and uninstalls all operation agent services
-func UninstallAgentServices() error {
-	return trace.Wrap(uninstallService(
+// UninstallServices stops and uninstalls all relevant services
+func UninstallServices(printer utils.Printer, logger log.FieldLogger) error {
+	svm, err := systemservice.New()
+	if err != nil {
+		return trace.Wrap(err)
+	}
+	var errors []error
+	if err := uninstallPackageServices(svm, printer, logger); err != nil {
+		errors = append(errors, err)
+	}
+	if err := uninstallServices(svm,
 		defaults.GravityRPCInstallerServiceName,
-		defaults.GravityRPCAgentServiceName,
-	))
+		defaults.GravityRPCAgentServiceName); err != nil {
+		errors = append(errors, err)
+	}
+	return trace.NewAggregate(errors...)
 }
 
 // UninstallService stops and uninstalls a service with the specified name
 func UninstallService(service string) error {
-	return trace.Wrap(uninstallService(service))
+	svm, err := systemservice.New()
+	if err != nil {
+		return trace.Wrap(err)
+	}
+	return trace.Wrap(uninstallServices(svm, service))
 }
 
 // DisableAgentServices disables agent services (installer agent and/or service) without
@@ -109,12 +110,8 @@ func DisableAgentServices(logger log.FieldLogger) error {
 	return trace.NewAggregate(errors...)
 }
 
-func uninstallPackageServices(printer utils.Printer, logger log.FieldLogger) error {
-	svm, err := systemservice.New()
-	if err != nil {
-		return trace.Wrap(err)
-	}
-	services, err := svm.ListPackageServices()
+func uninstallAgentServices(svm systemservice.ServiceManager, printer utils.Printer, logger log.FieldLogger) error {
+	services, err := svm.ListAllPackageServices()
 	if err != nil {
 		return trace.Wrap(err)
 	}
@@ -130,7 +127,34 @@ func uninstallPackageServices(printer utils.Printer, logger log.FieldLogger) err
 	for _, service := range services {
 		printer.PrintStep("Uninstalling system service %v", service)
 		log := logger.WithField("package", service.Package)
-		if err := svm.UninstallPackageService(service.Package); err != nil {
+		err := svm.UninstallPackageService(service.Package)
+		if err != nil && systemservice.IsUnknownServiceError(err) {
+			log.WithError(err).Warn("Failed to uninstall service.")
+			errors = append(errors, err)
+		}
+	}
+	return trace.NewAggregate(errors...)
+}
+
+func uninstallPackageServices(svm systemservice.ServiceManager, printer utils.Printer, logger log.FieldLogger) error {
+	services, err := svm.ListAllPackageServices()
+	if err != nil {
+		return trace.Wrap(err)
+	}
+	var errors []error
+	sort.Slice(services, func(i, j int) bool {
+		// Move teleport package to the front of uninstall chain.
+		// The reason for this is, if uninstalling the planet package would fail,
+		// the node would continue sending heartbeats that would make it persist
+		// in the list of nodes although it might have already been removed from
+		// everywhere else during shrink.
+		return services[i].Package.Name == constants.TeleportPackage
+	})
+	for _, service := range services {
+		printer.PrintStep("Uninstalling system service %v", service)
+		log := logger.WithField("package", service.Package)
+		err := svm.UninstallPackageService(service.Package)
+		if err != nil && systemservice.IsUnknownServiceError(err) {
 			log.WithError(err).Warn("Failed to uninstall service.")
 			errors = append(errors, err)
 		}
@@ -159,13 +183,13 @@ func unmountDevicemapper(printer utils.Printer, logger log.FieldLogger) error {
 	return nil
 }
 
-func removeDirectories(printer utils.Printer, logger log.FieldLogger, dirs ...string) error {
+func removePaths(printer utils.Printer, logger log.FieldLogger, paths ...string) error {
 	var errors []error
 	// remove all files and directories gravity might have created on the system
-	for _, dir := range dirs {
-		err := os.RemoveAll(dir)
+	for _, path := range paths {
+		err := os.RemoveAll(path)
 		if err == nil {
-			printer.PrintStep("Removed %v", dir)
+			printer.PrintStep("Removed %v", path)
 			continue
 		}
 		if os.IsNotExist(err) || utils.IsResourceBusyError(err) {
@@ -173,7 +197,7 @@ func removeDirectories(printer utils.Printer, logger log.FieldLogger, dirs ...st
 		}
 		logger.WithFields(log.Fields{
 			log.ErrorKey: err,
-			"dir":        dir,
+			"path":       path,
 		}).Warn("Failed to remove.")
 		errors = append(errors, err)
 	}
@@ -229,11 +253,7 @@ func getStateDirectories() (dirs []string) {
 	)
 }
 
-func uninstallService(services ...string) error {
-	svm, err := systemservice.New()
-	if err != nil {
-		return trace.Wrap(err)
-	}
+func uninstallServices(svm systemservice.ServiceManager, services ...string) error {
 	var errors []error
 	for _, service := range services {
 		req := systemservice.UninstallServiceRequest{

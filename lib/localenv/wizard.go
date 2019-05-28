@@ -9,6 +9,7 @@ import (
 // NewLocalWizardEnvironment creates a new local environment to access
 // wizard-specific state
 func NewLocalWizardEnvironment() (*LocalEnvironment, error) {
+	const failImmediatelyIfLocked = -1
 	stateDir, err := state.GravityInstallDir()
 	if err != nil {
 		return nil, trace.Wrap(err)
@@ -16,6 +17,7 @@ func NewLocalWizardEnvironment() (*LocalEnvironment, error) {
 	args := LocalEnvironmentArgs{
 		StateDir:         stateDir,
 		LocalKeyStoreDir: stateDir,
+		BoltOpenTimeout:  failImmediatelyIfLocked,
 	}
 	return NewLocalEnvironment(args)
 }

@@ -22,7 +22,6 @@ import (
 
 	"github.com/gravitational/gravity/lib/app"
 	"github.com/gravitational/gravity/lib/checks"
-	cloudgce "github.com/gravitational/gravity/lib/cloudprovider/gce"
 	"github.com/gravitational/gravity/lib/defaults"
 	"github.com/gravitational/gravity/lib/fsm"
 	"github.com/gravitational/gravity/lib/install/engine"
@@ -158,16 +157,12 @@ type Config struct {
 	Apps app.Applications
 	// Packages specifies the wizard's package service
 	Packages pack.PackageService
-	// AbortHandler specifies the handler for aborting the installation
-	AbortHandler func(context.Context) error
-	// CompleteHandler specifies the handler for cleanup after operation has been successfully completed
-	CompleteHandler func(context.Context) error
 	// LocalAgent specifies whether the installer will also run an agent
 	LocalAgent bool
 }
 
 // checkAndSetDefaults checks the parameters and autodetects some defaults
-func (c *Config) checkAndSetDefaults(ctx context.Context) (err error) {
+func (c *Config) checkAndSetDefaults() (err error) {
 	if c.AdvertiseAddr == "" {
 		return trace.BadParameter("missing AdvertiseAddr")
 	}
@@ -182,12 +177,6 @@ func (c *Config) checkAndSetDefaults(ctx context.Context) (err error) {
 	}
 	if c.Operator == nil {
 		return trace.BadParameter("missing Operator")
-	}
-	if err := CheckAddr(c.AdvertiseAddr); err != nil {
-		return trace.Wrap(err)
-	}
-	if err := c.Docker.Check(); err != nil {
-		return trace.Wrap(err)
 	}
 	if c.Process == nil {
 		return trace.BadParameter("missing Process")
@@ -204,20 +193,8 @@ func (c *Config) checkAndSetDefaults(ctx context.Context) (err error) {
 	if c.App == nil {
 		return trace.BadParameter("missing App")
 	}
-	if c.AbortHandler == nil {
-		return trace.BadParameter("missing AbortHandler")
-	}
-	if c.CompleteHandler == nil {
-		return trace.BadParameter("missing CompleteHandler")
-	}
-	if c.VxlanPort < 1 || c.VxlanPort > 65535 {
-		return trace.BadParameter("invalid vxlan port: must be in range 1-65535")
-	}
-	if err := c.validateCloudConfig(); err != nil {
-		return trace.Wrap(err)
-	}
 	if c.DNSConfig.IsEmpty() {
-		c.DNSConfig = storage.DefaultDNSConfig
+		return trace.BadParameter("missing DNSConfig")
 	}
 	return nil
 }
@@ -271,6 +248,9 @@ type clusterFactory struct {
 }
 
 func (r *RuntimeConfig) checkAndSetDefaults() error {
+	if err := r.Config.checkAndSetDefaults(); err != nil {
+		return trace.Wrap(err)
+	}
 	if r.FSMFactory == nil {
 		return trace.BadParameter("FSMFactory is required")
 	}
@@ -298,42 +278,6 @@ type RuntimeConfig struct {
 	Planner engine.Planner
 	// Engine specifies the installer flow engine
 	Engine Engine
-}
-
-func (c *Config) validateCloudConfig() (err error) {
-	c.CloudProvider, err = ValidateCloudProvider(c.CloudProvider)
-	if err != nil {
-		return trace.Wrap(err)
-	}
-	if c.CloudProvider != schema.ProviderGCE {
-		return nil
-	}
-	// TODO(dmitri): skip validations if user provided custom cloud configuration
-	if err := cloudgce.ValidateTag(c.SiteDomain); err != nil {
-		log.WithError(err).Warnf("Failed to validate cluster name %v as node tag on GCE.", c.SiteDomain)
-		if len(c.GCENodeTags) == 0 {
-			return trace.BadParameter("specified cluster name %q does "+
-				"not conform to GCE tag value specification "+
-				"and no node tags have been specified.\n"+
-				"Either provide a conforming cluster name or use --gce-node-tag "+
-				"to specify the node tag explicitly.\n"+
-				"See https://cloud.google.com/vpc/docs/add-remove-network-tags for details.", c.SiteDomain)
-		}
-	}
-	var errors []error
-	for _, tag := range c.GCENodeTags {
-		if err := cloudgce.ValidateTag(tag); err != nil {
-			errors = append(errors, trace.Wrap(err, "failed to validate tag %q", tag))
-		}
-	}
-	if len(errors) != 0 {
-		return trace.NewAggregate(errors...)
-	}
-	// Use cluster name as node tag
-	if len(c.GCENodeTags) == 0 {
-		c.GCENodeTags = append(c.GCENodeTags, c.SiteDomain)
-	}
-	return nil
 }
 
 // getInstallerTrustedCluster returns trusted cluster representing installer process

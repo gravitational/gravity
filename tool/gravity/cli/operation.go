@@ -290,6 +290,10 @@ func (r *backendOperations) listInstallOperation() error {
 				log.WithField("context", "install"))
 			return nil
 		}
+		if trace.IsNotFound(err) {
+			// Fail early if not found
+			return trace.Wrap(err)
+		}
 		log.WithError(err).Warn("Failed to connect to wizard.")
 	}
 	wizardLocalEnv, err := localenv.NewLocalWizardEnvironment()
@@ -366,6 +370,9 @@ func getLocalClusterFromWizard(operator ops.Operator) (cluster *ops.Site, err er
 		return nil, trace.Wrap(err)
 	}
 	log.WithField("clusters", clusters).Info("Fetched clusters from remote wizard.")
+	if len(clusters) == 0 {
+		return nil, trace.NotFound("no clusters found")
+	}
 	if len(clusters) != 1 {
 		return nil, trace.BadParameter("expected a single cluster, but found %v", len(clusters))
 	}

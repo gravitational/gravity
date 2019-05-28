@@ -956,7 +956,7 @@ func systemUninstall(env *localenv.LocalEnvironment, confirmed bool) error {
 	env.Backend.Close()
 
 	logger := log.WithField(trace.Component, "system:uninstall")
-	if err := environ.UninstallAgentServices(); err != nil {
+	if err := environ.UninstallServices(env, logger); err != nil {
 		log.WithError(err).Warn("Failed to uninstall agent services.")
 	}
 	if err := environ.UninstallSystem(env, logger); err != nil {

@@ -71,6 +71,7 @@ type LocalEnvironmentArgs struct {
 	// Defaults to EtcdRetryInterval if unspecified
 	EtcdRetryTimeout time.Duration
 	// BoltOpenTimeout specifies the timeout on opening the local state database.
+	// Negative value means no timeout.
 	// Defaults to defaults.DBOpenTimeout if unspecified
 	BoltOpenTimeout time.Duration
 	// Reporter controls progress output

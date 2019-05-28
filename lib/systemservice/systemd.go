@@ -249,25 +249,12 @@ func (s *systemdManager) IsPackageServiceInstalled(pkg loc.Locator) (bool, error
 
 // ListPackageServices lists installed package services
 func (s *systemdManager) ListPackageServices() ([]PackageServiceStatus, error) {
-	var services []PackageServiceStatus
+	return s.listPackageServices("list-units")
+}
 
-	out, err := invokeSystemctl("list-units", "--plain", "--no-legend")
-	if err != nil {
-		return nil, trace.Wrap(err, "failed to list-units: %v", out)
-	}
-	for _, line := range strings.Split(out, "\n") {
-		words := strings.Fields(line)
-		if len(words) < 3 {
-			continue
-		}
-		pkg := parseUnit(words[0])
-		if pkg == nil {
-			continue
-		}
-		services = append(services,
-			PackageServiceStatus{Package: *pkg, Status: words[2]})
-	}
-	return services, nil
+// ListAllPackageServices lists all (including inactive) package services
+func (s *systemdManager) ListAllPackageServices() ([]PackageServiceStatus, error) {
+	return s.listPackageServices("list-unit-files")
 }
 
 // EnablePackageService enables package service
@@ -346,6 +333,11 @@ func (s *systemdManager) UninstallService(req UninstallServiceRequest) error {
 
 	out, err = invokeSystemctl("is-failed", serviceName)
 	status := strings.TrimSpace(out)
+
+	unitPath := unitPath(req.Name)
+	if errDelete := os.Remove(unitPath); errDelete != nil && !os.IsNotExist(err) {
+		logger.WithError(errDelete).Warn("Failed to delete service unit file.")
+	}
 
 	switch status {
 	case ServiceStatusInactive:
@@ -432,6 +424,28 @@ func (s *systemdManager) Version() (int, error) {
 	return version, nil
 }
 
+func (s *systemdManager) listPackageServices(listCmd string) ([]PackageServiceStatus, error) {
+	var services []PackageServiceStatus
+
+	out, err := invokeSystemctl(listCmd, "--plain", "--no-legend")
+	if err != nil {
+		return nil, trace.Wrap(err, "failed to list-units: %v", out)
+	}
+	for _, line := range strings.Split(out, "\n") {
+		words := strings.Fields(line)
+		if len(words) < 3 {
+			continue
+		}
+		pkg := parseUnit(words[0])
+		if pkg == nil {
+			continue
+		}
+		services = append(services,
+			PackageServiceStatus{Package: *pkg, Status: words[2]})
+	}
+	return services, nil
+}
+
 // supportsTasksAccounting returns true if systemd supports tasks accounting on the machine,
 // in case of an error it falls back to "false" and the error gets logged
 func (s *systemdManager) supportsTasksAccounting() bool {
@@ -456,6 +470,11 @@ func unitPath(name string) (path string) {
 	if filepath.IsAbs(name) {
 		return name
 	}
+	return DefaultUnitPath(name)
+}
+
+// DefaultUnitPath returns the default path for the specified systemd unit
+func DefaultUnitPath(name string) (path string) {
 	return filepath.Join(systemdUnitFileDir, SystemdNameEscape(name))
 }
 

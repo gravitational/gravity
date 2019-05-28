@@ -211,7 +211,7 @@ type mountServiceTemplate struct {
 
 // PackageServiceStatus provides the status of a running service
 type PackageServiceStatus struct {
-	// Pack lists a package name
+	// Package identifies the package
 	Package loc.Locator
 	// Status is a service status
 	Status string
@@ -232,8 +232,11 @@ type ServiceManager interface {
 	// DisablePackageService disables service without stopping it
 	DisablePackageService(pkg loc.Locator) error
 
-	// ListPackageServices lists installed services
+	// ListPackageServices lists installed package services
 	ListPackageServices() ([]PackageServiceStatus, error)
+
+	// ListAllPackageServices lists all (including inactive) package services
+	ListAllPackageServices() ([]PackageServiceStatus, error)
 
 	// StartPackageService starts package service
 	StartPackageService(pkg loc.Locator, noBlock bool) error
