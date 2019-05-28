@@ -120,17 +120,9 @@ func (s *AgentSuite) SetUpTest(c *C) {
 	c.Assert(err, IsNil)
 	c.Assert(opKey, NotNil)
 
-	tokens, err := s.users.GetSiteProvisioningTokens(s.cluster.Domain)
+	token, err := s.installer.GetExpandToken(s.cluster.Key())
 	c.Assert(err, IsNil)
-	var token *storage.ProvisioningToken
-	for i := range tokens {
-		if tokens[i].Type == storage.ProvisioningTokenTypeInstall {
-			token = &tokens[i]
-			break
-		}
-	}
-
-	c.Assert(token, NotNil, Commentf("expected provisioning token to exist, got %+v", tokens))
+	c.Assert(token, NotNil, Commentf("expected provisioning token to exist, got %+v", token))
 	s.key = *opKey
 	s.accessToken = token.Token
 }

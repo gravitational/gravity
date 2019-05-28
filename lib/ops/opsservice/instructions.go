@@ -69,6 +69,7 @@ echo "$(date) [INFO] Install agent will be using ${TMPDIR:-/tmp} for temporary f
     --ops-tunnel-token={{.ops_tunnel_token}} {{if .background}}1>/dev/null 2>&1 &{{end}}
 `, gravityTemplateSource)))
 
+	// FIXME: remove profiling endpoints when completed
 	// joinTemplate is a template for instructions to run on nodes during
 	// wizard installation or expand
 	joinTemplate = template.Must(

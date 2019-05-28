@@ -104,27 +104,6 @@ func RemoteAccessConfig(stateDir string) (seedConfig *ops.SeedConfig, err error)
 	}, nil
 }
 
-func newWizardOperator(operator ops.Operator, token string) ops.Operator {
-	return &wizardOperator{
-		Operator: operator,
-		token:    token,
-	}
-}
-
-// CreateSite creates a cluster records using the configured token for agent auth
-func (r *wizardOperator) CreateSite(req ops.NewSiteRequest) (cluster *ops.Site, err error) {
-	req.InstallToken = r.token
-	return r.Operator.CreateSite(req)
-}
-
-// wizardOperator wraps an operator to override certain aspects of cluster creation
-type wizardOperator struct {
-	// Operator specifies the original cluster operator
-	ops.Operator
-	// token specifies the authentication token for agents
-	token string
-}
-
 // convertClusters is a helper to convert Teleport's trusted clusters to
 // the Telekube's interface
 func convertClusters(clusters []teleservices.TrustedCluster) (result []storage.TrustedCluster) {

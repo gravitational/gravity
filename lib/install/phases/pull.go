@@ -150,6 +150,7 @@ func (p *pullExecutor) pullUserApplication() error {
 		DstApp:      p.LocalApps,
 		Package:     *p.Phase.Data.Package,
 	})
+	// Ignore already exists as the steps need to be re-entrant
 	if err != nil && !trace.IsAlreadyExists(err) {
 		return trace.Wrap(err)
 	}
@@ -220,6 +221,7 @@ func (p *pullExecutor) pullConfiguredPackages() (err error) {
 			Package: e.Locator,
 			Labels:  e.RuntimeLabels,
 		})
+		// Ignore already exists as the steps need to be re-entrant
 		if err != nil && !trace.IsAlreadyExists(err) {
 			return trace.Wrap(err)
 		}

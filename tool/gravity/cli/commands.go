@@ -940,6 +940,8 @@ type WizardCmd struct {
 	ServiceUID *string
 	// ServiceGID is system user group ID
 	ServiceGID *string
+	// AdvertiseAddr specifies the advertise address for the wizard
+	AdvertiseAddr *string
 	// FromService specifies whether this process runs in service mode.
 	//
 	// The installer runs the main installer code in service mode, while

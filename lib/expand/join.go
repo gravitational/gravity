@@ -119,7 +119,7 @@ func (p *Peer) Stop(ctx context.Context) error {
 // Execute executes the peer operation (join or just serving an agent).
 // Implements server.Executor
 func (p *Peer) Execute(phase *installpb.ExecuteRequest_Phase) (err error) {
-	p.Info("Execute.")
+	p.WithField("phase", phase).Info("Execute.")
 	if phase != nil {
 		return trace.Wrap(p.executePhase(*phase))
 	}
@@ -132,6 +132,7 @@ func (p *Peer) Execute(phase *installpb.ExecuteRequest_Phase) (err error) {
 // Complete manually completes the operation given with opKey.
 // Implements server.Executor
 func (p *Peer) Complete(opKey ops.SiteOperationKey) error {
+	p.WithField("key", opKey).Info("Complete.")
 	ctx, err := p.tryConnect(opKey.OperationID)
 	if err != nil {
 		return trace.Wrap(err)
@@ -501,7 +502,7 @@ func (p *Peer) connect() (*operationContext, error) {
 func (p *Peer) tryConnect(operationID string) (op *operationContext, err error) {
 	p.printStep("Connecting to cluster")
 	for _, addr := range p.Peers {
-		p.WithField("peer", addr).Debug("Trying peer.")
+		p.WithField("peer", addr).Debug("Dialing peer.")
 		op, err = p.dialWizard(addr)
 		if err == nil {
 			p.WithField("addr", op.Peer).Debug("Connected to wizard.")
@@ -509,7 +510,7 @@ func (p *Peer) tryConnect(operationID string) (op *operationContext, err error) 
 			return op, nil
 		}
 		p.WithError(err).Info("Failed connecting to wizard.")
-		if utils.IsAbortError(err) {
+		if isTerminalError(err) {
 			return nil, trace.Wrap(err)
 		}
 		// already exists error is returned when there's an ongoing install
@@ -869,4 +870,8 @@ func formatClusterURL(addr string) string {
 		return addr
 	}
 	return fmt.Sprintf("https://%v:%v", addr, defaults.GravitySiteNodePort)
+}
+
+func isTerminalError(err error) bool {
+	return utils.IsAbortError(err) || trace.IsAccessDenied(err)
 }

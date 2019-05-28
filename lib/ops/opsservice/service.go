@@ -668,20 +668,6 @@ func (o *Operator) CreateSite(r ops.NewSiteRequest) (*ops.Site, error) {
 		return nil, trace.Wrap(err)
 	}
 
-	// Create long lived provisioning token that should be used for
-	// expanding the cluster associated with site agent user
-	_, err = o.cfg.Users.CreateProvisioningToken(storage.ProvisioningToken{
-		Token:      expandToken,
-		Type:       storage.ProvisioningTokenTypeExpand,
-		AccountID:  clusterData.AccountID,
-		SiteDomain: clusterData.Domain,
-		UserEmail:  agent.GetName(),
-	})
-	if err != nil {
-		defer o.DeleteSite(siteKey)
-		return nil, trace.Wrap(err)
-	}
-
 	if r.InstallToken != "" {
 		_, err = o.cfg.Users.CreateAPIKey(storage.APIKey{
 			Token:     r.InstallToken,
@@ -1535,12 +1521,6 @@ func (o *Operator) RemoteOpsClient(cluster teleservices.TrustedCluster) (*opscli
 		return nil, trace.Wrap(err)
 	}
 	return client, nil
-}
-
-// isOpsCenter returns true if this process is an Ops Center (i.e. not
-// standalone installer and not a cluster)
-func (o *Operator) isOpsCenter() bool {
-	return !o.cfg.Wizard && !o.cfg.Local
 }
 
 // Lock locks the operator mutex

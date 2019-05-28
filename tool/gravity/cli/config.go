@@ -527,6 +527,7 @@ func NewWizardConfig(env *localenv.LocalEnvironment, g *Application) InstallConf
 		SystemLogFile:          *g.SystemLogFile,
 		ServiceUID:             *g.WizardCmd.ServiceUID,
 		ServiceGID:             *g.WizardCmd.ServiceGID,
+		AdvertiseAddr:          *g.WizardCmd.AdvertiseAddr,
 		FromService:            *g.WizardCmd.FromService,
 		ExcludeHostFromCluster: true,
 		Printer:                env,
@@ -848,9 +849,8 @@ func upsertSystemAccount(operator ops.Operator) error {
 	return trace.Wrap(err)
 }
 
-var postInstallInteractiveBanner = fmt.Sprintln(`
+var postInstallInteractiveBanner = color.YellowString(`
 Installer process will keep running so the installation can be finished by
 completing necessary post-install actions in the installer UI if the installed
 application requires it.
-`, color.YellowString("After completing the installation, press Ctrl+C to finish the operation."),
-)
+After completing the installation, press Ctrl+C to finish the operation.`)

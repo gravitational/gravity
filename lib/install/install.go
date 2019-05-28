@@ -248,6 +248,7 @@ func (i *Installer) PrintStep(format string, args ...interface{}) {
 // Execute executes the install operation using the specified engine
 // Implements server.Executor
 func (i *Installer) Execute(phase *installpb.ExecuteRequest_Phase) error {
+	i.WithField("phase", phase).Info("Execute.")
 	if phase != nil {
 		return i.executePhase(*phase)
 	}
@@ -261,6 +262,7 @@ func (i *Installer) Execute(phase *installpb.ExecuteRequest_Phase) error {
 // Complete manually completes the operation given with opKey.
 // Implements server.Executor
 func (i *Installer) Complete(opKey ops.SiteOperationKey) error {
+	i.WithField("key", opKey).Info("Complete.")
 	machine, err := i.config.FSMFactory.NewFSM(i.config.Operator, opKey)
 	if err != nil {
 		return trace.Wrap(err)

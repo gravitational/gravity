@@ -215,7 +215,7 @@ const (
 	PeerConnectTimeout = 10 * time.Second
 
 	// ServiceConnectTimeout specifies the timeout for connecting to the installer service
-	ServiceConnectTimeout = 5 * time.Minute
+	ServiceConnectTimeout = 1 * time.Minute
 
 	// GravityPackagePrefix defines base prefix of gravity package
 	GravityPackagePrefix = "gravitational.io/gravity"
@@ -874,7 +874,8 @@ const (
 	// RPCAgentSecretsPackage specifies the name of the RPC credentials package
 	RPCAgentSecretsPackage = "rpcagent-secrets"
 
-	// ShutdownTimeout defines the maximum amount of time to wait for an operation to complete
+	// ShutdownTimeout specifies the maximum amount of time to wait for completion
+	// when closing
 	ShutdownTimeout = 1 * time.Minute
 
 	// ArchiveUID specifies the user ID to use for tarball items that do not exist on disk

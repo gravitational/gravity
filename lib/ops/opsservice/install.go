@@ -117,11 +117,7 @@ func (s *site) createInstallExpandOperation(context context.Context, req createI
 	if err != nil {
 		return nil, trace.Wrap(err)
 	}
-
-	authToken := token
-	if operationType == ops.OperationInstall {
-		authToken = s.installToken()
-	}
+	log.WithField("token", token).Info("Create install operation.")
 
 	ctx, err := s.newOperationContext(*op)
 	if err != nil {
@@ -154,7 +150,7 @@ func (s *site) createInstallExpandOperation(context context.Context, req createI
 	variables.System = *systemVars
 	agents := make(map[string]storage.AgentProfile, len(profiles))
 	for role := range profiles {
-		instructions, err := s.getDownloadInstructions(authToken, role)
+		instructions, err := s.getDownloadInstructions(token, role)
 		if err != nil {
 			return nil, trace.Wrap(err)
 		}
@@ -872,23 +868,32 @@ func (s *site) newProvisioningToken(operation ops.SiteOperation) (token string, 
 	if err != nil {
 		return "", trace.Wrap(err)
 	}
-	token, err = users.CryptoRandomToken(defaults.ProvisioningTokenBytes)
-	if err != nil {
-		return "", trace.Wrap(err)
+	if operation.Type == ops.OperationInstall {
+		// For installation, the install token that was specified on the command line
+		// (or automatically generated during initialization), becomes both the auth token
+		// for the agents and the provisioning token to assign the agent to an operation
+		token = s.installToken()
 	}
-	tokenType := storage.ProvisioningTokenTypeInstall
-	if operation.Type == ops.OperationExpand {
-		tokenType = storage.ProvisioningTokenTypeExpand
+	if token == "" {
+		token, err = users.CryptoRandomToken(defaults.ProvisioningTokenBytes)
+		if err != nil {
+			return "", trace.Wrap(err)
+		}
 	}
-	_, err = s.users().CreateProvisioningToken(storage.ProvisioningToken{
-		Token:       token,
-		AccountID:   s.key.AccountID,
-		SiteDomain:  s.key.SiteDomain,
-		Type:        storage.ProvisioningTokenType(tokenType),
-		Expires:     s.clock().UtcNow().Add(defaults.InstallTokenTTL),
+	tokenRequest := storage.ProvisioningToken{
+		Token:      token,
+		AccountID:  s.key.AccountID,
+		SiteDomain: s.key.SiteDomain,
+		// Always create an expand token
+		Type:        storage.ProvisioningTokenTypeExpand,
 		OperationID: operation.ID,
 		UserEmail:   agentUser.GetName(),
-	})
+	}
+	if operation.Type == ops.OperationExpand {
+		// Set a TTL for expand provisioning token.
+		tokenRequest.Expires = s.clock().UtcNow().Add(defaults.InstallTokenTTL)
+	}
+	_, err = s.users().CreateProvisioningToken(tokenRequest)
 	if err != nil {
 		log.WithError(err).Warn("Failed to create provisioning token.")
 		return "", trace.Wrap(err)
