@@ -176,7 +176,17 @@ func (h *WebHandler) configHandler(w http.ResponseWriter, r *http.Request, p htt
 		}
 		manifest := cluster.App.Manifest
 		config.User.Logo = manifest.Logo
-		config.User.Login.HeaderText = manifest.Metadata.Name
+		// TODO(r0mant): Ideally our manifest would have something like
+		// display name but for now provide custom headers for our
+		// system images.
+		switch manifest.Metadata.Name {
+		case defaults.TelekubePackage:
+			config.User.Login.HeaderText = defaults.GravityDisplayName
+		case defaults.OpsCenterPackage:
+			config.User.Login.HeaderText = defaults.GravityHubDisplayName
+		default:
+			config.User.Login.HeaderText = manifest.Metadata.Name
+		}
 	}
 
 	if h.cfg.Mode == constants.ComponentSite || h.cfg.Wizard {
