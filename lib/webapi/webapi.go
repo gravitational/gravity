@@ -2053,9 +2053,9 @@ func (m *Handler) getAppInstaller(w http.ResponseWriter, r *http.Request, p http
 	}
 	defer reader.Close()
 
-	w.Header().Set("Content-Type", "application/x-gzip")
-	w.Header().Set("Content-Disposition", fmt.Sprintf(
-		`attachment; filename="%v-installer.tar.gz"`, locator.String()))
+	w.Header().Set("Content-Type", "application/tar")
+	w.Header().Set("Content-Disposition", fmt.Sprintf(`attachment; filename="%v-%v.tar"`,
+		locator.Name, locator.Version))
 	_, err = io.Copy(w, reader)
 	return nil, trace.Wrap(err)
 }

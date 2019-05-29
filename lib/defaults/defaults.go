@@ -230,6 +230,11 @@ const (
 	// OpsCenterPackage is the Ops Center cluster image name.
 	OpsCenterPackage = "opscenter"
 
+	// GravityDisplayName is the display-friendly name of the base image.
+	GravityDisplayName = "Gravity"
+	// GravityHubDisplayName is the display-friendly name of the Hub image.
+	GravityHubDisplayName = "Gravity Hub"
+
 	// EnvironmentPath is the path to the environment file
 	EnvironmentPath = "/etc/environment"
 
