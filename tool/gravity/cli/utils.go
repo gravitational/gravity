@@ -42,20 +42,13 @@ import (
 	"github.com/gravitational/trace"
 )
 
-// NewLocalEnv returns an instance of a local environment.
-func (g *Application) NewLocalEnv() (*localenv.LocalEnvironment, error) {
-	stateDir := *g.StateDir
-	// most commands (with the exception of update or join/expand)
-	// use the state directory set by original install/join command,
-	// unless it was specified explicitly
-	if stateDir == "" {
-		dir, err := state.GetStateDir()
-		if err != nil {
-			return nil, trace.Wrap(err)
-		}
-		stateDir = filepath.Join(dir, defaults.LocalDir)
+// NewLocalEnv returns an instance of the local environment.
+func (g *Application) NewLocalEnv() (env *localenv.LocalEnvironment, err error) {
+	localStateDir, err := getLocalStateDir(*g.StateDir)
+	if err != nil {
+		return nil, trace.Wrap(err)
 	}
-	return g.getEnv(stateDir)
+	return g.getEnv(localStateDir)
 }
 
 // NewUpdateEnv returns an instance of the local environment that is used
@@ -189,6 +182,16 @@ func ConfigureNoProxy() {
 	}
 
 	os.Setenv("NO_PROXY", strings.Join([]string{"0.0.0.0/0", ".local"}, ","))
+}
+
+func getLocalStateDir(stateDir string) (localStateDir string, err error) {
+	if stateDir == "" {
+		stateDir, err = state.GetStateDir()
+		if err != nil {
+			return "", trace.Wrap(err)
+		}
+	}
+	return filepath.Join(stateDir, defaults.LocalDir), nil
 }
 
 // findServer searches the provided cluster's state for a server that matches one of the provided
