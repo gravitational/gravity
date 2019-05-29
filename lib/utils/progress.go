@@ -160,7 +160,7 @@ func (r *ProgressConfig) setDefaults() {
 		r.Timeout = progressMaxTimeout
 	}
 	if r.Output == nil {
-		r.Output = os.Stdout
+		r.Output = &consoleOutput{}
 	}
 }
 
@@ -242,13 +242,21 @@ func (p *progressPrinter) printPeriodic(current int, message string, ctx context
 			select {
 			case <-ticker.C:
 				diff := humanize.RelTime(start, time.Now(), "elapsed", "elapsed")
-				fmt.Fprintf(p.w, "\tStill %v (%v)\n", lowerFirst(message), diff)
+				fmt.Fprintf(p.w, "\tStill %v (%v)", lowerFirst(message), diff)
 			case <-ctx.Done():
 				return
 			}
 		}
 	}()
 }
+
+// Write outputs p to console
+func (r *consoleOutput) Write(p []byte) (n int, err error) {
+	return fmt.Fprintln(os.Stdout, string(p))
+}
+
+// consoleOutput outputs to console
+type consoleOutput struct{}
 
 // lowerFirst returns the copy of the provided string with the first
 // character lowercased

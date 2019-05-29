@@ -810,6 +810,7 @@ func (p *Peer) validateWizardState(operator ops.Operator) (*ops.Site, *ops.SiteO
 func (p *Peer) sendCompletionEvent() {
 	event := server.Event{
 		Progress: &ops.ProgressEntry{
+			Message:    "Operation completed",
 			Completion: constants.Completed,
 		},
 		// Set the completion status
