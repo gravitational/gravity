@@ -32,8 +32,10 @@ import (
 	"github.com/gravitational/gravity/lib/fsm"
 	"github.com/gravitational/gravity/lib/httplib"
 	"github.com/gravitational/gravity/lib/install"
+	"github.com/gravitational/gravity/lib/localenv"
 	"github.com/gravitational/gravity/lib/process"
 	"github.com/gravitational/gravity/lib/schema"
+	"github.com/gravitational/gravity/lib/state"
 	"github.com/gravitational/gravity/lib/systemservice"
 	"github.com/gravitational/gravity/lib/utils"
 
@@ -148,13 +150,7 @@ func InitAndCheck(g *Application, cmd string) error {
 	case g.UpdateCompleteCmd.FullCommand(),
 		g.UpdateTriggerCmd.FullCommand(),
 		g.RemoveCmd.FullCommand():
-		localEnv, err := g.NewLocalEnv()
-		if err != nil {
-			return trace.Wrap(err)
-		}
-		defer localEnv.Close()
-		err = httplib.InGravity(localEnv.DNS.Addr())
-		if err != nil {
+		if err := checkRunningInGravity(g); err != nil {
 			return trace.Wrap(err)
 		}
 	}
@@ -223,7 +219,7 @@ func InitAndCheck(g *Application, cmd string) error {
 }
 
 // Execute executes the gravity command given with cmd
-func Execute(g *Application, cmd string, extraArgs []string) error {
+func Execute(g *Application, cmd string, extraArgs []string) (err error) {
 	switch cmd {
 	case g.VersionCmd.FullCommand():
 		return printVersion(*g.VersionCmd.Output)
@@ -235,17 +231,26 @@ func Execute(g *Application, cmd string, extraArgs []string) error {
 		return statusSite()
 	}
 
-	if *g.StateDir != "" {
-		if err := g.SetStateDirFromCommand(cmd); err != nil {
+	var localEnv *localenv.LocalEnvironment
+	switch cmd {
+	case g.InstallCmd.FullCommand(), g.JoinCmd.FullCommand():
+		if *g.StateDir != "" {
+			if err := state.SetStateDir(*g.StateDir); err != nil {
+				return trace.Wrap(err)
+			}
+		}
+		localEnv, err = g.NewInstallEnv()
+		if err != nil {
 			return trace.Wrap(err)
 		}
+		defer localEnv.Close()
+	default:
+		localEnv, err = g.NewLocalEnv()
+		if err != nil {
+			return trace.Wrap(err)
+		}
+		defer localEnv.Close()
 	}
-
-	localEnv, err := g.NewLocalEnv()
-	if err != nil {
-		return trace.Wrap(err)
-	}
-	defer localEnv.Close()
 
 	// the following commands must run when Kubernetes is available (can
 	// be inside gravity cluster or generic Kubernetes cluster)
@@ -924,6 +929,19 @@ func pickSiteHost() (string, error) {
 		}
 	}
 	return "", trace.Errorf("failed to find a gravity site to connect to")
+}
+
+func checkRunningInGravity(environ LocalEnvironmentFactory) error {
+	env, err := environ.NewLocalEnv()
+	if err != nil {
+		return trace.Wrap(err)
+	}
+	defer env.Close()
+	err = httplib.InGravity(env.DNS.Addr())
+	if err != nil {
+		return trace.Wrap(err)
+	}
+	return nil
 }
 
 func checkRunningAsRoot() error {

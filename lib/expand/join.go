@@ -17,12 +17,14 @@ limitations under the License.
 package expand
 
 import (
+	"bytes"
 	"context"
 	"fmt"
 	"net"
 	"net/url"
 	"strings"
 	"time"
+	"unicode"
 
 	"github.com/gravitational/gravity/lib/app"
 	"github.com/gravitational/gravity/lib/app/client"
@@ -831,6 +833,10 @@ func (r *eventDispatcher) Send(event server.Event) {
 // Write sends p as progress event to the server.
 // Implements io.Writer
 func (r *eventDispatcher) Write(p []byte) (n int, err error) {
+	// TODO(dmitri): truncate explicit newlines to avoid having
+	// empty lines in output. This needs a more consistent way to
+	// format progress messages
+	p = bytes.TrimRightFunc(p, unicode.IsSpace)
 	r.server.Send(server.Event{
 		Progress: &ops.ProgressEntry{Message: string(p)},
 	})

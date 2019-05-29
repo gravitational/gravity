@@ -32,19 +32,6 @@ import (
 	"github.com/gravitational/trace"
 )
 
-// LocalEnvironmentFactory defines an interface for creating operation-specific environments
-type LocalEnvironmentFactory interface {
-	// NewLocalEnv creates a new default environment.
-	// It will use the location pointer file to find the location of the custom state
-	// directory if available and will fall back to defaults.GravityDir otherwise.
-	// All other environments are located under this common root directory
-	NewLocalEnv() (*localenv.LocalEnvironment, error)
-	// NewUpdateEnv creates a new environment for update operations
-	NewUpdateEnv() (*localenv.LocalEnvironment, error)
-	// NewJoinEnv creates a new environment for join operations
-	NewJoinEnv() (*localenv.LocalEnvironment, error)
-}
-
 // createResource updates or inserts one or many resources from the specified filename.
 // upsert controls whether the resource is expected to exist.
 // manual controls whether the operation is created in manual mode if resource creation is implemented

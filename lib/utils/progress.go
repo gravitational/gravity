@@ -242,7 +242,7 @@ func (p *progressPrinter) printPeriodic(current int, message string, ctx context
 			select {
 			case <-ticker.C:
 				diff := humanize.RelTime(start, time.Now(), "elapsed", "elapsed")
-				fmt.Fprintf(p.w, "\tStill %v (%v)", lowerFirst(message), diff)
+				fmt.Fprintf(p.w, "\tStill %v (%v)\n", lowerFirst(message), diff)
 			case <-ctx.Done():
 				return
 			}
@@ -252,7 +252,7 @@ func (p *progressPrinter) printPeriodic(current int, message string, ctx context
 
 // Write outputs p to console
 func (r *consoleOutput) Write(p []byte) (n int, err error) {
-	return fmt.Fprintln(os.Stdout, string(p))
+	return os.Stdout.Write(p)
 }
 
 // consoleOutput outputs to console

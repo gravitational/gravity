@@ -42,6 +42,21 @@ import (
 	"github.com/gravitational/trace"
 )
 
+// LocalEnvironmentFactory defines an interface for creating operation-specific environments
+type LocalEnvironmentFactory interface {
+	// NewLocalEnv creates a new default environment.
+	// It will use the location pointer file to find the location of the custom state
+	// directory if available and will fall back to defaults.GravityDir otherwise.
+	// All other environments are located under this common root directory
+	NewLocalEnv() (*localenv.LocalEnvironment, error)
+	// TODO(dmitri): generalize operation environment under a single
+	// NewOperationEnv API
+	// NewUpdateEnv creates a new environment for update operations
+	NewUpdateEnv() (*localenv.LocalEnvironment, error)
+	// NewJoinEnv creates a new environment for join operations
+	NewJoinEnv() (*localenv.LocalEnvironment, error)
+}
+
 // NewLocalEnv returns an instance of the local environment.
 func (g *Application) NewLocalEnv() (env *localenv.LocalEnvironment, err error) {
 	localStateDir, err := getLocalStateDir(*g.StateDir)
@@ -49,6 +64,18 @@ func (g *Application) NewLocalEnv() (env *localenv.LocalEnvironment, err error) 
 		return nil, trace.Wrap(err)
 	}
 	return g.getEnv(localStateDir)
+}
+
+// NewInstallEnv returns an instance of the local environment for commands that
+// initialize cluster environment (i.e. install or join).
+func (g *Application) NewInstallEnv() (env *localenv.LocalEnvironment, err error) {
+	stateDir := *g.StateDir
+	if stateDir == "" {
+		stateDir = defaults.LocalGravityDir
+	} else {
+		stateDir = filepath.Join(stateDir, defaults.LocalDir)
+	}
+	return g.getEnv(stateDir)
 }
 
 // NewUpdateEnv returns an instance of the local environment that is used
@@ -105,19 +132,6 @@ func (g *Application) getEnvWithArgs(args localenv.LocalEnvironmentArgs) (*local
 		args.Insecure = true
 	}
 	return localenv.NewLocalEnvironment(args)
-}
-
-// SetStateDirFromCommand sets a new state directory if it has been overridden on command line.
-// It only does this for a select subset of commands - those that install a cluster and thus need
-// to set up the state directory.
-// cmd specifies the invoked command
-func (g *Application) SetStateDirFromCommand(cmd string) error {
-	if cmd != g.InstallCmd.FullCommand() && cmd != g.JoinCmd.FullCommand() {
-		return nil
-	}
-	// if a custom state directory was provided during install/join, it means
-	// that user wants all gravity data to be stored under this directory
-	return trace.Wrap(state.SetStateDir(*g.StateDir))
 }
 
 // isUpdateCommand returns true if the specified command is
@@ -185,11 +199,14 @@ func ConfigureNoProxy() {
 }
 
 func getLocalStateDir(stateDir string) (localStateDir string, err error) {
-	if stateDir == "" {
-		stateDir, err = state.GetStateDir()
-		if err != nil {
-			return "", trace.Wrap(err)
-		}
+	if stateDir != "" {
+		// If state directory has been explicitly specified on command line,
+		// use it
+		return stateDir, nil
+	}
+	stateDir, err = state.GetStateDir()
+	if err != nil {
+		return "", trace.Wrap(err)
 	}
 	return filepath.Join(stateDir, defaults.LocalDir), nil
 }
