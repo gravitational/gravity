@@ -718,8 +718,8 @@ func (p *Peer) startExpandOperation(ctx operationContext) error {
 		return trace.Wrap(err)
 	}
 	w := &eventDispatcher{server: p.server}
-	progress := utils.NewProgressWithOptions(p.ctx, "Executing expand operation",
-		utils.WithProgressOutput(w))
+	progress := utils.NewProgressWithConfig(p.ctx, "Executing expand operation",
+		utils.ProgressConfig{Output: w})
 	fsmErr := fsm.ExecutePlan(p.ctx, progress)
 	if fsmErr != nil {
 		p.WithError(fsmErr).Warn("Failed to execute plan.")
@@ -830,7 +830,7 @@ func (r *eventDispatcher) Send(event server.Event) {
 // Write sends p as progress event to the server.
 // Implements io.Writer
 func (r *eventDispatcher) Write(p []byte) (n int, err error) {
-	r.Send(server.Event{
+	r.server.Send(server.Event{
 		Progress: &ops.ProgressEntry{Message: string(p)},
 	})
 	return len(p), nil

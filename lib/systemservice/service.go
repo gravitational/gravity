@@ -235,9 +235,6 @@ type ServiceManager interface {
 	// ListPackageServices lists installed package services
 	ListPackageServices() ([]PackageServiceStatus, error)
 
-	// ListAllPackageServices lists all (including inactive) package services
-	ListAllPackageServices() ([]PackageServiceStatus, error)
-
 	// StartPackageService starts package service
 	StartPackageService(pkg loc.Locator, noBlock bool) error
 

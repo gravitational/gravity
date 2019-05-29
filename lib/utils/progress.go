@@ -134,47 +134,48 @@ func NewProgress(ctx context.Context, title string, steps int, silent bool) Prog
 // steps is the total amount of steps this progress reporter
 // will report.
 func NewConsoleProgress(ctx context.Context, title string, steps int) *progressPrinter {
-	return NewProgressWithOptions(ctx, title, WithProgressSteps(steps))
+	return NewProgressWithConfig(ctx, title, ProgressConfig{Steps: steps})
 }
 
-// NewProgressWithOptions returns new progress reporter for the given set of options
-func NewProgressWithOptions(ctx context.Context, title string, opts ...progressOption) *progressPrinter {
+// NewProgressWithConfig returns new progress reporter for the given set of options
+func NewProgressWithConfig(ctx context.Context, title string, config ProgressConfig) *progressPrinter {
+	config.setDefaults()
 	p := &progressPrinter{
 		title:   title,
 		start:   time.Now(),
-		timeout: 10 * time.Second,
 		context: ctx,
-		steps:   -1,
-		w:       os.Stdout,
-	}
-	for _, opt := range opts {
-		opt(p)
+		timeout: config.Timeout,
+		steps:   config.Steps,
+		w:       config.Output,
 	}
 	return p
 }
 
-// WithProgressTimeout overrides the progress duration
-func WithProgressTimeout(timeout time.Duration) progressOption {
-	return func(p *progressPrinter) {
-		p.timeout = timeout
+func (r *ProgressConfig) setDefaults() {
+	const progressMaxTimeout = 10 * time.Second
+	if r.Steps == 0 {
+		r.Steps = -1
+	}
+	if r.Timeout == 0 {
+		r.Timeout = progressMaxTimeout
+	}
+	if r.Output == nil {
+		r.Output = os.Stdout
 	}
 }
 
-// WithProgressSteps overrides the number of steps for the progress reporter
-func WithProgressSteps(steps int) progressOption {
-	return func(p *progressPrinter) {
-		p.steps = steps
-	}
+// ProgressConfig defines configuration for the progress printer
+type ProgressConfig struct {
+	// Steps specifies the total number of steps.
+	// No steps will be displayed if unspecified
+	Steps int
+	// Timeout specifies the alotted time.
+	// Defaults to progressMaxTimeout if unspecified
+	Timeout time.Duration
+	// Output specifies the output sink.
+	// Defaults to os.Stdout if unspecified
+	Output io.Writer
 }
-
-// WithProgressOutput sets the progress's output to the specified writer
-func WithProgressOutput(w io.Writer) progressOption {
-	return func(p *progressPrinter) {
-		p.w = w
-	}
-}
-
-type progressOption func(*progressPrinter)
 
 // progressPrinter implements Progress that outputs
 // to the specified writer
@@ -199,7 +200,7 @@ func (p *progressPrinter) PrintCurrentStep(message string, args ...interface{}) 
 // PrintSubStep outputs the message as a sub-step of the current step
 func (p *progressPrinter) PrintSubStep(message string, args ...interface{}) {
 	entry := p.updateCurrentEntry(message, args...)
-	fmt.Fprintf(os.Stdout, "\t%v\n", entry.message)
+	fmt.Fprintf(p.w, "\t%v\n", entry.message)
 }
 
 func (p *progressPrinter) updateCurrentEntry(message string, args ...interface{}) *entry {
@@ -241,7 +242,7 @@ func (p *progressPrinter) printPeriodic(current int, message string, ctx context
 			select {
 			case <-ticker.C:
 				diff := humanize.RelTime(start, time.Now(), "elapsed", "elapsed")
-				fmt.Fprintf(os.Stdout, "\tStill %v (%v)\n", lowerFirst(message), diff)
+				fmt.Fprintf(p.w, "\tStill %v (%v)\n", lowerFirst(message), diff)
 			case <-ctx.Done():
 				return
 			}

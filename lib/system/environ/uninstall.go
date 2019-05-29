@@ -110,34 +110,8 @@ func DisableAgentServices(logger log.FieldLogger) error {
 	return trace.NewAggregate(errors...)
 }
 
-func uninstallAgentServices(svm systemservice.ServiceManager, printer utils.Printer, logger log.FieldLogger) error {
-	services, err := svm.ListAllPackageServices()
-	if err != nil {
-		return trace.Wrap(err)
-	}
-	var errors []error
-	sort.Slice(services, func(i, j int) bool {
-		// Move teleport package to the front of uninstall chain.
-		// The reason for this is, if uninstalling the planet package would fail,
-		// the node would continue sending heartbeats that would make it persist
-		// in the list of nodes although it might have already been removed from
-		// everywhere else during shrink.
-		return services[i].Package.Name == constants.TeleportPackage
-	})
-	for _, service := range services {
-		printer.PrintStep("Uninstalling system service %v", service)
-		log := logger.WithField("package", service.Package)
-		err := svm.UninstallPackageService(service.Package)
-		if err != nil && systemservice.IsUnknownServiceError(err) {
-			log.WithError(err).Warn("Failed to uninstall service.")
-			errors = append(errors, err)
-		}
-	}
-	return trace.NewAggregate(errors...)
-}
-
 func uninstallPackageServices(svm systemservice.ServiceManager, printer utils.Printer, logger log.FieldLogger) error {
-	services, err := svm.ListAllPackageServices()
+	services, err := svm.ListPackageServices()
 	if err != nil {
 		return trace.Wrap(err)
 	}

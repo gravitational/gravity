@@ -249,12 +249,25 @@ func (s *systemdManager) IsPackageServiceInstalled(pkg loc.Locator) (bool, error
 
 // ListPackageServices lists installed package services
 func (s *systemdManager) ListPackageServices() ([]PackageServiceStatus, error) {
-	return s.listPackageServices("list-units")
-}
+	var services []PackageServiceStatus
 
-// ListAllPackageServices lists all (including inactive) package services
-func (s *systemdManager) ListAllPackageServices() ([]PackageServiceStatus, error) {
-	return s.listPackageServices("list-unit-files")
+	out, err := invokeSystemctl("list-units", "--plain", "--no-legend")
+	if err != nil {
+		return nil, trace.Wrap(err, "failed to list-units: %v", out)
+	}
+	for _, line := range strings.Split(out, "\n") {
+		words := strings.Fields(line)
+		if len(words) < 3 {
+			continue
+		}
+		pkg := parseUnit(words[0])
+		if pkg == nil {
+			continue
+		}
+		services = append(services,
+			PackageServiceStatus{Package: *pkg, Status: words[2]})
+	}
+	return services, nil
 }
 
 // EnablePackageService enables package service
@@ -422,28 +435,6 @@ func (s *systemdManager) Version() (int, error) {
 		return 0, trace.Wrap(err, "failed to parse systemd version output: %s", out)
 	}
 	return version, nil
-}
-
-func (s *systemdManager) listPackageServices(listCmd string) ([]PackageServiceStatus, error) {
-	var services []PackageServiceStatus
-
-	out, err := invokeSystemctl(listCmd, "--plain", "--no-legend")
-	if err != nil {
-		return nil, trace.Wrap(err, "failed to list-units: %v", out)
-	}
-	for _, line := range strings.Split(out, "\n") {
-		words := strings.Fields(line)
-		if len(words) < 3 {
-			continue
-		}
-		pkg := parseUnit(words[0])
-		if pkg == nil {
-			continue
-		}
-		services = append(services,
-			PackageServiceStatus{Package: *pkg, Status: words[2]})
-	}
-	return services, nil
 }
 
 // supportsTasksAccounting returns true if systemd supports tasks accounting on the machine,
