@@ -31,6 +31,7 @@ import (
 	"github.com/gravitational/gravity/lib/constants"
 	"github.com/gravitational/gravity/lib/defaults"
 	"github.com/gravitational/gravity/lib/expand"
+	"github.com/gravitational/gravity/lib/fsm"
 	"github.com/gravitational/gravity/lib/httplib"
 	"github.com/gravitational/gravity/lib/install"
 	installerclient "github.com/gravitational/gravity/lib/install/client"
@@ -578,34 +579,216 @@ func agent(env *localenv.LocalEnvironment, config agentConfig, serviceName strin
 	return trace.Wrap(agent.Serve())
 }
 
-func executeInstallPhase(env *localenv.LocalEnvironment, params PhaseParams, operation *ops.SiteOperation) error {
-	return trace.Wrap(executePhaseFromService(
-		env, params, operation, "Connecting to installer", "Connected to installer"))
+func executeInstallPhase(env *localenv.LocalEnvironment, environ LocalEnvironmentFactory, params PhaseParams, operation *ops.SiteOperation) error {
+	joinEnv, err := environ.NewJoinEnv()
+	if err != nil {
+		// On installer node, go through service if it's running
+		return trace.Wrap(executePhaseFromService(
+			env, params, operation, "Connecting to installer", "Connected to installer"))
+	}
+	defer joinEnv.Close()
+	ctx, cancel := context.WithCancel(context.Background())
+	interrupt := signals.NewInterruptHandler(ctx, cancel, clientInterruptSignals)
+	defer interrupt.Close()
+	go clientTerminationHandler(interrupt, env)
+
+	env.PrintStep("Connecting to agent")
+	machine, err := newInstallMachine(env, operation)
+	if err != nil {
+		return trace.Wrap(err)
+	}
+	phase := installerclient.Phase{
+		ID:    params.PhaseID,
+		Force: params.Force,
+	}
+	config := installerclient.Config{
+		InterruptHandler: interrupt,
+		Printer:          env,
+		ConnectStrategy:  &installerclient.ResumeStrategy{},
+	}
+	if phase.IsResume() {
+		config.Completer = InstallerCompleteOperation(env)
+	}
+	client, err := installerclient.New(ctx, config)
+	if err != nil {
+		return trace.Wrap(err)
+	}
+	env.PrintStep("Connected to agent")
+	phaseCtx, phaseCancel := context.WithTimeout(ctx, params.Timeout)
+	defer phaseCancel()
+	return trace.Wrap(client.DirectExecutePhase(phaseCtx, machine, phase))
 }
 
-func rollbackInstallPhase(env *localenv.LocalEnvironment, params PhaseParams, operation *ops.SiteOperation) error {
-	return trace.Wrap(rollbackPhaseFromService(
-		env, params, operation, "Connecting to installer", "Connected to installer"))
+func rollbackInstallPhase(env *localenv.LocalEnvironment, environ LocalEnvironmentFactory, params PhaseParams, operation *ops.SiteOperation) error {
+	joinEnv, err := environ.NewJoinEnv()
+	if err != nil {
+		// On installer node, go through service if it's running
+		return trace.Wrap(rollbackPhaseFromService(
+			env, params, operation, "Connecting to installer", "Connected to installer"))
+	}
+	defer joinEnv.Close()
+	ctx, cancel := context.WithCancel(context.Background())
+	interrupt := signals.NewInterruptHandler(ctx, cancel, clientInterruptSignals)
+	defer interrupt.Close()
+	go clientTerminationHandler(interrupt, env)
+
+	env.PrintStep("Connecting to agent")
+	machine, err := newInstallMachine(env, operation)
+	if err != nil {
+		return trace.Wrap(err)
+	}
+	client, err := installerclient.New(ctx, installerclient.Config{
+		InterruptHandler: interrupt,
+		Printer:          env,
+		ConnectStrategy:  &installerclient.ResumeStrategy{},
+	})
+	if err != nil {
+		return trace.Wrap(err)
+	}
+	env.PrintStep("Connected to agent")
+	phaseCtx, phaseCancel := context.WithTimeout(ctx, params.Timeout)
+	defer phaseCancel()
+	return trace.Wrap(client.DirectRollbackPhase(phaseCtx, machine, installerclient.Phase{
+		ID:    params.PhaseID,
+		Force: params.Force,
+	}))
 }
 
-func completeInstallPlan(env *localenv.LocalEnvironment, operation *ops.SiteOperation) error {
-	return trace.Wrap(completePlanFromService(
-		env, operation, "Connecting to installer", "Connected to installer"))
+func completeInstallPlan(env *localenv.LocalEnvironment, environ LocalEnvironmentFactory, operation *ops.SiteOperation) error {
+	joinEnv, err := environ.NewJoinEnv()
+	if err != nil {
+		// On installer node, go through service if it's running
+		return trace.Wrap(completePlanFromService(
+			env, operation, "Connecting to installer", "Connected to installer"))
+	}
+	defer joinEnv.Close()
+	ctx, cancel := context.WithCancel(context.Background())
+	interrupt := signals.NewInterruptHandler(ctx, cancel, clientInterruptSignals)
+	defer interrupt.Close()
+	go clientTerminationHandler(interrupt, env)
+
+	env.PrintStep("Connecting to agent")
+	machine, err := newInstallMachine(env, operation)
+	if err != nil {
+		return trace.Wrap(err)
+	}
+	_, err = installerclient.New(ctx, installerclient.Config{
+		InterruptHandler: interrupt,
+		Printer:          env,
+		ConnectStrategy:  &installerclient.ResumeStrategy{},
+	})
+	if err != nil {
+		return trace.Wrap(err)
+	}
+	env.PrintStep("Connected to agent")
+	err = machine.Complete(trace.Errorf("completed manually"))
+	if err != nil {
+		return trace.Wrap(err)
+	}
+	return trace.Wrap(installerCompleteOperation(log.WithField(trace.Component, "installer:cleanup")))
 }
 
-func executeJoinPhase(env *localenv.LocalEnvironment, params PhaseParams, operation *ops.SiteOperation) error {
-	return trace.Wrap(executePhaseFromService(
-		env, params, operation, "Connecting to agent", "Connected to agent"))
+func executeJoinPhase(env *localenv.LocalEnvironment, environ LocalEnvironmentFactory, params PhaseParams, operation *ops.SiteOperation) error {
+	joinEnv, err := environ.NewJoinEnv()
+	if err != nil {
+		return trace.Wrap(err)
+	}
+	defer joinEnv.Close()
+	ctx, cancel := context.WithCancel(context.Background())
+	interrupt := signals.NewInterruptHandler(ctx, cancel, clientInterruptSignals)
+	defer interrupt.Close()
+	go clientTerminationHandler(interrupt, env)
+
+	env.PrintStep("Connecting to agent")
+	machine, err := newJoinMachine(env, joinEnv, operation)
+	if err != nil {
+		return trace.Wrap(err)
+	}
+	phase := installerclient.Phase{
+		ID:    params.PhaseID,
+		Force: params.Force,
+	}
+	config := installerclient.Config{
+		InterruptHandler: interrupt,
+		Printer:          env,
+		ConnectStrategy:  &installerclient.ResumeStrategy{},
+	}
+	if phase.IsResume() {
+		config.Completer = InstallerCompleteOperation(env)
+	}
+	client, err := installerclient.New(ctx, config)
+	if err != nil {
+		return trace.Wrap(err)
+	}
+	env.PrintStep("Connected to agent")
+	phaseCtx, phaseCancel := context.WithTimeout(ctx, params.Timeout)
+	defer phaseCancel()
+	return trace.Wrap(client.DirectExecutePhase(phaseCtx, machine, phase))
 }
 
-func rollbackJoinPhase(env *localenv.LocalEnvironment, params PhaseParams, operation *ops.SiteOperation) error {
-	return trace.Wrap(rollbackPhaseFromService(
-		env, params, operation, "Connecting to agent", "Connected to agent"))
+func rollbackJoinPhase(env *localenv.LocalEnvironment, environ LocalEnvironmentFactory, params PhaseParams, operation *ops.SiteOperation) error {
+	joinEnv, err := environ.NewJoinEnv()
+	if err != nil {
+		return trace.Wrap(err)
+	}
+	defer joinEnv.Close()
+	ctx, cancel := context.WithCancel(context.Background())
+	interrupt := signals.NewInterruptHandler(ctx, cancel, clientInterruptSignals)
+	defer interrupt.Close()
+	go clientTerminationHandler(interrupt, env)
+
+	env.PrintStep("Connecting to agent")
+	machine, err := newJoinMachine(env, joinEnv, operation)
+	if err != nil {
+		return trace.Wrap(err)
+	}
+	client, err := installerclient.New(ctx, installerclient.Config{
+		InterruptHandler: interrupt,
+		Printer:          env,
+		ConnectStrategy:  &installerclient.ResumeStrategy{},
+	})
+	if err != nil {
+		return trace.Wrap(err)
+	}
+	env.PrintStep("Connected to agent")
+	phaseCtx, phaseCancel := context.WithTimeout(ctx, params.Timeout)
+	defer phaseCancel()
+	return trace.Wrap(client.DirectRollbackPhase(phaseCtx, machine, installerclient.Phase{
+		ID:    params.PhaseID,
+		Force: params.Force,
+	}))
 }
 
-func completeJoinPlan(env *localenv.LocalEnvironment, operation *ops.SiteOperation) error {
-	return trace.Wrap(completePlanFromService(
-		env, operation, "Connecting to agent", "Connected to agent"))
+func completeJoinPlan(env *localenv.LocalEnvironment, environ LocalEnvironmentFactory, operation *ops.SiteOperation) error {
+	joinEnv, err := environ.NewJoinEnv()
+	if err != nil {
+		return trace.Wrap(err)
+	}
+	defer joinEnv.Close()
+	ctx, cancel := context.WithCancel(context.Background())
+	interrupt := signals.NewInterruptHandler(ctx, cancel, clientInterruptSignals)
+	defer interrupt.Close()
+	go clientTerminationHandler(interrupt, env)
+
+	env.PrintStep("Connecting to agent")
+	machine, err := newJoinMachine(env, joinEnv, operation)
+	if err != nil {
+		return trace.Wrap(err)
+	}
+	_, err = installerclient.New(ctx, installerclient.Config{
+		InterruptHandler: interrupt,
+		Printer:          env,
+		ConnectStrategy:  &installerclient.ResumeStrategy{},
+	})
+	if err != nil {
+		return trace.Wrap(err)
+	}
+	env.PrintStep("Connected to agent")
+	err = machine.Complete(trace.Errorf("completed manually"))
+	if err != nil {
+		return trace.Wrap(err)
+	}
+	return trace.Wrap(installerCompleteOperation(log.WithField(trace.Component, "installer:cleanup")))
 }
 
 func executePhaseFromService(
@@ -690,6 +873,79 @@ func completePlanFromService(
 	}
 	env.PrintStep(connected)
 	return trace.Wrap(client.Complete(context.Background(), operation.Key()))
+}
+
+func newInstallMachine(env *localenv.LocalEnvironment, operation *ops.SiteOperation) (*fsm.FSM, error) {
+	localApps, err := env.AppServiceLocal(localenv.AppConfig{})
+	if err != nil {
+		return nil, trace.Wrap(err)
+	}
+	// TODO(dmitri): NewRemoteEnvironment should be part of LocalEnvironment as it only makes
+	// sense for install/join environments
+	wizardEnv, err := localenv.NewRemoteEnvironment()
+	if err != nil {
+		return nil, trace.Wrap(err)
+	}
+	if operation == nil {
+		operation, err = ops.GetWizardOperation(wizardEnv.Operator)
+		if err != nil {
+			return nil, trace.Wrap(err)
+		}
+	}
+	machine, err := install.NewFSM(install.FSMConfig{
+		OperationKey:       operation.Key(),
+		Packages:           wizardEnv.Packages,
+		Apps:               wizardEnv.Apps,
+		Operator:           wizardEnv.Operator,
+		LocalClusterClient: env.SiteOperator,
+		LocalPackages:      env.Packages,
+		LocalApps:          localApps,
+		LocalBackend:       env.Backend,
+		Insecure:           env.Insecure,
+	})
+	if err != nil {
+		return nil, trace.Wrap(err)
+	}
+	return machine, nil
+}
+
+func newJoinMachine(env, joinEnv *localenv.LocalEnvironment, operation *ops.SiteOperation) (*fsm.FSM, error) {
+	operator, err := joinEnv.CurrentOperator(httplib.WithInsecure())
+	if err != nil {
+		return nil, trace.Wrap(err)
+	}
+	apps, err := joinEnv.CurrentApps(httplib.WithInsecure())
+	if err != nil {
+		return nil, trace.Wrap(err)
+	}
+	packages, err := joinEnv.CurrentPackages(httplib.WithInsecure())
+	if err != nil {
+		return nil, trace.Wrap(err)
+	}
+	if operation == nil {
+		// determine the ongoing expand operation, it should be the only
+		// operation present in the local join-specific backend
+		operation, err = ops.GetExpandOperation(joinEnv.Backend)
+		if err != nil {
+			return nil, trace.Wrap(err)
+		}
+	}
+	machine, err := expand.NewFSM(expand.FSMConfig{
+		OperationKey:  operation.Key(),
+		Operator:      operator,
+		Apps:          apps,
+		Packages:      packages,
+		LocalBackend:  env.Backend,
+		JoinBackend:   joinEnv.Backend,
+		LocalPackages: env.Packages,
+		LocalApps:     env.Apps,
+		DebugMode:     env.Debug,
+		Insecure:      env.Insecure,
+	})
+	if err != nil {
+		return nil, trace.Wrap(err)
+	}
+	return machine, nil
 }
 
 // InstallerClient runs the client for the installer service.

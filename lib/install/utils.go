@@ -45,6 +45,7 @@ import (
 	"github.com/gravitational/trace"
 	"github.com/kardianos/osext"
 	log "github.com/sirupsen/logrus"
+	"google.golang.org/grpc/credentials"
 )
 
 // GetAppPackage finds the user app in the provided service and returns its locator
@@ -196,19 +197,34 @@ func FetchCloudMetadata(cloudProvider string, config *pb.RuntimeConfig) error {
 }
 
 // LoadRPCCredentials returns the contents of the default RPC credentials package
-func LoadRPCCredentials(ctx context.Context, packages pack.PackageService, log log.FieldLogger) (*rpcserver.Credentials, error) {
-	err := ExportRPCCredentials(ctx, packages, log)
+func LoadRPCCredentials(ctx context.Context, packages pack.PackageService) (*rpcserver.Credentials, error) {
+	var serverCreds, clientCreds credentials.TransportCredentials
+	// FIXME: this will also mask all other possibly terminal failures (file permission
+	// issues, etc.) and will keep the command blocked for the whole interval.
+	// Get rid of retry or use a better error classification.
+	b := utils.NewUnlimitedExponentialBackOff()
+	ctx, cancel := defaults.WithTimeout(ctx)
+	defer cancel()
+	err := utils.RetryWithInterval(ctx, b, func() (err error) {
+		serverCreds, clientCreds, err = rpc.CredentialsFromPackage(packages, loc.RPCSecrets)
+		return trace.Wrap(err)
+	})
 	if err != nil {
-		return nil, trace.Wrap(err)
-	}
-	serverCreds, clientCreds, err := rpc.Credentials(defaults.RPCAgentSecretsDir)
-	if err != nil {
-		return nil, trace.Wrap(err)
+		return nil, trace.Wrap(err, "failed to unpack RPC credentials")
 	}
 	return &rpcserver.Credentials{
 		Server: serverCreds,
 		Client: clientCreds,
 	}, nil
+}
+
+// ClientCredentials returns the contents of the default RPC credentials package
+func ClientCredentials(packages pack.PackageService) (credentials.TransportCredentials, error) {
+	clientCreds, err := rpc.ClientCredentialsFromPackage(packages, loc.RPCSecrets)
+	if err != nil {
+		return nil, trace.Wrap(err, "failed to fetch RPC credentials")
+	}
+	return clientCreds, nil
 }
 
 // UpdateOperationState updates the operation data according to the agent report
@@ -271,32 +287,6 @@ func ServerRequirements(flavor schema.Flavor) map[string]storage.ServerProfileRe
 		}
 	}
 	return result
-}
-
-// ExportRPCCredentials exports the RPC agent credentials from the specified package service
-// into the default credentials directory
-func ExportRPCCredentials(ctx context.Context, packages pack.PackageService, logger log.FieldLogger) error {
-	// retry in a loop to account for possible transient errors, for
-	// example if the target package service is still starting up.
-	// Another case would be if joins are started before an installer process
-	// in Ops Center-based workflow, in which case the initial package requests
-	// will fail with "bad user name or password" and need to be retried.
-	//
-	// FIXME: this will also mask all other possibly terminal failures (file permission
-	// issues, etc.) and will keep the command blocked for the whole interval.
-	// Get rid of retry or use a better error classification.
-	b := utils.NewUnlimitedExponentialBackOff()
-	ctx, cancel := defaults.WithTimeout(ctx)
-	defer cancel()
-	err := utils.RetryWithInterval(ctx, b, func() error {
-		err := pack.Unpack(packages, loc.RPCSecrets, defaults.RPCAgentSecretsDir, nil)
-		return trace.Wrap(err)
-	})
-	if err != nil {
-		return trace.Wrap(err, "failed to unpack RPC credentials")
-	}
-	logger.Info("RPC credentials unpacked.")
-	return nil
 }
 
 // InstallBinary places the system binary into the proper binary directory

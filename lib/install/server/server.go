@@ -145,7 +145,7 @@ func (r *Server) Send(event Event) {
 type Executor interface {
 	// Execute executes an operation.
 	Execute(*installpb.ExecuteRequest_Phase) error
-	// Complete executes an operation.
+	// Complete manually completes the operation given with operationKey.
 	Complete(operationKey ops.SiteOperationKey) error
 }
 
@@ -296,9 +296,8 @@ func (r *Server) execute() error {
 func (r *Server) submit(req *installpb.ExecuteRequest) {
 	select {
 	case r.execC <- req:
-	default:
-		// Drop the execute request if another request is already in flight.
-		// Ideally, we sould be able to notify the client that the request has been ignored
+		// Successfully submitted execute request
+	case <-r.ctx.Done():
 	}
 }
 

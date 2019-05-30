@@ -877,21 +877,25 @@ func InstallerCompleteOperation(env *localenv.LocalEnvironment) installerclient.
 			env.PrintStep(postInstallInteractiveBanner)
 			signals.WaitFor(os.Interrupt)
 		}
-		stateDir, err := state.GravityInstallDir()
-		if err != nil {
-			return trace.Wrap(err)
-		}
-		serviceName, err := installerclient.GetServicePath(stateDir)
-		if err == nil {
-			if err := environ.UninstallService(serviceName); err != nil {
-				logger.WithError(err).Warn("Failed to uninstall agent services.")
-			}
-		}
-		if err := environ.CleanupOperationState(utils.DiscardPrinter, logger); err != nil {
-			logger.WithError(err).Warn("Failed to clean up operation state.")
-		}
-		return nil
+		return trace.Wrap(installerCompleteOperation(logger))
 	}
+}
+
+func installerCompleteOperation(logger logrus.FieldLogger) error {
+	stateDir, err := state.GravityInstallDir()
+	if err != nil {
+		return trace.Wrap(err)
+	}
+	serviceName, err := installerclient.GetServicePath(stateDir)
+	if err == nil {
+		if err := environ.UninstallService(serviceName); err != nil {
+			logger.WithError(err).Warn("Failed to uninstall agent services.")
+		}
+	}
+	if err := environ.CleanupOperationState(utils.DiscardPrinter, logger); err != nil {
+		logger.WithError(err).Warn("Failed to clean up operation state.")
+	}
+	return nil
 }
 
 // checkLocalAddr verifies that addr specifies one of the local interfaces

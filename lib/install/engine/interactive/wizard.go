@@ -68,9 +68,6 @@ func (r *Engine) Execute(ctx context.Context, installer install.Interface, confi
 	if err != nil {
 		return trace.Wrap(err)
 	}
-	if err := e.bootstrap(); err != nil {
-		return trace.Wrap(err)
-	}
 	e.printURL()
 	installer.PrintStep("Waiting for the operation to start")
 	operation, err := e.waitForOperation()
@@ -96,16 +93,6 @@ func newExecutor(ctx context.Context, r *Engine, installer install.Interface, co
 		ctx:       ctx,
 		config:    config,
 	}, nil
-}
-
-func (r *executor) bootstrap() error {
-	// Extract RPC credentials for the agent service to be able to accept
-	// and control remote agents
-	err := install.ExportRPCCredentials(r.ctx, r.config.Packages, r.FieldLogger)
-	if err != nil {
-		return trace.Wrap(err, "failed to export RPC credentials")
-	}
-	return nil
 }
 
 func (r *executor) waitForOperation() (operation *ops.SiteOperation, err error) {

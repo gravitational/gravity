@@ -285,7 +285,7 @@ func loadRPCCredentials(ctx context.Context, addr, token string) (*rpcserver.Cre
 	if err != nil {
 		return nil, trace.Wrap(err)
 	}
-	creds, err := install.LoadRPCCredentials(ctx, packages, log)
+	creds, err := install.LoadRPCCredentials(ctx, packages)
 	if err != nil {
 		return nil, trace.Wrap(err)
 	}

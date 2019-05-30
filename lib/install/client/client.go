@@ -21,6 +21,7 @@ import (
 	"path/filepath"
 
 	"github.com/gravitational/gravity/lib/defaults"
+	"github.com/gravitational/gravity/lib/fsm"
 	installpb "github.com/gravitational/gravity/lib/install/proto"
 	"github.com/gravitational/gravity/lib/ops"
 	"github.com/gravitational/gravity/lib/state"
@@ -70,6 +71,36 @@ func (r *Client) ExecutePhase(ctx context.Context, phase Phase) error {
 	})
 }
 
+// DirectExecutePhase executes the specified phase using given machine
+func (r *Client) DirectExecutePhase(ctx context.Context, machine *fsm.FSM, phase Phase) error {
+	r.WithField("phase", phase).Info("Execute.")
+	if !phase.IsResume() {
+		progress := utils.NewProgressWithConfig(ctx, fmt.Sprintf("Executing phase %q", phase.ID), utils.ProgressConfig{})
+		defer progress.Stop()
+		err := machine.ExecutePhase(ctx, fsm.Params{
+			PhaseID:  phase.ID,
+			Force:    phase.Force,
+			Progress: progress,
+		})
+		return trace.Wrap(err)
+	}
+	progress := utils.NewProgressWithConfig(ctx, "Resuming operation", utils.ProgressConfig{})
+	defer progress.Stop()
+
+	planErr := machine.ExecutePlan(ctx, progress)
+	if planErr != nil {
+		r.WithError(planErr).Warn("Failed to execute plan.")
+	}
+	if err := machine.Complete(planErr); err != nil {
+		r.WithError(err).Warn("Failed to complete plan.")
+	}
+	if planErr != nil {
+		return trace.Wrap(planErr)
+	}
+	r.complete(ctx, installpb.StatusCompleted)
+	return nil
+}
+
 // RollbackPhase rolls back the specified phase
 func (r *Client) RollbackPhase(ctx context.Context, phase Phase) error {
 	r.WithField("phase", phase).Info("Rollback.")
@@ -81,6 +112,19 @@ func (r *Client) RollbackPhase(ctx context.Context, phase Phase) error {
 			Rollback: true,
 		},
 	})
+}
+
+// DirectRollbackPhase rolls back the specified phase using the specified machine
+func (r *Client) DirectRollbackPhase(ctx context.Context, machine *fsm.FSM, phase Phase) error {
+	r.WithField("phase", phase).Info("Rollback.")
+	progress := utils.NewProgressWithConfig(ctx, fmt.Sprintf("Rolling back phase %q", phase.ID), utils.ProgressConfig{})
+	defer progress.Stop()
+	err := machine.RollbackPhase(ctx, fsm.Params{
+		PhaseID:  phase.ID,
+		Force:    phase.Force,
+		Progress: progress,
+	})
+	return trace.Wrap(err)
 }
 
 // Complete manually completes the active operation
@@ -169,6 +213,11 @@ type Config struct {
 	// Completer specifies the optional completion handler for when the operation
 	// is completed successfully
 	Completer CompletionHandler
+}
+
+// IsResume returns true if this is a resume operation
+func (r Phase) IsResume() bool {
+	return r.ID == fsm.RootPhase
 }
 
 // Phase groups parameters for executing/rolling back a phase

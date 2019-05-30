@@ -30,7 +30,6 @@ import (
 	"github.com/gravitational/gravity/lib/ops/opsclient"
 	"github.com/gravitational/gravity/lib/pack"
 	"github.com/gravitational/gravity/lib/process"
-	"github.com/gravitational/gravity/lib/rpc"
 	pb "github.com/gravitational/gravity/lib/rpc/proto"
 	rpcserver "github.com/gravitational/gravity/lib/rpc/server"
 	"github.com/gravitational/gravity/lib/schema"
@@ -299,11 +298,7 @@ func (c *Config) getInstallerTrustedCluster() (storage.TrustedCluster, error) {
 // newAgent creates a new unstarted installer agent.
 // Agent can be started with Serve
 func newAgent(ctx context.Context, config Config) (*rpcserver.PeerServer, error) {
-	err := ExportRPCCredentials(ctx, config.Packages, config.FieldLogger)
-	if err != nil {
-		return nil, trace.Wrap(err, "failed to export RPC credentials")
-	}
-	serverCreds, clientCreds, err := rpc.Credentials(defaults.RPCAgentSecretsDir)
+	creds, err := LoadRPCCredentials(ctx, config.Packages)
 	if err != nil {
 		return nil, trace.Wrap(err)
 	}
@@ -321,10 +316,7 @@ func newAgent(ctx context.Context, config Config) (*rpcserver.PeerServer, error)
 		FieldLogger:   config.FieldLogger,
 		AdvertiseAddr: config.AdvertiseAddr,
 		ServerAddr:    config.Process.Config().Pack.GetAddr().Addr,
-		Credentials: rpcserver.Credentials{
-			Server: serverCreds,
-			Client: clientCreds,
-		},
+		Credentials:   *creds,
 		RuntimeConfig: runtimeConfig,
 		ReconnectStrategy: &rpcserver.ReconnectStrategy{
 			ShouldReconnect: func(err error) error {

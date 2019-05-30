@@ -332,7 +332,7 @@ func (p *Peer) dialWizard(addr string) (*operationContext, error) {
 	if err != nil {
 		return nil, utils.Abort(err) // stop retrying on failed checks
 	}
-	creds, err := install.LoadRPCCredentials(p.ctx, env.Packages, p.FieldLogger)
+	creds, err := install.LoadRPCCredentials(p.ctx, env.Packages)
 	if err != nil {
 		return nil, trace.Wrap(err)
 	}
@@ -391,7 +391,7 @@ func (p *Peer) dialCluster(addr, operationID string) (*operationContext, error) 
 	if err != nil {
 		return nil, trace.Wrap(err)
 	}
-	creds, err := install.LoadRPCCredentials(p.ctx, packages, p.FieldLogger)
+	creds, err := install.LoadRPCCredentials(p.ctx, packages)
 	if err != nil {
 		return nil, trace.Wrap(err)
 	}
@@ -614,7 +614,6 @@ func (p *Peer) run() error {
 	if ctx.Operation.Type != ops.OperationExpand {
 		return trace.Wrap(agent.Serve())
 	}
-
 	go func() {
 		p.agentErrC <- agent.Serve()
 	}()
@@ -789,11 +788,14 @@ func (p *Peer) validateWizardState(operator ops.Operator) (*ops.Site, *ops.SiteO
 	}
 
 	switch operation.State {
-	case ops.OperationStateInstallInitiated, ops.OperationStateInstallProvisioning, ops.OperationStateFailed:
+	case ops.OperationStateInstallInitiated,
+		ops.OperationStateInstallProvisioning,
+		ops.OperationStateInstallPrechecks,
+		ops.OperationStateFailed:
 		// Consider these states for resuming the installation
 		// (including failed that puts the operation into manual mode)
 	default:
-		return nil, nil, trace.AlreadyExists("operation %#v is in progress",
+		return nil, nil, trace.AlreadyExists("operation %v is in progress",
 			operation)
 	}
 	if len(operation.InstallExpand.Profiles) == 0 {
@@ -823,8 +825,12 @@ func (p *Peer) sendCompletionEvent() {
 
 // Send dispatches the specified event to client
 func (r *eventDispatcher) Send(event server.Event) {
-	if event.Progress != nil && event.Progress.IsCompleted() {
-		// Mark event as completed
+	if event.Progress == nil {
+		r.server.Send(event)
+		return
+	}
+	if event.Progress.State != ops.ProgressStateFailed && event.Progress.IsCompleted() {
+		// Mark event as completed for successful operation
 		event.Status = server.StatusCompleted
 	}
 	r.server.Send(event)
