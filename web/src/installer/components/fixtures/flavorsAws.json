@@ -1,0 +1,33 @@
+{
+  "title": "How many nodes do you want?",
+  "description": "",
+  "default": "",
+  "items": [{
+    "name": "single",
+    "description": "One node",
+    "profiles": {
+      "node": {
+        "count": 1,
+        "instance_types": ["m4.xlarge"]
+      }
+    }
+  }, {
+    "name": "double",
+    "description": "Two-node cluster",
+    "profiles": {
+      "node": {
+        "count": 2,
+        "instance_types": ["m4.xlarge"]
+      }
+    }
+  }, {
+    "name": "triple",
+    "description": "Three-node cluster",
+    "profiles": {
+      "node": {
+        "count": 3,
+        "instance_types": ["m4.xlarge"]
+      }
+    }
+  }]
+}

@@ -1,10 +1,11 @@
 FROM node:8.11.2-slim
 
+# Fixes jessie repository
+RUN sed -i '/jessie-updates/d' /etc/apt/sources.list
+
 RUN apt-get update && apt-get install git -y
 
-RUN apt-get install -y python python-dev python-pip
-
-RUN npm i npm@6.1.0 -g
+RUN npm i npm@6.4.1 -g
 
 # prepare to install only package.json dependencies
 RUN mkdir -p /app

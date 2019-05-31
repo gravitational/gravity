@@ -1,6 +1,22 @@
+/*
+Copyright 2019 Gravitational, Inc.
+
+Licensed under the Apache License, Version 2.0 (the "License");
+you may not use this file except in compliance with the License.
+You may obtain a copy of the License at
+
+    http://www.apache.org/licenses/LICENSE-2.0
+
+Unless required by applicable law or agreed to in writing, software
+distributed under the License is distributed on an "AS IS" BASIS,
+WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+See the License for the specific language governing permissions and
+limitations under the License.
+*/
+
 const webpack = require('webpack');
 const baseCfg = require('./webpack.base');
-const UglifyJsPlugin = require('uglifyjs-webpack-plugin');
+
 //const BundleAnalyzerPlugin = require('webpack-bundle-analyzer').BundleAnalyzerPlugin;
 
 var cfg = {
@@ -13,12 +29,7 @@ var cfg = {
 
   optimization: {
     ...baseCfg.optimization,
-    minimize: true,
-    minimizer: [
-      new UglifyJsPlugin({
-        exclude: 'app',
-     }),
-    ]
+    minimize: true
   },
 
   module: {
@@ -29,8 +40,8 @@ var cfg = {
       baseCfg.rules.svg,
       baseCfg.rules.images,
       baseCfg.rules.jsx(),
-      baseCfg.rules.css(),
-      baseCfg.rules.scss()
+      baseCfg.rules.css({ dev: true }),
+      baseCfg.rules.scss({ dev: true }),
     ]
   },
 
@@ -38,7 +49,7 @@ var cfg = {
     //new BundleAnalyzerPlugin(),
     new webpack.HashedModuleIdsPlugin(),
     baseCfg.plugins.createIndexHtml(),
-    baseCfg.plugins.extractAppCss()
+    // baseCfg.plugins.extractAppCss(),
  ]
 };
 
