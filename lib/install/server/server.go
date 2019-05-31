@@ -33,12 +33,12 @@ import (
 
 // New returns a new instance of the installer server.
 // Use Serve to make server start listening
-func New(ctx context.Context) *Server {
-	localCtx, cancel := context.WithCancel(ctx)
+func New() *Server {
+	ctx, cancel := context.WithCancel(context.Background())
 	grpcServer := grpc.NewServer()
 	server := &Server{
 		FieldLogger: log.WithField(trace.Component, "installer:service"),
-		ctx:         localCtx,
+		ctx:         ctx,
 		cancel:      cancel,
 		rpc:         grpcServer,
 		respC:       make(chan *installpb.ProgressResponse),

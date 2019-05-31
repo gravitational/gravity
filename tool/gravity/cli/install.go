@@ -80,6 +80,8 @@ func startInstall(env *localenv.LocalEnvironment, config InstallConfig) error {
 		Completer:       InstallerCompleteOperation(env),
 	})
 	if utils.IsContextCancelledError(err) {
+		// We only end up here if the initialization has not been successful - clean up the state
+		InstallerCleanup()
 		return trace.Wrap(err, "installer interrupted")
 	}
 	return trace.Wrap(err)
@@ -214,7 +216,7 @@ func joinFromService(env, joinEnv *localenv.LocalEnvironment, config JoinConfig)
 	if err != nil {
 		return trace.Wrap(err)
 	}
-	peer, err := expand.NewPeer(ctx, *peerConfig)
+	peer, err := expand.NewPeer(*peerConfig)
 	if err != nil {
 		return trace.Wrap(err)
 	}
@@ -561,7 +563,7 @@ func agent(env *localenv.LocalEnvironment, config agentConfig, serviceName strin
 		KeyValues: config.vars,
 	}
 	watchCh := make(chan rpcserver.WatchEvent, 1)
-	agent, err := install.NewAgent(ctx, install.AgentConfig{
+	agent, err := install.NewAgent(install.AgentConfig{
 		FieldLogger:   log.WithField("addr", config.advertiseAddr),
 		AdvertiseAddr: config.advertiseAddr,
 		Credentials:   *creds,
@@ -685,7 +687,7 @@ func completeInstallPlan(env *localenv.LocalEnvironment, environ LocalEnvironmen
 	if err != nil {
 		return trace.Wrap(err)
 	}
-	return trace.Wrap(installerCompleteOperation(log.WithField(trace.Component, "installer:cleanup")))
+	return trace.Wrap(InstallerCleanup())
 }
 
 func executeJoinPhase(env *localenv.LocalEnvironment, environ LocalEnvironmentFactory, params PhaseParams, operation *ops.SiteOperation) error {
@@ -788,7 +790,7 @@ func completeJoinPlan(env *localenv.LocalEnvironment, environ LocalEnvironmentFa
 	if err != nil {
 		return trace.Wrap(err)
 	}
-	return trace.Wrap(installerCompleteOperation(log.WithField(trace.Component, "installer:cleanup")))
+	return trace.Wrap(InstallerCleanup())
 }
 
 func executePhaseFromService(

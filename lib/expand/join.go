@@ -57,15 +57,15 @@ import (
 )
 
 // NewPeer returns new cluster peer client
-func NewPeer(ctx context.Context, config PeerConfig) (*Peer, error) {
+func NewPeer(config PeerConfig) (*Peer, error) {
 	if err := config.CheckAndSetDefaults(); err != nil {
 		return nil, trace.Wrap(err)
 	}
-	server := server.New(ctx)
-	localCtx, cancel := context.WithCancel(ctx)
+	server := server.New()
+	ctx, cancel := context.WithCancel(context.Background())
 	peer := &Peer{
 		PeerConfig: config,
-		ctx:        localCtx,
+		ctx:        ctx,
 		cancel:     cancel,
 		server:     server,
 		agentErrC:  make(chan error, 2),
@@ -538,7 +538,7 @@ func (p *Peer) newAgent(opCtx operationContext) (*rpcserver.PeerServer, error) {
 		return nil, trace.Wrap(err)
 	}
 	p.RuntimeConfig.Token = token
-	agent, err := install.NewAgent(p.ctx, install.AgentConfig{
+	agent, err := install.NewAgent(install.AgentConfig{
 		FieldLogger: p.WithFields(log.Fields{
 			trace.Component: "rpc:peer",
 			"addr":          p.AdvertiseAddr,

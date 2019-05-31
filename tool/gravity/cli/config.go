@@ -837,6 +837,10 @@ func installerAbortOperation(env *localenv.LocalEnvironment) func(context.Contex
 				logger.WithError(err).Warn("Failed to uninstall service.")
 			}
 		}
+		logger.Info("Uninstalling services.")
+		if err := environ.UninstallServices(utils.DiscardPrinter, logger); err != nil {
+			logger.WithError(err).Warn("Failed to uninstall services.")
+		}
 		logger.Info("Uninstalling system.")
 		if err := environ.UninstallSystem(utils.DiscardPrinter, logger); err != nil {
 			logger.WithError(err).Warn("Failed to uninstall system.")
@@ -877,16 +881,22 @@ func InstallerCompleteOperation(env *localenv.LocalEnvironment) installerclient.
 			env.PrintStep(postInstallInteractiveBanner)
 			signals.WaitFor(os.Interrupt)
 		}
-		return trace.Wrap(installerCompleteOperation(logger))
+		return trace.Wrap(installerCleanup(logger))
 	}
 }
 
-func installerCompleteOperation(logger logrus.FieldLogger) error {
+// InstallerCleanup uninstalls the services and cleans up operation state
+func InstallerCleanup() error {
+	return installerCleanup(log.WithField(trace.Component, "installer:cleanup"))
+}
+
+func installerCleanup(logger logrus.FieldLogger) error {
 	stateDir, err := state.GravityInstallDir()
 	if err != nil {
 		return trace.Wrap(err)
 	}
 	serviceName, err := installerclient.GetServicePath(stateDir)
+	logger.WithField("service", serviceName).Info("Uninstalling service.")
 	if err == nil {
 		if err := environ.UninstallService(serviceName); err != nil {
 			logger.WithError(err).Warn("Failed to uninstall agent services.")

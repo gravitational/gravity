@@ -344,11 +344,15 @@ func (p *Process) Shutdown(ctx context.Context) {
 	p.cancel()
 	p.shutdownOnce.Do(func() {
 		p.stopClusterServices()
-		p.clusterObjects.Close()
+		if p.clusterObjects != nil {
+			p.clusterObjects.Close()
+		}
 		if p.healthServer != nil {
 			p.healthServer.Shutdown(ctx)
 		}
-		p.proxy.Close()
+		if p.proxy != nil {
+			p.proxy.Close()
+		}
 		p.TeleportProcess.Shutdown(ctx)
 		p.wg.Wait()
 	})
@@ -990,14 +994,23 @@ func (p *Process) newAuthClient(authServers []teleutils.NetAddr, identity *telea
 func (p *Process) initService(ctx context.Context) (err error) {
 	eventC := make(chan service.Event)
 	p.WaitForEvent(ctx, service.AuthIdentityEvent, eventC)
-	event := <-eventC
+	var event service.Event
+	select {
+	case event = <-eventC:
+	case <-ctx.Done():
+		return trace.Wrap(ctx.Err())
+	}
 	p.Infof("Received %v event.", &event)
 	conn, ok := (event.Payload).(*service.Connector)
 	if !ok {
 		return trace.BadParameter("unsupported Connector type: %T", event.Payload)
 	}
 	p.WaitForEvent(ctx, service.ProxyReverseTunnelReady, eventC)
-	event = <-eventC
+	select {
+	case event = <-eventC:
+	case <-ctx.Done():
+		return trace.Wrap(ctx.Err())
+	}
 	p.Infof("Received %v event.", &event)
 	reverseTunnel, ok := (event.Payload).(reversetunnel.Server)
 	if !ok {
@@ -1006,7 +1019,11 @@ func (p *Process) initService(ctx context.Context) (err error) {
 	p.reverseTunnel = reverseTunnel
 
 	p.WaitForEvent(ctx, service.ProxyIdentityEvent, eventC)
-	event = <-eventC
+	select {
+	case event = <-eventC:
+	case <-ctx.Done():
+		return trace.Wrap(ctx.Err())
+	}
 	p.Infof("Received %v event.", &event)
 
 	proxyConn, ok := (event.Payload).(*service.Connector)

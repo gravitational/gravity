@@ -53,6 +53,7 @@ func InitProcess(ctx context.Context, gravityConfig processconfig.Config, newPro
 	}
 	err = process.WaitForServiceStarted(ctx, p)
 	if err != nil {
+		shutdown(p)
 		return nil, trace.Wrap(err)
 	}
 	return p, nil
@@ -132,4 +133,10 @@ type ProcessConfig struct {
 	LogFile string
 	// Token specifies the token the wizard will use to authenticate joining agents.
 	Token string
+}
+
+func shutdown(p process.GravityProcess) {
+	ctx, cancel := context.WithTimeout(context.Background(), defaults.ShutdownTimeout)
+	defer cancel()
+	p.Shutdown(ctx)
 }

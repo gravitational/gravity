@@ -342,7 +342,7 @@ func (r ProgressLooper) Run(ctx context.Context) error {
 			}
 			r.Dispatcher.Send(server.Event{Progress: progress})
 			lastProgress = progress
-			if progress.IsCompleted() {
+			if isOperationSuccessful(*progress) {
 				return nil
 			}
 		case <-ctx.Done():
@@ -357,6 +357,10 @@ type ProgressLooper struct {
 	Operator     ops.Operator
 	OperationKey ops.SiteOperationKey
 	Dispatcher   eventDispatcher
+}
+
+func isOperationSuccessful(progress ops.ProgressEntry) bool {
+	return progress.IsCompleted() && progress.State == ops.OperationStateCompleted
 }
 
 type eventDispatcher interface {

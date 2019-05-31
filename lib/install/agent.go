@@ -32,7 +32,7 @@ import (
 )
 
 // NewAgent returns a new unstarted agent instance
-func NewAgent(ctx context.Context, config AgentConfig) (*rpcserver.PeerServer, error) {
+func NewAgent(config AgentConfig) (*rpcserver.PeerServer, error) {
 	if err := config.CheckAndSetDefaults(); err != nil {
 		return nil, trace.Wrap(err)
 	}

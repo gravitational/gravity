@@ -47,12 +47,6 @@ func (r *InstallerStrategy) connect(ctx context.Context) (installpb.AgentClient,
 	if err != nil {
 		return nil, trace.Wrap(err)
 	}
-	defer func() {
-		if err == nil {
-			return
-		}
-		r.uninstallService()
-	}()
 	var cancel context.CancelFunc
 	ctx, cancel = context.WithTimeout(ctx, r.ConnectTimeout)
 	defer cancel()
@@ -89,12 +83,6 @@ func (r *InstallerStrategy) installSelfAsService() error {
 	}
 	r.WithField("req", fmt.Sprintf("%+v", req)).Info("Install service.")
 	return trace.Wrap(service.Reinstall(req))
-}
-
-func (r *InstallerStrategy) uninstallService() error {
-	return trace.Wrap(service.Uninstall(systemservice.UninstallServiceRequest{
-		Name: r.serviceName(),
-	}))
 }
 
 func (r *InstallerStrategy) serviceName() (name string) {

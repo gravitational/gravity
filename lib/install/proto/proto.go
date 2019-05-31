@@ -17,6 +17,7 @@ package installer
 
 import (
 	"github.com/gravitational/gravity/lib/defaults"
+	"github.com/gravitational/gravity/lib/fsm"
 	"github.com/gravitational/gravity/lib/ops"
 	"github.com/gravitational/gravity/lib/utils"
 
@@ -62,6 +63,11 @@ func KeyToProto(key ops.SiteOperationKey) *OperationKey {
 		ClusterName: key.SiteDomain,
 		ID:          key.OperationID,
 	}
+}
+
+// IsResume determines if this phase describes a resume operation
+func (r ExecuteRequest_Phase) IsResume() bool {
+	return r.ID == fsm.RootPhase
 }
 
 // Empty defines the empty RPC message

@@ -296,6 +296,7 @@ func (c *Config) getInstallerTrustedCluster() (storage.TrustedCluster, error) {
 }
 
 // newAgent creates a new unstarted installer agent.
+// ctx specifies the context for the duration of the method and is not used beyond that.
 // Agent can be started with Serve
 func newAgent(ctx context.Context, config Config) (*rpcserver.PeerServer, error) {
 	creds, err := LoadRPCCredentials(ctx, config.Packages)
@@ -312,7 +313,7 @@ func newAgent(ctx context.Context, config Config) (*rpcserver.PeerServer, error)
 		Role:         config.Role,
 		Mounts:       mounts,
 	}
-	return NewAgent(ctx, AgentConfig{
+	return NewAgent(AgentConfig{
 		FieldLogger:   config.FieldLogger,
 		AdvertiseAddr: config.AdvertiseAddr,
 		ServerAddr:    config.Process.Config().Pack.GetAddr().Addr,

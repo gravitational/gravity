@@ -244,6 +244,9 @@ func (r *Client) execute(ctx context.Context, req *installpb.ExecuteRequest) err
 		cancel()
 		return trace.Wrap(r.abort(ctx))
 	case err == nil:
+		if status == installpb.StatusUnknown {
+			return nil
+		}
 		cancel()
 		return trace.Wrap(r.complete(ctx, status))
 	case trace.IsEOF(err):

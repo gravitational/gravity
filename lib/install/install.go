@@ -47,6 +47,7 @@ import (
 )
 
 // New returns a new instance of the unstarted installer server.
+// ctx is only used for the duration of this call and is not stored beyond that.
 // Use Serve to start server operation
 func New(ctx context.Context, config RuntimeConfig) (installer *Installer, err error) {
 	if err := config.checkAndSetDefaults(); err != nil {
@@ -59,8 +60,8 @@ func New(ctx context.Context, config RuntimeConfig) (installer *Installer, err e
 			return nil, trace.Wrap(err)
 		}
 	}
-	server := server.New(ctx)
-	localCtx, cancel := context.WithCancel(ctx)
+	server := server.New()
+	localCtx, cancel := context.WithCancel(context.Background())
 	return &Installer{
 		FieldLogger: config.FieldLogger,
 		config:      config,
@@ -127,10 +128,8 @@ type Interface interface {
 // that the operation has been created.
 // Implements Interface
 func (i *Installer) NotifyOperationAvailable(op ops.SiteOperation) error {
-	if i.agent != nil {
-		if err := i.startAgent(op); err != nil {
-			return trace.Wrap(err)
-		}
+	if err := i.startAgent(op); err != nil {
+		return trace.Wrap(err)
 	}
 	i.addAborter(signals.StopperFunc(func(ctx context.Context) error {
 		i.WithField("operation", op.ID).Info("Aborting agent service.")
@@ -272,7 +271,6 @@ func (i *Installer) Complete(opKey ops.SiteOperationKey) error {
 
 // wait blocks until either the context has been cancelled or the wizard process
 // exits with an error.
-// Implements Interface
 func (i *Installer) wait() error {
 	i.stopStoppers(i.ctx)
 	return trace.Wrap(i.config.Process.Wait())
@@ -462,6 +460,9 @@ func (i *Installer) addAborter(aborter signals.Stopper) {
 }
 
 func (i *Installer) startAgent(operation ops.SiteOperation) error {
+	if i.agent == nil {
+		return nil
+	}
 	profile, ok := operation.InstallExpand.Agents[i.config.Role]
 	if !ok {
 		return trace.BadParameter("no agent profile for role %q", i.config.Role)
