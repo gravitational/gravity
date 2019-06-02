@@ -61,7 +61,7 @@ const NameCell = ({ rowIndex, data }) => {
   const desc = `cpu: ${cpu}, ram: ${memory}, os: ${osImage}`;
   return (
     <Cell>
-      <Text>{name}</Text>
+      <Text typography="body2" mb="2" bold>{name}</Text>
       <Detail>{desc}</Detail>
       { instanceType && <Detail>Instance Type: {instanceType} </Detail> }
     </Cell>

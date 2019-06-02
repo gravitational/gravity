@@ -31,11 +31,12 @@ const ThemeDecorator = storyFn => (
 
 addDecorator(ThemeDecorator);
 
-const req = require.context('./../../../', true, /\.story.js$/)
+const sharedReq = require.context('./../../', true, /\.story.js$/);
+const srcReq = require.context('./../../../src', true, /\.story.js$/);
+
 const loadStories = () => {
-    req.keys().forEach(req);
-  //  require('./../../../../oss-src/.storybook/index.js');
-  //  require('./../../../../src/.storybook/index.js');
+  sharedReq.keys().forEach(sharedReq);
+  srcReq.keys().forEach(srcReq);
 }
 
 configure(loadStories, module);

@@ -47,15 +47,20 @@ const kind = ({kind, theme}) => {
   }
 }
 
+
+
 const Label = styled.div`
+  box-sizing: border-box;
   border-radius: 100px;
-  display: inline-block;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
   font-size: 10px;
   font-weight: 500;
-  line-height: 24px;
-  padding: 0 12px;
+  min-height: 24px;
+  padding: 2px 12px;
   text-transform: uppercase;
-  white-space: nowrap;
+  line-height: 1.5;
   ${kind}
   ${space}
 `;

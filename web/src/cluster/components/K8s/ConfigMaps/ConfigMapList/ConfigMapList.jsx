@@ -50,7 +50,7 @@ function ConfigMapListItem({onClick, created, name}) {
   return (
     <StyledConfigMapListItem bg="primary.light" px="4" py="4" mb={4} mr={4}>
       <Flex width="100%" textAlign="center" flexDirection="column" justifyContent="center">
-        <Text typography="h6">{name}</Text>
+        <Text typography="h6" mb="1">{name}</Text>
         <Text typography="body2" color="text.primary">EDITED: {displayCreated}</Text>
       </Flex>
       <Flex alignItems="center" justifyContent="center" flexDirection="column">
@@ -66,7 +66,7 @@ function ConfigMapListItem({onClick, created, name}) {
 const StyledConfigMapListItem = styled(Box)`
   border-radius: 4px;
   box-shadow: 0 8px 32px rgba(0, 0, 0, .24);
-  width: 220px;
+  width: 260px;
   &:hover {
     box-shadow: 0 24px 64px rgba(0, 0, 0, .56);
   }

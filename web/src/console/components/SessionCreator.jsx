@@ -15,31 +15,14 @@ limitations under the License.
 */
 
 import React from 'react';
-import styled from 'styled-components';
 import cfg from 'app/config';
-import { Redirect, Route, Switch } from 'app/components/Router';
-import Terminal from './Terminal';
-import Player from './Player';
-import { colors } from './colors';
+import { Redirect } from 'app/components/Router';
 import { useAttempt } from 'shared/hooks';
 import * as actions from './../flux/terminal/actions';
 import { Indicator, Box } from 'shared/components';
 import * as Alerts from 'shared/components/Alert';
 
-export default function Console() {
-  return (
-    <StyledConsole>
-      <Switch>
-        <Route path={cfg.routes.consoleSession} component={Terminal} />
-        <Route path={cfg.routes.consoleInitSession} component={SessionCreator} />
-        <Route path={cfg.routes.consoleInitPodSession} component={SessionCreator} />
-        <Route path={cfg.routes.consoleSessionPlayer} component={Player} />
-      </Switch>
-    </StyledConsole>
-  )
-}
-
-function SessionCreator({ match }){
+export default function SessionCreator({ match }){
   const { siteId, pod, namespace, container, serverId, login } = match.params;
   const [ sid, setSid ] = React.useState();
   const [ attempt, { error } ] = useAttempt({
@@ -82,12 +65,3 @@ function SessionCreator({ match }){
 
   return null;
 }
-
-const StyledConsole = styled.div`
-  background-color: ${colors.bgTerminal};
-  bottom: 0;
-  left: 0;
-  position: absolute;
-  right: 0;
-  top: 0;
-`;
