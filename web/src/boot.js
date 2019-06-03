@@ -19,7 +19,7 @@ import React from 'react';
 import history from 'app/services/history';
 
 import ReactDOM from 'react-dom';
-import Root from  'app/index';
+import Root from  './index';
 import cfg from './config';
 
 // apply configuration provided by the backend
