@@ -35,7 +35,7 @@ LTS starts with `3.51.0` with minor backwards compatible changes added over time
 
 #### Improvements
 
-* Upgrade Teleport to `2.3.5`.
+* Upgrade Teleport to `3.2.5`.
 * Replace InfluxDB/Kapacitor monitoring stack with Prometheus/Alertmanager.
 * Upgrade Docker to `18.09.5`.
 * Upgrade Kubernetes to `1.14.1`.
