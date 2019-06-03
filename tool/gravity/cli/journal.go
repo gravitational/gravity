@@ -31,6 +31,7 @@ import (
 	"github.com/gravitational/gravity/lib/state"
 	"github.com/gravitational/gravity/lib/system"
 	"github.com/gravitational/gravity/lib/system/mount"
+	"github.com/gravitational/gravity/lib/system/signals"
 	"github.com/gravitational/gravity/lib/utils"
 
 	"github.com/gravitational/trace"
@@ -66,15 +67,14 @@ func exportRuntimeJournal(env *localenv.LocalEnvironment, outputFile string) err
 		}
 		return nil
 	}
-	defer cleanup(context.TODO())
 
 	logger := log.WithFields(logrus.Fields{
 		"runtime-package": runtimePackage.String(),
 		"rootfs":          rootDir,
 	})
-	ctx, cancel := context.WithCancel(context.TODO())
-	defer cancel()
-	go utils.WatchTerminationSignals(ctx, cancel, utils.StopperFunc(cleanup), logger)
+	ctx, cancel := context.WithCancel(context.Background())
+	interrupt := signals.WatchTerminationSignals(ctx, cancel, signals.StopperFunc(cleanup), env)
+	defer interrupt.Close()
 
 	var w io.Writer = os.Stdout
 	if outputFile != "" {
@@ -93,11 +93,7 @@ func exportRuntimeJournal(env *localenv.LocalEnvironment, outputFile string) err
 	cmd := exec.CommandContext(ctx, utils.Exe.Path, "system", "stream-runtime-journal")
 	cmd.Stdout = zip
 	cmd.Stderr = zip
-	if err = cmd.Run(); err != nil {
-		return trace.Wrap(err)
-	}
-
-	return nil
+	return trace.Wrap(cmd.Run())
 }
 
 func streamRuntimeJournal(env *localenv.LocalEnvironment) error {

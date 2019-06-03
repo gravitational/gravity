@@ -19,12 +19,10 @@ package cli
 import (
 	"bytes"
 	"fmt"
-	"net"
 	"os"
 	"os/exec"
 	"os/user"
 	"path/filepath"
-	"sort"
 	"strconv"
 	"strings"
 	"syscall"
@@ -32,13 +30,14 @@ import (
 	appservice "github.com/gravitational/gravity/lib/app/service"
 	"github.com/gravitational/gravity/lib/constants"
 	"github.com/gravitational/gravity/lib/defaults"
-	"github.com/gravitational/gravity/lib/devicemapper"
 	"github.com/gravitational/gravity/lib/loc"
 	"github.com/gravitational/gravity/lib/localenv"
 	"github.com/gravitational/gravity/lib/pack"
 	"github.com/gravitational/gravity/lib/pack/localpack"
 	"github.com/gravitational/gravity/lib/state"
 	"github.com/gravitational/gravity/lib/storage"
+	"github.com/gravitational/gravity/lib/system/environ"
+	"github.com/gravitational/gravity/lib/system/service"
 	"github.com/gravitational/gravity/lib/systemservice"
 	"github.com/gravitational/gravity/lib/utils"
 	"github.com/gravitational/gravity/tool/common"
@@ -106,7 +105,7 @@ func systemUpdate(env *localenv.LocalEnvironment, changesetID string, serviceNam
 		if withStatus {
 			args = append(args, "--with-status")
 		}
-		return trace.Wrap(installOneshotService(env.Silent, serviceName, args))
+		return trace.Wrap(service.ReinstallOneshotSimple(serviceName, args...))
 	}
 
 	reqs, err := findPackages(env.Packages, runtimePackage)
@@ -177,7 +176,7 @@ func systemRollback(env *localenv.LocalEnvironment, changesetID, serviceName str
 		if withStatus {
 			args = append(args, "--with-status")
 		}
-		return trace.Wrap(installOneshotService(env.Silent, serviceName, args))
+		return trace.Wrap(service.ReinstallOneshotSimple(serviceName, args...))
 	}
 
 	changes := changeset.ReversedChanges()
@@ -236,7 +235,7 @@ func systemReinstall(env *localenv.LocalEnvironment, newPackage loc.Locator, ser
 		kvs := configure.KeyVal(labels)
 		args = append(args, "--labels", kvs.String())
 	}
-	err := installOneshotService(env.Silent, serviceName, args)
+	err := service.ReinstallOneshotSimple(serviceName, args...)
 	if err != nil {
 		return trace.Wrap(err)
 	}
@@ -293,60 +292,6 @@ func reinstallOneshotService(env *localenv.LocalEnvironment, serviceName string,
 			StartCommand:    strings.Join(cmd, " "),
 			RemainAfterExit: true,
 		},
-	})
-	return trace.Wrap(err)
-}
-
-// installOneshotService installs a systemd service named serviceName of type=oneshot
-// using args as arguments to the gravity command on host.
-// args should only list secondary arguments w/o specifying the binary.
-// The operation is non-blocking - e.g. it does not block waiting for service to complete.
-func installOneshotService(printer localenv.Printer, serviceName string, args []string) error {
-	gravityPath, err := exec.LookPath(constants.GravityBin)
-	if err != nil {
-		return trace.Wrap(err, "failed to find %v binary in PATH",
-			constants.GravityBin)
-	}
-
-	args = append([]string{gravityPath}, args...)
-	err = installOneshotServiceFromSpec(printer, serviceName, args,
-		systemservice.ServiceSpec{
-			// Dump the gravity binary version as a start command
-			StartCommand: fmt.Sprintf("%v version", gravityPath),
-		})
-	return trace.Wrap(err)
-}
-
-// installOneshotServiceFromSpec installs a systemd service named serviceName of type=oneshot
-// using args as the ExecStartPre command and spec as the service specification.
-// The operation is non-blocking - e.g. it does not block waiting for service to complete.
-// The spec will have fields responsible for making a oneshot service automatically populated.
-func installOneshotServiceFromSpec(printer localenv.Printer, serviceName string, args []string, spec systemservice.ServiceSpec) error {
-	printer.Printf("launching oneshot system service %v\n", serviceName)
-
-	services, err := systemservice.New()
-	if err != nil {
-		return trace.Wrap(err)
-	}
-
-	if len(args) != 0 {
-		command := strings.Join(args, " ")
-		// We do actual job as a command executed before the service entrypoint
-		// to distinguish between completed job (status active) and in-progress job
-		// (status activating)
-		spec.StartPreCommand = command
-	}
-
-	if spec.User == "" {
-		spec.User = constants.RootUIDString
-	}
-	spec.Type = constants.OneshotService
-	spec.RemainAfterExit = true
-
-	err = services.InstallService(systemservice.NewServiceRequest{
-		Name:        serviceName,
-		NoBlock:     true,
-		ServiceSpec: spec,
 	})
 	return trace.Wrap(err)
 }
@@ -848,7 +793,7 @@ func reinstallSystemService(env *localenv.LocalEnvironment, update storage.Packa
 }
 
 func uninstallPackage(
-	printer localenv.Printer,
+	printer utils.Printer,
 	services systemservice.ServiceManager,
 	servicePackage loc.Locator,
 ) (updates []pack.LabelUpdate, err error) {
@@ -924,7 +869,9 @@ func systemServiceUninstall(env *localenv.LocalEnvironment, pkg loc.Locator, ser
 	}
 	switch {
 	case serviceName != "":
-		err = services.UninstallService(serviceName)
+		err = services.UninstallService(systemservice.UninstallServiceRequest{
+			Name: serviceName,
+		})
 	case !pkg.IsEmpty():
 		if pkg.Version == loc.ZeroVersion {
 			statuses, err := services.ListPackageServices()
@@ -992,13 +939,6 @@ func systemServiceStatus(env *localenv.LocalEnvironment, pkg loc.Locator, servic
 
 // systemUninstall uninstalls all gravity components
 func systemUninstall(env *localenv.LocalEnvironment, confirmed bool) error {
-	dockerInfo, err := dockerInfo()
-	if err != nil {
-		log.Warnf("Failed to get docker info: %v.", trace.DebugReport(err))
-	} else {
-		log.Debugf("Detected docker: %#v.", dockerInfo)
-	}
-
 	if !confirmed {
 		env.Println("This action will delete gravity and all the application data. Are you sure?")
 		re, err := confirm()
@@ -1011,114 +951,18 @@ func systemUninstall(env *localenv.LocalEnvironment, confirmed bool) error {
 		}
 	}
 
-	svm, err := systemservice.New()
-	if err != nil {
-		return trace.Wrap(err)
-	}
-
-	services, err := svm.ListPackageServices()
-	if err != nil {
-		return trace.Wrap(err)
-	}
-
-	sort.Slice(services, func(i, j int) bool {
-		// Move teleport package to the front of uninstall chain.
-		// The reason for this is, if uninstalling the planet package would fail,
-		// the node would continue sending heartbeats that would make it persist
-		// in the list of nodes although it might have already been removed from
-		// everywhere else during shrink.
-		return services[i].Package.Name == constants.TeleportPackage
-	})
-	for _, service := range services {
-		env.PrintStep("Uninstalling system service %v", service)
-		if err := svm.UninstallPackageService(service.Package); err != nil {
-			return trace.Wrap(err)
-		}
-	}
-
-	if err := svm.UninstallService(defaults.GravityRPCAgentServiceName); err != nil {
-		log.WithError(err).Warn("Failed to uninstall agent sevice.")
-	}
-
 	// close the backend before attempting to unmount as the open file might
 	// prevent the umount from succeeding
 	env.Backend.Close()
 
-	out := &bytes.Buffer{}
-	log := logrus.NewEntry(logrus.StandardLogger())
-	if dockerInfo != nil && dockerInfo.StorageDriver == constants.DockerStorageDriverDevicemapper {
-		env.PrintStep("Detected devicemapper, cleaning up disks")
-		if err = devicemapper.Unmount(out, log); err != nil {
-			return trace.Wrap(err, "failed to unmount devicemapper: %s", out.Bytes())
-		}
+	logger := log.WithField(trace.Component, "system:uninstall")
+	if err := environ.UninstallServices(env, logger); err != nil {
+		log.WithError(err).Warn("Failed to uninstall agent services.")
 	}
-
-	if err := removeInterfaces(env); err != nil {
-		log.Warnf("Failed to clean up network interfaces: %v.", trace.DebugReport(err))
+	if err := environ.UninstallSystem(env, logger); err != nil {
+		log.WithError(err).Warn("Failed to uninstall system.")
 	}
-
-	for _, targetPath := range state.GravityBinPaths {
-		err = os.Remove(targetPath)
-		if err == nil {
-			env.PrintStep("Removed gravity binary %v", targetPath)
-			break
-		}
-	}
-	if err != nil {
-		log.Warnf("Failed to delete gravity binary: %v.",
-			trace.DebugReport(err))
-	}
-
-	stateDir, err := state.GetStateDir()
-	if err != nil {
-		return trace.Wrap(err)
-	}
-
-	env.PrintStep("Deleting all local data at %v", stateDir)
-	if err = os.RemoveAll(stateDir); err != nil {
-		// do not fail if the state directory cannot be removed, probably
-		// this means it is a mount
-		log.Warnf("Failed to remove %v: %v.", stateDir, err)
-	}
-
-	// remove all files and directories gravity might have created on the system
-	for _, path := range append(state.StateLocatorPaths, defaults.ModulesPath, defaults.SysctlPath, defaults.GravityEphemeralDir) {
-		// errors are expected since some of them may not exist
-		if err := os.Remove(path); err == nil {
-			env.PrintStep("Removed %v", path)
-		}
-	}
-
 	env.PrintStep("Gravity has been successfully uninstalled")
-	return nil
-}
-
-func dockerInfo() (*utils.DockerInfo, error) {
-	out := &bytes.Buffer{}
-	command := exec.Command("gravity", "enter", "--", "--notty", "/usr/bin/docker", "--", "info")
-	err := utils.Exec(command, out)
-	if err != nil {
-		return nil, trace.Wrap(err, out.String())
-	}
-	return utils.ParseDockerInfo(out)
-}
-
-func removeInterfaces(env *localenv.LocalEnvironment) error {
-	ifaces, err := net.Interfaces()
-	if err != nil {
-		return trace.Wrap(err)
-	}
-
-	for _, iface := range ifaces {
-		if utils.HasOneOfPrefixes(iface.Name, "docker", "flannel", "cni", "wormhole") {
-			env.PrintStep("Removing network interface %q", iface.Name)
-			out := &bytes.Buffer{}
-			if err := utils.Exec(exec.Command("ip", "link", "del", iface.Name), out); err != nil {
-				return trace.Wrap(err, out.String())
-			}
-		}
-	}
-
 	return nil
 }
 

@@ -1414,6 +1414,10 @@ type AgentService interface {
 	// and rejects all consequitive requests to connect for any agent
 	// for this site
 	StopAgents(context.Context, SiteOperationKey) error
+
+	// AbortAgents instructs all remote agents to abort operation
+	// and uninstall state
+	AbortAgents(context.Context, SiteOperationKey) error
 }
 
 // NewAccountRequest is a request to create a new account
@@ -1625,6 +1629,8 @@ type Site struct {
 	DNSOverrides storage.DNSOverrides `json:"dns_overrides"`
 	// DNSConfig specifies the cluster local DNS server configuration
 	DNSConfig storage.DNSConfig `json:"dns_config"`
+	// InstallToken specifies the original token the cluster was installed with
+	InstallToken string `json:"install_token"`
 }
 
 // IsOnline returns whether this site is online
@@ -1752,7 +1758,7 @@ type Validation interface {
 	// ValidateDomainName validates that the chosen domain name is unique
 	ValidateDomainName(domainName string) error
 	// ValidateServers runs pre-installation checks
-	ValidateServers(ValidateServersRequest) error
+	ValidateServers(context.Context, ValidateServersRequest) error
 	// ValidateRemoteAccess verifies that the cluster nodes are accessible remotely
 	ValidateRemoteAccess(ValidateRemoteAccessRequest) (*ValidateRemoteAccessResponse, error)
 }

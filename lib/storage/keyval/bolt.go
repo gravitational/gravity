@@ -37,7 +37,7 @@ import (
 
 // NewBolt returns new BoltDB-backed engine
 func NewBolt(cfg BoltConfig) (storage.Backend, error) {
-	err := cfg.Check()
+	err := cfg.CheckAndSetDefaults()
 	if err != nil {
 		return nil, trace.Wrap(err)
 	}
@@ -70,9 +70,14 @@ type BoltConfig struct {
 	Readonly bool `json:"readonly"`
 	// Multi enables multi-client support
 	Multi bool `json:"multi"`
+	// When left unspecified, it will block for maximum of defaults.DBOpenTimeout.
+	// When set to a negative duration, it will fail immediately if the file is already locked.
+	// This option is only available on Darwin and Linux.
+	Timeout time.Duration
 }
 
-func (b *BoltConfig) Check() error {
+// CheckAndSetDefaults validates this configuration and sets defaults
+func (b *BoltConfig) CheckAndSetDefaults() error {
 	if b.Path == "" {
 		return trace.BadParameter("missing Path parameter")
 	}
@@ -87,6 +92,9 @@ func (b *BoltConfig) Check() error {
 	}
 	if !s.IsDir() {
 		return trace.BadParameter("path '%v' should be a valid directory", dir)
+	}
+	if b.Timeout == 0 {
+		b.Timeout = defaults.DBOpenTimeout
 	}
 	return nil
 }
@@ -134,7 +142,7 @@ func newBolt(cfg BoltConfig, codec Codec) (*blt, error) {
 		}
 	}
 
-	err = b.open(cfg.Readonly)
+	err = b.open(cfg.Readonly, cfg.Timeout)
 	if err != nil {
 		return nil, trace.Wrap(err)
 	}
@@ -142,14 +150,14 @@ func newBolt(cfg BoltConfig, codec Codec) (*blt, error) {
 	return b, nil
 }
 
-func (b *blt) open(readonly bool) error {
+func (b *blt) open(readonly bool, timeout time.Duration) error {
 	b.Lock()
 	defer b.Unlock()
 	if b.db != nil {
 		return trace.AlreadyExists("database %v is already open", b.path)
 	}
 	db, err := bolt.Open(b.path, defaults.PrivateFileMask, &bolt.Options{
-		Timeout:  defaults.DBOpenTimeout,
+		Timeout:  timeout,
 		ReadOnly: readonly,
 	})
 	if err != nil {

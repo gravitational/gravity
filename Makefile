@@ -181,10 +181,10 @@ TEST_ETCD ?= false
 TEST_K8S ?= false
 
 # grpc
-PROTOC_VER ?= 3.4.0
+PROTOC_VER ?= 3.7.1
 PROTOC_PLATFORM := linux-x86_64
-GOGO_PROTO_TAG ?= v0.4
-GRPC_GATEWAY_TAG ?= v1.1.0
+GOGO_PROTO_TAG ?= v1.2.1
+GRPC_GATEWAY_TAG ?= v1.8.5
 
 BINARIES ?= tele gravity terraform-provider-gravity
 TF_PROVIDERS ?= terraform-provider-gravity

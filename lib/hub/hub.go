@@ -226,7 +226,7 @@ func (h *s3Hub) Get(locator loc.Locator) (io.ReadCloser, error) {
 			}
 		},
 	}
-	err = h.Download(tarFile, locator, utils.NewNopProgress())
+	err = h.Download(tarFile, locator, utils.DiscardProgress)
 	if err != nil {
 		readCloser.Close()
 		return nil, trace.Wrap(err)

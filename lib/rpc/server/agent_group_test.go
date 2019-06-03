@@ -58,11 +58,12 @@ func (r *S) TestAgentGroupExecutesCommandsRemotety(c *C) {
 	l := listen(c)
 	log := r.WithField("test", "AgentGroupExecutesCommandsRemotety")
 	srv, err := New(Config{
+		FieldLogger:     log.WithField("from", l.Addr()),
 		Credentials:     creds,
 		PeerStore:       store,
 		Listener:        l,
 		commandExecutor: testCommand{"server output"},
-	}, log.WithField("from", l.Addr()))
+	})
 	c.Assert(err, IsNil)
 	go srv.Serve()
 	defer withTestCtx(srv.Stop)
@@ -111,11 +112,12 @@ func (r *S) TestAgentGroupReconnects(c *C) {
 	listener := listen(c)
 	log := r.WithField("test", "AgentGroupReconnects")
 	srv, err := New(Config{
+		FieldLogger:     log.WithField("server", listener.Addr()),
 		Credentials:     creds,
 		PeerStore:       store,
 		Listener:        listener,
 		commandExecutor: testCommand{"server output"},
-	}, log.WithField("server", listener.Addr()))
+	})
 	c.Assert(err, IsNil)
 	go srv.Serve()
 	defer withTestCtx(srv.Stop)
@@ -213,11 +215,12 @@ func (r *S) TestAgentGroupRemovesPeerItCannotReconnect(c *C) {
 	l := listen(c)
 	log := r.WithField("test", "AgentGroupRemovesPeerItCannotReconnect")
 	srv, err := New(Config{
+		FieldLogger:      log.WithField("server", l.Addr()),
 		Credentials:      creds,
 		PeerStore:        store,
 		Listener:         l,
 		ReconnectTimeout: 1 * time.Second,
-	}, log.WithField("server", l.Addr()))
+	})
 	c.Assert(err, IsNil)
 	go srv.Serve()
 	defer withTestCtx(srv.Stop)

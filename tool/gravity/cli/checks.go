@@ -17,6 +17,7 @@ limitations under the License.
 package cli
 
 import (
+	"context"
 	"fmt"
 	"io/ioutil"
 
@@ -39,7 +40,7 @@ func checkManifest(env *localenv.LocalEnvironment, manifestPath, profileName str
 		return trace.Wrap(err)
 	}
 
-	result, err := checks.ValidateLocal(checks.LocalChecksRequest{
+	result, err := checks.ValidateLocal(context.TODO(), checks.LocalChecksRequest{
 		Manifest: *manifest,
 		Role:     profileName,
 		AutoFix:  autoFix,

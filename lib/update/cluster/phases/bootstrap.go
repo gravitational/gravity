@@ -247,7 +247,7 @@ func (p *updatePhaseBootstrap) pullSystemUpdates() error {
 	}
 	// after having pulled packages as root we need to set proper ownership
 	// on the blobs dir
-	// FIXME(dmitri): PullPackage API needs to accept uid/gid sp this is unnecessary
+	// FIXME(dmitri): PullPackage API needs to accept uid/gid so this is unnecessary
 	stateDir, err := state.GetStateDir()
 	if err != nil {
 		return trace.Wrap(err)

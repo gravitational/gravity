@@ -124,31 +124,58 @@ func Errorf(format string, args ...interface{}) (err error) {
 // true Fatalf calls panic
 func Fatalf(format string, args ...interface{}) error {
 	if IsDebug() {
-		panic(fmt.Sprintf(format, args))
+		panic(fmt.Sprintf(format, args...))
 	} else {
-		return Errorf(format, args)
+		return Errorf(format, args...)
 	}
 }
 
 func newTrace(depth int, err error) *TraceErr {
-	var pc [32]uintptr
-	count := runtime.Callers(depth+1, pc[:])
+	var buf [32]uintptr
+	n := runtime.Callers(depth+1, buf[:])
+	pcs := buf[:n]
+	frames := runtime.CallersFrames(pcs)
+	cursor := frameCursor{
+		rest: frames,
+		n:    n,
+	}
+	return newTraceFromFrames(cursor, err)
+}
 
-	traces := make(Traces, count)
-	for i := 0; i < count; i++ {
-		fn := runtime.FuncForPC(pc[i])
-		filePath, line := fn.FileLine(pc[i])
-		traces[i] = Trace{
-			Func: fn.Name(),
-			Path: filePath,
-			Line: line,
+func newTraceFromFrames(cursor frameCursor, err error) *TraceErr {
+	traces := make(Traces, 0, cursor.n)
+	if cursor.current != nil {
+		traces = append(traces, frameToTrace(*cursor.current))
+	}
+	for {
+		frame, more := cursor.rest.Next()
+		traces = append(traces, frameToTrace(frame))
+		if !more {
+			break
 		}
 	}
 	return &TraceErr{
-		err,
-		traces,
-		"",
+		Err:    err,
+		Traces: traces,
 	}
+}
+
+func frameToTrace(frame runtime.Frame) Trace {
+	return Trace{
+		Func: frame.Function,
+		Path: frame.File,
+		Line: frame.Line,
+	}
+}
+
+type frameCursor struct {
+	// current specifies the current stack frame.
+	// if omitted, rest contains the complete stack
+	current *runtime.Frame
+	// rest specifies the rest of stack frames to explore
+	rest *runtime.Frames
+	// n specifies the total number of stack frames
+	n int
 }
 
 // Traces is a list of trace entries

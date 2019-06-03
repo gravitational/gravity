@@ -157,7 +157,7 @@ type updateInitializer interface {
 
 type updater interface {
 	io.Closer
-	Run(ctx context.Context, force bool) error
+	Run(ctx context.Context) error
 	RunPhase(ctx context.Context, phase string, phaseTimeout time.Duration, force bool) error
 	RollbackPhase(ctx context.Context, phase string, phaseTimeout time.Duration, force bool) error
 	Complete(error) error

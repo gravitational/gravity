@@ -17,8 +17,6 @@ limitations under the License.
 package install
 
 import (
-	"github.com/gravitational/gravity/lib/constants"
-	"github.com/gravitational/gravity/lib/defaults"
 	"github.com/gravitational/gravity/lib/ops"
 	"github.com/gravitational/gravity/lib/schema"
 	"github.com/gravitational/gravity/lib/storage"
@@ -26,57 +24,31 @@ import (
 	"github.com/gravitational/trace"
 )
 
-// initOperationPlan initializes the install operation plan and saves it
-// into the installer database
-func (i *Installer) initOperationPlan() error {
-	clusters, err := i.Operator.GetSites(defaults.SystemAccountID)
-	if err != nil {
-		return trace.Wrap(err)
+// NewPlanner returns a new instance of Planner with the specified builder getter
+func NewPlanner(preflightChecks bool, builderGetter PlanBuilderGetter) *Planner {
+	return &Planner{
+		PlanBuilderGetter: builderGetter,
+		preflightChecks:   preflightChecks,
 	}
-	if len(clusters) != 1 {
-		return trace.BadParameter("expected 1 cluster, got: %v", clusters)
-	}
-	op, _, err := ops.GetInstallOperation(clusters[0].Key(), i.Operator)
-	if err != nil {
-		return trace.Wrap(err)
-	}
-	plan, err := i.Operator.GetOperationPlan(op.Key())
-	if err != nil && !trace.IsNotFound(err) {
-		return trace.Wrap(err)
-	}
-	if plan != nil {
-		return trace.AlreadyExists("plan is already initialized")
-	}
-	plan, err = i.engine.GetOperationPlan(clusters[0], *op)
-	if err != nil {
-		return trace.Wrap(err)
-	}
-	err = i.Operator.CreateOperationPlan(op.Key(), *plan)
-	if err != nil {
-		return trace.Wrap(err)
-	}
-	i.Info("Initialized operation plan.")
-	return nil
 }
 
 // GetOperationPlan builds a plan for the provided operation
-func (i *Installer) GetOperationPlan(cluster ops.Site, op ops.SiteOperation) (*storage.OperationPlan, error) {
-	builder, err := i.GetPlanBuilder(cluster, op)
+func (r *Planner) GetOperationPlan(operator ops.Operator, cluster ops.Site, operation ops.SiteOperation) (*storage.OperationPlan, error) {
+	builder, err := r.GetPlanBuilder(operator, cluster, operation)
 	if err != nil {
 		return nil, trace.Wrap(err)
 	}
 
 	plan := &storage.OperationPlan{
-		OperationID:   op.ID,
-		OperationType: op.Type,
-		AccountID:     op.AccountID,
-		ClusterName:   op.SiteDomain,
+		OperationID:   operation.ID,
+		OperationType: operation.Type,
+		AccountID:     operation.AccountID,
+		ClusterName:   operation.SiteDomain,
 		Servers:       append(builder.Masters, builder.Nodes...),
 		DNSConfig:     cluster.DNSConfig,
 	}
 
-	switch i.Mode {
-	case constants.InstallModeCLI:
+	if r.preflightChecks {
 		builder.AddChecksPhase(plan)
 	}
 
@@ -144,4 +116,16 @@ func (i *Installer) GetOperationPlan(cluster ops.Site, op ops.SiteOperation) (*s
 	builder.AddGravityResourcesPhase(plan)
 
 	return plan, nil
+}
+
+// PlanBuilderGetter is a factory for plan builders
+type PlanBuilderGetter interface {
+	// GetPlanBuilder returns a new plan builder for the specified cluster and operation
+	GetPlanBuilder(operator ops.Operator, cluster ops.Site, operation ops.SiteOperation) (*PlanBuilder, error)
+}
+
+// Planner builds an install operation plan
+type Planner struct {
+	PlanBuilderGetter
+	preflightChecks bool
 }

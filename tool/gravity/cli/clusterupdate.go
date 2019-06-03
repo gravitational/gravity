@@ -69,6 +69,9 @@ func updateTrigger(
 	if !manual {
 		return nil
 	}
+	if !manual {
+		return trace.Wrap(updater.Run(ctx))
+	}
 	localEnv.Println(updateClusterManualOperationBanner)
 	return nil
 }
@@ -96,7 +99,12 @@ func newClusterUpdater(
 	return updater, nil
 }
 
-func executeUpdatePhase(env, updateEnv *localenv.LocalEnvironment, params PhaseParams, operation ops.SiteOperation) error {
+func executeUpdatePhase(env *localenv.LocalEnvironment, environ LocalEnvironmentFactory, params PhaseParams, operation ops.SiteOperation) error {
+	updateEnv, err := environ.NewUpdateEnv()
+	if err != nil {
+		return trace.Wrap(err)
+	}
+	defer updateEnv.Close()
 	updater, err := getClusterUpdater(env, updateEnv, operation, params.SkipVersionCheck)
 	if err != nil {
 		return trace.Wrap(err)
@@ -106,7 +114,12 @@ func executeUpdatePhase(env, updateEnv *localenv.LocalEnvironment, params PhaseP
 	return trace.Wrap(err)
 }
 
-func rollbackUpdatePhase(env, updateEnv *localenv.LocalEnvironment, params PhaseParams, operation ops.SiteOperation) error {
+func rollbackUpdatePhase(env *localenv.LocalEnvironment, environ LocalEnvironmentFactory, params PhaseParams, operation ops.SiteOperation) error {
+	updateEnv, err := environ.NewUpdateEnv()
+	if err != nil {
+		return trace.Wrap(err)
+	}
+	defer updateEnv.Close()
 	updater, err := getClusterUpdater(env, updateEnv, operation, params.SkipVersionCheck)
 	if err != nil {
 		return trace.Wrap(err)
@@ -116,7 +129,12 @@ func rollbackUpdatePhase(env, updateEnv *localenv.LocalEnvironment, params Phase
 	return trace.Wrap(err)
 }
 
-func completeUpdatePlan(env, updateEnv *localenv.LocalEnvironment, operation ops.SiteOperation) error {
+func completeUpdatePlan(env *localenv.LocalEnvironment, environ LocalEnvironmentFactory, operation ops.SiteOperation) error {
+	updateEnv, err := environ.NewUpdateEnv()
+	if err != nil {
+		return trace.Wrap(err)
+	}
+	defer updateEnv.Close()
 	updater, err := getClusterUpdater(env, updateEnv, operation, true)
 	if err != nil {
 		return trace.Wrap(err)

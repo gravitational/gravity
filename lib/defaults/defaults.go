@@ -19,6 +19,7 @@ package defaults
 import (
 	"context"
 	"fmt"
+	"os"
 	"path/filepath"
 	"time"
 
@@ -179,9 +180,6 @@ const (
 	// LocalGravityDir is the path to local gravity package state
 	LocalGravityDir = "/var/lib/gravity/local"
 
-	// SiteGravityDir is where local gravity site stores all its data
-	SiteGravityDir = "/var/lib/gravity/site"
-
 	// GravityDir is where all root state of Gravity is stored
 	GravityDir = "/var/lib/gravity"
 
@@ -191,8 +189,11 @@ const (
 	// GravityRPCAgentPort defines which port RPC agent is listening on
 	GravityRPCAgentPort = 3012
 
-	// GravityRPCAgentServiceName defines systemd unit service name
+	// GravityRPCAgentServiceName defines systemd unit service name for RPC agents
 	GravityRPCAgentServiceName = "gravity-agent.service"
+
+	// GravityRPCInstallerServiceName defines systemd unit service name for the installer
+	GravityRPCInstallerServiceName = "gravity-installer.service"
 
 	// AgentValidationTimeout specifies the maximum amount of time for a remote validation
 	// request during the preflight test
@@ -212,6 +213,9 @@ const (
 
 	// PeerConnectTimeout is the timeout of an RPC agent connecting to its peer
 	PeerConnectTimeout = 10 * time.Second
+
+	// ServiceConnectTimeout specifies the timeout for connecting to the installer service
+	ServiceConnectTimeout = 1 * time.Minute
 
 	// GravityPackagePrefix defines base prefix of gravity package
 	GravityPackagePrefix = "gravitational.io/gravity"
@@ -388,9 +392,6 @@ const (
 
 	// ImportDir is the place for app import state
 	ImportDir = "import"
-
-	// TempDir is the place for temp files and folders
-	TempDir = "tmp"
 
 	// ResourcesDir is the name of the directory where apps store their resources such as app manifest
 	ResourcesDir = "resources"
@@ -870,12 +871,12 @@ const (
 	// RPCAgentBackoffThreshold defines max communication delay before retrying connection to remote agent node
 	RPCAgentBackoffThreshold = 1 * time.Minute
 
-	// RPCAgentShutdownTimeout defines the timeout to wait for agents to shutdown
-	// upon completing an operation
-	RPCAgentShutdownTimeout = 1 * time.Minute
-
 	// RPCAgentSecretsPackage specifies the name of the RPC credentials package
 	RPCAgentSecretsPackage = "rpcagent-secrets"
+
+	// ShutdownTimeout specifies the maximum amount of time to wait for completion
+	// when closing
+	ShutdownTimeout = 1 * time.Minute
 
 	// ArchiveUID specifies the user ID to use for tarball items that do not exist on disk
 	ArchiveUID = 1000
@@ -1010,9 +1011,6 @@ var (
 	// GravityConfigDirs specify default locations for gravity configuration search
 	GravityConfigDirs = []string{GravityDir, "assets/local"}
 
-	// GravityJoinDir is where join FSM stores its information on the joining node
-	GravityJoinDir = filepath.Join(GravityEphemeralDir, "join")
-
 	// RPCAgentSecretsDir specifies the location of the unpacked credentials
 	RPCAgentSecretsDir = filepath.Join(GravityEphemeralDir, "rpcsecrets")
 
@@ -1140,6 +1138,11 @@ var (
 	MetricsInterval = time.Hour
 	// MetricsStep is the default interval b/w cluster metrics data points.
 	MetricsStep = 15 * time.Second
+
+	// AbortedOperationExitCode specifies the exit code for this process when an operation is aborted.
+	// The exit code is used to prevent the installer service from restarting in case the operation
+	// is aborted
+	AbortedOperationExitCode = 254
 )
 
 // HookSecurityContext returns default securityContext for hook pods
@@ -1197,7 +1200,7 @@ func InSystemUnitDir(serviceName string) string {
 
 // InTempDir returns the specified subpath inside default tmp directory
 func InTempDir(path ...string) string {
-	return filepath.Join(append([]string{"/tmp"}, path...)...)
+	return filepath.Join(append([]string{os.TempDir()}, path...)...)
 }
 
 // GravityRPCAgentAddr returns default RPC agent advertise address
@@ -1208,4 +1211,9 @@ func GravityRPCAgentAddr(host string) string {
 // WithTimeout returns a default timeout context
 func WithTimeout(ctx context.Context) (context.Context, context.CancelFunc) {
 	return context.WithTimeout(ctx, RetryAttempts*RetryInterval)
+}
+
+// InstallerAddr returns the complete address of the installer given its IP
+func InstallerAddr(installerIP string) (addr string) {
+	return fmt.Sprintf("%v:%v", installerIP, WizardPackServerPort)
 }

@@ -171,6 +171,10 @@ func (s *site) loadProvisionerState(state interface{}) error {
 	return trace.Wrap(json.Unmarshal(st.ProvisionerState, state))
 }
 
+func (s *site) installToken() string {
+	return s.backendSite.InstallToken
+}
+
 func (s *site) cloudProvider() CloudProvider {
 	return s.service.getCloudProvider(s.key)
 }
@@ -688,6 +692,7 @@ func convertSite(in storage.Site, apps appservice.Applications) (*ops.Site, erro
 		CloudConfig:              in.CloudConfig,
 		DNSOverrides:             in.DNSOverrides,
 		DNSConfig:                in.DNSConfig,
+		InstallToken:             in.InstallToken,
 	}
 	if in.License != "" {
 		parsed, err := license.ParseLicense(in.License)

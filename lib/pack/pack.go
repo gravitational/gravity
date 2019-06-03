@@ -228,10 +228,12 @@ func (f ProgressReporterFn) Report(current, target int64) {
 	f(current, target)
 }
 
+// DiscardReporter is a ProgressReporter that discards all input
+var DiscardReporter = nopReporter{}
+
 // DiscardReporter discards report progress
-type DiscardReporter struct {
-}
+type nopReporter struct{}
 
 // Report of DiscardReporter does nothing
-func (f *DiscardReporter) Report(current, target int64) {
+func (nopReporter) Report(current, target int64) {
 }

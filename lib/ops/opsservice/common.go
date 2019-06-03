@@ -146,8 +146,7 @@ func (s *site) executeOnServers(ctx context.Context, servers []remoteServer, fn 
 				defer func() { <-semaphoreCh }()
 				err := fn(ctx, server)
 				if err != nil {
-					log.Warnf("Failed to execute operation: %v.",
-						trace.DebugReport(err))
+					log.WithError(err).Warn("Failed to execute operation.")
 				}
 				errCh <- trace.Wrap(err)
 			}(ctx, server)

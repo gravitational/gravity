@@ -18,128 +18,162 @@ package cli
 
 import (
 	"context"
-	"io/ioutil"
+	"fmt"
+	"math/rand"
 	"net"
 	"os"
+	"path/filepath"
+	"strings"
+	"time"
 
+	gcemeta "cloud.google.com/go/compute/metadata"
+	"github.com/fatih/color"
+	"github.com/gravitational/gravity/lib/app"
+	appservice "github.com/gravitational/gravity/lib/app"
+	awscloud "github.com/gravitational/gravity/lib/cloudprovider/aws"
+	cloudgce "github.com/gravitational/gravity/lib/cloudprovider/gce"
 	"github.com/gravitational/gravity/lib/constants"
 	"github.com/gravitational/gravity/lib/defaults"
 	"github.com/gravitational/gravity/lib/expand"
 	"github.com/gravitational/gravity/lib/install"
+	installerclient "github.com/gravitational/gravity/lib/install/client"
+	installpb "github.com/gravitational/gravity/lib/install/proto"
 	"github.com/gravitational/gravity/lib/loc"
 	"github.com/gravitational/gravity/lib/localenv"
+	"github.com/gravitational/gravity/lib/modules"
+	"github.com/gravitational/gravity/lib/ops"
+	"github.com/gravitational/gravity/lib/ops/opsclient"
 	"github.com/gravitational/gravity/lib/ops/resources"
+	"github.com/gravitational/gravity/lib/pack"
 	"github.com/gravitational/gravity/lib/process"
+	"github.com/gravitational/gravity/lib/processconfig"
 	"github.com/gravitational/gravity/lib/rpc/proto"
-	rpcserver "github.com/gravitational/gravity/lib/rpc/server"
+	"github.com/gravitational/gravity/lib/schema"
+	"github.com/gravitational/gravity/lib/state"
 	"github.com/gravitational/gravity/lib/storage"
 	"github.com/gravitational/gravity/lib/storage/clusterconfig"
+	"github.com/gravitational/gravity/lib/system/environ"
+	"github.com/gravitational/gravity/lib/system/signals"
 	"github.com/gravitational/gravity/lib/systeminfo"
 	"github.com/gravitational/gravity/lib/utils"
 
+	"github.com/docker/docker/pkg/namesgenerator"
 	teleutils "github.com/gravitational/teleport/lib/utils"
 	"github.com/gravitational/trace"
+	"github.com/sirupsen/logrus"
 	"k8s.io/apimachinery/pkg/runtime"
 )
 
-// InstallConfig is the gravity install command configuration
+// InstallConfig defines the configuration for the install command
 type InstallConfig struct {
-	// Mode is the install mode
-	Mode string
-	// Insecure allows to turn on certificate validation
-	Insecure bool
-	// ReadStateDir is the installer state dir
-	ReadStateDir string
-	// WriteStateDir is the directory where installer writes its state
-	WriteStateDir string
-	// SystemLogFile is the gravity-system.log file
-	SystemLogFile string
-	// UserLogFile is the gravity-install.log file
-	UserLogFile string
-	// AdvertiseAddr is the advertise IP for this node
+	logrus.FieldLogger
+	// AdvertiseAddr is advertise address of this server.
+	// Also specifies the address advertised as wizard service endpoint
 	AdvertiseAddr string
-	// InstallToken is the unique install token
-	InstallToken string
-	// CloudProvider is the cloud provider
+	// Token is install token
+	Token string
+	// CloudProvider is optional cloud provider
 	CloudProvider string
-	// License is the cluster License
-	License string
-	// SiteDomain is the cluster domain name
+	// StateDir is directory with local installer state
+	StateDir string
+	// UserLogFile is the log file where user-facing operation logs go
+	UserLogFile string
+	// SystemLogFile is the log file for system logs
+	SystemLogFile string
+	// SiteDomain is the name of the cluster
 	SiteDomain string
-	// Flavor is the Flavor name to install
+	// Flavor is installation flavor
 	Flavor string
-	// Role is this node Role
+	// Role is server role
 	Role string
-	// ResourcesPath is the additional Kubernetes resources to create
-	ResourcesPath string
-	// SystemDevice is the block device to use for gravity data
+	// AppPackage is the application being installed
+	AppPackage string
+	// RuntimeResources specifies optional Kubernetes resources to create
+	// If specified, will be combined with Resources
+	RuntimeResources []runtime.Object
+	// ClusterResources specifies optional cluster resources to create
+	// If specified, will be combined with Resources
+	// TODO(dmitri): externalize the ClusterConfiguration resource and create
+	// default provider-specific cloud-config on Gravity side
+	ClusterResources []storage.UnknownResource
+	// SystemDevice is a device for gravity data
 	SystemDevice string
-	// DockerDevice is the block device to use for Docker data
+	// DockerDevice is a device for docker
 	DockerDevice string
-	// Mounts is a list of additional app Mounts
+	// Mounts is a list of mount points (name -> source pairs)
 	Mounts map[string]string
+	// DNSOverrides contains installer node DNS overrides
+	DNSOverrides storage.DNSOverrides
+	// PodCIDR is a pod network CIDR
+	PodCIDR string
+	// ServiceCIDR is a service network CIDR
+	ServiceCIDR string
+	// VxlanPort is the overlay network port
+	VxlanPort int
+	// DNSConfig overrides the local cluster DNS configuration
+	DNSConfig storage.DNSConfig
+	// Docker specifies docker configuration
+	Docker storage.DockerConfig
+	// Insecure allows to turn off cert validation
+	Insecure bool
+	// LocalPackages is the machine-local package service
+	LocalPackages pack.PackageService
+	// LocalApps is the machine-local apps service
+	LocalApps appservice.Applications
+	// LocalBackend is the machine-local backend
+	LocalBackend storage.Backend
+	// GCENodeTags defines the VM instance tags on GCE
+	GCENodeTags []string
+	// LocalClusterClient is a factory for creating client to the installed cluster
+	LocalClusterClient func() (*opsclient.Client, error)
+	// Mode specifies the installer mode
+	Mode string
 	// DNSHosts is a list of DNS host overrides
 	DNSHosts []string
 	// DNSZones is a list of DNS zone overrides
 	DNSZones []string
-	// DNSConfig is the DNS configuration for planet container DNS.
-	DNSConfig storage.DNSConfig
-	// PodCIDR is the pod network subnet
-	PodCIDR string
-	// ServiceCIDR is the service network subnet
-	ServiceCIDR string
-	// VxlanPort is the overlay network port
-	VxlanPort int
-	// Docker is the Docker configuration
-	Docker storage.DockerConfig
-	// Manual allows to execute install plan phases manually
-	Manual bool
-	// AppPackage is the application package to install
-	AppPackage string
-	// ServiceUser is the service user configuration
-	ServiceUser systeminfo.User
+	// ResourcesPath is the additional Kubernetes resources to create
+	ResourcesPath string
 	// ServiceUID is the ID of the service user as configured externally
 	ServiceUID string
 	// ServiceGID is the ID of the service group as configured externally
 	ServiceGID string
-	// NodeTags specifies VM instance tags on GCE.
-	// Kubernetes uses tags to match instances for load balancing support.
-	// By default, the tag is generated based on the cluster name.
-	// It can be overridden with this value (i.e. when cluster name does not
-	// conform to the GCE tag requirements)
-	NodeTags []string
-	// NewProcess is used to launch gravity API server process
-	NewProcess process.NewGravityProcess
+	// ExcludeHostFromCluster specifies whether the host should not be part of the cluster
+	ExcludeHostFromCluster bool
+	// Printer specifies the output for progress messages
+	utils.Printer
+	// ProcessConfig specifies the Gravity process configuration
+	ProcessConfig *processconfig.Config
+	// ServiceUser is the computed service user
+	ServiceUser *systeminfo.User
+	// FromService specifies whether the process runs in service mode
+	FromService bool
+	// writeStateDir is the directory where installer stores state for the duration
+	// of the operation
+	writeStateDir string
 }
 
 // NewInstallConfig creates install config from the passed CLI args and flags
-func NewInstallConfig(g *Application) InstallConfig {
+func NewInstallConfig(env *localenv.LocalEnvironment, g *Application) InstallConfig {
 	mode := *g.InstallCmd.Mode
 	if *g.InstallCmd.Wizard {
 		// this is obsolete parameter but take it into account in
 		// case somebody is still using it
 		mode = constants.InstallModeInteractive
 	}
-
 	return InstallConfig{
-		Mode:          mode,
 		Insecure:      *g.Insecure,
-		ReadStateDir:  *g.InstallCmd.Path,
+		StateDir:      *g.InstallCmd.Path,
 		UserLogFile:   *g.UserLogFile,
 		SystemLogFile: *g.SystemLogFile,
 		AdvertiseAddr: *g.InstallCmd.AdvertiseAddr,
-		InstallToken:  *g.InstallCmd.Token,
+		Token:         *g.InstallCmd.Token,
 		CloudProvider: *g.InstallCmd.CloudProvider,
 		SiteDomain:    *g.InstallCmd.Cluster,
-		AppPackage:    *g.InstallCmd.App,
-		Flavor:        *g.InstallCmd.Flavor,
 		Role:          *g.InstallCmd.Role,
-		ResourcesPath: *g.InstallCmd.ResourcesPath,
 		SystemDevice:  *g.InstallCmd.SystemDevice,
 		DockerDevice:  *g.InstallCmd.DockerDevice,
 		Mounts:        *g.InstallCmd.Mounts,
-		DNSHosts:      *g.InstallCmd.DNSHosts,
-		DNSZones:      *g.InstallCmd.DNSZones,
 		PodCIDR:       *g.InstallCmd.PodCIDR,
 		ServiceCIDR:   *g.InstallCmd.ServiceCIDR,
 		VxlanPort:     *g.InstallCmd.VxlanPort,
@@ -147,53 +181,64 @@ func NewInstallConfig(g *Application) InstallConfig {
 			StorageDriver: g.InstallCmd.DockerStorageDriver.value,
 			Args:          *g.InstallCmd.DockerArgs,
 		},
-		DNSConfig:  g.InstallCmd.DNSConfig(),
-		Manual:     *g.InstallCmd.Manual,
-		ServiceUID: *g.InstallCmd.ServiceUID,
-		ServiceGID: *g.InstallCmd.ServiceGID,
-		NodeTags:   *g.InstallCmd.GCENodeTags,
+		DNSConfig:              g.InstallCmd.DNSConfig(),
+		GCENodeTags:            *g.InstallCmd.GCENodeTags,
+		LocalPackages:          env.Packages,
+		LocalApps:              env.Apps,
+		LocalBackend:           env.Backend,
+		LocalClusterClient:     env.SiteOperator,
+		Mode:                   mode,
+		ServiceUID:             *g.InstallCmd.ServiceUID,
+		ServiceGID:             *g.InstallCmd.ServiceGID,
+		AppPackage:             *g.InstallCmd.App,
+		ResourcesPath:          *g.InstallCmd.ResourcesPath,
+		DNSHosts:               *g.InstallCmd.DNSHosts,
+		DNSZones:               *g.InstallCmd.DNSZones,
+		Flavor:                 *g.InstallCmd.Flavor,
+		ExcludeHostFromCluster: *g.InstallCmd.ExcludeHostFromCluster,
+		FromService:            *g.InstallCmd.FromService,
+		Printer:                env,
 	}
 }
 
 // CheckAndSetDefaults validates the configuration object and populates default values
 func (i *InstallConfig) CheckAndSetDefaults() (err error) {
-	if i.ReadStateDir == "" {
-		if i.ReadStateDir, err = os.Getwd(); err != nil {
-			return trace.ConvertSystemError(err)
-		}
-		log.Infof("Set installer state directory: %v.", i.ReadStateDir)
+	if i.FieldLogger == nil {
+		i.FieldLogger = log.WithField(trace.Component, "installer")
 	}
-	if i.WriteStateDir == "" {
-		if i.WriteStateDir, err = ioutil.TempDir("", "gravity-wizard"); err != nil {
-			return trace.ConvertSystemError(err)
-		}
-		log.Infof("Installer write layer: %v.", i.WriteStateDir)
+	if i.StateDir == "" {
+		i.StateDir = filepath.Dir(utils.Exe.Path)
+		i.WithField("dir", i.StateDir).Info("Set installer read state directory.")
 	}
-	isDir, err := utils.IsDirectory(i.ReadStateDir)
+	i.writeStateDir, err = state.GravityInstallDir()
+	if err != nil {
+		return trace.Wrap(err)
+	}
+	if err := os.MkdirAll(i.writeStateDir, defaults.SharedDirMask); err != nil {
+		return trace.ConvertSystemError(err)
+	}
+	i.WithField("dir", i.writeStateDir).Info("Set installer write state directory.")
+	isDir, err := utils.IsDirectory(i.StateDir)
 	if !isDir {
-		return trace.BadParameter("the specified state path %v is not "+
-			"a directory", i.ReadStateDir)
+		return trace.BadParameter("specified state path %v is not a directory",
+			i.StateDir)
 	}
 	if err != nil {
 		if trace.IsAccessDenied(err) {
 			return trace.Wrap(err, "access denied to the specified state "+
-				"dir %v", i.ReadStateDir)
+				"directory %v", i.StateDir)
 		}
 		if trace.IsNotFound(err) {
-			return trace.Wrap(err, "the specified state dir %v is not "+
-				"found", i.ReadStateDir)
+			return trace.Wrap(err, "specified state directory %v is not found",
+				i.StateDir)
 		}
 		return trace.Wrap(err)
 	}
-	if i.InstallToken == "" {
-		if i.InstallToken, err = teleutils.CryptoRandomHex(6); err != nil {
+	if i.Token == "" {
+		if i.Token, err = teleutils.CryptoRandomHex(6); err != nil {
 			return trace.Wrap(err)
 		}
-		log.Infof("Generated install token: %v.", i.InstallToken)
-	}
-	serviceUser, err := install.GetOrCreateServiceUser(i.ServiceUID, i.ServiceGID)
-	if err != nil {
-		return trace.Wrap(err)
+		i.WithField("token", i.Token).Info("Generated install token.")
 	}
 	if i.VxlanPort == 0 {
 		i.VxlanPort = defaults.VxlanPort
@@ -201,23 +246,149 @@ func (i *InstallConfig) CheckAndSetDefaults() (err error) {
 	if err := i.validateDNSConfig(); err != nil {
 		return trace.Wrap(err)
 	}
-	i.ServiceUser = *serviceUser
-	if i.NewProcess == nil {
-		i.NewProcess = process.NewProcess
+	if i.AdvertiseAddr == "" {
+		i.AdvertiseAddr, err = selectAdvertiseAddr()
+		if err != nil {
+			return trace.Wrap(err)
+		}
+	}
+	if err := checkLocalAddr(i.AdvertiseAddr); err != nil {
+		return trace.Wrap(err)
+	}
+	i.WithField("addr", i.AdvertiseAddr).Info("Set advertise address.")
+	if err := i.Docker.Check(); err != nil {
+		return trace.Wrap(err)
+	}
+	if i.VxlanPort < 1 || i.VxlanPort > 65535 {
+		return trace.BadParameter("invalid vxlan port: must be in range 1-65535")
+	}
+	if err := i.validateCloudConfig(); err != nil {
+		return trace.Wrap(err)
+	}
+	if !utils.StringInSlice(modules.Get().InstallModes(), i.Mode) {
+		return trace.BadParameter("invalid mode %q", i.Mode)
+	}
+	i.ServiceUser, err = install.GetOrCreateServiceUser(i.ServiceUID, i.ServiceGID)
+	if err != nil {
+		return trace.Wrap(err)
+	}
+	if i.DNSConfig.IsEmpty() {
+		i.DNSConfig = storage.DefaultDNSConfig
 	}
 	return nil
 }
 
-// GetAdvertiseAddr return the advertise address provided in the config, or
+// NewProcessConfig returns new gravity process configuration for this configuration object
+func (i *InstallConfig) NewProcessConfig() (*processconfig.Config, error) {
+	config, err := install.NewProcessConfig(install.ProcessConfig{
+		AdvertiseAddr: i.AdvertiseAddr,
+		StateDir:      i.StateDir,
+		WriteStateDir: i.writeStateDir,
+		LogFile:       i.UserLogFile,
+		ServiceUser:   *i.ServiceUser,
+		ClusterName:   i.SiteDomain,
+		Devmode:       i.Insecure,
+		Token:         i.Token,
+	})
+	if err != nil {
+		return nil, trace.Wrap(err)
+	}
+	return config, nil
+}
+
+// NewInstallerConfig returns new installer configuration for this configuration object
+func (i *InstallConfig) NewInstallerConfig(
+	env *localenv.LocalEnvironment,
+	wizard *localenv.RemoteEnvironment,
+	process process.GravityProcess,
+	validator resources.Validator,
+) (*install.Config, error) {
+	var kubernetesResources []runtime.Object
+	var gravityResources []storage.UnknownResource
+	if i.ResourcesPath != "" {
+		var err error
+		kubernetesResources, gravityResources, err = i.splitResources(validator)
+		if err != nil {
+			return nil, trace.Wrap(err)
+		}
+	}
+	app, err := i.getApp()
+	if err != nil {
+		return nil, trace.Wrap(err)
+	}
+	dnsOverrides, err := i.getDNSOverrides()
+	if err != nil {
+		return nil, trace.Wrap(err)
+	}
+	gravityResources, err = i.updateClusterConfig(gravityResources)
+	if err != nil {
+		return nil, trace.Wrap(err)
+	}
+	flavor, err := getFlavor(i.Flavor, app.Manifest, i.FieldLogger)
+	if err != nil {
+		return nil, trace.Wrap(err)
+	}
+	i.Role, err = validateRole(i.Role, *flavor, app.Manifest.NodeProfiles, i.FieldLogger)
+	if err != nil {
+		return nil, trace.Wrap(err)
+	}
+	token, err := generateInstallToken(wizard.Operator, i.Token)
+	if err != nil && !trace.IsAlreadyExists(err) {
+		return nil, trace.Wrap(err)
+	}
+	if err := upsertSystemAccount(wizard.Operator); err != nil {
+		return nil, trace.Wrap(err)
+	}
+	if i.SiteDomain == "" {
+		i.SiteDomain = generateClusterName()
+	}
+	return &install.Config{
+		FieldLogger:        i.FieldLogger,
+		AdvertiseAddr:      i.AdvertiseAddr,
+		LocalPackages:      i.LocalPackages,
+		LocalApps:          i.LocalApps,
+		LocalBackend:       i.LocalBackend,
+		Printer:            i.Printer,
+		SiteDomain:         i.SiteDomain,
+		StateDir:           i.StateDir,
+		WriteStateDir:      i.writeStateDir,
+		UserLogFile:        i.UserLogFile,
+		SystemLogFile:      i.SystemLogFile,
+		CloudProvider:      i.CloudProvider,
+		GCENodeTags:        i.GCENodeTags,
+		SystemDevice:       i.SystemDevice,
+		DockerDevice:       i.DockerDevice,
+		Mounts:             i.Mounts,
+		DNSConfig:          i.DNSConfig,
+		PodCIDR:            i.PodCIDR,
+		ServiceCIDR:        i.ServiceCIDR,
+		VxlanPort:          i.VxlanPort,
+		Docker:             i.Docker,
+		Insecure:           i.Insecure,
+		LocalClusterClient: i.LocalClusterClient,
+		Role:               i.Role,
+		ServiceUser:        *i.ServiceUser,
+		Token:              *token,
+		App:                app,
+		Flavor:             flavor,
+		DNSOverrides:       *dnsOverrides,
+		RuntimeResources:   kubernetesResources,
+		ClusterResources:   gravityResources,
+		Process:            process,
+		Apps:               wizard.Apps,
+		Packages:           wizard.Packages,
+		Operator:           wizard.Operator,
+		LocalAgent:         !i.ExcludeHostFromCluster,
+	}, nil
+
+}
+
+// getAdvertiseAddr returns the advertise address to use for the ???
 // asks the user to choose it among the host's interfaces
-func (i *InstallConfig) GetAdvertiseAddr() (string, error) {
+func (i *InstallConfig) getAdvertiseAddr() (string, error) {
 	// if it was set explicitly with --advertise-addr flag, use it
 	if i.AdvertiseAddr != "" {
 		return i.AdvertiseAddr, nil
-	}
-	// in interactive install mode ask user to choose among host's interfaces
-	if i.Mode == constants.InstallModeInteractive {
-		return selectNetworkInterface()
 	}
 	// otherwise, try to pick an address among machine's interfaces
 	addr, err := utils.PickAdvertiseIP()
@@ -229,39 +400,38 @@ func (i *InstallConfig) GetAdvertiseAddr() (string, error) {
 	return addr, nil
 }
 
-// GetAppPackage returns the application package for this installer
-func (i *InstallConfig) GetAppPackage() (*loc.Locator, error) {
-	if i.AppPackage != "" {
-		return loc.MakeLocator(i.AppPackage)
-	}
-	env, err := localenv.New(i.ReadStateDir)
+// getApp returns the application package for this installer
+func (i *InstallConfig) getApp() (app *app.Application, err error) {
+	env, err := localenv.NewLocalEnvironment(localenv.LocalEnvironmentArgs{
+		StateDir:        i.StateDir,
+		ReadonlyBackend: true,
+	})
 	if err != nil {
 		return nil, trace.Wrap(err)
 	}
 	defer env.Close()
-	locator, err := install.GetAppPackage(env.Apps)
+	if i.AppPackage != "" {
+		loc, err := loc.MakeLocator(i.AppPackage)
+		if err != nil {
+			return nil, trace.Wrap(err)
+		}
+		app, err = env.Apps.GetApp(*loc)
+		if err != nil {
+			return nil, trace.Wrap(err)
+		}
+		return app, nil
+	}
+	app, err = install.GetApp(env.Apps)
 	if err != nil {
 		if trace.IsNotFound(err) {
 			return nil, trace.NotFound("the specified state dir %v does not "+
 				"contain application data, please provide a path to the "+
 				"unpacked installer tarball or specify an application "+
-				"package via --app flag", i.ReadStateDir)
+				"package via --app flag", i.StateDir)
 		}
 		return nil, trace.Wrap(err)
 	}
-	return locator, nil
-}
-
-// GetResouces returns additional Kubernetes resources
-func (i *InstallConfig) GetResources() ([]byte, error) {
-	if i.ResourcesPath == "" {
-		return nil, trace.NotFound("no resources provided")
-	}
-	resources, err := utils.ReadPath(i.ResourcesPath)
-	if err != nil {
-		return nil, trace.Wrap(err)
-	}
-	return resources, nil
+	return app, nil
 }
 
 // getDNSOverrides converts DNS overrides specified on CLI to the storage format
@@ -287,73 +457,6 @@ func (i *InstallConfig) getDNSOverrides() (*storage.DNSOverrides, error) {
 	return overrides, nil
 }
 
-// ToInstallerConfig converts CLI config to installer format
-func (i *InstallConfig) ToInstallerConfig(env *localenv.LocalEnvironment, validator resources.Validator) (*install.Config, error) {
-	advertiseAddr, err := i.GetAdvertiseAddr()
-	if err != nil {
-		return nil, trace.Wrap(err)
-	}
-	var kubernetesResources []runtime.Object
-	var gravityResources []storage.UnknownResource
-	if i.ResourcesPath != "" {
-		kubernetesResources, gravityResources, err = i.splitResources(validator)
-		if err != nil {
-			return nil, trace.Wrap(err)
-		}
-	}
-	appPackage, err := i.GetAppPackage()
-	if err != nil {
-		return nil, trace.Wrap(err)
-	}
-	dnsOverrides, err := i.getDNSOverrides()
-	if err != nil {
-		return nil, trace.Wrap(err)
-	}
-	gravityResources, err = i.updateClusterConfig(gravityResources)
-	if err != nil {
-		return nil, trace.Wrap(err)
-	}
-	ctx, cancel := context.WithCancel(context.Background())
-	return &install.Config{
-		Context:            ctx,
-		Cancel:             cancel,
-		EventsC:            make(chan install.Event, 100),
-		AdvertiseAddr:      advertiseAddr,
-		AppPackage:         appPackage,
-		LocalPackages:      env.Packages,
-		LocalApps:          env.Apps,
-		LocalBackend:       env.Backend,
-		Silent:             env.Silent,
-		SiteDomain:         i.SiteDomain,
-		StateDir:           i.ReadStateDir,
-		WriteStateDir:      i.WriteStateDir,
-		UserLogFile:        i.UserLogFile,
-		SystemLogFile:      i.SystemLogFile,
-		Token:              i.InstallToken,
-		CloudProvider:      i.CloudProvider,
-		GCENodeTags:        i.NodeTags,
-		Flavor:             i.Flavor,
-		Role:               i.Role,
-		SystemDevice:       i.SystemDevice,
-		DockerDevice:       i.DockerDevice,
-		Mounts:             i.Mounts,
-		DNSOverrides:       *dnsOverrides,
-		DNSConfig:          i.DNSConfig,
-		Mode:               i.Mode,
-		PodCIDR:            i.PodCIDR,
-		ServiceCIDR:        i.ServiceCIDR,
-		VxlanPort:          i.VxlanPort,
-		Docker:             i.Docker,
-		Insecure:           i.Insecure,
-		Manual:             i.Manual,
-		ServiceUser:        i.ServiceUser,
-		NewProcess:         i.NewProcess,
-		LocalClusterClient: env.SiteOperator,
-		RuntimeResources:   kubernetesResources,
-		ClusterResources:   gravityResources,
-	}, nil
-}
-
 // splitResources validates the resources specified in ResourcePath
 // using the given validator and splits them into Kubernetes and Gravity-specific
 func (i *InstallConfig) splitResources(validator resources.Validator) (runtimeResources []runtime.Object, clusterResources []storage.UnknownResource, err error) {
@@ -371,7 +474,7 @@ func (i *InstallConfig) splitResources(validator resources.Validator) (runtimeRe
 		return nil, nil, trace.BadParameter("failed to validate %q: %v", i.ResourcesPath, err)
 	}
 	for _, res := range clusterResources {
-		log.WithField("resource", res.ResourceHeader).Info("Validating.")
+		i.WithField("resource", res.ResourceHeader).Info("Validating.")
 		if err := validator.Validate(res); err != nil {
 			return nil, nil, trace.Wrap(err, "resource %q is invalid", res.Kind)
 		}
@@ -433,16 +536,67 @@ func (i *InstallConfig) validateDNSConfig() error {
 	return nil
 }
 
-func validateIP(blocks []net.IPNet, ip net.IP) bool {
-	for _, block := range blocks {
-		if block.Contains(ip) {
-			return true
+func (i *InstallConfig) validateCloudConfig() (err error) {
+	i.CloudProvider, err = validateOrDetectCloudProvider(i.CloudProvider)
+	if err != nil {
+		return trace.Wrap(err)
+	}
+	if i.CloudProvider != schema.ProviderGCE {
+		return nil
+	}
+	if i.SiteDomain == "" {
+		return nil
+	}
+	// TODO(dmitri): skip validations if user provided custom cloud configuration
+	if err := cloudgce.ValidateTag(i.SiteDomain); err != nil {
+		log.WithError(err).Warnf("Failed to validate cluster name %v as node tag on GCE.", i.SiteDomain)
+		if len(i.GCENodeTags) == 0 {
+			return trace.BadParameter("specified cluster name %q does "+
+				"not conform to GCE tag value specification "+
+				"and no node tags have been specified.\n"+
+				"Either provide a conforming cluster name or use --gce-node-tag "+
+				"to specify the node tag explicitly.\n"+
+				"See https://cloud.google.com/vpc/docs/add-remove-network-tags for details.", i.SiteDomain)
 		}
 	}
-	return false
+	var errors []error
+	for _, tag := range i.GCENodeTags {
+		if err := cloudgce.ValidateTag(tag); err != nil {
+			errors = append(errors, trace.Wrap(err, "failed to validate tag %q", tag))
+		}
+	}
+	if len(errors) != 0 {
+		return trace.NewAggregate(errors...)
+	}
+	// Use cluster name as node tag
+	if len(i.GCENodeTags) == 0 {
+		i.GCENodeTags = append(i.GCENodeTags, i.SiteDomain)
+	}
+	return nil
 }
 
-// JoinConfig is the configuration object built from gravity join command args and flags
+// NewWizardConfig returns new configuration for the interactive installer
+func NewWizardConfig(env *localenv.LocalEnvironment, g *Application) InstallConfig {
+	return InstallConfig{
+		Mode:                   constants.InstallModeInteractive,
+		Insecure:               *g.Insecure,
+		UserLogFile:            *g.UserLogFile,
+		StateDir:               *g.WizardCmd.Path,
+		SystemLogFile:          *g.SystemLogFile,
+		ServiceUID:             *g.WizardCmd.ServiceUID,
+		ServiceGID:             *g.WizardCmd.ServiceGID,
+		AdvertiseAddr:          *g.WizardCmd.AdvertiseAddr,
+		FromService:            *g.WizardCmd.FromService,
+		ExcludeHostFromCluster: true,
+		Printer:                env,
+		LocalPackages:          env.Packages,
+		LocalApps:              env.Apps,
+		LocalBackend:           env.Backend,
+		LocalClusterClient:     env.SiteOperator,
+	}
+}
+
+// JoinConfig describes command line configuration of the join command
 type JoinConfig struct {
 	// SystemLogFile is gravity-system log file path
 	SystemLogFile string
@@ -450,7 +604,7 @@ type JoinConfig struct {
 	UserLogFile string
 	// AdvertiseAddr is the advertise IP for the joining node
 	AdvertiseAddr string
-	// ServerAddr is the RPC server address
+	// ServerAddr is the installer RPC server address as host:port
 	ServerAddr string
 	// PeerAddrs is the list of peers to try connecting to
 	PeerAddrs string
@@ -470,8 +624,10 @@ type JoinConfig struct {
 	Manual bool
 	// Phase is the plan phase to execute
 	Phase string
-	// OperationID is ID of existing join operation
+	// OperationID is ID of existing expand operation
 	OperationID string
+	// FromService specifies whether the process runs in service mode
+	FromService bool
 }
 
 // NewJoinConfig populates join configuration from the provided CLI application
@@ -488,36 +644,18 @@ func NewJoinConfig(g *Application) JoinConfig {
 		DockerDevice:  *g.JoinCmd.DockerDevice,
 		Mounts:        *g.JoinCmd.Mounts,
 		CloudProvider: *g.JoinCmd.CloudProvider,
-		Manual:        *g.JoinCmd.Manual,
-		Phase:         *g.JoinCmd.Phase,
 		OperationID:   *g.JoinCmd.OperationID,
+		FromService:   *g.JoinCmd.FromService,
 	}
 }
 
 // CheckAndSetDefaults validates the configuration and sets default values
 func (j *JoinConfig) CheckAndSetDefaults() (err error) {
-	j.CloudProvider, err = install.ValidateCloudProvider(j.CloudProvider)
+	j.CloudProvider, err = validateOrDetectCloudProvider(j.CloudProvider)
 	if err != nil {
 		return trace.Wrap(err)
 	}
 	return nil
-}
-
-// GetAdvertiseAddr return the advertise address provided in the config, or
-// picks one among the host's interfaces
-func (j *JoinConfig) GetAdvertiseAddr() (string, error) {
-	// if it was set explicitly with --advertise-addr flag, use it
-	if j.AdvertiseAddr != "" {
-		return j.AdvertiseAddr, nil
-	}
-	// otherwise, try to pick an address among machine's interfaces
-	addr, err := utils.PickAdvertiseIP()
-	if err != nil {
-		return "", trace.Wrap(err, "could not pick advertise address among "+
-			"the host's network interfaces, please set the advertise address "+
-			"via --advertise-addr flag")
-	}
-	return addr, nil
 }
 
 // GetPeers returns a list of peers parsed from the peers CLI argument
@@ -548,9 +686,18 @@ func (j *JoinConfig) GetRuntimeConfig() (*proto.RuntimeConfig, error) {
 	return config, nil
 }
 
-// ToPeerConfig converts the CLI join configuration to a peer configuration
-func (j *JoinConfig) ToPeerConfig(env, joinEnv *localenv.LocalEnvironment) (*expand.PeerConfig, error) {
-	advertiseAddr, err := j.GetAdvertiseAddr()
+// NewPeerConfig converts the CLI join configuration to peer configuration
+func (j *JoinConfig) NewPeerConfig(env, joinEnv *localenv.LocalEnvironment) (config *expand.PeerConfig, err error) {
+	if j.AdvertiseAddr == "" {
+		j.AdvertiseAddr, err = selectAdvertiseAddr()
+		if err != nil {
+			return nil, trace.Wrap(err)
+		}
+	}
+	if err := checkLocalAddr(j.AdvertiseAddr); err != nil {
+		return nil, trace.Wrap(err)
+	}
+	j.CloudProvider, err = validateOrDetectCloudProvider(j.CloudProvider)
 	if err != nil {
 		return nil, trace.Wrap(err)
 	}
@@ -562,25 +709,19 @@ func (j *JoinConfig) ToPeerConfig(env, joinEnv *localenv.LocalEnvironment) (*exp
 	if err != nil {
 		return nil, trace.Wrap(err)
 	}
-	ctx, cancel := context.WithCancel(context.Background())
 	return &expand.PeerConfig{
-		Context:       ctx,
-		Cancel:        cancel,
 		Peers:         peers,
-		AdvertiseAddr: advertiseAddr,
+		AdvertiseAddr: j.AdvertiseAddr,
 		ServerAddr:    j.ServerAddr,
 		CloudProvider: j.CloudProvider,
-		EventsC:       make(chan install.Event, 100),
-		WatchCh:       make(chan rpcserver.WatchEvent, 1),
 		RuntimeConfig: *runtimeConfig,
-		Silent:        env.Silent,
 		DebugMode:     env.Debug,
 		Insecure:      env.Insecure,
 		LocalBackend:  env.Backend,
 		LocalApps:     env.Apps,
 		LocalPackages: env.Packages,
 		JoinBackend:   joinEnv.Backend,
-		Manual:        j.Manual,
+		StateDir:      joinEnv.StateDir,
 		OperationID:   j.OperationID,
 	}, nil
 }
@@ -592,3 +733,259 @@ func convertMounts(mounts map[string]string) (result []*proto.Mount) {
 	}
 	return result
 }
+
+func getFlavor(name string, manifest schema.Manifest, logger logrus.FieldLogger) (flavor *schema.Flavor, err error) {
+	flavors := manifest.Installer.Flavors
+	if len(flavors.Items) == 0 {
+		return nil, trace.NotFound("no install flavors defined in manifest")
+	}
+	if name == "" {
+		if flavors.Default != "" {
+			name = flavors.Default
+			logger.WithField("flavor", name).Info("Flavor is not set, picking default flavor.")
+		} else {
+			name = flavors.Items[0].Name
+			logger.WithField("flavor", name).Info("Flavor is not set, picking first flavor.")
+		}
+	}
+	flavor = manifest.FindFlavor(name)
+	if flavor == nil {
+		return nil, trace.NotFound("install flavor %q not found", name)
+	}
+	return flavor, nil
+}
+
+func validateRole(role string, flavor schema.Flavor, profiles schema.NodeProfiles, logger logrus.FieldLogger) (string, error) {
+	if role == "" {
+		for _, node := range flavor.Nodes {
+			role = node.Profile
+			logger.WithField("role", role).Info("No server profile specified, picking the first.")
+			break
+		}
+	}
+	for _, profile := range profiles {
+		if profile.Name == role {
+			return role, nil
+		}
+	}
+	return "", trace.NotFound("server role %q not found", role)
+}
+
+func validateIP(blocks []net.IPNet, ip net.IP) bool {
+	for _, block := range blocks {
+		if block.Contains(ip) {
+			return true
+		}
+	}
+	return false
+}
+
+func generateInstallToken(operator ops.Operator, installToken string) (*storage.InstallToken, error) {
+	token, err := operator.CreateInstallToken(
+		ops.NewInstallTokenRequest{
+			AccountID: defaults.SystemAccountID,
+			UserType:  storage.AdminUser,
+			UserEmail: defaults.WizardUser,
+			Token:     installToken,
+		},
+	)
+	if err != nil {
+		return nil, trace.Wrap(err)
+	}
+	return token, nil
+}
+
+func generateClusterName() string {
+	rand.Seed(time.Now().UnixNano())
+	return fmt.Sprintf(
+		"%v%d",
+		strings.Replace(namesgenerator.GetRandomName(0), "_", "", -1),
+		rand.Intn(10000))
+}
+
+// AborterForMode returns the Aborter implementation specific to given installation mode
+func AborterForMode(mode string, env *localenv.LocalEnvironment) func(context.Context) error {
+	switch mode {
+	case constants.InstallModeInteractive:
+		return installerInteractiveUninstallSystem(env)
+	default:
+		return installerAbortOperation(env)
+	}
+}
+
+// installerAbortOperation implements the clean up phase when the installer service
+// is explicitly interrupted by user
+func installerAbortOperation(env *localenv.LocalEnvironment) func(context.Context) error {
+	return func(ctx context.Context) error {
+		logger := log.WithField(trace.Component, "installer:abort")
+		logger.Info("Leaving cluster.")
+		if err := tryLeave(env, leaveConfig{
+			confirmed: true,
+			force:     true,
+		}); err != nil {
+			logger.WithError(err).Warn("Failed to leave cluster.")
+		}
+		stateDir, err := state.GravityInstallDir()
+		if err != nil {
+			return trace.Wrap(err)
+		}
+		serviceName, err := installerclient.GetServicePath(stateDir)
+		if err == nil {
+			logger := logger.WithField("service", serviceName)
+			logger.Info("Uninstalling service.")
+			if err := environ.UninstallService(serviceName); err != nil {
+				logger.WithError(err).Warn("Failed to uninstall service.")
+			}
+		}
+		logger.Info("Uninstalling services.")
+		if err := environ.UninstallServices(utils.DiscardPrinter, logger); err != nil {
+			logger.WithError(err).Warn("Failed to uninstall services.")
+		}
+		logger.Info("Uninstalling system.")
+		if err := environ.UninstallSystem(utils.DiscardPrinter, logger); err != nil {
+			logger.WithError(err).Warn("Failed to uninstall system.")
+		}
+		logger.Info("System uninstalled.")
+		return nil
+	}
+}
+
+// installerInteractiveUninstallSystem implements the clean up phase when the interactive installer service
+// is explicitly interrupted by user
+func installerInteractiveUninstallSystem(env *localenv.LocalEnvironment) func(context.Context) error {
+	return func(ctx context.Context) error {
+		logger := log.WithFields(logrus.Fields{
+			trace.Component: "installer:abort",
+			"service":       defaults.GravityRPCInstallerServiceName,
+		})
+		logger.Info("Uninstalling service.")
+		if err := environ.UninstallService(defaults.GravityRPCInstallerServiceName); err != nil {
+			logger.WithError(err).Warn("Failed to uninstall service.")
+		}
+		if err := environ.CleanupOperationState(utils.DiscardPrinter, logger); err != nil {
+			logger.WithError(err).Warn("Failed to clean up operation state.")
+		}
+		logger.Info("System uninstalled.")
+		return nil
+	}
+}
+
+// InstallerCompleteOperation implements the clean up phase when the installer service
+// shuts down after a sucessfully completed operation
+func InstallerCompleteOperation(env *localenv.LocalEnvironment) installerclient.CompletionHandler {
+	return func(ctx context.Context, interrupt *signals.InterruptHandler, status installpb.ProgressResponse_Status) error {
+		logger := log.WithField(trace.Component, "installer:cleanup")
+		if status == installpb.StatusCompletedPending {
+			// Wait for explicit interrupt signal before cleaning up
+			interrupt.Close()
+			env.PrintStep(postInstallInteractiveBanner)
+			signals.WaitFor(os.Interrupt)
+		}
+		return trace.Wrap(installerCleanup(logger))
+	}
+}
+
+// InstallerCleanup uninstalls the services and cleans up operation state
+func InstallerCleanup() error {
+	return installerCleanup(log.WithField(trace.Component, "installer:cleanup"))
+}
+
+func installerCleanup(logger logrus.FieldLogger) error {
+	stateDir, err := state.GravityInstallDir()
+	if err != nil {
+		return trace.Wrap(err)
+	}
+	serviceName, err := installerclient.GetServicePath(stateDir)
+	logger.WithField("service", serviceName).Info("Uninstalling service.")
+	if err == nil {
+		if err := environ.UninstallService(serviceName); err != nil {
+			logger.WithError(err).Warn("Failed to uninstall agent services.")
+		}
+	}
+	if err := environ.CleanupOperationState(utils.DiscardPrinter, logger); err != nil {
+		logger.WithError(err).Warn("Failed to clean up operation state.")
+	}
+	return nil
+}
+
+// checkLocalAddr verifies that addr specifies one of the local interfaces
+func checkLocalAddr(addr string) error {
+	ifaces, err := systeminfo.NetworkInterfaces()
+	if err != nil {
+		return trace.Wrap(err)
+	}
+	if len(ifaces) == 0 {
+		return trace.NotFound("no network interfaces detected")
+	}
+	availableAddrs := make([]string, 0, len(ifaces))
+	for _, iface := range ifaces {
+		if iface.IPv4 == addr {
+			return nil
+		}
+		availableAddrs = append(availableAddrs, iface.IPv4)
+	}
+	return trace.BadParameter(
+		"%v matches none of the available addresses %v",
+		addr, strings.Join(availableAddrs, ", "))
+}
+
+// selectAdvertiseAddr selects an advertise address from one of the host's interfaces
+func selectAdvertiseAddr() (string, error) {
+	// otherwise, try to pick an address among machine's interfaces
+	addr, err := utils.PickAdvertiseIP()
+	if err != nil {
+		return "", trace.Wrap(err, "could not pick advertise address among "+
+			"the host's network interfaces, please set the advertise address "+
+			"via --advertise-addr flag")
+	}
+	return addr, nil
+}
+
+// validateOrDetectCloudProvider validates the value of the specified cloud provider.
+// If no cloud provider has been specified, the provider is autodetected.
+func validateOrDetectCloudProvider(cloudProvider string) (provider string, err error) {
+	switch cloudProvider {
+	case schema.ProviderAWS, schema.ProvisionerAWSTerraform:
+		if !awscloud.IsRunningOnAWS() {
+			return "", trace.BadParameter("cloud provider %q was specified "+
+				"but the process does not appear to be running on an AWS "+
+				"instance", cloudProvider)
+		}
+		return schema.ProviderAWS, nil
+	case schema.ProviderGCE:
+		if !gcemeta.OnGCE() {
+			return "", trace.BadParameter("cloud provider %q was specified "+
+				"but the process does not appear to be running on a GCE "+
+				"instance", cloudProvider)
+		}
+		return schema.ProviderGCE, nil
+	case ops.ProviderGeneric, schema.ProvisionerOnPrem:
+		return schema.ProviderOnPrem, nil
+	case "":
+		// Detect cloud provider
+		if awscloud.IsRunningOnAWS() {
+			log.Info("Detected AWS cloud provider.")
+			return schema.ProviderAWS, nil
+		}
+		if gcemeta.OnGCE() {
+			log.Info("Detected GCE cloud provider.")
+			return schema.ProviderGCE, nil
+		}
+		log.Info("Detected onprem installation.")
+		return schema.ProviderOnPrem, nil
+	default:
+		return "", trace.BadParameter("unsupported cloud provider %q, "+
+			"supported are: %v", cloudProvider, schema.SupportedProviders)
+	}
+}
+
+func upsertSystemAccount(operator ops.Operator) error {
+	_, err := ops.UpsertSystemAccount(operator)
+	return trace.Wrap(err)
+}
+
+var postInstallInteractiveBanner = color.YellowString(`
+Installer process will keep running so the installation can be finished by
+completing necessary post-install actions in the installer UI if the installed
+application requires it.
+After completing the installation, press Ctrl+C to finish the operation.`)

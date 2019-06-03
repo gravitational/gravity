@@ -58,7 +58,7 @@ func updateEnviron(
 	}
 	defer updater.Close()
 	if !manual {
-		err = updater.Run(ctx, false)
+		err = updater.Run(ctx)
 		return trace.Wrap(err)
 	}
 	localEnv.Println(updateEnvironManualOperationBanner)
@@ -72,7 +72,12 @@ func newEnvironUpdater(ctx context.Context, localEnv, updateEnv *localenv.LocalE
 	return newUpdater(ctx, localEnv, updateEnv, init)
 }
 
-func executeEnvironPhase(env, updateEnv *localenv.LocalEnvironment, params PhaseParams, operation ops.SiteOperation) error {
+func executeEnvironPhase(env *localenv.LocalEnvironment, environ LocalEnvironmentFactory, params PhaseParams, operation ops.SiteOperation) error {
+	updateEnv, err := environ.NewUpdateEnv()
+	if err != nil {
+		return trace.Wrap(err)
+	}
+	defer updateEnv.Close()
 	updater, err := getEnvironUpdater(env, updateEnv, operation)
 	if err != nil {
 		return trace.Wrap(err)
@@ -82,7 +87,12 @@ func executeEnvironPhase(env, updateEnv *localenv.LocalEnvironment, params Phase
 	return trace.Wrap(err)
 }
 
-func rollbackEnvironPhase(env, updateEnv *localenv.LocalEnvironment, params PhaseParams, operation ops.SiteOperation) error {
+func rollbackEnvironPhase(env *localenv.LocalEnvironment, environ LocalEnvironmentFactory, params PhaseParams, operation ops.SiteOperation) error {
+	updateEnv, err := environ.NewUpdateEnv()
+	if err != nil {
+		return trace.Wrap(err)
+	}
+	defer updateEnv.Close()
 	updater, err := getEnvironUpdater(env, updateEnv, operation)
 	if err != nil {
 		return trace.Wrap(err)
@@ -92,7 +102,12 @@ func rollbackEnvironPhase(env, updateEnv *localenv.LocalEnvironment, params Phas
 	return trace.Wrap(err)
 }
 
-func completeEnvironPlan(env, updateEnv *localenv.LocalEnvironment, operation ops.SiteOperation) error {
+func completeEnvironPlan(env *localenv.LocalEnvironment, environ LocalEnvironmentFactory, operation ops.SiteOperation) error {
+	updateEnv, err := environ.NewUpdateEnv()
+	if err != nil {
+		return trace.Wrap(err)
+	}
+	defer updateEnv.Close()
 	updater, err := getEnvironUpdater(env, updateEnv, operation)
 	if err != nil {
 		return trace.Wrap(err)

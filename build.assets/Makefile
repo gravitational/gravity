@@ -161,7 +161,14 @@ build:
 # generate gRPC code
 #
 .PHONY: grpc
-grpc: buildbox grpc-agents grpc-validation
+grpc: buildbox grpc-agents grpc-validation grpc-installer
+
+.PHONY: grpc-installer
+grpc-installer:
+	docker run --rm=true -u $$(id -u) \
+		   -v $(TOP):$(SRCDIR) \
+		   $(BBOX) \
+		   dumb-init make -C $(SRCDIR)/lib/install/proto
 
 .PHONY: grpc-agents
 grpc-agents:

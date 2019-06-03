@@ -64,7 +64,7 @@ func (r *checksExecutor) Execute(ctx context.Context) error {
 		OperationID: r.key.OperationID,
 		Servers:     r.servers,
 	}
-	err := r.operator.ValidateServers(req)
+	err := r.operator.ValidateServers(ctx, req)
 	if err != nil {
 		return trace.Wrap(err)
 	}

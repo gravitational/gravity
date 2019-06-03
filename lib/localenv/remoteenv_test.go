@@ -35,7 +35,7 @@ func (s *RemoteEnvSuite) TestAutoLogin(c *check.C) {
 	c.Assert(env.Apps, check.IsNil)
 	c.Assert(env.Operator, check.IsNil)
 	// log into a wizard process
-	_, err = env.LoginWizard("https://192.168.1.1:61009")
+	_, err = env.LoginWizard("https://192.168.1.1:61009", "token")
 	c.Assert(err, check.IsNil)
 	// make sure services have been initialized
 	c.Assert(env.Packages, check.NotNil)
@@ -54,13 +54,13 @@ func (s *RemoteEnvSuite) TestWizardEntryCleanup(c *check.C) {
 	env, err := newRemoteEnvironment(dir)
 	c.Assert(err, check.IsNil)
 	// log into a wizard
-	_, err = env.LoginWizard("https://192.168.1.1:61009")
+	_, err = env.LoginWizard("https://192.168.1.1:61009", "token")
 	c.Assert(err, check.IsNil)
 	entry, err := env.wizardEntry()
 	c.Assert(err, check.IsNil)
 	c.Assert(entry.OpsCenterURL, check.Equals, "https://192.168.1.1:61009")
 	// log into another, should override
-	_, err = env.LoginWizard("https://192.168.1.2:61009")
+	_, err = env.LoginWizard("https://192.168.1.2:61009", "token")
 	c.Assert(err, check.IsNil)
 	entry, err = env.wizardEntry()
 	c.Assert(err, check.IsNil)

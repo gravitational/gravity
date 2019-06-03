@@ -156,7 +156,7 @@ func (r *AgentGroup) Add(p Peer) {
 func (r *AgentGroup) Remove(ctx context.Context, p Peer) error {
 	err := r.peers.iterate(func(peer peer) error {
 		if p.Addr() == peer.Addr() {
-			return trace.Wrap(peer.Shutdown(ctx))
+			return trace.Wrap(peer.Shutdown(ctx, &pb.ShutdownRequest{}))
 		}
 		return nil
 	})
@@ -168,11 +168,26 @@ func (r *AgentGroup) Remove(ctx context.Context, p Peer) error {
 }
 
 // Shutdown requests agents to shut down
-func (r *AgentGroup) Shutdown(ctx context.Context) error {
+func (r *AgentGroup) Shutdown(ctx context.Context, req *pb.ShutdownRequest) error {
 	err := r.peers.iterate(func(p peer) error {
-		return trace.Wrap(p.Shutdown(ctx))
+		return trace.Wrap(p.Shutdown(ctx, req))
 	})
 	return trace.Wrap(err)
+}
+
+// Abort requests agents to abort the operation and uninstall
+func (r *AgentGroup) Abort(ctx context.Context) error {
+	var errors []error
+	r.peers.iterate(func(p peer) error {
+		logger := r.WithField("peer", p)
+		logger.Info("Abort peer.")
+		if err := p.Abort(ctx); err != nil {
+			logger.WithError(err).Warn("Failed to abort peer.")
+			errors = append(errors, err)
+		}
+		return nil
+	})
+	return trace.NewAggregate(errors...)
 }
 
 // Start starts this group's internal goroutines
@@ -264,7 +279,11 @@ func (r errorPeer) CheckBandwidth(context.Context, *validationpb.CheckBandwidthR
 	return nil, trace.Wrap(r.error)
 }
 
-func (r errorPeer) Shutdown(context.Context) error {
+func (r errorPeer) Shutdown(context.Context, *pb.ShutdownRequest) error {
+	return trace.Wrap(r.error)
+}
+
+func (r errorPeer) Abort(context.Context) error {
 	return trace.Wrap(r.error)
 }
 

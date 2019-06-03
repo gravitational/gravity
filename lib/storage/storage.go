@@ -579,6 +579,8 @@ type Site struct {
 	DNSOverrides DNSOverrides `json:"dns_overrides"`
 	// DNSConfig defines cluster local DNS configuration
 	DNSConfig DNSConfig `json:"dns_config"`
+	// InstallToken specifies the original token the cluster was installed with
+	InstallToken string `json:"install_token"`
 }
 
 func (s *Site) Check() error {

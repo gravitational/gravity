@@ -42,6 +42,7 @@ import (
 	"github.com/gravitational/roundtrip"
 	telehttplib "github.com/gravitational/teleport/lib/httplib"
 	teleservices "github.com/gravitational/teleport/lib/services"
+	teleutils "github.com/gravitational/teleport/lib/utils"
 	"github.com/gravitational/trace"
 	"github.com/jonboulle/clockwork"
 	"github.com/julienschmidt/httprouter"
@@ -64,6 +65,8 @@ type WebHandlerConfig struct {
 	Authenticator httplib.Authenticator
 	// Devmode is whether the process is started in dev mode
 	Devmode bool
+	// PublicAdvertiseAddr is the process public advertise address
+	PublicAdvertiseAddr teleutils.NetAddr
 }
 
 type WebHandler struct {
@@ -1185,7 +1188,7 @@ func (h *WebHandler) validateServers(w http.ResponseWriter, r *http.Request, p h
 	if err := d.Decode(&req); err != nil {
 		return trace.BadParameter(err.Error())
 	}
-	err := context.Operator.ValidateServers(req)
+	err := context.Operator.ValidateServers(context.Context, req)
 	if err != nil {
 		return trace.Wrap(err)
 	}
@@ -2395,8 +2398,11 @@ func NeedsAuth(devmode bool, backend storage.Backend, operator ops.Operator, web
 		err := handler(w, r, params)
 		if err != nil {
 			if trace.IsAccessDenied(err) {
-				log.Debugf("Access denied for %v %v: %v.", r.Method, r.URL.Path,
-					trace.DebugReport(err))
+				log.WithFields(log.Fields{
+					log.ErrorKey: err,
+					"method":     r.Method,
+					"path":       r.URL.Path,
+				}).Debugf("Access denied.")
 			}
 			trace.WriteError(w, err)
 		}

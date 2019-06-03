@@ -46,8 +46,8 @@ func RegisterCommands(app *kingpin.Application) *Application {
 	g.EtcdRetryTimeout = g.Flag("etcd-retry-timeout", "Retry timeout for etcd transient errors").Hidden().Duration()
 	g.UID = app.Flag("uid", "effective user ID for this operation. Must be >= 0").Default(strconv.Itoa(defaults.PlaceholderUserID)).Hidden().Int()
 	g.GID = g.Flag("gid", "effective group ID for this operation. Must be >= 0").Default(strconv.Itoa(defaults.PlaceholderGroupID)).Hidden().Int()
-	g.ProfileEndpoint = g.Flag("httpprofile", "enable profiling endpoint on specified host/port i.e. localhost:6060").Default("").Hidden().String()
-	g.ProfileTo = g.Flag("profile-dir", "store periodic state snapshots in the specified directory").Default("").Hidden().String()
+	g.ProfileEndpoint = g.Flag("httpprofile", "enable profiling endpoint on specified host/port i.e. localhost:6060").Hidden().String()
+	g.ProfileTo = g.Flag("profile-dir", "store periodic state snapshots in the specified directory").Hidden().String()
 	g.UserLogFile = g.Flag("log-file", "log file with diagnostic information").Default(defaults.GravityUserLog).String()
 	g.SystemLogFile = g.Flag("system-log-file", "log file with system level logs").Default(defaults.GravitySystemLog).Hidden().String()
 
@@ -80,11 +80,6 @@ func RegisterCommands(app *kingpin.Application) *Application {
 	g.InstallCmd.DockerStorageDriver = DockerStorageDriver(g.InstallCmd.Flag("storage-driver",
 		fmt.Sprintf("Docker storage driver, overrides the one from app manifest. Recognized are: %v", strings.Join(constants.DockerSupportedDrivers, ", "))), constants.DockerSupportedDrivers)
 	g.InstallCmd.DockerArgs = g.InstallCmd.Flag("docker-opt", "Additional arguments to docker. Can be specified multiple times").Strings()
-	g.InstallCmd.Phase = g.InstallCmd.Flag("phase", "Execute an install plan phase").String()
-	g.InstallCmd.PhaseTimeout = g.InstallCmd.Flag("timeout", "Phase execution timeout").Default(defaults.PhaseTimeout).Hidden().Duration()
-	g.InstallCmd.Force = g.InstallCmd.Flag("force", "Force phase execution").Bool()
-	g.InstallCmd.Resume = g.InstallCmd.Flag("resume", "Resume installation from last failed step").Bool()
-	g.InstallCmd.Manual = g.InstallCmd.Flag("manual", "Manually execute install operation phases").Bool()
 	g.InstallCmd.ServiceUID = g.InstallCmd.Flag("service-uid",
 		fmt.Sprintf("Service user ID for planet. %q user will created and used if none specified", defaults.ServiceUser)).
 		Default(defaults.ServiceUserID).
@@ -98,6 +93,8 @@ func RegisterCommands(app *kingpin.Application) *Application {
 	g.InstallCmd.GCENodeTags = g.InstallCmd.Flag("gce-node-tag", "Override node tag on the instance in GCE required for load balanacing. Defaults to cluster name.").Strings()
 	g.InstallCmd.DNSHosts = g.InstallCmd.Flag("dns-host", "Specify an IP address that will be returned for the given domain within the cluster. Accepts <domain>/<ip> format. Can be specified multiple times.").Hidden().Strings()
 	g.InstallCmd.DNSZones = g.InstallCmd.Flag("dns-zone", "Specify an upstream server for the given zone within the cluster. Accepts <zone>/<nameserver> format where <nameserver> can be either <ip> or <ip>:<port>. Can be specified multiple times.").Strings()
+	g.InstallCmd.ExcludeHostFromCluster = g.InstallCmd.Flag("exclude-from-cluster", "Do not use this node in the cluster").Bool()
+	g.InstallCmd.FromService = g.InstallCmd.Flag("from-service", "Run in service mode").Hidden().Bool()
 
 	g.JoinCmd.CmdClause = g.Command("join", "Join existing cluster or on-going install operation")
 	g.JoinCmd.PeerAddr = g.JoinCmd.Arg("peer-addrs", "One or several IP addresses of cluster node to join, as comma-separated values").String()
@@ -109,12 +106,8 @@ func RegisterCommands(app *kingpin.Application) *Application {
 	g.JoinCmd.ServerAddr = g.JoinCmd.Flag("server-addr", "Address of the agent server").Hidden().String()
 	g.JoinCmd.Mounts = configure.KeyValParam(g.JoinCmd.Flag("mount", "One or several mounts in form <mount-name>:<path>, e.g. data:/var/lib/data"))
 	g.JoinCmd.CloudProvider = g.JoinCmd.Flag("cloud-provider", "Cloud provider integration e.g. 'generic', 'aws'. If not set, autodetect environment").String()
-	g.JoinCmd.Manual = g.JoinCmd.Flag("manual", "Manually execute join operation phases").Bool()
-	g.JoinCmd.Phase = g.JoinCmd.Flag("phase", "Execute specific operation phase").String()
-	g.JoinCmd.PhaseTimeout = g.JoinCmd.Flag("timeout", "Phase execution timeout").Default(defaults.PhaseTimeout).Hidden().Duration()
-	g.JoinCmd.Resume = g.JoinCmd.Flag("resume", "Resume joining from last failed step").Bool()
-	g.JoinCmd.Force = g.JoinCmd.Flag("force", "Force phase execution").Bool()
 	g.JoinCmd.OperationID = g.JoinCmd.Flag("operation-id", "ID of the operation that was created via UI").Hidden().String()
+	g.JoinCmd.FromService = g.JoinCmd.Flag("from-service", "Run in service mode").Hidden().Bool()
 
 	g.AutoJoinCmd.CmdClause = g.Command("autojoin", "Use cloud provider data to join a node to existing cluster")
 	g.AutoJoinCmd.ClusterName = g.AutoJoinCmd.Arg("cluster-name", "Cluster name used for discovery").Required().String()
@@ -132,6 +125,12 @@ func RegisterCommands(app *kingpin.Application) *Application {
 		Required().String()
 	g.RemoveCmd.Force = g.RemoveCmd.Flag("force", "Force removal of offline node").Bool()
 	g.RemoveCmd.Confirm = g.RemoveCmd.Flag("confirm", "Do not ask for confirmation").Bool()
+
+	g.ResumeCmd.CmdClause = g.Command("resume", "Resume last aborted operation")
+	g.ResumeCmd.OperationID = g.ResumeCmd.Flag("operation-id", "ID of the active operation. It not specified, the last operation will be used").Hidden().String()
+	g.ResumeCmd.SkipVersionCheck = g.ResumeCmd.Flag("skip-version-check", "Bypass version compatibility check").Hidden().Bool()
+	g.ResumeCmd.Force = g.ResumeCmd.Flag("force", "Force execution of specified phase").Bool()
+	g.ResumeCmd.PhaseTimeout = g.ResumeCmd.Flag("timeout", "Phase timeout").Default(defaults.PhaseTimeout).Hidden().Duration()
 
 	g.PlanCmd.CmdClause = g.Command("plan", "Manage operation plan")
 	g.PlanCmd.OperationID = g.PlanCmd.Flag("operation-id", "ID of the active operation. It not specified, the last operation will be used").Hidden().String()
@@ -347,8 +346,11 @@ func RegisterCommands(app *kingpin.Application) *Application {
 	g.AppUnpackCmd.ServiceUID = g.AppUnpackCmd.Flag("service-uid", "optional service user ID").String()
 
 	g.WizardCmd.CmdClause = g.Command("wizard", "start wizard that will guide you through install process").Hidden()
+	g.WizardCmd.Path = g.WizardCmd.Arg("appdir", "Path to directory with application package. Uses current directory by default").String()
 	g.WizardCmd.ServiceUID = g.WizardCmd.Flag("service-uid", fmt.Sprintf("Service user ID for planet. %q user will created and used if none specified", defaults.ServiceUser)).Default(defaults.ServiceUserID).OverrideDefaultFromEnvar(constants.ServiceUserEnvVar).String()
 	g.WizardCmd.ServiceGID = g.WizardCmd.Flag("service-gid", fmt.Sprintf("Service group ID for planet. %q group will created and used if none specified", defaults.ServiceUserGroup)).Default(defaults.ServiceGroupID).OverrideDefaultFromEnvar(constants.ServiceGroupEnvVar).String()
+	g.WizardCmd.AdvertiseAddr = g.WizardCmd.Flag("advertise-addr", "The IP address to advertise. Will be selected automatically if unspecified").String()
+	g.WizardCmd.FromService = g.WizardCmd.Flag("from-service", "Run in service mode").Hidden().Bool()
 
 	g.AppPackageCmd.CmdClause = g.Command("app-package", "Display the name of application package from installer tarball").Hidden()
 

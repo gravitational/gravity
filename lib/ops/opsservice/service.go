@@ -381,6 +381,8 @@ func (o *Operator) DeleteAPIKey(ctx context.Context, userEmail, token string) er
 	return nil
 }
 
+// CreateInstallToken creates a new install token for the specified request.
+// If the token already exists, it returns an existing token
 func (o *Operator) CreateInstallToken(req ops.NewInstallTokenRequest) (*storage.InstallToken, error) {
 	if err := req.Check(); err != nil {
 		return nil, trace.Wrap(err)
@@ -402,6 +404,15 @@ func (o *Operator) CreateInstallToken(req ops.NewInstallTokenRequest) (*storage.
 			Token:       req.Token,
 		},
 	)
+	if err != nil && !trace.IsAlreadyExists(err) {
+		return nil, trace.Wrap(err)
+	}
+	if token == nil {
+		token, err = o.cfg.Users.GetInstallToken(req.Token)
+		if err != nil {
+			return nil, trace.Wrap(err)
+		}
+	}
 	return token, trace.Wrap(err)
 }
 
@@ -611,6 +622,7 @@ func (o *Operator) CreateSite(r ops.NewSiteRequest) (*ops.Site, error) {
 		ClusterState: storage.ClusterState{
 			Docker: dockerConfig,
 		},
+		InstallToken: r.InstallToken,
 	}
 	if runtimeLoc := app.Manifest.Base(); runtimeLoc != nil {
 		runtimeApp, err := o.cfg.Apps.GetApp(*runtimeLoc)
@@ -651,20 +663,6 @@ func (o *Operator) CreateSite(r ops.NewSiteRequest) (*ops.Site, error) {
 			AccountID: clusterData.AccountID,
 			OpsCenter: opsCenter,
 		}))
-	if err != nil {
-		defer o.DeleteSite(siteKey)
-		return nil, trace.Wrap(err)
-	}
-
-	// Create long lived provisioning token that should be used for
-	// expanding the cluster associated with site agent user
-	_, err = o.cfg.Users.CreateProvisioningToken(storage.ProvisioningToken{
-		Token:      expandToken,
-		Type:       storage.ProvisioningTokenTypeExpand,
-		AccountID:  clusterData.AccountID,
-		SiteDomain: clusterData.Domain,
-		UserEmail:  agent.GetName(),
-	})
 	if err != nil {
 		defer o.DeleteSite(siteKey)
 		return nil, trace.Wrap(err)
@@ -752,17 +750,7 @@ func (o *Operator) GetSiteInstructions(tokenID string, serverProfile string, par
 	if err != nil {
 		return "", trace.Wrap(err)
 	}
-	var instructions string
-	if o.isOpsCenter() && token.Type == storage.ProvisioningTokenTypeInstall {
-		// during Ops Center initiated installation, agents are started using
-		// an "install" command that will reach out to Ops Center to determine
-		// which agent will become installer and which will be joining it
-		instructions, err = s.getInstallInstructions(*token, serverProfile, params)
-	} else {
-		// in other cases, e.g. in install wizard case or in case of expand,
-		// agents are joining the existing operation
-		instructions, err = s.getJoinInstructions(*token, serverProfile, params)
-	}
+	instructions, err := s.getJoinInstructions(*token, serverProfile, params)
 	if err != nil {
 		return "", trace.Wrap(err)
 	}
@@ -1533,12 +1521,6 @@ func (o *Operator) RemoteOpsClient(cluster teleservices.TrustedCluster) (*opscli
 		return nil, trace.Wrap(err)
 	}
 	return client, nil
-}
-
-// isOpsCenter returns true if this process is an Ops Center (i.e. not
-// standalone installer and not a cluster)
-func (o *Operator) isOpsCenter() bool {
-	return !o.cfg.Wizard && !o.cfg.Local
 }
 
 // Lock locks the operator mutex

@@ -55,7 +55,7 @@ func (s *SystemdSuite) TestServiceTemplate(c *C) {
 			StartCommand:     "start",
 			StopCommand:      "stop",
 			StopPostCommand:  "stop post",
-			StartPreCommand:  "start pre",
+			StartPreCommands: []string{"pre-command", "another pre-command"},
 			StartPostCommand: "start post",
 			WantedBy:         "test.target",
 			KillMode:         "cgroup",
@@ -74,9 +74,12 @@ func (s *SystemdSuite) TestServiceTemplate(c *C) {
 			Environment: map[string]string{
 				"PATH": "/usr/bin",
 			},
-			TasksMax:            "infinity",
-			TimeoutStopSec:      "5min",
-			ConditionPathExists: "/path/to/foo",
+			TasksMax:                 "infinity",
+			TimeoutStopSec:           "5min",
+			ConditionPathExists:      "/path/to/foo",
+			RestartPreventExitStatus: "1 2 3",
+			SuccessExitStatus:        "254",
+			WorkingDirectory:         "/foo/bar",
 		},
 	})
 	c.Assert(err, IsNil)
@@ -94,7 +97,8 @@ TimeoutStartSec=4
 Type=oneshot
 User=root
 ExecStart=start
-ExecStartPre=start pre
+ExecStartPre=pre-command
+ExecStartPre=another pre-command
 ExecStartPost=start post
 ExecStop=stop
 ExecStopPost=stop post
@@ -105,6 +109,9 @@ Restart=always
 TimeoutStopSec=5min
 RestartSec=3
 RemainAfterExit=yes
+RestartPreventExitStatus=1 2 3
+SuccessExitStatus=254
+WorkingDirectory=/foo/bar
 Environment=PATH=/usr/bin
 
 TasksMax=infinity

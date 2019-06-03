@@ -144,9 +144,18 @@ func StatFile(path string) (os.FileInfo, error) {
 	return fi, nil
 }
 
-// IsDirectory determines if dir specifies a directory
-func IsDirectory(dir string) (bool, error) {
-	fi, err := os.Stat(dir)
+// IsFile determines if path specifies a regular file
+func IsFile(path string) (bool, error) {
+	fi, err := os.Stat(path)
+	if err != nil {
+		return false, trace.ConvertSystemError(err)
+	}
+	return !fi.IsDir() && fi.Mode().IsRegular(), nil
+}
+
+// IsDirectory determines if path specifies a directory
+func IsDirectory(path string) (bool, error) {
+	fi, err := os.Stat(path)
 	if err != nil {
 		return false, trace.ConvertSystemError(err)
 	}
@@ -158,13 +167,13 @@ func IsDirectory(dir string) (bool, error) {
 func IsDirectoryEmpty(dir string) (bool, error) {
 	f, err := os.Open(dir)
 	if err != nil {
-		return false, trace.Wrap(err)
+		return false, trace.ConvertSystemError(err)
 	}
 	defer f.Close()
 	if _, err = f.Readdirnames(1); err == io.EOF {
 		return true, nil
 	}
-	return false, err
+	return false, trace.ConvertSystemError(err)
 }
 
 // CopyDirContents copies all contents of the source directory (including the
@@ -345,7 +354,7 @@ func WithTempDir(fn func(dir string) error, prefix string) error {
 // RemoveContents removes any children of dir.
 // It removes everything it can but returns the first error
 // it encounters. If the dir does not exist, RemoveContents
-// returns nil (no error).
+// returns nil.
 func RemoveContents(dir string) error {
 	fd, err := os.Open(dir)
 	if err != nil {

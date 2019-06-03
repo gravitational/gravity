@@ -30,11 +30,14 @@ import (
 func WaitForServiceStarted(ctx context.Context, service GravityProcess) error {
 	eventC := make(chan teleservice.Event)
 	service.WaitForEvent(ctx, constants.ServiceStartedEvent, eventC)
-	event := <-eventC
-	serviceStartedEvent, ok := event.Payload.(*ServiceStartedEvent)
-	if !ok {
-		return trace.BadParameter("expected ServiceStartedEvent but got %T", serviceStartedEvent)
+	select {
+	case event := <-eventC:
+		serviceStartedEvent, ok := event.Payload.(*ServiceStartedEvent)
+		if !ok {
+			return trace.BadParameter("expected ServiceStartedEvent but got %T", serviceStartedEvent)
+		}
+		return trace.Wrap(serviceStartedEvent.Error)
+	case <-ctx.Done():
+		return trace.Wrap(ctx.Err())
 	}
-
-	return trace.Wrap(serviceStartedEvent.Error)
 }

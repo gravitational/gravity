@@ -64,9 +64,16 @@ func initUpdateOperationPlan(localEnv, updateEnv *localenv.LocalEnvironment) err
 	return trace.Wrap(err)
 }
 
-func displayOperationPlan(localEnv, updateEnv, joinEnv *localenv.LocalEnvironment, operationID string, format constants.Format) error {
-	op, err := getLastOperation(localEnv, updateEnv, joinEnv, operationID)
+func displayOperationPlan(localEnv *localenv.LocalEnvironment, environ LocalEnvironmentFactory, operationID string, format constants.Format) error {
+	op, err := getLastOperation(localEnv, environ, operationID)
 	if err != nil {
+		if trace.IsNotFound(err) {
+			// FIXME(dmitri): better phrasing
+			return trace.NotFound(`no operation found.
+This usually means that the installation has failed to start.
+To restart the installation, use 'gravity resume' after fixing the issues.
+`)
+		}
 		return trace.Wrap(err)
 	}
 	if op.IsCompleted() {
@@ -76,13 +83,13 @@ func displayOperationPlan(localEnv, updateEnv, joinEnv *localenv.LocalEnvironmen
 	case ops.OperationInstall:
 		return displayInstallOperationPlan(op.Key(), format)
 	case ops.OperationExpand:
-		return displayExpandOperationPlan(joinEnv, op.Key(), format)
+		return displayExpandOperationPlan(environ, op.Key(), format)
 	case ops.OperationUpdate:
-		return displayUpdateOperationPlan(localEnv, updateEnv, op.Key(), format)
+		return displayUpdateOperationPlan(localEnv, environ, op.Key(), format)
 	case ops.OperationUpdateRuntimeEnviron:
-		return displayUpdateOperationPlan(localEnv, updateEnv, op.Key(), format)
+		return displayUpdateOperationPlan(localEnv, environ, op.Key(), format)
 	case ops.OperationUpdateConfig:
-		return displayUpdateOperationPlan(localEnv, updateEnv, op.Key(), format)
+		return displayUpdateOperationPlan(localEnv, environ, op.Key(), format)
 	case ops.OperationGarbageCollect:
 		return displayClusterOperationPlan(localEnv, op.Key(), format)
 	default:
@@ -103,8 +110,13 @@ func displayClusterOperationPlan(env *localenv.LocalEnvironment, opKey ops.SiteO
 	return trace.Wrap(err)
 }
 
-func displayUpdateOperationPlan(localEnv, updateEnv *localenv.LocalEnvironment, opKey ops.SiteOperationKey, format constants.Format) error {
-	plan, err := fsm.GetOperationPlan(updateEnv.Backend, opKey.SiteDomain, opKey.OperationID)
+func displayUpdateOperationPlan(localEnv *localenv.LocalEnvironment, environ LocalEnvironmentFactory, opKey ops.SiteOperationKey, format constants.Format) error {
+	updateEnv, err := environ.NewUpdateEnv()
+	if err != nil {
+		return trace.Wrap(err)
+	}
+	defer updateEnv.Close()
+	plan, err := fsm.GetOperationPlan(updateEnv.Backend, opKey)
 	if err != nil {
 		return trace.Wrap(err)
 	}
@@ -122,39 +134,27 @@ func displayUpdateOperationPlan(localEnv, updateEnv *localenv.LocalEnvironment, 
 }
 
 func displayInstallOperationPlan(opKey ops.SiteOperationKey, format constants.Format) error {
-	wizardEnv, err := localenv.NewRemoteEnvironment()
+	plan, err := getPlanFromWizard(opKey)
+	if err == nil {
+		log.Debug("Showing install operation plan retrieved from wizard process.")
+		return trace.Wrap(outputPlan(*plan, format))
+	}
+	plan, err = getPlanFromWizardBackend(opKey)
 	if err != nil {
-		return trace.Wrap(err)
+		return trace.Wrap(err, "failed to get plan for the install operation.\n"+
+			"Make suer you are running 'gravity plan' from the installer node.")
 	}
-	if wizardEnv.Operator == nil {
-		return trace.NotFound(`could not retrieve install operation plan.
-
-If you have not launched the installation, or it has been started moments ago,
-the plan may not be initialized yet.
-
-If the install operation is in progress, please make sure you're invoking
-"gravity plan" command from the same directory where "gravity install"
-was run.`)
-	}
-	plan, err := wizardEnv.Operator.GetOperationPlan(opKey)
-	if err != nil {
-		if trace.IsNotFound(err) {
-			return trace.NotFound(
-				"Install operation plan hasn't been initialized yet.")
-		}
-		return trace.Wrap(err)
-	}
-	log.Debug("Showing install operation plan retrieved from wizard process.")
-	err = outputPlan(*plan, format)
-	if err != nil {
-		return trace.Wrap(err)
-	}
-	return nil
+	return trace.Wrap(outputPlan(*plan, format))
 }
 
 // displayExpandOperationPlan shows plan of the join operation from the local join backend
-func displayExpandOperationPlan(joinEnv *localenv.LocalEnvironment, opKey ops.SiteOperationKey, format constants.Format) error {
-	plan, err := fsm.GetOperationPlan(joinEnv.Backend, opKey.SiteDomain, opKey.OperationID)
+func displayExpandOperationPlan(environ LocalEnvironmentFactory, opKey ops.SiteOperationKey, format constants.Format) error {
+	joinEnv, err := environ.NewJoinEnv()
+	if err != nil {
+		return trace.Wrap(err)
+	}
+	defer joinEnv.Close()
+	plan, err := fsm.GetOperationPlan(joinEnv.Backend, opKey)
 	if err != nil {
 		return trace.Wrap(err)
 	}
@@ -222,4 +222,46 @@ func tryReconcilePlan(ctx context.Context, localEnv, updateEnv *localenv.LocalEn
 	return reconciledPlan, nil
 }
 
-const recoveryModeWarning = "Failed to retrieve plan from etcd, showing cached plan. If etcd went down as a result of a system upgrade, you can perform a rollback phase. Run 'gravity plan --repair' when etcd connection is restored.\n"
+func getPlanFromWizardBackend(opKey ops.SiteOperationKey) (*storage.OperationPlan, error) {
+	wizardEnv, err := localenv.NewLocalWizardEnvironment()
+	if err != nil {
+		return nil, trace.Wrap(err)
+	}
+	plan, err := fsm.GetOperationPlan(wizardEnv.Backend, opKey)
+	if err != nil {
+		return nil, trace.Wrap(err)
+	}
+	return plan, nil
+}
+
+func getPlanFromWizard(opKey ops.SiteOperationKey) (*storage.OperationPlan, error) {
+	wizardEnv, err := localenv.NewRemoteEnvironment()
+	if err != nil {
+		return nil, trace.Wrap(err)
+	}
+	if wizardEnv.Operator == nil {
+		return nil, trace.NotFound("no operation plan")
+	}
+	plan, err := wizardEnv.Operator.GetOperationPlan(opKey)
+	if err != nil {
+		if trace.IsNotFound(err) {
+			return nil, trace.NotFound(
+				"install operation plan hasn't been initialized yet.")
+		}
+		return nil, trace.Wrap(err)
+	}
+	return plan, nil
+}
+
+const (
+	recoveryModeWarning = "Failed to retrieve plan from etcd, showing cached plan. If etcd went down as a result of a system upgrade, you can perform a rollback phase. Run 'gravity plan --repair' when etcd connection is restored.\n"
+
+	noInstallPlanWarning = `Could not retrieve install operation plan.
+
+If you have not launched the installation, or it has been started moments ago,
+the plan may not be initialized yet.
+
+If the install operation is in progress, please make sure you're invoking
+"gravity plan" command from the same directory where "gravity install"
+was run.`
+)

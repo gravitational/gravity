@@ -76,6 +76,8 @@ type Application struct {
 	PlanExecuteCmd PlanExecuteCmd
 	// PlanRollbackCmd rolls back a phase of an active operation
 	PlanRollbackCmd PlanRollbackCmd
+	// ResumeCmd resumes active operation
+	ResumeCmd ResumeCmd
 	// PlanResumeCmd resumes active operation
 	PlanResumeCmd PlanResumeCmd
 	// PlanCompleteCmd completes the operation plan
@@ -376,16 +378,6 @@ type InstallCmd struct {
 	DockerStorageDriver *dockerStorageDriver
 	// DockerArgs specifies additional Docker arguments
 	DockerArgs *[]string
-	// Phase specifies the install phase ID to execute
-	Phase *string
-	// PhaseTimeout is phase execution timeout
-	PhaseTimeout *time.Duration
-	// Force forces phase execution
-	Force *bool
-	// Resume resumes failed install operation
-	Resume *bool
-	// Manual puts install operation in manual mode
-	Manual *bool
 	// ServiceUID is system user ID
 	ServiceUID *string
 	// ServiceGID is system user group ID
@@ -396,6 +388,14 @@ type InstallCmd struct {
 	DNSHosts *[]string
 	// DNSZones is a list of DNS zone overrides
 	DNSZones *[]string
+	// ExcludeHostFromCluster specifies whether the host should not be part of the cluster
+	ExcludeHostFromCluster *bool
+	// FromService specifies whether this process runs in service mode.
+	//
+	// The installer runs the main installer code in service mode, while
+	// the client will simply connect to the service and stream its output and errors
+	// and control whether it should stop
+	FromService *bool
 }
 
 // JoinCmd joins to the installer or existing cluster
@@ -419,18 +419,14 @@ type JoinCmd struct {
 	Mounts *configure.KeyVal
 	// CloudProvider turns on cloud provider integration
 	CloudProvider *string
-	// Manual turns on manual phases execution mode
-	Manual *bool
-	// Phase specifies the operation phase to execute
-	Phase *string
-	// PhaseTimeout is phase execution timeout
-	PhaseTimeout *time.Duration
-	// Resume resumes failed join operation
-	Resume *bool
-	// Force forces phase execution
-	Force *bool
 	// OperationID is the ID of the operation created via UI
 	OperationID *string
+	// FromService specifies whether this process runs in service mode.
+	//
+	// The agent runs the install/join code in service mode, while
+	// the client will simply connect to the service and stream its output and errors
+	// and control whether it should stop
+	FromService *bool
 }
 
 // AutoJoinCmd uses cloud provider info to join existing cluster
@@ -466,6 +462,19 @@ type RemoveCmd struct {
 	Force *bool
 	// Confirm suppresses confirmation prompt
 	Confirm *bool
+}
+
+// ResumeCmd resumes active operation
+type ResumeCmd struct {
+	*kingpin.CmdClause
+	// OperationID is optional ID of operation to show the plan for
+	OperationID *string
+	// SkipVersionCheck suppresses version mismatch errors
+	SkipVersionCheck *bool
+	// Force forces rollback of the phase given in Phase
+	Force *bool
+	// PhaseTimeout is the rollback timeout
+	PhaseTimeout *time.Duration
 }
 
 // PlanCmd manages an operation plan
@@ -925,10 +934,20 @@ type AppUnpackCmd struct {
 // WizardCmd starts installer in UI mode
 type WizardCmd struct {
 	*kingpin.CmdClause
+	// Path is the state directory path
+	Path *string
 	// ServiceUID is system user ID
 	ServiceUID *string
 	// ServiceGID is system user group ID
 	ServiceGID *string
+	// AdvertiseAddr specifies the advertise address for the wizard
+	AdvertiseAddr *string
+	// FromService specifies whether this process runs in service mode.
+	//
+	// The installer runs the main installer code in service mode, while
+	// the client will simply connect to the service and stream its output and errors
+	// and control whether it should stop
+	FromService *bool
 }
 
 // AppPackageCmd displays the name of app in installer tarball

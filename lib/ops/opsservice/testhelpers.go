@@ -106,10 +106,11 @@ func SetupTestServices(c *check.C) TestServices {
 	log := log.WithField("from", "test")
 	peerStore := NewAgentPeerStore(backend, usersService, proxy, log)
 	agentServer, err := rpcserver.New(rpcserver.Config{
+		FieldLogger: log,
 		Listener:    listener,
 		Credentials: rpcserver.TestCredentials(c),
 		PeerStore:   peerStore,
-	}, log)
+	})
 	c.Assert(err, check.IsNil)
 
 	agentService := NewAgentService(

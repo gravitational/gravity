@@ -18,81 +18,57 @@ package install
 
 import (
 	"context"
-	"fmt"
 	"net"
-	"strconv"
-	"strings"
+	"net/url"
 
 	"github.com/gravitational/gravity/lib/defaults"
 	"github.com/gravitational/gravity/lib/httplib"
-	"github.com/gravitational/gravity/lib/pack/webpack"
 	pb "github.com/gravitational/gravity/lib/rpc/proto"
 	rpcserver "github.com/gravitational/gravity/lib/rpc/server"
 	"github.com/gravitational/gravity/lib/utils"
 
-	"github.com/gravitational/roundtrip"
 	"github.com/gravitational/trace"
 	log "github.com/sirupsen/logrus"
 )
 
 // NewAgent returns a new unstarted agent instance
-func NewAgent(ctx context.Context, config AgentConfig, log log.FieldLogger, watchCh chan rpcserver.WatchEvent) (rpcserver.Server, error) {
+func NewAgent(config AgentConfig) (*rpcserver.PeerServer, error) {
 	if err := config.CheckAndSetDefaults(); err != nil {
 		return nil, trace.Wrap(err)
 	}
-
-	addr := config.PackageAddr
-	// Assume addr to be a complete address if it's prefixed with `http`
-	if !strings.Contains(addr, "http") {
-		host, port := utils.SplitHostPort(addr, strconv.Itoa(defaults.GravitySiteNodePort))
-		addr = fmt.Sprintf("https://%v:%v", host, port)
-	}
-
-	httpClient := roundtrip.HTTPClient(httplib.GetClient(true))
-	packages, err := webpack.NewBearerClient(addr, config.Token, httpClient)
-	if err != nil {
+	if err := FetchCloudMetadata(config.CloudProvider, &config.RuntimeConfig); err != nil {
 		return nil, trace.Wrap(err)
 	}
-
-	creds, err := LoadRPCCredentials(ctx, packages, log)
-	if err != nil {
-		return nil, trace.Wrap(err)
-	}
-
 	listener, err := net.Listen("tcp", defaults.GravityRPCAgentAddr(config.AdvertiseAddr))
 	if err != nil {
 		return nil, trace.Wrap(err)
 	}
-
+	defer func() {
+		if err != nil {
+			listener.Close()
+		}
+	}()
 	peerConfig := rpcserver.PeerConfig{
 		Config: rpcserver.Config{
+			FieldLogger:   config.FieldLogger,
 			Listener:      listener,
-			Credentials:   *creds,
+			Credentials:   config.Credentials,
 			RuntimeConfig: config.RuntimeConfig,
+			AbortHandler:  config.AbortHandler,
 		},
-		WatchCh: watchCh,
-		ReconnectStrategy: rpcserver.ReconnectStrategy{
-			ShouldReconnect: utils.ShouldReconnectPeer,
-		},
+		WatchCh:           config.WatchCh,
+		ReconnectStrategy: *config.ReconnectStrategy,
 	}
-
-	agent, err := rpcserver.NewPeer(peerConfig, config.ServerAddr, log)
+	agent, err := rpcserver.NewPeer(peerConfig, config.ServerAddr)
 	if err != nil {
 		listener.Close()
 		return nil, trace.Wrap(err)
 	}
-
 	return agent, nil
 }
 
 // CheckAndSetDefaults validates this config object and sets defaults
 func (r *AgentConfig) CheckAndSetDefaults() (err error) {
-	if r.PackageAddr == "" {
-		return trace.BadParameter("package service address is required")
-	}
-	if r.Token == "" {
-		return trace.BadParameter("access token is required")
-	}
 	if r.AdvertiseAddr == "" {
 		r.AdvertiseAddr, err = utils.PickAdvertiseIP()
 		if err != nil {
@@ -100,17 +76,37 @@ func (r *AgentConfig) CheckAndSetDefaults() (err error) {
 				"failed to choose network interface on host and none was provided")
 		}
 	}
+	if r.ReconnectStrategy == nil {
+		r.ReconnectStrategy = &rpcserver.ReconnectStrategy{
+			ShouldReconnect: utils.ShouldReconnectPeer,
+		}
+	}
 	return nil
 }
 
 // AgentConfig describes configuration for a stateless agent
 type AgentConfig struct {
-	// PackageAddr references the endpoint to bootstrap credentials from
-	PackageAddr string
+	log.FieldLogger
+	rpcserver.Credentials
+	*rpcserver.ReconnectStrategy
+	CloudProvider string
 	// AdvertiseAddr is the IP address to advertise
 	AdvertiseAddr string
 	// ServerAddr specifies the address of the agent server
 	ServerAddr string
 	// RuntimeConfig specifies runtime configuration
 	pb.RuntimeConfig
+	// WatchCh specifies the channel to receive peer reconnect updates
+	WatchCh chan rpcserver.WatchEvent
+	// AbortHandler specifies an optional handler for abort requests
+	AbortHandler func(context.Context) error
+}
+
+// getTokenFromURL extracts authorization token from the specified URL
+func getTokenFromURL(agentURL string) (token string, err error) {
+	url, err := url.ParseRequestURI(agentURL)
+	if err != nil {
+		return "", trace.Wrap(err)
+	}
+	return url.Query().Get(httplib.AccessTokenQueryParam), nil
 }

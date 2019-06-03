@@ -121,7 +121,7 @@ func (m *Handler) validateServers(w http.ResponseWriter, r *http.Request, p http
 	log.Infof("validateServers: %v", req)
 
 	clusterName, operationID := p.ByName("domain"), p.ByName("operation_id")
-	err = ctx.Operator.ValidateServers(ops.ValidateServersRequest{
+	err = ctx.Operator.ValidateServers(ctx.Context, ops.ValidateServersRequest{
 		AccountID:   ctx.User.GetAccountID(),
 		SiteDomain:  clusterName,
 		OperationID: operationID,
