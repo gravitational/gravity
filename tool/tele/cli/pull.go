@@ -35,6 +35,7 @@ func pull(env localenv.LocalEnvironment, app, outFile string, force, quiet bool)
 	if err != nil {
 		return trace.Wrap(err)
 	}
+	name := locator.Name
 
 	// tele ls displays base images as "gravity" while the actual image
 	// name is "telekube" (for legacy reasons).
@@ -55,7 +56,7 @@ func pull(env localenv.LocalEnvironment, app, outFile string, force, quiet bool)
 	}
 
 	if outFile == "" {
-		outFile = fmt.Sprintf("%v-%v.tar", locator.Name, locator.Version)
+		outFile = fmt.Sprintf("%v-%v.tar", name, locator.Version)
 	}
 
 	fi, err := utils.StatFile(outFile)
@@ -76,7 +77,9 @@ func pull(env localenv.LocalEnvironment, app, outFile string, force, quiet bool)
 	progress := utils.NewProgress(context.TODO(), "Download", 1, quiet)
 	defer progress.Stop()
 
-	err = hub.Download(f, *locator, progress)
+	progress.NextStep(fmt.Sprintf("Downloading %v:%v", name, locator.Version))
+
+	err = hub.Download(f, *locator)
 	if err != nil {
 		return trace.Wrap(err)
 	}

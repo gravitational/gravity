@@ -249,8 +249,11 @@ func List(lister Lister, all bool, format constants.Format) error {
 }
 
 func convertName(name string) string {
-	if name == constants.LegacyBaseImageName {
-		name = constants.BaseImageName
+	switch name {
+	case constants.LegacyBaseImageName:
+		return constants.BaseImageName
+	case constants.LegacyHubImageName:
+		return constants.HubImageName
 	}
 	return name
 }
