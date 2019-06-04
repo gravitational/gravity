@@ -763,6 +763,11 @@ var (
 	LegacyBaseImageName = "telekube"
 	// BaseImageName is the current base cluster image name
 	BaseImageName = "gravity"
+
+	// LegacyHubImageName is the legacy name of the Hub cluster image.
+	LegacyHubImageName = "opscenter"
+	// HubImageName is the name of the Hub cluster image.
+	HubImageName = "hub"
 )
 
 // Format is the type for supported output formats
