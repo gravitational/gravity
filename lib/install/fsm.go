@@ -245,6 +245,7 @@ func (f *fsmEngine) RunCommand(ctx context.Context, runner fsm.RemoteRunner, ser
 	args := []string{"plan", "execute",
 		"--phase", p.PhaseID,
 		"--operation-id", p.OperationID,
+		"--sync",
 	}
 	if p.Force {
 		args = append(args, "--force")

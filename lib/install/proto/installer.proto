@@ -22,8 +22,17 @@ import "gogo.proto";
 
 // Agent defines a service to install a cluster
 service Agent {
-    // Execute runs installer operation to completion
+    // Execute runs the operation specified with request.
+    // If the client drops disconnects in the middle of the operation,
+    // it can reconnect later and continue receiving progress updates
+    // until the operation has completed
     rpc Execute(ExecuteRequest) returns (stream ProgressResponse);
+
+    // Execute runs the operation specified with request
+    // blocking until it has completed.
+    // If the client disconnects in the middle of the operation, the operation
+    // is cancelled
+    rpc ExecuteAndWait(ExecuteRequest) returns (stream ProgressResponse);
 
     // Complete marks the operation as completed
     rpc Complete(CompleteRequest) returns (google.protobuf.Empty);

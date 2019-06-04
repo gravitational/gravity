@@ -502,6 +502,11 @@ type PlanExecuteCmd struct {
 	Force *bool
 	// PhaseTimeout is the execution timeout
 	PhaseTimeout *time.Duration
+	// Sync controls whether the service call is blocking
+	// and will fail if the client (this command) disconnects.
+	// By default, service commands do not block and the client
+	// can reattach to the active operation.
+	Sync *bool
 }
 
 // PlanRollbackCmd rolls back a phase of an active operation

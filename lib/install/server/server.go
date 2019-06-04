@@ -59,7 +59,6 @@ func New() *Server {
 // To properly stop all server internal processes, use Stop
 func (r *Server) Run(executor Executor, listener net.Listener) error {
 	r.executor = executor
-	r.startExecuteLoop()
 	r.startMessageBufferLoop()
 	errC := make(chan error, 1)
 	go func() {
@@ -100,29 +99,44 @@ func (r *Server) Abort(ctx context.Context, req *installpb.AbortRequest) (*insta
 	return &installpb.AbortResponse{}, nil
 }
 
-// Execute executes the installation using the specified engine
+// Execute executes the operation specified with req.
+// After the operation has been started, it dispatches the progress messages
+// to the client until the progress channel is closed or client exits.
+//
 // Implements installpb.AgentServer
 func (r *Server) Execute(req *installpb.ExecuteRequest, stream installpb.Agent_ExecuteServer) error {
-	r.submit(req)
-	for {
-		select {
-		case batch, ok := <-r.recvC:
-			if !ok {
-				// Stop has been signaled
-				return nil
-			}
-			for _, resp := range batch {
-				err := stream.Send(resp)
-				if err != nil {
-					r.WithError(err).Warn("Failed to stream event.")
-					return trace.Wrap(err)
-				}
-			}
-		case <-stream.Context().Done():
-			r.Info("Event loop done.")
-			return nil
+	if err := r.submit(req); err != nil {
+		return trace.Wrap(err)
+	}
+	for msg := range r.recvC {
+		// FIXME: handle completion differently if required.
+		err := stream.Send(msg)
+		if err != nil {
+			r.WithError(err).Warn("Failed to stream event.")
+			return trace.Wrap(err)
 		}
 	}
+}
+
+// ExecuteAndWait executes the operation specified with req.
+// After the operation has been started, it dispatches the progress messages
+// to the client until the progress channel is closed or client exits.
+// If the client exits before the operation is complete, the operation is cancelled.
+//
+// Implements installpb.AgentServer
+func (r *Server) ExecuteAndWait(req *installpb.ExecuteRequest, stream installpb.Agent_ExecuteServer) error {
+	dispatcher, recvC := newEventDispatcher()
+	ctx, cancel := context.WithCancel(stream.Context())
+	defer cancel()
+	r.submitWithDispatcher(ctx, req, dispatcher)
+	for msg := range recvC {
+		err := stream.Send(msg)
+		if err != nil {
+			r.WithError(err).Warn("Failed to stream event.")
+			return trace.Wrap(err)
+		}
+	}
+	return nil
 }
 
 // Complete manually completes the operation given with req.
@@ -137,6 +151,7 @@ func (r *Server) Complete(ctx context.Context, req *installpb.CompleteRequest) (
 
 // Send streams the specified progress event to the client.
 // The method is not blocking - event will be dropped if it cannot be published
+// FIXME: this is the default implementation of the EventDispatcher
 func (r *Server) Send(event Event) {
 	r.send(eventToProgressResponse(event))
 }
@@ -144,16 +159,26 @@ func (r *Server) Send(event Event) {
 // Executor wraps a potentially failing operation
 type Executor interface {
 	// Execute executes an operation.
-	Execute(*installpb.ExecuteRequest_Phase) error
+	Execute(context.Context, *installpb.ExecuteRequest_Phase, EventDispatcher) error
 	// Complete manually completes the operation given with operationKey.
 	Complete(operationKey ops.SiteOperationKey) error
 }
 
+// EventDispatcher dispatches progress events to clients
+type EventDispatcher interface {
+	Send(Event)
+}
+
 // Server implements the installer gRPC server.
 // The server itself does not do any work but merely relays requests to an executor.
-// Once started, the server will signal the completion on its Done() chan with either a nil
-// (no error, completed successfully) or a specific err value.
-// If err value is a special kind of installpb.ErrAborted, the operation has been aborted.
+//
+// Server has an internal progress message bus that dispatches installer events to
+// the connected client.
+// If the client drops the connection, the messages are buffered internally and will be
+// resent once the client reconnects.
+//
+// Executor is responsible for detecting end-of-operation condition and stop and shutdown
+// the server appropriately.
 type Server struct {
 	log.FieldLogger
 	// rpc is the internal gRPC server instance
@@ -161,24 +186,26 @@ type Server struct {
 	executor Executor
 
 	// ctx defines the local server context used to cancel internal operation
-	ctx    context.Context
+	ctx context.Context
+	// cancel cancels internal server processes
 	cancel context.CancelFunc
+
 	// respC accepts progress messages to dispatch to the client
 	respC chan *installpb.ProgressResponse
-	// recvC specifies the channel that is used to propagate progress messages
-	// to the client. It is not an error if there's no receiver for the
-	// channel (client disconnected) - in which case server will continue buffering
-	// the messages until the receiver is reconnected.
+	// recvC specifies the default channel to propagate progress messages
+	// to the client. If the client disconnects (i.e. receiver is not available),
+	// the server will continue buffering messages until the client is reconnected.
 	// Upon receiving the cancellation request, the buffer loop will try to submit
 	// any pending messages and close the channel.
 	recvC chan []*installpb.ProgressResponse
+	// FIXME: rename to abortC as it's only signaled when the service is aborted
 	// errC signals the error from either the execute or
 	// operation being aborted
 	errC chan error
-
 	// execC channel accepts new execute requests
 	execC chan *installpb.ExecuteRequest
-	wg    sync.WaitGroup
+
+	wg sync.WaitGroup
 }
 
 // IsCompleted determines if this event indicates a completed operation event
@@ -226,41 +253,28 @@ const (
 	StatusCompletedPending Status = iota
 )
 
-func (r *Server) startExecuteLoop() {
-	r.wg.Add(1)
-	go func() {
-		// No select on r.ctx since we're guaranteed to send on errC once
-		r.errC <- r.execute()
-		r.wg.Done()
-	}()
-}
-
+// startMessageBufferLoop starts the message buffering loop for the default message
+// handler to account for client dropping and reconnecting later.
 func (r *Server) startMessageBufferLoop() {
 	r.wg.Add(1)
 	go func() {
 		defer r.wg.Done()
+		var recvC chan *installpb.ProgressResponse
 		// Pending accumulates the progress messages we could not send
 		// to the receiver.
 		// It is unbounded but the installer is not expected to have a large
 		// number of progress messages so it is an acceptable compromise
 		var pending []*installpb.ProgressResponse
 		for {
-			if len(pending) == 0 {
-				// Receive at least one message
-				select {
-				case event := <-r.respC:
-					pending = append(pending, event)
-				case <-r.ctx.Done():
-					close(r.recvC)
-					r.Info("Buffer loop done.")
-					return
-				}
-			}
 			select {
 			case event := <-r.respC:
 				pending = append(pending, event)
-			case r.recvC <- pending:
-				pending = nil
+				recvC = r.recvC
+			case recvC <- pending[0]:
+				pending = pending[1:]
+				if len(pending) == 0 {
+					recvC = nil
+				}
 			case <-r.ctx.Done():
 				if len(pending) != 0 {
 					select {
@@ -280,7 +294,7 @@ func (r *Server) execute() error {
 	for {
 		select {
 		case req := <-r.execC:
-			err := r.executor.Execute(req.Phase)
+			err := r.executor.Execute(r.ctx, req.Phase, r)
 			if err == nil {
 				return nil
 			}
@@ -293,12 +307,23 @@ func (r *Server) execute() error {
 	}
 }
 
-func (r *Server) submit(req *installpb.ExecuteRequest) {
+func (r *Server) submit(ctx context.Context, req *installpb.ExecuteRequest) error {
 	select {
 	case r.execC <- req:
 		// Successfully submitted execute request
-	case <-r.ctx.Done():
+		return nil
+	default:
+		return trace.AlreadyExists("operation is already active")
 	}
+}
+
+func (r *Server) submitWithDispatcher(ctx context.Context, req *installpb.ExecuteRequest, dispatcher EventDispatcher) {
+	// TODO: create an event dispatcher with a dedicated progress piping loop
+	go func() {
+		if err := r.executor.Execute(ctx, req.Phase, dispatcher); err != nil {
+			r.sendError(err)
+		}
+	}()
 }
 
 func (r *Server) stop(ctx context.Context) {

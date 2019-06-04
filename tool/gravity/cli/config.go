@@ -720,19 +720,20 @@ func (j *JoinConfig) NewPeerConfig(env, joinEnv *localenv.LocalEnvironment) (con
 		return nil, trace.Wrap(err)
 	}
 	return &expand.PeerConfig{
-		Peers:         peers,
-		AdvertiseAddr: j.AdvertiseAddr,
-		ServerAddr:    j.ServerAddr,
-		CloudProvider: j.CloudProvider,
-		RuntimeConfig: *runtimeConfig,
-		DebugMode:     env.Debug,
-		Insecure:      env.Insecure,
-		LocalBackend:  env.Backend,
-		LocalApps:     env.Apps,
-		LocalPackages: env.Packages,
-		JoinBackend:   joinEnv.Backend,
-		StateDir:      joinEnv.StateDir,
-		OperationID:   j.OperationID,
+		Peers:              peers,
+		AdvertiseAddr:      j.AdvertiseAddr,
+		ServerAddr:         j.ServerAddr,
+		CloudProvider:      j.CloudProvider,
+		RuntimeConfig:      *runtimeConfig,
+		DebugMode:          env.Debug,
+		Insecure:           env.Insecure,
+		LocalBackend:       env.Backend,
+		LocalApps:          env.Apps,
+		LocalPackages:      env.Packages,
+		LocalClusterClient: env.SiteOperator,
+		JoinBackend:        joinEnv.Backend,
+		StateDir:           joinEnv.StateDir,
+		OperationID:        j.OperationID,
 	}, nil
 }
 

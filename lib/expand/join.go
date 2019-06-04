@@ -69,21 +69,25 @@ func NewPeer(config PeerConfig) (*Peer, error) {
 		cancel:     cancel,
 		server:     server,
 		agentErrC:  make(chan error, 2),
+		connectC:   make(chan connectResult, 1),
 	}
+	peer.startConnectLoop()
 	return peer, nil
 }
 
 // Peer is a client that manages joining the cluster
 type Peer struct {
 	PeerConfig
-	// ctx defines the local peer context used to cancel internal operation
-	ctx    context.Context
+	// ctx controls the lifetime of interal peer processes
+	ctx context.Context
+	// cancel cancels internal operation
 	cancel context.CancelFunc
-	// agent is this peer's RPC agent
-	agent *rpcserver.PeerServer
 	// agentErrC is signaled when an agent either fails to serve
 	// or its reconnect loop is prematurely terminated with an error
 	agentErrC chan error
+	// connectC receives the results of connecting to either wizard
+	// or cluster controller
+	connectC chan connectResult
 	// server is the gRPC installer server
 	server *server.Server
 }
@@ -120,15 +124,16 @@ func (p *Peer) Stop(ctx context.Context) error {
 
 // Execute executes the peer operation (join or just serving an agent).
 // Implements server.Executor
-func (p *Peer) Execute(phase *installpb.ExecuteRequest_Phase) (err error) {
+func (p *Peer) Execute(ctx context.Context, phase *installpb.ExecuteRequest_Phase) (err error) {
 	p.WithField("phase", phase).Info("Execute.")
-	if phase != nil {
-		return trace.Wrap(p.executePhase(*phase))
-	}
-	if err := p.run(); err != nil {
+	opCtx, err := p.operationContext()
+	if err != nil {
 		return trace.Wrap(err)
 	}
-	return nil
+	if phase != nil {
+		return trace.Wrap(p.executePhase(*opCtx, *phase))
+	}
+	return trace.Wrap(p.run(*opCtx))
 }
 
 // Complete manually completes the operation given with opKey.
@@ -173,6 +178,8 @@ type PeerConfig struct {
 	LocalApps app.Applications
 	// LocalPackages is local package service of the joining node
 	LocalPackages pack.PackageService
+	// LocalClusterClient is a factory for creating a client to the installed cluster
+	LocalClusterClient func() (*opsclient.Client, error)
 	// JoinBackend is the local backend where join-specific operation data is stored
 	JoinBackend storage.Backend
 	// OperationID is the ID of existing join operation created via UI
@@ -201,6 +208,9 @@ func (c *PeerConfig) CheckAndSetDefaults() (err error) {
 	if c.LocalPackages == nil {
 		return trace.BadParameter("missing LocalPackages")
 	}
+	if c.LocalClusterClient == nil {
+		return trace.BadParameter("missing LocalClusterClient")
+	}
 	if c.JoinBackend == nil {
 		return trace.BadParameter("missing JoinBackend")
 	}
@@ -219,16 +229,31 @@ func (c *PeerConfig) CheckAndSetDefaults() (err error) {
 	return nil
 }
 
-func (p *Peer) executePhase(phase installpb.ExecuteRequest_Phase) error {
-	ctx, err := p.tryConnect(phase.Key.ID)
+func (p *Peer) startConnectLoop() {
+	go func() {
+		ctx, err := p.connect()
+		if err == nil {
+			err = p.startAgent(*ctx)
+		}
+		select {
+		case p.connectC <- connectResult{
+			operationContext: ctx,
+			err:              err,
+		}:
+		case <-p.ctx.Done():
+		}
+	}()
+}
+
+func (p *Peer) executePhase(ctx operationContext, phase installpb.ExecuteRequest_Phase) error {
+	if phase.IsResume() && !ctx.supportsResume() {
+		return trace.Wrap(p.run(ctx))
+	}
+	machine, err := p.getFSM(ctx)
 	if err != nil {
 		return trace.Wrap(err)
 	}
-	machine, err := p.getFSM(*ctx)
-	if err != nil {
-		return trace.Wrap(err)
-	}
-	if phase.ID == fsm.RootPhase {
+	if phase.IsResume() {
 		return trace.Wrap(p.executeOperation(machine))
 	}
 	params := fsm.Params{
@@ -531,6 +556,19 @@ func (p *Peer) tryConnect(operationID string) (op *operationContext, err error) 
 	return op, trace.Wrap(err)
 }
 
+// startAgent starts a new RPC agent using the specified operation context.
+// The agent will signal p.agentErrC once it has terminated
+func (p *Peer) startAgent(ctx operationContext) error {
+	agent, err := p.newAgent(ctx)
+	if err != nil {
+		return trace.Wrap(err)
+	}
+	go func() {
+		p.agentErrC <- agent.Serve()
+	}()
+	return nil
+}
+
 // newAgent returns an instance of the RPC agent to handle remote calls
 func (p *Peer) newAgent(opCtx operationContext) (*rpcserver.PeerServer, error) {
 	peerAddr, token, err := getPeerAddrAndToken(opCtx, p.Role)
@@ -557,17 +595,12 @@ func (p *Peer) newAgent(opCtx operationContext) (*rpcserver.PeerServer, error) {
 	return agent, nil
 }
 
-func (p *Peer) run() error {
+func (p *Peer) run(ctx operationContext) error {
 	if err := p.bootstrap(); err != nil {
 		return trace.Wrap(err)
 	}
 
-	ctx, err := p.connect()
-	if err != nil {
-		return trace.Wrap(err)
-	}
-
-	err = p.ensureServiceUserAndBinary(*ctx)
+	err := p.ensureServiceUserAndBinary(ctx)
 	if err != nil {
 		return trace.Wrap(err)
 	}
@@ -599,25 +632,15 @@ func (p *Peer) run() error {
 		}
 	}()
 
-	agent, err := p.newAgent(*ctx)
-	if err != nil {
-		return trace.Wrap(err)
-	}
-
-	go install.ProgressLooper{
-		FieldLogger:  p.FieldLogger,
-		Operator:     ctx.Operator,
-		OperationKey: ctx.Operation.Key(),
-		Dispatcher:   &eventDispatcher{server: p.server},
-	}.Run(p.ctx)
-
 	if ctx.Operation.Type != ops.OperationExpand {
-		return trace.Wrap(agent.Serve())
+		return trace.Wrap(install.ProgressLooper{
+			FieldLogger:  p.FieldLogger,
+			Operator:     ctx.Operator,
+			OperationKey: ctx.Operation.Key(),
+			Dispatcher:   &eventDispatcher{server: p.server},
+		}.Run(p.ctx))
 	}
-	go func() {
-		p.agentErrC <- agent.Serve()
-	}()
-	return trace.Wrap(p.startExpandOperation(*ctx))
+	return trace.Wrap(p.startExpandOperation(ctx))
 }
 
 // waitForOperation blocks until the join operation is ready
@@ -744,7 +767,41 @@ func (p *Peer) emitAuditEvent(ctx operationContext) error {
 	return nil
 }
 
+func (p *Peer) operationContext() (*operationContext, error) {
+	select {
+	case result := <-p.connectC:
+		if result.err != nil {
+			return nil, trace.Wrap(result.err)
+		}
+		return result.operationContext, nil
+	case <-p.ctx.Done():
+		return nil, trace.Wrap(p.ctx.Err())
+	}
+}
+
 func (p *Peer) getFSM(ctx operationContext) (*fsm.FSM, error) {
+	if ctx.Operation.Type == ops.OperationInstall {
+		return p.newInstallFSM(ctx)
+	}
+	return p.newJoinFSM(ctx)
+
+}
+
+func (p *Peer) newInstallFSM(ctx operationContext) (*fsm.FSM, error) {
+	return install.NewFSM(install.FSMConfig{
+		Operator:           ctx.Operator,
+		OperationKey:       ctx.Operation.Key(),
+		Packages:           ctx.Packages,
+		Apps:               ctx.Apps,
+		LocalClusterClient: p.LocalClusterClient,
+		LocalBackend:       p.LocalBackend,
+		LocalApps:          p.LocalApps,
+		LocalPackages:      p.LocalPackages,
+		Insecure:           p.Insecure,
+	})
+}
+
+func (p *Peer) newJoinFSM(ctx operationContext) (*fsm.FSM, error) {
 	return NewFSM(FSMConfig{
 		Operator:      ctx.Operator,
 		OperationKey:  ctx.Operation.Key(),
@@ -855,6 +912,10 @@ type eventDispatcher struct {
 	server *server.Server
 }
 
+func (r operationContext) supportsResume() bool {
+	return r.Operation.Type == ops.OperationExpand
+}
+
 func watchReconnects(ctx context.Context, errC chan<- error, watchCh <-chan rpcserver.WatchEvent, logger log.FieldLogger) {
 	for {
 		select {
@@ -903,4 +964,9 @@ func formatClusterURL(addr string) string {
 
 func isTerminalError(err error) bool {
 	return utils.IsAbortError(err) || trace.IsAccessDenied(err)
+}
+
+type connectResult struct {
+	*operationContext
+	err error
 }

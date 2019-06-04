@@ -62,14 +62,19 @@ func New(ctx context.Context, config RuntimeConfig) (installer *Installer, err e
 	}
 	server := server.New()
 	localCtx, cancel := context.WithCancel(context.Background())
-	return &Installer{
+	installer = &Installer{
 		FieldLogger: config.FieldLogger,
 		config:      config,
 		server:      server,
 		ctx:         localCtx,
 		cancel:      cancel,
 		agent:       agent,
-	}, nil
+		executeSema: make(chan struct{}, 1),
+	}
+	if err := installer.maybeStartAgent(); err != nil {
+		return nil, trace.Wrap(err)
+	}
+	return installer, nil
 }
 
 // Run runs the server operation
@@ -90,6 +95,9 @@ func (i *Installer) Run(listener net.Listener) (err error) {
 		return trace.Wrap(err)
 	case err := <-i.agentErrC:
 		return trace.Wrap(err)
+	case <-i.doneC:
+		// Main operation execution done
+		return nil
 	}
 }
 
@@ -199,24 +207,6 @@ func (i *Installer) CompleteOperationAndWait(operation ops.SiteOperation) error 
 	return trace.NewAggregate(errors...)
 }
 
-func (i *Installer) completeOperation(operation ops.SiteOperation, status server.Status) error {
-	var errors []error
-	if err := i.uploadInstallLog(operation.Key()); err != nil {
-		errors = append(errors, err)
-	}
-	if err := i.emitAuditEvents(i.ctx, operation); err != nil {
-		errors = append(errors, err)
-	}
-	// Explicitly stop agents iff the operation has been completed successfully
-	i.addStopper(signals.StopperFunc(func(ctx context.Context) error {
-		i.WithField("operation", operation.ID).Info("Stopping agent service.")
-		return trace.Wrap(i.config.Process.AgentService().StopAgents(ctx, operation.Key()))
-	}))
-	i.sendElapsedTime(operation.Created)
-	i.sendCompletionEvent(status)
-	return trace.NewAggregate(errors...)
-}
-
 // CompleteFinalInstallStep marks the final install step as completed unless
 // the application has a custom install step - in which case it does nothing
 // because it will be completed by user later.
@@ -246,7 +236,9 @@ func (i *Installer) PrintStep(format string, args ...interface{}) {
 
 // Execute executes the install operation using the configured engine.
 // Implements server.Executor
-func (i *Installer) Execute(phase *installpb.ExecuteRequest_Phase) error {
+func (i *Installer) Execute(ctx context.Context, phase *installpb.ExecuteRequest_Phase) error {
+	i.waitForExecuteToken(ctx)
+	defer i.releaseExecuteToken()
 	i.WithField("phase", phase).Info("Execute.")
 	if phase != nil {
 		return i.executePhase(*phase)
@@ -258,15 +250,44 @@ func (i *Installer) Execute(phase *installpb.ExecuteRequest_Phase) error {
 	return nil
 }
 
-// Complete manually completes the operation given with opKey.
+// Complete manually completes the operation given with key.
 // Implements server.Executor
-func (i *Installer) Complete(opKey ops.SiteOperationKey) error {
-	i.WithField("key", opKey).Info("Complete.")
-	machine, err := i.config.FSMFactory.NewFSM(i.config.Operator, opKey)
+func (i *Installer) Complete(key ops.SiteOperationKey) error {
+	i.WithField("key", key).Info("Complete.")
+	machine, err := i.config.FSMFactory.NewFSM(i.config.Operator, key)
 	if err != nil {
 		return trace.Wrap(err)
 	}
 	return trace.Wrap(machine.Complete(trace.Errorf("completed manually")))
+}
+
+func (i *Installer) maybeStartAgent() error {
+	op, err := ops.GetWizardOperation(i.config.Operator)
+	if err != nil {
+		// Ignore the failure to query the operation as there might be multiple
+		// reasons the operation is not available.
+		i.WithError(err).Info("Failed to query install operation.")
+		return nil
+	}
+	return trace.Wrap(i.startAgent(*op))
+}
+
+func (i *Installer) completeOperation(operation ops.SiteOperation, status server.Status) error {
+	var errors []error
+	if err := i.uploadInstallLog(operation.Key()); err != nil {
+		errors = append(errors, err)
+	}
+	if err := i.emitAuditEvents(i.ctx, operation); err != nil {
+		errors = append(errors, err)
+	}
+	// Explicitly stop agents iff the operation has been completed successfully
+	i.addStopper(signals.StopperFunc(func(ctx context.Context) error {
+		i.WithField("operation", operation.ID).Info("Stopping agent service.")
+		return trace.Wrap(i.config.Process.AgentService().StopAgents(ctx, operation.Key()))
+	}))
+	i.sendElapsedTime(operation.Created)
+	i.sendCompletionEvent(status)
+	return trace.NewAggregate(errors...)
 }
 
 // wait blocks until either the context has been cancelled or the wizard process
@@ -282,17 +303,17 @@ func (i *Installer) executePhase(phase installpb.ExecuteRequest_Phase) error {
 	if err != nil {
 		return trace.Wrap(err)
 	}
-	if phase.ID == fsm.RootPhase {
+	if phase.IsResume() {
 		return trace.Wrap(i.executeOperation(machine))
 	}
-	p := fsm.Params{
+	params := fsm.Params{
 		PhaseID: phase.ID,
 		Force:   phase.Force,
 	}
 	if phase.Rollback {
-		return trace.Wrap(machine.RollbackPhase(i.ctx, p))
+		return trace.Wrap(machine.RollbackPhase(i.ctx, params))
 	}
-	return trace.Wrap(machine.ExecutePhase(i.ctx, p))
+	return trace.Wrap(machine.ExecutePhase(i.ctx, params))
 }
 
 func (i *Installer) executeOperation(machine *fsm.FSM) error {
@@ -478,6 +499,17 @@ func (i *Installer) startAgent(operation ops.SiteOperation) error {
 	return nil
 }
 
+func (i *Installer) waitForExecuteToken(ctx context.Context) {
+	select {
+	case i.executeSema <- struct{}{}:
+	case <-ctx.Done():
+	}
+}
+
+func (i *Installer) releaseExecuteToken() {
+	<-i.executeSema
+}
+
 // Installer manages the installation process
 type Installer struct {
 	// FieldLogger specifies the installer's logger
@@ -493,6 +525,11 @@ type Installer struct {
 	// has been configured to use local host as one of the cluster nodes
 	agent     *rpcserver.PeerServer
 	agentErrC chan error
+	// executeSema is the semaphore to control operation execution concurrency.
+	// Installer does now allow concurrent Execute invocations and needs to implement
+	// this explicitly
+	executeSema chan struct{}
+	doneC       chan struct{}
 }
 
 // Engine implements the process of cluster installation
