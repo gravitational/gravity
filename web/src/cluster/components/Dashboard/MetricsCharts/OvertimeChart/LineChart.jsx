@@ -39,26 +39,33 @@ export class LineGraph extends React.Component {
   }
 
   init(cpuData, ramData){
-    cpuData.forEach(i => this.addCpu(i));
-    ramData.forEach(i => this.addRam(i));
+    const [ cpuDataSet, ramDataSet ] = this.chartCtrl.data.datasets;
+    cpuDataSet.data = this.initData(cpuData);
+    ramDataSet.data = this.initData(ramData);
     this.chartCtrl.update();
   }
 
-  addCpu(cpu){
-    const cpuDataSet = this.chartCtrl.data.datasets[0];
-    cpuDataSet.data.push(cpu);
-    cpuDataSet.data.shift();
-  }
+  // populates array with the values and inserts "0" if missing
+  initData(values){
+    const data = [ ...values ];
+    for(let i = 0; i < labels.length - values.length; i ++){
+      data.unshift(0);
+    }
 
-  addRam(ram){
-    const ramDataSet = this.chartCtrl.data.datasets[1];
-    ramDataSet.data.push(ram);
-    ramDataSet.data.shift();
+    return data;
   }
 
   add(cpu, ram){
-    this.addCpu(cpu);
-    this.addRam(ram);
+    cpu = cpu || 0;
+    ram = ram || 0;
+
+    const [ cpuDataSet, ramDataSet ] = this.chartCtrl.data.datasets;
+    cpuDataSet.data.push(cpu);
+    cpuDataSet.data.shift();
+
+    ramDataSet.data.push(ram);
+    ramDataSet.data.shift();
+
     this.chartCtrl.update();
   }
 
@@ -99,7 +106,7 @@ const config = {
       backgroundColor: theme.colors.info,
       borderColor: theme.colors.info,
       borderWidth: 2,
-      data: labels.map(() => 0),
+      data: [],
       fill: false,
       label: 'CPU'
     }, {
@@ -107,7 +114,7 @@ const config = {
       fill: false,
       backgroundColor: theme.colors.danger,
       borderColor: theme.colors.danger,
-      data: labels.map(() => 0),
+      data: [],
     }]
   },
   options: {
