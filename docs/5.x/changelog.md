@@ -7,7 +7,7 @@ LTS starts with `3.51.0` with minor backwards compatible changes added over time
 
 | Release       | LTS | Release Date         | Supported Until      | Kubernetes Version | Teleport Version |
 | --------------|-----| -------------------- | -------------------- | ------------------ |------------------|
-| 6.0.0-beta.1  | -   | May 20th, 2019       | -                    | 1.14.1             | 3.2.5            |
+| 6.0.0-rc.1    | -   | June 3rd, 2019       | -                    | 1.14.1             | 3.2.5            |
 | 5.6.1         | No  | April 17th, 2019     | -                    | 1.14.0             | 3.0.5            |
 | 5.5.8         | Yes | April 22nd, 2019     | September 7th, 2020  | 1.13.5             | 3.0.4            |
 | 5.4.10        | No  | March 26th, 2019     | -                    | 1.13.5             | 2.4.10           |
@@ -30,6 +30,20 @@ LTS starts with `3.51.0` with minor backwards compatible changes added over time
     do not receive updates and bugfixes.
 
 ## 6.x Releases
+
+### 6.0.0-rc.1
+
+#### Improvements
+
+* New web user interface for Cluster and Hub.
+* Improve resiliency of install operation: dropped SSH session doesn't interrupt it anymore.
+* Auto-load required kernel modules and kernel parameters during platform startup.
+* Upgrade logging stack to use [Logrange](https://logrange.io/) streaming database.
+
+#### Bugfixes
+
+* Make gravity bypass proxies for local addresses.
+* Fix an issue with upgrade operation sometimes failing on the etcd upgrade step.
 
 ### 6.0.0-beta.1
 
