@@ -24,6 +24,7 @@ import (
 	"net"
 	"os"
 	"path/filepath"
+	"strconv"
 	"strings"
 	"time"
 
@@ -923,7 +924,7 @@ func (s *site) getPlanetConfig(config planetConfig) (args []string, err error) {
 	}
 
 	for k, v := range config.env {
-		args = append(args, fmt.Sprintf("--env=%v=%v", k, v))
+		args = append(args, fmt.Sprintf("--env=%v=%v", k, maybeEnvValueQuoted(v)))
 	}
 
 	args = append(args, s.addCloudConfig(config.config)...)
@@ -1592,6 +1593,13 @@ func configureDockerOptions(
 	}
 
 	return args, nil
+}
+
+func maybeEnvValueQuoted(value string) string {
+	if strings.ContainsAny(value, `,;:"' =`) {
+		return strconv.Quote(value)
+	}
+	return value
 }
 
 // exportBackend defines a shim to export site information
