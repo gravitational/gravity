@@ -878,7 +878,11 @@ func (r *Router) UpsertAuthGateway(ctx context.Context, key ops.SiteKey, gw stor
 
 // GetAuthGateway returns auth gateway configuration.
 func (r *Router) GetAuthGateway(key ops.SiteKey) (storage.AuthGateway, error) {
-	return r.Local.GetAuthGateway(key)
+	client, err := r.PickClient(key.SiteDomain)
+	if err != nil {
+		return nil, trace.Wrap(err)
+	}
+	return client.GetAuthGateway(key)
 }
 
 // ListReleases returns all currently installed application releases in a cluster.
