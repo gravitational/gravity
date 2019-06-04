@@ -102,7 +102,7 @@ let cfg = {
 
     // installer
     installerBase: '/web/installer',
-    installerApp: '/web/installer/app/:repository/:name/:version',
+    installerApp: '/web/installer/new/:repository/:name/:version',
     installerCluster: '/web/installer/site/:siteId',
     installerComplete: '/web/installer/site/:siteId/complete/',
 

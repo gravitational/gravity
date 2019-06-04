@@ -39,20 +39,26 @@ export class LineGraph extends React.Component {
   }
 
   init(cpuData, ramData){
-    this.chartCtrl.data.datasets[0].data = [ ...cpuData];
-    this.chartCtrl.data.datasets[1].data = [ ...ramData];
+    cpuData.forEach(i => this.addCpu(i));
+    ramData.forEach(i => this.addRam(i));
     this.chartCtrl.update();
   }
 
-  add(cpu, ram){
-    const [ cpuDataSet, ramDataSet ] = this.chartCtrl.data.datasets;
-
+  addCpu(cpu){
+    const cpuDataSet = this.chartCtrl.data.datasets[0];
     cpuDataSet.data.push(cpu);
     cpuDataSet.data.shift();
+  }
 
+  addRam(ram){
+    const ramDataSet = this.chartCtrl.data.datasets[1];
     ramDataSet.data.push(ram);
     ramDataSet.data.shift();
+  }
 
+  add(cpu, ram){
+    this.addCpu(cpu);
+    this.addRam(ram);
     this.chartCtrl.update();
   }
 
@@ -68,8 +74,8 @@ export class LineGraph extends React.Component {
           <Text typography="h5" style={{flex: "1", flexShrink: "0"}}>
             Usage Over Time
           </Text>
-          <Legend color="danger" title="CPU" mr="2" />
-          <Legend color="info" title="RAM" />
+          <Legend color="info" title="CPU" mr="2" />
+          <Legend color="danger" title="RAM" />
         </Header>
         <ChartBox>
           <CanvasContainer>
@@ -83,15 +89,17 @@ export class LineGraph extends React.Component {
   }
 }
 
+const labels = ["60 sec", "50 sec", "40 sec", "30 sec", "20 sec", "10 sec", "0"];
+
 const config = {
   type: 'line',
   data: {
-    labels: ["60 sec", "50 sec", "40 sec", "30 sec", "20 sec", "10 sec", "0"],
+    labels,
     datasets: [{
       backgroundColor: theme.colors.info,
       borderColor: theme.colors.info,
       borderWidth: 2,
-      data: [],
+      data: labels.map(() => 0),
       fill: false,
       label: 'CPU'
     }, {
@@ -99,7 +107,7 @@ const config = {
       fill: false,
       backgroundColor: theme.colors.danger,
       borderColor: theme.colors.danger,
-      data: [],
+      data: labels.map(() => 0),
     }]
   },
   options: {

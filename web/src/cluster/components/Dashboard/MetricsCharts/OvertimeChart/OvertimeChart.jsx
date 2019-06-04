@@ -65,8 +65,8 @@ export default function UsageOverTime({ metrics, ...styles }){
 }
 
 function makeSeries(metrics){
-  const cpu = metrics.cpu.data.map( r => r.value);
-  const ram = metrics.ram.data.map( r => r.value);
+  const cpu = metrics.cpu.data.map(r => r.value);
+  const ram = metrics.ram.data.map(r => r.value);
   return {
     cpu,
     ram
