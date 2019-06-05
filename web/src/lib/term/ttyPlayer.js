@@ -93,8 +93,7 @@ export class EventProvider{
     // fetch all session chunks and then merge them in one
     return $.when(...promises)
       .then((...responses) => {
-        responses = promises.length === 1 ? [[responses]] : responses;
-        const allBytes = responses.reduce((byteStr, r) => byteStr + r[0], '');
+        const allBytes = responses.reduce((byteStr, r) => byteStr + r, '');
         return new Buffer(allBytes);
       });
   }
