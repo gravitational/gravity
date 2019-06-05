@@ -96,11 +96,17 @@ func (r *Client) Complete(ctx context.Context, key ops.SiteOperationKey) error {
 	return trace.Wrap(r.complete(ctx, installpb.StatusCompleted))
 }
 
-// Stop signals the service to stop
+// Stop signals the service to stop and invokes the abort handler
 // Implements signals.Stopper
 func (r *Client) Stop(ctx context.Context) error {
 	r.Info("Abort.")
 	_, err := r.client.Abort(ctx, &installpb.AbortRequest{})
+	if errAbort := r.abort(ctx); errAbort != nil {
+		r.WithError(errAbort).Warn("Failed to abort.")
+		if err == nil {
+			err = errAbort
+		}
+	}
 	return trace.Wrap(err)
 }
 
@@ -246,9 +252,6 @@ func (r *Client) progressLoop(stream installpb.Agent_ExecuteClient) (status inst
 
 func (r *Client) handleProgressStatus(ctx context.Context, cancel context.CancelFunc, status installpb.ProgressResponse_Status, err error) error {
 	switch {
-	case trace.Unwrap(err) == installpb.ErrAborted:
-		cancel()
-		return trace.Wrap(r.abort(ctx))
 	case err == nil:
 		if status == installpb.StatusUnknown {
 			return nil

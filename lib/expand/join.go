@@ -17,14 +17,13 @@ limitations under the License.
 package expand
 
 import (
-	"bytes"
 	"context"
 	"fmt"
 	"net"
 	"net/url"
 	"strings"
+	"sync"
 	"time"
-	"unicode"
 
 	"github.com/gravitational/gravity/lib/app"
 	"github.com/gravitational/gravity/lib/app/client"
@@ -36,6 +35,9 @@ import (
 	"github.com/gravitational/gravity/lib/install"
 	installpb "github.com/gravitational/gravity/lib/install/proto"
 	"github.com/gravitational/gravity/lib/install/server"
+	"github.com/gravitational/gravity/lib/install/server/dispatcher"
+	"github.com/gravitational/gravity/lib/install/server/dispatcher/buffered"
+	"github.com/gravitational/gravity/lib/install/server/dispatcher/simple"
 	"github.com/gravitational/gravity/lib/localenv"
 	validationpb "github.com/gravitational/gravity/lib/network/validation/proto"
 	"github.com/gravitational/gravity/lib/ops"
@@ -62,16 +64,20 @@ func NewPeer(config PeerConfig) (*Peer, error) {
 		return nil, trace.Wrap(err)
 	}
 	server := server.New()
+	dispatcher := buffered.New()
 	ctx, cancel := context.WithCancel(context.Background())
 	peer := &Peer{
 		PeerConfig: config,
 		ctx:        ctx,
 		cancel:     cancel,
 		server:     server,
-		agentErrC:  make(chan error, 2),
-		connectC:   make(chan connectResult, 1),
+		dispatcher: dispatcher,
+		// Account for server exit, agent exit and agent reconnect failure
+		errC:     make(chan error, 3),
+		connectC: make(chan connectResult, 1),
 	}
 	peer.startConnectLoop()
+	peer.startExecuteLoop()
 	return peer, nil
 }
 
@@ -82,36 +88,28 @@ type Peer struct {
 	ctx context.Context
 	// cancel cancels internal operation
 	cancel context.CancelFunc
-	// agentErrC is signaled when an agent either fails to serve
-	// or its reconnect loop is prematurely terminated with an error
-	agentErrC chan error
+	// errC is signaled when either the agent or the service is aborted
+	errC chan error
 	// connectC receives the results of connecting to either wizard
 	// or cluster controller
 	connectC chan connectResult
 	// server is the gRPC installer server
 	server *server.Server
+
+	execC      chan *installpb.ExecuteRequest
+	dispatcher dispatcher.EventDispatcher
+	wg         sync.WaitGroup
 }
 
 // Run runs the peer operation
-func (p *Peer) Run(listener net.Listener) (err error) {
-	go watchReconnects(p.ctx, p.agentErrC, p.WatchCh, p.FieldLogger)
-	defer func() {
-		if installpb.IsAbortedErr(err) {
-			p.abort()
-			return
-		}
-		p.stop()
-	}()
-	errC := make(chan error, 1)
+func (p *Peer) Run(listener net.Listener) error {
+	go watchReconnects(p.ctx, p.errC, p.WatchCh, p.FieldLogger)
 	go func() {
-		errC <- p.server.Run(p, listener)
+		p.errC <- p.server.Run(p, listener)
 	}()
-	select {
-	case err := <-errC:
-		return trace.Wrap(err)
-	case err := <-p.agentErrC:
-		return trace.Wrap(err)
-	}
+	err := <-p.errC
+	p.stop()
+	return trace.Wrap(err)
 }
 
 // Stop shuts down this RPC agent
@@ -124,16 +122,18 @@ func (p *Peer) Stop(ctx context.Context) error {
 
 // Execute executes the peer operation (join or just serving an agent).
 // Implements server.Executor
-func (p *Peer) Execute(ctx context.Context, phase *installpb.ExecuteRequest_Phase) (err error) {
-	p.WithField("phase", phase).Info("Execute.")
-	opCtx, err := p.operationContext()
-	if err != nil {
-		return trace.Wrap(err)
+func (p *Peer) Execute(req *installpb.ExecuteRequest, stream installpb.Agent_ExecuteServer) (err error) {
+	if !p.submit(req) && !req.IsResume() {
+		// Execute the operation with a new dispatcher
+		return p.executeConcurrentStep(req, stream)
 	}
-	if phase != nil {
-		return trace.Wrap(p.executePhase(*opCtx, *phase))
+	for event := range p.dispatcher.Chan() {
+		err := stream.Send(event)
+		if err != nil {
+			return trace.Wrap(err)
+		}
 	}
-	return trace.Wrap(p.run(*opCtx))
+	return nil
 }
 
 // Complete manually completes the operation given with opKey.
@@ -230,7 +230,9 @@ func (c *PeerConfig) CheckAndSetDefaults() (err error) {
 }
 
 func (p *Peer) startConnectLoop() {
+	p.wg.Add(1)
 	go func() {
+		defer p.wg.Done()
 		ctx, err := p.connect()
 		if err == nil {
 			err = p.startAgent(*ctx)
@@ -245,57 +247,99 @@ func (p *Peer) startConnectLoop() {
 	}()
 }
 
-func (p *Peer) executePhase(ctx operationContext, phase installpb.ExecuteRequest_Phase) error {
-	if phase.IsResume() && !ctx.supportsResume() {
-		return trace.Wrap(p.run(ctx))
+func (p *Peer) startExecuteLoop() {
+	p.wg.Add(1)
+	go func() {
+		defer p.wg.Done()
+		for {
+			select {
+			case req := <-p.execC:
+				if err := p.execute(req); err != nil {
+					p.sendError(err)
+					p.WithError(err).Warn("Failed to execute.")
+				}
+			case <-p.ctx.Done():
+				return
+			}
+		}
+	}()
+}
+
+// submit submits the specified request for execution.
+// Returns true whether the request has actually started an operation
+func (p *Peer) submit(req *installpb.ExecuteRequest) bool {
+	select {
+	case p.execC <- req:
+		return true
+	default:
+		// Another operation is already in flight
+		return false
 	}
-	machine, err := p.getFSM(ctx)
+}
+
+// execute executes either the complete operation or a single phase specified with req
+func (p *Peer) execute(req *installpb.ExecuteRequest) (err error) {
+	p.WithField("req", req).Info("Execute.")
+	opCtx, err := p.operationContext()
+	if err != nil {
+		return trace.Wrap(err)
+	}
+	if req.Phase != nil {
+		return trace.Wrap(p.executePhase(p.ctx, *opCtx, *req.Phase, p.dispatcher))
+	}
+	return trace.Wrap(p.run(*opCtx))
+}
+
+func (p *Peer) executeConcurrentStep(req *installpb.ExecuteRequest, stream installpb.Agent_ExecuteServer) error {
+	dispatcher := simple.New()
+	defer dispatcher.Close()
+	// FIXME: fetch operation context
+	var opCtx operationContext
+	go p.executePhase(stream.Context(), opCtx, *req.Phase, dispatcher)
+	for event := range dispatcher.Chan() {
+		err := stream.Send(event)
+		if err != nil {
+			return trace.Wrap(err)
+		}
+	}
+	return nil
+}
+
+func (p *Peer) executePhase(ctx context.Context, opCtx operationContext, phase installpb.ExecuteRequest_Phase, dispatcher dispatcher.EventDispatcher) error {
+	if phase.IsResume() && !opCtx.supportsResume() {
+		return trace.Wrap(p.run(opCtx))
+	}
+	machine, err := p.getFSM(opCtx)
 	if err != nil {
 		return trace.Wrap(err)
 	}
 	if phase.IsResume() {
-		return trace.Wrap(p.executeOperation(machine))
+		return trace.Wrap(install.ExecuteOperation(ctx, machine, p.FieldLogger))
 	}
 	params := fsm.Params{
-		PhaseID: phase.ID,
-		Force:   phase.Force,
+		PhaseID:  phase.ID,
+		Force:    phase.Force,
+		Progress: newProgressReporter(ctx, dispatcher, phaseTitle(phase)),
 	}
 	if phase.Rollback {
-		return trace.Wrap(machine.RollbackPhase(p.ctx, params))
+		return trace.Wrap(machine.RollbackPhase(ctx, params))
 	}
-	return trace.Wrap(machine.ExecutePhase(p.ctx, params))
-}
-
-func (p *Peer) executeOperation(machine *fsm.FSM) error {
-	return trace.Wrap(install.ExecuteOperation(p.ctx, machine, p.FieldLogger))
+	return trace.Wrap(machine.ExecutePhase(ctx, params))
 }
 
 func (p *Peer) stop() {
 	ctx, cancel := context.WithTimeout(context.Background(), defaults.ShutdownTimeout)
 	defer cancel()
 	p.cancel()
+	p.wg.Wait()
+	p.dispatcher.Close()
 	p.server.Stop(ctx)
-}
-
-func (p *Peer) abort() {
-	ctx, cancel := context.WithTimeout(context.Background(), defaults.ShutdownTimeout)
-	defer cancel()
-	if err := p.abortWithContext(ctx); err != nil {
-		p.WithError(err).Warn("Failed to abort.")
-	}
-}
-
-// abortWithContext aborts the installation and cleans up the operation state.
-func (p *Peer) abortWithContext(ctx context.Context) error {
-	p.cancel()
-	p.server.Stop(ctx)
-	return nil
 }
 
 // printStep publishes a progress entry described with (format, args) tuple to the client
 func (p *Peer) printStep(format string, args ...interface{}) {
-	event := server.Event{Progress: &ops.ProgressEntry{Message: fmt.Sprintf(format, args...)}}
-	p.server.Send(event)
+	event := dispatcher.Event{Progress: &ops.ProgressEntry{Message: fmt.Sprintf(format, args...)}}
+	p.dispatcher.Send(event)
 }
 
 // createExpandOperation creates a new expand operation
@@ -564,7 +608,7 @@ func (p *Peer) startAgent(ctx operationContext) error {
 		return trace.Wrap(err)
 	}
 	go func() {
-		p.agentErrC <- agent.Serve()
+		p.errC <- agent.Serve()
 	}()
 	return nil
 }
@@ -637,7 +681,7 @@ func (p *Peer) run(ctx operationContext) error {
 			FieldLogger:  p.FieldLogger,
 			Operator:     ctx.Operator,
 			OperationKey: ctx.Operation.Key(),
-			Dispatcher:   &eventDispatcher{server: p.server},
+			Dispatcher:   &eventDispatcher{w: dispatcher.NewWriter(p.dispatcher)},
 		}.Run(p.ctx))
 	}
 	return trace.Wrap(p.startExpandOperation(ctx))
@@ -741,9 +785,7 @@ func (p *Peer) startExpandOperation(ctx operationContext) error {
 	if err != nil {
 		return trace.Wrap(err)
 	}
-	w := &eventDispatcher{server: p.server}
-	progress := utils.NewProgressWithConfig(p.ctx, "Executing expand operation",
-		utils.ProgressConfig{Output: w})
+	progress := newProgressReporter(p.ctx, p.dispatcher, "Executing expand operation")
 	fsmErr := fsm.ExecutePlan(p.ctx, progress)
 	if fsmErr != nil {
 		p.WithError(fsmErr).Warn("Failed to execute plan.")
@@ -869,47 +911,53 @@ func (p *Peer) validateWizardState(operator ops.Operator) (*ops.Site, *ops.SiteO
 }
 
 func (p *Peer) sendCompletionEvent() {
-	event := server.Event{
+	event := dispatcher.Event{
 		Progress: &ops.ProgressEntry{
 			Message:    "Operation completed",
 			Completion: constants.Completed,
 		},
 		// Set the completion status
-		Status: server.StatusCompleted,
+		Status: dispatcher.StatusCompleted,
 	}
-	p.server.Send(event)
+	p.dispatcher.Send(event)
+}
+
+func (p *Peer) sendError(err error) {
+	p.dispatcher.Send(dispatcher.Event{
+		Error: err,
+	})
+}
+
+func newProgressReporter(ctx context.Context, disp dispatcher.EventDispatcher, title string) utils.Progress {
+	w := &eventDispatcher{w: dispatcher.NewWriter(disp)}
+	return utils.NewProgressWithConfig(
+		ctx, title, utils.ProgressConfig{Output: w},
+	)
 }
 
 // Send dispatches the specified event to client
-func (r *eventDispatcher) Send(event server.Event) {
+func (r *eventDispatcher) Send(event dispatcher.Event) {
 	if event.Progress == nil {
-		r.server.Send(event)
+		r.w.Send(event)
 		return
 	}
 	if event.Progress.State != ops.ProgressStateFailed && event.Progress.IsCompleted() {
 		// Mark event as completed for successful operation
-		event.Status = server.StatusCompleted
+		event.Status = dispatcher.StatusCompleted
 	}
-	r.server.Send(event)
+	r.w.Send(event)
 }
 
 // Write sends p as progress event to the server.
 // Implements io.Writer
 func (r *eventDispatcher) Write(p []byte) (n int, err error) {
-	// TODO(dmitri): truncate explicit newlines to avoid having
-	// empty lines in output. This needs a more consistent way to
-	// format progress messages
-	p = bytes.TrimRightFunc(p, unicode.IsSpace)
-	r.server.Send(server.Event{
-		Progress: &ops.ProgressEntry{Message: string(p)},
-	})
-	return len(p), nil
+	return r.w.Write(p)
 }
 
 // eventDispatcher implements eventDispatcher for the agent
 // and maps completed progress event to client completed event
 type eventDispatcher struct {
-	server *server.Server
+	w *dispatcher.EventWriter
 }
 
 func (r operationContext) supportsResume() bool {
@@ -964,6 +1012,10 @@ func formatClusterURL(addr string) string {
 
 func isTerminalError(err error) bool {
 	return utils.IsAbortError(err) || trace.IsAccessDenied(err)
+}
+
+func phaseTitle(phase installpb.ExecuteRequest_Phase) string {
+	return fmt.Sprintf("Executing phase %v", phase.ID)
 }
 
 type connectResult struct {

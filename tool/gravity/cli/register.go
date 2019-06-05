@@ -93,7 +93,7 @@ func RegisterCommands(app *kingpin.Application) *Application {
 	g.InstallCmd.GCENodeTags = g.InstallCmd.Flag("gce-node-tag", "Override node tag on the instance in GCE required for load balanacing. Defaults to cluster name.").Strings()
 	g.InstallCmd.DNSHosts = g.InstallCmd.Flag("dns-host", "Specify an IP address that will be returned for the given domain within the cluster. Accepts <domain>/<ip> format. Can be specified multiple times.").Hidden().Strings()
 	g.InstallCmd.DNSZones = g.InstallCmd.Flag("dns-zone", "Specify an upstream server for the given zone within the cluster. Accepts <zone>/<nameserver> format where <nameserver> can be either <ip> or <ip>:<port>. Can be specified multiple times.").Strings()
-	g.InstallCmd.ExcludeHostFromCluster = g.InstallCmd.Flag("exclude-from-cluster", "Do not use this node in the cluster").Bool()
+	g.InstallCmd.ExcludeHostFromCluster = g.InstallCmd.Flag("remote", "Do not use this node in the cluster").Bool()
 	g.InstallCmd.FromService = g.InstallCmd.Flag("from-service", "Run in service mode").Hidden().Bool()
 
 	g.JoinCmd.CmdClause = g.Command("join", "Join existing cluster or on-going install operation")
@@ -142,7 +142,6 @@ func RegisterCommands(app *kingpin.Application) *Application {
 	g.PlanExecuteCmd.CmdClause = g.PlanCmd.Command("execute", "Execute specified operation phase")
 	g.PlanExecuteCmd.Phase = g.PlanExecuteCmd.Flag("phase", "Phase ID to execute").String()
 	g.PlanExecuteCmd.Force = g.PlanExecuteCmd.Flag("force", "Force execution of specified phase").Bool()
-	g.PlanExecuteCmd.Sync = g.PlanExecuteCmd.Flag("sync", "Execute a blocking service call").Hidden().Bool()
 	g.PlanExecuteCmd.PhaseTimeout = g.PlanExecuteCmd.Flag("timeout", "Phase timeout").Default(defaults.PhaseTimeout).Hidden().Duration()
 
 	g.PlanRollbackCmd.CmdClause = g.PlanCmd.Command("rollback", "Rollback specified operation phase")

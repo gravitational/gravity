@@ -358,7 +358,6 @@ func Execute(g *Application, cmd string, extraArgs []string) (err error) {
 				Timeout:          *g.PlanExecuteCmd.PhaseTimeout,
 				SkipVersionCheck: *g.PlanCmd.SkipVersionCheck,
 				OperationID:      *g.PlanCmd.OperationID,
-				Sync:             *g.PlanCmd.Sync,
 			})
 	case g.PlanResumeCmd.FullCommand():
 		return resumeOperation(localEnv, g,
