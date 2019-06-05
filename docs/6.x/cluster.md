@@ -1,41 +1,38 @@
 # Cluster Management
 
-This chapter covers Gravity Cluster administration.
+Every cluster created from a cluster image is a fully featured Kubernetes
+environment. It contains the following components:
 
-Every application packaged with Gravity ("Application Bundle") is a self-contained Kubernetes system.
-This means that every application running on a cluster ("Gravity Cluster" or "Cluster") consists
-of the following components:
+1. All user applications that have been packaged into the cluster image.
+2. All Kubernetes daemons like `kube-scheduler`, `kube-apiserver`, and others. 
+3. Kubernetes CLI tool: `kubectl`.
+4. The Gravity cluster "hypervisor", called `gravity` for managing the cluster.
+5. The Gravity Authentication Gateway for integrating Kubernetes authentication 
+   and SSH access to cluster nodes with corporate identity providers via SSO.
 
-1. The application and its services: workers, databases, caches, etc.
-2. Kubernetes services and CLI tools.
-3. Gravity tooling such as the [Teleport SSH server](https://gravitational.com/teleport)
-   and the Gravity CLI.
+In addition to `gravity` CLI tool, each Gravity cluster also offers a web-based
+UI to manage the cluster state.
 
-Gravity uses software we call "Gravity" for managing Clusters. The Gravity CLI is
-the Gravity interface that can be used to manage the Cluster. Each Gravity Cluster
-also has a graphical, web-based UI to view and manage the Cluster.
-
-You can also use familiar Kubernetes tools such as `kubectl` to perform regular cluster
-tasks such as watching logs, seeing stats for pods or volumes or managing configurations.
+You can also use familiar Kubernetes tools such as `kubectl` to perform regular
+cluster tasks such as watching logs, seeing stats for pods or volumes or
+managing configurations.
 
 ## Kubernetes Environment
 
-Every Gravity Cluster is a standalone instance of Kubernetes running on
+A Gravity Cluster is a highly available (HA) instance of Kubernetes running on
 multiple nodes, so the standard Kubernetes tools will work and Kubernetes rules
 will apply.
 
 However, Gravity pre-configures Kubernetes to be as reliable as possible
-greatly reducing the need for ongoing active management. To make this possible
-on a node level, Gravity runs all Kubernetes services from a single executable
-called `gravity`.
+greatly reducing the need for ongoing active management. To make this possible,
+`gravity` hypervisor launches and manages all Kubernetes Linux daemons.
 
 !!! tip "Gravity Master Container":
-    When `gravity` process starts, it creates it's own container which we'll
+    When `gravity` daemon starts, it creates it's own container which we'll
     refer to as "master container". The master container itself is a
     containerized `systemd` instance. It launches the required Kubernetes
     daemons and contains their dependencies as well as monitoring and support
-    tools.  This allows Kubernetes nodes to be as self-contained and immune to
-    pre-existing node state as possible.
+    tools. 
 
 Running Kubernetes services from inside a master container brings several
 advantages as opposed to installing Kubernetes components in a more traditional
@@ -43,17 +40,17 @@ way:
 
 * Since all Kubernetes services such as `kubelet` or `kube-apiserver` always
   run enclosed inside the master container, it makes it possible for Gravity
-  to closely monitor Kubernetes' health and perform cluster updates "from below".
+  to closely monitor the cluster health and perform cluster updates "from below".
 
-* Gravity _continuously_ maintains Kubernetes configuration to be highly
+* `gravity` _continuously_ maintains Kubernetes configuration to be highly
   available ("HA").  This means that any node can go down without disrupting
   Kubernetes' operation.
 
-* Gravity runs its own local Docker registry which is used as a cluster-level
+* `gravity` runs its own local Docker registry which is used as a cluster-level
   cache for container images. This makes application updates and restarts
   faster and more reliable.
 
-* Gravity provides the ability to perform cluster state snapshots as part of
+* `gravity` provides the ability to perform cluster state snapshots as part of
   cluster updates or to be used independently.
 
 ### Kubernetes Extensions
@@ -322,41 +319,51 @@ large numbers of remotely running application instances.
 
 ### Uploading an Update
 
-The first step to updating a cluster to a new version is to import a new Application
-Bundle onto a Gravity Cluster. Gravity supports this in both online and offline environments.
+The first step to updating a cluster to a newer version is to import a new
+cluster image onto a Gravity cluster, which can be done in both online and
+offline environments.
+
+A new image becomes "uploaded" when it's contents is stored in the internal
+cluster registry, but not yet deployed.
 
 #### Online Cluster Update
 
-If cluster is connected to an Ops Center and has remote support turned on, it can download
-updated Application Bundles directly from that Ops Center.
+If a cluster is connected to a Gravity Hub, it can download newer versions
+of a cluster image directly from that Hub.
 
-Use the `gravity update download` command to automatically discover if there are new
-versions available and download them:
+Use `gravity update download` command to automatically discover if there are
+new versions available and download them:
 
 ```bsh
-$ gravity update download              # Check and download any updates now.
+$ gravity update download              # Check and download any updates.
 $ gravity update download --every=12h  # Schedule automatic downloading of updates every 12 hours.
 $ gravity update download --every=off  # Turn off automatic downloading of updates.
 ```
 
+!!! warning "Version Warning"
+    Graivty Hub is available to Enterprise edition users only. This means that open source
+    edition of Gravity only supports "offline updates" (see below).
+
 #### Offline Cluster Update
 
-If a Gravity Cluster is offline or not connected to an Ops Center, the new version of the Application
-Bundle has to be copied to one of the Application Cluster nodes and the Cluster nodes need to be accessible
-to each other. To upload the new version, extract the tarball and launch the `upload` script.
+If a Gravity cluster is not connected to a Gravity Hub, the updated version of
+the cluster image has to be copied to one of the cluster nodes. To upload the
+new version, extract the tarball and launch the included `upload` script.
 
-### Performing Upgrade
+Once a cluster image has been uploaded into the cluster, you can begin the
+upgrade procedure.
 
-Once a new Application Bundle has been uploaded into the Cluster, a new upgrade operation can be started.
+### Performing an Upgrade
 
-An upgrade can be triggered either through web UI or from command line.
-To trigger the upgrade from UI, select an appropriate version on the "Updates" tab click `Update`.
+An upgrade can be triggered either through web UI or from the command line. To
+trigger the upgrade from the UI, select an appropriate version on the "Updates"
+tab click `Update`.
 
-To trigger the operation from command line, extract the Application Bundle tarball to a directory:
+To trigger the operation from the command line, copy the cluster image into one
+of the cluster nodes and untar it:
 
 ```bash
-$ cd installer
-$ tar xf application-bundle.tar
+$ tar xf cluster-image.tar
 $ ls -lh
 total 64M
 -rw-r--r--. 1 user user 1.1K Jan 14 09:08 README
@@ -369,9 +376,10 @@ drwxr-xr-x. 5 user user 4.0K Jan 14 09:08 packages
 -rwxr-xr-x. 1 user user  411 Jan 14 09:08 upload
 ```
 
-Inside the directory, execute the `upgrade` script to upload the update and start the operation.
+You can execute the `./upgrade` script to upload and upgrade in one go, 
+or you can upload the update and then execute `gravity upgrade` command.
 
-Alternatively, upload the update and execute the `gravity upgrade` command which provides more control:
+Using `gravity upgrade` gives more control over the upgrade procedure.
 
 ```bash
 $ sudo ./upload
@@ -381,7 +389,8 @@ Wed Jan 14 17:02:53 UTC	Application has been uploaded
 installer$ sudo ./gravity upgrade
 ```
 
-Executing the command with `--no-block` will start the operation in background from a systemd service.
+Executing the command with `--no-block` will start the operation in background
+as a systemd service.
 
 #### Manual Upgrade
 
@@ -399,12 +408,11 @@ See https://gravitational.com/gravity/docs/cluster/#managing-an-ongoing-operatio
 Please refer to the [Managing an Ongoing Operation](/cluster/#managing-an-ongoing-operation) section about
 working with the operation plan.
 
-!!! tip:
-    Manual upgrade steps must be executed with the gravity binary included in the upgrade
-    tarball to ensure version compatibility. If you don't have an installer tarball (for
-    example, when downloading upgrades directly from connected Ops Center), you can obtain
-    the appropriate gravity binary from the distribution Ops Center (see [Getting the Tools](/quickstart/#getting-the-tools)).
-
+!!! warning "IMPORTANT":
+    The manual upgrade must be executed using `gravity` binary included in the upgrade
+    tarball to ensure version compatibility. If you don't have a cluster image tarball (for
+    example, when downloading upgrades directly from a connected Gravity Hub), you can obtain
+    the appropriate `gravity` binary from Gravity Hub.
 
 ### Troubleshooting Automatic Upgrades
 
@@ -1503,10 +1511,10 @@ Save the resources into `publisher.yaml` and create them on the cluster:
 $ gravity resource create publisher.yaml
 ```
 
-This is how the new user can publish new application bundles into the Ops Center:
+This is how a new user can publish new cluster images into the Gravity Hub:
 
 ```bsh
-$ tele login -o opscenter.example.com --token=s3cr3t!
+$ tele login -o hub.example.com --token=s3cr3t!
 $ tele build yourapp.yaml -o installer.tar
 $ tele push installer.tar
 ```

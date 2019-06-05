@@ -1326,7 +1326,7 @@ transient error
 
 * Add `--timeout` flag to `gravity restore`.
 * Add `--follow` flag to backup and restore commands to follow operation logs in real-time.
-* Bundle application manifest with the installer tarball.
+* Bundle an application manifest with the installer tarball.
 
 #### Bugfixes
 

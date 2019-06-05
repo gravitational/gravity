@@ -1,49 +1,47 @@
 # CLI Tools
 
-Gravity uses the following CLI commands:
+Gravity features the following CLI commands:
 
-| Command  | Description
-|----------|---------------------------------------------------------------------------------------------------------------------------------------------------------|
-| `tele`   | Gravity CLI client. `tele` is used for packaging Application Bundles and publishing them into the Ops Center.                                                  |
-| `tsh`    | Gravity SSH client which can be used to remotely connect to a node inside of any Gravity Cluster. `tsh` is fully compatible with OpenSSH's `ssh`.     |
-| `gravity`| The Kubernetes runtime engine. It manages Kubernetes daemons and their health, Cluster updates and so on. Gravity is present on every machine of a Gravity Cluster. |
-
+| Component   | Description
+|-------------|---------------------------------------------------------------------------------------------------------------------------------------------------------|
+| `tele`      | The build tool. `tele` is used for building cluster images. The enterprise edition of `tele` also publishes cluster images them into the Gravity Hub.  |
+| `tsh`       | Is used for remotely connecting to Gravity/Kubernetes clusters via SSH or Kubernetes API.   |
+| `gravity`   | The cluster manager which runs on every cluster node. It abstracts away complexities of Kubernetes management. `gravity` is also a CLI tool to perform cluster expansion, upgrades, etc.  |
 
 The typical Gravity workflow is as follows:
 
-* Start by building and publishing your Application Bundle with `tele` command.  Once
-  a Gravity Cluster is deployed, `tele` command will let you list the active
-  Clusters.
-* Connect to any server inside of any Cluster using the `tsh` command.
-* Manage the Cluster from within by using `gravity` command and/or
-  Kubernetes tools like `kubectl`.
+* Start by building a cluster images with `tele` command.
+* Distribute a cluster image to a target environment.
+* Create a new Gravity/Kubernetes cluster using the built-in cluster installer.
+* Manage the cluster from by using `gravity` command on cluster nodes and/or
+  using Kubernetes tools like `kubectl`.
 
 ## tele
 
-`tele` is the Gravity CLI client and can run on macOS and Linux. By using `tele` on your laptop you can:
+`tele` is the Gravity CLI client and can run on macOS and Linux. With `tele` you can:
 
-* Package Kubernetes applications into self-installing tarballs ("Application Bundles").
-* Publish Application Bundles into the Ops Center.
-* Manage the Gravity Clusters in the Ops Center.
+* Package Kubernetes applications into self-installing cluster images.
+* Publish cluster images into the Gravity Hub.
+* Download cluster images from the Gravity Hub.
 
-See more details in [Packaging & Deployment](pack.md) section.
+You can think of `tele` as "docker for clusters", i.e. just as `docker` can
+build, push and pull containers, `tele` does the same with entire clusters. See
+more details in [Packaging & Deployment](pack.md) section.
 
 ## tsh
 
-`tsh` is the SSH client used by Gravity and can run on macOS and Linux. You can use `tsh` to remotely login into
-any server in a Gravity Cluster, even those located behind firewalls.
-To achieve this, `tsh` uses the Ops Center as an "SSH bastion" or "jump host".
-
-The `tsh` tool is a part of Gravitational Teleport, an [open source SSH server and
-client](https://gravitational.com/teleport) developed and supported by
-Gravitational. Teleport can be used outside of Gravity, but the supplied `tsh`
-client is tightly integrated with other Gravity tools, for example `tele login`.
+`tsh` allows to remotely connect to any Gravity cluster using SSH and
+Kubernetes API. It runs on MacOS and Linux. You can use `tsh` to remotely
+login into any node in a Gravity cluster, even those located behind firewalls.
 
 See more details in [Remote Management](manage.md) section
 
 ## gravity
 
-`gravity` only runs on Linux and is only available on the target machines
-where your application is running. It can be used to manage the state of a Gravity Cluster.
+`gravity` only runs on Linux and is only available on the cluster nodes where
+your applications are running. `gravity` is responsible for mostly abstracting
+away low-level Kubernetes management. `gravity` provides commands for easy
+version upgrades, adding and removing nodes to a cluster, and other common
+administration tasks. 
 
 See more details in [Cluster Management](cluster.md) section
