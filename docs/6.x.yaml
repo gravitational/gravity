@@ -1,0 +1,41 @@
+site_name: Gravitational Gravity
+site_url: https://gravitational.com/gravity/docs/ver/6.x/
+repo_url: https://github.com/gravitational/gravity
+site_description: Gravity Documentation
+site_author: Gravitational Inc
+copyright: Gravitational Inc, 2017-19
+
+theme: readthedocs
+theme_dir: theme
+
+# UPDATE HERE FOR EACH VERSION
+site_dir: ../build/docs/6.x
+docs_dir: "6.x"
+
+markdown_extensions:
+  - markdown_include.include
+  - admonition
+  - def_list
+  - footnotes
+
+extra_css: []
+extra_javascript: []
+extra:
+    version: 6.x
+
+pages:
+    - Gravity Overview: overview.md
+    - Quick Start: quickstart.md
+    - Packaging And Deployment: pack.md
+    - Installation: installation.md
+    - Cluster Management: cluster.md
+    - Cluster Monitoring: monitoring.md
+    - Remote Management: manage.md
+    - Ops Center: opscenter.md
+    - hidden: catalog.md
+    - System Requirements: requirements.md
+    - CLI Reference: cli.md
+    - Releases: changelog.md
+    - FAQ: faq.md
+    - Guides: guides.md
+    - Terraform: terraform.md
