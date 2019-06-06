@@ -51,17 +51,12 @@ func NewRestart(
 		return nil, trace.NotFound("no server specified for phase %q",
 			params.Phase.ID)
 	}
-	cluster, err := operator.GetLocalSite()
-	if err != nil {
-		return nil, trace.Wrap(err)
-	}
 	return &restart{
 		FieldLogger:   logger,
 		operationID:   operationID,
 		backend:       backend,
 		packages:      packages,
 		localPackages: localPackages,
-		serviceUser:   cluster.ServiceUser,
 		update:        params.Phase.Data.Update.Servers[0],
 	}, nil
 }
@@ -141,6 +136,5 @@ type restart struct {
 	packages      pack.PackageService
 	localPackages update.LocalPackageService
 	update        storage.UpdateServer
-	serviceUser   storage.OSUser
 	operationID   string
 }
