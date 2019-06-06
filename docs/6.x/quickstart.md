@@ -1,23 +1,23 @@
 # Introduction
 
-This Quick Start Guide will help you quickly evaluate Gravity by packaging, and installing a multi-node Kubernetes application.
+This guide will help you quickly evaluate Gravity by packaging, and installing
+a sample multi-node Kubernetes application.
 
-We will use [Mattermost](https://www.mattermost.org/), an open sourced
-chat application for teams, as a sample application. Mattermost represents a
-fairly typical web application and consists of an HTTP request handling process
-which connects to a PostgreSQL instance.
+We will use [Mattermost](https://www.mattermost.org/), an open source chat
+application for teams. Mattermost represents a fairly typical web application
+and consists of an HTTP request handling process which connects to a PostgreSQL
+instance.
 
-Before we start, you may want to review the
-[Gravity Overview](overview.md) to get familiar with basic concepts of the
-Gravity system.
+Before we start, you may want to go over the [Gravity Overview](overview.md) to
+get familiar with basic concepts of the Gravity solution.
 
 ## System Requirements
 
 Gravity is a Kubernetes packaging solution so it only runs on computers capable
-of running Kubernetes. For this QuickStart, you will need:
+of running Kubernetes. For this tutorial, you will need:
 
-* A x86_64 Linux machine or VM for packaging/building an application bundle.
-  Usually it's commonly called "a developer's box".
+* A x86_64 Linux machine or a VM for building a cluster image.
+  Let's call it "a developer's box".
 * We recommend taking a look at the [list of supported Linux distributions](requirements/#distributions).
 * [Docker](https://get.docker.io) version 1.8 or newer. Run `docker info` before continuing to make sure
   you have Docker up and running.
@@ -25,10 +25,10 @@ of running Kubernetes. For this QuickStart, you will need:
   `docker` group is listed.
 * You must install [Helm](https://docs.helm.sh/using_helm/#installing-helm).
 * You must have `git` installed to clone the example application repo.
-* One or two Linux nodes for installing a Kubernetes cluster. They should
-  have at least 2GB of RAM and 40GB of free disk space. These nodes should be
-  clean, i.e. make sure not to have Docker or any other container orchestrator
-  on them.
+* A _target cluster_ of Linux nodes. It can be just one machine, but three is better.
+  You'll be installing the cluster image into this cluster, creating a new Kubernetes instance.
+  The nodes in a target cluster must have at least 2GB of RAM and 40GB of free disk space. 
+  They must not have Docker or any other container runtime installed on them.
 * You must have `sudo` privileges on all nodes.
 
 ## Getting the Tools
@@ -43,23 +43,25 @@ $ ls -l
 -rwxr-xr-x 1 user user 21417992 Dec  3 13:07 tsh
 ```
 
-You can execute `install.sh` if you want to copy `tele` and `tsh` binaries to
-`/usr/local/bin/`.
+| Command   | Description
+|-----------|---------------------------------------------------------------------------------------------------------------------------------------------------------|
+| `tele`    | The build tool. `tele` is used for building cluster images. The enterprise edition of `tele` also publishes cluster images them into the Gravity Hub.  |
+| `tsh`     | Is used for remotely connecting to Gravity/Kubernetes clusters via SSH or Kubernetes API.   |
 
-* `tele`: the CLI tool which is used to package the application (creating an "Application Bundle").
-* `tsh`: the [Teleport client](https://gravitational.com/teleport/) for establishing
-   SSH connections to remote Kubernetes clusters, which is not used in this guide.
 
-You can type `tele version` to see confirm it is installed:
+Execute `install.sh` if you want to copy `tele` and `tsh` binaries to
+`/usr/local/bin/`. Then you can type `tele version` to see confirm that
+everything works:
 
 ```
 $ tele version
-Edition:	open-source
-Version:	5.2.4
-Git Commit:	708a1f155da4633774281bf8660c7e6cca6e0ff1
+Edition:	  open-source
+Version:	  6.0.0
+Git Commit:	  62a5e1665ac63c74c42b7b2238731b74bf633cd9
+Helm Version: v2.12
 ```
 
-Next, let's clone the sample Git repository which contains the Kubernetes resources for
+Clone the sample Git repository which contains the Kubernetes resources for
 [Mattermost](https://www.mattermost.org/), which we are using in this tutorial as a sample application:
 
 ```bsh
@@ -67,17 +69,20 @@ $ git clone https://github.com/gravitational/quickstart.git
 $ cd quickstart
 ```
 
-## Building Application Bundle
+## Building a Cluster Image
 
-To create an Application Bundle we'll perform the following steps:
+To build a cluster image we'll perform the following steps:
 
 1. Create Docker containers for application services. This step is sometimes
    called "dockerizing" an application.
-2. Create Kubernetes definitions for application components, this makes an application
-   capable of running on Kubernetes.
-3. Create a Gravity Application Manifest to describe the system requirements
-   for a Kubernetes cluster capable of running your application.
-4. Execute the `tele build` CLI command.
+2. Create definitions of Kubernetes resources (pods, etc) for application
+   components, this makes an application capable of running on Kubernetes. 
+   You can place all Kubernetes resource files (usually in YAML format) in the 
+   same directory, or you can use Helm.
+3. Create a Gravity application manifest to describe the system requirements
+   for a Kubernetes cluster capable of running your application. An application manifest
+   is a YAML file which allows you to customize the cluster image.
+4. Execute `tele build` CLI command.
 
 ### Step 1: Containerizing
 
@@ -116,7 +121,8 @@ The most interesting file to take a look at is [mattermost.yaml](https://github.
 You are welcome to modify it to your liking.
 
 !!! tip "Tip"
-    In this tutorial, we are packaging a single Helm chart but it is possible to have several of them packaged into a single Application Bundle.
+    In this tutorial, we are packaging a single Helm chart but it is possible
+    to have several of them packaged into a single cluster image.
 
 ### Step 3: Creating the Application Manifest
 
@@ -126,9 +132,9 @@ requirements for the Kubernetes cluster.
 We have already prepared one for this guide in the cloned repo: `mattermost/resources/app.yaml`. You can [open it on Github](https://github.com/gravitational/quickstart/blob/master/mattermost/resources/app.yaml) for convenience. We have commented the most important fields
 in the example manifest.
 
-### Step 4: Building the Application Bundle
+### Step 4: Building the Cluster Image
 
-Before we build our first Application Bundle,   let's make sure [Helm](https://helm.sh/) is properly
+Before we build our first cluster image, let's make sure [Helm](https://helm.sh/) is properly
 initialized and [helm-template](https://github.com/technosophos/helm-template) plugin is installed:
 
 ```bash
@@ -136,7 +142,7 @@ $ helm init --client-only
 $ helm plugin install https://github.com/technosophos/helm-template
 ```
 
-Now you can build the Application Bundle which will consist of a Kubernetes
+Now you can build the cluster image which will consist of a Kubernetes
 cluster with Mattermost pre-installed inside:
 
 ```bsh
@@ -178,9 +184,9 @@ Let's review what just happened. `tele build` did the following:
 * Downloaded Kubernetes binaries and Gravity tooling from `s3://hub.gravitational.io`.
 * Scanned the current directory and the subdirectories for Kubernetes resources and Helm charts.
 * Downloaded external container images referenced in the resources discovered in the previous step.
-* Packaged (or vendored) Docker images into the Application Bundle.
-* Removed the duplicate container image layers, reducing the size of the Application Bundle.
-* Saved the Application Bundle as `mattermost.tar`.
+* Packaged (or vendored) Docker images into the cluster image.
+* Removed the duplicate container image layers, reducing the size of the cluster image.
+* Saved the cluster image as `mattermost.tar`.
 
 !!! warning "Slow Operation Warning"
     `tele build` needs to download hundreds of megabytes of binary dependencies which
@@ -198,7 +204,7 @@ virtual appliance**!
 
 ## Installing
 
-Installing the `mattermost.tar` Application Bundle results in creating a Kubernetes
+Installing the `mattermost.tar` cluster image results in creating a Kubernetes
 cluster with the application pre-loaded. This file is the only artifact
 one needs to create a Kubernetes cluster with Mattermost running inside.
 
@@ -383,7 +389,7 @@ application into a private network.
 
 To launch a web installer, you will need:
 
-* The application bundle `mattermost.tar` which we have prepared earlier.
+* The cluster image `mattermost.tar` which we have prepared earlier.
 * A Linux computer with a graphical interface, connected to the same network
   with the target Linux nodes.
 
