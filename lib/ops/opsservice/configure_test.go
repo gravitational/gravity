@@ -139,6 +139,7 @@ func (s *ConfigureSuite) TestGeneratesPlanetConfigPackage(c *check.C) {
 		env: map[string]string{
 			"VAR":  "value",
 			"VAR2": "value2",
+			"VAR3": "value1,value2",
 		},
 		config: &clusterconfig.Resource{
 			Kind:    storage.KindClusterConfiguration,
@@ -181,7 +182,7 @@ multizone=true`,
 		"secrets-dir":                {"/var/lib/gravity/secrets"},
 		"election-enabled":           {"true"},
 		"service-uid":                {"1000"},
-		"env":                        {"VAR=value", "VAR2=value2"},
+		"env":                        {`VAR="value"`, `VAR2="value2"`, `VAR3="value1,value2"`},
 		"volume": {
 			"/var/lib/gravity/planet/etcd:/ext/etcd",
 			"/var/lib/gravity/planet/docker:/ext/docker",
