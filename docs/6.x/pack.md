@@ -294,6 +294,9 @@ metadata:
   # Free-form author of the application
   author: Alice <alice@example.com>
 
+# TODO COMMENT
+baseImage: "gravity:6.0.0"
+
 # Release notes is a freestyle HTML field which will be shown as part of the install/upgrade
 # of the application.
 #
@@ -326,20 +329,6 @@ endpoints:
 
 # Providers allow you to override certain aspects of cloud and generic providers configuration
 providers:
-  aws:
-    # Terraform allows you to override default terraform scripts for provisioning AWS infrastructure
-    terraform:
-      # Script for provisioning AWS infrastructure like VPC, security groups, etc.
-      script: file://terraform.tf
-      # Script for provisioning a single AWS instance; it will be executed every time a new instance
-      # is provisioned
-      instanceScript: file://terraform.tf
-    # Supported AWS regions, defaults to all regions
-    regions:
-      - us-east-1
-      - us-west-2
-
-  # Generic provider is used for on-premises installations
   generic:
     # Network section allows to specify networking type;
     # vxlan - (Default) use flannel for overlay network
@@ -488,20 +477,6 @@ nodeProfiles:
               - "8080"
               - "10000-10005"
 
-    # Fixed expand policy prevents adding more nodes of this type on an installed cluster
-    #
-    # Another supported policy is "fixed-instance" which only allows adding more nodes
-    # of this type of the same instance type (e.g. on AWS)
-    expandPolicy: fixed
-
-    # Instance types directive allows application vendors to further restrict the
-    # server flavor to the specific AWS (or other cloud) instance types.
-    providers:
-      aws:
-        instanceTypes:
-          - c3.2xlarge
-          - m3.2xlarge
-
   - name: worker
     description: "General Purpose Worker Node"
     labels:
@@ -518,11 +493,6 @@ license:
   enabled: true
 
 systemOptions:
-  # Runtime allows you to override the version of the Kubernetes runtime that is used
-  # (defaults to the latest available)
-  runtime:
-    version: "1.5.0"
-
   # Docker section allows to customize docker
   docker:
     # Storage backend used, supported: "overlay", "overlay2" (default)
@@ -570,12 +540,6 @@ hooks:
     # this application bundle manifest
     job: file://post-install-hook.yaml
 
-  # called to provision the cluster via Ops Center using custom job
-  clusterProvision:
-
-  # called to deprovision the cluster via Ops Center with custom job
-  clusterDeprovision:
-
   # called when uninstalling the application
   uninstall:
 
@@ -585,17 +549,11 @@ hooks:
   # called before adding a new node to the cluster
   preNodeAdd:
 
-  # called to provision one or several nodes
-  nodesProvision:
-
   # called after a new node has need added to the cluster
   postNodeAdd:
 
   # called before a node is removed from the cluster
   preNodeRemove:
-
-  # called to deprovision one or several nodes
-  nodesDeprovision:
 
   # called after a node has been removed from the cluster
   postNodeRemove:
