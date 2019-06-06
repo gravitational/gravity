@@ -79,8 +79,8 @@ To build a cluster image we'll perform the following steps:
    components, this makes an application capable of running on Kubernetes. 
    You can place all Kubernetes resource files (usually in YAML format) in the 
    same directory, or you can use Helm.
-3. Create a Gravity application manifest to describe the system requirements
-   for a Kubernetes cluster capable of running your application. An application manifest
+3. Create a Gravity cluster manifest to describe the system requirements
+   for a Kubernetes cluster capable of running your application. A cluster manifest
    is a YAML file which allows you to customize the cluster image.
 4. Execute `tele build` CLI command.
 
@@ -124,9 +124,9 @@ You are welcome to modify it to your liking.
     In this tutorial, we are packaging a single Helm chart but it is possible
     to have several of them packaged into a single cluster image.
 
-### Step 3: Creating the Application Manifest
+### Step 3: Creating the Cluster Manifest
 
-In this step, we create an Application Manifest which describes the system
+In this step, we create an cluster manifest which describes the system
 requirements for the Kubernetes cluster.
 
 We have already prepared one for this guide in the cloned repo: `mattermost/resources/app.yaml`. You can [open it on Github](https://github.com/gravitational/quickstart/blob/master/mattermost/resources/app.yaml) for convenience. We have commented the most important fields
@@ -236,7 +236,7 @@ Here is a brief description of these files:
 File Name    | Description
 -------------|------------------------
 `gravity`    | Gravity cluster manager which is a Linux binary (executable). It's responsible for installing, upgrading and managing clusters.
-`app.yaml`   | The application manifest which we've defined earlier and fed to `tele build`. You'll notice that the build process populated the manifest with additional metadata.
+`app.yaml`   | The cluster manifest which we've defined earlier and fed to `tele build`. You'll notice that the build process populated the manifest with additional metadata.
 `packages`   | The database of Docker image layers for all containers and other binary artifacts, like Kubernetes binaries.
 `gravity.db` | The metadata of what's stored in `packages`.
 `upgrade`, `install`, `upload` | Helpful bash wrappers around `gravity` command.

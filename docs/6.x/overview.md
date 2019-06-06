@@ -96,47 +96,35 @@ To package a cluster into a cluster image:
 * Create Kubernetes resources describing your application(s). You can use "raw"
   Kubernetes resources as YAML files, but [Helm charts](https://helm.sh/) are
   also supported.
-* Provide an Application Manifest described below. The manifest is used to customize
+* Provide a cluster manifest described below. The manifest is used to customize
   the cluster image.
 * Place all of these files in the same directory and execute `tele build`
 
-The Application Manifest is required to describe hardware/system requirements
-of your cluster and to customize the process of creating a new cluster instance.
+A cluster manifest is required to describe hardware/system requirements of your
+cluster and to customize the process of creating a new cluster instance.
 
 !!! tip "Gravity Roadmap Tip":
     Kubernetes community is working on finalizing the cluster API spec. Once it
     becomes production ready, Gravity developers will be looking into adopting the
-    future standard to replace the application manifest in the future. Meanwhile, 
+    future standard to replace the cluster manifest in the future. Meanwhile, 
     it continues to be the only production-ready method of describing hardware
     requirements for K8s clusters.
 
-Below is a sample Application Manifest in YAML format. It follows Kubernetes
+Below is a sample cluster manifest in YAML format. It follows Kubernetes
 configuration conventions:
 
 ```yaml
-apiVersion: bundle.gravitational.io/v2
-kind: Bundle
+# this is an example of a small cluster manifest
+apiVersion: cluster.gravitational.io/v2
+kind: Cluster
 metadata:
-  name: telekube
+  name: "Example"
   resourceVersion: "1.0.0"
 
-# Applications can be white-labeled with vendor's look and feel.
-logo: "http://example.com/logo.jpg"
-
 installer:
-  # An application can be configured with multiple "flavors", perhaps letting
-  # the end user of a cluster to customize its shape and size.
-  flavors:
-    prompt: "Select a flavor"
-    items:
-      - name: "one"
-        description: "1 node"
-        nodes:
-          - profile: node
-            count: 1
-
-# An application must define its system requirements, i.e. if an application
-# needs certain amounts of RAM/CPU/storage to run, they can be listed here.
+# a cluster image may optionally include the system requirements. this allows
+# the publisher of an image to restrict its usage only to infrastructure with
+# a defined performance envelope
 nodeProfiles:
   - name: node
     description: "worker node"
@@ -147,15 +135,15 @@ nodeProfiles:
         min: "2GB"
 ```
 
-The Application Manifest works in conjunction with [Helm charts](https://helm.sh/)
+The cluster manifest works in conjunction with [Helm charts](https://helm.sh/)
 and Kubernetes resources like jobs and configuration maps. These tools provide
 the high degree of flexibility for specifying how applications are installed,
 updated and configured. 
 
 To create a cluster image you have to:
 
-1. Place the required Kubernetes resources, Helm charts and the Application
-   Manifest in the same directory.
+1. Place the required Kubernetes resources, Helm charts and the cluster
+   manifest in the same directory.
 2. Execute the `tele build` command to create the Application Bundle:
 
 ```bsh
@@ -165,7 +153,7 @@ $ tele build -o cluster-image.tar manifest.yaml
 This will produce the cluster image called `cluster-image.tar`, which can be
 deployed across any cloud providers and private data centers. 
 
-You can learn more about the Application Manifest in the [Packaging & Deployment](pack.md) 
+You can learn more about the cluster manifest in the [Packaging & Deployment](pack.md) 
 section of the documentation.
 
 ## Publishing
