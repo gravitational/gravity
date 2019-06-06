@@ -74,10 +74,12 @@ func NewPeer(config PeerConfig) (*Peer, error) {
 		dispatcher: dispatcher,
 		// Account for server exit, agent exit and agent reconnect failure
 		errC:     make(chan error, 3),
+		execC:    make(chan *installpb.ExecuteRequest),
 		connectC: make(chan connectResult, 1),
 	}
 	peer.startConnectLoop()
 	peer.startExecuteLoop()
+	peer.startReconnectWatchLoop()
 	return peer, nil
 }
 
@@ -103,7 +105,6 @@ type Peer struct {
 
 // Run runs the peer operation
 func (p *Peer) Run(listener net.Listener) error {
-	go watchReconnects(p.ctx, p.errC, p.WatchCh, p.FieldLogger)
 	go func() {
 		p.errC <- p.server.Run(p, listener)
 	}()
@@ -123,6 +124,7 @@ func (p *Peer) Stop(ctx context.Context) error {
 // Execute executes the peer operation (join or just serving an agent).
 // Implements server.Executor
 func (p *Peer) Execute(req *installpb.ExecuteRequest, stream installpb.Agent_ExecuteServer) (err error) {
+	p.WithField("req", req).Info("Execute.")
 	if !p.submit(req) && !req.IsResume() {
 		// Execute the operation with a new dispatcher
 		return p.executeConcurrentStep(req, stream)
@@ -265,6 +267,14 @@ func (p *Peer) startExecuteLoop() {
 	}()
 }
 
+func (p *Peer) startReconnectWatchLoop() {
+	p.wg.Add(1)
+	go func() {
+		watchReconnects(p.ctx, p.errC, p.WatchCh, p.FieldLogger)
+		p.wg.Done()
+	}()
+}
+
 // submit submits the specified request for execution.
 // Returns true whether the request has actually started an operation
 func (p *Peer) submit(req *installpb.ExecuteRequest) bool {
@@ -279,7 +289,7 @@ func (p *Peer) submit(req *installpb.ExecuteRequest) bool {
 
 // execute executes either the complete operation or a single phase specified with req
 func (p *Peer) execute(req *installpb.ExecuteRequest) (err error) {
-	p.WithField("req", req).Info("Execute.")
+	p.WithField("req", req).Info("execute.")
 	opCtx, err := p.operationContext()
 	if err != nil {
 		return trace.Wrap(err)
@@ -291,11 +301,16 @@ func (p *Peer) execute(req *installpb.ExecuteRequest) (err error) {
 }
 
 func (p *Peer) executeConcurrentStep(req *installpb.ExecuteRequest, stream installpb.Agent_ExecuteServer) error {
+	p.WithField("req", req).Info("executeConcurrentStep.")
+	opCtx, err := p.operationContext()
+	if err != nil {
+		return trace.Wrap(err)
+	}
 	dispatcher := simple.New()
-	defer dispatcher.Close()
-	// FIXME: fetch operation context
-	var opCtx operationContext
-	go p.executePhase(stream.Context(), opCtx, *req.Phase, dispatcher)
+	go func() {
+		p.executePhase(stream.Context(), *opCtx, *req.Phase, dispatcher)
+		dispatcher.Close()
+	}()
 	for event := range dispatcher.Chan() {
 		err := stream.Send(event)
 		if err != nil {
@@ -812,6 +827,7 @@ func (p *Peer) emitAuditEvent(ctx operationContext) error {
 func (p *Peer) operationContext() (*operationContext, error) {
 	select {
 	case result := <-p.connectC:
+		p.connectC <- result
 		if result.err != nil {
 			return nil, trace.Wrap(result.err)
 		}

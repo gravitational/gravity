@@ -622,11 +622,16 @@ func executePhaseFromService(
 	go clientTerminationHandler(interrupt, env)
 
 	env.PrintStep(connecting)
-	client, err := installerclient.New(ctx, installerclient.Config{
+	config := installerclient.Config{
+		ConnectStrategy:  &installerclient.ResumeStrategy{},
 		InterruptHandler: interrupt,
 		Printer:          env,
-		ConnectStrategy:  &installerclient.ResumeStrategy{},
-	})
+	}
+	if params.isResume() {
+		config.Aborter = installerAbortOperation(env)
+		config.Completer = InstallerCompleteOperation(env)
+	}
+	client, err := installerclient.New(ctx, config)
 	if err != nil {
 		return trace.Wrap(err)
 	}

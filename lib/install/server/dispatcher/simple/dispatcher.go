@@ -53,6 +53,7 @@ func (r *Dispatcher) startMessageLoop() {
 				case <-r.ctx.Done():
 				}
 			case <-r.ctx.Done():
+				close(r.notifyC)
 				return
 			}
 		}

@@ -209,7 +209,7 @@ func (r *Client) execute(ctx context.Context, req *installpb.ExecuteRequest) err
 	case <-ctx.Done():
 		return trace.Wrap(ctx.Err())
 	case <-r.InterruptHandler.Done():
-		return trace.BadParameter("operation aborted")
+		return installpb.ErrAborted
 	}
 }
 
@@ -236,9 +236,6 @@ func (r *Client) progressLoop(stream installpb.Agent_ExecuteClient) (status inst
 			r.WithError(err).Warn("Failed to fetch progress.")
 			return installpb.StatusUnknown, trace.Wrap(err)
 		}
-		if resp.IsAborted() {
-			return resp.Status, installpb.ErrAborted
-		}
 		// Exit upon first error
 		if resp.Error != nil {
 			return resp.Status, trace.BadParameter(resp.Error.Message)
@@ -256,8 +253,10 @@ func (r *Client) handleProgressStatus(ctx context.Context, cancel context.Cancel
 		if status == installpb.StatusUnknown {
 			return nil
 		}
+		// We received completion status
+		err = r.complete(ctx, status)
 		cancel()
-		return trace.Wrap(r.complete(ctx, status))
+		return trace.Wrap(err)
 	case trace.IsEOF(err):
 		// Stream done but no completion event
 		return nil
@@ -277,6 +276,10 @@ func (r *Client) abort(ctx context.Context) error {
 }
 
 func (r *Client) complete(ctx context.Context, status installpb.ProgressResponse_Status) error {
+	_, err := r.client.Shutdown(ctx, &installpb.ShutdownRequest{})
+	if err != nil {
+		return trace.Wrap(err)
+	}
 	return trace.Wrap(r.Completer(ctx, r.InterruptHandler, status))
 }
 
