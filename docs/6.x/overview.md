@@ -197,28 +197,33 @@ Creating a new clusters from a cluster image is trivial:
 
 For more details about the installation process, please refer to [Installation Guide](installation.md).
 
-## Ongoing Management
+## Cluster Management
 
 Once a cluster image is installed, it becomes a fully operational and
-autonomous Gravity/Kubernetes cluster.
+autonomous Gravity/Kubernetes cluster. It can be said that a _cluster is
+an instance of a cluster image_.
 
-Gravity offers the command line (CLI) tool called `gravity` to manage a
-cluster. `gravity` is automatically installed on all cluster nodes and offers
-the following features:
+Gravity comes with a tool called `gravity` which serves two purposes:
 
-1. Add new nodes to a cluster.
-2. Remove nodes from a cluster.
-3. Print cluster cluster status.
-4. Perform updates to the cluster runtime (i.e. K8s itself), as well as upgrades
-   of individual applications in the Clusters.
+* It runs as a Linux daemon on every cluster node acting as a "Kubernetes
+  hypervisor", continuously monitoring the health of Kubernetes services
+  and re-configuring them if necessary. For example, it provides automatic
+  management of `etcd`.
+* It is available as a command line (CLI) tool to perform cluster
+  administration tasks such as:
+    1. Adding or removing nodes to a cluster.
+    2. Performing in-place upgrades of Kubernetes or any of the applications
+       running inside.
+    3. Printing cluster status.
 
-`gravity` is a higher level replacement for tools like `kubeadm` or `etcdadm`.
-It provides automatic, hypervisor-like management of `etcd`. Additionally, it
-delivers benefits such as enforcing system requirements and delivering on the 
-promise of lower operational overhead for managing many Kubernetes clusters. 
+When it comes to cluster management, `gravity` is a higher level replacement
+for tools like `kubeadm` or `etcdadm`.  It delivers benefits such as enforcing
+system requirements and delivering on the promise of lower operational overhead
+by automating away many mundane Kubernetes tasks. **It is the "magic sauce" that 
+makes a Kubernetes cluster feel like a reliable appliance.**
 
-You can also still use `kubectl` for tasks like watching logs, seeing stats for
-pods or volumes, managing configuration and other operational tasks.
+You can still use `kubectl` for tasks like watching logs, seeing stats for pods
+or volumes, managing configuration and other operational tasks.
 
 ### Updates and Upgrades
 
