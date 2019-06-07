@@ -33,7 +33,7 @@ type S struct {
 
 var _ = Suite(&S{})
 
-func (S) TestBufferesEventsWhenReceiverIsUnavilable(c *C) {
+func (S) TestBuffersEventsWhenReceiverIsUnavilable(c *C) {
 	d := New()
 	defer d.Close()
 

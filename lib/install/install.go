@@ -33,7 +33,6 @@ import (
 	"github.com/gravitational/gravity/lib/ops"
 	rpcserver "github.com/gravitational/gravity/lib/rpc/server"
 	"github.com/gravitational/gravity/lib/system/signals"
-	"github.com/gravitational/gravity/lib/utils"
 
 	"github.com/gravitational/trace"
 	log "github.com/sirupsen/logrus"
@@ -212,7 +211,7 @@ func (i *Installer) executePhase(phase installpb.ExecuteRequest_Phase) error {
 	params := fsm.Params{
 		PhaseID:  phase.ID,
 		Force:    phase.Force,
-		Progress: newProgressReporter(i.ctx, i.dispatcher, phaseTitle(phase)),
+		Progress: dispatcher.NewProgressReporter(i.ctx, i.dispatcher, phaseTitle(phase)),
 	}
 	if phase.Rollback {
 		return trace.Wrap(machine.RollbackPhase(i.ctx, params))
@@ -309,14 +308,6 @@ type Installer struct {
 	execC      chan *installpb.ExecuteRequest
 	dispatcher dispatcher.EventDispatcher
 	wg         sync.WaitGroup
-}
-
-func newProgressReporter(ctx context.Context, disp dispatcher.EventDispatcher, title string) utils.Progress {
-	return utils.NewProgressWithConfig(
-		ctx, title, utils.ProgressConfig{
-			Output: dispatcher.NewWriter(disp),
-		},
-	)
 }
 
 func phaseTitle(phase installpb.ExecuteRequest_Phase) string {

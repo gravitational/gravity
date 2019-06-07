@@ -17,20 +17,24 @@ package dispatcher
 
 import (
 	"bytes"
+	"context"
 	"fmt"
 	"unicode"
 
 	installpb "github.com/gravitational/gravity/lib/install/proto"
 	"github.com/gravitational/gravity/lib/ops"
+	"github.com/gravitational/gravity/lib/utils"
 )
 
 // EventDispatcher dispatches progress events to clients
 type EventDispatcher interface {
+	// Send sends the specified event to the client
 	Send(Event)
 	// Close stops the dispatcher and release its resources.
 	// It is an error to invoke Send after Close
 	Close()
-	// Chan returns the channel that receives events
+	// Chan returns the channel that receives events.
+	// Close closes this channel
 	Chan() <-chan *installpb.ProgressResponse
 }
 
@@ -98,7 +102,17 @@ const (
 	StatusCompletedPending Status = iota
 )
 
-// NewWriter creates a new event writer that can be used a progress output sink
+// NewProgressReporter creates a new progress reporter using the specified dispatcher disp
+// as output sink
+func NewProgressReporter(ctx context.Context, dispatcher EventDispatcher, title string) utils.Progress {
+	return utils.NewProgressWithConfig(
+		ctx, title, utils.ProgressConfig{
+			Output: NewWriter(dispatcher),
+		},
+	)
+}
+
+// NewWriter creates a new event writer that can be used as a progress output sink
 func NewWriter(dispatcher EventDispatcher) *EventWriter {
 	return &EventWriter{EventDispatcher: dispatcher}
 }

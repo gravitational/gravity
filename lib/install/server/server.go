@@ -117,15 +117,10 @@ type Executor interface {
 }
 
 // Server implements the installer gRPC server.
-// The server itself does not do any work but merely relays requests to an executor.
+// The server itself does not do any work and merely relays requests to an executor.
 //
-// Server has an internal progress message bus that dispatches installer events to
-// the connected client.
-// If the client drops the connection, the messages are buffered internally and will be
-// resent once the client reconnects.
-//
-// Executor is responsible for detecting end-of-operation condition and stop and shutdown
-// the server appropriately.
+// Executor is responsible for detecting end-of-operation condition and stopping and
+// shutting down the server appropriately.
 type Server struct {
 	log.FieldLogger
 	// rpc is the internal gRPC server instance

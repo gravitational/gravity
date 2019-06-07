@@ -333,7 +333,7 @@ func (p *Peer) executeConcurrentStep(req *installpb.ExecuteRequest, stream insta
 	return nil
 }
 
-func (p *Peer) executePhase(ctx context.Context, opCtx operationContext, phase installpb.ExecuteRequest_Phase, dispatcher dispatcher.EventDispatcher) error {
+func (p *Peer) executePhase(ctx context.Context, opCtx operationContext, phase installpb.ExecuteRequest_Phase, disp dispatcher.EventDispatcher) error {
 	if phase.IsResume() && !opCtx.supportsResume() {
 		return trace.Wrap(p.run(opCtx))
 	}
@@ -347,7 +347,7 @@ func (p *Peer) executePhase(ctx context.Context, opCtx operationContext, phase i
 	params := fsm.Params{
 		PhaseID:  phase.ID,
 		Force:    phase.Force,
-		Progress: newProgressReporter(ctx, dispatcher, phaseTitle(phase)),
+		Progress: dispatcher.NewProgressReporter(ctx, disp, phaseTitle(phase)),
 	}
 	if phase.Rollback {
 		return trace.Wrap(machine.RollbackPhase(ctx, params))
@@ -817,7 +817,7 @@ func (p *Peer) executeExpandOperation(ctx operationContext) error {
 	if err != nil {
 		return trace.Wrap(err)
 	}
-	progress := newProgressReporter(p.ctx, p.dispatcher, "Executing expand operation")
+	progress := dispatcher.NewProgressReporter(p.ctx, p.dispatcher, "Executing expand operation")
 	fsmErr := fsm.ExecutePlan(p.ctx, progress)
 	if fsmErr != nil {
 		p.WithError(fsmErr).Warn("Failed to execute plan.")
@@ -959,12 +959,6 @@ func (p *Peer) sendError(err error) {
 	p.dispatcher.Send(dispatcher.Event{
 		Error: err,
 	})
-}
-
-func newProgressReporter(ctx context.Context, disp dispatcher.EventDispatcher, title string) utils.Progress {
-	return utils.NewProgressWithConfig(
-		ctx, title, utils.ProgressConfig{Output: dispatcher.NewWriter(disp)},
-	)
 }
 
 // Send dispatches the specified event to client
