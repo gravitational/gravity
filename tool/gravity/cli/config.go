@@ -282,6 +282,10 @@ func (i *InstallConfig) CheckAndSetDefaults() (err error) {
 	if err != nil {
 		return trace.Wrap(err)
 	}
+	err = i.validateApplicationDir()
+	if err != nil {
+		return trace.Wrap(err)
+	}
 	if i.DNSConfig.IsEmpty() {
 		i.DNSConfig = storage.DefaultDNSConfig
 	}
@@ -391,6 +395,11 @@ func (i *InstallConfig) NewInstallerConfig(
 		LocalAgent:         !i.ExcludeHostFromCluster,
 	}, nil
 
+}
+
+func (i *InstallConfig) validateApplicationDir() error {
+	_, err := i.getApp()
+	return trace.Wrap(err)
 }
 
 // getAdvertiseAddr returns the advertise address to use for the ???

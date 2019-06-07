@@ -37,7 +37,7 @@ import (
 	"github.com/gravitational/gravity/lib/install/server"
 	"github.com/gravitational/gravity/lib/install/server/dispatcher"
 	"github.com/gravitational/gravity/lib/install/server/dispatcher/buffered"
-	"github.com/gravitational/gravity/lib/install/server/dispatcher/simple"
+	"github.com/gravitational/gravity/lib/install/server/dispatcher/direct"
 	"github.com/gravitational/gravity/lib/localenv"
 	validationpb "github.com/gravitational/gravity/lib/network/validation/proto"
 	"github.com/gravitational/gravity/lib/ops"
@@ -275,6 +275,19 @@ func (p *Peer) startReconnectWatchLoop() {
 	}()
 }
 
+func (p *Peer) startProgressLoop(ctx operationContext) {
+	p.wg.Add(1)
+	go func() {
+		defer p.wg.Done()
+		install.ProgressLooper{
+			FieldLogger:  p.FieldLogger,
+			Operator:     ctx.Operator,
+			OperationKey: ctx.Operation.Key(),
+			Dispatcher:   &eventDispatcher{w: dispatcher.NewWriter(p.dispatcher)},
+		}.Run(p.ctx)
+	}()
+}
+
 // submit submits the specified request for execution.
 // Returns true whether the request has actually started an operation
 func (p *Peer) submit(req *installpb.ExecuteRequest) bool {
@@ -306,7 +319,7 @@ func (p *Peer) executeConcurrentStep(req *installpb.ExecuteRequest, stream insta
 	if err != nil {
 		return trace.Wrap(err)
 	}
-	dispatcher := simple.New()
+	dispatcher := direct.New()
 	go func() {
 		p.executePhase(stream.Context(), *opCtx, *req.Phase, dispatcher)
 		dispatcher.Close()
@@ -655,6 +668,8 @@ func (p *Peer) newAgent(opCtx operationContext) (*rpcserver.PeerServer, error) {
 }
 
 func (p *Peer) run(ctx operationContext) error {
+	// FIXME: install gravity binary before any plan steps are executed
+	// to avoid race
 	if err := p.bootstrap(); err != nil {
 		return trace.Wrap(err)
 	}
@@ -699,7 +714,9 @@ func (p *Peer) run(ctx operationContext) error {
 			Dispatcher:   &eventDispatcher{w: dispatcher.NewWriter(p.dispatcher)},
 		}.Run(p.ctx))
 	}
-	return trace.Wrap(p.startExpandOperation(ctx))
+
+	p.startProgressLoop(ctx)
+	return trace.Wrap(p.executeExpandOperation(ctx))
 }
 
 // waitForOperation blocks until the join operation is ready
@@ -737,7 +754,7 @@ func (p *Peer) waitForAgents(ctx operationContext) error {
 	})
 	defer ticker.Stop()
 	log := p.WithField(constants.FieldOperationID, ctx.Operation.ID)
-	log.Debug("Waiting for the agent to join.")
+	log.Debug("Waiting for agent to join.")
 	for {
 		select {
 		case tm := <-ticker.C:
@@ -767,7 +784,7 @@ func (p *Peer) waitForAgents(ctx operationContext) error {
 			if err != nil {
 				return trace.Wrap(err)
 			}
-			log.WithField("report", report).Info("Installation can proceed!")
+			log.WithField("report", report).Info("Installation can proceed.")
 			return nil
 		case <-p.ctx.Done():
 			return trace.Wrap(p.ctx.Err())
@@ -775,7 +792,7 @@ func (p *Peer) waitForAgents(ctx operationContext) error {
 	}
 }
 
-func (p *Peer) startExpandOperation(ctx operationContext) error {
+func (p *Peer) executeExpandOperation(ctx operationContext) error {
 	err := p.waitForOperation(ctx)
 	if err != nil {
 		return trace.Wrap(err)
@@ -945,9 +962,8 @@ func (p *Peer) sendError(err error) {
 }
 
 func newProgressReporter(ctx context.Context, disp dispatcher.EventDispatcher, title string) utils.Progress {
-	w := &eventDispatcher{w: dispatcher.NewWriter(disp)}
 	return utils.NewProgressWithConfig(
-		ctx, title, utils.ProgressConfig{Output: w},
+		ctx, title, utils.ProgressConfig{Output: dispatcher.NewWriter(disp)},
 	)
 }
 

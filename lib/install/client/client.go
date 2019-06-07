@@ -213,7 +213,7 @@ func (r *Client) execute(ctx context.Context, req *installpb.ExecuteRequest) err
 	}
 }
 
-func (r *Client) startProgressLoop(stream installpb.Agent_ExecuteClient) chan result {
+func (r *Client) startProgressLoop(stream installpb.Agent_ExecuteClient) <-chan result {
 	resultC := make(chan result, 1)
 	go func() {
 		status, err := r.progressLoop(stream)
@@ -242,6 +242,7 @@ func (r *Client) progressLoop(stream installpb.Agent_ExecuteClient) (status inst
 		}
 		r.PrintStep(resp.Message)
 		if resp.IsCompleted() {
+			r.WithField("resp", resp).Info("Received completed response.")
 			return resp.Status, nil
 		}
 	}
