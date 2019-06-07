@@ -43,12 +43,8 @@ func (m *Handler) Resources(ctx *AuthContext) (resources.Resources, error) {
 
 // getResourceHandler is GET handler that returns ConfigItems for requested resource kind
 func (m *Handler) getResourceHandler(w http.ResponseWriter, r *http.Request, p httprouter.Params, ctx *AuthContext) (interface{}, error) {
-	key, err := clusterKey(ctx, p)
-	if err != nil {
-		return nil, trace.Wrap(err)
-	}
 	kind := p.ByName("kind")
-	data, err := m.getResources(*key, kind, ctx)
+	data, err := m.getResources(clusterKey(ctx, p), kind, ctx)
 	if err != nil {
 		return nil, trace.Wrap(err)
 	}
@@ -72,13 +68,8 @@ func (m *Handler) upsertResourceHandler(w http.ResponseWriter, r *http.Request, 
 		return nil, trace.Wrap(err)
 	}
 
-	key, err := clusterKey(ctx, p)
-	if err != nil {
-		return nil, trace.Wrap(err)
-	}
-
 	isNew := r.Method == http.MethodPost
-	items, err := m.upsertResource(r.Context(), *key, isNew, *rawRes, ctx)
+	items, err := m.upsertResource(r.Context(), clusterKey(ctx, p), isNew, *rawRes, ctx)
 	if err != nil {
 		return nil, trace.Wrap(err)
 	}
@@ -88,13 +79,9 @@ func (m *Handler) upsertResourceHandler(w http.ResponseWriter, r *http.Request, 
 
 // deleteResourceHandler is DELETE handler that removes a resource by its kind and name values
 func (m *Handler) deleteResourceHandler(w http.ResponseWriter, r *http.Request, p httprouter.Params, ctx *AuthContext) (interface{}, error) {
-	key, err := clusterKey(ctx, p)
-	if err != nil {
-		return nil, trace.Wrap(err)
-	}
 	resourceKind := p.ByName("kind")
 	resourceName := p.ByName("name")
-	if err := m.deleteResource(r.Context(), *key, resourceKind, resourceName, ctx); err != nil {
+	if err := m.deleteResource(r.Context(), clusterKey(ctx, p), resourceKind, resourceName, ctx); err != nil {
 		return nil, trace.Wrap(err)
 	}
 
