@@ -58,6 +58,7 @@ import (
 	"github.com/gravitational/gravity/lib/utils"
 
 	"github.com/docker/docker/pkg/namesgenerator"
+	teledefaults "github.com/gravitational/teleport/lib/defaults"
 	teleutils "github.com/gravitational/teleport/lib/utils"
 	"github.com/gravitational/trace"
 	"github.com/sirupsen/logrus"
@@ -234,7 +235,16 @@ func (i *InstallConfig) CheckAndSetDefaults() (err error) {
 		}
 		return trace.Wrap(err)
 	}
-	if i.Token == "" {
+	if i.Token != "" {
+		if len(i.Token) < teledefaults.MinPasswordLength {
+			return trace.BadParameter("install token is too short, min length is %v",
+				teledefaults.MinPasswordLength)
+		}
+		if len(i.Token) > teledefaults.MaxPasswordLength {
+			return trace.BadParameter("install token is too long, max length is %v",
+				teledefaults.MaxPasswordLength)
+		}
+	} else {
 		if i.Token, err = teleutils.CryptoRandomHex(6); err != nil {
 			return trace.Wrap(err)
 		}
