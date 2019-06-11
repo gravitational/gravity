@@ -17,6 +17,9 @@ limitations under the License.
 const webpack = require('webpack');
 const baseCfg = require('./webpack.base');
 
+process.env.BABEL_ENV = 'production';
+process.env.NODE_ENV = 'production';
+
 //const BundleAnalyzerPlugin = require('webpack-bundle-analyzer').BundleAnalyzerPlugin;
 
 var cfg = {
@@ -49,7 +52,6 @@ var cfg = {
     //new BundleAnalyzerPlugin(),
     new webpack.HashedModuleIdsPlugin(),
     baseCfg.plugins.createIndexHtml(),
-    // baseCfg.plugins.extractAppCss(),
  ]
 };
 

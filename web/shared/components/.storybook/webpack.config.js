@@ -17,44 +17,12 @@ limitations under the License.
 const path = require("path");
 const webpackBaseCfg = require('./../../../webpack/webpack.base');
 
-const rules = [
-
-  webpackBaseCfg.rules.css({ dev: true }),
-  {
-    test: /fonts\/(.)+\.(woff|woff2|ttf|eot|svg)/,
-    loader: 'url-loader',
-    include: /(node_modules)|(.json$)|(assets)/,
-    options: {
-      limit: 102400, // 100kb
-      name: '[name].[ext]',
-    }
-  },
-  webpackBaseCfg.rules.svg,
-  {
-    test: /\.(js|jsx)$/,
-    enforce: "pre",
-    loader: "eslint-loader",
-    exclude: /(node_modules)|(assets)/,
-    options: {
-      emitWarning: true
-    },
-  },
-  {
-    test: /\.(png|jpg|gif)$/,
-    loader: "file-loader",
-  },
-]
-
-module.exports = (baseConfig, env, defaultConfig) => {
-
-  baseConfig.devtool = false;
-
-  baseConfig.module.rules.push(...rules);
-
-  baseConfig.resolve = {
-    ...baseConfig.resolve,
+module.exports = ({ config }) => {
+  config.devtool = false;
+  config.resolve = {
+    ...config.resolve,
     ...webpackBaseCfg.resolve,
   }
 
-  return baseConfig;
+  return config;
 };

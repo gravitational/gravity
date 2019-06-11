@@ -17,10 +17,11 @@ limitations under the License.
 import React from 'react';
 import styled from 'styled-components';
 import PropTypes from 'prop-types';
-import keycode from 'keycode';
 import { ownerDocument } from './../utils';
 import Portal from './Portal';
 import RootRef from './RootRef';
+
+const ESC = 27;
 
 function getHasTransition(props) {
   return props.children ? props.children.props.hasOwnProperty('in') : false;
@@ -118,7 +119,7 @@ class Modal extends React.Component {
 
   handleDocumentKeyDown = event => {
     // Ignore events that have been `event.preventDefault()` marked.
-    if (keycode(event) !== 'esc' || !this.isTopModal() || event.defaultPrevented) {
+    if (event.which !== ESC || !this.isTopModal() || event.defaultPrevented) {
       return;
     }
 

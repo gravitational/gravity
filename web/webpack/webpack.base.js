@@ -183,23 +183,10 @@ module.exports = {
 
 function jsx(args){
   args = args || {};
-  var plugins = ["@babel/plugin-proposal-class-properties", "@babel/plugin-proposal-object-rest-spread", "@babel/plugin-syntax-dynamic-import"];
-  var moduleType = false;
   var emitWarning = false;
-
   if(args.withHot){
-    plugins.unshift('react-hot-loader/babel');
-    plugins.push("babel-plugin-styled-components");
     emitWarning = true;
   }
-
-
-  // use commonjs modules to be able to override exports in tests
-  if(args.test){
-    moduleType = 'commonjs'
-  }
-
-  var presets =   ['@babel/preset-react', [ "@babel/preset-env", { "modules": moduleType } ] ];
 
   return {
     include: [SHARED_BASE_PATH, BASE_PATH],
@@ -208,14 +195,6 @@ function jsx(args){
     use: [
       {
         loader: 'babel-loader',
-        options: {
-          presets,
-          plugins,
-          // This is a feature of `babel-loader` for webpack (not Babel itself).
-          // It enables caching results in ./node_modules/.cache/babel-loader/
-          // directory for faster rebuilds.
-          cacheDirectory: true
-        }
       },
       {
         loader: "eslint-loader",
