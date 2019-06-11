@@ -147,7 +147,7 @@ type Interface interface {
 }
 
 // submit submits the specified request for execution.
-// Returns true whether the request has actually started an operation
+// Returns true if the request has actually started an operation
 func (i *Installer) submit(req *installpb.ExecuteRequest) bool {
 	select {
 	case i.execC <- req:

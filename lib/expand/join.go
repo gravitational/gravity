@@ -235,9 +235,9 @@ func (p *Peer) startConnectLoop() {
 	p.wg.Add(1)
 	go func() {
 		defer p.wg.Done()
-		ctx, err := p.connect()
+		ctx, err := p.connectLoop()
 		if err == nil {
-			err = p.startAgent(*ctx)
+			err = p.init(*ctx)
 		}
 		select {
 		case p.connectC <- connectResult{
@@ -249,6 +249,10 @@ func (p *Peer) startConnectLoop() {
 	}()
 }
 
+// startExecuteLoop starts a loop that services the channel to handle
+// step execute requests.
+// The step execution is blocking - i.e. when there's an active operation in flight,
+// the subsequent requests are blocked
 func (p *Peer) startExecuteLoop() {
 	p.wg.Add(1)
 	go func() {
@@ -258,7 +262,10 @@ func (p *Peer) startExecuteLoop() {
 			case req := <-p.execC:
 				if err := p.execute(req); err != nil {
 					p.sendError(err)
-					p.WithError(err).Warn("Failed to execute.")
+					p.WithFields(log.Fields{
+						log.ErrorKey: err,
+						"req":        req,
+					}).Warn("Failed to execute phase.")
 				}
 			case <-p.ctx.Done():
 				return
@@ -267,6 +274,11 @@ func (p *Peer) startExecuteLoop() {
 	}()
 }
 
+// startReconnectWatchLoop starts a loop to watch agent reconnect updates
+// and fail if the reconnects fail due to a terminal error.
+// Whenever the reconnects fail with a terminal error, this will send the
+// corresponding error on p.errC and exit.
+// The lifetime is bounded by the peer-internal context
 func (p *Peer) startReconnectWatchLoop() {
 	p.wg.Add(1)
 	go func() {
@@ -275,6 +287,9 @@ func (p *Peer) startReconnectWatchLoop() {
 	}()
 }
 
+// startProgressLoop starts a new progress watch and dispatch loop.
+// The loop exits once the completion progress message has been received.
+// The lifetime is bounded by the peer-internal context
 func (p *Peer) startProgressLoop(ctx operationContext) {
 	p.wg.Add(1)
 	go func() {
@@ -289,7 +304,7 @@ func (p *Peer) startProgressLoop(ctx operationContext) {
 }
 
 // submit submits the specified request for execution.
-// Returns true whether the request has actually started an operation
+// Returns true if the request has actually started an operation
 func (p *Peer) submit(req *installpb.ExecuteRequest) bool {
 	select {
 	case p.execC <- req:
@@ -302,7 +317,7 @@ func (p *Peer) submit(req *installpb.ExecuteRequest) bool {
 
 // execute executes either the complete operation or a single phase specified with req
 func (p *Peer) execute(req *installpb.ExecuteRequest) (err error) {
-	p.WithField("req", req).Info("execute.")
+	p.WithField("req", req).Info("Execute.")
 	opCtx, err := p.operationContext()
 	if err != nil {
 		return trace.Wrap(err)
@@ -313,20 +328,33 @@ func (p *Peer) execute(req *installpb.ExecuteRequest) (err error) {
 	return trace.Wrap(p.run(*opCtx))
 }
 
+// executeConcurrentStep executes the phase given with req concurrently
+// with the running operation.
+// The running operation in this case is the install agent service loop
+// which is the focus of resume (from the user's point of view),
+// while individual phases are required to advance the installer state machine.
+// Each concurrent step corresponds to a plan execute command requested
+// remotely by the installer process
 func (p *Peer) executeConcurrentStep(req *installpb.ExecuteRequest, stream installpb.Agent_ExecuteServer) error {
-	p.WithField("req", req).Info("executeConcurrentStep.")
+	p.WithField("req", req).Info("Executing phase concurrently.")
 	opCtx, err := p.operationContext()
 	if err != nil {
 		return trace.Wrap(err)
 	}
 	dispatcher := direct.New()
+	errC := make(chan error, 1)
 	go func() {
-		p.executePhase(stream.Context(), *opCtx, *req.Phase, dispatcher)
-		dispatcher.Close()
+		errC <- p.executePhase(stream.Context(), *opCtx, *req.Phase, dispatcher)
 	}()
-	for event := range dispatcher.Chan() {
-		err := stream.Send(event)
-		if err != nil {
+	for {
+		select {
+		case event := <-dispatcher.Chan():
+			err := stream.Send(event)
+			if err != nil {
+				return trace.Wrap(err)
+			}
+		case err := <-errC:
+			dispatcher.Close()
 			return trace.Wrap(err)
 		}
 	}
@@ -334,7 +362,7 @@ func (p *Peer) executeConcurrentStep(req *installpb.ExecuteRequest, stream insta
 }
 
 func (p *Peer) executePhase(ctx context.Context, opCtx operationContext, phase installpb.ExecuteRequest_Phase, disp dispatcher.EventDispatcher) error {
-	if phase.IsResume() && !opCtx.supportsResume() {
+	if phase.IsResume() && !opCtx.isExpand() {
 		return trace.Wrap(p.run(opCtx))
 	}
 	machine, err := p.getFSM(opCtx)
@@ -559,13 +587,13 @@ type operationContext struct {
 	Creds rpcserver.Credentials
 }
 
-// connect dials to either a running wizard OpsCenter or a local gravity cluster.
+// connectLoop dials to either a running wizard OpsCenter or a local gravity cluster.
 // For wizard, if the dial succeeds, it will join the active installation and return
 // an operation context of the active install operation.
 //
 // For a local gravity cluster, it will attempt to start the expand operation
 // and will return an operation context wrapping a new expand operation.
-func (p *Peer) connect() (*operationContext, error) {
+func (p *Peer) connectLoop() (*operationContext, error) {
 	ticker := backoff.NewTicker(leader.NewUnlimitedExponentialBackOff())
 	defer ticker.Stop()
 	for {
@@ -668,18 +696,7 @@ func (p *Peer) newAgent(opCtx operationContext) (*rpcserver.PeerServer, error) {
 }
 
 func (p *Peer) run(ctx operationContext) error {
-	// FIXME: install gravity binary before any plan steps are executed
-	// to avoid race
-	if err := p.bootstrap(); err != nil {
-		return trace.Wrap(err)
-	}
-
-	err := p.ensureServiceUserAndBinary(ctx)
-	if err != nil {
-		return trace.Wrap(err)
-	}
-
-	err = p.checkAndSetServerProfile(ctx.Cluster.App)
+	err := p.checkAndSetServerProfile(ctx.Cluster.App)
 	if err != nil {
 		return trace.Wrap(err)
 	}
@@ -859,7 +876,6 @@ func (p *Peer) getFSM(ctx operationContext) (*fsm.FSM, error) {
 		return p.newInstallFSM(ctx)
 	}
 	return p.newJoinFSM(ctx)
-
 }
 
 func (p *Peer) newInstallFSM(ctx operationContext) (*fsm.FSM, error) {
@@ -986,7 +1002,7 @@ type eventDispatcher struct {
 	w *dispatcher.EventWriter
 }
 
-func (r operationContext) supportsResume() bool {
+func (r operationContext) isExpand() bool {
 	return r.Operation.Type == ops.OperationExpand
 }
 

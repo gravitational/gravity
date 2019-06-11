@@ -53,7 +53,7 @@ func (r *Dispatcher) Close() {
 	r.wg.Wait()
 }
 
-// Chan returns the channel that receives events
+// Chan returns the channel that receives progress updates
 func (r *Dispatcher) Chan() <-chan *installpb.ProgressResponse {
 	return r.notifyC
 }
@@ -79,7 +79,7 @@ func (r *Dispatcher) startMessageLoop() {
 
 // Dispatcher implements event dispatcher that dispatches events
 // without intermediate buffering.
-// If requires that the receiving side is servicing the notification channel
+// It requires that the receiving side is servicing the notification channel
 // otherwise it will block
 type Dispatcher struct {
 	ctx     context.Context
