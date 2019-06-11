@@ -2,12 +2,12 @@
 
 ### Preparation
 
-- [ ] Build `opscenter` and `telekube` installers off your branch: `make production opscenter telekube` should do it.
+- [ ] Build `opscenter` and `telekube` installers off your branch: `make production opscenter telekube`.
 
 ### Ops Center
 
 - [ ] Install Ops Center in CLI mode.
-  - [ ] Verify can configure [OIDC connector](https://gravitational.com/gravity/docs/ver/5.x/cluster/#google-oidc-connector-example), for example:
+  - [ ] Verify can configure [OIDC connector](https://gravitational.com/gravity/docs/ver/6.x/cluster/#google-oidc-connector-example), for example:
 ```yaml
 kind: oidc
 version: v2
@@ -23,7 +23,7 @@ spec:
     - {claim: "hd", value: "gravitational.com", roles: ["@teleadmin"]}
 ```
   - [ ] Verify can log into Ops Center UI.
-  - [ ] Verify can update TLS certificate via [resource](https://gravitational.com/gravity/docs/ver/5.x/cluster/#configuring-tls-key-pair) or UI.
+  - [ ] Verify can update TLS certificate via [resource](https://gravitational.com/gravity/docs/ver/6.x/cluster/#configuring-tls-key-pair) or UI.
   - [ ] Verify can log in with `tele login`.
   - [ ] Verify can push Telekube app into Ops Center.
   - [ ] Verify can invite user to Ops Center using CLI.
@@ -40,7 +40,7 @@ spec:
 #### CLI mode
 
 - [ ] Install Telekube application in standalone CLI mode.
-  - [ ] Verify can create [local user](https://gravitational.com/gravity/docs/ver/5.x/cluster/#example-provisioning-a-cluster-admin-user), for example:
+  - [ ] Verify can create [local user](https://gravitational.com/gravity/docs/ver/6.x/cluster/#example-provisioning-a-cluster-admin-user), for example:
 ```yaml
 kind: user
 version: v2
@@ -60,7 +60,7 @@ spec:
     - [ ] Open the generated link and reset the password.
     - [ ] Verify can login with the new password.
   - [ ] Verify can log into local cluster UI using the user created above.
-  - [ ] Verify can connect to [Ops Center](https://gravitational.com/gravity/docs/ver/5.x/cluster/#configuring-trusted-clusters).
+  - [ ] Verify can connect to [Ops Center](https://gravitational.com/gravity/docs/ver/6.x/cluster/#configuring-trusted-clusters).
     - [ ] Verify cluster appears as online in Ops Center and can be accessed via UI.
     - [ ] Verify remote support can be toggled off/on and cluster goes offline/online respectively.
     - [ ] Verify trusted cluster can be deleted and cluster disappears from Ops Center.
@@ -72,54 +72,18 @@ spec:
 - [ ] Install Telekube application in standalone UI wizard mode.
   - [ ] Verify can complete bandwagon through wizard UI.
   - [ ] Verify can log into local cluster UI with the user created in bandwagon.
-  - [ ] Verify can connect to [Ops Center](https://gravitational.com/gravity/docs/ver/5.x/cluster/#configuring-trusted-clusters).
+  - [ ] Verify can connect to [Ops Center](https://gravitational.com/gravity/docs/ver/6.x/cluster/#configuring-trusted-clusters).
     - [ ] Verify cluster appears as online in Ops Center and can be accessed via UI.
     - [ ] Verify remote support can be toggled off/on and cluster goes offline/online respectively.
     - [ ] Verify trusted cluster can be deleted and cluster disappears from Ops Center.
 
-### Via Ops Center
-
-#### Via UI
-
-- [ ] Install Telekube application via Ops Center.
-  - [ ] Verify can complete bandwagon.
-  - [ ] Verify can log into local cluster UI with the user created in bandwagon.
-  - [ ] Verify cluster is connected to the Ops Center.
-    - [ ] Verify remote support is configured and turned on: cluster appears "online" in Ops Center.
-    - [ ] Verify remote support can be toggled off/on and cluster goes offline/online respectively.
-    - [ ] Verify trusted cluster can be deleted/created and cluster disappears from/appears in Ops Center respectively.
-  - [ ] Verify can `tele login` into the installed cluster via Ops Center.
-    - [ ] Verify can use tsh, e.g. `tsh clusters` or `tsh ls`.
-    - [ ] Verify can use kubectl, e.g. `kubectl get nodes`.
-  - [ ] Verify can join a node using UI.
-  - [ ] Verify periodic updates.
-    - [ ] Enable periodic updates on the cluster: `gravity update download --every=1m`.
-    - [ ] Verify cluster checks for updates by looking at the logs.
-
-#### With Installer
+#### With Installer Downloaded From Ops Center
 
 - [ ] Install Telekube application using installer downloaded from Ops Center, CLI or UI.
   - [ ] Verify cluster connects back to Ops Center after installation.
     - [ ] Verify remote support is configured but turned off: cluster appears "offline" in Ops Center.
     - [ ] Verify remote support can be toggled on/off and cluster goes online/offline respectively.
     - [ ] Verify trusted cluster can be deleted/created and cluster disappears from/appears in Ops Center respectively.
-
-### AWS
-
-#### Via Ops Center Using Automatic Provisioner
-
- - [ ] Install Ops Center on AWS.
- - [ ] Configure DNS, OIDC connector and push Telekube app.
- - [ ] Install 3-node cluster on AWS using automatic provisioner via Ops Center.
-    - [ ] Verify cluster is connected to the Ops Center.
-     - [ ] Verify remote support can be toggled off/on and cluster goes offline/online respectively.
-     - [ ] Verify trusted cluster can be deleted/created and cluster disappears from/appears in Ops Center respectively.
-   - [ ] Verify can `tele login` into the installed cluster via Ops Center.
-     - [ ] Verify can use tsh, e.g. `tsh clusters` or `tsh ls`.
-     - [ ] Verify can use kubectl, e.g. `kubectl get nodes`.
-   - [ ] Verify can join a node.
-   - [ ] Verify can uninstall the cluster.
-     - [ ] Verify AWS instances and other resources are deprovisioned.
 
 ### Failover & Resiliency
 
@@ -138,7 +102,7 @@ spec:
 
 - [ ] Install an Ops Center of previous LTS version.
   - [ ] Push Telekube app of previous LTS version into it.
-  - [ ] Install a single-node Telekube cluster.
+  - [ ] Install a single-node Telekube cluster and connect it to the Ops Center.
 - [ ] Upgrade Ops Center to the current version.
   - [ ] Verify the cluster stays connected & online.
   - [ ] Verify remote support can be toggled off/on.
@@ -181,7 +145,7 @@ $ tele ls --all
 ```yaml
 apiVersion: cluster.gravitational.io/v2
 kind: Cluster
-baseImage: gravity:5.5.0
+baseImage: gravity:6.0.0
 metadata:
     name: test
     resourceVersion: 1.0.0
@@ -306,7 +270,7 @@ $ gravity app rollback <release-name> 1
 $ gravity app ls
 ```
 
-### Licensing & Encryption (Enterprise Edition)
+### Licensing & Encryption [Enterprise Edition]
 
 This scenario builds an encrypted installer for an application that requires
 a license and makes sure that it can be installed with valid license. It is
@@ -353,7 +317,7 @@ $ sudo ./gravity install # should return a license error
 $ sudo ./gravity install --license="$(cat /tmp/license)"
 ```
 
-### Runtime Environment update
+### Runtime Environment Update
 
 This scenario updates the runtime environment of the planet container with new environment variables. Prerequisites: multi-node cluster with at least 1 regular node.
 Regular node is necessary to test both master and regular node update paths.
@@ -376,7 +340,7 @@ root$ gravity resource create environ.yaml --confirm
   - [ ] Verify the environment inside the container has been updated on each node (the environment variables have been added to the /etc/container-environment).
   - [ ] Verify that services have the environment applied. Choose `dockerd` process for verification and check that `/proc/$(pidof dockerd)/environ` contains the configured environment variables.
 
-### Cluster Configuration update
+### Cluster Configuration Update
 
 This scenario updates the cluster configuration. Prerequisites: multi-node cluster with at least 1 regular node.
 Regular node is necessary to test both master and regular node update paths.
@@ -443,7 +407,7 @@ root$ gravity resource create cloud-config.yaml --confirm -m
   ```
 
 
-### Collecting garbage
+### Collecting Garbage
 
 This scenario tests garbage collection on a cluster. Prerequisites: multi-node cluster with at least 1 regular node.
 Regular node is necessary to test both master and regular node update paths.
