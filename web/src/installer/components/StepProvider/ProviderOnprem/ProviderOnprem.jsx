@@ -53,7 +53,7 @@ export default function ProviderOnprem({store, onStart, ...styles }) {
           onChange={onChangeSubnets}
         />
       </AdvancedOptions>
-      <ButtonPrimary disabled={isProcessing} mt="4" width="200px" onClick={onContinue}>
+      <ButtonPrimary disabled={isProcessing} mt="6" width="200px" onClick={onContinue}>
         Continue
       </ButtonPrimary>
     </Box>

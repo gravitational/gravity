@@ -14,28 +14,5 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-import React from 'react';
-import { FieldInput } from 'app/installer/components/Fields';
-
-export default function ClusterName({ value, onChange }){
-  function onChangeName(e){
-    onChange(e.target.value)
-  }
-
-  return(
-    <FieldInput
-      autoFocus
-      rule={required}
-      value={value}
-      onChange={onChangeName}
-      label="Cluster Name"
-    />
-  )
-}
-
-const required = value => () => (
-  {
-    valid: !!value,
-    message: 'Cluster name is required'
-  }
-);
+import service from './info';
+export default service;

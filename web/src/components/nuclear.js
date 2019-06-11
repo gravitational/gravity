@@ -131,6 +131,7 @@ export function useFluxStore(getter) {
     }
 
     const newState = reactor.evaluate(getter);
+
     setState(newState);
 
     const unsubscribe = subscribe();

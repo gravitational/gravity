@@ -173,7 +173,7 @@ let cfg = {
       licenseOptionText: 'With a license',
       licenseUserHintText: `If you have a license, please insert it here. In the next steps you will select the location of your application and the capacity you need`,
       progressUserHintText: 'Your infrastructure is being provisioned and your application is being installed.\n\n Once the installation is complete you will be taken to your infrastructure where you can access your application.',
-      prereqUserHintText: `If you select a cloud provider, we will automate the infrastructure provisioning on your account with your provided keys in the next step. Your keys are not stored on our system. \n\n If you select BareMetal we will provide you with a command to be run on each of your machines in the next step.`,
+      prereqUserHintText: `The cluster name will be used for issuing SSH and HTTP/TLS certificates to securely access the cluster.\n\n For this reason it is recommended to use a fully qualified domain name (FQDN) for the cluster name, e.g. prod.example.com`,
       provisionUserHintText: 'Drag the slider to estimate the number of resources needed for that performance level. You can also add / remove resources after the installation. \n\n Once you click "Start Installation" the resources will be provisioned on your infrastructure.',
       iamPermissionsHelpLink: 'https://gravitational.com/gravity/docs/overview/',
 
@@ -231,6 +231,7 @@ let cfg = {
     scp: '/proxy/v1/webapi/sites/:siteId/nodes/:serverId/:login/scp?location=:location&filename=:filename',
 
     // site
+    siteTokenJoin:'/portalapi/v1/sites/:siteId/tokens/join',
     siteChangePasswordPath: '/portalapi/v1/sites/:siteId/users/password',
     siteUsersPath: '/portalapi/v1/sites/:siteId/users/:userId?',
     siteUserInvitePath: '/portalapi/v1/sites/:siteId/invites/:inviteId?',
@@ -457,6 +458,11 @@ let cfg = {
     }
 
     return generatePath(path, { siteId, query });
+  },
+
+  getSiteTokenJoinUrl(siteId){
+    siteId = siteId || cfg.defaultSiteId;
+    return generatePath(cfg.api.siteTokenJoin, {siteId});
   },
 
   getShrinkSiteUrl(siteId){

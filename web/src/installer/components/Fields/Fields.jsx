@@ -19,7 +19,7 @@ import { Box, Input, LabelInput } from 'shared/components';
 import Select from 'app/components/Select';
 import { useRule } from 'app/components/Validation';
 
-export const FieldInput = ({ rule, value, autoFocus, label, onChange, ...styles}) => {
+export const FieldInput = ({ placeholder, rule, value, autoFocus, label, onChange, ...styles}) => {
   const { valid, message } = useRule(rule(value));
   const hasError = !valid;
   const labelText = hasError ? message : label;
@@ -34,6 +34,7 @@ export const FieldInput = ({ rule, value, autoFocus, label, onChange, ...styles}
         autoFocus={autoFocus}
         hasError={hasError}
         mb="3"
+        placeholder={placeholder}
         value={value}
         autoComplete="off"
         onChange={onChange}

@@ -73,12 +73,11 @@ export class TopBar extends React.Component {
   }
 
   render() {
-    const { user, infoStore, onRefresh, navStore, pl, onChangeRemoteAccess } = this.props;
+    const { user, info, remoteAccess, onRefresh, navStore, pl, onChangeRemoteAccess } = this.props;
     const { open, infoDialogOpen } = this.state;
     const username = user.userId;
-    const { status, remoteAccess, commands, publicUrls, internalUrls } = infoStore;
+    const { status, tshLogin, publicUrls, internalUrls } = info;
     const clusterPublicUrl = publicUrls[0];
-    const tshLogin = commands.tshLogin;
 
     const $items = navStore.topNav.map( (item, index) => (
       <MenuItem {...this.menuItemProps} key={index} to={item.to}>
@@ -138,7 +137,8 @@ function mapState() {
   return {
     user,
     navStore,
-    infoStore,
+    info: infoStore.info,
+    remoteAccess: infoStore.remoteAccess,
     onLogout: () => session.logout(),
     onRefresh: fetchSiteInfo,
     onChangeRemoteAccess: changeRemoteAccess
