@@ -19,7 +19,6 @@ import React from 'react';
 // oss imports
 import Cluster from 'oss-app/cluster/components';
 import { initCluster } from 'oss-app/cluster/flux/actions';
-import { Activator } from 'oss-app/lib/featureBase';
 import FeatureDashboard from 'oss-app/cluster/features/featureDashboard';
 import FeatureAccount from 'oss-app/cluster/features/featureAccount';
 import FeatureNodes from 'oss-app/cluster/features/featureNodes';
@@ -47,8 +46,7 @@ function mapState(props){
   })
 
   function onInit(){
-    const activator = new Activator(features);
-    return initCluster(siteId, activator);
+    return initCluster(siteId, features);
   }
 
   return {

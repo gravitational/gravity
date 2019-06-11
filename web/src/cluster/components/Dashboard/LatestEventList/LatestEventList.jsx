@@ -15,27 +15,33 @@ limitations under the License.
 */
 
 import React from 'react';
-import { Flex, Box, Text } from 'shared/components';
-import { connect } from 'app/components/nuclear';
-import EventList from './../../Audit/EventList';
+import cfg from 'app/config';
+import { Link } from 'react-router-dom';
+import { Flex, Box, Text, ButtonSecondary } from 'shared/components';
+import { withState } from 'shared/hooks';
+import { useFluxStore } from 'app/components/nuclear';
+import EventList from 'app/cluster/components/Audit/EventList';
 import { getters } from 'app/cluster/flux/events';
 import AjaxPoller from 'app/components/dataProviders'
 import { fetchLatest } from 'app/cluster/flux/events/actions';
+import { clusterEvents } from 'app/cluster/featureFlags';
 
 const POLL_INTERVAL = 5000; // every 5 sec
 
-function LatestEventList(props) {
-  const { store, onRefresh, ...styles } = props;
-  const events = store.getEvents();
+export function LatestEventList({ visible, onRefresh, events, ...rest}) {
+  if( !visible ){
+    return null;
+  }
+
   return (
-    <Box {...styles}>
+    <Box {...rest}>
       <Flex  bg="primary.light" p="3" alignItems="center" justifyContent="space-between">
         <Text typography="h4">
           Audit Logs
         </Text>
-        <Text typography="body2" color="text.primary">
+        <ButtonSecondary size="small" as={Link} to={cfg.getSiteAuditRoute()}>
           VIEW ALL
-        </Text>
+        </ButtonSecondary>
       </Flex>
       <EventList events={events} limit="4"/>
       <AjaxPoller time={POLL_INTERVAL} onFetch={onRefresh} />
@@ -43,16 +49,17 @@ function LatestEventList(props) {
   );
 }
 
-const subToStore = () => {
-  return {
-    store: getters.store,
-  }
-}
+export default withState(() => {
+  const store = useFluxStore(getters.store);
+  const events = store.getEvents();
 
-function mapActions(){
-  return {
-    onRefresh: fetchLatest,
+  function onRefresh(){
+    return fetchLatest();
   }
-}
 
-export default connect(subToStore, mapActions)(LatestEventList);
+  return {
+    events,
+    onRefresh,
+    visible: clusterEvents
+  }
+})(LatestEventList)

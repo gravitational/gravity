@@ -21,6 +21,7 @@ import * as Icons from 'shared/components/Icon';
 import Dashboard from '../components/Dashboard';
 
 class DashboardFeature extends FeatureBase {
+
   constructor(){
     super()
     this.Component = withFeature(this)(Dashboard);
@@ -35,12 +36,12 @@ class DashboardFeature extends FeatureBase {
     }
   }
 
-  onload(context) {
+  onload() {
     addSideNavItem({
       title: 'Dashboard',
       Icon: Icons.Tablet,
       exact: true,
-      to: cfg.getSiteRoute(context.siteId)
+      to: cfg.getSiteRoute()
     });
   }
 }

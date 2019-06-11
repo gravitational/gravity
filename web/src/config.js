@@ -223,7 +223,6 @@ let cfg = {
     userTokenResetDonePath: '/portalapi/v1/tokens/reset/done',
     userTokenPath: '/portalapi/v1/tokens/user/:token',
     userStatusPath: '/portalapi/v1/user/status',
-    userContextPath: '/portalapi/v1/user/context',
 
     // terminal
     ttyWsAddr: 'wss://:fqdm/proxy/v1/webapi/sites/:cluster/connect?access_token=:token&params=:params',
@@ -231,6 +230,7 @@ let cfg = {
     scp: '/proxy/v1/webapi/sites/:siteId/nodes/:serverId/:login/scp?location=:location&filename=:filename',
 
     // site
+    siteUserContextPath: '/portalapi/v1/sites/:siteId/context',
     siteTokenJoin:'/portalapi/v1/sites/:siteId/tokens/join',
     siteChangePasswordPath: '/portalapi/v1/sites/:siteId/users/password',
     siteUsersPath: '/portalapi/v1/sites/:siteId/users/:userId?',
@@ -520,6 +520,11 @@ let cfg = {
     return generatePath(cfg.api.siteFlavorsPath, {siteId});
   },
 
+  getSiteUserContextUrl(siteId){
+    siteId = siteId || cfg.defaultSiteId;
+    return generatePath(cfg.api.siteUserContextPath, {siteId});
+  },
+
   getSiteUninstallStatusUrl(siteId){
     return generatePath(cfg.api.siteUninstallStatusPath, {siteId});
   },
@@ -587,6 +592,7 @@ let cfg = {
   },
 
   getSiteServersRoute(siteId){
+    siteId = siteId || cfg.defaultSiteId;
     return generatePath(cfg.routes.siteServers, {siteId});
   },
 

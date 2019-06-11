@@ -123,7 +123,7 @@ export function useFluxStore(getter) {
     return reactor.evaluate(getter)
   });
 
-  React.useEffect(() => {
+  React.useLayoutEffect(() => {
     function subscribe(){
       return reactor.observe(getter, val => {
         setState(val)

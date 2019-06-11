@@ -100,9 +100,7 @@ export function OperationList(props){
         <Column
           operations={operations}
           progress={progress}
-          header={
-            <Cell style={{textAlign: "right"}}>Actions</Cell>
-          }
+          header={<Cell style={{ padding: "0 16px", textAlign:"center"}}>Actions</Cell> }
           cell={<ActionCell /> }
         />
       </TablePaged>
