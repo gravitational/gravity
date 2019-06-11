@@ -30,6 +30,11 @@ func PrintError(err error) {
 	color.Red("[ERROR]: %v\n", trace.UserMessage(err))
 }
 
+// PrintWarn outputs a warning message to stdout.
+func PrintWarn(message string, format ...interface{}) {
+	fmt.Println(color.YellowString("[WARN] "+message, format...))
+}
+
 // PrintHeader formats the provided string as a header and prints it to the console
 func PrintHeader(val string) {
 	fmt.Printf("\n[%v]\n%v\n", val, strings.Repeat("-", len(val)+2))
