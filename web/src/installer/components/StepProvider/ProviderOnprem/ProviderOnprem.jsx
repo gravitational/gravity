@@ -17,13 +17,13 @@ limitations under the License.
 import React from 'react';
 import { ButtonPrimary, Box } from 'shared/components';
 import AdvancedOptions, { Subnets } from './../AdvancedOptions';
-import { useValidationContext } from 'app/components/Validation';
+import { useValidation } from 'app/components/Validation';
 import { Danger } from 'shared/components/Alert';
 import { useAttempt } from 'shared/hooks';
 
 export default function ProviderOnprem({store, onStart, ...styles }) {
   const { serviceSubnet, podSubnet } = store.state.onprem;
-  const validator = useValidationContext()
+  const validator = useValidation()
   const [ attempt, attemptActions ] = useAttempt();
   const { isFailed, isProcessing, message } = attempt;
 
@@ -36,7 +36,7 @@ export default function ProviderOnprem({store, onStart, ...styles }) {
   }
 
   function onContinue(){
-    if(validator.isValid()){
+    if(validator.validate()){
       attemptActions.start();
       const request = store.makeOnpremRequest();
       onStart(request).fail(err => attemptActions.error(err))

@@ -15,33 +15,27 @@ limitations under the License.
 */
 
 import React from 'react';
-import { Input, LabelInput } from 'shared/components';
-import { useError } from 'app/components/Validation';
+import { FieldInput } from 'app/installer/components/Fields';
 
-const required = value => () => !value;
-
-export default function ClusterName(props){
-  const { value } = props;
-
-  function onChange(e){
-    props.onChange(e.target.value)
+export default function ClusterName({ value, onChange }){
+  function onChangeName(e){
+    onChange(e.target.value)
   }
 
-  const isValid = useError('clusterName', required(value));
-  const labelText = isValid ?  'Cluster name is required' : 'Cluster Name';
   return(
-    <div>
-      <LabelInput hasError={isValid} >
-        {labelText}
-      </LabelInput>
-      <Input
-        hasError={isValid}
-        value={value}
-        onChange={onChange}
-        autoComplete="off"
-        autoFocus
-        placeholder="Cluster name"
-      />
-  </div>
+    <FieldInput
+      autoFocus
+      rule={required}
+      value={value}
+      onChange={onChangeName}
+      label="Cluster Name"
+    />
   )
 }
+
+const required = value => () => (
+  {
+    valid: !!value,
+    message: 'Cluster name is required'
+  }
+);

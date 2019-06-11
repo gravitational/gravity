@@ -73,7 +73,6 @@ export default function AwsItem(props){
     <StyledInstance my={-3} pl="4" py="3" ml="3" width="220px">
       { showOptions && (
         <FieldSelect
-          name={`${name}-selected-instance`}
           label={labelText}
           rule={required("Instance type is required")}
           value={{
@@ -99,14 +98,14 @@ export default function AwsItem(props){
   )
 }
 
-const required = errorText => option => () => {
-  if(!option || !option.value) {
-    return errorText;
+const required = message => option => () => {
+  return {
+    valid: option && option.value,
+    message
   }
 }
 
 const labelText = 'Instance type';
-
 
 const StyledInstance = styled(Box)`
   border-left: 1px solid ${ ({ theme }) => theme.colors.primary.dark };

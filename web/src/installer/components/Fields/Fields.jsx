@@ -17,12 +17,12 @@ limitations under the License.
 import React from 'react';
 import { Box, Input, LabelInput } from 'shared/components';
 import Select from 'app/components/Select';
-import { useError } from 'app/components/Validation';
+import { useRule } from 'app/components/Validation';
 
-export const FieldInput = ({ rule, name, value, label, onChange, ...styles}) => {
-  const error = useError(name, rule(value));
-  const hasError = Boolean(error);
-  const labelText = hasError ? error : label;
+export const FieldInput = ({ rule, value, autoFocus, label, onChange, ...styles}) => {
+  const { valid, message } = useRule(rule(value));
+  const hasError = !valid;
+  const labelText = hasError ? message : label;
   return (
     <Box {...styles}>
       { label && (
@@ -31,6 +31,7 @@ export const FieldInput = ({ rule, name, value, label, onChange, ...styles}) => 
           </LabelInput>
         )}
       <Input
+        autoFocus={autoFocus}
         hasError={hasError}
         mb="3"
         value={value}
@@ -41,10 +42,10 @@ export const FieldInput = ({ rule, name, value, label, onChange, ...styles}) => 
   )
 }
 
-export const FieldSelect = ({ rule, name, label, value, options, onChange, ...styles}) => {
-  const error = useError(name, rule(value));
-  const hasError = Boolean(error);
-  const labelText = hasError ? error : label;
+export const FieldSelect = ({ rule, label, value, options, onChange, ...styles}) => {
+  const { valid, message } = useRule(rule(value));
+  const hasError = Boolean(!valid);
+  const labelText = hasError ? message : label;
   return (
     <Box {...styles}>
       { label && (

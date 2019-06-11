@@ -18,8 +18,6 @@ import React from 'react';
 import cfg from 'app/config';
 import { FieldSelect } from 'app/installer/components/Fields';
 
-let fieldCounter = 0;
-
 export default function InterfaceVariable(props) {
   const { defaultValue, onChange, options, ...styles } = props;
 
@@ -28,11 +26,6 @@ export default function InterfaceVariable(props) {
   React.useEffect(() => {
     onChange(value);
   }, [ value ])
-
-  // field name for validation context
-  const fieldName = React.useMemo(() => {
-    return `${++fieldCounter}-interface`;
-  }, []);
 
   // pick up this field title from web config
   const { label, selectOptions } = React.useMemo(() => {
@@ -59,7 +52,6 @@ export default function InterfaceVariable(props) {
     <FieldSelect
       {...styles}
       value={value}
-      name={fieldName}
       rule={required(`${label} is required`)}
       label={label}
       value={{ value, label: value }}
@@ -69,8 +61,9 @@ export default function InterfaceVariable(props) {
   )
 }
 
-const required = errorText => option => () => {
-  if (!option || !option.value) {
-    return errorText;
+const required = message => option => () => {
+  return {
+    valid: option && option.value,
+    message
   }
 }

@@ -21,8 +21,6 @@ import { ownerDocument } from './../utils';
 import Portal from './Portal';
 import RootRef from './RootRef';
 
-const ESC = 27;
-
 function getHasTransition(props) {
   return props.children ? props.children.props.hasOwnProperty('in') : false;
 }
@@ -118,6 +116,8 @@ class Modal extends React.Component {
   };
 
   handleDocumentKeyDown = event => {
+    const ESC = 27;
+
     // Ignore events that have been `event.preventDefault()` marked.
     if (event.which !== ESC || !this.isTopModal() || event.defaultPrevented) {
       return;

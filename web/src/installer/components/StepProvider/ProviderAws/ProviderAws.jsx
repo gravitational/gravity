@@ -22,14 +22,14 @@ import { Danger } from 'shared/components/Alert'
 import service from 'app/installer/services/installer';
 import AccessKeys from './AccessKeys';
 import ServerSettings from './ServerSettings';
-import { ValidationContext, useValidationContext } from 'app/components/Validation';
+import Validation, { useValidation } from 'app/components/Validation';
 import AdvancedOptions from '../AdvancedOptions';
 
 
 export default function ProviderAws({store, onStart}) {
   const [ attempt, attemptActions ] = useAttempt();
   const { isFailed, message } = attempt;
-  const validator = useValidationContext()
+  const validator = useValidation()
 
   function onAuthorize({ accessKey, secretKey, sessionToken }){
     return service.verifyAwsKeys({
@@ -62,7 +62,7 @@ export default function ProviderAws({store, onStart}) {
   }
 
   function onContinue(){
-    if (!validator.isValid()){
+    if (!validator.validate()){
       return;
     }
 
@@ -75,7 +75,7 @@ export default function ProviderAws({store, onStart}) {
   const continueDisabled = !authorized || attempt.isProcessing;
 
   return (
-    <ValidationContext>
+    <Validation>
       <Box>
         { isFailed && <Danger children={message}/> }
         { !authorized && <AccessKeys onAuthorize={onAuthorize}/> }
@@ -85,14 +85,14 @@ export default function ProviderAws({store, onStart}) {
           Continue
         </ButtonNext>
       </Box>
-    </ValidationContext>
+    </Validation>
   );
 }
 
 const ButtonNext = ({ onClick, ...rest }) => {
-  const validator = useValidationContext()
+  const validator = useValidation()
   function onNext(){
-    validator.isValid() && onClick();
+    validator.validate() && onClick();
   }
 
   return <ButtonPrimary onClick={onNext} {...rest} />

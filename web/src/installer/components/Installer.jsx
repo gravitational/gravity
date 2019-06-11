@@ -21,7 +21,7 @@ import { Provider as ServiceProvider, useServices } from 'app/installer/services
 import { AppLayout } from './Layout';
 import Eula from './Eula';
 import InstallerStore, { useInstallerStore, StepEnum, Provider } from './store';
-import { ValidationContext } from 'app/components/Validation';
+import Validation from 'app/components/Validation';
 import StepProgress from './StepProgress';
 import StepCapacity from './StepCapacity';
 import StepList from './StepList';
@@ -75,7 +75,7 @@ export function Installer(props){
   const logoSrc = app.logo;
 
   return (
-    <ValidationContext>
+    <Validation>
       <AppLayout>
         <Flex flex="1" px="8" py="10" mr="4" mb="5" justifyContent="flex-end" style={{overflow: "auto"}}>
           <Flex flexDirection="column" flex="1" maxWidth="1000px">
@@ -93,7 +93,7 @@ export function Installer(props){
           <Description store={store}/>
         </Flex>
       </AppLayout>
-    </ValidationContext>
+    </Validation>
   );
 }
 

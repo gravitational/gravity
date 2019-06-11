@@ -15,13 +15,13 @@ limitations under the License.
 */
 
 import React from 'react';
-import { useValidationContext } from 'app/components/Validation';
+import { useValidation } from 'app/components/Validation';
 import { ButtonPrimary } from 'shared/components';
 
 export default function ButtonValidate( { onClick, ...rest }) {
-  const validator = useValidationContext();
+  const validator = useValidation();
   function onContinue(){
-    validator.isValid() && onClick();
+    validator.validate() && onClick();
   }
 
   return (
