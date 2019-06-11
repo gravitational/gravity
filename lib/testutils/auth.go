@@ -345,6 +345,9 @@ func (s *AuthClient) CreateSession(sess session.Session) error {
 func (s *AuthClient) UpdateSession(req session.UpdateRequest) error {
 	return nil
 }
+func (s *AuthClient) DeleteSession(namespace string, id session.ID) error {
+	return nil
+}
 func (s *AuthClient) GetClusterName() (services.ClusterName, error) {
 	return nil, nil
 }
