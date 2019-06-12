@@ -35,7 +35,6 @@ func InitProcess(ctx context.Context, installerConfig Config, gravityConfig proc
 	if err != nil {
 		return nil, trace.Wrap(err)
 	}
-	setLoggingOptions()
 	err = p.InitRPCCredentials()
 	if err != nil {
 		return nil, trace.Wrap(err)
