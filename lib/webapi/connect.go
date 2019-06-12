@@ -25,6 +25,7 @@ import (
 	"github.com/gravitational/gravity/lib/ops"
 	"github.com/gravitational/gravity/lib/schema"
 
+	"github.com/gravitational/rigging"
 	teledefaults "github.com/gravitational/teleport/lib/defaults"
 	teleservices "github.com/gravitational/teleport/lib/services"
 	telesession "github.com/gravitational/teleport/lib/session"
@@ -32,6 +33,8 @@ import (
 	"github.com/gravitational/trace"
 	"github.com/julienschmidt/httprouter"
 	log "github.com/sirupsen/logrus"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/client-go/kubernetes"
 )
 
 // PodTerminalRequest describes a request to create a web-based terminal
@@ -125,6 +128,13 @@ func (m *Handler) clusterContainerConnect(w http.ResponseWriter, r *http.Request
 		return nil, trace.Wrap(err)
 	}
 
+	kubeClient, err := m.cfg.Clients.KubeClient(ctx.Operator, ops.UserInfo{
+		User: ctx.User,
+	}, clusterName)
+	if err != nil {
+		return nil, trace.Wrap(err)
+	}
+
 	termReq := teleweb.TerminalRequest{
 		Server: node.GetName(),
 		Login:  req.Login,
@@ -155,19 +165,42 @@ func (m *Handler) clusterContainerConnect(w http.ResponseWriter, r *http.Request
 		"server":        termReq.Server,
 		"cluster":       termReq.Cluster,
 	})
+
+	err = validatePodTerminalRequest(kubeClient, req)
+	if err != nil {
+		l.WithError(err).Warn("Failed to validate terminal request.")
+		return nil, trace.Wrap(err)
+	}
+
 	clt, err := ctx.SessionContext.GetUserClient(remoteCluster)
 	if err != nil {
 		return nil, trace.Wrap(err)
 	}
 	term, err := teleweb.NewTerminal(termReq, clt, ctx.SessionContext)
 	if err != nil {
-		l.Errorf("Unable to create terminal: %v", trace.DebugReport(err))
+		l.WithError(err).Error("Unable to create terminal.")
 		return nil, trace.Wrap(err)
 	}
 
 	// start the websocket session with a web-based terminal:
-	l.Debugf("starting terminal session")
+	l.Debug("Starting terminal session.")
 	term.Serve(w, r)
 
 	return nil, nil
+}
+
+func validatePodTerminalRequest(client *kubernetes.Clientset, req PodTerminalRequest) error {
+	// Make sure the requested pod exists.
+	pod, err := client.CoreV1().Pods(req.Pod.Namespace).Get(req.Pod.Name, metav1.GetOptions{})
+	if err != nil {
+		return rigging.ConvertError(err)
+	}
+	// Make sure the requested container exists.
+	for _, container := range pod.Spec.Containers {
+		if container.Name == req.Pod.Container {
+			return nil
+		}
+	}
+	return trace.NotFound("pod %q in namespace %q does not have container %q",
+		req.Pod.Name, req.Pod.Namespace, req.Pod.Container)
 }
