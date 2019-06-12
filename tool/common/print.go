@@ -31,8 +31,8 @@ func PrintError(err error) {
 }
 
 // PrintWarn outputs a warning message to stdout.
-func PrintWarn(message string, format ...interface{}) {
-	fmt.Println(color.YellowString("[WARN] "+message, format...))
+func PrintWarn(message string, args ...interface{}) {
+	fmt.Println(color.YellowString("[WARN] "+message, args...))
 }
 
 // PrintHeader formats the provided string as a header and prints it to the console
