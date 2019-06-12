@@ -31,13 +31,4 @@ function DialogConfirmation(props){
   )
 }
 
-const dialogConfirmationCss = () => `
-  position: absolute;
-  top: 20%;
-`
-
-DialogConfirmation.defaultProps = {
-  dialogCss: dialogConfirmationCss
-}
-
 export default DialogConfirmation;

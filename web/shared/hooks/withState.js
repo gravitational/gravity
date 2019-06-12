@@ -21,11 +21,11 @@ export default function withState(mapState) {
   const hooks = hooks ? hooks : () => ({});
   return function wrapWithHook(WrappedComponent) {
     function WithState(props, context){
-        const propsFromMapState = mapState(props, context);
-        return createElement(WrappedComponent, {
-          ...props,
-          ...propsFromMapState,
-        })
+      const propsFromMapState = mapState(props, context);
+      return createElement(WrappedComponent, {
+        ...props,
+        ...propsFromMapState,
+      })
     }
 
     WithState.displayName = `WithState(${getDisplayName(WrappedComponent)})`

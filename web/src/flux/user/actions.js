@@ -42,7 +42,7 @@ export function loginWithSso(providerName, redirectUrl) {
 }
 
 export function fetchUserContext(){
-  return api.get(cfg.api.userContextPath).done(json => {
+  return api.get(cfg.getSiteUserContextUrl()).done(json => {
     cfg.setServerVersion(json.serverVersion);
     reactor.dispatch(USER_RECEIVE, json.user);
     reactor.dispatch(USERACL_RECEIVE, json.userAcl);

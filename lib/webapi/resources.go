@@ -106,7 +106,11 @@ func (m *Handler) getResources(key ops.SiteKey, kind string, ctx *AuthContext) (
 	if kind == "" {
 		return nil, trace.BadParameter("missing resource kind")
 	}
-	webCtx, err := ui.NewWebContext(ctx.User, ctx.Identity)
+	cluster, err := ctx.Operator.GetSite(key)
+	if err != nil {
+		return nil, trace.Wrap(err)
+	}
+	webCtx, err := ui.NewWebContext(ctx.User, ctx.Identity, *cluster)
 	if err != nil {
 		return nil, trace.Wrap(err)
 	}

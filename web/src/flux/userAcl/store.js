@@ -33,23 +33,25 @@ const Access = new Record({
   connect: false,
   list: false,
   read: false,
-	edit: false,
-	create: false,
-	remove: false
+  edit: false,
+  create: false,
+  remove: false
 })
 
 export class AccessListRec extends Record({
+  apps: new Access(),
   authConnectors: new Access(),
-  trustedClusters: new Access(),
+  clusters: new Access(),
+  events: new Access(),
+  licenses: new Access(),
+  logForwarders: new Access(),
+  repositories: new Access(),
   roles: new Access(),
   sessions: new Access(),
-  licenses: new Access(),
-  clusters: new Access(),
-  repositories: new Access(),
+  sshLogins: new List(),
+  trustedClusters: new Access(),
   users: new Access(),
-  logForwarders: new Access(),
-  sshLogins: new List()
-}){
+}) {
   constructor(json = {}) {
     const map = toImmutable(json);
     const sshLogins = new List(map.get('sshLogins'));
@@ -62,17 +64,19 @@ export class AccessListRec extends Record({
       users: new Access(map.get('users')),
       licenses: new Access(map.get('licenses')),
       clusters: new Access(map.get('clusters')),
-      logForwarders: new Access(map.get('logForwarders'))
+      logForwarders: new Access(map.get('logForwarders')),
+      apps: new Access(map.get('apps')),
+      events: new Access(map.get('events')),
     }
 
     super(params);
   }
 
-  getClusterAccess(){
+  getClusterAccess() {
     return this.get('clusters');
   }
 
-  getLicenseAccess(){
+  getLicenseAccess() {
     return this.get('licenses');
   }
 
@@ -99,6 +103,14 @@ export class AccessListRec extends Record({
   getSshLogins() {
     return this.get('sshLogins')
   }
+
+  getEventAccess() {
+    return this.get('events')
+  }
+
+  getAppAccess() {
+    return this.get('apps')
+  }
 }
 
 export default Store({
@@ -107,6 +119,6 @@ export default Store({
   },
 
   initialize() {
-    this.on(USERACL_RECEIVE, (state, json ) => new AccessListRec(json) );
+    this.on(USERACL_RECEIVE, (state, json) => new AccessListRec(json));
   }
 })

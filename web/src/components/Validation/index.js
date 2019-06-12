@@ -14,16 +14,15 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-import Validator, {
-  ValidationContext,
-  useValidationContext,
-  useError,
+import {
+  Validation,
+  useValidation,
+  useRule,
 } from './Validation';
 
-export default Validator;
+export default Validation;
 
 export {
-  ValidationContext,
-  useValidationContext,
-  useError
+  useValidation,
+  useRule
 }

@@ -19,11 +19,11 @@ import React from 'react';
 // oss imports
 import Cluster from 'oss-app/cluster/components';
 import { initCluster } from 'oss-app/cluster/flux/actions';
-import { Activator } from 'oss-app/lib/featureBase';
 import FeatureDashboard from 'oss-app/cluster/features/featureDashboard';
 import FeatureAccount from 'oss-app/cluster/features/featureAccount';
 import FeatureNodes from 'oss-app/cluster/features/featureNodes';
 import FeatureLogs from 'oss-app/cluster/features/featureLogs';
+import FeatureUsers from 'oss-app/cluster/features/featureUsers';
 import FeatureMonitoring from 'oss-app/cluster/features/featureMonitoring';
 import FeatureCertificate from 'oss-app/cluster/features/featureCertificate';
 import FeatureAudit from 'oss-app/cluster/features/featureAudit';
@@ -40,6 +40,7 @@ function mapState(props){
       new FeatureNodes(),
       new FeatureLogs(),
       new FeatureAudit(),
+      new FeatureUsers(),
       new FeatureK8s(),
       new FeatureMonitoring(),
       new FeatureCertificate(),
@@ -47,8 +48,7 @@ function mapState(props){
   })
 
   function onInit(){
-    const activator = new Activator(features);
-    return initCluster(siteId, activator);
+    return initCluster(siteId, features);
   }
 
   return {

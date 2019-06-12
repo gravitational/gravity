@@ -18,9 +18,9 @@ import React from 'react';
 import { Flex, Box, Text, ButtonPrimary } from 'shared/components';
 import { useAttempt } from 'shared/hooks';
 import { RadioGroup } from './../../../Radio';
-import { useValidationContext } from 'app/components/Validation';
+import { useValidation } from 'app/components/Validation';
 import { Danger } from 'shared/components/Alert';
-import { FieldInput } from '../Fields';
+import { FieldInput } from 'app/installer/components/Fields';
 
 const authTypes = [
   {
@@ -35,7 +35,7 @@ const authTypes = [
 
 export default function AccessKeys(props) {
   const [ useSessionToken, setUseSessionToken ] = React.useState(false);
-  const validator = useValidationContext()
+  const validator = useValidation()
   const [ accessKey, setAccessKey ] = React.useState();
   const [ secretKey, setSecretKey ] = React.useState();
   const [ sessionToken, setSessionToken ] = React.useState();
@@ -56,7 +56,7 @@ export default function AccessKeys(props) {
   }
 
   function onAuthorize(){
-    if(!validator.isValid()){
+    if(!validator.validate()){
       return;
     }
 
@@ -95,35 +95,32 @@ export default function AccessKeys(props) {
         { isFailed && <Danger mb="4">{message}</Danger>}
         { useSessionToken && (
           <FieldInput
-            name="sessionToken"
             label="Session Token"
             rule={required("Session Token is required")}
             value={sessionToken}
             onChange={onChangeSessionToken}
-            name="sessionToken"
             placeholder="FQoDYXdzEHsaDGV2WyeFJbWM6vfdxpngd3VVIIyj0tj7qc9V/qRUVrc8QUdcoOKgkt649VrXP0dK/0X..."
           />
         )}
         { !useSessionToken && (
           <Flex>
-            <Box flex="1" mr="3">
-              <FieldInput
-                name="accessKey"
-                rule={required("Access Key is required")}
-                value={accessKey}
-                onChange={onChangeAccessKey}
-                placeholder="AKIAIOSFODNN7EXAMPLE"
-                label="Access Key"
-              />
-            </Box>
-            <Box flex="1">
-              <FieldInput
-                name="secretKey"
-                rule={required("Secret Key is required")}
-                value={secretKey}
-                onChange={onChangeSecretKey}
-                label="Secret key" placeholder="wJalrXUtnFEMI/K7MDENG/bPxRfiCYEXAMPLEKEY" />
-            </Box>
+            <FieldInput
+              flex="1"
+              mr="3"
+              rule={required("Access Key is required")}
+              value={accessKey}
+              onChange={onChangeAccessKey}
+              placeholder="AKIAIOSFODNN7EXAMPLE"
+              label="Access Key"
+            />
+            <FieldInput
+              flex="1"
+              rule={required("Secret Key is required")}
+              value={secretKey}
+              onChange={onChangeSecretKey}
+              label="Secret key"
+              placeholder="wJalrXUtnFEMI/K7MDENG/bPxRfiCYEXAMPLEKEY"
+            />
         </Flex>
         )}
         <ButtonPrimary mt="4" onClick={onAuthorize} disabled={isProcessing}>
@@ -134,8 +131,9 @@ export default function AccessKeys(props) {
   );
 }
 
-const required = errorText => value => () => {
-  if(!value) {
-    return errorText;
+const required = message => value => () => {
+  return {
+    valid: !!value,
+    message
   }
 }

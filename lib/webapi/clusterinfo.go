@@ -36,89 +36,43 @@ type webClusterInfo struct {
 	PublicURLs []string `json:"publicURL"`
 	// InternalURLs is a list of internal cluster management URLs.
 	InternalURLs []string `json:"internalURLs"`
-	// Commands contains various commands that can be run on the cluster.
-	Commands webClusterCommands `json:"commands"`
-}
-
-// webClusterCommands contains commands displayed to a user for cluster
-// expansion, remote access and so on.
-type webClusterCommands struct {
-	// TshLogin contains tsh login command.
-	TshLogin string `json:"tshLogin"`
-	// GravityDownload contains command to download gravity binary.
-	GravityDownload string `json:"gravityDownload"`
-	// GravityJoin contains gravity join commands for each node profile.
-	GravityJoin map[string]string `json:"gravityJoin"`
+	// AuthGateways is the cluster's authentication gateway addresses.
+	AuthGateways []string `json:"authGateways"`
+	// MasterNodes is a list of cluster's master nodes.
+	MasterNodes []string `json:"masterNodes"`
+	// GravityURL is the URL to download gravity binary from the cluster.
+	GravityURL string `json:"gravityURL"`
 }
 
 // getClusterInfo collects information for the specified cluster.
 func getClusterInfo(operator ops.Operator, cluster ops.Site) (*webClusterInfo, error) {
-	masterNode, err := cluster.FirstMaster()
-	if err != nil {
-		return nil, trace.Wrap(err)
-	}
 	endpoints, err := ops.GetClusterEndpoints(operator, cluster.Key())
 	if err != nil {
 		return nil, trace.Wrap(err)
 	}
-	tshLoginCommand, err := renderCommand(tshLoginTpl, map[string]string{
-		"proxyAddr": endpoints.FirstAuthGateway(),
-	})
+	masterNode, err := cluster.FirstMaster()
 	if err != nil {
 		return nil, trace.Wrap(err)
 	}
-	joinToken, err := operator.GetExpandToken(cluster.Key())
-	if err != nil {
+	var gravityURL bytes.Buffer
+	if err := gravityURLTpl.Execute(&gravityURL, map[string]string{
+		"node": masterNode.AdvertiseIP,
+		"port": strconv.Itoa(defaults.GravitySiteNodePort),
+	}); err != nil {
 		return nil, trace.Wrap(err)
-	}
-	gravityDownloadCommand, err := renderCommand(gravityDownloadTpl, map[string]string{
-		"node":  masterNode.AdvertiseIP,
-		"port":  strconv.Itoa(defaults.GravitySiteNodePort),
-		"token": joinToken.Token,
-	})
-	if err != nil {
-		return nil, trace.Wrap(err)
-	}
-	gravityJoinCommands := make(map[string]string)
-	for _, profile := range cluster.App.Manifest.NodeProfiles {
-		gravityJoinCommands[profile.Name], err = renderCommand(gravityJoinTpl, map[string]string{
-			"node":  masterNode.AdvertiseIP,
-			"token": joinToken.Token,
-			"role":  profile.Name,
-		})
-		if err != nil {
-			return nil, trace.Wrap(err)
-		}
 	}
 	return &webClusterInfo{
 		ClusterState: cluster.State,
 		PublicURLs:   endpoints.Public.ManagementURLs,
 		InternalURLs: endpoints.Internal.ManagementURLs,
-		Commands: webClusterCommands{
-			TshLogin:        tshLoginCommand,
-			GravityDownload: gravityDownloadCommand,
-			GravityJoin:     gravityJoinCommands,
-		},
+		AuthGateways: endpoints.AuthGateways(),
+		MasterNodes:  cluster.Masters().MasterIPs(),
+		GravityURL:   gravityURL.String(),
 	}, nil
 }
 
-// renderCommand returns the rendered command based on provided template and parameters.
-func renderCommand(tpl *template.Template, params map[string]string) (string, error) {
-	var b bytes.Buffer
-	if err := tpl.Execute(&b, params); err != nil {
-		return "", trace.Wrap(err)
-	}
-	return b.String(), nil
-}
-
 var (
-	// gravityJoinTpl is the gravity join command template.
-	gravityJoinTpl = template.Must(template.New("join").Parse(
-		"gravity join {{.node}} --token={{.token}} --role={{.role}}"))
-	// gravityDownloadTpl is the gravity download command template.
-	gravityDownloadTpl = template.Must(template.New("gravity").Parse(
-		`curl -k -H "Authorization: Bearer {{.token}}" https://{{.node}}:{{.port}}/portal/v1/gravity -o gravity`))
-	// tshLoginTpl is the tsh login command template.
-	tshLoginTpl = template.Must(template.New("tsh").Parse(
-		"tsh login --proxy={{.proxyAddr}}"))
+	// gravityURLTpl is the template of the URL to download gravity binary.
+	gravityURLTpl = template.Must(template.New("gravityURL").Parse(
+		`https://{{.node}}:{{.port}}/portal/v1/gravity`))
 )

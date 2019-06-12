@@ -36,7 +36,12 @@ class FeatureAudit extends FeatureBase {
     }
   }
 
-  onload() {
+  onload({ featureFlags }) {
+    if(!featureFlags.clusterEvents()){
+      this.setDisabled();
+      return;
+    }
+
     addSideNavItem({
       title: 'Audit Log',
       Icon: Icons.ListBullet,

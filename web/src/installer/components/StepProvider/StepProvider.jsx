@@ -18,24 +18,16 @@ import React from 'react';
 import cfg from 'app/config';
 import history from 'app/services/history';
 import service from 'app/installer/services/installer';
-import { ProviderEnum } from 'app/services/enums';
-import ClusterName from './ClusterName';
-import ProviderSelector from './ProviderSelector';
+import { FieldInput } from 'app/installer/components/Fields';
 import { StepLayout } from '../Layout';
-import ProviderAws from './ProviderAws';
 import ProviderOnprem from './ProviderOnprem';
 import { useInstallerContext } from './../store';
 
 export default function StepProvider() {
   const store = useInstallerContext();
-  const { clusterName, selectedProvider } = store.state;
-  const { providers } = store.state.config;
+  const { clusterName } = store.state;
 
-  function onChangeProvider(providerName){
-    store.setProvider(providerName)
-  }
-
-  function onChangeClusterName(name){
+  function onChangeName(name){
     store.setClusterName(name);
   }
 
@@ -46,18 +38,24 @@ export default function StepProvider() {
   }
 
   return (
-    <StepLayout title="Choose a Provider">
-      <ClusterName
+    <StepLayout title="Name your cluster">
+      <FieldInput
+        mb="2"
+        placeholder="prod.example.com"
+        autoFocus
+        rule={required}
         value={clusterName}
-        onChange={onChangeClusterName}
+        onChange={e => onChangeName(e.target.value )}
+        label="Cluster Name"
       />
-      <ProviderSelector mb="5"
-        value={selectedProvider}
-        options={providers}
-        onChange={onChangeProvider}
-      />
-      { selectedProvider === ProviderEnum.AWS && <ProviderAws store={store} onStart={onStart} mb="3"/>}
-      { selectedProvider === ProviderEnum.ONPREM && <ProviderOnprem  mb="4" store={store} onStart={onStart} /> }
+      <ProviderOnprem store={store} onStart={onStart} />
     </StepLayout>
   );
 }
+
+const required = value => () => (
+  {
+    valid: !!value,
+    message: 'Cluster name is required'
+  }
+);

@@ -15,7 +15,8 @@ limitations under the License.
 */
 
 import React from 'react';
-import { connect } from 'app/components/nuclear';
+import { useFluxStore } from 'app/components/nuclear';
+import { withState } from 'shared/hooks';
 import Poller from './../components/Poller';
 import { fetchServices } from 'app/cluster/flux/k8sServices/actions';
 import { getters } from 'app/cluster/flux/k8sServices';
@@ -31,18 +32,13 @@ export function Services(props) {
   )
 }
 
-const subToStore = () => {
-  return {
-    services: getters.serviceInfoList
-  }
-}
-
-const stateToProps = ({match}) => {
+export default withState( ({ match}) => {
   const { namespace } = match.params;
+  const services = useFluxStore(getters.serviceInfoList);
   return {
+    services,
     onFetch: fetchServices,
     namespace
-  }
-}
 
-export default connect(subToStore, stateToProps)(Services);
+  }
+})(Services);

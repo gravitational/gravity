@@ -18,7 +18,6 @@ import React from 'react';
 import session from 'app/services/session';
 import history from 'app/services/history';
 import Logger from 'app/lib/logger';
-import { fetchUserContext } from 'app/flux/user/actions';
 
 const logger = Logger.create('/components/withAuth');
 
@@ -27,10 +26,6 @@ const withAuth = component => {
   return class AuthWrapper extends React.Component{
 
     static displayName = `AuthWrapper`
-
-    state = {
-      hasUser: false,
-    }
 
     componentDidMount() {
       if(!session.isValid()){
@@ -42,17 +37,10 @@ const withAuth = component => {
 
       // keeps the session alive
       session.ensureSession();
-
-      fetchUserContext().then(() => {
-        this.setState({ hasUser: true });
-      })
-      .fail(err => {
-        logger.error(err)
-      })
     }
 
     render() {
-      if (this.state.hasUser) {
+      if (session.isValid()) {
         return React.createElement(component, this.props);
       }
 
