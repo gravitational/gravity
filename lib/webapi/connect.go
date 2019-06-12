@@ -168,7 +168,7 @@ func (m *Handler) clusterContainerConnect(w http.ResponseWriter, r *http.Request
 
 	err = validatePodTerminalRequest(kubeClient, req)
 	if err != nil {
-		l.Warnf("Failed to validate terminal request: %v.", trace.DebugReport(err))
+		l.WithError(err).Warn("Failed to validate terminal request.")
 		return nil, trace.Wrap(err)
 	}
 
@@ -178,12 +178,12 @@ func (m *Handler) clusterContainerConnect(w http.ResponseWriter, r *http.Request
 	}
 	term, err := teleweb.NewTerminal(termReq, clt, ctx.SessionContext)
 	if err != nil {
-		l.Errorf("Unable to create terminal: %v.", trace.DebugReport(err))
+		l.WithError(err).Error("Unable to create terminal.")
 		return nil, trace.Wrap(err)
 	}
 
 	// start the websocket session with a web-based terminal:
-	l.Debugf("Starting terminal session.")
+	l.Debug("Starting terminal session.")
 	term.Serve(w, r)
 
 	return nil, nil
