@@ -251,6 +251,7 @@ func NewAPI(cfg Config) (*Handler, error) {
 	h.PUT("/sites/:domain/grafana", h.needsAuth(h.initGrafana))
 	h.DELETE("/sites/:domain", h.needsAuth(h.uninstallSite))
 	h.GET("/sites/:domain/uninstall", h.needsAuth(h.uninstallStatus))
+	h.GET("/sites/:domain/tokens/join", h.needsAuth(h.getJoinToken))
 
 	// Flavors for installation
 	h.GET("/sites/:domain/flavors", h.needsAuth(h.getFlavors))
@@ -272,7 +273,7 @@ func NewAPI(cfg Config) (*Handler, error) {
 	h.GET("/apps/:repository/:package/:version/installer", h.needsAuth(h.getAppInstaller))
 
 	// User
-	h.GET("/user/context", h.needsAuth(h.getWebContext))
+	h.GET("/sites/:domain/context", h.needsAuth(h.getWebContext))
 	h.GET("/user/status", h.needsAuth(h.getUserStatus))
 
 	// Connect to Pod
@@ -468,16 +469,19 @@ func (m *Handler) createUserReset(w http.ResponseWriter, r *http.Request, p http
 	return resetToken, nil
 }
 
-// getUserACL returns current user access list
+// getWebContext returns current user access list
 //
-// GET /portalapi/v1/user/context
+// GET /portalapi/v1/sites/:domain/context
 //
 func (m *Handler) getWebContext(w http.ResponseWriter, r *http.Request, p httprouter.Params, ctx *AuthContext) (interface{}, error) {
-	userCtx, err := ui.NewWebContext(ctx.User, ctx.Identity)
+	cluster, err := ctx.Operator.GetSite(clusterKey(ctx, p))
 	if err != nil {
-		return nil, trace.Wrap(err, "Unable to retrieve user information")
+		return nil, trace.Wrap(err)
 	}
-
+	userCtx, err := ui.NewWebContext(ctx.User, ctx.Identity, *cluster)
+	if err != nil {
+		return nil, trace.Wrap(err)
+	}
 	return userCtx, nil
 }
 
@@ -1675,7 +1679,7 @@ func monitorUninstallProgress(operator ops.Operator, opKey ops.SiteOperationKey)
 //
 // Output:
 //
-//   clusterInfo
+//   webClusterInfo
 func (m *Handler) getClusterInfo(w http.ResponseWriter, r *http.Request, p httprouter.Params, ctx *AuthContext) (interface{}, error) {
 	cluster, err := ctx.Operator.GetSite(ops.SiteKey{
 		AccountID:  ctx.User.GetAccountID(),
@@ -1689,6 +1693,29 @@ func (m *Handler) getClusterInfo(w http.ResponseWriter, r *http.Request, p httpr
 		return nil, trace.Wrap(err)
 	}
 	return clusterInfo, nil
+}
+
+// webJoinToken is the response to the join token request.
+type webJoinToken struct {
+	// Token is the join token.
+	Token string `json:"token"`
+}
+
+// getJoinToken returns join token for the specified cluster.
+//
+//   GET /portalapi/v1/sites/:domain/tokens/join
+//
+// Output:
+//
+//   webJoinToken
+func (m *Handler) getJoinToken(w http.ResponseWriter, r *http.Request, p httprouter.Params, ctx *AuthContext) (interface{}, error) {
+	token, err := ctx.Operator.GetExpandToken(clusterKey(ctx, p))
+	if err != nil {
+		return nil, trace.Wrap(err)
+	}
+	return &webJoinToken{
+		Token: token.Token,
+	}, nil
 }
 
 // getSiteReport returns a tarball with collected information about the site

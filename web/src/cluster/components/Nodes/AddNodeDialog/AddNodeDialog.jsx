@@ -54,10 +54,12 @@ export class AddNodeDialog extends React.Component{
   }
 
   render(){
-    const { onClose, commands } = this.props;
+    const { onClose, advertiseIp, joinToken, gravityUrl } = this.props;
     const { selectedProfile, profileOptions, showCommands } = this.state;
-    const joinCmd = commands.gravityJoin[selectedProfile.value];
-    const downloadCmd = commands.gravityDownload;
+    const role = selectedProfile.value;
+    const downloadCmd = `curl -k -H "Authorization: Bearer ${joinToken}" ${gravityUrl} -o gravity`;
+    const joinCmd = `gravity join ${advertiseIp} --token=${joinToken} --role=${role}`;
+
     return (
       <Dialog
         disableEscapeKeyDown={false}
@@ -89,16 +91,21 @@ export class AddNodeDialog extends React.Component{
 }
 
 AddNodeDialog.propTypes = {
+  joinToken: PropTypes.string.isRequired,
   onClose: PropTypes.func.isRequired,
+  advertiseIp: PropTypes.string.isRequired,
+  gravityUrl: PropTypes.string.isRequired,
 }
 
 function mapState() {
   const clusterStore = useFluxStore(getters.clusterStore);
   const infoStore = useFluxStore(infoGetters.infoStore);
+  const { advertiseIp, gravityUrl } = infoStore.info;
 
   return {
     profiles: clusterStore.cluster.nodeProfiles,
-    commands: infoStore.commands
+    advertiseIp,
+    gravityUrl,
   }
 }
 

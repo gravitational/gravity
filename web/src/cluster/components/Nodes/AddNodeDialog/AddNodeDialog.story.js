@@ -69,18 +69,10 @@ const profiles = [
   }
 ]
 
-const cmd = `curl -s --tlsv1.2 -0 -k "https://demo.gravitational.io:443/t/c1c8e48d3e7fb82fa8b9a0f6f271db97de71a081fc14c81523222ec7e35b77a1/node"`;
-
 const props = {
   profiles,
-  commands: {
-    gravityDownload: cmd,
-    gravityJoin: {
-      node: 'run!',
-      node3: 'UZ',
-      Rodoskew: 'RS',
-      Jelpoutu: 'CC',
-    }
-  },
+  joinToken: '244',
+  advertiseIp: '127.0.0.1',
+  gravityUrl: 'https://127.0.0.1:32009/portal/v1/gravity',
   onClose: () => {},
 }

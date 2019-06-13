@@ -17,6 +17,9 @@ limitations under the License.
 const webpack = require('webpack');
 const baseCfg = require('./webpack.base');
 
+process.env.BABEL_ENV = 'development';
+process.env.NODE_ENV = 'development';
+
 const output = Object.assign({}, baseCfg.output, {
   filename: '[name].js',
   chunkFilename: '[name].js'
@@ -26,7 +29,13 @@ var cfg = {
 
   entry: baseCfg.entry,
   output: output,
-  resolve: baseCfg.resolve,
+  resolve: {
+    ...baseCfg.resolve,
+    alias: {
+      ...baseCfg.resolve.alias,
+      'react-dom': '@hot-loader/react-dom'
+    }
+  },
 
   devtool: false,
 

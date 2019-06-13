@@ -32,7 +32,7 @@ const defaultPodSubnet = '10.244.0.0/16';
 
 const defaultStepOptions = [
   { value: StepEnum.LICENSE, title: 'License' },
-  { value: StepEnum.NEW_APP, title: 'Provider' },
+  { value: StepEnum.NEW_APP, title: 'Cluster name' },
   { value: StepEnum.PROVISION, title: 'Capacity' },
   { value: StepEnum.PROGRESS, title: 'Installation' } ];
 
@@ -320,14 +320,10 @@ export default class InstallerStore extends Store {
     const [ agentReport ] = at(app, ['config.agentReport']);
     merge(cfg, { agentReport });
 
-    // if provider is disabled in app manifest, remove it from provider list.
-    config.providers = cfg.getSupportedProviders().filter(name =>
-      !app.providers[name] || app.providers[name].disabled !== true);
-
     this.setState({
       status: 'ready',
       stepOptions,
-      selectedProvider: config.providers[0],
+      selectedProvider: ProviderEnum.ONPREM,
       app,
       step,
       config,

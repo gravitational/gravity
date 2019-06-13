@@ -35,12 +35,12 @@ class FeatureNodes extends FeatureBase {
     }
   }
 
-  onload(context) {
+  onload() {
     addSideNavItem({
       title: 'Nodes',
       Icon: Icons.Layers,
       exact: true,
-      to: cfg.getSiteServersRoute(context.siteId)
+      to: cfg.getSiteServersRoute()
     })
   }
 }

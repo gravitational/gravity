@@ -59,11 +59,9 @@ Description.propTypes = {
 }
 
 const StyledHint = styled(Flex)`
-  .grv-step-hint ul{
-    padding-left: 10px
-  }
+  white-space: pre-line;
 
-  .grv-step-hint {
-    white-space: pre-line;
+  .ul{
+    padding-left: 10px
   }
 `

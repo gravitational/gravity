@@ -14,9 +14,10 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-import { SiteStateEnum } from 'app/services/enums';
 import cfg from 'app/config';
+import { Activator } from 'oss-app/lib/featureBase';
 import $ from 'jQuery';
+import { fetchUserContext } from 'app/flux/user/actions';
 import * as featureFlags from 'app/cluster/featureFlags';
 import { setCluster } from 'app/flux/cluster/actions';
 import { fetchRemoteAccess, fetchSiteInfo } from './info/actions';
@@ -24,8 +25,12 @@ import service, { applyConfig } from 'app/services/clusters';
 import { fetchNodes } from './nodes/actions';
 import { setReleases } from './apps/actions';
 
-export function initCluster(siteId, featureActivator) {
+export function initCluster(siteId, features) {
   cfg.setDefaultSiteId(siteId);
+  return fetchUserContext().then(() => init(features));
+}
+
+function init(features){
   return $.when(
     service.fetchCluster({shallow: false}),
     fetchNodes(),
@@ -34,12 +39,6 @@ export function initCluster(siteId, featureActivator) {
   )
   .then((...responses) => {
     const [ cluster ] = responses;
-
-    if (cluster.state === SiteStateEnum.UNINSTALLING) {
-      handleUninstallState(siteId);
-      return;
-    }
-
     // Apply cluster web config settings
     applyConfig(cluster);
 
@@ -50,12 +49,7 @@ export function initCluster(siteId, featureActivator) {
     setReleases(cluster.apps);
 
     // Initialize features
-    featureActivator.onload({ siteId, featureFlags });
+    const activator = new Activator(features);
+    activator.onload({ featureFlags });
   })
-}
-
-function handleUninstallState(siteId){
-  // Redirect to cluster uinstall screen
-  const url = cfg.getSiteUninstallRoute(siteId);
-  history.push(url, true);
 }

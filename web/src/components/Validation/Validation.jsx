@@ -14,47 +14,55 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-import React from 'react';
-import Logger from 'app/lib/logger';
-import { values } from 'lodash';
+import React from "react";
+import Logger from "app/lib/logger";
+import { isObject } from "lodash";
 
-const logger = Logger.create('validation');
+const logger = Logger.create("validation");
 
 // Validator handles input validation
 export default class Validator {
 
-  errors = {}
+  valid = true
 
-  constructor(){
+  values = {}
+
+  constructor() {
     // store subscribers
     this._subs = [];
   }
 
   // adds a callback to the list of subscribers
-  subscribe(cb){
-    this._subs.push(cb)
+  subscribe(cb) {
+    this._subs.push(cb);
   }
 
   // removes a callback from the list of subscribers
-  unsubscribe(cb){
+  unsubscribe(cb) {
     const index = this._subs.indexOf(cb);
     if (index > -1) {
-      this._subs.splice(index, 1)
+      this._subs.splice(index, 1);
     }
   }
 
-  addError(name, state){
-    this.errors[name] = state;
-    logger.info(`${name}`, this.errors)
+  addResult(result) {
+    // result can be a boolean value or an object
+    let isValid = false;
+    if (isObject(result)) {
+      isValid = result.valid;
+      if (result.name) {
+        this.results.values[name] = result;
+      }
+    } else {
+      logger.error(`rule should return a valid object`);
+    }
+
+    this.valid = this.valid && Boolean(isValid);
   }
 
-  isValid(){
-    const errors = this.validate();
-    return !values(errors).some(value => !!value);
-  }
-
-  reset(){
-    this.errors = {};
+  reset() {
+    this.valid = true;
+    this.values = {};
     this.validating = false;
   }
 
@@ -62,60 +70,55 @@ export default class Validator {
     this.reset();
     this.validating = true;
     this._subs.forEach(cb => {
-      try{
+      try {
         cb();
-      }
-      catch(err){
+      } catch (err) {
         logger.error(err);
       }
-    })
+    });
 
-    return this.errors;
+    return this.valid;
   }
 }
 
-const ValidationProviderContext =  React.createContext({});
 
-export function ValidationContext(props) {
-  const [ validator ] = React.useState(() => new Validator() );
+const ValidationContext = React.createContext({});
+
+export function Validation(props) {
+  const [validator] = React.useState(() => new Validator());
   return (
-    <ValidationProviderContext.Provider value={validator} children={props.children} />
-  )
+    <ValidationContext.Provider value={validator} children={props.children} />
+  );
 }
 
-export function useValidationContext(){
-  const value = React.useContext(ValidationProviderContext);
-  if(!(value instanceof Validator)){
-    logger.warn('Missing Validation Context declaration')
+export function useValidation() {
+  const value = React.useContext(ValidationContext);
+  if (!(value instanceof Validator)) {
+    logger.warn("Missing Validation Context declaration");
   }
 
   return value;
 }
 
 /**
- * useError registeres with validation context and runs validation function
+ * useRule registeres with validation context and runs validation function
  * after validation has been requested
  */
-export function useError(name, validate){
-  if (!name) {
-    logger.warn(`useError("${name}", fn), error name cannot be empty`);
-    return;
-  }
-
+export function useRule(validate) {
   if (typeof validate !== "function") {
-    logger.warn(`useError("${name}", fn), fn() must be a function`);
+    logger.warn(`useRule(fn), fn() must be a function`);
     return;
   }
 
-  const [ , rerender ] = React.useState({});
-  const validator = useValidationContext();
+  const [, rerender] = React.useState({});
+  const validator = useValidation();
 
   // register to validation context to be called on validate()
   React.useEffect(() => {
-    function onValidate(){
-      if(validator.validating){
-        const errorState = validate();
-        validator.addError(name, errorState);
+    function onValidate() {
+      if (validator.validating) {
+        const result = validate();
+        validator.addResult(result);
         rerender();
       }
     }
@@ -124,17 +127,17 @@ export function useError(name, validate){
     validator.subscribe(onValidate);
 
     // unsubscribe on unmount
-    function cleanup(){
-      validator.unsubscribe(onValidate)
+    function cleanup() {
+      validator.unsubscribe(onValidate);
     }
 
     return cleanup;
   }, [validate]);
 
   // if validation has been requested, validate right away.
-  if(validator.validating){
+  if (validator.validating) {
     return validate();
   }
 
-  return null;
+  return { valid: true };
 }

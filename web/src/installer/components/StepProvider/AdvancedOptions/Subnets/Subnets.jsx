@@ -16,8 +16,8 @@ limitations under the License.
 
 import React from 'react';
 import { parseCidr } from 'app/lib/paramUtils';
-import { Flex, Box, Input, LabelInput } from 'shared/components';
-import { useError } from 'app/components/Validation';
+import { Flex } from 'shared/components';
+import { FieldInput } from 'app/installer/components/Fields';
 
 const POD_HOST_NUM = 65534;
 const INVALID_SUBNET = 'Invalid CIDR format';
@@ -33,56 +33,49 @@ export default function Subnets({ onChange, podSubnet, serviceSubnet, ...styles}
     onChange({ podSubnet, serviceSubnet: e.target.value })
   }
 
-  const serverError = useError('serviceSubnet', checkCidr(serviceSubnet));
-  const podError = useError('podSubnet', checkPod(podSubnet));
-  const serviceLabel = serverError ?  serverError : 'Service Subnet';
-  const podLabel = podError ?  podError : 'Pod Subnet';
-
   return (
     <Flex {...styles}>
-      <Box flex="1" mr="3">
-        <LabelInput hasError={Boolean(serverError)}>
-          {serviceLabel}
-        </LabelInput>
-        <Input
-          hasError={Boolean(serverError)}
-          mb="3"
-          value={serviceSubnet}
-          onChange={onChangeServiceSubnet}
-          autoComplete="off"
-          placeholder="10.0.0.0/16"
-        />
-      </Box>
-      <Box flex="1">
-      <LabelInput hasError={Boolean(podError)}>
-        {podLabel}
-      </LabelInput>
-      <Input
-        mb="3"
-        hasError={Boolean(podError)}
-        value={podSubnet}
-        onChange={onChangePodnet}
+      <FieldInput
+        flex="1"
         autoComplete="off"
+        label="Service Subnet"
+        mr="3"
+        onChange={onChangeServiceSubnet}
         placeholder="10.0.0.0/16"
+        rule={validCidr}
+        value={serviceSubnet}
       />
-      </Box>
+      <FieldInput
+        flex="1"
+        autoComplete="off"
+        label="Pod Subnet"
+        onChange={onChangePodnet}
+        placeholder="10.0.0.0/16"
+        rule={validPod}
+        value={podSubnet}
+      />
     </Flex>
   )
 }
 
-const checkCidr = value => () => {
-  if(!parseCidr(value)){
-    return INVALID_SUBNET;
+const validCidr = value => () => {
+  return {
+    valid: parseCidr(value) !== null,
+    message: INVALID_SUBNET
   }
 }
 
-const checkPod = value => () => {
+const validPod = value => () => {
   const result = parseCidr(value);
   if(result && result.totalHost <= POD_HOST_NUM){
-    return VALIDATION_POD_SUBNET_MIN;
+    return {
+      valid: false,
+      message: VALIDATION_POD_SUBNET_MIN
+    }
   }
 
-  if(!result){
-    return INVALID_SUBNET;
+  return {
+    valid: result !== null,
+    message:  INVALID_SUBNET
   }
 }

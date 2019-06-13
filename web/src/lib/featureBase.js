@@ -72,7 +72,6 @@ export default class FeatureBase extends Store {
   isDisabled() {
     return this.state.status === StatusEnum.DISABLED;
   }
-
 }
 
 // Activator invokes methods on a group of features.

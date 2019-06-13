@@ -15,7 +15,8 @@ limitations under the License.
 */
 
 import React from 'react';
-import { connect } from 'app/components/nuclear';
+import { useFluxStore } from 'app/components/nuclear';
+import { withState } from 'shared/hooks';
 import cfg from 'app/config';
 import history from 'app/services/history';
 import { getters as termGetters } from 'app/console/flux/terminal';
@@ -188,16 +189,13 @@ const SidNotFoundError = ({ onReplay }) => (
   </Box>
 )
 
-function mapStoreToProps() {
-  return {
-    termStore: termGetters.store,
-    fileStore: fileGetters.store
-  }
-}
-
-function mapStateToProps({match}) {
+export default withState( ({match}) => {
   const { siteId, sid } = match.params;
+  const termStore = useFluxStore(termGetters.store);
+  const fileStore = useFluxStore(fileGetters.store);
   return {
+    termStore,
+    fileStore,
     onOpenUploadDialog: fileActions.openUploadDialog,
     onOpenDownloadDialog: fileActions.openDownloadDialog,
     onTransferRemove: fileActions.removeFile,
@@ -211,9 +209,7 @@ function mapStateToProps({match}) {
     siteId,
     sid
   }
-}
-
-export default connect(mapStoreToProps, mapStateToProps)(Terminal);
+})(Terminal);
 
 function closeWindow(){
   window.close();

@@ -23,7 +23,7 @@ export function fetchSessions(){
   return api.get(cfg.getSiteSshSessionUrl())
     .then(response => {
       if(response && response.sessions){
-        return map(response.sessions, makeSession).filter(onlyActive);
+        return map(response.sessions, makeSession);
       }
 
       return [];
@@ -62,5 +62,4 @@ function makeParticipant(json) {
   }
 }
 
-const onlyActive = session => session.active === true;
 const PORT_REGEX = /:\d+$/;

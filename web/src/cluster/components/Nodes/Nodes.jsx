@@ -16,11 +16,13 @@ limitations under the License.
 
 import React from 'react';
 import { useFluxStore } from 'app/components/nuclear';
-import { withState } from 'shared/hooks';
+import { withState, useAttempt } from 'shared/hooks';
+import { Danger } from 'shared/components/Alert'
 import { getters } from 'app/cluster/flux/nodes';
 import { fetchNodes } from 'app/cluster/flux/nodes/actions';
 import { ButtonPrimary } from 'shared/components';
 import NodeList from './NodeList';
+import service from 'app/cluster/services/info';
 import AddNodeDialog from './AddNodeDialog';
 import DeleteNodeDialog from './DeleteNodeDialog';
 import AjaxPoller from 'app/components/dataProviders'
@@ -28,16 +30,27 @@ import { FeatureBox, FeatureHeader, FeatureHeaderTitle } from './../Layout';
 
 const POLLING_INTERVAL = 10000; // every 10 sec
 
-export function Nodes({ nodes, onFetch }){
+export function Nodes({ nodes, onFetch, onFetchToken }){
   // state
+  const [ joinToken, setJoinToken ] = React.useState(null);
   const [ isAddNodeDialogOpen, setIsAddNodeDialogOpen ] = React.useState(false);
   const [ nodeToDelete, setNodeToDelete ] = React.useState(null);
+  const [ attempt, attemptActions ] = useAttempt();
 
   // actions
-  const openAddDialog = () => setIsAddNodeDialogOpen(true);
+  const openAddDialog = () => {
+    attemptActions.do(() => {
+      return onFetchToken().then(joinToken => {
+        setJoinToken(joinToken);
+        setIsAddNodeDialogOpen(true);
+      })
+    })
+  }
+
   const closeAddDialog = () => setIsAddNodeDialogOpen(false);
   const openDeleteDialog = nodeToDelete => setNodeToDelete(nodeToDelete);
   const closeDeleteDialog = () => setNodeToDelete(null);
+  const { isFailed, message, isProcessing } = attempt;
 
   return (
     <FeatureBox>
@@ -45,12 +58,13 @@ export function Nodes({ nodes, onFetch }){
         <FeatureHeaderTitle>
           Nodes
         </FeatureHeaderTitle>
-        <ButtonPrimary ml="auto" width="200px" onClick={openAddDialog}>
+        <ButtonPrimary disabled={isProcessing || isAddNodeDialogOpen} ml="auto" width="200px" onClick={openAddDialog}>
           Add Node
         </ButtonPrimary>
       </FeatureHeader>
+      { isFailed && <Danger> {message} </Danger> }
       <NodeList onDelete={openDeleteDialog} nodes={nodes} />
-      { isAddNodeDialogOpen && ( <AddNodeDialog onClose={closeAddDialog} /> )}
+      { isAddNodeDialogOpen && ( <AddNodeDialog joinToken={joinToken} onClose={closeAddDialog} /> )}
       { nodeToDelete && <DeleteNodeDialog node={nodeToDelete} onClose={closeDeleteDialog}/>}
       <AjaxPoller time={POLLING_INTERVAL} onFetch={onFetch} />
     </FeatureBox>
@@ -61,6 +75,7 @@ const mapState = () => {
   const nodeStore = useFluxStore(getters.nodeStore);
   return {
     onFetch: fetchNodes,
+    onFetchToken: service.fetchJoinToken,
     nodes: nodeStore.nodes
   }
 }

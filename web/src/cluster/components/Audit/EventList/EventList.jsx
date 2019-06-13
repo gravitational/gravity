@@ -125,7 +125,7 @@ class EventList extends React.Component {
             cell={<TimeCell /> }
           />
           <Column
-            header={<Cell style={{textAlign:"right"}}>Actions</Cell> }
+            header={<Cell style={{ padding: "0 16px", textAlign:"center"}}>Actions</Cell> }
             cell={ <ActionCell onViewDetails={this.showDetails} /> }
           />
         </TablePaged>
