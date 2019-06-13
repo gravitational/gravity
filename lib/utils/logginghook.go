@@ -14,7 +14,7 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package install
+package utils
 
 import (
 	"io/ioutil"
@@ -27,7 +27,7 @@ import (
 	syslogrus "github.com/sirupsen/logrus/hooks/syslog"
 )
 
-// InitLogging initalizes logging for local installer
+// InitLogging initalizes logging to log both to syslog and to a file
 func InitLogging(logFile string) {
 	log.StandardLogger().Hooks.Add(&Hook{
 		path: logFile,
