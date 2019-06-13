@@ -342,6 +342,7 @@ func (p *Peer) executeConcurrentStep(req *installpb.ExecuteRequest, stream insta
 		return trace.Wrap(err)
 	}
 	dispatcher := direct.New()
+	defer dispatcher.Close()
 	errC := make(chan error, 1)
 	go func() {
 		errC <- p.executePhase(stream.Context(), *opCtx, *req.Phase, dispatcher)
@@ -354,7 +355,6 @@ func (p *Peer) executeConcurrentStep(req *installpb.ExecuteRequest, stream insta
 				return trace.Wrap(err)
 			}
 		case err := <-errC:
-			dispatcher.Close()
 			return trace.Wrap(err)
 		}
 	}
