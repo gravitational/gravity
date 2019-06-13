@@ -118,7 +118,8 @@ func (S) TestSingleNodePlan(c *C) {
 								Executor:    libphase.RestartContainer,
 								Description: `Restart container on node "node-1"`,
 								Data: &storage.OperationPhaseData{
-									Package: &app.Package,
+									ExecServer: &servers[0],
+									Package:    &app.Package,
 									Update: &storage.UpdateOperationData{
 										Servers: []storage.UpdateServer{
 											{
@@ -311,7 +312,8 @@ func (S) TestMultiNodePlan(c *C) {
 								Executor:    libphase.RestartContainer,
 								Description: `Restart container on node "node-1"`,
 								Data: &storage.OperationPhaseData{
-									Package: &app.Package,
+									ExecServer: &servers[0],
+									Package:    &app.Package,
 									Update: &storage.UpdateOperationData{
 										Servers: []storage.UpdateServer{
 											{
@@ -398,7 +400,8 @@ func (S) TestMultiNodePlan(c *C) {
 								Executor:    libphase.RestartContainer,
 								Description: `Restart container on node "node-3"`,
 								Data: &storage.OperationPhaseData{
-									Package: &app.Package,
+									ExecServer: &servers[2],
+									Package:    &app.Package,
 									Update: &storage.UpdateOperationData{
 										Servers: []storage.UpdateServer{
 											{
@@ -492,7 +495,8 @@ func (S) TestMultiNodePlan(c *C) {
 								Executor:    libphase.RestartContainer,
 								Description: `Restart container on node "node-2"`,
 								Data: &storage.OperationPhaseData{
-									Package: &app.Package,
+									ExecServer: &servers[1],
+									Package:    &app.Package,
 									Update: &storage.UpdateOperationData{
 										Servers: []storage.UpdateServer{
 											{
@@ -570,7 +574,8 @@ func (S) TestMultiNodePlan(c *C) {
 								Executor:    libphase.RestartContainer,
 								Description: `Restart container on node "node-4"`,
 								Data: &storage.OperationPhaseData{
-									Package: &app.Package,
+									ExecServer: &servers[3],
+									Package:    &app.Package,
 									Update: &storage.UpdateOperationData{
 										Servers: []storage.UpdateServer{
 											{

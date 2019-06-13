@@ -42,7 +42,6 @@ func InitProcess(ctx context.Context, gravityConfig processconfig.Config, newPro
 	if err != nil {
 		return nil, trace.Wrap(err)
 	}
-	setLoggingOptions()
 	err = p.InitRPCCredentials()
 	if err != nil {
 		return nil, trace.Wrap(err)

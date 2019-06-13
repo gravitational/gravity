@@ -37,10 +37,6 @@ func WizardTeleportConfig(clusterName, stateDir string) *telecfg.FileConfig {
 	return &telecfg.FileConfig{
 		Global: telecfg.Global{
 			DataDir: stateDir,
-			Logger: telecfg.Log{
-				Output:   "stderr",
-				Severity: "warn",
-			},
 			Storage: backend.Config{
 				// TODO Eventually we should change this to "dir" backend
 				// because bolt backend is being deprecated in teleport

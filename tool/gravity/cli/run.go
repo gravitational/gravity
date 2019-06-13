@@ -31,7 +31,6 @@ import (
 	"github.com/gravitational/gravity/lib/defaults"
 	"github.com/gravitational/gravity/lib/fsm"
 	"github.com/gravitational/gravity/lib/httplib"
-	"github.com/gravitational/gravity/lib/install"
 	"github.com/gravitational/gravity/lib/localenv"
 	"github.com/gravitational/gravity/lib/process"
 	"github.com/gravitational/gravity/lib/schema"
@@ -123,15 +122,17 @@ func InitAndCheck(g *Application, cmd string) error {
 		g.PlanResumeCmd.FullCommand(),
 		g.PlanExecuteCmd.FullCommand(),
 		g.PlanRollbackCmd.FullCommand(),
+		g.ResourceCreateCmd.FullCommand(),
+		g.ResourceRemoveCmd.FullCommand(),
 		g.OpsAgentCmd.FullCommand():
-		install.InitLogging(*g.SystemLogFile)
+		utils.InitLogging(*g.SystemLogFile)
 		// install and join command also duplicate their logs to the file in
 		// the current directory for convenience, unless the user set their
 		// own location
 		switch cmd {
 		case g.InstallCmd.FullCommand(), g.JoinCmd.FullCommand():
 			if *g.SystemLogFile == defaults.GravitySystemLog {
-				install.InitLogging(defaults.GravitySystemLogFile)
+				utils.InitLogging(defaults.GravitySystemLogFile)
 			}
 		}
 	}
