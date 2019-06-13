@@ -65,8 +65,13 @@ func KeyToProto(key ops.SiteOperationKey) *OperationKey {
 	}
 }
 
+// IsResume determines if this request describes a resume operation
+func (r *ExecuteRequest) IsResume() bool {
+	return r.Phase == nil || r.Phase.IsResume()
+}
+
 // IsResume determines if this phase describes a resume operation
-func (r ExecuteRequest_Phase) IsResume() bool {
+func (r *ExecuteRequest_Phase) IsResume() bool {
 	return r.ID == fsm.RootPhase
 }
 

@@ -282,6 +282,10 @@ func (i *InstallConfig) CheckAndSetDefaults() (err error) {
 	if err != nil {
 		return trace.Wrap(err)
 	}
+	err = i.validateApplicationDir()
+	if err != nil {
+		return trace.Wrap(err)
+	}
 	if i.DNSConfig.IsEmpty() {
 		i.DNSConfig = storage.DefaultDNSConfig
 	}
@@ -391,6 +395,11 @@ func (i *InstallConfig) NewInstallerConfig(
 		LocalAgent:         !i.ExcludeHostFromCluster,
 	}, nil
 
+}
+
+func (i *InstallConfig) validateApplicationDir() error {
+	_, err := i.getApp()
+	return trace.Wrap(err)
 }
 
 // getAdvertiseAddr returns the advertise address to use for the ???
@@ -720,19 +729,20 @@ func (j *JoinConfig) NewPeerConfig(env, joinEnv *localenv.LocalEnvironment) (con
 		return nil, trace.Wrap(err)
 	}
 	return &expand.PeerConfig{
-		Peers:         peers,
-		AdvertiseAddr: j.AdvertiseAddr,
-		ServerAddr:    j.ServerAddr,
-		CloudProvider: j.CloudProvider,
-		RuntimeConfig: *runtimeConfig,
-		DebugMode:     env.Debug,
-		Insecure:      env.Insecure,
-		LocalBackend:  env.Backend,
-		LocalApps:     env.Apps,
-		LocalPackages: env.Packages,
-		JoinBackend:   joinEnv.Backend,
-		StateDir:      joinEnv.StateDir,
-		OperationID:   j.OperationID,
+		Peers:              peers,
+		AdvertiseAddr:      j.AdvertiseAddr,
+		ServerAddr:         j.ServerAddr,
+		CloudProvider:      j.CloudProvider,
+		RuntimeConfig:      *runtimeConfig,
+		DebugMode:          env.Debug,
+		Insecure:           env.Insecure,
+		LocalBackend:       env.Backend,
+		LocalApps:          env.Apps,
+		LocalPackages:      env.Packages,
+		LocalClusterClient: env.SiteOperator,
+		JoinBackend:        joinEnv.Backend,
+		StateDir:           joinEnv.StateDir,
+		OperationID:        j.OperationID,
 	}, nil
 }
 

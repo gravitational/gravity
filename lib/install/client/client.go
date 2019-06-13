@@ -71,36 +71,6 @@ func (r *Client) ExecutePhase(ctx context.Context, phase Phase) error {
 	})
 }
 
-// DirectExecutePhase executes the specified phase using given machine
-func (r *Client) DirectExecutePhase(ctx context.Context, machine *fsm.FSM, phase Phase) error {
-	r.WithField("phase", phase).Info("Execute.")
-	if !phase.IsResume() {
-		progress := utils.NewProgressWithConfig(ctx, fmt.Sprintf("Executing phase %q", phase.ID), utils.ProgressConfig{})
-		defer progress.Stop()
-		err := machine.ExecutePhase(ctx, fsm.Params{
-			PhaseID:  phase.ID,
-			Force:    phase.Force,
-			Progress: progress,
-		})
-		return trace.Wrap(err)
-	}
-	progress := utils.NewProgressWithConfig(ctx, "Resuming operation", utils.ProgressConfig{})
-	defer progress.Stop()
-
-	planErr := machine.ExecutePlan(ctx, progress)
-	if planErr != nil {
-		r.WithError(planErr).Warn("Failed to execute plan.")
-	}
-	if err := machine.Complete(planErr); err != nil {
-		r.WithError(err).Warn("Failed to complete plan.")
-	}
-	if planErr != nil {
-		return trace.Wrap(planErr)
-	}
-	r.complete(ctx, installpb.StatusCompleted)
-	return nil
-}
-
 // RollbackPhase rolls back the specified phase
 func (r *Client) RollbackPhase(ctx context.Context, phase Phase) error {
 	r.WithField("phase", phase).Info("Rollback.")
@@ -112,19 +82,6 @@ func (r *Client) RollbackPhase(ctx context.Context, phase Phase) error {
 			Rollback: true,
 		},
 	})
-}
-
-// DirectRollbackPhase rolls back the specified phase using the specified machine
-func (r *Client) DirectRollbackPhase(ctx context.Context, machine *fsm.FSM, phase Phase) error {
-	r.WithField("phase", phase).Info("Rollback.")
-	progress := utils.NewProgressWithConfig(ctx, fmt.Sprintf("Rolling back phase %q", phase.ID), utils.ProgressConfig{})
-	defer progress.Stop()
-	err := machine.RollbackPhase(ctx, fsm.Params{
-		PhaseID:  phase.ID,
-		Force:    phase.Force,
-		Progress: progress,
-	})
-	return trace.Wrap(err)
 }
 
 // Complete manually completes the active operation
@@ -139,11 +96,17 @@ func (r *Client) Complete(ctx context.Context, key ops.SiteOperationKey) error {
 	return trace.Wrap(r.complete(ctx, installpb.StatusCompleted))
 }
 
-// Stop signals the service to stop
+// Stop signals the service to stop and invokes the abort handler
 // Implements signals.Stopper
 func (r *Client) Stop(ctx context.Context) error {
 	r.Info("Abort.")
 	_, err := r.client.Abort(ctx, &installpb.AbortRequest{})
+	if errAbort := r.abort(ctx); errAbort != nil {
+		r.WithError(errAbort).Warn("Failed to abort.")
+		if err == nil {
+			err = errAbort
+		}
+	}
 	return trace.Wrap(err)
 }
 
@@ -238,25 +201,28 @@ func (r *Client) execute(ctx context.Context, req *installpb.ExecuteRequest) err
 	if err != nil {
 		return trace.Wrap(err)
 	}
-	status, err := r.progressLoop(ctx, stream)
-	switch {
-	case trace.Unwrap(err) == installpb.ErrAborted:
-		cancel()
-		return trace.Wrap(r.abort(ctx))
-	case err == nil:
-		if status == installpb.StatusUnknown {
-			return nil
-		}
-		cancel()
-		return trace.Wrap(r.complete(ctx, status))
-	case trace.IsEOF(err):
-		// Stream done but no completion event
-		return nil
+
+	resultC := r.startProgressLoop(stream)
+	select {
+	case result := <-resultC:
+		return trace.Wrap(r.handleProgressStatus(ctx, cancel, result.status, result.err))
+	case <-ctx.Done():
+		return trace.Wrap(ctx.Err())
+	case <-r.InterruptHandler.Done():
+		return installpb.ErrAborted
 	}
-	return trace.Wrap(err)
 }
 
-func (r *Client) progressLoop(ctx context.Context, stream installpb.Agent_ExecuteClient) (status installpb.ProgressResponse_Status, err error) {
+func (r *Client) startProgressLoop(stream installpb.Agent_ExecuteClient) <-chan result {
+	resultC := make(chan result, 1)
+	go func() {
+		status, err := r.progressLoop(stream)
+		resultC <- result{status: status, err: err}
+	}()
+	return resultC
+}
+
+func (r *Client) progressLoop(stream installpb.Agent_ExecuteClient) (status installpb.ProgressResponse_Status, err error) {
 	for {
 		resp, err := stream.Recv()
 		if err != nil {
@@ -270,18 +236,33 @@ func (r *Client) progressLoop(ctx context.Context, stream installpb.Agent_Execut
 			r.WithError(err).Warn("Failed to fetch progress.")
 			return installpb.StatusUnknown, trace.Wrap(err)
 		}
-		if resp.IsAborted() {
-			return resp.Status, installpb.ErrAborted
-		}
 		// Exit upon first error
 		if resp.Error != nil {
 			return resp.Status, trace.BadParameter(resp.Error.Message)
 		}
 		r.PrintStep(resp.Message)
 		if resp.IsCompleted() {
+			r.WithField("resp", resp).Info("Received completed response.")
 			return resp.Status, nil
 		}
 	}
+}
+
+func (r *Client) handleProgressStatus(ctx context.Context, cancel context.CancelFunc, status installpb.ProgressResponse_Status, err error) error {
+	switch {
+	case err == nil:
+		if status == installpb.StatusUnknown {
+			return nil
+		}
+		// We received completion status
+		err = r.complete(ctx, status)
+		cancel()
+		return trace.Wrap(err)
+	case trace.IsEOF(err):
+		// Stream done but no completion event
+		return nil
+	}
+	return trace.Wrap(err)
 }
 
 func (r *Client) addTerminationHandler() {
@@ -296,6 +277,10 @@ func (r *Client) abort(ctx context.Context) error {
 }
 
 func (r *Client) complete(ctx context.Context, status installpb.ProgressResponse_Status) error {
+	_, err := r.client.Shutdown(ctx, &installpb.ShutdownRequest{})
+	if err != nil {
+		return trace.Wrap(err)
+	}
 	return trace.Wrap(r.Completer(ctx, r.InterruptHandler, status))
 }
 
@@ -322,3 +307,8 @@ func emptyCompleter(context.Context, *signals.InterruptHandler, installpb.Progre
 }
 
 var _ signals.Stopper = (*Client)(nil)
+
+type result struct {
+	status installpb.ProgressResponse_Status
+	err    error
+}

@@ -28,7 +28,7 @@ import (
 	"github.com/gravitational/gravity/lib/defaults"
 	"github.com/gravitational/gravity/lib/fsm"
 	"github.com/gravitational/gravity/lib/install/engine"
-	"github.com/gravitational/gravity/lib/install/server"
+	"github.com/gravitational/gravity/lib/install/server/dispatcher"
 	"github.com/gravitational/gravity/lib/loc"
 	"github.com/gravitational/gravity/lib/ops"
 	"github.com/gravitational/gravity/lib/pack"
@@ -340,7 +340,7 @@ func (r ProgressLooper) Run(ctx context.Context) error {
 			if lastProgress != nil && lastProgress.IsEqual(*progress) {
 				continue
 			}
-			r.Dispatcher.Send(server.Event{Progress: progress})
+			r.Dispatcher.Send(dispatcher.Event{Progress: progress})
 			lastProgress = progress
 			if isOperationSuccessful(*progress) {
 				return nil
@@ -364,7 +364,7 @@ func isOperationSuccessful(progress ops.ProgressEntry) bool {
 }
 
 type eventDispatcher interface {
-	Send(server.Event)
+	Send(dispatcher.Event)
 }
 
 func wait(ctx context.Context, cancel context.CancelFunc, p process.GravityProcess) error {
