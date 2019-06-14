@@ -7,7 +7,7 @@ LTS starts with `3.51.0` with minor backwards compatible changes added over time
 
 | Release       | LTS | Release Date         | Supported Until      | Kubernetes Version | Teleport Version |
 | --------------|-----| -------------------- | -------------------- | ------------------ |------------------|
-| 6.0.0-rc.1    | -   | June 3rd, 2019       | -                    | 1.14.1             | 3.2.5            |
+| 6.0.0-rc.2    | -   | June 13th, 2019      | -                    | 1.14.1             | 3.2.5            |
 | 5.6.1         | No  | April 17th, 2019     | -                    | 1.14.0             | 3.0.5            |
 | 5.5.9         | Yes | June 6th, 2019       | September 7th, 2020  | 1.13.5             | 3.0.4            |
 | 5.4.10        | No  | March 26th, 2019     | -                    | 1.13.5             | 2.4.10           |
@@ -30,6 +30,20 @@ LTS starts with `3.51.0` with minor backwards compatible changes added over time
     do not receive updates and bugfixes.
 
 ## 6.x Releases
+
+### 6.0.0-rc.2
+
+#### Improvements
+
+* Introduce time drift check.
+* Update Teleport to `3.2.6`.
+* Add RHEL 8 to supported distros.
+* Update [Logrange](https://logrange.io) to `0.1.1`.
+
+#### Bugfixes
+
+* Update web UI to properly hide components based on user permissions.
+* Update `RuntimeEnvironment` resource to properly support environment variables with commas.
 
 ### 6.0.0-rc.1
 

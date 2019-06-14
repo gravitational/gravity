@@ -21,6 +21,6 @@ import defaultLogoSvg from 'shared/assets/images/gravity-logo.svg';
 export default function Logo({ src, ...rest}){
   const logoSrc = src || defaultLogoSvg;
   return (
-    <SharedLogo mr="8" width="auto" maxWidth="120px" maxHeight="40px" src={logoSrc} {...rest}/>
+    <SharedLogo mr="8" my="3" width="auto" maxWidth="120px" maxHeight="40px" src={logoSrc} {...rest}/>
   )
 }

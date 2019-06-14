@@ -19,8 +19,6 @@ import { FieldInput } from 'app/installer/components/Fields';
 import { capitalize } from 'lodash';
 import cfg from 'app/config';
 
-let counter = 0;
-
 export default function FieldMount({ defaultValue, name, onChange, ...styles }){
   const [ value, setValue ] = React.useState(defaultValue);
 
@@ -28,10 +26,6 @@ export default function FieldMount({ defaultValue, name, onChange, ...styles }){
   React.useEffect( () => {
     onChange({ name, value})
   }, [value]);
-
-  const fieldName = React.useMemo(() => {
-    return `${++counter}-mount`;
-  }, []);
 
   // pick up this field title from web config
   const title = React.useMemo(() => {
@@ -48,7 +42,6 @@ export default function FieldMount({ defaultValue, name, onChange, ...styles }){
     <FieldInput
       {...styles}
       value={value}
-      name={fieldName}
       label={title}
       rule={required(`${title} is required`)}
       onChange={onFieldChange}
@@ -56,8 +49,9 @@ export default function FieldMount({ defaultValue, name, onChange, ...styles }){
   )
 }
 
-const required = errorText => value => () => {
-  if(!value) {
-    return errorText;
+const required = message => value => () => {
+  return {
+    valid: !!value,
+    message
   }
 }

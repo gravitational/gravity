@@ -20,8 +20,8 @@ import { Failed } from 'shared/components/CardError';
 import { Provider as ServiceProvider, useServices } from 'app/installer/services';
 import { AppLayout } from './Layout';
 import Eula from './Eula';
-import InstallerStore, { useInstallerStore, StepEnum, Provider } from './store';
-import { ValidationContext } from 'app/components/Validation';
+import InstallerStore, { useInstallerStore, StepEnum, Provider as StoreProvider } from './store';
+import Validation from 'app/components/Validation';
 import StepProgress from './StepProgress';
 import StepCapacity from './StepCapacity';
 import StepList from './StepList';
@@ -75,11 +75,11 @@ export function Installer(props){
   const logoSrc = app.logo;
 
   return (
-    <ValidationContext>
+    <Validation>
       <AppLayout>
         <Flex flex="1" px="8" py="10" mr="4" mb="5" justifyContent="flex-end" style={{overflow: "auto"}}>
           <Flex flexDirection="column" flex="1" maxWidth="1000px">
-            <Flex mb="10" alignItems="center">
+            <Flex mb="10" alignItems="center" flexWrap="wrap">
               <Logo src={logoSrc}/>
               <StepList value={step} options={stepOptions} />
             </Flex>
@@ -93,11 +93,11 @@ export function Installer(props){
           <Description store={store}/>
         </Flex>
       </AppLayout>
-    </ValidationContext>
+    </Validation>
   );
 }
 
-export default function Container({ match, services, store }) {
+export default function Container({ match, service, store }) {
   const { siteId, repository, name, version } = match.params;
   const [ installerStore ] = React.useState(() => store || new InstallerStore());
   const props = {
@@ -108,10 +108,10 @@ export default function Container({ match, services, store }) {
   }
 
   return (
-    <ServiceProvider value={services}>
-      <Provider value={installerStore}>
+    <ServiceProvider value={service}>
+      <StoreProvider value={installerStore}>
         <Installer {...props} />
-      </Provider>
+      </StoreProvider>
     </ServiceProvider>
   )
 }

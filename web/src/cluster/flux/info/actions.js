@@ -15,32 +15,25 @@ limitations under the License.
 */
 
 import reactor from 'app/reactor';
-import cfg from 'app/config';
-import api from 'app/services/api';
+import service from 'app/cluster/services/info';
 import { SITE_SET_REMOTE_STATUS, SITE_RECEIVE_INFO } from './actionTypes';
 
 export function fetchSiteInfo(){
-  return api.get(cfg.getSiteInfoUrl()).then(json => {
-    reactor.dispatch(SITE_RECEIVE_INFO, json)
+  return service.fetchInfo().then(info => {
+    reactor.dispatch(SITE_RECEIVE_INFO, info)
   })
 }
 
 export function fetchRemoteAccess() {
-  return api.get(cfg.getSiteRemoteAccessUrl())
-    .done(json => {
-      json = json || {};
-      reactor.dispatch(SITE_SET_REMOTE_STATUS, json);
+  return service.fetchRemoteAccess()
+    .then(status => {
+      reactor.dispatch(SITE_SET_REMOTE_STATUS, status);
     })
 }
 
 export function changeRemoteAccess(enabled){
-  const data = {
-    enabled: enabled === true
-  }
-
-  return api.put(cfg.getSiteRemoteAccessUrl(), data)
-    .done(json => {
-      json = json || {};
-      reactor.dispatch(SITE_SET_REMOTE_STATUS, json);
+  return service.changeRemoteAccess(enabled)
+    .then(status => {
+      reactor.dispatch(SITE_SET_REMOTE_STATUS, status);
     })
 }

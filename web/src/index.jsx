@@ -13,7 +13,7 @@ WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 See the License for the specific language governing permissions and
 limitations under the License.
 */
-
+import { hot } from 'react-hot-loader/root'
 import React from 'react';
 import ThemeProvider from 'shared/components/ThemeProvider';
 
@@ -69,4 +69,4 @@ function LazyLoad(Component) {
   );
 }
 
-export default Root;
+export default hot(Root);

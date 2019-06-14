@@ -19,7 +19,7 @@ import AwsProfile from './ProfileAws';
 import PropTypes from 'prop-types';
 import ButtonValidate from '../Elements/ButtonValidate';
 import * as Alerts from 'shared/components/Alert';
-import { ValidationContext } from 'app/components/Validation';
+import Validation from 'app/components/Validation';
 import { useServices } from 'app/installer/services';
 import { useAttempt } from 'shared/hooks';
 
@@ -71,7 +71,7 @@ export default function FlavorAws(props) {
 
   const btnDisabled = attempt.isProcessing;
   return (
-    <ValidationContext>
+    <Validation>
       <>
         { attempt.isFailed && <Alerts.Danger>{attempt.message}</Alerts.Danger>}
         { attempt.isSuccess && <Alerts.Success>{attempt.message}</Alerts.Success>}
@@ -80,7 +80,7 @@ export default function FlavorAws(props) {
           Continue
         </ButtonValidate>
       </>
-    </ValidationContext>
+    </Validation>
   );
 }
 

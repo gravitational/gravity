@@ -28,7 +28,7 @@ import { app, appWithEula, appWithLicense } from './fixtures';
 storiesOf('GravityInstaller', module)
   .add('StepProvider', () => {
     return makeInstaller({
-      services: {
+      service: {
         fetchApp: () => $.Deferred().resolve(makeApplication(app))
       }
     });
@@ -39,7 +39,7 @@ storiesOf('GravityInstaller', module)
     return makeInstaller({
       store,
       siteId: 'siteId',
-      services: {
+      service: {
         startInstall: () => $.Deferred().reject(new Error('server error')),
         fetchClusterDetails: () => $.Deferred()
       }
@@ -52,7 +52,7 @@ storiesOf('GravityInstaller', module)
     return makeInstaller({
       store,
       siteId: 'siteId',
-      services: {
+      service: {
         fetchClusterDetails: () => $.Deferred(),
         fetchAgentReport: () => $.Deferred(),
         startInstall: () => $.Deferred().reject(new Error('server error')),
@@ -62,28 +62,28 @@ storiesOf('GravityInstaller', module)
   })
   .add('Loading', () => {
     return makeInstaller({
-      services: {
+      service: {
         fetchApp: () => $.Deferred()
       }
     });
   })
   .add('Error', () => {
     return makeInstaller({
-      services: {
+      service: {
         fetchApp: () => $.Deferred().reject(new Error("server side error"))
       }
     });
   })
   .add('Eula', () => {
     return makeInstaller({
-      services: {
+      service: {
         fetchApp: () => $.Deferred().resolve(makeApplication(appWithEula))
       }
     });
   })
   .add('StepLicense', () => {
     return makeInstaller({
-      services: {
+      service: {
         fetchApp: () => $.Deferred().resolve(makeApplication(appWithLicense))
       }
     });
@@ -95,16 +95,16 @@ storiesOf('GravityInstaller', module)
       }
     })
     return makeInstaller({
-      services: {
+      service: {
         fetchApp: () => $.Deferred().resolve(makeApplication(mulesoftApp))
       }
     });
   })
 
-  function makeInstaller({ store, services, siteId }){
+  function makeInstaller({ store, service, siteId }){
     const props = {
       store,
-      services,
+      service,
       match: {
         params: {
           siteId
@@ -147,7 +147,7 @@ const stateCapacityAws =
       "licenseOptionText": "With a license",
       "licenseUserHintText": "If you have a license, please insert it here. In the next steps you will select the location of your application and the capacity you need",
       "progressUserHintText": "Your infrastructure is being provisioned and your application is being installed.\n\n Once the installation is complete you will be taken to your infrastructure where you can access your application.",
-      "prereqUserHintText": "If you select a cloud provider, we will automate the infrastructure provisioning on your account with your provided keys in the next step. Your keys are not stored on our system. \n\n If you select BareMetal we will provide you with a command to be run on each of your machines in the next step.",
+      "prereqUserHintText": `The cluster name will be used for issuing SSH and HTTP/TLS certificates to securely access the cluster.\n\n For this reason it is recommended to use a fully qualified domain name (FQDN) for the cluster name, e.g. prod.example.com`,
       "provisionUserHintText": "Drag the slider to estimate the number of resources needed for that performance level. You can also add / remove resources after the installation. \n\n Once you click \"Start Installation\" the resources will be provisioned on your infrastructure.",
       "iamPermissionsHelpLink": "https://gravitational.com/gravity/docs/overview/",
       "providers": [
@@ -454,7 +454,7 @@ const stateCapacityOnPrem =
       "licenseOptionText": "With a license",
       "licenseUserHintText": "If you have a license, please insert it here. In the next steps you will select the location of your application and the capacity you need",
       "progressUserHintText": "Your infrastructure is being provisioned and your application is being installed.\n\n Once the installation is complete you will be taken to your infrastructure where you can access your application.",
-      "prereqUserHintText": "If you select a cloud provider, we will automate the infrastructure provisioning on your account with your provided keys in the next step. Your keys are not stored on our system. \n\n If you select BareMetal we will provide you with a command to be run on each of your machines in the next step.",
+      "prereqUserHintText": `The cluster name will be used for issuing SSH and HTTP/TLS certificates to securely access the cluster.\n\n For this reason it is recommended to use a fully qualified domain name (FQDN) for the cluster name, e.g. prod.example.com`,
       "provisionUserHintText": "Drag the slider to estimate the number of resources needed for that performance level. You can also add / remove resources after the installation. \n\n Once you click \"Start Installation\" the resources will be provisioned on your infrastructure.",
       "iamPermissionsHelpLink": "https://gravitational.com/gravity/docs/overview/",
       "providers": [

@@ -43,7 +43,16 @@ export default function makeApplicatin(json){
     ]
   );
 
-  const [ displayName, kind, logo, webConfigJsonStr, providersMap, licenseRequired, nodeProfilesJson ] = at(json,
+  const [
+    displayName,
+    kind,
+    logo,
+    webConfigJsonStr,
+    providersMap,
+    licenseRequired,
+    nodeProfilesJson,
+    setupEndpoint
+  ] = at(json,
     [
       'manifest.metadata.displayName',
       'manifest.kind',
@@ -51,7 +60,8 @@ export default function makeApplicatin(json){
       'manifest.webConfig',
       'manifest.providers',
       'manifest.license.enabled',
-      'manifest.nodeProfiles'
+      'manifest.nodeProfiles',
+      'manifest.installer.setupEndpoints[0]'
     ]
   );
 
@@ -92,5 +102,6 @@ export default function makeApplicatin(json){
     licenseRequired,
     eula,
     nodeProfiles,
+    bandwagon: !!setupEndpoint
   }
 }

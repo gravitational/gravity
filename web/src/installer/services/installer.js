@@ -47,7 +47,7 @@ const service = {
       // fetch operation
       opService.fetchOps(siteId),
       // fetch cluster app
-      service.fetchAppByClusterId(siteId),
+      service.fetchClusterApp(siteId),
       // fetch flavors
       api.get(cfg.getSiteFlavorsUrl(siteId))
     )
@@ -114,7 +114,7 @@ const service = {
     return appService.fetchApplication(...params);
   },
 
-  fetchAppByClusterId(siteId){
+  fetchClusterApp(siteId){
     return api.get(cfg.getSiteUrl({siteId, shallow: false}))
       .then(json => makeApplication(json.app))
   }

@@ -1680,7 +1680,7 @@ func (s *Site) ReleaseStatus() string {
 }
 
 // Masters returns a list of master nodes from the cluster's state
-func (s *Site) Masters() (masters []storage.Server) {
+func (s *Site) Masters() (masters storage.Servers) {
 	for _, node := range s.ClusterState.Servers {
 		if node.ClusterRole == string(schema.ServiceRoleMaster) {
 			masters = append(masters, node)

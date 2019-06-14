@@ -17,20 +17,16 @@ limitations under the License.
 import { RemoteAccessEnum } from 'app/services/enums';
 import { Store } from 'nuclear-js';
 import { Record } from 'immutable';
-import { makeStatus } from 'app/services/clusters/makeCluster';
 import * as actionTypes from './actionTypes';
 
-const InfoStoreRec = Record({
-  remoteAccess: RemoteAccessEnum.OFF,
-  status: '',
-  publicUrls: [],
-  internalUrls: [],
-  commands: {}
+const StoreRec = Record({
+  remoteAccess: RemoteAccessEnum.NA,
+  info: {},
 });
 
 export default Store({
   getInitialState() {
-    return new InfoStoreRec();
+    return new StoreRec();
   },
 
   initialize() {
@@ -39,23 +35,10 @@ export default Store({
   }
 })
 
-function receiveInfo(state, json) {
-  const {
-    clusterState,
-    publicURL,
-    internalURLs,
-    commands,
-  } = json;
-
-  const status = makeStatus(clusterState);
-
-  return state
-    .set('status', status)
-    .set('publicUrls', publicURL || ['public URL is not set'])
-    .set('internalUrls', internalURLs)
-    .set('commands', commands);
+function receiveInfo(state, info) {
+  return state.set('info', info);
 }
 
-function setRemoteStatus(state, {status}) {
+function setRemoteStatus(state, { status }) {
   return state.set('remoteAccess', status);
 }

@@ -21,7 +21,7 @@ import ButtonValidate from '../Elements/ButtonValidate';
 import AjaxPoller from 'app/components/dataProviders'
 import * as Alerts from 'shared/components/Alert';
 import { Flex } from 'shared/components';
-import { ValidationContext } from 'app/components/Validation';
+import Validation from 'app/components/Validation';
 import { useServices } from 'app/installer/services';
 import { useAttempt } from 'shared/hooks';
 
@@ -106,7 +106,7 @@ export default function FlavorOnprem(props) {
   const btnDisabled = attempt.isProcessing;
 
   return (
-    <ValidationContext>
+    <Validation>
       <>
         { attempt.isFailed && <Alerts.Danger>{attempt.message}</Alerts.Danger>}
         { attempt.isSuccess && <Alerts.Success>{attempt.message}</Alerts.Success>}
@@ -121,7 +121,7 @@ export default function FlavorOnprem(props) {
         </Flex>
       </>
       <AjaxPoller time={POLL_INTERVAL} onFetch={onFetchAgentReport} />
-    </ValidationContext>
+    </Validation>
   );
 }
 

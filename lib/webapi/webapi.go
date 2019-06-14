@@ -202,15 +202,6 @@ func NewAPI(cfg Config) (*Handler, error) {
 	// OAuth2 callbacks
 	h.GET("/github/callback", telehttplib.MakeHandler(h.githubCallback))
 
-	// TODO(r0mant): Delete legacy handlers when 6.0 user interface is merged.
-	h.GET("/accounts/existing/invites", h.needsAuth(h.getUserInvites))
-	h.DELETE("/accounts/existing/invites/:username", h.needsAuth(h.deleteUserInvite))
-	h.PUT("/accounts/existing/users", h.needsAuth(h.updateUser))
-	h.GET("/accounts/existing/users", h.needsAuth(h.getUsers))
-	h.DELETE("/accounts/existing/users/:username", h.needsAuth(h.deleteUser))
-	h.POST("/accounts/existing/users/password", h.needsAuth(h.updateUserPassword))
-	h.GET("/sites/:domain/endpoints", h.needsAuth(h.getSiteEndpoints))
-
 	// Users
 	h.GET("/sites/:domain/users", h.needsAuth(h.getUsers))
 	h.PUT("/sites/:domain/users", h.needsAuth(h.updateUser))
@@ -260,6 +251,7 @@ func NewAPI(cfg Config) (*Handler, error) {
 	h.PUT("/sites/:domain/grafana", h.needsAuth(h.initGrafana))
 	h.DELETE("/sites/:domain", h.needsAuth(h.uninstallSite))
 	h.GET("/sites/:domain/uninstall", h.needsAuth(h.uninstallStatus))
+	h.GET("/sites/:domain/tokens/join", h.needsAuth(h.getJoinToken))
 
 	// Flavors for installation
 	h.GET("/sites/:domain/flavors", h.needsAuth(h.getFlavors))
@@ -281,7 +273,7 @@ func NewAPI(cfg Config) (*Handler, error) {
 	h.GET("/apps/:repository/:package/:version/installer", h.needsAuth(h.getAppInstaller))
 
 	// User
-	h.GET("/user/context", h.needsAuth(h.getWebContext))
+	h.GET("/sites/:domain/context", h.needsAuth(h.getWebContext))
 	h.GET("/user/status", h.needsAuth(h.getUserStatus))
 
 	// Connect to Pod
@@ -400,24 +392,11 @@ func (m *Handler) getUserToken(w http.ResponseWriter, r *http.Request, p httprou
 }
 
 // clusterKey returns cluster key based on the provided parameters.
-func clusterKey(ctx *AuthContext, p httprouter.Params) (*ops.SiteKey, error) {
-	if p.ByName("domain") != "" {
-		return &ops.SiteKey{
-			AccountID:  ctx.User.GetAccountID(),
-			SiteDomain: p.ByName("domain"),
-		}, nil
+func clusterKey(ctx *AuthContext, p httprouter.Params) ops.SiteKey {
+	return ops.SiteKey{
+		AccountID:  ctx.User.GetAccountID(),
+		SiteDomain: p.ByName("domain"),
 	}
-	// This is only needed to support legacy handlers which didn't include
-	// cluster name in their paths - for those, the local cluster is
-	// returned.
-	//
-	// TODO(r0mant): Delete this when 6.0 user interface is merged.
-	localCluster, err := ctx.Operator.GetLocalSite()
-	if err != nil {
-		return nil, trace.Wrap(err)
-	}
-	key := localCluster.Key()
-	return &key, nil
 }
 
 type inviteUserReq struct {
@@ -434,13 +413,9 @@ func (m *Handler) createUserInvite(w http.ResponseWriter, r *http.Request, p htt
 	if err := telehttplib.ReadJSON(r, &req); err != nil {
 		return nil, trace.Wrap(err)
 	}
-	clusterKey, err := clusterKey(ctx, p)
-	if err != nil {
-		return nil, trace.Wrap(err)
-	}
 	inviteToken, err := ctx.Operator.CreateUserInvite(r.Context(),
 		ops.CreateUserInviteRequest{
-			SiteKey: *clusterKey,
+			SiteKey: clusterKey(ctx, p),
 			Name:    req.Name,
 			Roles:   req.Roles,
 		})
@@ -455,11 +430,7 @@ func (m *Handler) createUserInvite(w http.ResponseWriter, r *http.Request, p htt
 // GET /portalapi/v1/sites/:domain/invites
 //
 func (m *Handler) getUserInvites(w http.ResponseWriter, r *http.Request, p httprouter.Params, ctx *AuthContext) (interface{}, error) {
-	clusterKey, err := clusterKey(ctx, p)
-	if err != nil {
-		return nil, trace.Wrap(err)
-	}
-	invites, err := ctx.Operator.GetUserInvites(r.Context(), *clusterKey)
+	invites, err := ctx.Operator.GetUserInvites(r.Context(), clusterKey(ctx, p))
 	if err != nil {
 		return nil, trace.Wrap(err)
 	}
@@ -471,12 +442,8 @@ func (m *Handler) getUserInvites(w http.ResponseWriter, r *http.Request, p httpr
 // DELETE /portalapi/v1/sites/:domain/invites/:name
 //
 func (m *Handler) deleteUserInvite(w http.ResponseWriter, r *http.Request, p httprouter.Params, ctx *AuthContext) (interface{}, error) {
-	clusterKey, err := clusterKey(ctx, p)
-	if err != nil {
-		return nil, trace.Wrap(err)
-	}
-	err = ctx.Operator.DeleteUserInvite(r.Context(), ops.DeleteUserInviteRequest{
-		SiteKey: *clusterKey,
+	err := ctx.Operator.DeleteUserInvite(r.Context(), ops.DeleteUserInviteRequest{
+		SiteKey: clusterKey(ctx, p),
 		Name:    p.ByName("username"),
 	})
 	if err != nil {
@@ -490,13 +457,9 @@ func (m *Handler) deleteUserInvite(w http.ResponseWriter, r *http.Request, p htt
 // GET /portalapi/v1/sites/:domain/users/:username/reset
 //
 func (m *Handler) createUserReset(w http.ResponseWriter, r *http.Request, p httprouter.Params, ctx *AuthContext) (interface{}, error) {
-	clusterKey, err := clusterKey(ctx, p)
-	if err != nil {
-		return nil, trace.Wrap(err)
-	}
 	resetToken, err := ctx.Operator.CreateUserReset(r.Context(),
 		ops.CreateUserResetRequest{
-			SiteKey: *clusterKey,
+			SiteKey: clusterKey(ctx, p),
 			Name:    p.ByName("username"),
 			TTL:     defaults.UserResetTokenTTL,
 		})
@@ -506,16 +469,19 @@ func (m *Handler) createUserReset(w http.ResponseWriter, r *http.Request, p http
 	return resetToken, nil
 }
 
-// getUserACL returns current user access list
+// getWebContext returns current user access list
 //
-// GET /portalapi/v1/user/context
+// GET /portalapi/v1/sites/:domain/context
 //
 func (m *Handler) getWebContext(w http.ResponseWriter, r *http.Request, p httprouter.Params, ctx *AuthContext) (interface{}, error) {
-	userCtx, err := ui.NewWebContext(ctx.User, ctx.Identity)
+	cluster, err := ctx.Operator.GetSite(clusterKey(ctx, p))
 	if err != nil {
-		return nil, trace.Wrap(err, "Unable to retrieve user information")
+		return nil, trace.Wrap(err)
 	}
-
+	userCtx, err := ui.NewWebContext(ctx.User, ctx.Identity, *cluster)
+	if err != nil {
+		return nil, trace.Wrap(err)
+	}
 	return userCtx, nil
 }
 
@@ -524,17 +490,12 @@ func (m *Handler) getWebContext(w http.ResponseWriter, r *http.Request, p httpro
 // GET /portalapi/v1/sites/:domain/users
 //
 func (m *Handler) getUsers(w http.ResponseWriter, r *http.Request, p httprouter.Params, ctx *AuthContext) (interface{}, error) {
-	clusterKey, err := clusterKey(ctx, p)
+	users, err := ctx.Operator.GetUsers(clusterKey(ctx, p))
 	if err != nil {
 		return nil, trace.Wrap(err)
 	}
 
-	users, err := ctx.Operator.GetUsers(*clusterKey)
-	if err != nil {
-		return nil, trace.Wrap(err)
-	}
-
-	invites, err := ctx.Operator.GetUserInvites(r.Context(), *clusterKey)
+	invites, err := ctx.Operator.GetUserInvites(r.Context(), clusterKey(ctx, p))
 	if err != nil {
 		return nil, trace.Wrap(err)
 	}
@@ -567,12 +528,8 @@ func (m *Handler) updateUser(w http.ResponseWriter, r *http.Request, p httproute
 	if err := telehttplib.ReadJSON(r, &uiUser); err != nil {
 		return nil, trace.Wrap(err)
 	}
-	clusterKey, err := clusterKey(ctx, p)
-	if err != nil {
-		return nil, trace.Wrap(err)
-	}
-	err = ctx.Operator.UpdateUser(r.Context(), ops.UpdateUserRequest{
-		SiteKey:  *clusterKey,
+	err := ctx.Operator.UpdateUser(r.Context(), ops.UpdateUserRequest{
+		SiteKey:  clusterKey(ctx, p),
 		Name:     uiUser.Email,
 		FullName: uiUser.Name,
 		Roles:    uiUser.Roles,
@@ -590,11 +547,7 @@ func (m *Handler) updateUser(w http.ResponseWriter, r *http.Request, p httproute
 // It deletes user invite and all associated tokens
 //
 func (m *Handler) deleteUser(w http.ResponseWriter, r *http.Request, p httprouter.Params, ctx *AuthContext) (interface{}, error) {
-	clusterKey, err := clusterKey(ctx, p)
-	if err != nil {
-		return nil, trace.Wrap(err)
-	}
-	err = ctx.Operator.DeleteUser(r.Context(), *clusterKey, p.ByName("username"))
+	err := ctx.Operator.DeleteUser(r.Context(), clusterKey(ctx, p), p.ByName("username"))
 	if err != nil {
 		return nil, trace.Wrap(err)
 	}
@@ -1313,11 +1266,7 @@ func (m *Handler) getCluster(w http.ResponseWriter, r *http.Request, p httproute
 	if err != nil {
 		return nil, trace.Wrap(err)
 	}
-	key, err := clusterKey(context, p)
-	if err != nil {
-		return nil, trace.Wrap(err)
-	}
-	cluster, err := context.Operator.GetSite(*key)
+	cluster, err := context.Operator.GetSite(clusterKey(context, p))
 	if err != nil {
 		return nil, trace.Wrap(err)
 	}
@@ -1730,7 +1679,7 @@ func monitorUninstallProgress(operator ops.Operator, opKey ops.SiteOperationKey)
 //
 // Output:
 //
-//   clusterInfo
+//   webClusterInfo
 func (m *Handler) getClusterInfo(w http.ResponseWriter, r *http.Request, p httprouter.Params, ctx *AuthContext) (interface{}, error) {
 	cluster, err := ctx.Operator.GetSite(ops.SiteKey{
 		AccountID:  ctx.User.GetAccountID(),
@@ -1746,23 +1695,27 @@ func (m *Handler) getClusterInfo(w http.ResponseWriter, r *http.Request, p httpr
 	return clusterInfo, nil
 }
 
-// getEndpoints returns a list of endpoints of the application installed on site
+// webJoinToken is the response to the join token request.
+type webJoinToken struct {
+	// Token is the join token.
+	Token string `json:"token"`
+}
+
+// getJoinToken returns join token for the specified cluster.
 //
-//   GET /portalapi/v1/sites/:domain/endpoints
-//
-// Input:
-//
-//   none
+//   GET /portalapi/v1/sites/:domain/tokens/join
 //
 // Output:
 //
-//   []ops.Endpoint
-func (m *Handler) getSiteEndpoints(w http.ResponseWriter, r *http.Request, p httprouter.Params, context *AuthContext) (interface{}, error) {
-	endpoints, err := context.Operator.GetApplicationEndpoints(ops.SiteKey{
-		AccountID:  context.User.GetAccountID(),
-		SiteDomain: p.ByName("domain"),
-	})
-	return endpoints, trace.Wrap(err)
+//   webJoinToken
+func (m *Handler) getJoinToken(w http.ResponseWriter, r *http.Request, p httprouter.Params, ctx *AuthContext) (interface{}, error) {
+	token, err := ctx.Operator.GetExpandToken(clusterKey(ctx, p))
+	if err != nil {
+		return nil, trace.Wrap(err)
+	}
+	return &webJoinToken{
+		Token: token.Token,
+	}, nil
 }
 
 // getSiteReport returns a tarball with collected information about the site

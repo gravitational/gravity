@@ -21,7 +21,7 @@ import { Text } from 'shared/components';
 export default function StepList({ options, value }){
   const $steps = options.map( (option, index) => (
     <StepListItem active={value === option.value}
-      title={`${index+1}. ${option.title}`} key={option.value}
+       title={`${index+1}. ${option.title}`} key={option.value}
     />
   ))
 
@@ -31,26 +31,39 @@ export default function StepList({ options, value }){
 }
 
 const StepListItem = ({ title, active }) => (
-  <StyledTabItem color="text.primary" active={active} typography="h3" mr={6} mb={2} >
+  <StyledTabItem color="text.primary" active={active} typography="h3" mr={5} py="2" >
     {title}
   </StyledTabItem>
 )
 
 const StyledTabItem = styled(Text)`
+  position: relative;
+  &:last-child{
+    margin-right: 0;
+  }
+
   ${ ({ active, theme }) => {
     if( active ){
-      return {
-        color: theme.colors.primary.contrastText,
-        borderBottom: `4px solid ${theme.colors.accent}`,
-        paddingTop: "4px"
+      return `
+        &:after {
+          background-color: ${theme.colors.accent};
+          content: "";
+          position: absolute;
+          bottom: 0;
+          left: 0;
+          width: 100%;
+          height: 4px;
       }
+    `
     }
   }}
 `
 
 const StyledStepList = styled.div`
+  min-width: 500px;
   display: flex;
   align-items: center;
   flex-shrink: 0;
+  flex-wrap: wrap;
+  flex: 1;
 `
-

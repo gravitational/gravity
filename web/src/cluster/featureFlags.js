@@ -48,6 +48,10 @@ export function siteUsers() {
   return getAcl().getUserAccess().list;
 }
 
+export function clusterEvents() {
+  return getAcl().getEventAccess().list;
+}
+
 export function clusterAuthConnectors() {
   return getAcl().getConnectorAccess().list;
 }
@@ -70,4 +74,8 @@ export function hubLicenses(){
 
 export function hubClusters() {
   return getAcl().getClusterAccess().list;
+}
+
+export function hubApps() {
+  return getAcl().getAppAccess().list;
 }

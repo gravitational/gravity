@@ -46,19 +46,15 @@ class FeatureUsers extends FeatureBase {
     }
   }
 
-  // Register is a virtual method to be overrided by derived features.
-  register(){
-    const navItem = makeNavItem(cfg.getSiteUsersRoute())
-    addSideNavItem(navItem);
-  }
-
-  onload(context) {
-    if (!context.featureFlags.siteUsers()) {
+  onload({featureFlags}) {
+    if (!featureFlags.siteUsers()) {
       this.setDisabled();
       return;
     }
 
-    this.register(context);
+    const navItem = makeNavItem(cfg.getSiteUsersRoute());
+    addSideNavItem(navItem);
+
     this.setProcessing();
     fetchUsers()
       .done(this.setReady.bind(this))

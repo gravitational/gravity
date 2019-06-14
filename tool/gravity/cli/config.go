@@ -58,6 +58,7 @@ import (
 	"github.com/gravitational/gravity/lib/utils"
 
 	"github.com/docker/docker/pkg/namesgenerator"
+	teledefaults "github.com/gravitational/teleport/lib/defaults"
 	teleutils "github.com/gravitational/teleport/lib/utils"
 	"github.com/gravitational/trace"
 	"github.com/sirupsen/logrus"
@@ -234,7 +235,16 @@ func (i *InstallConfig) CheckAndSetDefaults() (err error) {
 		}
 		return trace.Wrap(err)
 	}
-	if i.Token == "" {
+	if i.Token != "" {
+		if len(i.Token) < teledefaults.MinPasswordLength {
+			return trace.BadParameter("install token is too short, min length is %v",
+				teledefaults.MinPasswordLength)
+		}
+		if len(i.Token) > teledefaults.MaxPasswordLength {
+			return trace.BadParameter("install token is too long, max length is %v",
+				teledefaults.MaxPasswordLength)
+		}
+	} else {
 		if i.Token, err = teleutils.CryptoRandomHex(6); err != nil {
 			return trace.Wrap(err)
 		}
@@ -269,6 +279,10 @@ func (i *InstallConfig) CheckAndSetDefaults() (err error) {
 		return trace.BadParameter("invalid mode %q", i.Mode)
 	}
 	i.ServiceUser, err = install.GetOrCreateServiceUser(i.ServiceUID, i.ServiceGID)
+	if err != nil {
+		return trace.Wrap(err)
+	}
+	err = i.validateApplicationDir()
 	if err != nil {
 		return trace.Wrap(err)
 	}
@@ -381,6 +395,11 @@ func (i *InstallConfig) NewInstallerConfig(
 		LocalAgent:         !i.ExcludeHostFromCluster,
 	}, nil
 
+}
+
+func (i *InstallConfig) validateApplicationDir() error {
+	_, err := i.getApp()
+	return trace.Wrap(err)
 }
 
 // getAdvertiseAddr returns the advertise address to use for the ???
@@ -710,19 +729,20 @@ func (j *JoinConfig) NewPeerConfig(env, joinEnv *localenv.LocalEnvironment) (con
 		return nil, trace.Wrap(err)
 	}
 	return &expand.PeerConfig{
-		Peers:         peers,
-		AdvertiseAddr: j.AdvertiseAddr,
-		ServerAddr:    j.ServerAddr,
-		CloudProvider: j.CloudProvider,
-		RuntimeConfig: *runtimeConfig,
-		DebugMode:     env.Debug,
-		Insecure:      env.Insecure,
-		LocalBackend:  env.Backend,
-		LocalApps:     env.Apps,
-		LocalPackages: env.Packages,
-		JoinBackend:   joinEnv.Backend,
-		StateDir:      joinEnv.StateDir,
-		OperationID:   j.OperationID,
+		Peers:              peers,
+		AdvertiseAddr:      j.AdvertiseAddr,
+		ServerAddr:         j.ServerAddr,
+		CloudProvider:      j.CloudProvider,
+		RuntimeConfig:      *runtimeConfig,
+		DebugMode:          env.Debug,
+		Insecure:           env.Insecure,
+		LocalBackend:       env.Backend,
+		LocalApps:          env.Apps,
+		LocalPackages:      env.Packages,
+		LocalClusterClient: env.SiteOperator,
+		JoinBackend:        joinEnv.Backend,
+		StateDir:           joinEnv.StateDir,
+		OperationID:        j.OperationID,
 	}, nil
 }
 

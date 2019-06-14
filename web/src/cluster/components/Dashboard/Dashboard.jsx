@@ -21,6 +21,7 @@ import LatestEventList from './LatestEventList';
 import OperationList from './OperationList';
 import DebugInfoButton from './DebugInfoButton';
 import MetricsCharts from './MetricsCharts';
+import OperationBanner from './OperationBanner';
 
 export default function Dashboard(){
   return (
@@ -31,7 +32,8 @@ export default function Dashboard(){
         </FeatureHeaderTitle>
         <DebugInfoButton ml="auto"/>
       </FeatureHeader>
-      <MetricsCharts style={{flexShrink: "0"}} />
+      <OperationBanner/>
+      <MetricsCharts/>
       <LatestEventList mb="4"/>
       <OperationList mb="4" />
       <AppList mb="4"/>

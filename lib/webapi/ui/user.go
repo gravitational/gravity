@@ -20,6 +20,7 @@ import (
 	"time"
 
 	"github.com/gravitational/gravity/lib/defaults"
+	"github.com/gravitational/gravity/lib/ops"
 	"github.com/gravitational/gravity/lib/storage"
 	"github.com/gravitational/gravity/lib/users"
 
@@ -72,6 +73,10 @@ type userACL struct {
 	Users access `json:"users"`
 	// LogForwarders defines access to log forwarders
 	LogForwarders access `json:"logForwarders"`
+	// Apps defines access to applications
+	Apps access `json:"apps"`
+	// Events defines access to audit events
+	Events access `json:"events"`
 	// SSHLogins defines access to servers
 	SSHLogins []string `json:"sshLogins"`
 }
@@ -112,8 +117,11 @@ func IsHiddenUserType(userType string) bool {
 }
 
 // NewUserACL creates new user access control list
-func NewUserACL(storageUser storage.User, userRoles teleservices.RoleSet) userACL {
-	ctx := &teleservices.Context{User: storageUser}
+func NewUserACL(storageUser storage.User, userRoles teleservices.RoleSet, cluster ops.Site) userACL {
+	ctx := &teleservices.Context{
+		User:     storageUser,
+		Resource: ops.NewClusterFromSite(cluster),
+	}
 	userAccess := newAccess(userRoles, ctx, teleservices.KindUser)
 	sessionAccess := newAccess(userRoles, ctx, teleservices.KindSession)
 	roleAccess := newAccess(userRoles, ctx, teleservices.KindRole)
@@ -123,6 +131,8 @@ func NewUserACL(storageUser storage.User, userRoles teleservices.RoleSet) userAC
 	licenseAccess := newAccess(userRoles, ctx, storage.KindLicense)
 	repositoryAccess := newAccess(userRoles, ctx, storage.KindRepository)
 	logForwarderAccess := newAccess(userRoles, ctx, storage.KindLogForwarder)
+	appAccess := newAccess(userRoles, ctx, storage.KindApp)
+	eventAccess := newAccess(userRoles, ctx, teleservices.KindEvent)
 	logins := getLogins(userRoles)
 
 	acl := userACL{
@@ -135,6 +145,8 @@ func NewUserACL(storageUser storage.User, userRoles teleservices.RoleSet) userAC
 		Repositories:    repositoryAccess,
 		Users:           userAccess,
 		LogForwarders:   logForwarderAccess,
+		Apps:            appAccess,
+		Events:          eventAccess,
 		SSHLogins:       logins,
 	}
 
@@ -142,7 +154,7 @@ func NewUserACL(storageUser storage.User, userRoles teleservices.RoleSet) userAC
 }
 
 // NewWebContext creates a context for web client
-func NewWebContext(storageUser storage.User, identity users.Identity) (*webContext, error) {
+func NewWebContext(storageUser storage.User, identity users.Identity, cluster ops.Site) (*webContext, error) {
 	userRoles, err := teleservices.FetchRoles(storageUser.GetRoles(), identity, storageUser.GetTraits())
 	if err != nil {
 		return nil, trace.Wrap(err)
@@ -151,7 +163,7 @@ func NewWebContext(storageUser storage.User, identity users.Identity) (*webConte
 	webCtx := webContext{
 		ServerVersion: version.Get(),
 		User:          NewUserByStorageUser(storageUser),
-		UserACL:       NewUserACL(storageUser, userRoles),
+		UserACL:       NewUserACL(storageUser, userRoles, cluster),
 	}
 
 	return &webCtx, nil

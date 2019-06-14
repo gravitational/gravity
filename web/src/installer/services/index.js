@@ -15,12 +15,12 @@ limitations under the License.
 */
 
 import React from 'react';
-import installer from './installer';
+import service from './installer';
 import makeAgentServers from './makeAgentServer';
 
-const ServiceContext = React.createContext(installer);
+const ServiceContext = React.createContext(service);
 
-function Provider( { value = installer, children }){
+function Provider( { value = service, children }){
   return (
     <ServiceContext.Provider value={value} children={children} />
   )
@@ -30,7 +30,8 @@ function useServices(){
   return React.useContext(ServiceContext);
 }
 
-export default installer;
+export default service;
+
 export {
   makeAgentServers,
   Provider,

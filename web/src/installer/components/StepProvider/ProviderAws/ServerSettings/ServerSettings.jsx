@@ -16,8 +16,8 @@ limitations under the License.
 
 import React from 'react';
 import { Flex, Box, Text, LabelInput } from 'shared/components';
-import { FieldSelect } from '../Fields';
-import { RadioGroup } from './../../../Radio';
+import { FieldSelect } from 'app/installer/components/Fields';
+import { RadioGroup } from 'app/installer/components/Radio';
 
 export const  CREATE_NEW_VPC_OPTION_VALUE = '__CREATE__NEW__VPC__';
 
@@ -82,33 +82,27 @@ export default function RegionSettings(props) {
         </Text>
       </Flex>
       <Box p="4" bg="primary.light">
-        <Box flex="1">
-          <FieldSelect label="Select your server region" name="selectedRegion"
-            rule={required("Server region is required")}
-            value={selectedRegion}
-            options={regionOptions}
-            onChange={onSelectRegion}
+        <FieldSelect label="Select your server region" name="selectedRegion"
+          rule={required("Server region is required")}
+          value={selectedRegion}
+          options={regionOptions}
+          onChange={onSelectRegion}
+        />
+        <Flex mb="2">
+          <FieldSelect mr="3" label="Select your key pair"
+            flex="1"
+            rule={required("Key Pair is required")}
+            value={selectedKeyPair}
+            onChange={onSelectKeyPair}
+            options={keyPairOptions}
           />
-        </Box>
-        <Flex  mb="2">
-          <Box flex="1" mr="3">
-            <FieldSelect label="Select your key pair"
-              rule={required("Key Pair is required")}
-              name="selectedKeyPair"
-              value={selectedKeyPair}
-              onChange={onSelectKeyPair}
-              options={keyPairOptions}
-            />
-          </Box>
-          <Box flex="1">
-            <FieldSelect label="Select your vpc"
-              rule={required("Your vpc is required")}
-              name="selectedVpc"
-              options={vpcOptions}
-              onChange={onSelecVpc}
-              value={selectedVpc}
-            />
-          </Box>
+          <FieldSelect label="Select your vpc"
+            flex="1"
+            rule={required("Your vpc is required")}
+            options={vpcOptions}
+            onChange={onSelecVpc}
+            value={selectedVpc}
+          />
         </Flex>
         <Box>
           <LabelInput>
@@ -140,9 +134,11 @@ const installTypes = [
   }
 ]
 
-const required = errorText => option => () => {
-  if(!option || !option.value) {
-    return errorText;
+const required = message => option => () => {
+  const valid = option && option.value;
+  return {
+    valid,
+    message
   }
 }
 

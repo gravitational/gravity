@@ -14,5 +14,24 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-import ClusterName from './ClusterName';
-export default ClusterName;
+import React from 'react'
+import { Router } from 'react-router';
+import { createMemoryHistory } from 'history';
+import { storiesOf } from '@storybook/react'
+import Progress from './Progress'
+
+storiesOf('Gravity/Dashboard', module)
+  .add('OperationBanner', () => {
+    return (
+      <Router history={createMemoryHistory()}>
+        <Progress {...props} />
+      </Router>
+    );
+  });
+
+const props = {
+  operation: {
+    id: '175',
+    description: 'Installing a server'
+  },
+}
