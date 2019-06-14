@@ -1809,7 +1809,7 @@ func (h *WebHandler) streamOperationLogs(w http.ResponseWriter, r *http.Request,
 
 */
 func (h *WebHandler) getSiteOperationCrashReport(w http.ResponseWriter, r *http.Request, p httprouter.Params, context *HandlerContext) error {
-	report, err := context.Operator.GetSiteOperationCrashReport(siteOperationKey(p))
+	report, err := context.Operator.GetSiteReport(siteKey(p))
 	if err != nil {
 		return trace.Wrap(err)
 	}

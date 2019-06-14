@@ -124,6 +124,28 @@ func GetOperations(backend Backend) ([]SiteOperation, error) {
 	return operations, nil
 }
 
+// GetLastOperation returns the last operation for the local cluster
+func GetLastOperationForCluster(backend Backend, clusterName string) (*SiteOperation, error) {
+	operations, err := GetOperationsForCluster(backend, clusterName)
+	if err != nil {
+		return nil, trace.Wrap(err)
+	}
+	if len(operations) == 0 {
+		return nil, trace.NotFound("no operations found")
+	}
+	return &(operations[0]), nil
+}
+
+// GetOperations returns all operations for the local cluster
+// sorted by time in descending order (with most recent operation first)
+func GetOperationsForCluster(backend Backend, clusterName string) ([]SiteOperation, error) {
+	operations, err := backend.GetSiteOperations(clusterName)
+	if err != nil {
+		return nil, trace.Wrap(err)
+	}
+	return operations, nil
+}
+
 // GetOperationByID returns the operation with the given ID for the local cluster
 func GetOperationByID(backend Backend, operationID string) (*SiteOperation, error) {
 	cluster, err := backend.GetLocalSite(defaults.SystemAccountID)

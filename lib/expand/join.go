@@ -56,6 +56,8 @@ import (
 	"github.com/gravitational/roundtrip"
 	"github.com/gravitational/trace"
 	log "github.com/sirupsen/logrus"
+	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/status"
 )
 
 // NewPeer returns new cluster peer client
@@ -75,6 +77,7 @@ func NewPeer(config PeerConfig) (*Peer, error) {
 		// Account for server exit, agent exit and agent reconnect failure
 		errC:     make(chan error, 3),
 		execC:    make(chan *installpb.ExecuteRequest),
+		abortC:   make(chan chan struct{}),
 		connectC: make(chan connectResult, 1),
 	}
 	peer.startConnectLoop()
@@ -98,6 +101,8 @@ type Peer struct {
 	// server is the gRPC installer server
 	server *server.Server
 
+	// abortC is a channel to signal external operation abort
+	abortC     chan chan struct{}
 	execC      chan *installpb.ExecuteRequest
 	dispatcher dispatcher.EventDispatcher
 	wg         sync.WaitGroup
@@ -109,6 +114,9 @@ func (p *Peer) Run(listener net.Listener) error {
 		p.errC <- p.server.Run(p, listener)
 	}()
 	err := <-p.errC
+	if installpb.IsAbortError(err) {
+		p.sendAbort()
+	}
 	p.stop()
 	return trace.Wrap(err)
 }
@@ -129,10 +137,21 @@ func (p *Peer) Execute(req *installpb.ExecuteRequest, stream installpb.Agent_Exe
 		// Execute the operation with a new dispatcher
 		return p.executeConcurrentStep(req, stream)
 	}
-	for event := range p.dispatcher.Chan() {
-		err := stream.Send(event)
-		if err != nil {
-			return trace.Wrap(err)
+	for {
+		select {
+		case event := <-p.dispatcher.Chan():
+			err := stream.Send(event)
+			if err != nil {
+				return trace.Wrap(err)
+			}
+		case doneC := <-p.abortC:
+			err := stream.Send(installpb.AbortEvent)
+			close(doneC)
+			if err != nil {
+				return trace.Wrap(err)
+			}
+		case <-p.ctx.Done():
+			return status.Error(codes.Canceled, "operation canceled")
 		}
 	}
 	return nil
@@ -294,7 +313,7 @@ func (p *Peer) startProgressLoop(ctx operationContext) {
 	p.wg.Add(1)
 	go func() {
 		defer p.wg.Done()
-		install.ProgressLooper{
+		install.ProgressPoller{
 			FieldLogger:  p.FieldLogger,
 			Operator:     ctx.Operator,
 			OperationKey: ctx.Operation.Key(),
@@ -724,7 +743,7 @@ func (p *Peer) run(ctx operationContext) error {
 	}()
 
 	if ctx.Operation.Type != ops.OperationExpand {
-		return trace.Wrap(install.ProgressLooper{
+		return trace.Wrap(install.ProgressPoller{
 			FieldLogger:  p.FieldLogger,
 			Operator:     ctx.Operator,
 			OperationKey: ctx.Operation.Key(),
@@ -975,6 +994,17 @@ func (p *Peer) sendError(err error) {
 	p.dispatcher.Send(dispatcher.Event{
 		Error: err,
 	})
+}
+
+func (p *Peer) sendAbort() {
+	doneC := make(chan struct{})
+	select {
+	case p.abortC <- doneC:
+		// If receiver is available, wait for completion
+		<-doneC
+	default:
+		// Do not block if otherwise
+	}
 }
 
 // Send dispatches the specified event to client

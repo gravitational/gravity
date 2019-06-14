@@ -48,7 +48,7 @@ type remoteServer interface {
 }
 
 type teleportRunner struct {
-	recorder   Recorder
+	log.FieldLogger
 	domainName string
 	ops.TeleportProxyService
 }
@@ -58,12 +58,12 @@ func (r *teleportRunner) RunStream(server remoteServer, w io.Writer, args ...str
 	command := strings.Join(args, " ")
 	err := r.ExecuteCommand(context.TODO(), r.domainName, server.Address(), command, w)
 
-	entry := r.recorder.WithFields(log.Fields{
+	logger := r.WithFields(log.Fields{
 		constants.FieldServer:             server.Address(),
 		constants.FieldCommandError:       (err != nil),
 		constants.FieldCommandErrorReport: trace.UserMessage(err),
 	})
-	entry.Info(command)
+	logger.Info(command)
 
 	if err != nil {
 		return trace.Wrap(err)

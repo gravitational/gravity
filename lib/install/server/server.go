@@ -27,6 +27,8 @@ import (
 	"github.com/gravitational/trace"
 	log "github.com/sirupsen/logrus"
 	"google.golang.org/grpc"
+	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/status"
 )
 
 // New returns a new instance of the installer server.
@@ -34,7 +36,7 @@ import (
 func New() *Server {
 	grpcServer := grpc.NewServer()
 	server := &Server{
-		FieldLogger: log.WithField(trace.Component, "installer:service"),
+		FieldLogger: log.WithField(trace.Component, "service:installer"),
 		rpc:         grpcServer,
 		errC:        make(chan error, 2),
 	}
@@ -87,7 +89,8 @@ func (r *Server) Execute(req *installpb.ExecuteRequest, stream installpb.Agent_E
 func (r *Server) Complete(ctx context.Context, req *installpb.CompleteRequest) (*types.Empty, error) {
 	err := r.executor.Complete(installpb.KeyFromProto(req.Key))
 	if err != nil {
-		return nil, trace.Wrap(err)
+		// Not wrapping err as it passes the gRPC boundary
+		return nil, err
 	}
 	return installpb.Empty, nil
 }
@@ -108,12 +111,33 @@ func (r *Server) Shutdown(context.Context, *installpb.ShutdownRequest) (*types.E
 	return installpb.Empty, nil
 }
 
+// GenerateDebugReport requests that the installer generates the debug report.
+// Implements installpb.AgentServer
+func (r *Server) GenerateDebugReport(ctx context.Context, req *installpb.DebugReportRequest) (*types.Empty, error) {
+	r.WithField("req", req).Info("Generate debug report.")
+	if reporter, ok := r.executor.(DebugReporter); ok {
+		err := reporter.GenerateDebugReport(req.Path)
+		if err != nil {
+			// Not wrapping err as it passes the gRPC boundary
+			return nil, err
+		}
+		return installpb.Empty, nil
+	}
+	return nil, status.Error(codes.Unimplemented, "not implemented")
+}
+
 // Executor wraps a potentially failing operation
 type Executor interface {
 	// Execute executes an operation specified with req.
 	Execute(req *installpb.ExecuteRequest, stream installpb.Agent_ExecuteServer) error
 	// Complete manually completes the operation given with operationKey.
 	Complete(operationKey ops.SiteOperationKey) error
+}
+
+// DebugReporter allows to capture the operation state
+type DebugReporter interface {
+	// GenerateDebugReport captures the state of the operation state for debugging
+	GenerateDebugReport(path string) error
 }
 
 // Server implements the installer gRPC server.

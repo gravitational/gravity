@@ -34,7 +34,7 @@ import (
 func New() *Dispatcher {
 	ctx, cancel := context.WithCancel(context.Background())
 	d := &Dispatcher{
-		log:     log.WithField(trace.Component, "dispatcher:buffered"),
+		log:     log.WithField(trace.Component, "buffered:dispatcher"),
 		ctx:     ctx,
 		cancel:  cancel,
 		respC:   make(chan *installpb.ProgressResponse),

@@ -47,6 +47,7 @@ import (
 	"github.com/gravitational/gravity/lib/pack"
 	"github.com/gravitational/gravity/lib/process"
 	"github.com/gravitational/gravity/lib/processconfig"
+	"github.com/gravitational/gravity/lib/report"
 	"github.com/gravitational/gravity/lib/rpc/proto"
 	"github.com/gravitational/gravity/lib/schema"
 	"github.com/gravitational/gravity/lib/state"
@@ -908,6 +909,22 @@ func InstallerCompleteOperation(env *localenv.LocalEnvironment) installerclient.
 // InstallerCleanup uninstalls the services and cleans up operation state
 func InstallerCleanup() error {
 	return installerCleanup(log.WithField(trace.Component, "installer:cleanup"))
+}
+
+// InstallerGenerateLocalReport creates a host-local debug report in the specified file
+func InstallerGenerateLocalReport(env *localenv.LocalEnvironment) func(context.Context, string) error {
+	return func(ctx context.Context, path string) error {
+		f, err := os.Create(path)
+		if err != nil {
+			return trace.ConvertSystemError(err)
+		}
+		defer f.Close()
+		err = systemReport(env, report.AllFilters, true, f)
+		if err != nil {
+			return trace.ConvertSystemError(err)
+		}
+		return nil
+	}
 }
 
 func installerCleanup(logger logrus.FieldLogger) error {

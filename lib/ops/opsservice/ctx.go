@@ -29,11 +29,6 @@ import (
 	log "github.com/sirupsen/logrus"
 )
 
-type Recorder interface {
-	Record(format string, args ...interface{})
-	WithFields(log.Fields) *log.Entry
-}
-
 // operationContext holds necessary operation context,
 // operation key, recorder and plan
 // currently there's only one operation context

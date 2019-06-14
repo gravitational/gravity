@@ -25,8 +25,8 @@ import (
 	"github.com/gravitational/gravity/lib/utils"
 )
 
-// SystemInfo returns a list of collectors to fetch various bits of system information
-func SystemInfo() Collectors {
+// NewSystemCollector returns a list of collectors to fetch system information
+func NewSystemCollector() Collectors {
 	var collectors Collectors
 	add := func(additional ...Collector) {
 		collectors = append(collectors, additional...)
