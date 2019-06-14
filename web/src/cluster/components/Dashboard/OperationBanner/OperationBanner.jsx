@@ -23,7 +23,7 @@ import { fetchOpProgress } from 'app/cluster/flux/operations/actions';
 import Progress from './Progress';
 
 function OperationBanner(props){
-  const { operations, progress, onFetchProgress, ...rest } = props;
+  const { operations, onFetchProgress, ...rest } = props;
   if(operations.length === 0){
     return null;
   }
@@ -34,7 +34,6 @@ function OperationBanner(props){
     <Box {...rest}>
       <Progress
         operation={firstActive}
-        progress={progress[firstActive.id]}
         onFetch={onFetchProgress}
       />
     </Box>
