@@ -14,8 +14,10 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
+import $ from 'jquery';
 import api from 'app/services/api';
 import cfg from 'app/config';
+import { RemoteAccessEnum } from 'app/services/enums';
 import makeInfo from './makeInfo';
 import makeRemoteStatus from './makeRemoteStatus';
 import makeJoinToken from './makeJoinToken';
@@ -27,6 +29,11 @@ const service = {
   },
 
   fetchRemoteAccess() {
+    if(!cfg.isEnt){
+      // return NA for open source version of the product
+      return $.Deferred().resolve(makeRemoteStatus( { status: RemoteAccessEnum.NA }));
+    }
+
     return api.get(cfg.getSiteRemoteAccessUrl()).then(makeRemoteStatus);
   },
 

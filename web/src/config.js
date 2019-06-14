@@ -16,14 +16,11 @@ limitations under the License.
 
 import $ from 'jQuery';
 import { at } from 'lodash';
-import { isTestEnv } from './services/utils'
 import { generatePath } from 'react-router';
 import { ProviderEnum, Auth2faTypeEnum } from 'app/services/enums';
 import Logger from 'app/lib/logger';
 
 const logger = Logger.create('config/init');
-
-const baseUrl = isTestEnv() ? 'localhost' : window.location.origin;
 
 // dummy placeholder for legacy APIs
 const accountId = '00000000-0000-0000-0000-000000000001';
@@ -35,16 +32,17 @@ let cfg = {
   logo: null,
 
   systemInfo: {
-    wizard: false,
     serverVersion: {},
     clusterName: ''
   },
 
-  baseUrl,
+  baseUrl: window.location.origin,
 
   dateTimeFormat: 'DD/MM/YYYY HH:mm:ss',
 
   dateFormat: 'DD/MM/YYYY',
+
+  isEnt: false,
 
   auth: {
     second_factor: Auth2faTypeEnum.DISABLED,
@@ -707,20 +705,6 @@ let cfg = {
     return cfg.modules.site.features.logs.enabled;
   },
 
-  isStandAlone() {
-    let [wizard] = at(cfg, 'systemInfo.wizard');
-    return wizard;
-  },
-
-  /**
-   * getLocalSiteId returns local cluster id.
-   * for remotely accessing clusters this will always be HUB cluster id.
-   */
-  getLocalSiteId() {
-    let [siteId] = at(cfg, 'systemInfo.clusterName');
-    return siteId;
-  },
-
   setServerVersion(ver={}){
     cfg.systemInfo.serverVersion = ver;
     logger.info("platform version", ver);
@@ -732,15 +716,6 @@ let cfg = {
 
   setLogo(logo){
     this.logo = logo;
-  },
-
-  getSupportedProviders(){
-    // only ONPREM provider is available in standalone installer
-    if(cfg.isStandAlone()){
-      return [ ProviderEnum.ONPREM ];
-    }
-
-    return cfg.modules.installer.providers;
   },
 
   init(config={}){

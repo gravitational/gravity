@@ -20,7 +20,7 @@ import { Record } from 'immutable';
 import * as actionTypes from './actionTypes';
 
 const StoreRec = Record({
-  remoteAccess: RemoteAccessEnum.OFF,
+  remoteAccess: RemoteAccessEnum.NA,
   info: {},
 });
 

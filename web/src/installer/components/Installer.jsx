@@ -79,7 +79,7 @@ export function Installer(props){
       <AppLayout>
         <Flex flex="1" px="8" py="10" mr="4" mb="5" justifyContent="flex-end" style={{overflow: "auto"}}>
           <Flex flexDirection="column" flex="1" maxWidth="1000px">
-            <Flex mb="10" alignItems="center">
+            <Flex mb="10" alignItems="center" flexWrap="wrap">
               <Logo src={logoSrc}/>
               <StepList value={step} options={stepOptions} />
             </Flex>

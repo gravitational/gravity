@@ -125,7 +125,7 @@ const config = {
       padding: {
         left: 8,
         right: 16,
-        top: 16,
+        top: 24,
         bottom: 8
       }
     },
@@ -140,13 +140,15 @@ const config = {
           fontColor: theme.colors.text.primary,
           min: 0,
           max: 100,
-          display: true
+          display: true,
+          stepSize: 20
         }
       }],
       xAxes: [{
         ticks: {
           fontColor: theme.colors.text.primary,
-          display: true
+          display: true,
+          lineHeight: "24px"
         }
       }]
     }

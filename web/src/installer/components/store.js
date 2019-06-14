@@ -24,17 +24,12 @@ export const StepEnum = {
   LICENSE: 'license',
   NEW_APP: 'new_app',
   PROVISION: 'provision',
-  PROGRESS: 'progress'
+  PROGRESS: 'progress',
+  USER: 'user',
 }
 
 const defaultServiceSubnet = '10.100.0.0/16';
 const defaultPodSubnet = '10.244.0.0/16';
-
-const defaultStepOptions = [
-  { value: StepEnum.LICENSE, title: 'License' },
-  { value: StepEnum.NEW_APP, title: 'Cluster name' },
-  { value: StepEnum.PROVISION, title: 'Capacity' },
-  { value: StepEnum.PROGRESS, title: 'Installation' } ];
 
 export default class InstallerStore extends Store {
 
@@ -43,10 +38,8 @@ export default class InstallerStore extends Store {
     // Current installation step
     step: '',
 
-    // All installation steps for given application
-    stepOptions: [
-      ...defaultStepOptions
-    ],
+    // Defined installation steps
+    stepOptions: [],
 
     // License required for installation
     license: null,
@@ -302,24 +295,40 @@ export default class InstallerStore extends Store {
 
   initWithApp(app){
     let step = StepEnum.LICENSE;
+
     const stepOptions = [
-      ...defaultStepOptions
+      { value: StepEnum.LICENSE, title: 'License' },
+      { value: StepEnum.NEW_APP, title: 'Cluster name' },
+      { value: StepEnum.PROVISION, title: 'Capacity' },
+      { value: StepEnum.PROGRESS, title: 'Installation' },
+      { value: StepEnum.USER, title: 'Create Admin' }
     ]
 
-    // remove step licenses if not required
+    // remove license step
     if(!app.licenseRequired){
       stepOptions.shift();
       step = StepEnum.NEW_APP;
     }
 
-    const [ appInstallConfig ] = at(app, 'config.modules.installer');
-    const config = merge(this.state.config, appInstallConfig);
+    // remove bandwagon step
+    if(app.bandwagon){
+      stepOptions.unshift()
+    }
+
+    const [
+      installerConfig,
+      agentReportConfig
+    ] = at(app,
+      [
+        'config.modules.installer',
+        'config.agentReport'
+    ]);
 
     // TODO: fixme
     // overrides default agent report config
-    const [ agentReport ] = at(app, ['config.agentReport']);
-    merge(cfg, { agentReport });
+    merge(cfg, { agentReportConfig });
 
+    const config = merge(this.state.config, installerConfig);
     this.setState({
       status: 'ready',
       stepOptions,
