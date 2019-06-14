@@ -31,13 +31,11 @@ func (r *AutomaticLifecycle) HandleStatus(ctx context.Context, c *Client, status
 	case err == nil:
 		switch status {
 		case installpb.StatusUnknown:
-			c.Info("Received status unknown.")
 			if err1 := c.shutdown(ctx); err1 != nil {
 				c.WithError(err1).Warn("Failed to shut down.")
 			}
 			return nil
 		case installpb.StatusAborted:
-			c.Info("Received status aborted.")
 			return r.Abort(ctx, c)
 		}
 		// We received completion status
@@ -50,7 +48,6 @@ func (r *AutomaticLifecycle) HandleStatus(ctx context.Context, c *Client, status
 		}
 		return nil
 	default:
-		c.Info("Generating debug report.")
 		if err1 := r.generateDebugReport(ctx, c); err1 != nil {
 			c.WithError(err1).Warn("Failed to generate debug report.")
 		}
@@ -62,7 +59,6 @@ func (r *AutomaticLifecycle) HandleStatus(ctx context.Context, c *Client, status
 }
 
 func (r *AutomaticLifecycle) Complete(ctx context.Context, c *Client, status installpb.ProgressResponse_Status) error {
-	c.Info("Service complete.")
 	err := c.shutdown(ctx)
 	if err != nil {
 		return trace.Wrap(err)

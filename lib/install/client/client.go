@@ -244,7 +244,6 @@ func (r *Client) addTerminationHandler() {
 }
 
 func (r *Client) shutdown(ctx context.Context) error {
-	r.Info("Service shut down.")
 	_, err := r.client.Shutdown(ctx, &installpb.ShutdownRequest{})
 	return trace.Wrap(err)
 }
@@ -270,7 +269,7 @@ type Lifecycle interface {
 	HandleStatus(context.Context, *Client, installpb.ProgressResponse_Status, error) error
 	// Complete executes tasks after the operation has been completed successfully
 	Complete(context.Context, *Client, installpb.ProgressResponse_Status) error
-	// Abort aborts the client and cleans up state
+	// Abort handles clean up of state
 	Abort(context.Context, *Client) error
 }
 
