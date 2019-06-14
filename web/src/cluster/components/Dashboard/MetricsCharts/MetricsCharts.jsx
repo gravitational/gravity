@@ -57,7 +57,7 @@ export default function MetricsCharts(props) {
   const { isSuccess } = attempt;
 
   return (
-    <Flex {...props}>
+    <Flex style={{flexShrink: "0"}} {...props}>
       <UsageOverTime flex="1" mb="4" mr="4" metrics={short}/>
       <CircleGraph mr="4" mb="4"
         title="CPU Usage"

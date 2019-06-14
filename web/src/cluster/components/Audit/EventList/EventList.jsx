@@ -43,7 +43,6 @@ class EventList extends React.Component {
   }
 
   sortAndFilter(data, searchValue) {
-
     const { colSortDirs } = this.state;
     const filtered = data
       .filter(obj => isMatch(obj, searchValue, {
@@ -125,7 +124,7 @@ class EventList extends React.Component {
             cell={<TimeCell /> }
           />
           <Column
-            header={<Cell style={{ padding: "0 16px", textAlign:"center"}}>Actions</Cell> }
+            header={<Cell/>}
             cell={ <ActionCell onViewDetails={this.showDetails} /> }
           />
         </TablePaged>

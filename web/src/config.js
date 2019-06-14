@@ -705,6 +705,15 @@ let cfg = {
     return cfg.modules.site.features.logs.enabled;
   },
 
+  /**
+ * getLocalSiteId returns local cluster id.
+ * for remotely accessing clusters this will always be HUB cluster id.
+ */
+  getLocalSiteId() {
+    let [siteId] = at(cfg, 'systemInfo.clusterName');
+    return siteId;
+  },
+
   setServerVersion(ver={}){
     cfg.systemInfo.serverVersion = ver;
     logger.info("platform version", ver);

@@ -35,7 +35,7 @@ export default function Progress(props){
   }
 
   const { step, message } = progress;
-  const value = (step + 1) * 100;
+  const value = (step + 1) * 10;
   return (
     <>
       <Flex flexDirection="column">
