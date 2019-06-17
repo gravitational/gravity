@@ -76,7 +76,7 @@ LTS starts with `3.51.0` with minor backwards compatible changes added over time
 #### Bugfixes
 
 * Fix an issue with automatic NO_PROXY rules that break some cluster operations.
-* Fix an issue that prevented environment variables from being updated or removed after install.
+* Fix an issue with updating or removing environment configuration.
 
 ### 5.5.9 LTS
 
