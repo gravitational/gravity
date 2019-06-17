@@ -23,6 +23,7 @@ import (
 
 	"github.com/gravitational/gravity/lib/defaults"
 	"github.com/gravitational/gravity/lib/install"
+	"github.com/gravitational/gravity/lib/install/dispatcher"
 	"github.com/gravitational/gravity/lib/ops"
 	"github.com/gravitational/gravity/lib/utils"
 
@@ -63,7 +64,15 @@ type Config struct {
 }
 
 // Execute runs the wizard operation
-func (r *Engine) Execute(ctx context.Context, installer install.Interface, config install.Config) error {
+func (r *Engine) Execute(ctx context.Context, installer install.Interface, config install.Config) (dispatcher.Status, error) {
+	err := r.execute(ctx, installer, config)
+	if err != nil {
+		return dispatcher.StatusUnknown, trace.Wrap(err)
+	}
+	return dispatcher.StatusCompletedPending, nil
+}
+
+func (r *Engine) execute(ctx context.Context, installer install.Interface, config install.Config) error {
 	e, err := newExecutor(ctx, r, installer, config)
 	if err != nil {
 		return trace.Wrap(err)
@@ -132,7 +141,7 @@ func (r *executor) completeOperation(operation ops.SiteOperation) error {
 	if err := r.CompleteFinalInstallStep(operation.Key(), defaults.WizardLinkTTL); err != nil {
 		r.WithError(err).Warn("Failed to complete final install step.")
 	}
-	if err := r.CompleteOperationAndWait(operation); err != nil {
+	if err := r.CompleteOperation(operation); err != nil {
 		r.WithError(err).Warn("Failed to complete install.")
 	}
 	return nil

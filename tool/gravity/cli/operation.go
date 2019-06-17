@@ -289,7 +289,7 @@ func (r *backendOperations) listJoinOperation(environ LocalEnvironmentFactory) e
 func (r *backendOperations) listInstallOperation() error {
 	wizardEnv, err := localenv.NewRemoteEnvironment()
 	if err == nil && wizardEnv.Operator != nil {
-		cluster, err := getLocalClusterFromWizard(wizardEnv.Operator)
+		cluster, err := getLocalClusterFromOperator(wizardEnv.Operator)
 		if err == nil {
 			log.Info("Fetching operation from wizard.")
 			r.getOperationAndUpdateCache(getOperationFromOperator(wizardEnv.Operator, cluster.Key()),
@@ -307,7 +307,7 @@ func (r *backendOperations) listInstallOperation() error {
 		return trace.Wrap(err, "failed to read local wizard environment")
 	}
 	log.Info("Fetching operation directly from wizard backend.")
-	r.getOperationAndUpdateCache(getOperationFromBackend(wizardLocalEnv.Backend),
+	r.getOperationAndUpdateCache(getOperationFromWizardBackend(wizardLocalEnv.Backend),
 		log.WithField("context", "install"))
 	return nil
 }
@@ -366,11 +366,40 @@ func getOperationFromBackend(backend storage.Backend) operationGetter {
 	})
 }
 
-func getLocalClusterFromWizard(operator ops.Operator) (cluster *ops.Site, err error) {
-	// TODO(dmitri): I attempted to default to local when creating clusters with wizard
-	// but this breaks when the installer needs to tunnel APIs to the installed cluster
-	// in which case it uses the difference of local (installed cluster) vs non-local
-	// (in wizard state), so resorting to look up
+func getOperationFromWizardBackend(backend storage.Backend) operationGetter {
+	return operationGetterFunc(func() (*ops.SiteOperation, error) {
+		cluster, err := getLocalClusterFromBackend(backend)
+		if err != nil {
+			return nil, trace.Wrap(err)
+		}
+		op, err := storage.GetLastOperationForCluster(backend, cluster.Domain)
+		if err != nil {
+			return nil, trace.Wrap(err)
+		}
+		return (*ops.SiteOperation)(op), nil
+	})
+}
+
+func getLocalClusterFromBackend(backend storage.Backend) (cluster *storage.Site, err error) {
+	// TODO(dmitri): when cluster is created by the wizard, it is not local
+	// so resort to look up
+	clusters, err := backend.GetSites(defaults.SystemAccountID)
+	if err != nil {
+		return nil, trace.Wrap(err)
+	}
+	log.WithField("clusters", clusters).Info("Fetched clusters from wizard backend.")
+	if len(clusters) == 0 {
+		return nil, trace.NotFound("no clusters found")
+	}
+	if len(clusters) != 1 {
+		return nil, trace.BadParameter("expected a single cluster, but found %v", len(clusters))
+	}
+	return &clusters[0], nil
+}
+
+func getLocalClusterFromOperator(operator ops.Operator) (cluster *ops.Site, err error) {
+	// TODO(dmitri): when cluster is created by the wizard, it is not local
+	// so resort to look up
 	clusters, err := operator.GetSites(defaults.SystemAccountID)
 	if err != nil {
 		return nil, trace.Wrap(err)

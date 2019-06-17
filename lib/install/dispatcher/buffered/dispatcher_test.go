@@ -19,9 +19,9 @@ import (
 	"testing"
 	"time"
 
+	"github.com/gravitational/gravity/lib/install/dispatcher"
+	"github.com/gravitational/gravity/lib/install/dispatcher/internal/test"
 	installpb "github.com/gravitational/gravity/lib/install/proto"
-	"github.com/gravitational/gravity/lib/install/server/dispatcher"
-	"github.com/gravitational/gravity/lib/install/server/dispatcher/internal/test"
 
 	. "gopkg.in/check.v1"
 )

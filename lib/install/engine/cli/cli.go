@@ -27,6 +27,7 @@ import (
 	"github.com/gravitational/gravity/lib/defaults"
 	"github.com/gravitational/gravity/lib/install"
 	libinstall "github.com/gravitational/gravity/lib/install"
+	"github.com/gravitational/gravity/lib/install/dispatcher"
 	"github.com/gravitational/gravity/lib/ops"
 	"github.com/gravitational/gravity/lib/schema"
 	"github.com/gravitational/gravity/lib/state"
@@ -73,7 +74,15 @@ type Config struct {
 
 // Execute executes the installer steps.
 // Implements installer.Engine
-func (r *Engine) Execute(ctx context.Context, installer install.Interface, config install.Config) (err error) {
+func (r *Engine) Execute(ctx context.Context, installer install.Interface, config install.Config) (dispatcher.Status, error) {
+	err := r.execute(ctx, installer, config)
+	if err != nil {
+		return dispatcher.StatusUnknown, trace.Wrap(err)
+	}
+	return dispatcher.StatusCompleted, nil
+}
+
+func (r *Engine) execute(ctx context.Context, installer install.Interface, config install.Config) (err error) {
 	if err := r.validate(ctx, config); err != nil {
 		return trace.Wrap(err)
 	}

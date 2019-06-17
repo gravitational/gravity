@@ -24,7 +24,6 @@ import (
 	"os/exec"
 	"path/filepath"
 	"strings"
-	"syscall"
 	"time"
 
 	autoscaleaws "github.com/gravitational/gravity/lib/autoscale/aws"
@@ -782,8 +781,6 @@ func NewServiceListener() (net.Listener, error) {
 // InterruptSignals lists signals installer service considers interrupts
 var InterruptSignals = signals.WithSignals(
 	os.Interrupt,
-	syscall.SIGTERM,
-	syscall.SIGQUIT,
 )
 
 // NewInstallerConnectStrategy returns default installer service connect strategy

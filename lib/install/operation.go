@@ -10,7 +10,7 @@ import (
 
 	"github.com/gravitational/gravity/lib/constants"
 	"github.com/gravitational/gravity/lib/defaults"
-	"github.com/gravitational/gravity/lib/install/server/dispatcher"
+	"github.com/gravitational/gravity/lib/install/dispatcher"
 	"github.com/gravitational/gravity/lib/localenv"
 	"github.com/gravitational/gravity/lib/modules"
 	"github.com/gravitational/gravity/lib/ops"
@@ -35,7 +35,7 @@ type Engine interface {
 	//
 	// installer is the reference to the installer.
 	// config specifies the configuration for the operation
-	Execute(ctx context.Context, installer Interface, config Config) error
+	Execute(ctx context.Context, installer Interface, config Config) (dispatcher.Status, error)
 }
 
 // NotifyOperationAvailable is invoked by the engine to notify the server
@@ -92,21 +92,14 @@ func (i *Installer) ExecuteOperation(operationKey ops.SiteOperationKey) error {
 // CompleteOperation executes additional steps after the installation has completed.
 // Implements Interface
 func (i *Installer) CompleteOperation(operation ops.SiteOperation) error {
-	return i.completeOperation(operation, dispatcher.StatusCompleted)
-}
-
-// CompleteOperationAndWait executes additional steps common to all workflows after the
-// installation has completed but does not exit
-func (i *Installer) CompleteOperationAndWait(operation ops.SiteOperation) error {
 	var errors []error
-	err := i.completeOperation(operation, dispatcher.StatusCompletedPending)
-	if err != nil {
+	if err := i.uploadInstallLog(operation.Key()); err != nil {
 		errors = append(errors, err)
 	}
-	err = i.wait()
-	if err != nil {
+	if err := i.emitAuditEvents(i.ctx, operation); err != nil {
 		errors = append(errors, err)
 	}
+	i.sendElapsedTime(operation.Created)
 	return trace.NewAggregate(errors...)
 }
 
@@ -141,19 +134,6 @@ func (i *Installer) PrintStep(format string, args ...interface{}) {
 	i.dispatcher.Send(event)
 }
 
-func (i *Installer) completeOperation(operation ops.SiteOperation, status dispatcher.Status) error {
-	var errors []error
-	if err := i.uploadInstallLog(operation.Key()); err != nil {
-		errors = append(errors, err)
-	}
-	if err := i.emitAuditEvents(i.ctx, operation); err != nil {
-		errors = append(errors, err)
-	}
-	i.sendElapsedTime(operation.Created)
-	i.sendCompletionEvent(status)
-	return trace.NewAggregate(errors...)
-}
-
 // wait blocks until either the context has been cancelled or the wizard process
 // exits with an error.
 func (i *Installer) wait() error {
@@ -183,13 +163,13 @@ func (i *Installer) sendElapsedTime(timeStarted time.Time) {
 
 // TODO(dmitri): this information should also be displayed when working with the operation
 // manually
-func (i *Installer) sendCompletionEvent(status dispatcher.Status) {
+func (i *Installer) completionEvent(status dispatcher.Status) dispatcher.Event {
 	var buf bytes.Buffer
 	i.printEndpoints(&buf)
 	if m, ok := modules.Get().(modules.Messager); ok {
 		fmt.Fprintf(&buf, "\n%v", m.PostInstallMessage())
 	}
-	event := dispatcher.Event{
+	return dispatcher.Event{
 		Progress: &ops.ProgressEntry{
 			Message:    buf.String(),
 			Completion: constants.Completed,
@@ -197,7 +177,6 @@ func (i *Installer) sendCompletionEvent(status dispatcher.Status) {
 		// Set the completion status
 		Status: status,
 	}
-	i.dispatcher.Send(event)
 }
 
 func (i *Installer) runStoppers(ctx context.Context) error {

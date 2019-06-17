@@ -25,11 +25,11 @@ import (
 
 	"github.com/gravitational/gravity/lib/defaults"
 	"github.com/gravitational/gravity/lib/fsm"
+	"github.com/gravitational/gravity/lib/install/dispatcher"
+	"github.com/gravitational/gravity/lib/install/dispatcher/buffered"
 	"github.com/gravitational/gravity/lib/install/engine"
 	installpb "github.com/gravitational/gravity/lib/install/proto"
 	"github.com/gravitational/gravity/lib/install/server"
-	"github.com/gravitational/gravity/lib/install/server/dispatcher"
-	"github.com/gravitational/gravity/lib/install/server/dispatcher/buffered"
 	"github.com/gravitational/gravity/lib/ops"
 	rpcserver "github.com/gravitational/gravity/lib/rpc/server"
 	"github.com/gravitational/gravity/lib/system/signals"
@@ -66,7 +66,9 @@ func New(ctx context.Context, config RuntimeConfig) (installer *Installer, err e
 		agent:       agent,
 		errC:        make(chan error, 2),
 		execC:       make(chan *installpb.ExecuteRequest),
-		dispatcher:  dispatcher,
+		// Reserve the buffer for a single result
+		execDoneC:  make(chan execResult, 1),
+		dispatcher: dispatcher,
 	}
 	installer.startExecuteLoop()
 	if err := installer.maybeStartAgent(); err != nil {
@@ -103,13 +105,27 @@ func (i *Installer) Execute(req *installpb.ExecuteRequest, stream installpb.Agen
 	if !i.submit(req) && !req.IsResume() {
 		return status.Error(codes.AlreadyExists, "operation is already active")
 	}
-	for event := range i.dispatcher.Chan() {
-		err := stream.Send(event)
-		if err != nil {
-			return trace.Wrap(err)
+	for {
+		select {
+		case event := <-i.dispatcher.Chan():
+			err := stream.Send(event)
+			if err != nil {
+				return trace.Wrap(err)
+			}
+		case result := <-i.execDoneC:
+			if result.err != nil {
+				// FIXME: send directly via stream.Send
+				// Maybe send the error wrapped with grpc.codes.FailedPrecondition?
+				return status.Error(codes.FailedPrecondition, err.Error())
+				// return trace.Wrap(result.err)
+			}
+			err := stream.Send(result.completionEvent.AsProgressResponse())
+			if err != nil {
+				return trace.Wrap(err)
+			}
+			return nil
 		}
 	}
-	return nil
 }
 
 // Complete manually completes the operation given with key.
@@ -150,9 +166,6 @@ type Interface interface {
 	// CompleteOperation executes additional steps common to all workflows after the
 	// installation has completed
 	CompleteOperation(operation ops.SiteOperation) error
-	// CompleteOperationAndWait executes additional steps common to all workflows after the
-	// installation has completed and blocks waiting for explicit shutdown
-	CompleteOperationAndWait(operation ops.SiteOperation) error
 	// CompleteFinalInstallStep marks the final install step as completed unless
 	// the application has a custom install step. In case of the custom step,
 	// the user completes the final installer step
@@ -180,9 +193,22 @@ func (i *Installer) startExecuteLoop() {
 		for {
 			select {
 			case req := <-i.execC:
-				if err := i.execute(req); err != nil {
-					i.sendError(err)
+				status, err := i.execute(req)
+				select {
+				case <-i.execDoneC:
+					// Empty the result channel
+				default:
+				}
+				if err != nil {
 					i.WithError(err).Warn("Failed to execute.")
+					i.execDoneC <- execResult{err: err}
+				} else {
+					i.execDoneC <- execResult{
+						completionEvent: i.completionEvent(status),
+					}
+				}
+				if status == dispatcher.StatusCompletedPending {
+					i.wait()
 				}
 			case <-i.ctx.Done():
 				return
@@ -207,26 +233,30 @@ func (i *Installer) maybeStartAgent() error {
 	return nil
 }
 
-func (i *Installer) execute(req *installpb.ExecuteRequest) error {
+func (i *Installer) execute(req *installpb.ExecuteRequest) (dispatcher.Status, error) {
 	i.WithField("req", req).Info("Execute.")
 	if req.Phase != nil {
 		return i.executePhase(*req.Phase)
 	}
-	err := i.config.Engine.Execute(i.ctx, i, i.config.Config)
+	status, err := i.config.Engine.Execute(i.ctx, i, i.config.Config)
 	if err != nil {
-		return trace.Wrap(err)
+		return dispatcher.StatusUnknown, trace.Wrap(err)
 	}
-	return nil
+	return status, nil
 }
 
-func (i *Installer) executePhase(phase installpb.ExecuteRequest_Phase) error {
+func (i *Installer) executePhase(phase installpb.ExecuteRequest_Phase) (dispatcher.Status, error) {
 	opKey := installpb.KeyFromProto(phase.Key)
 	machine, err := i.config.FSMFactory.NewFSM(i.config.Operator, opKey)
 	if err != nil {
-		return trace.Wrap(err)
+		return dispatcher.StatusUnknown, trace.Wrap(err)
 	}
 	if phase.IsResume() {
-		return trace.Wrap(ExecuteOperation(i.ctx, machine, i.FieldLogger))
+		err := ExecuteOperation(i.ctx, machine, i.FieldLogger)
+		if err != nil {
+			return dispatcher.StatusUnknown, trace.Wrap(err)
+		}
+		return dispatcher.StatusCompleted, nil
 	}
 	params := fsm.Params{
 		PhaseID:  phase.ID,
@@ -234,9 +264,11 @@ func (i *Installer) executePhase(phase installpb.ExecuteRequest_Phase) error {
 		Progress: dispatcher.NewProgressReporter(i.ctx, i.dispatcher, phaseTitle(phase)),
 	}
 	if phase.Rollback {
-		return trace.Wrap(machine.RollbackPhase(i.ctx, params))
+		err := machine.RollbackPhase(i.ctx, params)
+		return dispatcher.StatusUnknown, trace.Wrap(err)
 	}
-	return trace.Wrap(machine.ExecutePhase(i.ctx, params))
+	err = machine.ExecutePhase(i.ctx, params)
+	return dispatcher.StatusUnknown, trace.Wrap(err)
 }
 
 func (i *Installer) startAgent(operation ops.SiteOperation) error {
@@ -301,12 +333,6 @@ func (i *Installer) abortWithContext(ctx context.Context) error {
 	return trace.Wrap(err)
 }
 
-func (i *Installer) sendError(err error) {
-	i.dispatcher.Send(dispatcher.Event{
-		Error: err,
-	})
-}
-
 // Installer manages the installation process
 type Installer struct {
 	// FieldLogger specifies the installer's logger
@@ -326,10 +352,16 @@ type Installer struct {
 	errC chan error
 
 	execC      chan *installpb.ExecuteRequest
+	execDoneC  chan execResult
 	dispatcher dispatcher.EventDispatcher
 	wg         sync.WaitGroup
 }
 
 func phaseTitle(phase installpb.ExecuteRequest_Phase) string {
 	return fmt.Sprintf("Executing phase %v", phase.ID)
+}
+
+type execResult struct {
+	completionEvent dispatcher.Event
+	err             error
 }
