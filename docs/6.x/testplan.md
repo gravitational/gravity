@@ -421,3 +421,355 @@ After upgrade execute `gravity gc` on the cluster.
  - [ ] Verify that packages from the previous installation have been removed from cluster package storage.
  - [ ] Verify that packages from the current installation are still present.
  - [ ] Tentative: Verify that application packages from remote clusters are still present.
+
+
+## WEB UI
+
+### Gravity Cluster
+
+#### Side Nav
+- [ ] Verify that company logo is shown with a product version.
+- [ ] Verify that Gravity logo is shown when company logo is missing.
+
+#### Top Nav
+- [ ] Verify that status indicator reflects these cluster states: healthy/processing/failed.
+- [ ] Verify that cluster public URL is shown.
+- [ ] Verify that "Info View" button opens "Cluster Information" dialog.
+
+  Cluster Information
+  - [ ] Verify that public URL, internal URLs, and login command are shown.
+  - [ ] Verify that "copy" button copies the text to the clipboard.
+
+- [ ] Verify that user menu has "Logout" and "Account" options for local use.
+- [ ] Verify that user menu has only "Logout" option for SSO user.
+
+#### Dashboard
+- [ ] Verify that "CPU Usage" shows current CPU data.
+- [ ] Verify that "RAM Usage" shows current RAM data.
+- [ ] Verify that "Usage Over Time" shows the last 60 seconds of CPU/RAM data.
+- [ ] Verify that all charts show real-time data. You can open a terminal and try running `ls -R /` for a while.
+- [ ] Verify that "Audit Logs" table shows recent events (today).
+- [ ] Verify that "Operation" table shows cluster operations.
+
+  Start a terminal session
+  - [ ] Verify that terminal session appears in the "Operation" table.
+
+- [ ] Verify that Application table shows all installed applications.
+
+#### Nodes
+- [ ] Verify that "Nodes" table shows all joined nodes.
+- [ ] Verify that login dropdown shows a list of available logins.
+- [ ] Verify that clicking on the login opens a terminal.
+- [ ] Verify that "Add Node" button opens a dialog with instructions.
+- [ ] Verify that "Add Node" dialog shows valid instructions per selected role.
+
+#### Terminal Session
+- [ ] Verify that input/output works as expected by typing on the keyboard.
+- [ ] Verify that window resize works (use `yum -y install mc` to install midnight commander)
+
+  SCP
+  - [ ] Verify that Upload works.
+  - [ ] Verify that Upload handles invalid paths and network errors.
+  - [ ] Verify that Download works.
+  - [ ] Verify that Download handles invalid paths and network errors.
+
+#### Logs
+- [ ] Verify that Logs are shown.
+
+  Log forwarder settings
+  - [ ] Verify that Creating/Deleting/Editing a log forwarder works.
+
+#### Audit Logs
+- [ ] Verify that Audit events of different types are shown.
+- [ ] Verify that "Details" button opens a dialog with JSON.
+- [ ] Verify that "Today" and "7 Days" options correctly filter events.
+- [ ] Verify that "Custom" option opens a date picker dialog.
+
+#### Roles
+- [ ] Verify that roles are shown.
+- [ ] Verify that "Create New Role" dialog works.
+- [ ] Verify that deleting and editing a role works.
+- [ ] Verify that error is displayed when saving invalid input.
+
+#### Users
+- [ ] Verify that users are shown.
+- [ ] Verify that creating a new user works.
+- [ ] Verify that editing user roles works.
+- [ ] Verify that removing a user works.
+
+  Reset Password
+  - [ ] Verify that "Reset Password" dialog shows a reset link.
+
+  Invite User
+  - [ ] Verify that role dropdown shows all existing roles.
+  - [ ] Verify that clicking on "Create invite link" shows an invite URL.
+
+#### Auth Connectors
+- [ ] Verify that creating OIDC/SAML/GITHUB connectors works.
+- [ ] Verify that editing  OIDC/SAML/GITHUB connectors works.
+
+  Templates
+  - [ ] Verify that "New OIDC connector" dialog has OIDC template.
+  - [ ] Verify that "New SAML connector" dialog has SAML template.
+  - [ ] Verify that "New SAML connector" dialog has GITHUB template.
+
+  Card Icons
+  - [ ] Verify that GITHUB card has github icon
+  - [ ] Verify that SAML card has SAML icon
+  - [ ] Verify that OIDC card has OIDC icon
+
+#### HTTPS Certificate
+- [ ] Verify that it shows certificate details.
+- [ ] Verify that updating a certificate works (try submitting invalid file formats).
+
+#### Kubernetes
+- [ ] Verify namespace selector.
+
+  Config maps
+  - [ ] Verify that configs maps are shown.
+  - [ ] Verify that editing config maps with multiple files works. Should see multiple tabs and "unsaved" changes indicator.
+
+  Pods
+  - [ ] Verify that pods of different statuses are correctly displayed. Failed should be in red.
+  - [ ] Verify that string search on table columns works.
+
+    Container menu
+    - [ ] Verify that "View Logs" works.
+    - [ ] Verify that SSH to container works.
+
+    Action menu
+    - [ ] Verify that "Details" display the JSON dialog.
+    - [ ] Verify that "Monitoring" opens the monitoring screen with selected pod charts.
+    - [ ] Verify that "Logs" opens the logs screen with selected pod logs.
+
+  Services
+  - [ ] Verify that services are displayed.
+  - [ ] Verify that "Details" opens a dialog with JSON.
+
+  Jobs
+  - [ ] Verify that jobs are displayed.
+  - [ ] Verify that "Details" opens a dialog with JSON.
+
+  Daemon Sets
+  - [ ] Verify that daemon sets are displayed.
+  - [ ] Verify that "Details" opens a dialog with JSON.
+
+  Deployments
+  - [ ] Verify that deployments are displayed.
+  - [ ] Verify that "Details" opens a dialog with JSON.
+
+#### Monitoring
+- [ ] Verify that Grafana charts work.
+
+#### Account
+- [ ] Verify that changing a password works with 2FA disabled.
+- [ ] Verify that changing a password works with 2FA enabled.
+
+#### Extensions
+Set the following settings in the manifest file
+```
+app.manifest.extensions.monitoring.disabled: true
+app.manifest.extensions.kubernetes.disabled: true
+app.manifest.extensions.logs.disabled: true
+```
+ - [ ] Verify that Kubernetes, Logs, and Monitoring features are hidden.
+
+
+### Invite Form
+- [ ] Verify that company logo is shown.
+- [ ] Verify input validation.
+- [ ] Verify that invite works with 2FA disabled.
+- [ ] Verify that invite works with OTP enabled.
+- [ ] Verify that invite works with U2F enabled.
+- [ ] Verify that error message is shown if an invite is expired/invalid.
+
+### Login Form
+- [ ] Verify that company logo is shown.
+- [ ] Verify input validation.
+- [ ] Verify that login works with 2FA disabled.
+- [ ] Verify that login works with OTP enabled.
+- [ ] Verify that login works with U2F enabled.
+- [ ] Verify that SSO login works for Github/SAML/OIDC.
+- [ ] Verify that account is locked after several unsuccessful attempts.
+
+### GRAVITY HUB
+
+#### Clusters
+- [ ] Verify that 2 types of cluster cards (bundle and cluster) are shown.
+- [ ] Verify that empty indicator is shown when there are no clusters.
+
+  Cluster Card
+  - [ ] Verify that bundle card displays icons of installed application.
+  - [ ] Verify that location indicator works (AWS or Onprem).
+  - [ ] Verify that cluster labels are displayed.
+  - [ ] Verify cluster status indicator (green/yellow/red).
+
+#### Catalog
+- [ ] Verify that app images are displayed.
+- [ ] Verify that empty indicator is shown when there are no images.
+
+  App Card
+- [ ] Verify that dropdown with versions works.
+- [ ] Verify that cluster image has the right icon.
+- [ ] Verify that bundle image has the right icon.
+- [ ] Verify install instructions for cluster and bundle images.
+- [ ] Verify that download button works.
+
+#### Licenses
+- [ ] Verify that license generator works.
+- [ ] Verify input validation by entering invalid values.
+
+#### User/Auth
+  For Users, Roles, and Auth Connectors, please use Cluster steps to verify this functionality.
+
+#### Settings
+  For HTTP Cerifticate and for Account, please use Cluster steps to verify this functionality.
+
+
+### Installer
+  Create an application image which requires EUAL, a valid License, and has Bandwagon step.
+  Start an installer.
+
+#### EUAL
+- [ ] Verify that EUAL agreement is shown asking a user to accept it.
+
+#### Step. License
+- [ ] Verify that "License" step is shown.
+- [ ] Verify that step indicator has the correct number of steps (5).
+- [ ] Verify that error is shown when entering invalid license.
+
+#### Step. Name You cluster
+- [ ] Verify that cluster name is required.
+
+  Additional options
+  - [ ] Verify that input validation for subnet values works.
+  - [ ] Verify that creating cluster labels works.
+
+#### Step. Capacity
+- [ ] Verify that profile selector works.
+- [ ] Verify that input fields for IP Address and Mounts work (check input validation).
+- [ ] Verify that "VERIFY" button works (should show a notification banner on top).
+
+
+#### Step. Progress
+- [ ] Verify that progress indicator works.
+- [ ] Verify that installation logs work.
+- [ ] Verify that when installation fails, the error is shown with "DOWNLOAD TARBALL" button.
+
+#### Step. Create Admin
+- [ ] Verify that creating an admin user works. After submitting a form, a user should be redirected to the cluster UI.
+
+
+### RBAC
+ Create the following role
+```
+  kind: role
+  metadata:
+    name: no_access
+  spec:
+    allow:
+      kubernetes_groups:
+      - admin
+      logins:
+      - root
+      node_labels:
+        '*': '*'
+      rules:
+      - resources:
+        - cluster
+        - role
+        verbs:
+        - read
+    deny: {}
+    options:
+  version: v3
+```
+  - [ ] Verify that a user has access only to: Nodes, Logs, Operations.
+  - [ ] Verify that Nodes screen does not display k8s labels.
+
+#### Add Role `list` access.
+```
+    - resources:
+      - role
+      verbs:
+      - read
+```
+  - [ ] Verify that a list of roles is visible.
+  - [ ] Verify that changing/creating a role is not allowed.
+
+#### Add Role `update` access.
+```
+    - resources:
+      - role
+      verbs:
+      - update
+```
+  - [ ] Verify that changing/creating a role is allowed.
+
+#### Add Event `list` access.
+```
+    - resources:
+      - event
+      verbs:
+      - list
+```
+  - [ ] Verify that list of events is displayed. In Event tab and on the Dashboard.
+
+#### Add Log forwarder `list` access.
+  ```
+    - resources:
+      - logforwarder
+      verbs:
+      - list
+  ```
+  - [ ] Verify that a list of log forwarders is visible.
+  - [ ] Verify that changing/creating a log forwarder is not allowed.
+
+#### Add Log forwarder `update` access.
+```
+    - resources:
+      - logforwarder
+      verbs:
+      - update
+```
+  - [ ] Verify that changing/creating a log forwarder is allowed.
+
+#### Add Auth Connector `list` access.
+```
+    - resources:
+      - auth_connector
+      verbs:
+      - list
+```
+  - [ ] Verify that a list of auth connectors is visible.
+  - [ ] Verify that changing/creating an auth connector is not allowed.
+
+#### Add auth_connector `update` access.
+```
+    - resources:
+      - auth_connector
+      verbs:
+      - update
+```
+  - [ ] Verify that changing/creating an auth connector is allowed.
+
+#### Add app `list` access.
+```
+    - resources:
+      - app
+      verbs:
+      - list
+```
+  - [ ] Verify that list of apps is displayed in Gravity HUB.
+
+
+#### Add Cluster `connect` access.
+```
+    - resources:
+      - cluster
+      verbs:
+      - connect
+```
+  - [ ] Verify that K8s tab is displayed.
+  - [ ] Verify that Nodes screen displays K8s labels.
+
