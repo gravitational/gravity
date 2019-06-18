@@ -66,9 +66,8 @@ func New(ctx context.Context, config RuntimeConfig) (installer *Installer, err e
 		agent:       agent,
 		errC:        make(chan error, 2),
 		execC:       make(chan *installpb.ExecuteRequest),
-		// Reserve the buffer for a single result
-		execDoneC:  make(chan execResult, 1),
-		dispatcher: dispatcher,
+		execDoneC:   make(chan execResult, 1),
+		dispatcher:  dispatcher,
 	}
 	installer.startExecuteLoop()
 	if err := installer.maybeStartAgent(); err != nil {
