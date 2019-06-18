@@ -42,7 +42,11 @@ func (s *site) validateRemoteAccess(req ops.ValidateRemoteAccessRequest) (resp *
 		return nil, trace.Wrap(err)
 	}
 
-	runner := &teleportRunner{recorder{}, s.domainName, s.teleport()}
+	runner := &teleportRunner{
+		FieldLogger:          log.WithField(trace.Component, "teleport-runner"),
+		domainName:           s.domainName,
+		TeleportProxyService: s.teleport(),
+	}
 	var results []ops.NodeResponse
 	for _, node := range servers {
 		server, err := newTeleportServer(node)

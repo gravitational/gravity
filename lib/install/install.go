@@ -81,7 +81,7 @@ func (i *Installer) Run(listener net.Listener) error {
 		i.errC <- i.server.Run(i, listener)
 	}()
 	err := <-i.errC
-	if installpb.IsAbortedErr(err) {
+	if installpb.IsAbortError(err) {
 		i.abort()
 		return trace.Wrap(err)
 	}
@@ -121,6 +121,21 @@ func (i *Installer) Complete(key ops.SiteOperationKey) error {
 		return trace.Wrap(err)
 	}
 	return trace.Wrap(machine.Complete(trace.Errorf("completed manually")))
+}
+
+// GenerateDebugReport captures the state of the operation to the file given with path.
+// Implements server.DebugReporter
+func (i *Installer) GenerateDebugReport(path string) error {
+	i.WithField("path", path).Info("Generate debug report.")
+	op, err := ops.GetWizardOperation(i.config.Operator)
+	if err != nil {
+		return trace.Wrap(err)
+	}
+	err = i.generateDebugReport(op.ClusterKey(), path)
+	if err != nil {
+		return trace.Wrap(err)
+	}
+	return nil
 }
 
 // Interface defines the interface of the installer as presented
@@ -184,7 +199,12 @@ func (i *Installer) maybeStartAgent() error {
 		i.WithError(err).Info("Failed to query install operation.")
 		return nil
 	}
-	return trace.Wrap(i.startAgent(*op))
+	err = i.startAgent(*op)
+	if err != nil {
+		return trace.Wrap(err)
+	}
+	i.registerExitHandlersForAgents(*op)
+	return nil
 }
 
 func (i *Installer) execute(req *installpb.ExecuteRequest) error {
@@ -261,7 +281,7 @@ func (i *Installer) stopWithContext(ctx context.Context) error {
 	if i.agent != nil {
 		i.agent.Stop(ctx)
 	}
-	err := i.stopStoppers(ctx)
+	err := i.runStoppers(ctx)
 	i.config.Process.Shutdown(ctx)
 	i.server.Stop(ctx)
 	return trace.Wrap(err)

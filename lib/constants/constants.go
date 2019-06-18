@@ -575,12 +575,6 @@ const (
 	// default system location
 	LVMSystemDirEnvvar = "LVM_SYSTEM_DIR"
 
-	// ReportFilterSystem defines a report filter to fetch system diagnostics
-	ReportFilterSystem = "system"
-
-	// ReportFilterKubernetes defines a report filter to fetch kubernetes diagnostics
-	ReportFilterKubernetes = "kubernetes"
-
 	// RPCAgentUpgradeFunction requests deployed agents to run automatic upgrade operation on leader node
 	RPCAgentUpgradeFunction = "upgrade"
 

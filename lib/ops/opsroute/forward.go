@@ -416,14 +416,6 @@ func (r *Router) CreateProgressEntry(key ops.SiteOperationKey, entry ops.Progres
 	return client.CreateProgressEntry(key, entry)
 }
 
-func (r *Router) GetSiteOperationCrashReport(key ops.SiteOperationKey) (io.ReadCloser, error) {
-	client, err := r.PickOperationClient(key.SiteDomain)
-	if err != nil {
-		return nil, trace.Wrap(err)
-	}
-	return client.GetSiteOperationCrashReport(key)
-}
-
 func (r *Router) GetSiteReport(key ops.SiteKey) (io.ReadCloser, error) {
 	client, err := r.PickClient(key.SiteDomain)
 	if err != nil {

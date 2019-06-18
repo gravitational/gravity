@@ -755,7 +755,8 @@ func Execute(g *Application, cmd string, extraArgs []string) (err error) {
 	case g.SystemReportCmd.FullCommand():
 		return systemReport(localEnv,
 			*g.SystemReportCmd.Filter,
-			*g.SystemReportCmd.Compressed)
+			*g.SystemReportCmd.Compressed,
+			os.Stdout)
 	case g.SystemStateDirCmd.FullCommand():
 		return printStateDir()
 	case g.SystemEnablePromiscModeCmd.FullCommand():

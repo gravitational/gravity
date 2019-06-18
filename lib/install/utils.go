@@ -324,7 +324,7 @@ func ExecuteOperation(ctx context.Context, machine *fsm.FSM, logger log.FieldLog
 
 // Run runs progress loop for the specified operation until the operation
 // is complete or context is cancelled.
-func (r ProgressLooper) Run(ctx context.Context) error {
+func (r ProgressPoller) Run(ctx context.Context) error {
 	r.WithField("operation", r.OperationKey.OperationID).Info("Start progress feedback loop.")
 	ticker := time.NewTicker(1 * time.Second)
 	defer ticker.Stop()
@@ -351,8 +351,8 @@ func (r ProgressLooper) Run(ctx context.Context) error {
 	}
 }
 
-// ProgressLooper is a progress message poller
-type ProgressLooper struct {
+// ProgressPoller is a progress message poller
+type ProgressPoller struct {
 	log.FieldLogger
 	Operator     ops.Operator
 	OperationKey ops.SiteOperationKey

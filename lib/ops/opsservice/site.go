@@ -324,7 +324,10 @@ func (s *site) agentService() ops.AgentService {
 }
 
 func (s *site) agentRunner(ctx *operationContext) *agentRunner {
-	return &agentRunner{ctx, s.agentService()}
+	return &agentRunner{
+		ctx:          ctx,
+		AgentService: s.agentService(),
+	}
 }
 
 func (s *site) packages() pack.PackageService {
