@@ -58,7 +58,7 @@ func (s *ProcessSuite) TestAuthGatewayConfigReload(c *check.C) {
 	}
 	serviceConfig, err := process.buildTeleportConfig(process.authGatewayConfig)
 	c.Assert(err, check.IsNil)
-	process.Supervisor = &service.TeleportProcess{
+	process.TeleportProcess = &service.TeleportProcess{
 		Supervisor: service.NewSupervisor("test"),
 		Config:     serviceConfig,
 	}
@@ -87,7 +87,7 @@ func (s *ProcessSuite) TestAuthGatewayConfigReload(c *check.C) {
 			PublicAddr: &[]string{"example.com"},
 		}))
 	// Make sure process config is updated.
-	config := process.teleportProcess().Config
+	config := process.TeleportProcess.Config
 	comparePrincipals(c, config.Auth.PublicAddrs, []string{"example.com"})
 	comparePrincipals(c, config.Proxy.SSHPublicAddrs, []string{"example.com"})
 	comparePrincipals(c, config.Proxy.PublicAddrs, []string{"example.com"})
@@ -112,31 +112,29 @@ func (s *ProcessSuite) TestClusterServices(c *check.C) {
 
 	service1Launched := make(chan bool)
 	service1Done := make(chan bool)
-	service1 := func(ctx context.Context) error {
+	service1 := func(ctx context.Context) {
 		close(service1Launched)
 		defer close(service1Done)
 		select {
 		case <-ctx.Done():
-			return nil
+			return
 		}
 	}
 
 	service2Launched := make(chan bool)
 	service2Done := make(chan bool)
-	service2 := func(ctx context.Context) error {
+	service2 := func(ctx context.Context) {
 		close(service2Launched)
 		defer close(service2Done)
 		select {
 		case <-ctx.Done():
-			return nil
+			return
 		}
 	}
 
 	// launch services
-	err := p.startClusterServices([]clusterService{
-		service1,
-		service2,
-	})
+	p.clusterServices = []clusterService{service1, service2}
+	err := p.startClusterServices()
 	c.Assert(err, check.IsNil)
 	for i, ch := range []chan bool{service1Launched, service2Launched} {
 		select {
@@ -148,10 +146,7 @@ func (s *ProcessSuite) TestClusterServices(c *check.C) {
 	c.Assert(p.clusterServicesRunning(), check.Equals, true)
 
 	// should not attempt to launch again
-	err = p.startClusterServices([]clusterService{
-		service1,
-		service2,
-	})
+	err = p.startClusterServices()
 	c.Assert(err, check.NotNil)
 	c.Assert(p.clusterServicesRunning(), check.Equals, true)
 
@@ -216,11 +211,11 @@ func (s *ProcessSuite) TestReverseTunnelsFromTrustedClusters(c *check.C) {
 				}),
 			},
 			tunnels: []telecfg.ReverseTunnel{
-				telecfg.ReverseTunnel{
+				{
 					DomainName: "cluster1",
 					Addresses:  []string{"cluster1:3024"},
 				},
-				telecfg.ReverseTunnel{
+				{
 					DomainName: "cluster2",
 					Addresses:  []string{"cluster2:3024"},
 				},

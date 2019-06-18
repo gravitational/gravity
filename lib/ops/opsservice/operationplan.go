@@ -44,13 +44,5 @@ func (o *Operator) CreateOperationPlanChange(key ops.SiteOperationKey, change st
 
 // GetOperationPlan returns plan for the specified operation
 func (o *Operator) GetOperationPlan(key ops.SiteOperationKey) (*storage.OperationPlan, error) {
-	plan, err := o.backend().GetOperationPlan(key.SiteDomain, key.OperationID)
-	if err != nil {
-		return nil, trace.Wrap(err)
-	}
-	changelog, err := o.backend().GetOperationPlanChangelog(key.SiteDomain, key.OperationID)
-	if err != nil {
-		return nil, trace.Wrap(err)
-	}
-	return fsm.ResolvePlan(*plan, changelog), nil
+	return fsm.GetOperationPlan(o.backend(), key)
 }

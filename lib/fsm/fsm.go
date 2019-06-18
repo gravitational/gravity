@@ -40,7 +40,11 @@ type Engine interface {
 	// RunCommand executes the phase specified by params on the specified
 	// server using the provided runner
 	RunCommand(context.Context, RemoteRunner, storage.Server, Params) error
-	// Complete is called to mark operation complete
+	// Complete transitions the operation to a completed state.
+	// Completed state is either successful or failed depending on the state of
+	// the operation plan.
+	// The optional error can be used to specify the reason for failure and
+	// defines the final operation failure
 	Complete(error) error
 }
 
@@ -67,8 +71,16 @@ func (p ExecutorParams) Key() ops.SiteOperationKey {
 type Params struct {
 	// PhaseID is the id of the phase to execute/rollback
 	PhaseID string
+	// OperationID is the operation ID this phase is executed for
+	OperationID string
 	// Force is whether to force execution/rollback
 	Force bool
+	// Resume determines whether a failed/in-progress phase is rerun.
+	//
+	// It is different from Force which forces a phase in any state
+	// to be rerun - this is unexpected when the operation is resumed
+	// and only the unfinished/failed steps are re-executed
+	Resume bool
 	// Progress is optional progress reporter
 	Progress utils.Progress
 }
@@ -79,9 +91,14 @@ func (p *Params) CheckAndSetDefaults() error {
 		return trace.BadParameter("missing PhaseID")
 	}
 	if p.Progress == nil {
-		p.Progress = utils.NewNopProgress()
+		p.Progress = utils.DiscardProgress
 	}
 	return nil
+}
+
+// IsResume returns true if parameters describe a resume command
+func (p Params) IsResume() bool {
+	return p.PhaseID == RootPhase
 }
 
 // FSM is the generic FSM implementation that provides methods for phases
@@ -136,7 +153,7 @@ func New(config Config) (*FSM, error) {
 }
 
 // ExecutePlan iterates over all phases of the plan and executes them in order
-func (f *FSM) ExecutePlan(ctx context.Context, progress utils.Progress, force bool) error {
+func (f *FSM) ExecutePlan(ctx context.Context, progress utils.Progress) error {
 	plan, err := f.GetPlan()
 	if err != nil {
 		return trace.Wrap(err)
@@ -146,7 +163,7 @@ func (f *FSM) ExecutePlan(ctx context.Context, progress utils.Progress, force bo
 		err := f.ExecutePhase(ctx, Params{
 			PhaseID:  phase.ID,
 			Progress: progress,
-			Force:    force,
+			Resume:   true,
 		})
 		if err != nil {
 			return trace.Wrap(err, "failed to execute phase %q", phase.ID)
@@ -165,6 +182,7 @@ func (f *FSM) ExecutePhase(ctx context.Context, p Params) error {
 	if err != nil {
 		return trace.Wrap(err)
 	}
+	p.OperationID = plan.OperationID
 	phase, err := FindPhase(plan, p.PhaseID)
 	if err != nil {
 		return trace.Wrap(err)
@@ -172,7 +190,7 @@ func (f *FSM) ExecutePhase(ctx context.Context, p Params) error {
 	if phase.IsCompleted() && !p.Force {
 		return nil
 	}
-	if phase.IsInProgress() && !(p.Force || phase.HasSubphases()) {
+	if phase.IsInProgress() && !(p.Force || p.Resume || phase.HasSubphases()) {
 		return trace.BadParameter(
 			"phase %q is in progress, use --force flag to force execution", phase.ID)
 	}
@@ -374,8 +392,10 @@ func (f *FSM) executeSubphasesConcurrently(ctx context.Context, p Params, phase 
 			p.PhaseID = subphase.ID
 			err := f.ExecutePhase(ctx, p)
 			if err != nil {
-				logrus.Warnf("Failed to execute phase %q: %v.",
-					p.PhaseID, trace.DebugReport(err))
+				logrus.WithFields(logrus.Fields{
+					logrus.ErrorKey: err,
+					"phase":         p.PhaseID,
+				}).Warn("Failed to execute phase.")
 			}
 			errorsCh <- trace.Wrap(err, "failed to execute phase %q", p.PhaseID)
 		}(p, subphase)

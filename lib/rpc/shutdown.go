@@ -21,6 +21,7 @@ import (
 
 	"github.com/gravitational/gravity/lib/defaults"
 	rpcclient "github.com/gravitational/gravity/lib/rpc/client"
+	pb "github.com/gravitational/gravity/lib/rpc/proto"
 	"github.com/gravitational/gravity/lib/utils"
 
 	"github.com/gravitational/trace"
@@ -55,7 +56,7 @@ func shutdownAgent(ctx context.Context, addr string, rpc AgentRepository) error 
 		return trace.Wrap(err)
 	}
 
-	return trace.Wrap(clt.Shutdown(ctx))
+	return trace.Wrap(clt.Shutdown(ctx, &pb.ShutdownRequest{}))
 }
 
 // AgentRepository manages RPC connections to remote servers

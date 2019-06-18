@@ -17,6 +17,7 @@ limitations under the License.
 package ops
 
 import (
+	"context"
 	"os"
 
 	"github.com/gravitational/gravity/lib/cloudprovider/aws"
@@ -136,7 +137,7 @@ func CreateCluster(operator Operator, clusterI storage.Cluster) (*SiteOperationK
 		Provisioner: cluster.Spec.Provider,
 		Variables:   vars,
 	}
-	key, err := operator.CreateSiteInstallOperation(opReq)
+	key, err := operator.CreateSiteInstallOperation(context.TODO(), opReq)
 	if err != nil {
 		return nil, trace.Wrap(err)
 	}
@@ -193,7 +194,7 @@ func RemoveClusterByCluster(operator Operator, cluster storage.Cluster) (*SiteOp
 	if cluster.GetProvider() != constants.CloudProviderAWS {
 		return nil, trace.BadParameter("deleting non-AWS clusters is not supported via tele tool yet")
 	}
-	return operator.CreateSiteUninstallOperation(CreateSiteUninstallOperationRequest{
+	return operator.CreateSiteUninstallOperation(context.TODO(), CreateSiteUninstallOperationRequest{
 		AccountID:  defaults.SystemAccountID,
 		SiteDomain: cluster.GetName(),
 		Force:      true,

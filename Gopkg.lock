@@ -236,12 +236,13 @@
   version = "v3.5.1"
 
 [[projects]]
-  digest = "1:0f98f59e9a2f4070d66f0c9c39561f68fcd1dc837b22a852d28d0003aebd1b1e"
+  digest = "1:2e33f2c281497a8a4c144d5e765e4c2d8aaf7dbd45a43c059ea84d6916701811"
   name = "github.com/boltdb/bolt"
   packages = ["."]
   pruneopts = "UT"
-  revision = "2f1ce7a837dcb8da3ec595b1dac9d0632f0f99e8"
-  version = "v1.3.1"
+  revision = "edfbf3c8bad08d02eddbdc30b797c26587c60fa6"
+  source = "github.com/gravitational/bolt"
+  version = "1.3.2-gravitational"
 
 [[projects]]
   digest = "1:7d0e3472ff040d101a84edeaefd18b27b8ad3b10e6f2b609ba0e2ffd9b12eb91"
@@ -578,6 +579,14 @@
   revision = "73d445a93680fa1a78ae23a5839bad48f32ba1ee"
 
 [[projects]]
+  digest = "1:0b98586be892040d424cdd4fb7e047f71ddfcdbfca59f975a4b4eb14b56ae33c"
+  name = "github.com/gizak/termui"
+  packages = ["."]
+  pruneopts = "UT"
+  revision = "bf53c5cbea3f372f745e1d8e4660e29f73d41517"
+  version = "v2.3.0"
+
+[[projects]]
   digest = "1:a45a0da7e6debef32e16b9ffcf2593e980fbe8d2ee26942a806c32ffdcd45d69"
   name = "github.com/go-ini/ini"
   packages = ["."]
@@ -841,19 +850,20 @@
   version = "1.0.2"
 
 [[projects]]
-  digest = "1:bbecd3d75e28b2b2bd07ea2f751fa84b262819c4196602cc7beec3d4b41b156a"
+  digest = "1:964497d169725d0bd4385940a674d388e01c3965161b2a371efe674cf970abb6"
   name = "github.com/gravitational/rigging"
   packages = ["."]
   pruneopts = "UT"
-  revision = "53e094c60ddc5ac94cebb8301e03660db3996227"
-  version = "5.5.0"
+  revision = "cac1123f3e01da3505c4ae11c55f820e6be71d21"
+  version = "5.5.2"
 
 [[projects]]
-  digest = "1:27daf346b94c013dcec722a9e596d5bff92d7559ab37f787fd71b128bc31066a"
+  digest = "1:e025b0f4997273273c5dc46a17caddb27ab7dc8b8aa9ffb50d326e7aeb4059c7"
   name = "github.com/gravitational/roundtrip"
   packages = ["."]
   pruneopts = "UT"
-  revision = "6a87d116a90b9c4e73bedc19ebc9c17f1b43d826"
+  revision = "e1e0cd6b05a6bb1791b262e63160038828fd7b3a"
+  version = "v1.0.0"
 
 [[projects]]
   digest = "1:f01b1009f6ab14bbd9257884dc63897eaf59cd7e7cdd59b1dae4bebad7cea154"
@@ -866,8 +876,8 @@
     "utils",
   ]
   pruneopts = "UT"
-  revision = "e9247fba75a62afddf4d2a8c1bd7015476a422cd"
-  version = "5.5.1"
+  revision = "57869406f0ebe0d80989e632df28052a7a252ed9"
+  version = "5.5.2"
 
 [[projects]]
   digest = "1:49f6abbce9ade5f43508429e4af1adcce55d27adcd62719fea049decc766a7c9"
@@ -884,8 +894,8 @@
   version = "v1.0.1"
 
 [[projects]]
-  branch = "branch/3.0-g"
-  digest = "1:bd96f7a9487994964d3fdd0b8242fd055433813a8490b5ff128321998f245ba6"
+  branch = "branch/3.2-g"
+  digest = "1:6f281c17670c3b593da2cf673be7194e5ac7367c9c6c12da06c060696869bef0"
   name = "github.com/gravitational/teleport"
   packages = [
     ".",
@@ -908,7 +918,6 @@
     "lib/fixtures",
     "lib/httplib",
     "lib/httplib/csrf",
-    "lib/kube/authority",
     "lib/kube/proxy",
     "lib/kube/utils",
     "lib/limiter",
@@ -936,18 +945,19 @@
     "lib/utils/agentconn",
     "lib/utils/parse",
     "lib/utils/proxy",
+    "lib/utils/socks",
     "lib/web",
     "lib/web/ui",
   ]
   pruneopts = "UT"
-  revision = "ecee73b3133cace538aa2453a05bf58c06e725d4"
+  revision = "4970ab4f723395d9508218330dfd8690f5261495"
 
 [[projects]]
-  digest = "1:22c8951489f0e27ec3b2d50d9f74086ff3f08554ce5965d418d6a10296b9ea04"
+  digest = "1:e7b0a0dbe99acba8701c62b2eb190d8baff71e2fc25acb534dc5b47499e04187"
   name = "github.com/gravitational/trace"
   packages = ["."]
   pruneopts = "UT"
-  revision = "4a5e142f3251b3a98e8fd71c2a32eb225af06b6d"
+  revision = "f30095ced5ff011085d26f160468dcc477607730"
 
 [[projects]]
   digest = "1:841d5835e94129658adabece66a4cc54d2cec9a40fa8b51743ea35d0519dd6c2"
@@ -1275,6 +1285,14 @@
   revision = "60711f1a8329503b04e1c88535f419d0bb440bff"
 
 [[projects]]
+  branch = "master"
+  digest = "1:2eeeebccad4f052e6037527e86b8114c6bfd184a97f84d4449a5ea6ad202c216"
+  name = "github.com/maruel/panicparse"
+  packages = ["stack"]
+  pruneopts = "UT"
+  revision = "f20d4c4d746f810c9110e21928d4135e1f2a3efa"
+
+[[projects]]
   digest = "1:c658e84ad3916da105a761660dcaeb01e63416c8ec7bc62256a9b411a05fcd67"
   name = "github.com/mattn/go-colorable"
   packages = ["."]
@@ -1364,12 +1382,12 @@
   version = "v1.0.0"
 
 [[projects]]
+  branch = "master"
   digest = "1:abf08734a6527df70ed361d7c369fb580e6840d8f7a6012e5f609fdfd93b4e48"
   name = "github.com/mitchellh/go-wordwrap"
   packages = ["."]
   pruneopts = "UT"
   revision = "9e67c67572bc5dd02aef930e2b0ae3c02a4b5a5c"
-  version = "v1.0.0"
 
 [[projects]]
   digest = "1:61332bb44d05257bbf0356d8400a8b30fe0b9fdc3b72b8b55661da8f0a4f39ae"
@@ -1418,6 +1436,14 @@
   packages = ["."]
   pruneopts = "UT"
   revision = "31f0106b4474f14bc441575c19d3a5fa21aa1f6c"
+
+[[projects]]
+  branch = "master"
+  digest = "1:e4f1b6b3c33388b1f6f3d630280d9b0870c1e2f80379dfd2f89dd06425e9e6b9"
+  name = "github.com/nsf/termbox-go"
+  packages = ["."]
+  pruneopts = "UT"
+  revision = "288510b9734e30e7966ec2f22b87c5f8e67345e3"
 
 [[projects]]
   digest = "1:9ec6cf1df5ad1d55cf41a43b6b1e7e118a91bade4f68ff4303379343e40c0e25"
@@ -1510,12 +1536,17 @@
   revision = "54653902c20e47f3417541d35435cb6d6162e28a"
 
 [[projects]]
-  digest = "1:b6221ec0f8903b556e127c449e7106b63e6867170c2d10a7c058623d086f2081"
+  digest = "1:b8fc32232f276bebfed92b136bce3c9efc600afbf8abb76aa6406a75ab24d9e5"
   name = "github.com/prometheus/client_golang"
-  packages = ["prometheus"]
+  packages = [
+    "api",
+    "api/prometheus/v1",
+    "prometheus",
+    "prometheus/internal",
+  ]
   pruneopts = "UT"
-  revision = "c5b7fccd204277076155f10851dad72b76a49317"
-  version = "v0.8.0"
+  revision = "505eaef017263e299324067d40ca2c48f6a2cf50"
+  version = "v0.9.2"
 
 [[projects]]
   branch = "master"
@@ -1889,16 +1920,18 @@
   revision = "ee236bd376b077c7a89f260c026c4735b195e459"
 
 [[projects]]
-  digest = "1:95550b4aa2a79019c2a832c1a7d6a5446b046e3ee8cce12a042778ac0ac47baf"
+  digest = "1:0a9f19dcf84d47ea582c0f4db5dbf91f274596a88294198ec15bd0516caac6b2"
   name = "google.golang.org/grpc"
   packages = [
     ".",
     "balancer",
     "balancer/base",
     "balancer/roundrobin",
+    "binarylog/grpc_binarylog_v1",
     "codes",
     "connectivity",
     "credentials",
+    "credentials/internal",
     "encoding",
     "encoding/proto",
     "grpclog",
@@ -1906,9 +1939,12 @@
     "health/grpc_health_v1",
     "internal",
     "internal/backoff",
+    "internal/binarylog",
     "internal/channelz",
     "internal/envconfig",
     "internal/grpcrand",
+    "internal/grpcsync",
+    "internal/syscall",
     "internal/transport",
     "keepalive",
     "metadata",
@@ -1922,8 +1958,8 @@
     "tap",
   ]
   pruneopts = "UT"
-  revision = "2e463a05d100327ca47ac218281906921038fd95"
-  version = "v1.16.0"
+  revision = "3507fb8e1a5ad030303c106fef3a47c9fdad16ad"
+  version = "v1.19.1"
 
 [[projects]]
   branch = "telekube"
@@ -2029,8 +2065,8 @@
     "storage/v1beta1",
   ]
   pruneopts = "UT"
-  revision = "89a74a8d264df0e993299876a8cde88379b940ee"
-  version = "kubernetes-1.13.0"
+  revision = "74b699b93c15473932b89e3d1818ba8282f3b5ab"
+  version = "kubernetes-1.13.3"
 
 [[projects]]
   digest = "1:ace21b4261a9bc8d06b188f03ce48d1bed92ccba4890fad616cf283939f723c6"
@@ -2044,11 +2080,11 @@
     "pkg/features",
   ]
   pruneopts = "UT"
-  revision = "20c909e7c8c3fec1a0e345b1d4e57f1c1623c368"
-  version = "kubernetes-1.13.0"
+  revision = "d4288ab6494571219e781fa423db363247635942"
+  version = "kubernetes-1.13.3"
 
 [[projects]]
-  digest = "1:6489d76eab90e477f61eb30186098b5d2e45acd08cefdfdc4988e30c3752ff30"
+  digest = "1:399edd281c273951fe8b05681b5e4e27d37105f41cc9b25fe3aa4c6e4b09dcff"
   name = "k8s.io/apimachinery"
   packages = [
     "pkg/api/equality",
@@ -2105,8 +2141,8 @@
     "third_party/forked/golang/reflect",
   ]
   pruneopts = "UT"
-  revision = "2b1284ed4c93a43499e781493253e2ac5959c4fd"
-  version = "kubernetes-1.13.0"
+  revision = "572dfc7bdfcb4531361a17d27b92851f59acf0dc"
+  version = "kubernetes-1.13.3"
 
 [[projects]]
   digest = "1:138928c37ee6ec1be14aec46c97dab5f110ffa7e81828b9d27919df371fd8f62"
@@ -2119,8 +2155,8 @@
     "pkg/util/feature",
   ]
   pruneopts = "UT"
-  revision = "9caa0299108fbdf51d3d9b8e8956834ae84dac75"
-  version = "kubernetes-1.13.0"
+  revision = "26bc712632e1faf9efc6b63f712325c760ad1ebe"
+  version = "kubernetes-1.13.3"
 
 [[projects]]
   digest = "1:63793246976569a95e534c731e79cc555dabee6f8efa29a0b28ca33f23b7e28b"
@@ -2131,8 +2167,8 @@
     "pkg/genericclioptions/resource",
   ]
   pruneopts = "UT"
-  revision = "a04da5c88c0796c1dc5ff976a9c91999779ac0e4"
-  version = "kubernetes-1.13.0"
+  revision = "491c94071cfae3b539753adf65705d8a333fb92b"
+  version = "kubernetes-1.13.3"
 
 [[projects]]
   digest = "1:c5909e901e79a59cd2f4cf435fc3e2438e48b38f9309fa6adbdc7a52b8b44b7a"
@@ -2481,6 +2517,8 @@
     "github.com/fsouza/go-dockerclient",
     "github.com/fsouza/go-dockerclient/testing",
     "github.com/ghodss/yaml",
+    "github.com/gizak/termui",
+    "github.com/gogo/protobuf/gogoproto",
     "github.com/gogo/protobuf/types",
     "github.com/gokyle/hotp",
     "github.com/golang/protobuf/proto",
@@ -2541,6 +2579,9 @@
     "github.com/olekukonko/tablewriter",
     "github.com/opencontainers/go-digest",
     "github.com/pborman/uuid",
+    "github.com/prometheus/client_golang/api",
+    "github.com/prometheus/client_golang/api/prometheus/v1",
+    "github.com/prometheus/common/model",
     "github.com/santhosh-tekuri/jsonschema",
     "github.com/sirupsen/logrus",
     "github.com/sirupsen/logrus/hooks/syslog",
@@ -2563,6 +2604,7 @@
     "google.golang.org/grpc/credentials",
     "google.golang.org/grpc/health",
     "google.golang.org/grpc/health/grpc_health_v1",
+    "google.golang.org/grpc/status",
     "gopkg.in/alecthomas/kingpin.v2",
     "gopkg.in/check.v1",
     "gopkg.in/yaml.v2",

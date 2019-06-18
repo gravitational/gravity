@@ -61,8 +61,18 @@ func (c *client) Validate(ctx context.Context, req *validationpb.ValidateRequest
 }
 
 // Shutdown requests remote agent to quit
-func (c *client) Shutdown(ctx context.Context) error {
-	_, err := c.agent.Shutdown(ctx, &types.Empty{})
+func (c *client) Shutdown(ctx context.Context, req *pb.ShutdownRequest) error {
+	_, err := c.agent.Shutdown(ctx, req)
+	if err != nil {
+		return trace.Wrap(err)
+	}
+
+	return trace.Wrap(c.Close())
+}
+
+// Abort requests remote agent to abort operation
+func (c *client) Abort(ctx context.Context) error {
+	_, err := c.agent.Abort(ctx, &types.Empty{})
 	if err != nil {
 		return trace.Wrap(err)
 	}

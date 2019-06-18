@@ -37,6 +37,22 @@ import (
 	"google.golang.org/grpc/credentials"
 )
 
+// InitRPCCredentials creates a package with RPC secrets in the specified package service
+func InitRPCCredentials(packages pack.PackageService) (*loc.Locator, error) {
+	longLivedClient := true
+	keys, err := GenerateAgentCredentials(nil, defaults.SystemAccountOrg, longLivedClient)
+	if err != nil {
+		return nil, trace.Wrap(err)
+	}
+
+	err = createPackage(packages, loc.RPCSecrets, keys)
+	if err != nil {
+		return &loc.RPCSecrets, trace.Wrap(err)
+	}
+
+	return &loc.RPCSecrets, nil
+}
+
 // GenerateAgentCredentialsPackage creates or updates a package in packages with client/server credentials.
 // pkgTemplate specifies the naming template for the resulting package
 func GenerateAgentCredentialsPackage(packages pack.PackageService, pkgTemplate loc.Locator,
@@ -111,6 +127,45 @@ func GenerateAgentCredentials(hosts []string, commonName string, longLivedClient
 	return archive, nil
 }
 
+// Credentials returns both server and client credentials read from the
+// specified directory
+func Credentials(secretsDir string) (server credentials.TransportCredentials, client credentials.TransportCredentials, err error) {
+	server, err = ServerCredentials(secretsDir)
+	if err != nil {
+		return nil, nil, trace.Wrap(err)
+	}
+	client, err = ClientCredentials(secretsDir)
+	if err != nil {
+		return nil, nil, trace.Wrap(err)
+	}
+	return server, client, nil
+}
+
+// CredentialsFromPackage loads both server and client credentials from the specified package
+func CredentialsFromPackage(
+	packages pack.PackageService,
+	secretsPackage loc.Locator,
+) (server credentials.TransportCredentials, client credentials.TransportCredentials, err error) {
+	_, reader, err := packages.ReadPackage(secretsPackage)
+	if err != nil {
+		return nil, nil, trace.Wrap(err)
+	}
+	defer reader.Close()
+	tlsArchive, err := utils.ReadTLSArchive(reader)
+	if err != nil {
+		return nil, nil, trace.Wrap(err)
+	}
+	server, err = ServerCredentialsFromKeyPairs(*tlsArchive[pb.Server], *tlsArchive[pb.CA])
+	if err != nil {
+		return nil, nil, trace.Wrap(err)
+	}
+	client, err = ClientCredentialsFromKeyPairs(*tlsArchive[pb.Client], *tlsArchive[pb.CA])
+	if err != nil {
+		return nil, nil, trace.Wrap(err)
+	}
+	return server, client, nil
+}
+
 // ClientCredentials loads the client agent credentials from the specified location
 func ClientCredentials(secretsDir string) (credentials.TransportCredentials, error) {
 	clientCertPath := filepath.Join(secretsDir, fmt.Sprintf("%s.%s", pb.Client, pb.Cert))
@@ -140,6 +195,21 @@ func ClientCredentials(secretsDir string) (credentials.TransportCredentials, err
 	return creds, nil
 }
 
+// ClientCredentialsFromPackage reads client credentials from the specified package
+func ClientCredentialsFromPackage(packages pack.PackageService, secretsPackage loc.Locator) (credentials.TransportCredentials, error) {
+	_, reader, err := packages.ReadPackage(secretsPackage)
+	if err != nil {
+		return nil, trace.Wrap(err)
+	}
+	defer reader.Close()
+	tlsArchive, err := utils.ReadTLSArchive(reader)
+	if err != nil {
+		return nil, trace.Wrap(err)
+	}
+	return ClientCredentialsFromKeyPairs(*tlsArchive[pb.Client],
+		*tlsArchive[pb.CA])
+}
+
 // ClientCredentialsFromKeyPairs loads agent client credentials from the specified
 // set of key pairs
 func ClientCredentialsFromKeyPairs(keys, caKeys authority.TLSKeyPair) (credentials.TransportCredentials, error) {
@@ -159,21 +229,6 @@ func ClientCredentialsFromKeyPairs(keys, caKeys authority.TLSKeyPair) (credentia
 		RootCAs:      certPool,
 	})
 	return creds, nil
-}
-
-// ClientCredentialsFromPackage reads client credentials from specified packages
-func ClientCredentialsFromPackage(packages pack.PackageService, secretsPackage loc.Locator) (credentials.TransportCredentials, error) {
-	_, reader, err := packages.ReadPackage(secretsPackage)
-	if err != nil {
-		return nil, trace.Wrap(err)
-	}
-	defer reader.Close()
-	tlsArchive, err := utils.ReadTLSArchive(reader)
-	if err != nil {
-		return nil, trace.Wrap(err)
-	}
-	return ClientCredentialsFromKeyPairs(*tlsArchive[pb.Client],
-		*tlsArchive[pb.CA])
 }
 
 // ServerCredentials loads server agent credentials from the specified location
@@ -207,20 +262,19 @@ func ServerCredentials(secretsDir string) (credentials.TransportCredentials, err
 	return creds, nil
 }
 
-// InitRPCCredentials creates a package with RPC secrets in the specified package service
-func InitRPCCredentials(packages pack.PackageService) (*loc.Locator, error) {
-	longLivedClient := true
-	keys, err := GenerateAgentCredentials(nil, defaults.SystemAccountOrg, longLivedClient)
+// ServerCredentialsFromPackage reads server credentials from the specified package
+func ServerCredentialsFromPackage(packages pack.PackageService, secretsPackage loc.Locator) (credentials.TransportCredentials, error) {
+	_, reader, err := packages.ReadPackage(secretsPackage)
 	if err != nil {
 		return nil, trace.Wrap(err)
 	}
-
-	err = createPackage(packages, loc.RPCSecrets, keys)
+	defer reader.Close()
+	tlsArchive, err := utils.ReadTLSArchive(reader)
 	if err != nil {
-		return &loc.RPCSecrets, trace.Wrap(err)
+		return nil, trace.Wrap(err)
 	}
-
-	return &loc.RPCSecrets, nil
+	return ServerCredentialsFromKeyPairs(*tlsArchive[pb.Server],
+		*tlsArchive[pb.CA])
 }
 
 // ServerCredentialsFromKeyPairs loads server agent credentials from the specified
@@ -231,21 +285,18 @@ func ServerCredentialsFromKeyPairs(keys, caKeys authority.TLSKeyPair) (credentia
 		return nil, err
 	}
 
-	return credentials.NewTLS(&tls.Config{Certificates: []tls.Certificate{cert}}), nil
-}
+	certPool := x509.NewCertPool()
+	if ok := certPool.AppendCertsFromPEM(caKeys.CertPEM); !ok {
+		return nil, trace.BadParameter("failed to append CA to cert pool")
+	}
 
-// Credentials returns both server and client credentials read from the
-// specified secrets dir
-func Credentials(secretsDir string) (server credentials.TransportCredentials, client credentials.TransportCredentials, err error) {
-	server, err = ServerCredentials(secretsDir)
-	if err != nil {
-		return nil, nil, trace.Wrap(err)
-	}
-	client, err = ClientCredentials(secretsDir)
-	if err != nil {
-		return nil, nil, trace.Wrap(err)
-	}
-	return server, client, nil
+	// Create the TLS credentials
+	creds := credentials.NewTLS(&tls.Config{
+		ClientAuth:   tls.RequireAndVerifyClientCert,
+		Certificates: []tls.Certificate{cert},
+		ClientCAs:    certPool,
+	})
+	return creds, nil
 }
 
 // AgentAddr returns a complete agent address for specified address addr.

@@ -67,6 +67,7 @@ func NewAPIServer(config *APIConfig) http.Handler {
 
 	// Operations on certificate authorities
 	srv.GET("/:version/domain", srv.withAuth(srv.getDomainName))
+	srv.GET("/:version/cacert", srv.withAuth(srv.getClusterCACert))
 
 	srv.POST("/:version/authorities/:type", srv.withAuth(srv.upsertCertAuthority))
 	srv.POST("/:version/authorities/:type/rotate", srv.withAuth(srv.rotateCertAuthority))
@@ -145,6 +146,7 @@ func NewAPIServer(config *APIConfig) http.Handler {
 	// active sesssions
 	srv.POST("/:version/namespaces/:namespace/sessions", srv.withAuth(srv.createSession))
 	srv.PUT("/:version/namespaces/:namespace/sessions/:id", srv.withAuth(srv.updateSession))
+	srv.DELETE("/:version/namespaces/:namespace/sessions/:id", srv.withAuth(srv.deleteSession))
 	srv.GET("/:version/namespaces/:namespace/sessions", srv.withAuth(srv.getSessions))
 	srv.GET("/:version/namespaces/:namespace/sessions/:id", srv.withAuth(srv.getSession))
 	srv.POST("/:version/namespaces/:namespace/sessions/:id/slice", srv.withAuth(srv.postSessionSlice))
@@ -992,6 +994,16 @@ func (s *APIServer) getDomainName(auth ClientI, w http.ResponseWriter, r *http.R
 	return domain, nil
 }
 
+// getClusterCACert returns the CAs for the local cluster without signing keys.
+func (s *APIServer) getClusterCACert(auth ClientI, w http.ResponseWriter, r *http.Request, p httprouter.Params, version string) (interface{}, error) {
+	localCA, err := auth.GetClusterCACert()
+	if err != nil {
+		return nil, trace.Wrap(err)
+	}
+
+	return localCA, nil
+}
+
 // getU2FAppID returns the U2F AppID in the auth configuration
 func (s *APIServer) getU2FAppID(auth ClientI, w http.ResponseWriter, r *http.Request, p httprouter.Params, version string) (interface{}, error) {
 	cap, err := auth.GetAuthPreference()
@@ -1054,6 +1066,14 @@ func (s *APIServer) updateSession(auth ClientI, w http.ResponseWriter, r *http.R
 	}
 	req.Update.Namespace = namespace
 	if err := auth.UpdateSession(req.Update); err != nil {
+		return nil, trace.Wrap(err)
+	}
+	return message("ok"), nil
+}
+
+func (s *APIServer) deleteSession(auth ClientI, w http.ResponseWriter, r *http.Request, p httprouter.Params, version string) (interface{}, error) {
+	err := auth.DeleteSession(p.ByName("namespace"), session.ID(p.ByName("id")))
+	if err != nil {
 		return nil, trace.Wrap(err)
 	}
 	return message("ok"), nil
@@ -1776,17 +1796,31 @@ func (s *APIServer) searchSessionEvents(auth ClientI, w http.ResponseWriter, r *
 }
 
 type auditEventReq struct {
-	Type   string             `json:"type"`
+	// Event is the event that's being emitted.
+	Event events.Event `json:"event"`
+	// Fields is the additional event fields.
 	Fields events.EventFields `json:"fields"`
+	// Type is the event type.
+	//
+	// This field is obsolete and kept for backwards compatibility.
+	Type string `json:"type"`
 }
 
 // HTTP	POST /:version/events
 func (s *APIServer) emitAuditEvent(auth ClientI, w http.ResponseWriter, r *http.Request, p httprouter.Params, version string) (interface{}, error) {
 	var req auditEventReq
-	if err := httplib.ReadJSON(r, &req); err != nil {
+	err := httplib.ReadJSON(r, &req)
+	if err != nil {
 		return nil, trace.Wrap(err)
 	}
-	if err := auth.EmitAuditEvent(req.Type, req.Fields); err != nil {
+	// For backwards compatibility, check if the full event struct has
+	// been sent in the request or just the event type.
+	if req.Event.Name != "" {
+		err = auth.EmitAuditEvent(req.Event, req.Fields)
+	} else {
+		err = auth.EmitAuditEvent(events.Event{Name: req.Type}, req.Fields)
+	}
+	if err != nil {
 		return nil, trace.Wrap(err)
 	}
 	return message("ok"), nil

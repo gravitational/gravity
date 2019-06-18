@@ -63,25 +63,29 @@ func FromCluster(ctx context.Context, operator ops.Operator, cluster ops.Site, o
 	}
 
 	// Collect application endpoints.
-	endpoints, err := operator.GetApplicationEndpoints(cluster.Key())
+	appEndpoints, err := operator.GetApplicationEndpoints(cluster.Key())
 	if err != nil {
-		return status, trace.Wrap(err)
+		logrus.WithError(err).Warn("Failed to fetch application endpoints.")
+		status.Endpoints.Applications.Error = err
 	}
-	// Right now only 1 application is supported, in the future there
-	// will be many applications each with its own endpoints.
-	status.Endpoints.Applications = append(status.Endpoints.Applications,
-		ApplicationEndpoints{
-			Application: cluster.App.Package,
-			Endpoints:   endpoints,
-		})
+	if len(appEndpoints) != 0 {
+		// Right now only 1 application is supported, in the future there
+		// will be many applications each with its own endpoints.
+		status.Endpoints.Applications.Endpoints = append(status.Endpoints.Applications.Endpoints,
+			ApplicationEndpoints{
+				Application: cluster.App.Package,
+				Endpoints:   appEndpoints,
+			})
+	}
 
-	// For cluster endpoints, they point to gravity-site service on master nodes.
-	masters := cluster.ClusterState.Servers.Masters()
-	for _, master := range masters {
-		status.Endpoints.Cluster.AuthGateway = append(status.Endpoints.Cluster.AuthGateway,
-			fmt.Sprintf("%v:%v", master.AdvertiseIP, defaults.GravitySiteNodePort))
-		status.Endpoints.Cluster.UI = append(status.Endpoints.Cluster.UI,
-			fmt.Sprintf("https://%v:%v", master.AdvertiseIP, defaults.GravitySiteNodePort))
+	// Fetch cluster endpoints.
+	clusterEndpoints, err := ops.GetClusterEndpoints(operator, cluster.Key())
+	if err != nil {
+		logrus.WithError(err).Warn("Failed to fetch cluster endpoints.")
+	}
+	if clusterEndpoints != nil {
+		status.Endpoints.Cluster.AuthGateway = clusterEndpoints.AuthGateways()
+		status.Endpoints.Cluster.UI = clusterEndpoints.ManagementURLs()
 	}
 
 	// FIXME: have status extension accept the operator/environment
@@ -128,9 +132,18 @@ func FromCluster(ctx context.Context, operator ops.Operator, cluster ops.Site, o
 	return status, nil
 }
 
-// FromPlanetAgent collects cluster status from the planet agent
+// FromPlanetAgent collects the cluster status from the planet agent
 func FromPlanetAgent(ctx context.Context, servers []storage.Server) (*Agent, error) {
-	status, err := planetAgentStatus(ctx)
+	return fromPlanetAgent(ctx, false, servers)
+}
+
+// FromLocalPlanetAgent collects the node status from the local planet agent
+func FromLocalPlanetAgent(ctx context.Context) (*Agent, error) {
+	return fromPlanetAgent(ctx, true, nil)
+}
+
+func fromPlanetAgent(ctx context.Context, local bool, servers []storage.Server) (*Agent, error) {
+	status, err := planetAgentStatus(ctx, local)
 	if err != nil {
 		return nil, trace.Wrap(err, "failed to query cluster status from agent")
 	}
@@ -146,6 +159,14 @@ func FromPlanetAgent(ctx context.Context, servers []storage.Server) (*Agent, err
 		SystemStatus: SystemStatus(status.Status),
 		Nodes:        nodes,
 	}, nil
+}
+
+// IsDegraded returns whether the cluster is in degraded state
+func (r Status) IsDegraded() bool {
+	return (r.Cluster == nil ||
+		r.Cluster.State == ops.SiteStateDegraded ||
+		r.Agent == nil ||
+		r.Agent.GetSystemStatus() != pb.SystemStatus_Running)
 }
 
 // Status describes the status of the cluster as a whole
@@ -212,7 +233,12 @@ func (e ClusterEndpoints) WriteTo(w io.Writer) (n int64, err error) {
 }
 
 // ApplicationsEndpoints contains endpoints for multiple applications.
-type ApplicationsEndpoints []ApplicationEndpoints
+type ApplicationsEndpoints struct {
+	// Endpoints lists the endpoints of all applications
+	Endpoints []ApplicationEndpoints
+	// Error indicates whether there was an error fetching endpoints
+	Error error `json:"-"`
+}
 
 // ApplicationEndpoints contains endpoints for a single application.
 type ApplicationEndpoints struct {
@@ -224,12 +250,16 @@ type ApplicationEndpoints struct {
 
 // WriteTo writes all application endpoints to the provided writer.
 func (e ApplicationsEndpoints) WriteTo(w io.Writer) (n int64, err error) {
-	if len(e) == 0 {
+	if len(e.Endpoints) == 0 {
+		if e.Error != nil {
+			err := fprintf(&n, w, "Application endpoints: <unable to fetch>")
+			return n, trace.Wrap(err)
+		}
 		return 0, nil
 	}
 	var errors []error
 	errors = append(errors, fprintf(&n, w, "Application endpoints:\n"))
-	for _, app := range e {
+	for _, app := range e.Endpoints {
 		errors = append(errors, fprintf(&n, w, "    * %v:%v:\n",
 			app.Application.Name, app.Application.Version))
 		for _, ep := range app.Endpoints {
@@ -377,19 +407,23 @@ func fromClusterState(systemStatus pb.SystemStatus, cluster []storage.Server) (o
 	return out
 }
 
-func planetAgentStatus(ctx context.Context) (*pb.SystemStatus, error) {
+func planetAgentStatus(ctx context.Context, local bool) (*pb.SystemStatus, error) {
+	urlFormat := "https://%v:%v"
+	if local {
+		urlFormat = "https://%v:%v/local"
+	}
 	planetClient, err := httplib.GetPlanetClient()
 	if err != nil {
 		return nil, trace.Wrap(err)
 	}
 	httpClient := roundtrip.HTTPClient(planetClient)
-	addr := fmt.Sprintf("https://%v:%v", constants.Localhost, defaults.SatelliteRPCAgentPort)
+	addr := fmt.Sprintf(urlFormat, constants.Localhost, defaults.SatelliteRPCAgentPort)
 	client, err := roundtrip.NewClient(addr, "", httpClient)
 	if err != nil {
 		return nil, trace.Wrap(err)
 	}
 
-	resp, err := client.Get(addr, url.Values{})
+	resp, err := client.Get(ctx, addr, url.Values{})
 	if err != nil {
 		return nil, trace.Wrap(err)
 	}

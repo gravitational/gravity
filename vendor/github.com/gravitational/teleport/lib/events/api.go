@@ -28,6 +28,10 @@ import (
 const (
 	// EventType is event type/kind
 	EventType = "event"
+	// EventID is a unique event identifier
+	EventID = "uid"
+	// EventCode is a code that uniquely identifies a particular event type
+	EventCode = "code"
 	// EventTime is event time
 	EventTime = "time"
 	// EventLogin is OS login
@@ -135,12 +139,12 @@ const (
 	AuthAttemptMessage = "message"
 
 	// SCPEvent means data transfer that occurred on the server
-	SCPEvent    = "scp"
-	SCPPath     = "path"
-	SCPLengh    = "len"
-	SCPAction   = "action"
-	SCPUpload   = "upload"
-	SCPDownload = "download"
+	SCPEvent          = "scp"
+	SCPPath           = "path"
+	SCPLengh          = "len"
+	SCPAction         = "action"
+	SCPActionUpload   = "upload"
+	SCPActionDownload = "download"
 
 	// ResizeEvent means that some user resized PTY on the client
 	ResizeEvent  = "resize"
@@ -174,7 +178,7 @@ type IAuditLog interface {
 	io.Closer
 
 	// EmitAuditEvent emits audit event
-	EmitAuditEvent(eventType string, fields EventFields) error
+	EmitAuditEvent(Event, EventFields) error
 
 	// DELETE IN: 2.7.0
 	// This method is no longer necessary as nodes and proxies >= 2.7.0
@@ -235,6 +239,21 @@ func (f EventFields) AsString() string {
 // GetType returns the type (string) of the event
 func (f EventFields) GetType() string {
 	return f.GetString(EventType)
+}
+
+// GetID returns the unique event ID
+func (f EventFields) GetID() string {
+	return f.GetString(EventID)
+}
+
+// GetCode returns the event code
+func (f EventFields) GetCode() string {
+	return f.GetString(EventCode)
+}
+
+// GetTimestamp returns the event timestamp (when it was emitted)
+func (f EventFields) GetTimestamp() time.Time {
+	return f.GetTime(EventTime)
 }
 
 // GetString returns a string representation of a logged field

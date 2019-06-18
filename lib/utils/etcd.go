@@ -121,7 +121,4 @@ func (l EtcdMemberList) HasMember(name string) bool {
 var (
 	// reMemberList parses name and peer URL from the output of 'etcdctl member list' command
 	reMemberList = regexp.MustCompile("name=([^ ]+) peerURLs=https?://([^:]+)")
-	// reMemberAdd parses name, initial cluster and state from the output of 'etcdctl member add' command
-	reMemberAdd = regexp.MustCompile(
-		`ETCD_NAME="(.+)"(?s:.+)ETCD_INITIAL_CLUSTER="(.+)"(?s:.+)ETCD_INITIAL_CLUSTER_STATE="(.+)"`)
 )

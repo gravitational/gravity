@@ -21,13 +21,13 @@ import (
 	"github.com/gravitational/gravity/lib/ops"
 	"github.com/gravitational/gravity/lib/state"
 	"github.com/gravitational/gravity/lib/storage"
-	systemstate "github.com/gravitational/gravity/lib/system/state"
+	"github.com/gravitational/gravity/lib/system/environ"
 
 	"github.com/gravitational/trace"
 )
 
-// bootstrap initializes the local peer data
-func (p *Peer) bootstrap() error {
+// init initializes the peer after a successful connect
+func (p *Peer) init(ctx operationContext) error {
 	if err := p.clearLogins(); err != nil {
 		return trace.Wrap(err)
 	}
@@ -35,6 +35,12 @@ func (p *Peer) bootstrap() error {
 		return trace.Wrap(err)
 	}
 	if err := p.configureStateDirectory(); err != nil {
+		return trace.Wrap(err)
+	}
+	if err := p.ensureServiceUserAndBinary(ctx); err != nil {
+		return trace.Wrap(err)
+	}
+	if err := p.startAgent(ctx); err != nil {
 		return trace.Wrap(err)
 	}
 	return nil
@@ -73,7 +79,7 @@ func (p *Peer) configureStateDirectory() error {
 	if err != nil {
 		return trace.Wrap(err)
 	}
-	err = systemstate.ConfigureStateDirectory(stateDir, p.SystemDevice)
+	err = environ.ConfigureStateDirectory(stateDir, p.SystemDevice)
 	if err != nil {
 		return trace.Wrap(err)
 	}

@@ -35,15 +35,15 @@
 
 [[constraint]]
   name = "k8s.io/apiextensions-apiserver"
-  version = "kubernetes-1.13.0"
+  version = "kubernetes-1.13.3"
 
 [[override]]
   name = "k8s.io/api"
-  version = "kubernetes-1.13.0"
+  version = "kubernetes-1.13.3"
 
 [[override]]
   name = "k8s.io/apimachinery"
-  version = "kubernetes-1.13.0"
+  version = "kubernetes-1.13.3"
 
 [[constraint]]
   name = "k8s.io/client-go"

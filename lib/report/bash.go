@@ -17,6 +17,7 @@ limitations under the License.
 package report
 
 import (
+	"context"
 	"fmt"
 	"io"
 	"os"
@@ -24,13 +25,13 @@ import (
 
 	"github.com/gravitational/gravity/lib/utils"
 
-	log "github.com/sirupsen/logrus"
 	"github.com/gravitational/trace"
+	log "github.com/sirupsen/logrus"
 )
 
 // Collect fetches shell histories for all users from passwd.
 // Collect implements Collector
-func (r bashHistoryCollector) Collect(reportWriter Writer, runner utils.CommandRunner) error {
+func (r bashHistoryCollector) Collect(ctx context.Context, reportWriter FileWriter, runner utils.CommandRunner) error {
 	log.Debug("collecting bash histories")
 	passwd, err := utils.GetPasswd()
 	if err != nil {
@@ -44,7 +45,7 @@ func (r bashHistoryCollector) Collect(reportWriter Writer, runner utils.CommandR
 	}
 
 	for _, user := range users {
-		w, err := reportWriter(fmt.Sprintf("bash_history-%v", user.Name))
+		w, err := reportWriter.NewWriter(fmt.Sprintf("bash_history-%v", user.Name))
 		if err != nil {
 			log.Warningf("failed to create writer for bash history for user %q", user.Name)
 			continue

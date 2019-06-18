@@ -17,10 +17,12 @@ limitations under the License.
 package opsservice
 
 import (
+	"context"
 	"sync"
 
 	"github.com/gravitational/gravity/lib/defaults"
 	"github.com/gravitational/gravity/lib/ops"
+	"github.com/gravitational/gravity/lib/ops/events"
 	"github.com/gravitational/gravity/lib/schema"
 	"github.com/gravitational/gravity/lib/storage"
 	"github.com/gravitational/gravity/lib/utils"
@@ -91,8 +93,30 @@ func (g *operationGroup) createSiteOperation(operation ops.SiteOperation) (*ops.
 		return nil, trace.Wrap(err)
 	}
 
+	err = g.emitAuditEvent(context.TODO(), *op)
+	if err != nil {
+		return nil, trace.Wrap(err)
+	}
+
 	key := op.Key()
 	return &key, nil
+}
+
+func (g *operationGroup) emitAuditEvent(ctx context.Context, operation ops.SiteOperation) error {
+	// Install operation audit events are emitted by the installer.
+	if operation.Type == ops.OperationInstall {
+		return nil
+	}
+	// Expand operation start event is emitted by the joining agent.
+	if operation.Type == ops.OperationExpand && !operation.IsFinished() {
+		return nil
+	}
+	event, err := events.EventForOperation(operation)
+	if err != nil {
+		return trace.Wrap(err)
+	}
+	events.Emit(ctx, g.operator, event, events.FieldsForOperation(operation))
+	return nil
 }
 
 // canCreateOperation checks if the provided operation is allowed to be created
@@ -114,9 +138,8 @@ func (g *operationGroup) canCreateOperation(operation ops.SiteOperation) error {
 		if err != nil {
 			return trace.Wrap(err)
 		}
-	case ops.OperationShrink, ops.OperationGarbageCollect:
-		// shrink and gc are allowed for degraded clusters
-		// shrink is allowed to be able to remove failed/offline nodes
+	case ops.OperationShrink, ops.OperationGarbageCollect, ops.OperationUpdateRuntimeEnviron:
+		// shrink, gc and updating environment are allowed for degraded clusters
 		switch cluster.State {
 		case ops.SiteStateActive, ops.SiteStateDegraded:
 		default:
@@ -230,6 +253,10 @@ func (g *operationGroup) compareAndSwapOperationState(swap swap) (*ops.SiteOpera
 	// if we've just moved the operation to one of the final states (completed/failed),
 	// see if we also need to update the site state
 	if operation.IsFinished() {
+		err = g.emitAuditEvent(context.TODO(), *operation)
+		if err != nil {
+			return nil, trace.Wrap(err)
+		}
 		err = g.onSiteOperationComplete(swap.key)
 		if err != nil {
 			return nil, trace.Wrap(err)

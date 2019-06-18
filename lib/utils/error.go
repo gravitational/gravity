@@ -25,6 +25,7 @@ import (
 	"net/http"
 	"os"
 	"strings"
+	"syscall"
 
 	"github.com/cenkalti/backoff"
 	"github.com/gravitational/gravity/lib/loc"
@@ -111,6 +112,8 @@ func IsTransientClusterError(err error) bool {
 		return true
 	case IsConnectionResetError(err):
 		return true
+	case IsConnectionRefusedError(err):
+		return true
 	case IsClusterUnavailableError(err) || isEtcdClusterError(err):
 		return true
 	case isKubernetesEtcdClusterError(err):
@@ -154,6 +157,16 @@ func IsStreamClosedError(err error) bool {
 	return false
 }
 
+// IsResourceBusyError determines if the specified error identifies a 'device or resource busy' error
+func IsResourceBusyError(err error) bool {
+	switch err := trace.Unwrap(err).(type) {
+	case *os.PathError:
+		return isResourceBusyError(err.Err)
+	default:
+		return isResourceBusyError(err)
+	}
+}
+
 // IsClosedResponseBodyErrorMessage determines if the error message
 // describes a closed response body error
 func IsClosedResponseBodyErrorMessage(err string) bool {
@@ -170,6 +183,14 @@ type ErrorUninstallService struct {
 func IsPathError(err error) bool {
 	_, ok := trace.Unwrap(err).(*os.PathError)
 	return ok
+}
+
+func isResourceBusyError(err error) bool {
+	sysErr, ok := err.(syscall.Errno)
+	if !ok {
+		return false
+	}
+	return sysErr == syscall.EBUSY
 }
 
 func isKubernetesEtcdClusterError(err error) bool {
@@ -235,6 +256,26 @@ type message struct {
 	Message string `json:"message"`
 }
 
+// ConvertEC2Error converts error from AWS EC2 API to appropriate trace error.
+func ConvertEC2Error(err error) error {
+	if err == nil {
+		return nil
+	}
+	awsErr, ok := err.(awserr.Error)
+	if !ok {
+		return err
+	}
+	// For some reason, AWS Go SDK does not define constants for EC2 error
+	// codes so we're using strings here.
+	switch awsErr.Code() {
+	case "InvalidInstanceID.NotFound":
+		return trace.NotFound(awsErr.Message())
+	case "InvalidInstanceID.Malformed":
+		return trace.BadParameter(awsErr.Message())
+	}
+	return err
+}
+
 // ConvertS3Error converts an error from AWS S3 API to an appropriate trace error
 func ConvertS3Error(err error) error {
 	if err == nil {
@@ -292,16 +333,74 @@ func IsConnectionResetError(err error) bool {
 		"connection reset by peer")
 }
 
+// IsConnectionRefusedError determines whether err is a
+// 'connection refused' error.
+// err is expected to be non-nil
+func IsConnectionRefusedError(err error) bool {
+	return strings.Contains(trace.Unwrap(err).Error(),
+		"connection refused")
+}
+
 // ShouldReconnectPeer implements the error classification for peer connection errors
 //
 // It detects unrecoverable errors and aborts the reconnect attempts
 func ShouldReconnectPeer(err error) error {
-	if isPeerDeniedError(err.Error()) {
-		return &backoff.PermanentError{err}
+	switch {
+	case isPeerDeniedError(err.Error()),
+		isLicenseError(err.Error()),
+		isHostAlreadyRegisteredError(err.Error()):
+		return &backoff.PermanentError{Err: err}
 	}
 	return err
 }
 
+// ExitCodeError defines an interface for exit code errors
+type ExitCodeError interface {
+	error
+	ExitCode() int
+}
+
+// NewExitCodeError returns a new error that wraps a specific exit code
+func NewExitCodeError(exitCode int) error {
+	return exitCodeError{code: exitCode}
+}
+
+// NewExitCodeError returns a new error that wraps a specific exit code and message
+func NewExitCodeErrorWithMessage(exitCode int, message string) error {
+	return exitCodeError{
+		code:    exitCode,
+		message: message,
+	}
+}
+
+// ExitCode interprets this value as exit code.
+// Implements ExitCodeError
+func (r exitCodeError) ExitCode() int {
+	return r.code
+}
+
+// Error returns this exit code as error string.
+// Implements error
+func (r exitCodeError) Error() string {
+	if r.message != "" {
+		return r.message
+	}
+	return fmt.Sprintf("exit with code %v", r.code)
+}
+
+type exitCodeError struct {
+	code    int
+	message string
+}
+
 func isPeerDeniedError(message string) bool {
-	return strings.Contains(message, "AccessDenied")
+	return strings.Contains(message, "peer not authorized")
+}
+
+func isLicenseError(message string) bool {
+	return strings.Contains(message, "license allows maximum of")
+}
+
+func isHostAlreadyRegisteredError(message string) bool {
+	return strings.Contains(message, "One of existing peers already has hostname")
 }

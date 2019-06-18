@@ -40,11 +40,18 @@ import (
 )
 
 func status(env *localenv.LocalEnvironment, printOptions printOptions) error {
+	clusterOperator, err := env.SiteOperator()
+	if err != nil {
+		log.WithError(err).Warn("Failed to create cluster operator.")
+	}
 	clusterEnv, err := env.NewClusterEnvironment()
 	if err != nil {
 		return trace.Wrap(err)
 	}
-	operator := clusterEnv.Operator
+	operator := statusOperator{
+		Operator:        clusterEnv.Operator,
+		clusterOperator: clusterOperator,
+	}
 
 	status, err := statusOnce(context.TODO(), operator, printOptions.operationID)
 	if err == nil {
@@ -255,7 +262,7 @@ func printStatusText(cluster clusterStatus) {
 	w.Init(os.Stdout, 0, 8, 1, '\t', 0)
 
 	if cluster.Cluster != nil {
-		if isClusterDegrated(cluster) {
+		if cluster.Status.IsDegraded() {
 			fmt.Fprintf(w, "Cluster status:\t%v\n", color.RedString("degraded"))
 		} else {
 			fmt.Fprintf(w, "Cluster status:\t%v\n", color.GreenString(cluster.State))
@@ -355,9 +362,9 @@ func printAgentStatus(status statusapi.Agent, w io.Writer) {
 func printNodeStatus(node statusapi.ClusterServer, w io.Writer) {
 	description := node.AdvertiseIP
 	if node.Profile != "" {
-		description = fmt.Sprintf("%v, %v", description, node.Profile)
+		description = fmt.Sprintf("%v / %v", description, node.Profile)
 	}
-	fmt.Fprintf(w, "        * %v (%v)\n", unknownFallback(node.Hostname), description)
+	fmt.Fprintf(w, "        * %v / %v\n", unknownFallback(node.Hostname), description)
 	switch node.Status {
 	case statusapi.NodeOffline:
 		fmt.Fprintf(w, "            Status:\t%v\n", color.YellowString("offline"))
@@ -369,13 +376,6 @@ func printNodeStatus(node statusapi.ClusterServer, w io.Writer) {
 			fmt.Fprintf(w, "            [%v]\t%v\n", constants.FailureMark, color.New(color.FgRed).SprintFunc()(probe))
 		}
 	}
-}
-
-func isClusterDegrated(status clusterStatus) bool {
-	return (status.Cluster == nil ||
-		status.Cluster.State == ops.SiteStateDegraded ||
-		status.Agent == nil ||
-		status.Agent.GetSystemStatus() != pb.SystemStatus_Running)
 }
 
 func unknownFallback(text string) string {
@@ -402,4 +402,20 @@ type clusterStatus struct {
 	statusapi.Status `json:"cluster"`
 	// FailedLocalProbes lists all failed local checks
 	FailedLocalProbes []*pb.Probe `json:"local_checks,omitempty"`
+}
+
+// GetApplicationEndpoints returns the list of application endpoints
+func (r statusOperator) GetApplicationEndpoints(clusterKey ops.SiteKey) ([]ops.Endpoint, error) {
+	// Prefer the cluster operator for fetching application endpoints
+	if r.clusterOperator != nil {
+		return r.clusterOperator.GetApplicationEndpoints(clusterKey)
+	}
+	return r.Operator.GetApplicationEndpoints(clusterKey)
+}
+
+// statusOperator is a thin-wrapper around operator that uses
+// etcd directly but falls back the cluster controller if available for certain APIs
+type statusOperator struct {
+	ops.Operator
+	clusterOperator ops.Operator
 }

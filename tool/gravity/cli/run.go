@@ -28,7 +28,6 @@ import (
 	"syscall"
 
 	appapi "github.com/gravitational/gravity/lib/app"
-	"github.com/gravitational/gravity/lib/constants"
 	"github.com/gravitational/gravity/lib/defaults"
 	"github.com/gravitational/gravity/lib/fsm"
 	"github.com/gravitational/gravity/lib/httplib"
@@ -36,6 +35,7 @@ import (
 	"github.com/gravitational/gravity/lib/localenv"
 	"github.com/gravitational/gravity/lib/process"
 	"github.com/gravitational/gravity/lib/schema"
+	"github.com/gravitational/gravity/lib/state"
 	"github.com/gravitational/gravity/lib/systemservice"
 	"github.com/gravitational/gravity/lib/utils"
 
@@ -94,9 +94,13 @@ func InitAndCheck(g *Application, cmd string) error {
 	case g.RPCAgentDeployCmd.FullCommand(),
 		g.RPCAgentInstallCmd.FullCommand(),
 		g.RPCAgentRunCmd.FullCommand(),
+		g.ResumeCmd.FullCommand(),
 		g.PlanCmd.FullCommand(),
+		g.PlanDisplayCmd.FullCommand(),
+		g.PlanExecuteCmd.FullCommand(),
+		g.PlanRollbackCmd.FullCommand(),
+		g.PlanResumeCmd.FullCommand(),
 		g.UpgradeCmd.FullCommand(),
-		g.RollbackCmd.FullCommand(),
 		g.ResourceCreateCmd.FullCommand():
 		if *g.Debug {
 			teleutils.InitLogger(teleutils.LoggingForDaemon, level)
@@ -114,6 +118,7 @@ func InitAndCheck(g *Application, cmd string) error {
 		g.JoinCmd.FullCommand(),
 		g.AutoJoinCmd.FullCommand(),
 		g.UpdateTriggerCmd.FullCommand(),
+		g.UpdatePlanInitCmd.FullCommand(),
 		g.UpgradeCmd.FullCommand(),
 		g.RPCAgentRunCmd.FullCommand(),
 		g.LeaveCmd.FullCommand(),
@@ -125,8 +130,8 @@ func InitAndCheck(g *Application, cmd string) error {
 		// own location
 		switch cmd {
 		case g.InstallCmd.FullCommand(), g.JoinCmd.FullCommand():
-			if *g.SystemLogFile == defaults.TelekubeSystemLog {
-				install.InitLogging(defaults.TelekubeSystemLogFile)
+			if *g.SystemLogFile == defaults.GravitySystemLog {
+				install.InitLogging(defaults.GravitySystemLogFile)
 			}
 		}
 	}
@@ -134,7 +139,7 @@ func InitAndCheck(g *Application, cmd string) error {
 	if *g.ProfileEndpoint != "" {
 		err := process.StartProfiling(context.TODO(), *g.ProfileEndpoint, *g.ProfileTo)
 		if err != nil {
-			log.Warningf("Failed to setup profiling: %v.", trace.DebugReport(err))
+			log.WithError(err).Warn("Failed to setup profiling.")
 		}
 	}
 
@@ -145,12 +150,7 @@ func InitAndCheck(g *Application, cmd string) error {
 	case g.UpdateCompleteCmd.FullCommand(),
 		g.UpdateTriggerCmd.FullCommand(),
 		g.RemoveCmd.FullCommand():
-		localEnv, err := g.LocalEnv(cmd)
-		if err != nil {
-			return trace.Wrap(err)
-		}
-		err = httplib.InGravity(localEnv.DNS.Addr())
-		if err != nil {
+		if err := checkRunningInGravity(g); err != nil {
 			return trace.Wrap(err)
 		}
 	}
@@ -161,7 +161,6 @@ func InitAndCheck(g *Application, cmd string) error {
 		g.UpgradeCmd.FullCommand(),
 		g.SystemRollbackCmd.FullCommand(),
 		g.SystemUninstallCmd.FullCommand(),
-		g.RollbackCmd.FullCommand(),
 		g.UpdateSystemCmd.FullCommand(),
 		g.RPCAgentShutdownCmd.FullCommand(),
 		g.RPCAgentInstallCmd.FullCommand(),
@@ -170,7 +169,14 @@ func InitAndCheck(g *Application, cmd string) error {
 		g.SystemServiceUninstallCmd.FullCommand(),
 		g.EnterCmd.FullCommand(),
 		g.PlanetEnterCmd.FullCommand(),
+		g.UpdatePlanInitCmd.FullCommand(),
+		g.ResumeCmd.FullCommand(),
 		g.PlanCmd.FullCommand(),
+		g.PlanDisplayCmd.FullCommand(),
+		g.PlanExecuteCmd.FullCommand(),
+		g.PlanRollbackCmd.FullCommand(),
+		g.PlanResumeCmd.FullCommand(),
+		g.PlanCompleteCmd.FullCommand(),
 		g.InstallCmd.FullCommand(),
 		g.JoinCmd.FullCommand(),
 		g.AutoJoinCmd.FullCommand(),
@@ -213,7 +219,7 @@ func InitAndCheck(g *Application, cmd string) error {
 }
 
 // Execute executes the gravity command given with cmd
-func Execute(g *Application, cmd string, extraArgs []string) error {
+func Execute(g *Application, cmd string, extraArgs []string) (err error) {
 	switch cmd {
 	case g.VersionCmd.FullCommand():
 		return printVersion(*g.VersionCmd.Output)
@@ -225,11 +231,26 @@ func Execute(g *Application, cmd string, extraArgs []string) error {
 		return statusSite()
 	}
 
-	localEnv, err := g.LocalEnv(cmd)
-	if err != nil {
-		return trace.Wrap(err)
+	var localEnv *localenv.LocalEnvironment
+	switch cmd {
+	case g.InstallCmd.FullCommand(), g.JoinCmd.FullCommand():
+		if *g.StateDir != "" {
+			if err := state.SetStateDir(*g.StateDir); err != nil {
+				return trace.Wrap(err)
+			}
+		}
+		localEnv, err = g.NewInstallEnv()
+		if err != nil {
+			return trace.Wrap(err)
+		}
+		defer localEnv.Close()
+	default:
+		localEnv, err = g.NewLocalEnv()
+		if err != nil {
+			return trace.Wrap(err)
+		}
+		defer localEnv.Close()
 	}
-	defer localEnv.Close()
 
 	// the following commands must run when Kubernetes is available (can
 	// be inside gravity cluster or generic Kubernetes cluster)
@@ -248,27 +269,6 @@ func Execute(g *Application, cmd string, extraArgs []string) error {
 		}
 	}
 
-	// create an environment used during upgrades
-	var upgradeEnv *localenv.LocalEnvironment
-	if g.isUpgradeCommand(cmd) {
-		upgradeEnv, err = g.UpgradeEnv()
-		if err != nil {
-			return trace.Wrap(err)
-		}
-		defer upgradeEnv.Close()
-	}
-
-	// create an environment where join-specific data is stored
-	var joinEnv *localenv.LocalEnvironment
-	switch cmd {
-	case g.JoinCmd.FullCommand(), g.AutoJoinCmd.FullCommand(), g.PlanCmd.FullCommand(), g.RollbackCmd.FullCommand():
-		joinEnv, err = g.JoinEnv()
-		if err != nil {
-			return trace.Wrap(err)
-		}
-		defer joinEnv.Close()
-	}
-
 	switch cmd {
 	case g.OpsAgentCmd.FullCommand():
 		return agent(localEnv, agentConfig{
@@ -284,42 +284,13 @@ func Execute(g *Application, cmd string, extraArgs []string) error {
 			cloudProvider: *g.OpsAgentCmd.CloudProvider,
 		}, *g.OpsAgentCmd.ServiceName)
 	case g.WizardCmd.FullCommand():
-		return startInstall(localEnv, InstallConfig{
-			Mode:          constants.InstallModeInteractive,
-			Insecure:      *g.Insecure,
-			ReadStateDir:  *g.InstallCmd.Path,
-			UserLogFile:   *g.UserLogFile,
-			SystemLogFile: *g.SystemLogFile,
-			ServiceUID:    *g.WizardCmd.ServiceUID,
-			ServiceGID:    *g.WizardCmd.ServiceGID,
-		})
+		return startInstall(localEnv, NewWizardConfig(localEnv, g))
 	case g.InstallCmd.FullCommand():
-		if *g.InstallCmd.Resume {
-			*g.InstallCmd.Phase = fsm.RootPhase
-		}
-		if *g.InstallCmd.Phase != "" {
-			return executeInstallPhase(localEnv, PhaseParams{
-				PhaseID: *g.InstallCmd.Phase,
-				Force:   *g.InstallCmd.Force,
-				Timeout: *g.InstallCmd.PhaseTimeout,
-			})
-		}
-		return startInstall(localEnv, NewInstallConfig(g))
+		return startInstall(localEnv, NewInstallConfig(localEnv, g))
 	case g.JoinCmd.FullCommand():
-		if *g.JoinCmd.Resume {
-			*g.JoinCmd.Phase = fsm.RootPhase
-		}
-		if *g.JoinCmd.Phase != "" || *g.JoinCmd.Complete {
-			return executeJoinPhase(localEnv, joinEnv, PhaseParams{
-				PhaseID:  *g.JoinCmd.Phase,
-				Force:    *g.JoinCmd.Force,
-				Timeout:  *g.JoinCmd.PhaseTimeout,
-				Complete: *g.JoinCmd.Complete,
-			})
-		}
-		return Join(localEnv, joinEnv, NewJoinConfig(g))
+		return join(localEnv, g, NewJoinConfig(g))
 	case g.AutoJoinCmd.FullCommand():
-		return autojoin(localEnv, joinEnv, autojoinConfig{
+		return autojoin(localEnv, g, autojoinConfig{
 			systemLogFile: *g.SystemLogFile,
 			userLogFile:   *g.UserLogFile,
 			clusterName:   *g.AutoJoinCmd.ClusterName,
@@ -331,48 +302,86 @@ func Execute(g *Application, cmd string, extraArgs []string) error {
 	case g.UpdateCheckCmd.FullCommand():
 		return updateCheck(localEnv, *g.UpdateCheckCmd.App)
 	case g.UpdateTriggerCmd.FullCommand():
-		return updateTrigger(localEnv,
-			upgradeEnv,
+		updateEnv, err := g.NewUpdateEnv()
+		if err != nil {
+			return trace.Wrap(err)
+		}
+		defer updateEnv.Close()
+		return updateTrigger(localEnv, updateEnv,
 			*g.UpdateTriggerCmd.App,
-			*g.UpdateTriggerCmd.Manual)
+			*g.UpdateTriggerCmd.Manual,
+			*g.UpdateTriggerCmd.SkipVersionCheck,
+		)
+	case g.UpdatePlanInitCmd.FullCommand():
+		updateEnv, err := g.NewUpdateEnv()
+		if err != nil {
+			return trace.Wrap(err)
+		}
+		defer updateEnv.Close()
+		return initUpdateOperationPlan(localEnv, updateEnv)
 	case g.UpgradeCmd.FullCommand():
+		updateEnv, err := g.NewUpdateEnv()
+		if err != nil {
+			return trace.Wrap(err)
+		}
+		defer updateEnv.Close()
 		if *g.UpgradeCmd.Resume {
 			*g.UpgradeCmd.Phase = fsm.RootPhase
 		}
 		if *g.UpgradeCmd.Phase != "" {
-			return executeUpgradePhase(localEnv, upgradeEnv,
-				upgradePhaseParams{
-					phaseID:          *g.UpgradeCmd.Phase,
-					force:            *g.UpgradeCmd.Force,
-					skipVersionCheck: *g.UpgradeCmd.SkipVersionCheck,
-					timeout:          *g.UpgradeCmd.Timeout,
+			return executePhase(localEnv, g,
+				PhaseParams{
+					PhaseID:          *g.UpgradeCmd.Phase,
+					Force:            *g.UpgradeCmd.Force,
+					Timeout:          *g.UpgradeCmd.Timeout,
+					SkipVersionCheck: *g.UpgradeCmd.SkipVersionCheck,
 				})
 		}
-		if *g.UpgradeCmd.Complete {
-			return completeUpgrade(localEnv, upgradeEnv)
-		}
-		return updateTrigger(localEnv,
-			upgradeEnv,
+		return updateTrigger(localEnv, updateEnv,
 			*g.UpgradeCmd.App,
-			*g.UpgradeCmd.Manual)
-	case g.RollbackCmd.FullCommand():
-		return rollbackOperationPhase(localEnv,
-			upgradeEnv,
-			joinEnv,
-			rollbackParams{
-				phaseID:          *g.RollbackCmd.Phase,
-				force:            *g.RollbackCmd.Force,
-				skipVersionCheck: *g.RollbackCmd.SkipVersionCheck,
-				timeout:          *g.RollbackCmd.PhaseTimeout,
+			*g.UpgradeCmd.Manual,
+			*g.UpgradeCmd.SkipVersionCheck,
+		)
+	case g.ResumeCmd.FullCommand():
+		return resumeOperation(localEnv, g,
+			PhaseParams{
+				Force:            *g.ResumeCmd.Force,
+				Timeout:          *g.ResumeCmd.PhaseTimeout,
+				SkipVersionCheck: *g.ResumeCmd.SkipVersionCheck,
+				OperationID:      *g.ResumeCmd.OperationID,
 			})
-	case g.PlanCmd.FullCommand():
-		if *g.PlanCmd.Init {
-			return initOperationPlan(localEnv, upgradeEnv)
-		}
-		if *g.PlanCmd.Sync {
-			return syncOperationPlan(localEnv, upgradeEnv)
-		}
-		return displayOperationPlan(localEnv, upgradeEnv, joinEnv, *g.PlanCmd.OperationID, *g.PlanCmd.Output)
+	case g.PlanExecuteCmd.FullCommand():
+		return executePhase(localEnv, g,
+			PhaseParams{
+				PhaseID:          *g.PlanExecuteCmd.Phase,
+				Force:            *g.PlanExecuteCmd.Force,
+				Timeout:          *g.PlanExecuteCmd.PhaseTimeout,
+				SkipVersionCheck: *g.PlanCmd.SkipVersionCheck,
+				OperationID:      *g.PlanCmd.OperationID,
+			})
+	case g.PlanResumeCmd.FullCommand():
+		return resumeOperation(localEnv, g,
+			PhaseParams{
+				Force:            *g.PlanResumeCmd.Force,
+				Timeout:          *g.PlanResumeCmd.PhaseTimeout,
+				SkipVersionCheck: *g.PlanCmd.SkipVersionCheck,
+				OperationID:      *g.PlanCmd.OperationID,
+			})
+
+	case g.PlanRollbackCmd.FullCommand():
+		return rollbackPhase(localEnv, g,
+			PhaseParams{
+				PhaseID:          *g.PlanRollbackCmd.Phase,
+				Force:            *g.PlanRollbackCmd.Force,
+				Timeout:          *g.PlanRollbackCmd.PhaseTimeout,
+				SkipVersionCheck: *g.PlanCmd.SkipVersionCheck,
+				OperationID:      *g.PlanCmd.OperationID,
+			})
+	case g.PlanDisplayCmd.FullCommand():
+		return displayOperationPlan(localEnv, g,
+			*g.PlanCmd.OperationID, *g.PlanDisplayCmd.Output)
+	case g.PlanCompleteCmd.FullCommand():
+		return completeOperationPlan(localEnv, g, *g.PlanCmd.OperationID)
 	case g.LeaveCmd.FullCommand():
 		return leave(localEnv, leaveConfig{
 			force:     *g.LeaveCmd.Force,
@@ -421,7 +430,8 @@ func Execute(g *Application, cmd string, extraArgs []string) error {
 			},
 		})
 	case g.AppListCmd.FullCommand():
-		return releaseList(localEnv)
+		return releaseList(localEnv,
+			*g.AppListCmd.All)
 	case g.AppUpgradeCmd.FullCommand():
 		return releaseUpgrade(localEnv, releaseUpgradeConfig{
 			Release: *g.AppUpgradeCmd.Release,
@@ -718,7 +728,7 @@ func Execute(g *Application, cmd string, extraArgs []string) error {
 			ConfigPackage: *g.SystemServiceInstallCmd.ConfigPackage,
 			ServiceSpec: systemservice.ServiceSpec{
 				StartCommand:     *g.SystemServiceInstallCmd.StartCommand,
-				StartPreCommand:  *g.SystemServiceInstallCmd.StartPreCommand,
+				StartPreCommands: []string{*g.SystemServiceInstallCmd.StartPreCommand},
 				StartPostCommand: *g.SystemServiceInstallCmd.StartPostCommand,
 				StopCommand:      *g.SystemServiceInstallCmd.StopCommand,
 				StopPostCommand:  *g.SystemServiceInstallCmd.StopPostCommand,
@@ -745,7 +755,8 @@ func Execute(g *Application, cmd string, extraArgs []string) error {
 	case g.SystemReportCmd.FullCommand():
 		return systemReport(localEnv,
 			*g.SystemReportCmd.Filter,
-			*g.SystemReportCmd.Compressed)
+			*g.SystemReportCmd.Compressed,
+			os.Stdout)
 	case g.SystemStateDirCmd.FullCommand():
 		return printStateDir()
 	case g.SystemEnablePromiscModeCmd.FullCommand():
@@ -757,14 +768,6 @@ func Execute(g *Application, cmd string, extraArgs []string) error {
 	case g.SystemStreamRuntimeJournalCmd.FullCommand():
 		return streamRuntimeJournal(localEnv)
 	case g.GarbageCollectCmd.FullCommand():
-		phase := *g.GarbageCollectCmd.Phase
-		if *g.GarbageCollectCmd.Resume {
-			phase = fsm.RootPhase
-		}
-		if phase != "" {
-			return garbageCollectPhase(localEnv, phase, *g.GarbageCollectCmd.PhaseTimeout,
-				*g.GarbageCollectCmd.Force)
-		}
 		return garbageCollect(localEnv, *g.GarbageCollectCmd.Manual, *g.GarbageCollectCmd.Confirmed)
 	case g.SystemGCJournalCmd.FullCommand():
 		return removeUnusedJournalFiles(localEnv,
@@ -806,16 +809,20 @@ func Execute(g *Application, cmd string, extraArgs []string) error {
 			*g.UsersResetCmd.Name,
 			*g.UsersResetCmd.TTL)
 	case g.ResourceCreateCmd.FullCommand():
-		return createResource(localEnv,
+		return createResource(localEnv, g,
 			*g.ResourceCreateCmd.Filename,
 			*g.ResourceCreateCmd.Upsert,
-			*g.ResourceCreateCmd.User)
+			*g.ResourceCreateCmd.User,
+			*g.ResourceCreateCmd.Manual,
+			*g.ResourceCreateCmd.Confirmed)
 	case g.ResourceRemoveCmd.FullCommand():
-		return removeResource(localEnv,
+		return removeResource(localEnv, g,
 			*g.ResourceRemoveCmd.Kind,
 			*g.ResourceRemoveCmd.Name,
 			*g.ResourceRemoveCmd.Force,
-			*g.ResourceRemoveCmd.User)
+			*g.ResourceRemoveCmd.User,
+			*g.ResourceRemoveCmd.Manual,
+			*g.ResourceRemoveCmd.Confirmed)
 	case g.ResourceGetCmd.FullCommand():
 		return getResources(localEnv,
 			*g.ResourceGetCmd.Kind,
@@ -824,11 +831,23 @@ func Execute(g *Application, cmd string, extraArgs []string) error {
 			*g.ResourceGetCmd.Format,
 			*g.ResourceGetCmd.User)
 	case g.RPCAgentDeployCmd.FullCommand():
-		return rpcAgentDeploy(localEnv, *g.RPCAgentDeployCmd.Args)
+		updateEnv, err := g.NewUpdateEnv()
+		if err != nil {
+			return trace.Wrap(err)
+		}
+		defer updateEnv.Close()
+		return rpcAgentDeploy(localEnv, updateEnv,
+			*g.RPCAgentDeployCmd.LeaderArgs,
+			*g.RPCAgentDeployCmd.NodeArgs)
 	case g.RPCAgentInstallCmd.FullCommand():
 		return rpcAgentInstall(localEnv, *g.RPCAgentInstallCmd.Args)
 	case g.RPCAgentRunCmd.FullCommand():
-		return rpcAgentRun(localEnv, upgradeEnv,
+		updateEnv, err := g.NewUpdateEnv()
+		if err != nil {
+			return trace.Wrap(err)
+		}
+		defer updateEnv.Close()
+		return rpcAgentRun(localEnv, updateEnv,
 			*g.RPCAgentRunCmd.Args)
 	case g.RPCAgentShutdownCmd.FullCommand():
 		return rpcAgentShutdown(localEnv)
@@ -837,6 +856,10 @@ func Execute(g *Application, cmd string, extraArgs []string) error {
 			*g.CheckCmd.ManifestFile,
 			*g.CheckCmd.Profile,
 			*g.CheckCmd.AutoFix)
+	case g.TopCmd.FullCommand():
+		return top(localEnv,
+			*g.TopCmd.Interval,
+			*g.TopCmd.Step)
 	}
 	return trace.NotFound("unknown command %v", cmd)
 }
@@ -907,6 +930,19 @@ func pickSiteHost() (string, error) {
 		}
 	}
 	return "", trace.Errorf("failed to find a gravity site to connect to")
+}
+
+func checkRunningInGravity(environ LocalEnvironmentFactory) error {
+	env, err := environ.NewLocalEnv()
+	if err != nil {
+		return trace.Wrap(err)
+	}
+	defer env.Close()
+	err = httplib.InGravity(env.DNS.Addr())
+	if err != nil {
+		return trace.Wrap(err)
+	}
+	return nil
 }
 
 func checkRunningAsRoot() error {

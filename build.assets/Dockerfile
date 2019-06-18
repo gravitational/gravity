@@ -1,4 +1,4 @@
-FROM quay.io/gravitational/debian-venti:go1.10.3-stretch
+FROM quay.io/gravitational/debian-venti:go1.11.5-stretch
 
 ARG PROTOC_VER
 ARG PROTOC_PLATFORM
@@ -14,7 +14,8 @@ RUN adduser jenkins --uid=995 --disabled-password --system
 RUN (mkdir -p /gopath/src/github.com/gravitational/gravity && \
      chown -R jenkins /gopath && \
      mkdir -p /.cache && \
-     chmod 777 /.cache)
+     chmod 777 /.cache && \
+     chmod 777 /tmp)
 
 ENV LANGUAGE="en_US.UTF-8" \
     LANG="en_US.UTF-8" \
@@ -41,7 +42,7 @@ RUN (mkdir -p /opt/protoc && \
 RUN cd ${GOPATH}/src/github.com/gogo/protobuf && git reset --hard ${GOGO_PROTO_TAG} && make install
 RUN cd ${GOPATH}/src/github.com/grpc-ecosystem/grpc-gateway && git reset --hard ${GRPC_GATEWAY_TAG} && go install ./protoc-gen-grpc-gateway
 
-ENV PROTO_INCLUDE "/usr/local/include":"${GOPATH}/src":"${GOPATH}/src/github.com/grpc-ecosystem/grpc-gateway/third_party/googleapis":"${GOPATH}/src/github.com/grpc-ecosystem/grpc-gateway/third_party/googleapis":"${GOGOPROTO_ROOT}/protobuf"
+ENV PROTO_INCLUDE "/usr/local/include":"${GOPATH}/src":"${GOPATH}/src/github.com/grpc-ecosystem/grpc-gateway/third_party/googleapis":"${GOPATH}/src/github.com/grpc-ecosystem/grpc-gateway/third_party/googleapis":"${GOGOPROTO_ROOT}/protobuf":"${GOGOPROTO_ROOT}/gogoproto"
 
 # install DEP tool
 RUN wget --quiet -O /usr/bin/dep https://github.com/golang/dep/releases/download/v0.4.1/dep-linux-amd64 && chmod +x /usr/bin/dep

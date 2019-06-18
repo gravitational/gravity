@@ -34,6 +34,7 @@ import (
 	"github.com/gravitational/gravity/lib/pack"
 	"github.com/gravitational/gravity/lib/schema"
 	"github.com/gravitational/gravity/lib/storage"
+	"github.com/gravitational/gravity/lib/storage/clusterconfig"
 	"github.com/gravitational/gravity/lib/utils"
 
 	"github.com/cloudflare/cfssl/csr"
@@ -43,8 +44,10 @@ import (
 	"github.com/gravitational/satellite/agent/proto/agentpb"
 	teleauth "github.com/gravitational/teleport/lib/auth"
 	teleclient "github.com/gravitational/teleport/lib/client"
+	"github.com/gravitational/teleport/lib/events"
 	teleservices "github.com/gravitational/teleport/lib/services"
 	"github.com/gravitational/trace"
+	"k8s.io/helm/pkg/proto/hapi/release"
 )
 
 // TeleportProxyService is SSH proxy access portal - gives
@@ -124,6 +127,9 @@ type Operator interface {
 	Install
 	Updates
 	Identity
+	RuntimeEnvironment
+	ClusterConfiguration
+	Audit
 }
 
 // Accounts represents a collection of accounts in the portal
@@ -215,6 +221,115 @@ type Users interface {
 
 	// GetClusterAgent returns the specified cluster agent
 	GetClusterAgent(ClusterAgentRequest) (*storage.LoginEntry, error)
+
+	// UpdateUser updates the specified user information.
+	UpdateUser(context.Context, UpdateUserRequest) error
+	// CreateUserInvite creates a new invite token for a user.
+	CreateUserInvite(context.Context, CreateUserInviteRequest) (*storage.UserToken, error)
+	// CreateUserReset creates a new reset token for a user.
+	CreateUserReset(context.Context, CreateUserResetRequest) (*storage.UserToken, error)
+	// GetUserInvites returns all active user invites.
+	GetUserInvites(context.Context, SiteKey) ([]storage.UserInvite, error)
+	// DeleteUserInvite deletes the specified user invite.
+	DeleteUserInvite(context.Context, DeleteUserInviteRequest) error
+}
+
+// UpdateUserRequest is a request to update existing user information.
+type UpdateUserRequest struct {
+	// SiteKey is the key of the cluster to route request to.
+	SiteKey
+	// Name is the name of the user to update.
+	Name string `json:"name"`
+	// FullName is the full user name.
+	FullName string `json:"full_name"`
+	// Roles is a new list of user roles.
+	Roles []string `json:"roles"`
+}
+
+// Check validates the request.
+func (r *UpdateUserRequest) Check() error {
+	if err := r.SiteKey.Check(); err != nil {
+		return trace.Wrap(err)
+	}
+	if r.Name == "" {
+		return trace.BadParameter("user name can't be empty")
+	}
+	if len(r.Roles) == 0 {
+		return trace.BadParameter("role list can't be empty")
+	}
+	return nil
+}
+
+// CreateUserInviteRequest is a request to generate a new user invite token.
+type CreateUserInviteRequest struct {
+	// SiteKey is the key of the cluster to route request to.
+	SiteKey
+	// Name is the new user name.
+	Name string `json:"name"`
+	// Roles is the new user roles.
+	Roles []string `json:"roles"`
+	// TTL specifies how long the generated invite token is valid for.
+	TTL time.Duration `json:"ttl"`
+}
+
+// Check validates the request.
+func (r *CreateUserInviteRequest) Check() error {
+	if err := r.SiteKey.Check(); err != nil {
+		return trace.Wrap(err)
+	}
+	if r.Name == "" {
+		return trace.BadParameter("user name can't be empty")
+	}
+	if len(r.Roles) == 0 {
+		return trace.BadParameter("role list can't be empty")
+	}
+	if r.TTL < 0 {
+		return trace.BadParameter("ttl can't be negative")
+	}
+	return nil
+}
+
+// CreateUserResetRequest is a request to generate a new user reset token.
+type CreateUserResetRequest struct {
+	// SiteKey is the key of the cluster to route request to.
+	SiteKey
+	// Name is the user name to reset.
+	Name string `json:"name"`
+	// TTL specifies how long the generated reset token is valid for.
+	TTL time.Duration `json:"ttl"`
+}
+
+// Check validates the request.
+func (r *CreateUserResetRequest) Check() error {
+	if err := r.SiteKey.Check(); err != nil {
+		return trace.Wrap(err)
+	}
+	if r.Name == "" {
+		return trace.BadParameter("user name can't be empty")
+	}
+	if r.TTL < 0 {
+		return trace.BadParameter("ttl can't be negative")
+	}
+	return nil
+}
+
+// DeleteUserInviteRequest is a request to delete a user invite token.
+type DeleteUserInviteRequest struct {
+	// SiteKey is the key of the cluster to route request to.
+	SiteKey
+	// Name is the invited user name.
+	Name string `json:"name"`
+}
+
+// Check validates the request.
+func (r *DeleteUserInviteRequest) Check() error {
+	if err := r.SiteKey.Check(); err != nil {
+		return trace.Wrap(err)
+	}
+	if r.Name == "" {
+		return trace.BadParameter("user name can't be empty")
+	}
+	return nil
 }
 
 // ResetUserPasswordRequest is a request to reset gravity site user password
@@ -240,13 +355,13 @@ type ClusterAgentRequest struct {
 // APIKeys represents a collection of user API keys
 type APIKeys interface {
 	// CreateAPIKey creates a new API key for a user
-	CreateAPIKey(NewAPIKeyRequest) (*storage.APIKey, error)
+	CreateAPIKey(context.Context, NewAPIKeyRequest) (*storage.APIKey, error)
 
 	// GetAPIKeys returns API keys for the specified user
 	GetAPIKeys(userEmail string) ([]storage.APIKey, error)
 
 	// DeleteAPIKey deletes an API key
-	DeleteAPIKey(userEmail, token string) error
+	DeleteAPIKey(ctx context.Context, userEmail, token string) error
 }
 
 // Tokens represents a token management layer
@@ -371,7 +486,7 @@ type SSHSignResponse struct {
 // that does not uses any interfaces
 func (s *SSHSignResponse) ToRaw() (*SSHSignResponseRaw, error) {
 	raw := SSHSignResponseRaw{
-		Cert: s.Cert,
+		Cert:                   s.Cert,
 		TrustedHostAuthorities: make([]json.RawMessage, 0, len(s.TrustedHostAuthorities)),
 		TLSCert:                s.TLSCert,
 		CACert:                 s.CACert,
@@ -403,7 +518,7 @@ type SSHSignResponseRaw struct {
 // ToNative converts back to request that has all interfaces inside
 func (s *SSHSignResponseRaw) ToNative() (*SSHSignResponse, error) {
 	native := SSHSignResponse{
-		Cert: s.Cert,
+		Cert:                   s.Cert,
 		TrustedHostAuthorities: make([]teleservices.CertAuthority, 0, len(s.TrustedHostAuthorities)),
 		TLSCert:                s.TLSCert,
 		CACert:                 s.CACert,
@@ -471,9 +586,30 @@ type Certificates interface {
 	GetClusterCertificate(key SiteKey, withSecrets bool) (*ClusterCertificate, error)
 	// UpdateClusterCertificate updates the cluster TLS certificate that is
 	// presented by the cluster's local web endpoint
-	UpdateClusterCertificate(UpdateCertificateRequest) (*ClusterCertificate, error)
+	UpdateClusterCertificate(context.Context, UpdateCertificateRequest) (*ClusterCertificate, error)
 	// DeleteClusterCertificate deletes the cluster TLS certificate
-	DeleteClusterCertificate(SiteKey) error
+	DeleteClusterCertificate(context.Context, SiteKey) error
+}
+
+// RuntimeEnvironment manages runtime environment variables in cluster
+type RuntimeEnvironment interface {
+	// CreateUpdateEnvarsOperation creates a new operation to update cluster runtime environment variables
+	CreateUpdateEnvarsOperation(context.Context, CreateUpdateEnvarsOperationRequest) (*SiteOperationKey, error)
+	// GetClusterEnvironmentVariables retrieves the cluster runtime environment variables
+	GetClusterEnvironmentVariables(SiteKey) (storage.EnvironmentVariables, error)
+	// UpdateClusterEnvironmentVariables updates the cluster runtime environment variables
+	// from the specified request
+	UpdateClusterEnvironmentVariables(UpdateClusterEnvironRequest) error
+}
+
+// ClusterConfiguration manages configuration in cluster
+type ClusterConfiguration interface {
+	// CreateUpdateConfigOperation creates a new operation to update cluster configuration
+	CreateUpdateConfigOperation(context.Context, CreateUpdateConfigOperationRequest) (*SiteOperationKey, error)
+	// GetClusterConfiguration retrieves the cluster configuration
+	GetClusterConfiguration(SiteKey) (clusterconfig.Interface, error)
+	// UpdateClusterConfiguration updates the cluster configuration from the specified request
+	UpdateClusterConfiguration(UpdateClusterConfigRequest) error
 }
 
 // ClusterCertificate represents the cluster certificate
@@ -520,6 +656,19 @@ func (r UpdateCertificateRequest) Check() error {
 	return nil
 }
 
+// Check validates this request
+func (r UpdateClusterEnvironmentVariablesRequest) Check() error {
+	return r.Key.Check()
+}
+
+// UpdateClusterEnvironmentVariablesRequest describes the request to update cluster runtime environment variables
+type UpdateClusterEnvironmentVariablesRequest struct {
+	// Key identifies the cluster
+	Key SiteKey
+	// Env specifies the new environment
+	Env storage.EnvironmentVariables `json:"env"`
+}
+
 // Leader defines leadership-related operations
 type Leader interface {
 	// StepDown asks the process to pause its leader election heartbeat so it can
@@ -530,12 +679,12 @@ type Leader interface {
 // Status defines operations with site status
 type Status interface {
 	// CheckSiteStatus runs app status hook and updates site status appropriately
-	CheckSiteStatus(key SiteKey) error
+	CheckSiteStatus(ctx context.Context, key SiteKey) error
 	// GetClusterNodes returns a real-time information about cluster nodes
 	GetClusterNodes(SiteKey) ([]Node, error)
 }
 
-// Node represents a cluster node information
+// Node represents a cluster node information based on Teleport node
 type Node struct {
 	// Hostname is the node hostname
 	Hostname string `json:"hostname"`
@@ -566,7 +715,7 @@ type Operations interface {
 	// this operation can be currently run only once
 	//
 	// 1. This method is called as a first step to initiate install operation.
-	CreateSiteInstallOperation(CreateSiteInstallOperationRequest) (*SiteOperationKey, error)
+	CreateSiteInstallOperation(context.Context, CreateSiteInstallOperationRequest) (*SiteOperationKey, error)
 
 	// GetSiteInstallOperationAgentReport returns runtime information
 	// about servers as reported by remote install agents
@@ -584,11 +733,11 @@ type Operations interface {
 	// CreateSiteUninstallOperation initiates uninstall operation
 	// for this site that will delete all machines and state inlcuding
 	// it kicks off uninstall of the site immediatelly
-	CreateSiteUninstallOperation(CreateSiteUninstallOperationRequest) (*SiteOperationKey, error)
+	CreateSiteUninstallOperation(context.Context, CreateSiteUninstallOperationRequest) (*SiteOperationKey, error)
 
 	// CreateClusterGarbageCollectOperation creates a new garbage collection operation
 	// in the cluster
-	CreateClusterGarbageCollectOperation(CreateClusterGarbageCollectOperationRequest) (*SiteOperationKey, error)
+	CreateClusterGarbageCollectOperation(context.Context, CreateClusterGarbageCollectOperationRequest) (*SiteOperationKey, error)
 
 	// GetsiteOperation returns the operation information based on it's key
 	GetSiteOperation(SiteOperationKey) (*SiteOperation, error)
@@ -613,18 +762,11 @@ type Operations interface {
 	// operation
 	CreateProgressEntry(SiteOperationKey, ProgressEntry) error
 
-	// GetSiteOperationCrashReport returns a tarball with crash report
-	// that contains all debugging information gathered during the operation
-	//
-	// This method can be called in case of progress report failed state
-	// after operation start
-	GetSiteOperationCrashReport(SiteOperationKey) (io.ReadCloser, error)
-
 	// CreateSiteExpandOperation initiates operation that adds nodes
 	// to the cluster
 	//
 	// 1. This method is called as a first step to initiate expand operation
-	CreateSiteExpandOperation(CreateSiteExpandOperationRequest) (*SiteOperationKey, error)
+	CreateSiteExpandOperation(context.Context, CreateSiteExpandOperationRequest) (*SiteOperationKey, error)
 
 	// GetSiteExpandOperationAgentReport returns runtime information
 	// about servers as reported by remote install agents
@@ -641,11 +783,11 @@ type Operations interface {
 
 	// CreateSiteShrinkOperation initiates an operation that removes nodes
 	// from the cluster
-	CreateSiteShrinkOperation(CreateSiteShrinkOperationRequest) (*SiteOperationKey, error)
+	CreateSiteShrinkOperation(context.Context, CreateSiteShrinkOperationRequest) (*SiteOperationKey, error)
 
 	// CreateSiteAppUpdateOpeation initiates an operation that updates an application
 	// installed on a site to a new version
-	CreateSiteAppUpdateOperation(CreateSiteAppUpdateOperationRequest) (*SiteOperationKey, error)
+	CreateSiteAppUpdateOperation(context.Context, CreateSiteAppUpdateOperationRequest) (*SiteOperationKey, error)
 
 	// ResumeShrink resumes the started shrink operation if the node being shrunk gave up
 	// its leadership
@@ -705,7 +847,7 @@ func (l LogEntry) String() string {
 // Install provides install-specific methods
 type Install interface {
 	// ConfigurePackages configures packages for the specified operation
-	ConfigurePackages(SiteOperationKey) error
+	ConfigurePackages(ConfigurePackagesRequest) error
 	// StreamOperationLogs appends the logs from the provided reader to the
 	// specified operation (user-facing) log file
 	StreamOperationLogs(SiteOperationKey, io.Reader) error
@@ -717,10 +859,10 @@ type Updates interface {
 	RotateSecrets(RotateSecretsRequest) (*RotatePackageResponse, error)
 
 	// RotatePlanetConfig rotates planet configuration package for the server specified in the request
-	RotatePlanetConfig(RotateConfigPackageRequest) (*RotatePackageResponse, error)
+	RotatePlanetConfig(RotatePlanetConfigRequest) (*RotatePackageResponse, error)
 
 	// RotateTeleportConfig rotates teleport configuration package for the server specified in the request
-	RotateTeleportConfig(RotateConfigPackageRequest) (masterConfig *RotatePackageResponse, nodeConfig *RotatePackageResponse, err error)
+	RotateTeleportConfig(RotateTeleportConfigRequest) (masterConfig *RotatePackageResponse, nodeConfig *RotatePackageResponse, err error)
 
 	// ConfigureNode prepares the node for the upgrade
 	ConfigureNode(ConfigureNodeRequest) error
@@ -773,6 +915,11 @@ type RotateSecretsRequest struct {
 	ClusterName string `json:"cluster_name"`
 	// Server is the server to rotate secrets for
 	Server storage.Server `json:"server"`
+	// Locator specifies the secrets package locator to use.
+	// If unspecified, one will be automatically generated
+	Locator *loc.Locator `json:"locator,omitempty"`
+	// DryRun specifies whether only the package locator is generated
+	DryRun bool `json:"dry_run"`
 }
 
 // SiteKey returns a cluster key from this request
@@ -783,35 +930,77 @@ func (r RotateSecretsRequest) SiteKey() SiteKey {
 	}
 }
 
-// RotateConfigPackageRequest is a request to rotate server's configuration package
-type RotateConfigPackageRequest struct {
-	// AccountID is the account id of the local cluster
-	AccountID string `json:"account_id"`
-	// ClusterName is the local cluster name
-	ClusterName string `json:"cluster_name"`
-	// OperationID is the id of the operation
-	OperationID string `json:"operation_id"`
+// Check validates this request
+func (r RotateTeleportConfigRequest) Check() error {
+	if err := r.Key.Check(); err != nil {
+		return trace.Wrap(err)
+	}
+	if !r.DryRun && len(r.MasterIPs) == 0 {
+		return trace.BadParameter("list of master IPs is required")
+	}
+	return nil
+}
+
+// RotateTeleportConfigRequest is a request to rotate teleport server's configuration package
+type RotateTeleportConfigRequest struct {
+	// Key identifies the cluster operation
+	Key SiteOperationKey `json:"key"`
 	// Server is the server to rotate configuration for
 	Server storage.Server `json:"server"`
-	// Servers is all cluster servers
-	Servers storage.Servers `json:"servers"`
+	// MasterIPs lists IP addresses of all cluster master servers
+	MasterIPs []string `json:"masters"`
+	// Master specifies the configuration package to use for the cluster controller teleport service.
+	// If unspecified, one will be automatically generated
+	Master *loc.Locator `json:"master,omitempty"`
+	// Node specifies the configuration package to use for the teleport service on host.
+	// If unspecified, one will be automatically generated
+	Node *loc.Locator `json:"node,omitempty"`
+	// DryRun specifies whether only the package locator is generated
+	DryRun bool `json:"dry_run"`
 }
 
-// SiteKey returns a cluster key from this request
-func (r RotateConfigPackageRequest) SiteKey() SiteKey {
+// RotatePlanetConfigRequest is a request to rotate planet server's configuration package
+type RotatePlanetConfigRequest struct {
+	// Key identifies the cluster operation
+	Key SiteOperationKey `json:"key"`
+	// Server is the server to rotate configuration for
+	Server storage.Server `json:"server"`
+	// Manifest specifies the manifest to generate configuration with
+	Manifest schema.Manifest `json:"manifest"`
+	// Env specifies optional environment variables to set
+	Env map[string]string `json:"env,omitempty"`
+	// Config specifies optional cluster configuration resource
+	Config []byte `json:"cluster_config,omitempty"`
+	// RuntimePackage specifies the runtime package locator
+	RuntimePackage loc.Locator `json:"runtime_package"`
+	// Locator specifies the configuration package locator to use.
+	// If unspecified, one will be automatically generated
+	Locator *loc.Locator `json:"locator,omitempty"`
+	// DryRun specifies whether only the package locator is generated
+	DryRun bool `json:"dry_run"`
+}
+
+// Check validates this request
+func (r ConfigurePackagesRequest) Check() error {
+	return r.SiteOperationKey.Check()
+}
+
+// ClusterKey returns a cluster key from this request
+func (r ConfigurePackagesRequest) ClusterKey() SiteKey {
 	return SiteKey{
 		AccountID:  r.AccountID,
-		SiteDomain: r.ClusterName,
+		SiteDomain: r.SiteDomain,
 	}
 }
 
-// SiteOperationKey returns an operation key from this request
-func (r RotateConfigPackageRequest) SiteOperationKey() SiteOperationKey {
-	return SiteOperationKey{
-		AccountID:   r.AccountID,
-		SiteDomain:  r.ClusterName,
-		OperationID: r.OperationID,
-	}
+// ConfigurePackagesConfigRequest is a request to create configuration packages
+type ConfigurePackagesRequest struct {
+	// OperationKey identifies the operation
+	SiteOperationKey `json:"operation_key"`
+	// Env specifies optional cluster environment variables to set
+	Env map[string]string `json:"env,omitempty"`
+	// Config specifies optional cluster configuration resource in raw form
+	Config []byte `json:"config,omitempty"`
 }
 
 // Proxy helps to manage connections and clients to remote ops centers
@@ -824,13 +1013,27 @@ type Applications interface {
 	// GetAppInstaller generates an application installer tarball and returns
 	// a binary data stream
 	GetAppInstaller(AppInstallerRequest) (io.ReadCloser, error)
+	// ListReleases returns all currently installed application releases in a cluster.
+	ListReleases(ListReleasesRequest) ([]storage.Release, error)
 }
 
-//
+// ListReleasesRequest is a request to list installed application releases.
+type ListReleasesRequest struct {
+	// SiteKey is the cluster routing key.
+	SiteKey
+	// IncludeIcons is whether to retrieve application icons as well.
+	IncludeIcons bool `json:"include_icons"`
+}
+
+// AppInstallerRequest is a request to generate installer tarball.
 type AppInstallerRequest struct {
-	AccountID     string
-	Application   loc.Locator
-	CACert        string
+	// AccountID is the cluster account ID.
+	AccountID string
+	// Application is the application package to generate installer for.
+	Application loc.Locator
+	// CACert is the CA certificate to include in the installer.
+	CACert string
+	// EncryptionKey is an optional key to GPG-encrypt installer packages with.
 	EncryptionKey string
 }
 
@@ -915,22 +1118,32 @@ func (s *SiteOperation) ClusterState() (string, error) {
 
 // String returns the textual representation of this operation
 func (s *SiteOperation) String() string {
-	var typeS string
+	return fmt.Sprintf("operation(%v(%v), cluster=%v, state=%s, created=%v)",
+		s.TypeString(), s.ID, s.SiteDomain, s.State, s.Created.Format(constants.HumanDateFormat))
+}
+
+// TypeString returns the textual representation of the operation's type
+func (s *SiteOperation) TypeString() string {
 	switch s.Type {
 	case OperationInstall:
-		typeS = "install"
+		return "install"
 	case OperationExpand:
-		typeS = "expand"
+		return "expand"
 	case OperationUpdate:
-		typeS = "update"
+		return "update"
 	case OperationShrink:
-		typeS = "shrink"
+		return "shrink"
 	case OperationUninstall:
-		typeS = "uninstall"
+		return "uninstall"
 	case OperationGarbageCollect:
-		typeS = "garbage collect"
+		return "garbage collect"
+	case OperationUpdateRuntimeEnviron:
+		return "update runtime environment"
+	case OperationUpdateConfig:
+		return "update configuration"
+	default:
+		return s.Type
 	}
-	return fmt.Sprintf("operation(%v, cluster=%v, state=%s)", typeS, s.SiteDomain, s.State)
 }
 
 // SiteOperationKey identifies key to retrieve an opertaion
@@ -1070,7 +1283,7 @@ type CreateSiteShrinkOperationRequest struct {
 	// NodeRemoved indicates whether the node has already been removed from the cluster
 	// Used in cases where we recieve an event where the node is being terminated, but may
 	// not have disconnected from the cluster yet.
-	NodeRemoved bool `json:node_removed`
+	NodeRemoved bool `json:"node_removed"`
 }
 
 // CheckAndSetDefaults makes sure the request is correct and fills in some unset
@@ -1100,9 +1313,8 @@ type CreateSiteAppUpdateOperationRequest struct {
 	SiteDomain string `json:"site_domain"`
 	// App specifies a new application package in the "locator" form, e.g. gravitational.io/mattermost:1.2.3
 	App string `json:"package"`
-	// Manual specifies whether a manual update mode is requested.
-	// Deprecated.
-	Manual bool `json:"manual"`
+	// StartAgents specifies whether the operation will automatically start the update agents
+	StartAgents bool `json:"start_agents"`
 }
 
 // Check validates this request
@@ -1123,6 +1335,42 @@ type CreateClusterGarbageCollectOperationRequest struct {
 	AccountID string `json:"account_id"`
 	// ClusterName is the name of the cluster
 	ClusterName string `json:"cluster_name"`
+}
+
+// CreateUpdateEnvarsOperationRequest is a request
+// to update cluster environment variables
+type CreateUpdateEnvarsOperationRequest struct {
+	// ClusterKey identifies the cluster
+	ClusterKey SiteKey `json:"cluster_key"`
+	// Env specifies the new cluster environment variables
+	Env map[string]string `json:"env"`
+}
+
+// CreateUpdateConfigOperationRequest is a request
+// to create an operation to update cluster configuration
+type CreateUpdateConfigOperationRequest struct {
+	// ClusterKey identifies the cluster
+	ClusterKey SiteKey `json:"cluster_key"`
+	// Config specifies the new configuration as JSON-encoded payload
+	Config []byte `json:"config"`
+}
+
+// UpdateClusterEnvironRequest is a request
+// to update cluster runtime environment
+type UpdateClusterEnvironRequest struct {
+	// ClusterKey identifies the cluster
+	ClusterKey SiteKey `json:"cluster_key"`
+	// Env specifies the new runtime environment
+	Env map[string]string `json:"env,omitempty"`
+}
+
+// UpdateClusterConfigRequest is a request
+// to update cluster configuration
+type UpdateClusterConfigRequest struct {
+	// ClusterKey identifies the cluster
+	ClusterKey SiteKey `json:"cluster_key"`
+	// Config specifies the new configuration as JSON-encoded payload
+	Config []byte `json:"config,omitempty"`
 }
 
 // AgentService coordinates install agents that are started on every server
@@ -1159,6 +1407,10 @@ type AgentService interface {
 	// and rejects all consequitive requests to connect for any agent
 	// for this site
 	StopAgents(context.Context, SiteOperationKey) error
+
+	// AbortAgents instructs all remote agents to abort operation
+	// and uninstall state
+	AbortAgents(context.Context, SiteOperationKey) error
 }
 
 // NewAccountRequest is a request to create a new account
@@ -1243,24 +1495,6 @@ func (k AccountKey) String() string {
 		"account(account_id=%v)", k.AccountID)
 }
 
-// UserInviteRequest is a request to create a user invite
-type UserInviteRequest struct {
-	// Name is the new user name
-	Name string `json:"name"`
-	// Roles is the new user roles
-	Roles []string `json:"roles"`
-	// TTL is this request TTL
-	TTL time.Duration `json:"ttl"`
-}
-
-// UserResetRequest is a request to reset user credentials
-type UserResetRequest struct {
-	// Name is a user name
-	Name string `json:"name"`
-	// TTL is this request TTL
-	TTL time.Duration `json:"ttl"`
-}
-
 // NewSiteRequest is a request to create a new site entry
 type NewSiteRequest struct {
 	// AppPackage is application package, e.g. `gravitaional.io/mattermost:1.2.1`
@@ -1320,6 +1554,12 @@ func (k *SiteKey) Check() error {
 func (k SiteKey) String() string {
 	return fmt.Sprintf(
 		"site(account_id=%v, site_domain=%v)", k.AccountID, k.SiteDomain)
+}
+
+// IsEqualTo returns true if the two cluster keys are equal.
+func (k SiteKey) IsEqualTo(other SiteKey) bool {
+	return k.AccountID == other.AccountID &&
+		k.SiteDomain == other.SiteDomain
 }
 
 // AgentCreds represent install agent username and password used
@@ -1382,6 +1622,8 @@ type Site struct {
 	DNSOverrides storage.DNSOverrides `json:"dns_overrides"`
 	// DNSConfig specifies the cluster local DNS server configuration
 	DNSConfig storage.DNSConfig `json:"dns_config"`
+	// InstallToken specifies the original token the cluster was installed with
+	InstallToken string `json:"install_token"`
 }
 
 // IsOnline returns whether this site is online
@@ -1401,14 +1643,52 @@ func (s *Site) IsAWS() bool {
 	}, s.Provider)
 }
 
+// IsGravity returns true if the cluster is running bare Gravity image.
+func (s *Site) IsGravity() bool {
+	return s.App.Package.Name == defaults.TelekubePackage
+}
+
+// IsOpsCenter returns true if the cluster is running Ops Center image.
+func (s *Site) IsOpsCenter() bool {
+	return s.App.Package.Name == defaults.OpsCenterPackage
+}
+
+// ReleaseStatus converts the cluster state to an appropriate Helm release status.
+//
+// This is needed to represent the "application bundle" deployed on a cluster
+// as an application catalog app.
+func (s *Site) ReleaseStatus() string {
+	switch s.State {
+	case SiteStateInstalling:
+		return release.Status_PENDING_INSTALL.String()
+	case SiteStateFailed:
+		return release.Status_FAILED.String()
+	case SiteStateUpdating:
+		return release.Status_PENDING_UPGRADE.String()
+	case SiteStateUninstalling:
+		return release.Status_DELETING.String()
+	default:
+		return release.Status_DEPLOYED.String()
+	}
+}
+
 // Masters returns a list of master nodes from the cluster's state
-func (s *Site) Masters() (masters []storage.Server) {
+func (s *Site) Masters() (masters storage.Servers) {
 	for _, node := range s.ClusterState.Servers {
 		if node.ClusterRole == string(schema.ServiceRoleMaster) {
 			masters = append(masters, node)
 		}
 	}
 	return masters
+}
+
+// FirstMaster returns the first cluster master node.
+func (s *Site) FirstMaster() (*storage.Server, error) {
+	masters := s.Masters()
+	if len(masters) == 0 {
+		return nil, trace.NotFound("no master server found in cluster state")
+	}
+	return &masters[0], nil
 }
 
 // Application holds information about application, such
@@ -1471,7 +1751,7 @@ type Validation interface {
 	// ValidateDomainName validates that the chosen domain name is unique
 	ValidateDomainName(domainName string) error
 	// ValidateServers runs pre-installation checks
-	ValidateServers(ValidateServersRequest) error
+	ValidateServers(context.Context, ValidateServersRequest) error
 	// ValidateRemoteAccess verifies that the cluster nodes are accessible remotely
 	ValidateRemoteAccess(ValidateRemoteAccessRequest) (*ValidateRemoteAccessResponse, error)
 }
@@ -1577,11 +1857,11 @@ type LogForwarders interface {
 	// GetLogForwarders retrieves the list of active log forwarders
 	GetLogForwarders(key SiteKey) ([]storage.LogForwarder, error)
 	// CreateLogForwarder creates a new log forwarder
-	CreateLogForwarder(key SiteKey, forwarder storage.LogForwarder) error
+	CreateLogForwarder(ctx context.Context, key SiteKey, forwarder storage.LogForwarder) error
 	// UpsertLogForwarder updates an existing log forwarder
-	UpdateLogForwarder(key SiteKey, forwarder storage.LogForwarder) error
+	UpdateLogForwarder(ctx context.Context, key SiteKey, forwarder storage.LogForwarder) error
 	// DeleteLogForwarder deletes a log forwarder
-	DeleteLogForwarder(key SiteKey, name string) error
+	DeleteLogForwarder(ctx context.Context, key SiteKey, name string) error
 }
 
 // SMTP defines the interface to manage cluster SMTP configuration
@@ -1589,57 +1869,77 @@ type SMTP interface {
 	// GetSMTPConfig returns the cluster SMTP configuration
 	GetSMTPConfig(SiteKey) (storage.SMTPConfig, error)
 	// UpdateSMTPConfig updates the cluster SMTP configuration
-	UpdateSMTPConfig(SiteKey, storage.SMTPConfig) error
+	UpdateSMTPConfig(context.Context, SiteKey, storage.SMTPConfig) error
 	// DeleteSMTPConfig deletes the cluster STMP configuration
-	DeleteSMTPConfig(SiteKey) error
+	DeleteSMTPConfig(context.Context, SiteKey) error
 }
 
 // Monitoring defines the interface to manage monitoring and metrics
 type Monitoring interface {
-	// GetRetentionPolicies returns a list of retention policies for the site
-	GetRetentionPolicies(SiteKey) ([]monitoring.RetentionPolicy, error)
-	// UpdateRetentionPolicy updates one of site's retention policies
-	UpdateRetentionPolicy(UpdateRetentionPolicyRequest) error
 	// GetAlerts returns the list of configured monitoring alerts
 	GetAlerts(SiteKey) ([]storage.Alert, error)
 	// UpdateAlert updates the specified monitoring alert
-	UpdateAlert(SiteKey, storage.Alert) error
+	UpdateAlert(context.Context, SiteKey, storage.Alert) error
 	// DeleteAlert deletes the monitoring alert specified with name
-	DeleteAlert(key SiteKey, name string) error
+	DeleteAlert(ctx context.Context, key SiteKey, name string) error
 	// GetAlertTargets returns the list of configured monitoring alert targets
 	GetAlertTargets(SiteKey) ([]storage.AlertTarget, error)
 	// UpdateAlertTarget updates cluster's alert target to the specified
-	UpdateAlertTarget(SiteKey, storage.AlertTarget) error
+	UpdateAlertTarget(context.Context, SiteKey, storage.AlertTarget) error
 	// DeleteAlertTarget deletes the monitoring alert target
-	DeleteAlertTarget(SiteKey) error
+	DeleteAlertTarget(context.Context, SiteKey) error
+	// GetClusterMetrics returns basic CPU/RAM metrics for the specified cluster.
+	GetClusterMetrics(context.Context, ClusterMetricsRequest) (*ClusterMetricsResponse, error)
 }
 
-// UpdateRetentionPolicyRequest is a request to update retention policy
-type UpdateRetentionPolicyRequest struct {
-	// AccountID is the site account ID
-	AccountID string `json:"account_id"`
-	// SiteDomain is the site domain name
-	SiteDomain string `json:"site_domain"`
-	// Name is the retention policy to update
-	Name string `json:"name"`
-	// Duration is the new retention duration
-	Duration time.Duration `json:"duration"`
+// ClusterMetricsRequest is a request for cluster metrics.
+type ClusterMetricsRequest struct {
+	// SiteKey is the cluster routing key.
+	SiteKey
+	// Interval is the requested metrics interval.
+	//
+	// If left unspecified, defaults to an hour.
+	Interval time.Duration `json:"interval"`
+	// Step is the optional maximum time b/w two datapoints.
+	//
+	// If left unspecified, defaults to 15 seconds.
+	Step time.Duration `json:"step"`
 }
 
-// Check makes sure the request is correct
-func (r UpdateRetentionPolicyRequest) Check() error {
-	if !utils.StringInSlice(AllRetentions, r.Name) {
-		return trace.BadParameter("unsupported retention %q, supported are: %v",
-			r.Name, AllRetentions)
+// CheckAndSetDefaults validates the request and fills in defaults.
+func (r *ClusterMetricsRequest) CheckAndSetDefaults() error {
+	if err := r.SiteKey.Check(); err != nil {
+		return trace.Wrap(err)
 	}
-	if r.Duration <= 0 {
-		return trace.BadParameter("duration must be > 0")
+	if r.Interval == 0 {
+		r.Interval = defaults.MetricsInterval
 	}
-	if r.Duration > RetentionLimits[r.Name] {
-		return trace.BadParameter("max allowed duration for retention %q is %v, got: %v",
-			r.Name, RetentionLimits[r.Name], r.Duration)
+	if r.Step == 0 {
+		r.Step = defaults.MetricsStep
 	}
 	return nil
+}
+
+// ClusterMetricsResponse is the response containing cluster CPU/RAM metrics.
+type ClusterMetricsResponse struct {
+	// TotalCPUCores is the total number of CPU cores in the cluster.
+	TotalCPUCores int `json:"total_cpu_cores"`
+	// TotalMemoryBytes is the total amount of memory in the cluster.
+	TotalMemoryBytes int64 `json:"total_memory_bytes"`
+	// CPURates contains current/max/historic CPU usage rates.
+	CPURates ClusterMetricsRates `json:"cpu_rates"`
+	// MemoryRates contains current/max/historic memory usage rates.
+	MemoryRates ClusterMetricsRates `json:"memory_rates"`
+}
+
+// ClusterMetricsRates encapsulates usage rates.
+type ClusterMetricsRates struct {
+	// Current is the instantaneous usage rate.
+	Current int `json:"current"`
+	// Max is the peak usage rate on a certain interval.
+	Max int `json:"max"`
+	// Historic is a historic usage rate for a certain interval.
+	Historic monitoring.Series `json:"historic"`
 }
 
 // Endpoints defines cluster and application endpoints management interface
@@ -1706,27 +2006,59 @@ func FindServerByInstanceID(cluster *Site, instanceID string) (*storage.Server, 
 // Identity provides methods for managing users, roles and authentication settings
 type Identity interface {
 	// UpsertUser creates or updates a user
-	UpsertUser(key SiteKey, user teleservices.User) error
+	UpsertUser(ctx context.Context, key SiteKey, user teleservices.User) error
 	// GetUser returns a user by name
 	GetUser(key SiteKey, name string) (teleservices.User, error)
 	// GetUsers returns all users
 	GetUsers(key SiteKey) ([]teleservices.User, error)
 	// DeleteUser deletes a user by name
-	DeleteUser(key SiteKey, name string) error
+	DeleteUser(ctx context.Context, key SiteKey, name string) error
 	// UpsertClusterAuthPreference updates cluster authentication preference
-	UpsertClusterAuthPreference(key SiteKey, auth teleservices.AuthPreference) error
+	UpsertClusterAuthPreference(ctx context.Context, key SiteKey, auth teleservices.AuthPreference) error
 	// GetClusterAuthPreference returns cluster authentication preference
 	GetClusterAuthPreference(key SiteKey) (teleservices.AuthPreference, error)
 	// UpsertGithubConnector creates or updates a Github connector
-	UpsertGithubConnector(key SiteKey, conn teleservices.GithubConnector) error
+	UpsertGithubConnector(ctx context.Context, key SiteKey, conn teleservices.GithubConnector) error
 	// GetGithubConnector returns a Github connector by its name
 	GetGithubConnector(key SiteKey, name string, withSecrets bool) (teleservices.GithubConnector, error)
 	// GetGithubConnectors returns all Github connectors
 	GetGithubConnectors(key SiteKey, withSecrets bool) ([]teleservices.GithubConnector, error)
 	// DeleteGithubConnector deletes a Github connector by name
-	DeleteGithubConnector(key SiteKey, name string) error
+	DeleteGithubConnector(ctx context.Context, key SiteKey, name string) error
 	// UpsertAuthGateway updates auth gateway configuration
-	UpsertAuthGateway(SiteKey, storage.AuthGateway) error
+	UpsertAuthGateway(context.Context, SiteKey, storage.AuthGateway) error
 	// GetAuthGateway returns auth gateway configuration
 	GetAuthGateway(SiteKey) (storage.AuthGateway, error)
+}
+
+// AuditEventRequest describes an audit log event.
+type AuditEventRequest struct {
+	// SiteKey is the ID of the cluster the request is for.
+	SiteKey
+	// Event is the audit event to emit.
+	Event events.Event `json:"event"`
+	// Fields is the audit event additional fields.
+	Fields events.EventFields `json:"fields"`
+}
+
+// Check validates the audit log event request.
+func (r *AuditEventRequest) Check() error {
+	if err := r.SiteKey.Check(); err != nil {
+		return trace.Wrap(err)
+	}
+	if r.Event.Name == "" {
+		return trace.BadParameter("missing audit log event name")
+	}
+	return nil
+}
+
+// String returns the event's string representation.
+func (r AuditEventRequest) String() string {
+	return fmt.Sprintf("AuditEvent(Event=%v, Fields=%v)", r.Event, r.Fields)
+}
+
+// Audit provides interface for emitting audit log events.
+type Audit interface {
+	// EmitAuditEvent saves the provided event in the audit log.
+	EmitAuditEvent(context.Context, AuditEventRequest) error
 }

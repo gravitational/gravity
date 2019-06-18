@@ -25,8 +25,8 @@ import (
 	"github.com/gravitational/gravity/lib/utils"
 )
 
-// SystemInfo returns a list of collectors to fetch various bits of system information
-func SystemInfo() Collectors {
+// NewSystemCollector returns a list of collectors to fetch system information
+func NewSystemCollector() Collectors {
 	var collectors Collectors
 	add := func(additional ...Collector) {
 		collectors = append(collectors, additional...)
@@ -103,8 +103,8 @@ func systemFileLogs() Collectors {
 #!/bin/bash
 cat %v 2> /dev/null || true`
 	return Collectors{
-		Script(filepath.Base(defaults.TelekubeSystemLog), fmt.Sprintf(template, defaults.TelekubeSystemLog)),
-		Script(filepath.Base(defaults.TelekubeUserLog), fmt.Sprintf(template, defaults.TelekubeUserLog)),
+		Script(filepath.Base(defaults.GravitySystemLog), fmt.Sprintf(template, defaults.GravitySystemLog)),
+		Script(filepath.Base(defaults.GravityUserLog), fmt.Sprintf(template, defaults.GravityUserLog)),
 	}
 }
 

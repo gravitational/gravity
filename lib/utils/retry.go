@@ -100,7 +100,7 @@ func Retry(period time.Duration, maxAttempts int, fn func() error) error {
 		}
 		time.Sleep(period)
 	}
-	log.Errorf("All attempts failed:\n%v.", trace.DebugReport(err))
+	log.WithError(err).Warn("All attempts failed.")
 	return err
 }
 
@@ -235,7 +235,7 @@ func RetryWithInterval(ctx context.Context, interval backoff.BackOff, fn func() 
 		err = fn()
 		return err
 	}, b, func(err error, d time.Duration) {
-		log.Infof("Retrying: %v (time %v).", trace.UserMessage(err), d)
+		log.WithError(err).Infof("Retrying in %v.", d)
 	})
 
 	switch errOrig := trace.Unwrap(err).(type) {
@@ -244,14 +244,14 @@ func RetryWithInterval(ctx context.Context, interval backoff.BackOff, fn func() 
 		err = errOrig.Err
 	}
 	if err != nil {
-		log.Errorf("All attempts failed: %v.", trace.DebugReport(err))
+		log.WithError(err).Warn("All attempts failed.")
 		return trace.Wrap(err)
 	}
 	return nil
 }
 
 // NewUnlimitedExponentialBackOff returns a backoff interval without time restriction
-func NewUnlimitedExponentialBackOff() backoff.BackOff {
+func NewUnlimitedExponentialBackOff() *backoff.ExponentialBackOff {
 	b := backoff.NewExponentialBackOff()
 	b.MaxElapsedTime = 0
 	return b

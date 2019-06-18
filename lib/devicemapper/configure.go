@@ -66,18 +66,18 @@ func Mount(disk string, out io.Writer, entry log.FieldLogger) (err error) {
 }
 
 // Unmount removes docker devicemapper environment
-func Unmount(out io.Writer, entry *log.Entry) (err error) {
-	disk, err := queryPhysicalVolume(entry)
+func Unmount(out io.Writer, logger log.FieldLogger) (err error) {
+	disk, err := queryPhysicalVolume(logger)
 	if err != nil {
 		return trace.Wrap(err)
 	}
 	if disk == "" {
-		entry.Infof("no physical volumes found")
+		logger.Info("No physical volumes found.")
 		return nil
 	}
-	entry.Infof("found physical volume on disk %v", disk)
+	logger.Infof("Found physical volume on disk %v.", disk)
 	config := &config{
-		FieldLogger: entry,
+		FieldLogger: logger,
 		disk:        disk,
 		out:         out,
 	}
@@ -96,12 +96,12 @@ func Unmount(out io.Writer, entry *log.Entry) (err error) {
 	return nil
 }
 
-func queryPhysicalVolume(entry *log.Entry) (disk string, err error) {
-	entry.Debugf("query physical volume information")
+func queryPhysicalVolume(logger log.FieldLogger) (disk string, err error) {
+	logger.Debug("Query physical volume information.")
 
 	out := bytes.Buffer{}
 	cmd := exec.Command("vgs", "-o", "pv_name", "--noheadings", "-S", fmt.Sprintf("vg_name=%v", volumeGroup))
-	if err = utils.ExecL(cmd, &out, entry); err != nil {
+	if err = utils.ExecL(cmd, &out, logger); err != nil {
 		return "", trace.Wrap(err, "failed to query physical volume information")
 	}
 	return strings.TrimSpace(out.String()), nil

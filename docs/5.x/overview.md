@@ -43,6 +43,22 @@ In other words, a Gravity Application Bundle is a _self-contained, downloadable
 Kubernetes appliance_ which enables true application portability across any
 public or private infrastructure.
 
+## Components
+
+Gravity consists of these major components:
+
+
+* [gravity](/cluster/#gravity-tool): the CLI tool used to manage the cluster.
+Gravity is only available inside the cluster so you have to either `tsh ssh` into the cluster or use web UI to execute `gravity` commands.
+* **`tele`**: the CLI tool which is used for packaging and publishing applications.
+* **`tsh`**: the SSH client for establishing secure SSH connections between the
+  Ops Center and the application instances running behind firewalls on private clouds.
+  `tsh` is a part of [Gravitational Teleport](http://gravitational.com/teleport/),
+  a free open source SSH server developed, maintained and supported by Gravitational.
+  It can be used independently from Gravity.
+* [Ops Center](/opscenter): the Web UI for managing published applications and remotely
+  accessing private cloud deployments.
+
 ## Cluster Lifecycle
 
 Application Bundles may contain "empty", pre-packaged Kubernetes for

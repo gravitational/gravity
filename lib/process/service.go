@@ -45,6 +45,9 @@ type GravityProcess interface {
 	UsersService() users.Identity
 	// Config returns the proces config
 	Config() *processconfig.Config
+	// Shutdown starts graceful shutdown of the process,
+	// blocks until all resources are freed and go-routines have shut down
+	Shutdown(context.Context)
 }
 
 // NewGravityProcess defines a function that creates a gravity process

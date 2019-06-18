@@ -20,22 +20,30 @@ import (
 	stdlog "log"
 	"os"
 
+	"github.com/gravitational/gravity/lib/utils"
 	"github.com/gravitational/gravity/tool/common"
 	"github.com/gravitational/gravity/tool/gravity/cli"
 
 	teleutils "github.com/gravitational/teleport/lib/utils"
 	"github.com/gravitational/trace"
 	log "github.com/sirupsen/logrus"
-	"gopkg.in/alecthomas/kingpin.v2"
+	kingpin "gopkg.in/alecthomas/kingpin.v2"
 )
 
 func main() {
 	teleutils.InitLogger(teleutils.LoggingForCLI, log.InfoLevel)
 	stdlog.SetOutput(log.StandardLogger().Writer())
+
+	// configure the process to avoid common proxy related installation problems
+	cli.ConfigureNoProxy()
+
 	app := kingpin.New("gravity", "Cluster management tool")
 	if err := run(app); err != nil {
 		log.Error(trace.DebugReport(err))
 		common.PrintError(err)
+		if errCode, ok := trace.Unwrap(err).(utils.ExitCodeError); ok {
+			os.Exit(errCode.ExitCode())
+		}
 		os.Exit(255)
 	}
 }

@@ -50,8 +50,8 @@ Description={{.Description}}
 TimeoutStartSec={{.Timeout}}
 {{if .Type}}Type={{.Type}}{{end}}
 {{if .User}}User={{.User}}{{end}}
-ExecStart={{.StartCommand}}
-{{if .StartPreCommand}}ExecStartPre={{.StartPreCommand}}{{end}}
+ExecStart={{.StartCommand}}{{range .StartPreCommands}}
+ExecStartPre={{.}}{{end}}
 {{if .StartPostCommand}}ExecStartPost={{.StartPostCommand}}{{end}}
 {{if .StopCommand}}ExecStop={{.StopCommand}}{{end}}
 {{if .StopPostCommand}}ExecStopPost={{.StopPostCommand}}{{end}}
@@ -62,6 +62,9 @@ ExecStart={{.StartCommand}}
 {{if .TimeoutStopSec}}TimeoutStopSec={{.TimeoutStopSec}}{{end}}
 {{if .RestartSec}}RestartSec={{.RestartSec}}{{end}}
 {{if .RemainAfterExit}}RemainAfterExit=yes{{end}}
+{{if .RestartPreventExitStatus}}RestartPreventExitStatus={{.RestartPreventExitStatus}}{{end}}
+{{if .SuccessExitStatus}}SuccessExitStatus={{.SuccessExitStatus}}{{end}}
+{{if .WorkingDirectory}}WorkingDirectory={{.WorkingDirectory}}{{end}}
 {{range $k, $v := .Environment}}Environment={{$k}}={{$v}}
 {{end}}
 {{if .TasksMax}}TasksMax={{.TasksMax}}{{end}}
@@ -125,19 +128,18 @@ func (u *systemdUnit) serviceName() string {
 }
 
 func (u *systemdUnit) servicePath() string {
-	return filepath.Join(systemdUnitFileDir, u.serviceName())
+	return unitPath(u.serviceName())
 }
 
-func (s *systemdManager) installService(service serviceTemplate, noBlock bool) error {
-	service.Environment = map[string]string{
-		defaults.PathEnv: defaults.PathEnvVal,
+func (s *systemdManager) installService(service serviceTemplate, req NewServiceRequest) error {
+	if service.Environment == nil {
+		service.Environment = make(map[string]string)
 	}
-
-	servicePath := filepath.Join(systemdUnitFileDir, SystemdNameEscape(service.Name))
-	f, err := os.Create(servicePath)
+	service.Environment[defaults.PathEnv] = defaults.PathEnvVal
+	f, err := os.Create(unitPath(req.Name))
 	if err != nil {
 		return trace.Wrap(err,
-			"error creating systemd unit file at %v", servicePath)
+			"error creating systemd unit file at %v", unitPath(req.Name))
 	}
 	defer f.Close()
 
@@ -146,11 +148,11 @@ func (s *systemdManager) installService(service serviceTemplate, noBlock bool) e
 		return trace.Wrap(err, "error rendering template")
 	}
 
-	if err := s.EnableService(service.Name); err != nil {
+	if err := s.EnableService(req.Name); err != nil {
 		return trace.Wrap(err, "error enabling the service")
 	}
 
-	if err := s.StartService(service.Name, noBlock); err != nil {
+	if err := s.StartService(service.Name, req.NoBlock); err != nil {
 		return trace.Wrap(err, "error starting the service")
 	}
 
@@ -209,18 +211,26 @@ func (s *systemdManager) InstallPackageService(req NewPackageServiceRequest) err
 		Description: fmt.Sprintf("Auto-generated service for the %v package", req.Package),
 	}
 
-	return trace.Wrap(s.installService(template, req.NoBlock))
+	return trace.Wrap(s.installService(template, NewServiceRequest{
+		ServiceSpec: req.ServiceSpec,
+		Name:        unit.serviceName(),
+		NoBlock:     req.NoBlock,
+	}))
 }
 
 // UninstallPackageService uninstalls gravity service implemented as a gravity package command
 func (s *systemdManager) UninstallPackageService(pkg loc.Locator) error {
-	return trace.Wrap(s.UninstallService(newSystemdUnit(pkg).serviceName()))
+	return trace.Wrap(s.UninstallService(UninstallServiceRequest{
+		Name: newSystemdUnit(pkg).serviceName(),
+	}))
 
 }
 
 // DisablePackageService disables gravity service implemented as a gravity package command
 func (s *systemdManager) DisablePackageService(pkg loc.Locator) error {
-	return s.DisableService(newSystemdUnit(pkg).serviceName())
+	return s.DisableService(DisableServiceRequest{
+		Name: newSystemdUnit(pkg).serviceName(),
+	})
 }
 
 // IsPackageServiceInstalled checks if the package service is installed
@@ -254,8 +264,8 @@ func (s *systemdManager) ListPackageServices() ([]PackageServiceStatus, error) {
 		if pkg == nil {
 			continue
 		}
-		services = append(
-			services, PackageServiceStatus{Package: *pkg, Status: words[2]})
+		services = append(services,
+			PackageServiceStatus{Package: *pkg, Status: words[2]})
 	}
 	return services, nil
 }
@@ -300,11 +310,11 @@ func (s *systemdManager) InstallService(req NewServiceRequest) error {
 		return trace.Wrap(err)
 	}
 	template := serviceTemplate{
-		Name:        req.Name,
+		Name:        serviceName(req.Name),
 		ServiceSpec: req.ServiceSpec,
 		Description: fmt.Sprintf("Auto-generated service for the %v", req.Name),
 	}
-	return trace.Wrap(s.installService(template, req.NoBlock))
+	return trace.Wrap(s.installService(template, req))
 }
 
 // InstalMountService installs a new mount service with the system service manager
@@ -321,32 +331,41 @@ func (s *systemdManager) InstallMountService(req NewMountServiceRequest) error {
 }
 
 // UninstallService uninstalls service
-func (s *systemdManager) UninstallService(name string) error {
-	out, err := invokeSystemctl("disable", name)
-	if err != nil {
-		return trace.Wrap(err, "error disabling service %v: %v", name, out)
+func (s *systemdManager) UninstallService(req UninstallServiceRequest) error {
+	logger := log.WithField("service", req.Name)
+	serviceName := serviceName(req.Name)
+	out, err := invokeSystemctl("stop", serviceName)
+	if err != nil && !IsUnknownServiceError(err) {
+		return trace.Wrap(err)
 	}
 
-	out, err = invokeSystemctl("stop", name)
-	if err != nil {
-		return trace.Wrap(err, "error stopping service %v: %s", name, out)
+	out, err = invokeSystemctl("disable", serviceName)
+	if err != nil && !IsUnknownServiceError(err) {
+		return trace.Wrap(err)
 	}
 
-	out, err = invokeSystemctl("is-failed", name)
+	out, err = invokeSystemctl("is-failed", serviceName)
 	status := strings.TrimSpace(out)
+
+	unitPath := unitPath(req.Name)
+	if errDelete := os.Remove(unitPath); errDelete != nil && !os.IsNotExist(err) {
+		logger.WithError(errDelete).Warn("Failed to delete service unit file.")
+	}
 
 	switch status {
 	case ServiceStatusInactive:
 		// Ignore the inactive state
 		return nil
 	case ServiceStatusFailed:
-		return trace.CompareFailed("error stopping service %v: %s", name, out)
+		return trace.CompareFailed("error stopping service %q: %s", serviceName, out)
 	default:
-		if err != nil {
+		if err != nil && !IsUnknownServiceError(err) {
 			// Results of `systemctl is-failed` are purely informational
 			// beyond the state values we already check above
-			log.Warnf("service %v status: %s", name, out)
-			log.Debug(trace.DebugReport(err))
+			logger.WithFields(log.Fields{
+				log.ErrorKey: err,
+				"output":     out,
+			}).Warn("UninstallService.")
 		}
 	}
 
@@ -354,10 +373,10 @@ func (s *systemdManager) UninstallService(name string) error {
 }
 
 // DisableService disables service without stopping it
-func (s *systemdManager) DisableService(name string) error {
-	out, err := invokeSystemctl("disable", name)
+func (s *systemdManager) DisableService(req DisableServiceRequest) error {
+	out, err := invokeSystemctl("disable", serviceName(req.Name))
 	if err != nil {
-		return trace.Wrap(err, "error disabling service %v: %v", name, out)
+		return trace.Wrap(err, "error disabling service %v: %s", req.Name, out)
 	}
 	return nil
 }
@@ -434,4 +453,24 @@ func invokeSystemctl(args ...string) (string, error) {
 	out := &bytes.Buffer{}
 	err := utils.ExecL(cmd, out, log.WithField(trace.Component, constants.ComponentSystem))
 	return out.String(), trace.Wrap(err)
+}
+
+// unitPath returns the default path for the systemd unit with the given name.
+// If the name is an absolute path, it is returned verbatim
+func unitPath(name string) (path string) {
+	if filepath.IsAbs(name) {
+		return name
+	}
+	return DefaultUnitPath(name)
+}
+
+// DefaultUnitPath returns the default path for the specified systemd unit
+func DefaultUnitPath(name string) (path string) {
+	return filepath.Join(systemdUnitFileDir, SystemdNameEscape(name))
+}
+
+// serviceName returns just the name portion of the unit path.
+// If the name is already a relative service name, it is returned verbatim
+func serviceName(name string) string {
+	return filepath.Base(name)
 }

@@ -18,7 +18,6 @@ package localenv
 
 import (
 	"fmt"
-	"io"
 	"net/http"
 	"os"
 	"path"
@@ -71,10 +70,17 @@ type LocalEnvironmentArgs struct {
 	// EtcdRetryTimeout specifies the timeout on ETCD transient errors.
 	// Defaults to EtcdRetryInterval if unspecified
 	EtcdRetryTimeout time.Duration
+	// BoltOpenTimeout specifies the timeout on opening the local state database.
+	// Negative value means no timeout.
+	// Defaults to defaults.DBOpenTimeout if unspecified
+	BoltOpenTimeout time.Duration
 	// Reporter controls progress output
 	Reporter pack.ProgressReporter
 	// DNS is the local cluster DNS server configuration
 	DNS DNSConfig
+	// ReadonlyBackend specifies if the backend should be opened
+	// read-only.
+	ReadonlyBackend bool
 }
 
 // Addr returns the first listen address of the DNS server
@@ -137,12 +143,13 @@ func New(stateDir string) (*LocalEnvironment, error) {
 
 // NewLocalEnvironment creates a new LocalEnvironment given the specified configuration
 // arguments.
+// It is caller's responsibility to close the environment with Close after use
 func NewLocalEnvironment(args LocalEnvironmentArgs) (*LocalEnvironment, error) {
 	if args.StateDir == "" {
 		return nil, trace.BadParameter("missing parameter StateDir")
 	}
 
-	log.Debugf("Creating local env: %#v.", args)
+	log.WithField("args", args).Debug("Creating local environment.")
 
 	var err error
 	args.StateDir, err = filepath.Abs(args.StateDir)
@@ -165,8 +172,10 @@ func (env *LocalEnvironment) init() error {
 	}
 
 	env.Backend, err = keyval.NewBolt(keyval.BoltConfig{
-		Path:  filepath.Join(env.StateDir, defaults.GravityDBFile),
-		Multi: true,
+		Path:     filepath.Join(env.StateDir, defaults.GravityDBFile),
+		Multi:    true,
+		Readonly: env.ReadonlyBackend,
+		Timeout:  env.BoltOpenTimeout,
 	})
 	if err != nil {
 		return trace.Wrap(err)
@@ -313,40 +322,6 @@ func (env *LocalEnvironment) SelectOpsCenterWithDefault(opsURL, defaultURL strin
 			opsURL)
 	}
 	return url, nil
-}
-
-// Printf outputs specified arguments to stdout if the silent mode is not on.
-func (env *LocalEnvironment) Printf(format string, args ...interface{}) (n int, err error) {
-	log.Debugf(format, args...)
-	if !env.Silent {
-		return fmt.Printf(format, args...)
-	}
-	return 0, nil
-}
-
-// Println outputs specified arguments to stdout if the silent mode is not on.
-func (env *LocalEnvironment) Println(args ...interface{}) (n int, err error) {
-	log.Debugln(args...)
-	if !env.Silent {
-		return fmt.Println(args...)
-	}
-	return 0, nil
-}
-
-// PrintStep outputs the message with timestamp to stdout
-func (env *LocalEnvironment) PrintStep(format string, args ...interface{}) (n int, err error) {
-	log.Debugf(format, args...)
-	if !env.Silent {
-		return fmt.Printf("%v\t%v\n", time.Now().UTC().Format(
-			constants.HumanDateFormatSeconds), fmt.Sprintf(format, args...))
-	}
-	return 0, nil
-}
-
-// Write outputs specified arguments to stdout if the silent mode is not on.
-// Write implements io.Writer
-func (env *LocalEnvironment) Write(p []byte) (n int, err error) {
-	return env.Printf(string(p))
 }
 
 func (env *LocalEnvironment) HTTPClient(options ...httplib.ClientOption) *http.Client {
@@ -780,6 +755,15 @@ func (r Silent) Println(args ...interface{}) (n int, err error) {
 	return 0, nil
 }
 
+// PrintStep outputs the message with timestamp to stdout
+func (r Silent) PrintStep(format string, args ...interface{}) (n int, err error) {
+	if !r {
+		return fmt.Printf("%v\t%v\n", time.Now().UTC().Format(
+			constants.HumanDateFormatSeconds), fmt.Sprintf(format, args...))
+	}
+	return 0, nil
+}
+
 // Write outputs specified arguments to stdout if the silent mode is not on.
 // Write implements io.Writer
 func (r Silent) Write(p []byte) (n int, err error) {
@@ -787,13 +771,5 @@ func (r Silent) Write(p []byte) (n int, err error) {
 }
 
 // Silent implements a silent flag and controls console output.
-// Implements Printer
+// Implements utils.Printer
 type Silent bool
-
-// Printer describes a capability to output to standard output
-type Printer interface {
-	io.Writer
-	Printf(format string, args ...interface{}) (int, error)
-	Print(args ...interface{}) (int, error)
-	Println(args ...interface{}) (int, error)
-}

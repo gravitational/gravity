@@ -20,6 +20,7 @@ import (
 	"context"
 	"crypto/tls"
 	"fmt"
+	"io"
 	"io/ioutil"
 	"net"
 	"net/http"
@@ -78,7 +79,6 @@ import (
 	telemodules "github.com/gravitational/teleport/lib/modules"
 	"github.com/gravitational/teleport/lib/reversetunnel"
 	"github.com/gravitational/teleport/lib/service"
-	teleservice "github.com/gravitational/teleport/lib/service"
 	teleservices "github.com/gravitational/teleport/lib/services"
 	teleutils "github.com/gravitational/teleport/lib/utils"
 	teleweb "github.com/gravitational/teleport/lib/web"
@@ -95,11 +95,12 @@ import (
 )
 
 type Process struct {
-	sync.Once
 	sync.Mutex
-	service.Supervisor
+	*service.TeleportProcess
 	logrus.FieldLogger
+	shutdownOnce   sync.Once
 	context        context.Context
+	cancel         context.CancelFunc
 	backend        storage.Backend
 	leader         storage.Leader
 	packages       pack.PackageService
@@ -134,6 +135,10 @@ type Process struct {
 	// a config that gets applied on top of teleport's config the process
 	// was started with)
 	authGatewayConfig storage.AuthGateway
+	// healthServer serves controller's health API
+	healthServer *http.Server
+	// wg defines the wait group for all internal processes
+	wg sync.WaitGroup
 }
 
 // Handlers combines all the process' web and API Handlers
@@ -177,6 +182,8 @@ type ServiceStartedEvent struct {
 func New(ctx context.Context, cfg processconfig.Config, tcfg telecfg.FileConfig) (*Process, error) {
 	// enable Enterprise version modules
 	telemodules.SetModules(&enterpriseModules{})
+
+	ctx, cancel := context.WithCancel(ctx)
 
 	err := cfg.CheckAndSetDefaults()
 	if err != nil {
@@ -255,6 +262,7 @@ func New(ctx context.Context, cfg processconfig.Config, tcfg telecfg.FileConfig)
 
 	process := &Process{
 		context:        ctx,
+		cancel:         cancel,
 		packages:       packages,
 		backend:        backend,
 		cfg:            cfg,
@@ -311,12 +319,12 @@ func (p *Process) Init(ctx context.Context) error {
 
 // Start initializes the process and starts all services
 func (p *Process) Start() (err error) {
-	p.Supervisor, err = service.NewTeleport(p.teleportConfig)
+	p.TeleportProcess, err = service.NewTeleport(p.teleportConfig)
 	if err != nil {
 		return trace.Wrap(err)
 	}
-	p.Supervisor.RegisterFunc("gravity.service", func() (err error) {
-		defer p.Supervisor.BroadcastEvent(service.Event{
+	p.RegisterFunc("gravity.service", func() (err error) {
+		defer p.BroadcastEvent(service.Event{
 			Name:    constants.ServiceStartedEvent,
 			Payload: &ServiceStartedEvent{Error: err},
 		})
@@ -328,7 +336,26 @@ func (p *Process) Start() (err error) {
 		}
 		return nil
 	})
-	return p.Supervisor.Start()
+	return p.TeleportProcess.Start()
+}
+
+// Shutdown initiates graceful shutdown of this process
+func (p *Process) Shutdown(ctx context.Context) {
+	p.cancel()
+	p.shutdownOnce.Do(func() {
+		p.stopClusterServices()
+		if p.clusterObjects != nil {
+			p.clusterObjects.Close()
+		}
+		if p.healthServer != nil {
+			p.healthServer.Shutdown(ctx)
+		}
+		if p.proxy != nil {
+			p.proxy.Close()
+		}
+		p.TeleportProcess.Shutdown(ctx)
+		p.wg.Wait()
+	})
 }
 
 // TeleportConfig returns the process teleport config
@@ -395,7 +422,7 @@ func (p *Process) Config() *processconfig.Config {
 // pending cluster operations
 func (p *Process) StartResumeOperationLoop() {
 	p.resumeOperationCh = make(chan struct{})
-	go p.resumeLastOperationLoop()
+	p.startService(p.resumeLastOperationLoop)
 }
 
 func (p *Process) getTeleportConfigFromImportState() (*telecfg.FileConfig, error) {
@@ -503,114 +530,113 @@ func (p *Process) startAutoscale(ctx context.Context) error {
 	}
 
 	// receive and process events from SQS notification service
-	go autoscaler.ProcessEvents(ctx, queueURL, p.operator)
+	p.RegisterClusterService(func(ctx context.Context) {
+		localCtx := context.WithValue(ctx, constants.UserContext,
+			constants.ServiceAutoscaler)
+		autoscaler.ProcessEvents(localCtx, queueURL, p.operator)
+	})
 	// publish discovery information about this cluster
-	go autoscaler.PublishDiscovery(ctx, p.operator)
+	p.RegisterClusterService(func(ctx context.Context) {
+		localCtx := context.WithValue(ctx, constants.UserContext,
+			constants.ServiceAutoscaler)
+		autoscaler.PublishDiscovery(localCtx, p.operator)
+	})
 	return nil
 }
 
-// startApplicationsSynchronizer starts a service that periodically exports
+// runApplicationsSynchronizer runs a service that periodically exports
 // Docker images of the cluster's application images to the local Docker
 // registry.
 //
 // TODO There may be a lot of apps, may be worth parallelizing this.
-func (p *Process) startApplicationsSynchronizer(ctx context.Context) error {
+func (p *Process) runApplicationsSynchronizer(ctx context.Context) {
 	p.Info("Starting app images synchronizer.")
-	go func() {
-		ticker := time.NewTicker(defaults.AppSyncInterval)
-		defer ticker.Stop()
-		for {
-			select {
-			case <-ticker.C:
-				apps, err := p.applications.ListApps(app.ListAppsRequest{
-					Repository: defaults.SystemAccountOrg,
-				})
-				if err != nil {
-					p.Errorf("Failed to query applications: %v.",
-						trace.DebugReport(err))
-					continue
-				}
-				for _, a := range apps {
-					if a.Manifest.Kind == schema.KindApplication {
-						p.Infof("Exporting app image %v to registry.", a.Package)
-						err = p.applications.ExportApp(app.ExportAppRequest{
-							Package:         a.Package,
-							RegistryAddress: constants.LocalRegistryAddr,
-							CertName:        constants.DockerRegistry,
-						})
-						if err != nil {
-							p.Errorf("Failed to synchronize registry: %v.",
-								trace.DebugReport(err))
-						}
-					}
-				}
-			case <-ctx.Done():
-				p.Info("Stopping app images synchronizer.")
-				return
-			}
-		}
-	}()
-	return nil
-}
-
-// startRegistrySynchronizer starts a goroutine that synchronizes the cluster app
-// with the local registry periodically
-func (p *Process) startRegistrySynchronizer(ctx context.Context) error {
-	p.Info("Starting registry synchronizer.")
-	go func() {
-		ticker := time.NewTicker(defaults.RegistrySyncInterval)
-		defer ticker.Stop()
-		for {
-			select {
-			case <-ticker.C:
-				cluster, err := p.operator.GetLocalSite()
-				if err != nil {
-					p.Errorf("Failed to query local cluster: %v.",
-						trace.DebugReport(err))
-					continue
-				}
-				err = p.applications.ExportApp(app.ExportAppRequest{
-					Package:         cluster.App.Package,
-					RegistryAddress: constants.LocalRegistryAddr,
-					CertName:        constants.DockerRegistry,
-				})
-				if err != nil {
-					p.Errorf("Failed to synchronize registry: %v.",
-						trace.DebugReport(err))
-				}
-			case <-ctx.Done():
-				p.Info("Stopping registry synchronizer.")
-				return
-			}
-		}
-	}()
-	return nil
-}
-
-// startSiteStatusChecker periodically invokes app status hook; should be run in a goroutine
-func (p *Process) startSiteStatusChecker(ctx context.Context) error {
-	site, err := p.operator.GetLocalSite()
-	if err != nil {
-		return trace.Wrap(err)
-	}
-
-	p.Info("Starting cluster status checker.")
-	ticker := time.NewTicker(defaults.SiteStatusCheckInterval)
+	ticker := time.NewTicker(defaults.AppSyncInterval)
+	defer ticker.Stop()
 	for {
 		select {
 		case <-ticker.C:
-			key := ops.SiteKey{
-				AccountID:  site.AccountID,
-				SiteDomain: site.Domain,
+			apps, err := p.applications.ListApps(app.ListAppsRequest{
+				Repository: defaults.SystemAccountOrg,
+			})
+			if err != nil {
+				p.Errorf("Failed to query applications: %v.",
+					trace.DebugReport(err))
+				continue
 			}
-			if err := p.operator.CheckSiteStatus(key); err != nil {
-				p.Errorf("Cluster status check failed: %v.",
+			for _, a := range apps {
+				if a.Manifest.Kind == schema.KindApplication {
+					p.Infof("Exporting app image %v to registry.", a.Package)
+					err = p.applications.ExportApp(app.ExportAppRequest{
+						Package:         a.Package,
+						RegistryAddress: constants.LocalRegistryAddr,
+						CertName:        constants.DockerRegistry,
+					})
+					if err != nil {
+						p.Errorf("Failed to synchronize registry: %v.",
+							trace.DebugReport(err))
+					}
+				}
+			}
+		case <-ctx.Done():
+			p.Info("Stopping app images synchronizer.")
+			return
+		}
+	}
+}
+
+// runRegistrySynchronizer runs a service that periodically synchronizes the cluster app
+// with the local registry
+func (p *Process) runRegistrySynchronizer(ctx context.Context) {
+	p.Info("Starting registry synchronizer.")
+	ticker := time.NewTicker(defaults.RegistrySyncInterval)
+	defer ticker.Stop()
+	for {
+		select {
+		case <-ticker.C:
+			cluster, err := p.operator.GetLocalSite()
+			if err != nil {
+				p.Errorf("Failed to query local cluster: %v.",
+					trace.DebugReport(err))
+				continue
+			}
+			err = p.applications.ExportApp(app.ExportAppRequest{
+				Package:         cluster.App.Package,
+				RegistryAddress: constants.LocalRegistryAddr,
+				CertName:        constants.DockerRegistry,
+			})
+			if err != nil {
+				p.Errorf("Failed to synchronize registry: %v.",
 					trace.DebugReport(err))
 			}
 		case <-ctx.Done():
+			p.Info("Stopping registry synchronizer.")
+			return
+		}
+	}
+}
+
+// runSiteStatusChecker periodically invokes app status hook; should be run in a goroutine
+func (p *Process) runSiteStatusChecker(ctx context.Context) {
+	p.Info("Starting cluster status checker.")
+	ticker := time.NewTicker(defaults.SiteStatusCheckInterval)
+	defer ticker.Stop()
+	localCtx := context.WithValue(ctx, constants.UserContext,
+		constants.ServiceStatusChecker)
+	for {
+		select {
+		case <-ticker.C:
+			cluster, err := p.operator.GetLocalSite()
+			if err != nil {
+				p.WithError(err).Warn("Failed to get local cluster.")
+				continue
+			}
+			if err := p.operator.CheckSiteStatus(localCtx, cluster.Key()); err != nil {
+				p.WithError(err).Warn("Cluster status check failed.")
+			}
+		case <-ctx.Done():
 			p.Info("Stopping cluster status checker.")
-			ticker.Stop()
-			return nil
+			return
 		}
 	}
 }
@@ -656,7 +682,7 @@ func (p *Process) onSiteLeader(oldLeaderID string) {
 	}
 
 	// Notify that the service became the leader
-	p.Supervisor.BroadcastEvent(service.Event{Name: constants.ServiceSelfLeaderEvent})
+	p.BroadcastEvent(service.Event{Name: constants.ServiceSelfLeaderEvent})
 
 	// attempt to resume last operation
 	select {
@@ -667,17 +693,31 @@ func (p *Process) onSiteLeader(oldLeaderID string) {
 
 	// active master runs various services that periodically check
 	// the cluster and application status, etc.
-	p.startClusterServices(p.clusterServices)
+	p.startClusterServices()
+}
+
+func (p *Process) startService(service clusterService) {
+	p.startServiceWithContext(p.context, service)
+}
+
+func (p *Process) startServiceWithContext(ctx context.Context, service clusterService) {
+	p.wg.Add(1)
+	go func() {
+		service(ctx)
+		p.wg.Done()
+	}()
 }
 
 // clusterService represents a blocking function that performs some cluster-specific
 // periodic action (e.g. runs status hook) and can be stopped by canceling the
 // provided context
-type clusterService func(context.Context) error
+type clusterService func(context.Context)
 
 // RegisterClusterService adds the service to the list of registered cluster
-// services. Cluster services only run on the leader
+// services to run on the leader
 func (p *Process) RegisterClusterService(service clusterService) {
+	p.Lock()
+	defer p.Unlock()
 	p.clusterServices = append(p.clusterServices, service)
 }
 
@@ -685,7 +725,7 @@ func (p *Process) RegisterClusterService(service clusterService) {
 // active gravity master, like status checker
 //
 // No-op if the services are already running
-func (p *Process) startClusterServices(services []clusterService) error {
+func (p *Process) startClusterServices() error {
 	p.Lock()
 	defer p.Unlock()
 
@@ -696,8 +736,8 @@ func (p *Process) startClusterServices(services []clusterService) error {
 	ctx, cancel := context.WithCancel(p.context)
 	p.cancelServices = cancel
 
-	for _, service := range services {
-		go service(ctx)
+	for _, service := range p.clusterServices {
+		p.startServiceWithContext(ctx, service)
 	}
 
 	return nil
@@ -727,7 +767,7 @@ func (p *Process) clusterServicesRunning() bool {
 
 // resumeLastOperationLoop is a long running process that handles requests to resume
 // last active cluster operations.
-func (p *Process) resumeLastOperationLoop() {
+func (p *Process) resumeLastOperationLoop(ctx context.Context) {
 	for {
 		select {
 		case <-p.resumeOperationCh:
@@ -746,6 +786,8 @@ func (p *Process) resumeLastOperationLoop() {
 			} else {
 				p.Errorf("Failed to resume last operation: %v.", trace.DebugReport(err))
 			}
+		case <-ctx.Done():
+			return
 		}
 	}
 }
@@ -846,7 +888,10 @@ func (p *Process) ReportHealth(w http.ResponseWriter, r *http.Request) {
 		if elapsed > 25*time.Millisecond {
 			log.WithField("elapsed", elapsed).Error("Backend is slow.")
 		}
-		healthCh <- err
+		select {
+		case healthCh <- err:
+		case <-ctx.Done():
+		}
 	}()
 
 	select {
@@ -934,18 +979,14 @@ func (p *Process) APIAdvertiseHost() string {
 	return host
 }
 
-func (p *Process) teleportProcess() *teleservice.TeleportProcess {
-	return p.Supervisor.(*teleservice.TeleportProcess)
-}
-
 func (p *Process) newAuthClient(authServers []teleutils.NetAddr, identity *teleauth.Identity) (*teleauth.Client, error) {
-	tlsConfig, err := identity.TLSConfig(p.teleportProcess().Config.CipherSuites)
+	tlsConfig, err := identity.TLSConfig(p.TeleportProcess.Config.CipherSuites)
 	if err != nil {
 		return nil, trace.Wrap(err)
 	}
-	if p.teleportProcess().Config.ClientTimeout != 0 {
+	if p.TeleportProcess.Config.ClientTimeout != 0 {
 		return teleauth.NewTLSClient(authServers, tlsConfig,
-			teleauth.ClientTimeout(p.teleportProcess().Config.ClientTimeout))
+			teleauth.ClientTimeout(p.TeleportProcess.Config.ClientTimeout))
 	}
 	return teleauth.NewTLSClient(authServers, tlsConfig)
 }
@@ -953,14 +994,23 @@ func (p *Process) newAuthClient(authServers []teleutils.NetAddr, identity *telea
 func (p *Process) initService(ctx context.Context) (err error) {
 	eventC := make(chan service.Event)
 	p.WaitForEvent(ctx, service.AuthIdentityEvent, eventC)
-	event := <-eventC
+	var event service.Event
+	select {
+	case event = <-eventC:
+	case <-ctx.Done():
+		return trace.Wrap(ctx.Err())
+	}
 	p.Infof("Received %v event.", &event)
 	conn, ok := (event.Payload).(*service.Connector)
 	if !ok {
 		return trace.BadParameter("unsupported Connector type: %T", event.Payload)
 	}
 	p.WaitForEvent(ctx, service.ProxyReverseTunnelReady, eventC)
-	event = <-eventC
+	select {
+	case event = <-eventC:
+	case <-ctx.Done():
+		return trace.Wrap(ctx.Err())
+	}
 	p.Infof("Received %v event.", &event)
 	reverseTunnel, ok := (event.Payload).(reversetunnel.Server)
 	if !ok {
@@ -969,7 +1019,11 @@ func (p *Process) initService(ctx context.Context) (err error) {
 	p.reverseTunnel = reverseTunnel
 
 	p.WaitForEvent(ctx, service.ProxyIdentityEvent, eventC)
-	event = <-eventC
+	select {
+	case event = <-eventC:
+	case <-ctx.Done():
+		return trace.Wrap(ctx.Err())
+	}
 	p.Infof("Received %v event.", &event)
 
 	proxyConn, ok := (event.Payload).(*service.Connector)
@@ -984,13 +1038,14 @@ func (p *Process) initService(ctx context.Context) (err error) {
 	}
 
 	p.handlers.WebProxy, err = teleweb.NewHandler(teleweb.Config{
-		Proxy:        reverseTunnel,
-		AuthServers:  p.teleportConfig.AuthServers[0],
-		DomainName:   p.teleportConfig.Hostname,
-		ProxyClient:  proxyConn.Client,
-		DisableUI:    true,
-		ProxySSHAddr: p.teleportConfig.Proxy.SSHAddr,
-		ProxyWebAddr: p.teleportConfig.Proxy.WebAddr,
+		Proxy:         reverseTunnel,
+		AuthServers:   p.teleportConfig.AuthServers[0],
+		DomainName:    p.teleportConfig.Hostname,
+		ProxyClient:   proxyConn.Client,
+		DisableUI:     true,
+		ProxySSHAddr:  p.teleportConfig.Proxy.SSHAddr,
+		ProxyWebAddr:  p.teleportConfig.Proxy.WebAddr,
+		ProxySettings: p.proxySettings(),
 	})
 	if err != nil {
 		return trace.Wrap(err)
@@ -1038,9 +1093,10 @@ func (p *Process) initService(ctx context.Context) (err error) {
 
 	peerStore := opsservice.NewAgentPeerStore(p.backend, p.identity, p.proxy, p.WithField("process", p.id))
 	p.agentServer, err = rpcserver.New(rpcserver.Config{
+		FieldLogger: p.WithField(trace.Component, "agent-server"),
 		Credentials: *creds,
 		PeerStore:   peerStore,
-	}, logrus.StandardLogger())
+	})
 	if err != nil {
 		return trace.Wrap(err)
 	}
@@ -1051,7 +1107,8 @@ func (p *Process) initService(ctx context.Context) (err error) {
 	if p.cfg.Pack.ReadDir != "" {
 		p.Debugf("Activating read layer: %v.", p.cfg.Pack.ReadDir)
 		readBackend, err := keyval.NewBolt(keyval.BoltConfig{
-			Path: filepath.Join(p.cfg.Pack.ReadDir, defaults.GravityDBFile),
+			Path:     filepath.Join(p.cfg.Pack.ReadDir, defaults.GravityDBFile),
+			Readonly: true,
 		})
 		if err != nil {
 			return trace.Wrap(err)
@@ -1154,7 +1211,7 @@ func (p *Process) initService(ctx context.Context) (err error) {
 		Backend: p.backend,
 	})
 
-	mon, err := monitoring.NewInfluxDB()
+	metrics, err := monitoring.NewInClusterPrometheus()
 	if err != nil {
 		return trace.Wrap(err)
 	}
@@ -1189,15 +1246,17 @@ func (p *Process) initService(ctx context.Context) (err error) {
 		Users:           p.identity,
 		TeleportProxy:   teleportProxy,
 		Tunnel:          reverseTunnel,
-		Monitoring:      mon,
+		Metrics:         metrics,
 		Local:           p.mode == constants.ComponentSite,
 		Wizard:          p.mode == constants.ComponentInstaller,
 		Proxy:           proxy,
 		SNIHost:         seedConfig.SNIHost,
 		SeedConfig:      *seedConfig,
 		ProcessID:       p.id,
+		PublicAddr:      p.cfg.Pack.GetPublicAddr(),
 		InstallLogFiles: p.cfg.InstallLogFiles,
 		LogForwarders:   logs,
+		AuditLog:        authClient,
 	})
 	if err != nil {
 		return trace.Wrap(err)
@@ -1238,7 +1297,7 @@ func (p *Process) initService(ctx context.Context) (err error) {
 	}
 
 	// site status checker executes status hook periodically
-	p.RegisterClusterService(p.startSiteStatusChecker)
+	p.RegisterClusterService(p.runSiteStatusChecker)
 
 	// a few services that are running only when gravity is started in
 	// local site mode
@@ -1249,39 +1308,24 @@ func (p *Process) initService(ctx context.Context) (err error) {
 		}
 
 		p.Info("Running inside Kubernetes: starting leader election.")
-		// gravity site leader election
-		if err := p.startElection(); err != nil {
+
+		if err := p.initClusterCertificate(p.context, client); err != nil {
 			return trace.Wrap(err)
 		}
 
-		if err := p.initClusterCertificate(client); err != nil {
-			return trace.Wrap(err)
-		}
-
-		if err := p.startCertificateWatch(p.context, client); err != nil {
-			return trace.Wrap(err)
-		}
-
-		if err := p.startAuthGatewayWatch(p.context, client); err != nil {
-			return trace.Wrap(err)
-		}
-
-		if err := p.startWatchingReloadEvents(p.context, client); err != nil {
-			return trace.Wrap(err)
-		}
-
-		if err := p.startRegistrySynchronizer(p.context); err != nil {
-			return trace.Wrap(err)
-		}
-
-		if err := p.startApplicationsSynchronizer(p.context); err != nil {
-			return trace.Wrap(err)
-		}
+		p.startService(p.runCertificateWatch(client))
+		p.startService(p.runAuthGatewayWatch(client))
+		p.startService(p.runReloadEventsWatch(client))
+		p.startService(p.runRegistrySynchronizer)
+		p.startService(p.runApplicationsSynchronizer)
 
 		if err := p.startAutoscale(p.context); err != nil {
 			return trace.Wrap(err)
 		}
 
+		if err := p.startElection(); err != nil {
+			return trace.Wrap(err)
+		}
 	} else {
 		p.Debug("Not running inside Kubernetes.")
 	}
@@ -1365,6 +1409,7 @@ func (p *Process) initService(ctx context.Context) (err error) {
 		Mode:             p.mode,
 		ProxyHost:        sshProxyHost,
 		ServiceUser:      *p.cfg.ServiceUser,
+		InstallToken:     p.cfg.InstallToken,
 	})
 
 	if err != nil {
@@ -1425,9 +1470,13 @@ func (p *Process) ServeHealth() error {
 	healthMux := &httprouter.Router{}
 	healthMux.HandlerFunc("GET", "/readyz", p.ReportReadiness)
 	healthMux.HandlerFunc("GET", "/healthz", p.ReportHealth)
+	p.healthServer = &http.Server{
+		Addr:    p.cfg.HealthAddr.Addr,
+		Handler: healthMux,
+	}
 	p.RegisterFunc("gravity.healthz", func() error {
 		p.Infof("Start healthcheck server on %v.", p.cfg.HealthAddr)
-		return trace.Wrap(http.ListenAndServe(p.cfg.HealthAddr.Addr, healthMux))
+		return trace.Wrap(p.healthServer.ListenAndServe())
 	})
 	return nil
 }
@@ -1563,9 +1612,19 @@ func (p *Process) startListening(handler http.Handler, addr string) (net.Listene
 		return nil, trace.Wrap(err)
 	}
 
+	server := &http.Server{Handler: handler}
+	p.wg.Add(2)
+	go func() {
+		defer p.wg.Done()
+		<-p.context.Done()
+		ctx, cancel := context.WithTimeout(context.Background(), defaults.ShutdownTimeout)
+		server.Shutdown(ctx)
+		cancel()
+	}()
 	go func(listener net.Listener) {
+		defer p.wg.Done()
 		p.Infof("Serving on %v.", addr)
-		err := http.Serve(listener, handler)
+		err := server.Serve(listener)
 		if err != nil && !trace.IsEOF(err) && !utils.IsClosedConnectionError(err) {
 			p.Error(trace.DebugReport(err))
 		}
@@ -1612,7 +1671,7 @@ func (p *Process) tryGetTLSConfig() (*tls.Config, error) {
 	if err != nil {
 		return nil, trace.Wrap(err)
 	}
-	err = p.initClusterCertificate(client)
+	err = p.initClusterCertificate(p.context, client)
 	if err != nil {
 		return nil, trace.Wrap(err)
 	}
@@ -1667,7 +1726,7 @@ func (p *Process) newTLSConfig(certPEM, keyPEM []byte) (*tls.Config, error) {
 // and private key
 //
 // It is a no-op if the secret already exists.
-func (p *Process) initClusterCertificate(client *kubernetes.Clientset) error {
+func (p *Process) initClusterCertificate(ctx context.Context, client *kubernetes.Clientset) error {
 	site, err := p.operator.GetLocalSite()
 	if err != nil {
 		return trace.Wrap(err)
@@ -1694,7 +1753,10 @@ func (p *Process) initClusterCertificate(client *kubernetes.Clientset) error {
 		return trace.Wrap(err)
 	}
 
-	_, err = p.operator.UpdateClusterCertificate(ops.UpdateCertificateRequest{
+	localCtx := context.WithValue(ctx, constants.UserContext,
+		constants.ServiceSystem)
+
+	_, err = p.operator.UpdateClusterCertificate(localCtx, ops.UpdateCertificateRequest{
 		AccountID:   site.AccountID,
 		SiteDomain:  site.Domain,
 		Certificate: certificateData,
@@ -2092,13 +2154,24 @@ func (p *Process) loginWithToken(tokenID string, w http.ResponseWriter, r *http.
 }
 
 func (p *Process) loadRPCCredentials() (*rpcserver.Credentials, utils.TLSArchive, error) {
-	_, r, err := p.packages.ReadPackage(loc.RPCSecrets)
+	// In case of multi-node install, a gravity-site process may need to
+	// fetch a package blob from the leader which may not be fully
+	// initialized yet so retry a few times.
+	var reader io.ReadCloser
+	err := utils.Retry(defaults.RetryInterval, defaults.RetryAttempts, func() (err error) {
+		_, reader, err = p.packages.ReadPackage(loc.RPCSecrets)
+		if err != nil {
+			p.Warnf("Failed to read package %v: %v.", loc.RPCSecrets, trace.Wrap(err))
+			return trace.Wrap(err)
+		}
+		return nil
+	})
 	if err != nil {
 		return nil, nil, trace.Wrap(err)
 	}
-	defer r.Close()
+	defer reader.Close()
 
-	tlsArchive, err := utils.ReadTLSArchive(r)
+	tlsArchive, err := utils.ReadTLSArchive(reader)
 	if err != nil {
 		return nil, nil, trace.Wrap(err)
 	}

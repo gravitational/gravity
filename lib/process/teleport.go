@@ -22,7 +22,9 @@ import (
 	"github.com/gravitational/gravity/lib/processconfig"
 	"github.com/gravitational/gravity/lib/storage"
 
+	"github.com/gravitational/teleport/lib/client"
 	"github.com/gravitational/teleport/lib/config"
+	teledefaults "github.com/gravitational/teleport/lib/defaults"
 	"github.com/gravitational/teleport/lib/service"
 
 	"github.com/gravitational/trace"
@@ -74,6 +76,9 @@ func (p *Process) buildTeleportConfig(authGatewayConfig storage.AuthGateway) (*s
 	serviceConfig.Access = p.identity
 	serviceConfig.Console = logrus.StandardLogger().Writer()
 	serviceConfig.ClusterConfiguration = p.identity
+	// Use high-res polling period so principal changes are detected
+	// faster when auth gateway settings are updated.
+	serviceConfig.PollingPeriod = teledefaults.HighResPollingPeriod
 	return serviceConfig, nil
 }
 
@@ -123,7 +128,8 @@ func (p *Process) getOrInitAuthGatewayConfig() (storage.AuthGateway, error) {
 		return nil, trace.Wrap(err)
 	}
 	// Initially the local cluster name is set as a principal.
-	authGateway.SetPublicAddrs([]string{cluster.Domain})
+	authGateway.SetSSHPublicAddrs([]string{cluster.Domain})
+	authGateway.SetKubernetesPublicAddrs([]string{cluster.Domain})
 	err = opsservice.UpsertAuthGateway(client, p.identity, authGateway)
 	if err != nil {
 		return nil, trace.Wrap(err)
@@ -137,4 +143,20 @@ func (p *Process) getAuthGatewayConfig() (storage.AuthGateway, error) {
 		return nil, trace.Wrap(err)
 	}
 	return opsservice.GetAuthGateway(client, p.identity)
+}
+
+// proxySettings returns Teleport proxy settings based on the Teleport config.
+func (p *Process) proxySettings() client.ProxySettings {
+	settings := client.ProxySettings{
+		Kube: client.KubeProxySettings{
+			Enabled: p.teleportConfig.Proxy.Kube.Enabled,
+		},
+		SSH: client.SSHProxySettings{
+			ListenAddr: p.teleportConfig.Proxy.SSHAddr.String(),
+		},
+	}
+	if len(p.teleportConfig.Proxy.Kube.PublicAddrs) > 0 {
+		settings.Kube.PublicAddr = p.teleportConfig.Proxy.Kube.PublicAddrs[0].String()
+	}
+	return settings
 }

@@ -29,12 +29,11 @@ import (
 	"github.com/gravitational/gravity/lib/users"
 	"github.com/gravitational/gravity/lib/utils"
 
+	"github.com/gokyle/hotp"
 	"github.com/gravitational/teleport"
 	teleauth "github.com/gravitational/teleport/lib/auth"
 	teleservices "github.com/gravitational/teleport/lib/services"
 	"github.com/gravitational/trace"
-
-	"github.com/gokyle/hotp"
 	"github.com/jonboulle/clockwork"
 	log "github.com/sirupsen/logrus"
 	"github.com/tstranex/u2f"
@@ -168,11 +167,16 @@ func (u *UsersService) DeleteUserLoginAttempts(user string) error {
 }
 
 // CreateInstallToken creates a new one-time installation token
-func (u *UsersService) CreateInstallToken(t storage.InstallToken) (*storage.InstallToken, error) {
-	// generate a token for a one-time installation for the specifed account
-	data, err := users.CryptoRandomToken(defaults.InstallTokenBytes)
-	if err != nil {
-		return nil, trace.Wrap(err)
+func (u *UsersService) CreateInstallToken(t storage.InstallToken) (token *storage.InstallToken, err error) {
+	// In case token was supplied externally, use the provided value
+	data := t.Token
+	if data == "" {
+		// generate a token for a one-time installation for the specifed account
+		data, err = users.CryptoRandomToken(defaults.InstallTokenBytes)
+		if err != nil {
+			return nil, trace.Wrap(err)
+		}
+		t.Token = data
 	}
 	email := fmt.Sprintf("install@%v", data)
 
@@ -198,13 +202,8 @@ func (u *UsersService) CreateInstallToken(t storage.InstallToken) (*storage.Inst
 		}
 	}
 
-	// In case if token supplied externally, use its original value
-	if t.Token == "" {
-		t.Token = data
-	}
-
 	t.UserEmail = user.GetName()
-	token, err := u.backend.CreateInstallToken(t)
+	token, err = u.backend.CreateInstallToken(t)
 	if err != nil {
 		return nil, trace.Wrap(err)
 	}
@@ -1007,12 +1006,12 @@ func (c *UsersService) UpsertTunnelConnection(conn teleservices.TunnelConnection
 }
 
 // GetTunnelConnections returns tunnel connections for a given cluster
-func (c *UsersService) GetTunnelConnections(clusterName string) ([]teleservices.TunnelConnection, error) {
+func (c *UsersService) GetTunnelConnections(clusterName string, opts ...teleservices.MarshalOption) ([]teleservices.TunnelConnection, error) {
 	return c.backend.GetTunnelConnections(clusterName)
 }
 
 // GetAllTunnelConnections returns all tunnel connections
-func (c *UsersService) GetAllTunnelConnections() ([]teleservices.TunnelConnection, error) {
+func (c *UsersService) GetAllTunnelConnections(opts ...teleservices.MarshalOption) ([]teleservices.TunnelConnection, error) {
 	return c.backend.GetAllTunnelConnections()
 }
 
@@ -1286,6 +1285,13 @@ func (c *UsersService) CreateInviteToken(advertiseURL string, userInvite storage
 
 	if userInvite.ExpiresIn == 0 {
 		userInvite.ExpiresIn = defaults.SignupTokenTTL
+	}
+
+	// Validate that requested roles exist.
+	for _, role := range userInvite.Roles {
+		if _, err := c.GetRole(role); err != nil {
+			return nil, trace.Wrap(err)
+		}
 	}
 
 	userToken, err := c.createUserToken(storage.UserTokenTypeInvite, userInvite.Name, userInvite.ExpiresIn)
@@ -1599,7 +1605,7 @@ func (u *UsersService) DeleteAllCertAuthorities(caType teleservices.CertAuthType
 
 // GetCertAuthority returns certificate authority by given id. Parameter loadSigningKeys
 // controls if signing keys are loaded
-func (u *UsersService) GetCertAuthority(id teleservices.CertAuthID, loadSigningKeys bool) (teleservices.CertAuthority, error) {
+func (u *UsersService) GetCertAuthority(id teleservices.CertAuthID, loadSigningKeys bool, opts ...teleservices.MarshalOption) (teleservices.CertAuthority, error) {
 	return u.backend.GetCertAuthority(id, loadSigningKeys)
 }
 
@@ -1706,7 +1712,7 @@ func (u *UsersService) GetRemoteCluster(clusterName string) (teleservices.Remote
 }
 
 // GetRemoteClusters returns a list of remote clusters
-func (u *UsersService) GetRemoteClusters() ([]teleservices.RemoteCluster, error) {
+func (u *UsersService) GetRemoteClusters(opts ...teleservices.MarshalOption) ([]teleservices.RemoteCluster, error) {
 	return u.backend.GetRemoteClusters()
 }
 

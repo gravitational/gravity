@@ -19,13 +19,14 @@ package defaults
 import (
 	"context"
 	"fmt"
+	"os"
 	"path/filepath"
 	"time"
 
 	"github.com/gravitational/gravity/lib/constants"
 
 	"github.com/coreos/go-semver/semver"
-	"k8s.io/api/core/v1"
+	v1 "k8s.io/api/core/v1"
 )
 
 const (
@@ -179,9 +180,6 @@ const (
 	// LocalGravityDir is the path to local gravity package state
 	LocalGravityDir = "/var/lib/gravity/local"
 
-	// SiteGravityDir is where local gravity site stores all its data
-	SiteGravityDir = "/var/lib/gravity/site"
-
 	// GravityDir is where all root state of Gravity is stored
 	GravityDir = "/var/lib/gravity"
 
@@ -191,8 +189,11 @@ const (
 	// GravityRPCAgentPort defines which port RPC agent is listening on
 	GravityRPCAgentPort = 3012
 
-	// GravityRPCAgentServiceName defines systemd unit service name
+	// GravityRPCAgentServiceName defines systemd unit service name for RPC agents
 	GravityRPCAgentServiceName = "gravity-agent.service"
+
+	// GravityRPCInstallerServiceName defines systemd unit service name for the installer
+	GravityRPCInstallerServiceName = "gravity-installer.service"
 
 	// AgentValidationTimeout specifies the maximum amount of time for a remote validation
 	// request during the preflight test
@@ -213,20 +214,30 @@ const (
 	// PeerConnectTimeout is the timeout of an RPC agent connecting to its peer
 	PeerConnectTimeout = 10 * time.Second
 
+	// ServiceConnectTimeout specifies the timeout for connecting to the installer service
+	ServiceConnectTimeout = 1 * time.Minute
+
 	// GravityPackagePrefix defines base prefix of gravity package
 	GravityPackagePrefix = "gravitational.io/gravity"
 
-	// TelekubeSystemLogFile is the system log file name
-	TelekubeSystemLogFile = "telekube-system.log"
+	// GravitySystemLogFile is the system log file name
+	GravitySystemLogFile = "gravity-system.log"
 
-	// TelekubeUserLogFile is the user log file name
-	TelekubeUserLogFile = "telekube-install.log"
+	// GravityUserLogFile is the user log file name
+	GravityUserLogFile = "gravity-install.log"
 
 	// SystemLogDir is the directory where gravity logs go
 	SystemLogDir = "/var/log"
 
-	// TelekubePackage is the Telekube application package name
+	// TelekubePackage is the Telekube cluster image name.
 	TelekubePackage = "telekube"
+	// OpsCenterPackage is the Ops Center cluster image name.
+	OpsCenterPackage = "opscenter"
+
+	// GravityDisplayName is the display-friendly name of the base image.
+	GravityDisplayName = "Gravity"
+	// GravityHubDisplayName is the display-friendly name of the Hub image.
+	GravityHubDisplayName = "Gravity Hub"
 
 	// EnvironmentPath is the path to the environment file
 	EnvironmentPath = "/etc/environment"
@@ -291,6 +302,14 @@ const (
 
 	// HelmBin is the location of helm binary inside planet
 	HelmBin = "/usr/bin/helm"
+
+	// HelmScript is the location of the helm script, which the host's helm
+	// is symlinked to, inside the planet
+	HelmScript = "/usr/local/bin/helm"
+
+	// HelmBinAlternate is the alternative location of helm symlink on
+	// systems where /usr/bin is not writable
+	HelmBinAlternate = "/writable/bin/helm"
 
 	// PlanetBin is the default location of planet binary
 	PlanetBin = "/usr/bin/planet"
@@ -373,9 +392,6 @@ const (
 
 	// ImportDir is the place for app import state
 	ImportDir = "import"
-
-	// TempDir is the place for temp files and folders
-	TempDir = "tmp"
 
 	// ResourcesDir is the name of the directory where apps store their resources such as app manifest
 	ResourcesDir = "resources"
@@ -518,14 +534,11 @@ const (
 	// GrafanaServicePort is the port Grafana service is listening on
 	GrafanaServicePort = 3000
 
-	// InfluxDBServiceAddr is the address of InfluxDB service
-	InfluxDBServiceAddr = "influxdb.monitoring.svc.cluster.local"
-	// InfluxDBServicePort is the API port of InfluxDB service
-	InfluxDBServicePort = 8086
-	// InfluxDBAdminUser is the InfluxDB admin user name
-	InfluxDBAdminUser = "root"
-	// InfluxDBAdminPassword is the InfluxDB admin user password
-	InfluxDBAdminPassword = "root"
+	// PrometheusServiceAddr is the Prometheus HTTP API service address.
+	PrometheusServiceAddr = "prometheus-k8s.monitoring.svc.cluster.local:9090"
+
+	// LograngeAggregatorServiceName is the name of the Logrange aggregator service.
+	LograngeAggregatorServiceName = "lr-aggregator"
 
 	// WriteFactor is a default amount of acknowledged writes for object storage
 	// to be considered successfull
@@ -787,9 +800,9 @@ const (
 	// AWSRegion is the default AWS region
 	AWSRegion = "us-east-1"
 	// AWSVPCCIDR is the default AWS VPC CIDR
-	AWSVPCCIDR = "10.100.0.0/16"
+	AWSVPCCIDR = "10.1.0.0/16"
 	// AWSSubnetCIDR is the default AWS subnet CIDR
-	AWSSubnetCIDR = "10.100.0.0/24"
+	AWSSubnetCIDR = "10.1.0.0/24"
 
 	// ApplicationLabel defines the label used to annotate kubernetes resources
 	// to group them together
@@ -858,12 +871,12 @@ const (
 	// RPCAgentBackoffThreshold defines max communication delay before retrying connection to remote agent node
 	RPCAgentBackoffThreshold = 1 * time.Minute
 
-	// RPCAgentShutdownTimeout defines the timeout to wait for agents to shutdown
-	// upon completing an operation
-	RPCAgentShutdownTimeout = 1 * time.Minute
-
 	// RPCAgentSecretsPackage specifies the name of the RPC credentials package
 	RPCAgentSecretsPackage = "rpcagent-secrets"
+
+	// ShutdownTimeout specifies the maximum amount of time to wait for completion
+	// when closing
+	ShutdownTimeout = 1 * time.Minute
 
 	// ArchiveUID specifies the user ID to use for tarball items that do not exist on disk
 	ArchiveUID = 1000
@@ -973,6 +986,14 @@ const (
 	// ImageRegistryVar is a local cluster registry variable that gets
 	// substituted in Helm templates.
 	ImageRegistryVar = "image.registry"
+
+	// AgentDeployTimeout specifies the maximum amount of time to wait to deploy agents
+	// for an operation that spans multiple nodes
+	AgentDeployTimeout = 5 * time.Minute
+
+	// InstanceTerminationTimeout is the maximum amount of time to wait
+	// for AWS EC2 instance to terminate
+	InstanceTerminationTimeout = 20 * time.Minute
 )
 
 var (
@@ -989,9 +1010,6 @@ var (
 
 	// GravityConfigDirs specify default locations for gravity configuration search
 	GravityConfigDirs = []string{GravityDir, "assets/local"}
-
-	// GravityJoinDir is where join FSM stores its information on the joining node
-	GravityJoinDir = filepath.Join(GravityEphemeralDir, "join")
 
 	// RPCAgentSecretsDir specifies the location of the unpacked credentials
 	RPCAgentSecretsDir = filepath.Join(GravityEphemeralDir, "rpcsecrets")
@@ -1020,7 +1038,7 @@ var (
 	RSAPrivateKeyBits = 4096
 
 	// HookContainerNameTag identifies the container image used for application hooks
-	HookContainerNameTag = "gravitational/debian-tall:0.0.1"
+	HookContainerNameTag = "gravitational/debian-tall:stretch"
 
 	// UpdateAppSyncTimeout defines the maximum amount of time to sync application
 	// state with an updated node during update
@@ -1028,6 +1046,9 @@ var (
 
 	// ContainerEnvironmentFile specifies the location of the file for container environment
 	ContainerEnvironmentFile = "/etc/container-environment"
+
+	// DebugReportFile specifies the name of the file with diagnostics information
+	DebugReportFile = "crashreport.tgz"
 
 	// BandwagonPackageName is the name of bandwagon app package
 	BandwagonPackageName = "bandwagon"
@@ -1076,15 +1097,19 @@ var (
 	// during cluster installation (such as apiserver, etcd, kubelet, etc.)
 	CertificateExpiry = 10 * 365 * 24 * time.Hour // 10 years
 
-	// TelekubeSystemLog defines the default location for the system log
-	TelekubeSystemLog = filepath.Join(SystemLogDir, TelekubeSystemLogFile)
+	// GravitySystemLog defines the default location for the system log
+	GravitySystemLog = filepath.Join(SystemLogDir, GravitySystemLogFile)
 
-	// TelekubeUserLog the default location for user-facing log file
-	TelekubeUserLog = filepath.Join(SystemLogDir, TelekubeUserLogFile)
+	// GravityUserLog the default location for user-facing log file
+	GravityUserLog = filepath.Join(SystemLogDir, GravityUserLogFile)
 
 	// TransientErrorTimeout specifies the maximum amount of time to attempt
 	// an operation experiencing transient errors
 	TransientErrorTimeout = 15 * time.Minute
+
+	// NodeStatusTimeout specifies the maximum amount of time to wait for
+	// healthy node status
+	NodeStatusTimeout = 5 * time.Minute
 
 	// WormholeImg is the docker image reference to use when embedding wormhole
 	// Note: This is a build parameter, and the build scripts will replace this with an image reference
@@ -1111,6 +1136,16 @@ var (
 		"hmac-sha2-256-etm@openssh.com",
 		"hmac-sha2-256",
 	}
+
+	// MetricsInterval is the default interval cluster metrics are displayed for.
+	MetricsInterval = time.Hour
+	// MetricsStep is the default interval b/w cluster metrics data points.
+	MetricsStep = 15 * time.Second
+
+	// AbortedOperationExitCode specifies the exit code for this process when an operation is aborted.
+	// The exit code is used to prevent the installer service from restarting in case the operation
+	// is aborted
+	AbortedOperationExitCode = 254
 )
 
 // HookSecurityContext returns default securityContext for hook pods
@@ -1168,7 +1203,7 @@ func InSystemUnitDir(serviceName string) string {
 
 // InTempDir returns the specified subpath inside default tmp directory
 func InTempDir(path ...string) string {
-	return filepath.Join(append([]string{"/tmp"}, path...)...)
+	return filepath.Join(append([]string{os.TempDir()}, path...)...)
 }
 
 // GravityRPCAgentAddr returns default RPC agent advertise address
@@ -1179,4 +1214,9 @@ func GravityRPCAgentAddr(host string) string {
 // WithTimeout returns a default timeout context
 func WithTimeout(ctx context.Context) (context.Context, context.CancelFunc) {
 	return context.WithTimeout(ctx, RetryAttempts*RetryInterval)
+}
+
+// InstallerAddr returns the complete address of the installer given its IP
+func InstallerAddr(installerIP string) (addr string) {
+	return fmt.Sprintf("%v:%v", installerIP, WizardPackServerPort)
 }

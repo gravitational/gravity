@@ -23,7 +23,7 @@ var PROXY_TARGET = urlObj.host;
 var ROOT = '/web';
 var PORT = '8080';
 var WEBPACK_CLIENT_ENTRY = 'webpack-dev-server/client?https://0.0.0.0:' + PORT;
-var WEBPACK_SRV_ENTRY = 'webpack/hot/only-dev-server';
+var WEBPACK_SRV_ENTRY = 'webpack/hot/dev-server';
 
 for (var prop in webpackConfig.entry) {
   webpackConfig.entry[prop].unshift('react-hot-loader/patch');

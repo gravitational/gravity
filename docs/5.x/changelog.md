@@ -7,13 +7,16 @@ LTS starts with `3.51.0` with minor backwards compatible changes added over time
 
 | Release       | LTS | Release Date         | Supported Until      | Kubernetes Version | Teleport Version |
 | --------------|-----| -------------------- | -------------------- | ------------------ |------------------|
-| 5.5.0-alpha.8 | No  | February, 12th 2019  | -                    | 1.13.0             | 3.0.4            |
-| 5.4.6         | No  | February, 12th 2019  | -                    | 1.13.2             | 2.4.10           |
-| 5.2.8         | Yes | February, 12th 2019  | October, 15th, 2019  | 1.11.5             | 2.4.10           |
-| 5.0.29        | Yes | February, 12th 2019  | April, 13th 2019     | 1.9.12-gravitational | 2.4.10         |
-| 4.68.0        | Yes | January, 17th 2019   | November, 16th 2018  | 1.7.18-gravitational | 2.3.5          |
-| 3.64.0        | Yes | December, 21st 2017  | June, 2nd 2018       | 1.5.7              | 2.0.6            |
-| 1.30.0        | Yes | March, 21st 2017     | March, 21st 2018     | 1.3.8              | 1.2.0            |
+| 6.0.0-rc.2    | -   | June 13th, 2019      | -                    | 1.14.1             | 3.2.5            |
+| 5.6.2         | No  | June 18th, 2019      | -                    | 1.14.0             | 3.0.5            |
+| 5.5.10        | Yes | June 17th, 2019      | September 7th, 2020  | 1.13.5             | 3.0.4            |
+| 5.4.10        | No  | March 26th, 2019     | -                    | 1.13.5             | 2.4.10           |
+| 5.3.9*        | No  | March 7th, 2019      | -                    | 1.12.3             | 2.4.7            |
+| 5.2.12        | Yes | March 26th, 2019     | October 15th, 2019   | 1.11.9             | 2.4.10           |
+| 5.0.33        | Yes | April 24th, 2019     | April 13th, 2019     | 1.9.12-gravitational | 2.4.10         |
+| 4.68.0*       | Yes | January 17th, 2019   | November 16th, 2018  | 1.7.18-gravitational | 2.3.5          |
+| 3.64.0*       | Yes | December 21st, 2017  | June 2nd, 2018       | 1.5.7              | 2.0.6            |
+| 1.30.0*       | Yes | March 21st, 2017     | March 21st, 2018     | 1.3.8              | 1.2.0            |
 
 !!! tip "Cluster certificates expiration"
     If you have a Gravity cluster of version before `5.0.0-alpha.12` that
@@ -22,13 +25,300 @@ LTS starts with `3.51.0` with minor backwards compatible changes added over time
     expired, please refer to the [Gravity Manual Certificates Renewal](https://gravitational.zendesk.com/hc/en-us/articles/360000755967-Telekube-Manual-Certificates-Renewal)
     article in our Help Center.
 
+!!! note "Unsupported releases"
+    Releases marked with `*` in the table above are no longer supported and
+    do not receive updates and bugfixes.
+
+## 6.x Releases
+
+### 6.0.0-rc.2
+
+#### Improvements
+
+* Introduce time drift check.
+* Update Teleport to `3.2.6`.
+* Add RHEL 8 to supported distros.
+* Update [Logrange](https://logrange.io) to `0.1.1`.
+
+#### Bugfixes
+
+* Update web UI to properly hide components based on user permissions.
+* Update `RuntimeEnvironment` resource to properly support environment variables with commas.
+
+### 6.0.0-rc.1
+
+#### Improvements
+
+* New web user interface for Cluster and Hub.
+* Improve resiliency of install operation: dropped SSH session doesn't interrupt it anymore.
+* Auto-load required kernel modules and kernel parameters during platform startup.
+* Upgrade logging stack to use [Logrange](https://logrange.io/) streaming database.
+
+#### Bugfixes
+
+* Make gravity bypass proxies for local addresses.
+* Fix an issue with upgrade operation sometimes failing on the etcd upgrade step.
+
+### 6.0.0-beta.1
+
+#### Improvements
+
+* Upgrade Teleport to `3.2.5`.
+* Replace InfluxDB/Kapacitor monitoring stack with Prometheus/Alertmanager.
+* Upgrade Docker to `18.09.5`.
+* Upgrade Kubernetes to `1.14.1`.
+* Add support for using `helm` directly from host.
+
 ## 5.x Releases
+
+### 5.6.2
+
+#### Improvements
+
+* Add support for using `helm` directly from host.
+
+### 5.5.10 LTS
+
+#### Bugfixes
+
+* Fix an issue with automatic NO_PROXY rules that break some cluster operations.
+* Fix an issue with updating or removing environment configuration.
+
+### 5.5.9 LTS
+
+#### Improvements
+
+* Environment variables now support quoted values.
+* Automatic creation of NO_PROXY rules for internal cluster communications.
+* Improved validation of gravity-site upgrade.
+* Wormhole CNI plugin interfaces will now be removed when gravity is uninstalled.
+* The cluster-admin role bindings for default and kube-system namespaces have been separated.
+
+#### Bugfixes
+
+* Fixed KUBE_APISERVER_FLAGS environment variable on kube-apiserver unit.
+
+### 5.5.8 LTS
+
+#### Improvements
+
+* Add support for using `helm` directly from host.
+
+### 5.6.1
+
+#### Improvements
+
+* Upgrade Docker to `18.09.5`.
+
+### 5.5.7 LTS
+
+#### Bugfixes
+
+* Fix an issue with completed status hook pods not being cleaned up.
+
+### 5.5.6 LTS
+
+#### Bugfixes
+
+* Fix an issue with adjusting user volume permissions during upgrade.
+
+### 5.6.0
+
+#### Improvements
+
+* Upgrade Kubernetes to `v1.14.0`.
+
+### 5.0.33 LTS
+
+#### Bugfixes
+
+* Fix a regression with `gravity upgrade --complete`
+
+### 5.0.32 LTS
+
+#### Bugfixes
+
+* Fix an issue with upgrades for applications that were packaged with multiple versions of planet.
+
+### 5.5.5 LTS
+
+#### Improvements
+
+* Upgrade helm and tiller to `v2.12.3`.
+
+### 5.5.4 LTS
+
+#### Improvements
+
+* Upgrade CNI plugins to 0.7.5 (CVE-2019-9946).
+
+!!! warning
+    This release fixes a security vulnerability in kubernetes. Please see
+    [Kubernetes Announcement](https://discuss.kubernetes.io/t/announce-security-release-of-kubernetes-affecting-certain-network-configurations-with-cni-releases-1-11-9-1-12-7-1-13-5-and-1-14-0-cve-2019-9946/5713) for more information.
+
+### 5.5.3 LTS
+
+#### Improvements
+
+* Upgrade Kubernetes to `v1.13.5` (CVE-2019-1002101).
+
+#### Bugfixes
+
+* Fix an issue with CoreDNS crash when local nameserver is present in host's `/etc/resolv.conf`.
+
+!!! warning
+    This release fixes a security vulnerability in kubernetes. Please see
+    [Kubernetes Announcement](https://discuss.kubernetes.io/t/announce-security-release-of-kubernetes-kubectl-potential-directory-traversal-releases-1-11-9-1-12-7-1-13-5-and-1-14-0-cve-2019-1002101/5712) for more information.
+
+
+### 5.4.10
+
+#### Improvements
+
+* Upgrade Kubernetes to `v1.13.5` (CVE-2019-1002101).
+
+!!! warning
+    This release fixes a security vulnerability in kubernetes. Please see
+    [Kubernetes Announcement](https://discuss.kubernetes.io/t/announce-security-release-of-kubernetes-kubectl-potential-directory-traversal-releases-1-11-9-1-12-7-1-13-5-and-1-14-0-cve-2019-1002101/5712) for more information.
+
+### 5.2.12 LTS
+
+#### Improvements
+
+* Upgrade Kubernetes to `v1.11.9` (CVE-2019-1002101).
+
+!!! warning
+    This release fixes a security vulnerability in kubernetes. Please see
+    [Kubernetes Announcement](https://discuss.kubernetes.io/t/announce-security-release-of-kubernetes-kubectl-potential-directory-traversal-releases-1-11-9-1-12-7-1-13-5-and-1-14-0-cve-2019-1002101/5712) for more information.
+
+### 5.0.30 LTS
+
+#### Improvements
+
+* Improve resiliency of the election install phase.
+
+### 5.5.2 LTS
+
+#### Bugfixes
+
+* Fix an issue with `tele` not recognizing some resources.
+* Fix an issue with creating `smtp` and `alert` resources in cluster.
+* Fix an issue with using custom state directory during `tele build`.
+* Fix an issue with new packages not being deleted when performing a rollback.
+
+### 5.5.1 LTS
+
+#### Improvements
+
+* Improve shrink operation behavior when using Auto-Scaling Groups on AWS.
+
+#### Bugfixes
+
+* Fix an issue with `gravity report` sometimes producing unreadable tarball.
+
+### 5.4.9
+
+#### Improvements
+
+* Improve shrink operation behavior when using Auto-Scaling Groups on AWS.
+
+### 5.5.0 LTS
+
+#### Improvements
+
+* Multiple UX tweaks for `gravity app list` command.
+* Better validation for the cloud configuration resource.
+
+#### Bugfixes
+
+* Fix an issue with `kubectl` not working on host when using custom state directory.
+* Fix an issue with `gravity status` always displaying degraded status on regular nodes.
+* Fix an issue with shrink operation sometimes spawning on the leaving node.
+
+### 5.2.11 LTS
+
+#### Bugfixes
+
+* Fix an issue with manually completing rolled back upgrade plan.
+
+### 5.3.9
+
+#### Improvements
+
+* Use `overlay2` as default storage driver.
+* Enable aggregation layer on the Kubernetes API server.
+
+#### Bugfixes
+
+* Fix an issue with manually completing rolled back upgrade plan.
+
+### 5.5.0-rc.1
+
+#### Improvements
+
+* Introduce `ClusterConfiguration` resource, see [Configuring Cluster](/cluster/#cluster-configuration) for details.
+* Introduce `RuntimeEnvironment` resource, see [Configuring Runtime Environment Variables](/cluster/#configuring-runtime-environment-variables) for details.
+* Update 'gravity plan' to support all cluster operations.
+
+### 5.5.0-beta.2
+
+#### Bugfixes
+
+* Update to Kubernetes 1.13.4 (CVE-2019-1002100).
+
+!!! warning
+    This release fixes a security vulnerability in kubernetes. Please see
+    [Kubernetes Announcement](https://discuss.kubernetes.io/t/kubernetes-security-announcement-v1-11-8-1-12-6-1-13-4-released-to-address-medium-severity-cve-2019-1002100/5147) for more information.
+
+### 5.4.7
+
+#### Bugfixes
+
+* Update to Kubernetes 1.13.4 (CVE-2019-1002100).
+
+!!! warning
+    This release fixes a security vulnerability in kubernetes. Please see
+    [Kubernetes Announcement](https://discuss.kubernetes.io/t/kubernetes-security-announcement-v1-11-8-1-12-6-1-13-4-released-to-address-medium-severity-cve-2019-1002100/5147) for more information.
+
+### 5.2.10 LTS
+
+#### Bugfixes
+
+* Update to Kubernetes 1.13.4 (CVE-2019-1002100).
+
+!!! warning
+    This release fixes a security vulnerability in kubernetes. Please see
+    [Kubernetes Announcement](https://discuss.kubernetes.io/t/kubernetes-security-announcement-v1-11-8-1-12-6-1-13-4-released-to-address-medium-severity-cve-2019-1002100/5147) for more information.
+
+### 5.5.0-beta.1
+
+#### Improvements
+
+* Upgrade Kubernetes to `v1.13.3`.
+* Default to `tele` version when selecting base image during `tele build`.
+* Improve Teleport nodes resiliency.
+
+#### Bugfixes
+
+* Fix an issue with `tele login` when Docker/Helm are not available.
+* Fix an issue with Teleport nodes missing some labels after upgrade.
+
+### 5.5.0-alpha.9
+
+#### Improvements
+
+* UX improvements to `tele ls` command.
+
+#### Bugfixes
+
+* Fix an issue with pulling base cluster image with `tele pull`.
 
 ### 5.5.0-alpha.8
 
 #### Improvements
 
-* Introduce AuthGateway resource.
+* Introduce `AuthGateway` resource. See [Configuring Authentication Gateway](/cluster/#configuring-cluster-authentication-gateway)
+for details.
 * UX improvements to `tele` CLI.
 
 #### Bugfixes
@@ -52,7 +342,14 @@ LTS starts with `3.51.0` with minor backwards compatible changes added over time
     This release fixes a security vulnerability in runc. Please see
     [Kubnernetes Blog](https://kubernetes.io/blog/2019/02/11/runc-and-cve-2019-5736/) for more information.
 
-### 5.2.8
+### 5.2.9 LTS
+
+#### Bugfixes
+
+* Fix the issue with "gravity gc" failing to collect packages on regular nodes.
+
+
+### 5.2.8 LTS
 
 #### Bugfixes
 
@@ -74,7 +371,7 @@ LTS starts with `3.51.0` with minor backwards compatible changes added over time
     This release fixes a security vulnerability in runc. Please see
     [Kubnernetes Blog](https://kubernetes.io/blog/2019/02/11/runc-and-cve-2019-5736/) for more information.
 
-### 5.2.7
+### 5.2.7 LTS
 
 #### Bugfixes
 

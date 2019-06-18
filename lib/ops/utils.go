@@ -247,8 +247,25 @@ func GetWizardCluster(operator Operator) (*Site, error) {
 	return &clusters[0], nil
 }
 
+// FailOperationAndResetCluster completes the specified operation and resets
+// cluster state to active
+func FailOperationAndResetCluster(key SiteOperationKey, operator Operator, message string) error {
+	err := FailOperation(key, operator, message)
+	if err != nil {
+		return trace.Wrap(err)
+	}
+	err = operator.ActivateSite(ActivateSiteRequest{
+		AccountID:  key.AccountID,
+		SiteDomain: key.SiteDomain,
+	})
+	if err != nil {
+		return trace.Wrap(err)
+	}
+	return nil
+}
+
 // CompleteOperation marks the specified operation as completed
-func CompleteOperation(key SiteOperationKey, operator Operator) error {
+func CompleteOperation(key SiteOperationKey, operator OperationStateSetter) error {
 	return operator.SetOperationState(key, SetOperationStateRequest{
 		State: OperationStateCompleted,
 		Progress: &ProgressEntry{
@@ -264,7 +281,7 @@ func CompleteOperation(key SiteOperationKey, operator Operator) error {
 }
 
 // FailOperation marks the specified operation as failed
-func FailOperation(key SiteOperationKey, operator Operator, message string) error {
+func FailOperation(key SiteOperationKey, operator OperationStateSetter, message string) error {
 	if message != "" {
 		message = fmt.Sprintf("Operation failure: %v", message)
 	} else {
@@ -283,6 +300,21 @@ func FailOperation(key SiteOperationKey, operator Operator, message string) erro
 		},
 	})
 }
+
+// OperationStateSetter defines an interface to set/update operation state
+type OperationStateSetter interface {
+	// SetOperationState updates state of the operation
+	// specified with given operation key
+	SetOperationState(SiteOperationKey, SetOperationStateRequest) error
+}
+
+// SetOperationState implements the OperationStateSetter by invoking this handler
+func (r OperationStateFunc) SetOperationState(key SiteOperationKey, req SetOperationStateRequest) error {
+	return r(key, req)
+}
+
+// OperationStateFunc is a function handler for setting the operation state
+type OperationStateFunc func(SiteOperationKey, SetOperationStateRequest) error
 
 // VerifyLicense verifies the provided license
 func VerifyLicense(packages pack.PackageService, license string) error {
@@ -303,7 +335,7 @@ func VerifyLicense(packages pack.PackageService, license string) error {
 
 // GetExpandOperation returns the first available expand operation from
 // the provided backend
-func GetExpandOperation(backend storage.Backend) (*storage.SiteOperation, error) {
+func GetExpandOperation(backend storage.Backend) (*SiteOperation, error) {
 	cluster, err := backend.GetLocalSite(defaults.SystemAccountID)
 	if err != nil {
 		return nil, trace.Wrap(err)
@@ -314,10 +346,29 @@ func GetExpandOperation(backend storage.Backend) (*storage.SiteOperation, error)
 	}
 	for _, operation := range operations {
 		if operation.Type == OperationExpand {
-			return &operation, nil
+			return (*SiteOperation)(&operation), nil
 		}
 	}
 	return nil, trace.NotFound("expand operation not found")
+}
+
+// UpsertSystemAccount creates a new system account if one has not been created.
+// Returns the system account
+func UpsertSystemAccount(operator Operator) (*Account, error) {
+	accounts, err := operator.GetAccounts()
+	if err != nil {
+		return nil, trace.Wrap(err)
+	}
+	for i := range accounts {
+		if accounts[i].Org == defaults.SystemAccountOrg {
+			return &accounts[i], nil
+		}
+	}
+	account, err := operator.CreateAccount(NewAccountRequest{
+		ID:  defaults.SystemAccountID,
+		Org: defaults.SystemAccountOrg,
+	})
+	return account, trace.Wrap(err)
 }
 
 // MatchByType returns an OperationMatcher to match operations by type

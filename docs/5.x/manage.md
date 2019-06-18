@@ -279,7 +279,7 @@ of clusters via Ops Center. Ops Center roles make it possible using
 `where` expressions in rules:
 
 
-```bsh
+```yaml
 kind: role
 version: v3
 metadata:
@@ -290,12 +290,23 @@ spec:
     - developers
     namespaces:
     - default
+    kubernetes_groups:
+    - admin
     rules:
-      - resources: [cluster]
-        verbs: [connect, read]
-        where: contains(user.spec.traits["roles"], resource.metadata.labels["team"])
-        actions:
-          - assignKubernetesGroups("admin")
+    - resources:
+      - role
+      verbs:
+      - read
+    - resources:
+      - app
+      verbs:
+      - list
+    - resources:
+      - cluster
+      verbs:
+      - connect
+      - read
+      where: contains(user.spec.traits["roles"], resource.metadata.labels["team"])
 ```
 
 The role `developers` uses special property `user.spec.traits`
@@ -313,7 +324,7 @@ Kubernetes access to clusters marked with label `team:developers`
 
 Users can use `deny` rules to limit access to some privileged Clusters:
 
-```bsh
+```yaml
 kind: role
 version: v3
 metadata:
@@ -323,9 +334,21 @@ spec:
     namespaces:
     - default
     rules:
-      - resources: [cluster]
-        verbs: [connect, read, list]
-        where: equals(resource.metadata.labels["env"], "production")
+    - resources:
+      - role
+      verbs:
+      - read
+    - resources:
+      - app
+      verbs:
+      - list
+    - resources:
+      - cluster
+      verbs:
+      - connect
+      - read
+      - list
+      where: equals(resource.metadata.labels["env"], "production")
 ```
 
 The role `deny-production` when assigned to the user, will limit access to all clusters

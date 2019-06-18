@@ -28,7 +28,7 @@ import (
 )
 
 // createExpandOperation initiates expand operation
-func (s *site) createExpandOperation(req ops.CreateSiteExpandOperationRequest) (*ops.SiteOperationKey, error) {
+func (s *site) createExpandOperation(ctx context.Context, req ops.CreateSiteExpandOperationRequest) (*ops.SiteOperationKey, error) {
 	log.Debugf("createExpandOperation(%#v)", req)
 
 	profiles := make(map[string]storage.ServerProfile)
@@ -46,9 +46,13 @@ func (s *site) createExpandOperation(req ops.CreateSiteExpandOperationRequest) (
 			},
 		}
 	}
-	return s.createInstallExpandOperation(
-		ops.OperationExpand, ops.OperationStateExpandInitiated, req.Provisioner,
-		req.Variables, profiles)
+	return s.createInstallExpandOperation(ctx, createInstallExpandOperationRequest{
+		Type:        ops.OperationExpand,
+		State:       ops.OperationStateExpandInitiated,
+		Provisioner: req.Provisioner,
+		Vars:        req.Variables,
+		Profiles:    profiles,
+	})
 }
 
 func (s *site) getSiteOperation(operationID string) (*ops.SiteOperation, error) {
@@ -129,7 +133,7 @@ func (s *site) validateExpand(op *ops.SiteOperation, req *ops.OperationUpdateReq
 				"no servers provided, run agent command on the node you want to join")
 		}
 	}
-	for role, _ := range req.Profiles {
+	for role := range req.Profiles {
 		profile, err := s.app.Manifest.NodeProfiles.ByName(role)
 		if err != nil {
 			return trace.Wrap(err)

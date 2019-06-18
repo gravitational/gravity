@@ -18,8 +18,8 @@ GRAVITY_PKG_PATH ?= github.com/gravitational/gravity
 ASSETSDIR=$(TOP)/assets
 BINDIR ?= /usr/bin
 
-# Current Kubernetes version: 1.13.0
-K8S_VER := 1.13.0
+# Current Kubernetes version: 1.14.1
+K8S_VER := 1.14.1
 # Kubernetes version suffix for the planet package, constructed by concatenating
 # major + minor padded to 2 chars with 0 + patch also padded to 2 chars, e.g.
 # 1.13.5 -> 11305, 1.13.12 -> 11312, 2.0.0 -> 20000 and so on
@@ -39,23 +39,23 @@ GRAVITY_VERSION := $(CURRENT_TAG)
 RELEASE_TARBALL_NAME ?=
 RELEASE_OUT ?=
 
-TELEPORT_TAG = 3.0.4
+TELEPORT_TAG = 3.2.6
 # TELEPORT_REPOTAG adapts TELEPORT_TAG to the teleport tagging scheme
 TELEPORT_REPOTAG := v$(TELEPORT_TAG)
-PLANET_TAG := 5.5.8-$(K8S_VER_SUFFIX)
+PLANET_TAG := 6.0.4-$(K8S_VER_SUFFIX)
 PLANET_BRANCH := $(PLANET_TAG)
 K8S_APP_TAG := $(GRAVITY_TAG)
 TELEKUBE_APP_TAG := $(GRAVITY_TAG)
 WORMHOLE_APP_TAG := $(GRAVITY_TAG)
-LOGGING_APP_TAG ?= 5.0.2
-MONITORING_APP_TAG ?= 5.2.2
+LOGGING_APP_TAG ?= 6.0.1
+MONITORING_APP_TAG ?= 6.0.3
 DNS_APP_TAG = 0.3.0
-BANDWAGON_TAG ?= 5.3.0
+BANDWAGON_TAG ?= 6.0.0
 RBAC_APP_TAG := $(GRAVITY_TAG)
-TILLER_VERSION = 2.12.0
-TILLER_APP_TAG = 5.5.1
+TILLER_VERSION = 2.13.1
+TILLER_APP_TAG = 6.0.0
 # URI of Wormhole container for default install
-WORMHOLE_IMG ?= quay.io/gravitational/wormhole:0.0.0-1-g6681422-dirty
+WORMHOLE_IMG ?= quay.io/gravitational/wormhole:0.2.0
 # set this to true if you want to use locally built planet packages
 DEV_PLANET ?=
 OS := $(shell uname | tr '[:upper:]' '[:lower:]')
@@ -181,10 +181,10 @@ TEST_ETCD ?= false
 TEST_K8S ?= false
 
 # grpc
-PROTOC_VER ?= 3.4.0
+PROTOC_VER ?= 3.7.1
 PROTOC_PLATFORM := linux-x86_64
-GOGO_PROTO_TAG ?= v0.4
-GRPC_GATEWAY_TAG ?= v1.1.0
+GOGO_PROTO_TAG ?= v1.2.1
+GRPC_GATEWAY_TAG ?= v1.8.5
 
 BINARIES ?= tele gravity terraform-provider-gravity
 TF_PROVIDERS ?= terraform-provider-gravity

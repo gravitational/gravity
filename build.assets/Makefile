@@ -29,6 +29,7 @@ MONITORING_APP_TAG ?= 0.0.1
 MONITORING_APP_BRANCH ?= $(MONITORING_APP_TAG)
 K8S_APP_TAG ?= 0.0.1
 TILLER_APP_TAG ?= 0.0.1
+GOLFLAGS ?= -w -s
 
 # Git repositories
 TELEPORT_REPO = git@github.com:gravitational/teleport.git
@@ -160,7 +161,14 @@ build:
 # generate gRPC code
 #
 .PHONY: grpc
-grpc: buildbox grpc-agents grpc-validation
+grpc: buildbox grpc-agents grpc-validation grpc-installer
+
+.PHONY: grpc-installer
+grpc-installer:
+	docker run --rm=true -u $$(id -u) \
+		   -v $(TOP):$(SRCDIR) \
+		   $(BBOX) \
+		   dumb-init make -C $(SRCDIR)/lib/install/proto
 
 .PHONY: grpc-agents
 grpc-agents:
@@ -444,13 +452,13 @@ build-tsh-on-host:
 		cd $(BUILDDIR)/src/$(TELEPORT_PKG_PATH) && \
 		git fetch --all --tags && \
 		git checkout $(TELEPORT_REPOTAG) && \
-		GOPATH=$(BUILDDIR) go build -o $(TSH_OUT) ./tool/tsh
+		GOPATH=$(BUILDDIR) go build -ldflags "$(GOLFLAGS)" -o $(TSH_OUT) ./tool/tsh
 	@echo "Done --> $(TSH_OUT)"
 
 .PHONY: build-tsh-inside-container
 build-tsh-inside-container:
 	@echo "\n----> Building Tsh binary inside container...\n"
-	go build -o $(LOCAL_GRAVITY_BUILDDIR)/tsh $(TELEPORT_PKG_PATH)/tool/tsh
+	go build -ldflags "$(GOLFLAGS)" -o $(LOCAL_GRAVITY_BUILDDIR)/tsh $(TELEPORT_PKG_PATH)/tool/tsh
 	@echo "Done --> $(LOCAL_GRAVITY_BUILDDIR)/tsh"
 
 .PHONY: clone-teleport

@@ -167,7 +167,7 @@ func (v *vendorer) VendorTarball(ctx context.Context, tarball io.ReadCloser, req
 // to point to a fixed docker registry address.
 func (v *vendorer) VendorDir(ctx context.Context, unpackedDir string, req VendorRequest) error {
 	if req.ProgressReporter == nil {
-		req.ProgressReporter = utils.NewNopProgress()
+		req.ProgressReporter = utils.DiscardProgress
 	}
 	// before parsing resources apply basic transformations on manifest, e.g. environment
 	// variables interpolation
@@ -752,6 +752,14 @@ func resourcesFromPath(root string, includePatterns []string, ignorePatterns []s
 				return trace.Wrap(err)
 			}
 			chartResources = append(chartResources, resources.NewResourceFileObject(path, *resource))
+			// Chart dir can also contain manifest file.
+			if _, err := utils.StatFile(filepath.Join(path, defaults.ManifestFileName)); err == nil {
+				resourceFile, err := resources.NewResourceFile(filepath.Join(path, defaults.ManifestFileName))
+				if err != nil {
+					return trace.Wrap(err)
+				}
+				result = append(result, *resourceFile)
+			}
 			return filepath.SkipDir
 		}
 

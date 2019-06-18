@@ -17,6 +17,7 @@ limitations under the License.
 package cli
 
 import (
+	"context"
 	"fmt"
 	"os"
 	"text/tabwriter"
@@ -68,7 +69,7 @@ func createAPIKey(localEnv *localenv.LocalEnvironment, opsCenterURL, username st
 		return trace.Wrap(err)
 	}
 
-	key, err := operator.CreateAPIKey(ops.NewAPIKeyRequest{
+	key, err := operator.CreateAPIKey(context.Background(), ops.NewAPIKeyRequest{
 		UserEmail: username,
 	})
 	if err != nil {
@@ -107,7 +108,7 @@ func deleteAPIKey(localEnv *localenv.LocalEnvironment, opsCenterURL, username, t
 		return trace.Wrap(err)
 	}
 
-	if err := operator.DeleteAPIKey(username, token); err != nil {
+	if err := operator.DeleteAPIKey(context.Background(), username, token); err != nil {
 		return trace.Wrap(err)
 	}
 
@@ -126,18 +127,17 @@ func resetUser(env *localenv.LocalEnvironment, email string, ttl time.Duration) 
 		return trace.Wrap(err)
 	}
 
-	req := ops.UserResetRequest{
-		Name: email,
-		TTL:  ttl,
-	}
-
-	userToken, err := operator.ResetUser(cluster.Key(), req)
+	resetToken, err := operator.CreateUserReset(context.TODO(), ops.CreateUserResetRequest{
+		SiteKey: cluster.Key(),
+		Name:    email,
+		TTL:     ttl,
+	})
 	if err != nil {
 		return trace.Wrap(err)
 	}
 
 	fmt.Printf("Password reset token has been created and is valid for %v. Share this URL with the user:\n%v\n\nNOTE: make sure this URL is accessible!\n",
-		ttl.String(), userToken.URL)
+		ttl.String(), resetToken.URL)
 
 	return nil
 }
@@ -153,20 +153,18 @@ func inviteUser(env *localenv.LocalEnvironment, username string, roles []string,
 		return trace.Wrap(err)
 	}
 
-	roles = utils.FlattenStringSlice(roles)
-	req := ops.UserInviteRequest{
-		Name:  username,
-		Roles: roles,
-		TTL:   ttl,
-	}
-
-	userToken, err := operator.InviteUser(cluster.Key(), req)
+	inviteToken, err := operator.CreateUserInvite(context.TODO(), ops.CreateUserInviteRequest{
+		SiteKey: cluster.Key(),
+		Name:    username,
+		Roles:   utils.FlattenStringSlice(roles),
+		TTL:     ttl,
+	})
 	if err != nil {
 		return trace.Wrap(err)
 	}
 
 	fmt.Printf("Signup token has been created and is valid for %v hours. Share this URL with the user:\n%v\n\nNOTE: make sure this URL is accessible!\n",
-		ttl.String(), userToken.URL)
+		ttl.String(), inviteToken.URL)
 
 	return nil
 }

@@ -17,7 +17,8 @@ limitations under the License.
 package proto
 
 import (
-	"errors"
+	fmt "fmt"
+	"strings"
 
 	"github.com/gravitational/trace"
 	"golang.org/x/net/context"
@@ -68,10 +69,52 @@ func EncodeError(err error) *Error {
 	}
 }
 
+// ErrorToMessage returns a new message using the specified error
 func ErrorToMessage(err error) *Message {
-	return &Message{&Message_Error{EncodeError(err)}}
+	return &Message{Element: &Message_Error{EncodeError(err)}}
 }
 
-func DecodeError(err *Error) error {
-	return errors.New(err.Message)
+// String describes this request as text
+func (r *PeerJoinRequest) String() string {
+	return fmt.Sprintf("PeerJoinRequest(addr=%v, config=%v)", r.Addr, r.Config)
+}
+
+// String describes this request as text
+func (r *PeerLeaveRequest) String() string {
+	return fmt.Sprintf("PeerLeaveRequest(addr=%v, config=%v)", r.Addr, r.Config)
+}
+
+// String describes this configuration as text
+func (r *RuntimeConfig) String() string {
+	var mounts []string
+	for _, m := range r.Mounts {
+		mounts = append(mounts, m.String())
+	}
+	return fmt.Sprintf("RuntimeConfig(role=%v, addr=%v, docker-dev=%q, system-dev=%q, "+
+		"state-dir=%v, temp-dir=%v, token=%v, key-values=%v, mounts=%v, cloud=%v)",
+		r.Role,
+		r.AdvertiseAddr,
+		r.DockerDevice,
+		r.SystemDevice,
+		r.StateDir,
+		r.TempDir,
+		r.Token,
+		r.KeyValues,
+		strings.Join(mounts, ","),
+		r.CloudMetadata,
+	)
+}
+
+// String describes this mount point as text
+func (r Mount) String() string {
+	return fmt.Sprintf("Mount(name=%v, source=%v)", r.Name, r.Source)
+}
+
+// String describes this metadata object as text
+func (r *CloudMetadata) String() string {
+	if r == nil {
+		return "CloudMetadata(<empty>)"
+	}
+	return fmt.Sprintf("CloudMetadata(node=%v, type=%v, id=%v)",
+		r.NodeName, r.InstanceType, r.InstanceId)
 }

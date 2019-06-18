@@ -66,21 +66,15 @@ rules:
   - list
   - watch
 # The following permissions are required for Teleport's Kubernetes proxy
-# functionality which uses Kubernetes CSR API for signing client certs.
+# functionality which uses Kubernetes Impersonation API.
 - apiGroups:
-  - certificates.k8s.io
+  - ""
   resources:
-  - certificatesigningrequests
+  - users
+  - groups
+  - serviceaccounts
   verbs:
-  - create
-  - watch
-  - delete
-- apiGroups:
-  - certificates.k8s.io
-  resources:
-  - certificatesigningrequests/approval
-  verbs:
-  - update
+  - impersonate
 ---
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRoleBinding
@@ -114,7 +108,7 @@ spec:
         scheduler.alpha.kubernetes.io/critical-pod: ''
         seccomp.security.alpha.kubernetes.io/pod: docker/default
     spec:
-      serviceAccount: gravity-site
+      serviceAccountName: gravity-site
       tolerations:
       - key: "gravitational.io/runlevel"
         value: system
@@ -158,6 +152,14 @@ spec:
               configMapKeyRef:
                 name: gravity-opscenter
                 key: teleport.yaml
+        securityContext:
+          allowPrivilegeEscalation: false
+          capabilities:
+            drop:
+            - all
+          readOnlyRootFilesystem: true
+          runAsNonRoot: true
+          runAsUser: -1
         livenessProbe:
           httpGet:
             path: /healthz

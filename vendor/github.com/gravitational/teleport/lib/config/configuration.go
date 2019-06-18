@@ -59,6 +59,9 @@ type CommandLineFlags struct {
 	AuthServerAddr string
 	// --token flag
 	AuthToken string
+	// CAPin is the hash of the SKPI of the root CA. Used to verify the cluster
+	// being joined is the one expected.
+	CAPin string
 	// --listen-ip flag
 	ListenIP net.IP
 	// --advertise-ip flag
@@ -200,7 +203,11 @@ func ApplyFileConfig(fc *FileConfig, cfg *service.Config) error {
 	case "stdout", "out", "1":
 		log.SetOutput(os.Stdout)
 	case teleport.Syslog:
-		utils.SwitchLoggingtoSyslog()
+		err := utils.SwitchLoggingtoSyslog()
+		if err != nil {
+			// this error will go to stderr
+			log.Errorf("Failed to switch logging to syslog: %v.", err)
+		}
 	default:
 		// assume it's a file path:
 		logFile, err := os.Create(fc.Logger.Output)
@@ -216,14 +223,13 @@ func ApplyFileConfig(fc *FileConfig, cfg *service.Config) error {
 		log.SetLevel(log.InfoLevel)
 	case "err", "error":
 		log.SetLevel(log.ErrorLevel)
-	case "debug":
+	case teleport.DebugLevel:
 		log.SetLevel(log.DebugLevel)
 	case "warn", "warning":
 		log.SetLevel(log.WarnLevel)
 	default:
 		return trace.BadParameter("unsupported logger severity: '%v'", fc.Logger.Severity)
 	}
-
 	// apply cache policy for node and proxy
 	cachePolicy, err := fc.CachePolicy.Parse()
 	if err != nil {
@@ -250,11 +256,16 @@ func ApplyFileConfig(fc *FileConfig, cfg *service.Config) error {
 		cfg.MACAlgorithms = fc.MACAlgorithms
 	}
 
+	// Read in how nodes will validate the CA.
+	if fc.CAPin != "" {
+		cfg.CAPin = fc.CAPin
+	}
+
 	// apply connection throttling:
-	limiters := []limiter.LimiterConfig{
-		cfg.SSH.Limiter,
-		cfg.Auth.Limiter,
-		cfg.Proxy.Limiter,
+	limiters := []*limiter.LimiterConfig{
+		&cfg.SSH.Limiter,
+		&cfg.Auth.Limiter,
+		&cfg.Proxy.Limiter,
 	}
 	for _, l := range limiters {
 		if fc.Limits.MaxConnections > 0 {
@@ -271,7 +282,6 @@ func ApplyFileConfig(fc *FileConfig, cfg *service.Config) error {
 			})
 		}
 	}
-
 	// add static signed keypairs supplied from configs
 	for i := range fc.Global.Keys {
 		identity, err := fc.Global.Keys[i].Identity()
@@ -309,9 +319,10 @@ func ApplyFileConfig(fc *FileConfig, cfg *service.Config) error {
 func applyAuthConfig(fc *FileConfig, cfg *service.Config) error {
 	var err error
 
-	// passhtrough custom certificate authority file
 	if fc.Auth.KubeconfigFile != "" {
-		cfg.Auth.KubeconfigPath = fc.Auth.KubeconfigFile
+		warningMessage := "The auth_service no longer needs kubeconfig_file. It has " +
+			"been moved to proxy_service section. This setting is ignored."
+		log.Warning(warningMessage)
 	}
 	cfg.Auth.EnableProxyProtocol, err = utils.ParseOnOff("proxy_protocol", fc.Auth.ProxyProtocol, true)
 	if err != nil {
@@ -407,13 +418,15 @@ func applyAuthConfig(fc *FileConfig, cfg *service.Config) error {
 	}
 	auditConfig.Type = fc.Storage.Type
 
-	// build cluster config from session recording and host key checking preferences
+	// Set cluster-wide configuration from file configuration.
 	cfg.Auth.ClusterConfig, err = services.NewClusterConfig(services.ClusterConfigSpecV3{
 		SessionRecording:      fc.Auth.SessionRecording,
 		ProxyChecksHostKeys:   fc.Auth.ProxyChecksHostKeys,
 		Audit:                 *auditConfig,
 		ClientIdleTimeout:     fc.Auth.ClientIdleTimeout,
 		DisconnectExpiredCert: fc.Auth.DisconnectExpiredCert,
+		KeepAliveInterval:     fc.Auth.KeepAliveInterval,
+		KeepAliveCountMax:     fc.Auth.KeepAliveCountMax,
 	})
 	if err != nil {
 		return trace.Wrap(err)
@@ -506,6 +519,9 @@ func applyProxyConfig(fc *FileConfig, cfg *service.Config) error {
 	// apply kubernetes proxy config, by default kube proxy is disabled
 	if fc.Proxy.Kube.Configured() {
 		cfg.Proxy.Kube.Enabled = fc.Proxy.Kube.Enabled()
+	}
+	if fc.Proxy.Kube.KubeconfigFile != "" {
+		cfg.Proxy.Kube.KubeconfigPath = fc.Proxy.Kube.KubeconfigFile
 	}
 	if fc.Proxy.Kube.ListenAddress != "" {
 		addr, err := utils.ParseHostPortAddr(fc.Proxy.Kube.ListenAddress, int(defaults.KubeProxyListenPort))
@@ -798,11 +814,17 @@ func Configure(clf *CommandLineFlags, cfg *service.Config) error {
 			return trace.Wrap(err)
 		}
 	}
+
+	// apply command line --debug flag to override logger severity
+	if clf.Debug {
+		fileConf.Logger.Severity = teleport.DebugLevel
+	}
+
 	if err = ApplyFileConfig(fileConf, cfg); err != nil {
 		return trace.Wrap(err)
 	}
 
-	// apply diangostic address flag
+	// Apply diagnostic address flag.
 	if clf.DiagnosticAddr != "" {
 		addr, err := utils.ParseAddr(clf.DiagnosticAddr)
 		if err != nil {
@@ -816,10 +838,9 @@ func Configure(clf *CommandLineFlags, cfg *service.Config) error {
 		cfg.Proxy.DisableTLS = clf.DisableTLS
 	}
 
-	// apply --debug flag:
+	// apply --debug flag to config:
 	if clf.Debug {
 		cfg.Console = ioutil.Discard
-		utils.InitLogger(utils.LoggingForDaemon, log.DebugLevel)
 		cfg.Debug = clf.Debug
 	}
 
@@ -859,6 +880,11 @@ func Configure(clf *CommandLineFlags, cfg *service.Config) error {
 
 	// apply --token flag:
 	cfg.ApplyToken(clf.AuthToken)
+
+	// Apply flags used for the node to validate the Auth Server.
+	if clf.CAPin != "" {
+		cfg.CAPin = clf.CAPin
+	}
 
 	// apply --listen-ip flag:
 	if clf.ListenIP != nil {

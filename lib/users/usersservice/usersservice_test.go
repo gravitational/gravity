@@ -320,10 +320,16 @@ func (s *UsersSuite) TestCreateUserWithToken(c *C) {
 	err = s.suite.Users.SetAuthPreference(cap)
 	c.Assert(err, IsNil)
 
+	role, err := users.NewAdminRole()
+	c.Assert(err, IsNil)
+	err = s.suite.Users.UpsertRole(role, 0)
+	c.Assert(err, IsNil)
+
 	invite := storage.UserInvite{
 		Name:      name,
 		ExpiresIn: time.Hour,
 		CreatedBy: "mother@example.com",
+		Roles:     []string{role.GetName()},
 	}
 
 	userToken, err := s.suite.Users.CreateInviteToken("https://localhost:434/xxx", invite)

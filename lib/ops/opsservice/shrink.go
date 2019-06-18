@@ -36,7 +36,7 @@ import (
 )
 
 // createShrinkOperation initiates shrink operation and starts it immediately
-func (s *site) createShrinkOperation(req ops.CreateSiteShrinkOperationRequest) (*ops.SiteOperationKey, error) {
+func (s *site) createShrinkOperation(context context.Context, req ops.CreateSiteShrinkOperationRequest) (*ops.SiteOperationKey, error) {
 	log.Infof("createShrinkOperation: req=%#v", req)
 
 	cluster, err := s.service.GetSite(s.key)
@@ -55,6 +55,7 @@ func (s *site) createShrinkOperation(req ops.CreateSiteShrinkOperationRequest) (
 		SiteDomain:  s.key.SiteDomain,
 		Type:        ops.OperationShrink,
 		Created:     s.clock().UtcNow(),
+		CreatedBy:   storage.UserFromContext(context),
 		Updated:     s.clock().UtcNow(),
 		State:       ops.OperationStateShrinkInProgress,
 		Provisioner: server.Provisioner,
@@ -121,7 +122,7 @@ func (s *site) validateShrinkRequest(req ops.CreateSiteShrinkOperationRequest, c
 	serverName := req.Servers[0]
 	if len(cluster.ClusterState.Servers) == 1 {
 		return nil, trace.BadParameter(
-			"cannot shrink 1-node cluster, please uninstall it via Ops Center")
+			"cannot shrink 1-node cluster, use --force flag to uninstall")
 	}
 
 	server, err := cluster.ClusterState.FindServer(serverName)
@@ -130,7 +131,7 @@ func (s *site) validateShrinkRequest(req ops.CreateSiteShrinkOperationRequest, c
 	}
 
 	// check to make sure the server exists and can be found
-	servers, err := s.getTeleportServers()
+	servers, err := s.getAllTeleportServers()
 	if err != nil {
 		return nil, trace.Wrap(err, "failed to query teleport servers")
 	}
@@ -205,17 +206,19 @@ func (s *site) shrinkOperationStart(ctx *operationContext) (err error) {
 	//    uninstall on it (if the node is online)
 	var masterRunner, agentRunner *serverRunner
 
-	masterRunner, err = s.getMasterRunner(ctx)
+	masterRunner, err = s.pickShrinkMasterRunner(ctx, *server)
 	if err != nil {
 		return trace.Wrap(err)
 	}
+	ctx.Infof("Selected %v (%v) as master runner.",
+		masterRunner.server.HostName(),
+		masterRunner.server.Address())
 
 	// determine whether the node being removed is online and, if so, launch
 	// a shrink agent on it
 	online := false
-	var teleserver *teleportServer
 	if !state.NodeRemoved {
-		teleserver, err = s.getTeleportServerNoRetry(ops.Hostname, serverName)
+		_, err := s.getTeleportServerNoRetry(ops.Hostname, serverName)
 		if err != nil {
 			ctx.Warningf("node %q is offline: %v", serverName, trace.DebugReport(err))
 		} else {
@@ -285,10 +288,10 @@ func (s *site) shrinkOperationStart(ctx *operationContext) (err error) {
 		Message:    "removing the node from the cluster",
 	})
 
-	// delete node from the cluster
-	if teleserver != nil {
-		runner := s.newTeleportServerRunner(ctx, teleserver)
-		err = s.serfNodeLeave(runner)
+	// if the node is online, it needs to leave the serf cluster to
+	// prevent joining back
+	if online {
+		err = s.serfNodeLeave(agentRunner)
 		if err != nil {
 			if !force {
 				return trace.Wrap(err, "failed to remove the node from the serf cluster")
@@ -296,6 +299,8 @@ func (s *site) shrinkOperationStart(ctx *operationContext) (err error) {
 			ctx.Warnf("Failed to remove node %q from serf cluster: %v.", serverName, trace.DebugReport(err))
 		}
 	}
+
+	// delete the Kubernetes node and force-leave its serf member
 	if err = s.removeNodeFromCluster(*server, masterRunner); err != nil {
 		if !force {
 			return trace.Wrap(err, "failed to remove the node from the cluster")
@@ -404,6 +409,23 @@ func (s *site) shrinkOperationStart(ctx *operationContext) (err error) {
 	})
 
 	return nil
+}
+
+func (s *site) pickShrinkMasterRunner(ctx *operationContext, removedServer storage.Server) (*serverRunner, error) {
+	masters, err := s.getTeleportServers(schema.ServiceLabelRole, string(schema.ServiceRoleMaster))
+	if err != nil {
+		return nil, trace.Wrap(err)
+	}
+	// Pick any master server except the one that's being removed.
+	for _, master := range masters {
+		if master.IP != removedServer.AdvertiseIP {
+			return &serverRunner{
+				&master, &teleportRunner{ctx, s.domainName, s.teleport()},
+			}, nil
+		}
+	}
+	return nil, trace.NotFound("%v is being removed and no more master nodes are available to execute the operation",
+		removedServer)
 }
 
 func (s *site) waitForServerToDisappear(hostname string) error {
@@ -605,7 +627,7 @@ func (s *site) removeNodeFromCluster(server storage.Server, runner *serverRunner
 func (s *site) serfNodeLeave(runner *serverRunner) error {
 	// Issue `serf leave` from the node to remove the node from the serf cluster
 	command := s.planetEnterCommand(defaults.SerfBin, "leave")
-	err := utils.Retry(defaults.RetryInterval, defaults.RetryAttempts, func() error {
+	err := utils.Retry(defaults.RetryInterval, defaults.RetryLessAttempts, func() error {
 		out, err := runner.Run(command...)
 		if err != nil {
 			return trace.Wrap(err, "command %q failed: %s", command, out)

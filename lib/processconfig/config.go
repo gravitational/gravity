@@ -166,6 +166,9 @@ type Config struct {
 
 	// ServiceUser specifies the service user to use for wizard-based installation.
 	ServiceUser *systeminfo.User `yaml:"-"`
+
+	// InstallToken specifies the authentication token for the install operation
+	InstallToken string `yaml:"-"`
 }
 
 func (cfg *Config) CheckAndSetDefaults() error {
@@ -244,6 +247,11 @@ func (cfg Config) ProcessID() string {
 		id = strings.Replace(cfg.Pack.GetAddr().Addr, ":", "_", -1)
 	}
 	return id
+}
+
+// WizardAddr returns the address of the wizard endpoint
+func (cfg Config) WizardAddr() (addr string) {
+	return fmt.Sprintf("https://%v", cfg.Pack.GetAddr().Addr)
 }
 
 // ProfileConfig is a profile configuration

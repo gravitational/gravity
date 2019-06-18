@@ -87,8 +87,7 @@ func FSMSpec(config FSMConfig) fsm.FSMSpecFunc {
 
 		case strings.HasPrefix(p.Phase.ID, WaitK8sPhase):
 			return phases.NewWaitK8s(p,
-				config.Operator,
-				config.DNSConfig)
+				config.Operator)
 
 		case strings.HasPrefix(p.Phase.ID, PostHookPhase):
 			return installphases.NewHook(p,

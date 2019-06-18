@@ -111,11 +111,11 @@ func (p *pullExecutor) Execute(ctx context.Context) error {
 	if err != nil {
 		return trace.Wrap(err)
 	}
-	err = p.applyPackageLabels()
+	err = p.pullConfiguredPackages()
 	if err != nil {
 		return trace.Wrap(err)
 	}
-	err = p.pullConfiguredPackages()
+	err = p.applyPackageLabels()
 	if err != nil {
 		return trace.Wrap(err)
 	}
@@ -150,7 +150,8 @@ func (p *pullExecutor) pullUserApplication() error {
 		DstApp:      p.LocalApps,
 		Package:     *p.Phase.Data.Package,
 	})
-	if err != nil {
+	// Ignore already exists as the steps need to be re-entrant
+	if err != nil && !trace.IsAlreadyExists(err) {
 		return trace.Wrap(err)
 	}
 	return nil
@@ -161,12 +162,19 @@ func (p *pullExecutor) pullUserApplication() error {
 func (p *pullExecutor) applyPackageLabels() error {
 	packages := []string{
 		constants.TeleportPackage,
+		constants.TeleportNodeConfigPackage,
 		constants.GravityPackage,
 	}
+	purposeLabels := []string{
+		pack.PurposePlanetConfig,
+		pack.PurposePlanetSecrets,
+		pack.PurposeTeleportNodeConfig,
+	}
 	var locators []loc.Locator
-	err := pack.ForeachPackageInRepo(p.LocalPackages, defaults.SystemAccountOrg,
+	err := pack.ForeachPackage(p.LocalPackages,
 		func(e pack.PackageEnvelope) error {
-			if utils.StringInSlice(packages, e.Locator.Name) {
+			if utils.StringInSlice(packages, e.Locator.Name) ||
+				pack.Labels(e.RuntimeLabels).HasPurpose(purposeLabels...) {
 				locators = append(locators, e.Locator)
 			}
 			return nil
@@ -213,7 +221,8 @@ func (p *pullExecutor) pullConfiguredPackages() (err error) {
 			Package: e.Locator,
 			Labels:  e.RuntimeLabels,
 		})
-		if err != nil {
+		// Ignore already exists as the steps need to be re-entrant
+		if err != nil && !trace.IsAlreadyExists(err) {
 			return trace.Wrap(err)
 		}
 		if isSecret(e) {
@@ -248,13 +257,13 @@ func (p *pullExecutor) collectMasterPackages() ([]pack.PackageEnvelope, error) {
 	err := pack.ForeachPackageInRepo(p.WizardPackages, p.Plan.ClusterName,
 		func(e pack.PackageEnvelope) error {
 			pull := e.HasAnyLabel(map[string][]string{
-				pack.PurposeLabel: []string{
+				pack.PurposeLabel: {
 					pack.PurposeCA,
 					pack.PurposeExport,
 					pack.PurposeLicense,
 					pack.PurposeResources,
 				},
-				pack.AdvertiseIPLabel: []string{
+				pack.AdvertiseIPLabel: {
 					p.Phase.Data.Server.AdvertiseIP,
 				},
 			})
@@ -276,7 +285,7 @@ func (p *pullExecutor) collectNodePackages() ([]pack.PackageEnvelope, error) {
 	err := pack.ForeachPackageInRepo(p.WizardPackages, p.Plan.ClusterName,
 		func(e pack.PackageEnvelope) error {
 			pull := e.HasAnyLabel(map[string][]string{
-				pack.AdvertiseIPLabel: []string{
+				pack.AdvertiseIPLabel: {
 					p.Phase.Data.Server.AdvertiseIP,
 				},
 			})
@@ -303,7 +312,7 @@ func (p *pullExecutor) unpackPackages() error {
 	locators := []loc.Locator{p.runtimePackage}
 	err := pack.ForeachPackage(p.LocalPackages, func(e pack.PackageEnvelope) error {
 		unpack := e.HasAnyLabel(map[string][]string{
-			pack.PurposeLabel: []string{
+			pack.PurposeLabel: {
 				pack.PurposeCA,
 				pack.PurposePlanetSecrets,
 				pack.PurposePlanetConfig,

@@ -57,9 +57,6 @@ type site struct {
 	key        ops.SiteKey
 	provider   string
 	license    string
-	// resources is additional runtime k8s resources injected during
-	// installation process
-	resources []byte
 
 	// app defines the installation configuration
 	app *appservice.Application
@@ -118,10 +115,6 @@ func (s *site) gceNodeTags() string {
 	return strings.Join(s.backendSite.CloudConfig.GCENodeTags, ",")
 }
 
-func (s *site) hasResources() bool {
-	return len(s.resources) != 0
-}
-
 func (s *site) String() string {
 	return fmt.Sprintf("site(domain=%v)", s.domainName)
 }
@@ -176,6 +169,10 @@ func (s *site) loadProvisionerState(state interface{}) error {
 		return trace.NotFound("no provisioner state found")
 	}
 	return trace.Wrap(json.Unmarshal(st.ProvisionerState, state))
+}
+
+func (s *site) installToken() string {
+	return s.backendSite.InstallToken
 }
 
 func (s *site) cloudProvider() CloudProvider {
@@ -327,11 +324,18 @@ func (s *site) agentService() ops.AgentService {
 }
 
 func (s *site) agentRunner(ctx *operationContext) *agentRunner {
-	return &agentRunner{ctx, s.agentService()}
+	return &agentRunner{
+		ctx:          ctx,
+		AgentService: s.agentService(),
+	}
 }
 
 func (s *site) packages() pack.PackageService {
 	return s.service.cfg.Packages
+}
+
+func (s *site) apps() appservice.Applications {
+	return s.service.cfg.Apps
 }
 
 func (s *site) clock() timetools.TimeProvider {
@@ -615,6 +619,10 @@ func (s site) dockerConfig() storage.DockerConfig {
 	return s.backendSite.ClusterState.Docker
 }
 
+func (s site) servers() []storage.Server {
+	return s.backendSite.ClusterState.Servers
+}
+
 func (s site) dnsConfig() storage.DNSConfig {
 	if s.backendSite.DNSConfig.IsEmpty() {
 		return storage.DefaultDNSConfig
@@ -675,9 +683,9 @@ func convertSite(in storage.Site, apps appservice.Applications) (*ops.Site, erro
 			Package:         app.Package,
 			PackageEnvelope: app.PackageEnvelope,
 		},
-		Resources: in.Resources,
-		Provider:  in.Provider,
-		Labels:    in.Labels,
+		Resources:                in.Resources,
+		Provider:                 in.Provider,
+		Labels:                   in.Labels,
 		FinalInstallStepComplete: in.FinalInstallStepComplete,
 		Location:                 in.Location,
 		UpdateInterval:           in.UpdateInterval,
@@ -687,6 +695,7 @@ func convertSite(in storage.Site, apps appservice.Applications) (*ops.Site, erro
 		CloudConfig:              in.CloudConfig,
 		DNSOverrides:             in.DNSOverrides,
 		DNSConfig:                in.DNSConfig,
+		InstallToken:             in.InstallToken,
 	}
 	if in.License != "" {
 		parsed, err := license.ParseLicense(in.License)

@@ -24,7 +24,6 @@ import (
 	"github.com/gravitational/gravity/lib/state"
 	"github.com/gravitational/gravity/lib/storage"
 
-	"github.com/davecgh/go-spew/spew"
 	"github.com/gogo/protobuf/types"
 	"github.com/gravitational/trace"
 	log "github.com/sirupsen/logrus"
@@ -56,8 +55,7 @@ func (srv *agentServer) Command(req *pb.CommandArgs, stream pb.Agent_CommandServ
 
 // PeerJoin accepts a new peer
 func (srv *agentServer) PeerJoin(ctx context.Context, req *pb.PeerJoinRequest) (*types.Empty, error) {
-	fmt := spew.ConfigState{Indent: "  ", DisableCapacities: true, DisablePointerAddresses: true}
-	srv.Debugf("PeerJoin(%v).", fmt.Sdump(req))
+	srv.WithField("req", req).Debug("PeerJoin.")
 	err := srv.PeerStore.NewPeer(ctx, *req, &remotePeer{
 		addr:             req.Addr,
 		creds:            srv.Config.Client,
@@ -71,8 +69,7 @@ func (srv *agentServer) PeerJoin(ctx context.Context, req *pb.PeerJoinRequest) (
 
 // PeerLeave receives a "leave" request from a peer and initiates its shutdown
 func (srv *agentServer) PeerLeave(ctx context.Context, req *pb.PeerLeaveRequest) (*types.Empty, error) {
-	fmt := spew.ConfigState{Indent: "  ", DisableCapacities: true, DisablePointerAddresses: true}
-	srv.Debugf("PeerLeave(%v).", fmt.Sdump(req))
+	srv.WithField("req", req).Debug("PeerLeave.")
 	err := srv.PeerStore.RemovePeer(ctx, *req, &remotePeer{
 		addr:             req.Addr,
 		creds:            srv.Config.Client,
@@ -137,10 +134,19 @@ func (srv *agentServer) GetCurrentTime(ctx context.Context, _ *types.Empty) (*ty
 }
 
 // Shutdown requests agent to shut down
-func (srv *agentServer) Shutdown(ctx context.Context, _ *types.Empty) (*types.Empty, error) {
-	srv.Info("Shutdown.")
+func (srv *agentServer) Shutdown(ctx context.Context, req *pb.ShutdownRequest) (resp *types.Empty, err error) {
+	srv.WithField("req", req).Info("Shutdown.")
 	go srv.Stop(ctx)
-	return &types.Empty{}, nil
+	return &types.Empty{}, trace.Wrap(err)
+}
+
+func (srv *agentServer) Abort(ctx context.Context, req *types.Empty) (resp *types.Empty, err error) {
+	srv.Info("Aborting agent.")
+	if srv.AbortHandler != nil {
+		err = srv.AbortHandler(ctx)
+	}
+	go srv.Stop(ctx)
+	return &types.Empty{}, trace.Wrap(err)
 }
 
 func (srv *agentServer) command(req pb.CommandArgs, stream pb.Agent_CommandServer, log *log.Entry) (err error) {
@@ -156,9 +162,9 @@ func (srv *agentServer) command(req pb.CommandArgs, stream pb.Agent_CommandServe
 	err = srv.commandExecutor.exec(stream.Context(), stream, req.Args, makeRemoteLogger(stream, srv.FieldLogger))
 	if err != nil {
 		stream.Send(pb.ErrorToMessage(err))
-		log.WithError(err).Error("command returned error")
+		log.WithError(err).Warn("Command completed with error.")
 	} else {
-		log.Debug("completed OK")
+		log.Debug("Command completed OK.")
 	}
 	return trace.Wrap(err)
 }

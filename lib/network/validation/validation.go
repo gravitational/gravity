@@ -151,7 +151,7 @@ func (_ *Server) Validate(ctx context.Context, req *pb.ValidateRequest) (resp *p
 		failedProbes = append(failedProbes, runLocalChecks(ctx)...)
 	}
 
-	return &pb.ValidateResponse{failedProbes}, trace.Wrap(err)
+	return &pb.ValidateResponse{Failed: failedProbes}, trace.Wrap(err)
 }
 
 func listen(ctx context.Context, server pb.Addr, duration time.Duration) error {

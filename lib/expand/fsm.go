@@ -18,16 +18,14 @@ package expand
 
 import (
 	"context"
-	"fmt"
 	"time"
 
 	"github.com/gravitational/gravity/lib/app"
 	"github.com/gravitational/gravity/lib/constants"
-	"github.com/gravitational/gravity/lib/defaults"
 	"github.com/gravitational/gravity/lib/fsm"
+	"github.com/gravitational/gravity/lib/install"
 	"github.com/gravitational/gravity/lib/ops"
 	"github.com/gravitational/gravity/lib/pack"
-	"github.com/gravitational/gravity/lib/rpc"
 	"github.com/gravitational/gravity/lib/storage"
 	"github.com/gravitational/gravity/lib/utils"
 
@@ -65,8 +63,6 @@ type FSMConfig struct {
 	DebugMode bool
 	// Insecure turns on FSM insecure mode
 	Insecure bool
-	// DNSConfig is the node DNS configuration
-	DNSConfig storage.DNSConfig
 }
 
 // CheckAndSetDefaults validates expand FSM configuration and sets defaults
@@ -93,11 +89,8 @@ func (c *FSMConfig) CheckAndSetDefaults() error {
 	if c.LocalPackages == nil {
 		return trace.BadParameter("missing LocalPackages")
 	}
-	if c.DNSConfig.IsEmpty() {
-		return trace.BadParameter("missing DNSConfig")
-	}
 	if c.Credentials == nil {
-		c.Credentials, err = rpc.ClientCredentials(defaults.RPCAgentSecretsDir)
+		c.Credentials, err = install.ClientCredentials(c.Packages)
 		if err != nil {
 			return trace.Wrap(err)
 		}
@@ -138,8 +131,6 @@ func NewFSM(config FSMConfig) (*fsm.FSM, error) {
 type fsmEngine struct {
 	// FSMConfig is the expand FSM configuration
 	FSMConfig
-	// operation is the ongoing expand operation
-	operation ops.SiteOperation
 	// FieldLogger is used for logging
 	logrus.FieldLogger
 }
@@ -185,19 +176,24 @@ func (e *fsmEngine) ChangePhaseState(ctx context.Context, change fsm.StateChange
 
 // GetPlan returns the up-to-date operation plan
 func (e *fsmEngine) GetPlan() (*storage.OperationPlan, error) {
-	return fsm.GetOperationPlan(e.JoinBackend, e.OperationKey.SiteDomain,
-		e.OperationKey.OperationID)
+	return fsm.GetOperationPlan(e.JoinBackend, e.OperationKey)
 }
 
 // RunCommand executes the phase specified by params on the specified
 // server using the provided runner
 func (e *fsmEngine) RunCommand(ctx context.Context, runner fsm.RemoteRunner, node storage.Server, p fsm.Params) error {
-	args := []string{"join", "--phase", p.PhaseID, fmt.Sprintf("--force=%v", p.Force)}
+	args := []string{"plan", "execute",
+		"--phase", p.PhaseID,
+		"--operation-id", p.OperationID,
+	}
 	if e.DebugMode {
-		args = append([]string{"--debug"}, args...)
+		args = append(args, "--debug")
 	}
 	if e.Insecure {
-		args = append([]string{"--insecure"}, args...)
+		args = append(args, "--insecure")
+	}
+	if p.Force {
+		args = append(args, "--force")
 	}
 	return runner.Run(ctx, node, args...)
 }

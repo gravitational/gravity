@@ -1,9 +1,27 @@
-var path = require('path');
-var MiniCssExtractPlugin = require("mini-css-extract-plugin");
-var HtmlWebPackPlugin = require('html-webpack-plugin');
+/*
+Copyright 2019 Gravitational, Inc.
 
-var ROOT_PATH = path.join(__dirname, '../');
-var FAVICON_PATH = path.join(ROOT_PATH, 'src/assets/img/favicon.ico');
+Licensed under the Apache License, Version 2.0 (the "License");
+you may not use this file except in compliance with the License.
+You may obtain a copy of the License at
+
+    http://www.apache.org/licenses/LICENSE-2.0
+
+Unless required by applicable law or agreed to in writing, software
+distributed under the License is distributed on an "AS IS" BASIS,
+WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+See the License for the specific language governing permissions and
+limitations under the License.
+*/
+
+const path = require('path');
+const MiniCssExtractPlugin = require("mini-css-extract-plugin");
+const HtmlWebPackPlugin = require('html-webpack-plugin');
+
+const ROOT_PATH = path.join(__dirname, '../');
+const BASE_PATH = path.join(ROOT_PATH, 'src');
+const SHARED_BASE_PATH = path.join(ROOT_PATH, 'shared');
+const FAVICON_PATH = path.join(BASE_PATH, '/assets/favicon.ico');
 
 module.exports = {
 
@@ -15,10 +33,10 @@ module.exports = {
     splitChunks: {
       cacheGroups: {
         vendors: {
-            chunks: "all",
-            name: "vendor",
-            test: /([\\/]node_modules[\\/])|(assets\/)/,
-            priority: -10
+          chunks: "all",
+          name: "vendor",
+          test: /([\\/]node_modules[\\/])/,
+          priority: -10
         }
       }
     }
@@ -26,7 +44,7 @@ module.exports = {
 
   output: {
     // used by loaders to generate various URLs within CSS, JS based off publicPath
-    publicPath: '/web/app',
+    publicPath: '/web/app/',
 
     path: path.join(ROOT_PATH, 'dist/app'),
 
@@ -43,15 +61,17 @@ module.exports = {
   resolve: {
     // some vendor libraries expect below globals to be defined
     alias: {
-      jquery: path.join(ROOT_PATH, '/src/assets/js/jquery'),
-      jQuery: path.join(ROOT_PATH, '/src/assets/js/jquery'),
-      toastr: path.join(ROOT_PATH, '/src/assets/js/toastr'),
-      app: path.join(ROOT_PATH, '/src/app'),
-      assets: path.join(ROOT_PATH, '/src/assets/'),
+      shared: path.join(ROOT_PATH, '/shared/'),
+      app: BASE_PATH,
+      'oss-app': BASE_PATH,
+      jQuery: 'jquery',
     },
 
+    /*
+    * root path to resolve js our modules, enables us to use absolute path.
+    * For ex: require('./../../../config') can be replaced with require('app/config')
+    **/
     modules: ['node_modules'],
-
     extensions: ['.js', '.jsx']
   },
 
@@ -64,14 +84,17 @@ module.exports = {
       test: /fonts\/(.)+\.(woff|woff2|ttf|eot|svg)/,
       loader: "url-loader",
       options: {
-        limit: 10000,
+        limit: 102400, // 100kb
         name: '/assets/fonts/[name].[ext]',
       }
     },
 
     svg: {
       test: /\.svg$/,
-      loader: 'svg-sprite-loader',
+      loader: 'svg-url-loader',
+      options: {
+        noquotes: true,
+      },
       exclude: /node_modules/
     },
 
@@ -112,13 +135,16 @@ module.exports = {
     },
 
     inlineStyle: {
+      /*
+      * loads CSS for the rest of the app by ignores vendor folder.
+      **/
       test: /\.scss$/,
       use: ['style-loader', 'css-loader', 'sass-loader']
     },
 
     images: {
       test: /\.(png|jpg|gif)$/,
-      loader: "file-loader",
+      loader: "url-loader",
       options: {
         limit: 10000,
         name: '/assets/img/img-[hash:6].[ext]',
@@ -135,7 +161,6 @@ module.exports = {
   },
 
   plugins: {
-
     // builds index html page, the main entry point for application
     createIndexHtml() {
       return createHtmlPluginInstance({
@@ -158,42 +183,23 @@ module.exports = {
 
 function jsx(args){
   args = args || {};
-  var plugins = ["transform-class-properties", "transform-object-rest-spread", "syntax-dynamic-import"];
-  var moduleType = false;
   var emitWarning = false;
-
   if(args.withHot){
-    plugins.unshift('react-hot-loader/babel');
     emitWarning = true;
   }
 
-  // use commonjs modules to be able to override exports in tests
-  if(args.test){
-    moduleType = 'commonjs'
-  }
-
-  var presets =   ['react', [ "es2015", { "modules": moduleType } ] ];
-
   return {
-    include: [path.join(ROOT_PATH, 'src')],
+    include: [SHARED_BASE_PATH, BASE_PATH],
     test: /\.(js|jsx)$/,
     exclude: /(node_modules)|(assets)/,
     use: [
       {
         loader: 'babel-loader',
-        options: {
-          presets,
-          plugins,
-          // This is a feature of `babel-loader` for webpack (not Babel itself).
-          // It enables caching results in ./node_modules/.cache/babel-loader/
-          // directory for faster rebuilds.
-          cacheDirectory: true
-        }
       },
       {
         loader: "eslint-loader",
         options: {
-          emitWarning,
+          emitWarning
         }
       }
     ]

@@ -32,9 +32,9 @@ import (
 	"github.com/gravitational/gravity/lib/httplib"
 	"github.com/gravitational/gravity/lib/loc"
 	"github.com/gravitational/gravity/lib/ops"
-	"github.com/gravitational/gravity/lib/ops/monitoring"
 	"github.com/gravitational/gravity/lib/pack"
 	"github.com/gravitational/gravity/lib/storage"
+	"github.com/gravitational/gravity/lib/storage/clusterconfig"
 
 	"github.com/gravitational/roundtrip"
 	telehttplib "github.com/gravitational/teleport/lib/httplib"
@@ -152,6 +152,15 @@ func (c *Client) CreateUser(req ops.NewUserRequest) error {
 	return nil
 }
 
+// UpdateUser updates the specified user information.
+func (c *Client) UpdateUser(ctx context.Context, req ops.UpdateUserRequest) error {
+	_, err := c.PutJSON(c.Endpoint("accounts", req.AccountID, "sites", req.SiteDomain, "users", req.Name), req)
+	if err != nil {
+		return trace.Wrap(err)
+	}
+	return nil
+}
+
 func (c *Client) DeleteLocalUser(name string) error {
 	_, err := c.Delete(c.Endpoint("users", name))
 	if err != nil {
@@ -160,7 +169,7 @@ func (c *Client) DeleteLocalUser(name string) error {
 	return nil
 }
 
-func (c *Client) CreateAPIKey(req ops.NewAPIKeyRequest) (*storage.APIKey, error) {
+func (c *Client) CreateAPIKey(ctx context.Context, req ops.NewAPIKeyRequest) (*storage.APIKey, error) {
 	out, err := c.PostJSON(c.Endpoint("apikeys", "user", req.UserEmail), req)
 	if err != nil {
 		return nil, trace.Wrap(err)
@@ -184,7 +193,7 @@ func (c *Client) GetAPIKeys(userEmail string) ([]storage.APIKey, error) {
 	return keys, nil
 }
 
-func (c *Client) DeleteAPIKey(userEmail, token string) error {
+func (c *Client) DeleteAPIKey(ctx context.Context, userEmail, token string) error {
 	_, err := c.Delete(c.Endpoint("apikeys", "user", userEmail, token))
 	if err != nil {
 		return trace.Wrap(err)
@@ -417,7 +426,7 @@ func (c *Client) CompleteFinalInstallStep(req ops.CompleteFinalInstallStepReques
 }
 
 // CheckSiteStatus runs app status hook and updates site status appropriately.
-func (c *Client) CheckSiteStatus(key ops.SiteKey) error {
+func (c *Client) CheckSiteStatus(ctx context.Context, key ops.SiteKey) error {
 	_, err := c.Get(c.Endpoint("accounts", key.AccountID, "sites", key.SiteDomain, "status"), url.Values{})
 	return trace.Wrap(err)
 }
@@ -448,7 +457,7 @@ func (c *Client) GetSiteOperation(key ops.SiteOperationKey) (*ops.SiteOperation,
 	return op, nil
 }
 
-func (c *Client) CreateSiteInstallOperation(req ops.CreateSiteInstallOperationRequest) (*ops.SiteOperationKey, error) {
+func (c *Client) CreateSiteInstallOperation(ctx context.Context, req ops.CreateSiteInstallOperationRequest) (*ops.SiteOperationKey, error) {
 	out, err := c.PostJSON(c.Endpoint("accounts", req.AccountID, "sites", req.SiteDomain, "operations", "install"), req)
 	if err != nil {
 		return nil, trace.Wrap(err)
@@ -525,7 +534,7 @@ func (c *Client) SiteExpandOperationStart(key ops.SiteOperationKey) error {
 	return nil
 }
 
-func (c *Client) CreateSiteUninstallOperation(req ops.CreateSiteUninstallOperationRequest) (*ops.SiteOperationKey, error) {
+func (c *Client) CreateSiteUninstallOperation(ctx context.Context, req ops.CreateSiteUninstallOperationRequest) (*ops.SiteOperationKey, error) {
 	out, err := c.PostJSON(c.Endpoint("accounts", req.AccountID, "sites", req.SiteDomain, "operations", "uninstall"), req)
 	if err != nil {
 		return nil, trace.Wrap(err)
@@ -538,8 +547,36 @@ func (c *Client) CreateSiteUninstallOperation(req ops.CreateSiteUninstallOperati
 }
 
 // CreateClusterGarbageCollectOperation creates a new garbage collection operation in the cluster
-func (c *Client) CreateClusterGarbageCollectOperation(req ops.CreateClusterGarbageCollectOperationRequest) (*ops.SiteOperationKey, error) {
+func (c *Client) CreateClusterGarbageCollectOperation(ctx context.Context, req ops.CreateClusterGarbageCollectOperationRequest) (*ops.SiteOperationKey, error) {
 	out, err := c.PostJSON(c.Endpoint("accounts", req.AccountID, "sites", req.ClusterName, "operations", "gc"), req)
+	if err != nil {
+		return nil, trace.Wrap(err)
+	}
+
+	var key ops.SiteOperationKey
+	if err := json.Unmarshal(out.Bytes(), &key); err != nil {
+		return nil, trace.Wrap(err)
+	}
+	return &key, nil
+}
+
+// CreateUpdateEnvarsOperation creates a new operation to update cluster runtime environment variables
+func (c *Client) CreateUpdateEnvarsOperation(ctx context.Context, req ops.CreateUpdateEnvarsOperationRequest) (*ops.SiteOperationKey, error) {
+	out, err := c.PostJSON(c.Endpoint("accounts", req.ClusterKey.AccountID, "sites", req.ClusterKey.SiteDomain, "operations", "envars"), req)
+	if err != nil {
+		return nil, trace.Wrap(err)
+	}
+
+	var key ops.SiteOperationKey
+	if err := json.Unmarshal(out.Bytes(), &key); err != nil {
+		return nil, trace.Wrap(err)
+	}
+	return &key, nil
+}
+
+// CreateUpdateConfigOperation creates a new operation to update cluster configuration
+func (c *Client) CreateUpdateConfigOperation(ctx context.Context, req ops.CreateUpdateConfigOperationRequest) (*ops.SiteOperationKey, error) {
+	out, err := c.PostJSON(c.Endpoint("accounts", req.ClusterKey.AccountID, "sites", req.ClusterKey.SiteDomain, "operations", "config"), req)
 	if err != nil {
 		return nil, trace.Wrap(err)
 	}
@@ -559,7 +596,7 @@ func (c *Client) SiteUninstallOperationStart(req ops.SiteOperationKey) error {
 	return nil
 }
 
-func (c *Client) CreateSiteExpandOperation(req ops.CreateSiteExpandOperationRequest) (*ops.SiteOperationKey, error) {
+func (c *Client) CreateSiteExpandOperation(ctx context.Context, req ops.CreateSiteExpandOperationRequest) (*ops.SiteOperationKey, error) {
 	out, err := c.PostJSON(c.Endpoint("accounts", req.AccountID, "sites", req.SiteDomain, "operations", "expand"), req)
 	if err != nil {
 		return nil, trace.Wrap(err)
@@ -571,7 +608,7 @@ func (c *Client) CreateSiteExpandOperation(req ops.CreateSiteExpandOperationRequ
 	return &siteOperationKey, nil
 }
 
-func (c *Client) CreateSiteShrinkOperation(req ops.CreateSiteShrinkOperationRequest) (*ops.SiteOperationKey, error) {
+func (c *Client) CreateSiteShrinkOperation(ctx context.Context, req ops.CreateSiteShrinkOperationRequest) (*ops.SiteOperationKey, error) {
 	out, err := c.PostJSON(c.Endpoint("accounts", req.AccountID, "sites", req.SiteDomain, "operations", "shrink"), req)
 	if err != nil {
 		return nil, trace.Wrap(err)
@@ -583,7 +620,7 @@ func (c *Client) CreateSiteShrinkOperation(req ops.CreateSiteShrinkOperationRequ
 	return &siteOperationKey, nil
 }
 
-func (c *Client) CreateSiteAppUpdateOperation(req ops.CreateSiteAppUpdateOperationRequest) (*ops.SiteOperationKey, error) {
+func (c *Client) CreateSiteAppUpdateOperation(ctx context.Context, req ops.CreateSiteAppUpdateOperationRequest) (*ops.SiteOperationKey, error) {
 	out, err := c.PostJSON(c.Endpoint("accounts", req.AccountID, "sites", req.SiteDomain, "operations", "update"), req)
 	if err != nil {
 		return nil, trace.Wrap(err)
@@ -655,7 +692,7 @@ func (c *Client) GetSiteReport(key ops.SiteKey) (io.ReadCloser, error) {
 }
 
 func (c *Client) UpsertRepository(repository string) error {
-	_, err := c.PostForm(c.Endpoint("repositories"), url.Values{
+	_, err := c.PostForm(context.TODO(), c.Endpoint("repositories"), url.Values{
 		"name": []string{repository},
 	})
 	if err != nil {
@@ -713,7 +750,7 @@ func (c *Client) CreatePackage(loc loc.Locator, data io.Reader) (*pack.PackageEn
 		Filename: loc.String(),
 		Reader:   data,
 	}
-	out, err := c.PostForm(c.Endpoint("repositories", loc.Repository, "packages"), url.Values{}, file)
+	out, err := c.PostForm(context.TODO(), c.Endpoint("repositories", loc.Repository, "packages"), url.Values{}, file)
 	if err != nil {
 		return nil, trace.Wrap(err)
 	}
@@ -739,7 +776,7 @@ func (c *Client) ReadPackage(loc loc.Locator) (*pack.PackageEnvelope, io.ReadClo
 	if err != nil {
 		return nil, nil, trace.Wrap(err)
 	}
-	re, err := c.Client.GetFile(c.Endpoint("repositories", loc.Repository,
+	re, err := c.Client.GetFile(context.TODO(), c.Endpoint("repositories", loc.Repository,
 		"packages", loc.Name, loc.Version, "file"), url.Values{})
 	if err != nil {
 		return nil, nil, trace.Wrap(err)
@@ -854,10 +891,13 @@ func (c *Client) GetOperationPlan(key ops.SiteOperationKey) (*storage.OperationP
 }
 
 // Configure packages configures packages for the specified install operation
-func (c *Client) ConfigurePackages(key ops.SiteOperationKey) error {
+func (c *Client) ConfigurePackages(req ops.ConfigurePackagesRequest) error {
 	_, err := c.PostJSON(c.Endpoint(
-		"accounts", key.AccountID, "sites", key.SiteDomain, "operations", "common", key.OperationID, "plan", "configure"),
-		struct{}{})
+		"accounts",
+		req.AccountID, "sites",
+		req.SiteDomain, "operations", "common",
+		req.OperationID, "plan", "configure"),
+		&req)
 	if err != nil {
 		return trace.Wrap(err)
 	}
@@ -870,12 +910,12 @@ func (c *Client) RotateSecrets(req ops.RotateSecretsRequest) (*ops.RotatePackage
 }
 
 // RotatePlanetConfig rotates planet configuration package for the server specified in the request
-func (c *Client) RotatePlanetConfig(req ops.RotateConfigPackageRequest) (*ops.RotatePackageResponse, error) {
+func (c *Client) RotatePlanetConfig(req ops.RotatePlanetConfigRequest) (*ops.RotatePackageResponse, error) {
 	return nil, trace.NotImplemented("this method is only supported by local operator")
 }
 
 // RotateTeleportConfig rotates teleport configuration package for the server specified in the request
-func (c *Client) RotateTeleportConfig(req ops.RotateConfigPackageRequest) (*ops.RotatePackageResponse, *ops.RotatePackageResponse, error) {
+func (c *Client) RotateTeleportConfig(req ops.RotateTeleportConfigRequest) (*ops.RotatePackageResponse, *ops.RotatePackageResponse, error) {
 	return nil, nil, trace.NotImplemented("this method is only supported by local operator")
 }
 
@@ -914,7 +954,7 @@ func (c *Client) UpdateLogForwarders(key ops.SiteKey, forwarders []storage.LogFo
 }
 
 // CreateLogForwarder creates a new log forwarder
-func (c *Client) CreateLogForwarder(key ops.SiteKey, forwarder storage.LogForwarder) error {
+func (c *Client) CreateLogForwarder(ctx context.Context, key ops.SiteKey, forwarder storage.LogForwarder) error {
 	bytes, err := storage.GetLogForwarderMarshaler().Marshal(forwarder)
 	if err != nil {
 		return trace.Wrap(err)
@@ -928,7 +968,7 @@ func (c *Client) CreateLogForwarder(key ops.SiteKey, forwarder storage.LogForwar
 }
 
 // UpdateLogForwarder updates an existing log forwarder
-func (c *Client) UpdateLogForwarder(key ops.SiteKey, forwarder storage.LogForwarder) error {
+func (c *Client) UpdateLogForwarder(ctx context.Context, key ops.SiteKey, forwarder storage.LogForwarder) error {
 	bytes, err := storage.GetLogForwarderMarshaler().Marshal(forwarder)
 	if err != nil {
 		return trace.Wrap(err)
@@ -942,30 +982,26 @@ func (c *Client) UpdateLogForwarder(key ops.SiteKey, forwarder storage.LogForwar
 }
 
 // DeleteLogForwarder deletes a log forwarder
-func (c *Client) DeleteLogForwarder(key ops.SiteKey, forwarderName string) error {
+func (c *Client) DeleteLogForwarder(ctx context.Context, key ops.SiteKey, forwarderName string) error {
 	_, err := c.Delete(c.Endpoint("accounts", key.AccountID, "sites", key.SiteDomain, "logs", "forwarders", forwarderName))
 	return trace.Wrap(err)
 }
 
-// GetRetentionPolicies returns a list of retention policies for the site
-func (c *Client) GetRetentionPolicies(key ops.SiteKey) ([]monitoring.RetentionPolicy, error) {
-	response, err := c.Get(c.Endpoint(
-		"accounts", key.AccountID, "sites", key.SiteDomain, "monitoring", "retention"), url.Values{})
+// GetClusterMetrics returns basic CPU/RAM metrics for the specified cluster.
+func (c *Client) GetClusterMetrics(ctx context.Context, req ops.ClusterMetricsRequest) (*ops.ClusterMetricsResponse, error) {
+	response, err := c.Get(c.Endpoint("accounts", req.AccountID, "sites",
+		req.SiteDomain, "monitoring", "metrics"), url.Values{
+		"interval": []string{req.Interval.String()},
+		"step":     []string{req.Step.String()},
+	})
 	if err != nil {
 		return nil, trace.Wrap(err)
 	}
-	var policies []monitoring.RetentionPolicy
-	err = json.Unmarshal(response.Bytes(), &policies)
-	if err != nil {
+	var metrics ops.ClusterMetricsResponse
+	if err := json.Unmarshal(response.Bytes(), &metrics); err != nil {
 		return nil, trace.Wrap(err)
 	}
-	return policies, nil
-}
-
-// UpdateRetentionPolicy configures metrics retention policy
-func (c *Client) UpdateRetentionPolicy(req ops.UpdateRetentionPolicyRequest) error {
-	_, err := c.PutJSON(c.Endpoint("accounts", req.AccountID, "sites", req.SiteDomain, "monitoring", "retention"), req)
-	return trace.Wrap(err)
+	return &metrics, nil
 }
 
 // GetSMTPConfig returns the cluster SMTP configuration
@@ -990,7 +1026,7 @@ func (c *Client) GetSMTPConfig(key ops.SiteKey) (storage.SMTPConfig, error) {
 }
 
 // UpdateSMTPConfig updates the cluster SMTP configuration
-func (c *Client) UpdateSMTPConfig(key ops.SiteKey, config storage.SMTPConfig) error {
+func (c *Client) UpdateSMTPConfig(ctx context.Context, key ops.SiteKey, config storage.SMTPConfig) error {
 	bytes, err := storage.MarshalSMTPConfig(config)
 	if err != nil {
 		return trace.Wrap(err)
@@ -1002,7 +1038,7 @@ func (c *Client) UpdateSMTPConfig(key ops.SiteKey, config storage.SMTPConfig) er
 }
 
 // DeleteSMTPConfig deletes the cluster SMTP configuration
-func (c *Client) DeleteSMTPConfig(key ops.SiteKey) error {
+func (c *Client) DeleteSMTPConfig(ctx context.Context, key ops.SiteKey) error {
 	_, err := c.Delete(c.Endpoint("accounts", key.AccountID, "sites", key.SiteDomain, "smtp"))
 	return trace.Wrap(err)
 }
@@ -1031,7 +1067,7 @@ func (c *Client) GetAlerts(key ops.SiteKey) ([]storage.Alert, error) {
 }
 
 // UpdateAlert updates the specified monitoring alert
-func (c *Client) UpdateAlert(key ops.SiteKey, alert storage.Alert) error {
+func (c *Client) UpdateAlert(ctx context.Context, key ops.SiteKey, alert storage.Alert) error {
 	bytes, err := storage.MarshalAlert(alert)
 	if err != nil {
 		return trace.Wrap(err)
@@ -1044,7 +1080,7 @@ func (c *Client) UpdateAlert(key ops.SiteKey, alert storage.Alert) error {
 }
 
 // DeleteAlert deletes a cluster monitoring alert specified with name
-func (c *Client) DeleteAlert(key ops.SiteKey, name string) error {
+func (c *Client) DeleteAlert(ctx context.Context, key ops.SiteKey, name string) error {
 	_, err := c.Delete(c.Endpoint("accounts", key.AccountID, "sites", key.SiteDomain, "monitoring", "alerts", name))
 	return trace.Wrap(err)
 }
@@ -1073,7 +1109,7 @@ func (c *Client) GetAlertTargets(key ops.SiteKey) ([]storage.AlertTarget, error)
 }
 
 // UpdateAlertTarget updates the monitoring alert target
-func (c *Client) UpdateAlertTarget(key ops.SiteKey, target storage.AlertTarget) error {
+func (c *Client) UpdateAlertTarget(ctx context.Context, key ops.SiteKey, target storage.AlertTarget) error {
 	bytes, err := storage.MarshalAlertTarget(target)
 	if err != nil {
 		return trace.Wrap(err)
@@ -1085,9 +1121,68 @@ func (c *Client) UpdateAlertTarget(key ops.SiteKey, target storage.AlertTarget) 
 }
 
 // DeleteAlertTarget deletes the cluster monitoring alert target
-func (c *Client) DeleteAlertTarget(key ops.SiteKey) error {
+func (c *Client) DeleteAlertTarget(ctx context.Context, key ops.SiteKey) error {
 	_, err := c.Delete(c.Endpoint("accounts", key.AccountID, "sites", key.SiteDomain, "monitoring", "alert-targets"))
 	return trace.Wrap(err)
+}
+
+// GetClusterEnvironmentVariables retrieves the cluster runtime environment variables
+func (c *Client) GetClusterEnvironmentVariables(key ops.SiteKey) (storage.EnvironmentVariables, error) {
+	response, err := c.Get(c.Endpoint(
+		"accounts", key.AccountID, "sites", key.SiteDomain, "envars"), url.Values{})
+	if err != nil {
+		return nil, trace.Wrap(err)
+	}
+	var msg json.RawMessage
+	if err = json.Unmarshal(response.Bytes(), &msg); err != nil {
+		return nil, trace.Wrap(err)
+	}
+	env, err := storage.UnmarshalEnvironmentVariables(msg)
+	if err != nil {
+		return nil, trace.Wrap(err)
+	}
+	return env, nil
+}
+
+// UpdateClusterEnvironmentVariables updates the cluster runtime environment variables
+// from the specified request
+func (c *Client) UpdateClusterEnvironmentVariables(req ops.UpdateClusterEnvironRequest) error {
+	_, err := c.PutJSON(c.Endpoint(
+		"accounts", req.ClusterKey.AccountID, "sites", req.ClusterKey.SiteDomain, "envars"),
+		&req)
+	if err != nil {
+		return trace.Wrap(err)
+	}
+	return nil
+}
+
+// GetClusterConfiguration retrieves the cluster configuration
+func (c *Client) GetClusterConfiguration(key ops.SiteKey) (clusterconfig.Interface, error) {
+	response, err := c.Get(c.Endpoint(
+		"accounts", key.AccountID, "sites", key.SiteDomain, "config"), url.Values{})
+	if err != nil {
+		return nil, trace.Wrap(err)
+	}
+	var msg json.RawMessage
+	if err = json.Unmarshal(response.Bytes(), &msg); err != nil {
+		return nil, trace.Wrap(err)
+	}
+	config, err := clusterconfig.Unmarshal(msg)
+	if err != nil {
+		return nil, trace.Wrap(err)
+	}
+	return config, nil
+}
+
+// UpdateClusterConfiguration updates the cluster configuration from the specified request
+func (c *Client) UpdateClusterConfiguration(req ops.UpdateClusterConfigRequest) error {
+	_, err := c.PutJSON(c.Endpoint(
+		"accounts", req.ClusterKey.AccountID, "sites", req.ClusterKey.SiteDomain, "config"),
+		&req)
+	if err != nil {
+		return trace.Wrap(err)
+	}
+	return nil
 }
 
 func (c *Client) GetApplicationEndpoints(key ops.SiteKey) ([]ops.Endpoint, error) {
@@ -1103,8 +1198,8 @@ func (c *Client) GetApplicationEndpoints(key ops.SiteKey) ([]ops.Endpoint, error
 }
 
 // ValidateServers runs pre-installation checks
-func (c *Client) ValidateServers(req ops.ValidateServersRequest) error {
-	_, err := c.PostJSON(c.Endpoint(
+func (c *Client) ValidateServers(ctx context.Context, req ops.ValidateServersRequest) error {
+	_, err := c.PostJSONWithContext(ctx, c.Endpoint(
 		"accounts", req.AccountID, "sites", req.SiteDomain, "prechecks"), req)
 	if err != nil {
 		return trace.Wrap(err)
@@ -1167,7 +1262,7 @@ func (c *Client) GetClusterAuthPreference(key ops.SiteKey) (teleservices.AuthPre
 }
 
 // UpsertClusterAuthPreference updates cluster auth preference
-func (c *Client) UpsertClusterAuthPreference(key ops.SiteKey, authPreference teleservices.AuthPreference) error {
+func (c *Client) UpsertClusterAuthPreference(ctx context.Context, key ops.SiteKey, authPreference teleservices.AuthPreference) error {
 	data, err := teleservices.GetAuthPreferenceMarshaler().Marshal(authPreference)
 	if err != nil {
 		return trace.Wrap(err)
@@ -1198,7 +1293,7 @@ func (c *Client) GetClusterCertificate(key ops.SiteKey, withSecrets bool) (*ops.
 }
 
 // UpdateClusterCertificate updates the cluster certificate
-func (c *Client) UpdateClusterCertificate(req ops.UpdateCertificateRequest) (*ops.ClusterCertificate, error) {
+func (c *Client) UpdateClusterCertificate(ctx context.Context, req ops.UpdateCertificateRequest) (*ops.ClusterCertificate, error) {
 	out, err := c.PostJSON(c.Endpoint(
 		"accounts", req.AccountID, "sites", req.SiteDomain, "certificate"), req)
 	if err != nil {
@@ -1212,7 +1307,7 @@ func (c *Client) UpdateClusterCertificate(req ops.UpdateCertificateRequest) (*op
 }
 
 // DeleteClusterCertificate deletes the cluster certificate
-func (c *Client) DeleteClusterCertificate(key ops.SiteKey) error {
+func (c *Client) DeleteClusterCertificate(ctx context.Context, key ops.SiteKey) error {
 	_, err := c.Delete(c.Endpoint(
 		"accounts", key.AccountID, "sites", key.SiteDomain, "certificate"))
 	return trace.Wrap(err)
@@ -1238,7 +1333,7 @@ type UpsertResourceRawReq struct {
 }
 
 // UpsertUser creates or updates the user
-func (c *Client) UpsertUser(key ops.SiteKey, user teleservices.User) error {
+func (c *Client) UpsertUser(ctx context.Context, key ops.SiteKey, user teleservices.User) error {
 	data, err := teleservices.GetUserMarshaler().MarshalUser(user)
 	if err != nil {
 		return trace.Wrap(err)
@@ -1286,7 +1381,7 @@ func (c *Client) GetUsers(key ops.SiteKey) ([]teleservices.User, error) {
 }
 
 // DeleteUser deletes user by name
-func (c *Client) DeleteUser(key ops.SiteKey, name string) error {
+func (c *Client) DeleteUser(ctx context.Context, key ops.SiteKey, name string) error {
 	if name == "" {
 		return trace.BadParameter("missing user name")
 	}
@@ -1294,38 +1389,56 @@ func (c *Client) DeleteUser(key ops.SiteKey, name string) error {
 	return trace.Wrap(err)
 }
 
-// InviteUser creates a user invite and returns a token
-func (c *Client) InviteUser(key ops.SiteKey, req ops.UserInviteRequest) (*storage.UserToken, error) {
-	out, err := c.PostJSON(c.Endpoint("accounts", key.AccountID, "sites", key.SiteDomain, "tokens", "userinvites"), req)
+// CreateUserInvite creates a new invite token for a user.
+func (c *Client) CreateUserInvite(ctx context.Context, req ops.CreateUserInviteRequest) (*storage.UserToken, error) {
+	out, err := c.PostJSON(c.Endpoint("accounts", req.AccountID, "sites", req.SiteDomain, "tokens", "userinvites"), req)
 	if err != nil {
 		return nil, trace.Wrap(err)
 	}
-
-	var res storage.UserToken
-	if err := json.Unmarshal(out.Bytes(), &res); err != nil {
+	var inviteToken storage.UserToken
+	if err := json.Unmarshal(out.Bytes(), &inviteToken); err != nil {
 		return nil, trace.Wrap(err)
 	}
-
-	return &res, nil
+	return &inviteToken, nil
 }
 
-// ResetUser creates a user reset and returns a token
-func (c *Client) ResetUser(key ops.SiteKey, req ops.UserResetRequest) (*storage.UserToken, error) {
-	out, err := c.PostJSON(c.Endpoint("accounts", key.AccountID, "sites", key.SiteDomain, "tokens", "userresets"), req)
+// GetUserInvites returns all active user invites.
+func (c *Client) GetUserInvites(ctx context.Context, key ops.SiteKey) ([]storage.UserInvite, error) {
+	out, err := c.Get(c.Endpoint("accounts", key.AccountID, "sites", key.SiteDomain, "tokens", "userinvites"), url.Values{})
 	if err != nil {
 		return nil, trace.Wrap(err)
 	}
-
-	var res storage.UserToken
-	if err := json.Unmarshal(out.Bytes(), &res); err != nil {
+	var invites []storage.UserInvite
+	if err := json.Unmarshal(out.Bytes(), &invites); err != nil {
 		return nil, trace.Wrap(err)
 	}
+	return invites, nil
+}
 
-	return &res, nil
+// DeleteUserInvite deletes the specified user invite.
+func (c *Client) DeleteUserInvite(ctx context.Context, req ops.DeleteUserInviteRequest) error {
+	_, err := c.Delete(c.Endpoint("accounts", req.AccountID, "sites", req.SiteDomain, "tokens", "userinvites", req.Name))
+	if err != nil {
+		return trace.Wrap(err)
+	}
+	return nil
+}
+
+// CreateUserReset creates a new reset token for a user.
+func (c *Client) CreateUserReset(ctx context.Context, req ops.CreateUserResetRequest) (*storage.UserToken, error) {
+	out, err := c.PostJSON(c.Endpoint("accounts", req.AccountID, "sites", req.SiteDomain, "tokens", "userresets"), req)
+	if err != nil {
+		return nil, trace.Wrap(err)
+	}
+	var resetToken storage.UserToken
+	if err := json.Unmarshal(out.Bytes(), &resetToken); err != nil {
+		return nil, trace.Wrap(err)
+	}
+	return &resetToken, nil
 }
 
 // UpsertGithubConnector creates or updates a Github connector
-func (c *Client) UpsertGithubConnector(key ops.SiteKey, connector teleservices.GithubConnector) error {
+func (c *Client) UpsertGithubConnector(ctx context.Context, key ops.SiteKey, connector teleservices.GithubConnector) error {
 	data, err := teleservices.GetGithubConnectorMarshaler().Marshal(connector)
 	if err != nil {
 		return trace.Wrap(err)
@@ -1380,7 +1493,7 @@ func (c *Client) GetGithubConnectors(key ops.SiteKey, withSecrets bool) ([]teles
 }
 
 // DeleteGithubConnector deletes a Github connector by name
-func (c *Client) DeleteGithubConnector(key ops.SiteKey, name string) error {
+func (c *Client) DeleteGithubConnector(ctx context.Context, key ops.SiteKey, name string) error {
 	if name == "" {
 		return trace.BadParameter("missing connector name")
 	}
@@ -1389,7 +1502,7 @@ func (c *Client) DeleteGithubConnector(key ops.SiteKey, name string) error {
 }
 
 // UpsertAuthGateway updates auth gateway configuration.
-func (c *Client) UpsertAuthGateway(key ops.SiteKey, gw storage.AuthGateway) error {
+func (c *Client) UpsertAuthGateway(ctx context.Context, key ops.SiteKey, gw storage.AuthGateway) error {
 	bytes, err := storage.MarshalAuthGateway(gw)
 	if err != nil {
 		return trace.Wrap(err)
@@ -1414,24 +1527,61 @@ func (c *Client) GetAuthGateway(key ops.SiteKey) (storage.AuthGateway, error) {
 	return storage.UnmarshalAuthGateway(response.Bytes())
 }
 
+// ListReleases returns all currently installed application releases in a cluster.
+func (c *Client) ListReleases(req ops.ListReleasesRequest) ([]storage.Release, error) {
+	response, err := c.Get(c.Endpoint("accounts", req.AccountID, "sites", req.SiteDomain, "releases"),
+		url.Values{"include_icons": []string{strconv.FormatBool(req.IncludeIcons)}})
+	if err != nil {
+		return nil, trace.Wrap(err)
+	}
+	var items []json.RawMessage
+	if err := json.Unmarshal(response.Bytes(), &items); err != nil {
+		return nil, trace.Wrap(err)
+	}
+	releases := make([]storage.Release, 0, len(items))
+	for _, item := range items {
+		release, err := storage.UnmarshalRelease(item)
+		if err != nil {
+			return nil, trace.Wrap(err)
+		}
+		releases = append(releases, release)
+	}
+	return releases, nil
+}
+
+// EmitAuditEvent saves the provided event in the audit log.
+func (c *Client) EmitAuditEvent(ctx context.Context, req ops.AuditEventRequest) error {
+	_, err := c.PostJSON(c.Endpoint("accounts", req.AccountID, "sites", req.SiteDomain, "events"), req)
+	if err != nil {
+		return trace.Wrap(err)
+	}
+	return nil
+}
+
 // PostJSON issues HTTP POST request to the server with the provided JSON data
 func (c *Client) PostJSON(endpoint string, data interface{}) (*roundtrip.Response, error) {
-	return telehttplib.ConvertResponse(c.Client.PostJSON(endpoint, data))
+	return telehttplib.ConvertResponse(c.Client.PostJSON(context.TODO(), endpoint, data))
+}
+
+// PostJSONWithContext issues HTTP POST request to the server with the provided JSON data
+// bounded by the specified context
+func (c *Client) PostJSONWithContext(ctx context.Context, endpoint string, data interface{}) (*roundtrip.Response, error) {
+	return telehttplib.ConvertResponse(c.Client.PostJSON(ctx, endpoint, data))
 }
 
 // PutJSON issues HTTP PUT request to the server with the provided JSON data
 func (c *Client) PutJSON(endpoint string, data interface{}) (*roundtrip.Response, error) {
-	return telehttplib.ConvertResponse(c.Client.PutJSON(endpoint, data))
+	return telehttplib.ConvertResponse(c.Client.PutJSON(context.TODO(), endpoint, data))
 }
 
 // Get issues HTTP GET request to the server
 func (c *Client) Get(endpoint string, params url.Values) (*roundtrip.Response, error) {
-	return telehttplib.ConvertResponse(c.Client.Get(endpoint, params))
+	return telehttplib.ConvertResponse(c.Client.Get(context.TODO(), endpoint, params))
 }
 
 // GetFile issues HTTP GET request to the server to download a file
 func (c *Client) GetFile(endpoint string, params url.Values) (*roundtrip.FileResponse, error) {
-	re, err := c.Client.GetFile(endpoint, params)
+	re, err := c.Client.GetFile(context.TODO(), endpoint, params)
 	if err != nil {
 		if uerr, ok := err.(*url.Error); ok && uerr != nil && uerr.Err != nil {
 			return nil, trace.Wrap(uerr.Err)
@@ -1450,12 +1600,12 @@ func (c *Client) GetFile(endpoint string, params url.Values) (*roundtrip.FileRes
 
 // Delete issues HTTP DELETE request to the server
 func (c *Client) Delete(endpoint string) (*roundtrip.Response, error) {
-	return telehttplib.ConvertResponse(c.Client.Delete(endpoint))
+	return telehttplib.ConvertResponse(c.Client.Delete(context.TODO(), endpoint))
 }
 
 // DeleteWithParams issues HTTP DELETE request to the server
 func (c *Client) DeleteWithParams(endpoint string, params url.Values) (*roundtrip.Response, error) {
-	return telehttplib.ConvertResponse(c.Client.DeleteWithParams(
+	return telehttplib.ConvertResponse(c.Client.DeleteWithParams(context.TODO(),
 		endpoint, params))
 }
 

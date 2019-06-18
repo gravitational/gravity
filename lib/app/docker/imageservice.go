@@ -137,7 +137,7 @@ type imageService struct {
 // dir is expected to be in docker registry 2.x format.
 //
 // Upon success, returns a list of images pushed to the registry.
-func (r *imageService) Sync(ctx context.Context, dir string, progress utils.Emitter) (installedTags []TagSpec, err error) {
+func (r *imageService) Sync(ctx context.Context, dir string, progress utils.Printer) (installedTags []TagSpec, err error) {
 	if err = r.connect(ctx); err != nil {
 		return nil, trace.Wrap(err)
 	}

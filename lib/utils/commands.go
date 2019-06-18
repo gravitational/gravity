@@ -52,6 +52,12 @@ func PlanetEnterCommand(args ...string) []string {
 		"--", "--notty", args[0], "--"}, args[1:]...)
 }
 
+// Self returns the command line for the currently running executable.
+// args specifies additional command line arguments
+func Self(args ...string) []string {
+	return Exe.Self(args...)
+}
+
 // Exe is the Executable for the currently running gravity binary
 var Exe = must(NewCurrentExecutable())
 
@@ -90,21 +96,34 @@ func (r Executable) PlanetCommandSlice(args []string, gravityArgs ...string) []s
 	return gravityCommand
 }
 
+// Self returns the command line for the currently running executable.
+// args specifies additional command line arguments
+func (r Executable) Self(args ...string) []string {
+	return append([]string{r.Path}, args...)
+}
+
 // NewCurrentExecutable returns a new Executable for the currently running gravity binary
 func NewCurrentExecutable() (*Executable, error) {
 	path, err := os.Executable()
 	if err != nil {
 		return nil, trace.Wrap(err)
 	}
+	wd, err := os.Getwd()
+	if err != nil {
+		return nil, trace.ConvertSystemError(err)
+	}
 	return &Executable{
-		Path: path,
+		Path:       path,
+		WorkingDir: wd,
 	}, nil
 }
 
-// Executable abstracts the specified gravity binary
+// Executable describes a running gravity binary
 type Executable struct {
 	// Path specifies the path to the gravity binary
 	Path string
+	// WorkingDir specifies the working directory of the current process
+	WorkingDir string
 }
 
 func must(exe *Executable, err error) *Executable {

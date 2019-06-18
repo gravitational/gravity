@@ -30,7 +30,7 @@ import (
 // or verbose based on the settings
 func ProgressReporter(silent bool) pack.ProgressReporter {
 	if silent {
-		return &pack.DiscardReporter{}
+		return pack.DiscardReporter
 	}
 	return pack.ProgressReporterFn(PrintTransferProgress)
 }

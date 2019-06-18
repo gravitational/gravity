@@ -62,9 +62,6 @@ func (r *Config) checkAndSetDefaults() error {
 	if r.FieldLogger == nil {
 		r.FieldLogger = log.WithField(trace.Component, "gc:registry")
 	}
-	if r.Emitter == nil {
-		r.Emitter = utils.NopEmitter()
-	}
 	return nil
 }
 

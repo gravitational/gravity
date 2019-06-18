@@ -23,6 +23,7 @@ import (
 	"fmt"
 	"io"
 	"net"
+	"net/http"
 	"net/url"
 	"os"
 	"regexp"
@@ -99,6 +100,20 @@ func SplitHostPort(in, defaultPort string) (host string, port string) {
 		return parts[0], parts[1]
 	}
 	return parts[0], defaultPort
+}
+
+// EnsurePort makes sure that the provided address includes a port and adds
+// the specified default one if it does not.
+func EnsurePort(address, defaultPort string) string {
+	if _, _, err := net.SplitHostPort(address); err == nil {
+		return address
+	}
+	return net.JoinHostPort(address, defaultPort)
+}
+
+// EnsurePortURL is like EnsurePort but for URLs.
+func EnsurePortURL(url, defaultPort string) string {
+	return ParseOpsCenterAddress(url, defaultPort)
 }
 
 // Hosts returns a list of hosts from the provided host:port addresses
@@ -459,4 +474,18 @@ func ParseProxyAddr(proxyAddr, defaultWebPort, defaultSSHPort string) (host stri
 	}
 
 	return "", "", "", trace.BadParameter("unable to parse port: %v", port)
+}
+
+// PasseBoolFlag extracts boolean parameter of the specified name from the
+// provided request's query string, or returns default.
+func ParseBoolFlag(r *http.Request, name string, def bool) (bool, error) {
+	sValue := r.URL.Query().Get(name)
+	if sValue == "" {
+		return def, nil
+	}
+	bValue, err := strconv.ParseBool(sValue)
+	if err != nil {
+		return false, trace.Wrap(err)
+	}
+	return bValue, nil
 }

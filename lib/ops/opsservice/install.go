@@ -66,7 +66,7 @@ func (o *Operator) StreamOperationLogs(key ops.SiteOperationKey, reader io.Reade
 
 // createInstallOperation initiates install operation for a given site
 // it makes sure that install operation is the first operation too
-func (s *site) createInstallOperation(req ops.CreateSiteInstallOperationRequest) (*ops.SiteOperationKey, error) {
+func (s *site) createInstallOperation(ctx context.Context, req ops.CreateSiteInstallOperationRequest) (*ops.SiteOperationKey, error) {
 	profiles := make(map[string]storage.ServerProfile)
 	for _, profile := range s.app.Manifest.NodeProfiles {
 		profiles[profile.Name] = storage.ServerProfile{
@@ -76,21 +76,30 @@ func (s *site) createInstallOperation(req ops.CreateSiteInstallOperationRequest)
 			Request:     req.Profiles[profile.Name],
 		}
 	}
-	return s.createInstallExpandOperation(
-		ops.OperationInstall, ops.OperationStateInstallInitiated, req.Provisioner, req.Variables, profiles)
+	return s.createInstallExpandOperation(ctx, createInstallExpandOperationRequest{
+		Type:        ops.OperationInstall,
+		State:       ops.OperationStateInstallInitiated,
+		Provisioner: req.Provisioner,
+		Vars:        req.Variables,
+		Profiles:    profiles,
+	})
 }
 
-func (s *site) createInstallExpandOperation(operationType, operationInitialState, provisioner string,
-	variables storage.OperationVariables, profiles map[string]storage.ServerProfile) (*ops.SiteOperationKey, error) {
-	agentUser, err := s.agentUser()
-	if err != nil {
-		return nil, trace.Wrap(err)
-	}
+type createInstallExpandOperationRequest struct {
+	Type        string
+	State       string
+	Provisioner string
+	Vars        storage.OperationVariables
+	Profiles    map[string]storage.ServerProfile
+}
 
-	token, err := users.CryptoRandomToken(defaults.ProvisioningTokenBytes)
-	if err != nil {
-		return nil, trace.Wrap(err)
-	}
+func (s *site) createInstallExpandOperation(context context.Context, req createInstallExpandOperationRequest) (*ops.SiteOperationKey, error) {
+	s.WithField("req", req).Debug("createInstallExpandOperation.")
+	operationType := req.Type
+	operationInitialState := req.State
+	provisioner := req.Provisioner
+	variables := req.Vars
+	profiles := req.Profiles
 
 	op := &ops.SiteOperation{
 		ID:          uuid.New(),
@@ -98,17 +107,23 @@ func (s *site) createInstallExpandOperation(operationType, operationInitialState
 		SiteDomain:  s.key.SiteDomain,
 		Type:        operationType,
 		Created:     s.clock().UtcNow(),
+		CreatedBy:   storage.UserFromContext(context),
 		Updated:     s.clock().UtcNow(),
 		State:       operationInitialState,
 		Provisioner: provisioner,
 	}
+
+	token, err := s.newProvisioningToken(*op)
+	if err != nil {
+		return nil, trace.Wrap(err)
+	}
+	log.WithField("token", token).Info("Create install operation.")
 
 	ctx, err := s.newOperationContext(*op)
 	if err != nil {
 		return nil, trace.Wrap(err)
 	}
 	defer ctx.Close()
-	ctx.Debugf("create %v", operationType)
 
 	err = s.updateRequestVars(ctx, &variables, op)
 	if err != nil {
@@ -127,24 +142,6 @@ func (s *site) createInstallExpandOperation(operationType, operationInitialState
 		}
 	}
 
-	tokenType := storage.ProvisioningTokenTypeInstall
-	if op.Type == ops.OperationExpand {
-		tokenType = storage.ProvisioningTokenTypeExpand
-	}
-
-	_, err = s.users().CreateProvisioningToken(storage.ProvisioningToken{
-		Token:       token,
-		AccountID:   s.key.AccountID,
-		SiteDomain:  s.key.SiteDomain,
-		Type:        storage.ProvisioningTokenType(tokenType),
-		Expires:     s.clock().UtcNow().Add(defaults.InstallTokenTTL),
-		OperationID: op.ID,
-		UserEmail:   agentUser.GetName(),
-	})
-	if err != nil {
-		return nil, trace.Wrap(err)
-	}
-
 	systemVars, err := s.systemVars(*op, variables.System)
 	if err != nil {
 		return nil, trace.Wrap(err)
@@ -152,7 +149,7 @@ func (s *site) createInstallExpandOperation(operationType, operationInitialState
 
 	variables.System = *systemVars
 	agents := make(map[string]storage.AgentProfile, len(profiles))
-	for role, _ := range profiles {
+	for role := range profiles {
 		instructions, err := s.getDownloadInstructions(token, role)
 		if err != nil {
 			return nil, trace.Wrap(err)
@@ -228,7 +225,7 @@ func (s *site) selectSubnets(operation ops.SiteOperation) (*storage.Subnets, err
 	}
 
 	// machines on AWS will receive IPs from this subnet
-	subnet := operation.GetVars().AWS.SubnetCIDR
+	subnet := operation.GetVars().AWS.VPCCIDR
 	if subnet == "" {
 		return nil, trace.BadParameter("no subnet CIDR in operation vars: %v", operation)
 	}
@@ -426,7 +423,7 @@ func (s *site) updateOperationState(op *ops.SiteOperation, req ops.OperationUpda
 			OperationID: op.ID,
 			Servers:     req.Servers,
 		}
-		err = s.service.ValidateServers(validateReq)
+		err = s.service.ValidateServers(context.TODO(), validateReq)
 		if err != nil {
 			return trace.Wrap(err)
 		}
@@ -853,6 +850,9 @@ func (s *site) installOperationStart(ctx *operationContext) error {
 		ops.SetOperationStateRequest{
 			State: ops.OperationStateReady,
 		})
+	if err != nil {
+		return trace.Wrap(err)
+	}
 
 	// wait for it to finish, installer will be reporting progress to us
 	err = s.waitForOperation(ctx)
@@ -861,6 +861,44 @@ func (s *site) installOperationStart(ctx *operationContext) error {
 	}
 
 	return nil
+}
+
+func (s *site) newProvisioningToken(operation ops.SiteOperation) (token string, err error) {
+	agentUser, err := s.agentUser()
+	if err != nil {
+		return "", trace.Wrap(err)
+	}
+	if operation.Type == ops.OperationInstall {
+		// For installation, the install token that was specified on the command line
+		// (or automatically generated during initialization), becomes both the auth token
+		// for the agents and the provisioning token to assign the agent to an operation
+		token = s.installToken()
+	}
+	if token == "" {
+		token, err = users.CryptoRandomToken(defaults.ProvisioningTokenBytes)
+		if err != nil {
+			return "", trace.Wrap(err)
+		}
+	}
+	tokenRequest := storage.ProvisioningToken{
+		Token:      token,
+		AccountID:  s.key.AccountID,
+		SiteDomain: s.key.SiteDomain,
+		// Always create an expand token
+		Type:        storage.ProvisioningTokenTypeExpand,
+		OperationID: operation.ID,
+		UserEmail:   agentUser.GetName(),
+	}
+	if operation.Type == ops.OperationExpand {
+		// Set a TTL for expand provisioning token.
+		tokenRequest.Expires = s.clock().UtcNow().Add(defaults.InstallTokenTTL)
+	}
+	_, err = s.users().CreateProvisioningToken(tokenRequest)
+	if err != nil {
+		log.WithError(err).Warn("Failed to create provisioning token.")
+		return "", trace.Wrap(err)
+	}
+	return token, nil
 }
 
 // checkLicenseCPU checks if the license supports the provided number of CPUs.

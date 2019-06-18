@@ -25,6 +25,7 @@ import (
 	appservice "github.com/gravitational/gravity/lib/app/service"
 	"github.com/gravitational/gravity/lib/blob/fs"
 	"github.com/gravitational/gravity/lib/defaults"
+	"github.com/gravitational/gravity/lib/helm"
 	"github.com/gravitational/gravity/lib/ops/suite"
 	"github.com/gravitational/gravity/lib/pack"
 	"github.com/gravitational/gravity/lib/pack/localpack"
@@ -54,6 +55,8 @@ type TestServices struct {
 	AgentServer rpcserver.Server
 	// Operator is the ops service
 	Operator *Operator
+	// HelmClient is the mock Helm client
+	HelmClient helm.Client
 	// Users is the users service
 	Users users.Identity
 	// Dir is the temporary directory where all data is stored
@@ -103,16 +106,20 @@ func SetupTestServices(c *check.C) TestServices {
 	log := log.WithField("from", "test")
 	peerStore := NewAgentPeerStore(backend, usersService, proxy, log)
 	agentServer, err := rpcserver.New(rpcserver.Config{
+		FieldLogger: log,
 		Listener:    listener,
 		Credentials: rpcserver.TestCredentials(c),
 		PeerStore:   peerStore,
-	}, log)
+	})
 	c.Assert(err, check.IsNil)
 
 	agentService := NewAgentService(
 		agentServer, peerStore,
 		"localhost:0",
 		log)
+
+	helmClient, err := helm.NewTestClient(helm.ClientConfig{})
+	c.Assert(err, check.IsNil)
 
 	opsService, err := New(Config{
 		StateDir:      dir,
@@ -124,6 +131,9 @@ func SetupTestServices(c *check.C) TestServices {
 		Users:         usersService,
 		Apps:          appService,
 		ProcessID:     "p1",
+		GetHelmClient: func(helm.ClientConfig) (helm.Client, error) {
+			return helmClient, nil
+		},
 	})
 	c.Assert(err, check.IsNil)
 
@@ -135,6 +145,7 @@ func SetupTestServices(c *check.C) TestServices {
 		AgentServer: agentServer,
 		Operator:    opsService,
 		Users:       usersService,
+		HelmClient:  helmClient,
 		Dir:         dir,
 		Clock:       clockwork.NewFakeClock(),
 	}

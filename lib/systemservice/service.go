@@ -18,6 +18,7 @@ package systemservice
 
 import (
 	"os/exec"
+	"syscall"
 
 	"github.com/gravitational/gravity/lib/defaults"
 	"github.com/gravitational/gravity/lib/loc"
@@ -53,7 +54,9 @@ func IsKnownStatus(s string) bool {
 type NewServiceRequest struct {
 	// ServiceSpec defines the service
 	ServiceSpec
-	// Name is a service name, e.g. temp.service
+	// Name is the service name.
+	// It can be the absolute path to the unit file if the file is located
+	// in a non-standard location
 	Name string `json:"Name"`
 	// NoBlock means we won't block and wait until service starts
 	NoBlock bool `json:"-"`
@@ -67,6 +70,18 @@ type NewMountServiceRequest struct {
 	Name string `json:"Name"`
 	// NoBlock means we won't block and wait until service starts
 	NoBlock bool `json:"-"`
+}
+
+// UninstallServiceRequest describes a request to uninstall a service
+type UninstallServiceRequest struct {
+	// Name identifies the service
+	Name string
+}
+
+// DisableServiceRequest describes a request to disable a service
+type DisableServiceRequest struct {
+	// Name identifies the service
+	Name string
 }
 
 // NewPackageServiceRequest specifies parameters needed to create a new service
@@ -89,13 +104,13 @@ type ServiceSpec struct {
 	Dependencies Dependencies `json:"Dependencies"`
 	// StartCommand defines the command to execute when the service starts
 	StartCommand string `json:"StartCommand"`
-	// StartPreCommand defines the command to execute before the service starts
-	StartPreCommand string `json:"StartPreCommand"`
-	// StartPreCommand defines the command to execute after the service starts
+	// StartPreCommand defines the commands to execute before the service starts
+	StartPreCommands []string `json:"StartPreCommands,omitempty"`
+	// StartPostCommand defines the command to execute after the service starts
 	StartPostCommand string `json:"StartPostCommand"`
 	// StopCommand defines the command to execute when the service stops
 	StopCommand string `json:"StopCommand"`
-	// StopPreCommand defines the command to execute after the service stops
+	// StopPostCommand defines the command to execute after the service stops
 	StopPostCommand string `json:"StopPostCommand"`
 	// Timeout is a timeout in seconds
 	Timeout int `json:"Timeout"`
@@ -130,6 +145,16 @@ type ServiceSpec struct {
 	// ConditionPathExists specifies start condition for the service based on existence
 	// of the specified file. Can be negated by prefixing the path with "!"
 	ConditionPathExists string `json:"ConditionPathExists"`
+	// RestartPreventExitStatus lists exit status definitions that, when returned by the main service
+	// process, will prevent automatic service restarts.
+	// See https://www.freedesktop.org/software/systemd/man/systemd.service.html#RestartPreventExitStatus=
+	RestartPreventExitStatus string `json:"RestartPreventExitStatus"`
+	// SuccessExitStatus lists exit codes to be considered successful termination.
+	// See https://www.freedesktop.org/software/systemd/man/systemd.service.html#SuccessExitStatus=
+	SuccessExitStatus string `json:"SuccessExitStatus"`
+	// WorkingDirectory sets the working directory for executed processes.
+	// See https://www.freedesktop.org/software/systemd/man/systemd.exec.html#Paths
+	WorkingDirectory string `json:"WorkingDirectory"`
 }
 
 // MountServiceSpec describes specification for a systemd mount service
@@ -186,7 +211,7 @@ type mountServiceTemplate struct {
 
 // PackageServiceStatus provides the status of a running service
 type PackageServiceStatus struct {
-	// Pack lists a package name
+	// Package identifies the package
 	Package loc.Locator
 	// Status is a service status
 	Status string
@@ -207,7 +232,7 @@ type ServiceManager interface {
 	// DisablePackageService disables service without stopping it
 	DisablePackageService(pkg loc.Locator) error
 
-	// ListPackageServices lists installed services
+	// ListPackageServices lists installed package services
 	ListPackageServices() ([]PackageServiceStatus, error)
 
 	// StartPackageService starts package service
@@ -233,10 +258,10 @@ type ServiceManager interface {
 	InstallMountService(NewMountServiceRequest) error
 
 	// UninstallService uninstalls service
-	UninstallService(name string) error
+	UninstallService(UninstallServiceRequest) error
 
 	// DisableService disables service without stopping it
-	DisableService(name string) error
+	DisableService(DisableServiceRequest) error
 
 	// StartService starts service
 	StartService(name string, noBlock bool) error
@@ -298,4 +323,23 @@ func (r *NewServiceRequest) CheckAndSetDefaults() error {
 		r.RestartSec = defaults.SystemServiceRestartSec
 	}
 	return nil
+}
+
+// IsUnknownServiceError determines whether the err specifies the
+// 'unknown service' error
+func IsUnknownServiceError(err error) bool {
+	const (
+		errCodeGenericFailure = 1
+		errCodeNotInstalled   = 5
+	)
+	switch err := trace.Unwrap(err).(type) {
+	case *exec.ExitError:
+		if status, ok := err.Sys().(syscall.WaitStatus); ok {
+			switch status.ExitStatus() {
+			case errCodeGenericFailure, errCodeNotInstalled:
+				return true
+			}
+		}
+	}
+	return false
 }

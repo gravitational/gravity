@@ -29,7 +29,6 @@ import (
 
 	"github.com/gravitational/gravity/lib/constants"
 	"github.com/gravitational/gravity/lib/defaults"
-	"github.com/gravitational/gravity/lib/install"
 	"github.com/gravitational/gravity/lib/localenv"
 	"github.com/gravitational/gravity/lib/ops"
 	"github.com/gravitational/gravity/lib/process"
@@ -96,7 +95,7 @@ func listSites(env *localenv.LocalEnvironment, opsCenterURL string) error {
 	if err != nil {
 		return trace.Wrap(err)
 	}
-	account, err := install.UpsertSystemAccount(operator)
+	account, err := ops.UpsertSystemAccount(operator)
 	if err != nil {
 		return trace.Wrap(err)
 	}

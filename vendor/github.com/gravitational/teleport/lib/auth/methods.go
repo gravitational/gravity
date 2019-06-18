@@ -85,14 +85,14 @@ type SessionCreds struct {
 func (s *AuthServer) AuthenticateUser(req AuthenticateUserRequest) error {
 	err := s.authenticateUser(req)
 	if err != nil {
-		s.EmitAuditEvent(events.UserLoginEvent, events.EventFields{
+		s.EmitAuditEvent(events.UserLocalLoginFailure, events.EventFields{
 			events.EventUser:          req.Username,
 			events.LoginMethod:        events.LoginMethodLocal,
 			events.AuthAttemptSuccess: false,
 			events.AuthAttemptErr:     err.Error(),
 		})
 	} else {
-		s.EmitAuditEvent(events.UserLoginEvent, events.EventFields{
+		s.EmitAuditEvent(events.UserLocalLogin, events.EventFields{
 			events.EventUser:          req.Username,
 			events.LoginMethod:        events.LoginMethodLocal,
 			events.AuthAttemptSuccess: true,
@@ -159,7 +159,7 @@ func (s *AuthServer) authenticateUser(req AuthenticateUserRequest) error {
 }
 
 // AuthenticateWebUser authenticates web user, creates and  returns web session
-// in case if authentication is successfull. In case if existing session id
+// in case if authentication is successful. In case if existing session id
 // is used to authenticate, returns session associated with the existing session id
 // instead of creating the new one
 func (s *AuthServer) AuthenticateWebUser(req AuthenticateUserRequest) (services.WebSession, error) {
