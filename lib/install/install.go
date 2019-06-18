@@ -114,14 +114,13 @@ func (i *Installer) Execute(req *installpb.ExecuteRequest, stream installpb.Agen
 			}
 		case result := <-i.execDoneC:
 			if result.err != nil {
-				// FIXME: send directly via stream.Send
-				// Maybe send the error wrapped with grpc.codes.FailedPrecondition?
-				return status.Error(codes.FailedPrecondition, err.Error())
-				// return trace.Wrap(result.err)
+				return status.Error(codes.FailedPrecondition, result.err.Error())
 			}
-			err := stream.Send(result.completionEvent.AsProgressResponse())
-			if err != nil {
-				return trace.Wrap(err)
+			if result.completionEvent != nil {
+				err := stream.Send(result.completionEvent.AsProgressResponse())
+				if err != nil {
+					return trace.Wrap(err)
+				}
 			}
 			return nil
 		}
@@ -203,9 +202,11 @@ func (i *Installer) startExecuteLoop() {
 					i.WithError(err).Warn("Failed to execute.")
 					i.execDoneC <- execResult{err: err}
 				} else {
-					i.execDoneC <- execResult{
-						completionEvent: i.completionEvent(status),
+					var result execResult
+					if status.IsCompleted() {
+						result.completionEvent = i.newCompletionEvent(status)
 					}
+					i.execDoneC <- result
 				}
 				if status == dispatcher.StatusCompletedPending {
 					i.wait()
@@ -251,8 +252,12 @@ func (i *Installer) executePhase(phase installpb.ExecuteRequest_Phase) (dispatch
 	if err != nil {
 		return dispatcher.StatusUnknown, trace.Wrap(err)
 	}
+	progressReporter := dispatcher.NewProgressReporter(i.ctx, i.dispatcher, phaseTitle(phase))
+	defer progressReporter.Stop()
 	if phase.IsResume() {
-		err := ExecuteOperation(i.ctx, machine, i.FieldLogger)
+		err := ExecuteOperation(i.ctx, machine,
+			progressReporter,
+			i.FieldLogger)
 		if err != nil {
 			return dispatcher.StatusUnknown, trace.Wrap(err)
 		}
@@ -261,7 +266,7 @@ func (i *Installer) executePhase(phase installpb.ExecuteRequest_Phase) (dispatch
 	params := fsm.Params{
 		PhaseID:  phase.ID,
 		Force:    phase.Force,
-		Progress: dispatcher.NewProgressReporter(i.ctx, i.dispatcher, phaseTitle(phase)),
+		Progress: progressReporter,
 	}
 	if phase.Rollback {
 		err := machine.RollbackPhase(i.ctx, params)
@@ -358,10 +363,13 @@ type Installer struct {
 }
 
 func phaseTitle(phase installpb.ExecuteRequest_Phase) string {
+	if phase.IsResume() {
+		return "Resuming operation"
+	}
 	return fmt.Sprintf("Executing phase %v", phase.ID)
 }
 
 type execResult struct {
-	completionEvent dispatcher.Event
+	completionEvent *dispatcher.Event
 	err             error
 }

@@ -390,13 +390,16 @@ func (p *Peer) executePhase(ctx context.Context, opCtx operationContext, phase i
 	if err != nil {
 		return trace.Wrap(err)
 	}
+	progressReporter := dispatcher.NewProgressReporter(ctx, disp, phaseTitle(phase))
+	defer progressReporter.Stop()
 	if phase.IsResume() {
-		return trace.Wrap(install.ExecuteOperation(ctx, machine, p.FieldLogger))
+		return trace.Wrap(install.ExecuteOperation(ctx, machine,
+			progressReporter, p.FieldLogger))
 	}
 	params := fsm.Params{
 		PhaseID:  phase.ID,
 		Force:    phase.Force,
-		Progress: dispatcher.NewProgressReporter(ctx, disp, phaseTitle(phase)),
+		Progress: progressReporter,
 	}
 	if phase.Rollback {
 		return trace.Wrap(machine.RollbackPhase(ctx, params))
@@ -856,6 +859,7 @@ func (p *Peer) executeExpandOperation(ctx operationContext) error {
 		return trace.Wrap(err)
 	}
 	progress := dispatcher.NewProgressReporter(p.ctx, p.dispatcher, "Executing expand operation")
+	defer progress.Stop()
 	fsmErr := fsm.ExecutePlan(p.ctx, progress)
 	if fsmErr != nil {
 		p.WithError(fsmErr).Warn("Failed to execute plan.")
@@ -1089,6 +1093,9 @@ func isTerminalError(err error) bool {
 }
 
 func phaseTitle(phase installpb.ExecuteRequest_Phase) string {
+	if phase.IsResume() {
+		return "Resuming operation"
+	}
 	return fmt.Sprintf("Executing phase %v", phase.ID)
 }
 

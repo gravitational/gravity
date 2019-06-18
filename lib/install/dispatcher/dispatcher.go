@@ -89,6 +89,11 @@ type Event struct {
 	Status Status
 }
 
+// IsCompleted returns true if this status indicates completion
+func (r Status) IsCompleted() bool {
+	return r == StatusCompleted || r == StatusCompletedPending
+}
+
 // Status defines the progress status
 type Status byte
 

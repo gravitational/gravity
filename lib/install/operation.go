@@ -18,7 +18,6 @@ import (
 	"github.com/gravitational/gravity/lib/status"
 	"github.com/gravitational/gravity/lib/storage"
 	"github.com/gravitational/gravity/lib/system/signals"
-	"github.com/gravitational/gravity/lib/utils"
 
 	"github.com/fatih/color"
 	"github.com/gravitational/trace"
@@ -76,7 +75,10 @@ func (i *Installer) ExecuteOperation(operationKey ops.SiteOperationKey) error {
 	if err != nil {
 		return trace.Wrap(err)
 	}
-	err = machine.ExecutePlan(i.ctx, utils.DiscardProgress)
+	progressReporter := dispatcher.NewProgressReporter(i.ctx,
+		i.dispatcher, "Executing operation")
+	defer progressReporter.Stop()
+	err = machine.ExecutePlan(i.ctx, progressReporter)
 	if err != nil {
 		i.WithError(err).Warn("Failed to execute operation plan.")
 	}
@@ -163,13 +165,13 @@ func (i *Installer) sendElapsedTime(timeStarted time.Time) {
 
 // TODO(dmitri): this information should also be displayed when working with the operation
 // manually
-func (i *Installer) completionEvent(status dispatcher.Status) dispatcher.Event {
+func (i *Installer) newCompletionEvent(status dispatcher.Status) *dispatcher.Event {
 	var buf bytes.Buffer
 	i.printEndpoints(&buf)
 	if m, ok := modules.Get().(modules.Messager); ok {
 		fmt.Fprintf(&buf, "\n%v", m.PostInstallMessage())
 	}
-	return dispatcher.Event{
+	return &dispatcher.Event{
 		Progress: &ops.ProgressEntry{
 			Message:    buf.String(),
 			Completion: constants.Completed,

@@ -308,18 +308,19 @@ func InstallBinary(uid, gid int, logger log.FieldLogger) (err error) {
 }
 
 // ExecuteOperation executes the operation specified with machine to completion
-func ExecuteOperation(ctx context.Context, machine *fsm.FSM, logger log.FieldLogger) error {
-	planErr := machine.ExecutePlan(ctx, utils.DiscardProgress)
+func ExecuteOperation(ctx context.Context, machine *fsm.FSM, progress utils.Progress, logger log.FieldLogger) error {
+	planErr := machine.ExecutePlan(ctx, progress)
 	if planErr != nil {
 		logger.WithError(planErr).Warn("Failed to execute plan.")
 	}
-	if err := machine.Complete(planErr); err != nil {
-		logger.WithError(err).Warn("Failed to complete plan.")
+	err := machine.Complete(planErr)
+	if err != nil {
+		logger.WithError(err).Warn("Failed to complete operation.")
 	}
 	if planErr != nil {
-		return trace.Wrap(planErr)
+		err = planErr
 	}
-	return nil
+	return trace.Wrap(err)
 }
 
 // Run runs progress loop for the specified operation until the operation
