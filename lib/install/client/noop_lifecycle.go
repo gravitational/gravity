@@ -25,7 +25,7 @@ import (
 
 // HandleStatus implements status handling by propagating specified error to the caller.
 // If the error indicates end-of-stream, it is ignored
-func (r *ObservingLifecycle) HandleStatus(ctx context.Context, c *Client, status installpb.ProgressResponse_Status, err error) error {
+func (r *NoopLifecycle) HandleStatus(ctx context.Context, c *Client, status installpb.ProgressResponse_Status, err error) error {
 	switch {
 	case err == nil:
 		return nil
@@ -38,18 +38,18 @@ func (r *ObservingLifecycle) HandleStatus(ctx context.Context, c *Client, status
 }
 
 // Complete is a no-op
-func (r *ObservingLifecycle) Complete(context.Context, *Client, installpb.ProgressResponse_Status) error {
+func (r *NoopLifecycle) Complete(context.Context, *Client, installpb.ProgressResponse_Status) error {
 	return nil
 }
 
 // Abort is a no-op
-func (r *ObservingLifecycle) Abort(context.Context, *Client) error {
+func (r *NoopLifecycle) Abort(context.Context, *Client) error {
 	return nil
 }
 
-// ObservingLifecycle implements a client lifecycle that does nothing
-type ObservingLifecycle struct{}
+// NoopLifecycle implements a client lifecycle that does nothing
+type NoopLifecycle struct{}
 
-func (r *ObservingLifecycle) checkAndSetDefaults() error {
+func (r *NoopLifecycle) checkAndSetDefaults() error {
 	return nil
 }

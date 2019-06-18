@@ -42,13 +42,13 @@ import (
 )
 
 func (s *site) getClusterReport() (io.ReadCloser, error) {
-	op, err := storage.GetLastOperationForCluster(s.backend(), s.domainName)
+	op, progress, err := storage.GetLastOperationAndProgressForCluster(s.backend(), s.domainName)
 	if err != nil {
 		return nil, trace.Wrap(err)
 	}
 
-	switch op.Type {
-	case ops.OperationInstall:
+	switch {
+	case isActiveInstallOperation((ops.SiteOperation)(*op), (ops.ProgressEntry)(*progress)):
 		return s.getClusterInstallReport((ops.SiteOperation)(*op))
 	default:
 		return s.getClusterGenericReport()
@@ -328,6 +328,10 @@ func getReportWriterForServer(dir string, server remoteServer) report.FileWriter
 		fileName := filepath.Join(dir, fmt.Sprintf("%s-%s", server.HostName(), name))
 		return report.NewPendingFileWriter(fileName), nil
 	})
+}
+
+func isActiveInstallOperation(op ops.SiteOperation, lastProgress ops.ProgressEntry) bool {
+	return op.Type == ops.OperationInstall && !lastProgress.IsCompleted()
 }
 
 const (

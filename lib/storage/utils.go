@@ -124,7 +124,25 @@ func GetOperations(backend Backend) ([]SiteOperation, error) {
 	return operations, nil
 }
 
-// GetLastOperation returns the last operation for the local cluster
+// GetLastOperationAndProgressForCluster returns
+// last operation, last progress tuple for the specified cluster
+func GetLastOperationAndProgressForCluster(backend Backend, clusterName string) (*SiteOperation, *ProgressEntry, error) {
+	operations, err := GetOperationsForCluster(backend, clusterName)
+	if err != nil {
+		return nil, nil, trace.Wrap(err)
+	}
+	if len(operations) == 0 {
+		return nil, nil, trace.NotFound("no operations found")
+	}
+	lastOperation := operations[0]
+	lastProgress, err := backend.GetLastProgressEntry(clusterName, lastOperation.ID)
+	if err != nil {
+		return nil, nil, trace.Wrap(err)
+	}
+	return &lastOperation, lastProgress, nil
+}
+
+// GetLastOperationForCluster returns the last operation for the specified cluster
 func GetLastOperationForCluster(backend Backend, clusterName string) (*SiteOperation, error) {
 	operations, err := GetOperationsForCluster(backend, clusterName)
 	if err != nil {
@@ -136,7 +154,7 @@ func GetLastOperationForCluster(backend Backend, clusterName string) (*SiteOpera
 	return &(operations[0]), nil
 }
 
-// GetOperations returns all operations for the local cluster
+// GetOperationsForCluster returns all operations for the specified cluster
 // sorted by time in descending order (with most recent operation first)
 func GetOperationsForCluster(backend Backend, clusterName string) ([]SiteOperation, error) {
 	operations, err := backend.GetSiteOperations(clusterName)

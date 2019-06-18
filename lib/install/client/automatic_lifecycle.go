@@ -26,38 +26,39 @@ import (
 
 // HandleStatus handles the results of a completed operation.
 // It executes the handler corresponding to the outcome
-func (r *AutomaticLifecycle) HandleStatus(ctx context.Context, c *Client, status installpb.ProgressResponse_Status, err error) error {
+func (r *AutomaticLifecycle) HandleStatus(ctx context.Context, c *Client, status installpb.ProgressResponse_Status, statusErr error) error {
 	switch {
-	case err == nil:
+	case statusErr == nil:
 		switch status {
 		case installpb.StatusUnknown:
-			if err1 := c.shutdown(ctx); err1 != nil {
-				c.WithError(err1).Warn("Failed to shut down.")
+			if err := c.shutdown(ctx); err != nil {
+				c.WithError(err).Warn("Failed to shut down.")
 			}
 			return nil
 		case installpb.StatusAborted:
 			return r.Abort(ctx, c)
 		}
 		// We received completion status
-		err = r.Complete(ctx, c, status)
+		err := r.Complete(ctx, c, status)
 		return trace.Wrap(err)
-	case trace.IsEOF(err):
+	case trace.IsEOF(statusErr):
 		// Stream done but no completion event
-		if err1 := c.shutdown(ctx); err1 != nil {
-			c.WithError(err1).Warn("Failed to shut down.")
+		if err := c.shutdown(ctx); err != nil {
+			c.WithError(err).Warn("Failed to shut down.")
 		}
 		return nil
 	default:
-		if err1 := r.generateDebugReport(ctx, c); err1 != nil {
-			c.WithError(err1).Warn("Failed to generate debug report.")
+		if err := r.generateDebugReport(ctx, c); err != nil {
+			c.WithError(err).Warn("Failed to generate debug report.")
 		}
-		if err1 := c.shutdown(ctx); err1 != nil {
-			c.WithError(err1).Warn("Failed to shut down.")
+		if err := c.shutdown(ctx); err != nil {
+			c.WithError(err).Warn("Failed to shut down.")
 		}
-		return trace.Wrap(err)
+		return trace.Wrap(statusErr)
 	}
 }
 
+// Complete shuts down the installer and invokes the completion handler
 func (r *AutomaticLifecycle) Complete(ctx context.Context, c *Client, status installpb.ProgressResponse_Status) error {
 	err := c.shutdown(ctx)
 	if err != nil {
@@ -66,6 +67,7 @@ func (r *AutomaticLifecycle) Complete(ctx context.Context, c *Client, status ins
 	return trace.Wrap(r.Completer(ctx, c.InterruptHandler, status))
 }
 
+// Abort invokes the abort handler after the operation has been interrupted
 func (r *AutomaticLifecycle) Abort(ctx context.Context, c *Client) error {
 	if r.Aborter == nil {
 		return nil

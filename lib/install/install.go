@@ -133,9 +133,9 @@ func (i *Installer) GenerateDebugReport(path string) error {
 	}
 	err = i.generateDebugReport(op.ClusterKey(), path)
 	if err != nil {
-		i.WithError(err).Warn("Failed to generate debug report.")
+		return trace.Wrap(err)
 	}
-	return trace.Wrap(err)
+	return nil
 }
 
 // Interface defines the interface of the installer as presented

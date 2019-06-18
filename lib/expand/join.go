@@ -101,7 +101,9 @@ type Peer struct {
 	// server is the gRPC installer server
 	server *server.Server
 
-	// abortC is a channel to signal external operation abort
+	// abortC is a channel to signal external operation abort.
+	// Implements the service channel pattern (https://talks.golang.org/2013/advconc.slide#25)
+	// to ensure guaranteed delivery of the abort signal
 	abortC     chan chan struct{}
 	execC      chan *installpb.ExecuteRequest
 	dispatcher dispatcher.EventDispatcher

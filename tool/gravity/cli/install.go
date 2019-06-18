@@ -855,7 +855,7 @@ func printJoinInstructionsBanner(printer utils.Printer) {
 To abort the agent and clean up the system,
 press Ctrl+C two times in a row.
 
-If the you get disconnected from the terminal, you can reconnect to the installer
+If the you get disconnected from the terminal, you can reconnect to the agent
 agent by issuing 'gravity resume' command.
 See https://gravitational.com/gravity/docs/cluster/#managing-an-ongoing-operation for details.
 `))
@@ -863,5 +863,5 @@ See https://gravitational.com/gravity/docs/cluster/#managing-an-ongoing-operatio
 
 // DebugReportPath returns the default path for the debug report file
 func DebugReportPath() (path string) {
-	return filepath.Join(filepath.Dir(utils.Exe.Path), "crashreport.tgz")
+	return filepath.Join(filepath.Dir(utils.Exe.Path), defaults.DebugReportFile)
 }

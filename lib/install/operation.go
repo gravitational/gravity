@@ -297,7 +297,12 @@ func (i *Installer) generateDebugReport(clusterKey ops.SiteKey, path string) err
 	if err != nil {
 		return trace.ConvertSystemError(err)
 	}
-	defer f.Close()
+	defer func() {
+		f.Close()
+		if err != nil {
+			os.Remove(f.Name())
+		}
+	}()
 	rc, err := i.config.Operator.GetSiteReport(clusterKey)
 	if err != nil {
 		return trace.ConvertSystemError(err)

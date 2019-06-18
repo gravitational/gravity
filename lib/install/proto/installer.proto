@@ -37,7 +37,7 @@ service Agent {
     // Shutdown requests that the installer service shuts down gracefully
     rpc Shutdown(ShutdownRequest) returns (google.protobuf.Empty);
 
-    // GenerateDebugReport requests that the installer generates the debug report
+    // GenerateDebugReport requests the installer to generate a debug report
     rpc GenerateDebugReport(DebugReportRequest) returns (google.protobuf.Empty);
 }
 

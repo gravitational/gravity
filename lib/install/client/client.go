@@ -105,7 +105,7 @@ func (r *Client) Stop(ctx context.Context) error {
 
 func (r *Config) checkAndSetDefaults() (err error) {
 	if r.Lifecycle == nil {
-		r.Lifecycle = &ObservingLifecycle{}
+		r.Lifecycle = &NoopLifecycle{}
 	}
 	if err := r.Lifecycle.checkAndSetDefaults(); err != nil {
 		return trace.Wrap(err)
@@ -164,7 +164,7 @@ type Config struct {
 	SocketPath string
 	// ServicePath specifies the absolute path to the service unit
 	ServicePath string
-	// Lifecycle specifies the implementation of exit strageties after operation
+	// Lifecycle specifies the implementation of exit strategies after operation
 	// completion
 	Lifecycle Lifecycle
 }
@@ -261,7 +261,7 @@ type Client struct {
 	client installpb.AgentClient
 }
 
-// Lifecycle handles differents exit strategies for an operation after
+// Lifecycle handles different exit strategies for an operation after
 // completion.
 type Lifecycle interface {
 	checkAndSetDefaults() error
@@ -269,7 +269,8 @@ type Lifecycle interface {
 	HandleStatus(context.Context, *Client, installpb.ProgressResponse_Status, error) error
 	// Complete executes tasks after the operation has been completed successfully
 	Complete(context.Context, *Client, installpb.ProgressResponse_Status) error
-	// Abort handles clean up of state
+	// Abort handles clean up of state files and directories
+	// the installer maintains throughout the operation
 	Abort(context.Context, *Client) error
 }
 

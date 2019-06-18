@@ -918,7 +918,12 @@ func InstallerGenerateLocalReport(env *localenv.LocalEnvironment) func(context.C
 		if err != nil {
 			return trace.ConvertSystemError(err)
 		}
-		defer f.Close()
+		defer func() {
+			f.Close()
+			if err != nil {
+				os.Remove(f.Name())
+			}
+		}()
 		err = systemReport(env, report.AllFilters, true, f)
 		if err != nil {
 			return trace.ConvertSystemError(err)
