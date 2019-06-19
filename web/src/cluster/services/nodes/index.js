@@ -17,27 +17,9 @@ limitations under the License.
 import api from 'app/services/api';
 import cfg from 'app/config';
 import { map } from 'lodash';
+import makeNode from './makeNode';
 
 export function fetchNodes(){
   return api.get(cfg.getSiteServersUrl(cfg.defaultSiteId))
     .then(json => map(json, makeNode));
-}
-
-function makeNode(json){
-  const role = json.role;
-  const publicIp = json.public_ipv4;
-  const advertiseIp = json.advertise_ip;
-  const hostname = json.hostname;
-  const id = json.id;
-  const instanceType = json.instance_type;
-  const displayRole = json.display_role || role;
-  return {
-    publicIp,
-    advertiseIp,
-    hostname,
-    id,
-    instanceType,
-    role,
-    displayRole,
-  }
 }

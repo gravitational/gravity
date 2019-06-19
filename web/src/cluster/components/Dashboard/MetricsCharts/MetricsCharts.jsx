@@ -18,7 +18,7 @@ import React from 'react';
 import { Flex } from 'shared/components';
 import { useFluxStore } from 'app/components/nuclear';
 import AjaxPoller from 'app/components/dataProviders'
-import humanize from 'app/lib/humanize';
+import { filesize } from 'app/lib/humanize';
 import UsageOverTime from './OvertimeChart';
 import CircleGraph from './CircleGraph';
 import { fetchShortMetrics, fetchMetrics } from 'app/cluster/flux/metrics/actions';
@@ -30,7 +30,7 @@ const POLL_INTERVAL = 5000; // every 5 sec
 export default function MetricsCharts(props) {
   const { short, long } = useFluxStore(getters.metricsStore);
   const { cpu, cpuCoreTotal, ram, ramTotal } = short;
-  const ramTotalText = humanize.filesize(ramTotal);
+  const ramTotalText = filesize(ramTotal);
   const [ attempt, attemptActions ] = useAttempt();
 
   // fetch initial data which has long and short metric data
