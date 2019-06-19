@@ -181,13 +181,13 @@ const CanvasContainer = styled.div`
 `
 
 const Header = styled(Flex)`
-  border-radius: 4px 4px 0 0;
+  border-radius: 8px 8px 0 0;
 `
 const Container = styled(Flex)`
   flex: 1;
   box-shadow: 0 0 32px rgba(0, 0, 0, .12), 0 8px 32px rgba(0, 0, 0, .24);
-  border-radius: 4px;
   canvas {
+    border-radius:  0 0 8px 8px;
     background-color: ${ props => props.theme.colors.primary.main};
   }
 `

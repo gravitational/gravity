@@ -57,7 +57,7 @@ export function OperationList(props){
   return (
     <Box {...rest}>
       <AjaxPoller time={POLL_INTERVAL} onFetch={onRefresh} />
-      <Flex bg="primary.light" p="3" alignItems="center">
+      <Flex bg="primary.light" p="3" alignItems="center" brtl={8} brtr={8}>
         <Text typography="h4">
           Operations
         </Text>

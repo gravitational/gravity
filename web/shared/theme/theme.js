@@ -79,6 +79,7 @@ const colors = {
     disabledBackground: 'rgba(255, 255, 255, 0.12)',
   },
 
+  subtle: blueGrey[50],
   link: lightBlue[500],
   bgTerminal: '#010B1C',
   danger:  pink.A400,

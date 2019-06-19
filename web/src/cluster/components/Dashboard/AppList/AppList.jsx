@@ -28,7 +28,7 @@ export function AppList(props){
   const data = sortBy(values(apps), 'updated').reverse();
   return (
     <Box {...rest}>
-      <Flex bg="primary.light" p="3" alignItems="center">
+      <Flex bg="primary.light" p="3" alignItems="center" brtl={8} brtr={8}>
         <Text typography="h4">
           Installed Applications
         </Text>

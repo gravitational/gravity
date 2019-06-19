@@ -34,7 +34,7 @@ export function Pods(props) {
   return (
     <React.Fragment>
       <Poller namespace={namespace} onFetch={onFetch} />
-      <Box bg="primary.light" p="3">
+      <Box bg="primary.light" p="3" brtl={8} brtr={8}>
         <InputSearch autoFocus onChange={onSearchChange}/>
       </Box>
       <PodList
