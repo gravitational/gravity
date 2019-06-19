@@ -263,7 +263,7 @@ func (o *OperatorACL) DeleteAPIKey(ctx context.Context, userEmail, token string)
 	if err := o.currentUserActions(userEmail, teleservices.VerbUpdate); err != nil {
 		return trace.Wrap(err)
 	}
-	return o.operator.DeleteAPIKey(ctx, o.username, token)
+	return o.operator.DeleteAPIKey(ctx, userEmail, token)
 }
 
 func (o *OperatorACL) CreateInstallToken(req NewInstallTokenRequest) (*storage.InstallToken, error) {
