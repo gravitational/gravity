@@ -68,6 +68,10 @@ const Alert = styled.div`
   ${space}
   ${kindColors}
   ${width}
+
+  a {
+    color: ${({theme}) => theme.colors.light};
+  }
 `;
 
 Alert.propTypes = {
