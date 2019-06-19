@@ -72,7 +72,7 @@ const IconBox = styled.div`
   width: 56px;
   font-size: 24px;
   text-align: center;
-  border-right: 1px solid rgba(0,0,0,.2);
+  border-right: 1px solid rgba(0,0,0, .12);
 `
 
 export default ButtonSso;

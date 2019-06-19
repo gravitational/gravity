@@ -215,13 +215,13 @@ export const ErrorMessage = ({ message = '' }) => {
   const showU2fErrorLink = message.indexOf('U2F') !== -1;
   return (
     <Alerts.Danger>
-      {message}
-      {showU2fErrorLink && (
-        <Text typography="body2">
-          click <a target="_blank" href={U2F_ERROR_CODES_URL}>here</a> to learn more about U2F error codes
-        </Text>
+      <div>
+        {message}
+        {showU2fErrorLink && (
+          <span>, click <a target="_blank" href={U2F_ERROR_CODES_URL}>here</a> to learn more about U2F error codes</span>
         )
-      }
+        }
+      </div>
     </Alerts.Danger>
   )
 }

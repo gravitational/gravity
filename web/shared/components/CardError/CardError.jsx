@@ -38,7 +38,7 @@ const Header = props =>  (
 
 const Content = ({ message='', desc }) => {
   const $desc = desc ? <Text typography="body2">{desc}</Text> : null;
-  const $errMessage = message ? <Alert mt={2}>{ message }</Alert> : null;
+  const $errMessage = message ? <Alert mt={2} mb={4}>{ message }</Alert> : null;
   return (
     <div>
       {$errMessage} {$desc}
@@ -73,7 +73,7 @@ export const LoginFailed = ({ message, loginUrl }) => (
     <Content
       message={message}
       desc={(
-        <Text typography="body1">
+        <Text typography="paragraph">
           <HyperLink href={loginUrl}>Please try again</HyperLink>, if the problem persists, contact your system administrator.
         </Text>
       )}/>
