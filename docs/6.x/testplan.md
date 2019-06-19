@@ -565,6 +565,12 @@ After upgrade execute `gravity gc` on the cluster.
 - [ ] Verify that changing a password works with 2FA disabled.
 - [ ] Verify that changing a password works with 2FA enabled.
 
+#### License
+  Make sure that Cluster has a license, then navigate to the license screen via top right corner menu (logout menu)
+- [ ] Verify that license details are displayed.
+- [ ] Verify that updating a license works.
+
+
 #### Extensions
 Set the following settings in the manifest file
 ```
