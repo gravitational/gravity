@@ -57,15 +57,14 @@ const StyledButton = styled(Button)`
 
   ${Icon} {
     font-size: 20px;
-    margin: -10px 0 0 0;
     opacity: .87;
-    position: absolute;
-    top: 50%;
-    left: 16px;
   }
 `
 
 const IconBox = styled.div`
+  align-items: center;
+  display: flex;
+  justify-content: center;
   position: absolute;
   left: 0;
   top: 0;
