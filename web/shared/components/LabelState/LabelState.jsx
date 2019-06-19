@@ -17,41 +17,61 @@ limitations under the License.
 import React from 'react';
 import styled from 'styled-components';
 import { fontSize, color, width, space } from 'shared/system';
+import { fade } from 'shared/theme/utils/colorManipulator';
 
 const kinds = props => {
+  // default is primary
+  let kindStyles = {
+    background: props.theme.colors.secondary.main,
+    color: props.theme.colors.text.secondary.contrastText
+  }
+
   if (props.kind === "secondary") {
-    return {
+    kindStyles = {
       background: props.theme.colors.primary.dark,
       color: props.theme.colors.text.primary
+    }
+
+    if(props.shadow) {
+      kindStyles.boxShadow = `0 0 8px ${fade(props.theme.colors.primary.dark, .24)}, 0 4px 16px ${fade(props.theme.colors.primary.dark, .56)}`;
     }
   }
 
   if (props.kind === "warning") {
-    return {
+    kindStyles = {
       background: props.theme.colors.warning,
-      color: props.theme.colors.primary.contrastText
+      color: props.theme.colors.primary.contrastText,
+    }
+
+    if(props.shadow) {
+      kindStyles.boxShadow = `0 0 8px ${fade(props.theme.colors.warning, .24)}, 0 4px 16px ${fade(props.theme.colors.warning, .56)}`;
     }
   }
 
   if (props.kind === "danger") {
-    return {
+    kindStyles = {
       background: props.theme.colors.danger,
-      color: props.theme.colors.primary.contrastText
+      color: props.theme.colors.primary.contrastText,
+    }
+
+    if(props.shadow) {
+      kindStyles.boxShadow = `0 0 8px ${fade(props.theme.colors.danger, .24)}, 0 4px 16px ${fade(props.theme.colors.danger, .56)}`;
     }
   }
 
   if (props.kind === "success") {
-    return {
+    kindStyles = {
       background: props.theme.colors.success,
-      color: props.theme.colors.primary.contrastText
+      color: props.theme.colors.primary.contrastText,
+    }
+
+    if(props.shadow) {
+      kindStyles.boxShadow = `0 0 8px ${fade(props.theme.colors.success, .24)}, 0 4px 16px ${fade(props.theme.colors.success, .56)}`;
     }
   }
 
   // default is primary
-  return {
-    background: props.theme.colors.secondary.main,
-    color: props.theme.colors.text.secondary.contrastText
-  }
+  return kindStyles;
 }
 
 const LabelState = styled.span`
@@ -68,9 +88,6 @@ const LabelState = styled.span`
   ${kinds}
   ${width}
   ${color}
-  ${props => props.shadow && `
-    box-shadow: rgba(0, 191, 165, 0.24) 0px 0px 0px, rgba(0, 191, 165, 0.56) 0px 4px 16px;
-  `}
 `
 LabelState.defaultProps = {
   fontSize: 0,
