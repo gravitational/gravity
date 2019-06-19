@@ -122,14 +122,22 @@ export const LoginItemList = ({logins, onClick, onKeyPress}) => {
 }
 
 const menuListCss = props => `
- ${MenuItem} {
-   color: ${props.theme.colors.link};
-   max-width: 200px;
-   > * {
-    overflow: hidden;
-    text-overflow: ellipsis;
-   }
- }
+  ${MenuItem} {
+    color: ${props.theme.colors.grey[400]};
+    font-size: 12px;
+    border-bottom: 1px solid ${props.theme.colors.subtle };
+    line-height: 32px;
+    margin: 0 8px;
+    padding: 0 8px;
+
+    &:hover {
+      color: ${props.theme.colors.link};
+    }
+
+    &:last-child {
+      border-bottom: none;
+    }
+  }
 `
 
 const StyledCliIcon = styled.div`
@@ -141,22 +149,13 @@ const StyledCliIcon = styled.div`
   padding: 0 8px;
 `
 
-const ButtonIcon = styled.button`
+const ButtonIcon = styled.div`
   align-items: center;
-  background: ${props => props.theme.colors.primary.main };
-  border: none;
-  cursor: pointer;
+  background: ${props => props.theme.colors.bgTerminal };
   display: flex;
-  height: 100%;
-  justify-content: center;
-  outline: none;
-  width: 30px;
-
-  ${Icon}{
-    display: inline-block;
-    font-size: 12px;
-    opacity: .56;
-  }
+  flex: 1;
+  opacity: .24;
+  padding: 0 8px;
 `
 
 const StyledSession = styled.div`
@@ -169,28 +168,37 @@ const StyledSession = styled.div`
   display: flex;
   height: 24px;
   position: relative;
-  width: 70px;
-  &:hover, &:focus {
-    ${ButtonIcon}{
-      background: ${props => props.theme.colors.primary.light };
-    }
-  }
 `;
 
+
 const Input = styled.input`
-  background: #CFD8DC;
-  border: 1px solid #CFD8DC;
-  border-radius: 2px;
-  width: 100%;
+  background: ${props => props.theme.colors.subtle };
+  border: 1px solid ${props => props.theme.colors.subtle };
+  border-radius: 4px;
   box-sizing: border-box;
   color: #263238;
   padding: 0 8px;
-  height: 40px;
+  height: 32px;
   margin: 8px;
+  outline: none;
+
   &:focus {
     background: ${props => props.theme.colors.light };
     border 1px solid ${props => props.theme.colors.link };
-    box-shadow: inset 0 2px 4px rgba(0, 0, 0, .24);
+    box-shadow: inset 0 1px 3px rgba(0, 0, 0, .24);
+  }
+
+  ::-webkit-input-placeholder { /* Chrome/Opera/Safari */
+  color: ${props => props.theme.colors.grey[100]};
+  }
+  ::-moz-placeholder { /* Firefox 19+ */
+    color: ${props => props.theme.colors.grey[100]};
+  }
+  :-ms-input-placeholder { /* IE 10+ */
+    color: ${props => props.theme.colors.grey[100]};
+  }
+  :-moz-placeholder { /* Firefox 18- */
+    color: ${props => props.theme.colors.grey[100]};
   }
 `
 
