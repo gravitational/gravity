@@ -22,7 +22,7 @@ import { fontSize, color, space } from 'styled-system'
 const defVals  = {
   theme: defaultTheme,
   fontSize: 2,
-  px: 4,
+  px: 3,
   color: 'link',
   bg: 'light'
 }

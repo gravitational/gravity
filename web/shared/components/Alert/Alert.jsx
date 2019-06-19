@@ -59,7 +59,7 @@ const Alert = styled.div`
   box-sizing: border-box;
   box-shadow: 0 0 2px rgba(0, 0, 0, .12),  0 2px 2px rgba(0, 0, 0, .24);
   font-weight: ${({theme}) => theme.fontWeights.regular};
-  font-size: 18px;
+  font-size: 16px;
   margin: 0 0 16px 0;
   min-height: 48px;
   padding: 8px 16px;

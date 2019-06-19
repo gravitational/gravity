@@ -46,6 +46,35 @@ storiesOf('Box', module)
       Hello
     </Box>
   ))
+  .add('Border Radius', () => (
+    <div>
+      <Box
+        br={16}
+        color='white'
+        p={5}
+        bg='blue'>
+        16 Pixel Border Radius
+      </Box>
+      <Box
+        mt={4}
+        brbl={16}
+        brbr={16}
+        color='white'
+        p={5}
+        bg='blue'>
+        Border Radius on Bottom Left & Right
+      </Box>
+      <Box
+        mt={4}
+        brtl={16}
+        brtr={16}
+        color='white'
+        p={5}
+        bg='blue'>
+        Border Radius on Top Left & Right
+      </Box>
+    </div>
+  ))
   .add('Width', () => (
     <Box
       p={3}

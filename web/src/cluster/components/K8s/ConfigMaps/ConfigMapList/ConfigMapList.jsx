@@ -55,7 +55,7 @@ function ConfigMapListItem({onClick, created, name}) {
       </Flex>
       <Flex alignItems="center" justifyContent="center" flexDirection="column">
         <Icons.FileCode fontSize="50px" my={4} />
-        <ButtonPrimary mt={3} size="medium" onClick={onClick}>
+        <ButtonPrimary mt={3} size="medium" onClick={onClick} block={true}>
           EDIT CONFIG MAP
         </ButtonPrimary>
       </Flex>
@@ -64,7 +64,7 @@ function ConfigMapListItem({onClick, created, name}) {
 }
 
 const StyledConfigMapListItem = styled(Box)`
-  border-radius: 4px;
+  border-radius: 8px;
   box-shadow: 0 8px 32px rgba(0, 0, 0, .24);
   width: 260px;
   &:hover {
