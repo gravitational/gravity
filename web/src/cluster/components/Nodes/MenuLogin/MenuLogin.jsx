@@ -145,8 +145,9 @@ const StyledCliIcon = styled.div`
   background: ${props => props.theme.colors.bgTerminal };
   display: flex;
   flex: 1;
-  opacity: .56;
-  padding: 0 8px;
+  opacity: .87;
+  padding: 0 0 0 8px;
+  transition: all .3s;
 `
 
 const ButtonIcon = styled.div`
@@ -155,19 +156,36 @@ const ButtonIcon = styled.div`
   display: flex;
   flex: 1;
   opacity: .24;
-  padding: 0 8px;
+  padding: 0 0 0 8px;
+  transition: all .3s;
 `
 
 const StyledSession = styled.div`
   align-items: center;
   background: ${props => props.theme.colors.bgTerminal };
+    border: 1px solid  ${props => props.theme.colors.bgTerminal};
   border-radius: 2px;
+  box-sizing: border-box;
   box-shadow: 0 0 2px rgba(0, 0, 0, .12),  0 2px 2px rgba(0, 0, 0, .24);
   color: ${props => props.theme.colors.primary};
   cursor: pointer;
   display: flex;
   height: 24px;
   position: relative;
+  width: 56px;
+  transition: all .3s;
+
+  &:hover {
+    border: 1px solid  ${props => props.theme.colors.success};
+    box-shadow:  0 4px 16px rgba(0, 0, 0, .24);
+
+    ${StyledCliIcon} {
+      opacity: 1;
+    }
+    ${ButtonIcon} {
+      opacity: .56
+    }
+  }
 `;
 
 
