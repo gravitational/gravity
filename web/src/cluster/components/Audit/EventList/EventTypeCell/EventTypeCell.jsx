@@ -19,7 +19,7 @@ import styled from 'styled-components';
 import { Cell } from  'shared/components/DataTable';
 import { CodeEnum } from 'app/cluster/services/events/event';
 import  Icon, * as Icons from 'shared/components/Icon/Icon';
-import { grey } from 'shared/theme/palette';
+import { blueGrey } from 'shared/theme/palette';
 
 const EventIconMap = {
   [CodeEnum.ALERT_CREATED]: Icons.NotificationsActive,
@@ -93,7 +93,7 @@ function getColor(severity, code){
     case CodeEnum.REMOTE_SUPPORT_DISABLED:
     case CodeEnum.SESSION_END:
     case CodeEnum.SESSION_LEAVE:
-      return grey[500];
+      return blueGrey[600];
     case CodeEnum.ALERT_CREATED:
     case CodeEnum.GITHUB_CONNECTOR_CREATED:
     case CodeEnum.LOGFORWARDER_CREATED:
