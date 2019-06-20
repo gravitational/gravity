@@ -108,6 +108,7 @@ const StyledButton = styled.button`
   justify-content: center;
   align-items: center;
   border: 1px solid;
+  box-sizing: border-box;
   background-color: transparent;
   cursor: pointer;
   font-family: inherit;
