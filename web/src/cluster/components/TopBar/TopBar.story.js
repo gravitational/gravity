@@ -79,9 +79,10 @@ const props = {
     siteNav: [],
     topNav: []
   },
+  navItems: [],
   info: {
     status: {},
-    publicUrls: [],
+    publicUrls: ['http://localhost/'],
     internalUrls: [],
     commands: {}
   },

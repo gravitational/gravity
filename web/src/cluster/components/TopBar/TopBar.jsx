@@ -73,13 +73,13 @@ export class TopBar extends React.Component {
   }
 
   render() {
-    const { user, info, remoteAccess, onRefresh, navStore, pl, onChangeRemoteAccess } = this.props;
+    const { user, info, remoteAccess, onRefresh, navItems, pl, onChangeRemoteAccess } = this.props;
     const { open, infoDialogOpen } = this.state;
     const username = user.userId;
     const { status, tshLogin, publicUrls, internalUrls } = info;
     const clusterPublicUrl = publicUrls[0];
 
-    const $items = navStore.topNav.map( (item, index) => (
+    const $items = navItems.map( (item, index) => (
       <MenuItem {...this.menuItemProps} key={index} to={item.to}>
         <MenuItemIcon as={item.Icon} mr="2" />
           {item.title}
@@ -136,7 +136,7 @@ function mapState() {
   const infoStore = useFluxStore(infoGetters.infoStore);
   return {
     user,
-    navStore,
+    navItems: navStore.topNav,
     info: infoStore.info,
     remoteAccess: infoStore.remoteAccess,
     onLogout: () => session.logout(),

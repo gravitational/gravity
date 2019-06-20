@@ -22,7 +22,7 @@ import { CLUSTER_EVENTS_RECEIVE, CLUSTER_EVENTS_RECEIVE_LATEST } from './actionT
 export const EVENT_MAX_LIMIT = 500;
 
 export function fetchLatest(siteId){
-  const start = moment(new Date()).subtract(1, 'day').toDate().toISOString();
+  const start = moment(new Date()).startOf('day').toDate().toISOString();
   const end = moment(new Date()).endOf('day').toDate().toISOString();
   return fetchClusterEvents({ siteId, start, end  })
     .done(events => {

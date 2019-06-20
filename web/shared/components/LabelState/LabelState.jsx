@@ -19,6 +19,7 @@ import styled from 'styled-components';
 import { fontSize, color, width, space } from 'shared/system';
 import { fade } from 'shared/theme/utils/colorManipulator';
 
+
 const kinds = props => {
   // default is primary
   let kindStyles = {
