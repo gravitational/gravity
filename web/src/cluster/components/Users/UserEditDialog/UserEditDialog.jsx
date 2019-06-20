@@ -18,7 +18,7 @@ import React from 'react'
 import { Box, Text, LabelInput, ButtonPrimary, ButtonSecondary } from 'shared/components';
 import * as Alerts from 'shared/components/Alert';
 import { useAttempt, withState } from 'shared/hooks';
-import Dialog, { DialogHeader, DialogContent, DialogFooter} from 'shared/components/DialogConfirmation';
+import Dialog, { DialogHeader, DialogTitle, DialogContent, DialogFooter} from 'shared/components/DialogConfirmation';
 import * as actions from 'oss-app/cluster/flux/users/actions';
 import { Formik } from 'formik';
 import Select from 'oss-app/components/Select';
@@ -60,7 +60,7 @@ export function UserEditDialog(props){
         <Dialog disableEscapeKeyDown={false} onClose={onClose} open={true} dialogCss={dialogCss}>
           <Box as="form" width="450px" onSubmit={formikProps.handleSubmit}>
             <DialogHeader>
-              <Text typography="h2">Edit User Role</Text>
+              <DialogTitle>Edit User Role</DialogTitle>
               {isFailed && (
                 <Alerts.Danger mt="4">
                   {attempt.message}
