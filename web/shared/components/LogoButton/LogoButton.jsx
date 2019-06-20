@@ -78,7 +78,7 @@ const StyledLogo = styled.a`
   img {
     display: inline-block;
     float: left;
-    height: 24px;
+    max-height: 32px;
     margin: 24px 0 24px 16px;
   }
 
