@@ -68,7 +68,7 @@ export default function ResourceEditor(props) {
               onChange={updateContent}
             />
           </Flex>
-          <Box mt="3">
+          <Box mt="4">
             <ButtonPrimary disabled={isSaveDisabled} onClick={onSave} mr="3">
               Save changes
             </ButtonPrimary>
