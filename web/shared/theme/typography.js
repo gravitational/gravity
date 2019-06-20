@@ -82,6 +82,12 @@ const typography = {
     fontWeight: bold,
     fontSize: "12px",
     lineHeight: '16px',
+  },
+  label:{
+    fontWeight: bold,
+    fontSize: "10px",
+    lineHeight: '16px',
+    textTransform: 'uppercase'
   }
 }
 
