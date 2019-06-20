@@ -19,7 +19,7 @@ import { storiesOf } from '@storybook/react'
 import { withInfo } from '@storybook/addon-info'
 import SideNav, { SideNavItem } from '../SideNav'
 import LogoButton from '../LogoButton'
-import teleportLogo from 'shared/assets/images/teleport-logo.svg';
+import gravityCommunityLogo from 'shared/assets/images/gravity-community-logo.svg';
 import cfg from 'app/config';
 
 storiesOf('SideNav', module)
@@ -27,7 +27,7 @@ storiesOf('SideNav', module)
   .add('SideNav component', () => {
     return (
       <SideNav static>
-        <LogoButton src={teleportLogo} version="3.2.1" href={cfg.routes.app} />
+        <LogoButton src={gravityCommunityLogo} version="3.2.1" href={cfg.routes.app} />
         <SideNavItem>
           Item 1
           </SideNavItem>
