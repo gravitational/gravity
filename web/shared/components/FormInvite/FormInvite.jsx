@@ -128,7 +128,7 @@ export class FormInvite extends React.Component {
             onChange={handleChange}
             placeholder="123 456"
           />
-          <ButtonLink width="100%" kind="secondary" target="_blank" size="small" href="https://support.google.com/accounts/answer/1066447?co=GENIE.Platform%3DiOS&hl=en&oco=0">
+          <ButtonLink width="100%" kind="secondary" target="_blank" size="small" href="https://support.google.com/accounts/answer/1066447?co=GENIE.Platform%3DiOS&hl=en&oco=0" rel="noreferrer">
             Download Google Authenticator
           </ButtonLink>
         </Flex>
