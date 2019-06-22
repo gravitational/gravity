@@ -16,17 +16,24 @@ limitations under the License.
 
 import React from 'react'
 import { storiesOf } from '@storybook/react'
-import { withInfo } from '@storybook/addon-info'
 import LabelState from './LabelState';
 import Flex from './../Flex';
 
 storiesOf('LabelState', module)
-  .addDecorator(withInfo)
-  .add('kinds', () => (
+  .add('LabelState', () => (
     <Flex height="100px" bg="primary.main" justifyContent="center" alignItems="center">
-      <LabelState mr="4" kind="primary">Primary</LabelState>
+      <LabelState mr="4" kind="success">Primary</LabelState>
       <LabelState mr="4" kind="secondary">Secondary</LabelState>
       <LabelState mr="4" kind="warning">Warning</LabelState>
       <LabelState mr="4" kind="danger">Danger</LabelState>
     </Flex>
   ))
+  .add('with shadow', () => (
+    <Flex height="100px" bg="primary.main" justifyContent="center" alignItems="center">
+      <LabelState shadow mr="4" kind="success">Primary</LabelState>
+      <LabelState shadow mr="4" kind="secondary">Secondary</LabelState>
+      <LabelState shadow mr="4" kind="warning">Warning</LabelState>
+      <LabelState shadow mr="4" kind="danger">Danger</LabelState>
+    </Flex>
+  ))
+

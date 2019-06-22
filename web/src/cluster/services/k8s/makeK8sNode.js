@@ -21,7 +21,7 @@ export function makeNodes(jsonArray){
   return keyBy(nodes, 'advertiseIp');
 }
 
-export function makeNode(json){
+export default function makeNode(json){
   const [ name ] = at(json, 'metadata.name');
   const [ labels ] = at(json, 'metadata.labels');
   const [ advertiseIp ] = at(labels, "gravitational.io/advertise-ip");
@@ -29,12 +29,12 @@ export function makeNode(json){
   const [ memory ] = at(json, 'status.capacity.memory');
   const [ osImage ] = at(json, 'status.nodeInfo.osImage');
   return {
+    labels: labels || [],
     advertiseIp,
     cpu,
     memory,
     osImage,
     name,
-    labels,
     details: json,
   }
 }

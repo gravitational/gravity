@@ -133,7 +133,7 @@ func (s *site) validateExpand(op *ops.SiteOperation, req *ops.OperationUpdateReq
 				"no servers provided, run agent command on the node you want to join")
 		}
 	}
-	for role, _ := range req.Profiles {
+	for role := range req.Profiles {
 		profile, err := s.app.Manifest.NodeProfiles.ByName(role)
 		if err != nil {
 			return trace.Wrap(err)

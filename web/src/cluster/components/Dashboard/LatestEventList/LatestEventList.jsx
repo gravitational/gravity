@@ -37,7 +37,7 @@ export function LatestEventList({ visible, onRefresh, events, ...rest}) {
     <Box {...rest}>
       <Flex  bg="primary.light" p="3" alignItems="center" justifyContent="space-between">
         <Text typography="h4">
-          Audit Logs
+          Today Audit Logs
         </Text>
         <ButtonSecondary size="small" as={Link} to={cfg.getSiteAuditRoute()}>
           VIEW ALL

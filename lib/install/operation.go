@@ -45,14 +45,11 @@ func (i *Installer) NotifyOperationAvailable(op ops.SiteOperation) error {
 	if err := i.startAgent(op); err != nil {
 		return trace.Wrap(err)
 	}
-	i.addAborter(signals.StopperFunc(func(ctx context.Context) error {
-		i.WithField("operation", op.ID).Info("Aborting agent service.")
-		return trace.Wrap(i.config.Process.AgentService().AbortAgents(ctx, op.Key()))
-	}))
+	i.registerExitHandlersForAgents(op)
 	if err := i.upsertAdminAgent(op.SiteDomain); err != nil {
 		return trace.Wrap(err)
 	}
-	go ProgressLooper{
+	go ProgressPoller{
 		FieldLogger:  i.FieldLogger,
 		Operator:     i.config.Operator,
 		OperationKey: op.Key(),
@@ -152,11 +149,6 @@ func (i *Installer) completeOperation(operation ops.SiteOperation, status dispat
 	if err := i.emitAuditEvents(i.ctx, operation); err != nil {
 		errors = append(errors, err)
 	}
-	// Explicitly stop agents iff the operation has been completed successfully
-	i.addStopper(signals.StopperFunc(func(ctx context.Context) error {
-		i.WithField("operation", operation.ID).Info("Stopping agent service.")
-		return trace.Wrap(i.config.Process.AgentService().StopAgents(ctx, operation.Key()))
-	}))
 	i.sendElapsedTime(operation.Created)
 	i.sendCompletionEvent(status)
 	return trace.NewAggregate(errors...)
@@ -165,8 +157,19 @@ func (i *Installer) completeOperation(operation ops.SiteOperation, status dispat
 // wait blocks until either the context has been cancelled or the wizard process
 // exits with an error.
 func (i *Installer) wait() error {
-	i.stopStoppers(i.ctx)
+	i.runStoppers(i.ctx)
 	return trace.Wrap(i.config.Process.Wait())
+}
+
+func (i *Installer) registerExitHandlersForAgents(op ops.SiteOperation) {
+	i.addAborter(signals.StopperFunc(func(ctx context.Context) error {
+		i.WithField("operation", op.ID).Info("Aborting agent service.")
+		return trace.Wrap(i.config.Process.AgentService().AbortAgents(ctx, op.Key()))
+	}))
+	i.addStopper(signals.StopperFunc(func(ctx context.Context) error {
+		i.WithField("operation", op.ID).Info("Stopping agent service.")
+		return trace.Wrap(i.config.Process.AgentService().StopAgents(ctx, op.Key()))
+	}))
 }
 
 func (i *Installer) sendElapsedTime(timeStarted time.Time) {
@@ -197,7 +200,7 @@ func (i *Installer) sendCompletionEvent(status dispatcher.Status) {
 	i.dispatcher.Send(event)
 }
 
-func (i *Installer) stopStoppers(ctx context.Context) error {
+func (i *Installer) runStoppers(ctx context.Context) error {
 	var errors []error
 	for _, c := range i.stoppers {
 		if err := c.Stop(ctx); err != nil {
@@ -286,6 +289,29 @@ func (i *Installer) emitAuditEvents(ctx context.Context, operation ops.SiteOpera
 	events.Emit(i.ctx, operator, events.OperationInstallStart, fields.WithField(
 		events.FieldTime, operation.Created))
 	events.Emit(i.ctx, operator, events.OperationInstallComplete, fields)
+	return nil
+}
+
+func (i *Installer) generateDebugReport(clusterKey ops.SiteKey, path string) error {
+	f, err := os.Create(path)
+	if err != nil {
+		return trace.ConvertSystemError(err)
+	}
+	defer func() {
+		f.Close()
+		if err != nil {
+			os.Remove(f.Name())
+		}
+	}()
+	rc, err := i.config.Operator.GetSiteReport(clusterKey)
+	if err != nil {
+		return trace.ConvertSystemError(err)
+	}
+	defer rc.Close()
+	_, err = io.Copy(f, rc)
+	if err != nil {
+		return trace.ConvertSystemError(err)
+	}
 	return nil
 }
 

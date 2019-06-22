@@ -16,7 +16,6 @@ limitations under the License.
 
 import { at, keys, map } from 'lodash';
 import cfg from 'app/config';
-import humanize from 'app/lib/humanize';
 import { displayDateTime } from 'app/lib/dateUtils';
 import { parseWebConfig } from 'app/lib/paramUtils';
 import makeNodeProfile from './makeNodeProfile';
@@ -36,9 +35,8 @@ export default function makeApplicatin(json){
     ]
   );
 
-  const [ sizeBytes, created ] = at(json,
+  const [ created ] = at(json,
     [
-      'envelope.size_bytes',
       'envelope.created',
     ]
   );
@@ -93,7 +91,6 @@ export default function makeApplicatin(json){
     installUrl,
     kind,
     standaloneInstallerUrl,
-    size: humanize.filesize(sizeBytes),
     created: new Date(created),
     createdText: displayDateTime(created),
     logo,

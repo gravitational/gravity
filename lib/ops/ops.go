@@ -762,13 +762,6 @@ type Operations interface {
 	// operation
 	CreateProgressEntry(SiteOperationKey, ProgressEntry) error
 
-	// GetSiteOperationCrashReport returns a tarball with crash report
-	// that contains all debugging information gathered during the operation
-	//
-	// This method can be called in case of progress report failed state
-	// after operation start
-	GetSiteOperationCrashReport(SiteOperationKey) (io.ReadCloser, error)
-
 	// CreateSiteExpandOperation initiates operation that adds nodes
 	// to the cluster
 	//

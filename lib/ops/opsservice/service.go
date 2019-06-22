@@ -1075,32 +1075,13 @@ func (o *Operator) CreateLogEntry(key ops.SiteOperationKey, entry ops.LogEntry) 
 	return site.createLogEntry(key, entry)
 }
 
-func (o *Operator) GetSiteOperationCrashReport(key ops.SiteOperationKey) (io.ReadCloser, error) {
-	site, err := o.openSite(key.SiteKey())
-	if err != nil {
-		return nil, trace.Wrap(err)
-	}
-
-	op, err := site.getSiteOperation(key.OperationID)
-	if err != nil {
-		return nil, trace.Wrap(err)
-	}
-
-	switch op.Type {
-	case ops.OperationInstall:
-		return site.getSiteOperationCrashReport(*op)
-	default:
-		return site.getSiteReport()
-	}
-}
-
 func (o *Operator) GetSiteReport(key ops.SiteKey) (io.ReadCloser, error) {
-	site, err := o.openSite(key)
+	cluster, err := o.openSite(key)
 	if err != nil {
 		return nil, trace.Wrap(err)
 	}
 
-	return site.getSiteReport()
+	return cluster.getClusterReport()
 }
 
 func (o *Operator) GetSiteOperationProgress(key ops.SiteOperationKey) (*ops.ProgressEntry, error) {

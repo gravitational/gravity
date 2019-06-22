@@ -71,7 +71,7 @@ const (
 
 // Configure packages configures packages for the specified install operation
 func (o *Operator) ConfigurePackages(req ops.ConfigurePackagesRequest) error {
-	log.Infof("Configuring packages: %#v.", req)
+	log.WithField("req", req).Info("Configuring packages.")
 	operation, err := o.GetSiteOperation(req.SiteOperationKey)
 	if err != nil {
 		return trace.Wrap(err)

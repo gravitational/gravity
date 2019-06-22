@@ -22,15 +22,6 @@ import { Label, Text } from 'shared/components';
 import MenuLogin from './../MenuLogin';
 import NodeMenuActon from './NodeMenuAction';
 
-const PrivateIPCell = ({ rowIndex, data}) => {
-  const { advertiseIp } = data[rowIndex];
-  return (
-    <Cell>
-      {advertiseIp}
-    </Cell>
-  );
-}
-
 const LoginCell = ({ rowIndex, data}) => {
   const { sshLogins, id, hostname } = data[rowIndex];
   return (
@@ -51,14 +42,20 @@ export const ActionCell = ({ rowIndex, onDelete, data}) => {
 
 function Detail({ children }){
   return (
-    <Text typography="body2" color="text.primary">{children}</Text>
+    <Text typography="paragraph2" color="text.primary">{children}</Text>
   )
 }
 
 const NameCell = ({ rowIndex, data }) => {
   const { k8s, instanceType } = data[rowIndex];
   const { cpu, osImage, memory, name } = k8s;
-  const desc = `cpu: ${cpu}, ram: ${memory}, os: ${osImage}`;
+
+  // show empty cell when k8s data is not available
+  if(!name){
+    return ( <Cell/>)
+  }
+
+  const desc = `CPU: ${cpu}, RAM: ${memory}, OS: ${osImage}`;
   return (
     <Cell>
       <Text typography="body2" mb="2" bold>{name}</Text>
@@ -91,7 +88,7 @@ class NodeList extends React.Component {
     return (
       <StyledTable data={nodes} rowCount={nodes.length}>
         <Column
-          header={<Cell>Login</Cell> }
+          header={<Cell>Session</Cell> }
           cell={<LoginCell /> }
         />
         <Column
@@ -99,21 +96,8 @@ class NodeList extends React.Component {
           cell={<NameCell /> }
         />
         <Column
-          header={<Cell>Labels</Cell> }
-          cell={<LabelCell /> }
-        />
-        <Column
-          header={<Cell>Private IP</Cell> }
-          cell={<PrivateIPCell /> }
-        />
-        <Column
-          columnKey="publicIp"
-          header={<Cell>Public IP</Cell> }
-          cell={<TextCell/> }
-        />
-        <Column
           columnKey="hostname"
-          header={<Cell>Hostname</Cell> }
+          header={<Cell>Address</Cell> }
           cell={<TextCell/> }
         />
         <Column
@@ -128,6 +112,10 @@ class NodeList extends React.Component {
             cell={<TextCell /> }
           />
         }
+        <Column
+          header={<Cell>Labels</Cell> }
+          cell={<LabelCell /> }
+        />
         <Column
           header={<Cell>Actions</Cell> }
           cell={ <ActionCell onDelete={onDelete} /> }

@@ -153,7 +153,7 @@ func (s *OpsSuite) SitesCRUD(c *C) {
 	c.Assert(logStream.Close(), IsNil)
 
 	// download crashreport
-	reportStream, err := s.O.GetSiteOperationCrashReport(*opKey)
+	reportStream, err := s.O.GetSiteReport(opKey.SiteKey())
 	c.Assert(err, IsNil)
 	_, err = io.Copy(ioutil.Discard, reportStream)
 	c.Assert(err, IsNil)

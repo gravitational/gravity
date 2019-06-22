@@ -29,8 +29,8 @@ storiesOf('Gravity/TopBar', module)
   .add('Healthy', () => {
     const newProps = {
       ...props,
-      infoStore: {
-        ...props.infoStore,
+      info: {
+        ...props.info,
         status: StatusEnum.READY
       }
     }
@@ -43,8 +43,8 @@ storiesOf('Gravity/TopBar', module)
   .add('In Progress', () => {
     const newProps = {
       ...props,
-      infoStore: {
-        ...props.infoStore,
+      info: {
+        ...props.info,
         status: StatusEnum.PROCESSING
       }
     }
@@ -57,8 +57,8 @@ storiesOf('Gravity/TopBar', module)
   .add('With Issues', () => {
     const newProps = {
       ...props,
-      infoStore: {
-        ...props.infoStore,
+      info: {
+        ...props.info,
         status: StatusEnum.ERROR
       }
     }
@@ -75,13 +75,10 @@ const props = {
   user: {
     userId: 'john@example.com'
   },
-  navStore: {
-    siteNav: [],
-    topNav: []
-  },
-  infoStore: {
+  navItems: [],
+  info: {
     status: {},
-    publicUrls: [],
+    publicUrls: ['http://localhost/'],
     internalUrls: [],
     commands: {}
   },

@@ -22,6 +22,7 @@ import (
 	"net"
 	"os"
 	"os/exec"
+	"path/filepath"
 	"strings"
 	"syscall"
 	"time"
@@ -75,8 +76,12 @@ func startInstall(env *localenv.LocalEnvironment, config InstallConfig) error {
 	}
 	err = InstallerClient(env, installerclient.Config{
 		ConnectStrategy: strategy,
-		Aborter:         AborterForMode(config.Mode, env),
-		Completer:       InstallerCompleteOperation(env),
+		Lifecycle: &installerclient.AutomaticLifecycle{
+			Aborter:            AborterForMode(config.Mode, env),
+			Completer:          InstallerCompleteOperation(env),
+			DebugReportPath:    DebugReportPath(),
+			LocalDebugReporter: InstallerGenerateLocalReport(env),
+		},
 	})
 	if utils.IsContextCancelledError(err) {
 		// We only end up here if the initialization has not been successful - clean up the state
@@ -230,8 +235,12 @@ func restartInstall(env *localenv.LocalEnvironment) error {
 
 	err := InstallerClient(env, installerclient.Config{
 		ConnectStrategy: &installerclient.ResumeStrategy{},
-		Aborter:         installerAbortOperation(env),
-		Completer:       InstallerCompleteOperation(env),
+		Lifecycle: &installerclient.AutomaticLifecycle{
+			Aborter:            installerAbortOperation(env),
+			Completer:          InstallerCompleteOperation(env),
+			DebugReportPath:    DebugReportPath(),
+			LocalDebugReporter: InstallerGenerateLocalReport(env),
+		},
 	})
 	if utils.IsContextCancelledError(err) {
 		return trace.Wrap(err, "installer interrupted")
@@ -278,8 +287,10 @@ func resumeJoin(env *localenv.LocalEnvironment) error {
 
 	err := joinClient(env, installerclient.Config{
 		ConnectStrategy: &installerclient.ResumeStrategy{},
-		Aborter:         installerAbortOperation(env),
-		Completer:       InstallerCompleteOperation(env),
+		Lifecycle: &installerclient.AutomaticLifecycle{
+			Aborter:   installerAbortOperation(env),
+			Completer: InstallerCompleteOperation(env),
+		},
 	})
 	if utils.IsContextCancelledError(err) {
 		return trace.Wrap(err, "agent interrupted")
@@ -628,8 +639,12 @@ func executePhaseFromService(
 		Printer:          env,
 	}
 	if params.isResume() {
-		config.Aborter = installerAbortOperation(env)
-		config.Completer = InstallerCompleteOperation(env)
+		config.Lifecycle = &installerclient.AutomaticLifecycle{
+			Aborter:            installerAbortOperation(env),
+			Completer:          InstallerCompleteOperation(env),
+			DebugReportPath:    DebugReportPath(),
+			LocalDebugReporter: InstallerGenerateLocalReport(env),
+		}
 	}
 	client, err := installerclient.New(ctx, config)
 	if err != nil {
@@ -690,7 +705,9 @@ func completePlanFromService(
 		InterruptHandler: interrupt,
 		Printer:          env,
 		ConnectStrategy:  &installerclient.ResumeStrategy{},
-		Completer:        InstallerCompleteOperation(env),
+		Lifecycle: &installerclient.AutomaticLifecycle{
+			Completer: InstallerCompleteOperation(env),
+		},
 	})
 	if err != nil {
 		return trace.Wrap(err)
@@ -728,8 +745,10 @@ func join(env *localenv.LocalEnvironment, environ LocalEnvironmentFactory, confi
 	}
 	err = joinClient(env, installerclient.Config{
 		ConnectStrategy: strategy,
-		Aborter:         installerAbortOperation(env),
-		Completer:       InstallerCompleteOperation(env),
+		Lifecycle: &installerclient.AutomaticLifecycle{
+			Aborter:   installerAbortOperation(env),
+			Completer: InstallerCompleteOperation(env),
+		},
 	})
 	if utils.IsContextCancelledError(err) {
 		return trace.Wrap(err, "agent interrupted")
@@ -836,8 +855,13 @@ func printJoinInstructionsBanner(printer utils.Printer) {
 To abort the agent and clean up the system,
 press Ctrl+C two times in a row.
 
-If the you get disconnected from the terminal, you can reconnect to the installer
+If the you get disconnected from the terminal, you can reconnect to the agent
 agent by issuing 'gravity resume' command.
 See https://gravitational.com/gravity/docs/cluster/#managing-an-ongoing-operation for details.
 `))
+}
+
+// DebugReportPath returns the default path for the debug report file
+func DebugReportPath() (path string) {
+	return filepath.Join(filepath.Dir(utils.Exe.Path), defaults.DebugReportFile)
 }

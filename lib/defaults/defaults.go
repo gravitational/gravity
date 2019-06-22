@@ -1047,6 +1047,9 @@ var (
 	// ContainerEnvironmentFile specifies the location of the file for container environment
 	ContainerEnvironmentFile = "/etc/container-environment"
 
+	// DebugReportFile specifies the name of the file with diagnostics information
+	DebugReportFile = "crashreport.tgz"
+
 	// BandwagonPackageName is the name of bandwagon app package
 	BandwagonPackageName = "bandwagon"
 	// BandwagonServiceName is the name of the default setup endpoint service

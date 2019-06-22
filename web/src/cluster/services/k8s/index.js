@@ -17,7 +17,7 @@ limitations under the License.
 import api from 'app/services/api';
 import cfg from 'app/config';
 import { generatePath } from 'react-router';
-import { makeNodes } from './nodes';
+import { makeNodes } from './makeK8sNode';
 
 const k8s = {
 

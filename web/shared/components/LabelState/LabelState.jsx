@@ -18,39 +18,35 @@ import React from 'react';
 import styled from 'styled-components';
 import { fontSize, color, width, space } from 'shared/system';
 
-const kinds = props => {
-  if (props.kind === "secondary") {
+const kinds = ({ kind, theme, shadow }) => {
+  if (kind === "secondary") {
     return {
-      background: props.theme.colors.primary.dark,
-      color: props.theme.colors.text.primary
+      background: theme.colors.primary.dark,
+      color: theme.colors.text.primary
     }
   }
 
-  if (props.kind === "warning") {
+  if (kind === "warning") {
     return {
-      background: props.theme.colors.warning,
-      color: props.theme.colors.primary.contrastText
+      background: theme.colors.warning,
+      color: theme.colors.primary.contrastText,
+      boxShadow: shadow && `rgba(255, 154, 0, 0.24) 0px 0px 0px, rgba(255, 145, 0, 0.56) 0px 4px 16px`
     }
   }
 
-  if (props.kind === "danger") {
+  if (kind === "danger") {
     return {
-      background: props.theme.colors.danger,
-      color: props.theme.colors.primary.contrastText
+      background: theme.colors.danger,
+      color: theme.colors.primary.contrastText,
+      boxShadow: shadow && `rgba(245, 0, 87, 0.24) 0px 0px 0px, rgba(245, 0, 87, 0.56) 0px 4px 16px`
     }
   }
 
-  if (props.kind === "success") {
-    return {
-      background: props.theme.colors.success,
-      color: props.theme.colors.primary.contrastText
-    }
-  }
-
-  // default is primary
+  // default is success
   return {
-    background: props.theme.colors.secondary.main,
-    color: props.theme.colors.text.secondary.contrastText
+    background: theme.colors.success,
+    color: theme.colors.primary.contrastText,
+    boxShadow: shadow && `rgba(0, 191, 165, 0.24) 0px 0px 0px, rgba(0, 191, 165, 0.56) 0px 4px 16px`
   }
 }
 
@@ -68,9 +64,6 @@ const LabelState = styled.span`
   ${kinds}
   ${width}
   ${color}
-  ${props => props.shadow && `
-    box-shadow: rgba(0, 191, 165, 0.24) 0px 0px 0px, rgba(0, 191, 165, 0.56) 0px 4px 16px;
-  `}
 `
 LabelState.defaultProps = {
   fontSize: 0,

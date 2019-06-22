@@ -78,10 +78,15 @@ func (r *ExecuteRequest_Phase) IsResume() bool {
 // Empty defines the empty RPC message
 var Empty = &types.Empty{}
 
-// IsAbortedErr returns true if the specifies error identifies the aborted operation
-func IsAbortedErr(err error) bool {
+// IsAbortError returns true if the specifies error identifies the aborted operation
+func IsAbortError(err error) bool {
 	return trace.Unwrap(err) == ErrAborted
 }
 
 // ErrAborted defines the aborted operation error
 var ErrAborted = utils.NewExitCodeErrorWithMessage(defaults.AbortedOperationExitCode, "operation aborted")
+
+// AbortEvent is a progress response that indicates an aborted operation
+var AbortEvent = &ProgressResponse{
+	Status: StatusAborted,
+}

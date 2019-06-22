@@ -14,5 +14,21 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-import SessionList from './SessionList';
-export default SessionList;
+export default function makeNode(json){
+  const role = json.role;
+  const publicIp = json.public_ipv4;
+  const advertiseIp = json.advertise_ip;
+  const hostname = json.hostname;
+  const id = json.id;
+  const instanceType = json.instance_type;
+  const displayRole = json.display_role || role;
+  return {
+    publicIp,
+    advertiseIp,
+    hostname,
+    id,
+    instanceType,
+    role,
+    displayRole,
+  }
+}

@@ -29,10 +29,11 @@ export default class Player extends React.Component {
     super(props);
 
     const { sid, siteId } = this.props.match.params;
-    const url = cfg.getSiteSshSessionUrl({siteId, sid });
+    const url = cfg.getSiteSshSessionUrl({ siteId, sid });
 
     this.tty = new TtyPlayer({url});
     this.state = this.calculateState();
+    document.title = `Player ${sid}`;
   }
 
   calculateState(){
