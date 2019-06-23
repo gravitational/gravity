@@ -21,9 +21,11 @@ import (
 	"bytes"
 	"context"
 	"fmt"
+	"strings"
 	"text/tabwriter"
 	"time"
 
+	"github.com/gravitational/gravity/lib/checks"
 	"github.com/gravitational/gravity/lib/defaults"
 	"github.com/gravitational/gravity/lib/install"
 	libinstall "github.com/gravitational/gravity/lib/install"
@@ -194,20 +196,20 @@ func (r *executor) createOperation() (*ops.SiteOperation, error) {
 }
 
 func (r *executor) waitForAgents(operation ops.SiteOperation) error {
-	ctx, cancel := context.WithTimeout(r.ctx, 5*time.Minute)
+	ctx, cancel := context.WithTimeout(r.ctx, defaults.AgentWaitTimeout)
 	defer cancel()
 	b := utils.NewUnlimitedExponentialBackOff()
 	b.MaxInterval = 5 * time.Second
-	var oldReport *ops.AgentReport
+	var report *ops.AgentReport
 	err := utils.RetryWithInterval(ctx, b, func() error {
-		report, err := r.Operator.GetSiteInstallOperationAgentReport(operation.Key())
+		newReport, err := r.Operator.GetSiteInstallOperationAgentReport(operation.Key())
 		if err != nil {
 			return trace.Wrap(err, "failed to get agent report")
 		}
-		old := oldReport
-		oldReport = report
-		if !r.canContinue(old, report) {
-			return trace.BadParameter("cannot continue")
+		oldReport := report
+		report = newReport
+		if err := r.canContinue(oldReport, newReport); err != nil {
+			return trace.Wrap(err)
 		}
 		r.WithField("report", report).Info("Installation can proceed.")
 		err = libinstall.UpdateOperationState(r.Operator, operation, *report)
@@ -217,7 +219,7 @@ func (r *executor) waitForAgents(operation ops.SiteOperation) error {
 }
 
 // canContinue returns true if all agents have joined and the installation can start
-func (r *executor) canContinue(old, new *ops.AgentReport) bool {
+func (r *executor) canContinue(old, new *ops.AgentReport) error {
 	// See if any new nodes have joined or left since previous agent report.
 	joined, left := new.Diff(old)
 	for _, server := range joined {
@@ -232,12 +234,12 @@ func (r *executor) canContinue(old, new *ops.AgentReport) bool {
 	needed, extra := new.MatchFlavor(r.config.Flavor)
 	if len(needed) == 0 && len(extra) == 0 {
 		r.PrintStep(color.GreenString("All agents have connected!"))
-		return true
+		return nil
 	}
 	// If there were no changes compared to previous report, do not
 	// output anything.
 	if len(joined) == 0 && len(left) == 0 {
-		return false
+		return trace.Errorf("waiting for agents to join")
 	}
 	// Dump the table with remaining nodes that need to join.
 	r.PrintStep("Please execute the following join commands on target nodes:\n%v",
@@ -248,7 +250,7 @@ func (r *executor) canContinue(old, new *ops.AgentReport) bool {
 		r.PrintStep(color.RedString("Node %q on %v is not a part of the flavor, shut it down",
 			server.Role, utils.ExtractHost(server.AdvertiseAddr)))
 	}
-	return false
+	return trace.Errorf(formatNeededAndExtra(needed, extra))
 }
 
 // Engine implements command line-driven installation workflow
@@ -289,4 +291,27 @@ func configureStateDirectory(systemDevice string) error {
 	}
 	err = environ.ConfigureStateDirectory(stateDir, systemDevice)
 	return trace.Wrap(err)
+}
+
+func formatNeededAndExtra(needed map[string]int, extra []checks.ServerInfo) string {
+	var buf bytes.Buffer
+	fmt.Fprint(&buf, "still requires:[")
+	var nodes []string
+	for role, amount := range needed {
+		nodes = append(nodes, fmt.Sprintf("%v nodes of role %q", amount, role))
+	}
+	fmt.Fprint(&buf, strings.Join(nodes, ","))
+	fmt.Fprint(&buf, "]")
+	if len(extra) == 0 {
+		return buf.String()
+	}
+	fmt.Fprint(&buf, ", following nodes are unexpected:[")
+	nodes = nodes[:0]
+	for _, n := range extra {
+		nodes = append(nodes, fmt.Sprintf("%v(%v)",
+			n.Role, utils.ExtractHost(n.AdvertiseAddr)))
+	}
+	fmt.Fprint(&buf, strings.Join(nodes, ","))
+	fmt.Fprint(&buf, "]")
+	return buf.String()
 }

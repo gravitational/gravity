@@ -56,11 +56,11 @@ import (
 	"github.com/gravitational/gravity/lib/system/environ"
 	"github.com/gravitational/gravity/lib/system/signals"
 	"github.com/gravitational/gravity/lib/systeminfo"
+	"github.com/gravitational/gravity/lib/users"
 	"github.com/gravitational/gravity/lib/utils"
 
 	"github.com/docker/docker/pkg/namesgenerator"
 	teledefaults "github.com/gravitational/teleport/lib/defaults"
-	teleutils "github.com/gravitational/teleport/lib/utils"
 	"github.com/gravitational/trace"
 	"github.com/sirupsen/logrus"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -246,7 +246,7 @@ func (i *InstallConfig) CheckAndSetDefaults() (err error) {
 				teledefaults.MaxPasswordLength)
 		}
 	} else {
-		if i.Token, err = teleutils.CryptoRandomHex(6); err != nil {
+		if i.Token, err = newRandomInstallTokenText(); err != nil {
 			return trace.Wrap(err)
 		}
 		i.WithField("token", i.Token).Info("Generated install token.")
@@ -273,8 +273,10 @@ func (i *InstallConfig) CheckAndSetDefaults() (err error) {
 	if i.VxlanPort < 1 || i.VxlanPort > 65535 {
 		return trace.BadParameter("invalid vxlan port: must be in range 1-65535")
 	}
-	if err := i.validateCloudConfig(); err != nil {
-		return trace.Wrap(err)
+	if i.Mode != constants.InstallModeInteractive {
+		if err := i.validateCloudConfig(); err != nil {
+			return trace.Wrap(err)
+		}
 	}
 	if !utils.StringInSlice(modules.Get().InstallModes(), i.Mode) {
 		return trace.BadParameter("invalid mode %q", i.Mode)
@@ -606,6 +608,7 @@ func NewWizardConfig(env *localenv.LocalEnvironment, g *Application) InstallConf
 		ServiceUID:             *g.WizardCmd.ServiceUID,
 		ServiceGID:             *g.WizardCmd.ServiceGID,
 		AdvertiseAddr:          *g.WizardCmd.AdvertiseAddr,
+		Token:                  *g.WizardCmd.Token,
 		FromService:            *g.WizardCmd.FromService,
 		ExcludeHostFromCluster: true,
 		Printer:                env,
@@ -801,6 +804,14 @@ func validateIP(blocks []net.IPNet, ip net.IP) bool {
 	return false
 }
 
+func newRandomInstallTokenText() (token string, err error) {
+	token, err = users.CryptoRandomToken(defaults.InstallTokenBytes)
+	if err != nil {
+		return "", trace.Wrap(err)
+	}
+	return token, nil
+}
+
 func generateInstallToken(operator ops.Operator, installToken string) (*storage.InstallToken, error) {
 	token, err := operator.CreateInstallToken(
 		ops.NewInstallTokenRequest{
@@ -894,11 +905,10 @@ func installerInteractiveUninstallSystem(env *localenv.LocalEnvironment) func(co
 // InstallerCompleteOperation implements the clean up phase when the installer service
 // shuts down after a sucessfully completed operation
 func InstallerCompleteOperation(env *localenv.LocalEnvironment) installerclient.CompletionHandler {
-	return func(ctx context.Context, interrupt *signals.InterruptHandler, status installpb.ProgressResponse_Status) error {
+	return func(ctx context.Context, status installpb.ProgressResponse_Status) error {
 		logger := log.WithField(trace.Component, "installer:cleanup")
 		if status == installpb.StatusCompletedPending {
 			// Wait for explicit interrupt signal before cleaning up
-			interrupt.Close()
 			env.PrintStep(postInstallInteractiveBanner)
 			signals.WaitFor(os.Interrupt)
 		}

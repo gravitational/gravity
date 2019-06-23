@@ -70,9 +70,13 @@ func (r *InstallerStrategy) installSelfAsService() error {
 				removeSocketFileCommand(r.SocketPath),
 			},
 			// TODO(dmitri): run as euid?
-			User:                     constants.RootUIDString,
-			SuccessExitStatus:        strconv.Itoa(defaults.AbortedOperationExitCode),
-			RestartPreventExitStatus: strconv.Itoa(defaults.AbortedOperationExitCode),
+			User:              constants.RootUIDString,
+			SuccessExitStatus: strconv.Itoa(defaults.AbortedOperationExitCode),
+			RestartPreventExitStatus: strings.Join(
+				[]string{
+					strconv.Itoa(defaults.AbortedOperationExitCode),
+					strconv.Itoa(defaults.CompletedOperationExitCode),
+				}, " "),
 			// Enable automatic restart of the service
 			Restart:          "always",
 			WantedBy:         "multi-user.target",

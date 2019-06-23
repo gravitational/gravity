@@ -942,6 +942,8 @@ type WizardCmd struct {
 	ServiceGID *string
 	// AdvertiseAddr specifies the advertise address for the wizard
 	AdvertiseAddr *string
+	// Token is unique install token
+	Token *string
 	// FromService specifies whether this process runs in service mode.
 	//
 	// The installer runs the main installer code in service mode, while

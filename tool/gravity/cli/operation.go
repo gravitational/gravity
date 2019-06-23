@@ -45,8 +45,6 @@ type PhaseParams struct {
 	Timeout time.Duration
 	// SkipVersionCheck overrides the verification of binary version compatibility
 	SkipVersionCheck bool
-	// Sync controls whether the disconnecting client will also abort the operation
-	Sync bool
 }
 
 func (r PhaseParams) isResume() bool {
@@ -55,17 +53,21 @@ func (r PhaseParams) isResume() bool {
 
 // resumeOperation resumes the operation specified with params
 func resumeOperation(localEnv *localenv.LocalEnvironment, environ LocalEnvironmentFactory, params PhaseParams) error {
-	params.PhaseID = fsm.RootPhase
-	err := executePhase(localEnv, environ, params)
+	err := executePhase(localEnv, environ, PhaseParams{
+		PhaseID:          fsm.RootPhase,
+		Force:            params.Force,
+		Timeout:          params.Timeout,
+		SkipVersionCheck: params.SkipVersionCheck,
+		OperationID:      params.OperationID,
+	})
 	if err == nil {
 		return nil
 	}
-	if err != nil && !trace.IsNotFound(err) {
+	if !trace.IsNotFound(err) {
 		return trace.Wrap(err)
 	}
-	// No operation found.
-	// Attempt to resume the installation from scratch
-	return trace.Wrap(restartInstall(localEnv))
+	log.WithError(err).Warn("No operation found - will attempt to restart installation (resume join).")
+	return trace.Wrap(restartInstallOrJoin(localEnv))
 }
 
 // executePhase executes a phase for the operation specified with params
@@ -302,14 +304,7 @@ func (r *backendOperations) listInstallOperation() error {
 		}
 		log.WithError(err).Warn("Failed to connect to wizard.")
 	}
-	wizardLocalEnv, err := localenv.NewLocalWizardEnvironment()
-	if err != nil {
-		return trace.Wrap(err, "failed to read local wizard environment")
-	}
-	log.Info("Fetching operation directly from wizard backend.")
-	r.getOperationAndUpdateCache(getOperationFromWizardBackend(wizardLocalEnv.Backend),
-		log.WithField("context", "install"))
-	return nil
+	return trace.NotFound("no operation found")
 }
 
 func (r backendOperations) isActiveInstallOperation() bool {

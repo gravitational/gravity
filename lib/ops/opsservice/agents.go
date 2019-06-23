@@ -282,12 +282,21 @@ func (r *AgentService) AbortAgents(ctx context.Context, key ops.SiteOperationKey
 
 // StopAgents shuts down remote agents
 func (r *AgentService) StopAgents(ctx context.Context, key ops.SiteOperationKey) error {
+	return r.stopAgents(ctx, key, &pb.ShutdownRequest{})
+}
+
+// CompleteAgents shuts down remote agents after a successfully completed operation
+func (r *AgentService) CompleteAgents(ctx context.Context, key ops.SiteOperationKey) error {
+	return r.stopAgents(ctx, key, &pb.ShutdownRequest{Completed: true})
+}
+
+func (r *AgentService) stopAgents(ctx context.Context, key ops.SiteOperationKey, req *pb.ShutdownRequest) error {
 	group, err := r.peerStore.getGroup(key)
 	if err != nil {
 		return trace.Wrap(err)
 	}
 
-	err = group.Shutdown(ctx, &pb.ShutdownRequest{})
+	err = group.Shutdown(ctx, req)
 	if err != nil {
 		return trace.Wrap(err)
 	}

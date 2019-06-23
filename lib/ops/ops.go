@@ -1411,6 +1411,10 @@ type AgentService interface {
 	// AbortAgents instructs all remote agents to abort operation
 	// and uninstall state
 	AbortAgents(context.Context, SiteOperationKey) error
+
+	// CompleteAgents sends an operation completed notification to all remote
+	// agents
+	CompleteAgents(context.Context, SiteOperationKey) error
 }
 
 // NewAccountRequest is a request to create a new account

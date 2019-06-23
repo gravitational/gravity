@@ -65,9 +65,9 @@ func KeyToProto(key ops.SiteOperationKey) *OperationKey {
 	}
 }
 
-// IsResume determines if this request describes a resume operation
-func (r *ExecuteRequest) IsResume() bool {
-	return r.Phase == nil || r.Phase.IsResume()
+// HasSpecificPhase determines if this request is for a specific phase (other than root)
+func (r *ExecuteRequest) HasSpecificPhase() bool {
+	return r.Phase != nil && !r.Phase.IsResume()
 }
 
 // IsResume determines if this phase describes a resume operation
@@ -78,15 +78,30 @@ func (r *ExecuteRequest_Phase) IsResume() bool {
 // Empty defines the empty RPC message
 var Empty = &types.Empty{}
 
-// IsAbortError returns true if the specifies error identifies the aborted operation
-func IsAbortError(err error) bool {
+// IsAbortedError returns true if the specifies error identifies the aborted operation
+func IsAbortedError(err error) bool {
 	return trace.Unwrap(err) == ErrAborted
+}
+
+// IsCompletedError returns true if the specifies error identifies the completed operation
+func IsCompletedError(err error) bool {
+	return trace.Unwrap(err) == ErrCompleted
 }
 
 // ErrAborted defines the aborted operation error
 var ErrAborted = utils.NewExitCodeErrorWithMessage(defaults.AbortedOperationExitCode, "operation aborted")
 
+// ErrCompleted defines the completed operation error.
+// This is not an error in the usual sense - rather, it indicates that the operation
+// has been completed and that the agent should not shut down and not restart
+var ErrCompleted = utils.NewExitCodeErrorWithMessage(defaults.AbortedOperationExitCode, "operation completed")
+
 // AbortEvent is a progress response that indicates an aborted operation
 var AbortEvent = &ProgressResponse{
 	Status: StatusAborted,
+}
+
+// CompleteEvent is a progress response that indicates a successfully completed operation
+var CompleteEvent = &ProgressResponse{
+	Status: StatusCompleted,
 }

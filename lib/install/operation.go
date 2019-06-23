@@ -139,7 +139,7 @@ func (i *Installer) PrintStep(format string, args ...interface{}) {
 // wait blocks until either the context has been cancelled or the wizard process
 // exits with an error.
 func (i *Installer) wait() error {
-	i.runStoppers(i.ctx)
+	i.runStoppers(i.ctx, i.completers)
 	return trace.Wrap(i.config.Process.Wait())
 }
 
@@ -151,6 +151,10 @@ func (i *Installer) registerExitHandlersForAgents(op ops.SiteOperation) {
 	i.addStopper(signals.StopperFunc(func(ctx context.Context) error {
 		i.WithField("operation", op.ID).Info("Stopping agent service.")
 		return trace.Wrap(i.config.Process.AgentService().StopAgents(ctx, op.Key()))
+	}))
+	i.addCompleter(signals.StopperFunc(func(ctx context.Context) error {
+		i.WithField("operation", op.ID).Info("Completing agent service.")
+		return trace.Wrap(i.config.Process.AgentService().CompleteAgents(ctx, op.Key()))
 	}))
 }
 
@@ -181,19 +185,10 @@ func (i *Installer) newCompletionEvent(status dispatcher.Status) *dispatcher.Eve
 	}
 }
 
-func (i *Installer) runStoppers(ctx context.Context) error {
+func (i *Installer) runStoppers(ctx context.Context, stoppers []signals.Stopper) error {
 	var errors []error
-	for _, c := range i.stoppers {
-		if err := c.Stop(ctx); err != nil {
-			errors = append(errors, err)
-		}
-	}
-	return trace.NewAggregate(errors...)
-}
-
-func (i *Installer) stopAborters(ctx context.Context) error {
-	var errors []error
-	for _, c := range i.aborters {
+	i.WithField("stoppers", stoppers).Info("Executing stoppers.")
+	for _, c := range stoppers {
 		if err := c.Stop(ctx); err != nil {
 			errors = append(errors, err)
 		}
@@ -302,4 +297,8 @@ func (i *Installer) addStopper(stopper signals.Stopper) {
 
 func (i *Installer) addAborter(aborter signals.Stopper) {
 	i.aborters = append(i.aborters, aborter)
+}
+
+func (i *Installer) addCompleter(completer signals.Stopper) {
+	i.completers = append(i.completers, completer)
 }

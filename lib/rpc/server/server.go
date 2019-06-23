@@ -152,6 +152,9 @@ type Config struct {
 	// Note that the handler should avoid invoking blocking gRPC APIs - otherwise the
 	// service shut down might block
 	AbortHandler func(context.Context) error
+	// StopHandler specifies an optional handler for when the agent is stopped.
+	// completed indicates whether the agent is stopped after a successfully completed operation
+	StopHandler func(ctx context.Context, completed bool) error
 	// systemInfo queries system information
 	systemInfo
 	// commandExecutor is a system command executor.

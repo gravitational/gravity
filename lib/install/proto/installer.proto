@@ -72,6 +72,8 @@ message AbortRequest {
 
 // ShutdownRequest describes a request to shut down the server
 message ShutdownRequest {
+    // Completed indicates that the operation has been successfully completed
+    bool completed = 1;
 }
 
 // DebugReportRequest describes a request to generate debug report
