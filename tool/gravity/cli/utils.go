@@ -293,13 +293,13 @@ func loadRPCCredentials(ctx context.Context, addr, token string) (*rpcserver.Cre
 	return creds, nil
 }
 
-// hasFlagSpecifiedInArgs returns true if the specified flag has been found
+// hasFlagInArgs returns true if the specified flag has been found
 // in args.
-func hasFlagSpecifiedInArgs(flag string, args []string) (ok bool, err error) {
-	app := kingpin.New("gravity", "")
-	tool := RegisterCommands(app)
-	ctx, err := tool.ParseContext(args)
+// b specifies the application object builder that will be used to parse args
+func hasFlagInArgs(flag string, args []string, parser ArgsParser) (ok bool, err error) {
+	ctx, err := parser.ParseArgs(args)
 	if err != nil {
+		log.WithError(err).Warn("Failed to parse command line.")
 		return false, trace.Wrap(err)
 	}
 	for _, el := range ctx.Elements {
@@ -312,4 +312,24 @@ func hasFlagSpecifiedInArgs(flag string, args []string) (ok bool, err error) {
 		}
 	}
 	return false, nil
+}
+
+func parseArgs(args []string) (*kingpin.ParseContext, error) {
+	app := kingpin.New("gravity", "")
+	return RegisterCommands(app).ParseContext(args)
+}
+
+// ParseArgs parses the specified command line arguments into a parse context
+func (r ArgsParserFunc) ParseArgs(args []string) (*kingpin.ParseContext, error) {
+	return r(args)
+}
+
+// ArgsParserFunc is a functional wrapper for ArgsParser to enable ordinary functions
+// as ArgsParsers
+type ArgsParserFunc func(args []string) (*kingpin.ParseContext, error)
+
+// ArgsParser parses Gravity command line arguments
+type ArgsParser interface {
+	// ParseArgs parses the specified command line arguments into a parse context
+	ParseArgs(args []string) (*kingpin.ParseContext, error)
 }

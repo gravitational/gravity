@@ -69,7 +69,7 @@ func startInstall(env *localenv.LocalEnvironment, config InstallConfig) error {
 		}
 		return trace.Wrap(err)
 	}
-	strategy, err := NewInstallerConnectStrategy(env, config)
+	strategy, err := NewInstallerConnectStrategy(env, config, ArgsParserFunc(parseArgs))
 	if err != nil {
 		return trace.Wrap(err)
 	}
@@ -768,10 +768,10 @@ var InterruptSignals = signals.WithSignals(
 )
 
 // NewInstallerConnectStrategy returns default installer service connect strategy
-func NewInstallerConnectStrategy(env *localenv.LocalEnvironment, config InstallConfig) (strategy installerclient.ConnectStrategy, err error) {
+func NewInstallerConnectStrategy(env *localenv.LocalEnvironment, config InstallConfig, parser ArgsParser) (strategy installerclient.ConnectStrategy, err error) {
 	args := append([]string{utils.Exe.Path}, os.Args[1:]...)
 	args = append(args, "--from-service", utils.Exe.WorkingDir)
-	if ok, _ := hasFlagSpecifiedInArgs("token", os.Args[1:]); !ok {
+	if ok, _ := hasFlagInArgs("token", os.Args[1:], parser); !ok {
 		args = append(args, "--token", config.Token)
 	}
 	servicePath, err := state.GravityInstallDir(defaults.GravityRPCInstallerServiceName)

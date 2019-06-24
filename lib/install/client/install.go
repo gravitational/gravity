@@ -63,6 +63,10 @@ func (r *InstallerStrategy) installSelfAsService() error {
 	if err := os.MkdirAll(filepath.Dir(r.SocketPath), defaults.SharedDirMask); err != nil {
 		return trace.ConvertSystemError(err)
 	}
+	exitStatuses := strings.Join([]string{
+		strconv.Itoa(defaults.AbortedOperationExitCode),
+		strconv.Itoa(defaults.CompletedOperationExitCode),
+	}, " ")
 	req := systemservice.NewServiceRequest{
 		ServiceSpec: systemservice.ServiceSpec{
 			StartCommand: strings.Join(r.Args, " "),
@@ -70,13 +74,9 @@ func (r *InstallerStrategy) installSelfAsService() error {
 				removeSocketFileCommand(r.SocketPath),
 			},
 			// TODO(dmitri): run as euid?
-			User:              constants.RootUIDString,
-			SuccessExitStatus: strconv.Itoa(defaults.AbortedOperationExitCode),
-			RestartPreventExitStatus: strings.Join(
-				[]string{
-					strconv.Itoa(defaults.AbortedOperationExitCode),
-					strconv.Itoa(defaults.CompletedOperationExitCode),
-				}, " "),
+			User:                     constants.RootUIDString,
+			SuccessExitStatus:        exitStatuses,
+			RestartPreventExitStatus: exitStatuses,
 			// Enable automatic restart of the service
 			Restart:          "always",
 			WantedBy:         "multi-user.target",
