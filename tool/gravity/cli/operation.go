@@ -17,15 +17,18 @@ limitations under the License.
 package cli
 
 import (
+	"context"
 	"sort"
 	"strings"
 	"time"
 
 	"github.com/gravitational/gravity/lib/defaults"
 	"github.com/gravitational/gravity/lib/fsm"
+	installerclient "github.com/gravitational/gravity/lib/install/client"
 	"github.com/gravitational/gravity/lib/localenv"
 	"github.com/gravitational/gravity/lib/ops"
 	"github.com/gravitational/gravity/lib/storage"
+	"github.com/gravitational/gravity/lib/system/signals"
 
 	"github.com/gravitational/trace"
 	"github.com/sirupsen/logrus"
@@ -289,6 +292,9 @@ func (r *backendOperations) listJoinOperation(environ LocalEnvironmentFactory) e
 }
 
 func (r *backendOperations) listInstallOperation() error {
+	if err := ensureInstallerServiceRunning(); err != nil {
+		return trace.Wrap(err, "failed to restart installer service")
+	}
 	wizardEnv, err := localenv.NewRemoteEnvironment()
 	if err == nil && wizardEnv.Operator != nil {
 		cluster, err := getLocalClusterFromOperator(wizardEnv.Operator)
@@ -417,4 +423,19 @@ type operationGetterFunc func() (*ops.SiteOperation, error)
 
 type operationGetter interface {
 	getOperation() (*ops.SiteOperation, error)
+}
+
+func ensureInstallerServiceRunning() error {
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+	interrupt := signals.NewInterruptHandler(ctx, cancel)
+	defer interrupt.Close()
+	_, err := installerclient.New(context.Background(), installerclient.Config{
+		ConnectStrategy:  &installerclient.ResumeStrategy{},
+		InterruptHandler: interrupt,
+	})
+	if err != nil {
+		return trace.Wrap(err)
+	}
+	return nil
 }

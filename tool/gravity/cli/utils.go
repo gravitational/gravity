@@ -37,9 +37,10 @@ import (
 	"github.com/gravitational/gravity/lib/systeminfo"
 	"github.com/gravitational/gravity/lib/utils"
 	"github.com/gravitational/gravity/tool/common"
-	"github.com/gravitational/roundtrip"
 
+	"github.com/gravitational/roundtrip"
 	"github.com/gravitational/trace"
+	kingpin "gopkg.in/alecthomas/kingpin.v2"
 )
 
 // LocalEnvironmentFactory defines an interface for creating operation-specific environments
@@ -290,4 +291,25 @@ func loadRPCCredentials(ctx context.Context, addr, token string) (*rpcserver.Cre
 		return nil, trace.Wrap(err)
 	}
 	return creds, nil
+}
+
+// hasFlagSpecifiedInArgs returns true if the specified flag has been found
+// in args.
+func hasFlagSpecifiedInArgs(flag string, args []string) (ok bool, err error) {
+	app := kingpin.New("gravity", "")
+	tool := RegisterCommands(app)
+	ctx, err := tool.ParseContext(args)
+	if err != nil {
+		return false, trace.Wrap(err)
+	}
+	for _, el := range ctx.Elements {
+		switch c := el.Clause.(type) {
+		case *kingpin.FlagClause:
+			model := c.Model()
+			if model.Name == flag {
+				return true, nil
+			}
+		}
+	}
+	return false, nil
 }

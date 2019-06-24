@@ -242,7 +242,7 @@ func (i *Installer) execute(req *installpb.ExecuteRequest) (dispatcher.Status, e
 		// operation.
 		// A lot more needs to be refactored to support resumption in the engine branch
 		phase := req.Phase
-		if existingOperation != nil {
+		if phase == nil {
 			phase = phaseForOperation(*existingOperation)
 		}
 		return i.executePhase(*phase)

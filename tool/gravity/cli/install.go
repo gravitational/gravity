@@ -771,7 +771,9 @@ var InterruptSignals = signals.WithSignals(
 func NewInstallerConnectStrategy(env *localenv.LocalEnvironment, config InstallConfig) (strategy installerclient.ConnectStrategy, err error) {
 	args := append([]string{utils.Exe.Path}, os.Args[1:]...)
 	args = append(args, "--from-service", utils.Exe.WorkingDir)
-	args = append(args, "--token", config.Token)
+	if ok, _ := hasFlagSpecifiedInArgs("token", os.Args[1:]); !ok {
+		args = append(args, "--token", config.Token)
+	}
 	servicePath, err := state.GravityInstallDir(defaults.GravityRPCInstallerServiceName)
 	if err != nil {
 		return nil, trace.Wrap(err)

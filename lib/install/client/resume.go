@@ -38,8 +38,7 @@ func (r *ResumeStrategy) connect(ctx context.Context) (installpb.AgentClient, er
 		return nil, trace.Wrap(err)
 	}
 	r.Info("Connect to running service.")
-	const connectionTimeout = 10 * time.Second
-	ctx, cancel := context.WithTimeout(ctx, connectionTimeout)
+	ctx, cancel := context.WithTimeout(ctx, r.ConnectTimeout)
 	defer cancel()
 	client, err := installpb.NewClient(ctx, r.SocketPath, r.FieldLogger,
 		// Fail fast at first non-temporary error
@@ -69,7 +68,7 @@ func (r *ResumeStrategy) checkAndSetDefaults() (err error) {
 		}
 	}
 	if r.ConnectTimeout == 0 {
-		r.ConnectTimeout = 10 * time.Minute
+		r.ConnectTimeout = defaults.ServiceConnectTimeout
 	}
 	if r.FieldLogger == nil {
 		r.FieldLogger = log.WithField(trace.Component, "client:installer")
@@ -95,7 +94,8 @@ type ResumeStrategy struct {
 	// ServicePath specifies the absolute path to the service unit
 	ServicePath string
 	// ConnectTimeout specifies the maximum amount of time to wait for
-	// installer service connection. Wait forever, if unspecified
+	// installer service connection. Defaults to defaults.ServiceConnectTimeout
+	// if unspecified
 	ConnectTimeout time.Duration
 }
 
