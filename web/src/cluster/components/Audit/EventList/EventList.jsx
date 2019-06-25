@@ -83,7 +83,7 @@ class EventList extends React.Component {
 
     return (
       <React.Fragment>
-        <TablePaged rowCount={sorted.length} data={sorted} pageSize={pageSize}>
+        <TablePaged data={sorted} pageSize={pageSize}>
           <Column
             columnKey="codeDesc"
             cell={<EventTypeCell /> }

@@ -21,9 +21,9 @@ import { fontSize, color, space } from 'styled-system'
 
 const defVals  = {
   theme: defaultTheme,
-  fontSize: 1,
+  fontSize: 2,
   px: 3,
-  color: 'text.onLight',
+  color: 'link',
   bg: 'light'
 }
 
@@ -36,23 +36,26 @@ const fromTheme = props => {
     ...fontSize(values),
     ...space(values),
     ...color(values),
-    fontWeight: values.theme.bold,
+    fontWeight: values.theme.regular,
     "&:hover, &:focus": {
-      background: values.theme.colors.grey[100],
+      background: values.theme.colors.grey[50],
     }
   }
 }
 
 const MenuItem = styled.div`
-  line-height: 40px;
-  box-sizing: content-box;
+  min-height: 48px;
+  box-sizing: border-box;
   cursor: pointer;
   display: flex;
   justify-content: flex-start;
   align-items: center;
+  min-width: 120px;
   overflow: hidden;
   text-decoration: none;
   white-space: nowrap;
+  transition: background .3s;
+
   &:hover,
   &:focus {
     text-decoration: none;

@@ -15,28 +15,9 @@ limitations under the License.
 */
 
 import React from 'react';
-import styled from 'styled-components';
-import PropTypes from 'prop-types';
-import { space, color, width, height, maxWidth, maxHeight } from 'shared/system';
+import { storiesOf } from '@storybook/react';
+import Image from '../Image';
+import teleportSvg from './../../assets/images/gravity-medallion.svg';
 
-
-const Logo = props => {
-  return (
-    <StyledImg {...props} />
-  );
-};
-
-Logo.propTypes = {
-  /** Image Src */
-  src: PropTypes.string,
-};
-
-Logo.displayName = 'Logo';
-
-export default Logo;
-
-const StyledImg = styled.img`
-  display: block;
-  outline: none;
-  ${color} ${space} ${width} ${height} ${maxWidth} ${maxHeight}
-`;
+storiesOf('Image', module)
+  .add('Component', () => <Image src={teleportSvg} />);

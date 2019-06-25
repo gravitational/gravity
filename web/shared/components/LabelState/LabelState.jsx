@@ -17,37 +17,40 @@ limitations under the License.
 import React from 'react';
 import styled from 'styled-components';
 import { fontSize, color, width, space } from 'shared/system';
+import { fade } from 'shared/theme/utils/colorManipulator';
 
-const kinds = ({ kind, theme, shadow }) => {
+const kinds = ({ theme, kind, shadow }) => {
+  // default is primary
+  const styles = {
+    background: theme.colors.secondary.main,
+    color: theme.colors.text.secondary.contrastText
+  }
+
   if (kind === "secondary") {
-    return {
-      background: theme.colors.primary.dark,
-      color: theme.colors.text.primary
-    }
+    styles.background = theme.colors.primary.dark,
+    styles.color = theme.colors.text.primary
   }
 
   if (kind === "warning") {
-    return {
-      background: theme.colors.warning,
-      color: theme.colors.primary.contrastText,
-      boxShadow: shadow && `rgba(255, 154, 0, 0.24) 0px 0px 0px, rgba(255, 145, 0, 0.56) 0px 4px 16px`
-    }
+    styles.background = theme.colors.warning;
+    styles.color = theme.colors.primary.contrastText;
   }
 
   if (kind === "danger") {
-    return {
-      background: theme.colors.danger,
-      color: theme.colors.primary.contrastText,
-      boxShadow: shadow && `rgba(245, 0, 87, 0.24) 0px 0px 0px, rgba(245, 0, 87, 0.56) 0px 4px 16px`
-    }
+    styles.background = theme.colors.danger;
+    styles.color = theme.colors.primary.contrastText;
   }
 
-  // default is success
-  return {
-    background: theme.colors.success,
-    color: theme.colors.primary.contrastText,
-    boxShadow: shadow && `rgba(0, 191, 165, 0.24) 0px 0px 0px, rgba(0, 191, 165, 0.56) 0px 4px 16px`
+  if (kind === "success") {
+    styles.background = theme.colors.success;
+    styles.color = theme.colors.primary.contrastText;
   }
+
+  if(shadow) {
+    styles.boxShadow = `0 0 8px ${fade(styles.background, .24)}, 0 4px 16px ${fade(styles.background, .56)}`;
+  }
+
+  return styles;
 }
 
 const LabelState = styled.span`

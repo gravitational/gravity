@@ -15,13 +15,13 @@ limitations under the License.
 */
 
 import React from 'react';
-import Logo from 'shared/components/Logo';
+import Image from 'shared/components/Image';
 import defaultLogoSvg from 'shared/assets/images/gravity-medallion.svg';
 import cfg from 'app/config';
 
 const LogoHero = ({src, ...rest}) => {
-  let logoSrc = src || defaultLogoSvg;
-  return <Logo src={logoSrc} {...rest}/>
+  const logoSrc = src || defaultLogoSvg;
+  return <Image src={logoSrc} {...rest}/>
 }
 
 LogoHero.defaultProps = {

@@ -21,7 +21,7 @@ import { typography } from 'shared/system';
 
 export default function DialogHeader(props){
   return (
-    <StyledDialogHeader m="4" alignItems="center" {...props} />
+    <StyledDialogHeader m="5" alignItems="center" {...props} />
   )
 }
 

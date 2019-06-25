@@ -24,7 +24,7 @@ function DeploymentList(props) {
   deployments = deployments.filter(item => item.namespace === namespace);
   deployments = sortBy(deployments, ['created']).reverse();
   return (
-    <Table rowCount={deployments.length} data={deployments}>
+    <Table data={deployments}>
       <Column
         columnKey="name"
         header={<Cell >Name</Cell>}

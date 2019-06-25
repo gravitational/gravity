@@ -22,10 +22,10 @@ const MenuItemIcon =  styled(Icon)``;
 
 MenuItemIcon.displayName = 'MenuItemIcon';
 MenuItemIcon.defaultProps = {
-  fontSize: 3,
+  fontSize: 4,
   theme: theme,
-  mr: 1,
-  color: 'dark'
+  mr: 3,
+  color: 'link'
 }
 
 export default MenuItemIcon;

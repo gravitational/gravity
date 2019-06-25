@@ -19,6 +19,7 @@ import cfg from 'app/config';
 import { Cell } from  'shared/components/DataTable';
 import  { ButtonPrimary } from 'shared/components/Button';
 import { CodeEnum } from 'app/cluster/services/events/event';
+import { CirclePlay } from 'shared/components/Icon';
 
 function getDescription({code, message, details}){
   switch(code){
@@ -28,6 +29,7 @@ function getDescription({code, message, details}){
       return (
         <>
           <ButtonPrimary mr="2" size="small" as="a" href={url} target="_blank">
+            <CirclePlay mr="1" fontSize={1} />
             Play
           </ButtonPrimary>
           {message}

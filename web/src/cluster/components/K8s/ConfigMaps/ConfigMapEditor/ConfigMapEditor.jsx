@@ -72,22 +72,22 @@ class ConfigMapEditor extends React.Component {
         <Attempt onRun={this.onSave}>
           {({ attempt, run }) => (
             <Flex flex="1" flexDirection="column">
-              <Flex my="4" mx="6" justifyContent="space-between">
+              <Flex my="4" mx="5" justifyContent="space-between">
                 <Text typography="h4" color="primary.contrastText">{name}</Text>
                 <Text as="span">NAMESPACE: {namespace}</Text>
               </Flex>
               {attempt.isFailed &&  (
-                <Alerts.Danger mx="6" mb="4">
+                <Alerts.Danger mx="5" mb="4">
                   {attempt.message}
                 </Alerts.Danger>
               )}
-              <Tabs mx="6"
+              <Tabs mx="5"
                 items={data}
                 onSelect={this.onChangeTab}
                 activeTab={activeTabIndex}
                 dirtyTabs={dirtyTabs}
               />
-              <Flex flex="1" mx="6">
+              <Flex flex="1" mx="5">
                 <YamlEditor
                   ref={ e => this.yamlEditorRef = e}
                   id={id}
@@ -96,7 +96,7 @@ class ConfigMapEditor extends React.Component {
                   activeIndex={activeTabIndex}
               />
               </Flex>
-              <Box m="6">
+              <Box m="5">
                 <ButtonPrimary onClick={run} disabled={disabledSave || attempt.isProcessing}  mr="3">
                   Save Changes
                 </ButtonPrimary>

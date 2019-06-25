@@ -41,7 +41,7 @@ export function DeleteNodeDialog(props){
     >
       <DialogHeader>
         <DialogTitle>
-          Deleting Server
+          Delete Node?
         </DialogTitle>
       </DialogHeader>
       <DialogContent mt="0" maxWidth="600px">
@@ -57,7 +57,7 @@ export function DeleteNodeDialog(props){
       </DialogContent>
       <DialogFooter>
         <ButtonWarning mr="3" disabled={isDisabled} onClick={onOk}>
-          I understand the consequences, delete this server
+          I understand, delete this node
         </ButtonWarning>
         <ButtonSecondary disabled={isDisabled} onClick={onClose}>
           Cancel

@@ -80,7 +80,7 @@ const typography = {
   },
   subtitle2:{
     fontWeight: bold,
-    fontSize: "12px",
+    fontSize: "10px",
     lineHeight: '16px',
   }
 }

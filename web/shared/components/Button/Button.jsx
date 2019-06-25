@@ -33,19 +33,19 @@ const size = props => {
     case 'small':
       return {
         fontSize: '10px',
-        lineHeight: '24px',
+        minHeight: '24px',
         padding: '0px 16px'
       }
     case 'large':
       return {
-        lineHeight: '48px',
+        minHeight: '48px',
         fontSize: '14px',
         padding: '0px 48px'
       }
     default:
       // medium
       return {
-        lineHeight: '40px',
+        minHeight: '40px',
         fontSize: `12px`,
         padding: '0px 32px'
       }
@@ -110,6 +110,7 @@ const block = props => (props.block ? {
 } : null)
 
 const StyledButton = styled.button`
+  line-height: 1.5;
   margin: 0;
   display: inline-flex;
   justify-content: center;

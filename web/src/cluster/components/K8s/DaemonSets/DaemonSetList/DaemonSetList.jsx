@@ -24,7 +24,7 @@ function DaemonSetList(props) {
   daemonSets = daemonSets.filter(item => item.namespace === namespace);
   daemonSets = sortBy(daemonSets, ['created']).reverse();
   return (
-    <Table rowCount={daemonSets.length} data={daemonSets} >
+    <Table data={daemonSets}>
       <Column
         columnKey="name"
         header={<Cell>Name</Cell>}

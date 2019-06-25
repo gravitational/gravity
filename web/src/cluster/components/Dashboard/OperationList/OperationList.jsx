@@ -57,12 +57,12 @@ export function OperationList(props){
   return (
     <Box {...rest}>
       <AjaxPoller time={POLL_INTERVAL} onFetch={onRefresh} />
-      <Flex bg="primary.light" p="3" alignItems="center">
+      <Flex bg="primary.light" px="3" py="3" alignItems="center" borderTopRightRadius="3" borderTopLeftRadius="3">
         <Text typography="h4">
           Operations
         </Text>
       </Flex>
-      <TablePaged rowCount={data.length} data={data} pageSize={pageSize} pagerPosition="bottom">
+      <TablePaged data={data} pageSize={pageSize} pagerPosition="bottom">
         <Column
           operations={operations}
           progress={progress}

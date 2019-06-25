@@ -53,7 +53,7 @@ function renderEnabled(attempt, onOk, onClose){
         {attempt.isFailed && (
           <Alerts.Danger children={attempt.message} />
         )}
-        <Text color="primary.contrastText">
+        <Text typography="paragraph" color="primary.contrastText">
           Are you sure you want enable remote assistance?
           <Text>Enabling remote assistance will allow vendor team to support your infrastructure.</Text>
         </Text>
@@ -78,7 +78,7 @@ function renderDisabled(attempt, onOk, onClose){
         {attempt.isFailed && (
           <Alerts.Danger children={attempt.message} />
         )}
-        <Text color="primary.contrastText">
+        <Text typography="paragraph" color="primary.contrastText">
           Are you sure you want disable remote assistance?
           <Text>Disabling remote assistance will turn off remote access to your infrastructure for vendor support team.</Text>
         </Text>
