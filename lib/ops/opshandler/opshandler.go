@@ -323,6 +323,7 @@ func (h *WebHandler) getSiteInstructions(w http.ResponseWriter, r *http.Request,
 		return
 	}
 	w.Header().Set("Content-Type", "text/plain")
+	w.Header().Set("X-Content-Type-Options", "nosniff")
 	w.WriteHeader(http.StatusOK)
 	w.Write([]byte(instructions))
 }

@@ -855,6 +855,10 @@ func (h *WebHandler) telekubeInstallScript(w http.ResponseWriter, r *http.Reques
 		return trace.Wrap(err)
 	}
 
+	w.Header().Set("Content-Type", "text/plain")
+	w.Header().Set("X-Content-Type-Options", "nosniff")
+	w.WriteHeader(http.StatusOK)
+
 	err = telekubeInstallScriptTemplate.Execute(w, map[string]string{
 		"version":   ver,
 		"tfVersion": tfVersion,
