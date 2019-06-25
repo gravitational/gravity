@@ -35,7 +35,7 @@ export function LatestEventList({ visible, onRefresh, events, ...rest}) {
 
   return (
     <Box {...rest}>
-      <Flex  bg="primary.light" p="3" alignItems="center" justifyContent="space-between">
+      <Flex bg="primary.light" p="3" alignItems="center" justifyContent="space-between" borderTopLeftRadius="3" borderTopRightRadius="3">
         <Text typography="h4">
           Today Audit Logs
         </Text>

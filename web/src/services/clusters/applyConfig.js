@@ -15,7 +15,8 @@ limitations under the License.
 */
 
 import cfg from 'app/config';
-import logoSvg from 'shared/assets/images/gravity-logo.svg';
+import gravityEnterpriseLogo from 'shared/assets/images/gravity-logo.svg';
+import gravityCommunityLogo from 'shared/assets/images/gravity-community-logo.svg';
 
 export default function applyConfig(cluster){
   const {
@@ -23,6 +24,12 @@ export default function applyConfig(cluster){
     k8sEnabled,
     logsEnabled,
   } = cluster.features;
+
+
+  let logoSvg = cluster.logo || gravityEnterpriseLogo;
+  if(!cfg.isEnt){
+    logoSvg = gravityCommunityLogo;
+  }
 
   cfg.setLogo(cluster.logo || logoSvg);
   cfg.enableSiteLicense(!!cluster.license);

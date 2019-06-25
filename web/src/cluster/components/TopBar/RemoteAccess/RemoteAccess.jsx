@@ -37,7 +37,7 @@ export default function RemoteAssistance(props) {
 
   return (
     <Flex alignItems="center" mr="4">
-      <Text mr="2" typography="label" color="text.primary">
+      <Text mr="2" typography="subtitle2" color="text.primary">
         REMOTE ASSITANCE
       </Text>
       <Switch checked={isEnabled} onChange={ () => setIsOpen(true) } />

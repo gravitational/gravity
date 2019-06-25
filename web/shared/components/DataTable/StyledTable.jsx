@@ -14,8 +14,9 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-import styled from 'styled-components'
+import styled from 'styled-components';
 import Icon from '../Icon';
+import { space, borderRadius } from 'shared/system';
 
 export const StyledTable = styled.table`
   background: ${props => props.theme.colors.primary.light };
@@ -51,6 +52,9 @@ export const StyledTable = styled.table`
       margin-left: 8px;
     }
   }
+
+  ${space}
+  ${borderRadius}
 `;
 
 export const StyledEmptyIndicator = styled.div`

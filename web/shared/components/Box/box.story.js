@@ -49,7 +49,7 @@ storiesOf('Box', module)
   .add('Border Radius', () => (
     <div>
       <Box
-        br={16}
+        borderRadius="16px"
         color='white'
         p={5}
         bg='blue'>
@@ -57,8 +57,8 @@ storiesOf('Box', module)
       </Box>
       <Box
         mt={4}
-        brbl={16}
-        brbr={16}
+        borderBottomRightRadius={3}
+        borderBottomLeftRadius={3}
         color='white'
         p={5}
         bg='blue'>
@@ -66,8 +66,8 @@ storiesOf('Box', module)
       </Box>
       <Box
         mt={4}
-        brtl={16}
-        brtr={16}
+        borderTopLeftRadius={16}
+        borderTopRightRadius={16}
         color='white'
         p={5}
         bg='blue'>

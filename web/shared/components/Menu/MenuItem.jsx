@@ -44,8 +44,8 @@ const fromTheme = props => {
 }
 
 const MenuItem = styled.div`
-  line-height: 48px;
-  box-sizing: content-box;
+  min-height: 48px;
+  box-sizing: border-box;
   cursor: pointer;
   display: flex;
   justify-content: flex-start;

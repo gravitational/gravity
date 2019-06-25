@@ -19,6 +19,8 @@ import { typography, fontSize, space, color, textAlign, fontWeight } from 'share
 import theme from 'shared/theme';
 
 const Text = styled.div`
+  overflow: hidden;
+  text-overflow: ellipsis;
   ${typography}
   ${fontSize}
   ${space}

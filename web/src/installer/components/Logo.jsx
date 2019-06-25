@@ -15,12 +15,12 @@ limitations under the License.
 */
 
 import React from 'react';
-import SharedLogo from 'shared/components/Logo';
+import Image from 'shared/components/Image';
 import defaultLogoSvg from 'shared/assets/images/gravity-logo.svg';
 
 export default function Logo({ src, ...rest}){
   const logoSrc = src || defaultLogoSvg;
   return (
-    <SharedLogo mr="8" my="3" width="auto" maxWidth="120px" maxHeight="40px" src={logoSrc} {...rest}/>
+    <Image mr="8" my="3" width="auto" maxWidth="120px" maxHeight="40px" src={logoSrc} {...rest}/>
   )
 }

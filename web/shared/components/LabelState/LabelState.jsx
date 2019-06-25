@@ -19,59 +19,38 @@ import styled from 'styled-components';
 import { fontSize, color, width, space } from 'shared/system';
 import { fade } from 'shared/theme/utils/colorManipulator';
 
-const kinds = props => {
+const kinds = ({ theme, kind, shadow }) => {
   // default is primary
-  let kindStyles = {
-    background: props.theme.colors.secondary.main,
-    color: props.theme.colors.text.secondary.contrastText
+  const styles = {
+    background: theme.colors.secondary.main,
+    color: theme.colors.text.secondary.contrastText
   }
 
-  if (props.kind === "secondary") {
-    kindStyles = {
-      background: props.theme.colors.primary.dark,
-      color: props.theme.colors.text.primary
-    }
-
-    if(props.shadow) {
-      kindStyles.boxShadow = `0 0 8px ${fade(props.theme.colors.primary.dark, .24)}, 0 4px 16px ${fade(props.theme.colors.primary.dark, .56)}`;
-    }
+  if (kind === "secondary") {
+    styles.background = theme.colors.primary.dark,
+    styles.color = theme.colors.text.primary
   }
 
-  if (props.kind === "warning") {
-    kindStyles = {
-      background: props.theme.colors.warning,
-      color: props.theme.colors.primary.contrastText,
-    }
-
-    if(props.shadow) {
-      kindStyles.boxShadow = `0 0 8px ${fade(props.theme.colors.warning, .24)}, 0 4px 16px ${fade(props.theme.colors.warning, .56)}`;
-    }
+  if (kind === "warning") {
+    styles.background = theme.colors.warning;
+    styles.color = theme.colors.primary.contrastText;
   }
 
-  if (props.kind === "danger") {
-    kindStyles = {
-      background: props.theme.colors.danger,
-      color: props.theme.colors.primary.contrastText,
-    }
-
-    if(props.shadow) {
-      kindStyles.boxShadow = `0 0 8px ${fade(props.theme.colors.danger, .24)}, 0 4px 16px ${fade(props.theme.colors.danger, .56)}`;
-    }
+  if (kind === "danger") {
+    styles.background = theme.colors.danger;
+    styles.color = theme.colors.primary.contrastText;
   }
 
-  if (props.kind === "success") {
-    kindStyles = {
-      background: props.theme.colors.success,
-      color: props.theme.colors.primary.contrastText,
-    }
-
-    if(props.shadow) {
-      kindStyles.boxShadow = `0 0 8px ${fade(props.theme.colors.success, .24)}, 0 4px 16px ${fade(props.theme.colors.success, .56)}`;
-    }
+  if (kind === "success") {
+    styles.background = theme.colors.success;
+    styles.color = theme.colors.primary.contrastText;
   }
 
-  // default is primary
-  return kindStyles;
+  if(shadow) {
+    styles.boxShadow = `0 0 8px ${fade(styles.background, .24)}, 0 4px 16px ${fade(styles.background, .56)}`;
+  }
+
+  return styles;
 }
 
 const LabelState = styled.span`

@@ -62,7 +62,7 @@ export default function EditMode({ item, isNew, onSave, onCancel, ...styles }){
             onChange={onChange}
           />
         </Flex>
-        <Box mt="3">
+        <Box mt="4">
           <ButtonPrimary disabled={isSaveDisabled} onClick={onSaveClick} mr="3">
             Save changes
           </ButtonPrimary>

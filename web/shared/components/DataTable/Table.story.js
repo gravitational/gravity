@@ -110,7 +110,6 @@ class TableSample extends React.Component {
     }
 
     const props = {
-      rowCount: data.length,
       data: data,
       ...tableProps
     }

@@ -28,12 +28,12 @@ export function AppList(props){
   const data = sortBy(values(apps), 'updated').reverse();
   return (
     <Box {...rest}>
-      <Flex bg="primary.light" p="3" alignItems="center" brtl={8} brtr={8}>
+      <Flex bg="primary.light" px="3" py="2" alignItems="center" borderTopRightRadius="3" borderTopLeftRadius="3">
         <Text typography="h4">
           Installed Applications
         </Text>
       </Flex>
-      <TablePaged rowCount={data.length} data={data} pageSize={pageSize}>
+      <TablePaged data={data} pageSize={pageSize}>
         <Column
           header={
             <Cell>Status</Cell>

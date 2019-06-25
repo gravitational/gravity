@@ -217,9 +217,10 @@ export const ErrorMessage = ({ message = '' }) => {
     <Alerts.Danger>
       <div>
         {message}
-        {showU2fErrorLink && (
-          <span>, click <a target="_blank" href={U2F_ERROR_CODES_URL}>here</a> to learn more about U2F error codes</span>
-        )
+        {showU2fErrorLink &&
+          (
+            <span>, click <a target="_blank" href={U2F_ERROR_CODES_URL}>here</a> to learn more about U2F error codes</span>
+          )
         }
       </div>
     </Alerts.Danger>

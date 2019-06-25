@@ -15,48 +15,26 @@ limitations under the License.
 */
 
 import styled from 'styled-components'
-import { flex, height, maxWidth, minHeight, maxHeight, minWidth, alignSelf, justifySelf, space, width, color, textAlign } from 'shared/system';
+import { overflow, border, borderRadius, flex, height, maxWidth, minHeight, maxHeight, minWidth, alignSelf, justifySelf, space, width, color, textAlign } from 'shared/system';
 import defaultTheme from './../../theme'
-
-
-const borderRadius = props => {
-  const { br, brbr, brbl, brtr, brtl } = props;
-  let radius = {
-    borderTopLeftRadius:     0,
-    borderTopRightRadius:    0,
-    borderBottomRightRadius: 0,
-    borderBottomLeftRadius:  0
-  }
-
-  if(br) {
-    radius.borderTopLeftRadius =      br + 'px';
-    radius.borderTopRightRadius =     br + 'px';
-    radius.borderBottomRightRadius =  br + 'px';
-    radius.borderBottomLeftRadius =   br + 'px';
-  }
-
-  if(brbr) {
-    radius.borderBottomRightRadius = brbr + 'px';
-  }
-
-  if(brbl) {
-    radius.borderBottomLeftRadius = brbl + 'px';
-  }
-
-  if(brtl) {
-    radius.borderTopLeftRadius = brtl + 'px';
-  }
-
-  if(brtr) {
-    radius.borderTopRightRadius = brtr + 'px';
-  }
-
-  return radius;
-}
 
 const Box = styled.div`
   box-sizing: border-box;
-  ${borderRadius} ${maxWidth} ${minWidth} ${space} ${height} ${minHeight} ${maxHeight} ${width} ${color} ${textAlign} ${flex} ${alignSelf} ${justifySelf}
+  ${maxWidth}
+  ${minWidth}
+  ${space}
+  ${height}
+  ${minHeight}
+  ${maxHeight}
+  ${width}
+  ${color}
+  ${textAlign}
+  ${flex}
+  ${alignSelf}
+  ${justifySelf}
+  ${border}
+  ${borderRadius}
+  ${overflow}
 `
 
 Box.displayName = 'Box';
@@ -73,7 +51,8 @@ Box.propTypes = {
   ...flex.propTypes,
   ...alignSelf.propTypes,
   ...justifySelf.propTypes,
-
+  ...border.propTypes,
+  ...overflow.propTypes,
 }
 
 export default Box;

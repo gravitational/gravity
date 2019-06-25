@@ -19,10 +19,9 @@ import cfg from 'app/config';
 import styled from 'styled-components';
 import { FluxContext } from 'app/components/nuclear';
 import { withState } from 'shared/hooks';
-import Logo from 'shared/components/Logo';
 import { getters as navGetters } from 'app/cluster/flux/nav';
 import { getters as clusterGetters } from 'app/flux/cluster';
-import { SideNav, SideNavItem } from 'shared/components';
+import { Image, SideNav, SideNavItem } from 'shared/components';
 import SideNavItemIcon from 'shared/components/SideNav/SideNavItemIcon';
 import { NavLink, Link } from 'react-router-dom';
 
@@ -36,8 +35,8 @@ const ClusterSideNav = ({ logoSrc, navItems, version }) => {
 
   return (
     <SideNav>
-      <StyledLogoItem as={Link} to={cfg.getSiteRoute()}>
-        <Logo src={logoSrc} maxHeight="40px" maxWidth="120px" mr="3"/>
+      <StyledLogoItem py="2" pl="5" as={Link} to={cfg.getSiteRoute()}>
+        <Image src={logoSrc} maxHeight="40px" maxWidth="120px" mr="3"/>
         <span title={version}>{version}</span>
       </StyledLogoItem>
       <div style={{display: "flex", flexDirection: "column", overflow: "auto"}}>
@@ -48,10 +47,6 @@ const ClusterSideNav = ({ logoSrc, navItems, version }) => {
 }
 
 const StyledLogoItem = styled(SideNavItem)`
-  padding-left: ${ ({theme}) => theme.space[5]}px;
-  padding-top: ${ ({theme}) => theme.space[2]}px;
-  padding-bottom: ${ ({theme}) => theme.space[2]}px;
-
   &:active{
     border-left-color: transparent;
     color: ${({theme}) => theme.colors.text.primary};

@@ -36,7 +36,7 @@ export default function ViewMode({ curIndex, items, onEdit, onCreate, onSelect, 
 
   return (
     <Flex height={height} width={width}>
-      <Flex width="250px" bg="primary.light" flexDirection="column">
+      <Flex width="280px" bg="primary.light" flexDirection="column">
         <ItemList items={items} curIndex={curIndex} onSelect={onSelect}/>
         <DialogFooter>
           <ButtonSecondary disabled={isProcessing} onClick={onCreate}>
@@ -63,7 +63,7 @@ export default function ViewMode({ curIndex, items, onEdit, onCreate, onSelect, 
         <Flex flex="1">
           <TextEditor readOnly={true} data={content} />
         </Flex>
-        <Flex mt="3">
+        <Flex mt="4">
           <ButtonPrimary disabled={isProcessing} onClick={onEdit} mr="2">
             Edit
           </ButtonPrimary>
