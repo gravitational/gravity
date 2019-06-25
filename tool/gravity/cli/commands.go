@@ -388,8 +388,8 @@ type InstallCmd struct {
 	DNSHosts *[]string
 	// DNSZones is a list of DNS zone overrides
 	DNSZones *[]string
-	// ExcludeHostFromCluster specifies whether the host should not be part of the cluster
-	ExcludeHostFromCluster *bool
+	// Remote specifies whether the host should not be part of the cluster
+	Remote *bool
 	// FromService specifies whether this process runs in service mode.
 	//
 	// The installer runs the main installer code in service mode, while

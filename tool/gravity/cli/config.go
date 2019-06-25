@@ -140,8 +140,9 @@ type InstallConfig struct {
 	ServiceUID string
 	// ServiceGID is the ID of the service group as configured externally
 	ServiceGID string
-	// ExcludeHostFromCluster specifies whether the host should not be part of the cluster
-	ExcludeHostFromCluster bool
+	// Remote specifies whether the installer executes the operation remotely
+	// (i.e. installer node will not be part of cluster)
+	Remote bool
 	// Printer specifies the output for progress messages
 	utils.Printer
 	// ProcessConfig specifies the Gravity process configuration
@@ -183,23 +184,23 @@ func NewInstallConfig(env *localenv.LocalEnvironment, g *Application) InstallCon
 			StorageDriver: g.InstallCmd.DockerStorageDriver.value,
 			Args:          *g.InstallCmd.DockerArgs,
 		},
-		DNSConfig:              g.InstallCmd.DNSConfig(),
-		GCENodeTags:            *g.InstallCmd.GCENodeTags,
-		LocalPackages:          env.Packages,
-		LocalApps:              env.Apps,
-		LocalBackend:           env.Backend,
-		LocalClusterClient:     env.SiteOperator,
-		Mode:                   mode,
-		ServiceUID:             *g.InstallCmd.ServiceUID,
-		ServiceGID:             *g.InstallCmd.ServiceGID,
-		AppPackage:             *g.InstallCmd.App,
-		ResourcesPath:          *g.InstallCmd.ResourcesPath,
-		DNSHosts:               *g.InstallCmd.DNSHosts,
-		DNSZones:               *g.InstallCmd.DNSZones,
-		Flavor:                 *g.InstallCmd.Flavor,
-		ExcludeHostFromCluster: *g.InstallCmd.ExcludeHostFromCluster,
-		FromService:            *g.InstallCmd.FromService,
-		Printer:                env,
+		DNSConfig:          g.InstallCmd.DNSConfig(),
+		GCENodeTags:        *g.InstallCmd.GCENodeTags,
+		LocalPackages:      env.Packages,
+		LocalApps:          env.Apps,
+		LocalBackend:       env.Backend,
+		LocalClusterClient: env.SiteOperator,
+		Mode:               mode,
+		ServiceUID:         *g.InstallCmd.ServiceUID,
+		ServiceGID:         *g.InstallCmd.ServiceGID,
+		AppPackage:         *g.InstallCmd.App,
+		ResourcesPath:      *g.InstallCmd.ResourcesPath,
+		DNSHosts:           *g.InstallCmd.DNSHosts,
+		DNSZones:           *g.InstallCmd.DNSZones,
+		Flavor:             *g.InstallCmd.Flavor,
+		Remote:             *g.InstallCmd.Remote,
+		FromService:        *g.InstallCmd.FromService,
+		Printer:            env,
 	}
 }
 
@@ -273,7 +274,7 @@ func (i *InstallConfig) CheckAndSetDefaults() (err error) {
 	if i.VxlanPort < 1 || i.VxlanPort > 65535 {
 		return trace.BadParameter("invalid vxlan port: must be in range 1-65535")
 	}
-	if i.Mode != constants.InstallModeInteractive {
+	if !i.Remote {
 		if err := i.validateCloudConfig(); err != nil {
 			return trace.Wrap(err)
 		}
@@ -395,7 +396,7 @@ func (i *InstallConfig) NewInstallerConfig(
 		Apps:               wizard.Apps,
 		Packages:           wizard.Packages,
 		Operator:           wizard.Operator,
-		LocalAgent:         !i.ExcludeHostFromCluster,
+		LocalAgent:         !i.Remote,
 	}, nil
 
 }
@@ -600,22 +601,22 @@ func (i *InstallConfig) validateCloudConfig() (err error) {
 // NewWizardConfig returns new configuration for the interactive installer
 func NewWizardConfig(env *localenv.LocalEnvironment, g *Application) InstallConfig {
 	return InstallConfig{
-		Mode:                   constants.InstallModeInteractive,
-		Insecure:               *g.Insecure,
-		UserLogFile:            *g.UserLogFile,
-		StateDir:               *g.WizardCmd.Path,
-		SystemLogFile:          *g.SystemLogFile,
-		ServiceUID:             *g.WizardCmd.ServiceUID,
-		ServiceGID:             *g.WizardCmd.ServiceGID,
-		AdvertiseAddr:          *g.WizardCmd.AdvertiseAddr,
-		Token:                  *g.WizardCmd.Token,
-		FromService:            *g.WizardCmd.FromService,
-		ExcludeHostFromCluster: true,
-		Printer:                env,
-		LocalPackages:          env.Packages,
-		LocalApps:              env.Apps,
-		LocalBackend:           env.Backend,
-		LocalClusterClient:     env.SiteOperator,
+		Mode:               constants.InstallModeInteractive,
+		Insecure:           *g.Insecure,
+		UserLogFile:        *g.UserLogFile,
+		StateDir:           *g.WizardCmd.Path,
+		SystemLogFile:      *g.SystemLogFile,
+		ServiceUID:         *g.WizardCmd.ServiceUID,
+		ServiceGID:         *g.WizardCmd.ServiceGID,
+		AdvertiseAddr:      *g.WizardCmd.AdvertiseAddr,
+		Token:              *g.WizardCmd.Token,
+		FromService:        *g.WizardCmd.FromService,
+		Remote:             true,
+		Printer:            env,
+		LocalPackages:      env.Packages,
+		LocalApps:          env.Apps,
+		LocalBackend:       env.Backend,
+		LocalClusterClient: env.SiteOperator,
 	}
 }
 

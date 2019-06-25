@@ -79,6 +79,7 @@ func (r *InstallerStrategy) installSelfAsService() error {
 			RestartPreventExitStatus: exitStatuses,
 			// Enable automatic restart of the service
 			Restart:          "always",
+			Timeout:          int(time.Duration(defaults.ServiceConnectTimeout).Seconds()),
 			WantedBy:         "multi-user.target",
 			WorkingDirectory: r.ApplicationDir,
 		},

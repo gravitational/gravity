@@ -203,19 +203,18 @@ func NewOperationPlan(config PlanConfig) (*storage.OperationPlan, error) {
 			DNSConfig:      config.DNSConfig,
 			GravityPackage: *gravityPackage,
 		},
-		operator:          config.Operator,
-		operation:         *config.Operation,
-		servers:           updates,
-		installedRuntime:  *installedRuntime,
-		installedApp:      *installedApp,
-		updateRuntime:     *updateRuntime,
-		updateApp:         *updateApp,
-		links:             links,
-		trustedClusters:   trustedClusters,
-		packageService:    config.Packages,
-		shouldUpdateEtcd:  shouldUpdateEtcd,
-		updateCoreDNS:     updateCoreDNS,
-		dnsConfig:         config.DNSConfig,
+		operator:         config.Operator,
+		operation:        *config.Operation,
+		servers:          updates,
+		installedRuntime: *installedRuntime,
+		installedApp:     *installedApp,
+		updateRuntime:    *updateRuntime,
+		updateApp:        *updateApp,
+		links:            links,
+		trustedClusters:  trustedClusters,
+		packageService:   config.Packages,
+		shouldUpdateEtcd: shouldUpdateEtcd,
+		updateCoreDNS:    updateCoreDNS,
 		updateDNSAppEarly: updateDNSAppEarly,
 		roles:             roles,
 		leadMaster:        *leader,
@@ -266,10 +265,10 @@ type PlanConfig struct {
 
 // planConfig collects parameters needed to generate an update operation plan
 type planConfig struct {
-	// plan specifies the initial plan configuration
-	// this will be updated with the list of operational phase
-	plan     storage.OperationPlan
 	operator packageRotator
+	// plan specifies the initial plan configuration
+	// this will be updated with the list of operational phases
+	plan storage.OperationPlan
 	// operation is the operation to generate the plan for
 	operation storage.SiteOperation
 	// servers is a list of servers from cluster state
@@ -292,8 +291,6 @@ type planConfig struct {
 	shouldUpdateEtcd func(planConfig) (bool, string, string, error)
 	// updateCoreDNS indicates whether we need to run coreDNS phase
 	updateCoreDNS bool
-	// dnsConfig defines the existing DNS configuration
-	dnsConfig storage.DNSConfig
 	// updateDNSAppEarly indicates whether we need to update the DNS app earlier than normal
 	//	Only applicable for 5.3.0 -> 5.3.2
 	updateDNSAppEarly bool
@@ -308,6 +305,7 @@ func newOperationPlan(p planConfig) (*storage.OperationPlan, error) {
 	if len(masters) == 0 {
 		return nil, trace.NotFound("no master servers found")
 	}
+	otherMasters := filterServer(masters, p.leadMaster)
 	builder := phaseBuilder{planConfig: p}
 	initPhase := *builder.init(p.leadMaster.Server)
 	checksPhase := *builder.checks().Require(initPhase)
@@ -328,7 +326,7 @@ func newOperationPlan(p planConfig) (*storage.OperationPlan, error) {
 		log.Debugf("No support for taints/tolerations for %v.", installedGravityPackage)
 	}
 
-	mastersPhase := *builder.masters(p.leadMaster, masters[1:], supportsTaints).
+	mastersPhase := *builder.masters(p.leadMaster, otherMasters, supportsTaints).
 		Require(checksPhase, bootstrapPhase, preUpdatePhase)
 	nodesPhase := *builder.nodes(p.leadMaster, nodes, supportsTaints).
 		Require(mastersPhase)
@@ -382,7 +380,9 @@ func newOperationPlan(p planConfig) (*storage.OperationPlan, error) {
 		}
 
 		if updateEtcd {
-			etcdPhase := *builder.etcdPlan(p.leadMaster.Server, servers(masters[1:]...), servers(nodes...),
+			etcdPhase := *builder.etcdPlan(p.leadMaster.Server,
+				serversToStorage(otherMasters...),
+				serversToStorage(nodes...),
 				currentVersion, desiredVersion)
 			// This does not depend on previous on purpose - when the etcd block is executed,
 			// remote agents might be able to sync the plan before the shutdown of etcd instances
@@ -399,7 +399,7 @@ func newOperationPlan(p planConfig) (*storage.OperationPlan, error) {
 		// upgrade phase to make sure that old gravity-sites start up fine
 		// in case new configuration is incompatible, but *before* runtime
 		// phase so new gravity-sites can find it after they start
-		configPhase := *builder.config(servers(masters...)).Require(mastersPhase)
+		configPhase := *builder.config(serversToStorage(masters...)).Require(mastersPhase)
 		runtimePhase := *builder.runtime(runtimeUpdates).Require(mastersPhase)
 		root.Add(configPhase, runtimePhase)
 	}
@@ -687,6 +687,16 @@ func findServer(input storage.Server, servers []storage.UpdateServer) (*storage.
 		}
 	}
 	return nil, trace.NotFound("no server found with address %v", input.AdvertiseIP)
+}
+
+func filterServer(servers []storage.UpdateServer, server storage.UpdateServer) (result []storage.UpdateServer) {
+	for _, s := range servers {
+		if s.AdvertiseIP == server.AdvertiseIP {
+			continue
+		}
+		result = append(result, s)
+	}
+	return result
 }
 
 type runtimeConfig struct {
