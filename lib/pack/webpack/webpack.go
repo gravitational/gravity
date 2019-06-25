@@ -301,7 +301,7 @@ func (s *Server) needsAuth(fn authHandle) httprouter.Handle {
 		if !hasCookie {
 			user, checker, err = s.cfg.Users.AuthenticateUser(*authCreds)
 			if err != nil {
-				log.Debugf("authenticate error: %v", err)
+				log.Debugf("authenticate error: %v", trace.DebugReport(err))
 				// we hide the error from the remote user to avoid giving any hints
 				trace.WriteError(
 					w, trace.AccessDenied("bad username or password"))

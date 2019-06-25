@@ -350,23 +350,25 @@ func (c *UsersService) AuthenticateUserBasicAuth(username, password string) (sto
 		return nil, trace.BadParameter("unexpected user type %T", i)
 	}
 
+	if err = c.checkCanUseBasicAuth(user); err != nil {
+		return nil, trace.Wrap(err)
+	}
+
 	switch user.GetType() {
 	case storage.AgentUser:
 		// check the provided password against agent api keys (it may have a few)
-		match := false
 		keys, err := c.backend.GetAPIKeys(user.GetName())
 		if err != nil {
 			return nil, trace.Wrap(err)
 		}
 		for _, k := range keys {
 			if subtle.ConstantTimeCompare([]byte(k.Token), []byte(password)) == 1 {
-				match = true
+				return user, nil
 			}
 		}
-		if !match {
-			return nil, trace.AccessDenied("bad agent api key")
-		}
-		return user, nil
+
+		return nil, trace.AccessDenied("bad agent api key")
+
 	case storage.AdminUser, storage.RegularUser:
 		keys, err := c.backend.GetAPIKeys(user.GetName())
 		if err != nil {
@@ -377,13 +379,30 @@ func (c *UsersService) AuthenticateUserBasicAuth(username, password string) (sto
 				return user, nil
 			}
 		}
-		if err := bcrypt.CompareHashAndPassword([]byte(user.GetPassword()), []byte(password)); err != nil {
-			return nil, trace.AccessDenied("bad user password")
+
+		if err := bcrypt.CompareHashAndPassword([]byte(user.GetPassword()), []byte(password)); err == nil {
+			return user, nil
 		}
-		return user, nil
+
+		return nil, trace.AccessDenied("bad user or password")
 	default:
 		return nil, trace.AccessDenied("unsupported user type: %v", user.GetType())
 	}
+}
+
+func (c *UsersService) checkCanUseBasicAuth(user storage.User) error {
+	// don't allow users with TOTP/HOTP tokens set to use Basic Auth
+	totp, err := c.GetTOTP(user.GetName())
+	if err != nil && !trace.IsNotFound(err) {
+		return trace.Wrap(err)
+	}
+	if len(totp) != 0 {
+		return trace.AccessDenied("basic auth not available")
+	}
+	if len(user.GetHOTP()) != 0 {
+		return trace.AccessDenied("basic auth not available")
+	}
+	return nil
 }
 
 // AuthenticateUserBearerAuth is used to authenticate site agent users
