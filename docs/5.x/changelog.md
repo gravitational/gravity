@@ -7,10 +7,10 @@ LTS starts with `3.51.0` with minor backwards compatible changes added over time
 
 | Release       | LTS | Release Date         | Supported Until      | Kubernetes Version | Teleport Version |
 | --------------|-----| -------------------- | -------------------- | ------------------ |------------------|
-| 6.0.0-rc.2    | -   | June 13th, 2019      | -                    | 1.14.1             | 3.2.5            |
-| 5.6.2         | No  | June 18th, 2019      | -                    | 1.14.0             | 3.0.5            |
-| 5.5.10        | Yes | June 17th, 2019      | September 7th, 2020  | 1.13.5             | 3.0.4            |
-| 5.4.10        | No  | March 26th, 2019     | -                    | 1.13.5             | 2.4.10           |
+| 6.0.0-rc.3    | -   | June 24th, 2019      | -                    | 1.14.2             | 3.2.5            |
+| 5.6.3         | No  | June 24th, 2019      | -                    | 1.14.2             | 3.0.5            |
+| 5.5.11        | Yes | June 24th, 2019      | September 7th, 2020  | 1.13.6             | 3.0.4            |
+| 5.4.10*       | No  | March 26th, 2019     | -                    | 1.13.5             | 2.4.10           |
 | 5.3.9*        | No  | March 7th, 2019      | -                    | 1.12.3             | 2.4.7            |
 | 5.2.12        | Yes | March 26th, 2019     | October 15th, 2019   | 1.11.9             | 2.4.10           |
 | 5.0.33        | Yes | April 24th, 2019     | April 13th, 2019     | 1.9.12-gravitational | 2.4.10         |
@@ -30,6 +30,17 @@ LTS starts with `3.51.0` with minor backwards compatible changes added over time
     do not receive updates and bugfixes.
 
 ## 6.x Releases
+
+### 6.0.0-rc.3
+
+#### Improvements
+
+* Automatically generate debug report when an operation fails.
+* Upgrade Kubernetes to `v1.14.2` (CVE-2019-1002101)
+
+!!! warning
+    This release fixes a security vulnerability in kubernetes. Please see
+    [Kubernetes Announcement](https://groups.google.com/forum/#!topic/kubernetes-security-discuss/zqklrWzeA2c) for more information.
 
 ### 6.0.0-rc.2
 
@@ -70,6 +81,26 @@ LTS starts with `3.51.0` with minor backwards compatible changes added over time
 * Add support for using `helm` directly from host.
 
 ## 5.x Releases
+
+### 5.6.3
+
+#### Improvements
+
+* Upgrade Kubernetes to `v1.14.2` (CVE-2019-1002101)
+
+!!! warning
+    This release fixes a security vulnerability in kubernetes. Please see
+    [Kubernetes Announcement](https://groups.google.com/forum/#!topic/kubernetes-security-discuss/zqklrWzeA2c) for more information.
+
+### 5.5.11
+
+#### Improvements
+
+* Upgrade Kubernetes to `v1.14.2` (CVE-2019-1002101)
+
+!!! warning
+    This release fixes a security vulnerability in kubernetes. Please see
+    [Kubernetes Announcement](https://groups.google.com/forum/#!topic/kubernetes-security-discuss/zqklrWzeA2c) for more information.
 
 ### 5.6.2
 
