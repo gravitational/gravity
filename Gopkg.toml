@@ -32,8 +32,7 @@ ignored = [
 
 [[override]]
   name = "github.com/gravitational/trace"
-  #version = "1.1.6"
-  revision = "f30095ced5ff011085d26f160468dcc477607730"
+  version = "1.1.7"
 
 [[override]]
   name = "github.com/mitchellh/go-ps"
