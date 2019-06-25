@@ -14,11 +14,12 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-
-import React from 'react';
 import styled from 'styled-components';
 import { Flex, Text } from 'shared/components';
 
+/**
+ * Header
+ */
 const FeatureHeader = styled(Flex)`
   flex-shrink: 0;
 `
@@ -28,10 +29,21 @@ FeatureHeader.defaultProps = {
   mb: 4
 }
 
-const FeatureHeaderTitle = props => (
-  <Text typography="h1" as="h1"  {...props} />
-)
+/**
+ * Header Title
+ */
+const FeatureHeaderTitle = styled(Text)`
+  flex-shrink: 0;
+`
 
+FeatureHeaderTitle.defaultProps = {
+  as: 'h1',
+  typography: 'h1'
+}
+
+/**
+ * Feature Box (container)
+ */
 const FeatureBox = styled(Flex)`
   overflow: auto;
   width: 100%;
@@ -43,6 +55,9 @@ FeatureBox.defaultProps = {
   px: 6
 }
 
+/**
+ * Layout
+ */
 const AppVerticalSplit = styled.div`
   position: absolute;
   width: 100%;

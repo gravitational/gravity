@@ -35,7 +35,7 @@ export function RemoteAccessDialog(props){
       open={true}
     >
       <Box maxWidth="500px">
-        <DialogHeader mb="2">
+        <DialogHeader>
           <DialogTitle> Remote Assistance </DialogTitle>
         </DialogHeader>
         {!enabled && renderEnabled(attempt, onOk, onClose)}
@@ -49,7 +49,7 @@ function renderEnabled(attempt, onOk, onClose){
   const isDisabled = attempt.isProcessing;
   return (
     <>
-      <DialogContent mt="0">
+      <DialogContent>
         {attempt.isFailed && (
           <Alerts.Danger children={attempt.message} />
         )}
@@ -74,7 +74,7 @@ function renderDisabled(attempt, onOk, onClose){
   const isDisabled = attempt.isProcessing;
   return (
     <>
-      <DialogContent mt="0">
+      <DialogContent>
         {attempt.isFailed && (
           <Alerts.Danger children={attempt.message} />
         )}

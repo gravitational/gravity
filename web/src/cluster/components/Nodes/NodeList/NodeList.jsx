@@ -42,7 +42,7 @@ export const ActionCell = ({ rowIndex, onDelete, data}) => {
 
 function Detail({ children }){
   return (
-    <Text typography="paragraph2" color="text.primary">{children}</Text>
+    <Text typography="subtitle2" color="text.primary">{children}</Text>
   )
 }
 

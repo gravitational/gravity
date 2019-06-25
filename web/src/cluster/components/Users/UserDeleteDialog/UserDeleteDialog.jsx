@@ -19,7 +19,7 @@ import PropTypes from 'prop-types';
 import { Box, ButtonSecondary, ButtonWarning, Text } from 'shared/components';
 import * as Alerts from 'shared/components/Alert';
 import { useAttempt, withState } from 'shared/hooks';
-import Dialog, { DialogContent, DialogFooter} from 'shared/components/DialogConfirmation';
+import Dialog, { DialogTitle, DialogHeader, DialogContent, DialogFooter} from 'shared/components/DialogConfirmation';
 import * as actions from 'oss-app/cluster/flux/users/actions';
 
 export function UserDeleteDialog(props){
@@ -40,12 +40,14 @@ export function UserDeleteDialog(props){
       open={true}
     >
       <Box maxWidth="500px">
+        <DialogHeader>
+          <DialogTitle>Remove User?</DialogTitle>
+        </DialogHeader>
         <DialogContent>
           {attempt.isFailed && (
             <Alerts.Danger children={attempt.message} />
           )}
-          <Text typography="h2">Remove User?</Text>
-          <Text typography="paragraph" mt="2" mb="6">
+          <Text typography="paragraph">
             You are about to remove {userId}.
             This will revoke the user's access to the current cluster. This action cannot be undone.
           </Text>

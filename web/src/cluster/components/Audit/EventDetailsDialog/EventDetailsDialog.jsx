@@ -32,9 +32,9 @@ function EventDetailsDialog(props){
       open={true}
       >
       <DialogHeader>
-        <DialogTitle caps={false} color="primary.contrastText">{title}</DialogTitle>
+        <DialogTitle typography="body1" caps={true} bold>{title}</DialogTitle>
       </DialogHeader>
-      <DialogContent my="0">
+      <DialogContent>
         <TextEditor readOnly={true} data={json} docType="json" />
       </DialogContent>
       <DialogFooter>

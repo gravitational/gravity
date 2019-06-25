@@ -16,13 +16,15 @@ limitations under the License.
 
 import React from 'react'
 import { storiesOf } from '@storybook/react'
-import  UserInviteDialog  from './UserInviteDialog'
+import { UserInviteDialog } from './UserInviteDialog'
 
 storiesOf('Gravity/Users/UserInviteDialog', module)
   .add('UserInviteDialog', () => {
     return (
       <UserInviteDialog
-        open={true} roles={roles} />
+        attempt={{}}
+        open={true}
+        roles={roles} />
     );
   })
   .add('With Error', () => {
