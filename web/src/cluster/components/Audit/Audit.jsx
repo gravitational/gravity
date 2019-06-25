@@ -55,7 +55,7 @@ export class Audit extends React.Component {
           <FeatureHeaderTitle mr="5">
             Audit Log
           </FeatureHeaderTitle>
-          <InputSearch mr="3" autoFocus onChange={onSearchChange}/>
+          <InputSearch bg="primary.light" mr="3" autoFocus onChange={onSearchChange}/>
           <RangePicker  ml="auto"
             value={range}
             options={rangeOptions}

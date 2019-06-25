@@ -28,6 +28,7 @@ const SortTypes = {
 };
 
 class Table extends React.Component {
+
   renderHeader(children) {
     const { data } = this.props;
     const cells = children.map((item, index)=>{
@@ -51,10 +52,8 @@ class Table extends React.Component {
 
   renderBody(children) {
     const { data } = this.props;
-    const count = this.props.rowCount;
     const rows = [];
-
-    for (let i = 0; i < count; i++){
+    for (let i = 0; i < data.length; i++){
       let cells = children.map((item, index)=>{
         return this.renderCell(
           item.props.cell,
@@ -110,9 +109,8 @@ class Table extends React.Component {
       children.push(child);
     });
 
-    const { className } = this.props;
     return (
-      <StyledTable className={className}>
+      <StyledTable {...this.props}>
         {this.renderHeader(children)}
         {this.renderBody(children)}
       </StyledTable>

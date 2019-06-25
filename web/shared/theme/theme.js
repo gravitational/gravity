@@ -108,6 +108,7 @@ const theme = {
   fontSizes,
   space,
   borders,
+  radii: [0, 2, 4, 8, 16, 9999, '100%'],
   regular: fontWeights.regular,
   bold: fontWeights.bold,
   // disabled media queries for styled-system

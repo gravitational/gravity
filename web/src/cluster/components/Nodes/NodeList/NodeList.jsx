@@ -86,7 +86,7 @@ class NodeList extends React.Component {
     const { nodes, provider, onDelete } = this.props;
     const isAws = provider === ProviderEnum.AWS;
     return (
-      <StyledTable data={nodes} rowCount={nodes.length}>
+      <StyledTable data={nodes}>
         <Column
           header={<Cell>Session</Cell> }
           cell={<LoginCell /> }

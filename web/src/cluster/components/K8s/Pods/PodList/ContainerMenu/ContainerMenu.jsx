@@ -17,19 +17,17 @@ limitations under the License.
 import React from 'react';
 import styled from 'styled-components';
 import cfg from 'app/config';
-import history from 'app/services/history';
 import { NavLink } from 'app/components/Router';
-import { Text, ButtonOutlined, ButtonPrimary } from 'shared/components';
+import { Flex, Text, ButtonOutlined, ButtonPrimary } from 'shared/components';
 import Menu, { MenuItem} from 'shared/components/Menu';
 import * as Icons from 'shared/components/Icon';
+import ReactDOM from 'react-dom';
 
 class ContainerMenu extends React.Component {
 
   static displayName = 'ContainerMenu';
 
-  static defaultProps = {
-    menuListCss: () => { },
-  }
+  menuRef = React.createRef();
 
   constructor(props){
     super(props)
@@ -37,23 +35,6 @@ class ContainerMenu extends React.Component {
       open: false,
       anchorEl: null,
     }
-  }
-
-  openTerminal(login){
-    const {
-      name: container,
-      pod,
-      namespace,
-      serverId
-    } = this.props.container;
-
-    openNewWindow({
-      serverId,
-      pod,
-      login,
-      namespace,
-      container,
-    });
   }
 
   onOpen = () => {
@@ -64,16 +45,14 @@ class ContainerMenu extends React.Component {
     this.setState({ open: false });
   }
 
-  onKeyPress = e => {
-    if (e.key === 'Enter' && e.target.value) {
-      this.openTerminal(e.target.value);
-      this.onClose();
-    }
-  }
-
-  setRef = e => {
+  setButtonRef = e => {
     this.anchorEl = e;
   }
+
+  // get the first menu item to align it with the container button
+  getContentAnchorEl = () => {
+    return ReactDOM.findDOMNode(this.menuRef.current).children[1];
+  };
 
   render() {
     const {
@@ -88,27 +67,28 @@ class ContainerMenu extends React.Component {
 
     return (
       <React.Fragment>
-        <ButtonOutlined size="small" p="1" setRef={this.setRef} onClick={this.onOpen} {...styles}>
+        <ButtonOutlined size="small" p="1" setRef={this.setButtonRef} onClick={this.onOpen} {...styles}>
           {name}
           <Icons.CarrotDown ml="2" fontSize="3" color="text.onDark"/>
         </ButtonOutlined>
         <Menu
-          menuListCss={menuListCss}
           anchorOrigin={anchorOrigin}
           transformOrigin={transformOrigin}
           anchorEl={this.anchorEl}
           open={open}
           onClose={this.onClose}
+          getContentAnchorEl={this.getContentAnchorEl}
         >
           <LoginItemList
+            ref={this.menuRef}
             serverId={serverId}
             logUrl={logUrl}
             title={name}
             namespace={namespace}
             pod={pod}
+            onClick={this.onClose}
             container={name}
             logins={sshLogins}
-            onKeyPress={this.onKeyPress}
           />
         </Menu>
       </React.Fragment>
@@ -116,94 +96,39 @@ class ContainerMenu extends React.Component {
   }
 }
 
-export const LoginItemList = ({logins, title, serverId, logUrl, container, pod, namespace, onKeyPress}) => {
+const LoginItemList = React.forwardRef(({ onClick, logins, title, serverId, logUrl, container, pod, namespace}, ref)  => {
   logins = logins || [];
   const $menuItems = logins.map((login, key) => {
     const url = cfg.getConsoleInitPodSessionRoute({ login, serverId, container, pod, namespace });
     return (
-      <MenuItem as={NavLink} to={url} key={key} target="_blank">
+      <MenuItem key={key} px="2" mx="2" as={SyledMenuItem} href={url} key={key} target="_blank" onClick={onClick}>
         {login}
       </MenuItem>
     )
   });
 
   return (
-    <React.Fragment>
-      <MenuHeader>SSH - {title}</MenuHeader>
-      <Input onKeyPress={onKeyPress} type="text" autoFocus placeholder="Enter login name..."/>
+    <Flex ref={ref} flexDirection="column" minWidth="200px">
+      <Text px="2" fontSize="11px" mb="2" color="grey.400" bg="subtle">SSH - {title}</Text>
       {$menuItems}
       <ButtonPrimary my="3" mx="3" size="small" as={NavLink} to={logUrl}>
         View Logs
       </ButtonPrimary>
-    </React.Fragment>
+    </Flex>
   )
-}
+})
 
-function openNewWindow(params){
-  let url = cfg.getConsoleInitPodSessionRoute(params);
-  url = history.ensureBaseUrl(url);
-  window.open(url);//, "", "toolbar=yes,scrollbars=yes,resizable=yes");
-}
-
-const MenuHeader = styled.header`
-  background: ${props => props.theme.colors.subtle};
-  display: block;
-  color: ${props => props.theme.colors.grey[400] };
-  font-size: 11px;
-  line-height: 24px;
-  padding: 0 8px;
-`
-
-const menuListCss = props => `
-  display: flex;
-  flex-direction: column;
-
-  ${MenuItem} {
-    color: ${props.theme.colors.grey[400]};
-    font-size: 12px;
-    border-bottom: 1px solid ${props.theme.colors.subtle };
-    line-height: 32px;
-    margin: 0 8px;
-    padding: 0 8px;
-
-    &:hover {
-      color: ${props.theme.colors.link};
-    }
-
-    &:last-child {
-      border-bottom: none;
-    }
-  }
-`
-
-const Input = styled.input`
-  background: ${props => props.theme.colors.subtle };
-  border: 1px solid ${props => props.theme.colors.subtle };
-  border-radius: 4px;
-  box-sizing: border-box;
-  color: #263238;
-  padding: 0 8px;
-  height: 32px;
-  margin: 8px;
-  outline: none;
-
-  &:focus {
-    background: ${props => props.theme.colors.light };
-    border 1px solid ${props => props.theme.colors.link };
-    box-shadow: inset 0 1px 3px rgba(0, 0, 0, .24);
+const SyledMenuItem = styled.a`
+  color: ${props => props.theme.colors.grey[400]};
+  font-size: 12px;
+  border-bottom: 1px solid ${props => props.theme.colors.subtle };
+  min-height: 32px;
+  &:hover {
+    color: ${props => props.theme.colors.link};
   }
 
-  ::-webkit-input-placeholder { /* Chrome/Opera/Safari */
-  color: ${props => props.theme.colors.grey[100]};
-  }
-  ::-moz-placeholder { /* Firefox 19+ */
-    color: ${props => props.theme.colors.grey[100]};
-  }
-  :-ms-input-placeholder { /* IE 10+ */
-    color: ${props => props.theme.colors.grey[100]};
-  }
-  :-moz-placeholder { /* Firefox 18- */
-    color: ${props => props.theme.colors.grey[100]};
+  :last-child {
+    border-bottom: none;
   }
 `
 

@@ -17,6 +17,7 @@ limitations under the License.
 import {
   alignItems,
   alignSelf,
+  border,
   color,
   flex,
   flexDirection,
@@ -28,20 +29,24 @@ import {
   justifySelf,
   maxHeight,
   maxWidth,
+  minHeight,
+  minWidth,
+  overflow,
   propTypes,
   size,
   space,
   textAlign,
   width,
-  minHeight,
-  minWidth,
 } from 'styled-system'
 
 import typography from './typography';
+import borderRadius from './borderRadius';
 
 export {
   alignItems,
   alignSelf,
+  border,
+  borderRadius,
   color,
   flex,
   flexDirection,
@@ -53,12 +58,13 @@ export {
   justifySelf,
   maxHeight,
   maxWidth,
+  minHeight,
+  minWidth,
+  overflow,
   propTypes,
   size,
   space,
   textAlign,
   typography,
   width,
-  minHeight,
-  minWidth
 }

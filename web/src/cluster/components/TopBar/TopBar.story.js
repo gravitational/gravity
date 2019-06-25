@@ -75,10 +75,6 @@ const props = {
   user: {
     userId: 'john@example.com'
   },
-  navStore: {
-    siteNav: [],
-    topNav: []
-  },
   navItems: [],
   info: {
     status: {},

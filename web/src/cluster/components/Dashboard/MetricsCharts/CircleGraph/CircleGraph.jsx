@@ -29,7 +29,7 @@ export function CircleGraph(props){
   ))
 
   return (
-    <Container bg="primary.main" {...rest}>
+    <Container bg="primary.main" borderRadius="3" {...rest}>
       <Text brtr={8} brtl={8} as={Flex} color="text.primary" typography="h5" height="56px" bg="primary.light" alignItems="center" px="3">
         {title}
       </Text>
@@ -118,8 +118,8 @@ const CurrentPecentage = styled.h3`
 `
 
 const Container = styled(Box)`
+  overflow: hidden;
   box-shadow: 0 0 32px rgba(0, 0, 0, .12), 0 8px 32px rgba(0, 0, 0, .24);
-  border-radius: 8px;
   max-width: 250px;
   flex-shrink: 0;
   flex-grow: 1;

@@ -16,22 +16,12 @@ limitations under the License.
 
 import styled from 'styled-components';
 import defaultTheme from './../../theme';
-import { fontSize, space } from 'styled-system'
-
-const values  = {
-  fontSize: 1,
-  pl: 10,
-  pr: 5,
-}
+import Flex from './../Flex';
 
 const fromTheme = ({ theme = defaultTheme }) => {
-  values.theme = theme;
   return {
-    ...fontSize(values),
-    ...space(values),
+    fontSize: theme.fontSizes[1],
     fontWeight: theme.bold,
-    background: theme.colors.primary.main,
-    color: theme.colors.text.primary,
     "&:active, &.active": {
       background: theme.colors.primary.light,
       borderLeftColor: theme.colors.accent,
@@ -43,14 +33,13 @@ const fromTheme = ({ theme = defaultTheme }) => {
   }
 }
 
-const SideNavItem = styled.div`
+const SideNavItem = styled(Flex)`
   min-height: 72px;
   align-items: center;
   border: none;
   border-left: 4px solid transparent;
   box-sizing: border-box;
   cursor: pointer;
-  display: flex;
   justify-content: flex-start;
   outline: none;
   text-decoration: none;
@@ -59,5 +48,12 @@ const SideNavItem = styled.div`
 `;
 
 SideNavItem.displayName = 'SideNavItem';
+
+SideNavItem.defaultProps = {
+  pl: "10",
+  pr: "5",
+  bg: "primary.main",
+  color: "text.primary",
+}
 
 export default SideNavItem;

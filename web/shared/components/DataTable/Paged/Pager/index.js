@@ -14,12 +14,5 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-import React from 'react'
-import { storiesOf } from '@storybook/react'
-import { withInfo } from '@storybook/addon-info'
-import Logo from '../Logo'
-import teleportSvg from './../../assets/images/gravity-medallion.svg';
-
-storiesOf('Logo', module)
-  .addDecorator(withInfo)
-  .add('Logo component', () => <Logo src={teleportSvg} />);
+import Pager from './Pager';
+export default Pager;
