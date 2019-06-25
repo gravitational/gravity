@@ -32,9 +32,9 @@ class K8sResourceViewer extends React.Component {
         open={true}
         >
         <DialogHeader>
-          <DialogTitle caps={false} color="primary.contrastText">{title}</DialogTitle>
+          <DialogTitle typography="body1" color="primary.contrastText">{title}</DialogTitle>
         </DialogHeader>
-        <DialogContent my="0">
+        <DialogContent>
           <TextEditor readOnly={true} data={json} />
         </DialogContent>
         <DialogFooter>

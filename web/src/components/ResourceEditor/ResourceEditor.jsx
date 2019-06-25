@@ -47,10 +47,10 @@ export default function ResourceEditor(props) {
 
   return (
     <Dialog open={true} dialogCss={dialogCss} onClose={onClose}>
-      <Flex flex="1">
-        <Flex flex="1" height="100%" p="4" flexDirection="column" >
-          <DialogHeader m="0" mb="3">
-            <DialogTitle >
+      <Flex flex="1" m={-5} >
+        <Flex flex="1" height="100%" p="5" flexDirection="column" >
+          <DialogHeader>
+            <DialogTitle typography="body1" bold>
               {title}
             </DialogTitle>
           </DialogHeader>
@@ -68,7 +68,7 @@ export default function ResourceEditor(props) {
               onChange={updateContent}
             />
           </Flex>
-          <Box mt="4">
+          <Box mt="5">
             <ButtonPrimary disabled={isSaveDisabled} onClick={onSave} mr="3">
               Save changes
             </ButtonPrimary>
@@ -78,9 +78,9 @@ export default function ResourceEditor(props) {
           </Box>
         </Flex>
         {hasDirections && (
-          <Flex flexDirection="column" justifyContent="space-between" height="100%" width="260px" p="4" bg="primary.light" >
+          <Flex flexDirection="column" justifyContent="space-between" height="100%" width="300px" p="5" bg="primary.light" >
             <Box>
-              <DialogTitle> SETUP INSTRUCTIONS </DialogTitle>
+              <DialogTitle  typography="body1" bold> SETUP INSTRUCTIONS </DialogTitle>
               <Text typography="body1" mt={3}>{directions}</Text>
             </Box>
             <ButtonSecondary as="a" href={docsURL} target="_blank" width="100%">

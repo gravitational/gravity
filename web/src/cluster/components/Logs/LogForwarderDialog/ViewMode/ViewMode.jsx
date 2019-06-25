@@ -15,7 +15,7 @@ limitations under the License.
 */
 
 import React from 'react'
-import { DialogFooter, DialogTitle } from 'shared/components/Dialog';
+import { DialogTitle } from 'shared/components/Dialog';
 import { ButtonPrimary, ButtonWarning, ButtonSecondary, Flex, Box, LabelInput } from 'shared/components';
 import TextEditor from 'app/components/TextEditor';
 import * as Alerts from 'shared/components/Alert';
@@ -38,16 +38,16 @@ export default function ViewMode({ curIndex, items, onEdit, onCreate, onSelect, 
     <Flex height={height} width={width}>
       <Flex width="280px" bg="primary.light" flexDirection="column">
         <ItemList items={items} curIndex={curIndex} onSelect={onSelect}/>
-        <DialogFooter>
+        <Flex m="5">
           <ButtonSecondary disabled={isProcessing} onClick={onCreate}>
             <NoteAdded fontSize="3" mr="2"/>
               New Forwarder
           </ButtonSecondary>
-        </DialogFooter>
+        </Flex>
       </Flex>
-      <Flex flex="1" p="4" flexDirection="column" width="600px" >
-        <Flex  mb="4" alignItems="center">
-          <DialogTitle > Log Forwarder </DialogTitle>
+      <Flex flex="1" p="5" flexDirection="column" width="600px" >
+        <Flex mb="4" alignItems="center">
+          <DialogTitle typography="body1" bold> Log Forwarder </DialogTitle>
           <Box ml="auto">
             <ButtonWarning width="80px" size="small" disabled={isProcessing} onClick={onDeleteClick}>
               DELETE
@@ -63,7 +63,7 @@ export default function ViewMode({ curIndex, items, onEdit, onCreate, onSelect, 
         <Flex flex="1">
           <TextEditor readOnly={true} data={content} />
         </Flex>
-        <Flex mt="4">
+        <Flex mt="5">
           <ButtonPrimary disabled={isProcessing} onClick={onEdit} mr="2">
             Edit
           </ButtonPrimary>

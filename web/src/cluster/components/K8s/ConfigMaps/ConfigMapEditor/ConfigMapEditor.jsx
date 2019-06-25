@@ -17,8 +17,8 @@ limitations under the License.
 import React from 'react';
 import PropTypes from 'prop-types';
 import * as Alerts from 'shared/components/Alert';
-import Dialog from 'shared/components/Dialog';
-import { Flex, ButtonPrimary, ButtonSecondary, Text, Box } from 'shared/components';
+import Dialog, { DialogContent, DialogHeader } from 'shared/components/Dialog';
+import { Flex, ButtonPrimary, ButtonSecondary, Text } from 'shared/components';
 import YamlEditor from './YamlEditor';
 import Attempt from './Attempt';
 import Tabs from './Tabs';
@@ -71,40 +71,42 @@ class ConfigMapEditor extends React.Component {
         >
         <Attempt onRun={this.onSave}>
           {({ attempt, run }) => (
-            <Flex flex="1" flexDirection="column">
-              <Flex my="4" mx="5" justifyContent="space-between">
+            <>
+              <DialogHeader mb="4" justifyContent="space-between">
                 <Text typography="h4" color="primary.contrastText">{name}</Text>
                 <Text as="span">NAMESPACE: {namespace}</Text>
-              </Flex>
+              </DialogHeader>
               {attempt.isFailed &&  (
-                <Alerts.Danger mx="5" mb="4">
+                <Alerts.Danger mb="4">
                   {attempt.message}
                 </Alerts.Danger>
               )}
-              <Tabs mx="5"
-                items={data}
-                onSelect={this.onChangeTab}
-                activeTab={activeTabIndex}
-                dirtyTabs={dirtyTabs}
-              />
-              <Flex flex="1" mx="5">
-                <YamlEditor
-                  ref={ e => this.yamlEditorRef = e}
-                  id={id}
-                  onDirty={this.makeTabDirty}
-                  initialData={data}
-                  activeIndex={activeTabIndex}
-              />
-              </Flex>
-              <Box m="5">
+              <DialogContent>
+                <Tabs
+                  items={data}
+                  onSelect={this.onChangeTab}
+                  activeTab={activeTabIndex}
+                  dirtyTabs={dirtyTabs}
+                />
+                <Flex flex="1">
+                  <YamlEditor
+                    ref={ e => this.yamlEditorRef = e}
+                    id={id}
+                    onDirty={this.makeTabDirty}
+                    initialData={data}
+                    activeIndex={activeTabIndex}
+                  />
+                </Flex>
+              </DialogContent>
+              <div>
                 <ButtonPrimary onClick={run} disabled={disabledSave || attempt.isProcessing}  mr="3">
                   Save Changes
                 </ButtonPrimary>
                 <ButtonSecondary disabled={attempt.isProcessing} onClick={onClose}>
                   CANCEL
                 </ButtonSecondary>
-              </Box>
-            </Flex>
+              </div>
+            </>
           )}
         </Attempt>
       </Dialog>

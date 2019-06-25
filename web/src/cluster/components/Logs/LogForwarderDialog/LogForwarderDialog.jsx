@@ -64,8 +64,8 @@ export function LogForwarderDialog(props) {
           <Flex width="250px" bg="primary.light" alignItems="center" justifyContent="center">
             No Existing Log Forwarders
           </Flex>
-          <Flex flex="1" p="4" flexDirection="column" >
-            <DialogTitle mb="4"> Create and Manage Log Forwarders </DialogTitle>
+          <Flex flex="1" p="5" flexDirection="column" >
+            <DialogTitle typography="body1" bold mb="4"> Create and Manage Log Forwarders </DialogTitle>
             <Text mb="8" typography="body1" color="primary.contrastText">
               Create your first log forwarder. Lorem Ipsum is simply dummy text of the printing...
             </Text>
@@ -109,6 +109,7 @@ LogForwarderDialog.propTypes = {
 
 const dialogCss = () => `
   max-height: 600px;
+  padding: 0px;
 `
 
 export default withState(props => {

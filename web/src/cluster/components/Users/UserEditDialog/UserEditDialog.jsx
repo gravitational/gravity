@@ -61,13 +61,13 @@ export function UserEditDialog(props){
           <Box as="form" width="450px" onSubmit={formikProps.handleSubmit}>
             <DialogHeader>
               <DialogTitle>Edit User Role</DialogTitle>
+            </DialogHeader>
+            <DialogContent>
               {isFailed && (
-                <Alerts.Danger mt="4">
+                <Alerts.Danger>
                   {attempt.message}
                 </Alerts.Danger>
               )}
-            </DialogHeader>
-            <DialogContent>
               <Text mb="3" typography="paragraph" color="primary.contrastText">
                 User: {userId}
               </Text>

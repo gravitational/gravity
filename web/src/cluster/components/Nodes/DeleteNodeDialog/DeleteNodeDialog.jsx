@@ -44,14 +44,14 @@ export function DeleteNodeDialog(props){
           Delete Node?
         </DialogTitle>
       </DialogHeader>
-      <DialogContent mt="0" maxWidth="600px">
+      <DialogContent maxWidth="600px">
         {attempt.isFailed && (
           <Alerts.Danger children={attempt.message} />
         )}
-        <Text mb="1">
-          You are about to delete instance <Text as="span" bold color="primary.contrastText">{hostname}</Text>
-        </Text>
-        <Text>
+        <Text typography="paragraph">
+          You are about to delete instance
+          {" "} <Text as="span" bold color="primary.contrastText">{hostname}</Text>
+          <br/>
           This operation cannot be undone. Are you sure?
         </Text>
       </DialogContent>

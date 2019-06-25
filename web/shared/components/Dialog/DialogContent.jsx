@@ -21,7 +21,7 @@ const DialogContent = styled(Flex)`
 `
 DialogContent.defaultProps = {
   ...Flex.defaultProps,
-  m: "5",
+  mb: "5",
   flex: "1",
   flexDirection: "column"
 }

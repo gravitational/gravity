@@ -132,7 +132,7 @@ export class UpdateCertDialog extends React.Component {
             Update certificate
           </DialogTitle>
         </DialogHeader>
-        <DialogContent width="600px" mt="0">
+        <DialogContent width="600px">
           { isFailed && <Danger mb="4">{message}</Danger> }
           { isSuccess && <Info mb="4">Certificate has been updated</Info> }
           <Box mb="4">
