@@ -331,8 +331,7 @@ func (i *Installer) GetFSM() (*fsm.FSM, error) {
 
 // startFSM executes operation plan using the provided FSM
 func (i *Installer) startFSM(fsm *fsm.FSM) {
-	force := false
-	err := fsm.ExecutePlan(i.Context, utils.NewNopProgress(), force)
+	err := fsm.ExecutePlan(i.Context, utils.NewNopProgress())
 	if err != nil {
 		i.Errorf("Failed to execute plan: %v.", trace.DebugReport(err))
 	}

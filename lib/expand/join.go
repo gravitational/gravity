@@ -756,7 +756,7 @@ After all phases have completed successfully, complete the operation using "grav
 		return trace.Wrap(err)
 	}
 	go func() {
-		fsmErr := fsm.ExecutePlan(p.Context, utils.NewNopProgress(), false)
+		fsmErr := fsm.ExecutePlan(p.Context, utils.NewNopProgress())
 		if err != nil {
 			p.Errorf("Failed to execute plan: %v.",
 				trace.DebugReport(err))

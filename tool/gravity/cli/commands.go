@@ -507,9 +507,7 @@ type PlanRollbackCmd struct {
 // PlanResumeCmd resumes active operation
 type PlanResumeCmd struct {
 	*kingpin.CmdClause
-	// Force forces rollback of the phase given in Phase
-	Force *bool
-	// PhaseTimeout is the rollback timeout
+	// PhaseTimeout is the phase timeout
 	PhaseTimeout *time.Duration
 }
 
@@ -561,9 +559,6 @@ type UpdateTriggerCmd struct {
 	App *string
 	// Manual starts operation in manual mode
 	Manual *bool
-	// Block controls whether to wait for the operation to finish.
-	// If false, this enables to run the operation unattended
-	Block *bool
 	// SkipVersionCheck suppresses version mismatch errors
 	SkipVersionCheck *bool
 }
@@ -607,9 +602,6 @@ type UpgradeCmd struct {
 	App *string
 	// Manual starts upgrade in manual mode
 	Manual *bool
-	// Block controls whether to wait for the operation to finish.
-	// If false, this enables to run the operation unattended
-	Block *bool
 	// Phase is upgrade operation phase to execute
 	Phase *string
 	// Timeout is phase execution timeout

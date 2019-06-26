@@ -486,7 +486,8 @@ func (r phaseBuilder) commonNode(server, leadMaster storage.UpdateServer, suppor
 			Data: &storage.OperationPhaseData{
 				Server:     &server.Server,
 				ExecServer: &leadMaster.Server,
-			}},
+			},
+		},
 		{
 			ID:          "system-upgrade",
 			Executor:    updateSystem,
@@ -496,7 +497,8 @@ func (r phaseBuilder) commonNode(server, leadMaster storage.UpdateServer, suppor
 				Update: &storage.UpdateOperationData{
 					Servers: []storage.UpdateServer{server},
 				},
-			}},
+			},
+		},
 	}
 	if supportsTaints {
 		phases = append(phases, update.Phase{
@@ -515,7 +517,8 @@ func (r phaseBuilder) commonNode(server, leadMaster storage.UpdateServer, suppor
 		Data: &storage.OperationPhaseData{
 			Server:     &server.Server,
 			ExecServer: &leadMaster.Server,
-		}})
+		},
+	})
 	if waitsForEndpoints {
 		phases = append(phases, update.Phase{
 			ID:          "endpoints",
@@ -524,7 +527,8 @@ func (r phaseBuilder) commonNode(server, leadMaster storage.UpdateServer, suppor
 			Data: &storage.OperationPhaseData{
 				Server:     &server.Server,
 				ExecServer: &leadMaster.Server,
-			}})
+			},
+		})
 	}
 	if supportsTaints {
 		phases = append(phases, update.Phase{
@@ -534,7 +538,8 @@ func (r phaseBuilder) commonNode(server, leadMaster storage.UpdateServer, suppor
 			Data: &storage.OperationPhaseData{
 				Server:     &server.Server,
 				ExecServer: &leadMaster.Server,
-			}})
+			},
+		})
 	}
 	return phases
 }
@@ -545,11 +550,11 @@ func (r phaseBuilder) cleanup() *update.Phase {
 		Description: "Run cleanup tasks",
 	})
 
-	for _, server := range r.servers {
-		node := r.node(server.Server, &root, "Clean up node %q")
+	for i := range r.servers {
+		node := r.node(r.servers[i].Server, &root, "Clean up node %q")
 		node.Executor = cleanupNode
 		node.Data = &storage.OperationPhaseData{
-			Server: &server.Server,
+			Server: &r.servers[i].Server,
 		}
 		root.AddParallel(node)
 	}
@@ -675,19 +680,20 @@ func setLeaderElection(enable, disable []storage.Server, server storage.UpdateSe
 			ElectionChange: &storage.ElectionChange{
 				EnableServers:  enable,
 				DisableServers: disable,
-			}},
+			},
+		},
 	}
 }
 
-func servers(updates ...storage.UpdateServer) (result []storage.Server) {
+func serversToStorage(updates ...storage.UpdateServer) (result []storage.Server) {
 	for _, update := range updates {
 		result = append(result, update.Server)
 	}
 	return result
 }
 
-var disable = servers
-var enable = servers
+var disable = serversToStorage
+var enable = serversToStorage
 
 type waitsForEndpoints bool
 

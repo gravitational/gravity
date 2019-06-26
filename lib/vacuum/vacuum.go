@@ -48,7 +48,7 @@ func New(config Config) (*Collector, error) {
 }
 
 // Run runs the garbage collection.
-func (r *Collector) Run(ctx context.Context, force bool) error {
+func (r *Collector) Run(ctx context.Context) error {
 	machine, err := r.init()
 	if err != nil {
 		return trace.Wrap(err)
@@ -56,7 +56,7 @@ func (r *Collector) Run(ctx context.Context, force bool) error {
 
 	errCh := make(chan error, 1)
 	go func() {
-		errCh <- r.executePlan(ctx, machine, force)
+		errCh <- r.executePlan(ctx, machine)
 	}()
 	ticker := time.NewTicker(1 * time.Second)
 	defer ticker.Stop()
@@ -82,7 +82,7 @@ L:
 // RunPhase runs the specified garbage collection phase.
 func (r *Collector) RunPhase(ctx context.Context, phase string, phaseTimeout time.Duration, force bool) error {
 	if phase == libfsm.RootPhase {
-		return trace.Wrap(r.Run(ctx, force))
+		return trace.Wrap(r.Run(ctx))
 	}
 
 	machine, err := r.init()
@@ -138,8 +138,8 @@ func (r *Collector) init() (*libfsm.FSM, error) {
 	return machine, nil
 }
 
-func (r *Collector) executePlan(ctx context.Context, machine *libfsm.FSM, force bool) error {
-	planErr := machine.ExecutePlan(ctx, nil, force)
+func (r *Collector) executePlan(ctx context.Context, machine *libfsm.FSM) error {
+	planErr := machine.ExecutePlan(ctx, nil)
 	if planErr != nil {
 		r.Warnf("Failed to execute plan: %v.", trace.DebugReport(planErr))
 	}

@@ -54,10 +54,10 @@ func NewUpdater(ctx context.Context, config Config, machine *fsm.FSM) (*Updater,
 }
 
 // Run executes the operation plan to completion
-func (r *Updater) Run(ctx context.Context, force bool) (err error) {
+func (r *Updater) Run(ctx context.Context) (err error) {
 	errCh := make(chan error, 1)
 	go func() {
-		errCh <- r.executePlan(ctx, force)
+		errCh <- r.executePlan(ctx)
 	}()
 	ticker := time.NewTicker(1 * time.Second)
 	defer ticker.Stop()
@@ -83,7 +83,7 @@ L:
 // RunPhase runs the specified phase.
 func (r *Updater) RunPhase(ctx context.Context, phase string, phaseTimeout time.Duration, force bool) error {
 	if phase == fsm.RootPhase {
-		return trace.Wrap(r.Run(ctx, force))
+		return trace.Wrap(r.Run(ctx))
 	}
 
 	ctx, cancel := context.WithTimeout(ctx, phaseTimeout)
@@ -140,11 +140,11 @@ func (r *Updater) Close() error {
 	return r.machine.Close()
 }
 
-func (r *Updater) executePlan(ctx context.Context, force bool) error {
+func (r *Updater) executePlan(ctx context.Context) error {
 	progress := utils.NewProgress(ctx, formatOperation(*r.Operation), -1, false)
 	defer progress.Stop()
 
-	planErr := r.machine.ExecutePlan(ctx, progress, force)
+	planErr := r.machine.ExecutePlan(ctx, progress)
 	if planErr != nil {
 		r.Warnf("Failed to execute plan: %v.", trace.DebugReport(planErr))
 	}
