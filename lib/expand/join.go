@@ -131,8 +131,8 @@ func (p *Peer) Run(listener net.Listener) error {
 // Stop shuts down this RPC agent
 // Implements signals.Stopper
 func (p *Peer) Stop(ctx context.Context) error {
-	p.Info("Stop.")
-	p.server.Interrupted(ctx)
+	p.Info("Stop service.")
+	p.server.Stopped(ctx, false)
 	return nil
 }
 

@@ -67,9 +67,6 @@ func updateTrigger(
 	}
 	defer updater.Close()
 	if !manual {
-		return nil
-	}
-	if !manual {
 		return trace.Wrap(updater.Run(ctx))
 	}
 	localEnv.Println(updateClusterManualOperationBanner)
