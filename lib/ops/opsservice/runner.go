@@ -98,7 +98,7 @@ type agentRunner struct {
 
 // RunStream runs the provided command on the specified server and streams output to w
 func (r *agentRunner) RunStream(server remoteServer, w io.Writer, args ...string) error {
-	err := r.AgentService.Exec(context.TODO(), r.ctx.key(), server.Address(), args, w)
+	err := r.AgentService.ExecNoLog(context.TODO(), r.ctx.key(), server.Address(), args, w)
 
 	entry := r.ctx.WithFields(log.Fields{
 		constants.FieldServer:             server.Address(),
