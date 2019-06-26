@@ -314,7 +314,7 @@ func newAgent(ctx context.Context, config Config) (*rpcserver.PeerServer, error)
 		Mounts:       mounts,
 	}
 	return NewAgent(AgentConfig{
-		FieldLogger:   config.FieldLogger,
+		FieldLogger:   config.FieldLogger.WithField(trace.Component, "agent:rpc"),
 		AdvertiseAddr: config.AdvertiseAddr,
 		ServerAddr:    config.Process.Config().Pack.GetAddr().Addr,
 		Credentials:   *creds,

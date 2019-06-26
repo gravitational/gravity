@@ -25,11 +25,11 @@ import (
 
 	"github.com/gravitational/gravity/lib/defaults"
 	"github.com/gravitational/gravity/lib/fsm"
+	"github.com/gravitational/gravity/lib/install/dispatcher"
+	"github.com/gravitational/gravity/lib/install/dispatcher/buffered"
 	"github.com/gravitational/gravity/lib/install/engine"
 	installpb "github.com/gravitational/gravity/lib/install/proto"
 	"github.com/gravitational/gravity/lib/install/server"
-	"github.com/gravitational/gravity/lib/install/server/dispatcher"
-	"github.com/gravitational/gravity/lib/install/server/dispatcher/buffered"
 	"github.com/gravitational/gravity/lib/ops"
 	rpcserver "github.com/gravitational/gravity/lib/rpc/server"
 	"github.com/gravitational/gravity/lib/system/signals"
@@ -66,6 +66,7 @@ func New(ctx context.Context, config RuntimeConfig) (installer *Installer, err e
 		agent:       agent,
 		errC:        make(chan error, 2),
 		execC:       make(chan *installpb.ExecuteRequest),
+		execDoneC:   make(chan execResult, 1),
 		dispatcher:  dispatcher,
 	}
 	installer.startExecuteLoop()
@@ -81,10 +82,6 @@ func (i *Installer) Run(listener net.Listener) error {
 		i.errC <- i.server.Run(i, listener)
 	}()
 	err := <-i.errC
-	if installpb.IsAbortError(err) {
-		i.abort()
-		return trace.Wrap(err)
-	}
 	i.stop()
 	return trace.Wrap(err)
 }
@@ -93,23 +90,37 @@ func (i *Installer) Run(listener net.Listener) error {
 // Implements signals.Stopper
 func (i *Installer) Stop(ctx context.Context) error {
 	i.Info("Stop.")
-	i.server.Interrupt(ctx)
+	i.server.Interrupted(ctx)
 	return nil
 }
 
 // Execute executes the install operation using the configured engine.
 // Implements server.Executor
 func (i *Installer) Execute(req *installpb.ExecuteRequest, stream installpb.Agent_ExecuteServer) error {
-	if !i.submit(req) && !req.IsResume() {
+	if !i.submit(req) && req.HasSpecificPhase() {
 		return status.Error(codes.AlreadyExists, "operation is already active")
 	}
-	for event := range i.dispatcher.Chan() {
-		err := stream.Send(event)
-		if err != nil {
-			return trace.Wrap(err)
+	for {
+		select {
+		case event := <-i.dispatcher.Chan():
+			err := stream.Send(event)
+			if err != nil {
+				return trace.Wrap(err)
+			}
+		case result := <-i.execDoneC:
+			if result.err != nil {
+				// Phase finished with an error
+				return status.Error(codes.FailedPrecondition, result.err.Error())
+			}
+			if result.completionEvent != nil {
+				err := stream.Send(result.completionEvent.AsProgressResponse())
+				if err != nil {
+					return trace.Wrap(err)
+				}
+			}
+			return nil
 		}
 	}
-	return nil
 }
 
 // Complete manually completes the operation given with key.
@@ -150,9 +161,6 @@ type Interface interface {
 	// CompleteOperation executes additional steps common to all workflows after the
 	// installation has completed
 	CompleteOperation(operation ops.SiteOperation) error
-	// CompleteOperationAndWait executes additional steps common to all workflows after the
-	// installation has completed and blocks waiting for explicit shutdown
-	CompleteOperationAndWait(operation ops.SiteOperation) error
 	// CompleteFinalInstallStep marks the final install step as completed unless
 	// the application has a custom install step. In case of the custom step,
 	// the user completes the final installer step
@@ -180,9 +188,27 @@ func (i *Installer) startExecuteLoop() {
 		for {
 			select {
 			case req := <-i.execC:
-				if err := i.execute(req); err != nil {
-					i.sendError(err)
-					i.WithError(err).Warn("Failed to execute.")
+				status, err := i.execute(req)
+				select {
+				case <-i.execDoneC:
+					// Empty the result channel
+				default:
+				}
+				if err != nil {
+					i.WithFields(log.Fields{
+						log.ErrorKey: err,
+						"req":        req,
+					}).Warn("Failed to execute.")
+					i.execDoneC <- execResult{err: err}
+				} else {
+					var result execResult
+					if status.IsCompleted() {
+						result.completionEvent = i.newCompletionEvent(status)
+					}
+					i.execDoneC <- result
+				}
+				if status == dispatcher.StatusCompletedPending {
+					i.wait()
 				}
 			case <-i.ctx.Done():
 				return
@@ -207,36 +233,55 @@ func (i *Installer) maybeStartAgent() error {
 	return nil
 }
 
-func (i *Installer) execute(req *installpb.ExecuteRequest) error {
+func (i *Installer) execute(req *installpb.ExecuteRequest) (dispatcher.Status, error) {
 	i.WithField("req", req).Info("Execute.")
-	if req.Phase != nil {
-		return i.executePhase(*req.Phase)
+	existingOperation, _ := ops.GetWizardOperation(i.config.Operator)
+	if req.HasSpecificPhase() || existingOperation != nil {
+		// FIXME(dmitri): for now, fallback to installing via state machine even for
+		// requests with empty phase (i.e. execute from scratch type) if there's an existing
+		// operation.
+		// A lot more needs to be refactored to support resumption in the engine branch
+		phase := req.Phase
+		if phase == nil {
+			phase = phaseForOperation(*existingOperation)
+		}
+		return i.executePhase(*phase)
 	}
-	err := i.config.Engine.Execute(i.ctx, i, i.config.Config)
+	status, err := i.config.Engine.Execute(i.ctx, i, i.config.Config)
 	if err != nil {
-		return trace.Wrap(err)
+		return dispatcher.StatusUnknown, trace.Wrap(err)
 	}
-	return nil
+	return status, nil
 }
 
-func (i *Installer) executePhase(phase installpb.ExecuteRequest_Phase) error {
+func (i *Installer) executePhase(phase installpb.ExecuteRequest_Phase) (dispatcher.Status, error) {
 	opKey := installpb.KeyFromProto(phase.Key)
 	machine, err := i.config.FSMFactory.NewFSM(i.config.Operator, opKey)
 	if err != nil {
-		return trace.Wrap(err)
+		return dispatcher.StatusUnknown, trace.Wrap(err)
 	}
+	progressReporter := dispatcher.NewProgressReporter(i.ctx, i.dispatcher, phaseTitle(phase))
+	defer progressReporter.Stop()
 	if phase.IsResume() {
-		return trace.Wrap(ExecuteOperation(i.ctx, machine, i.FieldLogger))
+		err := ExecuteOperation(i.ctx, machine,
+			progressReporter,
+			i.FieldLogger)
+		if err != nil {
+			return dispatcher.StatusUnknown, trace.Wrap(err)
+		}
+		return dispatcher.StatusCompleted, nil
 	}
 	params := fsm.Params{
 		PhaseID:  phase.ID,
 		Force:    phase.Force,
-		Progress: dispatcher.NewProgressReporter(i.ctx, i.dispatcher, phaseTitle(phase)),
+		Progress: progressReporter,
 	}
 	if phase.Rollback {
-		return trace.Wrap(machine.RollbackPhase(i.ctx, params))
+		err := machine.RollbackPhase(i.ctx, params)
+		return dispatcher.StatusUnknown, trace.Wrap(err)
 	}
-	return trace.Wrap(machine.ExecutePhase(i.ctx, params))
+	err = machine.ExecutePhase(i.ctx, params)
+	return dispatcher.StatusUnknown, trace.Wrap(err)
 }
 
 func (i *Installer) startAgent(operation ops.SiteOperation) error {
@@ -257,54 +302,35 @@ func (i *Installer) startAgent(operation ops.SiteOperation) error {
 	return nil
 }
 
-func (i *Installer) stop() {
-	ctx, cancel := context.WithTimeout(context.Background(), defaults.ShutdownTimeout)
-	defer cancel()
-	if err := i.stopWithContext(ctx); err != nil {
-		i.WithError(err).Warn("Failed to stop.")
-	}
+// HandleStopped executes the list of registered stoppers before the service is shut down.
+// Implements server.Completer
+func (i *Installer) HandleStopped(ctx context.Context) error {
+	i.Info("Stop signaled.")
+	return trace.Wrap(i.stopWithContext(ctx, i.stoppers))
 }
 
-func (i *Installer) abort() {
-	ctx, cancel := context.WithTimeout(context.Background(), defaults.ShutdownTimeout)
-	defer cancel()
-	if err := i.abortWithContext(ctx); err != nil {
-		i.WithError(err).Warn("Failed to abort.")
-	}
+// HandleAborted completes the operation by running the list of registered abort handlers
+// Implements server.Completer
+func (i *Installer) HandleAborted(ctx context.Context) error {
+	i.Info("Abort signaled.")
+	return trace.Wrap(i.stopWithContext(ctx, i.aborters))
 }
 
-// stop stops the operation in progress
-func (i *Installer) stopWithContext(ctx context.Context) error {
+// HandleCompleted completes the operation by running the list of registered completion handlers
+// Implements server.Completer
+func (i *Installer) HandleCompleted(ctx context.Context) error {
+	i.Info("Completion signaled.")
+	return trace.Wrap(i.stopWithContext(ctx, i.completers))
+}
+
+// stop runs the specified list of stoppers and shuts down the server
+func (i *Installer) stopWithContext(ctx context.Context, stoppers []signals.Stopper) error {
 	i.cancel()
 	i.wg.Wait()
 	i.dispatcher.Close()
-	if i.agent != nil {
-		i.agent.Stop(ctx)
-	}
-	err := i.runStoppers(ctx)
+	err := i.runStoppers(ctx, stoppers)
 	i.config.Process.Shutdown(ctx)
-	i.server.Stop(ctx)
 	return trace.Wrap(err)
-}
-
-// abortWithContext aborts the active operation and invokes the abort handler
-func (i *Installer) abortWithContext(ctx context.Context) error {
-	i.cancel()
-	i.wg.Wait()
-	i.dispatcher.Close()
-	if i.agent != nil {
-		i.agent.Stop(ctx)
-	}
-	err := i.stopAborters(ctx)
-	i.config.Process.Shutdown(ctx)
-	i.server.Stop(ctx)
-	return trace.Wrap(err)
-}
-
-func (i *Installer) sendError(err error) {
-	i.dispatcher.Send(dispatcher.Event{
-		Error: err,
-	})
 }
 
 // Installer manages the installation process
@@ -313,23 +339,56 @@ type Installer struct {
 	log.FieldLogger
 	config RuntimeConfig
 	// ctx controls the lifespan of internal processes
-	ctx      context.Context
-	cancel   context.CancelFunc
-	server   *server.Server
+	ctx    context.Context
+	cancel context.CancelFunc
+	server *server.Server
+	// stoppers lists resources to close when the server is shutting down
 	stoppers []signals.Stopper
+	// aborters lists resources to close when the server has been interrupted
 	aborters []signals.Stopper
+	// completers lists resources to close when the server is shutting down
+	// after a successfully completed operation
+	completers []signals.Stopper
 	// agent is an optional RPC agent if the installer
 	// has been configured to use local host as one of the cluster nodes
-	agent *rpcserver.PeerServer
+	agent      *rpcserver.PeerServer
+	dispatcher dispatcher.EventDispatcher
+
 	// errC receives termination signals from either explicit Stop or agent
 	// closing with an error
 	errC chan error
 
-	execC      chan *installpb.ExecuteRequest
-	dispatcher dispatcher.EventDispatcher
-	wg         sync.WaitGroup
+	// execC relays execution requests to the executor loop from outside
+	execC chan *installpb.ExecuteRequest
+	// execDoneC is signaled by the executor loop to let the client-facing gRPC API
+	// know when to stop expecting events and exit
+	execDoneC chan execResult
+
+	// wg is a wait group used to ensure completion of internal processes
+	wg sync.WaitGroup
+}
+
+func (i *Installer) stop() {
+	ctx, cancel := context.WithTimeout(context.Background(), defaults.ShutdownTimeout)
+	defer cancel()
+	i.server.Stop(ctx)
 }
 
 func phaseTitle(phase installpb.ExecuteRequest_Phase) string {
+	if phase.IsResume() {
+		return "Resuming operation"
+	}
 	return fmt.Sprintf("Executing phase %v", phase.ID)
+}
+
+func phaseForOperation(op ops.SiteOperation) *installpb.ExecuteRequest_Phase {
+	return &installpb.ExecuteRequest_Phase{
+		ID:  fsm.RootPhase,
+		Key: installpb.KeyToProto(op.Key()),
+	}
+}
+
+type execResult struct {
+	completionEvent *dispatcher.Event
+	err             error
 }

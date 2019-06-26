@@ -67,11 +67,26 @@ func (r *Server) Stop(ctx context.Context) {
 	r.rpc.GracefulStop()
 }
 
-// Interrupt aborts the server.
-// This implements manual server interruption
-func (r *Server) Interrupt(ctx context.Context) error {
-	r.Info("Interrupt.")
-	r.signalAbort()
+// Interrupted executes abort handler on the executor.
+// This cannot block or invoke blocking APIs since it might be invoked
+// by the RPC agent during shutdown
+func (r *Server) Interrupted(ctx context.Context) error {
+	r.Info("Interrupted.")
+	r.aborted(ctx)
+	return nil
+}
+
+// Stopped executes the stop handler on the executor.
+// completed indicates whether this is the result of a successfully completed operation.
+// This cannot block or invoke blocking APIs since it might be invoked
+// by the RPC agent during shutdown
+func (r *Server) Stopped(ctx context.Context, completed bool) error {
+	r.Info("Stopped.")
+	if completed {
+		r.completed(ctx)
+	} else {
+		r.done(ctx)
+	}
 	return nil
 }
 
@@ -81,12 +96,14 @@ func (r *Server) Interrupt(ctx context.Context) error {
 //
 // Implements installpb.AgentServer
 func (r *Server) Execute(req *installpb.ExecuteRequest, stream installpb.Agent_ExecuteServer) error {
+	r.WithField("req", req).Info("Execute.")
 	return r.executor.Execute(req, stream)
 }
 
 // Complete manually completes the operation given with req.
 // Implements installpb.AgentServer
 func (r *Server) Complete(ctx context.Context, req *installpb.CompleteRequest) (*types.Empty, error) {
+	r.WithField("req", req).Info("Complete.")
 	err := r.executor.Complete(installpb.KeyFromProto(req.Key))
 	if err != nil {
 		// Not wrapping err as it passes the gRPC boundary
@@ -97,17 +114,21 @@ func (r *Server) Complete(ctx context.Context, req *installpb.CompleteRequest) (
 
 // Abort aborts the operation and cleans up the state.
 // Implements installpb.AgentServer
-func (r *Server) Abort(context.Context, *installpb.AbortRequest) (*types.Empty, error) {
+func (r *Server) Abort(ctx context.Context, req *installpb.AbortRequest) (*types.Empty, error) {
 	r.Info("Abort.")
-	r.signalAbort()
+	r.aborted(ctx)
 	return installpb.Empty, nil
 }
 
 // Shutdown closes the server gracefully.
 // Implements installpb.AgentServer
-func (r *Server) Shutdown(context.Context, *installpb.ShutdownRequest) (*types.Empty, error) {
-	r.Info("Shutdown.")
-	r.signalDone()
+func (r *Server) Shutdown(ctx context.Context, req *installpb.ShutdownRequest) (*types.Empty, error) {
+	r.WithField("req", req).Info("Shutdown.")
+	if req.Completed {
+		r.completed(ctx)
+	} else {
+		r.done(ctx)
+	}
 	return installpb.Empty, nil
 }
 
@@ -128,6 +149,7 @@ func (r *Server) GenerateDebugReport(ctx context.Context, req *installpb.DebugRe
 
 // Executor wraps a potentially failing operation
 type Executor interface {
+	Completer
 	// Execute executes an operation specified with req.
 	Execute(req *installpb.ExecuteRequest, stream installpb.Agent_ExecuteServer) error
 	// Complete manually completes the operation given with operationKey.
@@ -138,6 +160,19 @@ type Executor interface {
 type DebugReporter interface {
 	// GenerateDebugReport captures the state of the operation state for debugging
 	GenerateDebugReport(path string) error
+}
+
+// Completer describes completion outcomes
+type Completer interface {
+	// HandleAborted indicates that the operation has been aborted and completion steps
+	// specific to abort should be executed
+	HandleAborted(context.Context) error
+	// HandleStopped indicates that the operation is still is progress but the service
+	// is stopping
+	HandleStopped(context.Context) error
+	// HandleCompleted indicates that the operation has been successfully completed
+	// and executes steps specific to this event
+	HandleCompleted(context.Context) error
 }
 
 // Server implements the installer gRPC server.
@@ -158,14 +193,17 @@ type Server struct {
 	errC chan error
 }
 
-func (r *Server) signalDone() {
-	r.doneOnce.Do(func() {
-		r.errC <- nil
-	})
+func (r *Server) done(ctx context.Context) {
+	r.executor.HandleStopped(ctx)
+	r.errC <- nil
 }
 
-func (r *Server) signalAbort() {
-	r.doneOnce.Do(func() {
-		r.errC <- installpb.ErrAborted
-	})
+func (r *Server) aborted(ctx context.Context) {
+	r.executor.HandleAborted(ctx)
+	r.errC <- installpb.ErrAborted
+}
+
+func (r *Server) completed(ctx context.Context) {
+	r.executor.HandleCompleted(ctx)
+	r.errC <- installpb.ErrCompleted
 }

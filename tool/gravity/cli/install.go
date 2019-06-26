@@ -24,7 +24,6 @@ import (
 	"os/exec"
 	"path/filepath"
 	"strings"
-	"syscall"
 	"time"
 
 	autoscaleaws "github.com/gravitational/gravity/lib/autoscale/aws"
@@ -70,7 +69,7 @@ func startInstall(env *localenv.LocalEnvironment, config InstallConfig) error {
 		}
 		return trace.Wrap(err)
 	}
-	strategy, err := NewInstallerConnectStrategy(env)
+	strategy, err := NewInstallerConnectStrategy(env, config, ArgsParserFunc(parseArgs))
 	if err != nil {
 		return trace.Wrap(err)
 	}
@@ -228,9 +227,9 @@ func joinFromService(env, joinEnv *localenv.LocalEnvironment, config JoinConfig)
 	return trace.Wrap(peer.Run(listener))
 }
 
-// restartInstall restarts the install operation from scratch if the operation
-// has not been created yet.
-func restartInstall(env *localenv.LocalEnvironment) error {
+// restartInstallOrJoin restarts the install operation on installer node or
+// resumes agent on the joining node.
+func restartInstallOrJoin(env *localenv.LocalEnvironment) error {
 	env.PrintStep("Resuming installer")
 
 	err := InstallerClient(env, installerclient.Config{
@@ -280,22 +279,6 @@ func clientTerminationHandler(interrupt *signals.InterruptHandler, printer utils
 			return
 		}
 	}
-}
-
-func resumeJoin(env *localenv.LocalEnvironment) error {
-	env.PrintStep("Resuming agent")
-
-	err := joinClient(env, installerclient.Config{
-		ConnectStrategy: &installerclient.ResumeStrategy{},
-		Lifecycle: &installerclient.AutomaticLifecycle{
-			Aborter:   installerAbortOperation(env),
-			Completer: InstallerCompleteOperation(env),
-		},
-	})
-	if utils.IsContextCancelledError(err) {
-		return trace.Wrap(err, "agent interrupted")
-	}
-	return trace.Wrap(err)
 }
 
 type leaveConfig struct {
@@ -782,14 +765,15 @@ func NewServiceListener() (net.Listener, error) {
 // InterruptSignals lists signals installer service considers interrupts
 var InterruptSignals = signals.WithSignals(
 	os.Interrupt,
-	syscall.SIGTERM,
-	syscall.SIGQUIT,
 )
 
 // NewInstallerConnectStrategy returns default installer service connect strategy
-func NewInstallerConnectStrategy(env *localenv.LocalEnvironment) (strategy installerclient.ConnectStrategy, err error) {
+func NewInstallerConnectStrategy(env *localenv.LocalEnvironment, config InstallConfig, parser ArgsParser) (strategy installerclient.ConnectStrategy, err error) {
 	args := append([]string{utils.Exe.Path}, os.Args[1:]...)
 	args = append(args, "--from-service", utils.Exe.WorkingDir)
+	if ok, _ := hasFlagInArgs("token", os.Args[1:], parser); !ok {
+		args = append(args, "--token", config.Token)
+	}
 	servicePath, err := state.GravityInstallDir(defaults.GravityRPCInstallerServiceName)
 	if err != nil {
 		return nil, trace.Wrap(err)
@@ -855,7 +839,7 @@ func printJoinInstructionsBanner(printer utils.Printer) {
 To abort the agent and clean up the system,
 press Ctrl+C two times in a row.
 
-If the you get disconnected from the terminal, you can reconnect to the agent
+If the you get disconnected from the terminal, you can reconnect to the installer
 agent by issuing 'gravity resume' command.
 See https://gravitational.com/gravity/docs/cluster/#managing-an-ongoing-operation for details.
 `))

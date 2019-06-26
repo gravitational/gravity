@@ -17,15 +17,18 @@ limitations under the License.
 package cli
 
 import (
+	"context"
 	"sort"
 	"strings"
 	"time"
 
 	"github.com/gravitational/gravity/lib/defaults"
 	"github.com/gravitational/gravity/lib/fsm"
+	installerclient "github.com/gravitational/gravity/lib/install/client"
 	"github.com/gravitational/gravity/lib/localenv"
 	"github.com/gravitational/gravity/lib/ops"
 	"github.com/gravitational/gravity/lib/storage"
+	"github.com/gravitational/gravity/lib/system/signals"
 
 	"github.com/gravitational/trace"
 	"github.com/sirupsen/logrus"
@@ -45,8 +48,6 @@ type PhaseParams struct {
 	Timeout time.Duration
 	// SkipVersionCheck overrides the verification of binary version compatibility
 	SkipVersionCheck bool
-	// Sync controls whether the disconnecting client will also abort the operation
-	Sync bool
 }
 
 func (r PhaseParams) isResume() bool {
@@ -55,17 +56,21 @@ func (r PhaseParams) isResume() bool {
 
 // resumeOperation resumes the operation specified with params
 func resumeOperation(localEnv *localenv.LocalEnvironment, environ LocalEnvironmentFactory, params PhaseParams) error {
-	params.PhaseID = fsm.RootPhase
-	err := executePhase(localEnv, environ, params)
+	err := executePhase(localEnv, environ, PhaseParams{
+		PhaseID:          fsm.RootPhase,
+		Force:            params.Force,
+		Timeout:          params.Timeout,
+		SkipVersionCheck: params.SkipVersionCheck,
+		OperationID:      params.OperationID,
+	})
 	if err == nil {
 		return nil
 	}
-	if err != nil && !trace.IsNotFound(err) {
+	if !trace.IsNotFound(err) {
 		return trace.Wrap(err)
 	}
-	// No operation found.
-	// Attempt to resume the installation from scratch
-	return trace.Wrap(restartInstall(localEnv))
+	log.WithError(err).Warn("No operation found - will attempt to restart installation (resume join).")
+	return trace.Wrap(restartInstallOrJoin(localEnv))
 }
 
 // executePhase executes a phase for the operation specified with params
@@ -287,9 +292,12 @@ func (r *backendOperations) listJoinOperation(environ LocalEnvironmentFactory) e
 }
 
 func (r *backendOperations) listInstallOperation() error {
+	if err := ensureInstallerServiceRunning(); err != nil {
+		return trace.Wrap(err, "failed to restart installer service")
+	}
 	wizardEnv, err := localenv.NewRemoteEnvironment()
 	if err == nil && wizardEnv.Operator != nil {
-		cluster, err := getLocalClusterFromWizard(wizardEnv.Operator)
+		cluster, err := getLocalClusterFromOperator(wizardEnv.Operator)
 		if err == nil {
 			log.Info("Fetching operation from wizard.")
 			r.getOperationAndUpdateCache(getOperationFromOperator(wizardEnv.Operator, cluster.Key()),
@@ -302,17 +310,13 @@ func (r *backendOperations) listInstallOperation() error {
 		}
 		log.WithError(err).Warn("Failed to connect to wizard.")
 	}
-	wizardLocalEnv, err := localenv.NewLocalWizardEnvironment()
-	if err != nil {
-		return trace.Wrap(err, "failed to read local wizard environment")
-	}
-	log.Info("Fetching operation directly from wizard backend.")
-	r.getOperationAndUpdateCache(getOperationFromBackend(wizardLocalEnv.Backend),
-		log.WithField("context", "install"))
-	return nil
+	return trace.NotFound("no operation found")
 }
 
 func (r backendOperations) isActiveInstallOperation() bool {
+	if len(r.operations) != 0 {
+		return false
+	}
 	// FIXME: continue using wizard as source of truth as operation state
 	// replicated in etcd is reported completed before it actually is
 	return r.clusterOperation == nil || (r.clusterOperation.Type == ops.OperationInstall)
@@ -366,11 +370,40 @@ func getOperationFromBackend(backend storage.Backend) operationGetter {
 	})
 }
 
-func getLocalClusterFromWizard(operator ops.Operator) (cluster *ops.Site, err error) {
-	// TODO(dmitri): I attempted to default to local when creating clusters with wizard
-	// but this breaks when the installer needs to tunnel APIs to the installed cluster
-	// in which case it uses the difference of local (installed cluster) vs non-local
-	// (in wizard state), so resorting to look up
+func getOperationFromWizardBackend(backend storage.Backend) operationGetter {
+	return operationGetterFunc(func() (*ops.SiteOperation, error) {
+		cluster, err := getLocalClusterFromBackend(backend)
+		if err != nil {
+			return nil, trace.Wrap(err)
+		}
+		op, err := storage.GetLastOperationForCluster(backend, cluster.Domain)
+		if err != nil {
+			return nil, trace.Wrap(err)
+		}
+		return (*ops.SiteOperation)(op), nil
+	})
+}
+
+func getLocalClusterFromBackend(backend storage.Backend) (cluster *storage.Site, err error) {
+	// TODO(dmitri): when cluster is created by the wizard, it is not local
+	// so resort to look up
+	clusters, err := backend.GetSites(defaults.SystemAccountID)
+	if err != nil {
+		return nil, trace.Wrap(err)
+	}
+	log.WithField("clusters", clusters).Info("Fetched clusters from wizard backend.")
+	if len(clusters) == 0 {
+		return nil, trace.NotFound("no clusters found")
+	}
+	if len(clusters) != 1 {
+		return nil, trace.BadParameter("expected a single cluster, but found %v", len(clusters))
+	}
+	return &clusters[0], nil
+}
+
+func getLocalClusterFromOperator(operator ops.Operator) (cluster *ops.Site, err error) {
+	// TODO(dmitri): when cluster is created by the wizard, it is not local
+	// so resort to look up
 	clusters, err := operator.GetSites(defaults.SystemAccountID)
 	if err != nil {
 		return nil, trace.Wrap(err)
@@ -393,4 +426,19 @@ type operationGetterFunc func() (*ops.SiteOperation, error)
 
 type operationGetter interface {
 	getOperation() (*ops.SiteOperation, error)
+}
+
+func ensureInstallerServiceRunning() error {
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+	interrupt := signals.NewInterruptHandler(ctx, cancel)
+	defer interrupt.Close()
+	_, err := installerclient.New(context.Background(), installerclient.Config{
+		ConnectStrategy:  &installerclient.ResumeStrategy{},
+		InterruptHandler: interrupt,
+	})
+	if err != nil {
+		return trace.Wrap(err)
+	}
+	return nil
 }

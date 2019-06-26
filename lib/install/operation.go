@@ -10,7 +10,7 @@ import (
 
 	"github.com/gravitational/gravity/lib/constants"
 	"github.com/gravitational/gravity/lib/defaults"
-	"github.com/gravitational/gravity/lib/install/server/dispatcher"
+	"github.com/gravitational/gravity/lib/install/dispatcher"
 	"github.com/gravitational/gravity/lib/localenv"
 	"github.com/gravitational/gravity/lib/modules"
 	"github.com/gravitational/gravity/lib/ops"
@@ -18,7 +18,6 @@ import (
 	"github.com/gravitational/gravity/lib/status"
 	"github.com/gravitational/gravity/lib/storage"
 	"github.com/gravitational/gravity/lib/system/signals"
-	"github.com/gravitational/gravity/lib/utils"
 
 	"github.com/fatih/color"
 	"github.com/gravitational/trace"
@@ -35,7 +34,7 @@ type Engine interface {
 	//
 	// installer is the reference to the installer.
 	// config specifies the configuration for the operation
-	Execute(ctx context.Context, installer Interface, config Config) error
+	Execute(ctx context.Context, installer Interface, config Config) (dispatcher.Status, error)
 }
 
 // NotifyOperationAvailable is invoked by the engine to notify the server
@@ -76,7 +75,10 @@ func (i *Installer) ExecuteOperation(operationKey ops.SiteOperationKey) error {
 	if err != nil {
 		return trace.Wrap(err)
 	}
-	err = machine.ExecutePlan(i.ctx, utils.DiscardProgress)
+	progressReporter := dispatcher.NewProgressReporter(i.ctx,
+		i.dispatcher, "Executing operation")
+	defer progressReporter.Stop()
+	err = machine.ExecutePlan(i.ctx, progressReporter)
 	if err != nil {
 		i.WithError(err).Warn("Failed to execute operation plan.")
 	}
@@ -92,21 +94,14 @@ func (i *Installer) ExecuteOperation(operationKey ops.SiteOperationKey) error {
 // CompleteOperation executes additional steps after the installation has completed.
 // Implements Interface
 func (i *Installer) CompleteOperation(operation ops.SiteOperation) error {
-	return i.completeOperation(operation, dispatcher.StatusCompleted)
-}
-
-// CompleteOperationAndWait executes additional steps common to all workflows after the
-// installation has completed but does not exit
-func (i *Installer) CompleteOperationAndWait(operation ops.SiteOperation) error {
 	var errors []error
-	err := i.completeOperation(operation, dispatcher.StatusCompletedPending)
-	if err != nil {
+	if err := i.uploadInstallLog(operation.Key()); err != nil {
 		errors = append(errors, err)
 	}
-	err = i.wait()
-	if err != nil {
+	if err := i.emitAuditEvents(i.ctx, operation); err != nil {
 		errors = append(errors, err)
 	}
+	i.sendElapsedTime(operation.Created)
 	return trace.NewAggregate(errors...)
 }
 
@@ -141,23 +136,10 @@ func (i *Installer) PrintStep(format string, args ...interface{}) {
 	i.dispatcher.Send(event)
 }
 
-func (i *Installer) completeOperation(operation ops.SiteOperation, status dispatcher.Status) error {
-	var errors []error
-	if err := i.uploadInstallLog(operation.Key()); err != nil {
-		errors = append(errors, err)
-	}
-	if err := i.emitAuditEvents(i.ctx, operation); err != nil {
-		errors = append(errors, err)
-	}
-	i.sendElapsedTime(operation.Created)
-	i.sendCompletionEvent(status)
-	return trace.NewAggregate(errors...)
-}
-
 // wait blocks until either the context has been cancelled or the wizard process
 // exits with an error.
 func (i *Installer) wait() error {
-	i.runStoppers(i.ctx)
+	i.runStoppers(i.ctx, i.completers)
 	return trace.Wrap(i.config.Process.Wait())
 }
 
@@ -169,6 +151,10 @@ func (i *Installer) registerExitHandlersForAgents(op ops.SiteOperation) {
 	i.addStopper(signals.StopperFunc(func(ctx context.Context) error {
 		i.WithField("operation", op.ID).Info("Stopping agent service.")
 		return trace.Wrap(i.config.Process.AgentService().StopAgents(ctx, op.Key()))
+	}))
+	i.addCompleter(signals.StopperFunc(func(ctx context.Context) error {
+		i.WithField("operation", op.ID).Info("Completing agent service.")
+		return trace.Wrap(i.config.Process.AgentService().CompleteAgents(ctx, op.Key()))
 	}))
 }
 
@@ -183,13 +169,13 @@ func (i *Installer) sendElapsedTime(timeStarted time.Time) {
 
 // TODO(dmitri): this information should also be displayed when working with the operation
 // manually
-func (i *Installer) sendCompletionEvent(status dispatcher.Status) {
+func (i *Installer) newCompletionEvent(status dispatcher.Status) *dispatcher.Event {
 	var buf bytes.Buffer
 	i.printEndpoints(&buf)
 	if m, ok := modules.Get().(modules.Messager); ok {
 		fmt.Fprintf(&buf, "\n%v", m.PostInstallMessage())
 	}
-	event := dispatcher.Event{
+	return &dispatcher.Event{
 		Progress: &ops.ProgressEntry{
 			Message:    buf.String(),
 			Completion: constants.Completed,
@@ -197,22 +183,12 @@ func (i *Installer) sendCompletionEvent(status dispatcher.Status) {
 		// Set the completion status
 		Status: status,
 	}
-	i.dispatcher.Send(event)
 }
 
-func (i *Installer) runStoppers(ctx context.Context) error {
+func (i *Installer) runStoppers(ctx context.Context, stoppers []signals.Stopper) error {
 	var errors []error
-	for _, c := range i.stoppers {
-		if err := c.Stop(ctx); err != nil {
-			errors = append(errors, err)
-		}
-	}
-	return trace.NewAggregate(errors...)
-}
-
-func (i *Installer) stopAborters(ctx context.Context) error {
-	var errors []error
-	for _, c := range i.aborters {
+	i.WithField("stoppers", stoppers).Info("Executing stoppers.")
+	for _, c := range stoppers {
 		if err := c.Stop(ctx); err != nil {
 			errors = append(errors, err)
 		}
@@ -321,4 +297,8 @@ func (i *Installer) addStopper(stopper signals.Stopper) {
 
 func (i *Installer) addAborter(aborter signals.Stopper) {
 	i.aborters = append(i.aborters, aborter)
+}
+
+func (i *Installer) addCompleter(completer signals.Stopper) {
+	i.completers = append(i.completers, completer)
 }

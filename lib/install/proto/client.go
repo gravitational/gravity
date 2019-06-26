@@ -27,8 +27,7 @@ import (
 	grpc "google.golang.org/grpc"
 )
 
-// NewClient returns a new client using the specified state directory
-// to look for socket file
+// NewClient returns a new client using the specified socket file path
 func NewClient(ctx context.Context, socketPath string, logger log.FieldLogger, opts ...grpc.DialOption) (AgentClient, error) {
 	dialOptions := []grpc.DialOption{
 		// Don't use TLS, as we communicate over domain sockets

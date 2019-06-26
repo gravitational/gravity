@@ -57,7 +57,7 @@ func RegisterCommands(app *kingpin.Application) *Application {
 	g.InstallCmd.CmdClause = g.Command("install", "Install cluster on this node")
 	g.InstallCmd.Path = g.InstallCmd.Arg("appdir", "Path to directory with application package. Uses current directory by default").String()
 	g.InstallCmd.AdvertiseAddr = g.InstallCmd.Flag("advertise-addr", "The IP address to advertise").String()
-	g.InstallCmd.Token = g.InstallCmd.Flag("token", "Unique install token to authorize other nodes to join the cluster").String()
+	g.InstallCmd.Token = g.InstallCmd.Flag("token", "Unique install token to authorize other nodes to join the cluster. Generated automatically if unspecified").String()
 	g.InstallCmd.CloudProvider = g.InstallCmd.Flag("cloud-provider", fmt.Sprintf("Cloud provider integration: %v. If not set, autodetect environment", schema.SupportedProviders)).String()
 	g.InstallCmd.Cluster = g.InstallCmd.Flag("cluster", "Cluster name, optional").String()
 	g.InstallCmd.App = g.InstallCmd.Flag("app", "Application to install, optional").Hidden().String()
@@ -93,7 +93,7 @@ func RegisterCommands(app *kingpin.Application) *Application {
 	g.InstallCmd.GCENodeTags = g.InstallCmd.Flag("gce-node-tag", "Override node tag on the instance in GCE required for load balanacing. Defaults to cluster name.").Strings()
 	g.InstallCmd.DNSHosts = g.InstallCmd.Flag("dns-host", "Specify an IP address that will be returned for the given domain within the cluster. Accepts <domain>/<ip> format. Can be specified multiple times.").Hidden().Strings()
 	g.InstallCmd.DNSZones = g.InstallCmd.Flag("dns-zone", "Specify an upstream server for the given zone within the cluster. Accepts <zone>/<nameserver> format where <nameserver> can be either <ip> or <ip>:<port>. Can be specified multiple times.").Strings()
-	g.InstallCmd.ExcludeHostFromCluster = g.InstallCmd.Flag("remote", "Do not use this node in the cluster").Bool()
+	g.InstallCmd.Remote = g.InstallCmd.Flag("remote", "Do not use this node in the cluster").Bool()
 	g.InstallCmd.FromService = g.InstallCmd.Flag("from-service", "Run in service mode").Hidden().Bool()
 
 	g.JoinCmd.CmdClause = g.Command("join", "Join existing cluster or on-going install operation")
@@ -350,6 +350,7 @@ func RegisterCommands(app *kingpin.Application) *Application {
 	g.WizardCmd.ServiceUID = g.WizardCmd.Flag("service-uid", fmt.Sprintf("Service user ID for planet. %q user will created and used if none specified", defaults.ServiceUser)).Default(defaults.ServiceUserID).OverrideDefaultFromEnvar(constants.ServiceUserEnvVar).String()
 	g.WizardCmd.ServiceGID = g.WizardCmd.Flag("service-gid", fmt.Sprintf("Service group ID for planet. %q group will created and used if none specified", defaults.ServiceUserGroup)).Default(defaults.ServiceGroupID).OverrideDefaultFromEnvar(constants.ServiceGroupEnvVar).String()
 	g.WizardCmd.AdvertiseAddr = g.WizardCmd.Flag("advertise-addr", "The IP address to advertise. Will be selected automatically if unspecified").String()
+	g.WizardCmd.Token = g.WizardCmd.Flag("token", "Unique install token to authorize other nodes to join the cluster. Generated automatically if unspecified").String()
 	g.WizardCmd.FromService = g.WizardCmd.Flag("from-service", "Run in service mode").Hidden().Bool()
 
 	g.AppPackageCmd.CmdClause = g.Command("app-package", "Display the name of application package from installer tarball").Hidden()

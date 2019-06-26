@@ -33,11 +33,11 @@ import (
 	"github.com/gravitational/gravity/lib/fsm"
 	"github.com/gravitational/gravity/lib/httplib"
 	"github.com/gravitational/gravity/lib/install"
+	"github.com/gravitational/gravity/lib/install/dispatcher"
+	"github.com/gravitational/gravity/lib/install/dispatcher/buffered"
+	"github.com/gravitational/gravity/lib/install/dispatcher/direct"
 	installpb "github.com/gravitational/gravity/lib/install/proto"
 	"github.com/gravitational/gravity/lib/install/server"
-	"github.com/gravitational/gravity/lib/install/server/dispatcher"
-	"github.com/gravitational/gravity/lib/install/server/dispatcher/buffered"
-	"github.com/gravitational/gravity/lib/install/server/dispatcher/direct"
 	"github.com/gravitational/gravity/lib/localenv"
 	validationpb "github.com/gravitational/gravity/lib/network/validation/proto"
 	"github.com/gravitational/gravity/lib/ops"
@@ -74,11 +74,12 @@ func NewPeer(config PeerConfig) (*Peer, error) {
 		cancel:     cancel,
 		server:     server,
 		dispatcher: dispatcher,
-		// Account for server exit, agent exit and agent reconnect failure
-		errC:     make(chan error, 3),
-		execC:    make(chan *installpb.ExecuteRequest),
-		abortC:   make(chan chan struct{}),
-		connectC: make(chan connectResult, 1),
+		// Account for server exit, agent exit or agent reconnect failure
+		errC:      make(chan error, 4),
+		execC:     make(chan *installpb.ExecuteRequest),
+		execDoneC: make(chan error, 1),
+		closeC:    make(chan closeResponse),
+		connectC:  make(chan connectResult, 1),
 	}
 	peer.startConnectLoop()
 	peer.startExecuteLoop()
@@ -93,21 +94,26 @@ type Peer struct {
 	ctx context.Context
 	// cancel cancels internal operation
 	cancel context.CancelFunc
-	// errC is signaled when either the agent or the service is aborted
+	// errC is signaled when either the service or agent is aborted
 	errC chan error
 	// connectC receives the results of connecting to either wizard
 	// or cluster controller
 	connectC chan connectResult
 	// server is the gRPC installer server
-	server *server.Server
-
-	// abortC is a channel to signal external operation abort.
-	// Implements the service channel pattern (https://talks.golang.org/2013/advconc.slide#25)
-	// to ensure guaranteed delivery of the abort signal
-	abortC     chan chan struct{}
-	execC      chan *installpb.ExecuteRequest
+	server     *server.Server
 	dispatcher dispatcher.EventDispatcher
-	wg         sync.WaitGroup
+
+	// closeC is a channel to explicitly signal end of operation.
+	closeC chan closeResponse
+
+	// execC relays execution requests to the executor loop from outside
+	execC chan *installpb.ExecuteRequest
+	// execDoneC is signaled by the executor loop to let the client-facing gRPC API
+	// know when to stop expecting events and exit
+	execDoneC chan error
+
+	// wg is a wait group used to ensure completion of internal processes
+	wg sync.WaitGroup
 }
 
 // Run runs the peer operation
@@ -116,9 +122,8 @@ func (p *Peer) Run(listener net.Listener) error {
 		p.errC <- p.server.Run(p, listener)
 	}()
 	err := <-p.errC
-	if installpb.IsAbortError(err) {
-		p.sendAbort()
-	}
+	// Stopping is on best-effort basis, the client will be trying to stop the service
+	// if notified
 	p.stop()
 	return trace.Wrap(err)
 }
@@ -127,7 +132,7 @@ func (p *Peer) Run(listener net.Listener) error {
 // Implements signals.Stopper
 func (p *Peer) Stop(ctx context.Context) error {
 	p.Info("Stop.")
-	p.server.Interrupt(ctx)
+	p.server.Interrupted(ctx)
 	return nil
 }
 
@@ -135,10 +140,11 @@ func (p *Peer) Stop(ctx context.Context) error {
 // Implements server.Executor
 func (p *Peer) Execute(req *installpb.ExecuteRequest, stream installpb.Agent_ExecuteServer) (err error) {
 	p.WithField("req", req).Info("Execute.")
-	if !p.submit(req) && !req.IsResume() {
+	if req.HasSpecificPhase() {
 		// Execute the operation with a new dispatcher
 		return p.executeConcurrentStep(req, stream)
 	}
+	p.submit(req)
 	for {
 		select {
 		case event := <-p.dispatcher.Chan():
@@ -146,14 +152,18 @@ func (p *Peer) Execute(req *installpb.ExecuteRequest, stream installpb.Agent_Exe
 			if err != nil {
 				return trace.Wrap(err)
 			}
-		case doneC := <-p.abortC:
-			err := stream.Send(installpb.AbortEvent)
-			close(doneC)
+		case req := <-p.closeC:
+			err := stream.Send(req.resp)
+			close(req.doneC)
 			if err != nil {
 				return trace.Wrap(err)
 			}
-		case <-p.ctx.Done():
-			return status.Error(codes.Canceled, "operation canceled")
+		case err := <-p.execDoneC:
+			if err != nil {
+				// Phase finished with an error
+				return status.Error(codes.FailedPrecondition, err.Error())
+			}
+			return nil
 		}
 	}
 	return nil
@@ -172,6 +182,36 @@ func (p *Peer) Complete(opKey ops.SiteOperationKey) error {
 		return trace.Wrap(err)
 	}
 	return trace.Wrap(machine.Complete(trace.Errorf("completed manually")))
+}
+
+// HandleCompleted completes the operation by dispatching a completion event to the client.
+// Implements server.Completer
+func (p *Peer) HandleCompleted(ctx context.Context) error {
+	p.Info("Completion signaled.")
+	if p.sendCloseResponse(installpb.CompleteEvent) {
+		p.Info("Client notified about completion.")
+	}
+	p.errC <- installpb.ErrCompleted
+	return nil
+}
+
+// HandleAborted completes the operation by dispatching an abort event to the client.
+// Implements server.Completer
+func (p *Peer) HandleAborted(ctx context.Context) error {
+	p.Info("Abort signaled.")
+	if p.sendCloseResponse(installpb.AbortEvent) {
+		p.Info("Client notified about abort.")
+	}
+	p.errC <- installpb.ErrAborted
+	return nil
+}
+
+// HandleStopped shuts down the server
+// Implements server.Completer
+func (p *Peer) HandleStopped(context.Context) error {
+	p.Info("Stop signaled.")
+	p.errC <- nil
+	return nil
 }
 
 // PeerConfig defines the configuration for a peer joining the cluster
@@ -281,13 +321,19 @@ func (p *Peer) startExecuteLoop() {
 		for {
 			select {
 			case req := <-p.execC:
-				if err := p.execute(req); err != nil {
-					p.sendError(err)
+				err := p.execute(req)
+				select {
+				case <-p.execDoneC:
+					// Empty the result channel
+				default:
+				}
+				if err != nil {
 					p.WithFields(log.Fields{
 						log.ErrorKey: err,
 						"req":        req,
-					}).Warn("Failed to execute phase.")
+					}).Warn("Failed to execute.")
 				}
+				p.execDoneC <- err
 			case <-p.ctx.Done():
 				return
 			}
@@ -319,7 +365,7 @@ func (p *Peer) startProgressLoop(ctx operationContext) {
 			FieldLogger:  p.FieldLogger,
 			Operator:     ctx.Operator,
 			OperationKey: ctx.Operation.Key(),
-			Dispatcher:   &eventDispatcher{w: dispatcher.NewWriter(p.dispatcher)},
+			Dispatcher:   p.dispatcher,
 		}.Run(p.ctx)
 	}()
 }
@@ -390,27 +436,21 @@ func (p *Peer) executePhase(ctx context.Context, opCtx operationContext, phase i
 	if err != nil {
 		return trace.Wrap(err)
 	}
+	progressReporter := dispatcher.NewProgressReporter(ctx, disp, phaseTitle(phase))
+	defer progressReporter.Stop()
 	if phase.IsResume() {
-		return trace.Wrap(install.ExecuteOperation(ctx, machine, p.FieldLogger))
+		return trace.Wrap(install.ExecuteOperation(ctx, machine,
+			progressReporter, p.FieldLogger))
 	}
 	params := fsm.Params{
 		PhaseID:  phase.ID,
 		Force:    phase.Force,
-		Progress: dispatcher.NewProgressReporter(ctx, disp, phaseTitle(phase)),
+		Progress: progressReporter,
 	}
 	if phase.Rollback {
 		return trace.Wrap(machine.RollbackPhase(ctx, params))
 	}
 	return trace.Wrap(machine.ExecutePhase(ctx, params))
-}
-
-func (p *Peer) stop() {
-	ctx, cancel := context.WithTimeout(context.Background(), defaults.ShutdownTimeout)
-	defer cancel()
-	p.cancel()
-	p.wg.Wait()
-	p.dispatcher.Close()
-	p.server.Stop(ctx)
 }
 
 // printStep publishes a progress entry described with (format, args) tuple to the client
@@ -640,6 +680,17 @@ func (p *Peer) connectLoop() (*operationContext, error) {
 	}
 }
 
+func (p *Peer) stop() error {
+	p.Info("Stopping peer.")
+	ctx, cancel := context.WithTimeout(context.Background(), defaults.ShutdownTimeout)
+	defer cancel()
+	p.cancel()
+	p.wg.Wait()
+	p.dispatcher.Close()
+	p.server.Stop(ctx)
+	return nil
+}
+
 func (p *Peer) tryConnect(operationID string) (op *operationContext, err error) {
 	p.printStep("Connecting to cluster")
 	for _, addr := range p.Peers {
@@ -678,7 +729,7 @@ func (p *Peer) tryConnect(operationID string) (op *operationContext, err error) 
 }
 
 // startAgent starts a new RPC agent using the specified operation context.
-// The agent will signal p.agentErrC once it has terminated
+// The agent will signal p.errC once it has terminated
 func (p *Peer) startAgent(ctx operationContext) error {
 	agent, err := p.newAgent(ctx)
 	if err != nil {
@@ -707,7 +758,8 @@ func (p *Peer) newAgent(opCtx operationContext) (*rpcserver.PeerServer, error) {
 		Credentials:   opCtx.Creds,
 		RuntimeConfig: p.RuntimeConfig,
 		WatchCh:       p.WatchCh,
-		AbortHandler:  p.server.Interrupt,
+		StopHandler:   p.server.Stopped,
+		AbortHandler:  p.server.Interrupted,
 	})
 	if err != nil {
 
@@ -744,16 +796,12 @@ func (p *Peer) run(ctx operationContext) error {
 		}
 	}()
 
+	p.startProgressLoop(ctx)
 	if ctx.Operation.Type != ops.OperationExpand {
-		return trace.Wrap(install.ProgressPoller{
-			FieldLogger:  p.FieldLogger,
-			Operator:     ctx.Operator,
-			OperationKey: ctx.Operation.Key(),
-			Dispatcher:   &eventDispatcher{w: dispatcher.NewWriter(p.dispatcher)},
-		}.Run(p.ctx))
+		<-p.ctx.Done()
+		return nil
 	}
 
-	p.startProgressLoop(ctx)
 	return trace.Wrap(p.executeExpandOperation(ctx))
 }
 
@@ -856,6 +904,7 @@ func (p *Peer) executeExpandOperation(ctx operationContext) error {
 		return trace.Wrap(err)
 	}
 	progress := dispatcher.NewProgressReporter(p.ctx, p.dispatcher, "Executing expand operation")
+	defer progress.Stop()
 	fsmErr := fsm.ExecutePlan(p.ctx, progress)
 	if fsmErr != nil {
 		p.WithError(fsmErr).Warn("Failed to execute plan.")
@@ -998,40 +1047,17 @@ func (p *Peer) sendError(err error) {
 	})
 }
 
-func (p *Peer) sendAbort() {
+func (p *Peer) sendCloseResponse(resp *installpb.ProgressResponse) bool {
 	doneC := make(chan struct{})
 	select {
-	case p.abortC <- doneC:
+	case p.closeC <- closeResponse{doneC: doneC, resp: resp}:
 		// If receiver is available, wait for completion
 		<-doneC
+		return true
 	default:
 		// Do not block if otherwise
+		return false
 	}
-}
-
-// Send dispatches the specified event to client
-func (r *eventDispatcher) Send(event dispatcher.Event) {
-	if event.Progress == nil {
-		r.w.Send(event)
-		return
-	}
-	if event.Progress.State != ops.ProgressStateFailed && event.Progress.IsCompleted() {
-		// Mark event as completed for successful operation
-		event.Status = dispatcher.StatusCompleted
-	}
-	r.w.Send(event)
-}
-
-// Write sends p as progress event to the server.
-// Implements io.Writer
-func (r *eventDispatcher) Write(p []byte) (n int, err error) {
-	return r.w.Write(p)
-}
-
-// eventDispatcher implements eventDispatcher for the agent
-// and maps completed progress event to client completed event
-type eventDispatcher struct {
-	w *dispatcher.EventWriter
 }
 
 func (r operationContext) isExpand() bool {
@@ -1089,10 +1115,18 @@ func isTerminalError(err error) bool {
 }
 
 func phaseTitle(phase installpb.ExecuteRequest_Phase) string {
+	if phase.IsResume() {
+		return "Resuming operation"
+	}
 	return fmt.Sprintf("Executing phase %v", phase.ID)
 }
 
 type connectResult struct {
 	*operationContext
 	err error
+}
+
+type closeResponse struct {
+	doneC chan struct{}
+	resp  *installpb.ProgressResponse
 }

@@ -18,8 +18,8 @@ package test
 import (
 	"time"
 
+	"github.com/gravitational/gravity/lib/install/dispatcher"
 	installpb "github.com/gravitational/gravity/lib/install/proto"
-	"github.com/gravitational/gravity/lib/install/server/dispatcher"
 	"github.com/gravitational/gravity/lib/ops"
 
 	. "gopkg.in/check.v1"

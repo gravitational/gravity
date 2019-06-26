@@ -1111,6 +1111,10 @@ var (
 	// healthy node status
 	NodeStatusTimeout = 5 * time.Minute
 
+	// AgentWaitTimeout specifies the maximum amount of time to wait for
+	// agents to form a cluster before commencing the operation
+	AgentWaitTimeout = 5 * time.Minute
+
 	// WormholeImg is the docker image reference to use when embedding wormhole
 	// Note: This is a build parameter, and the build scripts will replace this with an image reference
 	WormholeImg = "<build param>"
@@ -1146,6 +1150,11 @@ var (
 	// The exit code is used to prevent the installer service from restarting in case the operation
 	// is aborted
 	AbortedOperationExitCode = 254
+
+	// CompletedOperationExitCode specifies the exit code for this process when an operation completes
+	// successfully.
+	// The exit code is used to prevent the agent service from restarting after shut down
+	CompletedOperationExitCode = 253
 )
 
 // HookSecurityContext returns default securityContext for hook pods

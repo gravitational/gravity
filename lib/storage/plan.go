@@ -40,7 +40,7 @@ type OperationPlan struct {
 	Phases []OperationPhase `json:"phases"`
 	// Servers is the list of all cluster servers
 	Servers []Server `json:"servers"`
-	// GravityPackage is updated gravity package locator
+	// GravityPackage is the gravity package locator to update to
 	GravityPackage loc.Locator `json:"gravity_package"`
 	// CreatedAt is the plan creation timestamp
 	CreatedAt time.Time `json:"created_at"`

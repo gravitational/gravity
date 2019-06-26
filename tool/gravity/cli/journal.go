@@ -60,20 +60,20 @@ func exportRuntimeJournal(env *localenv.LocalEnvironment, outputFile string) err
 	if err := m.RoBindMount(logDir, journalDir); err != nil {
 		return trace.Wrap(err)
 	}
-
-	cleanup := func(context.Context) error {
+	defer func() {
 		if errUnmount := m.Unmount(journalDir); errUnmount != nil {
-			log.Warnf("Failed to unmount %v: %v.", journalDir, errUnmount)
+			log.WithFields(logrus.Fields{
+				logrus.ErrorKey: errUnmount,
+				"dir":           journalDir,
+			}).Warn("Failed to unmount.")
 		}
-		return nil
-	}
-
+	}()
 	logger := log.WithFields(logrus.Fields{
 		"runtime-package": runtimePackage.String(),
 		"rootfs":          rootDir,
 	})
 	ctx, cancel := context.WithCancel(context.Background())
-	interrupt := signals.WatchTerminationSignals(ctx, cancel, signals.StopperFunc(cleanup), env)
+	interrupt := signals.WatchTerminationSignals(ctx, cancel, env)
 	defer interrupt.Close()
 
 	var w io.Writer = os.Stdout

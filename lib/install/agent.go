@@ -55,6 +55,7 @@ func NewAgent(config AgentConfig) (*rpcserver.PeerServer, error) {
 			Credentials:   config.Credentials,
 			RuntimeConfig: config.RuntimeConfig,
 			AbortHandler:  config.AbortHandler,
+			StopHandler:   config.StopHandler,
 		},
 		WatchCh:           config.WatchCh,
 		ReconnectStrategy: *config.ReconnectStrategy,
@@ -98,6 +99,9 @@ type AgentConfig struct {
 	pb.RuntimeConfig
 	// WatchCh specifies the channel to receive peer reconnect updates
 	WatchCh chan rpcserver.WatchEvent
+	// StopHandler specifies an optional handler for when the agent is stopped.
+	// boolean flag indicates wether this is the result of a successfully completed operation
+	StopHandler func(context.Context, bool) error
 	// AbortHandler specifies an optional handler for abort requests
 	AbortHandler func(context.Context) error
 }

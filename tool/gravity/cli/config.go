@@ -56,11 +56,11 @@ import (
 	"github.com/gravitational/gravity/lib/system/environ"
 	"github.com/gravitational/gravity/lib/system/signals"
 	"github.com/gravitational/gravity/lib/systeminfo"
+	"github.com/gravitational/gravity/lib/users"
 	"github.com/gravitational/gravity/lib/utils"
 
 	"github.com/docker/docker/pkg/namesgenerator"
 	teledefaults "github.com/gravitational/teleport/lib/defaults"
-	teleutils "github.com/gravitational/teleport/lib/utils"
 	"github.com/gravitational/trace"
 	"github.com/sirupsen/logrus"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -140,8 +140,9 @@ type InstallConfig struct {
 	ServiceUID string
 	// ServiceGID is the ID of the service group as configured externally
 	ServiceGID string
-	// ExcludeHostFromCluster specifies whether the host should not be part of the cluster
-	ExcludeHostFromCluster bool
+	// Remote specifies whether the installer executes the operation remotely
+	// (i.e. installer node will not be part of cluster)
+	Remote bool
 	// Printer specifies the output for progress messages
 	utils.Printer
 	// ProcessConfig specifies the Gravity process configuration
@@ -183,23 +184,23 @@ func NewInstallConfig(env *localenv.LocalEnvironment, g *Application) InstallCon
 			StorageDriver: g.InstallCmd.DockerStorageDriver.value,
 			Args:          *g.InstallCmd.DockerArgs,
 		},
-		DNSConfig:              g.InstallCmd.DNSConfig(),
-		GCENodeTags:            *g.InstallCmd.GCENodeTags,
-		LocalPackages:          env.Packages,
-		LocalApps:              env.Apps,
-		LocalBackend:           env.Backend,
-		LocalClusterClient:     env.SiteOperator,
-		Mode:                   mode,
-		ServiceUID:             *g.InstallCmd.ServiceUID,
-		ServiceGID:             *g.InstallCmd.ServiceGID,
-		AppPackage:             *g.InstallCmd.App,
-		ResourcesPath:          *g.InstallCmd.ResourcesPath,
-		DNSHosts:               *g.InstallCmd.DNSHosts,
-		DNSZones:               *g.InstallCmd.DNSZones,
-		Flavor:                 *g.InstallCmd.Flavor,
-		ExcludeHostFromCluster: *g.InstallCmd.ExcludeHostFromCluster,
-		FromService:            *g.InstallCmd.FromService,
-		Printer:                env,
+		DNSConfig:          g.InstallCmd.DNSConfig(),
+		GCENodeTags:        *g.InstallCmd.GCENodeTags,
+		LocalPackages:      env.Packages,
+		LocalApps:          env.Apps,
+		LocalBackend:       env.Backend,
+		LocalClusterClient: env.SiteOperator,
+		Mode:               mode,
+		ServiceUID:         *g.InstallCmd.ServiceUID,
+		ServiceGID:         *g.InstallCmd.ServiceGID,
+		AppPackage:         *g.InstallCmd.App,
+		ResourcesPath:      *g.InstallCmd.ResourcesPath,
+		DNSHosts:           *g.InstallCmd.DNSHosts,
+		DNSZones:           *g.InstallCmd.DNSZones,
+		Flavor:             *g.InstallCmd.Flavor,
+		Remote:             *g.InstallCmd.Remote,
+		FromService:        *g.InstallCmd.FromService,
+		Printer:            env,
 	}
 }
 
@@ -246,7 +247,7 @@ func (i *InstallConfig) CheckAndSetDefaults() (err error) {
 				teledefaults.MaxPasswordLength)
 		}
 	} else {
-		if i.Token, err = teleutils.CryptoRandomHex(6); err != nil {
+		if i.Token, err = newRandomInstallTokenText(); err != nil {
 			return trace.Wrap(err)
 		}
 		i.WithField("token", i.Token).Info("Generated install token.")
@@ -273,8 +274,10 @@ func (i *InstallConfig) CheckAndSetDefaults() (err error) {
 	if i.VxlanPort < 1 || i.VxlanPort > 65535 {
 		return trace.BadParameter("invalid vxlan port: must be in range 1-65535")
 	}
-	if err := i.validateCloudConfig(); err != nil {
-		return trace.Wrap(err)
+	if !i.Remote {
+		if err := i.validateCloudConfig(); err != nil {
+			return trace.Wrap(err)
+		}
 	}
 	if !utils.StringInSlice(modules.Get().InstallModes(), i.Mode) {
 		return trace.BadParameter("invalid mode %q", i.Mode)
@@ -393,7 +396,7 @@ func (i *InstallConfig) NewInstallerConfig(
 		Apps:               wizard.Apps,
 		Packages:           wizard.Packages,
 		Operator:           wizard.Operator,
-		LocalAgent:         !i.ExcludeHostFromCluster,
+		LocalAgent:         !i.Remote,
 	}, nil
 
 }
@@ -598,21 +601,22 @@ func (i *InstallConfig) validateCloudConfig() (err error) {
 // NewWizardConfig returns new configuration for the interactive installer
 func NewWizardConfig(env *localenv.LocalEnvironment, g *Application) InstallConfig {
 	return InstallConfig{
-		Mode:                   constants.InstallModeInteractive,
-		Insecure:               *g.Insecure,
-		UserLogFile:            *g.UserLogFile,
-		StateDir:               *g.WizardCmd.Path,
-		SystemLogFile:          *g.SystemLogFile,
-		ServiceUID:             *g.WizardCmd.ServiceUID,
-		ServiceGID:             *g.WizardCmd.ServiceGID,
-		AdvertiseAddr:          *g.WizardCmd.AdvertiseAddr,
-		FromService:            *g.WizardCmd.FromService,
-		ExcludeHostFromCluster: true,
-		Printer:                env,
-		LocalPackages:          env.Packages,
-		LocalApps:              env.Apps,
-		LocalBackend:           env.Backend,
-		LocalClusterClient:     env.SiteOperator,
+		Mode:               constants.InstallModeInteractive,
+		Insecure:           *g.Insecure,
+		UserLogFile:        *g.UserLogFile,
+		StateDir:           *g.WizardCmd.Path,
+		SystemLogFile:      *g.SystemLogFile,
+		ServiceUID:         *g.WizardCmd.ServiceUID,
+		ServiceGID:         *g.WizardCmd.ServiceGID,
+		AdvertiseAddr:      *g.WizardCmd.AdvertiseAddr,
+		Token:              *g.WizardCmd.Token,
+		FromService:        *g.WizardCmd.FromService,
+		Remote:             true,
+		Printer:            env,
+		LocalPackages:      env.Packages,
+		LocalApps:          env.Apps,
+		LocalBackend:       env.Backend,
+		LocalClusterClient: env.SiteOperator,
 	}
 }
 
@@ -801,6 +805,14 @@ func validateIP(blocks []net.IPNet, ip net.IP) bool {
 	return false
 }
 
+func newRandomInstallTokenText() (token string, err error) {
+	token, err = users.CryptoRandomToken(defaults.InstallTokenBytes)
+	if err != nil {
+		return "", trace.Wrap(err)
+	}
+	return token, nil
+}
+
 func generateInstallToken(operator ops.Operator, installToken string) (*storage.InstallToken, error) {
 	token, err := operator.CreateInstallToken(
 		ops.NewInstallTokenRequest{
@@ -894,11 +906,10 @@ func installerInteractiveUninstallSystem(env *localenv.LocalEnvironment) func(co
 // InstallerCompleteOperation implements the clean up phase when the installer service
 // shuts down after a sucessfully completed operation
 func InstallerCompleteOperation(env *localenv.LocalEnvironment) installerclient.CompletionHandler {
-	return func(ctx context.Context, interrupt *signals.InterruptHandler, status installpb.ProgressResponse_Status) error {
+	return func(ctx context.Context, status installpb.ProgressResponse_Status) error {
 		logger := log.WithField(trace.Component, "installer:cleanup")
 		if status == installpb.StatusCompletedPending {
 			// Wait for explicit interrupt signal before cleaning up
-			interrupt.Close()
 			env.PrintStep(postInstallInteractiveBanner)
 			signals.WaitFor(os.Interrupt)
 		}

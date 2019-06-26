@@ -29,6 +29,10 @@ service Agent {
 
 // ShutdownRequest describes a request to shut down a report RPC agent
 message ShutdownRequest {
+    // Completed indicates that the operation has been completed.
+    // Agents may choose to prevent restart after receiving the shutdown request
+    // with Completed = true
+    bool completed = 1;
 }
 
 message CommandArgs {

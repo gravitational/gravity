@@ -37,9 +37,10 @@ import (
 	"github.com/gravitational/gravity/lib/systeminfo"
 	"github.com/gravitational/gravity/lib/utils"
 	"github.com/gravitational/gravity/tool/common"
-	"github.com/gravitational/roundtrip"
 
+	"github.com/gravitational/roundtrip"
 	"github.com/gravitational/trace"
+	kingpin "gopkg.in/alecthomas/kingpin.v2"
 )
 
 // LocalEnvironmentFactory defines an interface for creating operation-specific environments
@@ -290,4 +291,45 @@ func loadRPCCredentials(ctx context.Context, addr, token string) (*rpcserver.Cre
 		return nil, trace.Wrap(err)
 	}
 	return creds, nil
+}
+
+// hasFlagInArgs returns true if the specified flag has been found
+// in args.
+// parser specifies the command line parser for args
+func hasFlagInArgs(flag string, args []string, parser ArgsParser) (ok bool, err error) {
+	ctx, err := parser.ParseArgs(args)
+	if err != nil {
+		log.WithError(err).Warn("Failed to parse command line.")
+		return false, trace.Wrap(err)
+	}
+	for _, el := range ctx.Elements {
+		switch c := el.Clause.(type) {
+		case *kingpin.FlagClause:
+			model := c.Model()
+			if model.Name == flag {
+				return true, nil
+			}
+		}
+	}
+	return false, nil
+}
+
+func parseArgs(args []string) (*kingpin.ParseContext, error) {
+	app := kingpin.New("gravity", "")
+	return RegisterCommands(app).ParseContext(args)
+}
+
+// ParseArgs parses the specified command line arguments into a parse context
+func (r ArgsParserFunc) ParseArgs(args []string) (*kingpin.ParseContext, error) {
+	return r(args)
+}
+
+// ArgsParserFunc is a functional wrapper for ArgsParser to enable ordinary functions
+// as ArgsParsers
+type ArgsParserFunc func(args []string) (*kingpin.ParseContext, error)
+
+// ArgsParser parses Gravity command line arguments
+type ArgsParser interface {
+	// ParseArgs parses the specified command line arguments into a parse context
+	ParseArgs(args []string) (*kingpin.ParseContext, error)
 }

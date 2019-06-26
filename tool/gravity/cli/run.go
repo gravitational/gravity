@@ -94,12 +94,8 @@ func InitAndCheck(g *Application, cmd string) error {
 	case g.RPCAgentDeployCmd.FullCommand(),
 		g.RPCAgentInstallCmd.FullCommand(),
 		g.RPCAgentRunCmd.FullCommand(),
-		g.ResumeCmd.FullCommand(),
 		g.PlanCmd.FullCommand(),
 		g.PlanDisplayCmd.FullCommand(),
-		g.PlanExecuteCmd.FullCommand(),
-		g.PlanRollbackCmd.FullCommand(),
-		g.PlanResumeCmd.FullCommand(),
 		g.UpgradeCmd.FullCommand(),
 		g.ResourceCreateCmd.FullCommand():
 		if *g.Debug {
@@ -123,6 +119,10 @@ func InitAndCheck(g *Application, cmd string) error {
 		g.RPCAgentRunCmd.FullCommand(),
 		g.LeaveCmd.FullCommand(),
 		g.RemoveCmd.FullCommand(),
+		g.ResumeCmd.FullCommand(),
+		g.PlanResumeCmd.FullCommand(),
+		g.PlanExecuteCmd.FullCommand(),
+		g.PlanRollbackCmd.FullCommand(),
 		g.OpsAgentCmd.FullCommand():
 		install.InitLogging(*g.SystemLogFile)
 		// install and join command also duplicate their logs to the file in

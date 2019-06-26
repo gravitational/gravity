@@ -100,7 +100,12 @@ func (r *Client) Complete(ctx context.Context, key ops.SiteOperationKey) error {
 // Implements signals.Stopper
 func (r *Client) Stop(ctx context.Context) error {
 	r.Info("Abort.")
-	return trace.Wrap(r.Lifecycle.Abort(ctx, r))
+	_, err := r.client.Abort(ctx, &installpb.AbortRequest{})
+	errAbort := r.Lifecycle.Abort(ctx, r)
+	if err == nil {
+		err = errAbort
+	}
+	return trace.Wrap(err)
 }
 
 func (r *Config) checkAndSetDefaults() (err error) {
@@ -241,6 +246,11 @@ func (r *Client) progressLoop(stream installpb.Agent_ExecuteClient) (status inst
 
 func (r *Client) addTerminationHandler() {
 	r.InterruptHandler.AddStopper(r)
+}
+
+func (r *Client) shutdownAndComplete(ctx context.Context) error {
+	_, err := r.client.Shutdown(ctx, &installpb.ShutdownRequest{Completed: true})
+	return trace.Wrap(err)
 }
 
 func (r *Client) shutdown(ctx context.Context) error {
