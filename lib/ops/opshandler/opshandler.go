@@ -301,6 +301,7 @@ func (h *WebHandler) getSiteInstructions(w http.ResponseWriter, r *http.Request,
 		return
 	}
 	w.Header().Set("Content-Type", "text/plain")
+	w.Header().Set("X-Content-Type-Options", "nosniff")
 	w.WriteHeader(http.StatusOK)
 	w.Write([]byte(instructions))
 }
@@ -330,7 +331,7 @@ Success response:
   }]
 
 */
-func (h *WebHandler) getApps(w http.ResponseWriter, r *http.Request, p httprouter.Params, ctx *HandlerContext) error {
+func (h *WebHandler) getApps(w http.ResponseWriter, r *http.Request, p httprouter.Params, context *HandlerContext) error {
 	repositories, err := h.cfg.Packages.GetRepositories()
 	if err != nil {
 		return trace.Wrap(err)
@@ -354,7 +355,7 @@ func (h *WebHandler) getApps(w http.ResponseWriter, r *http.Request, p httproute
 
     POST /portal/v1/accounts/:account_id/sites/:site_domain/usertokens/resets
 */
-func (h *WebHandler) resetUser(w http.ResponseWriter, r *http.Request, p httprouter.Params, ctx *HandlerContext) error {
+func (h *WebHandler) resetUser(w http.ResponseWriter, r *http.Request, p httprouter.Params, context *HandlerContext) error {
 	data, err := ioutil.ReadAll(r.Body)
 	if err != nil {
 		return trace.Wrap(err)
@@ -364,7 +365,7 @@ func (h *WebHandler) resetUser(w http.ResponseWriter, r *http.Request, p httprou
 		return trace.BadParameter(err.Error())
 	}
 
-	userToken, err := ctx.Identity.CreateResetToken(
+	userToken, err := context.Identity.CreateResetToken(
 		fmt.Sprintf("https://%v", h.cfg.PublicAdvertiseAddr.String()),
 		req.Name,
 		req.TTL)
@@ -424,7 +425,7 @@ Success response:
   }
 
 */
-func (h *WebHandler) createAccount(w http.ResponseWriter, r *http.Request, p httprouter.Params, ctx *HandlerContext) error {
+func (h *WebHandler) createAccount(w http.ResponseWriter, r *http.Request, p httprouter.Params, context *HandlerContext) error {
 	data, err := ioutil.ReadAll(r.Body)
 	if err != nil {
 		return trace.Wrap(err)
@@ -433,7 +434,7 @@ func (h *WebHandler) createAccount(w http.ResponseWriter, r *http.Request, p htt
 	if err := json.Unmarshal(data, &req); err != nil {
 		return trace.BadParameter(err.Error())
 	}
-	account, err := ctx.Operator.CreateAccount(req)
+	account, err := context.Operator.CreateAccount(req)
 	if err != nil {
 		return trace.Wrap(err)
 	}
@@ -559,7 +560,7 @@ func (h *WebHandler) createUser(w http.ResponseWriter, r *http.Request, p httpro
      "message": "user jenkins deleted"
    }
 */
-func (h *WebHandler) deleteLocalUser(w http.ResponseWriter, r *http.Request, p httprouter.Params, ctx *HandlerContext) error {
+func (h *WebHandler) deleteLocalUser(w http.ResponseWriter, r *http.Request, p httprouter.Params, context *HandlerContext) error {
 	name := p[0].Value
 	err := h.cfg.Users.DeleteUser(name)
 	if err != nil {
@@ -580,7 +581,7 @@ func (h *WebHandler) deleteLocalUser(w http.ResponseWriter, r *http.Request, p h
    }
 
 */
-func (h *WebHandler) createAPIKey(w http.ResponseWriter, r *http.Request, p httprouter.Params, ctx *HandlerContext) error {
+func (h *WebHandler) createAPIKey(w http.ResponseWriter, r *http.Request, p httprouter.Params, context *HandlerContext) error {
 	d := json.NewDecoder(r.Body)
 	var req ops.NewAPIKeyRequest
 	if err := d.Decode(&req); err != nil {
@@ -608,9 +609,9 @@ func (h *WebHandler) createAPIKey(w http.ResponseWriter, r *http.Request, p http
      ...
    ]
 */
-func (h *WebHandler) getAPIKeys(w http.ResponseWriter, r *http.Request, p httprouter.Params, ctx *HandlerContext) error {
+func (h *WebHandler) getAPIKeys(w http.ResponseWriter, r *http.Request, p httprouter.Params, context *HandlerContext) error {
 	userEmail := p.ByName("user_email")
-	keys, err := h.cfg.Operator.GetAPIKeys(userEmail)
+	keys, err := context.Operator.GetAPIKeys(userEmail)
 	if err != nil {
 		return trace.Wrap(err)
 	}
@@ -620,7 +621,7 @@ func (h *WebHandler) getAPIKeys(w http.ResponseWriter, r *http.Request, p httpro
 
 /* deleteAPIKey deletes an api key
 
-   DELETE /portal/v1/users/:user_email/apikeys/:api_key
+   DELETE /portal/v1/apikeys/user/:user_email/:api_key
 
    Success response:
 
@@ -753,7 +754,7 @@ func (h *WebHandler) getTrustedClusterToken(w http.ResponseWriter, r *http.Reque
 	}
   }
 */
-func (h *WebHandler) createSite(w http.ResponseWriter, r *http.Request, p httprouter.Params, ctx *HandlerContext) error {
+func (h *WebHandler) createSite(w http.ResponseWriter, r *http.Request, p httprouter.Params, context *HandlerContext) error {
 	data, err := ioutil.ReadAll(r.Body)
 	if err != nil {
 		return trace.Wrap(err)
@@ -779,7 +780,7 @@ func (h *WebHandler) createSite(w http.ResponseWriter, r *http.Request, p httpro
 		return trace.Wrap(err)
 	}
 
-	site, err := ctx.Operator.CreateSite(req)
+	site, err := context.Operator.CreateSite(req)
 	if err != nil {
 		return trace.Wrap(err)
 	}
@@ -2121,7 +2122,7 @@ func (h *WebHandler) getAppInstaller(w http.ResponseWriter, r *http.Request, p h
 	}
 	installerReq.AccountID = accountID
 
-	reader, err := h.cfg.Operator.GetAppInstaller(installerReq)
+	reader, err := context.Operator.GetAppInstaller(installerReq)
 	if err != nil {
 		return trace.Wrap(err)
 	}
