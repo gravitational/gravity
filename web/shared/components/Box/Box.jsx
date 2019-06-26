@@ -15,12 +15,26 @@ limitations under the License.
 */
 
 import styled from 'styled-components'
-import { flex, height, maxWidth, minHeight, maxHeight, minWidth, alignSelf, justifySelf, space, width, color, textAlign } from 'shared/system';
+import { overflow, border, borderRadius, flex, height, maxWidth, minHeight, maxHeight, minWidth, alignSelf, justifySelf, space, width, color, textAlign } from 'shared/system';
 import defaultTheme from './../../theme'
 
 const Box = styled.div`
   box-sizing: border-box;
-  ${maxWidth} ${minWidth} ${space} ${height} ${minHeight} ${maxHeight} ${width} ${color} ${textAlign} ${flex} ${alignSelf} ${justifySelf}
+  ${maxWidth}
+  ${minWidth}
+  ${space}
+  ${height}
+  ${minHeight}
+  ${maxHeight}
+  ${width}
+  ${color}
+  ${textAlign}
+  ${flex}
+  ${alignSelf}
+  ${justifySelf}
+  ${border}
+  ${borderRadius}
+  ${overflow}
 `
 
 Box.displayName = 'Box';
@@ -37,7 +51,8 @@ Box.propTypes = {
   ...flex.propTypes,
   ...alignSelf.propTypes,
   ...justifySelf.propTypes,
-
+  ...border.propTypes,
+  ...overflow.propTypes,
 }
 
 export default Box;

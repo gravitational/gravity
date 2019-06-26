@@ -45,4 +45,18 @@ storiesOf('Gravity/ResourceEditor', module)
       name="sample"
       onSave={() => $.Deferred() }
       open={true} />
+  ))
+  .add('Directions', () => (
+    <ResourceEditor
+      resource={{
+        isNew: false,
+        name: 'sample',
+        content: 'fdfd'
+      }}
+      docsURL="localhost"
+      directions={ <div>fsdfdfs</div>}
+      title="Modifying the resource"
+      name="sample"
+      onSave={() => $.Deferred() }
+      open={true} />
   ));

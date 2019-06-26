@@ -21,7 +21,6 @@ const DialogFooter = styled(Box)``
 
 DialogFooter.defaultProps = {
   ...Box.defaultProps,
-  m: "4"
 }
 
 export default DialogFooter;

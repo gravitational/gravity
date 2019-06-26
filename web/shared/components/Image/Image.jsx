@@ -14,5 +14,28 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-import LogoButton from './LogoButton';
-export default LogoButton;
+import React from 'react';
+import styled from 'styled-components';
+import PropTypes from 'prop-types';
+import { space, color, width, height, maxWidth, maxHeight } from 'shared/system';
+
+const Image = props => {
+  return (
+    <StyledImg {...props} />
+  );
+};
+
+Image.propTypes = {
+  /** Image Src */
+  src: PropTypes.string,
+};
+
+Image.displayName = 'Logo';
+
+export default Image;
+
+const StyledImg = styled.img`
+  display: block;
+  outline: none;
+  ${color} ${space} ${width} ${height} ${maxWidth} ${maxHeight}
+`;

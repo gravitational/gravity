@@ -76,14 +76,14 @@ export class LineGraph extends React.Component {
   render() {
     const {...rest} = this.props;
     return (
-      <Container bg="primary.dark" flexDirection="column" {...rest}>
-        <Header px="3" py="3" bg="primary.light" color="text.primary" alignItems="center">
+      <Container flexDirection="column" borderRadius="3" {...rest}>
+        <Flex px="3" py="3" bg="primary.light" color="text.primary" alignItems="center">
           <Text typography="h5" style={{flex: "1", flexShrink: "0"}}>
             Usage Over Time
           </Text>
           <Legend color="info" title="CPU" mr="2" />
           <Legend color="danger" title="RAM" />
-        </Header>
+        </Flex>
         <ChartBox>
           <CanvasContainer>
             <canvas
@@ -180,13 +180,10 @@ const CanvasContainer = styled.div`
   right: 0;
 `
 
-const Header = styled(Flex)`
-  border-radius: 4px 4px 0 0;
-`
 const Container = styled(Flex)`
   flex: 1;
+  overflow: hidden;
   box-shadow: 0 0 32px rgba(0, 0, 0, .12), 0 8px 32px rgba(0, 0, 0, .24);
-  border-radius: 4px;
   canvas {
     background-color: ${ props => props.theme.colors.primary.main};
   }

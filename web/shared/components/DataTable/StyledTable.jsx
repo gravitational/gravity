@@ -14,15 +14,16 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-import styled from 'styled-components'
+import styled from 'styled-components';
 import Icon from '../Icon';
+import { space, borderRadius } from 'shared/system';
 
 export const StyledTable = styled.table`
   background: ${props => props.theme.colors.primary.light };
   box-shadow: 0 8px 32px rgba(0, 0, 0, .24);
   border-collapse: collapse;
   border-spacing: 0;
-  border-radius: 4px;
+  border-radius: 8px;
   font-size: 12px;
   width: 100%;
 
@@ -51,6 +52,9 @@ export const StyledTable = styled.table`
       margin-left: 8px;
     }
   }
+
+  ${space}
+  ${borderRadius}
 `;
 
 export const StyledEmptyIndicator = styled.div`

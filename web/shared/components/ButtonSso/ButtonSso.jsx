@@ -57,15 +57,14 @@ const StyledButton = styled(Button)`
 
   ${Icon} {
     font-size: 20px;
-    margin: -10px 0 0 0;
     opacity: .87;
-    position: absolute;
-    top: 50%;
-    left: 16px;
   }
 `
 
 const IconBox = styled.div`
+  align-items: center;
+  display: flex;
+  justify-content: center;
   position: absolute;
   left: 0;
   top: 0;
@@ -73,7 +72,7 @@ const IconBox = styled.div`
   width: 56px;
   font-size: 24px;
   text-align: center;
-  border-right: 1px solid rgba(0,0,0,.2);
+  border-right: 1px solid rgba(0,0,0, .12);
 `
 
 export default ButtonSso;

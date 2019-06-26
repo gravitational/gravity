@@ -89,6 +89,7 @@ const ModalBox = styled.div`
 `
 
 const DialogBox = styled.div`
+  padding: 32px;
   background: ${props => props.theme.colors.primary.main };
   color: ${props => props.theme.colors.text.primary};
   border-radius: 8px;
@@ -98,7 +99,7 @@ const DialogBox = styled.div`
   position: relative;
   overflow-y: auto;
   max-height: calc(100% - 96px);
-  ${ props => props.dialogCss && props.dialogCss(props) }
+  ${props => props.dialogCss && props.dialogCss(props) }
 
 `
 

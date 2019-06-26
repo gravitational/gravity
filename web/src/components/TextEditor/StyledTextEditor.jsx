@@ -18,13 +18,12 @@ import styled from 'styled-components';
 
 const StyledTextEditor = styled.div`
   overflow: hidden;
-  border-radius:0 0 4px 4px;
+  border-radius: 4px;
   flex: 1;
   display: flex;
   position: relative;
   border: none;
   background: ${props => props.theme.colors.bgTerminal };
-  padding: 2px;
 
   .ace-monokai {
     background: ${props => props.theme.colors.bgTerminal };
@@ -43,9 +42,9 @@ const StyledTextEditor = styled.div`
 
   > .ace_editor {
     position: absolute;
-    top: 0px;
+    top: 8px;
     right: 0px;
-    bottom: 0px;
+    bottom: 8px;
     left: 0px;
   }
 `

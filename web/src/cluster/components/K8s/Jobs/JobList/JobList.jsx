@@ -26,7 +26,7 @@ function JobsTab(props) {
   jobs = sortBy(jobs, ['created']).reverse();
 
   return (
-    <Table rowCount={jobs.length} data={jobs}>
+    <Table data={jobs}>
       <Column
         header={<Cell>Name</Cell> }
         cell={<NameCell/> }

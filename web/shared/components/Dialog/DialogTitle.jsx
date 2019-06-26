@@ -19,6 +19,6 @@ import Text from './../Text';
 
 export default function DialogTitle(props){
   return (
-    <Text color="text.primary" caps bold {...props} />
+    <Text typography="h2" color="text.primary" caps {...props} />
   )
 }

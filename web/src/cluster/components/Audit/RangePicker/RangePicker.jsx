@@ -77,6 +77,7 @@ export default function DataRange(props) {
         {renderOptions(options, onMenuClick)}
       </Menu>
       <Dialog
+        dialogCss={() => ({ padding: "0"}) }
         disableEscapeKeyDown={false}
         onClose={onClosePicker}
         open={isPickerOpen}

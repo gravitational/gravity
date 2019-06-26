@@ -17,17 +17,13 @@ limitations under the License.
 import React from 'react';
 import styled from 'styled-components';
 import cfg from 'app/config';
-import { Flex } from 'shared/components';
 import Menu, { MenuItem} from 'shared/components/Menu';
-import Icon, * as Icons from 'shared/components/Icon';
+import { space } from 'shared/system';
+import * as Icons from 'shared/components/Icon';
 
 class MenuLogin extends React.Component {
 
   static displayName = 'MenuLogin';
-
-  static defaultProps = {
-    menuListCss: () => { },
-  }
 
   constructor(props){
     super(props)
@@ -47,9 +43,8 @@ class MenuLogin extends React.Component {
     this.setState({ open: true });
   };
 
-  onItemClick = login => {
+  onItemClick = () => {
     this.onClose();
-    this.openTerminal(login);
   }
 
   onClose = () => {
@@ -74,16 +69,11 @@ class MenuLogin extends React.Component {
     const { open } = this.state;
     return (
       <React.Fragment>
-        <StyledSession ref={e => this.anchorEl = e } onClick={this.onOpen}>
-          <StyledCliIcon>
-            <Icons.Cli/>
-          </StyledCliIcon>
-          <ButtonIcon>
-            <Icons.CarrotDown />
-          </ButtonIcon>
-        </StyledSession>
+        <StyledSessionButton px="2" ref={e => this.anchorEl = e } onClick={this.onOpen}>
+          <Icons.Cli as={StyledCliIcon}/>
+          <Icons.CarrotDown as={StyledCarrotIcon} />
+        </StyledSessionButton>
         <Menu
-          menuListCss={menuListCss}
           anchorOrigin={anchorOrigin}
           transformOrigin={transformOrigin}
           anchorEl={this.anchorEl}
@@ -102,96 +92,114 @@ class MenuLogin extends React.Component {
   }
 }
 
-export const LoginItemList = ({logins, onClick, onKeyPress}) => {
+export const LoginItemList = ({serverId, logins, onClick, onKeyPress}) => {
   logins = logins || [];
+
   const $menuItems = logins.map((login, key) => {
+    const url = cfg.getConsoleInitSessionRoute({ login, serverId });
     return (
-      <MenuItem key={key} as="a" onClick={ () => onClick(login)}>
+      <MenuItem key={key} px="2" mx="2" as={StyledMenuItem} href={url} target="_blank" onClick={ () => onClick(login)}>
         {login}
       </MenuItem>
   )});
 
   return (
     <React.Fragment>
-      <Flex>
-        <Input onKeyPress={onKeyPress} type="text" autoFocus placeholder="Enter login name..."/>
-      </Flex>
+      <Input p="2" mx="2" my="2" onKeyPress={onKeyPress} type="text" autoFocus placeholder="Enter login name..."/>
       {$menuItems}
     </React.Fragment>
   )
 }
 
-const menuListCss = props => `
- ${MenuItem} {
-   color: ${props.theme.colors.link};
-   max-width: 200px;
-   > * {
-    overflow: hidden;
-    text-overflow: ellipsis;
-   }
- }
+
+const StyledMenuItem = styled.a`
+  color: ${props => props.theme.colors.grey[400]};
+  font-size: 12px;
+  border-bottom: 1px solid ${props => props.theme.colors.subtle };
+  min-height: 32px;
+  &:hover {
+    color: ${props => props.theme.colors.link};
+  }
+
+  :last-child {
+    border-bottom: none;
+    margin-bottom: 8px;
+  }
 `
 
 const StyledCliIcon = styled.div`
-  align-items: center;
-  background: ${props => props.theme.colors.bgTerminal };
-  display: flex;
-  flex: 1;
-  opacity: .56;
-  padding: 0 8px;
+  opacity: .87;
 `
 
-const ButtonIcon = styled.button`
-  align-items: center;
-  background: ${props => props.theme.colors.primary.main };
-  border: none;
-  cursor: pointer;
-  display: flex;
-  height: 100%;
-  justify-content: center;
-  outline: none;
-  width: 30px;
-
-  ${Icon}{
-    display: inline-block;
-    font-size: 12px;
-    opacity: .56;
-  }
+const StyledCarrotIcon = styled.div`
+  opacity: .24;
 `
 
-const StyledSession = styled.div`
+const StyledSessionButton = styled.button`
+  display: flex;
+  justify-content: space-between;
+  outline-style: none;
+  outline-width: 0px;
+  -webkit-appearance: none;
+  -webkit-tap-highlight-color: transparent;
   align-items: center;
   background: ${props => props.theme.colors.bgTerminal };
+  border: 1px solid ${props => props.theme.colors.bgTerminal};
   border-radius: 2px;
+  box-sizing: border-box;
   box-shadow: 0 0 2px rgba(0, 0, 0, .12),  0 2px 2px rgba(0, 0, 0, .24);
   color: ${props => props.theme.colors.primary};
   cursor: pointer;
-  display: flex;
   height: 24px;
-  position: relative;
-  width: 70px;
-  &:hover, &:focus {
-    ${ButtonIcon}{
-      background: ${props => props.theme.colors.primary.light };
+  width: 56px;
+
+  transition: all .3s;
+  > * {
+    transition: all .3s;
+  }
+
+  :focus {
+    outline: none;
+  }
+
+  ::-moz-focus-inner {
+    border: 0;
+  }
+
+  :hover, :focus {
+    border: 1px solid  ${props => props.theme.colors.success};
+    box-shadow:  0 4px 16px rgba(0, 0, 0, .24);
+    ${StyledCliIcon} {
+      opacity: 1;
+    }
+    ${StyledCarrotIcon} {
+      opacity: .56
     }
   }
+
+  ${space}
 `;
 
 const Input = styled.input`
-  background: #CFD8DC;
-  border: 1px solid #CFD8DC;
-  border-radius: 2px;
-  width: 100%;
+  background: ${props => props.theme.colors.subtle };
+  border: 1px solid ${props => props.theme.colors.subtle };
+  border-radius: 4px;
   box-sizing: border-box;
   color: #263238;
-  padding: 0 8px;
-  height: 40px;
-  margin: 8px;
+  height: 32px;
+  outline: none;
+
   &:focus {
     background: ${props => props.theme.colors.light };
     border 1px solid ${props => props.theme.colors.link };
-    box-shadow: inset 0 2px 4px rgba(0, 0, 0, .24);
+    box-shadow: inset 0 1px 3px rgba(0, 0, 0, .24);
   }
+
+  ::placeholder {
+    color: ${props => props.theme.colors.grey[100]};
+  }
+
+  ${space}
 `
 
 export default MenuLogin;

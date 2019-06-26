@@ -15,16 +15,16 @@ limitations under the License.
 */
 
 import React from 'react';
-import Box from './../Box';
+import Flex from './../Flex';
 import styled from 'styled-components';
 import { typography } from 'shared/system';
 
 export default function DialogHeader(props){
   return (
-    <StyledDialogHeader m="4" alignItems="center" {...props} />
+    <StyledDialogHeader mb="3" alignItems="center" {...props} />
   )
 }
 
-const StyledDialogHeader = styled(Box)`
+const StyledDialogHeader = styled(Flex)`
   ${typography}
 `

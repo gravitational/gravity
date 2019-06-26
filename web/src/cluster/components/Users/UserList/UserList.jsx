@@ -29,7 +29,7 @@ const UserList = ({
 }) => {
   users = sortBy(users, u => u.created).reverse();
   return (
-    <Table data={users} rowCount={users.length}>
+    <Table data={users}>
       <Column
         header={<Cell>Email</Cell> }
         cell={<UserIdCell onClick={onEdit}/>}

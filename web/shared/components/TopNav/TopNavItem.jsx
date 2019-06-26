@@ -15,7 +15,7 @@ limitations under the License.
 */
 
 import styled from 'styled-components'
-import { space } from 'shared/system';
+import { space, width, maxWidth, height, maxHeight } from 'shared/system';
 
 /**
  * TopNavItem
@@ -57,9 +57,12 @@ const TopNavItem = styled.button`
   }
 
   ${space}
+  ${width}
+  ${maxWidth}
+  ${height}
+  ${maxHeight}
 `
 
 TopNavItem.displayName = 'TopNavItem';
-
 
 export default TopNavItem;

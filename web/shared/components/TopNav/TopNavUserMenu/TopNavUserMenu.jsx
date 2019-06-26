@@ -16,7 +16,7 @@ limitations under the License.
 
 import React from 'react';
 import PropTypes from 'prop-types';
-import styled from 'styled-components';
+import { Image, Text } from 'shared/components';
 import TopNavItem from '../TopNavItem';
 import Menu from '../../Menu/Menu';
 import defaultAvatar from './avatar.png';
@@ -60,9 +60,9 @@ class TopNavUserMenu extends React.Component {
     const anchorEl = open ? this.btnRef : null;
     return (
       <React.Fragment>
-        <TopNavItem as={AvatarButton} ref={this.setRef} onClick={onShow}>
-          <em>{user}</em>
-          <img src={avatar} />
+        <TopNavItem ml="auto" maxWidth="250px" ref={this.setRef} onClick={onShow}>
+          <Text typography="subtitle2" bold>{user}</Text>
+          <Image height="24px" ml="3" mr="2" src={avatar} />
         </TopNavItem>
         <Menu
           menuListCss={menuListCss}
@@ -80,24 +80,3 @@ class TopNavUserMenu extends React.Component {
 }
 
 export default TopNavUserMenu;
-
-const AvatarButton = styled.button`
-  margin-left: auto;
-
-  img {
-    display: inline-block;
-    float: right;
-    height: 24px;
-    margin: 0 8px 0 16px;
-  }
-
-  em {
-    font-size: 10px;
-    font-weight: 800;
-    font-style: normal;
-    margin: 0;
-    max-width: 200px;
-    overflow: hidden;
-    text-overflow: ellipsis;
-  }
-`;

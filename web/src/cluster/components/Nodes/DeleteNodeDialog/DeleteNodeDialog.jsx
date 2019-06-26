@@ -41,23 +41,23 @@ export function DeleteNodeDialog(props){
     >
       <DialogHeader>
         <DialogTitle>
-          Deleting Server
+          Delete Node?
         </DialogTitle>
       </DialogHeader>
-      <DialogContent mt="0" maxWidth="600px">
+      <DialogContent maxWidth="600px">
         {attempt.isFailed && (
           <Alerts.Danger children={attempt.message} />
         )}
-        <Text mb="1">
-          You are about to delete instance <Text as="span" bold color="primary.contrastText">{hostname}</Text>
-        </Text>
-        <Text>
+        <Text typography="paragraph">
+          You are about to delete instance
+          {" "} <Text as="span" bold color="primary.contrastText">{hostname}</Text>
+          <br/>
           This operation cannot be undone. Are you sure?
         </Text>
       </DialogContent>
       <DialogFooter>
         <ButtonWarning mr="3" disabled={isDisabled} onClick={onOk}>
-          I understand the consequences, delete this server
+          I understand, delete this node
         </ButtonWarning>
         <ButtonSecondary disabled={isDisabled} onClick={onClose}>
           Cancel

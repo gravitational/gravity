@@ -44,9 +44,9 @@ export default function EditMode({ item, isNew, onSave, onCancel, ...styles }){
 
   return (
     <Flex height={height} width={width} >
-      <Flex flex="1" p="4" flexDirection="column" >
-        <DialogHeader m="0" mb="2">
-          <DialogTitle>{title}</DialogTitle>
+      <Flex flex="1" p="5" flexDirection="column" >
+        <DialogHeader>
+          <DialogTitle typography="body1" bold>{title}</DialogTitle>
         </DialogHeader>
         {attempt.isFailed &&  (
           <Alerts.Danger>
@@ -62,7 +62,7 @@ export default function EditMode({ item, isNew, onSave, onCancel, ...styles }){
             onChange={onChange}
           />
         </Flex>
-        <Box mt="3">
+        <Box mt="5">
           <ButtonPrimary disabled={isSaveDisabled} onClick={onSaveClick} mr="3">
             Save changes
           </ButtonPrimary>
@@ -71,12 +71,12 @@ export default function EditMode({ item, isNew, onSave, onCancel, ...styles }){
           </ButtonSecondary>
         </Box>
       </Flex>
-      <Flex flexDirection="column" ml="auto" justifyContent="space-between" height="100%" width="260px" p="4" bg="primary.light" >
+      <Flex flexDirection="column" ml="auto" justifyContent="space-between" height="100%" width="280px" p="5" bg="primary.light" >
         <Box>
-          <DialogTitle>
+          <DialogTitle typography="body1" bold mb="3">
             About Log forwarding
           </DialogTitle>
-          <Text typography="body1" mt={3}>
+          <Text typography="paragraph">
             A Gravity cluster aggregates the logs from all running containers.
             Use log forwarders to ship cluster logs to a remote log collector such as a rsyslog server.
           </Text>

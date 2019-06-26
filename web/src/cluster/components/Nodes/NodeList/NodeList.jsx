@@ -42,7 +42,7 @@ export const ActionCell = ({ rowIndex, onDelete, data}) => {
 
 function Detail({ children }){
   return (
-    <Text typography="paragraph2" color="text.primary">{children}</Text>
+    <Text typography="subtitle2" color="text.primary">{children}</Text>
   )
 }
 
@@ -86,7 +86,7 @@ class NodeList extends React.Component {
     const { nodes, provider, onDelete } = this.props;
     const isAws = provider === ProviderEnum.AWS;
     return (
-      <StyledTable data={nodes} rowCount={nodes.length}>
+      <StyledTable data={nodes}>
         <Column
           header={<Cell>Session</Cell> }
           cell={<LoginCell /> }

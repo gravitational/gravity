@@ -23,7 +23,7 @@ function ServiceList(props) {
   const { namespace, services } = props;
   const filtered = services.filter( item => item.namespace === namespace );
   return (
-    <Table rowCount={filtered.length} data={filtered}>
+    <Table data={filtered}>
       <Column
         header={<Cell>Name</Cell> }
         cell={<NameCell /> }

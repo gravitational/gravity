@@ -53,7 +53,7 @@ class PodList extends React.Component {
     const { sshLogins, monitoringEnabled, podInfos } = this.props;
     const data = this.sortAndFilter(podInfos);
     return (
-      <Table rowCount={data.length} data={data}>
+      <Table data={data}>
         <Column
           header={<Cell>Name</Cell> }
           cell={<NameCell monitoringEnabled={monitoringEnabled}/> }
