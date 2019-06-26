@@ -295,7 +295,7 @@ func loadRPCCredentials(ctx context.Context, addr, token string) (*rpcserver.Cre
 
 // hasFlagInArgs returns true if the specified flag has been found
 // in args.
-// b specifies the application object builder that will be used to parse args
+// parser specifies the command line parser for args
 func hasFlagInArgs(flag string, args []string, parser ArgsParser) (ok bool, err error) {
 	ctx, err := parser.ParseArgs(args)
 	if err != nil {
