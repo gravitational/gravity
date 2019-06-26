@@ -314,6 +314,9 @@ func (r *backendOperations) listInstallOperation() error {
 }
 
 func (r backendOperations) isActiveInstallOperation() bool {
+	if len(r.operations) != 0 {
+		return false
+	}
 	// FIXME: continue using wizard as source of truth as operation state
 	// replicated in etcd is reported completed before it actually is
 	return r.clusterOperation == nil || (r.clusterOperation.Type == ops.OperationInstall)
