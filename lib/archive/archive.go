@@ -76,12 +76,17 @@ func CompressDirectory(dir string, writer io.Writer, items ...*Item) error {
 // The resulting files and directories are created using the current user context.
 func Extract(r io.Reader, dir string) error {
 	tarball := tar.NewReader(r)
-
 	for {
 		header, err := tarball.Next()
 		if err == io.EOF {
 			break
 		} else if err != nil {
+			return trace.Wrap(err)
+		}
+
+		// Security: ensure tar doesn't refer to file paths outside the directory
+		err = SanitizeTarPath(header, dir)
+		if err != nil {
 			return trace.Wrap(err)
 		}
 
@@ -273,6 +278,24 @@ func extractFile(tarball *tar.Reader, header *tar.Header, dir string) error {
 		return writeSymbolicLink(filepath.Join(dir, header.Name), header.Linkname)
 	default:
 		log.Warnf("unsupported type flag %v for %v", header.Typeflag, header.Name)
+	}
+	return nil
+}
+
+// SanitizeTarPath checks that the tar header paths resolve to a subdirectory path, and don't contain file paths or
+// links that could escape the tar file (e.g. ../../etc/passwrd)
+func SanitizeTarPath(header *tar.Header, dir string) error {
+	// Security: sanitize that all tar paths resolve to within the destination directory
+	destPath := filepath.Join(dir, header.Name)
+	if !strings.HasPrefix(destPath, filepath.Clean(dir)+string(os.PathSeparator)) {
+		return trace.BadParameter("%s: illegal file path", header.Name)
+	}
+	// Security: Ensure link destinations resolve to within the destination directory
+	if header.Linkname != "" {
+		linkPath := filepath.Join(dir, header.Linkname)
+		if !strings.HasPrefix(linkPath, filepath.Clean(dir)+string(os.PathSeparator)) {
+			return trace.BadParameter("%s: illegal link path", header.Linkname)
+		}
 	}
 	return nil
 }
