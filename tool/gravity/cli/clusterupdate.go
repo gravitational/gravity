@@ -67,7 +67,8 @@ func updateTrigger(
 	}
 	defer updater.Close()
 	if !manual {
-		return trace.Wrap(updater.Run(ctx))
+		// The cluster is updating in background
+		return nil
 	}
 	localEnv.Println(updateClusterManualOperationBanner)
 	return nil
