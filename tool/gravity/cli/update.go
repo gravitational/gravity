@@ -89,8 +89,13 @@ func newUpdater(ctx context.Context, localEnv, updateEnv *localenv.LocalEnvironm
 	if err != nil {
 		return nil, trace.Wrap(err)
 	}
+	leader, err := findLocalServer(*cluster)
+	if err != nil {
+		return nil, trace.Wrap(err, "failed to find local node in cluster state.\n"+
+			"Make sure you start the operation from one of the cluster master nodes.")
+	}
 	// Create the operation plan so it can be replicated on remote nodes
-	plan, err := init.newOperationPlan(ctx, operator, *cluster, *operation, localEnv, updateEnv, clusterEnv)
+	plan, err := init.newOperationPlan(ctx, operator, *cluster, *operation, localEnv, updateEnv, clusterEnv, leader)
 	if err != nil {
 		return nil, trace.Wrap(err)
 	}
@@ -135,7 +140,9 @@ type updateInitializer interface {
 		cluster ops.Site,
 		operation ops.SiteOperation,
 		localEnv, updateEnv *localenv.LocalEnvironment,
-		clusterEnv *localenv.ClusterEnvironment) (*storage.OperationPlan, error)
+		clusterEnv *localenv.ClusterEnvironment,
+		leader *storage.Server,
+	) (*storage.OperationPlan, error)
 	newUpdater(ctx context.Context,
 		operator ops.Operator,
 		operation ops.SiteOperation,
@@ -148,7 +155,7 @@ type updateInitializer interface {
 
 type updater interface {
 	io.Closer
-	Run(ctx context.Context, force bool) error
+	Run(ctx context.Context) error
 	RunPhase(ctx context.Context, phase string, phaseTimeout time.Duration, force bool) error
 	RollbackPhase(ctx context.Context, phase string, phaseTimeout time.Duration, force bool) error
 	Complete(error) error

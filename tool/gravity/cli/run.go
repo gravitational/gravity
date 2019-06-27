@@ -306,6 +306,7 @@ func Execute(g *Application, cmd string, extraArgs []string) error {
 	case g.InstallCmd.FullCommand():
 		if *g.InstallCmd.Resume {
 			*g.InstallCmd.Phase = fsm.RootPhase
+			*g.InstallCmd.Force = false
 		}
 		if *g.InstallCmd.Phase != "" {
 			return executeInstallPhase(localEnv, PhaseParams{
@@ -318,6 +319,7 @@ func Execute(g *Application, cmd string, extraArgs []string) error {
 	case g.JoinCmd.FullCommand():
 		if *g.JoinCmd.Resume {
 			*g.JoinCmd.Phase = fsm.RootPhase
+			*g.JoinCmd.Force = false
 		}
 		if *g.JoinCmd.Phase != "" {
 			return executeJoinPhase(localEnv, joinEnv, PhaseParams{
@@ -345,7 +347,6 @@ func Execute(g *Application, cmd string, extraArgs []string) error {
 			updateEnv,
 			*g.UpdateTriggerCmd.App,
 			*g.UpdateTriggerCmd.Manual,
-			*g.UpdateTriggerCmd.Block,
 			*g.UpdateTriggerCmd.SkipVersionCheck,
 		)
 	case g.UpdatePlanInitCmd.FullCommand():
@@ -353,6 +354,7 @@ func Execute(g *Application, cmd string, extraArgs []string) error {
 	case g.UpgradeCmd.FullCommand():
 		if *g.UpgradeCmd.Resume {
 			*g.UpgradeCmd.Phase = fsm.RootPhase
+			*g.UpgradeCmd.Force = false
 		}
 		if *g.UpgradeCmd.Phase != "" {
 			return executePhase(localEnv, updateEnv, joinEnv,
@@ -367,7 +369,6 @@ func Execute(g *Application, cmd string, extraArgs []string) error {
 			updateEnv,
 			*g.UpgradeCmd.App,
 			*g.UpgradeCmd.Manual,
-			*g.UpgradeCmd.Block,
 			*g.UpgradeCmd.SkipVersionCheck,
 		)
 	case g.PlanExecuteCmd.FullCommand():
@@ -383,7 +384,6 @@ func Execute(g *Application, cmd string, extraArgs []string) error {
 		return executePhase(localEnv, updateEnv, joinEnv,
 			PhaseParams{
 				PhaseID:          fsm.RootPhase,
-				Force:            *g.PlanResumeCmd.Force,
 				Timeout:          *g.PlanResumeCmd.PhaseTimeout,
 				SkipVersionCheck: *g.PlanCmd.SkipVersionCheck,
 				OperationID:      *g.PlanCmd.OperationID,

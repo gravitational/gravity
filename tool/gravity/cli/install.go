@@ -498,7 +498,7 @@ func executeInstallPhase(localEnv *localenv.LocalEnvironment, p PhaseParams, ope
 	defer progress.Stop()
 
 	if p.PhaseID == fsm.RootPhase {
-		return trace.Wrap(ResumeInstall(ctx, installFSM, progress, p.Force))
+		return trace.Wrap(ResumeInstall(ctx, installFSM, progress))
 	}
 
 	err = installFSM.ExecutePhase(ctx, fsm.Params{
@@ -553,7 +553,7 @@ func executeJoinPhase(localEnv, joinEnv *localenv.LocalEnvironment, p PhaseParam
 	progress := utils.NewProgress(ctx, fmt.Sprintf("Executing join phase %q", p.PhaseID), -1, false)
 	defer progress.Stop()
 	if p.PhaseID == fsm.RootPhase {
-		return trace.Wrap(ResumeInstall(ctx, joinFSM, progress, p.Force))
+		return trace.Wrap(ResumeInstall(ctx, joinFSM, progress))
 	}
 	return joinFSM.ExecutePhase(ctx, fsm.Params{
 		PhaseID:  p.PhaseID,
@@ -609,8 +609,8 @@ func rollbackJoinPhase(localEnv, joinEnv *localenv.LocalEnvironment, p PhasePara
 	})
 }
 
-func ResumeInstall(ctx context.Context, machine *fsm.FSM, progress utils.Progress, force bool) error {
-	fsmErr := machine.ExecutePlan(ctx, progress, force)
+func ResumeInstall(ctx context.Context, machine *fsm.FSM, progress utils.Progress) error {
+	fsmErr := machine.ExecutePlan(ctx, progress)
 	if fsmErr != nil {
 		return trace.Wrap(fsmErr)
 	}

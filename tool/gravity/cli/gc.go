@@ -58,7 +58,7 @@ func garbageCollect(env *localenv.LocalEnvironment, manual, confirmed bool) erro
 
 	ctx := context.TODO()
 	if !manual {
-		err = collector.Run(ctx, false)
+		err = collector.Run(ctx)
 		return trace.Wrap(err)
 	}
 

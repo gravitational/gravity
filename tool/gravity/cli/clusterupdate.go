@@ -58,21 +58,17 @@ func updateTrigger(
 	localEnv *localenv.LocalEnvironment,
 	updateEnv *localenv.LocalEnvironment,
 	updatePackage string,
-	manual, block, noValidateVersion bool,
+	manual, noValidateVersion bool,
 ) error {
 	ctx := context.TODO()
-	updater, err := newClusterUpdater(ctx, localEnv, updateEnv, updatePackage, manual, block, noValidateVersion)
+	updater, err := newClusterUpdater(ctx, localEnv, updateEnv, updatePackage, manual, noValidateVersion)
 	if err != nil {
 		return trace.Wrap(err)
 	}
 	defer updater.Close()
-	unattended := !manual && !block
-	if unattended {
-		return nil
-	}
 	if !manual {
-		err = updater.Run(ctx, false)
-		return trace.Wrap(err)
+		// The cluster is updating in background
+		return nil
 	}
 	localEnv.Println(updateClusterManualOperationBanner)
 	return nil
@@ -82,12 +78,11 @@ func newClusterUpdater(
 	ctx context.Context,
 	localEnv, updateEnv *localenv.LocalEnvironment,
 	updatePackage string,
-	manual, block, noValidateVersion bool,
+	manual, noValidateVersion bool,
 ) (updater, error) {
-	unattended := !manual && !block
 	init := &clusterInitializer{
 		updatePackage: updatePackage,
-		unattended:    unattended,
+		unattended:    !manual,
 	}
 	updater, err := newUpdater(ctx, localEnv, updateEnv, init)
 	if err != nil {
@@ -201,9 +196,10 @@ func (r clusterInitializer) newOperationPlan(
 	operation ops.SiteOperation,
 	localEnv, updateEnv *localenv.LocalEnvironment,
 	clusterEnv *localenv.ClusterEnvironment,
+	leader *storage.Server,
 ) (*storage.OperationPlan, error) {
 	plan, err := clusterupdate.InitOperationPlan(
-		ctx, localEnv, updateEnv, clusterEnv, operation.Key(),
+		ctx, localEnv, updateEnv, clusterEnv, operation.Key(), leader,
 	)
 	if err != nil {
 		return nil, trace.Wrap(err)

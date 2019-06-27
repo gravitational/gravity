@@ -63,7 +63,7 @@ func updateConfig(ctx context.Context, localEnv, updateEnv *localenv.LocalEnviro
 	}
 	defer updater.Close()
 	if !manual {
-		err = updater.Run(ctx, false)
+		err = updater.Run(ctx)
 		return trace.Wrap(err)
 	}
 	localEnv.Println(updateConfigManualOperationBanner)
@@ -177,6 +177,7 @@ func (r configInitializer) newOperationPlan(
 	operation ops.SiteOperation,
 	localEnv, updateEnv *localenv.LocalEnvironment,
 	clusterEnv *localenv.ClusterEnvironment,
+	leader *storage.Server,
 ) (*storage.OperationPlan, error) {
 	plan, err := clusterconfig.NewOperationPlan(operator, clusterEnv.Apps, operation, r.config, cluster.ClusterState.Servers)
 	if err != nil {
