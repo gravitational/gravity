@@ -89,8 +89,8 @@ func (i *Installer) Run(listener net.Listener) error {
 // Stop stops the server and releases resources allocated by the installer.
 // Implements signals.Stopper
 func (i *Installer) Stop(ctx context.Context) error {
-	i.Info("Stop.")
-	i.server.Interrupted(ctx)
+	i.Info("Stop service.")
+	i.server.Stopped(ctx, false)
 	return nil
 }
 

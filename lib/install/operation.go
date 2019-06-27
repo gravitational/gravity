@@ -187,7 +187,6 @@ func (i *Installer) newCompletionEvent(status dispatcher.Status) *dispatcher.Eve
 
 func (i *Installer) runStoppers(ctx context.Context, stoppers []signals.Stopper) error {
 	var errors []error
-	i.WithField("stoppers", stoppers).Info("Executing stoppers.")
 	for _, c := range stoppers {
 		if err := c.Stop(ctx); err != nil {
 			errors = append(errors, err)
