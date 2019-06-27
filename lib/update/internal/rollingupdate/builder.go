@@ -132,7 +132,8 @@ func (r Builder) restart(server storage.UpdateServer) update.Phase {
 	node := r.node("restart", "Restart container on node %q", server.Hostname)
 	node.Executor = libphase.RestartContainer
 	node.Data = &storage.OperationPhaseData{
-		Package: &r.App,
+		ExecServer: &server.Server,
+		Package:    &r.App,
 		Update: &storage.UpdateOperationData{
 			Servers: []storage.UpdateServer{server},
 		},
