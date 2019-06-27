@@ -208,13 +208,13 @@ Tue Apr 10 14:01:09 UTC	Executing install phase "/" finished in 5 minutes
 ```
 
 To abort an installation, press Ctrl+C two times in a row in the terminal.
-If the operation is aborted, the partial cluster state will be automatically removed.
+If the operation is aborted, the partial install state will be automatically removed.
 
-Aborting an agent (and not the installer process), will only prevent this node from joining.
+Aborting a join (and not the installer process), will only prevent this node from joining.
 
-!!! warning "Aborting an agent":
-    Aborting an agent might result in installation failure.
-    If the agent was aborted to correct a configuration error, it can be restarted once the error
+!!! warning "Aborting a join":
+    Aborting a join might result in installation failure.
+    If the operation was aborted to correct a configuration error, it can be restarted once the error
     has been fixed.
 
 
