@@ -46,9 +46,9 @@ func ValidateInstall(env *localenv.LocalEnvironment) func() error {
 			log.WithError(err).Warn("Failed to validate state directory requirements.")
 		}
 		// FIXME: validate enough of directory contents to make an educated decision automatically
-		// if err := validateDirectoryEmpty(stateDir); err != nil {
-		// 	return trace.Wrap(err)
-		// }
+		if err := validateDirectoryEmpty(stateDir); err != nil {
+			return trace.Wrap(err)
+		}
 		if err := validateNoPackageState(env.Packages, env.StateDir); err != nil {
 			return trace.Wrap(err)
 		}

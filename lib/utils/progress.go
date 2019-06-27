@@ -21,6 +21,7 @@ import (
 	"context"
 	"fmt"
 	"io"
+	"io/ioutil"
 	"os"
 	"strings"
 	"sync"
@@ -357,3 +358,12 @@ func (*nopProgress) PrintInfo(message string, args ...interface{}) {}
 
 // PrintWarn outputs the specified warning message in color and logs the error
 func (*nopProgress) PrintWarn(err error, message string, args ...interface{}) {}
+
+// DiscardingLog is a logger that discards output
+var DiscardingLog = newDiscardingLogger()
+
+func newDiscardingLogger() (logger *logrus.Logger) {
+	logger = logrus.New()
+	logger.Out = ioutil.Discard
+	return logger
+}
