@@ -27,29 +27,54 @@ const { UndoManager } = ace.acequire('ace/undomanager');
 class TextEditor extends React.Component{
 
   onChange = () => {
-    let value = this.session.getValue();
+    const isClean = this.editor.session.getUndoManager().isClean();
+    if(this.props.onDirty){
+      this.props.onDirty(!isClean);
+    }
+
+    const content = this.editor.session.getValue();
     if (this.props.onChange) {
-      this.props.onChange(value);
+      this.props.onChange(content);
     }
   }
 
-  componentDidUpdate(){
+  getData(){
+    return this.sessions.map(s => s.getValue());
+  }
+
+  componentDidUpdate(prevProps){
+    if(prevProps.activeIndex !== this.props.activeIndex){
+      this.setActiveSession(this.props.activeIndex);
+    }
+
     this.editor.resize();
   }
 
-  initEditSessions(data, readOnly) {
+  createSession( { content, type } ) {
+    const mode = getMode(type);
+    let session = new ace.EditSession(content);
     let undoManager = new UndoManager();
-    data = data || '';
-    const mode = getMode(this.props.docType);
+    undoManager.markClean();
+    session.setUndoManager(undoManager);
+    session.setUseWrapMode(false)
+    session.setMode(mode);
+    return session;
+  }
+
+  setActiveSession(index) {
+    let activeSession = this.sessions[index];
+    if (!activeSession) {
+      activeSession = this.createSession({ content: '' });
+    }
+
+    this.editor.setSession(activeSession);
+    this.editor.focus();
+  }
+
+  initSessions(data=[]) {
     this.isDirty = false;
-    this.session = new ace.EditSession(data);
-    this.session.setOptions({ tabSize: 2, useSoftTabs: true });
-    this.session.setUndoManager(undoManager);
-    this.session.setUseWrapMode(false)
-    this.session.setMode(mode);
-    this.editor.setTheme('ace/theme/monokai');
-    this.editor.setSession(this.session);
-    this.editor.setReadOnly(readOnly);
+    this.sessions = data.map(item => this.createSession(item));
+    this.setActiveSession(0);
   }
 
   componentDidMount() {
@@ -63,7 +88,9 @@ class TextEditor extends React.Component{
     this.editor.renderer.setShowPrintMargin(false);
     this.editor.renderer.setShowGutter(true);
     this.editor.on('input', this.onChange);
-    this.initEditSessions(data, readOnly);
+    this.editor.setReadOnly(readOnly);
+    this.editor.setTheme('ace/theme/monokai');
+    this.initSessions(data);
     this.editor.focus();
   }
 
@@ -71,11 +98,6 @@ class TextEditor extends React.Component{
     this.editor.destroy();
     this.editor = null;
     this.session = null;
-  }
-
-  // to properly recalculate scrollbar area when layout is changed
-  shouldComponentUpdate() {
-    return true;
   }
 
   render() {

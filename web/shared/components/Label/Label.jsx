@@ -60,7 +60,7 @@ const Label = styled.div`
   min-height: 24px;
   padding: 2px 12px;
   text-transform: uppercase;
-  line-height: 1.5;
+  line-height: 1.43;
   ${kind}
   ${space}
 `;

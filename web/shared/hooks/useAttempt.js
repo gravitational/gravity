@@ -23,8 +23,9 @@ const defaultAttempt = {
   message: ''
 }
 
-export default function useAttempt(){
-  const [attempt, change ] = useState(defaultAttempt);
+export default function useAttempt(initialState){
+  initialState = initialState || defaultAttempt;
+  const [ attempt, change ] = useState(initialState);
 
   const actions = {
     do(fn){

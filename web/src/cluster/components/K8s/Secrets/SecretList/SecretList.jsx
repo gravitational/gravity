@@ -16,32 +16,38 @@ limitations under the License.
 
 import React from 'react';
 import CardEmpty from 'app/components/CardEmpty';
-import { Text } from 'shared/components';
+import { Text, Flex } from 'shared/components';
 import * as Icons from 'shared/components/Icon';
 import ResourceCard from './../../components/ResourceCard';
 
-export default function ConfigMapList({items, namespace, onEdit}){
+export default function SecretList({items, namespace, onEdit}){
   if(items.length === 0){
     return (
-      <CardEmpty title="No Config Maps Found">
+      <CardEmpty title="No Secrets Found">
         <Text>
-          There are no config maps for the "<Text as="span" bold>{namespace}</Text>" namespace
+          There are no secrets for the "<Text as="span" bold>{namespace}</Text>" namespace
         </Text>
       </CardEmpty>
     )
   }
 
-  return items.map(item => {
+  const $items = items.map(item => {
     const { name, created } = item;
     return (
       <ResourceCard
-        buttonTitle="Edit config map"
-        Icon={Icons.FileCode}
+        buttonTitle="Edit secret"
+        Icon={Icons.Lock}
         key={name}
         name={name}
         created={created}
-        onClick={() => onEdit(name)}
+        onClick={() => onEdit(item)}
       />
     )
   })
+
+  return (
+    <Flex alignItems="start" flexWrap="wrap">
+      {$items}
+    </Flex>
+  )
 }

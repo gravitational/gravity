@@ -14,5 +14,5 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-import K8sResourceViewer from './K8sResourceViewer';
-export default K8sResourceViewer;
+import EventDialog from './EventDialog';
+export default EventDialog;

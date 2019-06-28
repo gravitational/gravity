@@ -42,7 +42,7 @@ let cfg = {
 
   dateFormat: 'DD/MM/YYYY',
 
-  isEnt: false,
+  isEnterprise: false,
 
   auth: {
     second_factor: Auth2faTypeEnum.DISABLED,
@@ -122,6 +122,7 @@ let cfg = {
     siteMonitorPod: '/web/site/:siteId/monitor/dashboard/db/pods?var-namespace=:namespace&var-podname=:podName',
     siteK8s: '/web/site/:siteId/k8s/:namespace?/:category?',
     siteK8sConfigMaps: '/web/site/:siteId/k8s/:namespace/configs',
+    siteK8sSecrets: '/web/site/:siteId/k8s/:namespace/secrets',
     siteK8sPods: '/web/site/:siteId/k8s/:namespace/pods',
     siteK8sServices: '/web/site/:siteId/k8s/:namespace/services',
     siteK8sJobs: '/web/site/:siteId/k8s/:namespace/jobs',
@@ -263,6 +264,7 @@ let cfg = {
     k8sNodesPath: `/sites/v1/${accountId}/:siteId/proxy/master/k8s/api/v1/nodes`,
     k8sPodsByNamespacePath: `/sites/v1/${accountId}/:siteId/proxy/master/k8s/api/v1/namespaces/:namespace/pods`,
     k8sPodsPath: `/sites/v1/${accountId}/:siteId/proxy/master/k8s/api/v1/pods`,
+    k8sSecretsPath: `/sites/v1/${accountId}/:siteId/proxy/master/k8s/api/v1/namespaces/:namespace/secrets/:name?`,
     k8sServicesPath: `/sites/v1/${accountId}/:siteId/proxy/master/k8s/api/v1/services`,
     k8sJobsPath: `/sites/v1/${accountId}/:siteId/proxy/master/k8s/apis/batch/v1/jobs`,
     k8sDelploymentsPath: `/sites/v1/${accountId}/:siteId/proxy/master/k8s/apis/extensions/v1beta1/deployments`,
@@ -329,9 +331,14 @@ let cfg = {
     return generatePath(cfg.routes.siteK8s, {siteId, namespace, category});
   },
 
-  getSiteK8sConfigMaps(namespace){
+  getSiteK8sConfigMapsRoute(namespace){
     const siteId = cfg.defaultSiteId;
     return generatePath(cfg.routes.siteK8sConfigMaps, {siteId, namespace});
+  },
+
+  getSiteK8sSecretsRoute(namespace){
+    const siteId = cfg.defaultSiteId;
+    return generatePath(cfg.routes.siteK8sSecrets, {siteId, namespace});
   },
 
   getSiteK8sJobsRoute(namespace){

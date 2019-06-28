@@ -27,7 +27,7 @@ export default function applyConfig(cluster){
 
 
   let logoSvg = cluster.logo || gravityEnterpriseLogo;
-  if(!cfg.isEnt){
+  if(!cfg.isEnterprise){
     logoSvg = gravityCommunityLogo;
   }
 

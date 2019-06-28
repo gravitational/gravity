@@ -14,17 +14,5 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-import React from 'react';
-import Flex from './../Flex';
-import styled from 'styled-components';
-import { typography } from 'shared/system';
-
-export default function DialogHeader(props){
-  return (
-    <StyledDialogHeader minHeight="32px" mb="3" alignItems="center" {...props} />
-  )
-}
-
-const StyledDialogHeader = styled(Flex)`
-  ${typography}
-`
+import Secrets from './Secrets';
+export default Secrets;

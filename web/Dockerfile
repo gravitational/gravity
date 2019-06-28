@@ -15,7 +15,7 @@ COPY package*.json /app/
 WORKDIR /app
 
 RUN npm set audit false ;\
-    npm install
+    npm install --silent
 
 COPY . /app
 

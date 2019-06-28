@@ -20,10 +20,10 @@ import TextEditor from 'oss-app/components/TextEditor';
 import Dialog, { DialogFooter, DialogHeader, DialogTitle, DialogContent} from 'shared/components/Dialog';
 import { ButtonSecondary } from 'shared/components';
 
-function EventDetailsDialog(props){
+function EvenDialog(props){
   const { event, onClose } = props;
   const json = JSON.stringify(event.details, null, 2);
-  const title = `${event.typeDesc} Event Details`;
+  const title = event.codeDesc || 'Event Details';
   return (
     <Dialog
       dialogCss={dialogCss}
@@ -35,7 +35,7 @@ function EventDetailsDialog(props){
         <DialogTitle typography="body1" caps={true} bold>{title}</DialogTitle>
       </DialogHeader>
       <DialogContent>
-        <TextEditor readOnly={true} data={json} docType="json" />
+        <TextEditor readOnly={true} data={[{ content: json, type: 'json'}]} />
       </DialogContent>
       <DialogFooter>
         <ButtonSecondary onClick={onClose}>
@@ -47,7 +47,7 @@ function EventDetailsDialog(props){
 }
 
 
-EventDetailsDialog.propTypes = {
+EvenDialog.propTypes = {
   event: PropTypes.object.isRequired,
   onClose: PropTypes.func.isRequired,
 }
@@ -57,4 +57,4 @@ const dialogCss = () => `
   min-width: 600px;
 `
 
-export default EventDetailsDialog;
+export default EvenDialog;

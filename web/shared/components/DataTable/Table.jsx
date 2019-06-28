@@ -96,8 +96,12 @@ class Table extends React.Component {
   }
 
   render() {
-    const children = [];
-    React.Children.forEach(this.props.children, child => {
+    /* eslint-disable no-unused-vars */
+    const { data, children, ...rest } = this.props;
+    /* eslint-enable no-unused-vars */
+
+    const columns = [];
+    React.Children.forEach(children, child => {
       if (child == null) {
         return;
       }
@@ -106,13 +110,13 @@ class Table extends React.Component {
         throw 'Should be Column';
       }
 
-      children.push(child);
+      columns.push(child);
     });
 
     return (
-      <StyledTable {...this.props}>
-        {this.renderHeader(children)}
-        {this.renderBody(children)}
+      <StyledTable {...rest}>
+        {this.renderHeader(columns)}
+        {this.renderBody(columns)}
       </StyledTable>
     );
   }
