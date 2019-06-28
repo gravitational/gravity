@@ -95,10 +95,10 @@ These ports are used for Cluster operation and should be open between cluster no
 
 | Port                    | Protocol - Layer 4 | Protocol - Layer 5              | Source      | Destination | Description                              |
 |-------------------------|--------------------|---------------------------------|-------------|-------------|------------------------------------------|
-| 53                      | TCP/UDP            | DNS                             | all         | localhost   | Internal cluster DNS                     |
+| 53                      | TCP/UDP            | DNS                             | localhost   | localhost   | Internal cluster DNS                     |
 | 8472                    | UDP                | VXLAN                           | all         | all         | Overlay network                          |
 | 7496                    | TCP/UDP            | HTTPs                           | all         | all         | Serf (Health check agents) peer to peer  |
-| 7373                    | TCP                | RPC                             | all         | localhost   | Serf RPC - peer to peer                  |
+| 7373                    | TCP                | RPC                             | localhost   | localhost   | Serf RPC - peer to peer                  |
 | 7575                    | TCP                | gRPC                            | all         | all         | Cluster status gRPC API                  |
 | 2379, 2380, 4001, 7001  | TCP                | HTTPS                           | all         | controllers | Etcd server communications               |
 | 6443                    | TCP                | HTTPS                           | all         | controllers | Kubernetes API Server                    |
