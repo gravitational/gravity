@@ -754,6 +754,7 @@ func (p *Peer) newAgent(opCtx operationContext) (*rpcserver.PeerServer, error) {
 			"addr":          p.AdvertiseAddr,
 		}),
 		AdvertiseAddr: p.AdvertiseAddr,
+		CloudProvider: p.CloudProvider,
 		ServerAddr:    peerAddr,
 		Credentials:   opCtx.Creds,
 		RuntimeConfig: p.RuntimeConfig,

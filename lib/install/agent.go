@@ -39,6 +39,10 @@ func NewAgent(config AgentConfig) (*rpcserver.PeerServer, error) {
 	if err := FetchCloudMetadata(config.CloudProvider, &config.RuntimeConfig); err != nil {
 		return nil, trace.Wrap(err)
 	}
+	config.WithFields(log.Fields{
+		"provider": config.CloudProvider,
+		"metadata": config.RuntimeConfig.CloudMetadata,
+	}).Info("Fetched cloud metadata.")
 	listener, err := net.Listen("tcp", defaults.GravityRPCAgentAddr(config.AdvertiseAddr))
 	if err != nil {
 		return nil, trace.Wrap(err)
