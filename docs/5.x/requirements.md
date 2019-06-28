@@ -113,10 +113,10 @@ These ports are used for Cluster operation and should be open between cluster no
 | 3012                    | TCP                | HTTPS                           | all         | all         | Gravity RPC agent                        |
 
 !!! Source/Destination Legend:
-    * all - connections may be started or targeted at any node
-    * ext - connections will originate from outside of the cluster
-    * localhost - connections will only connect locally to the node they were originated from
-    * controllers - connections will try to connect controllers (master) nodes
+  * all - Any node which is a member of the cluster
+  * ext - Any source outside the cluster
+  * localhost - The port is only used within the host were the request started
+  * controllers - Nodes which are designated "controller" (aka "master") role
 
 !!! note "Custom vxlan port":
     If the default overlay network port (`8472`) was changed by supplying
