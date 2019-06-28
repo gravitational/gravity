@@ -560,6 +560,7 @@ func agent(env *localenv.LocalEnvironment, config agentConfig, serviceName strin
 	agent, err := install.NewAgent(install.AgentConfig{
 		FieldLogger:   log.WithField("addr", config.advertiseAddr),
 		AdvertiseAddr: config.advertiseAddr,
+		CloudProvider: config.cloudProvider,
 		Credentials:   *creds,
 		ServerAddr:    config.serverAddr,
 		RuntimeConfig: runtimeConfig,
