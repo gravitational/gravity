@@ -14,17 +14,23 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-import React from 'react';
-import Flex from './../Flex';
-import styled from 'styled-components';
-import { typography } from 'shared/system';
+import { at } from 'lodash';
 
-export default function DialogHeader(props){
-  return (
-    <StyledDialogHeader minHeight="32px" mb="3" alignItems="center" {...props} />
-  )
+export default function makeK8sSecret(json) {
+  const [ name, namespace, created, id ] = at(json,
+    [
+      'metadata.name',
+      'metadata.namespace',
+      'metadata.creationTimestamp',
+      'metadata.uid',
+    ]
+  );
+
+  return {
+    id,
+    name,
+    namespace,
+    created: new Date(created),
+    resource: json
+  }
 }
-
-const StyledDialogHeader = styled(Flex)`
-  ${typography}
-`

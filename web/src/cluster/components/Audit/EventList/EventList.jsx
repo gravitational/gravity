@@ -21,7 +21,7 @@ import { TablePaged, Column, SortHeaderCell, Cell, TextCell, SortTypes } from 's
 import EventTypeCell from './EventTypeCell';
 import EventDescCell from './EventDescCell';
 import { ActionCell, TimeCell } from './EventListCells';
-import EventDetailsDialog from './../EventDetailsDialog';
+import EventDialog from './../EventDialog';
 
 class EventList extends React.Component {
 
@@ -129,7 +129,7 @@ class EventList extends React.Component {
           />
         </TablePaged>
         { detailsToShow && (
-          <EventDetailsDialog event={detailsToShow}
+          <EventDialog event={detailsToShow}
             onClose={this.closeDetails}  />
           )
         }

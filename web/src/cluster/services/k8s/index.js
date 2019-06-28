@@ -16,8 +16,10 @@ limitations under the License.
 
 import api from 'app/services/api';
 import cfg from 'app/config';
+import { map, sortBy } from 'lodash';
 import { generatePath } from 'react-router';
 import { makeNodes } from './makeK8sNode';
+import makeK8sSecret from './makeK8sSecret';
 
 const k8s = {
 
@@ -31,6 +33,26 @@ const k8s = {
     const siteId = cfg.defaultSiteId;
     const url = generatePath(
       cfg.api.k8sConfigMapsByNamespacePath,
+      {siteId, namespace, name}
+    );
+
+    return api.patch(url, data);
+  },
+
+  createSecret(namespace, data){
+    const siteId = cfg.defaultSiteId;
+    const url = generatePath(
+      cfg.api.k8sSecretsPath,
+      {siteId, namespace}
+    );
+
+    return api.post(url, data);
+  },
+
+  saveSecret(namespace, name, data){
+    const siteId = cfg.defaultSiteId;
+    const url = generatePath(
+      cfg.api.k8sSecretsPath,
       {siteId, namespace, name}
     );
 
@@ -55,12 +77,22 @@ const k8s = {
     return api.get(url).then( json => json.items );
   },
 
+  getSecrets(namespace){
+    const siteId = cfg.defaultSiteId;
+    const url = generatePath(cfg.api.k8sSecretsPath, {siteId, namespace});
+    return api.get(url)
+      .then( json => map(json.items, makeK8sSecret) )
+      .then( secrets => sortBy(secrets, ['created']).reverse() );
+  },
+
   getPods(namespace){
     const siteId = cfg.defaultSiteId;
     let url = cfg.api.k8sPodsPath;
     if(namespace){
       url = cfg.api.k8sPodsByNamespacePath;
     }
+
+    api.get(generatePath(cfg.api.k8sSecretsPath, {siteId, namespace}));
 
     url = generatePath(url, {siteId, namespace});
     return api.get(url).then( json => json.items );

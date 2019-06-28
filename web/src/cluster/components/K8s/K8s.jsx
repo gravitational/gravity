@@ -27,12 +27,13 @@ import k8sContext from './k8sContext';
 import Pods from './Pods';
 import Services from './Services';
 import Jobs from './Jobs';
+import Secrets from './Secrets';
 import Tabs, { TabItem } from './Tabs';
 import Deployments from './Deployments';
 import DaemotSets from './DaemonSets';
 import NamespaceMenu from './SelectNamespace';
 import ConfigMaps from './ConfigMaps';
-import K8sResourceViewer from './K8sResourceViewer';
+import K8sResourceDialog from './K8sResourceDialog';
 import { withState } from 'shared/hooks';
 
 export class K8s extends React.Component {
@@ -54,12 +55,11 @@ export class K8s extends React.Component {
   }
 
   onViewResource = (name, resourceMap) => {
-    let json = resourceMap.toJSON();
-    json = JSON.stringify(json, null, 2);
+    const resource = resourceMap.toJSON();
     this.setState({
       resourceToView: {
         name,
-        json
+        resource
       }
     })
   }
@@ -73,7 +73,7 @@ export class K8s extends React.Component {
     if(!namespace || !category){
       return (
         <Switch>
-          <Redirect exact to={cfg.getSiteK8sConfigMaps('default')}/>
+          <Redirect exact to={cfg.getSiteK8sConfigMapsRoute('default')}/>
         </Switch>
       )
     }
@@ -97,7 +97,8 @@ export class K8s extends React.Component {
             </Flex>
           </FeatureHeader>
           <Tabs>
-            <TabItem to={cfg.getSiteK8sConfigMaps(namespace)} title="ConfigMaps" />
+            <TabItem to={cfg.getSiteK8sConfigMapsRoute(namespace)} title="ConfigMaps" />
+            <TabItem to={cfg.getSiteK8sSecretsRoute(namespace)} title="Secrets" />
             <TabItem to={cfg.getSiteK8sPodsRoute(namespace)} title="Pods" />
             <TabItem to={cfg.getSiteK8sServicesRoute(namespace)} title="Services" />
             <TabItem to={cfg.getSiteK8sJobsRoute(namespace)} title="Jobs" />
@@ -108,6 +109,7 @@ export class K8s extends React.Component {
             <Switch>
               <Route title="Config Maps"path={cfg.routes.siteK8sConfigMaps} component={ConfigMaps}/>
               <Route title="Pods" path={cfg.routes.siteK8sPods} component={Pods}/>
+              <Route title="Secrets" path={cfg.routes.siteK8sSecrets} component={Secrets}/>
               <Route title="Services" path={cfg.routes.siteK8sServices} component={Services}/>
               <Route title="Jobs" path={cfg.routes.siteK8sJobs} component={Jobs}/>
               <Route title="Daemot Sets" path={cfg.routes.siteK8sDaemonSets} component={DaemotSets}/>
@@ -115,7 +117,12 @@ export class K8s extends React.Component {
             </Switch>
           </Box>
           {resourceToView && (
-            <K8sResourceViewer onClose={this.onCloseResource} title={resourceToView.name} json={resourceToView.json} />
+            <K8sResourceDialog
+              onClose={this.onCloseResource}
+              namespace={namespace}
+              name={resourceToView.name}
+              resource={resourceToView.resource}
+            />
           )}
         </FeatureBox>
       </k8sContext.Provider>

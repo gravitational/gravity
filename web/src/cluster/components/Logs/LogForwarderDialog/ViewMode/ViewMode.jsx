@@ -61,7 +61,7 @@ export default function ViewMode({ curIndex, items, onEdit, onCreate, onSelect, 
         )}
         <LabelInput>Spec</LabelInput>
         <Flex flex="1">
-          <TextEditor readOnly={true} data={content} />
+          <TextEditor readOnly={true} data={[{ content, type: 'yaml' }]} />
         </Flex>
         <Flex mt="5">
           <ButtonPrimary disabled={isProcessing} onClick={onEdit} mr="2">

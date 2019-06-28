@@ -19,7 +19,7 @@ import { storiesOf } from '@storybook/react'
 import ConfigMapEditor from './ConfigMapEditor'
 
 storiesOf('Gravity/K8s', module)
-  .add('ConfigMapEditor', () => {
+  .add('ConfigMapDialog', () => {
     const props = {
       onSave(){
         throw Error('some server error')

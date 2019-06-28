@@ -58,7 +58,7 @@ export default function EditMode({ item, isNew, onSave, onCancel, ...styles }){
         <Flex flex="1">
           <TextEditor
             readOnly={false}
-            data={content}
+            data={[{ content, type: 'yaml' }]}
             onChange={onChange}
           />
         </Flex>

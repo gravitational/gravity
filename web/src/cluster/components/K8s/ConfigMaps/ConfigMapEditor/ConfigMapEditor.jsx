@@ -16,10 +16,11 @@ limitations under the License.
 
 import React from 'react';
 import PropTypes from 'prop-types';
+import { endsWith } from 'lodash';
 import * as Alerts from 'shared/components/Alert';
 import Dialog, { DialogContent, DialogHeader } from 'shared/components/Dialog';
 import { Flex, ButtonPrimary, ButtonSecondary, Text } from 'shared/components';
-import YamlEditor from './YamlEditor';
+import TextEditor from 'app/components/TextEditor';
 import Attempt from './Attempt';
 import Tabs from './Tabs';
 
@@ -34,9 +35,9 @@ class ConfigMapEditor extends React.Component {
     this.setState({activeTabIndex})
   }
 
-  makeTabDirty = (index, value) => {
-    const { dirtyTabs } = this.state;
-    dirtyTabs[index] = value;
+  makeTabDirty = isDirty => {
+    const { dirtyTabs, activeTabIndex } = this.state;
+    dirtyTabs[activeTabIndex] = isDirty;
     this.setState({
       dirtyTabs
     })
@@ -44,11 +45,12 @@ class ConfigMapEditor extends React.Component {
 
   onSave = attemptActions => {
     const { data } = this.props.configMap;
-    const newContent = this.yamlEditorRef.getContent();
+    const editorData = this.yamlEditorRef.getData();
     const changes = {};
 
+    // apply editor changes
     data.forEach((item, index) => {
-      changes[item.name] = newContent[index]
+      changes[item.name] = editorData[index]
     });
 
     attemptActions
@@ -61,6 +63,7 @@ class ConfigMapEditor extends React.Component {
     const { data = [], id, name, namespace } = configMap;
     const { activeTabIndex,  dirtyTabs } = this.state;
     const disabledSave = !dirtyTabs.some( t => t === true);
+    const textEditorData = makeTextEditorData(data);
 
     return (
       <Dialog
@@ -72,8 +75,8 @@ class ConfigMapEditor extends React.Component {
         <Attempt onRun={this.onSave}>
           {({ attempt, run }) => (
             <>
-              <DialogHeader mb="4" justifyContent="space-between">
-                <Text typography="h4" color="primary.contrastText">{name}</Text>
+              <DialogHeader justifyContent="space-between">
+                <Text typography="h3">{name}</Text>
                 <Text as="span">NAMESPACE: {namespace}</Text>
               </DialogHeader>
               {attempt.isFailed &&  (
@@ -89,11 +92,11 @@ class ConfigMapEditor extends React.Component {
                   dirtyTabs={dirtyTabs}
                 />
                 <Flex flex="1">
-                  <YamlEditor
+                  <TextEditor
                     ref={ e => this.yamlEditorRef = e}
                     id={id}
                     onDirty={this.makeTabDirty}
-                    initialData={data}
+                    data={textEditorData}
                     activeIndex={activeTabIndex}
                   />
                 </Flex>
@@ -118,6 +121,21 @@ ConfigMapEditor.propTypes = {
   configMap: PropTypes.object.isRequired,
   onSave: PropTypes.func.isRequired,
   onClose: PropTypes.func.isRequired,
+}
+
+function makeTextEditorData(configMapData){
+  return configMapData.map(item => ({
+    content: item.content,
+    type: getType(item.name)
+  }))
+}
+
+function getType(name){
+  if(endsWith(name, 'json')){
+    return 'json';
+  }
+
+  return 'yaml';
 }
 
 const dialogCss = () => `

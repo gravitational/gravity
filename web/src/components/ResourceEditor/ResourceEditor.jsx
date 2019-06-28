@@ -64,7 +64,7 @@ export default function ResourceEditor(props) {
           <Flex flex="1">
             <TextEditor
               readOnly={false}
-              data={content}
+              data={[{ content, type: 'yaml' }]}
               onChange={updateContent}
             />
           </Flex>

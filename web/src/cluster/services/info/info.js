@@ -29,7 +29,7 @@ const service = {
   },
 
   fetchRemoteAccess() {
-    if(!cfg.isEnt){
+    if(!cfg.isEnterprise){
       // return NA for open source version of the product
       return $.Deferred().resolve(makeRemoteStatus( { status: RemoteAccessEnum.NA }));
     }

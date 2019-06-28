@@ -90,6 +90,7 @@ const ModalBox = styled.div`
 
 const DialogBox = styled.div`
   padding: 32px;
+  padding-top: 24px;
   background: ${props => props.theme.colors.primary.main };
   color: ${props => props.theme.colors.text.primary};
   border-radius: 8px;

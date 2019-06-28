@@ -44,7 +44,7 @@ const StyledTextEditor = styled.div`
     position: absolute;
     top: 8px;
     right: 0px;
-    bottom: 8px;
+    bottom: 0px;
     left: 0px;
   }
 `
