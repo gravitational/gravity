@@ -53,6 +53,7 @@ func StartProfiling(ctx context.Context, httpEndpoint, profileDir string) error 
 		trace.Component: "profiling",
 		"pid":           os.Getpid(),
 		"addr":          listener.Addr(),
+		"cmdline":       os.Args,
 		"curl":          fmt.Sprintf("%v/debug/pprof/goroutine?debug=1", listener.Addr()),
 	})
 	if profileDir != "" {

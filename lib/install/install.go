@@ -325,11 +325,12 @@ func (i *Installer) HandleCompleted(ctx context.Context) error {
 
 // stop runs the specified list of stoppers and shuts down the server
 func (i *Installer) stopWithContext(ctx context.Context, stoppers []signals.Stopper) error {
+	// Shut down process first to unblock a possible wait
+	i.config.Process.Shutdown(ctx)
 	i.cancel()
 	i.wg.Wait()
 	i.dispatcher.Close()
 	err := i.runStoppers(ctx, stoppers)
-	i.config.Process.Shutdown(ctx)
 	return trace.Wrap(err)
 }
 
