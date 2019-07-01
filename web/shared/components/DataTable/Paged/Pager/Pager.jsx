@@ -21,7 +21,10 @@ import { Text } from 'shared/components';
 import { borderRadius } from 'shared/system';
 
 export default function Pager(props) {
-  const { startFrom, endAt, totalRows, onPrev, onNext, pageSize, ...styles } = props;
+  /* eslint-disable no-unused-vars */
+  const { startFrom, endAt, data, totalRows, onPrev, onNext, pageSize, ...styles } = props;
+  /* eslint-enable no-unused-vars */
+
   const shouldBeDisplayed = totalRows > pageSize;
 
   if(!shouldBeDisplayed){

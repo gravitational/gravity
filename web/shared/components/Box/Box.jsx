@@ -15,7 +15,7 @@ limitations under the License.
 */
 
 import styled from 'styled-components'
-import { overflow, border, borderRadius, flex, height, maxWidth, minHeight, maxHeight, minWidth, alignSelf, justifySelf, space, width, color, textAlign } from 'shared/system';
+import { overflow, borders, borderRadius, flex, height, maxWidth, minHeight, maxHeight, minWidth, alignSelf, justifySelf, space, width, color, textAlign } from 'shared/system';
 import defaultTheme from './../../theme'
 
 const Box = styled.div`
@@ -32,7 +32,7 @@ const Box = styled.div`
   ${flex}
   ${alignSelf}
   ${justifySelf}
-  ${border}
+  ${borders}
   ${borderRadius}
   ${overflow}
 `
@@ -51,7 +51,7 @@ Box.propTypes = {
   ...flex.propTypes,
   ...alignSelf.propTypes,
   ...justifySelf.propTypes,
-  ...border.propTypes,
+  ...borders.propTypes,
   ...overflow.propTypes,
 }
 

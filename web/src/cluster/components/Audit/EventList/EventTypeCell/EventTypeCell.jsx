@@ -88,6 +88,7 @@ function getColor(severity, code){
     case CodeEnum.SESSION_JOIN:
     case CodeEnum.TERMINAL_RESIZE:
     case CodeEnum.SESSION_UPLOAD:
+    case CodeEnum.EXEC:
       return 'bgTerminal';
     case CodeEnum.REMOTE_SUPPORT_DISABLED:
     case CodeEnum.SESSION_END:
@@ -115,6 +116,7 @@ function getColor(severity, code){
     case CodeEnum.ALERT_DELETED:
     case CodeEnum.ROLE_DELETED:
     case CodeEnum.GITHUB_CONNECTOR_DELETED:
+    case CodeEnum.OIDC_CONNECTOR_DELETED:
     case CodeEnum.LOGFORWARDER_DELETED:
     case CodeEnum.SAML_CONNECTOR_DELETED:
     case CodeEnum.SMTPCONFIG_DELETED:

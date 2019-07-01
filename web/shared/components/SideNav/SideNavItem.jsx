@@ -15,6 +15,7 @@ limitations under the License.
 */
 
 import styled from 'styled-components';
+import { borderColor } from 'shared/system';
 import defaultTheme from './../../theme';
 import Flex from './../Flex';
 
@@ -34,17 +35,14 @@ const fromTheme = ({ theme = defaultTheme }) => {
 }
 
 const SideNavItem = styled(Flex)`
-  min-height: 72px;
   align-items: center;
-  border: none;
-  border-left: 4px solid transparent;
-  box-sizing: border-box;
   cursor: pointer;
   justify-content: flex-start;
   outline: none;
   text-decoration: none;
   width: 100%;
   ${fromTheme}
+  ${borderColor}
 `;
 
 SideNavItem.displayName = 'SideNavItem';
@@ -54,6 +52,8 @@ SideNavItem.defaultProps = {
   pr: "5",
   bg: "primary.main",
   color: "text.primary",
+  borderLeft: "4px solid transparent",
+  minHeight: "72px",
 }
 
 export default SideNavItem;

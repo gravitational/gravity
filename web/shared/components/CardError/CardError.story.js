@@ -17,30 +17,24 @@ limitations under the License.
 import React from 'react'
 import { storiesOf } from '@storybook/react'
 import { withInfo } from '@storybook/addon-info'
-import { NotFound, AccessDenied, Failed, LoginFailed } from './CardError';
+import { Offline, NotFound, AccessDenied, Failed, LoginFailed } from './CardError';
 
-const defProps = {
-  width: "500px",
-  height: "200px",
-  m: "0 auto",
-  message: 'some error message'
-}
+const message = 'some error message';
 
 storiesOf('CardError', module)
   .addDecorator(withInfo)
   .add('NotFound', () => (
-    <NotFound {...defProps}>
-    </NotFound>
+    <NotFound message={message} />
   ))
   .add('AccessDenied', () => (
-    <AccessDenied {...defProps}>
-    </AccessDenied>
+    <AccessDenied message={message} />
   ))
   .add('Failed', () => (
-    <Failed {...defProps}>
-    </Failed>
+    <Failed message={message} />
   ))
   .add('LoginFailed', () => (
-    <LoginFailed {...defProps} loginUrl="https://localhost">
-    </LoginFailed>
+    <LoginFailed message={message} loginUrl="https://localhost" />
   ))
+  .add('Offline', () => (
+    <Offline title={"This cluster is not available from Gravity."} message={"To access this cluster, please use its local endpoint"} />
+  ));

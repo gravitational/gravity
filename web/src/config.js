@@ -50,7 +50,7 @@ let cfg = {
     saml: [],
   },
 
-  user:{
+  user: {
     privacyPolicyUrl: 'http://gravitational.com/privacy',
 
     // logo to be displayed on login/forgot password screens
@@ -66,7 +66,7 @@ let cfg = {
     }
   },
 
-  agentReport:{
+  agentReport: {
     provision: {
       interfaces: {
         ipv4: {
@@ -162,7 +162,7 @@ let cfg = {
       }
     },
 
-    installer:{
+    installer: {
       enableTags: true,
       eulaAgreeText: 'I Agree To The Terms',
       eulaHeaderText: 'Welcome to the {0} Installer',
@@ -181,7 +181,7 @@ let cfg = {
         [ProviderEnum.AWS]: {
           useExisting: false
         }
-       }
+      }
     }
   },
 
@@ -206,7 +206,7 @@ let cfg = {
     // auth & session management
     ssoOidc: '/proxy/v1/webapi/oidc/login/web?redirect_url=:redirect&connector_id=:providerName',
     ssoSaml: '/proxy/v1/webapi/saml/sso?redirect_url=:redirect&connector_id=:providerName',
-    renewTokenPath:'/proxy/v1/webapi/sessions/renew',
+    renewTokenPath: '/proxy/v1/webapi/sessions/renew',
     sessionPath: '/proxy/v1/webapi/sessions',
     u2fCreateUserChallengePath: '/proxy/v1/webapi/u2f/signuptokens/:inviteToken',
     u2fCreateUserPath: '/proxy/v1/webapi/u2f/users',
@@ -230,7 +230,7 @@ let cfg = {
 
     // site
     siteUserContextPath: '/portalapi/v1/sites/:siteId/context',
-    siteTokenJoin:'/portalapi/v1/sites/:siteId/tokens/join',
+    siteTokenJoin: '/portalapi/v1/sites/:siteId/tokens/join',
     siteChangePasswordPath: '/portalapi/v1/sites/:siteId/users/password',
     siteUsersPath: '/portalapi/v1/sites/:siteId/users/:userId?',
     siteUserInvitePath: '/portalapi/v1/sites/:siteId/invites/:inviteId?',
@@ -271,102 +271,102 @@ let cfg = {
     k8sDaemonSetsPath: `/sites/v1/${accountId}/:siteId/proxy/master/k8s/apis/extensions/v1beta1/daemonsets`,
   },
 
-  getConsoleSessionRoute({siteId, sid}){
+  getConsoleSessionRoute({ siteId, sid }) {
     siteId = siteId || cfg.defaultSiteId;
     return generatePath(cfg.routes.consoleSession, { siteId, sid });
   },
 
-  getConsolePlayerRoute({siteId, sid}) {
+  getConsolePlayerRoute({ siteId, sid }) {
     siteId = siteId || cfg.defaultSiteId;
     return generatePath(cfg.routes.consoleSessionPlayer, { siteId, sid });
   },
 
-  getConsoleInitSessionRoute({siteId, login, serverId, sid}){
+  getConsoleInitSessionRoute({ siteId, login, serverId, sid }) {
     siteId = siteId || cfg.defaultSiteId;
-    return generatePath(cfg.routes.consoleInitSession, {siteId, serverId, login, sid});
+    return generatePath(cfg.routes.consoleInitSession, { siteId, serverId, login, sid });
   },
 
-  getConsoleInitPodSessionRoute({ siteId, serverId, namespace, pod, container, login }){
+  getConsoleInitPodSessionRoute({ siteId, serverId, namespace, pod, container, login }) {
     siteId = siteId || cfg.defaultSiteId;
     return generatePath(cfg.routes.consoleInitPodSession,
       { namespace, pod, container, login, serverId, siteId });
   },
 
-  getSiteCertificateRoute(siteId){
+  getSiteCertificateRoute(siteId) {
     siteId = siteId || cfg.defaultSiteId;
-    return generatePath(cfg.routes.siteCertificate, {siteId});
+    return generatePath(cfg.routes.siteCertificate, { siteId });
   },
 
-  getSiteAuditRoute(siteId){
+  getSiteAuditRoute(siteId) {
     siteId = siteId || cfg.defaultSiteId;
     return generatePath(cfg.routes.siteAudit, { siteId });
   },
 
-  getSiteLicenseRoute(siteId){
+  getSiteLicenseRoute(siteId) {
     siteId = siteId || cfg.defaultSiteId;
     return generatePath(cfg.routes.siteLicense, { siteId });
   },
 
-  getSiteUsersRoute(siteId){
+  getSiteUsersRoute(siteId) {
     siteId = siteId || cfg.defaultSiteId;
-    return generatePath(cfg.routes.siteUsers, {siteId});
+    return generatePath(cfg.routes.siteUsers, { siteId });
   },
 
-  getSiteSettingsRoute(siteId){
+  getSiteSettingsRoute(siteId) {
     siteId = siteId || cfg.defaultSiteId;
-    return generatePath(cfg.routes.siteSettings, {siteId});
+    return generatePath(cfg.routes.siteSettings, { siteId });
   },
 
   getSiteK8sPodMonitorRoute(siteId, namespace, podName) {
-    return generatePath(cfg.routes.siteMonitorPod, {siteId, namespace, podName});
+    return generatePath(cfg.routes.siteMonitorPod, { siteId, namespace, podName });
   },
 
-  getSiteMonitorRoute(siteId){
+  getSiteMonitorRoute(siteId) {
     siteId = siteId || cfg.defaultSiteId;
-    return generatePath(cfg.routes.siteMonitor, {siteId});
+    return generatePath(cfg.routes.siteMonitor, { siteId });
   },
 
-  getSiteK8sRoute(namespace, category){
+  getSiteK8sRoute(namespace, category) {
     const siteId = cfg.defaultSiteId;
-    return generatePath(cfg.routes.siteK8s, {siteId, namespace, category});
+    return generatePath(cfg.routes.siteK8s, { siteId, namespace, category });
   },
 
-  getSiteK8sConfigMapsRoute(namespace){
+  getSiteK8sConfigMapsRoute(namespace) {
     const siteId = cfg.defaultSiteId;
-    return generatePath(cfg.routes.siteK8sConfigMaps, {siteId, namespace});
+    return generatePath(cfg.routes.siteK8sConfigMaps, { siteId, namespace });
   },
 
-  getSiteK8sSecretsRoute(namespace){
+  getSiteK8sSecretsRoute(namespace) {
     const siteId = cfg.defaultSiteId;
-    return generatePath(cfg.routes.siteK8sSecrets, {siteId, namespace});
+    return generatePath(cfg.routes.siteK8sSecrets, { siteId, namespace });
   },
 
-  getSiteK8sJobsRoute(namespace){
+  getSiteK8sJobsRoute(namespace) {
     const siteId = cfg.defaultSiteId;
-    return generatePath(cfg.routes.siteK8sJobs, {siteId, namespace});
+    return generatePath(cfg.routes.siteK8sJobs, { siteId, namespace });
   },
 
-  getSiteK8sPodsRoute(namespace){
+  getSiteK8sPodsRoute(namespace) {
     const siteId = cfg.defaultSiteId;
-    return generatePath(cfg.routes.siteK8sPods, {siteId, namespace});
+    return generatePath(cfg.routes.siteK8sPods, { siteId, namespace });
   },
 
-  getSiteK8sServicesRoute(namespace){
+  getSiteK8sServicesRoute(namespace) {
     const siteId = cfg.defaultSiteId;
-    return generatePath(cfg.routes.siteK8sServices, {siteId, namespace});
+    return generatePath(cfg.routes.siteK8sServices, { siteId, namespace });
   },
 
-  getSiteK8sDaemonsRoute(namespace){
+  getSiteK8sDaemonsRoute(namespace) {
     const siteId = cfg.defaultSiteId;
-    return generatePath(cfg.routes.siteK8sDaemonSets, {siteId, namespace});
+    return generatePath(cfg.routes.siteK8sDaemonSets, { siteId, namespace });
   },
 
-  getSiteK8sDeploymentsRoute(namespace){
+  getSiteK8sDeploymentsRoute(namespace) {
     const siteId = cfg.defaultSiteId;
-    return generatePath(cfg.routes.siteK8sDeployments, {siteId, namespace});
+    return generatePath(cfg.routes.siteK8sDeployments, { siteId, namespace });
   },
 
-  getSiteLogsRoute(siteId){
+  getSiteLogsRoute(siteId) {
     siteId = siteId || cfg.defaultSiteId;
     return generatePath(cfg.routes.siteLogs, { siteId });
   },
@@ -375,194 +375,194 @@ let cfg = {
     return generatePath(cfg.routes.siteUninstall, { siteId });
   },
 
-  getInstallNewSiteRoute(name, repository, version){
+  getInstallNewSiteRoute(name, repository, version) {
     return generatePath(cfg.routes.installerApp,
-       {name, repository, version});
+      { name, repository, version });
   },
 
-  getStandaloneInstallerPath(name, repository, version){
-    return generatePath(cfg.api.standaloneInstallerPath, {name, repository, version});
+  getStandaloneInstallerPath(name, repository, version) {
+    return generatePath(cfg.api.standaloneInstallerPath, { name, repository, version });
   },
 
-  getSiteAppsUrl(siteId){
+  getSiteAppsUrl(siteId) {
     siteId = siteId || cfg.defaultSiteId;
-    return generatePath(cfg.api.siteAppsPath, {siteId});
+    return generatePath(cfg.api.siteAppsPath, { siteId });
   },
 
-  getSiteSshSessionUrl({siteId, sid } = {}){
+  getSiteSshSessionUrl({ siteId, sid } = {}) {
     siteId = siteId || cfg.defaultSiteId;
-    return generatePath(cfg.api.siteSshSessionPath, {siteId, sid});
+    return generatePath(cfg.api.siteSshSessionPath, { siteId, sid });
   },
 
-  getSiteServersUrl(siteId){
-    return generatePath(cfg.api.siteServersPath, {siteId});
+  getSiteServersUrl(siteId) {
+    return generatePath(cfg.api.siteServersPath, { siteId });
   },
 
-  getSiteMetricsUrl({ siteId, interval, step } = {}){
+  getSiteMetricsUrl({ siteId, interval, step } = {}) {
     siteId = siteId || cfg.defaultSiteId;
-    return generatePath(cfg.api.siteMetricsPath, {siteId, interval, step });
+    return generatePath(cfg.api.siteMetricsPath, { siteId, interval, step });
   },
 
-  getSiteResourcesUrl(kind){
+  getSiteResourcesUrl(kind) {
     const siteId = cfg.defaultSiteId;
     const path = cfg.api.siteResourcePath;
     return generatePath(path, { siteId, kind });
   },
 
-  getSiteRemoveResourcesUrl(kind, id){
+  getSiteRemoveResourcesUrl(kind, id) {
     const siteId = cfg.defaultSiteId;
     return generatePath(cfg.api.siteRemoveResourcePath, { siteId, kind, id })
   },
 
-  getSiteReportUrl(){
+  getSiteReportUrl() {
     const siteId = cfg.defaultSiteId;
-    return generatePath(cfg.api.siteReportPath, {siteId});
+    return generatePath(cfg.api.siteReportPath, { siteId });
   },
 
-  getSiteInfoUrl(siteId){
+  getSiteInfoUrl(siteId) {
     siteId = siteId || cfg.defaultSiteId;
     return generatePath(cfg.api.siteInfoPath, { siteId });
   },
 
-  getSiteOperationReportUrl(siteId, opId){
+  getSiteOperationReportUrl(siteId, opId) {
     return generatePath(cfg.api.siteOperationReportPath, {
       siteId,
       opId
     });
   },
 
-  getSiteChangePasswordUrl(siteId){
+  getSiteChangePasswordUrl(siteId) {
     siteId = siteId || cfg.defaultSiteId;
     return generatePath(cfg.api.siteChangePasswordPath, { siteId });
   },
 
-  getSiteUserUrl(siteId){
+  getSiteUserUrl(siteId) {
     siteId = siteId || cfg.defaultSiteId;
     const url = generatePath(cfg.api.siteUsersPath, { siteId });
     return url.replace(/\/$/, "");
   },
 
-  getSiteRemoteAccessUrl(siteId){
+  getSiteRemoteAccessUrl(siteId) {
     siteId = siteId || cfg.defaultSiteId;
-    return generatePath(cfg.api.siteRemoteAccessPath, {siteId});
+    return generatePath(cfg.api.siteRemoteAccessPath, { siteId });
   },
 
-  getSiteEndpointsUrl(siteId){
-    return generatePath(cfg.api.siteEndpointsPath, {siteId});
+  getSiteEndpointsUrl(siteId) {
+    return generatePath(cfg.api.siteEndpointsPath, { siteId });
   },
 
-  getSiteLogForwardersUrl(siteId){
+  getSiteLogForwardersUrl(siteId) {
     siteId = siteId || cfg.defaultSiteId;
-    return generatePath(cfg.api.siteLogForwardersPath, {siteId});
+    return generatePath(cfg.api.siteLogForwardersPath, { siteId });
   },
 
   getSiteLogAggregatorUrl(siteId, query) {
     let path = cfg.api.siteLogAggegatorPath;
-    if(query){
+    if (query) {
       path = `${path}:query`;
     }
 
     return generatePath(path, { siteId, query });
   },
 
-  getSiteTokenJoinUrl(siteId){
+  getSiteTokenJoinUrl(siteId) {
     siteId = siteId || cfg.defaultSiteId;
-    return generatePath(cfg.api.siteTokenJoin, {siteId});
+    return generatePath(cfg.api.siteTokenJoin, { siteId });
   },
 
-  getShrinkSiteUrl(siteId){
-    return generatePath(cfg.api.shrinkSitePath, {siteId});
+  getShrinkSiteUrl(siteId) {
+    return generatePath(cfg.api.shrinkSitePath, { siteId });
   },
 
-  getAppsUrl(name, repository, version){
-    let url = generatePath(cfg.api.appsPath, {name, repository, version});
+  getAppsUrl(name, repository, version) {
+    const url = generatePath(cfg.api.appsPath, { name, repository, version });
     return url.replace(/\/$/, '');
   },
 
-  getOperationUrl({siteId, opId }){
+  getOperationUrl({ siteId, opId }) {
     siteId = siteId || cfg.defaultSiteId;
-    return generatePath(cfg.api.operationPath, {siteId, opId}).replace(/\/$/g, '');
+    return generatePath(cfg.api.operationPath, { siteId, opId }).replace(/\/$/g, '');
   },
 
-  getOperationAgentUrl(siteId, opId){
-    return generatePath(cfg.api.operationAgentPath, {siteId, opId});
+  getOperationAgentUrl(siteId, opId) {
+    return generatePath(cfg.api.operationAgentPath, { siteId, opId });
   },
 
-  getOperationProgressUrl(siteId, opId){
+  getOperationProgressUrl(siteId, opId) {
     siteId = siteId || cfg.defaultSiteId;
-    return generatePath(cfg.api.operationProgressPath, {siteId, opId});
+    return generatePath(cfg.api.operationProgressPath, { siteId, opId });
   },
 
-  getOperationStartUrl(siteId, opId){
-    return generatePath(cfg.api.operationStartPath, {siteId, opId});
+  getOperationStartUrl(siteId, opId) {
+    return generatePath(cfg.api.operationStartPath, { siteId, opId });
   },
 
-  operationPrecheckPath(siteId, opId){
-    return generatePath(cfg.api.operationPrecheckPath, {siteId, opId});
+  operationPrecheckPath(siteId, opId) {
+    return generatePath(cfg.api.operationPrecheckPath, { siteId, opId });
   },
 
-  getSiteUrl({ siteId, shallow=true }){
-    return generatePath(cfg.api.sitePath, {siteId, shallow})
+  getSiteUrl({ siteId, shallow = true }) {
+    return generatePath(cfg.api.sitePath, { siteId, shallow })
       .replace(/\/$/g, '')
       .replace(/\/\?shallow/g, '?shallow');
   },
 
-  getSiteEventsUrl({siteId, start, end, limit }){
+  getSiteEventsUrl({ siteId, start, end, limit }) {
     siteId = siteId || cfg.defaultSiteId;
-    return generatePath(cfg.api.siteEvents, {siteId, start, end, limit});
+    return generatePath(cfg.api.siteEvents, { siteId, start, end, limit });
   },
 
-  getSiteGrafanaContextUrl(siteId){
-    return generatePath(cfg.api.siteGrafanaContextPath, {siteId});
+  getSiteGrafanaContextUrl(siteId) {
+    return generatePath(cfg.api.siteGrafanaContextPath, { siteId });
   },
 
-  getSiteLicenseUrl(siteId){
+  getSiteLicenseUrl(siteId) {
     siteId = siteId || cfg.defaultSiteId;
-    return generatePath(cfg.api.siteLicensePath, {siteId});
+    return generatePath(cfg.api.siteLicensePath, { siteId });
   },
 
-  getSiteFlavorsUrl(siteId){
-    return generatePath(cfg.api.siteFlavorsPath, {siteId});
+  getSiteFlavorsUrl(siteId) {
+    return generatePath(cfg.api.siteFlavorsPath, { siteId });
   },
 
-  getSiteUserContextUrl(siteId){
+  getSiteUserContextUrl(siteId) {
     siteId = siteId || cfg.defaultSiteId;
-    return generatePath(cfg.api.siteUserContextPath, {siteId});
+    return generatePath(cfg.api.siteUserContextPath, { siteId });
   },
 
-  getSiteUninstallStatusUrl(siteId){
-    return generatePath(cfg.api.siteUninstallStatusPath, {siteId});
+  getSiteUninstallStatusUrl(siteId) {
+    return generatePath(cfg.api.siteUninstallStatusPath, { siteId });
   },
 
-  getInstallerProvisionUrl(siteId){
-    return generatePath(cfg.routes.installerCluster, {siteId});
+  getInstallerProvisionUrl(siteId) {
+    return generatePath(cfg.routes.installerCluster, { siteId });
   },
 
-  getInstallerLastStepUrl(siteId){
-    return generatePath(cfg.routes.installerComplete, {siteId});
+  getInstallerLastStepUrl(siteId) {
+    return generatePath(cfg.routes.installerComplete, { siteId });
   },
 
-  getCheckDomainNameUrl(domainName){
-    return generatePath(cfg.api.checkDomainNamePath, {domainName})
+  getCheckDomainNameUrl(domainName) {
+    return generatePath(cfg.api.checkDomainNamePath, { domainName })
   },
 
-  getNodesUrl(siteId){
+  getNodesUrl(siteId) {
     siteId = siteId || cfg.defaultSiteId;
-    return generatePath(cfg.api.siteNodesPath, {siteId});
+    return generatePath(cfg.api.siteNodesPath, { siteId });
   },
 
-  getAccountDeleteInviteUrl({ siteId, inviteId }){
+  getAccountDeleteInviteUrl({ siteId, inviteId }) {
     siteId = siteId || cfg.defaultSiteId;
-    return generatePath(cfg.api.siteUserInvitePath, {siteId, inviteId});
+    return generatePath(cfg.api.siteUserInvitePath, { siteId, inviteId });
   },
 
-  getAccountDeleteUserUrl({siteId, userId }){
+  getAccountDeleteUserUrl({ siteId, userId }) {
     siteId = siteId || cfg.defaultSiteId;
-    return generatePath(cfg.api.siteUsersPath, {siteId, userId});
+    return generatePath(cfg.api.siteUsersPath, { siteId, userId });
   },
 
-  getUserRequestInfo(token){
-    return generatePath(cfg.api.userTokenPath, {token});
+  getUserRequestInfo(token) {
+    return generatePath(cfg.api.userTokenPath, { token });
   },
 
   getSsoUrl(providerUrl, providerName, redirect) {
@@ -570,12 +570,12 @@ let cfg = {
   },
 
   getAuth2faType() {
-    let [secondFactor=null] = at(cfg, 'auth.second_factor');
+    let [secondFactor = null] = at(cfg, 'auth.second_factor');
     return secondFactor;
   },
 
-  getU2fCreateUserChallengeUrl(inviteToken){
-    return generatePath(cfg.api.u2fCreateUserChallengePath, {inviteToken});
+  getU2fCreateUserChallengeUrl(inviteToken) {
+    return generatePath(cfg.api.u2fCreateUserChallengePath, { inviteToken });
   },
 
 
@@ -583,36 +583,36 @@ let cfg = {
     return cfg.auth && cfg.auth.providers ? cfg.auth.providers : [];
   },
 
-  is2FAEnabled(){
+  is2FAEnabled() {
     return cfg.auth.twoFA === true;
   },
 
-  getSiteRoute(siteId){
+  getSiteRoute(siteId) {
     siteId = siteId || cfg.defaultSiteId;
-    return generatePath(cfg.routes.siteBase, {siteId});
+    return generatePath(cfg.routes.siteBase, { siteId });
   },
 
-  getSiteAppUrl(siteId){
-    return generatePath(cfg.routes.siteApp, {siteId});
+  getSiteAppUrl(siteId) {
+    return generatePath(cfg.routes.siteApp, { siteId });
   },
 
-  getSiteServersRoute(siteId){
+  getSiteServersRoute(siteId) {
     siteId = siteId || cfg.defaultSiteId;
-    return generatePath(cfg.routes.siteServers, {siteId});
+    return generatePath(cfg.routes.siteServers, { siteId });
   },
 
-  getSiteConsoleRoute(siteId){
-    return generatePath(cfg.routes.siteConsole, {siteId});
+  getSiteConsoleRoute(siteId) {
+    return generatePath(cfg.routes.siteConsole, { siteId });
   },
 
-  getSiteHistoryRoute(siteId){
-    return generatePath(cfg.routes.siteHistory, {siteId});
+  getSiteHistoryRoute(siteId) {
+    return generatePath(cfg.routes.siteHistory, { siteId });
   },
 
-  getSiteLogQueryRoute({siteId, query}){
+  getSiteLogQueryRoute({ siteId, query }) {
     siteId = siteId || cfg.defaultSiteId;
     const route = cfg.routes.siteLogs;
-    return generatePath(`${route}?query=:query`, {siteId, query});
+    return generatePath(`${route}?query=:query`, { siteId, query });
   },
 
   getSiteTlsCertUrl(siteId) {
@@ -626,17 +626,17 @@ let cfg = {
     return url.replace(/\/$/, '');
   },
 
-  getSiteUserResetPath({siteId, userId}) {
+  getSiteUserResetPath({ siteId, userId }) {
     siteId = siteId || cfg.defaultSiteId;
     return generatePath(cfg.api.resetUserPath, { siteId, userId });
   },
 
-  getSiteSessionUrl(siteId, sid){
-    return generatePath(cfg.api.siteSessionPath, {siteId, sid});
+  getSiteSessionUrl(siteId, sid) {
+    return generatePath(cfg.api.siteSessionPath, { siteId, sid });
   },
 
-  getSiteInstallerRoute(siteId){
-    return generatePath(cfg.routes.installerCluster, {siteId});
+  getSiteInstallerRoute(siteId) {
+    return generatePath(cfg.routes.installerCluster, { siteId });
   },
 
   getSiteDefaultDashboard() {
@@ -644,13 +644,13 @@ let cfg = {
     return suffix;
   },
 
-  getWsHostName(){
-    const hostport = location.hostname+(location.port ? ':'+location.port: '');
+  getWsHostName() {
+    const hostport = location.hostname + (location.port ? ':' + location.port : '');
     return `wss://${hostport}`;
   },
 
   getServerVersion() {
-    let [serverVer] = at(cfg, 'systemInfo.serverVersion');
+    const [serverVer] = at(cfg, 'systemInfo.serverVersion');
     return {
       version: serverVer.version,
       gitCommit: serverVer.gitCommit,
@@ -659,28 +659,28 @@ let cfg = {
   },
 
   getAgentDeviceMount(name) {
-    let [ option ] = at(cfg, `agentReport.provision.mounts.${name}`);
+    const [option] = at(cfg, `agentReport.provision.mounts.${name}`);
     return option || {};
   },
 
   getAgentDeviceIpv4() {
-    let [ option ] = at(cfg, 'agentReport.provision.interfaces.ipv4');
+    const [option] = at(cfg, 'agentReport.provision.interfaces.ipv4');
     return option || {};
   },
 
   getScpUrl({ siteId, serverId, login, location, filename }) {
-    return generatePath(cfg.api.scp, {siteId, serverId, login, location, filename});
+    return generatePath(cfg.api.scp, { siteId, serverId, login, location, filename });
   },
 
-  enableSiteLicense(value=false){
+  enableSiteLicense(value = false) {
     cfg.modules.site.features.license.enabled = value;
   },
 
-  enableSiteMonitoring(value=true){
+  enableSiteMonitoring(value = true) {
     cfg.modules.site.features.monitoring.enabled = value;
   },
 
-  enableSiteK8s(value=true){
+  enableSiteK8s(value = true) {
     cfg.modules.site.features.k8s.enabled = value;
   },
 
@@ -692,23 +692,23 @@ let cfg = {
     cfg.modules.site.features.logs.enabled = value;
   },
 
-  isSiteMonitoringEnabled(){
+  isSiteMonitoringEnabled() {
     return cfg.modules.site.features.monitoring.enabled;
   },
 
-  isSiteLicenseEnabled(){
+  isSiteLicenseEnabled() {
     return cfg.modules.site.features.license.enabled;
   },
 
-  isSiteK8sEnabled(){
+  isSiteK8sEnabled() {
     return cfg.modules.site.features.k8s.enabled;
   },
 
-  isSiteConfigMapsEnabled(){
+  isSiteConfigMapsEnabled() {
     return cfg.modules.site.features.configMaps.enabled;
   },
 
-  isSiteLogsEnabled(){
+  isSiteLogsEnabled() {
     return cfg.modules.site.features.logs.enabled;
   },
 
@@ -717,24 +717,24 @@ let cfg = {
  * for remotely accessing clusters this will always be HUB cluster id.
  */
   getLocalSiteId() {
-    let [siteId] = at(cfg, 'systemInfo.clusterName');
+    const [siteId] = at(cfg, 'systemInfo.clusterName');
     return siteId;
   },
 
-  setServerVersion(ver={}){
+  setServerVersion(ver = {}) {
     cfg.systemInfo.serverVersion = ver;
     logger.info("platform version", ver);
   },
 
-  setDefaultSiteId(siteId){
+  setDefaultSiteId(siteId) {
     this.defaultSiteId = siteId;
   },
 
-  setLogo(logo){
+  setLogo(logo) {
     this.logo = logo;
   },
 
-  init(config={}){
+  init(config = {}) {
     $.extend(true, this, config);
   }
 }

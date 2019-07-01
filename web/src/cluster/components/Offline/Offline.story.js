@@ -14,14 +14,13 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-import React from "react";
-import { Offline } from "shared/components/CardError";
+import React from 'react'
+import { storiesOf } from '@storybook/react'
+import Offline from './Offline'
 
-export default function OfflineCluster({ siteId }) {
-  return (
-    <Offline
-      title="This cluster is not available from Gravity"
-      message={`To access "${siteId}" please use its local endpoint.`}
-    />
-  );
-}
+storiesOf('Gravity', module)
+  .add('Offline', () => {
+    return (
+      <Offline siteId={"mycluster"} />
+    )
+  });

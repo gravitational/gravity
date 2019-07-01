@@ -67,6 +67,18 @@ export const Failed = ({message}) => (
   </CardError>
 )
 
+export const Offline = ({message, title}) => (
+  <CardError>
+    <Header>{title}</Header>
+    <Content
+      desc={(
+        <Text typography="paragraph" textAlign="center">
+          {message}
+        </Text>
+      )}/>
+  </CardError>
+)
+
 export const LoginFailed = ({ message, loginUrl }) => (
   <CardError>
     <Header>Login unsuccessful</Header>
