@@ -7,16 +7,16 @@ Gravity Clusters.
 
 Gravity supports the following distributions:
 
-| Linux Distribution        | Version         | Docker Storage Drivers                |
-|--------------------------|-----------------|---------------------------------------|
+| Linux Distribution       | Version         | Docker Storage Drivers                 |
+|--------------------------|-----------------|----------------------------------------|
 | Red Hat Enterprise Linux | 7.2-7.3         | `devicemapper`*                        |
 | Red Hat Enterprise Linux | 7.4-7.6         | `devicemapper`*, `overlay`, `overlay2` |
 | CentOS                   | 7.2-7.6         | `devicemapper`*, `overlay`, `overlay2` |
 | Debian                   | 8-9             | `devicemapper`*, `overlay`, `overlay2` |
 | Ubuntu                   | 16.04           | `devicemapper`*, `overlay`, `overlay2` |
 | Ubuntu-Core              | 16.04           | `devicemapper`*, `overlay`, `overlay2` |
-| openSuse                 | 12 SP2 - 12 SP3 | `overlay`, `overlay2`                 |
-| Suse Linux Enterprise    | 12 SP2 - 12 SP3 | `overlay`, `overlay2`                 |
+| openSuse                 | 12 SP2 - 12 SP3 | `overlay`, `overlay2`                  |
+| Suse Linux Enterprise    | 12 SP2 - 12 SP3 | `overlay`, `overlay2`                  |
 
 !!! note
     devicemapper has been deprecated by the docker project, and is not supported by gravity 5.3.4 or later
@@ -138,14 +138,14 @@ The bridge netfilter kernel module is required for Kubernetes iptables-based
 proxy to work correctly. Kernels prior to version 3.18 had this module built
 in:
 
-```bsh
+```bash
 root$ cat /lib/modules/$(uname -r)/modules.builtin | grep netfilter
 ```
 
 Starting from kernel 3.18 it became a separate module. To check that it is
 loaded run:
 
-```bsh
+```bash
 root$ lsmod | grep netfilter
 br_netfilter           24576  0
 ```
@@ -153,7 +153,7 @@ br_netfilter           24576  0
 If the above command didn't produce any result, then the module is not loaded.
 Use the following commands to load the module and make sure it is loaded on boot:
 
-```bsh
+```bash
 root$ modprobe br_netfilter
 root$ echo 'br_netfilter' > /etc/modules-load.d/netfilter.conf
 ```
@@ -161,7 +161,7 @@ root$ echo 'br_netfilter' > /etc/modules-load.d/netfilter.conf
 When the module is loaded, check the iptables setting and, if required, enable
 it as well:
 
-```bsh
+```bash
 root$ sysctl net.bridge.bridge-nf-call-iptables
 net.bridge.bridge-nf-call-iptables = 0
 root$ sysctl -w net.bridge.bridge-nf-call-iptables=1
@@ -180,14 +180,14 @@ overlay2 Docker storage driver (see [Application Manifest](/pack/#application-ma
 for information on how to configure the storage driver). To check that it's
 loaded:
 
-```bsh
+```bash
 root$ lsmod | grep overlay
 overlay                49152  29
 ```
 
 To load the module and make it persist across reboots:
 
-```bsh
+```bash
 root$ modprobe overlay
 root$ echo 'overlay' > /etc/modules-load.d/overlay.conf
 ```
@@ -200,7 +200,7 @@ and setting up docker bridge in "promiscuous-bridge" mode.
 
 To see if the module is loaded:
 
-```bsh
+```bash
 root$ lsmod | grep ebtable
 ebtable_filter         12827  0
 ebtables               35009  1 ebtable_filter
@@ -208,7 +208,7 @@ ebtables               35009  1 ebtable_filter
 
 To load the module and make it persist across reboots:
 
-```bsh
+```bash
 root$ modprobe ebtable_filter
 root$ echo 'ebtable_filter' > /etc/modules-load.d/network.conf
 ```
@@ -218,7 +218,7 @@ root$ echo 'ebtable_filter' > /etc/modules-load.d/network.conf
 The following modules also need to be loaded to make sure firewall rules
 that Kubernetes sets up function properly:
 
-```bsh
+```bash
 root$ modprobe ip_tables
 root$ modprobe iptable_filter
 root$ modprobe iptable_nat
@@ -229,15 +229,15 @@ root$ modprobe iptable_nat
 Following table summarizes the required kernel modules per OS distribution.
 Gravity requires that these modules are loaded prior to installation.
 
-| Linux Distribution                     | Version | Modules |
-|--------------------------|-----------|---------------------------|
-| CentOS                    | 7.2     | bridge, ebtable_filter, iptables, overlay  |
-| RedHat Linux | 7.2     | bridge, ebtable_filter, iptables  |
-| CentOS                  | 7.3-7.6     | br_netfilter, ebtable_filter, iptables, overlay  |
-| RedHat Linux | 7.3-7.6     | br_netfilter, ebtable_filter, iptables, overlay     |
-| Debian | 8-9 | br_netfilter, ebtable_filter, iptables, overlay |
-| Ubuntu | 16.04 | br_netfilter, ebtable_filter, iptables, overlay |
-| Ubuntu-Core | 16.04 | br_netfilter, ebtable_filter, iptables, overlay |
+| Linux Distribution                   | Version        | Modules                                         |
+|--------------------------------------|----------------|-------------------------------------------------|
+| CentOS                               | 7.2            | bridge, ebtable_filter, iptables, overlay       |
+| RedHat Linux                         | 7.2            | bridge, ebtable_filter, iptables                |
+| CentOS                               | 7.3-7.6        | br_netfilter, ebtable_filter, iptables, overlay |
+| RedHat Linux                         | 7.3-7.6        | br_netfilter, ebtable_filter, iptables, overlay |
+| Debian                               | 8-9            | br_netfilter, ebtable_filter, iptables, overlay |
+| Ubuntu                               | 16.04          | br_netfilter, ebtable_filter, iptables, overlay |
+| Ubuntu-Core                          | 16.04          | br_netfilter, ebtable_filter, iptables, overlay |
 | Suse Linux (openSUSE and Enterprise) | 12 SP2, 12 SP3 | br_netfilter, ebtable_filter, iptables, overlay |
 
 ### Inotify watches
@@ -247,14 +247,14 @@ to increase the `max_user_watches` kernel parameter. Gravity's built-in
 monitoring system checks for inotify watches exhaustion but we recommended setting
 it to some large value to avoid running out of limits:
 
-```bsh
+```bash
 $ sysctl -w fs.inotify.max_user_watches=1048576
 ```
 
 To make the change persistent so it survives the node reboots, set the setting
 in a file inside `/etc/sysctl.d` directory, for example:
 
-```bsh
+```bash
 $ cat /etc/sysctl.d/inotify.conf
 fs.inotify.max_user_watches=1048576
 ```
