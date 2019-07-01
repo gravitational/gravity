@@ -17,7 +17,9 @@ limitations under the License.
 package systemservice
 
 import (
+	"fmt"
 	"os/exec"
+	"path/filepath"
 	"syscall"
 
 	"github.com/gravitational/gravity/lib/defaults"
@@ -40,6 +42,18 @@ const (
 	// Corresponds to either exit code 3 or 4 depending on the version of systemd
 	ServiceStatusUnknown = "unknown"
 )
+
+// FullServiceName returns the full service name (incl. the suffix).
+// It will append the service suffix if necessary
+func FullServiceName(serviceName string) (nameWithSuffix string) {
+	if filepath.Ext(serviceName) != ServiceSuffix {
+		return fmt.Sprint(serviceName, ServiceSuffix)
+	}
+	return serviceName
+}
+
+// ServiceSuffix specifies the suffix of the systemd service file
+const ServiceSuffix = ".service"
 
 // IsKnownStatus returns whether passed service status is a known status
 func IsKnownStatus(s string) bool {

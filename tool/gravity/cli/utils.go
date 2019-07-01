@@ -293,25 +293,36 @@ func loadRPCCredentials(ctx context.Context, addr, token string) (*rpcserver.Cre
 	return creds, nil
 }
 
-// hasFlagInArgs returns true if the specified flag has been found
-// in args.
+// updateFlagsInArgs returns the list of flags missing from args.
+// flags specifies the flags to search for - if a flag is missing from args,
+// it is returned as part of the result.
 // parser specifies the command line parser for args
-func hasFlagInArgs(flag string, args []string, parser ArgsParser) (ok bool, err error) {
+func updateFlagsInArgs(flags []flag, args []string, parser ArgsParser) (flagsToAdd []string, err error) {
 	ctx, err := parser.ParseArgs(args)
 	if err != nil {
 		log.WithError(err).Warn("Failed to parse command line.")
-		return false, trace.Wrap(err)
+		return nil, trace.Wrap(err)
 	}
 	for _, el := range ctx.Elements {
-		switch c := el.Clause.(type) {
-		case *kingpin.FlagClause:
-			model := c.Model()
-			if model.Name == flag {
-				return true, nil
+		for i, flag := range flags {
+			switch c := el.Clause.(type) {
+			case *kingpin.FlagClause:
+				model := c.Model()
+				if model.Name == flag.name {
+					flags = append(flags[:i], flags[i+1:]...)
+				}
 			}
 		}
 	}
-	return false, nil
+	for _, flag := range flags {
+		flagsToAdd = append(flagsToAdd, flag.cmdline...)
+	}
+	return flagsToAdd, nil
+}
+
+type flag struct {
+	name    string
+	cmdline []string
 }
 
 func parseArgs(args []string) (*kingpin.ParseContext, error) {

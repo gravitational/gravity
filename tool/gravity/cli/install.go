@@ -410,6 +410,37 @@ func remove(env *localenv.LocalEnvironment, c removeConfig) error {
 	return nil
 }
 
+func (r *autojoinConfig) newJoinConfig() JoinConfig {
+	return JoinConfig{
+		SystemLogFile: r.systemLogFile,
+		UserLogFile:   r.userLogFile,
+		Role:          r.role,
+		SystemDevice:  r.systemDevice,
+		DockerDevice:  r.dockerDevice,
+		Mounts:        r.mounts,
+		AdvertiseAddr: r.advertiseAddr,
+		PeerAddrs:     r.serviceURL,
+		Token:         r.token,
+		FromService:   r.fromService,
+	}
+}
+
+func (r *autojoinConfig) checkAndSetDefaults() (err error) {
+	if !r.fromService {
+		return nil
+	}
+	if r.advertiseAddr == "" {
+		return trace.BadParameter("advertise address is required")
+	}
+	if r.serviceURL == "" {
+		return trace.BadParameter("service URL is required")
+	}
+	if r.token == "" {
+		return trace.BadParameter("token is required")
+	}
+	return nil
+}
+
 type autojoinConfig struct {
 	systemLogFile string
 	userLogFile   string
@@ -418,13 +449,30 @@ type autojoinConfig struct {
 	systemDevice  string
 	dockerDevice  string
 	mounts        map[string]string
+	fromService   bool
+	serviceURL    string
+	advertiseAddr string
+	token         string
 }
 
-func autojoin(env *localenv.LocalEnvironment, environ LocalEnvironmentFactory, d autojoinConfig) error {
-	if err := checkRunningAsRoot(); err != nil {
+func autojoin(env *localenv.LocalEnvironment, environ LocalEnvironmentFactory, d autojoinConfig) (err error) {
+	if err := d.checkAndSetDefaults(); err != nil {
 		return trace.Wrap(err)
 	}
 
+	if !d.fromService {
+		err := updateJoinConfigFromCloudMetadata(context.TODO(), &d)
+		if err != nil {
+			return trace.Wrap(err)
+		}
+	}
+
+	env.Printf("auto joining to cluster %q via %v\n", d.clusterName, d.serviceURL)
+
+	return join(env, environ, d.newJoinConfig())
+}
+
+func updateJoinConfigFromCloudMetadata(ctx context.Context, config *autojoinConfig) error {
 	instance, err := cloudaws.NewLocalInstance()
 	if err != nil {
 		log.WithError(err).Warn("Failed to fetch instance metadata on AWS.")
@@ -432,35 +480,49 @@ func autojoin(env *localenv.LocalEnvironment, environ LocalEnvironmentFactory, d
 	}
 
 	autoscaler, err := autoscaleaws.New(autoscaleaws.Config{
-		ClusterName: d.clusterName,
+		ClusterName: config.clusterName,
 	})
 	if err != nil {
 		return trace.Wrap(err)
 	}
 
-	joinToken, err := autoscaler.GetJoinToken(context.TODO())
+	joinToken, err := autoscaler.GetJoinToken(ctx)
 	if err != nil {
 		return trace.Wrap(err)
 	}
 
-	serviceURL, err := autoscaler.GetServiceURL(context.TODO())
+	serviceURL, err := autoscaler.GetServiceURL(ctx)
 	if err != nil {
 		return trace.Wrap(err)
 	}
 
-	env.Printf("auto joining to cluster %q via %v\n", d.clusterName, serviceURL)
+	config.token = joinToken
+	config.serviceURL = serviceURL
+	config.advertiseAddr = instance.PrivateIP
+	return nil
+}
 
-	return join(env, environ, JoinConfig{
-		SystemLogFile: d.systemLogFile,
-		UserLogFile:   d.userLogFile,
-		AdvertiseAddr: instance.PrivateIP,
-		PeerAddrs:     serviceURL,
-		Token:         joinToken,
-		Role:          d.role,
-		SystemDevice:  d.systemDevice,
-		DockerDevice:  d.dockerDevice,
-		Mounts:        d.mounts,
-	})
+func (r *agentConfig) newServiceArgs(gravityPath string) (args []string) {
+	args = []string{gravityPath, "--debug", "ops", "agent", r.packageAddr,
+		"--advertise-addr", r.advertiseAddr,
+		"--server-addr", r.serverAddr,
+		"--token", r.token,
+		"--service-uid", r.serviceUID,
+		"--service-gid", r.serviceGID,
+	}
+	if r.systemLogFile != "" {
+		args = append(args, "--system-log-file", r.systemLogFile)
+	}
+	if r.userLogFile != "" {
+		args = append(args, "--log-file", r.userLogFile)
+	}
+	if r.cloudProvider != "" {
+		args = append(args, "--cloud-provider", r.cloudProvider)
+	}
+	if len(r.vars) != 0 {
+		args = append(args, "--vars", r.vars.String())
+	}
+	return args
 }
 
 func (r *agentConfig) checkAndSetDefaults() (err error) {
@@ -473,15 +535,28 @@ func (r *agentConfig) checkAndSetDefaults() (err error) {
 	if r.packageAddr == "" {
 		return trace.BadParameter("package service address is required")
 	}
+	if r.advertiseAddr == "" {
+		return trace.BadParameter("advertise address is required")
+	}
+	if r.serverAddr == "" {
+		return trace.BadParameter("server address is required")
+	}
+	if r.token == "" {
+		return trace.BadParameter("token is required")
+	}
 	r.cloudProvider, err = validateOrDetectCloudProvider(r.cloudProvider)
 	if err != nil {
 		return trace.Wrap(err)
+	}
+	if r.serviceName != "" {
+		r.serviceName = systemservice.FullServiceName(r.serviceName)
 	}
 	return nil
 }
 
 type agentConfig struct {
 	systemLogFile string
+	serviceName   string
 	userLogFile   string
 	advertiseAddr string
 	serverAddr    string
@@ -493,11 +568,7 @@ type agentConfig struct {
 	cloudProvider string
 }
 
-func agent(env *localenv.LocalEnvironment, config agentConfig, serviceName string) error {
-	if err := checkRunningAsRoot(); err != nil {
-		return trace.Wrap(err)
-	}
-
+func agent(env *localenv.LocalEnvironment, config agentConfig) error {
 	if err := config.checkAndSetDefaults(); err != nil {
 		return trace.Wrap(err)
 	}
@@ -513,32 +584,21 @@ func agent(env *localenv.LocalEnvironment, config agentConfig, serviceName strin
 		return trace.Wrap(err, "failed to lookup gravity binary")
 	}
 
-	if serviceName != "" {
-		command := []string{gravityPath, "--debug", "ops", "agent",
-			config.packageAddr,
-			"--advertise-addr", config.advertiseAddr,
-			"--server-addr", config.serverAddr,
-			"--token", config.token,
-			"--system-log-file", config.systemLogFile,
-			"--log-file", config.userLogFile,
-			"--vars", config.vars.String(),
-			"--service-uid", config.serviceUID,
-			"--service-gid", config.serviceGID,
-			"--cloud-provider", config.cloudProvider,
-		}
+	if config.serviceName != "" {
+		command := config.newServiceArgs(gravityPath)
 		req := systemservice.NewServiceRequest{
 			ServiceSpec: systemservice.ServiceSpec{
 				StartCommand: strings.Join(command, " "),
 			},
 			NoBlock: true,
-			Name:    serviceName,
+			Name:    config.serviceName,
 		}
-		log.Infof("Installing service with req %+v.", req)
+		log.WithField("req", req).Info("Installing service with req.")
 		err := service.ReinstallOneshot(req)
 		if err != nil {
 			return trace.Wrap(err)
 		}
-		env.Printf("Agent service %v started.\n", serviceName)
+		env.Printf("Agent service %v started.\n", config.serviceName)
 		return nil
 	}
 
@@ -724,7 +784,7 @@ func join(env *localenv.LocalEnvironment, environ LocalEnvironmentFactory, confi
 		defer joinEnv.Close()
 		return trace.Wrap(joinFromService(env, joinEnv, config))
 	}
-	strategy, err := newAgentConnectStrategy(env)
+	strategy, err := newAgentConnectStrategy(env, config)
 	if err != nil {
 		return trace.Wrap(err)
 	}
@@ -775,9 +835,16 @@ var InterruptSignals = signals.WithSignals(
 func NewInstallerConnectStrategy(env *localenv.LocalEnvironment, config InstallConfig, parser ArgsParser) (strategy installerclient.ConnectStrategy, err error) {
 	args := append([]string{utils.Exe.Path}, os.Args[1:]...)
 	args = append(args, "--from-service", utils.Exe.WorkingDir)
-	if ok, _ := hasFlagInArgs("token", os.Args[1:], parser); !ok {
-		args = append(args, "--token", config.Token)
+	flags, err := updateFlagsInArgs([]flag{
+		{
+			name:    "token",
+			cmdline: []string{"--token", config.Token},
+		},
+	}, os.Args[1:], parser)
+	if err != nil {
+		return nil, trace.Wrap(err)
 	}
+	args = append(args, flags...)
 	servicePath, err := state.GravityInstallDir(defaults.GravityRPCInstallerServiceName)
 	if err != nil {
 		return nil, trace.Wrap(err)
@@ -791,9 +858,30 @@ func NewInstallerConnectStrategy(env *localenv.LocalEnvironment, config InstallC
 }
 
 // newAgentConnectStrategy returns default service connect strategy for a joining agent
-func newAgentConnectStrategy(env *localenv.LocalEnvironment) (strategy installerclient.ConnectStrategy, err error) {
+func newAgentConnectStrategy(env *localenv.LocalEnvironment, config JoinConfig) (strategy installerclient.ConnectStrategy, err error) {
 	args := append([]string{utils.Exe.Path}, os.Args[1:]...)
 	args = append(args, "--from-service")
+	// TODO: accept command line parser as argument if the join command
+	// is to be extended on enterprise side
+	flags, err := updateFlagsInArgs([]flag{
+		{
+			name:    "token",
+			cmdline: []string{"--token", config.Token},
+		},
+		{
+			name:    "advertise-addr",
+			cmdline: []string{"--advertise-addr", config.AdvertiseAddr},
+		},
+		{
+			name:    "peer-addrs",
+			cmdline: []string{"--peer-addrs", config.PeerAddrs},
+		},
+	}, os.Args[1:], ArgsParserFunc(parseArgs))
+	if err != nil {
+		return nil, trace.Wrap(err)
+	}
+	log.WithField("additional-flags", flags).Info("Update service command line.")
+	args = append(args, flags...)
 	servicePath, err := state.GravityInstallDir(defaults.GravityRPCAgentServiceName)
 	if err != nil {
 		return nil, trace.Wrap(err)
