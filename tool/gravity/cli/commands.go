@@ -442,8 +442,8 @@ type AutoJoinCmd struct {
 	SystemDevice *string
 	// Mounts is additional app mounts
 	Mounts *configure.KeyVal
-	// PeerAddr specifies the address of the cluster node to join
-	PeerAddr *string
+	// ServiceAddr specifies the service URL of the cluster to join
+	ServiceAddr *string
 	// AdvertiseAddr is local node advertise IP address
 	AdvertiseAddr *string
 	// Token is join token

@@ -425,7 +425,7 @@ func (r *autojoinConfig) newJoinConfig() JoinConfig {
 	}
 }
 
-func (r *autojoinConfig) checkAndSetDefaults() (err error) {
+func (r *autojoinConfig) checkAndSetDefaults() error {
 	if !r.fromService {
 		return nil
 	}
@@ -460,16 +460,38 @@ func autojoin(env *localenv.LocalEnvironment, environ LocalEnvironmentFactory, d
 		return trace.Wrap(err)
 	}
 
-	if !d.fromService {
-		err := updateJoinConfigFromCloudMetadata(context.TODO(), &d)
+	if d.fromService {
+		joinEnv, err := environ.NewJoinEnv()
 		if err != nil {
 			return trace.Wrap(err)
 		}
+		defer joinEnv.Close()
+		return trace.Wrap(joinFromService(env, joinEnv, d.newJoinConfig()))
 	}
 
-	env.Printf("auto joining to cluster %q via %v\n", d.clusterName, d.serviceURL)
+	err = updateJoinConfigFromCloudMetadata(context.TODO(), &d)
+	if err != nil {
+		return trace.Wrap(err)
+	}
 
-	return join(env, environ, d.newJoinConfig())
+	env.PrintStep("Auto joining cluster %q via %v\n", d.clusterName, d.serviceURL)
+
+	config := d.newJoinConfig()
+	strategy, err := newAutoAgentConnectStrategy(env, config)
+	if err != nil {
+		return trace.Wrap(err)
+	}
+	err = joinClient(env, installerclient.Config{
+		ConnectStrategy: strategy,
+		Lifecycle: &installerclient.AutomaticLifecycle{
+			Aborter:   installerAbortOperation(env),
+			Completer: InstallerCompleteOperation(env),
+		},
+	})
+	if utils.IsContextCancelledError(err) {
+		return trace.Wrap(err, "agent interrupted")
+	}
+	return trace.Wrap(err)
 }
 
 func updateJoinConfigFromCloudMetadata(ctx context.Context, config *autojoinConfig) error {
@@ -833,19 +855,53 @@ var InterruptSignals = signals.WithSignals(
 
 // NewInstallerConnectStrategy returns default installer service connect strategy
 func NewInstallerConnectStrategy(env *localenv.LocalEnvironment, config InstallConfig, parser ArgsParser) (strategy installerclient.ConnectStrategy, err error) {
-	args := append([]string{utils.Exe.Path}, os.Args[1:]...)
-	args = append(args, "--from-service", utils.Exe.WorkingDir)
-	flags, err := updateFlagsInArgs([]flag{
+	args, err := updateCommandWithFlags(os.Args[1:], parser, []flag{
 		{
-			name:    "token",
-			cmdline: []string{"--token", config.Token},
+			name:  "token",
+			value: config.Token,
 		},
-	}, os.Args[1:], parser)
+	})
 	if err != nil {
 		return nil, trace.Wrap(err)
 	}
-	args = append(args, flags...)
+	args = append([]string{utils.Exe.Path}, args...)
+	args = append(args, "--from-service", utils.Exe.WorkingDir)
 	servicePath, err := state.GravityInstallDir(defaults.GravityRPCInstallerServiceName)
+	if err != nil {
+		return nil, trace.Wrap(err)
+	}
+	return &installerclient.InstallerStrategy{
+		Args:           args,
+		Validate:       environ.ValidateInstall(env),
+		ApplicationDir: utils.Exe.WorkingDir,
+		ServicePath:    servicePath,
+	}, nil
+}
+
+// newAutoAgentConnectStrategy returns default service connect strategy for a joining agent
+func newAutoAgentConnectStrategy(env *localenv.LocalEnvironment, config JoinConfig) (strategy installerclient.ConnectStrategy, err error) {
+	// TODO: accept command line parser as argument if the join command
+	// is to be extended on enterprise side
+	args, err := updateCommandWithFlags(os.Args[1:], ArgsParserFunc(parseArgs), []flag{
+		{
+			name:  "token",
+			value: config.Token,
+		},
+		{
+			name:  "advertise-addr",
+			value: config.AdvertiseAddr,
+		},
+		{
+			name:  "service-addr",
+			value: config.PeerAddrs,
+		},
+	})
+	if err != nil {
+		return nil, trace.Wrap(err)
+	}
+	args = append([]string{utils.Exe.Path}, args...)
+	args = append(args, "--from-service")
+	servicePath, err := state.GravityInstallDir(defaults.GravityRPCAgentServiceName)
 	if err != nil {
 		return nil, trace.Wrap(err)
 	}
@@ -861,27 +917,6 @@ func NewInstallerConnectStrategy(env *localenv.LocalEnvironment, config InstallC
 func newAgentConnectStrategy(env *localenv.LocalEnvironment, config JoinConfig) (strategy installerclient.ConnectStrategy, err error) {
 	args := append([]string{utils.Exe.Path}, os.Args[1:]...)
 	args = append(args, "--from-service")
-	// TODO: accept command line parser as argument if the join command
-	// is to be extended on enterprise side
-	flags, err := updateFlagsInArgs([]flag{
-		{
-			name:    "token",
-			cmdline: []string{"--token", config.Token},
-		},
-		{
-			name:    "advertise-addr",
-			cmdline: []string{"--advertise-addr", config.AdvertiseAddr},
-		},
-		{
-			name:    "peer-addrs",
-			cmdline: []string{"--peer-addrs", config.PeerAddrs},
-		},
-	}, os.Args[1:], ArgsParserFunc(parseArgs))
-	if err != nil {
-		return nil, trace.Wrap(err)
-	}
-	log.WithField("additional-flags", flags).Info("Update service command line.")
-	args = append(args, flags...)
 	servicePath, err := state.GravityInstallDir(defaults.GravityRPCAgentServiceName)
 	if err != nil {
 		return nil, trace.Wrap(err)

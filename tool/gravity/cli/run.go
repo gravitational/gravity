@@ -302,7 +302,7 @@ func Execute(g *Application, cmd string, extraArgs []string) (err error) {
 			dockerDevice:  *g.AutoJoinCmd.DockerDevice,
 			mounts:        *g.AutoJoinCmd.Mounts,
 			fromService:   *g.AutoJoinCmd.FromService,
-			serviceURL:    *g.AutoJoinCmd.PeerAddr,
+			serviceURL:    *g.AutoJoinCmd.ServiceAddr,
 			token:         *g.AutoJoinCmd.Token,
 			advertiseAddr: *g.AutoJoinCmd.AdvertiseAddr,
 		})

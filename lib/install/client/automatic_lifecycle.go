@@ -55,7 +55,7 @@ func (r *AutomaticLifecycle) HandleStatus(ctx context.Context, c *Client, status
 		if err := c.shutdown(ctx); err != nil && !isServerUnavailableError(err) {
 			c.WithError(err).Warn("Failed to shut down.")
 		}
-		return trace.Wrap(statusErr)
+		return trace.Wrap(convertGrpcError(statusErr))
 	}
 }
 
@@ -133,4 +133,25 @@ type CompletionHandler func(context.Context, installpb.ProgressResponse_Status) 
 func isServerUnavailableError(err error) bool {
 	status, ok := grpcstatus.FromError(trace.Unwrap(err))
 	return ok && status.Code() == codes.Unavailable
+}
+
+func convertGrpcError(err error) error {
+	s, ok := grpcstatus.FromError(trace.Unwrap(err))
+	if !ok {
+		return err
+	}
+	switch s.Code() {
+	case codes.AlreadyExists:
+		return trace.AlreadyExists(s.Message())
+	case codes.PermissionDenied:
+		return trace.AccessDenied(s.Message())
+	case codes.DeadlineExceeded:
+		return trace.LimitExceeded(s.Message())
+	case codes.Unimplemented:
+		return trace.NotImplemented(s.Message())
+	case codes.InvalidArgument, codes.FailedPrecondition:
+		return trace.BadParameter(s.Message())
+	default:
+		return trace.BadParameter(s.Message())
+	}
 }

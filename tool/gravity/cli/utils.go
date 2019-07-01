@@ -293,36 +293,49 @@ func loadRPCCredentials(ctx context.Context, addr, token string) (*rpcserver.Cre
 	return creds, nil
 }
 
-// updateFlagsInArgs returns the list of flags missing from args.
-// flags specifies the flags to search for - if a flag is missing from args,
-// it is returned as part of the result.
-// parser specifies the command line parser for args
-func updateFlagsInArgs(flags []flag, args []string, parser ArgsParser) (flagsToAdd []string, err error) {
-	ctx, err := parser.ParseArgs(args)
+// updateCommandWithFlags returns new command line for the specified command.
+// flagsToAdd are added to the resulting command line if not yet present.
+//
+// The resulting command line adheres to command line format accepted by system.
+// See https://www.freedesktop.org/software/systemd/man/systemd.service.html#Command%20lines for details
+func updateCommandWithFlags(command []string, parser ArgsParser, flagsToAdd []flag) (args []string, err error) {
+	ctx, err := parser.ParseArgs(command)
 	if err != nil {
 		log.WithError(err).Warn("Failed to parse command line.")
 		return nil, trace.Wrap(err)
 	}
+	outputCommand := ctx.SelectedCommand.FullCommand()
 	for _, el := range ctx.Elements {
-		for i, flag := range flags {
-			switch c := el.Clause.(type) {
-			case *kingpin.FlagClause:
+		switch c := el.Clause.(type) {
+		case *kingpin.ArgClause:
+			args = append(args, strconv.Quote(c.Model().Name))
+		case *kingpin.FlagClause:
+			if _, ok := c.Model().Value.(boolFlag); ok {
+				args = append(args, fmt.Sprint("--", c.Model().Name))
+			} else {
+				args = append(args, fmt.Sprint("--", c.Model().Name), strconv.Quote(*el.Value))
+			}
+			for i, flag := range flagsToAdd {
 				model := c.Model()
 				if model.Name == flag.name {
-					flags = append(flags[:i], flags[i+1:]...)
+					flagsToAdd = append(flagsToAdd[:i], flagsToAdd[i+1:]...)
 				}
 			}
 		}
 	}
-	for _, flag := range flags {
-		flagsToAdd = append(flagsToAdd, flag.cmdline...)
+	for _, flag := range flagsToAdd {
+		args = append(args, fmt.Sprint("--", flag.name), strconv.Quote(flag.value))
 	}
-	return flagsToAdd, nil
+	return append([]string{outputCommand}, args...), nil
 }
 
 type flag struct {
-	name    string
-	cmdline []string
+	name  string
+	value string
+}
+
+type boolFlag interface {
+	IsBoolFlag() bool
 }
 
 func parseArgs(args []string) (*kingpin.ParseContext, error) {
