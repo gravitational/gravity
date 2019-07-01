@@ -79,6 +79,7 @@ const api = {
         // preserve state
         error.state = err.state;
         error.status = err.status;
+        error.readyState = err.readyState;
         dfd.reject(error);
       })
       .always(() => {

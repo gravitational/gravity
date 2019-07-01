@@ -28,7 +28,7 @@ export default function Progress(props){
   const logsUrl = cfg.getSiteLogQueryRoute({query: `file:${id}`});
 
   return (
-    <Info as={Flex} py="2" justifyContent="space-between" alignItems="center" width="100%">
+    <Info as={Flex} mb="0" py="2" justifyContent="space-between" alignItems="center" width="100%">
       <Box mr="2">
         <StyledSpinner fontSize="14px"/>
         <Text ml="2" mr="2" as="span">

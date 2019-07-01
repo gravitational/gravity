@@ -94,7 +94,7 @@ export default class LogViewer extends React.Component {
     if (isError){
       return (
         <StyledStatusBox>
-          <Danger width="100%">
+          <Danger width="100%" mx="2">
             {errorText}
           </Danger>
         </StyledStatusBox>

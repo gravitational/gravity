@@ -74,7 +74,7 @@ export default class LogProvider extends React.Component {
     }
 
     try {
-      let parsedData = [];
+      const parsedData = [];
       data = data || [];
       data.forEach(item => {
         item = JSON.parse(item);
@@ -104,6 +104,8 @@ export default class LogProvider extends React.Component {
 
     this.onLoading(true);
 
+    // to abort the on-going request in situations
+    // when a user executes a new query
     this._signal = new Signal();
 
      api.ajax( {url: queryUrl, signal: this._signal })
@@ -112,9 +114,13 @@ export default class LogProvider extends React.Component {
         this.onData(data);
       })
       .fail(err => {
-        if (err.state && err.state() === 'rejected'){
+        // when a request is aborted by the user, its readyState is changed to
+        // XMLHttpRequest.UNSENT (0) and the request's status code is set to 0.
+        if (err.status === 0  && err.readyState === 0){
+          // do not show any errors in this case
           return;
         }
+
         this.onError(err);
       });
   }

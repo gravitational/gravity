@@ -32,7 +32,7 @@ export default function Dashboard(){
         </FeatureHeaderTitle>
         <DebugInfoButton ml="auto"/>
       </FeatureHeader>
-      <OperationBanner/>
+      <OperationBanner mb="4"/>
       <MetricsCharts/>
       <LatestEventList mb="4"/>
       <OperationList mb="4" />
