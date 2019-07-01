@@ -67,7 +67,8 @@ export function LogForwarderDialog(props) {
           <Flex flex="1" p="5" flexDirection="column" >
             <DialogTitle typography="body1" bold mb="4"> Create and Manage Log Forwarders </DialogTitle>
             <Text mb="8" typography="body1" color="primary.contrastText">
-              Create your first log forwarder. Lorem Ipsum is simply dummy text of the printing...
+              Create your first log forwarder to ship cluster logs to a remote log collector such as a rsyslog server.
+
             </Text>
             <ButtonPrimary mx="auto" onClick={onCreate}>
               Create a new log forwarder
