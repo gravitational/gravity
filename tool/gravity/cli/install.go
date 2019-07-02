@@ -27,8 +27,6 @@ import (
 	"syscall"
 	"time"
 
-	autoscaleaws "github.com/gravitational/gravity/lib/autoscale/aws"
-	cloudaws "github.com/gravitational/gravity/lib/cloudprovider/aws"
 	"github.com/gravitational/gravity/lib/constants"
 	"github.com/gravitational/gravity/lib/defaults"
 	"github.com/gravitational/gravity/lib/expand"
@@ -53,7 +51,6 @@ import (
 	"github.com/gravitational/gravity/lib/utils"
 
 	"github.com/fatih/color"
-	"github.com/gravitational/configure"
 	"github.com/gravitational/trace"
 )
 
@@ -243,6 +240,8 @@ func restartInstallOrJoin(env *localenv.LocalEnvironment) error {
 		},
 	})
 	if utils.IsContextCancelledError(err) {
+		// We only end up here if the initialization has not been successful - clean up the state
+		InstallerCleanup()
 		return trace.Wrap(err, "installer interrupted")
 	}
 	return trace.Wrap(err)
@@ -350,19 +349,6 @@ func tryLeave(env *localenv.LocalEnvironment, c leaveConfig) error {
 	return nil
 }
 
-func (r *removeConfig) checkAndSetDefaults() error {
-	if r.server == "" {
-		return trace.BadParameter("server flag is required")
-	}
-	return nil
-}
-
-type removeConfig struct {
-	server    string
-	force     bool
-	confirmed bool
-}
-
 func remove(env *localenv.LocalEnvironment, c removeConfig) error {
 	if err := checkRunningAsRoot(); err != nil {
 		return trace.Wrap(err)
@@ -410,71 +396,20 @@ func remove(env *localenv.LocalEnvironment, c removeConfig) error {
 	return nil
 }
 
-func (r *autojoinConfig) newJoinConfig() JoinConfig {
-	return JoinConfig{
-		SystemLogFile: r.systemLogFile,
-		UserLogFile:   r.userLogFile,
-		Role:          r.role,
-		SystemDevice:  r.systemDevice,
-		DockerDevice:  r.dockerDevice,
-		Mounts:        r.mounts,
-		AdvertiseAddr: r.advertiseAddr,
-		PeerAddrs:     r.serviceURL,
-		Token:         r.token,
-		FromService:   r.fromService,
-	}
-}
-
-func (r *autojoinConfig) checkAndSetDefaults() error {
-	if !r.fromService {
-		return nil
-	}
-	if r.advertiseAddr == "" {
-		return trace.BadParameter("advertise address is required")
-	}
-	if r.serviceURL == "" {
-		return trace.BadParameter("service URL is required")
-	}
-	if r.token == "" {
-		return trace.BadParameter("token is required")
-	}
-	return nil
-}
-
-type autojoinConfig struct {
-	systemLogFile string
-	userLogFile   string
-	clusterName   string
-	role          string
-	systemDevice  string
-	dockerDevice  string
-	mounts        map[string]string
-	fromService   bool
-	serviceURL    string
-	advertiseAddr string
-	token         string
-}
-
 func autojoin(env *localenv.LocalEnvironment, environ LocalEnvironmentFactory, d autojoinConfig) (err error) {
-	if err := d.checkAndSetDefaults(); err != nil {
-		return trace.Wrap(err)
-	}
-
 	if d.fromService {
-		joinEnv, err := environ.NewJoinEnv()
-		if err != nil {
-			return trace.Wrap(err)
-		}
-		defer joinEnv.Close()
-		return trace.Wrap(joinFromService(env, joinEnv, d.newJoinConfig()))
+		return autojoinFromService(env, environ, d)
 	}
 
 	err = updateJoinConfigFromCloudMetadata(context.TODO(), &d)
 	if err != nil {
 		return trace.Wrap(err)
 	}
+	if err := d.checkAndSetDefaults(); err != nil {
+		return trace.Wrap(err)
+	}
 
-	env.PrintStep("Auto joining cluster %q via %v\n", d.clusterName, d.serviceURL)
+	env.PrintStep("Auto-joining cluster %q via %v\n", d.clusterName, d.serviceURL)
 
 	config := d.newJoinConfig()
 	strategy, err := newAutoAgentConnectStrategy(env, config)
@@ -489,105 +424,23 @@ func autojoin(env *localenv.LocalEnvironment, environ LocalEnvironmentFactory, d
 		},
 	})
 	if utils.IsContextCancelledError(err) {
+		// We only end up here if the initialization has not been successful - clean up the state
+		InstallerCleanup()
 		return trace.Wrap(err, "agent interrupted")
 	}
 	return trace.Wrap(err)
 }
 
-func updateJoinConfigFromCloudMetadata(ctx context.Context, config *autojoinConfig) error {
-	instance, err := cloudaws.NewLocalInstance()
-	if err != nil {
-		log.WithError(err).Warn("Failed to fetch instance metadata on AWS.")
-		return trace.BadParameter("autojoin only supports AWS")
+func autojoinFromService(env *localenv.LocalEnvironment, environ LocalEnvironmentFactory, config autojoinConfig) error {
+	if err := config.checkAndSetDefaults(); err != nil {
+		return trace.Wrap(err)
 	}
-
-	autoscaler, err := autoscaleaws.New(autoscaleaws.Config{
-		ClusterName: config.clusterName,
-	})
+	joinEnv, err := environ.NewJoinEnv()
 	if err != nil {
 		return trace.Wrap(err)
 	}
-
-	joinToken, err := autoscaler.GetJoinToken(ctx)
-	if err != nil {
-		return trace.Wrap(err)
-	}
-
-	serviceURL, err := autoscaler.GetServiceURL(ctx)
-	if err != nil {
-		return trace.Wrap(err)
-	}
-
-	config.token = joinToken
-	config.serviceURL = serviceURL
-	config.advertiseAddr = instance.PrivateIP
-	return nil
-}
-
-func (r *agentConfig) newServiceArgs(gravityPath string) (args []string) {
-	args = []string{gravityPath, "--debug", "ops", "agent", r.packageAddr,
-		"--advertise-addr", r.advertiseAddr,
-		"--server-addr", r.serverAddr,
-		"--token", r.token,
-		"--service-uid", r.serviceUID,
-		"--service-gid", r.serviceGID,
-	}
-	if r.systemLogFile != "" {
-		args = append(args, "--system-log-file", r.systemLogFile)
-	}
-	if r.userLogFile != "" {
-		args = append(args, "--log-file", r.userLogFile)
-	}
-	if r.cloudProvider != "" {
-		args = append(args, "--cloud-provider", r.cloudProvider)
-	}
-	if len(r.vars) != 0 {
-		args = append(args, "--vars", r.vars.String())
-	}
-	return args
-}
-
-func (r *agentConfig) checkAndSetDefaults() (err error) {
-	if r.serviceUID == "" {
-		return trace.BadParameter("service user ID is required")
-	}
-	if r.serviceGID == "" {
-		return trace.BadParameter("service group ID is required")
-	}
-	if r.packageAddr == "" {
-		return trace.BadParameter("package service address is required")
-	}
-	if r.advertiseAddr == "" {
-		return trace.BadParameter("advertise address is required")
-	}
-	if r.serverAddr == "" {
-		return trace.BadParameter("server address is required")
-	}
-	if r.token == "" {
-		return trace.BadParameter("token is required")
-	}
-	r.cloudProvider, err = validateOrDetectCloudProvider(r.cloudProvider)
-	if err != nil {
-		return trace.Wrap(err)
-	}
-	if r.serviceName != "" {
-		r.serviceName = systemservice.FullServiceName(r.serviceName)
-	}
-	return nil
-}
-
-type agentConfig struct {
-	systemLogFile string
-	serviceName   string
-	userLogFile   string
-	advertiseAddr string
-	serverAddr    string
-	packageAddr   string
-	token         string
-	vars          configure.KeyVal
-	serviceUID    string
-	serviceGID    string
-	cloudProvider string
+	defer joinEnv.Close()
+	return trace.Wrap(joinFromService(env, joinEnv, config.newJoinConfig()))
 }
 
 func agent(env *localenv.LocalEnvironment, config agentConfig) error {
@@ -818,6 +671,8 @@ func join(env *localenv.LocalEnvironment, environ LocalEnvironmentFactory, confi
 		},
 	})
 	if utils.IsContextCancelledError(err) {
+		// We only end up here if the initialization has not been successful - clean up the state
+		InstallerCleanup()
 		return trace.Wrap(err, "agent interrupted")
 	}
 	return trace.Wrap(err)
