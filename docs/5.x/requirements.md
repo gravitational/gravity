@@ -64,7 +64,7 @@ nodeProfiles:
 
 ## Network
 
-#### Network backends
+### Network backends
 
 Gravity supports two networking backends in production:
 
@@ -73,12 +73,12 @@ Gravity supports two networking backends in production:
 
 See [Application Manifest](/pack/#application-manifest) section for details on how to select network type.
 
-#### Air-gapped installs
+### Air-gapped installs
 
 Gravity Clusters do not need internet access to operate by default and ships all containers and binaries
 with every install or update.
 
-#### Installer Ports
+### Installer Ports
 
 These ports are required during initial installation and can be closed after the install is complete:
 
@@ -88,8 +88,16 @@ These ports are required during initial installation and can be closed after the
 | 61008-61010, 61022-61024 | HTTPS     | Installer agent ports     |
 | 4242                     | TCP       | Bandwidth checker utility |
 
+### Default Subnets
 
-#### Cluster Ports
+By default Gravity clusters are configured to use the following network subnets:
+
+| Subnet          | Description               |
+|--------------- -|---------------------------|
+| 10.244.0.0/16   | Pod IPv4 addresses        |
+| 10.100.0.0/16   | Services IPv4 addresses   |
+
+### Cluster Ports
 
 These ports are used for Cluster operation and should be open between cluster nodes:
 
