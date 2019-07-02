@@ -75,7 +75,7 @@ function ClusterTags({onChange}) {
           onKeyDown={onKeyDown}
           onChange={onChangeValue}
           autoComplete="off"
-          placeholder="key:value key:value"
+          placeholder="key:value, key:value, ..."
         />
         <ButtonPrimary onClick={onAddTags}>
           Create
@@ -99,9 +99,12 @@ function LabelList({ tags, onDelete }){
 }
 
 function parseTags(str){
-  return str.split(" ")
+  return str.split(',')
     .map(t => {
-      const [ key, value ] = t.split(':');
+      let [ key, value ] = t.split(':');
+      // remove spaces
+      key = key ? key.trim() : key;
+      value = value ? value.trim() : value;
       return {
         key,
         value
