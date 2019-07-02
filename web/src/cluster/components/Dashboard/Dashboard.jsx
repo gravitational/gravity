@@ -36,7 +36,7 @@ export default function Dashboard(){
       <MetricsCharts/>
       <LatestEventList mb="4"/>
       <OperationList mb="4" />
-      <AppList mb="4"/>
+      <AppList/>
     </FeatureBox>
   );
 }

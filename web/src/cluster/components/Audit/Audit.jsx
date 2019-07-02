@@ -50,7 +50,7 @@ export class Audit extends React.Component {
       item => moment(item.time).isBetween(from, to));
 
     return (
-      <FeatureBox pb="3">
+      <FeatureBox>
         <FeatureHeader alignItems="center">
           <FeatureHeaderTitle mr="5">
             Audit Log

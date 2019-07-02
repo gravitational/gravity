@@ -37,6 +37,7 @@ const FeatureHeaderTitle = styled(Text)`
 `
 
 FeatureHeaderTitle.defaultProps = {
+  ...Text.defaultProps,
   as: 'h1',
   typography: 'h1'
 }
@@ -49,10 +50,18 @@ const FeatureBox = styled(Flex)`
   width: 100%;
   height: 100%;
   flex-direction: column;
+
+  /*
+    This hack adds space to the bottom.
+    Directly assigning padding-bottom does not work as flex container ignores this child padding.
+    Directly assigning margin-bottom impacts the scrollbar area by pushing it up as well.
+    It works in all major browsers.
+  */
+  ::after { content: ' '; padding-bottom: 24px; }
 `
 
 FeatureBox.defaultProps = {
-  px: 6
+  px: 6,
 }
 
 /**

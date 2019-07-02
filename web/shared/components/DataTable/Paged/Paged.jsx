@@ -36,10 +36,10 @@ export default function PagedTable(props){
   }
 
   return (
-    <>
+    <div>
       { showTopPager && <Pager borderBottomRightRadius="0" borderBottomLeftRadius="0" {...pagedState}  />}
       <Table {...tableProps} />
       { showBottomPager && <Pager borderTopRightRadius="0" borderTopLeftRadius="0" {...pagedState}  />}
-    </>
+    </div>
   )
 }

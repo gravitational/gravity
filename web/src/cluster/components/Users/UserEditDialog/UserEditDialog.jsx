@@ -58,7 +58,7 @@ export function UserEditDialog(props){
       {
         formikProps => (
         <Dialog disableEscapeKeyDown={false} onClose={onClose} open={true} dialogCss={dialogCss}>
-          <Box as="form" width="450px" onSubmit={formikProps.handleSubmit}>
+          <Box width="450px">
             <DialogHeader>
               <DialogTitle>Edit User Role</DialogTitle>
             </DialogHeader>
@@ -76,7 +76,7 @@ export function UserEditDialog(props){
               </Box>
             </DialogContent>
             <DialogFooter>
-              {renderButtons({isProcessing, onClose})}
+              {renderButtons({isProcessing, onClose, onSave: formikProps.handleSubmit })}
             </DialogFooter>
           </Box>
         </Dialog>
@@ -94,11 +94,11 @@ function validateForm(values) {
   return errors;
 }
 
-function renderButtons({ isProcessing, onClose}) {
+function renderButtons({ isProcessing, onClose, onSave}) {
   return (
     <React.Fragment>
-      <ButtonPrimary mr="3" disabled={isProcessing} type="submit">
-          SAVE Changes
+      <ButtonPrimary mr="3" disabled={isProcessing} onClick={onSave}>
+        SAVE Changes
       </ButtonPrimary>
       <ButtonSecondary disabled={isProcessing} onClick={onClose}>
         Cancel
@@ -140,7 +140,7 @@ function mapState(){
 }
 
 const dialogCss = () => `
-  overflow: visible;
+  overflow-y: visible;
 `
 
 export default withState(mapState)(UserEditDialog)

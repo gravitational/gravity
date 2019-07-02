@@ -15,12 +15,11 @@ limitations under the License.
 */
 
 import React from 'react';
-import styled from 'styled-components';
 import { useFluxStore } from 'app/components/nuclear';
 import * as Icons from 'shared/components/Icon';
 import { withState } from 'shared/hooks';
 import { getters } from 'app/cluster/flux/tlscert';
-import { Box, Text, Flex } from 'shared/components';
+import { Card, Box, Text, Flex } from 'shared/components';
 import { ButtonWarning } from 'shared/components/Button';
 import { FeatureBox, FeatureHeader, FeatureHeaderTitle } from './../Layout';
 import UpdateCertDialog from './UpdateCertDialog';
@@ -35,17 +34,17 @@ export function Certificate(props) {
           HTTPS Certificate
         </FeatureHeaderTitle>
       </FeatureHeader>
-      <StyledCardCert bg='primary.main'>
-        <Flex bg='primary.light' pl={6} pr={4} py={4} alignItems="center">
+      <Card bg='primary.light'>
+        <Flex borderTopRightRadius="3" borderTopLeftRadius="3" pl={6} pr={4} py={4} alignItems="center">
           <Icons.License color="text.primary" fontSize={8} mr={2}/>
-          <Text typography="subtitle1" bold color="primary.contrastText">
+          <Text typography="subtitle1" bold>
             {store.getToCn()}
           </Text>
           <ButtonWarning size="small" ml="auto" onClick={() => setIsOpen(true)}>
             Replace
           </ButtonWarning>
         </Flex>
-        <Box bg='primary.main' p={6} color="primary.contrastText">
+        <Box bg='primary.main' p={6} mb={-2} borderBottomRightRadius="3" borderBottomLeftRadius="3">
           <Text typography="body1" bold mb={2}>
             Issued To
           </Text>
@@ -63,17 +62,11 @@ export function Certificate(props) {
           <CertAttr name="Issued On" value={store.getStartDate()} />
           <CertAttr name="Expires On" value={store.getEndDate()} />
         </Box>
-      </StyledCardCert>
+      </Card>
       { isOpen && <UpdateCertDialog onClose={ () => setIsOpen(false) } /> }
     </FeatureBox>
   )
 }
-
-const StyledCardCert = styled(Box)`
-  border-radius: 8px;
-  overflow: hidden;
-  box-shadow: 0 8px 32px rgba(0, 0, 0, .24);
-`
 
 const CertAttr = ({ name, value }) => (
   <Box mb={2}>

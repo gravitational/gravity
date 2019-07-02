@@ -45,7 +45,7 @@ export function ClusterLogs(props) {
   const { isProcessing } = attempt;
 
   return (
-    <FeatureBox>
+    <FeatureBox pb="0">
       <FeatureHeader alignItems="center">
         <FeatureHeaderTitle mr={3}>
           Logs
@@ -68,7 +68,7 @@ export function ClusterLogs(props) {
           {attempt.message}
         </Alerts.Danger>
       )}
-      <Flex mx={-6} px="2" height="100%" bg="bgTerminal">
+      <Flex mx={-6} mb={-4} px="2" height="100%" bg="bgTerminal">
         <LogViewer autoScroll={true} provider={
             <LogProvider key={refreshCount} queryUrl={queryUrl} />
         }/>

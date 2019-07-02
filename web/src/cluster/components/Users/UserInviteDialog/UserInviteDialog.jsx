@@ -61,7 +61,7 @@ export function UserInviteDialog(props){
           onClose={onClose}
           open={true}
         >
-          <Box width="500px" as="form" onSubmit={formikProps.handleSubmit}>
+          <Box width="500px">
             <DialogHeader>
               <DialogTitle> CREATE A USER INVITE LINK </DialogTitle>
             </DialogHeader>
@@ -71,7 +71,7 @@ export function UserInviteDialog(props){
               {!isSuccess && renderInputFields({...formikProps, selectOptions})}
             </DialogContent>
             <DialogFooter>
-              {renderButtons({isProcessing, isSuccess, onClose})}
+              {renderButtons({isProcessing, isSuccess, onClose, onSave: formikProps.handleSubmit })}
             </DialogFooter>
           </Box>
         </Dialog>
@@ -93,7 +93,7 @@ function validateForm(values) {
   return errors;
 }
 
-function renderButtons({ isProcessing, isSuccess, onClose}) {
+function renderButtons({ isProcessing, isSuccess, onClose, onSave}) {
   if(isSuccess){
     return (
       <ButtonSecondary onClick={onClose}>
@@ -104,7 +104,7 @@ function renderButtons({ isProcessing, isSuccess, onClose}) {
 
   return (
     <React.Fragment>
-      <ButtonPrimary mr="3" disabled={isProcessing} type="submit">
+      <ButtonPrimary mr="3" disabled={isProcessing} onClick={onSave}>
         CREATE INVITE LINK
       </ButtonPrimary>
       <ButtonSecondary disabled={isProcessing} onClick={onClose}>
@@ -145,7 +145,7 @@ function renderInputFields({ values, errors, setFieldValue, touched, handleChang
 }
 
 const dialogCss = () => `
-  overflow: visible;
+  overflow-y: visible;
 `
 function mapState(){
   const [ attempt, attemptActions ] = useAttempt();
