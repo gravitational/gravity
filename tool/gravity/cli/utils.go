@@ -296,7 +296,7 @@ func loadRPCCredentials(ctx context.Context, addr, token string) (*rpcserver.Cre
 // updateCommandWithFlags returns new command line for the specified command.
 // flagsToAdd are added to the resulting command line if not yet present.
 //
-// The resulting command line adheres to command line format accepted by system.
+// The resulting command line adheres to command line format accepted by systemd.
 // See https://www.freedesktop.org/software/systemd/man/systemd.service.html#Command%20lines for details
 func updateCommandWithFlags(command []string, parser ArgsParser, flagsToAdd []flag) (args []string, err error) {
 	ctx, err := parser.ParseArgs(command)
@@ -335,6 +335,7 @@ type flag struct {
 }
 
 type boolFlag interface {
+	// IsBoolFlag returns true to indicate a boolean flag
 	IsBoolFlag() bool
 }
 

@@ -857,6 +857,7 @@ var InterruptSignals = signals.WithSignals(
 func NewInstallerConnectStrategy(env *localenv.LocalEnvironment, config InstallConfig, parser ArgsParser) (strategy installerclient.ConnectStrategy, err error) {
 	args, err := updateCommandWithFlags(os.Args[1:], parser, []flag{
 		{
+			// Pass token to service if not explicitly specified
 			name:  "token",
 			value: config.Token,
 		},
@@ -878,11 +879,13 @@ func NewInstallerConnectStrategy(env *localenv.LocalEnvironment, config InstallC
 	}, nil
 }
 
-// newAutoAgentConnectStrategy returns default service connect strategy for a joining agent
+// newAutoAgentConnectStrategy returns a new service connect strategy for a joining agent
+// in autojoin scenario
 func newAutoAgentConnectStrategy(env *localenv.LocalEnvironment, config JoinConfig) (strategy installerclient.ConnectStrategy, err error) {
 	// TODO: accept command line parser as argument if the join command
 	// is to be extended on enterprise side
 	args, err := updateCommandWithFlags(os.Args[1:], ArgsParserFunc(parseArgs), []flag{
+		// Pass additional configuration to service if not explicitly specified
 		{
 			name:  "token",
 			value: config.Token,
