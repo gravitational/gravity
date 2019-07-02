@@ -314,9 +314,16 @@ func (r *backendOperations) listInstallOperation() error {
 }
 
 func (r backendOperations) isActiveInstallOperation() bool {
-	if len(r.operations) != 0 {
+	// Bail out if there's an operation from a local backend and we failed to query
+	// cluster operations.
+	// It cannot be an install operation as wizard has not been queried yet
+	if r.clusterOperation == nil && len(r.operations) != 0 {
 		return false
 	}
+	// Otherwise, consider this to be an install operation if:
+	//  - we failed to fetch any operation (either from cluster or local storage)
+	//  - we fetched operation(s) from cluster storage and the most recent one is an install operation
+	//
 	// FIXME: continue using wizard as source of truth as operation state
 	// replicated in etcd is reported completed before it actually is
 	return r.clusterOperation == nil || (r.clusterOperation.Type == ops.OperationInstall)
