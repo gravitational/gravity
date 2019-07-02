@@ -30,7 +30,9 @@ import (
 	"github.com/fatih/color"
 	"github.com/gravitational/gravity/lib/app"
 	appservice "github.com/gravitational/gravity/lib/app"
+	autoscaleaws "github.com/gravitational/gravity/lib/autoscale/aws"
 	awscloud "github.com/gravitational/gravity/lib/cloudprovider/aws"
+	cloudaws "github.com/gravitational/gravity/lib/cloudprovider/aws"
 	cloudgce "github.com/gravitational/gravity/lib/cloudprovider/gce"
 	"github.com/gravitational/gravity/lib/constants"
 	"github.com/gravitational/gravity/lib/defaults"
@@ -56,10 +58,12 @@ import (
 	"github.com/gravitational/gravity/lib/system/environ"
 	"github.com/gravitational/gravity/lib/system/signals"
 	"github.com/gravitational/gravity/lib/systeminfo"
+	"github.com/gravitational/gravity/lib/systemservice"
 	"github.com/gravitational/gravity/lib/users"
 	"github.com/gravitational/gravity/lib/utils"
 
 	"github.com/docker/docker/pkg/namesgenerator"
+	"github.com/gravitational/configure"
 	teledefaults "github.com/gravitational/teleport/lib/defaults"
 	"github.com/gravitational/trace"
 	"github.com/sirupsen/logrus"
@@ -679,7 +683,44 @@ func (j *JoinConfig) CheckAndSetDefaults() (err error) {
 	if err != nil {
 		return trace.Wrap(err)
 	}
+	if j.AdvertiseAddr == "" {
+		j.AdvertiseAddr, err = selectAdvertiseAddr()
+		if err != nil {
+			return trace.Wrap(err)
+		}
+	}
+	if err := checkLocalAddr(j.AdvertiseAddr); err != nil {
+		return trace.Wrap(err)
+	}
 	return nil
+}
+
+// NewPeerConfig converts the CLI join configuration to peer configuration
+func (j *JoinConfig) NewPeerConfig(env, joinEnv *localenv.LocalEnvironment) (config *expand.PeerConfig, err error) {
+	peers, err := j.GetPeers()
+	if err != nil {
+		return nil, trace.Wrap(err)
+	}
+	runtimeConfig, err := j.GetRuntimeConfig()
+	if err != nil {
+		return nil, trace.Wrap(err)
+	}
+	return &expand.PeerConfig{
+		Peers:              peers,
+		AdvertiseAddr:      j.AdvertiseAddr,
+		ServerAddr:         j.ServerAddr,
+		CloudProvider:      j.CloudProvider,
+		RuntimeConfig:      *runtimeConfig,
+		DebugMode:          env.Debug,
+		Insecure:           env.Insecure,
+		LocalBackend:       env.Backend,
+		LocalApps:          env.Apps,
+		LocalPackages:      env.Packages,
+		LocalClusterClient: env.SiteOperator,
+		JoinBackend:        joinEnv.Backend,
+		StateDir:           joinEnv.StateDir,
+		OperationID:        j.OperationID,
+	}, nil
 }
 
 // GetPeers returns a list of peers parsed from the peers CLI argument
@@ -710,45 +751,158 @@ func (j *JoinConfig) GetRuntimeConfig() (*proto.RuntimeConfig, error) {
 	return config, nil
 }
 
-// NewPeerConfig converts the CLI join configuration to peer configuration
-func (j *JoinConfig) NewPeerConfig(env, joinEnv *localenv.LocalEnvironment) (config *expand.PeerConfig, err error) {
-	if j.AdvertiseAddr == "" {
-		j.AdvertiseAddr, err = selectAdvertiseAddr()
-		if err != nil {
-			return nil, trace.Wrap(err)
-		}
+func (r *removeConfig) checkAndSetDefaults() error {
+	if r.server == "" {
+		return trace.BadParameter("server flag is required")
 	}
-	if err := checkLocalAddr(j.AdvertiseAddr); err != nil {
-		return nil, trace.Wrap(err)
+	return nil
+}
+
+type removeConfig struct {
+	server    string
+	force     bool
+	confirmed bool
+}
+
+func (r *autojoinConfig) newJoinConfig() JoinConfig {
+	return JoinConfig{
+		SystemLogFile: r.systemLogFile,
+		UserLogFile:   r.userLogFile,
+		Role:          r.role,
+		SystemDevice:  r.systemDevice,
+		DockerDevice:  r.dockerDevice,
+		Mounts:        r.mounts,
+		AdvertiseAddr: r.advertiseAddr,
+		PeerAddrs:     r.serviceURL,
+		Token:         r.token,
+		FromService:   r.fromService,
 	}
-	j.CloudProvider, err = validateOrDetectCloudProvider(j.CloudProvider)
+}
+
+func (r *autojoinConfig) checkAndSetDefaults() error {
+	if r.advertiseAddr == "" {
+		return trace.BadParameter("advertise address is required")
+	}
+	if err := checkLocalAddr(r.advertiseAddr); err != nil {
+		return trace.Wrap(err)
+	}
+	if r.serviceURL == "" {
+		return trace.BadParameter("service URL is required")
+	}
+	if r.token == "" {
+		return trace.BadParameter("token is required")
+	}
+	return nil
+}
+
+type autojoinConfig struct {
+	systemLogFile string
+	userLogFile   string
+	clusterName   string
+	role          string
+	systemDevice  string
+	dockerDevice  string
+	mounts        map[string]string
+	fromService   bool
+	serviceURL    string
+	advertiseAddr string
+	token         string
+}
+
+func (r *agentConfig) newServiceArgs(gravityPath string) (args []string) {
+	args = []string{gravityPath, "--debug", "ops", "agent", r.packageAddr,
+		"--advertise-addr", r.advertiseAddr,
+		"--server-addr", r.serverAddr,
+		"--token", r.token,
+		"--service-uid", r.serviceUID,
+		"--service-gid", r.serviceGID,
+	}
+	if r.systemLogFile != "" {
+		args = append(args, "--system-log-file", r.systemLogFile)
+	}
+	if r.userLogFile != "" {
+		args = append(args, "--log-file", r.userLogFile)
+	}
+	if r.cloudProvider != "" {
+		args = append(args, "--cloud-provider", r.cloudProvider)
+	}
+	if len(r.vars) != 0 {
+		args = append(args, "--vars", r.vars.String())
+	}
+	return args
+}
+
+func (r *agentConfig) checkAndSetDefaults() (err error) {
+	if r.serviceUID == "" {
+		return trace.BadParameter("service user ID is required")
+	}
+	if r.serviceGID == "" {
+		return trace.BadParameter("service group ID is required")
+	}
+	if r.packageAddr == "" {
+		return trace.BadParameter("package service address is required")
+	}
+	if r.advertiseAddr == "" {
+		return trace.BadParameter("advertise address is required")
+	}
+	if r.serverAddr == "" {
+		return trace.BadParameter("server address is required")
+	}
+	if r.token == "" {
+		return trace.BadParameter("token is required")
+	}
+	r.cloudProvider, err = validateOrDetectCloudProvider(r.cloudProvider)
 	if err != nil {
-		return nil, trace.Wrap(err)
+		return trace.Wrap(err)
 	}
-	peers, err := j.GetPeers()
+	if r.serviceName != "" {
+		r.serviceName = systemservice.FullServiceName(r.serviceName)
+	}
+	return nil
+}
+
+type agentConfig struct {
+	systemLogFile string
+	serviceName   string
+	userLogFile   string
+	advertiseAddr string
+	serverAddr    string
+	packageAddr   string
+	token         string
+	vars          configure.KeyVal
+	serviceUID    string
+	serviceGID    string
+	cloudProvider string
+}
+
+func updateJoinConfigFromCloudMetadata(ctx context.Context, config *autojoinConfig) error {
+	instance, err := cloudaws.NewLocalInstance()
 	if err != nil {
-		return nil, trace.Wrap(err)
+		log.WithError(err).Warn("Failed to fetch instance metadata on AWS.")
+		return trace.BadParameter("autojoin only supports AWS")
 	}
-	runtimeConfig, err := j.GetRuntimeConfig()
+
+	autoscaler, err := autoscaleaws.New(autoscaleaws.Config{
+		ClusterName: config.clusterName,
+	})
 	if err != nil {
-		return nil, trace.Wrap(err)
+		return trace.Wrap(err)
 	}
-	return &expand.PeerConfig{
-		Peers:              peers,
-		AdvertiseAddr:      j.AdvertiseAddr,
-		ServerAddr:         j.ServerAddr,
-		CloudProvider:      j.CloudProvider,
-		RuntimeConfig:      *runtimeConfig,
-		DebugMode:          env.Debug,
-		Insecure:           env.Insecure,
-		LocalBackend:       env.Backend,
-		LocalApps:          env.Apps,
-		LocalPackages:      env.Packages,
-		LocalClusterClient: env.SiteOperator,
-		JoinBackend:        joinEnv.Backend,
-		StateDir:           joinEnv.StateDir,
-		OperationID:        j.OperationID,
-	}, nil
+
+	joinToken, err := autoscaler.GetJoinToken(ctx)
+	if err != nil {
+		return trace.Wrap(err)
+	}
+
+	serviceURL, err := autoscaler.GetServiceURL(ctx)
+	if err != nil {
+		return trace.Wrap(err)
+	}
+
+	config.token = joinToken
+	config.serviceURL = serviceURL
+	config.advertiseAddr = instance.PrivateIP
+	return nil
 }
 
 func convertMounts(mounts map[string]string) (result []*proto.Mount) {

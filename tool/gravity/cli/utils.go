@@ -293,25 +293,50 @@ func loadRPCCredentials(ctx context.Context, addr, token string) (*rpcserver.Cre
 	return creds, nil
 }
 
-// hasFlagInArgs returns true if the specified flag has been found
-// in args.
-// parser specifies the command line parser for args
-func hasFlagInArgs(flag string, args []string, parser ArgsParser) (ok bool, err error) {
-	ctx, err := parser.ParseArgs(args)
+// updateCommandWithFlags returns new command line for the specified command.
+// flagsToAdd are added to the resulting command line if not yet present.
+//
+// The resulting command line adheres to command line format accepted by systemd.
+// See https://www.freedesktop.org/software/systemd/man/systemd.service.html#Command%20lines for details
+func updateCommandWithFlags(command []string, parser ArgsParser, flagsToAdd []flag) (args []string, err error) {
+	ctx, err := parser.ParseArgs(command)
 	if err != nil {
 		log.WithError(err).Warn("Failed to parse command line.")
-		return false, trace.Wrap(err)
+		return nil, trace.Wrap(err)
 	}
+	outputCommand := ctx.SelectedCommand.FullCommand()
 	for _, el := range ctx.Elements {
 		switch c := el.Clause.(type) {
+		case *kingpin.ArgClause:
+			args = append(args, strconv.Quote(c.Model().Name))
 		case *kingpin.FlagClause:
-			model := c.Model()
-			if model.Name == flag {
-				return true, nil
+			if _, ok := c.Model().Value.(boolFlag); ok {
+				args = append(args, fmt.Sprint("--", c.Model().Name))
+			} else {
+				args = append(args, fmt.Sprint("--", c.Model().Name), strconv.Quote(*el.Value))
+			}
+			for i, flag := range flagsToAdd {
+				model := c.Model()
+				if model.Name == flag.name {
+					flagsToAdd = append(flagsToAdd[:i], flagsToAdd[i+1:]...)
+				}
 			}
 		}
 	}
-	return false, nil
+	for _, flag := range flagsToAdd {
+		args = append(args, fmt.Sprint("--", flag.name), strconv.Quote(flag.value))
+	}
+	return append([]string{outputCommand}, args...), nil
+}
+
+type flag struct {
+	name  string
+	value string
+}
+
+type boolFlag interface {
+	// IsBoolFlag returns true to indicate a boolean flag
+	IsBoolFlag() bool
 }
 
 func parseArgs(args []string) (*kingpin.ParseContext, error) {

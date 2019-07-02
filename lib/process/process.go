@@ -1476,6 +1476,7 @@ func (p *Process) ServeHealth() error {
 	}
 	p.RegisterFunc("gravity.healthz", func() error {
 		p.Infof("Start healthcheck server on %v.", p.cfg.HealthAddr)
+		// TODO(dmitri): add a cancelation point for p.context
 		return trace.Wrap(p.healthServer.ListenAndServe())
 	})
 	return nil

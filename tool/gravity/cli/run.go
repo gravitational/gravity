@@ -187,6 +187,7 @@ func InitAndCheck(g *Application, cmd string) error {
 		g.RestoreCmd.FullCommand(),
 		g.GarbageCollectCmd.FullCommand(),
 		g.SystemGCRegistryCmd.FullCommand(),
+		g.OpsAgentCmd.FullCommand(),
 		g.CheckCmd.FullCommand():
 		if err := checkRunningAsRoot(); err != nil {
 			return trace.Wrap(err)
@@ -275,6 +276,7 @@ func Execute(g *Application, cmd string, extraArgs []string) (err error) {
 		return agent(localEnv, agentConfig{
 			systemLogFile: *g.SystemLogFile,
 			userLogFile:   *g.UserLogFile,
+			serviceName:   *g.OpsAgentCmd.ServiceName,
 			packageAddr:   *g.OpsAgentCmd.PackageAddr,
 			advertiseAddr: g.OpsAgentCmd.AdvertiseAddr.String(),
 			serverAddr:    *g.OpsAgentCmd.ServerAddr,
@@ -283,7 +285,7 @@ func Execute(g *Application, cmd string, extraArgs []string) (err error) {
 			serviceUID:    *g.OpsAgentCmd.ServiceUID,
 			serviceGID:    *g.OpsAgentCmd.ServiceGID,
 			cloudProvider: *g.OpsAgentCmd.CloudProvider,
-		}, *g.OpsAgentCmd.ServiceName)
+		})
 	case g.WizardCmd.FullCommand():
 		return startInstall(localEnv, NewWizardConfig(localEnv, g))
 	case g.InstallCmd.FullCommand():
@@ -299,6 +301,10 @@ func Execute(g *Application, cmd string, extraArgs []string) (err error) {
 			systemDevice:  *g.AutoJoinCmd.SystemDevice,
 			dockerDevice:  *g.AutoJoinCmd.DockerDevice,
 			mounts:        *g.AutoJoinCmd.Mounts,
+			fromService:   *g.AutoJoinCmd.FromService,
+			serviceURL:    *g.AutoJoinCmd.ServiceAddr,
+			token:         *g.AutoJoinCmd.Token,
+			advertiseAddr: *g.AutoJoinCmd.AdvertiseAddr,
 		})
 	case g.UpdateCheckCmd.FullCommand():
 		return updateCheck(localEnv, *g.UpdateCheckCmd.App)

@@ -442,6 +442,18 @@ type AutoJoinCmd struct {
 	SystemDevice *string
 	// Mounts is additional app mounts
 	Mounts *configure.KeyVal
+	// ServiceAddr specifies the service URL of the cluster to join
+	ServiceAddr *string
+	// AdvertiseAddr is local node advertise IP address
+	AdvertiseAddr *string
+	// Token is join token
+	Token *string
+	// FromService specifies whether this process runs in service mode.
+	//
+	// The agent runs the install/join code in service mode, while
+	// the client will simply connect to the service and stream its output and errors
+	// and control whether it should stop
+	FromService *bool
 }
 
 // LeaveCmd removes the current node from the cluster

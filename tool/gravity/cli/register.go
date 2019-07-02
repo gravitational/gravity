@@ -115,6 +115,10 @@ func RegisterCommands(app *kingpin.Application) *Application {
 	g.AutoJoinCmd.DockerDevice = g.AutoJoinCmd.Flag("docker-device", "Docker device to use").Hidden().String()
 	g.AutoJoinCmd.SystemDevice = g.AutoJoinCmd.Flag("system-device", "Device to use for system data directory").Hidden().String()
 	g.AutoJoinCmd.Mounts = configure.KeyValParam(g.AutoJoinCmd.Flag("mount", "One or several mounts in form <mount-name>:<path>, e.g. data:/var/lib/data"))
+	g.AutoJoinCmd.ServiceAddr = g.AutoJoinCmd.Flag("service-addr", "Service URL of the cluster to join").String()
+	g.AutoJoinCmd.AdvertiseAddr = g.AutoJoinCmd.Flag("advertise-addr", "IP address to advertise").Hidden().String()
+	g.AutoJoinCmd.Token = g.AutoJoinCmd.Flag("token", "Unique install token to authorize this node to join the cluster").Hidden().String()
+	g.AutoJoinCmd.FromService = g.AutoJoinCmd.Flag("from-service", "Run in service mode").Hidden().Bool()
 
 	g.LeaveCmd.CmdClause = g.Command("leave", "Decommission this node from the cluster")
 	g.LeaveCmd.Force = g.LeaveCmd.Flag("force", "Force local state cleanup").Bool()
