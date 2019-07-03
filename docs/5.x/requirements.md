@@ -93,37 +93,39 @@ These ports are required during initial installation and can be closed after the
 By default Gravity clusters are configured to use the following network subnets:
 
 | Subnet          | Description               |
-|--------------- -|---------------------------|
+|-----------------|---------------------------|
 | 10.244.0.0/16   | Pod IPv4 addresses        |
 | 10.100.0.0/16   | Services IPv4 addresses   |
+
+Both subnets are customizable via installer flags as explained in the [Installation guide](https://gravitational.com/gravity/docs/installation/)
 
 ### Cluster Ports
 
 These ports are used for Cluster operation and should be open between cluster nodes:
 
-| Port                    | Protocol - Layer 4 | Protocol - Layer 5              | Source      | Destination | Description                              |
-|-------------------------|--------------------|---------------------------------|-------------|-------------|------------------------------------------|
-| 53                      | TCP/UDP            | DNS                             | localhost   | localhost   | Internal cluster DNS                     |
-| 8472                    | UDP                | VXLAN                           | all         | all         | Overlay network                          |
-| 7496                    | TCP/UDP            | HTTPs                           | all         | all         | Serf (Health check agents) peer to peer  |
-| 7373                    | TCP                | RPC                             | localhost   | localhost   | Serf RPC - peer to peer                  |
-| 7575                    | TCP                | gRPC                            | all         | all         | Cluster status gRPC API                  |
-| 2379, 2380, 4001, 7001  | TCP                | HTTPS                           | all         | controllers | Etcd server communications               |
-| 6443                    | TCP                | HTTPS                           | all         | controllers | Kubernetes API Server                    |
-| 30000 - 32767           | N.A                | depend on the services deployed | all         | all         | Kubernetes internal services range       |
-| 10248 - 10250, 10255    | TCP                | HTTPS                           | all         | all         | Kubernetes components                    |
-| 5000                    | TCP                | HTTPS                           | all         | controllers | Docker registry                          |
-| 3022-3025               | TCP                | SSH                             | all         | all         | Teleport internal SSH control panel      |
-| 3080                    | TCP                | HTTPS                           | ext         | controllers | Teleport Web  UI                         |
-| 3008-3012               | TCP                | HTTPS / gRPC                    | all         | all         | Internal Gravity services                |
-| 32009                   | TCP                | HTTPS                           | ext         | controllers | Gravity Cluster/OpsCenter Admin UI (ext) |
-| 32009                   | TCP                | HTTPS                           | controllers | all         | Gravity internal API                     |
-| 3012                    | TCP                | HTTPS                           | all         | all         | Gravity RPC agent                        |
+| Port                    | Protocol - Layer 4 | Protocol - Layer 5   | Source      | Destination | Description                              |
+|-------------------------|--------------------|----------------------|-------------|-------------|------------------------------------------|
+| 53                      | TCP/UDP            | DNS                  | localhost   | localhost   | Internal cluster DNS                     |
+| 8472                    | UDP                | VXLAN                | all         | all         | Overlay network                          |
+| 7496                    | TCP/UDP            | HTTPs                | all         | all         | Serf (Health check agents) peer to peer  |
+| 7373                    | TCP                | RPC                  | localhost   | localhost   | Serf RPC - peer to peer                  |
+| 7575                    | TCP                | gRPC                 | all         | all         | Cluster status gRPC API                  |
+| 2379, 2380, 4001, 7001  | TCP                | HTTPS                | all         | controllers | Etcd server communications               |
+| 6443                    | TCP                | HTTPS                | all         | controllers | Kubernetes API Server                    |
+| 30000 - 32767           | N/A                | Application specific | all         | all         | Kubernetes internal services range       |
+| 10248 - 10250, 10255    | TCP                | HTTPS                | all         | all         | Kubernetes components                    |
+| 5000                    | TCP                | HTTPS                | all         | controllers | Docker registry                          |
+| 3022-3025               | TCP                | SSH                  | all         | all         | Teleport internal SSH control panel      |
+| 3080                    | TCP                | HTTPS                | ext         | controllers | Teleport Web  UI                         |
+| 3008-3012               | TCP                | HTTPS / gRPC         | all         | all         | Internal Gravity services                |
+| 32009                   | TCP                | HTTPS                | ext         | controllers | Gravity Cluster/OpsCenter Admin UI (ext) |
+| 32009                   | TCP                | HTTPS                | controllers | all         | Gravity internal API                     |
+| 3012                    | TCP                | HTTPS                | all         | all         | Gravity RPC agent                        |
 
 !!! Source/Destination Legend:
   * all - Any node which is a member of the cluster
   * ext - Any source outside the cluster
-  * localhost - The port is only used within the host were the request started
+  * localhost - The port is only used within the host where the request started
   * controllers - Nodes which are designated "controller" (aka "master") role
 
 !!! note "Custom vxlan port":
