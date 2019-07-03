@@ -82,7 +82,7 @@ const dialogCss = () => `
 function useResource(json){
   const [ content, setContent ] = React.useState(() => {
     json = json || {};
-    return JSON.stringify(json, null, 4);
+    return JSON.stringify(json, null, 2);
   });
 
   const onChange = content => setContent(content);

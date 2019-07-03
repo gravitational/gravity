@@ -50,7 +50,7 @@ class TextEditor extends React.Component{
     this.editor.resize();
   }
 
-  createSession( { content, type } ) {
+  createSession( { content, type, tabSize=2 } ) {
     const mode = getMode(type);
     let session = new ace.EditSession(content);
     let undoManager = new UndoManager();
@@ -58,6 +58,7 @@ class TextEditor extends React.Component{
     session.setUndoManager(undoManager);
     session.setUseWrapMode(false)
     session.setMode(mode);
+    session.setOptions({ tabSize, useSoftTabs: true });
     return session;
   }
 
