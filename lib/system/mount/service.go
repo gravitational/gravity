@@ -17,12 +17,27 @@ limitations under the License.
 package mount
 
 import (
+	"strings"
+
 	"github.com/gravitational/gravity/lib/storage"
 	"github.com/gravitational/gravity/lib/systemservice"
 
 	"github.com/gravitational/trace"
 	log "github.com/sirupsen/logrus"
 )
+
+// Mount creates and starts a new systemd mount.
+func Mount(config ServiceConfig) error {
+	serviceManager, err := systemservice.New()
+	if err != nil {
+		return trace.Wrap(err)
+	}
+	err = MountService(config, config.ServiceName(), serviceManager)
+	if err != nil {
+		return trace.Wrap(err)
+	}
+	return nil
+}
 
 // MountService creates a new mount based on the given configuration.
 // The mount is created as a systemd mount unit named service.
@@ -78,4 +93,9 @@ type ServiceConfig struct {
 	Filesystem string
 	// Options lists mount options to use when mounting
 	Options []string
+}
+
+// ServiceName returns name of the mount service.
+func (c ServiceConfig) ServiceName() string {
+	return strings.ReplaceAll(c.Where, "/", "-") + ".mount"
 }

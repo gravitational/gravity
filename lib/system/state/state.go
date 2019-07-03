@@ -62,7 +62,7 @@ func ConfigureStateDirectory(stateDir, devicePath string) (err error) {
 	// Even if the directory exists, mount it on the specified device.
 	// If this is not possible, the operation will fail as expected.
 	var filesystem string
-	filesystem, err = formatDevice(devicePath)
+	filesystem, err = FormatDevice(devicePath)
 	if err != nil {
 		return trace.Wrap(err)
 	}
@@ -86,7 +86,7 @@ func ConfigureStateDirectory(stateDir, devicePath string) (err error) {
 	return nil
 }
 
-func formatDevice(path string) (filesystem string, err error) {
+func FormatDevice(path string) (filesystem string, err error) {
 	type formatter struct {
 		fsType string
 		args   []string
