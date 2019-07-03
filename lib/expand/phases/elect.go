@@ -18,13 +18,10 @@ package phases
 
 import (
 	"context"
-	"fmt"
 
 	"github.com/gravitational/gravity/lib/constants"
-	"github.com/gravitational/gravity/lib/defaults"
 	"github.com/gravitational/gravity/lib/fsm"
 	"github.com/gravitational/gravity/lib/ops"
-	"github.com/gravitational/gravity/lib/utils"
 
 	"github.com/gravitational/trace"
 	"github.com/sirupsen/logrus"
@@ -56,21 +53,15 @@ type electExecutor struct {
 }
 
 // Execute executes the system phase
-func (p *electExecutor) Execute(ctx context.Context) error {
+func (p *electExecutor) Execute(ctx context.Context) (err error) {
 	p.Progress.NextStep("Enabling leader elections")
-	// TODO use etcd client?
-	cmd := "resume"
-	if !p.Phase.Data.Server.IsMaster() {
-		cmd = "pause"
+	if p.Phase.Data.Server.IsMaster() {
+		err = ops.EnableLeaderElection(ctx, p.Plan.ClusterName, *p.Phase.Data.Server, p.FieldLogger)
+	} else {
+		err = ops.PauseLeaderElection(ctx, p.Plan.ClusterName, *p.Phase.Data.Server, p.FieldLogger)
 	}
-	out, err := utils.RunPlanetCommand(ctx, p.FieldLogger, "leader", cmd,
-		fmt.Sprintf("--public-ip=%v", p.Phase.Data.Server.AdvertiseIP),
-		fmt.Sprintf("--election-key=/planet/cluster/%v/election", p.Plan.ClusterName),
-		fmt.Sprintf("--etcd-cafile=%v", defaults.Secret(defaults.RootCertFilename)),
-		fmt.Sprintf("--etcd-certfile=%v", defaults.Secret(defaults.EtcdCertFilename)),
-		fmt.Sprintf("--etcd-keyfile=%v", defaults.Secret(defaults.EtcdKeyFilename)))
 	if err != nil {
-		return trace.Wrap(err, "failed to enable leader election: %s", out)
+		return trace.Wrap(err)
 	}
 	p.Info("Reset leader election.")
 	return nil

@@ -18,17 +18,12 @@ package phases
 
 import (
 	"context"
-	"fmt"
 
 	"github.com/gravitational/gravity/lib/constants"
-	"github.com/gravitational/gravity/lib/defaults"
 	"github.com/gravitational/gravity/lib/fsm"
 	"github.com/gravitational/gravity/lib/ops"
 	"github.com/gravitational/gravity/lib/schema"
-	"github.com/gravitational/gravity/lib/storage"
-	"github.com/gravitational/gravity/lib/utils"
 
-	"github.com/cenkalti/backoff"
 	"github.com/gravitational/trace"
 	"github.com/sirupsen/logrus"
 )
@@ -68,15 +63,10 @@ func (p *enableElectionExecutor) Execute(ctx context.Context) error {
 
 	for _, server := range p.Plan.Servers {
 		if server.ClusterRole == string(schema.ServiceRoleMaster) {
-			b := backoff.NewExponentialBackOff()
-			b.MaxElapsedTime = defaults.ElectionWaitTimeout
-			err := utils.RetryTransient(ctx, b, func() error {
-				return p.resumeLeader(ctx, server)
-			})
+			err := ops.EnableLeaderElection(ctx, p.Plan.ClusterName, server, p.FieldLogger)
 			if err != nil {
 				return trace.Wrap(err)
 			}
-
 		}
 	}
 
@@ -95,24 +85,5 @@ func (p *enableElectionExecutor) PreCheck(ctx context.Context) error {
 
 // PostCheck is no-op for this phase
 func (*enableElectionExecutor) PostCheck(ctx context.Context) error {
-	return nil
-}
-
-func (p *enableElectionExecutor) resumeLeader(ctx context.Context, server storage.Server) error {
-	out, err := utils.RunPlanetCommand(
-		ctx,
-		p.FieldLogger,
-		"leader",
-		"resume",
-		fmt.Sprintf("--public-ip=%v", server.AdvertiseIP),
-		fmt.Sprintf("--election-key=/planet/cluster/%v/election", p.Plan.ClusterName),
-		"--etcd-cafile=/var/state/root.cert",
-		"--etcd-certfile=/var/state/etcd.cert",
-		"--etcd-keyfile=/var/state/etcd.key",
-	)
-	if err != nil {
-		return trace.Wrap(err, "failed to enable election for master %v. reason: %s",
-			server.AdvertiseIP, string(out))
-	}
 	return nil
 }
