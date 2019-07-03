@@ -31,14 +31,14 @@ export default function makeLicense(json) {
     return null;
   }
 
+  // remove the signature section and format the date to GSM
+  delete payload.signature;
+  payload.expiration = new Date(payloadExpiration).toGMTString();
+
   const isValid = reason === SiteReasonEnum.INVALID_LICENSE;
   return {
     raw,
-    info: {
-      ...payload,
-      signature: '',
-      expiration: new Date(payloadExpiration).toGMTString()
-    },
+    info: payload,
     status: {
       isActive: !isValid,
       isError: isValid,

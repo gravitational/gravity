@@ -29,7 +29,7 @@ export const AppLayout = styled(Flex)`
 export function StepLayout({ title, children, ...styles}){
   return (
     <Flex flexDirection="column" {...styles}>
-      { title && ( <Text mb="4" typography="h1"> {title} </Text> )}
+      { title && ( <Text mb="4" typography="h1" style={{flexShrink: "0"}}> {title} </Text> )}
       {children}
     </Flex>
   )

@@ -35,11 +35,11 @@ export default function Eula(props) {
 
   return (
     <AppLayout flexDirection="column" px="40px" py="40px">
-      <Flex alignItems="center" mb="10">
+      <Flex alignItems="center" mb="8">
         <Logo src={logo}/>
         <Text typography="h2"> {headerText} </Text>
       </Flex>
-      <StepLayout title={eulaContentLabelText}>
+      <StepLayout title={eulaContentLabelText} overflow="auto">
         <StyledAgreement flex="1" px="2" py="2"  mb="4" as={Flex}
           typography="body2"
           mono
