@@ -339,7 +339,7 @@ func (s *AgentSuite) testConnectValidatesCondition(c *C, hostnames [2]string, ex
 	case update := <-watchCh:
 		c.Assert(update.Error, NotNil)
 		c.Assert(strings.Contains(update.Error.Error(), expectedError), Equals, true)
-	case <-time.After(time.Second):
+	case <-time.After(10 * time.Second):
 		c.Error("timeout")
 	}
 }
