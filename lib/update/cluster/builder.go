@@ -561,6 +561,9 @@ func (r phaseBuilder) cleanup() *update.Phase {
 	return &root
 }
 
+func (r phaseBuilder) dockerDevicemapper() *update.Phase {
+}
+
 type phaseBuilder struct {
 	planConfig
 }
