@@ -53,9 +53,13 @@ type electExecutor struct {
 }
 
 // Execute executes the system phase
-func (p *electExecutor) Execute(ctx context.Context) error {
+func (p *electExecutor) Execute(ctx context.Context) (err error) {
 	p.Progress.NextStep("Enabling leader elections")
-	err := ops.EnableLeaderElection(ctx, p.Plan.ClusterName, *p.Phase.Data.Server, p.FieldLogger)
+	if p.Phase.Data.Server.IsMaster() {
+		err = ops.EnableLeaderElection(ctx, p.Plan.ClusterName, *p.Phase.Data.Server, p.FieldLogger)
+	} else {
+		err = ops.PauseLeaderElection(ctx, p.Plan.ClusterName, *p.Phase.Data.Server, p.FieldLogger)
+	}
 	if err != nil {
 		return trace.Wrap(err)
 	}

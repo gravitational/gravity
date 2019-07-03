@@ -31,19 +31,32 @@ import (
 
 // EnableLeaderElection turns on leader election for the specified node.
 func EnableLeaderElection(ctx context.Context, clusterName string, node storage.Server, log logrus.FieldLogger) error {
+	return runLeaderCommandRetry(ctx, "resume", clusterName, node, log)
+}
+
+// PauseLeaderElection pauses leader election for the specified node.
+func PauseLeaderElection(ctx context.Context, clusterName string, node storage.Server, log logrus.FieldLogger) error {
+	return runLeaderCommandRetry(ctx, "pause", clusterName, node, log)
+}
+
+func runLeaderCommandRetry(ctx context.Context, command string, clusterName string, node storage.Server, log logrus.FieldLogger) error {
 	b := backoff.NewExponentialBackOff()
 	b.MaxElapsedTime = defaults.ElectionWaitTimeout
 	return utils.RetryTransient(ctx, b, func() error {
-		out, err := utils.RunPlanetCommand(ctx, log, "leader", "resume",
-			fmt.Sprintf("--public-ip=%v", node.AdvertiseIP),
-			fmt.Sprintf("--election-key=/planet/cluster/%v/election", clusterName),
-			"--etcd-cafile=/var/state/root.cert",
-			"--etcd-certfile=/var/state/etcd.cert",
-			"--etcd-keyfile=/var/state/etcd.key")
-		if err != nil {
-			return trace.Wrap(err, "failed to enable election for %v: %s",
-				node.AdvertiseIP, string(out))
-		}
-		return nil
+		return runLeaderCommand(ctx, command, clusterName, node, log)
 	})
+}
+
+func runLeaderCommand(ctx context.Context, command string, clusterName string, node storage.Server, log logrus.FieldLogger) error {
+	out, err := utils.RunPlanetCommand(ctx, log, "leader", command,
+		fmt.Sprintf("--public-ip=%v", node.AdvertiseIP),
+		fmt.Sprintf("--election-key=/planet/cluster/%v/election", clusterName),
+		"--etcd-cafile=/var/state/root.cert",
+		"--etcd-certfile=/var/state/etcd.cert",
+		"--etcd-keyfile=/var/state/etcd.key")
+	if err != nil {
+		return trace.Wrap(err, "failed to enable election for %v: %s",
+			node.AdvertiseIP, string(out))
+	}
+	return nil
 }
