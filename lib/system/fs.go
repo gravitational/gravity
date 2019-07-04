@@ -20,6 +20,7 @@ import (
 	"bufio"
 	"bytes"
 	"context"
+	"fmt"
 	"os/exec"
 	"strings"
 
@@ -49,6 +50,16 @@ func GetFilesystem(ctx context.Context, path string, runner utils.CommandRunner)
 	}
 
 	return "", trace.NotFound("no filesystem found for %v", path)
+}
+
+// RemoveFilesystem erases filesystem from the provided device/partition.
+func RemoveFilesystem(path string, log logrus.FieldLogger) error {
+	var out bytes.Buffer
+	cmd := exec.Command("dd", "if=/dev/zero", fmt.Sprintf("of=%v", path), "bs=10M")
+	if err := utils.ExecL(cmd, &out, log); err != nil {
+		return trace.Wrap(err, "failed to erase %v: %s", path, out.String())
+	}
+	return nil
 }
 
 // FormatDevice formats block device at the specified path to either xfs or,

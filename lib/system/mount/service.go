@@ -39,6 +39,19 @@ func Mount(config ServiceConfig) error {
 	return nil
 }
 
+// Unmount uninstalls specified systemd mount service.
+func Unmount(serviceName string) error {
+	serviceManager, err := systemservice.New()
+	if err != nil {
+		return trace.Wrap(err)
+	}
+	err = UnmountService(serviceName, serviceManager)
+	if err != nil {
+		return trace.Wrap(err)
+	}
+	return nil
+}
+
 // MountService creates a new mount based on the given configuration.
 // The mount is created as a systemd mount unit named service.
 func MountService(config ServiceConfig, service string, services systemservice.ServiceManager) error {

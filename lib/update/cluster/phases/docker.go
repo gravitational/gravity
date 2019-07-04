@@ -34,57 +34,84 @@ import (
 	"github.com/sirupsen/logrus"
 )
 
-// DockerDevicemapper is a phase executor that deals with Docker devicemapper devices.
-type DockerDevicemapper struct {
+// dockerDevicemapper is a phase executor that deals with Docker devicemapper devices.
+type dockerDevicemapper struct {
+	// FieldLogger is used for logging.
 	logrus.FieldLogger
+	// Node is the node where devicemapper configuration should be updated.
+	Node storage.Server
+	// Device is the absolute path to the Docker device, e.g. /dev/vdb.
+	Device string
+	// Remote allows to invoke remote commands.
+	Remote fsm.Remote
 }
 
 // NewDockerDevicemapper returns phase executor that deals with Docker devicemapper devices.
-func NewDockerDevicemapper(p fsm.ExecutorParams, log logrus.FieldLogger) (*DockerDevicemapper, error) {
-	return &DockerDevicemapper{
+func NewDockerDevicemapper(p fsm.ExecutorParams, remote fsm.Remote, log logrus.FieldLogger) (*dockerDevicemapper, error) {
+	node := *p.Phase.Data.Server
+	return &dockerDevicemapper{
 		FieldLogger: log,
+		Node:        node,
+		Device:      node.Docker.Device.Path(),
+		Remote:      remote,
 	}, nil
 }
 
 // Execute unmounts and removes Docker devicemapper devices.
-func (d *DockerDevicemapper) Execute(ctx context.Context) error {
-	d.Info("Removing devicemapper configuration.")
+func (d *dockerDevicemapper) Execute(ctx context.Context) error {
+	d.Infof("Removing devicemapper configuration from %v.", d.Device)
 	err := devicemapper.Unmount(os.Stderr, d.FieldLogger)
 	if err != nil {
 		return trace.Wrap(err)
 	}
-	d.Info("Devicemapper configuration removed.")
+	d.Infof("Devicemapper configuration on %v removed.", d.Device)
 	return nil
 }
 
 // Rollback configures Docker devicemapper devices back.
-func (d *DockerDevicemapper) Rollback(ctx context.Context) error {
-	return trace.NotImplemented("not implemented")
+func (d *dockerDevicemapper) Rollback(ctx context.Context) error {
+	d.Infof("Restoring devicemapper configuration on %v.", d.Device)
+	err := devicemapper.Mount(d.Device, os.Stderr, d.FieldLogger)
+	if err != nil {
+		return trace.Wrap(err)
+	}
+	d.Infof("Devicemapper configuration on %v restored.", d.Device)
+	return nil
 }
 
-// PreCheck is no-op.
-func (*DockerDevicemapper) PreCheck(context.Context) error { return nil }
+// PreCheck makes sure the phase runs on the correct node.
+func (d *dockerDevicemapper) PreCheck(ctx context.Context) error {
+	return trace.Wrap(d.Remote.CheckServer(ctx, d.Node))
+}
 
 // PostCheck is no-op.
-func (*DockerDevicemapper) PostCheck(context.Context) error { return nil }
+func (*dockerDevicemapper) PostCheck(context.Context) error { return nil }
 
-// DockerFormat is a phase executor that deals with formatting Docker devices.
-type DockerFormat struct {
+// dockerFormat is a phase executor that deals with formatting Docker devices.
+type dockerFormat struct {
+	// FieldLogger is used for logging.
 	logrus.FieldLogger
+	// Node is the node where Docker device should be formatted.
+	Node storage.Server
+	// Device is the absolute path to the Docker device, e.g. /dev/vdb.
 	Device string
+	// Remote allows to invoke remote commands.
+	Remote fsm.Remote
 }
 
 // NewDockerFormat returns phase executor that deals with formatting Docker devices.
-func NewDockerFormat(p fsm.ExecutorParams, log logrus.FieldLogger) (*DockerFormat, error) {
+func NewDockerFormat(p fsm.ExecutorParams, remote fsm.Remote, log logrus.FieldLogger) (*dockerFormat, error) {
 	node := *p.Phase.Data.Server
-	return &DockerFormat{
+	return &dockerFormat{
 		FieldLogger: log,
+		Node:        node,
 		Device:      node.Docker.Device.Path(),
+		Remote:      remote,
 	}, nil
 }
 
 // Execute creates filesystem on a Docker data device.
-func (d *DockerFormat) Execute(ctx context.Context) error {
+func (d *dockerFormat) Execute(ctx context.Context) error {
 	d.Infof("Formatting device %v.", d.Device)
 	filesystem, err := system.FormatDevice(ctx, d.Device, d.FieldLogger)
 	if err != nil {
@@ -95,33 +122,49 @@ func (d *DockerFormat) Execute(ctx context.Context) error {
 }
 
 // Rollback removes filesystem from the Docker data device.
-func (d *DockerFormat) Rollback(ctx context.Context) error {
-	return trace.NotImplemented("not implemented")
+func (d *dockerFormat) Rollback(ctx context.Context) error {
+	d.Infof("Erasing filesystem from %v.", d.Device)
+	err := system.RemoveFilesystem(d.Device, d.FieldLogger)
+	if err != nil {
+		return trace.Wrap(err)
+	}
+	d.Infof("Device %v erased.", d.Device)
+	return nil
 }
 
-// PreCheck is no-op.
-func (*DockerFormat) PreCheck(context.Context) error { return nil }
+// PreCheck makes sure the phase runs on the correct node.
+func (d *dockerFormat) PreCheck(ctx context.Context) error {
+	return trace.Wrap(d.Remote.CheckServer(ctx, d.Node))
+}
 
 // PostCheck is no-op.
-func (*DockerFormat) PostCheck(context.Context) error { return nil }
+func (*dockerFormat) PostCheck(context.Context) error { return nil }
 
-// DockerMount is a phase executor that deals with Docker data directory mounts.
-type DockerMount struct {
+// dockerMount is a phase executor that deals with Docker data directory mounts.
+type dockerMount struct {
+	// FieldLogger is used for logging.
 	logrus.FieldLogger
+	// Node is node where Docker device should be mounted.
+	Node storage.Server
+	// Device is the absolute path to the Docker device, e.g. /dev/vdb.
 	Device string
+	// Remote allows to invoke remote commands.
+	Remote fsm.Remote
 }
 
 // NewDockerMount returns phase executor that deals with Docker data directory mounts.
-func NewDockerMount(p fsm.ExecutorParams, log logrus.FieldLogger) (*DockerMount, error) {
+func NewDockerMount(p fsm.ExecutorParams, remote fsm.Remote, log logrus.FieldLogger) (*dockerMount, error) {
 	node := *p.Phase.Data.Server
-	return &DockerMount{
+	return &dockerMount{
 		FieldLogger: log,
+		Node:        node,
 		Device:      node.Docker.Device.Path(),
+		Remote:      remote,
 	}, nil
 }
 
 // Execute creates a systemd mount for Docker data directory.
-func (d *DockerMount) Execute(ctx context.Context) error {
+func (d *dockerMount) Execute(ctx context.Context) error {
 	stateDir, err := state.GetStateDir()
 	if err != nil {
 		return trace.Wrap(err)
@@ -146,12 +189,27 @@ func (d *DockerMount) Execute(ctx context.Context) error {
 }
 
 // Rollback removes the systemd mount for Docker data directory.
-func (d *DockerMount) Rollback(ctx context.Context) error {
-	return trace.NotImplemented("not implemented")
+func (d *dockerMount) Rollback(ctx context.Context) error {
+	stateDir, err := state.GetStateDir()
+	if err != nil {
+		return trace.Wrap(err)
+	}
+	config := mount.ServiceConfig{
+		Where: filepath.Join(stateDir, defaults.PlanetDir, defaults.DockerDir),
+	}
+	d.Infof("Removing mount for %v.", config.Where)
+	err = mount.Unmount(config.ServiceName())
+	if err != nil {
+		return trace.Wrap(err)
+	}
+	d.Infof("Mount %v removed.", config.Where)
+	return nil
 }
 
-// PreCheck is no-op.
-func (*DockerMount) PreCheck(context.Context) error { return nil }
+// PreCheck makes sure the phase runs on the correct node.
+func (d *dockerMount) PreCheck(ctx context.Context) error {
+	return trace.Wrap(d.Remote.CheckServer(ctx, d.Node))
+}
 
 // PostCheck is no-op.
-func (*DockerMount) PostCheck(context.Context) error { return nil }
+func (*dockerMount) PostCheck(context.Context) error { return nil }

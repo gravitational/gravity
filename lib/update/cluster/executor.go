@@ -167,13 +167,13 @@ func fsmSpec(c Config) fsm.FSMSpecFunc {
 		case cleanupNode:
 			return libphase.NewGarbageCollectPhase(p, remote, logger)
 		case dockerDevicemapper:
-			return libphase.NewDockerDevicemapper(p, logger)
+			return libphase.NewDockerDevicemapper(p, remote, logger)
 		case dockerFormat:
-			return libphase.NewDockerFormat(p, logger)
+			return libphase.NewDockerFormat(p, remote, logger)
 		case dockerMount:
-			return libphase.NewDockerMount(p, logger)
+			return libphase.NewDockerMount(p, remote, logger)
 		case planetStart:
-			return libphase.NewPlanetStart(p, logger)
+			return libphase.NewPlanetStart(p, remote, logger)
 		default:
 			return nil, trace.BadParameter(
 				"phase %q requires executor %q (potential mismatch between upgrade versions)",
