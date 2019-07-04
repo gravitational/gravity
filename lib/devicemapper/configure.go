@@ -96,7 +96,7 @@ func Unmount(out io.Writer, entry log.FieldLogger) (err error) {
 	return nil
 }
 
-func queryPhysicalVolume(entry *log.Entry) (disk string, err error) {
+func queryPhysicalVolume(entry log.FieldLogger) (disk string, err error) {
 	entry.Debugf("query physical volume information")
 
 	out := bytes.Buffer{}

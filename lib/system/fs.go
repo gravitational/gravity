@@ -1,5 +1,5 @@
 /*
-Copyright 2018 Gravitational, Inc.
+Copyright 2018-2019 Gravitational, Inc.
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -20,11 +20,13 @@ import (
 	"bufio"
 	"bytes"
 	"context"
+	"os/exec"
 	"strings"
 
 	"github.com/gravitational/gravity/lib/utils"
 
 	"github.com/gravitational/trace"
+	"github.com/sirupsen/logrus"
 )
 
 // GetFilesystem detects the filesystem on device specified with path
@@ -47,4 +49,55 @@ func GetFilesystem(ctx context.Context, path string, runner utils.CommandRunner)
 	}
 
 	return "", trace.NotFound("no filesystem found for %v", path)
+}
+
+// FormatDevice formats block device at the specified path to either xfs or,
+// if that fails, ext4, and returns the resulting filesystem.
+//
+// If the specified path already has filesystem, it is returned as-is and no
+// formatting is attempted.
+func FormatDevice(ctx context.Context, path string, log logrus.FieldLogger) (filesystem string, err error) {
+	type formatter struct {
+		fsType string
+		args   []string
+	}
+	formatters := []formatter{
+		{"xfs", []string{"mkfs.xfs", "-f"}},
+		{"ext4", []string{"mkfs.ext4", "-F"}},
+	}
+
+	filesystem, err = GetFilesystem(ctx, path, utils.Runner)
+	if err != nil {
+		return "", trace.Wrap(err)
+	}
+
+	if filesystem != "" {
+		log.Infof("File system on %q is %v.", path, filesystem)
+		return filesystem, nil
+	}
+
+	// format the device if the specified device does not have a file system yet
+	log.Infof("Device %q has no file system.", path)
+
+	var fmt formatter
+	var out bytes.Buffer
+	for _, fmt = range formatters {
+		out.Reset()
+		args := append(fmt.args, path)
+		log.Debugf("Formatting %q as %v.", path, fmt.fsType)
+		cmd := exec.Command(args[0], args[1:]...)
+		if err = utils.ExecL(cmd, &out, log); err != nil {
+			log.Warnf("Failed to format %q as %q: %v (%v).",
+				path, fmt.fsType, out.String(), err)
+		}
+		if err == nil {
+			filesystem = fmt.fsType
+			break
+		}
+	}
+	if err != nil {
+		return "", trace.Wrap(err, "failed to format %q as %q: %v",
+			path, fmt.fsType, out.String())
+	}
+	return filesystem, nil
 }

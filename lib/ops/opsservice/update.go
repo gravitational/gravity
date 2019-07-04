@@ -543,16 +543,9 @@ func (s *site) validateDockerConfig(updateManifest schema.Manifest) error {
 		return nil
 	}
 
-	existingDocker := s.dockerConfig()
-	if existingDocker.IsEmpty() {
-		installOperation, err := ops.GetCompletedInstallOperation(s.key, s.service)
-		if err != nil {
-			return trace.Wrap(err)
-		}
-
-		defaultConfig := checks.DockerConfigFromSchemaValue(s.app.Manifest.SystemDocker())
-		checks.OverrideDockerConfig(&defaultConfig, installOperation.InstallExpand.Vars.System.Docker)
-		existingDocker = defaultConfig
+	existingDocker, err := GetDockerConfig(s.service, s.key)
+	if err != nil {
+		return trace.Wrap(err)
 	}
 
 	if docker.StorageDriver != existingDocker.StorageDriver &&
@@ -562,4 +555,22 @@ The storage driver can only be updated to one of %q.
 `, docker.StorageDriver, constants.DockerSupportedTargetDrivers)
 	}
 	return nil
+}
+
+// GetDockerConfig returns Docker config for the specified cluster.
+func GetDockerConfig(operator ops.Operator, key ops.SiteKey) (*storage.DockerConfig, error) {
+	cluster, err := operator.GetSite(key)
+	if err != nil {
+		return nil, trace.Wrap(err)
+	}
+	if !cluster.ClusterState.Docker.IsEmpty() {
+		return &cluster.ClusterState.Docker, nil
+	}
+	installOp, err := ops.GetCompletedInstallOperation(key, operator)
+	if err != nil {
+		return nil, trace.Wrap(err)
+	}
+	defaultConfig := checks.DockerConfigFromSchemaValue(cluster.App.Manifest.SystemDocker())
+	checks.OverrideDockerConfig(&defaultConfig, installOp.InstallExpand.Vars.System.Docker)
+	return &defaultConfig, nil
 }

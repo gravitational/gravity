@@ -36,7 +36,6 @@ import (
 	"github.com/gravitational/gravity/lib/utils"
 
 	"github.com/docker/docker/pkg/archive"
-	"github.com/gravitational/satellite/agent/proto/agentpb"
 	"github.com/gravitational/trace"
 	"github.com/sirupsen/logrus"
 )
@@ -96,7 +95,7 @@ func (r *System) Update(ctx context.Context, withStatus bool) error {
 		return trace.Wrap(err)
 	}
 
-	err = waitNodeStatus(ctx)
+	err = libstatus.Wait(ctx)
 	if err != nil {
 		return trace.Wrap(err)
 	}
@@ -131,7 +130,7 @@ func (r *System) Rollback(ctx context.Context, withStatus bool) (err error) {
 		return nil
 	}
 
-	err = waitNodeStatus(ctx)
+	err = libstatus.Wait(ctx)
 	if err != nil {
 		return trace.Wrap(err)
 	}
@@ -442,6 +441,7 @@ func (r *System) reinstallService(update storage.PackageUpdate) (labelUpdates []
 	manifest.Service.Package = update.To
 	manifest.Service.ConfigPackage = configPackage
 	manifest.Service.GravityPath = gravityPath
+	manifest.Service.NoStart = update.NoStart
 
 	r.WithField("package", update.To).Info("Installing new package.")
 	if err = services.InstallPackageService(*manifest.Service); err != nil {
@@ -675,33 +675,6 @@ func ensureServiceRunning(servicePackage loc.Locator) error {
 	noBlock := true
 	err = services.StartPackageService(servicePackage, noBlock)
 	return trace.Wrap(err)
-}
-
-func waitNodeStatus(ctx context.Context) (err error) {
-	b := utils.NewExponentialBackOff(defaults.NodeStatusTimeout)
-	err = utils.RetryWithInterval(ctx, b, func() error {
-		return trace.Wrap(getLocalNodeStatus(ctx))
-	})
-	return trace.Wrap(err)
-}
-
-func getLocalNodeStatus(ctx context.Context) (err error) {
-	var status *libstatus.Agent
-	b := utils.NewExponentialBackOff(defaults.NodeStatusTimeout)
-	err = utils.RetryTransient(ctx, b, func() error {
-		status, err = libstatus.FromLocalPlanetAgent(ctx)
-		if err != nil {
-			return trace.Wrap(err)
-		}
-		return nil
-	})
-	if err != nil {
-		return trace.Wrap(err)
-	}
-	if status.GetSystemStatus() != agentpb.SystemStatus_Running {
-		return trace.BadParameter("node is degraded")
-	}
-	return nil
 }
 
 // unpack reads the package from the package service and unpacks its contents

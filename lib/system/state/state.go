@@ -17,10 +17,8 @@ limitations under the License.
 package state
 
 import (
-	"bytes"
 	"context"
 	"os"
-	"os/exec"
 
 	"github.com/gravitational/gravity/lib/defaults"
 	"github.com/gravitational/gravity/lib/storage"
@@ -28,9 +26,9 @@ import (
 	"github.com/gravitational/gravity/lib/system/mount"
 	"github.com/gravitational/gravity/lib/systemservice"
 	"github.com/gravitational/gravity/lib/utils"
+	"github.com/sirupsen/logrus"
 
 	"github.com/gravitational/trace"
-	log "github.com/sirupsen/logrus"
 )
 
 // ConfigureStateDirectory sets up the state directory stateDir
@@ -62,7 +60,7 @@ func ConfigureStateDirectory(stateDir, devicePath string) (err error) {
 	// Even if the directory exists, mount it on the specified device.
 	// If this is not possible, the operation will fail as expected.
 	var filesystem string
-	filesystem, err = FormatDevice(devicePath)
+	filesystem, err = system.FormatDevice(context.TODO(), devicePath, logrus.StandardLogger())
 	if err != nil {
 		return trace.Wrap(err)
 	}
@@ -84,50 +82,4 @@ func ConfigureStateDirectory(stateDir, devicePath string) (err error) {
 	}
 
 	return nil
-}
-
-func FormatDevice(path string) (filesystem string, err error) {
-	type formatter struct {
-		fsType string
-		args   []string
-	}
-	formatters := []formatter{
-		{"xfs", []string{"mkfs.xfs", "-f"}},
-		{"ext4", []string{"mkfs.ext4", "-F"}},
-	}
-
-	filesystem, err = system.GetFilesystem(context.TODO(), path, utils.Runner)
-	if err != nil {
-		return "", trace.Wrap(err)
-	}
-
-	if filesystem != "" {
-		log.Infof("File system on %q is %v.", path, filesystem)
-		return filesystem, nil
-	}
-
-	// format the device if the specified device does not have a file system yet
-	log.Infof("Device %q has no file system.", path)
-
-	var fmt formatter
-	var out bytes.Buffer
-	for _, fmt = range formatters {
-		out.Reset()
-		args := append(fmt.args, path)
-		log.Debugf("Formatting %q as %v.", path, fmt.fsType)
-		cmd := exec.Command(args[0], args[1:]...)
-		if err = utils.ExecL(cmd, &out, log.StandardLogger()); err != nil {
-			log.Warnf("Failed to format %q as %q: %v (%v).",
-				path, fmt.fsType, out.String(), err)
-		}
-		if err == nil {
-			filesystem = fmt.fsType
-			break
-		}
-	}
-	if err != nil {
-		return "", trace.Wrap(err, "failed to format %q as %q: %v",
-			path, fmt.fsType, out.String())
-	}
-	return filesystem, nil
 }

@@ -1157,6 +1157,8 @@ type PackageUpdate struct {
 	Labels map[string]string `json:"labels,omitempty"`
 	// ConfigPackage specifies optional configuration package dependency
 	ConfigPackage *PackageUpdate `json:"config_package,omitempty"`
+	// NoStart indicates that package service shouldn't be auto-started after upgrade
+	NoStart bool `json:"no_start"`
 }
 
 // String formats this update as human-readable text

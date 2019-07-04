@@ -83,6 +83,8 @@ const (
 	dockerFormat = "format"
 	// dockerMount is the phase that mounts/unmounts devices.
 	dockerMount = "mount"
+	// planetStart is the phase that starts Planet systemd unit.
+	planetStart = "planet_start"
 )
 
 // fsmSpec returns the function that returns an appropriate phase executor
@@ -170,6 +172,8 @@ func fsmSpec(c Config) fsm.FSMSpecFunc {
 			return libphase.NewDockerFormat(p, logger)
 		case dockerMount:
 			return libphase.NewDockerMount(p, logger)
+		case planetStart:
+			return libphase.NewPlanetStart(p, logger)
 		default:
 			return nil, trace.BadParameter(
 				"phase %q requires executor %q (potential mismatch between upgrade versions)",

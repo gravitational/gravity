@@ -158,6 +158,8 @@ type UpdateServer struct {
 	Runtime RuntimePackage `json:"runtime"`
 	// Teleport defines the optional teleport update
 	Teleport TeleportPackage `json:"teleport"`
+	// Docker when true indicates that Docker storage driver is being updated
+	Docker bool `json:"docker"`
 }
 
 // RuntimePackage describes the state of the runtime package during update

@@ -24,10 +24,11 @@ import (
 	"github.com/gravitational/gravity/lib/defaults"
 	"github.com/gravitational/gravity/lib/devicemapper"
 	"github.com/gravitational/gravity/lib/fsm"
-	statedir "github.com/gravitational/gravity/lib/state"
+	"github.com/gravitational/gravity/lib/state"
 	"github.com/gravitational/gravity/lib/storage"
+	"github.com/gravitational/gravity/lib/system"
 	"github.com/gravitational/gravity/lib/system/mount"
-	"github.com/gravitational/gravity/lib/system/state"
+	"github.com/gravitational/gravity/lib/utils"
 
 	"github.com/gravitational/trace"
 	"github.com/sirupsen/logrus"
@@ -52,6 +53,7 @@ func (d *DockerDevicemapper) Execute(ctx context.Context) error {
 	if err != nil {
 		return trace.Wrap(err)
 	}
+	d.Info("Devicemapper configuration removed.")
 	return nil
 }
 
@@ -59,6 +61,12 @@ func (d *DockerDevicemapper) Execute(ctx context.Context) error {
 func (d *DockerDevicemapper) Rollback(ctx context.Context) error {
 	return trace.NotImplemented("not implemented")
 }
+
+// PreCheck is no-op.
+func (*DockerDevicemapper) PreCheck(context.Context) error { return nil }
+
+// PostCheck is no-op.
+func (*DockerDevicemapper) PostCheck(context.Context) error { return nil }
 
 // DockerFormat is a phase executor that deals with formatting Docker devices.
 type DockerFormat struct {
@@ -77,11 +85,12 @@ func NewDockerFormat(p fsm.ExecutorParams, log logrus.FieldLogger) (*DockerForma
 
 // Execute creates filesystem on a Docker data device.
 func (d *DockerFormat) Execute(ctx context.Context) error {
-	d.Info("Formatting device %v.", d.Device)
-	_, err := state.FormatDevice(d.Device)
+	d.Infof("Formatting device %v.", d.Device)
+	filesystem, err := system.FormatDevice(ctx, d.Device, d.FieldLogger)
 	if err != nil {
 		return trace.Wrap(err)
 	}
+	d.Infof("Device %v formatted to %v.", d.Device, filesystem)
 	return nil
 }
 
@@ -90,6 +99,12 @@ func (d *DockerFormat) Rollback(ctx context.Context) error {
 	return trace.NotImplemented("not implemented")
 }
 
+// PreCheck is no-op.
+func (*DockerFormat) PreCheck(context.Context) error { return nil }
+
+// PostCheck is no-op.
+func (*DockerFormat) PostCheck(context.Context) error { return nil }
+
 // DockerMount is a phase executor that deals with Docker data directory mounts.
 type DockerMount struct {
 	logrus.FieldLogger
@@ -97,9 +112,9 @@ type DockerMount struct {
 }
 
 // NewDockerMount returns phase executor that deals with Docker data directory mounts.
-func NewDockerMount(p fsm.ExecutorParams, log logrus.FieldLogger) (*DockerFormat, error) {
+func NewDockerMount(p fsm.ExecutorParams, log logrus.FieldLogger) (*DockerMount, error) {
 	node := *p.Phase.Data.Server
-	return &DockerFormat{
+	return &DockerMount{
 		FieldLogger: log,
 		Device:      node.Docker.Device.Path(),
 	}, nil
@@ -107,21 +122,26 @@ func NewDockerMount(p fsm.ExecutorParams, log logrus.FieldLogger) (*DockerFormat
 
 // Execute creates a systemd mount for Docker data directory.
 func (d *DockerMount) Execute(ctx context.Context) error {
-	stateDir, err := statedir.GetStateDir()
+	stateDir, err := state.GetStateDir()
+	if err != nil {
+		return trace.Wrap(err)
+	}
+	filesystem, err := system.GetFilesystem(ctx, d.Device, utils.Runner)
 	if err != nil {
 		return trace.Wrap(err)
 	}
 	config := mount.ServiceConfig{
 		What:       storage.DeviceName(d.Device),
 		Where:      filepath.Join(stateDir, defaults.PlanetDir, defaults.DockerDir),
-		Filesystem: "xfs",
+		Filesystem: filesystem,
 		Options:    []string{"defaults"},
 	}
-	d.Infof("Mounting %v to %v.", config.What, config.Where)
+	d.Infof("Mounting %v to %v as %v.", config.What, config.Where, config.Filesystem)
 	err = mount.Mount(config)
 	if err != nil {
 		return trace.Wrap(err)
 	}
+	d.Infof("Mount %v -> %v created and started.", config.What, config.Where)
 	return nil
 }
 
@@ -129,3 +149,9 @@ func (d *DockerMount) Execute(ctx context.Context) error {
 func (d *DockerMount) Rollback(ctx context.Context) error {
 	return trace.NotImplemented("not implemented")
 }
+
+// PreCheck is no-op.
+func (*DockerMount) PreCheck(context.Context) error { return nil }
+
+// PostCheck is no-op.
+func (*DockerMount) PostCheck(context.Context) error { return nil }

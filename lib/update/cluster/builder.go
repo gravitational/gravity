@@ -476,8 +476,8 @@ func (r phaseBuilder) node(server storage.Server, parent update.ParentPhase, for
 }
 
 // commonNode returns a list of operations required for any node role to upgrade its system software
-func (r phaseBuilder) commonNode(server, leadMaster storage.UpdateServer, supportsTaints bool,
-	waitsForEndpoints waitsForEndpoints) []update.Phase {
+func (r phaseBuilder) commonNode(server, leadMaster storage.UpdateServer, supportsTaints bool, waitsForEndpoints waitsForEndpoints) []update.Phase {
+	dockerDevice := server.Server.Docker.Device.Path()
 	phases := []update.Phase{
 		{
 			ID:          "drain",
@@ -495,10 +495,60 @@ func (r phaseBuilder) commonNode(server, leadMaster storage.UpdateServer, suppor
 			Data: &storage.OperationPhaseData{
 				ExecServer: &server.Server,
 				Update: &storage.UpdateOperationData{
-					Servers: []storage.UpdateServer{server},
+					Servers: []storage.UpdateServer{{
+						Server:   server.Server,
+						Runtime:  server.Runtime,
+						Teleport: server.Teleport,
+						Docker:   r.dockerStorageUpgrade && dockerDevice != "",
+					}},
 				},
 			},
 		},
+	}
+	if r.dockerStorageUpgrade && dockerDevice != "" {
+		dockerPhases := update.Phases{
+			{
+				ID:          "devicemapper",
+				Executor:    dockerDevicemapper,
+				Description: fmt.Sprintf("Remove devicemapper environment from %v", dockerDevice),
+				Data: &storage.OperationPhaseData{
+					Server: &server.Server,
+				},
+			},
+			{
+				ID:          "format",
+				Executor:    dockerFormat,
+				Description: fmt.Sprintf("Format %v", dockerDevice),
+				Data: &storage.OperationPhaseData{
+					Server: &server.Server,
+				},
+			},
+			{
+				ID:          "mount",
+				Executor:    dockerMount,
+				Description: fmt.Sprintf("Create mount for %v", dockerDevice),
+				Data: &storage.OperationPhaseData{
+					Server: &server.Server,
+				},
+			},
+		}
+		phases = append(phases,
+			update.Phase{
+				ID:          "docker",
+				Description: fmt.Sprintf("Repurpose %v for Docker overlay data", dockerDevice),
+				Phases:      dockerPhases.AsPhases(),
+			},
+			update.Phase{
+				ID:          "planet-start",
+				Executor:    planetStart,
+				Description: fmt.Sprintf("Start new Planet"),
+				Data: &storage.OperationPhaseData{
+					Server: &server.Server,
+					Update: &storage.UpdateOperationData{
+						Servers: []storage.UpdateServer{server},
+					},
+				},
+			})
 	}
 	if supportsTaints {
 		phases = append(phases, update.Phase{
@@ -559,9 +609,6 @@ func (r phaseBuilder) cleanup() *update.Phase {
 		root.AddParallel(node)
 	}
 	return &root
-}
-
-func (r phaseBuilder) dockerDevicemapper() *update.Phase {
 }
 
 type phaseBuilder struct {

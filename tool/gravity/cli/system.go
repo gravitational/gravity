@@ -1037,7 +1037,7 @@ func systemUninstall(env *localenv.LocalEnvironment, confirmed bool) error {
 	}
 
 	if err := svm.UninstallService(defaults.GravityRPCAgentServiceName); err != nil {
-		log.WithError(err).Warn("Failed to uninstall agent sevice.")
+		log.WithError(err).Warn("Failed to uninstall agent service.")
 	}
 
 	// close the backend before attempting to unmount as the open file might
@@ -1072,6 +1072,20 @@ func systemUninstall(env *localenv.LocalEnvironment, confirmed bool) error {
 	stateDir, err := state.GetStateDir()
 	if err != nil {
 		return trace.Wrap(err)
+	}
+
+	// see if there are any mounts under the state directory
+	mounts, err := svm.ListMounts()
+	if err != nil {
+		return trace.Wrap(err)
+	}
+	for _, mount := range mounts {
+		if strings.HasPrefix(mount.MountPoint, stateDir) {
+			env.PrintStep("Unmounting %v", mount.MountPoint)
+			if err := svm.UninstallService(mount.Name); err != nil {
+				log.WithError(err).Warnf("Failed to uninstall mount service: %v.", mount.Name)
+			}
+		}
 	}
 
 	env.PrintStep("Deleting all local data at %v", stateDir)

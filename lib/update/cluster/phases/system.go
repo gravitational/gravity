@@ -28,7 +28,9 @@ import (
 	"github.com/gravitational/gravity/lib/ops"
 	"github.com/gravitational/gravity/lib/pack"
 	"github.com/gravitational/gravity/lib/state"
+	"github.com/gravitational/gravity/lib/status"
 	"github.com/gravitational/gravity/lib/storage"
+	"github.com/gravitational/gravity/lib/systemservice"
 	"github.com/gravitational/gravity/lib/update"
 	"github.com/gravitational/gravity/lib/update/system"
 	"github.com/gravitational/gravity/lib/utils"
@@ -36,6 +38,64 @@ import (
 	"github.com/gravitational/trace"
 	log "github.com/sirupsen/logrus"
 )
+
+// planetStart is executor that starts specified Planet service.
+type planetStart struct {
+	// FieldLogger is used for logging.
+	log.FieldLogger
+	// Package is the Planet package to start the service for.
+	Package loc.Locator
+}
+
+// NewPlanetStart returns executor that starts specified Planet service.
+func NewPlanetStart(p fsm.ExecutorParams, log log.FieldLogger) (*planetStart, error) {
+	node := p.Phase.Data.Update.Servers[0]
+	return &planetStart{
+		FieldLogger: log,
+		Package:     node.Runtime.Update.Package,
+	}, nil
+}
+
+// Execute starts specified Planet service.
+func (p *planetStart) Execute(ctx context.Context) error {
+	p.Infof("Starting systemd service for %v.", p.Package)
+	serviceManager, err := systemservice.New()
+	if err != nil {
+		return trace.Wrap(err)
+	}
+	err = serviceManager.StartPackageService(p.Package, true)
+	if err != nil {
+		return trace.Wrap(err)
+	}
+	p.Infof("Started systemd service for %v.", p.Package)
+	err = status.Wait(ctx)
+	if err != nil {
+		return trace.Wrap(err)
+	}
+	p.Infof("Planet is running.")
+	return nil
+}
+
+// Rollback stops specified Planet service.
+func (p *planetStart) Rollback(ctx context.Context) error {
+	p.Infof("Stopping systemd service for %v.", p.Package)
+	serviceManager, err := systemservice.New()
+	if err != nil {
+		return trace.Wrap(err)
+	}
+	err = serviceManager.StopPackageService(p.Package)
+	if err != nil {
+		return trace.Wrap(err)
+	}
+	p.Infof("Stopped systemd service for %v.", p.Package)
+	return nil
+}
+
+// PreCheck is no-op.
+func (*planetStart) PreCheck(context.Context) error { return nil }
+
+// PostCheck is no-op.
+func (*planetStart) PostCheck(context.Context) error { return nil }
 
 // updatePhaseSystem is the executor for the update master/node update phase
 type updatePhaseSystem struct {
@@ -112,6 +172,9 @@ func (p *updatePhaseSystem) Execute(ctx context.Context) error {
 		config.Runtime.ConfigPackage = &storage.PackageUpdate{
 			To: p.Server.Runtime.Update.ConfigPackage,
 		}
+		if p.Server.Docker {
+			config.Runtime.NoStart = true
+		}
 	}
 	if p.Server.Teleport.Update != nil {
 		// Consider teleport update only in effect when the update package
@@ -134,7 +197,7 @@ func (p *updatePhaseSystem) Execute(ctx context.Context) error {
 	if err != nil {
 		return trace.Wrap(err)
 	}
-	err = updater.Update(ctx, true)
+	err = updater.Update(ctx, !config.Runtime.NoStart)
 	return trace.Wrap(err)
 }
 

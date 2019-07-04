@@ -97,5 +97,5 @@ type ServiceConfig struct {
 
 // ServiceName returns name of the mount service.
 func (c ServiceConfig) ServiceName() string {
-	return strings.ReplaceAll(c.Where, "/", "-") + ".mount"
+	return strings.Replace(c.Where, "/", "-", -1)[1:] + ".mount"
 }
