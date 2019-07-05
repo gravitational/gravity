@@ -20,9 +20,11 @@ import (
 	"context"
 	"fmt"
 	"io"
+	"net"
 	"net/url"
 	"os"
 	"path/filepath"
+	"regexp"
 	"sync"
 	"time"
 
@@ -703,6 +705,11 @@ func (o *Operator) GetLocalSite() (*ops.Site, error) {
 // params are optional URL query parameters that can specify additional
 // configuration attributes.
 func (o *Operator) GetSiteInstructions(tokenID string, serverProfile string, params url.Values) (string, error) {
+	err := validateGetSiteInstructions(tokenID, serverProfile, params)
+	if err != nil {
+		return "", trace.Wrap(err)
+	}
+
 	token, err := o.backend().GetProvisioningToken(tokenID)
 	if err != nil {
 		return "", trace.Wrap(err)
@@ -726,6 +733,36 @@ func (o *Operator) GetSiteInstructions(tokenID string, serverProfile string, par
 		return "", trace.Wrap(err)
 	}
 	return instructions, nil
+}
+
+var instructionsAllowedRePattern = `^([a-zA-Z0-9\-\.\_]*)$`
+var instructionsAllowedRe = regexp.MustCompile(instructionsAllowedRePattern)
+
+// validateGetSiteInstructions validates user provided input into bash script generation for install instructions
+// TODO(knisbet) we're going to try and eliminate the bash script generation based on user input, but as a
+// workaround make sure we sanitize any inputs to the current function
+func validateGetSiteInstructions(tokenID string, serverProfile string, params url.Values) error {
+	advertiseAddr := params.Get(schema.AdvertiseAddr)
+	if len(advertiseAddr) > 0 && net.ParseIP(advertiseAddr) == nil {
+		return trace.Wrap(trace.BadParameter("advertise_addr does not appear to be a valid IP address")).
+			AddField("advertise_addr", advertiseAddr)
+	}
+
+	if !instructionsAllowedRe.Match([]byte(tokenID)) {
+		return trace.Wrap(trace.BadParameter("Token format validation failed")).AddFields(map[string]interface{}{
+			"token":      tokenID,
+			"allowRegex": instructionsAllowedRePattern,
+		})
+	}
+
+	if !instructionsAllowedRe.Match([]byte(serverProfile)) {
+		return trace.Wrap(trace.BadParameter("ServerProfile format validation failed")).AddFields(map[string]interface{}{
+			"server_profile": serverProfile,
+			"allowRegex":     instructionsAllowedRePattern,
+		})
+	}
+
+	return nil
 }
 
 // SignTLSKey signs X509 Public Key with X509 certificate authority of this site
