@@ -1574,6 +1574,11 @@ func (s *Server) StateDir() string {
 	return defaults.GravityDir
 }
 
+// GetDockerDevice returns device used for Docker devicemapper data.
+func (s *Server) GetDockerDevice() string {
+	return s.Docker.Device.Path()
+}
+
 // KubeNodeID returns the identity of the node within the kubernetes cluster (kubectl get node)
 // when running on a cloud environment such as AWS, kubelet tends to pick up it's hostname from the cloud provider API.
 // So when running on these environments, we should ensure our hostnames match what kubernetes will be doing.

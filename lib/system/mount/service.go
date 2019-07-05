@@ -109,6 +109,10 @@ type ServiceConfig struct {
 }
 
 // ServiceName returns name of the mount service.
+//
+// Systemd mount unit must have a name that has all mount point path elements
+// separated by dashes, so the name for "/var/lib/gravity" mount would become
+// "var-lib-gravity.mount".
 func (c ServiceConfig) ServiceName() string {
 	return strings.Replace(c.Where, "/", "-", -1)[1:] + ".mount"
 }

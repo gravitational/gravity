@@ -180,9 +180,7 @@ func (p *updatePhaseSystem) Execute(ctx context.Context) error {
 		config.Runtime.ConfigPackage = &storage.PackageUpdate{
 			To: p.Server.Runtime.Update.ConfigPackage,
 		}
-		if p.Server.Docker {
-			config.Runtime.NoStart = true
-		}
+		config.Runtime.NoStart = p.Server.ShouldMigrateDockerDevice()
 	}
 	if p.Server.Teleport.Update != nil {
 		// Consider teleport update only in effect when the update package

@@ -119,6 +119,10 @@ func parseUnit(unit string) *loc.Locator {
 }
 
 // parseMount parses mount point from the mount service name.
+//
+// Systemd mount unit name consists of all mount point path elements
+// separated by dashes so mount service with name "var-lib-gravity.mount"
+// has a mount point /var/lib/gravity.
 func parseMount(mount string) string {
 	name := strings.TrimSuffix(mount, systemdMountSuffix)
 	parts := strings.Split(name, "-")

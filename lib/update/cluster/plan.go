@@ -31,7 +31,6 @@ import (
 	"github.com/gravitational/gravity/lib/loc"
 	"github.com/gravitational/gravity/lib/localenv"
 	"github.com/gravitational/gravity/lib/ops"
-	"github.com/gravitational/gravity/lib/ops/opsservice"
 	"github.com/gravitational/gravity/lib/pack"
 	"github.com/gravitational/gravity/lib/schema"
 	"github.com/gravitational/gravity/lib/storage"
@@ -163,11 +162,6 @@ func NewOperationPlan(config PlanConfig) (*storage.OperationPlan, error) {
 		return nil, trace.Wrap(err)
 	}
 
-	dockerStorageUpgrade, err := isDockerStorageChanging(config, *updateApp)
-	if err != nil {
-		return nil, trace.Wrap(err)
-	}
-
 	links, err := config.Backend.GetOpsCenterLinks(config.Operation.SiteDomain)
 	if err != nil {
 		return nil, trace.Wrap(err)
@@ -209,22 +203,21 @@ func NewOperationPlan(config PlanConfig) (*storage.OperationPlan, error) {
 			DNSConfig:      config.DNSConfig,
 			GravityPackage: *gravityPackage,
 		},
-		operator:             config.Operator,
-		operation:            *config.Operation,
-		servers:              updates,
-		installedRuntime:     *installedRuntime,
-		installedApp:         *installedApp,
-		updateRuntime:        *updateRuntime,
-		updateApp:            *updateApp,
-		links:                links,
-		trustedClusters:      trustedClusters,
-		packageService:       config.Packages,
-		shouldUpdateEtcd:     shouldUpdateEtcd,
-		updateCoreDNS:        updateCoreDNS,
-		updateDNSAppEarly:    updateDNSAppEarly,
-		dockerStorageUpgrade: dockerStorageUpgrade,
-		roles:                roles,
-		leadMaster:           *leader,
+		operator:          config.Operator,
+		operation:         *config.Operation,
+		servers:           updates,
+		installedRuntime:  *installedRuntime,
+		installedApp:      *installedApp,
+		updateRuntime:     *updateRuntime,
+		updateApp:         *updateApp,
+		links:             links,
+		trustedClusters:   trustedClusters,
+		packageService:    config.Packages,
+		shouldUpdateEtcd:  shouldUpdateEtcd,
+		updateCoreDNS:     updateCoreDNS,
+		updateDNSAppEarly: updateDNSAppEarly,
+		roles:             roles,
+		leadMaster:        *leader,
 	})
 	if err != nil {
 		return nil, trace.Wrap(err)
@@ -301,9 +294,6 @@ type planConfig struct {
 	// updateDNSAppEarly indicates whether we need to update the DNS app earlier than normal
 	//	Only applicable for 5.3.0 -> 5.3.2
 	updateDNSAppEarly bool
-	// dockerStorageUpgrade flag indicates whether Docker storage driver
-	// is being upgraded from devicemapper to overlay
-	dockerStorageUpgrade bool
 	// roles is the existing cluster roles
 	roles []teleservices.Role
 	// leader refers to the master server running the update operation
@@ -425,7 +415,7 @@ func newOperationPlan(p planConfig) (*storage.OperationPlan, error) {
 // configUpdates computes the configuration updates for the specified list of servers
 func configUpdates(
 	installed, update schema.Manifest,
-	operator packageRotator,
+	operator ops.Operator,
 	operation ops.SiteOperationKey,
 	servers []storage.Server,
 ) (updates []storage.UpdateServer, err error) {
@@ -451,6 +441,10 @@ func configUpdates(
 		if err != nil {
 			return nil, trace.Wrap(err)
 		}
+		installedDocker, err := ops.GetDockerConfig(operator, operation.SiteKey())
+		if err != nil {
+			return nil, trace.Wrap(err)
+		}
 		updateServer := storage.UpdateServer{
 			Server: server,
 			Runtime: storage.RuntimePackage{
@@ -460,6 +454,16 @@ func configUpdates(
 			Teleport: storage.TeleportPackage{
 				Installed: *installedTeleport,
 			},
+			Docker: storage.DockerUpdate{
+				Installed: *installedDocker,
+			},
+		}
+		updateDocker := update.SystemOptions.DockerConfig()
+		if updateDocker != nil {
+			updateServer.Docker.Update = &storage.DockerConfig{
+				StorageDriver: updateDocker.StorageDriver,
+				Args:          updateDocker.Args,
+			}
 		}
 		needsPlanetUpdate, needsTeleportUpdate, err := systemNeedsUpdate(
 			server.Role, server.ClusterRole,
@@ -610,26 +614,6 @@ func shouldUpdateDNSAppEarly(client *kubernetes.Clientset) (bool, error) {
 			return true, nil
 		}
 		return true, trace.Wrap(err)
-	}
-	return false, nil
-}
-
-// isDockerStorageChanging returns true if the Docker storage driver is changing
-// from devicemapper to overlay during this upgrade operation.
-func isDockerStorageChanging(config PlanConfig, updateApp app.Application) (bool, error) {
-	newConfig := updateApp.Manifest.SystemOptions.DockerConfig()
-	if newConfig == nil {
-		return false, nil
-	}
-	existingConfig, err := opsservice.GetDockerConfig(config.Operator, (*ops.SiteOperation)(config.Operation).ClusterKey())
-	if err != nil {
-		return false, trace.Wrap(err)
-	}
-	if newConfig.StorageDriver == existingConfig.StorageDriver {
-		return false, nil
-	}
-	if utils.StringInSlice(constants.DockerSupportedTargetDrivers, newConfig.StorageDriver) {
-		return true, nil
 	}
 	return false, nil
 }

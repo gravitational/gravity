@@ -21,6 +21,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/gravitational/gravity/lib/checks"
 	"github.com/gravitational/gravity/lib/constants"
 	"github.com/gravitational/gravity/lib/defaults"
 	"github.com/gravitational/gravity/lib/pack"
@@ -361,3 +362,23 @@ func MatchByType(opType string) OperationMatcher {
 
 // OperationMatcher is a function type that matches the given operation
 type OperationMatcher func(SiteOperation) bool
+
+// GetDockerConfig returns Docker config for the specified cluster.
+func GetDockerConfig(operator Operator, key SiteKey) (*storage.DockerConfig, error) {
+	cluster, err := operator.GetSite(key)
+	if err != nil {
+		return nil, trace.Wrap(err)
+	}
+	// Newer clusters have their Docker configuration in cluster state.
+	if !cluster.ClusterState.Docker.IsEmpty() {
+		return &cluster.ClusterState.Docker, nil
+	}
+	// For other clusters extract it from the original install operation.
+	installOp, err := GetCompletedInstallOperation(key, operator)
+	if err != nil {
+		return nil, trace.Wrap(err)
+	}
+	defaultConfig := checks.DockerConfigFromSchemaValue(cluster.App.Manifest.SystemDocker())
+	checks.OverrideDockerConfig(&defaultConfig, installOp.InstallExpand.Vars.System.Docker)
+	return &defaultConfig, nil
+}

@@ -1,5 +1,5 @@
 /*
-Copyright 2018 Gravitational, Inc.
+Copyright 2018-2019 Gravitational, Inc.
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -26,9 +26,9 @@ import (
 	"github.com/gravitational/gravity/lib/system/mount"
 	"github.com/gravitational/gravity/lib/systemservice"
 	"github.com/gravitational/gravity/lib/utils"
-	"github.com/sirupsen/logrus"
 
 	"github.com/gravitational/trace"
+	"github.com/sirupsen/logrus"
 )
 
 // ConfigureStateDirectory sets up the state directory stateDir

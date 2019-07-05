@@ -89,6 +89,8 @@ func printPhase(w io.Writer, phase storage.OperationPhase, indent int) {
 	}
 }
 
+// FormatOperationPlanShort formats provided operation plan as test with
+// fewer number of columns.
 func FormatOperationPlanShort(w io.Writer, plan storage.OperationPlan) {
 	var t tabwriter.Writer
 	t.Init(w, 0, 10, 5, ' ', 0)
