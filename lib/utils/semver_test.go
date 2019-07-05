@@ -26,59 +26,59 @@ import (
 
 func TestSemverSanity(t *testing.T) {
 	cases := []struct {
-		version   semver.Version
-		shouldErr bool
+		version     semver.Version
+		expectError bool
 	}{
 		//
 		// Normal Inputs
 		//
 		{
-			version:   *semver.New("0.0.0"),
-			shouldErr: false,
+			version:     *semver.New("0.0.0"),
+			expectError: false,
 		},
 		{
-			version:   *semver.New("0.0.0-alpha.1"),
-			shouldErr: false,
+			version:     *semver.New("0.0.0-alpha.1"),
+			expectError: false,
 		},
 		{
-			version:   *semver.New("0.0.0-alpha.0"),
-			shouldErr: false,
+			version:     *semver.New("0.0.0-alpha.0"),
+			expectError: false,
 		},
 		{
-			version:   *semver.New("99.0.0-alpha.106"),
-			shouldErr: false,
+			version:     *semver.New("99.0.0-alpha.106"),
+			expectError: false,
 		},
 		{
-			version:   *semver.New("0.0.0+some-text"),
-			shouldErr: false,
+			version:     *semver.New("0.0.0+some-text"),
+			expectError: false,
 		},
 		{
-			version:   *semver.New("0.0.0-alpha.55+some-text-Plus-Uppercase"),
-			shouldErr: false,
+			version:     *semver.New("0.0.0-alpha.55+some-text-Plus-Uppercase"),
+			expectError: false,
 		},
 		//
 		// Malicious Inputs
 		//
 		{
-			version:   *semver.New("0.0.0+;echo"),
-			shouldErr: true,
+			version:     *semver.New("0.0.0+;echo"),
+			expectError: true,
 		},
 		{
-			version:   *semver.New("0.0.0-;echo"),
-			shouldErr: true,
+			version:     *semver.New("0.0.0-;echo"),
+			expectError: true,
 		},
 		{
-			version:   *semver.New("1.0.1-aaa$(touch grav)"),
-			shouldErr: true,
+			version:     *semver.New("1.0.1-aaa$(touch grav)"),
+			expectError: true,
 		},
 		{
-			version:   *semver.New("1.0.1+aaa$(touch grav)"),
-			shouldErr: true,
+			version:     *semver.New("1.0.1+aaa$(touch grav)"),
+			expectError: true,
 		},
 	}
 
 	for _, tt := range cases {
-		if tt.shouldErr {
+		if tt.expectError {
 			assert.Error(t, SanitizeSemver(tt.version), tt.version.String())
 		} else {
 			assert.NoError(t, SanitizeSemver(tt.version), tt.version.String())
