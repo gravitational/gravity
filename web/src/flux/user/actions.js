@@ -27,12 +27,12 @@ const logger = Logger.create('user/actions');
 
 export function login(userId, password, token) {
   const promise = auth.login(userId, password, token);
-  return _handleLoginPromise(promise);
+  return handleLoginPromise(promise);
 }
 
 export function loginWithU2f(userId, password) {
   const promise = auth.loginWithU2f(userId, password);
-  return _handleLoginPromise(promise);
+  return handleLoginPromise(promise);
 }
 
 export function loginWithSso(providerName, redirectUrl) {
@@ -59,12 +59,7 @@ export function changePassword(oldPsw, newPsw, token){
   return api.put(cfg.getSiteChangePasswordUrl(), data);
 }
 
-function getEntryRoute() {
-  const entryUrl = history.getRedirectParam();
-  return !entryUrl ? cfg.routes.app : entryUrl;
-}
-
-function _handleLoginPromise(promise) {
+function handleLoginPromise(promise) {
   return promise.done(() => {
     const redirect = getEntryRoute();
     const withPageRefresh = true;
@@ -73,4 +68,16 @@ function _handleLoginPromise(promise) {
   .fail(err => {
     logger.error('login', err);
   });
+}
+
+function getEntryRoute() {
+  let entryUrl = history.getRedirectParam();
+  if (entryUrl) {
+    entryUrl = history.ensureKnownRoute(entryUrl);
+  } else {
+    entryUrl = cfg.routes.app;
+  }
+
+  return history.ensureBaseUrl(entryUrl);
+
 }

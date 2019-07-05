@@ -22,7 +22,7 @@ import { UserStatusEnum } from 'app/services/enums'
 import ActionMenu from './ActionMenu';
 
 const RoleLabel = ({ name }) => (
-  <Label title={name} kind="secondary" mr="2">
+  <Label title={name} kind="secondary" mb="1" mr="1">
     {name}
   </Label>
 )

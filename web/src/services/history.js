@@ -62,12 +62,7 @@ const history = {
   },
 
   getRedirectParam() {
-    let loc = this.original().location;
-    if (loc.query && loc.query.redirect_uri) {
-      return loc.query.redirect_uri;
-    }
-
-    return '';
+    return getUrlParameter('redirect_uri', this.original().location.search);
   },
 
   ensureKnownRoute(url) {
@@ -118,3 +113,17 @@ const match = url => route => {
 }
 
 export default history;
+
+export function getUrlParameter(name, path) {
+  path = path || window.location.search;
+  const query = path.substring(1);
+  const vars = query.split('&');
+  for (var i = 0; i < vars.length; i++) {
+      var pair = vars[i].split('=');
+      if (decodeURIComponent(pair[0]) == name) {
+          return decodeURIComponent(pair[1]);
+      }
+  }
+
+  return '';
+}
