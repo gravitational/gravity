@@ -165,7 +165,7 @@ const InputFormFooter = ({ auth2faType }) => {
     return (
       <div className="text-muted m-t-n-sm grv-user-invite-utf-info">
         <small>Click
-          <a target="_blank" href={LinkEnum.U2F_HELP_URL}> here </a>
+          <a rel="noreferrer" target="_blank" href={LinkEnum.U2F_HELP_URL}> here </a>
           to learn more about U2F 2-Step Verification.
         </small>
       </div>
