@@ -55,7 +55,10 @@ func GetFilesystem(ctx context.Context, path string, runner utils.CommandRunner)
 // RemoveFilesystem erases filesystem from the provided device/partition.
 func RemoveFilesystem(path string, log logrus.FieldLogger) error {
 	var out bytes.Buffer
-	cmd := exec.Command("dd", "if=/dev/zero", fmt.Sprintf("of=%v", path), "bs=10M")
+	// We don't need to fill the entire disk/partition with zeroes,
+	// clearing out the first 1MB should be enough to wipe out the
+	// filesystem header.
+	cmd := exec.Command("dd", "if=/dev/zero", fmt.Sprintf("of=%v", path), "bs=1M", "count=1")
 	if err := utils.ExecL(cmd, &out, log); err != nil {
 		return trace.Wrap(err, "failed to erase %v: %s", path, out.String())
 	}

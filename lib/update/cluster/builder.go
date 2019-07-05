@@ -475,9 +475,9 @@ func (r phaseBuilder) node(server storage.Server, parent update.ParentPhase, for
 	}
 }
 
-// dockerDevice builds a phase that takes care of repurposing device used
+// dockerDevicePhase builds a phase that takes care of repurposing device used
 // by Docker devicemapper driver for overlay data.
-func (r phaseBuilder) dockerDevice(node storage.UpdateServer) update.Phase {
+func dockerDevicePhase(node storage.UpdateServer) update.Phase {
 	// This phase will remove devicemapper environment (pv, vg, lv) from
 	// the devicemapper device.
 	devicemapper := update.Phase{
@@ -558,7 +558,7 @@ func (r phaseBuilder) commonNode(server, leadMaster storage.UpdateServer, suppor
 		},
 	}
 	if server.ShouldMigrateDockerDevice() {
-		phases = append(phases, r.dockerDevice(server))
+		phases = append(phases, dockerDevicePhase(server))
 	}
 	if supportsTaints {
 		phases = append(phases, update.Phase{

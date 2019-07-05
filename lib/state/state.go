@@ -109,6 +109,15 @@ func LogDir(baseDir string, suffixes ...string) string {
 	return filepath.Join(append(elems, suffixes...)...)
 }
 
+// DockerDir returns Docker data directory.
+func DockerDir() (string, error) {
+	stateDir, err := GetStateDir()
+	if err != nil {
+		return "", trace.Wrap(err)
+	}
+	return filepath.Join(stateDir, defaults.PlanetDir, defaults.DockerDir), nil
+}
+
 var (
 	// StateLocatorPaths is a list of locations where gravity state directory pointer is written
 	StateLocatorPaths = []string{

@@ -76,6 +76,18 @@ func (d *dockerDevicemapper) Rollback(ctx context.Context) error {
 		return trace.Wrap(err)
 	}
 	d.Infof("Devicemapper configuration on %v restored.", d.Device)
+	// Since we recreated devicemapper environment from scratch,
+	// wipe out Docker data directory to let it reinitialize,
+	// otherwise it will fail to start with UUID mismatch.
+	dockerDir, err := state.DockerDir()
+	if err != nil {
+		return trace.Wrap(err)
+	}
+	err = utils.RemoveContents(dockerDir)
+	if err != nil {
+		return trace.Wrap(err)
+	}
+	d.Infof("Wiped Docker data directory %v.", dockerDir)
 	return nil
 }
 
@@ -123,12 +135,12 @@ func (d *dockerFormat) Execute(ctx context.Context) error {
 
 // Rollback removes filesystem from the Docker data device.
 func (d *dockerFormat) Rollback(ctx context.Context) error {
-	d.Infof("Erasing filesystem from %v.", d.Device)
+	d.Infof("Removing filesystem from %v.", d.Device)
 	err := system.RemoveFilesystem(d.Device, d.FieldLogger)
 	if err != nil {
 		return trace.Wrap(err)
 	}
-	d.Infof("Device %v erased.", d.Device)
+	d.Infof("Filesystem on %v erased.", d.Device)
 	return nil
 }
 
