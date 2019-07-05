@@ -20,7 +20,7 @@ import cfg from 'app/config';
 import LogViewer from 'app/components/LogViewer';
 import LogProvider from './LogProvider';
 import QueryEditorBasic from './QueryEditorBasic';
-import { getUrlParameter } from 'app/services/browser';
+import { getUrlParameter } from 'app/services/history';
 import * as Alerts from 'shared/components/Alert';
 import { Box, Flex, Input, ButtonSecondary } from 'shared/components';
 import { Cog } from 'shared/components/Icon';

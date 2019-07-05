@@ -15,7 +15,7 @@ limitations under the License.
 */
 
 import React from 'react';
-import { getUrlParameter } from 'app/services/browser';
+import { getUrlParameter } from 'app/services/history';
 import cfg from 'app/config';
 import LogoHero from './../LogoHero';
 import { LoginFailed as CardFailed}  from 'shared/components/CardError';
