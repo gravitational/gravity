@@ -479,7 +479,8 @@ func (h *WebHandler) needsLogin(handle webHandle) httprouter.Handle {
 			if !trace.IsAccessDenied(err) {
 				log.Error(trace.DebugReport(err))
 			}
-			http.Redirect(w, r, "/web/login", http.StatusFound)
+
+			http.Redirect(w, r, "/web/login?redirect_uri="+r.URL.Path, http.StatusFound)
 		}
 	}
 }
