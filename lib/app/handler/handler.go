@@ -38,6 +38,7 @@ import (
 	"github.com/gravitational/gravity/lib/pack"
 	"github.com/gravitational/gravity/lib/storage"
 	"github.com/gravitational/gravity/lib/users"
+	"github.com/gravitational/gravity/lib/utils"
 
 	"github.com/coreos/go-semver/semver"
 	"github.com/gravitational/form"
@@ -839,10 +840,24 @@ func (h *WebHandler) telekubeInstallScript(w http.ResponseWriter, r *http.Reques
 		ver = constants.LatestVersion
 	}
 
+	// Security: sanitize semver input
+	semver, err := semver.NewVersion(ver)
+	if err != nil {
+		return trace.Wrap(err)
+	}
+	err = utils.SanitizeSemver(*semver)
+	if err != nil {
+		return trace.Wrap(err)
+	}
+
 	tfVersion, err := getTerraformVersion(ver, h.Packages)
 	if err != nil {
 		return trace.Wrap(err)
 	}
+
+	w.Header().Set("Content-Type", "text/plain")
+	w.Header().Set("X-Content-Type-Options", "nosniff")
+	w.WriteHeader(http.StatusOK)
 
 	err = telekubeInstallScriptTemplate.Execute(w, map[string]string{
 		"version":   ver,
