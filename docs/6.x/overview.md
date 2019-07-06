@@ -31,11 +31,10 @@ or across multiple organizations.
 
 There are two primary use cases for Gravity:
 
-1. **Deploying of K8s Applications on premises:** Software vendors (including
-   SaaS applications) often need to deploy and remotely update complex software
-   in private data centers or public cloud accounts, like AWS, owned by their
-   customers. For them, Gravity provides true portability for cloud-native
-   applications.
+1. **Deploying K8s Applications on premises:** SaaS vendors often need to
+   deploy and remotely update complex cloud applications in private data
+   centers or public cloud accounts, like AWS, owned by their customers. For
+   them, Gravity provides true portability for cloud-native applications.
 
 2. **Reducing Operational Overhead of Multi-Cluster Kubernetes Deployments:**
    Teams of site reliability engineers (SREs) are often tasked with providing

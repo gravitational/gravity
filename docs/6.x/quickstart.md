@@ -19,8 +19,9 @@ of running Kubernetes. For this tutorial, you will need:
 * A x86_64 Linux machine or a VM for building a cluster image.
   Let's call it "a developer's box".
 * We recommend taking a look at the [list of supported Linux distributions](requirements/#distributions).
-* [Docker](https://get.docker.io) version 1.8 or newer. Run `docker info` before continuing to make sure
-  you have Docker up and running.
+* Docker version 17 or newer. Run `docker info` before continuing to make sure
+  you have Docker up and running. Tip: you can quickly install it via `curl -L https://get.docker.com/ | bash -` 
+  and do not forget to add yourself to "docker" group via `sudo usermod -aG docker $USER`
 * You must be a member of the `docker` group. Run `groups` command to make sure
   `docker` group is listed.
 * You must install [Helm](https://docs.helm.sh/using_helm/#installing-helm).
