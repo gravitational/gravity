@@ -1,102 +1,49 @@
-# Packaging And Deployment
+# Building Cluster Images
 
-This section covers how to prepare an application for distribution with Gravity.
+## Introduction
 
-Gravity works with Kubernetes applications. This means the following prerequisites exist in order to use Gravity:
+This section covers how to build a Kubernetes cluster image with Gravity.
+There are two use cases we'll cover here:
+
+1. Building an "empty" Kubernetes cluster image. You can use such cluster
+   images for quickly creating large number of identical production-ready
+   Kubernetes clusters within an organization.
+
+2. Building a cluster image that also includes Kubernetes applications.  You
+   can use such images to distribute Kubernetes applications to 3rd parties.
+
+If you wish to package a cloud-native application into a cluster image, the
+application must first be ported to run on Kubernetes, this means:
 
 * The application is packaged into Docker containers.
-* You have Kubernetes resource definitions for application services, pods, etc. Kubernetes resources should be stored in the resources directory.
+* You have Kubernetes resource definitions for application services, pods, etc. 
+* (optional) You have Helm charts for your application(s).
 
 !!! tip:
-		For easy development while porting applications to Kubernetes, we recommend
-		[minikube](https://github.com/kubernetes/minikube), a Kubernetes distribution
-		optimized to run on a developer's machine. Once your application runs on
-		Kubernetes, it's trivial to package it for distribution using Gravity tools.
+        For easy Kubernetes development while porting applications to
+        Kubernetes, we recommend [minikube](https://github.com/kubernetes/minikube), 
+        a Kubernetes distribution optimized to run on a developer's machine. 
 
-## Getting Started
+## Getting the Tools
 
-Any Linux or macOS laptop can be used to package and publish Kubernetes
-applications using Gravity. To get started, you need to download and
-install the Gravity SDK tools:
+Any Linux machine can be used to package Kubernetes applications into a cluster
+image. To get started, you need to [download and install](https://gravitational.com/gravity/download/releases/)
+Gravity.
 
-```bsh
-$ curl https://get.gravitational.io/telekube/install | bash
-```
+!!! tip "Gravity Versions":
+    For new users who are just exploring Gravity, we recommend the latest "pre-release" build, 
+    in this case make sure to select "Show pre-releases" checkbox. Production users must
+    use the latest stable release.
 
-You will be using `tele`, the Gravity CLI client. By using `tele` on your laptop you can:
-
-* Package Kubernetes applications into self-installing tarballs, ("Application Bundles" or "Applications")
-* Publish Application Bundles into the Ops center.
-* Deploy Application Bundles to server clusters ("Gravity Clusters" or "Clusters")
-* Manage Gravity Clusters in the Ops Center.
-
-Here's the full list of `tele` commands:
+To create a cluster image, you will be using `tele`, the Gravity build tool. 
+Below is the list of `tele` commands:
 
 | Command  | Description |
 |----------|-------------|
-| login    | Log in to an Ops Center and makes that Ops Center active for other commands like `tsh`.
-| status   | Shows the status of Gravity SDK and the current Ops Center you're connected to.
-| build    | Packages a Kubernetes application into a self-deployable tarball ("Application Bundle").
-| push     | Pushes a Kubernetes application into the Ops Center for publishing.
-| pull     | Downloads an application from the Ops Center.
-| rm       | Removes an application in the Ops Center.
-| ls       | Lists published aplications in the Ops Center.
-
-## Ops Center Login
-
-Gravity CLI tools require that a user be first logged into an Ops Center account.
-
-`tele login` is used to log into an Ops center. You can optionally specify a `cluster` parameter to
-log into a specific remote application instance.
-
-```bsh
-tele login [options] [cluster]
-
-Options:
-  -o       Ops center to connect to
-  --auth   Authentication method
-  --key    API key
-
-Arguments:
-  cluster  The name of the remote cluster to connect to.
-```
-
-If the Ops Center is configured to use password-based authentication, it will require
-a password and (optionally) for a 2nd factor token in the
-command line.
-
-Example command:
-
-```bsh
-$ tele login -o opscenter.example.com
-```
-
-Example Response:
-
-```bsh
-If browser window does not open automatically, open it by clicking on the link:
- https://accounts.google.com/o/oauth2/v2/auth?client_id=281182034774-5opnsdim9rsdfemaljphdqg5a7tpc1lqb.apps.googleusercontent.com&prompt=select_account&redirect_uri=https%3A%2F%2Fdemo.gravitational.io%2Fportalapi%2Fv1%2Foidc%2Fcallback&response_type=code&scope=openid+email&state=fdaa63a0dd83755e267e6e3a422be22e
-Ops Center:	opscenter.example.com
-Username:	meta@example.com
-Cluster:	remote.cluster.1234
-Expires:	Fri Feb 17 15:46 UTC (19 hours from now)
-```
-
-!!! note:
-    The `tele login` command needs to
-    be executed from a machine with a browser by default.
-
-Further information about the Ops Center will then be displayed by executing
-`tele status`.
-
-Example Response:
-
-```bsh
-Ops Center:	demo.gravitational.io
-Username:	user@gravitational.com
-Cluster:	demo.gravitational.io
-Expires:	Wed Oct 11 16:57 UTC (19 hours from now)
-```
+| build    | Builds a new cluster image.
+| push     | Pushes a cluster image to an image repository called Gravity Hub (enterprise version only).
+| pull     | Downloads a cluster image from a Gravity Hub.
+| ls       | Lists all available cluster images.
 
 ## Packaging Applications
 

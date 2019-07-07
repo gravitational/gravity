@@ -25,7 +25,7 @@ or across multiple organizations.
     Kubernetes's job is to manage your applications. Gravity's job is to keep
     Kubernetes alive and well.
 
-**Gravity provides a true portability for cloud-native applications.**
+**Gravity provides true portability for cloud-native applications.**
 
 ## Use Cases
 
