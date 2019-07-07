@@ -26,7 +26,7 @@ extra:
 pages:
     - Gravity Overview: overview.md
     - Quick Start: quickstart.md
-    - Packaging And Deployment: pack.md
+    - Building Cluster Images: pack.md
     - Installation: installation.md
     - Cluster Management: cluster.md
     - Cluster Monitoring: monitoring.md

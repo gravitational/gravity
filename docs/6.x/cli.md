@@ -20,13 +20,13 @@ The typical Gravity workflow is as follows:
 
 `tele` is the Gravity CLI client and can run on macOS and Linux. With `tele` you can:
 
-* Package Kubernetes applications into self-installing cluster images.
-* Publish cluster images into the Gravity Hub.
-* Download cluster images from the Gravity Hub.
+* Package Kubernetes clusters into self-installing cluster images.
+* Publish cluster images into the Gravity Hub. (enterprise version only)
+* Download cluster images from the Gravity Hub. (enterprise version only)
 
 You can think of `tele` as "docker for clusters", i.e. just as `docker` can
 build, push and pull containers, `tele` does the same with entire clusters. See
-more details in [Packaging & Deployment](pack.md) section.
+more details in [Building Cluster Images](pack.md) section.
 
 ## tsh
 
