@@ -269,8 +269,8 @@ func RegisterCommands(app *kingpin.Application) *Application {
 
 	g.AppSearchCmd.CmdClause = g.AppCmd.Command("search", "Search for applications.")
 	g.AppSearchCmd.Pattern = g.AppSearchCmd.Arg("pattern", "Application name pattern, treated as a substring.").String()
-	g.AppSearchCmd.Remote = g.AppSearchCmd.Flag("remote", "Search for applications in a remote Ops Center.").Short('r').Bool()
-	g.AppSearchCmd.All = g.AppSearchCmd.Flag("all", "Search for applications both in a local cluster and in a remote Ops Center.").Short('a').Bool()
+	g.AppSearchCmd.Remote = g.AppSearchCmd.Flag("remote", "Search for applications in a remote Gravity Hub.").Short('r').Bool()
+	g.AppSearchCmd.All = g.AppSearchCmd.Flag("all", "Search for applications both in a local cluster and in a remote Gravity Hub.").Short('a').Bool()
 
 	g.AppRebuildIndexCmd.CmdClause = g.AppCmd.Command("rebuild-index", "Rebuild Helm chart repository index.").Hidden()
 
@@ -313,7 +313,7 @@ func RegisterCommands(app *kingpin.Application) *Application {
 	g.AppPackageListCmd.Repository = g.AppPackageListCmd.Arg("repo", "list applications in the specified repository").String()
 	g.AppPackageListCmd.Type = g.AppPackageListCmd.Flag("type", "restrict applications to the specified type").String()
 	g.AppPackageListCmd.ShowHidden = g.AppPackageListCmd.Flag("hidden", "show hidden apps too").Hidden().Bool()
-	g.AppPackageListCmd.OpsCenterURL = g.AppPackageListCmd.Flag("ops-url", "optional remote Ops Center URL").String()
+	g.AppPackageListCmd.OpsCenterURL = g.AppPackageListCmd.Flag("ops-url", "optional remote Gravity Hub URL").String()
 
 	// uninstall app
 	g.AppPackageUninstallCmd.CmdClause = g.AppCmd.Command("package-uninstall", "uninstall application").Hidden()
@@ -334,7 +334,7 @@ func RegisterCommands(app *kingpin.Application) *Application {
 	// push an application to a remote OpsCenter
 	g.AppPushCmd.CmdClause = g.AppCmd.Command("push", "push an application package to remote OpsCenter").Hidden()
 	g.AppPushCmd.Package = Locator(g.AppPushCmd.Arg("pkg", "application package").Required())
-	g.AppPushCmd.OpsCenterURL = g.AppPushCmd.Flag("ops-url", "remote ops center url").Required().String()
+	g.AppPushCmd.OpsCenterURL = g.AppPushCmd.Flag("ops-url", "remote Gravity Hub URL").Required().String()
 
 	// run an application hook
 	g.AppHookCmd.CmdClause = g.AppCmd.Command("hook", "run the specified application hook").Hidden()

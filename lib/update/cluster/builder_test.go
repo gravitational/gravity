@@ -66,7 +66,7 @@ func (s *PlanSuite) TestPlanWithRuntimeUpdate(c *check.C) {
 				Enabled:    true,
 			},
 		},
-		dnsConfig:  storage.DefaultDNSConfig,
+		dnsConfig: storage.DefaultDNSConfig,
 		// Use an alternative (other than first) master node as leader
 		leadMaster: updates[1],
 	}
@@ -803,7 +803,7 @@ func (r *params) migration() storage.OperationPhase {
 	if len(r.links) != 0 && len(r.trustedClusters) == 0 {
 		phase.Phases = append(phase.Phases, storage.OperationPhase{
 			ID:          "/migration/links",
-			Description: "Migrate remote Ops Center links to trusted clusters",
+			Description: "Migrate remote Gravity Hub links to trusted clusters",
 			Executor:    migrateLinks,
 		})
 	}

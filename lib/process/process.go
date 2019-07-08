@@ -1944,7 +1944,7 @@ func (p *Process) initAccount() error {
 	}
 
 	if err := p.fixOpsCenterRoles(*account); err != nil {
-		p.Errorf("Failed to migrate Ops Center: %v.", trace.DebugReport(err))
+		p.Errorf("Failed to migrate Gravity Hub: %v.", trace.DebugReport(err))
 	}
 
 	return nil

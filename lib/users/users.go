@@ -417,7 +417,7 @@ func GetOpsCenterAgent(opsCenter, clusterName string, backend storage.Backend) (
 	}
 	if user == nil {
 		return nil, nil, trace.NotFound(
-			"could not find agent for cluster %v and Ops Center %v", clusterName, opsCenter)
+			"could not find agent for cluster %v and Gravity Hub %v", clusterName, opsCenter)
 	}
 	keys, err := backend.GetAPIKeys(user.GetName())
 	if err != nil {

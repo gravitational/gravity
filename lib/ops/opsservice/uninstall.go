@@ -54,7 +54,7 @@ func (s *site) requestUninstall(ctx context.Context, req ops.CreateSiteUninstall
 
 	if client == nil {
 		return nil, trace.BadParameter(
-			"this cluster is not connected to any Ops Centers")
+			"this cluster is not connected to a Gravity Hub")
 	}
 
 	// create an uninstall operation for ourselves in the remote Ops Center
