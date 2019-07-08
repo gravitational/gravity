@@ -24,10 +24,10 @@ import { startShrinkOperation } from 'app/cluster/flux/nodes/actions';
 
 export function DeleteNodeDialog(props){
   const { node, onClose, onDelete, attempt, attemptActions } = props;
-  const { id, hostname } = node;
+  const { hostname } = node;
 
   const onOk = () => {
-    attemptActions.do(() => onDelete(id))
+    attemptActions.do(() => onDelete(hostname))
       .then(() => onClose());
   };
 
