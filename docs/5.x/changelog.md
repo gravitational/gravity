@@ -35,12 +35,12 @@ LTS starts with `3.51.0` with minor backwards compatible changes added over time
 
 #### Bugfixes
 
-* Fix a security issue with insecure decompression of application bundles
+* Fix a security issue with insecure decompression of application bundles.
 * Fix a security issue that allowed remote code execution in the tele cli tool.
 * Fix a security issue with missing ACLs in internal API.
 * Fix a security issue with install scripts command injection.
 * Fix a security issue that allowed for two factor authentication to be bypassed.
-* Fix a security issue that allowed for cross site scripting in Internet Explorer.
+* Fix a security issue that allowed for cross-site scripting in Internet Explorer.
 
 !!! warning
     This release fixes security vulnerabilities within Gravity. Please see
@@ -101,12 +101,12 @@ LTS starts with `3.51.0` with minor backwards compatible changes added over time
 
 #### Bugfixes
 
-* Fix a security issue with insecure decompression of application bundles
+* Fix a security issue with insecure decompression of application bundles.
 * Fix a security issue that allowed remote code execution in the tele cli tool.
 * Fix a security issue with missing ACLs in internal API.
 * Fix a security issue with install scripts command injection.
 * Fix a security issue that allowed for two factor authentication to be bypassed.
-* Fix a security issue that allowed for cross site scripting in Internet Explorer.
+* Fix a security issue that allowed for cross-site scripting in Internet Explorer.
 
 !!! warning
     This release fixes security vulnerabilities within Gravity. Please see
@@ -116,12 +116,12 @@ LTS starts with `3.51.0` with minor backwards compatible changes added over time
 
 #### Bugfixes
 
-* Fix a security issue with insecure decompression of application bundles
+* Fix a security issue with insecure decompression of application bundles.
 * Fix a security issue that allowed remote code execution in the tele cli tool.
 * Fix a security issue with missing ACLs in internal API.
 * Fix a security issue with install scripts command injection.
 * Fix a security issue that allowed for two factor authentication to be bypassed.
-* Fix a security issue that allowed for cross site scripting in Internet Explorer.
+* Fix a security issue that allowed for cross-site scripting in Internet Explorer.
 
 !!! warning
     This release fixes security vulnerabilities within Gravity. Please see
@@ -131,12 +131,12 @@ LTS starts with `3.51.0` with minor backwards compatible changes added over time
 
 #### Bugfixes
 
-* Fix a security issue with insecure decompression of application bundles
+* Fix a security issue with insecure decompression of application bundles.
 * Fix a security issue that allowed remote code execution in the tele cli tool.
 * Fix a security issue with missing ACLs in internal API.
 * Fix a security issue with install scripts command injection.
 * Fix a security issue that allowed for two factor authentication to be bypassed.
-* Fix a security issue that allowed for cross site scripting in Internet Explorer.
+* Fix a security issue that allowed for cross-site scripting in Internet Explorer.
 
 !!! warning
     This release fixes security vulnerabilities within Gravity. Please see
