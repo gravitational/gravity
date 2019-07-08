@@ -182,7 +182,7 @@ func RegisterCommands(app *kingpin.Application) *Application {
 	g.UpgradeCmd.SkipVersionCheck = g.UpgradeCmd.Flag("skip-version-check", "Bypass version compatibility check").Hidden().Bool()
 
 	g.UpdateUploadCmd.CmdClause = g.UpdateCmd.Command("upload", "Upload update package to locally running site").Hidden()
-	g.UpdateUploadCmd.OpsCenterURL = g.UpdateUploadCmd.Flag("ops-url", "Optional OpsCenter URL to upload new packages to (defaults to local gravity site)").Default(defaults.GravityServiceURL).String()
+	g.UpdateUploadCmd.OpsCenterURL = g.UpdateUploadCmd.Flag("ops-url", "Optional Gravity Hub URL to upload new packages to (defaults to local gravity site)").Default(defaults.GravityServiceURL).String()
 
 	// manual update flow commands
 	g.UpdateCompleteCmd.CmdClause = g.UpdateCmd.Command("complete", "Mark update operation as completed").Hidden()
@@ -285,7 +285,7 @@ func RegisterCommands(app *kingpin.Application) *Application {
 	g.AppImportCmd.Version = g.AppImportCmd.Flag("version", "optional app version, overrides the one specified in the app manifest").String()
 	g.AppImportCmd.RegistryURL = g.AppImportCmd.Flag("registry-url", "optional remote docker registry URL").Default(constants.DockerRegistry).String()
 	g.AppImportCmd.DockerURL = g.AppImportCmd.Flag("docker-url", "optional docker URL").Default(constants.DockerEngineURL).String()
-	g.AppImportCmd.OpsCenterURL = g.AppImportCmd.Flag("ops-url", "optional OpsCenter URL").String()
+	g.AppImportCmd.OpsCenterURL = g.AppImportCmd.Flag("ops-url", "optional Gravity Hub URL").String()
 	g.AppImportCmd.Vendor = g.AppImportCmd.Flag("vendor", "rewrite all container images to use private docker registry (requires --registry-url)").Bool()
 	g.AppImportCmd.Force = g.AppImportCmd.Flag("force", "overwrite existing application").Bool()
 	g.AppImportCmd.Excludes = g.AppImportCmd.Flag("exclude", "exclusion patterns for resulting tarball").Strings()
@@ -300,12 +300,12 @@ func RegisterCommands(app *kingpin.Application) *Application {
 	g.AppExportCmd.CmdClause = g.AppCmd.Command("export", "export gravity application").Hidden()
 	g.AppExportCmd.Locator = g.AppExportCmd.Arg("pkg", "package name with application to export").Required().String()
 	g.AppExportCmd.RegistryURL = g.AppExportCmd.Flag("registry-url", "docker registry URL to use for export").Default(constants.DockerRegistry).String()
-	g.AppExportCmd.OpsCenterURL = g.AppExportCmd.Flag("ops-url", "optional remote opscenter URL").String()
+	g.AppExportCmd.OpsCenterURL = g.AppExportCmd.Flag("ops-url", "optional remote Gravity Hub URL").String()
 
 	// delete gravity application
 	g.AppDeleteCmd.CmdClause = g.AppCmd.Command("delete", "delete gravity application").Hidden()
 	g.AppDeleteCmd.Locator = g.AppDeleteCmd.Arg("pkg", "application package name to delete").Required().String()
-	g.AppDeleteCmd.OpsCenterURL = g.AppDeleteCmd.Flag("ops-url", "optional remote OpsCenter URL").String()
+	g.AppDeleteCmd.OpsCenterURL = g.AppDeleteCmd.Flag("ops-url", "optional remote Gravity Hub URL").String()
 	g.AppDeleteCmd.Force = g.AppDeleteCmd.Flag("force", "do not produce error if app does not exist").Bool()
 
 	// list installed apps
@@ -322,17 +322,17 @@ func RegisterCommands(app *kingpin.Application) *Application {
 	// get status of an application
 	g.AppStatusCmd.CmdClause = g.AppCmd.Command("status", "get app status").Hidden()
 	g.AppStatusCmd.Locator = Locator(g.AppStatusCmd.Arg("pkg", "application package").Required())
-	g.AppStatusCmd.OpsCenterURL = g.AppStatusCmd.Flag("ops-url", "optional remote OpsCenter").String()
+	g.AppStatusCmd.OpsCenterURL = g.AppStatusCmd.Flag("ops-url", "optional remote Gravity Hub").String()
 
 	// pull an application from a remote OpsCenter
-	g.AppPullCmd.CmdClause = g.AppCmd.Command("pull", "pull an application package from remote OpsCenter").Hidden()
+	g.AppPullCmd.CmdClause = g.AppCmd.Command("pull", "pull an application package from remote Gravity Hub").Hidden()
 	g.AppPullCmd.Package = Locator(g.AppPullCmd.Arg("pkg", "application package").Required())
-	g.AppPullCmd.OpsCenterURL = g.AppPullCmd.Flag("ops-url", "remote OpsCenter URL").Required().String()
+	g.AppPullCmd.OpsCenterURL = g.AppPullCmd.Flag("ops-url", "remote Gravity Hub URL").Required().String()
 	g.AppPullCmd.Labels = configure.KeyValParam(g.AppPullCmd.Flag("labels", "labels to add to the package"))
 	g.AppPullCmd.Force = g.AppPullCmd.Flag("force", "overwrite destination app if it already exists").Bool()
 
 	// push an application to a remote OpsCenter
-	g.AppPushCmd.CmdClause = g.AppCmd.Command("push", "push an application package to remote OpsCenter").Hidden()
+	g.AppPushCmd.CmdClause = g.AppCmd.Command("push", "push an application package to remote Gravity Hub").Hidden()
 	g.AppPushCmd.Package = Locator(g.AppPushCmd.Arg("pkg", "application package").Required())
 	g.AppPushCmd.OpsCenterURL = g.AppPushCmd.Flag("ops-url", "remote Gravity Hub URL").Required().String()
 
@@ -346,7 +346,7 @@ func RegisterCommands(app *kingpin.Application) *Application {
 	g.AppUnpackCmd.CmdClause = g.AppCmd.Command("unpack", "unpack application resources").Hidden()
 	g.AppUnpackCmd.Package = Locator(g.AppUnpackCmd.Arg("pkg", "application package").Required())
 	g.AppUnpackCmd.Dir = g.AppUnpackCmd.Arg("dir", "output directory").Required().String()
-	g.AppUnpackCmd.OpsCenterURL = g.AppUnpackCmd.Flag("ops-url", "optional remote OpsCenter URL").String()
+	g.AppUnpackCmd.OpsCenterURL = g.AppUnpackCmd.Flag("ops-url", "optional remote Gravity Hub URL").String()
 	g.AppUnpackCmd.ServiceUID = g.AppUnpackCmd.Flag("service-uid", "optional service user ID").String()
 
 	g.WizardCmd.CmdClause = g.Command("wizard", "start wizard that will guide you through install process").Hidden()
@@ -360,17 +360,17 @@ func RegisterCommands(app *kingpin.Application) *Application {
 	g.AppPackageCmd.CmdClause = g.Command("app-package", "Display the name of application package from installer tarball").Hidden()
 
 	// install and access ops commands
-	g.OpsCmd.CmdClause = g.Command("ops", "access OpsCenter related commands")
+	g.OpsCmd.CmdClause = g.Command("ops", "access Gravity Hub related commands")
 
-	g.OpsConnectCmd.CmdClause = g.OpsCmd.Command("connect", "save credentials for remote OpsCenter on local disk").Hidden()
-	g.OpsConnectCmd.OpsCenterURL = g.OpsConnectCmd.Arg("ops-url", "remote OpsCenter URL").Default(defaults.GravityServiceURL).String()
-	g.OpsConnectCmd.Username = g.OpsConnectCmd.Arg("username", "remote OpsCenter username").String()
-	g.OpsConnectCmd.Password = g.OpsConnectCmd.Arg("password", "remote OpsCenter password").String()
+	g.OpsConnectCmd.CmdClause = g.OpsCmd.Command("connect", "save credentials for remote Gravity Hub on local disk").Hidden()
+	g.OpsConnectCmd.OpsCenterURL = g.OpsConnectCmd.Arg("ops-url", "remote Gravity Hub URL").Default(defaults.GravityServiceURL).String()
+	g.OpsConnectCmd.Username = g.OpsConnectCmd.Arg("username", "remote Gravity Hub username").String()
+	g.OpsConnectCmd.Password = g.OpsConnectCmd.Arg("password", "remote Gravity Hub password").String()
 
-	g.OpsDisconnectCmd.CmdClause = g.OpsCmd.Command("disconnect", "disconnect and log out from OpsCenter").Hidden()
-	g.OpsDisconnectCmd.OpsCenterURL = g.OpsDisconnectCmd.Arg("ops-url", "remote OpsCenter URL").Required().String()
+	g.OpsDisconnectCmd.CmdClause = g.OpsCmd.Command("disconnect", "disconnect and log out from Gravity Hub").Hidden()
+	g.OpsDisconnectCmd.OpsCenterURL = g.OpsDisconnectCmd.Arg("ops-url", "remote Gravity Hub URL").Required().String()
 
-	g.OpsListCmd.CmdClause = g.OpsCmd.Command("ls", "list connected OpsCenters").Hidden()
+	g.OpsListCmd.CmdClause = g.OpsCmd.Command("ls", "list connected Gravity Hubs").Hidden()
 
 	// TODO: move this functionality to crpcAgent
 	g.OpsAgentCmd.CmdClause = g.OpsCmd.Command("agent", "Start an agent to perform a set of tasks").Hidden()
@@ -390,7 +390,7 @@ func RegisterCommands(app *kingpin.Application) *Application {
 	// import package
 	g.PackImportCmd.CmdClause = g.PackCmd.Command("import", "import file or directory into package").Hidden()
 	g.PackImportCmd.CheckManifest = g.PackImportCmd.Flag("check-manifest", "check manifest in the package").Bool()
-	g.PackImportCmd.OpsCenterURL = g.PackImportCmd.Flag("ops-url", "remote OpsCenter URL").String()
+	g.PackImportCmd.OpsCenterURL = g.PackImportCmd.Flag("ops-url", "remote Gravity Hub URL").String()
 	g.PackImportCmd.Path = g.PackImportCmd.Arg("path", "file or directory to import as a package").Required().ExistingFileOrDir()
 	g.PackImportCmd.Locator = Locator(g.PackImportCmd.Arg("pkg", "package name").Required())
 	g.PackImportCmd.Labels = configure.KeyValParam(g.PackImportCmd.Flag("labels", "labels to add to the package"))
@@ -399,25 +399,25 @@ func RegisterCommands(app *kingpin.Application) *Application {
 	g.PackUnpackCmd.CmdClause = g.PackCmd.Command("unpack", "unpack package into internal 'unpacked' directory").Hidden()
 	g.PackUnpackCmd.Locator = Locator(g.PackUnpackCmd.Arg("pkg", "package name").Required())
 	g.PackUnpackCmd.Dir = g.PackUnpackCmd.Arg("dir", "output unpack directory").String()
-	g.PackUnpackCmd.OpsCenterURL = g.PackUnpackCmd.Flag("ops-url", "optional remote OpsCenter URL").String()
+	g.PackUnpackCmd.OpsCenterURL = g.PackUnpackCmd.Flag("ops-url", "optional remote Gravity Hub URL").String()
 
 	// export package
 	g.PackExportCmd.CmdClause = g.PackCmd.Command("export", "export package to specified file").Hidden()
 	g.PackExportCmd.Locator = Locator(g.PackExportCmd.Arg("pkg", "package name").Required())
 	g.PackExportCmd.File = g.PackExportCmd.Arg("file", "output file with a package").Required().String()
-	g.PackExportCmd.OpsCenterURL = g.PackExportCmd.Flag("ops-url", "optional remote OpsCenter URL").String()
+	g.PackExportCmd.OpsCenterURL = g.PackExportCmd.Flag("ops-url", "optional remote Gravity Hub URL").String()
 	g.PackExportCmd.FileMask = g.PackExportCmd.Flag("file-mask", "optional output file access mode (octal, as specified with chmod)").Default(strconv.FormatUint(defaults.SharedReadWriteMask, 8)).String()
 
 	// list packages
 	g.PackListCmd.CmdClause = g.PackCmd.Command("list", "list local packages").Hidden()
 	g.PackListCmd.Repository = g.PackListCmd.Arg("repository", "repository name, if omitted will list all packages").String()
-	g.PackListCmd.OpsCenterURL = g.PackListCmd.Flag("ops-url", "optional remote OpsCenter URL").String()
+	g.PackListCmd.OpsCenterURL = g.PackListCmd.Flag("ops-url", "optional remote Gravity Hub URL").String()
 
 	// delete package
 	g.PackDeleteCmd.CmdClause = g.PackCmd.Command("delete", "delete a package from repository").Hidden()
 	g.PackDeleteCmd.Force = g.PackDeleteCmd.Flag("force", "force deletion (ignore errors if not exists)").Bool()
 	g.PackDeleteCmd.Locator = Locator(g.PackDeleteCmd.Arg("pkg", "package name"))
-	g.PackDeleteCmd.OpsCenterURL = g.PackDeleteCmd.Flag("ops-url", "optional remote OpsCenter URL").String()
+	g.PackDeleteCmd.OpsCenterURL = g.PackDeleteCmd.Flag("ops-url", "optional remote Gravity Hub URL").String()
 
 	// configure package
 	g.PackConfigureCmd.CmdClause = g.PackCmd.Command("configure", "configure a package").Interspersed(false).Hidden()
@@ -433,21 +433,21 @@ func RegisterCommands(app *kingpin.Application) *Application {
 	g.PackCommandCmd.Args = g.PackCommandCmd.Arg("arg", "additional arguments to command").Strings()
 
 	// push package to remote OpsCenter
-	g.PackPushCmd.CmdClause = g.PackCmd.Command("push", "push package to remote OpsCenter").Hidden()
+	g.PackPushCmd.CmdClause = g.PackCmd.Command("push", "push package to remote Gravity Hub").Hidden()
 	g.PackPushCmd.Package = Locator(g.PackPushCmd.Arg("pkg", "package name to push").Required())
-	g.PackPushCmd.OpsCenterURL = g.PackPushCmd.Flag("ops-url", "optional remote OpsCenter URL").String()
+	g.PackPushCmd.OpsCenterURL = g.PackPushCmd.Flag("ops-url", "optional remote Gravity Hub URL").String()
 
 	// pull package from remote OpsCenter
-	g.PackPullCmd.CmdClause = g.PackCmd.Command("pull", "pull package from remote OpsCenter").Hidden()
+	g.PackPullCmd.CmdClause = g.PackCmd.Command("pull", "pull package from remote Gravity Hub").Hidden()
 	g.PackPullCmd.Package = Locator(g.PackPullCmd.Arg("pkg", "package name to pull").Required())
-	g.PackPullCmd.OpsCenterURL = g.PackPullCmd.Flag("ops-url", "remote OpsCenter URL").String()
+	g.PackPullCmd.OpsCenterURL = g.PackPullCmd.Flag("ops-url", "remote Gravity Hub URL").String()
 	g.PackPullCmd.Labels = configure.KeyValParam(g.PackPullCmd.Flag("labels", "labels to add to the package"))
 	g.PackPullCmd.Force = g.PackPullCmd.Flag("force", "overwrite destination package if it already exists").Bool()
 
 	// labels changes package labels
 	g.PackLabelsCmd.CmdClause = g.PackCmd.Command("labels", "change package labels").Hidden()
 	g.PackLabelsCmd.Package = Locator(g.PackLabelsCmd.Arg("pkg", "package name to change").Required())
-	g.PackLabelsCmd.OpsCenterURL = g.PackLabelsCmd.Flag("ops-url", "remote OpsCenter URL").String()
+	g.PackLabelsCmd.OpsCenterURL = g.PackLabelsCmd.Flag("ops-url", "remote Gravity Hub URL").String()
 	g.PackLabelsCmd.Add = configure.KeyValParam(g.PackLabelsCmd.Flag("add", "labels to add to the package"))
 	g.PackLabelsCmd.Remove = g.PackLabelsCmd.Flag("remove", "labels to remove from the package").Strings()
 
@@ -459,12 +459,12 @@ func RegisterCommands(app *kingpin.Application) *Application {
 	g.UserCreateCmd.Email = g.UserCreateCmd.Flag("email", "user email").Required().String()
 	g.UserCreateCmd.Type = g.UserCreateCmd.Flag("type", "agent, remote_agent or admin").Default("agent").String()
 	g.UserCreateCmd.Password = g.UserCreateCmd.Flag("password", "user password, mandatory for admin").String()
-	g.UserCreateCmd.OpsCenterURL = g.UserCreateCmd.Flag("ops-url", "remote OpsCenter URL").Required().String()
+	g.UserCreateCmd.OpsCenterURL = g.UserCreateCmd.Flag("ops-url", "remote Gravity Hub URL").Required().String()
 
 	// delete a user
 	g.UserDeleteCmd.CmdClause = g.UserCmd.Command("delete", "delete a user").Hidden()
 	g.UserDeleteCmd.Email = g.UserDeleteCmd.Flag("email", "user email").Required().String()
-	g.UserDeleteCmd.OpsCenterURL = g.UserDeleteCmd.Flag("ops-url", "remote OpsCenter URL").Required().String()
+	g.UserDeleteCmd.OpsCenterURL = g.UserDeleteCmd.Flag("ops-url", "remote Gravity Hub URL").Required().String()
 
 	g.UsersCmd.CmdClause = g.Command("users", "Manage user accounts")
 
@@ -493,18 +493,18 @@ func RegisterCommands(app *kingpin.Application) *Application {
 	// create a new api key
 	g.APIKeyCreateCmd.CmdClause = g.APIKeyCmd.Command("create", "create a new api key").Hidden()
 	g.APIKeyCreateCmd.Email = g.APIKeyCreateCmd.Flag("email", "email of the agent user to create an api key for").Required().String()
-	g.APIKeyCreateCmd.OpsCenterURL = g.APIKeyCreateCmd.Flag("ops-url", "remote OpsCenter URL").Required().String()
+	g.APIKeyCreateCmd.OpsCenterURL = g.APIKeyCreateCmd.Flag("ops-url", "remote Gravity Hub URL").Required().String()
 
 	// view api keys for a user
 	g.APIKeyListCmd.CmdClause = g.APIKeyCmd.Command("list", "view user api keys").Hidden()
 	g.APIKeyListCmd.Email = g.APIKeyListCmd.Flag("email", "email of the user to view api keys for").Required().String()
-	g.APIKeyListCmd.OpsCenterURL = g.APIKeyListCmd.Flag("ops-url", "remote OpsCenter URL").Required().String()
+	g.APIKeyListCmd.OpsCenterURL = g.APIKeyListCmd.Flag("ops-url", "remote Gravity Hub URL").Required().String()
 
 	// delete an api key
 	g.APIKeyDeleteCmd.CmdClause = g.APIKeyCmd.Command("delete", "delete an api key").Hidden()
 	g.APIKeyDeleteCmd.Token = g.APIKeyDeleteCmd.Arg("token", "api key to delete").Required().String()
 	g.APIKeyDeleteCmd.Email = g.APIKeyDeleteCmd.Arg("email", "email of the user").Required().String()
-	g.APIKeyDeleteCmd.OpsCenterURL = g.APIKeyDeleteCmd.Flag("ops-url", "remote OpsCenter URL").Required().String()
+	g.APIKeyDeleteCmd.OpsCenterURL = g.APIKeyDeleteCmd.Flag("ops-url", "remote Gravity Hub URL").Required().String()
 
 	// get cluster diagnostics report
 	g.ReportCmd.CmdClause = g.Command("report", "Generate cluster diagnostics report")
@@ -515,7 +515,7 @@ func RegisterCommands(app *kingpin.Application) *Application {
 
 	// list sites
 	g.SiteListCmd.CmdClause = g.SiteCmd.Command("list", "list sites").Hidden()
-	g.SiteListCmd.OpsCenterURL = g.SiteListCmd.Flag("ops-url", "remote OpsCenter URL").String()
+	g.SiteListCmd.OpsCenterURL = g.SiteListCmd.Flag("ops-url", "remote Gravity Hub URL").String()
 
 	// start
 	g.SiteStartCmd.CmdClause = g.SiteCmd.Command("start", "start site controller (runs inside cluster)").Hidden()
@@ -574,7 +574,7 @@ func RegisterCommands(app *kingpin.Application) *Application {
 	g.SystemUninstallCmd.Confirmed = g.SystemUninstallCmd.Flag("confirm", "confirm uninstall").Bool()
 
 	g.SystemPullUpdatesCmd.CmdClause = g.SystemCmd.Command("pull-updates", "Pull new package updates from the system").Hidden()
-	g.SystemPullUpdatesCmd.OpsCenterURL = g.SystemPullUpdatesCmd.Flag("ops-url", "remote OpsCenter URL").String()
+	g.SystemPullUpdatesCmd.OpsCenterURL = g.SystemPullUpdatesCmd.Flag("ops-url", "remote Gravity Hub URL").String()
 	g.SystemPullUpdatesCmd.RuntimePackage = Locator(g.SystemPullUpdatesCmd.Flag("runtime-package", "The name of the runtime package to update to").Required())
 
 	g.SystemUpdateCmd.CmdClause = g.SystemCmd.Command("update", "Update this system by installing newer version of system packages").Hidden()

@@ -1035,14 +1035,14 @@ func (l *LoginEntry) Check() error {
 		return trace.BadParameter("missing parameter Password")
 	}
 	if l.OpsCenterURL == "" {
-		return trace.BadParameter("missing parameter OpsCenterURL")
+		return trace.BadParameter("missing parameter Gravity Hub URL")
 	}
 	return nil
 }
 
 // String returns the login entry string representation
 func (l LoginEntry) String() string {
-	return fmt.Sprintf("LoginEntry(Email=%v, OpsCenter=%v, Created=%v)",
+	return fmt.Sprintf("LoginEntry(Email=%v, GravityHub=%v, Created=%v)",
 		l.Email, l.OpsCenterURL, l.Created.Format(constants.HumanDateFormat))
 }
 
