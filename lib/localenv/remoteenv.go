@@ -122,7 +122,7 @@ func newRemoteEnvironment(stateDir string) (*RemoteEnvironment, error) {
 
 // Login logs this environment into the Ops Center with specified credentials
 func (w *RemoteEnvironment) Login(url, token string) error {
-	w.Debugf("Logging into Ops Center: %v.", url)
+	w.Debugf("Logging into Gravity Hub: %v.", url)
 	_, err := w.login(storage.LoginEntry{
 		Password:     token,
 		OpsCenterURL: url,
@@ -147,7 +147,7 @@ func (w *RemoteEnvironment) LoginWizard(addr, token string) (entry *storage.Logi
 	if strings.HasPrefix(addr, "https") {
 		host, port, err = utils.URLSplitHostPort(addr, wizardPort)
 		if err != nil {
-			return nil, trace.Wrap(err, "invalid Ops Center URL %q, expected [https://]host[:port]", addr)
+			return nil, trace.Wrap(err, "invalid Gravity Hub URL %q, expected [https://]host[:port]", addr)
 		}
 	} else {
 		host, port = utils.SplitHostPort(addr, wizardPort)

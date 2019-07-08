@@ -151,7 +151,7 @@ func (r phaseBuilder) migration(leadMaster storage.Server) *update.Phase {
 	if len(r.links) != 0 && len(r.trustedClusters) == 0 {
 		subphases = append(subphases, update.Phase{
 			ID:          root.ChildLiteral("links"),
-			Description: "Migrate remote Ops Center links to trusted clusters",
+			Description: "Migrate remote Gravity Hub links to trusted clusters",
 			Executor:    migrateLinks,
 		})
 	}
