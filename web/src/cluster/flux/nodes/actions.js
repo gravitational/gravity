@@ -17,14 +17,17 @@ limitations under the License.
 import $ from 'jQuery';
 import reactor from 'app/reactor';
 import * as nodeService from 'app/cluster/services/nodes';
+import { fetchSiteInfo } from '../info/actions';
 import cfg from 'app/config';
 import k8s from 'app/cluster/services/k8s';
 import { getAcl } from 'app/flux/userAcl';
 import { SITE_SERVERS_RECEIVE } from './actionTypes';
 import opsService from 'app/services/operations';
 
-export function startShrinkOperation(hostname){
-  return opsService.shrink(cfg.defaultSiteId, hostname);
+export function startShrinkOperation(hostname) {
+  return opsService.shrink(cfg.defaultSiteId, hostname)
+    // get the cluster info to update cluster state label
+    .then(() => fetchSiteInfo());
 }
 
 export function fetchNodes() {
