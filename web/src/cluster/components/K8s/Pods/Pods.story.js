@@ -150,7 +150,7 @@ const podInfos = [
                 "name": "GRAVITY_CONFIG",
                 "valueFrom": {
                   "configMapKeyRef": {
-                    "name": "gravity-opscenter",
+                    "name": "gravity-hub",
                     "key": "gravity.yaml"
                   }
                 }
@@ -159,7 +159,7 @@ const podInfos = [
                 "name": "GRAVITY_TELEPORT_CONFIG",
                 "valueFrom": {
                   "configMapKeyRef": {
-                    "name": "gravity-opscenter",
+                    "name": "gravity-hub",
                     "key": "teleport.yaml"
                   }
                 }
@@ -226,8 +226,8 @@ const podInfos = [
                 "mountPath": "/opt/gravity/config"
               },
               {
-                "name": "opscenter-config",
-                "mountPath": "/opt/gravity/opscenter"
+                "name": "hub-config",
+                "mountPath": "/opt/gravity/hub"
               },
               {
                 "name": "secrets",
@@ -312,9 +312,9 @@ const podInfos = [
             }
           },
           {
-            "name": "opscenter-config",
+            "name": "hub-config",
             "configMap": {
-              "name": "gravity-opscenter",
+              "name": "gravity-hub",
               "defaultMode": 420
             }
           },

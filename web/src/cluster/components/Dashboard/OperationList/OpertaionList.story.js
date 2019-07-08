@@ -52,10 +52,10 @@ const operations = [
     "id": "932255f0-de37-43f0-b246-dae2f546a878",
     "type": "operation_update",
     "update":{
-      "update_package": "gravitational.io/opscenter:6.0.0-beta.1.14"
+      "update_package": "gravitational.io/hub:6.0.0-beta.1.14"
     },
     "created": "2019-05-29T21:09:00.703Z",
-    "description": "Updating to gravitational.io/opscenter:6.0.0-beta.1.15",
+    "description": "Updating to gravitational.io/hub:6.0.0-beta.1.15",
     "status": "processing",
     "createdBy": "ancan@opusosi.ci",
 
@@ -64,10 +64,10 @@ const operations = [
     "id": "232255f0-de37-43f0-b246-dae2f546a872",
     "type": "operation_update",
     "update":{
-      "update_package": "gravitational.io/opscenter:6.0.0-beta.1.14"
+      "update_package": "gravitational.io/hub:6.0.0-beta.1.14"
     },
     "created": "2019-05-29T21:09:00.703Z",
-    "description": "Updating to gravitational.io/opscenter:6.0.0-beta.1.15",
+    "description": "Updating to gravitational.io/hub:6.0.0-beta.1.15",
     "status": "completed",
     "createdBy": "ancan@opusosi.ci",
 
@@ -76,7 +76,7 @@ const operations = [
     "id": "5b3969ee-4786-42e7-8a83-6a1f9cfff87a",
     "type": "operation_install",
     "created": "2019-05-28T21:56:09.471Z",
-    "description": "Updating to gravitational.io/opscenter:6.0.0-beta.1.14",
+    "description": "Updating to gravitational.io/hub:6.0.0-beta.1.14",
     "status": "completed",
     "createdBy": "pawuj@oma.as",
 
@@ -94,7 +94,7 @@ const operations = [
     "id": "92a4ec27-e9b9-40ff-8960-efb0aadb244d",
     "type": "operation_uninstall",
     "created": "2019-05-23T20:34:48.814Z",
-    "description": "Updating to gravitational.io/opscenter:6.0.0-beta.1.9",
+    "description": "Updating to gravitational.io/hub:6.0.0-beta.1.9",
     "status": "completed",
     "createdBy": "horpuisa@cejaj.az",
 
@@ -183,98 +183,3 @@ const nodes = [{
     "displayRole": "Ops Center Node"
   }
 ]
-
-
-/*
-
-
-{
-  "id": "cbc82512-38c3-4242-93d4-eff7700db6ea",
-  "account_id": "00000000-0000-0000-0000-000000000001",
-  "site_domain": "democluster",
-  "type": "operation_shrink",
-  "created": "2019-05-30T22:46:26.95988803Z",
-  "created_by": "adminagent@democluster",
-  "updated": "2019-05-30T22:46:26.959891249Z",
-  "state": "shrink_in_progress",
-  "provisioner": "aws_terraform",
-  "servers": null,
-  "shrink": {
-    "vars": {
-      "system": {
-        "cluster_name": "democluster",
-        "ops_url": "",
-        "devmode": false,
-        "token": "",
-        "teleport_proxy_address": "",
-        "docker": {}
-      },
-      "onprem": {
-        "pod_cidr": "",
-        "service_cidr": "",
-        "vxlan_port": 0
-      },
-      "aws": {
-        "ami": "ami-69045e0c",
-        "region": "us-east-2",
-        "access_key": "",
-        "secret_key": "",
-        "session_token": "",
-        "vpc_id": "",
-        "vpc_cidr": "",
-        "subnet_id": "",
-        "subnet_cidr": "",
-        "igw_id": "",
-        "key_pair": "ops"
-      }
-    },
-    "servers": null,
-    "server_specs": [
-      {
-        "advertise_ip": "10.1.0.219",
-        "hostname": "ip-10-1-0-219",
-        "nodename": "ip-10-1-0-219.us-east-2.compute.internal",
-        "role": "node",
-        "instance_type": "m4.xlarge",
-        "instance_id": "i-028f54d77b7eb0bec",
-        "cluster_role": "master",
-        "provisioner": "aws_terraform",
-        "os": {
-          "name": "centos",
-          "like": [
-            "rhel",
-            "fedora"
-          ],
-          "version": "7.3.1611"
-        },
-        "mounts": null,
-        "system_state": {
-          "device": {
-            "name": "",
-            "type": "",
-            "size_mb": 0
-          },
-          "state_dir": ""
-        },
-        "docker": {
-          "device": {
-            "name": "",
-            "type": "",
-            "size_mb": 0
-          },
-          "system_directory": ""
-        },
-        "user": {
-          "name": "centos",
-          "uid": "1000",
-          "gid": "1000"
-        },
-        "created": "2019-05-07T18:07:03.347583537Z"
-      }
-    ],
-    "force": false,
-    "node_removed": false
-  }
-}
-
-*/

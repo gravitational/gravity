@@ -160,9 +160,6 @@ export const RetentionValueEnum = {
 
 export const LinkEnum = {
   U2F_HELP_URL: 'https://support.google.com/accounts/answer/6103523?hl=en',
-  DOC_OPSCENTER_PACKAGE: 'https://gravitational.com/gravity/docs/pack/',
-  DOC_OPSCENTER_CLUSTER: 'https://gravitational.com/gravity/docs/manage/',
-  DOC_CLUSTER_DELETE: 'https://gravitational.com/gravity/docs/cluster/#deleting-a-cluster',
   AWS_ACCESS_KEY: 'https://aws.amazon.com/developers/access-keys/',
   AWS_REGIONS: 'http://docs.aws.amazon.com/AWSEC2/latest/UserGuide/using-regions-availability-zones.html',
   AWS_KEY_PAIRS: 'http://docs.aws.amazon.com/AWSEC2/latest/UserGuide/ec2-key-pairs.html',

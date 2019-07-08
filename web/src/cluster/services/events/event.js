@@ -48,7 +48,7 @@ export const CodeEnum = {
   APPLICATION_UNINSTALL: 'G4003I',
   APPLICATION_UPGRADE: 'G4001I',
   AUTHGATEWAY_UPDATED: 'G1009I',
-  AUTHPREFERENCE_UPDATED:  'G1005I',
+  AUTHPREFERENCE_UPDATED: 'G1005I',
   CLUSTER_HEALTHY: 'G3001I',
   CLUSTER_UNHEALTHY: 'G3000W',
   GITHUB_CONNECTOR_CREATED: 'G1002I',
@@ -109,19 +109,19 @@ export const CodeEnum = {
 export const eventConfig = {
   [CodeEnum.ALERT_CREATED]: {
     desc: 'Alert Created',
-    formatter: ({user, name}) => `User ${user} created monitoring alert ${name}`,
+    formatter: ({ user, name }) => `User ${user} created monitoring alert ${name}`,
   },
   [CodeEnum.ALERT_DELETED]: {
     desc: 'Alert Deleted',
-    formatter: ({user, name}) => `User ${user} deleted monitoring alert ${name}`,
+    formatter: ({ user, name }) => `User ${user} deleted monitoring alert ${name}`,
   },
   [CodeEnum.ALERT_TARGET_CREATED]: {
     desc: 'Alert Target Created',
-    formatter: ({user}) => `User ${user} updated monitoring alert target`,
+    formatter: ({ user }) => `User ${user} updated monitoring alert target`,
   },
   [CodeEnum.ALERT_TARGET_DELETED]: {
     desc: 'Alert Target Deleted',
-    formatter: ({user}) => `User ${user} deleted monitoring alert target`,
+    formatter: ({ user }) => `User ${user} deleted monitoring alert target`,
   },
   [CodeEnum.APPLICATION_INSTALL]: {
     desc: 'Application Installed',
@@ -148,7 +148,7 @@ export const eventConfig = {
     formatter: ({ user }) => `User ${user} updated cluster authentication gateway settings`,
   },
   [CodeEnum.AUTHPREFERENCE_UPDATED]: {
-    desc:  'Auth Preferences Updated',
+    desc: 'Auth Preferences Updated',
     formatter: ({ user }) => `User ${user} updated cluster authentication preference`,
   },
   [CodeEnum.CLIENT_DISCONNECT]: {
@@ -168,24 +168,24 @@ export const eventConfig = {
     formatter: ({ user }) => `User ${user} updated Ops Center endpoints`,
   },
   [CodeEnum.EXEC]: {
-    desc:  'Command Execution',
-    formatter: ({ user, ...rest}) => `User ${user} executed a command on node ${rest["addr.remote"]}`,
+    desc: 'Command Execution',
+    formatter: ({ user, ...rest }) => `User ${user} executed a command on node ${rest["addr.remote"]}`,
   },
   [CodeEnum.EXEC_FAILURE]: {
     desc: 'Command Execution Failed',
-    formatter: ({ user, exitError, ...rest}) => `User ${user} command execution on node ${rest["addr.remote"]} failed: ${exitError}`,
+    formatter: ({ user, exitError, ...rest }) => `User ${user} command execution on node ${rest["addr.remote"]} failed: ${exitError}`,
   },
   [CodeEnum.GITHUB_CONNECTOR_CREATED]: {
     desc: 'GITHUB Auth Connector Created',
-    formatter: ({user, name} )=> `User ${user} created Github connector ${name}`,
+    formatter: ({ user, name }) => `User ${user} created Github connector ${name}`,
   },
   [CodeEnum.GITHUB_CONNECTOR_DELETED]: {
     desc: 'GITHUB Auth Connector Deleted',
-    formatter: ({user, name} )=> `User ${user} deleted Github connector ${name}`,
+    formatter: ({ user, name }) => `User ${user} deleted Github connector ${name}`,
   },
   [CodeEnum.LICENSE_GENERATED]: {
     desc: 'Cluster License Generated',
-    formatter: ({user}) => `User ${user} generated a new license`,
+    formatter: ({ user }) => `User ${user} generated a new license`,
   },
   [CodeEnum.LICENSE_EXPIRED]: {
     desc: 'Cluster License Expired',
@@ -197,19 +197,19 @@ export const eventConfig = {
   },
   [CodeEnum.LOGFORWARDER_CREATED]: {
     desc: 'Log Forwarder Created',
-    formatter: ({user, name}) => `User ${user} created log forwarder ${name}`,
+    formatter: ({ user, name }) => `User ${user} created log forwarder ${name}`,
   },
   [CodeEnum.LOGFORWARDER_DELETED]: {
     desc: 'Log Forwarder Deleted',
-    formatter: ({user, name}) => `User ${user} deleted log forwarder ${name}`,
+    formatter: ({ user, name }) => `User ${user} deleted log forwarder ${name}`,
   },
   [CodeEnum.OIDC_CONNECTOR_CREATED]: {
     desc: 'OIDC Auth Connector Created',
-    formatter: ({user, name}) => `User ${user} created OIDC connector ${name}`
+    formatter: ({ user, name }) => `User ${user} created OIDC connector ${name}`
   },
   [CodeEnum.OIDC_CONNECTOR_DELETED]: {
     desc: 'OIDC Auth Connector Deleted',
-    formatter: ({user, name}) => `User ${user} deleted OIDC connector ${name}`
+    formatter: ({ user, name }) => `User ${user} deleted OIDC connector ${name}`
   },
   [CodeEnum.OPERATION_CONFIG_COMPLETE]: {
     desc: 'Cluster Configuration Completed',
@@ -237,15 +237,15 @@ export const eventConfig = {
   },
   [CodeEnum.OPERATION_EXPAND_START]: {
     desc: 'Cluster Expand Started',
-    formatter: ({hostname, ip, role }) => `Node ${hostname} (${ip}) with role ${role} is joining the cluster`
+    formatter: ({ hostname, ip, role }) => `Node ${hostname} (${ip}) with role ${role} is joining the cluster`
   },
   [CodeEnum.OPERATION_EXPAND_COMPLETE]: {
     desc: 'Cluster Expand Completed',
-    formatter: ({hostname, ip, role }) => `Node ${hostname} (${ip}) with role ${role} has joined the cluster`
+    formatter: ({ hostname, ip, role }) => `Node ${hostname} (${ip}) with role ${role} has joined the cluster`
   },
   [CodeEnum.OPERATION_EXPAND_FAILURE]: {
     desc: 'Cluster Expand Failed',
-    formatter: ({hostname, ip, role }) => `Node ${hostname} (${ip}) with role ${role} has failed to join the cluster`
+    formatter: ({ hostname, ip, role }) => `Node ${hostname} (${ip}) with role ${role} has failed to join the cluster`
   },
   [CodeEnum.OPERATION_GC_START]: {
     desc: 'GC Started',
@@ -261,27 +261,27 @@ export const eventConfig = {
   },
   [CodeEnum.OPERATION_INSTALL_START]: {
     desc: 'Cluster Install Started',
-    formatter: ({cluster}) => `Cluster ${cluster} is being installed`
+    formatter: ({ cluster }) => `Cluster ${cluster} is being installed`
   },
   [CodeEnum.OPERATION_INSTALL_COMPLETE]: {
     desc: 'Cluster Install Completed',
-    formatter: ({cluster}) => `Cluster ${cluster} has been installed`
+    formatter: ({ cluster }) => `Cluster ${cluster} has been installed`
   },
   [CodeEnum.OPERATION_INSTALL_FAILURE]: {
     desc: 'Cluster Install Failed',
-    formatter: ({cluster}) => `Cluster ${cluster} install has failed`
+    formatter: ({ cluster }) => `Cluster ${cluster} install has failed`
   },
   [CodeEnum.OPERATION_SHRINK_START]: {
     desc: 'Cluster Shrink Started',
-    formatter: ({hostname, ip, role }) => `Node ${hostname} (${ip}) with role ${role} is leaving the cluster`
+    formatter: ({ hostname, ip, role }) => `Node ${hostname} (${ip}) with role ${role} is leaving the cluster`
   },
   [CodeEnum.OPERATION_SHRINK_COMPLETE]: {
     desc: 'Cluster Shrink Completed',
-    formatter: ({hostname, ip, role }) => `Node ${hostname} (${ip}) with role ${role} has left the cluster`
+    formatter: ({ hostname, ip, role }) => `Node ${hostname} (${ip}) with role ${role} has left the cluster`
   },
   [CodeEnum.OPERATION_SHRINK_FAILURE]: {
     desc: 'Cluster Shrink Failed',
-    formatter: ({hostname, ip, role }) => `Node ${hostname} (${ip}) with role ${role} has failed to leave the cluster`
+    formatter: ({ hostname, ip, role }) => `Node ${hostname} (${ip}) with role ${role} has failed to leave the cluster`
   },
   [CodeEnum.OPERATION_UNINSTALL_START]: {
     desc: 'Cluster Uninstall Started',
@@ -297,55 +297,55 @@ export const eventConfig = {
   },
   [CodeEnum.OPERATION_UPDATE_COMPLETE]: {
     desc: 'Cluster Update Completed',
-    formatter: ({version}) => `Cluster is upgrading to version ${version}`
+    formatter: ({ version }) => `Cluster is upgrading to version ${version}`
   },
   [CodeEnum.OPERATION_UPDATE_FAILURE]: {
     desc: 'Cluster Update Failed',
-    formatter: ({version}) => `Cluster has been upgraded to version ${version}`
+    formatter: ({ version }) => `Cluster has been upgraded to version ${version}`
   },
   [CodeEnum.OPERATION_UPDATE_START]: {
     desc: 'Cluster Update Started',
-    formatter: ({version}) => `Cluster upgrade to version ${version} has failed`
+    formatter: ({ version }) => `Cluster upgrade to version ${version} has failed`
   },
   [CodeEnum.PORTFORWARD]: {
     desc: 'Port Forwarding Started',
-    formatter: ({user}) => `User ${user} started port forwarding`
+    formatter: ({ user }) => `User ${user} started port forwarding`
   },
   [CodeEnum.PORTFORWARD_FAILURE]: {
     desc: 'Port Forwarding Failed',
-    formatter: ({user, error}) => `User ${user} port forwarding request failed: ${error}`
+    formatter: ({ user, error }) => `User ${user} port forwarding request failed: ${error}`
   },
   [CodeEnum.REMOTE_SUPPORT_ENABLED]: {
     desc: 'Remote Support Enabled',
-    formatter: ({user, opsCenter}) => `User ${user} enabled remote support with Ops Center ${opsCenter}`
+    formatter: ({ user, hub }) => `User ${user} enabled remote support with Gravity Hub ${hub}`
   },
   [CodeEnum.REMOTE_SUPPORT_DISABLED]: {
     desc: 'Remote Support Disabled',
-    formatter: ({user, opsCenter}) => `User ${user} disabled remote support with Ops Center ${opsCenter}`
+    formatter: ({ user, hub }) => `User ${user} disabled remote support with Gravity Hub ${hub}`
   },
   [CodeEnum.ROLE_CREATED]: {
     desc: 'Role Created',
-    formatter: ({user, name}) => `User ${user} created role ${name}`
+    formatter: ({ user, name }) => `User ${user} created role ${name}`
   },
   [CodeEnum.ROLE_DELETED]: {
     desc: 'Role Deleted',
-    formatter: ({user, name}) => `User ${user} deleted role ${name}`
+    formatter: ({ user, name }) => `User ${user} deleted role ${name}`
   },
   [CodeEnum.SAML_CONNECTOR_CREATED]: {
     desc: 'SAML Connector Created',
-    formatter: ({user, name }) => `User ${user} created SAML connector ${name}`
+    formatter: ({ user, name }) => `User ${user} created SAML connector ${name}`
   },
   [CodeEnum.SAML_CONNECTOR_DELETED]: {
     desc: 'SAML Connector Deleted',
-    formatter: ({user, name }) => `User ${user} deleted SAML connector ${name}`
+    formatter: ({ user, name }) => `User ${user} deleted SAML connector ${name}`
   },
   [CodeEnum.SCP_DOWNLOAD]: {
     desc: 'SCP Download',
-    formatter: ({user, path, ...rest}) => `User ${user} downloaded a file ${path} from node ${rest["addr.remote"]}`
+    formatter: ({ user, path, ...rest }) => `User ${user} downloaded a file ${path} from node ${rest["addr.remote"]}`
   },
   [CodeEnum.SCP_DOWNLOAD_FAILURE]: {
     desc: 'SCP Download Failed',
-    formatter: ({user, exitError, ...rest}) => `User ${user} file download attempt from node ${rest["addr.remote"]} failed: ${exitError}`
+    formatter: ({ user, exitError, ...rest }) => `User ${user} file download attempt from node ${rest["addr.remote"]} failed: ${exitError}`
   },
   [CodeEnum.SCP_UPLOAD]: {
     desc: 'SCP Upload',
@@ -357,19 +357,19 @@ export const eventConfig = {
   },
   [CodeEnum.SESSION_JOIN]: {
     desc: 'User Joined',
-    formatter: ({user, sid}) => `User ${user} has joined the session ${sid}`
+    formatter: ({ user, sid }) => `User ${user} has joined the session ${sid}`
   },
   [CodeEnum.SESSION_END]: {
     desc: 'Session Ended',
-    formatter: ({user, sid }) => `User ${user} has ended the session ${sid}`
+    formatter: ({ user, sid }) => `User ${user} has ended the session ${sid}`
   },
   [CodeEnum.SESSION_LEAVE]: {
     desc: 'User Disconnected',
-    formatter: ({user, sid}) => `User ${user} has left the session ${sid}`
+    formatter: ({ user, sid }) => `User ${user} has left the session ${sid}`
   },
   [CodeEnum.SESSION_START]: {
     desc: 'Session Started',
-    formatter: ({user, sid}) => `User ${user} has started a session ${sid}`
+    formatter: ({ user, sid }) => `User ${user} has started a session ${sid}`
   },
   [CodeEnum.SESSION_UPLOAD]: {
     desc: 'Session Uploaded',
@@ -377,87 +377,87 @@ export const eventConfig = {
   },
   [CodeEnum.SMTPCONFIG_CREATED]: {
     desc: 'SMTP Config Created',
-    formatter: ({user}) => `User ${user} updated cluster SMTP configuration`
+    formatter: ({ user }) => `User ${user} updated cluster SMTP configuration`
   },
   [CodeEnum.SMTPCONFIG_DELETED]: {
     desc: 'SMTP Config Deleted',
-    formatter: ({user}) => `User ${user} deleted cluster SMTP configuration`
+    formatter: ({ user }) => `User ${user} deleted cluster SMTP configuration`
   },
   [CodeEnum.SUBSYSTEM]: {
     desc: 'Subsystem Requested',
-    formatter: ({user, name}) => `User ${user} requested subsystem ${name}`
+    formatter: ({ user, name }) => `User ${user} requested subsystem ${name}`
   },
   [CodeEnum.SUBSYSTEM_FAILURE]: {
     desc: 'Subsystem Request Failed',
-    formatter: ({user, name, exitError}) => `User ${user} subsystem ${name} request failed: ${exitError}`
+    formatter: ({ user, name, exitError }) => `User ${user} subsystem ${name} request failed: ${exitError}`
   },
   [CodeEnum.TERMINAL_RESIZE]: {
     desc: 'Terminal Resize',
-    formatter: ({user}) => `User ${user} resized the terminal`
+    formatter: ({ user }) => `User ${user} resized the terminal`
   },
   [CodeEnum.TLSKEYPAIR_CREATED]: {
     desc: 'TLS Keypair Created',
-    formatter: ({user}) => `User ${user} installed cluster web certificate`
+    formatter: ({ user }) => `User ${user} installed cluster web certificate`
   },
   [CodeEnum.TLSKEYPAIR_DELETED]: {
     desc: 'TLS Keypair Deleted',
-    formatter: ({user}) => `User ${user} deleted cluster web certificate`
+    formatter: ({ user }) => `User ${user} deleted cluster web certificate`
   },
   [CodeEnum.TOKEN_CREATED]: {
     desc: 'User Token Created',
-    formatter: ({user, owner}) => `User ${user} created token for user ${owner}`
+    formatter: ({ user, owner }) => `User ${user} created token for user ${owner}`
   },
   [CodeEnum.TOKEN_DELETED]: {
     desc: 'User Token Deleted',
-    formatter: ({user, owner}) => `User ${user} deleted token for user ${owner}`
+    formatter: ({ user, owner }) => `User ${user} deleted token for user ${owner}`
   },
   [CodeEnum.UPDATES_ENABLED]: {
     desc: 'Periodic Updates Enabled',
-    formatter: ({user, opsCenter}) => `User ${user} enabled periodic updates with Ops Center ${opsCenter}`
+    formatter: ({ user, hub }) => `User ${user} enabled periodic updates with Gravity Hub ${hub}`
   },
   [CodeEnum.UPDATES_DISABLED]: {
     desc: 'Periodic Updates Disabled',
-    formatter: ({user, opsCenter}) => `User ${user} disabled periodic updates with Ops Center ${opsCenter}`
+    formatter: ({ user, hub }) => `User ${user} disabled periodic updates with Gravity Hub ${hub}`
   },
   [CodeEnum.UPDATES_DOWNLOADED]: {
     desc: 'Update Downloaded',
-    formatter: ({ opsCenter, name, version}) => `Downloaded new version ${name}:${version} from Ops Center ${opsCenter}`
+    formatter: ({ hub, name, version }) => `Downloaded new version ${name}:${version} from Gravity Hub ${hub}`
   },
   [CodeEnum.USER_CREATED]: {
     desc: 'User Created',
-    formatter: ({user, name}) => `User ${user} created user ${name}`
+    formatter: ({ user, name }) => `User ${user} created user ${name}`
   },
   [CodeEnum.USER_DELETED]: {
     desc: 'User Deleted',
-    formatter: ({user, name}) => `User ${user} deleted user ${name}`
+    formatter: ({ user, name }) => `User ${user} deleted user ${name}`
   },
   [CodeEnum.USER_INVITE_CREATED]: {
     desc: 'Invite Created',
-    formatter: ({user, name, roles}) => `User ${user} invited user ${name} with roles ${roles}`
+    formatter: ({ user, name, roles }) => `User ${user} invited user ${name} with roles ${roles}`
   },
   [CodeEnum.USER_LOCAL_LOGIN]: {
     desc: 'Local User Login',
-    formatter: ({user}) => `Local user ${user} successfully logged in`
+    formatter: ({ user }) => `Local user ${user} successfully logged in`
   },
   [CodeEnum.USER_LOCAL_LOGINFAILURE]: {
     desc: 'Local User Login Failed',
-    formatter: ({user, error}) => `Local user ${user} login failed: ${error}`
+    formatter: ({ user, error }) => `Local user ${user} login failed: ${error}`
   },
   [CodeEnum.USER_SSO_LOGIN]: {
     desc: 'Social User Login',
-    formatter: ({user}) => `SSO user ${user} successfully logged in`
+    formatter: ({ user }) => `SSO user ${user} successfully logged in`
   },
   [CodeEnum.USER_SSO_LOGINFAILURE]: {
     desc: 'Social User Login Failed',
-    formatter: ({error}) => `SSO user login failed: ${error}`
+    formatter: ({ error }) => `SSO user login failed: ${error}`
   },
   [CodeEnum.ROLE_CREATED]: {
     desc: 'User Role Created',
-    formatter: ({user, name}) => `User ${user} created role ${name}`
+    formatter: ({ user, name }) => `User ${user} created role ${name}`
   },
   [CodeEnum.ROLE_DELETED]: {
     desc: 'User Role Deleted',
-    formatter: ({user, name}) => `User ${user} deleted role ${name}`
+    formatter: ({ user, name }) => `User ${user} deleted role ${name}`
   },
 }
 
@@ -495,9 +495,9 @@ class Event {
 
 // older events might not have an uid field.
 // in this case compose it from other fields.
-function getId(json){
+function getId(json) {
   const { uid, event, time } = json;
-  if(uid){
+  if (uid) {
     return uid;
   }
 

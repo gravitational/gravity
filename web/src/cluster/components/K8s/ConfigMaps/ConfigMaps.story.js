@@ -54,14 +54,14 @@ const props = {
       ]
     },
     {
-      "name": "gravity-opscenter",
+      "name": "gravity-hub",
       "id": "570ffb6a-0407-11e9-a200-42010a800006",
       "namespace": "kube-system",
       "created": "2018-12-20T03:29:59Z",
       "data": [
         {
           "name": "gravity.yaml",
-          "content": "devmode: false\nmode: opscenter\npack:\n  advertise_addr: demo.gravitational.io:443\n  enabled: true\n  public_advertise_addr: demo.gravitational.io:443\nusers: null\n"
+          "content": "devmode: false\nmode: hub\npack:\n  advertise_addr: demo.gravitational.io:443\n  enabled: true\n  public_advertise_addr: demo.gravitational.io:443\nusers: null\n"
         },
         {
           "name": "teleport.yaml",

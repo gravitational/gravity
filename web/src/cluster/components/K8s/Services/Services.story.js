@@ -143,10 +143,10 @@ const services = [{
         "resourceVersion": "431",
         "creationTimestamp": "2018-12-20T03:28:38Z",
         "labels": {
-          "app": "gravity-opscenter"
+          "app": "gravity-hub"
         },
         "annotations": {
-          "kubectl.kubernetes.io/last-applied-configuration": "{\"apiVersion\":\"v1\",\"kind\":\"Service\",\"metadata\":{\"annotations\":{\"service.beta.kubernetes.io/aws-load-balancer-connection-idle-timeout\":\"3600\"},\"creationTimestamp\":null,\"labels\":{\"app\":\"gravity-opscenter\"},\"name\":\"gravity-public\",\"namespace\":\"kube-system\"},\"spec\":{\"ports\":[{\"name\":\"public\",\"port\":443,\"targetPort\":3009},{\"name\":\"sshtunnel\",\"port\":3024,\"targetPort\":0},{\"name\":\"sshproxy\",\"port\":3023,\"targetPort\":0}],\"selector\":{\"app\":\"gravity-site\"},\"type\":\"LoadBalancer\"},\"status\":{\"loadBalancer\":{}}}\n",
+          "kubectl.kubernetes.io/last-applied-configuration": "{\"apiVersion\":\"v1\",\"kind\":\"Service\",\"metadata\":{\"annotations\":{\"service.beta.kubernetes.io/aws-load-balancer-connection-idle-timeout\":\"3600\"},\"creationTimestamp\":null,\"labels\":{\"app\":\"gravity-hub\"},\"name\":\"gravity-public\",\"namespace\":\"kube-system\"},\"spec\":{\"ports\":[{\"name\":\"public\",\"port\":443,\"targetPort\":3009},{\"name\":\"sshtunnel\",\"port\":3024,\"targetPort\":0},{\"name\":\"sshproxy\",\"port\":3023,\"targetPort\":0}],\"selector\":{\"app\":\"gravity-site\"},\"type\":\"LoadBalancer\"},\"status\":{\"loadBalancer\":{}}}\n",
           "service.beta.kubernetes.io/aws-load-balancer-connection-idle-timeout": "3600"
         }
       },
@@ -193,7 +193,7 @@ const services = [{
     "name": "gravity-public",
     "clusterIp": "10.100.115.134",
     "labels": [
-      "app:gravity-opscenter"
+      "app:gravity-hub"
     ],
     "ports": [
       "TCP:443/3009",

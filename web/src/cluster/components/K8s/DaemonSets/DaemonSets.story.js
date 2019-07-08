@@ -37,7 +37,7 @@ const daemonSets = [
     "nodeMap": {
       "metadata": {
         "annotations": {
-          "kubectl.kubernetes.io/last-applied-configuration": "{\"apiVersion\":\"extensions/v1beta1\",\"kind\":\"DaemonSet\",\"metadata\":{\"annotations\":{},\"creationTimestamp\":null,\"labels\":{\"app\":\"gravity-site\"},\"name\":\"gravity-site\",\"namespace\":\"kube-system\"},\"spec\":{\"selector\":{\"matchLabels\":{\"app\":\"gravity-site\"}},\"template\":{\"metadata\":{\"annotations\":{\"scheduler.alpha.kubernetes.io/critical-pod\":\"\",\"seccomp.security.alpha.kubernetes.io/pod\":\"docker/default\"},\"creationTimestamp\":null,\"labels\":{\"app\":\"gravity-site\"}},\"spec\":{\"containers\":[{\"command\":[\"/usr/bin/dumb-init\",\"/bin/sh\",\"/opt/start.sh\"],\"env\":[{\"name\":\"PATH\",\"value\":\"/opt/gravity:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin\"},{\"name\":\"POD_IP\",\"valueFrom\":{\"fieldRef\":{\"fieldPath\":\"status.podIP\"}}},{\"name\":\"GRAVITY_CONFIG\",\"valueFrom\":{\"configMapKeyRef\":{\"key\":\"gravity.yaml\",\"name\":\"gravity-opscenter\"}}},{\"name\":\"GRAVITY_TELEPORT_CONFIG\",\"valueFrom\":{\"configMapKeyRef\":{\"key\":\"teleport.yaml\",\"name\":\"gravity-opscenter\"}}}],\"image\":\"leader.telekube.local:5000/gravity-site:5.2.3\",\"livenessProbe\":{\"httpGet\":{\"path\":\"/healthz\",\"port\":3010},\"initialDelaySeconds\":600,\"timeoutSeconds\":5},\"name\":\"gravity-site\",\"ports\":[{\"containerPort\":3009,\"name\":\"web\"},{\"containerPort\":3007,\"name\":\"agents\"},{\"containerPort\":3023,\"name\":\"sshproxy\"},{\"containerPort\":3024,\"name\":\"sshtunnel\"},{\"containerPort\":3080,\"name\":\"teleport\"},{\"containerPort\":6060,\"name\":\"profile\"}],\"readinessProbe\":{\"httpGet\":{\"path\":\"/readyz\",\"port\":3010},\"initialDelaySeconds\":10,\"timeoutSeconds\":5},\"resources\":{},\"volumeMounts\":[{\"mountPath\":\"/etc/ssl/certs\",\"name\":\"certs\"},{\"mountPath\":\"/etc/docker/certs.d\",\"name\":\"docker-certs\"},{\"mountPath\":\"/var/state\",\"name\":\"var-state\"},{\"mountPath\":\"/opt/gravity-import\",\"name\":\"import\"},{\"mountPath\":\"/opt/gravity/config\",\"name\":\"config\"},{\"mountPath\":\"/opt/gravity/opscenter\",\"name\":\"opscenter-config\"},{\"mountPath\":\"/var/lib/gravity/secrets\",\"name\":\"secrets\"},{\"mountPath\":\"/var/lib/gravity/site/secrets\",\"name\":\"secrets\"},{\"mountPath\":\"/var/lib/gravity/site\",\"name\":\"site\"},{\"mountPath\":\"/tmp\",\"name\":\"tmp\"},{\"mountPath\":\"/usr/bin/kubectl\",\"name\":\"kubectl\"},{\"mountPath\":\"/etc/kubernetes\",\"name\":\"kubeconfigs\"},{\"mountPath\":\"/usr/local/share/gravity\",\"name\":\"assets\"}]}],\"hostNetwork\":true,\"nodeSelector\":{\"gravitational.io/k8s-role\":\"master\"},\"securityContext\":{\"runAsUser\":1000},\"tolerations\":[{\"key\":\"gravitational.io/runlevel\",\"operator\":\"Equal\",\"value\":\"system\"},{\"effect\":\"NoSchedule\",\"key\":\"node-role.kubernetes.io/master\",\"operator\":\"Exists\"}],\"volumes\":[{\"hostPath\":{\"path\":\"/tmp\"},\"name\":\"tmp\"},{\"hostPath\":{\"path\":\"/etc/ssl/certs\"},\"name\":\"certs\"},{\"hostPath\":{\"path\":\"/etc/docker/certs.d\"},\"name\":\"docker-certs\"},{\"hostPath\":{\"path\":\"/var/state\"},\"name\":\"var-state\"},{\"hostPath\":{\"path\":\"/var/lib/gravity/local\"},\"name\":\"import\"},{\"configMap\":{\"name\":\"gravity-site\"},\"name\":\"config\"},{\"configMap\":{\"name\":\"gravity-opscenter\"},\"name\":\"opscenter-config\"},{\"hostPath\":{\"path\":\"/var/lib/gravity/secrets\"},\"name\":\"secrets\"},{\"hostPath\":{\"path\":\"/var/lib/gravity/site\"},\"name\":\"site\"},{\"hostPath\":{\"path\":\"/usr/bin/kubectl\"},\"name\":\"kubectl\"},{\"hostPath\":{\"path\":\"/etc/kubernetes\"},\"name\":\"kubeconfigs\"},{\"emptyDir\":{},\"name\":\"assets\"}]}},\"updateStrategy\":{}},\"status\":{\"currentNumberScheduled\":0,\"desiredNumberScheduled\":0,\"numberMisscheduled\":0,\"numberReady\":0}}\n"
+          "kubectl.kubernetes.io/last-applied-configuration": "{\"apiVersion\":\"extensions/v1beta1\",\"kind\":\"DaemonSet\",\"metadata\":{\"annotations\":{},\"creationTimestamp\":null,\"labels\":{\"app\":\"gravity-site\"},\"name\":\"gravity-site\",\"namespace\":\"kube-system\"},\"spec\":{\"selector\":{\"matchLabels\":{\"app\":\"gravity-site\"}},\"template\":{\"metadata\":{\"annotations\":{\"scheduler.alpha.kubernetes.io/critical-pod\":\"\",\"seccomp.security.alpha.kubernetes.io/pod\":\"docker/default\"},\"creationTimestamp\":null,\"labels\":{\"app\":\"gravity-site\"}},\"spec\":{\"containers\":[{\"command\":[\"/usr/bin/dumb-init\",\"/bin/sh\",\"/opt/start.sh\"],\"env\":[{\"name\":\"PATH\",\"value\":\"/opt/gravity:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin\"},{\"name\":\"POD_IP\",\"valueFrom\":{\"fieldRef\":{\"fieldPath\":\"status.podIP\"}}},{\"name\":\"GRAVITY_CONFIG\",\"valueFrom\":{\"configMapKeyRef\":{\"key\":\"gravity.yaml\",\"name\":\"gravity-hub\"}}},{\"name\":\"GRAVITY_TELEPORT_CONFIG\",\"valueFrom\":{\"configMapKeyRef\":{\"key\":\"teleport.yaml\",\"name\":\"gravity-hub\"}}}],\"image\":\"leader.telekube.local:5000/gravity-site:5.2.3\",\"livenessProbe\":{\"httpGet\":{\"path\":\"/healthz\",\"port\":3010},\"initialDelaySeconds\":600,\"timeoutSeconds\":5},\"name\":\"gravity-site\",\"ports\":[{\"containerPort\":3009,\"name\":\"web\"},{\"containerPort\":3007,\"name\":\"agents\"},{\"containerPort\":3023,\"name\":\"sshproxy\"},{\"containerPort\":3024,\"name\":\"sshtunnel\"},{\"containerPort\":3080,\"name\":\"teleport\"},{\"containerPort\":6060,\"name\":\"profile\"}],\"readinessProbe\":{\"httpGet\":{\"path\":\"/readyz\",\"port\":3010},\"initialDelaySeconds\":10,\"timeoutSeconds\":5},\"resources\":{},\"volumeMounts\":[{\"mountPath\":\"/etc/ssl/certs\",\"name\":\"certs\"},{\"mountPath\":\"/etc/docker/certs.d\",\"name\":\"docker-certs\"},{\"mountPath\":\"/var/state\",\"name\":\"var-state\"},{\"mountPath\":\"/opt/gravity-import\",\"name\":\"import\"},{\"mountPath\":\"/opt/gravity/config\",\"name\":\"config\"},{\"mountPath\":\"/opt/gravity/hub\",\"name\":\"hub-config\"},{\"mountPath\":\"/var/lib/gravity/secrets\",\"name\":\"secrets\"},{\"mountPath\":\"/var/lib/gravity/site/secrets\",\"name\":\"secrets\"},{\"mountPath\":\"/var/lib/gravity/site\",\"name\":\"site\"},{\"mountPath\":\"/tmp\",\"name\":\"tmp\"},{\"mountPath\":\"/usr/bin/kubectl\",\"name\":\"kubectl\"},{\"mountPath\":\"/etc/kubernetes\",\"name\":\"kubeconfigs\"},{\"mountPath\":\"/usr/local/share/gravity\",\"name\":\"assets\"}]}],\"hostNetwork\":true,\"nodeSelector\":{\"gravitational.io/k8s-role\":\"master\"},\"securityContext\":{\"runAsUser\":1000},\"tolerations\":[{\"key\":\"gravitational.io/runlevel\",\"operator\":\"Equal\",\"value\":\"system\"},{\"effect\":\"NoSchedule\",\"key\":\"node-role.kubernetes.io/master\",\"operator\":\"Exists\"}],\"volumes\":[{\"hostPath\":{\"path\":\"/tmp\"},\"name\":\"tmp\"},{\"hostPath\":{\"path\":\"/etc/ssl/certs\"},\"name\":\"certs\"},{\"hostPath\":{\"path\":\"/etc/docker/certs.d\"},\"name\":\"docker-certs\"},{\"hostPath\":{\"path\":\"/var/state\"},\"name\":\"var-state\"},{\"hostPath\":{\"path\":\"/var/lib/gravity/local\"},\"name\":\"import\"},{\"configMap\":{\"name\":\"gravity-site\"},\"name\":\"config\"},{\"configMap\":{\"name\":\"gravity-hub\"},\"name\":\"hub-config\"},{\"hostPath\":{\"path\":\"/var/lib/gravity/secrets\"},\"name\":\"secrets\"},{\"hostPath\":{\"path\":\"/var/lib/gravity/site\"},\"name\":\"site\"},{\"hostPath\":{\"path\":\"/usr/bin/kubectl\"},\"name\":\"kubectl\"},{\"hostPath\":{\"path\":\"/etc/kubernetes\"},\"name\":\"kubeconfigs\"},{\"emptyDir\":{},\"name\":\"assets\"}]}},\"updateStrategy\":{}},\"status\":{\"currentNumberScheduled\":0,\"desiredNumberScheduled\":0,\"numberMisscheduled\":0,\"numberReady\":0}}\n"
         },
         "selfLink": "/apis/extensions/v1beta1/namespaces/kube-system/daemonsets/gravity-site",
         "resourceVersion": "4957049",
@@ -130,7 +130,7 @@ const daemonSets = [
                     "name": "GRAVITY_CONFIG",
                     "valueFrom": {
                       "configMapKeyRef": {
-                        "name": "gravity-opscenter",
+                        "name": "gravity-hub",
                         "key": "gravity.yaml"
                       }
                     }
@@ -139,7 +139,7 @@ const daemonSets = [
                     "name": "GRAVITY_TELEPORT_CONFIG",
                     "valueFrom": {
                       "configMapKeyRef": {
-                        "name": "gravity-opscenter",
+                        "name": "gravity-hub",
                         "key": "teleport.yaml"
                       }
                     }
@@ -206,8 +206,8 @@ const daemonSets = [
                     "mountPath": "/opt/gravity/config"
                   },
                   {
-                    "name": "opscenter-config",
-                    "mountPath": "/opt/gravity/opscenter"
+                    "name": "hub-config",
+                    "mountPath": "/opt/gravity/hub"
                   },
                   {
                     "name": "secrets",
@@ -286,9 +286,9 @@ const daemonSets = [
                 }
               },
               {
-                "name": "opscenter-config",
+                "name": "hub-config",
                 "configMap": {
-                  "name": "gravity-opscenter",
+                  "name": "gravity-hub",
                   "defaultMode": 420
                 }
               },
