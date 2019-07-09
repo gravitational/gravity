@@ -89,7 +89,7 @@ class EventList extends React.Component {
             cell={<EventTypeCell /> }
             header={
               <SortHeaderCell
-                sortDir={this.state.colSortDirs.typeDesc}
+                sortDir={this.state.colSortDirs.codeDesc}
                 onSortChange={this.onSortChange}
                 title="Type"
               />}

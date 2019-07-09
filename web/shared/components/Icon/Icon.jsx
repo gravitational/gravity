@@ -100,6 +100,7 @@ export const Earth = makeFontIcon('Earth', 'icon-earth');
 export const Edit = makeFontIcon('Edit', 'icon-pencil4');
 export const Ellipsis = makeFontIcon('Ellipsis', 'icon-ellipsis');
 export const EmailSolid = makeFontIcon('EmailSolid', 'icon-email-solid');
+export const Equalizer = makeFontIcon('Equalizer', 'icon-equalizer');
 export const Expand = makeFontIcon('Expand', 'icon-frame-expand');
 export const Facebook = makeFontIcon('Facebook', 'icon-facebook');
 export const FacebookSquare = makeFontIcon('FacebookSquare', 'icon-facebook2');
@@ -110,6 +111,7 @@ export const Google = makeFontIcon('Google', 'icon-google-plus');
 export const Graph = makeFontIcon('Graph', 'icon-graph');
 export const Home = makeFontIcon('Home', 'icon-home3');
 export const Keypair = makeFontIcon('Keypair', 'icon-keypair');
+export const Kubernetes = makeFontIcon('Kubernetes', 'icon-kubernetes');
 export const Label = makeFontIcon('Label', 'icon-label');
 export const Lan = makeFontIcon('Lan', 'icon-lan');
 export const LanAlt = makeFontIcon('LanAlt', 'icon-lan2');
@@ -183,6 +185,6 @@ export const Wifi = makeFontIcon('Wifi', 'icon-wifi');
 export const Window = makeFontIcon('Window', 'icon-window');
 export const Windows = makeFontIcon('Windows', 'icon-windows');
 export const Youtube = makeFontIcon('Youtube', 'icon-youtube');
-export const Equalizer = makeFontIcon('Equalizer', 'icon-equalizer');
+
 
 export default Icon;

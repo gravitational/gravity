@@ -163,6 +163,8 @@ storiesOf('Icon', module)
       <IconBox IconCmpt={Icon.Window} text="Window"/>
       <IconBox IconCmpt={Icon.Windows} text="Windows"/>
       <IconBox IconCmpt={Icon.Youtube} text="Youtube"/>
+      <IconBox IconCmpt={Icon.Kubernetes} text="Kubernetes"/>
+
     </Container>
   ));
 

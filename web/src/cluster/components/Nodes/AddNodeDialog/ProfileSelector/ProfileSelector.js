@@ -27,7 +27,7 @@ export default function ProfileSelector(props) {
         <Text typography="h6" mb="3" caps color="primary.contrastText">
           Select Profile
         </Text>
-        <RadioGroup  options={options} selected={value} onChange={onChange}/>
+        <RadioGroup options={options} selected={value} onChange={onChange}/>
       </DialogContent>
       <DialogFooter>
         <ButtonPrimary mr="3" onClick={onContinue}>
@@ -44,7 +44,7 @@ export default function ProfileSelector(props) {
 function RadioGroup({ selected, options, onChange, ...props }) {
   const $options = options.map((option, index) => {
     return (
-      <Flex key={index} mb="4" as="label">
+      <Flex key={index} mb="4" as="label" alignItems="center">
         <input type="radio" name="radio"
           onChange={() => onChange(option)}
           checked={option.value === selected.value}
