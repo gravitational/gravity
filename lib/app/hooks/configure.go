@@ -375,13 +375,13 @@ TMPDIR={{.StateDir}} {{.StateDir}}/gravity --state-dir={{.StateDir}} app unpack 
 	--insecure --ops-url=$ops_url \
 	{{.Package}} {{.ResourcesDir}};
 mv {{.ResourcesDir}}/resources/* {{.ResourcesDir}}
-rm -r {{.ResourcesDir}}/resources || true
+rmdir --ignore-fail-on-non-empty {{.ResourcesDir}}/resources
 `))
 
 var initInstallScriptTemplate = template.Must(template.New("sh").Parse(`
 TMPDIR={{.StateDir}} /opt/bin/gravity app unpack --service-uid={{.ServiceUser.UID}} {{.Package}} {{.ResourcesDir}}
 mv {{.ResourcesDir}}/resources/* {{.ResourcesDir}}
-rm -r {{.ResourcesDir}}/resources || true
+rmdir --ignore-fail-on-non-empty {{.ResourcesDir}}/resources
 `))
 
 type initScriptContext struct {
