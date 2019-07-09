@@ -43,12 +43,12 @@
         --flavor={{flavor}} \
         --cluster=dev.test \
         --advertise-addr={{hostvars[inventory_hostname]['ansible_default_ipv4']['address']}} \
-        --token=token
+        --token=token123
       {% else %}
       /tmp/gravity join \
         {{hostvars[groups['nodes'][0]]['ansible_default_ipv4']['address']}} \
         --advertise-addr={{hostvars[inventory_hostname]['ansible_default_ipv4']['address']}} \
-        --token=token
+        --token=token123
       {% endif %}
 
 
