@@ -35,7 +35,7 @@ import (
 	teleutils "github.com/gravitational/teleport/lib/utils"
 	"github.com/gravitational/trace"
 	batchv1 "k8s.io/api/batch/v1"
-	"k8s.io/api/core/v1"
+	v1 "k8s.io/api/core/v1"
 )
 
 // configureJob augments the provided job spec with the proper metadata (e.g. to ensure unique name),
@@ -375,13 +375,13 @@ TMPDIR={{.StateDir}} {{.StateDir}}/gravity --state-dir={{.StateDir}} app unpack 
 	--insecure --ops-url=$ops_url \
 	{{.Package}} {{.ResourcesDir}};
 mv {{.ResourcesDir}}/resources/* {{.ResourcesDir}}
-rm -r {{.ResourcesDir}}/resources
+rm -r {{.ResourcesDir}}/resources || true
 `))
 
 var initInstallScriptTemplate = template.Must(template.New("sh").Parse(`
 TMPDIR={{.StateDir}} /opt/bin/gravity app unpack --service-uid={{.ServiceUser.UID}} {{.Package}} {{.ResourcesDir}}
 mv {{.ResourcesDir}}/resources/* {{.ResourcesDir}}
-rm -r {{.ResourcesDir}}/resources
+rm -r {{.ResourcesDir}}/resources || true
 `))
 
 type initScriptContext struct {
