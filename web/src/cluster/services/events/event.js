@@ -169,11 +169,11 @@ export const eventConfig = {
   },
   [CodeEnum.EXEC]: {
     desc: 'Command Execution',
-    formatter: ({ user, ...rest }) => `User ${user} executed a command on node ${rest["addr.remote"]}`,
+    formatter: ({ user, ...rest }) => `User ${user} executed a command on node ${rest["addr.local"]}`,
   },
   [CodeEnum.EXEC_FAILURE]: {
     desc: 'Command Execution Failed',
-    formatter: ({ user, exitError, ...rest }) => `User ${user} command execution on node ${rest["addr.remote"]} failed: ${exitError}`,
+    formatter: ({ user, exitError, ...rest }) => `User ${user} command execution on node ${rest["addr.local"]} failed: ${exitError}`,
   },
   [CodeEnum.GITHUB_CONNECTOR_CREATED]: {
     desc: 'GITHUB Auth Connector Created',
@@ -185,7 +185,7 @@ export const eventConfig = {
   },
   [CodeEnum.LICENSE_GENERATED]: {
     desc: 'Cluster License Generated',
-    formatter: ({ user }) => `User ${user} generated a new license`,
+    formatter: ({ maxNodes }) => `License for max nodes ${maxNodes} has been generated`,
   },
   [CodeEnum.LICENSE_EXPIRED]: {
     desc: 'Cluster License Expired',
@@ -341,19 +341,19 @@ export const eventConfig = {
   },
   [CodeEnum.SCP_DOWNLOAD]: {
     desc: 'SCP Download',
-    formatter: ({ user, path, ...rest }) => `User ${user} downloaded a file ${path} from node ${rest["addr.remote"]}`
+    formatter: ({ user, path, ...rest }) => `User ${user} downloaded a file ${path} from node ${rest["addr.local"]}`
   },
   [CodeEnum.SCP_DOWNLOAD_FAILURE]: {
     desc: 'SCP Download Failed',
-    formatter: ({ user, exitError, ...rest }) => `User ${user} file download attempt from node ${rest["addr.remote"]} failed: ${exitError}`
+    formatter: ({ user, exitError, ...rest }) => `User ${user} file download attempt from node ${rest["addr.local"]} failed: ${exitError}`
   },
   [CodeEnum.SCP_UPLOAD]: {
     desc: 'SCP Upload',
-    formatter: ({ user, path, ...rest }) => `User ${user} uploaded a file ${path} to node ${rest["addr.remote"]}`
+    formatter: ({ user, path, ...rest }) => `User ${user} uploaded a file ${path} to node ${rest["addr.local"]}`
   },
   [CodeEnum.SCP_UPLOAD_FAILURE]: {
     desc: 'SCP Upload Failed',
-    formatter: ({ user, exitError, ...rest }) => `User ${user} file upload attempt to node ${rest["addr.remote"]} failed: ${exitError}`
+    formatter: ({ user, exitError, ...rest }) => `User ${user} file upload attempt to node ${rest["addr.local"]} failed: ${exitError}`
   },
   [CodeEnum.SESSION_JOIN]: {
     desc: 'User Joined',
@@ -436,19 +436,19 @@ export const eventConfig = {
     formatter: ({ user, name, roles }) => `User ${user} invited user ${name} with roles ${roles}`
   },
   [CodeEnum.USER_LOCAL_LOGIN]: {
-    desc: 'Local User Login',
+    desc: 'Local Login',
     formatter: ({ user }) => `Local user ${user} successfully logged in`
   },
   [CodeEnum.USER_LOCAL_LOGINFAILURE]: {
-    desc: 'Local User Login Failed',
+    desc: 'Local Login Failed',
     formatter: ({ user, error }) => `Local user ${user} login failed: ${error}`
   },
   [CodeEnum.USER_SSO_LOGIN]: {
-    desc: 'Social User Login',
+    desc: 'SSO Login',
     formatter: ({ user }) => `SSO user ${user} successfully logged in`
   },
   [CodeEnum.USER_SSO_LOGINFAILURE]: {
-    desc: 'Social User Login Failed',
+    desc: 'SSO Login Failed',
     formatter: ({ error }) => `SSO user login failed: ${error}`
   },
   [CodeEnum.ROLE_CREATED]: {
