@@ -162,8 +162,13 @@ spec:
     role: server`
 	files := []*archive.Item{
 		archive.DirItem("resources"),
+		archive.DirItem("resources/config"),
 		archive.ItemFromString("resources/app.yaml", manifestBytes),
 		archive.ItemFromString("resources/resources.yaml", resourceBytes),
+		archive.ItemFromString("resources/config/config.yaml", "configuration"),
+		archive.DirItem("registry"),
+		archive.DirItem("registry/docker"),
+		archive.ItemFromString("registry/docker/TODO", ""),
 	}
 
 	return CreateApplicationFromData(apps, loc, files, c)
