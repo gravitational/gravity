@@ -1089,7 +1089,7 @@ var dockerUpdate = storage.DockerUpdate{
 	Installed: storage.DockerConfig{
 		StorageDriver: constants.DockerStorageDriverDevicemapper,
 	},
-	Update: &storage.DockerConfig{
+	Update: storage.DockerConfig{
 		StorageDriver: constants.DockerStorageDriverOverlay2,
 	},
 }
