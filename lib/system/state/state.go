@@ -60,7 +60,10 @@ func ConfigureStateDirectory(stateDir, devicePath string) (err error) {
 	// Even if the directory exists, mount it on the specified device.
 	// If this is not possible, the operation will fail as expected.
 	var filesystem string
-	filesystem, err = system.FormatDevice(context.TODO(), devicePath, logrus.StandardLogger())
+	filesystem, err = system.FormatDevice(context.TODO(), system.FormatRequest{
+		Path: devicePath,
+		Log:  logrus.StandardLogger(),
+	})
 	if err != nil {
 		return trace.Wrap(err)
 	}

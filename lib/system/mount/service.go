@@ -17,11 +17,10 @@ limitations under the License.
 package mount
 
 import (
-	"strings"
-
 	"github.com/gravitational/gravity/lib/storage"
 	"github.com/gravitational/gravity/lib/systemservice"
 
+	"github.com/coreos/go-systemd/unit"
 	"github.com/gravitational/trace"
 	log "github.com/sirupsen/logrus"
 )
@@ -114,5 +113,5 @@ type ServiceConfig struct {
 // separated by dashes, so the name for "/var/lib/gravity" mount would become
 // "var-lib-gravity.mount".
 func (c ServiceConfig) ServiceName() string {
-	return strings.Replace(c.Where, "/", "-", -1)[1:] + ".mount"
+	return unit.UnitNamePathEscape(c.Where) + ".mount"
 }

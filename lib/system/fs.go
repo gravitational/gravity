@@ -65,12 +65,44 @@ func RemoveFilesystem(path string, log logrus.FieldLogger) error {
 	return nil
 }
 
+// FormatRequest describes a request for format a device/partition.
+type FormatRequest struct {
+	// Path is the device/partition path.
+	Path string
+	// Force when true reformats even if there's already filesystem.
+	Force bool
+	// Log is used for logging.
+	Log logrus.FieldLogger
+}
+
+// CheckAndSetDefaults validates the request and sets defaults.
+func (r *FormatRequest) CheckAndSetDefaults() error {
+	if r.Path == "" {
+		return trace.BadParameter("device/partition path must be provided")
+	}
+	if r.Log == nil {
+		r.Log = logrus.WithField(trace.Component, "format")
+	}
+	return nil
+}
+
+// String returns the request string representation.
+func (r *FormatRequest) String() string {
+	return fmt.Sprintf("FormatRequest(Path=%v,Force=%v)", r.Path, r.Force)
+}
+
 // FormatDevice formats block device at the specified path to either xfs or,
 // if that fails, ext4, and returns the resulting filesystem.
 //
 // If the specified path already has filesystem, it is returned as-is and no
-// formatting is attempted.
-func FormatDevice(ctx context.Context, path string, log logrus.FieldLogger) (filesystem string, err error) {
+// formatting is attempted, unless force flag is set, in which case the path
+// is reformatted anyway.
+func FormatDevice(ctx context.Context, req FormatRequest) (filesystem string, err error) {
+	if err := req.CheckAndSetDefaults(); err != nil {
+		return "", trace.Wrap(err)
+	}
+	req.Log.Infof("%s.", req)
+
 	type formatter struct {
 		fsType string
 		args   []string
@@ -80,29 +112,33 @@ func FormatDevice(ctx context.Context, path string, log logrus.FieldLogger) (fil
 		{"ext4", []string{"mkfs.ext4", "-F"}},
 	}
 
-	filesystem, err = GetFilesystem(ctx, path, utils.Runner)
+	filesystem, err = GetFilesystem(ctx, req.Path, utils.Runner)
 	if err != nil {
 		return "", trace.Wrap(err)
 	}
 
 	if filesystem != "" {
-		log.Infof("File system on %q is %v.", path, filesystem)
-		return filesystem, nil
+		if !req.Force {
+			req.Log.Infof("Filesystem on %q is %v.", req.Path, filesystem)
+			return filesystem, nil
+		}
+		req.Log.Infof("Device %q has filesystem %v, will force-reformat due to force flag.",
+			req.Path, filesystem)
 	}
 
 	// format the device if the specified device does not have a file system yet
-	log.Infof("Device %q has no file system.", path)
+	req.Log.Infof("Device %q has no filesystem.", req.Path)
 
 	var fmt formatter
 	var out bytes.Buffer
 	for _, fmt = range formatters {
 		out.Reset()
-		args := append(fmt.args, path)
-		log.Debugf("Formatting %q as %v.", path, fmt.fsType)
+		args := append(fmt.args, req.Path)
+		req.Log.Debugf("Formatting %q as %v.", req.Path, fmt.fsType)
 		cmd := exec.Command(args[0], args[1:]...)
-		if err = utils.ExecL(cmd, &out, log); err != nil {
-			log.Warnf("Failed to format %q as %q: %v (%v).",
-				path, fmt.fsType, out.String(), err)
+		if err = utils.ExecL(cmd, &out, req.Log); err != nil {
+			req.Log.Warnf("Failed to format %q as %q: %v (%v).",
+				req.Path, fmt.fsType, out.String(), err)
 		}
 		if err == nil {
 			filesystem = fmt.fsType
@@ -111,7 +147,7 @@ func FormatDevice(ctx context.Context, path string, log logrus.FieldLogger) (fil
 	}
 	if err != nil {
 		return "", trace.Wrap(err, "failed to format %q as %q: %v",
-			path, fmt.fsType, out.String())
+			req.Path, fmt.fsType, out.String())
 	}
 	return filesystem, nil
 }

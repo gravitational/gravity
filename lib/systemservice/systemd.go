@@ -30,6 +30,7 @@ import (
 	"github.com/gravitational/gravity/lib/loc"
 	"github.com/gravitational/gravity/lib/utils"
 
+	"github.com/coreos/go-systemd/unit"
 	"github.com/gravitational/trace"
 	log "github.com/sirupsen/logrus"
 )
@@ -125,9 +126,7 @@ func parseUnit(unit string) *loc.Locator {
 // has a mount point /var/lib/gravity.
 func parseMount(mount string) string {
 	name := strings.TrimSuffix(mount, systemdMountSuffix)
-	parts := strings.Split(name, "-")
-	parts = append([]string{"/"}, parts...)
-	return filepath.Join(parts...)
+	return unit.UnitNamePathUnescape(name)
 }
 
 func (u *systemdUnit) serviceName() string {

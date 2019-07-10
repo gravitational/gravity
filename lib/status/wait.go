@@ -26,25 +26,17 @@ import (
 	"github.com/gravitational/trace"
 )
 
-// Wait blocks until the local agent reports healthy status or until timeout expires.
-func Wait(ctx context.Context) (err error) {
+// Wait blocks until the local agent reports healthy status or until the
+// provided context expires.
+func Wait(ctx context.Context) error {
 	b := utils.NewExponentialBackOff(defaults.NodeStatusTimeout)
-	err = utils.RetryWithInterval(ctx, b, func() error {
-		return trace.Wrap(getLocalNodeStatus(ctx))
+	return utils.RetryWithInterval(ctx, b, func() error {
+		return getLocalNodeStatus(ctx)
 	})
-	return trace.Wrap(err)
 }
 
-func getLocalNodeStatus(ctx context.Context) (err error) {
-	var status *Agent
-	b := utils.NewExponentialBackOff(defaults.NodeStatusTimeout)
-	err = utils.RetryTransient(ctx, b, func() error {
-		status, err = FromLocalPlanetAgent(ctx)
-		if err != nil {
-			return trace.Wrap(err)
-		}
-		return nil
-	})
+func getLocalNodeStatus(ctx context.Context) error {
+	status, err := FromLocalPlanetAgent(ctx)
 	if err != nil {
 		return trace.Wrap(err)
 	}

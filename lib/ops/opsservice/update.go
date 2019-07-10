@@ -256,7 +256,7 @@ func (o *Operator) RotatePlanetConfig(req ops.RotatePlanetConfigRequest) (*ops.R
 
 	dockerConfig := cluster.dockerConfig()
 	checks.OverrideDockerConfig(&dockerConfig,
-		checks.DockerConfigFromSchema(req.Manifest.SystemOptions.DockerConfig()))
+		checks.DockerConfigFromSchemaValue(req.Manifest.SystemDocker()))
 
 	config := planetConfig{
 		master: masterConfig{
@@ -537,30 +537,13 @@ func (s *site) checkUpdateParameters(update *pack.PackageEnvelope, provisioner s
 }
 
 func (s *site) validateDockerConfig(updateManifest schema.Manifest) error {
+	docker := updateManifest.SystemOptions.DockerConfig()
+	if docker == nil {
+		return nil
+	}
 	existingDocker, err := ops.GetDockerConfig(s.service, s.key)
 	if err != nil {
 		return trace.Wrap(err)
-	}
-	docker := updateManifest.SystemOptions.DockerConfig()
-	if docker == nil {
-		// If Docker driver wasn't specified explicitly in manifest and
-		// the cluster is currently using devicemapper, the upgrade
-		// will fail b/c devicemapper is no longer working and the
-		// current behavior is to preserve the driver if it's not
-		// specified in the manifest, so check here and don't let to
-		// proceed.
-		if existingDocker.StorageDriver != constants.DockerStorageDriverDevicemapper {
-			return nil
-		}
-		return trace.BadParameter(
-			`The cluster is currently using devicemapper storage driver which is no longer supported.
-
-Please set the driver to overlay2 explicitly in your manifest and rebuild the installer:
-
-systemOptions:
-  docker:
-    storageDriver: overlay2
-`)
 	}
 	if docker.StorageDriver != existingDocker.StorageDriver &&
 		!utils.StringInSlice(constants.DockerSupportedTargetDrivers, docker.StorageDriver) {

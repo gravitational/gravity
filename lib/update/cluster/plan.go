@@ -26,6 +26,7 @@ import (
 
 	"github.com/gravitational/gravity/lib/app"
 	"github.com/gravitational/gravity/lib/archive"
+	"github.com/gravitational/gravity/lib/checks"
 	"github.com/gravitational/gravity/lib/constants"
 	"github.com/gravitational/gravity/lib/defaults"
 	"github.com/gravitational/gravity/lib/loc"
@@ -456,14 +457,9 @@ func configUpdates(
 			},
 			Docker: storage.DockerUpdate{
 				Installed: *installedDocker,
+				Update: checks.DockerConfigFromSchemaValue(
+					update.SystemDocker()),
 			},
-		}
-		updateDocker := update.SystemOptions.DockerConfig()
-		if updateDocker != nil {
-			updateServer.Docker.Update = &storage.DockerConfig{
-				StorageDriver: updateDocker.StorageDriver,
-				Args:          updateDocker.Args,
-			}
 		}
 		needsPlanetUpdate, needsTeleportUpdate, err := systemNeedsUpdate(
 			server.Role, server.ClusterRole,

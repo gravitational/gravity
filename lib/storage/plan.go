@@ -168,16 +168,13 @@ type DockerUpdate struct {
 	// Installed is the currently installed configuration.
 	Installed DockerConfig `json:"installed"`
 	// Update is the configuration for the new version.
-	Update *DockerConfig `json:"update,omitempty"`
+	Update DockerConfig `json:"update"`
 }
 
 // ShouldMigrateDockerDevice returns true if the device currently used by
 // Docker devicemapper storage driver should be repurposed for overlay
 // data during this upgrade operation.
 func (s UpdateServer) ShouldMigrateDockerDevice() bool {
-	if s.Docker.Update == nil {
-		return false // No change.
-	}
 	// For safety, only consider explicit change from devicemapper.
 	if s.Docker.Installed.StorageDriver != constants.DockerStorageDriverDevicemapper {
 		return false

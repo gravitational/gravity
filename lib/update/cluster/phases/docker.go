@@ -34,7 +34,8 @@ import (
 	"github.com/sirupsen/logrus"
 )
 
-// dockerDevicemapper is a phase executor that deals with Docker devicemapper devices.
+// dockerDevicemapper is a phase executor that handles migration of devicemapper
+// devices to be used for overlay.
 type dockerDevicemapper struct {
 	// FieldLogger is used for logging.
 	logrus.FieldLogger
@@ -46,7 +47,8 @@ type dockerDevicemapper struct {
 	Remote fsm.Remote
 }
 
-// NewDockerDevicemapper returns phase executor that deals with Docker devicemapper devices.
+// NewDockerDevicemapper returns phase executor that handles migration of
+// devicemapper devices to be used for overlay.
 func NewDockerDevicemapper(p fsm.ExecutorParams, remote fsm.Remote, log logrus.FieldLogger) (*dockerDevicemapper, error) {
 	node := *p.Phase.Data.Server
 	return &dockerDevicemapper{
@@ -99,7 +101,8 @@ func (d *dockerDevicemapper) PreCheck(ctx context.Context) error {
 // PostCheck is no-op.
 func (*dockerDevicemapper) PostCheck(context.Context) error { return nil }
 
-// dockerFormat is a phase executor that deals with formatting Docker devices.
+// dockerFormat is a phase executor that formats Docker device/partition
+// to a filesystem suitable for overlay data.
 type dockerFormat struct {
 	// FieldLogger is used for logging.
 	logrus.FieldLogger
@@ -111,7 +114,8 @@ type dockerFormat struct {
 	Remote fsm.Remote
 }
 
-// NewDockerFormat returns phase executor that deals with formatting Docker devices.
+// NewDockerFormat returns phase executor that formats Docker device/partition
+// to a filesystem suitable for overlay data.
 func NewDockerFormat(p fsm.ExecutorParams, remote fsm.Remote, log logrus.FieldLogger) (*dockerFormat, error) {
 	node := *p.Phase.Data.Server
 	return &dockerFormat{
@@ -125,7 +129,11 @@ func NewDockerFormat(p fsm.ExecutorParams, remote fsm.Remote, log logrus.FieldLo
 // Execute creates filesystem on a Docker data device.
 func (d *dockerFormat) Execute(ctx context.Context) error {
 	d.Infof("Formatting device %v.", d.Device)
-	filesystem, err := system.FormatDevice(ctx, d.Device, d.FieldLogger)
+	filesystem, err := system.FormatDevice(ctx, system.FormatRequest{
+		Path:  d.Device,
+		Force: true,
+		Log:   d.FieldLogger,
+	})
 	if err != nil {
 		return trace.Wrap(err)
 	}
@@ -152,7 +160,8 @@ func (d *dockerFormat) PreCheck(ctx context.Context) error {
 // PostCheck is no-op.
 func (*dockerFormat) PostCheck(context.Context) error { return nil }
 
-// dockerMount is a phase executor that deals with Docker data directory mounts.
+// dockerMount is a phase executor that mounts Docker device/partition
+// to the node's Docker data directory.
 type dockerMount struct {
 	// FieldLogger is used for logging.
 	logrus.FieldLogger
@@ -164,7 +173,8 @@ type dockerMount struct {
 	Remote fsm.Remote
 }
 
-// NewDockerMount returns phase executor that deals with Docker data directory mounts.
+// NewDockerMount returns phase executor that mounts Docker device/partition
+// to the node's Docker data directory.
 func NewDockerMount(p fsm.ExecutorParams, remote fsm.Remote, log logrus.FieldLogger) (*dockerMount, error) {
 	node := *p.Phase.Data.Server
 	return &dockerMount{

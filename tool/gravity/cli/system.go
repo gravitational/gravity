@@ -1074,18 +1074,8 @@ func systemUninstall(env *localenv.LocalEnvironment, confirmed bool) error {
 		return trace.Wrap(err)
 	}
 
-	// see if there are any mounts under the state directory
-	mounts, err := svm.ListMounts()
-	if err != nil {
-		return trace.Wrap(err)
-	}
-	for _, mount := range mounts {
-		if strings.HasPrefix(mount.MountPoint, stateDir) {
-			env.PrintStep("Unmounting %v", mount.MountPoint)
-			if err := svm.UninstallService(mount.Name); err != nil {
-				log.WithError(err).Warnf("Failed to uninstall mount service: %v.", mount.Name)
-			}
-		}
+	if err := removeMounts(env, svm, stateDir); err != nil {
+		log.WithError(err).Warnf("Failed to remove mounts: %v.", err)
 	}
 
 	env.PrintStep("Deleting all local data at %v", stateDir)
@@ -1115,6 +1105,26 @@ func dockerInfo() (*utils.DockerInfo, error) {
 		return nil, trace.Wrap(err, out.String())
 	}
 	return utils.ParseDockerInfo(out)
+}
+
+// removeMounts unmounts all devices mounted under the node's state directory.
+//
+// For example, this will remove a mount for the device used for Docker data.
+func removeMounts(env *localenv.LocalEnvironment, svm systemservice.ServiceManager, stateDir string) error {
+	mounts, err := svm.ListMounts()
+	if err != nil {
+		return trace.Wrap(err)
+	}
+	var errors []error
+	for _, mount := range mounts {
+		if strings.HasPrefix(mount.MountPoint, stateDir) {
+			env.PrintStep("Unmounting %v", mount.MountPoint)
+			if err := svm.UninstallService(mount.Name); err != nil {
+				errors = append(errors, err)
+			}
+		}
+	}
+	return trace.NewAggregate(errors...)
 }
 
 func removeInterfaces(env *localenv.LocalEnvironment) error {
