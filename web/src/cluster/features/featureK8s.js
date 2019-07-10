@@ -48,7 +48,7 @@ class FeatureK8s extends FeatureBase{
 
     addSideNavItem({
       title: 'Kubernetes',
-      Icon: Icons.Tablet,
+      Icon: Icons.Kubernetes,
       exact: false,
       to: cfg.getSiteK8sRoute(),
     })

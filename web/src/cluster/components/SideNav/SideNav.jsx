@@ -34,16 +34,16 @@ export function ClusterSideNav({ logoSrc, navItems, version }) {
     </SideNavItem>
   ));
 
+  // show gravity banner for open source version
   const $marketingBanner = !cfg.isEnterprise && (
-    <StyledLogoItem
+    <StyledBanner
       bg="primary.light"
       mt="auto"
-      borderTop="1px solid" borderLeft="none" borderColor="primary.dark" minHeight="40px"
       py="2" pl="5"
       as="a" href="https://gravitational.com/gravity/">
       <Image src={gravityIconSvg} maxHeight="18px" maxWidth="120px" ml="1" mr="2" />
       Try Gravity Enterprise
-    </StyledLogoItem>
+    </StyledBanner>
   )
 
   return (
@@ -74,6 +74,12 @@ const StyledLogoItem = styled(SideNavItem)`
     overflow: hidden;
   }
 `;
+
+const StyledBanner = styled(StyledLogoItem)`
+  min-height: 40px;
+  border-left: none;
+  border-color: ${ ({theme}) => theme.colors.primary.dark}
+`
 
 function mapState() {
   const reactor = React.useContext(FluxContext);

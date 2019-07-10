@@ -35,12 +35,14 @@ const fromTheme = ({ theme = defaultTheme }) => {
 }
 
 const SideNavItem = styled(Flex)`
+  min-height: 72px;
   align-items: center;
   cursor: pointer;
   justify-content: flex-start;
   outline: none;
   text-decoration: none;
   width: 100%;
+  border-left: 4px solid transparent;
   ${fromTheme}
   ${borderColor}
 `;
@@ -52,8 +54,6 @@ SideNavItem.defaultProps = {
   pr: "5",
   bg: "primary.main",
   color: "text.primary",
-  borderLeft: "4px solid transparent",
-  minHeight: "72px",
 }
 
 export default SideNavItem;

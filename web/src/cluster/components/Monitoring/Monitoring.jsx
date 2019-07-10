@@ -84,7 +84,7 @@ export class Monitoring extends React.Component {
             Monitoring
           </FeatureHeaderTitle>
         </FeatureHeader>
-        <StyledGrafana height="100%" width="100%">
+        <StyledGrafana height="100%" width="100%" borderRadius="3">
           {$status}
           { canLoadGrafana && <iframe ref={this.iframeRef} src={this.url} frameBorder="0" /> }
         </StyledGrafana>

@@ -16,11 +16,17 @@ limitations under the License.
 
 import React from 'react'
 import { storiesOf } from '@storybook/react'
-import Offline from './Offline'
+import { OfflineCluster } from './Offline'
 
 storiesOf('Gravity', module)
   .add('Offline', () => {
+    const match = {
+      params: {
+        siteId: 'mycluster'
+      }
+    };
+
     return (
-      <Offline siteId={"mycluster"} />
+      <OfflineCluster match={match} />
     )
   });

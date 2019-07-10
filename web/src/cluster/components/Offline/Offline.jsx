@@ -15,9 +15,11 @@ limitations under the License.
 */
 
 import React from "react";
+import { withRouter } from 'react-router';
 import { Offline } from "shared/components/CardError";
 
-export default function OfflineCluster({ siteId }) {
+export function OfflineCluster({ match }) {
+  const { siteId } = match.params;
   return (
     <Offline
       title="This cluster is not available from Gravity"
@@ -25,3 +27,5 @@ export default function OfflineCluster({ siteId }) {
     />
   );
 }
+
+export default withRouter(OfflineCluster);

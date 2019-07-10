@@ -28,17 +28,21 @@ export default Store({
   },
 
   initialize() {
-    this.on(SITE_SERVERS_RECEIVE, receiveNodes)
+    this.on(SITE_SERVERS_RECEIVE, receiveNodes);
   }
 })
 
-function receiveNodes(state, { gravityNodes, k8sNodes, canSsh, sshLogins } ){
-  const nodes = gravityNodes.map(node => ({
-    ...node,
-    canSsh,
-    sshLogins,
-    k8s: k8sNodes ? k8sNodes[node.advertiseIp] : {}
-  }));
+function receiveNodes(state, { gravityNodes, k8sNodes, canSsh, sshLogins }) {
+  k8sNodes = k8sNodes || {};
+  const nodes = gravityNodes.map(node => {
+    const k8s = k8sNodes[node.advertiseIp] || {};
+    return {
+      ...node,
+      canSsh,
+      sshLogins,
+      k8s
+    }
+  });
 
   return state.set('nodes', nodes);
 }
