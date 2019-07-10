@@ -96,7 +96,7 @@ func (r *FormatRequest) String() string {
 //
 // If the specified path already has filesystem, it is returned as-is and no
 // formatting is attempted, unless force flag is set, in which case the path
-// is reformatted anyway.
+// is reformatted.
 func FormatDevice(ctx context.Context, req FormatRequest) (filesystem string, err error) {
 	if err := req.CheckAndSetDefaults(); err != nil {
 		return "", trace.Wrap(err)
@@ -122,7 +122,7 @@ func FormatDevice(ctx context.Context, req FormatRequest) (filesystem string, er
 			req.Log.Infof("Filesystem on %q is %v.", req.Path, filesystem)
 			return filesystem, nil
 		}
-		req.Log.Infof("Device %q has filesystem %v, will force-reformat due to force flag.",
+		req.Log.Infof("Device %q with existing filesystem %v will be reformatted.",
 			req.Path, filesystem)
 	}
 

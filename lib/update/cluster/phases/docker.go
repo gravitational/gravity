@@ -102,7 +102,7 @@ func (d *dockerDevicemapper) PreCheck(ctx context.Context) error {
 func (*dockerDevicemapper) PostCheck(context.Context) error { return nil }
 
 // dockerFormat is a phase executor that formats Docker device/partition
-// to a filesystem suitable for overlay data.
+// with a filesystem suitable for overlay data.
 type dockerFormat struct {
 	// FieldLogger is used for logging.
 	logrus.FieldLogger
@@ -115,7 +115,7 @@ type dockerFormat struct {
 }
 
 // NewDockerFormat returns phase executor that formats Docker device/partition
-// to a filesystem suitable for overlay data.
+// with a filesystem suitable for overlay data.
 func NewDockerFormat(p fsm.ExecutorParams, remote fsm.Remote, log logrus.FieldLogger) (*dockerFormat, error) {
 	node := *p.Phase.Data.Server
 	return &dockerFormat{
