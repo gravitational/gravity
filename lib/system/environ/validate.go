@@ -19,13 +19,17 @@ package environ
 
 import (
 	"os"
+	"path/filepath"
 	"strings"
 
 	"github.com/gravitational/gravity/lib/defaults"
 	"github.com/gravitational/gravity/lib/localenv"
 	"github.com/gravitational/gravity/lib/pack"
 	"github.com/gravitational/gravity/lib/state"
+	"github.com/gravitational/gravity/lib/storage"
+	"github.com/gravitational/gravity/lib/storage/keyval"
 	"github.com/gravitational/gravity/lib/system"
+	"github.com/gravitational/gravity/lib/systemservice"
 	"github.com/gravitational/gravity/lib/utils"
 
 	"github.com/fatih/color"
@@ -45,15 +49,41 @@ func ValidateInstall(env *localenv.LocalEnvironment) func() error {
 			// Operational state directory requirements are advisory
 			log.WithError(err).Warn("Failed to validate state directory requirements.")
 		}
-		// FIXME: validate enough of directory contents to make an educated decision automatically
-		if err := validateDirectoryEmpty(stateDir); err != nil {
-			return trace.Wrap(err)
+		if err := validateNoActiveService(stateDir); err != nil {
+			log.WithError(err).Warn("Failed to determine if service is not active.")
+			return trace.BadParameter("detected previous installation state in %v, "+
+				"please resume the agent with `gravity resume` or "+
+				"clean it up using `gravity leave --force` before proceeding "+
+				"(see https://gravitational.com/gravity/docs/cluster/#deleting-a-cluster for more details)",
+				stateDir)
 		}
 		if err := validateNoPackageState(env.Packages, env.StateDir); err != nil {
 			return trace.Wrap(err)
 		}
 		return nil
 	}
+}
+
+// GetServiceName returns the name of the service configured in the specified state directory stateDir
+func GetServiceName(stateDir string) (name string, err error) {
+	path, err := GetServicePath(stateDir)
+	if err != nil {
+		return "", trace.Wrap(err)
+	}
+	return filepath.Base(path), nil
+}
+
+// GetServicePath returns the path of the service configured in the specified state directory stateDir
+func GetServicePath(stateDir string) (path string, err error) {
+	for _, name := range []string{
+		defaults.GravityRPCInstallerServiceName,
+		defaults.GravityRPCAgentServiceName,
+	} {
+		if ok, _ := utils.IsFile(filepath.Join(stateDir, name)); ok {
+			return filepath.Join(stateDir, name), nil
+		}
+	}
+	return "", trace.NotFound("no service unit file in %v", stateDir)
 }
 
 func validateNonVolatileDirectory(stateDir string, printer utils.Printer) error {
@@ -80,17 +110,47 @@ func validateNonVolatileDirectory(stateDir string, printer utils.Printer) error 
 	return nil
 }
 
-func validateDirectoryEmpty(stateDir string) error {
-	empty, err := utils.IsDirectoryEmpty(stateDir)
-	if err != nil && !trace.IsNotFound(err) {
+func validateNoActiveService(stateDir string) error {
+	serviceName, err := GetServiceName(stateDir)
+	if err != nil {
+		if trace.IsNotFound(err) {
+			return nil
+		}
 		return trace.Wrap(err)
 	}
-	if err == nil && !empty {
-		return trace.BadParameter("detected previous installation state in %v, "+
-			"please resume the agent with `gravity resume` or "+
-			"clean it up using `gravity leave --force` before proceeding "+
-			"(see https://gravitational.com/gravity/docs/cluster/#deleting-a-cluster for more details)",
-			stateDir)
+	manager, err := systemservice.New()
+	if err != nil {
+		return trace.Wrap(err)
+	}
+	status, err := manager.StatusService(serviceName)
+	if err != nil {
+		return trace.Wrap(err)
+	}
+	switch status {
+	case "failed", "unknown":
+		return nil
+	default:
+		// Consider service as running if in another status
+		return trace.AlreadyExists("service already running")
+	}
+}
+
+func validateNoActiveOperation(stateDir string) error {
+	_, err := os.Stat(stateDir)
+	if err != nil && os.IsNotExist(err) {
+		return nil
+	}
+	backend, err := newBackendFromDir(stateDir)
+	if err != nil {
+		return trace.Wrap(err)
+	}
+	defer backend.Close()
+	_, err = storage.GetLastOperation(backend)
+	if err == nil {
+		return trace.AlreadyExists("operation already exists")
+	}
+	if !trace.IsNotFound(err) {
+		return trace.Wrap(err)
 	}
 	return nil
 }
@@ -120,4 +180,17 @@ func isRootedAt(path string, dirs ...string) bool {
 		}
 	}
 	return false
+}
+
+func newBackendFromDir(dir string) (storage.Backend, error) {
+	backend, err := keyval.NewBolt(keyval.BoltConfig{
+		Path:     filepath.Join(dir, defaults.GravityDBFile),
+		Multi:    true,
+		Readonly: true,
+		Timeout:  -1, // No timeout
+	})
+	if err != nil {
+		return nil, trace.Wrap(err)
+	}
+	return backend, nil
 }

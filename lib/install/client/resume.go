@@ -23,8 +23,8 @@ import (
 	"github.com/gravitational/gravity/lib/defaults"
 	installpb "github.com/gravitational/gravity/lib/install/proto"
 	"github.com/gravitational/gravity/lib/state"
+	"github.com/gravitational/gravity/lib/system/environ"
 	"github.com/gravitational/gravity/lib/system/service"
-	"github.com/gravitational/gravity/lib/utils"
 
 	"github.com/gravitational/trace"
 	log "github.com/sirupsen/logrus"
@@ -56,7 +56,7 @@ func (r *ResumeStrategy) checkAndSetDefaults() (err error) {
 		if err != nil {
 			return trace.Wrap(err)
 		}
-		r.ServicePath, err = GetServicePath(stateDir)
+		r.ServicePath, err = environ.GetServicePath(stateDir)
 		if err != nil {
 			return trace.Wrap(err)
 		}
@@ -97,17 +97,4 @@ type ResumeStrategy struct {
 	// installer service connection. Defaults to defaults.ServiceConnectTimeout
 	// if unspecified
 	ConnectTimeout time.Duration
-}
-
-// GetServicePath returns the name of the service configured in the specified state directory stateDir
-func GetServicePath(stateDir string) (path string, err error) {
-	for _, name := range []string{
-		defaults.GravityRPCInstallerServiceName,
-		defaults.GravityRPCAgentServiceName,
-	} {
-		if ok, _ := utils.IsFile(filepath.Join(stateDir, name)); ok {
-			return filepath.Join(stateDir, name), nil
-		}
-	}
-	return "", trace.NotFound("no service unit file in %v", stateDir)
 }

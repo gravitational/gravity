@@ -340,7 +340,10 @@ var xxx_messageInfo_AbortRequest proto.InternalMessageInfo
 // ShutdownRequest describes a request to shut down the server
 type ShutdownRequest struct {
 	// Completed indicates that the operation has been successfully completed
-	Completed            bool     `protobuf:"varint,1,opt,name=completed,proto3" json:"completed,omitempty"`
+	Completed bool `protobuf:"varint,1,opt,name=completed,proto3" json:"completed,omitempty"`
+	// ExitCode optionally specifies the exit code for the service.
+	// 0 value is considered success
+	ExitCode             int32    `protobuf:"varint,2,opt,name=exitCode,proto3" json:"exitCode,omitempty"`
 	XXX_NoUnkeyedLiteral struct{} `json:"-"`
 	XXX_unrecognized     []byte   `json:"-"`
 	XXX_sizecache        int32    `json:"-"`
@@ -384,6 +387,13 @@ func (m *ShutdownRequest) GetCompleted() bool {
 		return m.Completed
 	}
 	return false
+}
+
+func (m *ShutdownRequest) GetExitCode() int32 {
+	if m != nil {
+		return m.ExitCode
+	}
+	return 0
 }
 
 // DebugReportRequest describes a request to generate debug report
@@ -1167,6 +1177,11 @@ func (m *ShutdownRequest) MarshalTo(dAtA []byte) (int, error) {
 		}
 		i++
 	}
+	if m.ExitCode != 0 {
+		dAtA[i] = 0x10
+		i++
+		i = encodeVarintInstaller(dAtA, i, uint64(m.ExitCode))
+	}
 	if m.XXX_unrecognized != nil {
 		i += copy(dAtA[i:], m.XXX_unrecognized)
 	}
@@ -1415,6 +1430,9 @@ func (m *ShutdownRequest) Size() (n int) {
 	_ = l
 	if m.Completed {
 		n += 2
+	}
+	if m.ExitCode != 0 {
+		n += 1 + sovInstaller(uint64(m.ExitCode))
 	}
 	if m.XXX_unrecognized != nil {
 		n += len(m.XXX_unrecognized)
@@ -2081,6 +2099,25 @@ func (m *ShutdownRequest) Unmarshal(dAtA []byte) error {
 				}
 			}
 			m.Completed = bool(v != 0)
+		case 2:
+			if wireType != 0 {
+				return fmt.Errorf("proto: wrong wireType = %d for field ExitCode", wireType)
+			}
+			m.ExitCode = 0
+			for shift := uint(0); ; shift += 7 {
+				if shift >= 64 {
+					return ErrIntOverflowInstaller
+				}
+				if iNdEx >= l {
+					return io.ErrUnexpectedEOF
+				}
+				b := dAtA[iNdEx]
+				iNdEx++
+				m.ExitCode |= int32(b&0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
 		default:
 			iNdEx = preIndex
 			skippy, err := skipInstaller(dAtA[iNdEx:])

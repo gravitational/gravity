@@ -63,10 +63,6 @@ func (r *InstallerStrategy) installSelfAsService() error {
 	if err := os.MkdirAll(filepath.Dir(r.SocketPath), defaults.SharedDirMask); err != nil {
 		return trace.ConvertSystemError(err)
 	}
-	exitStatuses := strings.Join([]string{
-		strconv.Itoa(defaults.AbortedOperationExitCode),
-		strconv.Itoa(defaults.CompletedOperationExitCode),
-	}, " ")
 	req := systemservice.NewServiceRequest{
 		ServiceSpec: systemservice.ServiceSpec{
 			StartCommand: strings.Join(r.Args, " "),
@@ -75,8 +71,8 @@ func (r *InstallerStrategy) installSelfAsService() error {
 			},
 			// TODO(dmitri): run as euid?
 			User:                     constants.RootUIDString,
-			SuccessExitStatus:        exitStatuses,
-			RestartPreventExitStatus: exitStatuses,
+			SuccessExitStatus:        successExitStatuses,
+			RestartPreventExitStatus: exitStatusesNoRestart,
 			// Enable automatic restart of the service
 			Restart:          "always",
 			Timeout:          int(time.Duration(defaults.ServiceConnectTimeout).Seconds()),
@@ -147,3 +143,18 @@ type InstallerStrategy struct {
 	// installer service connection.
 	ConnectTimeout time.Duration
 }
+
+var (
+	// successExitStatuses lists exit status to consider a successful exit for the service
+	successExitStatuses = strings.Join([]string{
+		strconv.Itoa(defaults.AbortedOperationExitCode),
+		strconv.Itoa(defaults.CompletedOperationExitCode),
+	}, " ")
+	// exitStatusesNoRestart lists exists status that prevent service from getting automatically
+	// restarted by systemd
+	exitStatusesNoRestart = strings.Join([]string{
+		strconv.Itoa(defaults.AbortedOperationExitCode),
+		strconv.Itoa(defaults.CompletedOperationExitCode),
+		strconv.Itoa(defaults.FailedPreconditionExitCode),
+	}, " ")
+)

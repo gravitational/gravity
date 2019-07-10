@@ -18,6 +18,7 @@ package client
 import (
 	"context"
 
+	"github.com/gravitational/gravity/lib/defaults"
 	installpb "github.com/gravitational/gravity/lib/install/proto"
 
 	"github.com/gravitational/trace"
@@ -52,7 +53,7 @@ func (r *AutomaticLifecycle) HandleStatus(ctx context.Context, c *Client, status
 		if err := r.generateDebugReport(ctx, c); err != nil {
 			c.WithError(err).Warn("Failed to generate debug report.")
 		}
-		if err := c.shutdown(ctx); err != nil && !isServerUnavailableError(err) {
+		if err := c.shutdownWithExitCode(ctx, defaults.FailedPreconditionExitCode); err != nil && !isServerUnavailableError(err) {
 			c.WithError(err).Warn("Failed to shut down.")
 		}
 		return trace.Wrap(convertGrpcError(statusErr))
@@ -69,7 +70,7 @@ func (r *AutomaticLifecycle) Complete(ctx context.Context, c *Client, status ins
 		// shuts it down explicitly
 		return trace.Wrap(r.Completer(ctx, status))
 	}
-	err := c.shutdownAndComplete(ctx)
+	err := c.complete(ctx)
 	// Server might be already shutting down on its own
 	if err != nil && !isServerUnavailableError(err) {
 		return trace.Wrap(err)
@@ -149,8 +150,6 @@ func convertGrpcError(err error) error {
 		return trace.LimitExceeded(s.Message())
 	case codes.Unimplemented:
 		return trace.NotImplemented(s.Message())
-	case codes.InvalidArgument, codes.FailedPrecondition:
-		return trace.BadParameter(s.Message())
 	default:
 		return trace.BadParameter(s.Message())
 	}

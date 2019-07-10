@@ -83,7 +83,7 @@ func (i *Installer) Run(listener net.Listener) error {
 	}()
 	err := <-i.errC
 	i.stop()
-	return trace.Wrap(err)
+	return installpb.WrapServiceError(err)
 }
 
 // Stop stops the server and releases resources allocated by the installer.
@@ -110,7 +110,7 @@ func (i *Installer) Execute(req *installpb.ExecuteRequest, stream installpb.Agen
 		case result := <-i.execDoneC:
 			if result.err != nil {
 				// Phase finished with an error
-				return status.Error(codes.FailedPrecondition, result.err.Error())
+				return status.Error(codes.Aborted, result.err.Error())
 			}
 			if result.completionEvent != nil {
 				err := stream.Send(result.completionEvent.AsProgressResponse())

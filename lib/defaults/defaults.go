@@ -1155,6 +1155,11 @@ var (
 	// successfully.
 	// The exit code is used to prevent the agent service from restarting after shut down
 	CompletedOperationExitCode = 253
+
+	// FailedPreconditionExitCode specifies the exit code to indicate a precondition failure.
+	// A failed precondition usually means a configuration error when an operation cannot be retried.
+	// The exit code is used to prevent the agent service from restarting after shut down
+	FailedPreconditionExitCode = 252
 )
 
 // HookSecurityContext returns default securityContext for hook pods

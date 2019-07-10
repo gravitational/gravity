@@ -125,7 +125,7 @@ func (p *Peer) Run(listener net.Listener) error {
 	// Stopping is on best-effort basis, the client will be trying to stop the service
 	// if notified
 	p.stop()
-	return trace.Wrap(err)
+	return installpb.WrapServiceError(err)
 }
 
 // Stop shuts down this RPC agent
@@ -150,18 +150,23 @@ func (p *Peer) Execute(req *installpb.ExecuteRequest, stream installpb.Agent_Exe
 		case event := <-p.dispatcher.Chan():
 			err := stream.Send(event)
 			if err != nil {
-				return trace.Wrap(err)
+				return err
 			}
 		case req := <-p.closeC:
 			err := stream.Send(req.resp)
 			close(req.doneC)
 			if err != nil {
-				return trace.Wrap(err)
+				return err
 			}
 		case err := <-p.execDoneC:
 			if err != nil {
-				// Phase finished with an error
-				return status.Error(codes.FailedPrecondition, err.Error())
+				// Phase finished with an error.
+				if installpb.IsRPCError(err) {
+					return trace.Unwrap(err)
+				}
+				// Aborted code is RPC-specific here - it indicates an operation
+				// failure that can be retried
+				return status.Error(codes.Aborted, err.Error())
 			}
 			return nil
 		}
@@ -317,6 +322,9 @@ func (p *Peer) startConnectLoop() {
 		if err == nil {
 			err = p.init(*ctx)
 		}
+		if err != nil {
+			err = status.Error(codes.FailedPrecondition, trace.UserMessage(err))
+		}
 		select {
 		case p.connectC <- connectResult{
 			operationContext: ctx,
@@ -351,6 +359,10 @@ func (p *Peer) startExecuteLoop() {
 					}).Warn("Failed to execute.")
 				}
 				p.execDoneC <- err
+				if installpb.IsFailedPreconditionError(err) {
+					p.errC <- err
+					return
+				}
 			case <-p.ctx.Done():
 				return
 			}
@@ -681,7 +693,7 @@ func (p *Peer) connectLoop() (*operationContext, error) {
 			if err != nil {
 				// join token is incorrect, fail immediately and report to user
 				if trace.IsAccessDenied(err) {
-					return nil, trace.AccessDenied("access denied: bad secret token")
+					return nil, trace.AccessDenied("bad secret token")
 				}
 				if err, ok := trace.Unwrap(err).(*utils.AbortRetry); ok {
 					return nil, trace.BadParameter(err.OriginalError())
@@ -951,7 +963,7 @@ func (p *Peer) operationContext() (*operationContext, error) {
 	case result := <-p.connectC:
 		p.connectC <- result
 		if result.err != nil {
-			return nil, trace.Wrap(result.err)
+			return nil, result.err
 		}
 		return result.operationContext, nil
 	case <-p.ctx.Done():

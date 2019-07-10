@@ -1016,7 +1016,7 @@ func installerAbortOperation(env *localenv.LocalEnvironment) func(context.Contex
 		if err != nil {
 			return trace.Wrap(err)
 		}
-		serviceName, err := installerclient.GetServicePath(stateDir)
+		serviceName, err := environ.GetServicePath(stateDir)
 		if err == nil {
 			logger := logger.WithField("service", serviceName)
 			logger.Info("Uninstalling service.")
@@ -1102,7 +1102,7 @@ func installerCleanup(logger logrus.FieldLogger) error {
 	if err != nil {
 		return trace.Wrap(err)
 	}
-	serviceName, err := installerclient.GetServicePath(stateDir)
+	serviceName, err := environ.GetServicePath(stateDir)
 	logger.WithField("service", serviceName).Info("Uninstalling service.")
 	if err == nil {
 		if err := environ.UninstallService(serviceName); err != nil {

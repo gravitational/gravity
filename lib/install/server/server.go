@@ -22,6 +22,7 @@ import (
 
 	installpb "github.com/gravitational/gravity/lib/install/proto"
 	"github.com/gravitational/gravity/lib/ops"
+	"github.com/gravitational/gravity/lib/utils"
 
 	"github.com/gogo/protobuf/types"
 	"github.com/gravitational/trace"
@@ -85,7 +86,7 @@ func (r *Server) Stopped(ctx context.Context, completed bool) error {
 	if completed {
 		r.completed(ctx)
 	} else {
-		r.done(ctx)
+		r.done(ctx, nil)
 	}
 	return nil
 }
@@ -135,7 +136,11 @@ func (r *Server) Shutdown(ctx context.Context, req *installpb.ShutdownRequest) (
 	if req.Completed {
 		r.completed(ctx)
 	} else {
-		r.done(ctx)
+		var err error
+		if req.ExitCode != 0 {
+			err = utils.NewExitCodeError(int(req.ExitCode))
+		}
+		r.done(ctx, err)
 	}
 	return installpb.Empty, nil
 }
@@ -203,9 +208,9 @@ type Server struct {
 	errC chan error
 }
 
-func (r *Server) done(ctx context.Context) {
+func (r *Server) done(ctx context.Context, err error) {
 	r.executor.HandleStopped(ctx)
-	r.errC <- nil
+	r.errC <- err
 }
 
 func (r *Server) aborted(ctx context.Context) {

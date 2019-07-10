@@ -39,7 +39,7 @@ func main() {
 
 	app := kingpin.New("gravity", "Gravity cluster management tool.")
 	if err := run(app); err != nil {
-		log.Error(trace.DebugReport(err))
+		log.WithError(err).Warn("Command failed.")
 		common.PrintError(err)
 		if errCode, ok := trace.Unwrap(err).(utils.ExitCodeError); ok {
 			os.Exit(errCode.ExitCode())
