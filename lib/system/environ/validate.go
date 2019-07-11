@@ -26,8 +26,6 @@ import (
 	"github.com/gravitational/gravity/lib/localenv"
 	"github.com/gravitational/gravity/lib/pack"
 	"github.com/gravitational/gravity/lib/state"
-	"github.com/gravitational/gravity/lib/storage"
-	"github.com/gravitational/gravity/lib/storage/keyval"
 	"github.com/gravitational/gravity/lib/system"
 	"github.com/gravitational/gravity/lib/systemservice"
 	"github.com/gravitational/gravity/lib/utils"
@@ -127,32 +125,12 @@ func validateNoActiveService(stateDir string) error {
 		return trace.Wrap(err)
 	}
 	switch status {
-	case "failed", "unknown":
+	case systemservice.ServiceStatusFailed, systemservice.ServiceStatusUnknown:
 		return nil
 	default:
 		// Consider service as running if in another status
 		return trace.AlreadyExists("service already running")
 	}
-}
-
-func validateNoActiveOperation(stateDir string) error {
-	_, err := os.Stat(stateDir)
-	if err != nil && os.IsNotExist(err) {
-		return nil
-	}
-	backend, err := newBackendFromDir(stateDir)
-	if err != nil {
-		return trace.Wrap(err)
-	}
-	defer backend.Close()
-	_, err = storage.GetLastOperation(backend)
-	if err == nil {
-		return trace.AlreadyExists("operation already exists")
-	}
-	if !trace.IsNotFound(err) {
-		return trace.Wrap(err)
-	}
-	return nil
 }
 
 func validateNoPackageState(packages pack.PackageService, stateDir string) error {
@@ -180,17 +158,4 @@ func isRootedAt(path string, dirs ...string) bool {
 		}
 	}
 	return false
-}
-
-func newBackendFromDir(dir string) (storage.Backend, error) {
-	backend, err := keyval.NewBolt(keyval.BoltConfig{
-		Path:     filepath.Join(dir, defaults.GravityDBFile),
-		Multi:    true,
-		Readonly: true,
-		Timeout:  -1, // No timeout
-	})
-	if err != nil {
-		return nil, trace.Wrap(err)
-	}
-	return backend, nil
 }

@@ -19,7 +19,7 @@ import (
 	"context"
 
 	"github.com/gravitational/gravity/lib/defaults"
-	installpb "github.com/gravitational/gravity/lib/install/proto"
+	pb "github.com/gravitational/gravity/lib/install/proto"
 
 	"github.com/gravitational/trace"
 	"google.golang.org/grpc/codes"
@@ -28,16 +28,16 @@ import (
 
 // HandleStatus handles the results of a completed operation.
 // It executes the handler corresponding to the outcome
-func (r *AutomaticLifecycle) HandleStatus(ctx context.Context, c *Client, status installpb.ProgressResponse_Status, statusErr error) error {
+func (r *AutomaticLifecycle) HandleStatus(ctx context.Context, c *Client, status pb.ProgressResponse_Status, statusErr error) error {
 	switch {
 	case statusErr == nil:
 		switch status {
-		case installpb.StatusUnknown:
+		case pb.StatusUnknown:
 			if err := c.shutdown(ctx); err != nil && !isServerUnavailableError(err) {
 				c.WithError(err).Warn("Failed to shut down.")
 			}
 			return nil
-		case installpb.StatusAborted:
+		case pb.StatusAborted:
 			return r.Abort(ctx, c)
 		}
 		// We received completion status
@@ -53,7 +53,13 @@ func (r *AutomaticLifecycle) HandleStatus(ctx context.Context, c *Client, status
 		if err := r.generateDebugReport(ctx, c); err != nil {
 			c.WithError(err).Warn("Failed to generate debug report.")
 		}
-		if err := c.shutdownWithExitCode(ctx, defaults.FailedPreconditionExitCode); err != nil && !isServerUnavailableError(err) {
+		var err error
+		if pb.IsFailedPreconditionError(statusErr) {
+			err = c.shutdownWithExitCode(ctx, defaults.FailedPreconditionExitCode)
+		} else {
+			err = c.shutdown(ctx)
+		}
+		if err != nil && !isServerUnavailableError(err) {
 			c.WithError(err).Warn("Failed to shut down.")
 		}
 		return trace.Wrap(convertGrpcError(statusErr))
@@ -61,10 +67,10 @@ func (r *AutomaticLifecycle) HandleStatus(ctx context.Context, c *Client, status
 }
 
 // Complete shuts down the installer and invokes the completion handler
-func (r *AutomaticLifecycle) Complete(ctx context.Context, c *Client, status installpb.ProgressResponse_Status) error {
+func (r *AutomaticLifecycle) Complete(ctx context.Context, c *Client, status pb.ProgressResponse_Status) error {
 	c.WithField("status", status).Info("Operation completed.")
 	c.InterruptHandler.Close()
-	if status == installpb.StatusCompletedPending {
+	if status == pb.StatusCompletedPending {
 		// Do not attempt to shut down the agents if the installer continues to run
 		// after completing the operation. In this mode, it requires that the client
 		// shuts it down explicitly
@@ -86,7 +92,7 @@ func (r *AutomaticLifecycle) Abort(ctx context.Context, c *Client) error {
 	if err := r.Aborter(ctx); err != nil {
 		c.WithError(err).Warn("Failed to abort.")
 	}
-	return installpb.ErrAborted
+	return pb.ErrAborted
 }
 
 // AutomaticLifecycle handles the completion of an operation.
@@ -129,7 +135,7 @@ func (r *AutomaticLifecycle) generateDebugReport(ctx context.Context, c *Client)
 
 // CompletionHandler describes a functional handler for tasks to run after
 // operation is complete
-type CompletionHandler func(context.Context, installpb.ProgressResponse_Status) error
+type CompletionHandler func(context.Context, pb.ProgressResponse_Status) error
 
 func isServerUnavailableError(err error) bool {
 	status, ok := grpcstatus.FromError(trace.Unwrap(err))

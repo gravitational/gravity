@@ -63,7 +63,7 @@ import (
 // NewPeer returns new cluster peer client
 func NewPeer(config PeerConfig) (*Peer, error) {
 	if err := config.CheckAndSetDefaults(); err != nil {
-		return nil, trace.Wrap(err)
+		return nil, trace.Wrap(utils.NewFailedPreconditionError(err))
 	}
 	server := server.New()
 	dispatcher := buffered.New()
@@ -323,6 +323,9 @@ func (p *Peer) startConnectLoop() {
 			err = p.init(*ctx)
 		}
 		if err != nil {
+			// Consider failure to connect/init a terminal error.
+			// This will prevent the service from automatically restarting.
+			// It can be restarted manually though (i.e. after correcting the configuration)
 			err = status.Error(codes.FailedPrecondition, trace.UserMessage(err))
 		}
 		select {

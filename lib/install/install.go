@@ -33,6 +33,7 @@ import (
 	"github.com/gravitational/gravity/lib/ops"
 	rpcserver "github.com/gravitational/gravity/lib/rpc/server"
 	"github.com/gravitational/gravity/lib/system/signals"
+	"github.com/gravitational/gravity/lib/utils"
 
 	"github.com/gravitational/trace"
 	log "github.com/sirupsen/logrus"
@@ -45,13 +46,13 @@ import (
 // Use Serve to start server operation
 func New(ctx context.Context, config RuntimeConfig) (installer *Installer, err error) {
 	if err := config.checkAndSetDefaults(); err != nil {
-		return nil, trace.Wrap(err)
+		return nil, trace.Wrap(utils.NewFailedPreconditionError(err))
 	}
 	var agent *rpcserver.PeerServer
 	if config.Config.LocalAgent {
 		agent, err = newAgent(ctx, config.Config)
 		if err != nil {
-			return nil, trace.Wrap(err)
+			return nil, trace.Wrap(utils.NewFailedPreconditionError(err))
 		}
 	}
 	server := server.New()
@@ -71,7 +72,7 @@ func New(ctx context.Context, config RuntimeConfig) (installer *Installer, err e
 	}
 	installer.startExecuteLoop()
 	if err := installer.maybeStartAgent(); err != nil {
-		return nil, trace.Wrap(err)
+		return nil, trace.Wrap(utils.NewFailedPreconditionError(err))
 	}
 	return installer, nil
 }

@@ -27,11 +27,12 @@ import (
 	"strings"
 	"syscall"
 
-	"github.com/cenkalti/backoff"
+	"github.com/gravitational/gravity/lib/defaults"
 	"github.com/gravitational/gravity/lib/loc"
 
 	"github.com/aws/aws-sdk-go/aws/awserr"
 	"github.com/aws/aws-sdk-go/service/s3"
+	"github.com/cenkalti/backoff"
 	etcd "github.com/coreos/etcd/client"
 	"github.com/gravitational/trace"
 	kubeerrors "k8s.io/apimachinery/pkg/api/errors"
@@ -354,13 +355,22 @@ func ShouldReconnectPeer(err error) error {
 	return err
 }
 
+// NewFailedPreconditionError returns a new failed precondition error
+// with optional original error err
+func NewFailedPreconditionError(err error) error {
+	return WrapExitCodeError(defaults.FailedPreconditionExitCode, err)
+}
+
 // ExitCodeError defines an interface for exit code errors
 type ExitCodeError interface {
 	error
 	ExitCode() int
+	// OrigError returns the original error this error wraps.
+	// Implements trace.Wrappable
+	OrigError() error
 }
 
-// NewExitCodeError returns a new error that wraps a specific exit code
+// NewExitCodeError returns a new error with the specified exit code
 func NewExitCodeError(exitCode int) error {
 	return exitCodeError{code: exitCode}
 }
@@ -370,6 +380,15 @@ func NewExitCodeErrorWithMessage(exitCode int, message string) error {
 	return exitCodeError{
 		code:    exitCode,
 		message: message,
+	}
+}
+
+// WrapExitCodeError returns a new error with the specified exit code
+// that wrap another error
+func WrapExitCodeError(exitCode int, err error) error {
+	return exitCodeError{
+		code: exitCode,
+		err:  err,
 	}
 }
 
@@ -388,9 +407,20 @@ func (r exitCodeError) Error() string {
 	return fmt.Sprintf("exit with code %v", r.code)
 }
 
+// OrigError returns the original error if available.
+// If no error has been stored, it returns this error
+func (r exitCodeError) OrigError() error {
+	if r.err == nil {
+		return r
+	}
+	return r.err
+}
+
 type exitCodeError struct {
 	code    int
 	message string
+	// err specifies optional original error
+	err error
 }
 
 func isPeerDeniedError(message string) bool {
