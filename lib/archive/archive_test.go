@@ -19,7 +19,6 @@ package archive
 import (
 	"archive/tar"
 	"bytes"
-	"io"
 	"io/ioutil"
 	"os"
 	"path/filepath"
@@ -54,7 +53,7 @@ func (_ *S) TestTarGlob(c *C) {
 	c.Assert(err, IsNil)
 	r := tar.NewReader(decompressed)
 
-	err = TarGlob(r, "resources", []string{"*yaml"}, func(match string, file io.Reader) error {
+	err = TarGlob(r, "resources", []string{"*yaml"}, func(match string, _ *tar.Header, _ *tar.Reader) error {
 		matches = append(matches, match)
 		return nil
 	})
@@ -77,7 +76,7 @@ func (_ *S) TestTarGlobCanBeAborted(c *C) {
 	c.Assert(err, IsNil)
 	r := tar.NewReader(decompressed)
 
-	err = TarGlob(r, "resources", []string{"a.yaml"}, func(match string, file io.Reader) error {
+	err = TarGlob(r, "resources", []string{"a.yaml"}, func(match string, _ *tar.Header, _ *tar.Reader) error {
 		matches = append(matches, match)
 		return Abort
 	})

@@ -19,7 +19,6 @@ package phases
 import (
 	"archive/tar"
 	"context"
-	"io"
 	"time"
 
 	"github.com/gravitational/gravity/lib/app"
@@ -255,7 +254,7 @@ func (p *rbacExecutor) Execute(ctx context.Context) error {
 		tar.NewReader(stream),
 		defaults.ResourcesDir,
 		[]string{defaults.ResourcesFile},
-		func(_ string, reader io.Reader) error {
+		func(_ string, _ *tar.Header, reader *tar.Reader) error {
 			return resources.ForEachObject(
 				reader,
 				fsm.GetUpsertBootstrapResourceFunc(p.Client))

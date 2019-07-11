@@ -156,8 +156,8 @@ func OpenManifest(dir string) (*Manifest, error) {
 func ReadManifest(tarball *tar.Reader) (*Manifest, error) {
 	var manifest []byte
 	err := archive.TarGlob(tarball, ".", []string{ManifestFilename},
-		func(match string, file io.Reader) (err error) {
-			manifest, err = ioutil.ReadAll(file)
+		func(_ string, _ *tar.Header, r *tar.Reader) (err error) {
+			manifest, err = ioutil.ReadAll(r)
 			if err != nil {
 				return trace.ConvertSystemError(err)
 			}

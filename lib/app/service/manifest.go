@@ -63,9 +63,9 @@ func manifestFromSource(source io.Reader) (manifest []byte, err error) {
 	}
 	reader := tar.NewReader(decompressed)
 	root := "."
-	if err = archive.TarGlob(reader, root, []string{"*.*"}, func(match string, file io.Reader) (err error) {
+	if err = archive.TarGlob(reader, root, []string{"*.*"}, func(match string, _ *tar.Header, r *tar.Reader) (err error) {
 		if filepath.Base(match) == defaults.ManifestFileName {
-			manifest, err = ioutil.ReadAll(file)
+			manifest, err = ioutil.ReadAll(r)
 			if err != nil {
 				return trace.Wrap(err)
 			}

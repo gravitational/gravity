@@ -20,7 +20,6 @@ import (
 	"archive/tar"
 	"context"
 	"encoding/json"
-	"io"
 	"io/ioutil"
 	"strconv"
 
@@ -203,18 +202,18 @@ func NewOperationPlan(config PlanConfig) (*storage.OperationPlan, error) {
 			DNSConfig:      config.DNSConfig,
 			GravityPackage: *gravityPackage,
 		},
-		operator:         config.Operator,
-		operation:        *config.Operation,
-		servers:          updates,
-		installedRuntime: *installedRuntime,
-		installedApp:     *installedApp,
-		updateRuntime:    *updateRuntime,
-		updateApp:        *updateApp,
-		links:            links,
-		trustedClusters:  trustedClusters,
-		packageService:   config.Packages,
-		shouldUpdateEtcd: shouldUpdateEtcd,
-		updateCoreDNS:    updateCoreDNS,
+		operator:          config.Operator,
+		operation:         *config.Operation,
+		servers:           updates,
+		installedRuntime:  *installedRuntime,
+		installedApp:      *installedApp,
+		updateRuntime:     *updateRuntime,
+		updateApp:         *updateApp,
+		links:             links,
+		trustedClusters:   trustedClusters,
+		packageService:    config.Packages,
+		shouldUpdateEtcd:  shouldUpdateEtcd,
+		updateCoreDNS:     updateCoreDNS,
 		updateDNSAppEarly: updateDNSAppEarly,
 		roles:             roles,
 		leadMaster:        *leader,
@@ -548,7 +547,7 @@ func getExistingDNSConfig(packages pack.PackageService) (*storage.DNSConfig, err
 	}
 	defer rc.Close()
 	var configBytes []byte
-	err = archive.TarGlob(tar.NewReader(rc), "", []string{"vars.json"}, func(_ string, r io.Reader) error {
+	err = archive.TarGlob(tar.NewReader(rc), "", []string{"vars.json"}, func(_ string, _ *tar.Header, r *tar.Reader) error {
 		configBytes, err = ioutil.ReadAll(r)
 		if err != nil {
 			return trace.Wrap(err)

@@ -109,11 +109,29 @@ func Extract(r io.Reader, dir string) error {
 			return trace.Wrap(err)
 		}
 
-		if err := extractFile(tarball, header, dir); err != nil {
+		if err := extractFile(tarball, header, dir, header.Name); err != nil {
 			return trace.Wrap(err)
 		}
 	}
 	return nil
+}
+
+// ExtractGlob extracts the contents of the specified tarball under directory dir.
+// Only the files/directories found in tarDir in the tarball matching patterns are extracted.
+// Note, files from tarDir are written directly to dir omitting tarDir.
+// The resulting files and directories are created using the current user context.
+func ExtractGlob(r io.Reader, dir, tarDir string, patterns []string) error {
+	return trace.Wrap(TarGlob(tar.NewReader(r), tarDir, patterns, func(tarRelPath string, header *tar.Header, f *tar.Reader) error {
+		// Security: ensure tar doesn't refer to file paths outside the directory
+		err := SanitizeTarPath(header, dir)
+		if err != nil {
+			return trace.Wrap(err)
+		}
+		if err := extractFile(f, header, dir, tarRelPath); err != nil {
+			return trace.Wrap(err)
+		}
+		return nil
+	}))
 }
 
 // HasFile returns nil if the specified tarball contains specified file
@@ -125,7 +143,7 @@ func HasFile(tarballPath, filename string) error {
 	defer file.Close()
 	var hasFile bool
 	err = TarGlob(tar.NewReader(file), ".", []string{filename},
-		func(match string, file io.Reader) error {
+		func(_ string, _ *tar.Header, _ *tar.Reader) error {
 			hasFile = true
 			return Abort
 		})
@@ -146,7 +164,7 @@ func HasFile(tarballPath, filename string) error {
 // TarGlob iterates the contents of the specified tarball and invokes handler
 // for each file matching the list of specified patterns.
 // If the handler returns a special Abort error, iteration will be aborted without errors.
-func TarGlob(source *tar.Reader, dir string, patterns []string, handler func(match string, file io.Reader) error) (err error) {
+func TarGlob(source *tar.Reader, dir string, patterns []string, handler func(match string, hdr *tar.Header, r *tar.Reader) error) (err error) {
 	for {
 		var hdr *tar.Header
 		hdr, err = source.Next()
@@ -165,7 +183,7 @@ func TarGlob(source *tar.Reader, dir string, patterns []string, handler func(mat
 			if err == nil {
 				matched, _ := filepath.Match(pattern, filepath.Base(relpath))
 				if matched {
-					if err = handler(relpath, source); err != nil {
+					if err = handler(relpath, hdr, source); err != nil {
 						if trace.Unwrap(err) == Abort {
 							return nil
 						}
@@ -312,16 +330,20 @@ var Abort = errors.New("abort iteration")
 // extractFile extracts a single file or directory from tarball into dir.
 // Uses header to determine the type of item to create
 // Based on https://github.com/mholt/archiver
-func extractFile(tarball *tar.Reader, header *tar.Header, dir string) error {
+func extractFile(tarball *tar.Reader, header *tar.Header, dir, path string) error {
+	if path == "" {
+		path = header.Name
+	}
+	targetPath := filepath.Join(dir, path)
 	switch header.Typeflag {
 	case tar.TypeDir:
-		return withDir(filepath.Join(dir, header.Name), nil)
+		return withDir(targetPath, nil)
 	case tar.TypeBlock, tar.TypeChar, tar.TypeReg, tar.TypeRegA, tar.TypeFifo:
-		return writeFile(filepath.Join(dir, header.Name), tarball, header.FileInfo().Mode())
+		return writeFile(targetPath, tarball, header.FileInfo().Mode())
 	case tar.TypeLink:
-		return writeHardLink(filepath.Join(dir, header.Name), filepath.Join(dir, header.Linkname))
+		return writeHardLink(targetPath, filepath.Join(dir, header.Linkname))
 	case tar.TypeSymlink:
-		return writeSymbolicLink(filepath.Join(dir, header.Name), header.Linkname)
+		return writeSymbolicLink(targetPath, header.Linkname)
 	default:
 		log.Warnf("unsupported type flag %v for %v", header.Typeflag, header.Name)
 	}

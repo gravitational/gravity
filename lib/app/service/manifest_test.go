@@ -17,22 +17,13 @@ limitations under the License.
 package service
 
 import (
-	"os"
 	"testing"
 
 	"github.com/gravitational/gravity/lib/archive"
 
 	"github.com/gravitational/trace"
-	log "github.com/sirupsen/logrus"
 	. "gopkg.in/check.v1"
 )
-
-func init() {
-	if testing.Verbose() {
-		log.SetOutput(os.Stderr)
-		log.SetLevel(log.InfoLevel)
-	}
-}
 
 func TestService(t *testing.T) { TestingT(t) }
 
