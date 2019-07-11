@@ -76,8 +76,13 @@ func NewKubernetesCollector(ctx context.Context, runner utils.CommandRunner) Col
 				name := fmt.Sprintf("k8s-logs-%v-%v-%v", namespace, pod, container)
 				commands = append(commands, Cmd(name, utils.PlanetCommand(kubectl.Command("logs", pod,
 					"--namespace", namespace,
-					fmt.Sprintf("-c=%v", container)))...),
-				)
+					fmt.Sprintf("-c=%v", container)))...))
+				// Also collect logs for the previous instance
+				// of the container if there's any.
+				name = fmt.Sprintf("%v-prev", name)
+				commands = append(commands, Cmd(name, utils.PlanetCommand(kubectl.Command("logs", pod,
+					"--namespace", namespace, "-p",
+					fmt.Sprintf("-c=%v", container)))...))
 			}
 		}
 	}
