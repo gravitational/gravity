@@ -391,6 +391,9 @@ const (
 	// PlanetDir is the name of the planet directory
 	PlanetDir = "planet"
 
+	// DockerDir is the name of the Docker data directory
+	DockerDir = "docker"
+
 	// ShareDir is the name of the share directory
 	ShareDir = "share"
 

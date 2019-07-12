@@ -23,6 +23,7 @@ import (
 	"github.com/gravitational/gravity/lib/app"
 	apptest "github.com/gravitational/gravity/lib/app/service/test"
 	"github.com/gravitational/gravity/lib/archive"
+	"github.com/gravitational/gravity/lib/compare"
 	"github.com/gravitational/gravity/lib/constants"
 	"github.com/gravitational/gravity/lib/loc"
 	"github.com/gravitational/gravity/lib/ops"
@@ -66,7 +67,7 @@ func (s *PlanSuite) TestPlanWithRuntimeUpdate(c *check.C) {
 				Enabled:    true,
 			},
 		},
-		dnsConfig:  storage.DefaultDNSConfig,
+		dnsConfig: storage.DefaultDNSConfig,
 		// Use an alternative (other than first) master node as leader
 		leadMaster: updates[1],
 	}
@@ -78,7 +79,7 @@ func (s *PlanSuite) TestPlanWithRuntimeUpdate(c *check.C) {
 	update.ResolvePlan(obtainedPlan)
 
 	// verify
-	c.Assert(*obtainedPlan, check.DeepEquals, storage.OperationPlan{
+	c.Assert(*obtainedPlan, compare.DeepEquals, storage.OperationPlan{
 		OperationID:    config.operation.ID,
 		OperationType:  config.operation.Type,
 		AccountID:      config.operation.AccountID,
@@ -439,6 +440,60 @@ func (r *params) masters(otherMasters []storage.UpdateServer) storage.OperationP
 	}
 }
 
+func (r *params) dockerPhase(node storage.UpdateServer) storage.OperationPhase {
+	t := func(format string) string {
+		if node.IsMaster() {
+			return fmt.Sprintf(format, "masters", node.Hostname)
+		}
+		return fmt.Sprintf(format, "nodes", node.Hostname)
+	}
+	return storage.OperationPhase{
+		ID: t("/%v/%v/docker"),
+		Description: fmt.Sprintf("Repurpose devicemapper device %v for overlay data",
+			node.GetDockerDevice()),
+		Requires: []string{t("/%v/%v/system-upgrade")},
+		Phases: []storage.OperationPhase{
+			{
+				ID:       t("/%v/%v/docker/devicemapper"),
+				Executor: dockerDevicemapper,
+				Description: fmt.Sprintf("Remove devicemapper environment from %v",
+					node.GetDockerDevice()),
+				Data: &storage.OperationPhaseData{
+					Server: &node.Server,
+				},
+			},
+			{
+				ID:          t("/%v/%v/docker/format"),
+				Executor:    dockerFormat,
+				Description: fmt.Sprintf("Format %v", node.GetDockerDevice()),
+				Data: &storage.OperationPhaseData{
+					Server: &node.Server,
+				},
+			},
+			{
+				ID:       t("/%v/%v/docker/mount"),
+				Executor: dockerMount,
+				Description: fmt.Sprintf("Create mount for %v",
+					node.GetDockerDevice()),
+				Data: &storage.OperationPhaseData{
+					Server: &node.Server,
+				},
+			},
+			{
+				ID:          t("/%v/%v/docker/planet"),
+				Executor:    planetStart,
+				Description: "Start the new Planet container",
+				Data: &storage.OperationPhaseData{
+					Server: &node.Server,
+					Update: &storage.UpdateOperationData{
+						Servers: []storage.UpdateServer{node},
+					},
+				},
+			},
+		},
+	}
+}
+
 func (r *params) leaderMasterPhase() storage.OperationPhase {
 	t := func(format string) string {
 		return fmt.Sprintf(format, r.leadMaster.Hostname)
@@ -489,6 +544,7 @@ func (r *params) leaderMasterPhase() storage.OperationPhase {
 				},
 				Requires: []string{t("/masters/%v/drain")},
 			},
+			r.dockerPhase(r.leadMaster),
 			{
 				ID:          t("/masters/%v/uncordon"),
 				Executor:    uncordonNode,
@@ -497,7 +553,7 @@ func (r *params) leaderMasterPhase() storage.OperationPhase {
 					Server:     &r.leadMaster.Server,
 					ExecServer: &r.leadMaster.Server,
 				},
-				Requires: []string{t("/masters/%v/system-upgrade")},
+				Requires: []string{t("/masters/%v/docker")},
 			},
 		},
 	}
@@ -533,6 +589,7 @@ func (r *params) otherMasterPhase(server storage.UpdateServer) storage.Operation
 				},
 				Requires: []string{t("/masters/%v/drain")},
 			},
+			r.dockerPhase(server),
 			{
 				ID:          t("/masters/%v/uncordon"),
 				Executor:    uncordonNode,
@@ -541,7 +598,7 @@ func (r *params) otherMasterPhase(server storage.UpdateServer) storage.Operation
 					Server:     &server.Server,
 					ExecServer: &r.leadMaster.Server,
 				},
-				Requires: []string{t("/masters/%v/system-upgrade")},
+				Requires: []string{t("/masters/%v/docker")},
 			},
 			{
 				ID:          t("/masters/%v/endpoints"),
@@ -609,6 +666,7 @@ func (r *params) nodePhase(server storage.UpdateServer) storage.OperationPhase {
 				},
 				Requires: []string{t("/nodes/%v/drain")},
 			},
+			r.dockerPhase(server),
 			{
 				ID:          t("/nodes/%v/uncordon"),
 				Executor:    uncordonNode,
@@ -617,7 +675,7 @@ func (r *params) nodePhase(server storage.UpdateServer) storage.OperationPhase {
 					Server:     &server.Server,
 					ExecServer: &r.leadMaster.Server,
 				},
-				Requires: []string{t("/nodes/%v/system-upgrade")},
+				Requires: []string{t("/nodes/%v/docker")},
 			},
 			{
 				ID:          t("/nodes/%v/endpoints"),
@@ -998,24 +1056,41 @@ var runtimePackage = storage.RuntimePackage{
 }
 var gravityInstalledLoc = loc.MustParseLocator("gravitational.io/gravity:1.0.0")
 var gravityUpdateLoc = loc.MustParseLocator("gravitational.io/gravity:2.0.0")
+var dockerDevice = storage.Docker{
+	Device: storage.Device{
+		Name: storage.DeviceName("vdb"),
+	},
+}
 var servers = []storage.Server{
 	{
 		AdvertiseIP: "192.168.0.1",
 		Hostname:    "node-1",
 		Role:        "node",
 		ClusterRole: string(schema.ServiceRoleMaster),
+		Docker:      dockerDevice,
 	},
 	{
 		AdvertiseIP: "192.168.0.2",
 		Hostname:    "node-2",
 		Role:        "node",
 		ClusterRole: string(schema.ServiceRoleMaster),
+		Docker:      dockerDevice,
 	},
 	{
 		AdvertiseIP: "192.168.0.3",
 		Hostname:    "node-3",
 		Role:        "node",
 		ClusterRole: string(schema.ServiceRoleNode),
+		Docker:      dockerDevice,
+	},
+}
+
+var dockerUpdate = storage.DockerUpdate{
+	Installed: storage.DockerConfig{
+		StorageDriver: constants.DockerStorageDriverDevicemapper,
+	},
+	Update: storage.DockerConfig{
+		StorageDriver: constants.DockerStorageDriverOverlay2,
 	},
 }
 
@@ -1023,14 +1098,17 @@ var updates = []storage.UpdateServer{
 	{
 		Server:  servers[0],
 		Runtime: runtimePackage,
+		Docker:  dockerUpdate,
 	},
 	{
 		Server:  servers[1],
 		Runtime: runtimePackage,
+		Docker:  dockerUpdate,
 	},
 	{
 		Server:  servers[2],
 		Runtime: runtimePackage,
+		Docker:  dockerUpdate,
 	},
 }
 

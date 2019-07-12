@@ -366,9 +366,12 @@
   version = "v0.2.0"
 
 [[projects]]
-  digest = "1:d5286d88d5620c43617ecec0ec188ded033bf7a434b0c708cd16cd9a40545d04"
+  digest = "1:32ec7ebceaf0a3bcab3b0d40a3e901cecc9b46d103c81fe206e76fdde5f2f21c"
   name = "github.com/coreos/go-systemd"
-  packages = ["dbus"]
+  packages = [
+    "dbus",
+    "unit",
+  ]
   pruneopts = "UT"
   revision = "40e2722dffead74698ca12a750f64ef313ddce05"
   version = "v16"
@@ -2460,6 +2463,7 @@
     "github.com/coreos/etcd/client",
     "github.com/coreos/etcd/pkg/transport",
     "github.com/coreos/go-semver/semver",
+    "github.com/coreos/go-systemd/unit",
     "github.com/davecgh/go-spew/spew",
     "github.com/docker/distribution",
     "github.com/docker/distribution/configuration",

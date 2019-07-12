@@ -57,6 +57,8 @@ type NewServiceRequest struct {
 	Name string `json:"Name"`
 	// NoBlock means we won't block and wait until service starts
 	NoBlock bool `json:"-"`
+	// NoStart means do not start the unit
+	NoStart bool `json:"-"`
 }
 
 // NewMountServiceRequest describes a request to create a new systemd mount service
@@ -81,6 +83,8 @@ type NewPackageServiceRequest struct {
 	ConfigPackage loc.Locator `json:"-"`
 	// NoBlock means async operation
 	NoBlock bool `json:"-"`
+	// NoStart means do not start the unit
+	NoStart bool `json:"-"`
 }
 
 // ServiceSpec is a generic service specification
@@ -192,6 +196,16 @@ type PackageServiceStatus struct {
 	Status string
 }
 
+// MountStatus describes status of a mount service.
+type MountStatus struct {
+	// Name is the mount service name.
+	Name string
+	// MointPoint is the mount service mount point.
+	MountPoint string
+	// Status is the mount service status.
+	Status string
+}
+
 // ServiceManager is an interface for collaborating with system
 // service managers, e.g. systemd for host packages
 type ServiceManager interface {
@@ -209,6 +223,9 @@ type ServiceManager interface {
 
 	// ListPackageServices lists installed services
 	ListPackageServices() ([]PackageServiceStatus, error)
+
+	// ListMounts lists all mount services
+	ListMounts() ([]MountStatus, error)
 
 	// StartPackageService starts package service
 	StartPackageService(pkg loc.Locator, noBlock bool) error

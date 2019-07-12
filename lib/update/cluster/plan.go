@@ -26,6 +26,7 @@ import (
 
 	"github.com/gravitational/gravity/lib/app"
 	"github.com/gravitational/gravity/lib/archive"
+	"github.com/gravitational/gravity/lib/checks"
 	"github.com/gravitational/gravity/lib/constants"
 	"github.com/gravitational/gravity/lib/defaults"
 	"github.com/gravitational/gravity/lib/loc"
@@ -203,18 +204,18 @@ func NewOperationPlan(config PlanConfig) (*storage.OperationPlan, error) {
 			DNSConfig:      config.DNSConfig,
 			GravityPackage: *gravityPackage,
 		},
-		operator:         config.Operator,
-		operation:        *config.Operation,
-		servers:          updates,
-		installedRuntime: *installedRuntime,
-		installedApp:     *installedApp,
-		updateRuntime:    *updateRuntime,
-		updateApp:        *updateApp,
-		links:            links,
-		trustedClusters:  trustedClusters,
-		packageService:   config.Packages,
-		shouldUpdateEtcd: shouldUpdateEtcd,
-		updateCoreDNS:    updateCoreDNS,
+		operator:          config.Operator,
+		operation:         *config.Operation,
+		servers:           updates,
+		installedRuntime:  *installedRuntime,
+		installedApp:      *installedApp,
+		updateRuntime:     *updateRuntime,
+		updateApp:         *updateApp,
+		links:             links,
+		trustedClusters:   trustedClusters,
+		packageService:    config.Packages,
+		shouldUpdateEtcd:  shouldUpdateEtcd,
+		updateCoreDNS:     updateCoreDNS,
 		updateDNSAppEarly: updateDNSAppEarly,
 		roles:             roles,
 		leadMaster:        *leader,
@@ -415,7 +416,7 @@ func newOperationPlan(p planConfig) (*storage.OperationPlan, error) {
 // configUpdates computes the configuration updates for the specified list of servers
 func configUpdates(
 	installed, update schema.Manifest,
-	operator packageRotator,
+	operator ops.Operator,
 	operation ops.SiteOperationKey,
 	servers []storage.Server,
 ) (updates []storage.UpdateServer, err error) {
@@ -441,6 +442,10 @@ func configUpdates(
 		if err != nil {
 			return nil, trace.Wrap(err)
 		}
+		installedDocker, err := ops.GetDockerConfig(operator, operation.SiteKey())
+		if err != nil {
+			return nil, trace.Wrap(err)
+		}
 		updateServer := storage.UpdateServer{
 			Server: server,
 			Runtime: storage.RuntimePackage{
@@ -449,6 +454,11 @@ func configUpdates(
 			},
 			Teleport: storage.TeleportPackage{
 				Installed: *installedTeleport,
+			},
+			Docker: storage.DockerUpdate{
+				Installed: *installedDocker,
+				Update: checks.DockerConfigFromSchemaValue(
+					update.SystemDocker()),
 			},
 		}
 		needsPlanetUpdate, needsTeleportUpdate, err := systemNeedsUpdate(

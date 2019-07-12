@@ -256,7 +256,7 @@ func (o *Operator) RotatePlanetConfig(req ops.RotatePlanetConfigRequest) (*ops.R
 
 	dockerConfig := cluster.dockerConfig()
 	checks.OverrideDockerConfig(&dockerConfig,
-		checks.DockerConfigFromSchema(req.Manifest.SystemOptions.DockerConfig()))
+		checks.DockerConfigFromSchemaValue(req.Manifest.SystemDocker()))
 
 	config := planetConfig{
 		master: masterConfig{
@@ -539,22 +539,12 @@ func (s *site) checkUpdateParameters(update *pack.PackageEnvelope, provisioner s
 func (s *site) validateDockerConfig(updateManifest schema.Manifest) error {
 	docker := updateManifest.SystemOptions.DockerConfig()
 	if docker == nil {
-		// No changes
 		return nil
 	}
-
-	existingDocker := s.dockerConfig()
-	if existingDocker.IsEmpty() {
-		installOperation, err := ops.GetCompletedInstallOperation(s.key, s.service)
-		if err != nil {
-			return trace.Wrap(err)
-		}
-
-		defaultConfig := checks.DockerConfigFromSchemaValue(s.app.Manifest.SystemDocker())
-		checks.OverrideDockerConfig(&defaultConfig, installOperation.InstallExpand.Vars.System.Docker)
-		existingDocker = defaultConfig
+	existingDocker, err := ops.GetDockerConfig(s.service, s.key)
+	if err != nil {
+		return trace.Wrap(err)
 	}
-
 	if docker.StorageDriver != existingDocker.StorageDriver &&
 		!utils.StringInSlice(constants.DockerSupportedTargetDrivers, docker.StorageDriver) {
 		return trace.BadParameter(`Updating Docker storage driver to %q is not supported.

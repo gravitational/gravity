@@ -20,9 +20,36 @@ import (
 	"github.com/gravitational/gravity/lib/storage"
 	"github.com/gravitational/gravity/lib/systemservice"
 
+	"github.com/coreos/go-systemd/unit"
 	"github.com/gravitational/trace"
 	log "github.com/sirupsen/logrus"
 )
+
+// Mount creates and starts a new systemd mount.
+func Mount(config ServiceConfig) error {
+	serviceManager, err := systemservice.New()
+	if err != nil {
+		return trace.Wrap(err)
+	}
+	err = MountService(config, config.ServiceName(), serviceManager)
+	if err != nil {
+		return trace.Wrap(err)
+	}
+	return nil
+}
+
+// Unmount uninstalls specified systemd mount service.
+func Unmount(serviceName string) error {
+	serviceManager, err := systemservice.New()
+	if err != nil {
+		return trace.Wrap(err)
+	}
+	err = UnmountService(serviceName, serviceManager)
+	if err != nil {
+		return trace.Wrap(err)
+	}
+	return nil
+}
 
 // MountService creates a new mount based on the given configuration.
 // The mount is created as a systemd mount unit named service.
@@ -78,4 +105,13 @@ type ServiceConfig struct {
 	Filesystem string
 	// Options lists mount options to use when mounting
 	Options []string
+}
+
+// ServiceName returns name of the mount service.
+//
+// Systemd mount unit must have a name that has all mount point path elements
+// separated by dashes, so the name for "/var/lib/gravity" mount would become
+// "var-lib-gravity.mount".
+func (c ServiceConfig) ServiceName() string {
+	return unit.UnitNamePathEscape(c.Where) + ".mount"
 }

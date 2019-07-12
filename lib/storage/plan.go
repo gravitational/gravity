@@ -19,6 +19,7 @@ package storage
 import (
 	"time"
 
+	"github.com/gravitational/gravity/lib/constants"
 	"github.com/gravitational/gravity/lib/loc"
 	"github.com/gravitational/gravity/lib/schema"
 	"github.com/gravitational/gravity/lib/utils"
@@ -158,6 +159,35 @@ type UpdateServer struct {
 	Runtime RuntimePackage `json:"runtime"`
 	// Teleport defines the optional teleport update
 	Teleport TeleportPackage `json:"teleport"`
+	// Docker describes Docker configuration update on the node
+	Docker DockerUpdate `json:"docker"`
+}
+
+// DockerUpdate describes node's Docker configuration update if there's any.
+type DockerUpdate struct {
+	// Installed is the currently installed configuration.
+	Installed DockerConfig `json:"installed"`
+	// Update is the configuration for the new version.
+	Update DockerConfig `json:"update"`
+}
+
+// ShouldMigrateDockerDevice returns true if the device currently used by
+// Docker devicemapper storage driver should be repurposed for overlay
+// data during this upgrade operation.
+func (s UpdateServer) ShouldMigrateDockerDevice() bool {
+	// For safety, only consider explicit change from devicemapper.
+	if s.Docker.Installed.StorageDriver != constants.DockerStorageDriverDevicemapper {
+		return false
+	}
+	// Devicemapper may be using loopback device.
+	if s.GetDockerDevice() == "" {
+		return false
+	}
+	// For safety, only consider explicit change to overlay.
+	return utils.StringInSlice([]string{
+		constants.DockerStorageDriverOverlay,
+		constants.DockerStorageDriverOverlay2,
+	}, s.Docker.Update.StorageDriver)
 }
 
 // RuntimePackage describes the state of the runtime package during update

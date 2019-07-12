@@ -475,9 +475,66 @@ func (r phaseBuilder) node(server storage.Server, parent update.ParentPhase, for
 	}
 }
 
+// dockerDevicePhase builds a phase that takes care of repurposing device used
+// by Docker devicemapper driver for overlay data.
+func dockerDevicePhase(node storage.UpdateServer) update.Phase {
+	// This phase will remove devicemapper environment (pv, vg, lv) from
+	// the devicemapper device.
+	devicemapper := update.Phase{
+		ID:       "devicemapper",
+		Executor: dockerDevicemapper,
+		Description: fmt.Sprintf("Remove devicemapper environment from %v",
+			node.GetDockerDevice()),
+		Data: &storage.OperationPhaseData{
+			Server: &node.Server,
+		},
+	}
+	// This phase will re-format the device to xfs or ext4.
+	format := update.Phase{
+		ID:          "format",
+		Executor:    dockerFormat,
+		Description: fmt.Sprintf("Format %v", node.GetDockerDevice()),
+		Data: &storage.OperationPhaseData{
+			Server: &node.Server,
+		},
+	}
+	// This phase will mount the device under Docker data directory.
+	mount := update.Phase{
+		ID:       "mount",
+		Executor: dockerMount,
+		Description: fmt.Sprintf("Create mount for %v",
+			node.GetDockerDevice()),
+		Data: &storage.OperationPhaseData{
+			Server: &node.Server,
+		},
+	}
+	// This phase will start the Planet unit and wait till it's up.
+	planet := update.Phase{
+		ID:          "planet",
+		Executor:    planetStart,
+		Description: "Start the new Planet container",
+		Data: &storage.OperationPhaseData{
+			Server: &node.Server,
+			Update: &storage.UpdateOperationData{
+				Servers: []storage.UpdateServer{node},
+			},
+		},
+	}
+	return update.Phase{
+		ID: "docker",
+		Description: fmt.Sprintf("Repurpose devicemapper device %v for overlay data",
+			node.GetDockerDevice()),
+		Phases: update.Phases{
+			devicemapper,
+			format,
+			mount,
+			planet,
+		}.AsPhases(),
+	}
+}
+
 // commonNode returns a list of operations required for any node role to upgrade its system software
-func (r phaseBuilder) commonNode(server, leadMaster storage.UpdateServer, supportsTaints bool,
-	waitsForEndpoints waitsForEndpoints) []update.Phase {
+func (r phaseBuilder) commonNode(server, leadMaster storage.UpdateServer, supportsTaints bool, waitsForEndpoints waitsForEndpoints) []update.Phase {
 	phases := []update.Phase{
 		{
 			ID:          "drain",
@@ -499,6 +556,9 @@ func (r phaseBuilder) commonNode(server, leadMaster storage.UpdateServer, suppor
 				},
 			},
 		},
+	}
+	if server.ShouldMigrateDockerDevice() {
+		phases = append(phases, dockerDevicePhase(server))
 	}
 	if supportsTaints {
 		phases = append(phases, update.Phase{

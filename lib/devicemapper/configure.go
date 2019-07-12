@@ -66,7 +66,7 @@ func Mount(disk string, out io.Writer, entry log.FieldLogger) (err error) {
 }
 
 // Unmount removes docker devicemapper environment
-func Unmount(out io.Writer, entry *log.Entry) (err error) {
+func Unmount(out io.Writer, entry log.FieldLogger) (err error) {
 	disk, err := queryPhysicalVolume(entry)
 	if err != nil {
 		return trace.Wrap(err)
@@ -96,7 +96,7 @@ func Unmount(out io.Writer, entry *log.Entry) (err error) {
 	return nil
 }
 
-func queryPhysicalVolume(entry *log.Entry) (disk string, err error) {
+func queryPhysicalVolume(entry log.FieldLogger) (disk string, err error) {
 	entry.Debugf("query physical volume information")
 
 	out := bytes.Buffer{}

@@ -1,5 +1,5 @@
 /*
-Copyright 2018 Gravitational, Inc.
+Copyright 2018-2019 Gravitational, Inc.
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -28,7 +28,9 @@ import (
 	"github.com/gravitational/gravity/lib/ops"
 	"github.com/gravitational/gravity/lib/pack"
 	"github.com/gravitational/gravity/lib/state"
+	"github.com/gravitational/gravity/lib/status"
 	"github.com/gravitational/gravity/lib/storage"
+	"github.com/gravitational/gravity/lib/systemservice"
 	"github.com/gravitational/gravity/lib/update"
 	"github.com/gravitational/gravity/lib/update/system"
 	"github.com/gravitational/gravity/lib/utils"
@@ -36,6 +38,72 @@ import (
 	"github.com/gravitational/trace"
 	log "github.com/sirupsen/logrus"
 )
+
+// planetStart is executor that starts specified Planet service.
+type planetStart struct {
+	// FieldLogger is used for logging.
+	log.FieldLogger
+	// Node is the node where Planet service should be started.
+	Node storage.UpdateServer
+	// Package is the Planet package to start the service for.
+	Package loc.Locator
+	// Remote allows to invoke remote commands.
+	Remote fsm.Remote
+}
+
+// NewPlanetStart returns executor that starts specified Planet service.
+func NewPlanetStart(p fsm.ExecutorParams, remote fsm.Remote, log log.FieldLogger) (*planetStart, error) {
+	node := p.Phase.Data.Update.Servers[0]
+	return &planetStart{
+		FieldLogger: log,
+		Node:        node,
+		Package:     node.Runtime.Update.Package,
+		Remote:      remote,
+	}, nil
+}
+
+// Execute starts specified Planet service.
+func (p *planetStart) Execute(ctx context.Context) error {
+	p.Infof("Starting systemd service for %v.", p.Package)
+	serviceManager, err := systemservice.New()
+	if err != nil {
+		return trace.Wrap(err)
+	}
+	err = serviceManager.StartPackageService(p.Package, true)
+	if err != nil {
+		return trace.Wrap(err)
+	}
+	p.Infof("Started systemd service for %v.", p.Package)
+	err = status.Wait(ctx)
+	if err != nil {
+		return trace.Wrap(err)
+	}
+	p.Infof("Planet is running.")
+	return nil
+}
+
+// Rollback stops specified Planet service.
+func (p *planetStart) Rollback(ctx context.Context) error {
+	p.Infof("Stopping systemd service for %v.", p.Package)
+	serviceManager, err := systemservice.New()
+	if err != nil {
+		return trace.Wrap(err)
+	}
+	err = serviceManager.StopPackageService(p.Package)
+	if err != nil {
+		return trace.Wrap(err)
+	}
+	p.Infof("Stopped systemd service for %v.", p.Package)
+	return nil
+}
+
+// PreCheck makes sure the phase runs on the correct node.
+func (p *planetStart) PreCheck(ctx context.Context) error {
+	return trace.Wrap(p.Remote.CheckServer(ctx, p.Node.Server))
+}
+
+// PostCheck is no-op.
+func (*planetStart) PostCheck(context.Context) error { return nil }
 
 // updatePhaseSystem is the executor for the update master/node update phase
 type updatePhaseSystem struct {
@@ -112,6 +180,7 @@ func (p *updatePhaseSystem) Execute(ctx context.Context) error {
 		config.Runtime.ConfigPackage = &storage.PackageUpdate{
 			To: p.Server.Runtime.Update.ConfigPackage,
 		}
+		config.Runtime.NoStart = p.Server.ShouldMigrateDockerDevice()
 	}
 	if p.Server.Teleport.Update != nil {
 		// Consider teleport update only in effect when the update package
@@ -134,7 +203,7 @@ func (p *updatePhaseSystem) Execute(ctx context.Context) error {
 	if err != nil {
 		return trace.Wrap(err)
 	}
-	err = updater.Update(ctx, true)
+	err = updater.Update(ctx, !config.Runtime.NoStart)
 	return trace.Wrap(err)
 }
 

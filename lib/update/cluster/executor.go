@@ -77,6 +77,14 @@ const (
 	updateEtcdRestartGravity = "etcd_restart_gravity"
 	// cleanupNode is the phase to clean up a node after the upgrade
 	cleanupNode = "cleanup_node"
+	// dockerDevicemapper is the phase that mounts/unmounts devicemapper devices.
+	dockerDevicemapper = "devicemapper"
+	// dockerFormat is the phase that formats devices.
+	dockerFormat = "format"
+	// dockerMount is the phase that mounts/unmounts devices.
+	dockerMount = "mount"
+	// planetStart is the phase that starts Planet systemd unit.
+	planetStart = "planet_start"
 )
 
 // fsmSpec returns the function that returns an appropriate phase executor
@@ -158,6 +166,14 @@ func fsmSpec(c Config) fsm.FSMSpecFunc {
 			return libphase.NewPhaseUpgradeGravitySiteRestart(p.Phase, c.Client, logger)
 		case cleanupNode:
 			return libphase.NewGarbageCollectPhase(p, remote, logger)
+		case dockerDevicemapper:
+			return libphase.NewDockerDevicemapper(p, remote, logger)
+		case dockerFormat:
+			return libphase.NewDockerFormat(p, remote, logger)
+		case dockerMount:
+			return libphase.NewDockerMount(p, remote, logger)
+		case planetStart:
+			return libphase.NewPlanetStart(p, remote, logger)
 		default:
 			return nil, trace.BadParameter(
 				"phase %q requires executor %q (potential mismatch between upgrade versions)",

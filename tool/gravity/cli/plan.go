@@ -171,6 +171,9 @@ func outputPlan(plan storage.OperationPlan, format constants.Format) (err error)
 	case constants.EncodingText:
 		fsm.FormatOperationPlanText(os.Stdout, plan)
 		err = explainPlan(plan.Phases)
+	case constants.EncodingShort:
+		fsm.FormatOperationPlanShort(os.Stdout, plan)
+		err = explainPlan(plan.Phases)
 	default:
 		return trace.BadParameter("unknown output format %q", format)
 	}

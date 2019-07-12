@@ -30,6 +30,7 @@ import (
 	"github.com/gravitational/gravity/lib/loc"
 	"github.com/gravitational/gravity/lib/utils"
 
+	"github.com/coreos/go-systemd/unit"
 	"github.com/gravitational/trace"
 	log "github.com/sirupsen/logrus"
 )
@@ -76,6 +77,7 @@ WantedBy={{.WantedBy}}
 	systemdUnitFileDir = "/etc/systemd/system/"
 
 	systemdUnitFileSuffix = ".service"
+	systemdMountSuffix    = ".mount"
 
 	systemdServiceDelimiter = "__"
 )
@@ -112,10 +114,19 @@ func parseUnit(unit string) *loc.Locator {
 	}
 	loc, err := loc.NewLocator(parts[1], parts[2], parts[3])
 	if err != nil {
-
 		return nil
 	}
 	return loc
+}
+
+// parseMount parses mount point from the mount service name.
+//
+// Systemd mount unit name consists of all mount point path elements
+// separated by dashes so mount service with name "var-lib-gravity.mount"
+// has a mount point /var/lib/gravity.
+func parseMount(mount string) string {
+	name := strings.TrimSuffix(mount, systemdMountSuffix)
+	return unit.UnitNamePathUnescape(name)
 }
 
 func (u *systemdUnit) serviceName() string {
@@ -128,7 +139,7 @@ func (u *systemdUnit) servicePath() string {
 	return filepath.Join(systemdUnitFileDir, u.serviceName())
 }
 
-func (s *systemdManager) installService(service serviceTemplate, noBlock bool) error {
+func (s *systemdManager) installService(service serviceTemplate, noBlock, noStart bool) error {
 	service.Environment = map[string]string{
 		defaults.PathEnv: defaults.PathEnvVal,
 	}
@@ -148,6 +159,11 @@ func (s *systemdManager) installService(service serviceTemplate, noBlock bool) e
 
 	if err := s.EnableService(service.Name); err != nil {
 		return trace.Wrap(err, "error enabling the service")
+	}
+
+	if noStart {
+		log.Infof("Not starting service %v.", service.Name)
+		return nil
 	}
 
 	if err := s.StartService(service.Name, noBlock); err != nil {
@@ -209,7 +225,7 @@ func (s *systemdManager) InstallPackageService(req NewPackageServiceRequest) err
 		Description: fmt.Sprintf("Auto-generated service for the %v package", req.Package),
 	}
 
-	return trace.Wrap(s.installService(template, req.NoBlock))
+	return trace.Wrap(s.installService(template, req.NoBlock, req.NoStart))
 }
 
 // UninstallPackageService uninstalls gravity service implemented as a gravity package command
@@ -260,6 +276,26 @@ func (s *systemdManager) ListPackageServices() ([]PackageServiceStatus, error) {
 	return services, nil
 }
 
+// ListMounts lists all mount services.
+func (s *systemdManager) ListMounts() (mounts []MountStatus, err error) {
+	out, err := invokeSystemctl("list-units", "--plain", "--no-legend")
+	if err != nil {
+		return nil, trace.Wrap(err, "failed to list-units: %s", out)
+	}
+	for _, line := range strings.Split(out, "\n") {
+		words := strings.Fields(line)
+		if len(words) < 3 || !strings.HasSuffix(words[0], systemdMountSuffix) {
+			continue
+		}
+		mounts = append(mounts, MountStatus{
+			Name:       words[0],
+			MountPoint: parseMount(words[0]),
+			Status:     words[2],
+		})
+	}
+	return mounts, nil
+}
+
 // EnablePackageService enables package service
 func (s *systemdManager) EnablePackageService(pkg loc.Locator) error {
 	return trace.Wrap(s.EnableService(newSystemdUnit(pkg).serviceName()))
@@ -304,7 +340,7 @@ func (s *systemdManager) InstallService(req NewServiceRequest) error {
 		ServiceSpec: req.ServiceSpec,
 		Description: fmt.Sprintf("Auto-generated service for the %v", req.Name),
 	}
-	return trace.Wrap(s.installService(template, req.NoBlock))
+	return trace.Wrap(s.installService(template, req.NoBlock, req.NoStart))
 }
 
 // InstalMountService installs a new mount service with the system service manager

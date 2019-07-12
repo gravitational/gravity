@@ -1157,6 +1157,8 @@ type PackageUpdate struct {
 	Labels map[string]string `json:"labels,omitempty"`
 	// ConfigPackage specifies optional configuration package dependency
 	ConfigPackage *PackageUpdate `json:"config_package,omitempty"`
+	// NoStart indicates that package service shouldn't be auto-started after upgrade
+	NoStart bool `json:"no_start"`
 }
 
 // String formats this update as human-readable text
@@ -1570,6 +1572,11 @@ func (s *Server) StateDir() string {
 		return s.SystemState.StateDir
 	}
 	return defaults.GravityDir
+}
+
+// GetDockerDevice returns device used for Docker devicemapper data.
+func (s *Server) GetDockerDevice() string {
+	return s.Docker.Device.Path()
 }
 
 // KubeNodeID returns the identity of the node within the kubernetes cluster (kubectl get node)
