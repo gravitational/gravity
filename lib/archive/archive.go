@@ -116,22 +116,33 @@ func Extract(r io.Reader, dir string) error {
 	return nil
 }
 
-// ExtractGlob extracts the contents of the specified tarball under directory dir.
-// Only the files/directories found in tarDir in the tarball matching patterns are extracted.
+// ExtractWithPrefix extracts the contents of the specified tarball under directory dir.
+// Only the files/directories found in tarDirPrefix in the tarball matching patterns are extracted.
 // Note, files from tarDir are written directly to dir omitting tarDir.
 // The resulting files and directories are created using the current user context.
-func ExtractGlob(r io.Reader, dir, tarDir string, patterns []string) error {
-	return trace.Wrap(TarGlob(tar.NewReader(r), tarDir, patterns, func(tarRelPath string, header *tar.Header, f *tar.Reader) error {
-		// Security: ensure tar doesn't refer to file paths outside the directory
-		err := SanitizeTarPath(header, dir)
+func ExtractWithPrefix(r io.Reader, dir, tarDirPrefix string) error {
+	err := TarGlobWithPrefix(tar.NewReader(r), tarDirPrefix, func(match *tar.Header, r *tar.Reader) error {
+		relpath, err := filepath.Rel(tarDirPrefix, match.Name)
 		if err != nil {
 			return trace.Wrap(err)
 		}
-		if err := extractFile(f, header, dir, tarRelPath); err != nil {
+		// Security: ensure tar doesn't refer to file paths outside the directory
+		err = validPath(relpath, dir, "invalid file path")
+		if err != nil {
+			return trace.Wrap(err)
+		}
+		if match.Linkname != "" {
+			err = validPath(match.Linkname, dir, "invalid link path")
+			if err != nil {
+				return trace.Wrap(err)
+			}
+		}
+		if err := extractFile(r, match, dir, relpath); err != nil {
 			return trace.Wrap(err)
 		}
 		return nil
-	}))
+	})
+	return trace.Wrap(err)
 }
 
 // HasFile returns nil if the specified tarball contains specified file
@@ -195,6 +206,39 @@ func TarGlob(source *tar.Reader, dir string, patterns []string, handler func(mat
 	}
 	return nil
 }
+
+// TarGlobWithPrefix iterates the contents of the specified tarball and invokes handler
+// for each file in the directory with the specified prefix (and all its sub-directories).
+// If the handler returns a special Abort error, iteration will be aborted without errors.
+func TarGlobWithPrefix(source *tar.Reader, prefix string, handler TarGlobHandler) (err error) {
+	for {
+		var hdr *tar.Header
+		hdr, err = source.Next()
+		if err == io.EOF {
+			err = nil
+			break
+		}
+		if err != nil {
+			return trace.Wrap(err)
+		}
+		if hdr.FileInfo().IsDir() {
+			continue
+		}
+		path := filepath.Clean(hdr.Name)
+		if strings.HasPrefix(path, prefix) {
+			if err = handler(hdr, source); err != nil {
+				if trace.Unwrap(err) == Abort {
+					return nil
+				}
+				return trace.Wrap(err)
+			}
+		}
+	}
+	return nil
+}
+
+// TarGlobHandler defines a handler for the match when iterating files in the tarball r.
+type TarGlobHandler func(match *tar.Header, r *tar.Reader) error
 
 // TarAppender wraps a tar writer and can append items to it
 type TarAppender struct {
@@ -331,9 +375,6 @@ var Abort = errors.New("abort iteration")
 // Uses header to determine the type of item to create
 // Based on https://github.com/mholt/archiver
 func extractFile(tarball *tar.Reader, header *tar.Header, dir, path string) error {
-	if path == "" {
-		path = header.Name
-	}
 	targetPath := filepath.Join(dir, path)
 	switch header.Typeflag {
 	case tar.TypeDir:
@@ -364,6 +405,14 @@ func SanitizeTarPath(header *tar.Header, dir string) error {
 		if !strings.HasPrefix(linkPath, filepath.Clean(dir)+string(os.PathSeparator)) {
 			return trace.BadParameter("%s: illegal link path", header.Linkname)
 		}
+	}
+	return nil
+}
+
+func validPath(path, dir, message string) error {
+	destPath := filepath.Join(dir, path)
+	if !strings.HasPrefix(destPath, filepath.Clean(dir)+string(os.PathSeparator)) {
+		return trace.BadParameter("%s: %v", path, message)
 	}
 	return nil
 }

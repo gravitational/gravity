@@ -413,6 +413,11 @@ func unpackAppResources(env *localenv.LocalEnvironment, loc loc.Locator, dir, op
 	}
 	loc = *locPtr
 
+	// Make sure package exists
+	if _, err := packageService.ReadPackageEnvelope(loc); err != nil {
+		return trace.Wrap(err)
+	}
+
 	if err := os.MkdirAll(dir, defaults.SharedDirMask); err != nil {
 		return trace.Wrap(err)
 	}
@@ -424,11 +429,7 @@ func unpackAppResources(env *localenv.LocalEnvironment, loc loc.Locator, dir, op
 		}
 		defer reader.Close()
 
-		if err := archive.ExtractGlob(reader, dir, "resources", []string{"*"}); err != nil {
-			return trace.Wrap(err)
-		}
-
-		return nil
+		return archive.ExtractWithPrefix(reader, dir, defaults.ResourcesDir)
 	})
 	if err != nil {
 		return trace.Wrap(err)

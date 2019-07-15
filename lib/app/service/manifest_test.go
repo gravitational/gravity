@@ -21,7 +21,6 @@ import (
 
 	"github.com/gravitational/gravity/lib/archive"
 
-	"github.com/gravitational/trace"
 	. "gopkg.in/check.v1"
 )
 
@@ -30,17 +29,6 @@ func TestService(t *testing.T) { TestingT(t) }
 type ManifestSuite struct{}
 
 var _ = Suite(&ManifestSuite{})
-
-func (r *ManifestSuite) TestReadsManifestFromTarball(c *C) {
-	files := []*archive.Item{
-		archive.DirItem("resources"),
-		archive.ItemFromString("resources/app.yaml", manifestBytes),
-	}
-	input := archive.MustCreateMemArchive(files)
-	manifest, err := manifestFromSource(input)
-	c.Assert(err, IsNil)
-	c.Assert(manifest, NotNil)
-}
 
 func (r *ManifestSuite) TestReadsManifestFromUnpacked(c *C) {
 	files := []*archive.Item{
@@ -52,13 +40,6 @@ func (r *ManifestSuite) TestReadsManifestFromUnpacked(c *C) {
 	defer cleanup()
 	c.Assert(err, IsNil)
 	c.Assert(manifest, NotNil)
-}
-
-func (r *ManifestSuite) TestRequiresApplicationManifest(c *C) {
-	input := archive.MustCreateMemArchive(nil)
-	_, err := manifestFromSource(input)
-	c.Assert(err, NotNil)
-	c.Assert(trace.IsNotFound(err), Equals, true, Commentf("%T", err))
 }
 
 const manifestBytes = `apiVersion: bundle.gravitational.io/v2
