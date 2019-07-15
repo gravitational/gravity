@@ -39,5 +39,9 @@ func (r *ResourceSuite) TestTranslatesResources(c *C) {
 	c.Assert(err, IsNil)
 	defer rc.Close()
 
-	archive.AssertArchiveHasFiles(c, rc, nil, "app.yaml", "resources.yaml", "config/config.yaml")
+	archive.AssertArchiveHasFiles(c, rc, nil,
+		"resources/app.yaml",
+		"resources/resources.yaml",
+		"resources/config/config.yaml",
+	)
 }

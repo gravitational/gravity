@@ -129,7 +129,10 @@ func (r *AppsSuite) Resources(c *C) {
 	c.Assert(err, IsNil)
 	defer reader.Close()
 
-	archive.AssertArchiveHasFiles(c, reader, nil, "resource-0.yaml", "app.yaml")
+	archive.AssertArchiveHasFiles(c, reader, nil,
+		"resources/resource-0.yaml",
+		"resources/app.yaml",
+	)
 
 	// import another version and check that resources have been updated
 	const manifestBytes = `apiVersion: bundle.gravitational.io/v2

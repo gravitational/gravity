@@ -121,7 +121,7 @@ func Extract(r io.Reader, dir string) error {
 // Note, files from tarDir are written directly to dir omitting tarDir.
 // The resulting files and directories are created using the current user context.
 func ExtractWithPrefix(r io.Reader, dir, tarDirPrefix string) error {
-	return trace.Wrap(TarGlobWithPrefix(tar.NewReader(r), tarDirPrefix, func(match *tar.Header, r *tar.Reader) error {
+	err := TarGlobWithPrefix(tar.NewReader(r), tarDirPrefix, func(match *tar.Header, r *tar.Reader) error {
 		relpath, err := filepath.Rel(tarDirPrefix, match.Name)
 		if err != nil {
 			return trace.Wrap(err)
@@ -141,7 +141,8 @@ func ExtractWithPrefix(r io.Reader, dir, tarDirPrefix string) error {
 			return trace.Wrap(err)
 		}
 		return nil
-	}))
+	})
+	return trace.Wrap(err)
 }
 
 // HasFile returns nil if the specified tarball contains specified file
