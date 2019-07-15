@@ -22,6 +22,7 @@ import (
 	"github.com/gravitational/gravity/lib/clients"
 	"github.com/gravitational/gravity/lib/constants"
 	"github.com/gravitational/gravity/lib/httplib"
+	"github.com/gravitational/gravity/lib/ops"
 	"github.com/gravitational/gravity/lib/ops/events"
 
 	"github.com/gravitational/teleport/lib/client"
@@ -66,4 +67,15 @@ func (env *LocalEnvironment) EmitAuditEvent(ctx context.Context, event teleevent
 	} else {
 		events.Emit(ctx, operator, event, fields)
 	}
+}
+
+// EmitOperationEvent emits audit event for the provided operation.
+func (env *LocalEnvironment) EmitOperationEvent(ctx context.Context, operation ops.SiteOperation) error {
+	event, err := events.EventForOperation(operation)
+	if err != nil {
+		return trace.Wrap(err)
+	}
+	fields := events.FieldsForOperation(operation)
+	env.EmitAuditEvent(ctx, event, fields)
+	return nil
 }

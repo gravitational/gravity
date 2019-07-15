@@ -103,20 +103,16 @@ func (g *operationGroup) createSiteOperation(operation ops.SiteOperation) (*ops.
 }
 
 func (g *operationGroup) emitAuditEvent(ctx context.Context, operation ops.SiteOperation) error {
-	// Install operation audit events are emitted by the installer.
-	if operation.Type == ops.OperationInstall {
+	// Audit events for the following operations are emitted by their agents.
+	switch operation.Type {
+	case ops.OperationInstall, ops.OperationUpdate, ops.OperationUpdateConfig, ops.OperationUpdateRuntimeEnviron:
 		return nil
 	}
 	// Expand operation start event is emitted by the joining agent.
 	if operation.Type == ops.OperationExpand && !operation.IsFinished() {
 		return nil
 	}
-	event, err := events.EventForOperation(operation)
-	if err != nil {
-		return trace.Wrap(err)
-	}
-	events.Emit(ctx, g.operator, event, events.FieldsForOperation(operation))
-	return nil
+	return events.EmitForOperation(ctx, g.operator, operation)
 }
 
 // canCreateOperation checks if the provided operation is allowed to be created
