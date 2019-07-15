@@ -7,7 +7,7 @@ LTS starts with `3.51.0` with minor backwards compatible changes added over time
 
 | Release       | LTS | Release Date         | Supported Until      | Kubernetes Version | Teleport Version |
 | --------------|-----| -------------------- | -------------------- | ------------------ |------------------|
-| 6.0.0-rc.4    | -   | July 8th, 2019       | -                    | 1.14.2             | 3.2.5            |
+| 6.0.0-rc.5    | -   | July 15th, 2019      | -                    | 1.14.2             | 3.2.7            |
 | 5.6.4         | No  | July 8th, 2019       | -                    | 1.14.2             | 3.0.5            |
 | 5.5.13        | Yes | July 8th, 2019       | September 7th, 2020  | 1.13.6             | 3.0.4            |
 | 5.4.10*       | No  | March 26th, 2019     | -                    | 1.13.5             | 2.4.10           |
@@ -30,6 +30,20 @@ LTS starts with `3.51.0` with minor backwards compatible changes added over time
     do not receive updates and bugfixes.
 
 ## 6.x Releases
+
+### 6.0.0-rc.5
+
+#### Improvements
+
+* Reduce liveness probe delay on `gravity-site`.
+* Upgrade Teleport to `3.2.7`.
+* Improve resiliency of the `wait` phase.
+* Add logs of terminated containers to debug report.
+* Various user-interface tweaks.
+
+#### Bugfixes
+
+* Fix an issue with deleting a node via user-interface.
 
 ### 6.0.0-rc.4
 
