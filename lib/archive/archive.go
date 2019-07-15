@@ -122,20 +122,17 @@ func Extract(r io.Reader, dir string) error {
 // The resulting files and directories are created using the current user context.
 func ExtractWithPrefix(r io.Reader, dir, tarDirPrefix string) error {
 	err := TarGlobWithPrefix(tar.NewReader(r), tarDirPrefix, func(match *tar.Header, r *tar.Reader) error {
+		// Security: ensure tar doesn't refer to file paths outside the directory
+		// Note, it validates the path as if the file/directory described by match
+		// would have been extracted as-is while it is, in fact, extracted without the
+		// top-level directory. It should not affect the security check though
+		err := SanitizeTarPath(match, dir)
+		if err != nil {
+			return trace.Wrap(err)
+		}
 		relpath, err := filepath.Rel(tarDirPrefix, match.Name)
 		if err != nil {
 			return trace.Wrap(err)
-		}
-		// Security: ensure tar doesn't refer to file paths outside the directory
-		err = validPath(relpath, dir, "invalid file path")
-		if err != nil {
-			return trace.Wrap(err)
-		}
-		if match.Linkname != "" {
-			err = validPath(match.Linkname, dir, "invalid link path")
-			if err != nil {
-				return trace.Wrap(err)
-			}
 		}
 		if err := extractFile(r, match, dir, relpath); err != nil {
 			return trace.Wrap(err)
@@ -405,14 +402,6 @@ func SanitizeTarPath(header *tar.Header, dir string) error {
 		if !strings.HasPrefix(linkPath, filepath.Clean(dir)+string(os.PathSeparator)) {
 			return trace.BadParameter("%s: illegal link path", header.Linkname)
 		}
-	}
-	return nil
-}
-
-func validPath(path, dir, message string) error {
-	destPath := filepath.Join(dir, path)
-	if !strings.HasPrefix(destPath, filepath.Clean(dir)+string(os.PathSeparator)) {
-		return trace.BadParameter("%s: %v", path, message)
 	}
 	return nil
 }

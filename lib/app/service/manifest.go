@@ -95,11 +95,11 @@ func unpackedSource(source io.Reader) (dir string, cleanup cleanup, err error) {
 }
 
 func unpackedResources(appPackage io.Reader) (rc io.ReadCloser, err error) {
-	reader, writer := io.Pipe()
 	decompressed, err := dockerarchive.DecompressStream(appPackage)
 	if err != nil {
 		return nil, trace.Wrap(err)
 	}
+	reader, writer := io.Pipe()
 	go func() {
 		tarball := archive.NewTarAppender(writer)
 		handler := renderItemFromTarball(tarball)
