@@ -866,7 +866,7 @@
   version = "v1.0.0"
 
 [[projects]]
-  digest = "1:f01b1009f6ab14bbd9257884dc63897eaf59cd7e7cdd59b1dae4bebad7cea154"
+  digest = "1:351560017717a8b7a2bc5c43de4ca8b53e17d34d09be6a86a03e756ce69cf733"
   name = "github.com/gravitational/satellite"
   packages = [
     "agent/health",
@@ -876,8 +876,8 @@
     "utils",
   ]
   pruneopts = "UT"
-  revision = "57869406f0ebe0d80989e632df28052a7a252ed9"
-  version = "5.5.2"
+  revision = "f7eb05a778141551c29ed774138197e190f85703"
+  version = "5.5.4"
 
 [[projects]]
   digest = "1:49f6abbce9ade5f43508429e4af1adcce55d27adcd62719fea049decc766a7c9"
@@ -895,7 +895,7 @@
 
 [[projects]]
   branch = "branch/3.2-g"
-  digest = "1:6f281c17670c3b593da2cf673be7194e5ac7367c9c6c12da06c060696869bef0"
+  digest = "1:a29cb6890c092709e03c1e89facde0f84298ef98a5beea7ca6b513a7a90e302e"
   name = "github.com/gravitational/teleport"
   packages = [
     ".",
@@ -950,7 +950,7 @@
     "lib/web/ui",
   ]
   pruneopts = "UT"
-  revision = "8ade515eaa786a81448684cb0d5e63d37c566ca3"
+  revision = "10398c6d4d0834f54886d80f251d8d8ba344b7f2"
 
 [[projects]]
   digest = "1:afb36747f009e72637bdf1b3f5d27f3c1d5e1fc5478fc4aba2a33e40e8829dee"
