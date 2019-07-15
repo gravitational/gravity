@@ -112,6 +112,11 @@ function getColor(severity, code){
     case CodeEnum.OPERATION_SHRINK_FAILURE:
     case CodeEnum.USER_LOCAL_LOGINFAILURE:
     case CodeEnum.USER_SSO_LOGINFAILURE:
+    case CodeEnum.OPERATION_UPDATE_FAILURE:
+    case CodeEnum.OPERATION_UNINSTALL_FAILURE:
+    case CodeEnum.PORTFORWARD_FAILURE:
+    case CodeEnum.SCP_UPLOAD_FAILURE:
+    case CodeEnum.SUBSYSTEM_FAILURE:
       return 'danger';
     case CodeEnum.ALERT_DELETED:
     case CodeEnum.ROLE_DELETED:
