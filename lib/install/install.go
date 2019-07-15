@@ -567,18 +567,18 @@ func GetAppPackage(service appservice.Applications) (*loc.Locator, error) {
 func GetOrCreateServiceUser(uid, gid string) (user *systeminfo.User, err error) {
 	user, err = GetServiceUser(uid)
 	if err == nil {
+		log.Infof("System user exists: %s.", user)
 		return user, nil
 	}
-
 	if !trace.IsNotFound(err) {
 		return nil, trace.Wrap(err)
 	}
-
 	// Create a new user
 	user, err = systeminfo.NewUser(defaults.ServiceUser, defaults.ServiceUserGroup, uid, gid)
 	if err != nil {
 		return nil, trace.Wrap(err)
 	}
+	log.Infof("Created system user: %s.", user)
 	return user, nil
 }
 
