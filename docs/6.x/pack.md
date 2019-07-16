@@ -27,59 +27,79 @@ application must first be ported to run on Kubernetes, this means:
 ## Getting the Tools
 
 Any Linux machine can be used to package Kubernetes applications into a cluster
-image. To get started, you need to [download and install](https://gravitational.com/gravity/download/releases/)
-Gravity.
+image. To get started, you need to [download Gravity](https://gravitational.com/gravity/download/releases/).
 
 !!! tip "Gravity Versions":
     For new users who are just exploring Gravity, we recommend the latest "pre-release" build, 
-    in this case make sure to select "Show pre-releases" checkbox. Production users must
+    in this case make sure to select "Show pre-releases" selector. Production users must
     use the latest stable release.
 
 To create a cluster image, you will be using `tele`, the Gravity build tool. 
 Below is the list of `tele` commands:
 
-| Command  | Description |
-|----------|-------------|
-| build    | Builds a new cluster image.
-| push     | Pushes a cluster image to an image repository called Gravity Hub (enterprise version only).
-| pull     | Downloads a cluster image from a Gravity Hub.
-| ls       | Lists all available cluster images.
+| Command        | Description |
+|----------------|-------------|
+| `tele build`   | Builds a new cluster image.
+| `tele push`    | Pushes a cluster image to an image repository called Gravity Hub (enterprise version only).
+| `tele pull`    | Downloads a cluster image from a Gravity Hub.
+| `tele ls`      | Lists all available cluster images.
 
-## Packaging Applications
+## Building a Cluster Image
 
-Gravity can package any Kubernetes application (along with any dependencies) into a self-deploying,
-tarball ("Application Bundle").
+Gravity can package any Kubernetes application(s) along with all their
+dependencies into a dependency-free, self-deploying tarball file called a
+"cluster image". The resulting `.tar` file is usually quite large, but
+compressing it does not yield tangible results because the tarball itself is
+mostly composed of container images that are already compressed.
 
-An Application Manifest is required to create an Application Bundle. An Application Manifest is
-a YAML file which describes the build and installation process and requirements. The
-[Application Manifest](/pack/#application-manifest) section has further details about it.
+Before creating a cluster image, you must create a _cluster manifest_ file. A
+_cluster manifest_ uses YAML file format to describe the image build and installation
+process and the system requirements for the cluster. See [Cluster Manifest](/pack/#cluster-manifest) 
+section below for more details.
 
-`tele build` command will read an Application Manifest and will make sure that
-all of the dependencies are available locally on the build machine. If the
-dependencies are not available locally, it will download them from
-the Ops Center.
+After a _cluster manifest_ is complete, execute `tele build` command to build 
+a cluster image from it.
 
 ```bsh
-tele build [options] [app-manifest.yaml]
+tele build [options] [cluster-manifest.yaml]
 
 Options:
-  -o   The name of the produced tarball, for example "-o myapp-v3.tar".
-       By default the name of the current directory will be used to name the tarball.
+  -o           The name of the produced tarball, for example "-o cluster-image.tar".
+               By default the name of the current directory will be used.
+  --state-dir  Hello
 ```
 
+The `build` command will read the `manifest.yaml` file and will make sure that
+all of the dependencies are available locally on the build machine. If the
+dependencies are not available locally, it will download them from the external
+sources.
 
-### Building with Docker
+There are two kinds of external sources for cluster dependencies:
 
-`tele build` can be used inside a Docker container. Using Linux containers is a good strategy to introduce reproducible builds
-that do not depend on the host OS. Containerized builds are also easier to automate by plugging them into a CI/CD pipeline.
+1. **Kubernetes binaries** like `kube-apiserver`, `kubelet` and others, plus their
+   dependencies like `etcd`. The build tool will download them from a Gravity Hub
+   you are connected to. Users of open source version are always connected to
+   the public Hub hosted on `get.gravitational.io`. The publicly hosted Hub
+   does not currently offer a web UI.
+2. **Application Containers**. If your cluster must have pre-loaded
+   applications, their container images will be downloaded from the external
+   container registry.
 
-The example below builds a Docker image called `tele-buildbox`. This image will contain `tele` tool and can be used to create Gravity packages.
+You can follow the [Quick Start](quickstart) to build a cluster image from a
+sample cluster manifest.
 
-#### Build Docker Image With Tele
+#### Building with Docker
 
-First, build docker image `tele-buildbox` with `tele` inside:
+You can execute `tele build` from inside a Docker container. Using Linux
+containers is a good strategy to introduce reproducible builds that do not
+depend on the host OS. Containerized builds are also easier to automate by
+plugging them into a CI/CD pipeline.
 
 ```bsh
+# This Dockerfile builds a Docker image called `tele-buildbox`.  The
+# resulting container image will contain `tele` tool and can be used 
+# to create cluster images from within a container.
+
 FROM quay.io/gravitational/debian-grande:stretch
 
 ARG TELE_VERSION
@@ -88,35 +108,20 @@ RUN apt-get -y install curl make git
 RUN curl https://get.gravitational.io/telekube/bin/${TELE_VERSION}/linux/x86_64/tele -o /usr/bin/tele && chmod 755 /usr/bin/tele
 ```
 
-Then build the image:
+Set `TELE_VERSION` argument to the desired Gravity version, then build the docker image:
 
 ```bsh
 docker build . -t tele-buildbox:latest
 ```
 
-#### Build script
+Now you should have `tele-buildbox` container on the build machine. Next, do the following:
 
-The example script below uses `tele` to login into ops center (optional step),
-build a local application and publish it (optional step):
-
-```bsh
-# optional step: if you are using private ops center
-tele login -o ${OPS_URL} --token=${OPS_TOKEN}
-# start tele build
-tele ${TELE_FLAGS} build app.yaml
-# optional step: push the app to the ops center
-tele push ${OPS_URL}
-```
-
-#### Start build
-
-To run this build under Docker:
-
-* Expose a `OPS_TOKEN` and `TELE_FLAGS` environment variables
 * Use host networking
-* Expose the Docker socket into the container to allow `tele` to pull container images referenced in the manifest
+* Expose the Docker socket into the container to allow `tele` to pull container
+  images referenced in the cluster manifest.
+* Expose the working directory with the application manifest to the container as `/mnt/cluster`
 
-The script below assumes that `build.sh` is located in the same working directory as the application:
+The command below assumes that `build.sh` is located in the same working directory as the application:
 
 ```bsh
 docker run -e OPS_URL=<opscenter url> \
@@ -125,9 +130,10 @@ docker run -e OPS_URL=<opscenter url> \
        -v /tmp/tele-cache:/mnt/tele-cache \
        -v /var/run/docker.sock:/var/run/docker.sock \
        -v $(pwd):/mnt/app \
+       -w /mnt/cluster \
         --net=host \
         tele-buildbox:latest \
-        bash -c "cd /mnt/app && build.sh"
+        bash -c "tele build -o cluster.tar"
 ```
 
 !!! note:
@@ -135,52 +141,7 @@ docker run -e OPS_URL=<opscenter url> \
     by setting `--state-dir`. You can use unique temporary directory
     to avoid sharing state between builds, or use parallel builds instead.
 
-
-## Publishing Applications
-
-After packaging an application into an Application Bundle, it can be deployed and
-installed by publishing it into the Ops Center. The commands below are used to manage the
-publishing process.
-
-!!! note:
-		The commands below will only work if a user is first
-		logged into an Ops Center by using `tele login`.
-
-
-`tele push` is used to upload a Kubernetes Application Bundle to the Ops Center.
-
-```html
-tele push [options] tarball.tar
-
-Options:
-  --force, -f  Forces to overwrite the already-published application if it exists.
-```
-
-`tele pull` will download the Application Bundle from the Ops Center:
-
-```html
-tele [options] pull [application]
-
-Options:
-  -o   Name of the output tarball.
-```
-
-`tele rm app` deletes an Application Bundle from the Ops Center.
-
-```html
-tele rm app [options] [application]
-
-Options:
-  --force  Do not return error if the application cannot be found or removed.
-```
-
-`tele ls` lists the Application Bundles currently published in the Ops Center.
-
-```html
-tele [options] ls
-```
-
-## Application Manifest
+## Cluster Manifest
 
 The Application Manifest is a YAML file that is used to describe the packaging and
 installation process and requirements for an Application Bundle.
