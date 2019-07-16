@@ -43,7 +43,7 @@ func CreateDummyPackageWithContents(locator loc.Locator, items []*archive.Item, 
 	data := CreatePackageData(items, c)
 	err := packages.UpsertRepository(locator.Repository, time.Time{})
 	c.Assert(err, IsNil)
-	_, err = packages.CreatePackage(locator, data)
+	_, err = packages.CreatePackage(locator, &data)
 	c.Assert(err, IsNil)
 }
 
@@ -55,6 +55,15 @@ func CreateDummyApplication(apps app.Applications, loc loc.Locator, c *C) *app.A
 // CreateDummyApplication2 creates a test application with a valid manifest and specified dependencies
 func CreateDummyApplication2(apps app.Applications, loc loc.Locator, dependencies string, c *C) *app.Application {
 	return createApp(loc, dependencies, apps, c)
+}
+
+// CreateDummyApplicationInMultipleServices creates a test application with a valid manifest
+// in all of the specified application services
+func CreateDummyApplicationInMultipleServices(loc loc.Locator, c *C, services ...app.Applications) {
+	data := createAppData(loc, "", c)
+	for _, service := range services {
+		CreateApplicationFromBinaryData(service, loc, data, c)
+	}
 }
 
 // CreateAppWithDeps creates app with valid app manifest and all proper dependency packages
@@ -99,6 +108,11 @@ func CreateAppWithDeps(apps app.Applications, packages pack.PackageService, c *C
 }
 
 func createApp(loc loc.Locator, dependencies string, apps app.Applications, c *C) *app.Application {
+	data := createAppData(loc, dependencies, c)
+	return CreateApplicationFromBinaryData(apps, loc, data, c)
+}
+
+func createAppData(loc loc.Locator, dependencies string, c *C) bytes.Buffer {
 	const manifestTemplate = `
 apiVersion: bundle.gravitational.io/v2
 kind: Bundle
@@ -170,8 +184,7 @@ spec:
 		archive.DirItem("registry/docker"),
 		archive.ItemFromString("registry/docker/TODO", ""),
 	}
-
-	return CreateApplicationFromData(apps, loc, files, c)
+	return CreatePackageData(files, c)
 }
 
 func CreateApplication(apps app.Applications, locator loc.Locator, files []*archive.Item, c *C) *app.Application {
@@ -180,9 +193,12 @@ func CreateApplication(apps app.Applications, locator loc.Locator, files []*arch
 
 func CreateApplicationFromData(apps app.Applications, locator loc.Locator, files []*archive.Item, c *C) *app.Application {
 	data := CreatePackageData(files, c)
+	return CreateApplicationFromBinaryData(apps, locator, data, c)
+}
 
+func CreateApplicationFromBinaryData(apps app.Applications, locator loc.Locator, data bytes.Buffer, c *C) *app.Application {
 	var labels map[string]string
-	app, err := apps.CreateApp(locator, data, labels)
+	app, err := apps.CreateApp(locator, &data, labels)
 	c.Assert(err, IsNil)
 	c.Assert(app, NotNil)
 
@@ -218,7 +234,7 @@ func CreatePackage(packages pack.PackageService, locator loc.Locator, files []*a
 
 	c.Assert(packages.UpsertRepository(locator.Repository, time.Time{}), IsNil)
 
-	app, err := packages.CreatePackage(locator, input)
+	app, err := packages.CreatePackage(locator, &input)
 	c.Assert(err, IsNil)
 	c.Assert(app, NotNil)
 
@@ -230,9 +246,9 @@ func CreatePackage(packages pack.PackageService, locator loc.Locator, files []*a
 	return envelope
 }
 
-func CreatePackageData(items []*archive.Item, c *C) *bytes.Buffer {
-	buf := &bytes.Buffer{}
-	archive := archive.NewTarAppender(buf)
+func CreatePackageData(items []*archive.Item, c *C) bytes.Buffer {
+	var buf bytes.Buffer
+	archive := archive.NewTarAppender(&buf)
 
 	c.Assert(archive.Add(items...), IsNil)
 	archive.Close()
