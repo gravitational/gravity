@@ -1,45 +1,60 @@
 # Installation
 
-### Ops Center-driven Installation
+In this chapter we'll cover the process of creating clusters from cluster
+images.  Just like a virtual machine (VM) image similar to AWS AMI can be used
+to create machine instances, Gravity cluster images can be used to create
+cluster instances.
 
-An Ops Center can be used for application deployments.
-In order to deploy applications from an Ops Center, Application Bundles
-are [published](pack/#publishing-applications) to an Ops Center.
-Once published, they become available for deployment.
-An Application can be deployed either directly from an Ops Center or
-via a one-time installation link.
-Once the cluster is up and running, the installer will establish a remote access
-channel for maintenance:
+#### Deployment Methods
 
-![Ops Center Install](images/opscenter-install.svg?style=grv-image-center-md)
+Gravity supports two methods to create clusters from cluster images:
 
-!!! tip "NOTE":
-    The end users can close the remote channel and disconnect their Application
-	from the Ops Center.
+* Command Line (CLI) method, suitable for scripting.
+* Graphical installer which serves a web UI, assisting users in cluster
+  creation.
+
+Both installation methods allow users to create a new Kubernetes cluster from a
+cluster image on arbitrary Linux hosts. Because a cluster image has no external
+dependencies, both installation methods will work even in air-gapped server
+rooms.
+
+#### Prerequisites
+
+Every cluster image created with Gravity contains everything you need to 
+create a production-ready cluster, but there are still some pre-requisites
+to be met:
+
+* You should have a valid cluster image, i.e. a `.tar` file. See [building images](/pack/) 
+  chapter for information on how to build one.
+* One or more Linux hosts with a compatible kernel. They can be bare metal hosts,
+  compute instances on any cloud provider, virtual machines on a private cloud, 
+  etc. Consult with [system requirements](/requirements/) to determine if your Linux hosts
+  are compatible with Gravity.
+* The hosts should be clean, i.e. they shouldn't contain any container
+  orchestrator on them, or even Docker.
+* The hosts should be able to connect to each other, i.e. to be on the same
+  private network.
+* You should have the ability to create DNS entries for public access points.
+* You you should be able to obtain a valid SSL/TLS certificates for HTTPS.
 
 
-### Standalone Offline UI Installation
+## CLI Installation
 
-Standalone installation allows users to install into air-gapped (offline) server
-clusters using a self-contained installer tarball.
+To create a new instance of a cluster image (i.e. a Kubernetes cluster) via 
+command line, you must do the following:
 
- * The tarball can be generated on the Ops Center, by using the `Download` link.
- * Alternatively, the installer can be fetched from an Ops Center using `tele pull`,
-see [Publishing Applications](pack/#publishing-applications) section for details.
- * Installer tarball can be built with the `tele build` command, see
-  [Packaging Applications](pack#packaging-applications) for details.
+1. First, copy the cluster image file onto all nodes.
+2. Untar it on all nodes.
+3. Pick a "master node", i.e. the node which will serve as the initial
+   Kubernetes master.
+4. Execute `./gravity install` on the master node.
+5. Execute `./gravity join` on two other nodes.
 
-For example, Application Bundle, `my-app-installer.tar` will contain everything
-required to install the Application `my-app`.
+Copying files around is easy, so let's take a deeper look into steps 2 through 5.
+Once the cluster image is unpacked, it is going to look similar to this on each node:
 
-To install using the graphical wizard, a Linux desktop with a browser
-is required and the target servers need to be reachable on port `3012`.
-The node running wizard should have port `61009` reachable to other servers.
-
-Unpacking the tarball will produce the following contents:
-
-```bsh
-$ tar -xf my-app-installer.tar
+```bash
+$ tar -xf cluster-image.tar
 $ ls -lh
 -rwxr--r-- 1 user staff 21K  Oct 24 12:01 app.yaml
 -rwxr--r-- 1 user staff 56M  Oct 24 12:01 gravity
@@ -51,98 +66,99 @@ $ ls -lh
 -rwxr--r-- 1 user staff 170  Oct 24 12:01 upload
 ```
 
-The installation wizard is launched by typing `./install` and will guide the end user
-through the installation process.
+Next, bootstrap the master node:
 
-![Gravity Offline Installer](images/offline-install.svg?style=grv-image-center-md)
-
-### Standalone Offline CLI Installation
-
-Instead of running a graphical installer, an Application Bundle can be installed
-through a CLI which is useful for integrations with configuration management scripts
-or other types of infrastructure automation tools. Sometimes this method is called
-_"unattended installation"_.
-
-For this to work, the information needed to complete the installation has to be
-supplied via the command line flags to the installer.
-
-Let's see how to install a 3-node cluster:
-
-1. Copy the Application Bundle onto all nodes.
-1. Execute `./gravity install` on the first node.
-1. Execute `./gravity join` on two other nodes.
-
-Below is a sample `./gravity install` command for the first node:
-
-```bsh
-node-1$ sudo ./gravity install --advertise-addr=172.28.128.3 --token=XXX --flavor="three"
+```bash
+# execute this on the master node, which in this case has an IP of 10.1.10.1
+$ sudo ./gravity install --advertise-addr=10.1.10.1 --token=XXX --flavor="three"
 ```
 
-Note the use of `flavor` which, in this case, describes a configuration for 3 nodes
-("three" being the name of the flavor from the [Application Manifest](pack#application-manifest)).
+* Note the use of `--flavor` argument which selects a cluster configuration for 3
+  nodes, borrowing from the example shown in the [Image Manifest](/pack/#image-manifest) section.
+* You have to select an arbitrary, hard to guess secret for `--token` and remember this
+  value. It will be used to securely add additional nodes to the cluster.
+* Other nodes must be able to connect to the master node via `10.1.10.1`. Make sure
+  the installer ports are not blocked, see "Installer Ports" section in [System Requirements](/requirements/#network) chapter.
 
-This will initiate the process of setting up a new cluster for the Application.
+Next, start adding remaining nodes to the cluster:
 
-Below are corresponding `./gravity join` commands for the remaining nodes (`node-2` and `node-3`):
-
-```bsh
-node-2$ sudo ./gravity join 172.28.128.3 --advertise-addr=172.28.128.4 --token=XXX --role="database"
+```bash
+# must be executed on the node which you want to be the "database":
+$ sudo ./gravity join 10.1.10.1 --advertise-addr=10.1.10.2 --token=XXX --role="database"
 ```
 
-```bsh
-node-3$ sudo ./gravity join 172.28.128.3 --advertise-addr=172.28.128.5 --token=XXX --role="worker"
+```bash
+# must be executed on the node which you want to be the "worker":
+$ sudo ./gravity join 10.1.10.1 --advertise-addr=10.1.10.3 --token=XXX --role="worker"
 ```
 
-This instructs the nodes to join a cluster initiated by `gravity install` on the node `172.28.128.3`.
-Note, that nodes have also been assigned the desired roles (as defined in the Application Manifest).
+!!! tip:
+    The node roles in the example above are borrowed from the image manifest documented 
+    in [Building Cluster Images](/pack/#image-manifest) section. The use of `--role` 
+    argument is optional if the cluster image manifest did not contain node roles.
 
+`gravity join` command will connect the worker and the database nodes to the master and you
+will have a fully functioning, production-ready Kubernetes cluster up and running.
 
-The `install` command accepts the following arguments:
+Execute `gravity install --help` to see the list of supported command line arguments, but
+the most frequently used ones are listed below:
 
-Flag      | Description
-----------|-------------
-`--token` | Secure token which prevents rogue nodes from joining the cluster during installation. Carefully pick a hard-to-guess value.
-`--advertise-addr` | IP address this node should be visible as. This setting is needed to correctly configure Gravity on every node.
-`--role` | _(Optional)_ Application role of the node.
-`--cluster` | _(Optional)_ Name of the cluster. Auto-generated if not set.
+Flag               | Description
+-------------------|-------------
+`--token`          | Secure token which prevents rogue nodes from joining the cluster during installation. Carefully pick a hard-to-guess value.
+`--advertise-addr` | The IP address this node should be visible as. **This setting is mandatory** to correctly configure Kubernetes on every node.
+`--role`           | _(Optional)_ Application role of the node.
+`--cluster`        | _(Optional)_ Name of the cluster. Auto-generated if not set.
 `--cloud-provider` | _(Optional)_ Enable cloud provider integration: `generic` (no cloud provider integration), `aws` or `gce`. Autodetected if not set.
-`--flavor` | _(Optional)_ Application flavor. See [Application Manifest](pack/#application-manifest) for details.
-`--config` | _(Optional)_ File with Kubernetes/Gravity resources to create in the cluster during installation.
+`--flavor`         | _(Optional)_ Application flavor. See [Image Manifest](pack/#image-manifest) for details.
+`--config`         | _(Optional)_ File with Kubernetes/Gravity resources to create in the cluster during installation.
 `--pod-network-cidr` | _(Optional)_ CIDR range Kubernetes will be allocating node subnets and pod IPs from. Must be a minimum of /16 so Kubernetes is able to allocate /24 to each node. Defaults to `10.244.0.0/16`.
-`--service-cidr` | _(Optional)_ CIDR range Kubernetes will be allocating service IPs from. Defaults to `10.100.0.0/16`.
-`--wizard` | _(Optional)_ Start the installation wizard.
-`--state-dir` | _(Optional)_ Directory where all Gravity system data will be kept on this node. Defaults to `/var/lib/gravity`.
-`--service-uid` | _(Optional)_ Service user ID (numeric). See [Service User](pack/#service-user) for details. A user named `planet` is created automatically if unspecified.
-`--service-gid` | _(Optional)_ Service group ID (numeric). See [Service User](pack/#service-user) for details. A group named `planet` is created automatically if unspecified.
-`--dns-zone` | _(Optional)_ Specify an upstream server for the given DNS zone within the cluster. Accepts `<zone>/<nameserver>` format where `<nameserver>` can be either `<ip>` or `<ip>:<port>`. Can be specified multiple times.
-`--vxlan-port` | _(Optional)_ Specify custom overlay network port. Default is `8472`.
+`--service-cidr`     | _(Optional)_ CIDR range Kubernetes will be allocating service IPs from. Defaults to `10.100.0.0/16`.
+`--wizard`           | _(Optional)_ Start the installation wizard.
+`--state-dir`        | _(Optional)_ Directory where all Gravity system data will be kept on this node. Defaults to `/var/lib/gravity`.
+`--service-uid`      | _(Optional)_ Service user ID (numeric). See [Service User](pack/#service-user) for details. A user named `planet` is created automatically if unspecified.
+`--service-gid`      | _(Optional)_ Service group ID (numeric). See [Service User](pack/#service-user) for details. A group named `planet` is created automatically if unspecified.
+`--dns-zone`         | _(Optional)_ Specify an upstream server for the given DNS zone within the cluster. Accepts `<zone>/<nameserver>` format where `<nameserver>` can be either `<ip>` or `<ip>:<port>`. Can be specified multiple times.
+`--vxlan-port`       | _(Optional)_ Specify custom overlay network port. Default is `8472`.
+`--exclude-from-cluster` | _(Optional)_ Excludes this node from the cluster, i.e. allows to bootstrap the cluster from a developer's laptop, for example. In this case the Kubernetes master will be chosen randomly.
 
-The `join` command accepts the following arguments:
+`gravity join` command accepts the following arguments:
 
-Flag      | Description
-----------|-------------
-`--token` | Secure token which prevents rogue nodes from joining the cluster during installation. Carefully pick a hard-to-guess value.
-`--advertise-addr` | IP address this node should be visible as. This setting is needed to correctly configure Gravity on every node.
-`--role` | _(Optional)_ Application role of the node.
+Flag               | Description
+-------------------|-------------
+`--token`          | Secure token which prevents rogue nodes from joining the cluster during installation. Carefully pick a hard-to-guess value.
+`--advertise-addr` | The IP address this node should be visible as. **This setting is mandatory** to correctly configure Kubernetes on every node.
+`--role`           | _(Optional)_ Application role of the node.
 `--cloud-provider` | _(Optional)_ Cloud provider integration, `generic` or `aws`. Autodetected if not set.
-`--mounts` | _(Optional)_ Comma-separated list of mount points as <name>:<path>.
-`--state-dir` | _(Optional)_ Directory where all Gravity system data will be kept on this node. Defaults to `/var/lib/gravity`.
-`--service-uid` | _(Optional)_ Service user ID (numeric). See [Service User](pack/#service-user) for details. A user named `planet` is created automatically if unspecified.
-`--service-gid` | _(Optional)_ Service group ID (numeric). See [Service User](pack/#service-user) for details. A group named `planet` is created automatically if unspecified.
+`--mounts`         | _(Optional)_ Comma-separated list of mount points as <name>:<path>.
+`--state-dir`      | _(Optional)_ Directory where all Gravity system data will be kept on this node. Defaults to `/var/lib/gravity`.
+`--service-uid`    | _(Optional)_ Service user ID (numeric). See [Service User](pack/#service-user) for details. A user named `planet` is created automatically if unspecified.
+`--service-gid`    | _(Optional)_ Service group ID (numeric). See [Service User](pack/#service-user) for details. A group named `planet` is created automatically if unspecified.
 
-
-!!! tip "NOTE":
-    `--advertise-addr` must also be set for every node, and the same value for `--token` must be used.
-
-!!! tip "NOTE":
-    With no `role` specified, the installer uses the first role defined in the Application Manifest.
 
 The result of running these commands will be a functional and self-contained
 Kubernetes cluster!
 
-You can learn more in the [Packaging and Deployment](pack.md) section of the
-documentation.
+## Web-based Installation
 
+Web-based installation allows more interactive user experience, i.e. instead of
+specifying installation parameters via CLI arguments, users can follow the
+installation wizard using a web browser.
+
+To illustrate how this works, let's use the same set of assumptions from the CLI 
+installation section above, i.e. 
+
+* There are 3 clean Linux machines available. One will be the "master" and the
+  other two are "database" and "worker" respectively.
+* A user has remote access to all 3 machines, most likely via SSH.
+* A user also has their personal laptop with a web browser.
+
+To install using the graphical wizard, a Linux computer with a browser is
+required and the target servers need to be reachable via port `3012`. The node
+running the wizard must have its port `61009` accessible by other servers.
+
+The installation wizard is launched by typing `./install` script and will guide
+the end user through the installation process.
 
 ### Troubleshooting Installs
 
@@ -226,11 +242,28 @@ Flag      | Description
 `--resume` | Resume operation after the failure. The operation is resumed from the step that failed last.
 `--manual` | Launch operation in manual mode.
 
-## Installing on Google Compute Engine
 
-!!! note:
-    GCE cloud provider integration is supported starting from Gravity
-    version `5.1.0-alpha.1`.
+## AWS
+
+AWS is the most frequently used infrastructure for Gravity clusters, that's why
+AWS is natively supported, i.e. the behavior of `gravity` CLI command will
+change when it detects that it's running on a AWS instance.
+
+In practice, this means that Kubernetes networking will be configured with the AWS
+native network features.
+
+## Generic Linux Hosts
+
+In order to reliably run in any environment, Gravity aims to be infrastructure
+and cloud-agnostic. Gravity makes no assumption about the nature of the network
+or either the hosts are virtualized or bare metal.
+
+## Azure
+
+Gravity can be successfully deployed into an Azure environment using the same,
+generic approach as with any Generic Linux Hosts.
+
+## Google Compute Engine
 
 Before installation make sure that GCE instances used for installation
 satisfy all of Gravity [system requirements](/requirements). In addition to these
@@ -254,3 +287,4 @@ node2$ sudo ./gravity join <installer-addr> --advertise-addr=<addr> --token=<tok
 
 Note that the `--cloud-provider` flag is optional and, if unspecified, will be
 auto-detected if install/join process is running on a GCE instance.
+
