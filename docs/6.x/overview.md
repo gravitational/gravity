@@ -96,25 +96,25 @@ To package a cluster into a cluster image:
 * Create Kubernetes resources describing your application(s). You can use "raw"
   Kubernetes resources as YAML files, but [Helm charts](https://helm.sh/) are
   also supported.
-* Provide a cluster manifest described below. The manifest is used to customize
+* Provide a cluster image manifest described below. The manifest is used to customize
   the cluster image.
 * Place all of these files in the same directory and execute `tele build`
 
-A cluster manifest is required to describe hardware/system requirements of your
+A cluster image manifest is required to describe hardware/system requirements of your
 cluster and to customize the process of creating a new cluster instance.
 
 !!! tip "Gravity Roadmap Tip":
     Kubernetes community is working on finalizing the cluster API spec. Once it
     becomes production ready, Gravity developers will be looking into adopting the
-    future standard to replace the cluster manifest in the future. Meanwhile, 
+    future standard to replace the cluster image manifest in the future. Meanwhile, 
     it continues to be the only production-ready method of describing hardware
     requirements for K8s clusters.
 
-Below is a sample cluster manifest in YAML format. It follows Kubernetes
+Below is a sample image manifest in YAML format. It follows Kubernetes
 configuration conventions:
 
 ```yaml
-# this is an example of a small cluster manifest
+# this is an example of a small image manifest
 apiVersion: cluster.gravitational.io/v2
 kind: Cluster
 metadata:
@@ -135,7 +135,7 @@ nodeProfiles:
         min: "2GB"
 ```
 
-The cluster manifest works in conjunction with [Helm charts](https://helm.sh/)
+The image manifest works in conjunction with [Helm charts](https://helm.sh/)
 and Kubernetes resources like jobs and configuration maps. These tools provide
 the high degree of flexibility for specifying how applications are installed,
 updated and configured. 
@@ -153,7 +153,7 @@ $ tele build -o cluster-image.tar manifest.yaml
 This will produce the cluster image called `cluster-image.tar`, which can be
 deployed across any cloud providers and private data centers. 
 
-You can learn more about the cluster manifest in the [Packaging & Deployment](pack.md) 
+You can learn more about the image manifest in the [Packaging & Deployment](pack.md) 
 section of the documentation.
 
 ## Publishing
