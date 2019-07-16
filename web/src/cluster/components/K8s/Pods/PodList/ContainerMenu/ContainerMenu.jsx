@@ -15,26 +15,26 @@ limitations under the License.
 */
 
 import React from 'react';
+import ReactDOM from 'react-dom';
+import PropTypes from 'prop-types';
 import styled from 'styled-components';
+import { Flex, Text, ButtonOutlined, ButtonPrimary } from 'shared/components';
+import Menu, { MenuItem } from 'shared/components/Menu';
+import * as Icons from 'shared/components/Icon';
 import cfg from 'app/config';
 import { NavLink } from 'app/components/Router';
-import { Flex, Text, ButtonOutlined, ButtonPrimary } from 'shared/components';
-import Menu, { MenuItem} from 'shared/components/Menu';
-import * as Icons from 'shared/components/Icon';
-import ReactDOM from 'react-dom';
 
 class ContainerMenu extends React.Component {
-
   static displayName = 'ContainerMenu';
 
   menuRef = React.createRef();
 
-  constructor(props){
-    super(props)
+  constructor(props) {
+    super(props);
     this.state = {
       open: false,
       anchorEl: null,
-    }
+    };
   }
 
   onOpen = () => {
@@ -43,11 +43,11 @@ class ContainerMenu extends React.Component {
 
   onClose = () => {
     this.setState({ open: false });
-  }
+  };
 
   setButtonRef = e => {
     this.anchorEl = e;
-  }
+  };
 
   // get the first menu item to align it with the container button
   getContentAnchorEl = () => {
@@ -55,21 +55,21 @@ class ContainerMenu extends React.Component {
   };
 
   render() {
-    const {
-      container,
-      anchorOrigin,
-      transformOrigin,
-      ...styles
-    } = this.props;
-
+    const { logsEnabled, container, anchorOrigin, transformOrigin, ...styles } = this.props;
     const { open } = this.state;
     const { logUrl, name, sshLogins, pod, serverId, namespace } = container;
 
     return (
       <React.Fragment>
-        <ButtonOutlined size="small" p="1" setRef={this.setButtonRef} onClick={this.onOpen} {...styles}>
+        <ButtonOutlined
+          size="small"
+          p="1"
+          setRef={this.setButtonRef}
+          onClick={this.onOpen}
+          {...styles}
+        >
           {name}
-          <Icons.CarrotDown ml="2" fontSize="3" color="text.onDark"/>
+          <Icons.CarrotDown ml="2" fontSize="3" color="text.onDark" />
         </ButtonOutlined>
         <Menu
           anchorOrigin={anchorOrigin}
@@ -80,6 +80,7 @@ class ContainerMenu extends React.Component {
           getContentAnchorEl={this.getContentAnchorEl}
         >
           <LoginItemList
+            logsEnabled={logsEnabled}
             ref={this.menuRef}
             serverId={serverId}
             logUrl={logUrl}
@@ -96,32 +97,55 @@ class ContainerMenu extends React.Component {
   }
 }
 
-const LoginItemList = React.forwardRef(({ onClick, logins, title, serverId, logUrl, container, pod, namespace}, ref)  => {
-  logins = logins || [];
-  const $menuItems = logins.map((login, key) => {
-    const url = cfg.getConsoleInitPodSessionRoute({ login, serverId, container, pod, namespace });
-    return (
-      <MenuItem key={key} px="2" mx="2" as={SyledMenuItem} href={url} key={key} target="_blank" onClick={onClick}>
-        {login}
-      </MenuItem>
-    )
-  });
+const LoginItemList = React.forwardRef(
+  (
+    { onClick, logins, title, logsEnabled, serverId, logUrl, container, pod, namespace },
+    ref
+  ) => {
+    logins = logins || [];
+    const $menuItems = logins.map((login, key) => {
+      const url = cfg.getConsoleInitPodSessionRoute({ login, serverId, container, pod, namespace });
+      return (
+        <MenuItem
+          key={key}
+          px="2"
+          mx="2"
+          as={SyledMenuItem}
+          href={url}
+          key={key}
+          target="_blank"
+          onClick={onClick}
+        >
+          {login}
+        </MenuItem>
+      );
+    });
 
-  return (
-    <Flex ref={ref} flexDirection="column" minWidth="200px">
-      <Text px="2" fontSize="11px" mb="2" color="grey.400" bg="subtle">SSH - {title}</Text>
-      {$menuItems}
-      <ButtonPrimary my="3" mx="3" size="small" as={NavLink} to={logUrl}>
-        View Logs
-      </ButtonPrimary>
-    </Flex>
-  )
-})
+    return (
+      <Flex ref={ref} flexDirection="column" minWidth="200px" pb="2">
+        <Text px="2" fontSize="11px" mb="2" color="grey.400" bg="subtle">
+          SSH - {title}
+        </Text>
+        {$menuItems}
+        {logsEnabled && (
+          <ButtonPrimary mt="3" mb="2" mx="3" size="small" as={NavLink} to={logUrl}>
+            View Logs
+          </ButtonPrimary>
+        )}
+      </Flex>
+    );
+  }
+);
+
+LoginItemList.propTypes = {
+  logsEnabled: PropTypes.bool.isRequired,
+}
+
 
 const SyledMenuItem = styled.a`
   color: ${props => props.theme.colors.grey[400]};
   font-size: 12px;
-  border-bottom: 1px solid ${props => props.theme.colors.subtle };
+  border-bottom: 1px solid ${props => props.theme.colors.subtle};
   min-height: 32px;
   &:hover {
     color: ${props => props.theme.colors.link};
@@ -130,6 +154,6 @@ const SyledMenuItem = styled.a`
   :last-child {
     border-bottom: none;
   }
-`
+`;
 
 export default ContainerMenu;

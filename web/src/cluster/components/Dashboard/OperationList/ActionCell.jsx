@@ -15,41 +15,47 @@ limitations under the License.
 */
 
 import React from 'react';
+import PropTypes from 'prop-types';
 import { NavLink } from 'app/components/Router';
 import cfg from 'app/config';
 import { Cell } from 'shared/components/DataTable';
 import { ButtonPrimary, ButtonSecondary } from 'shared/components';
 
-export default function ActionCell({ rowIndex, data }) {
+export default function ActionCell({ logsEnabled, rowIndex, data }) {
   const { isSession, session, operation } = data[rowIndex];
-  if(!isSession){
+  if (isSession) {
+    return renderSessionCell(session);
+  }
+
+  if (logsEnabled) {
     return renderOperationCell(operation);
   }
 
-  return renderSessionCell(session);
+  return null;
 }
 
-function renderSessionCell(session){
+ActionCell.propTypes = {
+  logsEnabled: PropTypes.bool.isRequired,
+};
+
+function renderSessionCell(session) {
   const { sid } = session;
-  const url = cfg.getConsoleSessionRoute({sid})
+  const url = cfg.getConsoleSessionRoute({ sid });
   return (
     <Cell align="right">
-      <ButtonPrimary as="a" target="_blank"
-        href={url}
-        size="small" width="90px" children="join"
-      />
+      <ButtonPrimary as="a" target="_blank" href={url} size="small" width="90px" children="join" />
     </Cell>
-  )
+  );
 }
 
-function renderOperationCell(operation){
+function renderOperationCell(operation) {
   const { id } = operation;
-  const url = cfg.getSiteLogQueryRoute({ query:  `file:${id}` });
+  const url = cfg.getSiteLogQueryRoute({ query: `file:${id}` });
   return (
     <Cell align="right">
-      <ButtonSecondary as={NavLink} to={url} size="small"  width="90px">
+      <ButtonSecondary as={NavLink} to={url} size="small" width="90px">
         VIEW LOGS
       </ButtonSecondary>
     </Cell>
-  )
+  );
 }

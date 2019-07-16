@@ -15,45 +15,47 @@ limitations under the License.
 */
 
 import React from 'react';
+import PropTypes from 'prop-types';
 import { NavLink } from 'app/components/Router';
-import { K8sPodDisplayStatusEnum } from 'app/services/enums'
+import { K8sPodDisplayStatusEnum } from 'app/services/enums';
 import { Cell } from 'shared/components/DataTable';
 import { Flex, Label } from 'shared/components';
 import * as States from 'shared/components/LabelState';
-import { useK8sContext } from '../../k8sContext';
 import ResourceActionCell, { MenuItem } from './../../components/ResourceActionCell';
 import ContainerMenu from './ContainerMenu';
 
-export function NameCell({ rowIndex, data }){
+export function NameCell({ rowIndex, data }) {
   const { name } = data[rowIndex];
-  return (
-    <Cell>
-      {name}
-    </Cell>
-  )
+  return <Cell>{name}</Cell>;
 }
 
-export function ActionCell({ rowIndex, data }) {
+export function ActionCell({ rowIndex, data, monitoringEnabled = false, logsEnabled = false }) {
   const { podMonitorUrl, podLogUrl } = data[rowIndex];
-  const { monitoringEnabled = false } = useK8sContext();
   return (
-    <ResourceActionCell rowIndex={rowIndex} data={data} >
+    <ResourceActionCell rowIndex={rowIndex} data={data}>
       {monitoringEnabled && (
-        <MenuItem as={NavLink} to={podMonitorUrl} >
+        <MenuItem as={NavLink} to={podMonitorUrl}>
           Monitoring
         </MenuItem>
       )}
-      <MenuItem as={NavLink} to={podLogUrl} >
-        Logs
-      </MenuItem>
+      {logsEnabled && (
+        <MenuItem as={NavLink} to={podLogUrl}>
+          Logs
+        </MenuItem>
+      )}
     </ResourceActionCell>
-  )
+  );
 }
 
-export function StatusCell({ rowIndex, data }){
+ActionCell.propTypes = {
+  monitoringEnabled: PropTypes.bool.isRequired,
+  logsEnabled: PropTypes.bool.isRequired,
+}
+
+export function StatusCell({ rowIndex, data }) {
   const { status, statusDisplay } = data[rowIndex];
   let StateLabel = States.StateSuccess;
-  switch(status){
+  switch (status) {
     case K8sPodDisplayStatusEnum.RUNNING:
       StateLabel = States.StateSuccess;
       break;
@@ -68,10 +70,10 @@ export function StatusCell({ rowIndex, data }){
     <Cell>
       <StateLabel>{statusDisplay}</StateLabel>
     </Cell>
-  )
+  );
 }
 
-export function ContainerCell({ rowIndex, data, sshLogins }){
+export function ContainerCell({ rowIndex, data, sshLogins, logsEnabled }) {
   const { containers, name: pod, podHostIp, namespace } = data[rowIndex];
   const $containers = containers.map(item => {
     const { name, logUrl } = item;
@@ -81,34 +83,33 @@ export function ContainerCell({ rowIndex, data, sshLogins }){
       pod,
       serverId: podHostIp,
       namespace,
-      sshLogins
+      sshLogins,
     };
 
     return (
-      <ContainerMenu mr="2" key={item.name} container={container} />
-    )
+      <ContainerMenu
+        mr="2"
+        key={item.name}
+        container={container}
+        logsEnabled={logsEnabled}
+      />
+    );
   });
 
   return (
     <Cell>
-      <Flex flexDirection="row">
-        {$containers}
-      </Flex>
+      <Flex flexDirection="row">{$containers}</Flex>
     </Cell>
-  )
+  );
 }
 
-export function LabelCell({ rowIndex, data }){
+export function LabelCell({ rowIndex, data }) {
   const { labelsText } = data[rowIndex];
   const $labels = labelsText.map((item, key) => (
     <Label mb="1" mr="1" key={key} kind="secondary">
       {item}
     </Label>
-  ))
+  ));
 
-  return (
-    <Cell>
-      {$labels}
-    </Cell>
-  )
+  return <Cell>{$labels}</Cell>;
 }

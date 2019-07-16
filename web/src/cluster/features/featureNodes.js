@@ -17,6 +17,7 @@ limitations under the License.
 import cfg from 'app/config'
 import withFeature, { FeatureBase } from 'app/components/withFeature';
 import { addSideNavItem } from 'app/cluster/flux/nav/actions';
+import { fetchNodes } from 'app/cluster/flux/nodes/actions';
 import * as Icons from 'shared/components/Icon';
 import Nodes from '../components/Nodes';
 
@@ -42,6 +43,11 @@ class FeatureNodes extends FeatureBase {
       exact: true,
       to: cfg.getSiteServersRoute()
     })
+
+    this.setProcessing();
+    fetchNodes()
+      .done(() => this.setReady())
+      .fail(this.setFailed.bind(this));
   }
 }
 
