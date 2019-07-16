@@ -1,11 +1,11 @@
 # System Requirements
 
-This section outlines system requirements and best practices for installing
-Gravity Clusters.
+This chapter outlines the system requirements for Linux hosts to be able to run
+Kubernetes and Gravity.
 
-## Distributions
+## Linux Distributions
 
-Gravity supports the following distributions:
+Gravity supports the following Linux distributions:
 
 | Linux Distribution        | Version         | Docker Storage Drivers                |
 |--------------------------|-----------------|---------------------------------------|
@@ -23,13 +23,14 @@ Gravity supports the following distributions:
 
 ### Identifying OS Distributions In Manifest
 
-In order to enable the installer to properly validate the host environment, an OS distribution
-requirement needs to specify a list of distributions an application supports.
+You can restrict a cluster image to certain Linux distributions via cluster
+image manifest.
 
-During validation, values from the `name` attribute are matched against `ID` attribute of the
-/etc/os-release file from the host.
+During infrastructure validation, the values from `name` attribute are matched
+against `ID` attribute of the `/etc/os-release` file on a host.
 
-Following table lists all the supported distributions and how they can be specified in the manifest:
+The following table lists all supported Linux distributions and how they can be
+specified in the manifest:
 
 | Distribution Name        | ID                         | Version        |
 |--------------------------|----------------------------|----------------|
