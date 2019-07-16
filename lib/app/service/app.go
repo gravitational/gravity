@@ -41,7 +41,6 @@ import (
 	"github.com/gravitational/gravity/lib/storage"
 	"github.com/gravitational/gravity/lib/users"
 	"github.com/gravitational/gravity/lib/utils"
-	fileutils "github.com/gravitational/gravity/lib/utils"
 
 	dockerarchive "github.com/docker/docker/pkg/archive"
 	"github.com/gravitational/trace"
@@ -479,23 +478,17 @@ func (r *applications) getAppResources(locator loc.Locator) (io.ReadCloser, erro
 	if err != nil {
 		return nil, trace.Wrap(err)
 	}
-	defer reader.Close()
 
-	unpackedDir, cleanup, err := unpackedSource(reader, true)
+	stream, err := unpackedResources(reader)
 	if err != nil {
-		cleanup()
+		reader.Close()
 		return nil, trace.Wrap(err)
 	}
-	reader, writer := io.Pipe()
-	go func() {
-		err := archive.CompressDirectory(unpackedDir, writer)
-		if errClose := writer.CloseWithError(err); errClose != nil {
-			r.Warnf("Failed to close writer: %v.", errClose)
-		}
-	}()
-	return &fileutils.CleanupReadCloser{
-		ReadCloser: reader,
-		Cleanup:    cleanup,
+	return &utils.CleanupReadCloser{
+		ReadCloser: stream,
+		Cleanup: func() {
+			reader.Close()
+		},
 	}, nil
 }
 
@@ -618,7 +611,7 @@ func (r *applications) createApp(locator loc.Locator, packageBytes io.Reader, ma
 // CreateImportOperation initiates import for an application specified with req.
 // Returns the import operation to keep track of the import progress.
 func (r *applications) CreateImportOperation(req *appservice.ImportRequest) (*storage.AppOperation, error) {
-	unpackedDir, cleanup, err := unpackedSource(req.Source, false)
+	unpackedDir, cleanup, err := unpackedSource(req.Source)
 	if err != nil {
 		cleanup()
 		return nil, trace.Wrap(err)

@@ -424,11 +424,7 @@ func unpackAppResources(env *localenv.LocalEnvironment, loc loc.Locator, dir, op
 		}
 		defer reader.Close()
 
-		if err := dockerarchive.Untar(reader, dir, archive.DefaultOptions()); err != nil {
-			return trace.Wrap(err)
-		}
-
-		return nil
+		return archive.ExtractWithPrefix(reader, dir, defaults.ResourcesDir)
 	})
 	if err != nil {
 		return trace.Wrap(err)
@@ -441,8 +437,7 @@ func unpackAppResources(env *localenv.LocalEnvironment, loc loc.Locator, dir, op
 			return trace.BadParameter("invalid numeric user ID %q: %v", serviceUID, err)
 		}
 	}
-	err = resources.UpdateSecurityContextInDir(filepath.Join(dir, defaults.ResourcesDir),
-		systeminfo.User{UID: uid})
+	err = resources.UpdateSecurityContextInDir(dir, systeminfo.User{UID: uid})
 	if err != nil {
 		return trace.Wrap(err, "failed to render application resources")
 	}
