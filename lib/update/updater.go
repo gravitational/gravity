@@ -27,6 +27,7 @@ import (
 	"github.com/gravitational/gravity/lib/loc"
 	"github.com/gravitational/gravity/lib/localenv"
 	"github.com/gravitational/gravity/lib/ops"
+	"github.com/gravitational/gravity/lib/ops/events"
 	"github.com/gravitational/gravity/lib/pack"
 	"github.com/gravitational/gravity/lib/rpc"
 	"github.com/gravitational/gravity/lib/storage"
@@ -119,15 +120,32 @@ func (r *Updater) Complete(fsmErr error) error {
 	if fsmErr == nil {
 		fsmErr = trace.Errorf("completed manually")
 	}
-	err := r.machine.Complete(fsmErr)
-	if err != nil {
+	if err := r.machine.Complete(fsmErr); err != nil {
 		return trace.Wrap(err)
 	}
-	err = r.Operator.ActivateSite(ops.ActivateSiteRequest{
+	if err := r.emitAuditEvent(context.TODO()); err != nil {
+		log.WithError(err).Warn("Failed to emit audit event.")
+	}
+	return r.Operator.ActivateSite(ops.ActivateSiteRequest{
 		AccountID:  r.Operation.ClusterKey().AccountID,
 		SiteDomain: r.Operation.ClusterKey().SiteDomain,
 	})
-	return trace.Wrap(err)
+}
+
+func (r *Updater) emitAuditEvent(ctx context.Context) error {
+	clusterOperator, err := localenv.ClusterOperator()
+	if err != nil {
+		return trace.Wrap(err)
+	}
+	operation, err := r.Operator.GetSiteOperation(r.Operation.Key())
+	if err != nil {
+		return trace.Wrap(err)
+	}
+	err = events.EmitForOperation(ctx, clusterOperator, *operation)
+	if err != nil {
+		return trace.Wrap(err)
+	}
+	return nil
 }
 
 // GetPlan returns the up-to-date operation plan
