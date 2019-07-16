@@ -1,5 +1,5 @@
 /*
-Copyright 2018 Gravitational, Inc.
+Copyright 2018-2019 Gravitational, Inc.
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -39,147 +39,147 @@ import (
 func RegisterCommands(app *kingpin.Application) *Application {
 	g := &Application{Application: app}
 
-	g.Debug = g.Flag("debug", "Enable debug mode").Bool()
-	g.Silent = g.Flag("quiet", "Suppress any extra output to stdout").Short('q').Bool()
-	g.Insecure = g.Flag("insecure", "Skip TLS verification").Default("false").Bool()
-	g.StateDir = g.Flag("state-dir", "Directory for local state").String()
-	g.EtcdRetryTimeout = g.Flag("etcd-retry-timeout", "Retry timeout for etcd transient errors").Hidden().Duration()
-	g.UID = app.Flag("uid", "effective user ID for this operation. Must be >= 0").Default(strconv.Itoa(defaults.PlaceholderUserID)).Hidden().Int()
-	g.GID = g.Flag("gid", "effective group ID for this operation. Must be >= 0").Default(strconv.Itoa(defaults.PlaceholderGroupID)).Hidden().Int()
-	g.ProfileEndpoint = g.Flag("httpprofile", "enable profiling endpoint on specified host/port i.e. localhost:6060").Hidden().String()
-	g.ProfileTo = g.Flag("profile-dir", "store periodic state snapshots in the specified directory").Hidden().String()
-	g.UserLogFile = g.Flag("log-file", "log file with diagnostic information").Default(defaults.GravityUserLog).String()
-	g.SystemLogFile = g.Flag("system-log-file", "log file with system level logs").Default(defaults.GravitySystemLog).Hidden().String()
+	g.Debug = g.Flag("debug", "Enable debug mode.").Bool()
+	g.Silent = g.Flag("quiet", "Suppress any extra output to stdout.").Short('q').Bool()
+	g.Insecure = g.Flag("insecure", "Skip TLS verification.").Default("false").Bool()
+	g.StateDir = g.Flag("state-dir", "Gravity local state directory.").String()
+	g.EtcdRetryTimeout = g.Flag("etcd-retry-timeout", "Retry timeout for transient etcd errors.").Hidden().Duration()
+	g.UID = app.Flag("uid", "Effective user ID for this operation. Must be >= 0.").Default(strconv.Itoa(defaults.PlaceholderUserID)).Hidden().Int()
+	g.GID = g.Flag("gid", "Effective group ID for this operation. Must be >= 0.").Default(strconv.Itoa(defaults.PlaceholderGroupID)).Hidden().Int()
+	g.ProfileEndpoint = g.Flag("httpprofile", "Enable profiling endpoint on specified host/port i.e. localhost:6060.").Hidden().String()
+	g.ProfileTo = g.Flag("profile-dir", "Store periodic state snapshots in the specified directory.").Hidden().String()
+	g.UserLogFile = g.Flag("log-file", "Path to the log file with diagnostic information.").Default(defaults.GravityUserLog).String()
+	g.SystemLogFile = g.Flag("system-log-file", "Path to the log file with system level logs.").Default(defaults.GravitySystemLog).Hidden().String()
 
-	g.VersionCmd.CmdClause = g.Command("version", "Print gravity version")
-	g.VersionCmd.Output = common.Format(g.VersionCmd.Flag("output", "Output format, text or json").Short('o').Default(string(constants.EncodingText)))
+	g.VersionCmd.CmdClause = g.Command("version", "Print version information and exit.")
+	g.VersionCmd.Output = common.Format(g.VersionCmd.Flag("output", "Output format: text or json.").Short('o').Default(string(constants.EncodingText)))
 
-	g.InstallCmd.CmdClause = g.Command("install", "Install cluster on this node")
-	g.InstallCmd.Path = g.InstallCmd.Arg("appdir", "Path to directory with application package. Uses current directory by default").String()
-	g.InstallCmd.AdvertiseAddr = g.InstallCmd.Flag("advertise-addr", "The IP address to advertise").String()
-	g.InstallCmd.Token = g.InstallCmd.Flag("token", "Unique install token to authorize other nodes to join the cluster. Generated automatically if unspecified").String()
-	g.InstallCmd.CloudProvider = g.InstallCmd.Flag("cloud-provider", fmt.Sprintf("Cloud provider integration: %v. If not set, autodetect environment", schema.SupportedProviders)).String()
-	g.InstallCmd.Cluster = g.InstallCmd.Flag("cluster", "Cluster name, optional").String()
-	g.InstallCmd.App = g.InstallCmd.Flag("app", "Application to install, optional").Hidden().String()
-	g.InstallCmd.Flavor = g.InstallCmd.Flag("flavor", "Application flavor, optional").String()
-	g.InstallCmd.Role = g.InstallCmd.Flag("role", "Role of this node, optional").String()
-	g.InstallCmd.ResourcesPath = g.InstallCmd.Flag("config", "Kubernetes configuration resources, will be injected at cluster creation time").String()
-	g.InstallCmd.Wizard = g.InstallCmd.Flag("wizard", "(Obsolete, superseded by 'mode') Start installer with web wizard interface").Bool()
-	g.InstallCmd.Mode = g.InstallCmd.Flag("mode", fmt.Sprintf("Install mode, one of %v",
+	g.InstallCmd.CmdClause = g.Command("install", "Install cluster image on this node.")
+	g.InstallCmd.Path = g.InstallCmd.Arg("path", "Path to the directory with the unpacked cluster image. Defaults to the current directory.").String()
+	g.InstallCmd.AdvertiseAddr = g.InstallCmd.Flag("advertise-addr", "IP address this node will advertise to other cluster nodes. Must be present on the node. Will be auto-selected if not specified.").String()
+	g.InstallCmd.Token = g.InstallCmd.Flag("token", "Unique install token to authorize other nodes to join the cluster. Generated automatically if unspecified.").String()
+	g.InstallCmd.CloudProvider = g.InstallCmd.Flag("cloud-provider", fmt.Sprintf("Cloud provider integration: %v. Auto-detected if not set.", schema.SupportedProviders)).String()
+	g.InstallCmd.Cluster = g.InstallCmd.Flag("cluster", "Cluster name. Will be auto-generated if not specified.").String()
+	g.InstallCmd.App = g.InstallCmd.Flag("app", "Cluster image name to install.").Hidden().String()
+	g.InstallCmd.Flavor = g.InstallCmd.Flag("flavor", "Cluster image flavor to install.").String()
+	g.InstallCmd.Role = g.InstallCmd.Flag("role", "Role of this node.").String()
+	g.InstallCmd.ResourcesPath = g.InstallCmd.Flag("config", "Kubernetes configuration resources, will be injected at cluster creation time.").String()
+	g.InstallCmd.Wizard = g.InstallCmd.Flag("wizard", "Start installation using web wizard interface.").Bool()
+	g.InstallCmd.Mode = g.InstallCmd.Flag("mode", fmt.Sprintf("Install mode. One of: %v.",
 		modules.Get().InstallModes())).Default(constants.InstallModeCLI).Hidden().String()
-	g.InstallCmd.DockerDevice = g.InstallCmd.Flag("docker-device", "Device to use for docker storage").Hidden().String()
-	g.InstallCmd.SystemDevice = g.InstallCmd.Flag("system-device", "Device to use for system data directory").Hidden().String()
-	g.InstallCmd.Mounts = configure.KeyValParam(g.InstallCmd.Flag("mount", "One or several mounts in form <mount-name>:<path>, e.g. data:/var/lib/data"))
-	g.InstallCmd.PodCIDR = g.InstallCmd.Flag("pod-network-cidr", "Subnet range for pods. Must be a minimum of /16").Default(defaults.PodSubnet).String()
-	g.InstallCmd.ServiceCIDR = g.InstallCmd.Flag("service-cidr", "Subnet range for services").Default(defaults.ServiceSubnet).String()
-	g.InstallCmd.VxlanPort = g.InstallCmd.Flag("vxlan-port", "Custom overlay network port").Default(strconv.Itoa(defaults.VxlanPort)).Int()
-	g.InstallCmd.DNSListenAddrs = g.InstallCmd.Flag("dns-listen-addr", "Custom listen address for in-cluster DNS").
+	g.InstallCmd.DockerDevice = g.InstallCmd.Flag("docker-device", "Device to use for docker storage.").Hidden().String()
+	g.InstallCmd.SystemDevice = g.InstallCmd.Flag("system-device", "Device to use for system data directory.").Hidden().String()
+	g.InstallCmd.Mounts = configure.KeyValParam(g.InstallCmd.Flag("mount", "One or several mount overrides in the following format: <mount-name>:<path>, e.g. data:/var/lib/data."))
+	g.InstallCmd.PodCIDR = g.InstallCmd.Flag("pod-network-cidr", "Subnet range for Kubernetes pods network. Must be a minimum of /16.").Default(defaults.PodSubnet).String()
+	g.InstallCmd.ServiceCIDR = g.InstallCmd.Flag("service-cidr", "Subnet range for Kubernetes service networ.").Default(defaults.ServiceSubnet).String()
+	g.InstallCmd.VxlanPort = g.InstallCmd.Flag("vxlan-port", "Custom overlay network port.").Default(strconv.Itoa(defaults.VxlanPort)).Int()
+	g.InstallCmd.DNSListenAddrs = g.InstallCmd.Flag("dns-listen-addr", "Custom listen address for in-cluster DNS.").
 		Default(defaults.DNSListenAddr).IPList()
-	g.InstallCmd.DNSPort = g.InstallCmd.Flag("dns-port", "Custom DNS port for in-cluster DNS").
+	g.InstallCmd.DNSPort = g.InstallCmd.Flag("dns-port", "Custom listen port for in-cluster DNS.").
 		Default(strconv.Itoa(defaults.DNSPort)).Int()
 	g.InstallCmd.DockerStorageDriver = DockerStorageDriver(g.InstallCmd.Flag("storage-driver",
-		fmt.Sprintf("Docker storage driver, overrides the one from app manifest. Recognized are: %v", strings.Join(constants.DockerSupportedDrivers, ", "))), constants.DockerSupportedDrivers)
-	g.InstallCmd.DockerArgs = g.InstallCmd.Flag("docker-opt", "Additional arguments to docker. Can be specified multiple times").Strings()
+		fmt.Sprintf("Docker storage driver. Overrides the one specified in the cluster image manifest. Recognized are: %v.", strings.Join(constants.DockerSupportedDrivers, ", "))), constants.DockerSupportedDrivers)
+	g.InstallCmd.DockerArgs = g.InstallCmd.Flag("docker-opt", "Additional arguments to Docker. Can be specified multiple times.").Strings()
 	g.InstallCmd.ServiceUID = g.InstallCmd.Flag("service-uid",
-		fmt.Sprintf("Service user ID for planet. %q user will created and used if none specified", defaults.ServiceUser)).
+		fmt.Sprintf("Service user ID for Planet container. %q user will created and used if none specified.", defaults.ServiceUser)).
 		Default(defaults.ServiceUserID).
 		OverrideDefaultFromEnvar(constants.ServiceUserEnvVar).
 		String()
 	g.InstallCmd.ServiceGID = g.InstallCmd.Flag("service-gid",
-		fmt.Sprintf("Service group ID for planet. %q group will created and used if none specified", defaults.ServiceUserGroup)).
+		fmt.Sprintf("Service group ID for Planet container. %q group will created and used if none specified.", defaults.ServiceUserGroup)).
 		Default(defaults.ServiceGroupID).
 		OverrideDefaultFromEnvar(constants.ServiceGroupEnvVar).
 		String()
-	g.InstallCmd.GCENodeTags = g.InstallCmd.Flag("gce-node-tag", "Override node tag on the instance in GCE required for load balanacing. Defaults to cluster name.").Strings()
+	g.InstallCmd.GCENodeTags = g.InstallCmd.Flag("gce-node-tag", "Override node tag on the instance in GCE required for load balanacing. Defaults to the cluster name.").Strings()
 	g.InstallCmd.DNSHosts = g.InstallCmd.Flag("dns-host", "Specify an IP address that will be returned for the given domain within the cluster. Accepts <domain>/<ip> format. Can be specified multiple times.").Hidden().Strings()
 	g.InstallCmd.DNSZones = g.InstallCmd.Flag("dns-zone", "Specify an upstream server for the given zone within the cluster. Accepts <zone>/<nameserver> format where <nameserver> can be either <ip> or <ip>:<port>. Can be specified multiple times.").Strings()
-	g.InstallCmd.Remote = g.InstallCmd.Flag("remote", "Do not use this node in the cluster").Bool()
-	g.InstallCmd.FromService = g.InstallCmd.Flag("from-service", "Run in service mode").Hidden().Bool()
+	g.InstallCmd.Remote = g.InstallCmd.Flag("remote", "Do not use this node in the cluster.").Bool()
+	g.InstallCmd.FromService = g.InstallCmd.Flag("from-service", "Run in service mode.").Hidden().Bool()
 
-	g.JoinCmd.CmdClause = g.Command("join", "Join existing cluster or on-going install operation")
-	g.JoinCmd.PeerAddr = g.JoinCmd.Arg("peer-addrs", "One or several IP addresses of cluster node to join, as comma-separated values").String()
-	g.JoinCmd.AdvertiseAddr = g.JoinCmd.Flag("advertise-addr", "IP address to advertise").String()
-	g.JoinCmd.Token = g.JoinCmd.Flag("token", "Unique install token to authorize this node to join the cluster").String()
-	g.JoinCmd.Role = g.JoinCmd.Flag("role", "Role of this node, optional").String()
-	g.JoinCmd.DockerDevice = g.JoinCmd.Flag("docker-device", "Docker device to use").Hidden().String()
-	g.JoinCmd.SystemDevice = g.JoinCmd.Flag("system-device", "Device to use for system data directory").Hidden().String()
-	g.JoinCmd.ServerAddr = g.JoinCmd.Flag("server-addr", "Address of the agent server").Hidden().String()
-	g.JoinCmd.Mounts = configure.KeyValParam(g.JoinCmd.Flag("mount", "One or several mounts in form <mount-name>:<path>, e.g. data:/var/lib/data"))
-	g.JoinCmd.CloudProvider = g.JoinCmd.Flag("cloud-provider", "Cloud provider integration e.g. 'generic', 'aws'. If not set, autodetect environment").String()
-	g.JoinCmd.OperationID = g.JoinCmd.Flag("operation-id", "ID of the operation that was created via UI").Hidden().String()
-	g.JoinCmd.FromService = g.JoinCmd.Flag("from-service", "Run in service mode").Hidden().Bool()
+	g.JoinCmd.CmdClause = g.Command("join", "Join the existing cluster or an on-going install operation.")
+	g.JoinCmd.PeerAddr = g.JoinCmd.Arg("peer-addrs", "One or several IP addresses of cluster nodes to join, as comma-separated values.").String()
+	g.JoinCmd.AdvertiseAddr = g.JoinCmd.Flag("advertise-addr", "IP address this node will advertise to other cluster nodes.").String()
+	g.JoinCmd.Token = g.JoinCmd.Flag("token", "Unique token to authorize this node to join the cluster.").String()
+	g.JoinCmd.Role = g.JoinCmd.Flag("role", "Role of this node.").String()
+	g.JoinCmd.DockerDevice = g.JoinCmd.Flag("docker-device", "Docker device to use.").Hidden().String()
+	g.JoinCmd.SystemDevice = g.JoinCmd.Flag("system-device", "Device to use for system data directory.").Hidden().String()
+	g.JoinCmd.ServerAddr = g.JoinCmd.Flag("server-addr", "Address of the agent server.").Hidden().String()
+	g.JoinCmd.Mounts = configure.KeyValParam(g.JoinCmd.Flag("mount", "One or several mounts in form <mount-name>:<path>, e.g. data:/var/lib/data."))
+	g.JoinCmd.CloudProvider = g.JoinCmd.Flag("cloud-provider", fmt.Sprintf("Cloud provider integration: %v. Auto-detected if not specified.", schema.SupportedProviders)).String()
+	g.JoinCmd.OperationID = g.JoinCmd.Flag("operation-id", "ID of the operation that was created via UI.").Hidden().String()
+	g.JoinCmd.FromService = g.JoinCmd.Flag("from-service", "Run in service mode.").Hidden().Bool()
 
-	g.AutoJoinCmd.CmdClause = g.Command("autojoin", "Use cloud provider data to join a node to existing cluster")
-	g.AutoJoinCmd.ClusterName = g.AutoJoinCmd.Arg("cluster-name", "Cluster name used for discovery").Required().String()
-	g.AutoJoinCmd.Role = g.AutoJoinCmd.Flag("role", "Role of this node, optional").String()
-	g.AutoJoinCmd.DockerDevice = g.AutoJoinCmd.Flag("docker-device", "Docker device to use").Hidden().String()
-	g.AutoJoinCmd.SystemDevice = g.AutoJoinCmd.Flag("system-device", "Device to use for system data directory").Hidden().String()
-	g.AutoJoinCmd.Mounts = configure.KeyValParam(g.AutoJoinCmd.Flag("mount", "One or several mounts in form <mount-name>:<path>, e.g. data:/var/lib/data"))
-	g.AutoJoinCmd.ServiceAddr = g.AutoJoinCmd.Flag("service-addr", "Service URL of the cluster to join").String()
-	g.AutoJoinCmd.AdvertiseAddr = g.AutoJoinCmd.Flag("advertise-addr", "IP address to advertise").Hidden().String()
-	g.AutoJoinCmd.Token = g.AutoJoinCmd.Flag("token", "Unique install token to authorize this node to join the cluster").Hidden().String()
-	g.AutoJoinCmd.FromService = g.AutoJoinCmd.Flag("from-service", "Run in service mode").Hidden().Bool()
+	g.AutoJoinCmd.CmdClause = g.Command("autojoin", "Use cloud provider data to join a node to existing cluster.")
+	g.AutoJoinCmd.ClusterName = g.AutoJoinCmd.Arg("cluster-name", "Cluster name used for discovery.").Required().String()
+	g.AutoJoinCmd.Role = g.AutoJoinCmd.Flag("role", "Role of this node.").String()
+	g.AutoJoinCmd.DockerDevice = g.AutoJoinCmd.Flag("docker-device", "Docker device to use.").Hidden().String()
+	g.AutoJoinCmd.SystemDevice = g.AutoJoinCmd.Flag("system-device", "Device to use for system data directory.").Hidden().String()
+	g.AutoJoinCmd.Mounts = configure.KeyValParam(g.AutoJoinCmd.Flag("mount", "One or several mounts in form <mount-name>:<path>, e.g. data:/var/lib/data."))
+	g.AutoJoinCmd.ServiceAddr = g.AutoJoinCmd.Flag("service-addr", "Service URL of the cluster to join.").String()
+	g.AutoJoinCmd.AdvertiseAddr = g.AutoJoinCmd.Flag("advertise-addr", "IP address this node will advertise to other cluster nodes.").Hidden().String()
+	g.AutoJoinCmd.Token = g.AutoJoinCmd.Flag("token", "Unique token to authorize this node to join the cluster.").Hidden().String()
+	g.AutoJoinCmd.FromService = g.AutoJoinCmd.Flag("from-service", "Run in service mode.").Hidden().Bool()
 
-	g.LeaveCmd.CmdClause = g.Command("leave", "Decommission this node from the cluster")
-	g.LeaveCmd.Force = g.LeaveCmd.Flag("force", "Force local state cleanup").Bool()
-	g.LeaveCmd.Confirm = g.LeaveCmd.Flag("confirm", "Do not ask for confirmation").Bool()
+	g.LeaveCmd.CmdClause = g.Command("leave", "Decommission this node from the cluster.")
+	g.LeaveCmd.Force = g.LeaveCmd.Flag("force", "Force local state cleanup.").Bool()
+	g.LeaveCmd.Confirm = g.LeaveCmd.Flag("confirm", "Do not ask for confirmation.").Bool()
 
-	g.RemoveCmd.CmdClause = g.Command("remove", "Remove a node from the cluster")
-	g.RemoveCmd.Node = g.RemoveCmd.Arg("node", "Node to remove: can be IP address, hostname or name from `kubectl get nodes` output)").
+	g.RemoveCmd.CmdClause = g.Command("remove", "Remove a node from the cluster.")
+	g.RemoveCmd.Node = g.RemoveCmd.Arg("node", "Node to remove: can be IP address, hostname or name from `kubectl get nodes` output).").
 		Required().String()
-	g.RemoveCmd.Force = g.RemoveCmd.Flag("force", "Force removal of offline node").Bool()
-	g.RemoveCmd.Confirm = g.RemoveCmd.Flag("confirm", "Do not ask for confirmation").Bool()
+	g.RemoveCmd.Force = g.RemoveCmd.Flag("force", "Force removal of an offline node.").Bool()
+	g.RemoveCmd.Confirm = g.RemoveCmd.Flag("confirm", "Do not ask for confirmation.").Bool()
 
-	g.ResumeCmd.CmdClause = g.Command("resume", "Resume last aborted operation")
-	g.ResumeCmd.OperationID = g.ResumeCmd.Flag("operation-id", "ID of the active operation. It not specified, the last operation will be used").Hidden().String()
-	g.ResumeCmd.SkipVersionCheck = g.ResumeCmd.Flag("skip-version-check", "Bypass version compatibility check").Hidden().Bool()
-	g.ResumeCmd.Force = g.ResumeCmd.Flag("force", "Force execution of specified phase").Bool()
-	g.ResumeCmd.PhaseTimeout = g.ResumeCmd.Flag("timeout", "Phase timeout").Default(defaults.PhaseTimeout).Hidden().Duration()
+	g.ResumeCmd.CmdClause = g.Command("resume", "Resume the last aborted operation.")
+	g.ResumeCmd.OperationID = g.ResumeCmd.Flag("operation-id", "ID of the active operation. It not specified, the last operation will be used.").Hidden().String()
+	g.ResumeCmd.SkipVersionCheck = g.ResumeCmd.Flag("skip-version-check", "Bypass version compatibility check.").Hidden().Bool()
+	g.ResumeCmd.Force = g.ResumeCmd.Flag("force", "Force execution of specified phase.").Bool()
+	g.ResumeCmd.PhaseTimeout = g.ResumeCmd.Flag("timeout", "Phase execution timeout.").Default(defaults.PhaseTimeout).Hidden().Duration()
 
-	g.PlanCmd.CmdClause = g.Command("plan", "Manage operation plan")
-	g.PlanCmd.OperationID = g.PlanCmd.Flag("operation-id", "ID of the active operation. It not specified, the last operation will be used").Hidden().String()
-	g.PlanCmd.SkipVersionCheck = g.PlanCmd.Flag("skip-version-check", "Bypass version compatibility check").Hidden().Bool()
+	g.PlanCmd.CmdClause = g.Command("plan", "Manage operation plan.")
+	g.PlanCmd.OperationID = g.PlanCmd.Flag("operation-id", "ID of the active operation. It not specified, the last operation will be used.").Hidden().String()
+	g.PlanCmd.SkipVersionCheck = g.PlanCmd.Flag("skip-version-check", "Bypass version compatibility check.").Hidden().Bool()
 
-	g.PlanDisplayCmd.CmdClause = g.PlanCmd.Command("display", "Display a plan for an ongoing operation").Default()
-	g.PlanDisplayCmd.Output = common.Format(g.PlanDisplayCmd.Flag("output", "Output format for the plan, text, json or yaml").Short('o').Default(string(constants.EncodingText)))
+	g.PlanDisplayCmd.CmdClause = g.PlanCmd.Command("display", "Display a plan for an ongoing operation.").Default()
+	g.PlanDisplayCmd.Output = common.Format(g.PlanDisplayCmd.Flag("output", fmt.Sprintf("Output format: %v.", constants.OutputFormats)).Short('o').Default(string(constants.EncodingText)))
 
-	g.PlanExecuteCmd.CmdClause = g.PlanCmd.Command("execute", "Execute specified operation phase")
-	g.PlanExecuteCmd.Phase = g.PlanExecuteCmd.Flag("phase", "Phase ID to execute").String()
-	g.PlanExecuteCmd.Force = g.PlanExecuteCmd.Flag("force", "Force execution of specified phase").Bool()
-	g.PlanExecuteCmd.PhaseTimeout = g.PlanExecuteCmd.Flag("timeout", "Phase timeout").Default(defaults.PhaseTimeout).Hidden().Duration()
+	g.PlanExecuteCmd.CmdClause = g.PlanCmd.Command("execute", "Execute the specified operation phase.")
+	g.PlanExecuteCmd.Phase = g.PlanExecuteCmd.Flag("phase", "Phase ID to execute.").String()
+	g.PlanExecuteCmd.Force = g.PlanExecuteCmd.Flag("force", "Force execution of the specified phase.").Bool()
+	g.PlanExecuteCmd.PhaseTimeout = g.PlanExecuteCmd.Flag("timeout", "Phase execution timeout.").Default(defaults.PhaseTimeout).Hidden().Duration()
 
-	g.PlanRollbackCmd.CmdClause = g.PlanCmd.Command("rollback", "Rollback specified operation phase")
-	g.PlanRollbackCmd.Phase = g.PlanRollbackCmd.Flag("phase", "Phase ID to execute").String()
-	g.PlanRollbackCmd.Force = g.PlanRollbackCmd.Flag("force", "Force rollback of specified phase").Bool()
-	g.PlanRollbackCmd.PhaseTimeout = g.PlanRollbackCmd.Flag("timeout", "Phase timeout").Default(defaults.PhaseTimeout).Hidden().Duration()
+	g.PlanRollbackCmd.CmdClause = g.PlanCmd.Command("rollback", "Rollback the specified operation phase.")
+	g.PlanRollbackCmd.Phase = g.PlanRollbackCmd.Flag("phase", "Phase ID to rollback.").String()
+	g.PlanRollbackCmd.Force = g.PlanRollbackCmd.Flag("force", "Force rollback of the specified phase.").Bool()
+	g.PlanRollbackCmd.PhaseTimeout = g.PlanRollbackCmd.Flag("timeout", "Phase rollback timeout.").Default(defaults.PhaseTimeout).Hidden().Duration()
 
-	g.PlanResumeCmd.CmdClause = g.PlanCmd.Command("resume", "Resume last aborted operation")
-	g.PlanResumeCmd.Force = g.PlanResumeCmd.Flag("force", "Force execution of specified phase").Bool()
-	g.PlanResumeCmd.PhaseTimeout = g.PlanResumeCmd.Flag("timeout", "Phase timeout").Default(defaults.PhaseTimeout).Hidden().Duration()
+	g.PlanResumeCmd.CmdClause = g.PlanCmd.Command("resume", "Resume the last aborted operation.")
+	g.PlanResumeCmd.Force = g.PlanResumeCmd.Flag("force", "Force execution of the specified phase.").Bool()
+	g.PlanResumeCmd.PhaseTimeout = g.PlanResumeCmd.Flag("timeout", "Phase execution timeout.").Default(defaults.PhaseTimeout).Hidden().Duration()
 
-	g.PlanCompleteCmd.CmdClause = g.PlanCmd.Command("complete", "Mark operation as completed")
+	g.PlanCompleteCmd.CmdClause = g.PlanCmd.Command("complete", "Mark the current operation as completed.")
 
-	g.UpdateCmd.CmdClause = g.Command("update", "Update actions on cluster")
+	g.UpdateCmd.CmdClause = g.Command("update", "Update actions on cluster.")
 
-	g.UpdateCheckCmd.CmdClause = g.UpdateCmd.Command("check", "Check if an update is available for the specified application").Hidden()
-	g.UpdateCheckCmd.App = g.UpdateCheckCmd.Arg("app", "Application version to update to, in the 'name:version' or 'name' (for latest version) format. If unspecified, currently installed application is updated").String()
+	g.UpdateCheckCmd.CmdClause = g.UpdateCmd.Command("check", "Check if an update is available for the specified cluster image.").Hidden()
+	g.UpdateCheckCmd.App = g.UpdateCheckCmd.Arg("image", "Cluster image version to upgrade to in the 'name:version' or 'name' (for latest version) format.").String()
 
-	g.UpdateTriggerCmd.CmdClause = g.UpdateCmd.Command("trigger", "Trigger an update operation for given application").Hidden()
-	g.UpdateTriggerCmd.App = g.UpdateTriggerCmd.Arg("app", "Application version to update to, in the 'name:version' or 'name' (for latest version) format. If unspecified, currently installed application is updated").String()
-	g.UpdateTriggerCmd.Manual = g.UpdateTriggerCmd.Flag("manual", "Manual operation. Do not trigger automatic update").Short('m').Bool()
-	g.UpdateTriggerCmd.SkipVersionCheck = g.UpdateTriggerCmd.Flag("skip-version-check", "Bypass version compatibility check").Hidden().Bool()
+	g.UpdateTriggerCmd.CmdClause = g.UpdateCmd.Command("trigger", "Trigger an upgrade operation for the given cluster image.").Hidden()
+	g.UpdateTriggerCmd.App = g.UpdateTriggerCmd.Arg("image", "Cluster image version to upgrade to in the 'name:version' or 'name' (for latest version) format.").String()
+	g.UpdateTriggerCmd.Manual = g.UpdateTriggerCmd.Flag("manual", "Manual operation. Do not trigger automatic update.").Short('m').Bool()
+	g.UpdateTriggerCmd.SkipVersionCheck = g.UpdateTriggerCmd.Flag("skip-version-check", "Bypass version compatibility check.").Hidden().Bool()
 
-	g.UpdatePlanInitCmd.CmdClause = g.UpdateCmd.Command("init-plan", "Initialize operation plan").Hidden()
+	g.UpdatePlanInitCmd.CmdClause = g.UpdateCmd.Command("init-plan", "Initialize operation plan.").Hidden()
 
 	// upgrade is aliased to "update trigger"
-	g.UpgradeCmd.CmdClause = g.Command("upgrade", "Trigger an update operation for given application").Hidden()
-	g.UpgradeCmd.App = g.UpgradeCmd.Arg("app", "Application version to update to, in the 'name:version' or 'name' (for latest version) format. If unspecified, currently installed application is updated").String()
-	g.UpgradeCmd.Manual = g.UpgradeCmd.Flag("manual", "Manual upgrade mode").Short('m').Bool()
-	g.UpgradeCmd.Phase = g.UpgradeCmd.Flag("phase", "Operation phase to execute").String()
-	g.UpgradeCmd.Timeout = g.UpgradeCmd.Flag("timeout", "Phase execution timeout").Default(defaults.PhaseTimeout).Hidden().Duration()
-	g.UpgradeCmd.Force = g.UpgradeCmd.Flag("force", "Force phase execution even if pre-conditions are not satisfied").Bool()
-	g.UpgradeCmd.Resume = g.UpgradeCmd.Flag("resume", "Resume upgrade from the last failed step").Bool()
-	g.UpgradeCmd.SkipVersionCheck = g.UpgradeCmd.Flag("skip-version-check", "Bypass version compatibility check").Hidden().Bool()
+	g.UpgradeCmd.CmdClause = g.Command("upgrade", "Trigger an upgrade operation.").Hidden()
+	g.UpgradeCmd.App = g.UpgradeCmd.Arg("image", "Cluster image version to upgrade to in the 'name:version' or 'name' (for latest version) format. Defaults to the local cluster image.").String()
+	g.UpgradeCmd.Manual = g.UpgradeCmd.Flag("manual", "Manual upgrade mode.").Short('m').Bool()
+	g.UpgradeCmd.Phase = g.UpgradeCmd.Flag("phase", "Operation phase to execute.").String()
+	g.UpgradeCmd.Timeout = g.UpgradeCmd.Flag("timeout", "Phase execution timeout.").Default(defaults.PhaseTimeout).Hidden().Duration()
+	g.UpgradeCmd.Force = g.UpgradeCmd.Flag("force", "Force phase execution even if pre-conditions are not satisfied.").Bool()
+	g.UpgradeCmd.Resume = g.UpgradeCmd.Flag("resume", "Resume upgrade from the last failed step.").Bool()
+	g.UpgradeCmd.SkipVersionCheck = g.UpgradeCmd.Flag("skip-version-check", "Bypass version compatibility check.").Hidden().Bool()
 
 	g.UpdateUploadCmd.CmdClause = g.UpdateCmd.Command("upload", "Upload update package to locally running site").Hidden()
 	g.UpdateUploadCmd.OpsCenterURL = g.UpdateUploadCmd.Flag("ops-url", "Optional Gravity Hub URL to upload new packages to (defaults to local gravity site)").Default(defaults.GravityServiceURL).String()
@@ -195,32 +195,32 @@ func RegisterCommands(app *kingpin.Application) *Application {
 	g.UpdateSystemCmd.WithStatus = g.UpdateSystemCmd.Flag("with-status", "Verify the system status at the end of the operation").Bool()
 	g.UpdateSystemCmd.RuntimePackage = Locator(g.UpdateSystemCmd.Flag("runtime-package", "The name of the runtime package to update to").Required())
 
-	g.StatusCmd.CmdClause = g.Command("status", "Show the status of the cluster and the application running in it")
-	g.StatusCmd.Token = g.StatusCmd.Flag("token", "Show only the cluster token").Bool()
-	g.StatusCmd.Tail = g.StatusCmd.Flag("tail", "Tail the logs of the currently running operation until it completes").Bool()
-	g.StatusCmd.OperationID = g.StatusCmd.Flag("operation-id", "Check status of operation with given ID").Short('o').String()
-	g.StatusCmd.Seconds = g.StatusCmd.Flag("seconds", "Continuously display status every N seconds").Short('s').Int()
-	g.StatusCmd.Output = common.Format(g.StatusCmd.Flag("output", "output format: json or text").Default(string(constants.EncodingText)))
+	g.StatusCmd.CmdClause = g.Command("status", "Display overall cluster status.")
+	g.StatusCmd.Token = g.StatusCmd.Flag("token", "Display only the cluster join token.").Bool()
+	g.StatusCmd.Tail = g.StatusCmd.Flag("tail", "Tail logs of the currently running operation until it completes.").Bool()
+	g.StatusCmd.OperationID = g.StatusCmd.Flag("operation-id", "Check status of the operation with the given ID.").Short('o').String()
+	g.StatusCmd.Seconds = g.StatusCmd.Flag("seconds", "Continuously display status every N seconds.").Short('s').Int()
+	g.StatusCmd.Output = common.Format(g.StatusCmd.Flag("output", "Output format: json or text.").Default(string(constants.EncodingText)))
 
 	// reset cluster state, for debugging/emergencies
 	g.StatusResetCmd.CmdClause = g.Command("status-reset", "Reset the cluster state to 'active'").Hidden()
 
 	// backup
-	g.BackupCmd.CmdClause = g.Command("backup", "Backup the local application state")
-	g.BackupCmd.Tarball = g.BackupCmd.Arg("to", "Tarball to create with results of the backup hook").Required().String()
-	g.BackupCmd.Timeout = g.BackupCmd.Flag("timeout", "Active deadline for the backup job, in Go duration format (e.g. 30s, 5m, etc.). If not specified, the value from manifest is used. If that is not specified as well, the default value of 20 minutes is used").Duration()
-	g.BackupCmd.Follow = g.BackupCmd.Flag("follow", "Output backup job logs to the stdout").Bool()
+	g.BackupCmd.CmdClause = g.Command("backup", "Launch the cluster's backup hook.")
+	g.BackupCmd.Tarball = g.BackupCmd.Arg("to", "Tarball to create with results of the backup hook.").Required().String()
+	g.BackupCmd.Timeout = g.BackupCmd.Flag("timeout", "Active deadline for the backup job, in Go duration format (e.g. 30s, 5m, etc.). If not specified, the value from manifest is used. If that is not specified as well, the default value of 20 minutes is used.").Duration()
+	g.BackupCmd.Follow = g.BackupCmd.Flag("follow", "Output backup job logs to the stdout.").Bool()
 
-	g.CheckCmd.CmdClause = g.Command("check", "check host environment to match manifest")
-	g.CheckCmd.ManifestFile = g.CheckCmd.Arg("manifest", "application manifest in YAML format").Default(defaults.ManifestFileName).String()
-	g.CheckCmd.Profile = g.CheckCmd.Flag("profile", "profile to check").Short('p').Required().String()
-	g.CheckCmd.AutoFix = g.CheckCmd.Flag("autofix", "attempt to fix some of the problems").Bool()
+	g.CheckCmd.CmdClause = g.Command("check", "Check the node environment to satisfy cluster manifest requirements.")
+	g.CheckCmd.ManifestFile = g.CheckCmd.Arg("manifest", "Path to the cluster manifest file.").Default(defaults.ManifestFileName).String()
+	g.CheckCmd.Profile = g.CheckCmd.Flag("profile", "Node profile name to check against.").Short('p').Required().String()
+	g.CheckCmd.AutoFix = g.CheckCmd.Flag("autofix", "Attempt to auto-fix some of the problems.").Bool()
 
 	// restore
-	g.RestoreCmd.CmdClause = g.Command("restore", "Restore state of the local application from a previously taken backup")
-	g.RestoreCmd.Tarball = g.RestoreCmd.Arg("from", "Tarball with backup data to restore from").Required().String()
-	g.RestoreCmd.Follow = g.RestoreCmd.Flag("follow", "Output restore job logs to the stdout").Bool()
-	g.RestoreCmd.Timeout = g.RestoreCmd.Flag("timeout", fmt.Sprintf("Maximum time a restore job is active. Defaults to the value from the manifest or %v if unspecified", defaults.HookJobDeadline)).Duration()
+	g.RestoreCmd.CmdClause = g.Command("restore", "Launch the cluster's restore hook.")
+	g.RestoreCmd.Tarball = g.RestoreCmd.Arg("from", "Tarball with backup data to restore from.").Required().String()
+	g.RestoreCmd.Follow = g.RestoreCmd.Flag("follow", "Output restore job logs to the stdout.").Bool()
+	g.RestoreCmd.Timeout = g.RestoreCmd.Flag("timeout", fmt.Sprintf("Maximum time a restore job is active. Defaults to the value from the manifest or %v if unspecified.", defaults.HookJobDeadline)).Duration()
 
 	// operations on gravity applications
 	g.AppCmd.CmdClause = g.Command("app", "Operations with application images and releases.")
@@ -466,23 +466,23 @@ func RegisterCommands(app *kingpin.Application) *Application {
 	g.UserDeleteCmd.Email = g.UserDeleteCmd.Flag("email", "user email").Required().String()
 	g.UserDeleteCmd.OpsCenterURL = g.UserDeleteCmd.Flag("ops-url", "remote Gravity Hub URL").Required().String()
 
-	g.UsersCmd.CmdClause = g.Command("users", "Manage user accounts")
+	g.UsersCmd.CmdClause = g.Command("users", "Manage cluster users.")
 
 	// create a user invite
-	g.UsersInviteCmd.CmdClause = g.UsersCmd.Command("add", "Generate a user invitation token")
-	g.UsersInviteCmd.Name = g.UsersInviteCmd.Arg("account", "User account name").Required().String()
-	g.UsersInviteCmd.Roles = g.UsersInviteCmd.Flag("roles", "List of roles for the new user to assume").Required().Strings()
+	g.UsersInviteCmd.CmdClause = g.UsersCmd.Command("add", "Generate a user invitation token.")
+	g.UsersInviteCmd.Name = g.UsersInviteCmd.Arg("account", "User account name.").Required().String()
+	g.UsersInviteCmd.Roles = g.UsersInviteCmd.Flag("roles", "List of roles for the new user to assume.").Required().Strings()
 	g.UsersInviteCmd.TTL = g.UsersInviteCmd.Flag("ttl",
-		fmt.Sprintf("Set expiration time for token, default is %v hour, maximum is %v hours",
+		fmt.Sprintf("Set expiration time for token. Defaults to %v hours. Maximum is %v hours.",
 			int(defaults.SignupTokenTTL/time.Hour),
 			int(defaults.MaxSignupTokenTTL/time.Hour))).
 		Default(fmt.Sprintf("%v", defaults.SignupTokenTTL)).Duration()
 
 	// reset a user
-	g.UsersResetCmd.CmdClause = g.UsersCmd.Command("reset", "Reset user password and generate a new token")
-	g.UsersResetCmd.Name = g.UsersResetCmd.Arg("account", "User account name").Required().String()
+	g.UsersResetCmd.CmdClause = g.UsersCmd.Command("reset", "Reset user password and generate a new token.")
+	g.UsersResetCmd.Name = g.UsersResetCmd.Arg("account", "User account name.").Required().String()
 	g.UsersResetCmd.TTL = g.UsersResetCmd.Flag("ttl",
-		fmt.Sprintf("Set expiration time for token, default is %v hour, maximum is %v hours",
+		fmt.Sprintf("Set expiration time for token. Defaults to %v hour. Maximum is %v hours.",
 			int(defaults.UserResetTokenTTL/time.Hour),
 			int(defaults.MaxUserResetTokenTTL/time.Hour))).
 		Default(fmt.Sprintf("%v", defaults.UserResetTokenTTL)).Duration()
@@ -507,8 +507,8 @@ func RegisterCommands(app *kingpin.Application) *Application {
 	g.APIKeyDeleteCmd.OpsCenterURL = g.APIKeyDeleteCmd.Flag("ops-url", "remote Gravity Hub URL").Required().String()
 
 	// get cluster diagnostics report
-	g.ReportCmd.CmdClause = g.Command("report", "Generate cluster diagnostics report")
-	g.ReportCmd.FilePath = g.ReportCmd.Flag("file", "target report file name").Default("report.tar.gz").String()
+	g.ReportCmd.CmdClause = g.Command("report", "Collect tarball with cluster's diagnostic information.")
+	g.ReportCmd.FilePath = g.ReportCmd.Flag("file", "File name with collected diagnostic information.").Default("report.tar.gz").String()
 
 	// operations on sites
 	g.SiteCmd.CmdClause = g.Command("site", "operations on gravity sites")
@@ -690,48 +690,48 @@ func RegisterCommands(app *kingpin.Application) *Application {
 	g.EnterCmd.CmdClause = g.Command("enter", "enter planet").Hidden()
 	g.EnterCmd.Args = g.EnterCmd.Arg("arg", "additional arguments to the container").Strings()
 
-	g.ExecCmd.CmdClause = g.Command("exec", "Run command in a planet container").Interspersed(false)
-	g.ExecCmd.TTY = g.ExecCmd.Flag("tty", "Allocate a pseudo-TTY").Short('t').Bool()
-	g.ExecCmd.Stdin = g.ExecCmd.Flag("interactive", "Keep stdin open").Short('i').Bool()
-	g.ExecCmd.Cmd = g.ExecCmd.Arg("command", "Command to execute").Required().String()
-	g.ExecCmd.Args = g.ExecCmd.Arg("arg", "Additional arguments to command").Strings()
+	g.ExecCmd.CmdClause = g.Command("exec", "Execute command in the node's Planet container.").Interspersed(false)
+	g.ExecCmd.TTY = g.ExecCmd.Flag("tty", "Allocate a pseudo-TTY.").Short('t').Bool()
+	g.ExecCmd.Stdin = g.ExecCmd.Flag("interactive", "Keep stdin open.").Short('i').Bool()
+	g.ExecCmd.Cmd = g.ExecCmd.Arg("command", "The command to execute.").Required().String()
+	g.ExecCmd.Args = g.ExecCmd.Arg("arg", "Additional arguments to the command.").Strings()
 
-	g.ShellCmd.CmdClause = g.Command("shell", "Start an interactive shell in a planet container")
+	g.ShellCmd.CmdClause = g.Command("shell", "Start interactive shell in the node's Planet container.")
 
 	// resource management
-	g.ResourceCmd.CmdClause = g.Command("resource", "Management of configuration resources")
+	g.ResourceCmd.CmdClause = g.Command("resource", "Manage cluster configuration resources.")
 
 	// create one or many resources
-	g.ResourceCreateCmd.CmdClause = g.ResourceCmd.Command("create", fmt.Sprintf("Create or update a configuration resource, e.g. gravity resource create oidc.yaml. Supported resources are: %v", modules.GetResources().SupportedResources()))
-	g.ResourceCreateCmd.Filename = g.ResourceCreateCmd.Arg("filename", "resource definition file").String()
-	g.ResourceCreateCmd.Upsert = g.ResourceCreateCmd.Flag("force", "Overwrites a resource if it already exists. (update)").Short('f').Bool()
-	g.ResourceCreateCmd.User = g.ResourceCreateCmd.Flag("user", "user to create resource for, defaults to currently logged in user").String()
-	g.ResourceCreateCmd.Manual = g.ResourceCreateCmd.Flag("manual", "manually execute operation phases").Short('m').Bool()
-	g.ResourceCreateCmd.Confirmed = g.ResourceCreateCmd.Flag("confirm", "do not ask for confirmation").Bool()
+	g.ResourceCreateCmd.CmdClause = g.ResourceCmd.Command("create", fmt.Sprintf("Create or update a configuration resource, e.g. gravity resource create oidc.yaml. Supported resources are: %v.", modules.GetResources().SupportedResources()))
+	g.ResourceCreateCmd.Filename = g.ResourceCreateCmd.Arg("filename", "Resource definition file.").String()
+	g.ResourceCreateCmd.Upsert = g.ResourceCreateCmd.Flag("force", "Overwrites a resource if it already exists.").Short('f').Bool()
+	g.ResourceCreateCmd.User = g.ResourceCreateCmd.Flag("user", "User to create the resource for. Defaults to the currently logged in user.").String()
+	g.ResourceCreateCmd.Manual = g.ResourceCreateCmd.Flag("manual", "Manually execute operation phases for resource which trigger an operation.").Short('m').Bool()
+	g.ResourceCreateCmd.Confirmed = g.ResourceCreateCmd.Flag("confirm", "Do not ask for confirmation.").Bool()
 
 	// remove one or many resources
-	g.ResourceRemoveCmd.CmdClause = g.ResourceCmd.Command("rm", fmt.Sprintf("Remove a configuration resource, e.g. gravity resource rm oidc google. Supported resources are: %v", modules.GetResources().SupportedResourcesToRemove()))
-	g.ResourceRemoveCmd.Kind = g.ResourceRemoveCmd.Arg("kind", fmt.Sprintf("resource kind, one of %v",
+	g.ResourceRemoveCmd.CmdClause = g.ResourceCmd.Command("rm", fmt.Sprintf("Remove a configuration resource, e.g. gravity resource rm oidc google. Supported resources are: %v.", modules.GetResources().SupportedResourcesToRemove()))
+	g.ResourceRemoveCmd.Kind = g.ResourceRemoveCmd.Arg("kind", fmt.Sprintf("Resource kind. One of: %v.",
 		modules.GetResources().SupportedResourcesToRemove())).Required().String()
-	g.ResourceRemoveCmd.Name = g.ResourceRemoveCmd.Arg("name", "resource name, e.g. github").String()
-	g.ResourceRemoveCmd.Force = g.ResourceRemoveCmd.Flag("force", "Do not return errors if a resource is not found").Short('f').Bool()
-	g.ResourceRemoveCmd.User = g.ResourceRemoveCmd.Flag("user", "user to remove resource for, defaults to currently logged in user").String()
-	g.ResourceRemoveCmd.Manual = g.ResourceRemoveCmd.Flag("manual", "manually execute operation phases").Short('m').Bool()
-	g.ResourceRemoveCmd.Confirmed = g.ResourceRemoveCmd.Flag("confirm", "do not ask for confirmation").Bool()
+	g.ResourceRemoveCmd.Name = g.ResourceRemoveCmd.Arg("name", "Resource name.").String()
+	g.ResourceRemoveCmd.Force = g.ResourceRemoveCmd.Flag("force", "Suppress resource not found errors.").Short('f').Bool()
+	g.ResourceRemoveCmd.User = g.ResourceRemoveCmd.Flag("user", "User to remove the resource for. Defaults to the currently logged in user.").String()
+	g.ResourceRemoveCmd.Manual = g.ResourceRemoveCmd.Flag("manual", "Manually execute operation phases for resources which trigger an operation.").Short('m').Bool()
+	g.ResourceRemoveCmd.Confirmed = g.ResourceRemoveCmd.Flag("confirm", "Do not ask for confirmation.").Bool()
 
 	// get resources returns resources
-	g.ResourceGetCmd.CmdClause = g.ResourceCmd.Command("get", fmt.Sprintf("Get configuration resources, e.g. gravity get oidc. Supported resources are: %v",
+	g.ResourceGetCmd.CmdClause = g.ResourceCmd.Command("get", fmt.Sprintf("Get configuration resources, e.g. gravity get oidc. Supported resources are: %v.",
 		modules.GetResources().SupportedResources()))
-	g.ResourceGetCmd.Kind = g.ResourceGetCmd.Arg("kind", fmt.Sprintf("resource kind, one of %v",
+	g.ResourceGetCmd.Kind = g.ResourceGetCmd.Arg("kind", fmt.Sprintf("Resource kind. One of: %v.",
 		modules.GetResources().SupportedResources())).Required().String()
-	g.ResourceGetCmd.Name = g.ResourceGetCmd.Arg("name", fmt.Sprintf("optional resource name, lists all resources if omitted")).String()
-	g.ResourceGetCmd.Format = common.Format(g.ResourceGetCmd.Flag("format", "resource format, e.g. 'text', 'json' or 'yaml'").Default(string(constants.EncodingText)))
-	g.ResourceGetCmd.WithSecrets = g.ResourceGetCmd.Flag("with-secrets", "include secret properties like private keys").Default("false").Bool()
-	g.ResourceGetCmd.User = g.ResourceGetCmd.Flag("user", "user to display resources for, defaults to currently logged in user").String()
+	g.ResourceGetCmd.Name = g.ResourceGetCmd.Arg("name", fmt.Sprintf("Optional resource name. Lists all resources if omitted.")).String()
+	g.ResourceGetCmd.Format = common.Format(g.ResourceGetCmd.Flag("format", fmt.Sprintf("Output format: %v.", constants.OutputFormats)).Default(string(constants.EncodingText)))
+	g.ResourceGetCmd.WithSecrets = g.ResourceGetCmd.Flag("with-secrets", "Include secret properties like private keys.").Default("false").Bool()
+	g.ResourceGetCmd.User = g.ResourceGetCmd.Flag("user", "User to display resources for. Defaults to the currently logged in user.").String()
 
-	g.TopCmd.CmdClause = g.Command("top", "Display cluster monitoring information")
-	g.TopCmd.Interval = g.TopCmd.Flag("interval", "Interval to display data for, in Go duration format").Default(defaults.MetricsInterval.String()).Duration()
-	g.TopCmd.Step = g.TopCmd.Flag("step", "Max time b/w two datapoints, in Go duration format").Default(defaults.MetricsStep.String()).Duration()
+	g.TopCmd.CmdClause = g.Command("top", "Display cluster monitoring information.")
+	g.TopCmd.Interval = g.TopCmd.Flag("interval", "Interval to display data for, in Go duration format.").Default(defaults.MetricsInterval.String()).Duration()
+	g.TopCmd.Step = g.TopCmd.Flag("step", "Max time b/w two datapoints, in Go duration format.").Default(defaults.MetricsStep.String()).Duration()
 
 	return g
 }

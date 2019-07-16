@@ -1,5 +1,5 @@
 /*
-Copyright 2018 Gravitational, Inc.
+Copyright 2018-2019 Gravitational, Inc.
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -32,7 +32,7 @@ import (
 func main() {
 	teleutils.InitLogger(teleutils.LoggingForCLI, log.WarnLevel)
 	stdlog.SetOutput(log.StandardLogger().Writer())
-	app := kingpin.New("tele", "Gravity tool for building and publishing application bundles")
+	app := kingpin.New("tele", "Gravity tool for building and publishing cluster and application images.")
 	if err := run(app); err != nil {
 		log.Error(trace.DebugReport(err))
 		common.PrintError(err)
