@@ -31,7 +31,7 @@ pages:
     - Cluster Management: cluster.md
     - Cluster Monitoring: monitoring.md
     - Remote Management: manage.md
-    - Ops Center: opscenter.md
+    - Gravity Hub: hub.md
     - hidden: catalog.md
     - System Requirements: requirements.md
     - CLI Reference: cli.md
