@@ -403,14 +403,14 @@ func (r *AppsSuite) CreatesApplication(c *C) {
 	apps := r.NewService(c, nil, nil)
 	apptest.CreateRuntimeApplication(apps, c)
 	app := loc.MustParseLocator("example.com/example-app:0.0.1")
-	apptest.CreateDummyApplication(apps, app, c)
+	apptest.CreateDummyApplication(app, c, apps)
 }
 
 func (r *AppsSuite) DeletesApplication(c *C) {
 	apps := r.NewService(c, nil, nil)
 	apptest.CreateRuntimeApplication(apps, c)
 	loc := loc.MustParseLocator("example.com/example-app:0.0.1")
-	application := apptest.CreateDummyApplication(apps, loc, c)
+	application := apptest.CreateDummyApplication(loc, c, apps)
 
 	c.Assert(apps.DeleteApp(app.DeleteRequest{Package: application.Package}), IsNil)
 

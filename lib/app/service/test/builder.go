@@ -47,23 +47,20 @@ func CreateDummyPackageWithContents(locator loc.Locator, items []*archive.Item, 
 	c.Assert(err, IsNil)
 }
 
-// CreateDummyApplication creates app with valid app manifest, but fake content
-func CreateDummyApplication(apps app.Applications, loc loc.Locator, c *C) *app.Application {
-	return createApp(loc, "", apps, c)
-}
-
-// CreateDummyApplication2 creates a test application with a valid manifest and specified dependencies
-func CreateDummyApplication2(apps app.Applications, loc loc.Locator, dependencies string, c *C) *app.Application {
-	return createApp(loc, dependencies, apps, c)
-}
-
-// CreateDummyApplicationInMultipleServices creates a test application with a valid manifest
-// in all of the specified application services
-func CreateDummyApplicationInMultipleServices(loc loc.Locator, c *C, services ...app.Applications) {
-	data := createAppData(loc, "", c)
+// CreateDummyApplication creates app with valid app manifest, but fake content.
+// It returns the application created in the last service specified with services
+func CreateDummyApplication(locator loc.Locator, c *C, services ...app.Applications) (app *app.Application) {
+	data := createAppData(locator, "", c)
 	for _, service := range services {
-		CreateApplicationFromBinaryData(service, loc, data, c)
+		app = CreateApplicationFromBinaryData(service, locator, data, c)
 	}
+	return app
+}
+
+// CreateDummyApplicationWithDependencies creates a test application with a valid manifest
+// and specified dependencies
+func CreateDummyApplicationWithDependencies(apps app.Applications, loc loc.Locator, dependencies string, c *C) *app.Application {
+	return createApp(loc, dependencies, apps, c)
 }
 
 // CreateAppWithDeps creates app with valid app manifest and all proper dependency packages
