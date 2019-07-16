@@ -151,7 +151,7 @@ func HasFile(tarballPath, filename string) error {
 	defer file.Close()
 	var hasFile bool
 	err = TarGlob(tar.NewReader(file), ".", []string{filename},
-		func(_ string, _ *tar.Header, _ *tar.Reader) error {
+		func(match string, file io.Reader) error {
 			hasFile = true
 			return Abort
 		})
@@ -172,7 +172,7 @@ func HasFile(tarballPath, filename string) error {
 // TarGlob iterates the contents of the specified tarball and invokes handler
 // for each file matching the list of specified patterns.
 // If the handler returns a special Abort error, iteration will be aborted without errors.
-func TarGlob(source *tar.Reader, dir string, patterns []string, handler func(match string, hdr *tar.Header, r *tar.Reader) error) (err error) {
+func TarGlob(source *tar.Reader, dir string, patterns []string, handler func(match string, file io.Reader) error) (err error) {
 	for {
 		var hdr *tar.Header
 		hdr, err = source.Next()
@@ -191,7 +191,7 @@ func TarGlob(source *tar.Reader, dir string, patterns []string, handler func(mat
 			if err == nil {
 				matched, _ := filepath.Match(pattern, filepath.Base(relpath))
 				if matched {
-					if err = handler(relpath, hdr, source); err != nil {
+					if err = handler(relpath, source); err != nil {
 						if trace.Unwrap(err) == Abort {
 							return nil
 						}

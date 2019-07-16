@@ -20,6 +20,7 @@ import (
 	"archive/tar"
 	"context"
 	"encoding/json"
+	"io"
 	"io/ioutil"
 	"strconv"
 
@@ -547,7 +548,7 @@ func getExistingDNSConfig(packages pack.PackageService) (*storage.DNSConfig, err
 	}
 	defer rc.Close()
 	var configBytes []byte
-	err = archive.TarGlob(tar.NewReader(rc), "", []string{"vars.json"}, func(_ string, _ *tar.Header, r *tar.Reader) error {
+	err = archive.TarGlob(tar.NewReader(rc), "", []string{"vars.json"}, func(_ string, r io.Reader) error {
 		configBytes, err = ioutil.ReadAll(r)
 		if err != nil {
 			return trace.Wrap(err)
