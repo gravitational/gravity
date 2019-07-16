@@ -52,12 +52,12 @@ dependencies into a dependency-free, self-deploying tarball file called a
 compressing it does not yield tangible results because the tarball itself is
 mostly composed of container images that are already compressed.
 
-Before creating a cluster image, you must create a _cluster manifest_ file. A
-_cluster manifest_ uses YAML file format to describe the image build and installation
-process and the system requirements for the cluster. See [Cluster Manifest](/pack/#cluster-manifest) 
+Before creating a cluster image, you must create a _image manifest_ file. A
+_image manifest_ uses YAML file format to describe the image build and installation
+process and the system requirements for the cluster. See [Image Manifest](/pack/#image-manifest) 
 section below for more details.
 
-After a _cluster manifest_ is complete, execute `tele build` command to build 
+After a _image manifest_ is complete, execute `tele build` command to build 
 a cluster image from it.
 
 ```bsh
@@ -86,7 +86,7 @@ There are two kinds of external sources for cluster dependencies:
    container registry.
 
 You can follow the [Quick Start](quickstart) to build a cluster image from a
-sample cluster manifest.
+sample image manifest.
 
 #### Building with Docker
 
@@ -118,7 +118,7 @@ Now you should have `tele-buildbox` container on the build machine. Next, do the
 
 * Use host networking
 * Expose the Docker socket into the container to allow `tele` to pull container
-  images referenced in the cluster manifest.
+  images referenced in the image manifest.
 * Expose the working directory with the application manifest to the container as `/mnt/cluster`
 
 The command below assumes that `build.sh` is located in the same working directory as the application:
@@ -141,72 +141,108 @@ docker run -e OPS_URL=<opscenter url> \
     by setting `--state-dir`. You can use unique temporary directory
     to avoid sharing state between builds, or use parallel builds instead.
 
-## Cluster Manifest
+## Image Manifest
 
-The Application Manifest is a YAML file that is used to describe the packaging and
-installation process and requirements for an Application Bundle.
+An image manifest is a YAML file that is passed as an input to `tele build`
+command. An image manifest users allows you to customize the resulting
+cluster image.  
 
-### Manifest Design Goals
+The manifest concept was partially inspired by Dockerfiles and one can think of
+image manifest as a "dockerfile" for an entire Kubernetes cluster, and the 
+resulting cluster image can be seen as a "container" for an entire cluster.
+
+Below is the incomplete list of configurable settings:
+
+* Name of the **base image**. A base image usually contains pre-packaged
+  Kubernetes binaries and their optimal configuration. Currently, only the base
+  images provided by Gravitational are supported. Use the _base image_ setting
+  to select a Kubernetes version for your cluster image. Run `tele ls --all` to
+  see the list of available base images.
+* **Metadata** like the name, version and the author of the cluster image.
+* **Network configuration** allows you to specify what kind of cluster networking
+  to use for cluster instances created from a resulting cluster image.
+* **System requirements** allow to define and enforce the minimal hardware or
+  infrastructure requirements such as RAM, CPU cores, network, etc.
+* **Installer behavior** allows to customize the process of installing a
+  cluster image, i.e. creating a new Kubernetes cluster instance, for example
+  you can allow end users to select one of the "cluster flavors" based on
+  custom criteria, ask to accept EULA, etc.
+* **System options** allow you to customize the runtime behavior of Kubernetes
+  clusters, for example you can set command line arguments for system daemons
+  like `etcd` or `kubelet`, force a certain Docker configuration and so on.
+
+#### Manifest Design Goals
 
 Gravity was designed with the goal of being compatible with existing, standard
-Kubernetes applications. The Application Manifest is _the only Gravity-specific artifact_ you
-will have to create and maintain.
+Kubernetes applications and to reuse as much of functionality provided by Kubernetes
+and other widely available tools. Therefore the image manifest's purpose is to
+be _the only Gravity-specific artifact_ you will have to create and maintain.
 
-The file format was designed to mimic a Kubernetes
-resource as much as possible and several Kubernetes concepts are used
-for efficiency:
+The file format was designed to mimic a Kubernetes resource as much as possible
+and several Kubernetes concepts are used for efficiency, for example:
 
-1. Kubernetes [ConfigMaps](http://kubernetes.io/docs/user-guide/configmap/)
-   are used to manage the application configuration.
+1. Use standard Kubernetes [config maps](http://kubernetes.io/docs/user-guide/configmap/)
+   to manage application configuration. Image manifest should not be used 
+   for this purpose.
 
-2. The custom Installation Wizard steps are implemented as regular
-   [Kubernetes Services](http://kubernetes.io/docs/user-guide/services/).
+2. To customize the installation process, create regular [Kubernetes Services](http://kubernetes.io/docs/user-guide/services/)
+   and tell Gravitiy to invoke them via an image manifest.
 
-3. Application life cycle hooks like _install_, _uninstall_ or _update_ are implemented as
-   [Kubernetes Jobs](http://kubernetes.io/docs/user-guide/jobs/).
+3. You can define custom cluster life cycle hooks like _install_, _uninstall_ or _update_ 
+   using the image manifest, but the hooks themselves should be implemented as a regular
+   [kubernetes jobs](http://kubernetes.io/docs/user-guide/jobs/).
 
-Additionally, the Application Manifest is designed to be as small as possible in an effort to promote
-open standards as the project matures.
+In other words, the image manifest never duplicates existing Kubernetes
+functionality, but is meant to compliment what is available to Kubernetes
+applications.
 
-The Application Manifest shown here covers the basic capabilities of Gravity.
-It can be extended with additional Kubernetes plug-ins. Examples of pluggable features
-include PostgreSQL, streaming replication, cluster-wide state snapshots or in-cluster encryption.
+Additionally, the image manifest is designed to be as small as possible in an
+effort to promote open standards. As Kubernetes itself matures and promising
+proposals like "cluster API" or "application API" become standards, certain
+manifest capabilities will become deprecated.
 
-!!! note
-    The following manifest fields, in addition to having literal string values,
-    can read their values from files (via file://) or the Internet (via http(s)://):
-    `.releaseNotes`, `.logo`, `.installer.eula.source`, `.installer.flavors.description`,
-    `.providers.aws.terraform.script`, `.providers.aws.terraform.instanceScript`,
-    `.hooks.*.job`. These values are vendored into the Application Manifest during "tele build".
+#### Image Manifest Format
 
-### Sample Application Manifest
+Several image manifest fields, in addition to allowing literal strings
+for values, can also have their values populate from URIs during the build
+process. For this to work, they must begin with a URI schema, i.e. `file://` 
+or `https://`. The following fields can fetch their values from URIs: `.releaseNotes`, 
+`.logo`, `.installer.eula.source`, `.installer.flavors.description`,
+`.providers.aws.terraform.script`, `.providers.aws.terraform.instanceScript`,
+`.hooks.*.job`. 
+
+Below is the full image manifest format. Note, that only the metadata section
+is mandatory, other fields can be omitted and `tele build` will try to use 
+sensible defaults.
+
 
 ```yaml
 #
 # The header of the application manifest uses the same signature as a Kubernetes
 # resource.
 #
-apiVersion: bundle.gravitational.io/v2
-kind: Bundle
+apiVersion: cluster.gravitational.io/v2
+kind: Cluster
 metadata:
-  # Application name as shown to the end user, must be a single alphanumeric word
-  name: ApplicationName
+  # The cluster name as shown to the end user, must be a single alphanumeric word
+  name: MyCluster
 
-  # Application version, must be in SemVer format (http://semver.org/)
-  resourceVersion: 0.0.1-alpha.1
+  # Cluster version, must be in SemVer format (http://semver.org/)
+  resourceVersion: 1.2.3-alpha.1
 
-  # Free-form verbose description of the application
+  # Free-form verbose description of the cluster image
   description: |
-    Description of the application
+    Description of the cluster image
 
-  # Free-form author of the application
   author: Alice <alice@example.com>
 
-# TODO COMMENT
+# The base image to use. To see the list of available base images, execute:
+# $ tele ls --all
+# If not specified, the latest version of Kubernetes will be used.
 baseImage: "gravity:6.0.0"
 
-# Release notes is a freestyle HTML field which will be shown as part of the install/upgrade
-# of the application.
+# Release notes is a freestyle HTML field which will be shown as part of the
+# install/upgrade of the cluster.
 #
 # In this case "tele build" will look for "notes.html" file in the same directory as
 # manifest. To specify an absolute path: "file:///home/user/notes.html"
@@ -217,9 +253,9 @@ releaseNotes: file://notes.html
 logo: http://example.com/logo.png
 
 # Endpoints are used to define exposed Kubernetes services. This can be your application
-# URL, or (if your application is a database) it's API endpoint.
+# URL or an API endpoint.
 #
-# Endpoints are shown to the end user at the end of the installation.
+# Endpoints are shown to the cluster user at the end of the installation.
 endpoints:
   - name: "Control Panel"
     description: "The admin interface of the application"
@@ -245,36 +281,40 @@ providers:
       type: vxlan
 
 #
-# Installer section is used to customzie the installer behavior
+# Use the section below to customize the cluster installer behavior
 #
 installer:
-  # Optional end user license agreement; if specified, a user will be presented with EULA
-  # text before the start of the installation and prompted to agree with it
+  # The end user license agreement (EULA). When set, a user will be presented with 
+  # the EULA text before the start of the installation and forced to accept it.
+  # This capability is often used when cluster images are used to distribute downloadable
+  # enterprise software.
   eula:
     source: file://eula.txt
 
-  # Installation flavors define the initial cluster sizes
+  # If the installation flavors are defined, a cluster user will be presented with a 
+  # prompt and the cluster flavor will be selecte based on their answer.
   #
-  # Each flavor has a name and a set of server profiles, along with the number of servers for
-  # every profile.
+  # A "cluster flavor" consists of a name and a set of server profiles, along with the 
+  # number of servers for every profile.
   #
-  # This manifest declares two flavors: "small" and "large", based on how many page views the
-  # end user desires to serve.
+  # The example below declares two flavors: "small" and "large", based on how many page 
+  # views per second the cluster user wants to serve.
+  #
   flavors:
-    # This question will be shown during "capacity" installation step
     prompt: "How many requests per second will you need?"
 
     # This text will appear on the right-hand side during "capacity" step
     description: file://flavors-help.txt
 
-    # The default flavor will be pre-selected on the "capacity" step
+    # The default flavor
     default: small
 
+    # List of flavors:
     items:
-      # "small" flavor: 250 requests/second with 2 DB nodes and 3 regular nodes
       - name: "small"
         # UI label which installer will use to label this selection
-        description: "0-250 requests/sec"
+        description: "Up to 250 requests/sec"
+
         # This section describes the minimum required quantity of each server type (profile)
         # for this flavor:
         nodes:
@@ -283,24 +323,20 @@ installer:
           - profile: db
             count: 2
 
-      # "large" flavor: 250+ requests/second with 3 DB nodes and 5 regular nodes
       - name: "large"
-        description: "250+ requests/sec"
+        description: "More than 250 requests/sec"
         nodes:
           - profile: worker
             count: 5
           - profile: db
             count: 3
 
-  # This directive allows the application vendor to supply custom installer steps (screens)
-  # An installer screen is a regular web page backed by a Kubernetes service.
-  #
-  # In this case, after the installation, the installer will redirect user to the "Setup"
-  # endpoint defined above.
+  # If additional installation UI screens are needed, they can be packaged as Kubernetes
+  # services and you can list their Kubernetes endpoint names below:
   setupEndpoints:
     - "Setup"
 
-# Node profiles section describes the system requirements of the application. The
+# The node profiles section describes the system requirements of the application. The
 # requirements are expressed as 'server profiles'.
 #
 # Gravity will ensure that the provisioned machines match the system requirements
@@ -329,21 +365,45 @@ nodeProfiles:
       # Supported operating systems, name should match "ID" from /etc/os-release
       os:
         - name: centos
-          versions:
-            - "7"
+          versions: ["7"]
 
         - name: rhel
-          versions:
-            - "7.2"
-            - "7.3"
+          versions: ["7.2", "7.3"]
+
+      # This section allows to run custom pre-flight checks on a node before
+      # allowing cluster installation to continue (scripts must return 0 for success)
+      # Stdout/stderr output from pre-flight check scripts will be mirrored in 
+      # the installation log.
+      customChecks:
+        - description: Custom check
+          script: |
+              #!/bin/bash
+              # inline script goes here
+
+        - description: Custom checks defined in external file
+          script: file://checks.sh
 
       volumes:
-        # This directive tells the installer to ensure that /var/lib/logs directory
-        # exists created with 512GB of space:
+        # This setting tells the installer to ensure that /var/lib/logs directory
+        # exists and offers at least 512GB of space:
         - path: /var/lib/logs
           capacity: "512GB"
 
-        # This directive tells the installer to request an external mount for /var/lib/data
+        # A volume defined like this allows to address variations of different
+        # filesystem layouts in Linux distributions (note skipIfMissing attribute)
+        - path: /path/to/centos/file
+          name: centos-specific-library
+          targetPath: /path/to/container
+          skipIfMissing: true
+
+        # This example shows how to mount volumes into containers using a shell
+        # file pattern:
+        - name: wildcard-volume
+          path: /path/to/dir-???
+          targetPath: /path/inside/container/dir-???
+
+        # This setting tells the installer to request an external mount for /var/lib/data
+        # and mount it as /var/lib/data into containers as well
         - name: app-data
           path: /var/lib/data
           targetPath: /var/lib/data
@@ -361,7 +421,7 @@ nodeProfiles:
           # are also mounted at the corresponding location in the targetPath subtree
           recursive: false
 
-      # This directive makes sure specified devices from host are made available
+      # This setting makes sure specified devices from host are made available
       # inside Gravity container
       devices:
           # Device(-s) path, treated as a glob
@@ -395,13 +455,15 @@ nodeProfiles:
       ram:
         min: "4GB"
 
-# If license mode is enabled, a user will be asked to enter a correct license to be able
-# to install an application
+# If license is enabled, a user will be asked to enter a correct license to be able
+# to create a cluster from this image
 license:
   enabled: true
 
+# 
+# This section allows to configure the runtime behavior of a Kubernetes cluster
+#
 systemOptions:
-  # Docker section allows to customize docker
   docker:
     # Storage backend used, supported: "overlay", "overlay2" (default)
     storageDriver: overlay
@@ -419,9 +481,31 @@ systemOptions:
     args: ["--system-reserved=memory=500Mi"]
     hairpinMode: "promiscuous-bridge"
 
-# This section specifies application lifecycle hooks, i.e. the events that application
-# may want to react to.
-# Every hook is just a name of a Kubernetes job.
+
+#
+# This section allows to disable pre-packaged system extensions that
+# Gravitational includes into the base images by default (see below for more information).
+#
+extensions:
+  # This setting will not install system logging service and hide "logs tab" 
+  # in the cluster UI
+  logs:
+    disabled: false
+
+  # This setting will not install system monitoring application and hide
+  # Monitoring tab in the cluster UI
+  monitoring:
+    disabled: false
+
+  # This setting will not install the Tiller application
+  catalog:
+    disabled: false
+
+# This section specifies the cluster lifecycle hooks, i.e. the ability to execute
+# custom code in response to lifecycle events.
+#
+# Every hook is a name of a Kubernetes job.
+#
 hooks:
   # install hook is called right after the application is installed for the first time.
   install:
@@ -512,18 +596,19 @@ hooks:
 See [here](/requirements/#identifying-os-distributions-in-manifest) for version matrix to help with
 specifying OS distribution requirements for a node profile.
 
-## Application Hooks
+## Cluster Hooks
 
-"Application Hooks" are Kubernetes jobs that run at different points in the application life cycle or in
-response to certain events happening in the cluster.
+"Cluster Hooks" are Kubernetes jobs that run at different points in the cluster
+life cycle or in response to certain events happening in the cluster.
 
-Each hook job has access to the "Application Resources" which are mounted under
-`/var/lib/gravity/resources` directory in each of the job's containers. The Application's
-Resources include the Application Manifest and everything else that was in the same directory
-with the Application Manifest when building the Application Bundle. For example, if
-during the build the directory with the Application Resources looked like:
+Each hook job has access to the "Cluster Resources" which are mounted under
+`/var/lib/gravity/resources` directory in each of the job's containers. The
+cluster resources include the cluster image manifest and everything else that
+was in the same directory with the image manifest at the moment of `tele build`
+execution. For example, if during the build process the directory with the
+cluster resources looked like:
 
-```
+```text
 myapp/
   ├── app.yaml
   ├── install-hook.yaml
@@ -531,9 +616,10 @@ myapp/
   └── resources.yaml
 ```
 
-then all these files will be made available to the Application Hooks under:
+... then all these files will be made available to the cluster hooks mounted inside
+a hook job container as:
 
-```
+```text
 /var/lib/gravity/resources/
   ├── app.yaml
   ├── install-hook.yaml
@@ -578,7 +664,7 @@ hooks:
 
 To see more examples of specific hooks, please refer to the following documentation sections:
 
-* [Application Status](/cluster/#application-status) for `status` hook
+* [Cluster Status](/cluster/#cluster-status) for `status` hook
 * [Backup & Restore](/cluster/#backup-restore) for `backup` and `restore` hooks
 
 !!! tip:
@@ -587,9 +673,6 @@ To see more examples of specific hooks, please refer to the following documentat
     linked binaries.
 
 ## Helm Integration
-
-!!! note
-    Support for Helm charts is available starting from version `5.0.0-alpha.10`.
 
 It is possible to use [Helm](https://docs.helm.sh/) charts as a way to package
 and install applications as every Gravity cluster comes with a preconfigured
@@ -608,7 +691,7 @@ example/
            └── values.yaml
 ```
 
-When building the application installer, the `tele build` command will find
+When building the cluster image, the `tele build` command will find
 directories with Helm charts (determined by the presence of `Chart.yaml` file)
 and vendor all Docker images they reference into the resulting installer
 tarball.
@@ -665,22 +748,25 @@ correct image references.
 
 ## Custom Installation Screen
 
-The Gravity graphical installer supports plugging in custom screens after the main
-installation phase (such as installing Kubernetes and system dependencies) has successfully completed.
+The Gravity graphical installer supports plugging in custom screens after the
+main installation phase (such as installing Kubernetes and system dependencies)
+has successfully completed.
 
-A "Custom Installation Screen" is just a web application running inside the deployed Kubernetes cluster
-and reachable via a Kubernetes service. Enabling a Custom Installation Screen allows the user to perform
-actions specific to an Gravity Cluster upon successful install (for example, configuring an application or
-launch a database migration).
+A "Custom Installation Screen" is just a web application running inside the
+deployed Kubernetes cluster and reachable via a Kubernetes service. Enabling a
+Custom Installation Screen allows the user to perform actions specific to an
+Gravity Cluster upon successful install (for example, configuring an
+application or launch a database migration).
 
-Gravity comes with a sample Custom Installation Screen called "bandwagon". It is a web application that itself
-runs on Kubernetes and exposes a Kubernetes endpoint. The installer can be configured to transfer
-the user to that endpoint after the installation. Bandwagon presents users with a form where they
-can enter login and password to provision a local Gravity Cluster user and choose whether to enable or disable
-remote support.
+The stock base cluster images come with a sample Custom Installation Screen
+called "bandwagon".  It is a Kubernetes web application, i.e. it exposes a
+Kubernetes endpoint. The installer can be configured to transfer the user to
+that endpoint after the installation. Bandwagon presents users with a form
+where they can enter login and password to provision a local Gravity Cluster
+user and choose whether to enable or disable remote support.
 
-Bandwagon is [open source](https://github.com/gravitational/bandwagon) on GitHub and can be used as an
-example of how to implement your own custom installer screen.
+Bandwagon is [open source](https://github.com/gravitational/bandwagon) on GitHub and 
+can be used as an example of how to implement your own custom installer screen.
 
 To enable Bandwagon, add this to your Application Manifest:
 
@@ -700,63 +786,76 @@ installer:
 !!! Note:
 	Currently, only one setup endpoint per application is supported.
 
-## Excluding System Applications
+## System Extensions
 
-By default, Gravity cluster installs with a number of system applications
-that provide logging, monitoring and application catalog functionality. You
-may want to disable any of these components, for example if you prefer to
-replace them with a solution of your choice. To do that, define the following
-section in your application manifest:
+By default, all base cluster images contain several system services to provide
+cluster logging, monitoring and application catalog (via Tiller) functionality. 
+You may want to disable any of these components, for example if you prefer to replace 
+them with a solution of your choice. To do that, define the following section in the
+cluster manifest:
 
 ```yaml
 extensions:
-  # This setting will not install system logging application and hide Logs tab in the cluster UI
+  # This setting will not install system logging service and hide "logs tab" 
+  # in the cluster UI
   logs:
     disabled: true
-  # This setting will not install system monitoring application and hide Monitoring tab in the cluster UI
+
+  # This setting will not install system monitoring application and hide
+  # Monitoring tab in the cluster UI
   monitoring:
     disabled: true
-  # This setting will not install Tiller application
+
+  # This setting will not install the Tiller application
   catalog:
     disabled: true
 ```
 
 !!! note:
     Disabling the system logging component will result in inability
-    to view operation logs via cluster UI.
+    to view operation logs via the cluster UI.
 
 ## Service User
-Gravity uses a special user for running system services inside the environment container called `planet`.
-Historically, this user has had a hard-coded UID `1000` on host hence rendering user management
-inflexible and cumbersome.
 
-Starting with LTS 4.54, Gravity allows this user to be configured in offline installation.
-A single service user is configured for the whole cluster. This means you cannot use different
-user IDs on multiple nodes.
+When Gravity creates a Kubernetes cluster from a cluster image, it installs a
+special system container on each host, visible as `gravity` daemon. It contains
+all of Kubernetes services, performs automatic management and isolates them
+from other pre-existing daemons running on cluster hosts.
 
-In order to configure the service user, you have the following options:
+This system container is often called "planet container".
 
-  * Create users with the same ID on all nodes upfront.
-  * Specify a user ID on installer's command line and a user named `planet` (and a group with the same name)
-    will automatically be created with the given ID during installation.
+All system services inside the gravity container run under a special system user 
+called _"planet"_ with a UID of `1000`.
 
-Here's an example of creating a user/group and starting the installation with service user override:
+Starting with LTS 4.54, Gravity allows the system user to be configured during
+installation. The same service user with the same UID will be created on all
+nodes of a cluster.
 
-```shell
-# create a group named mygroup
-root$ groupadd mygroup -g 1001
-# create a user named myuser in group mygroup
-root$ useradd --no-create-home -u 1001 -g mygroup myuser
-# override the service user for installation
-root$ ./gravity install <options> --service-uid=1001
+In order to configure _"planet"_ service user, you have the following options:
+
+  * Create a user with the same UID on all cluster nodes upfront.
+  * Specify a user ID on installer's command line and a user named `planet` 
+    (and a group with the same name) will automatically be created with the given 
+    ID during installation.
+
+Here's an example of using a custom system user/group before starting the installation:
+
+```bash
+# before installing a new cluster:
+# create a group named mygroup (repeat on all cluster nodes)
+$ groupadd mygroup -g 1001
+
+# create a user named myuser in group mygroup (repeate on all cluster nodes)
+$ useradd --no-create-home -u 1001 -g mygroup myuser
+
+# specify the service user during installation
+$ ./gravity install <options> --service-uid=1001
 ```
 
-Then agents connecting from every other node in the cluster will use (and create if not
-existing) the same user ID.
-
-Service user can also be used for running unprivileged services inside the Kubernetes cluster.
-To run a specific Pod (or just a container) under the service user, use `-1` as a user ID
-which will be translated to the corresponding service user ID:
+The service user can also be used for running unprivileged services inside the
+Kubernetes cluster.  To run a specific Pod (or just a container) under the
+service user, use `-1` as a user ID which will be translated to the
+corresponding service user ID:
 
 ```yaml
 apiVersion: v1
@@ -777,27 +876,27 @@ spec:
       runAsUser: -1   # to use for a single container
 ```
 
-Only resources stored as YAML files are subject to automatic translation.
-If an application hook uses custom resource provisioning, it might need to perform conversion manually.
+Only resources stored as YAML files are subject to automatic translation.  If
+a cluster lifecycle hook uses custom resource provisioning, it might need to perform
+the conversion manually.
 
-The value of the effective service user ID is stored in the `GRAVITY_SERVICE_USER` environment variable which is made
-available to each hook.
+The value of the effective service user ID is stored in the
+`GRAVITY_SERVICE_USER` environment variable which is available to each
+hook.
 
+## Custom System Container
 
-## User-Defined Base Image
+When Gravity creates a Kubernetes cluster from a cluster image, it installs a
+special system container on each host. It is called "planet" and visible as `gravity` 
+daemon. 
 
-!!! note:
-    Ability to override default base image is currently only supported in
-    the `5.1.x` line of releases starting from `5.1.0-alpha.4`.
+"Planet" contains all of Kubernetes services, performs automatic management and
+isolates them from other pre-existing daemons running on cluster hosts. 
 
-To ensure consistency across various supported OS distributions and versions,
-Gravity clusters are deployed on top of a containerized Kubernetes environment
-called `planet`. The `planet` is a Docker image maintained by Gravitational. At
-this moment `planet` image is based on Debian 9.
-
-The `planet` base image is published to a public Docker registry at
+`planet` is a Docker image maintained by Gravitational. At this moment `planet` 
+image is based on Debian 9. `planet` base image is published to a public Docker registry at
 `quay.io/gravitational/planet` so you can customize `planet` environment for
-your bundle by using Gravitational's image as a base. Here's an example of a
+your clusters by using Gravitational's image as a base. Here's an example of a
 Dockerfile of a custom `planet` image that installs an additional package:
 
 ```
@@ -828,86 +927,7 @@ nodeProfiles:
       baseImage: custom-planet:1.0.0
 ```
 
-When packaging the application, `tele build` will discover `custom-planet:1.0.0` image
-and vendor it in along with other application dependencies. During cluster
-installation all nodes with the role `worker` will use the specified base image
-instead of the default one.
-
-
-### Application Manifest Changes
-
-The 5.1.x release introduces a couple of changes to the application manifest to support the planet as
-a docker image use-case.
-
-New volume definition flag `skipIfMissing` controls whether a particular directory will be mounted inside
-the container. The main use-case for this is simplifying OS-specific mount configuration:
-
-```yaml
-  nodeProfiles:
-    requirements:
-      volumes:
-        # This directory is only found on CentOS
-        - path: /path/to/dir/on/centos
-          targetPath: /path/to/dir/in/container
-          # This attribute tells the installer to mount the directory only if it exists
-          # on host. With this set, createIfMissing is ignored.
-          skipIfMissing: true
-          name: centos-library
-
-        # This directory is only found on Ubuntu
-        - path: /path/to/dir/on/ubuntu
-          targetPath: /path/to/dir/in/container
-          skipIfMissing: true
-          name: ubuntu-library
-
-        # Path can also accept a shell file pattern. In this case,
-        # it will be mounted in the gravity container under the
-        # same path as matched on host.
-        - path: /path/to/dir-???
-          targetPath: /path/to/dir-???  # targetPath is required even though
-                                        # it will be automatically set to the actual match
-          skipIfMissing: true
-```
-
-In the example above, when we install on `CentOS`, only the `centos-library` directory is mounted
-inside the container, while on `Ubuntu` only the directory named `ubuntu-library` will be mounted.
-
-The values specified in `path` can contain shell file name patterns.
-See the description of the [Match](https://golang.org/pkg/path/filepath/#Match) API for details
-of the supported syntax.
-If a mount specifies a file pattern in `path`, `targetPath` will be automatically set to the
-actual match as found on host.
-
-!!! note:
-    When working with mounts, it is important to always specify the `targetPath` to
-    differentiate a mount from a volume requirement.
-    Leaving the `targetPath` empty does not automatically set it equal to `path`
-    inside the container.
-
-Additionally, it is possible to define custom preflight checks.
-A custom check is a shell script that can either be placed in manifest inline or read from a URL:
-
-```yaml
-nodeProfiles:
- - name: custom-profile
-   requirements:
-     cpu:
-       min: 1
-     ram:
-       min: "8GB"
-     customChecks:
-      - description: custom check
-        script: |
-          #!/bin/bash
-
-          # script goes here
-
-      - description: another custom check
-        script: file://checks.sh
-```
-During the build process, the script will be rendered in-place inside the manifest.
-
-To report a failure from a script, exit with a code other than `0` (`0` denotes a success outcome).
-
-Stdout/stderr output from the script will be mirrored in the installation log in case
-of a failure.
+When building a cluster image, `tele build` will discover `custom-planet:1.0.0`
+Docker image and vendor it along with other dependencies. During the cluster
+installation all nodes with the role `worker` will use the custom "planet" Docker 
+image instead of the default one.
