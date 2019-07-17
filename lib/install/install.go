@@ -123,6 +123,19 @@ func (i *Installer) Execute(req *installpb.ExecuteRequest, stream installpb.Agen
 	}
 }
 
+// SetPhase sets phase state without executing it.
+func (i *Installer) SetPhase(req *installpb.SetStateRequest) error {
+	i.WithField("req", req).Info("Set phase.")
+	machine, err := i.config.FSMFactory.NewFSM(i.config.Operator, req.OperationKey())
+	if err != nil {
+		return trace.Wrap(err)
+	}
+	return machine.ChangePhaseState(i.ctx, fsm.StateChange{
+		Phase: req.Phase.ID,
+		State: req.State,
+	})
+}
+
 // Complete manually completes the operation given with key.
 // Implements server.Executor
 func (i *Installer) Complete(key ops.SiteOperationKey) error {
@@ -254,7 +267,7 @@ func (i *Installer) execute(req *installpb.ExecuteRequest) (dispatcher.Status, e
 	return status, nil
 }
 
-func (i *Installer) executePhase(phase installpb.ExecuteRequest_Phase) (dispatcher.Status, error) {
+func (i *Installer) executePhase(phase installpb.Phase) (dispatcher.Status, error) {
 	opKey := installpb.KeyFromProto(phase.Key)
 	machine, err := i.config.FSMFactory.NewFSM(i.config.Operator, opKey)
 	if err != nil {
@@ -375,15 +388,15 @@ func (i *Installer) stop() {
 	i.server.Stop(ctx)
 }
 
-func phaseTitle(phase installpb.ExecuteRequest_Phase) string {
+func phaseTitle(phase installpb.Phase) string {
 	if phase.IsResume() {
 		return "Resuming operation"
 	}
 	return fmt.Sprintf("Executing phase %v", phase.ID)
 }
 
-func phaseForOperation(op ops.SiteOperation) *installpb.ExecuteRequest_Phase {
-	return &installpb.ExecuteRequest_Phase{
+func phaseForOperation(op ops.SiteOperation) *installpb.Phase {
+	return &installpb.Phase{
 		ID:  fsm.RootPhase,
 		Key: installpb.KeyToProto(op.Key()),
 	}

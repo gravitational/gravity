@@ -70,8 +70,13 @@ func (r *ExecuteRequest) HasSpecificPhase() bool {
 	return r.Phase != nil && !r.Phase.IsResume()
 }
 
+// OperationKey returns operation key from request.
+func (r *SetStateRequest) OperationKey() ops.SiteOperationKey {
+	return KeyFromProto(r.Phase.Key)
+}
+
 // IsResume determines if this phase describes a resume operation
-func (r *ExecuteRequest_Phase) IsResume() bool {
+func (r *Phase) IsResume() bool {
 	return r.ID == fsm.RootPhase
 }
 

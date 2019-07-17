@@ -541,6 +541,24 @@ func completeJoinPlan(env *localenv.LocalEnvironment, operation *ops.SiteOperati
 		env, operation, "Connecting to agent", "Connected to agent"))
 }
 
+func setPhaseFromService(env *localenv.LocalEnvironment, params SetPhaseParams, operation *ops.SiteOperation) error {
+	ctx, cancel := context.WithCancel(context.Background())
+	interrupt := signals.NewInterruptHandler(ctx, cancel, clientInterruptSignals)
+	defer interrupt.Close()
+	go clientTerminationHandler(interrupt, env)
+	client, err := installerclient.New(ctx, installerclient.Config{
+		InterruptHandler: interrupt,
+		ConnectStrategy:  &installerclient.ResumeStrategy{},
+	})
+	if err != nil {
+		return trace.Wrap(err)
+	}
+	return client.SetPhase(context.Background(), installerclient.Phase{
+		Key: operation.Key(),
+		ID:  params.PhaseID,
+	}, params.State)
+}
+
 func executePhaseFromService(
 	env *localenv.LocalEnvironment,
 	params PhaseParams,

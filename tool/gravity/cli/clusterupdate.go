@@ -127,6 +127,20 @@ func rollbackUpdatePhase(env *localenv.LocalEnvironment, environ LocalEnvironmen
 	return trace.Wrap(err)
 }
 
+func setUpdatePhase(env *localenv.LocalEnvironment, environ LocalEnvironmentFactory, params SetPhaseParams, operation ops.SiteOperation) error {
+	updateEnv, err := environ.NewUpdateEnv()
+	if err != nil {
+		return trace.Wrap(err)
+	}
+	defer updateEnv.Close()
+	updater, err := getClusterUpdater(env, updateEnv, operation, true)
+	if err != nil {
+		return trace.Wrap(err)
+	}
+	defer updater.Close()
+	return updater.SetPhase(context.TODO(), params.PhaseID, params.State)
+}
+
 func completeUpdatePlan(env *localenv.LocalEnvironment, environ LocalEnvironmentFactory, operation ops.SiteOperation) error {
 	updateEnv, err := environ.NewUpdateEnv()
 	if err != nil {
@@ -327,7 +341,7 @@ func checkForUpdate(
 		return nil, trace.Wrap(err)
 	}
 
-	env.Printf("updating %v from %v to %v\n",
+	env.PrintStep("Upgrading application %v from %v to %v",
 		updateApp.Package.Name, installedPackage.Version, updateApp.Package.Version)
 
 	return updateApp, nil

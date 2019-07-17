@@ -27,6 +27,7 @@ import (
 	"github.com/gravitational/gravity/lib/loc"
 	"github.com/gravitational/gravity/lib/modules"
 	"github.com/gravitational/gravity/lib/schema"
+	"github.com/gravitational/gravity/lib/storage"
 	"github.com/gravitational/gravity/lib/utils"
 	"github.com/gravitational/gravity/tool/common"
 
@@ -142,6 +143,7 @@ func RegisterCommands(app *kingpin.Application) *Application {
 
 	g.PlanDisplayCmd.CmdClause = g.PlanCmd.Command("display", "Display a plan for an ongoing operation.").Default()
 	g.PlanDisplayCmd.Output = common.Format(g.PlanDisplayCmd.Flag("output", fmt.Sprintf("Output format: %v.", constants.OutputFormats)).Short('o').Default(string(constants.EncodingText)))
+	g.PlanDisplayCmd.Short = g.PlanDisplayCmd.Flag("short", "Short output format.").Bool()
 
 	g.PlanExecuteCmd.CmdClause = g.PlanCmd.Command("execute", "Execute the specified operation phase.")
 	g.PlanExecuteCmd.Phase = g.PlanExecuteCmd.Flag("phase", "Phase ID to execute.").String()
@@ -152,6 +154,10 @@ func RegisterCommands(app *kingpin.Application) *Application {
 	g.PlanRollbackCmd.Phase = g.PlanRollbackCmd.Flag("phase", "Phase ID to rollback.").String()
 	g.PlanRollbackCmd.Force = g.PlanRollbackCmd.Flag("force", "Force rollback of the specified phase.").Bool()
 	g.PlanRollbackCmd.PhaseTimeout = g.PlanRollbackCmd.Flag("timeout", "Phase rollback timeout.").Default(defaults.PhaseTimeout).Hidden().Duration()
+
+	g.PlanSetCmd.CmdClause = g.PlanCmd.Command("set", "Set the specified phase state without executing it.").Hidden()
+	g.PlanSetCmd.Phase = g.PlanSetCmd.Flag("phase", "Phase ID to set the state for.").Required().String()
+	g.PlanSetCmd.State = g.PlanSetCmd.Flag("state", fmt.Sprintf("The new phase state, one of: %v.", storage.OperationPhaseStates)).Required().String()
 
 	g.PlanResumeCmd.CmdClause = g.PlanCmd.Command("resume", "Resume the last aborted operation.")
 	g.PlanResumeCmd.Force = g.PlanResumeCmd.Flag("force", "Force execution of the specified phase.").Bool()
