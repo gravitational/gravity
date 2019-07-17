@@ -308,7 +308,7 @@ func updateCommandWithFlags(command []string, parser ArgsParser, flagsToAdd []fl
 	for _, el := range ctx.Elements {
 		switch c := el.Clause.(type) {
 		case *kingpin.ArgClause:
-			args = append(args, strconv.Quote(c.Model().Name))
+			args = append(args, strconv.Quote(*el.Value))
 		case *kingpin.FlagClause:
 			if _, ok := c.Model().Value.(boolFlag); ok {
 				args = append(args, fmt.Sprint("--", c.Model().Name))

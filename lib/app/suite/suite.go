@@ -95,7 +95,7 @@ func (r *AppsSuite) ValidatesManifest(c *C) {
 	errorc := make(chan error, 1)
 	progressc := make(chan *app.ProgressEntry)
 	op, err := apps.CreateImportOperation(&app.ImportRequest{
-		Source:         ioutil.NopCloser(input),
+		Source:         ioutil.NopCloser(&input),
 		Repository:     "example.com",
 		PackageName:    "app",
 		PackageVersion: "0.0.1",
@@ -223,7 +223,7 @@ spec:
 	errorc := make(chan error, 1)
 	progressc := make(chan *app.ProgressEntry)
 	op, err := apps.CreateImportOperation(&app.ImportRequest{
-		Source:           ioutil.NopCloser(f),
+		Source:           ioutil.NopCloser(&f),
 		Repository:       "invalid---", // specify invalid name intentionally so import fails
 		PackageName:      "app",
 		PackageVersion:   "0.0.1",
@@ -387,7 +387,7 @@ metadata:
 	data := apptest.CreatePackageData(items, c)
 
 	var labels map[string]string
-	app, err := apps.CreateAppWithManifest(locator, []byte(manifest), ioutil.NopCloser(data), labels)
+	app, err := apps.CreateAppWithManifest(locator, []byte(manifest), ioutil.NopCloser(&data), labels)
 	c.Assert(err, IsNil)
 	c.Assert(app, NotNil)
 
@@ -403,14 +403,14 @@ func (r *AppsSuite) CreatesApplication(c *C) {
 	apps := r.NewService(c, nil, nil)
 	apptest.CreateRuntimeApplication(apps, c)
 	app := loc.MustParseLocator("example.com/example-app:0.0.1")
-	apptest.CreateDummyApplication(apps, app, c)
+	apptest.CreateDummyApplication(app, c, apps)
 }
 
 func (r *AppsSuite) DeletesApplication(c *C) {
 	apps := r.NewService(c, nil, nil)
 	apptest.CreateRuntimeApplication(apps, c)
 	loc := loc.MustParseLocator("example.com/example-app:0.0.1")
-	application := apptest.CreateDummyApplication(apps, loc, c)
+	application := apptest.CreateDummyApplication(loc, c, apps)
 
 	c.Assert(apps.DeleteApp(app.DeleteRequest{Package: application.Package}), IsNil)
 
@@ -569,7 +569,7 @@ metadata:
 	data := apptest.CreatePackageData(items, c)
 
 	var labels map[string]string
-	application, err := apps.CreateAppWithManifest(locator, manifestBytes, ioutil.NopCloser(data), labels)
+	application, err := apps.CreateAppWithManifest(locator, manifestBytes, ioutil.NopCloser(&data), labels)
 	c.Assert(err, IsNil)
 	c.Assert(application, NotNil)
 
@@ -771,7 +771,8 @@ func (r *AppsSuite) importApplicationWithResources(apps app.Applications, vendor
 	}
 	service.PostProcessManifest(manifest)
 
-	input := ioutil.NopCloser(apptest.CreatePackageData(resources, c))
+	buf := apptest.CreatePackageData(resources, c)
+	input := ioutil.NopCloser(&buf)
 
 	errorc := make(chan error, 1)
 	progressc := make(chan *app.ProgressEntry)

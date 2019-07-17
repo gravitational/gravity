@@ -30,7 +30,7 @@ func (r *ResourceSuite) TestTranslatesResources(c *C) {
 	runtimePackage := loc.MustParseLocator("gravitational.io/planet:0.0.1")
 	apptest.CreatePackage(r.pack, runtimePackage, nil, c)
 	apptest.CreateRuntimeApplication(r.apps, c)
-	apptest.CreateDummyApplication(r.apps, appPackage, c)
+	apptest.CreateDummyApplication(appPackage, c, r.apps)
 
 	_, reader, err := r.pack.ReadPackage(appPackage)
 	c.Assert(err, IsNil)
