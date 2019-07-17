@@ -19,12 +19,13 @@ package ebtables
 import (
 	"bytes"
 	"os/exec"
-	"regexp"
 	"strings"
 
 	"github.com/gravitational/gravity/lib/utils"
 
+	"github.com/coreos/go-semver/semver"
 	"github.com/gravitational/trace"
+	log "github.com/sirupsen/logrus"
 )
 
 const (
@@ -85,12 +86,7 @@ func GetVersion() (string, error) {
 	if err != nil {
 		return "", err
 	}
-	versionMatcher := regexp.MustCompile("v([0-9]+\\.[0-9]+\\.[0-9]+)")
-	match := versionMatcher.FindStringSubmatch(string(out))
-	if len(match) == 0 {
-		return "", trace.NotFound("no ebtables version found in string %s", out)
-	}
-	return match[1], nil
+	return getVersionFromString(string(out))
 }
 
 // EnsureRule checks if the specified rule is present and, if not, creates it.
@@ -183,3 +179,25 @@ func run(cmd string, args ...string) (output []byte, err error) {
 	err = utils.Exec(exec.Command(cmd, args...), &out)
 	return out.Bytes(), trace.ConvertSystemError(err)
 }
+
+func getVersionFromString(input string) (version string, err error) {
+	fields := strings.Fields(input)
+	if len(fields) < 2 {
+		return "", trace.NotFound("no ebtables version found in string %q", input)
+	}
+	if fields[0] != ebtablesPrefix {
+		return "", trace.NotFound("no ebtables version found in string %q", input)
+	}
+	versionS := fields[1]
+	if strings.HasPrefix(versionS, "v") {
+		versionS = versionS[1:]
+	}
+	v, err := semver.NewVersion(versionS)
+	if err != nil {
+		log.WithError(err).Warnf("Failed to parse %q as semver.", versionS)
+		return "", trace.BadParameter("invalid semver %q", versionS)
+	}
+	return v.String(), nil
+}
+
+const ebtablesPrefix = "ebtables"
