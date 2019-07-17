@@ -1,11 +1,11 @@
 # Cluster Management
 
-Every cluster created from a cluster image is a fully featured Kubernetes
-environment. It contains the following components:
+Every cluster created from a Gravity cluster image is a fully featured
+Kubernetes environment. It contains the following components:
 
 1. All user applications that have been packaged into the cluster image.
 2. All Kubernetes daemons like `kube-scheduler`, `kube-apiserver`, and others. 
-3. Kubernetes CLI tool: `kubectl`.
+3. The Kubernetes CLI tool: `kubectl`.
 4. The Gravity cluster "hypervisor", called `gravity` for managing the cluster.
 5. The Gravity Authentication Gateway for integrating Kubernetes authentication 
    and SSH access to cluster nodes with corporate identity providers via SSO.
@@ -74,9 +74,13 @@ include:
 
 ## Gravity Tool
 
-Gravity is the tool used to manage the cluster. Gravity is only
-available inside the cluster so you have to `tsh ssh` into the cluster
-to execute `gravity` commands. You can read more about `tsh` in the [remote management](/manage/) section.
+`gravity` is the CLI command available on every cluster node. Use it to perform
+high level cluster administration tasks such as adding or removing nodes,
+upgrading, etc.
+
+`gravity` is only available on the cluster nodes, users must remotely connect
+to it via `tsh` command first. To learn more about `tsh`, consult the [remote
+management](/manage/) section.
 
 The `gravity` commands allows you to:
 
@@ -86,30 +90,26 @@ The `gravity` commands allows you to:
 4. Update / backup / restore the Gravity Cluster.
 5. Request shell inside the master container to troubleshoot Kubernetes health on a node level.
 
+Below is the full list of `gravity` commands:
 
-`gravity` commands can be used on any node of the cluster. Or you can execute it
-remotely via an SSH tunnel by chaining it to the end of the `tsh ssh` command.
-
-The full list of `gravity` commands:
-
-| Command   | Description                                                        |
-|-----------|--------------------------------------------------------------------|
-| status    | show the status of the cluster and the application running in it   |
-| update    | manage application updates on a Gravity Cluster                    |
-| upgrade   | manage the cluster upgrade operation for a Gravity Cluster         |
-| plan      | manage operation plan                                              |
-| join      | add a new node to the cluster                                      |
-| autojoin  | join the cluster using cloud provider for discovery                |
-| leave     | decommission a node: execute on a node being decommissioned        |
-| remove    | remove the specified node from the cluster                         |
-| backup    | perform a backup of the application data in a cluster              |
-| restore   | restore the application data from a backup                         |
-| tunnel    | manage the SSH tunnel used for the remote assistance               |
-| report    | collect cluster diagnostics into an archive                        |
-| resource  | manage cluster resources                                           |
-| exec      | execute commands in the master container                           |
-| shell     | launch an interactive shell in the master container                |
-| gc        | clean up unused cluster resources                                  |
+| Command   | Description                                                                  |
+|-----------|------------------------------------------------------------------------------|
+| `gravity status`    | Show the status of the cluster and the application running in it   |
+| `gravity update`    | Manage application updates on a Gravity Cluster                    |
+| `gravity upgrade`   | Manage the cluster upgrade operation for a Gravity Cluster         |
+| `gravity plan`      | Manage operation plan                                              |
+| `gravity join`      | Add a new node to the cluster                                      |
+| `gravity autojoin`  | Join the cluster using cloud provider for discovery                |
+| `gravity leave`     | Decommission a node: execute on a node being decommissioned        |
+| `gravity remove`    | Remove the specified node from the cluster                         |
+| `gravity backup`    | Perform a backup of the application data in a cluster              |
+| `gravity restore`   | Restore the application data from a backup                         |
+| `gravity tunnel`    | Manage the SSH tunnel used for the remote assistance               |
+| `gravity report`    | Collect cluster diagnostics into an archive                        |
+| `gravity resource`  | Manage cluster resources                                           |
+| `gravity exec`      | Execute commands in the master container                           |
+| `gravity shell`     | Launch an interactive shell in the master container                |
+| `gravity gc`        | Clean up unused cluster resources                                  |
 
 
 ## Cluster Status
@@ -125,9 +125,10 @@ $ tsh --cluster=production ssh admin@node gravity status
 ```
 
 !!! tip "Reminder":
-    Keep in mind that `tsh` always uses the Gravity Ops Center as an SSH proxy. This
-    means the command above will work with clusters located behind
-    corporate firewalls. You can read more in the [remote management](/manage/) section.
+    Keep in mind that `tsh` can optionally use the Gravity Hub as an SSH and
+    Kubernetes proxy. Moreover, reverse tunelling provided by Gravity Hub means
+    that `tsh` can connect to clusters located behind corporate firewalls. You
+    can read more in the [remote management](/manage/) section.
 
 ### Cluster Health Endpoint
 
@@ -308,14 +309,10 @@ Gravity update process works:
 3. Custom update hooks can be used to perform application specific
    actions before or after the update, such as database migrations.
 
-An update can be triggered via the Ops Center web UI or from command line (CLI). The instructions below
-describe updating via the CLI. The commands below can be executed as part of a remote update script to update
-large numbers of remotely running application instances.
-
-!!! warning "Upgrading to 4.23.0+"
-    When upgrading a cluster via the Ops Center from pre-4.23.0 to 4.23.0 or
-    higher, refer to [Upgrading to 4.23.0+](/changelog/#instructions-on-upgrading-to-4230)
-	in the Release Notes for instructions.
+An update can be triggered via Gravity Hub Web UI or from command line (CLI).
+The instructions below describe updating via the CLI. The commands below can be
+executed as part of a remote update script to update large numbers of remotely
+running application instances.
 
 ### Uploading an Update
 
@@ -405,7 +402,7 @@ The operation has been created in manual mode.
 See https://gravitational.com/gravity/docs/cluster/#managing-an-ongoing-operation for details on working with operation plan.
 ```
 
-Please refer to the [Managing an Ongoing Operation](/cluster/#managing-an-ongoing-operation) section about
+Please refer to the [Managing Operations](/cluster/#managing-operations) section about
 working with the operation plan.
 
 !!! warning "IMPORTANT":
@@ -447,7 +444,7 @@ root$ ./gravity plan resume
 root$ ./gravity agent shutdown
 ```
 
-## Managing An Ongoing Operation
+## Managing Operations
 
 Some operations in a Gravity cluster require cooperation from all cluster nodes.
 Examples are installs, upgrades and garbage collection.
@@ -457,12 +454,12 @@ To provide a foundation for coping with failures, the operations are built as se
 that can be re-executed or rolled back individually. This allows for interactive fix and retry loop should any of the
 steps fail.
 
-Each operation starts with building an operational plan - a tree of actions to perform in order
-to achieve a particular goal. Once created, the plan is either executed automatically or manually step by step to completion.
+Each operation starts with building an operational plan - a tree of actions to
+perform in order to achieve a particular goal. Once created, the plan is either
+executed automatically or manually step by step to completion.
 
 
-!!! note
-    Starting with `5.3.7-alpha.1`, operation plan management is conveniently available under the `gravity plan` command:
+Operation plan management is available via `gravity plan` command:
 
 ```bash
 $ gravity plan --help
@@ -592,7 +589,7 @@ In this case there's no need to explicitly complete the operation afterwards - t
 automatically upon success.
 
 
-## Interacting with the Master Container
+## The Master Container
 
 As explained [above](#kubernetes-environment), Gravity runs Kubernetes inside a master container.
 The master container (sometimes called "planet") makes sure that every single
@@ -1039,13 +1036,13 @@ $ sudo gravity gc --phase=<PHASE>
 
 ## Remote Assistance
 
-Every Gravity cluster can be connected to an Ops Center,
-assuming the cluster is connected to the Internet. This creates an outbound SSH tunnel from the cluster
-to the Ops Center and the operator can use that tunnel to perform remote troubleshooting
-by using the `tsh` tool. You can read more about remote assistance in the
-[remote management](/manage/) section.
+Every Gravity cluster can be connected to Gravity Hub, assuming the cluster is
+connected to the Internet. This creates a secure outbound management tunnel
+from the cluster to Gravity Hub and the Hub operator can use that tunnel to
+perform remote troubleshooting by using the `tsh` tool. You can read more about
+remote assistance in the [remote management](/manage/) section.
 
-However, some Gravity Cluster owners may want to disable the SSH tunnel and keep their
+However, some Gravity cluster owners may want to disable the SSH tunnel and keep their
 clusters disconnected from the vendor, only enabling this capability when they
 need help.
 
@@ -1061,7 +1058,7 @@ of the tunnel. The status can be one of the following
 
 | Status | Description
 |-------|--------------------------------------------------------------------------------------------------------------------------------------------------------|
-| on    | The tunnel is turned on and the connection to the Ops Center is established.                                                                            |
+| on    | The tunnel is turned on and the connection to Gravity Hub is established.                                                                            |
 | off   | The tunnel is turned off.                                                                                                                              |
 | error | The tunnel is turned on, but the connection cannot be established due to an error. The additional error information will be printed as well. |
 
@@ -1138,8 +1135,8 @@ Resource Name             | Resource Description
 `user`                    | cluster user
 `token`                   | user tokens such as API keys
 `logforwarder`            | forwarding logs to a remote rsyslog server
-`trusted_cluster`         | managing access to remote Ops Centers
-`endpoints`               | Ops Center endpoints for user and cluster traffic
+`trusted_cluster`         | managing access to remote Gravity Hubs
+`endpoints`               | Gravity Hub endpoints for user and cluster traffic
 `cluster_auth_preference` | cluster authentication settings such as second-factor
 `alert`                   | cluster monitoring alert
 `alerttarget`             | cluster monitoring alert target
@@ -1454,15 +1451,18 @@ $ gravity resource get token --user=alice@example.com
 
 ### Example: Provisioning A Publisher User
 
-In this example we are going to use `role`, `user` and `token` resources described above to
-provision a user who can publish applications into an Ops Center. For instructions on how
-to setup your own Ops Center see [Setting up an Ops Center](/opscenter).
+In this example we are going to use `role`, `user` and `token` resources
+described above to provision a user who can publish applications into 
+Gravity Hub.
+
+For instructions on how to setup your own Gravity Hub see [Gravity Hub](/hub)
+chapter.
 
 In the following spec we define 3 resources:
 
 1. role `publisher` that allows its holder to push applications
 2. user `jenkins@example.com` that carries this role
-3. token that will be used for authenticating with Ops Center
+3. token that will be used for authenticating with Gravity Hub
 
 ```yaml
 kind: role
@@ -1592,7 +1592,7 @@ $ gravity resource rm logforwarder forwarder1
 
 ### Configuring TLS Key Pair
 
-Ops Center and Gravity Cluster Web UI and API TLS key pair can be configured
+Gravity Hub and Gravity Cluster Web UI and API TLS key pair can be configured
 using `tlskeypair` resource.
 
 ```yaml
@@ -1635,11 +1635,11 @@ $ gravity resource rm tls keypair
     `5.0.0-alpha.5`.
 
 Trusted clusters is a concept for connecting standalone Gravity clusters to
-arbitrary Ops Centers. It brings the following advantages:
+arbitrary Gravity Hubs. It brings the following advantages:
 
-* Allows agents of the remote Ops Center to SSH into your cluster nodes to
-perform remote assistance.
-* Allows the cluster to download application updates from the Ops Center.
+* Allows agents of the remote Gravity Hub to SSH into your cluster nodes to
+  perform the remote assistance.
+* Allows a cluster to download application updates from Gravity Hub.
 
 To configure a trusted cluster create the following resource:
 
@@ -1647,31 +1647,28 @@ To configure a trusted cluster create the following resource:
 kind: trusted_cluster
 version: v2
 metadata:
-  name: opscenter.example.com
+  name: hub.example.com
 spec:
   enabled: true
   pull_updates: true
   token: c523fd0961be71a45ceed81bdfb61b859da8963e2d9d7befb474e47d6040dbb5
-  tunnel_addr: "opscenter.example.com:3024"
-  web_proxy_addr: "opscenter.example.com:32009"
+  tunnel_addr: "hub.example.com:3024"
+  web_proxy_addr: "hub.example.com:32009"
 ```
 
 Let's go over the resource fields:
 
-* `metadata.name`: The name of the Ops Center the cluster is being connected to.
+* `metadata.name`: The name of Gravity Hub the cluster is being connected to.
 * `spec.enabled`: Allows the agents to establish remote connection to the cluster
-from the Ops Center.
+  from Gravity Hub.
 * `spec.pull_updates`: Whether the cluster should be automatically downloading
-application updates from the Ops Center.
-* `spec.token`: A secret token used to securely connect the cluster to the Ops
-Center. Can be retrieved by running `gravity status` command on the Ops Center
-cluster.
-* `spec.tunnel_addr`: The address of the Ops Center reverse tunnel service as
-host:port. Typically it is exposed on port `3024`.
-* `spec.web_proxy_addr`: The address which the Ops Center cluster serves its web
-API on. It is the address specified via the `--ops-advertise-addr` parameter
-in the [Manual Provisioning](/opscenter/#manual-provisioning) flow (the first
-port).
+  application updates from Gravity Hub.
+* `spec.token`: A secret token used to securely connect the cluster to Gravity Hub. 
+* `spec.tunnel_addr`: The address of Gravity Hub reverse tunnel service as
+   host:port. Typically it is exposed on port `3024`.
+* `spec.web_proxy_addr`: The address which Gravity Hub serves its Web
+   API on. It is the same address specified via the `--ops-advertise-addr` parameter
+   when [installing Gravity Hub](http://localhost:6600/hub/#installing-gravity-hub).
 
 Create the trusted cluster:
 
@@ -1683,9 +1680,9 @@ View the currently configured trusted cluster:
 
 ```bsh
 $ gravity resource get trusted_cluster
-Name                      Enabled     Pull Updates     Reverse Tunnel Address          Proxy Address
-----                      -------     ------------     ----------------------          -------------
-opscenter.example.com     true        true             opscenter.example.com:3024      opscenter.example.com:32009
+Name                Enabled     Pull Updates     Reverse Tunnel Address    Proxy Address
+----                -------     ------------     ----------------------    -------------
+hub.example.com     true        true             hub.example.com:3024      hub.example.com:32009
 ```
 
 Once the cluster has been created, the reverse tunnel status can be viewed and
@@ -1693,34 +1690,34 @@ managed using `gravity tunnel` shortcut commands:
 
 ```bsh
 $ gravity tunnel status
-Ops Center              Status
-opscenter.example.com   enabled
+Gravity Hub       Status
+hub.example.com   enabled
 
 $ gravity tunnel disable
-Ops Center              Status
-opscenter.example.com   disabled
+Gravity Hub       Status
+hub.example.com   disabled
 
 $ gravity tunnel enable
-Ops Center              Status
-opscenter.example.com   enabled
+Gravity Hub       Status
+hub.example.com   enabled
 ```
 
-To disconnect the cluster from the Ops Center, remove the trusted cluster:
+To disconnect the cluster Gravity Hub, remove the trusted cluster:
 
 ```bsh
-$ gravity resource rm trustedcluster opscenter.example.com
-trusted cluster "opscenter.example.com" has been deleted
+$ gravity resource rm trustedcluster hub.example.com
+trusted cluster "hub.example.com" has been deleted
 ```
 
-### Configuring Ops Center Endpoints
+### Gravity Hub Endpoints
 
-By default an Ops Center is configured with a single endpoint set
-via `--ops-advertise-addr` flag during the installation. This means that
-all Ops Center clients (such as users of the Ops Center UI or tele/tsh tools
-as well as remote clusters) will use this address to connect to it.
+By default, Gravity Hub is configured with a single endpoint set via
+`--ops-advertise-addr` flag during the installation. This means that all
+Gravity Hub clients will use this address to connect to it.
 
-Ops Center can be configured to advertise different addresses to users and
-remote clusters via the `endpoints` resource. It has the following format:
+But Gravity Hub can also be configured to advertise different addresses to
+users and remote clusters via the `endpoints` resource. It has the following
+format:
 
 ```yaml
 kind: endpoints
@@ -1732,13 +1729,13 @@ spec:
   agents_advertise_addr: "<agents-host>:<agents-port>"
 ```
 
-* `public_advertise_addr` is the address that will be used for Ops Center
+* `public_advertise_addr` is the address that will be used for Gravity Hub
   UI and by CLI tools such as tele or tsh. This field is mandatory.
 * `agents_advertise_addr` is the address that remote clusters will use to
-  connect to Ops Center. This field is optional and it falls back to the
+  connect to Gravity Hub. This field is optional and it falls back to the
   public address if not specified.
 
-Create the resource to update the Ops Center endpoints:
+Create the resource to update Gravity Hub endpoints:
 
 ```bsh
 $ gravity resource create endpoints.yaml
@@ -1754,7 +1751,7 @@ To view currently configured endpoints, run:
 $ gravity resource get endpoints
 ```
 
-Let's take a look at how Ops Center behavior changes with different endpoint
+Let's take a look at how Gravity Hub behavior changes with different endpoint
 configurations.
 
 #### Single advertise address
@@ -1767,12 +1764,12 @@ spec:
   public_advertise_addr: "ops.example.com:443"
 ```
 
-With this configuration, the Ops Center cluster will provide a single Kubernetes
+With this configuration, Gravity Hub cluster will provide a single Kubernetes
 service called `gravity-public` configured to serve both user and cluster
 traffic:
 
 ```bsh
-$ kubectl get services -n kube-system -l app=gravity-opscenter
+$ kubectl get services -n kube-system -l app=gravity-hub
 NAME             TYPE           CLUSTER-IP     EXTERNAL-IP   PORT(S)                                       AGE
 gravity-public   LoadBalancer   10.100.20.71   <pending>     443:31033/TCP,3024:30561/TCP,3023:31043/TCP   40m
 ```
@@ -1795,12 +1792,12 @@ spec:
   agents_advertise_addr: "ops.example.com:4443"
 ```
 
-With this configuration, the Ops Center will provide a single Kubernetes service
+With this configuration, Gravity Hub will provide a single Kubernetes service
 called `gravity-public` (which `ops.example.com` can point at) with two
 different ports for user and cluster traffic respectively:
 
 ```bsh
-kubectl get services -n kube-system -l app=gravity-opscenter
+kubectl get services -n kube-system -l app=gravity-hub
 NAME             TYPE           CLUSTER-IP     EXTERNAL-IP   PORT(S)                                                      AGE
 gravity-public   LoadBalancer   10.100.20.71   <pending>     443:31265/TCP,4443:30080/TCP,3024:32109/TCP,3023:30716/TCP   54m
 ```
@@ -1822,7 +1819,7 @@ With this configuration, an additional Kubernetes service called `gravity-agents
 is created for the cluster traffic which `ops-agents.example.com` can be point at:
 
 ```bsh
-# kubectl get services -n kube-system -l app=gravity-opscenter
+# kubectl get services -n kube-system -l app=gravity-hub
 NAME             TYPE           CLUSTER-IP      EXTERNAL-IP   PORT(S)                         AGE
 gravity-public   LoadBalancer   10.100.20.71    <pending>     443:31792/TCP,3023:32083/TCP    59m
 gravity-agents   LoadBalancer   10.100.91.204   <pending>     4443:30873/TCP,3024:30185/TCP   8s
@@ -1936,11 +1933,11 @@ spec:
 
 By default the following authentication method is configured:
 
-* For Ops Centers: OIDC or local with second-factor authentication.
-* For regular clusters: local without second-factor authentication.
+* For clusters: local without second-factor authentication.
+* For Gravity Hub clusters: OIDC or local with second-factor authentication.
 
 To update authentication preference, for example to allow local users to log
-into an Ops Center without second-factor, define the following resource:
+into Gravity Hub without second-factor, define the following resource:
 
 ```yaml
 kind: cluster_auth_preference
@@ -2026,7 +2023,7 @@ $ sudo gravity resource create -f envars.yaml --manual
 ```
 
 This will allow you to control every aspect of the operation as it executes.
-See [Managing an Ongoing Operation](/cluster/#managing-an-ongoing-operation) for more details.
+See [Managing Operations](/cluster/#managing-operations) for more details.
 
 
 To view the currently configured runtime environment variables:
@@ -2119,7 +2116,8 @@ root$ ./gravity resource create cluster-config.yaml --manual
 ```
 
 The configuration update is implemented as a cluster operation. Once created, it is managed using
-the same `gravity plan` command described in the [Managing an Ongoing Operation](/cluster/#managing-an-ongoing-operation) section.
+the same `gravity plan` command described in the [Managing Operations](/cluster/#managing-operations)
+section.
 
 
 To view the configuration:
