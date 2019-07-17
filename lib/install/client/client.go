@@ -261,13 +261,22 @@ func (r *Client) addTerminationHandler() {
 	r.InterruptHandler.AddStopper(r)
 }
 
-func (r *Client) shutdownAndComplete(ctx context.Context) error {
-	_, err := r.client.Shutdown(ctx, &installpb.ShutdownRequest{Completed: true})
+func (r *Client) complete(ctx context.Context) error {
+	_, err := r.client.Shutdown(ctx, &installpb.ShutdownRequest{
+		Completed: true,
+	})
 	return trace.Wrap(err)
 }
 
 func (r *Client) shutdown(ctx context.Context) error {
 	_, err := r.client.Shutdown(ctx, &installpb.ShutdownRequest{})
+	return trace.Wrap(err)
+}
+
+func (r *Client) shutdownWithExitCode(ctx context.Context, code int) error {
+	_, err := r.client.Shutdown(ctx, &installpb.ShutdownRequest{
+		ExitCode: int32(code),
+	})
 	return trace.Wrap(err)
 }
 
