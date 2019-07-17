@@ -204,46 +204,46 @@ func newCollector(env *localenv.LocalEnvironment) (*vacuum.Collector, error) {
 	return collector, nil
 }
 
-func executeGarbageCollectPhase(env *localenv.LocalEnvironment, params PhaseParams, operation *ops.SiteOperation) error {
+func getGarbageCollector(env *localenv.LocalEnvironment, operation *ops.SiteOperation) (*vacuum.Collector, error) {
 	clusterPackages, err := env.ClusterPackages()
 	if err != nil {
-		return trace.Wrap(err)
+		return nil, trace.Wrap(err)
 	}
 
 	clusterApps, err := env.SiteApps()
 	if err != nil {
-		return trace.Wrap(err)
+		return nil, trace.Wrap(err)
 	}
 
 	operator, err := env.SiteOperator()
 	if err != nil {
-		return trace.Wrap(err)
+		return nil, trace.Wrap(err)
 	}
 
 	cluster, err := operator.GetLocalSite()
 	if err != nil {
-		return trace.Wrap(err)
+		return nil, trace.Wrap(err)
 	}
 
 	if operation == nil {
 		operation, _, err = ops.GetLastOperation(cluster.Key(), operator)
 		if err != nil {
-			return trace.Wrap(err)
+			return nil, trace.Wrap(err)
 		}
 	}
 
 	runtimePath, err := getAnyRuntimePackagePath(env.Packages)
 	if err != nil {
-		return trace.Wrap(err, "failed to fetch the path to the container's rootfs")
+		return nil, trace.Wrap(err, "failed to fetch the path to the container's rootfs")
 	}
 
 	creds, err := libfsm.GetClientCredentials()
 	if err != nil {
-		return trace.Wrap(err)
+		return nil, trace.Wrap(err)
 	}
 	runner := libfsm.NewAgentRunner(creds)
 
-	collector, err := vacuum.New(vacuum.Config{
+	return vacuum.New(vacuum.Config{
 		App: &storage.Application{
 			Locator:  cluster.App.Package,
 			Manifest: cluster.App.Manifest,
@@ -259,12 +259,22 @@ func executeGarbageCollectPhase(env *localenv.LocalEnvironment, params PhasePara
 		Silent:        env.Silent,
 		Runner:        runner,
 	})
+}
+
+func executeGarbageCollectPhase(env *localenv.LocalEnvironment, params PhaseParams, operation *ops.SiteOperation) error {
+	collector, err := getGarbageCollector(env, operation)
 	if err != nil {
 		return trace.Wrap(err)
 	}
+	return collector.RunPhase(context.TODO(), params.PhaseID, params.Timeout, params.Force)
+}
 
-	err = collector.RunPhase(context.TODO(), params.PhaseID, params.Timeout, params.Force)
-	return trace.Wrap(err)
+func setGarbageCollectPhase(env *localenv.LocalEnvironment, params SetPhaseParams, operation *ops.SiteOperation) error {
+	collector, err := getGarbageCollector(env, operation)
+	if err != nil {
+		return trace.Wrap(err)
+	}
+	return collector.SetPhase(context.TODO(), params.PhaseID, params.State)
 }
 
 func removeUnusedImages(env *localenv.LocalEnvironment, dryRun, confirmed bool) error {

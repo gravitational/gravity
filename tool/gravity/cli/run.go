@@ -28,6 +28,7 @@ import (
 	"syscall"
 
 	appapi "github.com/gravitational/gravity/lib/app"
+	"github.com/gravitational/gravity/lib/constants"
 	"github.com/gravitational/gravity/lib/defaults"
 	"github.com/gravitational/gravity/lib/fsm"
 	"github.com/gravitational/gravity/lib/httplib"
@@ -366,6 +367,12 @@ func Execute(g *Application, cmd string, extraArgs []string) (err error) {
 				SkipVersionCheck: *g.PlanCmd.SkipVersionCheck,
 				OperationID:      *g.PlanCmd.OperationID,
 			})
+	case g.PlanSetCmd.FullCommand():
+		return setPhase(localEnv, g, SetPhaseParams{
+			OperationID: *g.PlanCmd.OperationID,
+			PhaseID:     *g.PlanSetCmd.Phase,
+			State:       *g.PlanSetCmd.State,
+		})
 	case g.PlanResumeCmd.FullCommand():
 		return resumeOperation(localEnv, g,
 			PhaseParams{
@@ -374,7 +381,6 @@ func Execute(g *Application, cmd string, extraArgs []string) (err error) {
 				SkipVersionCheck: *g.PlanCmd.SkipVersionCheck,
 				OperationID:      *g.PlanCmd.OperationID,
 			})
-
 	case g.PlanRollbackCmd.FullCommand():
 		return rollbackPhase(localEnv, g,
 			PhaseParams{
@@ -385,8 +391,12 @@ func Execute(g *Application, cmd string, extraArgs []string) (err error) {
 				OperationID:      *g.PlanCmd.OperationID,
 			})
 	case g.PlanDisplayCmd.FullCommand():
+		outputFormat := *g.PlanDisplayCmd.Output
+		if *g.PlanDisplayCmd.Short {
+			outputFormat = constants.EncodingShort
+		}
 		return displayOperationPlan(localEnv, g,
-			*g.PlanCmd.OperationID, *g.PlanDisplayCmd.Output)
+			*g.PlanCmd.OperationID, outputFormat)
 	case g.PlanCompleteCmd.FullCommand():
 		return completeOperationPlan(localEnv, g, *g.PlanCmd.OperationID)
 	case g.LeaveCmd.FullCommand():

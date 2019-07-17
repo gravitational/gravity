@@ -100,6 +100,14 @@ func (r *Server) Execute(req *installpb.ExecuteRequest, stream installpb.Agent_E
 	return r.executor.Execute(req, stream)
 }
 
+// SetState sets the specified phase state without executing it.
+//
+// Implements installpb.AgentServer.
+func (r *Server) SetState(ctx context.Context, req *installpb.SetStateRequest) (*types.Empty, error) {
+	r.WithField("req", req).Info("Set.")
+	return installpb.Empty, r.executor.SetPhase(req)
+}
+
 // Complete manually completes the operation given with req.
 // Implements installpb.AgentServer
 func (r *Server) Complete(ctx context.Context, req *installpb.CompleteRequest) (*types.Empty, error) {
@@ -152,6 +160,8 @@ type Executor interface {
 	Completer
 	// Execute executes an operation specified with req.
 	Execute(req *installpb.ExecuteRequest, stream installpb.Agent_ExecuteServer) error
+	// SetPhase sets the phase state without executing it.
+	SetPhase(req *installpb.SetStateRequest) error
 	// Complete manually completes the operation given with operationKey.
 	Complete(operationKey ops.SiteOperationKey) error
 }

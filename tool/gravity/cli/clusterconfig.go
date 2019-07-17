@@ -97,6 +97,20 @@ func executeConfigPhase(env *localenv.LocalEnvironment, environ LocalEnvironment
 	return trace.Wrap(err)
 }
 
+func setConfigPhase(env *localenv.LocalEnvironment, environ LocalEnvironmentFactory, params SetPhaseParams, operation ops.SiteOperation) error {
+	updateEnv, err := environ.NewUpdateEnv()
+	if err != nil {
+		return trace.Wrap(err)
+	}
+	defer updateEnv.Close()
+	updater, err := getConfigUpdater(env, updateEnv, operation)
+	if err != nil {
+		return trace.Wrap(err)
+	}
+	defer updater.Close()
+	return updater.SetPhase(context.TODO(), params.PhaseID, params.State)
+}
+
 func rollbackConfigPhase(env *localenv.LocalEnvironment, environ LocalEnvironmentFactory, params PhaseParams, operation ops.SiteOperation) error {
 	updateEnv, err := environ.NewUpdateEnv()
 	if err != nil {

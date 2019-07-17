@@ -103,6 +103,18 @@ func (r *Collector) RunPhase(ctx context.Context, phase string, phaseTimeout tim
 	}))
 }
 
+// SetPhase sets the specified phase state without executing it.
+func (r *Collector) SetPhase(ctx context.Context, phase, state string) error {
+	machine, err := r.init()
+	if err != nil {
+		return trace.Wrap(err)
+	}
+	return machine.ChangePhaseState(ctx, libfsm.StateChange{
+		Phase: phase,
+		State: state,
+	})
+}
+
 // Create creates the garbage collection operation but does not start it.
 func (r *Collector) Create(ctx context.Context) error {
 	_, err := r.init()

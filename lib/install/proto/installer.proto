@@ -31,6 +31,9 @@ service Agent {
     // Complete marks the operation as completed
     rpc Complete(CompleteRequest) returns (google.protobuf.Empty);
 
+    // SetState sets the specified phase state without executing it
+    rpc SetState(SetStateRequest) returns (google.protobuf.Empty);
+
     // Abort requests that the installer service aborts
     rpc Abort(AbortRequest) returns (google.protobuf.Empty);
 
@@ -41,23 +44,33 @@ service Agent {
     rpc GenerateDebugReport(DebugReportRequest) returns (google.protobuf.Empty);
 }
 
+// Phase represents an operation plan phase
+message Phase {
+    // ID specifies the phase ID
+    string id = 1 [(gogoproto.customname) = "ID"];
+    // Key identifies the operation
+    OperationKey key = 2;
+    // Rollback specifies whether this is a rollback
+    bool rollback = 3;
+    // Force specifies whether the phase execution/rollback should be rerun
+    // regardless of phase state
+    bool force = 4;
+}
+
 // ExecuteRequest describes a request to execute install operation
 message ExecuteRequest {
-    message Phase {
-        // ID specifies the phase ID
-        string id = 1 [(gogoproto.customname) = "ID"];
-        // Key identifies the operation
-        OperationKey key = 2;
-        // Rollback specifies whether this is a rollback
-        bool rollback = 3;
-        // Force specifies whether the phase execution/rollback should be rerun
-        // regardless of phase state
-        bool force = 4;
-    }
     // Phase optionally specifies the configuration for executing or rolling
     // back a specific phase.
     // If unspecified, the operation is executed from the beginning
     Phase phase = 1;
+}
+
+// SetStateRequest describes a request to explicitly set phase state
+message SetStateRequest {
+    // Phase describes the phase to set the state for
+    Phase phase = 1;
+    // State is the new phase state
+    string state = 2;
 }
 
 // CompleteRequest describes a request to manually complete the operation

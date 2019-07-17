@@ -169,6 +169,23 @@ func (p *Peer) Execute(req *installpb.ExecuteRequest, stream installpb.Agent_Exe
 	return nil
 }
 
+// SetPhase sets phase state without executing it.
+func (p *Peer) SetPhase(req *installpb.SetStateRequest) error {
+	p.WithField("req", req).Info("Set phase.")
+	ctx, err := p.tryConnect(req.OperationKey().OperationID)
+	if err != nil {
+		return trace.Wrap(err)
+	}
+	machine, err := p.getFSM(*ctx)
+	if err != nil {
+		return trace.Wrap(err)
+	}
+	return machine.ChangePhaseState(p.ctx, fsm.StateChange{
+		Phase: req.Phase.ID,
+		State: req.State,
+	})
+}
+
 // Complete manually completes the operation given with opKey.
 // Implements server.Executor
 func (p *Peer) Complete(opKey ops.SiteOperationKey) error {
@@ -428,7 +445,7 @@ func (p *Peer) executeConcurrentStep(req *installpb.ExecuteRequest, stream insta
 	return nil
 }
 
-func (p *Peer) executePhase(ctx context.Context, opCtx operationContext, phase installpb.ExecuteRequest_Phase, disp dispatcher.EventDispatcher) error {
+func (p *Peer) executePhase(ctx context.Context, opCtx operationContext, phase installpb.Phase, disp dispatcher.EventDispatcher) error {
 	if phase.IsResume() && !opCtx.isExpand() {
 		return trace.Wrap(p.run(opCtx))
 	}
@@ -1115,7 +1132,7 @@ func isTerminalError(err error) bool {
 	return utils.IsAbortError(err) || trace.IsAccessDenied(err)
 }
 
-func phaseTitle(phase installpb.ExecuteRequest_Phase) string {
+func phaseTitle(phase installpb.Phase) string {
 	if phase.IsResume() {
 		return "Resuming operation"
 	}

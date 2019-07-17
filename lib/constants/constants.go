@@ -709,11 +709,14 @@ var (
 	EncodingPEM Format = "pem"
 	// EncodingText is for the plaint-text encoding format
 	EncodingText Format = "text"
+	// EncodingShort is for short output format
+	EncodingShort Format = "short"
 	// EncodingYAML is for the YAML encoding format
 	EncodingYAML Format = "yaml"
 	// OutputFormats is a list of recognized output formats for gravity CLI commands
 	OutputFormats = []Format{
 		EncodingText,
+		EncodingShort,
 		EncodingJSON,
 		EncodingYAML,
 	}

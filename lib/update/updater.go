@@ -100,6 +100,14 @@ func (r *Updater) RunPhase(ctx context.Context, phase string, phaseTimeout time.
 	}))
 }
 
+// SetPhase sets phase state without executing it.
+func (r *Updater) SetPhase(ctx context.Context, phase, state string) error {
+	return r.machine.ChangePhaseState(ctx, fsm.StateChange{
+		Phase: phase,
+		State: state,
+	})
+}
+
 // RollbackPhase rolls back the specified phase.
 func (r *Updater) RollbackPhase(ctx context.Context, phase string, phaseTimeout time.Duration, force bool) error {
 	ctx, cancel := context.WithTimeout(ctx, phaseTimeout)
