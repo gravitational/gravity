@@ -3,7 +3,7 @@
 Gravity Clusters come with a fully configured and customizable monitoring/alerting system by default.
 This system consists of the following components: Heapster, InfluxDB, Grafana and Kapacitor.
 
-These components are automatically included into an Application Bundle built with `tele build` as a
+These components are automatically included into a cluster image built with `tele build` as a
 system dependency (see the [source](https://github.com/gravitational/monitoring-app) on GitHub).
 
 ### Heapster
