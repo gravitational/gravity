@@ -4,7 +4,7 @@
 # - git
 # - Docker 1.9+
 #
-# Userful targets:
+# Useful targets:
 # - make          : default containerized build. The output goes into build/<version>/
 # - make install  : build via `go install`. The output goes into GOPATH/bin/
 # - make clean    : remove the build output and artifacts
@@ -42,7 +42,7 @@ RELEASE_OUT ?=
 TELEPORT_TAG = 3.0.5
 # TELEPORT_REPOTAG adapts TELEPORT_TAG to the teleport tagging scheme
 TELEPORT_REPOTAG := v$(TELEPORT_TAG)
-PLANET_TAG := 5.5.20-$(K8S_VER_SUFFIX)
+PLANET_TAG := 5.5.21-$(K8S_VER_SUFFIX)
 PLANET_BRANCH := $(PLANET_TAG)
 K8S_APP_TAG := $(GRAVITY_TAG)
 TELEKUBE_APP_TAG := $(GRAVITY_TAG)
