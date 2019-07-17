@@ -29,6 +29,9 @@ import (
 
 // NewClient returns a new client using the specified socket file path
 func NewClient(ctx context.Context, config ClientConfig) (AgentClient, error) {
+	if err := config.checkAndSetDefaults(); err != nil {
+		return nil, trace.Wrap(err)
+	}
 	dialOptions := []grpc.DialOption{
 		// Don't use TLS, as we communicate over domain sockets
 		grpc.WithInsecure(),
@@ -64,6 +67,19 @@ func NewClient(ctx context.Context, config ClientConfig) (AgentClient, error) {
 	}
 	client := NewAgentClient(conn)
 	return client, nil
+}
+
+func (r *ClientConfig) checkAndSetDefaults() error {
+	if r.SocketPath == "" {
+		return trace.BadParameter("Socket path is required")
+	}
+	if r.FieldLogger == nil {
+		r.FieldLogger = log.WithField(trace.Component, "proto:client")
+	}
+	if r.IsServiceFailed == nil {
+		r.IsServiceFailed = func() error { return nil }
+	}
+	return nil
 }
 
 // ClientConfig describes client configuration

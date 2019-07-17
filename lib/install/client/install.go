@@ -86,6 +86,7 @@ func (r *InstallerStrategy) installSelfAsService() error {
 		NoBlock: true,
 		Name:    r.ServicePath,
 	}
+	updateEnviron(&req)
 	r.WithField("req", fmt.Sprintf("%+v", req)).Info("Install service.")
 	return trace.Wrap(service.Reinstall(req))
 }
@@ -157,6 +158,18 @@ type InstallerStrategy struct {
 	// ConnectTimeout specifies the maximum amount of time to wait for
 	// installer service connection.
 	ConnectTimeout time.Duration
+}
+
+// updateEnviron relays part of the client's environment to service
+func updateEnviron(req *systemservice.NewServiceRequest) {
+	environ := make(map[string]string)
+	for _, env := range []string{constants.PreflightChecksOffEnvVar} {
+		if os.Getenv(env) == "" {
+			continue
+		}
+		environ[env] = os.Getenv(env)
+	}
+	req.ServiceSpec.Environment = environ
 }
 
 var (

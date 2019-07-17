@@ -366,12 +366,14 @@ type ExitCodeError interface {
 	error
 	ExitCode() int
 	// OrigError returns the original error this error wraps.
-	// Implements trace.Wrappable
 	OrigError() error
 }
 
 // NewExitCodeError returns a new error with the specified exit code
 func NewExitCodeError(exitCode int) error {
+	if exitCode == 0 {
+		return nil
+	}
 	return exitCodeError{code: exitCode}
 }
 
@@ -401,6 +403,9 @@ func (r exitCodeError) ExitCode() int {
 // Error returns this exit code as error string.
 // Implements error
 func (r exitCodeError) Error() string {
+	if r.err != nil {
+		return r.err.Error()
+	}
 	if r.message != "" {
 		return r.message
 	}

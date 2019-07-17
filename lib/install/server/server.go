@@ -136,11 +136,7 @@ func (r *Server) Shutdown(ctx context.Context, req *installpb.ShutdownRequest) (
 	if req.Completed {
 		r.completed(ctx)
 	} else {
-		var err error
-		if req.ExitCode != 0 {
-			err = utils.NewExitCodeError(int(req.ExitCode))
-		}
-		r.done(ctx, err)
+		r.done(ctx, utils.NewExitCodeError(int(req.ExitCode)))
 	}
 	return installpb.Empty, nil
 }

@@ -1158,7 +1158,7 @@ var (
 
 	// FailedPreconditionExitCode specifies the exit code to indicate a precondition failure.
 	// A failed precondition usually means a configuration error when an operation cannot be retried.
-	// The exit code is used to prevent the agent service from restarting after shut down
+	// The exit code is used to prevent the agent service from restarting after shutdown
 	FailedPreconditionExitCode = 252
 )
 

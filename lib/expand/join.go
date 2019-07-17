@@ -164,8 +164,29 @@ func (p *Peer) Execute(req *installpb.ExecuteRequest, stream installpb.Agent_Exe
 				if installpb.IsRPCError(err) {
 					return trace.Unwrap(err)
 				}
-				// Aborted code is RPC-specific here - it indicates an operation
-				// failure that can be retried
+				// Flag a failed execution (i.e. intermediate) step with codes.Aborted
+				// instead of codes.FailedPrecondition as a better suiting error code.
+				// See this for reference:
+				//
+				// FailedPrecondition indicates operation was rejected because the
+				// system is not in a state required for the operation's execution.
+				// For example, directory to be deleted may be non-empty, an rmdir
+				// operation is applied to a non-directory, etc.
+				//
+				// A litmus test that may help a service implementor in deciding
+				// between FailedPrecondition, Aborted, and Unavailable:
+				//  (a) Use Unavailable if the client can retry just the failing call.
+				//  (b) Use Aborted if the client should retry at a higher-level
+				//      (e.g., restarting a read-modify-write sequence).
+				//  (c) Use FailedPrecondition if the client should not retry until
+				//      the system state has been explicitly fixed. E.g., if an "rmdir"
+				//      fails because the directory is non-empty, FailedPrecondition
+				//      should be returned since the client should not retry unless
+				//      they have first fixed up the directory by deleting files from it.
+				//  (d) Use FailedPrecondition if the client performs conditional
+				//      REST Get/Update/Delete on a resource and the resource on the
+				//      server does not match the condition. E.g., conflicting
+				//      read-modify-write on the same resource.
 				return status.Error(codes.Aborted, err.Error())
 			}
 			return nil

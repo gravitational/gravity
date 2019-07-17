@@ -26,6 +26,8 @@ import (
 	"github.com/gravitational/gravity/lib/localenv"
 	"github.com/gravitational/gravity/lib/pack"
 	"github.com/gravitational/gravity/lib/state"
+	"github.com/gravitational/gravity/lib/storage"
+	"github.com/gravitational/gravity/lib/storage/keyval"
 	"github.com/gravitational/gravity/lib/system"
 	"github.com/gravitational/gravity/lib/systemservice"
 	"github.com/gravitational/gravity/lib/utils"
@@ -49,6 +51,14 @@ func ValidateInstall(env *localenv.LocalEnvironment) func() error {
 		}
 		if err := validateNoActiveService(stateDir); err != nil {
 			log.WithError(err).Warn("Failed to determine if service is not active.")
+			return trace.BadParameter("detected an active installer service in %v, "+
+				"please resume the agent with `gravity resume` or "+
+				"clean it up using `gravity leave --force` before proceeding "+
+				"(see https://gravitational.com/gravity/docs/cluster/#deleting-a-cluster for more details)",
+				stateDir)
+		}
+		if err := validateNoActiveOperation(stateDir); err != nil {
+			log.WithError(err).Warn("Failed to detect an active operation.")
 			return trace.BadParameter("detected previous installation state in %v, "+
 				"please resume the agent with `gravity resume` or "+
 				"clean it up using `gravity leave --force` before proceeding "+
@@ -125,7 +135,7 @@ func validateNoActiveService(stateDir string) error {
 		return trace.Wrap(err)
 	}
 	switch status {
-	case systemservice.ServiceStatusFailed, systemservice.ServiceStatusUnknown:
+	case systemservice.ServiceStatusFailed:
 		return nil
 	default:
 		// Consider service as running if in another status
@@ -147,6 +157,39 @@ func validateNoPackageState(packages pack.PackageService, stateDir string) error
 			stateDir)
 	}
 	return nil
+}
+
+func validateNoActiveOperation(stateDir string) error {
+	_, err := os.Stat(stateDir)
+	if err != nil && os.IsNotExist(err) {
+		return nil
+	}
+	backend, err := newBackendFromDir(stateDir)
+	if err != nil {
+		return trace.Wrap(err)
+	}
+	defer backend.Close()
+	_, err = storage.GetLastOperation(backend)
+	if err == nil {
+		return trace.AlreadyExists("operation already exists")
+	}
+	if !trace.IsNotFound(err) {
+		return trace.Wrap(err)
+	}
+	return nil
+}
+
+func newBackendFromDir(dir string) (storage.Backend, error) {
+	backend, err := keyval.NewBolt(keyval.BoltConfig{
+		Path:     filepath.Join(dir, defaults.GravityDBFile),
+		Multi:    true,
+		Readonly: true,
+		Timeout:  -1, // No timeout
+	})
+	if err != nil {
+		return nil, trace.Wrap(err)
+	}
+	return backend, nil
 }
 
 // isRootedAt returns true iff path is rooted at any of the directories

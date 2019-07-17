@@ -1024,10 +1024,6 @@ func installerAbortOperation(env *localenv.LocalEnvironment) func(context.Contex
 				logger.WithError(err).Warn("Failed to uninstall service.")
 			}
 		}
-		logger.Info("Uninstalling services.")
-		if err := environ.UninstallServices(utils.DiscardPrinter, logger); err != nil {
-			logger.WithError(err).Warn("Failed to uninstall services.")
-		}
 		logger.Info("Uninstalling system.")
 		if err := environ.UninstallSystem(utils.DiscardPrinter, logger); err != nil {
 			logger.WithError(err).Warn("Failed to uninstall system.")
