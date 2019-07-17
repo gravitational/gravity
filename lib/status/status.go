@@ -24,6 +24,8 @@ import (
 	"net/url"
 	"time"
 
+	"github.com/davecgh/go-spew/spew"
+
 	"github.com/gravitational/gravity/lib/constants"
 	"github.com/gravitational/gravity/lib/defaults"
 	"github.com/gravitational/gravity/lib/httplib"
@@ -33,16 +35,20 @@ import (
 	"github.com/gravitational/gravity/lib/storage"
 	"github.com/gravitational/gravity/lib/utils"
 
+	httptransport "github.com/go-openapi/runtime/client"
 	"github.com/gravitational/roundtrip"
 	pb "github.com/gravitational/satellite/agent/proto/agentpb"
 	"github.com/gravitational/satellite/monitoring"
 	"github.com/gravitational/trace"
+	alertmanager "github.com/prometheus/alertmanager/api/v2/client"
+	"github.com/prometheus/alertmanager/api/v2/client/alert"
+	"github.com/prometheus/alertmanager/api/v2/models"
 	"github.com/sirupsen/logrus"
 )
 
 // FromCluster collects cluster status information.
 // The function returns the partial status if not all details can be collected
-func FromCluster(ctx context.Context, operator ops.Operator, cluster ops.Site, operationID string) (status *Status, err error) {
+func FromCluster(ctx context.Context, operator ops.Operator, cluster ops.Site, operationID, dnsAddr string) (status *Status, err error) {
 	status = &Status{
 		Cluster: &Cluster{
 			Domain: cluster.Domain,
@@ -129,6 +135,15 @@ func FromCluster(ctx context.Context, operator ops.Operator, cluster ops.Site, o
 	}
 
 	status.State = cluster.State
+
+	// Collect information from alertmanager
+	if dnsAddr != "" {
+		status.Alerts, err = FromAlertManager(ctx, dnsAddr)
+		if err != nil {
+			fmt.Print(trace.DebugReport(err))
+			return nil, trace.Wrap(err)
+		}
+	}
 	return status, nil
 }
 
@@ -175,6 +190,8 @@ type Status struct {
 	*Cluster `json:",inline,omitempty"`
 	// Agent describes the status of the system and individual nodes
 	*Agent `json:",inline,omitempty"`
+	// Alerts is a list of alerts collected by prometheus alertmanager
+	Alerts []*models.GettableAlert `json:"alerts,omitempty"`
 }
 
 // Cluster encapsulates collected cluster status information
@@ -557,3 +574,26 @@ const (
 	// roleTag is the name of the tag containing node role
 	roleTag = "role"
 )
+
+func FromAlertManager(ctx context.Context, dnsAddr string) ([]*models.GettableAlert, error) {
+	client, err := httplib.GetPlanetClient(httplib.WithLocalResolver(dnsAddr))
+	if err != nil {
+		return nil, trace.Wrap(err)
+	}
+	transport := httptransport.NewWithClient("alertmanager-main.monitoring.svc.cluster.local:9093", "/api/v2",
+		[]string{"http"}, client)
+
+	am := alertmanager.New(transport, nil)
+	getOk, err := am.Alert.GetAlerts(alert.NewGetAlertsParams().WithContext(ctx))
+	if err != nil {
+		return nil, trace.Wrap(err)
+	}
+	//loopAlerts(getOk.Payload)
+	return getOk.Payload, nil
+}
+
+func loopAlerts(alerts []*models.GettableAlert) {
+	for _, alert := range alerts {
+		spew.Dump(alert)
+	}
+}
