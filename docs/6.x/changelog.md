@@ -136,7 +136,7 @@ LTS starts with `3.51.0` with minor backwards compatible changes added over time
 #### Bugfixes
 * Workaround for installation failures when populating the docker registry.
 
-### 5.5.13 (July 18th, 2019)
+### 5.5.13 LTS (July 18th, 2019)
 
 #### Bugfixes
 * Workaround for installation failures when populating the docker registry.
