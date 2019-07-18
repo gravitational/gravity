@@ -20,7 +20,6 @@ import cfg from 'app/config';
 import { getters as namespaceGetters } from 'app/cluster/flux/k8sNamespaces';
 import { Switch, Redirect, Route } from 'app/components/Router';
 import history from 'app/services/history';
-import * as featureFlags from 'app/cluster/featureFlags'
 import { FeatureBox, FeatureHeader, FeatureHeaderTitle } from './../Layout';
 import { Flex, Text, Box } from 'shared/components'
 import k8sContext from './k8sContext';
@@ -65,7 +64,7 @@ export class K8s extends React.Component {
   }
 
   render() {
-    const { namespace, monitoringEnabled, category, namespaces } = this.props;
+    const { namespace, category, namespaces } = this.props;
     const { resourceToView } = this.state;
     const { onViewResource } = this;
 
@@ -80,7 +79,6 @@ export class K8s extends React.Component {
 
     return (
       <k8sContext.Provider value={{
-        monitoringEnabled,
         namespace,
         onViewResource
       }}>
@@ -132,11 +130,9 @@ export class K8s extends React.Component {
 
 export default withState(props => {
   const namespaces = useFluxStore(namespaceGetters.namespaceNames);
-  const monitoringEnabled = featureFlags.siteMonitoring();
   const { namespace, category } = props.match.params;
   return {
     namespaces,
-    monitoringEnabled,
     category,
     namespace,
     history,

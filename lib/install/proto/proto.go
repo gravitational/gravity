@@ -23,6 +23,8 @@ import (
 
 	"github.com/gogo/protobuf/types"
 	"github.com/gravitational/trace"
+	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/status"
 )
 
 // IsAborted returns true if this progress response indicates an aborted operation
@@ -70,22 +72,52 @@ func (r *ExecuteRequest) HasSpecificPhase() bool {
 	return r.Phase != nil && !r.Phase.IsResume()
 }
 
+// OperationKey returns operation key from request.
+func (r *SetStateRequest) OperationKey() ops.SiteOperationKey {
+	return KeyFromProto(r.Phase.Key)
+}
+
 // IsResume determines if this phase describes a resume operation
-func (r *ExecuteRequest_Phase) IsResume() bool {
+func (r *Phase) IsResume() bool {
 	return r.ID == fsm.RootPhase
+}
+
+// WrapServiceError returns an error from service optionally
+// translating it to a more appropriate representation if required
+func WrapServiceError(err error) error {
+	if IsFailedPreconditionError(err) {
+		return utils.NewExitCodeErrorWithMessage(
+			defaults.FailedPreconditionExitCode,
+			trace.UserMessage(err),
+		)
+	}
+	return trace.Wrap(err)
 }
 
 // Empty defines the empty RPC message
 var Empty = &types.Empty{}
 
-// IsAbortedError returns true if the specifies error identifies the aborted operation
+// IsAbortedError returns true if the specified error identifies the aborted operation
 func IsAbortedError(err error) bool {
 	return trace.Unwrap(err) == ErrAborted
 }
 
-// IsCompletedError returns true if the specifies error identifies the completed operation
+// IsCompletedError returns true if the specified error identifies the completed operation
 func IsCompletedError(err error) bool {
 	return trace.Unwrap(err) == ErrCompleted
+}
+
+// IsRPCError returns true if the specified error is a gRPC error
+func IsRPCError(err error) bool {
+	_, ok := status.FromError(trace.Unwrap(err))
+	return ok
+}
+
+// IsFailedPreconditionError returns true if the specified error indicates a failed precondition
+// RPC error
+func IsFailedPreconditionError(err error) bool {
+	s, ok := status.FromError(trace.Unwrap(err))
+	return ok && s.Code() == codes.FailedPrecondition
 }
 
 // ErrAborted defines the aborted operation error
@@ -93,8 +125,8 @@ var ErrAborted = utils.NewExitCodeErrorWithMessage(defaults.AbortedOperationExit
 
 // ErrCompleted defines the completed operation error.
 // This is not an error in the usual sense - rather, it indicates that the operation
-// has been completed and that the agent should not shut down and not restart
-var ErrCompleted = utils.NewExitCodeErrorWithMessage(defaults.AbortedOperationExitCode, "operation completed")
+// has been completed and that the agent should shut down and not restart
+var ErrCompleted = utils.NewExitCodeErrorWithMessage(defaults.CompletedOperationExitCode, "operation completed")
 
 // AbortEvent is a progress response that indicates an aborted operation
 var AbortEvent = &ProgressResponse{

@@ -30,6 +30,7 @@ import (
 	"github.com/gravitational/gravity/lib/state"
 	"github.com/gravitational/gravity/lib/system/service"
 	"github.com/gravitational/gravity/lib/systemservice"
+	"github.com/gravitational/gravity/lib/utils"
 
 	"github.com/gravitational/trace"
 	log "github.com/sirupsen/logrus"
@@ -50,7 +51,11 @@ func (r *InstallerStrategy) connect(ctx context.Context) (installpb.AgentClient,
 	var cancel context.CancelFunc
 	ctx, cancel = context.WithTimeout(ctx, r.ConnectTimeout)
 	defer cancel()
-	client, err := installpb.NewClient(ctx, r.SocketPath, r.FieldLogger)
+	client, err := installpb.NewClient(ctx, installpb.ClientConfig{
+		FieldLogger:     r.FieldLogger,
+		SocketPath:      r.SocketPath,
+		IsServiceFailed: r.isServiceFailed,
+	})
 	if err != nil {
 		return nil, trace.Wrap(err)
 	}
@@ -63,10 +68,6 @@ func (r *InstallerStrategy) installSelfAsService() error {
 	if err := os.MkdirAll(filepath.Dir(r.SocketPath), defaults.SharedDirMask); err != nil {
 		return trace.ConvertSystemError(err)
 	}
-	exitStatuses := strings.Join([]string{
-		strconv.Itoa(defaults.AbortedOperationExitCode),
-		strconv.Itoa(defaults.CompletedOperationExitCode),
-	}, " ")
 	req := systemservice.NewServiceRequest{
 		ServiceSpec: systemservice.ServiceSpec{
 			StartCommand: strings.Join(r.Args, " "),
@@ -75,8 +76,8 @@ func (r *InstallerStrategy) installSelfAsService() error {
 			},
 			// TODO(dmitri): run as euid?
 			User:                     constants.RootUIDString,
-			SuccessExitStatus:        exitStatuses,
-			RestartPreventExitStatus: exitStatuses,
+			SuccessExitStatus:        successExitStatuses,
+			RestartPreventExitStatus: noRestartExitStatuses,
 			// Enable automatic restart of the service
 			Restart:          "always",
 			Timeout:          int(time.Duration(defaults.ServiceConnectTimeout).Seconds()),
@@ -86,6 +87,7 @@ func (r *InstallerStrategy) installSelfAsService() error {
 		NoBlock: true,
 		Name:    r.ServicePath,
 	}
+	req.ServiceSpec.Environment = utils.Getenv(constants.PreflightChecksOffEnvVar)
 	r.WithField("req", fmt.Sprintf("%+v", req)).Info("Install service.")
 	return trace.Wrap(service.Reinstall(req))
 }
@@ -125,6 +127,17 @@ func (r *InstallerStrategy) checkAndSetDefaults() (err error) {
 	return nil
 }
 
+// isServiceFailed returns an error if the service has failed.
+func (r *InstallerStrategy) isServiceFailed() error {
+	serviceName := service.Name(r.ServicePath)
+	failed, err := service.IsFailed(serviceName)
+	if err == nil && failed {
+		return trace.Errorf("service %q has failed. Check journal log for details.",
+			serviceName)
+	}
+	return nil
+}
+
 // InstallerStrategy implements the strategy that creates a new installer service
 // before attempting to connect.
 // This strategy also validates the environment before attempting to set up the service
@@ -147,3 +160,18 @@ type InstallerStrategy struct {
 	// installer service connection.
 	ConnectTimeout time.Duration
 }
+
+var (
+	// successExitStatuses lists exit statuses considered a successful exit for the service
+	successExitStatuses = strings.Join([]string{
+		strconv.Itoa(defaults.AbortedOperationExitCode),
+		strconv.Itoa(defaults.CompletedOperationExitCode),
+	}, " ")
+	// noRestartExitStatuses lists exit statuses that prevent service from getting automatically
+	// restarted by systemd
+	noRestartExitStatuses = strings.Join([]string{
+		strconv.Itoa(defaults.AbortedOperationExitCode),
+		strconv.Itoa(defaults.CompletedOperationExitCode),
+		strconv.Itoa(defaults.FailedPreconditionExitCode),
+	}, " ")
+)

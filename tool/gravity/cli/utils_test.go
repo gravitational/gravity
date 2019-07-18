@@ -56,14 +56,14 @@ func (*S) TestUpdatesCommandLine(c *check.C) {
 		},
 		{
 			comment:   "Quotes flags and args",
-			inputArgs: []string{"install", `--token=some token`, "appdir"},
+			inputArgs: []string{"install", `--token=some token`, "/path/to/data"},
 			flags: []flag{
 				{
 					name: "advertise-addr", value: "localhost:8080",
 				},
 			},
 			outputArgs: []string{
-				"install", "--token", `"some token"`, `"appdir"`, "--advertise-addr", `"localhost:8080"`,
+				"install", "--token", `"some token"`, `"/path/to/data"`, "--advertise-addr", `"localhost:8080"`,
 			},
 		},
 	}

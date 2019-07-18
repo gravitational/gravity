@@ -297,15 +297,15 @@ export const eventConfig = {
   },
   [CodeEnum.OPERATION_UPDATE_COMPLETE]: {
     desc: 'Cluster Update Completed',
-    formatter: ({ version }) => `Cluster is upgrading to version ${version}`
+    formatter: ({ version }) => `Cluster has been updated to version ${version}`
   },
   [CodeEnum.OPERATION_UPDATE_FAILURE]: {
     desc: 'Cluster Update Failed',
-    formatter: ({ version }) => `Cluster has been upgraded to version ${version}`
+    formatter: ({ version }) => `Cluster has failed to update to version ${version}`
   },
   [CodeEnum.OPERATION_UPDATE_START]: {
     desc: 'Cluster Update Started',
-    formatter: ({ version }) => `Cluster upgrade to version ${version} has failed`
+    formatter: ({ version }) => `Cluster update to version ${version} has started`
   },
   [CodeEnum.PORTFORWARD]: {
     desc: 'Port Forwarding Started',
@@ -345,7 +345,7 @@ export const eventConfig = {
   },
   [CodeEnum.SCP_DOWNLOAD_FAILURE]: {
     desc: 'SCP Download Failed',
-    formatter: ({ user, exitError, ...rest }) => `User ${user} file download attempt from node ${rest["addr.local"]} failed: ${exitError}`
+    formatter: ({ exitError, ...rest }) => `File download from node ${rest["addr.local"]} failed: ${exitError}`
   },
   [CodeEnum.SCP_UPLOAD]: {
     desc: 'SCP Upload',
@@ -353,7 +353,7 @@ export const eventConfig = {
   },
   [CodeEnum.SCP_UPLOAD_FAILURE]: {
     desc: 'SCP Upload Failed',
-    formatter: ({ user, exitError, ...rest }) => `User ${user} file upload attempt to node ${rest["addr.local"]} failed: ${exitError}`
+    formatter: ({ exitError, ...rest }) => `File upload to node ${rest["addr.local"]} failed: ${exitError}`
   },
   [CodeEnum.SESSION_JOIN]: {
     desc: 'User Joined',

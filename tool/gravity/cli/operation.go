@@ -54,6 +54,16 @@ func (r PhaseParams) isResume() bool {
 	return r.PhaseID == fsm.RootPhase
 }
 
+// SetPhaseParams contains parameters for setting phase state.
+type SetPhaseParams struct {
+	// OperationID is an optional ID of the operation the phase belongs to.
+	OperationID string
+	// PhaseID is ID of the phase to set the state.
+	PhaseID string
+	// State is the new phase state.
+	State string
+}
+
 // resumeOperation resumes the operation specified with params
 func resumeOperation(localEnv *localenv.LocalEnvironment, environ LocalEnvironmentFactory, params PhaseParams) error {
 	err := executePhase(localEnv, environ, PhaseParams{
@@ -95,6 +105,33 @@ func executePhase(localEnv *localenv.LocalEnvironment, environ LocalEnvironmentF
 	default:
 		return trace.BadParameter("operation type %q does not support plan execution", op.Type)
 	}
+}
+
+// setPhase sets the specified phase state without executing it.
+func setPhase(env *localenv.LocalEnvironment, environ LocalEnvironmentFactory, params SetPhaseParams) error {
+	op, err := getActiveOperation(env, environ, params.OperationID)
+	if err != nil {
+		return trace.Wrap(err)
+	}
+	switch op.Type {
+	case ops.OperationInstall, ops.OperationExpand:
+		err = setPhaseFromService(env, params, op)
+	case ops.OperationUpdate:
+		err = setUpdatePhase(env, environ, params, *op)
+	case ops.OperationUpdateRuntimeEnviron:
+		err = setEnvironPhase(env, environ, params, *op)
+	case ops.OperationUpdateConfig:
+		err = setConfigPhase(env, environ, params, *op)
+	case ops.OperationGarbageCollect:
+		err = setGarbageCollectPhase(env, params, op)
+	default:
+		return trace.BadParameter("operation type %q does not support setting phase state", op.Type)
+	}
+	if err != nil {
+		return trace.Wrap(err)
+	}
+	env.PrintStep("Set phase %v to %v state", params.PhaseID, params.State)
+	return nil
 }
 
 // rollbackPhase rolls back a phase for the operation specified with params

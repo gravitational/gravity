@@ -5,7 +5,7 @@ OS ?= ubuntu
 ANSIBLE_EXTRA_VARS ?=
 
 ifeq ($(OS), centos)
-	IMAGEURL=https://cloud.centos.org/centos/7/images/CentOS-7-x86_64-GenericCloud-1808.qcow2
+	IMAGEURL=https://cloud.centos.org/centos/7/images/CentOS-7-x86_64-GenericCloud-1905.qcow2
 endif
 
 IMAGENAME := $(shell basename $(IMAGEURL))

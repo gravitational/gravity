@@ -279,3 +279,8 @@ ignored = [
 [[constraint]]
   name = "github.com/gizak/termui"
   version = "=v2.3.0"
+
+[[constraint]]
+  name = "gopkg.in/check.v1"
+  branch = "v1"
+

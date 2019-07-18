@@ -22,36 +22,44 @@ import { createMemoryHistory } from 'history';
 import { Pods } from './Pods'
 import { AccessListRec } from 'app/flux/userAcl/store';
 import { K8sPodDisplayStatusEnum } from 'app/services/enums'
-import k8sContext, { withK8sContext } from './../k8sContext';
 
-const PodsWithContext = withK8sContext(Pods);
+const defaultProps = {
+  monitoringEnabled: true,
+  logsEnabled: true,
+  namespace: 'kube-system',
+  onFetch: () => $.Deferred(),
+  userAcl: new AccessListRec({
+    sshLogins: ['one', 'two']
+  }),
+}
 
 storiesOf('Gravity/K8s', module)
   .add('Pods', () => {
-
-    const contextValue = {
-      monitoringEnabled: true,
-      siteId: 'xxx',
-      namespace: 'kube-system',
-    }
-
     const props = {
-      onFetch: () => $.Deferred(),
-      userAcl: new AccessListRec({
-        sshLogins: ['one', 'two']
-      }),
+      ...defaultProps,
       podInfos
     }
 
     return (
       <Router history={createMemoryHistory()}>
-        <k8sContext.Provider value={contextValue}>
-          <PodsWithContext {...props} />
-        </k8sContext.Provider>
+        <Pods {...props} />
+      </Router>
+    );
+  })
+  .add('Pods (monitoring&logs disabled)', () => {
+    const props = {
+      ...defaultProps,
+      monitoringEnabled: false,
+      logsEnabled: false,
+      podInfos
+    }
+
+    return (
+      <Router history={createMemoryHistory()}>
+        <Pods {...props} />
       </Router>
     );
   });
-
 
 const podInfos = [
   {

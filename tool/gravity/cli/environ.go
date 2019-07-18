@@ -87,6 +87,20 @@ func executeEnvironPhase(env *localenv.LocalEnvironment, environ LocalEnvironmen
 	return trace.Wrap(err)
 }
 
+func setEnvironPhase(env *localenv.LocalEnvironment, environ LocalEnvironmentFactory, params SetPhaseParams, operation ops.SiteOperation) error {
+	updateEnv, err := environ.NewUpdateEnv()
+	if err != nil {
+		return trace.Wrap(err)
+	}
+	defer updateEnv.Close()
+	updater, err := getEnvironUpdater(env, updateEnv, operation)
+	if err != nil {
+		return trace.Wrap(err)
+	}
+	defer updater.Close()
+	return updater.SetPhase(context.TODO(), params.PhaseID, params.State)
+}
+
 func rollbackEnvironPhase(env *localenv.LocalEnvironment, environ LocalEnvironmentFactory, params PhaseParams, operation ops.SiteOperation) error {
 	updateEnv, err := environ.NewUpdateEnv()
 	if err != nil {

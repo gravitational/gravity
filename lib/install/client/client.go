@@ -63,7 +63,7 @@ func (r *Client) Run(ctx context.Context) error {
 func (r *Client) ExecutePhase(ctx context.Context, phase Phase) error {
 	r.WithField("phase", phase).Info("Execute.")
 	return r.execute(ctx, &installpb.ExecuteRequest{
-		Phase: &installpb.ExecuteRequest_Phase{
+		Phase: &installpb.Phase{
 			Key:   installpb.KeyToProto(phase.Key),
 			ID:    phase.ID,
 			Force: phase.Force,
@@ -71,11 +71,24 @@ func (r *Client) ExecutePhase(ctx context.Context, phase Phase) error {
 	})
 }
 
+// SetPhase sets the specified phase state without executing it
+func (r *Client) SetPhase(ctx context.Context, phase Phase, state string) error {
+	r.WithField("phase", phase).WithField("state", state).Info("Set.")
+	_, err := r.client.SetState(ctx, &installpb.SetStateRequest{
+		Phase: &installpb.Phase{
+			Key: installpb.KeyToProto(phase.Key),
+			ID:  phase.ID,
+		},
+		State: state,
+	})
+	return trace.Wrap(err)
+}
+
 // RollbackPhase rolls back the specified phase
 func (r *Client) RollbackPhase(ctx context.Context, phase Phase) error {
 	r.WithField("phase", phase).Info("Rollback.")
 	return r.execute(ctx, &installpb.ExecuteRequest{
-		Phase: &installpb.ExecuteRequest_Phase{
+		Phase: &installpb.Phase{
 			Key:      installpb.KeyToProto(phase.Key),
 			ID:       phase.ID,
 			Force:    phase.Force,
@@ -248,13 +261,22 @@ func (r *Client) addTerminationHandler() {
 	r.InterruptHandler.AddStopper(r)
 }
 
-func (r *Client) shutdownAndComplete(ctx context.Context) error {
-	_, err := r.client.Shutdown(ctx, &installpb.ShutdownRequest{Completed: true})
+func (r *Client) complete(ctx context.Context) error {
+	_, err := r.client.Shutdown(ctx, &installpb.ShutdownRequest{
+		Completed: true,
+	})
 	return trace.Wrap(err)
 }
 
 func (r *Client) shutdown(ctx context.Context) error {
 	_, err := r.client.Shutdown(ctx, &installpb.ShutdownRequest{})
+	return trace.Wrap(err)
+}
+
+func (r *Client) shutdownWithExitCode(ctx context.Context, code int) error {
+	_, err := r.client.Shutdown(ctx, &installpb.ShutdownRequest{
+		ExitCode: int32(code),
+	})
 	return trace.Wrap(err)
 }
 

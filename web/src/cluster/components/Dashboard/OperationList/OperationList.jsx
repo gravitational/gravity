@@ -21,6 +21,7 @@ import { TablePaged, Column, Cell } from 'shared/components/DataTable';
 import { Flex, Text, Box } from 'shared/components';
 import { withState } from 'shared/hooks';
 import { useFluxStore } from 'app/components/nuclear';
+import * as featureFlags from 'app/cluster/featureFlags';
 import { getters as operationGetters } from 'app/cluster/flux/operations';
 import { fetchOps, fetchOpProgress } from 'app/cluster/flux/operations/actions';
 import { getters as sessionGetters } from 'app/cluster/flux/sessions';
@@ -36,7 +37,7 @@ import DescCell from './DescCell';
 const POLL_INTERVAL = 5000; // every 5 sec
 
 export function OperationList(props){
-  const { sessions, progress, nodes, operations, pageSize=3, onFetchProgress, onRefresh, ...rest } = props;
+  const { logsEnabled, sessions, progress, nodes, operations, pageSize=3, onFetchProgress, onRefresh, ...rest } = props;
 
   const dataOps = operations.map(o => ({
       isSession: false,
@@ -101,7 +102,7 @@ export function OperationList(props){
           operations={operations}
           progress={progress}
           header={<Cell /> }
-          cell={<ActionCell /> }
+          cell={<ActionCell logsEnabled={logsEnabled} /> }
         />
       </TablePaged>
     </Box>
@@ -109,6 +110,7 @@ export function OperationList(props){
 }
 
 function mapState(){
+  const logsEnabled = featureFlags.siteLogs();
   const opsStore = useFluxStore(operationGetters.operationStore);
   const sessionStore = useFluxStore(sessionGetters.sessionStore);
   const nodeStore = useFluxStore(nodeGetters.nodeStore);
@@ -124,6 +126,7 @@ function mapState(){
     operations: opsStore.operations,
     progress: opsStore.progress,
     nodes,
+    logsEnabled,
     onRefresh,
     onFetchProgress: id => fetchOpProgress(id),
   }

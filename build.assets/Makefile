@@ -80,6 +80,9 @@ RELEASE_OUT := $(GRAVITY_BUILDDIR)/$(RELEASE_TARBALL_NAME)
 
 BASH ?= /bin/bash
 
+# packages to test
+TEST_PACKAGES ?= $(GRAVITY_PKG_PATH)/lib/... $(GRAVITY_PKG_PATH)/tool/...
+
 # Export variables for recursive make invocations
 export GRAVITY_PKG_PATH
 
@@ -102,13 +105,14 @@ test: buildbox test-etcd
 	docker run --net=host --rm=true $(NOROOT) \
 		-v $(TOP):$(SRCDIR) \
 		-e "GRAVITY_PKG_PATH=$(GRAVITY_PKG_PATH)" \
+		-e "TEST_PACKAGES=$(TEST_PACKAGES)" \
 		-t $(BBOX) \
 		dumb-init make -C $(SRCDIR)/build.assets FLAGS='-cover -race' TEST_ETCD=true TEST_K8S=$(TEST_K8S) test-inside-container
 
 
 .PHONY: test-inside-container
 test-inside-container:
-	TEST_ETCD=$(TEST_ETCD) TEST_ETCD_CONFIG=$(TEST_ETCD_CONFIG) TEST_K8S=$(TEST_K8S) go test $(GRAVITY_PKG_PATH)/lib/... $(FLAGS)
+	TEST_ETCD=$(TEST_ETCD) TEST_ETCD_CONFIG=$(TEST_ETCD_CONFIG) TEST_K8S=$(TEST_K8S) go test $(TEST_PACKAGES) $(FLAGS)
 # TODO: It turns out "go vet" never really worked because we used incorrect package path
 # and now that I've fixed it, it produces a gazillion of warnings. So I'm commenting this
 # out for the time being, should uncomment once we've fixed the warnings.
