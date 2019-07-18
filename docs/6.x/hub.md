@@ -26,9 +26,10 @@ In this section we'll cover how to install your own instance of Gravity Hub
 on your own infrastructure. The end result will be an autonomous Kubernetes 
 cluster with Gravity Hub running inside.
 
-Gravity Hub itself is packaged and distributed as a cluster image.  Please
-[contact us](https://gravitational.com/gravity/demo/) to get a trial license
-key and the Gravity Hub cluster image.
+Gravity Hub itself is packaged and distributed as a cluster image, but you
+also need an Enterprise version of `tele` CLI tool.  Please
+[contact us](https://gravitational.com/gravity/demo/) to receive a trial license
+key.
 
 As with any Gravity cluster image, you will also need a Linux server to install
 Gravity Hub. Assuming you have an enterprise version of `tele` CLI tool, pull
