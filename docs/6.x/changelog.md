@@ -7,12 +7,12 @@ LTS starts with `3.51.0` with minor backwards compatible changes added over time
 
 | Release       | LTS | Release Date         | Supported Until      | Kubernetes Version | Teleport Version |
 | --------------|-----| -------------------- | -------------------- | ------------------ |------------------|
-| 6.0.0         | No  | July 17th, 2019      | -                    | 1.14.1             | 3.2.5            |
-| 5.6.1         | No  | April 17th, 2019     | -                    | 1.14.0             | 3.0.5            |
-| 5.5.8         | Yes | April 22nd, 2019     | September 7th, 2020  | 1.13.5             | 3.0.4            |
-| 5.4.10        | No  | March 26th, 2019     | -                    | 1.13.5             | 2.4.10           |
+| 6.0.1         | Yes | July 18th, 2019      | July 16th, 2021      | 1.14.2             | 3.2.7            |
+| 5.6.4         | No  | July 8th, 2019       | -                    | 1.14.2             | 3.0.5            |
+| 5.5.12        | Yes | July 8th, 2019       | September 7th, 2020  | 1.13.6             | 3.0.4            |
+| 5.4.10*       | No  | March 26th, 2019     | -                    | 1.13.5             | 2.4.10           |
 | 5.3.9*        | No  | March 7th, 2019      | -                    | 1.12.3             | 2.4.7            |
-| 5.2.12        | Yes | March 26th, 2019     | October 15th, 2019   | 1.11.9             | 2.4.10           |
+| 5.2.13        | Yes | July 8th, 2019       | October 15th, 2019   | 1.11.9             | 2.4.10           |
 | 5.0.33        | Yes | April 24th, 2019     | April 13th, 2019     | 1.9.12-gravitational | 2.4.10         |
 | 4.68.0*       | Yes | January 17th, 2019   | November 16th, 2018  | 1.7.18-gravitational | 2.3.5          |
 | 3.64.0*       | Yes | December 21st, 2017  | June 2nd, 2018       | 1.5.7              | 2.0.6            |
@@ -31,6 +31,94 @@ LTS starts with `3.51.0` with minor backwards compatible changes added over time
 
 ## 6.x Releases
 
+### 6.0.1 LTS (July 18th, 2019)
+
+#### Bugfixes
+
+* Skip Helm and Docker login during `tele login` in insecure mode.
+
+### 6.0.0 LTS (July 17th, 2019)
+
+#### Improvements
+
+* Update monitoring application to version `6.0.4`.
+* Tweak help messages for `gravity` / `tele` command-line tools and their flags.
+
+#### Bugfixes
+
+* Fix an issue with inaccurate descriptions for some audit log events.
+* Fix an issue with audit log events not properly emitted for upgrade operation.
+* Fix an issue with not all `helm` commands working from host.
+* Fix an issue with install failure if cluster image includes "resources" sub-directory.
+
+### 6.0.0-rc.5
+
+#### Improvements
+
+* Reduce liveness probe delay on `gravity-site`.
+* Upgrade Teleport to `3.2.7`.
+* Improve resiliency of the `wait` phase.
+* Add logs of terminated containers to debug report.
+* Various user-interface tweaks.
+
+#### Bugfixes
+
+* Fix an issue with deleting a node via user-interface.
+
+### 6.0.0-rc.4
+
+#### Bugfixes
+
+* Fix a security issue with insecure decompression of application bundles.
+* Fix a security issue that allowed remote code execution in the tele cli tool.
+* Fix a security issue with missing ACLs in internal API.
+* Fix a security issue with install scripts command injection.
+* Fix a security issue that allowed for two factor authentication to be bypassed.
+* Fix a security issue that allowed for cross-site scripting in Internet Explorer.
+
+!!! warning
+    This release fixes security vulnerabilities within Gravity. Please see
+    [Gravity Enterprise Announcement](https://gravitational.zendesk.com/hc/en-us/articles/360025697553-Gravity-Enterprise-6-0-0-rc-4-5-6-4-5-5-12-5-2-13-Security-Update) for more information.
+
+### 6.0.0-rc.3
+
+#### Improvements
+
+* Automatically generate debug report when an operation fails.
+* Upgrade Kubernetes to `v1.14.2` (CVE-2019-1002101)
+
+!!! warning
+    This release fixes a security vulnerability in kubernetes. Please see
+    [Kubernetes Announcement](https://groups.google.com/forum/#!topic/kubernetes-security-discuss/zqklrWzeA2c) for more information.
+
+### 6.0.0-rc.2
+
+#### Improvements
+
+* Introduce time drift check.
+* Update Teleport to `3.2.6`.
+* Add RHEL 8 to supported distros.
+* Update [Logrange](https://logrange.io) to `0.1.1`.
+
+#### Bugfixes
+
+* Update web UI to properly hide components based on user permissions.
+* Update `RuntimeEnvironment` resource to properly support environment variables with commas.
+
+### 6.0.0-rc.1
+
+#### Improvements
+
+* New web user interface for Cluster and Hub.
+* Improve resiliency of install operation: dropped SSH session doesn't interrupt it anymore.
+* Auto-load required kernel modules and kernel parameters during platform startup.
+* Upgrade logging stack to use [Logrange](https://logrange.io/) streaming database.
+
+#### Bugfixes
+
+* Make gravity bypass proxies for local addresses.
+* Fix an issue with upgrade operation sometimes failing on the etcd upgrade step.
+
 ### 6.0.0-beta.1
 
 #### Improvements
@@ -42,6 +130,98 @@ LTS starts with `3.51.0` with minor backwards compatible changes added over time
 * Add support for using `helm` directly from host.
 
 ## 5.x Releases
+
+### 5.6.4
+
+#### Bugfixes
+
+* Fix a security issue with insecure decompression of application bundles.
+* Fix a security issue that allowed remote code execution in the tele cli tool.
+* Fix a security issue with missing ACLs in internal API.
+* Fix a security issue with install scripts command injection.
+* Fix a security issue that allowed for two factor authentication to be bypassed.
+* Fix a security issue that allowed for cross-site scripting in Internet Explorer.
+
+!!! warning
+    This release fixes security vulnerabilities within Gravity. Please see
+    [Gravity Enterprise Announcement](https://gravitational.zendesk.com/hc/en-us/articles/360025697553-Gravity-Enterprise-6-0-0-rc-4-5-6-4-5-5-12-5-2-13-Security-Update) for more information.
+
+### 5.5.12
+
+#### Bugfixes
+
+* Fix a security issue with insecure decompression of application bundles.
+* Fix a security issue that allowed remote code execution in the tele cli tool.
+* Fix a security issue with missing ACLs in internal API.
+* Fix a security issue with install scripts command injection.
+* Fix a security issue that allowed for two factor authentication to be bypassed.
+* Fix a security issue that allowed for cross-site scripting in Internet Explorer.
+
+!!! warning
+    This release fixes security vulnerabilities within Gravity. Please see
+    [Gravity Enterprise Announcement](https://gravitational.zendesk.com/hc/en-us/articles/360025697553-Gravity-Enterprise-6-0-0-rc-4-5-6-4-5-5-12-5-2-13-Security-Update) for more information.
+
+### 5.2.13
+
+#### Bugfixes
+
+* Fix a security issue with insecure decompression of application bundles.
+* Fix a security issue that allowed remote code execution in the tele cli tool.
+* Fix a security issue with missing ACLs in internal API.
+* Fix a security issue with install scripts command injection.
+* Fix a security issue that allowed for two factor authentication to be bypassed.
+* Fix a security issue that allowed for cross-site scripting in Internet Explorer.
+
+!!! warning
+    This release fixes security vulnerabilities within Gravity. Please see
+    [Gravity Enterprise Announcement](https://gravitational.zendesk.com/hc/en-us/articles/360025697553-Gravity-Enterprise-6-0-0-rc-4-5-6-4-5-5-12-5-2-13-Security-Update) for more information.
+
+### 5.6.3
+
+#### Improvements
+
+* Upgrade Kubernetes to `v1.14.2` (CVE-2019-1002101)
+
+!!! warning
+    This release fixes a security vulnerability in kubernetes. Please see
+    [Kubernetes Announcement](https://groups.google.com/forum/#!topic/kubernetes-security-discuss/zqklrWzeA2c) for more information.
+
+### 5.5.11
+
+#### Improvements
+
+* Upgrade Kubernetes to `v1.14.2` (CVE-2019-1002101)
+
+!!! warning
+    This release fixes a security vulnerability in kubernetes. Please see
+    [Kubernetes Announcement](https://groups.google.com/forum/#!topic/kubernetes-security-discuss/zqklrWzeA2c) for more information.
+
+### 5.6.2
+
+#### Improvements
+
+* Add support for using `helm` directly from host.
+
+### 5.5.10 LTS
+
+#### Bugfixes
+
+* Fix an issue with automatic NO_PROXY rules that break some cluster operations.
+* Fix an issue with updating or removing environment configuration.
+
+### 5.5.9 LTS
+
+#### Improvements
+
+* Environment variables now support quoted values.
+* Automatic creation of NO_PROXY rules for internal cluster communications.
+* Improved validation of gravity-site upgrade.
+* Wormhole CNI plugin interfaces will now be removed when gravity is uninstalled.
+* The cluster-admin role bindings for default and kube-system namespaces have been separated.
+
+#### Bugfixes
+
+* Fixed KUBE_APISERVER_FLAGS environment variable on kube-apiserver unit.
 
 ### 5.5.8 LTS
 
