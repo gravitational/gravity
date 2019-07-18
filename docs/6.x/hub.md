@@ -31,31 +31,43 @@ Gravity Hub itself is packaged and distributed as a cluster image.  Please
 key and the Gravity Hub cluster image.
 
 As with any Gravity cluster image, you will also need a Linux server to install
-Gravity Hub. Assuming you have received a copy of Gravity Hub from Gravitational,
-you'll have it on a Linux server of your choice:
+Gravity Hub. Assuming you have an enterprise version of `tele` CLI tool, pull
+the cluster image:
 
 ```bash
+$ tele pull hub:6.0.1
+* [1/3] Requesting cluster image from https://get.gravitational.io
+* [2/3] Downloading hub:6.0.1
+	Still downloading hub:6.0.1 (10 seconds elapsed)
+	Still downloading hub:6.0.1 (20 seconds elapsed)
+	Still downloading hub:6.0.1 (30 seconds elapsed)
+	Still downloading hub:6.0.1 (40 seconds elapsed)
+	Still downloading hub:6.0.1 (50 seconds elapsed)
+	Still downloading hub:6.0.1 (1 minute elapsed)
+* [3/3] Application hub:6.0.1 downloaded
+* [3/3] Download completed in 1 minute
+
 $ ls -lh
--rw-r--r-- 1 user user 1.3G Feb 20 13:02 gravity-hub-6.0.1.tar
+-rw-r--r-- 1 user user 1.3G Feb 20 13:02 hub-6.0.1.tar
 ```
 
-The name of the tarball will vary based on the version of Gravity you're using,
-so we'll refer to it simply as `gravity-hub.tar` below.
+The name of the image doesn't have to be `hub:6.0.1`, it will vary based on the
+version of Gravity you're using, so we'll refer to it simply as
+`gravity-hub.tar` below.
 
-#### Generating a Token
+Installing Gravity Hub is no different from installing any other cluster image,
+as explained in the [Installation](/installation/) chapter.
 
-To establish trust between Gravity Hub and multiple K8s clusters, a common
+To establish trust between Gravity Hub and future Kubernetes clusters, a common
 shared hard-to-guess secret (token) must be generated first. Therefore, before
-installing Gravity Hub, a shared token needs to be generated and stored in
-an environment variable named `TOKEN`:
+installing Gravity Hub, a shared token needs to be generated. You may want to 
+store it in an environment variable named `TOKEN` so it can be reused later:
 
-```bsh
+```bash
+# Generate a hard-to-guess token and store in an environment variable:
 $ export TOKEN="$(uuidgen)"
-```
 
-Next, expand the cluster image and launch the installer:
-
-```bsh
+# Next, expand the cluster image and launch the installer:
 $ tar xvf ./gravity-hub.tar
 $ ./gravity install --advertise-addr=10.1.1.5 \
                     --token=$TOKEN \
@@ -64,14 +76,18 @@ $ ./gravity install --advertise-addr=10.1.1.5 \
                     --ops-advertise-addr=hub.example.com:443
 ```
 
-* `advertise-addr` is private IPV4 address of a K8s master node (this node) which will be used by other K8s nodes to form a cluster.
-* `flavor` is the cluster configuration flavor to install; choose `standalone`
-  for a single-node install which is great for evaluation/development purposes
-  or `ha` to install a 3-node cluster suitable for production use or
-  high-availability
-* `ops-advertise-addr` should be a DNS name publicly accessible via internet
-* `token` is a security token for nodes to join to the cluster
-* `cluster` is a unique cluster name, e.g. `hub.example.com`
+* `--advertise-addr` is an IP address the Hub machine will be visible as.
+* `--flavor=standalone` tells the installer to use a single machine to run
+  Gravity Hub.  For production, we recommend to use a 3-node cluster for
+  high-availability.
+* `--ops-advertise-addr` should be a DNS name publicly accessible via internet
+* `--token` is a security token for nodes to join to the cluster
+* `--cluster` is a unique cluster name, e.g. `hub.example.com`
+
+After `gravity install` from the example above completes, you'll have a single-node 
+Kubernetes cluster running with Gravity Hub inside.
+
+Next, let's apply some minimal configuration on it.
 
 ## Post-provisioning
 
