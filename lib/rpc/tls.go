@@ -33,6 +33,7 @@ import (
 
 	"github.com/cloudflare/cfssl/csr"
 	"github.com/gravitational/license/authority"
+	"github.com/gravitational/teleport/lib/tlsca"
 	"github.com/gravitational/trace"
 	"google.golang.org/grpc/credentials"
 )
@@ -152,6 +153,11 @@ func CredentialsFromPackage(
 	}
 	defer reader.Close()
 	tlsArchive, err := utils.ReadTLSArchive(reader)
+	if err != nil {
+		return nil, nil, trace.Wrap(err)
+	}
+	now := time.Now()
+	err = validateCerts(tlsArchive, now)
 	if err != nil {
 		return nil, nil, trace.Wrap(err)
 	}
@@ -307,6 +313,12 @@ func AgentAddr(addr string) string {
 	return fmt.Sprintf("%v:%v", host, port)
 }
 
+// IsCertError returns true if the specified error indicates a certificate error
+func IsCertError(err error) bool {
+	_, ok := trace.Unwrap(err).(interface{ IsCertError() bool })
+	return ok
+}
+
 // createPackage creates the secrets package pkg from archive in packages.
 func createPackage(packages pack.PackageService, pkg loc.Locator, archive utils.TLSArchive) error {
 	reader, err := utils.CreateTLSArchive(archive)
@@ -345,4 +357,45 @@ func upsertPackage(packages pack.PackageService, pkg loc.Locator, archive utils.
 	}
 	_, err = packages.UpsertPackage(pkg, reader, pack.WithLabels(labels))
 	return trace.Wrap(err)
+}
+
+func validateCerts(archive utils.TLSArchive, timestamp time.Time) error {
+	clientKeyPair := archive[pb.Client]
+	if err := validateCert(clientKeyPair.CertPEM, timestamp); err != nil {
+		return trace.Wrap(err, "invalid client certificate")
+	}
+	serverKeyPair := archive[pb.Server]
+	if err := validateCert(serverKeyPair.CertPEM, timestamp); err != nil {
+		return trace.Wrap(err, "invalid server certificate")
+	}
+	caKeyPair := archive[pb.CA]
+	if err := validateCert(caKeyPair.CertPEM, timestamp); err != nil {
+		return trace.Wrap(err, "invalid CA certificate")
+	}
+	return nil
+}
+
+func validateCert(pemBytes []byte, timestamp time.Time) error {
+	cert, err := tlsca.ParseCertificatePEM(pemBytes)
+	if err != nil {
+		return trace.Wrap(err)
+	}
+	if timestamp.Before(cert.NotBefore) {
+		return newCertError("certificate is valid in the future")
+	}
+	if timestamp.After(cert.NotAfter) {
+		return newCertError("certificate is valid in the past")
+	}
+	return nil
+}
+
+func newCertError(message string) certError {
+	return certError{message: message}
+}
+
+func (r certError) Error() string     { return r.message }
+func (r certError) IsCertError() bool { return true }
+
+type certError struct {
+	message string
 }

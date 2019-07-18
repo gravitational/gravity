@@ -45,6 +45,7 @@ import (
 	"github.com/gravitational/gravity/lib/ops/opsclient"
 	"github.com/gravitational/gravity/lib/pack"
 	"github.com/gravitational/gravity/lib/pack/webpack"
+	"github.com/gravitational/gravity/lib/rpc"
 	pb "github.com/gravitational/gravity/lib/rpc/proto"
 	rpcserver "github.com/gravitational/gravity/lib/rpc/server"
 	"github.com/gravitational/gravity/lib/schema"
@@ -771,7 +772,7 @@ func (p *Peer) tryConnect(operationID string) (op *operationContext, err error) 
 			return op, nil
 		}
 		p.WithError(err).Info("Failed connecting to cluster.")
-		if utils.IsAbortError(err) {
+		if isTerminalError(err) {
 			return nil, trace.Wrap(err)
 		}
 		if trace.IsCompareFailed(err) {
@@ -1168,7 +1169,7 @@ func formatClusterURL(addr string) string {
 }
 
 func isTerminalError(err error) bool {
-	return utils.IsAbortError(err) || trace.IsAccessDenied(err)
+	return utils.IsAbortError(err) || trace.IsAccessDenied(err) || rpc.IsCertError(err)
 }
 
 func phaseTitle(phase installpb.Phase) string {

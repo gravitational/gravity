@@ -42,6 +42,7 @@ import (
 	"github.com/gravitational/gravity/lib/systeminfo"
 	"github.com/gravitational/gravity/lib/utils"
 
+	"github.com/cenkalti/backoff"
 	"github.com/gravitational/trace"
 	"github.com/kardianos/osext"
 	log "github.com/sirupsen/logrus"
@@ -207,6 +208,9 @@ func LoadRPCCredentials(ctx context.Context, packages pack.PackageService) (*rpc
 	defer cancel()
 	err := utils.RetryWithInterval(ctx, b, func() (err error) {
 		serverCreds, clientCreds, err = rpc.CredentialsFromPackage(packages, loc.RPCSecrets)
+		if rpc.IsCertError(err) {
+			return &backoff.PermanentError{Err: err}
+		}
 		return trace.Wrap(err)
 	})
 	if err != nil {

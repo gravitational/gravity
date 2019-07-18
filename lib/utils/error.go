@@ -437,5 +437,6 @@ func isLicenseError(message string) bool {
 }
 
 func isHostAlreadyRegisteredError(message string) bool {
-	return strings.Contains(message, "One of existing peers already has hostname")
+	return strings.Contains(message, "One of existing peers already has hostname") ||
+		strings.Contains(message, "One of existing servers already has hostname")
 }
