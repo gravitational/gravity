@@ -13,6 +13,7 @@ WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 See the License for the specific language governing permissions and
 limitations under the License.
 */
+
 package installer
 
 import (
@@ -71,7 +72,7 @@ func NewClient(ctx context.Context, config ClientConfig) (AgentClient, error) {
 
 func (r *ClientConfig) checkAndSetDefaults() error {
 	if r.SocketPath == "" {
-		return trace.BadParameter("Socket path is required")
+		return trace.BadParameter("socket path is required")
 	}
 	if r.FieldLogger == nil {
 		r.FieldLogger = log.WithField(trace.Component, "proto:client")
@@ -99,7 +100,9 @@ func SocketPath() (path string, err error) {
 	return state.GravityInstallDir("installer.sock")
 }
 
-// Temporary returns false for this error
+// Temporary returns false for this error.
+// This implements the interface necessary to indicate the error as
+// non-temporary to the gRPC dialing logic
 func (serviceError) Temporary() bool {
 	return false
 }

@@ -967,7 +967,9 @@ func (p *Peer) executeExpandOperation(ctx operationContext) error {
 	if err != nil {
 		return trace.Wrap(err, "failed to complete operation")
 	}
-	p.sendCompletionEvent()
+	if fsmErr == nil {
+		p.sendCompletionEvent()
+	}
 	return nil
 }
 

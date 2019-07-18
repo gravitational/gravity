@@ -14,7 +14,8 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-// package environ implements utilities for managing host environment
+// Package environ implements utilities for managing host environment
+// during an operation
 package environ
 
 import (
@@ -50,7 +51,9 @@ func ValidateInstall(env *localenv.LocalEnvironment) func() error {
 			log.WithError(err).Warn("Failed to validate state directory requirements.")
 		}
 		if err := validateNoActiveService(stateDir); err != nil {
-			log.WithError(err).Warn("Failed to determine if service is not active.")
+			if !trace.IsAlreadyExists(err) {
+				log.WithError(err).Warn("Failed to determine if service is not active.")
+			}
 			return trace.BadParameter("detected an active installer service in %v, "+
 				"please resume the agent with `gravity resume` or "+
 				"clean it up using `gravity leave --force` before proceeding "+
@@ -58,7 +61,9 @@ func ValidateInstall(env *localenv.LocalEnvironment) func() error {
 				stateDir)
 		}
 		if err := validateNoActiveOperation(stateDir); err != nil {
-			log.WithError(err).Warn("Failed to detect an active operation.")
+			if !trace.IsAlreadyExists(err) {
+				log.WithError(err).Warn("Failed to detect an active operation.")
+			}
 			return trace.BadParameter("detected previous installation state in %v, "+
 				"please resume the agent with `gravity resume` or "+
 				"clean it up using `gravity leave --force` before proceeding "+
@@ -70,28 +75,6 @@ func ValidateInstall(env *localenv.LocalEnvironment) func() error {
 		}
 		return nil
 	}
-}
-
-// GetServiceName returns the name of the service configured in the specified state directory stateDir
-func GetServiceName(stateDir string) (name string, err error) {
-	path, err := GetServicePath(stateDir)
-	if err != nil {
-		return "", trace.Wrap(err)
-	}
-	return filepath.Base(path), nil
-}
-
-// GetServicePath returns the path of the service configured in the specified state directory stateDir
-func GetServicePath(stateDir string) (path string, err error) {
-	for _, name := range []string{
-		defaults.GravityRPCInstallerServiceName,
-		defaults.GravityRPCAgentServiceName,
-	} {
-		if ok, _ := utils.IsFile(filepath.Join(stateDir, name)); ok {
-			return filepath.Join(stateDir, name), nil
-		}
-	}
-	return "", trace.NotFound("no service unit file in %v", stateDir)
 }
 
 func validateNonVolatileDirectory(stateDir string, printer utils.Printer) error {
@@ -184,7 +167,7 @@ func newBackendFromDir(dir string) (storage.Backend, error) {
 		Path:     filepath.Join(dir, defaults.GravityDBFile),
 		Multi:    true,
 		Readonly: true,
-		Timeout:  -1, // No timeout
+		Timeout:  keyval.NoTimeout,
 	})
 	if err != nil {
 		return nil, trace.Wrap(err)
