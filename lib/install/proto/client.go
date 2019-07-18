@@ -13,6 +13,7 @@ WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 See the License for the specific language governing permissions and
 limitations under the License.
 */
+
 package installer
 
 import (
@@ -28,18 +29,28 @@ import (
 )
 
 // NewClient returns a new client using the specified socket file path
-func NewClient(ctx context.Context, socketPath string, logger log.FieldLogger, opts ...grpc.DialOption) (AgentClient, error) {
+func NewClient(ctx context.Context, config ClientConfig) (AgentClient, error) {
+	if err := config.checkAndSetDefaults(); err != nil {
+		return nil, trace.Wrap(err)
+	}
 	dialOptions := []grpc.DialOption{
 		// Don't use TLS, as we communicate over domain sockets
 		grpc.WithInsecure(),
 		// Retry every second after failure
 		grpc.WithBackoffMaxDelay(1 * time.Second),
 		grpc.WithBlock(),
+		grpc.FailOnNonTempDialError(true),
 		grpc.WithContextDialer(func(ctx context.Context, addr string) (net.Conn, error) {
-			conn, err := (&net.Dialer{}).DialContext(ctx, "unix", socketPath)
-			logger.WithFields(log.Fields{
+			if err := config.IsServiceFailed(); err != nil {
+				// Fast path: service has failed
+				// Note, the error is not trace.Wrapped on purpose - it needs
+				// to retain the fact that it's terminal
+				return nil, serviceError(trace.UserMessage(err))
+			}
+			conn, err := (&net.Dialer{}).DialContext(ctx, "unix", config.SocketPath)
+			config.WithFields(log.Fields{
 				log.ErrorKey: err,
-				"addr":       socketPath,
+				"addr":       config.SocketPath,
 			}).Debug("Connect to installer service.")
 			if err != nil {
 				return nil, trace.Wrap(err)
@@ -47,16 +58,65 @@ func NewClient(ctx context.Context, socketPath string, logger log.FieldLogger, o
 			return conn, nil
 		}),
 	}
-	dialOptions = append(dialOptions, opts...)
+	dialOptions = append(dialOptions, config.DialOptions...)
 	conn, err := grpc.DialContext(ctx, "unix:///installer.sock", dialOptions...)
 	if err != nil {
+		if wrappedErr, ok := trace.Unwrap(err).(wrappedError); ok {
+			return nil, trace.Wrap(wrappedErr.Origin())
+		}
 		return nil, trace.Wrap(err)
 	}
 	client := NewAgentClient(conn)
 	return client, nil
 }
 
+func (r *ClientConfig) checkAndSetDefaults() error {
+	if r.SocketPath == "" {
+		return trace.BadParameter("socket path is required")
+	}
+	if r.FieldLogger == nil {
+		r.FieldLogger = log.WithField(trace.Component, "proto:client")
+	}
+	if r.IsServiceFailed == nil {
+		r.IsServiceFailed = func() error { return nil }
+	}
+	return nil
+}
+
+// ClientConfig describes client configuration
+type ClientConfig struct {
+	// FieldLogger specifies the logger
+	log.FieldLogger
+	// SocketPath specifies the path to the service's socket file
+	SocketPath string
+	// IsServiceFailed returns an error if the service has failed
+	IsServiceFailed func() error
+	// DialOptions specifies additional gRPC dial options
+	DialOptions []grpc.DialOption
+}
+
 // SocketPath returns the default path to the installer service socket
 func SocketPath() (path string, err error) {
 	return state.GravityInstallDir("installer.sock")
+}
+
+// Temporary returns false for this error.
+// This implements the interface necessary to indicate the error as
+// non-temporary to the gRPC dialing logic
+func (serviceError) Temporary() bool {
+	return false
+}
+
+// Error returns the error text
+func (r serviceError) Error() string {
+	return string(r)
+}
+
+type serviceError string
+
+// wrappedError models an aspect of the gRPC transport connection error.
+// It exists to enable access to the original error that caused Dial to fail
+type wrappedError interface {
+	// Origin returns the original error
+	Origin() error
 }

@@ -84,6 +84,18 @@ func CheckInPlanet() bool {
 	return runningInsideContainer
 }
 
+// Getenv returns the map of name->value pairs that captures the specified list
+// of environment variables. Only variables with a value are captured
+func Getenv(envs ...string) (environ map[string]string) {
+	environ = make(map[string]string)
+	for _, env := range envs {
+		if value, ok := os.LookupEnv(env); ok {
+			environ[env] = value
+		}
+	}
+	return environ
+}
+
 // runningInsideContainer specifies if this process is executing inside
 // planet container
 var runningInsideContainer bool
