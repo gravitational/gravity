@@ -22,9 +22,8 @@ import (
 	"fmt"
 	"io"
 	"net/url"
+	"strings"
 	"time"
-
-	"github.com/davecgh/go-spew/spew"
 
 	"github.com/gravitational/gravity/lib/constants"
 	"github.com/gravitational/gravity/lib/defaults"
@@ -588,12 +587,61 @@ func FromAlertManager(ctx context.Context, dnsAddr string) ([]*models.GettableAl
 	if err != nil {
 		return nil, trace.Wrap(err)
 	}
-	//loopAlerts(getOk.Payload)
-	return getOk.Payload, nil
+
+	return filterAlerts(getOk.Payload), nil
 }
 
-func loopAlerts(alerts []*models.GettableAlert) {
+// filterAlerts prevents expected alerts from being returned
+func filterAlerts(alerts []*models.GettableAlert) []*models.GettableAlert {
+	filtered := []*models.GettableAlert{}
+	hasWatchdog := false
+
 	for _, alert := range alerts {
-		spew.Dump(alert)
+		if alert.Labels["alertname"] == "Watchdog" {
+			hasWatchdog = true
+			// don't print the Watchdog alert, which should constantly be firing
+			continue
+		}
+
+		// don't show satellite alerts, because they're already collected directly from satellite
+		if job, ok := alert.Labels["job"]; ok && job == "satellite" {
+			continue
+		}
+
+		// Prometheus detects the gravity-site election process as an error since only one pod goes ready
+		// alertname: KubeDaemonSetRolloutStuck
+		// daemonset: gravity-site
+		// message: Only 33.33333333333333% of the desired Pods of DaemonSet kube-system/gravity-site are scheduled...
+		if name, ok := alert.Labels["alertname"]; ok && name == "KubeDaemonSetRolloutStuck" {
+			if ds, ok := alert.Labels["daemonset"]; ok && ds == "gravity-site" {
+				if message, ok := alert.Annotations["message"]; ok && strings.Contains(message, "33.333333") {
+					continue
+				}
+			}
+		}
+
+		filtered = append(filtered, alert)
 	}
+
+	if !hasWatchdog {
+		filtered = append(filtered, &models.GettableAlert{
+			Status: &models.AlertStatus{
+				State: stringAddr("firing"),
+			},
+			Annotations: models.LabelSet{
+				"message": "Alertmanager watchdog failed",
+			},
+			Alert: models.Alert{
+				Labels: models.LabelSet{
+					"alertname": "WatchdogDown",
+					"severity":  "critical",
+				},
+			},
+		})
+	}
+	return filtered
+}
+
+func stringAddr(s string) *string {
+	return &s
 }

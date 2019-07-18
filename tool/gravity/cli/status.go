@@ -391,7 +391,8 @@ func printPrometheusAlerts(alerts []*models.GettableAlert, w io.Writer) {
 		}
 
 		duration := time.Now().Sub(time.Time(*alert.StartsAt)).Round(time.Second)
-		fmt.Fprintf(w, "    %v [%v] - %v\n", alert.Labels["alertname"], duration, alert.Annotations["message"])
+		fmt.Fprintf(w, "    * %v [%v]\n", alert.Labels["alertname"], duration)
+		fmt.Fprintf(w, "      - %v\n", alert.Annotations["message"])
 	}
 }
 
