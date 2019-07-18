@@ -9,7 +9,7 @@ LTS starts with `3.51.0` with minor backwards compatible changes added over time
 | --------------|-----| -------------------- | -------------------- | ------------------ |------------------|
 | 6.0.1         | Yes | July 18th, 2019      | July 16th, 2021      | 1.14.2             | 3.2.7            |
 | 5.6.4         | No  | July 8th, 2019       | -                    | 1.14.2             | 3.0.5            |
-| 5.5.13        | Yes | July 8th, 2019       | September 7th, 2020  | 1.13.6             | 3.0.4            |
+| 5.5.12        | Yes | July 8th, 2019       | September 7th, 2020  | 1.13.6             | 3.0.4            |
 | 5.4.10*       | No  | March 26th, 2019     | -                    | 1.13.5             | 2.4.10           |
 | 5.3.9*        | No  | March 7th, 2019      | -                    | 1.12.3             | 2.4.7            |
 | 5.2.13        | Yes | July 8th, 2019       | October 15th, 2019   | 1.11.9             | 2.4.10           |
