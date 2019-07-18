@@ -139,8 +139,7 @@ func FromCluster(ctx context.Context, operator ops.Operator, cluster ops.Site, o
 	if dnsAddr != "" {
 		status.Alerts, err = FromAlertManager(ctx, dnsAddr)
 		if err != nil {
-			fmt.Print(trace.DebugReport(err))
-			return nil, trace.Wrap(err)
+			return status, trace.Wrap(err, "failed to collect alerts from alertmanager")
 		}
 	}
 	return status, nil
@@ -574,12 +573,13 @@ const (
 	roleTag = "role"
 )
 
+// FromAlertManager collects alerts from the prometheus alertmanager deployed to the cluster
 func FromAlertManager(ctx context.Context, dnsAddr string) ([]*models.GettableAlert, error) {
 	client, err := httplib.GetPlanetClient(httplib.WithLocalResolver(dnsAddr))
 	if err != nil {
 		return nil, trace.Wrap(err)
 	}
-	transport := httptransport.NewWithClient("alertmanager-main.monitoring.svc.cluster.local:9093", "/api/v2",
+	transport := httptransport.NewWithClient(defaults.AlertmanagerServiceAddr, "/api/v2",
 		[]string{"http"}, client)
 
 	am := alertmanager.New(transport, nil)
@@ -591,20 +591,33 @@ func FromAlertManager(ctx context.Context, dnsAddr string) ([]*models.GettableAl
 	return filterAlerts(getOk.Payload), nil
 }
 
+const (
+	alertname    = "alertname"
+	watchdog     = "Watchdog"
+	job          = "job"
+	satellite    = "satellite"
+	rolloutStuck = "KubeDaemonSetRolloutStuck"
+	daemonset    = "daemonset"
+	message      = "message"
+	firing       = "firing"
+	severity     = "severity"
+	critical     = "critical"
+)
+
 // filterAlerts prevents expected alerts from being returned
 func filterAlerts(alerts []*models.GettableAlert) []*models.GettableAlert {
 	filtered := []*models.GettableAlert{}
 	hasWatchdog := false
 
 	for _, alert := range alerts {
-		if alert.Labels["alertname"] == "Watchdog" {
+		if alert.Labels[alertname] == watchdog {
 			hasWatchdog = true
 			// don't print the Watchdog alert, which should constantly be firing
 			continue
 		}
 
 		// don't show satellite alerts, because they're already collected directly from satellite
-		if job, ok := alert.Labels["job"]; ok && job == "satellite" {
+		if job, ok := alert.Labels[job]; ok && job == satellite {
 			continue
 		}
 
@@ -612,9 +625,9 @@ func filterAlerts(alerts []*models.GettableAlert) []*models.GettableAlert {
 		// alertname: KubeDaemonSetRolloutStuck
 		// daemonset: gravity-site
 		// message: Only 33.33333333333333% of the desired Pods of DaemonSet kube-system/gravity-site are scheduled...
-		if name, ok := alert.Labels["alertname"]; ok && name == "KubeDaemonSetRolloutStuck" {
-			if ds, ok := alert.Labels["daemonset"]; ok && ds == "gravity-site" {
-				if message, ok := alert.Annotations["message"]; ok && strings.Contains(message, "33.333333") {
+		if name, ok := alert.Labels[alertname]; ok && name == rolloutStuck {
+			if ds, ok := alert.Labels[daemonset]; ok && ds == constants.GravityServiceName {
+				if msg, ok := alert.Annotations[message]; ok && strings.Contains(msg, "33.333333") {
 					continue
 				}
 			}
@@ -626,15 +639,15 @@ func filterAlerts(alerts []*models.GettableAlert) []*models.GettableAlert {
 	if !hasWatchdog {
 		filtered = append(filtered, &models.GettableAlert{
 			Status: &models.AlertStatus{
-				State: stringAddr("firing"),
+				State: stringAddr(firing),
 			},
 			Annotations: models.LabelSet{
-				"message": "Alertmanager watchdog failed",
+				message: "Alertmanager watchdog failed",
 			},
 			Alert: models.Alert{
 				Labels: models.LabelSet{
-					"alertname": "WatchdogDown",
-					"severity":  "critical",
+					alertname: "WatchdogDown",
+					severity:  critical,
 				},
 			},
 		})
