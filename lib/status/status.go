@@ -612,16 +612,16 @@ func filterAlerts(alerts []*models.GettableAlert) []*models.GettableAlert {
 	for _, alert := range alerts {
 		if alert.Labels[alertname] == watchdog {
 			hasWatchdog = true
-			// don't print the Watchdog alert, which should constantly be firing
+			// filter the Watchdog alert, which should constantly be firing
 			continue
 		}
 
-		// don't show satellite alerts, because they're already collected directly from satellite
+		// filter satellite alerts, because they're already collected directly from satellite
 		if job, ok := alert.Labels[job]; ok && job == satellite {
 			continue
 		}
 
-		// Prometheus detects the gravity-site election process as an error since only one pod goes ready
+		// Prometheus detects the gravity-site election process as an error since only one pod is ever ready
 		// alertname: KubeDaemonSetRolloutStuck
 		// daemonset: gravity-site
 		// message: Only 33.33333333333333% of the desired Pods of DaemonSet kube-system/gravity-site are scheduled...
@@ -636,6 +636,8 @@ func filterAlerts(alerts []*models.GettableAlert) []*models.GettableAlert {
 		filtered = append(filtered, alert)
 	}
 
+	// if we didn't find the watchdog alert, it indicates there is a problem with the alerting system, acting as a
+	// sort of deadman switch
 	if !hasWatchdog {
 		filtered = append(filtered, &models.GettableAlert{
 			Status: &models.AlertStatus{
