@@ -626,6 +626,27 @@ func (p NodeProfile) TaintValues() []string {
 	return taints
 }
 
+// Ports parses ports ranges from the node profile.
+func (p NodeProfile) Ports() (tcp, udp []int, err error) {
+	for _, ports := range p.Requirements.Network.Ports {
+		for _, portRange := range ports.Ranges {
+			parsed, err := utils.ParsePorts(portRange)
+			if err != nil {
+				return nil, nil, trace.Wrap(err)
+			}
+			switch ports.Protocol {
+			case "tcp":
+				tcp = append(tcp, parsed...)
+			case "udp":
+				udp = append(udp, parsed...)
+			default:
+				return nil, nil, trace.BadParameter("unknown protocol for port: %q", ports.Protocol)
+			}
+		}
+	}
+	return tcp, udp, nil
+}
+
 // Requirements defines a set of requirements for a node profile
 type Requirements struct {
 	// CPU describes CPU requirements

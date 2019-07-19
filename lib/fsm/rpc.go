@@ -20,7 +20,6 @@ import (
 	"bytes"
 	"context"
 	"fmt"
-	"io"
 	"os/exec"
 	"path/filepath"
 	"sync"
@@ -68,23 +67,6 @@ func (f *FSM) CheckServer(ctx context.Context, server storage.Server) error {
 	return trace.NotFound("no agent is running on %q, please execute this command on that node locally", serverName(server))
 }
 
-// AgentRepository manages RPC connections to remote servers
-type AgentRepository interface {
-	RemoteRunner
-	// GetClient returns a client to the remote server specified with addr
-	GetClient(ctx context.Context, addr string) (rpcclient.Client, error)
-}
-
-// RemoteRunner executes commands on a remote server
-type RemoteRunner interface {
-	io.Closer
-	// Run executes a command on the remote server
-	Run(ctx context.Context, server storage.Server, command ...string) error
-	// CanExecute determines whether the runner can execute a remote command
-	// on the given server
-	CanExecute(context.Context, storage.Server) error
-}
-
 // Remote allows to invoke remote commands
 type Remote interface {
 	// CheckServer determines if the specified server is a local machine
@@ -106,7 +88,7 @@ func NewAgentRunner(creds credentials.TransportCredentials) *agentRunner {
 }
 
 // Run executes a command on the remote server
-// Implements RemoteRunner
+// Implements rpc.RemoteRunner
 func (r *agentRunner) Run(ctx context.Context, server storage.Server, args ...string) error {
 	logger := r.WithFields(logrus.Fields{
 		"gravity": args,
@@ -156,7 +138,7 @@ type agentRunner struct {
 	*agentCache
 }
 
-func canExecuteOnServer(ctx context.Context, server storage.Server, runner RemoteRunner, log logrus.FieldLogger) (ExecutionCheck, error) {
+func canExecuteOnServer(ctx context.Context, server storage.Server, runner rpc.RemoteRunner, log logrus.FieldLogger) (ExecutionCheck, error) {
 	err := systeminfo.HasInterface(server.AdvertiseIP)
 	if err == nil {
 		return CanRunLocally, nil

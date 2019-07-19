@@ -39,7 +39,7 @@ func (o *Operator) ValidateServers(ctx context.Context, req ops.ValidateServersR
 		return trace.Wrap(err)
 	}
 
-	infos, err := cluster.agentService().GetServerInfos(context.TODO(), op.Key())
+	infos, err := cluster.agentService().GetServerInfos(ctx, op.Key())
 	if err != nil {
 		return trace.Wrap(err)
 	}

@@ -27,6 +27,7 @@ import (
 	"github.com/gravitational/gravity/lib/defaults"
 	"github.com/gravitational/gravity/lib/fsm"
 	"github.com/gravitational/gravity/lib/ops"
+	"github.com/gravitational/gravity/lib/rpc"
 	rpcclient "github.com/gravitational/gravity/lib/rpc/client"
 	"github.com/gravitational/gravity/lib/schema"
 	"github.com/gravitational/gravity/lib/state"
@@ -39,7 +40,7 @@ import (
 )
 
 // NewEtcd returns executor that adds a new etcd member to the cluster
-func NewEtcd(p fsm.ExecutorParams, operator ops.Operator, runner fsm.AgentRepository) (*etcdExecutor, error) {
+func NewEtcd(p fsm.ExecutorParams, operator ops.Operator, runner rpc.AgentRepository) (*etcdExecutor, error) {
 	// create etcd client that's talking to members running on master nodes
 	var masters []storage.Server
 	for _, node := range p.Plan.Servers {
@@ -86,7 +87,7 @@ type etcdExecutor struct {
 	// Etcd is client to the cluster's etcd members API
 	Etcd etcd.MembersAPI
 	// Runner is used to run remote commands
-	Runner fsm.AgentRepository
+	Runner rpc.AgentRepository
 	// Master is one of the master nodes
 	Master storage.Server
 	// ExecutorParams is common executor params
@@ -200,7 +201,7 @@ func (*etcdExecutor) PostCheck(ctx context.Context) error {
 }
 
 // NewEtcdBackup returns executor that backs up etcd data
-func NewEtcdBackup(p fsm.ExecutorParams, operator ops.Operator, runner fsm.AgentRepository) (*etcdBackupExecutor, error) {
+func NewEtcdBackup(p fsm.ExecutorParams, operator ops.Operator, runner rpc.AgentRepository) (*etcdBackupExecutor, error) {
 	logger := &fsm.Logger{
 		FieldLogger: logrus.WithFields(logrus.Fields{
 			constants.FieldPhase: p.Phase.ID,
@@ -223,7 +224,7 @@ type etcdBackupExecutor struct {
 	// Master is the master server where backup should be taken
 	Master storage.Server
 	// Runner is used to run remote commands
-	Runner fsm.AgentRepository
+	Runner rpc.AgentRepository
 	// ExecutorParams is common executor params
 	fsm.ExecutorParams
 }

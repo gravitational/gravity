@@ -27,6 +27,7 @@ import (
 	"github.com/gravitational/gravity/lib/localenv"
 	"github.com/gravitational/gravity/lib/ops"
 	libpack "github.com/gravitational/gravity/lib/pack"
+	"github.com/gravitational/gravity/lib/rpc"
 	"github.com/gravitational/gravity/lib/storage"
 	"github.com/gravitational/gravity/lib/utils"
 	libphase "github.com/gravitational/gravity/lib/vacuum/internal/phases"
@@ -111,7 +112,7 @@ type Config struct {
 	// Spec specifies the function that resolves to an executor
 	Spec libfsm.FSMSpecFunc
 	// Runner specifies the remote command runner
-	Runner libfsm.RemoteRunner
+	Runner rpc.RemoteRunner
 	// Silent controls whether the process outputs messages to stdout
 	localenv.Silent
 }
@@ -199,7 +200,7 @@ func (r *engine) GetExecutor(params libfsm.ExecutorParams, remote libfsm.Remote)
 
 // RunCommand executes the phase specified by params on the specified server
 // using the provided runner
-func (r *engine) RunCommand(ctx context.Context, runner libfsm.RemoteRunner, server storage.Server, params libfsm.Params) error {
+func (r *engine) RunCommand(ctx context.Context, runner rpc.RemoteRunner, server storage.Server, params libfsm.Params) error {
 	args := []string{"plan", "execute", "--phase", params.PhaseID}
 	if params.Force {
 		args = append(args, "--force")

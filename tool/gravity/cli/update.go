@@ -24,10 +24,10 @@ import (
 
 	"github.com/gravitational/gravity/lib/constants"
 	"github.com/gravitational/gravity/lib/defaults"
-	"github.com/gravitational/gravity/lib/fsm"
 	libfsm "github.com/gravitational/gravity/lib/fsm"
 	"github.com/gravitational/gravity/lib/localenv"
 	"github.com/gravitational/gravity/lib/ops"
+	"github.com/gravitational/gravity/lib/rpc"
 	"github.com/gravitational/gravity/lib/storage"
 	"github.com/gravitational/gravity/lib/update"
 
@@ -151,7 +151,7 @@ type updateInitializer interface {
 		operation ops.SiteOperation,
 		localEnv, updateEnv *localenv.LocalEnvironment,
 		clusterEnv *localenv.ClusterEnvironment,
-		runner fsm.AgentRepository,
+		runner rpc.AgentRepository,
 	) (*update.Updater, error)
 	updateDeployRequest(deployAgentsRequest) deployAgentsRequest
 }

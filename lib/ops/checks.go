@@ -1,5 +1,5 @@
 /*
-Copyright 2018 Gravitational, Inc.
+Copyright 2018-2019 Gravitational, Inc.
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -35,24 +35,35 @@ import (
 // agentService is the access point to the agent cluster for running remote
 // commands.
 // manifest specifies the application manifest with requirements.
-func CheckServers(ctx context.Context, opKey SiteOperationKey,
-	infos checks.ServerInfos, servers []storage.Server, agentService AgentService,
-	manifest schema.Manifest) error {
+func CheckServers(ctx context.Context,
+	opKey SiteOperationKey,
+	infos checks.ServerInfos,
+	servers []storage.Server,
+	agentService AgentService,
+	manifest schema.Manifest,
+) error {
 	nodes, err := mergeServers(infos, servers)
 	if err != nil {
 		return trace.Wrap(err)
 	}
-	remote := &remoteCommands{key: opKey, AgentService: agentService}
-	requirements, err := requirementsFromManifest(manifest)
+	requirements, err := checks.RequirementsFromManifest(manifest)
 	if err != nil {
 		return trace.Wrap(err)
 	}
-	c, err := checks.New(remote, nodes, manifest, requirements)
-	if err != nil && !trace.IsNotFound(err) {
+	c, err := checks.New(checks.Config{
+		Remote:   &remoteCommands{key: opKey, AgentService: agentService},
+		Manifest: manifest,
+		Servers:  nodes,
+		Reqs:     requirements,
+		Features: checks.Features{
+			TestBandwidth:    true,
+			TestPorts:        true,
+			TestDockerDevice: true,
+		},
+	})
+	if err != nil {
 		return trace.Wrap(err)
 	}
-	c.TestBandwidth = true
-	c.TestDockerDevice = true
 	return trace.Wrap(c.Run(ctx))
 }
 
@@ -95,9 +106,8 @@ func (r *remoteCommands) CheckBandwidth(ctx context.Context, req checks.PingPong
 
 // Validate validates the node given with addr against the specified manifest.
 // Returns the list of failed test results.
-func (r *remoteCommands) Validate(ctx context.Context, addr string,
-	manifest schema.Manifest, profileName string) ([]*agentpb.Probe, error) {
-	failed, err := r.AgentService.Validate(ctx, r.key, addr, manifest, profileName)
+func (r *remoteCommands) Validate(ctx context.Context, addr string, config checks.ValidateConfig) ([]*agentpb.Probe, error) {
+	failed, err := r.AgentService.Validate(ctx, r.key, addr, config.Manifest, config.Profile)
 	return failed, trace.Wrap(err)
 }
 
@@ -106,28 +116,6 @@ func (r *remoteCommands) Validate(ctx context.Context, addr string,
 type remoteCommands struct {
 	AgentService
 	key SiteOperationKey
-}
-
-func requirementsFromManifest(manifest schema.Manifest) (map[string]checks.Requirements, error) {
-	result := make(map[string]checks.Requirements)
-	for i, profile := range manifest.NodeProfiles {
-		tcp, udp, err := checks.PortsForProfile(profile)
-		if err != nil {
-			return nil, trace.Wrap(err)
-		}
-		req := checks.Requirements{
-			CPU:     &manifest.NodeProfiles[i].Requirements.CPU,
-			RAM:     &manifest.NodeProfiles[i].Requirements.RAM,
-			OS:      profile.Requirements.OS,
-			Volumes: profile.Requirements.Volumes,
-			Network: checks.Network{
-				MinTransferRate: profile.Requirements.Network.MinTransferRate,
-				Ports:           checks.Ports{TCP: tcp, UDP: udp},
-			},
-		}
-		result[profile.Name] = req
-	}
-	return result, nil
 }
 
 func mergeServers(infos checks.ServerInfos, servers []storage.Server) (result []checks.Server, err error) {
