@@ -11,6 +11,11 @@ instance.
 Before we start, you may want to go over the [Gravity Overview](overview.md) to
 get familiar with basic concepts of the Gravity solution.
 
+You can also watch [this video](m/resources/videos/gravity-community-demo/) which walks through this Quickstart Guide.
+
+!!! note "Note on Quickstart Video"
+    The video uses version 5.4 of Gravity, so users of newer versions of Gravity may have a slightly different experience.
+
 ## System Requirements
 
 Gravity is a Kubernetes packaging solution so it only runs on computers capable
