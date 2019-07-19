@@ -86,6 +86,9 @@ func (p *checksExecutor) Execute(ctx context.Context) error {
 	}
 	var errors []error
 	errors = append(errors, checker.RunSingleNodeChecks(ctx, *node)...)
+	// Use one of master nodes as an "anchor" so when running multi-node
+	// checks the joining node will be compared against that master (e.g.
+	// for same OS check, time drift check, etc.)
 	errors = append(errors, checker.RunMultiNodeChecks(ctx, []checks.Server{*master, *node})...)
 	return trace.NewAggregate(errors...)
 }
