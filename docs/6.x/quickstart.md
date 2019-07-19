@@ -1,7 +1,7 @@
 # Introduction
 
 This guide will help you quickly evaluate Gravity by packaging, and installing
-a sample multi-node Kubernetes application.
+a sample multi-node Kubernetes application. 
 
 We will use [Mattermost](https://www.mattermost.org/), an open source chat
 application for teams. Mattermost represents a fairly typical web application
@@ -16,20 +16,14 @@ get familiar with basic concepts of the Gravity solution.
 Gravity is a Kubernetes packaging solution so it only runs on computers capable
 of running Kubernetes. For this tutorial, you will need:
 
-* A x86_64 Linux machine or a VM for building a cluster image.
-  Let's call it "a developer's box".
-* We recommend taking a look at the [list of supported Linux distributions](requirements/#distributions).
+* A x86_64 Linux machine or a VM for building a Cluster Image that is running one of the [supported Linux distributions](requirements/#distributions).
 * Docker version 17 or newer. Run `docker info` before continuing to make sure
-  you have Docker up and running. Tip: you can quickly install it via `curl -L https://get.docker.com/ | bash -` 
-  and do not forget to add yourself to "docker" group via `sudo usermod -aG docker $USER`
+  you have Docker up and running. You can quickly install Docker via `curl -L https://get.docker.com/ | bash -` 
 * You must be a member of the `docker` group. Run `groups` command to make sure
-  `docker` group is listed.
+  `docker` group is listed. If not, you can add yourself to the "docker" group via `sudo usermod -aG docker $USER`
 * You must install [Helm](https://docs.helm.sh/using_helm/#installing-helm).
 * You must have `git` installed to clone the example application repo.
-* A _target cluster_ of Linux nodes. It can be just one machine, but three is better.
-  You'll be installing the cluster image into this cluster, creating a new Kubernetes instance.
-  The nodes in a target cluster must have at least 2GB of RAM and 40GB of free disk space. 
-  They must not have Docker or any other container runtime installed on them.
+* A _target cluster_ of Linux nodes. It can be just one machine but this example quickstart will use three. The nodes in a target cluster must have at least 2GB of RAM and 40GB of free disk space. They must **_not_** have Docker or any other container runtime installed on them.
 * You must have `sudo` privileges on all nodes.
 
 ## Getting the Tools
@@ -44,14 +38,8 @@ $ ls -l
 -rwxr-xr-x 1 user user 21417992 Dec  3 13:07 tsh
 ```
 
-| Command   | Description
-|-----------|---------------------------------------------------------------------------------------------------------------------------------------------------------|
-| `tele`    | The build tool. `tele` is used for building cluster images. The enterprise edition of `tele` also publishes cluster images them into the Gravity Hub.  |
-| `tsh`     | Is used for remotely connecting to Gravity/Kubernetes clusters via SSH or Kubernetes API.   |
-
-
-Execute `install.sh` if you want to copy `tele` and `tsh` binaries to
-`/usr/local/bin/`. Then you can type `tele version` to see confirm that
+Execute `install.sh` to copy `tele` and `tsh` binaries to
+`/usr/local/bin/`. Then you can type `tele version` to confirm that
 everything works:
 
 ```
@@ -72,17 +60,16 @@ $ cd quickstart
 
 ## Building a Cluster Image
 
-To build a cluster image we'll perform the following steps:
+To build a Cluster Image we'll perform the following steps:
 
-1. Create Docker containers for application services. This step is sometimes
-   called "dockerizing" an application.
+1. Create Docker containers for application services. 
 2. Create definitions of Kubernetes resources (pods, etc) for application
-   components, this makes an application capable of running on Kubernetes. 
+   components. This makes an application capable of running on Kubernetes. 
    You can place all Kubernetes resource files (usually in YAML format) in the 
-   same directory, or you can use Helm.
-3. Create a Gravity cluster image manifest to describe the system requirements
-   for a Kubernetes cluster capable of running your application. A cluster image manifest
-   is a YAML file which allows you to customize the cluster image.
+   same directory or you can use Helm.
+3. Create a Cluster Image Manifest to describe the system requirements
+   for a Kubernetes cluster capable of running your application. A Cluster Image Manifest
+   is a YAML file which allows you to customize the Cluster Image.
 4. Execute `tele build` CLI command.
 
 ### Step 1: Containerizing
@@ -123,27 +110,27 @@ You are welcome to modify it to your liking.
 
 !!! tip "Tip"
     In this tutorial, we are packaging a single Helm chart but it is possible
-    to have several of them packaged into a single cluster image.
+    to have several of them packaged into a single Cluster Image.
 
 ### Step 3: Creating the Cluster Image Manifest
 
-In this step, we create an image manifest which describes the system
-requirements for the Kubernetes cluster.
+In this step, we create an Image Manifest which describes the system
+requirements for the Cluster.
 
 We have already prepared one for this guide in the cloned repo: `mattermost/resources/app.yaml`. You can [open it on Github](https://github.com/gravitational/quickstart/blob/master/mattermost/resources/app.yaml) for convenience. We have commented the most important fields
 in the example manifest.
 
 ### Step 4: Building the Cluster Image
 
-Before we build our first cluster image, let's make sure [Helm](https://helm.sh/) is properly
-initialized and [helm-template](https://github.com/technosophos/helm-template) plugin is installed:
+Before we build our first Cluster Image, let's make sure [Helm](https://helm.sh/) is properly
+initialized and the [helm-template](https://github.com/technosophos/helm-template) plugin is installed:
 
 ```bash
 $ helm init --client-only
 $ helm plugin install https://github.com/technosophos/helm-template
 ```
 
-Now you can build the cluster image which will consist of a Kubernetes
+Now you can build the Cluster Image, which will consist of a Kubernetes
 cluster with Mattermost pre-installed inside:
 
 ```bsh
@@ -185,9 +172,9 @@ Let's review what just happened. `tele build` did the following:
 * Downloaded Kubernetes binaries and Gravity tooling from `s3://hub.gravitational.io`.
 * Scanned the current directory and the subdirectories for Kubernetes resources and Helm charts.
 * Downloaded external container images referenced in the resources discovered in the previous step.
-* Packaged (or vendored) Docker images into the cluster image.
-* Removed the duplicate container image layers, reducing the size of the cluster image.
-* Saved the cluster image as `mattermost.tar`.
+* Packaged (or vendored) Docker images into the Cluster Image.
+* Removed the duplicate container image layers, reducing the size of the Cluster Image.
+* Saved the Cluster Image as `mattermost.tar`.
 
 !!! warning "Slow Operation Warning"
     `tele build` needs to download hundreds of megabytes of binary dependencies which
@@ -199,13 +186,12 @@ binaries, the Docker engine, the Docker registry and the Mattermost application 
 everything one needs to get Mattermost up and running on any fleet of Linux
 servers (or into an AWS/GCE/Azure account).
 
-Congratulations! You have created your first self-installing **Kubernetes
-virtual appliance**!
+Congratulations! You have created your first **Kubernetes virtual appliance**!
 
 
 ## Installing
 
-Installing the `mattermost.tar` cluster image results in creating a Kubernetes
+Installing the `mattermost.tar` Cluster Image results in creating a Kubernetes
 cluster with the application pre-loaded. This file is the only artifact
 one needs to create a Kubernetes cluster with Mattermost running inside.
 
@@ -236,30 +222,30 @@ Here is a brief description of these files:
 
 File Name    | Description
 -------------|------------------------
-`gravity`    | Gravity cluster manager which is a Linux binary (executable). It's responsible for installing, upgrading and managing clusters.
-`app.yaml`   | The image manifest which we've defined earlier and fed to `tele build`. You'll notice that the build process populated the manifest with additional metadata.
+`gravity`    | Gravity Cluster manager which is a Linux binary (executable). It's responsible for installing, upgrading and managing clusters.
+`app.yaml`   | The Image Manifest which we've defined earlier and fed to `tele build`. You'll notice that the build process populated the manifest with additional metadata.
 `packages`   | The database of Docker image layers for all containers and other binary artifacts, like Kubernetes binaries.
 `gravity.db` | The metadata of what's stored in `packages`.
-`upgrade`, `install`, `upload` | Helpful bash wrappers around `gravity` command.
+`upgrade`, `install`, `upload` | Helpful bash wrappers around `gravity` commands.
 `README`     | Instructions for the end user.
 
 Gravity supports two modes of installation:
 
-* **CLI mode** also known as non-interactive mode is useful for advanced users
+* **CLI mode** or non-interactive mode is useful for advanced users
   and for scripting. It allows clusters to be created programmatically or via
   command line.
-* **Web mode** uses a web browser to guide a user through an install wizard.
+* **Web mode** uses a web browser to guide a user through an installation wizard.
   This mode is useful for non-technical users, sales demos, etc.
 
 ### Installing via CLI
 
-To install a cluster via CLI, you have to execute `./gravity install` command and
+To install a Cluster via CLI, you have to execute the `./gravity install` command and
 supply two mandatory flags:
 
 Flag              | Description
 -------------------|---------------------------------
-`--token`          | A secret token of your choosing which will be used to add additional nodes to this cluster in the future. We'll use word "secret" here.
-`--advertise-addr` | The IP address this host will be visible on by other nodes in this cluster. We'll use `10.5.5.28`.
+`--token`          | A secret token of your choosing which will be used to add additional nodes to this Cluster in the future. We'll use word "secret" here.
+`--advertise-addr` | The IP address this host will be visible on by other nodes in this Cluster. We'll use `10.5.5.28`.
 
 The command below will create a single-node Kubernetes cluster with Mattermost running inside:
 
@@ -305,7 +291,7 @@ Sat Jan 12 05:37:13 UTC Installation succeeded in 6m3.257480586s
 ```
 
 **Congratulations!** You have created a fully functional Kubernetes cluster
-with Mattermost running inside. To check the health and status of the cluster,
+with Mattermost running inside. To check the health and status of the Cluster,
 execute this command on the target node:
 
 ```bash
@@ -328,7 +314,7 @@ Cluster:		friendlypoincare4048
 If a single node cluster is not enough, you can add additional nodes to it:
 
 1. Copy `gravity` binary from the bootstrapping node above to another host which
-   is about to be added to the cluster.  Let's assume its IP is `10.5.5.29`.
+   is about to be added to the Cluster.  Let's assume its IP is `10.5.5.29`.
 2. Execute `gravity join` command as shown below. Note that this command will
    "think" in silence for a few seconds before dumping any output.
 
@@ -374,30 +360,27 @@ https://10.5.5.28:3009/web/newuser/e5b5422da69ff44d41f92e3ce6167659a7fee10e1023a
 ```
 
 Now click on the printed URL and select a password. You are now inside the K8s management UI
-for your cluster. You can bookmark the following URL to access it in the future: `https://https://10.5.5.28:32009/web/`
+for your Cluster. You can bookmark the following URL to access it in the future: `https://https://10.5.5.28:32009/web/`
 
-You will also see that this cluster is running Mattermost inside, accessible as a Kubernetes service
-on port `32010`, i.e. it's accessible using IP addresses of both machines in the cluster:
+You will also see that this Cluster is running Mattermost inside, accessible as a Kubernetes service
+on port `32010`, i.e. it's accessible using IP addresses of both machines in the Cluster:
 
 * `http://10.5.5.28:32010/`
 * `http://10.5.5.29:32010/`
 
 ### Installing via Web Browser
 
-This method of installation is well-suited for providing web-hosted installers
-for Kubernetes clusters or as a sales demos of installing a pre-packaged SaaS
-application into a private network.
+This method of installation launches a graphical installation wizard in a web browser. It is useful for sales demos or for less technical users.
 
 To launch a web installer, you will need:
 
-* The cluster image `mattermost.tar` which we have prepared earlier.
-* A Linux computer with a graphical interface, connected to the same network
-  with the target Linux nodes.
+* The Cluster Image `mattermost.tar` which we have prepared earlier.
+* A Linux computer with a graphical interface and web browser connected to the same network as the target nodes.
 
 First, untar `mattermost.tar` and execute the `install` script. This command
 launches an HTTP server which serves a web UI and acts as a bootstrapping agent
-to create a new Kubernetes cluster. It will print a web URL for you to click
-on.
+to create a new Cluster. It will print a web URL for you to click
+on or paste in your browser.
 
 ```bash
 $ sudo ./install
@@ -406,19 +389,16 @@ OPEN THIS IN BROWSER: https://host:61009/web/installer/new/gravitational.io/matt
 
 The browser-based installer will ask for the following:
 
-* Name of your cluster. We recommend FQDN-like names like
+* Name of your Cluster. We recommend FQDN-like names like
   `mattermost.example.com`.
 * The network interface to use. This must be the interface which Kubernetes
   nodes will use to talk to each other.
-* The "flavor" of the cluster, i.e. 1, 2 or 3 nodes. The installer will offer a CLI
-  command for each node to copy to and execute.
-* Once all nodes report into the cluster, the installer will proceed setting up
+* The "flavor" of the Cluster, i.e. 1, 2 or 3 nodes. The installer will provide a CLI
+  command to copy to and execute on each node.
+* Once all nodes report into the Cluster, the installer will proceed setting up
   Kubernetes.
 
-The final step is to select the user name and password for the cluster
-administrator. You will be able to change it later (or configure the SSO).
-After that you will be placed in Gravity's cluster management UI, where you
-will find the HTTP end point of Mattermost.
+The final step is to select the user name and password for the administrator. You will be able to change it later (or configure the SSO). Once you are logged in, you will be placed in Gravity's Cluster Management UI where you will find the HTTP end point of Mattermost.
 
 Now you can press `Ctrl+C` to stop the `install` script.
 
@@ -432,8 +412,7 @@ using disk images in virtualized environments.
 This dramatically lowers the operational overhead of running multiple Kubernetes
 clusters within an organization, allows complex SaaS applications to be converted
 into downloadable Kubernetes appliances and dramatically simplifies implementing
-compliance in organizations by publishing Kubernetes images pre-configured and
-approved by the security and compliance teams.
+compliance in organizations by publishing Kubernetes images that are pre-configured and approved by the security and compliance teams.
 
 If you need additional guidance with packaging your Kubernetes clusters into
 Gravity appliances, our implementation services team can help (info@gravitational.com).
