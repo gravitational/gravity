@@ -323,20 +323,12 @@ func (p *Peer) getPlanBuilder(ctx operationContext) (*planBuilder, error) {
 	if err != nil {
 		return nil, trace.Wrap(err)
 	}
-	operation, err := ctx.Operator.GetSiteOperation(ctx.Operation.Key())
-	if err != nil {
-		return nil, trace.Wrap(err)
-	}
-	if len(operation.Servers) == 0 {
-		return nil, trace.NotFound("operation does not have servers: %v",
-			operation)
-	}
 	return &planBuilder{
 		Application:     *application,
 		Runtime:         *runtime,
 		TeleportPackage: *teleportPackage,
 		PlanetPackage:   *planetPackage,
-		JoiningNode:     operation.Servers[0],
+		JoiningNode:     *ctx.Server,
 		ClusterNodes:    storage.Servers(ctx.Cluster.ClusterState.Servers),
 		Peer:            ctx.Peer,
 		Master:          storage.Servers(ctx.Cluster.ClusterState.Servers).Masters()[0],

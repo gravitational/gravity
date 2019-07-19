@@ -254,17 +254,13 @@ func GetServerUpdateRequest(op ops.SiteOperation, servers []checks.ServerInfo) (
 		if serverInfo.Role == "" {
 			return nil, trace.BadParameter("%v has no role", serverInfo)
 		}
-		var mounts []storage.Mount
-		for _, mount := range serverInfo.Mounts {
-			mounts = append(mounts, storage.Mount{Name: mount.Name, Source: mount.Source})
-		}
 		ip, _ := utils.SplitHostPort(serverInfo.AdvertiseAddr, "")
 		server := storage.Server{
 			AdvertiseIP: ip,
 			Hostname:    serverInfo.GetHostname(),
 			Role:        serverInfo.Role,
 			OSInfo:      serverInfo.GetOS(),
-			Mounts:      mounts,
+			Mounts:      pb.MountsFromProto(serverInfo.Mounts),
 			User:        serverInfo.GetUser(),
 			Provisioner: op.Provisioner,
 			Created:     time.Now().UTC(),
@@ -362,6 +358,16 @@ type ProgressPoller struct {
 	Operator     ops.Operator
 	OperationKey ops.SiteOperationKey
 	Dispatcher   eventDispatcher
+}
+
+// ExecResult describes the result of execution an operation (step).
+// An optional completion event can describe the completion outcome to the client
+type ExecResult struct {
+	// CompletionEvent specifies the optional completion
+	// event to send to a client
+	CompletionEvent *dispatcher.Event
+	// Err specifies the optional execution error
+	Err error
 }
 
 func isOperationSuccessful(progress ops.ProgressEntry) bool {

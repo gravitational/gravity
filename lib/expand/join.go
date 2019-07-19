@@ -78,7 +78,7 @@ func NewPeer(config PeerConfig) (*Peer, error) {
 		// Account for server exit, agent exit or agent reconnect failure
 		errC:      make(chan error, 4),
 		execC:     make(chan *installpb.ExecuteRequest),
-		execDoneC: make(chan error, 1),
+		execDoneC: make(chan install.ExecResult, 1),
 		closeC:    make(chan closeResponse),
 		connectC:  make(chan connectResult, 1),
 	}
@@ -103,16 +103,13 @@ type Peer struct {
 	// server is the gRPC installer server
 	server     *server.Server
 	dispatcher dispatcher.EventDispatcher
-
 	// closeC is a channel to explicitly signal end of operation.
 	closeC chan closeResponse
-
 	// execC relays execution requests to the executor loop from outside
 	execC chan *installpb.ExecuteRequest
 	// execDoneC is signaled by the executor loop to let the client-facing gRPC API
 	// know when to stop expecting events and exit
-	execDoneC chan error
-
+	execDoneC chan install.ExecResult
 	// wg is a wait group used to ensure completion of internal processes
 	wg sync.WaitGroup
 }
@@ -142,7 +139,7 @@ func (p *Peer) Stop(ctx context.Context) error {
 func (p *Peer) Execute(req *installpb.ExecuteRequest, stream installpb.Agent_ExecuteServer) (err error) {
 	p.WithField("req", req).Info("Execute.")
 	if req.HasSpecificPhase() {
-		// Execute the operation with a new dispatcher
+		// Execute the operation step with a new dispatcher
 		return p.executeConcurrentStep(req, stream)
 	}
 	p.submit(req)
@@ -159,16 +156,16 @@ func (p *Peer) Execute(req *installpb.ExecuteRequest, stream installpb.Agent_Exe
 			if err != nil {
 				return err
 			}
-		case err := <-p.execDoneC:
-			if err != nil {
+		case result := <-p.execDoneC:
+			if result.Err != nil {
 				// Phase finished with an error.
-				if installpb.IsRPCError(err) {
-					return trace.Unwrap(err)
+				if installpb.IsRPCError(result.Err) {
+					return trace.Unwrap(result.Err)
 				}
 				// Flag a failed execution (i.e. intermediate) step with codes.Aborted
 				// instead of codes.FailedPrecondition as a better suiting error code.
-				// See this for reference:
 				//
+				// For reference:
 				// FailedPrecondition indicates operation was rejected because the
 				// system is not in a state required for the operation's execution.
 				// For example, directory to be deleted may be non-empty, an rmdir
@@ -188,8 +185,9 @@ func (p *Peer) Execute(req *installpb.ExecuteRequest, stream installpb.Agent_Exe
 				//      REST Get/Update/Delete on a resource and the resource on the
 				//      server does not match the condition. E.g., conflicting
 				//      read-modify-write on the same resource.
-				return status.Error(codes.Aborted, err.Error())
+				return status.Error(codes.Aborted, result.Err.Error())
 			}
+			// FIXME: handle result.CompletionEvent
 			return nil
 		}
 	}
@@ -199,7 +197,7 @@ func (p *Peer) Execute(req *installpb.ExecuteRequest, stream installpb.Agent_Exe
 // SetPhase sets phase state without executing it.
 func (p *Peer) SetPhase(req *installpb.SetStateRequest) error {
 	p.WithField("req", req).Info("Set phase.")
-	ctx, err := p.tryConnect(req.OperationKey().OperationID)
+	ctx, err := p.tryConnect(req.OperationID())
 	if err != nil {
 		return trace.Wrap(err)
 	}
@@ -342,7 +340,7 @@ func (p *Peer) startConnectLoop() {
 		defer p.wg.Done()
 		ctx, err := p.connectLoop()
 		if err == nil {
-			err = p.init(*ctx)
+			ctx.Server, err = p.init(*ctx)
 		}
 		if err != nil {
 			// Consider failure to connect/init a terminal error.
@@ -371,7 +369,7 @@ func (p *Peer) startExecuteLoop() {
 		for {
 			select {
 			case req := <-p.execC:
-				err := p.execute(req)
+				status, err := p.execute(req)
 				select {
 				case <-p.execDoneC:
 					// Empty the result channel
@@ -380,13 +378,20 @@ func (p *Peer) startExecuteLoop() {
 				if err != nil {
 					p.WithFields(log.Fields{
 						log.ErrorKey: err,
+						"status":     status,
 						"req":        req,
 					}).Warn("Failed to execute.")
-				}
-				p.execDoneC <- err
-				if installpb.IsFailedPreconditionError(err) {
-					p.errC <- err
-					return
+					p.execDoneC <- install.ExecResult{Err: err}
+					if installpb.IsFailedPreconditionError(err) {
+						p.errC <- err
+						return
+					}
+				} else {
+					var result install.ExecResult
+					if status.IsCompleted() {
+						result.CompletionEvent = p.newCompletionEvent()
+					}
+					p.execDoneC <- result
 				}
 			case <-p.ctx.Done():
 				return
@@ -437,16 +442,16 @@ func (p *Peer) submit(req *installpb.ExecuteRequest) bool {
 }
 
 // execute executes either the complete operation or a single phase specified with req
-func (p *Peer) execute(req *installpb.ExecuteRequest) (err error) {
+func (p *Peer) execute(req *installpb.ExecuteRequest) (dispatcher.Status, error) {
 	p.WithField("req", req).Info("Execute.")
 	opCtx, err := p.operationContext()
 	if err != nil {
-		return trace.Wrap(err)
+		return dispatcher.StatusUnknown, trace.Wrap(err)
 	}
 	if req.Phase != nil {
-		return trace.Wrap(p.executePhase(p.ctx, *opCtx, *req.Phase, p.dispatcher))
+		return p.executePhase(p.ctx, *opCtx, *req.Phase, p.dispatcher)
 	}
-	return trace.Wrap(p.run(*opCtx))
+	return p.run(*opCtx)
 }
 
 // executeConcurrentStep executes the phase given with req concurrently
@@ -466,7 +471,8 @@ func (p *Peer) executeConcurrentStep(req *installpb.ExecuteRequest, stream insta
 	defer dispatcher.Close()
 	errC := make(chan error, 1)
 	go func() {
-		errC <- p.executePhase(stream.Context(), *opCtx, *req.Phase, dispatcher)
+		_, err := p.executePhase(stream.Context(), *opCtx, *req.Phase, dispatcher)
+		errC <- err
 	}()
 	for {
 		select {
@@ -482,19 +488,22 @@ func (p *Peer) executeConcurrentStep(req *installpb.ExecuteRequest, stream insta
 	return nil
 }
 
-func (p *Peer) executePhase(ctx context.Context, opCtx operationContext, phase installpb.Phase, disp dispatcher.EventDispatcher) error {
+func (p *Peer) executePhase(ctx context.Context, opCtx operationContext, phase installpb.Phase, disp dispatcher.EventDispatcher) (dispatcher.Status, error) {
 	if phase.IsResume() && !opCtx.isExpand() {
-		return trace.Wrap(p.run(opCtx))
+		return p.runAgent(opCtx)
 	}
 	machine, err := p.getFSM(opCtx)
 	if err != nil {
-		return trace.Wrap(err)
+		return dispatcher.StatusUnknown, trace.Wrap(err)
 	}
 	progressReporter := dispatcher.NewProgressReporter(ctx, disp, phaseTitle(phase))
 	defer progressReporter.Stop()
 	if phase.IsResume() {
-		return trace.Wrap(install.ExecuteOperation(ctx, machine,
-			progressReporter, p.FieldLogger))
+		err = install.ExecuteOperation(ctx, machine, progressReporter, p.FieldLogger)
+		if err == nil {
+			return dispatcher.StatusCompleted, nil
+		}
+		return dispatcher.StatusUnknown, trace.Wrap(err)
 	}
 	params := fsm.Params{
 		PhaseID:  phase.ID,
@@ -502,9 +511,11 @@ func (p *Peer) executePhase(ctx context.Context, opCtx operationContext, phase i
 		Progress: progressReporter,
 	}
 	if phase.Rollback {
-		return trace.Wrap(machine.RollbackPhase(ctx, params))
+		err = machine.RollbackPhase(ctx, params)
+		return dispatcher.StatusUnknown, trace.Wrap(err)
 	}
-	return trace.Wrap(machine.ExecutePhase(ctx, params))
+	err = machine.ExecutePhase(ctx, params)
+	return dispatcher.StatusUnknown, trace.Wrap(err)
 }
 
 // printStep publishes a progress entry described with (format, args) tuple to the client
@@ -585,7 +596,7 @@ func (p *Peer) dialWizard(addr string) (*operationContext, error) {
 		Packages:  env.Packages,
 		Apps:      env.Apps,
 		Peer:      peerURL.Host,
-		Operation: *operation,
+		Operation: operation,
 		Cluster:   *cluster,
 		Creds:     *creds,
 	}, nil
@@ -622,15 +633,6 @@ func (p *Peer) dialCluster(addr, operationID string) (*operationContext, error) 
 	if err != nil {
 		return nil, utils.Abort(err) // stop retrying on failed checks
 	}
-	var operation *ops.SiteOperation
-	if operationID == "" {
-		operation, err = p.createExpandOperation(operator, *cluster)
-	} else {
-		operation, err = p.getExpandOperation(operator, *cluster, operationID)
-	}
-	if err != nil {
-		return nil, trace.Wrap(err)
-	}
 	creds, err := install.LoadRPCCredentials(p.ctx, packages)
 	if err != nil {
 		return nil, trace.Wrap(err)
@@ -639,12 +641,19 @@ func (p *Peer) dialCluster(addr, operationID string) (*operationContext, error) 
 	if err != nil {
 		return nil, trace.Wrap(err)
 	}
+	var operation *ops.SiteOperation
+	if operationID != "" {
+		operation, err = p.getExpandOperation(operator, *cluster, operationID)
+		if err != nil {
+			return nil, trace.Wrap(err)
+		}
+	}
 	return &operationContext{
 		Operator:  operator,
 		Packages:  packages,
 		Apps:      apps,
 		Peer:      peerURL.Host,
-		Operation: *operation,
+		Operation: operation,
 		Cluster:   *cluster,
 		Creds:     *creds,
 	}, nil
@@ -695,11 +704,13 @@ type operationContext struct {
 	// Peer is the IP:port of the peer this peer has joined to
 	Peer string
 	// Operation is the expand operation this peer is executing
-	Operation ops.SiteOperation
+	Operation *ops.SiteOperation
 	// Cluster is the cluster this peer is joining to
 	Cluster ops.Site
 	// Creds is the RPC agent credentials
 	Creds rpcserver.Credentials
+	// Server describes the agent peer
+	Server *storage.Server
 }
 
 // connectLoop dials to either a running wizard OpsCenter or a local gravity cluster.
@@ -718,6 +729,7 @@ func (p *Peer) connectLoop() (*operationContext, error) {
 			if err != nil {
 				// join token is incorrect, fail immediately and report to user
 				if trace.IsAccessDenied(err) {
+					log.WithError(err).Warn("Access denied during connect.")
 					return nil, trace.AccessDenied("bad secret token")
 				}
 				if err, ok := trace.Unwrap(err).(*utils.AbortRetry); ok {
@@ -735,7 +747,7 @@ func (p *Peer) connectLoop() (*operationContext, error) {
 }
 
 func (p *Peer) stop() error {
-	p.Info("Stopping peer.")
+	p.Info("Stop peer.")
 	ctx, cancel := context.WithTimeout(context.Background(), defaults.ShutdownTimeout)
 	defer cancel()
 	p.cancel()
@@ -782,82 +794,37 @@ func (p *Peer) tryConnect(operationID string) (op *operationContext, err error) 
 	return op, trace.Wrap(err)
 }
 
-// startAgent starts a new RPC agent using the specified operation context.
-// The agent will signal p.errC once it has terminated
-func (p *Peer) startAgent(ctx operationContext) error {
-	agent, err := p.newAgent(ctx)
-	if err != nil {
-		return trace.Wrap(err)
+func (p *Peer) run(ctx operationContext) (dispatcher.Status, error) {
+	if ctx.Operation != nil && ctx.Operation.Type == ops.OperationInstall {
+		return p.runAgent(ctx)
 	}
-	go func() {
-		p.errC <- agent.Serve()
-	}()
-	return nil
+	return p.runExpandAgent(ctx)
 }
 
-// newAgent returns an instance of the RPC agent to handle remote calls
-func (p *Peer) newAgent(opCtx operationContext) (*rpcserver.PeerServer, error) {
-	peerAddr, token, err := getPeerAddrAndToken(opCtx, p.Role)
-	if err != nil {
-		return nil, trace.Wrap(err)
-	}
-	p.RuntimeConfig.Token = token
-	agent, err := install.NewAgent(install.AgentConfig{
-		FieldLogger: p.WithFields(log.Fields{
-			trace.Component: "rpc:peer",
-			"addr":          p.AdvertiseAddr,
-		}),
-		AdvertiseAddr: p.AdvertiseAddr,
-		CloudProvider: p.CloudProvider,
-		ServerAddr:    peerAddr,
-		Credentials:   opCtx.Creds,
-		RuntimeConfig: p.RuntimeConfig,
-		WatchCh:       p.WatchCh,
-		StopHandler:   p.server.Stopped,
-		AbortHandler:  p.server.Interrupted,
-	})
-	if err != nil {
-
-		return nil, trace.Wrap(err)
-	}
-	return agent, nil
-}
-
-func (p *Peer) run(ctx operationContext) error {
-	err := p.checkAndSetServerProfile(ctx.Cluster.App)
-	if err != nil {
-		return trace.Wrap(err)
-	}
-
-	// schedule cleanup function in case anything goes wrong before
-	// the operation can start
-	defer func() {
-		if err == nil {
-			return
-		}
-		p.WithError(err).Warn("Peer is exiting with error.")
-		// in case of join via CLI the operation has already been created
-		// above but the agent failed to connect so we're deleting the
-		// operation because from user's perspective it hasn't started
-		//
-		// in case of join via UI the peer is joining to the existing
-		// operation created via UI so we're not touching it and the
-		// user can cancel it in the UI
-		if p.OperationID == "" { // operation ID is given in UI usecase
-			p.WithField("op", ctx.Operation).Warn("Cleaning up unstarted operation.")
-			if err := ctx.Operator.DeleteSiteOperation(ctx.Operation.Key()); err != nil {
-				p.WithError(err).Warn("Failed to delete unstarted operation.")
-			}
-		}
-	}()
-
+func (p *Peer) runAgent(ctx operationContext) (dispatcher.Status, error) {
 	p.startProgressLoop(ctx)
-	if ctx.Operation.Type != ops.OperationExpand {
-		<-p.ctx.Done()
-		return nil
-	}
+	<-p.ctx.Done()
+	// Agent during installation will be told to stop/complete
+	return dispatcher.StatusUnknown, nil
+}
 
-	return trace.Wrap(p.executeExpandOperation(ctx))
+func (p *Peer) runExpandAgent(ctx operationContext) (dispatcher.Status, error) {
+	operation, err := p.createExpandOperation(ctx.Operator, ctx.Cluster)
+	if err != nil {
+		return dispatcher.StatusUnknown, trace.Wrap(err)
+	}
+	// FIXME: is this the best we can do? Is there a way to create operation
+	// without mutation ideally immutable state?
+	ctx.Operation = operation
+	err = p.initOperationPlan(ctx)
+	if err != nil {
+		return dispatcher.StatusUnknown, trace.Wrap(err)
+	}
+	err = p.executeExpandOperation(ctx)
+	if err == nil {
+		return dispatcher.StatusCompleted, nil
+	}
+	return dispatcher.StatusUnknown, trace.Wrap(err)
 }
 
 // waitForOperation blocks until the join operation is ready
@@ -874,10 +841,10 @@ func (p *Peer) waitForOperation(ctx operationContext) error {
 				return trace.Wrap(err)
 			}
 			if operation.State != ops.OperationStateReady {
-				log.Info("Operation is not ready yet.")
+				log.WithField("state", operation.State).Info("Operation is not ready yet.")
 				continue
 			}
-			log.Info("Operation is ready!")
+			log.Info("Operation is ready.")
 			return nil
 		case <-p.ctx.Done():
 			return trace.Wrap(p.ctx.Err())
@@ -942,10 +909,6 @@ func (p *Peer) executeExpandOperation(ctx operationContext) error {
 	if err != nil {
 		return trace.Wrap(err)
 	}
-	err = p.initOperationPlan(ctx)
-	if err != nil {
-		return trace.Wrap(err)
-	}
 	err = p.syncOperation(ctx)
 	if err != nil {
 		return trace.Wrap(err)
@@ -968,11 +931,7 @@ func (p *Peer) executeExpandOperation(ctx operationContext) error {
 	if err != nil {
 		return trace.Wrap(err, "failed to complete operation")
 	}
-	if fsmErr != nil {
-		return trace.Wrap(fsmErr)
-	}
-	p.sendCompletionEvent()
-	return nil
+	return trace.Wrap(fsmErr)
 }
 
 // emitAuditEvent sends expand operation start event to the cluster audit log.
@@ -1087,8 +1046,8 @@ func (p *Peer) validateWizardState(operator ops.Operator) (*ops.Site, *ops.SiteO
 	return &cluster, operation, nil
 }
 
-func (p *Peer) sendCompletionEvent() {
-	event := dispatcher.Event{
+func (p *Peer) newCompletionEvent() *dispatcher.Event {
+	return &dispatcher.Event{
 		Progress: &ops.ProgressEntry{
 			Message:    "Operation completed",
 			Completion: constants.Completed,
@@ -1096,7 +1055,6 @@ func (p *Peer) sendCompletionEvent() {
 		// Set the completion status
 		Status: dispatcher.StatusCompleted,
 	}
-	p.dispatcher.Send(event)
 }
 
 func (p *Peer) sendError(err error) {
