@@ -22,7 +22,6 @@ import (
 	"fmt"
 	"io"
 	"net/url"
-	"strings"
 	"time"
 
 	"github.com/gravitational/gravity/lib/constants"
@@ -34,20 +33,17 @@ import (
 	"github.com/gravitational/gravity/lib/storage"
 	"github.com/gravitational/gravity/lib/utils"
 
-	httptransport "github.com/go-openapi/runtime/client"
 	"github.com/gravitational/roundtrip"
 	pb "github.com/gravitational/satellite/agent/proto/agentpb"
 	"github.com/gravitational/satellite/monitoring"
 	"github.com/gravitational/trace"
-	alertmanager "github.com/prometheus/alertmanager/api/v2/client"
-	"github.com/prometheus/alertmanager/api/v2/client/alert"
 	"github.com/prometheus/alertmanager/api/v2/models"
 	"github.com/sirupsen/logrus"
 )
 
 // FromCluster collects cluster status information.
 // The function returns the partial status if not all details can be collected
-func FromCluster(ctx context.Context, operator ops.Operator, cluster ops.Site, operationID, dnsAddr string) (status *Status, err error) {
+func FromCluster(ctx context.Context, operator ops.Operator, cluster ops.Site, operationID string) (status *Status, err error) {
 	status = &Status{
 		Cluster: &Cluster{
 			Domain: cluster.Domain,
@@ -136,12 +132,11 @@ func FromCluster(ctx context.Context, operator ops.Operator, cluster ops.Site, o
 	status.State = cluster.State
 
 	// Collect information from alertmanager
-	if dnsAddr != "" {
-		status.Alerts, err = FromAlertManager(ctx, dnsAddr)
-		if err != nil {
-			return status, trace.Wrap(err, "failed to collect alerts from alertmanager")
-		}
+	status.Alerts, err = FromAlertManager(ctx, cluster.DNSConfig.Addr())
+	if err != nil {
+		return status, trace.Wrap(err, "failed to collect alerts from alertmanager")
 	}
+
 	return status, nil
 }
 
@@ -572,91 +567,3 @@ const (
 	// roleTag is the name of the tag containing node role
 	roleTag = "role"
 )
-
-// FromAlertManager collects alerts from the prometheus alertmanager deployed to the cluster
-func FromAlertManager(ctx context.Context, dnsAddr string) ([]*models.GettableAlert, error) {
-	client, err := httplib.GetPlanetClient(httplib.WithLocalResolver(dnsAddr))
-	if err != nil {
-		return nil, trace.Wrap(err)
-	}
-	transport := httptransport.NewWithClient(defaults.AlertmanagerServiceAddr, "/api/v2",
-		[]string{"http"}, client)
-
-	am := alertmanager.New(transport, nil)
-	getOk, err := am.Alert.GetAlerts(alert.NewGetAlertsParams().WithContext(ctx))
-	if err != nil {
-		return nil, trace.Wrap(err)
-	}
-
-	return filterAlerts(getOk.Payload), nil
-}
-
-const (
-	alertname    = "alertname"
-	watchdog     = "Watchdog"
-	job          = "job"
-	satellite    = "satellite"
-	rolloutStuck = "KubeDaemonSetRolloutStuck"
-	daemonset    = "daemonset"
-	message      = "message"
-	firing       = "firing"
-	severity     = "severity"
-	critical     = "critical"
-)
-
-// filterAlerts prevents expected alerts from being returned
-func filterAlerts(alerts []*models.GettableAlert) []*models.GettableAlert {
-	filtered := []*models.GettableAlert{}
-	hasWatchdog := false
-
-	for _, alert := range alerts {
-		if alert.Labels[alertname] == watchdog {
-			hasWatchdog = true
-			// filter the Watchdog alert, which should constantly be firing
-			continue
-		}
-
-		// filter satellite alerts, because they're already collected directly from satellite
-		if job, ok := alert.Labels[job]; ok && job == satellite {
-			continue
-		}
-
-		// Prometheus detects the gravity-site election process as an error since only one pod is ever ready
-		// alertname: KubeDaemonSetRolloutStuck
-		// daemonset: gravity-site
-		// message: Only 33.33333333333333% of the desired Pods of DaemonSet kube-system/gravity-site are scheduled...
-		if name, ok := alert.Labels[alertname]; ok && name == rolloutStuck {
-			if ds, ok := alert.Labels[daemonset]; ok && ds == constants.GravityServiceName {
-				if msg, ok := alert.Annotations[message]; ok && strings.Contains(msg, "33.333333") {
-					continue
-				}
-			}
-		}
-
-		filtered = append(filtered, alert)
-	}
-
-	// if we didn't find the watchdog alert, it indicates there is a problem with the alerting system, acting as a
-	// sort of deadman switch
-	if !hasWatchdog {
-		filtered = append(filtered, &models.GettableAlert{
-			Status: &models.AlertStatus{
-				State: stringAddr(firing),
-			},
-			Annotations: models.LabelSet{
-				message: "Alertmanager watchdog failed",
-			},
-			Alert: models.Alert{
-				Labels: models.LabelSet{
-					alertname: "WatchdogDown",
-					severity:  critical,
-				},
-			},
-		})
-	}
-	return filtered
-}
-
-func stringAddr(s string) *string {
-	return &s
-}

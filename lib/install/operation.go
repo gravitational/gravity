@@ -217,7 +217,7 @@ func (i *Installer) getClusterStatus() (*status.Status, error) {
 	if err != nil {
 		return nil, trace.Wrap(err)
 	}
-	status, err := status.FromCluster(i.ctx, clusterOperator, *cluster, "", "")
+	status, err := status.FromCluster(i.ctx, clusterOperator, *cluster, "")
 	if err != nil {
 		return nil, trace.Wrap(err)
 	}

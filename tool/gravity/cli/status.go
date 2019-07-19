@@ -161,7 +161,7 @@ func statusOnce(ctx context.Context, operator ops.Operator, operationID string, 
 		return nil, trace.Wrap(err)
 	}
 
-	status, err := statusapi.FromCluster(ctx, operator, *cluster, operationID, env.DNS.Addr())
+	status, err := statusapi.FromCluster(ctx, operator, *cluster, operationID)
 	if err != nil {
 		return status, trace.Wrap(err)
 	}
@@ -281,7 +281,7 @@ func printStatusText(cluster clusterStatus) {
 	}
 
 	if len(cluster.Alerts) > 0 {
-		fmt.Fprintln(w, "Cluster Alerts:")
+		fmt.Fprintln(w, "Cluster alerts:")
 		printPrometheusAlerts(cluster.Alerts, w)
 	}
 
