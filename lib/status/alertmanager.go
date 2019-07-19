@@ -24,6 +24,7 @@ import (
 	"github.com/gravitational/gravity/lib/constants"
 	"github.com/gravitational/gravity/lib/defaults"
 	"github.com/gravitational/gravity/lib/httplib"
+	"github.com/gravitational/gravity/lib/ops"
 	"github.com/gravitational/gravity/lib/utils"
 	"github.com/gravitational/trace"
 	alertmanager "github.com/prometheus/alertmanager/api/v2/client"
@@ -45,8 +46,8 @@ const (
 )
 
 // FromAlertManager collects alerts from the prometheus alertmanager deployed to the cluster
-func FromAlertManager(ctx context.Context, dnsAddr string) ([]*models.GettableAlert, error) {
-	client, err := httplib.GetPlanetClient(httplib.WithLocalResolver(dnsAddr))
+func FromAlertManager(ctx context.Context, cluster ops.Site) ([]*models.GettableAlert, error) {
+	client, err := httplib.GetPlanetClient(httplib.WithLocalResolver(cluster.DNSConfig.Addr()))
 	if err != nil {
 		return nil, trace.Wrap(err)
 	}

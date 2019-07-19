@@ -132,7 +132,7 @@ func FromCluster(ctx context.Context, operator ops.Operator, cluster ops.Site, o
 	status.State = cluster.State
 
 	// Collect information from alertmanager
-	status.Alerts, err = FromAlertManager(ctx, cluster.DNSConfig.Addr())
+	status.Alerts, err = FromAlertManager(ctx, cluster)
 	if err != nil {
 		return status, trace.Wrap(err, "failed to collect alerts from alertmanager")
 	}
