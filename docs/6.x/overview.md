@@ -10,10 +10,7 @@ servers not connected to the Internet.
 
 The Cluster Image can be installed on any modern Linux kernal across multiple machines through a web browser GUI or CLI installation wizard to create a resilient Kubernetes cluster. This process is completely autonomous and does not require any dependencies from outside the Cluster Image. 
 
-When a Cluster is up and running, Gravity eases the operational burden of running it. Each Gravity Cluster contains an
-authentication gateway which allows ops teams to remotely troubleshoot and push
-updates to many instances of the same appliance either via SSH or via
-Kubernetes API, even if they are located behind a firewall.
+When a Cluster is up and running, Gravity eases the operational burden of managing it. Each Cluster includes the `gravity` daemon that acts as a "Kubernetes hypervisor", continuously monitoring the health of Kubernetes services and re-configuring them, if necessary. In addition, each Gravity Cluster contains an authentication gateway which allows ops teams to remotely troubleshoot and push updates to many instances of the same appliance either via SSH or via Kubernetes API, even if they are located behind a firewall.
 
 This overview will walk you through the basic concepts of Gravity and explain
 how it is used to solve the operational challenges that typically arise when
@@ -24,11 +21,11 @@ or across multiple organizations.
 
 There are two primary use cases for Gravity:
 
-1. **Delivering Kubernetes applications to customers on-premises:** SaaS vendors often need to deploy and remotely update complex cloud applications in private data centers or public cloud accounts, like AWS, owned by their customers (aka, on-prem). Gravity reduces the time to delivery of these applications on-prem.
+1. **Delivering Kubernetes applications to third-party premises:** SaaS vendors that need to deploy and remotely update complex cloud applications in private data centers or public cloud accounts owned by their customers (aka, on-prem). Gravity reduces the time and operational overhead of delivering these applications on-prem.
 
 2. **Internal multi-cluster Kubernetes deployments:** Teams of site reliability engineers (SREs) are often tasked with providing Kubernetes-as-a-Service within their organization across multiple cloud providers or hybrid environments. The image-based approach allows them to treat Kubernetes clusters as cattle, not pets, dramatically reducing the operational overhead.
 
-In either use case, Gravity users can create an Cluster Image that contains the Kubernetes binaries, their dependencies, application containers and their layers, a private Docker registry for autonomous operation, a monitoring system, and an authentication gateway for remotely managing the Gravity Cluster via both SSH and via the Kubernetes API.
+In either use case, Gravity users can create a Cluster Image that contains the Kubernetes binaries, their dependencies, application containers and their layers, a private Docker registry for autonomous operation, a monitoring system, and an authentication gateway for remotely managing the Gravity Cluster via both SSH and via the Kubernetes API.
 
 In other words, a Gravity Cluster Image is a _self-contained, downloadable
 Kubernetes appliance_ which enables true portability for cloud applications across any public or private infrastructure.
@@ -59,7 +56,7 @@ the following:
    to publish downloadable images. Gravity Enterprise users can also use Gravity Hub to manage the publishing and distribution of Cluster Images.
 3. Deploy and install the Cluster Image onto any supported Linux-based
    infrastructure ("Gravity Cluster" or "Cluster").
-4. Securely connect to any cluster to monitor health, provide automatic
+4. Securely connect to any Cluster to monitor health, provide automatic
    updates, remote support, etc.
 
 ## Packaging
@@ -74,10 +71,10 @@ To create a Cluster Image:
 * Place all of these files in the same directory and execute `tele build`
 
 A Cluster Image manifest is required to describe hardware/system requirements of your
-cluster and to customize the process of creating a new cluster instance.
+Cluster and to customize the process of creating a new Cluster instance.
 
 !!! tip "Gravity Roadmap Tip":
-    The Kubernetes community is working on finalizing the cluster API spec. Once it
+    The Kubernetes community is working on finalizing their cluster API spec. Once it
     becomes production ready, we will likely adopt the
     future standard to replace the Cluster Image manifest. 
 
