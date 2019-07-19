@@ -11,7 +11,9 @@ instance.
 Before we start, you may want to go over the [Gravity Overview](overview.md) to
 get familiar with basic concepts of the Gravity solution.
 
-You can also watch [this video](m/resources/videos/gravity-community-demo/) which walks through this Quickstart Guide.
+You can also watch the video below which walks through this Quickstart Guide.
+
+<iframe width="768" height="432" src="https://www.youtube.com/embed/ixMKjK0F4Uk?rel=0" frameborder="0" allow="accelerometer; autoplay; encrypted-media; gyroscope; picture-in-picture" allowfullscreen></iframe>
 
 !!! note "Note on Quickstart Video"
     The video uses version 5.4 of Gravity, so users of newer versions of Gravity may have a slightly different experience.
