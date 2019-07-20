@@ -8,9 +8,11 @@ Each Cluster Image is a dependency-free `.tar` file. It can be deployed into a v
 cloud accounts, bare metal servers, VMware environments or even into air-gapped
 servers not connected to the Internet.
 
-The Cluster Image can be installed on any modern Linux kernal across multiple machines through a web browser GUI or CLI installation wizard to create a resilient Kubernetes cluster. This process is completely autonomous and does not require any dependencies from outside the Cluster Image. 
+The Cluster Image can be installed across multiple Linux machines through a web browser GUI or CLI installation wizard to create a resilient Kubernetes cluster. This process is completely autonomous and does not require any dependencies from outside the Cluster Image. 
 
-When a Cluster is up and running, Gravity eases the operational burden of managing it. Each Cluster includes the `gravity` daemon that acts as a "Kubernetes hypervisor", continuously monitoring the health of Kubernetes services and re-configuring them, if necessary. In addition, each Gravity Cluster contains an authentication gateway which allows ops teams to remotely troubleshoot and push updates to many instances of the same appliance either via SSH or via Kubernetes API, even if they are located behind a firewall.
+When a Cluster is up and running, Gravity eases the operational burden of managing it. Each Cluster includes the `gravity` daemon that acts as a "Kubernetes hypervisor", continuously monitoring the health of Kubernetes services and re-configuring them, if necessary. In addition, each Gravity Cluster contains an authentication gateway which allows ops teams to remotely troubleshoot and push updates to many instances of the same appliance either via SSH or Kubernetes API, even if they are located behind a firewall.
+
+The Gravity Community Edition is open sourced [on Github](https://github.com/gravitational/gravity) if you want to dive into the code. This documentation is also available in the Github repository, so feel free to create an issue or pull request if you have comments.
 
 This overview will walk you through the basic concepts of Gravity and explain
 how it is used to solve the operational challenges that typically arise when
@@ -25,12 +27,37 @@ There are two primary use cases for Gravity:
 
 2. **Internal multi-cluster Kubernetes deployments:** Teams of site reliability engineers (SREs) are often tasked with providing Kubernetes-as-a-Service within their organization across multiple cloud providers or hybrid environments. The image-based approach allows them to treat Kubernetes clusters as cattle, not pets, dramatically reducing the operational overhead.
 
-In either use case, Gravity users can create a Cluster Image that contains the Kubernetes binaries, their dependencies, application containers and their layers, a private Docker registry for autonomous operation, a monitoring system, and an authentication gateway for remotely managing the Gravity Cluster via both SSH and via the Kubernetes API.
+In either use case, Gravity users can create a Cluster Image that contains:
+
+- The Kubernetes binaries and their dependencies;
+- Application containers and their layers;
+- A private Docker registry for autonomous operation;
+- A monitoring and alerting system; and
+- An authentication gateway for remotely managing the Gravity Cluster via both SSH and the Kubernetes API.
 
 In other words, a Gravity Cluster Image is a _self-contained, downloadable
 Kubernetes appliance_ which enables true portability for cloud applications across any public or private infrastructure.
 
 ![gravity overview](/images/gravity-overview.png)
+
+## Documentation Overview
+
+A brief explanation of each section of this documentation is below:
+
+- [Quickstart Guide](/quickstart/) - A quick tutorial to show off the basic capabilities of Gravity. A good place to start if you want to jump right in.
+- [Building Cluster Images](/pack/) - How to build a Gravity Cluster Image from scratch.
+- [Installation](/installation/) - How to install a Gravity Cluster Image in a target environment.
+- [Cluster Management](/cluster/) - Everything you need to know for operating Gravity Clusters.
+- [Cluster Monitoring](/monitoring/) - Overview of the monitoring and alerting tools that Gravity uses.
+- [Remote Management](/manage/) - How Teleport and Gravity Hub enable the remote management of Clusters.
+- [Gravity Hub](/hub/) - Setting up and using Gravity Hub (Enterprise edition only).
+- [System Requirements](/requirements/) - System requirements to successfully run Gravity components.
+- [CLI Reference](/cli/) - Overview of the Gravity CLI tools.
+- [Releases](/changelog/) - List of Gravity versions and release notes.
+- [FAQ](/faq/) - Common issues encountered in Cluster environments.
+- [Guides](/guides/) - A list of other Gravity related workshops and guides we have published.
+- [Terraform](/terraform/) - Guide for using Terraform with Gravity.
+
 
 ## Components
 

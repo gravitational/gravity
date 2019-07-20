@@ -2,22 +2,23 @@
 
 ## Introduction
 
-This section covers how to build a Kubernetes cluster image with Gravity.
+This section covers how to build a Gravity Cluster Image.
 There are two use cases we'll cover here:
 
-1. Building an "empty" Kubernetes cluster image. You can use such cluster
-   images for quickly creating large number of identical production-ready
+1. Building an "empty" Kubernetes Cluster Image. You can use these Cluster
+   Images for quickly creating a large number of identical, production-ready
    Kubernetes clusters within an organization.
 
-2. Building a cluster image that also includes Kubernetes applications.  You
-   can use such images to distribute Kubernetes applications to 3rd parties.
+2. Building a Cluster Image that also includes Kubernetes applications.  You
+   can these to distribute Kubernetes applications to 3rd parties.
 
-If you wish to package a cloud-native application into a cluster image, the
-application must first be ported to run on Kubernetes, this means:
+If you wish to package a cloud-native application into a Cluster Image, the
+application must run on Kubernetes. This means:
 
 * The application is packaged into Docker containers.
 * You have Kubernetes resource definitions for application services, pods, etc. 
-* (optional) You have Helm charts for your application(s).
+
+You can optionally use Helm charts for your application(s).
 
 !!! tip:
         For easy Kubernetes development while porting applications to
@@ -26,39 +27,30 @@ application must first be ported to run on Kubernetes, this means:
 
 ## Getting the Tools
 
-Any Linux machine can be used to package Kubernetes applications into a cluster
-image. To get started, you need to [download Gravity](https://gravitational.com/gravity/download/releases/).
+Any Linux machine can be used to package a Kubernetes applications into a Cluster
+Image. To get started, you need to [download Gravity](https://gravitational.com/gravity/download/releases/).
 
 !!! tip "Gravity Versions":
-    For new users who are just exploring Gravity, we recommend the latest "pre-release" build, 
-    in this case make sure to select "Show pre-releases" selector. Production users must
-    use the latest stable release.
+    For new users who are just exploring Gravity, we recommend the latest "pre-release" build. Make sure to select "Show pre-releases" selector. Production users must use the latest stable release.
 
-To create a cluster image, you will be using `tele`, the Gravity build tool. 
+To create a Cluster Image, you will be using `tele`, the Gravity build tool. 
 Below is the list of `tele` commands:
 
 | Command        | Description |
 |----------------|-------------|
-| `tele build`   | Builds a new cluster image.
-| `tele push`    | Pushes a cluster image to an image repository called Gravity Hub (enterprise version only).
-| `tele pull`    | Downloads a cluster image from a Gravity Hub.
+| `tele build`   | Builds a new Cluster Image.
+| `tele push`    | Pushes a Cluster Image to an image repository called Gravity Hub (enterprise version only).
+| `tele pull`    | Downloads a Cluster Image from a Gravity Hub.
 | `tele ls`      | Lists all available cluster images.
 
 ## Building a Cluster Image
 
-Gravity can package any Kubernetes application(s) along with all their
-dependencies into a dependency-free, self-deploying tarball file called a
-"cluster image". The resulting `.tar` file is usually quite large, but
-compressing it does not yield tangible results because the tarball itself is
-mostly composed of container images that are already compressed.
+Before creating a Cluster Image, you must create an _Image Manifest_ file. An
+Image Manifest uses the YAML file format to describe the image build and installation
+process and the system requirements for the Cluster. See the [Image Manifest](/pack/#image-manifest) section below for more details.
 
-Before creating a cluster image, you must create a _image manifest_ file. A
-_image manifest_ uses YAML file format to describe the image build and installation
-process and the system requirements for the cluster. See [Image Manifest](/pack/#image-manifest) 
-section below for more details.
-
-After a _image manifest_ is complete, execute `tele build` command to build 
-a cluster image from it.
+After an Image Manifest is created, execute the `tele build` command to build 
+a Cluster Image.
 
 ```bsh
 tele build [options] [cluster-manifest.yaml]
@@ -77,16 +69,14 @@ sources.
 There are two kinds of external sources for cluster dependencies:
 
 1. **Kubernetes binaries** like `kube-apiserver`, `kubelet` and others, plus their
-   dependencies like `etcd`. The build tool will download them from a Gravity Hub
-   you are connected to. Users of open source version are always connected to
-   the public Hub hosted on `get.gravitational.io`. The publicly hosted Hub
-   does not currently offer a web UI.
-2. **Application Containers**. If your cluster must have pre-loaded
+   dependencies like `etcd`. The build tool will download them from the Gravity Hub
+   you are connected to. Users of the open source version of Gravity are always connected to the public Hub hosted on `get.gravitational.io`.
+2. **Application Containers**. If your Cluster must have pre-loaded
    applications, their container images will be downloaded from the external
    container registry.
 
-You can follow the [Quick Start](quickstart) to build a cluster image from a
-sample image manifest.
+You can follow the [Quick Start](quickstart) to build a Cluster Image from a
+sample Image Manifest.
 
 #### Building with Docker
 
@@ -108,7 +98,7 @@ RUN apt-get -y install curl make git
 RUN curl https://get.gravitational.io/telekube/bin/${TELE_VERSION}/linux/x86_64/tele -o /usr/bin/tele && chmod 755 /usr/bin/tele
 ```
 
-Set `TELE_VERSION` argument to the desired Gravity version, then build the docker image:
+Set the `TELE_VERSION` argument to the desired Gravity version, then build the docker image:
 
 ```bsh
 docker build . -t tele-buildbox:latest
@@ -116,10 +106,10 @@ docker build . -t tele-buildbox:latest
 
 Now you should have `tele-buildbox` container on the build machine. Next, do the following:
 
-* Use host networking
+* Use host networking.
 * Expose the Docker socket into the container to allow `tele` to pull container
-  images referenced in the image manifest.
-* Expose the working directory with the application manifest to the container as `/mnt/cluster`
+  images referenced in the Image Manifest.
+* Expose the working directory with the Image Manifest to the container as `/mnt/cluster`
 
 The command below assumes that `build.sh` is located in the same working directory as the application:
 
@@ -143,31 +133,30 @@ docker run -e OPS_URL=<opscenter url> \
 
 ## Image Manifest
 
-An image manifest is a YAML file that is passed as an input to `tele build`
-command. An image manifest users allows you to customize the resulting
-cluster image.  
+The Image Manifest is a YAML file that is passed as an input to `tele build`
+command. 
 
 The manifest concept was partially inspired by Dockerfiles and one can think of
-image manifest as a "dockerfile" for an entire Kubernetes cluster, and the 
-resulting cluster image can be seen as a "container" for an entire cluster.
+Image Manifest as a "dockerfile" for an entire Kubernetes cluster, and the 
+resulting Cluster Image can be seen as a "container" for an entire cluster.
 
-Below is the incomplete list of configurable settings:
+Below is an incomplete list of configurable settings. We have also included a sample Image Manifest further below with all the configurable settings.
 
-* Name of the **base image**. A base image usually contains pre-packaged
+* **Base Image** - A base image usually contains pre-packaged
   Kubernetes binaries and their optimal configuration. Currently, only the base
   images provided by Gravitational are supported. Use the _base image_ setting
-  to select a Kubernetes version for your cluster image. Run `tele ls --all` to
+  to select a Kubernetes version for your Cluster Image. Run `tele ls --all` to
   see the list of available base images.
-* **Metadata** like the name, version and the author of the cluster image.
-* **Network configuration** allows you to specify what kind of cluster networking
-  to use for cluster instances created from a resulting cluster image.
-* **System requirements** allow to define and enforce the minimal hardware or
+* **Metadata** - The name, version and the author of the Cluster Image.
+* **Network configuration** - The type of cluster networking
+  to use for cluster instances created from a resulting Cluster Image.
+* **System requirements** - Define and enforce the minimal hardware or
   infrastructure requirements such as RAM, CPU cores, network, etc.
-* **Installer behavior** allows to customize the process of installing a
-  cluster image, i.e. creating a new Kubernetes cluster instance, for example
+* **Installer behavior** - Customize the process of installing a
+  Cluster Image, i.e. creating a new Kubernetes cluster instance. for example
   you can allow end users to select one of the "cluster flavors" based on
   custom criteria, ask to accept EULA, etc.
-* **System options** allow you to customize the runtime behavior of Kubernetes
+* **System options** - Customize the runtime behavior of Kubernetes
   clusters, for example you can set command line arguments for system daemons
   like `etcd` or `kubelet`, force a certain Docker configuration and so on.
 
@@ -175,35 +164,31 @@ Below is the incomplete list of configurable settings:
 
 Gravity was designed with the goal of being compatible with existing, standard
 Kubernetes applications and to reuse as much of functionality provided by Kubernetes
-and other widely available tools. Therefore the image manifest's purpose is to
+and other widely available tools. Therefore the Image Manifest's purpose is to
 be _the only Gravity-specific artifact_ you will have to create and maintain.
 
 The file format was designed to mimic a Kubernetes resource as much as possible
 and several Kubernetes concepts are used for efficiency, for example:
 
 1. Use standard Kubernetes [config maps](http://kubernetes.io/docs/user-guide/configmap/)
-   to manage application configuration. Image manifest should not be used 
+   to manage application configuration. The Image Manifest should not be used 
    for this purpose.
 
 2. To customize the installation process, create regular [Kubernetes Services](http://kubernetes.io/docs/user-guide/services/)
-   and tell Gravitiy to invoke them via an image manifest.
+   and tell Gravitiy to invoke them with the Image Manifest.
 
 3. You can define custom cluster life cycle hooks like _install_, _uninstall_ or _update_ 
-   using the image manifest, but the hooks themselves should be implemented as a regular
+   using the Image Manifest, but the hooks themselves should be implemented as a regular
    [kubernetes jobs](http://kubernetes.io/docs/user-guide/jobs/).
 
-In other words, the image manifest never duplicates existing Kubernetes
-functionality, but is meant to compliment what is available to Kubernetes
-applications.
-
-Additionally, the image manifest is designed to be as small as possible in an
+The Image Manifest is designed to be as small as possible in an
 effort to promote open standards. As Kubernetes itself matures and promising
-proposals like "cluster API" or "application API" become standards, certain
-manifest capabilities will become deprecated.
+proposals like the "cluster API" or "application API" become standards, certain
+manifest capabilities will be deprecated.
 
 #### Image Manifest Format
 
-Several image manifest fields, in addition to allowing literal strings
+Several Image Manifest fields, in addition to allowing literal strings
 for values, can also have their values populate from URIs during the build
 process. For this to work, they must begin with a URI schema, i.e. `file://` 
 or `https://`. The following fields can fetch their values from URIs: `.releaseNotes`, 
@@ -211,8 +196,7 @@ or `https://`. The following fields can fetch their values from URIs: `.releaseN
 `.providers.aws.terraform.script`, `.providers.aws.terraform.instanceScript`,
 `.hooks.*.job`. 
 
-Below is the full image manifest format. Note, that only the metadata section
-is mandatory, other fields can be omitted and `tele build` will try to use 
+Below is the full Image Manifest format. The only mandatory data is the `metadata:` section. The other fields can be omitted and `tele build` will try to use 
 sensible defaults.
 
 
@@ -230,9 +214,9 @@ metadata:
   # Cluster version, must be in SemVer format (http://semver.org/)
   resourceVersion: 1.2.3-alpha.1
 
-  # Free-form verbose description of the cluster image
+  # Free-form verbose description of the Cluster Image
   description: |
-    Description of the cluster image
+    Description of the Cluster Image
 
   author: Alice <alice@example.com>
 
@@ -593,8 +577,7 @@ hooks:
   networkRollback:
 ```
 
-See [here](/requirements/#identifying-os-distributions-in-manifest) for version matrix to help with
-specifying OS distribution requirements for a node profile.
+See [here](/requirements/#identifying-os-distributions-in-manifest) for version matrix to help with specifying OS distribution requirements for a node profile.
 
 ## Cluster Hooks
 
@@ -603,8 +586,8 @@ life cycle or in response to certain events happening in the cluster.
 
 Each hook job has access to the "Cluster Resources" which are mounted under
 `/var/lib/gravity/resources` directory in each of the job's containers. The
-cluster resources include the cluster image manifest and everything else that
-was in the same directory with the image manifest at the moment of `tele build`
+cluster resources include the Cluster Image manifest and everything else that
+was in the same directory with the Image Manifest at the moment of `tele build`
 execution. For example, if during the build process the directory with the
 cluster resources looked like:
 
@@ -654,7 +637,7 @@ spec:
             - /var/lib/gravity/resources/resources.yaml
 ```
 
-which can then be included in the Application Manifest:
+which can then be included in the Image Manifest:
 
 ```yaml
 hooks:
@@ -691,7 +674,7 @@ example/
            └── values.yaml
 ```
 
-When building the cluster image, the `tele build` command will find
+When building the Cluster Image, the `tele build` command will find
 directories with Helm charts (determined by the presence of `Chart.yaml` file)
 and vendor all Docker images they reference into the resulting installer
 tarball.
@@ -700,7 +683,7 @@ tarball.
     The machine running `tele build` must have Helm binary [installed](https://docs.helm.sh/using_helm/#installing-helm)
     and available in PATH as well as its [template plugin](https://docs.helm.sh/using_helm/#installing-a-plugin).
 
-During the installation the vendored images will be pushed to the cluster's local
+During the installation, the vendored images will be pushed to the cluster's local
 Docker registry which is available inside the cluster at `leader.telekube.local:5000`.
 Helm templating engine can be used to tag images with an appropriate registry.
 For example, `example.yaml` may contain the following image reference:
@@ -718,7 +701,7 @@ registry: ""
 ```
 
 
-An install hook can then use `helm` binary (which gets mounted into every hook
+An install hook can then use the `helm` binary (which gets mounted into every hook
 container under `/usr/local/bin`) to install these resources:
 
 ```yaml
@@ -738,7 +721,7 @@ spec:
           command: ["/usr/local/bin/helm", "install", "/var/lib/gravity/resources/charts/example", "--set", "registry=leader.telekube.local:5000/"]
 ```
 
-Note how the hook command sets the registry variable to point to the cluster's
+The hook command sets the registry variable to point to the cluster's
 local Docker registry so that when Helm renders resource templates, they contain
 correct image references.
 
@@ -753,22 +736,21 @@ main installation phase (such as installing Kubernetes and system dependencies)
 has successfully completed.
 
 A "Custom Installation Screen" is just a web application running inside the
-deployed Kubernetes cluster and reachable via a Kubernetes service. Enabling a
+deployed Kubernetes cluster and reachable through a Kubernetes service. Enabling a
 Custom Installation Screen allows the user to perform actions specific to an
 Gravity Cluster upon successful install (for example, configuring an
 application or launch a database migration).
 
-The stock base cluster images come with a sample Custom Installation Screen
+The standard Cluster Images come with a sample Custom Installation Screen
 called "bandwagon".  It is a Kubernetes web application, i.e. it exposes a
 Kubernetes endpoint. The installer can be configured to transfer the user to
 that endpoint after the installation. Bandwagon presents users with a form
 where they can enter login and password to provision a local Gravity Cluster
 user and choose whether to enable or disable remote support.
 
-Bandwagon is [open source](https://github.com/gravitational/bandwagon) on GitHub and 
-can be used as an example of how to implement your own custom installer screen.
+Bandwagon is [open sourced on GitHub](https://github.com/gravitational/bandwagon) and can be used as an example of how to implement your own custom installer screen.
 
-To enable Bandwagon, add this to your Application Manifest:
+To enable Bandwagon, add this to your Image Manifest:
 
 ```yaml
 # define an endpoint for bandwagon service
@@ -788,10 +770,9 @@ installer:
 
 ## System Extensions
 
-By default, all base cluster images contain several system services to provide
-cluster logging, monitoring and application catalog (via Tiller) functionality. 
-You may want to disable any of these components, for example if you prefer to replace 
-them with a solution of your choice. To do that, define the following section in the
+By default, a Cluster Image contains several system services to provide
+Cluster logging, monitoring and application catalog (via Tiller) functionality. 
+You may want to disable any of these components if you prefer to replace them with a solution of your choice. To do that, define the following section in the
 cluster manifest:
 
 ```yaml
@@ -813,28 +794,24 @@ extensions:
 
 !!! note:
     Disabling the system logging component will result in inability
-    to view operation logs via the cluster UI.
+    to view operation logs via the Cluster UI.
 
 ## Service User
 
-When Gravity creates a Kubernetes cluster from a cluster image, it installs a
-special system container on each host, visible as `gravity` daemon. It contains
-all of Kubernetes services, performs automatic management and isolates them
-from other pre-existing daemons running on cluster hosts.
+When Gravity creates a Kubernetes cluster from a Cluster Image, it installs a
+special system container on each host, visible as the `gravity` daemon. It contains all of Kubernetes services, performs automatic management and isolates them from other pre-existing daemons running on cluster hosts.
 
-This system container is often called "planet container".
-
-All system services inside the gravity container run under a special system user 
-called _"planet"_ with a UID of `1000`.
+All system services inside the container run under a special system user 
+called `planet` with a UID of `1000`.
 
 Starting with LTS 4.54, Gravity allows the system user to be configured during
 installation. The same service user with the same UID will be created on all
 nodes of a cluster.
 
-In order to configure _"planet"_ service user, you have the following options:
+In order to configure the `planet` service user, you have the following options:
 
   * Create a user with the same UID on all cluster nodes upfront.
-  * Specify a user ID on installer's command line and a user named `planet` 
+  * Specify a user ID on the installer's command line and a user named `planet` 
     (and a group with the same name) will automatically be created with the given 
     ID during installation.
 
@@ -886,9 +863,8 @@ hook.
 
 ## Custom System Container
 
-When Gravity creates a Kubernetes cluster from a cluster image, it installs a
-special system container on each host. It is called "planet" and visible as `gravity` 
-daemon. 
+When Gravity creates a Kubernetes cluster from a Cluster Image, it installs a
+special system container on each host. It is called "planet" and visible as the `gravity` daemon. 
 
 "Planet" contains all of Kubernetes services, performs automatic management and
 isolates them from other pre-existing daemons running on cluster hosts. 
@@ -927,7 +903,7 @@ nodeProfiles:
       baseImage: custom-planet:1.0.0
 ```
 
-When building a cluster image, `tele build` will discover `custom-planet:1.0.0`
+When building a Cluster Image, `tele build` will discover `custom-planet:1.0.0`
 Docker image and vendor it along with other dependencies. During the cluster
 installation all nodes with the role `worker` will use the custom "planet" Docker 
 image instead of the default one.
