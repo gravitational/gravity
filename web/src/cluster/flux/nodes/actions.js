@@ -23,6 +23,7 @@ import k8s from 'app/cluster/services/k8s';
 import { getAcl } from 'app/flux/userAcl';
 import { SITE_SERVERS_RECEIVE } from './actionTypes';
 import opsService from 'app/services/operations';
+import * as featureFlags from 'app/cluster/featureFlags';
 
 export function startShrinkOperation(hostname) {
   return opsService.shrink(cfg.defaultSiteId, hostname)
@@ -35,7 +36,7 @@ export function fetchNodes() {
   const acl = getAcl();
 
   // fetsh k8s nodes only if allowed
-  if (acl.clusters.connect) {
+  if (featureFlags.siteK8s()) {
     promises.push(k8s.getNodes());
   }
 

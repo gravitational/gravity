@@ -22,13 +22,13 @@ import (
 	"github.com/gravitational/gravity/lib/app"
 	"github.com/gravitational/gravity/lib/constants"
 	"github.com/gravitational/gravity/lib/defaults"
-	"github.com/gravitational/gravity/lib/fsm"
 	libfsm "github.com/gravitational/gravity/lib/fsm"
 	"github.com/gravitational/gravity/lib/httplib"
 	"github.com/gravitational/gravity/lib/loc"
 	"github.com/gravitational/gravity/lib/localenv"
 	"github.com/gravitational/gravity/lib/ops"
 	"github.com/gravitational/gravity/lib/pack"
+	"github.com/gravitational/gravity/lib/rpc"
 	"github.com/gravitational/gravity/lib/schema"
 	"github.com/gravitational/gravity/lib/storage"
 	"github.com/gravitational/gravity/lib/update"
@@ -125,6 +125,20 @@ func rollbackUpdatePhase(env *localenv.LocalEnvironment, environ LocalEnvironmen
 	defer updater.Close()
 	err = updater.RollbackPhase(context.TODO(), params.PhaseID, params.Timeout, params.Force)
 	return trace.Wrap(err)
+}
+
+func setUpdatePhase(env *localenv.LocalEnvironment, environ LocalEnvironmentFactory, params SetPhaseParams, operation ops.SiteOperation) error {
+	updateEnv, err := environ.NewUpdateEnv()
+	if err != nil {
+		return trace.Wrap(err)
+	}
+	defer updateEnv.Close()
+	updater, err := getClusterUpdater(env, updateEnv, operation, true)
+	if err != nil {
+		return trace.Wrap(err)
+	}
+	defer updater.Close()
+	return updater.SetPhase(context.TODO(), params.PhaseID, params.State)
 }
 
 func completeUpdatePlan(env *localenv.LocalEnvironment, environ LocalEnvironmentFactory, operation ops.SiteOperation) error {
@@ -228,7 +242,7 @@ func (clusterInitializer) newUpdater(
 	operation ops.SiteOperation,
 	localEnv, updateEnv *localenv.LocalEnvironment,
 	clusterEnv *localenv.ClusterEnvironment,
-	runner fsm.AgentRepository,
+	runner rpc.AgentRepository,
 ) (*update.Updater, error) {
 	config := clusterupdate.Config{
 		Config: update.Config{
@@ -327,7 +341,7 @@ func checkForUpdate(
 		return nil, trace.Wrap(err)
 	}
 
-	env.Printf("updating %v from %v to %v\n",
+	env.PrintStep("Upgrading application %v from %v to %v",
 		updateApp.Package.Name, installedPackage.Version, updateApp.Package.Version)
 
 	return updateApp, nil

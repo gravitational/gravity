@@ -3,7 +3,7 @@
 # IMPORTANT! To add a new version, say 6.x
 #     * copy 5.x directory to 6.x and make changes there
 #     * copy 5.x.yaml to 6.x.yaml and make changes there
-#     * edit theme/base.html and update the docVersions variable
+#     * edit theme/scripts.html and update the docVersions variable
 
 cd "$(dirname $0)";
 

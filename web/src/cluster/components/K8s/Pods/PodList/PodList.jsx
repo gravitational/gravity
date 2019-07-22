@@ -50,13 +50,13 @@ class PodList extends React.Component {
   }
 
   render() {
-    const { sshLogins, monitoringEnabled, podInfos } = this.props;
+    const { sshLogins, logsEnabled, monitoringEnabled, podInfos } = this.props;
     const data = this.sortAndFilter(podInfos);
     return (
       <Table data={data}>
         <Column
           header={<Cell>Name</Cell> }
-          cell={<NameCell monitoringEnabled={monitoringEnabled}/> }
+          cell={<NameCell /> }
         />
         <Column
           header={<Cell>Status</Cell> }
@@ -64,7 +64,7 @@ class PodList extends React.Component {
         />
         <Column
           header={<Cell>Containers</Cell> }
-          cell={<ContainerCell sshLogins={sshLogins}/>}
+          cell={<ContainerCell sshLogins={sshLogins} logsEnabled={logsEnabled}/>}
         />
         <Column
           header={<Cell>Labels</Cell> }
@@ -72,7 +72,7 @@ class PodList extends React.Component {
           />
         <Column
           header={<Cell></Cell> }
-          cell={<ActionCell/>}
+          cell={<ActionCell logsEnabled={logsEnabled} monitoringEnabled={monitoringEnabled}/>}
         />
       </Table>
     )

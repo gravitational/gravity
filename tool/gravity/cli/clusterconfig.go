@@ -19,10 +19,10 @@ package cli
 import (
 	"context"
 
-	"github.com/gravitational/gravity/lib/fsm"
 	libfsm "github.com/gravitational/gravity/lib/fsm"
 	"github.com/gravitational/gravity/lib/localenv"
 	"github.com/gravitational/gravity/lib/ops"
+	"github.com/gravitational/gravity/lib/rpc"
 	"github.com/gravitational/gravity/lib/storage"
 	libclusterconfig "github.com/gravitational/gravity/lib/storage/clusterconfig"
 	"github.com/gravitational/gravity/lib/update"
@@ -95,6 +95,20 @@ func executeConfigPhase(env *localenv.LocalEnvironment, environ LocalEnvironment
 	defer updater.Close()
 	err = updater.RunPhase(context.TODO(), params.PhaseID, params.Timeout, params.Force)
 	return trace.Wrap(err)
+}
+
+func setConfigPhase(env *localenv.LocalEnvironment, environ LocalEnvironmentFactory, params SetPhaseParams, operation ops.SiteOperation) error {
+	updateEnv, err := environ.NewUpdateEnv()
+	if err != nil {
+		return trace.Wrap(err)
+	}
+	defer updateEnv.Close()
+	updater, err := getConfigUpdater(env, updateEnv, operation)
+	if err != nil {
+		return trace.Wrap(err)
+	}
+	defer updater.Close()
+	return updater.SetPhase(context.TODO(), params.PhaseID, params.State)
 }
 
 func rollbackConfigPhase(env *localenv.LocalEnvironment, environ LocalEnvironmentFactory, params PhaseParams, operation ops.SiteOperation) error {
@@ -207,7 +221,7 @@ func (configInitializer) newUpdater(
 	operation ops.SiteOperation,
 	localEnv, updateEnv *localenv.LocalEnvironment,
 	clusterEnv *localenv.ClusterEnvironment,
-	runner fsm.AgentRepository,
+	runner rpc.AgentRepository,
 ) (*update.Updater, error) {
 	config := clusterconfig.Config{
 		Config: update.Config{

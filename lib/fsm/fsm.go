@@ -22,6 +22,7 @@ import (
 	"path"
 
 	"github.com/gravitational/gravity/lib/ops"
+	"github.com/gravitational/gravity/lib/rpc"
 	"github.com/gravitational/gravity/lib/storage"
 	"github.com/gravitational/gravity/lib/utils"
 
@@ -39,7 +40,7 @@ type Engine interface {
 	GetPlan() (*storage.OperationPlan, error)
 	// RunCommand executes the phase specified by params on the specified
 	// server using the provided runner
-	RunCommand(context.Context, RemoteRunner, storage.Server, Params) error
+	RunCommand(context.Context, rpc.RemoteRunner, storage.Server, Params) error
 	// Complete transitions the operation to a completed state.
 	// Completed state is either successful or failed depending on the state of
 	// the operation plan.
@@ -122,7 +123,7 @@ type Config struct {
 	// Engine is the specific FSM engine
 	Engine
 	// Runner is used to run remote commands
-	Runner RemoteRunner
+	Runner rpc.RemoteRunner
 	// Insecure allows to turn off cert validation in dev mode
 	Insecure bool
 	// Logger allows to override default logger
@@ -275,6 +276,22 @@ func (f *FSM) RollbackPhase(ctx context.Context, p Params) error {
 		}
 	}
 	return nil
+}
+
+// ChangePhaseState updates the specified phase state.
+func (f *FSM) ChangePhaseState(ctx context.Context, change StateChange) error {
+	if err := change.Check(); err != nil {
+		return trace.Wrap(err)
+	}
+	plan, err := f.GetPlan()
+	if err != nil {
+		return trace.Wrap(err)
+	}
+	// Make sure the phase exists in the plan.
+	if _, err := FindPhase(plan, change.Phase); err != nil {
+		return trace.Wrap(err)
+	}
+	return f.Engine.ChangePhaseState(ctx, change)
 }
 
 // SetPreExec sets the hook that's called before phase execution
@@ -549,6 +566,18 @@ type StateChange struct {
 	State string
 	// Error is the error that happened during phase execution
 	Error trace.Error
+}
+
+// Check verifies that state change is valid.
+func (c StateChange) Check() error {
+	if c.Phase == "" {
+		return trace.BadParameter("phase name must not be empty")
+	}
+	if !storage.IsValidOperationPhaseState(c.State) {
+		return trace.BadParameter("unknown phase state %q, supported are: %v",
+			c.State, storage.OperationPhaseStates)
+	}
+	return nil
 }
 
 // String returns a textual representation of this state change

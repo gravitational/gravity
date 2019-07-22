@@ -16,7 +16,7 @@ limitations under the License.
 
 import React from 'react';
 import moment from 'moment';
-import { fetchEvents, fetchLatest } from 'app/cluster/flux/events/actions';
+import { EVENT_MAX_LIMIT, fetchEvents, fetchLatest } from 'app/cluster/flux/events/actions';
 import { getters } from 'app/cluster/flux/events';
 import AjaxPoller from 'app/components/dataProviders'
 import { useFluxStore } from 'app/components/nuclear';
@@ -28,6 +28,7 @@ import { FeatureBox, FeatureHeader, FeatureHeaderTitle } from './../Layout';
 import InputSearch from './../components/InputSearch';
 
 const POLL_INTERVAL = 5000; // every 5 sec
+
 export class Audit extends React.Component {
 
   onRangeChange = range => {
@@ -62,7 +63,7 @@ export class Audit extends React.Component {
             onChange={this.onRangeChange}
           />
         </FeatureHeader>
-        { overflow && <Danger> Number of events retrieved for specified date range was exceeded the maximum limit of 500 </Danger> }
+        { overflow && <Danger> Number of events retrieved for specified date range was exceeded the maximum limit of {EVENT_MAX_LIMIT} </Danger> }
         { isFailed && <Danger> {message} </Danger> }
         <EventList
           search={searchValue}

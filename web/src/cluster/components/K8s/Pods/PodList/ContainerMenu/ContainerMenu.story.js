@@ -45,6 +45,7 @@ class SampleMenu extends React.Component {
 
 
 const props = {
+  logsEnabled: true,
   container: {
     name: 'Mivwasut',
     logUrl: 'Sarfiwiw',

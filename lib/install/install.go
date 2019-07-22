@@ -33,6 +33,7 @@ import (
 	"github.com/gravitational/gravity/lib/ops"
 	rpcserver "github.com/gravitational/gravity/lib/rpc/server"
 	"github.com/gravitational/gravity/lib/system/signals"
+	"github.com/gravitational/gravity/lib/utils"
 
 	"github.com/gravitational/trace"
 	log "github.com/sirupsen/logrus"
@@ -45,13 +46,13 @@ import (
 // Use Serve to start server operation
 func New(ctx context.Context, config RuntimeConfig) (installer *Installer, err error) {
 	if err := config.checkAndSetDefaults(); err != nil {
-		return nil, trace.Wrap(err)
+		return nil, trace.Wrap(utils.NewFailedPreconditionError(err))
 	}
 	var agent *rpcserver.PeerServer
 	if config.Config.LocalAgent {
 		agent, err = newAgent(ctx, config.Config)
 		if err != nil {
-			return nil, trace.Wrap(err)
+			return nil, trace.Wrap(utils.NewFailedPreconditionError(err))
 		}
 	}
 	server := server.New()
@@ -71,7 +72,7 @@ func New(ctx context.Context, config RuntimeConfig) (installer *Installer, err e
 	}
 	installer.startExecuteLoop()
 	if err := installer.maybeStartAgent(); err != nil {
-		return nil, trace.Wrap(err)
+		return nil, trace.Wrap(utils.NewFailedPreconditionError(err))
 	}
 	return installer, nil
 }
@@ -83,7 +84,7 @@ func (i *Installer) Run(listener net.Listener) error {
 	}()
 	err := <-i.errC
 	i.stop()
-	return trace.Wrap(err)
+	return installpb.WrapServiceError(err)
 }
 
 // Stop stops the server and releases resources allocated by the installer.
@@ -110,7 +111,7 @@ func (i *Installer) Execute(req *installpb.ExecuteRequest, stream installpb.Agen
 		case result := <-i.execDoneC:
 			if result.err != nil {
 				// Phase finished with an error
-				return status.Error(codes.FailedPrecondition, result.err.Error())
+				return status.Error(codes.Aborted, result.err.Error())
 			}
 			if result.completionEvent != nil {
 				err := stream.Send(result.completionEvent.AsProgressResponse())
@@ -121,6 +122,19 @@ func (i *Installer) Execute(req *installpb.ExecuteRequest, stream installpb.Agen
 			return nil
 		}
 	}
+}
+
+// SetPhase sets phase state without executing it.
+func (i *Installer) SetPhase(req *installpb.SetStateRequest) error {
+	i.WithField("req", req).Info("Set phase.")
+	machine, err := i.config.FSMFactory.NewFSM(i.config.Operator, req.OperationKey())
+	if err != nil {
+		return trace.Wrap(err)
+	}
+	return machine.ChangePhaseState(i.ctx, fsm.StateChange{
+		Phase: req.Phase.ID,
+		State: req.State,
+	})
 }
 
 // Complete manually completes the operation given with key.
@@ -254,7 +268,7 @@ func (i *Installer) execute(req *installpb.ExecuteRequest) (dispatcher.Status, e
 	return status, nil
 }
 
-func (i *Installer) executePhase(phase installpb.ExecuteRequest_Phase) (dispatcher.Status, error) {
+func (i *Installer) executePhase(phase installpb.Phase) (dispatcher.Status, error) {
 	opKey := installpb.KeyFromProto(phase.Key)
 	machine, err := i.config.FSMFactory.NewFSM(i.config.Operator, opKey)
 	if err != nil {
@@ -375,15 +389,15 @@ func (i *Installer) stop() {
 	i.server.Stop(ctx)
 }
 
-func phaseTitle(phase installpb.ExecuteRequest_Phase) string {
+func phaseTitle(phase installpb.Phase) string {
 	if phase.IsResume() {
 		return "Resuming operation"
 	}
 	return fmt.Sprintf("Executing phase %v", phase.ID)
 }
 
-func phaseForOperation(op ops.SiteOperation) *installpb.ExecuteRequest_Phase {
-	return &installpb.ExecuteRequest_Phase{
+func phaseForOperation(op ops.SiteOperation) *installpb.Phase {
+	return &installpb.Phase{
 		ID:  fsm.RootPhase,
 		Key: installpb.KeyToProto(op.Key()),
 	}

@@ -1,5 +1,5 @@
 /*
-Copyright 2018 Gravitational, Inc.
+Copyright 2018-2019 Gravitational, Inc.
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -37,13 +37,14 @@ func main() {
 	// configure the process to avoid common proxy related installation problems
 	cli.ConfigureNoProxy()
 
-	app := kingpin.New("gravity", "Cluster management tool")
+	app := kingpin.New("gravity", "Gravity cluster management tool.")
 	if err := run(app); err != nil {
-		log.Error(trace.DebugReport(err))
-		common.PrintError(err)
+		log.WithError(err).Warn("Command failed.")
 		if errCode, ok := trace.Unwrap(err).(utils.ExitCodeError); ok {
+			common.PrintError(errCode.OrigError())
 			os.Exit(errCode.ExitCode())
 		}
+		common.PrintError(err)
 		os.Exit(255)
 	}
 }

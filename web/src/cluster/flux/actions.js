@@ -22,7 +22,6 @@ import * as featureFlags from 'app/cluster/featureFlags';
 import { setCluster } from 'app/flux/cluster/actions';
 import { fetchRemoteAccess, fetchSiteInfo } from './info/actions';
 import service, { applyConfig } from 'app/services/clusters';
-import { fetchNodes } from './nodes/actions';
 import { setReleases } from './apps/actions';
 
 export function initCluster(siteId, features) {
@@ -33,7 +32,6 @@ export function initCluster(siteId, features) {
 function init(features){
   return $.when(
     service.fetchCluster({shallow: false}),
-    fetchNodes(),
     fetchSiteInfo(),
     fetchRemoteAccess(),
   )

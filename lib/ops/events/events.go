@@ -46,6 +46,16 @@ func Emit(ctx context.Context, operator ops.Operator, event events.Event, fields
 	}
 }
 
+// EmitForOperation emits audit event for the provided operation.
+func EmitForOperation(ctx context.Context, operator ops.Operator, operation ops.SiteOperation) error {
+	event, err := EventForOperation(operation)
+	if err != nil {
+		return trace.Wrap(err)
+	}
+	Emit(ctx, operator, event, FieldsForOperation(operation))
+	return nil
+}
+
 func emit(ctx context.Context, operator ops.Operator, event events.Event, fields Fields) error {
 	cluster, err := operator.GetLocalSite()
 	if err != nil {

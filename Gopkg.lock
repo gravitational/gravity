@@ -866,7 +866,7 @@
   version = "v1.0.0"
 
 [[projects]]
-  digest = "1:f01b1009f6ab14bbd9257884dc63897eaf59cd7e7cdd59b1dae4bebad7cea154"
+  digest = "1:351560017717a8b7a2bc5c43de4ca8b53e17d34d09be6a86a03e756ce69cf733"
   name = "github.com/gravitational/satellite"
   packages = [
     "agent/health",
@@ -876,8 +876,8 @@
     "utils",
   ]
   pruneopts = "UT"
-  revision = "57869406f0ebe0d80989e632df28052a7a252ed9"
-  version = "5.5.2"
+  revision = "f7eb05a778141551c29ed774138197e190f85703"
+  version = "5.5.4"
 
 [[projects]]
   digest = "1:49f6abbce9ade5f43508429e4af1adcce55d27adcd62719fea049decc766a7c9"
@@ -895,7 +895,7 @@
 
 [[projects]]
   branch = "branch/3.2-g"
-  digest = "1:6f281c17670c3b593da2cf673be7194e5ac7367c9c6c12da06c060696869bef0"
+  digest = "1:a29cb6890c092709e03c1e89facde0f84298ef98a5beea7ca6b513a7a90e302e"
   name = "github.com/gravitational/teleport"
   packages = [
     ".",
@@ -950,7 +950,7 @@
     "lib/web/ui",
   ]
   pruneopts = "UT"
-  revision = "8ade515eaa786a81448684cb0d5e63d37c566ca3"
+  revision = "10398c6d4d0834f54886d80f251d8d8ba344b7f2"
 
 [[projects]]
   digest = "1:afb36747f009e72637bdf1b3f5d27f3c1d5e1fc5478fc4aba2a33e40e8829dee"
@@ -1220,12 +1220,28 @@
   revision = "ae77be60afb1dcacde03767a8c37337fad28ac14"
 
 [[projects]]
+  digest = "1:ca955a9cd5b50b0f43d2cc3aeb35c951473eeca41b34eb67507f1dbcc0542394"
+  name = "github.com/kr/pretty"
+  packages = ["."]
+  pruneopts = "UT"
+  revision = "73f6ac0b30a98e433b289500d779f50c1a6f0712"
+  version = "v0.1.0"
+
+[[projects]]
   digest = "1:075fe2b22b9fcec90cecd98546c2096d73a3ab9458261f5647512fba3e0420eb"
   name = "github.com/kr/pty"
   packages = ["."]
   pruneopts = "UT"
   revision = "2c10821df3c3cf905230d078702dfbe9404c9b23"
   version = "v1.0.0"
+
+[[projects]]
+  digest = "1:15b5cc79aad436d47019f814fde81a10221c740dc8ddf769221a65097fb6c2e9"
+  name = "github.com/kr/text"
+  packages = ["."]
+  pruneopts = "UT"
+  revision = "e2ffdb16a802fe2bb95e2e35ff34f0e53aeef34f"
+  version = "v0.1.0"
 
 [[projects]]
   digest = "1:7a20d4221f44dadcdfe5a510725d3f26185a7ac680c207755f73963473337e44"
@@ -1972,11 +1988,12 @@
   source = "github.com/gravitational/kingpin"
 
 [[projects]]
-  digest = "1:a59b147b633c9b4f5f0eba6ddc282810fec9c592c41fc3e6c1fef74af01705dc"
+  branch = "v1"
+  digest = "1:af715ae33cc1f5695c4b2a4e4b21d008add8802a99e15bb467ac7c32edb5000d"
   name = "gopkg.in/check.v1"
   packages = ["."]
   pruneopts = "UT"
-  revision = "64131543e7896d5bcc6bd5a76287eb75ea96c673"
+  revision = "788fd78401277ebd861206a03c884797c6ec5541"
 
 [[projects]]
   digest = "1:ef72505cf098abdd34efeea032103377bec06abb61d8a06f002d5d296a4b1185"

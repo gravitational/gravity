@@ -73,8 +73,13 @@ type BoltConfig struct {
 	// When left unspecified, it will block for maximum of defaults.DBOpenTimeout.
 	// When set to a negative duration, it will fail immediately if the file is already locked.
 	// This option is only available on Darwin and Linux.
+	// Use NoTimeout to make the operation non-blocking
 	Timeout time.Duration
 }
+
+// NoTimeout defines a special duration value indicating that the blocking operation
+// should not block
+const NoTimeout = -1
 
 // CheckAndSetDefaults validates this configuration and sets defaults
 func (b *BoltConfig) CheckAndSetDefaults() error {

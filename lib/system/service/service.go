@@ -57,6 +57,19 @@ func Start(serviceName string) error {
 	return trace.Wrap(services.StartService(serviceName, noBlock))
 }
 
+// IsFailed determines if the specified service has failed
+func IsFailed(serviceName string) (ok bool, err error) {
+	services, err := systemservice.New()
+	if err != nil {
+		return false, trace.Wrap(err)
+	}
+	status, err := services.StatusService(serviceName)
+	if err != nil {
+		return false, trace.Wrap(err)
+	}
+	return status == systemservice.ServiceStatusFailed, nil
+}
+
 // Reinstall installs a systemd service specified with req.
 // The operation is non-blocking and returns without waiting for service to start
 func Reinstall(req systemservice.NewServiceRequest) error {
@@ -70,18 +83,23 @@ func Reinstall(req systemservice.NewServiceRequest) error {
 	return trace.Wrap(install(services, req))
 }
 
+// Name returns the unit name part of path
+func Name(path string) string {
+	return filepath.Base(path)
+}
+
 func install(services systemservice.ServiceManager, req systemservice.NewServiceRequest) error {
 	if req.ServiceSpec.User == "" {
 		req.ServiceSpec.User = constants.RootUIDString
 	}
 	logger := log.WithField("service", req.Name)
 	err := services.DisableService(systemservice.DisableServiceRequest{
-		Name: serviceName(req.Name),
+		Name: Name(req.Name),
 	})
 	if err != nil && !systemservice.IsUnknownServiceError(err) {
 		logger.WithError(err).Warn("Failed to disable.")
 	}
-	err = services.StopService(serviceName(req.Name))
+	err = services.StopService(Name(req.Name))
 	if err != nil && !systemservice.IsUnknownServiceError(err) {
 		logger.WithError(err).Warn("Failed to stop.")
 	}
@@ -93,7 +111,7 @@ func install(services systemservice.ServiceManager, req systemservice.NewService
 }
 
 func removeLingeringUnitFile(servicePath string) error {
-	defaultPath := systemservice.DefaultUnitPath(serviceName(servicePath))
+	defaultPath := systemservice.DefaultUnitPath(Name(servicePath))
 	if defaultPath == servicePath {
 		return nil
 	}
@@ -102,8 +120,4 @@ func removeLingeringUnitFile(servicePath string) error {
 	}
 	log.WithField("unit-file", defaultPath).Info("Removed lingering unit file.")
 	return nil
-}
-
-func serviceName(name string) string {
-	return filepath.Base(name)
 }

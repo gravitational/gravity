@@ -24,10 +24,10 @@ import (
 
 	"github.com/gravitational/gravity/lib/constants"
 	"github.com/gravitational/gravity/lib/defaults"
-	"github.com/gravitational/gravity/lib/fsm"
 	libfsm "github.com/gravitational/gravity/lib/fsm"
 	"github.com/gravitational/gravity/lib/localenv"
 	"github.com/gravitational/gravity/lib/ops"
+	"github.com/gravitational/gravity/lib/rpc"
 	"github.com/gravitational/gravity/lib/storage"
 	"github.com/gravitational/gravity/lib/update"
 
@@ -116,7 +116,7 @@ func newUpdater(ctx context.Context, localEnv, updateEnv *localenv.LocalEnvironm
 	deployCtx, cancel := context.WithTimeout(ctx, defaults.AgentDeployTimeout)
 	defer cancel()
 	logger.WithField("request", req).Debug("Deploying agents on nodes.")
-	localEnv.Println("Deploying agents on nodes")
+	localEnv.PrintStep("Deploying upgrade agents on the nodes")
 	creds, err := deployAgents(deployCtx, req)
 	if err != nil {
 		return nil, trace.Wrap(err)
@@ -131,6 +131,7 @@ func newUpdater(ctx context.Context, localEnv, updateEnv *localenv.LocalEnvironm
 	if err != nil {
 		return nil, trace.Wrap(err)
 	}
+	localEnv.EmitOperationEvent(ctx, *operation)
 	return updater, nil
 }
 
@@ -150,7 +151,7 @@ type updateInitializer interface {
 		operation ops.SiteOperation,
 		localEnv, updateEnv *localenv.LocalEnvironment,
 		clusterEnv *localenv.ClusterEnvironment,
-		runner fsm.AgentRepository,
+		runner rpc.AgentRepository,
 	) (*update.Updater, error)
 	updateDeployRequest(deployAgentsRequest) deployAgentsRequest
 }

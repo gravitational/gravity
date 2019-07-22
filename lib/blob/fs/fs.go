@@ -28,8 +28,8 @@ import (
 	"github.com/gravitational/gravity/lib/blob"
 	"github.com/gravitational/gravity/lib/defaults"
 
-	log "github.com/sirupsen/logrus"
 	"github.com/gravitational/trace"
+	log "github.com/sirupsen/logrus"
 )
 
 func New(path string) (blob.Objects, error) {

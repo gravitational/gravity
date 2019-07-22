@@ -1933,6 +1933,15 @@ var DefaultSubnets = Subnets{
 // Servers is a list of servers
 type Servers []Server
 
+// Profiles returns a map of node profiles for these servers.
+func (r Servers) Profiles() map[string]string {
+	result := make(map[string]string, len(r))
+	for _, server := range r {
+		result[server.AdvertiseIP] = server.Role
+	}
+	return result
+}
+
 // IsEqualTo returns true if the provided list contains all the same servers
 // as this list.
 func (r Servers) IsEqualTo(other Servers) bool {

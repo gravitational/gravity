@@ -59,7 +59,84 @@ var ProgressResponse_Status_value = map[string]int32{
 }
 
 func (ProgressResponse_Status) EnumDescriptor() ([]byte, []int) {
-	return fileDescriptor_675879a591bd3155, []int{5, 0}
+	return fileDescriptor_675879a591bd3155, []int{7, 0}
+}
+
+// Phase represents an operation plan phase
+type Phase struct {
+	// ID specifies the phase ID
+	ID string `protobuf:"bytes,1,opt,name=id,proto3" json:"id,omitempty"`
+	// Key identifies the operation
+	Key *OperationKey `protobuf:"bytes,2,opt,name=key,proto3" json:"key,omitempty"`
+	// Rollback specifies whether this is a rollback
+	Rollback bool `protobuf:"varint,3,opt,name=rollback,proto3" json:"rollback,omitempty"`
+	// Force specifies whether the phase execution/rollback should be rerun
+	// regardless of phase state
+	Force                bool     `protobuf:"varint,4,opt,name=force,proto3" json:"force,omitempty"`
+	XXX_NoUnkeyedLiteral struct{} `json:"-"`
+	XXX_unrecognized     []byte   `json:"-"`
+	XXX_sizecache        int32    `json:"-"`
+}
+
+func (m *Phase) Reset()         { *m = Phase{} }
+func (m *Phase) String() string { return proto.CompactTextString(m) }
+func (*Phase) ProtoMessage()    {}
+func (*Phase) Descriptor() ([]byte, []int) {
+	return fileDescriptor_675879a591bd3155, []int{0}
+}
+func (m *Phase) XXX_Unmarshal(b []byte) error {
+	return m.Unmarshal(b)
+}
+func (m *Phase) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
+	if deterministic {
+		return xxx_messageInfo_Phase.Marshal(b, m, deterministic)
+	} else {
+		b = b[:cap(b)]
+		n, err := m.MarshalTo(b)
+		if err != nil {
+			return nil, err
+		}
+		return b[:n], nil
+	}
+}
+func (m *Phase) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_Phase.Merge(m, src)
+}
+func (m *Phase) XXX_Size() int {
+	return m.Size()
+}
+func (m *Phase) XXX_DiscardUnknown() {
+	xxx_messageInfo_Phase.DiscardUnknown(m)
+}
+
+var xxx_messageInfo_Phase proto.InternalMessageInfo
+
+func (m *Phase) GetID() string {
+	if m != nil {
+		return m.ID
+	}
+	return ""
+}
+
+func (m *Phase) GetKey() *OperationKey {
+	if m != nil {
+		return m.Key
+	}
+	return nil
+}
+
+func (m *Phase) GetRollback() bool {
+	if m != nil {
+		return m.Rollback
+	}
+	return false
+}
+
+func (m *Phase) GetForce() bool {
+	if m != nil {
+		return m.Force
+	}
+	return false
 }
 
 // ExecuteRequest describes a request to execute install operation
@@ -67,17 +144,17 @@ type ExecuteRequest struct {
 	// Phase optionally specifies the configuration for executing or rolling
 	// back a specific phase.
 	// If unspecified, the operation is executed from the beginning
-	Phase                *ExecuteRequest_Phase `protobuf:"bytes,1,opt,name=phase,proto3" json:"phase,omitempty"`
-	XXX_NoUnkeyedLiteral struct{}              `json:"-"`
-	XXX_unrecognized     []byte                `json:"-"`
-	XXX_sizecache        int32                 `json:"-"`
+	Phase                *Phase   `protobuf:"bytes,1,opt,name=phase,proto3" json:"phase,omitempty"`
+	XXX_NoUnkeyedLiteral struct{} `json:"-"`
+	XXX_unrecognized     []byte   `json:"-"`
+	XXX_sizecache        int32    `json:"-"`
 }
 
 func (m *ExecuteRequest) Reset()         { *m = ExecuteRequest{} }
 func (m *ExecuteRequest) String() string { return proto.CompactTextString(m) }
 func (*ExecuteRequest) ProtoMessage()    {}
 func (*ExecuteRequest) Descriptor() ([]byte, []int) {
-	return fileDescriptor_675879a591bd3155, []int{0}
+	return fileDescriptor_675879a591bd3155, []int{1}
 }
 func (m *ExecuteRequest) XXX_Unmarshal(b []byte) error {
 	return m.Unmarshal(b)
@@ -106,40 +183,36 @@ func (m *ExecuteRequest) XXX_DiscardUnknown() {
 
 var xxx_messageInfo_ExecuteRequest proto.InternalMessageInfo
 
-func (m *ExecuteRequest) GetPhase() *ExecuteRequest_Phase {
+func (m *ExecuteRequest) GetPhase() *Phase {
 	if m != nil {
 		return m.Phase
 	}
 	return nil
 }
 
-type ExecuteRequest_Phase struct {
-	// ID specifies the phase ID
-	ID string `protobuf:"bytes,1,opt,name=id,proto3" json:"id,omitempty"`
-	// Key identifies the operation
-	Key *OperationKey `protobuf:"bytes,2,opt,name=key,proto3" json:"key,omitempty"`
-	// Rollback specifies whether this is a rollback
-	Rollback bool `protobuf:"varint,3,opt,name=rollback,proto3" json:"rollback,omitempty"`
-	// Force specifies whether the phase execution/rollback should be rerun
-	// regardless of phase state
-	Force                bool     `protobuf:"varint,4,opt,name=force,proto3" json:"force,omitempty"`
+// SetStateRequest describes a request to explicitly set phase state
+type SetStateRequest struct {
+	// Phase describes the phase to set the state for
+	Phase *Phase `protobuf:"bytes,1,opt,name=phase,proto3" json:"phase,omitempty"`
+	// State is the new phase state
+	State                string   `protobuf:"bytes,2,opt,name=state,proto3" json:"state,omitempty"`
 	XXX_NoUnkeyedLiteral struct{} `json:"-"`
 	XXX_unrecognized     []byte   `json:"-"`
 	XXX_sizecache        int32    `json:"-"`
 }
 
-func (m *ExecuteRequest_Phase) Reset()         { *m = ExecuteRequest_Phase{} }
-func (m *ExecuteRequest_Phase) String() string { return proto.CompactTextString(m) }
-func (*ExecuteRequest_Phase) ProtoMessage()    {}
-func (*ExecuteRequest_Phase) Descriptor() ([]byte, []int) {
-	return fileDescriptor_675879a591bd3155, []int{0, 0}
+func (m *SetStateRequest) Reset()         { *m = SetStateRequest{} }
+func (m *SetStateRequest) String() string { return proto.CompactTextString(m) }
+func (*SetStateRequest) ProtoMessage()    {}
+func (*SetStateRequest) Descriptor() ([]byte, []int) {
+	return fileDescriptor_675879a591bd3155, []int{2}
 }
-func (m *ExecuteRequest_Phase) XXX_Unmarshal(b []byte) error {
+func (m *SetStateRequest) XXX_Unmarshal(b []byte) error {
 	return m.Unmarshal(b)
 }
-func (m *ExecuteRequest_Phase) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
+func (m *SetStateRequest) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
 	if deterministic {
-		return xxx_messageInfo_ExecuteRequest_Phase.Marshal(b, m, deterministic)
+		return xxx_messageInfo_SetStateRequest.Marshal(b, m, deterministic)
 	} else {
 		b = b[:cap(b)]
 		n, err := m.MarshalTo(b)
@@ -149,44 +222,30 @@ func (m *ExecuteRequest_Phase) XXX_Marshal(b []byte, deterministic bool) ([]byte
 		return b[:n], nil
 	}
 }
-func (m *ExecuteRequest_Phase) XXX_Merge(src proto.Message) {
-	xxx_messageInfo_ExecuteRequest_Phase.Merge(m, src)
+func (m *SetStateRequest) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_SetStateRequest.Merge(m, src)
 }
-func (m *ExecuteRequest_Phase) XXX_Size() int {
+func (m *SetStateRequest) XXX_Size() int {
 	return m.Size()
 }
-func (m *ExecuteRequest_Phase) XXX_DiscardUnknown() {
-	xxx_messageInfo_ExecuteRequest_Phase.DiscardUnknown(m)
+func (m *SetStateRequest) XXX_DiscardUnknown() {
+	xxx_messageInfo_SetStateRequest.DiscardUnknown(m)
 }
 
-var xxx_messageInfo_ExecuteRequest_Phase proto.InternalMessageInfo
+var xxx_messageInfo_SetStateRequest proto.InternalMessageInfo
 
-func (m *ExecuteRequest_Phase) GetID() string {
+func (m *SetStateRequest) GetPhase() *Phase {
 	if m != nil {
-		return m.ID
-	}
-	return ""
-}
-
-func (m *ExecuteRequest_Phase) GetKey() *OperationKey {
-	if m != nil {
-		return m.Key
+		return m.Phase
 	}
 	return nil
 }
 
-func (m *ExecuteRequest_Phase) GetRollback() bool {
+func (m *SetStateRequest) GetState() string {
 	if m != nil {
-		return m.Rollback
+		return m.State
 	}
-	return false
-}
-
-func (m *ExecuteRequest_Phase) GetForce() bool {
-	if m != nil {
-		return m.Force
-	}
-	return false
+	return ""
 }
 
 // CompleteRequest describes a request to manually complete the operation
@@ -202,7 +261,7 @@ func (m *CompleteRequest) Reset()         { *m = CompleteRequest{} }
 func (m *CompleteRequest) String() string { return proto.CompactTextString(m) }
 func (*CompleteRequest) ProtoMessage()    {}
 func (*CompleteRequest) Descriptor() ([]byte, []int) {
-	return fileDescriptor_675879a591bd3155, []int{1}
+	return fileDescriptor_675879a591bd3155, []int{3}
 }
 func (m *CompleteRequest) XXX_Unmarshal(b []byte) error {
 	return m.Unmarshal(b)
@@ -249,7 +308,7 @@ func (m *AbortRequest) Reset()         { *m = AbortRequest{} }
 func (m *AbortRequest) String() string { return proto.CompactTextString(m) }
 func (*AbortRequest) ProtoMessage()    {}
 func (*AbortRequest) Descriptor() ([]byte, []int) {
-	return fileDescriptor_675879a591bd3155, []int{2}
+	return fileDescriptor_675879a591bd3155, []int{4}
 }
 func (m *AbortRequest) XXX_Unmarshal(b []byte) error {
 	return m.Unmarshal(b)
@@ -281,7 +340,10 @@ var xxx_messageInfo_AbortRequest proto.InternalMessageInfo
 // ShutdownRequest describes a request to shut down the server
 type ShutdownRequest struct {
 	// Completed indicates that the operation has been successfully completed
-	Completed            bool     `protobuf:"varint,1,opt,name=completed,proto3" json:"completed,omitempty"`
+	Completed bool `protobuf:"varint,1,opt,name=completed,proto3" json:"completed,omitempty"`
+	// ExitCode optionally specifies the exit code for the service.
+	// 0 value is considered success
+	ExitCode             int32    `protobuf:"varint,2,opt,name=exitCode,proto3" json:"exitCode,omitempty"`
 	XXX_NoUnkeyedLiteral struct{} `json:"-"`
 	XXX_unrecognized     []byte   `json:"-"`
 	XXX_sizecache        int32    `json:"-"`
@@ -291,7 +353,7 @@ func (m *ShutdownRequest) Reset()         { *m = ShutdownRequest{} }
 func (m *ShutdownRequest) String() string { return proto.CompactTextString(m) }
 func (*ShutdownRequest) ProtoMessage()    {}
 func (*ShutdownRequest) Descriptor() ([]byte, []int) {
-	return fileDescriptor_675879a591bd3155, []int{3}
+	return fileDescriptor_675879a591bd3155, []int{5}
 }
 func (m *ShutdownRequest) XXX_Unmarshal(b []byte) error {
 	return m.Unmarshal(b)
@@ -327,6 +389,13 @@ func (m *ShutdownRequest) GetCompleted() bool {
 	return false
 }
 
+func (m *ShutdownRequest) GetExitCode() int32 {
+	if m != nil {
+		return m.ExitCode
+	}
+	return 0
+}
+
 // DebugReportRequest describes a request to generate debug report
 type DebugReportRequest struct {
 	// Path specifies the path to the report file
@@ -340,7 +409,7 @@ func (m *DebugReportRequest) Reset()         { *m = DebugReportRequest{} }
 func (m *DebugReportRequest) String() string { return proto.CompactTextString(m) }
 func (*DebugReportRequest) ProtoMessage()    {}
 func (*DebugReportRequest) Descriptor() ([]byte, []int) {
-	return fileDescriptor_675879a591bd3155, []int{4}
+	return fileDescriptor_675879a591bd3155, []int{6}
 }
 func (m *DebugReportRequest) XXX_Unmarshal(b []byte) error {
 	return m.Unmarshal(b)
@@ -393,7 +462,7 @@ func (m *ProgressResponse) Reset()         { *m = ProgressResponse{} }
 func (m *ProgressResponse) String() string { return proto.CompactTextString(m) }
 func (*ProgressResponse) ProtoMessage()    {}
 func (*ProgressResponse) Descriptor() ([]byte, []int) {
-	return fileDescriptor_675879a591bd3155, []int{5}
+	return fileDescriptor_675879a591bd3155, []int{7}
 }
 func (m *ProgressResponse) XXX_Unmarshal(b []byte) error {
 	return m.Unmarshal(b)
@@ -456,7 +525,7 @@ func (m *Error) Reset()         { *m = Error{} }
 func (m *Error) String() string { return proto.CompactTextString(m) }
 func (*Error) ProtoMessage()    {}
 func (*Error) Descriptor() ([]byte, []int) {
-	return fileDescriptor_675879a591bd3155, []int{6}
+	return fileDescriptor_675879a591bd3155, []int{8}
 }
 func (m *Error) XXX_Unmarshal(b []byte) error {
 	return m.Unmarshal(b)
@@ -509,7 +578,7 @@ func (m *OperationKey) Reset()         { *m = OperationKey{} }
 func (m *OperationKey) String() string { return proto.CompactTextString(m) }
 func (*OperationKey) ProtoMessage()    {}
 func (*OperationKey) Descriptor() ([]byte, []int) {
-	return fileDescriptor_675879a591bd3155, []int{7}
+	return fileDescriptor_675879a591bd3155, []int{9}
 }
 func (m *OperationKey) XXX_Unmarshal(b []byte) error {
 	return m.Unmarshal(b)
@@ -561,8 +630,9 @@ func (m *OperationKey) GetID() string {
 
 func init() {
 	proto.RegisterEnum("installer.ProgressResponse_Status", ProgressResponse_Status_name, ProgressResponse_Status_value)
+	proto.RegisterType((*Phase)(nil), "installer.Phase")
 	proto.RegisterType((*ExecuteRequest)(nil), "installer.ExecuteRequest")
-	proto.RegisterType((*ExecuteRequest_Phase)(nil), "installer.ExecuteRequest.Phase")
+	proto.RegisterType((*SetStateRequest)(nil), "installer.SetStateRequest")
 	proto.RegisterType((*CompleteRequest)(nil), "installer.CompleteRequest")
 	proto.RegisterType((*AbortRequest)(nil), "installer.AbortRequest")
 	proto.RegisterType((*ShutdownRequest)(nil), "installer.ShutdownRequest")
@@ -575,50 +645,52 @@ func init() {
 func init() { proto.RegisterFile("installer.proto", fileDescriptor_675879a591bd3155) }
 
 var fileDescriptor_675879a591bd3155 = []byte{
-	// 680 bytes of a gzipped FileDescriptorProto
-	0x1f, 0x8b, 0x08, 0x00, 0x00, 0x00, 0x00, 0x00, 0x02, 0xff, 0x84, 0x54, 0x4d, 0x6f, 0xd3, 0x40,
-	0x10, 0x8d, 0x93, 0x26, 0x4d, 0x26, 0x6d, 0x93, 0x6e, 0x51, 0x09, 0x2e, 0x38, 0xc1, 0x07, 0x54,
-	0x24, 0x94, 0x42, 0x10, 0x12, 0x42, 0xa8, 0x52, 0xbe, 0x54, 0x45, 0x2d, 0x49, 0xb4, 0xa5, 0xe2,
-	0x58, 0x39, 0xce, 0xd4, 0x8d, 0xea, 0x78, 0x8d, 0xbd, 0x56, 0xa9, 0xc4, 0x0f, 0xa8, 0xfa, 0x0b,
-	0xb8, 0xf4, 0x44, 0x0f, 0xdc, 0xb9, 0x71, 0x07, 0x71, 0xe4, 0xc0, 0xb9, 0x42, 0xe1, 0x8f, 0x20,
-	0xaf, 0x9d, 0xc4, 0x0d, 0x0a, 0xdc, 0x3c, 0xb3, 0x6f, 0xde, 0x78, 0xde, 0xec, 0x5b, 0xc8, 0x0d,
-	0x2c, 0x97, 0x6b, 0xa6, 0x89, 0x4e, 0xd9, 0x76, 0x18, 0x67, 0x24, 0x33, 0x49, 0xc8, 0x1b, 0x06,
-	0x63, 0x86, 0x89, 0x5b, 0xe2, 0xa0, 0xe7, 0x1d, 0x6d, 0xe1, 0xd0, 0xe6, 0x67, 0x01, 0x4e, 0x06,
-	0x83, 0x19, 0x2c, 0xf8, 0x56, 0xbf, 0x4a, 0xb0, 0xd2, 0x7c, 0x87, 0xba, 0xc7, 0x91, 0xe2, 0x5b,
-	0x0f, 0x5d, 0x4e, 0x9e, 0x41, 0xd2, 0x3e, 0xd6, 0x5c, 0x2c, 0x48, 0x25, 0x69, 0x33, 0x5b, 0x29,
-	0x96, 0xa7, 0x7d, 0x6e, 0x22, 0xcb, 0x5d, 0x1f, 0x46, 0x03, 0xb4, 0xfc, 0x1e, 0x92, 0x22, 0x26,
-	0xeb, 0x10, 0x1f, 0xf4, 0x45, 0x71, 0xa6, 0x96, 0x1a, 0x5d, 0x17, 0xe3, 0xad, 0x06, 0x8d, 0x0f,
-	0xfa, 0xe4, 0x21, 0x24, 0x4e, 0xf0, 0xac, 0x10, 0x17, 0xac, 0xb7, 0x23, 0xac, 0x1d, 0x1b, 0x1d,
-	0x8d, 0x0f, 0x98, 0xb5, 0x8b, 0x67, 0xd4, 0xc7, 0x10, 0x19, 0xd2, 0x0e, 0x33, 0xcd, 0x9e, 0xa6,
-	0x9f, 0x14, 0x12, 0x25, 0x69, 0x33, 0x4d, 0x27, 0x31, 0xb9, 0x05, 0xc9, 0x23, 0xe6, 0xe8, 0x58,
-	0x58, 0x10, 0x07, 0x41, 0xa0, 0xbe, 0x84, 0x5c, 0x9d, 0x0d, 0x6d, 0x13, 0xa7, 0x73, 0x84, 0xfd,
-	0xa4, 0xff, 0xf7, 0x53, 0x57, 0x60, 0xa9, 0xda, 0x63, 0x0e, 0x0f, 0x4b, 0xd5, 0x2d, 0xc8, 0xed,
-	0x1f, 0x7b, 0xbc, 0xcf, 0x4e, 0xad, 0x31, 0xdb, 0x5d, 0xc8, 0xe8, 0x61, 0x83, 0x60, 0xb8, 0x34,
-	0x9d, 0x26, 0xd4, 0x4d, 0x20, 0x0d, 0xec, 0x79, 0x06, 0x45, 0x7b, 0x4a, 0x43, 0x08, 0x2c, 0xd8,
-	0x1a, 0x3f, 0x0e, 0xb4, 0xa0, 0xe2, 0x5b, 0xfd, 0x16, 0x87, 0x7c, 0xd7, 0x61, 0x86, 0x83, 0xae,
-	0x4b, 0xd1, 0xb5, 0x99, 0xe5, 0x22, 0x29, 0xc0, 0xe2, 0x10, 0x5d, 0x57, 0x33, 0x30, 0xc4, 0x8e,
-	0x43, 0xf2, 0x02, 0x52, 0x2e, 0xd7, 0xb8, 0xe7, 0x0a, 0xdd, 0x56, 0x2a, 0x6a, 0x64, 0x8e, 0x59,
-	0x9a, 0xf2, 0xbe, 0x40, 0xd2, 0xb0, 0x82, 0x3c, 0x80, 0x24, 0x3a, 0x0e, 0x73, 0x84, 0x84, 0xd9,
-	0x4a, 0x3e, 0xba, 0x48, 0x3f, 0x4f, 0x83, 0x63, 0xf5, 0xb3, 0x04, 0xa9, 0xa0, 0x94, 0x28, 0xb0,
-	0x78, 0xd0, 0xde, 0x6d, 0x77, 0xde, 0xb4, 0xf3, 0x31, 0x79, 0xf5, 0xe2, 0xb2, 0xb4, 0x1c, 0x1c,
-	0x1c, 0x58, 0x27, 0x16, 0x3b, 0xb5, 0x88, 0x0a, 0x99, 0x7a, 0xe7, 0x55, 0x77, 0xaf, 0xf9, 0xba,
-	0xd9, 0xc8, 0x4b, 0xf2, 0xda, 0xc5, 0x65, 0x29, 0x17, 0x20, 0xc6, 0xea, 0xf7, 0xc9, 0x13, 0x58,
-	0x9d, 0x60, 0x0e, 0xbb, 0xcd, 0x76, 0xa3, 0xd5, 0xde, 0xc9, 0xc7, 0x65, 0xf9, 0xe2, 0xb2, 0xb4,
-	0x3e, 0x83, 0xed, 0xa2, 0xd5, 0x1f, 0x58, 0x86, 0xdf, 0xb6, 0x5a, 0xeb, 0x50, 0x9f, 0x34, 0x11,
-	0x6d, 0x2b, 0x96, 0x82, 0x7d, 0x99, 0x9c, 0x7f, 0x54, 0x62, 0x9f, 0xae, 0x94, 0xd8, 0x97, 0x2b,
-	0x25, 0xfc, 0x55, 0xf5, 0x3e, 0x24, 0xc5, 0x14, 0xf3, 0xc5, 0x53, 0xcf, 0x25, 0x58, 0x8a, 0x2e,
-	0x9b, 0x3c, 0x02, 0xd0, 0x74, 0x9d, 0x79, 0x16, 0x3f, 0x9c, 0x5c, 0xd1, 0xe5, 0xd1, 0x75, 0x31,
-	0x53, 0x0d, 0xb2, 0xad, 0x06, 0xcd, 0x84, 0x80, 0x56, 0x9f, 0x54, 0x60, 0x49, 0x37, 0x3d, 0x97,
-	0xa3, 0x73, 0x68, 0x69, 0x43, 0x14, 0x1b, 0xc8, 0xd4, 0x72, 0xa3, 0xeb, 0x62, 0xb6, 0x1e, 0xe4,
-	0xdb, 0xda, 0x10, 0x69, 0x56, 0x9f, 0x06, 0xe1, 0xe5, 0x4f, 0xcc, 0x5e, 0xfe, 0xca, 0xcf, 0x38,
-	0x24, 0xab, 0x06, 0x5a, 0x9c, 0xd4, 0x61, 0x31, 0xb4, 0x11, 0xb9, 0x33, 0xd7, 0x5a, 0xf2, 0xc6,
-	0x3f, 0xf6, 0xfc, 0x58, 0x22, 0xdb, 0x90, 0x1e, 0x8b, 0x48, 0xe4, 0x08, 0x74, 0xc6, 0x03, 0xf2,
-	0x7a, 0x39, 0x78, 0x08, 0xca, 0xe3, 0x87, 0xa0, 0xdc, 0xf4, 0x1f, 0x02, 0xf2, 0x1c, 0x92, 0x42,
-	0x5b, 0x12, 0xf5, 0x45, 0xd4, 0x02, 0x73, 0x2b, 0xb7, 0x21, 0x3d, 0xb6, 0xc6, 0x8d, 0xce, 0x33,
-	0x7e, 0x99, 0x5b, 0xbf, 0x07, 0x6b, 0x3b, 0x68, 0xf9, 0x3b, 0xc1, 0x88, 0x63, 0xc8, 0xbd, 0x08,
-	0xd5, 0xdf, 0x4e, 0x9a, 0xc7, 0x56, 0xcb, 0x7f, 0x1f, 0x29, 0xd2, 0x8f, 0x91, 0x22, 0xfd, 0x1a,
-	0x29, 0xd2, 0x87, 0xdf, 0x4a, 0xac, 0x97, 0x12, 0x88, 0xa7, 0x7f, 0x02, 0x00, 0x00, 0xff, 0xff,
-	0xc1, 0x8a, 0xc7, 0x67, 0x1e, 0x05, 0x00, 0x00,
+	// 718 bytes of a gzipped FileDescriptorProto
+	0x1f, 0x8b, 0x08, 0x00, 0x00, 0x00, 0x00, 0x00, 0x02, 0xff, 0x94, 0x54, 0xcf, 0x6e, 0x12, 0x5f,
+	0x14, 0x66, 0xa0, 0x50, 0x38, 0xb4, 0x85, 0xde, 0xfe, 0xd2, 0x1f, 0x4e, 0x75, 0x8a, 0xb3, 0x30,
+	0x98, 0x18, 0xaa, 0xb8, 0x69, 0x8c, 0x31, 0xe1, 0x5f, 0x1a, 0xd2, 0x0a, 0xe4, 0x62, 0xe3, 0xb2,
+	0x19, 0x86, 0xd3, 0x29, 0x29, 0xcc, 0x1d, 0x67, 0xee, 0xa4, 0x6d, 0xe2, 0x03, 0x34, 0x5d, 0xbb,
+	0x70, 0xd3, 0x95, 0x5d, 0xb8, 0x77, 0xe7, 0x03, 0x18, 0x97, 0x3e, 0x41, 0x63, 0xf0, 0x45, 0xcc,
+	0xcc, 0x1d, 0x60, 0xc0, 0x50, 0xe3, 0x6e, 0xce, 0x39, 0xdf, 0x39, 0xdf, 0xf9, 0x33, 0xdf, 0x85,
+	0x4c, 0xdf, 0x74, 0xb8, 0x36, 0x18, 0xa0, 0x5d, 0xb4, 0x6c, 0xc6, 0x19, 0x49, 0x4d, 0x1c, 0xf2,
+	0x96, 0xc1, 0x98, 0x31, 0xc0, 0x1d, 0x3f, 0xd0, 0x75, 0x8f, 0x77, 0x70, 0x68, 0xf1, 0x0b, 0x81,
+	0x93, 0xc1, 0x60, 0x06, 0x13, 0xdf, 0xea, 0x7b, 0x88, 0xb7, 0x4f, 0x34, 0x07, 0xc9, 0x26, 0x44,
+	0xfb, 0xbd, 0x9c, 0x94, 0x97, 0x0a, 0xa9, 0x4a, 0x62, 0x74, 0xbb, 0x1d, 0x6d, 0xd4, 0x68, 0xb4,
+	0xdf, 0x23, 0x8f, 0x21, 0x76, 0x8a, 0x17, 0xb9, 0x68, 0x5e, 0x2a, 0xa4, 0x4b, 0xff, 0x17, 0xa7,
+	0x9c, 0x2d, 0x0b, 0x6d, 0x8d, 0xf7, 0x99, 0xb9, 0x8f, 0x17, 0xd4, 0xc3, 0x10, 0x19, 0x92, 0x36,
+	0x1b, 0x0c, 0xba, 0x9a, 0x7e, 0x9a, 0x8b, 0xe5, 0xa5, 0x42, 0x92, 0x4e, 0x6c, 0xf2, 0x1f, 0xc4,
+	0x8f, 0x99, 0xad, 0x63, 0x6e, 0xc9, 0x0f, 0x08, 0x43, 0xdd, 0x85, 0xb5, 0xfa, 0x39, 0xea, 0x2e,
+	0x47, 0x8a, 0xef, 0x5c, 0x74, 0x38, 0x79, 0x04, 0x71, 0xcb, 0xeb, 0xc7, 0xef, 0x24, 0x5d, 0xca,
+	0x86, 0x08, 0xfd, 0x3e, 0xa9, 0x08, 0xab, 0x2d, 0xc8, 0x74, 0x90, 0x77, 0xb8, 0xf6, 0xcf, 0xa9,
+	0x5e, 0x2b, 0x8e, 0x97, 0xe7, 0xcf, 0x94, 0xa2, 0xc2, 0x50, 0x5f, 0x42, 0xa6, 0xca, 0x86, 0xd6,
+	0x00, 0xa7, 0x05, 0x83, 0xd1, 0xa5, 0xbf, 0x8f, 0xae, 0xae, 0xc1, 0x4a, 0xb9, 0xcb, 0x6c, 0x1e,
+	0xa4, 0xaa, 0xfb, 0x90, 0xe9, 0x9c, 0xb8, 0xbc, 0xc7, 0xce, 0xcc, 0x71, 0xb5, 0xfb, 0x90, 0xd2,
+	0x03, 0x02, 0xb1, 0xe7, 0x24, 0x9d, 0x3a, 0xbc, 0xdd, 0xe1, 0x79, 0x9f, 0x57, 0x59, 0x4f, 0xf4,
+	0x15, 0xa7, 0x13, 0x5b, 0x2d, 0x00, 0xa9, 0x61, 0xd7, 0x35, 0x28, 0x5a, 0x53, 0x0a, 0x42, 0x60,
+	0xc9, 0xd2, 0xf8, 0x89, 0x38, 0x19, 0xf5, 0xbf, 0xd5, 0x6f, 0x51, 0xc8, 0xb6, 0x6d, 0x66, 0xd8,
+	0xe8, 0x38, 0x14, 0x1d, 0x8b, 0x99, 0x0e, 0x92, 0x1c, 0x2c, 0x0f, 0xd1, 0x71, 0x34, 0x03, 0x03,
+	0xec, 0xd8, 0x24, 0x2f, 0x20, 0xe1, 0x0d, 0xef, 0x3a, 0x3e, 0xe5, 0x5a, 0x49, 0x0d, 0xaf, 0x6c,
+	0xae, 0x4c, 0xb1, 0xe3, 0x23, 0x69, 0x90, 0xe1, 0x6d, 0x1b, 0x6d, 0x9b, 0xd9, 0xfe, 0xa5, 0x67,
+	0xb7, 0x5d, 0xf7, 0xfc, 0x54, 0x84, 0xd5, 0x2f, 0x12, 0x24, 0x44, 0x2a, 0x51, 0x60, 0xf9, 0xb0,
+	0xb9, 0xdf, 0x6c, 0xbd, 0x6d, 0x66, 0x23, 0xf2, 0xfa, 0xd5, 0x75, 0x7e, 0x55, 0x04, 0x0e, 0xcd,
+	0x53, 0x93, 0x9d, 0x99, 0x44, 0x85, 0x54, 0xb5, 0xf5, 0xba, 0x7d, 0x50, 0x7f, 0x53, 0xaf, 0x65,
+	0x25, 0x79, 0xe3, 0xea, 0x3a, 0x9f, 0x11, 0x88, 0xea, 0x64, 0x4f, 0xcf, 0x60, 0x7d, 0x82, 0x39,
+	0x6a, 0xd7, 0x9b, 0xb5, 0x46, 0x73, 0x2f, 0x1b, 0x95, 0xe5, 0xab, 0xeb, 0xfc, 0xe6, 0x1c, 0xb6,
+	0x8d, 0x66, 0xaf, 0x6f, 0x1a, 0x1e, 0x6d, 0xb9, 0xd2, 0xa2, 0x5e, 0xd1, 0x58, 0x98, 0xd6, 0x3f,
+	0x18, 0xf6, 0x64, 0x72, 0xf9, 0x49, 0x89, 0x7c, 0xbe, 0x51, 0x22, 0x5f, 0x6f, 0x94, 0xa0, 0x55,
+	0xf5, 0x21, 0xc4, 0xfd, 0x29, 0x16, 0x2f, 0x4f, 0xbd, 0x94, 0x60, 0x25, 0xfc, 0x23, 0x90, 0x27,
+	0x00, 0x9a, 0xae, 0x33, 0xd7, 0xe4, 0x47, 0x13, 0x25, 0xad, 0x8e, 0x6e, 0xb7, 0x53, 0x65, 0xe1,
+	0x6d, 0xd4, 0x68, 0x2a, 0x00, 0x34, 0x7a, 0xa4, 0x04, 0x2b, 0xfa, 0xc0, 0x75, 0x38, 0xda, 0x47,
+	0xa6, 0x36, 0x0c, 0x7e, 0xc6, 0x4a, 0x66, 0x74, 0xbb, 0x9d, 0xae, 0x0a, 0x7f, 0x53, 0x1b, 0x22,
+	0x4d, 0xeb, 0x53, 0x23, 0xd0, 0x68, 0x6c, 0x5e, 0xa3, 0xa5, 0x0f, 0x31, 0x88, 0x97, 0x0d, 0x34,
+	0x39, 0xa9, 0xc2, 0x72, 0x20, 0x28, 0x72, 0x2f, 0x7c, 0x91, 0x19, 0x91, 0xc9, 0x5b, 0x77, 0xdc,
+	0xf9, 0xa9, 0x44, 0x5e, 0x41, 0x72, 0xbc, 0x44, 0x22, 0x87, 0xa0, 0x73, 0xfa, 0x90, 0x37, 0x8b,
+	0xe2, 0x95, 0x29, 0x8e, 0x5f, 0x99, 0x62, 0xdd, 0x7b, 0x65, 0xbc, 0xfc, 0xb1, 0x36, 0x67, 0xf2,
+	0xe7, 0x04, 0xbb, 0x30, 0x7f, 0x17, 0xe2, 0xfe, 0x6d, 0x48, 0x58, 0x73, 0x61, 0x79, 0xdd, 0xc9,
+	0x1c, 0xc8, 0x6e, 0x96, 0x79, 0x56, 0x8b, 0x0b, 0xf3, 0x0f, 0x60, 0x63, 0x0f, 0x4d, 0xef, 0xa6,
+	0x18, 0x52, 0x1c, 0x79, 0x10, 0x2a, 0xf5, 0xa7, 0x12, 0x17, 0x55, 0xab, 0x64, 0xbf, 0x8f, 0x14,
+	0xe9, 0xc7, 0x48, 0x91, 0x7e, 0x8e, 0x14, 0xe9, 0xe3, 0x2f, 0x25, 0xd2, 0x4d, 0xf8, 0x88, 0xe7,
+	0xbf, 0x03, 0x00, 0x00, 0xff, 0xff, 0x14, 0x1a, 0xfc, 0xe7, 0xbb, 0x05, 0x00, 0x00,
 }
 
 // Reference imports to suppress errors if they are not otherwise used.
@@ -640,6 +712,8 @@ type AgentClient interface {
 	Execute(ctx context.Context, in *ExecuteRequest, opts ...grpc.CallOption) (Agent_ExecuteClient, error)
 	// Complete marks the operation as completed
 	Complete(ctx context.Context, in *CompleteRequest, opts ...grpc.CallOption) (*types.Empty, error)
+	// SetState sets the specified phase state without executing it
+	SetState(ctx context.Context, in *SetStateRequest, opts ...grpc.CallOption) (*types.Empty, error)
 	// Abort requests that the installer service aborts
 	Abort(ctx context.Context, in *AbortRequest, opts ...grpc.CallOption) (*types.Empty, error)
 	// Shutdown requests that the installer service shuts down gracefully
@@ -697,6 +771,15 @@ func (c *agentClient) Complete(ctx context.Context, in *CompleteRequest, opts ..
 	return out, nil
 }
 
+func (c *agentClient) SetState(ctx context.Context, in *SetStateRequest, opts ...grpc.CallOption) (*types.Empty, error) {
+	out := new(types.Empty)
+	err := c.cc.Invoke(ctx, "/installer.Agent/SetState", in, out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
 func (c *agentClient) Abort(ctx context.Context, in *AbortRequest, opts ...grpc.CallOption) (*types.Empty, error) {
 	out := new(types.Empty)
 	err := c.cc.Invoke(ctx, "/installer.Agent/Abort", in, out, opts...)
@@ -733,6 +816,8 @@ type AgentServer interface {
 	Execute(*ExecuteRequest, Agent_ExecuteServer) error
 	// Complete marks the operation as completed
 	Complete(context.Context, *CompleteRequest) (*types.Empty, error)
+	// SetState sets the specified phase state without executing it
+	SetState(context.Context, *SetStateRequest) (*types.Empty, error)
 	// Abort requests that the installer service aborts
 	Abort(context.Context, *AbortRequest) (*types.Empty, error)
 	// Shutdown requests that the installer service shuts down gracefully
@@ -780,6 +865,24 @@ func _Agent_Complete_Handler(srv interface{}, ctx context.Context, dec func(inte
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
 		return srv.(AgentServer).Complete(ctx, req.(*CompleteRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _Agent_SetState_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(SetStateRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(AgentServer).SetState(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: "/installer.Agent/SetState",
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(AgentServer).SetState(ctx, req.(*SetStateRequest))
 	}
 	return interceptor(ctx, in, info, handler)
 }
@@ -847,6 +950,10 @@ var _Agent_serviceDesc = grpc.ServiceDesc{
 			Handler:    _Agent_Complete_Handler,
 		},
 		{
+			MethodName: "SetState",
+			Handler:    _Agent_SetState_Handler,
+		},
+		{
 			MethodName: "Abort",
 			Handler:    _Agent_Abort_Handler,
 		},
@@ -869,7 +976,7 @@ var _Agent_serviceDesc = grpc.ServiceDesc{
 	Metadata: "installer.proto",
 }
 
-func (m *ExecuteRequest) Marshal() (dAtA []byte, err error) {
+func (m *Phase) Marshal() (dAtA []byte, err error) {
 	size := m.Size()
 	dAtA = make([]byte, size)
 	n, err := m.MarshalTo(dAtA)
@@ -879,38 +986,7 @@ func (m *ExecuteRequest) Marshal() (dAtA []byte, err error) {
 	return dAtA[:n], nil
 }
 
-func (m *ExecuteRequest) MarshalTo(dAtA []byte) (int, error) {
-	var i int
-	_ = i
-	var l int
-	_ = l
-	if m.Phase != nil {
-		dAtA[i] = 0xa
-		i++
-		i = encodeVarintInstaller(dAtA, i, uint64(m.Phase.Size()))
-		n1, err := m.Phase.MarshalTo(dAtA[i:])
-		if err != nil {
-			return 0, err
-		}
-		i += n1
-	}
-	if m.XXX_unrecognized != nil {
-		i += copy(dAtA[i:], m.XXX_unrecognized)
-	}
-	return i, nil
-}
-
-func (m *ExecuteRequest_Phase) Marshal() (dAtA []byte, err error) {
-	size := m.Size()
-	dAtA = make([]byte, size)
-	n, err := m.MarshalTo(dAtA)
-	if err != nil {
-		return nil, err
-	}
-	return dAtA[:n], nil
-}
-
-func (m *ExecuteRequest_Phase) MarshalTo(dAtA []byte) (int, error) {
+func (m *Phase) MarshalTo(dAtA []byte) (int, error) {
 	var i int
 	_ = i
 	var l int
@@ -925,11 +1001,11 @@ func (m *ExecuteRequest_Phase) MarshalTo(dAtA []byte) (int, error) {
 		dAtA[i] = 0x12
 		i++
 		i = encodeVarintInstaller(dAtA, i, uint64(m.Key.Size()))
-		n2, err := m.Key.MarshalTo(dAtA[i:])
+		n1, err := m.Key.MarshalTo(dAtA[i:])
 		if err != nil {
 			return 0, err
 		}
-		i += n2
+		i += n1
 	}
 	if m.Rollback {
 		dAtA[i] = 0x18
@@ -957,6 +1033,74 @@ func (m *ExecuteRequest_Phase) MarshalTo(dAtA []byte) (int, error) {
 	return i, nil
 }
 
+func (m *ExecuteRequest) Marshal() (dAtA []byte, err error) {
+	size := m.Size()
+	dAtA = make([]byte, size)
+	n, err := m.MarshalTo(dAtA)
+	if err != nil {
+		return nil, err
+	}
+	return dAtA[:n], nil
+}
+
+func (m *ExecuteRequest) MarshalTo(dAtA []byte) (int, error) {
+	var i int
+	_ = i
+	var l int
+	_ = l
+	if m.Phase != nil {
+		dAtA[i] = 0xa
+		i++
+		i = encodeVarintInstaller(dAtA, i, uint64(m.Phase.Size()))
+		n2, err := m.Phase.MarshalTo(dAtA[i:])
+		if err != nil {
+			return 0, err
+		}
+		i += n2
+	}
+	if m.XXX_unrecognized != nil {
+		i += copy(dAtA[i:], m.XXX_unrecognized)
+	}
+	return i, nil
+}
+
+func (m *SetStateRequest) Marshal() (dAtA []byte, err error) {
+	size := m.Size()
+	dAtA = make([]byte, size)
+	n, err := m.MarshalTo(dAtA)
+	if err != nil {
+		return nil, err
+	}
+	return dAtA[:n], nil
+}
+
+func (m *SetStateRequest) MarshalTo(dAtA []byte) (int, error) {
+	var i int
+	_ = i
+	var l int
+	_ = l
+	if m.Phase != nil {
+		dAtA[i] = 0xa
+		i++
+		i = encodeVarintInstaller(dAtA, i, uint64(m.Phase.Size()))
+		n3, err := m.Phase.MarshalTo(dAtA[i:])
+		if err != nil {
+			return 0, err
+		}
+		i += n3
+	}
+	if len(m.State) > 0 {
+		dAtA[i] = 0x12
+		i++
+		i = encodeVarintInstaller(dAtA, i, uint64(len(m.State)))
+		i += copy(dAtA[i:], m.State)
+	}
+	if m.XXX_unrecognized != nil {
+		i += copy(dAtA[i:], m.XXX_unrecognized)
+	}
+	return i, nil
+}
+
 func (m *CompleteRequest) Marshal() (dAtA []byte, err error) {
 	size := m.Size()
 	dAtA = make([]byte, size)
@@ -976,11 +1120,11 @@ func (m *CompleteRequest) MarshalTo(dAtA []byte) (int, error) {
 		dAtA[i] = 0xa
 		i++
 		i = encodeVarintInstaller(dAtA, i, uint64(m.Key.Size()))
-		n3, err := m.Key.MarshalTo(dAtA[i:])
+		n4, err := m.Key.MarshalTo(dAtA[i:])
 		if err != nil {
 			return 0, err
 		}
-		i += n3
+		i += n4
 	}
 	if m.XXX_unrecognized != nil {
 		i += copy(dAtA[i:], m.XXX_unrecognized)
@@ -1033,6 +1177,11 @@ func (m *ShutdownRequest) MarshalTo(dAtA []byte) (int, error) {
 			dAtA[i] = 0
 		}
 		i++
+	}
+	if m.ExitCode != 0 {
+		dAtA[i] = 0x10
+		i++
+		i = encodeVarintInstaller(dAtA, i, uint64(m.ExitCode))
 	}
 	if m.XXX_unrecognized != nil {
 		i += copy(dAtA[i:], m.XXX_unrecognized)
@@ -1097,11 +1246,11 @@ func (m *ProgressResponse) MarshalTo(dAtA []byte) (int, error) {
 		dAtA[i] = 0x1a
 		i++
 		i = encodeVarintInstaller(dAtA, i, uint64(m.Error.Size()))
-		n4, err := m.Error.MarshalTo(dAtA[i:])
+		n5, err := m.Error.MarshalTo(dAtA[i:])
 		if err != nil {
 			return 0, err
 		}
-		i += n4
+		i += n5
 	}
 	if m.XXX_unrecognized != nil {
 		i += copy(dAtA[i:], m.XXX_unrecognized)
@@ -1184,23 +1333,7 @@ func encodeVarintInstaller(dAtA []byte, offset int, v uint64) int {
 	dAtA[offset] = uint8(v)
 	return offset + 1
 }
-func (m *ExecuteRequest) Size() (n int) {
-	if m == nil {
-		return 0
-	}
-	var l int
-	_ = l
-	if m.Phase != nil {
-		l = m.Phase.Size()
-		n += 1 + l + sovInstaller(uint64(l))
-	}
-	if m.XXX_unrecognized != nil {
-		n += len(m.XXX_unrecognized)
-	}
-	return n
-}
-
-func (m *ExecuteRequest_Phase) Size() (n int) {
+func (m *Phase) Size() (n int) {
 	if m == nil {
 		return 0
 	}
@@ -1219,6 +1352,42 @@ func (m *ExecuteRequest_Phase) Size() (n int) {
 	}
 	if m.Force {
 		n += 2
+	}
+	if m.XXX_unrecognized != nil {
+		n += len(m.XXX_unrecognized)
+	}
+	return n
+}
+
+func (m *ExecuteRequest) Size() (n int) {
+	if m == nil {
+		return 0
+	}
+	var l int
+	_ = l
+	if m.Phase != nil {
+		l = m.Phase.Size()
+		n += 1 + l + sovInstaller(uint64(l))
+	}
+	if m.XXX_unrecognized != nil {
+		n += len(m.XXX_unrecognized)
+	}
+	return n
+}
+
+func (m *SetStateRequest) Size() (n int) {
+	if m == nil {
+		return 0
+	}
+	var l int
+	_ = l
+	if m.Phase != nil {
+		l = m.Phase.Size()
+		n += 1 + l + sovInstaller(uint64(l))
+	}
+	l = len(m.State)
+	if l > 0 {
+		n += 1 + l + sovInstaller(uint64(l))
 	}
 	if m.XXX_unrecognized != nil {
 		n += len(m.XXX_unrecognized)
@@ -1262,6 +1431,9 @@ func (m *ShutdownRequest) Size() (n int) {
 	_ = l
 	if m.Completed {
 		n += 2
+	}
+	if m.ExitCode != 0 {
+		n += 1 + sovInstaller(uint64(m.ExitCode))
 	}
 	if m.XXX_unrecognized != nil {
 		n += len(m.XXX_unrecognized)
@@ -1361,97 +1533,7 @@ func sovInstaller(x uint64) (n int) {
 func sozInstaller(x uint64) (n int) {
 	return sovInstaller(uint64((x << 1) ^ uint64((int64(x) >> 63))))
 }
-func (m *ExecuteRequest) Unmarshal(dAtA []byte) error {
-	l := len(dAtA)
-	iNdEx := 0
-	for iNdEx < l {
-		preIndex := iNdEx
-		var wire uint64
-		for shift := uint(0); ; shift += 7 {
-			if shift >= 64 {
-				return ErrIntOverflowInstaller
-			}
-			if iNdEx >= l {
-				return io.ErrUnexpectedEOF
-			}
-			b := dAtA[iNdEx]
-			iNdEx++
-			wire |= uint64(b&0x7F) << shift
-			if b < 0x80 {
-				break
-			}
-		}
-		fieldNum := int32(wire >> 3)
-		wireType := int(wire & 0x7)
-		if wireType == 4 {
-			return fmt.Errorf("proto: ExecuteRequest: wiretype end group for non-group")
-		}
-		if fieldNum <= 0 {
-			return fmt.Errorf("proto: ExecuteRequest: illegal tag %d (wire type %d)", fieldNum, wire)
-		}
-		switch fieldNum {
-		case 1:
-			if wireType != 2 {
-				return fmt.Errorf("proto: wrong wireType = %d for field Phase", wireType)
-			}
-			var msglen int
-			for shift := uint(0); ; shift += 7 {
-				if shift >= 64 {
-					return ErrIntOverflowInstaller
-				}
-				if iNdEx >= l {
-					return io.ErrUnexpectedEOF
-				}
-				b := dAtA[iNdEx]
-				iNdEx++
-				msglen |= int(b&0x7F) << shift
-				if b < 0x80 {
-					break
-				}
-			}
-			if msglen < 0 {
-				return ErrInvalidLengthInstaller
-			}
-			postIndex := iNdEx + msglen
-			if postIndex < 0 {
-				return ErrInvalidLengthInstaller
-			}
-			if postIndex > l {
-				return io.ErrUnexpectedEOF
-			}
-			if m.Phase == nil {
-				m.Phase = &ExecuteRequest_Phase{}
-			}
-			if err := m.Phase.Unmarshal(dAtA[iNdEx:postIndex]); err != nil {
-				return err
-			}
-			iNdEx = postIndex
-		default:
-			iNdEx = preIndex
-			skippy, err := skipInstaller(dAtA[iNdEx:])
-			if err != nil {
-				return err
-			}
-			if skippy < 0 {
-				return ErrInvalidLengthInstaller
-			}
-			if (iNdEx + skippy) < 0 {
-				return ErrInvalidLengthInstaller
-			}
-			if (iNdEx + skippy) > l {
-				return io.ErrUnexpectedEOF
-			}
-			m.XXX_unrecognized = append(m.XXX_unrecognized, dAtA[iNdEx:iNdEx+skippy]...)
-			iNdEx += skippy
-		}
-	}
-
-	if iNdEx > l {
-		return io.ErrUnexpectedEOF
-	}
-	return nil
-}
-func (m *ExecuteRequest_Phase) Unmarshal(dAtA []byte) error {
+func (m *Phase) Unmarshal(dAtA []byte) error {
 	l := len(dAtA)
 	iNdEx := 0
 	for iNdEx < l {
@@ -1588,6 +1670,218 @@ func (m *ExecuteRequest_Phase) Unmarshal(dAtA []byte) error {
 				}
 			}
 			m.Force = bool(v != 0)
+		default:
+			iNdEx = preIndex
+			skippy, err := skipInstaller(dAtA[iNdEx:])
+			if err != nil {
+				return err
+			}
+			if skippy < 0 {
+				return ErrInvalidLengthInstaller
+			}
+			if (iNdEx + skippy) < 0 {
+				return ErrInvalidLengthInstaller
+			}
+			if (iNdEx + skippy) > l {
+				return io.ErrUnexpectedEOF
+			}
+			m.XXX_unrecognized = append(m.XXX_unrecognized, dAtA[iNdEx:iNdEx+skippy]...)
+			iNdEx += skippy
+		}
+	}
+
+	if iNdEx > l {
+		return io.ErrUnexpectedEOF
+	}
+	return nil
+}
+func (m *ExecuteRequest) Unmarshal(dAtA []byte) error {
+	l := len(dAtA)
+	iNdEx := 0
+	for iNdEx < l {
+		preIndex := iNdEx
+		var wire uint64
+		for shift := uint(0); ; shift += 7 {
+			if shift >= 64 {
+				return ErrIntOverflowInstaller
+			}
+			if iNdEx >= l {
+				return io.ErrUnexpectedEOF
+			}
+			b := dAtA[iNdEx]
+			iNdEx++
+			wire |= uint64(b&0x7F) << shift
+			if b < 0x80 {
+				break
+			}
+		}
+		fieldNum := int32(wire >> 3)
+		wireType := int(wire & 0x7)
+		if wireType == 4 {
+			return fmt.Errorf("proto: ExecuteRequest: wiretype end group for non-group")
+		}
+		if fieldNum <= 0 {
+			return fmt.Errorf("proto: ExecuteRequest: illegal tag %d (wire type %d)", fieldNum, wire)
+		}
+		switch fieldNum {
+		case 1:
+			if wireType != 2 {
+				return fmt.Errorf("proto: wrong wireType = %d for field Phase", wireType)
+			}
+			var msglen int
+			for shift := uint(0); ; shift += 7 {
+				if shift >= 64 {
+					return ErrIntOverflowInstaller
+				}
+				if iNdEx >= l {
+					return io.ErrUnexpectedEOF
+				}
+				b := dAtA[iNdEx]
+				iNdEx++
+				msglen |= int(b&0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
+			if msglen < 0 {
+				return ErrInvalidLengthInstaller
+			}
+			postIndex := iNdEx + msglen
+			if postIndex < 0 {
+				return ErrInvalidLengthInstaller
+			}
+			if postIndex > l {
+				return io.ErrUnexpectedEOF
+			}
+			if m.Phase == nil {
+				m.Phase = &Phase{}
+			}
+			if err := m.Phase.Unmarshal(dAtA[iNdEx:postIndex]); err != nil {
+				return err
+			}
+			iNdEx = postIndex
+		default:
+			iNdEx = preIndex
+			skippy, err := skipInstaller(dAtA[iNdEx:])
+			if err != nil {
+				return err
+			}
+			if skippy < 0 {
+				return ErrInvalidLengthInstaller
+			}
+			if (iNdEx + skippy) < 0 {
+				return ErrInvalidLengthInstaller
+			}
+			if (iNdEx + skippy) > l {
+				return io.ErrUnexpectedEOF
+			}
+			m.XXX_unrecognized = append(m.XXX_unrecognized, dAtA[iNdEx:iNdEx+skippy]...)
+			iNdEx += skippy
+		}
+	}
+
+	if iNdEx > l {
+		return io.ErrUnexpectedEOF
+	}
+	return nil
+}
+func (m *SetStateRequest) Unmarshal(dAtA []byte) error {
+	l := len(dAtA)
+	iNdEx := 0
+	for iNdEx < l {
+		preIndex := iNdEx
+		var wire uint64
+		for shift := uint(0); ; shift += 7 {
+			if shift >= 64 {
+				return ErrIntOverflowInstaller
+			}
+			if iNdEx >= l {
+				return io.ErrUnexpectedEOF
+			}
+			b := dAtA[iNdEx]
+			iNdEx++
+			wire |= uint64(b&0x7F) << shift
+			if b < 0x80 {
+				break
+			}
+		}
+		fieldNum := int32(wire >> 3)
+		wireType := int(wire & 0x7)
+		if wireType == 4 {
+			return fmt.Errorf("proto: SetStateRequest: wiretype end group for non-group")
+		}
+		if fieldNum <= 0 {
+			return fmt.Errorf("proto: SetStateRequest: illegal tag %d (wire type %d)", fieldNum, wire)
+		}
+		switch fieldNum {
+		case 1:
+			if wireType != 2 {
+				return fmt.Errorf("proto: wrong wireType = %d for field Phase", wireType)
+			}
+			var msglen int
+			for shift := uint(0); ; shift += 7 {
+				if shift >= 64 {
+					return ErrIntOverflowInstaller
+				}
+				if iNdEx >= l {
+					return io.ErrUnexpectedEOF
+				}
+				b := dAtA[iNdEx]
+				iNdEx++
+				msglen |= int(b&0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
+			if msglen < 0 {
+				return ErrInvalidLengthInstaller
+			}
+			postIndex := iNdEx + msglen
+			if postIndex < 0 {
+				return ErrInvalidLengthInstaller
+			}
+			if postIndex > l {
+				return io.ErrUnexpectedEOF
+			}
+			if m.Phase == nil {
+				m.Phase = &Phase{}
+			}
+			if err := m.Phase.Unmarshal(dAtA[iNdEx:postIndex]); err != nil {
+				return err
+			}
+			iNdEx = postIndex
+		case 2:
+			if wireType != 2 {
+				return fmt.Errorf("proto: wrong wireType = %d for field State", wireType)
+			}
+			var stringLen uint64
+			for shift := uint(0); ; shift += 7 {
+				if shift >= 64 {
+					return ErrIntOverflowInstaller
+				}
+				if iNdEx >= l {
+					return io.ErrUnexpectedEOF
+				}
+				b := dAtA[iNdEx]
+				iNdEx++
+				stringLen |= uint64(b&0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
+			intStringLen := int(stringLen)
+			if intStringLen < 0 {
+				return ErrInvalidLengthInstaller
+			}
+			postIndex := iNdEx + intStringLen
+			if postIndex < 0 {
+				return ErrInvalidLengthInstaller
+			}
+			if postIndex > l {
+				return io.ErrUnexpectedEOF
+			}
+			m.State = string(dAtA[iNdEx:postIndex])
+			iNdEx = postIndex
 		default:
 			iNdEx = preIndex
 			skippy, err := skipInstaller(dAtA[iNdEx:])
@@ -1806,6 +2100,25 @@ func (m *ShutdownRequest) Unmarshal(dAtA []byte) error {
 				}
 			}
 			m.Completed = bool(v != 0)
+		case 2:
+			if wireType != 0 {
+				return fmt.Errorf("proto: wrong wireType = %d for field ExitCode", wireType)
+			}
+			m.ExitCode = 0
+			for shift := uint(0); ; shift += 7 {
+				if shift >= 64 {
+					return ErrIntOverflowInstaller
+				}
+				if iNdEx >= l {
+					return io.ErrUnexpectedEOF
+				}
+				b := dAtA[iNdEx]
+				iNdEx++
+				m.ExitCode |= int32(b&0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
 		default:
 			iNdEx = preIndex
 			skippy, err := skipInstaller(dAtA[iNdEx:])

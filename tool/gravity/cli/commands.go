@@ -76,6 +76,8 @@ type Application struct {
 	PlanExecuteCmd PlanExecuteCmd
 	// PlanRollbackCmd rolls back a phase of an active operation
 	PlanRollbackCmd PlanRollbackCmd
+	// PlanSetCmd sets the specified phase state without executing it
+	PlanSetCmd PlanSetCmd
 	// ResumeCmd resumes active operation
 	ResumeCmd ResumeCmd
 	// PlanResumeCmd resumes active operation
@@ -503,6 +505,8 @@ type PlanDisplayCmd struct {
 	*kingpin.CmdClause
 	// Output is output format
 	Output *constants.Format
+	// Short is a shorthand for short output format
+	Short *bool
 }
 
 // PlanExecuteCmd executes a phase of an active operation
@@ -525,6 +529,15 @@ type PlanRollbackCmd struct {
 	Force *bool
 	// PhaseTimeout is the rollback timeout
 	PhaseTimeout *time.Duration
+}
+
+// PlanSetCmd sets the specified phase state without executing it
+type PlanSetCmd struct {
+	*kingpin.CmdClause
+	// Phase is the phase to set state for
+	Phase *string
+	// State is the new phase state
+	State *string
 }
 
 // PlanResumeCmd resumes active operation

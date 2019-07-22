@@ -1,5 +1,5 @@
 /*
-Copyright 2018 Gravitational, Inc.
+Copyright 2018-2019 Gravitational, Inc.
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -31,6 +31,11 @@ import (
 func FSMSpec(config FSMConfig) fsm.FSMSpecFunc {
 	return func(p fsm.ExecutorParams, remote fsm.Remote) (fsm.PhaseExecutor, error) {
 		switch {
+		case strings.HasPrefix(p.Phase.ID, ChecksPhase):
+			return phases.NewChecks(p,
+				config.Operator,
+				config.Runner)
+
 		case strings.HasPrefix(p.Phase.ID, installphases.ConfigurePhase):
 			return installphases.NewConfigure(p,
 				config.Operator)
@@ -106,6 +111,8 @@ func FSMSpec(config FSMConfig) fsm.FSMSpecFunc {
 }
 
 const (
+	// ChecksPhase runs preflight checks on the joining node
+	ChecksPhase = "/checks"
 	// PreHookPhase runs pre-expand application hook
 	PreHookPhase = "/preHook"
 	// EtcdBackupPhase backs up etcd data on a master node

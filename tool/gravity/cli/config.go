@@ -1016,17 +1016,13 @@ func installerAbortOperation(env *localenv.LocalEnvironment) func(context.Contex
 		if err != nil {
 			return trace.Wrap(err)
 		}
-		serviceName, err := installerclient.GetServicePath(stateDir)
+		serviceName, err := environ.GetServicePath(stateDir)
 		if err == nil {
 			logger := logger.WithField("service", serviceName)
 			logger.Info("Uninstalling service.")
 			if err := environ.UninstallService(serviceName); err != nil {
 				logger.WithError(err).Warn("Failed to uninstall service.")
 			}
-		}
-		logger.Info("Uninstalling services.")
-		if err := environ.UninstallServices(utils.DiscardPrinter, logger); err != nil {
-			logger.WithError(err).Warn("Failed to uninstall services.")
 		}
 		logger.Info("Uninstalling system.")
 		if err := environ.UninstallSystem(utils.DiscardPrinter, logger); err != nil {
@@ -1102,7 +1098,7 @@ func installerCleanup(logger logrus.FieldLogger) error {
 	if err != nil {
 		return trace.Wrap(err)
 	}
-	serviceName, err := installerclient.GetServicePath(stateDir)
+	serviceName, err := environ.GetServicePath(stateDir)
 	logger.WithField("service", serviceName).Info("Uninstalling service.")
 	if err == nil {
 		if err := environ.UninstallService(serviceName); err != nil {

@@ -63,7 +63,7 @@ import (
 // NewPeer returns new cluster peer client
 func NewPeer(config PeerConfig) (*Peer, error) {
 	if err := config.CheckAndSetDefaults(); err != nil {
-		return nil, trace.Wrap(err)
+		return nil, trace.Wrap(utils.NewFailedPreconditionError(err))
 	}
 	server := server.New()
 	dispatcher := buffered.New()
@@ -125,7 +125,7 @@ func (p *Peer) Run(listener net.Listener) error {
 	// Stopping is on best-effort basis, the client will be trying to stop the service
 	// if notified
 	p.stop()
-	return trace.Wrap(err)
+	return installpb.WrapServiceError(err)
 }
 
 // Stop shuts down this RPC agent
@@ -150,23 +150,66 @@ func (p *Peer) Execute(req *installpb.ExecuteRequest, stream installpb.Agent_Exe
 		case event := <-p.dispatcher.Chan():
 			err := stream.Send(event)
 			if err != nil {
-				return trace.Wrap(err)
+				return err
 			}
 		case req := <-p.closeC:
 			err := stream.Send(req.resp)
 			close(req.doneC)
 			if err != nil {
-				return trace.Wrap(err)
+				return err
 			}
 		case err := <-p.execDoneC:
 			if err != nil {
-				// Phase finished with an error
-				return status.Error(codes.FailedPrecondition, err.Error())
+				// Phase finished with an error.
+				if installpb.IsRPCError(err) {
+					return trace.Unwrap(err)
+				}
+				// Flag a failed execution (i.e. intermediate) step with codes.Aborted
+				// instead of codes.FailedPrecondition as a better suiting error code.
+				// See this for reference:
+				//
+				// FailedPrecondition indicates operation was rejected because the
+				// system is not in a state required for the operation's execution.
+				// For example, directory to be deleted may be non-empty, an rmdir
+				// operation is applied to a non-directory, etc.
+				//
+				// A litmus test that may help a service implementor in deciding
+				// between FailedPrecondition, Aborted, and Unavailable:
+				//  (a) Use Unavailable if the client can retry just the failing call.
+				//  (b) Use Aborted if the client should retry at a higher-level
+				//      (e.g., restarting a read-modify-write sequence).
+				//  (c) Use FailedPrecondition if the client should not retry until
+				//      the system state has been explicitly fixed. E.g., if an "rmdir"
+				//      fails because the directory is non-empty, FailedPrecondition
+				//      should be returned since the client should not retry unless
+				//      they have first fixed up the directory by deleting files from it.
+				//  (d) Use FailedPrecondition if the client performs conditional
+				//      REST Get/Update/Delete on a resource and the resource on the
+				//      server does not match the condition. E.g., conflicting
+				//      read-modify-write on the same resource.
+				return status.Error(codes.Aborted, err.Error())
 			}
 			return nil
 		}
 	}
 	return nil
+}
+
+// SetPhase sets phase state without executing it.
+func (p *Peer) SetPhase(req *installpb.SetStateRequest) error {
+	p.WithField("req", req).Info("Set phase.")
+	ctx, err := p.tryConnect(req.OperationKey().OperationID)
+	if err != nil {
+		return trace.Wrap(err)
+	}
+	machine, err := p.getFSM(*ctx)
+	if err != nil {
+		return trace.Wrap(err)
+	}
+	return machine.ChangePhaseState(p.ctx, fsm.StateChange{
+		Phase: req.Phase.ID,
+		State: req.State,
+	})
 }
 
 // Complete manually completes the operation given with opKey.
@@ -300,6 +343,12 @@ func (p *Peer) startConnectLoop() {
 		if err == nil {
 			err = p.init(*ctx)
 		}
+		if err != nil {
+			// Consider failure to connect/init a terminal error.
+			// This will prevent the service from automatically restarting.
+			// It can be restarted manually though (i.e. after correcting the configuration)
+			err = status.Error(codes.FailedPrecondition, trace.UserMessage(err))
+		}
 		select {
 		case p.connectC <- connectResult{
 			operationContext: ctx,
@@ -334,6 +383,10 @@ func (p *Peer) startExecuteLoop() {
 					}).Warn("Failed to execute.")
 				}
 				p.execDoneC <- err
+				if installpb.IsFailedPreconditionError(err) {
+					p.errC <- err
+					return
+				}
 			case <-p.ctx.Done():
 				return
 			}
@@ -428,7 +481,7 @@ func (p *Peer) executeConcurrentStep(req *installpb.ExecuteRequest, stream insta
 	return nil
 }
 
-func (p *Peer) executePhase(ctx context.Context, opCtx operationContext, phase installpb.ExecuteRequest_Phase, disp dispatcher.EventDispatcher) error {
+func (p *Peer) executePhase(ctx context.Context, opCtx operationContext, phase installpb.Phase, disp dispatcher.EventDispatcher) error {
 	if phase.IsResume() && !opCtx.isExpand() {
 		return trace.Wrap(p.run(opCtx))
 	}
@@ -664,7 +717,7 @@ func (p *Peer) connectLoop() (*operationContext, error) {
 			if err != nil {
 				// join token is incorrect, fail immediately and report to user
 				if trace.IsAccessDenied(err) {
-					return nil, trace.AccessDenied("access denied: bad secret token")
+					return nil, trace.AccessDenied("bad secret token")
 				}
 				if err, ok := trace.Unwrap(err).(*utils.AbortRetry); ok {
 					return nil, trace.BadParameter(err.OriginalError())
@@ -914,6 +967,9 @@ func (p *Peer) executeExpandOperation(ctx operationContext) error {
 	if err != nil {
 		return trace.Wrap(err, "failed to complete operation")
 	}
+	if fsmErr != nil {
+		return trace.Wrap(fsmErr)
+	}
 	p.sendCompletionEvent()
 	return nil
 }
@@ -934,7 +990,7 @@ func (p *Peer) operationContext() (*operationContext, error) {
 	case result := <-p.connectC:
 		p.connectC <- result
 		if result.err != nil {
-			return nil, trace.Wrap(result.err)
+			return nil, result.err
 		}
 		return result.operationContext, nil
 	case <-p.ctx.Done():
@@ -1115,7 +1171,7 @@ func isTerminalError(err error) bool {
 	return utils.IsAbortError(err) || trace.IsAccessDenied(err)
 }
 
-func phaseTitle(phase installpb.ExecuteRequest_Phase) string {
+func phaseTitle(phase installpb.Phase) string {
 	if phase.IsResume() {
 		return "Resuming operation"
 	}
