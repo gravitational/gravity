@@ -26,7 +26,7 @@ if [ "$1" == "run" ] ; then
     trap "kill 0" EXIT
 
     echo "Starting mkdocs server..."
-    mkdocs serve --config-file $latest --livereload --dev-addr=0.0.0.0:6600 &
+    mkdocs serve --config-file $latest --livereload --dev-addr=0.0.0.0:6601 &
     wait
     exit
 fi
