@@ -1,116 +1,131 @@
 # Introduction
 
-Gravity is an open source toolkit which allows developers to package a
-Kubernetes (AKA, "K8s") cluster and all its applications
-into a single file called "cluster image".
+Gravity is an open source toolkit that provides true portability for cloud-native applications. 
+It allows developers to package a Kubernetes cluster and all its applications into a single
+file called a "Cluster Image".
 
-Each cluster image is a dependency-free `.tar` file. It can be used to deploy
-an entire K8s cluster preloaded with applications into a variety of target
-infrastructure options, such as developers' own cloud infrastructure, 3rd party
-cloud accounts, bare metal servers, VMWare environments or even into air-gapped
-servers not connected to the Internet.
+Each Cluster Image is a dependency-free `.tar` file. It can be deployed into a variety of
+target infrastructure options, such as developers' own cloud infrastructure, 3rd party 
+cloud accounts, bare metal servers, VMware environments or even into air-gapped servers 
+not connected to the Internet.
 
-Each K8s cluster created using Gravity contains an
-authentication gateway which allows ops teams to remotely troubleshoot and push
-updates to many instances of the same appliance either via SSH or via
-Kubernetes API, even if they are located behind a firewall.
+The Cluster Image can be installed across multiple Linux machines through a web browser 
+GUI or CLI installation wizard to create a resilient Kubernetes cluster. This process 
+is completely autonomous and does not require any dependencies from outside the Cluster Image. 
 
+When a Cluster is up and running, Gravity eases the operational burden of managing it. 
+Each Cluster includes the `gravity` daemon that acts as a "Kubernetes hypervisor",
+continuously monitoring the health of Kubernetes services and re-configuring them, 
+if necessary. In addition, each Gravity Cluster contains an authentication gateway 
+which allows ops teams to remotely troubleshoot and push updates to many instances
+of the same appliance either via SSH or Kubernetes API, even if they are located
+behind a firewall.
+
+The Gravity Community Edition is open sourced [on Github](https://github.com/gravitational/gravity) 
+if you want to dive into the code. This documentation is also available in the Github repository, 
+so feel free to create an issue or pull request if you have comments.
 
 This overview will walk you through the basic concepts of Gravity and explain
 how it is used to solve the operational challenges that typically arise when
-running many K8s clusters across distributed teams within a large organization,
+running many Kubernetes clusters across distributed teams within a large organization,
 or across multiple organizations.
-
-!!! tip "How does Gravity compare to Kubernetes?"
-    Kubernetes's job is to manage your applications. Gravity's job is to keep
-    Kubernetes alive and well.
-
-**Gravity provides true portability for cloud-native applications.**
 
 ## Use Cases
 
 There are two primary use cases for Gravity:
 
-1. **Deploying K8s Applications on premises:** SaaS vendors often need to
-   deploy and remotely update complex cloud applications in private data
-   centers or public cloud accounts, like AWS, owned by their customers. For
-   them, Gravity provides true portability for cloud-native applications.
+1. **Delivering Kubernetes applications to third-party premises:** SaaS vendors that
+need to deploy and remotely update complex cloud applications in private data 
+centers or public cloud accounts owned by their customers (aka, on-prem). Gravity
+reduces the time and operational overhead of delivering these applications on-prem.
 
-2. **Reducing Operational Overhead of Multi-Cluster Kubernetes Deployments:**
-   Teams of site reliability engineers (SREs) are often tasked with providing
-   Kubernetes-as-a-Service within their organization across multiple cloud
-   providers or hybrid environments. The image-based approach allows them to
-   treat K8s clusters as cattle, not pets, dramatically reducing the
-   operational overhead.
+2. **Internal multi-cluster Kubernetes deployments:** Teams of site reliability
+engineers (SREs) are often tasked with providing Kubernetes-as-a-Service within 
+their organization across multiple cloud providers or hybrid environments. The
+image-based approach allows them to treat Kubernetes clusters as cattle, not pets, 
+dramatically reducing the operational overhead.
 
-Gravity users can create an cluster image that contains the Kubernetes binaries,
-their dependencies, application containers and their layers, a private Docker
-registry for autonomous operation, a monitoring system and an authentication gateway
-for remotely managing the cluster via both SSH and via the Kubernetes API.
+In either use case, Gravity users can create a Cluster Image that contains:
 
-In other words, a Gravity cluster image is a _self-contained, downloadable
-Kubernetes appliance_ which enables true portability for cloud applications across any
-public or private infrastructure.
+- The Kubernetes binaries and their dependencies;
+- Application containers and their layers;
+- A private Docker registry for autonomous operation;
+- A monitoring and alerting system; and
+- An authentication gateway for remotely managing the Gravity Cluster via both SSH 
+and the Kubernetes API.
+
+In other words, a Gravity Cluster Image is a _self-contained, downloadable
+Kubernetes appliance_ which enables true portability for cloud applications across 
+any public or private infrastructure.
+
+![gravity overview](/images/gravity-overview.png)
+
+## Documentation Overview
+
+A brief explanation of each section of this documentation is below:
+
+- [Quickstart Guide](/quickstart/) - A quick tutorial to show off the basic capabilities of Gravity. A good place to start if you want to jump right in.
+- [Building Cluster Images](/pack/) - How to build a Gravity Cluster Image from scratch.
+- [Installation](/installation/) - How to install a Gravity Cluster Image in a target environment.
+- [Cluster Management](/cluster/) - Everything you need to know for operating Gravity Clusters.
+- [Cluster Monitoring](/monitoring/) - Overview of the monitoring and alerting tools that Gravity uses.
+- [Remote Management](/manage/) - How Teleport and Gravity Hub enable the remote management of Clusters.
+- [Gravity Hub](/hub/) - Setting up and using Gravity Hub (Enterprise edition only).
+- [System Requirements](/requirements/) - System requirements to successfully run Gravity components.
+- [CLI Reference](/cli/) - Overview of the Gravity CLI tools.
+- [Releases](/changelog/) - List of Gravity versions and release notes.
+- [FAQ](/faq/) - Common issues encountered in Cluster environments.
+- [Guides](/guides/) - A list of other Gravity related workshops and guides we have published.
+- [Terraform](/terraform/) - Guide for using Terraform with Gravity.
+
 
 ## Components
 
 Gravity consists of the following components:
 
-
 | Component   | Description
 |-------------|---------------------------------------------------------------------------------------------------------------------------------------------------------|
-| `tele`      | The build tool. `tele` is used for building cluster images. The enterprise edition of `tele` also publishes cluster images them into the Gravity Hub.  |
+| `tele`      | The build tool. `tele` is used for building Cluster Images. The enterprise edition of `tele` can also publish Cluster Images into Gravity Hub.  |
 | `tsh`       | The remote access client to authenticate against a SAML/OAuth identity provider and remotely connect to Kubernetes clusters via SSH or Kubernetes API.   |
-| `gravity` <small>service</small> | The cluster manager agent which runs on every cluster node. It abstracts away complexities of Kubernetes management.
-| `gravity` <small>CLI tool</small>  | The CLI tool to perform high level cluster administration tasks like expansion, upgrades, etc.  |
-| Gravity Hub | The Hub is web portal for publishing cluster images. Think of Gravity Hub as a catalog of Kubernetes clusters and Kubernetes applications. Gravity Hub is available to Enterprise edition users only. |
-
+| `gravity` <small>service</small> | The Cluster manager agent which runs on every  node. It reduces the complexities of Kubernetes management.
+| `gravity` <small>CLI tool</small>  | The CLI tool to perform high level Cluster administration tasks like expansion, upgrades, etc.  |
+| Gravity Hub | Gravity Hub is a web portal and repository for publishing Cluster Images. Think of Gravity Hub as a catalog of Kubernetes clusters and Kubernetes applications. Gravity Hub is only available in the Gravity Enterprise edition. |
 
 ## Cluster Lifecycle
 
-A cluster image may contain an "empty", pre-packaged Kubernetes environment. Such cluster
-images are used by organizations that require an easy way to run multiple identical, compliant
-Kubernetes clusters with reduced operational overhead.
-
-A cluster image can also contain several Kubernetes applications. Such cluster
-images can be used to distribute complex, Kubernetes applications as
-downloadable appliances. The typical life cycle of such applications consists of
+A Cluster Image may contain an "empty" Kubernetes environment or contain multiple Kubernetes applications. The typical life cycle of such applications consists of
 the following:
 
 0. First, you must prepare your application(s) to run on Kubernetes. If you do
    not have Kubernetes expertise, our Solutions Engineering Team can help.
-1. Package the applications into a cluster image using `tele` CLI tool.
-2. Publish the cluster image for distribution. AWS S3 or any CDN can be used
-   to publish downloadable images. You can also use Gravity Hub, which is only
-   available to Enterprise Edition users, to manage the publishing process of your
-   cluster images.
-3. Deploy and install the cluster image onto any supported Linux-based
+1. Package the applications into a Cluster Image using the `tele` CLI tool.
+2. Publish the Cluster Image for distribution. AWS S3 or any CDN can be used
+   to publish downloadable images. Gravity Enterprise users can also use Gravity Hub to manage the publishing and distribution of Cluster Images.
+3. Deploy and install the Cluster Image onto any supported Linux-based
    infrastructure ("Gravity Cluster" or "Cluster").
-4. Securely connect to any cluster to monitor health, provide automatic
+4. Securely connect to any Cluster to monitor health, provide automatic
    updates, remote support, etc.
 
 ## Packaging
 
-To package a cluster into a cluster image:
+To create a Cluster Image:
 
 * Create Kubernetes resources describing your application(s). You can use "raw"
-  Kubernetes resources as YAML files, but [Helm charts](https://helm.sh/) are
+  Kubernetes resources as YAML files or [Helm charts](https://helm.sh/) are
   also supported.
-* Provide a cluster image manifest described below. The manifest is used to customize
-  the cluster image.
+* Provide a Cluster Image Manifest described below. The manifest is used to customize
+  the Cluster Image.
 * Place all of these files in the same directory and execute `tele build`
 
-A cluster image manifest is required to describe hardware/system requirements of your
-cluster and to customize the process of creating a new cluster instance.
+A Cluster Image manifest is required to describe hardware/system requirements of your
+Cluster and to customize the process of creating a new Cluster instance.
 
 !!! tip "Gravity Roadmap Tip":
-    Kubernetes community is working on finalizing the cluster API spec. Once it
-    becomes production ready, Gravity developers will be looking into adopting the
-    future standard to replace the cluster image manifest in the future. Meanwhile,
-    it continues to be the only production-ready method of describing hardware
-    requirements for K8s clusters.
+    The Kubernetes community is working on finalizing their cluster API spec. Once it
+    becomes production ready, we will likely adopt the
+    future standard to replace the Cluster Image manifest. 
 
-Below is a sample image manifest in YAML format. It follows Kubernetes
+Below is a sample image manifest in YAML format. It follows the Kubernetes
 configuration conventions:
 
 ```yaml
@@ -122,7 +137,7 @@ metadata:
   resourceVersion: "1.0.0"
 
 installer:
-# a cluster image may optionally include the system requirements. this allows
+# a Cluster Image may optionally include the system requirements. this allows
 # the publisher of an image to restrict its usage only to infrastructure with
 # a defined performance envelope
 nodeProfiles:
@@ -137,20 +152,19 @@ nodeProfiles:
 
 The image manifest works in conjunction with [Helm charts](https://helm.sh/)
 and Kubernetes resources like jobs and configuration maps. These tools provide
-the high degree of flexibility for specifying how applications are installed,
+a high degree of flexibility for specifying how applications are installed,
 updated and configured.
 
-To create a cluster image you have to:
+To create a Cluster Image you have to:
 
-1. Place the required Kubernetes resources, Helm charts and the cluster
-   manifest in the same directory.
-2. Execute the `tele build` command to create the cluster image:
+1. Place the required Kubernetes resources, Helm charts and the Cluster Image Manifest in the same directory.
+2. Execute the `tele build` command to create the Cluster Image:
 
 ```bsh
 $ tele build -o cluster-image.tar manifest.yaml
 ```
 
-This will produce the cluster image called `cluster-image.tar`, which can be
+This will produce the Cluster Image called `cluster-image.tar`, which can be
 deployed across any cloud providers and private data centers.
 
 You can learn more about the image manifest in the [Packaging & Deployment](pack.md)
@@ -158,15 +172,15 @@ section of the documentation.
 
 ## Publishing
 
-Publishing can be as simple as uploading the cluster to an S3 bucket or CDN for
+Publishing can be as simple as uploading the Cluster Image to an S3 bucket or CDN for
 others to download and install.
 
-Another option is to publish the cluster image into the Gravity Hub, a
-centralized repository of cluster images. If a cluster image is distributed via
-the Gravity Hub, the resulting cluster can optionally "dial home" for automatic
+Another option is to publish the Cluster Image into Gravity Hub, a
+centralized repository of Cluster Images. If a Cluster Image is distributed via
+Gravity Hub, the resulting Gravity Cluster can optionally "dial home" for automatic
 updates, remote monitoring and troubleshooting.
 
-The Gravity Hub allows cluster image publishers to oversee how many clusters
+Gravity Hub allows Cluster Image publishers to oversee how many clusters
 are running and perform administration and maintenance across all of them in a
 repeatable, scalable way, even if they are deployed on 3rd party
 infrastructure.
@@ -176,39 +190,32 @@ infrastructure.
 
 ## Deploying and Installing
 
-Creating a new clusters from a cluster image is trivial:
+Creating new clusters from a Cluster Image is trivial:
 
-1. Place a cluster image on a Linux node and unpack ("untar") it.
+1. Place a Cluster Image on a Linux node and unpack ("untar") it.
 2. Launch the included installer.
-3. Later, a user can connect the resulting cluster to Gravity Hub to allow
-   remote updates and remote administration.
 
 For more details about the installation process, please refer to [Installation Guide](installation.md).
 
 ## Cluster Management
 
-Once a cluster image is installed, it becomes a fully operational and
-autonomous Gravity/Kubernetes cluster. It can be said that a _cluster is
-an instance of a cluster image_.
+Once a Cluster Image is installed, it becomes a fully operational and
+autonomous Gravity Cluster.
 
-Gravity comes with a tool called `gravity` which serves two purposes:
+For managing a running Gravity Cluster, the `gravity` tool can be used. 
 
-* It runs as a Linux daemon on every cluster node acting as a "Kubernetes
-  hypervisor", continuously monitoring the health of Kubernetes services
-  and re-configuring them if necessary. For example, it provides automatic
-  management of `etcd`.
-* It is available as a command line (CLI) tool to perform cluster
-  administration tasks such as:
-    1. Adding or removing nodes to a cluster.
-    2. Performing in-place upgrades of Kubernetes or any of the applications
-       running inside.
-    3. Printing cluster status.
+The `gravity` daemon runs on every Cluster node as a "Kubernetes hypervisor", continuously monitoring the health of Kubernetes services and re-configuring them if necessary. For example, it provides automatic management of `etcd`.
+
+`gravity` also functions as a command line (CLI) tool to perform Cluster administration tasks such as:
+
+1. Adding or removing nodes to a Cluster.
+2. Performing in-place upgrades of Kubernetes or any of the applications running inside.
+3. Printing Cluster status.
 
 When it comes to cluster management, `gravity` is a higher level replacement
 for tools like `kubeadm` or `etcdadm`.  It delivers benefits such as enforcing
 system requirements and delivering on the promise of lower operational overhead
-by automating away many mundane Kubernetes tasks. **It is the "magic sauce" that
-makes a Kubernetes cluster feel like a reliable appliance.**
+by automating away many mundane Kubernetes tasks.
 
 You can still use `kubectl` for tasks like watching logs, seeing stats for pods
 or volumes, managing configuration and other operational tasks.
@@ -218,10 +225,10 @@ or volumes, managing configuration and other operational tasks.
 `gravity` can perform updates of both the Kubernetes itself and the
 applications running inside. The updates can be performed in one of two modes:
 
-* **online mode** allows `gravity` command to check for new versions of a
-  cluster, download them from the connected Gravity Hub, and perform a in-place
-  upgrade of the cluster.
-* **offline mode** allows `gravity` to use a newer version of the cluster image
+* **online mode** allows the `gravity` command to check for new versions of a
+  Cluster Image, download them from the connected Gravity Hub, and perform a in-place
+  upgrade of the Cluster.
+* **offline mode** allows `gravity` to use a newer version of the Cluster Image
   to perform an in-place upgrade.
 
 For more details on using `gravity` to manage Clusters please see the [Cluster Management](cluster.md) and [Remote Management](manage.md) sections.
