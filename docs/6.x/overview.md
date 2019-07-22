@@ -1,18 +1,29 @@
 # Introduction
 
-Gravity is an open source toolkit that provides true portability for cloud-native applications. It allows developers to package a
-Kubernetes cluster and all its applications
-into a single file called a "Cluster Image".
+Gravity is an open source toolkit that provides true portability for cloud-native applications. 
+It allows developers to package a Kubernetes cluster and all its applications into a single
+file called a "Cluster Image".
 
-Each Cluster Image is a dependency-free `.tar` file. It can be deployed into a variety of target infrastructure options, such as developers' own cloud infrastructure, 3rd party
-cloud accounts, bare metal servers, VMware environments or even into air-gapped
-servers not connected to the Internet.
+Each Cluster Image is a dependency-free `.tar` file. It can be deployed into a variety of
+target infrastructure options, such as developers' own cloud infrastructure, 3rd party 
+cloud accounts, bare metal servers, VMware environments or even into air-gapped servers 
+not connected to the Internet.
 
-The Cluster Image can be installed across multiple Linux machines through a web browser GUI or CLI installation wizard to create a resilient Kubernetes cluster. This process is completely autonomous and does not require any dependencies from outside the Cluster Image. 
+The Cluster Image can be installed across multiple Linux machines through a web browser 
+GUI or CLI installation wizard to create a resilient Kubernetes cluster. This process 
+is completely autonomous and does not require any dependencies from outside the Cluster Image. 
 
-When a Cluster is up and running, Gravity eases the operational burden of managing it. Each Cluster includes the `gravity` daemon that acts as a "Kubernetes hypervisor", continuously monitoring the health of Kubernetes services and re-configuring them, if necessary. In addition, each Gravity Cluster contains an authentication gateway which allows ops teams to remotely troubleshoot and push updates to many instances of the same appliance either via SSH or Kubernetes API, even if they are located behind a firewall.
+When a Cluster is up and running, Gravity eases the operational burden of managing it. 
+Each Cluster includes the `gravity` daemon that acts as a "Kubernetes hypervisor",
+continuously monitoring the health of Kubernetes services and re-configuring them, 
+if necessary. In addition, each Gravity Cluster contains an authentication gateway 
+which allows ops teams to remotely troubleshoot and push updates to many instances
+of the same appliance either via SSH or Kubernetes API, even if they are located
+behind a firewall.
 
-The Gravity Community Edition is open sourced [on Github](https://github.com/gravitational/gravity) if you want to dive into the code. This documentation is also available in the Github repository, so feel free to create an issue or pull request if you have comments.
+The Gravity Community Edition is open sourced [on Github](https://github.com/gravitational/gravity) 
+if you want to dive into the code. This documentation is also available in the Github repository, 
+so feel free to create an issue or pull request if you have comments.
 
 This overview will walk you through the basic concepts of Gravity and explain
 how it is used to solve the operational challenges that typically arise when
@@ -23,9 +34,16 @@ or across multiple organizations.
 
 There are two primary use cases for Gravity:
 
-1. **Delivering Kubernetes applications to third-party premises:** SaaS vendors that need to deploy and remotely update complex cloud applications in private data centers or public cloud accounts owned by their customers (aka, on-prem). Gravity reduces the time and operational overhead of delivering these applications on-prem.
+1. **Delivering Kubernetes applications to third-party premises:** SaaS vendors that
+need to deploy and remotely update complex cloud applications in private data 
+centers or public cloud accounts owned by their customers (aka, on-prem). Gravity
+reduces the time and operational overhead of delivering these applications on-prem.
 
-2. **Internal multi-cluster Kubernetes deployments:** Teams of site reliability engineers (SREs) are often tasked with providing Kubernetes-as-a-Service within their organization across multiple cloud providers or hybrid environments. The image-based approach allows them to treat Kubernetes clusters as cattle, not pets, dramatically reducing the operational overhead.
+2. **Internal multi-cluster Kubernetes deployments:** Teams of site reliability
+engineers (SREs) are often tasked with providing Kubernetes-as-a-Service within 
+their organization across multiple cloud providers or hybrid environments. The
+image-based approach allows them to treat Kubernetes clusters as cattle, not pets, 
+dramatically reducing the operational overhead.
 
 In either use case, Gravity users can create a Cluster Image that contains:
 
@@ -33,10 +51,12 @@ In either use case, Gravity users can create a Cluster Image that contains:
 - Application containers and their layers;
 - A private Docker registry for autonomous operation;
 - A monitoring and alerting system; and
-- An authentication gateway for remotely managing the Gravity Cluster via both SSH and the Kubernetes API.
+- An authentication gateway for remotely managing the Gravity Cluster via both SSH 
+and the Kubernetes API.
 
 In other words, a Gravity Cluster Image is a _self-contained, downloadable
-Kubernetes appliance_ which enables true portability for cloud applications across any public or private infrastructure.
+Kubernetes appliance_ which enables true portability for cloud applications across 
+any public or private infrastructure.
 
 ![gravity overview](/images/gravity-overview.png)
 
