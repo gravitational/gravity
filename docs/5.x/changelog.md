@@ -13,7 +13,7 @@ LTS starts with `3.51.0` with minor backwards compatible changes added over time
 | 5.4.10*       | No  | March 26th, 2019     | -                    | 1.13.5             | 2.4.10           |
 | 5.3.9*        | No  | March 7th, 2019      | -                    | 1.12.3             | 2.4.7            |
 | 5.2.13        | Yes | July 8th, 2019       | October 15th, 2019   | 1.11.9             | 2.4.10           |
-| 5.0.33        | Yes | April 24th, 2019     | April 13th, 2019     | 1.9.12-gravitational | 2.4.10         |
+| 5.0.34        | Yes | July 16th, 2019     | April 13th, 2019     | 1.9.12-gravitational | 2.4.10         |
 | 4.68.0*       | Yes | January 17th, 2019   | November 16th, 2018  | 1.7.18-gravitational | 2.3.5          |
 | 3.64.0*       | Yes | December 21st, 2017  | June 2nd, 2018       | 1.5.7              | 2.0.6            |
 | 1.30.0*       | Yes | March 21st, 2017     | March 21st, 2018     | 1.3.8              | 1.2.0            |
@@ -125,12 +125,20 @@ LTS starts with `3.51.0` with minor backwards compatible changes added over time
 
 ## 5.x Releases
 
+### 5.0.34 LTS
+
+### Bugfixes
+* Fix security issue with Kapacitor service.
+
+### Improvements
+* Improved validation of gravity-site upgrade.
+
 ### 5.6.5
 
 #### Bugfixes
 * Workaround for installation failures when populating the docker registry.
 
-### 5.5.13
+### 5.5.13 LTS
 
 #### Bugfixes
 * Workaround for installation failures when populating the docker registry.
@@ -154,7 +162,7 @@ LTS starts with `3.51.0` with minor backwards compatible changes added over time
     This release fixes security vulnerabilities within Gravity. Please see
     [Gravity Enterprise Announcement](https://gravitational.zendesk.com/hc/en-us/articles/360025697553-Gravity-Enterprise-6-0-0-rc-4-5-6-4-5-5-12-5-2-13-Security-Update) for more information.
 
-### 5.5.12
+### 5.5.12 LTS
 
 #### Bugfixes
 
@@ -169,7 +177,7 @@ LTS starts with `3.51.0` with minor backwards compatible changes added over time
     This release fixes security vulnerabilities within Gravity. Please see
     [Gravity Enterprise Announcement](https://gravitational.zendesk.com/hc/en-us/articles/360025697553-Gravity-Enterprise-6-0-0-rc-4-5-6-4-5-5-12-5-2-13-Security-Update) for more information.
 
-### 5.2.13
+### 5.2.13 LTS
 
 #### Bugfixes
 
@@ -194,7 +202,7 @@ LTS starts with `3.51.0` with minor backwards compatible changes added over time
     This release fixes a security vulnerability in kubernetes. Please see
     [Kubernetes Announcement](https://groups.google.com/forum/#!topic/kubernetes-security-discuss/zqklrWzeA2c) for more information.
 
-### 5.5.11
+### 5.5.11 LTS
 
 #### Improvements
 
