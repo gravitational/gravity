@@ -76,21 +76,20 @@ func (p *checksExecutor) Execute(ctx context.Context) error {
 		return trace.Wrap(err)
 	}
 	checker, err := checks.New(checks.Config{
-		Remote:   checks.NewRemote(p.Runner),
-		Servers:  []checks.Server{*master, *node},
-		Manifest: cluster.App.Manifest,
-		Reqs:     reqs,
+		Remote:       checks.NewRemote(p.Runner),
+		Servers:      []checks.Server{*master, *node},
+		Manifest:     cluster.App.Manifest,
+		Requirements: reqs,
 	})
 	if err != nil {
 		return trace.Wrap(err)
 	}
-	var errors []error
-	errors = append(errors, checker.RunSingleNodeChecks(ctx, *node)...)
-	// Use one of master nodes as an "anchor" so when running multi-node
-	// checks the joining node will be compared against that master (e.g.
-	// for same OS check, time drift check, etc.)
-	errors = append(errors, checker.RunMultiNodeChecks(ctx, []checks.Server{*master, *node})...)
-	return trace.NewAggregate(errors...)
+	// For multi-node checks, use one of master nodes as an "anchor" so
+	// the joining node will be compared against that master (e.g. for
+	// the OS check, time drift check, etc).
+	return trace.NewAggregate(
+		checker.CheckNode(ctx, *node),
+		checker.CheckNodes(ctx, []checks.Server{*master, *node}))
 }
 
 // Rollback is no-op for this phase.

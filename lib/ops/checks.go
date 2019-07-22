@@ -51,10 +51,10 @@ func CheckServers(ctx context.Context,
 		return trace.Wrap(err)
 	}
 	c, err := checks.New(checks.Config{
-		Remote:   &remoteCommands{key: opKey, AgentService: agentService},
-		Manifest: manifest,
-		Servers:  nodes,
-		Reqs:     requirements,
+		Remote:       &remoteCommands{key: opKey, AgentService: agentService},
+		Manifest:     manifest,
+		Servers:      nodes,
+		Requirements: requirements,
 		Features: checks.Features{
 			TestBandwidth:    true,
 			TestPorts:        true,

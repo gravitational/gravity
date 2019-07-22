@@ -42,10 +42,10 @@ func validate(ctx context.Context,
 		return trace.Wrap(err)
 	}
 	c, err := checks.New(checks.Config{
-		Remote:   checks.NewRemote(remote),
-		Manifest: new,
-		Servers:  nodes,
-		Reqs:     requirements,
+		Remote:       checks.NewRemote(remote),
+		Manifest:     new,
+		Servers:      nodes,
+		Requirements: requirements,
 		Features: checks.Features{
 			TestPorts: true,
 		},

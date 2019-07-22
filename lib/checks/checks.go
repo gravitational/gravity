@@ -53,7 +53,7 @@ var log = logrus.WithField(trace.Component, "checks")
 // set of server information payloads and the specified interface for
 // running remote commands.
 func New(config Config) (*checker, error) {
-	if err := config.Check(); err != nil {
+	if err := config.check(); err != nil {
 		return nil, trace.Wrap(err)
 	}
 	return &checker{Config: config}, nil
@@ -265,16 +265,16 @@ type Config struct {
 	Manifest schema.Manifest
 	// Servers is a list of nodes for validation.
 	Servers []Server
-	// Reqs maps node roles to their validation requirements.
-	Reqs map[string]Requirements
+	// Requirements maps node roles to their validation requirements.
+	Requirements map[string]Requirements
 	// Features allows to turn certain checks off.
 	Features
 }
 
-// Check validates the checker configuration.
-func (c Config) Check() error {
+// check validates the checker configuration.
+func (c Config) check() error {
 	for _, server := range c.Servers {
-		if _, exists := c.Reqs[server.Server.Role]; !exists {
+		if _, exists := c.Requirements[server.Server.Role]; !exists {
 			return trace.NotFound("no requirements for node profile %q",
 				server.Server.Role)
 		}
@@ -320,24 +320,26 @@ func (r *checker) Run(ctx context.Context) error {
 
 	// check each server against its profile
 	for _, server := range r.Servers {
-		errors = append(errors, r.RunSingleNodeChecks(ctx, server)...)
+		errors = append(errors, r.CheckNode(ctx, server))
 	}
 
 	// run checks that take all servers into account
-	errors = append(errors, r.RunMultiNodeChecks(ctx, r.Servers)...)
+	errors = append(errors, r.CheckNodes(ctx, r.Servers))
 
 	return trace.NewAggregate(errors...)
 }
 
-// RunSingleNodeChecks executes checks for the provided individual server.
-func (r *checker) RunSingleNodeChecks(ctx context.Context, server Server) (errors []error) {
+// CheckNode executes checks for the provided individual server.
+func (r *checker) CheckNode(ctx context.Context, server Server) error {
 	if ifTestsDisabled() {
 		log.Infof("Skipping single-node checks due to %q set.",
 			constants.PreflightChecksOffEnvVar)
 		return nil
 	}
 
-	requirements := r.Reqs[server.Server.Role]
+	var errors []error
+
+	requirements := r.Requirements[server.Server.Role]
 	validateCtx, cancel := context.WithTimeout(ctx, defaults.AgentValidationTimeout)
 	defer cancel()
 	failed, err := r.Remote.Validate(validateCtx, server.AdvertiseIP, ValidateConfig{
@@ -346,7 +348,7 @@ func (r *checker) RunSingleNodeChecks(ctx context.Context, server Server) (error
 		Docker:   requirements.Docker,
 	})
 	if err != nil {
-		log.Warnf("Failed to validate remote node: %v.", trace.DebugReport(err))
+		log.WithError(err).Warn("Failed to validate remote node.")
 		errors = append(errors,
 			trace.BadParameter("failed to validate remote node %v", server))
 	}
@@ -383,11 +385,11 @@ func (r *checker) RunSingleNodeChecks(ctx context.Context, server Server) (error
 		errors = append(errors, err)
 	}
 
-	return errors
+	return trace.NewAggregate(errors...)
 }
 
-// RunMultiNodeChecks executes checks that take all provided servers into account.
-func (r *checker) RunMultiNodeChecks(ctx context.Context, servers []Server) (errors []error) {
+// CheckNodes executes checks that take all provided servers into account.
+func (r *checker) CheckNodes(ctx context.Context, servers []Server) error {
 	if ifTestsDisabled() {
 		log.Infof("Skipping multi-node checks due to %q set.",
 			constants.PreflightChecksOffEnvVar)
@@ -399,6 +401,8 @@ func (r *checker) RunMultiNodeChecks(ctx context.Context, servers []Server) (err
 			servers)
 		return nil
 	}
+
+	var errors []error
 
 	err := checkSameOS(servers)
 	if err != nil {
@@ -424,13 +428,12 @@ func (r *checker) RunMultiNodeChecks(ctx context.Context, servers []Server) (err
 		}
 	}
 
-	return errors
+	return trace.NewAggregate(errors...)
 }
 
-// checkDisks runs disk performance check on the provided server and makes
-// sure the result satisfies its profile requirements.
+// checkDisks verifies that disk performance satisfies the profile requirements.
 func (r *checker) checkDisks(ctx context.Context, server Server) error {
-	requirements := r.Reqs[server.Server.Role]
+	requirements := r.Requirements[server.Server.Role]
 	targets, err := r.collectTargets(ctx, server, requirements)
 	if err != nil {
 		return trace.Wrap(err)
@@ -516,7 +519,7 @@ func (r *checker) checkTempDir(ctx context.Context, server Server) error {
 
 // checkPorts makes sure ports specified in profile are unoccupied and reachable
 func (r *checker) checkPorts(ctx context.Context, servers []Server) error {
-	req, err := constructPingPongRequest(servers, r.Reqs)
+	req, err := constructPingPongRequest(servers, r.Requirements)
 	if err != nil {
 		return trace.Wrap(err)
 	}
@@ -574,7 +577,7 @@ func (r *checker) checkBandwidth(ctx context.Context, servers []Server) error {
 			return trace.Wrap(err)
 		}
 
-		requirements := r.Reqs[server.Server.Role]
+		requirements := r.Requirements[server.Server.Role]
 		transferRate := requirements.Network.MinTransferRate
 		if result.BandwidthResult < transferRate.BytesPerSecond() {
 			return trace.BadParameter(
