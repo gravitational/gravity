@@ -19,10 +19,10 @@ package cli
 import (
 	"context"
 
-	"github.com/gravitational/gravity/lib/fsm"
 	libfsm "github.com/gravitational/gravity/lib/fsm"
 	"github.com/gravitational/gravity/lib/localenv"
 	"github.com/gravitational/gravity/lib/ops"
+	"github.com/gravitational/gravity/lib/rpc"
 	"github.com/gravitational/gravity/lib/storage"
 	"github.com/gravitational/gravity/lib/update"
 	"github.com/gravitational/gravity/lib/update/environ"
@@ -211,7 +211,7 @@ func (environInitializer) newUpdater(
 	operation ops.SiteOperation,
 	localEnv, updateEnv *localenv.LocalEnvironment,
 	clusterEnv *localenv.ClusterEnvironment,
-	runner fsm.AgentRepository,
+	runner rpc.AgentRepository,
 ) (*update.Updater, error) {
 	config := environ.Config{
 		Config: update.Config{
