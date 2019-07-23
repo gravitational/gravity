@@ -23,6 +23,8 @@ import (
 
 	"github.com/gogo/protobuf/types"
 	"github.com/gravitational/trace"
+	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/status"
 )
 
 // IsAborted returns true if this progress response indicates an aborted operation
@@ -80,17 +82,42 @@ func (r *Phase) IsResume() bool {
 	return r.ID == fsm.RootPhase
 }
 
+// WrapServiceError returns an error from service optionally
+// translating it to a more appropriate representation if required
+func WrapServiceError(err error) error {
+	if IsFailedPreconditionError(err) {
+		return utils.NewExitCodeErrorWithMessage(
+			defaults.FailedPreconditionExitCode,
+			trace.UserMessage(err),
+		)
+	}
+	return trace.Wrap(err)
+}
+
 // Empty defines the empty RPC message
 var Empty = &types.Empty{}
 
-// IsAbortedError returns true if the specifies error identifies the aborted operation
+// IsAbortedError returns true if the specified error identifies the aborted operation
 func IsAbortedError(err error) bool {
 	return trace.Unwrap(err) == ErrAborted
 }
 
-// IsCompletedError returns true if the specifies error identifies the completed operation
+// IsCompletedError returns true if the specified error identifies the completed operation
 func IsCompletedError(err error) bool {
 	return trace.Unwrap(err) == ErrCompleted
+}
+
+// IsRPCError returns true if the specified error is a gRPC error
+func IsRPCError(err error) bool {
+	_, ok := status.FromError(trace.Unwrap(err))
+	return ok
+}
+
+// IsFailedPreconditionError returns true if the specified error indicates a failed precondition
+// RPC error
+func IsFailedPreconditionError(err error) bool {
+	s, ok := status.FromError(trace.Unwrap(err))
+	return ok && s.Code() == codes.FailedPrecondition
 }
 
 // ErrAborted defines the aborted operation error

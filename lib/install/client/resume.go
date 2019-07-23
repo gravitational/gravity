@@ -17,18 +17,16 @@ package client
 
 import (
 	"context"
-	"path/filepath"
 	"time"
 
 	"github.com/gravitational/gravity/lib/defaults"
 	installpb "github.com/gravitational/gravity/lib/install/proto"
 	"github.com/gravitational/gravity/lib/state"
+	"github.com/gravitational/gravity/lib/system/environ"
 	"github.com/gravitational/gravity/lib/system/service"
-	"github.com/gravitational/gravity/lib/utils"
 
 	"github.com/gravitational/trace"
 	log "github.com/sirupsen/logrus"
-	"google.golang.org/grpc"
 )
 
 // connect connects to the running installer service and returns a client
@@ -40,9 +38,10 @@ func (r *ResumeStrategy) connect(ctx context.Context) (installpb.AgentClient, er
 	r.Info("Connect to running service.")
 	ctx, cancel := context.WithTimeout(ctx, r.ConnectTimeout)
 	defer cancel()
-	client, err := installpb.NewClient(ctx, r.SocketPath, r.FieldLogger,
-		// Fail fast at first non-temporary error
-		grpc.FailOnNonTempDialError(true))
+	client, err := installpb.NewClient(ctx, installpb.ClientConfig{
+		FieldLogger: r.FieldLogger,
+		SocketPath:  r.SocketPath,
+	})
 	if err != nil {
 		return nil, trace.Wrap(err, "failed to connect to the installer service.\n"+
 			"Use 'gravity install' to start the installation.")
@@ -56,7 +55,7 @@ func (r *ResumeStrategy) checkAndSetDefaults() (err error) {
 		if err != nil {
 			return trace.Wrap(err)
 		}
-		r.ServicePath, err = GetServicePath(stateDir)
+		r.ServicePath, err = environ.GetServicePath(stateDir)
 		if err != nil {
 			return trace.Wrap(err)
 		}
@@ -82,7 +81,7 @@ func (r *ResumeStrategy) restartService() error {
 }
 
 func (r *ResumeStrategy) serviceName() (name string) {
-	return filepath.Base(r.ServicePath)
+	return service.Name(r.ServicePath)
 }
 
 // ResumeStrategy implements the strategy to connect to the existing installer service
@@ -97,17 +96,4 @@ type ResumeStrategy struct {
 	// installer service connection. Defaults to defaults.ServiceConnectTimeout
 	// if unspecified
 	ConnectTimeout time.Duration
-}
-
-// GetServicePath returns the name of the service configured in the specified state directory stateDir
-func GetServicePath(stateDir string) (path string, err error) {
-	for _, name := range []string{
-		defaults.GravityRPCInstallerServiceName,
-		defaults.GravityRPCAgentServiceName,
-	} {
-		if ok, _ := utils.IsFile(filepath.Join(stateDir, name)); ok {
-			return filepath.Join(stateDir, name), nil
-		}
-	}
-	return "", trace.NotFound("no service unit file in %v", stateDir)
 }

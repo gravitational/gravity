@@ -96,7 +96,7 @@ func (r *S) TestAgentGroupExecutesCommandsRemotety(c *C) {
 		select {
 		case <-watchCh:
 		case <-timeout:
-			c.Error("failed to wait for reconnect")
+			c.Fatal("failed to wait for reconnect")
 		}
 	}
 
