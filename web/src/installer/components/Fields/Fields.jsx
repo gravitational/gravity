@@ -16,8 +16,8 @@ limitations under the License.
 
 import React from 'react';
 import { Box, Input, LabelInput } from 'shared/components';
+import { useRule } from 'shared/components/Validation';
 import Select from 'app/components/Select';
-import { useRule } from 'app/components/Validation';
 
 export const FieldInput = ({ placeholder, rule, value, autoFocus, label, onChange, ...styles}) => {
   const { valid, message } = useRule(rule(value));

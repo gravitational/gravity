@@ -15,7 +15,7 @@ limitations under the License.
 */
 
 import React, { useCallback } from 'react';
-import AjaxPoller from 'app/components/dataProviders'
+import AjaxPoller from 'app/components/AjaxPoller';
 
 const POLL_INTERVAL = 10000; // 10 sec
 

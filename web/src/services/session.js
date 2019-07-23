@@ -14,7 +14,7 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-import Logger from 'app/lib/logger';
+import Logger from 'shared/libs/logger';
 import cfg from 'app/config';
 import history from './history';
 import api from './api';

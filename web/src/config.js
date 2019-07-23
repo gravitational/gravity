@@ -17,22 +17,18 @@ limitations under the License.
 import $ from 'jQuery';
 import { at } from 'lodash';
 import { generatePath } from 'react-router';
-import { ProviderEnum, Auth2faTypeEnum } from 'app/services/enums';
-import Logger from 'app/lib/logger';
-
-const logger = Logger.create('config/init');
+import { Auth2faTypeEnum } from 'app/services/enums';
 
 // dummy placeholder for legacy APIs
 const accountId = '00000000-0000-0000-0000-000000000001';
 
-let cfg = {
+const cfg = {
 
   defaultSiteId: 'undefined',
 
   logo: null,
 
   systemInfo: {
-    serverVersion: {},
     clusterName: ''
   },
 
@@ -51,19 +47,12 @@ let cfg = {
   },
 
   user: {
-    privacyPolicyUrl: 'http://gravitational.com/privacy',
-
     // logo to be displayed on login/forgot password screens
     logo: null,
 
     login: {
       headerText: 'Gravity'
     },
-
-    completeRequest: {
-      inviteHeaderText: 'Welcome',
-      newPasswordHeaderText: 'Change password'
-    }
   },
 
   agentReport: {
@@ -112,11 +101,7 @@ let cfg = {
     siteLicense: '/web/site/:siteId/license',
     siteAudit: '/web/site/:siteId/audit',
     siteOffline: '/web/site/:siteId/offline',
-    siteUninstall: '/web/site/:siteId/uninstall',
-    siteApp: '/web/site/:siteId/app',
-    siteConsole: '/web/site/:siteId/servers/console',
     siteServers: '/web/site/:siteId/servers',
-    siteHistory: '/web/site/:siteId/history',
     siteLogs: '/web/site/:siteId/logs',
     siteMonitor: '/web/site/:siteId/monitor',
     siteMonitorPod: '/web/site/:siteId/monitor/dashboard/db/pods?var-namespace=:namespace&var-podname=:podName',
@@ -163,7 +148,6 @@ let cfg = {
     },
 
     installer: {
-      enableTags: true,
       eulaAgreeText: 'I Agree To The Terms',
       eulaHeaderText: 'Welcome to the {0} Installer',
       eulaContentLabelText: 'License Agreement',
@@ -175,13 +159,6 @@ let cfg = {
       prereqUserHintText: `The cluster name will be used for issuing SSH and HTTP/TLS certificates to securely access the cluster.\n\n For this reason it is recommended to use a fully qualified domain name (FQDN) for the cluster name, e.g. prod.example.com`,
       provisionUserHintText: 'Drag the slider to estimate the number of resources needed for that performance level. You can also add / remove resources after the installation. \n\n Once you click "Start Installation" the resources will be provisioned on your infrastructure.',
       iamPermissionsHelpLink: 'https://gravitational.com/gravity/docs/overview/',
-
-      providers: [ProviderEnum.AWS, ProviderEnum.ONPREM],
-      providerSettings: {
-        [ProviderEnum.AWS]: {
-          useExisting: false
-        }
-      }
     }
   },
 
@@ -237,7 +214,6 @@ let cfg = {
     siteInfoPath: '/portalapi/v1/sites/:siteId/info',
     siteTlsCertPath: '/portalapi/v1/sites/:siteId/certificate',
     siteSessionPath: '/proxy/v1/webapi/sites/:siteId/sessions/:sid?',
-    siteNodesPath: '/proxy/v1/webapi/sites/:siteId/nodes',
     sitePath: '/portalapi/v1/sites/:siteId??shallow=:shallow',
     siteReportPath: '/portalapi/v1/sites/:siteId/report',
     siteEndpointsPath: '/portalapi/v1/sites/:siteId/endpoints',
@@ -246,7 +222,6 @@ let cfg = {
     siteOperationReportPath: `/portal/v1/accounts/${accountId}/sites/:siteId/operations/common/:opId/crash-report`,
     siteAppsPath: '/portalapi/v1/sites/:siteId/releases',
     siteFlavorsPath: '/portalapi/v1/sites/:siteId/flavors',
-    siteUninstallStatusPath: '/portalapi/v1/sites/:siteId/uninstall',
     siteLicensePath: '/portalapi/v1/sites/:siteId/license',
     siteLogForwardersPath: '/portalapi/v1/sites/:siteId/logs/forwarders',
     siteMetricsPath: '/portalapi/v1/sites/:siteId/monitoring/metrics?interval=:interval&step=:step',
@@ -369,10 +344,6 @@ let cfg = {
   getSiteLogsRoute(siteId) {
     siteId = siteId || cfg.defaultSiteId;
     return generatePath(cfg.routes.siteLogs, { siteId });
-  },
-
-  getSiteUninstallRoute(siteId) {
-    return generatePath(cfg.routes.siteUninstall, { siteId });
   },
 
   getInstallNewSiteRoute(name, repository, version) {
@@ -530,10 +501,6 @@ let cfg = {
     return generatePath(cfg.api.siteUserContextPath, { siteId });
   },
 
-  getSiteUninstallStatusUrl(siteId) {
-    return generatePath(cfg.api.siteUninstallStatusPath, { siteId });
-  },
-
   getInstallerProvisionUrl(siteId) {
     return generatePath(cfg.routes.installerCluster, { siteId });
   },
@@ -544,11 +511,6 @@ let cfg = {
 
   getCheckDomainNameUrl(domainName) {
     return generatePath(cfg.api.checkDomainNamePath, { domainName })
-  },
-
-  getNodesUrl(siteId) {
-    siteId = siteId || cfg.defaultSiteId;
-    return generatePath(cfg.api.siteNodesPath, { siteId });
   },
 
   getAccountDeleteInviteUrl({ siteId, inviteId }) {
@@ -578,13 +540,8 @@ let cfg = {
     return generatePath(cfg.api.u2fCreateUserChallengePath, { inviteToken });
   },
 
-
   getAuthProviders() {
     return cfg.auth && cfg.auth.providers ? cfg.auth.providers : [];
-  },
-
-  is2FAEnabled() {
-    return cfg.auth.twoFA === true;
   },
 
   getSiteRoute(siteId) {
@@ -592,21 +549,9 @@ let cfg = {
     return generatePath(cfg.routes.siteBase, { siteId });
   },
 
-  getSiteAppUrl(siteId) {
-    return generatePath(cfg.routes.siteApp, { siteId });
-  },
-
   getSiteServersRoute(siteId) {
     siteId = siteId || cfg.defaultSiteId;
     return generatePath(cfg.routes.siteServers, { siteId });
-  },
-
-  getSiteConsoleRoute(siteId) {
-    return generatePath(cfg.routes.siteConsole, { siteId });
-  },
-
-  getSiteHistoryRoute(siteId) {
-    return generatePath(cfg.routes.siteHistory, { siteId });
   },
 
   getSiteLogQueryRoute({ siteId, query }) {
@@ -642,20 +587,6 @@ let cfg = {
   getSiteDefaultDashboard() {
     let [suffix] = at(cfg, 'modules.site.features.monitoring.grafanaDefaultDashboardUrl');
     return suffix;
-  },
-
-  getWsHostName() {
-    const hostport = location.hostname + (location.port ? ':' + location.port : '');
-    return `wss://${hostport}`;
-  },
-
-  getServerVersion() {
-    const [serverVer] = at(cfg, 'systemInfo.serverVersion');
-    return {
-      version: serverVer.version,
-      gitCommit: serverVer.gitCommit,
-      gitTreeState: serverVer.gitTreeState
-    }
   },
 
   getAgentDeviceMount(name) {
@@ -719,11 +650,6 @@ let cfg = {
   getLocalSiteId() {
     const [siteId] = at(cfg, 'systemInfo.clusterName');
     return siteId;
-  },
-
-  setServerVersion(ver = {}) {
-    cfg.systemInfo.serverVersion = ver;
-    logger.info("platform version", ver);
   },
 
   setDefaultSiteId(siteId) {

@@ -25,7 +25,7 @@ import NodeList from './NodeList';
 import service from 'app/cluster/services/info';
 import AddNodeDialog from './AddNodeDialog';
 import DeleteNodeDialog from './DeleteNodeDialog';
-import AjaxPoller from 'app/components/dataProviders'
+import AjaxPoller from 'app/components/AjaxPoller';
 import { FeatureBox, FeatureHeader, FeatureHeaderTitle } from './../Layout';
 
 const POLLING_INTERVAL = 10000; // every 10 sec

@@ -22,7 +22,7 @@ import { withState } from 'shared/hooks';
 import { useFluxStore } from 'app/components/nuclear';
 import EventList from 'app/cluster/components/Audit/EventList';
 import { getters } from 'app/cluster/flux/events';
-import AjaxPoller from 'app/components/dataProviders'
+import AjaxPoller from 'app/components/AjaxPoller';
 import { fetchLatest } from 'app/cluster/flux/events/actions';
 import * as featureFlags from 'app/cluster/featureFlags';
 

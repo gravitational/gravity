@@ -15,7 +15,7 @@ limitations under the License.
 */
 
 import { EventEmitter } from 'events';
-import Logger from './../logger';
+import Logger from 'shared/libs/logger';
 import { EventTypeEnum, TermEventEnum, StatusCodeEnum } from './enums';
 import { Protobuf, MessageTypeEnum } from './protobuf';
 

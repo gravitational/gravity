@@ -33,7 +33,6 @@ const Tabs = ({ children }) => {
 export const TabItem = ({ to, title, exact }) => (
   <StyledTabItem typography="h4" mr={6} mb={2}
     as={NavLink}
-    exact
     to={to}
     exact={exact}
   >

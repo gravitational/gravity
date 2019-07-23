@@ -16,7 +16,7 @@ limitations under the License.
 
 import React from 'react';
 import PropTypes from 'prop-types';
-import Logger from 'app/lib/logger';
+import Logger from 'shared/libs/logger';
 import api, { Signal } from 'app/services/api';
 
 const logger = Logger.create('cluster/components/Logs/LogProvider');

@@ -14,17 +14,6 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-import React from 'react';
-import { useValidation } from 'app/components/Validation';
-import { ButtonPrimary } from 'shared/components';
+import InstallLogsProvider from './InstallLogsProvider';
+export default InstallLogsProvider;
 
-export default function ButtonValidate( { onClick, ...rest }) {
-  const validator = useValidation();
-  function onContinue(){
-    validator.validate() && onClick();
-  }
-
-  return (
-    <ButtonPrimary onClick={onContinue} {...rest} />
-  )
-}
