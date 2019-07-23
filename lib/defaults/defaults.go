@@ -537,7 +537,7 @@ const (
 	// PrometheusServiceAddr is the Prometheus HTTP API service address.
 	PrometheusServiceAddr = "prometheus-k8s.monitoring.svc.cluster.local:9090"
 
-	// AlertmanagerServiceAddr is the Prometheus Aletermanager HTTP API service address.
+	// AlertmanagerServiceAddr is the Prometheus Alertmanager HTTP API service address.
 	AlertmanagerServiceAddr = "alertmanager-main.monitoring.svc.cluster.local:9093"
 
 	// LograngeAggregatorServiceName is the name of the Logrange aggregator service.
