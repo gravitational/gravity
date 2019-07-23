@@ -23,8 +23,8 @@ import (
 	"github.com/gravitational/trace"
 )
 
-func (p *Peer) initOperationPlan(ctx operationContext) error {
-	plan, err := p.getOperationPlan(ctx)
+func (p *Peer) initOperationPlan(ctx operationContext, server storage.Server) error {
+	plan, err := p.getOperationPlan(ctx, server)
 	if err != nil {
 		return trace.Wrap(err)
 	}
@@ -37,8 +37,8 @@ func (p *Peer) initOperationPlan(ctx operationContext) error {
 	return nil
 }
 
-func (p *Peer) getOperationPlan(ctx operationContext) (*storage.OperationPlan, error) {
-	builder, err := p.getPlanBuilder(ctx)
+func (p *Peer) getOperationPlan(ctx operationContext, server storage.Server) (*storage.OperationPlan, error) {
+	builder, err := p.getPlanBuilder(ctx, server)
 	if err != nil {
 		return nil, trace.Wrap(err)
 	}

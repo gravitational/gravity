@@ -457,10 +457,6 @@ func (r *AgentPeerStore) checkHostname(ctx context.Context, group *agentGroup, a
 		return trace.AccessDenied("One of existing servers already has hostname %q: %q.", hostname, existingServers)
 	}
 
-	if group.hasPeer(addr, hostname) {
-		return trace.AccessDenied("One of existing peers already has hostname %q.", hostname)
-	}
-
 	r.Debugf("Verified hostname %q.", hostname)
 	return nil
 }

@@ -214,7 +214,10 @@ func LoadRPCCredentials(ctx context.Context, packages pack.PackageService) (*rpc
 		return trace.Wrap(err)
 	})
 	if err != nil {
-		return nil, trace.Wrap(err, "failed to unpack RPC credentials")
+		if rpc.IsCertError(err) {
+			return nil, newInvalidCertError(err)
+		}
+		return nil, trace.Wrap(err)
 	}
 	return &rpcserver.Credentials{
 		Server: serverCreds,
@@ -235,7 +238,11 @@ func ClientCredentials(packages pack.PackageService) (credentials.TransportCrede
 func UpdateOperationState(operator ops.Operator, operation ops.SiteOperation, report ops.AgentReport) error {
 	request, err := GetServerUpdateRequest(operation, report.Servers)
 	if err != nil {
-		return trace.Wrap(err, "failed to parse report: %#v", report)
+		log.WithFields(log.Fields{
+			log.ErrorKey: err,
+			"report":     report,
+		}).Warn("Failed to parse report.")
+		return trace.Wrap(err)
 	}
 	err = operator.UpdateInstallOperationState(operation.Key(), *request)
 	return trace.Wrap(err)
@@ -445,4 +452,9 @@ func initOperationPlan(operator ops.Operator, planner engine.Planner) error {
 		return trace.Wrap(err)
 	}
 	return nil
+}
+
+func newInvalidCertError(err error) error {
+	return trace.BadParameter("%s. Please make sure that clocks are synchronized between the nodes.",
+		trace.UserMessage(err))
 }

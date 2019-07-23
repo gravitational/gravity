@@ -362,15 +362,18 @@ func upsertPackage(packages pack.PackageService, pkg loc.Locator, archive utils.
 func validateCerts(archive utils.TLSArchive, timestamp time.Time) error {
 	clientKeyPair := archive[pb.Client]
 	if err := validateCert(clientKeyPair.CertPEM, timestamp); err != nil {
-		return trace.Wrap(err, "invalid client certificate")
+		return trace.Wrap(err, "invalid client certificate (%v)",
+			trace.UserMessage(err))
 	}
 	serverKeyPair := archive[pb.Server]
 	if err := validateCert(serverKeyPair.CertPEM, timestamp); err != nil {
-		return trace.Wrap(err, "invalid server certificate")
+		return trace.Wrap(err, "invalid server certificate (%v)",
+			trace.UserMessage(err))
 	}
 	caKeyPair := archive[pb.CA]
 	if err := validateCert(caKeyPair.CertPEM, timestamp); err != nil {
-		return trace.Wrap(err, "invalid CA certificate")
+		return trace.Wrap(err, "invalid CA certificate (%v)",
+			trace.UserMessage(err))
 	}
 	return nil
 }

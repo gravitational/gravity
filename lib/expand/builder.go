@@ -285,7 +285,7 @@ func (b *planBuilder) AddElectPhase(plan *storage.OperationPlan) {
 	plan.Phases = append(plan.Phases, phase)
 }
 
-func (p *Peer) getPlanBuilder(ctx operationContext) (*planBuilder, error) {
+func (p *Peer) getPlanBuilder(ctx operationContext, server storage.Server) (*planBuilder, error) {
 	application, err := ctx.Apps.GetApp(ctx.Cluster.App.Package)
 	if err != nil {
 		return nil, trace.Wrap(err)
@@ -328,7 +328,7 @@ func (p *Peer) getPlanBuilder(ctx operationContext) (*planBuilder, error) {
 		Runtime:         *runtime,
 		TeleportPackage: *teleportPackage,
 		PlanetPackage:   *planetPackage,
-		JoiningNode:     *ctx.Server,
+		JoiningNode:     server,
 		ClusterNodes:    storage.Servers(ctx.Cluster.ClusterState.Servers),
 		Peer:            ctx.Peer,
 		Master:          storage.Servers(ctx.Cluster.ClusterState.Servers).Masters()[0],

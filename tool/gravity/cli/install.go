@@ -734,8 +734,10 @@ func join(env *localenv.LocalEnvironment, environ LocalEnvironmentFactory, confi
 	err = joinClient(env, installerclient.Config{
 		ConnectStrategy: strategy,
 		Lifecycle: &installerclient.AutomaticLifecycle{
-			Aborter:   installerAbortOperation(env),
-			Completer: InstallerCompleteOperation(env),
+			Aborter:            installerAbortOperation(env),
+			Completer:          InstallerCompleteOperation(env),
+			DebugReportPath:    DebugReportPath(),
+			LocalDebugReporter: InstallerGenerateLocalReport(env),
 		},
 	})
 	if utils.IsContextCancelledError(err) {

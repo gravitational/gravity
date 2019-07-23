@@ -17,6 +17,9 @@ limitations under the License.
 package expand
 
 import (
+	"net/url"
+	"strings"
+
 	"github.com/gravitational/gravity/lib/install"
 	"github.com/gravitational/gravity/lib/ops"
 	pb "github.com/gravitational/gravity/lib/rpc/proto"
@@ -31,16 +34,15 @@ import (
 )
 
 // init initializes the peer after a successful connect
-func (p *Peer) init(ctx operationContext) (*storage.Server, error) {
+func (p *Peer) init(ctx operationContext) error {
 	err := p.initEnviron(ctx)
 	if err != nil {
-		return nil, trace.Wrap(err)
+		return trace.Wrap(err)
 	}
-	server, err := p.startAgent(ctx)
-	if err != nil {
-		return nil, trace.Wrap(err)
+	if !ctx.hasOperation() {
+		return nil
 	}
-	return server, nil
+	return p.startAgent(ctx)
 }
 
 func (p *Peer) initEnviron(ctx operationContext) error {
@@ -143,24 +145,20 @@ func (p *Peer) syncOperation(ctx operationContext) error {
 
 // startAgent starts a new RPC agent using the specified operation context.
 // The agent will signal p.errC once it has terminated
-func (p *Peer) startAgent(ctx operationContext) (*storage.Server, error) {
+func (p *Peer) startAgent(ctx operationContext) error {
 	agent, err := p.newAgent(ctx)
 	if err != nil {
-		return nil, trace.Wrap(err)
-	}
-	server, err := newServerForPeer(agent)
-	if err != nil {
-		return nil, trace.Wrap(err)
+		return trace.Wrap(err)
 	}
 	go func() {
 		p.errC <- agent.Serve()
 	}()
-	return server, nil
+	return nil
 }
 
 // newAgent returns an instance of the RPC agent to handle remote calls
-func (p *Peer) newAgent(opCtx operationContext) (*rpcserver.PeerServer, error) {
-	peerAddr, token, err := getPeerAddrAndToken(opCtx, p.Role)
+func (p *Peer) newAgent(ctx operationContext) (*rpcserver.PeerServer, error) {
+	peerAddr, token, err := getPeerAddrAndToken(ctx, p.Role)
 	if err != nil {
 		return nil, trace.Wrap(err)
 	}
@@ -173,10 +171,10 @@ func (p *Peer) newAgent(opCtx operationContext) (*rpcserver.PeerServer, error) {
 		AdvertiseAddr: p.AdvertiseAddr,
 		CloudProvider: p.CloudProvider,
 		ServerAddr:    peerAddr,
-		Credentials:   opCtx.Creds,
+		Credentials:   ctx.Creds,
 		RuntimeConfig: p.RuntimeConfig,
 		WatchCh:       p.WatchCh,
-		StopHandler:   p.server.Stopped,
+		StopHandler:   p.server.ManualStop,
 		AbortHandler:  p.server.Interrupted,
 	})
 	if err != nil {
@@ -185,22 +183,43 @@ func (p *Peer) newAgent(opCtx operationContext) (*rpcserver.PeerServer, error) {
 	return agent, nil
 }
 
+// getPeerAddrAndToken returns the peer address and token for the specified role
+func getPeerAddrAndToken(ctx operationContext, role string) (peerAddr, token string, err error) {
+	peerAddr = ctx.Peer
+	if strings.Contains(peerAddr, "http") { // peer may be an URL
+		peerURL, err := url.Parse(ctx.Peer)
+		if err != nil {
+			return "", "", trace.Wrap(err)
+		}
+		peerAddr = peerURL.Host
+	}
+	instructions, ok := ctx.Operation.InstallExpand.Agents[role]
+	if !ok {
+		return "", "", trace.BadParameter("no agent instructions for role %q: %v",
+			role, ctx.Operation.InstallExpand)
+	}
+	return peerAddr, instructions.Token, nil
+}
+
 // newServerFromPeer returns a new server descriptor for the specified peer.
 // It uses local system information to augment the system metadata
-func newServerForPeer(peer *rpcserver.PeerServer) (*storage.Server, error) {
+func newServerForPeer(config PeerConfig) (*storage.Server, error) {
 	info, err := systeminfo.New()
 	if err != nil {
 		return nil, trace.Wrap(err)
 	}
-	return &storage.Server{
-		AdvertiseIP:  peer.PeerConfig.RuntimeConfig.AdvertiseAddr,
-		Mounts:       pb.MountsFromProto(peer.PeerConfig.RuntimeConfig.Mounts),
-		Nodename:     peer.PeerConfig.RuntimeConfig.CloudMetadata.NodeName,
-		InstanceType: peer.PeerConfig.RuntimeConfig.CloudMetadata.InstanceType,
-		InstanceID:   peer.PeerConfig.RuntimeConfig.CloudMetadata.InstanceId,
-		Role:         peer.PeerConfig.RuntimeConfig.Role,
-		Hostname:     info.GetHostname(),
-		OSInfo:       info.GetOS(),
-		User:         info.GetUser(),
-	}, nil
+	server := &storage.Server{
+		AdvertiseIP: config.AdvertiseAddr,
+		Mounts:      pb.MountsFromProto(config.RuntimeConfig.Mounts),
+		Role:        config.RuntimeConfig.Role,
+		Hostname:    info.GetHostname(),
+		OSInfo:      info.GetOS(),
+		User:        info.GetUser(),
+	}
+	if md := config.RuntimeConfig.CloudMetadata; md != nil {
+		server.Nodename = md.NodeName
+		server.InstanceType = md.InstanceType
+		server.InstanceID = md.InstanceId
+	}
+	return server, nil
 }

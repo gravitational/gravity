@@ -91,7 +91,7 @@ func (i *Installer) Run(listener net.Listener) error {
 // Implements signals.Stopper
 func (i *Installer) Stop(ctx context.Context) error {
 	i.Info("Stop service.")
-	i.server.Stopped(ctx, false)
+	i.server.ManualStop(ctx, false)
 	return nil
 }
 
