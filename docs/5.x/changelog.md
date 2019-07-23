@@ -127,11 +127,13 @@ LTS starts with `3.51.0` with minor backwards compatible changes added over time
 
 ### 5.0.34 LTS
 
-### Bugfixes
-* Fix security issue with Kapacitor service.
+#### Bugfixes
 
-### Improvements
-* Improved validation of gravity-site upgrade.
+* Change type for Kapacitor service from NodePort to ClusterIP.
+
+#### Improvements
+
+* Add `postUpdate` hook to `gravity-site` to make sure it's up and running after an upgrade.
 
 ### 5.6.5
 
