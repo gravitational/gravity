@@ -27,7 +27,6 @@ import (
 
 	"github.com/gravitational/gravity/lib/app"
 	"github.com/gravitational/gravity/lib/app/client"
-	"github.com/gravitational/gravity/lib/checks"
 	"github.com/gravitational/gravity/lib/constants"
 	"github.com/gravitational/gravity/lib/defaults"
 	"github.com/gravitational/gravity/lib/fsm"
@@ -39,7 +38,6 @@ import (
 	installpb "github.com/gravitational/gravity/lib/install/proto"
 	"github.com/gravitational/gravity/lib/install/server"
 	"github.com/gravitational/gravity/lib/localenv"
-	validationpb "github.com/gravitational/gravity/lib/network/validation/proto"
 	"github.com/gravitational/gravity/lib/ops"
 	"github.com/gravitational/gravity/lib/ops/events"
 	"github.com/gravitational/gravity/lib/ops/opsclient"
@@ -170,32 +168,19 @@ func (p *Peer) Execute(req *installpb.ExecuteRequest, stream installpb.Agent_Exe
 				if installpb.IsRPCError(result.Err) {
 					return trace.Unwrap(result.Err)
 				}
-				// Flag a failed execution (i.e. intermediate) step with codes.Aborted
-				// instead of codes.FailedPrecondition as a better suiting error code.
-				//
-				// For reference:
-				// FailedPrecondition indicates operation was rejected because the
-				// system is not in a state required for the operation's execution.
-				// For example, directory to be deleted may be non-empty, an rmdir
-				// operation is applied to a non-directory, etc.
-				//
-				// A litmus test that may help a service implementor in deciding
-				// between FailedPrecondition, Aborted, and Unavailable:
-				//  (a) Use Unavailable if the client can retry just the failing call.
-				//  (b) Use Aborted if the client should retry at a higher-level
-				//      (e.g., restarting a read-modify-write sequence).
-				//  (c) Use FailedPrecondition if the client should not retry until
-				//      the system state has been explicitly fixed. E.g., if an "rmdir"
-				//      fails because the directory is non-empty, FailedPrecondition
-				//      should be returned since the client should not retry unless
-				//      they have first fixed up the directory by deleting files from it.
-				//  (d) Use FailedPrecondition if the client performs conditional
-				//      REST Get/Update/Delete on a resource and the resource on the
-				//      server does not match the condition. E.g., conflicting
-				//      read-modify-write on the same resource.
-				return status.Error(codes.Aborted, result.Err.Error())
+				// Flag a failed intermediate step as codes.Aborted.
+				// From gRPC documentation:
+				// Use Aborted if the client should retry at a higher-level
+				// (e.g., restarting a read-modify-write sequence).
+				// See https://github.com/grpc/grpc-go/blob/v1.22.0/codes/codes.go#L78
+				return status.Error(codes.Aborted, trace.UserMessage(result.Err))
 			}
-			// FIXME: handle result.CompletionEvent
+			if result.CompletionEvent != nil {
+				err := stream.Send(result.CompletionEvent.AsProgressResponse())
+				if err != nil {
+					return trace.Wrap(err)
+				}
+			}
 			return nil
 		}
 	}
@@ -524,6 +509,10 @@ func (p *Peer) executePhase(ctx context.Context, opCtx operationContext, phase i
 	progressReporter := dispatcher.NewProgressReporter(ctx, disp, phaseTitle(phase))
 	defer progressReporter.Stop()
 	if phase.IsResume() {
+		err = p.ensureExpandOperationState(opCtx)
+		if err != nil {
+			return dispatcher.StatusUnknown, nil
+		}
 		err = install.ExecuteOperation(ctx, machine, progressReporter, p.FieldLogger)
 		if err == nil {
 			return dispatcher.StatusCompleted, nil
@@ -555,10 +544,6 @@ func (p *Peer) dialWizard(addr string) (*operationContext, error) {
 	if err != nil {
 		return nil, trace.Wrap(err)
 	}
-	err = p.runLocalChecks(ctx.Cluster, ctx.Operation)
-	if err != nil {
-		return nil, utils.Abort(err) // stop retrying on failed checks
-	}
 	return ctx, nil
 }
 
@@ -570,14 +555,6 @@ func (p *Peer) dialCluster(addr, operationID string) (*operationContext, error) 
 	err = p.checkAndSetServerProfile(ctx.Cluster.App)
 	if err != nil {
 		return nil, trace.Wrap(err)
-	}
-	installOp, _, err := ops.GetInstallOperation(ctx.Cluster.Key(), ctx.Operator)
-	if err != nil {
-		return nil, trace.Wrap(err)
-	}
-	err = p.runLocalChecks(ctx.Cluster, *installOp)
-	if err != nil {
-		return nil, utils.Abort(err) // stop retrying on failed checks
 	}
 	var operation *ops.SiteOperation
 	if operationID != "" {
@@ -688,21 +665,6 @@ func (p *Peer) checkAndSetServerProfile(app ops.Application) error {
 		"specified node role %q is not defined in the application manifest", p.Role))
 }
 
-// runLocalChecks makes sure node satisfies system requirements
-func (p *Peer) runLocalChecks(cluster ops.Site, installOperation ops.SiteOperation) error {
-	return checks.RunLocalChecks(p.ctx, checks.LocalChecksRequest{
-		Manifest: cluster.App.Manifest,
-		Role:     p.Role,
-		Docker:   cluster.ClusterState.Docker,
-		Options: &validationpb.ValidateOptions{
-			VxlanPort: int32(installOperation.GetVars().OnPrem.VxlanPort),
-			DnsAddrs:  cluster.DNSConfig.Addrs,
-			DnsPort:   int32(cluster.DNSConfig.Port),
-		},
-		AutoFix: true,
-	})
-}
-
 func (r operationContext) hasOperation() bool {
 	return r.Operation.Type != ""
 }
@@ -725,8 +687,6 @@ type operationContext struct {
 	Cluster ops.Site
 	// Creds is the RPC agent credentials
 	Creds rpcserver.Credentials
-	// Server describes the agent peer
-	Server *storage.Server
 }
 
 // connectLoop dials to either a running wizard OpsCenter or a local gravity cluster.
@@ -814,22 +774,17 @@ func (p *Peer) run(ctx operationContext) (dispatcher.Status, error) {
 	if ctx.Operation.Type == ops.OperationInstall {
 		return p.runAgent(ctx)
 	}
-	return p.runExpandAgent(ctx)
+	err := p.executeExpandOperation(ctx)
+	if err != nil {
+		return dispatcher.StatusUnknown, trace.Wrap(err)
+	}
+	return dispatcher.StatusCompleted, nil
 }
 
 func (p *Peer) runAgent(ctx operationContext) (dispatcher.Status, error) {
 	p.startProgressLoop(ctx)
 	<-p.ctx.Done()
 	return dispatcher.StatusUnknown, nil
-}
-
-func (p *Peer) runExpandAgent(ctx operationContext) (dispatcher.Status, error) {
-	p.Info("Execute expand operation.")
-	err := p.executeExpandOperation(ctx)
-	if err == nil {
-		return dispatcher.StatusCompleted, nil
-	}
-	return dispatcher.StatusUnknown, trace.Wrap(err)
 }
 
 func (p *Peer) executeExpandOperation(ctx operationContext) error {
@@ -839,24 +794,16 @@ func (p *Peer) executeExpandOperation(ctx operationContext) error {
 			return trace.Wrap(err)
 		}
 		ctx.Operation = *operation
-		server, err := newServerForPeer(p.PeerConfig)
-		if err != nil {
-			return trace.Wrap(err)
-		}
-		err = p.configureExpandOperation(ctx, *server)
-		if err != nil {
-			return trace.Wrap(err)
-		}
-		err = p.startAgent(ctx)
+		err = p.syncOperation(ctx)
 		if err != nil {
 			return trace.Wrap(err)
 		}
 	}
-	err := p.waitForOperation(ctx.Operator, ctx.Operation)
+	err := p.startAgent(ctx)
 	if err != nil {
 		return trace.Wrap(err)
 	}
-	err = p.waitForAgents(ctx.Operator, ctx.Operation)
+	err = p.ensureExpandOperationState(ctx)
 	if err != nil {
 		return trace.Wrap(err)
 	}
@@ -881,12 +828,20 @@ func (p *Peer) executeExpandOperation(ctx operationContext) error {
 	return trace.Wrap(fsmErr)
 }
 
-func (p *Peer) configureExpandOperation(ctx operationContext, server storage.Server) error {
-	err := p.initOperationPlan(ctx, server)
+func (p *Peer) ensureExpandOperationState(ctx operationContext) error {
+	err := p.waitForOperation(ctx.Operator, ctx.Operation)
 	if err != nil {
 		return trace.Wrap(err)
 	}
-	err = p.syncOperation(ctx)
+	err = p.waitForAgents(ctx.Operator, ctx.Operation)
+	if err != nil {
+		return trace.Wrap(err)
+	}
+	err = p.initOperationPlan(ctx)
+	if err != nil && !trace.IsAlreadyExists(err) {
+		return trace.Wrap(err)
+	}
+	err = p.syncOperationPlan(ctx)
 	if err != nil {
 		return trace.Wrap(err)
 	}
@@ -943,11 +898,10 @@ func (p *Peer) waitForOperation(operator ops.Operator, operation ops.SiteOperati
 			if err != nil {
 				return trace.Wrap(err)
 			}
+			logger := log.WithField("state", operation.State)
 			ready, err := isExpandOperationReady(operation.State)
-			if err != nil || !ready {
-				// FIXME: is it worth it to have an extra error return to differentiate
-				// an unexpected state?
-				log.WithField("state", operation.State).Info("Operation is not ready yet.")
+			if err == nil && !ready {
+				logger.Info("Operation is not ready yet.")
 				continue
 			}
 			log.Info("Operation is ready.")

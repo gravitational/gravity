@@ -110,8 +110,9 @@ func (i *Installer) Execute(req *installpb.ExecuteRequest, stream installpb.Agen
 			}
 		case result := <-i.execDoneC:
 			if result.Err != nil {
-				// Phase finished with an error
-				return status.Error(codes.Aborted, result.Err.Error())
+				// Phase finished with an error.
+				// See https://github.com/grpc/grpc-go/blob/v1.22.0/codes/codes.go#L78
+				return status.Error(codes.Aborted, trace.UserMessage(result.Err))
 			}
 			if result.CompletionEvent != nil {
 				err := stream.Send(result.CompletionEvent.AsProgressResponse())

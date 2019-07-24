@@ -87,8 +87,7 @@ func IsClosedConnectionError(err error) bool {
 
 // IsClusterUnavailableError determines if the specified error is a cluster unavailable error
 func IsClusterUnavailableError(err error) bool {
-	text := trace.Unwrap(err).Error()
-	return isEtcdClusterErrorMessage(text)
+	return isEtcdClusterErrorMessage(trace.UserMessage(err))
 }
 
 // IsKubeAuthError determines whether the specified error is an authorization

@@ -30,7 +30,6 @@ import (
 	"github.com/gravitational/gravity/lib/constants"
 	"github.com/gravitational/gravity/lib/defaults"
 	"github.com/gravitational/gravity/lib/expand"
-	"github.com/gravitational/gravity/lib/fsm"
 	"github.com/gravitational/gravity/lib/httplib"
 	"github.com/gravitational/gravity/lib/install"
 	installerclient "github.com/gravitational/gravity/lib/install/client"
@@ -538,57 +537,8 @@ func rollbackJoinPhase(env *localenv.LocalEnvironment, params PhaseParams, opera
 }
 
 func completeJoinPlan(env *localenv.LocalEnvironment, operation *ops.SiteOperation) error {
-	// FIXME: determine if able to use service, if not - use the manual complete
-	// with the cluster operation
-	//return trace.Wrap(completePlanFromService(
-	//	env, operation, "Connecting to agent", "Connected to agent"))
-	machine, err := newJoinFSM(env, operation)
-	if err != nil {
-		return trace.Wrap(err)
-	}
-	return machine.Complete(trace.Errorf("completed manually"))
-}
-
-// newJoinFSM returns a new state machine for the specified expand operation.
-// It does not use the join environment - instead working directly with the cluster environment.
-func newJoinFSM(env *localenv.LocalEnvironment, operation *ops.SiteOperation) (*fsm.FSM, error) {
-	// FIXME
-	// operator, err := joinEnv.CurrentOperator(httplib.WithInsecure())
-	// if err != nil {
-	// 	return nil, trace.Wrap(err)
-	// }
-	// apps, err := joinEnv.CurrentApps(httplib.WithInsecure())
-	// if err != nil {
-	// 	return nil, trace.Wrap(err)
-	// }
-	// packages, err := joinEnv.CurrentPackages(httplib.WithInsecure())
-	// if err != nil {
-	// 	return nil, trace.Wrap(err)
-	// }
-	// if operation == nil {
-	// 	// determine the ongoing expand operation, it should be the only
-	// 	// operation present in the local join-specific backend
-	// 	operation, err = ops.GetExpandOperation(joinEnv.Backend)
-	// 	if err != nil {
-	// 		return nil, trace.Wrap(err)
-	// 	}
-	// }
-	machine, err := expand.NewFSM(expand.FSMConfig{
-		OperationKey: operation.Key(),
-		// Operator:      operator,
-		// Apps:          apps,
-		// Packages:      packages,
-		LocalBackend: env.Backend,
-		// JoinBackend:   joinEnv.Backend,
-		LocalPackages: env.Packages,
-		LocalApps:     env.Apps,
-		DebugMode:     env.Debug,
-		Insecure:      env.Insecure,
-	})
-	if err != nil {
-		return nil, trace.Wrap(err)
-	}
-	return machine, nil
+	return trace.Wrap(completePlanFromService(
+		env, operation, "Connecting to agent", "Connected to agent"))
 }
 
 func setPhaseFromService(env *localenv.LocalEnvironment, params SetPhaseParams, operation *ops.SiteOperation) error {

@@ -22,12 +22,10 @@ import (
 
 	"github.com/gravitational/gravity/lib/install"
 	"github.com/gravitational/gravity/lib/ops"
-	pb "github.com/gravitational/gravity/lib/rpc/proto"
 	rpcserver "github.com/gravitational/gravity/lib/rpc/server"
 	"github.com/gravitational/gravity/lib/state"
 	"github.com/gravitational/gravity/lib/storage"
 	"github.com/gravitational/gravity/lib/system/environ"
-	"github.com/gravitational/gravity/lib/systeminfo"
 	log "github.com/sirupsen/logrus"
 
 	"github.com/gravitational/trace"
@@ -110,6 +108,25 @@ func (p *Peer) ensureServiceUserAndBinary(ctx operationContext) error {
 	return nil
 }
 
+// syncOperationPlan synchronizes operation and plan data to the local join backend
+func (p *Peer) syncOperationPlan(ctx operationContext) error {
+	err := p.syncOperation(ctx)
+	if err != nil {
+		return trace.Wrap(err)
+	}
+	// sync operation plan
+	plan, err := ctx.Operator.GetOperationPlan(ctx.Operation.Key())
+	if err != nil {
+		return trace.Wrap(err)
+	}
+	_, err = p.JoinBackend.CreateOperationPlan(*plan)
+	if err != nil {
+		return trace.Wrap(err)
+	}
+	p.Debug("Synchronized operation to the local backend.")
+	return nil
+}
+
 // syncOperation synchronizes operation-related data to the local join backend
 func (p *Peer) syncOperation(ctx operationContext) error {
 	// sync cluster
@@ -130,16 +147,6 @@ func (p *Peer) syncOperation(ctx operationContext) error {
 	if err != nil {
 		return trace.Wrap(err)
 	}
-	// sync operation plan
-	plan, err := ctx.Operator.GetOperationPlan(ctx.Operation.Key())
-	if err != nil {
-		return trace.Wrap(err)
-	}
-	_, err = p.JoinBackend.CreateOperationPlan(*plan)
-	if err != nil {
-		return trace.Wrap(err)
-	}
-	p.Debug("Synchronized operation to the local backend.")
 	return nil
 }
 
@@ -199,27 +206,4 @@ func getPeerAddrAndToken(ctx operationContext, role string) (peerAddr, token str
 			role, ctx.Operation.InstallExpand)
 	}
 	return peerAddr, instructions.Token, nil
-}
-
-// newServerFromPeer returns a new server descriptor for the specified peer.
-// It uses local system information to augment the system metadata
-func newServerForPeer(config PeerConfig) (*storage.Server, error) {
-	info, err := systeminfo.New()
-	if err != nil {
-		return nil, trace.Wrap(err)
-	}
-	server := &storage.Server{
-		AdvertiseIP: config.AdvertiseAddr,
-		Mounts:      pb.MountsFromProto(config.RuntimeConfig.Mounts),
-		Role:        config.RuntimeConfig.Role,
-		Hostname:    info.GetHostname(),
-		OSInfo:      info.GetOS(),
-		User:        info.GetUser(),
-	}
-	if md := config.RuntimeConfig.CloudMetadata; md != nil {
-		server.Nodename = md.NodeName
-		server.InstanceType = md.InstanceType
-		server.InstanceID = md.InstanceId
-	}
-	return server, nil
 }
