@@ -15,19 +15,18 @@ limitations under the License.
 */
 
 import React from 'react';
-import OnpremProfile from './ProfileOnprem';
+import Profile from './Profile';
 import PropTypes from 'prop-types';
-import ButtonValidate from '../Elements/ButtonValidate';
-import AjaxPoller from 'app/components/dataProviders'
+import AjaxPoller from 'app/components/AjaxPoller'
 import * as Alerts from 'shared/components/Alert';
-import { Flex } from 'shared/components';
-import Validation from 'app/components/Validation';
+import { Flex, ButtonPrimary } from 'shared/components';
+import Validation, { useValidation } from 'shared/components/Validation';
 import { useServices } from 'app/installer/services';
 import { useAttempt } from 'shared/hooks';
 
 const POLL_INTERVAL = 3000; // every 5 sec
 
-export default function FlavorOnprem(props) {
+export default function Flavor(props) {
   const { servers, profiles, store } = props;
 
   const [ attempt, attemptActions ] = useAttempt();
@@ -53,7 +52,7 @@ export default function FlavorOnprem(props) {
     const profileServers = servers.filter( s => s.role === name );
 
     return (
-      <OnpremProfile
+      <Profile
         mb="4"
         servers={profileServers}
         key={name}
@@ -125,8 +124,18 @@ export default function FlavorOnprem(props) {
   );
 }
 
-FlavorOnprem.propTypes = {
+Flavor.propTypes = {
   store: PropTypes.object.isRequired,
   profiles: PropTypes.array.isRequired,
 }
 
+function ButtonValidate( { onClick, ...rest }) {
+  const validator = useValidation();
+  function onContinue(){
+    validator.validate() && onClick();
+  }
+
+  return (
+    <ButtonPrimary onClick={onContinue} {...rest} />
+  )
+}

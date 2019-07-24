@@ -15,12 +15,11 @@ limitations under the License.
 */
 
 import React from 'react';
-import Profile from './../Elements/Profile';
 import CmdText from 'app/components/CmdText';
 import { Server } from './Server';
-import { Box, LabelInput } from 'shared/components';
+import { Card, Flex, Text, LabelState, Box, LabelInput } from 'shared/components';
 
-export default function ProfileOnprem(props){
+export default function ProfileOnprem(props) {
   const {
     name,
     servers,
@@ -30,35 +29,49 @@ export default function ProfileOnprem(props){
     requirementsText,
     onSetServerVars,
     onRemoveServerVars,
-    mb
+    mb,
   } = props;
 
   const $servers = servers.map(server => (
     <Server
-      mx={-4} px="4" pt="3"
-      key={name+server.hostname}
+      mx={-4}
+      px="4"
+      pt="3"
+      key={name + server.hostname}
       role={server.role}
       hostname={server.hostname}
       vars={server.vars}
       onSetVars={onSetServerVars}
       onRemoveVars={onRemoveServerVars}
     />
-  ))
+  ));
 
   return (
-    <Profile
-      count={count}
-      requirementsText={requirementsText}
-      description={description}
-      mb={mb}
-    >
+    <Card as={Flex} bg="primary.light" px="4" py="3" mb={mb} flexDirection="column">
+      <Flex alignItems="center">
+        <LabelState shadow width="100px" mr="6" py="2" fontSize="2" style={{ flexShrink: '0' }}>
+          {labelText(count)}
+        </LabelState>
+        <Flex flexDirection="colum" flexWrap="wrap" alignItems="baseline">
+          <Text typography="h3" mr="4">
+            {description}
+          </Text>
+          <Text as="span" typography="h6">
+            {`REQUIREMENTS - ${requirementsText}`}
+          </Text>
+        </Flex>
+      </Flex>
       <LabelInput mt="3">
-        Copy and paste the command below into terminal. Your server will automatically appear in the list
+        Copy and paste the command below into terminal. Your server will automatically appear in the
+        list
       </LabelInput>
       <CmdText cmd={instructions} />
-      <Box mt="4">
-        {$servers}
-      </Box>
-    </Profile>
-  )
+      <Box mt="4">{$servers}</Box>
+    </Card>
+  );
+}
+
+function labelText(count) {
+  const nodes = count > 1 ? 'nodes' : 'node';
+  return `${count} ${nodes}`;
 }

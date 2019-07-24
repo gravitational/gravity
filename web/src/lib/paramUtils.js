@@ -16,7 +16,7 @@ limitations under the License.
 
 /*eslint no-useless-escape: "off"*/
 
-import Logger from 'app/lib/logger';
+import Logger from 'shared/libs/logger';
 import IpSubnetCalculator from 'ip-subnet-calculator';
 const logger = Logger.create('paramUtils');
 

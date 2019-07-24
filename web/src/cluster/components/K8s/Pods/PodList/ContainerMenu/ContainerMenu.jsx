@@ -107,7 +107,6 @@ const LoginItemList = React.forwardRef(
       const url = cfg.getConsoleInitPodSessionRoute({ login, serverId, container, pod, namespace });
       return (
         <MenuItem
-          key={key}
           px="2"
           mx="2"
           as={SyledMenuItem}

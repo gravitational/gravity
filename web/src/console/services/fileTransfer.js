@@ -16,7 +16,7 @@ limitations under the License.
 
 import { getAuthHeaders, getNoCacheHeaders } from 'app/services/api';
 import { EventEmitter } from 'events';
-import Logger from 'app/lib/logger';
+import Logger from 'shared/libs/logger';
 
 const logger = Logger.create('api/fileTransfer');
 

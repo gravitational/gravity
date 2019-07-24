@@ -17,7 +17,7 @@ import XTerm from 'xterm/dist/xterm';
 import 'xterm/dist/xterm.css';
 import Tty from './tty';
 import {debounce, isInteger} from 'lodash';
-import Logger from 'app/lib/logger';
+import Logger from 'shared/libs/logger';
 import { TermEventEnum } from './enums';
 
 const logger = Logger.create('lib/term/terminal');

@@ -18,10 +18,10 @@ import React from 'react';
 import moment from 'moment';
 import { EVENT_MAX_LIMIT, fetchEvents, fetchLatest } from 'app/cluster/flux/events/actions';
 import { getters } from 'app/cluster/flux/events';
-import AjaxPoller from 'app/components/dataProviders'
+import AjaxPoller from 'app/components/AjaxPoller';
 import { useFluxStore } from 'app/components/nuclear';
 import { useAttempt, withState } from 'shared/hooks';
-import { Danger } from 'shared/components/Alert'
+import { Danger } from 'shared/components/Alert';
 import RangePicker, { getRangeOptions } from './RangePicker';
 import EventList from './EventList';
 import { FeatureBox, FeatureHeader, FeatureHeaderTitle } from './../Layout';
