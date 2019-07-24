@@ -20,7 +20,7 @@ See `web/README.md` for more info.
 
 We recommend using Docker to run and build the docs. 
 
-`make run-docs` will create a build a local Docker environment, compile the docs and 
+`make run` will create a build a local Docker environment, compile the docs and 
 setup a [livereload server](https://chrome.google.com/webstore/detail/livereload/jnihajbhpnppcggbcgedagnkighmdlei?hl=en) for easy previewing of changes by opening
 http://localhost:6600/overview/ in your local browser. 
 
