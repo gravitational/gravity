@@ -20,51 +20,7 @@ import { getAccessToken } from 'app/services/api';
 import cfg from 'app/config';
 import { generatePath } from 'react-router';
 
-const DEFAULT_INTERVAL = 3000; // every 3 sec
-
-export default class DataProvider extends React.Component {
-
-  _timerId = null;
-  _request = null;
-
-  static defaultProps = {
-    immediately: true
-  }
-
-  constructor(props) {
-    super(props);
-    this._intervalTime = props.time || DEFAULT_INTERVAL;
-  }
-
-  fetch() {
-    // do not refetch if still in progress
-    if (this._request) {
-      return;
-    }
-
-    this._request = this.props.onFetch()
-      .always(() => {
-        this._request = null;
-      })
-  }
-
-  componentDidMount() {
-    this.props.immediately && this.fetch();
-    this._timerId = setInterval(this.fetch.bind(this), this._intervalTime);
-  }
-
-  componentWillUnmount(){
-    clearInterval(this._timerId);
-    if (this._request && this._request.abort) {
-      this._request.abort();
-    }
-  }
-
-  render() {
-    return null;
-  }
-}
-export class SiteOperationLogProvider extends React.Component {
+export default class InstallLogsProvider extends React.Component {
 
   static propTypes = {
    siteId: PropTypes.string.isRequired,
@@ -137,7 +93,8 @@ export class SiteOperationLogProvider extends React.Component {
 
 function createLogStreamer(siteId, opId){
   const token = getAccessToken();
-  const hostname = cfg.getWsHostName();
+  const hostport = location.hostname + (location.port ? ':' + location.port : '');
+  const hostname = `wss://${hostport}`;
   const url = generatePath(cfg.api.operationLogsPath, {
     siteId,
     token,

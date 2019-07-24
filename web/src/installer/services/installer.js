@@ -15,7 +15,6 @@ limitations under the License.
 */
 
 import $ from 'jQuery';
-import { at, map } from 'lodash';
 import api from 'app/services/api';
 import cfg from 'app/config';
 import appService, { makeApplication } from 'app/services/applications';
@@ -65,10 +64,10 @@ const service = {
   },
 
   createCluster(request){
-    const url = cfg.getSiteUrl({});
     return service.verifyClusterName(request.domain_name)
       .then(() => {
-         return api.post(url, request).then(json => json.site_domain);
+          const url = cfg.getSiteUrl({});
+          return api.post(url, request).then(json => json.site_domain);
       })
   },
 
@@ -93,23 +92,6 @@ const service = {
     })
   },
 
-  verifyAwsKeys({ packageId, provider, accessKey, secretKey, sessionToken }){
-    const request = {
-      provider,
-      variables: {
-        access_key: accessKey,
-        secret_key: secretKey,
-        session_token: sessionToken,
-      },
-      application: packageId
-    };
-
-    return api.post(cfg.api.providerPath, request)
-      .then(data => {
-        return map(data.aws.regions, makeRegion);
-      })
-  },
-
   fetchApp(...params){
     return appService.fetchApplication(...params);
   },
@@ -117,42 +99,6 @@ const service = {
   fetchClusterApp(siteId){
     return api.get(cfg.getSiteUrl({siteId, shallow: false}))
       .then(json => makeApplication(json.app))
-  }
-}
-
-export function makeRegion(json){
-  const [ name, vpcsJson, keyPairsJson ] = at(json, ['name', 'vpcs', 'key_pairs']);
-  const vpcs = map(vpcsJson, makeVpc)
-  const keyPairs = map(keyPairsJson, makeKeyPair);
-  return {
-    name,
-    label: name,
-    vpcs,
-    keyPairs
-  }
-}
-
-function makeKeyPair(json){
-  return {
-    name: json.name,
-  };
-}
-
-function makeVpc(json){
-  const [
-    name,
-    id,
-    isDefault
-  ] = at(json, [
-    'tags.Name',
-    'vpc_id',
-    'is_default'
-  ]);
-
-  return {
-    name: isDefault ? `${id} | ${name} (default)` : `${name} | ${id}`,
-    id,
-    isDefault,
   }
 }
 

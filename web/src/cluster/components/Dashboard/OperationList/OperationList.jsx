@@ -27,7 +27,7 @@ import { fetchOps, fetchOpProgress } from 'app/cluster/flux/operations/actions';
 import { getters as sessionGetters } from 'app/cluster/flux/sessions';
 import { getters as nodeGetters } from 'app/cluster/flux/nodes';
 import { fetchActiveSessions } from 'app/cluster/flux/sessions/actions';
-import AjaxPoller from 'app/components/dataProviders'
+import AjaxPoller from 'app/components/AjaxPoller';
 import TypeCell from './TypeCell';
 import UserCell from './UserCell';
 import ActionCell from './ActionCell';

@@ -17,7 +17,7 @@ limitations under the License.
 import React from 'react';
 import cfg from 'app/config';
 import { forEach, at, set, map, merge, keys, values, unset } from 'lodash';
-import { OpStateEnum, ProviderEnum, ProvisionerEnum } from 'app/services/enums';
+import { OpStateEnum, ProviderEnum } from 'app/services/enums';
 import { Store, useStore } from 'app/lib/stores';
 
 export const StepEnum = {
@@ -63,30 +63,13 @@ export default class InstallerStore extends Store {
     // Cluster tags
     tags: {},
 
-    // Selected provider
-    selectedProvider: null,
-
     // Entered cluster name
     clusterName: '',
 
-    // Onprem provider parameters
-    onprem: {
-      serviceSubnet: defaultServiceSubnet,
-      podSubnet: defaultPodSubnet,
-    },
-
-    // AWS provider parameters
-    aws: {
-      authorized: false,
-      regions: [],
-      useExisting: false,
-      accessKey: '',
-      secretKey: '',
-      sessionToken: '',
-      selectedRegion: '',
-      selectedVpc: '',
-      selectedKeyPair: '',
-    },
+    // Service subnet
+    serviceSubnet: defaultServiceSubnet,
+    // Pod subnet
+    podSubnet: defaultPodSubnet,
 
     // Available app flavors
     flavors: null,
@@ -108,21 +91,21 @@ export default class InstallerStore extends Store {
     })
   }
 
-  setError(err){
+  setError(err) {
     this.setState({
       status: 'error',
       statusText: err.message
     })
   }
 
-  setLicense(license){
+  setLicense(license) {
     this.setState({
       license,
       step: StepEnum.NEW_APP
     })
   }
 
-  setClusterTags(tags){
+  setClusterTags(tags) {
     this.setState({
       tags: {
         ...tags
@@ -130,62 +113,36 @@ export default class InstallerStore extends Store {
     })
   }
 
-  setStepProgress(){
+  setStepProgress() {
     this.setState({
       step: StepEnum.PROGRESS
     })
   }
 
-  setOnpremSubnets(serviceSubnet, podSubnet){
+  setOnpremSubnets(serviceSubnet, podSubnet) {
     this.setState({
-      onprem: {
-        ...this.state.onprem,
-        serviceSubnet,
-        podSubnet
-      }
+      serviceSubnet,
+      podSubnet
     })
   }
 
-  setAwsAccountInfo({ regions, accessKey, secretKey, sessionToken }){
-    this.setState({
-      aws: {
-        ...this.state.aws,
-        accessKey,
-        secretKey,
-        sessionToken,
-        authorized: true,
-        regions
-      }
-    })
-  }
-
-  setAwsServerSettings({ useExisting, selectedRegion, selectedVpc, selectedKeyPair }){
-    this.setState({
-      aws: {
-        ...this.state.aws,
-        useExisting,
-        selectedRegion,
-        selectedVpc,
-        selectedKeyPair
-      }
-    })
-  }
-
-  setProvider(selectedProvider){
-    this.setState({
-      selectedProvider
-    })
-  }
-
-  setClusterName(clusterName){
+  setClusterName(clusterName) {
     this.setState({
       clusterName
     })
   }
 
-  makeOnpremRequest(){
-    const { serviceSubnet, podSubnet } = this.state.onprem;
-    const request = this._makeProviderRequest();
+  makeOnpremRequest() {
+    const { clusterName, license, tags, serviceSubnet, podSubnet } = this.state;
+    const { packageId } = this.state.app;
+
+    const request = {
+      app_package: packageId,
+      domain_name: clusterName,
+      provider: null,
+      license,
+      labels: tags
+    };
 
     request.provider = {
       provisioner: ProviderEnum.ONPREM,
@@ -198,37 +155,7 @@ export default class InstallerStore extends Store {
     return request;
   }
 
-  makeAwsRequest(){
-    const {
-      useExisting,
-      accessKey: access_key,
-      secretKey: secret_key,
-      sessionToken: session_token,
-      selectedKeyPair: key_pair,
-      selectedRegion: region,
-      selectedVpc,
-    } = this.state.aws;
-
-    const provisioner = useExisting ? ProvisionerEnum.ONPREM : null;
-    const vpcValue = !selectedVpc ?  null : selectedVpc;
-    const request = this._makeProviderRequest();
-
-    request.provider = {
-      provisioner,
-      [ProviderEnum.AWS]: {
-        access_key,
-        key_pair,
-        secret_key,
-        session_token,
-        region,
-        vpc_id: vpcValue
-      }
-    }
-
-    return request;
-  }
-
-  makeAgentRequest(){
+  makeAgentRequest() {
     const { siteId, id: opId } = this.state.operation;
     return {
       siteId,
@@ -236,7 +163,7 @@ export default class InstallerStore extends Store {
     }
   }
 
-  makeStartInstallRequest(){
+  makeStartInstallRequest() {
     const request = {
       siteId: this.state.operation.siteId,
       opId: this.state.operation.id,
@@ -255,12 +182,12 @@ export default class InstallerStore extends Store {
 
     const serverMap = this.state.provision.servers;
     keys(serverMap).map(role => {
-      values(serverMap[role]).map( server => {
+      values(serverMap[role]).map(server => {
         const os = server.os;
-        const role  = server.role;
+        const role = server.role;
         const system_state = null;
-        const advertise_ip   = server.ip;
-        const hostname   = server.hostname;
+        const advertise_ip = server.ip;
+        const hostname = server.hostname;
         const mounts = map(server.mounts, mount => ({
           name: mount.name,
           source: mount.value
@@ -275,25 +202,12 @@ export default class InstallerStore extends Store {
           mounts,
         })
       })
-  })
+    })
 
     return request;
   }
 
-  _makeProviderRequest(){
-    const { packageId } = this.state.app;
-    const { clusterName, license, tags } = this.state;
-
-    return {
-      app_package: packageId,
-      domain_name: clusterName,
-      provider: null,
-      license,
-      labels: tags
-    };
-  }
-
-  initWithApp(app){
+  initWithApp(app) {
     let step = StepEnum.LICENSE;
 
     const stepOptions = [
@@ -305,13 +219,13 @@ export default class InstallerStore extends Store {
     ]
 
     // remove license step
-    if(!app.licenseRequired){
+    if (!app.licenseRequired) {
       stepOptions.shift();
       step = StepEnum.NEW_APP;
     }
 
     // remove bandwagon step
-    if(app.bandwagon){
+    if (app.bandwagon) {
       stepOptions.unshift()
     }
 
@@ -322,7 +236,7 @@ export default class InstallerStore extends Store {
       [
         'config.modules.installer',
         'config.agentReport'
-    ]);
+      ]);
 
     // TODO: fixme
     // overrides default agent report config
@@ -332,14 +246,13 @@ export default class InstallerStore extends Store {
     this.setState({
       status: 'ready',
       stepOptions,
-      selectedProvider: ProviderEnum.ONPREM,
       app,
       step,
       config,
     })
   }
 
-  initWithCluster(details){
+  initWithCluster(details) {
     const { app, operation, flavors } = details;
     const step = mapOpStateToStep(operation.state);
     this.initWithApp(app);
@@ -351,7 +264,7 @@ export default class InstallerStore extends Store {
     })
   }
 
-  setProvisionProfiles(profiles){
+  setProvisionProfiles(profiles) {
     const provisitProfiles = {}
 
     forEach(profiles, p => {
@@ -360,7 +273,7 @@ export default class InstallerStore extends Store {
       }
     });
 
-    const provision =   {
+    const provision = {
       ...this.state.provision,
       profiles: provisitProfiles
     }
@@ -370,30 +283,13 @@ export default class InstallerStore extends Store {
     })
   }
 
-  setProfileValue({ name, count, instanceType}){
-    const profiles = {
-      ...this.state.provision.profiles,
-      [name]: {
-        count,
-        instanceType
-      }
-    }
-
-    this.setState({
-      provision: {
-        ...this.state.provision,
-        profiles
-      }
-    });
-  }
-
-  setAgentServers(agentServers){
+  setAgentServers(agentServers) {
     this.setState({
       agentServers
     })
   }
 
-  setServerVars({ role, hostname, ip, mounts }){
+  setServerVars({ role, hostname, ip, mounts }) {
     set(this.state.provision, ['servers', role, hostname], {
       role,
       hostname,
@@ -406,7 +302,7 @@ export default class InstallerStore extends Store {
     })
   }
 
-  removeServerVars({ role, hostname}){
+  removeServerVars({ role, hostname }) {
     unset(this.state.provision, ['servers', role, hostname]);
     this.setState({
       ...this.state.provision
@@ -414,9 +310,9 @@ export default class InstallerStore extends Store {
   }
 }
 
-const installerContext =  React.createContext({});
+const installerContext = React.createContext({});
 
-function mapOpStateToStep(state){
+function mapOpStateToStep(state) {
   let step;
   switch (state) {
     case OpStateEnum.CREATED:
@@ -434,11 +330,11 @@ function mapOpStateToStep(state){
 
 export const Provider = installerContext.Provider;
 
-export function useInstallerContext(){
+export function useInstallerContext() {
   return React.useContext(installerContext);
 }
 
-export function useInstallerStore(){
+export function useInstallerStore() {
   const store = useInstallerContext()
   return useStore(store);
 }

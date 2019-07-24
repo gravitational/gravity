@@ -19,7 +19,7 @@ import { useAttempt, withState } from 'shared/hooks';
 import cfg from 'app/config';
 import auth from 'app/services/auth';
 import history from 'app/services/history';
-import Logger from 'app/lib/logger';
+import Logger from 'shared/libs/logger';
 import InviteForm, { Expired } from 'shared/components/FormInvite';
 import LogoHero from './../LogoHero';
 

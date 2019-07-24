@@ -14,18 +14,17 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-import React from "react";
-import Logger from "app/lib/logger";
-import { isObject } from "lodash";
+import React from 'react';
+import Logger from '../../libs/logger';
+import { isObject } from 'lodash';
 
-const logger = Logger.create("validation");
+const logger = Logger.create('validation');
 
 // Validator handles input validation
 export default class Validator {
+  valid = true;
 
-  valid = true
-
-  values = {}
+  values = {};
 
   constructor() {
     // store subscribers
@@ -81,20 +80,17 @@ export default class Validator {
   }
 }
 
-
 const ValidationContext = React.createContext({});
 
 export function Validation(props) {
   const [validator] = React.useState(() => new Validator());
-  return (
-    <ValidationContext.Provider value={validator} children={props.children} />
-  );
+  return <ValidationContext.Provider value={validator} children={props.children} />;
 }
 
 export function useValidation() {
   const value = React.useContext(ValidationContext);
   if (!(value instanceof Validator)) {
-    logger.warn("Missing Validation Context declaration");
+    logger.warn('Missing Validation Context declaration');
   }
 
   return value;
@@ -105,7 +101,7 @@ export function useValidation() {
  * after validation has been requested
  */
 export function useRule(validate) {
-  if (typeof validate !== "function") {
+  if (typeof validate !== 'function') {
     logger.warn(`useRule(fn), fn() must be a function`);
     return;
   }

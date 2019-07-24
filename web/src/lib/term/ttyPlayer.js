@@ -19,7 +19,7 @@ import BufferModule from 'buffer/';
 import api from 'app/services/api';
 import Tty from './tty';
 import { EventTypeEnum, TermEventEnum } from './enums';
-import Logger from 'app/lib/logger';
+import Logger from 'shared/libs/logger';
 
 const logger = Logger.create('TtyPlayer');
 const STREAM_START_INDEX = 0;

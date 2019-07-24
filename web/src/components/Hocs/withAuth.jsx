@@ -17,7 +17,7 @@ limitations under the License.
 import React from 'react';
 import session from 'app/services/session';
 import history from 'app/services/history';
-import Logger from 'app/lib/logger';
+import Logger from 'shared/libs/logger';
 
 const logger = Logger.create('/components/withAuth');
 

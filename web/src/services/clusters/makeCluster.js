@@ -116,6 +116,7 @@ export function makeStatus(siteState){
     case SiteStateEnum.SHRINKING:
     case SiteStateEnum.UPDATING:
     case SiteStateEnum.UNINSTALLING:
+    case SiteStateEnum.INSTALLING:
       return StatusEnum.PROCESSING;
     case SiteStateEnum.FAILED:
     case SiteStateEnum.DEGRADED:

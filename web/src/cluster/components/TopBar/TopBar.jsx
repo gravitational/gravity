@@ -22,7 +22,7 @@ import userGetters from 'app/flux/user/getters';
 import { getters as navGetters } from 'app/cluster/flux/nav';
 import { getters as infoGetters } from 'app/cluster/flux/info';
 import { fetchSiteInfo, changeRemoteAccess } from 'app/cluster/flux/info/actions';
-import AjaxPoller from 'app/components/dataProviders'
+import AjaxPoller from 'app/components/AjaxPoller';
 import session from 'app/services/session';
 import TopNavUserMenu from 'shared/components/TopNav/TopNavUserMenu'
 import { Flex, Text, ButtonOutlined, ButtonPrimary, TopNav } from 'shared/components';

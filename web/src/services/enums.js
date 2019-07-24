@@ -64,7 +64,6 @@ export const RestRespCodeEnum = {
 
 export const ExpandPolicyEnum = {
   FIXED: 'fixed',
-  FIXED_INSTANCE: 'fixed-instance'
 }
 
 export const UserStatusEnum = {
@@ -127,16 +126,6 @@ export const SiteStateEnum = {
 
 export const ProviderEnum = {
   ONPREM: 'onprem',
-  AZURE: 'azure',
-  VAGRANT: 'vagrant',
-  AWS: 'aws'
-}
-
-export const ProvisionerEnum = {
-  ONPREM: 'onprem',
-  AZURE: 'azure',
-  VAGRANT: 'vagrant',
-  AWS: 'aws_terraform'
 }
 
 export const K8sPodPhaseEnum = {
@@ -150,50 +139,4 @@ export const K8sPodPhaseEnum = {
 export const K8sPodDisplayStatusEnum = {
   ...K8sPodPhaseEnum,
   TERMINATED: 'Terminated'
-}
-
-export const RetentionValueEnum = {
-  DEF: 'default',
-  MED: 'medium',
-  LONG: 'long'
-}
-
-export const LinkEnum = {
-  U2F_HELP_URL: 'https://support.google.com/accounts/answer/6103523?hl=en',
-  AWS_ACCESS_KEY: 'https://aws.amazon.com/developers/access-keys/',
-  AWS_REGIONS: 'http://docs.aws.amazon.com/AWSEC2/latest/UserGuide/using-regions-availability-zones.html',
-  AWS_KEY_PAIRS: 'http://docs.aws.amazon.com/AWSEC2/latest/UserGuide/ec2-key-pairs.html',
-  AWS_VPC: 'http://docs.aws.amazon.com/AWSEC2/latest/UserGuide/ec2-key-pairs.html',
-  AWS_INSTANCE_TYPES: 'http://docs.aws.amazon.com/AWSEC2/latest/UserGuide/instance-types.html',
-  AWS_SESSION_TOKEN: 'http://docs.aws.amazon.com/IAM/latest/UserGuide/id_credentials_temp_request.html'
-}
-
-export const PlatformEventEnum = {
-  APPLICATION_INSTALLED :'application.installed',
-  APPLICATION_ROLLEDBACK :'application.rolledback',
-  APPLICATION_UNINSTALLED :'application.uninstalled',
-  APPLICATION_UPGRADED :'application.upgraded',
-  AUTH :'auth',
-  CLUSTER_ACTIVATED :'cluster.activated',
-  CLUSTER_DEGRADED :'cluster.degraded',
-  EXEC :'exec',
-  LICENSE_EXPIRED :'license.expired',
-  LICENSE_UPDATED :'license.updated',
-  OPERATION_COMPLETED :'operation.completed',
-  OPERATION_STARTED :'operation.started',
-  PERIODICUPDATES_DISABLED :'periodicupdates.disabled',
-  PERIODICUPDATES_DOWNLOADED :'periodicupdates.downloaded',
-  PERIODICUPDATES_ENABLED :'periodicupdates.enabled',
-  REMOTESUPPORT_DISABLED :'remotesupport.disabled',
-  REMOTESUPPORT_ENABLED :'remotesupport.enabled',
-  RESOURCE_CREATED :'resource.created',
-  RESOURCE_DELETED :'resource.deleted',
-  SCP :'scp',
-  SESSION_START :'session.start',
-  SESSION_LEAVE: 'session.leave',
-  SESSION_END: 'session.end',
-  TUNNEL_CONNECTED :'tunnel.connected',
-  TUNNEL_DISCONNECTED :'tunnel.disconnected',
-  USER_LOGIN :'user.login',
-  USER_INVITED: 'user.invited',
 }

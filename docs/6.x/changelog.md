@@ -9,7 +9,7 @@ LTS starts with `3.51.0` with minor backwards compatible changes added over time
 | --------------|-----| -------------------- | -------------------- | ------------------ |------------------|
 | 6.0.1         | No  | July 18th, 2019      | -                    | 1.14.2             | 3.2.7            |
 | 5.6.5         | No  | July 18th, 2019      | -                    | 1.14.2             | 3.0.5            |
-| 5.5.13        | Yes | July 18th, 2019      | September 7th, 2020  | 1.13.6             | 3.0.4            |
+| 5.5.14        | Yes | July 24th, 2019      | September 7th, 2020  | 1.13.6             | 3.0.4            |
 | 5.4.10*       | No  | March 26th, 2019     | -                    | 1.13.5             | 2.4.10           |
 | 5.3.9*        | No  | March 7th, 2019      | -                    | 1.12.3             | 2.4.7            |
 | 5.2.13        | Yes | July 8th, 2019       | October 15th, 2019   | 1.11.9             | 2.4.10           |
@@ -131,18 +131,27 @@ LTS starts with `3.51.0` with minor backwards compatible changes added over time
 
 ## 5.x Releases
 
+### 5.5.14 LTS (July 24th, 2019)
+
+#### Bugfixes
+
+* Fix an issue with managing monitoring resources via `gravity resource` command.
+
 ### 5.6.5 (July 18th, 2019)
 
 #### Bugfixes
+
 * Workaround for installation failures when populating the docker registry.
 
 ### 5.5.13 LTS (July 18th, 2019)
 
 #### Bugfixes
+
 * Workaround for installation failures when populating the docker registry.
 * Fix an issue with applications that contain a resources subfolder failing to install.
 
 #### Improvements
+
 * Installations that previously used a dedicated devicemapper volume will now be reformatted and reused after upgrade.
 
 ### 5.6.4

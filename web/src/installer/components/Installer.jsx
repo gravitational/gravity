@@ -15,13 +15,13 @@ limitations under the License.
 */
 
 import React from 'react';
-import { Flex, Indicator } from 'shared/components'
+import { Flex, Indicator } from 'shared/components';
+import Validation from 'shared/components/Validation';
 import { Failed } from 'shared/components/CardError';
 import { Provider as ServiceProvider, useServices } from 'app/installer/services';
 import { AppLayout } from './Layout';
 import Eula from './Eula';
 import InstallerStore, { useInstallerStore, StepEnum, Provider as StoreProvider } from './store';
-import Validation from 'app/components/Validation';
 import StepProgress from './StepProgress';
 import StepCapacity from './StepCapacity';
 import StepList from './StepList';

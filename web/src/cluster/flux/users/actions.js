@@ -17,8 +17,8 @@ limitations under the License.
 import reactor from 'app/reactor';
 import api from 'app/services/api';
 import cfg from 'app/config';
-import Logger from 'app/lib/logger';
 import { UserStatusEnum } from 'app/services/enums'
+import Logger from 'shared/libs/logger';
 import { CLUSTER_RECEIVE_USERS } from './actionTypes';
 
 const logger = Logger.create('cluster/flux/users/actions');

@@ -17,7 +17,7 @@ limitations under the License.
 import React from 'react';
 import { Flex } from 'shared/components';
 import { useFluxStore } from 'app/components/nuclear';
-import AjaxPoller from 'app/components/dataProviders'
+import AjaxPoller from 'app/components/AjaxPoller';
 import { filesize } from 'app/lib/humanize';
 import UsageOverTime from './OvertimeChart';
 import CircleGraph from './CircleGraph';

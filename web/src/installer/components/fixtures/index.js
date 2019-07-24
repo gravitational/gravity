@@ -16,17 +16,15 @@ limitations under the License.
 
 import json from './app.json';
 import clusterJson from './cluster.json';
-import flavorsAws from './flavorsAws.json'
-import flavorsOnprem from './flavorsOnprem.json'
+import flavors from './flavors.json';
 import operations from './operations.json';
-
 import { eula } from './eula';
 import { merge } from 'lodash';
 
 const appWithLicense = {};
 const appWithEula = {};
 const app = {};
-const cluster = {}
+const cluster = {};
 
 merge(app, json, {
   manifest: {
@@ -92,7 +90,6 @@ export {
   appWithLicense,
   appWithEula,
   cluster,
-  flavorsAws,
-  flavorsOnprem,
+  flavors,
   operations
 }

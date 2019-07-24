@@ -92,7 +92,6 @@ export const ButtonCell = ({ rowIndex, onReset, onEdit, onDelete, data, ...props
   return (
     <Cell {...props}>
       <ActionMenu owner={owner} userId={userId} isInvite={isInvite}
-        onDelete={onDelete}
         onEdit={onEdit}
         onReset={onReset}
         onDelete={onDelete}
