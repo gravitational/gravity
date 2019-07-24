@@ -51,7 +51,6 @@ export default function InterfaceVariable(props) {
   return (
     <FieldSelect
       {...styles}
-      value={value}
       rule={required(`${label} is required`)}
       label={label}
       value={{ value, label: value }}

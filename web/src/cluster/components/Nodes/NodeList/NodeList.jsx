@@ -16,7 +16,6 @@ limitations under the License.
 
 import React from 'react';
 import styled from 'styled-components';
-import { ProviderEnum } from 'app/services/enums';
 import { Table, Column, Cell, TextCell } from 'shared/components/DataTable';
 import { Label, Text } from 'shared/components';
 import MenuLogin from './../MenuLogin';
@@ -83,8 +82,7 @@ export function LabelCell({ rowIndex, data }){
 
 class NodeList extends React.Component {
   render() {
-    const { nodes, provider, onDelete } = this.props;
-    const isAws = provider === ProviderEnum.AWS;
+    const { nodes, onDelete } = this.props;
     return (
       <StyledTable data={nodes}>
         <Column
@@ -105,13 +103,6 @@ class NodeList extends React.Component {
           header={<Cell>Profile</Cell> }
           cell={<TextCell/> }
         />
-        { isAws &&
-          <Column
-            columnKey="instanceType"
-            header={<Cell>Instance Type</Cell> }
-            cell={<TextCell /> }
-          />
-        }
         <Column
           header={<Cell>Labels</Cell> }
           cell={<LabelCell /> }

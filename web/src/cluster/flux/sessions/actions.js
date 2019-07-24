@@ -15,7 +15,7 @@ limitations under the License.
 */
 
 import reactor from 'app/reactor';
-import Logger from 'app/lib/logger';
+import Logger from 'shared/libs/logger';
 import { RECEIVE_ACTIVE_SESSIONS  } from './actionTypes';
 import { fetchSessions } from 'app/cluster/services/sessions';
 

@@ -1,6 +1,6 @@
 DOCBOX=docs-buildbox:latest
 HOME=/home
-PORT=6600
+PORT=6601
 DOCKERPORTS = -p $(PORT):$(PORT)
 DOCKERFLAGS = --rm=true -v "$$(pwd)/../":$(HOME) -w $(HOME) -h docs
 NOROOT=-u $$(id -u):$$(id -g)

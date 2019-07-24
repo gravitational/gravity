@@ -14,6 +14,5 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-import FlavorOnprem from './FlavorOnprem';
-export default FlavorOnprem;
-
+import AjaxPoller from './AjaxPoller';
+export default AjaxPoller;

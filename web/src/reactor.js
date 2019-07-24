@@ -15,9 +15,8 @@ limitations under the License.
 */
 
 import { Reactor } from 'nuclear-js'
-import { isDevEnv, isTestEnv } from './services/utils'
 
-const isDebug = isDevEnv() && !isTestEnv();
+const isDebug = process.env.NODE_ENV === 'development' && !process.env.NODE_ENV_TYPE === 'test';
 const CSS = 'color: blue';
 
 // reactor options
@@ -50,4 +49,3 @@ const reactor = new Reactor(options)
 window.reactor = reactor;
 
 export default reactor
-

@@ -21,8 +21,9 @@ import { Flex } from 'shared/components';
 import { useFluxStore } from 'app/components/nuclear';
 import opProgressGetters from 'app/flux/opProgress/getters';
 import LogViewer from 'app/components/LogViewer';
-import AjaxPoller, { SiteOperationLogProvider } from 'app/components/dataProviders';
+import AjaxPoller from 'app/components/AjaxPoller';
 import * as progressActions from 'app/flux/opProgress/actions';
+import InstallLogsProvider from './InstallLogsProvider';
 import ExpandPanel from './TogglePanel';
 import ProgressBar from './ProgressBar';
 import ProgressDesc from './ProgressDescription';
@@ -90,7 +91,7 @@ export default function(props) {
 
   // creates web socket connection and streams install logs
   const $provider = (
-    <SiteOperationLogProvider siteId={siteId} opId={id} />
+    <InstallLogsProvider siteId={siteId} opId={id} />
   )
 
   return (
