@@ -131,7 +131,7 @@ LTS starts with `3.51.0` with minor backwards compatible changes added over time
 
 ## 5.x Releases
 
-### 5.5.14 (July 24th, 2019)
+### 5.5.14 LTS (July 24th, 2019)
 
 #### Bugfixes
 
