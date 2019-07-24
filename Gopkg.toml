@@ -64,7 +64,8 @@ ignored = [
 
 [[constraint]]
   name = "github.com/gravitational/satellite"
-  version = "=5.5.4"
+  branch = "roman/npd"
+  # version = "=5.5.4"
 
 [[constraint]]
   name = "github.com/xtgo/set"
@@ -276,3 +277,6 @@ ignored = [
   name = "gopkg.in/check.v1"
   branch = "v1"
 
+[[constraint]]
+  name = "github.com/miekg/dns"
+  version = "=v1.0.4"

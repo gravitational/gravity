@@ -112,6 +112,8 @@ func (s Probe_Severity) MarshalText() (text []byte, err error) {
 		return []byte("critical"), nil
 	case Probe_Warning:
 		return []byte("warning"), nil
+	case Probe_Info:
+		return []byte("info"), nil
 	default:
 		return nil, trace.BadParameter("unknown severity %s", s)
 	}
@@ -126,6 +128,8 @@ func (s *Probe_Severity) UnmarshalText(text []byte) error {
 		*s = Probe_Critical
 	case "warning":
 		*s = Probe_Warning
+	case "info":
+		*s = Probe_Info
 	default:
 		return trace.BadParameter("unknown severity %s", text)
 	}

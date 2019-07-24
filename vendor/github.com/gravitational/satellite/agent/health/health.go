@@ -99,7 +99,7 @@ func (r Probes) GetFailed() []*pb.Probe {
 func (r Probes) Status() pb.NodeStatus_Type {
 	result := pb.NodeStatus_Running
 	for _, probe := range r {
-		if probe.Status == pb.Probe_Failed {
+		if probe.Status == pb.Probe_Failed && probe.Severity != pb.Probe_Info {
 			result = pb.NodeStatus_Degraded
 			break
 		}
