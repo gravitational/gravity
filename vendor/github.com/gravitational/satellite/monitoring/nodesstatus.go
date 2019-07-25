@@ -22,7 +22,6 @@ import (
 
 	"github.com/gravitational/satellite/agent/health"
 	pb "github.com/gravitational/satellite/agent/proto/agentpb"
-	"github.com/gravitational/satellite/utils"
 
 	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -97,22 +96,39 @@ type NodeStatusCheckerConfig struct {
 	KubeConfig
 	// NodeName is the Kubernetes node name.
 	NodeName string
-	// Conditions is a list of Kubernetes node conditions to monitor.
-	Conditions []v1.NodeConditionType
+	// CheckCondition tests whether conditions should trigger alerts.
+	CheckCondition CheckNodeConditionFunc
+}
+
+// CheckNodeConditionFunc defines a type for a function that returns false if
+// the provided node condition should trigger an alert and true otherwise.
+type CheckNodeConditionFunc func(v1.NodeCondition) bool
+
+// CheckNodeCondition returns false if the provided node condition should
+// trigger an alert and true otherwise.
+func CheckNodeCondition(condition v1.NodeCondition) bool {
+	// For Ready condition its expected status is True.
+	if condition.Type == v1.NodeReady {
+		return condition.Status == v1.ConditionTrue
+	}
+	// For other node conditions their expected status is False.
+	for _, c := range NodeConditions {
+		if condition.Type == c {
+			return condition.Status == v1.ConditionFalse
+		}
+	}
+	// Fallback to "ok" for unmonitored/unknown conditions.
+	return true
 }
 
 // NewNodeStatusChecker returns a Checker that validates availability
 // of a single Kubernetes node.
 func NewNodeStatusChecker(config NodeStatusCheckerConfig) health.Checker {
 	nodeLister := kubeNodeLister{client: config.Client.CoreV1()}
-	conditions := make([]string, 0, len(config.Conditions))
-	for _, condition := range config.Conditions {
-		conditions = append(conditions, string(condition))
-	}
 	return &nodeStatusChecker{
-		nodeLister: nodeLister,
-		nodeName:   config.NodeName,
-		conditions: conditions,
+		nodeLister:     nodeLister,
+		nodeName:       config.NodeName,
+		checkCondition: config.CheckCondition,
 	}
 }
 
@@ -120,8 +136,8 @@ func NewNodeStatusChecker(config NodeStatusCheckerConfig) health.Checker {
 // of a single Kubernetes node.
 type nodeStatusChecker struct {
 	nodeLister
-	nodeName   string
-	conditions []string
+	nodeName       string
+	checkCondition CheckNodeConditionFunc
 }
 
 // Name returns the name of this checker
@@ -137,7 +153,7 @@ func (r *nodeStatusChecker) Check(ctx context.Context, reporter health.Reporter)
 
 	var failureConditions []v1.NodeCondition
 	for _, condition := range node.Status.Conditions {
-		if r.isNotReadyCondition(condition) || r.isFailureCondition(condition) {
+		if !r.checkCondition(condition) {
 			failureConditions = append(failureConditions, condition)
 		}
 	}
@@ -171,20 +187,6 @@ func (r *nodeStatusChecker) queryNode() (*v1.Node, error) {
 		return nil, trace.NotFound("node %q not found", r.nodeName)
 	}
 	return &nodes.Items[0], nil
-}
-
-// isNotReadyCondition returns true if the provided node condition indicates
-// that the node is not ready.
-func (r *nodeStatusChecker) isNotReadyCondition(condition v1.NodeCondition) bool {
-	return condition.Type == v1.NodeReady &&
-		condition.Status != v1.ConditionTrue
-}
-
-// isFailureCondition returns true if the provided condition is one of
-// conditions monitored by this checker and is triggered for the node.
-func (r *nodeStatusChecker) isFailureCondition(condition v1.NodeCondition) bool {
-	return utils.StringInSlice(r.conditions, string(condition.Type)) &&
-		condition.Status == v1.ConditionTrue
 }
 
 // probeForCondition returns failure probe for the provided condition.

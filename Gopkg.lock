@@ -876,7 +876,7 @@
 
 [[projects]]
   branch = "roman/npd"
-  digest = "1:78fae5ae12856152f1884f5749243e211b64e9b4c7490230142e276ae1117f04"
+  digest = "1:96d047eff5cc0d3a9612b98e7b9d476cdf74b5ecacb8f2a280131002b9ff82f8"
   name = "github.com/gravitational/satellite"
   packages = [
     "agent",
@@ -888,7 +888,7 @@
     "utils",
   ]
   pruneopts = "UT"
-  revision = "70ecfae11ae84de24e5eff7b25415371e6ecc1b6"
+  revision = "bfcda31b1b3d2aada6baed59e3408fafb74430de"
 
 [[projects]]
   digest = "1:49f6abbce9ade5f43508429e4af1adcce55d27adcd62719fea049decc766a7c9"
