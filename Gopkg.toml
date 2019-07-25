@@ -54,9 +54,17 @@ ignored = [
   name = "github.com/go-openapi/swag"
   branch = "master"
 
+[[override]]
+  name = "github.com/go-openapi/spec"
+  version = "v0.19.2"
+
 [[constraint]]
   name = "github.com/gravitational/configure"
   branch = "master"
+
+[[constraint]]
+  name = "github.com/prometheus/alertmanager"
+  version = "=v0.18.0"
 
 [[constraint]]
   name = "github.com/santhosh-tekuri/jsonschema"

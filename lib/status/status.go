@@ -37,6 +37,7 @@ import (
 	pb "github.com/gravitational/satellite/agent/proto/agentpb"
 	"github.com/gravitational/satellite/monitoring"
 	"github.com/gravitational/trace"
+	"github.com/prometheus/alertmanager/api/v2/models"
 	"github.com/sirupsen/logrus"
 )
 
@@ -129,6 +130,13 @@ func FromCluster(ctx context.Context, operator ops.Operator, cluster ops.Site, o
 	}
 
 	status.State = cluster.State
+
+	// Collect information from alertmanager
+	status.Alerts, err = FromAlertManager(ctx, cluster)
+	if err != nil {
+		return status, trace.Wrap(err, "failed to collect alerts from alertmanager")
+	}
+
 	return status, nil
 }
 
@@ -175,6 +183,8 @@ type Status struct {
 	*Cluster `json:",inline,omitempty"`
 	// Agent describes the status of the system and individual nodes
 	*Agent `json:",inline,omitempty"`
+	// Alerts is a list of alerts collected by prometheus alertmanager
+	Alerts []*models.GettableAlert `json:"alerts,omitempty"`
 }
 
 // Cluster encapsulates collected cluster status information
