@@ -109,10 +109,10 @@ func (i *Installer) Execute(req *installpb.ExecuteRequest, stream installpb.Agen
 				return trace.Wrap(err)
 			}
 		case result := <-i.execDoneC:
-			if result.Err != nil {
+			if result.Error != nil {
 				// Phase finished with an error.
 				// See https://github.com/grpc/grpc-go/blob/v1.22.0/codes/codes.go#L78
-				return status.Error(codes.Aborted, trace.UserMessage(result.Err))
+				return status.Error(codes.Aborted, trace.UserMessage(result.Error))
 			}
 			if result.CompletionEvent != nil {
 				err := stream.Send(result.CompletionEvent.AsProgressResponse())
@@ -214,7 +214,7 @@ func (i *Installer) startExecuteLoop() {
 						log.ErrorKey: err,
 						"req":        req,
 					}).Warn("Failed to execute.")
-					i.execDoneC <- ExecResult{Err: err}
+					i.execDoneC <- ExecResult{Error: err}
 				} else {
 					var result ExecResult
 					if status.IsCompleted() {

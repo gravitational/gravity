@@ -142,6 +142,7 @@ func (p *pullExecutor) pullUserApplication() error {
 	p.Progress.NextStep("Pulling user application")
 	p.Info("Pulling user application.")
 	// TODO do not pull user app on regular nodes
+	// FIXME: use context to promptly abort the pull
 	_, err := service.PullApp(service.AppPullRequest{
 		FieldLogger: p.FieldLogger,
 		SrcPack:     p.WizardPackages,

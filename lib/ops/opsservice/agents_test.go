@@ -157,6 +157,13 @@ func (s *AgentSuite) TestInstallAgentCheckLicense(c *C) {
 	)
 }
 
+func (s *AgentSuite) TestInstallAgentCheckHostname(c *C) {
+	s.testConnectValidatesCondition(c,
+		[2]string{"node-1", "node-1"},
+		"One of existing peers already has hostname",
+	)
+}
+
 // TestPingPongSuccess tests inter agent network connectivity check
 // that is executed by agents. For this test we use it on one box
 func (s *AgentSuite) TestPingPongSuccess(c *C) {

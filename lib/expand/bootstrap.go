@@ -38,6 +38,9 @@ func (p *Peer) init(ctx operationContext) error {
 		return trace.Wrap(err)
 	}
 	if !ctx.hasOperation() {
+		// This indicates the fact that the expand operation is initialized
+		// at a later moment and the operation might not be available after
+		// having successfully connected to the cluster.
 		return nil
 	}
 	return p.startAgent(ctx)
@@ -114,7 +117,6 @@ func (p *Peer) syncOperationPlan(ctx operationContext) error {
 	if err != nil {
 		return trace.Wrap(err)
 	}
-	// sync operation plan
 	plan, err := ctx.Operator.GetOperationPlan(ctx.Operation.Key())
 	if err != nil {
 		return trace.Wrap(err)
@@ -123,7 +125,7 @@ func (p *Peer) syncOperationPlan(ctx operationContext) error {
 	if err != nil {
 		return trace.Wrap(err)
 	}
-	p.Debug("Synchronized operation to the local backend.")
+	p.Debug("Synchronized operation plan to the local backend.")
 	return nil
 }
 

@@ -27,6 +27,7 @@ import (
 
 	"github.com/gravitational/gravity/lib/app"
 	"github.com/gravitational/gravity/lib/app/client"
+	"github.com/gravitational/gravity/lib/checks"
 	"github.com/gravitational/gravity/lib/constants"
 	"github.com/gravitational/gravity/lib/defaults"
 	"github.com/gravitational/gravity/lib/fsm"
@@ -38,6 +39,7 @@ import (
 	installpb "github.com/gravitational/gravity/lib/install/proto"
 	"github.com/gravitational/gravity/lib/install/server"
 	"github.com/gravitational/gravity/lib/localenv"
+	validationpb "github.com/gravitational/gravity/lib/network/validation/proto"
 	"github.com/gravitational/gravity/lib/ops"
 	"github.com/gravitational/gravity/lib/ops/events"
 	"github.com/gravitational/gravity/lib/ops/opsclient"
@@ -163,17 +165,17 @@ func (p *Peer) Execute(req *installpb.ExecuteRequest, stream installpb.Agent_Exe
 				return err
 			}
 		case result := <-p.execDoneC:
-			if result.Err != nil {
+			if result.Error != nil {
 				// Phase finished with an error.
-				if installpb.IsRPCError(result.Err) {
-					return trace.Unwrap(result.Err)
+				if installpb.IsRPCError(result.Error) {
+					return trace.Unwrap(result.Error)
 				}
 				// Flag a failed intermediate step as codes.Aborted.
 				// From gRPC documentation:
 				// Use Aborted if the client should retry at a higher-level
 				// (e.g., restarting a read-modify-write sequence).
 				// See https://github.com/grpc/grpc-go/blob/v1.22.0/codes/codes.go#L78
-				return status.Error(codes.Aborted, trace.UserMessage(result.Err))
+				return status.Error(codes.Aborted, trace.UserMessage(result.Error))
 			}
 			if result.CompletionEvent != nil {
 				err := stream.Send(result.CompletionEvent.AsProgressResponse())
@@ -374,7 +376,7 @@ func (p *Peer) startExecuteLoop() {
 						"status":     status,
 						"req":        req,
 					}).Warn("Failed to execute.")
-					p.execDoneC <- install.ExecResult{Err: err}
+					p.execDoneC <- install.ExecResult{Error: err}
 					if installpb.IsFailedPreconditionError(err) {
 						p.errC <- err
 						return
@@ -500,36 +502,49 @@ func (p *Peer) executeConcurrentStep(req *installpb.ExecuteRequest, stream insta
 
 func (p *Peer) executePhase(ctx context.Context, opCtx operationContext, phase installpb.Phase, disp dispatcher.EventDispatcher) (dispatcher.Status, error) {
 	if phase.IsResume() && !opCtx.isExpand() {
-		return p.runAgent(opCtx)
+		return p.agentLoop(opCtx)
 	}
+	if phase.IsResume() {
+		err := p.resumeExpandOperation(ctx, opCtx, phase, disp)
+		if err != nil {
+			return dispatcher.StatusUnknown, trace.Wrap(err)
+		}
+		return dispatcher.StatusCompleted, nil
+	}
+	err := p.executeSinglePhase(ctx, opCtx, phase, disp)
+	return dispatcher.StatusUnknown, trace.Wrap(err)
+}
+
+func (p *Peer) resumeExpandOperation(ctx context.Context, opCtx operationContext, phase installpb.Phase, disp dispatcher.EventDispatcher) error {
+	progressReporter := dispatcher.NewProgressReporter(ctx, disp, phaseTitle(phase))
+	defer progressReporter.Stop()
 	machine, err := p.getFSM(opCtx)
 	if err != nil {
-		return dispatcher.StatusUnknown, trace.Wrap(err)
+		return trace.Wrap(err)
+	}
+	err = p.ensureExpandOperationState(opCtx)
+	if err != nil {
+		return trace.Wrap(err)
+	}
+	return install.ExecuteOperation(ctx, machine, progressReporter, p.FieldLogger)
+}
+
+func (p *Peer) executeSinglePhase(ctx context.Context, opCtx operationContext, phase installpb.Phase, disp dispatcher.EventDispatcher) error {
+	machine, err := p.getFSM(opCtx)
+	if err != nil {
+		return trace.Wrap(err)
 	}
 	progressReporter := dispatcher.NewProgressReporter(ctx, disp, phaseTitle(phase))
 	defer progressReporter.Stop()
-	if phase.IsResume() {
-		err = p.ensureExpandOperationState(opCtx)
-		if err != nil {
-			return dispatcher.StatusUnknown, nil
-		}
-		err = install.ExecuteOperation(ctx, machine, progressReporter, p.FieldLogger)
-		if err == nil {
-			return dispatcher.StatusCompleted, nil
-		}
-		return dispatcher.StatusUnknown, trace.Wrap(err)
-	}
 	params := fsm.Params{
 		PhaseID:  phase.ID,
 		Force:    phase.Force,
 		Progress: progressReporter,
 	}
 	if phase.Rollback {
-		err = machine.RollbackPhase(ctx, params)
-		return dispatcher.StatusUnknown, trace.Wrap(err)
+		return machine.RollbackPhase(ctx, params)
 	}
-	err = machine.ExecutePhase(ctx, params)
-	return dispatcher.StatusUnknown, trace.Wrap(err)
+	return machine.ExecutePhase(ctx, params)
 }
 
 // printStep publishes a progress entry described with (format, args) tuple to the client
@@ -538,44 +553,8 @@ func (p *Peer) printStep(format string, args ...interface{}) {
 	p.dispatcher.Send(event)
 }
 
-// dialWizard connects to a wizard
+// dialWizard connects to the wizard process with the specified address
 func (p *Peer) dialWizard(addr string) (*operationContext, error) {
-	ctx, err := p.connectWizard(addr)
-	if err != nil {
-		return nil, trace.Wrap(err)
-	}
-	return ctx, nil
-}
-
-func (p *Peer) dialCluster(addr, operationID string) (*operationContext, error) {
-	ctx, err := p.connectCluster(addr)
-	if err != nil {
-		return nil, trace.Wrap(err)
-	}
-	err = p.checkAndSetServerProfile(ctx.Cluster.App)
-	if err != nil {
-		return nil, trace.Wrap(err)
-	}
-	var operation *ops.SiteOperation
-	if operationID != "" {
-		operation, err = p.getExpandOperation(ctx.Operator, ctx.Cluster, operationID)
-		if err != nil {
-			return nil, trace.Wrap(err)
-		}
-		ctx.Operation = *operation
-		return ctx, nil
-	}
-	operation, err = ops.GetExpandOperation(p.JoinBackend)
-	if err != nil && !trace.IsNotFound(err) {
-		return nil, trace.Wrap(err)
-	}
-	if operation != nil {
-		ctx.Operation = *operation
-	}
-	return ctx, nil
-}
-
-func (p *Peer) connectWizard(addr string) (*operationContext, error) {
 	env, err := localenv.NewRemoteEnvironment()
 	if err != nil {
 		return nil, trace.Wrap(err)
@@ -584,21 +563,27 @@ func (p *Peer) connectWizard(addr string) (*operationContext, error) {
 	if err != nil {
 		return nil, trace.Wrap(err)
 	}
+	peerURL, err := url.Parse(entry.OpsCenterURL)
+	if err != nil {
+		return nil, utils.Abort(err)
+	}
 	cluster, operation, err := p.validateWizardState(env.Operator)
 	if err != nil {
 		return nil, trace.Wrap(err)
 	}
 	err = p.checkAndSetServerProfile(cluster.App)
 	if err != nil {
-		return nil, trace.Wrap(err)
+		return nil, utils.Abort(err)
 	}
 	creds, err := install.LoadRPCCredentials(p.ctx, env.Packages)
 	if err != nil {
 		return nil, utils.Abort(err)
 	}
-	peerURL, err := url.Parse(entry.OpsCenterURL)
-	if err != nil {
-		return nil, trace.Wrap(err)
+	if shouldRunLocalChecks(operation.State) {
+		err = p.runLocalChecks(*cluster, *operation)
+		if err != nil {
+			return nil, utils.Abort(err)
+		}
 	}
 	return &operationContext{
 		Operator:  env.Operator,
@@ -609,6 +594,33 @@ func (p *Peer) connectWizard(addr string) (*operationContext, error) {
 		Cluster:   *cluster,
 		Creds:     *creds,
 	}, nil
+}
+
+// dialCluster connects to the cluster controller with the specified address.
+// operationID specifies optional existing expand operation ID
+func (p *Peer) dialCluster(addr, operationID string) (*operationContext, error) {
+	ctx, err := p.connectCluster(addr)
+	if err != nil {
+		return nil, trace.Wrap(err)
+	}
+	err = p.checkAndSetServerProfile(ctx.Cluster.App)
+	if err != nil {
+		return nil, utils.Abort(err)
+	}
+	if !ctx.hasOperation() && shouldRunLocalChecks(ctx.Operation.State) {
+		err = p.runLocalChecksExpand(ctx.Operator, ctx.Cluster)
+		if err != nil {
+			return nil, utils.Abort(err)
+		}
+	}
+	operation, err := p.getOrCreateExpandOperation(ctx.Operator, ctx.Cluster, operationID)
+	if err != nil {
+		return nil, trace.Wrap(err)
+	}
+	if operation != nil {
+		ctx.Operation = *operation
+	}
+	return ctx, nil
 }
 
 func (p *Peer) connectCluster(addr string) (*operationContext, error) {
@@ -663,6 +675,43 @@ func (p *Peer) checkAndSetServerProfile(app ops.Application) error {
 	}
 	return utils.Abort(trace.BadParameter(
 		"specified node role %q is not defined in the application manifest", p.Role))
+}
+
+func (p *Peer) getOrCreateExpandOperation(operator ops.Operator, cluster ops.Site, operationID string) (*ops.SiteOperation, error) {
+	if operationID != "" {
+		operation, err := p.getExpandOperation(operator, cluster, operationID)
+		if err != nil {
+			return nil, trace.Wrap(err)
+		}
+		return operation, nil
+	}
+	operation, err := ops.GetExpandOperation(p.JoinBackend)
+	if err != nil && !trace.IsNotFound(err) {
+		return nil, trace.Wrap(err)
+	}
+	return operation, nil
+}
+
+func (p *Peer) runLocalChecksExpand(operator ops.Operator, cluster ops.Site) error {
+	installOperation, _, err := ops.GetInstallOperation(cluster.Key(), operator)
+	if err != nil {
+		return trace.Wrap(err)
+	}
+	return p.runLocalChecks(cluster, *installOperation)
+}
+
+func (p *Peer) runLocalChecks(cluster ops.Site, installOperation ops.SiteOperation) error {
+	return checks.RunLocalChecks(p.ctx, checks.LocalChecksRequest{
+		Manifest: cluster.App.Manifest,
+		Role:     p.Role,
+		Docker:   cluster.ClusterState.Docker,
+		Options: &validationpb.ValidateOptions{
+			VxlanPort: int32(installOperation.GetVars().OnPrem.VxlanPort),
+			DnsAddrs:  cluster.DNSConfig.Addrs,
+			DnsPort:   int32(cluster.DNSConfig.Port),
+		},
+		AutoFix: true,
+	})
 }
 
 func (r operationContext) hasOperation() bool {
@@ -772,7 +821,7 @@ func (p *Peer) tryConnect(operationID string) (ctx *operationContext, err error)
 
 func (p *Peer) run(ctx operationContext) (dispatcher.Status, error) {
 	if ctx.Operation.Type == ops.OperationInstall {
-		return p.runAgent(ctx)
+		return p.agentLoop(ctx)
 	}
 	err := p.executeExpandOperation(ctx)
 	if err != nil {
@@ -781,7 +830,7 @@ func (p *Peer) run(ctx operationContext) (dispatcher.Status, error) {
 	return dispatcher.StatusCompleted, nil
 }
 
-func (p *Peer) runAgent(ctx operationContext) (dispatcher.Status, error) {
+func (p *Peer) agentLoop(ctx operationContext) (dispatcher.Status, error) {
 	p.startProgressLoop(ctx)
 	<-p.ctx.Done()
 	return dispatcher.StatusUnknown, nil
@@ -1157,6 +1206,20 @@ func phaseTitle(phase installpb.Phase) string {
 		return "Resuming operation"
 	}
 	return fmt.Sprintf("Executing phase %v", phase.ID)
+}
+
+func shouldRunLocalChecks(state string) bool {
+	switch state {
+	case ops.OperationStateExpandInitiated,
+		ops.OperationStateExpandProvisioning,
+		ops.OperationStateInstallInitiated,
+		ops.OperationStateInstallProvisioning,
+		ops.OperationStateReady:
+		// Keep this in sync with opsservice#updateOperationState
+		return true
+	default:
+		return false
+	}
 }
 
 func shouldUpdateExpandOperationState(state string) bool {
