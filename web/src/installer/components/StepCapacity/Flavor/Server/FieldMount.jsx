@@ -15,7 +15,7 @@ limitations under the License.
 */
 
 import React from 'react';
-import { FieldInput } from 'app/installer/components/Fields';
+import { FieldInput } from 'shared/components';
 import { capitalize } from 'lodash';
 import cfg from 'app/config';
 
@@ -40,6 +40,7 @@ export default function FieldMount({ defaultValue, name, onChange, ...styles }){
 
   return (
     <FieldInput
+      mb="3"
       {...styles}
       value={value}
       label={title}

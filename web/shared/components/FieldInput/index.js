@@ -14,5 +14,5 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-import Slider from './Slider';
-export default Slider;
+import FieldInput from './FieldInput';
+export default FieldInput;

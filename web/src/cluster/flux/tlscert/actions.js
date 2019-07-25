@@ -22,14 +22,14 @@ import { SETTINGS_CERT_RECEIVE } from './actionTypes';
 
 const logger = Logger.create('cluster/flux/tlscert/actions');
 
-export function saveTlsCert(siteId, certificate, private_key, intermediate) {
+export function saveTlsCert(certificate, private_key, intermediate) {
   const data = {
     certificate,
     private_key,
     intermediate
   };
 
-  const upoader = new Uploader(cfg.getSiteTlsCertUrl(siteId));
+  const upoader = new Uploader(cfg.getSiteTlsCertUrl());
   return upoader.start(data)
     .done(json => {
       reactor.dispatch(SETTINGS_CERT_RECEIVE, json)

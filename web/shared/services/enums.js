@@ -34,3 +34,10 @@ export const AuthTypeEnum = {
   LOCAL: 'local',
   SSO: 'sso'
 }
+
+export function isU2f(auth2faType) {
+  return auth2faType === Auth2faTypeEnum.UTF;
+}
+export function isOtp(auth2fType) {
+  return auth2fType === Auth2faTypeEnum.OTP;
+}

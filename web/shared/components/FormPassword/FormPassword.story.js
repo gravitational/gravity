@@ -18,7 +18,7 @@ import React from 'react'
 import $ from 'jQuery';
 import { storiesOf } from '@storybook/react'
 import FormPassword from './FormPassword'
-import { Auth2faTypeEnum } from 'app/services//enums';
+import { Auth2faTypeEnum } from '../../services/enums';
 
 const onChangePass = () => $.Deferred().resolve();
 const onChangePassWithU2f = () => $.Deferred().reject(new Error('server error'));

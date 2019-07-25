@@ -15,6 +15,7 @@ limitations under the License.
 */
 
 import React from 'react';
+import $ from 'jQuery';
 import cfg from 'app/config';
 import * as actions from 'app/flux/user/actions';
 import PasswordForm from 'shared/components/FormPassword';
@@ -25,8 +26,7 @@ export function Account(props){
     auth2faType,
     onChangePass,
     onChangePassWithU2f,
-    onDestory,
-    attempt } = props;
+    } = props;
 
   return (
     <FeatureBox>
@@ -39,8 +39,6 @@ export function Account(props){
         auth2faType={auth2faType}
         onChangePass={onChangePass}
         onChangePassWithU2f={onChangePassWithU2f}
-        onDestory={onDestory}
-        attempt={attempt}
       />
     </FeatureBox>
   );
@@ -51,8 +49,7 @@ export default function(props){
     ...props,
     auth2faType: cfg.getAuth2faType(),
     onChangePass: actions.changePassword,
-    onChangePassWithU2f: () => /* not implemented */ null,
-    onDestory: () => /* not implemented */ null,
+    onChangePassWithU2f: () => $.Deferred().reject( new Error("U2F is not supported!")),
   }
 
   return <Account {...settProps} />

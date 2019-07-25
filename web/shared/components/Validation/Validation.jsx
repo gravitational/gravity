@@ -84,7 +84,11 @@ const ValidationContext = React.createContext({});
 
 export function Validation(props) {
   const [validator] = React.useState(() => new Validator());
-  return <ValidationContext.Provider value={validator} children={props.children} />;
+  // handle render functions
+  const children =
+    typeof props.children === 'function' ? props.children({ validator }) : props.children;
+
+  return <ValidationContext.Provider value={validator}>{children}</ValidationContext.Provider>;
 }
 
 export function useValidation() {
@@ -106,7 +110,7 @@ export function useRule(validate) {
     return;
   }
 
-  const [, rerender] = React.useState({});
+  const [, rerender] = React.useState();
   const validator = useValidation();
 
   // register to validation context to be called on validate()
@@ -115,7 +119,7 @@ export function useRule(validate) {
       if (validator.validating) {
         const result = validate();
         validator.addResult(result);
-        rerender();
+        rerender({});
       }
     }
 

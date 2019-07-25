@@ -15,198 +15,132 @@ limitations under the License.
 */
 
 import React from 'react';
-import { Card, Box, Text, Flex, ButtonLink, Input, LabelInput, ButtonPrimary } from 'shared/components';
+import PropTypes from 'prop-types';
+import { Card, Box, Text, Flex, ButtonLink, ButtonPrimary } from 'shared/components';
 import * as Alerts from 'shared/components/Alert';
-import { Auth2faTypeEnum } from 'shared/services/enums';
+import { isU2f, isOtp } from 'shared/services/enums';
 import SsoButtonList from './SsoButtons';
-import { Formik } from 'formik';
+import Validation from '../Validation';
+import FieldInput from '../FieldInput';
+import { requiredToken, requiredField } from '../Validation/rules';
 
-export default class LoginForm extends React.Component {
+export default function LoginForm(props) {
+  const {
+    title,
+    attempt,
+    auth2faType,
+    onLoginWithU2f,
+    onLogin,
+    onLoginWithSso,
+    authProviders,
+  } = props;
 
-  initialValues = {
-    password: '',
-    user: '',
-    token: ''
-  }
+  const [pass, setPass] = React.useState('');
+  const [user, setUser] = React.useState('');
+  const [token, setToken] = React.useState('');
 
-  onValidate = values => {
-    const errors = {};
+  const u2fEnabled = isU2f(auth2faType);
+  const otpEnabled = isOtp(auth2faType);
+  const ssoEnabled = authProviders && authProviders.length > 0;
+  const { isFailed, isProcessing, message } = attempt;
 
-    if (!values.user) {
-      errors.user = ' is required';
+  function onLoginClick(e, validator) {
+    e.preventDefault();
+    if(!validator.validate()){
+      return;
     }
 
-    if (!values.password) {
-      errors.password = ' is required';
-    }
-
-    if (this.isOTP() && !values.token) {
-      errors.token = ' is required';
-    }
-
-    return errors;
-  }
-
-  onLogin = values => {
-    const { user, password, token } = values;
-    if (this.props.auth2faType === Auth2faTypeEnum.UTF) {
-      this.props.onLoginWithU2f(user, password);
+    if (u2fEnabled) {
+      onLoginWithU2f(user, pass);
     } else {
-      this.props.onLogin(user, password, token);
+      onLogin(user, pass, token);
     }
   }
 
-  onLoginWithSso = ssoProvider => {
-    this.props.onLoginWithSso(ssoProvider);
-  }
-
-  needs2fa() {
-    return !!this.props.auth2faType &&
-      this.props.auth2faType !== Auth2faTypeEnum.DISABLED;
-  }
-
-  needsSso() {
-    return this.props.authProviders && this.props.authProviders.length > 0;
-  }
-
-  isOTP() {
-    return this.needs2fa() && this.props.auth2faType === Auth2faTypeEnum.OTP;
-  }
-
-  renderLoginBtn(onClick) {
-    const { isProcessing } = this.props.attempt;
-    let $helpBlock = null;
-
-    if(isProcessing && this.props.auth2faType === Auth2faTypeEnum.UTF) {
-      $helpBlock = (
-        <Text typography="paragraph2" width="100%" textAlign="center">
-          Insert your U2F key and press the button on the key
-        </Text>
-      );
-    }
-
-    return (
-      <React.Fragment>
-        <ButtonPrimary width="100%" my="3" type="submit" size="large"
-          onClick={onClick}
-          disabled={isProcessing}
-        >
-          LOGIN
-        </ButtonPrimary>
-        {$helpBlock}
-      </React.Fragment>
-    );
-  }
-
-  renderSsoBtns() {
-    const { authProviders, attempt } = this.props;
-    if (!this.needsSso()) {
-      return null;
-    }
-
-    return (
-      <SsoButtonList
-        prefixText="Login with "
-        isDisabled={attempt.isProcessing}
-        providers={authProviders}
-        onClick={this.onLoginWithSso} />
-    )
-  }
-
-  renderTokenField({ values, errors, touched, handleChange}) {
-    const isOTP = this.isOTP();
-      const tokenError = Boolean(errors.token && touched.token);
-
-    let $tokenField = null;
-
-    if(isOTP) {
-      $tokenField = (
-        <Flex flexDirection="column">
-          <LabelInput hasError={tokenError}>
-            Two factor token
-            {tokenError && errors.token}
-          </LabelInput>
-          <Flex mb="4">
-            <Input id="token" mb="0" width="50%" autoComplete="off" placeholder="123 456"
-              hasError={tokenError}
-              value={values.token}
-              onChange={handleChange}
+  return (
+    <Validation>
+      {({ validator }) => (
+        <Card as="form" bg="primary.light" my="5" mx="auto" width="456px">
+          <Box p="6">
+            <Text typography="h2" mb={3} textAlign="center" color="light">
+              {title}
+            </Text>
+            {isFailed && <Alerts.Danger> {message} </Alerts.Danger>}
+            <FieldInput
+              rule={requiredField('Username is required')}
+              label="Username"
+              autoFocus
+              value={user}
+              onChange={e => setUser(e.target.value)}
+              placeholder="User name"
             />
-            <ButtonLink width="50%" kind="secondary" target="_blank" size="small" href="https://support.google.com/accounts/answer/1066447?co=GENIE.Platform%3DiOS&hl=en&oco=0" rel="noreferrer">
-              Download Google Authenticator
-            </ButtonLink>
-          </Flex>
-        </Flex>
-      );
-    }
+            <FieldInput
+              rule={requiredField('Password is required')}
+              label="Password"
+              value={pass}
+              onChange={e => setPass(e.target.value)}
+              type="password"
+              placeholder="Password"
+            />
+            {otpEnabled && (
+              <Flex flexDirection="row">
+                <FieldInput
+                  label="Two factor token"
+                  rule={requiredToken}
+                  autoComplete="off"
+                  width="200px"
+                  value={token}
+                  onChange={e => setToken(e.target.value)}
+                  placeholder="123 456"
+                />
+                <ButtonLink
+                  width="100%"
+                  kind="secondary"
+                  target="_blank"
+                  size="small"
+                  href="https://support.google.com/accounts/answer/1066447?co=GENIE.Platform%3DiOS&hl=en&oco=0"
+                  rel="noreferrer"
+                >
+                  Download Google Authenticator
+                </ButtonLink>
+              </Flex>
+            )}
+            <ButtonPrimary
+              width="100%"
+              my="3"
+              type="submit"
+              size="large"
+              onClick={e => onLoginClick(e, validator)}
+              disabled={isProcessing}
+            >
+              LOGIN
+            </ButtonPrimary>
+            {isProcessing && u2fEnabled && (
+              <Text typography="paragraph2" width="100%" textAlign="center">
+                Insert your U2F key and press the button on the key
+              </Text>
+            )}
+          </Box>
+          {ssoEnabled && (
+            <Box as="footer" bg="primary.main" borderBottomLeftRadius="3" borderBottomRightRadius="3">
+              <SsoButtonList
+                prefixText="Login with "
+                isDisabled={isProcessing}
+                providers={authProviders}
+                onClick={onLoginWithSso}
+              />
+            </Box>
+          )}
+        </Card>
+      )}
+    </Validation>
+  );
+}
 
-    return $tokenField;
-  }
-
-  renderInputFields({ values, errors, touched, handleChange }) {
-    const userError = Boolean(errors.user && touched.user);
-    const passError = Boolean(errors.password && touched.password);
-
-    return (
-      <React.Fragment>
-        <LabelInput hasError={userError}>
-          USERNAME
-          {userError && errors.user}
-        </LabelInput>
-        <Input id="user" fontSize={0}
-          autoFocus
-          value={values.user}
-          hasError={userError}
-          onChange={handleChange}
-          placeholder="User name"
-          name="user"
-          />
-        <LabelInput hasError={passError}>
-          Password
-          {passError && errors.password}
-        </LabelInput>
-        <Input
-          id="password"
-          hasError={passError}
-          value={values.password}
-          onChange={handleChange}
-          type="password"
-          name="password"
-          placeholder="Password"/>
-      </React.Fragment>
-    )
-  }
-
-  render() {
-    const { attempt, title } = this.props;
-    const { isFailed, message } = attempt;
-    return (
-      <div>
-        <Formik
-          validate={this.onValidate}
-          onSubmit={this.onLogin}
-          initialValues={this.initialValues}
-        >
-          {
-            props => (
-              <Card as="form" bg="primary.light" my="5" mx="auto" width="456px">
-                <Box p="6">
-                  <Text typography="h2" mb={3} textAlign="center" color="light">
-                    {title}
-                  </Text>
-                  { isFailed && <Alerts.Danger> {message} </Alerts.Danger>  }
-                  {this.renderInputFields(props)}
-                  {this.renderTokenField(props)}
-                  {this.renderLoginBtn(props.handleSubmit)}
-                </Box>
-                <footer>
-                  {this.renderSsoBtns()}
-                </footer>
-              </Card>
-            )
-        }
-        </Formik>
-      </div>
-    );
-  }
+LoginForm.propTypes = {
+  auth2faType: PropTypes.string,
+  onLoginWithU2f: PropTypes.func.isRequired,
+  onLogin: PropTypes.func.isRequired,
+  onLoginWithSso: PropTypes.func.isRequired,
+  attempt: PropTypes.object.isRequired,
 }

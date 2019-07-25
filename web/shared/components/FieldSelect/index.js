@@ -14,20 +14,5 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-import styled from 'styled-components'
-import Box from './../Box'
-import theme from './../../theme'
-
-const Card = styled(Box)`
-  box-shadow: 0 8px 32px rgba(0, 0, 0, .24);
-  border-radius: 8px;
-`
-
-Card.defaultProps = {
-  theme: theme,
-  bg: 'primary.light'
-}
-
-Card.displayName = 'Card'
-
-export default Card
+import FieldSelect from './FieldSelect';
+export default FieldSelect;

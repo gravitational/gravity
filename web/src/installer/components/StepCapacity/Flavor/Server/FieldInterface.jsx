@@ -16,7 +16,7 @@ limitations under the License.
 
 import React from 'react';
 import cfg from 'app/config';
-import { FieldSelect } from 'app/installer/components/Fields';
+import { FieldSelect } from 'shared/components';
 
 export default function InterfaceVariable(props) {
   const { defaultValue, onChange, options, ...styles } = props;
@@ -50,6 +50,7 @@ export default function InterfaceVariable(props) {
 
   return (
     <FieldSelect
+      mb="3"
       {...styles}
       rule={required(`${label} is required`)}
       label={label}

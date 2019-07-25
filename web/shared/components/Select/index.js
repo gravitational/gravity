@@ -14,9 +14,5 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-import { FieldInput, FieldSelect } from './Fields';
-export {
-  FieldInput,
-  FieldSelect
-}
-
+import Select from './Select';
+export default Select;
