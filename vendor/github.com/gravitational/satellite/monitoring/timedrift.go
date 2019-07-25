@@ -230,8 +230,7 @@ func (c *timeDriftChecker) successProbe() *pb.Probe {
 		Checker: c.Name(),
 		Detail: fmt.Sprintf("time drift between %s and other nodes is within the allowed threshold of %s",
 			c.SerfMember.Addr, timeDriftThreshold),
-		Status:   pb.Probe_Running,
-		Severity: pb.Probe_None,
+		Status: pb.Probe_Running,
 	}
 }
 
@@ -242,8 +241,7 @@ func (c *timeDriftChecker) failureProbe(node serf.Member, drift time.Duration) *
 		Checker: c.Name(),
 		Detail: fmt.Sprintf("time drift between %s and %s is higher than the allowed threshold of %s: %s",
 			c.SerfMember.Addr, node.Addr, timeDriftThreshold, drift),
-		Status:   pb.Probe_Failed,
-		Severity: pb.Probe_Warning,
+		Status: pb.Probe_Failed,
 	}
 }
 

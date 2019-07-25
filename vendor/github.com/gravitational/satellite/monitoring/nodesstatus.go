@@ -19,20 +19,18 @@ package monitoring
 import (
 	"context"
 	"fmt"
-	"time"
 
-	humanize "github.com/dustin/go-humanize"
 	"github.com/gravitational/satellite/agent/health"
 	pb "github.com/gravitational/satellite/agent/proto/agentpb"
 	"github.com/gravitational/satellite/utils"
-	"github.com/jonboulle/clockwork"
 
-	"github.com/gravitational/trace"
 	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/fields"
 	"k8s.io/apimachinery/pkg/labels"
 	corev1 "k8s.io/client-go/kubernetes/typed/core/v1"
+
+	"github.com/gravitational/trace"
 )
 
 // NewNodesStatusChecker returns a Checker that tests kubernetes nodes availability
@@ -101,34 +99,11 @@ type NodeStatusCheckerConfig struct {
 	NodeName string
 	// Conditions is a list of Kubernetes node conditions to monitor.
 	Conditions []v1.NodeConditionType
-	// Events is a list of Kubernetes node events to monitor.
-	Events []string
-	// EventsAge is the maximum age of monitored events to display.
-	EventsAge time.Duration
-	// Clock is used in tests to mock time.
-	Clock clockwork.Clock
-}
-
-// SetDefaults sets default values on the config.
-func (c *NodeStatusCheckerConfig) SetDefaults() {
-	if len(c.Conditions) == 0 {
-		c.Conditions = NodeConditions
-	}
-	if len(c.Events) == 0 {
-		c.Events = NodeEvents
-	}
-	if c.EventsAge == 0 {
-		c.EventsAge = MaxEventsAge
-	}
-	if c.Clock == nil {
-		c.Clock = clockwork.NewRealClock()
-	}
 }
 
 // NewNodeStatusChecker returns a Checker that validates availability
 // of a single Kubernetes node.
 func NewNodeStatusChecker(config NodeStatusCheckerConfig) health.Checker {
-	config.SetDefaults()
 	nodeLister := kubeNodeLister{client: config.Client.CoreV1()}
 	conditions := make([]string, 0, len(config.Conditions))
 	for _, condition := range config.Conditions {
@@ -138,9 +113,6 @@ func NewNodeStatusChecker(config NodeStatusCheckerConfig) health.Checker {
 		nodeLister: nodeLister,
 		nodeName:   config.NodeName,
 		conditions: conditions,
-		events:     config.Events,
-		eventsAge:  config.EventsAge,
-		clock:      config.Clock,
 	}
 }
 
@@ -150,9 +122,6 @@ type nodeStatusChecker struct {
 	nodeLister
 	nodeName   string
 	conditions []string
-	events     []string
-	eventsAge  time.Duration
-	clock      clockwork.Clock
 }
 
 // Name returns the name of this checker
@@ -166,12 +135,6 @@ func (r *nodeStatusChecker) Check(ctx context.Context, reporter health.Reporter)
 		return
 	}
 
-	events, err := r.queryNodeEvents()
-	if err != nil {
-		reporter.Add(NewProbeFromErr(r.Name(), trace.UserMessage(err), err))
-		return
-	}
-
 	var failureConditions []v1.NodeCondition
 	for _, condition := range node.Status.Conditions {
 		if r.isNotReadyCondition(condition) || r.isFailureCondition(condition) {
@@ -179,14 +142,7 @@ func (r *nodeStatusChecker) Check(ctx context.Context, reporter health.Reporter)
 		}
 	}
 
-	var failureEvents []v1.Event
-	for _, event := range events {
-		if r.isFailureEvent(event) {
-			failureEvents = append(failureEvents, event)
-		}
-	}
-
-	if len(failureConditions)+len(failureEvents) == 0 {
+	if len(failureConditions) == 0 {
 		reporter.Add(&pb.Probe{
 			Checker: r.Name(),
 			Status:  pb.Probe_Running,
@@ -196,10 +152,6 @@ func (r *nodeStatusChecker) Check(ctx context.Context, reporter health.Reporter)
 
 	for _, condition := range failureConditions {
 		reporter.Add(r.probeForCondition(condition))
-	}
-
-	for _, event := range failureEvents {
-		reporter.Add(r.probeForEvent(event))
 	}
 }
 
@@ -221,22 +173,6 @@ func (r *nodeStatusChecker) queryNode() (*v1.Node, error) {
 	return &nodes.Items[0], nil
 }
 
-// queryNodeEvents returns Kubernetes events for the checker's node.
-func (r *nodeStatusChecker) queryNodeEvents() ([]v1.Event, error) {
-	options := metav1.ListOptions{
-		LabelSelector: labels.Everything().String(),
-		FieldSelector: fields.SelectorFromSet(fields.Set{
-			"involvedObject.kind": "Node",
-			"involvedObject.name": r.nodeName,
-		}).String(),
-	}
-	events, err := r.nodeLister.Events(options)
-	if err != nil {
-		return nil, trace.Wrap(err)
-	}
-	return events.Items, nil
-}
-
 // isNotReadyCondition returns true if the provided node condition indicates
 // that the node is not ready.
 func (r *nodeStatusChecker) isNotReadyCondition(condition v1.NodeCondition) bool {
@@ -251,55 +187,43 @@ func (r *nodeStatusChecker) isFailureCondition(condition v1.NodeCondition) bool 
 		condition.Status == v1.ConditionTrue
 }
 
-// isFailureEvent returns true if the provided event is one of events
-// monitored by this checker and is not too old.
-func (r *nodeStatusChecker) isFailureEvent(event v1.Event) bool {
-	return utils.StringInSlice(r.events, event.Reason) &&
-		r.clock.Now().Sub(event.LastTimestamp.Time) < r.eventsAge
-}
-
 // probeForCondition returns failure probe for the provided condition.
 func (r *nodeStatusChecker) probeForCondition(condition v1.NodeCondition) *pb.Probe {
+	// Treat conditions set by Node Problem Detector as warnings for now.
+	severity := pb.Probe_Critical
+	if isNodeProblemDetectorCondition(condition) {
+		severity = pb.Probe_Warning
+	}
 	return &pb.Probe{
 		Checker:  r.Name(),
 		Status:   pb.Probe_Failed,
-		Severity: pb.Probe_Warning,
+		Severity: severity,
 		Detail:   fmt.Sprintf("%v/%v", condition.Type, condition.Reason),
 		Error:    condition.Message,
 	}
 }
 
-// probeForEvent returns failure probe for the provided event.
-func (r *nodeStatusChecker) probeForEvent(event v1.Event) *pb.Probe {
-	return &pb.Probe{
-		Checker:  r.Name(),
-		Status:   pb.Probe_Failed,
-		Severity: pb.Probe_Info, // Events are informational for now.
-		Detail: fmt.Sprintf("%v (%v)", event.Reason, humanize.RelTime(
-			event.LastTimestamp.Time, r.clock.Now(), "ago", "")),
-		Error: event.Message,
+// isNodeProblemDetectorCondition returns true if the provided node condition
+// is one of those set by Node Problem Detector.
+func isNodeProblemDetectorCondition(condition v1.NodeCondition) bool {
+	for _, npdCondition := range NodeProblemDetectorConditions {
+		if condition.Type == npdCondition {
+			return true
+		}
 	}
+	return false
 }
 
 type nodeLister interface {
 	Nodes(metav1.ListOptions) (*v1.NodeList, error)
-	Events(metav1.ListOptions) (*v1.EventList, error)
 }
 
 func (r kubeNodeLister) Nodes(options metav1.ListOptions) (*v1.NodeList, error) {
 	nodes, err := r.client.Nodes().List(options)
 	if err != nil {
-		return nil, trace.Wrap(err, "failed to query nodes")
+		return nil, trace.Wrap(err)
 	}
 	return nodes, nil
-}
-
-func (r kubeNodeLister) Events(options metav1.ListOptions) (*v1.EventList, error) {
-	events, err := r.client.Events(v1.NamespaceDefault).List(options)
-	if err != nil {
-		return nil, trace.Wrap(err, "failed to query node events")
-	}
-	return events, nil
 }
 
 type kubeNodeLister struct {
@@ -314,16 +238,23 @@ const (
 )
 
 var (
-	// NodeConditions defines default Kubernetes node conditions to monitor.
-	//
-	// It includes both default Kubernetes conditions, as well as those
-	// commonly used by Kubernetes Node Problem Detector.
-	NodeConditions = []v1.NodeConditionType{
+	// DefaultNodeConditions is a list of default Kubernetes node
+	// conditions.
+	DefaultNodeConditions = []v1.NodeConditionType{
 		v1.NodeOutOfDisk,
 		v1.NodeMemoryPressure,
 		v1.NodeDiskPressure,
 		v1.NodePIDPressure,
 		v1.NodeNetworkUnavailable,
+	}
+	// NodeProblemDetectorConditions is a list of node conditions
+	// set by Node Problem Detector.
+	//
+	// TODO(r0mant): Note that the exact list of conditions set by Node
+	// Problem Detector depends on the actual configuration so in the
+	// future it might make sense to teach Satellite to parse its
+	// configuration and extract all custom conditions from there.
+	NodeProblemDetectorConditions = []v1.NodeConditionType{
 		NodeKernelDeadlock,
 		NodeReadonlyFilesystem,
 		NodeCorruptDockerOverlay2,
@@ -332,16 +263,12 @@ var (
 		NodeFrequentDockerRestart,
 		NodeFrequentContainerdRestart,
 	}
-	// NodeEvents defines Kubernetes node events to monitor.
+	// NodeConditions defines default Kubernetes node conditions to monitor.
 	//
-	// It primarily includes events fired by Node Problem Detector.
-	NodeEvents = []string{
-		EventOOMKilling,
-		EventTaskHung,
-		EventUnregisterNetDevice,
-		EventKernelOops,
-		EventCorruptDockerImage,
-	}
+	// It includes both default Kubernetes conditions, as well as those
+	// used by Kubernetes Node Problem Detector.
+	NodeConditions = append(DefaultNodeConditions,
+		NodeProblemDetectorConditions...)
 )
 
 const (
@@ -366,25 +293,4 @@ const (
 	// NodeFrequentContainerdRestarts is set by Node Problem Detector
 	// when it detects frequent Containerd restarts.
 	NodeFrequentContainerdRestart v1.NodeConditionType = "FrequentContainerdRestart"
-)
-
-const (
-	// MaxEventsAge is the default maximum age of events displayed by
-	// Satellite, to prevent displaying old events.
-	MaxEventsAge = 5 * time.Minute // 24 * time.Hour
-	// EventOOMKilling is fired by Node Problem Detector when it detects
-	// that a process was killed by OOM killer.
-	EventOOMKilling = "OOMKilling"
-	// EventTaskHung is fired by Node Problem Detector when it detects
-	// that a certain process has been blocked for a long time.
-	EventTaskHung = "TaskHung"
-	// EventUnregisterNetDevice is fired by Node Problem Detector when
-	// it detects a kernel crash that may lead to Docker failure.
-	EventUnregisterNetDevice = "UnregisterNetDevice"
-	// EventKernelOops is fired by Node Problem Detector when it detects
-	// a kernel crash.
-	EventKernelOops = "KernelOops"
-	// EventCorruptDockerImage is fired by Node Problem detector when
-	// it detects a corrupted Docker image.
-	EventCorruptDockerImage = "CorruptDockerImage"
 )

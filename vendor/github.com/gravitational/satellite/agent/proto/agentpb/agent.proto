@@ -101,9 +101,6 @@ message Probe {
     // Warning defines a (possibly transient) condition that requires attention
     // but is not critical
     Warning = 2;
-    // Info defines an informational probe condition that does not
-    // lead to the degraded state
-    Info = 3;
   }
   // Status is the result of the probe
   Type status = 4;
