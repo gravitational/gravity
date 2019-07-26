@@ -15,12 +15,12 @@ Prometheus uses the following in-cluster services to collect the metrics about t
 
 * [node-exporter](https://github.com/prometheus/node_exporter) collects hardware and OS metrics.
 * [kube-state-metrics](https://github.com/kubernetes/kube-state-metrics) collects metrics about
-various Kubernetes objects such as deployments, nodes and pods.
+various Kubernetes resources such as deployments, nodes and pods.
 
 !!! note:
     Collected metrics are stored for 30 days.
 
-Prometheus exposes the cluster-only service `prometheus-k8s.monitoring.svc.cluster.local:9090`.
+Prometheus exposes the cluster-internal service `prometheus-k8s.monitoring.svc.cluster.local:9090`.
 
 ### Grafana
 
@@ -35,7 +35,7 @@ cluster health.
     the ones that ship by default. See [Grafana Integration](#grafana-integration) below for
     details.
 
-Grafana exposes the cluster-only service `grafana.monitoring.svc.cluster.local:3000`.
+Grafana exposes the cluster-internal service `grafana.monitoring.svc.cluster.local:3000`.
 
 ### Alertmanager
 
@@ -43,25 +43,24 @@ Grafana exposes the cluster-only service `grafana.monitoring.svc.cluster.local:3
 handles alerts sent by Prometheus server and takes care of deduplicating, grouping and routing
 them to the correct receiver such as email recipient.
 
-Alertmanager exposes the cluster-only service `alertmanager-main.monitoring.svc.cluster.local:9093`.
+Alertmanager exposes the cluster-internal service `alertmanager-main.monitoring.svc.cluster.local:9093`.
 
 ## Grafana Integration
 
 The default Grafana configuration includes two pre-configured dashboards providing machine- and
-pod-level overview of the installed cluster by default. Grafana UI is integrated with Gravity
-control panel. To view dashboards once the cluster is up and running, navigate to the Cluster's
-Monitoring page.
+pod-level overview of the installed cluster. Grafana UI is integrated with Gravity control panel.
+To view dashboards once the cluster is up and running, navigate to the Cluster's Monitoring page.
 
-By default, Grafana is running in anonymous read-only mode which allows anyone logged into Gravity
-to view existing dashboards (but not modify them or create new ones).
+In Gravity clusters Grafana is running in anonymous read-only mode which allows anyone logged
+into Gravity to view existing dashboards but not modify them or create new ones.
 
 ## Pluggable Dashboards
 
-Your applications can create their own Grafana dashboards using ConfigMaps.
+Your cluster image can include its own Grafana dashboards using ConfigMaps.
 
-A custom dashboard ConfigMap should be assigned a `monitoring` label with value `dashboard` and
-created in the `monitoring` namespace so it is recognized and loaded during initial cluster image
-installation:
+A custom dashboard ConfigMap should be placed into the `monitoring` namespace and assigned the
+special `monitoring: dashboard` label so it is recognized as a dashboard and loaded during initial
+cluster image installation:
 
 ```yaml
 apiVersion: v1
@@ -82,7 +81,7 @@ of a dashboard ConfigMap.
 
 !!! tip:
     Since the embedded Grafana runs in read-only mode, you can use a separate Grafana instance
-    to create a custom dashboard and then export its JSON.
+    to create a custom dashboard and then export it as JSON.
 
 ## Alertmanager Integration
 
@@ -125,7 +124,7 @@ spec:
 Create the target:
 
 ```bash
-$ gravity resource create -f target.yaml
+$ gravity resource create target.yaml
 ```
 
 !!! note:
@@ -154,7 +153,7 @@ spec:
   # the alert annotations
   annotations:
     description: |
-      This is a first test alert
+      Cluster CPU usage exceeds 80%.
 ```
 
 !!! tip:
@@ -164,7 +163,7 @@ spec:
 Create the alert:
 
 ```bsh
-$ gravity resource create -f alert.yaml
+$ gravity resource create alert.yaml
 ```
 
 View existing alerts:
