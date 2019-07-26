@@ -46,8 +46,11 @@ func basicSystemInfo() Collectors {
 	return Collectors{
 		// networking
 		Cmd("iptables", "iptables-save"),
+		Cmd("route", "route", "-n"),
+		Cmd("ip-route", "ip", "route", "show", "table", "all"),
 		Cmd("ifconfig", "ifconfig", "-a"),
 		Cmd("ipaddr", "ip", "addr"),
+		// disk
 		Cmd("lsblk", "lsblk"),
 		Cmd("fdisk", "fdisk", "-l"),
 		Cmd("dmsetup", "dmsetup", "info"),
@@ -119,5 +122,14 @@ func planetLogs() Collectors {
 		// $ cat ./node-1-planet-journal-export.log | /lib/systemd/systemd-journal-remote -o ./journal/system.journal -
 		Self("planet-journal-export.log.gz",
 			"system", "export-runtime-journal"),
+	}
+}
+
+// etcdBackupt fetches etcd data for gravity and planet
+func etcdBackup() Collectors {
+	return Collectors{
+		Cmd("etcd-backup.json", utils.PlanetCommandArgs(defaults.PlanetBin, "etcd", "backup",
+			"--prefix", defaults.EtcdPlanetPrefix,
+			"--prefix", defaults.EtcdGravityPrefix)...),
 	}
 }

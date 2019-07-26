@@ -189,7 +189,8 @@ func InitAndCheck(g *Application, cmd string) error {
 		g.GarbageCollectCmd.FullCommand(),
 		g.SystemGCRegistryCmd.FullCommand(),
 		g.OpsAgentCmd.FullCommand(),
-		g.CheckCmd.FullCommand():
+		g.CheckCmd.FullCommand(),
+		g.ReportCmd.FullCommand():
 		if err := checkRunningAsRoot(); err != nil {
 			return trace.Wrap(err)
 		}
