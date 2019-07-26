@@ -1006,12 +1006,6 @@ func installerAbortOperation(env *localenv.LocalEnvironment) func(context.Contex
 	return func(ctx context.Context) error {
 		logger := log.WithField(trace.Component, "installer:abort")
 		logger.Info("Leaving cluster.")
-		if err := tryLeave(env, leaveConfig{
-			confirmed: true,
-			force:     true,
-		}); err != nil {
-			logger.WithError(err).Warn("Failed to leave cluster.")
-		}
 		stateDir, err := state.GravityInstallDir()
 		if err != nil {
 			return trace.Wrap(err)

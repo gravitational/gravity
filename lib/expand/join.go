@@ -131,13 +131,18 @@ func (p *Peer) Run(listener net.Listener) error {
 	// Stopping is on best-effort basis, the client will be trying to stop the service
 	// if notified
 	p.stop()
+	if installpb.IsAbortedError(err) {
+		if err := p.leave(); err != nil {
+			p.WithError(err).Warn("Failed to leave cluster.")
+		}
+	}
 	return installpb.WrapServiceError(err)
 }
 
 // Stop shuts down this RPC agent
 // Implements signals.Stopper
 func (p *Peer) Stop(ctx context.Context) error {
-	p.Info("Stop service.")
+	p.Info("Stop.")
 	p.server.ManualStop(ctx, false)
 	return nil
 }
@@ -224,9 +229,9 @@ func (p *Peer) Complete(opKey ops.SiteOperationKey) error {
 // HandleCompleted completes the operation by dispatching a completion event to the client.
 // Implements server.Completer
 func (p *Peer) HandleCompleted(ctx context.Context) error {
-	p.Info("Completion signaled.")
+	p.Debug("Completion signaled.")
 	if p.sendCloseResponse(installpb.CompleteEvent) {
-		p.Info("Client notified about completion.")
+		p.Debug("Client notified about completion.")
 	}
 	p.exitWithError(installpb.ErrCompleted)
 	return nil
@@ -235,9 +240,9 @@ func (p *Peer) HandleCompleted(ctx context.Context) error {
 // HandleAborted completes the operation by dispatching an abort event to the client.
 // Implements server.Completer
 func (p *Peer) HandleAborted(ctx context.Context) error {
-	p.Info("Abort signaled.")
+	p.Debug("Abort signaled.")
 	if p.sendCloseResponse(installpb.AbortEvent) {
-		p.Info("Client notified about abort.")
+		p.Debug("Client notified about abort.")
 	}
 	p.exitWithError(installpb.ErrAborted)
 	return nil
@@ -246,7 +251,7 @@ func (p *Peer) HandleAborted(ctx context.Context) error {
 // HandleStopped shuts down the server
 // Implements server.Completer
 func (p *Peer) HandleStopped(context.Context) error {
-	p.Info("Stop signaled.")
+	p.Debug("Stop signaled.")
 	p.exitWithError(nil)
 	return nil
 }
@@ -785,7 +790,6 @@ func (p *Peer) connectLoop() (*operationContext, error) {
 }
 
 func (p *Peer) stop() error {
-	p.Info("Stop peer.")
 	ctx, cancel := context.WithTimeout(context.Background(), defaults.ShutdownTimeout)
 	defer cancel()
 	p.cancel()
@@ -953,12 +957,42 @@ func (p *Peer) waitForOperation(operator ops.Operator, operation ops.SiteOperati
 				logger.Info("Operation is not ready yet.")
 				continue
 			}
-			log.Info("Operation is ready.")
+			log.Debug("Operation is ready.")
 			return nil
 		case <-p.ctx.Done():
 			return trace.Wrap(p.ctx.Err())
 		}
 	}
+}
+
+func (p *Peer) leave() error {
+	p.Info("Leave cluster.")
+	ctx, cancel := context.WithTimeout(context.Background(), defaults.NodeLeaveTimeout)
+	defer cancel()
+	return p.createShrinkOperation(ctx)
+}
+
+func (p *Peer) createShrinkOperation(ctx context.Context) error {
+	opCtx, err := p.operationContext()
+	if err != nil {
+		return trace.Wrap(err)
+	}
+	// Refresh operation from cluster
+	operation, err := opCtx.Operator.GetSiteOperation(opCtx.Operation.Key())
+	if err != nil {
+		return trace.Wrap(err)
+	}
+	_, err = opCtx.Operator.CreateSiteShrinkOperation(ctx,
+		ops.CreateSiteShrinkOperationRequest{
+			AccountID:  opCtx.Cluster.AccountID,
+			SiteDomain: opCtx.Cluster.Domain,
+			Servers:    []string{operation.Servers[0].Hostname},
+			Force:      true,
+			// Have cluster avoid triggering remote node cleanup
+			NodeRemoved: true,
+		},
+	)
+	return trace.Wrap(err)
 }
 
 func (p *Peer) waitForAgents(operator ops.Operator, operation ops.SiteOperation) error {
@@ -1003,7 +1037,7 @@ func (p *Peer) waitForAgents(operator ops.Operator, operation ops.SiteOperation)
 					return trace.Wrap(err)
 				}
 			}
-			log.WithField("report", report).Info("Installation can proceed.")
+			log.WithField("report", report).Debug("Installation can proceed.")
 			return nil
 		case <-p.ctx.Done():
 			return trace.Wrap(p.ctx.Err())

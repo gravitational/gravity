@@ -508,6 +508,9 @@ func probeErrorDetail(p pb.Probe) string {
 	if p.Detail == "" {
 		detail = p.Checker
 	}
+	if p.Error == "" {
+		return detail
+	}
 	return fmt.Sprintf("%v (%v)", detail, p.Error)
 }
 
