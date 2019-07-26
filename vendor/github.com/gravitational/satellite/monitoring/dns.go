@@ -23,6 +23,9 @@ import (
 
 	"github.com/gravitational/satellite/agent/health"
 	pb "github.com/gravitational/satellite/agent/proto/agentpb"
+
+	"github.com/gravitational/trace"
+	"github.com/miekg/dns"
 )
 
 // DNSMonitor will monitor a list of DNS servers for valid responses
@@ -40,20 +43,19 @@ func (r *DNSChecker) Name() string { return "dns" }
 
 // Check checks if the DNS servers are responding
 func (r *DNSChecker) Check(ctx context.Context, reporter health.Reporter) {
+	nameservers := r.Nameservers
 	if len(r.Nameservers) == 0 {
-		r.checkWithResolver(ctx, reporter, net.DefaultResolver, "")
-		return
+		clientconfig, err := dns.ClientConfigFromFile("/etc/resolv.conf")
+		if err != nil {
+			reporter.Add(NewProbeFromErr(r.Name(), "failed to load /etc/resolv.conf", err))
+			return
+		}
+
+		nameservers = clientconfig.Servers
 	}
 
-	for _, nameserver := range r.Nameservers {
-		resolver := &net.Resolver{
-			PreferGo: true,
-			Dial: func(ctx context.Context, network, address string) (net.Conn, error) {
-				d := net.Dialer{}
-				return d.DialContext(ctx, "udp", net.JoinHostPort(nameserver, "53"))
-			},
-		}
-		r.checkWithResolver(ctx, reporter, resolver, nameserver)
+	for _, nameserver := range nameservers {
+		r.checkWithResolver(ctx, reporter, nameserver)
 	}
 
 }
@@ -61,26 +63,38 @@ func (r *DNSChecker) Check(ctx context.Context, reporter health.Reporter) {
 func (r *DNSChecker) checkWithResolver(
 	ctx context.Context,
 	reporter health.Reporter,
-	resolver *net.Resolver,
 	nameserver string,
 ) {
 	checkFailed := false
-	for _, question := range r.QuestionA {
-		_, err := resolver.LookupHost(ctx, question)
-		if err != nil {
-			reporter.Add(NewProbeFromErr(r.Name(), errorDetail(question, "A", nameserver), err))
-			checkFailed = true
+	q := new(dns.Msg)
+	q.Id = dns.Id()
+	q.RecursionDesired = true
+	q.Question = make([]dns.Question, 1)
+
+	for questionType, questions := range map[uint16][]string{dns.TypeA: r.QuestionA, dns.TypeNS: r.QuestionNS} {
+		for _, question := range questions {
+			q.Question[0] = dns.Question{question, questionType, dns.ClassINET}
+			in, err := dns.ExchangeContext(ctx, q, ensurePort(nameserver, "53"))
+			if err != nil {
+				reporter.Add(NewProbeFromErr(r.Name(), errorDetail(question, dns.TypeToString[questionType], nameserver), err))
+				checkFailed = true
+				continue
+			}
+			if in.Rcode != dns.RcodeSuccess {
+				if rcode, ok := dns.RcodeToString[in.Rcode]; ok {
+					reporter.Add(
+						NewProbeFromErr(r.Name(), errorDetail(question, dns.TypeToString[questionType], nameserver),
+							trace.BadParameter(rcode)))
+				} else {
+					reporter.Add(
+						NewProbeFromErr(r.Name(), errorDetail(question, dns.TypeToString[questionType], nameserver),
+							trace.BadParameter(fmt.Sprint(in.Rcode))))
+				}
+
+				checkFailed = true
+			}
 		}
 	}
-
-	for _, question := range r.QuestionNS {
-		_, err := resolver.LookupNS(ctx, question)
-		if err != nil {
-			reporter.Add(NewProbeFromErr(r.Name(), errorDetail(question, "NS", nameserver), err))
-			checkFailed = true
-		}
-	}
-
 	if checkFailed {
 		return
 	}
@@ -91,9 +105,13 @@ func (r *DNSChecker) checkWithResolver(
 	})
 }
 
-func errorDetail(question, recordType, nameserver string) string {
-	if nameserver == "" {
-		return fmt.Sprintf("failed to resolve '%v' (%v)", question, recordType)
+func ensurePort(address, defaultPort string) string {
+	if _, _, err := net.SplitHostPort(address); err == nil {
+		return address
 	}
+	return net.JoinHostPort(address, defaultPort)
+}
+
+func errorDetail(question, recordType, nameserver string) string {
 	return fmt.Sprintf("failed to resolve '%v' (%v) nameserver %v", question, recordType, nameserver)
 }

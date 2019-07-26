@@ -376,10 +376,16 @@ func printNodeStatus(node statusapi.ClusterServer, w io.Writer) {
 		fmt.Fprintf(w, "            Status:\t%v\n", color.YellowString("offline"))
 	case statusapi.NodeHealthy:
 		fmt.Fprintf(w, "            Status:\t%v\n", color.GreenString("healthy"))
+		for _, probe := range node.WarnProbes {
+			fmt.Fprintf(w, "            [%v]\t%v\n", constants.WarnMark, color.New(color.FgYellow).SprintFunc()(probe))
+		}
 	case statusapi.NodeDegraded:
 		fmt.Fprintf(w, "            Status:\t%v\n", color.RedString("degraded"))
 		for _, probe := range node.FailedProbes {
 			fmt.Fprintf(w, "            [%v]\t%v\n", constants.FailureMark, color.New(color.FgRed).SprintFunc()(probe))
+		}
+		for _, probe := range node.WarnProbes {
+			fmt.Fprintf(w, "            [%v]\t%v\n", constants.WarnMark, color.New(color.FgYellow).SprintFunc()(probe))
 		}
 	}
 }

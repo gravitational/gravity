@@ -360,6 +360,8 @@ type ClusterServer struct {
 	Status string `json:"status"`
 	// FailedProbes lists all failed probes if the node is not healthy
 	FailedProbes []string `json:"failed_probes,omitempty"`
+	// WarnProbes lists all warning probes
+	WarnProbes []string `json:"warn_probes,omitempty"`
 }
 
 func (r ClusterOperation) isFailed() bool {
@@ -470,8 +472,13 @@ func fromNodeStatus(node pb.NodeStatus) (status ClusterServer) {
 	}
 	for _, probe := range node.Probes {
 		if probe.Status != pb.Probe_Running {
-			status.FailedProbes = append(status.FailedProbes,
-				probeErrorDetail(*probe))
+			if probe.Severity != pb.Probe_Warning {
+				status.FailedProbes = append(status.FailedProbes,
+					probeErrorDetail(*probe))
+			} else {
+				status.WarnProbes = append(status.WarnProbes,
+					probeErrorDetail(*probe))
+			}
 		}
 	}
 	if len(status.FailedProbes) != 0 {
