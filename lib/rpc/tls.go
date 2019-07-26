@@ -57,15 +57,15 @@ func InitRPCCredentials(packages pack.PackageService) (*loc.Locator, error) {
 // ValidateCredentials checks the credentials from the specified archive for validity
 func ValidateCredentials(archive utils.TLSArchive, now time.Time) error {
 	clientKeyPair := archive[pb.Client]
-	if err := validateCert(clientKeyPair.CertPEM, now); err != nil {
+	if err := validateCertificateExpiration(clientKeyPair.CertPEM, now); err != nil {
 		return trace.Wrap(err, "invalid client certificate")
 	}
 	serverKeyPair := archive[pb.Server]
-	if err := validateCert(serverKeyPair.CertPEM, now); err != nil {
+	if err := validateCertificateExpiration(serverKeyPair.CertPEM, now); err != nil {
 		return trace.Wrap(err, "invalid server certificate")
 	}
 	caKeyPair := archive[pb.CA]
-	if err := validateCert(caKeyPair.CertPEM, now); err != nil {
+	if err := validateCertificateExpiration(caKeyPair.CertPEM, now); err != nil {
 		return trace.Wrap(err, "invalid CA certificate")
 	}
 	return nil
@@ -354,7 +354,7 @@ func upsertPackage(packages pack.PackageService, pkg loc.Locator, archive utils.
 	return trace.Wrap(err)
 }
 
-func validateCert(pemBytes []byte, now time.Time) error {
+func validateCertificateExpiration(pemBytes []byte, now time.Time) error {
 	const tolerance = 30 * time.Second
 	cert, err := tlsca.ParseCertificatePEM(pemBytes)
 	if err != nil {

@@ -37,12 +37,6 @@ func (p *Peer) init(ctx operationContext) error {
 	if err != nil {
 		return trace.Wrap(err)
 	}
-	if !ctx.hasOperation() {
-		// This indicates the fact that the expand operation is initialized
-		// at a later moment and the operation might not be available after
-		// having successfully connected to the cluster.
-		return nil
-	}
 	return p.startAgent(ctx)
 }
 
@@ -113,7 +107,7 @@ func (p *Peer) ensureServiceUserAndBinary(ctx operationContext) error {
 
 // syncOperationPlan synchronizes operation and plan data to the local join backend
 func (p *Peer) syncOperationPlan(ctx operationContext) error {
-	err := p.syncOperation(ctx)
+	err := p.syncOperation(ctx.Operator, ctx.Cluster, ctx.Operation.Key())
 	if err != nil {
 		return trace.Wrap(err)
 	}
@@ -130,26 +124,23 @@ func (p *Peer) syncOperationPlan(ctx operationContext) error {
 }
 
 // syncOperation synchronizes operation-related data to the local join backend
-func (p *Peer) syncOperation(ctx operationContext) error {
+func (p *Peer) syncOperation(operator ops.Operator, cluster ops.Site, operationKey ops.SiteOperationKey) error {
 	// sync cluster
-	err := p.JoinBackend.DeleteSite(ctx.Cluster.Domain)
+	err := p.JoinBackend.DeleteSite(cluster.Domain)
 	if err != nil && !trace.IsNotFound(err) {
 		return trace.Wrap(err)
 	}
-	_, err = p.JoinBackend.CreateSite(ops.ConvertOpsSite(ctx.Cluster))
+	_, err = p.JoinBackend.CreateSite(ops.ConvertOpsSite(cluster))
 	if err != nil {
 		return trace.Wrap(err)
 	}
 	// sync operation
-	operation, err := ctx.Operator.GetSiteOperation(ctx.Operation.Key())
+	operation, err := operator.GetSiteOperation(operationKey)
 	if err != nil {
 		return trace.Wrap(err)
 	}
 	_, err = p.JoinBackend.CreateSiteOperation(storage.SiteOperation(*operation))
-	if err != nil {
-		return trace.Wrap(err)
-	}
-	return nil
+	return trace.Wrap(err)
 }
 
 // startAgent starts a new RPC agent using the specified operation context.
@@ -195,7 +186,7 @@ func (p *Peer) newAgent(ctx operationContext) (*rpcserver.PeerServer, error) {
 // getPeerAddrAndToken returns the peer address and token for the specified role
 func getPeerAddrAndToken(ctx operationContext, role string) (peerAddr, token string, err error) {
 	peerAddr = ctx.Peer
-	if strings.Contains(peerAddr, "http") { // peer may be an URL
+	if strings.HasPrefix(peerAddr, "http") { // peer may be an URL
 		peerURL, err := url.Parse(ctx.Peer)
 		if err != nil {
 			return "", "", trace.Wrap(err)

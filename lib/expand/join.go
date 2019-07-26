@@ -579,13 +579,7 @@ func (p *Peer) dialWizard(addr string) (*operationContext, error) {
 	if err != nil {
 		return nil, utils.Abort(err)
 	}
-	if shouldRunLocalChecks(operation.State) {
-		err = p.runLocalChecks(*cluster, *operation)
-		if err != nil {
-			return nil, utils.Abort(err)
-		}
-	}
-	return &operationContext{
+	ctx := operationContext{
 		Operator:  env.Operator,
 		Packages:  env.Packages,
 		Apps:      env.Apps,
@@ -593,7 +587,14 @@ func (p *Peer) dialWizard(addr string) (*operationContext, error) {
 		Operation: *operation,
 		Cluster:   *cluster,
 		Creds:     *creds,
-	}, nil
+	}
+	if shouldRunLocalChecks(ctx) {
+		err = p.runLocalChecks(*cluster, *operation)
+		if err != nil {
+			return nil, utils.Abort(err)
+		}
+	}
+	return &ctx, nil
 }
 
 // dialCluster connects to the cluster controller with the specified address.
@@ -607,19 +608,20 @@ func (p *Peer) dialCluster(addr, operationID string) (*operationContext, error) 
 	if err != nil {
 		return nil, utils.Abort(err)
 	}
-	if !ctx.hasOperation() && shouldRunLocalChecks(ctx.Operation.State) {
+	if shouldRunLocalChecks(*ctx) {
 		err = p.runLocalChecksExpand(ctx.Operator, ctx.Cluster)
 		if err != nil {
 			return nil, utils.Abort(err)
 		}
 	}
+	if ctx.hasOperation() {
+		return ctx, nil
+	}
 	operation, err := p.getOrCreateExpandOperation(ctx.Operator, ctx.Cluster, operationID)
 	if err != nil {
 		return nil, trace.Wrap(err)
 	}
-	if operation != nil {
-		ctx.Operation = *operation
-	}
+	ctx.Operation = *operation
 	return ctx, nil
 }
 
@@ -687,6 +689,17 @@ func (p *Peer) getOrCreateExpandOperation(operator ops.Operator, cluster ops.Sit
 	}
 	operation, err := ops.GetExpandOperation(p.JoinBackend)
 	if err != nil && !trace.IsNotFound(err) {
+		return nil, trace.Wrap(err)
+	}
+	if err == nil {
+		return operation, nil
+	}
+	operation, err = p.createExpandOperation(operator, cluster)
+	if err != nil {
+		return nil, trace.Wrap(err)
+	}
+	err = p.syncOperation(operator, cluster, operation.Key())
+	if err != nil {
 		return nil, trace.Wrap(err)
 	}
 	return operation, nil
@@ -792,7 +805,9 @@ func (p *Peer) tryConnect(operationID string) (ctx *operationContext, err error)
 			p.printStep("Connected to installer at %v", addr)
 			return ctx, nil
 		}
-		p.WithError(err).Info("Failed connecting to wizard.")
+		if !utils.IsConnectionResetError(err) {
+			p.WithError(err).Warn("Failed connecting to wizard.")
+		}
 		if isTerminalError(err) {
 			return nil, utils.Abort(err)
 		}
@@ -808,7 +823,7 @@ func (p *Peer) tryConnect(operationID string) (ctx *operationContext, err error)
 			p.printStep("Connected to existing cluster at %v", addr)
 			return ctx, nil
 		}
-		p.WithError(err).Info("Failed connecting to cluster.")
+		p.WithError(err).Warn("Failed connecting to cluster.")
 		if isTerminalError(err) {
 			return nil, utils.Abort(err)
 		}
@@ -837,22 +852,7 @@ func (p *Peer) agentLoop(ctx operationContext) (dispatcher.Status, error) {
 }
 
 func (p *Peer) executeExpandOperation(ctx operationContext) error {
-	if !ctx.hasOperation() {
-		operation, err := p.createExpandOperation(ctx.Operator, ctx.Cluster)
-		if err != nil {
-			return trace.Wrap(err)
-		}
-		ctx.Operation = *operation
-		err = p.syncOperation(ctx)
-		if err != nil {
-			return trace.Wrap(err)
-		}
-	}
-	err := p.startAgent(ctx)
-	if err != nil {
-		return trace.Wrap(err)
-	}
-	err = p.ensureExpandOperationState(ctx)
+	err := p.ensureExpandOperationState(ctx)
 	if err != nil {
 		return trace.Wrap(err)
 	}
@@ -1208,8 +1208,11 @@ func phaseTitle(phase installpb.Phase) string {
 	return fmt.Sprintf("Executing phase %v", phase.ID)
 }
 
-func shouldRunLocalChecks(state string) bool {
-	switch state {
+func shouldRunLocalChecks(ctx operationContext) bool {
+	if !ctx.hasOperation() {
+		return true
+	}
+	switch ctx.Operation.State {
 	case ops.OperationStateExpandInitiated,
 		ops.OperationStateExpandProvisioning,
 		ops.OperationStateInstallInitiated,
