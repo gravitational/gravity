@@ -1,46 +1,67 @@
 # Cluster Monitoring
 
-Gravity Clusters come with a fully configured and customizable monitoring/alerting system by default.
-This system consists of the following components: Heapster, InfluxDB, Grafana and Kapacitor.
+Gravity clusters come with a fully configured and customizable monitoring/alerting system by default.
+The monitoring stack consists of the following components: Prometheus, Grafana and Alertmanager.
 
 These components are automatically included into a cluster image built with `tele build` as a
 system dependency (see the [source](https://github.com/gravitational/monitoring-app) on GitHub).
 
-### Heapster
+### Prometheus
 
-Heapster monitors Kubernetes components and reports statistics and information to InfluxDB about nodes
-and pods.
+[Prometheus](https://prometheus.io/docs/introduction/overview/) is an open-source Kubernetes
+native monitoring system and time-series database.
 
-### InfluxDB
+Prometheus uses the following in-cluster services to collect the metrics about the cluster:
 
-InfluxDB is the main data store for current + future monitoring time series data. It provides the
-service `influxdb.monitoring.svc.cluster.local`.
+* [node-exporter](https://github.com/prometheus/node_exporter) collects hardware and OS metrics.
+* [kube-state-metrics](https://github.com/kubernetes/kube-state-metrics) collects metrics about
+various Kubernetes objects such as deployments, nodes and pods.
+
+!!! note:
+    Collected metrics are stored for 30 days.
+
+Prometheus exposes the cluster-only service `prometheus-k8s.monitoring.svc.cluster.local:9090`.
 
 ### Grafana
 
-Grafana is the dashboard system that provides visualization information on all the information stored
-in InfluxDB. It is exposed as the service `grafana.monitoring.svc.cluster.local`. Grafana credentials
-are generated during initial installation and placed into a secret `grafana` in `monitoring` namespace.
+[Grafana](https://grafana.com/) is an open-source metrics analytics and visualization suite.
 
-### Kapacitor
+In Gravity clusters Grafana uses Prometheus as a data-source. It is preconfigured with several
+dashboards that provide general information about individual nodes, containers and the overall
+cluster health.
 
-Kapacitor is the alerting system that streams data from InfluxDB and sends alerts as configured by
-the end user. It exposes the service `kapacitor.monitoring.svc.cluster.local`.
+!!! tip:
+    When building a cluster image, it is possible to add your own dashboards in addition to
+    the ones that ship by default. See [Grafana Integration](#grafana-integration) below for
+    details.
 
-## Grafana integration
+Grafana exposes the cluster-only service `grafana.monitoring.svc.cluster.local:3000`.
 
-The standard Grafana configuration includes two pre-configured dashboards providing machine- and pod-level overview
-of the installed cluster by default. The Grafana UI is integrated with Gravity control panel. To view dashboards once
-the cluster is up and running, navigate to the Cluster's Monitoring page.
+### Alertmanager
 
-By default, Grafana is running in anonymous read-only mode which allows anyone logged into Gravity to view existing
-dashboards (but not modify them or create new ones).
+[Alertmanager](https://prometheus.io/docs/alerting/alertmanager/) is a Prometheus component that
+handles alerts sent by Prometheus server and takes care of deduplicating, grouping and routing
+them to the correct receiver such as email recipient.
 
-## Pluggable dashboards
+Alertmanager exposes the cluster-only service `alertmanager-main.monitoring.svc.cluster.local:9093`.
 
-Your applications can use their own Grafana dashboards using ConfigMaps.
-A custom dashboard ConfigMap should be assigned a `monitoring` label with value `dashboard` and created in the
-`monitoring` namespace so it is recognized and loaded when installing the application:
+## Grafana Integration
+
+The default Grafana configuration includes two pre-configured dashboards providing machine- and
+pod-level overview of the installed cluster by default. Grafana UI is integrated with Gravity
+control panel. To view dashboards once the cluster is up and running, navigate to the Cluster's
+Monitoring page.
+
+By default, Grafana is running in anonymous read-only mode which allows anyone logged into Gravity
+to view existing dashboards (but not modify them or create new ones).
+
+## Pluggable Dashboards
+
+Your applications can create their own Grafana dashboards using ConfigMaps.
+
+A custom dashboard ConfigMap should be assigned a `monitoring` label with value `dashboard` and
+created in the `monitoring` namespace so it is recognized and loaded during initial cluster image
+installation:
 
 ```yaml
 apiVersion: v1
@@ -59,119 +80,17 @@ Dashboard ConfigMap may contain multiple keys with dashboards and key names are 
 application source on GitHub has an [example](https://github.com/gravitational/monitoring-app/blob/5.2.1/resources/grafana.yaml#L395)
 of a dashboard ConfigMap.
 
-Since the embedded Grafana runs in read-only mode, a separate Grafana instance is required to
-create a custom dashboard, which can then be exported.
+!!! tip:
+    Since the embedded Grafana runs in read-only mode, you can use a separate Grafana instance
+    to create a custom dashboard and then export its JSON.
 
-## Metrics collection
+## Alertmanager Integration
 
-All default metrics collected by Heapster go into the `k8s` database in InfluxDB. All other applications that collect
-metrics should submit them into the same database in order for proper retention policies to be enforced.
+### Configuring Alerts Delivery
 
-## Retention policies
+To configure Alertmanager to send email alerts, you need to create two Gravity resources.
 
-By default InfluxDB has 3 pre-configured retention policies:
-
-* default = 24h
-* medium = 4w
-* long = 52w
-
-The `default` retention policy is supposed to store high-precision metrics (for example, all default metrics collected
-by Heapster with 10s interval). The `default` policy is default for `k8s` database which means that metrics that do not
-specify retention policy explicitly go in there. The other two policies - `medium` and `long` are intended to store
-metric rollups and should not be used directly.
-
-Durations for each of the retention policies can be configured through the Gravity Cluster control panel.
-
-## Rollups
-
-Metric rollups provide access to historical data for longer time period but at lower resolution.
-
-The monitoring system allows for the configuration of two "types" of rollups for any collected metric.
-
-* `medium` rollup aggregates (or filters) data over a 5-minute interval and goes into `medium` retention policy
-* `long` rollup aggregates (or filters) data over a 1-hour interval and goes into `long` retention policy
-
-Rollups are pre-configured for some of the metrics collected by default. Applications that collect their own
-metrics can configure their own rollups as well through ConfigMaps.
-
-A custom rollup ConfigMap should be assigned a `monitoring` label with value `rollup` and created in the `monitoring`
-namespace for it to be recognized and loaded. Below is a sample ConfigMap:
-
-```yaml
-apiVersion: v1
-kind: ConfigMap
-metadata:
-  name: myrollups
-  namespace: monitoring
-  labels:
-    monitoring: rollup
-data:
-  rollups: |
-    [
-      {
-        "retention": "medium",
-        "measurement": "cpu/usage_rate",
-        "name": "cpu/usage_rate/medium",
-        "functions": [
-          {
-            "function": "max",
-            "field": "value",
-            "alias": "value_max"
-          },
-          {
-            "function": "mean",
-            "field": "value",
-            "alias": "value_mean"
-          }
-        ]
-      }
-    ]
-```
-
-Each rollup is a JSON object with the following fields:
-
-* `retention` - name of the retention policy (and hence the aggregation interval) for this rollup, can be medium or long
-* `measurement` - name of the metric for the rollup (i.e. which metric is being "rolled up")
-* `name` - name of the resulting "rolled up" metric
-* `custom_from` - custom FROM clause for the rollup. Either `custom_from` or `measurement` must be provided.
-* `custom_group_by` - custom GROUP BY clause for the rollup. Default GROUP BY is `*, time($interval)`, where $interval is set from `retention`.
-* `functions` - list of rollup functions to apply to metric measurement
-* `function` - function name
-* `field` - name of the field to apply rollup function to (e.g. "value")
-* `alias` - new name for the rolled up field (e.g. "value_max")
-
-### List of supported functions
-
-Aggregations:
-* count
-* distinct
-* integral
-* mean
-* median
-* mode
-* spread
-* stddev
-* sum
-
-Selectors:
-* bottom
-* first
-* last
-* max
-* min
-* percentile
-* sample
-* top
-
-Full documentation about functions can be found on [InfluxDB website](https://docs.influxdata.com/influxdb/v1.5/query_language/functions/).
-
-## Kapacitor integration
-
-Kapacitor provides alerting for default and user-defined alerts.
-
-### Configuration
-
-To configure Kapacitor to send email alerts, create resources of type `smtp` and `alerttarget`:
+The first resource is called `smtp`. It defines configuration of SMTP server to use:
 
 ```yaml
 kind: smtp
@@ -180,60 +99,89 @@ metadata:
   name: smtp
 spec:
   host: smtp.host
-  port: <smtp port> # 465 by default
+  port: <smtp port>
   username: <username>
   password: <password>
----
+```
+
+Create the SMTP configuration:
+
+```bash
+$ gravity resource create smtp.yaml
+```
+
+The second resource is called `alerttarget`. It defines the alerts email recipient:
+
+```yaml
 kind: alerttarget
 version: v2
 metadata:
   name: email-alerts
 spec:
-  email: triage@example.com # Email address of the alert recipient
+   # email address of the alerts recipient
+  email: triage@example.com
 ```
 
-```bsh
-$ gravity resource create -f smtp.yaml
+Create the target:
+
+```bash
+$ gravity resource create -f target.yaml
 ```
 
-To create new alerts, use another resource of type `alert`:
+!!! note:
+    Currently only a single alerts email recipient is supported.
 
+### Configuring Alerts
+
+Defining new alerts is done via a Gravity resource called `alert`:
 
 ```yaml
 kind: alert
 version: v2
 metadata:
-  name: my-formula
+  name: cpu-alert
 spec:
+  # the alert name
+  alert_name: CPUAlert
+  # the rule group the alert belongs to
+  group_name: test-group
+  # the alert expression
   formula: |
-    Kapacitor formula
+    node:cluster_cpu_utilization:ratio * 100 > 80
+  # the alert labels
+  labels:
+    severity: info
+  # the alert annotations
+  annotations:
+    description: |
+      This is a first test alert
 ```
 
-And introduce it with:
+!!! tip:
+    See [Alerting Rules](https://prometheus.io/docs/prometheus/latest/configuration/alerting_rules/)
+    documentation for more details about Prometheus alerts.
+
+Create the alert:
 
 ```bsh
-$ gravity resource create -f formula.yaml
+$ gravity resource create -f alert.yaml
 ```
 
-To view SMTP configuration or alerts:
+View existing alerts:
 
 ```bsh
-$ gravity resource get smtps smtp
-$ gravity resource get alert my-formula
+$ gravity resource get alerts
 ```
 
-To remove an alert:
+Remove an alert:
 
 ```bsh
-$ gravity resource rm alert my-formula
+$ gravity resource rm alert cpu-alert
 ```
 
 ### Builtin Alerts
 
-Alerts (written in [TICKscript](https://docs.influxdata.com/kapacitor/v1.2/tick)) are automatically detected, loaded and
-enabled. They are read from the Kubernetes ConfigMap named `kapacitor-alerts` in `monitoring` namespace.
-
-Following table shows the alerts Gravity ships with by default:
+The following table shows the alerts Gravity ships with by default:
 
 | Component   | Alert         | Description      |
 | ------------- | -------------------- | -------------------- |
@@ -248,8 +196,4 @@ Following table shows the alerts Gravity ships with by default:
 | Etcd | Etcd instance health | Triggers an error when an Etcd master is down longer than 5min |
 | Etcd | Etcd latency check | Triggers a warning, when follower <-> leader latency exceeds 500ms, then an error when it exceeds 1s over a period of 1min |
 | Docker | Docker daemon health | Triggers an error when docker daemon is down |
-| InfluxDB | InfluxDB instance health | Triggers an error when InfluxDB is inaccessible |
 | Kubernetes | Kubernetes node readiness | Triggers an error when the node is not ready |
-
-Kapacitor will also trigger an email for each of the events listed above if SMTP resource has been
-configured (see [configuration](/monitoring/#configuration) for details).
