@@ -17,8 +17,10 @@ limitations under the License.
 package proto
 
 import (
-	fmt "fmt"
+	"fmt"
 	"strings"
+
+	"github.com/gravitational/gravity/lib/storage"
 
 	"github.com/gravitational/trace"
 	"golang.org/x/net/context"
@@ -108,6 +110,40 @@ func (r *RuntimeConfig) String() string {
 // String describes this mount point as text
 func (r Mount) String() string {
 	return fmt.Sprintf("Mount(name=%v, source=%v)", r.Name, r.Source)
+}
+
+// MountsToProto converts list of mounts to protobuf format
+func MountsToProto(mounts []storage.Mount) []*Mount {
+	result := make([]*Mount, 0, len(mounts))
+	for _, mount := range mounts {
+		result = append(result, MountToProto(mount))
+	}
+	return result
+}
+
+// MountsFromProto converts list of mounts from protobuf format
+func MountsFromProto(mounts []*Mount) []storage.Mount {
+	result := make([]storage.Mount, 0, len(mounts))
+	for _, mount := range mounts {
+		result = append(result, MountFromProto(mount))
+	}
+	return result
+}
+
+// MountToProto converts mount to protobuf format
+func MountToProto(mount storage.Mount) *Mount {
+	return &Mount{
+		Name:   mount.Name,
+		Source: mount.Source,
+	}
+}
+
+// MountFromProto converts mount from protobuf format
+func MountFromProto(mount *Mount) storage.Mount {
+	return storage.Mount{
+		Name:   mount.Name,
+		Source: mount.Source,
+	}
 }
 
 // String describes this metadata object as text

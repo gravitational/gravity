@@ -87,8 +87,7 @@ func IsClosedConnectionError(err error) bool {
 
 // IsClusterUnavailableError determines if the specified error is a cluster unavailable error
 func IsClusterUnavailableError(err error) bool {
-	text := trace.Unwrap(err).Error()
-	return isEtcdClusterErrorMessage(text)
+	return isEtcdClusterErrorMessage(trace.UserMessage(err))
 }
 
 // IsKubeAuthError determines whether the specified error is an authorization
@@ -437,5 +436,6 @@ func isLicenseError(message string) bool {
 }
 
 func isHostAlreadyRegisteredError(message string) bool {
-	return strings.Contains(message, "One of existing peers already has hostname")
+	return strings.Contains(message, "One of existing peers already has hostname") ||
+		strings.Contains(message, "One of existing servers already has hostname")
 }
