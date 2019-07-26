@@ -891,7 +891,6 @@ func defaultPortChecker(options *validationpb.ValidateOptions) health.Checker {
 		{Protocol: "tcp", From: 4001, To: 4001, Description: "etcd"},
 		{Protocol: "tcp", From: 7001, To: 7001, Description: "etcd"},
 		{Protocol: "tcp", From: 6443, To: 6443, Description: "kubernetes API server"},
-		{Protocol: "tcp", From: 30000, To: 32767, Description: "kubernetes internal services range"},
 		{Protocol: "tcp", From: 10248, To: 10255, Description: "kubernetes internal services range"},
 		{Protocol: "tcp", From: 5000, To: 5000, Description: "docker registry"},
 		{Protocol: "tcp", From: 3022, To: 3025, Description: "teleport internal SSH control panel"},
