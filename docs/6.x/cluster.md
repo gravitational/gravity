@@ -1,20 +1,19 @@
 # Cluster Management
 
-Every cluster created from a Gravity cluster image is a fully featured
+Every Cluster created from a Gravity Cluster Image is a fully featured
 Kubernetes environment. It contains the following components:
 
-1. All user applications that have been packaged into the cluster image.
+1. All user applications that have been packaged into the Cluster Image.
 2. All Kubernetes daemons like `kube-scheduler`, `kube-apiserver`, and others. 
 3. The Kubernetes CLI tool: `kubectl`.
-4. The Gravity cluster "hypervisor", called `gravity` for managing the cluster.
-5. The Gravity Authentication Gateway for integrating Kubernetes authentication 
-   and SSH access to cluster nodes with corporate identity providers via SSO.
-
-In addition to `gravity` CLI tool, each Gravity cluster also offers a web-based
-UI to manage the cluster state.
+4. The Gravity Cluster "hypervisor", called `gravity`, for managing the Cluster.
+5. A web application to monitor and manage the Cluster state ("Cluster Admin
+Panel")
+6. The Gravity Authentication Gateway for integrating Kubernetes authentication 
+   and SSH access to Cluster nodes with corporate identity providers via SSO.
 
 You can also use familiar Kubernetes tools such as `kubectl` to perform regular
-cluster tasks such as watching logs, seeing stats for pods or volumes or
+Cluster tasks such as watching logs, seeing stats for pods or volumes or
 managing configurations.
 
 ## Kubernetes Environment
@@ -23,35 +22,31 @@ A Gravity Cluster is a highly available (HA) instance of Kubernetes running on
 multiple nodes, so the standard Kubernetes tools will work and Kubernetes rules
 will apply.
 
-However, Gravity pre-configures Kubernetes to be as reliable as possible
+However, Gravity pre-configures Kubernetes to be as reliable as possible,
 greatly reducing the need for ongoing active management. To make this possible,
-`gravity` hypervisor launches and manages all Kubernetes Linux daemons.
+the `gravity` hypervisor launches and manages all Kubernetes Linux daemons.
 
-!!! tip "Gravity Master Container":
-    When `gravity` daemon starts, it creates it's own container which we'll
-    refer to as "master container". The master container itself is a
-    containerized `systemd` instance. It launches the required Kubernetes
-    daemons and contains their dependencies as well as monitoring and support
-    tools. 
+When the `gravity` daemon starts, it creates it's own "Master Container". The 
+Master Container itself is a containerized `systemd` instance. It launches the required Kubernetes daemons and contains their dependencies as well as monitoring and support tools. 
 
-Running Kubernetes services from inside a master container brings several
+Running Kubernetes services from inside the Master Container brings several
 advantages as opposed to installing Kubernetes components in a more traditional
 way:
 
 * Since all Kubernetes services such as `kubelet` or `kube-apiserver` always
-  run enclosed inside the master container, it makes it possible for Gravity
-  to closely monitor the cluster health and perform cluster updates "from below".
+  run enclosed inside the Master Container, it makes it possible for Gravity
+  to closely monitor the Cluster health and perform Cluster updates.
 
 * `gravity` _continuously_ maintains Kubernetes configuration to be highly
   available ("HA").  This means that any node can go down without disrupting
   Kubernetes' operation.
 
-* `gravity` runs its own local Docker registry which is used as a cluster-level
+* `gravity` runs its own local Docker registry which is used as a Cluster-level
   cache for container images. This makes application updates and restarts
   faster and more reliable.
 
-* `gravity` provides the ability to perform cluster state snapshots as part of
-  cluster updates or to be used independently.
+* `gravity` provides the ability to perform Cluster state snapshots as part of
+  Cluster updates or to be used independently.
 
 ### Kubernetes Extensions
 
@@ -61,10 +56,10 @@ include:
 
 * Master-slave controllers for popular open source databases.
 * On-site emulators of popular AWS APIs such as S3 or SQS.
-* Intra-cluster network encryption.
+* Intra-Cluster network encryption.
 * Application monitoring and integrations with 3rd party data collection
   facilities such as Splunk.
-* Identity management for integrating cluster access into existing OAuth
+* Identity management for integrating Cluster access into existing identity
   providers.
 
 !!! tip "Note":
@@ -72,68 +67,58 @@ include:
 	wide variety of Kubernetes integration and migration services. Reach out to
 	`info@gravitational.com` if you have questions.
 
-## Gravity Tool
+## Gravity CLI Tool
 
-`gravity` is the CLI command available on every cluster node. Use it to perform
-high level cluster administration tasks such as adding or removing nodes,
+`gravity` is the CLI command available on every Cluster node. Use it to perform
+high level Cluster administration tasks such as adding or removing nodes,
 upgrading, etc.
-
-`gravity` is only available on the cluster nodes, users must remotely connect
-to it via `tsh` command first. To learn more about `tsh`, consult the [remote
-management](/manage/) section.
 
 The `gravity` commands allows you to:
 
-1. Quickly add new nodes to a cluster.
-2. Remove nodes from a cluster.
+1. Quickly add new nodes to a Cluster.
+2. Remove nodes from a Cluster.
 3. Monitor Gravity Cluster health.
 4. Update / backup / restore the Gravity Cluster.
-5. Request shell inside the master container to troubleshoot Kubernetes health on a node level.
+5. Request shell inside the Master Container to troubleshoot Kubernetes health on a node level.
 
 Below is the full list of `gravity` commands:
 
 | Command   | Description                                                                  |
 |-----------|------------------------------------------------------------------------------|
-| `gravity status`    | Show the status of the cluster and the application running in it   |
+| `gravity status`    | Show the status of the Cluster and the application running in it   |
 | `gravity update`    | Manage application updates on a Gravity Cluster                    |
-| `gravity upgrade`   | Manage the cluster upgrade operation for a Gravity Cluster         |
+| `gravity upgrade`   | Manage the Cluster upgrade operation for a Gravity Cluster         |
 | `gravity plan`      | Manage operation plan                                              |
-| `gravity join`      | Add a new node to the cluster                                      |
-| `gravity autojoin`  | Join the cluster using cloud provider for discovery                |
+| `gravity join`      | Add a new node to the Cluster                                      |
+| `gravity autojoin`  | Join the Cluster using cloud provider for discovery                |
 | `gravity leave`     | Decommission a node: execute on a node being decommissioned        |
-| `gravity remove`    | Remove the specified node from the cluster                         |
-| `gravity backup`    | Perform a backup of the application data in a cluster              |
+| `gravity remove`    | Remove the specified node from the Cluster                         |
+| `gravity backup`    | Perform a backup of the application data in a Cluster              |
 | `gravity restore`   | Restore the application data from a backup                         |
 | `gravity tunnel`    | Manage the SSH tunnel used for the remote assistance               |
-| `gravity report`    | Collect cluster diagnostics into an archive                        |
-| `gravity resource`  | Manage cluster resources                                           |
-| `gravity exec`      | Execute commands in the master container                           |
-| `gravity shell`     | Launch an interactive shell in the master container                |
-| `gravity gc`        | Clean up unused cluster resources                                  |
+| `gravity report`    | Collect Cluster diagnostics into an archive                        |
+| `gravity resource`  | Manage Cluster resources                                           |
+| `gravity exec`      | Execute commands in the Master Container                           |
+| `gravity shell`     | Launch an interactive shell in the Master Container                |
+| `gravity gc`        | Clean up unused Cluster resources                                  |
 
 
 ## Cluster Status
 
-Running `gravity status` will give you the high level overview of the cluster health,
+Running `gravity status` will give you the high level overview of the Cluster health,
 as well as the status of its individual components.
 
-Here's an example of how to remotely log in to a cluster via `tsh` and check the
-status of the cluster named "production":
+Here's an example of how to remotely log in to a Cluster via `tsh` and check the
+status of the Cluster named "production":
 
 ```bsh
-$ tsh --cluster=production ssh admin@node gravity status
+$ tsh --Cluster=production ssh admin@node gravity status
 ```
-
-!!! tip "Reminder":
-    Keep in mind that `tsh` can optionally use the Gravity Hub as an SSH and
-    Kubernetes proxy. Moreover, reverse tunelling provided by Gravity Hub means
-    that `tsh` can connect to clusters located behind corporate firewalls. You
-    can read more in the [remote management](/manage/) section.
 
 ### Cluster Health Endpoint
 
 Clusters expose an HTTP endpoint that provides system health information about
-cluster nodes. Run the following command from one of the cluster nodes to query
+Cluster nodes. Run the following command from one of the Cluster nodes to query
 the status:
 
 ```bsh
@@ -173,13 +158,13 @@ $ curl -sk https://localhost:7575 | python -m json.tool
 }
 ```
 
-This command displays the health status of each cluster node and the overall
-cluster health. In a healthy cluster the status of all health probes, individual
-nodes and the cluster overall is `running`, and the response HTTP status code
+This command displays the health status of each Cluster node and the overall
+Cluster health. In a healthy Cluster the status of all health probes, individual
+nodes and the Cluster overall is `running`, and the response HTTP status code
 is `200 OK`.
 
 If a node fails any of its health probes, the output reflects this by moving
-the failed probe status to `failed` and the node and the cluster status to
+the failed probe status to `failed` and the node and the Cluster status to
 `degraded`. For example, here is what the output would look like if a Docker
 process crashed on a node:
 
@@ -223,7 +208,7 @@ In this case the response HTTP status code will be `503 Service Unavailable`.
 
 Gravity provides a way to automatically monitor the application health.
 
-To enable this, define a "status" hook in your Application Manifest (see
+To enable this, define a "status" hook in your Image Manifest (see
 [Application Hooks](/pack/#application-hooks) section for more details on them). The Kubernetes
 job defined by the status hook can perform application-specific checks. An example of an
 application-specific status check could be querying a database, or checking that a
@@ -266,22 +251,18 @@ hooks:
               app: myapp
 ```
 
-When the status hook fails, the cluster transitions to a "degraded" state which is reflected
-in the Admin Control Panel by a red status indicator in the top bar. Degraded clusters cannot
-perform certain operations. Once the application recovers and the status hook
-completes successfully, the cluster automatically moves back to a "healthy" state.
+When the status hook fails, the Cluster transitions to a "degraded" state which is reflected in the Cluster web application by a red status indicator in the top bar. 
+Once the application recovers and the status hook completes successfully, the Cluster automatically moves back to a "healthy" state.
 
 ## Exploring a Cluster
 
-Any Gravity cluster can be explored using the standard Kubernetes tool, `kubectl`, which is
-installed and configured on every cluster node. See the command's [overview](http://kubernetes.io/docs/user-guide/kubectl-overview/)
-and a [full reference](https://kubernetes.io/docs/user-guide/kubectl/) to see what it can
+Any Gravity Cluster can be explored using the standard Kubernetes tool, `kubectl`, 
+which is installed and configured on every Cluster node. See the command's [overview](http://kubernetes.io/docs/user-guide/kubectl-overview/) and a 
+[full reference](https://kubernetes.io/docs/user-guide/kubectl/) to see what it can
 do, or simply use `kubectl --help`.
 
-Each Gravity Cluster also has a graphical UI to explore and manage the Cluster. To log into
-the Cluster Admin UI you need to create an admin user. Please see the
-[Custom Installer Screens](/pack/#custom-installer-screens) chapter for details on how
-to enable a post-install screen that will let you create a local user.
+Each Gravity Cluster also has a Cluster Admin Panel web application to explore and 
+manage the Cluster. To log into the Cluster Admin Panel you need to create an admin user. Please see the [Custom Installer Screens](/pack/#custom-installer-screens) chapter for details on how to enable a post-install screen that will let you create a local user.
 
 ## Updating a Cluster
 
@@ -289,17 +270,17 @@ Cluster updates can get quite complicated for complex cloud applications
 composed of multiple micro-services. On a high level, there are two major layers
 that will need periodic updating:
 
-* The Kubernetes itself and its dependencies, like Docker. Gravity refers to this
-  layer as "system software updates".
+* Kubernetes itself and its dependencies, like Docker. Gravity refers to this
+  layer as "system software".
 * The application(s) deployed inside, including auxiliary subsystems used for
   monitoring and logging. Special care must be taken around database
   migrations and the sequence in which various components are updated.
 
 The Gravity update process is designed to update both layers. Here is how
-Gravity update process works:
+the Gravity update process works:
 
 1. New versions of an application and the system binaries (container
-   images) are downloaded and stored inside the cluster. This means that during the
+   images) are downloaded and stored inside the Cluster. This means that during the
    update, all data has already been saved locally and disruptions to external
    services, like Docker registries, will not affect the update process.
 
@@ -309,24 +290,26 @@ Gravity update process works:
 3. Custom update hooks can be used to perform application specific
    actions before or after the update, such as database migrations.
 
-An update can be triggered via Gravity Hub Web UI or from command line (CLI).
-The instructions below describe updating via the CLI. The commands below can be
-executed as part of a remote update script to update large numbers of remotely
-running application instances.
+An update can be triggered through Gravity Hub or from command line (CLI).
+The instructions below describe updating via the CLI. 
 
 ### Uploading an Update
 
-The first step to updating a cluster to a newer version is to import a new
-cluster image onto a Gravity cluster, which can be done in both online and
+The first step to updating a Cluster to a newer version is to import a new
+Cluster Image onto a Gravity Cluster, which can be done in both online and
 offline environments.
 
-A new image becomes "uploaded" when it's contents is stored in the internal
-cluster registry, but not yet deployed.
+A new image becomes "uploaded" when it's contents are stored in the internal
+Cluster registry.
 
 #### Online Cluster Update
 
-If a cluster is connected to a Gravity Hub, it can download newer versions
-of a cluster image directly from that Hub.
+!!! warning "Version Warning"
+    Graivty Hub is available to Enterprise edition users only. This means that open source
+    edition of Gravity only supports "offline updates" (see below).
+
+If a Cluster is connected to a Gravity Hub, it can download newer versions
+of a Cluster Image directly from that Hub.
 
 Use `gravity update download` command to automatically discover if there are
 new versions available and download them:
@@ -337,30 +320,26 @@ $ gravity update download --every=12h  # Schedule automatic downloading of updat
 $ gravity update download --every=off  # Turn off automatic downloading of updates.
 ```
 
-!!! warning "Version Warning"
-    Graivty Hub is available to Enterprise edition users only. This means that open source
-    edition of Gravity only supports "offline updates" (see below).
-
 #### Offline Cluster Update
 
-If a Gravity cluster is not connected to a Gravity Hub, the updated version of
-the cluster image has to be copied to one of the cluster nodes. To upload the
+If a Gravity Cluster is not connected to a Gravity Hub, the updated version of
+the Cluster Image has to be copied to one of the Cluster nodes. To upload the
 new version, extract the tarball and launch the included `upload` script.
 
-Once a cluster image has been uploaded into the cluster, you can begin the
+Once a Cluster Image has been uploaded into the Cluster, you can begin the
 upgrade procedure.
 
 ### Performing an Upgrade
 
-An upgrade can be triggered either through web UI or from the command line. To
-trigger the upgrade from the UI, select an appropriate version on the "Updates"
-tab click `Update`.
+An upgrade can be triggered either through Cluster Admin Panel or using 
+command line. To trigger the upgrade from the Admin Panel, select an appropriate 
+version on the "Updates" tab click `Update`.
 
-To trigger the operation from the command line, copy the cluster image into one
-of the cluster nodes and untar it:
+To trigger the operation from the command line, copy the Cluster Image into one
+of the Cluster nodes and untar it:
 
 ```bash
-$ tar xf cluster-image.tar
+$ tar xf Cluster-image.tar
 $ ls -lh
 total 64M
 -rw-r--r--. 1 user user 1.1K Jan 14 09:08 README
@@ -399,28 +378,25 @@ updating app from 0.0.1-alpha.1 to 0.0.1-alpha.2
 Deploying agents on nodes
 The operation has been created in manual mode.
 
-See https://gravitational.com/gravity/docs/cluster/#managing-an-ongoing-operation for details on working with operation plan.
+See https://gravitational.com/gravity/docs/Cluster/#managing-an-ongoing-operation for details on working with operation plan.
 ```
 
-Please refer to the [Managing Operations](/cluster/#managing-operations) section about
+Please refer to the [Managing Operations](/Cluster/#managing-operations) section about
 working with the operation plan.
 
 !!! warning "IMPORTANT":
     The manual upgrade must be executed using `gravity` binary included in the upgrade
-    tarball to ensure version compatibility. If you don't have a cluster image tarball (for
+    tarball to ensure version compatibility. If you don't have a Cluster Image tarball (for
     example, when downloading upgrades directly from a connected Gravity Hub), you can obtain
     the appropriate `gravity` binary from Gravity Hub.
 
 ### Troubleshooting Automatic Upgrades
 
-!!! tip "Advanced Usage":
-    This section covers the "under the hood" details of the automatic updates.
-
 When a user initiates an automatic update by executing `gravity upgrade`
 command, the following actions take place:
 
-1. An agent (update agent) is deployed on each cluster node. The
-   update agents start on every cluster node as a `systemd` unit called
+1. An agent (update agent) is deployed on each Cluster node. The
+   update agents start on every Cluster node as a `systemd` unit called
    `gravity-agent.service`.
 1. The agents execute phases of the update plan. These are
    the same phases a user would run as part of a [manual upgrade](#manual-upgrade).
@@ -431,7 +407,7 @@ to achieve this. These commands can also be executed manually
 from a terminal on any master node in a Gravity Cluster:
 
 ```bsh
-# Copy the update agent to every cluster node and start the agents:
+# Copy the update agent to every Cluster node and start the agents:
 root$ ./gravity agent deploy
 
 # Run specific operation steps:
@@ -446,20 +422,20 @@ root$ ./gravity agent shutdown
 
 ## Managing Operations
 
-Some operations in a Gravity cluster require cooperation from all cluster nodes.
+Some operations in a Gravity Cluster require cooperation from all Cluster nodes.
 Examples are installs, upgrades and garbage collection.
 Additionally, due to varying complexity and unforeseen conditions, these operations can and do fail in practice.
 
-To provide a foundation for coping with failures, the operations are built as sets of smaller steps
-that can be re-executed or rolled back individually. This allows for interactive fix and retry loop should any of the
-steps fail.
+To provide a foundation for coping with failures, the operations are built as 
+sets of smaller steps that can be re-executed or rolled back individually. 
+This allows for an interactive fix and retry loop should any of the steps fail.
 
 Each operation starts with building an operational plan - a tree of actions to
 perform in order to achieve a particular goal. Once created, the plan is either
-executed automatically or manually step by step to completion.
+executed automatically or manually, step by step, to completion.
 
 
-Operation plan management is available via `gravity plan` command:
+Operational plan management is available through the `gravity plan` command:
 
 ```bash
 $ gravity plan --help
@@ -523,8 +499,7 @@ Phase                    Description                                            
 
 The command is aliased as `gravity plan display`.
 The plan lists all steps, top to bottom, in the order in which they will be executed.
-Each step (phase), has a state which explains whether it has already run or whether it failed.
-Also, steps can explicitly or implicitly depend on other steps.
+Each step (phase) has a state which explains whether it has already run or whether it failed. Also, steps can explicitly or implicitly depend on other steps.
 The commands will make sure a particular phase cannot be executed before its requirements have not run.
 
 If a phase has failed, the `display` command will also show the corresponding error message.
@@ -532,31 +507,29 @@ If a phase has failed, the `display` command will also show the corresponding er
 
 ### Executing Operation Plan
 
-Remember that an operation plan is effectively a tree of steps. Whenever you need to execute a particular step,
-you need to specify it as absolute path from a root node:
+An operation plan is effectively a tree of steps. Whenever you need to execute a particular step, you need to specify its absolute path from a root node:
 
 ```bash
 $ sudo gravity plan execute --phase=/masters/node-1/drain
 ```
 
-Whole groups of steps can be executed if only the parent node has been specified as path.
-For example, the following:
+Whole groups of steps can be executed if only the parent node's path has been 
+specified. For example, the following will execute all steps of the `/masters` 
+node in the order listed:
 
 ```bash
 $ sudo gravity plan execute --phase=/masters
 ```
 
-will execute all steps of the `/masters` node in the order listed.
-
-Sometimes it is necessary to force execution of a particular step although it has already run.
-To do this, add `--force` flag to the command line:
+Sometimes it is necessary to force execution of a particular step although it 
+has already run. To do this, add the `--force` flag to the command line:
 
 ```bash
 $ sudo gravity plan execute --phase=/masters/node-1/drain --force
 ```
 
-If it is impossible to make progress with an operation due to an unforeseen condition, the
-steps that have been executed to this point should be rolled back:
+If it is impossible to make progress with an operation due to an unforeseen 
+condition, the steps that have been executed to this point can be rolled back:
 
 ```bash
 $ sudo gravity plan rollback --phase=/masters/node-1/taint
@@ -565,14 +538,14 @@ $ sudo gravity plan rollback --phase=/masters/node-1/drain
 ...
 ```
 
-Note the reverse order of invocation.
-And just like with execution, the steps can be rolled back in groups:
+Note the reverse order of invocation. A group of steps can also be rolled back:
 
 ```bash
 $ sudo gravity plan rollback --phase=/masters
 ```
 
-Once all steps have been rolled back, the operation needs to be explicitly completed in order to mark it failed:
+Once all steps have been rolled back, the operation needs to be explicitly 
+completed in order to mark it failed:
 
 ```bash
 $ sudo gravity plan complete
@@ -585,30 +558,28 @@ $ sudo gravity plan resume
 ```
 
 This will resume the operation at the last failed step and run it through to completion.
-In this case there's no need to explicitly complete the operation afterwards - this is done
-automatically upon success.
+In this case, there's no need to explicitly complete the operation afterwards. 
+This is done automatically upon success.
 
 
 ## The Master Container
 
-As explained [above](#kubernetes-environment), Gravity runs Kubernetes inside a master container.
-The master container (sometimes called "planet") makes sure that every single
-deployment of Gravity is the same and all nodes look identical to each other
-from the inside.  The master container includes all Kubernetes components and
-dependencies such as kube-apiserver, etcd and docker.
+As explained [above](#kubernetes-environment), Gravity runs Kubernetes inside a Master Container. The Master Container (also called "planet") makes sure that every single
+deployment of Gravity is the same and all nodes are identical to each other. The 
+Master Container includes all Kubernetes components and dependencies such as kube-apiserver, etcd and docker.
 
-To launch an interactive shell to get a system view of a Gravity cluster, you
+To launch an interactive shell to get a system view of a Gravity Cluster, you
 can use `gravity shell` command on a node running Gravity:
 
 ```bsh
 $ sudo gravity shell
 ```
 
-`graivty exec` command is quite similar to `docker exec`: it executes the
-specified command inside the master container:
+The `graivty exec` command is quite similar to `docker exec`. It executes the
+specified command inside the Master Container:
 
 ```bsh
-# Allocate PTY with attached STDIN and launch the interactive bash inside the master container
+# Allocate PTY with attached STDIN and launch the interactive bash inside the Master Container
 $ sudo gravity exec -ti /bin/bash
 
 # Execute an non-interactive command inside the master conatiner
@@ -617,15 +588,15 @@ $ sudo gravity exec /bin/ls
 
 ## Separation of Workloads
 
-Clusters with complex software deployed on them require separation of workloads between the control plane and application components to enable a seamless upgrade experience.
+Clusters with complex software deployed on them require separation of workloads between the control plane and the application components to enable a seamless upgrade experience.
 
 Gravity release 4.23+ leverages the support for node taints and tolerations in Kubernetes. Taints are special labels that control which resources can be scheduled onto a node. A pod needs to tolerate a taint in order to be schedulable on that particular node.
 
-A system run-level controls load on a node required for operations like cluster update. In normal operation, application resources are scheduled according to the specifications including node labels and node/pod (anti-)affinity. When the cluster is operating under special conditions (like updating), application resources might be subject to runtime restriction until the operation is complete.
+A system runlevel controls load on a node which is required for operations like Cluster update. In normal operation, application resources are scheduled according to the specifications including node labels and node/pod (anti-)affinity. When the Cluster is operating under special conditions (like updating), application resources might be subject to runtime restriction until the operation is complete.
 
-Being able to control node load is critical during update, as an overloaded node (kubelet) cannot guarantee uninterruptible and expected cluster operation and can lead to stuck updates.
+Being able to control node load is critical during update, as an overloaded node (kubelet) cannot guarantee uninterruptible and expected Cluster operation and can lead to stuck updates.
 
-The system run-level is a node configuration that prevents all but system components from being scheduled onto that node. The run-level is implemented as a node taint using the following key/value pair:
+The system runlevel is a node configuration that prevents all but system components from being scheduled onto that node. The runlevel is implemented as a node taint using the following key/value pair:
 
 ```
   gravitational.io/level=system
@@ -633,7 +604,7 @@ The system run-level is a node configuration that prevents all but system compon
 
 The update will perform as follows:
 
- 1. Run the pre-update application hook to scale down resources for the duration of the update to further reduce the cluster load.
+ 1. Run the pre-update application hook to scale down resources for the duration of the update to further reduce the Cluster load.
  1. Apply a system taint to the node so that only system resources are scheduled (implemented as a sub-phase of the masters phase: `/masters/node/taint`).
  1. Drain the node to be updated (implemented as a sub-phase of masters phase: `/masters/node/drain`).
  1. Update system software on the node.
@@ -647,7 +618,7 @@ Below is further detail on each step.
 
 #### Run the pre-update application hook that scale down resources.
 
-In order to scale down resources prior to the upgrade operation, the Application Manifest needs to be changed to accommodate a new hook:
+In order to scale down resources prior to the upgrade operation, the Image Manifest needs to be changed to accommodate a new hook:
 
 ```yaml
   preUpdate:
@@ -670,7 +641,7 @@ In order to scale down resources prior to the upgrade operation, the Application
                 command: ["/scale-down.sh"]
 ```
 
-With the new `preUpdate` hook, the Gravity Cluster scales down the application resources in preparation for the update. The scaling logic needs to be aware of the cluster size to make appropriate scaling decisions.
+With the new `preUpdate` hook, the Gravity Cluster scales down the application resources in preparation for the update. The scaling logic needs to be aware of the Cluster size to make appropriate scaling decisions.
 The hook execution is implemented as a separate phase and is executed automatically in automatic upgrade mode.
 
 You can find out more about other hook types on the [Gravity documentation on Packaging and Deployment](/pack/#application-hooks).
@@ -741,7 +712,7 @@ $ sudo gravity upgrade --phase=/app
 #### Run post-upgrade hook to scale the application back up
 
 The `postUpdate` hook is an opportunity to scale the application resources to their full capacity.
-Just as with the `preUpdate` hook, the `postUpdate` hook needs to be added to the application manifest.
+Just as with the `preUpdate` hook, the `postUpdate` hook needs to be added to the Image Manifest.
 
 ```yaml
   postUpdate:
@@ -777,31 +748,34 @@ The node can then be added with the `gravity join` command:
 $ sudo gravity join <peer-addr> --advertise-addr=<...> --token=<...>
 ```
 
-Peer address is the address of one of the existing nodes of the cluster. The command accepts the following arguments:
+Peer address is the address of one of the existing nodes of the Cluster. The command accepts the following arguments:
 
 Flag | Description
 -----|------------
 `--advertise-addr` | IP address the new node should be visible as.
-`--token` | Token to authorize this node to join the cluster. Can be discovered by running `gravity status`.
+`--token` | Token to authorize this node to join the Cluster. Can be discovered by running `gravity status`.
 `--role` | _(Optional)_ Role of the joining node. Autodetected if not specified.
 `--state-dir` | _(Optional)_ Directory where all Gravity system data will be kept on this node. Defaults to `/var/lib/gravity`.
 
-Every node in a Cluster must have a role, defined in the Application
-Manifest. A role defines the system requirements for the node. For example, nodes
-of "database" role must have storage attached to them. Gravity enforces the
-system requirements for the role when adding a new node.
+Every node in a Cluster must have a role, defined in the Image Manifest. System 
+requirements can also be set for a role in the Image Manifest. 
+Gravity will then check for the specified system requirements for the role before
+successfully adding a new node and return an error if the system requirements
+are not satisfied. 
+
+As an example, Gravity can check to make sure nodes with a "database" role have 
+storage attached to them. 
 
 ## Removing a Node
 
-A node can be removed by using the `gravity leave` or `gravity remove`
-commands.
+A node can be removed by using the `gravity leave` or `gravity remove` commands.
 
 To decommission an active node from the Cluster while on a particular node
 run `gravity leave`.
 
-If successful, the `leave` command will output the ID of the
-initiated removal operation. The operation progress can be monitored
-using the `gravity status` command.
+If successful, the `leave` command will output the ID of the initiated removal 
+operation. The operation progress can be monitored using the `gravity status` 
+command.
 
 During the decommissioning, all application and Kubernetes services running
 on that node will be shut down, all Gravitational software and data removed and,
@@ -826,18 +800,18 @@ If the node being removed is active in the Cluster, it will also be decommission
 
 `<node>` specifies the node to remove and can be either the node's assigned hostname
 or its IP address (the one that was used as a "advertise address" or "peer address" during
-install/join) or its Kubernetes name (can be obtained via `kubectl get nodes`).
+install/join) or its Kubernetes name which can be obtained via `kubectl get nodes`.
 
 ## Recovering a Node
 
 Let's assume you have lost the node with IP `1.2.3.4` and it can not be recovered.
-Here are the steps to remove the lost node from the cluster and add a new node `1.2.3.7` to replace the faulty
+Here are the steps to remove the lost node from the Cluster and add a new node `1.2.3.7` to replace the faulty
 one:
 
 #### Remove the node from the system
 
-On any node that has a functioning cluster running, execute the command `remove` to
-forcefully remove the unavailable node from the cluster.
+On any node that has a functioning Cluster running, execute the command `remove` to
+forcefully remove the unavailable node from the Cluster.
 
 This command will update Etcd, Kubernetes and Gravity state to remove faulty node from the
 database. Let's assume the remaining nodes are:
@@ -870,9 +844,9 @@ Periodic updates:	OFF
 
 Remember the join token. We will use it to add a new node as the next step:
 
-#### Add new member to the cluster
+#### Add new member to the Cluster
 
-Once the remove operation finishes, you can add the new node to the cluster.
+Once the remove operation finishes, you can add the new node to the Cluster.
 Execute this command on node `1.2.3.7`.
 
 ```bsh
@@ -893,19 +867,19 @@ Join token:		<join token>
 Periodic updates:	OFF
 ```
 
-You should see the third node registered in the cluster and cluster status set to `active`.
+You should see the third node registered in the Cluster and Cluster status set to `active`.
 
-#### Auto Scaling the cluster
+#### Auto Scaling the Cluster
 
 When running on AWS, Gravity integrates with [Systems manager parameter store](http://docs.aws.amazon.com/systems-manager/latest/userguide/systems-manager-paramstore.html) to simplify the discovery.
 
-Assuming the cluster name is known, a new node can join the cluster using `gravity autojoin` command
+Assuming the Cluster name is known, a new node can join the Cluster using `gravity autojoin` command
 
 ```bsh
 sudo gravity autojoin example.com --role=knode
 ```
 
-`gravity discover` will locate the cluster load balancer and join token by reading parameter store
+`gravity discover` will locate the Cluster load balancer and join token by reading parameter store
 and automatically connect. This command can be run as a part of `cloud-init` of the AWS instance.
 
 Users can read more about AWS integration [here](https://github.com/gravitational/provisioner#provisioner)
@@ -967,7 +941,7 @@ hooks:
                   - "default"
 ```
 
-To trigger a backup, log into one of the cluster nodes and execute:
+To trigger a backup, log into one of the Cluster nodes and execute:
 
 ```bsh
 root$ gravity backup <data.tar.gz>
@@ -988,18 +962,19 @@ root$ gravity restore <data.tar.gz>
 
 ## Garbage Collection
 
-Every now and then, the cluster would accumulate resources it has no use for - be it Gravity
-packages or docker images from previous versions of the application. These resources will unnecessarily
-waste disk space and while possible are usually difficult to get rid of manually.
+Clusters can accumulate resources that it no longer has use for, like Gravity
+packages or docker images from previous versions of the application. These 
+resources unnecessarily waste disk space and are usually difficult to get rid 
+of manually.
 
-The `gravity` tool offers a subset of commands to run cluster-wide garbage collection.
+The `gravity` tool offers a subset of commands to run Cluster-wide garbage collection.
 During garbage collection, the following resources are pruned:
 
   * Unused Gravity packages from previous versions of the application
   * Unused docker images from previous versions of the application
   * Obsolete systemd journal directories
 
-!!! node "Docker image pruning":
+!!! note "Note: Docker image pruning":
     The tool currently employs a simple approach to pruning docker images.
     It will remove all images and repopulate the registry from the application state
     so only the images that are necessary for the current version of the application
@@ -1017,8 +992,8 @@ If started without parameters (i.e. not in manual mode) the command will run the
 After the operation has been started, the regular `gravity plan` can be used to display the plan of the
 ongoing operation.
 
-In case of any intermediate failures, the command will abort and print the corresponding error message.
-After fixing the issue, the operation can be resumed with:
+In the case of any intermediate failures, the command will abort and print the corresponding error message. After fixing the issue, the operation can be 
+resumed with:
 
 ```bsh
 $ sudo gravity gc --resume
@@ -1030,20 +1005,24 @@ To execute a specific phase:
 $ sudo gravity gc --phase=<PHASE>
 ```
 
-!!! top "Completing manual operation":
+!!! tip "Tip: Completing manual operation":
     At the end of the manual or aborted operation, explicitly resume the operation to complete it.
 
 
 ## Remote Assistance
 
-Every Gravity cluster can be connected to Gravity Hub, assuming the cluster is
-connected to the Internet. This creates a secure outbound management tunnel
-from the cluster to Gravity Hub and the Hub operator can use that tunnel to
-perform remote troubleshooting by using the `tsh` tool. You can read more about
-remote assistance in the [remote management](/manage/) section.
+!!! warning "Enterprise Only Version Warning":
+    Gravity Hub and the ability to connect to it for Remote Assistance is only
+    available in Gravity Enterprise.
 
-However, some Gravity cluster owners may want to disable the SSH tunnel and keep their
-clusters disconnected from the vendor, only enabling this capability when they
+A Gravity Cluster can be connected to Gravity Hub, assuming the Cluster is
+connected to the Internet. This creates a secure outbound management tunnel
+from the Cluster to Gravity Hub and the Hub operator can use that tunnel to
+perform remote troubleshooting by using the `tsh` tool. You can read more about
+remote assistance in the [remote management](/hub/#remote-cluster-management) section.
+
+However, some Gravity Cluster owners may want to disable the SSH tunnel and keep their
+Clusters disconnected from Gravity Hub and only enable this capability when they
 need help.
 
 Remote Assistance can be turned on or off in the web UI or by using the
@@ -1066,16 +1045,16 @@ of the tunnel. The status can be one of the following
 
 ### Bare Metal Cluster
 
-To delete a cluster installed on existing machines you can execute `gravity leave` on
-them to gradually shrink the cluster to the size of a single node (see [Removing a Node](#removing-a-node)
+To delete a Cluster installed on existing machines you can execute `gravity leave` on
+them to gradually shrink the Cluster to the size of a single node (see [Removing a Node](#removing-a-node)
 section for more information). After that, run `gravity leave --force` on the remaining
 node to uninstall the application as well as all Gravity software and data.
 
 ### Cloud Provider Cluster
 
-When installing a cluster using a cloud provider (e.g. AWS), all provisioned resources
+When installing a Cluster using a cloud provider (e.g. AWS), all provisioned resources
 are marked with a tag `KubernetesCluster` equal to the domain name that was chosen
-during the installation. To deprovision an AWS cluster, log into your AWS control panel
+during the installation. To deprovision an AWS Cluster, log into your AWS control panel
 and delete all of the resources marked with the appropriate `KubernetesCluster` tag in
 the following order:
 
@@ -1087,1067 +1066,17 @@ the following order:
 !!! tip "Resource Groups":
     On AWS you can use `Resource Groups` to get a unified view of all resources matching
     a particular criteria. Create a resource group filtering by an appropriate
-    `KubernetesCluster` tag so see all AWS resources for a cluster.
-
-## Troubleshooting
-
-To collect diagnostic information about a cluster (e.g. to submit a bug report or get assistance in troubleshooting cluster problems),
-use the `report` command:
-
-```bsh
-$ gravity report --help
-
-usage: gravity report [<flags>]
-
-get cluster diagnostics report
-
-Flags:
-  --help       Show help (also see --help-long and --help-man).
-  --debug      Enable debug mode
-  -q, --quiet  Suppress any extra output to stdout
-  --insecure   Skip TLS verification
-  --log-file="/var/log/telekube-install.log"
-               log file with diagnostic information
-  --file="report.tar.gz"
-               target report file name
-
-Example:
-
-$ gravity report
-```
-
-This command will collect diagnostics from all cluster nodes into the specified tarball that you can then
-submit to engineering for evaluation.
-
-## Configuring a Cluster
-
-Gravity borrows the concept of resources from Kubernetes to configure itself.
-Use `gravity resource` command to update the cluster configuration.
-
-Currently supported resources are:
-
-Resource Name             | Resource Description
---------------------------|---------------------
-`oidc`                    | OIDC connector
-`github`                  | GitHub connector
-`saml`                    | SAML connector
-`role`                    | cluster role
-`user`                    | cluster user
-`token`                   | user tokens such as API keys
-`logforwarder`            | forwarding logs to a remote rsyslog server
-`trusted_cluster`         | managing access to remote Gravity Hubs
-`endpoints`               | Gravity Hub endpoints for user and cluster traffic
-`cluster_auth_preference` | cluster authentication settings such as second-factor
-`alert`                   | cluster monitoring alert
-`alerttarget`             | cluster monitoring alert target
-`smtp`                    | cluster monitoring SMTP configuration
-`runtimeenvironment`      | cluster runtime environment variables
-`clusterconfiguration`    | cluster configuration
-`authgateway`             | authentication gateway configuration
-
-### Configuring OpenID Connect
-
-An Gravity Cluster can be configured to authenticate users using an
-OpenID Connect (OIDC) provider such as Auth0, Okta and others.
-
-A resource file in YAML format creates the connector.  Below is an
-example of an OIDC resource for provider "Auth0" called
-`oidc.yaml`:
-
-```yaml
-kind: oidc
-version: v2
-metadata:
-  name: auth0
-spec:
-  redirect_url: "https://gravity-url/portalapi/v1/oidc/callback"
-  client_id: <client id>
-  client_secret: <client secret>
-  issuer_url: "https://example.com/"
-  scope: [roles]
-  claims_to_roles:
-    - {claim: "roles", value: "gravitational/admins", roles: ["@teleadmin"]}
-```
-
-Add this connector to the cluster:
-
-```bsh
-$ gravity resource create oidc.yaml
-```
-
-To list the installed connectors:
-
-```bsh
-$ gravity resource get oidc
-```
-
-To remove the connector `auth0`:
-
-```bsh
-$ gravity resource rm oidc auth0
-```
-
-#### Google OIDC Connector Example
-
-Here's an example of the OIDC connector that uses Google for authentication:
-
-```yaml
-kind: oidc
-version: v2
-metadata:
-  name: google
-spec:
-  redirect_url: "https://ops-advertise-url/portalapi/v1/oidc/callback"
-  client_id: <client id>
-  client_secret: <client secret>
-  issuer_url: https://accounts.google.com
-  scope: [email]
-  claims_to_roles:
-    - {claim: "hd", value: "example.com", roles: ["@teleadmin"]}
-```
-
-The `hd` scope contains the hosted Google suite domain of the user so in the
-above example, any user who belongs to the "example.com" domain will be
-allowed to log in and granted the admin role.
-
-!!! note:
-    The user must belong to a hosted domain, otherwise the `hd` claim will
-    not be populated.
-
-### Configuring GitHub Connector
-
-Gravity supports authentication and authorization via GitHub. To configure
-it, create a YAML file with the resource spec based on the following example:
-
-```yaml
-kind: github
-version: v3
-metadata:
-  name: example
-spec:
-  # Github OAuth app client ID
-  client_id: <client-id>
-  # Github OAuth app client secret
-  client_secret: <client-secret>
-  # Github will make a callback to this URL after successful authentication
-  # cluster-url is the address the cluster UI is reachable at
-  redirect_url: "https://<cluster-url>/portalapi/v1/github/callback"
-  # connector display name that will be appended to the title of "Login with"
-  # button on the cluster login screen so it will say "Login with Github"
-  display: Github
-  # mapping of Github team memberships to Gravity cluster roles
-  teams_to_logins:
-    - organization: example
-      team: admins
-      logins:
-        - "@teleadmin"
-```
-
-Create the connector:
-
-```bsh
-$ gravity resource create github.yaml
-```
-
-Once the connector has been created, the cluster login screen will start
-presenting "Login with GitHub" button.
-
-!!! note:
-    When going through the Github authentication flow for the first time, the
-    application must be granted the access to all organizations that are present
-    in the "teams to logins" mapping, otherwise Gravity will not be able to
-    determine team memberships for these organizations.
-
-To view configured GitHub connectors:
-
-```bsh
-$ gravity resource get github
-```
-
-To remove a GitHub connector:
-
-```bsh
-$ gravity resource rm github example
-```
-
-### Configuring SAML Connector
-
-Gravity supports authentication and authorization via SAML providers. To
-configure it, create a YAML file with the resource spec based on the following example:
-
-```yaml
-kind: saml
-version: v2
-metadata:
-  name: okta
-spec:
-  # SAML provider will make a callback to this URL after successful authentication
-  # cluster-url is the address the cluster UI is reachable at
-  acs: https://<cluster-url>/portalapi/v1/saml/callback
-  # mapping of SAML attributes to Gravity roles
-  attributes_to_roles:
-    - name: groups
-      value: admins
-      roles:
-        - @teleadmin
-  # connector display name that will be appended to the title of "Login with"
-  # button on the cluster login screen so it will say "Login with Okta"
-  display: Okta
-  # SAML app metadata in XML format downloaded from SAML provider
-  entity_descriptor: |
-    ...
-```
-
-!!! note:
-    For an example of configuring a SAML application with Okta take a look
-    at the following guide: [SSH Authentication With Okta](https://gravitational.com/teleport/docs/ssh_okta/).
-
-Create the connector:
-
-```bsh
-$ gravity resource create saml.yaml
-```
-
-To view configured SAML connectors:
-
-```bsh
-$ gravity resource get saml
-```
-
-To remove a SAML connector:
-
-```bsh
-$ gravity resource rm saml okta
-```
-
-### Configuring Roles
-
-Below is an example of a resource file with the definition of an admin role. The admin has
-access to all resources, including roles, other users and authentication settings such
-as OIDC connectors, and belongs to a privileged Kubernetes group:
-
-```yaml
-kind: role
-version: v3
-metadata:
-  name: administrator
-spec:
-  allow:
-    kubernetes_groups:
-    - admin
-    logins:
-    - root
-    node_labels:
-      '*': '*'
-    rules:
-    - resources:
-      - '*'
-      verbs:
-      - '*'
-  options:
-    max_session_ttl: 30h0m0s
-```
-
-Below is an example of a non-admin role spec providing access to a particular
-cluster `example.com` and its applications:
-
-```yaml
-kind: role
-version: v3
-metadata:
-  name: developer
-spec:
-  allow:
-    logins:
-    - root
-    node_labels:
-      '*': '*'
-    kubernetes_groups:
-    - admin
-    rules:
-    - resources:
-      - role
-      verbs:
-      - read
-    - resources:
-      - app
-      verbs:
-      - list
-    - resources:
-      - cluster
-      verbs:
-      - read
-      - update
-      where: equals(resource.metadata.name, "example.com")
-  options:
-    max_session_ttl: 10h0m0s
-```
-
-To create these two roles you can execute:
-
-```bsh
-$ gravity resource create administrator.yaml
-$ gravity resource create developer.yaml
-```
-
-To view all currently available roles:
-
-```bsh
-$ gravity resource get role
-```
-
-To delete the `developer` role:
-
-```bsh
-$ gravity resource delete role developer
-```
-
-### Configuring Users & Tokens
-
-Below is an example of a resource file that creates a user called `user.yaml`.
-
-```yaml
-kind: user
-version: v2
-metadata:
-  name: "alice@example.com"
-spec:
-  # "agent" type means this user is only authorized to access the cluster
-  # using the API key (token) and not using the web UI
-  type: agent
-  roles: ["developer"]
-```
-
-Create the user by executing `gravity resource`:
-
-```bsh
-$ gravity resource create user.yaml
-```
-
-A token can is assigned to this user by using
-the following resource file called `token.yaml`:
-
-```yaml
-kind: token
-version: v2
-metadata:
-   name: xxxyyyzzz
-spec:
-   user: "alice@example.com"
-```
-
-Create the token by executing `gravity resource`:
-
-```bsh
-$ gravity resource create token.yaml
-```
-
-To view available users and a user's tokens:
-
-```bsh
-$ gravity resource get user
-$ gravity resource get token --user=alice@example.com
-```
-
-### Example: Provisioning A Publisher User
-
-In this example we are going to use `role`, `user` and `token` resources
-described above to provision a user who can publish applications into 
-Gravity Hub.
-
-For instructions on how to setup your own Gravity Hub see [Gravity Hub](/hub)
-chapter.
-
-In the following spec we define 3 resources:
-
-1. role `publisher` that allows its holder to push applications
-2. user `jenkins@example.com` that carries this role
-3. token that will be used for authenticating with Gravity Hub
-
-```yaml
-kind: role
-version: v3
-metadata:
-  name: publisher
-spec:
-  allow:
-    logins:
-    - publisher
-    namespaces:
-    - default
-    rules:
-    - resources:
-      - repository
-      verbs:
-      - read
-      - list
-    - resources:
-      - app
-      verbs:
-      - read
-      - list
-      - create
-      - update
----
-kind: user
-version: v2
-metadata:
-  name: "jenkins@example.com"
-spec:
-  type: "agent"
-  roles: ["publisher"]
----
-kind: token
-version: v2
-metadata:
-   name: "s3cr3t!"
-spec:
-   user: "jenkins@example.com"
-```
-
-Save the resources into `publisher.yaml` and create them on the cluster:
-
-```bsh
-$ gravity resource create publisher.yaml
-```
-
-This is how a new user can publish new cluster images into the Gravity Hub:
-
-```bsh
-$ tele login -o hub.example.com --token=s3cr3t!
-$ tele build yourapp.yaml -o installer.tar
-$ tele push installer.tar
-```
-
-### Example: Provisioning A Cluster Admin User
-
-The example below shows how to create an admin user for a cluster.
-Save the user definition into a YAML file:
-
-```yaml
-# admin.yaml
-kind: user
-version: v2
-metadata:
-  name: "admin@example.com"
-spec:
-  type: "admin"
-  password: "Passw0rd!"
-  roles: ["@teleadmin"]
-```
-
-The password will be encrypted with
-[bcrypt](https://en.wikipedia.org/wiki/Bcrypt) prior to being saved into the
-database. Note the role `@teleadmin` - this is a built-in system role for the
-cluster administrators.
-
-To create the user from the YAML above, execute the following command on one of
-the cluster nodes:
-
-```bsh
-$ gravity resource create admin.yaml
-```
-
-The new user can now log into the cluster via the Web UI with the user
-credentials created above.
-
-!!! tip "Password Restrictions":
-    Passwords must be between 6 and 128 characters long.
-
-### Configuring Log Forwarders
-
-Every Gravity Cluster is automatically set up to aggregate the logs from all
-running containers. By default the logs are kept inside the Cluster but they can be configured to be
-shipped to a remote log collector such as a rsyslog server.
-
-Below is a sample resource file called `forwarder.yaml` that creates a log forward:
-
-```yaml
-kind: logforwarder
-version: v2
-metadata:
-   name: forwarder1
-spec:
-   address: 192.168.100.1:514
-   protocol: udp
-```
-
-The `protocol` field is optional and defaults to `tcp`. Create the log forwarder:
-
-```bsh
-$ gravity resource create forwarder.yaml
-```
-
-To view currently configured log forwarders, run:
-
-```bsh
-$ gravity resource get logforwarders
-```
-
-To delete a log forwarder:
-
-```bsh
-$ gravity resource rm logforwarder forwarder1
-```
-
-### Configuring TLS Key Pair
-
-Gravity Hub and Gravity Cluster Web UI and API TLS key pair can be configured
-using `tlskeypair` resource.
-
-```yaml
-kind: tlskeypair
-version: v2
-metadata:
-  name: keypair
-spec:
-  private_key: |
-    -----BEGIN RSA PRIVATE KEY-----
-  cert: |
-    -----BEGIN CERTIFICATE-----
-```
-
-!!! tip "Certificate chain":
-    `cert` section should include all intermediate certificate PEM blocks concatenated to function properly!
-
-To update the key pair:
-
-```bsh
-$ gravity resource create tlskeypair.yaml
-```
-
-To view currently configured key pair:
-
-```bsh
-$ gravity resource get tls
-```
-
-To delete a TLS key pair (in this case default self-signed TLS key pair will be used instead):
-
-```bsh
-$ gravity resource rm tls keypair
-```
-
-### Configuring Trusted Clusters
-
-!!! note
-    Support for trusted clusters is available since Gravity version
-    `5.0.0-alpha.5`.
-
-Trusted clusters is a concept for connecting standalone Gravity clusters to
-arbitrary Gravity Hubs. It brings the following advantages:
-
-* Allows agents of the remote Gravity Hub to SSH into your cluster nodes to
-  perform the remote assistance.
-* Allows a cluster to download application updates from Gravity Hub.
-
-To configure a trusted cluster create the following resource:
-
-```yaml
-kind: trusted_cluster
-version: v2
-metadata:
-  name: hub.example.com
-spec:
-  enabled: true
-  pull_updates: true
-  token: c523fd0961be71a45ceed81bdfb61b859da8963e2d9d7befb474e47d6040dbb5
-  tunnel_addr: "hub.example.com:3024"
-  web_proxy_addr: "hub.example.com:32009"
-```
-
-Let's go over the resource fields:
-
-* `metadata.name`: The name of Gravity Hub the cluster is being connected to.
-* `spec.enabled`: Allows the agents to establish remote connection to the cluster
-  from Gravity Hub.
-* `spec.pull_updates`: Whether the cluster should be automatically downloading
-  application updates from Gravity Hub.
-* `spec.token`: A secret token used to securely connect the cluster to Gravity Hub. 
-* `spec.tunnel_addr`: The address of Gravity Hub reverse tunnel service as
-   host:port. Typically it is exposed on port `3024`.
-* `spec.web_proxy_addr`: The address which Gravity Hub serves its Web
-   API on. It is the same address specified via the `--ops-advertise-addr` parameter
-   when [installing Gravity Hub](http://localhost:6600/hub/#installing-gravity-hub).
-
-Create the trusted cluster:
-
-```bsh
-$ gravity resource create trustedcluster.yaml
-```
-
-View the currently configured trusted cluster:
-
-```bsh
-$ gravity resource get trusted_cluster
-Name                Enabled     Pull Updates     Reverse Tunnel Address    Proxy Address
-----                -------     ------------     ----------------------    -------------
-hub.example.com     true        true             hub.example.com:3024      hub.example.com:32009
-```
-
-Once the cluster has been created, the reverse tunnel status can be viewed and
-managed using `gravity tunnel` shortcut commands:
-
-```bsh
-$ gravity tunnel status
-Gravity Hub       Status
-hub.example.com   enabled
-
-$ gravity tunnel disable
-Gravity Hub       Status
-hub.example.com   disabled
-
-$ gravity tunnel enable
-Gravity Hub       Status
-hub.example.com   enabled
-```
-
-To disconnect the cluster Gravity Hub, remove the trusted cluster:
-
-```bsh
-$ gravity resource rm trustedcluster hub.example.com
-trusted cluster "hub.example.com" has been deleted
-```
-
-### Gravity Hub Endpoints
-
-By default, Gravity Hub is configured with a single endpoint set via
-`--ops-advertise-addr` flag during the installation. This means that all
-Gravity Hub clients will use this address to connect to it.
-
-But Gravity Hub can also be configured to advertise different addresses to
-users and remote clusters via the `endpoints` resource. It has the following
-format:
-
-```yaml
-kind: endpoints
-version: v2
-metadata:
-  name: endpoints
-spec:
-  public_advertise_addr: "<public-host>:<public-port>"
-  agents_advertise_addr: "<agents-host>:<agents-port>"
-```
-
-* `public_advertise_addr` is the address that will be used for Gravity Hub
-  UI and by CLI tools such as tele or tsh. This field is mandatory.
-* `agents_advertise_addr` is the address that remote clusters will use to
-  connect to Gravity Hub. This field is optional and it falls back to the
-  public address if not specified.
-
-Create the resource to update Gravity Hub endpoints:
-
-```bsh
-$ gravity resource create endpoints.yaml
-```
-
-!!! note:
-    Updating the endpoints resource will result in restart of `gravity-site`
-    pods so the changes can take effect.
-
-To view currently configured endpoints, run:
-
-```bsh
-$ gravity resource get endpoints
-```
-
-Let's take a look at how Gravity Hub behavior changes with different endpoint
-configurations.
-
-#### Single advertise address
-
-This is the default configuration, when `agents_advertise_addr` is either
-not specified or equals to `public_advertise_addr`:
-
-```yaml
-spec:
-  public_advertise_addr: "ops.example.com:443"
-```
-
-With this configuration, Gravity Hub cluster will provide a single Kubernetes
-service called `gravity-public` configured to serve both user and cluster
-traffic:
-
-```bsh
-$ kubectl get services -n kube-system -l app=gravity-hub
-NAME             TYPE           CLUSTER-IP     EXTERNAL-IP   PORT(S)                                       AGE
-gravity-public   LoadBalancer   10.100.20.71   <pending>     443:31033/TCP,3024:30561/TCP,3023:31043/TCP   40m
-```
-
-!!! tip "Setting up ingress"
-    On cloud installations that support Kubernetes integration such as AWS, a
-    load balancer will be created automatically, so you will only need to
-    configure DNS to point the advertised hostname (`ops.example.com` in this
-    example) to it. For onprem installations, an ingress should be configured
-    for the appropriate NodePort of the service (`31033` in this example).
-
-#### Same hostname, different port
-
-In this scenario both user and cluster traffic should be accessible on
-the same hostname but on different ports:
-
-```yaml
-spec:
-  public_advertise_addr: "ops.example.com:443"
-  agents_advertise_addr: "ops.example.com:4443"
-```
-
-With this configuration, Gravity Hub will provide a single Kubernetes service
-called `gravity-public` (which `ops.example.com` can point at) with two
-different ports for user and cluster traffic respectively:
-
-```bsh
-kubectl get services -n kube-system -l app=gravity-hub
-NAME             TYPE           CLUSTER-IP     EXTERNAL-IP   PORT(S)                                                      AGE
-gravity-public   LoadBalancer   10.100.20.71   <pending>     443:31265/TCP,4443:30080/TCP,3024:32109/TCP,3023:30716/TCP   54m
-```
-
-#### Different hostnames
-
-In this scenario user and cluster traffic have different advertise hostnames:
-
-```yaml
-spec:
-  public_advertise_addr: "ops.example.com:443"
-  agents_advertise_addr: "ops-agents.example.com:4443"
-```
-
-The ports may be the same or different which does not affect the general
-behavior, only the respective service configuration.
-
-With this configuration, an additional Kubernetes service called `gravity-agents`
-is created for the cluster traffic which `ops-agents.example.com` can be point at:
-
-```bsh
-# kubectl get services -n kube-system -l app=gravity-hub
-NAME             TYPE           CLUSTER-IP      EXTERNAL-IP   PORT(S)                         AGE
-gravity-public   LoadBalancer   10.100.20.71    <pending>     443:31792/TCP,3023:32083/TCP    59m
-gravity-agents   LoadBalancer   10.100.91.204   <pending>     4443:30873/TCP,3024:30185/TCP   8s
-```
-
-### Configuring Cluster Authentication Gateway
-
-!!! note:
-    Authentication gateway resource is supported starting Gravity version `5.5.0`.
-
-Cluster authentication gateway handles authentication/authorization and allows
-users to remotely access the cluster nodes via SSH or Kubernetes API.
-
-To tweak authentication gateway configuration use the following resource:
-
-```yaml
-kind: authgateway
-version: v1
-spec:
-  # Connection throttling settings
-  connection_limits:
-    # Max number of simultaneous connections
-    max_connections: 1000
-    # Max number of simultaneously connected users
-    max_users: 250
-  # Cluster authentication preferences
-  authentication:
-    # Auth type, can be "local", "oidc", "saml" or "github"
-    type: oidc
-    # Second factor auth type, can be "off", "otp" or "u2f"
-    second_factor: otp
-    # Default auth connector name
-    connector_name: google
-  # Determines if SSH sessions to cluster nodes are forcefully terminated
-  # after no activity from a client, for example "30m", "1h", "1h30m"
-  client_idle_timeout: never
-  # Determines if the clients will be forcefully disconnected when their
-  # certificates expire in the middle of an active SSH session
-  disconnect_expired_cert: false
-  # DNS name that applies to all SSH, Kubernetes and web proxy endpoints
-  public_addr:
-    - example.com
-  # DNS name of the gateway SSH proxy endpoint, overrides "public_addr"
-  ssh_public_addr:
-    - ssh.example.com
-  # DNS name of the gateway Kubernetes proxy endpoint, overrides "public_addr"
-  kubernetes_public_addr:
-    - k8s.example.com
-  # DNS name of the gateway web proxy endpoint, overrides "public_addr"
-  web_public_addr:
-    - web.example.com
-```
-
-To update authentication gateway configuration, run:
-
-```bash
-$ gravity resource create gateway.yaml
-```
-
-!!! note:
-    The `gravity-site` pods will be restarted upon resource creation in order
-    for the new settings to take effect, so the cluster management UI / API
-    will become briefly unavailable.
-
-When authentication gateway resource is created, only settings that were
-explicitly set are applied to the current configuration. For example, to
-only limit the maximum number of connections, you can create the following
-resource:
-
-```yaml
-kind: authgateway
-version: v1
-spec:
-  connection_limits:
-    max_conections: 1500
-```
-
-The following command will display current authentication gateway configuration:
-
-```bash
-$ gravity resource get authgateway
-```
-
-### Configuring Cluster Authentication Preference
-
-!!! warning "Deprecation warning":
-    Cluster authentication preference resource is obsolete starting Gravity
-    version `5.5.0` and will be removed in a future version. Please use
-    [Authentication Gateway](/cluster/#configuring-cluster-authentication-gateway)
-    resource instead.
-
-Cluster authentication preference resource allows to configure method of
-authentication users will use when logging into a Gravity cluster.
-
-The resource has the following format:
-
-```yaml
-kind: cluster_auth_preference
-version: v2
-metadata:
-  name: auth-oidc
-spec:
-  # preferred auth type, can be "local" (to authenticate against
-  # local users database) or "oidc"
-  type: oidc
-  # second-factor auth type, can be "off" or "otp"
-  second_factor: otp
-  # default authentication connector to use for tele login
-  connector_name: google
-```
-
-By default the following authentication method is configured:
-
-* For clusters: local without second-factor authentication.
-* For Gravity Hub clusters: OIDC or local with second-factor authentication.
-
-To update authentication preference, for example to allow local users to log
-into Gravity Hub without second-factor, define the following resource:
-
-```yaml
-kind: cluster_auth_preference
-version: v2
-metadata:
-  name: auth-local
-spec:
-  type: local
-  second_factor: "off"
-```
-
-Create it:
-
-```bsh
-$ gravity resource create auth.yaml
-```
-
-!!! note:
-    Make sure to configure a proper [OIDC connector](/cluster/#configuring-openid-connect)
-    when using "oidc" authentication type.
-
-To view the currently configured authentication preference:
-
-```bsh
-$ gravity resource get cluster_auth_preference
-Type      ConnectorName     SecondFactor
-----      -------------     ------------
-local                       off
-```
-
-### Configuring Monitoring
-
-See [Kapacitor Integration](/monitoring/#kapacitor-integration) about details
-on how to configure monitoring alerts.
-
-### Configuring Runtime Environment Variables
-
-In a Gravity cluster, each node is running a runtime container that hosts Kubernetes.
-All services (including Kubernetes native services like API server or kubelet) execute with the predefined
-environment (set up during installation or update).
-If you need to make changes to the runtime environment, i.e. introduce new environment variables
-like `HTTP_PROXY`, this resource will allow you to do that.
-
-To add a new environment variable, `HTTP_PROXY`, create a file with following contents:
-
-[envars.yaml]
-```yaml
-kind: RuntimeEnvironment
-version: v1
-spec:
-  data:
-    HTTP_PROXY: "example.com:8001"
-```
-
-To install a cluster with the new runtime environment, specify the resources file as an argument
-to the `install` command:
-
-```bsh
-$ sudo gravity install --cluster=<cluster-name> --config=envars.yaml
-```
-
-On an installed cluster, create the resource with:
-
-```bash
-$ sudo gravity resource create -f envars.yaml
-Updating cluster runtime environment requires restart of runtime containers on all nodes.
-The operation might take several minutes to complete depending on the cluster size.
-
-The operation will start automatically once you approve it.
-If you want to review the operation plan first or execute it manually step by step,
-run the operation in manual mode by specifying '--manual' flag.
-
-Are you sure?
-confirm (yes/no):
-yes
-```
-
-Without additional parameters, the operation is executed automatically, but can be placed into manual mode with
-the specification of `--manual | -m` flag to the `gravity resource`  command:
-
-```bash
-$ sudo gravity resource create -f envars.yaml --manual
-```
-
-This will allow you to control every aspect of the operation as it executes.
-See [Managing Operations](/cluster/#managing-operations) for more details.
-
-
-To view the currently configured runtime environment variables:
-
-```bash
-$ gravity resource get runtimeenvironment
-Environment
------------
-HTTP_PROXY=example.com:8081
-```
-
-To remove the configured runtime environment variables, run:
-
-```bash
-$ gravity resource rm runtimeenvironment
-```
-
-!!! warning
-    Adding or removing cluster runtime environment variables is disruptive as it necessitates the restart
-    of runtime containers on each cluster node. Take this into account and plan each update accordingly.
-
-
-### Cluster Configuration
-
-It is possible to customize the cluster per environment before the installation or update some aspects of the cluster
-using the `ClusterConfiguration` resource:
-
-[cluster-config.yaml]
-```yaml
-kind: ClusterConfiguration
-version: v1
-spec:
-  global:
-    # configures the cloud provider
-    cloudProvider: gce
-    # free-form cloud configuration
-    cloudConfig: |
-      multizone=true
-      gce-node-tags=demo-cluster
-    # represents the IP range from which to assign service cluster IPs
-    serviceCIDR:  "10.0.0.0/24"
-    # port range to reserve for services with NodePort visibility
-    serviceNodePortRange: "30000-32767"
-    # host port range (begin-end, single port or begin+offset, inclusive) that
-    # may be consumed in order to proxy service traffic
-    proxyPortRange: "0-0"
-    # CIDR range for Pods in cluster
-    podCIDR: "10.0.0.0/24"
-    # A set of key=value pairs that describe feature gates for alpha/experimental features
-    featureGates:
-      AllAlpha: true
-      APIResponseCompression: false
-      BoundServiceAccountTokenVolume: false
-      ExperimentalHostUserNamespaceDefaulting: true
-  # kubelet configuration as described here: https://kubernetes.io/docs/tasks/administer-cluster/kubelet-config-file/
-  # and here: https://github.com/kubernetes/kubelet/blob/release-1.13/config/v1beta1/types.go#L62
-  kubelet:
-    config:
-      kind: KubeletConfiguration
-      apiVersion: kubelet.config.k8s.io/v1beta1
-      nodeLeaseDurationSeconds: 50
-```
-
-In order to apply the configuration immediately after the installation, supply the configuration file
-to the `gravity install` command:
-
-```bsh
-root$ ./gravity install --cluster=<cluster-name> ... --config=cluster-config.yaml
-```
-
-!!! note:
-    You can combine multiple kubernetes and Gravity-specific resources in the config file prior to
-    running the install command to have the installer automatically create all resources upon installation.
-
-!!! warning:
-    Setting feature gates overrides value set by the runtime container by default.
-
-
-In order to update configuration of an active cluster, use the `gravity resource` command:
-
-```bsh
-root$ ./gravity resource create cluster-config.yaml
-```
-
-The operation can be started in manual mode in which case you have the ability to review the operation
-plan or cancel the operation. To put the operation into manual mode, use the `--manual` flag:
-
-```bsh
-root$ ./gravity resource create cluster-config.yaml --manual
-```
-
-The configuration update is implemented as a cluster operation. Once created, it is managed using
-the same `gravity plan` command described in the [Managing Operations](/cluster/#managing-operations)
-section.
-
-
-To view the configuration:
-
-```bsh
-root$ ./gravity resource get config
-```
-
-To remove (reset to defaults) the configuration:
-
-```bsh
-root$ ./gravity resource rm config
-```
-
-
-!!! warning
-    Updating the configuration of an active cluster is disruptive and might necessitate the restart
-    of runtime containers either on master or on all cluster nodes. Take this into account and plan
-    each update accordingly.
-
+    `KubernetesCluster` tag so see all AWS resources for a Cluster.
 
 ## Managing Users
 
-Gravity cluster allows to invite new users and reset passwords for existing
-users by executing CLI commands on the cluster nodes.
+You can invite new users and reset passwords for existing users by executing 
+CLI commands on the Cluster nodes.
 
 ### Invite User
 
-To invite a user execute the `gravity users add <username>` command on one of
-the cluster nodes. The command accepts the following flags:
+To invite a user, execute the `gravity users add <username>` command on one of
+the Cluster nodes. The command accepts the following flags:
 
 Flag      | Description
 ----------|-------------
@@ -2167,8 +1096,8 @@ https://<host>/web/newuser/<token>
 
 ### Reset User Password
 
-To reset a password for an existing user execute the `gravity users reset <username>`
-command on one of the cluster nodes. The command accepts the following flags:
+To reset a password for an existing user, execute the `gravity users reset <username>`
+command on one of the Cluster nodes. The command accepts the following flags:
 
 Flag      | Description
 ----------|-------------
@@ -2188,7 +1117,9 @@ https://<host>/web/reset/<token>
 
 ## Securing a Cluster
 
-Gravity comes with a set of roles and bindings (for role-based access control or RBAC) and a set of pod security policies. This lays the ground for further security configurations.
+Gravity comes with a set of roles and bindings (for role-based access control or 
+RBAC) and a set of pod security policies. This lays the foundation for further 
+security configurations.
 
 ### Pod security policies
 
@@ -2202,18 +1133,18 @@ By default Gravity provides two security policies: `privileged` and `restricted`
      2. disallows certain capabilities (`NET_ADMIN`, `SYS_ADMIN`, `SYS_CHROOT`)
      3. disables host networking
 
-  * A `privileged` policy is a permissive policy allowing unrestricted access within cluster.
+  * A `privileged` policy is a permissive policy allowing unrestricted access within Cluster.
 
-Two `ClusterRoles` - `restricted-psp-user` and `privileged-psp-user` enable access
+Two `ClusterRoles`: `restricted-psp-user` and `privileged-psp-user` enable access
 to the respective security policies.
-Additionally, the two default groups - `restricted-psp-users` and `privileged-psp-users`
+Additionally, the two default groups: `restricted-psp-users` and `privileged-psp-users`
 can be used to assign privileges to users and other groups:
 
   * `restricted-psp-users` group grants access to the restricted role
   * `privileged-psp-users` group grants access to both roles
 
-Finer control can be exercised by modifying the existing or creating new security policies,
-cluster roles and role bindings.
+Finer control can be exercised by modifying the existing or creating new security 
+policies: Cluster roles and role bindings.
 
 For [example](https://github.com/kubernetes/examples/blob/master/staging/podsecuritypolicy/rbac/policies.yaml), to restrict the types of volumes Pods can use (among other things), create the following policy `psp-volumes.yaml`:
 
@@ -2291,15 +1222,15 @@ the new group or the new `psp-volume-account` service account.
 
 By default Gravity:
 
-  * connects default service accounts (in `default` and `kube-system` namespaces) to the built-in `cluster-admin` role
-  * creates `admin`/`edit`/`view` Gravity specific groups (bound to respective built-in cluster roles)
+  * connects default service accounts (in `default` and `kube-system` namespaces) to the built-in `Cluster-admin` role
+  * creates `admin`/`edit`/`view` Gravity specific groups (bound to respective built-in Cluster roles)
 
 See the Kubernetes [RBAC] documentation for more information.
 
 
 ## Eviction Policies
 
-Kubernetes includes support for evicting pods in order to maintain node stability, which is documented [here](https://kubernetes.io/docs/tasks/administer-cluster/out-of-resource/).
+Kubernetes includes support for evicting pods in order to maintain node stability, which is documented [here](https://kubernetes.io/docs/tasks/administer-Cluster/out-of-resource/).
 
 Gravity uses the following eviction policies by default:
 
@@ -2317,7 +1248,7 @@ Gravity uses the following eviction policies by default:
 
 The default grace period for soft eviction policy is set to 1 hour.
 
-These defaults can be overridden by providing an alternative set of options for kubelet in the application manifest.
+These defaults can be overridden by providing an alternative set of options for kubelet in the Image Manifest.
 
 For example, to extend the default policy with an eviction threshold for available memory, you will need to specify both the defaults
 and the new value:
@@ -2359,11 +1290,11 @@ nodeProfiles:
 
 ## Node Roles
 
-Users can assign cluster roles (e.g. Kubernetes master or node) using special labels `node-role.kubernetes.io/master` and
+Users can assign Cluster roles (e.g. Kubernetes master or node) using special labels `node-role.kubernetes.io/master` and
 `node-role.kubernetes.io/node`.
 
 If installer encounters a node labelled with `node-role.kubernetes.io/master: "true"` label, it will set up the node
-as a Kubernetes master node running Etcd as a part of the cluster:
+as a Kubernetes master node running Etcd as a part of the Cluster:
 
 ```yaml
 nodeProfiles:
@@ -2386,17 +1317,14 @@ nodeProfiles:
 
 If none of the labels above are set, Gravity will automatically assign node roles according to the following algorithm:
 
-  * If there are already 3 master nodes available (either explicitly set via labels or already installed/elected
-    in the system) - assign as kubernetes node.
+  * If there are already 3 master nodes available (either explicitly set via labels or already installed/elected in the system), assign as kubernetes node.
   * Otherwise promote the node to a Kubernetes master.
-
 
 ## Networking
 
 ### Hairpin NAT
 
-For services that load-balanace to themselves, hairpin NAT needs to be configured through a dedicated configuration
-parameter for kubelet in the application manifest:
+For services that load-balanace to themselves, hairpin NAT needs to be configured through a dedicated configuration parameter for kubelet in the Image Manifest:
 
 ```yaml
 systemOptions:
@@ -2411,9 +1339,9 @@ With `hairpin-veth`, kubelet/network plugin handles the setup.
 
 With `promiscuous-bridge`, the behavior is similar to that of the kubenet network plugin:
 
-  - the docker bridge is placed into promiscuous mode and
+  - The docker bridge is placed into promiscuous mode; and
   - ebtables rules are set up to avoid duplicate packets as the bridge starts to
-    accept traffic otherwise destined for other interfaces
+    accept traffic otherwise destined for other interfaces.
 
 
 !!! tip "Default hairpin mode":
@@ -2429,7 +1357,7 @@ With `promiscuous-bridge`, the behavior is similar to that of the kubenet networ
 ### WireGuard Encrypted Networking
 
 Gravity supports encrypting all pod-to-pod traffic between hosts using [WireGuard](https://www.wireguard.com) to create
-an encrypted VPN between hosts. This feature is configured through the application manifest when building Gravity applications:
+an encrypted VPN between hosts. This feature is configured through the Image Manifest when building Gravity applications:
 
 ```yaml
 providers:
@@ -2447,7 +1375,7 @@ providers:
 
 ## Customizing Cluster DNS
 
-Gravity uses [CoreDNS](https://coredns.io) for DNS resolution and service discovery within the cluster.
+Gravity uses [CoreDNS](https://coredns.io) for DNS resolution and service discovery within the Cluster.
 
 The CoreDNS configuration can be edited after installation, by updating the `kube-system/coredns` ConfigMap.
 
@@ -2457,3 +1385,32 @@ The CoreDNS configuration can be edited after installation, by updating the `kub
 [PodSecurityPolicies]: https://kubernetes.io/docs/concepts/policy/pod-security-policy/
 [RBAC]: https://kubernetes.io/docs/admin/authorization/rbac/
 [promiscuous-mode]: https://en.wikipedia.org/wiki/Promiscuous_mode
+
+## Troubleshooting
+
+To collect diagnostic information about a Cluster (e.g. to submit a bug report or get assistance in troubleshooting Cluster problems),
+use the `report` command:
+
+```bsh
+$ gravity report --help
+
+usage: gravity report [<flags>]
+
+get Cluster diagnostics report
+
+Flags:
+  --help       Show help (also see --help-long and --help-man).
+  --debug      Enable debug mode
+  -q, --quiet  Suppress any extra output to stdout
+  --insecure   Skip TLS verification
+  --log-file="/var/log/telekube-install.log"
+               log file with diagnostic information
+  --file="report.tar.gz"
+               target report file name
+
+Example:
+
+$ gravity report
+```
+
+This command will collect diagnostics from all Cluster nodes into the specified tarball that you can then submit for evaluation.

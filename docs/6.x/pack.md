@@ -864,9 +864,10 @@ hook.
 ## Custom System Container
 
 When Gravity creates a Kubernetes cluster from a Cluster Image, it installs a
-special system container on each host. It is called "planet" and visible as the `gravity` daemon. 
+special system container or "Master Container" on each host. It is called "planet" 
+and visible as the `gravity` daemon. 
 
-"Planet" contains all of Kubernetes services, performs automatic management and
+The Master Container contains all of Kubernetes services, performs automatic management and
 isolates them from other pre-existing daemons running on cluster hosts. 
 
 `planet` is a Docker image maintained by Gravitational. At this moment `planet` 

@@ -28,13 +28,13 @@ pages:
     - Quick Start: quickstart.md
     - Building Cluster Images: pack.md
     - Installation: installation.md
+    - Cluster Configuration: config.md
     - Cluster Management: cluster.md
     - Cluster Monitoring: monitoring.md
-    - Remote Management: manage.md
-    - Gravity Hub: hub.md
+    - Gravity Hub (Enterprise): hub.md
     - hidden: catalog.md
-    - System Requirements: requirements.md
     - CLI Reference: cli.md
+    - System Requirements: requirements.md
     - Releases: changelog.md
     - FAQ: faq.md
     - Guides: guides.md

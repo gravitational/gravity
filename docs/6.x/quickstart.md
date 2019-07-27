@@ -366,8 +366,8 @@ Signup token has been created and is valid for 8h0m0s hours. Share this URL with
 https://10.5.5.28:3009/web/newuser/e5b5422da69ff44d41f92e3ce6167659a7fee10e1023acea22062141dfe0238e
 ```
 
-Now click on the printed URL and select a password. You are now inside the K8s management UI
-for your Cluster. You can bookmark the following URL to access it in the future: `https://https://10.5.5.28:32009/web/`
+Now click on the printed URL and select a password. You are now inside the Cluster
+Admin Panel. You can bookmark the following URL to access it in the future: `https://https://10.5.5.28:32009/web/`
 
 You will also see that this Cluster is running Mattermost inside, accessible as a Kubernetes service
 on port `32010`, i.e. it's accessible using IP addresses of both machines in the Cluster:
@@ -405,7 +405,7 @@ The browser-based installer will ask for the following:
 * Once all nodes report into the Cluster, the installer will proceed setting up
   Kubernetes.
 
-The final step is to select the user name and password for the administrator. You will be able to change it later (or configure the SSO). Once you are logged in, you will be placed in Gravity's Cluster Management UI where you will find the HTTP end point of Mattermost.
+The final step is to select the user name and password for the administrator. You will be able to change it later (or configure the SSO). Once you are logged in, you will be placed in Gravity's Admin Panel UI where you will find the HTTP end point of Mattermost.
 
 Now you can press `Ctrl+C` to stop the `install` script.
 
