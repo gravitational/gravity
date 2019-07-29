@@ -8,6 +8,9 @@ solution for both SSH and Kubernetes and it comes bundled with Gravity.
 Teleport manages SSH identities and access permissions to a Gravity Cluster. 
 Teleport acts as a certificate authority (CA) capable of creating short-lived SSH certificates and Kubernetes certificates for remotely accessing clusters.
 
+You can read more about how to configure access to Gravity Clusters in the 
+[Cluster Configuration section about configuring access](/config/#cluster-access)
+
 For more information, the [Teleport Architecture Document](http://gravitational.com/teleport/docs/architecture/)
 covers these topics in depth.
 

@@ -367,7 +367,7 @@ https://10.5.5.28:3009/web/newuser/e5b5422da69ff44d41f92e3ce6167659a7fee10e1023a
 ```
 
 Now click on the printed URL and select a password. You are now inside the Cluster
-Admin Panel. You can bookmark the following URL to access it in the future: `https://https://10.5.5.28:32009/web/`
+Control Panel. You can bookmark the following URL to access it in the future: `https://10.5.5.28:32009/web/`
 
 You will also see that this Cluster is running Mattermost inside, accessible as a Kubernetes service
 on port `32010`, i.e. it's accessible using IP addresses of both machines in the Cluster:
@@ -377,7 +377,7 @@ on port `32010`, i.e. it's accessible using IP addresses of both machines in the
 
 ### Installing via Web Browser
 
-This method of installation launches a graphical installation wizard in a web browser. It is useful for sales demos or for less technical users.
+This method of installation launches a graphical installation wizard in a web browser.
 
 To launch a web installer, you will need:
 
@@ -405,16 +405,16 @@ The browser-based installer will ask for the following:
 * Once all nodes report into the Cluster, the installer will proceed setting up
   Kubernetes.
 
-The final step is to select the user name and password for the administrator. You will be able to change it later (or configure the SSO). Once you are logged in, you will be placed in Gravity's Admin Panel UI where you will find the HTTP end point of Mattermost.
+The final step is to select the user name and password for the administrator. You will be able to change it later (or configure the SSO). Once you are logged in, you will be placed in Gravity's Control Panel UI where you will find the HTTP end point of Mattermost.
 
-Now you can press `Ctrl+C` to stop the `install` script.
+You can press `Ctrl+C` to stop the `install` script.
 
 ## Conclusion
 
-This is a brief overview of how Kubernetes clusters can be treated as cattle,
-not pets, by packaging them into simple `tar` files. Gravity's image-based
-approach is quite similar to how virtual machines/instances are treated by
-using disk images in virtualized environments.
+This is a brief overview of how Kubernetes clusters can be packaged into simple 
+`tar` files and then installed anywhere. Gravity's image-based approach is quite 
+similar to how virtual machines/instances are treated by using disk images in 
+virtualized environments.
 
 This dramatically lowers the operational overhead of running multiple Kubernetes
 clusters within an organization, allows complex SaaS applications to be converted

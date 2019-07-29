@@ -45,4 +45,4 @@ away low-level Kubernetes management. `gravity` provides commands for easy
 version upgrades, adding and removing nodes to a Cluster, and other common
 administration tasks. 
 
-See more details in [Cluster Management](Cluster.md) section
+See more details in [Cluster Management](/cluster/) section

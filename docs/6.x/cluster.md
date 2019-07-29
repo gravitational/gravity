@@ -7,7 +7,7 @@ Kubernetes environment. It contains the following components:
 2. All Kubernetes daemons like `kube-scheduler`, `kube-apiserver`, and others. 
 3. The Kubernetes CLI tool: `kubectl`.
 4. The Gravity Cluster "hypervisor", called `gravity`, for managing the Cluster.
-5. A web application to monitor and manage the Cluster state ("Cluster Admin
+5. A web application to monitor and manage the Cluster state ("Cluster Control
 Panel")
 6. The Gravity Authentication Gateway for integrating Kubernetes authentication 
    and SSH access to Cluster nodes with corporate identity providers via SSO.
@@ -209,7 +209,7 @@ In this case the response HTTP status code will be `503 Service Unavailable`.
 Gravity provides a way to automatically monitor the application health.
 
 To enable this, define a "status" hook in your Image Manifest (see
-[Application Hooks](/pack/#application-hooks) section for more details on them). The Kubernetes
+[Cluster Hooks](/pack/#cluster-hooks) section for more details on them). The Kubernetes
 job defined by the status hook can perform application-specific checks. An example of an
 application-specific status check could be querying a database, or checking that a
 certain pod is running.
@@ -261,8 +261,8 @@ which is installed and configured on every Cluster node. See the command's [over
 [full reference](https://kubernetes.io/docs/user-guide/kubectl/) to see what it can
 do, or simply use `kubectl --help`.
 
-Each Gravity Cluster also has a Cluster Admin Panel web application to explore and 
-manage the Cluster. To log into the Cluster Admin Panel you need to create an admin user. Please see the [Custom Installer Screens](/pack/#custom-installer-screens) chapter for details on how to enable a post-install screen that will let you create a local user.
+Each Gravity Cluster also has a Cluster Control Panel web application to explore and 
+manage the Cluster. To log into the Cluster Control Panel you need to create an admin user. Please see the [Custom Installer Screens](/pack/#/pack/#custom-installation-screen) chapter for details on how to enable a post-install screen that will let you create a local user.
 
 ## Updating a Cluster
 
@@ -331,8 +331,8 @@ upgrade procedure.
 
 ### Performing an Upgrade
 
-An upgrade can be triggered either through Cluster Admin Panel or using 
-command line. To trigger the upgrade from the Admin Panel, select an appropriate 
+An upgrade can be triggered either through Cluster Control Panel or using 
+command line. To trigger the upgrade from the Control Panel, select an appropriate 
 version on the "Updates" tab click `Update`.
 
 To trigger the operation from the command line, copy the Cluster Image into one
@@ -355,7 +355,7 @@ drwxr-xr-x. 5 user user 4.0K Jan 14 09:08 packages
 You can execute the `./upgrade` script to upload and upgrade in one go, 
 or you can upload the update and then execute `gravity upgrade` command.
 
-Using `gravity upgrade` gives more control over the upgrade procedure.
+Using `gravity upgrade` gives more Control over the upgrade procedure.
 
 ```bash
 $ sudo ./upload
@@ -381,7 +381,7 @@ The operation has been created in manual mode.
 See https://gravitational.com/gravity/docs/Cluster/#managing-an-ongoing-operation for details on working with operation plan.
 ```
 
-Please refer to the [Managing Operations](/Cluster/#managing-operations) section about
+Please refer to the [Managing Operations](/cluster/#managing-operations) section about
 working with the operation plan.
 
 !!! warning "IMPORTANT":
@@ -604,7 +604,7 @@ The system runlevel is a node configuration that prevents all but system compone
 
 The update will perform as follows:
 
- 1. Run the pre-update application hook to scale down resources for the duration of the update to further reduce the Cluster load.
+ 1. Run the pre-update Cluster hook to scale down resources for the duration of the update to further reduce the Cluster load.
  1. Apply a system taint to the node so that only system resources are scheduled (implemented as a sub-phase of the masters phase: `/masters/node/taint`).
  1. Drain the node to be updated (implemented as a sub-phase of masters phase: `/masters/node/drain`).
  1. Update system software on the node.
@@ -616,7 +616,7 @@ The update will perform as follows:
 
 Below is further detail on each step.
 
-#### Run the pre-update application hook that scale down resources.
+#### Run the pre-update Cluster hook that scale down resources.
 
 In order to scale down resources prior to the upgrade operation, the Image Manifest needs to be changed to accommodate a new hook:
 
@@ -644,7 +644,7 @@ In order to scale down resources prior to the upgrade operation, the Image Manif
 With the new `preUpdate` hook, the Gravity Cluster scales down the application resources in preparation for the update. The scaling logic needs to be aware of the Cluster size to make appropriate scaling decisions.
 The hook execution is implemented as a separate phase and is executed automatically in automatic upgrade mode.
 
-You can find out more about other hook types on the [Gravity documentation on Packaging and Deployment](/pack/#application-hooks).
+You can find out more about other hook types on the [Gravity documentation on Packaging and Deployment](/pack/#cluster-hooks).
 
 #### Apply a system taint to the node
 

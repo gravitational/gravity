@@ -67,11 +67,14 @@ A brief explanation of each section of this documentation is below:
 - [Quickstart Guide](/quickstart/) - A quick tutorial to show off the basic capabilities of Gravity. A good place to start if you want to jump right in.
 - [Building Cluster Images](/pack/) - How to build a Gravity Cluster Image from scratch.
 - [Installation](/installation/) - How to install a Gravity Cluster Image in a target environment.
+- [Cluster Configuration](/config/) - How to configure your Gravity Cluster.
 - [Cluster Management](/cluster/) - Everything you need to know for operating Gravity Clusters.
 - [Cluster Monitoring](/monitoring/) - Overview of the monitoring and alerting tools that Gravity uses.
+- [Cluster Access](/access/) - How Gravity users Teleport to manage access to
+Clusters.
 - [Gravity Hub](/hub/) - Setting up and using Gravity Hub (Enterprise edition only).
-- [System Requirements](/requirements/) - System requirements to successfully run Gravity components.
 - [CLI Reference](/cli/) - Overview of the Gravity CLI tools.
+- [System Requirements](/requirements/) - System requirements to successfully run Gravity components.
 - [Releases](/changelog/) - List of Gravity versions and release notes.
 - [FAQ](/faq/) - Common issues encountered in Cluster environments.
 - [Guides](/guides/) - A list of other Gravity related workshops and guides we have published.
@@ -86,12 +89,10 @@ Gravity consists of the following components:
 |-------------|---------------------------------------------------------------------------------------------------------------------------------------------------------|
 | `tele`      | The build tool. `tele` is used for building Cluster Images. The enterprise edition of `tele` can also publish Cluster Images into Gravity Hub.  |
 | `tsh`       | The remote access client to authenticate against a SAML/OAuth identity provider and remotely connect to Kubernetes clusters via SSH or Kubernetes API.   |
-| `gravity` <small>service</small> | The Cluster manager agent which runs on every  node. It reduces the complexities of Kubernetes management.
-| `gravity` <small>CLI tool</small>  | The CLI tool to perform high level Cluster administration tasks like expansion, upgrades, etc.  |
-| Cluster Admin Panel | A web application available for the monitoring and management
-of individual Clusters. |
-| Gravity Hub | Gravity Hub is a web portal and repository for publishing Cluster Images
-and monitoring and remotely accessing multiple Clusters. Think of Gravity Hub as a catalog of Kubernetes clusters and Kubernetes applications. Gravity Hub is only available in the Gravity Enterprise edition. |
+| `gravity`(agent) | The Cluster manager agent which runs on every  node. It reduces the complexities of Kubernetes management.
+| `gravity`(CLI)| The CLI tool to perform high level Cluster administration tasks like expansion, upgrades, etc.  |
+| Control Panel | A web application available for the monitoring and management of individual Clusters. |
+| Gravity Hub | Gravity Hub is a web portal and repository for publishing Cluster Images and monitoring and remotely accessing multiple Clusters. Think of Gravity Hub as a catalog of Kubernetes clusters and Kubernetes applications. Gravity Hub is only available in the Gravity Enterprise edition. |
 
 ## Cluster Lifecycle
 
@@ -169,7 +170,7 @@ $ tele build -o cluster-image.tar manifest.yaml
 This will produce the Cluster Image called `cluster-image.tar`, which can be
 deployed across any cloud providers and private data centers.
 
-You can learn more about the image manifest in the [Packaging & Deployment](pack.md)
+You can learn more about the image manifest in the [Building Cluster Images](pack.md)
 section of the documentation.
 
 ## Publishing
@@ -187,7 +188,7 @@ are running and perform administration and maintenance across all of them in a
 repeatable, scalable way, even if they are deployed on 3rd party
 infrastructure.
 
-!!! warning "Version Warning":
+!!! warning "Enterprise Only Version Warning":
     The Gravity Hub is only available to the users of Gravity Enterprise.
 
 ## Deploying and Installing
@@ -204,7 +205,7 @@ For more details about the installation process, please refer to [Installation G
 Once a Cluster Image is installed, it becomes a fully operational and
 autonomous Gravity Cluster.
 
-For managing a running Gravity Cluster, the Cluster Admin Panel or the `gravity` 
+For managing a running Gravity Cluster, the Cluster Control Panel or the `gravity` 
 tool can be used. 
 
 The `gravity` daemon runs on every Cluster node as a "Kubernetes hypervisor", continuously monitoring the health of Kubernetes services and re-configuring them if necessary. For example, it provides automatic management of `etcd`.
@@ -223,16 +224,5 @@ by automating away many mundane Kubernetes tasks.
 You can still use `kubectl` for tasks like watching logs, seeing stats for pods
 or volumes, managing configuration and other operational tasks.
 
-### Updates and Upgrades
-
-`gravity` can perform updates of both the Kubernetes itself and the
-applications running inside. The updates can be performed in one of two modes:
-
-* **online mode** allows the `gravity` command to check for new versions of a
-  Cluster Image, download them from the connected Gravity Hub, and perform a in-place
-  upgrade of the Cluster.
-* **offline mode** allows `gravity` to use a newer version of the Cluster Image
-  to perform an in-place upgrade.
-
-For more details on using `gravity` to manage Clusters please see the [Cluster Management](cluster.md) and [Remote Management](manage.md) sections.
+For more details on using `gravity` to manage Clusters please see the [Cluster Management](cluster.md) section.
 

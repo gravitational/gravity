@@ -1,7 +1,7 @@
 # Configuration Overview
 
-Gravity borrows the concept of resources from Kubernetes to configure itself.
-Use the `gravity resource` command to update the Cluster configuration.
+Gravity borrows the concept of resources from Kubernetes for configuration.
+Gravity uses the `gravity resource` command to update the Cluster configuration.
 
 The currently supported resources are:
 
