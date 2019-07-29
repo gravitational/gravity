@@ -125,7 +125,7 @@ func planetLogs() Collectors {
 	}
 }
 
-// etcdBackupt fetches etcd data for gravity and planet
+// etcdBackup fetches etcd data for gravity and planet
 func etcdBackup() Collectors {
 	return Collectors{
 		Cmd("etcd-backup.json", utils.PlanetCommandArgs(defaults.PlanetBin, "etcd", "backup",
