@@ -74,6 +74,7 @@ func (r *S) TestPeerReconnects(c *C) {
 
 	// Drop connection to server
 	proxyLink.Stop()
+	local.Close()
 	// Give the transport enough time to fail. If the interval between reconnects
 	// is negligible, the transport might recover and reconnect
 	// to the second instance of the proxy bypassing the failed health check.

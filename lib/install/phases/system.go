@@ -17,6 +17,7 @@ limitations under the License.
 package phases
 
 import (
+	"bytes"
 	"context"
 
 	"github.com/gravitational/gravity/lib/constants"
@@ -69,7 +70,11 @@ func (p *systemExecutor) Execute(ctx context.Context) error {
 		args = append(args, "--labels", labels.String())
 	}
 	out, err := utils.RunGravityCommand(ctx, p.FieldLogger, args...)
-	return trace.Wrap(err, "failed to install system service: %s", string(out))
+	output := string(bytes.TrimSpace(out))
+	if len(output) == 0 {
+		return trace.Wrap(err, "failed to install system service")
+	}
+	return trace.Wrap(err, "failed to install system service: %v", output)
 }
 
 // Rollback is no-op for this phase

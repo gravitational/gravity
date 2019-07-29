@@ -1111,6 +1111,10 @@ var (
 	// healthy node status
 	NodeStatusTimeout = 5 * time.Minute
 
+	// NodeLeaveTimeout specifies the maximum amount of time to wait for
+	// node to leave the cluster
+	NodeLeaveTimeout = 1 * time.Minute
+
 	// AgentWaitTimeout specifies the maximum amount of time to wait for
 	// agents to form a cluster before commencing the operation
 	AgentWaitTimeout = 5 * time.Minute

@@ -152,6 +152,7 @@ func (e *fsmEngine) GetExecutor(p fsm.ExecutorParams, remote fsm.Remote) (fsm.Ph
 
 // ChangePhaseState updates the phase state based on the provided parameters
 func (e *fsmEngine) ChangePhaseState(ctx context.Context, change fsm.StateChange) error {
+	logger := e.WithField("change", change)
 	planChange := storage.PlanChange{
 		ID:          uuid.New(),
 		ClusterName: e.OperationKey.SiteDomain,
@@ -167,10 +168,9 @@ func (e *fsmEngine) ChangePhaseState(ctx context.Context, change fsm.StateChange
 	}
 	err = e.Operator.CreateOperationPlanChange(e.OperationKey, planChange)
 	if err != nil {
-		e.Warnf("Failed to create changelog entry %v: %v.", change,
-			trace.DebugReport(err))
+		logger.WithError(err).Warn("Failed to create changelog entry.")
 	}
-	e.Debugf("Applied %s.", change)
+	logger.Debug("Applied.")
 	return nil
 }
 

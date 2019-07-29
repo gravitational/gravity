@@ -77,14 +77,14 @@ func (r *Server) Interrupted(ctx context.Context) error {
 	return nil
 }
 
-// Stopped executes the stop handler on the executor.
-// completed indicates whether this is the result of a successfully completed operation.
+// ManualStop executes the stop handler on the executor.
+// completed indicates whether the invocation is a result of a successfully completed operation.
 // This cannot block or invoke blocking APIs since it might be invoked
 // by the RPC agent during shutdown
-func (r *Server) Stopped(ctx context.Context, completed bool) error {
-	r.Info("Stopped.")
+func (r *Server) ManualStop(ctx context.Context, completed bool) error {
+	r.WithField("completed", completed).Info("Stop.")
 	if completed {
-		r.completed(ctx)
+		r.complete(ctx)
 	} else {
 		r.done(ctx, nil)
 	}
@@ -134,7 +134,7 @@ func (r *Server) Abort(ctx context.Context, req *installpb.AbortRequest) (*types
 func (r *Server) Shutdown(ctx context.Context, req *installpb.ShutdownRequest) (*types.Empty, error) {
 	r.WithField("req", req).Info("Shutdown.")
 	if req.Completed {
-		r.completed(ctx)
+		r.complete(ctx)
 	} else {
 		r.done(ctx, utils.NewExitCodeError(int(req.ExitCode)))
 	}
@@ -214,7 +214,7 @@ func (r *Server) aborted(ctx context.Context) {
 	r.errC <- installpb.ErrAborted
 }
 
-func (r *Server) completed(ctx context.Context) {
+func (r *Server) complete(ctx context.Context) {
 	r.executor.HandleCompleted(ctx)
 	r.errC <- installpb.ErrCompleted
 }

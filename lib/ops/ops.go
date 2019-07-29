@@ -1241,7 +1241,7 @@ type CreateSiteExpandOperationRequest struct {
 	// Variables are used to set up operation specific parameters,
 	// e.g. AWS image flavor for AWS install
 	Variables storage.OperationVariables `json:"variables"`
-	// Servers specifies how many server of each role this operation adds,
+	// Servers specifies how many servers of each role this operation adds,
 	// e.g. {"master": 1, "database": 2}
 	Servers map[string]int `json:"servers"`
 	// Provisioner to use for this operation

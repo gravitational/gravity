@@ -41,6 +41,13 @@ func UninstallSystem(printer utils.Printer, logger log.FieldLogger) (err error) 
 	if err := unmountDevicemapper(printer, logger); err != nil {
 		errors = append(errors, err)
 	}
+	svm, err := systemservice.New()
+	if err != nil {
+		return trace.Wrap(err)
+	}
+	if err := uninstallPackageServices(svm, printer, logger); err != nil {
+		errors = append(errors, err)
+	}
 	if err := removeInterfaces(printer); err != nil {
 		errors = append(errors, err)
 	}
