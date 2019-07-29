@@ -14,133 +14,126 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-import React from 'react'
-import { Box, Text, LabelInput, ButtonPrimary, ButtonSecondary } from 'shared/components';
+import React from 'react';
+import PropTypes from 'prop-types';
+import { Box, Text, ButtonPrimary, ButtonSecondary } from 'shared/components';
 import * as Alerts from 'shared/components/Alert';
 import { useAttempt, withState } from 'shared/hooks';
-import Dialog, { DialogHeader, DialogTitle, DialogContent, DialogFooter} from 'shared/components/DialogConfirmation';
+import Dialog, {
+  DialogHeader,
+  DialogTitle,
+  DialogContent,
+  DialogFooter,
+} from 'shared/components/DialogConfirmation';
 import * as actions from 'oss-app/cluster/flux/users/actions';
-import { Formik } from 'formik';
-import Select from 'oss-app/components/Select';
+import Validation from 'shared/components/Validation';
+import FieldSelect from 'shared/components/FieldSelect';
 
-export function UserEditDialog(props){
+export function UserEditDialog(props) {
   const { roles, user, onClose, attempt, attemptActions, onSave } = props;
-  const { isFailed, isProcessing  } = attempt;
+  const { isFailed, isProcessing } = attempt;
   const { userId } = user;
 
-  const onSubmit = values => {
-    const userRoles = values.userRoles.map( r => r.value );
+  const selectOptions = roles.map(r => ({
+    value: r,
+    label: r,
+  }));
+
+  const [selectedRoles, setRoles] = React.useState(() =>
+    user.roles.map(r => ({
+      value: r,
+      label: r,
+    }))
+  );
+
+  const onClickSave = validator => {
+    if (!validator.validate()) {
+      return;
+    }
+
+    const userRoles = selectedRoles.map(r => r.value);
     attemptActions
-      .do(() =>  onSave(userId, userRoles))
+      .do(() => onSave(userId, userRoles))
       .then(() => {
         onClose();
-      }
-    )
+      });
+  };
+
+  function onChangeRoles(values) {
+    setRoles(values);
   }
 
-  const selectOptions = roles.map( r => ({
-    value: r,
-    label: r
-  }))
-
-  const selectInitialValue = user.roles.map( r => ({
-    value: r,
-    label: r
-  }))
-
   return (
-    <Formik
-      validate={validateForm}
-      onSubmit={onSubmit}
-      initialValues={{
-        userRoles: selectInitialValue,
-      }}>
-      {
-        formikProps => (
+    <Validation>
+      {({ validator }) => (
         <Dialog disableEscapeKeyDown={false} onClose={onClose} open={true} dialogCss={dialogCss}>
           <Box width="450px">
             <DialogHeader>
               <DialogTitle>Edit User Role</DialogTitle>
             </DialogHeader>
             <DialogContent>
-              {isFailed && (
-                <Alerts.Danger>
-                  {attempt.message}
-                </Alerts.Danger>
-              )}
+              {isFailed && <Alerts.Danger>{attempt.message}</Alerts.Danger>}
               <Text mb="3" typography="paragraph" color="primary.contrastText">
                 User: {userId}
               </Text>
-              <Box>
-                {renderInputFields({...formikProps, selectOptions})}
-              </Box>
+              <FieldSelect
+                maxMenuHeight="200"
+                placeholder="Click to select a role"
+                isSearchable
+                isMulti
+                isSimpleValue
+                clearable={false}
+                rule={isRequired}
+                label="Assign a role"
+                value={selectedRoles}
+                options={selectOptions}
+                onChange={onChangeRoles}
+              />
             </DialogContent>
             <DialogFooter>
-              {renderButtons({isProcessing, onClose, onSave: formikProps.handleSubmit })}
+              <ButtonPrimary mr="3" disabled={isProcessing} onClick={() => onClickSave(validator)}>
+                SAVE Changes
+              </ButtonPrimary>
+              <ButtonSecondary disabled={isProcessing} onClick={onClose}>
+                Cancel
+              </ButtonSecondary>
             </DialogFooter>
           </Box>
         </Dialog>
-    )}
-  </Formik>
+      )}
+    </Validation>
   );
 }
 
-function validateForm(values) {
-  const errors = {};
-  if (values.userRoles.length === 0) {
-    errors.userRoles = ' is required';
+UserEditDialog.propTypes = {
+  user: PropTypes.object.isRequired,
+  onClose: PropTypes.func.isRequired,
+}
+
+const isRequired = values => () => {
+  if (values.length === 0) {
+    return {
+      valid: false,
+      message: 'This field is required',
+    };
   }
 
-  return errors;
-}
+  return {
+    valid: true,
+  };
+};
 
-function renderButtons({ isProcessing, onClose, onSave}) {
-  return (
-    <React.Fragment>
-      <ButtonPrimary mr="3" disabled={isProcessing} onClick={onSave}>
-        SAVE Changes
-      </ButtonPrimary>
-      <ButtonSecondary disabled={isProcessing} onClick={onClose}>
-        Cancel
-      </ButtonSecondary>
-    </React.Fragment>
-  )
-}
-
-function renderInputFields({ values, errors, setFieldValue, touched, selectOptions}) {
-  const userRolesError = Boolean(errors.userRoles && touched.userRoles);
-  return (
-    <React.Fragment>
-      <LabelInput hasError={userRolesError}>
-        Assign a role
-        {userRolesError && errors.userRolesError}
-      </LabelInput>
-      <Select
-        maxMenuHeight="200"
-        placeholder="Click to select a role"
-        isSearchable
-        isMulti
-        isSimpleValue
-        clearable={false}
-        value={values.userRoles}
-        onChange={ values => setFieldValue('userRoles', values)}
-        options={selectOptions}
-      />
-    </React.Fragment>
-  )
-}
-
-function mapState(){
-  const [ attempt, attemptActions ] = useAttempt();
+function mapState() {
+  const [attempt, attemptActions] = useAttempt();
   return {
     onSave: actions.saveUser,
     attempt,
-    attemptActions
-  }
+    attemptActions,
+  };
 }
 
 const dialogCss = () => `
   overflow-y: visible;
-`
+`;
 
-export default withState(mapState)(UserEditDialog)
+export default withState(mapState)(UserEditDialog);

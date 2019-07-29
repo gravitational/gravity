@@ -22,6 +22,7 @@ import (
 	"fmt"
 	"io/ioutil"
 	"path/filepath"
+	"strconv"
 	"strings"
 
 	"github.com/gravitational/satellite/agent/health"
@@ -95,6 +96,85 @@ func (c *SysctlChecker) Check(ctx context.Context, reporter health.Reporter) {
 	reporter.Add(NewProbeFromErr(c.CheckerName,
 		fmt.Sprintf("failed to query sysctl parameter %s", c.Param), trace.Wrap(err)))
 }
+
+// NewFileHandleAllocatableChecker creates a new checker that checks that the minimum number of file handles can be allocated
+func NewFileHandleAllocatableChecker(min int) health.Checker {
+	return &FileHandleAllocatableChecker{
+		Min: min,
+	}
+}
+
+// FileHandleAllocatableChecker checks the file-nr sysctl for allocatable file handles
+type FileHandleAllocatableChecker struct {
+	// Min is the minimum number of free descriptors before raising a health check report
+	Min int
+}
+
+// Name returns name of checker
+func (c *FileHandleAllocatableChecker) Name() string {
+	return FileHandleAllocatableCheckerID
+}
+
+// Check will load the sysctl and verify the parameter
+func (c *FileHandleAllocatableChecker) Check(ctx context.Context, reporter health.Reporter) {
+	content, err := Sysctl("fs.file-nr")
+	if err != nil {
+		reporter.Add(NewProbeFromErr(FileHandleAllocatableCheckerID, fmt.Sprintf(
+			"Failed to read sysctl fs.file-nr"), trace.Wrap(err)))
+		return
+	}
+
+	c.check(ctx, reporter, content)
+}
+
+// check will parse the provided fileNr and validate that there are enough free file handles
+func (c *FileHandleAllocatableChecker) check(ctx context.Context, reporter health.Reporter, fileNr string) {
+	// parsing reference
+	// https://www.kernel.org/doc/Documentation/sysctl/fs.txt
+	split := strings.Fields(fileNr)
+	if len(split) != 3 {
+		reporter.Add(NewProbeFromErr(FileHandleAllocatableCheckerID, fmt.Sprintf(
+			"fs.file-nr expected 3 fields: %v", fileNr), trace.BadParameter("expected 3 fields")))
+		return
+	}
+
+	allocated, err := strconv.Atoi(split[0])
+	if err != nil {
+		reporter.Add(NewProbeFromErr(FileHandleAllocatableCheckerID, fmt.Sprintf(
+			"%v is not a number", split[0]), trace.Wrap(err)))
+		return
+	}
+	// ignore unused filehandles
+	max, err := strconv.Atoi(split[2])
+	if err != nil {
+		reporter.Add(NewProbeFromErr(FileHandleAllocatableCheckerID, fmt.Sprintf(
+			"%v is not a number", split[2]), trace.Wrap(err)))
+		return
+	}
+
+	// calculate number of additional file handles that can be allocated (max - allocated)
+	additional := max - allocated
+
+	if additional < c.Min {
+		reporter.Add(&pb.Probe{
+			Checker: FileHandleAllocatableCheckerID,
+			Detail:  fmt.Sprintf("Available filehandles (%v) is low. Please increase fs.file-max sysctl.", additional),
+			Status:  pb.Probe_Failed,
+		})
+		return
+	}
+
+	reporter.Add(&pb.Probe{
+		Checker: FileHandleAllocatableCheckerID,
+		Status:  pb.Probe_Running,
+	})
+
+}
+
+const (
+	// FileHandleAllocatableCheckerID is the ID of the checker of number of open file descriptors
+	FileHandleAllocatableCheckerID = "file-nr"
+)
 
 // Sysctl returns kernel parameter by reading proc/sys
 func Sysctl(name string) (string, error) {

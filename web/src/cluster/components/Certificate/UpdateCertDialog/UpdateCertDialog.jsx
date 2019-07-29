@@ -29,7 +29,6 @@ export class UpdateCertDialog extends React.Component {
   static propTypes = {
     onClose: PropTypes.func.isRequired,
     onSubmit: PropTypes.func.isRequired,
-    siteId:  PropTypes.string.isRequired,
     attempt:  PropTypes.object.isRequired,
     attemptActions:  PropTypes.object.isRequired,
   }
@@ -68,10 +67,9 @@ export class UpdateCertDialog extends React.Component {
     }
 
     const { certFile, privateKeyFile, intermCertFile } = this.state;
-    const { onSubmit, attemptActions, siteId } = this.props;
+    const { onSubmit, attemptActions } = this.props;
     attemptActions.do(() => {
       return onSubmit(
-        siteId,
         certFile,
         privateKeyFile,
         intermCertFile
@@ -182,7 +180,7 @@ const Label = ({ text, desc = null }) => (
 const FileInput = ({ fileName, name, onClick, showRequired=false }) => {
   return (
     <Flex flex="1">
-      <Input mb="0"
+      <Input
         readOnly
         hasError={showRequired}
         name={name}
@@ -203,11 +201,9 @@ const HiddenInput = styled.input.attrs({
   display: none;
 `
 
-function mapState(props){
-  const { siteId } = props.match.params;
+function mapState(){
   const [ attempt, attemptActions ] = useAttempt();
   return {
-    siteId,
     attempt,
     attemptActions,
     onSubmit: saveTlsCert

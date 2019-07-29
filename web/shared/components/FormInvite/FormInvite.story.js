@@ -39,6 +39,24 @@ storiesOf('FormInvite', module)
   .add('with U2F USB KEY', () => {
     const props = {
       ...defaultProps,
+      attempt: {
+        isProcessing: true,
+      },
+      auth2faType: "u2f",
+    }
+
+    return (
+      <FormInvite
+        {...props}
+      />);
+  })
+  .add('with U2F USB KEY error', () => {
+    const props = {
+      ...defaultProps,
+      attempt: {
+        isFailed: true,
+        message: 'Message whic has [U2F] word',
+      },
       auth2faType: "u2f",
     }
 

@@ -32,6 +32,7 @@ import (
 	"github.com/gravitational/gravity/lib/ops"
 	"github.com/gravitational/gravity/lib/schema"
 	statusapi "github.com/gravitational/gravity/lib/status"
+	"github.com/prometheus/alertmanager/api/v2/models"
 
 	"github.com/dustin/go-humanize"
 	"github.com/fatih/color"
@@ -53,7 +54,7 @@ func status(env *localenv.LocalEnvironment, printOptions printOptions) error {
 		clusterOperator: clusterOperator,
 	}
 
-	status, err := statusOnce(context.TODO(), operator, printOptions.operationID)
+	status, err := statusOnce(context.TODO(), operator, printOptions.operationID, env)
 	if err == nil {
 		err = printStatus(operator, clusterStatus{*status, nil}, printOptions)
 		return trace.Wrap(err)
@@ -103,7 +104,7 @@ func tailStatus(env *localenv.LocalEnvironment, operationID string) error {
 		return trace.Wrap(err)
 	}
 
-	status, err := statusOnce(context.TODO(), operator, operationID)
+	status, err := statusOnce(context.TODO(), operator, operationID, env)
 	if err != nil {
 		log.Warnf("Failed to determine cluster status: %v.", trace.DebugReport(err))
 		if status == nil || status.Cluster == nil {
@@ -144,7 +145,7 @@ func statusPeriodic(env *localenv.LocalEnvironment, printOptions printOptions, s
 	for {
 		select {
 		case <-ticker.C:
-			status, err := statusOnce(context.TODO(), operator, printOptions.operationID)
+			status, err := statusOnce(context.TODO(), operator, printOptions.operationID, env)
 			if err != nil {
 				return trace.Wrap(err)
 			}
@@ -154,7 +155,7 @@ func statusPeriodic(env *localenv.LocalEnvironment, printOptions printOptions, s
 }
 
 // statusOnce collects cluster status information
-func statusOnce(ctx context.Context, operator ops.Operator, operationID string) (*statusapi.Status, error) {
+func statusOnce(ctx context.Context, operator ops.Operator, operationID string, env *localenv.LocalEnvironment) (*statusapi.Status, error) {
 	cluster, err := operator.GetLocalSite()
 	if err != nil {
 		return nil, trace.Wrap(err)
@@ -279,6 +280,11 @@ func printStatusText(cluster clusterStatus) {
 		printAgentStatus(*cluster.Agent, w)
 	}
 
+	if len(cluster.Alerts) > 0 {
+		fmt.Fprintln(w, "Cluster alerts:")
+		printPrometheusAlerts(cluster.Alerts, w)
+	}
+
 	w.Flush()
 
 	if len(cluster.FailedLocalProbes) != 0 {
@@ -370,11 +376,29 @@ func printNodeStatus(node statusapi.ClusterServer, w io.Writer) {
 		fmt.Fprintf(w, "            Status:\t%v\n", color.YellowString("offline"))
 	case statusapi.NodeHealthy:
 		fmt.Fprintf(w, "            Status:\t%v\n", color.GreenString("healthy"))
+		for _, probe := range node.WarnProbes {
+			fmt.Fprintf(w, "            [%v]\t%v\n", constants.WarnMark, color.New(color.FgYellow).SprintFunc()(probe))
+		}
 	case statusapi.NodeDegraded:
 		fmt.Fprintf(w, "            Status:\t%v\n", color.RedString("degraded"))
 		for _, probe := range node.FailedProbes {
 			fmt.Fprintf(w, "            [%v]\t%v\n", constants.FailureMark, color.New(color.FgRed).SprintFunc()(probe))
 		}
+		for _, probe := range node.WarnProbes {
+			fmt.Fprintf(w, "            [%v]\t%v\n", constants.WarnMark, color.New(color.FgYellow).SprintFunc()(probe))
+		}
+	}
+}
+
+func printPrometheusAlerts(alerts []*models.GettableAlert, w io.Writer) {
+	for _, alert := range alerts {
+		if *alert.Status.State != "active" {
+			continue
+		}
+
+		duration := time.Now().Sub(time.Time(*alert.StartsAt)).Round(time.Second)
+		fmt.Fprintf(w, "    * %v [%v]\n", alert.Labels["alertname"], duration)
+		fmt.Fprintf(w, "      - %v\n", alert.Annotations["message"])
 	}
 }
 

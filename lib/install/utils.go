@@ -42,6 +42,7 @@ import (
 	"github.com/gravitational/gravity/lib/systeminfo"
 	"github.com/gravitational/gravity/lib/utils"
 
+	"github.com/cenkalti/backoff"
 	"github.com/gravitational/trace"
 	"github.com/kardianos/osext"
 	log "github.com/sirupsen/logrus"
@@ -196,26 +197,21 @@ func FetchCloudMetadata(cloudProvider string, config *pb.RuntimeConfig) error {
 	return nil
 }
 
-// LoadRPCCredentials returns the contents of the default RPC credentials package
+// LoadRPCCredentials loads and validates the contents of the default RPC credentials package
 func LoadRPCCredentials(ctx context.Context, packages pack.PackageService) (*rpcserver.Credentials, error) {
-	var serverCreds, clientCreds credentials.TransportCredentials
-	// FIXME: this will also mask all other possibly terminal failures (file permission
-	// issues, etc.) and will keep the command blocked for the whole interval.
-	// Get rid of retry or use a better error classification.
-	b := utils.NewUnlimitedExponentialBackOff()
-	ctx, cancel := defaults.WithTimeout(ctx)
-	defer cancel()
-	err := utils.RetryWithInterval(ctx, b, func() (err error) {
-		serverCreds, clientCreds, err = rpc.CredentialsFromPackage(packages, loc.RPCSecrets)
-		return trace.Wrap(err)
-	})
+	tls, err := loadCredentialsFromPackage(ctx, packages, loc.RPCSecrets)
 	if err != nil {
-		return nil, trace.Wrap(err, "failed to unpack RPC credentials")
+		return nil, trace.Wrap(err)
 	}
-	return &rpcserver.Credentials{
-		Server: serverCreds,
-		Client: clientCreds,
-	}, nil
+	err = rpc.ValidateCredentials(tls, time.Now())
+	if err != nil {
+		return nil, newInvalidCertError(err)
+	}
+	creds, err := newRPCCredentials(tls)
+	if err != nil {
+		return nil, trace.Wrap(err)
+	}
+	return creds, nil
 }
 
 // ClientCredentials returns the contents of the default RPC credentials package
@@ -231,7 +227,11 @@ func ClientCredentials(packages pack.PackageService) (credentials.TransportCrede
 func UpdateOperationState(operator ops.Operator, operation ops.SiteOperation, report ops.AgentReport) error {
 	request, err := GetServerUpdateRequest(operation, report.Servers)
 	if err != nil {
-		return trace.Wrap(err, "failed to parse report: %#v", report)
+		log.WithFields(log.Fields{
+			log.ErrorKey: err,
+			"report":     report,
+		}).Warn("Failed to parse report.")
+		return trace.Wrap(err)
 	}
 	err = operator.UpdateInstallOperationState(operation.Key(), *request)
 	return trace.Wrap(err)
@@ -250,17 +250,13 @@ func GetServerUpdateRequest(op ops.SiteOperation, servers []checks.ServerInfo) (
 		if serverInfo.Role == "" {
 			return nil, trace.BadParameter("%v has no role", serverInfo)
 		}
-		var mounts []storage.Mount
-		for _, mount := range serverInfo.Mounts {
-			mounts = append(mounts, storage.Mount{Name: mount.Name, Source: mount.Source})
-		}
 		ip, _ := utils.SplitHostPort(serverInfo.AdvertiseAddr, "")
 		server := storage.Server{
 			AdvertiseIP: ip,
 			Hostname:    serverInfo.GetHostname(),
 			Role:        serverInfo.Role,
 			OSInfo:      serverInfo.GetOS(),
-			Mounts:      mounts,
+			Mounts:      pb.MountsFromProto(serverInfo.Mounts),
 			User:        serverInfo.GetUser(),
 			Provisioner: op.Provisioner,
 			Created:     time.Now().UTC(),
@@ -360,6 +356,16 @@ type ProgressPoller struct {
 	Dispatcher   eventDispatcher
 }
 
+// ExecResult describes the result of execution an operation (step).
+// An optional completion event can describe the completion outcome to the client
+type ExecResult struct {
+	// CompletionEvent specifies the optional completion
+	// event to send to a client
+	CompletionEvent *dispatcher.Event
+	// Error specifies the optional execution error
+	Error error
+}
+
 func isOperationSuccessful(progress ops.ProgressEntry) bool {
 	return progress.IsCompleted() && progress.State == ops.OperationStateCompleted
 }
@@ -435,4 +441,54 @@ func initOperationPlan(operator ops.Operator, planner engine.Planner) error {
 		return trace.Wrap(err)
 	}
 	return nil
+}
+
+func newRPCCredentials(tls utils.TLSArchive) (*rpcserver.Credentials, error) {
+	caKeyPair, err := tls.GetKeyPair(pb.CA)
+	if err != nil {
+		return nil, trace.Wrap(err)
+	}
+	serverKeyPair, err := tls.GetKeyPair(pb.Server)
+	if err != nil {
+		return nil, trace.Wrap(err)
+	}
+	serverCreds, err := rpc.ServerCredentialsFromKeyPairs(*serverKeyPair, *caKeyPair)
+	if err != nil {
+		return nil, trace.Wrap(err)
+	}
+	clientKeyPair, err := tls.GetKeyPair(pb.Client)
+	if err != nil {
+		return nil, trace.Wrap(err)
+	}
+	clientCreds, err := rpc.ClientCredentialsFromKeyPairs(*clientKeyPair, *caKeyPair)
+	if err != nil {
+		return nil, trace.Wrap(err)
+	}
+	return &rpcserver.Credentials{
+		Server: serverCreds,
+		Client: clientCreds,
+	}, nil
+}
+
+func loadCredentialsFromPackage(ctx context.Context, packages pack.PackageService, loc loc.Locator) (tls utils.TLSArchive, err error) {
+	b := utils.NewUnlimitedExponentialBackOff()
+	ctx, cancel := defaults.WithTimeout(ctx)
+	defer cancel()
+	err = utils.RetryWithInterval(ctx, b, func() (err error) {
+		tls, err = rpc.CredentialsFromPackage(packages, loc)
+		if err != nil && !trace.IsNotFound(err) {
+			return &backoff.PermanentError{Err: err}
+		}
+		return trace.Wrap(err)
+	})
+	if err != nil {
+		return nil, trace.Wrap(err)
+	}
+	return tls, nil
+}
+
+func newInvalidCertError(err error) error {
+	return trace.BadParameter("%s. Please make sure that clocks are synchronized between the nodes "+
+		"by using ntp, chrony or other time-synchronization programs",
+		trace.UserMessage(err))
 }

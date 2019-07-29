@@ -28,6 +28,7 @@ import (
 	"github.com/gravitational/gravity/lib/status"
 	"github.com/gravitational/gravity/lib/utils"
 
+	"github.com/cenkalti/backoff"
 	"github.com/gravitational/trace"
 	"github.com/sirupsen/logrus"
 	"k8s.io/client-go/kubernetes"
@@ -60,7 +61,10 @@ type waitPlanetExecutor struct {
 func (p *waitPlanetExecutor) Execute(ctx context.Context) error {
 	p.Progress.NextStep("Waiting for the planet to start")
 	p.Info("Waiting for the planet to start.")
-	err := utils.Retry(defaults.RetryInterval, defaults.RetryAttempts,
+	ctx, cancel := defaults.WithTimeout(ctx)
+	defer cancel()
+	b := backoff.NewConstantBackOff(defaults.RetryInterval)
+	err := utils.RetryWithInterval(ctx, b,
 		func() error {
 			planetStatus, err := status.FromPlanetAgent(ctx, nil)
 			if err != nil {

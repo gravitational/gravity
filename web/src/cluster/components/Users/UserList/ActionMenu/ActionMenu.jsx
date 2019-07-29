@@ -50,7 +50,7 @@ class UserMenuAction extends React.Component {
       return (
         [
           <MenuItem key="1" onClick={this.onEdit}>
-            Edit Role
+            Edit
           </MenuItem>,
           <MenuItem key="2" onClick={this.onReset}>
             Reset Password

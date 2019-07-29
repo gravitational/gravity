@@ -778,14 +778,14 @@ func validateGetSiteInstructions(tokenID string, serverProfile string, params ur
 	}
 
 	if !instructionsAllowedRe.Match([]byte(tokenID)) {
-		return trace.Wrap(trace.BadParameter("Token format validation failed")).AddFields(map[string]interface{}{
+		return trace.BadParameter("Token format validation failed").AddFields(trace.Fields{
 			"token":       tokenID,
 			"allow_regex": instructionsAllowedRePattern,
 		})
 	}
 
 	if !instructionsAllowedRe.Match([]byte(serverProfile)) {
-		return trace.Wrap(trace.BadParameter("ServerProfile format validation failed")).AddFields(map[string]interface{}{
+		return trace.BadParameter("ServerProfile format validation failed").AddFields(trace.Fields{
 			"server_profile": serverProfile,
 			"allow_regex":    instructionsAllowedRePattern,
 		})

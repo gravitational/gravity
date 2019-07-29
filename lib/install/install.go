@@ -67,7 +67,7 @@ func New(ctx context.Context, config RuntimeConfig) (installer *Installer, err e
 		agent:       agent,
 		errC:        make(chan error, 2),
 		execC:       make(chan *installpb.ExecuteRequest),
-		execDoneC:   make(chan execResult, 1),
+		execDoneC:   make(chan ExecResult, 1),
 		dispatcher:  dispatcher,
 	}
 	installer.startExecuteLoop()
@@ -91,7 +91,7 @@ func (i *Installer) Run(listener net.Listener) error {
 // Implements signals.Stopper
 func (i *Installer) Stop(ctx context.Context) error {
 	i.Info("Stop service.")
-	i.server.Stopped(ctx, false)
+	i.server.ManualStop(ctx, false)
 	return nil
 }
 
@@ -109,12 +109,13 @@ func (i *Installer) Execute(req *installpb.ExecuteRequest, stream installpb.Agen
 				return trace.Wrap(err)
 			}
 		case result := <-i.execDoneC:
-			if result.err != nil {
-				// Phase finished with an error
-				return status.Error(codes.Aborted, result.err.Error())
+			if result.Error != nil {
+				// Phase finished with an error.
+				// See https://github.com/grpc/grpc-go/blob/v1.22.0/codes/codes.go#L78
+				return status.Error(codes.Aborted, trace.UserMessage(result.Error))
 			}
-			if result.completionEvent != nil {
-				err := stream.Send(result.completionEvent.AsProgressResponse())
+			if result.CompletionEvent != nil {
+				err := stream.Send(result.CompletionEvent.AsProgressResponse())
 				if err != nil {
 					return trace.Wrap(err)
 				}
@@ -213,11 +214,11 @@ func (i *Installer) startExecuteLoop() {
 						log.ErrorKey: err,
 						"req":        req,
 					}).Warn("Failed to execute.")
-					i.execDoneC <- execResult{err: err}
+					i.execDoneC <- ExecResult{Error: err}
 				} else {
-					var result execResult
+					var result ExecResult
 					if status.IsCompleted() {
-						result.completionEvent = i.newCompletionEvent(status)
+						result.CompletionEvent = i.newCompletionEvent(status)
 					}
 					i.execDoneC <- result
 				}
@@ -377,7 +378,7 @@ type Installer struct {
 	execC chan *installpb.ExecuteRequest
 	// execDoneC is signaled by the executor loop to let the client-facing gRPC API
 	// know when to stop expecting events and exit
-	execDoneC chan execResult
+	execDoneC chan ExecResult
 
 	// wg is a wait group used to ensure completion of internal processes
 	wg sync.WaitGroup
@@ -401,9 +402,4 @@ func phaseForOperation(op ops.SiteOperation) *installpb.Phase {
 		ID:  fsm.RootPhase,
 		Key: installpb.KeyToProto(op.Key()),
 	}
-}
-
-type execResult struct {
-	completionEvent *dispatcher.Event
-	err             error
 }

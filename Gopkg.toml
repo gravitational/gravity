@@ -32,7 +32,8 @@ ignored = [
 
 [[override]]
   name = "github.com/gravitational/trace"
-  version = "1.1.7"
+  #version = "1.1.8"
+  revision = "3822600263648f166b2b2a14bc693e92947af68b"
 
 [[override]]
   name = "github.com/mitchellh/go-ps"
@@ -54,9 +55,17 @@ ignored = [
   name = "github.com/go-openapi/swag"
   branch = "master"
 
+[[override]]
+  name = "github.com/go-openapi/spec"
+  version = "v0.19.2"
+
 [[constraint]]
   name = "github.com/gravitational/configure"
   branch = "master"
+
+[[constraint]]
+  name = "github.com/prometheus/alertmanager"
+  version = "=v0.18.0"
 
 [[constraint]]
   name = "github.com/santhosh-tekuri/jsonschema"
@@ -64,7 +73,7 @@ ignored = [
 
 [[constraint]]
   name = "github.com/gravitational/satellite"
-  version = "=5.5.4"
+  version = "=7.0.0"
 
 [[constraint]]
   name = "github.com/xtgo/set"
@@ -276,3 +285,6 @@ ignored = [
   name = "gopkg.in/check.v1"
   branch = "v1"
 
+[[constraint]]
+  name = "github.com/miekg/dns"
+  version = "=v1.0.4"

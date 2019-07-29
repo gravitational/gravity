@@ -74,6 +74,6 @@ func NewStorageChecker(config StorageConfig) health.Checker {
 }
 
 // NewDNSChecker sends some default queries to monitor DNS / service discovery health
-func NewDNSChecker(questionA []string) health.Checker {
+func NewDNSChecker(questionA []string, nameservers ...string) health.Checker {
 	return noopChecker{}
 }

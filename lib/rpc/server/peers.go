@@ -156,7 +156,7 @@ func (r *peers) monitorPeer(p Peer, clt Client, reconnectCh chan<- chan clientUp
 	default:
 		clt, err = r.checkPeer(p, clt, reconnectCh, respCh, doneCh)
 		if err != nil {
-			log.Warnf("Failed to reconnect: %v.", trace.DebugReport(err))
+			log.WithError(err).Warn("Failed to reconnect.")
 			return
 		}
 	}
@@ -165,7 +165,7 @@ func (r *peers) monitorPeer(p Peer, clt Client, reconnectCh chan<- chan clientUp
 		case <-ticker.C:
 			clt, err = r.checkPeer(p, clt, reconnectCh, respCh, doneCh)
 			if err != nil {
-				log.Warnf("Failed to reconnect: %v.", trace.DebugReport(err))
+				log.WithError(err).Warn("Failed to reconnect.")
 				return
 			}
 		case <-doneCh:

@@ -16,13 +16,12 @@ limitations under the License.
 
 import React from 'react';
 import { useAttempt } from 'shared/hooks';
-import { ButtonPrimary, Box } from 'shared/components';
+import { FieldInput, ButtonPrimary, Box } from 'shared/components';
 import { Danger } from 'shared/components/Alert';
 import { useValidation } from 'shared/components/Validation';
 import cfg from 'app/config';
 import history from 'app/services/history';
 import service from 'app/installer/services/installer';
-import { FieldInput } from 'app/installer/components/Fields';
 import { StepLayout } from '../Layout';
 import { useInstallerContext } from './../store';
 import AdvancedOptions, { Subnets } from './AdvancedOptions';
@@ -63,7 +62,6 @@ export default function StepProvider() {
   return (
     <StepLayout title="Name your cluster">
       <FieldInput
-        mb="2"
         placeholder="prod.example.com"
         autoFocus
         rule={required}

@@ -15,212 +15,132 @@ limitations under the License.
 */
 
 import React from 'react';
-import { Formik } from 'formik';
 import PropTypes from 'prop-types';
-import { Auth2faTypeEnum } from './../../services/enums';
-import { Card, Input, LabelInput, ButtonPrimary } from 'shared/components';
+import useAttempt from './../../hooks/useAttempt';
+import FieldInput from './../FieldInput';
+import Validation from '../Validation';
+import {
+  requiredToken,
+  requiredPassword,
+  requiredField,
+  requiredConfirmedPassword,
+} from './../Validation/rules';
+import { isOtp, isU2f } from './../../services/enums';
+import { Card, ButtonPrimary } from 'shared/components';
 import * as Alerts from 'shared/components/Alert';
 
-const StatusEnum = {
-  PROCESSING: 'processing',
-  SUCCESS: 'success',
-  FAILED: 'failed'
-}
+function FormPassword(props) {
+  const { onChangePassWithU2f, onChangePass, auth2faType } = props;
+  const [attempt, attemptActions] = useAttempt();
+  const [token, setToken] = React.useState('');
+  const [oldPass, setOldPass] = React.useState('');
+  const [newPass, setNewPass] = React.useState('');
+  const [newPassConfirmed, setNewPassConfirmed] = React.useState('');
 
-class FormPassword extends React.Component {
+  const otpEnabled = isOtp(auth2faType);
+  const u2fEnabled = isU2f(auth2faType);
+  const { isProcessing } = attempt;
 
-  static propTypes = {
-    onChangePass: PropTypes.func.isRequired,
-    onChangePassWithU2f: PropTypes.func.isRequired
-  }
-
-  initialValues = {
-    oldPass: '',
-    newPass: '',
-    newPassConfirmed: '',
-    token: '',
-  }
-
-  state = {
-    status: '',
-    error: '',
-  };
-
-  submit(values) {
-    const { oldPass, newPass, token } = values;
-    if (this.props.auth2faType === Auth2faTypeEnum.UTF) {
-      return this.props.onChangePassWithU2f(oldPass, newPass);
+  function submit() {
+    if (u2fEnabled) {
+      return onChangePassWithU2f(oldPass, newPass);
     }
 
-    return this.props.onChangePass(oldPass, newPass, token);
+    return onChangePass(oldPass, newPass, token);
+  }
+  function resetForm() {
+    setOldPass('');
+    setNewPass('');
+    setNewPassConfirmed('');
   }
 
-  onSubmit = (values, { resetForm }) => {
-    this.setState({ status: StatusEnum.PROCESSING });
-    this.submit(values)
-      .then(() => {
-        resetForm();
-        this.setState({ status: StatusEnum.SUCCESS });
-      })
-      .fail(err => {
-        this.setState({ status: StatusEnum.FAILED, error: err.message })
-      })
-  }
-
-  onValidate = values => {
-    const { oldPass, newPass, token, newPassConfirmed } = values;
-    const errors = {};
-
-    if (!oldPass) {
-      errors.oldPass = 'Current Password is required';
+  function onSubmit(e, validator) {
+    e.preventDefault();
+    if (!validator.validate()) {
+      return;
     }
 
-    if (!newPass) {
-      errors.newPass = 'Password cannot be empty';
-    } else if (newPass.length < 6) {
-      errors.newPass = 'Enter at least 6 characters';
-    }
-
-    if (!newPassConfirmed) {
-      errors.newPassConfirmed = 'Please confirm your new password'
-    }else if (newPassConfirmed !== newPass) {
-      errors.newPassConfirmed = 'Password does not match'
-    }
-
-    if (this.isOtp() && !token) {
-      errors.token = 'Token is required';
-    }
-
-    return errors;
+    validator.reset();
+    attemptActions.do(() => submit().then(() => resetForm()));
   }
 
-  isU2f() {
-    return this.props.auth2faType === Auth2faTypeEnum.UTF;
-  }
-
-  isOtp() {
-    return this.props.auth2faType === Auth2faTypeEnum.OTP;
-  }
-
-  renderFields({ values, errors, touched, handleChange }) {
-    const isOtpEnabled = this.isOtp();
-    const oldPassError = touched.oldPass && errors.oldPass;
-    const newPassError = touched.newPass && errors.newPass;
-    const newPassConfirmedError = touched.newPassConfirmed && errors.newPassConfirmed;
-    const tokenError = touched.token && errors.token;
-
-    return (
-      <React.Fragment>
-        <LabelInput hasError={Boolean(oldPassError)}>
-          {oldPassError || "Current Password"}
-        </LabelInput>
-        <Input
-          hasError={Boolean(oldPassError)}
-          value={values.oldPass}
-          onChange={handleChange}
-          type="password"
-          name="oldPass"
-          placeholder="Password"
-        />
-        {isOtpEnabled &&
-          <React.Fragment>
-            <LabelInput hasError={Boolean(tokenError)}>
-              {tokenError || "2nd factor token"}
-            </LabelInput>
-            <Input
+  return (
+    <Validation>
+      {({ validator }) => (
+        <Card as="form" bg="primary.light" width="456px" p="6">
+          <Status u2f={u2fEnabled} attempt={attempt} />
+          <FieldInput
+            rule={requiredField('Current Password is required')}
+            label="Current Password"
+            value={oldPass}
+            onChange={e => setOldPass(e.target.value)}
+            type="password"
+            placeholder="Password"
+          />
+          {otpEnabled && (
+            <FieldInput
+              label="2nd factor token"
+              rule={requiredToken}
               width="50%"
-              hasError={Boolean(tokenError)}
-              value={values.token}
-              onChange={handleChange}
+              value={token}
+              onChange={e => setToken(e.target.value)}
               type="text"
-              name="token"
               placeholder="OTP Token"
             />
-          </React.Fragment>
-        }
-        <LabelInput hasError={Boolean(newPassError)}>
-          {newPassError || "New Password"}
-        </LabelInput>
-        <Input
-          hasError={Boolean(newPassError)}
-          value={values.newPass}
-          onChange={handleChange}
-          type="password"
-          name="newPass"
-          placeholder="New Password"
-        />
-        <LabelInput hasError={Boolean(newPassConfirmedError)}>
-          {newPassConfirmedError || "Confirm Password"}
-        </LabelInput>
-        <Input
-          hasError={Boolean(newPassConfirmedError)}
-          value={values.newPassConfirmed}
-          onChange={handleChange}
-          type="password"
-          name="newPassConfirmed"
-          placeholder="Confirm Password"
-        />
-      </React.Fragment>
-    )
+          )}
+          <FieldInput
+            rule={requiredPassword}
+            label="New Password"
+            value={newPass}
+            onChange={e => setNewPass(e.target.value)}
+            type="password"
+            placeholder="New Password"
+          />
+          <FieldInput
+            rule={requiredConfirmedPassword(newPass)}
+            label="Confirm Password"
+            value={newPassConfirmed}
+            onChange={e => setNewPassConfirmed(e.target.value)}
+            type="password"
+            placeholder="Confirm Password"
+          />
+          <ButtonPrimary
+            block
+            disabled={isProcessing}
+            size="large"
+            onClick={e => onSubmit(e, validator)}
+            mt={5}
+          >
+            Update Password
+          </ButtonPrimary>
+        </Card>
+      )}
+    </Validation>
+  );
+}
+
+FormPassword.propTypes = {
+  onChangePass: PropTypes.func.isRequired,
+  onChangePassWithU2f: PropTypes.func.isRequired,
+};
+
+function Status({ attempt, u2f }) {
+  const { isProcessing, isFailed, message, isSuccess } = attempt;
+
+  if (isFailed) {
+    return <Alerts.Danger>{message}</Alerts.Danger>;
   }
 
-  renderStatus(status, error) {
-    const waitForU2fKeyResponse = status === StatusEnum.PROCESSING && this.isU2f();
-
-    if (status === StatusEnum.FAILED) {
-      return (
-        <Alerts.Danger>
-          {error}
-        </Alerts.Danger>
-      )
-    }
-
-    if (status === StatusEnum.SUCCESS) {
-      return (
-        <Alerts.Success>
-          Your password has been changed
-        </Alerts.Success>
-      )
-    }
-
-    if (waitForU2fKeyResponse) {
-      return (
-        <Alerts.Info>
-          Insert your U2F key and press the button on the key
-        </Alerts.Info>
-      )
-    }
-
-    return null;
+  if (isSuccess) {
+    return <Alerts.Success>Your password has been changed!</Alerts.Success>;
   }
 
-  render() {
-    const { status, error } = this.state;
-    const isProcessing = status === StatusEnum.PROCESSING;
-    return (
-      <Formik
-        validate={this.onValidate}
-        onSubmit={this.onSubmit}
-        initialValues={this.initialValues}
-        >
-        {props => (
-          <Card as="form" bg="primary.light" width="456px" p="6">
-            {this.renderStatus(status, error)}
-            {this.renderFields(props)}
-            <ButtonPrimary
-              block
-              disabled={isProcessing}
-              size="large"
-              type="submit"
-              onClick={props.handleSubmit}
-              mt={5}>
-              Update Password
-            </ButtonPrimary>
-          </Card>
-        )}
-      </Formik>
-    )
+  const waitForU2fKeyResponse = isProcessing && u2f;
+  if (waitForU2fKeyResponse) {
+    return <Alerts.Info>Insert your U2F key and press the button on the key</Alerts.Info>;
   }
+
+  return null;
 }
 
 export default FormPassword;
