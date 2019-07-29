@@ -1,9 +1,10 @@
 # Cluster Monitoring
 
-Gravity clusters come with a fully configured and customizable monitoring/alerting system by default.
-The monitoring stack consists of the following components: Prometheus, Grafana and Alertmanager.
+Gravity Clusters come with a fully configured and customizable monitoring/alerting system by default.
+The monitoring stack consists of the following components: Prometheus, Grafana, Alertmanager and
+Satellite.
 
-These components are automatically included into a cluster image built with `tele build` as a
+These components are automatically included into a Cluster Image built with `tele build` as a
 system dependency (see the [source](https://github.com/gravitational/monitoring-app) on GitHub).
 
 ### Prometheus
@@ -11,7 +12,7 @@ system dependency (see the [source](https://github.com/gravitational/monitoring-
 [Prometheus](https://prometheus.io/docs/introduction/overview/) is an open-source Kubernetes
 native monitoring system and time-series database.
 
-Prometheus uses the following in-cluster services to collect the metrics about the cluster:
+Prometheus uses the following in-cluster services to collect the metrics about the Cluster:
 
 * [node-exporter](https://github.com/prometheus/node_exporter) collects hardware and OS metrics.
 * [kube-state-metrics](https://github.com/kubernetes/kube-state-metrics) collects metrics about
@@ -26,12 +27,12 @@ Prometheus exposes the cluster-internal service `prometheus-k8s.monitoring.svc.c
 
 [Grafana](https://grafana.com/) is an open-source metrics analytics and visualization suite.
 
-In Gravity clusters Grafana uses Prometheus as a data-source. It is preconfigured with several
+In Gravity Clusters Grafana uses Prometheus as a data-source. It is preconfigured with several
 dashboards that provide general information about individual nodes, containers and the overall
-cluster health.
+Cluster health.
 
 !!! tip:
-    When building a cluster image, it is possible to add your own dashboards in addition to
+    When building a Cluster Image, it is possible to add your own dashboards in addition to
     the ones that ship by default. See [Grafana Integration](#grafana-integration) below for
     details.
 
@@ -45,22 +46,33 @@ them to the correct receiver such as email recipient.
 
 Alertmanager exposes the cluster-internal service `alertmanager-main.monitoring.svc.cluster.local:9093`.
 
+### Satellite
+
+[Satellite](https://github.com/gravitational/satellite) is an open-source problem detector tool
+for Kubernetes clusters developed by Gravitational.
+
+Satellite runs on each Gravity Cluster node and executes a multitude of checks continuously
+assessing the health of the Cluster and the individual nodes. Any issues detected by Satellite
+will be displayed in the output of the `gravity status` command.
+
+See [Cluster Status](/cluster/#cluster-status) for more information.
+
 ## Grafana Integration
 
 The default Grafana configuration includes two pre-configured dashboards providing machine- and
-pod-level overview of the installed cluster. Grafana UI is integrated with Gravity control panel.
-To view dashboards once the cluster is up and running, navigate to the Cluster's Monitoring page.
+pod-level overview of the installed Cluster. Grafana UI is integrated with Gravity Control Panel.
+To view dashboards once the Cluster is up and running, navigate to the Cluster's Monitoring page.
 
 In Gravity clusters Grafana is running in anonymous read-only mode which allows anyone logged
 into Gravity to view existing dashboards but not modify them or create new ones.
 
 ## Pluggable Dashboards
 
-Your cluster image can include its own Grafana dashboards using ConfigMaps.
+Your Cluster Image can include its own Grafana dashboards using ConfigMaps.
 
 A custom dashboard ConfigMap should be placed into the `monitoring` namespace and assigned the
 special `monitoring: dashboard` label so it is recognized as a dashboard and loaded during initial
-cluster image installation:
+Cluster Image installation:
 
 ```yaml
 apiVersion: v1
