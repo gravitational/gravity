@@ -135,15 +135,18 @@ func (s *site) getReport(runner remoteRunner, servers []remoteServer, master rem
 		server := master
 		if server == nil {
 			server = servers[0]
-			log.Warningf("no master servers, collecting kubernetes diagnostics from %v", server)
+			log.Warningf("No master servers, collecting Kubernetes diagnostics from %v.", server)
 		}
 		serverRunner := &serverRunner{server: server, runner: runner}
 		reportWriter := getReportWriterForServer(dir, server)
-		s.collectKubernetesInfo(reportWriter, serverRunner)
-
-		err = s.collectDebugInfoFromServers(dir, servers, runner)
-		if err != nil {
-			log.Errorf("failed to collect diagnostics from some nodes: %v", trace.DebugReport(err))
+		if err := s.collectKubernetesInfo(reportWriter, serverRunner); err != nil {
+			log.WithError(err).Error("Failed to collect Kubernetes info.")
+		}
+		if err := s.collectEtcdBackup(reportWriter, serverRunner); err != nil {
+			log.WithError(err).Error("Failed to collect etcd backup.")
+		}
+		if err := s.collectDebugInfoFromServers(dir, servers, runner); err != nil {
+			log.WithError(err).Error("Failed to collect diagnostics from some nodes.")
 		}
 	}
 
@@ -190,7 +193,7 @@ func (s *site) collectDebugInfoFromServers(dir string, servers []remoteServer, r
 }
 
 func (s *site) collectDebugInfo(reportWriter report.FileWriter, runner *serverRunner) error {
-	w, err := reportWriter.NewWriter("debug-logs.tar")
+	w, err := reportWriter.NewWriter("debug-logs.tar.gz")
 	if err != nil {
 		return trace.Wrap(err)
 	}
@@ -206,7 +209,7 @@ func (s *site) collectDebugInfo(reportWriter report.FileWriter, runner *serverRu
 }
 
 func (s *site) collectKubernetesInfo(reportWriter report.FileWriter, runner *serverRunner) error {
-	w, err := reportWriter.NewWriter("k8s-logs.tar")
+	w, err := reportWriter.NewWriter("k8s-logs.tar.gz")
 	if err != nil {
 		return trace.Wrap(err)
 	}
@@ -216,6 +219,20 @@ func (s *site) collectKubernetesInfo(reportWriter report.FileWriter, runner *ser
 		fmt.Sprintf("--filter=%v", report.FilterKubernetes), "--compressed")...)
 	if err != nil {
 		return trace.Wrap(err, "failed to collect kubernetes diagnostics")
+	}
+	return nil
+}
+
+func (s *site) collectEtcdBackup(reportWriter report.FileWriter, runner *serverRunner) error {
+	w, err := reportWriter.NewWriter("etcd-backup.json.tar.gz")
+	if err != nil {
+		return trace.Wrap(err)
+	}
+	defer w.Close()
+	err = runner.RunStream(w, s.gravityCommand("system", "report", fmt.Sprintf(
+		"--filter=%v", report.FilterEtcd), "--compressed")...)
+	if err != nil {
+		return trace.Wrap(err)
 	}
 	return nil
 }
