@@ -489,6 +489,6 @@ func loadCredentialsFromPackage(ctx context.Context, packages pack.PackageServic
 
 func newInvalidCertError(err error) error {
 	return trace.BadParameter("%s. Please make sure that clocks are synchronized between the nodes "+
-		"by using ntp, chrony or other time-synchronization programs",
+		"by using ntp, chrony or other time-synchronization programs.",
 		trace.UserMessage(err))
 }
