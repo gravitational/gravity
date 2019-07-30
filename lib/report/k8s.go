@@ -42,6 +42,8 @@ func NewKubernetesCollector(ctx context.Context, runner utils.CommandRunner) Col
 			"get", "pods", "-o", "yaml", "--all-namespaces"))...),
 		Cmd("k8s-events", utils.PlanetCommand(kubectl.Command(
 			"get", "events", "--all-namespaces"))...),
+		Cmd("k8s-cluster-info-dump", utils.PlanetCommand(kubectl.Command(
+			"cluster-info", "dump", "--all-namespaces"))...),
 	}
 
 	namespaces, err := kubectl.GetNamespaces(ctx, runner)
