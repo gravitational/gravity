@@ -91,16 +91,12 @@ func (srv *agentServer) GetRuntimeConfig(ctx context.Context, _ *types.Empty) (*
 			return nil, trace.Wrap(err)
 		}
 	}
-	var mounts []*pb.Mount
-	for _, mount := range srv.Mounts {
-		mounts = append(mounts, &pb.Mount{Name: mount.Name, Source: mount.Source})
-	}
 	config := &pb.RuntimeConfig{
 		Role:          srv.Role,
 		AdvertiseAddr: srv.Config.Listener.Addr().String(),
 		DockerDevice:  srv.DockerDevice,
 		SystemDevice:  srv.SystemDevice,
-		Mounts:        mounts,
+		Mounts:        srv.Mounts,
 		StateDir:      stateDir,
 		TempDir:       srv.TempDir,
 		KeyValues:     srv.KeyValues,

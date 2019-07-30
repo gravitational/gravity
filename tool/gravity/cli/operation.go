@@ -163,18 +163,37 @@ func completeOperationPlan(localEnv *localenv.LocalEnvironment, environ LocalEnv
 	}
 	switch op.Type {
 	case ops.OperationInstall:
-		return completeInstallPlan(localEnv, op)
+		err = completeInstallPlan(localEnv, op)
 	case ops.OperationExpand:
-		return completeJoinPlan(localEnv, op)
+		err = completeJoinPlan(localEnv, op)
 	case ops.OperationUpdate:
-		return completeUpdatePlan(localEnv, environ, *op)
+		err = completeUpdatePlan(localEnv, environ, *op)
 	case ops.OperationUpdateRuntimeEnviron:
-		return completeEnvironPlan(localEnv, environ, *op)
+		err = completeEnvironPlan(localEnv, environ, *op)
 	case ops.OperationUpdateConfig:
-		return completeConfigPlan(localEnv, environ, *op)
+		err = completeConfigPlan(localEnv, environ, *op)
 	default:
 		return trace.BadParameter("operation type %q does not support plan completion", op.Type)
 	}
+	if trace.IsNotFound(err) {
+		return completeClusterOperationPlan(localEnv, *op)
+	}
+	return trace.Wrap(err)
+}
+
+func completeClusterOperationPlan(localEnv *localenv.LocalEnvironment, operation ops.SiteOperation) error {
+	clusterEnv, err := localEnv.NewClusterEnvironment()
+	if err != nil {
+		return trace.Wrap(err)
+	}
+	plan, err := fsm.GetOperationPlan(clusterEnv.Backend, operation.Key())
+	if err != nil {
+		return trace.Wrap(err)
+	}
+	if fsm.IsCompleted(plan) {
+		return ops.CompleteOperation(operation.Key(), clusterEnv.Operator)
+	}
+	return ops.FailOperation(operation.Key(), clusterEnv.Operator, "completed manually")
 }
 
 func getLastOperation(localEnv *localenv.LocalEnvironment, environ LocalEnvironmentFactory, operationID string) (*ops.SiteOperation, error) {
@@ -256,10 +275,10 @@ func (r *backendOperations) List(localEnv *localenv.LocalEnvironment, environ Lo
 			log.WithError(err).Debug("Failed to query cluster operations.")
 		}
 	}
-	if err := r.listUpdateOperation(environ); err != nil {
+	if err := r.listUpdateOperation(environ); err != nil && !trace.IsNotFound(err) {
 		log.WithError(err).Warn("Failed to list update operation.")
 	}
-	if err := r.listJoinOperation(environ); err != nil {
+	if err := r.listJoinOperation(environ); err != nil && !trace.IsNotFound(err) {
 		log.WithError(err).Warn("Failed to list join operation.")
 	}
 	// Only fetch operation from remote (install) environment if the install operation is ongoing
