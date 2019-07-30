@@ -136,7 +136,7 @@ LTS starts with `3.51.0` with minor backwards compatible changes added over time
 #### Improvements
 
 * Remove dependency on system user/group being present in local `/etc/passwd` and `/etc/group` databases.
-* Generate credentials for InfluxDB, Telegraf and Grafana during installation.
+* Generate credentials for InfluxDB, Telegraf and Grafana during installation and update.
 
 ### 5.5.14 LTS (July 24th, 2019)
 
