@@ -56,7 +56,7 @@ a Cluster Image.
 tele build [options] [Cluster-manifest.yaml]
 
 Options:
-  -o           The name of the produced tarball, for example "-o Cluster-image.tar".
+  -o           The name of the produced tarball, for example "-o cluster-image.tar".
                By default the name of the current directory will be used.
   --state-dir  Hello
 ```
@@ -120,10 +120,10 @@ docker run -e OPS_URL=<opscenter url> \
        -v /tmp/tele-cache:/mnt/tele-cache \
        -v /var/run/docker.sock:/var/run/docker.sock \
        -v $(pwd):/mnt/app \
-       -w /mnt/Cluster \
+       -w /mnt/cluster \
         --net=host \
         tele-buildbox:latest \
-        bash -c "tele build -o Cluster.tar"
+        bash -c "tele build -o cluster.tar"
 ```
 
 !!! note:
@@ -205,7 +205,7 @@ sensible defaults.
 # The header of the application manifest uses the same signature as a Kubernetes
 # resource.
 #
-apiVersion: Cluster.gravitational.io/v2
+apiVersion: cluster.gravitational.io/v2
 kind: Cluster
 metadata:
   # The Cluster name as shown to the end user, must be a single alphanumeric word

@@ -40,7 +40,7 @@ spec:
     # free-form cloud configuration
     cloudConfig: |
       multizone=true
-      gce-node-tags=demo-Cluster
+      gce-node-tags=demo-cluster
     # represents the IP range from which to assign service Cluster IPs
     serviceCIDR:  "10.0.0.0/24"
     # port range to reserve for services with NodePort visibility
@@ -69,7 +69,7 @@ In order to apply the configuration immediately after the installation, supply t
 to the `gravity install` command:
 
 ```bsh
-root$ ./gravity install --Cluster=<Cluster-name> ... --config=Cluster-config.yaml
+root$ ./gravity install --cluster=<cluster-name> ... --config=Cluster-config.yaml
 ```
 
 !!! note:
@@ -721,7 +721,7 @@ To install a Cluster with the new runtime environment, specify the resources fil
 to the `install` command:
 
 ```bsh
-$ sudo gravity install --Cluster=<Cluster-name> --config=envars.yaml
+$ sudo gravity install --cluster=<cluster-name> --config=envars.yaml
 ```
 
 On an installed Cluster, create the resource with:

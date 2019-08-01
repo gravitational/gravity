@@ -53,7 +53,7 @@ Copying files around is easy, so let's take a deeper look into steps 2 through 5
 Once the Cluster Image is unpacked, it is going to look similar to this on each node:
 
 ```bash
-$ tar -xf Cluster-image.tar
+$ tar -xf cluster-image.tar
 $ ls -lh
 -rwxr--r-- 1 user staff 21K  Oct 24 12:01 app.yaml
 -rwxr--r-- 1 user staff 56M  Oct 24 12:01 gravity
@@ -280,7 +280,7 @@ Once the nodes have been properly configured, copy the installer tarball and
 launch installation as described above:
 
 ```bsh
-node1$ sudo ./gravity install --advertise-addr=<addr> --token=<token> --Cluster=<Cluster> --cloud-provider=gce
+node1$ sudo ./gravity install --advertise-addr=<addr> --token=<token> --cluster=<cluster> --cloud-provider=gce
 node2$ sudo ./gravity join <installer-addr> --advertise-addr=<addr> --token=<token> --cloud-provider=gce
 ```
 

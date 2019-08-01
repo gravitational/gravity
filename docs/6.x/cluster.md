@@ -342,7 +342,7 @@ To trigger the operation from the command line, copy the Cluster Image into one
 of the Cluster nodes and untar it:
 
 ```bash
-$ tar xf Cluster-image.tar
+$ tar xf cluster-image.tar
 $ ls -lh
 total 64M
 -rw-r--r--. 1 user user 1.1K Jan 14 09:08 README
