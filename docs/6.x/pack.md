@@ -53,7 +53,7 @@ After an Image Manifest is created, execute the `tele build` command to build
 a Cluster Image.
 
 ```bsh
-tele build [options] [Cluster-manifest.yaml]
+tele build [options] [cluster-manifest.yaml]
 
 Options:
   -o           The name of the produced tarball, for example "-o cluster-image.tar".
@@ -109,7 +109,7 @@ Now you should have `tele-buildbox` container on the build machine. Next, do the
 * Use host networking.
 * Expose the Docker socket into the container to allow `tele` to pull container
   images referenced in the Image Manifest.
-* Expose the working directory with the Image Manifest to the container as `/mnt/Cluster`
+* Expose the working directory with the Image Manifest to the container as `/mnt/cluster`
 
 The command below assumes that `build.sh` is located in the same working directory as the application:
 

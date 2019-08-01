@@ -120,7 +120,7 @@ Flag               | Description
 `--service-gid`      | _(Optional)_ Service group ID (numeric). See [Service User](pack/#service-user) for details. A group named `planet` is created automatically if unspecified.
 `--dns-zone`         | _(Optional)_ Specify an upstream server for the given DNS zone within the Cluster. Accepts `<zone>/<nameserver>` format where `<nameserver>` can be either `<ip>` or `<ip>:<port>`. Can be specified multiple times.
 `--vxlan-port`       | _(Optional)_ Specify custom overlay network port. Default is `8472`.
-`--exclude-from-Cluster` | _(Optional)_ Excludes this node from the Cluster, i.e. allows to bootstrap the Cluster from a developer's laptop, for example. In this case the Kubernetes master will be chosen randomly.
+`--remote` | _(Optional)_ Excludes this node from the Cluster, i.e. allows to bootstrap the Cluster from a developer's laptop, for example. In this case the Kubernetes master will be chosen randomly.
 
 The `gravity join` command accepts the following arguments:
 

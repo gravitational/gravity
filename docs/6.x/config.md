@@ -14,14 +14,14 @@ Resource Name             | Resource Description
 `user`                    | Cluster user
 `token`                   | user tokens such as API keys
 `logforwarder`            | forwarding logs to a remote rsyslog server
-`trusted_Cluster`         | managing access to remote Gravity Hubs (Enterprise Only)
+`trusted_cluster`         | managing access to remote Gravity Hubs (Enterprise Only)
 `endpoints`               | Gravity Hub endpoints for user and Cluster traffic (Enterprise Only)
-`Cluster_auth_preference` | Cluster authentication settings such as second-factor
+`cluster_auth_preference` | Cluster authentication settings such as second-factor
 `alert`                   | Cluster monitoring alert
 `alerttarget`             | Cluster monitoring alert target
 `smtp`                    | Cluster monitoring SMTP configuration
 `runtimeenvironment`      | Cluster runtime environment variables
-`Clusterconfiguration`    | General Cluster configuration
+`clusterconfiguration`    | General Cluster configuration
 `authgateway`             | authentication gateway configuration
 
 
@@ -56,7 +56,7 @@ spec:
       APIResponseCompression: false
       BoundServiceAccountTokenVolume: false
       ExperimentalHostUserNamespaceDefaulting: true
-  # kubelet configuration as described here: https://kubernetes.io/docs/tasks/administer-Cluster/kubelet-config-file/
+  # kubelet configuration as described here: https://kubernetes.io/docs/tasks/administer-cluster/kubelet-config-file/
   # and here: https://github.com/kubernetes/kubelet/blob/release-1.13/config/v1beta1/types.go#L62
   kubelet:
     config:
@@ -700,11 +700,12 @@ on how to configure monitoring and alerts.
 
 ### Runtime Environment Variables
 
-In a Gravity Cluster, each node is running a runtime container that hosts Kubernetes.
-All services (including Kubernetes native services like API server or kubelet) 
-execute within the predefined environment (set up during installation or update).
-The `RuntimeEnvironment` allows you to make changes to the runtime environment, 
-i.e. introduce new environment variables like `HTTP_PROXY`.
+In a Gravity Cluster, each node is running a Master Container (called "Planet") 
+that hosts Kubernetes. All services (including Kubernetes native services like 
+API server or kubelet) execute within the predefined environment (set up 
+during installation or update). The `RuntimeEnvironment` allows you to make 
+changes to the runtime environment, i.e. introduce new environment variables 
+like `HTTP_PROXY`.
 
 To add a new environment variable, `HTTP_PROXY`, create a file with following 
 contents:
@@ -787,7 +788,7 @@ a Gravity Hub. It brings the following advantages:
 To configure a Trusted Cluster create the following resource:
 
 ```yaml
-kind: trusted_Cluster
+kind: TrustedCluster
 version: v2
 metadata:
   name: hub.example.com

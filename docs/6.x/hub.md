@@ -114,7 +114,7 @@ currently not supported.
 #### Configuring endpoints
 
 By default, Gravity Hub is configured with a single endpoint set via
-`--ops-advertise-addr` flag during the installation. This means that all
+`--hub-advertise-addr` flag during the installation. This means that all
 Gravity Hub clients will use this address to connect to it.
 
 But Gravity Hub can also be configured to advertise different addresses to
@@ -231,7 +231,7 @@ gravity-agents   LoadBalancer   10.100.91.204   <pending>     4443:30873/TCP,302
 
 This section assumes that you have downloaded the newer version of Gravity Hub
 Cluster Image called `new-hub.tar`. Log into a root terminal on one of the servers 
-running Graivty Hub cluster and extract the tarball there:
+running Gravity Hub and extract the tarball there:
 
 ```bsh
 $ tar xvf new-hub.tar
@@ -311,7 +311,7 @@ solution for both SSH and Kubernetes and it comes bundled with Gravity.
 To see the list of Gravity Clusters available:
 
 ```bsh
-$ tsh Clusters
+$ tsh clusters
 Name                          Status     Cloud Provider     Region
 ----                          ------     --------------     ------
 east                          active     aws                us-east
@@ -326,9 +326,9 @@ $ tsh login west
 
 This command will automatically update your local `kubeconfig` file with
 Kubernetes credentials, and `kubectl` command will automatically connect
-to the cluster you've selected.
+to the Cluster you've selected.
 
-To see which cluster is current, execute `tsh status` command.
+To see which Cluster is current, execute `tsh status` command.
 
 Gravity Hub administrators can limit access to Clusters using `where`
 expressions in roles and user traits fetched from identity providers.

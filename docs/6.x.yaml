@@ -31,7 +31,7 @@ pages:
     - Cluster Configuration: config.md
     - Cluster Management: cluster.md
     - Cluster Monitoring: monitoring.md
-    - Cluster Access (Teleport): access.md
+    - Cluster Access: access.md
     - Gravity Hub (Enterprise): hub.md
     - hidden: catalog.md
     - CLI Reference: cli.md

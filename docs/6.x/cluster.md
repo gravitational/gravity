@@ -29,7 +29,7 @@ However, Gravity pre-configures Kubernetes to be as reliable as possible,
 greatly reducing the need for ongoing active management. To make this possible,
 the `gravity` hypervisor launches and manages all Kubernetes Linux daemons.
 
-When the `gravity` daemon starts, it creates it's own "Master Container". The 
+When the `gravity` daemon starts, it creates its own "Master Container". The 
 Master Container itself is a containerized `systemd` instance. It launches the required Kubernetes daemons and contains their dependencies as well as monitoring and support tools. 
 
 Running Kubernetes services from inside the Master Container brings several
@@ -115,7 +115,7 @@ Here's an example of how to remotely log in to a Cluster via `tsh` and check the
 status of the Cluster named "production":
 
 ```bsh
-$ tsh --Cluster=production ssh admin@node gravity status
+$ tsh --cluster=production ssh admin@node gravity status
 ```
 
 ### Cluster Health Endpoint
@@ -265,7 +265,13 @@ which is installed and configured on every Cluster node. See the command's [over
 do, or simply use `kubectl --help`.
 
 Each Gravity Cluster also has a Cluster Control Panel web application to explore and 
-manage the Cluster. To log into the Cluster Control Panel you need to create an admin user. Please see the [Custom Installer Screens](/pack/#/pack/#custom-installation-screen) chapter for details on how to enable a post-install screen that will let you create a local user.
+manage the Cluster. To log into the Cluster Control Panel you need to create an admin user. 
+Please see the [Custom Installer Screens](/pack/#/pack/#custom-installation-screen) 
+chapter for details on how to enable a post-install screen that will let you create a local user.
+
+If you are doing a CLI installation you will need to create a user resource in
+order to log into the Cluster Control Panel. See the 
+[Configuring Cluster Access section](/config/#cluster-access) for more information.
 
 ## Updating a Cluster
 
@@ -381,7 +387,7 @@ updating app from 0.0.1-alpha.1 to 0.0.1-alpha.2
 Deploying agents on nodes
 The operation has been created in manual mode.
 
-See https://gravitational.com/gravity/docs/Cluster/#managing-an-ongoing-operation for details on working with operation plan.
+See https://gravitational.com/gravity/docs/cluster/#managing-an-ongoing-operation for details on working with operation plan.
 ```
 
 Please refer to the [Managing Operations](/cluster/#managing-operations) section about
@@ -840,7 +846,7 @@ Wait until the operation completes by polling the status:
 
 ```bsh
 gravity status
-Cluster:	adoringyalow5948, created at Tue May  2 16:21 UTC (2 hours ago)
+cluster:	adoringyalow5948, created at Tue May  2 16:21 UTC (2 hours ago)
     node-2 (1.2.3.5), Tue May  2 16:26 UTC
     node-3 (1.2.3.6), Tue May  2 16:29 UTC
 Application:		telekube, version 3.35.5
@@ -864,7 +870,7 @@ Make sure that operation is completed by executing `gravity status`:
 
 ```bsh
 [vagrant@node-3 ~]$ gravity status
-Cluster:	adoringyalow5948, created at Tue May  2 16:21 UTC (2 hours ago)
+cluster:	adoringyalow5948, created at Tue May  2 16:21 UTC (2 hours ago)
     node-2 (1.2.3.5), Tue May  2 16:26 UTC
     node-3 (1.2.3.6), Tue May  2 16:29 UTC
     node-4 (1.2.3.7), Tue May  2 18:30 UTC
@@ -969,7 +975,7 @@ root$ gravity restore <data.tar.gz>
 
 ## Garbage Collection
 
-Clusters can accumulate resources that it no longer has use for, like Gravity
+A Cluster can accumulate resources that it no longer has use for, like Gravity
 packages or docker images from previous versions of the application. These 
 resources unnecessarily waste disk space and are usually difficult to get rid 
 of manually.
@@ -1229,7 +1235,7 @@ the new group or the new `psp-volume-account` service account.
 
 By default Gravity:
 
-  * connects default service accounts (in `default` and `kube-system` namespaces) to the built-in `Cluster-admin` role
+  * connects default service accounts (in `default` and `kube-system` namespaces) to the built-in `cluster-admin` role
   * creates `admin`/`edit`/`view` Gravity specific groups (bound to respective built-in Cluster roles)
 
 See the Kubernetes [RBAC] documentation for more information.
@@ -1237,7 +1243,7 @@ See the Kubernetes [RBAC] documentation for more information.
 
 ## Eviction Policies
 
-Kubernetes includes support for evicting pods in order to maintain node stability, which is documented [here](https://kubernetes.io/docs/tasks/administer-Cluster/out-of-resource/).
+Kubernetes includes support for evicting pods in order to maintain node stability, which is documented [here](https://kubernetes.io/docs/tasks/administer-cluster/out-of-resource/).
 
 Gravity uses the following eviction policies by default:
 
@@ -1331,7 +1337,7 @@ If none of the labels above are set, Gravity will automatically assign node role
 
 ### Hairpin NAT
 
-For services that load-balanace to themselves, hairpin NAT needs to be configured through a dedicated configuration parameter for kubelet in the Image Manifest:
+For services that load-balance to themselves, hairpin NAT needs to be configured through a dedicated configuration parameter for kubelet in the Image Manifest:
 
 ```yaml
 systemOptions:
@@ -1403,7 +1409,7 @@ $ gravity report --help
 
 usage: gravity report [<flags>]
 
-get Cluster diagnostics report
+get cluster diagnostics report
 
 Flags:
   --help       Show help (also see --help-long and --help-man).

@@ -4,14 +4,14 @@ Gravity features the following CLI commands:
 
 | Component   | Description
 |-------------|---------------------------------------------------------------------------------------------------------------------------------------------------------|
-| `tele`      | The build tool. `tele` is used for building Cluster images. The enterprise edition of `tele` also publishes Cluster images them into the Gravity Hub.  |
+| `tele`      | The build tool. `tele` is used for building Cluster images. The enterprise edition of `tele` also publishes Cluster Images them into the Gravity Hub.  |
 | `tsh`       | Used for remotely connecting to Gravity/Kubernetes Clusters via SSH or Kubernetes API.   |
 | `gravity`   | The Cluster manager which runs on every Cluster node. It abstracts away complexities of Kubernetes management. `gravity` is also a CLI tool to perform Cluster expansion, upgrades, etc.  |
 
 The typical Gravity workflow is as follows:
 
-* Start by building a Cluster image with `tele` command.
-* Distribute a Cluster image to a target environment.
+* Start by building a Cluster Image with `tele` command.
+* Distribute a Cluster Image to a target environment.
 * Create a new Gravity/Kubernetes Cluster using the built-in Cluster installer.
 * Manage the Cluster from by using `gravity` command on Cluster nodes and/or
   using Kubernetes tools like `kubectl`.
@@ -20,9 +20,9 @@ The typical Gravity workflow is as follows:
 
 `tele` is the Gravity CLI client and can run on macOS and Linux. With `tele` you can:
 
-* Package Kubernetes Clusters into self-installing Cluster images.
-* Publish Cluster images into the Gravity Hub. (Enterprise version only)
-* Download Cluster images from the Gravity Hub. (Enterprise version only)
+* Package Kubernetes Clusters into self-installing Cluster Images.
+* Publish Cluster Images into the Gravity Hub. (Enterprise version only)
+* Download Cluster Images from the Gravity Hub. (Enterprise version only)
 
 You can think of `tele` as "docker for Clusters". Just as `docker` can
 build, push and pull containers, `tele` does the same with entire Clusters. See

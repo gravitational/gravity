@@ -109,8 +109,8 @@ These ports are used for Cluster operation and should be open between cluster no
 | 3022-3025               | SSH                                     | Teleport internal SSH control panel       |
 | 3080                    | HTTPS                                   | Teleport Web  UI                          |
 | 3008-3012               | HTTPS                                   | Internal Gravity services                 |
-| 32009                   | HTTPS                                   | Gravity Cluster/OpsCenter Control panel UI  |
-| 3012                    | HTTPS                                   | Gravity RPC  agent                        |
+| 32009                   | HTTPS                                   | Gravity Cluster & Hub Control Panel UI  |
+| 3012                    | HTTPS                                   | Gravity RPC agent                        |
 
 !!! note "Custom vxlan port":
     If the default overlay network port (`8472`) was changed by supplying
