@@ -89,7 +89,7 @@ Gravity consists of the following components:
 |-------------|---------------------------------------------------------------------------------------------------------------------------------------------------------|
 | `tele`      | The build tool. `tele` is used for building Cluster Images. The enterprise edition of `tele` can also publish Cluster Images into Gravity Hub.  |
 | `tsh`       | The remote access client to authenticate against a SAML/OAuth identity provider and remotely connect to Kubernetes clusters via SSH or Kubernetes API.   |
-| `gravity`(agent) | The Cluster manager agent which runs on every  node. It reduces the complexities of Kubernetes management.
+| `gravity`(agent) | The Cluster manager agent which runs on every node. It reduces the complexities of Kubernetes management.
 | `gravity`(CLI)| The CLI tool to perform high level Cluster administration tasks like expansion, upgrades, etc.  |
 | Control Panel | A web application available for the monitoring and management of individual Clusters. |
 | Gravity Hub | Gravity Hub is a web portal and repository for publishing Cluster Images and monitoring and remotely accessing multiple Clusters. Think of Gravity Hub as a catalog of Kubernetes clusters and Kubernetes applications. Gravity Hub is only available in the Gravity Enterprise edition. |

@@ -10,7 +10,7 @@ Gravity features the following CLI commands:
 
 The typical Gravity workflow is as follows:
 
-* Start by building a Cluster images with `tele` command.
+* Start by building a Cluster image with `tele` command.
 * Distribute a Cluster image to a target environment.
 * Create a new Gravity/Kubernetes Cluster using the built-in Cluster installer.
 * Manage the Cluster from by using `gravity` command on Cluster nodes and/or

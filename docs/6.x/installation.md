@@ -35,7 +35,7 @@ to be met:
 * The hosts should be able to connect to each other, i.e. on the same
   private network.
 * You need the ability to create DNS entries for public access points.
-* You need to be able to obtain a valid SSL/TLS certificates for HTTPS.
+* You need to be able to obtain valid SSL/TLS certificates for HTTPS.
 
 ## CLI Installation
 
@@ -108,7 +108,7 @@ Flag               | Description
 `--token`          | Secure token which prevents rogue nodes from joining the Cluster during installation. Carefully pick a hard-to-guess value.
 `--advertise-addr` | The IP address this node should be visible as. **This setting is mandatory** to correctly configure Kubernetes on every node.
 `--role`           | _(Optional)_ Application role of the node.
-`--Cluster`        | _(Optional)_ Name of the Cluster. Auto-generated if not set.
+`--cluster`        | _(Optional)_ Name of the Cluster. Auto-generated if not set.
 `--cloud-provider` | _(Optional)_ Enable cloud provider integration: `generic` (no cloud provider integration), `aws` or `gce`. Autodetected if not set.
 `--flavor`         | _(Optional)_ Application flavor. See [Image Manifest](pack/#image-manifest) for details.
 `--config`         | _(Optional)_ File with Kubernetes/Gravity resources to create in the Cluster during installation.
