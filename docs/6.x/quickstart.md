@@ -52,8 +52,8 @@ everything works:
 ```
 $ tele version
 Edition:	  open-source
-Version:	  6.0.0
-Git Commit:	  62a5e1665ac63c74c42b7b2238731b74bf633cd9
+Version:	  6.0.1
+Git Commit:	  605cbcfe56eb020ce3a3dc7a22c0fc27e10987c5
 Helm Version: v2.12
 ```
 
