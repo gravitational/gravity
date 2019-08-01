@@ -6,6 +6,10 @@ This system consists of the following components: Heapster, InfluxDB, Grafana an
 These components are automatically included into a cluster image built with `tele build` as a
 system dependency (see the [source](https://github.com/gravitational/monitoring-app) on GitHub).
 
+**Example Monitoring Dashboard as part of xxx**
+![Set Capacity](/images/gravity-quickstart/gravity-monitoring.png)
+
+
 ### Heapster
 
 Heapster monitors Kubernetes components and reports statistics and information to InfluxDB about nodes

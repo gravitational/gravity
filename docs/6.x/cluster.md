@@ -7,7 +7,7 @@ Kubernetes environment. It contains the following components:
 2. All Kubernetes daemons like `kube-scheduler`, `kube-apiserver`, and others. 
 3. The Kubernetes CLI tool: `kubectl`.
 4. The Gravity Cluster "hypervisor", called `gravity`, for managing the Cluster.
-5. A web application to monitor and manage the Cluster state ("Cluster Control
+5. A web application to monitor and manage the Cluster state ("Control
 Panel")
 6. The Gravity Authentication Gateway for integrating Kubernetes authentication 
    and SSH access to Cluster nodes with corporate identity providers via SSO.
@@ -15,6 +15,9 @@ Panel")
 You can also use familiar Kubernetes tools such as `kubectl` to perform regular
 Cluster tasks such as watching logs, seeing stats for pods or volumes or
 managing configurations.
+
+**Example Control Panel**
+![Control Panel](/images/gravity-quickstart/gravity-mattermost-dashboard.png)
 
 ## Kubernetes Environment
 
@@ -765,6 +768,10 @@ are not satisfied.
 
 As an example, Gravity can check to make sure nodes with a "database" role have 
 storage attached to them. 
+
+**Adding a node via the Control Panel**
+![Control Panel](/images/gravity-quickstart/gravity-adding-a-node.png)
+
 
 ## Removing a Node
 

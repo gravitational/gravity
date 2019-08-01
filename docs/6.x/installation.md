@@ -156,6 +156,9 @@ running the wizard must have its port `61009` accessible by other servers.
 The installation wizard is launched by typing `./install` script and will guide
 the end user through the installation process.
 
+![Name of Cluster](/images/gravity-quickstart/cluster-name.png)
+![Set Capacity](/images/gravity-quickstart/setting-capacity.png)
+
 ### Troubleshooting Installs
 
 The installation process is implemented as a state machine split into multiple steps (phases).

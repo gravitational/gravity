@@ -13,6 +13,7 @@ RUN groupadd jenkins --gid=$GID -o && useradd jenkins --uid=$UID --gid=$GID --cr
 RUN (mkdir -p /var/lib/teleport && chown -R jenkins /var/lib/teleport)
 
 # Install SASS
+RUN  apt-get update
 RUN  apt-get install -q -y ruby-sass
 
 ENV LANGUAGE="en_US.UTF-8" \
