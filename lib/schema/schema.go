@@ -558,6 +558,22 @@ const manifestSchema = `
           }
         },
         "systemOptions": {"$ref": "#/definitions/systemOptions"},
+        "systemUpdate": {
+          "type": "object",
+          "properties": {
+            "runtimes": {
+              "type": "array",
+              "items": {
+                "type": "object",
+                "additionalProperties": false,
+                "properties": {
+                  "version": {"type": "string"},
+                  "dependencies": {"$ref": "#/definitions/dependencies"}
+                }
+              }
+            }
+          }
+        },
         "extensions": {
           "type": "object",
           "additionalProperties": false,
@@ -704,6 +720,20 @@ const manifestSchema = `
       "additionalProperties": false,
       "properties": {
         "disabled": {"type": "boolean"}
+      }
+    },
+    "dependencies": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "packages": {
+          "type": "array",
+          "items": {"type": "string"}
+        },
+        "apps": {
+          "type": "array",
+          "items": {"type": "string"}
+        }
       }
     }
   }

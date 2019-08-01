@@ -44,21 +44,24 @@ type BuildParameters struct {
 	Silent bool
 	// Insecure turns on insecure verify mode
 	Insecure bool
+	// IntermediateRuntimes lists intermediate runtime versions to embed
+	IntermediateRuntimes []string
 }
 
 // build builds an installer tarball according to the provided parameters
 func build(ctx context.Context, params BuildParameters, req service.VendorRequest) (err error) {
 	installerBuilder, err := builder.New(builder.Config{
-		Context:          ctx,
-		StateDir:         params.StateDir,
-		Insecure:         params.Insecure,
-		ManifestPath:     params.ManifestPath,
-		OutPath:          params.OutPath,
-		Overwrite:        params.Overwrite,
-		Repository:       params.Repository,
-		SkipVersionCheck: params.SkipVersionCheck,
-		VendorReq:        req,
-		Progress:         utils.NewProgress(ctx, "Build", 6, params.Silent),
+		Context:              ctx,
+		StateDir:             params.StateDir,
+		Insecure:             params.Insecure,
+		ManifestPath:         params.ManifestPath,
+		OutPath:              params.OutPath,
+		Overwrite:            params.Overwrite,
+		Repository:           params.Repository,
+		SkipVersionCheck:     params.SkipVersionCheck,
+		VendorReq:            req,
+		Progress:             utils.NewProgress(ctx, "Build", 6, params.Silent),
+		IntermediateRuntimes: params.IntermediateRuntimes,
 	})
 	if err != nil {
 		return trace.Wrap(err)

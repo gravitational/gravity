@@ -247,6 +247,10 @@ ignored = [
   name = "github.com/hashicorp/terraform"
   version = "=v0.11.7"
 
+[[constraint]]
+  name = "gopkg.in/check.v1"
+  revision = "788fd78401277ebd861206a03c884797c6ec5541"
+
 [[override]]
   name = "github.com/ugorji/go"
   version = "=v1.1.1"

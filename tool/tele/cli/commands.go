@@ -77,6 +77,10 @@ type BuildCmd struct {
 	SkipVersionCheck *bool
 	// Parallel defines the number of tasks to execute concurrently
 	Parallel *int
+	// UpgradeVia specifies the list of intermediate runtime versions to build
+	// an installer with support for going from version x to version z when
+	// the direct upgrades won't work
+	UpgradeVia *[]string
 	// Quiet allows to suppress console output
 	Quiet *bool
 }

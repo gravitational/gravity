@@ -24,7 +24,6 @@ import (
 	"github.com/gravitational/gravity/tool/tele/cli"
 
 	teleutils "github.com/gravitational/teleport/lib/utils"
-	"github.com/gravitational/trace"
 	log "github.com/sirupsen/logrus"
 	"gopkg.in/alecthomas/kingpin.v2"
 )
@@ -34,7 +33,7 @@ func main() {
 	stdlog.SetOutput(log.StandardLogger().Writer())
 	app := kingpin.New("tele", "Gravity tool for building and publishing application bundles")
 	if err := run(app); err != nil {
-		log.Error(trace.DebugReport(err))
+		log.WithError(err).Warn("Command failed.")
 		common.PrintError(err)
 		os.Exit(255)
 	}

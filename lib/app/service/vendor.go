@@ -132,6 +132,8 @@ type VendorRequest struct {
 	// ProgressReporter is a special writer, if set, vendorer will output user-friendly
 	// information during vendoring
 	ProgressReporter utils.Progress
+	// IntermediateRuntimes lists optional intermediate runtimes for the update
+	IntermediateRuntimes []schema.IntermediateRuntime
 }
 
 // vendorer is a helper struct that encapsulates all services needed to vendor/rewrite images in
@@ -240,6 +242,9 @@ func (v *vendorer) VendorDir(ctx context.Context, unpackedDir string, req Vendor
 	}
 	if req.VendorRuntime {
 		manifestRewrites = append(manifestRewrites, fetchRuntimeImages(&runtimeImages))
+	}
+	if len(req.IntermediateRuntimes) != 0 {
+		manifestRewrites = append(manifestRewrites, updateIntermediateRuntimes(req.IntermediateRuntimes))
 	}
 
 	err = resourceFiles.RewriteManifest(manifestRewrites...)
@@ -570,6 +575,13 @@ func makeRewriteWormholeJobFunc() resources.ManifestRewriteFunc {
 				return trace.Wrap(err)
 			}
 		}
+		return nil
+	}
+}
+
+func updateIntermediateRuntimes(runtimes []schema.IntermediateRuntime) resources.ManifestRewriteFunc {
+	return func(m *schema.Manifest) error {
+		m.SetIntermediateRuntimes(runtimes)
 		return nil
 	}
 }

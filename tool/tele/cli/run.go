@@ -51,14 +51,15 @@ func Run(tele Application) error {
 		return printVersion(*tele.VersionCmd.Output)
 	case tele.BuildCmd.FullCommand():
 		return build(context.Background(), BuildParameters{
-			StateDir:         *tele.StateDir,
-			ManifestPath:     *tele.BuildCmd.ManifestPath,
-			OutPath:          *tele.BuildCmd.OutFile,
-			Overwrite:        *tele.BuildCmd.Overwrite,
-			Repository:       *tele.BuildCmd.Repository,
-			SkipVersionCheck: *tele.BuildCmd.SkipVersionCheck,
-			Silent:           *tele.BuildCmd.Quiet,
-			Insecure:         *tele.Insecure,
+			StateDir:             *tele.StateDir,
+			ManifestPath:         *tele.BuildCmd.ManifestPath,
+			OutPath:              *tele.BuildCmd.OutFile,
+			Overwrite:            *tele.BuildCmd.Overwrite,
+			Repository:           *tele.BuildCmd.Repository,
+			SkipVersionCheck:     *tele.BuildCmd.SkipVersionCheck,
+			Silent:               *tele.BuildCmd.Quiet,
+			Insecure:             *tele.Insecure,
+			IntermediateRuntimes: *tele.BuildCmd.UpgradeVia,
 		}, service.VendorRequest{
 			PackageName:            *tele.BuildCmd.Name,
 			PackageVersion:         *tele.BuildCmd.Version,

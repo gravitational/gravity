@@ -69,6 +69,8 @@ type Manifest struct {
 	Hooks *Hooks `json:"hooks,omitempty"`
 	// SystemOptions contains various global settings
 	SystemOptions *SystemOptions `json:"systemOptions,omitempty"`
+	// SystemUpdate defines optional metadata for cluster update
+	SystemUpdate *SystemUpdate `json:"systemUpdate,omitempty"`
 	// Extensions allows to enable/disable various custom features
 	Extensions *Extensions `json:"extensions,omitempty"`
 	// WebConfig allows to specify config.js used by UI to customize installer
@@ -162,6 +164,13 @@ func (m *Manifest) SetBase(locator loc.Locator) {
 	if m.BaseImage != nil {
 		m.BaseImage.Locator = locator
 	}
+}
+
+// WithBase returns a copy of this manifest with the specified base application
+func (m *Manifest) WithBase(locator loc.Locator) Manifest {
+	result := *m
+	result.SetBase(locator)
+	return result
 }
 
 // FindFlavor returns a flavor by the provided name
@@ -451,9 +460,19 @@ func (d Dependencies) ByName(names ...string) (*loc.Locator, error) {
 	return nil, trace.NotFound("dependencies %q are not defined in the manifest", names)
 }
 
+// Has returns true if dependencies have the specified package
+func (d Dependencies) Has(loc loc.Locator) (*loc.Locator, error) {
+	for _, dep := range append(d.Packages, d.Apps...) {
+		if dep.Locator.IsEqualTo(loc) {
+			return &dep.Locator, nil
+		}
+	}
+	return nil, trace.NotFound("dependency %v is not defined in the manifest", loc)
+}
+
 // GetPackages returns a list of all package dependencies
 func (d Dependencies) GetPackages() []loc.Locator {
-	packages := make([]loc.Locator, 0, len(d.Apps))
+	packages := make([]loc.Locator, 0, len(d.Packages)+1)
 	for _, dep := range d.Packages {
 		packages = append(packages, dep.Locator)
 	}
@@ -961,6 +980,14 @@ func (r *SystemOptions) RuntimeArgs() []string {
 	return r.Args
 }
 
+// SetIntermediateRuntimes defines the intermediate runtimes for the manifest
+func (m *Manifest) SetIntermediateRuntimes(runtimes []IntermediateRuntime) {
+	if m.SystemUpdate == nil {
+		m.SystemUpdate = &SystemUpdate{}
+	}
+	m.SystemUpdate.Runtimes = runtimes
+}
+
 // SystemOptions defines various global settings
 type SystemOptions struct {
 	// ExternalService specifies additional configuration for the runtime package
@@ -1021,6 +1048,24 @@ func (r *Runtime) UnmarshalJSON(data []byte) error {
 type SystemDependencies struct {
 	// Runtime describes the runtime package
 	Runtime *Dependency `json:"runtimePackage,omitempty"`
+}
+
+// SystemUpdate defines optional metadata for update
+type SystemUpdate struct {
+	// Runtimes lists optional intermediate runtime package
+	// dependencies
+	Runtimes []IntermediateRuntime `json:"runtimes,omitempty"`
+}
+
+// IntermediateRuntime describes an intermediate runtime application dependency.
+// The intermediate runtime contains the metadata to successfully build an upgrade step
+// using the given runtime application (namely, the kubernetes runtime it embeds) as a
+// bridge when hopping over multiple Kubernetes versions
+type IntermediateRuntime struct {
+	// Version specifies the runtime application package version
+	Version string `json:"version"`
+	// Dependencies lists runtime application dependencies required for the update
+	Dependencies Dependencies `json:"dependencies"`
 }
 
 // Docker describes docker options

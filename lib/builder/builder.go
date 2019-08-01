@@ -27,7 +27,7 @@ import (
 	"runtime"
 	"time"
 
-	"github.com/gravitational/gravity/lib/app"
+	libapp "github.com/gravitational/gravity/lib/app"
 	"github.com/gravitational/gravity/lib/app/service"
 	blobfs "github.com/gravitational/gravity/lib/blob/fs"
 	"github.com/gravitational/gravity/lib/constants"
@@ -87,6 +87,8 @@ type Config struct {
 	utils.Progress
 	// Silent suppresses all std output when set to true
 	Silent bool
+	// IntermediateRuntimes lists intermediate runtime versions to embed
+	IntermediateRuntimes []string
 }
 
 // CheckAndSetDefaults validates builder config and fills in defaults
@@ -128,6 +130,7 @@ func (c *Config) CheckAndSetDefaults() error {
 		c.FieldLogger = logrus.WithField(trace.Component, "builder")
 	}
 	if c.Progress == nil {
+		// FIXME: 6
 		c.Progress = utils.NewProgress(c.Context, "Build", 6, false)
 	}
 	return nil
@@ -145,20 +148,7 @@ func New(config Config) (*Builder, error) {
 	}
 	var manifest *schema.Manifest
 	if fi.IsDir() {
-		// If this is a Helm chart directory, extract the chart metadata
-		// and generate a basic application manifest.
-		fi, err := os.Stat(filepath.Join(config.ManifestPath, constants.HelmChartFile))
-		if err != nil || fi.IsDir() {
-			if err != nil {
-				logrus.Warn(err)
-			}
-			return nil, trace.BadParameter("not a chart directory")
-		}
-		chart, err := chartutil.Load(config.ManifestPath)
-		if err != nil {
-			return nil, trace.Wrap(err)
-		}
-		manifest, err = generateManifest(chart)
+		manifest, err = generateManifestFromChart(config.ManifestPath)
 		if err != nil {
 			return nil, trace.Wrap(err)
 		}
@@ -169,14 +159,19 @@ func New(config Config) (*Builder, error) {
 		}
 		manifest, err = schema.ParseManifestYAMLNoValidate(manifestBytes)
 		if err != nil {
-			logrus.Errorf(trace.DebugReport(err))
+			logrus.WithError(err).Warn("Failed to parse the application manifest.")
 			return nil, trace.BadParameter("could not parse the application manifest:\n%v",
 				trace.Unwrap(err)) // show original parsing error
 		}
 	}
+	runtimeVersions, err := parseVersions(config.IntermediateRuntimes)
+	if err != nil {
+		return nil, trace.Wrap(err)
+	}
 	b := &Builder{
-		Config:   config,
-		Manifest: *manifest,
+		Config:               config,
+		Manifest:             *manifest,
+		IntermediateRuntimes: runtimeVersions,
 	}
 	err = b.initServices()
 	if err != nil {
@@ -203,7 +198,9 @@ type Builder struct {
 	// as a 'read-write' layer
 	Packages pack.PackageService
 	// Apps is the application service based on the layered package service
-	Apps app.Applications
+	Apps libapp.Applications
+	// IntermediateRuntimes lists intermediate runtime versions to embed
+	IntermediateRuntimes []semver.Version
 }
 
 // Locator returns locator of the application that's being built
@@ -250,18 +247,40 @@ func (b *Builder) SelectRuntime() (*semver.Version, error) {
 }
 
 // SyncPackageCache ensures that all system dependencies are present in
-// the local cache directory
-func (b *Builder) SyncPackageCache(runtimeVersion *semver.Version) error {
+// the local cache directory for the specified list of runtime versions
+func (b *Builder) SyncPackageCache(runtimeVersion semver.Version, intermediateVersions ...semver.Version) error {
 	apps, err := b.Env.AppServiceLocal(localenv.AppConfig{})
 	if err != nil {
 		return trace.Wrap(err)
 	}
+	syncer, err := b.NewSyncer(b)
+	if err != nil {
+		return trace.Wrap(err)
+	}
+	// FIXME: need to additionally extract and package the dependencies
+	// for each intermediate runtime version. These will likely go into
+	// the manifest so they can be queried when building the update operation
+	// plan
+	for _, runtimeVersion := range append([]semver.Version{runtimeVersion}, intermediateVersions...) {
+		b.NextStep("Syncing packages for %v", runtimeVersion)
+		if err := b.syncPackageCache(runtimeVersion, syncer, apps); err != nil {
+			if trace.IsNotFound(err) {
+				// base image version %v not found
+				return trace.NotFound("runtime version %v not found", runtimeVersion)
+			}
+			return trace.Wrap(err)
+		}
+	}
+	return nil
+}
+
+func (b *Builder) syncPackageCache(runtimeVersion semver.Version, syncer Syncer, apps libapp.Applications) error {
 	// see if all required packages/apps are already present in the local cache
-	b.Manifest.SetBase(loc.Runtime.WithVersion(runtimeVersion))
-	err = app.VerifyDependencies(&app.Application{
-		Manifest: b.Manifest,
+	app := &libapp.Application{
+		Manifest: b.Manifest.WithBase(loc.Runtime.WithVersion(&runtimeVersion)),
 		Package:  b.Manifest.Locator(),
-	}, apps, b.Env.Packages)
+	}
+	err := libapp.VerifyDependencies(app, apps, b.Env.Packages)
 	if err != nil && !trace.IsNotFound(err) {
 		return trace.Wrap(err)
 	}
@@ -276,10 +295,6 @@ func (b *Builder) SyncPackageCache(runtimeVersion *semver.Version) error {
 	}
 	b.Infof("Synchronizing package cache with %v.", repository)
 	b.NextStep("Downloading dependencies from %v", repository)
-	syncer, err := b.NewSyncer(b)
-	if err != nil {
-		return trace.Wrap(err)
-	}
 	return syncer.Sync(b, runtimeVersion)
 }
 
@@ -304,6 +319,11 @@ func (b *Builder) Vendor(ctx context.Context, dir string) (io.ReadCloser, error)
 			return nil, trace.Wrap(err)
 		}
 	}
+	intermediateRuntimes, err := b.collectIntermediateRuntimeDependencies()
+	if err != nil {
+		return nil, trace.Wrap(err)
+	}
+	b.WithField("intermediate-runtimes", intermediateRuntimes).Info("Collected intermediate runtime dependencies.")
 	vendorer, err := service.NewVendorer(service.VendorerConfig{
 		DockerURL:   constants.DockerEngineURL,
 		RegistryURL: constants.DockerRegistry,
@@ -315,6 +335,7 @@ func (b *Builder) Vendor(ctx context.Context, dir string) (io.ReadCloser, error)
 	vendorReq := b.VendorReq
 	vendorReq.ManifestPath = manifestPath
 	vendorReq.ProgressReporter = b.Progress
+	vendorReq.IntermediateRuntimes = intermediateRuntimes
 	err = vendorer.VendorDir(ctx, dir, vendorReq)
 	if err != nil {
 		return nil, trace.Wrap(err)
@@ -322,16 +343,54 @@ func (b *Builder) Vendor(ctx context.Context, dir string) (io.ReadCloser, error)
 	return archive.Tar(dir, archive.Uncompressed)
 }
 
+func (b *Builder) collectIntermediateRuntimeDependencies() (result []schema.IntermediateRuntime, err error) {
+	apps, err := b.Env.AppServiceLocal(localenv.AppConfig{})
+	if err != nil {
+		return nil, trace.Wrap(err)
+	}
+	result = make([]schema.IntermediateRuntime, 0, len(b.IntermediateRuntimes))
+	for _, version := range b.IntermediateRuntimes {
+		app := &libapp.Application{
+			Manifest: b.Manifest.WithBase(loc.Runtime.WithVersion(&version)),
+			Package:  b.Manifest.Locator(),
+		}
+		dependencies, err := libapp.GetDependencies(app, apps)
+		if err != nil {
+			return nil, trace.Wrap(err)
+		}
+		result = append(result, collectIntermediateRuntimeDependencies(*dependencies, version))
+	}
+	return result, nil
+}
+
+func collectIntermediateRuntimeDependencies(dependencies libapp.Dependencies, runtimeVersion semver.Version) schema.IntermediateRuntime {
+	packages := make([]schema.Dependency, 0, len(dependencies.Packages))
+	for _, dep := range filterIntermediatePackageDependencies(dependencies.Packages) {
+		packages = append(packages, schema.Dependency{Locator: dep})
+	}
+	apps := make([]schema.Dependency, 0, len(dependencies.Apps))
+	for _, dep := range filterRuntimeApp(dependencies.Apps) {
+		apps = append(apps, schema.Dependency{Locator: dep})
+	}
+	return schema.IntermediateRuntime{
+		Version: runtimeVersion.String(),
+		Dependencies: schema.Dependencies{
+			Packages: packages,
+			Apps:     apps,
+		},
+	}
+}
+
 // CreateApplication creates a Gravity application from the provided
 // data in the local database
-func (b *Builder) CreateApplication(data io.ReadCloser) (*app.Application, error) {
-	progressC := make(chan *app.ProgressEntry)
+func (b *Builder) CreateApplication(data io.ReadCloser) (*libapp.Application, error) {
+	progressC := make(chan *libapp.ProgressEntry)
 	errorC := make(chan error, 1)
 	err := b.Packages.UpsertRepository(defaults.SystemAccountOrg, time.Time{})
 	if err != nil {
 		return nil, trace.Wrap(err)
 	}
-	op, err := b.Apps.CreateImportOperation(&app.ImportRequest{
+	op, err := b.Apps.CreateImportOperation(&libapp.ImportRequest{
 		Source:    data,
 		ProgressC: progressC,
 		ErrorC:    errorC,
@@ -351,7 +410,7 @@ func (b *Builder) CreateApplication(data io.ReadCloser) (*app.Application, error
 
 // GenerateInstaller generates an installer tarball for the specified
 // application and returns its data as a stream
-func (b *Builder) GenerateInstaller(application app.Application) (io.ReadCloser, error) {
+func (b *Builder) GenerateInstaller(application libapp.Application) (io.ReadCloser, error) {
 	return b.Generator.Generate(b, application)
 }
 
@@ -461,7 +520,9 @@ There are a few ways to resolve the issue:
 }
 
 // versionsCompatible returns true if the provided tele and runtime versions
-// are compatible.
+// are compatible. Tele version is said to be compatible to the given runtime
+// version if the installer built with the specified combination will work as
+// expected.
 //
 // Compatibility is defined as follows:
 //   1. Major and minor semver components of both versions are equal.
@@ -511,4 +572,71 @@ type GetRepositoryFunc func(*Builder) (string, error)
 // getRepository returns package source repository for the provided builder
 func getRepository(b *Builder) (string, error) {
 	return fmt.Sprintf("s3://%v", defaults.HubBucket), nil
+}
+
+func generateManifestFromChart(manifestPath string) (*schema.Manifest, error) {
+	// If this is a Helm chart directory, extract the chart metadata
+	// and generate a basic application manifest.
+	fi, err := os.Stat(filepath.Join(manifestPath, constants.HelmChartFile))
+	if err != nil || fi.IsDir() {
+		if err != nil {
+			logrus.Warn(err)
+		}
+		return nil, trace.BadParameter("not a chart directory")
+	}
+	chart, err := chartutil.Load(manifestPath)
+	if err != nil {
+		return nil, trace.Wrap(err)
+	}
+	return generateManifest(chart)
+}
+
+func filterIntermediatePackageDependencies(packages []loc.Locator) (result []loc.Locator) {
+	for _, p := range packages {
+		if p.Repository != defaults.SystemAccountOrg {
+			continue
+		}
+		switch {
+		case p.Name == constants.TeleportPackage,
+			p.Name == constants.GravityPackage,
+			p.Name == constants.PlanetPackage:
+		default:
+			continue
+		}
+		result = append(result, p)
+	}
+	return result
+}
+
+func filterRuntimeApp(apps []loc.Locator) (result []loc.Locator) {
+	for _, p := range apps {
+		if p.Repository != defaults.SystemAccountOrg {
+			continue
+		}
+		if p.Name == defaults.Runtime {
+			continue
+		}
+		result = append(result, p)
+	}
+	return result
+}
+
+func parseVersions(versions []string) (result []semver.Version, err error) {
+	result = make([]semver.Version, 0, len(versions))
+	for _, version := range versions {
+		runtimeVersion, err := semver.NewVersion(version)
+		if err != nil {
+			return nil, trace.Wrap(err)
+		}
+		result = append(result, *runtimeVersion)
+	}
+	return result, nil
+}
+
+func newRuntimeLocator(version semver.Version) loc.Locator {
+	return loc.Locator{
+		Repository: defaults.SystemAccountOrg,
+		Name:       defaults.Runtime,
+		Version:    version.String(),
+	}
 }

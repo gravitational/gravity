@@ -44,11 +44,12 @@ func GetDependencies(app *Application, apps Applications) (result *Dependencies,
 		}
 	}
 	result.Packages = loc.Deduplicate(result.Packages)
+	result.Apps = loc.Deduplicate(result.Apps)
 	return result, nil
 }
 
-// VerifyDependencies verifies that the specified application app has all the dependent
-// packages available in the provided package service
+// VerifyDependencies verifies that all dependencies for the specified application are available
+// in the provided package service.
 func VerifyDependencies(app *Application, apps Applications, packages pack.PackageService) error {
 	dependencies, err := GetDependencies(app, apps)
 	if err != nil {
@@ -88,13 +89,16 @@ type Dependencies struct {
 
 func getDependencies(app *Application, apps Applications, state *state) error {
 	log.Infof("Getting dependencies for %v.", app.Package)
-	packageDeps := loc.Deduplicate(append(
-		app.Manifest.Dependencies.GetPackages(),
-		app.Manifest.NodeProfiles.RuntimePackages()...))
+	packageDeps := loc.Deduplicate(app.Manifest.Dependencies.GetPackages())
+	packageDeps = append(packageDeps, app.Manifest.NodeProfiles.RuntimePackages()...)
+	if app.Manifest.SystemUpdate != nil {
+		for _, runtime := range app.Manifest.SystemUpdate.Runtimes {
+			packageDeps = append(packageDeps, runtime.Dependencies.GetPackages()...)
+		}
+	}
 	for _, dependency := range packageDeps {
-		packageName := dependency.String()
-		if _, ok := state.visitedPackages[packageName]; !ok {
-			state.visitedPackages[packageName] = struct{}{}
+		if !state.isPackage(dependency) {
+			state.markPackage(dependency)
 			state.packages = append(state.packages, dependency)
 		}
 	}
@@ -104,19 +108,25 @@ func getDependencies(app *Application, apps Applications, state *state) error {
 	if baseLocator != nil {
 		appDeps = append(appDeps, *baseLocator)
 	}
-	for _, dependency := range append(appDeps, app.Manifest.Dependencies.GetApps()...) {
-		packageName := dependency.String()
-		if _, ok := state.visitedApps[packageName]; !ok {
-			app, err := apps.GetApp(dependency)
-			if err != nil {
-				return trace.Wrap(err)
-			}
-			if err := getDependencies(app, apps, state); err != nil {
-				return trace.Wrap(err)
-			}
-			state.visitedApps[packageName] = struct{}{}
-			state.apps = append(state.apps, dependency)
+	appDeps = append(appDeps, app.Manifest.Dependencies.GetApps()...)
+	if app.Manifest.SystemUpdate != nil {
+		for _, runtime := range app.Manifest.SystemUpdate.Runtimes {
+			appDeps = append(appDeps, runtime.Dependencies.GetApps()...)
 		}
+	}
+	for _, dependency := range appDeps {
+		if state.isApp(dependency) {
+			continue
+		}
+		app, err := apps.GetApp(dependency)
+		if err != nil {
+			return trace.Wrap(err)
+		}
+		if err := getDependencies(app, apps, state); err != nil {
+			return trace.Wrap(err)
+		}
+		state.markApp(dependency)
+		state.apps = append(state.apps, dependency)
 	}
 	// Fetch and persist the default runtime package.
 	// If the top-level application overwrites the runtime package,
@@ -128,6 +138,24 @@ func getDependencies(app *Application, apps Applications, state *state) error {
 	}
 
 	return nil
+}
+
+func (r *state) isPackage(pkg loc.Locator) bool {
+	_, ok := r.visitedPackages[pkg.String()]
+	return ok
+}
+
+func (r *state) isApp(pkg loc.Locator) bool {
+	_, ok := r.visitedApps[pkg.String()]
+	return ok
+}
+
+func (r *state) markPackage(pkg loc.Locator) {
+	r.visitedPackages[pkg.String()] = struct{}{}
+}
+
+func (r *state) markApp(pkg loc.Locator) {
+	r.visitedApps[pkg.String()] = struct{}{}
 }
 
 type state struct {

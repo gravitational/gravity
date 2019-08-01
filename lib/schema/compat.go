@@ -18,7 +18,9 @@ limitations under the License.
 // mismatch and as such is discouraged for future use.
 package schema
 
-import "github.com/gravitational/trace"
+import (
+	"github.com/gravitational/trace"
+)
 
 // IsAWSProvider determines if specified provider string refers to AWS provider
 func IsAWSProvider(provider string) bool {

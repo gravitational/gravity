@@ -100,7 +100,7 @@ func Retry(period time.Duration, maxAttempts int, fn func() error) error {
 		}
 		time.Sleep(period)
 	}
-	log.Errorf("All attempts failed:\n%v.", trace.DebugReport(err))
+	log.WithError(err).Warn("All attempts failed.")
 	return err
 }
 
@@ -244,7 +244,7 @@ func RetryWithInterval(ctx context.Context, interval backoff.BackOff, fn func() 
 		err = errOrig.Err
 	}
 	if err != nil {
-		log.Errorf("All attempts failed: %v.", trace.DebugReport(err))
+		log.WithError(err).Warn("All attempts failed.")
 		return trace.Wrap(err)
 	}
 	return nil

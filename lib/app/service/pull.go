@@ -51,6 +51,9 @@ type PackagePullRequest struct {
 	Progress pack.ProgressReporter
 	// Upsert is whether to create or upsert the pulled package
 	Upsert bool
+	// SkipIfExists indicates whether existing application should not
+	// be pulled
+	SkipIfExists bool
 	// MetadataOnly allows to pull only package metadata without body
 	MetadataOnly bool
 }
@@ -84,6 +87,9 @@ type AppPullRequest struct {
 	Progress pack.ProgressReporter
 	// Upsert is whether to create or upsert the application
 	Upsert bool
+	// SkipIfExists indicates whether existing application should not
+	// be pulled
+	SkipIfExists bool
 	// MetadataOnly allows to pull only app metadata without body
 	MetadataOnly bool
 	// Parallel defines the number of tasks to run in parallel.
@@ -110,6 +116,7 @@ func (r *AppPullRequest) Clone(locator loc.Locator) AppPullRequest {
 		DstApp:       r.DstApp,
 		Package:      locator,
 		Upsert:       r.Upsert,
+		SkipIfExists: r.SkipIfExists,
 		Progress:     r.Progress,
 		Parallel:     r.Parallel,
 		MetadataOnly: r.MetadataOnly,
@@ -118,8 +125,7 @@ func (r *AppPullRequest) Clone(locator loc.Locator) AppPullRequest {
 
 // PullPackage pulls a package from the "source" package service and creates it in the "destination" service
 func PullPackage(req PackagePullRequest) (*pack.PackageEnvelope, error) {
-	state := newPullState()
-	return pullPackageWithRetries(req, state)
+	return pullPackageWithRetries(req)
 }
 
 // pullPackageHandler returns a function to pull the specified package loc for running
@@ -133,9 +139,15 @@ func pullPackageHandler(loc loc.Locator, req AppPullRequest, state *pullState) f
 			DstPack:      req.DstPack,
 			Package:      loc,
 			Upsert:       req.Upsert,
+			SkipIfExists: req.SkipIfExists,
 			Progress:     req.Progress,
 			MetadataOnly: req.MetadataOnly,
-		}, state)
+		})
+		if err == nil {
+			// Mark package as pulled
+			state.markPulled(loc)
+			return nil
+		}
 		if !trace.IsAlreadyExists(err) {
 			return trace.Wrap(err)
 		}
@@ -144,7 +156,7 @@ func pullPackageHandler(loc loc.Locator, req AppPullRequest, state *pullState) f
 	}
 }
 
-func pullPackageWithRetries(req PackagePullRequest, state *pullState) (env *pack.PackageEnvelope, err error) {
+func pullPackageWithRetries(req PackagePullRequest) (env *pack.PackageEnvelope, err error) {
 	ctx, cancel := context.WithTimeout(context.Background(), defaults.TransientErrorTimeout)
 	defer cancel()
 	err = utils.RetryTransient(ctx,
@@ -156,9 +168,6 @@ func pullPackageWithRetries(req PackagePullRequest, state *pullState) (env *pack
 	if err != nil {
 		return nil, trace.Wrap(err)
 	}
-
-	// Mark package as pulled
-	state.markPulled(req.Package)
 	return env, nil
 }
 
@@ -173,9 +182,14 @@ func pullPackage(req PackagePullRequest) (*pack.PackageEnvelope, error) {
 		return nil, trace.Wrap(err)
 	}
 
-	if env != nil && !req.Upsert {
-		req.Infof("Package %v already exists.", req.Package)
-		return nil, trace.AlreadyExists("package %v already exists", req.Package)
+	if env != nil {
+		if req.SkipIfExists {
+			return nil, nil
+		}
+		if !req.Upsert {
+			req.Infof("Package %v already exists.", req.Package)
+			return nil, trace.AlreadyExists("package %v already exists", req.Package)
+		}
 	}
 
 	req.Infof("Pulling package %v.", req.Package)
@@ -294,9 +308,14 @@ func pullApp(req AppPullRequest, state *pullState) (*app.Application, error) {
 		req.Upsert = true
 	}
 
-	if application != nil && !req.Upsert {
-		req.Infof("Application %v already exists.", req.Package)
-		return nil, trace.AlreadyExists("app %v already exists", req.Package)
+	if application != nil {
+		if req.SkipIfExists {
+			return nil, nil
+		}
+		if !req.Upsert {
+			req.Infof("Application %v already exists.", req.Package)
+			return nil, trace.AlreadyExists("app %v already exists", req.Package)
+		}
 	}
 
 	req.Infof("Pulling application %v.", req.Package)

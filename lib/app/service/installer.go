@@ -49,12 +49,8 @@ func (r *applications) getApplicationInstaller(
 	req appservice.InstallerRequest,
 	app *appservice.Application,
 	apps *applications,
-) ([]*archive.Item, error) {
-	err := pullApplications([]loc.Locator{app.Package}, apps, r, r)
-	if err != nil {
-		return nil, trace.Wrap(err)
-	}
-	return []*archive.Item{}, nil
+) error {
+	return pullApplications([]loc.Locator{app.Package}, apps, r, r)
 }
 
 func (r *applications) getClusterInstaller(
@@ -167,7 +163,7 @@ func (r *applications) GetAppInstaller(req appservice.InstallerRequest) (install
 	case schema.KindBundle, schema.KindCluster:
 		items, err = r.getClusterInstaller(req, app, localApps)
 	case schema.KindApplication:
-		items, err = r.getApplicationInstaller(req, app, localApps)
+		err = r.getApplicationInstaller(req, app, localApps)
 	default:
 		return nil, trace.BadParameter("unsupported kind %q",
 			app.Manifest.Kind)
@@ -204,7 +200,10 @@ func (r *applications) GetAppInstaller(req appservice.InstallerRequest) (install
 		Cleanup: func() {
 			err := os.RemoveAll(tempDir)
 			if err != nil {
-				r.Warnf("Failed to delete %v: %v.", tempDir, trace.DebugReport(err))
+				r.WithFields(log.Fields{
+					log.ErrorKey: err,
+					"dir":        tempDir,
+				}).Warn("Failed to delete directory.")
 			}
 		},
 	}, nil
