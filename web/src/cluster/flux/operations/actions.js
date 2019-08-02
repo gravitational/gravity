@@ -15,7 +15,7 @@ limitations under the License.
 */
 
 import reactor from 'app/reactor';
-import Logger from 'app/lib/logger';
+import Logger from 'shared/libs/logger';
 import { RECEIVE_OPERATIONS, RECEIVE_PROGRESS  } from './actionTypes';
 import opsService from 'app/services/operations';
 

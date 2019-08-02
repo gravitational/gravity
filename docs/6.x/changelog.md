@@ -7,12 +7,13 @@ LTS starts with `3.51.0` with minor backwards compatible changes added over time
 
 | Release       | LTS | Release Date         | Supported Until      | Kubernetes Version | Teleport Version |
 | --------------|-----| -------------------- | -------------------- | ------------------ |------------------|
+| 6.1.0         | No  | August 2nd, 2019     | -                    | 1.15.1             | 3.2.7
 | 6.0.1         | No  | July 18th, 2019      | -                    | 1.14.2             | 3.2.7            |
 | 5.6.5         | No  | July 18th, 2019      | -                    | 1.14.2             | 3.0.5            |
-| 5.5.13        | Yes | July 18th, 2019      | September 7th, 2020  | 1.13.6             | 3.0.4            |
+| 5.5.14        | Yes | July 24th, 2019      | September 7th, 2020  | 1.13.6             | 3.0.4            |
 | 5.4.10*       | No  | March 26th, 2019     | -                    | 1.13.5             | 2.4.10           |
 | 5.3.9*        | No  | March 7th, 2019      | -                    | 1.12.3             | 2.4.7            |
-| 5.2.13        | Yes | July 8th, 2019       | October 15th, 2019   | 1.11.9             | 2.4.10           |
+| 5.2.14        | Yes | July 30th, 2019      | October 15th, 2019   | 1.11.9             | 2.4.10           |
 | 5.0.33        | Yes | April 24th, 2019     | April 13th, 2019     | 1.9.12-gravitational | 2.4.10         |
 | 4.68.0*       | Yes | January 17th, 2019   | November 16th, 2018  | 1.7.18-gravitational | 2.3.5          |
 | 3.64.0*       | Yes | December 21st, 2017  | June 2nd, 2018       | 1.5.7              | 2.0.6            |
@@ -30,6 +31,12 @@ LTS starts with `3.51.0` with minor backwards compatible changes added over time
     do not receive updates and bugfixes.
 
 ## 6.x Releases
+
+### 6.1.0 (August 2nd, 2019)
+
+#### Improvements
+
+* Upgrade Kubernetes to `1.15.1`.
 
 ### 6.0.1 (July 18th, 2019)
 
@@ -131,18 +138,34 @@ LTS starts with `3.51.0` with minor backwards compatible changes added over time
 
 ## 5.x Releases
 
+### 5.2.14 LTS (July 30th, 2019)
+
+#### Improvements
+
+* Remove dependency on system user/group being present in local `/etc/passwd` and `/etc/group` databases.
+* Generate credentials for InfluxDB, Telegraf and Grafana during installation and update.
+
+### 5.5.14 LTS (July 24th, 2019)
+
+#### Bugfixes
+
+* Fix an issue with managing monitoring resources via `gravity resource` command.
+
 ### 5.6.5 (July 18th, 2019)
 
 #### Bugfixes
+
 * Workaround for installation failures when populating the docker registry.
 
 ### 5.5.13 LTS (July 18th, 2019)
 
 #### Bugfixes
+
 * Workaround for installation failures when populating the docker registry.
 * Fix an issue with applications that contain a resources subfolder failing to install.
 
 #### Improvements
+
 * Installations that previously used a dedicated devicemapper volume will now be reformatted and reused after upgrade.
 
 ### 5.6.4

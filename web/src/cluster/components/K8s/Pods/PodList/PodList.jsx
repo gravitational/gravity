@@ -16,8 +16,8 @@ limitations under the License.
 
 import React from 'react';
 import { Table, Column, Cell } from 'shared/components/DataTable';
+import isMatch from 'shared/components/utils/match';
 import { ActionCell, NameCell, StatusCell, ContainerCell, LabelCell } from './PodListCells';
-import { isMatch } from 'app/lib/objectUtils';
 
 const NAMESPACE_KEY = 'namespace';
 

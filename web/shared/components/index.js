@@ -35,6 +35,8 @@ import Text from './Text';
 import SideNav, { SideNavItem } from './SideNav';
 import TopNav, { TopNavItem } from './TopNav';
 import Flex from './Flex';
+import FieldInput from './FieldInput';
+import FieldSelect from './FieldSelect';
 
 export {
   Alert,
@@ -64,4 +66,6 @@ export {
   Text,
   TopNav,
   TopNavItem,
+  FieldInput,
+  FieldSelect,
 }

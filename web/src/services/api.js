@@ -15,7 +15,7 @@ limitations under the License.
 */
 
 import $ from "jQuery";
-import Logger from './../lib/logger';
+import Logger from 'shared/libs/logger';
 import localStorage from './localStorage';
 
 const logger = Logger.create('services/api');

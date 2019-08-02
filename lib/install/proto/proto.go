@@ -77,6 +77,11 @@ func (r *SetStateRequest) OperationKey() ops.SiteOperationKey {
 	return KeyFromProto(r.Phase.Key)
 }
 
+// OperationID returns operation ID from request.
+func (r *SetStateRequest) OperationID() string {
+	return r.Phase.ID
+}
+
 // IsResume determines if this phase describes a resume operation
 func (r *Phase) IsResume() bool {
 	return r.ID == fsm.RootPhase

@@ -1,5 +1,5 @@
 /*
-Copyright 2017 Gravitational, Inc.
+Copyright 2017-2019 Gravitational, Inc.
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -22,13 +22,14 @@ import (
 
 	"github.com/gravitational/satellite/agent/health"
 	pb "github.com/gravitational/satellite/agent/proto/agentpb"
-	"github.com/gravitational/trace"
 
-	"k8s.io/api/core/v1"
+	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/fields"
 	"k8s.io/apimachinery/pkg/labels"
 	corev1 "k8s.io/client-go/kubernetes/typed/core/v1"
+
+	"github.com/gravitational/trace"
 )
 
 // NewNodesStatusChecker returns a Checker that tests kubernetes nodes availability
@@ -89,21 +90,54 @@ func (r *nodesStatusChecker) Check(ctx context.Context, reporter health.Reporter
 	}
 }
 
-// NewNodeStatusChecker returns a Checker that validates availability
-// of a single kubernetes node
-func NewNodeStatusChecker(config KubeConfig, nodeName string) health.Checker {
-	nodeLister := kubeNodeLister{client: config.Client.CoreV1()}
-	return &nodeStatusChecker{
-		nodeLister: nodeLister,
-		nodeName:   nodeName,
+// NodeStatusCheckerConfig is the Kubernetes node status checker configuration.
+type NodeStatusCheckerConfig struct {
+	// KubeConfig provides Kubernetes access.
+	KubeConfig
+	// NodeName is the Kubernetes node name.
+	NodeName string
+	// CheckCondition tests whether conditions should trigger alerts.
+	CheckCondition CheckNodeConditionFunc
+}
+
+// CheckNodeConditionFunc defines a type for a function that returns false if
+// the provided node condition should trigger an alert and true otherwise.
+type CheckNodeConditionFunc func(v1.NodeCondition) bool
+
+// CheckNodeCondition returns false if the provided node condition should
+// trigger an alert and true otherwise.
+func CheckNodeCondition(condition v1.NodeCondition) bool {
+	// For Ready condition its expected status is True.
+	if condition.Type == v1.NodeReady {
+		return condition.Status == v1.ConditionTrue
 	}
+	// For other node conditions their expected status is False.
+	for _, c := range NodeConditions {
+		if condition.Type == c {
+			return condition.Status == v1.ConditionFalse
+		}
+	}
+	// Fallback to "ok" for unmonitored/unknown conditions.
+	return true
 }
 
 // NewNodeStatusChecker returns a Checker that validates availability
-// of a single kubernetes node
+// of a single Kubernetes node.
+func NewNodeStatusChecker(config NodeStatusCheckerConfig) health.Checker {
+	nodeLister := kubeNodeLister{client: config.Client.CoreV1()}
+	return &nodeStatusChecker{
+		nodeLister:     nodeLister,
+		nodeName:       config.NodeName,
+		checkCondition: config.CheckCondition,
+	}
+}
+
+// nodeStatusChecker is a Checker that validates availability
+// of a single Kubernetes node.
 type nodeStatusChecker struct {
 	nodeLister
-	nodeName string
+	nodeName       string
+	checkCondition CheckNodeConditionFunc
 }
 
 // Name returns the name of this checker
@@ -111,35 +145,20 @@ func (r *nodeStatusChecker) Name() string { return NodeStatusCheckerID }
 
 // Check validates the status of kubernetes components
 func (r *nodeStatusChecker) Check(ctx context.Context, reporter health.Reporter) {
-	options := metav1.ListOptions{
-		LabelSelector: labels.Everything().String(),
-		FieldSelector: fields.SelectorFromSet(fields.Set{"metadata.name": r.nodeName}).String(),
-	}
-	nodes, err := r.nodeLister.Nodes(options)
+	node, err := r.queryNode()
 	if err != nil {
 		reporter.Add(NewProbeFromErr(r.Name(), trace.UserMessage(err), err))
 		return
 	}
 
-	if len(nodes.Items) != 1 {
-		reporter.Add(NewProbeFromErr(r.Name(), "",
-			trace.NotFound("node %q not found", r.nodeName)))
-		return
-	}
-
-	node := nodes.Items[0]
-	var failureCondition *v1.NodeCondition
+	var failureConditions []v1.NodeCondition
 	for _, condition := range node.Status.Conditions {
-		if condition.Type != v1.NodeReady {
-			continue
-		}
-		if condition.Status != v1.ConditionTrue && node.Name == r.nodeName {
-			failureCondition = &condition
-			break
+		if !r.checkCondition(condition) {
+			failureConditions = append(failureConditions, condition)
 		}
 	}
 
-	if failureCondition == nil {
+	if len(failureConditions) == 0 {
 		reporter.Add(&pb.Probe{
 			Checker: r.Name(),
 			Status:  pb.Probe_Running,
@@ -147,13 +166,54 @@ func (r *nodeStatusChecker) Check(ctx context.Context, reporter health.Reporter)
 		return
 	}
 
-	reporter.Add(&pb.Probe{
+	for _, condition := range failureConditions {
+		reporter.Add(r.probeForCondition(condition))
+	}
+}
+
+// queryNode returns Kubernetes node for the checker's node.
+func (r *nodeStatusChecker) queryNode() (*v1.Node, error) {
+	options := metav1.ListOptions{
+		LabelSelector: labels.Everything().String(),
+		FieldSelector: fields.SelectorFromSet(fields.Set{
+			"metadata.name": r.nodeName,
+		}).String(),
+	}
+	nodes, err := r.nodeLister.Nodes(options)
+	if err != nil {
+		return nil, trace.Wrap(err)
+	}
+	if len(nodes.Items) != 1 {
+		return nil, trace.NotFound("node %q not found", r.nodeName)
+	}
+	return &nodes.Items[0], nil
+}
+
+// probeForCondition returns failure probe for the provided condition.
+func (r *nodeStatusChecker) probeForCondition(condition v1.NodeCondition) *pb.Probe {
+	// Treat conditions set by Node Problem Detector as warnings for now.
+	severity := pb.Probe_Critical
+	if isNodeProblemDetectorCondition(condition) {
+		severity = pb.Probe_Warning
+	}
+	return &pb.Probe{
 		Checker:  r.Name(),
 		Status:   pb.Probe_Failed,
-		Severity: pb.Probe_Warning,
-		Detail:   formatCondition(*failureCondition),
-		Error:    "Node is not ready",
-	})
+		Severity: severity,
+		Detail:   fmt.Sprintf("%v/%v", condition.Type, condition.Reason),
+		Error:    condition.Message,
+	}
+}
+
+// isNodeProblemDetectorCondition returns true if the provided node condition
+// is one of those set by Node Problem Detector.
+func isNodeProblemDetectorCondition(condition v1.NodeCondition) bool {
+	for _, npdCondition := range NodeProblemDetectorConditions {
+		if condition.Type == npdCondition {
+			return true
+		}
+	}
+	return false
 }
 
 type nodeLister interface {
@@ -163,7 +223,7 @@ type nodeLister interface {
 func (r kubeNodeLister) Nodes(options metav1.ListOptions) (*v1.NodeList, error) {
 	nodes, err := r.client.Nodes().List(options)
 	if err != nil {
-		return nil, trace.Wrap(err, "failed to query nodes")
+		return nil, trace.Wrap(err)
 	}
 	return nodes, nil
 }
@@ -172,16 +232,67 @@ type kubeNodeLister struct {
 	client corev1.CoreV1Interface
 }
 
-func formatCondition(condition v1.NodeCondition) string {
-	if condition.Message != "" {
-		return fmt.Sprintf("%v (%v)", condition.Reason, condition.Message)
-	}
-	return condition.Reason
-}
-
 const (
 	// NodeStatusCheckerID identifies the checker that detects whether a node is not ready
-	NodeStatusCheckerID = "nodestatus"
+	NodeStatusCheckerID = "node-status"
 	// NodesStatusCheckerID identifies the checker that validates node availability in a cluster
-	NodesStatusCheckerID = "nodesstatus"
+	NodesStatusCheckerID = "nodes-status"
+)
+
+var (
+	// DefaultNodeConditions is a list of default Kubernetes node
+	// conditions.
+	DefaultNodeConditions = []v1.NodeConditionType{
+		v1.NodeOutOfDisk,
+		v1.NodeMemoryPressure,
+		v1.NodeDiskPressure,
+		v1.NodePIDPressure,
+		v1.NodeNetworkUnavailable,
+	}
+	// NodeProblemDetectorConditions is a list of node conditions
+	// set by Node Problem Detector.
+	//
+	// TODO(r0mant): Note that the exact list of conditions set by Node
+	// Problem Detector depends on the actual configuration so in the
+	// future it might make sense to teach Satellite to parse its
+	// configuration and extract all custom conditions from there.
+	NodeProblemDetectorConditions = []v1.NodeConditionType{
+		NodeKernelDeadlock,
+		NodeReadonlyFilesystem,
+		NodeCorruptDockerOverlay2,
+		NodeFrequentUnregisterNetDevice,
+		NodeFrequentKubeletRestart,
+		NodeFrequentDockerRestart,
+		NodeFrequentContainerdRestart,
+	}
+	// NodeConditions defines default Kubernetes node conditions to monitor.
+	//
+	// It includes both default Kubernetes conditions, as well as those
+	// used by Kubernetes Node Problem Detector.
+	NodeConditions = append(DefaultNodeConditions,
+		NodeProblemDetectorConditions...)
+)
+
+const (
+	// NodeKernelDeadlock is set by Node Problem Detector when it detects
+	// a deadlock in the kernel.
+	NodeKernelDeadlock v1.NodeConditionType = "KernelDeadlock"
+	// NodeReadonlyFilesystem is set by Node Problem Detector when it
+	// detects a readonly filesystem.
+	NodeReadonlyFilesystem v1.NodeConditionType = "ReadonlyFilesystem"
+	// NodeCorruptDockerOverlay2 is set by Node Problem Detector when it
+	// detects corruption in the Docker overlay2 data directory.
+	NodeCorruptDockerOverlay2 v1.NodeConditionType = "CorruptDockerOverlay2"
+	// NodeFrequentUnregisterNetDevice is set by Node Problem Detector
+	// when it detects a kernel crash that may lead to Docker issues.
+	NodeFrequentUnregisterNetDevice v1.NodeConditionType = "FrequentUnregisterNetDevice"
+	// NodeFrequentKubeletRestart is set by Node Problem Detector when
+	// it detects frequent Kubelet restarts.
+	NodeFrequentKubeletRestart v1.NodeConditionType = "FrequentKubeletRestart"
+	// NodeFrequentDockerRestart is set by Node Problem Detector when
+	// it detects frequent Docker restarts.
+	NodeFrequentDockerRestart v1.NodeConditionType = "FrequentDockerRestart"
+	// NodeFrequentContainerdRestarts is set by Node Problem Detector
+	// when it detects frequent Containerd restarts.
+	NodeFrequentContainerdRestart v1.NodeConditionType = "FrequentContainerdRestart"
 )

@@ -16,7 +16,7 @@ limitations under the License.
 
 import React from 'react';
 import { sortBy } from 'lodash';
-import { isMatch } from 'app/lib/objectUtils';
+import isMatch from 'shared/components/utils/match';
 import { TablePaged, Column, SortHeaderCell, Cell, TextCell, SortTypes } from 'shared/components/DataTable';
 import EventTypeCell from './EventTypeCell';
 import EventDescCell from './EventDescCell';

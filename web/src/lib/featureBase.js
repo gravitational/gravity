@@ -15,7 +15,7 @@ limitations under the License.
 */
 
 import { Store } from './stores';
-import Logger from './logger';
+import Logger from 'shared/libs/logger';
 
 const logger = Logger.create('featureBase');
 

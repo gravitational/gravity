@@ -63,7 +63,6 @@ Input.propTypes = {
 Input.defaultProps = {
   bg: 'light',
   color: 'text.onLight',
-  mb: 4,
 }
 
 export default Input;

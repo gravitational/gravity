@@ -537,6 +537,9 @@ const (
 	// PrometheusServiceAddr is the Prometheus HTTP API service address.
 	PrometheusServiceAddr = "prometheus-k8s.monitoring.svc.cluster.local:9090"
 
+	// AlertmanagerServiceAddr is the Prometheus Alertmanager HTTP API service address.
+	AlertmanagerServiceAddr = "alertmanager-main.monitoring.svc.cluster.local:9093"
+
 	// LograngeAggregatorServiceName is the name of the Logrange aggregator service.
 	LograngeAggregatorServiceName = "lr-aggregator"
 
@@ -855,6 +858,11 @@ const (
 	// EtcdAPIPort is etcd client API port
 	EtcdAPIPort = 2379
 
+	// EtcdGravityPrefix is etcd prefix under which gravity keeps its data
+	EtcdGravityPrefix = "/gravity"
+	// EtcdPlanetPrefix is etcd prefix under which planet keeps its data
+	EtcdPlanetPrefix = "/planet"
+
 	// SchedulerKeyFilename is the kube-scheduler private key filename
 	SchedulerKeyFilename = "scheduler.key"
 	// SchedulerCertFilename is the kube-scheduler certificate filename
@@ -1110,6 +1118,10 @@ var (
 	// NodeStatusTimeout specifies the maximum amount of time to wait for
 	// healthy node status
 	NodeStatusTimeout = 5 * time.Minute
+
+	// NodeLeaveTimeout specifies the maximum amount of time to wait for
+	// node to leave the cluster
+	NodeLeaveTimeout = 1 * time.Minute
 
 	// AgentWaitTimeout specifies the maximum amount of time to wait for
 	// agents to form a cluster before commencing the operation

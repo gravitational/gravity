@@ -15,24 +15,36 @@ limitations under the License.
 */
 
 import React from 'react';
-import { Formik } from 'formik';
-import { Input, Box, LabelInput, ButtonPrimary, ButtonSecondary } from 'shared/components';
+import Validation from 'shared/components/Validation';
+import { Box, FieldSelect, FieldInput, ButtonPrimary, ButtonSecondary } from 'shared/components';
 import * as Alerts from 'shared/components/Alert';
 import { useAttempt, withState } from 'shared/hooks';
-import Dialog, { DialogHeader, DialogTitle, DialogContent, DialogFooter} from 'shared/components/Dialog';
+import Dialog, {
+  DialogHeader,
+  DialogTitle,
+  DialogContent,
+  DialogFooter,
+} from 'shared/components/Dialog';
 import * as actions from 'app/cluster/flux/users/actions';
-import Select from 'app/components/Select';
 import CmdText from 'app/components/CmdText';
 
-export function UserInviteDialog(props){
+export function UserInviteDialog(props) {
   const { roles, onClose, attempt, attemptActions, onCreateInvite } = props;
   const { isFailed, isProcessing, isSuccess } = attempt;
+  // username input value
+  const [username, setUsername] = React.useState('');
+  // role selector input value
+  const [selectedRoles, setRoles] = React.useState([]);
 
-  const onSubmit = values => {
-    const userRoles = values.userRoles.map( r => r.value );
+  function onCreate(validator) {
+    if (!validator.validate()) {
+      return;
+    }
+
+    const userRoles = selectedRoles.map(r => r.value);
     attemptActions.start();
-    onCreateInvite(values.userName, userRoles)
-      .done(userToken => {
+    onCreateInvite(username, userRoles)
+      .then(userToken => {
         attemptActions.stop(userToken.url);
       })
       .fail(err => {
@@ -40,120 +52,92 @@ export function UserInviteDialog(props){
       });
   }
 
-  const selectOptions = roles.map( r => ({
+  const selectOptions = roles.map(r => ({
     value: r,
-    label: r
-  }))
+    label: r,
+  }));
 
   return (
-    <Formik
-      validate={validateForm}
-      onSubmit={onSubmit}
-      initialValues={{
-        userRoles: [],
-        userName: ''
-      }}>
-      {
-        formikProps => (
-        <Dialog
-          dialogCss={dialogCss}
-          disableEscapeKeyDown={false}
-          onClose={onClose}
-          open={true}
-        >
+    <Validation>
+      {({ validator }) => (
+        <Dialog dialogCss={dialogCss} disableEscapeKeyDown={false} onClose={onClose} open={true}>
           <Box width="500px">
             <DialogHeader>
               <DialogTitle> CREATE A USER INVITE LINK </DialogTitle>
             </DialogHeader>
             <DialogContent>
-              {isFailed && ( <Alerts.Danger children={attempt.message}/> )}
-              {isSuccess && <CmdText cmd={attempt.message}/>}
-              {!isSuccess && renderInputFields({...formikProps, selectOptions})}
+              {isFailed && <Alerts.Danger children={attempt.message} />}
+              {isSuccess && <CmdText cmd={attempt.message} />}
+              {!isSuccess && (
+                <>
+                  <FieldInput
+                    label="User Name"
+                    rule={isRequired}
+                    autoFocus
+                    autoComplete="off"
+                    value={username}
+                    onChange={e => setUsername(e.target.value)}
+                  />
+                  <FieldSelect
+                    label="Assign a role"
+                    rule={isRequired}
+                    maxMenuHeight="200"
+                    placeholder="Click to select a role"
+                    isSearchable
+                    isMulti
+                    isSimpleValue
+                    clearable={false}
+                    value={selectedRoles}
+                    onChange={values => setRoles(values)}
+                    options={selectOptions}
+                  />
+                </>
+              )}
             </DialogContent>
             <DialogFooter>
-              {renderButtons({isProcessing, isSuccess, onClose, onSave: formikProps.handleSubmit })}
+              {isSuccess && <ButtonSecondary onClick={onClose}>Close</ButtonSecondary>}
+              {!isSuccess && (
+                <>
+                  <ButtonPrimary mr="3" disabled={isProcessing} onClick={() => onCreate(validator)}>
+                    CREATE INVITE LINK
+                  </ButtonPrimary>
+                  <ButtonSecondary disabled={isProcessing} onClick={onClose}>
+                    Cancel
+                  </ButtonSecondary>
+                </>
+              )}
             </DialogFooter>
           </Box>
         </Dialog>
-    )}
-  </Formik>
+      )}
+    </Validation>
   );
 }
 
-function validateForm(values) {
-  const errors = {};
-  if (!values.userName) {
-    errors.userName = ' is required';
+const isRequired = value => () => {
+  if (!value || value.length === 0) {
+    return {
+      valid: false,
+      message: 'This field is required',
+    };
   }
 
-  if (values.userRoles.length === 0) {
-    errors.userRoles = ' is required';
-  }
-
-  return errors;
-}
-
-function renderButtons({ isProcessing, isSuccess, onClose, onSave}) {
-  if(isSuccess){
-    return (
-      <ButtonSecondary onClick={onClose}>
-        Close
-      </ButtonSecondary>
-    )
-  }
-
-  return (
-    <React.Fragment>
-      <ButtonPrimary mr="3" disabled={isProcessing} onClick={onSave}>
-        CREATE INVITE LINK
-      </ButtonPrimary>
-      <ButtonSecondary disabled={isProcessing} onClick={onClose}>
-        Cancel
-      </ButtonSecondary>
-    </React.Fragment>
-  )
-}
-
-function renderInputFields({ values, errors, setFieldValue, touched, handleChange, selectOptions}) {
-  const userNameError = Boolean(errors.userName && touched.userName);
-  const userRolesError = Boolean(errors.userRoles && touched.userRoles);
-  return (
-    <React.Fragment>
-      <LabelInput hasError={userNameError}>
-        User Name
-        {userNameError && errors.userName}
-      </LabelInput>
-      <Input autoFocus autoComplete="off" value={values.userName} name="userName" onChange={handleChange}>
-      </Input>
-      <LabelInput hasError={userRolesError}>
-        Assign a role
-        {userRolesError && errors.userRolesError}
-      </LabelInput>
-      <Select
-        maxMenuHeight="200"
-        placeholder="Click to select a role"
-        isSearchable
-        isMulti
-        isSimpleValue
-        clearable={false}
-        value={values.userRoles}
-        onChange={ values => setFieldValue('userRoles', values)}
-        options={selectOptions}
-      />
-    </React.Fragment>
-  )
-}
+  return {
+    valid: true,
+  };
+};
 
 const dialogCss = () => `
   overflow-y: visible;
-`
-function mapState(){
-  const [ attempt, attemptActions ] = useAttempt();
+`;
+
+function mapState() {
+  const [attempt, attemptActions] = useAttempt();
   return {
     onCreateInvite: actions.createInvite,
     attempt,
-    attemptActions
-  }
+    attemptActions,
+  };
 }
 
-export default withState(mapState)(UserInviteDialog)
+export default withState(mapState)(UserInviteDialog);

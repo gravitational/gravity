@@ -70,7 +70,6 @@ function ClusterTags({onChange}) {
       <Flex mb="4">
         <Input
           mr="3"
-          mb="0"
           value={value}
           onKeyDown={onKeyDown}
           onChange={onChangeValue}

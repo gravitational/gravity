@@ -22,6 +22,7 @@ storiesOf('Gravity/Users/UserEditDialog', module)
   .add('UserEditDialog', () => {
     return (
       <UserEditDialog
+        onClose={ () => null }
         user={user}
         open={true} roles={roles} />
     );
@@ -29,6 +30,7 @@ storiesOf('Gravity/Users/UserEditDialog', module)
   .add('With Error', () => {
     return (
       <UserEditDialog
+        onClose={ () => null }
         attempt={{ isFailed: true, message: "server error" }}
         user={user}
         open={true}

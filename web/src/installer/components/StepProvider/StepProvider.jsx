@@ -15,47 +15,74 @@ limitations under the License.
 */
 
 import React from 'react';
+import { useAttempt } from 'shared/hooks';
+import { FieldInput, ButtonPrimary, Box } from 'shared/components';
+import { Danger } from 'shared/components/Alert';
+import { useValidation } from 'shared/components/Validation';
 import cfg from 'app/config';
 import history from 'app/services/history';
 import service from 'app/installer/services/installer';
-import { FieldInput } from 'app/installer/components/Fields';
 import { StepLayout } from '../Layout';
-import ProviderOnprem from './ProviderOnprem';
 import { useInstallerContext } from './../store';
+import AdvancedOptions, { Subnets } from './AdvancedOptions';
 
 export default function StepProvider() {
   const store = useInstallerContext();
-  const { clusterName } = store.state;
+  const { clusterName, serviceSubnet, podSubnet } = store.state;
+  const validator = useValidation();
+  const [attempt, attemptActions] = useAttempt();
+  const { isFailed, isProcessing, message } = attempt;
 
-  function onChangeName(name){
+  function onChangeName(name) {
     store.setClusterName(name);
   }
 
-  function onStart(request){
+  function onStart(request) {
     return service.createCluster(request).then(clusterName => {
       history.push(cfg.getInstallerProvisionUrl(clusterName), true);
-    })
+    });
+  }
+
+  function onChangeSubnets({ podSubnet, serviceSubnet }) {
+    store.setOnpremSubnets(serviceSubnet, podSubnet);
+  }
+
+  function onChangeTags(tags) {
+    store.setClusterTags(tags);
+  }
+
+  function onContinue() {
+    if (validator.validate()) {
+      attemptActions.start();
+      const request = store.makeOnpremRequest();
+      onStart(request).fail(err => attemptActions.error(err));
+    }
   }
 
   return (
     <StepLayout title="Name your cluster">
       <FieldInput
-        mb="2"
         placeholder="prod.example.com"
         autoFocus
         rule={required}
         value={clusterName}
-        onChange={e => onChangeName(e.target.value )}
+        onChange={e => onChangeName(e.target.value)}
         label="Cluster Name"
       />
-      <ProviderOnprem store={store} onStart={onStart} />
+      <Box>
+        {isFailed && <Danger mb="4">{message}</Danger>}
+        <AdvancedOptions onChangeTags={onChangeTags}>
+          <Subnets serviceSubnet={serviceSubnet} podSubnet={podSubnet} onChange={onChangeSubnets} />
+        </AdvancedOptions>
+        <ButtonPrimary disabled={isProcessing} mt="6" width="200px" onClick={onContinue}>
+          Continue
+        </ButtonPrimary>
+      </Box>
     </StepLayout>
   );
 }
 
-const required = value => () => (
-  {
-    valid: !!value,
-    message: 'Cluster name is required'
-  }
-);
+const required = value => () => ({
+  valid: !!value,
+  message: 'Cluster name is required',
+});

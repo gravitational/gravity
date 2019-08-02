@@ -49,7 +49,7 @@ export default class QueryEditorBasic extends React.Component {
   render() {
     const { query } = this.props;
     return (
-      <Input mb={0} ref={this.setRef} autoFocus
+      <Input ref={this.setRef} autoFocus
         placeholder="Search..."
         defaultValue={query}
         onKeyDown={this.onKeyDown}

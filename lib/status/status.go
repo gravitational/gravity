@@ -37,6 +37,7 @@ import (
 	pb "github.com/gravitational/satellite/agent/proto/agentpb"
 	"github.com/gravitational/satellite/monitoring"
 	"github.com/gravitational/trace"
+	"github.com/prometheus/alertmanager/api/v2/models"
 	"github.com/sirupsen/logrus"
 )
 
@@ -129,6 +130,13 @@ func FromCluster(ctx context.Context, operator ops.Operator, cluster ops.Site, o
 	}
 
 	status.State = cluster.State
+
+	// Collect information from alertmanager
+	status.Alerts, err = FromAlertManager(ctx, cluster)
+	if err != nil {
+		return status, trace.Wrap(err, "failed to collect alerts from alertmanager")
+	}
+
 	return status, nil
 }
 
@@ -175,6 +183,8 @@ type Status struct {
 	*Cluster `json:",inline,omitempty"`
 	// Agent describes the status of the system and individual nodes
 	*Agent `json:",inline,omitempty"`
+	// Alerts is a list of alerts collected by prometheus alertmanager
+	Alerts []*models.GettableAlert `json:"alerts,omitempty"`
 }
 
 // Cluster encapsulates collected cluster status information
@@ -350,6 +360,8 @@ type ClusterServer struct {
 	Status string `json:"status"`
 	// FailedProbes lists all failed probes if the node is not healthy
 	FailedProbes []string `json:"failed_probes,omitempty"`
+	// WarnProbes lists all warning probes
+	WarnProbes []string `json:"warn_probes,omitempty"`
 }
 
 func (r ClusterOperation) isFailed() bool {
@@ -460,8 +472,13 @@ func fromNodeStatus(node pb.NodeStatus) (status ClusterServer) {
 	}
 	for _, probe := range node.Probes {
 		if probe.Status != pb.Probe_Running {
-			status.FailedProbes = append(status.FailedProbes,
-				probeErrorDetail(*probe))
+			if probe.Severity != pb.Probe_Warning {
+				status.FailedProbes = append(status.FailedProbes,
+					probeErrorDetail(*probe))
+			} else {
+				status.WarnProbes = append(status.WarnProbes,
+					probeErrorDetail(*probe))
+			}
 		}
 	}
 	if len(status.FailedProbes) != 0 {
@@ -490,6 +507,9 @@ func probeErrorDetail(p pb.Probe) string {
 	detail := p.Detail
 	if p.Detail == "" {
 		detail = p.Checker
+	}
+	if p.Error == "" {
+		return detail
 	}
 	return fmt.Sprintf("%v (%v)", detail, p.Error)
 }

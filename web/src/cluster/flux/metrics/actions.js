@@ -17,7 +17,7 @@ limitations under the License.
 import $ from 'jQuery';
 import service from 'app/cluster/services/metrics';
 import reactor from 'app/reactor';
-import Logger from 'app/lib/logger';
+import Logger from 'shared/libs/logger';
 import * as actionTypes from './actionTypes';
 
 const logger = Logger.create('flux/metrics');

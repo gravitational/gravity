@@ -16,8 +16,7 @@ limitations under the License.
 
 import React from 'react';
 import { parseCidr } from 'app/lib/paramUtils';
-import { Flex } from 'shared/components';
-import { FieldInput } from 'app/installer/components/Fields';
+import { Flex, FieldInput } from 'shared/components';
 
 const POD_HOST_NUM = 65534;
 const INVALID_SUBNET = 'Invalid CIDR format';

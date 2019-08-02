@@ -16,19 +16,15 @@ limitations under the License.
 
 import React from 'react';
 import { map, findIndex } from 'lodash';
-import { ProvisionerEnum } from 'app/services/enums';
 import { StepLayout } from '../Layout';
 import FlavorSelector from './FlavorSelector';
 import { useInstallerContext } from './../store';
-import FlavorAws from './FlavorAws';
-import FlavorOnprem from './FlavorOnprem';
+import Flavor from './Flavor';
 
 export default function StepCapacity() {
   const store = useInstallerContext();
   const flavorOptions = store.state.flavors.options;
   const agentServers = store.state.agentServers;
-
-  const isOnprem = store.state.operation.provisioner === ProvisionerEnum.ONPREM;
 
   // selected flavor
   const [ selectedFlavor, setSelectedFlavor ] = React.useState(() => {
@@ -61,8 +57,6 @@ export default function StepCapacity() {
     setSelectedFlavor(index);
   }
 
-  const FlavorCmpt = isOnprem ? FlavorOnprem : FlavorAws;
-
   return (
     <StepLayout title={store.state.flavors.prompt || "Review Infrastructure Requirements" }>
       <FlavorSelector
@@ -70,7 +64,7 @@ export default function StepCapacity() {
         options={sliderOptions}
         onChange={onChangeFlavor}
       />
-      <FlavorCmpt
+      <Flavor
         servers={agentServers}
         key={selectedFlavor}
         profiles={profiles}

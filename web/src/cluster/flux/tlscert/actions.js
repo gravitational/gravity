@@ -13,24 +13,23 @@ WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 See the License for the specific language governing permissions and
 limitations under the License.
 */
-
+import Events from 'events';
 import reactor from 'app/reactor';
 import cfg from 'app/config';
 import api from 'app/services/api';
-import Logger from 'app/lib/logger';
-import { Uploader } from 'app/services/uploader';
+import Logger from 'shared/libs/logger';
 import { SETTINGS_CERT_RECEIVE } from './actionTypes';
 
 const logger = Logger.create('cluster/flux/tlscert/actions');
 
-export function saveTlsCert(siteId, certificate, private_key, intermediate) {
+export function saveTlsCert(certificate, private_key, intermediate) {
   const data = {
     certificate,
     private_key,
     intermediate
   };
 
-  const upoader = new Uploader(cfg.getSiteTlsCertUrl(siteId));
+  const upoader = new Uploader(cfg.getSiteTlsCertUrl());
   return upoader.start(data)
     .done(json => {
       reactor.dispatch(SETTINGS_CERT_RECEIVE, json)
@@ -43,4 +42,52 @@ export function fetchTlsCert(siteId) {
   return api.get(cfg.getSiteTlsCertUrl(siteId)).done(json => {
     reactor.dispatch(SETTINGS_CERT_RECEIVE, json)
   })
+}
+
+class Uploader extends Events.EventEmitter {
+
+  constructor(url){
+    super();
+    this._xhr = new XMLHttpRequest();
+    this._url = url;
+  }
+
+  abort(){
+    this._xhr.abort();
+  }
+
+  start(data = {}){
+    let xhr = this._xhr;
+    let fd = new FormData();
+    let self = this;
+
+    Object.getOwnPropertyNames(data).forEach(key => {
+      fd.append(key, data[key]);
+    })
+
+    return api.ajax({
+      url: this._url,
+      type: 'PUT',
+      data: fd,
+      cache : false,
+      processData: false,
+      contentType: false,
+      xhr() {
+        xhr.upload.addEventListener('progress', e => {
+          if (e.lengthComputable) {
+            let progressVal = Math.round((e.loaded/e.total)*100);
+            self.emit('progress', progressVal);
+          }
+        }, false);
+
+        return xhr;
+      }
+    })
+    .done(json => {
+      self.emit('completed', json);
+    })
+    .fail(err =>{
+      self.emit('failed', err.message);
+    })
+  }
 }

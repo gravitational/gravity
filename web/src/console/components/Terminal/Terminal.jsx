@@ -28,7 +28,7 @@ import { Indicator, Flex, Text, Box, ButtonSecondary } from 'shared/components';
 import * as Icons from 'shared/components/Icon';
 import Xterm from './Xterm/Xterm';
 import FileTransferDialog from './FileTransfer';
-import AjaxPoller from 'app/components/dataProviders'
+import AjaxPoller from 'app/components/AjaxPoller';
 
 const POLL_INTERVAL = 3000; // every 5 sec
 

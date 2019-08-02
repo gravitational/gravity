@@ -18,7 +18,7 @@ import reactor from 'app/reactor';
 import auth from 'app/services/auth';
 import cfg from 'app/config';
 import api from 'app/services/api';
-import Logger from 'app/lib/logger';
+import Logger from 'shared/libs/logger';
 import history from 'app/services/history';
 import { USER_RECEIVE } from './actionTypes';
 import { USERACL_RECEIVE } from './../userAcl/actionTypes';
@@ -43,7 +43,7 @@ export function loginWithSso(providerName, redirectUrl) {
 
 export function fetchUserContext(){
   return api.get(cfg.getSiteUserContextUrl()).done(json => {
-    cfg.setServerVersion(json.serverVersion);
+    logger.info("platform version", json.serverVersion);
     reactor.dispatch(USER_RECEIVE, json.user);
     reactor.dispatch(USERACL_RECEIVE, json.userAcl);
   });

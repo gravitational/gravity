@@ -81,20 +81,25 @@ To restart the installation, use 'gravity resume' after fixing the issues.
 	}
 	switch op.Type {
 	case ops.OperationInstall:
-		return displayInstallOperationPlan(op.Key(), format)
+		err = displayInstallOperationPlan(op.Key(), format)
 	case ops.OperationExpand:
-		return displayExpandOperationPlan(environ, op.Key(), format)
+		err = displayExpandOperationPlan(environ, op.Key(), format)
 	case ops.OperationUpdate:
-		return displayUpdateOperationPlan(localEnv, environ, op.Key(), format)
+		err = displayUpdateOperationPlan(localEnv, environ, op.Key(), format)
 	case ops.OperationUpdateRuntimeEnviron:
-		return displayUpdateOperationPlan(localEnv, environ, op.Key(), format)
+		err = displayUpdateOperationPlan(localEnv, environ, op.Key(), format)
 	case ops.OperationUpdateConfig:
-		return displayUpdateOperationPlan(localEnv, environ, op.Key(), format)
+		err = displayUpdateOperationPlan(localEnv, environ, op.Key(), format)
 	case ops.OperationGarbageCollect:
-		return displayClusterOperationPlan(localEnv, op.Key(), format)
+		err = displayClusterOperationPlan(localEnv, op.Key(), format)
 	default:
 		return trace.BadParameter("unknown operation type %q", op.Type)
 	}
+	if err != nil && trace.IsNotFound(err) {
+		// Fallback to cluster plan
+		return displayClusterOperationPlan(localEnv, op.Key(), format)
+	}
+	return trace.Wrap(err)
 }
 
 func displayClusterOperationPlan(env *localenv.LocalEnvironment, opKey ops.SiteOperationKey, format constants.Format) error {

@@ -21,9 +21,6 @@ import theme from './../../theme'
 const Card = styled(Box)`
   box-shadow: 0 8px 32px rgba(0, 0, 0, .24);
   border-radius: 8px;
-  footer {
-    background-color: ${props => props.theme.colors.primary.dark};
-  }
 `
 
 Card.defaultProps = {

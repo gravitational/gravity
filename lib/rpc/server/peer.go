@@ -257,7 +257,7 @@ func (r *serverPeer) Reconnect(ctx context.Context) (Client, error) {
 	_, err = clt.PeerJoin(ctx, &pb.PeerJoinRequest{Addr: r.addr, Config: &r.config, SystemInfo: payload})
 	if err != nil {
 		// Let ReconnectStrategy decide whether the peer should continue reconnecting
-		return nil, trace.Wrap(err)
+		return nil, err
 	}
 
 	return clt, nil

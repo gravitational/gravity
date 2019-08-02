@@ -62,7 +62,10 @@ type AbortRetry struct {
 
 // Error returns the abort error string representation
 func (a *AbortRetry) Error() string {
-	return fmt.Sprintf("Abort(%v)", a.Err)
+	if a.Err == nil {
+		return "Abort error"
+	}
+	return a.Err.Error()
 }
 
 // OriginalError returns the original error message this abort error wraps
