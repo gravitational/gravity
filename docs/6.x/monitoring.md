@@ -7,7 +7,12 @@ Satellite.
 These components are automatically included into a Cluster Image built with `tele build` as a
 system dependency (see the [source](https://github.com/gravitational/monitoring-app) on GitHub).
 
+
+**Example Monitoring Dashboard as part of xxx**
+![Set Capacity](/images/gravity-quickstart/gravity-monitoring.png)
+
 ### Prometheus
+
 
 [Prometheus](https://prometheus.io/docs/introduction/overview/) is an open-source Kubernetes
 native monitoring system and time-series database.

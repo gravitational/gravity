@@ -7,7 +7,7 @@ There are two use cases we'll cover here:
 
 1. Building an "empty" Kubernetes Cluster Image. You can use these Cluster
    Images for quickly creating a large number of identical, production-ready
-   Kubernetes clusters within an organization.
+   Kubernetes Clusters within an organization.
 
 2. Building a Cluster Image that also includes Kubernetes applications.  You
    can these to distribute Kubernetes applications to 3rd parties.
@@ -41,7 +41,7 @@ Below is the list of `tele` commands:
 | `tele build`   | Builds a new Cluster Image.
 | `tele push`    | Pushes a Cluster Image to an image repository called Gravity Hub (enterprise version only).
 | `tele pull`    | Downloads a Cluster Image from a Gravity Hub.
-| `tele ls`      | Lists all available cluster images.
+| `tele ls`      | Lists all available Cluster images.
 
 ## Building a Cluster Image
 
@@ -66,7 +66,7 @@ all of the dependencies are available locally on the build machine. If the
 dependencies are not available locally, it will download them from the external
 sources.
 
-There are two kinds of external sources for cluster dependencies:
+There are two kinds of external sources for Cluster dependencies:
 
 1. **Kubernetes binaries** like `kube-apiserver`, `kubelet` and others, plus their
    dependencies like `etcd`. The build tool will download them from the Gravity Hub
@@ -88,7 +88,7 @@ plugging them into a CI/CD pipeline.
 ```bsh
 # This Dockerfile builds a Docker image called `tele-buildbox`.  The
 # resulting container image will contain `tele` tool and can be used 
-# to create cluster images from within a container.
+# to create Cluster images from within a container.
 
 FROM quay.io/gravitational/debian-grande:stretch
 
@@ -137,8 +137,8 @@ The Image Manifest is a YAML file that is passed as an input to `tele build`
 command. 
 
 The manifest concept was partially inspired by Dockerfiles and one can think of
-Image Manifest as a "dockerfile" for an entire Kubernetes cluster, and the 
-resulting Cluster Image can be seen as a "container" for an entire cluster.
+Image Manifest as a "dockerfile" for an entire Kubernetes Cluster, and the 
+resulting Cluster Image can be seen as a "container" for an entire Cluster.
 
 Below is an incomplete list of configurable settings. We have also included a sample Image Manifest further below with all the configurable settings.
 
@@ -148,16 +148,16 @@ Below is an incomplete list of configurable settings. We have also included a sa
   to select a Kubernetes version for your Cluster Image. Run `tele ls --all` to
   see the list of available base images.
 * **Metadata** - The name, version and the author of the Cluster Image.
-* **Network configuration** - The type of cluster networking
-  to use for cluster instances created from a resulting Cluster Image.
+* **Network configuration** - The type of Cluster networking
+  to use for Cluster instances created from a resulting Cluster Image.
 * **System requirements** - Define and enforce the minimal hardware or
   infrastructure requirements such as RAM, CPU cores, network, etc.
 * **Installer behavior** - Customize the process of installing a
-  Cluster Image, i.e. creating a new Kubernetes cluster instance. for example
-  you can allow end users to select one of the "cluster flavors" based on
+  Cluster Image, i.e. creating a new Kubernetes Cluster instance. for example
+  you can allow end users to select one of the "Cluster flavors" based on
   custom criteria, ask to accept EULA, etc.
 * **System options** - Customize the runtime behavior of Kubernetes
-  clusters, for example you can set command line arguments for system daemons
+  Clusters, for example you can set command line arguments for system daemons
   like `etcd` or `kubelet`, force a certain Docker configuration and so on.
 
 #### Manifest Design Goals
@@ -177,13 +177,13 @@ and several Kubernetes concepts are used for efficiency, for example:
 2. To customize the installation process, create regular [Kubernetes Services](http://kubernetes.io/docs/user-guide/services/)
    and tell Gravitiy to invoke them with the Image Manifest.
 
-3. You can define custom cluster life cycle hooks like _install_, _uninstall_ or _update_ 
+3. You can define custom Cluster life cycle hooks like _install_, _uninstall_ or _update_ 
    using the Image Manifest, but the hooks themselves should be implemented as a regular
    [kubernetes jobs](http://kubernetes.io/docs/user-guide/jobs/).
 
 The Image Manifest is designed to be as small as possible in an
 effort to promote open standards. As Kubernetes itself matures and promising
-proposals like the "cluster API" or "application API" become standards, certain
+proposals like the "Cluster API" or "application API" become standards, certain
 manifest capabilities will be deprecated.
 
 #### Image Manifest Format
@@ -208,7 +208,7 @@ sensible defaults.
 apiVersion: cluster.gravitational.io/v2
 kind: Cluster
 metadata:
-  # The cluster name as shown to the end user, must be a single alphanumeric word
+  # The Cluster name as shown to the end user, must be a single alphanumeric word
   name: MyCluster
 
   # Cluster version, must be in SemVer format (http://semver.org/)
@@ -226,7 +226,7 @@ metadata:
 baseImage: "gravity:6.0.0"
 
 # Release notes is a freestyle HTML field which will be shown as part of the
-# install/upgrade of the cluster.
+# install/upgrade of the Cluster.
 #
 # In this case "tele build" will look for "notes.html" file in the same directory as
 # manifest. To specify an absolute path: "file:///home/user/notes.html"
@@ -239,7 +239,7 @@ logo: http://example.com/logo.png
 # Endpoints are used to define exposed Kubernetes services. This can be your application
 # URL or an API endpoint.
 #
-# Endpoints are shown to the cluster user at the end of the installation.
+# Endpoints are shown to the Cluster user at the end of the installation.
 endpoints:
   - name: "Control Panel"
     description: "The admin interface of the application"
@@ -265,24 +265,24 @@ providers:
       type: vxlan
 
 #
-# Use the section below to customize the cluster installer behavior
+# Use the section below to customize the Cluster installer behavior
 #
 installer:
   # The end user license agreement (EULA). When set, a user will be presented with 
   # the EULA text before the start of the installation and forced to accept it.
-  # This capability is often used when cluster images are used to distribute downloadable
+  # This capability is often used when Cluster images are used to distribute downloadable
   # enterprise software.
   eula:
     source: file://eula.txt
 
-  # If the installation flavors are defined, a cluster user will be presented with a 
-  # prompt and the cluster flavor will be selecte based on their answer.
+  # If the installation flavors are defined, a Cluster user will be presented with a 
+  # prompt and the Cluster flavor will be selecte based on their answer.
   #
-  # A "cluster flavor" consists of a name and a set of server profiles, along with the 
+  # A "Cluster flavor" consists of a name and a set of server profiles, along with the 
   # number of servers for every profile.
   #
   # The example below declares two flavors: "small" and "large", based on how many page 
-  # views per second the cluster user wants to serve.
+  # views per second the Cluster user wants to serve.
   #
   flavors:
     prompt: "How many requests per second will you need?"
@@ -355,7 +355,7 @@ nodeProfiles:
           versions: ["7.2", "7.3"]
 
       # This section allows to run custom pre-flight checks on a node before
-      # allowing cluster installation to continue (scripts must return 0 for success)
+      # allowing Cluster installation to continue (scripts must return 0 for success)
       # Stdout/stderr output from pre-flight check scripts will be mirrored in 
       # the installation log.
       customChecks:
@@ -440,12 +440,12 @@ nodeProfiles:
         min: "4GB"
 
 # If license is enabled, a user will be asked to enter a correct license to be able
-# to create a cluster from this image
+# to create a Cluster from this image
 license:
   enabled: true
 
 # 
-# This section allows to configure the runtime behavior of a Kubernetes cluster
+# This section allows to configure the runtime behavior of a Kubernetes Cluster
 #
 systemOptions:
   docker:
@@ -472,12 +472,12 @@ systemOptions:
 #
 extensions:
   # This setting will not install system logging service and hide "logs tab" 
-  # in the cluster UI
+  # in the Cluster UI
   logs:
     disabled: false
 
   # This setting will not install system monitoring application and hide
-  # Monitoring tab in the cluster UI
+  # Monitoring tab in the Cluster UI
   monitoring:
     disabled: false
 
@@ -485,7 +485,7 @@ extensions:
   catalog:
     disabled: false
 
-# This section specifies the cluster lifecycle hooks, i.e. the ability to execute
+# This section specifies the Cluster lifecycle hooks, i.e. the ability to execute
 # custom code in response to lifecycle events.
 #
 # Every hook is a name of a Kubernetes job.
@@ -522,16 +522,16 @@ hooks:
   # called before uninstall is launched
   preUninstall:
 
-  # called before adding a new node to the cluster
+  # called before adding a new node to the Cluster
   preNodeAdd:
 
-  # called after a new node has need added to the cluster
+  # called after a new node has need added to the Cluster
   postNodeAdd:
 
-  # called before a node is removed from the cluster
+  # called before a node is removed from the Cluster
   preNodeRemove:
 
-  # called after a node has been removed from the cluster
+  # called after a node has been removed from the Cluster
   postNodeRemove:
 
   # called when updating the application
@@ -567,29 +567,30 @@ hooks:
   # restores application state from backup
   restore:
 
-  # install a custom CNI network plugin during cluster installation
+  # install a custom CNI network plugin during Cluster installation
   networkInstall:
 
-  # update a custom CNI network plugin during cluster upgrade
+  # update a custom CNI network plugin during Cluster upgrade
   networkUpdate:
 
-  # rollback a custom CNI network plugin during cluster rollback
+  # rollback a custom CNI network plugin during Cluster rollback
   networkRollback:
 ```
 
-See [here](/requirements/#identifying-os-distributions-in-manifest) for version matrix to help with specifying OS distribution requirements for a node profile.
+See [here](/requirements/#identifying-os-distributions-in-manifest) for a version 
+matrix to help with specifying OS distribution requirements for a node profile.
 
 ## Cluster Hooks
 
-"Cluster Hooks" are Kubernetes jobs that run at different points in the cluster
-life cycle or in response to certain events happening in the cluster.
+"Cluster Hooks" are Kubernetes jobs that run at different points in the Cluster
+life cycle or in response to certain events happening in the Cluster.
 
 Each hook job has access to the "Cluster Resources" which are mounted under
 `/var/lib/gravity/resources` directory in each of the job's containers. The
-cluster resources include the Cluster Image manifest and everything else that
+Cluster resources include the Cluster Image manifest and everything else that
 was in the same directory with the Image Manifest at the moment of `tele build`
 execution. For example, if during the build process the directory with the
-cluster resources looked like:
+Cluster resources looked like:
 
 ```text
 myapp/
@@ -599,7 +600,7 @@ myapp/
   └── resources.yaml
 ```
 
-... then all these files will be made available to the cluster hooks mounted inside
+... then all these files will be made available to the Cluster hooks mounted inside
 a hook job container as:
 
 ```text
@@ -611,7 +612,7 @@ a hook job container as:
 ```
 
 Every hook container gets `kubectl` and `helm` binaries mounted under `/usr/local/bin/`
-which it can use to create Kubernetes resources in the cluster.
+which it can use to create Kubernetes resources in the Cluster.
 
 Below is an example of a simple `install` hook that creates Kubernetes resources
 from "resources.yaml":
@@ -648,7 +649,7 @@ hooks:
 To see more examples of specific hooks, please refer to the following documentation sections:
 
 * [Cluster Status](/cluster/#cluster-status) for `status` hook
-* [Backup & Restore](/cluster/#backup-restore) for `backup` and `restore` hooks
+* [Backup & Restore](/cluster/#backup-and-restore) for `backup` and `restore` hooks
 
 !!! tip:
     The `quay.io/gravitational/debian-tall:stretch` image is a lightweight (~11MB)
@@ -658,7 +659,7 @@ To see more examples of specific hooks, please refer to the following documentat
 ## Helm Integration
 
 It is possible to use [Helm](https://docs.helm.sh/) charts as a way to package
-and install applications as every Gravity cluster comes with a preconfigured
+and install applications as every Gravity Cluster comes with a preconfigured
 Tiller server and its client, Helm.
 
 Suppose you have the application resources directory with the following layout:
@@ -683,8 +684,8 @@ tarball.
     The machine running `tele build` must have Helm binary [installed](https://docs.helm.sh/using_helm/#installing-helm)
     and available in PATH as well as its [template plugin](https://docs.helm.sh/using_helm/#installing-a-plugin).
 
-During the installation, the vendored images will be pushed to the cluster's local
-Docker registry which is available inside the cluster at `leader.telekube.local:5000`.
+During the installation, the vendored images will be pushed to the Cluster's local
+Docker registry which is available inside the Cluster at `leader.telekube.local:5000`.
 Helm templating engine can be used to tag images with an appropriate registry.
 For example, `example.yaml` may contain the following image reference:
 
@@ -721,7 +722,7 @@ spec:
           command: ["/usr/local/bin/helm", "install", "/var/lib/gravity/resources/charts/example", "--set", "registry=leader.telekube.local:5000/"]
 ```
 
-The hook command sets the registry variable to point to the cluster's
+The hook command sets the registry variable to point to the Cluster's
 local Docker registry so that when Helm renders resource templates, they contain
 correct image references.
 
@@ -736,7 +737,7 @@ main installation phase (such as installing Kubernetes and system dependencies)
 has successfully completed.
 
 A "Custom Installation Screen" is just a web application running inside the
-deployed Kubernetes cluster and reachable through a Kubernetes service. Enabling a
+deployed Kubernetes Cluster and reachable through a Kubernetes service. Enabling a
 Custom Installation Screen allows the user to perform actions specific to an
 Gravity Cluster upon successful install (for example, configuring an
 application or launch a database migration).
@@ -756,7 +757,7 @@ To enable Bandwagon, add this to your Image Manifest:
 # define an endpoint for bandwagon service
 endpoints:
   - name: "Bandwagon"
-    hidden: true # hide this endpoint from the cluster Admin page
+    hidden: true # hide this endpoint from the Cluster control page
     serviceName: bandwagon # Kubernetes service name specified in bandwagon app resources
 
 # refer to the endpoint defined above
@@ -773,17 +774,17 @@ installer:
 By default, a Cluster Image contains several system services to provide
 Cluster logging, monitoring and application catalog (via Tiller) functionality. 
 You may want to disable any of these components if you prefer to replace them with a solution of your choice. To do that, define the following section in the
-cluster manifest:
+Image Manifest:
 
 ```yaml
 extensions:
   # This setting will not install system logging service and hide "logs tab" 
-  # in the cluster UI
+  # in the Cluster Control Panel UI
   logs:
     disabled: true
 
   # This setting will not install system monitoring application and hide
-  # Monitoring tab in the cluster UI
+  # Monitoring tab in the Cluster Control Panel UI
   monitoring:
     disabled: true
 
@@ -798,19 +799,19 @@ extensions:
 
 ## Service User
 
-When Gravity creates a Kubernetes cluster from a Cluster Image, it installs a
-special system container on each host, visible as the `gravity` daemon. It contains all of Kubernetes services, performs automatic management and isolates them from other pre-existing daemons running on cluster hosts.
+When Gravity creates a Cluster from a Cluster Image, it installs a
+special system container on each host, visible as the `gravity` daemon. It contains all of Kubernetes services, performs automatic management and isolates them from other pre-existing daemons running on Cluster hosts.
 
 All system services inside the container run under a special system user 
 called `planet` with a UID of `1000`.
 
 Starting with LTS 4.54, Gravity allows the system user to be configured during
 installation. The same service user with the same UID will be created on all
-nodes of a cluster.
+nodes of a Cluster.
 
 In order to configure the `planet` service user, you have the following options:
 
-  * Create a user with the same UID on all cluster nodes upfront.
+  * Create a user with the same UID on all Cluster nodes upfront.
   * Specify a user ID on the installer's command line and a user named `planet` 
     (and a group with the same name) will automatically be created with the given 
     ID during installation.
@@ -818,11 +819,11 @@ In order to configure the `planet` service user, you have the following options:
 Here's an example of using a custom system user/group before starting the installation:
 
 ```bash
-# before installing a new cluster:
-# create a group named mygroup (repeat on all cluster nodes)
+# before installing a new Cluster:
+# create a group named mygroup (repeat on all Cluster nodes)
 $ groupadd mygroup -g 1001
 
-# create a user named myuser in group mygroup (repeate on all cluster nodes)
+# create a user named myuser in group mygroup (repeate on all Cluster nodes)
 $ useradd --no-create-home -u 1001 -g mygroup myuser
 
 # specify the service user during installation
@@ -830,7 +831,7 @@ $ ./gravity install <options> --service-uid=1001
 ```
 
 The service user can also be used for running unprivileged services inside the
-Kubernetes cluster.  To run a specific Pod (or just a container) under the
+Kubernetes Cluster.  To run a specific Pod (or just a container) under the
 service user, use `-1` as a user ID which will be translated to the
 corresponding service user ID:
 
@@ -854,7 +855,7 @@ spec:
 ```
 
 Only resources stored as YAML files are subject to automatic translation.  If
-a cluster lifecycle hook uses custom resource provisioning, it might need to perform
+a Cluster lifecycle hook uses custom resource provisioning, it might need to perform
 the conversion manually.
 
 The value of the effective service user ID is stored in the
@@ -863,16 +864,17 @@ hook.
 
 ## Custom System Container
 
-When Gravity creates a Kubernetes cluster from a Cluster Image, it installs a
-special system container on each host. It is called "planet" and visible as the `gravity` daemon. 
+When Gravity creates a Kubernetes Cluster from a Cluster Image, it installs a
+special system container or "Master Container" on each host. It is called "planet" 
+and visible as the `gravity` daemon. 
 
-"Planet" contains all of Kubernetes services, performs automatic management and
-isolates them from other pre-existing daemons running on cluster hosts. 
+The Master Container contains all of Kubernetes services, performs automatic management and
+isolates them from other pre-existing daemons running on Cluster hosts. 
 
 `planet` is a Docker image maintained by Gravitational. At this moment `planet` 
 image is based on Debian 9. `planet` base image is published to a public Docker registry at
 `quay.io/gravitational/planet` so you can customize `planet` environment for
-your clusters by using Gravitational's image as a base. Here's an example of a
+your Clusters by using Gravitational's image as a base. Here's an example of a
 Dockerfile of a custom `planet` image that installs an additional package:
 
 ```
@@ -904,6 +906,6 @@ nodeProfiles:
 ```
 
 When building a Cluster Image, `tele build` will discover `custom-planet:1.0.0`
-Docker image and vendor it along with other dependencies. During the cluster
+Docker image and vendor it along with other dependencies. During the Cluster
 installation all nodes with the role `worker` will use the custom "planet" Docker 
 image instead of the default one.

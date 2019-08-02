@@ -52,8 +52,8 @@ everything works:
 ```
 $ tele version
 Edition:	  open-source
-Version:	  6.0.0
-Git Commit:	  62a5e1665ac63c74c42b7b2238731b74bf633cd9
+Version:	  6.0.1
+Git Commit:	  605cbcfe56eb020ce3a3dc7a22c0fc27e10987c5
 Helm Version: v2.12
 ```
 
@@ -366,8 +366,13 @@ Signup token has been created and is valid for 8h0m0s hours. Share this URL with
 https://10.5.5.28:3009/web/newuser/e5b5422da69ff44d41f92e3ce6167659a7fee10e1023acea22062141dfe0238e
 ```
 
-Now click on the printed URL and select a password. You are now inside the K8s management UI
-for your Cluster. You can bookmark the following URL to access it in the future: `https://https://10.5.5.28:32009/web/`
+![Sign into Gravity](/images/gravity-quickstart/logging-into-gravity.png)
+
+
+Now click on the printed URL and select a password. You are now inside the Cluster
+Control Panel. You can bookmark the following URL to access it in the future: `https://10.5.5.28:32009/web/`
+
+![Gravity Dashboard](/images/gravity-quickstart/gravity-mattermost-dashboard.png)
 
 You will also see that this Cluster is running Mattermost inside, accessible as a Kubernetes service
 on port `32010`, i.e. it's accessible using IP addresses of both machines in the Cluster:
@@ -377,7 +382,7 @@ on port `32010`, i.e. it's accessible using IP addresses of both machines in the
 
 ### Installing via Web Browser
 
-This method of installation launches a graphical installation wizard in a web browser. It is useful for sales demos or for less technical users.
+This method of installation launches a graphical installation wizard in a web browser.
 
 To launch a web installer, you will need:
 
@@ -394,27 +399,45 @@ $ sudo ./install
 OPEN THIS IN BROWSER: https://host:61009/web/installer/new/gravitational.io/mattermost/2.2.0?install_token=2a9de4a72ede
 ```
 
+**If you don't have TLS setup you might see this error message. Click Advanced -> Proceed **
+![SSL Error Message](/images/gravity-quickstart/click-proceed.png)
+
 The browser-based installer will ask for the following:
 
 * Name of your Cluster. We recommend FQDN-like names like
   `mattermost.example.com`.
+
+![Name of Cluster](/images/gravity-quickstart/cluster-name.png)
+
 * The network interface to use. This must be the interface which Kubernetes
   nodes will use to talk to each other.
+
+![Set Capacity](/images/gravity-quickstart/setting-capacity.png)
+
+
 * The "flavor" of the Cluster, i.e. 1, 2 or 3 nodes. The installer will provide a CLI
   command to copy to and execute on each node.
 * Once all nodes report into the Cluster, the installer will proceed setting up
   Kubernetes.
 
-The final step is to select the user name and password for the administrator. You will be able to change it later (or configure the SSO). Once you are logged in, you will be placed in Gravity's Cluster Management UI where you will find the HTTP end point of Mattermost.
+![All Nodes](/images/gravity-quickstart/all-nodes.png)
 
-Now you can press `Ctrl+C` to stop the `install` script.
+
+The final step is to select the user name and password for the administrator. You will be able to change it later (or configure the SSO). Once you are logged in, you will be placed in Gravity's Control Panel UI where you will find the HTTP end point of Mattermost.
+
+
+**Mattermost Install Complete**
+![Create Mattermost](/images/gravity-quickstart/mattermost/create-mattermost.png)
+![Mattermost Fin](/images/gravity-quickstart/mattermost/mattermost.png)
+
+You can press `Ctrl+C` to stop the `install` script.
 
 ## Conclusion
 
-This is a brief overview of how Kubernetes clusters can be treated as cattle,
-not pets, by packaging them into simple `tar` files. Gravity's image-based
-approach is quite similar to how virtual machines/instances are treated by
-using disk images in virtualized environments.
+This is a brief overview of how Kubernetes clusters can be packaged into simple 
+`tar` files and then installed anywhere. Gravity's image-based approach is quite 
+similar to how virtual machines/instances are treated by using disk images in 
+virtualized environments.
 
 This dramatically lowers the operational overhead of running multiple Kubernetes
 clusters within an organization, allows complex SaaS applications to be converted
