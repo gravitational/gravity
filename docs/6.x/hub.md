@@ -17,6 +17,9 @@ Users of Gravity Hub can:
 This chapter will guide you through the process of downloading and installing
 your own instance of Gravity Hub.
 
+**Gravity Hub Catalog Example**
+![Gravity Hub](/images/gravity-hub/gravity-hub-catalog.png)
+
 ## Installing Gravity Hub
 
 In this section we'll cover how to install your own instance of Gravity Hub
