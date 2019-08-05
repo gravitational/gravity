@@ -272,6 +272,9 @@ type InstallerRequest struct {
 	CACert string `json:"ca_cert,omitempty"`
 	// EncryptionKey is encryption key to encrypt installer packages with
 	EncryptionKey string `json:"encryption_key,omitempty"`
+	// AdditionalDependencies specifies additional dependencies to pull when building
+	// the installer
+	AdditionalDependencies Dependencies `json:"additional_dependencies"`
 }
 
 // Check validates this request
@@ -292,11 +295,12 @@ func (r InstallerRequest) ToRaw() (*InstallerRequestRaw, error) {
 		return nil, trace.Wrap(err)
 	}
 	return &InstallerRequestRaw{
-		Account:        r.Account,
-		Application:    r.Application,
-		TrustedCluster: json.RawMessage(bytes),
-		CACert:         r.CACert,
-		EncryptionKey:  r.EncryptionKey,
+		Account:                r.Account,
+		Application:            r.Application,
+		TrustedCluster:         json.RawMessage(bytes),
+		CACert:                 r.CACert,
+		EncryptionKey:          r.EncryptionKey,
+		AdditionalDependencies: r.AdditionalDependencies,
 	}, nil
 }
 
@@ -313,6 +317,9 @@ type InstallerRequestRaw struct {
 	CACert string `json:"ca_cert,omitempty"`
 	// EncryptionKey is encryption key to encrypt installer packages with
 	EncryptionKey string `json:"encryption_key,omitempty"`
+	// AdditionalDependencies specifies additional dependencies to pull when building
+	// the installer
+	AdditionalDependencies Dependencies `json:"additional_dependencies"`
 }
 
 // ToNative converts the request from API-friendly to its regular format
@@ -322,11 +329,12 @@ func (r InstallerRequestRaw) ToNative() (*InstallerRequest, error) {
 		return nil, trace.Wrap(err)
 	}
 	return &InstallerRequest{
-		Account:        r.Account,
-		Application:    r.Application,
-		TrustedCluster: cluster,
-		CACert:         r.CACert,
-		EncryptionKey:  r.EncryptionKey,
+		Account:                r.Account,
+		Application:            r.Application,
+		TrustedCluster:         cluster,
+		CACert:                 r.CACert,
+		EncryptionKey:          r.EncryptionKey,
+		AdditionalDependencies: r.AdditionalDependencies,
 	}, nil
 }
 

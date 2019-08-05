@@ -38,7 +38,8 @@ import (
 type Syncer interface {
 	// Sync makes sure that local cache has all required dependencies for the
 	// selected runtime
-	Sync(builder *Builder, runtimeVersion semver.Version) error
+	// Returns a list of dependencies that were added as a result of the operation
+	Sync(builder *Builder, req SyncRequest) error
 }
 
 // NewSyncerFunc defines function that creates syncer for a builder
@@ -49,6 +50,14 @@ type NewSyncerFunc func(*Builder) (Syncer, error)
 // Satisfies NewSyncerFunc type.
 func NewSyncer(b *Builder) (Syncer, error) {
 	return newS3Syncer()
+}
+
+// SyncRequest defines a request to pull a specific version of the runtime application package
+type SyncRequest struct {
+	// RuntimeVersion specifies the version of runtime to pull
+	RuntimeVersion semver.Version
+	// Labels specifies additional runtime labels to add to pulled packages
+	Labels map[string]string
 }
 
 // s3Syncer synchronizes local package cache with S3 bucket
@@ -70,11 +79,11 @@ func newS3Syncer() (*s3Syncer, error) {
 
 // Sync makes sure that local cache has all required dependencies for the
 // selected runtime
-func (s *s3Syncer) Sync(builder *Builder, runtimeVersion semver.Version) error {
+func (s *s3Syncer) Sync(builder *Builder, req SyncRequest) error {
 	tarball, err := s.hub.Get(loc.Locator{
 		Repository: defaults.SystemAccountOrg,
 		Name:       defaults.TelekubePackage,
-		Version:    runtimeVersion.String(),
+		Version:    req.RuntimeVersion.String(),
 	})
 	if err != nil {
 		return trace.Wrap(err)
@@ -111,6 +120,7 @@ func (s *s3Syncer) Sync(builder *Builder, runtimeVersion semver.Version) error {
 		DstApp:       cacheApps,
 		Parallel:     builder.VendorReq.Parallel,
 		SkipIfExists: true,
+		Labels:       req.Labels,
 	}, builder.Manifest)
 }
 
@@ -131,7 +141,7 @@ func NewPackSyncer(pack pack.PackageService, apps app.Applications, repo string)
 }
 
 // Sync pulls dependencies from the package/app service not available locally
-func (s *packSyncer) Sync(builder *Builder, runtimeVersion semver.Version) error {
+func (s *packSyncer) Sync(builder *Builder, req SyncRequest) error {
 	cacheApps, err := builder.Env.AppServiceLocal(localenv.AppConfig{})
 	if err != nil {
 		return trace.Wrap(err)
@@ -144,6 +154,7 @@ func (s *packSyncer) Sync(builder *Builder, runtimeVersion semver.Version) error
 		DstApp:       cacheApps,
 		Parallel:     builder.VendorReq.Parallel,
 		SkipIfExists: true,
+		Labels:       req.Labels,
 	}, builder.Manifest)
 	if err != nil {
 		if utils.IsNetworkError(err) || trace.IsEOF(err) {

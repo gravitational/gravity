@@ -71,7 +71,7 @@ func Build(ctx context.Context, builder *Builder) error {
 		if err != nil {
 			return trace.Wrap(err)
 		}
-		err = builder.SyncPackageCache(*runtimeVersion, builder.IntermediateRuntimes...)
+		err = builder.SyncPackageCache(*runtimeVersion, builder.UpgradeVia...)
 		if err != nil {
 			return trace.Wrap(err)
 		}

@@ -558,22 +558,6 @@ const manifestSchema = `
           }
         },
         "systemOptions": {"$ref": "#/definitions/systemOptions"},
-        "systemUpdate": {
-          "type": "object",
-          "properties": {
-            "runtimes": {
-              "type": "array",
-              "items": {
-                "type": "object",
-                "additionalProperties": false,
-                "properties": {
-                  "version": {"type": "string"},
-                  "dependencies": {"$ref": "#/definitions/dependencies"}
-                }
-              }
-            }
-          }
-        },
         "extensions": {
           "type": "object",
           "additionalProperties": false,

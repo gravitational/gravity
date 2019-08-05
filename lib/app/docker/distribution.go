@@ -120,7 +120,10 @@ func alive(path string, handler http.Handler) http.Handler {
 			return
 		}
 
-		handler.ServeHTTP(w, r)
+		ctx, cancel := defaultContext()
+		defer cancel()
+
+		handler.ServeHTTP(w, r.WithContext(ctx))
 	})
 }
 
@@ -149,7 +152,7 @@ func defaultContext() (context.Context, context.CancelFunc) {
 }
 
 func newLogger() registrycontext.Logger {
-	logger := log.WithField("source", "local-docker-registry")
+	logger := log.New().WithField("source", "local-docker-registry")
 	logger.Logger.SetLevel(log.WarnLevel)
 	logger.Logger.SetHooks(make(log.LevelHooks))
 	hook, err := sysloghook.NewSyslogHook("", "", syslog.LOG_WARNING, "")

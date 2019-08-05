@@ -153,6 +153,11 @@ func uploadUpdate(env *localenv.LocalEnvironment, opsURL string) error {
 		return trace.Wrap(err)
 	}
 
+	err = pack.CheckUpdatePackage(cluster.App.Package, *appPackage)
+	if err != nil {
+		return trace.Wrap(err)
+	}
+
 	env.PrintStep("Importing application %v v%v", appPackage.Name, appPackage.Version)
 	_, err = appservice.PullApp(appservice.AppPullRequest{
 		SrcPack: tarballPackages,

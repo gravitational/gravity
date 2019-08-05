@@ -573,6 +573,7 @@ func generateInstallToken(service ops.Operator, accountID, installToken string) 
 func GetApp(service appservice.Applications) (*appservice.Application, error) {
 	apps, err := service.ListApps(appservice.ListAppsRequest{
 		Repository: defaults.SystemAccountOrg,
+		Type:       storage.AppUser,
 	})
 	if err != nil {
 		return nil, trace.Wrap(err)

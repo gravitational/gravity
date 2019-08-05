@@ -35,6 +35,41 @@ import (
 	"github.com/sirupsen/logrus"
 )
 
+// PullApp pulls the application specified with app, along with all its dependencies
+// and base application, from the "source" application service and replicates it in
+// the "destination" application service
+func PullApp(req AppPullRequest) (*app.Application, error) {
+	if err := req.checkAndSetDefaults(); err != nil {
+		return nil, trace.Wrap(err)
+	}
+	state := newPullState()
+	return pullAppWithRetries(req, state)
+}
+
+// PullPackage pulls a package from the "source" package service and creates it in the "destination" service
+func PullPackage(req PackagePullRequest) (*pack.PackageEnvelope, error) {
+	if err := req.checkAndSetDefaults(); err != nil {
+		return nil, trace.Wrap(err)
+	}
+	return pullPackageWithRetries(req)
+}
+
+// PullAppDeps downloads only dependencies for an application described by the provided manifest
+func PullAppDeps(req AppPullRequest, manifest schema.Manifest) error {
+	if err := req.checkAndSetDefaults(); err != nil {
+		return trace.Wrap(err)
+	}
+	state := newPullState()
+	return trace.Wrap(pullAppDeps(req, manifest, state))
+}
+
+// IsMetadataPackage determines if the specified package is a metadata package.
+// A metadata package describes a remote package and deserves
+// special handling in certain cases.
+func IsMetadataPackage(envelope pack.PackageEnvelope) bool {
+	return envelope.RuntimeLabels[pack.PurposeLabel] == pack.PurposeMetadata
+}
+
 // PackagePullRequest describes a request to pull a package from one package service to another
 type PackagePullRequest struct {
 	// FieldLogger is used for logging
@@ -58,10 +93,13 @@ type PackagePullRequest struct {
 	MetadataOnly bool
 }
 
-// CheckAndSetDefaults checks the package pull request and sets some defaults
-func (r *PackagePullRequest) CheckAndSetDefaults() error {
+// checkAndSetDefaults checks the package pull request and sets some defaults
+func (r *PackagePullRequest) checkAndSetDefaults() error {
 	if r.FieldLogger == nil {
 		r.FieldLogger = logrus.StandardLogger()
+	}
+	if r.Labels == nil {
+		r.Labels = make(map[string]string)
 	}
 	return nil
 }
@@ -98,10 +136,13 @@ type AppPullRequest struct {
 	Parallel int
 }
 
-// CheckAndSetDefaults checks the app pull request and sets some defaults
-func (r *AppPullRequest) CheckAndSetDefaults() error {
+// checkAndSetDefaults checks the app pull request and sets some defaults
+func (r *AppPullRequest) checkAndSetDefaults() error {
 	if r.FieldLogger == nil {
 		r.FieldLogger = logrus.StandardLogger()
+	}
+	if r.Labels == nil {
+		r.Labels = make(map[string]string)
 	}
 	return nil
 }
@@ -120,31 +161,32 @@ func (r *AppPullRequest) Clone(locator loc.Locator) AppPullRequest {
 		Progress:     r.Progress,
 		Parallel:     r.Parallel,
 		MetadataOnly: r.MetadataOnly,
+		Labels:       utils.CombineLabels(r.Labels),
 	}
 }
 
-// PullPackage pulls a package from the "source" package service and creates it in the "destination" service
-func PullPackage(req PackagePullRequest) (*pack.PackageEnvelope, error) {
-	return pullPackageWithRetries(req)
+// Clone returns a copy of this request replacing package with the provided one
+func (r *AppPullRequest) PackageRequest(locator loc.Locator) PackagePullRequest {
+	return PackagePullRequest{
+		FieldLogger:  r.FieldLogger,
+		SrcPack:      r.SrcPack,
+		DstPack:      r.DstPack,
+		Package:      locator,
+		Upsert:       r.Upsert,
+		SkipIfExists: r.SkipIfExists,
+		Progress:     r.Progress,
+		MetadataOnly: r.MetadataOnly,
+		Labels:       utils.CombineLabels(r.Labels),
+	}
 }
 
-// pullPackageHandler returns a function to pull the specified package loc for running
+// newPackagePullHandler returns a function to pull the specified package loc for running
 // as part of parallel pull operation.
 // If the package already exists, the error is ignored
-func pullPackageHandler(loc loc.Locator, req AppPullRequest, state *pullState) func() error {
+func newPackagePullHandler(loc loc.Locator, req AppPullRequest, state *pullState) func() error {
 	return func() error {
-		_, err := pullPackageWithRetries(PackagePullRequest{
-			FieldLogger:  req.FieldLogger,
-			SrcPack:      req.SrcPack,
-			DstPack:      req.DstPack,
-			Package:      loc,
-			Upsert:       req.Upsert,
-			SkipIfExists: req.SkipIfExists,
-			Progress:     req.Progress,
-			MetadataOnly: req.MetadataOnly,
-		})
+		_, err := pullPackageWithRetries(req.PackageRequest(loc))
 		if err == nil {
-			// Mark package as pulled
 			state.markPulled(loc)
 			return nil
 		}
@@ -172,11 +214,7 @@ func pullPackageWithRetries(req PackagePullRequest) (env *pack.PackageEnvelope, 
 }
 
 func pullPackage(req PackagePullRequest) (*pack.PackageEnvelope, error) {
-	err := req.CheckAndSetDefaults()
-	if err != nil {
-		return nil, trace.Wrap(err)
-	}
-
+	logger := req.WithField("package", req.Package)
 	env, err := req.DstPack.ReadPackageEnvelope(req.Package)
 	if err != nil && !trace.IsNotFound(err) {
 		return nil, trace.Wrap(err)
@@ -187,12 +225,12 @@ func pullPackage(req PackagePullRequest) (*pack.PackageEnvelope, error) {
 			return nil, nil
 		}
 		if !req.Upsert {
-			req.Infof("Package %v already exists.", req.Package)
+			logger.Info("Package already exists.")
 			return nil, trace.AlreadyExists("package %v already exists", req.Package)
 		}
 	}
 
-	req.Infof("Pulling package %v.", req.Package)
+	logger.Info("Pulling package.")
 
 	reader := ioutil.NopCloser(utils.NopReader())
 	if req.MetadataOnly {
@@ -217,16 +255,7 @@ func pullPackage(req PackagePullRequest) (*pack.PackageEnvelope, error) {
 		return nil, trace.Wrap(err)
 	}
 
-	// Copy runtime labels
-	if req.Labels == nil {
-		req.Labels = make(map[string]string)
-	}
-	for label, value := range env.RuntimeLabels {
-		if _, exists := req.Labels[label]; !exists {
-			req.Labels[label] = value
-		}
-	}
-
+	copyRuntimeLabels(req.Labels, env.RuntimeLabels)
 	if req.Upsert {
 		env, err = req.DstPack.UpsertPackage(
 			env.Locator, reader, pack.WithLabels(req.Labels))
@@ -239,14 +268,6 @@ func pullPackage(req PackagePullRequest) (*pack.PackageEnvelope, error) {
 	}
 
 	return env, nil
-}
-
-// PullApp pulls the application specified with app, along with all its dependencies
-// and base application, from the "source" application service and replicates it in
-// the "destination" application service
-func PullApp(req AppPullRequest) (*app.Application, error) {
-	state := newPullState()
-	return pullAppWithRetries(req, state)
 }
 
 func pullAppWithRetries(req AppPullRequest, state *pullState) (app *app.Application, err error) {
@@ -269,11 +290,6 @@ func pullAppWithRetries(req AppPullRequest, state *pullState) (app *app.Applicat
 }
 
 func pullApp(req AppPullRequest, state *pullState) (*app.Application, error) {
-	err := req.CheckAndSetDefaults()
-	if err != nil {
-		return nil, trace.Wrap(err)
-	}
-
 	application, err := req.SrcApp.GetApp(req.Package)
 	if err != nil {
 		return nil, trace.Wrap(err)
@@ -308,17 +324,18 @@ func pullApp(req AppPullRequest, state *pullState) (*app.Application, error) {
 		req.Upsert = true
 	}
 
+	logger := req.WithField("app", req.Package)
 	if application != nil {
 		if req.SkipIfExists {
 			return nil, nil
 		}
 		if !req.Upsert {
-			req.Infof("Application %v already exists.", req.Package)
+			logger.Info("Application already exists.")
 			return nil, trace.AlreadyExists("app %v already exists", req.Package)
 		}
 	}
 
-	req.Infof("Pulling application %v.", req.Package)
+	logger.Info("Pulling application.")
 
 	// pull the application itself
 	var env *pack.PackageEnvelope
@@ -340,6 +357,7 @@ func pullApp(req AppPullRequest, state *pullState) (*app.Application, error) {
 	}
 	defer reader.Close()
 
+	copyRuntimeLabels(req.Labels, env.RuntimeLabels)
 	if req.Upsert {
 		application, err = req.DstApp.UpsertApp(env.Locator, reader, req.Labels)
 	} else {
@@ -353,16 +371,7 @@ func pullApp(req AppPullRequest, state *pullState) (*app.Application, error) {
 	return application, nil
 }
 
-// PullAppDeps downloads only dependencies for an application described by the provided manifest
-func PullAppDeps(req AppPullRequest, manifest schema.Manifest) error {
-	state := newPullState()
-	return trace.Wrap(pullAppDeps(req, manifest, state))
-}
-
 func pullAppDeps(req AppPullRequest, manifest schema.Manifest, state *pullState) error {
-	if err := req.CheckAndSetDefaults(); err != nil {
-		return trace.Wrap(err)
-	}
 	// pull base application if any
 	base := manifest.Base()
 	if base != nil {
@@ -382,7 +391,7 @@ func pullAppDeps(req AppPullRequest, manifest schema.Manifest, state *pullState)
 			req.Infof("Package %v already pulled.", dep)
 			continue
 		}
-		group.Go(ctx, pullPackageHandler(dep, req, state))
+		group.Go(ctx, newPackagePullHandler(dep, req, state))
 	}
 	if err := group.Wait(); err != nil {
 		return trace.Wrap(err)
@@ -426,9 +435,12 @@ type pullState struct {
 	packages map[loc.Locator]struct{}
 }
 
-// IsMetadataPackage determines if the specified package is a metadata package.
-// A metadata package describes a remote package and deserves
-// special handling in certain cases.
-func IsMetadataPackage(envelope pack.PackageEnvelope) bool {
-	return envelope.RuntimeLabels[pack.PurposeLabel] == pack.PurposeMetadata
+// copyRuntimeLabels copies labels from runtimeLabels to labels for each
+// label non-existent in labels
+func copyRuntimeLabels(labels map[string]string, runtimeLabels map[string]string) {
+	for label, value := range runtimeLabels {
+		if _, exists := labels[label]; !exists {
+			labels[label] = value
+		}
+	}
 }

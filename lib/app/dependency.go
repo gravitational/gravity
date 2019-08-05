@@ -25,82 +25,99 @@ import (
 )
 
 // GetDependencies transitively collects dependencies for the specified application package
-func GetDependencies(app *Application, apps Applications) (result *Dependencies, err error) {
-	state := &state{
-		visitedPackages: map[string]struct{}{},
-		visitedApps:     map[string]struct{}{},
-	}
-	if err = getDependencies(app, apps, state); err != nil {
+func GetDependencies(app Application, apps Applications) (result *Dependencies, err error) {
+	dependencies, err := GetFullDependencies(GetDependenciesRequest{
+		App:  app,
+		Apps: apps,
+	})
+	if err != nil {
 		return nil, trace.Wrap(err)
 	}
-	result = &Dependencies{}
-	result.Packages = append(result.Packages, state.packages...)
-	if state.runtimePackage != nil {
-		result.Packages = append(result.Packages, *state.runtimePackage)
-	}
-	for _, locator := range state.apps {
-		if !locator.IsEqualTo(app.Package) {
-			result.Apps = append(result.Apps, locator)
-		}
-	}
-	result.Packages = loc.Deduplicate(result.Packages)
-	result.Apps = loc.Deduplicate(result.Apps)
-	return result, nil
+	return dependencies, nil
 }
 
 // VerifyDependencies verifies that all dependencies for the specified application are available
 // in the provided package service.
-func VerifyDependencies(app *Application, apps Applications, packages pack.PackageService) error {
-	dependencies, err := GetDependencies(app, apps)
-	if err != nil {
-		return trace.Wrap(err)
+func VerifyDependencies(app Application, apps Applications, packages pack.PackageService) error {
+	_, err := GetFullDependencies(GetDependenciesRequest{
+		App:  app,
+		Apps: apps,
+		Pack: packages,
+	})
+	return trace.Wrap(err)
+}
+
+// GetFullDependencies transitively collects dependencies for the specified application package
+func GetFullDependencies(req GetDependenciesRequest) (result *Dependencies, err error) {
+	if err := req.checkAndSetDefaults(); err != nil {
+		return nil, trace.Wrap(err)
 	}
-	for _, dependency := range dependencies.Packages {
-		_, err := packages.ReadPackageEnvelope(dependency)
-		if err != nil {
-			if trace.IsNotFound(err) {
-				log.Debugf("Package dependency %v is not present.", dependency)
-			}
-			return trace.Wrap(err)
-		}
-		log.Debugf("Package dependency %v is present.", dependency)
+	state := &state{
+		packages: make(map[loc.Locator]struct{}),
+		apps:     make(map[loc.Locator]struct{}),
 	}
-	for _, dependency := range dependencies.Apps {
-		_, err := apps.GetApp(dependency)
-		if err != nil {
-			if trace.IsNotFound(err) {
-				log.Debugf("App dependency %v is not present.", dependency)
-			}
-			return trace.Wrap(err)
-		}
-		log.Debugf("App dependency %v is present.", dependency)
+	if err = req.getDependencies(req.App, state); err != nil {
+		return nil, trace.Wrap(err)
 	}
-	return nil
+	return &state.deps, nil
+}
+
+// GetDependenciesRequest describes a request to transitively enumerate packages dependencies
+// for a specific application package
+type GetDependenciesRequest struct {
+	App  Application
+	Apps Applications
+	Pack pack.PackageService
+	log.FieldLogger
+}
+
+// AsPackages returns dependencies as a list of package identifiers
+func (r Dependencies) AsPackages() (result []loc.Locator) {
+	result = make([]loc.Locator, 0, len(r.Packages)+len(r.Apps))
+	for _, pkg := range r.Packages {
+		result = append(result, pkg.Locator)
+	}
+	for _, app := range r.Apps {
+		result = append(result, app.Package)
+	}
+	return result
 }
 
 // Dependencies defines a set of package and application dependencies
 // for an application
 type Dependencies struct {
 	// Packages defines a set of package dependencies
-	Packages []loc.Locator
+	Packages []pack.PackageEnvelope `json:"packages,omitempty"`
 	// Apps defines a set of application package dependencies
-	Apps []loc.Locator
+	Apps []Application `json:"apps,omitempty"`
 }
 
-func getDependencies(app *Application, apps Applications, state *state) error {
-	log.Infof("Getting dependencies for %v.", app.Package)
+func (r *GetDependenciesRequest) checkAndSetDefaults() error {
+	if r.Apps == nil {
+		return trace.BadParameter("application service is required")
+	}
+	if r.Pack == nil {
+		return trace.BadParameter("package service is required")
+	}
+	if r.FieldLogger == nil {
+		r.FieldLogger = log.WithField(trace.Component, "deps")
+	}
+	return nil
+}
+
+func (r GetDependenciesRequest) getDependencies(app Application, state *state) error {
+	r.WithField("app", app.Package).Info("Get dependencies.")
 	packageDeps := loc.Deduplicate(app.Manifest.Dependencies.GetPackages())
 	packageDeps = append(packageDeps, app.Manifest.NodeProfiles.RuntimePackages()...)
-	if app.Manifest.SystemUpdate != nil {
-		for _, runtime := range app.Manifest.SystemUpdate.Runtimes {
-			packageDeps = append(packageDeps, runtime.Dependencies.GetPackages()...)
-		}
-	}
 	for _, dependency := range packageDeps {
-		if !state.isPackage(dependency) {
-			state.markPackage(dependency)
-			state.packages = append(state.packages, dependency)
+		if state.isPackage(dependency) {
+			continue
 		}
+		envelope, err := r.Pack.ReadPackageEnvelope(dependency)
+		if err != nil {
+			return trace.Wrap(err)
+		}
+		state.addPackage(*envelope)
 	}
 	// collect application dependencies, including those of the base application
 	var appDeps []loc.Locator
@@ -109,24 +126,18 @@ func getDependencies(app *Application, apps Applications, state *state) error {
 		appDeps = append(appDeps, *baseLocator)
 	}
 	appDeps = append(appDeps, app.Manifest.Dependencies.GetApps()...)
-	if app.Manifest.SystemUpdate != nil {
-		for _, runtime := range app.Manifest.SystemUpdate.Runtimes {
-			appDeps = append(appDeps, runtime.Dependencies.GetApps()...)
-		}
-	}
 	for _, dependency := range appDeps {
 		if state.isApp(dependency) {
 			continue
 		}
-		app, err := apps.GetApp(dependency)
+		app, err := r.Apps.GetApp(dependency)
 		if err != nil {
 			return trace.Wrap(err)
 		}
-		if err := getDependencies(app, apps, state); err != nil {
+		if err := r.getDependencies(*app, state); err != nil {
 			return trace.Wrap(err)
 		}
-		state.markApp(dependency)
-		state.apps = append(state.apps, dependency)
+		state.addApp(*app)
 	}
 	// Fetch and persist the default runtime package.
 	// If the top-level application overwrites the runtime package,
@@ -136,31 +147,35 @@ func getDependencies(app *Application, apps Applications, state *state) error {
 	if runtimePackage, _ := app.Manifest.DefaultRuntimePackage(); runtimePackage != nil {
 		state.runtimePackage = runtimePackage
 	}
-
 	return nil
 }
 
 func (r *state) isPackage(pkg loc.Locator) bool {
-	_, ok := r.visitedPackages[pkg.String()]
+	_, ok := r.packages[pkg]
 	return ok
 }
 
 func (r *state) isApp(pkg loc.Locator) bool {
-	_, ok := r.visitedApps[pkg.String()]
+	_, ok := r.apps[pkg]
 	return ok
 }
 
-func (r *state) markPackage(pkg loc.Locator) {
-	r.visitedPackages[pkg.String()] = struct{}{}
+func (r *state) addPackage(pkg pack.PackageEnvelope) {
+	r.packages[pkg.Locator] = struct{}{}
+	r.deps.Packages = append(r.deps.Packages, pkg)
 }
 
-func (r *state) markApp(pkg loc.Locator) {
-	r.visitedApps[pkg.String()] = struct{}{}
+func (r *state) addApp(app Application) {
+	r.apps[app.Package] = struct{}{}
+	r.deps.Apps = append(r.deps.Apps, app)
 }
 
 type state struct {
-	// packages lists collected package dependencies w/o duplicates
-	packages []loc.Locator
+	deps Dependencies
+	// packages lists collected package dependencies
+	packages map[loc.Locator]struct{}
+	// apps lists collected application dependencies
+	apps map[loc.Locator]struct{}
 	// runtimePackage is the runtime package dependency.
 	//
 	// The runtime package is computed bottom-up - from dependencies to the top-level application.
@@ -169,9 +184,4 @@ type state struct {
 	// If the global system options block specifies a custom docker image for the runtime
 	// package, the generated package will replace the one from the base application.
 	runtimePackage *loc.Locator
-	// apps lists collected application dependencies w/o duplicates
-	apps []loc.Locator
-
-	visitedApps     map[string]struct{}
-	visitedPackages map[string]struct{}
 }
