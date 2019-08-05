@@ -108,11 +108,16 @@ cloud account) or at the IP of the host.
 After installation [OIDC provider](/cluster/#configuring-a-cluster) should be
 set up in order to log into Gravity Hub.
 
+![Gravity OIDC Connector](/images/gravity-hub/gravity-hub-auth-connector.png)
+
+
 #### Setting up TLS Key Pair
 
 After installation, a valid [TLS key pair](/cluster/#configuring-tls-key-pair)
 should be set up in order to log into Gravity Hub. Self-signed certificates are
 currently not supported.
+
+![Gravity Hub Certificates](/images/gravity-hub/gravity-hub-certificates.png)
 
 #### Configuring endpoints
 
@@ -262,6 +267,10 @@ $ tsh --proxy=hub.example.com login
 
 Based on the Gravity Hub configuration, the login command will open the web browser and users will have to go through a single sign-on (SSO) process with the identity provider of their choice.
 
+![Gravity Hub Certificates](/images/gravity-quickstart/logging-into-gravity.png)
+![Gravity Hub - User List](/images/gravity-hub/gravity-hub-users.png)
+
+
 ## Publishing Cluster Images
 
 Once logged into Gravity Hub, the commands below are used to manage the 
@@ -310,6 +319,8 @@ Options:
 Gravity uses [Teleport](https://gravitational.com/teleport) to
 connect to remote Clusters. Teleport is an open source privileged management
 solution for both SSH and Kubernetes and it comes bundled with Gravity.
+
+![Gravity Hub Certificates](/images/gravity-hub/gravity-hub-cluster.png)
 
 To see the list of Gravity Clusters available:
 
