@@ -34,14 +34,17 @@ LTS starts with `3.51.0` with minor backwards compatible changes added over time
 
 ### 6.1.1 (August 6th, 2019)
 
+#### Improvements
+
+* Improve reporting of time synchronization issues during join process.
+* Improve resiliency of node join process.
+* Improve removal of a node where the join process has been aborted.
+
 #### Bugfixes
 
 * Update etcd gateway configuration as masters are removed or added to the cluster.
 * Upgrade Kubernetes to `v1.14.5` (CVE-2019-11247, CVE-2019-11249).
 * Fix crash in `gravity license show`.
-* Improve reporting of time synchronization issues during join process.
-* Improve resiliency of node join process.
-* Improve removal of a node where the join process has been aborted.
 * Fixes a couple issues with initializing the installer service.
 
 !!! warning
@@ -50,14 +53,17 @@ LTS starts with `3.51.0` with minor backwards compatible changes added over time
 
 ### 6.0.2 (August 6th, 2019)
 
+#### Improvements
+
+* Improve reporting of time synchronization issues during join process.
+* Improve resiliency of node join process.
+* Improve removal of a node where the join process has been aborted.
+
 #### Bugfixes
 
 * Update etcd gateway configuration as masters are removed or added to the cluster.
 * Upgrade Kubernetes to `v1.14.5` (CVE-2019-11247, CVE-2019-11249).
 * Fix crash in `gravity license show`.
-* Improve reporting of time synchronization issues during join process.
-* Improve resiliency of node join process.
-* Improve removal of a node where the join process has been aborted.
 * Fixes a couple issues with initializing the installer service.
 
 !!! warning
