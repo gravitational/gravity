@@ -78,6 +78,9 @@ func (p *checksExecutor) Execute(ctx context.Context) error {
 		Servers:      []checks.Server{*master, *node},
 		Manifest:     cluster.App.Manifest,
 		Requirements: reqs,
+		Features: checks.Features{
+			TestEtcdDisk: true,
+		},
 	})
 	if err != nil {
 		return trace.Wrap(err)

@@ -17,13 +17,13 @@ limitations under the License.
 package checks
 
 import (
-	"bytes"
 	"context"
-	"encoding/json"
+	"fmt"
 	"path/filepath"
+	"strings"
 
-	"github.com/gravitational/gravity/lib/checks/disks"
 	"github.com/gravitational/gravity/lib/defaults"
+	"github.com/gravitational/gravity/lib/network/validation/proto"
 	"github.com/gravitational/gravity/lib/state"
 
 	"github.com/gravitational/trace"
@@ -34,63 +34,66 @@ import (
 func (r *checker) checkEtcdDisk(ctx context.Context, server Server) error {
 	// Test file should reside where etcd data will be.
 	testPath := state.InEtcdDir(server.ServerInfo.StateDir, testFile)
-	err := r.ensureDir(ctx, server.AdvertiseIP, filepath.Dir(testPath))
+	res, err := r.Remote.CheckDisks(ctx, server.AdvertiseIP, fioEtcdJob(testPath))
 	if err != nil {
 		return trace.Wrap(err)
 	}
-	spec, err := disks.EtcdSpec(testPath, defaults.DiskTestDuration)
-	if err != nil {
-		return trace.Wrap(err)
-	}
-	resp, err := r.Remote.CheckDisks(ctx, server.AdvertiseIP, spec)
-	if err != nil {
-		return trace.Wrap(err)
-	}
-	err = r.rmFile(ctx, server.AdvertiseIP, testPath)
-	if err != nil {
-		log.WithError(err).Warnf("Failed to remove %v on %v.", testPath, server.Hostname)
-	}
-	var res disks.FioResult
-	if err := json.Unmarshal(resp, &res); err != nil {
-		return trace.Wrap(err)
-	}
-	log.Debugf("Server %v disk test results: %#v.", server.Hostname, res)
+	log.Debugf("Server %v disk test results: %s.", server.Hostname, res.String())
 	if len(res.Jobs) != 1 {
 		return trace.BadParameter("expected 1 job result: %v", res)
 	}
 	iops := res.Jobs[0].GetWriteIOPS()
 	latency := res.Jobs[0].GetFsyncLatency()
 	if iops < EtcdMinWriteIOPS || latency > EtcdMaxFsyncLatencyMs {
-		return trace.BadParameter(
-			`It looks like on node %v etcd data resides on a disk (%v) that has low sequential write IOPS (%v) or high fsync latency (%vms).
-
-For optimal performance, etcd requires its WAL placed on a disk with a minimum of 50 sequential write IOPS and fsync
-latency not greater than 10ms, otherwise the cluster will experience stability issues.
-
-Please make sure that the directory with etcd data specified above resides on the device that meets the aforementioned
-hardware requirements before proceeding.`, server.Hostname, filepath.Dir(testPath), iops, latency)
+		return trace.BadParameter(formatEtcdMessage(server, testPath, iops, latency))
 	}
 	log.Infof("Server %v passed etcd disk check, has %v sequential write iops and %vms fsync latency.",
 		server.Hostname, iops, latency)
 	return nil
 }
 
-func (r *checker) ensureDir(ctx context.Context, addr, dir string) error {
-	var out bytes.Buffer
-	if err := r.Remote.Exec(ctx, addr, []string{"mkdir", "-p", dir}, &out); err != nil {
-		return trace.Wrap(err, "failed to create directory %v on %v: %v",
-			dir, addr, out.String())
+// fioEtcdJob constructs a request to check etcd disk performance.
+func fioEtcdJob(filename string) *proto.CheckDisksRequest {
+	spec := &proto.FioJobSpec{
+		Name: "etcd",
+		// perform sequential writes
+		ReadWrite: "write",
+		// use write() syscall for writes
+		IoEngine: "sync",
+		// sync every data write to disk
+		Fdatasync: true,
+		// test file, should reside where etcd WAL will be
+		Filename: filename,
+		// average block size written by etcd
+		BlockSize: "2300",
+		// total size of the test file
+		Size_: "22m",
+		// limit total test runtime
+		Runtime: proto.DurationProto(defaults.DiskTestDuration),
 	}
-	return nil
+	return &proto.CheckDisksRequest{
+		Jobs: []*proto.FioJobSpec{spec},
+	}
 }
 
-func (r *checker) rmFile(ctx context.Context, addr, path string) error {
-	var out bytes.Buffer
-	if err := r.Remote.Exec(ctx, addr, []string{"rm", "-f", path}, &out); err != nil {
-		return trace.Wrap(err, "failed to remove file %v on %v: %v",
-			path, addr, out.String())
+// formatEtcdMessage returns appropritate formatted error message based
+// on the etcd disk performance test results.
+func formatEtcdMessage(server Server, testPath string, iops float64, latency int64) string {
+	var errors []string
+	if iops < EtcdMinWriteIOPS {
+		errors = append(errors, fmt.Sprintf("  * Low sequential write IOPS of %v, required minimum is %v.",
+			iops, EtcdMinWriteIOPS))
 	}
-	return nil
+	if latency > EtcdMaxFsyncLatencyMs {
+		errors = append(errors, fmt.Sprintf("  * High fsync latency of %vms, required maximum is %vms.",
+			latency, EtcdMaxFsyncLatencyMs))
+	}
+	return fmt.Sprintf(
+		`It looks like on node %v etcd data resides on a disk (%v) that does not satisfy recommended performance requirements:
+%v
+For optimal performance, please make sure that the directory with etcd data resides on the device that meets the aforementioned
+hardware requirements before proceeding.`,
+		server.Hostname, filepath.Dir(testPath), strings.Join(errors, "\n"))
 }
 
 const (

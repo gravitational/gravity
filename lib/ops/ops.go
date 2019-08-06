@@ -30,6 +30,7 @@ import (
 	"github.com/gravitational/gravity/lib/constants"
 	"github.com/gravitational/gravity/lib/defaults"
 	"github.com/gravitational/gravity/lib/loc"
+	"github.com/gravitational/gravity/lib/network/validation/proto"
 	"github.com/gravitational/gravity/lib/ops/monitoring"
 	"github.com/gravitational/gravity/lib/pack"
 	"github.com/gravitational/gravity/lib/schema"
@@ -1409,7 +1410,7 @@ type AgentService interface {
 	CheckBandwidth(context.Context, SiteOperationKey, checks.PingPongGame) (checks.PingPongGameResults, error)
 
 	// CheckDisks executes disk performance test on the specified node
-	CheckDisks(ctx context.Context, key SiteOperationKey, addr string, spec []byte) ([]byte, error)
+	CheckDisks(ctx context.Context, key SiteOperationKey, addr string, req *proto.CheckDisksRequest) (*proto.CheckDisksResponse, error)
 
 	// StopAgents instructs all remote agents to stop operation
 	// and rejects all consequitive requests to connect for any agent

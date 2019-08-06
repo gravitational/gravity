@@ -23,6 +23,7 @@ import (
 	"io"
 
 	"github.com/gravitational/gravity/lib/checks"
+	"github.com/gravitational/gravity/lib/network/validation/proto"
 	"github.com/gravitational/gravity/lib/schema"
 	"github.com/gravitational/gravity/lib/storage"
 
@@ -59,6 +60,7 @@ func CheckServers(ctx context.Context,
 			TestBandwidth:    true,
 			TestPorts:        true,
 			TestDockerDevice: true,
+			TestEtcdDisk:     true,
 		},
 	})
 	if err != nil {
@@ -105,12 +107,12 @@ func (r *remoteCommands) CheckBandwidth(ctx context.Context, req checks.PingPong
 }
 
 // CheckDisks executes disk performance test on the specified node.
-func (r *remoteCommands) CheckDisks(ctx context.Context, addr string, spec []byte) ([]byte, error) {
-	resp, err := r.AgentService.CheckDisks(ctx, r.key, addr, spec)
+func (r *remoteCommands) CheckDisks(ctx context.Context, addr string, req *proto.CheckDisksRequest) (*proto.CheckDisksResponse, error) {
+	res, err := r.AgentService.CheckDisks(ctx, r.key, addr, req)
 	if err != nil {
 		return nil, trace.Wrap(err)
 	}
-	return resp, nil
+	return res, nil
 }
 
 // Validate validates the node given with addr against the specified manifest.

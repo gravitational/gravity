@@ -208,19 +208,17 @@ func (r *AgentService) Validate(ctx context.Context, key ops.SiteOperationKey, a
 }
 
 // CheckDisks executes disk performance test on the specified node
-func (r *AgentService) CheckDisks(ctx context.Context, key ops.SiteOperationKey, addr string, spec []byte) ([]byte, error) {
+func (r *AgentService) CheckDisks(ctx context.Context, key ops.SiteOperationKey, addr string, req *validationpb.CheckDisksRequest) (*validationpb.CheckDisksResponse, error) {
 	group, err := r.peerStore.getOrCreateGroup(key)
 	if err != nil {
 		return nil, trace.Wrap(err)
 	}
 	clt := group.WithContext(ctx, rpc.AgentAddr(addr))
-	resp, err := clt.CheckDisks(ctx, &validationpb.CheckDisksRequest{
-		Spec: spec,
-	})
+	res, err := clt.CheckDisks(ctx, req)
 	if err != nil {
 		return nil, trace.Wrap(err)
 	}
-	return resp.Result, nil
+	return res, nil
 }
 
 // CheckPorts executes the ports pingpong network test in the agent cluster
