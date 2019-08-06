@@ -21,6 +21,8 @@ import (
 	"time"
 
 	"github.com/gravitational/gravity/lib/checks"
+	"github.com/gravitational/gravity/lib/checks/disks"
+	"github.com/gravitational/gravity/lib/network/validation/proto"
 	pb "github.com/gravitational/gravity/lib/network/validation/proto"
 	"github.com/gravitational/gravity/lib/schema"
 	"github.com/gravitational/gravity/lib/state"
@@ -119,6 +121,23 @@ func (r *Server) CheckPorts(ctx context.Context, req *pb.CheckPortsRequest) (*pb
 	}
 
 	return response, nil
+}
+
+// CheckDisks executes the disk performance test using fio tool with the
+// provided configuration and returns the test results.
+func (r *Server) CheckDisks(ctx context.Context, req *proto.CheckDisksRequest) (*proto.CheckDisksResponse, error) {
+	if err := req.Check(); err != nil {
+		return nil, trace.Wrap(err)
+	}
+	r.Infof("Running disk test: %s.", req.Spec)
+	res, err := disks.Check(ctx, req.Spec)
+	if err != nil {
+		return nil, trace.Wrap(err)
+	}
+	r.Infof("Disk test completed: %s.", string(res))
+	return &proto.CheckDisksResponse{
+		Result: res,
+	}, nil
 }
 
 // Validate validatest this node against the requirements

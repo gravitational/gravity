@@ -60,6 +60,19 @@ type planBuilder struct {
 	DNSConfig storage.DNSConfig
 }
 
+// AddInitPhase appends initialization phase to the plan.
+func (b *planBuilder) AddInitPhase(plan *storage.OperationPlan) {
+	plan.Phases = append(plan.Phases, storage.OperationPhase{
+		ID:          installphases.InitPhase,
+		Description: "Initialize operation on the joining node",
+		Data: &storage.OperationPhaseData{
+			Server:  &b.JoiningNode,
+			Master:  &b.Master,
+			Package: &b.Application.Package,
+		},
+	})
+}
+
 // AddChecksPhase appends preflight checks phase to the plan.
 func (b *planBuilder) AddChecksPhase(plan *storage.OperationPlan) {
 	plan.Phases = append(plan.Phases, storage.OperationPhase{
@@ -69,7 +82,7 @@ func (b *planBuilder) AddChecksPhase(plan *storage.OperationPlan) {
 			Server: &b.JoiningNode,
 			Master: &b.Master,
 		},
-		Requires: []string{StartAgentPhase},
+		Requires: []string{installphases.InitPhase, StartAgentPhase},
 	})
 }
 

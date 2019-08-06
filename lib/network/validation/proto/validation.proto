@@ -12,9 +12,24 @@ service Validation {
     // CheckBandwidth executes a bandwidth network test
     rpc CheckBandwidth(CheckBandwidthRequest) returns (CheckBandwidthResponse);
 
+    // CheckDisks executes performance test for the specified disks
+    rpc CheckDisks(CheckDisksRequest) returns (CheckDisksResponse);
+
     // Validate validatest this node against the requirements
     // from a manifest.
     rpc Validate(ValidateRequest) returns (ValidateResponse);
+}
+
+// CheckDisksRequest describes a disks performance test request.
+message CheckDisksRequest {
+    // Spec is a fio job spec describing the test to perform.
+    bytes spec = 1;
+}
+
+// CheckDisksResponse is the result of the disk performance test.
+message CheckDisksResponse {
+    // Result is the fio job result output in json format.
+    bytes result = 1;
 }
 
 // CheckPortsRequest describes a ports network test request

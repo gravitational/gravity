@@ -380,6 +380,11 @@ func (r *checker) CheckNode(ctx context.Context, server Server) error {
 		errors = append(errors, err)
 	}
 
+	err = r.checkEtcdDisk(ctx, server)
+	if err != nil {
+		errors = append(errors, err)
+	}
+
 	err = r.checkDisks(ctx, server)
 	if err != nil {
 		errors = append(errors, err)

@@ -55,6 +55,14 @@ func (r CheckBandwidthRequest) Check() error {
 	return nil
 }
 
+// Checks validates the disk performance test request.
+func (r CheckDisksRequest) Check() error {
+	if len(r.Spec) == 0 {
+		return trace.BadParameter("job spec is empty")
+	}
+	return nil
+}
+
 // Address returns a text representation of this server
 func (r Addr) Address() string {
 	return fmt.Sprintf("%v@%v", r.Network, r.Addr)

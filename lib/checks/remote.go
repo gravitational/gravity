@@ -41,6 +41,8 @@ type Remote interface {
 	CheckPorts(context.Context, PingPongGame) (PingPongGameResults, error)
 	// CheckBandwidth executes network bandwidth test.
 	CheckBandwidth(context.Context, PingPongGame) (PingPongGameResults, error)
+	// CheckDisks executes disk performance test on the specified node.
+	CheckDisks(ctx context.Context, addr string, spec []byte) ([]byte, error)
 	// Validate performs local checks on the specified node.
 	Validate(ctx context.Context, addr string, config ValidateConfig) ([]*agentpb.Probe, error)
 }
@@ -105,6 +107,21 @@ func (r *remote) CheckBandwidth(ctx context.Context, req PingPongGame) (PingPong
 		return nil, trace.Wrap(err)
 	}
 	return resp, nil
+}
+
+// CheckDisks executes disk performance test.
+func (r *remote) CheckDisks(ctx context.Context, addr string, spec []byte) ([]byte, error) {
+	clt, err := r.GetClient(ctx, addr)
+	if err != nil {
+		return nil, trace.Wrap(err)
+	}
+	resp, err := clt.CheckDisks(ctx, &proto.CheckDisksRequest{
+		Spec: spec,
+	})
+	if err != nil {
+		return nil, trace.Wrap(err)
+	}
+	return resp.Result, nil
 }
 
 // Validate performs local checks on the specified node.

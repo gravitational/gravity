@@ -48,4 +48,7 @@ ENV PROTO_INCLUDE "/usr/local/include":"${GOPATH}/src":"${GOPATH}/src/github.com
 RUN wget --quiet -O /usr/bin/dep https://github.com/golang/dep/releases/download/v0.4.1/dep-linux-amd64 && chmod +x /usr/bin/dep
 RUN chmod -R a+rw /gopath
 
+# install some development libraries used when compiling fio
+RUN apt -q -y update --fix-missing && apt -q -y install libaio-dev zlib1g-dev
+
 VOLUME ["/gopath/src/github.com/gravitational/gravity"]

@@ -104,6 +104,15 @@ func (r *remoteCommands) CheckBandwidth(ctx context.Context, req checks.PingPong
 	return resp, nil
 }
 
+// CheckDisks executes disk performance test on the specified node.
+func (r *remoteCommands) CheckDisks(ctx context.Context, addr string, spec []byte) ([]byte, error) {
+	resp, err := r.AgentService.CheckDisks(ctx, r.key, addr, spec)
+	if err != nil {
+		return nil, trace.Wrap(err)
+	}
+	return resp, nil
+}
+
 // Validate validates the node given with addr against the specified manifest.
 // Returns the list of failed test results.
 func (r *remoteCommands) Validate(ctx context.Context, addr string, config checks.ValidateConfig) ([]*agentpb.Probe, error) {

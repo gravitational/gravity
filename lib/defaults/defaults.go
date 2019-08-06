@@ -399,6 +399,9 @@ const (
 	// PlanetDir is the name of the planet directory
 	PlanetDir = "planet"
 
+	// EtcdDir is the name of the etcd directory
+	EtcdDir = "etcd"
+
 	// ShareDir is the name of the share directory
 	ShareDir = "share"
 
@@ -789,6 +792,8 @@ const (
 	// BandwidthMaxSpeedBytes is the theoretical upper bound on the amount of types transferred per
 	// second during bandwidth test, which is used in HDR histogram
 	BandwidthMaxSpeedBytes = 100000000000 // 100GB
+	// DiskTestDuration is the duration of the disk performance test
+	DiskTestDuration = 15 * time.Second
 
 	// Runtime is the name of default runtime application
 	Runtime = "kubernetes"

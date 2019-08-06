@@ -166,11 +166,17 @@ const (
 	// KubectlBin is the name of the kubectl binary
 	KubectlBin = "kubectl"
 
+	// FioBin is the name of the fio binary
+	FioBin = "fio"
+
 	// TelePackage is the name of the package with 'tele' binary
 	TelePackage = "tele"
 
 	// TshPackage is the name of the package with 'tsh' binary
 	TshPackage = "tsh"
+
+	// FioPackage is the name of the package with fio binary.
+	FioPackage = "fio"
 
 	// BootstrapConfigPackage specifies the name of the package with default roles/security policies
 	BootstrapConfigPackage = "rbac-app"

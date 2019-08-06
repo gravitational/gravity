@@ -212,6 +212,7 @@ func (s *PlanSuite) TestPlan(c *check.C) {
 		// phaseVerifier is the function used to verify the phase
 		phaseVerifier func(*check.C, storage.OperationPhase)
 	}{
+		{phases.InitPhase, s.verifyInitPhase},
 		{phases.ChecksPhase, s.verifyChecksPhase},
 		{phases.ConfigurePhase, s.verifyConfigurePhase},
 		{phases.BootstrapPhase, s.verifyBootstrapPhase},
@@ -241,12 +242,38 @@ func (s *PlanSuite) TestPlan(c *check.C) {
 	}
 }
 
+func (s *PlanSuite) verifyInitPhase(c *check.C, phase storage.OperationPhase) {
+	storage.DeepComparePhases(c, storage.OperationPhase{
+		ID: phases.InitPhase,
+		Phases: []storage.OperationPhase{
+			{
+				ID: fmt.Sprintf("%v/%v", phases.InitPhase, s.masterNode.Hostname),
+				Data: &storage.OperationPhaseData{
+					Server:     &s.masterNode,
+					ExecServer: &s.masterNode,
+					Package:    &s.installer.config.App.Package,
+				},
+			},
+			{
+				ID: fmt.Sprintf("%v/%v", phases.InitPhase, s.regularNode.Hostname),
+				Data: &storage.OperationPhaseData{
+					Server:     &s.regularNode,
+					ExecServer: &s.regularNode,
+					Package:    &s.installer.config.App.Package,
+				},
+			},
+		},
+		Parallel: true,
+	}, phase)
+}
+
 func (s *PlanSuite) verifyChecksPhase(c *check.C, phase storage.OperationPhase) {
 	storage.DeepComparePhases(c, storage.OperationPhase{
 		ID: phases.ChecksPhase,
 		Data: &storage.OperationPhaseData{
 			Package: &s.installer.config.App.Package,
 		},
+		Requires: []string{phases.InitPhase},
 	}, phase)
 }
 

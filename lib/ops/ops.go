@@ -1408,6 +1408,9 @@ type AgentService interface {
 	// CheckBandwidth executes bandwidth network test in agent cluster
 	CheckBandwidth(context.Context, SiteOperationKey, checks.PingPongGame) (checks.PingPongGameResults, error)
 
+	// CheckDisks executes disk performance test on the specified node
+	CheckDisks(ctx context.Context, key SiteOperationKey, addr string, spec []byte) ([]byte, error)
+
 	// StopAgents instructs all remote agents to stop operation
 	// and rejects all consequitive requests to connect for any agent
 	// for this site

@@ -77,11 +77,37 @@ type PlanBuilder struct {
 	InstallerTrustedCluster storage.TrustedCluster
 }
 
+// AddInitPhase appends initialization phase to the provided plan
+func (b *PlanBuilder) AddInitPhase(plan *storage.OperationPlan) {
+	var initPhases []storage.OperationPhase
+	allNodes := append(b.Masters, b.Nodes...)
+	for i, node := range allNodes {
+		initPhases = append(initPhases, storage.OperationPhase{
+			ID:          fmt.Sprintf("%v/%v", phases.InitPhase, node.Hostname),
+			Description: fmt.Sprintf("Initialize operation on node %v", node.Hostname),
+			Data: &storage.OperationPhaseData{
+				Server:     &allNodes[i],
+				ExecServer: &allNodes[i],
+				Package:    &b.Application.Package,
+			},
+			Step: 0,
+		})
+	}
+	plan.Phases = append(plan.Phases, storage.OperationPhase{
+		ID:          phases.InitPhase,
+		Description: "Initialize operation on all nodes",
+		Phases:      initPhases,
+		Parallel:    true,
+		Step:        0,
+	})
+}
+
 // AddChecksPhase appends preflight checks phase to the provided plan
 func (b *PlanBuilder) AddChecksPhase(plan *storage.OperationPlan) {
 	plan.Phases = append(plan.Phases, storage.OperationPhase{
 		ID:          phases.ChecksPhase,
 		Description: "Execute preflight checks",
+		Requires:    []string{phases.InitPhase},
 		Data: &storage.OperationPhaseData{
 			Package: &b.Application.Package,
 		},

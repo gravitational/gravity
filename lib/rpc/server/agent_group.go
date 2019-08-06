@@ -279,6 +279,10 @@ func (r errorPeer) CheckBandwidth(context.Context, *validationpb.CheckBandwidthR
 	return nil, trace.Wrap(r.error)
 }
 
+func (r errorPeer) CheckDisks(context.Context, *validationpb.CheckDisksRequest) (*validationpb.CheckDisksResponse, error) {
+	return nil, trace.Wrap(r.error)
+}
+
 func (r errorPeer) Shutdown(context.Context, *pb.ShutdownRequest) error {
 	return trace.Wrap(r.error)
 }

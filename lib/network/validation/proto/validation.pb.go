@@ -25,6 +25,104 @@ var _ = math.Inf
 // proto package needs to be updated.
 const _ = proto.ProtoPackageIsVersion2 // please upgrade the proto package
 
+// CheckDisksRequest describes a disks performance test request.
+type CheckDisksRequest struct {
+	// Spec is a fio job spec describing the test to perform.
+	Spec                 []byte   `protobuf:"bytes,1,opt,name=spec,proto3" json:"spec,omitempty"`
+	XXX_NoUnkeyedLiteral struct{} `json:"-"`
+	XXX_unrecognized     []byte   `json:"-"`
+	XXX_sizecache        int32    `json:"-"`
+}
+
+func (m *CheckDisksRequest) Reset()         { *m = CheckDisksRequest{} }
+func (m *CheckDisksRequest) String() string { return proto.CompactTextString(m) }
+func (*CheckDisksRequest) ProtoMessage()    {}
+func (*CheckDisksRequest) Descriptor() ([]byte, []int) {
+	return fileDescriptor_bfc2ab0b60b7792f, []int{0}
+}
+func (m *CheckDisksRequest) XXX_Unmarshal(b []byte) error {
+	return m.Unmarshal(b)
+}
+func (m *CheckDisksRequest) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
+	if deterministic {
+		return xxx_messageInfo_CheckDisksRequest.Marshal(b, m, deterministic)
+	} else {
+		b = b[:cap(b)]
+		n, err := m.MarshalTo(b)
+		if err != nil {
+			return nil, err
+		}
+		return b[:n], nil
+	}
+}
+func (m *CheckDisksRequest) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_CheckDisksRequest.Merge(m, src)
+}
+func (m *CheckDisksRequest) XXX_Size() int {
+	return m.Size()
+}
+func (m *CheckDisksRequest) XXX_DiscardUnknown() {
+	xxx_messageInfo_CheckDisksRequest.DiscardUnknown(m)
+}
+
+var xxx_messageInfo_CheckDisksRequest proto.InternalMessageInfo
+
+func (m *CheckDisksRequest) GetSpec() []byte {
+	if m != nil {
+		return m.Spec
+	}
+	return nil
+}
+
+// CheckDisksResponse is the result of the disk performance test.
+type CheckDisksResponse struct {
+	// Result is the fio job result output in json format.
+	Result               []byte   `protobuf:"bytes,1,opt,name=result,proto3" json:"result,omitempty"`
+	XXX_NoUnkeyedLiteral struct{} `json:"-"`
+	XXX_unrecognized     []byte   `json:"-"`
+	XXX_sizecache        int32    `json:"-"`
+}
+
+func (m *CheckDisksResponse) Reset()         { *m = CheckDisksResponse{} }
+func (m *CheckDisksResponse) String() string { return proto.CompactTextString(m) }
+func (*CheckDisksResponse) ProtoMessage()    {}
+func (*CheckDisksResponse) Descriptor() ([]byte, []int) {
+	return fileDescriptor_bfc2ab0b60b7792f, []int{1}
+}
+func (m *CheckDisksResponse) XXX_Unmarshal(b []byte) error {
+	return m.Unmarshal(b)
+}
+func (m *CheckDisksResponse) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
+	if deterministic {
+		return xxx_messageInfo_CheckDisksResponse.Marshal(b, m, deterministic)
+	} else {
+		b = b[:cap(b)]
+		n, err := m.MarshalTo(b)
+		if err != nil {
+			return nil, err
+		}
+		return b[:n], nil
+	}
+}
+func (m *CheckDisksResponse) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_CheckDisksResponse.Merge(m, src)
+}
+func (m *CheckDisksResponse) XXX_Size() int {
+	return m.Size()
+}
+func (m *CheckDisksResponse) XXX_DiscardUnknown() {
+	xxx_messageInfo_CheckDisksResponse.DiscardUnknown(m)
+}
+
+var xxx_messageInfo_CheckDisksResponse proto.InternalMessageInfo
+
+func (m *CheckDisksResponse) GetResult() []byte {
+	if m != nil {
+		return m.Result
+	}
+	return nil
+}
+
 // CheckPortsRequest describes a ports network test request
 type CheckPortsRequest struct {
 	// Listen specifies the listen endpoints
@@ -42,7 +140,7 @@ func (m *CheckPortsRequest) Reset()         { *m = CheckPortsRequest{} }
 func (m *CheckPortsRequest) String() string { return proto.CompactTextString(m) }
 func (*CheckPortsRequest) ProtoMessage()    {}
 func (*CheckPortsRequest) Descriptor() ([]byte, []int) {
-	return fileDescriptor_bfc2ab0b60b7792f, []int{0}
+	return fileDescriptor_bfc2ab0b60b7792f, []int{2}
 }
 func (m *CheckPortsRequest) XXX_Unmarshal(b []byte) error {
 	return m.Unmarshal(b)
@@ -107,7 +205,7 @@ func (m *CheckPortsResponse) Reset()         { *m = CheckPortsResponse{} }
 func (m *CheckPortsResponse) String() string { return proto.CompactTextString(m) }
 func (*CheckPortsResponse) ProtoMessage()    {}
 func (*CheckPortsResponse) Descriptor() ([]byte, []int) {
-	return fileDescriptor_bfc2ab0b60b7792f, []int{1}
+	return fileDescriptor_bfc2ab0b60b7792f, []int{3}
 }
 func (m *CheckPortsResponse) XXX_Unmarshal(b []byte) error {
 	return m.Unmarshal(b)
@@ -167,7 +265,7 @@ func (m *CheckBandwidthRequest) Reset()         { *m = CheckBandwidthRequest{} }
 func (m *CheckBandwidthRequest) String() string { return proto.CompactTextString(m) }
 func (*CheckBandwidthRequest) ProtoMessage()    {}
 func (*CheckBandwidthRequest) Descriptor() ([]byte, []int) {
-	return fileDescriptor_bfc2ab0b60b7792f, []int{2}
+	return fileDescriptor_bfc2ab0b60b7792f, []int{4}
 }
 func (m *CheckBandwidthRequest) XXX_Unmarshal(b []byte) error {
 	return m.Unmarshal(b)
@@ -230,7 +328,7 @@ func (m *CheckBandwidthResponse) Reset()         { *m = CheckBandwidthResponse{}
 func (m *CheckBandwidthResponse) String() string { return proto.CompactTextString(m) }
 func (*CheckBandwidthResponse) ProtoMessage()    {}
 func (*CheckBandwidthResponse) Descriptor() ([]byte, []int) {
-	return fileDescriptor_bfc2ab0b60b7792f, []int{3}
+	return fileDescriptor_bfc2ab0b60b7792f, []int{5}
 }
 func (m *CheckBandwidthResponse) XXX_Unmarshal(b []byte) error {
 	return m.Unmarshal(b)
@@ -283,7 +381,7 @@ func (m *ServerResult) Reset()         { *m = ServerResult{} }
 func (m *ServerResult) String() string { return proto.CompactTextString(m) }
 func (*ServerResult) ProtoMessage()    {}
 func (*ServerResult) Descriptor() ([]byte, []int) {
-	return fileDescriptor_bfc2ab0b60b7792f, []int{4}
+	return fileDescriptor_bfc2ab0b60b7792f, []int{6}
 }
 func (m *ServerResult) XXX_Unmarshal(b []byte) error {
 	return m.Unmarshal(b)
@@ -348,7 +446,7 @@ func (m *Addr) Reset()         { *m = Addr{} }
 func (m *Addr) String() string { return proto.CompactTextString(m) }
 func (*Addr) ProtoMessage()    {}
 func (*Addr) Descriptor() ([]byte, []int) {
-	return fileDescriptor_bfc2ab0b60b7792f, []int{5}
+	return fileDescriptor_bfc2ab0b60b7792f, []int{7}
 }
 func (m *Addr) XXX_Unmarshal(b []byte) error {
 	return m.Unmarshal(b)
@@ -415,7 +513,7 @@ func (m *ValidateRequest) Reset()         { *m = ValidateRequest{} }
 func (m *ValidateRequest) String() string { return proto.CompactTextString(m) }
 func (*ValidateRequest) ProtoMessage()    {}
 func (*ValidateRequest) Descriptor() ([]byte, []int) {
-	return fileDescriptor_bfc2ab0b60b7792f, []int{6}
+	return fileDescriptor_bfc2ab0b60b7792f, []int{8}
 }
 func (m *ValidateRequest) XXX_Unmarshal(b []byte) error {
 	return m.Unmarshal(b)
@@ -492,7 +590,7 @@ func (m *ValidateResponse) Reset()         { *m = ValidateResponse{} }
 func (m *ValidateResponse) String() string { return proto.CompactTextString(m) }
 func (*ValidateResponse) ProtoMessage()    {}
 func (*ValidateResponse) Descriptor() ([]byte, []int) {
-	return fileDescriptor_bfc2ab0b60b7792f, []int{7}
+	return fileDescriptor_bfc2ab0b60b7792f, []int{9}
 }
 func (m *ValidateResponse) XXX_Unmarshal(b []byte) error {
 	return m.Unmarshal(b)
@@ -545,7 +643,7 @@ func (m *ValidateOptions) Reset()         { *m = ValidateOptions{} }
 func (m *ValidateOptions) String() string { return proto.CompactTextString(m) }
 func (*ValidateOptions) ProtoMessage()    {}
 func (*ValidateOptions) Descriptor() ([]byte, []int) {
-	return fileDescriptor_bfc2ab0b60b7792f, []int{8}
+	return fileDescriptor_bfc2ab0b60b7792f, []int{10}
 }
 func (m *ValidateOptions) XXX_Unmarshal(b []byte) error {
 	return m.Unmarshal(b)
@@ -608,7 +706,7 @@ func (m *Docker) Reset()         { *m = Docker{} }
 func (m *Docker) String() string { return proto.CompactTextString(m) }
 func (*Docker) ProtoMessage()    {}
 func (*Docker) Descriptor() ([]byte, []int) {
-	return fileDescriptor_bfc2ab0b60b7792f, []int{9}
+	return fileDescriptor_bfc2ab0b60b7792f, []int{11}
 }
 func (m *Docker) XXX_Unmarshal(b []byte) error {
 	return m.Unmarshal(b)
@@ -645,6 +743,8 @@ func (m *Docker) GetStorageDriver() string {
 }
 
 func init() {
+	proto.RegisterType((*CheckDisksRequest)(nil), "proto.CheckDisksRequest")
+	proto.RegisterType((*CheckDisksResponse)(nil), "proto.CheckDisksResponse")
 	proto.RegisterType((*CheckPortsRequest)(nil), "proto.CheckPortsRequest")
 	proto.RegisterType((*CheckPortsResponse)(nil), "proto.CheckPortsResponse")
 	proto.RegisterType((*CheckBandwidthRequest)(nil), "proto.CheckBandwidthRequest")
@@ -660,46 +760,49 @@ func init() {
 func init() { proto.RegisterFile("validation.proto", fileDescriptor_bfc2ab0b60b7792f) }
 
 var fileDescriptor_bfc2ab0b60b7792f = []byte{
-	// 620 bytes of a gzipped FileDescriptorProto
+	// 669 bytes of a gzipped FileDescriptorProto
 	0x1f, 0x8b, 0x08, 0x00, 0x00, 0x00, 0x00, 0x00, 0x02, 0xff, 0xbc, 0x54, 0xcd, 0x6e, 0x13, 0x31,
-	0x10, 0x66, 0xdb, 0x24, 0xcd, 0x4e, 0x7f, 0x48, 0x5d, 0x28, 0xdb, 0xd0, 0x86, 0x68, 0x51, 0x21,
-	0x52, 0xa5, 0x0d, 0x0a, 0x3f, 0x07, 0x38, 0xb5, 0xe4, 0x8a, 0xa8, 0x8c, 0xd4, 0x1b, 0x8a, 0x36,
-	0xb1, 0x93, 0x2c, 0xd9, 0xda, 0x5b, 0xdb, 0x9b, 0xf2, 0x18, 0x1c, 0x38, 0xf0, 0x48, 0x5c, 0x90,
-	0xb8, 0x73, 0x41, 0xe1, 0x45, 0x90, 0xbd, 0xde, 0xfc, 0x73, 0xe5, 0xb4, 0x9e, 0x99, 0x6f, 0xc6,
-	0xdf, 0x7c, 0xe3, 0x59, 0xa8, 0x8c, 0xc3, 0x38, 0x22, 0xa1, 0x8a, 0x38, 0x0b, 0x12, 0xc1, 0x15,
-	0x47, 0x45, 0xf3, 0xa9, 0xd6, 0x06, 0x9c, 0x0f, 0x62, 0xda, 0x34, 0x56, 0x37, 0xed, 0x37, 0x49,
-	0x2a, 0xe6, 0x60, 0xd5, 0x83, 0x70, 0x40, 0x99, 0x4a, 0xba, 0x4d, 0xf3, 0xcd, 0x9c, 0xfe, 0x17,
-	0x07, 0xf6, 0xdf, 0x0e, 0x69, 0x6f, 0x74, 0xc9, 0x85, 0x92, 0x98, 0xde, 0xa4, 0x54, 0x2a, 0xf4,
-	0x18, 0x4a, 0x71, 0x24, 0x15, 0x65, 0x9e, 0x53, 0xdf, 0x6c, 0x6c, 0xb7, 0xb6, 0x33, 0x74, 0x70,
-	0x4e, 0x88, 0xc0, 0x36, 0x84, 0x1e, 0x41, 0x21, 0x89, 0xd8, 0xc0, 0xdb, 0x58, 0x85, 0x98, 0x00,
-	0x7a, 0x09, 0xe5, 0x9c, 0x82, 0xb7, 0x59, 0x77, 0x1a, 0xdb, 0xad, 0xa3, 0x20, 0xe3, 0x18, 0xe4,
-	0x1c, 0x83, 0xb6, 0x05, 0xe0, 0x29, 0xd4, 0xff, 0x04, 0x68, 0x9e, 0x91, 0x4c, 0x38, 0x93, 0x14,
-	0x9d, 0x2d, 0x51, 0x3a, 0xb0, 0xf7, 0x7d, 0xa0, 0x62, 0x4c, 0x05, 0xa6, 0x32, 0x8d, 0xd5, 0x94,
-	0xda, 0xd3, 0x05, 0x6a, 0x6b, 0xa1, 0x06, 0xe0, 0x7f, 0x75, 0xe0, 0xbe, 0xb9, 0xec, 0x22, 0x64,
-	0xe4, 0x36, 0x22, 0x6a, 0xb8, 0x4e, 0x02, 0xe7, 0x7f, 0x4b, 0xf0, 0x0a, 0x0e, 0x97, 0x59, 0x59,
-	0x19, 0x8e, 0xc1, 0xed, 0xe6, 0x4e, 0xc3, 0xac, 0x80, 0x67, 0x0e, 0xff, 0x23, 0xec, 0xcc, 0x37,
-	0x89, 0x10, 0x14, 0x7a, 0x9c, 0x50, 0x03, 0x2c, 0x62, 0x73, 0x46, 0xf7, 0xa0, 0x48, 0x85, 0xe0,
-	0xc2, 0xdb, 0xa8, 0x3b, 0x0d, 0x17, 0x67, 0x86, 0x6e, 0x57, 0x9a, 0x4c, 0x4b, 0x73, 0xb1, 0xdd,
-	0x2c, 0xe4, 0xbf, 0x80, 0x82, 0xb6, 0x91, 0x07, 0x5b, 0x8c, 0xaa, 0x5b, 0x2e, 0x46, 0xa6, 0xb2,
-	0x8b, 0x73, 0x53, 0x5f, 0x18, 0x12, 0x92, 0xd7, 0x36, 0x67, 0xff, 0x87, 0x03, 0x77, 0xaf, 0xb2,
-	0x37, 0x4b, 0x73, 0x75, 0xab, 0x50, 0xbe, 0x0e, 0x59, 0xd4, 0xa7, 0x52, 0x99, 0x12, 0x3b, 0x78,
-	0x6a, 0xeb, 0xea, 0x89, 0xe0, 0xfd, 0x28, 0xa6, 0xb6, 0x4c, 0x6e, 0xa2, 0x33, 0xd8, 0xef, 0xa7,
-	0x71, 0xdc, 0x11, 0xf4, 0x26, 0x8d, 0x04, 0xbd, 0xa6, 0x4c, 0x49, 0xc3, 0xb7, 0x8c, 0x2b, 0x3a,
-	0x80, 0xe7, 0xfc, 0xe8, 0x19, 0x6c, 0xf1, 0x44, 0xab, 0x29, 0xbd, 0x82, 0x69, 0xe9, 0xd0, 0xb6,
-	0x94, 0x73, 0x79, 0x9f, 0x45, 0x71, 0x0e, 0x43, 0xa7, 0x50, 0x22, 0xbc, 0x37, 0xa2, 0xc2, 0x2b,
-	0x9a, 0x84, 0x5d, 0x9b, 0xd0, 0x36, 0x4e, 0x6c, 0x83, 0xfe, 0x6b, 0xa8, 0xcc, 0xda, 0xb1, 0x63,
-	0x79, 0x02, 0xa5, 0x7e, 0x18, 0xc5, 0x94, 0xd8, 0xd7, 0xb9, 0x17, 0xd8, 0x65, 0x0b, 0x2e, 0x05,
-	0xef, 0x52, 0x6c, 0xa3, 0xfe, 0x70, 0x26, 0x85, 0xbd, 0x1e, 0x9d, 0x00, 0x8c, 0x3f, 0xc7, 0x21,
-	0xeb, 0x24, 0x5c, 0x28, 0x3b, 0x29, 0xd7, 0x78, 0xf4, 0x02, 0xa0, 0x87, 0xe0, 0x12, 0x26, 0x3b,
-	0x5a, 0x49, 0x69, 0xde, 0x99, 0x8b, 0xcb, 0x84, 0x49, 0x3d, 0x07, 0x89, 0x8e, 0x40, 0x9f, 0xb3,
-	0xcc, 0x4d, 0x93, 0xb9, 0x45, 0x98, 0xd4, 0x79, 0x7e, 0x13, 0x4a, 0x19, 0x6f, 0x74, 0x0a, 0x7b,
-	0x52, 0x71, 0x11, 0x0e, 0x68, 0x87, 0x88, 0x48, 0x8f, 0x38, 0x1b, 0xda, 0xae, 0xf5, 0xb6, 0x8d,
-	0xb3, 0xf5, 0xcb, 0x01, 0xb8, 0x9a, 0xfe, 0x5a, 0xd0, 0x39, 0xc0, 0x6c, 0x0b, 0x91, 0x67, 0xa5,
-	0x58, 0xf9, 0x55, 0x54, 0x8f, 0xd6, 0x44, 0xac, 0x28, 0xef, 0x60, 0x6f, 0xf1, 0x15, 0xa3, 0xe3,
-	0x79, 0xf0, 0xf2, 0xca, 0x55, 0x4f, 0xfe, 0x11, 0xb5, 0xe5, 0xde, 0x40, 0x39, 0xd7, 0x0e, 0x2d,
-	0xcf, 0x32, 0x2f, 0xf1, 0x60, 0xc5, 0x9f, 0x25, 0x5f, 0x54, 0xbe, 0x4f, 0x6a, 0xce, 0xcf, 0x49,
-	0xcd, 0xf9, 0x3d, 0xa9, 0x39, 0xdf, 0xfe, 0xd4, 0xee, 0x74, 0x4b, 0x06, 0xf9, 0xfc, 0x6f, 0x00,
-	0x00, 0x00, 0xff, 0xff, 0xa0, 0x27, 0x40, 0x32, 0x50, 0x05, 0x00, 0x00,
+	0x10, 0x66, 0xdb, 0x24, 0x4d, 0xa6, 0x3f, 0xa4, 0x2e, 0x94, 0x6d, 0x68, 0x43, 0xb4, 0xa8, 0x34,
+	0x52, 0xd1, 0x06, 0x95, 0x9f, 0x03, 0x9c, 0x5a, 0x72, 0x45, 0x54, 0x46, 0xea, 0x0d, 0x45, 0x9b,
+	0xd8, 0x49, 0x97, 0x6c, 0xed, 0xad, 0xbd, 0x69, 0x79, 0x0c, 0x0e, 0x1c, 0x38, 0xf1, 0x3c, 0x5c,
+	0x90, 0x78, 0x04, 0x54, 0x5e, 0x04, 0xd9, 0x3b, 0xce, 0x5f, 0xc3, 0x95, 0x93, 0x3d, 0x33, 0xdf,
+	0x8c, 0xbf, 0x6f, 0x3c, 0x36, 0x54, 0xaf, 0xa2, 0x24, 0x66, 0x51, 0x16, 0x4b, 0x11, 0xa6, 0x4a,
+	0x66, 0x92, 0x14, 0xed, 0x52, 0xab, 0x0f, 0xa4, 0x1c, 0x24, 0xbc, 0x65, 0xad, 0xee, 0xa8, 0xdf,
+	0x62, 0x23, 0x35, 0x05, 0xab, 0x6d, 0x45, 0x03, 0x2e, 0xb2, 0xb4, 0xdb, 0xb2, 0x6b, 0xee, 0x0c,
+	0x0e, 0x60, 0xf3, 0xed, 0x39, 0xef, 0x0d, 0xdb, 0xb1, 0x1e, 0x6a, 0xca, 0x2f, 0x47, 0x5c, 0x67,
+	0x84, 0x40, 0x41, 0xa7, 0xbc, 0xe7, 0x7b, 0x0d, 0xaf, 0xb9, 0x46, 0xed, 0x3e, 0x78, 0x0a, 0x64,
+	0x1a, 0xa8, 0x53, 0x29, 0x34, 0x27, 0xdb, 0x50, 0x52, 0x5c, 0x8f, 0x92, 0x0c, 0xb1, 0x68, 0x05,
+	0x5f, 0x3c, 0xac, 0x7b, 0x2a, 0x55, 0x36, 0xae, 0xfb, 0x18, 0x4a, 0x49, 0xac, 0x33, 0x2e, 0x7c,
+	0xaf, 0xb1, 0xdc, 0x5c, 0x3d, 0x5a, 0xcd, 0x49, 0x84, 0xc7, 0x8c, 0x29, 0x8a, 0x21, 0xf2, 0x08,
+	0x0a, 0x69, 0x2c, 0x06, 0xfe, 0xd2, 0x6d, 0x88, 0x0d, 0x90, 0x97, 0x50, 0x76, 0xca, 0xfc, 0xe5,
+	0x86, 0xd7, 0x5c, 0x3d, 0xda, 0x09, 0x73, 0xe9, 0xa1, 0x93, 0x1e, 0xb6, 0x11, 0x40, 0xc7, 0xd0,
+	0xe0, 0x13, 0x0a, 0x40, 0x46, 0x28, 0xe0, 0x70, 0x8e, 0xd2, 0x16, 0x9e, 0xf7, 0x81, 0xab, 0x2b,
+	0xae, 0xa8, 0x55, 0x33, 0xa6, 0x76, 0x30, 0x43, 0x6d, 0x21, 0xd4, 0x02, 0x82, 0xaf, 0x1e, 0xdc,
+	0xb7, 0x87, 0x9d, 0x44, 0x82, 0x5d, 0xc7, 0x2c, 0x3b, 0x5f, 0xd4, 0x02, 0xef, 0x7f, 0xb7, 0xe0,
+	0x15, 0x6c, 0xcf, 0xb3, 0xc2, 0x36, 0xec, 0x42, 0xa5, 0xeb, 0x9c, 0x96, 0x59, 0x81, 0x4e, 0x1c,
+	0xc1, 0x47, 0x58, 0x9b, 0x16, 0x69, 0xe6, 0xa3, 0x27, 0x19, 0xb7, 0xc0, 0x22, 0xb5, 0x7b, 0x72,
+	0x0f, 0x8a, 0x5c, 0x29, 0xa9, 0xfc, 0xa5, 0x86, 0xd7, 0xac, 0xd0, 0xdc, 0x30, 0x72, 0xb5, 0xcd,
+	0x44, 0x9a, 0xb3, 0x72, 0xf3, 0x50, 0xf0, 0x02, 0x0a, 0xc6, 0x26, 0x3e, 0xac, 0x08, 0x9e, 0x5d,
+	0x4b, 0x35, 0xb4, 0x95, 0x2b, 0xd4, 0x99, 0xe6, 0xc0, 0x88, 0x31, 0x57, 0xdb, 0xee, 0x83, 0x9f,
+	0x1e, 0xdc, 0x3d, 0xcb, 0x9f, 0x02, 0x77, 0xdd, 0xad, 0x41, 0xf9, 0x22, 0x12, 0x71, 0x9f, 0x6b,
+	0x37, 0x90, 0x63, 0xdb, 0x54, 0x4f, 0x95, 0xec, 0xc7, 0x09, 0xc7, 0x32, 0xce, 0x24, 0x87, 0xb0,
+	0xd9, 0x1f, 0x25, 0x49, 0x47, 0xf1, 0xcb, 0x51, 0xac, 0xf8, 0x05, 0x17, 0x99, 0xb6, 0x7c, 0xcb,
+	0xb4, 0x6a, 0x02, 0x74, 0xca, 0x4f, 0x9e, 0xc1, 0x8a, 0x4c, 0x4d, 0x37, 0xb5, 0x5f, 0xb0, 0x92,
+	0xb6, 0x51, 0x92, 0xe3, 0xf2, 0x3e, 0x8f, 0x52, 0x07, 0x23, 0xfb, 0x50, 0x62, 0xb2, 0x37, 0xe4,
+	0xca, 0x2f, 0xda, 0x84, 0x75, 0x4c, 0x68, 0x5b, 0x27, 0xc5, 0x60, 0xf0, 0x1a, 0xaa, 0x13, 0x39,
+	0x78, 0x2d, 0x4f, 0xa0, 0xd4, 0x8f, 0xe2, 0x84, 0x33, 0x9c, 0xce, 0x8d, 0x10, 0xdf, 0x70, 0x78,
+	0xaa, 0x64, 0x97, 0x53, 0x8c, 0x06, 0xe7, 0x93, 0x56, 0xe0, 0xf1, 0x64, 0x0f, 0xe0, 0xea, 0x73,
+	0x12, 0x89, 0x4e, 0x2a, 0x55, 0x86, 0x37, 0x55, 0xb1, 0x1e, 0xf3, 0x00, 0xc8, 0x43, 0xa8, 0x30,
+	0xa1, 0x3b, 0xa6, 0x93, 0xda, 0xce, 0x59, 0x85, 0x96, 0x99, 0xd0, 0xe6, 0x1e, 0x34, 0xd9, 0x01,
+	0xb3, 0xcf, 0x33, 0x97, 0x6d, 0xe6, 0x0a, 0x13, 0xda, 0xe4, 0x05, 0x2d, 0x28, 0xe5, 0xbc, 0xc9,
+	0x3e, 0x6c, 0xe8, 0x4c, 0xaa, 0x68, 0xc0, 0x3b, 0x4c, 0xc5, 0xe6, 0x8a, 0xf3, 0x4b, 0x5b, 0x47,
+	0x6f, 0xdb, 0x3a, 0x8f, 0xbe, 0x2f, 0x01, 0x9c, 0x8d, 0x7f, 0x2c, 0x72, 0x0c, 0x30, 0x79, 0x85,
+	0xc4, 0xc7, 0x56, 0xdc, 0xfa, 0x2a, 0x6a, 0x3b, 0x0b, 0x22, 0xd8, 0x94, 0x77, 0xb0, 0x31, 0x3b,
+	0xc5, 0x64, 0x77, 0x1a, 0x3c, 0xff, 0xe4, 0x6a, 0x7b, 0xff, 0x88, 0x62, 0x39, 0xc7, 0xc8, 0x7e,
+	0x6c, 0xb3, 0x8c, 0xa6, 0x3f, 0xc5, 0x59, 0x46, 0xb3, 0xbf, 0xe0, 0x1b, 0x28, 0xbb, 0xf6, 0x93,
+	0xf9, 0x71, 0x70, 0xe9, 0x0f, 0x6e, 0xf9, 0xf3, 0xe4, 0x93, 0xea, 0x8f, 0x9b, 0xba, 0xf7, 0xeb,
+	0xa6, 0xee, 0xfd, 0xbe, 0xa9, 0x7b, 0xdf, 0xfe, 0xd4, 0xef, 0x74, 0x4b, 0x16, 0xf9, 0xfc, 0x6f,
+	0x00, 0x00, 0x00, 0xff, 0xff, 0xb9, 0xb5, 0x22, 0x90, 0xea, 0x05, 0x00, 0x00,
 }
 
 // Reference imports to suppress errors if they are not otherwise used.
@@ -718,6 +821,8 @@ type ValidationClient interface {
 	CheckPorts(ctx context.Context, in *CheckPortsRequest, opts ...grpc.CallOption) (*CheckPortsResponse, error)
 	// CheckBandwidth executes a bandwidth network test
 	CheckBandwidth(ctx context.Context, in *CheckBandwidthRequest, opts ...grpc.CallOption) (*CheckBandwidthResponse, error)
+	// CheckDisks executes performance test for the specified disks
+	CheckDisks(ctx context.Context, in *CheckDisksRequest, opts ...grpc.CallOption) (*CheckDisksResponse, error)
 	// Validate validatest this node against the requirements
 	// from a manifest.
 	Validate(ctx context.Context, in *ValidateRequest, opts ...grpc.CallOption) (*ValidateResponse, error)
@@ -749,6 +854,15 @@ func (c *validationClient) CheckBandwidth(ctx context.Context, in *CheckBandwidt
 	return out, nil
 }
 
+func (c *validationClient) CheckDisks(ctx context.Context, in *CheckDisksRequest, opts ...grpc.CallOption) (*CheckDisksResponse, error) {
+	out := new(CheckDisksResponse)
+	err := c.cc.Invoke(ctx, "/proto.Validation/CheckDisks", in, out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
 func (c *validationClient) Validate(ctx context.Context, in *ValidateRequest, opts ...grpc.CallOption) (*ValidateResponse, error) {
 	out := new(ValidateResponse)
 	err := c.cc.Invoke(ctx, "/proto.Validation/Validate", in, out, opts...)
@@ -764,6 +878,8 @@ type ValidationServer interface {
 	CheckPorts(context.Context, *CheckPortsRequest) (*CheckPortsResponse, error)
 	// CheckBandwidth executes a bandwidth network test
 	CheckBandwidth(context.Context, *CheckBandwidthRequest) (*CheckBandwidthResponse, error)
+	// CheckDisks executes performance test for the specified disks
+	CheckDisks(context.Context, *CheckDisksRequest) (*CheckDisksResponse, error)
 	// Validate validatest this node against the requirements
 	// from a manifest.
 	Validate(context.Context, *ValidateRequest) (*ValidateResponse, error)
@@ -809,6 +925,24 @@ func _Validation_CheckBandwidth_Handler(srv interface{}, ctx context.Context, de
 	return interceptor(ctx, in, info, handler)
 }
 
+func _Validation_CheckDisks_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(CheckDisksRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(ValidationServer).CheckDisks(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: "/proto.Validation/CheckDisks",
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(ValidationServer).CheckDisks(ctx, req.(*CheckDisksRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
 func _Validation_Validate_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
 	in := new(ValidateRequest)
 	if err := dec(in); err != nil {
@@ -840,12 +974,70 @@ var _Validation_serviceDesc = grpc.ServiceDesc{
 			Handler:    _Validation_CheckBandwidth_Handler,
 		},
 		{
+			MethodName: "CheckDisks",
+			Handler:    _Validation_CheckDisks_Handler,
+		},
+		{
 			MethodName: "Validate",
 			Handler:    _Validation_Validate_Handler,
 		},
 	},
 	Streams:  []grpc.StreamDesc{},
 	Metadata: "validation.proto",
+}
+
+func (m *CheckDisksRequest) Marshal() (dAtA []byte, err error) {
+	size := m.Size()
+	dAtA = make([]byte, size)
+	n, err := m.MarshalTo(dAtA)
+	if err != nil {
+		return nil, err
+	}
+	return dAtA[:n], nil
+}
+
+func (m *CheckDisksRequest) MarshalTo(dAtA []byte) (int, error) {
+	var i int
+	_ = i
+	var l int
+	_ = l
+	if len(m.Spec) > 0 {
+		dAtA[i] = 0xa
+		i++
+		i = encodeVarintValidation(dAtA, i, uint64(len(m.Spec)))
+		i += copy(dAtA[i:], m.Spec)
+	}
+	if m.XXX_unrecognized != nil {
+		i += copy(dAtA[i:], m.XXX_unrecognized)
+	}
+	return i, nil
+}
+
+func (m *CheckDisksResponse) Marshal() (dAtA []byte, err error) {
+	size := m.Size()
+	dAtA = make([]byte, size)
+	n, err := m.MarshalTo(dAtA)
+	if err != nil {
+		return nil, err
+	}
+	return dAtA[:n], nil
+}
+
+func (m *CheckDisksResponse) MarshalTo(dAtA []byte) (int, error) {
+	var i int
+	_ = i
+	var l int
+	_ = l
+	if len(m.Result) > 0 {
+		dAtA[i] = 0xa
+		i++
+		i = encodeVarintValidation(dAtA, i, uint64(len(m.Result)))
+		i += copy(dAtA[i:], m.Result)
+	}
+	if m.XXX_unrecognized != nil {
+		i += copy(dAtA[i:], m.XXX_unrecognized)
+	}
+	return i, nil
 }
 
 func (m *CheckPortsRequest) Marshal() (dAtA []byte, err error) {
@@ -1280,6 +1472,38 @@ func encodeVarintValidation(dAtA []byte, offset int, v uint64) int {
 	dAtA[offset] = uint8(v)
 	return offset + 1
 }
+func (m *CheckDisksRequest) Size() (n int) {
+	if m == nil {
+		return 0
+	}
+	var l int
+	_ = l
+	l = len(m.Spec)
+	if l > 0 {
+		n += 1 + l + sovValidation(uint64(l))
+	}
+	if m.XXX_unrecognized != nil {
+		n += len(m.XXX_unrecognized)
+	}
+	return n
+}
+
+func (m *CheckDisksResponse) Size() (n int) {
+	if m == nil {
+		return 0
+	}
+	var l int
+	_ = l
+	l = len(m.Result)
+	if l > 0 {
+		n += 1 + l + sovValidation(uint64(l))
+	}
+	if m.XXX_unrecognized != nil {
+		n += len(m.XXX_unrecognized)
+	}
+	return n
+}
+
 func (m *CheckPortsRequest) Size() (n int) {
 	if m == nil {
 		return 0
@@ -1517,6 +1741,182 @@ func sovValidation(x uint64) (n int) {
 }
 func sozValidation(x uint64) (n int) {
 	return sovValidation(uint64((x << 1) ^ uint64((int64(x) >> 63))))
+}
+func (m *CheckDisksRequest) Unmarshal(dAtA []byte) error {
+	l := len(dAtA)
+	iNdEx := 0
+	for iNdEx < l {
+		preIndex := iNdEx
+		var wire uint64
+		for shift := uint(0); ; shift += 7 {
+			if shift >= 64 {
+				return ErrIntOverflowValidation
+			}
+			if iNdEx >= l {
+				return io.ErrUnexpectedEOF
+			}
+			b := dAtA[iNdEx]
+			iNdEx++
+			wire |= uint64(b&0x7F) << shift
+			if b < 0x80 {
+				break
+			}
+		}
+		fieldNum := int32(wire >> 3)
+		wireType := int(wire & 0x7)
+		if wireType == 4 {
+			return fmt.Errorf("proto: CheckDisksRequest: wiretype end group for non-group")
+		}
+		if fieldNum <= 0 {
+			return fmt.Errorf("proto: CheckDisksRequest: illegal tag %d (wire type %d)", fieldNum, wire)
+		}
+		switch fieldNum {
+		case 1:
+			if wireType != 2 {
+				return fmt.Errorf("proto: wrong wireType = %d for field Spec", wireType)
+			}
+			var byteLen int
+			for shift := uint(0); ; shift += 7 {
+				if shift >= 64 {
+					return ErrIntOverflowValidation
+				}
+				if iNdEx >= l {
+					return io.ErrUnexpectedEOF
+				}
+				b := dAtA[iNdEx]
+				iNdEx++
+				byteLen |= int(b&0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
+			if byteLen < 0 {
+				return ErrInvalidLengthValidation
+			}
+			postIndex := iNdEx + byteLen
+			if postIndex < 0 {
+				return ErrInvalidLengthValidation
+			}
+			if postIndex > l {
+				return io.ErrUnexpectedEOF
+			}
+			m.Spec = append(m.Spec[:0], dAtA[iNdEx:postIndex]...)
+			if m.Spec == nil {
+				m.Spec = []byte{}
+			}
+			iNdEx = postIndex
+		default:
+			iNdEx = preIndex
+			skippy, err := skipValidation(dAtA[iNdEx:])
+			if err != nil {
+				return err
+			}
+			if skippy < 0 {
+				return ErrInvalidLengthValidation
+			}
+			if (iNdEx + skippy) < 0 {
+				return ErrInvalidLengthValidation
+			}
+			if (iNdEx + skippy) > l {
+				return io.ErrUnexpectedEOF
+			}
+			m.XXX_unrecognized = append(m.XXX_unrecognized, dAtA[iNdEx:iNdEx+skippy]...)
+			iNdEx += skippy
+		}
+	}
+
+	if iNdEx > l {
+		return io.ErrUnexpectedEOF
+	}
+	return nil
+}
+func (m *CheckDisksResponse) Unmarshal(dAtA []byte) error {
+	l := len(dAtA)
+	iNdEx := 0
+	for iNdEx < l {
+		preIndex := iNdEx
+		var wire uint64
+		for shift := uint(0); ; shift += 7 {
+			if shift >= 64 {
+				return ErrIntOverflowValidation
+			}
+			if iNdEx >= l {
+				return io.ErrUnexpectedEOF
+			}
+			b := dAtA[iNdEx]
+			iNdEx++
+			wire |= uint64(b&0x7F) << shift
+			if b < 0x80 {
+				break
+			}
+		}
+		fieldNum := int32(wire >> 3)
+		wireType := int(wire & 0x7)
+		if wireType == 4 {
+			return fmt.Errorf("proto: CheckDisksResponse: wiretype end group for non-group")
+		}
+		if fieldNum <= 0 {
+			return fmt.Errorf("proto: CheckDisksResponse: illegal tag %d (wire type %d)", fieldNum, wire)
+		}
+		switch fieldNum {
+		case 1:
+			if wireType != 2 {
+				return fmt.Errorf("proto: wrong wireType = %d for field Result", wireType)
+			}
+			var byteLen int
+			for shift := uint(0); ; shift += 7 {
+				if shift >= 64 {
+					return ErrIntOverflowValidation
+				}
+				if iNdEx >= l {
+					return io.ErrUnexpectedEOF
+				}
+				b := dAtA[iNdEx]
+				iNdEx++
+				byteLen |= int(b&0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
+			if byteLen < 0 {
+				return ErrInvalidLengthValidation
+			}
+			postIndex := iNdEx + byteLen
+			if postIndex < 0 {
+				return ErrInvalidLengthValidation
+			}
+			if postIndex > l {
+				return io.ErrUnexpectedEOF
+			}
+			m.Result = append(m.Result[:0], dAtA[iNdEx:postIndex]...)
+			if m.Result == nil {
+				m.Result = []byte{}
+			}
+			iNdEx = postIndex
+		default:
+			iNdEx = preIndex
+			skippy, err := skipValidation(dAtA[iNdEx:])
+			if err != nil {
+				return err
+			}
+			if skippy < 0 {
+				return ErrInvalidLengthValidation
+			}
+			if (iNdEx + skippy) < 0 {
+				return ErrInvalidLengthValidation
+			}
+			if (iNdEx + skippy) > l {
+				return io.ErrUnexpectedEOF
+			}
+			m.XXX_unrecognized = append(m.XXX_unrecognized, dAtA[iNdEx:iNdEx+skippy]...)
+			iNdEx += skippy
+		}
+	}
+
+	if iNdEx > l {
+		return io.ErrUnexpectedEOF
+	}
+	return nil
 }
 func (m *CheckPortsRequest) Unmarshal(dAtA []byte) error {
 	l := len(dAtA)
