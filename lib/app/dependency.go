@@ -24,22 +24,10 @@ import (
 	log "github.com/sirupsen/logrus"
 )
 
-// GetDependencies transitively collects dependencies for the specified application package
-func GetDependencies(app Application, apps Applications) (result *Dependencies, err error) {
-	dependencies, err := GetFullDependencies(GetDependenciesRequest{
-		App:  app,
-		Apps: apps,
-	})
-	if err != nil {
-		return nil, trace.Wrap(err)
-	}
-	return dependencies, nil
-}
-
 // VerifyDependencies verifies that all dependencies for the specified application are available
 // in the provided package service.
 func VerifyDependencies(app Application, apps Applications, packages pack.PackageService) error {
-	_, err := GetFullDependencies(GetDependenciesRequest{
+	_, err := GetDependencies(GetDependenciesRequest{
 		App:  app,
 		Apps: apps,
 		Pack: packages,
@@ -47,8 +35,8 @@ func VerifyDependencies(app Application, apps Applications, packages pack.Packag
 	return trace.Wrap(err)
 }
 
-// GetFullDependencies transitively collects dependencies for the specified application package
-func GetFullDependencies(req GetDependenciesRequest) (result *Dependencies, err error) {
+// GetDependencies transitively collects dependencies for the specified application package
+func GetDependencies(req GetDependenciesRequest) (result *Dependencies, err error) {
 	if err := req.checkAndSetDefaults(); err != nil {
 		return nil, trace.Wrap(err)
 	}
@@ -65,9 +53,13 @@ func GetFullDependencies(req GetDependenciesRequest) (result *Dependencies, err 
 // GetDependenciesRequest describes a request to transitively enumerate packages dependencies
 // for a specific application package
 type GetDependenciesRequest struct {
-	App  Application
+	// App specifies the application to fetch dependencies for
+	App Application
+	// Apps specifies the application service
 	Apps Applications
+	// Pack specifies the package service
 	Pack pack.PackageService
+	// FieldLogger specifies the logger
 	log.FieldLogger
 }
 

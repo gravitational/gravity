@@ -257,18 +257,10 @@ func (b *Builder) SyncPackageCache(runtimeVersion semver.Version, intermediateVe
 	if err != nil {
 		return trace.Wrap(err)
 	}
-	var reqs []SyncRequest
 	for _, runtimeVersion := range append([]semver.Version{runtimeVersion}, intermediateVersions...) {
-		reqs = append(reqs, SyncRequest{
-			RuntimeVersion: runtimeVersion,
-			Labels:         pack.RuntimeUpgradeLabels(runtimeVersion.String()),
-		})
-	}
-	for _, req := range reqs {
-		b.NextStep("Syncing packages for %v", req.RuntimeVersion)
-		if err := b.syncPackageCache(req, syncer, apps); err != nil {
+		b.NextStep("Syncing packages for %v", runtimeVersion)
+		if err := b.syncPackageCache(runtimeVersion, syncer, apps); err != nil {
 			if trace.IsNotFound(err) {
-				// base image version %v not found
 				return trace.NotFound("runtime version %v not found", runtimeVersion)
 			}
 			return trace.Wrap(err)
@@ -277,10 +269,10 @@ func (b *Builder) SyncPackageCache(runtimeVersion semver.Version, intermediateVe
 	return nil
 }
 
-func (b *Builder) syncPackageCache(req SyncRequest, syncer Syncer, apps libapp.Applications) error {
+func (b *Builder) syncPackageCache(runtimeVersion semver.Version, syncer Syncer, apps libapp.Applications) error {
 	// see if all required packages/apps are already present in the local cache
 	app := libapp.Application{
-		Manifest: b.Manifest.WithBase(loc.Runtime.WithVersion(&req.RuntimeVersion)),
+		Manifest: b.Manifest.WithBase(loc.Runtime.WithVersion(&runtimeVersion)),
 		Package:  b.Manifest.Locator(),
 	}
 	err := libapp.VerifyDependencies(app, apps, b.Env.Packages)
@@ -298,7 +290,7 @@ func (b *Builder) syncPackageCache(req SyncRequest, syncer Syncer, apps libapp.A
 	}
 	b.Infof("Synchronizing package cache with %v.", repository)
 	b.NextStep("Downloading dependencies from %v", repository)
-	return syncer.Sync(b, req)
+	return syncer.Sync(b, runtimeVersion)
 }
 
 // Vendor vendors the application images in the provided directory and
@@ -520,7 +512,7 @@ func (b *Builder) collectUpgradeDependencies() (result *libapp.Dependencies, err
 			Apps: apps,
 			Pack: b.Env.Packages,
 		}
-		dependencies, err := libapp.GetFullDependencies(req)
+		dependencies, err := libapp.GetDependencies(req)
 		if err != nil {
 			return nil, trace.Wrap(err)
 		}

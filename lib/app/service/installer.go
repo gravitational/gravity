@@ -237,7 +237,7 @@ func pullDependencies(
 	localApps, remoteApps *applications,
 	log log.FieldLogger,
 ) error {
-	dependencies, err := appservice.GetFullDependencies(appservice.GetDependenciesRequest{
+	dependencies, err := appservice.GetDependencies(appservice.GetDependenciesRequest{
 		App:  app,
 		Apps: remoteApps,
 		Pack: remoteApps.Packages,

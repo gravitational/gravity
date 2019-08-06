@@ -222,7 +222,7 @@ func pullPackage(req PackagePullRequest) (*pack.PackageEnvelope, error) {
 
 	if env != nil {
 		if req.SkipIfExists {
-			return nil, nil
+			return env, nil
 		}
 		if !req.Upsert {
 			logger.Info("Package already exists.")
@@ -327,7 +327,7 @@ func pullApp(req AppPullRequest, state *pullState) (*app.Application, error) {
 	logger := req.WithField("app", req.Package)
 	if application != nil {
 		if req.SkipIfExists {
-			return nil, nil
+			return application, nil
 		}
 		if !req.Upsert {
 			logger.Info("Application already exists.")

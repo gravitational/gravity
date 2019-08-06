@@ -22,8 +22,8 @@ import (
 
 // Generator defines a method for generating standalone installers
 type Generator interface {
-	// Generate generates an installer tarball for the specified application
-	// using the provided builder and returns its data as a stream
+	// NewInstallerRequest returns a new request to generate an installer
+	// for the specified application
 	NewInstallerRequest(*Builder, app.Application) (*app.InstallerRequest, error)
 }
 

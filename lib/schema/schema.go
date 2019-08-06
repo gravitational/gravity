@@ -705,20 +705,6 @@ const manifestSchema = `
       "properties": {
         "disabled": {"type": "boolean"}
       }
-    },
-    "dependencies": {
-      "type": "object",
-      "additionalProperties": false,
-      "properties": {
-        "packages": {
-          "type": "array",
-          "items": {"type": "string"}
-        },
-        "apps": {
-          "type": "array",
-          "items": {"type": "string"}
-        }
-      }
     }
   }
 }
