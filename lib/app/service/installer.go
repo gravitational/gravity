@@ -245,14 +245,12 @@ func pullDependencies(
 	if err != nil {
 		return trace.Wrap(err)
 	}
-	dependencies.Packages = append(dependencies.Packages, additional.Packages...)
-	dependencies.Apps = append(dependencies.Apps, additional.Apps...)
-
-	if err = pullPackages(dependencies.Packages, localApps.Packages, remoteApps.Packages, log); err != nil {
+	packages := appservice.UniqPackages(append(dependencies.Packages, additional.Packages...))
+	if err = pullPackages(packages, localApps.Packages, remoteApps.Packages, log); err != nil {
 		return trace.Wrap(err)
 	}
-
-	apps := append(dependencies.Apps, app)
+	apps := append(dependencies.Apps, additional.Apps...)
+	apps = appservice.UniqApps(append(dependencies.Apps, app))
 	if err = pullApplications(apps, localApps, remoteApps, log); err != nil {
 		return trace.Wrap(err)
 	}

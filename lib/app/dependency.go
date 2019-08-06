@@ -17,11 +17,14 @@ limitations under the License.
 package app
 
 import (
+	"sort"
+
 	"github.com/gravitational/gravity/lib/loc"
 	"github.com/gravitational/gravity/lib/pack"
 
 	"github.com/gravitational/trace"
 	log "github.com/sirupsen/logrus"
+	"github.com/xtgo/set"
 )
 
 // VerifyDependencies verifies that all dependencies for the specified application are available
@@ -73,6 +76,20 @@ func (r Dependencies) AsPackages() (result []loc.Locator) {
 		result = append(result, app.Package)
 	}
 	return result
+}
+
+// UniqPackages returns packages without duplicates
+func UniqPackages(packages []pack.PackageEnvelope) []pack.PackageEnvelope {
+	sort.Sort(packagesByLocator(packages))
+	n := set.Uniq(packagesByLocator(packages))
+	return packages[:n]
+}
+
+// UniqApps returns apps without duplicates
+func UniqApps(apps []Application) []Application {
+	sort.Sort(appsByLocator(apps))
+	n := set.Uniq(appsByLocator(apps))
+	return apps[:n]
 }
 
 // Dependencies defines a set of package and application dependencies
@@ -177,3 +194,15 @@ type state struct {
 	// package, the generated package will replace the one from the base application.
 	runtimePackage *loc.Locator
 }
+
+type packagesByLocator []pack.PackageEnvelope
+
+func (r packagesByLocator) Len() int           { return len(r) }
+func (r packagesByLocator) Swap(i, j int)      { r[i], r[j] = r[j], r[i] }
+func (r packagesByLocator) Less(i, j int) bool { return r[i].Locator.String() < r[j].Locator.String() }
+
+type appsByLocator []Application
+
+func (r appsByLocator) Len() int           { return len(r) }
+func (r appsByLocator) Swap(i, j int)      { r[i], r[j] = r[j], r[i] }
+func (r appsByLocator) Less(i, j int) bool { return r[i].Package.String() < r[j].Package.String() }
