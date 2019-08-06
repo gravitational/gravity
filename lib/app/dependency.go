@@ -102,7 +102,7 @@ func (r GetDependenciesRequest) getDependencies(app Application, state *state) e
 	packageDeps := loc.Deduplicate(app.Manifest.Dependencies.GetPackages())
 	packageDeps = append(packageDeps, app.Manifest.NodeProfiles.RuntimePackages()...)
 	for _, dependency := range packageDeps {
-		if state.isPackage(dependency) {
+		if state.hasPackage(dependency) {
 			continue
 		}
 		envelope, err := r.Pack.ReadPackageEnvelope(dependency)
@@ -119,7 +119,7 @@ func (r GetDependenciesRequest) getDependencies(app Application, state *state) e
 	}
 	appDeps = append(appDeps, app.Manifest.Dependencies.GetApps()...)
 	for _, dependency := range appDeps {
-		if state.isApp(dependency) {
+		if state.hasApp(dependency) {
 			continue
 		}
 		app, err := r.Apps.GetApp(dependency)
@@ -142,12 +142,12 @@ func (r GetDependenciesRequest) getDependencies(app Application, state *state) e
 	return nil
 }
 
-func (r *state) isPackage(pkg loc.Locator) bool {
+func (r *state) hasPackage(pkg loc.Locator) bool {
 	_, ok := r.packages[pkg]
 	return ok
 }
 
-func (r *state) isApp(pkg loc.Locator) bool {
+func (r *state) hasApp(pkg loc.Locator) bool {
 	_, ok := r.apps[pkg]
 	return ok
 }

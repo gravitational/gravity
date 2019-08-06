@@ -435,12 +435,11 @@ type pullState struct {
 	packages map[loc.Locator]struct{}
 }
 
-// copyRuntimeLabels copies labels from runtimeLabels to labels for each
-// label non-existent in labels
-func copyRuntimeLabels(labels map[string]string, runtimeLabels map[string]string) {
-	for label, value := range runtimeLabels {
-		if _, exists := labels[label]; !exists {
-			labels[label] = value
+// copyRuntimeLabels copies values from src to dst for each key not in dst
+func copyRuntimeLabels(dst map[string]string, src map[string]string) {
+	for label, value := range src {
+		if _, exists := dst[label]; !exists {
+			dst[label] = value
 		}
 	}
 }

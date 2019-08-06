@@ -497,6 +497,9 @@ There are a few ways to resolve the issue:
 	return nil
 }
 
+// collectUpgradeDependencies computes and returns a set of package dependencies for each
+// configured intermediate runtime version.
+// result contains combined dependencies marked with a label per runtime version.
 func (b *Builder) collectUpgradeDependencies() (result *libapp.Dependencies, err error) {
 	apps, err := b.Env.AppServiceLocal(localenv.AppConfig{})
 	if err != nil {
@@ -583,10 +586,10 @@ func filterUpgradePackageDependencies(packages []pack.PackageEnvelope) (result [
 		if pkg.Locator.Repository != defaults.SystemAccountOrg {
 			continue
 		}
-		switch {
-		case pkg.Locator.Name == constants.TeleportPackage,
-			pkg.Locator.Name == constants.GravityPackage,
-			pkg.Locator.Name == constants.PlanetPackage:
+		switch pkg.Locator.Name {
+		case constants.TeleportPackage,
+			constants.GravityPackage,
+			constants.PlanetPackage:
 		default:
 			continue
 		}
