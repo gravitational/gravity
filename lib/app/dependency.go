@@ -78,14 +78,16 @@ func (r Dependencies) AsPackages() (result []loc.Locator) {
 	return result
 }
 
-// UniqPackages returns packages without duplicates
+// UniqPackages returns packages without duplicates.
+// packages is sorted in-place as a result of this operation
 func UniqPackages(packages []pack.PackageEnvelope) []pack.PackageEnvelope {
 	sort.Sort(packagesByLocator(packages))
 	n := set.Uniq(packagesByLocator(packages))
 	return packages[:n]
 }
 
-// UniqApps returns apps without duplicates
+// UniqApps returns apps without duplicates.
+// apps is sorted in-place as a result of this operation
 func UniqApps(apps []Application) []Application {
 	sort.Sort(appsByLocator(apps))
 	n := set.Uniq(appsByLocator(apps))

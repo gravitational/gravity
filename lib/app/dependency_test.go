@@ -29,11 +29,11 @@ var _ = Suite(&S{})
 
 func (*S) TestDeduplicatesPackages(c *C) {
 	packages := UniqPackages([]pack.PackageEnvelope{
-		{Locator: loc.MustParseLocator("example.com/package1:0.0.1")},
 		{Locator: loc.MustParseLocator("example.com/package1:0.0.2")},
-		{Locator: loc.MustParseLocator("example.com/package:0.0.1")},
-		{Locator: loc.MustParseLocator("example.com/package:0.0.1")},
 		{Locator: loc.MustParseLocator("server.com/package:0.0.1")},
+		{Locator: loc.MustParseLocator("example.com/package1:0.0.1")},
+		{Locator: loc.MustParseLocator("example.com/package:0.0.1")},
+		{Locator: loc.MustParseLocator("example.com/package:0.0.1")},
 	})
 	c.Assert(packages, DeepEquals, []pack.PackageEnvelope{
 		{Locator: loc.MustParseLocator("example.com/package1:0.0.1")},
@@ -50,11 +50,11 @@ func (*S) TestDeduplicatesEmpty(c *C) {
 
 func (*S) TestDeduplicatesApps(c *C) {
 	apps := UniqApps([]Application{
-		{Package: loc.MustParseLocator("example.com/app1:0.0.1")},
-		{Package: loc.MustParseLocator("example.com/app1:0.0.2")},
-		{Package: loc.MustParseLocator("example.com/app:0.0.1")},
-		{Package: loc.MustParseLocator("example.com/app:0.0.1")},
 		{Package: loc.MustParseLocator("server.com/app:0.0.1")},
+		{Package: loc.MustParseLocator("example.com/app1:0.0.2")},
+		{Package: loc.MustParseLocator("example.com/app1:0.0.1")},
+		{Package: loc.MustParseLocator("example.com/app:0.0.1")},
+		{Package: loc.MustParseLocator("example.com/app:0.0.1")},
 	})
 	c.Assert(apps, DeepEquals, []Application{
 		{Package: loc.MustParseLocator("example.com/app1:0.0.1")},

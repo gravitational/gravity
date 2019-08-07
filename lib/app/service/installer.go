@@ -250,7 +250,7 @@ func pullDependencies(
 		return trace.Wrap(err)
 	}
 	apps := append(dependencies.Apps, additional.Apps...)
-	apps = appservice.UniqApps(append(dependencies.Apps, app))
+	apps = appservice.UniqApps(append(apps, app))
 	if err = pullApplications(apps, localApps, remoteApps, log); err != nil {
 		return trace.Wrap(err)
 	}
