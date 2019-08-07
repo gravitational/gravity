@@ -18,7 +18,6 @@ package phases
 
 import (
 	"context"
-	"os"
 	"path/filepath"
 
 	"github.com/gravitational/gravity/lib/app"
@@ -27,6 +26,7 @@ import (
 	"github.com/gravitational/gravity/lib/fsm"
 	"github.com/gravitational/gravity/lib/ops"
 	"github.com/gravitational/gravity/lib/pack"
+	"github.com/gravitational/gravity/lib/state"
 	"github.com/gravitational/gravity/lib/utils"
 
 	"github.com/gravitational/trace"
@@ -89,7 +89,11 @@ func (p *initExecutor) downloadFio() error {
 		return trace.Wrap(err)
 	}
 	defer reader.Close()
-	path := filepath.Join(os.TempDir(), constants.FioBin)
+	stateDir, err := state.GetStateDir()
+	if err != nil {
+		return trace.Wrap(err)
+	}
+	path := filepath.Join(stateDir, constants.FioBin)
 	err = utils.CopyReaderWithPerms(path, reader, defaults.SharedExecutableMask)
 	if err != nil {
 		return trace.Wrap(err)

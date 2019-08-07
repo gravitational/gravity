@@ -18,9 +18,7 @@ package checks
 
 import (
 	"context"
-	"fmt"
 	"path/filepath"
-	"strings"
 
 	"github.com/gravitational/gravity/lib/defaults"
 	"github.com/gravitational/gravity/lib/network/validation/proto"
@@ -45,7 +43,7 @@ func (r *checker) checkEtcdDisk(ctx context.Context, server Server) error {
 	iops := res.Jobs[0].GetWriteIOPS()
 	latency := res.Jobs[0].GetFsyncLatency()
 	if iops < EtcdMinWriteIOPS || latency > EtcdMaxFsyncLatencyMs {
-		return trace.BadParameter(formatEtcdMessage(server, testPath, iops, latency))
+		return formatEtcdErrors(server, testPath, iops, latency)
 	}
 	log.Infof("Server %v passed etcd disk check, has %v sequential write iops and %vms fsync latency.",
 		server.Hostname, iops, latency)
@@ -54,6 +52,10 @@ func (r *checker) checkEtcdDisk(ctx context.Context, server Server) error {
 
 // fioEtcdJob constructs a request to check etcd disk performance.
 func fioEtcdJob(filename string) *proto.CheckDisksRequest {
+	// The recommendations for the fio configuration for etcd disk test
+	// were adopted from the following blog post:
+	//
+	// https://www.ibm.com/cloud/blog/using-fio-to-tell-whether-your-storage-is-fast-enough-for-etcd
 	spec := &proto.FioJobSpec{
 		Name: "etcd",
 		// perform sequential writes
@@ -76,24 +78,19 @@ func fioEtcdJob(filename string) *proto.CheckDisksRequest {
 	}
 }
 
-// formatEtcdMessage returns appropritate formatted error message based
+// formatEtcdErrors returns appropritate formatted error messages based
 // on the etcd disk performance test results.
-func formatEtcdMessage(server Server, testPath string, iops float64, latency int64) string {
-	var errors []string
+func formatEtcdErrors(server Server, testPath string, iops float64, latency int64) error {
+	var errors []error
 	if iops < EtcdMinWriteIOPS {
-		errors = append(errors, fmt.Sprintf("  * Low sequential write IOPS of %v, required minimum is %v.",
-			iops, EtcdMinWriteIOPS))
+		errors = append(errors, trace.BadParameter("server %v has low sequential write IOPS of %v on %v (required minimum is %v)",
+			server.Hostname, iops, filepath.Dir(testPath), EtcdMinWriteIOPS))
 	}
 	if latency > EtcdMaxFsyncLatencyMs {
-		errors = append(errors, fmt.Sprintf("  * High fsync latency of %vms, required maximum is %vms.",
-			latency, EtcdMaxFsyncLatencyMs))
+		errors = append(errors, trace.BadParameter("server %v has high fsync latency of %vms on %v (required maximum is %vms)",
+			server.Hostname, latency, filepath.Dir(testPath), EtcdMaxFsyncLatencyMs))
 	}
-	return fmt.Sprintf(
-		`It looks like on node %v etcd data resides on a disk (%v) that does not satisfy recommended performance requirements:
-%v
-For optimal performance, please make sure that the directory with etcd data resides on the device that meets the aforementioned
-hardware requirements before proceeding.`,
-		server.Hostname, filepath.Dir(testPath), strings.Join(errors, "\n"))
+	return trace.NewAggregate(errors...)
 }
 
 const (

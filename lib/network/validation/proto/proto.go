@@ -18,11 +18,11 @@ package proto
 
 import (
 	"fmt"
-	"os"
 	"path/filepath"
 	"time"
 
 	"github.com/gravitational/gravity/lib/constants"
+	"github.com/gravitational/gravity/lib/state"
 	"github.com/gravitational/gravity/lib/utils"
 
 	"github.com/gogo/protobuf/types"
@@ -66,10 +66,14 @@ func (r *CheckDisksRequest) CheckAndSetDefaults() error {
 		}
 	}
 	// During operations such as install or join fio binary is placed
-	// in temporary directory on the nodes so look there if the path
+	// in state directory on the nodes so look there if the path
 	// wasn't specified explicitly.
 	if r.FioPath == "" {
-		r.FioPath = filepath.Join(os.TempDir(), constants.FioBin)
+		stateDir, err := state.GetStateDir()
+		if err != nil {
+			return trace.Wrap(err)
+		}
+		r.FioPath = filepath.Join(stateDir, constants.FioBin)
 	}
 	if _, err := utils.StatFile(r.FioPath); err != nil {
 		return trace.Wrap(err)

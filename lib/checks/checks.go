@@ -383,7 +383,7 @@ func (r *checker) CheckNode(ctx context.Context, server Server) error {
 		errors = append(errors, err)
 	}
 
-	if r.TestEtcdDisk {
+	if server.IsMaster() && r.TestEtcdDisk {
 		err = r.checkEtcdDisk(ctx, server)
 		if err != nil {
 			errors = append(errors, err)
