@@ -1213,12 +1213,28 @@
   revision = "ae77be60afb1dcacde03767a8c37337fad28ac14"
 
 [[projects]]
+  digest = "1:ca955a9cd5b50b0f43d2cc3aeb35c951473eeca41b34eb67507f1dbcc0542394"
+  name = "github.com/kr/pretty"
+  packages = ["."]
+  pruneopts = "UT"
+  revision = "73f6ac0b30a98e433b289500d779f50c1a6f0712"
+  version = "v0.1.0"
+
+[[projects]]
   digest = "1:075fe2b22b9fcec90cecd98546c2096d73a3ab9458261f5647512fba3e0420eb"
   name = "github.com/kr/pty"
   packages = ["."]
   pruneopts = "UT"
   revision = "2c10821df3c3cf905230d078702dfbe9404c9b23"
   version = "v1.0.0"
+
+[[projects]]
+  digest = "1:15b5cc79aad436d47019f814fde81a10221c740dc8ddf769221a65097fb6c2e9"
+  name = "github.com/kr/text"
+  packages = ["."]
+  pruneopts = "UT"
+  revision = "e2ffdb16a802fe2bb95e2e35ff34f0e53aeef34f"
+  version = "v0.1.0"
 
 [[projects]]
   digest = "1:7a20d4221f44dadcdfe5a510725d3f26185a7ac680c207755f73963473337e44"
@@ -1939,11 +1955,11 @@
   source = "github.com/gravitational/kingpin"
 
 [[projects]]
-  digest = "1:a59b147b633c9b4f5f0eba6ddc282810fec9c592c41fc3e6c1fef74af01705dc"
+  digest = "1:af715ae33cc1f5695c4b2a4e4b21d008add8802a99e15bb467ac7c32edb5000d"
   name = "gopkg.in/check.v1"
   packages = ["."]
   pruneopts = "UT"
-  revision = "64131543e7896d5bcc6bd5a76287eb75ea96c673"
+  revision = "788fd78401277ebd861206a03c884797c6ec5541"
 
 [[projects]]
   digest = "1:ef72505cf098abdd34efeea032103377bec06abb61d8a06f002d5d296a4b1185"

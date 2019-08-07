@@ -44,6 +44,8 @@ type BuildParameters struct {
 	Silent bool
 	// Insecure turns on insecure verify mode
 	Insecure bool
+	// UpgradeVia lists intermediate runtime versions to embed inside the installer
+	UpgradeVia []string
 }
 
 // build builds an installer tarball according to the provided parameters
@@ -59,6 +61,7 @@ func build(ctx context.Context, params BuildParameters, req service.VendorReques
 		SkipVersionCheck: params.SkipVersionCheck,
 		VendorReq:        req,
 		Progress:         utils.NewProgress(ctx, "Build", 6, params.Silent),
+		UpgradeVia:       params.UpgradeVia,
 	})
 	if err != nil {
 		return trace.Wrap(err)

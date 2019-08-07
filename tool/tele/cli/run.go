@@ -59,6 +59,7 @@ func Run(tele Application) error {
 			SkipVersionCheck: *tele.BuildCmd.SkipVersionCheck,
 			Silent:           *tele.BuildCmd.Quiet,
 			Insecure:         *tele.Insecure,
+			UpgradeVia:       *tele.BuildCmd.UpgradeVia,
 		}, service.VendorRequest{
 			PackageName:            *tele.BuildCmd.Name,
 			PackageVersion:         *tele.BuildCmd.Version,
