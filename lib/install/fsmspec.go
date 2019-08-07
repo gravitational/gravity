@@ -34,6 +34,12 @@ import (
 func FSMSpec(config FSMConfig) fsm.FSMSpecFunc {
 	return func(p fsm.ExecutorParams, remote fsm.Remote) (fsm.PhaseExecutor, error) {
 		switch {
+		case strings.HasPrefix(p.Phase.ID, phases.InitPhase):
+			return phases.NewInit(p,
+				config.Operator,
+				config.Apps,
+				config.Packages)
+
 		case p.Phase.ID == phases.ChecksPhase:
 			return phases.NewChecks(p,
 				config.Operator,

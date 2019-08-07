@@ -58,6 +58,9 @@ func (p *Peer) getOperationPlan(ctx operationContext) (*storage.OperationPlan, e
 		DNSConfig:     ctx.Cluster.DNSConfig,
 	}
 
+	// perform some initialization on the node
+	builder.AddInitPhase(plan)
+
 	// start RPC agent on one of the cluster's master nodes
 	builder.AddStartAgentPhase(plan)
 

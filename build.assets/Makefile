@@ -37,6 +37,7 @@ PLANET_REPO = git@github.com:gravitational/planet.git
 LOGGING_APP_REPO = git@github.com:gravitational/logging-app.git
 MONITORING_APP_REPO = git@github.com:gravitational/monitoring-app.git
 BANDWAGON_REPO = git@github.com:gravitational/bandwagon.git
+FIO_REPO = git@github.com:axboe/fio.git
 
 # Amazon S3
 BUILD_BUCKET_URL = s3://clientbuilds.gravitational.io
@@ -282,7 +283,7 @@ publish-telekube-s3:
 # publish artifacts to S3
 #
 .PHONY: publish
-publish: push-teleport push-gravity push-bandwagon push-logging-app push-monitoring-app
+publish: push-teleport push-gravity push-fio push-bandwagon push-logging-app push-monitoring-app
 
 #
 # prepare ansible variables for publishing to the hub
@@ -339,6 +340,7 @@ K8S_IMPORT_OPTIONS := \
 		--set-dep=$(WEB_ASSETS_PKG) \
 		--set-dep=$(TELEPORT_PKG) \
 		--set-dep=$(PLANET_PKG) \
+		--set-dep=$(FIO_PKG) \
 		--set-dep=$(RBAC_APP_PKG) \
 		--set-dep=$(DNS_APP_PKG) \
 		--set-dep=$(LOGGING_APP_PKG) \
@@ -355,7 +357,7 @@ rbac-app:
 	$(GRAVITY) package export $(RBAC_APP_PKG) $(RBAC_APP_OUT)
 
 .PHONY: k8s-app
-k8s-app: gravity-package teleport planet web-assets site-app monitoring-app logging-app tiller-app rbac-app dns-app bandwagon
+k8s-app: gravity-package teleport fio planet web-assets site-app monitoring-app logging-app tiller-app rbac-app dns-app bandwagon
 	@echo -e "\n----> Building kubernetes-app...\n"
 	- $(GRAVITY) app delete $(K8S_APP_PKG) $(DELETE_OPTS) && \
 	  $(GRAVITY) app import $(ASSETSDIR)/kubernetes $(VENDOR_OPTS) $(K8S_IMPORT_OPTIONS) \
@@ -519,6 +521,64 @@ $(BANDWAGON_OUT):
 
 push-bandwagon: $(BANDWAGON_OUT)
 	$(AWS) s3 cp $(S3_OPTS) $(BANDWAGON_OUT) $(BUILD_BUCKET_URL)/bandwagon/$(BANDWAGON_TAG)
+
+.PHONY: fio
+fio: $(FIO_OUT)
+	$(GRAVITY) package delete $(FIO_PKG) $(DELETE_OPTS) && \
+	    $(GRAVITY) package import $(FIO_OUT) $(FIO_PKG)
+
+$(FIO_OUT):
+	mkdir -p $(FIO_BUILDDIR) && \
+	    $(MAKE) pull-fio && \
+	    $(MAKE) build-fio
+
+.PHONY: pull-fio
+pull-fio:
+	if [ ! -e "$(FIO_OUT)" ]; then \
+	    $(MAKE) pull-fio-sub; \
+	fi
+
+.PHONY: pull-fio-sub
+pull-fio-sub:
+	-$(AWS) s3 cp $(S3_OPTS) \
+	    $(BUILD_BUCKET_URL)/fio/$(FIO_VER)/fio \
+	    $(FIO_OUT)
+
+.PHONY: build-fio
+build-fio:
+	if [ ! -e "$(FIO_OUT)" ]; then \
+	    $(MAKE) build-fio-sub; \
+	fi
+
+.PHONY: build-fio-sub
+build-fio-sub: clone-fio
+	docker run --rm=true -u $$(id -u) \
+	    -v $(TOP):$(SRCDIR) \
+	    -v $(FIO_BUILDDIR):/fio \
+	    $(BBOX) \
+	    dumb-init make -C $(SRCDIR)/build.assets build-fio-in-buildbox
+
+.PHONY: build-fio-in-buildbox
+build-fio-in-buildbox:
+	cd /fio && \
+	    ./configure --build-static && \
+	    make
+
+.PHONY: clone-fio
+clone-fio: clean-fio
+	mkdir -p $(FIO_BUILDDIR) && \
+	    git clone $(FIO_REPO) $(FIO_BUILDDIR) && \
+	    cd $(FIO_BUILDDIR) && \
+	    git fetch --all && \
+	    git checkout $(FIO_TAG)
+
+.PHONY: push-fio
+push-fio: $(FIO_OUT)
+	$(AWS) s3 cp $(S3_OPTS) $(FIO_OUT) $(BUILD_BUCKET_URL)/fio/$(FIO_VER)/fio
+
+.PHONY: clean-fio
+clean-fio:
+	rm -rf $(FIO_BUILDDIR)
 
 #
 # dependency: logging app
