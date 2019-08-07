@@ -280,10 +280,7 @@ func printStatusText(cluster clusterStatus) {
 		printAgentStatus(*cluster.Agent, w)
 	}
 
-	if len(cluster.Alerts) > 0 {
-		fmt.Fprintln(w, "Cluster alerts:")
-		printPrometheusAlerts(cluster.Alerts, w)
-	}
+	printPrometheusAlerts(cluster.Alerts, w)
 
 	w.Flush()
 
@@ -294,7 +291,7 @@ func printStatusText(cluster clusterStatus) {
 
 func printClusterStatus(cluster statusapi.Cluster, w io.Writer) {
 	if cluster.App.Name != "" {
-		fmt.Fprintf(w, "Application:\t%v, version %v\n", cluster.App.Name,
+		fmt.Fprintf(w, "Cluster image:\t%v, version %v\n", cluster.App.Name,
 			cluster.App.Version)
 	}
 	if cluster.Token.Token != "" {
@@ -391,11 +388,18 @@ func printNodeStatus(node statusapi.ClusterServer, w io.Writer) {
 }
 
 func printPrometheusAlerts(alerts []*models.GettableAlert, w io.Writer) {
+	var print []*models.GettableAlert
 	for _, alert := range alerts {
 		if *alert.Status.State != "active" {
 			continue
 		}
-
+		print = append(print, alert)
+	}
+	if len(print) == 0 {
+		return
+	}
+	fmt.Fprintln(w, "Cluster alerts:")
+	for _, alert := range print {
 		duration := time.Now().Sub(time.Time(*alert.StartsAt)).Round(time.Second)
 		fmt.Fprintf(w, "    * %v [%v]\n", alert.Labels["alertname"], duration)
 		fmt.Fprintf(w, "      - %v\n", alert.Annotations["message"])
