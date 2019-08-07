@@ -43,7 +43,7 @@ LTS starts with `3.51.0` with minor backwards compatible changes added over time
 #### Bugfixes
 
 * Update etcd gateway configuration as masters are removed or added to the cluster.
-* Upgrade Kubernetes to `v1.14.5` (CVE-2019-11247, CVE-2019-11249).
+* Upgrade Kubernetes to `v1.15.2` (CVE-2019-11247, CVE-2019-11249).
 * Fix crash in `gravity license show`.
 * Fixes a couple issues with initializing the installer service.
 
