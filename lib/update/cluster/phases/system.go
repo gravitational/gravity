@@ -107,8 +107,8 @@ func (*planetStart) PostCheck(context.Context) error { return nil }
 
 // updatePhaseSystem is the executor for the update master/node update phase
 type updatePhaseSystem struct {
-	// OperationID is the id of the current update operation
-	OperationID string
+	// ChangesetID specifies the ID of the system update step
+	ChangesetID string
 	// Server is the server currently being updated
 	Server storage.UpdateServer
 	// Backend specifies the backend used for the update operation
@@ -137,7 +137,7 @@ func NewUpdatePhaseSystem(
 		return nil, trace.NotFound("no server specified for phase %q", p.Phase.ID)
 	}
 	return &updatePhaseSystem{
-		OperationID:       p.Plan.OperationID,
+		ChangesetID:       p.Phase.Data.Update.ChangesetID,
 		Server:            p.Phase.Data.Update.Servers[0],
 		GravityPackage:    p.Plan.GravityPackage,
 		Backend:           backend,
@@ -160,8 +160,12 @@ func (p *updatePhaseSystem) PostCheck(context.Context) error {
 
 // Execute runs system update on the node
 func (p *updatePhaseSystem) Execute(ctx context.Context) error {
+	runtimeConfig, err := p.getInstalledRuntimeConfig()
+	if err != nil {
+		return trace.Wrap(err, "failed to locate runtime configuration package")
+	}
 	config := system.Config{
-		ChangesetID: p.OperationID,
+		ChangesetID: p.ChangesetID,
 		Backend:     p.Backend,
 		Packages:    p.HostLocalPackages,
 		PackageUpdates: system.PackageUpdates{
@@ -178,7 +182,8 @@ func (p *updatePhaseSystem) Execute(ctx context.Context) error {
 	if p.Server.Runtime.Update != nil {
 		config.Runtime.To = p.Server.Runtime.Update.Package
 		config.Runtime.ConfigPackage = &storage.PackageUpdate{
-			To: p.Server.Runtime.Update.ConfigPackage,
+			From: *runtimeConfig,
+			To:   p.Server.Runtime.Update.ConfigPackage,
 		}
 		config.Runtime.NoStart = p.Server.ShouldMigrateDockerDevice()
 	}
@@ -203,14 +208,23 @@ func (p *updatePhaseSystem) Execute(ctx context.Context) error {
 	if err != nil {
 		return trace.Wrap(err)
 	}
+	// FIXME: move NoStart to system configuration as a planet-specific attribute
 	err = updater.Update(ctx, !config.Runtime.NoStart)
 	return trace.Wrap(err)
+}
+
+func (p *updatePhaseSystem) getInstalledRuntimeConfig() (*loc.Locator, error) {
+	runtimeConfig, err := pack.FindInstalledConfigPackage(p.HostLocalPackages, p.Server.Runtime.Installed)
+	if err != nil {
+		return nil, trace.Wrap(err)
+	}
+	return runtimeConfig, nil
 }
 
 // Rollback runs rolls back the system upgrade on the node
 func (p *updatePhaseSystem) Rollback(ctx context.Context) error {
 	updater, err := system.New(system.Config{
-		ChangesetID: p.OperationID,
+		ChangesetID: p.ChangesetID,
 		Backend:     p.Backend,
 		Packages:    p.HostLocalPackages,
 	})

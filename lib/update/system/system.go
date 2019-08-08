@@ -551,6 +551,7 @@ func copyGravityToPlanet(newPackage loc.Locator, packages pack.PackageService, p
 func labelsForPackageUpdate(packages pack.PackageService, update storage.PackageUpdate) (labelUpdates []pack.LabelUpdate) {
 	return append(labelUpdates,
 		pack.LabelUpdate{
+			// FIXME: this will fail for empty From
 			Locator: update.From,
 			Remove:  []string{pack.InstalledLabel},
 		},
