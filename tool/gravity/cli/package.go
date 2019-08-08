@@ -25,7 +25,7 @@ import (
 	"syscall"
 	"time"
 
-	"github.com/gravitational/gravity/lib/app/service"
+	libapp "github.com/gravitational/gravity/lib/app"
 	"github.com/gravitational/gravity/lib/defaults"
 	"github.com/gravitational/gravity/lib/httplib"
 	"github.com/gravitational/gravity/lib/loc"
@@ -317,18 +317,18 @@ func pushPackage(app *localenv.LocalEnvironment, loc loc.Locator, opsCenterURL s
 		return trace.Wrap(err)
 	}
 
-	req := service.PackagePullRequest{
-		SrcPack:  app.Packages,
-		DstPack:  dstPackages,
-		Package:  loc,
-		Progress: app.Reporter,
+	puller := libapp.Puller{
+		SrcPack: app.Packages,
+		DstPack: dstPackages,
+		// FIXME
+		//Progress: app.Reporter,
 	}
-
-	if _, err = service.PullPackage(req); err != nil {
+	err = libapp.PullPackage(context.TODO(), loc, puller)
+	if err != nil {
 		return trace.Wrap(err)
 	}
 
-	fmt.Printf("%v pushed to %v\n", loc, opsCenterURL)
+	app.Printf("%v pushed to %v\n", loc, opsCenterURL)
 	return nil
 }
 
@@ -340,20 +340,20 @@ func pullPackage(app *localenv.LocalEnvironment, loc loc.Locator, opsCenterURL s
 		return trace.Wrap(err)
 	}
 
-	req := service.PackagePullRequest{
-		SrcPack:  sourcePackages,
-		DstPack:  app.Packages,
-		Package:  loc,
-		Labels:   labels,
-		Progress: app.Reporter,
-		Upsert:   force,
+	puller := libapp.Puller{
+		SrcPack: sourcePackages,
+		DstPack: app.Packages,
+		Labels:  labels,
+		// FIXME
+		// Progress: app.Reporter,
+		Upsert: force,
 	}
-
-	if _, err = service.PullPackage(req); err != nil {
+	err = libapp.PullPackage(context.TODO(), loc, puller)
+	if err != nil {
 		return trace.Wrap(err)
 	}
 
-	fmt.Printf("%v pulled from %v\n", loc, opsCenterURL)
+	app.Printf("%v pulled from %v\n", loc, opsCenterURL)
 	return nil
 }
 

@@ -21,7 +21,7 @@ import (
 	"io"
 	"path/filepath"
 
-	appservice "github.com/gravitational/gravity/lib/app/service"
+	libapp "github.com/gravitational/gravity/lib/app"
 	"github.com/gravitational/gravity/lib/constants"
 	"github.com/gravitational/gravity/lib/defaults"
 	"github.com/gravitational/gravity/lib/fsm"
@@ -157,7 +157,7 @@ func (p *updatePhaseBootstrap) Execute(ctx context.Context) error {
 	if err != nil {
 		return trace.Wrap(err)
 	}
-	err = p.pullSystemUpdates()
+	err = p.pullSystemUpdates(ctx)
 	if err != nil {
 		return trace.Wrap(err)
 	}
@@ -216,7 +216,7 @@ func (p *updatePhaseBootstrap) updateDNSConfig() error {
 	return nil
 }
 
-func (p *updatePhaseBootstrap) pullSystemUpdates() error {
+func (p *updatePhaseBootstrap) pullSystemUpdates(ctx context.Context) error {
 	p.Info("Pull system updates.")
 	updates := []loc.Locator{p.GravityPackage}
 	if p.Server.Runtime.SecretsPackage != nil {
@@ -236,10 +236,9 @@ func (p *updatePhaseBootstrap) pullSystemUpdates() error {
 	}
 	for _, update := range updates {
 		p.Infof("Pulling package update: %v.", update)
-		_, err := appservice.PullPackage(appservice.PackagePullRequest{
+		err := libapp.PullPackage(ctx, update, libapp.Puller{
 			SrcPack: p.Packages,
 			DstPack: p.LocalPackages,
-			Package: update,
 		})
 		if err != nil && !trace.IsAlreadyExists(err) {
 			return trace.Wrap(err)
@@ -247,7 +246,7 @@ func (p *updatePhaseBootstrap) pullSystemUpdates() error {
 	}
 	// after having pulled packages as root we need to set proper ownership
 	// on the blobs dir
-	// FIXME(dmitri): PullPackage API needs to accept uid/gid sp this is unnecessary
+	// FIXME(dmitri): PullPackage API needs to accept uid/gid so this is unnecessary
 	stateDir, err := state.GetStateDir()
 	if err != nil {
 		return trace.Wrap(err)

@@ -19,8 +19,8 @@ package cli
 import (
 	"context"
 
+	libapp "github.com/gravitational/gravity/lib/app"
 	"github.com/gravitational/gravity/lib/app/docker"
-	"github.com/gravitational/gravity/lib/app/service"
 	"github.com/gravitational/gravity/lib/httplib"
 	"github.com/gravitational/gravity/lib/localenv"
 
@@ -84,11 +84,10 @@ func appSyncEnv(env *localenv.LocalEnvironment, imageEnv *localenv.ImageEnvironm
 			if err != nil {
 				return trace.Wrap(err)
 			}
-			err = service.SyncApp(context.TODO(), service.SyncRequest{
+			err = libapp.SyncApp(context.TODO(), imageEnv.Manifest.Locator(), libapp.Syncer{
 				PackService:  imageEnv.Packages,
 				AppService:   imageEnv.Apps,
 				ImageService: imageService,
-				Package:      imageEnv.Manifest.Locator(),
 				Progress:     env,
 			})
 			if err != nil {
@@ -104,12 +103,11 @@ func appSyncEnv(env *localenv.LocalEnvironment, imageEnv *localenv.ImageEnvironm
 		if err != nil {
 			return trace.Wrap(err)
 		}
-		_, err = service.PullApp(service.AppPullRequest{
+		err = libapp.PullApp(context.TODO(), imageEnv.Manifest.Locator(), libapp.Puller{
 			SrcPack: imageEnv.Packages,
 			DstPack: clusterPackages,
 			SrcApp:  imageEnv.Apps,
 			DstApp:  clusterApps,
-			Package: imageEnv.Manifest.Locator(),
 			Upsert:  true,
 		})
 		if err != nil {
@@ -124,18 +122,12 @@ func appSyncEnv(env *localenv.LocalEnvironment, imageEnv *localenv.ImageEnvironm
 		if err != nil {
 			return trace.Wrap(err)
 		}
-		err = service.SyncApp(context.TODO(), service.SyncRequest{
+		return libapp.SyncApp(context.TODO(), imageEnv.Manifest.Locator(), libapp.Syncer{
 			PackService:  imageEnv.Packages,
 			AppService:   imageEnv.Apps,
 			ImageService: imageService,
-			Package:      imageEnv.Manifest.Locator(),
 			Progress:     env,
 		})
-		if err != nil {
-			return trace.Wrap(err)
-		}
-	} else {
-		return trace.BadParameter("not inside a Kubernetes cluster")
 	}
-	return nil
+	return trace.BadParameter("not inside a Kubernetes cluster")
 }

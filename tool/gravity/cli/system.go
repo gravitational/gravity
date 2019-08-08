@@ -18,6 +18,7 @@ package cli
 
 import (
 	"bytes"
+	"context"
 	"fmt"
 	"net"
 	"os"
@@ -29,7 +30,7 @@ import (
 	"strings"
 	"syscall"
 
-	appservice "github.com/gravitational/gravity/lib/app/service"
+	libapp "github.com/gravitational/gravity/lib/app"
 	"github.com/gravitational/gravity/lib/constants"
 	"github.com/gravitational/gravity/lib/defaults"
 	"github.com/gravitational/gravity/lib/devicemapper"
@@ -80,12 +81,12 @@ func systemPullUpdates(env *localenv.LocalEnvironment, opsCenterURL string, runt
 		}
 		log.WithField("update", update).Info("Pulling update.")
 		env.Printf("Pulling update %v\n.", update)
-		err = pullUpdate(env.Packages, remotePackages, env.Reporter, *update)
+		err = pullUpdate(context.TODO(), env.Packages, remotePackages, env.Reporter, *update)
 		if err != nil {
 			return trace.Wrap(err)
 		}
 		if update.ConfigPackage != nil {
-			err = pullUpdate(env.Packages, remotePackages, env.Reporter,
+			err = pullUpdate(context.TODO(), env.Packages, remotePackages, env.Reporter,
 				*update.ConfigPackage)
 			if err != nil {
 				return trace.Wrap(err)
@@ -367,14 +368,14 @@ func applyUpdates(env *localenv.LocalEnvironment, updates []storage.PackageUpdat
 	return trace.NewAggregate(errors...)
 }
 
-func pullUpdate(localPackages, remotePackages pack.PackageService, reporter pack.ProgressReporter, update storage.PackageUpdate) error {
-	pullReq := appservice.PackagePullRequest{
-		SrcPack:  remotePackages,
-		DstPack:  localPackages,
-		Package:  update.To,
-		Progress: reporter,
+func pullUpdate(ctx context.Context, localPackages, remotePackages pack.PackageService, reporter pack.ProgressReporter, update storage.PackageUpdate) error {
+	puller := libapp.Puller{
+		SrcPack: remotePackages,
+		DstPack: localPackages,
+		// FIXME
+		// Progress: reporter,
 	}
-	_, err := appservice.PullPackage(pullReq)
+	err := libapp.PullPackage(context.TODO(), update.To, puller)
 	if err != nil && !trace.IsAlreadyExists(err) {
 		return trace.Wrap(err)
 	}

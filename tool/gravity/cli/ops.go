@@ -20,14 +20,18 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"io"
 	_ "net/http/pprof"
+	"path/filepath"
+	"runtime"
 	"strings"
 
+	libapp "github.com/gravitational/gravity/lib/app"
 	"github.com/gravitational/gravity/lib/app/docker"
-	appservice "github.com/gravitational/gravity/lib/app/service"
 	"github.com/gravitational/gravity/lib/constants"
 	"github.com/gravitational/gravity/lib/defaults"
 	"github.com/gravitational/gravity/lib/install"
+	"github.com/gravitational/gravity/lib/loc"
 	"github.com/gravitational/gravity/lib/localenv"
 	"github.com/gravitational/gravity/lib/ops"
 	"github.com/gravitational/gravity/lib/pack"
@@ -87,19 +91,7 @@ func appPackage(env *localenv.LocalEnvironment) error {
 }
 
 func uploadUpdate(env *localenv.LocalEnvironment, opsURL string) error {
-	// create local environment with gravity state dir because the environment
-	// provided above has upgrade tarball as a state dir
-	localStateDir, err := localenv.LocalGravityDir()
-	if err != nil {
-		return trace.Wrap(err)
-	}
-
-	defaultEnv, err := localenv.New(localStateDir)
-	if err != nil {
-		return trace.Wrap(err)
-	}
-
-	clusterOperator, err := defaultEnv.SiteOperator()
+	clusterOperator, err := env.SiteOperator()
 	if err != nil {
 		return trace.Wrap(err, "unable to access cluster.\n"+
 			"Use 'gravity status' to check the cluster state and make sure "+
@@ -111,86 +103,123 @@ func uploadUpdate(env *localenv.LocalEnvironment, opsURL string) error {
 		return trace.Wrap(err)
 	}
 
-	if cluster.State == ops.SiteStateDegraded {
-		return trace.BadParameter("The cluster is in degraded state so " +
-			"uploading new applications is prohibited. Please check " +
-			"gravity status output and correct the situation before " +
-			"attempting again.")
+	tarballEnv, err := newTarballEnvironment(*cluster)
+	if err != nil {
+		return trace.Wrap(err)
 	}
+	defer tarballEnv.Close()
 
-	var tarballPackages pack.PackageService = env.Packages
-	if cluster.License != nil {
-		parsed, err := license.ParseLicense(cluster.License.Raw)
-		if err != nil {
-			return trace.Wrap(err)
-		}
-
-		encryptionKey := parsed.GetPayload().EncryptionKey
-		if len(encryptionKey) != 0 {
-			tarballPackages = encryptedpack.New(tarballPackages, string(encryptionKey))
-		}
-	}
-
-	clusterPackages, err := defaultEnv.ClusterPackages()
+	appPackage, err := install.GetAppPackage(tarballEnv.Apps)
 	if err != nil {
 		return trace.Wrap(err)
 	}
 
-	clusterApps, err := defaultEnv.SiteApps()
+	err = canUpload(*cluster, *appPackage)
 	if err != nil {
 		return trace.Wrap(err)
 	}
 
-	tarballApps, err := env.AppServiceLocal(localenv.AppConfig{
-		Packages: tarballPackages,
-	})
+	clusterPackages, err := env.ClusterPackages()
 	if err != nil {
 		return trace.Wrap(err)
 	}
 
-	appPackage, err := install.GetAppPackage(tarballApps)
+	clusterApps, err := env.SiteApps()
 	if err != nil {
 		return trace.Wrap(err)
 	}
 
-	err = pack.CheckUpdatePackage(cluster.App.Package, *appPackage)
+	deps, err := getUploadDependencies(tarballEnv, *appPackage)
 	if err != nil {
 		return trace.Wrap(err)
 	}
 
 	env.PrintStep("Importing application %v v%v", appPackage.Name, appPackage.Version)
-	_, err = appservice.PullApp(appservice.AppPullRequest{
-		SrcPack: tarballPackages,
-		SrcApp:  tarballApps,
-		DstPack: clusterPackages,
-		DstApp:  clusterApps,
-		Package: *appPackage,
+	puller := libapp.Puller{
+		FieldLogger:  log.WithField(trace.Component, "pull"),
+		SrcPack:      tarballEnv.Packages,
+		SrcApp:       tarballEnv.Apps,
+		DstPack:      clusterPackages,
+		DstApp:       clusterApps,
+		Upsert:       true,
+		Parallel:     runtime.NumCPU(),
+		Dependencies: *deps,
+	}
+	err = puller.Pull(context.TODO())
+	if err != nil {
+		return trace.Wrap(err)
+	}
+
+	syncer := libapp.Syncer{
+		PackService: clusterPackages,
+		AppService:  clusterApps,
+	}
+	err = syncAppWithCluster(context.TODO(), env, *cluster, *appPackage, syncer)
+	if err != nil {
+		return trace.Wrap(err)
+	}
+
+	env.PrintStep("Application has been uploaded")
+	return nil
+}
+
+func getUploadDependencies(env *tarballEnviron, loc loc.Locator) (*libapp.Dependencies, error) {
+	app, err := env.Apps.GetApp(loc)
+	if err != nil {
+		return nil, trace.Wrap(err)
+	}
+	deps, err := libapp.GetDependencies(libapp.GetDependenciesRequest{
+		Pack: env.Packages,
+		Apps: env.Apps,
+		App:  *app,
 	})
 	if err != nil {
-		if !trace.IsAlreadyExists(err) {
+		return nil, trace.Wrap(err)
+	}
+	deps.Apps = append(deps.Apps, *app)
+	err = collectUpgradeDependencies(env, deps)
+	if err != nil {
+		return nil, trace.Wrap(err)
+	}
+	return deps, nil
+}
+
+func collectUpgradeDependencies(env *tarballEnviron, deps *libapp.Dependencies) error {
+	// FIXME: maybe change Dependencies.{Packages,Apps} to use a custom struct
+	// with just Locator/Labels
+	return pack.ForeachPackage(env.Packages, func(pkg pack.PackageEnvelope) error {
+		if _, ok := pkg.RuntimeLabels[pack.PurposeRuntimeUpgrade]; !ok {
+			return nil
+		}
+		if pkg.Type == "" {
+			deps.Packages = append(deps.Packages, pkg)
+			return nil
+		}
+		app, err := env.Apps.GetApp(pkg.Locator)
+		if err != nil {
 			return trace.Wrap(err)
 		}
-		env.PrintStep("Application already exists in local cluster")
-	}
+		deps.Apps = append(deps.Apps, *app)
+		return nil
+	})
+}
 
+func syncAppWithCluster(ctx context.Context, env *localenv.LocalEnvironment, cluster ops.Site, app loc.Locator, syncer libapp.Syncer) error {
 	var registries []string
-	err = utils.Retry(defaults.RetryInterval, defaults.RetryLessAttempts, func() error {
-		registries, err = getRegistries(context.TODO(), defaultEnv, cluster.ClusterState.Servers)
+	err := utils.Retry(defaults.RetryInterval, defaults.RetryLessAttempts, func() (err error) {
+		registries, err = getRegistries(ctx, env, cluster.ClusterState.Servers)
 		return trace.Wrap(err)
 	})
 	if err != nil {
 		return trace.Wrap(err)
 	}
-
 	stateDir, err := state.GetStateDir()
 	if err != nil {
 		return trace.Wrap(err)
 	}
-
 	for _, registry := range registries {
 		env.PrintStep("Synchronizing application with Docker registry %v",
 			registry)
-
 		imageService, err := docker.NewImageService(docker.RegistryConnectionRequest{
 			RegistryAddress: registry,
 			CertName:        constants.DockerRegistry,
@@ -201,19 +230,65 @@ func uploadUpdate(env *localenv.LocalEnvironment, opsURL string) error {
 		if err != nil {
 			return trace.Wrap(err)
 		}
-		err = appservice.SyncApp(context.TODO(), appservice.SyncRequest{
-			PackService:  clusterPackages,
-			AppService:   clusterApps,
-			ImageService: imageService,
-			Package:      *appPackage,
-		})
+		syncer.ImageService = imageService
+		err = libapp.SyncApp(ctx, app, syncer)
 		if err != nil {
 			return trace.Wrap(err)
 		}
 	}
-
-	env.PrintStep("Application has been uploaded")
 	return nil
+}
+
+func newTarballEnvironment(cluster ops.Site) (*tarballEnviron, error) {
+	env, err := localenv.NewLocalEnvironment(localenv.LocalEnvironmentArgs{
+		StateDir: filepath.Dir(utils.Exe.Path),
+	})
+	if err != nil {
+		return nil, trace.Wrap(err)
+	}
+	defer func() {
+		if err != nil {
+			env.Close()
+		}
+	}()
+	var packages pack.PackageService = env.Packages
+	if cluster.License != nil {
+		parsed, err := license.ParseLicense(cluster.License.Raw)
+		if err != nil {
+			return nil, trace.Wrap(err)
+		}
+		encryptionKey := parsed.GetPayload().EncryptionKey
+		if len(encryptionKey) != 0 {
+			packages = encryptedpack.New(packages, string(encryptionKey))
+		}
+	}
+	apps, err := env.AppServiceLocal(localenv.AppConfig{
+		Packages: packages,
+	})
+	if err != nil {
+		return nil, trace.Wrap(err)
+	}
+	return &tarballEnviron{
+		Closer:   env,
+		Packages: packages,
+		Apps:     apps,
+	}, nil
+}
+
+type tarballEnviron struct {
+	io.Closer
+	Packages pack.PackageService
+	Apps     libapp.Applications
+}
+
+func canUpload(cluster ops.Site, app loc.Locator) error {
+	if cluster.State == ops.SiteStateDegraded {
+		return trace.BadParameter("The cluster is in degraded state so " +
+			"uploading new applications is prohibited. Please check " +
+			"gravity status output and correct the situation before " +
+			"attempting again.")
+	}
+	return pack.CheckUpdatePackage(cluster.App.Package, app)
 }
 
 // getRegistries returns a list of registry addresses in the cluster

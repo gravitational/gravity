@@ -1,5 +1,5 @@
 /*
-Copyright 2018 Gravitational, Inc.
+Copyright 2019 Gravitational, Inc.
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -18,6 +18,7 @@ package service
 
 import (
 	"bytes"
+	"context"
 	"path/filepath"
 	"time"
 
@@ -63,37 +64,34 @@ func (s *PullerSuite) TestPullPackage(c *C) {
 	_, err := s.srcPack.CreatePackage(loc, bytes.NewBuffer([]byte("data")))
 	c.Assert(err, IsNil)
 
-	env, err := PullPackage(PackagePullRequest{
+	err = app.PullPackage(context.TODO(), loc, app.Puller{
 		FieldLogger: logger,
 		SrcPack:     s.srcPack,
 		DstPack:     s.dstPack,
-		Package:     loc,
 	})
 	c.Assert(err, IsNil)
-	c.Assert(env.Locator, Equals, loc)
 
-	env, err = s.dstPack.ReadPackageEnvelope(loc)
+	env, err := s.dstPack.ReadPackageEnvelope(loc)
 	c.Assert(err, IsNil)
 	c.Assert(env.Locator, Equals, loc)
 
-	_, err = PullPackage(PackagePullRequest{
+	err = app.PullPackage(context.TODO(), loc, app.Puller{
 		FieldLogger: logger,
 		SrcPack:     s.srcPack,
 		DstPack:     s.dstPack,
-		Package:     loc,
 	})
 	c.Assert(trace.IsAlreadyExists(err), Equals, true)
 }
 
 func (s *PullerSuite) TestPullApp(c *C) {
-	s.pullApp(c, 0)
+	s.pullApp(c, 0, log.WithField("test", "TestPullApp"))
 }
 
 func (s *PullerSuite) TestPullAppInParallel(c *C) {
-	s.pullApp(c, 2)
+	s.pullApp(c, 2, log.WithField("test", "TestPullAppInParallel"))
 }
 
-func (s *PullerSuite) pullApp(c *C, parallel int) {
+func (s *PullerSuite) pullApp(c *C, parallel int, logger log.FieldLogger) {
 	packageBytes := bytes.NewReader([]byte(nil))
 	for _, loc := range []loc.Locator{loc.MustParseLocator("example.com/existing:0.0.1")} {
 		_, err := s.dstPack.CreatePackage(loc, packageBytes)
@@ -122,16 +120,16 @@ dependencies:
 `
 	apptest.CreateDummyApplication2(s.srcApp, locator, dependencies, c)
 
-	pulled, err := PullApp(AppPullRequest{
-		SrcPack:  s.srcPack,
-		DstPack:  s.dstPack,
-		SrcApp:   s.srcApp,
-		DstApp:   s.dstApp,
-		Package:  locator,
-		Parallel: parallel,
+	err := app.PullApp(context.TODO(), locator, app.Puller{
+		FieldLogger: logger,
+		SrcPack:     s.srcPack,
+		DstPack:     s.dstPack,
+		SrcApp:      s.srcApp,
+		DstApp:      s.dstApp,
+		Upsert:      true,
+		Parallel:    parallel,
 	})
 	c.Assert(err, IsNil)
-	c.Assert(pulled.Package, Equals, locator)
 
 	packages, err := s.dstPack.GetPackages("example.com")
 	c.Assert(err, IsNil)
@@ -146,17 +144,18 @@ dependencies:
 	c.Assert(err, IsNil)
 	c.Assert(local.Package, Equals, locator)
 
-	_, err = PullApp(AppPullRequest{
-		SrcPack:  s.srcPack,
-		DstPack:  s.dstPack,
-		SrcApp:   s.srcApp,
-		DstApp:   s.dstApp,
-		Package:  locator,
-		Parallel: parallel,
+	err = app.PullApp(context.TODO(), locator, app.Puller{
+		FieldLogger: logger,
+		SrcPack:     s.srcPack,
+		DstPack:     s.dstPack,
+		SrcApp:      s.srcApp,
+		DstApp:      s.dstApp,
+		Parallel:    parallel,
 	})
 	c.Assert(trace.IsAlreadyExists(err), Equals, true)
 }
 
+// setupServices creates a set of services for tests
 func setupServices(c *C) (storage.Backend, pack.PackageService, *applications) {
 	dir := c.MkDir()
 

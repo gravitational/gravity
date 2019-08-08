@@ -321,18 +321,18 @@ func pullApp(env *localenv.LocalEnvironment, appPackage loc.Locator, portalURL s
 		return trace.Wrap(err)
 	}
 
-	req := service.AppPullRequest{
-		SrcPack:  remotePackages,
-		DstPack:  env.Packages,
-		SrcApp:   remoteApps,
-		DstApp:   localApps,
-		Package:  appPackage,
-		Labels:   labels,
-		Progress: env.Reporter,
-		Upsert:   force,
+	puller := appservice.Puller{
+		SrcPack: remotePackages,
+		DstPack: env.Packages,
+		SrcApp:  remoteApps,
+		DstApp:  localApps,
+		Labels:  labels,
+		// FIXME
+		// Progress: env.Reporter,
+		Upsert: force,
 	}
-
-	if _, err = service.PullApp(req); err != nil {
+	err = appservice.PullApp(context.TODO(), appPackage, puller)
+	if err != nil {
 		return trace.Wrap(err)
 	}
 
@@ -363,16 +363,16 @@ func pushApp(env *localenv.LocalEnvironment, appPackage loc.Locator, portalURL s
 		return trace.Wrap(err)
 	}
 
-	req := service.AppPullRequest{
-		SrcPack:  env.Packages,
-		DstPack:  remotePackages,
-		SrcApp:   localApps,
-		DstApp:   remoteApps,
-		Package:  appPackage,
-		Progress: env.Reporter,
+	puller := appservice.Puller{
+		SrcPack: env.Packages,
+		DstPack: remotePackages,
+		SrcApp:  localApps,
+		DstApp:  remoteApps,
+		// FIXME
+		// Progress: env.Reporter,
 	}
-
-	if _, err = service.PullApp(req); err != nil {
+	err = appservice.PullApp(context.TODO(), appPackage, puller)
+	if err != nil {
 		return trace.Wrap(err)
 	}
 

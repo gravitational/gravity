@@ -248,7 +248,7 @@ func (b *Builder) SelectRuntime() (*semver.Version, error) {
 
 // SyncPackageCache ensures that all system dependencies are present in
 // the local cache directory for the specified list of runtime versions
-func (b *Builder) SyncPackageCache(runtimeVersion semver.Version, intermediateVersions ...semver.Version) error {
+func (b *Builder) SyncPackageCache(ctx context.Context, runtimeVersion semver.Version, intermediateVersions ...semver.Version) error {
 	apps, err := b.Env.AppServiceLocal(localenv.AppConfig{})
 	if err != nil {
 		return trace.Wrap(err)
@@ -259,7 +259,7 @@ func (b *Builder) SyncPackageCache(runtimeVersion semver.Version, intermediateVe
 	}
 	for _, runtimeVersion := range append([]semver.Version{runtimeVersion}, intermediateVersions...) {
 		b.NextStep("Syncing packages for %v", runtimeVersion)
-		if err := b.syncPackageCache(runtimeVersion, syncer, apps); err != nil {
+		if err := b.syncPackageCache(ctx, runtimeVersion, syncer, apps); err != nil {
 			if trace.IsNotFound(err) {
 				return trace.NotFound("runtime version %v not found", runtimeVersion)
 			}
@@ -269,7 +269,7 @@ func (b *Builder) SyncPackageCache(runtimeVersion semver.Version, intermediateVe
 	return nil
 }
 
-func (b *Builder) syncPackageCache(runtimeVersion semver.Version, syncer Syncer, apps libapp.Applications) error {
+func (b *Builder) syncPackageCache(ctx context.Context, runtimeVersion semver.Version, syncer Syncer, apps libapp.Applications) error {
 	// see if all required packages/apps are already present in the local cache
 	app := libapp.Application{
 		Manifest: b.Manifest.WithBase(loc.Runtime.WithVersion(&runtimeVersion)),
@@ -290,7 +290,7 @@ func (b *Builder) syncPackageCache(runtimeVersion semver.Version, syncer Syncer,
 	}
 	b.Infof("Synchronizing package cache with %v.", repository)
 	b.NextStep("Downloading dependencies from %v", repository)
-	return syncer.Sync(b, runtimeVersion)
+	return syncer.Sync(ctx, b, runtimeVersion)
 }
 
 // Vendor vendors the application images in the provided directory and

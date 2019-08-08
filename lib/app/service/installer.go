@@ -455,5 +455,5 @@ var uploadScriptTemplate = template.Must(template.New("uploadScript").Parse(`#!/
 #
 #    http://www.apache.org/licenses/LICENSE-2.0
 #
-./gravity --insecure update upload --state-dir=.
+./gravity --insecure update upload
 `))
