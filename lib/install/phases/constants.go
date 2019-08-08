@@ -43,8 +43,10 @@ const (
 	RBACPhase = "/rbac"
 	// CorednsPhase is a phase that generates coredns configuration for the cluster
 	CorednsPhase = "/coredns"
-	// ResourcesPhase is a phase that creates user supplied Kubernetes resources
-	ResourcesPhase = "/resources"
+	// SystemResourcesPhase is a phase that creates system Kubernetes resources
+	SystemResourcesPhase = "/system-resources"
+	// UserResourcesPhase is a phase that creates user supplied Kubernetes resources
+	UserResourcesPhase = "/user-resources"
 	// GravityResourcesPhase is a phase that creates user supplied Gravity resources
 	GravityResourcesPhase = "/gravity-resources"
 	// ExportPhase is a phase that exports application layers to registries

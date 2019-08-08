@@ -33,10 +33,76 @@ import (
 	teleservices "github.com/gravitational/teleport/lib/services"
 	"github.com/gravitational/trace"
 	"github.com/sirupsen/logrus"
+	v1 "k8s.io/api/core/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/client-go/kubernetes"
 )
 
-// NewResources returns an executor that creates user-supplied Kubernetes resources
-func NewResources(p fsm.ExecutorParams, operator ops.Operator) (*resourcesExecutor, error) {
+// NewSystemResources returns executor that creates system Kubernetes resources.
+func NewSystemResources(p fsm.ExecutorParams, operator ops.Operator, client *kubernetes.Clientset) (fsm.PhaseExecutor, error) {
+	logger := &fsm.Logger{
+		FieldLogger: logrus.WithField(constants.FieldPhase, p.Phase.ID),
+		Key:         opKey(p.Plan),
+		Operator:    operator,
+	}
+	return &systemResources{
+		FieldLogger:    logger,
+		ExecutorParams: p,
+		Client:         client,
+		Cluster:        *p.Phase.Data.Cluster,
+	}, nil
+}
+
+// systemResources is executor that creates system Kubernetes resources.
+type systemResources struct {
+	// FieldLogger is used for logging.
+	logrus.FieldLogger
+	// ExecutorParams contains common executor parameters.
+	fsm.ExecutorParams
+	// Client is the installed cluster's Kubernetes client.
+	Client *kubernetes.Clientset
+	// Cluster is the cluster that is being installed.
+	Cluster storage.Site
+}
+
+// Execute generates coredns configuration
+func (r *systemResources) Execute(ctx context.Context) error {
+	r.Progress.NextStep("Configuring system Kubernetes resources")
+	r.Info("Configuring system Kubernetes resources.")
+	_, err := r.Client.CoreV1().ConfigMaps(constants.KubeSystemNamespace).Create(&v1.ConfigMap{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "cluster",
+			Namespace: constants.KubeSystemNamespace,
+		},
+		Data: map[string]string{
+			"GRAVITY_CLUSTER_NAME":     r.Cluster.Domain,
+			"GRAVITY_CLUSTER_PROVIDER": r.Cluster.Provider,
+			"GRAVITY_CLUSTER_FLAVOR":   r.Cluster.Flavor,
+		},
+	})
+	if err != nil {
+		return trace.Wrap(err)
+	}
+	return nil
+}
+
+// Rollback deletes the coredns configmap that was created in the execute step
+func (r *systemResources) Rollback(context.Context) error {
+	err := r.Client.CoreV1().ConfigMaps(constants.KubeSystemNamespace).Delete("cluster", &metav1.DeleteOptions{})
+	if err != nil && !trace.IsNotFound(err) {
+		return trace.Wrap(err)
+	}
+	return nil
+}
+
+// PreCheck is no-op for this phase.
+func (r *systemResources) PreCheck(context.Context) error { return nil }
+
+// PostCheck is no-op for this phase.
+func (r *systemResources) PostCheck(context.Context) error { return nil }
+
+// NewUserResources returns an executor that creates user-supplied Kubernetes resources
+func NewUserResources(p fsm.ExecutorParams, operator ops.Operator) (*userResourcesExecutor, error) {
 	if p.Phase.Data == nil || p.Phase.Data.Install == nil {
 		return nil, trace.BadParameter("phase data is mandatory")
 	}
@@ -48,14 +114,14 @@ func NewResources(p fsm.ExecutorParams, operator ops.Operator) (*resourcesExecut
 		Operator: operator,
 		Server:   p.Phase.Data.Server,
 	}
-	return &resourcesExecutor{
+	return &userResourcesExecutor{
 		FieldLogger:    logger,
 		ExecutorParams: p,
 		resources:      p.Phase.Data.Install.Resources,
 	}, nil
 }
 
-type resourcesExecutor struct {
+type userResourcesExecutor struct {
 	// FieldLogger is used for logging
 	logrus.FieldLogger
 	// ExecutorParams is common executor params
@@ -64,7 +130,7 @@ type resourcesExecutor struct {
 }
 
 // Execute executes the resources phase
-func (p *resourcesExecutor) Execute(ctx context.Context) error {
+func (p *userResourcesExecutor) Execute(ctx context.Context) error {
 	const filename = "resources.yaml"
 	p.Progress.NextStep("Creating user-supplied Kubernetes resources")
 	stateDir, err := state.GetStateDir()
@@ -94,12 +160,12 @@ func (p *resourcesExecutor) Execute(ctx context.Context) error {
 }
 
 // Rollback is no-op for this phase
-func (*resourcesExecutor) Rollback(ctx context.Context) error {
+func (*userResourcesExecutor) Rollback(ctx context.Context) error {
 	return nil
 }
 
 // PreCheck makes sure this phase is executed on a master node
-func (p *resourcesExecutor) PreCheck(ctx context.Context) error {
+func (p *userResourcesExecutor) PreCheck(ctx context.Context) error {
 	err := fsm.CheckMasterServer(p.Plan.Servers)
 	if err != nil {
 		return trace.Wrap(err)
@@ -108,7 +174,7 @@ func (p *resourcesExecutor) PreCheck(ctx context.Context) error {
 }
 
 // PostCheck is no-op for this phase
-func (*resourcesExecutor) PostCheck(ctx context.Context) error {
+func (*userResourcesExecutor) PostCheck(ctx context.Context) error {
 	return nil
 }
 

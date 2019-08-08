@@ -222,7 +222,7 @@ func (s *PlanSuite) TestPlan(c *check.C) {
 		{phases.WaitPhase, s.verifyWaitPhase},
 		{phases.RBACPhase, s.verifyRBACPhase},
 		{phases.CorednsPhase, s.verifyCorednsPhase},
-		{phases.ResourcesPhase, s.verifyResourcesPhase},
+		{phases.UserResourcesPhase, s.verifyResourcesPhase},
 		{phases.ExportPhase, s.verifyExportPhase},
 		{phases.InstallOverlayPhase, s.verifyInstallOverlayPhase},
 		{phases.HealthPhase, s.verifyHealthPhase},
@@ -505,7 +505,7 @@ func (s *PlanSuite) verifyResourcesPhase(c *check.C, phase storage.OperationPhas
 	`)
 	phase.Data.Install.Resources = nil // Compare resources separately
 	storage.DeepComparePhases(c, storage.OperationPhase{
-		ID: phases.ResourcesPhase,
+		ID: phases.UserResourcesPhase,
 		Data: &storage.OperationPhaseData{
 			Server:  &s.masterNode,
 			Install: &storage.InstallOperationData{},

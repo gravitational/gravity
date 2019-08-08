@@ -562,6 +562,8 @@ type Site struct {
 	Resources []byte `json:"resources"`
 	// Location is a location where the site is deployed, for example AWS region name
 	Location string `json:"location"`
+	// Flavor is the initial cluster flavor.
+	Flavor string `json:"flavor"`
 	// UpdateInterval is how often the site checks for and downloads newer versions of the
 	// installed application
 	UpdateInterval time.Duration `json:"update_interval"`
