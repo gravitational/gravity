@@ -69,7 +69,7 @@ firewall-cmd --reload
 systemctl restart firewalld
 ```
 
-Note that pod and service subnet addresses may be [customized at install time](/overview/#automatic-installer).`
+Note that pod and service subnet addresses may be [customized at install time](/installation/).
 
 ## Azure Hyper-V Clock Sync
 

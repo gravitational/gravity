@@ -7,9 +7,10 @@ LTS starts with `3.51.0` with minor backwards compatible changes added over time
 
 | Release       | LTS | Release Date         | Supported Until      | Kubernetes Version | Teleport Version |
 | --------------|-----| -------------------- | -------------------- | ------------------ |------------------|
-| 6.0.1         | No  | July 18th, 2019      | -                    | 1.14.2             | 3.2.7            |
-| 5.6.5         | No  | July 18th, 2019      | -                    | 1.14.2             | 3.0.5            |
-| 5.5.14        | Yes | July 24th, 2019      | September 7th, 2020  | 1.13.6             | 3.0.4            |
+| 6.1.1         | No  | August 6th, 2019     | -                    | 1.15.2             | 3.2.7
+| 6.0.2         | No  | August 6th, 2019     | -                    | 1.14.5             | 3.2.7            |
+| 5.6.6         | No  | August 6th, 2019     | -                    | 1.14.5             | 3.0.5            |
+| 5.5.15        | Yes | August 6th, 2019     | September 7th, 2020  | 1.13.9             | 3.0.4            |
 | 5.4.10*       | No  | March 26th, 2019     | -                    | 1.13.5             | 2.4.10           |
 | 5.3.9*        | No  | March 7th, 2019      | -                    | 1.12.3             | 2.4.7            |
 | 5.2.14        | Yes | July 30th, 2019      | October 15th, 2019   | 1.11.9             | 2.4.10           |
@@ -30,6 +31,50 @@ LTS starts with `3.51.0` with minor backwards compatible changes added over time
     do not receive updates and bugfixes.
 
 ## 6.x Releases
+
+### 6.1.1 (August 6th, 2019)
+
+#### Improvements
+
+* Improve reporting of time synchronization issues during join process.
+* Improve resiliency of node join process.
+* Improve removal of a node where the join process has been aborted.
+
+#### Bugfixes
+
+* Update etcd gateway configuration as masters are removed or added to the cluster.
+* Upgrade Kubernetes to `v1.15.2` (CVE-2019-11247, CVE-2019-11249).
+* Fix crash in `gravity license show`.
+* Fixes a couple issues with initializing the installer service.
+
+!!! warning
+    This release fixes a security vulnerability in kubernetes. Please see
+    [Kubernetes Announcement](https://groups.google.com/forum/#!topic/kubernetes-security-discuss/Vf31dXp0EJc) for more information.
+
+### 6.0.2 (August 6th, 2019)
+
+#### Improvements
+
+* Improve reporting of time synchronization issues during join process.
+* Improve resiliency of node join process.
+* Improve removal of a node where the join process has been aborted.
+
+#### Bugfixes
+
+* Update etcd gateway configuration as masters are removed or added to the cluster.
+* Upgrade Kubernetes to `v1.14.5` (CVE-2019-11247, CVE-2019-11249).
+* Fix crash in `gravity license show`.
+* Fixes a couple issues with initializing the installer service.
+
+!!! warning
+    This release fixes a security vulnerability in kubernetes. Please see
+    [Kubernetes Announcement](https://groups.google.com/forum/#!topic/kubernetes-security-discuss/Vf31dXp0EJc) for more information.
+
+### 6.1.0 (August 2nd, 2019)
+
+#### Improvements
+
+* Upgrade Kubernetes to `1.15.1`.
 
 ### 6.0.1 (July 18th, 2019)
 
@@ -130,6 +175,28 @@ LTS starts with `3.51.0` with minor backwards compatible changes added over time
 * Add support for using `helm` directly from host.
 
 ## 5.x Releases
+
+### 5.6.6 (August 6th, 2019)
+
+#### Bugfixes
+
+* Update etcd gateway configuration as masters are removed or added to the cluster.
+* Upgrade Kubernetes to `v1.14.5` (CVE-2019-11247, CVE-2019-11249).
+
+!!! warning
+    This release fixes a security vulnerability in kubernetes. Please see
+    [Kubernetes Announcement](https://groups.google.com/forum/#!topic/kubernetes-security-discuss/Vf31dXp0EJc) for more information.
+
+### 5.5.15 (August 6th, 2019)
+
+#### Bugfixes
+
+* Update etcd gateway configuration as masters are removed or added to the cluster.
+* Upgrade Kubernetes to `v1.13.9` (CVE-2019-11247, CVE-2019-11249).
+
+!!! warning
+    This release fixes a security vulnerability in kubernetes. Please see
+    [Kubernetes Announcement](https://groups.google.com/forum/#!topic/kubernetes-security-discuss/Vf31dXp0EJc) for more information.
 
 ### 5.2.14 LTS (July 30th, 2019)
 

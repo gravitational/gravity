@@ -134,7 +134,7 @@ func FromCluster(ctx context.Context, operator ops.Operator, cluster ops.Site, o
 	// Collect information from alertmanager
 	status.Alerts, err = FromAlertManager(ctx, cluster)
 	if err != nil {
-		return status, trace.Wrap(err, "failed to collect alerts from alertmanager")
+		logrus.WithError(err).Warn("Failed to collect alerts from Alertmanager.")
 	}
 
 	return status, nil

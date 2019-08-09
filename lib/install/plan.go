@@ -48,6 +48,9 @@ func (r *Planner) GetOperationPlan(operator ops.Operator, cluster ops.Site, oper
 		DNSConfig:     cluster.DNSConfig,
 	}
 
+	// perform some initialization on all nodes
+	builder.AddInitPhase(plan)
+
 	if r.preflightChecks {
 		builder.AddChecksPhase(plan)
 	}

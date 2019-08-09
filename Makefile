@@ -18,8 +18,8 @@ GRAVITY_PKG_PATH ?= github.com/gravitational/gravity
 ASSETSDIR=$(TOP)/assets
 BINDIR ?= /usr/bin
 
-# Current Kubernetes version: 1.14.1
-K8S_VER := 1.14.2
+# Current Kubernetes version: 1.15.2
+K8S_VER := 1.15.2
 # Kubernetes version suffix for the planet package, constructed by concatenating
 # major + minor padded to 2 chars with 0 + patch also padded to 2 chars, e.g.
 # 1.13.5 -> 11305, 1.13.12 -> 11312, 2.0.0 -> 20000 and so on
@@ -29,6 +29,10 @@ GOLFLAGS ?= -w -s
 ETCD_VER := v2.3.7
 # Version of the version tool
 VERSION_TAG := 0.0.2
+
+FIO_VER ?= 3.15
+FIO_TAG := fio-$(FIO_VER)
+FIO_PKG_TAG := $(FIO_VER).0
 
 # Current versions of the dependencies
 CURRENT_TAG := $(shell ./version.sh)
@@ -42,7 +46,7 @@ RELEASE_OUT ?=
 TELEPORT_TAG = 3.2.7
 # TELEPORT_REPOTAG adapts TELEPORT_TAG to the teleport tagging scheme
 TELEPORT_REPOTAG := v$(TELEPORT_TAG)
-PLANET_TAG := 7.0.1-$(K8S_VER_SUFFIX)
+PLANET_TAG := 7.0.3-$(K8S_VER_SUFFIX)
 PLANET_BRANCH := $(PLANET_TAG)
 K8S_APP_TAG := $(GRAVITY_TAG)
 TELEKUBE_APP_TAG := $(GRAVITY_TAG)
@@ -85,7 +89,7 @@ TELEKUBE_APP_PKG := gravitational.io/telekube:$(TELEKUBE_APP_TAG)
 BANDWAGON_PKG := gravitational.io/bandwagon:$(BANDWAGON_TAG)
 RBAC_APP_PKG := gravitational.io/rbac-app:$(RBAC_APP_TAG)
 TILLER_APP_PKG := gravitational.io/tiller-app:$(TILLER_APP_TAG)
-
+FIO_PKG := gravitational.io/fio:$(FIO_PKG_TAG)
 
 # Output directory that stores all of the build artifacts.
 # Artifacts from the gravity build (the binary and any internal packages)
@@ -105,6 +109,7 @@ TELEPORT_BUILDDIR := $(BUILDDIR)/teleport
 TELEPORT_SRCDIR := $(TELEPORT_BUILDDIR)/src
 TELEPORT_BINDIR := $(TELEPORT_BUILDDIR)/bin/$(TELEPORT_TAG)
 TF_PROVIDER_DIR := $(HOME)/.terraform.d/plugins
+FIO_BUILDDIR := $(BUILDDIR)/fio-$(FIO_VER)
 
 LOCAL_BUILDDIR ?= /gopath/src/github.com/gravitational/gravity/build
 LOCAL_GRAVITY_BUILDDIR ?= /gopath/src/github.com/gravitational/gravity/build/$(GRAVITY_VERSION)
@@ -122,6 +127,7 @@ PLANET_OUT := $(PLANET_BINDIR)/planet.tar.gz
 LOGGING_APP_OUT := $(BUILDDIR)/logging-app-$(LOGGING_APP_TAG).tar.gz
 MONITORING_APP_OUT := $(BUILDDIR)/monitoring-app-$(MONITORING_APP_TAG).tar.gz
 BANDWAGON_OUT := $(BUILDDIR)/bandwagon-$(BANDWAGON_TAG).tar.gz
+FIO_OUT := $(FIO_BUILDDIR)/fio
 #
 # Assets resulting from building gravity
 GRAVITY_OUT := $(GRAVITY_BUILDDIR)/gravity
@@ -231,6 +237,10 @@ grpc:
 .PHONY: build-tsh
 build-tsh:
 	$(MAKE) -C build.assets build-tsh
+
+.PHONY: fio
+fio:
+	$(MAKE) -C build.assets fio
 
 #
 # reimport site app and refresh tarball
@@ -351,6 +361,9 @@ packages:
 	$(GRAVITY) package delete $(TELEPORT_PKG) $(DELETE_OPTS) && \
 	$(GRAVITY) package import $(TELEPORT_OUT) $(TELEPORT_PKG) --ops-url=$(OPS_URL)
 
+	$(GRAVITY) package delete $(FIO_PKG) $(DELETE_OPTS) && \
+	$(GRAVITY) package import $(FIO_OUT) $(FIO_PKG) --ops-url=$(OPS_URL)
+
 	$(MAKE) gravity-packages
 
 	-$(MAKE) dns-packages
@@ -384,7 +397,6 @@ binary-packages:
 
 	$(GRAVITY_OUT) package delete --state-dir=$(LOCAL_STATE_DIR) --force $(TELEKUBE_TELE_PKG) && \
 	$(GRAVITY_OUT) package import --state-dir=$(LOCAL_STATE_DIR) $(TELE_OUT) $(TELEKUBE_TELE_PKG)
-
 
 .PHONY: rbac-app-package
 rbac-app-package:
