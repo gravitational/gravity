@@ -20,9 +20,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"io"
 	_ "net/http/pprof"
-	"path/filepath"
 	"runtime"
 	"strings"
 
@@ -35,7 +33,6 @@ import (
 	"github.com/gravitational/gravity/lib/localenv"
 	"github.com/gravitational/gravity/lib/ops"
 	"github.com/gravitational/gravity/lib/pack"
-	"github.com/gravitational/gravity/lib/pack/encryptedpack"
 	"github.com/gravitational/gravity/lib/state"
 	"github.com/gravitational/gravity/lib/storage"
 	"github.com/gravitational/gravity/lib/users"
@@ -43,7 +40,6 @@ import (
 	"github.com/gravitational/gravity/tool/common"
 
 	"github.com/coreos/go-semver/semver"
-	"github.com/gravitational/license"
 	"github.com/gravitational/trace"
 )
 
@@ -104,7 +100,9 @@ func uploadUpdate(env *localenv.LocalEnvironment, opsURL string) error {
 		return trace.Wrap(err)
 	}
 
-	tarballEnv, err := newTarballEnvironment(*cluster)
+	tarballEnv, err := localenv.NewTarballEnvironment(localenv.TarballEnvironmentArgs{
+		License: cluster.License.Raw,
+	})
 	if err != nil {
 		return trace.Wrap(err)
 	}
@@ -173,7 +171,7 @@ func uploadUpdate(env *localenv.LocalEnvironment, opsURL string) error {
 	return nil
 }
 
-func getUploadDependencies(env *tarballEnviron, loc loc.Locator, installedRuntimeVersion semver.Version) (*libapp.Dependencies, error) {
+func getUploadDependencies(env *localenv.TarballEnvironment, loc loc.Locator, installedRuntimeVersion semver.Version) (*libapp.Dependencies, error) {
 	app, err := env.Apps.GetApp(loc)
 	if err != nil {
 		return nil, trace.Wrap(err)
@@ -194,7 +192,7 @@ func getUploadDependencies(env *tarballEnviron, loc loc.Locator, installedRuntim
 	return deps, nil
 }
 
-func collectUpgradeDependencies(env *tarballEnviron, installedRuntimeVersion semver.Version, deps *libapp.Dependencies) error {
+func collectUpgradeDependencies(env *localenv.TarballEnvironment, installedRuntimeVersion semver.Version, deps *libapp.Dependencies) error {
 	return pack.ForeachPackage(env.Packages, func(pkg pack.PackageEnvelope) error {
 		version, ok := pkg.RuntimeLabels[pack.PurposeRuntimeUpgrade]
 		if !ok {
@@ -206,8 +204,8 @@ func collectUpgradeDependencies(env *tarballEnviron, installedRuntimeVersion sem
 				version, pkg)
 		}
 		if installedRuntimeVersion.Compare(*runtimeVersion) > 0 {
-			// Do not consider packages for runtime version lower
-			// than the installed one
+			// Do not consider packages for runtime version lower than
+			// or equal to the installed one
 			return nil
 		}
 		if pkg.Type == "" {
@@ -256,48 +254,6 @@ func syncAppWithCluster(ctx context.Context, env *localenv.LocalEnvironment, clu
 		}
 	}
 	return nil
-}
-
-func newTarballEnvironment(cluster ops.Site) (*tarballEnviron, error) {
-	env, err := localenv.NewLocalEnvironment(localenv.LocalEnvironmentArgs{
-		StateDir: filepath.Dir(utils.Exe.Path),
-	})
-	if err != nil {
-		return nil, trace.Wrap(err)
-	}
-	defer func() {
-		if err != nil {
-			env.Close()
-		}
-	}()
-	var packages pack.PackageService = env.Packages
-	if cluster.License != nil {
-		parsed, err := license.ParseLicense(cluster.License.Raw)
-		if err != nil {
-			return nil, trace.Wrap(err)
-		}
-		encryptionKey := parsed.GetPayload().EncryptionKey
-		if len(encryptionKey) != 0 {
-			packages = encryptedpack.New(packages, string(encryptionKey))
-		}
-	}
-	apps, err := env.AppServiceLocal(localenv.AppConfig{
-		Packages: packages,
-	})
-	if err != nil {
-		return nil, trace.Wrap(err)
-	}
-	return &tarballEnviron{
-		Closer:   env,
-		Packages: packages,
-		Apps:     apps,
-	}, nil
-}
-
-type tarballEnviron struct {
-	io.Closer
-	Packages pack.PackageService
-	Apps     libapp.Applications
 }
 
 func canUpload(cluster ops.Site, app loc.Locator) error {

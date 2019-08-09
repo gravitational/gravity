@@ -261,10 +261,6 @@ func (b *Builder) SyncPackageCache(ctx context.Context, runtimeVersion semver.Ve
 		b.NextStep("Syncing packages for %v", runtimeVersion)
 		if err := b.syncPackageCache(ctx, runtimeVersion, syncer, apps); err != nil {
 			if trace.IsNotFound(err) {
-				b.WithFields(logrus.Fields{
-					logrus.ErrorKey: err,
-					"version":       runtimeVersion,
-				}).Warn("Runtime version not found.")
 				return trace.NotFound("runtime version %v not found", runtimeVersion)
 			}
 			return trace.Wrap(err)
