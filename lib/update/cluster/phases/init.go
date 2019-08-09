@@ -23,9 +23,11 @@ import (
 
 	"github.com/gravitational/gravity/lib/app"
 	"github.com/gravitational/gravity/lib/checks"
+	"github.com/gravitational/gravity/lib/constants"
 	"github.com/gravitational/gravity/lib/defaults"
 	"github.com/gravitational/gravity/lib/fsm"
 	"github.com/gravitational/gravity/lib/install"
+	"github.com/gravitational/gravity/lib/install/phases"
 	"github.com/gravitational/gravity/lib/ops"
 	"github.com/gravitational/gravity/lib/pack"
 	"github.com/gravitational/gravity/lib/rpc"
@@ -33,9 +35,12 @@ import (
 	"github.com/gravitational/gravity/lib/storage"
 	"github.com/gravitational/gravity/lib/storage/clusterconfig"
 	"github.com/gravitational/gravity/lib/users"
+	"github.com/gravitational/rigging"
 
 	"github.com/gravitational/trace"
 	log "github.com/sirupsen/logrus"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/client-go/kubernetes"
 )
 
 // updatePhaseInit is the update init phase which performs the following:
@@ -55,6 +60,8 @@ type updatePhaseInit struct {
 	Packages pack.PackageService
 	// Users is the cluster users service
 	Users users.Identity
+	// Client is the cluster Kubernetes client
+	Client *kubernetes.Clientset
 	// Cluster is the local cluster
 	Cluster ops.Site
 	// Operation is the current update operation
@@ -82,6 +89,7 @@ func NewUpdatePhaseInit(
 	backend, localBackend storage.Backend,
 	packages pack.PackageService,
 	users users.Identity,
+	client *kubernetes.Clientset,
 	logger log.FieldLogger,
 ) (*updatePhaseInit, error) {
 	if p.Phase.Data == nil || p.Phase.Data.Package == nil {
@@ -135,6 +143,7 @@ func NewUpdatePhaseInit(
 		Operator:              operator,
 		Packages:              packages,
 		Users:                 users,
+		Client:                client,
 		Cluster:               *cluster,
 		Operation:             *operation,
 		Servers:               p.Phase.Data.Update.Servers,
@@ -178,6 +187,9 @@ func (p *updatePhaseInit) Execute(context.Context) error {
 	}
 	if err := p.updateClusterDNSConfig(); err != nil {
 		return trace.Wrap(err, "failed to update DNS configuration")
+	}
+	if err := p.updateClusterInfoMap(); err != nil {
+		return trace.Wrap(err, "failed to update cluster info config map")
 	}
 	if err := p.updateDockerConfig(); err != nil {
 		return trace.Wrap(err, "failed to update Docker configuration")
@@ -267,6 +279,30 @@ func (p *updatePhaseInit) updateClusterDNSConfig() error {
 	if err != nil {
 		return trace.Wrap(err)
 	}
+	return nil
+}
+
+// updateClusterInfoMap updates the cluster info config map or creates it
+// if it doesn't exist yet.
+func (p *updatePhaseInit) updateClusterInfoMap() error {
+	p.Infof("Update %v config map.", constants.ClusterInfoMap)
+	_, err := p.Client.CoreV1().ConfigMaps(constants.KubeSystemNamespace).Get(
+		constants.ClusterInfoMap, metav1.GetOptions{})
+	if err == nil {
+		p.Info("Config map %v already exists.", constants.ClusterInfoMap)
+		return nil
+	}
+	err = rigging.ConvertError(err)
+	if !trace.IsNotFound(err) {
+		return trace.Wrap(err)
+	}
+	// Cluster info config map doesn't exist yet, create it.
+	configMap := phases.ClusterInfoMap(ops.ConvertOpsSite(p.Cluster))
+	_, err = p.Client.CoreV1().ConfigMaps(constants.KubeSystemNamespace).Create(configMap)
+	if err != nil {
+		return rigging.ConvertError(err)
+	}
+	p.Infof("Created %v config map.", configMap.Name)
 	return nil
 }
 

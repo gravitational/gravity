@@ -551,6 +551,15 @@ const (
 	// ClusterConfigurationMap is the name of the ConfigMap that hosts cluster configuration resource
 	ClusterConfigurationMap = "cluster-configuration"
 
+	// ClusterInfoMap is the name of the ConfigMap that contains cluster information.
+	ClusterInfoMap = "cluster-info"
+	// ClusterNameEnv is the environment variable that contains cluster domain name.
+	ClusterNameEnv = "GRAVITY_CLUSTER_NAME"
+	// ClusterProviderEnv is the environment variable that contains cluster provider.
+	ClusterProviderEnv = "GRAVITY_CLUSTER_PROVIDER"
+	// ClusterFlavorEnv is the environment variable that contains initial cluster flavor.
+	ClusterFlavorEnv = "GRAVITY_CLUSTER_FLAVOR"
+
 	// SMTPSecret specifies the name of the Secret with cluster SMTP configuration
 	SMTPSecret = "smtp-configuration-update"
 

@@ -26,9 +26,11 @@ import (
 	"github.com/gravitational/gravity/lib/fsm"
 	"github.com/gravitational/gravity/lib/ops"
 	"github.com/gravitational/gravity/lib/ops/resources"
+	"github.com/gravitational/gravity/lib/schema"
 	"github.com/gravitational/gravity/lib/state"
 	"github.com/gravitational/gravity/lib/storage"
 	"github.com/gravitational/gravity/lib/utils"
+	"github.com/gravitational/rigging"
 
 	teleservices "github.com/gravitational/teleport/lib/services"
 	"github.com/gravitational/trace"
@@ -65,30 +67,51 @@ type systemResources struct {
 	Cluster storage.Site
 }
 
-// Execute generates coredns configuration
+// Execute creates system Kubernetes resources.
 func (r *systemResources) Execute(ctx context.Context) error {
 	r.Progress.NextStep("Configuring system Kubernetes resources")
 	r.Info("Configuring system Kubernetes resources.")
-	_, err := r.Client.CoreV1().ConfigMaps(constants.KubeSystemNamespace).Create(&v1.ConfigMap{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      "cluster",
-			Namespace: constants.KubeSystemNamespace,
-		},
-		Data: map[string]string{
-			"GRAVITY_CLUSTER_NAME":     r.Cluster.Domain,
-			"GRAVITY_CLUSTER_PROVIDER": r.Cluster.Provider,
-			"GRAVITY_CLUSTER_FLAVOR":   r.Cluster.Flavor,
-		},
-	})
-	if err != nil {
+	if err := r.createClusterInfoMap(); err != nil {
 		return trace.Wrap(err)
 	}
 	return nil
 }
 
-// Rollback deletes the coredns configmap that was created in the execute step
+// createClusterInfoMap creates a config map with basic cluster information.
+func (r *systemResources) createClusterInfoMap() error {
+	configMap := ClusterInfoMap(r.Cluster)
+	_, err := r.Client.CoreV1().ConfigMaps(constants.KubeSystemNamespace).Create(configMap)
+	if err != nil {
+		return rigging.ConvertError(err)
+	}
+	r.Infof("Created %v config map.", configMap.Name)
+	return nil
+}
+
+// ClusterInfoMap creates a config map with basic info of the provided cluster.
+func ClusterInfoMap(cluster storage.Site) *v1.ConfigMap {
+	provider := cluster.Provider
+	// The on-prem provider is exposed to the users as 'generic'.
+	if provider == schema.ProviderOnPrem {
+		provider = schema.ProviderGeneric
+	}
+	return &v1.ConfigMap{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      constants.ClusterInfoMap,
+			Namespace: constants.KubeSystemNamespace,
+		},
+		Data: map[string]string{
+			constants.ClusterNameEnv:     cluster.Domain,
+			constants.ClusterProviderEnv: provider,
+			constants.ClusterFlavorEnv:   cluster.Flavor,
+		},
+	}
+}
+
+// Rollback deletes created system Kubernetes resources.
 func (r *systemResources) Rollback(context.Context) error {
-	err := r.Client.CoreV1().ConfigMaps(constants.KubeSystemNamespace).Delete("cluster", &metav1.DeleteOptions{})
+	err := rigging.ConvertError(r.Client.CoreV1().ConfigMaps(constants.KubeSystemNamespace).Delete(
+		constants.ClusterInfoMap, &metav1.DeleteOptions{}))
 	if err != nil && !trace.IsNotFound(err) {
 		return trace.Wrap(err)
 	}

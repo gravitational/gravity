@@ -110,7 +110,7 @@ func configureMetadata(job *batchv1.Job, p Params) error {
 			v1.EnvFromSource{
 				ConfigMapRef: &v1.ConfigMapEnvSource{
 					LocalObjectReference: v1.LocalObjectReference{
-						Name: "cluster",
+						Name: constants.ClusterInfoMap,
 					},
 				},
 			},
