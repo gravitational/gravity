@@ -322,14 +322,13 @@ func pullApp(env *localenv.LocalEnvironment, appPackage loc.Locator, portalURL s
 	}
 
 	puller := appservice.Puller{
-		SrcPack: remotePackages,
-		DstPack: env.Packages,
-		SrcApp:  remoteApps,
-		DstApp:  localApps,
-		Labels:  labels,
-		// FIXME
-		// Progress: env.Reporter,
-		Upsert: force,
+		SrcPack:  remotePackages,
+		DstPack:  env.Packages,
+		SrcApp:   remoteApps,
+		DstApp:   localApps,
+		Labels:   labels,
+		Progress: env.Reporter,
+		Upsert:   force,
 	}
 	err = appservice.PullApp(context.TODO(), appPackage, puller)
 	if err != nil {
@@ -364,12 +363,11 @@ func pushApp(env *localenv.LocalEnvironment, appPackage loc.Locator, portalURL s
 	}
 
 	puller := appservice.Puller{
-		SrcPack: env.Packages,
-		DstPack: remotePackages,
-		SrcApp:  localApps,
-		DstApp:  remoteApps,
-		// FIXME
-		// Progress: env.Reporter,
+		SrcPack:  env.Packages,
+		DstPack:  remotePackages,
+		SrcApp:   localApps,
+		DstApp:   remoteApps,
+		Progress: env.Reporter,
 	}
 	err = appservice.PullApp(context.TODO(), appPackage, puller)
 	if err != nil {

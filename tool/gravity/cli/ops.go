@@ -42,6 +42,7 @@ import (
 	"github.com/gravitational/gravity/lib/utils"
 	"github.com/gravitational/gravity/tool/common"
 
+	"github.com/coreos/go-semver/semver"
 	"github.com/gravitational/license"
 	"github.com/gravitational/trace"
 )
@@ -129,7 +130,16 @@ func uploadUpdate(env *localenv.LocalEnvironment, opsURL string) error {
 		return trace.Wrap(err)
 	}
 
-	deps, err := getUploadDependencies(tarballEnv, *appPackage)
+	installedRuntime := cluster.App.Manifest.Base()
+	if installedRuntime == nil {
+		return trace.BadParameter("failed to determine version of base image")
+	}
+	installedRuntimeVersion, err := installedRuntime.SemVer()
+	if err != nil {
+		return trace.Wrap(err)
+	}
+
+	deps, err := getUploadDependencies(tarballEnv, *appPackage, *installedRuntimeVersion)
 	if err != nil {
 		return trace.Wrap(err)
 	}
@@ -163,7 +173,7 @@ func uploadUpdate(env *localenv.LocalEnvironment, opsURL string) error {
 	return nil
 }
 
-func getUploadDependencies(env *tarballEnviron, loc loc.Locator) (*libapp.Dependencies, error) {
+func getUploadDependencies(env *tarballEnviron, loc loc.Locator, installedRuntimeVersion semver.Version) (*libapp.Dependencies, error) {
 	app, err := env.Apps.GetApp(loc)
 	if err != nil {
 		return nil, trace.Wrap(err)
@@ -177,18 +187,27 @@ func getUploadDependencies(env *tarballEnviron, loc loc.Locator) (*libapp.Depend
 		return nil, trace.Wrap(err)
 	}
 	deps.Apps = append(deps.Apps, *app)
-	err = collectUpgradeDependencies(env, deps)
+	err = collectUpgradeDependencies(env, installedRuntimeVersion, deps)
 	if err != nil {
 		return nil, trace.Wrap(err)
 	}
 	return deps, nil
 }
 
-func collectUpgradeDependencies(env *tarballEnviron, deps *libapp.Dependencies) error {
-	// FIXME: maybe change Dependencies.{Packages,Apps} to use a custom struct
-	// with just Locator/Labels
+func collectUpgradeDependencies(env *tarballEnviron, installedRuntimeVersion semver.Version, deps *libapp.Dependencies) error {
 	return pack.ForeachPackage(env.Packages, func(pkg pack.PackageEnvelope) error {
-		if _, ok := pkg.RuntimeLabels[pack.PurposeRuntimeUpgrade]; !ok {
+		version, ok := pkg.RuntimeLabels[pack.PurposeRuntimeUpgrade]
+		if !ok {
+			return nil
+		}
+		runtimeVersion, err := semver.NewVersion(version)
+		if err != nil {
+			return trace.Wrap(err, "invalid semver %q for upgrade package %v",
+				version, pkg)
+		}
+		if installedRuntimeVersion.Compare(*runtimeVersion) > 0 {
+			// Do not consider packages for runtime version lower
+			// than the installed one
 			return nil
 		}
 		if pkg.Type == "" {

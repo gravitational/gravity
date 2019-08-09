@@ -63,17 +63,12 @@ func PullPackage(ctx context.Context, loc loc.Locator, puller Puller) error {
 }
 
 // PullAppDeps pulls only dependencies of the specified application
-// without the application itself
-func PullAppDeps(ctx context.Context, loc loc.Locator, puller Puller) error {
+func PullAppDeps(ctx context.Context, app Application, puller Puller) error {
 	if err := puller.checkAndSetDefaults(); err != nil {
 		return trace.Wrap(err)
 	}
-	app, err := puller.SrcApp.GetApp(loc)
-	if err != nil {
-		return trace.Wrap(err)
-	}
 	deps, err := GetDependencies(GetDependenciesRequest{
-		App:  *app,
+		App:  app,
 		Apps: puller.SrcApp,
 		Pack: puller.SrcPack,
 	})
@@ -90,10 +85,19 @@ func (r Puller) Pull(ctx context.Context) error {
 	for _, env := range r.Dependencies.Packages {
 		group.Go(ctx, r.pullPackageHandler(ctx, env.Locator))
 	}
-	for _, app := range r.Dependencies.Apps {
-		group.Go(ctx, r.pullAppHandler(ctx, app.Package))
+	if err := group.Wait(); err != nil {
+		return trace.Wrap(err)
 	}
-	return trace.Wrap(group.Wait())
+	// Do not pull application in parallel as the application packages are ordered
+	// (with dependent packages in the front)
+	// TODO(dmitri): would be ideal to group applications such that to make them
+	// pull-friendly in parallel
+	for _, app := range r.Dependencies.Apps {
+		if err := r.pullAppWithRetries(ctx, app.Package); err != nil {
+			return trace.Wrap(err)
+		}
+	}
+	return nil
 }
 
 // Puller pulls packages from one service to another
@@ -112,6 +116,8 @@ type Puller struct {
 	DstApp Applications
 	// Labels is the labels to assign to pulled packages
 	Labels map[string]string
+	// Progress is optional progress reporter
+	Progress pack.ProgressReporter
 	// Upsert is whether to create or upsert the application
 	Upsert bool
 	// SkipIfExists indicates whether existing application should not
@@ -135,12 +141,6 @@ func (r *Puller) checkAndSetDefaults() error {
 func (r Puller) pullPackageHandler(ctx context.Context, loc loc.Locator) func() error {
 	return func() error {
 		return r.pullPackageWithRetries(ctx, loc)
-	}
-}
-
-func (r Puller) pullAppHandler(ctx context.Context, loc loc.Locator) func() error {
-	return func() error {
-		return r.pullAppWithRetries(ctx, loc)
 	}
 }
 
@@ -178,6 +178,12 @@ func (r Puller) pullPackage(loc loc.Locator) error {
 	}
 	if err != nil {
 		return trace.Wrap(err)
+	}
+	if r.Progress != nil {
+		reader = utils.TeeReadCloser(reader, &pack.ProgressWriter{
+			Size: env.SizeBytes,
+			R:    r.Progress,
+		})
 	}
 	defer reader.Close()
 
@@ -242,6 +248,12 @@ func (r Puller) pullApp(loc loc.Locator) error {
 	}
 	if err != nil {
 		return trace.Wrap(err)
+	}
+	if r.Progress != nil {
+		reader = utils.TeeReadCloser(reader, &pack.ProgressWriter{
+			Size: env.SizeBytes,
+			R:    r.Progress,
+		})
 	}
 	defer reader.Close()
 

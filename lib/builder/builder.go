@@ -261,6 +261,10 @@ func (b *Builder) SyncPackageCache(ctx context.Context, runtimeVersion semver.Ve
 		b.NextStep("Syncing packages for %v", runtimeVersion)
 		if err := b.syncPackageCache(ctx, runtimeVersion, syncer, apps); err != nil {
 			if trace.IsNotFound(err) {
+				b.WithFields(logrus.Fields{
+					logrus.ErrorKey: err,
+					"version":       runtimeVersion,
+				}).Warn("Runtime version not found.")
 				return trace.NotFound("runtime version %v not found", runtimeVersion)
 			}
 			return trace.Wrap(err)
@@ -271,11 +275,7 @@ func (b *Builder) SyncPackageCache(ctx context.Context, runtimeVersion semver.Ve
 
 func (b *Builder) syncPackageCache(ctx context.Context, runtimeVersion semver.Version, syncer Syncer, apps libapp.Applications) error {
 	// see if all required packages/apps are already present in the local cache
-	app := libapp.Application{
-		Manifest: b.Manifest.WithBase(loc.Runtime.WithVersion(&runtimeVersion)),
-		Package:  b.Manifest.Locator(),
-	}
-	err := libapp.VerifyDependencies(app, apps, b.Env.Packages)
+	err := libapp.VerifyDependencies(b.appForRuntime(runtimeVersion), apps, b.Env.Packages)
 	if err != nil && !trace.IsNotFound(err) {
 		return trace.Wrap(err)
 	}
@@ -495,6 +495,17 @@ There are a few ways to resolve the issue:
 	b.Debugf("Version check passed; tele version: %v, runtime version: %v.",
 		teleVersion, runtimeVersion)
 	return nil
+}
+
+// appForRuntime builds an application object with the specified runtime version
+// as the base to be able to collect dependencies of the specified base application.
+// TODO(dmitri): there should be a better way to describe the application referred
+// to with runtimeVersion
+func (b *Builder) appForRuntime(runtimeVersion semver.Version) libapp.Application {
+	return libapp.Application{
+		Package:  b.Locator(),
+		Manifest: b.Manifest.WithBase(loc.Runtime.WithVersion(&runtimeVersion)),
+	}
 }
 
 // collectUpgradeDependencies computes and returns a set of package dependencies for each

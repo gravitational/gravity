@@ -318,10 +318,9 @@ func pushPackage(app *localenv.LocalEnvironment, loc loc.Locator, opsCenterURL s
 	}
 
 	puller := libapp.Puller{
-		SrcPack: app.Packages,
-		DstPack: dstPackages,
-		// FIXME
-		//Progress: app.Reporter,
+		SrcPack:  app.Packages,
+		DstPack:  dstPackages,
+		Progress: app.Reporter,
 	}
 	err = libapp.PullPackage(context.TODO(), loc, puller)
 	if err != nil {
@@ -341,12 +340,11 @@ func pullPackage(app *localenv.LocalEnvironment, loc loc.Locator, opsCenterURL s
 	}
 
 	puller := libapp.Puller{
-		SrcPack: sourcePackages,
-		DstPack: app.Packages,
-		Labels:  labels,
-		// FIXME
-		// Progress: app.Reporter,
-		Upsert: force,
+		SrcPack:  sourcePackages,
+		DstPack:  app.Packages,
+		Labels:   labels,
+		Progress: app.Reporter,
+		Upsert:   force,
 	}
 	err = libapp.PullPackage(context.TODO(), loc, puller)
 	if err != nil {

@@ -370,10 +370,9 @@ func applyUpdates(env *localenv.LocalEnvironment, updates []storage.PackageUpdat
 
 func pullUpdate(ctx context.Context, localPackages, remotePackages pack.PackageService, reporter pack.ProgressReporter, update storage.PackageUpdate) error {
 	puller := libapp.Puller{
-		SrcPack: remotePackages,
-		DstPack: localPackages,
-		// FIXME
-		// Progress: reporter,
+		SrcPack:  remotePackages,
+		DstPack:  localPackages,
+		Progress: reporter,
 	}
 	err := libapp.PullPackage(context.TODO(), update.To, puller)
 	if err != nil && !trace.IsAlreadyExists(err) {

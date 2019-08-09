@@ -235,6 +235,10 @@ var (
 	Runtime = MustParseLocator(
 		fmt.Sprintf("%v/%v:%v", defaults.SystemAccountOrg, defaults.Runtime, LatestVersion))
 
+	// Gravity is the default cluster application locator
+	Gravity = MustParseLocator(
+		fmt.Sprintf("%v/%v:%v", defaults.SystemAccountOrg, defaults.TelekubePackage, LatestVersion))
+
 	// Bandwagon is the bandwagon application locator
 	Bandwagon = MustParseLocator(
 		fmt.Sprintf("%v/%v:%v", defaults.SystemAccountOrg, defaults.BandwagonPackageName, LatestVersion))

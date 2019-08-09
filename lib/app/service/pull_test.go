@@ -1,5 +1,5 @@
 /*
-Copyright 2019 Gravitational, Inc.
+Copyright 2018-2019 Gravitational, Inc.
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -84,14 +84,14 @@ func (s *PullerSuite) TestPullPackage(c *C) {
 }
 
 func (s *PullerSuite) TestPullApp(c *C) {
-	s.pullApp(c, 0, log.WithField("test", "TestPullApp"))
+	s.pullApp(c, 0)
 }
 
 func (s *PullerSuite) TestPullAppInParallel(c *C) {
-	s.pullApp(c, 2, log.WithField("test", "TestPullAppInParallel"))
+	s.pullApp(c, 2)
 }
 
-func (s *PullerSuite) pullApp(c *C, parallel int, logger log.FieldLogger) {
+func (s *PullerSuite) pullApp(c *C, parallel int) {
 	packageBytes := bytes.NewReader([]byte(nil))
 	for _, loc := range []loc.Locator{loc.MustParseLocator("example.com/existing:0.0.1")} {
 		_, err := s.dstPack.CreatePackage(loc, packageBytes)
@@ -121,13 +121,12 @@ dependencies:
 	apptest.CreateDummyApplication2(s.srcApp, locator, dependencies, c)
 
 	err := app.PullApp(context.TODO(), locator, app.Puller{
-		FieldLogger: logger,
-		SrcPack:     s.srcPack,
-		DstPack:     s.dstPack,
-		SrcApp:      s.srcApp,
-		DstApp:      s.dstApp,
-		Upsert:      true,
-		Parallel:    parallel,
+		SrcPack:  s.srcPack,
+		DstPack:  s.dstPack,
+		SrcApp:   s.srcApp,
+		DstApp:   s.dstApp,
+		Upsert:   true,
+		Parallel: parallel,
 	})
 	c.Assert(err, IsNil)
 
@@ -145,12 +144,11 @@ dependencies:
 	c.Assert(local.Package, Equals, locator)
 
 	err = app.PullApp(context.TODO(), locator, app.Puller{
-		FieldLogger: logger,
-		SrcPack:     s.srcPack,
-		DstPack:     s.dstPack,
-		SrcApp:      s.srcApp,
-		DstApp:      s.dstApp,
-		Parallel:    parallel,
+		SrcPack:  s.srcPack,
+		DstPack:  s.dstPack,
+		SrcApp:   s.srcApp,
+		DstApp:   s.dstApp,
+		Parallel: parallel,
 	})
 	c.Assert(trace.IsAlreadyExists(err), Equals, true)
 }

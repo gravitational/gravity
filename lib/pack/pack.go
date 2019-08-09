@@ -96,9 +96,6 @@ func (p PackageEnvelope) String() string {
 	if p.Encrypted {
 		desc += " (encrypted)"
 	}
-	// if len(p.RuntimeLabels) != 0 {
-	// 	desc += fmt.Sprintf(" labels(%v)", p.RuntimeLabels)
-	// }
 	return desc
 }
 

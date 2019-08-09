@@ -51,6 +51,7 @@ func SyncApp(ctx context.Context, loc loc.Locator, syncer Syncer) error {
 	if err != nil {
 		return trace.Wrap(err)
 	}
+	deps.Apps = append(deps.Apps, *app)
 	syncer.Dependencies = *deps
 	return syncer.Sync(ctx)
 }
@@ -76,7 +77,6 @@ type Syncer struct {
 	// ImageService specifies the docker registry service
 	ImageService docker.ImageService
 	// Dependencies lists dependencies to sync
-	// FIXME: only take apps?
 	Dependencies Dependencies
 	// Progress specifies the optional progress message emitter
 	Progress utils.Emitter
