@@ -723,8 +723,8 @@ func IsPlanetConfigPackage(loc loc.Locator, labels map[string]string) bool {
 }
 
 // IsMetadataPackage determines if the specified package is a metadata package.
-// A metadata package describes a remote package and deserves
-// special handling in certain cases.
+// A metadata package is a package that identifies a remote package but does not
+// carry any data
 func IsMetadataPackage(envelope PackageEnvelope) bool {
 	return envelope.RuntimeLabels[PurposeLabel] == PurposeMetadata
 }

@@ -87,7 +87,7 @@ func appPackage(env *localenv.LocalEnvironment) error {
 	return nil
 }
 
-func uploadUpdate(env *localenv.LocalEnvironment, opsURL string) error {
+func uploadUpdate(env *localenv.LocalEnvironment, opsURL, dataDir string) error {
 	clusterOperator, err := env.SiteOperator()
 	if err != nil {
 		return trace.Wrap(err, "unable to access cluster.\n"+
@@ -100,9 +100,11 @@ func uploadUpdate(env *localenv.LocalEnvironment, opsURL string) error {
 		return trace.Wrap(err)
 	}
 
-	tarballEnv, err := localenv.NewTarballEnvironment(localenv.TarballEnvironmentArgs{
-		License: cluster.License.Raw,
-	})
+	args := localenv.TarballEnvironmentArgs{StateDir: dataDir}
+	if cluster.License != nil {
+		args.License = cluster.License.Raw
+	}
+	tarballEnv, err := localenv.NewTarballEnvironment(args)
 	if err != nil {
 		return trace.Wrap(err)
 	}
@@ -142,18 +144,17 @@ func uploadUpdate(env *localenv.LocalEnvironment, opsURL string) error {
 		return trace.Wrap(err)
 	}
 
-	env.PrintStep("Importing application %v v%v", appPackage.Name, appPackage.Version)
+	env.PrintStep("Importing cluster image %v v%v", appPackage.Name, appPackage.Version)
 	puller := libapp.Puller{
-		FieldLogger:  log.WithField(trace.Component, "pull"),
-		SrcPack:      tarballEnv.Packages,
-		SrcApp:       tarballEnv.Apps,
-		DstPack:      clusterPackages,
-		DstApp:       clusterApps,
-		Upsert:       true,
-		Parallel:     runtime.NumCPU(),
-		Dependencies: *deps,
+		FieldLogger: log.WithField(trace.Component, "pull"),
+		SrcPack:     tarballEnv.Packages,
+		SrcApp:      tarballEnv.Apps,
+		DstPack:     clusterPackages,
+		DstApp:      clusterApps,
+		Upsert:      true,
+		Parallel:    runtime.NumCPU(),
 	}
-	err = puller.Pull(context.TODO())
+	err = puller.Pull(context.TODO(), *deps)
 	if err != nil {
 		return trace.Wrap(err)
 	}
@@ -167,7 +168,7 @@ func uploadUpdate(env *localenv.LocalEnvironment, opsURL string) error {
 		return trace.Wrap(err)
 	}
 
-	env.PrintStep("Application has been uploaded")
+	env.PrintStep("Cluster image has been uploaded")
 	return nil
 }
 
@@ -259,7 +260,7 @@ func syncAppWithCluster(ctx context.Context, env *localenv.LocalEnvironment, clu
 func canUpload(cluster ops.Site, app loc.Locator) error {
 	if cluster.State == ops.SiteStateDegraded {
 		return trace.BadParameter("The cluster is in degraded state so " +
-			"uploading new applications is prohibited. Please check " +
+			"uploading a new cluster image is prohibited. Please check " +
 			"gravity status output and correct the situation before " +
 			"attempting again.")
 	}

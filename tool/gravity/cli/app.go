@@ -330,7 +330,7 @@ func pullApp(env *localenv.LocalEnvironment, appPackage loc.Locator, portalURL s
 		Progress: env.Reporter,
 		Upsert:   force,
 	}
-	err = appservice.PullApp(context.TODO(), appPackage, puller)
+	err = puller.PullApp(context.TODO(), appPackage)
 	if err != nil {
 		return trace.Wrap(err)
 	}
@@ -369,7 +369,7 @@ func pushApp(env *localenv.LocalEnvironment, appPackage loc.Locator, portalURL s
 		DstApp:   remoteApps,
 		Progress: env.Reporter,
 	}
-	err = appservice.PullApp(context.TODO(), appPackage, puller)
+	err = puller.PullApp(context.TODO(), appPackage)
 	if err != nil {
 		return trace.Wrap(err)
 	}

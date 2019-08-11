@@ -236,10 +236,11 @@ func (p *updatePhaseBootstrap) pullSystemUpdates(ctx context.Context) error {
 	}
 	for _, update := range updates {
 		p.Infof("Pulling package update: %v.", update)
-		err := libapp.PullPackage(ctx, update, libapp.Puller{
+		puller := libapp.Puller{
 			SrcPack: p.Packages,
 			DstPack: p.LocalPackages,
-		})
+		}
+		err := puller.PullPackage(ctx, update)
 		if err != nil && !trace.IsAlreadyExists(err) {
 			return trace.Wrap(err)
 		}

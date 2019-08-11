@@ -374,7 +374,7 @@ func pullUpdate(ctx context.Context, localPackages, remotePackages pack.PackageS
 		DstPack:  localPackages,
 		Progress: reporter,
 	}
-	err := libapp.PullPackage(context.TODO(), update.To, puller)
+	err := puller.PullPackage(ctx, update.To)
 	if err != nil && !trace.IsAlreadyExists(err) {
 		return trace.Wrap(err)
 	}

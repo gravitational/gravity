@@ -117,10 +117,11 @@ func (r *restart) pullUpdates(ctx context.Context) error {
 	updates := []loc.Locator{r.update.Runtime.Update.Package, r.update.Runtime.Update.ConfigPackage}
 	for _, update := range updates {
 		r.Infof("Pulling package update: %v.", update)
-		err := libapp.PullPackage(ctx, update, libapp.Puller{
+		puller := libapp.Puller{
 			SrcPack: r.packages,
 			DstPack: r.localPackages,
-		})
+		}
+		err := puller.PullPackage(ctx, update)
 		if err != nil && !trace.IsAlreadyExists(err) {
 			return trace.Wrap(err)
 		}

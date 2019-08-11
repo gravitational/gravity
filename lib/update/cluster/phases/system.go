@@ -323,10 +323,11 @@ func (p *updatePhaseConfig) pullUpdates(ctx context.Context) error {
 		return nil
 	}
 	p.Infof("Pulling teleport master config update: %v.", update)
-	err = libapp.PullPackage(ctx, *update, libapp.Puller{
+	puller := libapp.Puller{
 		SrcPack: p.Packages,
 		DstPack: p.LocalPackages,
 		Upsert:  true,
-	})
+	}
+	err = puller.PullPackage(ctx, *update)
 	return trace.Wrap(err)
 }

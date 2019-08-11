@@ -322,7 +322,7 @@ func pushPackage(app *localenv.LocalEnvironment, loc loc.Locator, opsCenterURL s
 		DstPack:  dstPackages,
 		Progress: app.Reporter,
 	}
-	err = libapp.PullPackage(context.TODO(), loc, puller)
+	err = puller.PullPackage(context.TODO(), loc)
 	if err != nil {
 		return trace.Wrap(err)
 	}
@@ -346,7 +346,7 @@ func pullPackage(app *localenv.LocalEnvironment, loc loc.Locator, opsCenterURL s
 		Progress: app.Reporter,
 		Upsert:   force,
 	}
-	err = libapp.PullPackage(context.TODO(), loc, puller)
+	err = puller.PullPackage(context.TODO(), loc)
 	if err != nil {
 		return trace.Wrap(err)
 	}

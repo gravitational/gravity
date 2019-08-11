@@ -179,6 +179,7 @@ func RegisterCommands(app *kingpin.Application) *Application {
 
 	g.UpdateUploadCmd.CmdClause = g.UpdateCmd.Command("upload", "Upload update package to locally running site").Hidden()
 	g.UpdateUploadCmd.OpsCenterURL = g.UpdateUploadCmd.Flag("ops-url", "Optional OpsCenter URL to upload new packages to (defaults to local gravity site)").Default(defaults.GravityServiceURL).String()
+	g.UpdateUploadCmd.DataDir = g.UpdateUploadCmd.Flag("data-dir", "Optional directory with application data. Defaults to working directory of the executable if unspecified").String()
 
 	// manual update flow commands
 	g.UpdateCompleteCmd.CmdClause = g.UpdateCmd.Command("complete", "Mark update operation as completed").Hidden()

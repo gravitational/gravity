@@ -141,13 +141,14 @@ func (p *pullExecutor) pullUserApplication(ctx context.Context) error {
 	p.Progress.NextStep("Pulling user application")
 	p.Info("Pulling user application.")
 	// TODO do not pull user app on regular nodes
-	err := app.PullApp(ctx, *p.Phase.Data.Package, app.Puller{
+	puller := app.Puller{
 		FieldLogger: p.FieldLogger,
 		SrcPack:     p.WizardPackages,
 		DstPack:     p.LocalPackages,
 		SrcApp:      p.WizardApps,
 		DstApp:      p.LocalApps,
-	})
+	}
+	err := puller.PullApp(ctx, *p.Phase.Data.Package)
 	if err != nil {
 		return trace.Wrap(err)
 	}
@@ -212,11 +213,12 @@ func (p *pullExecutor) pullConfiguredPackages(ctx context.Context) (err error) {
 		return trace.Wrap(err)
 	}
 	for _, e := range envelopes {
-		err := app.PullPackage(ctx, e.Locator, app.Puller{
+		puller := app.Puller{
 			SrcPack: p.WizardPackages,
 			DstPack: p.LocalPackages,
 			Labels:  e.RuntimeLabels,
-		})
+		}
+		err := puller.PullPackage(ctx, e.Locator)
 		if err != nil {
 			return trace.Wrap(err)
 		}

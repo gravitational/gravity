@@ -99,7 +99,7 @@ func (s *s3Syncer) Sync(ctx context.Context, builder *Builder, runtimeVersion se
 	if err != nil {
 		return trace.Wrap(err)
 	}
-	return libapp.PullAppDeps(ctx, builder.appForRuntime(runtimeVersion), libapp.Puller{
+	puller := libapp.Puller{
 		FieldLogger:  builder.FieldLogger,
 		SrcPack:      env.Packages,
 		SrcApp:       tarballApps,
@@ -107,7 +107,8 @@ func (s *s3Syncer) Sync(ctx context.Context, builder *Builder, runtimeVersion se
 		DstApp:       cacheApps,
 		Parallel:     builder.VendorReq.Parallel,
 		SkipIfExists: true,
-	})
+	}
+	return puller.PullAppDeps(ctx, builder.appForRuntime(runtimeVersion))
 }
 
 // packSyncer synchronizes local package cache with pack/apps services
@@ -132,7 +133,7 @@ func (s *packSyncer) Sync(ctx context.Context, builder *Builder, runtimeVersion 
 	if err != nil {
 		return trace.Wrap(err)
 	}
-	err = libapp.PullAppDeps(ctx, builder.appForRuntime(runtimeVersion), libapp.Puller{
+	puller := libapp.Puller{
 		FieldLogger:  builder.FieldLogger,
 		SrcPack:      s.pack,
 		SrcApp:       s.apps,
@@ -140,7 +141,8 @@ func (s *packSyncer) Sync(ctx context.Context, builder *Builder, runtimeVersion 
 		DstApp:       cacheApps,
 		Parallel:     builder.VendorReq.Parallel,
 		SkipIfExists: true,
-	})
+	}
+	err = puller.PullAppDeps(ctx, builder.appForRuntime(runtimeVersion))
 	if err != nil {
 		if utils.IsNetworkError(err) || trace.IsEOF(err) {
 			return trace.ConnectionProblem(err, "failed to download "+

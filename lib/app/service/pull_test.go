@@ -64,22 +64,24 @@ func (s *PullerSuite) TestPullPackage(c *C) {
 	_, err := s.srcPack.CreatePackage(loc, bytes.NewBuffer([]byte("data")))
 	c.Assert(err, IsNil)
 
-	err = app.PullPackage(context.TODO(), loc, app.Puller{
+	puller := app.Puller{
 		FieldLogger: logger,
 		SrcPack:     s.srcPack,
 		DstPack:     s.dstPack,
-	})
+	}
+	err = puller.PullPackage(context.TODO(), loc)
 	c.Assert(err, IsNil)
 
 	env, err := s.dstPack.ReadPackageEnvelope(loc)
 	c.Assert(err, IsNil)
 	c.Assert(env.Locator, Equals, loc)
 
-	err = app.PullPackage(context.TODO(), loc, app.Puller{
+	puller = app.Puller{
 		FieldLogger: logger,
 		SrcPack:     s.srcPack,
 		DstPack:     s.dstPack,
-	})
+	}
+	err = puller.PullPackage(context.TODO(), loc)
 	c.Assert(trace.IsAlreadyExists(err), Equals, true)
 }
 
@@ -120,14 +122,15 @@ dependencies:
 `
 	apptest.CreateDummyApplication2(s.srcApp, locator, dependencies, c)
 
-	err := app.PullApp(context.TODO(), locator, app.Puller{
+	puller := app.Puller{
 		SrcPack:  s.srcPack,
 		DstPack:  s.dstPack,
 		SrcApp:   s.srcApp,
 		DstApp:   s.dstApp,
 		Upsert:   true,
 		Parallel: parallel,
-	})
+	}
+	err := puller.PullApp(context.TODO(), locator)
 	c.Assert(err, IsNil)
 
 	packages, err := s.dstPack.GetPackages("example.com")
@@ -143,13 +146,14 @@ dependencies:
 	c.Assert(err, IsNil)
 	c.Assert(local.Package, Equals, locator)
 
-	err = app.PullApp(context.TODO(), locator, app.Puller{
+	puller = app.Puller{
 		SrcPack:  s.srcPack,
 		DstPack:  s.dstPack,
 		SrcApp:   s.srcApp,
 		DstApp:   s.dstApp,
 		Parallel: parallel,
-	})
+	}
+	err = puller.PullApp(context.TODO(), locator)
 	c.Assert(trace.IsAlreadyExists(err), Equals, true)
 }
 

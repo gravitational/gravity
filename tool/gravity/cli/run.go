@@ -429,7 +429,7 @@ func Execute(g *Application, cmd string, extraArgs []string) error {
 			return status(localEnv, printOptions)
 		}
 	case g.UpdateUploadCmd.FullCommand():
-		return uploadUpdate(localEnv, *g.UpdateUploadCmd.OpsCenterURL)
+		return uploadUpdate(localEnv, *g.UpdateUploadCmd.OpsCenterURL, *g.UpdateUploadCmd.DataDir)
 	case g.AppPackageCmd.FullCommand():
 		return appPackage(localEnv)
 		// app commands

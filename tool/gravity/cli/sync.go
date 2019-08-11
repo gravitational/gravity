@@ -103,13 +103,14 @@ func appSyncEnv(env *localenv.LocalEnvironment, imageEnv *localenv.ImageEnvironm
 		if err != nil {
 			return trace.Wrap(err)
 		}
-		err = libapp.PullApp(context.TODO(), imageEnv.Manifest.Locator(), libapp.Puller{
+		puller := libapp.Puller{
 			SrcPack: imageEnv.Packages,
 			DstPack: clusterPackages,
 			SrcApp:  imageEnv.Apps,
 			DstApp:  clusterApps,
 			Upsert:  true,
-		})
+		}
+		err = puller.PullApp(context.TODO(), imageEnv.Manifest.Locator())
 		if err != nil {
 			return trace.Wrap(err)
 		}

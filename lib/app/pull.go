@@ -33,56 +33,61 @@ import (
 )
 
 // PullApp pulls the specified application and its dependencies
-func PullApp(ctx context.Context, loc loc.Locator, puller Puller) error {
-	if err := puller.checkAndSetDefaults(); err != nil {
+func (r Puller) PullApp(ctx context.Context, loc loc.Locator) error {
+	if err := r.checkAndSetDefaults(); err != nil {
 		return trace.Wrap(err)
 	}
-	app, err := puller.SrcApp.GetApp(loc)
+	app, err := r.SrcApp.GetApp(loc)
 	if err != nil {
 		return trace.Wrap(err)
 	}
 	deps, err := GetDependencies(GetDependenciesRequest{
 		App:  *app,
-		Apps: puller.SrcApp,
-		Pack: puller.SrcPack,
+		Apps: r.SrcApp,
+		Pack: r.SrcPack,
 	})
 	if err != nil {
 		return trace.Wrap(err)
 	}
 	deps.Apps = append(deps.Apps, *app)
-	puller.Dependencies = *deps
-	return puller.Pull(ctx)
+	return r.Pull(ctx, *deps)
 }
 
 // PullPackage pulls the package specified with loc
-func PullPackage(ctx context.Context, loc loc.Locator, puller Puller) error {
-	if err := puller.checkAndSetDefaults(); err != nil {
+func (r Puller) PullPackage(ctx context.Context, loc loc.Locator) error {
+	if err := r.checkAndSetDefaults(); err != nil {
 		return trace.Wrap(err)
 	}
-	return puller.pullPackageWithRetries(ctx, loc)
+	return r.pullPackageWithRetries(ctx, loc)
 }
 
 // PullAppDeps pulls only dependencies of the specified application
-func PullAppDeps(ctx context.Context, app Application, puller Puller) error {
-	if err := puller.checkAndSetDefaults(); err != nil {
+func (r Puller) PullAppDeps(ctx context.Context, app Application) error {
+	if err := r.checkAndSetDefaults(); err != nil {
 		return trace.Wrap(err)
 	}
 	deps, err := GetDependencies(GetDependenciesRequest{
 		App:  app,
-		Apps: puller.SrcApp,
-		Pack: puller.SrcPack,
+		Apps: r.SrcApp,
+		Pack: r.SrcPack,
 	})
 	if err != nil {
 		return trace.Wrap(err)
 	}
-	puller.Dependencies = *deps
-	return puller.Pull(ctx)
+	return r.Pull(ctx, *deps)
 }
 
-// Pull pulls the packages specified by r
-func (r Puller) Pull(ctx context.Context) error {
+// Pull pulls the packages specified by deps
+func (r Puller) Pull(ctx context.Context, deps Dependencies) error {
+	if err := r.checkAndSetDefaults(); err != nil {
+		return trace.Wrap(err)
+	}
+	return r.pull(ctx, deps)
+}
+
+func (r Puller) pull(ctx context.Context, deps Dependencies) error {
 	group, ctx := run.WithContext(ctx, run.WithParallel(r.Parallel))
-	for _, env := range r.Dependencies.Packages {
+	for _, env := range deps.Packages {
 		group.Go(ctx, r.pullPackageHandler(ctx, env.Locator))
 	}
 	if err := group.Wait(); err != nil {
@@ -92,7 +97,7 @@ func (r Puller) Pull(ctx context.Context) error {
 	// (with dependent packages in the front)
 	// TODO(dmitri): would be ideal to group applications such that to make them
 	// pull-friendly in parallel
-	for _, app := range r.Dependencies.Apps {
+	for _, app := range deps.Apps {
 		if err := r.pullAppWithRetries(ctx, app.Package); err != nil {
 			return trace.Wrap(err)
 		}
@@ -104,8 +109,6 @@ func (r Puller) Pull(ctx context.Context) error {
 type Puller struct {
 	// FieldLogger is used for logging
 	logrus.FieldLogger
-	// Dependencies specifies the dependent packages/applications to pull
-	Dependencies Dependencies
 	// SrcPack is the package service to pull application from
 	SrcPack pack.PackageService
 	// DstPack is the package service to push application into

@@ -568,6 +568,9 @@ type UpdateUploadCmd struct {
 	*kingpin.CmdClause
 	// OpsCenterURL is cluster URL
 	OpsCenterURL *string
+	// DataDir specifies optional location of application data.
+	// If unspecified, current working directory is used
+	DataDir *string
 }
 
 // UpdateCompleteCmd marks update operation as completed
