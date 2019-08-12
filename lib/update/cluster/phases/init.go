@@ -27,7 +27,6 @@ import (
 	"github.com/gravitational/gravity/lib/defaults"
 	"github.com/gravitational/gravity/lib/fsm"
 	"github.com/gravitational/gravity/lib/install"
-	"github.com/gravitational/gravity/lib/install/phases"
 	"github.com/gravitational/gravity/lib/ops"
 	"github.com/gravitational/gravity/lib/pack"
 	"github.com/gravitational/gravity/lib/rpc"
@@ -35,8 +34,8 @@ import (
 	"github.com/gravitational/gravity/lib/storage"
 	"github.com/gravitational/gravity/lib/storage/clusterconfig"
 	"github.com/gravitational/gravity/lib/users"
-	"github.com/gravitational/rigging"
 
+	"github.com/gravitational/rigging"
 	"github.com/gravitational/trace"
 	log "github.com/sirupsen/logrus"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -297,7 +296,7 @@ func (p *updatePhaseInit) updateClusterInfoMap() error {
 		return trace.Wrap(err)
 	}
 	// Cluster info config map doesn't exist yet, create it.
-	configMap := phases.ClusterInfoMap(ops.ConvertOpsSite(p.Cluster))
+	configMap := ops.MakeClusterInfoMap(ops.ConvertOpsSite(p.Cluster))
 	_, err = p.Client.CoreV1().ConfigMaps(constants.KubeSystemNamespace).Create(configMap)
 	if err != nil {
 		return rigging.ConvertError(err)

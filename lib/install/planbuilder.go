@@ -358,8 +358,7 @@ func (b *PlanBuilder) AddSystemResourcesPhase(plan *storage.OperationPlan) {
 		ID:          phases.SystemResourcesPhase,
 		Description: "Create system Kubernetes resources",
 		Data: &storage.OperationPhaseData{
-			Server:  &b.Master,
-			Cluster: &b.Cluster,
+			Server: &b.Master,
 		},
 		Requires: []string{phases.RBACPhase},
 		Step:     4,

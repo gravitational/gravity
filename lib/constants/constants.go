@@ -555,7 +555,7 @@ const (
 	ClusterInfoMap = "cluster-info"
 	// ClusterNameEnv is the environment variable that contains cluster domain name.
 	ClusterNameEnv = "GRAVITY_CLUSTER_NAME"
-	// ClusterProviderEnv is the environment variable that contains cluster provider.
+	// ClusterProviderEnv is the environment variable that contains cluster cloud provider.
 	ClusterProviderEnv = "GRAVITY_CLUSTER_PROVIDER"
 	// ClusterFlavorEnv is the environment variable that contains initial cluster flavor.
 	ClusterFlavorEnv = "GRAVITY_CLUSTER_FLAVOR"

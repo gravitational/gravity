@@ -26,7 +26,6 @@ import (
 	"github.com/gravitational/gravity/lib/fsm"
 	"github.com/gravitational/gravity/lib/ops"
 	"github.com/gravitational/gravity/lib/ops/resources"
-	"github.com/gravitational/gravity/lib/schema"
 	"github.com/gravitational/gravity/lib/state"
 	"github.com/gravitational/gravity/lib/storage"
 	"github.com/gravitational/gravity/lib/utils"
@@ -35,7 +34,6 @@ import (
 	teleservices "github.com/gravitational/teleport/lib/services"
 	"github.com/gravitational/trace"
 	"github.com/sirupsen/logrus"
-	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes"
 )
@@ -47,11 +45,18 @@ func NewSystemResources(p fsm.ExecutorParams, operator ops.Operator, client *kub
 		Key:         opKey(p.Plan),
 		Operator:    operator,
 	}
+	cluster, err := operator.GetSite(ops.SiteKey{
+		AccountID:  defaults.SystemAccountID,
+		SiteDomain: p.Plan.ClusterName,
+	})
+	if err != nil {
+		return nil, trace.Wrap(err)
+	}
 	return &systemResources{
 		FieldLogger:    logger,
 		ExecutorParams: p,
 		Client:         client,
-		Cluster:        *p.Phase.Data.Cluster,
+		Cluster:        ops.ConvertOpsSite(*cluster),
 	}, nil
 }
 
@@ -77,35 +82,16 @@ func (r *systemResources) Execute(ctx context.Context) error {
 	return nil
 }
 
-// createClusterInfoMap creates a config map with basic cluster information.
+// createClusterInfoMap creates a config map with cluster information to be
+// made available to every cluster hook.
 func (r *systemResources) createClusterInfoMap() error {
-	configMap := ClusterInfoMap(r.Cluster)
+	configMap := ops.MakeClusterInfoMap(r.Cluster)
 	_, err := r.Client.CoreV1().ConfigMaps(constants.KubeSystemNamespace).Create(configMap)
 	if err != nil {
 		return rigging.ConvertError(err)
 	}
 	r.Infof("Created %v config map.", configMap.Name)
 	return nil
-}
-
-// ClusterInfoMap creates a config map with basic info of the provided cluster.
-func ClusterInfoMap(cluster storage.Site) *v1.ConfigMap {
-	provider := cluster.Provider
-	// The on-prem provider is exposed to the users as 'generic'.
-	if provider == schema.ProviderOnPrem {
-		provider = schema.ProviderGeneric
-	}
-	return &v1.ConfigMap{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      constants.ClusterInfoMap,
-			Namespace: constants.KubeSystemNamespace,
-		},
-		Data: map[string]string{
-			constants.ClusterNameEnv:     cluster.Domain,
-			constants.ClusterProviderEnv: provider,
-			constants.ClusterFlavorEnv:   cluster.Flavor,
-		},
-	}
 }
 
 // Rollback deletes created system Kubernetes resources.

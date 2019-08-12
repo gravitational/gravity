@@ -479,12 +479,10 @@ func (s *PlanSuite) verifyCorednsPhase(c *check.C, phase storage.OperationPhase)
 }
 
 func (s *PlanSuite) verifySystemResourcesPhase(c *check.C, phase storage.OperationPhase) {
-	cluster := ops.ConvertOpsSite(*s.cluster)
 	storage.DeepComparePhases(c, storage.OperationPhase{
 		ID: phases.SystemResourcesPhase,
 		Data: &storage.OperationPhaseData{
-			Server:  &s.masterNode,
-			Cluster: &cluster,
+			Server: &s.masterNode,
 		},
 		Requires: []string{phases.RBACPhase},
 	}, phase)

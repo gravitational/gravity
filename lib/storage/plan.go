@@ -114,8 +114,6 @@ type OperationPhaseData struct {
 	License []byte `json:"license,omitempty" yaml:"license,omitempty"`
 	// TrustedCluster is the resource data for a trusted cluster representing an Ops Center
 	TrustedCluster []byte `json:"trusted_cluster_resource,omitempty" yaml:"trusted_cluster_resource,omitempty"`
-	// Cluster is the cluster object e.g. the cluster that is being installed.
-	Cluster *Site `json:"cluster,omitempty" yaml:"cluster,omitempty"`
 	// ServiceUser specifies the optional service user to use as a context
 	// for file operations
 	ServiceUser *OSUser `json:"service_user,omitempty" yaml:"service_user,omitempty"`
