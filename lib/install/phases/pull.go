@@ -250,13 +250,13 @@ func (p *pullExecutor) collectMasterPackages() ([]pack.PackageEnvelope, error) {
 	err := pack.ForeachPackageInRepo(p.WizardPackages, p.Plan.ClusterName,
 		func(e pack.PackageEnvelope) error {
 			pull := e.HasAnyLabel(map[string][]string{
-				pack.PurposeLabel: []string{
+				pack.PurposeLabel: {
 					pack.PurposeCA,
 					pack.PurposeExport,
 					pack.PurposeLicense,
 					pack.PurposeResources,
 				},
-				pack.AdvertiseIPLabel: []string{
+				pack.AdvertiseIPLabel: {
 					p.Phase.Data.Server.AdvertiseIP,
 				},
 			})
@@ -278,7 +278,7 @@ func (p *pullExecutor) collectNodePackages() ([]pack.PackageEnvelope, error) {
 	err := pack.ForeachPackageInRepo(p.WizardPackages, p.Plan.ClusterName,
 		func(e pack.PackageEnvelope) error {
 			pull := e.HasAnyLabel(map[string][]string{
-				pack.AdvertiseIPLabel: []string{
+				pack.AdvertiseIPLabel: {
 					p.Phase.Data.Server.AdvertiseIP,
 				},
 			})
@@ -305,11 +305,11 @@ func (p *pullExecutor) unpackPackages() error {
 	locators := []loc.Locator{p.runtimePackage}
 	err := pack.ForeachPackage(p.LocalPackages, func(e pack.PackageEnvelope) error {
 		unpack := e.HasAnyLabel(map[string][]string{
-			pack.PurposeLabel: []string{
+			pack.PurposeLabel: {
 				pack.PurposeCA,
 				pack.PurposePlanetSecrets,
 				pack.PurposePlanetConfig,
-				pack.PurposeTeleportConfig,
+				pack.PurposeTeleportNodeConfig,
 			},
 		})
 		if unpack || utils.StringInSlice(packages, e.Locator.Name) {

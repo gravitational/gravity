@@ -84,6 +84,10 @@ type Application struct {
 	UpdateSystemCmd UpdateSystemCmd
 	// UpgradeCmd launches app upgrade
 	UpgradeCmd UpgradeCmd
+	// UpdateRotatePlanetConfigCmd generates new configuration package for planet
+	UpdateRotatePlanetConfigCmd UpdateRotatePlanetConfigCmd
+	// UpdateRotateTeleportConfigCmd generates new configuration package for teleport
+	UpdateRotateTeleportConfigCmd UpdateRotateTeleportConfigCmd
 	// StatusCmd displays cluster status
 	StatusCmd StatusCmd
 	// StatusResetCmd resets the cluster to active state
@@ -530,6 +534,30 @@ type UpdateSystemCmd struct {
 	WithStatus *bool
 	// RuntimePackage specifies the runtime package to update to
 	RuntimePackage *loc.Locator
+}
+
+// UpdateRotatePlanetConfigCmd generates a new configuration package for planet
+type UpdateRotatePlanetConfigCmd struct {
+	*kingpin.CmdClause
+	// Package specifies the package to generate
+	Package *loc.Locator
+	// RuntimePackage specifies the runtime package to generate configuration for
+	RuntimePackage *loc.Locator
+	// ServerAddr specifies this server's address
+	ServerAddr *string
+	// OperationID specifies the ID of the active update operation
+	OperationID *string
+}
+
+// UpdateRotateTeleportConfigCmd generates a new configuration package for teleport
+type UpdateRotateTeleportConfigCmd struct {
+	*kingpin.CmdClause
+	// Package specifies the package to generate
+	Package *loc.Locator
+	// ServerAddr specifies this server's address
+	ServerAddr *string
+	// OperationID specifies the ID of the active update operation
+	OperationID *string
 }
 
 // UpgradeCmd launches app upgrade

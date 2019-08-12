@@ -29,6 +29,7 @@ import (
 	"github.com/gravitational/gravity/lib/ops"
 	"github.com/gravitational/gravity/lib/pack"
 	"github.com/gravitational/gravity/lib/schema"
+	"github.com/gravitational/gravity/lib/storage"
 
 	"github.com/gravitational/trace"
 )
@@ -173,6 +174,80 @@ To abort an unsuccessful operation, rollback all completed/failed phases and
 run the same command. The operation will be marked as "failed" and the cluster
 will be returned to the "active" state.`)
 
+	return nil
+}
+
+func rotatePlanetConfig(env *localenv.LocalEnvironment, pkg, runtimePackage loc.Locator, operationID, serverAddr string) error {
+	clusterEnv, err := localenv.NewClusterEnvironment()
+	if err != nil {
+		return trace.Wrap(err)
+	}
+	cluster, err := clusterEnv.Operator.GetLocalSite()
+	if err != nil {
+		return trace.Wrap(err)
+	}
+	operationKey := ops.SiteOperationKey{
+		AccountID:   cluster.AccountID,
+		SiteDomain:  cluster.Domain,
+		OperationID: operationID,
+	}
+	plan, err := clusterEnv.Operator.GetOperationPlan(operationKey)
+	if err != nil {
+		return trace.Wrap(err)
+	}
+	app, err := clusterEnv.Apps.GetApp(cluster.App.Package)
+	if err != nil {
+		return trace.Wrap(err)
+	}
+	server := (storage.Servers)(plan.Servers).FindByIP(serverAddr)
+	if server == nil {
+		return trace.NotFound("no server found for %v", serverAddr)
+	}
+	_, err = clusterEnv.Operator.RotatePlanetConfig(ops.RotatePlanetConfigRequest{
+		Key:            cluster.Key(),
+		Servers:        plan.Servers,
+		Server:         *server,
+		RuntimePackage: runtimePackage,
+		Package:        pkg,
+		Manifest:       app.Manifest,
+	})
+	if err != nil {
+		return trace.Wrap(err)
+	}
+	return nil
+}
+
+func rotateTeleportConfig(env *localenv.LocalEnvironment, pkg loc.Locator, operationID, serverAddr string) error {
+	clusterEnv, err := localenv.NewClusterEnvironment()
+	if err != nil {
+		return trace.Wrap(err)
+	}
+	cluster, err := clusterEnv.Operator.GetLocalSite()
+	if err != nil {
+		return trace.Wrap(err)
+	}
+	operationKey := ops.SiteOperationKey{
+		AccountID:   cluster.AccountID,
+		SiteDomain:  cluster.Domain,
+		OperationID: operationID,
+	}
+	plan, err := clusterEnv.Operator.GetOperationPlan(operationKey)
+	if err != nil {
+		return trace.Wrap(err)
+	}
+	server := (storage.Servers)(plan.Servers).FindByIP(serverAddr)
+	if server == nil {
+		return trace.NotFound("no server found for %v", serverAddr)
+	}
+	_, err = clusterEnv.Operator.RotateTeleportConfig(ops.RotateTeleportConfigRequest{
+		Key:     operationKey,
+		Server:  *server,
+		Servers: plan.Servers,
+		Node:    &pkg,
+	})
+	if err != nil {
+		return trace.Wrap(err)
+	}
 	return nil
 }
 

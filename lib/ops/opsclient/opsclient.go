@@ -874,6 +874,11 @@ func (c *Client) RotatePlanetConfig(req ops.RotatePlanetConfigRequest) (*ops.Rot
 	return nil, trace.NotImplemented("this method is only supported by local operator")
 }
 
+// RotateTeleportConfig rotates teleport configuration package for the server specified in the request
+func (c *Client) RotateTeleportConfig(req ops.RotateTeleportConfigRequest) (*ops.RotatePackageResponse, error) {
+	return nil, trace.NotImplemented("this method is only supported by local operator")
+}
+
 // ConfigureNode prepares the node for the upgrade
 func (c *Client) ConfigureNode(req ops.ConfigureNodeRequest) error {
 	return trace.BadParameter("this method is only supported by local operator")

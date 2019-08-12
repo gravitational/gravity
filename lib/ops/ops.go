@@ -698,6 +698,9 @@ type Updates interface {
 	// RotatePlanetConfig rotates planet configuration package for the server specified in the request
 	RotatePlanetConfig(RotatePlanetConfigRequest) (*RotatePackageResponse, error)
 
+	// RotateTeleportConfig rotates teleport configuration package for the server specified in the request
+	RotateTeleportConfig(RotateTeleportConfigRequest) (nodeConfig *RotatePackageResponse, err error)
+
 	// ConfigureNode prepares the node for the upgrade
 	ConfigureNode(ConfigureNodeRequest) error
 }
@@ -759,35 +762,48 @@ func (r RotateSecretsRequest) SiteKey() SiteKey {
 	}
 }
 
+// Check validates this request
+func (r RotateTeleportConfigRequest) Check() error {
+	if err := r.Key.Check(); err != nil {
+		return trace.Wrap(err)
+	}
+	return nil
+}
+
+// RotateTeleportConfigRequest is a request to rotate teleport server's configuration package
+type RotateTeleportConfigRequest struct {
+	// Key identifies the cluster operation
+	Key SiteOperationKey `json:"key"`
+	// Server is the server to rotate configuration for
+	Server storage.Server `json:"server"`
+	// Servers is all cluster servers
+	Servers storage.Servers `json:"servers"`
+	// Node specifies the configuration package for teleport nodes
+	Node *loc.Locator `json:"node,omitempty"`
+}
+
+// Check validates this request
+func (r RotatePlanetConfigRequest) Check() error {
+	if err := r.Key.Check(); err != nil {
+		return trace.Wrap(err)
+	}
+	return nil
+}
+
 // RotatePlanetConfigRequest is a request to rotate server's planet configuration package
 type RotatePlanetConfigRequest struct {
-	// AccountID is the account id of the local cluster
-	AccountID string `json:"account_id"`
-	// ClusterName is the local cluster name
-	ClusterName string `json:"cluster_name"`
-	// OperationID is the id of the operation
-	OperationID string `json:"operation_id"`
+	// Key identifies the cluster
+	Key SiteKey `json:"key"`
 	// Server is the server to rotate configuration for
 	Server storage.Server `json:"server"`
 	// Servers is all cluster servers
 	Servers []storage.Server `json:"servers"`
-}
-
-// SiteKey returns a cluster key from this request
-func (r RotatePlanetConfigRequest) SiteKey() SiteKey {
-	return SiteKey{
-		AccountID:  r.AccountID,
-		SiteDomain: r.ClusterName,
-	}
-}
-
-// SiteOperationKey returns an operation key from this request
-func (r RotatePlanetConfigRequest) SiteOperationKey() SiteOperationKey {
-	return SiteOperationKey{
-		AccountID:   r.AccountID,
-		SiteDomain:  r.ClusterName,
-		OperationID: r.OperationID,
-	}
+	// RuntimePackage identifies the runtime package to generate configuration for
+	RuntimePackage loc.Locator `json:"runtime_package"`
+	// Manifest specifies the manifest to generate configuration with
+	Manifest schema.Manifest `json:"manifest"`
+	// Package specifies the configuration package locator to use
+	Package loc.Locator `json:"package"`
 }
 
 // Proxy helps to manage connections and clients to remote ops centers

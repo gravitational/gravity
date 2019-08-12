@@ -511,6 +511,10 @@ func (r *Router) RotatePlanetConfig(req ops.RotatePlanetConfigRequest) (*ops.Rot
 	return r.Local.RotatePlanetConfig(req)
 }
 
+func (r *Router) RotateTeleportConfig(req ops.RotateTeleportConfigRequest) (*ops.RotatePackageResponse, error) {
+	return r.Local.RotateTeleportConfig(req)
+}
+
 func (r *Router) ConfigureNode(req ops.ConfigureNodeRequest) error {
 	return r.Local.ConfigureNode(req)
 }

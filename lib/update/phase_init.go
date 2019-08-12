@@ -341,11 +341,9 @@ func (p *updatePhaseInit) rotateSecrets(server storage.Server) error {
 func (p *updatePhaseInit) rotatePlanetConfig(server storage.Server, runtimePackage loc.Locator) error {
 	p.Infof("Generate new runtime configuration package for %v.", formatServer(server))
 	resp, err := p.Operator.RotatePlanetConfig(ops.RotatePlanetConfigRequest{
-		AccountID:   p.Operation.AccountID,
-		ClusterName: p.Operation.SiteDomain,
-		OperationID: p.Operation.ID,
-		Server:      server,
-		Servers:     p.Servers,
+		Key:     p.Operation.ClusterKey(),
+		Server:  server,
+		Servers: p.Servers,
 	})
 	if err != nil {
 		return trace.Wrap(err)
