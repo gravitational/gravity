@@ -227,6 +227,7 @@ func (r *clusterFactory) NewCluster() ops.NewSiteRequest {
 		Email:        fmt.Sprintf("installer@%v", r.SiteDomain),
 		Provider:     r.CloudProvider,
 		DomainName:   r.SiteDomain,
+		Flavor:       r.Flavor.Name,
 		InstallToken: r.Token.Token,
 		ServiceUser: storage.OSUser{
 			Name: r.ServiceUser.Name,
