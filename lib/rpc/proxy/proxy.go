@@ -134,7 +134,10 @@ func (r *Proxy) serve(listener net.Listener) {
 
 		c2, err := r.link.Dial()
 		if err != nil {
-			r.WithError(err).Warn("Failed to dial: %v.")
+			r.WithFields(log.Fields{
+				log.ErrorKey: err,
+				"addr":       r.link,
+			}).Warn("Failed to dial local link.")
 			c1.Close()
 			return
 		}
