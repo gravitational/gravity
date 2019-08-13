@@ -8,7 +8,7 @@ These components are automatically included into a Cluster Image built with `tel
 system dependency (see the [source](https://github.com/gravitational/monitoring-app) on GitHub).
 
 
-**Example Monitoring Dashboard as part of xxx**
+**Example Monitoring Dashboard**
 ![Set Capacity](/images/gravity-quickstart/gravity-monitoring.png)
 
 ### Prometheus
