@@ -66,6 +66,7 @@ func (r *Proxy) Start() error {
 // Stop stops the proxy and drops all active connections
 func (r *Proxy) Stop() {
 	r.cancel()
+	r.link.Close()
 	<-r.teardownCh
 	r.Info("Proxy stopped.")
 }
@@ -77,6 +78,8 @@ type Link interface {
 	Listen() (net.Listener, error)
 	// Dials dials to the remote side of the link
 	Dial() (net.Conn, error)
+	// Close closes the local link
+	Close() error
 }
 
 // NetLink links two network endpoints.
@@ -92,6 +95,11 @@ type NetLink struct {
 // Implements Link
 func (r NetLink) Listen() (net.Listener, error) {
 	return r.Local, nil
+}
+
+// Close closes the local link
+func (r NetLink) Close() error {
+	return r.Local.Close()
 }
 
 // Dials dials the remote endpoint.
@@ -113,19 +121,24 @@ func (r *Proxy) serve(listener net.Listener) {
 	defer close(r.teardownCh)
 	for {
 		c1, err := listener.Accept()
+		select {
+		case <-r.doneCh:
+			return
+		default:
+		}
 		if err != nil {
-			r.Errorf("Failed to accept: %v.", err)
+			r.WithError(err).Warnf("Failed to accept.")
 			return
 		}
 		r.Infof("Accept connection from %v.", c1.RemoteAddr())
 
 		c2, err := r.link.Dial()
 		if err != nil {
-			r.Errorf("Failed to dial: %v.", err)
+			r.WithError(err).Warn("Failed to dial: %v.")
 			c1.Close()
 			return
 		}
-		r.Infof("Upstream connection to %v.", c2.RemoteAddr())
+		r.WithField("addr", c2.RemoteAddr()).Info("Upstream connection.")
 
 		errCh := make(chan error, 2)
 		go proxyConn(c1, c2, errCh)
@@ -138,7 +151,7 @@ func (r *Proxy) watchConns(errCh <-chan error, closers ...io.Closer) {
 	select {
 	case err := <-errCh:
 		if err != nil {
-			r.Warnf("Failed in proxyConn: %v.", err)
+			r.WithError(err).Warn("Failed in proxyConn.")
 		}
 	case <-r.doneCh:
 	}
