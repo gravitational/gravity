@@ -41,6 +41,8 @@ import (
 
 // PlanBuilder builds operation plan phases
 type PlanBuilder struct {
+	// Cluster is the cluster being installed
+	Cluster storage.Site
 	// Application is the app being installed
 	Application app.Application
 	// Runtime is the Runtime of the app being installed
@@ -323,14 +325,28 @@ func (b *PlanBuilder) AddRBACPhase(plan *storage.OperationPlan) {
 	})
 }
 
-// AddResourcesPhase appends K8s resources initialization phase to the provided plan
-func (b *PlanBuilder) AddResourcesPhase(plan *storage.OperationPlan) {
+// AddSystemResourcesPhase appends phase that creates system Kubernetes
+// resources to the provided plan.
+func (b *PlanBuilder) AddSystemResourcesPhase(plan *storage.OperationPlan) {
+	plan.Phases = append(plan.Phases, storage.OperationPhase{
+		ID:          phases.SystemResourcesPhase,
+		Description: "Create system Kubernetes resources",
+		Data: &storage.OperationPhaseData{
+			Server: &b.Master,
+		},
+		Requires: []string{phases.RBACPhase},
+		Step:     4,
+	})
+}
+
+// AddUserResourcesPhase appends K8s resources initialization phase to the provided plan
+func (b *PlanBuilder) AddUserResourcesPhase(plan *storage.OperationPlan) {
 	if len(b.resources) == 0 {
 		// Nothing to add
 		return
 	}
 	plan.Phases = append(plan.Phases, storage.OperationPhase{
-		ID:          phases.ResourcesPhase,
+		ID:          phases.UserResourcesPhase,
 		Description: "Create user-supplied Kubernetes resources",
 		Data: &storage.OperationPhaseData{
 			Server: &b.Master,
@@ -589,6 +605,7 @@ func (c *Config) GetPlanBuilder(operator ops.Operator, cluster ops.Site, op ops.
 		return nil, trace.Wrap(err)
 	}
 	builder := &PlanBuilder{
+		Cluster: ops.ConvertOpsSite(cluster),
 		Application: app.Application{
 			Package:         cluster.App.Package,
 			PackageEnvelope: cluster.App.PackageEnvelope,

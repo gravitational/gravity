@@ -1525,6 +1525,8 @@ type NewSiteRequest struct {
 	// Location describes the location where a new site is about to be deployed,
 	// for example AWS region name
 	Location string `json:"location"`
+	// Flavor is the name of the initial cluster flavor.
+	Flavor string `json:"flavor"`
 	// InstallToken is install token for site to create for agents
 	InstallToken string `json:"install_token"`
 	// ServiceUser specifies the user to use for planet container services
@@ -1615,6 +1617,8 @@ type Site struct {
 	FinalInstallStepComplete bool `json:"final_install_step_complete"`
 	// Location is a location where the site is deployed, for example AWS region name
 	Location string `json:"location"`
+	// Flavor is the initial cluster flavor.
+	Flavor string `json:"flavor"`
 	// UpdateInterval is how often the site checks for and downloads newer versions of the
 	// installed application
 	UpdateInterval time.Duration `json:"update_interval"`
