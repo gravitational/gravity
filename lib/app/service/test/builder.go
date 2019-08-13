@@ -185,11 +185,6 @@ func CreateApplicationFromData(apps app.Applications, locator loc.Locator, files
 	app, err := apps.CreateApp(locator, data, labels)
 	c.Assert(err, IsNil)
 	c.Assert(app, NotNil)
-
-	app, err = apps.GetApp(locator)
-	c.Assert(err, IsNil)
-	c.Assert(app, NotNil)
-	c.Logf("created %v", app)
 	return app
 }
 

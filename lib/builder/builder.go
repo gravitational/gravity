@@ -248,7 +248,7 @@ func (b *Builder) SelectRuntime() (*semver.Version, error) {
 
 // SyncPackageCache ensures that all system dependencies are present in
 // the local cache directory for the specified list of runtime versions
-func (b *Builder) SyncPackageCache(runtimeVersion semver.Version, intermediateVersions ...semver.Version) error {
+func (b *Builder) SyncPackageCache(ctx context.Context, runtimeVersion semver.Version, intermediateVersions ...semver.Version) error {
 	apps, err := b.Env.AppServiceLocal(localenv.AppConfig{})
 	if err != nil {
 		return trace.Wrap(err)
@@ -259,7 +259,7 @@ func (b *Builder) SyncPackageCache(runtimeVersion semver.Version, intermediateVe
 	}
 	for _, runtimeVersion := range append([]semver.Version{runtimeVersion}, intermediateVersions...) {
 		b.NextStep("Syncing packages for %v", runtimeVersion)
-		if err := b.syncPackageCache(runtimeVersion, syncer, apps); err != nil {
+		if err := b.syncPackageCache(ctx, runtimeVersion, syncer, apps); err != nil {
 			if trace.IsNotFound(err) {
 				return trace.NotFound("runtime version %v not found", runtimeVersion)
 			}
@@ -269,13 +269,9 @@ func (b *Builder) SyncPackageCache(runtimeVersion semver.Version, intermediateVe
 	return nil
 }
 
-func (b *Builder) syncPackageCache(runtimeVersion semver.Version, syncer Syncer, apps libapp.Applications) error {
+func (b *Builder) syncPackageCache(ctx context.Context, runtimeVersion semver.Version, syncer Syncer, apps libapp.Applications) error {
 	// see if all required packages/apps are already present in the local cache
-	app := libapp.Application{
-		Manifest: b.Manifest.WithBase(loc.Runtime.WithVersion(&runtimeVersion)),
-		Package:  b.Manifest.Locator(),
-	}
-	err := libapp.VerifyDependencies(app, apps, b.Env.Packages)
+	err := libapp.VerifyDependencies(b.appForRuntime(runtimeVersion), apps, b.Env.Packages)
 	if err != nil && !trace.IsNotFound(err) {
 		return trace.Wrap(err)
 	}
@@ -290,7 +286,7 @@ func (b *Builder) syncPackageCache(runtimeVersion semver.Version, syncer Syncer,
 	}
 	b.Infof("Synchronizing package cache with %v.", repository)
 	b.NextStep("Downloading dependencies from %v", repository)
-	return syncer.Sync(b, runtimeVersion)
+	return syncer.Sync(ctx, b, runtimeVersion)
 }
 
 // Vendor vendors the application images in the provided directory and
@@ -495,6 +491,17 @@ There are a few ways to resolve the issue:
 	b.Debugf("Version check passed; tele version: %v, runtime version: %v.",
 		teleVersion, runtimeVersion)
 	return nil
+}
+
+// appForRuntime builds an application object with the specified runtime version
+// as the base to be able to collect dependencies of the specified base application.
+// TODO(dmitri): there should be a better way to describe the application referred
+// to with runtimeVersion
+func (b *Builder) appForRuntime(runtimeVersion semver.Version) libapp.Application {
+	return libapp.Application{
+		Package:  b.Locator(),
+		Manifest: b.Manifest.WithBase(loc.Runtime.WithVersion(&runtimeVersion)),
+	}
 }
 
 // collectUpgradeDependencies computes and returns a set of package dependencies for each
