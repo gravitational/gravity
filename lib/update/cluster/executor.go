@@ -104,7 +104,7 @@ func fsmSpec(c Config) fsm.FSMSpecFunc {
 		case updateInit:
 			return libphase.NewUpdatePhaseInit(p, c.Operator, c.Apps,
 				c.Backend, c.LocalBackend, c.ClusterPackages, c.Users,
-				logger)
+				c.Client, logger)
 		case updateChecks:
 			return libphase.NewUpdatePhaseChecks(p, c.Operator, c.Apps, c.Runner, logger)
 		case updateBootstrap:

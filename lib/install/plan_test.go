@@ -221,7 +221,8 @@ func (s *PlanSuite) TestPlan(c *check.C) {
 		{phases.WaitPhase, s.verifyWaitPhase},
 		{phases.RBACPhase, s.verifyRBACPhase},
 		{phases.CorednsPhase, s.verifyCorednsPhase},
-		{phases.ResourcesPhase, s.verifyResourcesPhase},
+		{phases.SystemResourcesPhase, s.verifySystemResourcesPhase},
+		{phases.UserResourcesPhase, s.verifyUserResourcesPhase},
 		{phases.ExportPhase, s.verifyExportPhase},
 		{phases.InstallOverlayPhase, s.verifyInstallOverlayPhase},
 		{phases.HealthPhase, s.verifyHealthPhase},
@@ -450,7 +451,17 @@ func (s *PlanSuite) verifyCorednsPhase(c *check.C, phase storage.OperationPhase)
 	}, phase)
 }
 
-func (s *PlanSuite) verifyResourcesPhase(c *check.C, phase storage.OperationPhase) {
+func (s *PlanSuite) verifySystemResourcesPhase(c *check.C, phase storage.OperationPhase) {
+	storage.DeepComparePhases(c, storage.OperationPhase{
+		ID: phases.SystemResourcesPhase,
+		Data: &storage.OperationPhaseData{
+			Server: &s.masterNode,
+		},
+		Requires: []string{phases.RBACPhase},
+	}, phase)
+}
+
+func (s *PlanSuite) verifyUserResourcesPhase(c *check.C, phase storage.OperationPhase) {
 	obtained := phase.Data.Install.Resources
 	expected := []byte(`
 {
@@ -478,7 +489,7 @@ func (s *PlanSuite) verifyResourcesPhase(c *check.C, phase storage.OperationPhas
 	`)
 	phase.Data.Install.Resources = nil // Compare resources separately
 	storage.DeepComparePhases(c, storage.OperationPhase{
-		ID: phases.ResourcesPhase,
+		ID: phases.UserResourcesPhase,
 		Data: &storage.OperationPhaseData{
 			Server:  &s.masterNode,
 			Install: &storage.InstallOperationData{},
