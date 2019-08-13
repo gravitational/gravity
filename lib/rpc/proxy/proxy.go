@@ -50,6 +50,8 @@ type Proxy struct {
 	// teardownCh signals when the connection cleanup has completed
 	// and proxy loop has finished
 	teardownCh chan struct{}
+	// notifyCh signals new connections
+	notifyCh chan<- struct{}
 }
 
 // Start starts the proxy
@@ -121,12 +123,12 @@ func (r *Proxy) serve(listener net.Listener) {
 	defer close(r.teardownCh)
 	for {
 		c1, err := listener.Accept()
-		select {
-		case <-r.doneCh:
-			return
-		default:
-		}
 		if err != nil {
+			select {
+			case <-r.doneCh:
+				return
+			default:
+			}
 			r.WithError(err).Warnf("Failed to accept.")
 			return
 		}
@@ -147,6 +149,8 @@ func (r *Proxy) serve(listener net.Listener) {
 		go proxyConn(c1, c2, errCh)
 		go proxyConn(c2, c1, errCh)
 		go r.watchConns(errCh, c1, c2, listener)
+
+		r.notifyNewConnection()
 	}
 }
 
@@ -160,6 +164,13 @@ func (r *Proxy) watchConns(errCh <-chan error, closers ...io.Closer) {
 	}
 	for _, c := range closers {
 		c.Close()
+	}
+}
+
+func (r *Proxy) notifyNewConnection() {
+	select {
+	case r.notifyCh <- struct{}{}:
+	default:
 	}
 }
 

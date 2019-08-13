@@ -37,7 +37,7 @@ var _ = Suite(&S{})
 
 func (_ *S) TestProxiesConnections(c *C) {
 	link := newLocalLink()
-	proxy := New(link, log.StandardLogger())
+	proxy := New(link, log.WithField("test", "TestProxiesConnections"))
 	proxy.Start()
 	defer proxy.Stop()
 
@@ -46,7 +46,7 @@ func (_ *S) TestProxiesConnections(c *C) {
 
 	s := newServer(1)
 	go s.serve(link.upstream)
-	defer link.Close()
+	defer link.stop()
 
 	payload := []byte("test")
 	_, err = conn.Write(payload)
@@ -65,27 +65,34 @@ func (_ *S) TestProxiesConnections(c *C) {
 func (_ *S) TestCanStopProxyOnDemand(c *C) {
 	payload := []byte("test")
 	link := newLocalLink()
-	proxy := New(link, log.StandardLogger())
+	logger := log.WithField("test", ") TestCanStopProxyOnDemand")
+	proxy := New(link, logger)
+	notifyCh := make(chan struct{}, 1)
+	proxy.notifyCh = notifyCh
 	c.Assert(proxy.Start(), IsNil)
 	defer proxy.Stop()
 
 	s := newServer(2)
 	go s.serve(link.upstream)
-	defer link.Close()
+	defer link.stop()
 
 	conn, err := link.local.Dial()
 	c.Assert(err, IsNil)
 
+	// wait for new connection: this blocks until the proxy has accepted
+	// the connection and created handler loop
+	<-notifyCh
+
 	// Stop proxy so the write fails
 	proxy.Stop()
-	link.resetLocal()
 
 	_, err = conn.Write(payload)
 	c.Assert(err, ErrorMatches, "io: read/write on closed pipe")
 	conn.Close()
 
 	// Restart proxy to be able to write
-	proxy = New(link, log.StandardLogger())
+	link.resetLocal()
+	proxy = New(link, logger)
 	c.Assert(proxy.Start(), IsNil)
 	defer proxy.Stop()
 
@@ -97,7 +104,7 @@ func (_ *S) TestCanStopProxyOnDemand(c *C) {
 
 	select {
 	case <-s.recvCh:
-	// Skip the first write
+		// Skip the first write
 	case <-time.After(1 * time.Second):
 		c.Error("timeout waiting for write")
 	}
@@ -126,6 +133,11 @@ func (r *localLink) Dial() (net.Conn, error) {
 	return r.upstream.Dial()
 }
 
+func (r *localLink) Close() error {
+	log.Info("Close local link.")
+	return r.local.Close()
+}
+
 func (r *localLink) String() string {
 	return "localLink"
 }
@@ -134,7 +146,7 @@ func (r *localLink) resetLocal() {
 	r.local = inprocess.Listen()
 }
 
-func (r *localLink) Close() error {
+func (r *localLink) stop() error {
 	r.local.Close()
 	r.upstream.Close()
 	return nil
