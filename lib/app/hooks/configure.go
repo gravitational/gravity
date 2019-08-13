@@ -35,7 +35,7 @@ import (
 	teleutils "github.com/gravitational/teleport/lib/utils"
 	"github.com/gravitational/trace"
 	batchv1 "k8s.io/api/batch/v1"
-	"k8s.io/api/core/v1"
+	v1 "k8s.io/api/core/v1"
 )
 
 // configureJob augments the provided job spec with the proper metadata (e.g. to ensure unique name),
@@ -103,6 +103,16 @@ func configureMetadata(job *batchv1.Job, p Params) error {
 			v1.EnvVar{
 				Name:  constants.ServiceUserEnvVar,
 				Value: p.ServiceUser.UID,
+			},
+		)
+		job.Spec.Template.Spec.Containers[i].EnvFrom = append(
+			job.Spec.Template.Spec.Containers[i].EnvFrom,
+			v1.EnvFromSource{
+				ConfigMapRef: &v1.ConfigMapEnvSource{
+					LocalObjectReference: v1.LocalObjectReference{
+						Name: constants.ClusterInfoMap,
+					},
+				},
 			},
 		)
 		// set image pull policy if none specified

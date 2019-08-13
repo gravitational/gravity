@@ -688,6 +688,7 @@ func convertSite(in storage.Site, apps appservice.Applications) (*ops.Site, erro
 		Labels:                   in.Labels,
 		FinalInstallStepComplete: in.FinalInstallStepComplete,
 		Location:                 in.Location,
+		Flavor:                   in.Flavor,
 		UpdateInterval:           in.UpdateInterval,
 		NextUpdateCheck:          in.NextUpdateCheck,
 		ClusterState:             in.ClusterState,

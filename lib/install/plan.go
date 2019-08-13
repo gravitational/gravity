@@ -1,5 +1,5 @@
 /*
-Copyright 2018 Gravitational, Inc.
+Copyright 2018-2019 Gravitational, Inc.
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -82,9 +82,9 @@ func (r *Planner) GetOperationPlan(operator ops.Operator, cluster ops.Site, oper
 	builder.AddRBACPhase(plan)
 	builder.AddCorednsPhase(plan)
 
-	// if installing a regular app, the resources might have been
-	// provided by a user
-	builder.AddResourcesPhase(plan)
+	// create system and user-supplied Kubernetes resources
+	builder.AddSystemResourcesPhase(plan)
+	builder.AddUserResourcesPhase(plan)
 
 	// export applications to registries
 	builder.AddExportPhase(plan)
