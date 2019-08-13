@@ -125,11 +125,12 @@ func (r *cleanup) Prune(ctx context.Context) (err error) {
 	if r.DryRun {
 		return nil
 	}
-	err = apps.SyncApp(ctx, *r.App, apps.Syncer{
+	syncer := apps.Syncer{
 		PackService:  r.Packages,
 		AppService:   r.Apps,
 		ImageService: r.ImageService,
-	})
+	}
+	err = syncer.SyncApp(ctx, *r.App)
 	if err != nil {
 		return trace.Wrap(err)
 	}

@@ -249,7 +249,7 @@ func syncAppWithCluster(ctx context.Context, env *localenv.LocalEnvironment, clu
 			return trace.Wrap(err)
 		}
 		syncer.ImageService = imageService
-		err = libapp.SyncApp(ctx, app, syncer)
+		err = syncer.SyncApp(ctx, app)
 		if err != nil {
 			return trace.Wrap(err)
 		}

@@ -84,12 +84,13 @@ func appSyncEnv(env *localenv.LocalEnvironment, imageEnv *localenv.ImageEnvironm
 			if err != nil {
 				return trace.Wrap(err)
 			}
-			err = libapp.SyncApp(context.TODO(), imageEnv.Manifest.Locator(), libapp.Syncer{
+			syncer := libapp.Syncer{
 				PackService:  imageEnv.Packages,
 				AppService:   imageEnv.Apps,
 				ImageService: imageService,
 				Progress:     env,
-			})
+			}
+			err = syncer.SyncApp(context.TODO(), imageEnv.Manifest.Locator())
 			if err != nil {
 				return trace.Wrap(err)
 			}
@@ -123,12 +124,13 @@ func appSyncEnv(env *localenv.LocalEnvironment, imageEnv *localenv.ImageEnvironm
 		if err != nil {
 			return trace.Wrap(err)
 		}
-		return libapp.SyncApp(context.TODO(), imageEnv.Manifest.Locator(), libapp.Syncer{
+		syncer := libapp.Syncer{
 			PackService:  imageEnv.Packages,
 			AppService:   imageEnv.Apps,
 			ImageService: imageService,
 			Progress:     env,
-		})
+		}
+		return syncer.SyncApp(context.TODO(), imageEnv.Manifest.Locator())
 	}
 	return trace.BadParameter("not inside a Kubernetes cluster")
 }

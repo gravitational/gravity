@@ -34,32 +34,39 @@ import (
 )
 
 // SyncApp syncs the specified application and all its dependencies with registry
-func SyncApp(ctx context.Context, loc loc.Locator, syncer Syncer) error {
-	err := syncer.checkAndSetDefaults()
+func (r Syncer) SyncApp(ctx context.Context, loc loc.Locator) error {
+	err := r.checkAndSetDefaults()
 	if err != nil {
 		return trace.Wrap(err)
 	}
-	app, err := syncer.AppService.GetApp(loc)
+	app, err := r.AppService.GetApp(loc)
 	if err != nil {
 		return trace.Wrap(err)
 	}
 	deps, err := GetDependencies(GetDependenciesRequest{
 		App:  *app,
-		Apps: syncer.AppService,
-		Pack: syncer.PackService,
+		Apps: r.AppService,
+		Pack: r.PackService,
 	})
 	if err != nil {
 		return trace.Wrap(err)
 	}
 	deps.Apps = append(deps.Apps, *app)
-	syncer.Dependencies = *deps
-	return syncer.Sync(ctx)
+	return r.Sync(ctx, *deps)
 }
 
 // Sync syncs the specified dependencies with the configured registry
-func (r Syncer) Sync(ctx context.Context) error {
-	for _, app := range r.Dependencies.Apps {
-		if err := r.sync(ctx, app.Package); err != nil {
+func (r Syncer) Sync(ctx context.Context, deps Dependencies) error {
+	err := r.checkAndSetDefaults()
+	if err != nil {
+		return trace.Wrap(err)
+	}
+	return r.sync(ctx, deps)
+}
+
+func (r Syncer) sync(ctx context.Context, deps Dependencies) error {
+	for _, app := range deps.Apps {
+		if err := r.syncApp(ctx, app.Package); err != nil {
 			return trace.Wrap(err)
 		}
 	}
@@ -82,7 +89,7 @@ type Syncer struct {
 	Progress utils.Emitter
 }
 
-func (r Syncer) sync(ctx context.Context, loc loc.Locator) error {
+func (r Syncer) syncApp(ctx context.Context, loc loc.Locator) error {
 	dir, err := ioutil.TempDir("", "sync")
 	if err != nil {
 		return trace.Wrap(err)
