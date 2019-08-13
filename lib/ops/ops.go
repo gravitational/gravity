@@ -30,6 +30,7 @@ import (
 	"github.com/gravitational/gravity/lib/constants"
 	"github.com/gravitational/gravity/lib/defaults"
 	"github.com/gravitational/gravity/lib/loc"
+	"github.com/gravitational/gravity/lib/network/validation/proto"
 	"github.com/gravitational/gravity/lib/ops/monitoring"
 	"github.com/gravitational/gravity/lib/pack"
 	"github.com/gravitational/gravity/lib/schema"
@@ -1408,6 +1409,9 @@ type AgentService interface {
 	// CheckBandwidth executes bandwidth network test in agent cluster
 	CheckBandwidth(context.Context, SiteOperationKey, checks.PingPongGame) (checks.PingPongGameResults, error)
 
+	// CheckDisks executes disk performance test on the specified node
+	CheckDisks(ctx context.Context, key SiteOperationKey, addr string, req *proto.CheckDisksRequest) (*proto.CheckDisksResponse, error)
+
 	// StopAgents instructs all remote agents to stop operation
 	// and rejects all consequitive requests to connect for any agent
 	// for this site
@@ -1525,6 +1529,8 @@ type NewSiteRequest struct {
 	// Location describes the location where a new site is about to be deployed,
 	// for example AWS region name
 	Location string `json:"location"`
+	// Flavor is the name of the initial cluster flavor.
+	Flavor string `json:"flavor"`
 	// InstallToken is install token for site to create for agents
 	InstallToken string `json:"install_token"`
 	// ServiceUser specifies the user to use for planet container services
@@ -1615,6 +1621,8 @@ type Site struct {
 	FinalInstallStepComplete bool `json:"final_install_step_complete"`
 	// Location is a location where the site is deployed, for example AWS region name
 	Location string `json:"location"`
+	// Flavor is the initial cluster flavor.
+	Flavor string `json:"flavor"`
 	// UpdateInterval is how often the site checks for and downloads newer versions of the
 	// installed application
 	UpdateInterval time.Duration `json:"update_interval"`

@@ -34,6 +34,12 @@ import (
 func FSMSpec(config FSMConfig) fsm.FSMSpecFunc {
 	return func(p fsm.ExecutorParams, remote fsm.Remote) (fsm.PhaseExecutor, error) {
 		switch {
+		case strings.HasPrefix(p.Phase.ID, phases.InitPhase):
+			return phases.NewInit(p,
+				config.Operator,
+				config.Apps,
+				config.Packages)
+
 		case p.Phase.ID == phases.ChecksPhase:
 			return phases.NewChecks(p,
 				config.Operator,
@@ -93,8 +99,17 @@ func FSMSpec(config FSMConfig) fsm.FSMSpecFunc {
 				config.Operator,
 				client)
 
-		case p.Phase.ID == phases.ResourcesPhase:
-			return phases.NewResources(p,
+		case p.Phase.ID == phases.SystemResourcesPhase:
+			client, err := getKubeClient(p)
+			if err != nil {
+				return nil, trace.Wrap(err)
+			}
+			return phases.NewSystemResources(p,
+				config.Operator,
+				client)
+
+		case p.Phase.ID == phases.UserResourcesPhase:
+			return phases.NewUserResources(p,
 				config.Operator)
 
 		case strings.HasPrefix(p.Phase.ID, phases.ExportPhase):

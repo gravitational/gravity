@@ -104,6 +104,11 @@ func RegistryDir(baseDir string) string {
 	return filepath.Join(baseDir, defaults.PlanetDir, defaults.StateRegistryDir)
 }
 
+// InEtcdDir returns full path to the specified file in the planet etcd data directory
+func InEtcdDir(baseDir, filename string) string {
+	return filepath.Join(baseDir, defaults.PlanetDir, defaults.EtcdDir, filename)
+}
+
 // LogDir returns full path to the planet log directory
 func LogDir(baseDir string, suffixes ...string) string {
 	elems := []string{baseDir, defaults.PlanetDir, defaults.LogDir}

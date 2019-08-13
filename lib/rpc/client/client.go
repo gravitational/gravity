@@ -53,6 +53,8 @@ type Client interface {
 	CheckPorts(context.Context, *validationpb.CheckPortsRequest) (*validationpb.CheckPortsResponse, error)
 	// CheckBandwidth executes a network bandwidth test
 	CheckBandwidth(context.Context, *validationpb.CheckBandwidthRequest) (*validationpb.CheckBandwidthResponse, error)
+	// CheckDisks executes disk performance test
+	CheckDisks(context.Context, *validationpb.CheckDisksRequest) (*validationpb.CheckDisksResponse, error)
 	// Shutdown requests remote agent to shut down
 	Shutdown(context.Context, *pb.ShutdownRequest) error
 	// Abort requests remote agent to uninstall

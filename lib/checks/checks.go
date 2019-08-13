@@ -293,6 +293,9 @@ type Features struct {
 	// TestDockerDevice specifies whether the Docker device test should
 	// be executed. Docker device test is only applicable during install.
 	TestDockerDevice bool
+	// TestEtcdDisk specifies whether the device where etcd data resides
+	// should be performance-tested.
+	TestEtcdDisk bool
 }
 
 // String return textual representation of this server object
@@ -378,6 +381,13 @@ func (r *checker) CheckNode(ctx context.Context, server Server) error {
 	err = r.checkTempDir(ctx, server)
 	if err != nil {
 		errors = append(errors, err)
+	}
+
+	if server.IsMaster() && r.TestEtcdDisk {
+		err = r.checkEtcdDisk(ctx, server)
+		if err != nil {
+			errors = append(errors, err)
+		}
 	}
 
 	err = r.checkDisks(ctx, server)

@@ -202,6 +202,7 @@ func (s *PlanSuite) TestPlan(c *check.C) {
 		phaseID       string
 		phaseVerifier func(*check.C, storage.OperationPhase)
 	}{
+		{installphases.InitPhase, s.verifyInitPhase},
 		{StartAgentPhase, s.verifyStartAgentPhase},
 		{ChecksPhase, s.verifyChecksPhase},
 		{installphases.ConfigurePhase, s.verifyConfigurePhase},
@@ -226,6 +227,17 @@ func (s *PlanSuite) TestPlan(c *check.C) {
 	}
 }
 
+func (s *PlanSuite) verifyInitPhase(c *check.C, phase storage.OperationPhase) {
+	storage.DeepComparePhases(c, storage.OperationPhase{
+		ID: installphases.InitPhase,
+		Data: &storage.OperationPhaseData{
+			Server:  &s.joiningNode,
+			Master:  &s.masterNode,
+			Package: &s.appPackage,
+		},
+	}, phase)
+}
+
 func (s *PlanSuite) verifyChecksPhase(c *check.C, phase storage.OperationPhase) {
 	storage.DeepComparePhases(c, storage.OperationPhase{
 		ID: ChecksPhase,
@@ -233,7 +245,7 @@ func (s *PlanSuite) verifyChecksPhase(c *check.C, phase storage.OperationPhase) 
 			Server: &s.joiningNode,
 			Master: &s.masterNode,
 		},
-		Requires: []string{StartAgentPhase},
+		Requires: []string{installphases.InitPhase, StartAgentPhase},
 	}, phase)
 }
 

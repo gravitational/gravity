@@ -41,6 +41,8 @@ import (
 
 // PlanBuilder builds operation plan phases
 type PlanBuilder struct {
+	// Cluster is the cluster being installed
+	Cluster storage.Site
 	// Application is the app being installed
 	Application app.Application
 	// Runtime is the Runtime of the app being installed
@@ -77,11 +79,37 @@ type PlanBuilder struct {
 	InstallerTrustedCluster storage.TrustedCluster
 }
 
+// AddInitPhase appends initialization phase to the provided plan
+func (b *PlanBuilder) AddInitPhase(plan *storage.OperationPlan) {
+	var initPhases []storage.OperationPhase
+	allNodes := append(b.Masters, b.Nodes...)
+	for i, node := range allNodes {
+		initPhases = append(initPhases, storage.OperationPhase{
+			ID:          fmt.Sprintf("%v/%v", phases.InitPhase, node.Hostname),
+			Description: fmt.Sprintf("Initialize operation on node %v", node.Hostname),
+			Data: &storage.OperationPhaseData{
+				Server:     &allNodes[i],
+				ExecServer: &allNodes[i],
+				Package:    &b.Application.Package,
+			},
+			Step: 0,
+		})
+	}
+	plan.Phases = append(plan.Phases, storage.OperationPhase{
+		ID:          phases.InitPhase,
+		Description: "Initialize operation on all nodes",
+		Phases:      initPhases,
+		Parallel:    true,
+		Step:        0,
+	})
+}
+
 // AddChecksPhase appends preflight checks phase to the provided plan
 func (b *PlanBuilder) AddChecksPhase(plan *storage.OperationPlan) {
 	plan.Phases = append(plan.Phases, storage.OperationPhase{
 		ID:          phases.ChecksPhase,
 		Description: "Execute preflight checks",
+		Requires:    []string{phases.InitPhase},
 		Data: &storage.OperationPhaseData{
 			Package: &b.Application.Package,
 		},
@@ -323,14 +351,28 @@ func (b *PlanBuilder) AddRBACPhase(plan *storage.OperationPlan) {
 	})
 }
 
-// AddResourcesPhase appends K8s resources initialization phase to the provided plan
-func (b *PlanBuilder) AddResourcesPhase(plan *storage.OperationPlan) {
+// AddSystemResourcesPhase appends phase that creates system Kubernetes
+// resources to the provided plan.
+func (b *PlanBuilder) AddSystemResourcesPhase(plan *storage.OperationPlan) {
+	plan.Phases = append(plan.Phases, storage.OperationPhase{
+		ID:          phases.SystemResourcesPhase,
+		Description: "Create system Kubernetes resources",
+		Data: &storage.OperationPhaseData{
+			Server: &b.Master,
+		},
+		Requires: []string{phases.RBACPhase},
+		Step:     4,
+	})
+}
+
+// AddUserResourcesPhase appends K8s resources initialization phase to the provided plan
+func (b *PlanBuilder) AddUserResourcesPhase(plan *storage.OperationPlan) {
 	if len(b.resources) == 0 {
 		// Nothing to add
 		return
 	}
 	plan.Phases = append(plan.Phases, storage.OperationPhase{
-		ID:          phases.ResourcesPhase,
+		ID:          phases.UserResourcesPhase,
 		Description: "Create user-supplied Kubernetes resources",
 		Data: &storage.OperationPhaseData{
 			Server: &b.Master,
@@ -589,6 +631,7 @@ func (c *Config) GetPlanBuilder(operator ops.Operator, cluster ops.Site, op ops.
 		return nil, trace.Wrap(err)
 	}
 	builder := &PlanBuilder{
+		Cluster: ops.ConvertOpsSite(cluster),
 		Application: app.Application{
 			Package:         cluster.App.Package,
 			PackageEnvelope: cluster.App.PackageEnvelope,
@@ -620,22 +663,40 @@ func (c *Config) GetPlanBuilder(operator ops.Operator, cluster ops.Site, op ops.
 
 // splitServers splits the provided servers into masters and nodes
 func splitServers(servers []storage.Server, app app.Application) (masters []storage.Server, nodes []storage.Server, err error) {
-	count := 0
+	numMasters := 0
+
+	// count the number of servers designated as master by the node profile
+	for _, server := range servers {
+		profile, err := app.Manifest.NodeProfiles.ByName(server.Role)
+		if err != nil {
+			return nil, nil, trace.Wrap(err)
+		}
+
+		if profile.ServiceRole == schema.ServiceRoleMaster {
+			numMasters++
+		}
+	}
+
+	// assign the servers to their rolls
 	for _, server := range servers {
 		profile, err := app.Manifest.NodeProfiles.ByName(server.Role)
 		if err != nil {
 			return nil, nil, trace.Wrap(err)
 		}
 		switch profile.ServiceRole {
-		case schema.ServiceRoleMaster, "":
-			if count < defaults.MaxMasterNodes {
+		case "":
+			if numMasters < defaults.MaxMasterNodes {
 				server.ClusterRole = string(schema.ServiceRoleMaster)
 				masters = append(masters, server)
-				count++
+				numMasters++
 			} else {
 				server.ClusterRole = string(schema.ServiceRoleNode)
 				nodes = append(nodes, server)
 			}
+		case schema.ServiceRoleMaster:
+			server.ClusterRole = string(schema.ServiceRoleMaster)
+			masters = append(masters, server)
+			// don't increment numMasters as this server has already been counted above
 		case schema.ServiceRoleNode:
 			server.ClusterRole = string(schema.ServiceRoleNode)
 			nodes = append(nodes, server)

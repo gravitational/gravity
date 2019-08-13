@@ -166,11 +166,17 @@ const (
 	// KubectlBin is the name of the kubectl binary
 	KubectlBin = "kubectl"
 
+	// FioBin is the name of the fio binary
+	FioBin = "fio"
+
 	// TelePackage is the name of the package with 'tele' binary
 	TelePackage = "tele"
 
 	// TshPackage is the name of the package with 'tsh' binary
 	TshPackage = "tsh"
+
+	// FioPackage is the name of the package with fio binary.
+	FioPackage = "fio"
 
 	// BootstrapConfigPackage specifies the name of the package with default roles/security policies
 	BootstrapConfigPackage = "rbac-app"
@@ -544,6 +550,15 @@ const (
 
 	// ClusterConfigurationMap is the name of the ConfigMap that hosts cluster configuration resource
 	ClusterConfigurationMap = "cluster-configuration"
+
+	// ClusterInfoMap is the name of the ConfigMap that contains cluster information.
+	ClusterInfoMap = "cluster-info"
+	// ClusterNameEnv is the environment variable that contains cluster domain name.
+	ClusterNameEnv = "GRAVITY_CLUSTER_NAME"
+	// ClusterProviderEnv is the environment variable that contains cluster cloud provider.
+	ClusterProviderEnv = "GRAVITY_CLUSTER_PROVIDER"
+	// ClusterFlavorEnv is the environment variable that contains initial cluster flavor.
+	ClusterFlavorEnv = "GRAVITY_CLUSTER_FLAVOR"
 
 	// SMTPSecret specifies the name of the Secret with cluster SMTP configuration
 	SMTPSecret = "smtp-configuration-update"

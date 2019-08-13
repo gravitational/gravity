@@ -2,6 +2,7 @@ syntax = "proto3";
 
 package proto;
 
+import "github.com/gogo/protobuf/gogoproto/gogo.proto";
 import "google/protobuf/duration.proto";
 import "agentpb/agent.proto";
 
@@ -11,6 +12,9 @@ service Validation {
 
     // CheckBandwidth executes a bandwidth network test
     rpc CheckBandwidth(CheckBandwidthRequest) returns (CheckBandwidthResponse);
+
+    // CheckDisks executes performance test for the specified disks
+    rpc CheckDisks(CheckDisksRequest) returns (CheckDisksResponse);
 
     // Validate validatest this node against the requirements
     // from a manifest.
@@ -106,4 +110,74 @@ message ValidateOptions {
 message Docker {
     // StorageDriver specifies the Docker storage driver
     string storage_driver = 1;
+}
+
+// CheckDisksRequest describes a disks performance test request.
+message CheckDisksRequest {
+  // Jobs specifies a list of fio jobs to execute.
+  repeated FioJobSpec jobs = 1;
+  // FioPath specifies the path to fio executable.
+  string fio_path = 2;
+}
+
+// FioJobSpec describes a single fio job.
+message FioJobSpec {
+  // Name is the job name.
+  string name = 1;
+  // ReadWrite specifies the I/O pattern.
+  string read_write = 2;
+  // IOEngine specifies I/O engine to use.
+  string io_engine = 3;
+  // Fdatasync specifies whether to sync data.
+  bool fdatasync = 4;
+  // Filename specifies the test file path.
+  string filename = 5;
+  // BlockSize is the block size used for I/O.
+  string block_size = 6;
+  // Size is the total test file size.
+  string size = 7;
+  // Runtime limits the maximum test runtime.
+  google.protobuf.Duration runtime = 8;
+}
+
+// CheckDisksResponse is the result of the disk performance test.
+message CheckDisksResponse {
+  // Jobs is a list of executed fio jobs.
+  repeated FioJobResult jobs = 1;
+}
+
+// FioJobResult represents a result of a single fio job.
+message FioJobResult  {
+  // JobName is the name of the job.
+  string job_name = 1 [(gogoproto.jsontag) = "jobname"];
+  // Read contains metrics related to performed reads.
+  FioReadResult read = 2 [(gogoproto.jsontag) = "read"];
+  // Write contains metrics related to performed writes.
+  FioWriteResult write = 3 [(gogoproto.jsontag) = "write"];
+  // Sync contains metrics related to performed fsync calls.
+  FioSyncResult sync = 4 [(gogoproto.jsontag) = "sync"];
+}
+
+// FioReadResult contains read-related metrics.
+message FioReadResult {
+  // IOPS is the number of read iops.
+  double iops = 1 [(gogoproto.jsontag) = "iops"];
+}
+
+// FioWriteResult contains write-related metrics.
+message FioWriteResult  {
+  // IOPS is the number of write iops.
+  double iops = 1 [(gogoproto.jsontag) = "iops"];
+}
+
+// FioSyncResult contains fsync-related metrics.
+message FioSyncResult  {
+  // Latency contains fsync latencies distribution.
+  FioSyncLatency latency = 1 [(gogoproto.jsontag) = "lat_ns"];
+}
+
+// FioSyncLatency contains fsync latencies distribution.
+message FioSyncLatency {
+  // Percentile is the fsync percentile buckets.
+  map<string, int64> percentile = 1 [(gogoproto.jsontag) = "percentile"];
 }
