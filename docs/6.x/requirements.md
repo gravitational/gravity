@@ -10,7 +10,7 @@ Gravity supports the following Linux distributions:
 | Linux Distribution        | Version         | Docker Storage Drivers                |
 |--------------------------|-----------------|---------------------------------------|
 | Red Hat Enterprise Linux | 7.2-7.3         | `devicemapper`*                        |
-| Red Hat Enterprise Linux | 7.4-7.6         | `devicemapper`*, `overlay`, `overlay2` |
+| Red Hat Enterprise Linux | 7.4-7.7, 8.0    | `devicemapper`*, `overlay`, `overlay2` |
 | CentOS                   | 7.2-7.6         | `devicemapper`*, `overlay`, `overlay2` |
 | Debian                   | 8-9             | `devicemapper`*, `overlay`, `overlay2` |
 | Ubuntu                   | 16.04           | `devicemapper`*, `overlay`, `overlay2` |
@@ -34,7 +34,7 @@ specified in the manifest:
 
 | Distribution Name        | ID                         | Version        |
 |--------------------------|----------------------------|----------------|
-| Red Hat Enterprise Linux | rhel                       | 7.2-7.6        |
+| Red Hat Enterprise Linux | rhel                       | 7.2-7.7, 8.0   |
 | CentOS                   | centos                     | 7.2-7.6        |
 | Debian                   | debian                     | 8-9            |
 | Ubuntu                   | ubuntu                     | 16.04          |
@@ -72,7 +72,7 @@ Gravity supports two networking backends in production:
 * VPC and routing tables based network for `AWS` cloud provider.
 * VXLAN based network for `generic` provider to be used on generic linux installations.
 
-See [Cluster Image Manifest](/pack/#image-manifest) section for details on how to select 
+See [Cluster Image Manifest](/pack/#image-manifest) section for details on how to select
 the network type.
 
 #### Air-gapped installs
