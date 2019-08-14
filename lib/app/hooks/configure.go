@@ -105,16 +105,6 @@ func configureMetadata(job *batchv1.Job, p Params) error {
 				Value: p.ServiceUser.UID,
 			},
 		)
-		job.Spec.Template.Spec.Containers[i].EnvFrom = append(
-			job.Spec.Template.Spec.Containers[i].EnvFrom,
-			v1.EnvFromSource{
-				ConfigMapRef: &v1.ConfigMapEnvSource{
-					LocalObjectReference: v1.LocalObjectReference{
-						Name: constants.ClusterInfoMap,
-					},
-				},
-			},
-		)
 		// set image pull policy if none specified
 		if job.Spec.Template.Spec.Containers[i].ImagePullPolicy == "" {
 			job.Spec.Template.Spec.Containers[i].ImagePullPolicy = v1.PullIfNotPresent
