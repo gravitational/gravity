@@ -177,12 +177,12 @@ func RegisterCommands(app *kingpin.Application) *Application {
 	g.UpdateRotatePlanetConfigCmd.Package = Locator(g.UpdateRotatePlanetConfigCmd.Flag("package", "Name of the package to generate").Required())
 	g.UpdateRotatePlanetConfigCmd.RuntimePackage = Locator(g.UpdateRotatePlanetConfigCmd.Flag("runtime-package", "Name of the runtime package to generate configuration for").Required())
 	g.UpdateRotatePlanetConfigCmd.ServerAddr = g.UpdateRotatePlanetConfigCmd.Flag("addr", "Address of this node as used by the update operation").Required().String()
-	g.UpdateRotatePlanetConfigCmd.OperationID = g.UpdateRotatePlanetConfigCmd.Flag("id", "Update oepration ID").Required().String()
+	g.UpdateRotatePlanetConfigCmd.OperationID = g.UpdateRotatePlanetConfigCmd.Flag("id", "Update operation ID").Required().String()
 
 	g.UpdateRotateTeleportConfigCmd.CmdClause = g.UpdateCmd.Command("rotate-teleport-config", "Generate new configuration package for teleport").Hidden()
 	g.UpdateRotateTeleportConfigCmd.Package = Locator(g.UpdateRotateTeleportConfigCmd.Flag("package", "Name of the package to generate").Required())
 	g.UpdateRotateTeleportConfigCmd.ServerAddr = g.UpdateRotateTeleportConfigCmd.Flag("addr", "Address of this node as used by the update operation").Required().String()
-	g.UpdateRotateTeleportConfigCmd.OperationID = g.UpdateRotateTeleportConfigCmd.Flag("id", "Update oepration ID").Required().String()
+	g.UpdateRotateTeleportConfigCmd.OperationID = g.UpdateRotateTeleportConfigCmd.Flag("id", "Update operation ID").Required().String()
 
 	g.StatusCmd.CmdClause = g.Command("status", "Show the status of the cluster and the application running in it")
 	g.StatusCmd.Token = g.StatusCmd.Flag("token", "Show only the cluster token").Bool()
