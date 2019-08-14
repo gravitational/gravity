@@ -127,9 +127,6 @@ func (p *Process) getOrInitAuthGatewayConfig() (storage.AuthGateway, error) {
 	if err != nil {
 		return nil, trace.Wrap(err)
 	}
-	// // Initially the local cluster name is set as a principal.
-	// authGateway.SetSSHPublicAddrs([]string{cluster.Domain})
-	// authGateway.SetKubernetesPublicAddrs([]string{cluster.Domain})
 	err = opsservice.UpsertAuthGateway(client, p.identity, authGateway)
 	if err != nil {
 		return nil, trace.Wrap(err)
