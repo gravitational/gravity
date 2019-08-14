@@ -91,7 +91,7 @@ func (p *Process) getOrInitAuthGatewayConfig() (storage.AuthGateway, error) {
 		// process which doesn't support auth gateway reconfiguration.
 		return nil, nil
 	}
-	cluster, err := p.backend.GetLocalSite(defaults.SystemAccountID)
+	_, err := p.backend.GetLocalSite(defaults.SystemAccountID)
 	if err != nil {
 		if trace.IsNotFound(err) {
 			// There's no local cluster which likely means that process is
@@ -127,9 +127,6 @@ func (p *Process) getOrInitAuthGatewayConfig() (storage.AuthGateway, error) {
 	if err != nil {
 		return nil, trace.Wrap(err)
 	}
-	// Initially the local cluster name is set as a principal.
-	authGateway.SetSSHPublicAddrs([]string{cluster.Domain})
-	authGateway.SetKubernetesPublicAddrs([]string{cluster.Domain})
 	err = opsservice.UpsertAuthGateway(client, p.identity, authGateway)
 	if err != nil {
 		return nil, trace.Wrap(err)
