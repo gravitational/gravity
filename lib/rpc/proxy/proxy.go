@@ -22,6 +22,7 @@ import (
 	"fmt"
 	"io"
 	"net"
+	"sync"
 
 	"github.com/gravitational/trace"
 	log "github.com/sirupsen/logrus"
@@ -33,7 +34,6 @@ func New(link Link, log log.FieldLogger) *Proxy {
 	return &Proxy{
 		link:        link,
 		FieldLogger: log.WithField("proxy", link.String()),
-		teardownCh:  make(chan struct{}),
 		doneCh:      ctx.Done(),
 		cancel:      cancel,
 	}
@@ -47,9 +47,8 @@ type Proxy struct {
 	// and proxy loop stopped
 	doneCh <-chan struct{}
 	cancel context.CancelFunc
-	// teardownCh signals when the connection cleanup has completed
-	// and proxy loop has finished
-	teardownCh chan struct{}
+	// wg allows to track lifespan of internal processes
+	wg sync.WaitGroup
 	// notifyCh signals new connections
 	notifyCh chan<- struct{}
 }
@@ -60,6 +59,7 @@ func (r *Proxy) Start() error {
 	if err != nil {
 		return trace.Wrap(err)
 	}
+	r.wg.Add(1)
 	go r.serve(listener)
 	r.Info("Proxy started.")
 	return nil
@@ -69,7 +69,7 @@ func (r *Proxy) Start() error {
 func (r *Proxy) Stop() {
 	r.cancel()
 	r.link.Close()
-	<-r.teardownCh
+	r.wg.Wait()
 	r.Info("Proxy stopped.")
 }
 
@@ -120,7 +120,7 @@ func (r NetLink) String() string {
 }
 
 func (r *Proxy) serve(listener net.Listener) {
-	defer close(r.teardownCh)
+	defer r.wg.Done()
 	for {
 		c1, err := listener.Accept()
 		if err != nil {
@@ -145,9 +145,10 @@ func (r *Proxy) serve(listener net.Listener) {
 		}
 		r.WithField("addr", c2.RemoteAddr()).Info("Upstream connection.")
 
+		r.wg.Add(3)
 		errCh := make(chan error, 2)
-		go proxyConn(c1, c2, errCh)
-		go proxyConn(c2, c1, errCh)
+		go r.proxyConn(c1, c2, errCh)
+		go r.proxyConn(c2, c1, errCh)
 		go r.watchConns(errCh, c1, c2, listener)
 
 		r.notifyNewConnection()
@@ -155,6 +156,7 @@ func (r *Proxy) serve(listener net.Listener) {
 }
 
 func (r *Proxy) watchConns(errCh <-chan error, closers ...io.Closer) {
+	defer r.wg.Done()
 	select {
 	case err := <-errCh:
 		if err != nil {
@@ -174,7 +176,8 @@ func (r *Proxy) notifyNewConnection() {
 	}
 }
 
-func proxyConn(c1 io.Writer, c2 io.Reader, errCh chan<- error) {
+func (r *Proxy) proxyConn(c1 io.Writer, c2 io.Reader, errCh chan<- error) {
+	defer r.wg.Done()
 	_, err := io.Copy(c1, c2)
 	errCh <- err
 }
