@@ -208,7 +208,7 @@ func rotatePlanetConfig(env *localenv.LocalEnvironment, pkg, runtimePackage loc.
 		Servers:        plan.Servers,
 		Server:         *server,
 		RuntimePackage: runtimePackage,
-		Package:        pkg,
+		Package:        &pkg,
 		Manifest:       app.Manifest,
 	})
 	if err != nil {

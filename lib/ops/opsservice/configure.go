@@ -1120,7 +1120,7 @@ func (s *site) configureTeleportMaster(ctx *operationContext, secrets *teleportS
 
 	err = pack.ConfigurePackage(
 		s.packages(), s.teleportPackage, *configPackage, args, map[string]string{
-			pack.PurposeLabel:     pack.PurposeTeleportMasterConfig,
+			pack.PurposeLabel:     pack.PurposeTeleportConfig,
 			pack.AdvertiseIPLabel: master.AdvertiseIP,
 			pack.OperationIDLabel: ctx.operation.ID,
 		})

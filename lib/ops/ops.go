@@ -802,8 +802,9 @@ type RotatePlanetConfigRequest struct {
 	RuntimePackage loc.Locator `json:"runtime_package"`
 	// Manifest specifies the manifest to generate configuration with
 	Manifest schema.Manifest `json:"manifest"`
-	// Package specifies the configuration package locator to use
-	Package loc.Locator `json:"package"`
+	// Package specifies the configuration package locator to use.
+	// It is generated automatically if unspecified
+	Package *loc.Locator `json:"package"`
 }
 
 // Proxy helps to manage connections and clients to remote ops centers

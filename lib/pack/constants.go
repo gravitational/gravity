@@ -44,8 +44,8 @@ const (
 	PurposePlanetConfig = "planet-config"
 	// PurposeRuntime marks a package as a runtime container package
 	PurposeRuntime = "runtime"
-	// PurposeTeleportMasterConfig marks package with teleport master config
-	PurposeTeleportMasterConfig = "teleport-master-config"
+	// PurposeTeleportConfig marks package with teleport master config
+	PurposeTeleportConfig = "teleport-config"
 	// PurposeTeleportNodeConfig marks package with teleport node config
 	PurposeTeleportNodeConfig = "teleport-node-config"
 	// PurposeMetadata defines a label to use for application packages

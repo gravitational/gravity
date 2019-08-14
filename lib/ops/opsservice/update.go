@@ -164,6 +164,14 @@ func (o *Operator) RotatePlanetConfig(req ops.RotatePlanetConfigRequest) (*ops.R
 		Profile: *nodeProfile,
 	}
 
+	configPackage := req.Package
+	if configPackage == nil {
+		configPackage, err = cluster.planetConfigPackage(&node, req.RuntimePackage.Version)
+		if err != nil {
+			return nil, trace.Wrap(err)
+		}
+	}
+
 	runner := &localRunner{}
 
 	memberListOutput, err := runner.Run(cluster.etcdctlCommand("member", "list")...)
@@ -228,7 +236,7 @@ func (o *Operator) RotatePlanetConfig(req ops.RotatePlanetConfigRequest) (*ops.R
 		docker:        dockerConfig,
 		dockerRuntime: node.Docker,
 		planetPackage: req.RuntimePackage,
-		configPackage: req.Package,
+		configPackage: *configPackage,
 	}
 
 	resp, err := cluster.getPlanetConfigPackage(config)
@@ -238,7 +246,7 @@ func (o *Operator) RotatePlanetConfig(req ops.RotatePlanetConfigRequest) (*ops.R
 
 	log.WithFields(log.Fields{
 		"server":  node.String(),
-		"package": req.Package.String(),
+		"package": configPackage.String(),
 	}).Info("Created new planet configuration.")
 	return resp, nil
 }
