@@ -25,7 +25,7 @@ const LoginCell = ({ rowIndex, data}) => {
   const { sshLogins, id, hostname } = data[rowIndex];
   return (
     <Cell>
-      <MenuLogin serverId={hostname || id} logins={sshLogins} />
+      <MenuLogin serverId={id || hostname} logins={sshLogins} />
     </Cell>
   );
 }

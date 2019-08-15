@@ -57,8 +57,11 @@ export default class CustomRange extends React.Component {
 
   onChange(){
     const { from, to } = this.state;
-    if( from && to && this.startSelecting){
-      this.props.onChange(from, to);
+    if(from && to && this.startSelecting){
+      // make sure that range includes the end/start of the day
+      const start = moment(from).startOf('day').toDate();
+      const end = moment(to).endOf('day').toDate();
+      this.props.onChange(start, end);
     }
   }
 
