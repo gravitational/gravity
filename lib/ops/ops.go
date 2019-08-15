@@ -699,7 +699,7 @@ type Updates interface {
 	RotatePlanetConfig(RotatePlanetConfigRequest) (*RotatePackageResponse, error)
 
 	// RotateTeleportConfig rotates teleport configuration package for the server specified in the request
-	RotateTeleportConfig(RotateTeleportConfigRequest) (nodeConfig *RotatePackageResponse, err error)
+	RotateTeleportConfig(RotateTeleportConfigRequest) (*RotatePackageResponse, error)
 
 	// ConfigureNode prepares the node for the upgrade
 	ConfigureNode(ConfigureNodeRequest) error
@@ -762,8 +762,8 @@ func (r RotateSecretsRequest) SiteKey() SiteKey {
 	}
 }
 
-// Check validates this request
-func (r RotateTeleportConfigRequest) Check() error {
+// CheckAndSetDefaults validates this request
+func (r RotateTeleportConfigRequest) CheckAndSetDefaults() error {
 	if err := r.Key.Check(); err != nil {
 		return trace.Wrap(err)
 	}
@@ -778,12 +778,12 @@ type RotateTeleportConfigRequest struct {
 	Server storage.Server `json:"server"`
 	// Servers is all cluster servers
 	Servers storage.Servers `json:"servers"`
-	// Node specifies the configuration package for teleport nodes
-	Node *loc.Locator `json:"node,omitempty"`
+	// Package specifies the configuration package for teleport nodes
+	Package *loc.Locator `json:"package,omitempty"`
 }
 
-// Check validates this request
-func (r RotatePlanetConfigRequest) Check() error {
+// CheckAndSetDefaults validates this request
+func (r RotatePlanetConfigRequest) CheckAndSetDefaults() error {
 	if err := r.Key.Check(); err != nil {
 		return trace.Wrap(err)
 	}

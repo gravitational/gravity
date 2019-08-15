@@ -71,7 +71,7 @@ func (o *Operator) RotateSecrets(req ops.RotateSecretsRequest) (*ops.RotatePacka
 
 // RotateTeleportConfig generates teleport configuration for the server specified in the provided request
 func (o *Operator) RotateTeleportConfig(req ops.RotateTeleportConfigRequest) (nodeConfig *ops.RotatePackageResponse, err error) {
-	if err := req.Check(); err != nil {
+	if err := req.CheckAndSetDefaults(); err != nil {
 		return nil, trace.Wrap(err)
 	}
 
@@ -95,7 +95,7 @@ func (o *Operator) RotateTeleportConfig(req ops.RotateTeleportConfigRequest) (no
 		return nil, trace.Wrap(err)
 	}
 
-	nodeConfigPackage := req.Node
+	nodeConfigPackage := req.Package
 	if nodeConfigPackage == nil {
 		nodeConfigPackage, err = cluster.teleportNodeConfigPackage(node)
 		if err != nil {
@@ -144,7 +144,7 @@ func (o *Operator) getNodeProfile(operation ops.SiteOperation, node storage.Serv
 
 // RotatePlanetConfig rotates planet configuration package for the server specified in the request
 func (o *Operator) RotatePlanetConfig(req ops.RotatePlanetConfigRequest) (*ops.RotatePackageResponse, error) {
-	if err := req.Check(); err != nil {
+	if err := req.CheckAndSetDefaults(); err != nil {
 		return nil, trace.Wrap(err)
 	}
 

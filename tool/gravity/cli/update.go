@@ -243,7 +243,7 @@ func rotateTeleportConfig(env *localenv.LocalEnvironment, pkg loc.Locator, opera
 		Key:     operationKey,
 		Server:  *server,
 		Servers: plan.Servers,
-		Node:    &pkg,
+		Package: &pkg,
 	})
 	if err != nil {
 		return trace.Wrap(err)
