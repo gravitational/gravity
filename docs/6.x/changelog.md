@@ -8,7 +8,7 @@ LTS starts with `3.51.0` with minor backwards compatible changes added over time
 | Release       | LTS | Release Date         | Supported Until      | Kubernetes Version | Teleport Version |
 | --------------|-----| -------------------- | -------------------- | ------------------ |------------------|
 | 6.1.1         | No  | August 6th, 2019     | -                    | 1.15.2             | 3.2.7
-| 6.0.2         | No  | August 6th, 2019     | -                    | 1.14.5             | 3.2.7            |
+| 6.0.3         | No  | August 14th, 2019    | -                    | 1.14.5             | 3.2.7            |
 | 5.6.6         | No  | August 6th, 2019     | -                    | 1.14.5             | 3.0.5            |
 | 5.5.15        | Yes | August 6th, 2019     | September 7th, 2020  | 1.13.9             | 3.0.4            |
 | 5.4.10*       | No  | March 26th, 2019     | -                    | 1.13.5             | 2.4.10           |
@@ -31,6 +31,12 @@ LTS starts with `3.51.0` with minor backwards compatible changes added over time
     do not receive updates and bugfixes.
 
 ## 6.x Releases
+
+### 6.0.3 (August 14th, 2019)
+
+#### Bugfixes
+
+* Do not set auth gateway public addresses to the cluster name during installation.
 
 ### 6.1.1 (August 6th, 2019)
 
