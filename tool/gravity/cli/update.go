@@ -203,7 +203,7 @@ func rotatePlanetConfig(env *localenv.LocalEnvironment, pkg, runtimePackage loc.
 	if server == nil {
 		return trace.NotFound("no server found for %v", serverAddr)
 	}
-	_, err = clusterEnv.Operator.RotatePlanetConfig(ops.RotatePlanetConfigRequest{
+	resp, err := clusterEnv.Operator.RotatePlanetConfig(ops.RotatePlanetConfigRequest{
 		Key:            cluster.Key(),
 		Servers:        plan.Servers,
 		Server:         *server,
@@ -214,7 +214,8 @@ func rotatePlanetConfig(env *localenv.LocalEnvironment, pkg, runtimePackage loc.
 	if err != nil {
 		return trace.Wrap(err)
 	}
-	return nil
+	_, err = clusterEnv.ClusterPackages.UpsertPackage(resp.Locator, resp.Reader, pack.WithLabels(resp.Labels))
+	return trace.Wrap(err)
 }
 
 func rotateTeleportConfig(env *localenv.LocalEnvironment, pkg loc.Locator, operationID, serverAddr string) error {
@@ -239,7 +240,7 @@ func rotateTeleportConfig(env *localenv.LocalEnvironment, pkg loc.Locator, opera
 	if server == nil {
 		return trace.NotFound("no server found for %v", serverAddr)
 	}
-	_, err = clusterEnv.Operator.RotateTeleportConfig(ops.RotateTeleportConfigRequest{
+	resp, err := clusterEnv.Operator.RotateTeleportConfig(ops.RotateTeleportConfigRequest{
 		Key:     operationKey,
 		Server:  *server,
 		Servers: plan.Servers,
@@ -248,7 +249,8 @@ func rotateTeleportConfig(env *localenv.LocalEnvironment, pkg loc.Locator, opera
 	if err != nil {
 		return trace.Wrap(err)
 	}
-	return nil
+	_, err = clusterEnv.ClusterPackages.UpsertPackage(resp.Locator, resp.Reader, pack.WithLabels(resp.Labels))
+	return trace.Wrap(err)
 }
 
 func checkCanUpdate(cluster ops.Site, operator ops.Operator, manifest schema.Manifest) error {

@@ -188,7 +188,7 @@ func (r *localRunner) Run(args ...string) ([]byte, error) {
 	var b bytes.Buffer
 	err := r.RunStream(&b, args...)
 	if err != nil {
-		return nil, trace.Wrap(err)
+		return b.Bytes(), trace.Wrap(err)
 	}
 	return b.Bytes(), nil
 }

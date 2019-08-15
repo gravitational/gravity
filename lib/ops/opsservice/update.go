@@ -210,7 +210,7 @@ func (o *Operator) RotatePlanetConfig(req ops.RotatePlanetConfigRequest) (*ops.R
 	}
 
 	var master *storage.Server
-	for _, server := range cluster.servers() {
+	for _, server := range req.Servers {
 		if server.IsMaster() {
 			master = &server
 			break
