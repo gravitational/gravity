@@ -78,7 +78,7 @@ nodeProfiles:
         - name: rhel
           versions: ["7", "8"]
         - name: ubuntu
-          versions: ["16"]
+          versions: ["16.04", "18.04"]
         - name: ubuntu-core
           versions: ["16"]
         - name: debian
