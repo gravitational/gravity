@@ -656,10 +656,6 @@ type phaseBuilder struct {
 	// leader refers to the master server running the update operation
 	// leadMaster storage.UpdateServer
 	leadMaster storage.UpdateServer
-	// intermediateServers lists cluster server augmented with update requirements
-	// for the intermediate runtime update. Will be empty if intermediate update
-	// step is not required
-	intermediateServers []storage.UpdateServer
 	// installedRuntime is the runtime of the installed app
 	installedRuntime app.Application
 	// installedApp is the installed app
@@ -698,8 +694,6 @@ type phaseBuilder struct {
 	roles []teleservices.Role
 	// changesetID specifies the ID to assign the final system update step
 	changesetID string
-	// intermediateChangesetID specifies the ID to assign the intermediate system update step
-	intermediateChangesetID string
 }
 
 type etcdVersion struct {

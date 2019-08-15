@@ -266,24 +266,23 @@ func NewOperationPlan(config PlanConfig) (*storage.OperationPlan, error) {
 	}
 	builder.etcd = etcdVersion
 
-	intermediates, updates, err := configUpdatesWithIntermediateRuntime(
-		installedApp.Manifest, updateApp.Manifest,
-		config.Operator, config.Operation.Key(), servers)
-	if err != nil {
-		return nil, trace.Wrap(err)
-	}
-	leader, err := findServer(*config.Leader, updates)
-	if err != nil {
-		return nil, trace.Wrap(err)
-	}
-	builder.intermediateServers = intermediates
-	builder.leadMaster = *leader
-	builder.servers = updates
-	builder.intermediateChangesetID = uuid.New()
-	plan, err := newOperationPlanWithIntermediateUpdate(builder)
-	if err != nil {
-		return nil, trace.Wrap(err)
-	}
+	// intermediates, updates, err := configUpdatesWithIntermediateRuntime(
+	// 	installedApp.Manifest, updateApp.Manifest,
+	// 	config.Operator, config.Operation.Key(), servers)
+	// if err != nil {
+	// 	return nil, trace.Wrap(err)
+	// }
+	// leader, err := findServer(*config.Leader, updates)
+	// if err != nil {
+	// 	return nil, trace.Wrap(err)
+	// }
+	// builder.intermediateServers = intermediates
+	// builder.leadMaster = *leader
+	// builder.servers = updates
+	// plan, err := newOperationPlanWithIntermediateUpdate(builder)
+	// if err != nil {
+	// 	return nil, trace.Wrap(err)
+	// }
 	return plan, nil
 }
 
@@ -565,94 +564,69 @@ func configUpdates(
 // configUpdatesWithIntermediateRuntime computes the configuration updates for the specified list of servers
 // for the case when the plan needs to perform an intermediate runtime package update
 func configUpdatesWithIntermediateRuntime(
-	installed, update schema.Manifest,
-	operator packageRotator,
+	installedTeleport, updateTeleport loc.Locator,
+	installedRuntime, updateRuntime loc.Locator,
+	configurator packageConfigurator,
 	operation ops.SiteOperationKey,
 	servers []storage.Server,
-) (intermediateUpdates, updates []storage.UpdateServer, err error) {
-	installedTeleport, err := installed.Dependencies.ByName(constants.TeleportPackage)
-	if err != nil {
-		return nil, nil, trace.Wrap(err)
-	}
-	updateTeleport, err := update.Dependencies.ByName(constants.TeleportPackage)
-	if err != nil {
-		return nil, nil, trace.Wrap(err)
-	}
+) (updates []storage.UpdateServer, err error) {
 	for _, server := range servers {
-		secretsUpdate, err := operator.RotateSecrets(ops.RotateSecretsRequest{
+		secretsPackage, err := configurator.NewPlanetSecretsPackageName(ops.RotateSecretsRequest{
 			AccountID:   operation.AccountID,
 			ClusterName: operation.SiteDomain,
 			Server:      server,
-			DryRun:      true,
 		})
 		if err != nil {
-			return nil, nil, trace.Wrap(err)
+			return nil, trace.Wrap(err)
 		}
-		installedRuntime, err := getRuntimePackage(installed, server.Role, schema.ServiceRole(server.ClusterRole))
-		if err != nil {
-			return nil, nil, trace.Wrap(err)
-		}
-		updateRuntime, err := update.RuntimePackageForProfile(server.Role)
-		if err != nil {
-			return nil, nil, trace.Wrap(err)
-		}
-		configUpdate, err := operator.RotatePlanetConfig(ops.RotatePlanetConfigRequest{
-			Key:            operation,
-			Server:         server,
-			Manifest:       update,
-			RuntimePackage: *updateRuntime,
-			DryRun:         true,
-		})
-		if err != nil {
-			return nil, nil, trace.Wrap(err)
-		}
-		_, nodeConfig, err := operator.RotateTeleportConfig(ops.RotateTeleportConfigRequest{
+		// FIXME: factor this out into a configuration package rotator as this
+		// needs to be per step (for intermediate steps, this needs to call into
+		// the corresponding version of the gravity binary)
+		// FIXME: this generates the package name
+		runtimeConfig, err := configurator.NewPlanetPackageName(ops.RotatePlanetConfigRequest{
 			Key:    operation,
 			Server: server,
-			DryRun: true,
+			// TODO
 		})
 		if err != nil {
-			return nil, nil, trace.Wrap(err)
+			return nil, trace.Wrap(err)
 		}
-		intmediateUpdate := storage.UpdateServer{
+		teleportNodeConfig, err := configurator.NewTeleportPackageName(ops.RotateTeleportConfigRequest{
+			Key:    operation,
 			Server: server,
-			Runtime: storage.RuntimePackage{
-				Installed:      *installedRuntime,
-				SecretsPackage: &secretsUpdate.Locator,
-				Update: &storage.RuntimeUpdate{
-					// FIXME
-					// Package:       loc.IntermediateRuntimePackage,
-					ConfigPackage: configUpdate.Locator,
-				},
-			},
-			Teleport: storage.TeleportPackage{
-				Installed: *installedTeleport,
-				// Skip teleport update
-			},
+			// TODO
+		})
+		if err != nil {
+			return nil, trace.Wrap(err)
 		}
 		update := storage.UpdateServer{
 			Server: server,
 			Runtime: storage.RuntimePackage{
-				// FIXME
-				// Installed:      loc.IntermediateRuntimePackage,
-				SecretsPackage: &secretsUpdate.Locator,
+				Installed:      installedRuntime,
+				SecretsPackage: &secretsPackage,
 				Update: &storage.RuntimeUpdate{
 					Package:       *updateRuntime,
-					ConfigPackage: configUpdate.Locator,
+					ConfigPackage: runtimeConfig,
 				},
 			},
 			Teleport: storage.TeleportPackage{
 				Installed: *installedTeleport,
 				Update: &storage.TeleportUpdate{
-					Package:           *updateTeleport,
-					NodeConfigPackage: nodeConfig.Locator,
+					Package:           updateTeleport,
+					NodeConfigPackage: teleportNodeConfig,
 				},
 			},
 		}
-		intermediateUpdates = append(intermediateUpdates, intmediateUpdate)
 		updates = append(updates, update)
 	}
-	return intermediateUpdates, updates, nil
+	return updates, nil
+}
+
+type packageConfigurator interface {
+	newPlanetPackageName() (*loc.Locator, error)
+	newTeleportPackageName() (*loc.Locator, error)
+	rotatePlanetPackage() error
+	rotateTeleportPackage() loc.Locator
 }
 
 func checkAndSetServerDefaults(servers []storage.Server, client corev1.NodeInterface) ([]storage.Server, error) {
