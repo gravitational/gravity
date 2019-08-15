@@ -129,7 +129,7 @@ func (r *Proxy) serve(listener net.Listener) {
 				return
 			default:
 			}
-			r.WithError(err).Warnf("Failed to accept.")
+			r.WithError(err).Warn("Failed to accept.")
 			return
 		}
 		r.Infof("Accept connection from %v.", c1.RemoteAddr())

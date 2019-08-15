@@ -134,7 +134,6 @@ func (r *localLink) Dial() (net.Conn, error) {
 }
 
 func (r *localLink) Close() error {
-	log.Info("Close local link.")
 	return r.local.Close()
 }
 
