@@ -300,7 +300,7 @@ LTS starts with `3.51.0` with minor backwards compatible changes added over time
 
 #### Improvements
 
-* Upgrade Kubernetes to `v1.14.2` (CVE-2019-1002101)
+* Upgrade Kubernetes to `v1.13.6` (CVE-2019-1002101)
 
 !!! warning
     This release fixes a security vulnerability in kubernetes. Please see
