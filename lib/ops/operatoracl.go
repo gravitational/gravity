@@ -652,13 +652,6 @@ func (o *OperatorACL) RotatePlanetConfig(req RotatePlanetConfigRequest) (*Rotate
 	return o.operator.RotatePlanetConfig(req)
 }
 
-func (o *OperatorACL) RotateTeleportConfig(req RotateTeleportConfigRequest) (*RotatePackageResponse, error) {
-	if err := o.ClusterAction(req.Key.SiteDomain, storage.KindCluster, teleservices.VerbUpdate); err != nil {
-		return nil, trace.Wrap(err)
-	}
-	return o.operator.RotateTeleportConfig(req)
-}
-
 func (o *OperatorACL) ConfigureNode(req ConfigureNodeRequest) error {
 	if err := o.ClusterAction(req.ClusterName, storage.KindCluster, teleservices.VerbUpdate); err != nil {
 		return trace.Wrap(err)

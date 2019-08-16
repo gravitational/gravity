@@ -219,38 +219,8 @@ func rotatePlanetConfig(env *localenv.LocalEnvironment, pkg, runtimePackage loc.
 }
 
 func rotateTeleportConfig(env *localenv.LocalEnvironment, pkg loc.Locator, operationID, serverAddr string) error {
-	clusterEnv, err := localenv.NewClusterEnvironment()
-	if err != nil {
-		return trace.Wrap(err)
-	}
-	cluster, err := clusterEnv.Operator.GetLocalSite()
-	if err != nil {
-		return trace.Wrap(err)
-	}
-	operationKey := ops.SiteOperationKey{
-		AccountID:   cluster.AccountID,
-		SiteDomain:  cluster.Domain,
-		OperationID: operationID,
-	}
-	plan, err := clusterEnv.Operator.GetOperationPlan(operationKey)
-	if err != nil {
-		return trace.Wrap(err)
-	}
-	server := (storage.Servers)(plan.Servers).FindByIP(serverAddr)
-	if server == nil {
-		return trace.NotFound("no server found for %v", serverAddr)
-	}
-	resp, err := clusterEnv.Operator.RotateTeleportConfig(ops.RotateTeleportConfigRequest{
-		Key:     operationKey,
-		Server:  *server,
-		Servers: plan.Servers,
-		Package: &pkg,
-	})
-	if err != nil {
-		return trace.Wrap(err)
-	}
-	_, err = clusterEnv.ClusterPackages.UpsertPackage(resp.Locator, resp.Reader, pack.WithLabels(resp.Labels))
-	return trace.Wrap(err)
+	// This version does not support rotation of the teleport configuration
+	return nil
 }
 
 func checkCanUpdate(cluster ops.Site, operator ops.Operator, manifest schema.Manifest) error {
