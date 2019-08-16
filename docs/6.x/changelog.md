@@ -36,7 +36,7 @@ LTS starts with `3.51.0` with minor backwards compatible changes added over time
 
 #### Bugfixes
 
-* Fix an issue with ssh'ing into some nodes via Cluster Control Panel.
+* Fix an issue with connecting to nodes with non-resolvable hostnames via Cluster Control Panel.
 * Fix an issue with some audit events not being returned when using custom date picker.
 
 ### 6.0.3 (August 14th, 2019)
