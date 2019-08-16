@@ -1213,11 +1213,13 @@ func (s *site) getTeleportNodeConfig(ctx *operationContext, masterIP string, con
 	fileConf.Proxy.EnabledFlag = "no"
 	fileConf.SSH.EnabledFlag = "yes"
 
-	fileConf.Keys = []telecfg.KeyPair{
-		{
-			PrivateKey: string(node.keyPair.PrivateKey),
-			Cert:       string(node.keyPair.Cert),
-		},
+	if node.keyPair != nil {
+		fileConf.Keys = []telecfg.KeyPair{
+			{
+				PrivateKey: string(node.keyPair.PrivateKey),
+				Cert:       string(node.keyPair.Cert),
+			},
+		}
 	}
 
 	bytes, err := yaml.Marshal(fileConf)
