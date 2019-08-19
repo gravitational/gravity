@@ -177,7 +177,9 @@ will be returned to the "active" state.`)
 	return nil
 }
 
-func rotatePlanetConfig(env *localenv.LocalEnvironment, pkg, runtimePackage loc.Locator, operationID, serverAddr string) error {
+// rotatePlanetConfig creates new planet configuration with the specified package locator.
+// If the locator is empty, it just generates and outputs the package name
+func rotatePlanetConfig(env *localenv.LocalEnvironment, pkg *loc.Locator, runtimePackage loc.Locator, operationID, serverAddr string) error {
 	clusterEnv, err := localenv.NewClusterEnvironment()
 	if err != nil {
 		return trace.Wrap(err)
@@ -191,11 +193,25 @@ func rotatePlanetConfig(env *localenv.LocalEnvironment, pkg, runtimePackage loc.
 		SiteDomain:  cluster.Domain,
 		OperationID: operationID,
 	}
-	plan, err := clusterEnv.Operator.GetOperationPlan(operationKey)
+	app, err := clusterEnv.Apps.GetApp(cluster.App.Package)
 	if err != nil {
 		return trace.Wrap(err)
 	}
-	app, err := clusterEnv.Apps.GetApp(cluster.App.Package)
+	if pkg == nil {
+		resp, err := clusterEnv.Operator.RotatePlanetConfig(ops.RotatePlanetConfigRequest{
+			Key:            cluster.Key(),
+			Server:         *server,
+			RuntimePackage: runtimePackage,
+			Manifest:       app.Manifest,
+			DryRun:         true,
+		})
+		if err != nil {
+			return trace.Wrap(err)
+		}
+		env.Println(resp.Locator)
+		return nil
+	}
+	plan, err := clusterEnv.Operator.GetOperationPlan(operationKey)
 	if err != nil {
 		return trace.Wrap(err)
 	}

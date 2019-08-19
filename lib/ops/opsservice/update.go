@@ -99,6 +99,10 @@ func (o *Operator) RotatePlanetConfig(req ops.RotatePlanetConfigRequest) (*ops.R
 		}
 	}
 
+	if req.DryRun {
+		return &ops.RotatePackageResponse{Locator: *configPackage}, nil
+	}
+
 	runner := &localRunner{}
 
 	memberListOutput, err := runner.Run(cluster.etcdctlCommand("member", "list")...)

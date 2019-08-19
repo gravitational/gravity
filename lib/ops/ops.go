@@ -782,6 +782,8 @@ type RotatePlanetConfigRequest struct {
 	// Package specifies the configuration package locator to use.
 	// It is generated automatically if unspecified
 	Package *loc.Locator `json:"package"`
+	// DryRun specifies whether the API generates the package name
+	DryRun bool `json:"dry_run"`
 }
 
 // Proxy helps to manage connections and clients to remote ops centers
