@@ -1,4 +1,4 @@
-FROM quay.io/gravitational/debian-venti:go1.11.5-stretch
+FROM quay.io/gravitational/debian-venti:go1.12.9-stretch
 
 ARG PROTOC_VER
 ARG PROTOC_PLATFORM
@@ -18,11 +18,11 @@ RUN (mkdir -p /gopath/src/github.com/gravitational/gravity && \
      chmod 777 /tmp)
 
 ENV LANGUAGE="en_US.UTF-8" \
-    LANG="en_US.UTF-8" \
-    LC_ALL="en_US.UTF-8" \
-    LC_CTYPE="en_US.UTF-8" \
-    GOPATH="/gopath" \
-    PATH="$PATH:/opt/protoc/bin:/opt/go/bin:/gopath/bin"
+     LANG="en_US.UTF-8" \
+     LC_ALL="en_US.UTF-8" \
+     LC_CTYPE="en_US.UTF-8" \
+     GOPATH="/gopath" \
+     PATH="$PATH:/opt/protoc/bin:/opt/go/bin:/gopath/bin"
 
 RUN (mkdir -p /gopath/src/github.com/gravitational && \
      cd /gopath/src/github.com/gravitational && \
@@ -36,8 +36,8 @@ RUN (mkdir -p /opt/protoc && \
      wget --quiet -O /tmp/${TARBALL} ${PROTOC_URL} && \
      unzip -d /opt/protoc /tmp/${TARBALL} && \
      go get -u github.com/gogo/protobuf/proto github.com/gogo/protobuf/protoc-gen-gogo github.com/gogo/protobuf/gogoproto \
-	 github.com/grpc-ecosystem/grpc-gateway/protoc-gen-grpc-gateway \
-	 github.com/grpc-ecosystem/grpc-gateway/protoc-gen-swagger)
+     github.com/grpc-ecosystem/grpc-gateway/protoc-gen-grpc-gateway \
+     github.com/grpc-ecosystem/grpc-gateway/protoc-gen-swagger)
 
 RUN cd ${GOPATH}/src/github.com/gogo/protobuf && git reset --hard ${GOGO_PROTO_TAG} && make install
 RUN cd ${GOPATH}/src/github.com/grpc-ecosystem/grpc-gateway && git reset --hard ${GRPC_GATEWAY_TAG} && go install ./protoc-gen-grpc-gateway
