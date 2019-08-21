@@ -540,7 +540,7 @@ type UpdateSystemCmd struct {
 type UpdateRotatePlanetConfigCmd struct {
 	*kingpin.CmdClause
 	// Package specifies the package to generate
-	Package *loc.Locator
+	Package *nullableLocator
 	// RuntimePackage specifies the runtime package to generate configuration for
 	RuntimePackage *loc.Locator
 	// ServerAddr specifies this server's address
@@ -553,7 +553,7 @@ type UpdateRotatePlanetConfigCmd struct {
 type UpdateRotateTeleportConfigCmd struct {
 	*kingpin.CmdClause
 	// Package specifies the package to generate
-	Package *loc.Locator
+	Package *nullableLocator
 	// ServerAddr specifies this server's address
 	ServerAddr *string
 	// OperationID specifies the ID of the active update operation

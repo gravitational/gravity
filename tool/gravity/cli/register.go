@@ -174,13 +174,13 @@ func RegisterCommands(app *kingpin.Application) *Application {
 	g.UpdateSystemCmd.RuntimePackage = Locator(g.UpdateSystemCmd.Flag("runtime-package", "The name of the runtime package to update to").Required())
 
 	g.UpdateRotatePlanetConfigCmd.CmdClause = g.UpdateCmd.Command("rotate-planet-config", "Generate new configuration package for planet").Hidden()
-	g.UpdateRotatePlanetConfigCmd.Package = Locator(g.UpdateRotatePlanetConfigCmd.Flag("package", "Name of the package to generate").Required())
+	g.UpdateRotatePlanetConfigCmd.Package = NullableLocator(g.UpdateRotatePlanetConfigCmd.Flag("package", "Name of the package to generate"))
 	g.UpdateRotatePlanetConfigCmd.RuntimePackage = Locator(g.UpdateRotatePlanetConfigCmd.Flag("runtime-package", "Name of the runtime package to generate configuration for").Required())
 	g.UpdateRotatePlanetConfigCmd.ServerAddr = g.UpdateRotatePlanetConfigCmd.Flag("addr", "Address of this node as used by the update operation").Required().String()
 	g.UpdateRotatePlanetConfigCmd.OperationID = g.UpdateRotatePlanetConfigCmd.Flag("id", "Update operation ID").Required().String()
 
 	g.UpdateRotateTeleportConfigCmd.CmdClause = g.UpdateCmd.Command("rotate-teleport-config", "Generate new configuration package for teleport").Hidden()
-	g.UpdateRotateTeleportConfigCmd.Package = Locator(g.UpdateRotateTeleportConfigCmd.Flag("package", "Name of the package to generate").Required())
+	g.UpdateRotateTeleportConfigCmd.Package = NullableLocator(g.UpdateRotateTeleportConfigCmd.Flag("package", "Name of the package to generate"))
 	g.UpdateRotateTeleportConfigCmd.ServerAddr = g.UpdateRotateTeleportConfigCmd.Flag("addr", "Address of this node as used by the update operation").Required().String()
 	g.UpdateRotateTeleportConfigCmd.OperationID = g.UpdateRotateTeleportConfigCmd.Flag("id", "Update operation ID").Required().String()
 
@@ -666,6 +666,41 @@ func Locator(s kingpin.Settings) *loc.Locator {
 	l := new(loc.Locator)
 	s.SetValue(l)
 	return l
+}
+
+// NullableLocator defines a command line flag that accepts input
+// in package locator format. The input can be empty
+func NullableLocator(s kingpin.Settings) *nullableLocator {
+	loc := new(nullableLocator)
+	s.SetValue(loc)
+	return loc
+}
+
+// Set validates value as a Docker storage driver
+func (r *nullableLocator) Set(value string) error {
+	if value == "" {
+		return nil
+	}
+	loc, err := loc.ParseLocator(value)
+	if err != nil {
+		return trace.Wrap(err)
+	}
+	r.Locator = loc
+	return nil
+}
+
+// String returns the value of the storage driver
+func (r *nullableLocator) String() string {
+	if r.Locator == nil {
+		return ""
+	}
+	return r.Locator.String()
+}
+
+// nullableLocator implements a command line flag that
+// optionally contains a package locator
+type nullableLocator struct {
+	*loc.Locator
 }
 
 // DockerStorageDriver defines a command line flag that recognizes

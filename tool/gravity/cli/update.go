@@ -197,6 +197,14 @@ func rotatePlanetConfig(env *localenv.LocalEnvironment, pkg *loc.Locator, runtim
 	if err != nil {
 		return trace.Wrap(err)
 	}
+	plan, err := clusterEnv.Operator.GetOperationPlan(operationKey)
+	if err != nil {
+		return trace.Wrap(err)
+	}
+	server := (storage.Servers)(plan.Servers).FindByIP(serverAddr)
+	if server == nil {
+		return trace.NotFound("no server found for %v", serverAddr)
+	}
 	if pkg == nil {
 		resp, err := clusterEnv.Operator.RotatePlanetConfig(ops.RotatePlanetConfigRequest{
 			Key:            cluster.Key(),
@@ -211,20 +219,12 @@ func rotatePlanetConfig(env *localenv.LocalEnvironment, pkg *loc.Locator, runtim
 		env.Println(resp.Locator)
 		return nil
 	}
-	plan, err := clusterEnv.Operator.GetOperationPlan(operationKey)
-	if err != nil {
-		return trace.Wrap(err)
-	}
-	server := (storage.Servers)(plan.Servers).FindByIP(serverAddr)
-	if server == nil {
-		return trace.NotFound("no server found for %v", serverAddr)
-	}
 	resp, err := clusterEnv.Operator.RotatePlanetConfig(ops.RotatePlanetConfigRequest{
 		Key:            cluster.Key(),
 		Servers:        plan.Servers,
 		Server:         *server,
 		RuntimePackage: runtimePackage,
-		Package:        &pkg,
+		Package:        pkg,
 		Manifest:       app.Manifest,
 	})
 	if err != nil {
@@ -234,7 +234,7 @@ func rotatePlanetConfig(env *localenv.LocalEnvironment, pkg *loc.Locator, runtim
 	return trace.Wrap(err)
 }
 
-func rotateTeleportConfig(env *localenv.LocalEnvironment, pkg loc.Locator, operationID, serverAddr string) error {
+func rotateTeleportConfig(env *localenv.LocalEnvironment, pkg *loc.Locator, operationID, serverAddr string) error {
 	// This version does not support rotation of the teleport configuration
 	return nil
 }

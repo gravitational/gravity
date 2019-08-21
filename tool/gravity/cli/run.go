@@ -384,13 +384,13 @@ func Execute(g *Application, cmd string, extraArgs []string) error {
 		return uploadUpdate(localEnv, *g.UpdateUploadCmd.OpsCenterURL)
 	case g.UpdateRotatePlanetConfigCmd.FullCommand():
 		return rotatePlanetConfig(localEnv,
-			*g.UpdateRotatePlanetConfigCmd.Package,
+			g.UpdateRotatePlanetConfigCmd.Package.Locator,
 			*g.UpdateRotatePlanetConfigCmd.RuntimePackage,
 			*g.UpdateRotatePlanetConfigCmd.OperationID,
 			*g.UpdateRotatePlanetConfigCmd.ServerAddr)
 	case g.UpdateRotateTeleportConfigCmd.FullCommand():
 		return rotateTeleportConfig(localEnv,
-			*g.UpdateRotateTeleportConfigCmd.Package,
+			g.UpdateRotateTeleportConfigCmd.Package.Locator,
 			*g.UpdateRotateTeleportConfigCmd.OperationID,
 			*g.UpdateRotateTeleportConfigCmd.ServerAddr)
 	case g.AppPackageCmd.FullCommand():
