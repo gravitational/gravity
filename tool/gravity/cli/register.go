@@ -676,7 +676,7 @@ func NullableLocator(s kingpin.Settings) *nullableLocator {
 	return loc
 }
 
-// Set validates value as a Docker storage driver
+// Set validates value as a package locator
 func (r *nullableLocator) Set(value string) error {
 	if value == "" {
 		return nil
@@ -689,7 +689,8 @@ func (r *nullableLocator) Set(value string) error {
 	return nil
 }
 
-// String returns the value of the storage driver
+// String returns the name of the underlying package if specified
+// or empty string otherwise
 func (r *nullableLocator) String() string {
 	if r.Locator == nil {
 		return ""

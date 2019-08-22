@@ -171,7 +171,7 @@ func (o *Operator) RotatePlanetConfig(req ops.RotatePlanetConfigRequest) (*ops.R
 	}
 
 	resp, err := cluster.getPlanetConfigPackage(config)
-	if err != nil && !trace.IsAlreadyExists(err) {
+	if err != nil {
 		return nil, trace.Wrap(err)
 	}
 

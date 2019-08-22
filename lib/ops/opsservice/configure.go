@@ -366,10 +366,6 @@ func (s *site) configurePackages(ctx *operationContext) error {
 		if err := s.configureTeleportNode(ctx, activeMaster.AdvertiseIP, master); err != nil {
 			return trace.Wrap(err)
 		}
-
-		if err := s.configureUserApp(master); err != nil {
-			return trace.Wrap(err)
-		}
 	}
 
 	for _, node := range p.Nodes() {
@@ -457,19 +453,6 @@ func (s *site) prepareEtcdConfig(ctx *operationContext) clusterEtcdConfig {
 	}
 
 	return config
-}
-
-// configureUserApp adds the application being installed as well as all its dependencies to
-// the package set of master servers
-func (s *site) configureUserApp(server *ProvisionedServer) error {
-	var apps []loc.Locator
-
-	for _, dep := range s.app.Manifest.Dependencies.Apps {
-		apps = append(apps, dep.Locator)
-	}
-
-	_, err := s.appPackage()
-	return trace.Wrap(err)
 }
 
 func (s *site) configurePlanetCertAuthority(ctx *operationContext) error {
