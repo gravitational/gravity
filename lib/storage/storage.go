@@ -1907,6 +1907,14 @@ func (r Servers) Masters() (masters []Server) {
 	return
 }
 
+// MasterIPs returns a list of advertise IPs of master nodes.
+func (r Servers) MasterIPs() (ips []string) {
+	for _, master := range r.Masters() {
+		ips = append(ips, master.AdvertiseIP)
+	}
+	return ips
+}
+
 type AgentProfile struct {
 	// Instructions defines the set of shell commands to download and start an agent
 	// on a host

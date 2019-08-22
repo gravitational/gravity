@@ -142,8 +142,7 @@ func InitAndCheck(g *Application, cmd string) error {
 
 	// the following commands must be run inside deployed cluster
 	switch cmd {
-	case g.UpdateCompleteCmd.FullCommand(),
-		g.UpdateTriggerCmd.FullCommand(),
+	case g.UpdateTriggerCmd.FullCommand(),
 		g.RemoveCmd.FullCommand():
 		localEnv, err := g.LocalEnv(cmd)
 		if err != nil {
@@ -383,6 +382,17 @@ func Execute(g *Application, cmd string, extraArgs []string) error {
 		}
 	case g.UpdateUploadCmd.FullCommand():
 		return uploadUpdate(localEnv, *g.UpdateUploadCmd.OpsCenterURL)
+	case g.UpdateRotatePlanetConfigCmd.FullCommand():
+		return rotatePlanetConfig(localEnv,
+			g.UpdateRotatePlanetConfigCmd.Package.Locator,
+			*g.UpdateRotatePlanetConfigCmd.RuntimePackage,
+			*g.UpdateRotatePlanetConfigCmd.OperationID,
+			*g.UpdateRotatePlanetConfigCmd.ServerAddr)
+	case g.UpdateRotateTeleportConfigCmd.FullCommand():
+		return rotateTeleportConfig(localEnv,
+			g.UpdateRotateTeleportConfigCmd.Package.Locator,
+			*g.UpdateRotateTeleportConfigCmd.OperationID,
+			*g.UpdateRotateTeleportConfigCmd.ServerAddr)
 	case g.AppPackageCmd.FullCommand():
 		return appPackage(localEnv)
 	// app commands

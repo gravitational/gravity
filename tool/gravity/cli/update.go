@@ -29,6 +29,7 @@ import (
 	"github.com/gravitational/gravity/lib/ops"
 	"github.com/gravitational/gravity/lib/pack"
 	"github.com/gravitational/gravity/lib/schema"
+	"github.com/gravitational/gravity/lib/storage"
 
 	"github.com/gravitational/trace"
 )
@@ -173,6 +174,80 @@ To abort an unsuccessful operation, rollback all completed/failed phases and
 run the same command. The operation will be marked as "failed" and the cluster
 will be returned to the "active" state.`)
 
+	return nil
+}
+
+// rotatePlanetConfig creates new planet configuration with the specified package locator.
+// If the locator is empty, it just generates and outputs the package name
+func rotatePlanetConfig(env *localenv.LocalEnvironment, pkg *loc.Locator, runtimePackage loc.Locator, operationID, serverAddr string) error {
+	clusterEnv, err := localenv.NewClusterEnvironment()
+	if err != nil {
+		return trace.Wrap(err)
+	}
+	cluster, err := clusterEnv.Operator.GetLocalSite()
+	if err != nil {
+		return trace.Wrap(err)
+	}
+	operationKey := ops.SiteOperationKey{
+		AccountID:   cluster.AccountID,
+		SiteDomain:  cluster.Domain,
+		OperationID: operationID,
+	}
+	app, err := clusterEnv.Apps.GetApp(cluster.App.Package)
+	if err != nil {
+		return trace.Wrap(err)
+	}
+	plan, err := clusterEnv.Operator.GetOperationPlan(operationKey)
+	if err != nil {
+		return trace.Wrap(err)
+	}
+	server := (storage.Servers)(plan.Servers).FindByIP(serverAddr)
+	if server == nil {
+		return trace.NotFound("no server found for %v", serverAddr)
+	}
+	if pkg == nil {
+		// Generate and report just the packge name
+		resp, err := clusterEnv.Operator.RotatePlanetConfig(ops.RotatePlanetConfigRequest{
+			Key:            cluster.Key(),
+			Server:         *server,
+			RuntimePackage: runtimePackage,
+			Manifest:       app.Manifest,
+			DryRun:         true,
+		})
+		if err != nil {
+			return trace.Wrap(err)
+		}
+		env.Println(resp.Locator)
+		return nil
+	}
+	resp, err := clusterEnv.Operator.RotatePlanetConfig(ops.RotatePlanetConfigRequest{
+		Key:            cluster.Key(),
+		Servers:        plan.Servers,
+		Server:         *server,
+		RuntimePackage: runtimePackage,
+		Package:        pkg,
+		Manifest:       app.Manifest,
+	})
+	if err != nil {
+		return trace.Wrap(err)
+	}
+	_, err = clusterEnv.ClusterPackages.UpsertPackage(resp.Locator, resp.Reader, pack.WithLabels(resp.Labels))
+	return trace.Wrap(err)
+}
+
+func rotateTeleportConfig(env *localenv.LocalEnvironment, pkg *loc.Locator, operationID, serverAddr string) error {
+	if pkg != nil {
+		// This version does not support rotation of the teleport configuration.
+		// The package passed as argument must be the currently installed teleport
+		// configuration package.
+		return nil
+	}
+	// Find and report the installed teleport configuration package name
+	configPackage, err := pack.FindConfigPackage(env.Packages, loc.Teleport)
+	if err != nil {
+		return trace.Wrap(err)
+	}
+	env.Println(configPackage.String())
 	return nil
 }
 

@@ -62,9 +62,8 @@ func (s *site) loadProvisionedServers(servers storage.Servers, existingMasters i
 			return nil, trace.Wrap(err)
 		}
 		provisionedServer := &ProvisionedServer{
-			Profile:    *profile,
-			PackageSet: NewPackageSet(),
-			Server:     server,
+			Profile: *profile,
+			Server:  server,
 		}
 		// Copy the labels to avoid mutating the same map
 		// in case we're working with a MinCount > 1

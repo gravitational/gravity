@@ -19,7 +19,6 @@ package opsservice
 import (
 	"github.com/gravitational/gravity/lib/constants"
 	"github.com/gravitational/gravity/lib/ops"
-	"github.com/gravitational/gravity/lib/schema"
 	"github.com/gravitational/gravity/lib/storage"
 
 	"github.com/gravitational/trace"
@@ -62,79 +61,6 @@ func (s *site) rotateSecrets(ctx *operationContext, node *ProvisionedServer, ins
 
 	resp, err := s.getPlanetMasterSecretsPackage(ctx, masterParams)
 	if err != nil {
-		return nil, trace.Wrap(err)
-	}
-
-	return resp, nil
-}
-
-func (s *site) configurePlanetOnNode(
-	ctx *operationContext,
-	runner commandRunner,
-	node *ProvisionedServer,
-	etcd etcdConfig,
-	manifest schema.Manifest) (*ops.RotatePackageResponse, error) {
-	cmds, err := remoteDirectories(ctx.operation, node, ctx.update.app.Manifest, s.uid(), s.gid())
-	if err != nil {
-		return nil, trace.Wrap(err)
-	}
-
-	for _, cmd := range cmds {
-		out, err := runner.RunCmd(*ctx, cmd)
-		if err != nil {
-			return nil, trace.Wrap(err, "command %v failed: %s", cmd, out)
-		}
-	}
-
-	docker := s.dockerConfig()
-	updateConfig := manifest.SystemOptions.DockerConfig()
-	if updateConfig != nil {
-		if updateConfig.StorageDriver != "" {
-			docker.StorageDriver = updateConfig.StorageDriver
-		}
-		if len(updateConfig.Args) != 0 {
-			docker.Args = updateConfig.Args
-		}
-	}
-
-	var dockerRuntime storage.Docker
-	if docker.StorageDriver == constants.DockerStorageDriverDevicemapper {
-		server := s.backendSite.ClusterState.Servers.FindByIP(node.AdvertiseIP)
-		if server != nil {
-			dockerRuntime = server.Docker
-			if dockerRuntime.LVMSystemDirectory == "" {
-				systemDir, err := lvmGetSystemDir(runner)
-				if err != nil {
-					return nil, trace.Wrap(err)
-				}
-				dockerRuntime.LVMSystemDirectory = systemDir
-			}
-		}
-	}
-
-	planetPackage, err := ctx.update.app.Manifest.RuntimePackage(node.Profile)
-	if err != nil {
-		return nil, trace.Wrap(err)
-	}
-
-	configPackage, err := s.planetConfigPackage(node, planetPackage.Version)
-	if err != nil {
-		return nil, trace.Wrap(err)
-	}
-	log.Debugf("Created new planet configuration package %v for %v.", configPackage, node)
-
-	config := planetConfig{
-		master:        masterConfig{addr: ctx.update.masterIP},
-		etcd:          etcd,
-		docker:        docker,
-		dockerRuntime: dockerRuntime,
-		planetPackage: *planetPackage,
-		configPackage: *configPackage,
-	}
-	config.master.electionEnabled = node.IsMaster()
-
-	resp, err := s.getPlanetConfigPackage(node, ctx.update.installOp, config, manifest)
-	if err != nil && !trace.IsAlreadyExists(err) {
 		return nil, trace.Wrap(err)
 	}
 
