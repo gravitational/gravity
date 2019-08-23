@@ -154,8 +154,13 @@ endef
 #
 .PHONY: build
 build:
-	@if [ "$(OS)" = "darwin" ]; then $(MAKE) build-on-host; else $(MAKE) build-in-container; fi
-	ln --symbolic --force --no-target-directory $(GRAVITY_BUILDDIR) $(GRAVITY_CURRENT_BUILDDIR)
+	@if [ "$(OS)" = "darwin" ]; then \
+		$(MAKE) build-on-host; \
+		ln -sf $(GRAVITY_BUILDDIR) $(GRAVITY_CURRENT_BUILDDIR); \
+	else \
+		$(MAKE) build-in-container; \
+		ln --symbolic --force --no-target-directory $(GRAVITY_BUILDDIR) $(GRAVITY_CURRENT_BUILDDIR); \
+	fi;
 
 #
 # generate gRPC code
