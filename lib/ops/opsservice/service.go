@@ -614,6 +614,7 @@ func (o *Operator) CreateSite(r ops.NewSiteRequest) (*ops.Site, error) {
 		Provider:     r.Provider,
 		License:      r.License,
 		Labels:       labels,
+		Flavor:       r.Flavor,
 		App:          app.PackageEnvelope.ToPackage(),
 		Resources:    r.Resources,
 		Location:     r.Location,

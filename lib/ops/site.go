@@ -87,6 +87,7 @@ func ConvertOpsSite(in Site) storage.Site {
 		Resources:       in.Resources,
 		Labels:          in.Labels,
 		Location:        in.Location,
+		Flavor:          in.Flavor,
 		UpdateInterval:  in.UpdateInterval,
 		NextUpdateCheck: in.NextUpdateCheck,
 		ClusterState:    in.ClusterState,
