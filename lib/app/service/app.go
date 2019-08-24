@@ -43,8 +43,10 @@ import (
 	"github.com/gravitational/gravity/lib/utils"
 
 	dockerarchive "github.com/docker/docker/pkg/archive"
+	"github.com/gravitational/rigging"
 	"github.com/gravitational/trace"
 	log "github.com/sirupsen/logrus"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes"
 )
 
@@ -283,15 +285,17 @@ func (r *applications) StartAppHook(ctx context.Context, req appservice.HookRunR
 	if err != nil {
 		return nil, trace.Wrap(err)
 	}
-	if req.Env == nil {
-		req.Env = make(map[string]string)
-	}
-	req.Env[constants.DevmodeEnvVar] = strconv.FormatBool(r.Devmode)
 
 	client, err := r.getKubeClient()
 	if err != nil {
 		return nil, trace.Wrap(err)
 	}
+
+	err = r.injectEnvVars(&req, client)
+	if err != nil {
+		return nil, trace.Wrap(err)
+	}
+
 	runner, err := hooks.NewRunner(client)
 	if err != nil {
 		return nil, trace.Wrap(err)
@@ -327,6 +331,24 @@ func (r *applications) StartAppHook(ctx context.Context, req appservice.HookRunR
 		Application: req.Application,
 		Hook:        req.Hook,
 	}, nil
+}
+
+// injectEnvVars updates the provided hook run request with additional
+// environment variables such as cluster information.
+func (r *applications) injectEnvVars(req *appservice.HookRunRequest, client *kubernetes.Clientset) error {
+	configMap, err := client.Core().ConfigMaps(metav1.NamespaceSystem).Get(
+		constants.ClusterInfoMap, metav1.GetOptions{})
+	if err != nil {
+		return rigging.ConvertError(err)
+	}
+	if req.Env == nil {
+		req.Env = make(map[string]string)
+	}
+	req.Env[constants.DevmodeEnvVar] = strconv.FormatBool(r.Devmode)
+	for name, value := range configMap.Data {
+		req.Env[name] = value
+	}
+	return nil
 }
 
 // WaitAppHook waits for app hook to complete or fail
